@@ -2881,6 +2881,26 @@ static int Mod_LumpLooksLikeEntities( const char *lump, const size_t lumplen )
 
 /*
 =================
+Mod_LoadBSPHeader
+
+=================
+*/
+_inline dheader_t* Mod_LoadBSPHeader( const byte *mod_base )
+{
+	dheader_t *header = (dheader_t *)mod_base;
+#ifdef XASH_BIG_ENDIAN
+	LittleLongSW( header->version );
+	for( int i = 0; i < HEADER_LUMPS; i++ )
+	{
+		LittleLongSW( header->lumps[i].fileofs );
+		LittleLongSW( header->lumps[i].filelen );
+	}
+#endif
+	return header;
+}
+
+/*
+=================
 Mod_LoadBmodelLumps
 
 loading and processing bmodel
@@ -2888,8 +2908,8 @@ loading and processing bmodel
 */
 qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 {
-	const dheader_t *header = (const dheader_t *)mod_base;
-	const dextrahdr_t	*extrahdr = (const dextrahdr_t *)(mod_base + sizeof( dheader_t ));
+	const dheader_t   *header = Mod_LoadBSPHeader( mod_base );
+	const dextrahdr_t *extrahdr = (dextrahdr_t *)(mod_base + sizeof( dheader_t ));
 	dbspmodel_t	*bmod = &srcmodel;
 	model_t		*mod = loadmodel;
 	char		wadvalue[2048];
@@ -3054,7 +3074,7 @@ return real entities lump (for bshift swapped lumps)
 */
 qboolean Mod_TestBmodelLumps( file_t *f, const char *name, const byte *mod_base, qboolean silent, dlump_t *entities )
 {
-	const dheader_t	*header = (const dheader_t *)mod_base;
+	const dheader_t	*header = Mod_LoadBSPHeader( mod_base );
 	const dextrahdr_t *extrahdr = (const dextrahdr_t *)( mod_base + sizeof( dheader_t ));
 	int	i, flags = LUMP_TESTONLY;
 
