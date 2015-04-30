@@ -670,32 +670,6 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     // Xperia keys
     public int joy_to_keyboard_key(int key) {
 	switch (key) { 
-		case 19: //KEYCODE_DPAD_UP
-			return 51; //w
-		case 20: //KEYCODE_DPAD_DOWN
-			return 47; //s
-		case 21: //KEYCODE_DPAD_LEFT
-			return 29; //a
-		case 22: //KEYCODE_DPAD_RIGHT
-			return 32; //d
-		case 102: //KEYCODE_BUTTON_L1
-			return 61; //tab
-		case 103: //KEYCODE_BUTTON_R1
-			return 67; //del
-		case 23: //KEYCODE_DPAD_CENTER (X in xplay)
-			return 66; //enter
-		case 99: //KEYCODE_BUTTON_X (square in xplay)
-			return 62; //space
-		case 100: //KEYCODE_BUTTON_Y (triangle in xplay)
-			return 58; //alt
-		case 109: //KEYCODE_BUTTON_SELECT
-			return 60; //shift
-		case 108: //KEYCODE_BUTTON_START
-			return 114; //ctr
-		case 96: //KEYCODE_BUTTON_A (For xbox controller)
-			return 66; //enter
-		case 97: //KEYCODE_BUTTON_B (For xbox controller)
-			return 4; //back
 		default:
 			return key;
 	}
@@ -705,64 +679,16 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     // Key events
     @Override
     public boolean onKey(View  v, int keyCode, KeyEvent event) {
-        // Dispatch the different events depending on where they come from
-        // Some SOURCE_DPAD or SOURCE_GAMEPAD are also SOURCE_KEYBOARD
-        // So, we try to process them as DPAD or GAMEPAD events first, if that fails we try them as KEYBOARD
-        
-	    
-	// Xperia Play keys
-	if ( (event.getSource() & 0x00000401) != 0 || /* API 12: SOURCE_GAMEPAD */
-                   (event.getSource() & InputDevice.SOURCE_DPAD) != 0 )
-	switch (keyCode) {
-		case 19:
-		case 20:
-		case 21:
-		case 22:
-		case 102:
-		case 103:
-		case 23:
-		case 99:
-		case 96:
-		case 97:
-		case 100:
-		case 109:
-		case 108:
-            if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                SDLActivity.onNativeKeyDown(joy_to_keyboard_key(keyCode));
-                return true;
-            }
-            else if (event.getAction() == KeyEvent.ACTION_UP) {
-                SDLActivity.onNativeKeyUp(joy_to_keyboard_key(keyCode));
-                return true;
-            }
-
-	}
-	    
-        if ( (event.getSource() & 0x00000401) != 0 || /* API 12: SOURCE_GAMEPAD */
-                   (event.getSource() & InputDevice.SOURCE_DPAD) != 0 ) {
-            if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                if (SDLActivity.onNativePadDown(event.getDeviceId(), keyCode) == 0) {
-                    return true;
-                }
-            } else if (event.getAction() == KeyEvent.ACTION_UP) {
-                if (SDLActivity.onNativePadUp(event.getDeviceId(), keyCode) == 0) {
-                    return true;
-                }
-            }
-        }
-        
-        if( (event.getSource() & InputDevice.SOURCE_KEYBOARD) != 0) {
-            if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                //Log.v("SDL", "key down: " + keyCode);
-                SDLActivity.onNativeKeyDown(keyCode);
-                return true;
-            }
-            else if (event.getAction() == KeyEvent.ACTION_UP) {
-                //Log.v("SDL", "key up: " + keyCode);
-                SDLActivity.onNativeKeyUp(keyCode);
-                return true;
-            }
-        }
+		if (event.getAction() == KeyEvent.ACTION_DOWN) {
+			//Log.v("SDL", "key down: " + keyCode);
+			SDLActivity.onNativeKeyDown(keyCode);
+			return true;
+		}
+		else if (event.getAction() == KeyEvent.ACTION_UP) {
+			//Log.v("SDL", "key up: " + keyCode);
+			SDLActivity.onNativeKeyUp(keyCode);
+			return true;
+		}
 	
         return false;
     }
@@ -883,7 +809,7 @@ class DummyEdit extends View implements View.OnKeyListener {
     public boolean onKey(View v, int keyCode, KeyEvent event) {
 
         // This handles the hardware keyboard input
-        if (event.isPrintingKey()) {
+        if (event.isPrintingKey() || keyCode == 62) {
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
                 ic.commitText(String.valueOf((char) event.getUnicodeChar()), 1);
             }
@@ -945,7 +871,7 @@ class SDLInputConnection extends BaseInputConnection {
          */
         int keyCode = event.getKeyCode();
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
-            if (event.isPrintingKey()) {
+            if (event.isPrintingKey() || keyCode == 62) {
                 commitText(String.valueOf((char) event.getUnicodeChar()), 1);
             }
             SDLActivity.onNativeKeyDown(keyCode);
