@@ -1178,7 +1178,7 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     	
     	
     	 SDLActivity.controlInterp.onTouchEvent(event);
-         return true; 
+         return true;
          
         /* Ref: http://developer.android.com/training/gestures/multi.html */
          /*
