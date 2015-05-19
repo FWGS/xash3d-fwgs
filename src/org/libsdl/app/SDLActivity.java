@@ -454,7 +454,7 @@ public class SDLActivity extends Activity {
                                                int naxes, int nhats, int nballs);
     public static native int nativeRemoveJoystick(int device_id);
     public static native String nativeGetHint(String name);
-     
+          
     /**
      * This method is called by SDL using JNI.
      */
@@ -1175,7 +1175,13 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     // Touch events
     @Override
     public boolean onTouch(View v, MotionEvent event) {
+    	
+    	
+    	 SDLActivity.controlInterp.onTouchEvent(event);
+         return true; 
+         
         /* Ref: http://developer.android.com/training/gestures/multi.html */
+         /*
         final int touchDevId = event.getDeviceId();
         final int pointerCount = event.getPointerCount();
         int action = event.getActionMasked();
@@ -1184,9 +1190,7 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
         int i = -1;
         float x,y,p;
 
-        //Send events to touch controls
-        SDLActivity.controlInterp.onTouchEvent(event);
-        
+               
         // !!! FIXME: dump this SDK check after 2.0.4 ships and require API14.
         if (event.getSource() == InputDevice.SOURCE_MOUSE && SDLActivity.mSeparateMouseAndTouch) {
             if (Build.VERSION.SDK_INT < 14) {
@@ -1245,6 +1249,7 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
         }
 
         return true;
+        */
    }
 
     // Sensor events
