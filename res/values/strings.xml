@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Half-life</string>
+
+ <string-array name="double_tap_actions">
+        <item>None</item>
+        <item>Shoot</item>
+        <item>Jump</item>
+        <item>Use</item>
+    </string-array>
+
 </resources>
