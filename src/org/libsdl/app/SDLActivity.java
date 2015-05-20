@@ -152,8 +152,8 @@ public class SDLActivity extends Activity {
 		Log.v("SDL", "Model: " + android.os.Build.MODEL);
 		Log.v("SDL", "onCreate():" + mSingleton);
 		super.onCreate(savedInstanceState);
-
-		// fullscreen
+  
+		// fullscreen   
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
 				WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -1330,7 +1330,7 @@ class DummyEdit extends View implements View.OnKeyListener {
 	public boolean onKey(View v, int keyCode, KeyEvent event) {
 
 		// This handles the hardware keyboard input
-		if (event.isPrintingKey()) {
+		if (event.isPrintingKey()|| keyCode == 62) {
 			if (event.getAction() == KeyEvent.ACTION_DOWN) {
 				ic.commitText(String.valueOf((char) event.getUnicodeChar()), 1);
 			}
@@ -1392,7 +1392,7 @@ class SDLInputConnection extends BaseInputConnection {
 		 */
 		int keyCode = event.getKeyCode();
 		if (event.getAction() == KeyEvent.ACTION_DOWN) {
-			if (event.isPrintingKey()) {
+			if (event.isPrintingKey()|| keyCode == 62) {
 				commitText(String.valueOf((char) event.getUnicodeChar()), 1);
 			}
 			SDLActivity.onNativeKeyDown(keyCode);
