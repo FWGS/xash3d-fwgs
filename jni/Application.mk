@@ -1,13 +1,21 @@
 
 # Uncomment this if you're using STL in your project
 # See CPLUSPLUS-SUPPORT.html in the NDK documentation for more information
-# APP_STL := stlport_static 
+ APP_STL := stlport_static 
+
+
 
 APPLICATIONMK_PATH = $(call my-dir)
 
+ifeq ($(EMILE),1)
+SDL_PATH    := $(APPLICATIONMK_PATH)/src/SDL-mirror
+else
 SDL_PATH    := $(APPLICATIONMK_PATH)/src/SDL2
+endif
 
-#SDL_IMAGE_PATH := $(APPLICATIONMK_PATH)/src/SDL2_image/
+
+TOUCHCONTROLS_PATH := $(APPLICATIONMK_PATH)/src/MobileTouchControls
+
 
 NANOGL_PATH := $(APPLICATIONMK_PATH)/src/NanoGL/nanogl
 

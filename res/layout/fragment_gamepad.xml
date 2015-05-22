@@ -1,0 +1,49 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" >
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        
+        android:orientation="horizontal" >
+
+        <CheckBox
+            android:id="@+id/gamepad_enable_checkbox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Enable Game Pad" />
+
+        <CheckBox
+            android:id="@+id/gamepad_hide_touch_checkbox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Hide Touch Controls" />
+
+        <Button
+            android:id="@+id/gamepad_help_button"
+            style="@android:style/Animation"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+         
+            android:layout_marginRight="10dp"
+            android:background="@drawable/help" />
+
+        <TextView
+            android:id="@+id/gamepad_info_textview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="right"
+            android:text="Large Text"
+            android:textAppearance="?android:attr/textAppearanceLarge" />
+    </LinearLayout>
+
+    <ListView
+        android:id="@+id/gamepad_listview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:dividerHeight="10dp" >
+    </ListView>
+
+</LinearLayout>
