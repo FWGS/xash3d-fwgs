@@ -3,5 +3,12 @@ obj
 bin
 gen
 
+jni/src/HLSDK/halflife
+jni/src/NanoGL/nanogl
+jni/src/SDL2/SDL-mirrir
+jni/src/Xash3D/xash3d
+jni/src/XashXT/XashXT
+jni/src/MobileTouchControls/MobileTouchControls
+
 local.properties
 
