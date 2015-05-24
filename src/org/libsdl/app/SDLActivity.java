@@ -102,11 +102,7 @@ public class SDLActivity extends Activity {
 	protected String[] getLibraries() {
 		return new String[] {
 				"SDL2",
-				// "SDL2_image",
-				// "SDL2_mixer",
-				// "SDL2_net",
-				// "SDL2_ttf",
-				"touchcontrols",
+				"touchcontrols"
 				"xash"
 		};
 	}
@@ -331,7 +327,7 @@ public class SDLActivity extends Activity {
 		if (!SDLActivity.mIsPaused && SDLActivity.mIsSurfaceReady) {
 			SDLActivity.mIsPaused = true;
 			SDLActivity.nativePause();
-			mSurface.enableSensor(Sensor.TYPE_ACCELEROMETER, false);
+			//mSurface.enableSensor(Sensor.TYPE_ACCELEROMETER, false);
 		}
 	}
 
@@ -1027,7 +1023,7 @@ View.OnKeyListener, View.OnTouchListener, SensorEventListener  {
 		requestFocus();
 		setOnKeyListener(this);
 		setOnTouchListener(this);
-		enableSensor(Sensor.TYPE_ACCELEROMETER, true);
+		//enableSensor(Sensor.TYPE_ACCELEROMETER, true);
 	}
 
 	public Surface getNativeSurface() {
@@ -1117,7 +1113,7 @@ View.OnKeyListener, View.OnTouchListener, SensorEventListener  {
 			// Start up the C app thread and enable sensor input for the first time
 
 			final Thread sdlThread = new Thread(new SDLMain(), "SDLThread");
-			enableSensor(Sensor.TYPE_ACCELEROMETER, true);
+			//enableSensor(Sensor.TYPE_ACCELEROMETER, true);
 			sdlThread.start();
 
 			// Set up a listener thread to catch when the native thread ends
