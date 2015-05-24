@@ -102,7 +102,7 @@ public class SDLActivity extends Activity {
 	protected String[] getLibraries() {
 		return new String[] {
 				"SDL2",
-				"touchcontrols"
+				"touchcontrols",
 				"xash"
 		};
 	}
@@ -121,7 +121,7 @@ public class SDLActivity extends Activity {
 	 * @return arguments for the native application.
 	 */
 	protected String[] getArguments() {
-		return new String[0];
+		return "-dev 3 -log -console".split(" ");
 	}
 
 	public static void initialize() {

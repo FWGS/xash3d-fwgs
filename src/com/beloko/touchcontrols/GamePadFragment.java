@@ -171,7 +171,7 @@ public class GamePadFragment extends Fragment{
 
 		info = (TextView)mainView.findViewById(R.id.gamepad_info_textview);
 		info.setText("Select Action");
-		info.setTextColor(getResources().getColor(android.R.color.holo_blue_light));
+		info.setTextColor(getResources().getColor(0x01060012)); //holo_blue_light
 
 		config.setTextView(getActivity(),info);
 

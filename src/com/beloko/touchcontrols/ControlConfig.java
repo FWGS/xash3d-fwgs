@@ -493,7 +493,7 @@ public class ControlConfig implements Serializable{
 		else
 			infoTextView.setText("Press Button for: " + actionMontor.description);
 
-		infoTextView.setTextColor(ctx.getResources().getColor(android.R.color.holo_green_light));
+		infoTextView.setTextColor(ctx.getResources().getColor(0x01060014)); //holo_green_light
 	}
 
 	int[] axisTest = {
@@ -555,7 +555,7 @@ public class ControlConfig implements Serializable{
 						if (Settings.DEBUG) Log.d(LOG,actionMontor.description + " = Analog (" + actionMontor.source + ")");
 
 						infoTextView.setText("Select Action");
-						infoTextView.setTextColor(ctx.getResources().getColor(android.R.color.holo_blue_light));
+						infoTextView.setTextColor(ctx.getResources().getColor(0x01060012)); //holo_blue_light
 
 						updated();
 						return true;
@@ -583,7 +583,7 @@ public class ControlConfig implements Serializable{
 				actionMontor.sourceType = Type.BUTTON;
 				monitoring = false;
 				infoTextView.setText("CANCELED");
-				infoTextView.setTextColor(ctx.getResources().getColor(android.R.color.holo_red_light));
+				infoTextView.setTextColor(ctx.getResources().getColor(0x01060016)); //holo_red_light
 
 				updated();
 				return true;
@@ -600,7 +600,8 @@ public class ControlConfig implements Serializable{
 						monitoring = false;
 
 						infoTextView.setText("Select Action");
-						infoTextView.setTextColor(ctx.getResources().getColor(android.R.color.holo_blue_light));
+
+						infoTextView.setTextColor(ctx.getResources().getColor(0x01060012)); //holo_blue_light
 
 						updated();
 						return true;
