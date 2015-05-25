@@ -1,0 +1,7 @@
+<resources>
+
+    <string name="cmd_args_text">Аргументы командной строки(только для экспертов)</string>
+    <string name="launch_button">Запустить Xash3D</string>
+    <string name="title_section1">Команды</string>
+
+</resources>

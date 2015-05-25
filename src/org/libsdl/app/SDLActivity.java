@@ -14,6 +14,7 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
@@ -121,7 +122,14 @@ public class SDLActivity extends Activity {
 	 * @return arguments for the native application.
 	 */
 	protected String[] getArguments() {
-		return "-dev 3 -log -console".split(" ");
+		Intent intent = getIntent();
+		String sArgv = intent.getStringExtra(in.celest.xash3d.LauncherActivity.ARGV);
+		
+		Log.v("ArgvDebug", "Got args: " + sArgv);
+		
+		if(sArgv == null || sArgv.isEmpty())
+			return "-dev 3 -log -console".split(" ");
+		else return sArgv.split(" ");
 	}
 
 	public static void initialize() {
