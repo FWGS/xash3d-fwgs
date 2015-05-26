@@ -5,7 +5,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="in.celest.xash3d.hl"
       android:versionCode="0"
-      android:versionName="0.12"
+      android:versionName="0.14"
       android:installLocation="preferExternal">
 
     <!-- Create a Java class extending SDLActivity and place it in a
