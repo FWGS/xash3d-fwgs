@@ -15,6 +15,7 @@ Xash3D Android
 **Currently this port support only Half-Life. Only mods that doesn't have libraries will work perfectly. **
 
 For example, if you want to play Half-Life: Uplink. 
+
 1. Copy modification folder to /sdcard/xash
 2. Open game and in console args write: 
 > -game "NameOfModFolder"
