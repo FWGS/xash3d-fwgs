@@ -1,7 +1,29 @@
 ====
-Xash3D Android project
+Xash3D Android
 ====
 
-Just put into jni/src/XXXX/ a symlink to a repository. For example, for HLSDK it will be jni/src/HLSDK/halflife/
+### Users
+#### Installation guide
+0. Download the APK and extras.7z from Github Releases. https://github.com/SDLash3D/xash3d-android-project/releases/latest
+1. Install the APK.
+2. Create /sdcard/xash folder.
+3. Copy "valve" folder from your Half-Life Steam version to /sdcard/xash/. Example: /sdcard/xash/valve -- game data
+4. Unpack extras.7z. It have recommended game configs and sprites for WON-style menu.
+5. Open game. 
 
-Write here any issues related to Android port.
+#### Launching other mods
+**Currently this port support only Half-Life. Only mods that doesn't have libraries will work perfectly. **
+
+For example, if you want to play Half-Life: Uplink. 
+1. Copy modification folder to /sdcard/xash
+2. Open game and in console args write: 
+> -game "NameOfModFolder"
+
+#### Bugs
+
+About all bugs please write to issues with your device and OS info. 
+
+### Developers
+
++ Just put into jni/src/XXXX/ a symlink to a repository. For example, for HLSDK it will be jni/src/HLSDK/halflife/
++ We use our SDL2 fork. See https://github.com/mittorn/SDL-mirror
