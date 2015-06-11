@@ -3,8 +3,8 @@
 # See CPLUSPLUS-SUPPORT.html in the NDK documentation for more information
  APP_STL := stlport_static 
 
-CFLAGS_OPT :=  -O3 -funsafe-math-optimizations -ftree-vectorize -fgraphite-identity -floop-interchange -funsafe-loop-optimizations -finline-limit=1024
-CFLAGS_OPT_ARM := -mthumb -pipe -mfloat-abi=softfp -mfpu=neon -mcpu=cortex-a9
+CFLAGS_OPT :=  -O1 -fno-omit-frame-pointer -ggdb
+CFLAGS_OPT_ARM := -mthumb -mfloat-abi=soft -msoft-float -mcpu=cortex-a9
 CFLAGS_OPT_X86 := -msse3
 
 APPLICATIONMK_PATH = $(call my-dir)
@@ -27,5 +27,8 @@ XASHXT_PATH := $(APPLICATIONMK_PATH)/src/XashXT/XashXT
 
 HLSDK_PATH  := $(APPLICATIONMK_PATH)/src/HLSDK/halflife/
 
-APP_ABI := armeabi-v7a x86
-APP_MODULES := SDL2 xash menu client server NanoGL
+APP_ABI := armeabi-v7a
+APP_MODULES := xash menu client server NanoGL
+ifeq ($(XASH_SDL),1)
+APP_MODULES += SDL2
+endif
