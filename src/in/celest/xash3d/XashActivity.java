@@ -29,6 +29,7 @@ public class XashActivity extends Activity {
     // Main components
     private static XashActivity mSingleton;
     private static EngineSurface mSurface;
+    private static String mArgv;
 
     // Audio
     private static Thread mAudioThread;
@@ -47,7 +48,8 @@ public class XashActivity extends Activity {
 
         // So we can call stuff from static callbacks
         mSingleton = this;
-
+        Intent intent = getIntent();
+        mArgv = intent.getStringExtra(in.celest.xash3d.LauncherActivity.ARGV);
         // Set up the surface
         mSurface = new EngineSurface(getApplication());
         setContentView(mSurface);
@@ -85,11 +87,16 @@ public class XashActivity extends Activity {
         msg.obj = data;
         commandHandler.sendMessage(msg);
     }
+    public static String[] getArguments()
+    {
 
+
+        return mArgv.split(" ");
+    }
     // C functions we call
     public static native int nativeInit(Object arguments);
     public static native void nativeQuit();
-    public static native void onNativeResize(int x, int y, int format);
+    public static native void onNativeResize(int x, int y);
     public static native void onNativeKeyDown(int keycode);
     public static native void onNativeKeyUp(int keycode);
     public static native void onNativeTouch(int touchDevId, int pointerFingerId,
@@ -223,7 +230,7 @@ class XashMain implements Runnable {
     public void run() {
         // Runs SDL_main()
 		XashActivity.createGLContext();
-        XashActivity.nativeInit("-dev 5 -console -log".split(" "));
+        XashActivity.nativeInit(XashActivity.getArguments());
 
         //Log.v("SDL", "SDL thread terminated");
     }
@@ -334,9 +341,8 @@ View.OnKeyListener, View.OnTouchListener  {
 			default:
 				Log.v("SDL", "pixel format unknown " + format);
 				break;
-        }
-        XashActivity.onNativeResize(width, height, sdlFormat);
-		*/
+        }*/
+        XashActivity.onNativeResize(width, height);
         // Now start up the C app thread
         if (mEngThread == null) {
             mEngThread = new Thread(new XashMain(), "EngineThread"); 
@@ -360,7 +366,10 @@ View.OnKeyListener, View.OnTouchListener  {
             egl.eglInitialize(dpy, version);
 			
             int[] configSpec = {
-                //EGL10.EGL_DEPTH_SIZE,   16,
+                EGL10.EGL_DEPTH_SIZE,   8,
+                EGL10.EGL_RED_SIZE,   8,
+                EGL10.EGL_GREEN_SIZE,   8,
+                EGL10.EGL_BLUE_SIZE,   8,
                 EGL10.EGL_RENDERABLE_TYPE, 1,
                 EGL10.EGL_NONE
             };
