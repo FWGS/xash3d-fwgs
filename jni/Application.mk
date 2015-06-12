@@ -3,9 +3,9 @@
 # See CPLUSPLUS-SUPPORT.html in the NDK documentation for more information
  APP_STL := stlport_static 
 
-CFLAGS_OPT :=  -O1 -fno-omit-frame-pointer -ggdb
-CFLAGS_OPT_ARM := -mthumb -mfloat-abi=soft -msoft-float -mcpu=cortex-a9
-CFLAGS_OPT_X86 := -msse3
+CFLAGS_OPT :=  -O3 -fomit-frame-pointer -ggdb -funsafe-math-optimizations -ftree-vectorize -fgraphite-identity -floop-interchange -funsafe-loop-optimizations -finline-limit=1024
+CFLAGS_OPT_ARM := -mthumb -mfloat-abi=softfp -mfpu=neon -mcpu=cortex-a9 -DVECTORIZE_SINCOS
+CFLAGS_OPT_X86 := -msse3 -DVECTORIZE_SINCOS
 
 APPLICATIONMK_PATH = $(call my-dir)
 
