@@ -20,6 +20,10 @@ import android.content.*;
 
 import java.lang.*;
 
+import com.beloko.games.hl.NativeLib;
+import com.beloko.touchcontrols.ControlInterpreter;
+import com.beloko.touchcontrols.Settings;
+import com.beloko.touchcontrols.TouchControlsSettings;
 
 /**
  SDL Activity
@@ -27,7 +31,7 @@ import java.lang.*;
 public class XashActivity extends Activity {
 
     // Main components
-    private static XashActivity mSingleton;
+    protected static XashActivity mSingleton;
     private static EngineSurface mSurface;
     private static String mArgv;
 
@@ -35,6 +39,7 @@ public class XashActivity extends Activity {
     private static Thread mAudioThread;
     private static AudioTrack mAudioTrack;
 
+	public static ControlInterpreter controlInterp;
     // Load the .so
     static {
 		System.loadLibrary("touchcontrols");
@@ -230,6 +235,7 @@ class XashMain implements Runnable {
     public void run() {
         // Runs SDL_main()
 		XashActivity.createGLContext();
+
         XashActivity.nativeInit(XashActivity.getArguments());
 
         //Log.v("SDL", "SDL thread terminated");
@@ -342,9 +348,22 @@ View.OnKeyListener, View.OnTouchListener  {
 				Log.v("SDL", "pixel format unknown " + format);
 				break;
         }*/
+        
+        
         XashActivity.onNativeResize(width, height);
         // Now start up the C app thread
         if (mEngThread == null) {
+			NativeLib engine = new NativeLib();
+			engine.initTouchControls_if(XashActivity.mSingleton.getFilesDir().toString() + "/",
+				width, height);
+			XashActivity.controlInterp = new ControlInterpreter(engine,Settings.IDGame.Doom,Settings.gamePadControlsFile,Settings.gamePadEnabled);
+			XashActivity.controlInterp.setScreenSize(width, height);
+			
+			TouchControlsSettings.setup(XashActivity.mSingleton, engine);
+			TouchControlsSettings.loadSettings(XashActivity.mSingleton);
+			TouchControlsSettings.sendToQuake();
+
+			Settings.copyPNGAssets(XashActivity.mSingleton,XashActivity.mSingleton.getFilesDir().toString() + "/",null); 
             mEngThread = new Thread(new XashMain(), "EngineThread"); 
             mEngThread.start();       
         }
@@ -445,21 +464,20 @@ View.OnKeyListener, View.OnTouchListener  {
 
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             //Log.v("SDL", "key down: " + keyCode);
-            XashActivity.onNativeKeyDown(keyCode);
+            XashActivity.controlInterp.onKeyDown(keyCode, event);
             return true;
         }
         else if (event.getAction() == KeyEvent.ACTION_UP) {
             //Log.v("SDL", "key up: " + keyCode);
-            XashActivity.onNativeKeyUp(keyCode);
+            XashActivity.controlInterp.onKeyUp(keyCode, event);
             return true;
         }
-
         return false;
     }
 
     // Touch events
     public boolean onTouch(View v, MotionEvent event) {
-        {
+			/*
 			final int touchDevId = event.getDeviceId();
 			final int pointerCount = event.getPointerCount();
 			// touchId, pointerId, action, x, y, pressure
@@ -484,7 +502,8 @@ View.OnKeyListener, View.OnTouchListener  {
 			} else {
                 XashActivity.onNativeTouch(touchDevId, pointerFingerId, action, x, y, p);
 			}
-        }
+        }*/
+        XashActivity.controlInterp.onTouchEvent(event);
 		return true;
 	} 
 
