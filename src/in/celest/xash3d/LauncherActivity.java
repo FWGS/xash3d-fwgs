@@ -21,8 +21,8 @@ public class LauncherActivity extends Activity {
     
     public void startXash(View view)
     {
-	//Intent intent = new Intent(this, org.libsdl.app.SDLActivity.class);
-	Intent intent = new Intent(this, in.celest.xash3d.XashActivity.class);
+	Intent intent = new Intent(this, org.libsdl.app.SDLActivity.class);
+	//Intent intent = new Intent(this, in.celest.xash3d.XashActivity.class);
 	EditText cmdArgs = (EditText)findViewById(R.id.cmdArgs);
 	String sArgv = cmdArgs.getText().toString();
 	
