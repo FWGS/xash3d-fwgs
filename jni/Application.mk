@@ -1,11 +1,18 @@
 
 # Uncomment this if you're using STL in your project
 # See CPLUSPLUS-SUPPORT.html in the NDK documentation for more information
- APP_STL := stlport_static 
+APP_STL := stlport_static 
 
-CFLAGS_OPT :=  -O3 -fomit-frame-pointer -ggdb -funsafe-math-optimizations -ftree-vectorize -fgraphite-identity -floop-interchange -funsafe-loop-optimizations -finline-limit=1024
-CFLAGS_OPT_ARM := -mthumb -mfloat-abi=softfp -mfpu=neon -mcpu=cortex-a9 -DVECTORIZE_SINCOS
-CFLAGS_OPT_X86 := -msse3 -DVECTORIZE_SINCOS
+ifeq ($(XASH_SDL),1)
+APP_PLATFORM := android-12
+else
+APP_PLATFORM := android-8
+endif
+
+
+CFLAGS_OPT :=  -O3 -fomit-frame-pointer -ggdb -funsafe-math-optimizations -ftree-vectorize -fgraphite-identity -floop-interchange -funsafe-loop-optimizations -finline-limit=1024 -DXASH3D_ANDROID_TEST
+CFLAGS_OPT_ARM := -mthumb -mfloat-abi=hard -mhard-float -mfpu=neon -mcpu=cortex-a9 -pipe -mvectorize-with-neon-quad -DVECTORIZE_SINCOS -DSOFTFP_LINK
+CFLAGS_OPT_X86 := -mtune=atom -march=atom -mssse3 -mfpmath=sse -funroll-loops -pipe -DVECTORIZE_SINCOS
 
 APPLICATIONMK_PATH = $(call my-dir)
 
@@ -27,7 +34,7 @@ XASHXT_PATH := $(APPLICATIONMK_PATH)/src/XashXT/XashXT
 
 HLSDK_PATH  := $(APPLICATIONMK_PATH)/src/HLSDK/halflife/
 
-APP_ABI := armeabi-v7a
+APP_ABI := x86 armeabi-v7a-hard
 APP_MODULES := xash menu client server NanoGL
 ifeq ($(XASH_SDL),1)
 APP_MODULES += SDL2
