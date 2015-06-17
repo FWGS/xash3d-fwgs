@@ -35,10 +35,10 @@
 	   android:configChanges="orientation|screenSize"
 	   > 
 	</activity>
-	<!-- <activity android:name=".XashActivity"
+		<activity android:name="in.celest.xash3d.XashActivity"
 		android:screenOrientation="landscape"
 		android:label="@string/app_name">
-	</activity> -->
+	</activity> 
     </application>
 
     <!-- Android 2.3.3 -->
