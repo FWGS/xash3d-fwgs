@@ -1,35 +1,83 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
-    android:layout_height="match_parent" android:paddingLeft="@dimen/activity_horizontal_margin"
-    android:paddingRight="@dimen/activity_horizontal_margin"
-    android:paddingTop="@dimen/activity_vertical_margin"
-    android:paddingBottom="@dimen/activity_vertical_margin"
-    tools:context="in.celest.xash3d.LauncherActivity"
-    android:id="@+id/layout">
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:paddingLeft="@dimen/activity_horizontal_margin"
+	android:paddingRight="@dimen/activity_horizontal_margin"
+	android:paddingTop="@dimen/activity_vertical_margin"
+	android:paddingBottom="@dimen/activity_vertical_margin"
+	tools:context="in.celest.xash3d.LauncherActivity"
+	android:id="@+id/layout">
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/launch_button"
-        android:id="@+id/button"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentRight="true" 
-	android:onClick="startXash"/>
+	<Button
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="@string/launch_button"
+		android:id="@+id/button_launch"
+		android:layout_alignParentBottom="true"
+		android:layout_alignParentRight="true"
+		android:onClick="startXash"/>
+	
+	<Button
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="@string/touch_set"
+		android:id="@+id/touch_set"
+		android:layout_alignParentBottom="true"
+		android:layout_alignParentLeft="true"
+		android:onClick="controlsSettings"/>
 
-    <EditText
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/cmdArgs"
-        android:layout_below="@+id/textView"
-        android:layout_alignParentLeft="true"
-        android:layout_alignRight="@+id/textView" />
+	<EditText
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:id="@+id/cmdArgs"
+		android:layout_below="@+id/textView_args"
+		android:layout_alignParentLeft="true"
+		android:layout_alignRight="@+id/textView_args"/>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:text="@string/cmd_args_text"
-        android:id="@+id/textView"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentRight="true" />
+	<TextView
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:textAppearance="?android:attr/textAppearanceLarge"
+		android:text="@string/cmd_args_text"
+		android:id="@+id/textView_args"
+		android:layout_alignParentTop="true"
+		android:layout_alignParentRight="true"/>
+
+	<CheckBox
+		android:layout_height="wrap_content"
+		android:layout_width="wrap_content"
+		android:layout_below="@+id/cmdArgs"
+		android:textAppearance="?android:attr/textAppearanceLarge"
+		android:text="@string/use_controls"
+		android:id="@+id/useControls"/>
+	
+	<EditText
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:id="@+id/cmdPath"
+		android:layout_below="@+id/textView_path"
+		android:layout_alignParentLeft="true"
+		android:layout_alignRight="@+id/textView_path"/>
+	
+	
+	<TextView
+		android:layout_width="fill_parent"
+		android:layout_height="wrap_content"
+		android:textAppearance="?android:attr/textAppearanceLarge"
+		android:text="@string/text_res_path"
+		android:id="@+id/textView_path"
+		android:layout_below="@+id/useControls"/>
+
+	<CheckBox
+		android:layout_height="wrap_content"
+		android:layout_width="wrap_content"
+		android:layout_below="@+id/cmdPath"
+		android:textAppearance="?android:attr/textAppearanceLarge"
+		android:text="@string/text_show_icon"
+		android:id="@+id/showIcon"/>
+	
 </RelativeLayout>
+
