@@ -201,7 +201,8 @@ public class TouchControlsSettings {
 
 	public static void sendToQuake()
 	{
-
+		if(quakeIf == null) return;
+		
 		int other = 0;
 		other += showWeaponCycle?0x1:0;
 		other += mouseMode?0x2:0;

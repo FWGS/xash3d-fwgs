@@ -54,7 +54,7 @@ public class XashActivity extends Activity {
         // So we can call stuff from static callbacks
         mSingleton = this;
         Intent intent = getIntent();
-        mArgv = intent.getStringExtra(in.celest.xash3d.LauncherActivity.ARGV);
+      //  mArgv = intent.getStringExtra(in.celest.xash3d.LauncherActivity.ARGV);
         // Set up the surface
         mSurface = new EngineSurface(getApplication());
         setContentView(mSurface);

@@ -5,7 +5,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="in.celest.xash3d.hl"
       android:versionCode="0"
-      android:versionName="0.14.1"
+      android:versionName="0.15pre"
       android:installLocation="auto">
 
     <!-- Create a Java class extending SDLActivity and place it in a
@@ -23,9 +23,11 @@
                  
                  android:hardwareAccelerated="true">
         <activity android:name="in.celest.xash3d.LauncherActivity"
-                  android:label="@string/app_name"
+                  android:label="@string/launcher_name"
+				  android:windowSoftInputMode="adjustResize"
                   >
 		<intent-filter>
+						<action android:name=".LauncherActivity"/>
                         <action android:name="android.intent.action.MAIN" />
                         <category android:name="android.intent.category.LAUNCHER" />
                 </intent-filter>
@@ -33,19 +35,27 @@
 	<activity android:name="org.libsdl.app.SDLActivity"
 	   android:screenOrientation="sensorLandscape"
 	   android:configChanges="orientation|screenSize"
-	   > 
+		android:windowSoftInputMode="adjustResize"
+	   android:label="@string/app_name"
+		android:taskAffinity="org.libsdl.app.SDLActivity"
+	   >
+		<intent-filter>
+			<action android:name=".SDLActivity"/>
+			<action android:name="android.intent.action.MAIN" />
+			<category android:name="android.intent.category.LAUNCHER" />
+		</intent-filter>
 	</activity>
-		<activity android:name="in.celest.xash3d.XashActivity"
+	<activity android:name="in.celest.xash3d.XashActivity"
 		android:screenOrientation="landscape"
 		android:label="@string/app_name">
 	</activity> 
     </application>
 
-    <!-- Android 2.3.3 -->
-    <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="14" />
+    <!-- Android 2.3 -->
+    <uses-sdk android:minSdkVersion="5" android:targetSdkVersion="9" />
 
-    <!-- OpenGL ES 2.0 -->
-    <uses-feature android:glEsVersion="0x00020000" /> 
+    <!-- OpenGL ES 1.1 -->
+    <uses-feature android:glEsVersion="0x00010000" /> 
 
     <!-- Allow writing to external storage -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> 
