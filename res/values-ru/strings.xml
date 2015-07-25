@@ -6,5 +6,7 @@
 	<string name="use_controls">Включить экранное управление</string>
 	<string name="text_res_path">Путь к ресурсам игры</string>
 	<string name="touch_set">Настройки управления</string>
-	<string name="text_show_icon">Отображать значёк Half-Life</string>
+	<string name="text_shortcut">Ярлык Xash3D</string>
+	<string name="shortcut_button_save">Сохранить ярлык</string>
+	<string name="gamedir">Каталог мода</string>
 </resources>

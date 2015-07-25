@@ -22,7 +22,6 @@ public class LauncherActivity extends Activity {
 	static EditText cmdArgs;
 	static CheckBox useControls;
 	static EditText resPath;
-	static CheckBox showIcon;
 	static SharedPreferences mPref;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,41 +37,17 @@ public class LauncherActivity extends Activity {
 		useControls.setChecked(mPref.getBoolean("controls",true));
 		resPath = ( EditText ) findViewById( R.id.cmdPath );
 		resPath.setText(mPref.getString("basedir","/sdcard/xash/"));
-		showIcon = ( CheckBox ) findViewById( R.id.showIcon );
-		showIcon.setChecked(mPref.getBoolean("show_icon",true));
-		// it is broken, so disable it now
-		showIcon.setEnabled(false);
-		showIcon.setActivated(false);
-		/*showIcon.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener()
-			{
-				public void onCheckedChanged(CompoundButton buttonView, boolean isChecked)
-				{
-					ComponentName componentName = new ComponentName("in.celest.xash3d.hl","org.libsdl.app.SDLActivity");
-					PackageManager p = getPackageManager();
-					if ( isChecked )
-					{
-						p.setComponentEnabledSetting(componentName, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
-					}
-					else
-					{
-						p.setComponentEnabledSetting(componentName, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
-					}
-					
-
-				}
-			});
-			*/
-    }
+		}
     
     public void startXash(View view)
     {
 	Intent intent = new Intent(this, org.libsdl.app.SDLActivity.class);
+	intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
 	SharedPreferences.Editor editor = mPref.edit();
 	editor.putString("argv", cmdArgs.getText().toString());
 	editor.putBoolean("controls",useControls.isChecked());
 	editor.putString("basedir", resPath.getText().toString());
-	editor.putBoolean("show_icon", showIcon.isChecked());
 	editor.commit();
 	editor.apply();
 	startActivity(intent);

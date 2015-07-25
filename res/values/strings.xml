@@ -21,5 +21,7 @@
 	<string name="text_res_path">Path to game resources</string>
     <string name="hello_world">Hello world!</string>
 	<string name="touch_set">Controls settings</string>
-	<string name="text_show_icon">Show Half-Life icon</string>
+	<string name="text_shortcut">Xash3D shortcut</string>
+	<string name="shortcut_button_save">Save shortcut</string>
+	<string name="gamedir">Mod directory</string>
 </resources>

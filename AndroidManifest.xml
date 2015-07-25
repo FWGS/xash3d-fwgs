@@ -26,12 +26,18 @@
                   android:label="@string/launcher_name"
 				  android:windowSoftInputMode="adjustResize"
                   >
-		<intent-filter>
+			<intent-filter>
 						<action android:name=".LauncherActivity"/>
                         <action android:name="android.intent.action.MAIN" />
                         <category android:name="android.intent.category.LAUNCHER" />
-                </intent-filter>
+        	</intent-filter>
         </activity>
+		<activity android:name="in.celest.xash3d.ShortcutActivity" android:label="@string/text_shortcut" android:theme="@android:style/Theme.Dialog">
+			<intent-filter>
+				<action android:name="android.intent.action.CREATE_SHORTCUT" />
+				<category android:name="android.intent.category.DEFAULT" />
+			</intent-filter>
+		</activity>
 	<activity android:name="org.libsdl.app.SDLActivity"
 	   android:screenOrientation="sensorLandscape"
 	   android:configChanges="orientation|screenSize"
@@ -39,10 +45,16 @@
 	   android:label="@string/app_name"
 		android:taskAffinity="org.libsdl.app.SDLActivity"
 	   >
-		<intent-filter>
-			<action android:name=".SDLActivity"/>
+		<!--<intent-filter>
+			As user can add now empty shortcut, disable this
+			<action android:name="org.libsdl.app.SDLActivity"/>
 			<action android:name="android.intent.action.MAIN" />
 			<category android:name="android.intent.category.LAUNCHER" />
+		</intent-filter>-->
+		<intent-filter>
+			<action android:name="android.intent.action.VIEW"/>
+			<category android:name="android.intent.category.DEFAULT" />
+			<data android:mimeType="xash3d.android/game"/>
 		</intent-filter>
 	</activity>
 	<activity android:name="in.celest.xash3d.XashActivity"

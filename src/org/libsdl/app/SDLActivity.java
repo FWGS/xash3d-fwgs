@@ -125,6 +125,9 @@ public class SDLActivity extends Activity {
 	 * @return arguments for the native application.
 	 */
 	protected String[] getArguments() {
+		String argv=getIntent().getStringExtra("argv");
+		if(argv != null)
+			return argv.split(" ");
 		return mPref.getString("argv","-dev 3 -log -console").split(" ");
 	}
 
@@ -203,11 +206,20 @@ public class SDLActivity extends Activity {
 			return;
 		}
 		
-
-		setenv("XASH3D_BASEDIR", mPref.getString("basedir","/sdcard/xash/"), true);
+		Intent intent=getIntent();
+		String gamelibdir = intent.getStringExtra("gamelibdir");
+		if(gamelibdir == null)
+			gamelibdir = getFilesDir().getParentFile().getPath() + "/lib";
+		String gamedir = intent.getStringExtra("gamedir");
+		if(gamedir == null)
+			gamedir = "valve";
+		String basedir = intent.getStringExtra("basedir");
+		if(basedir == null)
+			basedir = mPref.getString("basedir","/sdcard/xash/");
+		setenv("XASH3D_BASEDIR", basedir, true);
 		setenv("XASH3D_ENGLIBDIR", getFilesDir().getParentFile().getPath() + "/lib", true);
-		setenv("XASH3D_GAMELIBDIR", getFilesDir().getParentFile().getPath() + "/lib", true);
-		setenv("XASH3D_GAMEDIR", "valve", true);
+		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
+		setenv("XASH3D_GAMEDIR", gamedir, true);
 
 		// Set up the surface
 		mSurface = new SDLSurface(getApplication());
