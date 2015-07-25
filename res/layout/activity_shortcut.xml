@@ -30,19 +30,18 @@
 		android:layout_height="wrap_content"
 		android:layout_width="wrap_content"
 		android:id="@+id/shortcut_name_text"
-		android:layout_alignRight="@+id/shortcut_name"
 		android:layout_alignParentTop="true"
+		android:layout_alignParentRight="true"
 		android:textAppearance="?android:attr/textAppearanceLarge"
-		android:text="Shortcut name"
+		android:text="@string/shortcut_name"
 	/>
 
 	<EditText
-		android:layout_width="wrap_content"
+		android:layout_width="fill_parent"
 		android:layout_height="wrap_content"
 		android:id="@+id/shortcut_cmdArgs"
 		android:layout_below="@+id/shortcut_textView_args"
-		android:layout_alignParentLeft="true"
-		android:layout_alignRight="@+id/shortcut_textView_args"/>
+		android:layout_alignParentRight="true"/>
 
 	<TextView
 		android:layout_width="wrap_content"
@@ -58,10 +57,10 @@
 		android:layout_height="wrap_content"
 		android:id="@+id/shortcut_gamedir"
 		android:layout_below="@+id/shortcut_gamedir_text"
-		android:layout_alignParentLeft="true"/>
+		android:layout_alignParentRight="true"/>
 
 	<TextView
-		android:layout_width="fill_parent"
+		android:layout_width="wrap_content"
 		android:layout_height="wrap_content"
 		android:textAppearance="?android:attr/textAppearanceLarge"
 		android:text="@string/gamedir"

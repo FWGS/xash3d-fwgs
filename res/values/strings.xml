@@ -24,4 +24,5 @@
 	<string name="text_shortcut">Xash3D shortcut</string>
 	<string name="shortcut_button_save">Save shortcut</string>
 	<string name="gamedir">Mod directory</string>
+	<string name="shortcut_name">Shortcut name</string>
 </resources>
