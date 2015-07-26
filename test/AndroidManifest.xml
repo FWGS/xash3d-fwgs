@@ -3,9 +3,9 @@
      com.gamemaker.game
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-      package="in.celest.xash3d.hl"
+      package="in.celest.xash3d.hl.test"
       android:versionCode="0"
-      android:versionName="0.15"
+      android:versionName="0.15pre"
       android:installLocation="auto">
 
     <!-- Create a Java class extending SDLActivity and place it in a
@@ -17,13 +17,13 @@
 
          An example Java class can be found in README-android.txt
     -->
-    <application android:label="@string/app_name"
+    <application android:label="@string/launcher_name_test"
                  android:icon="@drawable/ic_launcher"
                  android:allowBackup="true"
                  
                  android:hardwareAccelerated="true">
         <activity android:name="in.celest.xash3d.LauncherActivity"
-                  android:label="@string/launcher_name"
+                  android:label="@string/launcher_name_test"
 				  android:windowSoftInputMode="adjustResize"
                   >
 			<intent-filter>
@@ -32,7 +32,7 @@
                         <category android:name="android.intent.category.LAUNCHER" />
         	</intent-filter>
         </activity>
-		<activity android:name="in.celest.xash3d.ShortcutActivity" android:label="@string/text_shortcut" android:theme="@android:style/Theme.Dialog">
+		<activity android:name="in.celest.xash3d.ShortcutActivity" android:label="@string/text_shortcut_test" android:theme="@android:style/Theme.Dialog">
 			<intent-filter>
 				<action android:name="android.intent.action.CREATE_SHORTCUT" />
 				<category android:name="android.intent.category.DEFAULT" />
@@ -64,7 +64,7 @@
     </application>
 
     <!-- Android 2.3 -->
-    <uses-sdk android:minSdkVersion="9" android:targetSdkVersion="14" />
+    <uses-sdk android:minSdkVersion="5" android:targetSdkVersion="9" />
 
     <!-- OpenGL ES 1.1 -->
     <uses-feature android:glEsVersion="0x00010000" /> 
