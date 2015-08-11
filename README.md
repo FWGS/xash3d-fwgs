@@ -1,7 +1,7 @@
 ====
 Xash3D Android
 ====
-
+[![Build Status][https://travis-ci.org/SDLash3D/xash3d-android-project.svg?branch=master]][https://travis-ci.org/SDLash3D/xash3d-android-project]
 ### Users
 #### Installation guide
 0. Download the APK and extras.7z from Github Releases. https://github.com/SDLash3D/xash3d-android-project/releases/latest
