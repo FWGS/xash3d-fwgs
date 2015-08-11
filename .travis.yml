@@ -23,5 +23,8 @@ before_install:
   - git clone -q --depth=1 https://github.com/SDLash3D/XashXT jni/src/XashXT/XashXT
   - git clone -q --depth=1 https://github.com/mittorn/SDL-mirror jni/src/SDL2/SDL-mirror
   - sed -i -- s/android-8/android-15/g project.properties
-before_script:
+script:
   - ndk-build NDK_TOOLCHAIN_VERSION=4.8 XASH_SDL=1 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w"
+  - ant debug
+after_script:
+  - curl -T bin/xashdroid-debug.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-`date +%d-%m-%y`-`git rev-parse HEAD`.apk
