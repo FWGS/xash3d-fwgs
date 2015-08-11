@@ -6,6 +6,7 @@ android:
     - android-12
     - extra-android-support
     - extra
+    - tools
     
 jdk: oraclejdk7
 
@@ -13,23 +14,19 @@ notifications:
   email: false
 
 before_install:
-  - date
   - wget http://dl.google.com/android/ndk/android-ndk-r10e-linux-x86_64.bin
   - chmod +x android-ndk-r10e-linux-x86_64.bin && ./android-ndk-r10e-linux-x86_64.bin > /dev/null
   - mv android-ndk-r10e android-ndk
   - export PATH=`pwd`/android-ndk:`pwd`/android-sdk-linux/tools:`pwd`/android-sdk-linux/platform-tools:$PATH
-  - git clone https://github.com/SDLash3D/xash3d jni/src/Xash3D/xash3d
-  - git clone https://github.com/SDLash3D/halflife jni/src/HLSDK/halflife
-  - git clone https://github.com/SDLash3D/MobileTouchControls jni/src/MobileTouchControls/MobileTouchControls
-  - git clone https://github.com/SDLash3D/nanogl jni/src/NanoGL/nanogl
-  - git clone https://github.com/SDLash3D/XashXT jni/src/XashXT/XashXT
-  - git clone https://github.com/mittorn/SDL-mirror jni/src/SDL2/SDL-mirror
+  - git clone -q https://github.com/SDLash3D/xash3d jni/src/Xash3D/xash3d
+  - git clone -q https://github.com/SDLash3D/halflife jni/src/HLSDK/halflife
+  - git clone -q https://github.com/SDLash3D/MobileTouchControls jni/src/MobileTouchControls/MobileTouchControls
+  - git clone -q https://github.com/SDLash3D/nanogl jni/src/NanoGL/nanogl
+  - git clone -q https://github.com/SDLash3D/XashXT jni/src/XashXT/XashXT
+  - git clone -q https://github.com/mittorn/SDL-mirror jni/src/SDL2/SDL-mirror
   - sed -i -- s/android-8/android-12/g project.properties
   - android update project
-  - cd $TRAVIS_BUILD_DIR && ./travis-ci/show_setting.sh
 script:
   - cd $TRAVIS_BUILD_DIR
   - ndk-build NDK_TOOLCHAIN_VERSION=4.8 XASH_SDL=1 SUPPORT_WEBP=false -j2
   - ant release
-after_script:
-  - date
