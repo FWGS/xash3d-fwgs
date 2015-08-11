@@ -7,30 +7,56 @@ import android.view.MenuItem;
 import android.view.View;
 import android.content.Intent;
 import android.widget.EditText;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
+import android.content.ComponentName;
+import android.content.pm.PackageManager;
+import android.content.SharedPreferences;
 
 import in.celest.xash3d.hl.R;
+import com.beloko.touchcontrols.TouchControlsSettings;
 
 public class LauncherActivity extends Activity {
-
-    public final static String ARGV = "in.celest.xash3d.MESSAGE";
+   // public final static String ARGV = "in.celest.xash3d.MESSAGE";
+	static TouchControlsSettings mSettings;
+	static EditText cmdArgs;
+	static CheckBox useControls;
+	static EditText resPath;
+	static SharedPreferences mPref;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launcher);
-    }
+		mSettings=new TouchControlsSettings();
+		mSettings.setup(this, null);
+		mSettings.loadSettings(this);
+		mPref = getSharedPreferences("engine", 0);
+		cmdArgs = (EditText)findViewById(R.id.cmdArgs);
+		cmdArgs.setText(mPref.getString("argv","-dev 3 -console -log"));
+		useControls = ( CheckBox ) findViewById( R.id.useControls );
+		useControls.setChecked(mPref.getBoolean("controls",true));
+		resPath = ( EditText ) findViewById( R.id.cmdPath );
+		resPath.setText(mPref.getString("basedir","/sdcard/xash/"));
+		}
     
     public void startXash(View view)
     {
 	Intent intent = new Intent(this, org.libsdl.app.SDLActivity.class);
-	//Intent intent = new Intent(this, in.celest.xash3d.XashActivity.class);
-	EditText cmdArgs = (EditText)findViewById(R.id.cmdArgs);
-	String sArgv = cmdArgs.getText().toString();
-	
-	intent.putExtra(ARGV, sArgv);
-	
+	intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+	SharedPreferences.Editor editor = mPref.edit();
+	editor.putString("argv", cmdArgs.getText().toString());
+	editor.putBoolean("controls",useControls.isChecked());
+	editor.putString("basedir", resPath.getText().toString());
+	editor.commit();
+	editor.apply();
 	startActivity(intent);
     }
-
+	public void controlsSettings(View view)
+	{
+		mSettings.loadSettings(this);
+		mSettings.showSettings();
+	}
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {

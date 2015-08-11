@@ -71,12 +71,17 @@ public class TouchControlsSettings {
 				}
 				 */
 				Button add_rem_button = (Button)dialog.findViewById(R.id.add_remove_button);
+				if(quakeIf != null)
+				{
 				add_rem_button.setOnClickListener(new OnClickListener() {
 					@Override
 					public void onClick(View v) {
 						TouchControlsEditing.show(activity);
 					}
 				});
+				}
+				else
+				add_rem_button.setEnabled(false);
 
 				alphaSeek.setProgress(alpha);
 				fwdSeek.setProgress(fwdSens);
@@ -201,7 +206,8 @@ public class TouchControlsSettings {
 
 	public static void sendToQuake()
 	{
-
+		if(quakeIf == null) return;
+		
 		int other = 0;
 		other += showWeaponCycle?0x1:0;
 		other += mouseMode?0x2:0;

@@ -58,6 +58,7 @@ import com.beloko.games.hl.NativeLib;
 import com.beloko.touchcontrols.ControlInterpreter;
 import com.beloko.touchcontrols.Settings;
 import com.beloko.touchcontrols.TouchControlsSettings;
+import android.content.*;
 
 /**
     SDL Activity
@@ -66,7 +67,7 @@ public class SDLActivity extends Activity {
 	private static final String TAG = "SDL";
 
 	// Keep track of the paused state
-	public static boolean mIsPaused, mIsSurfaceReady, mHasFocus;
+	public static boolean mIsPaused, mIsSurfaceReady, mHasFocus, mUseControls;
 	public static boolean mExitCalledFromJava;
 
 	/** If shared libraries (e.g. SDL or the native application) could not be loaded. */
@@ -89,9 +90,11 @@ public class SDLActivity extends Activity {
 	// Audio
 	protected static AudioTrack mAudioTrack;
 
-	//Touch control interp
+	// Touch control interp
 	public static ControlInterpreter controlInterp;
-
+	
+	// Preferences
+	public static SharedPreferences mPref;
 	/**
 	 * This method is called by SDL before loading the native shared libraries.
 	 * It can be overridden to provide names of shared libraries to be loaded.
@@ -122,14 +125,10 @@ public class SDLActivity extends Activity {
 	 * @return arguments for the native application.
 	 */
 	protected String[] getArguments() {
-		Intent intent = getIntent();
-		String sArgv = intent.getStringExtra(in.celest.xash3d.LauncherActivity.ARGV);
-		
-		Log.v("ArgvDebug", "Got args: " + sArgv);
-		
-		if(sArgv == null || sArgv.isEmpty())
-			return "-dev 3 -log -console".split(" ");
-		else return sArgv.split(" ");
+		String argv=getIntent().getStringExtra("argv");
+		if(argv != null)
+			return argv.split(" ");
+		return mPref.getString("argv","-dev 3 -log -console").split(" ");
 	}
 
 	public static void initialize() {
@@ -169,7 +168,8 @@ public class SDLActivity extends Activity {
 		SDLActivity.initialize();
 		// So we can call stuff from static callbacks
 		mSingleton = this;
-
+		mPref = this.getSharedPreferences("engine", 0);
+		mUseControls = mPref.getBoolean("controls", false);
 		// Load shared libraries
 		String errorMsgBrokenLib = "";
 		try {
@@ -205,6 +205,21 @@ public class SDLActivity extends Activity {
 
 			return;
 		}
+		
+		Intent intent=getIntent();
+		String gamelibdir = intent.getStringExtra("gamelibdir");
+		if(gamelibdir == null)
+			gamelibdir = getFilesDir().getParentFile().getPath() + "/lib";
+		String gamedir = intent.getStringExtra("gamedir");
+		if(gamedir == null)
+			gamedir = "valve";
+		String basedir = intent.getStringExtra("basedir");
+		if(basedir == null)
+			basedir = mPref.getString("basedir","/sdcard/xash/");
+		setenv("XASH3D_BASEDIR", basedir, true);
+		setenv("XASH3D_ENGLIBDIR", getFilesDir().getParentFile().getPath() + "/lib", true);
+		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
+		setenv("XASH3D_GAMEDIR", gamedir, true);
 
 		// Set up the surface
 		mSurface = new SDLSurface(getApplication());
@@ -467,7 +482,8 @@ public class SDLActivity extends Activity {
 			int naxes, int nhats, int nballs);
 	public static native int nativeRemoveJoystick(int device_id);
 	public static native String nativeGetHint(String name);
-
+	public static native int setenv(String key, String value, boolean overwrite);
+	
 	/**
 	 * This method is called by SDL using JNI.
 	 */
@@ -965,21 +981,23 @@ class SDLMain implements Runnable {
 	@Override
 	public void run() {
 		// Runs SDL_main()
+		if(SDLActivity.mUseControls)
+		{
+			NativeLib engine = new NativeLib();
+			engine.initTouchControls_if(SDLActivity.mSingleton.getFilesDir().toString() + "/",
+					(int)SDLSurface.mWidth, (int)SDLSurface.mHeight);
 
-		NativeLib engine = new NativeLib();
-		engine.initTouchControls_if(SDLActivity.mSingleton.getFilesDir().toString() + "/",
-				(int)SDLSurface.mWidth, (int)SDLSurface.mHeight);
+			SDLActivity.controlInterp = new ControlInterpreter(engine,Settings.IDGame.Doom,Settings.gamePadControlsFile,Settings.gamePadEnabled);
 
-		SDLActivity.controlInterp = new ControlInterpreter(engine,Settings.IDGame.Doom,Settings.gamePadControlsFile,Settings.gamePadEnabled);
+			SDLActivity.controlInterp.setScreenSize((int)SDLSurface.mWidth, (int)SDLSurface.mHeight);
 
-		SDLActivity.controlInterp.setScreenSize((int)SDLSurface.mWidth, (int)SDLSurface.mHeight);
+			TouchControlsSettings.setup(SDLActivity.mSingleton, engine);
+			TouchControlsSettings.loadSettings(SDLActivity.mSingleton);
+			TouchControlsSettings.sendToQuake();
 
-		TouchControlsSettings.setup(SDLActivity.mSingleton, engine);
-		TouchControlsSettings.loadSettings(SDLActivity.mSingleton);
-		TouchControlsSettings.sendToQuake();
-
-		Settings.copyPNGAssets(SDLActivity.mSingleton,SDLActivity.mSingleton.getFilesDir().toString() + "/",null);   
-
+			Settings.copyPNGAssets(SDLActivity.mSingleton,SDLActivity.mSingleton.getFilesDir().toString() + "/",null);   
+		
+		}
 		SDLActivity.nativeInit(SDLActivity.mSingleton.getArguments()); 
 		//Log.v("SDL", "SDL thread terminated");
 	}
@@ -1189,12 +1207,14 @@ View.OnKeyListener, View.OnTouchListener, SensorEventListener  {
 	@Override
 	public boolean onTouch(View v, MotionEvent event) {
 
-
-		SDLActivity.controlInterp.onTouchEvent(event);
-		return true;
+		if(SDLActivity.mUseControls)
+		{
+			SDLActivity.controlInterp.onTouchEvent(event);
+			return true;
+		}
 
 		/* Ref: http://developer.android.com/training/gestures/multi.html */
-		/*
+		
         final int touchDevId = event.getDeviceId();
         final int pointerCount = event.getPointerCount();
         int action = event.getActionMasked();
@@ -1262,7 +1282,6 @@ View.OnKeyListener, View.OnTouchListener, SensorEventListener  {
         }
 
         return true;
-		 */
 	}
 
 	// Sensor events
