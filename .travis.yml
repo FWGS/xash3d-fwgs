@@ -1,4 +1,4 @@
-launguage: android
+language: android
 android:
   components:
     - platform-tools
