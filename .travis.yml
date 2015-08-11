@@ -27,4 +27,4 @@ script:
   - ndk-build NDK_TOOLCHAIN_VERSION=4.8 XASH_SDL=1 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w"
   - ant debug
 after_script:
-  - curl -T bin/xashdroid-debug.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-`date +%d-%m-%y`-`git rev-parse HEAD`.apk
+  - curl -T bin/xashdroid-debug.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-`date +%d-%m-%y`-`git rev-parse --short HEAD`.apk
