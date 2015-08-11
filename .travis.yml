@@ -14,7 +14,7 @@ before_install:
   - echo $PATH
   - git clone https://github.com/SDLash3D/xash3d jni/src/Xash3D/xash3d
   - git clone https://github.com/SDLash3D/halflife jni/src/HLSDK/halflife
-  - git clone https://github.com/SDLash3D/MobileTouchControls jni/src/MobileTouchControls/
+  - git clone https://github.com/SDLash3D/MobileTouchControls jni/src/MobileTouchControls/MobileTouchControls
   - git clone https://github.com/SDLash3D/nanogl jni/src/NanoGL/nanogl
   - git clone https://github.com/SDLash3D/XashXT jni/src/XashXT/XashXT
   - git clone https://github.com/mittorn/SDL-mirror jni/src/SDL2/SDL-mirror
