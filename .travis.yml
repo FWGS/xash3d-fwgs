@@ -3,10 +3,8 @@ android:
   components:
     - platform-tools
     - build-tools-21.1.1
-    - android-12
+    - android-15
     - extra-android-support
-    - extra
-    - tools
     
 jdk: oraclejdk7
 
@@ -24,6 +22,6 @@ before_install:
   - git clone -q --depth=1 https://github.com/SDLash3D/nanogl jni/src/NanoGL/nanogl
   - git clone -q --depth=1 https://github.com/SDLash3D/XashXT jni/src/XashXT/XashXT
   - git clone -q --depth=1 https://github.com/mittorn/SDL-mirror jni/src/SDL2/SDL-mirror
-  - sed -i -- s/android-8/android-12/g project.properties
+  - sed -i -- s/android-8/android-15/g project.properties
 before_script:
   - ndk-build NDK_TOOLCHAIN_VERSION=4.8 XASH_SDL=1 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w"
