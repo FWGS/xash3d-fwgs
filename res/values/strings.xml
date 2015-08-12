@@ -3,7 +3,7 @@
 
     <string name="app_name">Xash3D</string>
 	<string name="launcher_name">Xash3D</string>
-	<string name="launcher_name_test">Xash3D_test</string>
+	<string name="launcher_name_test">Xash3D test</string>
     <string-array name="double_tap_actions">
         <item>None</item>
         <item>Shoot</item>
