@@ -23,8 +23,8 @@ public class ShortcutActivity extends Activity
 	}
 	public void saveShortcut(View view)
 	{
-		Intent intent = new Intent(Intent.ACTION_VIEW,null);
-		intent.setType("xash3d.android/game");
+		Intent intent = new Intent();
+		intent.setAction("in.celest.xash3d.START");
 		EditText argv = (EditText)findViewById(R.id.shortcut_cmdArgs);
 		if(argv.length() != 0) intent.putExtra("argv",argv.getText().toString());
 		EditText gamedir = (EditText)findViewById(R.id.shortcut_gamedir);
