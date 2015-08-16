@@ -1,6 +1,7 @@
 package in.celest.xash3d;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -12,6 +13,8 @@ import android.widget.CompoundButton;
 import android.content.ComponentName;
 import android.content.pm.PackageManager;
 import android.content.SharedPreferences;
+import android.content.DialogInterface;
+import android.content.DialogInterface.OnDismissListener;
 
 import in.celest.xash3d.hl.R;
 import com.beloko.touchcontrols.TouchControlsSettings;
@@ -56,6 +59,21 @@ public class LauncherActivity extends Activity {
 	{
 		mSettings.loadSettings(this);
 		mSettings.showSettings();
+	}
+
+	public void aboutXash(View view)
+	{
+		final Activity a = this;
+		this.runOnUiThread(new Runnable() {
+			public void run()
+			{
+				final Dialog dialog = new Dialog(a);
+				dialog.setContentView(R.layout.about);
+				dialog.setCancelable(true);
+
+				dialog.show();
+			}
+		});
 	}
 
     @Override

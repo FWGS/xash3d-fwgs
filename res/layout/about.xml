@@ -1,0 +1,75 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent" >
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/main_layout"
+        android:weightSum="1">
+
+        <ImageView
+            android:layout_width="89dp"
+            android:layout_height="89dp"
+            android:id="@+id/aboutIcon"
+            android:layout_gravity="center_horizontal"
+            android:src="@drawable/ic_launcher" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="@string/about_main"
+            android:id="@+id/textView"
+            android:layout_gravity="center_horizontal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/version_string"
+            android:id="@+id/textView3"
+            android:layout_gravity="center_horizontal" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="225dp"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/about_authors"
+            android:id="@+id/textView4"
+            android:layout_weight="3.46"
+            android:clickable="false"
+            android:enabled="true"
+            android:singleLine="false"
+            android:password="false"
+            android:longClickable="false"
+            android:autoText="false" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="GitHub: https://github.com/SDLash3D"
+            android:id="@+id/textView5"
+            android:autoText="false"
+            android:autoLink="web" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="VK: https://vk.com/xashdroid"
+            android:id="@+id/textView6"
+            android:autoLink="web" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:text="@string/about_copyright"
+            android:id="@+id/textView2"
+            android:layout_weight="0.58" />
+
+    </LinearLayout>
+</ScrollView>
