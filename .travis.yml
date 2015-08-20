@@ -28,5 +28,5 @@ script:
   - sh gen-version.sh travis build
   - ant debug
 after_script:
-  - curl --upload-file bin/xashdroid-debug.apk https://transfer.sh/xash3d-armv7-`date -u +%y-%m-%d-%H-%M`.apk
-  - curl -T bin/xashdroid-debug.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-armv7-`date +%d-%m-%y`-`git rev-parse --short HEAD`.apk
+  - curl --upload-file bin/xashdroid-debug.apk https://transfer.sh/xash3d-armv7-`date -u +%y-%m-%d_%H-%M`.apk
+  - curl -T bin/xashdroid-debug.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-armv7-`date -u +%y-%m-%d_%H-%M`-`git rev-parse --short HEAD`.apk
