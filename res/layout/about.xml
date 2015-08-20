@@ -45,6 +45,14 @@
             android:password="false"
             android:longClickable="false"
             android:autoText="false" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:text="@string/git_revisions"
+            android:id="@+id/textView5"
+            android:autoText="false"
+            android:autoLink="web" />
 
         <TextView
             android:layout_width="wrap_content"

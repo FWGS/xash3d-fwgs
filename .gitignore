@@ -12,3 +12,4 @@ jni/src/MobileTouchControls/MobileTouchControls
 
 local.properties
 
+res/values/git-rev.xml

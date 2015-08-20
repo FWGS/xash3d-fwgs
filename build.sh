@@ -1,6 +1,7 @@
 #!/bin/sh
 
 ndk-build NDK_TOOLCHAIN_VERSION=4.8 NDK_DEBUG=0 SUPPORT_WEBP=false V=1
+sh gen-version.sh default-release
 ant release
 #jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore ../myks.keystore bin/xashdroid-release-unsigned.apk xashdroid
 #adb install -r -f bin/xashdroid-debug.apk

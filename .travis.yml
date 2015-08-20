@@ -25,6 +25,7 @@ before_install:
   - sed -i -- s/android-8/android-15/g project.properties
 script:
   - ndk-build NDK_TOOLCHAIN_VERSION=4.8 XASH_SDL=1 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w" APP_ABI="armeabi-v7a-hard"
+  - sh gen-version.sh travis build
   - ant debug
 after_script:
   - curl --upload-file bin/xashdroid-debug.apk https://transfer.sh/xash3d-armv7-a-`date +%d-%m-%y`.apk
