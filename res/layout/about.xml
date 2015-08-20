@@ -52,7 +52,13 @@
             android:text="@string/git_revisions"
             android:id="@+id/textView5"
             android:autoText="false"
-            android:autoLink="web" />
+            android:longClickable="false"
+            android:password="false"
+            android:enabled="true"
+            android:clickable="false"
+            android:singleLine="false"
+            
+            />
 
         <TextView
             android:layout_width="wrap_content"
@@ -76,6 +82,7 @@
             android:layout_height="wrap_content"
             android:textAppearance="?android:attr/textAppearanceSmall"
             android:text="@string/about_copyright"
+            android:singleLine="false"
             android:id="@+id/textView2"
             android:layout_weight="0.58" />
 
