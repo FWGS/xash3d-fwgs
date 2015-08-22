@@ -24,9 +24,21 @@ before_install:
   - git clone -q --depth=1 https://github.com/mittorn/SDL-mirror jni/src/SDL2/SDL-mirror
   - sed -i -- s/android-8/android-15/g project.properties
 script:
-  - ndk-build NDK_TOOLCHAIN_VERSION=4.8 XASH_SDL=1 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w" APP_ABI="armeabi-v7a-hard"
   - sh gen-version.sh travis build
+  - ndk-build NDK_TOOLCHAIN_VERSION=4.8 XASH_SDL=1 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w" APP_ABI="armeabi-v7a-hard"
   - ant debug
+  - cp bin/xashdroid-debug.apk xashdroid-armv7.apk
+  - ndk-build NDK_TOOLCHAIN_VERSION=4.8 XASH_SDL=1 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w" APP_ABI="armeabi"
+  - ant debug
+  - cp bin/xashdroid-debug.apk xashdroid-armv6.apk
+  - ndk-build NDK_TOOLCHAIN_VERSION=4.8 XASH_SDL=1 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w" APP_ABI="x86"
+  - ant debug
+  - cp bin/xashdroid-debug.apk xashdroid-x86.apk
 after_script:
-  - curl --upload-file bin/xashdroid-debug.apk https://transfer.sh/xash3d-armv7-`date -u +%y-%m-%d_%H-%M`.apk
-  - curl -T bin/xashdroid-debug.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-armv7-`date -u +%y-%m-%d_%H-%M`-`git rev-parse --short HEAD`.apk
+  - curl --upload-file xashdroid-armv7.apk https://transfer.sh/xash3d-armv7-`date -u +%y-%m-%d_%H-%M`.apk
+  - curl --upload-file xashdroid-armv6.apk https://transfer.sh/xash3d-armv6-`date -u +%y-%m-%d_%H-%M`.apk
+  - curl --upload-file xashdroid-x86.apk https://transfer.sh/xash3d-x86-`date -u +%y-%m-%d_%H-%M`.apk
+  - curl -T bin/xashdroid-armv7.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-armv7-`date -u +%y-%m-%d_%H-%M`-`git rev-parse --short HEAD`.apk
+  - curl -T bin/xashdroid-armv6.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-armv6-`date -u +%y-%m-%d_%H-%M`-`git rev-parse --short HEAD`.apk
+  - curl -T bin/xashdroid-x86.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-x86-`date -u +%y-%m-%d_%H-%M`-`git rev-parse --short HEAD`.apk
+  
