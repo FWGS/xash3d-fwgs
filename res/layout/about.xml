@@ -34,17 +34,31 @@
 
         <TextView
             android:layout_width="match_parent"
-            android:layout_height="225dp"
+            android:layout_height="wrap_content"
             android:textAppearance="?android:attr/textAppearanceMedium"
             android:text="@string/about_authors"
             android:id="@+id/textView4"
-            android:layout_weight="3.46"
+            android:layout_weight="1"
             android:clickable="false"
             android:enabled="true"
             android:singleLine="false"
             android:password="false"
             android:longClickable="false"
             android:autoText="false" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:text="@string/git_revisions"
+            android:id="@+id/textView5"
+            android:autoText="false"
+            android:longClickable="false"
+            android:password="false"
+            android:enabled="true"
+            android:clickable="false"
+            android:singleLine="false"
+            
+            />
 
         <TextView
             android:layout_width="wrap_content"
@@ -68,6 +82,7 @@
             android:layout_height="wrap_content"
             android:textAppearance="?android:attr/textAppearanceSmall"
             android:text="@string/about_copyright"
+            android:singleLine="false"
             android:id="@+id/textView2"
             android:layout_weight="0.58" />
 
