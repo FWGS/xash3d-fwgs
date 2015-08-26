@@ -37,7 +37,9 @@ XASHXT_PATH := $(APPLICATIONMK_PATH)/src/XashXT/XashXT
 
 HLSDK_PATH  := $(APPLICATIONMK_PATH)/src/HLSDK/halflife/
 
-APP_ABI := x86 armeabi-v7a-hard
+XASH3D_CONFIG := $(APPLICATIONMK_PATH)/xash3d_config.mk
+
+APP_ABI := x86 armeabi armeabi-v7a-hard
 # Use armeabi-v7a to disable hardfloat, armeabi to build armv5 xash3d
 # Change CFLAGS_OPT_ARMv5 to "-mfloat-abi=softfp -mfpu=vfp" and fix setup.mk of ndk to build armv6
 # Mods are built with both ABI support
