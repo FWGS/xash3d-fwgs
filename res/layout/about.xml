@@ -44,7 +44,10 @@
             android:singleLine="false"
             android:password="false"
             android:longClickable="false"
-            android:autoText="false" />
+            android:autoText="false"
+            android:includeFontPadding="false"
+            android:layout_gravity="fill"
+             />
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
