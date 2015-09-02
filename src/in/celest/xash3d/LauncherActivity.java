@@ -35,7 +35,7 @@ public class LauncherActivity extends Activity {
 		mSettings.loadSettings(this);
 		mPref = getSharedPreferences("engine", 0);
 		cmdArgs = (EditText)findViewById(R.id.cmdArgs);
-		cmdArgs.setText(mPref.getString("argv","-dev 3 -console -log"));
+		cmdArgs.setText(mPref.getString("argv","-dev 3 -log"));
 		useControls = ( CheckBox ) findViewById( R.id.useControls );
 		useControls.setChecked(mPref.getBoolean("controls",true));
 		resPath = ( EditText ) findViewById( R.id.cmdPath );
