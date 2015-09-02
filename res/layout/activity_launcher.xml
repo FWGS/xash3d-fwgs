@@ -11,68 +11,81 @@
 	android:orientation="vertical"
 	tools:context="in.celest.xash3d.LauncherActivity"
 	android:id="@+id/layout_shortcut">
-
-	<TextView
-		android:layout_width="wrap_content"
-		android:layout_height="wrap_content"
-		android:textAppearance="?android:attr/textAppearanceLarge"
-		android:text="@string/cmd_args_text"
-		android:id="@+id/textView_args" />
-
-	<EditText
-		android:layout_width="match_parent"
-		android:layout_height="wrap_content"
-		android:id="@+id/cmdArgs" />
-
-	<TextView
+	<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
 		android:layout_width="fill_parent"
-		android:layout_height="wrap_content"
-		android:textAppearance="?android:attr/textAppearanceLarge"
-		android:text="@string/text_res_path"
-		android:id="@+id/textView_path" />
+		android:layout_height="match_parent"
+		android:layout_weight="1.0">
+		<LinearLayout
+			xmlns:android="http://schemas.android.com/apk/res/android"
+			xmlns:tools="http://schemas.android.com/tools"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:orientation="vertical">
 
-	<EditText
-		android:layout_width="match_parent"
-		android:layout_height="wrap_content"
-		android:id="@+id/cmdPath" />
+			<TextView
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:textAppearance="?android:attr/textAppearanceMedium"
+				android:text="@string/cmd_args_text"
+				android:id="@+id/textView_args" />
 
-	<CheckBox
-		android:layout_height="wrap_content"
-		android:layout_width="wrap_content"
-		android:textAppearance="?android:attr/textAppearanceLarge"
-		android:text="@string/use_controls"
-		android:id="@+id/useControls"/>
+			<EditText
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:id="@+id/cmdArgs" />
+
+			<TextView
+				android:layout_width="fill_parent"
+				android:layout_height="wrap_content"
+				android:textAppearance="?android:attr/textAppearanceMedium"
+				android:text="@string/text_res_path"
+				android:id="@+id/textView_path" />
+
+			<EditText
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:id="@+id/cmdPath" />
+
+			<CheckBox
+				android:layout_height="wrap_content"
+				android:layout_width="wrap_content"
+				android:textAppearance="?android:attr/textAppearanceMedium"
+				android:text="@string/use_controls"
+				android:id="@+id/useControls"/>
+
+			<Button
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="@string/touch_set"
+				android:id="@+id/touch_set"
+				android:onClick="controlsSettings" />
+
+			<Button
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="@string/about_button"
+				android:id="@+id/button"
+				android:onClick="aboutXash" />
+
+			<TextView
+				android:layout_width="fill_parent"
+				android:layout_height="0dp"
+				android:id="@+id/textView7"
+				android:layout_gravity="center_horizontal"
+				android:layout_weight="1"
+				android:clickable="false" />
+		</LinearLayout>
+	</ScrollView>
 
 	<Button
 		android:layout_width="wrap_content"
 		android:layout_height="wrap_content"
-		android:text="@string/touch_set"
-		android:id="@+id/touch_set"
-		android:onClick="controlsSettings" />
-
-	<Button
-android:layout_width="wrap_content"
-android:layout_height="wrap_content"
-android:text="@string/about_button"
-android:id="@+id/button"
-		android:onClick="aboutXash" />
-
-	<TextView
-		android:layout_width="fill_parent"
-		android:layout_height="0dp"
-		android:id="@+id/textView7"
-		android:layout_gravity="center_horizontal"
-		android:layout_weight="1"
-		android:clickable="false" />
-
-	<Button
-android:layout_width="wrap_content"
-android:layout_height="wrap_content"
-android:text="@string/launch_button"
-android:id="@+id/button_launch"
-android:onClick="startXash"
-android:layout_column="6"
-		android:layout_gravity="right" />
+		android:text="@string/launch_button"
+		android:id="@+id/button_launch"
+		android:onClick="startXash"
+		android:layout_column="6"
+		android:layout_gravity="right"
+		android:layout_weight="0.0" />
 
 
 </LinearLayout>
