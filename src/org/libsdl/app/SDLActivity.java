@@ -92,9 +92,12 @@ public class SDLActivity extends Activity {
 
 	// Touch control interp
 	public static ControlInterpreter controlInterp;
-	
+
 	// Preferences
 	public static SharedPreferences mPref;
+
+	// Controls dir
+	public static String mControlsDir;
 	/**
 	 * This method is called by SDL before loading the native shared libraries.
 	 * It can be overridden to provide names of shared libraries to be loaded.
@@ -146,6 +149,7 @@ public class SDLActivity extends Activity {
 		mIsPaused = false;
 		mIsSurfaceReady = false;
 		mHasFocus = true;
+		mControlsDir = null;
 	}
 
 	// Setup
@@ -216,6 +220,7 @@ public class SDLActivity extends Activity {
 		String basedir = intent.getStringExtra("basedir");
 		if(basedir == null)
 			basedir = mPref.getString("basedir","/sdcard/xash/");
+		mControlsDir = basedir + "/" + gamedir + "/controls/";
 		setenv("XASH3D_BASEDIR", basedir, true);
 		setenv("XASH3D_ENGLIBDIR", getFilesDir().getParentFile().getPath() + "/lib", true);
 		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
@@ -984,7 +989,8 @@ class SDLMain implements Runnable {
 		if(SDLActivity.mUseControls)
 		{
 			NativeLib engine = new NativeLib();
-			engine.initTouchControls_if(SDLActivity.mSingleton.getFilesDir().toString() + "/",
+			
+			engine.initTouchControls_if(SDLActivity.mControlsDir,
 					(int)SDLSurface.mWidth, (int)SDLSurface.mHeight);
 
 			SDLActivity.controlInterp = new ControlInterpreter(engine,Settings.IDGame.Doom,Settings.gamePadControlsFile,Settings.gamePadEnabled);
@@ -995,7 +1001,7 @@ class SDLMain implements Runnable {
 			TouchControlsSettings.loadSettings(SDLActivity.mSingleton);
 			TouchControlsSettings.sendToQuake();
 
-			Settings.copyPNGAssets(SDLActivity.mSingleton,SDLActivity.mSingleton.getFilesDir().toString() + "/",null);   
+			Settings.copyPNGAssets(SDLActivity.mSingleton, SDLActivity.mControlsDir, null);   
 		
 		}
 		SDLActivity.nativeInit(SDLActivity.mSingleton.getArguments()); 

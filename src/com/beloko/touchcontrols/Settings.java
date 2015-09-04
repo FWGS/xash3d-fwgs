@@ -113,6 +113,8 @@ public class Settings {
 		File d = new File(dir);
 		if (!d.exists())
 			d.mkdirs();
+		else
+			return;
 
 		AssetManager assetManager = ctx.getAssets();
 		String[] files = null;
