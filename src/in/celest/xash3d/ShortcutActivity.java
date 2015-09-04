@@ -48,6 +48,13 @@ public class ShortcutActivity extends Activity
 		}
 		if(icon == null) try
 		{
+			icon = Bitmap.createScaledBitmap(BitmapFactory.decodeFile(gamedirstring+"/game.ico"), size, size, false);
+		}
+		catch(Exception e)
+		{
+		}
+		if(icon == null) try
+		{
 			FilenameFilter icoFilter = new FilenameFilter() {
 				public boolean accept(File dir, String name) {
 					if(name.endsWith(".ico") || name.endsWith(".ICO")) {
