@@ -3,7 +3,7 @@
 
     <string name="app_name" translatable="false">Xash3D</string>
 	<string name="launcher_name" translatable="false">Xash3D</string>
-	<string name="launcher_name_test" translatable="false">Xash3D_test</string>
+	<string name="launcher_name_test" translatable="false">Xash3D (test)</string>
     <string-array name="double_tap_actions">
         <item>None</item>
         <item>Shoot</item>
@@ -38,4 +38,5 @@ Special thanks to:\n
 &#8226; Beloko Games for touch controls support\n
 &#8226; libSDL2 developers.\n</string>
     <string name="about_button">About Xash3D Android</string>
+    <string name="create_shortcut_button">Create mod shortcut</string>
 </resources>

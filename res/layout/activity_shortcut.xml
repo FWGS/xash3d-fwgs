@@ -3,7 +3,7 @@
 	xmlns:android="http://schemas.android.com/apk/res/android"
 	xmlns:tools="http://schemas.android.com/tools"
 	android:layout_width="match_parent"
-	android:layout_height="wrap_content"
+	android:layout_height="match_parent"
 	android:paddingLeft="@dimen/activity_horizontal_margin"
 	android:paddingRight="@dimen/activity_horizontal_margin"
 	android:paddingTop="@dimen/activity_vertical_margin"
@@ -16,9 +16,9 @@
 		android:layout_height="wrap_content"
 		android:text="@string/shortcut_button_save"
 		android:id="@+id/shortcut_buttonOk"
-		android:layout_alignParentBottom="true"
 		android:layout_alignParentRight="true"
-		android:onClick="saveShortcut"/>
+		android:onClick="saveShortcut"
+		android:layout_below="@+id/shortcut_gamedir"/>
 
 	<EditText
 		android:layout_height="wrap_content"
@@ -32,7 +32,7 @@
 		android:id="@+id/shortcut_name_text"
 		android:layout_alignParentTop="true"
 		android:layout_alignParentRight="true"
-		android:textAppearance="?android:attr/textAppearanceLarge"
+		android:textAppearance="?android:attr/textAppearanceMedium"
 		android:text="@string/shortcut_name"
 	/>
 
@@ -46,7 +46,7 @@
 	<TextView
 		android:layout_width="wrap_content"
 		android:layout_height="wrap_content"
-		android:textAppearance="?android:attr/textAppearanceLarge"
+		android:textAppearance="?android:attr/textAppearanceMedium"
 		android:text="@string/cmd_args_text"
 		android:id="@+id/shortcut_textView_args"
 		android:layout_alignParentRight="true"
@@ -62,7 +62,7 @@
 	<TextView
 		android:layout_width="wrap_content"
 		android:layout_height="wrap_content"
-		android:textAppearance="?android:attr/textAppearanceLarge"
+		android:textAppearance="?android:attr/textAppearanceMedium"
 		android:text="@string/gamedir"
 		android:id="@+id/shortcut_gamedir_text"
 		android:layout_below="@+id/shortcut_cmdArgs"

@@ -75,6 +75,12 @@ public class LauncherActivity extends Activity {
 			}
 		});
 	}
+	
+	public void createShortcut(View view)
+	{
+		Intent intent = new Intent(this, ShortcutActivity.class);
+		startActivity(intent);
+	}
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {

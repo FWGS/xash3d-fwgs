@@ -5,6 +5,7 @@ import android.view.View;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.widget.Toast;
 import in.celest.xash3d.hl.R;
 import android.widget.EditText;
 import java.io.File;
@@ -66,7 +67,21 @@ public class ShortcutActivity extends Activity
 			icon = BitmapFactory.decodeResource(getResources(), R.drawable.ic_launcher);
 		}
 		wrapIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON, icon);
-		setResult(RESULT_OK, wrapIntent);
-		finish();
+		if(getIntent().getAction() == "android.intent.action.CREATE_SHORTCUT" ) // Called from launcher
+		{
+			setResult(RESULT_OK, wrapIntent);
+			finish();
+		}
+		else try
+		{
+			wrapIntent.setAction("com.android.launcher.action.INSTALL_SHORTCUT");
+			getApplicationContext().sendBroadcast(wrapIntent);
+			Toast.makeText(getApplicationContext(), "Shortcut created!", Toast.LENGTH_SHORT).show();
+		}
+		catch(Exception e)
+		{
+			Toast.makeText(getApplicationContext(), "Problem creating shortcut: " + e.toString() +
+				"\nTry create it manually from laucnher", Toast.LENGTH_LONG).show();
+		}
 	}
 }

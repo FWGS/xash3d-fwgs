@@ -64,6 +64,12 @@
 				android:text="@string/about_button"
 				android:id="@+id/button"
 				android:onClick="aboutXash" />
+			<Button
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="@string/create_shortcut_button"
+				android:id="@+id/button"
+				android:onClick="createShortcut" />
 
 			<TextView
 				android:layout_width="fill_parent"
