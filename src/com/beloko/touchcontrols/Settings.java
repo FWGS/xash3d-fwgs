@@ -114,7 +114,7 @@ public class Settings {
 		if (!d.exists())
 			d.mkdirs();
 		else
-			return;
+			return; // Note: if you move it back to <datadir>/files, disable this as it may exist
 
 		AssetManager assetManager = ctx.getAssets();
 		String[] files = null;

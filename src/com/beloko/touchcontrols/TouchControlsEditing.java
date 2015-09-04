@@ -4,6 +4,7 @@ import in.celest.xash3d.hl.R;
 import android.app.Activity;
 import android.app.Dialog;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -131,11 +132,16 @@ public class TouchControlsEditing {
 				}
 			});
 
-			String png = activity.getFilesDir() + "/" + ci.image + ".png";
-			Log.d(TAG,"png = " + png);
-			BitmapDrawable bm = new BitmapDrawable(png);
-
-			image.setImageDrawable(bm);
+			//String png = activity.getFilesDir() + "/" + ci.image + ".png";
+			//Log.d(TAG,"png = " + png);
+			//BitmapDrawable bm = new BitmapDrawable(png);
+			try
+			{
+				image.setImageDrawable(Drawable.createFromStream(context.getAssets().open(ci.image + ".png"), null));
+			}
+			catch(Exception e)
+			{
+			}
 			return convertView;
 		}
 
