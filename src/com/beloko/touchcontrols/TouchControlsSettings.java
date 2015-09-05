@@ -244,7 +244,7 @@ public class TouchControlsSettings {
 		invertLook = Settings.getBoolOption(ctx, "invert_look", false);
 		precisionShoot = Settings.getBoolOption(ctx, "precision_shoot", false);
 		showSticks = Settings.getBoolOption(ctx, "show_sticks", false);
-		enableWeaponWheel =  Settings.getBoolOption(ctx, "enable_ww", true);
+		enableWeaponWheel =  Settings.getBoolOption(ctx, "enable_ww", false);
 
 		doubleTapMove  = Settings.getIntOption(ctx, "double_tap_move", 0);
 		doubleTapLook  = Settings.getIntOption(ctx, "double_tap_look", 0);
