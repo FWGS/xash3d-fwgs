@@ -2,6 +2,7 @@ package org.libsdl.app;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.File;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -98,6 +99,9 @@ public class SDLActivity extends Activity {
 
 	// Controls dir
 	public static String mControlsDir;
+	
+	// Arguments
+	public static String[] mArgv;
 	/**
 	 * This method is called by SDL before loading the native shared libraries.
 	 * It can be overridden to provide names of shared libraries to be loaded.
@@ -127,12 +131,6 @@ public class SDLActivity extends Activity {
 	 * The default implementation returns an empty array. It never returns null.
 	 * @return arguments for the native application.
 	 */
-	protected String[] getArguments() {
-		String argv=getIntent().getStringExtra("argv");
-		if(argv != null)
-			return argv.split(" ");
-		return mPref.getString("argv","-dev 3 -log -console").split(" ");
-	}
 
 	public static void initialize() {
 		// The static nature of the singleton and Android quirkyness force us to initialize everything here
@@ -211,6 +209,10 @@ public class SDLActivity extends Activity {
 		}
 		
 		Intent intent=getIntent();
+		String argv = intent.getStringExtra("argv");
+		if(argv == null) argv = mPref.getString(argv, "-dev 3 -log");
+		if(argv == null) argv = "-dev 3 -log";
+		mArgv= argv.split(" ");
 		String gamelibdir = intent.getStringExtra("gamelibdir");
 		if(gamelibdir == null)
 			gamelibdir = getFilesDir().getParentFile().getPath() + "/lib";
@@ -220,7 +222,41 @@ public class SDLActivity extends Activity {
 		String basedir = intent.getStringExtra("basedir");
 		if(basedir == null)
 			basedir = mPref.getString("basedir","/sdcard/xash/");
-		mControlsDir = basedir + "/" + gamedir + "/controls/";
+		try
+		{
+			int i = Arrays.asList(mArgv).indexOf("-game");
+			if(i != -1)
+				mControlsDir = basedir + "/" + mArgv[i+1] + "/controls/";
+		}
+		catch(Exception e)
+		{
+			mControlsDir = null;
+		}
+		if(mControlsDir == null)
+			mControlsDir = basedir + "/" + gamedir + "/controls/";
+		File d = new File(mControlsDir);
+		if(!d.exists())
+			mControlsDir = basedir + "/controls/";
+		d = new File(basedir+"/"+gamedir+"/");
+		if(!d.exists())
+		{
+			AlertDialog.Builder dlgAlert  = new AlertDialog.Builder(this);
+			dlgAlert.setMessage("Game path \""+basedir+"/"+gamedir+"/"+"\" not exist!\n"
+				+ "Please check mod name and game path in launcher or place game resourses to \""+basedir+"\".");
+			dlgAlert.setTitle("Xash Error");
+			dlgAlert.setPositiveButton("Exit",
+					new DialogInterface.OnClickListener() {
+				@Override
+				public void onClick(DialogInterface dialog,int id) {
+					// if this button is clicked, close current activity
+					SDLActivity.mSingleton.finish();
+				}
+			});
+			dlgAlert.setCancelable(false);
+			dlgAlert.create().show();
+
+			return;
+		}
 		setenv("XASH3D_BASEDIR", basedir, true);
 		setenv("XASH3D_ENGLIBDIR", getFilesDir().getParentFile().getPath() + "/lib", true);
 		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
@@ -996,7 +1032,7 @@ class SDLMain implements Runnable {
 			Settings.copyPNGAssets(SDLActivity.mSingleton, SDLActivity.mControlsDir, null);   
 		
 		}
-		SDLActivity.nativeInit(SDLActivity.mSingleton.getArguments()); 
+		SDLActivity.nativeInit(SDLActivity.mArgv); 
 		//Log.v("SDL", "SDL thread terminated");
 	}
 }
