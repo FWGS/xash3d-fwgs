@@ -1,0 +1,18 @@
+[submodule "jni/src/HLSDK/halflife"]
+	path = jni/src/HLSDK/halflife
+	url = https://github.com/SDLash3D/halflife
+[submodule "jni/src/MobileTouchControls/MobileTouchControls"]
+	path = jni/src/MobileTouchControls/MobileTouchControls
+	url = https://github.com/SDLash3D/MobileTouchControls
+[submodule "jni/src/NanoGL/nanogl"]
+	path = jni/src/NanoGL/nanogl
+	url = https://github.com/SDLash3D/nanogl
+[submodule "jni/src/SDL2/SDL-mirror"]
+	path = jni/src/SDL2/SDL-mirror
+	url = https://github.com/mittorn/SDL-mirror
+[submodule "jni/src/Xash3D/xash3d"]
+	path = jni/src/Xash3D/xash3d
+	url = https://github.com/SDLash3D/xash3d
+[submodule "jni/src/XashXT/XashXT"]
+	path = jni/src/XashXT/XashXT
+	url = https://github.com/SDLash3D/XashXT
