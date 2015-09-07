@@ -222,41 +222,10 @@ public class SDLActivity extends Activity {
 		String basedir = intent.getStringExtra("basedir");
 		if(basedir == null)
 			basedir = mPref.getString("basedir","/sdcard/xash/");
-		try
-		{
-			int i = Arrays.asList(mArgv).indexOf("-game");
-			if(i != -1)
-				mControlsDir = basedir + "/" + mArgv[i+1] + "/controls/";
-		}
-		catch(Exception e)
-		{
-			mControlsDir = null;
-		}
-		if(mControlsDir == null)
-			mControlsDir = basedir + "/" + gamedir + "/controls/";
+		mControlsDir = basedir + "/" + gamedir + "/controls/";
 		File d = new File(mControlsDir);
 		if(!d.exists())
-			mControlsDir = basedir + "/controls/";
-		d = new File(basedir+"/"+gamedir+"/");
-		if(!d.exists())
-		{
-			AlertDialog.Builder dlgAlert  = new AlertDialog.Builder(this);
-			dlgAlert.setMessage("Game path \""+basedir+"/"+gamedir+"/"+"\" not exist!\n"
-				+ "Please check mod name and game path in launcher or place game resourses to \""+basedir+"\".");
-			dlgAlert.setTitle("Xash Error");
-			dlgAlert.setPositiveButton("Exit",
-					new DialogInterface.OnClickListener() {
-				@Override
-				public void onClick(DialogInterface dialog,int id) {
-					// if this button is clicked, close current activity
-					SDLActivity.mSingleton.finish();
-				}
-			});
-			dlgAlert.setCancelable(false);
-			dlgAlert.create().show();
-
-			return;
-		}
+			mControlsDir = getFilesDir() + "/";
 		setenv("XASH3D_BASEDIR", basedir, true);
 		setenv("XASH3D_ENGLIBDIR", getFilesDir().getParentFile().getPath() + "/lib", true);
 		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
