@@ -51,6 +51,13 @@
 				android:text="@string/use_controls"
 				android:id="@+id/useControls"/>
 
+			<CheckBox
+				android:layout_height="wrap_content"
+				android:layout_width="wrap_content"
+				android:textAppearance="?android:attr/textAppearanceMedium"
+				android:text="@string/use_volume"
+				android:id="@+id/useVolume"/>
+
 			<Button
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content"

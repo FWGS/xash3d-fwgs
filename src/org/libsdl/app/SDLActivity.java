@@ -68,7 +68,7 @@ public class SDLActivity extends Activity {
 	private static final String TAG = "SDL";
 
 	// Keep track of the paused state
-	public static boolean mIsPaused, mIsSurfaceReady, mHasFocus, mUseControls;
+	public static boolean mIsPaused, mIsSurfaceReady, mHasFocus, mUseControls, mUseVolume;
 	public static boolean mExitCalledFromJava;
 
 	/** If shared libraries (e.g. SDL or the native application) could not be loaded. */
@@ -148,6 +148,7 @@ public class SDLActivity extends Activity {
 		mIsSurfaceReady = false;
 		mHasFocus = true;
 		mControlsDir = null;
+		mUseVolume = false;
 	}
 
 	// Setup
@@ -172,6 +173,7 @@ public class SDLActivity extends Activity {
 		mSingleton = this;
 		mPref = this.getSharedPreferences("engine", 0);
 		mUseControls = mPref.getBoolean("controls", false);
+		mUseVolume = mPref.getBoolean("usevolume", false);
 		// Load shared libraries
 		String errorMsgBrokenLib = "";
 		try {
@@ -210,7 +212,7 @@ public class SDLActivity extends Activity {
 		
 		Intent intent=getIntent();
 		String argv = intent.getStringExtra("argv");
-		if(argv == null) argv = mPref.getString(argv, "-dev 3 -log");
+		if(argv == null) argv = mPref.getString("argv", "-dev 3 -log");
 		if(argv == null) argv = "-dev 3 -log";
 		mArgv= argv.split(" ");
 		String gamelibdir = intent.getStringExtra("gamelibdir");
@@ -341,6 +343,9 @@ public class SDLActivity extends Activity {
 
 		int keyCode = event.getKeyCode();
 		// Ignore certain special keys so they're handled by Android
+		if ( mUseVolume && (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
+		keyCode == KeyEvent.KEYCODE_VOLUME_UP)
+		) return false;
 		return super.dispatchKeyEvent(event);
 	}
 

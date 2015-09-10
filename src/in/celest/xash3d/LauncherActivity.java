@@ -24,6 +24,7 @@ public class LauncherActivity extends Activity {
 	static TouchControlsSettings mSettings;
 	static EditText cmdArgs;
 	static CheckBox useControls;
+	static CheckBox useVolume;
 	static EditText resPath;
 	static SharedPreferences mPref;
     @Override
@@ -38,6 +39,8 @@ public class LauncherActivity extends Activity {
 		cmdArgs.setText(mPref.getString("argv","-dev 3 -log"));
 		useControls = ( CheckBox ) findViewById( R.id.useControls );
 		useControls.setChecked(mPref.getBoolean("controls",true));
+		useVolume = ( CheckBox ) findViewById( R.id.useVolume );
+		useVolume.setChecked(mPref.getBoolean("usevolume",true));
 		resPath = ( EditText ) findViewById( R.id.cmdPath );
 		resPath.setText(mPref.getString("basedir","/sdcard/xash/"));
 		}
@@ -50,6 +53,7 @@ public class LauncherActivity extends Activity {
 	SharedPreferences.Editor editor = mPref.edit();
 	editor.putString("argv", cmdArgs.getText().toString());
 	editor.putBoolean("controls",useControls.isChecked());
+	editor.putBoolean("usevolume",useVolume.isChecked());
 	editor.putString("basedir", resPath.getText().toString());
 	editor.commit();
 	editor.apply();

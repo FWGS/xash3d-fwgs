@@ -111,6 +111,8 @@ public class Settings {
 			prefix = "";
 
 		File d = new File(dir);
+		File f = new File(dir + "use.png");
+		if(f.exists()) return;
 		if (!d.exists())
 			d.mkdirs();
 
