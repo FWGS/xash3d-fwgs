@@ -3,7 +3,7 @@ android:
   components:
     - platform-tools
     - build-tools-21.1.1
-    - android-15
+    - android-13
     - extra-android-support
     
 jdk: oraclejdk7
@@ -18,7 +18,6 @@ before_install:
   - export PATH=`pwd`/android-ndk:`pwd`/android-sdk-linux/tools:`pwd`/android-sdk-linux/platform-tools:$PATH
   - git submodule init 
   - git submodule update
-  - sed -i -- s/android-8/android-15/g project.properties
 script:
   - sh gen-version.sh travis build
   - ndk-build NDK_TOOLCHAIN_VERSION=4.8 XASH_SDL=1 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w" APP_ABI="armeabi-v7a-hard"
