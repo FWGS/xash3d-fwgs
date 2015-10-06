@@ -4,8 +4,8 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="in.celest.xash3d.hl.test"
-      android:versionCode="0"
-      android:versionName="0.15pre"
+      android:versionCode="1"
+      android:versionName="0.16pre"
       android:installLocation="auto">
 
     <!-- Create a Java class extending SDLActivity and place it in a
@@ -41,7 +41,6 @@
 	<activity android:name="org.libsdl.app.SDLActivity"
 	   android:screenOrientation="sensorLandscape"
 	   android:configChanges="orientation|screenSize"
-		android:windowSoftInputMode="adjustResize"
 	   android:label="@string/app_name"
 		android:taskAffinity="org.libsdl.app.SDLActivity"
 	   >

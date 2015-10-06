@@ -111,10 +111,10 @@ public class Settings {
 			prefix = "";
 
 		File d = new File(dir);
+		File f = new File(dir + "use.png");
+		if(f.exists()) return;
 		if (!d.exists())
 			d.mkdirs();
-		else
-			return; // Note: if you move it back to <datadir>/files, disable this as it may exist
 
 		AssetManager assetManager = ctx.getAssets();
 		String[] files = null;
