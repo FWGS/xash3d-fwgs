@@ -68,7 +68,7 @@ public class SDLActivity extends Activity {
 	private static final String TAG = "SDL";
 
 	// Keep track of the paused state
-	public static boolean mIsPaused, mIsSurfaceReady, mHasFocus, mUseControls;
+	public static boolean mIsPaused, mIsSurfaceReady, mHasFocus, mUseControls, mUseVolume;
 	public static boolean mExitCalledFromJava;
 
 	/** If shared libraries (e.g. SDL or the native application) could not be loaded. */
@@ -148,6 +148,7 @@ public class SDLActivity extends Activity {
 		mIsSurfaceReady = false;
 		mHasFocus = true;
 		mControlsDir = null;
+		mUseVolume = false;
 	}
 
 	// Setup
@@ -160,8 +161,10 @@ public class SDLActivity extends Activity {
   
 		// fullscreen   
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
-		getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-				WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		if(Build.VERSION.SDK_INT >= 12) {
+			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+					WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		}
 
 		// keep screen on 
 		getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
@@ -172,6 +175,7 @@ public class SDLActivity extends Activity {
 		mSingleton = this;
 		mPref = this.getSharedPreferences("engine", 0);
 		mUseControls = mPref.getBoolean("controls", false);
+		mUseVolume = mPref.getBoolean("usevolume", false);
 		// Load shared libraries
 		String errorMsgBrokenLib = "";
 		try {
@@ -210,7 +214,7 @@ public class SDLActivity extends Activity {
 		
 		Intent intent=getIntent();
 		String argv = intent.getStringExtra("argv");
-		if(argv == null) argv = mPref.getString(argv, "-dev 3 -log");
+		if(argv == null) argv = mPref.getString("argv", "-dev 3 -log");
 		if(argv == null) argv = "-dev 3 -log";
 		mArgv= argv.split(" ");
 		String gamelibdir = intent.getStringExtra("gamelibdir");
@@ -222,41 +226,10 @@ public class SDLActivity extends Activity {
 		String basedir = intent.getStringExtra("basedir");
 		if(basedir == null)
 			basedir = mPref.getString("basedir","/sdcard/xash/");
-		try
-		{
-			int i = Arrays.asList(mArgv).indexOf("-game");
-			if(i != -1)
-				mControlsDir = basedir + "/" + mArgv[i+1] + "/controls/";
-		}
-		catch(Exception e)
-		{
-			mControlsDir = null;
-		}
-		if(mControlsDir == null)
-			mControlsDir = basedir + "/" + gamedir + "/controls/";
+		mControlsDir = basedir + "/" + gamedir + "/controls/";
 		File d = new File(mControlsDir);
 		if(!d.exists())
-			mControlsDir = basedir + "/controls/";
-		d = new File(basedir+"/"+gamedir+"/");
-		if(!d.exists())
-		{
-			AlertDialog.Builder dlgAlert  = new AlertDialog.Builder(this);
-			dlgAlert.setMessage("Game path \""+basedir+"/"+gamedir+"/"+"\" not exist!\n"
-				+ "Please check mod name and game path in launcher or place game resourses to \""+basedir+"\".");
-			dlgAlert.setTitle("Xash Error");
-			dlgAlert.setPositiveButton("Exit",
-					new DialogInterface.OnClickListener() {
-				@Override
-				public void onClick(DialogInterface dialog,int id) {
-					// if this button is clicked, close current activity
-					SDLActivity.mSingleton.finish();
-				}
-			});
-			dlgAlert.setCancelable(false);
-			dlgAlert.create().show();
-
-			return;
-		}
+			mControlsDir = getFilesDir() + "/";
 		setenv("XASH3D_BASEDIR", basedir, true);
 		setenv("XASH3D_ENGLIBDIR", getFilesDir().getParentFile().getPath() + "/lib", true);
 		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
@@ -372,6 +345,9 @@ public class SDLActivity extends Activity {
 
 		int keyCode = event.getKeyCode();
 		// Ignore certain special keys so they're handled by Android
+		if ( mUseVolume && (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
+		keyCode == KeyEvent.KEYCODE_VOLUME_UP)
+		) return false;
 		return super.dispatchKeyEvent(event);
 	}
 

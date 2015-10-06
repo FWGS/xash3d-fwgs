@@ -15,6 +15,7 @@
     <string name="action_settings">Settings</string>
     <string name="cmd_args_text">Command line arguments(experts only)</string>
 	<string name="use_controls">Enable touch controls</string>
+	<string name="use_volume">Use volume keys</string>
 	<string name="text_res_path">Path to game resources</string>
 	<string name="touch_set">Controls settings</string>
 	<string name="text_shortcut">Xash3D shortcut</string>
@@ -26,7 +27,7 @@
 <!-- TODO: Remove or change this placeholder text -->
     <string name="about_main" translatable="false">Xash3D Android</string>
     <string name="about_copyright">SDLash3D is not affiliated with Valve or any of their partners. All copyrights reserved to their respective owners.</string>
-    <string name="version_string" translatable="false">v0.15</string>
+    <string name="version_string" translatable="false">v0.16</string>
     <string name="about_authors">Port to Android by SDLash3D team: \n
 &#8226; a1batross\n
 &#8226; mittorn \n
