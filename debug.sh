@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ndk-build NDK_TOOLCHAIN_VERSION=4.8 NDK_DEBUG=1 SUPPORT_WEBP=false V=1 -j3 APP_CFLAGS="-gdwarf-3"
+ndk-build NDK_TOOLCHAIN_VERSION=4.8 NDK_DEBUG=1 SUPPORT_WEBP=false V=1 -j3 APP_CFLAGS="-gdwarf-3" XASH_SDL=1
 sh gen-version.sh default-debug
 ant debug
 #jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore ../myks.keystore bin/xashdroid-release-unsigned.apk xashdroid -storepass 529459
