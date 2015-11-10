@@ -3,6 +3,7 @@ package in.celest.xash3d;
 import android.app.Activity;
 import android.app.Dialog;
 import android.os.Bundle;
+import android.os.Build;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -10,11 +11,18 @@ import android.content.Intent;
 import android.widget.EditText;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
+import android.widget.Button;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.SharedPreferences;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnDismissListener;
+import android.net.Uri;
+import android.os.Environment;
+import java.lang.reflect.Method;
+import java.util.List;
+import java.io.File;
 
 import in.celest.xash3d.hl.R;
 import com.beloko.touchcontrols.TouchControlsSettings;
@@ -27,10 +35,20 @@ public class LauncherActivity extends Activity {
 	static CheckBox useVolume;
 	static EditText resPath;
 	static SharedPreferences mPref;
+	String getDefaultPath()
+	{
+		File dir = Environment.getExternalStorageDirectory();
+		if( dir != null && dir.exists() )
+			return dir.getPath() + "/xash";
+		return "/sdcard/xash";
+	}
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launcher);
+        Button selectFolder = ( Button ) findViewById( R.id.button_select );
+		if ( Build.VERSION.SDK_INT < 21 )
+			selectFolder.setVisibility( View.GONE );
 		mSettings=new TouchControlsSettings();
 		mSettings.setup(this, null);
 		mSettings.loadSettings(this);
@@ -42,8 +60,8 @@ public class LauncherActivity extends Activity {
 		useVolume = ( CheckBox ) findViewById( R.id.useVolume );
 		useVolume.setChecked(mPref.getBoolean("usevolume",true));
 		resPath = ( EditText ) findViewById( R.id.cmdPath );
-		resPath.setText(mPref.getString("basedir","/sdcard/xash/"));
-		}
+		resPath.setText(mPref.getString("basedir", getDefaultPath()));
+	}
     
     public void startXash(View view)
     {
@@ -79,7 +97,33 @@ public class LauncherActivity extends Activity {
 			}
 		});
 	}
-	
+
+	public void selectFolder(View view)
+	{
+		Intent intent = new Intent("android.intent.action.OPEN_DOCUMENT_TREE");
+		startActivityForResult(intent, 42);
+		resPath.setEnabled(false);
+	}
+
+	public void onActivityResult(int requestCode, int resultCode, Intent resultData) {
+		if (resultCode == RESULT_OK) {
+try{
+			final List<String> paths = resultData.getData().getPathSegments();
+			String[] parts = paths.get(1).split(":");
+			String storagepath = Environment.getExternalStorageDirectory().getPath() + "/";
+			String path = storagepath + parts[1];
+			if( path != null)
+				resPath.setText( path );
+			resPath.setEnabled(true);
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+		}
+		resPath.setEnabled(true);
+	}
+
 	public void createShortcut(View view)
 	{
 		Intent intent = new Intent(this, ShortcutActivity.class);

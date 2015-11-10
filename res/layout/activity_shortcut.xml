@@ -18,7 +18,7 @@
 		android:id="@+id/shortcut_buttonOk"
 		android:layout_alignParentRight="true"
 		android:onClick="saveShortcut"
-		android:layout_below="@+id/shortcut_gamedir"/>
+		android:layout_below="@+id/shortcut_pkgname"/>
 
 	<EditText
 		android:layout_height="wrap_content"
@@ -66,6 +66,23 @@
 		android:text="@string/gamedir"
 		android:id="@+id/shortcut_gamedir_text"
 		android:layout_below="@+id/shortcut_cmdArgs"
+		android:layout_alignParentRight="true"/>
+
+
+	<EditText
+		android:layout_width="fill_parent"
+		android:layout_height="wrap_content"
+		android:id="@+id/shortcut_pkgname"
+		android:layout_below="@+id/shortcut_pkgname_text"
+		android:layout_alignParentRight="true"/>
+
+	<TextView
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:textAppearance="?android:attr/textAppearanceMedium"
+		android:text="@string/pkgname"
+		android:id="@+id/shortcut_pkgname_text"
+		android:layout_below="@+id/shortcut_gamedir"
 		android:layout_alignParentRight="true"/>
 
 </RelativeLayout>

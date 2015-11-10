@@ -31,14 +31,17 @@ public class ShortcutActivity extends Activity
 		EditText argv = (EditText)findViewById(R.id.shortcut_cmdArgs);
 		if(argv.length() != 0) intent.putExtra("argv",argv.getText().toString());
 		EditText gamedir = (EditText)findViewById(R.id.shortcut_gamedir);
+		EditText pkgname = (EditText)findViewById(R.id.shortcut_pkgname);
+		if(pkgname.length() != 0) intent.putExtra("gamelibdir", "/data/data/"+pkgname.getText().toString().replace("!","in.celest.xash3d.")+"/lib/");
 		if(gamedir.length() != 0) intent.putExtra("gamedir",gamedir.getText().toString());
 		Intent wrapIntent = new Intent();
 		wrapIntent.putExtra(Intent.EXTRA_SHORTCUT_INTENT, intent);
 		wrapIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, name.getText().toString());
+		
 		Bitmap icon = null;
 		// Try find icon
 		int size = (int) getResources().getDimension(android.R.dimen.app_icon_size);
-		String gamedirstring = getSharedPreferences("engine", 0).getString("basedir","/sdcard/xash/")+(gamedir.length()!=0?gamedir.getText().toString():"valve");
+		String gamedirstring = getSharedPreferences("engine", 0).getString("basedir","/sdcard/xash/")+"/"+(gamedir.length()!=0?gamedir.getText().toString():"valve");
 		try
 		{
 			icon = Bitmap.createScaledBitmap(BitmapFactory.decodeFile(gamedirstring+"/icon.png"), size, size, false);

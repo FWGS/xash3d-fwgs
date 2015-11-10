@@ -22,6 +22,7 @@
 	<string name="text_shortcut_test">Xash3D_test shortcut</string>
 	<string name="shortcut_button_save">Save shortcut</string>
 	<string name="gamedir">Mod directory</string>
+	<string name="pkgname">Mod package name (experts only)</string>
 	<string name="shortcut_name">Shortcut name</string>
 
 <!-- TODO: Remove or change this placeholder text -->
@@ -40,4 +41,5 @@ Special thanks to:\n
 &#8226; libSDL2 developers.\n</string>
     <string name="about_button">About Xash3D Android</string>
     <string name="create_shortcut_button">Create mod shortcut</string>
+    <string name="select_folder">(select)</string>
 </resources>

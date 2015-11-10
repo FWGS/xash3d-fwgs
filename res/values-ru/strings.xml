@@ -9,6 +9,7 @@
 	<string name="text_shortcut">Ярлык Xash3D</string>
 	<string name="shortcut_button_save">Сохранить ярлык</string>
 	<string name="gamedir">Каталог мода</string>
+	<string name="pkgname">Пакет мода (только для экспертов)</string>
 	<string name="shortcut_name">Название ярлыка</string>
 	<string name="about_authors">Порт на Android осуществлен командой SDLash3D:\n
 &#8226; a1batross\n
