@@ -32,6 +32,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.Vibrator;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.Display;
@@ -77,6 +78,8 @@ public class SDLActivity extends Activity {
 	// If we want to separate mouse and touch events.
 	//  This is only toggled in native code when a hint is set!
 	public static boolean mSeparateMouseAndTouch;
+	
+	private static Vibrator mVibrator;
 
 	// Main components
 	protected static SDLActivity mSingleton;
@@ -136,6 +139,7 @@ public class SDLActivity extends Activity {
 		// The static nature of the singleton and Android quirkyness force us to initialize everything here
 		// Otherwise, when exiting the app and returning to it, these variables *keep* their pre exit values
 		mSingleton = null;
+		mVibrator = null;
 		mSurface = null;
 		mTextEdit = null;
 		mLayout = null;
@@ -174,7 +178,7 @@ public class SDLActivity extends Activity {
 		// So we can call stuff from static callbacks
 		mSingleton = this;
 		mPref = this.getSharedPreferences("engine", 0);
-		mUseControls = mPref.getBoolean("controls", false);
+		mUseControls = mPref.getBoolean("controls", true);
 		mUseVolume = mPref.getBoolean("usevolume", false);
 		// Load shared libraries
 		String errorMsgBrokenLib = "";
@@ -261,6 +265,8 @@ public class SDLActivity extends Activity {
 			return;
 		}
 
+		mVibrator.cancel();
+		
 		SDLActivity.handlePause();
 	}
 
@@ -308,6 +314,8 @@ public class SDLActivity extends Activity {
 	protected void onDestroy() {
 		Log.v("SDL", "onDestroy()");
 
+		mVibrator.cancel();
+		
 		if (SDLActivity.mBrokenLibraries) {
 			super.onDestroy();
 			// Reset everything in case the user re opens the app
@@ -499,7 +507,16 @@ public class SDLActivity extends Activity {
 	public static void flipBuffers() {
 		SDLActivity.nativeFlipBuffers();
 	}
-
+	
+	/**
+         * This method is called by Xash3D engine using JNI
+         */
+        public void vibrate( short time ) {
+                mVibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+ 
+                mVibrator.vibrate( time );
+        }
+         
 	/**
 	 * This method is called by SDL using JNI.
 	 */
