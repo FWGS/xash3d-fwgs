@@ -265,7 +265,7 @@ public class SDLActivity extends Activity {
 			return;
 		}
 
-		mVibrator.cancel();
+		if( mVibrator != null ) mVibrator.cancel();
 		
 		SDLActivity.handlePause();
 	}
@@ -314,7 +314,7 @@ public class SDLActivity extends Activity {
 	protected void onDestroy() {
 		Log.v("SDL", "onDestroy()");
 
-		mVibrator.cancel();
+		if( mVibrator != null ) mVibrator.cancel();
 		
 		if (SDLActivity.mBrokenLibraries) {
 			super.onDestroy();
