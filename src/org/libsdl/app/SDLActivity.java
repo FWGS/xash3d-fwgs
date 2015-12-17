@@ -9,6 +9,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -234,6 +236,7 @@ public class SDLActivity extends Activity {
 		setenv("XASH3D_ENGLIBDIR", getFilesDir().getParentFile().getPath() + "/lib", true);
 		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
 		setenv("XASH3D_GAMEDIR", gamedir, true);
+		extractPAK();
 
 		// Set up the surface
 		mSurface = new SDLSurface(getApplication());
@@ -980,6 +983,24 @@ public class SDLActivity extends Activity {
 		});
 
 							return dialog;
+	}
+	private void extractPAK() {
+		InputStream is = null;
+		FileOutputStream os = null;
+		try {
+			is = getAssets().open("pak.pak");
+			os = new FileOutputStream(getFilesDir().getPath()+"/pak.pak");
+			byte[] buffer = new byte[1024];
+			int length;
+			while ((length = is.read(buffer)) > 0) {
+				os.write(buffer, 0, length);
+			}
+			os.close();
+			is.close();
+		} catch( Exception e )
+		{
+			Log.e( TAG, "Failed to extract PAK:" + e.toString() );
+		}
 	}
 }
 
