@@ -12,4 +12,8 @@ jni/src/MobileTouchControls/MobileTouchControls
 
 local.properties
 
+*.apk
+
+assets/extras.pak
+
 res/values/git-rev.xml

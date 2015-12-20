@@ -988,6 +988,10 @@ public class SDLActivity extends Activity {
 			}
 			os.close();
 			is.close();
+			SharedPreferences.Editor editor = mPref.edit();
+			editor.putInt( "pakversion", PAK_VERSION );
+			editor.commit();
+			editor.apply();
 		} catch( Exception e )
 		{
 			Log.e( TAG, "Failed to extract PAK:" + e.toString() );
