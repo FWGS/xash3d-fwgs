@@ -37,6 +37,10 @@
 				<action android:name="android.intent.action.CREATE_SHORTCUT" />
 				<category android:name="android.intent.category.DEFAULT" />
 			</intent-filter>
+			<intent-filter>
+				<action android:name="in.celest.xash3d.SHORTCUT" />
+				<category android:name="android.intent.category.DEFAULT" />
+			</intent-filter>
 		</activity>
 	<activity android:name="org.libsdl.app.SDLActivity"
 	   android:screenOrientation="sensorLandscape"
@@ -50,11 +54,6 @@
 			<action android:name="android.intent.action.MAIN" />
 			<category android:name="android.intent.category.LAUNCHER" />
 		</intent-filter>-->
-		<intent-filter>
-			<action android:name="android.intent.action.VIEW"/>
-			<category android:name="android.intent.category.DEFAULT" />
-			<data android:mimeType="xash3d.android/game"/>
-		</intent-filter>
 		<intent-filter>
 			<action android:name="in.celest.xash3d.START" />
 			<category android:name="android.intent.category.DEFAULT" />

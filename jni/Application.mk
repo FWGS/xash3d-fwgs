@@ -1,7 +1,7 @@
 
 # Uncomment this if you're using STL in your project
 # See CPLUSPLUS-SUPPORT.html in the NDK documentation for more information
-APP_STL := stlport_static 
+#APP_STL := stlport_static 
 
 XASH_SDL ?= 1
 
@@ -18,16 +18,6 @@ CFLAGS_OPT_ARMv5 :=-march=armv6 -mfpu=vfp -marm -pipe
 CFLAGS_OPT_X86 := -mtune=atom -march=atom -mssse3 -mfpmath=sse -funroll-loops -pipe -DVECTORIZE_SINCOS
 CFLAGS_HARDFP := -D_NDK_MATH_NO_SOFTFP=1 -mhard-float -mfloat-abi=hard -DLOAD_HARDFP -DSOFTFP_LINK
 APPLICATIONMK_PATH = $(call my-dir)
-
-ifeq ($(EMILE),1)
-SDL_PATH    := $(APPLICATIONMK_PATH)/src/SDL-mirror
-else
-SDL_PATH    := $(APPLICATIONMK_PATH)/src/SDL2
-endif
-
-
-TOUCHCONTROLS_PATH := $(APPLICATIONMK_PATH)/src/MobileTouchControls
-
 
 NANOGL_PATH := $(APPLICATIONMK_PATH)/src/NanoGL/nanogl
 

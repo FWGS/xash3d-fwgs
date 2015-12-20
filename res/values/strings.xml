@@ -4,15 +4,8 @@
     <string name="app_name" translatable="false">Xash3D</string>
 	<string name="launcher_name" translatable="false">Xash3D</string>
 	<string name="launcher_name_test" translatable="false">Xash3D (test)</string>
-    <string-array name="double_tap_actions">
-        <item>None</item>
-        <item>Shoot</item>
-        <item>Jump</item>
-        <item>Use</item>
-    </string-array>
 
     <string name="launch_button">Launch Xash3D!</string>
-    <string name="action_settings">Settings</string>
     <string name="cmd_args_text">Command line arguments(experts only)</string>
 	<string name="use_controls">Enable touch controls</string>
 	<string name="use_volume">Use volume keys</string>

@@ -25,13 +25,10 @@ import java.util.List;
 import java.io.File;
 
 import in.celest.xash3d.hl.R;
-import com.beloko.touchcontrols.TouchControlsSettings;
 
 public class LauncherActivity extends Activity {
    // public final static String ARGV = "in.celest.xash3d.MESSAGE";
-	static TouchControlsSettings mSettings;
 	static EditText cmdArgs;
-	static CheckBox useControls;
 	static CheckBox useVolume;
 	static EditText resPath;
 	static SharedPreferences mPref;
@@ -49,14 +46,9 @@ public class LauncherActivity extends Activity {
         Button selectFolder = ( Button ) findViewById( R.id.button_select );
 		if ( Build.VERSION.SDK_INT < 21 )
 			selectFolder.setVisibility( View.GONE );
-		mSettings=new TouchControlsSettings();
-		mSettings.setup(this, null);
-		mSettings.loadSettings(this);
 		mPref = getSharedPreferences("engine", 0);
 		cmdArgs = (EditText)findViewById(R.id.cmdArgs);
 		cmdArgs.setText(mPref.getString("argv","-dev 3 -log"));
-		useControls = ( CheckBox ) findViewById( R.id.useControls );
-		useControls.setChecked(mPref.getBoolean("controls",true));
 		useVolume = ( CheckBox ) findViewById( R.id.useVolume );
 		useVolume.setChecked(mPref.getBoolean("usevolume",true));
 		resPath = ( EditText ) findViewById( R.id.cmdPath );
@@ -70,18 +62,12 @@ public class LauncherActivity extends Activity {
 
 	SharedPreferences.Editor editor = mPref.edit();
 	editor.putString("argv", cmdArgs.getText().toString());
-	editor.putBoolean("controls",useControls.isChecked());
 	editor.putBoolean("usevolume",useVolume.isChecked());
 	editor.putString("basedir", resPath.getText().toString());
 	editor.commit();
 	editor.apply();
 	startActivity(intent);
     }
-	public void controlsSettings(View view)
-	{
-		mSettings.loadSettings(this);
-		mSettings.showSettings();
-	}
 
 	public void aboutXash(View view)
 	{
