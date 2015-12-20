@@ -31,13 +31,13 @@ public class ShortcutActivity extends Activity
 			argv.setText(argvs);
 		String pkgnames = intent.getStringExtra("pkgname");
 		if( pkgnames != null )
-			argv.setText(pkgnames);
+			pkgname.setText(pkgnames);
 		String gamedirs = intent.getStringExtra("gamedir");
 		if( gamedirs != null )
-			argv.setText(gamedirs);
+			gamedir.setText(gamedirs);
 		String names = intent.getStringExtra("name");
 		if( names != null )
-			argv.setText(names);
+			name.setText(names);
 		
 		//name.setText("Name");
 	}
