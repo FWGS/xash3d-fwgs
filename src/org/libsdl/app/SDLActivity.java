@@ -91,7 +91,7 @@ public class SDLActivity extends Activity {
 	protected static AudioTrack mAudioTrack;
 
 	// Preferences
-	public static SharedPreferences mPref;
+	public static SharedPreferences mPref = null;
 	
 	// Arguments
 	public static String[] mArgv;
@@ -222,11 +222,24 @@ public class SDLActivity extends Activity {
 		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
 		setenv("XASH3D_GAMEDIR", gamedir, true);
 		
-		extractPAK();
+		extractPAK(this, false);
 		setenv("XASH3D_EXTRAS_PAK1", getFilesDir().getPath() + "/extras.pak", true);
 		String pakfile = intent.getStringExtra("pakfile");
 		if( pakfile != null && pakfile != "" )
 			setenv("XASH3D_EXTRAS_PAK2", pakfile, true);
+		String[] env = intent.getStringArrayExtra("env");
+		try
+		{
+			if( env != null )
+			for(int i = 0; i+1 < env.length; i+=2)
+			{
+				setenv(env[i],env[i+1], true);
+			}
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
 		// Set up the surface
 		mSurface = new SDLSurface(getApplication());
 
@@ -973,7 +986,7 @@ public class SDLActivity extends Activity {
 
 							return dialog;
 	}
-	private void extractPAK() {
+	/*private void extractPAK() {
 		InputStream is = null;
 		FileOutputStream os = null;
 		if( mPref.getInt( "pakversion", 0 ) == PAK_VERSION )
@@ -981,6 +994,34 @@ public class SDLActivity extends Activity {
 		try {
 			is = getAssets().open("extras.pak");
 			os = new FileOutputStream(getFilesDir().getPath()+"/extras.pak");
+			byte[] buffer = new byte[1024];
+			int length;
+			while ((length = is.read(buffer)) > 0) {
+				os.write(buffer, 0, length);
+			}
+			os.close();
+			is.close();
+			SharedPreferences.Editor editor = mPref.edit();
+			editor.putInt( "pakversion", PAK_VERSION );
+			editor.commit();
+			editor.apply();
+		} catch( Exception e )
+		{
+			Log.e( TAG, "Failed to extract PAK:" + e.toString() );
+		}
+	}*/
+	public static void extractPAK(Context context, Boolean force) {
+		InputStream is = null;
+		FileOutputStream os = null;
+		try {
+		if( mPref == null )
+			mPref = context.getSharedPreferences("engine", 0);
+		if( mPref.getInt( "pakversion", 0 ) == PAK_VERSION && !force )
+			return;
+			String path = context.getFilesDir().getPath()+"/extras.pak";
+		
+			is = context.getAssets().open("extras.pak");
+			os = new FileOutputStream(path);
 			byte[] buffer = new byte[1024];
 			int length;
 			while ((length = is.read(buffer)) > 0) {

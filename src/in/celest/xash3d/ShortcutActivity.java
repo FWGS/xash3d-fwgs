@@ -16,6 +16,7 @@ import android.os.*;
 public class ShortcutActivity extends Activity
 {
 	static EditText name, gamedir, pkgname, argv;
+	String [] env = null;
 	@Override
 	protected void onCreate(Bundle bundle)
 	{
@@ -38,6 +39,7 @@ public class ShortcutActivity extends Activity
 		String names = intent.getStringExtra("name");
 		if( names != null )
 			name.setText(names);
+		env = intent.getStringArrayExtra("env");
 		
 		//name.setText("Name");
 	}
@@ -52,6 +54,8 @@ public class ShortcutActivity extends Activity
 			intent.putExtra("pakfile", "/data/data/"+pkgname.getText().toString().replace("!","in.celest.xash3d.")+"/files/extras.pak");
 		}
 		if(gamedir.length() != 0) intent.putExtra("gamedir",gamedir.getText().toString());
+		if(env != null)
+			 intent.putExtra("env", env);
 		Intent wrapIntent = new Intent();
 		wrapIntent.putExtra(Intent.EXTRA_SHORTCUT_INTENT, intent);
 		wrapIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, name.getText().toString());
