@@ -24,6 +24,16 @@
             android:id="@+id/textView"
             android:layout_gravity="center_horizontal" />
 
+	<TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="https://sdlash3d.github.io"
+            android:id="@+id/textView9"
+            android:autoText="false"
+            android:autoLink="web"
+	    android:layout_gravity="center_horizontal" />
+	
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -32,6 +42,15 @@
             android:id="@+id/textView3"
             android:layout_gravity="center_horizontal" />
 
+	<TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/about_links"
+            android:id="@+id/textView6"
+            android:autoText="false"
+            android:autoLink="web" />
+	
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -62,23 +81,6 @@
             android:singleLine="false"
             
             />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceMedium"
-            android:text="GitHub: https://github.com/SDLash3D"
-            android:id="@+id/textView5"
-            android:autoText="false"
-            android:autoLink="web" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceMedium"
-            android:text="VK: https://vk.com/xashdroid"
-            android:id="@+id/textView6"
-            android:autoLink="web" />
 
         <TextView
             android:layout_width="wrap_content"
