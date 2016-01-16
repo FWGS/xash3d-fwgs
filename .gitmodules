@@ -1,9 +1,6 @@
 [submodule "jni/src/HLSDK/halflife"]
 	path = jni/src/HLSDK/halflife
 	url = https://github.com/SDLash3D/halflife
-[submodule "jni/src/MobileTouchControls/MobileTouchControls"]
-	path = jni/src/MobileTouchControls/MobileTouchControls
-	url = https://github.com/SDLash3D/MobileTouchControls
 [submodule "jni/src/NanoGL/nanogl"]
 	path = jni/src/NanoGL/nanogl
 	url = https://github.com/SDLash3D/nanogl
