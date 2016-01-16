@@ -49,12 +49,6 @@
 				android:text="@string/select_folder"
 				android:id="@+id/button_select"
 				android:onClick="selectFolder" />
-			<CheckBox
-				android:layout_height="wrap_content"
-				android:layout_width="wrap_content"
-				android:textAppearance="?android:attr/textAppearanceMedium"
-				android:text="@string/use_controls"
-				android:id="@+id/useControls"/>
 
 			<CheckBox
 				android:layout_height="wrap_content"
@@ -62,13 +56,6 @@
 				android:textAppearance="?android:attr/textAppearanceMedium"
 				android:text="@string/use_volume"
 				android:id="@+id/useVolume"/>
-
-			<Button
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:text="@string/touch_set"
-				android:id="@+id/touch_set"
-				android:onClick="controlsSettings" />
 
 			<Button
 				android:layout_width="wrap_content"

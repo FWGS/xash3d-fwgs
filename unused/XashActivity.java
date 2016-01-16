@@ -20,11 +20,6 @@ import android.content.*;
 
 import java.lang.*;
 
-import com.beloko.games.hl.NativeLib;
-import com.beloko.touchcontrols.ControlInterpreter;
-import com.beloko.touchcontrols.Settings;
-import com.beloko.touchcontrols.TouchControlsSettings;
-
 /**
  SDL Activity
  */
@@ -38,11 +33,8 @@ public class XashActivity extends Activity {
     // Audio
     private static Thread mAudioThread;
     private static AudioTrack mAudioTrack;
-
-	public static ControlInterpreter controlInterp;
     // Load the .so
     static {
-		System.loadLibrary("touchcontrols");
         System.loadLibrary("xash");
     }
 
@@ -353,17 +345,7 @@ View.OnKeyListener, View.OnTouchListener  {
         XashActivity.onNativeResize(width, height);
         // Now start up the C app thread
         if (mEngThread == null) {
-			NativeLib engine = new NativeLib();
-			engine.initTouchControls_if(XashActivity.mSingleton.getFilesDir().toString() + "/",
-				width, height);
-			XashActivity.controlInterp = new ControlInterpreter(engine,Settings.IDGame.Doom,Settings.gamePadControlsFile,Settings.gamePadEnabled);
-			XashActivity.controlInterp.setScreenSize(width, height);
 			
-			TouchControlsSettings.setup(XashActivity.mSingleton, engine);
-			TouchControlsSettings.loadSettings(XashActivity.mSingleton);
-			TouchControlsSettings.sendToQuake();
-
-			Settings.copyPNGAssets(XashActivity.mSingleton,XashActivity.mSingleton.getFilesDir().toString() + "/",null); 
             mEngThread = new Thread(new XashMain(), "EngineThread"); 
             mEngThread.start();       
         }
@@ -464,12 +446,12 @@ View.OnKeyListener, View.OnTouchListener  {
 
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             //Log.v("SDL", "key down: " + keyCode);
-            XashActivity.controlInterp.onKeyDown(keyCode, event);
+            //XashActivity.controlInterp.onKeyDown(keyCode, event);
             return true;
         }
         else if (event.getAction() == KeyEvent.ACTION_UP) {
             //Log.v("SDL", "key up: " + keyCode);
-            XashActivity.controlInterp.onKeyUp(keyCode, event);
+           // XashActivity.controlInterp.onKeyUp(keyCode, event);
             return true;
         }
         return false;
@@ -503,7 +485,7 @@ View.OnKeyListener, View.OnTouchListener  {
                 XashActivity.onNativeTouch(touchDevId, pointerFingerId, action, x, y, p);
 			}
         }*/
-        XashActivity.controlInterp.onTouchEvent(event);
+        //XashActivity.controlInterp.onTouchEvent(event);
 		return true;
 	} 
 

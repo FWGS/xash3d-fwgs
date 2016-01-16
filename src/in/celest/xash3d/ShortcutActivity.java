@@ -15,25 +15,47 @@ import android.os.*;
 
 public class ShortcutActivity extends Activity
 {
-	static EditText name;
+	static EditText name, gamedir, pkgname, argv;
+	String [] env = null;
 	@Override
 	protected void onCreate(Bundle bundle)
 	{
 		super.onCreate(bundle);
 		setContentView(R.layout.activity_shortcut);
-		name=(EditText)findViewById(R.id.shortcut_name);
+		Intent intent=getIntent();
+		name = (EditText)findViewById(R.id.shortcut_name);
+		pkgname = (EditText)findViewById(R.id.shortcut_pkgname);
+		gamedir = (EditText)findViewById(R.id.shortcut_gamedir);
+		argv = (EditText)findViewById(R.id.shortcut_cmdArgs);
+		String argvs = intent.getStringExtra("argv");
+		if( argvs != null )
+			argv.setText(argvs);
+		String pkgnames = intent.getStringExtra("pkgname");
+		if( pkgnames != null )
+			pkgname.setText(pkgnames);
+		String gamedirs = intent.getStringExtra("gamedir");
+		if( gamedirs != null )
+			gamedir.setText(gamedirs);
+		String names = intent.getStringExtra("name");
+		if( names != null )
+			name.setText(names);
+		env = intent.getStringArrayExtra("env");
+		
 		//name.setText("Name");
 	}
 	public void saveShortcut(View view)
 	{
 		Intent intent = new Intent();
 		intent.setAction("in.celest.xash3d.START");
-		EditText argv = (EditText)findViewById(R.id.shortcut_cmdArgs);
 		if(argv.length() != 0) intent.putExtra("argv",argv.getText().toString());
-		EditText gamedir = (EditText)findViewById(R.id.shortcut_gamedir);
-		EditText pkgname = (EditText)findViewById(R.id.shortcut_pkgname);
-		if(pkgname.length() != 0) intent.putExtra("gamelibdir", "/data/data/"+pkgname.getText().toString().replace("!","in.celest.xash3d.")+"/lib/");
+		if(pkgname.length() != 0)
+		{
+			intent.putExtra("gamelibdir", "/data/data/"+pkgname.getText().toString().replace("!","in.celest.xash3d.")+"/lib/");
+			intent.putExtra("pakfile", "/data/data/"+pkgname.getText().toString().replace("!","in.celest.xash3d.")+"/files/extras.pak");
+		}
 		if(gamedir.length() != 0) intent.putExtra("gamedir",gamedir.getText().toString());
+		if(env != null)
+			 intent.putExtra("env", env);
 		Intent wrapIntent = new Intent();
 		wrapIntent.putExtra(Intent.EXTRA_SHORTCUT_INTENT, intent);
 		wrapIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, name.getText().toString());

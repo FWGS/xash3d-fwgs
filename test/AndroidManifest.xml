@@ -5,7 +5,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="in.celest.xash3d.hl.test"
       android:versionCode="1"
-      android:versionName="0.16pre"
+      android:versionName="0.17test"
       android:installLocation="auto">
 
     <!-- Create a Java class extending SDLActivity and place it in a
@@ -37,6 +37,10 @@
 				<action android:name="android.intent.action.CREATE_SHORTCUT" />
 				<category android:name="android.intent.category.DEFAULT" />
 			</intent-filter>
+			<intent-filter>
+				<action android:name="in.celest.xash3d.SHORTCUT" />
+				<category android:name="android.intent.category.DEFAULT" />
+			</intent-filter>
 		</activity>
 	<activity android:name="org.libsdl.app.SDLActivity"
 	   android:screenOrientation="sensorLandscape"
@@ -51,11 +55,6 @@
 			<category android:name="android.intent.category.LAUNCHER" />
 		</intent-filter>-->
 		<intent-filter>
-			<action android:name="android.intent.action.VIEW"/>
-			<category android:name="android.intent.category.DEFAULT" />
-			<data android:mimeType="xash3d.android/game"/>
-		</intent-filter>
-		<intent-filter>
 			<action android:name="in.celest.xash3d.START" />
 			<category android:name="android.intent.category.DEFAULT" />
 		</intent-filter>
@@ -64,6 +63,17 @@
 		android:screenOrientation="landscape"
 		android:label="@string/app_name">
 	</activity> 
+		<receiver android:name="in.celest.xash3d.InstallReceiver">
+			<intent-filter android:priority="100">
+				<category android:name="android.intent.category.DEFAULT" />
+				<action android:name="android.intent.action.PACKAGE_ADDED"  />
+				<action android:name="android.intent.action.PACKAGE_CHANGED" />
+				<action android:name="android.intent.action.PACKAGE_INSTALL" />
+				<action android:name="android.intent.action.PACKAGE_REMOVED" />
+				<action android:name="android.intent.action.PACKAGE_REPLACED" />
+				<data android:scheme="package" />
+			</intent-filter>
+		</receiver>
     </application>
 
     <!-- Android 2.3 -->
@@ -76,5 +86,6 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> 
     <uses-permission android:name="android.permission.INTERNET" /> 
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
 </manifest> 

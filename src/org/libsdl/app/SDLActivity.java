@@ -9,6 +9,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -56,10 +58,6 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import com.beloko.games.hl.NativeLib;
-import com.beloko.touchcontrols.ControlInterpreter;
-import com.beloko.touchcontrols.Settings;
-import com.beloko.touchcontrols.TouchControlsSettings;
 import android.content.*;
 
 /**
@@ -67,9 +65,10 @@ import android.content.*;
  */
 public class SDLActivity extends Activity {
 	private static final String TAG = "SDL";
+	private static final int PAK_VERSION = 3;
 
 	// Keep track of the paused state
-	public static boolean mIsPaused, mIsSurfaceReady, mHasFocus, mUseControls, mUseVolume;
+	public static boolean mIsPaused, mIsSurfaceReady, mHasFocus, mUseVolume;
 	public static boolean mExitCalledFromJava;
 
 	/** If shared libraries (e.g. SDL or the native application) could not be loaded. */
@@ -94,14 +93,8 @@ public class SDLActivity extends Activity {
 	// Audio
 	protected static AudioTrack mAudioTrack;
 
-	// Touch control interp
-	public static ControlInterpreter controlInterp;
-
 	// Preferences
-	public static SharedPreferences mPref;
-
-	// Controls dir
-	public static String mControlsDir;
+	public static SharedPreferences mPref = null;
 	
 	// Arguments
 	public static String[] mArgv;
@@ -116,7 +109,6 @@ public class SDLActivity extends Activity {
 	protected String[] getLibraries() {
 		return new String[] {
 				"SDL2",
-				"touchcontrols",
 				"xash"
 		};
 	}
@@ -151,7 +143,6 @@ public class SDLActivity extends Activity {
 		mIsPaused = false;
 		mIsSurfaceReady = false;
 		mHasFocus = true;
-		mControlsDir = null;
 		mUseVolume = false;
 	}
 
@@ -178,7 +169,6 @@ public class SDLActivity extends Activity {
 		// So we can call stuff from static callbacks
 		mSingleton = this;
 		mPref = this.getSharedPreferences("engine", 0);
-		mUseControls = mPref.getBoolean("controls", true);
 		mUseVolume = mPref.getBoolean("usevolume", false);
 		// Load shared libraries
 		String errorMsgBrokenLib = "";
@@ -230,15 +220,30 @@ public class SDLActivity extends Activity {
 		String basedir = intent.getStringExtra("basedir");
 		if(basedir == null)
 			basedir = mPref.getString("basedir","/sdcard/xash/");
-		mControlsDir = basedir + "/" + gamedir + "/controls/";
-		File d = new File(mControlsDir);
-		if(!d.exists())
-			mControlsDir = getFilesDir() + "/";
+		
 		setenv("XASH3D_BASEDIR", basedir, true);
 		setenv("XASH3D_ENGLIBDIR", getFilesDir().getParentFile().getPath() + "/lib", true);
 		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
 		setenv("XASH3D_GAMEDIR", gamedir, true);
-
+		
+		extractPAK(this, false);
+		setenv("XASH3D_EXTRAS_PAK1", getFilesDir().getPath() + "/extras.pak", true);
+		String pakfile = intent.getStringExtra("pakfile");
+		if( pakfile != null && pakfile != "" )
+			setenv("XASH3D_EXTRAS_PAK2", pakfile, true);
+		String[] env = intent.getStringArrayExtra("env");
+		try
+		{
+			if( env != null )
+			for(int i = 0; i+1 < env.length; i+=2)
+			{
+				setenv(env[i],env[i+1], true);
+			}
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
 		// Set up the surface
 		mSurface = new SDLSurface(getApplication());
 
@@ -353,8 +358,8 @@ public class SDLActivity extends Activity {
 
 		int keyCode = event.getKeyCode();
 		// Ignore certain special keys so they're handled by Android
-		if ( mUseVolume && (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
-		keyCode == KeyEvent.KEYCODE_VOLUME_UP)
+		if ( mUseVolume && ( keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
+		keyCode == KeyEvent.KEYCODE_VOLUME_UP )
 		) return false;
 		return super.dispatchKeyEvent(event);
 	}
@@ -998,6 +1003,58 @@ public class SDLActivity extends Activity {
 
 							return dialog;
 	}
+	/*private void extractPAK() {
+		InputStream is = null;
+		FileOutputStream os = null;
+		if( mPref.getInt( "pakversion", 0 ) == PAK_VERSION )
+			return;
+		try {
+			is = getAssets().open("extras.pak");
+			os = new FileOutputStream(getFilesDir().getPath()+"/extras.pak");
+			byte[] buffer = new byte[1024];
+			int length;
+			while ((length = is.read(buffer)) > 0) {
+				os.write(buffer, 0, length);
+			}
+			os.close();
+			is.close();
+			SharedPreferences.Editor editor = mPref.edit();
+			editor.putInt( "pakversion", PAK_VERSION );
+			editor.commit();
+			editor.apply();
+		} catch( Exception e )
+		{
+			Log.e( TAG, "Failed to extract PAK:" + e.toString() );
+		}
+	}*/
+	public static void extractPAK(Context context, Boolean force) {
+		InputStream is = null;
+		FileOutputStream os = null;
+		try {
+		if( mPref == null )
+			mPref = context.getSharedPreferences("engine", 0);
+		if( mPref.getInt( "pakversion", 0 ) == PAK_VERSION && !force )
+			return;
+			String path = context.getFilesDir().getPath()+"/extras.pak";
+		
+			is = context.getAssets().open("extras.pak");
+			os = new FileOutputStream(path);
+			byte[] buffer = new byte[1024];
+			int length;
+			while ((length = is.read(buffer)) > 0) {
+				os.write(buffer, 0, length);
+			}
+			os.close();
+			is.close();
+			SharedPreferences.Editor editor = mPref.edit();
+			editor.putInt( "pakversion", PAK_VERSION );
+			editor.commit();
+			editor.apply();
+		} catch( Exception e )
+		{
+			Log.e( TAG, "Failed to extract PAK:" + e.toString() );
+		}
+	}
 }
 
 /**
@@ -1007,24 +1064,6 @@ class SDLMain implements Runnable {
 	@Override
 	public void run() {
 		// Runs SDL_main()
-		if(SDLActivity.mUseControls)
-		{
-			NativeLib engine = new NativeLib();
-			
-			engine.initTouchControls_if(SDLActivity.mControlsDir,
-					(int)SDLSurface.mWidth, (int)SDLSurface.mHeight);
-
-			SDLActivity.controlInterp = new ControlInterpreter(engine,Settings.IDGame.Doom,Settings.gamePadControlsFile,Settings.gamePadEnabled);
-
-			SDLActivity.controlInterp.setScreenSize((int)SDLSurface.mWidth, (int)SDLSurface.mHeight);
-
-			TouchControlsSettings.setup(SDLActivity.mSingleton, engine);
-			TouchControlsSettings.loadSettings(SDLActivity.mSingleton);
-			TouchControlsSettings.sendToQuake();
-
-			Settings.copyPNGAssets(SDLActivity.mSingleton, SDLActivity.mControlsDir, null);   
-		
-		}
 		SDLActivity.nativeInit(SDLActivity.mArgv); 
 		//Log.v("SDL", "SDL thread terminated");
 	}
@@ -1233,12 +1272,6 @@ View.OnKeyListener, View.OnTouchListener, SensorEventListener  {
 	// Touch events
 	@Override
 	public boolean onTouch(View v, MotionEvent event) {
-
-		if(SDLActivity.mUseControls)
-		{
-			SDLActivity.controlInterp.onTouchEvent(event);
-			return true;
-		}
 
 		/* Ref: http://developer.android.com/training/gestures/multi.html */
 		
