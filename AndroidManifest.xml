@@ -62,6 +62,18 @@
 		android:screenOrientation="landscape"
 		android:label="@string/app_name">
 	</activity> 
+               <receiver android:name="in.celest.xash3d.InstallReceiver">
+                       <intent-filter android:priority="100">
+                               <category android:name="android.intent.category.DEFAULT" />
+                               <action android:name="android.intent.action.PACKAGE_ADDED"  />
+                               <action android:name="android.intent.action.PACKAGE_CHANGED" />
+                               <action android:name="android.intent.action.PACKAGE_INSTALL" />
+                               <action android:name="android.intent.action.PACKAGE_REMOVED" />
+                               <action android:name="android.intent.action.PACKAGE_REPLACED" />
+                               <data android:scheme="package" />
+                       </intent-filter>
+               </receiver>
+
     </application>
 
     <!-- Some devices with Android 2.2 should support native activity, it was in unstable hidden API -->
