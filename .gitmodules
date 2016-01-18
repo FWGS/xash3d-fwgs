@@ -15,4 +15,4 @@
 	url = https://github.com/SDLash3D/xash-extras
 [submodule "jni/src/hlsdk-client"]
 	path = jni/src/hlsdk-client
-	url = https://github.com/hlsdk-client
+	url = https://github.com/SDLash3D/hlsdk-client
