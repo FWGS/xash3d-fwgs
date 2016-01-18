@@ -27,6 +27,7 @@ script:
   - ant debug
   - cp bin/xashdroid-debug.apk xashdroid-armv6.apk
   - ndk-build NDK_TOOLCHAIN_VERSION=4.8 XASH_SDL=1 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w" APP_ABI="x86"
+  - python2 makepak.py xash-extras assets/extras.pak
   - ant debug
   - cp bin/xashdroid-debug.apk xashdroid-x86.apk
 after_script:
