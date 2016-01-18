@@ -10,9 +10,9 @@
 [submodule "jni/src/Xash3D/xash3d"]
 	path = jni/src/Xash3D/xash3d
 	url = https://github.com/SDLash3D/xash3d
-[submodule "jni/src/XashXT/XashXT"]
-	path = jni/src/XashXT/XashXT
-	url = https://github.com/SDLash3D/hlsdk-client
 [submodule "xash-extras"]
 	path = xash-extras
 	url = https://github.com/SDLash3D/xash-extras
+[submodule "jni/src/hlsdk-client"]
+	path = jni/src/hlsdk-client
+	url = https://github.com/hlsdk-client
