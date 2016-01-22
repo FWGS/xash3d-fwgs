@@ -1253,18 +1253,16 @@ View.OnKeyListener, View.OnTouchListener, SensorEventListener  {
 			}
 		}*/
 		/* Handle all events as keyboard */
-		if( (event.getSource() & InputDevice.SOURCE_KEYBOARD) != 0) {
-			if (event.getAction() == KeyEvent.ACTION_DOWN) {
-				//Log.v("SDL", "key down: " + keyCode);
-				SDLActivity.onNativeKeyDown(keyCode);
-				return true;
-			}
-			else if (event.getAction() == KeyEvent.ACTION_UP) {
-				//Log.v("SDL", "key up: " + keyCode);
-				SDLActivity.onNativeKeyUp(keyCode);
-				return true;
-			}
-		}
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            //Log.v("SDL", "key down: " + keyCode);
+            SDLActivity.onNativeKeyDown(keyCode);
+            return true;
+        }
+        else if (event.getAction() == KeyEvent.ACTION_UP) {
+            //Log.v("SDL", "key up: " + keyCode);
+            SDLActivity.onNativeKeyUp(keyCode);
+            return true;
+        }
 
 		return false;
 	}
