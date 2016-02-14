@@ -318,7 +318,12 @@ public class SDLActivity extends Activity {
 	@Override
 	protected void onDestroy() {
 		Log.v("SDL", "onDestroy()");
-
+		/* Stupid android bug: android calles onDestroy
+		and kills process while engine is writing config.
+		it results in configuration loss, so we preferred to disable it
+		*/
+		return;
+		/*
 		if( mVibrator != null ) mVibrator.cancel();
 		
 		if (SDLActivity.mBrokenLibraries) {
@@ -347,6 +352,7 @@ public class SDLActivity extends Activity {
 		super.onDestroy();
 		// Reset everything in case the user re opens the app
 		SDLActivity.initialize();
+		*/
 	}
 
 	@Override
