@@ -90,19 +90,24 @@ public class SteamActivity extends Activity {
 			});
 		
 		LinearLayout buttons = new LinearLayout(this);
+		buttons.setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.WRAP_CONTENT));
 		buttons.addView(startButton);
 		buttons.addView(stopButton);
-		launcher.addView(buttons);
-		scroll.addView(output);
+		LinearLayout progressLayout = new LinearLayout(this);
+		progressLayout.setOrientation(LinearLayout.VERTICAL);
+		progressLayout.setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT));
 		progress = new ProgressBar(this, null,
 								   android.R.attr.progressBarStyleHorizontal);
 		progress.setMax(100);
 		progress.setVisibility(View.GONE);
 		progressLine = new TextView(this);
 		progressLine.setVisibility(View.GONE);
-		progressLine.setTextAppearance(this, android.R.attr.textAppearanceLarge);
-		launcher.addView( progressLine );
-		launcher.addView(progress);
+		progressLine.setTextAppearance(this, android.R.style.TextAppearance_Medium);
+		progressLayout.addView( progressLine );
+		progressLayout.addView(progress);
+		buttons.addView(progressLayout);
+		launcher.addView(buttons);
+		scroll.addView(output);
 		launcher.addView(scroll);
 		setContentView(launcher);
 		try
@@ -158,6 +163,7 @@ public class SteamActivity extends Activity {
 								}
 							}
 						})
+						.setCancelable(false)
 						.show();
 
 				}
@@ -184,7 +190,7 @@ public class SteamActivity extends Activity {
 			TextView line = new TextView(SteamActivity.this);
 			line.setText(str);
 
-			line.setTextAppearance(SteamActivity.this, android.R.attr.textAppearanceSmall);
+			line.setTextAppearance(SteamActivity.this, android.R.style.TextAppearance_Small);
 			line.setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.WRAP_CONTENT));
 			progress.setVisibility(View.GONE);
 			progressLine.setVisibility(View.GONE);

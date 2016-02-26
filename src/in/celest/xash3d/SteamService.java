@@ -21,18 +21,18 @@ enum ProcessState{ UNPACK, LAUNCH, COMMAND, WAIT, DOWNLOAD };
 
 public class SteamService extends Service
 {
-	final String TAG = "SteamService";
+	final static String TAG = "SteamService";
 	public static SteamService mSingleton;
-	Notification notification;
-	NotificationManager notificationManager = null;
-	String localPath;
-	String filesDir;
+	private Notification notification;
+	private NotificationManager notificationManager = null;
+	private String localPath;
+	private String filesDir;
 	class RestartException extends Exception {};
 	class CancelException extends Exception {};
 	
 
 	static BackgroundThread mBgThread;
-	SharedPreferences mPref;
+	private SharedPreferences mPref;
 	public void onCreate() {
 		super.onCreate();
 		mSingleton = this;
@@ -48,7 +48,7 @@ public class SteamService extends Service
 		Log.d(TAG, "onCreate");
 	}
 
-	void notificationInit()
+	private void notificationInit()
 	{
 		// init notification and foreground service
 		Intent intent = new Intent(this, SteamActivity.class);
@@ -71,7 +71,7 @@ public class SteamService extends Service
 	
 	// Dont create too much notification intents, it may crash system
 	long lastNotify = 0;
-	void progressUpdate( String text, int progress) {
+	private void progressUpdate( String text, int progress) {
 		if( SteamActivity.mSingleton != null )
 			SteamActivity.mSingleton.progressUpdate( text, progress );
 		if( notification == null )
@@ -142,7 +142,7 @@ public class SteamService extends Service
 		Log.d(TAG, "onBind");
 		return null;
 	}
-	void printText(String text)
+	private void printText(String text)
 	{
 		// register notification first
 		if( notification == null )
@@ -169,7 +169,7 @@ public class SteamService extends Service
 	}
 
 	// block current thread and show dialog
-	String promptDialog(String title, String message, boolean passwd)
+	private String promptDialog(String title, String message, boolean passwd)
 	{
 		Intent intent = new Intent(this, SteamActivity.class);
         final PendingIntent pendingIntent = PendingIntent.getActivity(
@@ -304,7 +304,7 @@ public class SteamService extends Service
 		}
 	}
 	
-	void waitForActivity()
+	private void waitForActivity()
 	{
 		if( SteamActivity.mSingleton != null )
 			// Nothing to wait
@@ -327,13 +327,14 @@ public class SteamService extends Service
 		OutputStream processInput = null;
 
 		ProcessState state;;
-		boolean need_reset_config = false;
-		boolean skipQemu = false;
-		String lastID;
-		Process process;
-		AtomicBoolean needDestroy = new AtomicBoolean();
+		private boolean need_reset_config = false;
+		private boolean skipQemu = false;
+		private String lastID;
+		public Process process;
+		public AtomicBoolean needDestroy = new AtomicBoolean();
+		public InputStream httpInput = null;
 
-		void downloadFile( String strurl, String path ) throws IOException, CancelException
+		private void downloadFile( String strurl, String path ) throws IOException, CancelException
 		{
 			URL url = new URL(strurl);
 			int count;
@@ -347,7 +348,7 @@ public class SteamService extends Service
 			int lenghtOfFile = conection.getContentLength();
 
 			// download the file
-			InputStream input = new BufferedInputStream(url.openStream(), 8192);
+			httpInput = new BufferedInputStream(url.openStream(), 8192);
 
 			// Output stream
 			OutputStream output = new FileOutputStream(path);
@@ -357,7 +358,7 @@ public class SteamService extends Service
 			long total = 0;
 			int lastprogress = 0;
 
-			while ( !needDestroy.get() && (count = input.read(data)) != -1) {
+			while ( !needDestroy.get() && (count = httpInput.read(data)) != -1) {
 				total += count;
 				// publishing the progress....
 				try
@@ -376,13 +377,14 @@ public class SteamService extends Service
 
 			// closing streams
 			output.close();
-			input.close();
+			httpInput.close();
+			httpInput = null;
 			if(needDestroy.get())
 				throw new CancelException();
 		}
 
 		// called on every line, encef with \n
-		void processLine( String str ) throws RestartException,IOException
+		private void processLine( String str ) throws RestartException,IOException
 		{
 				// downloading game
 				if( str.startsWith( " Update state (") )
@@ -476,7 +478,7 @@ public class SteamService extends Service
 		}
 
 		// called on every char in line until return true
-		boolean processPartial( String str ) throws CancelException, IOException
+		private boolean processPartial( String str ) throws CancelException, IOException
 		{
 			{
 				if( str.contains( "Steam>" ) )
@@ -544,7 +546,7 @@ public class SteamService extends Service
 		}
 
 		// launch procesc and process all outout
-		int launchProcess( String command ) throws Exception
+		private int launchProcess( String command ) throws Exception
 		{
 			int result = 255;
 			printText("process start: " + command);
@@ -603,7 +605,7 @@ public class SteamService extends Service
 		}
 
 		// download all files if not yet downloaded
-		void downloadAll() throws IOException,CancelException
+		private void downloadAll() throws IOException,CancelException
 		{
 			if( !skipQemu && !new File( filesDir + "/qemu.downloaded").exists() )
 			{
@@ -643,18 +645,18 @@ public class SteamService extends Service
 
 			new File( localPath + ".downloaded").createNewFile();
 		}
-		int launchX86(String command) throws Exception
+		private int launchX86(String command) throws Exception
 		{
 			if( skipQemu )
 				return launchProcess( "sh " + localPath + "start-x86.sh " + localPath + ' ' + command );
 			else
 				return launchProcess( "sh " + localPath + "start-qemu.sh " + localPath + " "+ filesDir + "/qemu " + command );
 		}
-		void unpackAll() throws Exception
+		private void unpackAll() throws Exception
 		{
+			launchProcess( "chmod 777 " + filesDir + "/qemu" );
 			if( new File( localPath + ".unpacked").exists() )
 				return;
-			launchProcess( "chmod 777 " + filesDir + "/qemu" );
 			launchX86( localPath + "gzip -d steamcmd_linux.tar.gz" );
 			launchX86( localPath + "tar xvf steamcmd_linux.tar" );
 			new File( localPath + "steamcmd_linux.tar" ).delete();
@@ -664,9 +666,9 @@ public class SteamService extends Service
 		@Override
 		public void run() {
 			super.run();
-			needDestroy = new AtomicBoolean(false);
+			needDestroy.getAndSet(false);
 			try {
-				if( skipQemu = (System.getProperty("ro.product.cpu.abi") == "x86") )
+				if( skipQemu = isX86() )
 					localPath = filesDir + '/';
 				state = ProcessState.UNPACK;
 				downloadAll();
@@ -689,6 +691,7 @@ public class SteamService extends Service
 						// 42 is restart magick in steam
 						result = 42;
 					}
+					needDestroy.getAndSet(false);
 				}
 				while( result == 42 || getVerify() != null || getDownload() != null ) ;
 
@@ -730,16 +733,48 @@ public class SteamService extends Service
 			mBgThread.needDestroy.getAndSet(true);
 			mBgThread.interrupt();
 			// destroy process
-			mBgThread.process.destroy();
+			if( mBgThread.process != null )
+				mBgThread.process.destroy();
+			// cancel stalled download
+			if( mBgThread.httpInput != null )
+				mBgThread.httpInput.close();
 		}catch( Exception e ){
 			e.printStackTrace();
 		}
+	}
+	private boolean isX86()
+	{
+		String s = System.getProperty("ro.product.cpu.abi");
+
+		if( s != null && s.contains("x86"))
+			return true;
+
+		s = System.getProperty("ro.product.cpu.abi2");
+
+		if( s != null && s.contains("x86"))
+			return true;
+		s = System.getProperty("ro.product.cpu.abilist");
+
+		if( s != null && s.contains("x86"))
+			return true;
+
+		s = System.getProperty("ro.product.cpu.abilist32");
+
+		if( s != null && s.contains("x86"))
+			return true;
+
+		s = System.getProperty("ro.dalvik.vm.isa.arm");
+
+		if( s != null && s.contains("x86"))
+			return true;
+
+		return false;
 	}
 	public void silentKillAll()
 	{
 		try
 		{
-			if( System.getProperty("ro.product.cpu.abi") == "x86" )
+			if( isX86() )
 				Runtime.getRuntime().exec( "sh " + localPath + "start-x86.sh " + localPath + ' ' + 
 					localPath + "killall -o5s -9 ld-linux.so.2" );
 			else
