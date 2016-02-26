@@ -124,6 +124,7 @@ public class SteamService extends Service
 	}
 
 	public void onDestroy() {
+		silentKillAll();
 		try
 		{
 			if( mBgThread != null )
@@ -330,7 +331,7 @@ public class SteamService extends Service
 		boolean skipQemu = false;
 		String lastID;
 		Process process;
-		AtomicBoolean needDestroy;
+		AtomicBoolean needDestroy = new AtomicBoolean();
 
 		void downloadFile( String strurl, String path ) throws IOException, CancelException
 		{
@@ -626,12 +627,12 @@ public class SteamService extends Service
 			downloadDep( "lib/librt.so.1" );
 			mkdirs( "linux32" );
 			downloadDep( "linux32/ld-linux.so.2" );
-			downloadDep( "resolvconf-override.so" );
+			downloadDep( "preload.so" );
 			mkdirs( "sources" );
 			downloadDep( "sources/debian.txt" );
 			downloadDep( "sources/qemu.patch" );
 			downloadDep( "sources/qemu.txt" );
-			downloadDep( "sources/resolvconf-override.c" );
+			downloadDep( "sources/preload.c" );
 			downloadDep( "tar" );
 			downloadDep( "killall" );
 			if( skipQemu )
@@ -725,12 +726,30 @@ public class SteamService extends Service
 			return;
 		try
 		{
+			silentKillAll();
 			mBgThread.needDestroy.getAndSet(true);
 			mBgThread.interrupt();
-			// destroy process to cause exception
+			// destroy process
 			mBgThread.process.destroy();
 		}catch( Exception e ){
 			e.printStackTrace();
 		}
 	}
+	public void silentKillAll()
+	{
+		try
+		{
+			if( System.getProperty("ro.product.cpu.abi") == "x86" )
+				Runtime.getRuntime().exec( "sh " + localPath + "start-x86.sh " + localPath + ' ' + 
+					localPath + "killall -o5s -9 ld-linux.so.2" );
+			else
+				Runtime.getRuntime().exec( "sh " + localPath + "start-qemu.sh " + localPath + " " +
+					filesDir + "/qemu " + localPath + "killall -o5s -9 qemu" );
+		}
+		catch( Exception e ){
+			e.printStackTrace();
+		}
+		
+	}
+	
 }
