@@ -322,7 +322,7 @@ public class SDLActivity extends Activity {
 		and kills process while engine is writing config.
 		it results in configuration loss, so we preferred to disable it
 		*/
-		return;
+		
 		/*
 		if( mVibrator != null ) mVibrator.cancel();
 		
@@ -347,12 +347,12 @@ public class SDLActivity extends Activity {
 			SDLActivity.mSDLThread = null;
 
 			//Log.v("SDL", "Finished waiting for SDL thread");
-		}
+		}*/
 
 		super.onDestroy();
 		// Reset everything in case the user re opens the app
-		SDLActivity.initialize();
-		*/
+		finish();
+		
 	}
 
 	@Override
