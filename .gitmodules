@@ -16,3 +16,6 @@
 [submodule "jni/src/hlsdk-client"]
 	path = jni/src/hlsdk-client
 	url = https://github.com/SDLash3D/hlsdk-client
+[submodule "jni/src/hlsdk-xash3d"]
+	path = jni/src/hlsdk-xash3d
+	url = https://github.com/SDLash3D/hlsdk-xash3d
