@@ -3,99 +3,98 @@
      com.gamemaker.game
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-      package="in.celest.xash3d.hl"
-      android:versionCode="0"
-      android:versionName="0.17"
-      android:installLocation="auto">
+	package="in.celest.xash3d.hl"
+	android:versionCode="0"
+	android:versionName="0.17"
+	android:installLocation="auto">
 
-    <!-- Create a Java class extending SDLActivity and place it in a
-         directory under src matching the package, e.g.
-         	src/com/gamemaker/game/MyGame.java
-
-         then replace "SDLActivity" with the name of your class (e.g. "MyGame")
-         in the XML below.
-
-         An example Java class can be found in README-android.txt
-    -->
-    <application android:label="@string/app_name"
-                 android:icon="@drawable/ic_launcher"
-                 android:allowBackup="true"
-                 android:debuggable="false"
-                 android:hardwareAccelerated="true">
-        <activity android:name="in.celest.xash3d.LauncherActivity"
-                  android:label="@string/launcher_name"
-		 android:windowSoftInputMode="adjustResize">
+	<application android:label="@string/app_name"
+		android:icon="@drawable/ic_launcher"
+		android:allowBackup="true"
+		android:debuggable="false"
+		android:hardwareAccelerated="true">
+		
+		<activity android:name="in.celest.xash3d.LauncherActivity"
+			android:label="@string/launcher_name"
+			android:windowSoftInputMode="adjustResize">
 			<intent-filter>
-			<action android:name="in.celest.xash3d.LauncherActivity"/>
-                        <action android:name="android.intent.action.MAIN" />
-                        <category android:name="android.intent.category.LAUNCHER" />
-        	</intent-filter>
-        </activity>
+				<action android:name="in.celest.xash3d.LauncherActivity"/>
+				<action android:name="android.intent.action.MAIN" />
+				<category android:name="android.intent.category.LAUNCHER" />
+			</intent-filter>
+		</activity>
+		
+		<!--
 		<activity android:name="in.celest.xash3d.SteamActivity"
 			android:label="Steam"
 			android:windowSoftInputMode="adjustResize"
 			android:launchMode="singleTask">
+		
 			<intent-filter>
 				<action android:name="in.celest.xash3d.SteamActivity"/>
 				<action android:name="android.intent.action.MAIN" />
 				<category android:name="android.intent.category.LAUNCHER" />
-        	</intent-filter>
-        </activity>
-		<activity android:name="in.celest.xash3d.ShortcutActivity" android:label="@string/text_shortcut" android:theme="@android:style/Theme.Dialog">
+			</intent-filter>
+		
+		</activity>
+		-->
+		
+		<activity android:name="in.celest.xash3d.ShortcutActivity" 
+			android:label="@string/text_shortcut" 
+			android:theme="@android:style/Theme.Dialog">
 			<intent-filter>
 				<action android:name="android.intent.action.CREATE_SHORTCUT" />
 				<category android:name="android.intent.category.DEFAULT" />
 			</intent-filter>
+			
 			<intent-filter>
 				<action android:name="in.celest.xash3d.SHORTCUT" />
 				<category android:name="android.intent.category.DEFAULT" />
 			</intent-filter>
 		</activity>
-	<activity android:name="org.libsdl.app.SDLActivity"
-	   android:screenOrientation="sensorLandscape"
-	   android:configChanges="orientation|screenSize"
-	   android:label="@string/app_name"
-		android:taskAffinity="org.libsdl.app.SDLActivity"
-	   >
-		<!--<intent-filter>
-			As user can add now empty shortcut, disable this
-			<action android:name="org.libsdl.app.SDLActivity"/>
-			<action android:name="android.intent.action.MAIN" />
-			<category android:name="android.intent.category.LAUNCHER" />
-		</intent-filter>-->
-		<intent-filter>
-			<action android:name="in.celest.xash3d.START" />
-			<category android:name="android.intent.category.DEFAULT" />
-		</intent-filter>
-	</activity>
-	<activity android:name="in.celest.xash3d.XashActivity"
-		android:screenOrientation="landscape"
-		android:label="@string/app_name">
-	</activity> 
-               <receiver android:name="in.celest.xash3d.InstallReceiver">
-                       <intent-filter android:priority="100">
-                               <category android:name="android.intent.category.DEFAULT" />
-                               <action android:name="android.intent.action.PACKAGE_ADDED"  />
-                               <action android:name="android.intent.action.PACKAGE_CHANGED" />
-                               <action android:name="android.intent.action.PACKAGE_INSTALL" />
-                               <action android:name="android.intent.action.PACKAGE_REMOVED" />
-                               <action android:name="android.intent.action.PACKAGE_REPLACED" />
-                               <data android:scheme="package" />
-                       </intent-filter>
-               </receiver>
+		
+		<activity android:name="org.libsdl.app.SDLActivity"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize"
+			android:label="@string/app_name"
+			android:taskAffinity="org.libsdl.app.SDLActivity" >
+			<intent-filter>
+				<action android:name="in.celest.xash3d.START" />
+				<category android:name="android.intent.category.DEFAULT" />
+			</intent-filter>
+		</activity>
+		
+		<activity android:name="in.celest.xash3d.XashActivity"
+			android:screenOrientation="landscape"
+			android:label="@string/app_name">
+		</activity> 
+		
+		<receiver android:name="in.celest.xash3d.InstallReceiver">
+			<intent-filter android:priority="100">
+				<category android:name="android.intent.category.DEFAULT" />
+				<action android:name="android.intent.action.PACKAGE_ADDED"  />
+				<action android:name="android.intent.action.PACKAGE_CHANGED" />
+				<action android:name="android.intent.action.PACKAGE_INSTALL" />
+				<action android:name="android.intent.action.PACKAGE_REMOVED" />
+				<action android:name="android.intent.action.PACKAGE_REPLACED" />
+				<data android:scheme="package" />
+			</intent-filter>
+		</receiver>
+		<!--
 		<service android:name="in.celest.xash3d.SteamService" />
-    </application>
+		-->
+	</application>
 
-    <!-- Some devices with Android 2.2 should support native activity, it was in unstable hidden API -->
-    <uses-sdk android:minSdkVersion="8" android:targetSdkVersion="13" />
+	<!-- Some devices with Android 2.2 should support native activity, it was in unstable hidden API -->
+	<uses-sdk android:minSdkVersion="8" android:targetSdkVersion="13" />
 
-    <!-- OpenGL ES 1.1 -->
-    <uses-feature android:glEsVersion="0x00010000" /> 
+	<!-- OpenGL ES 1.1 -->
+	<uses-feature android:glEsVersion="0x00010000" /> 
 
-    <!-- Permissions -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> 
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
+	<!-- Permissions -->
+	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> 
+	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> 
+	<uses-permission android:name="android.permission.INTERNET" />
+	<uses-permission android:name="android.permission.VIBRATE" />
+	<uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
 </manifest> 
