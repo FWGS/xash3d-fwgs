@@ -65,7 +65,7 @@ import android.content.*;
  */
 public class SDLActivity extends Activity {
 	private static final String TAG = "SDL";
-	private static final int PAK_VERSION = 3;
+	private static final int PAK_VERSION = 4;
 
 	// Keep track of the paused state
 	public static boolean mIsPaused, mIsSurfaceReady, mHasFocus, mUseVolume;
