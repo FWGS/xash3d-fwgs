@@ -21,11 +21,11 @@
 <!-- TODO: Remove or change this placeholder text -->
     <string name="about_main">Xash3D Android</string>
     <string name="about_copyright">SDLash3D is not affiliated with Valve or any of their partners. All copyrights reserved to their respective owners.</string>
-    <string name="version_string" translatable="false">v0.17</string>
+    <string name="version_string" translatable="false">v0.17.1</string>
     <string name="about_authors">Port to Android by SDLash3D team: \n
 &#8226; a1batross\n
 &#8226; mittorn \n
-&#8226;  nicknekit.\n
+&#8226; nicknekit.\n
 
 Special thanks to:\n
 &#8226; Uncle Mike for Xash3D engine\n
