@@ -46,12 +46,8 @@ LOCAL_SRC_FILES := \
 	$(wildcard $(LOCAL_PATH)/src/video/android/*.c) \
     $(wildcard $(LOCAL_PATH)/src/test/*.c))
 
-LOCAL_CFLAGS += $(CFLAGS_OPT)
-ifeq ($(TARGET_ARCH),arm)
-LOCAL_CFLAGS += $(CFLAGS_OPT_ARM)
-endif
-ifeq ($(TARGET_ARCH),x86)
-LOCAL_CFLAGS += $(CFLAGS_OPT_X86)
+ifneq ($(XASH3D_CONFIG),)
+include $(XASH3D_CONFIG)
 endif
 
 LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES
