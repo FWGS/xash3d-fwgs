@@ -22,7 +22,7 @@
 &#8226; Beloko Games за поддержку сенсорного управления\n
 &#8226; Разработчикам libSDL2</string>
 	<string name="about_button">О Xash3D Android</string>
-	<string name="about_copyright" translatable="false">SDLash3D не связан с Valve или с любыми из их партнеров. Все авторские права принадлежат их соотвественным обладателям.</string>
+	<string name="about_copyright">SDLash3D не связан с Valve или с любыми из их партнеров. Все авторские права принадлежат их соотвественным обладателям.</string>
 	<string name="action_settings">Настройки</string>
 	<string name="text_shortcut_test">Ярлык Xash3D (тест)</string>
 	<string name="create_shortcut_button">Создать ярлык</string>
