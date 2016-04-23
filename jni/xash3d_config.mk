@@ -11,7 +11,6 @@ endif
 ifeq ($(TARGET_ARCH_ABI),x86)
 LOCAL_CFLAGS += $(CFLAGS_OPT_X86)
 endif
-
 ifneq ($(XASH_THREAD_NUM),0)
 ifneq (,$(findstring $(LOCAL_MODULE),nanogl server client))
 #LOCAL_LDFLAGS += -fopenmp -ftree-parallelize-loops=$(XASH_THREAD_NUM)
@@ -39,10 +38,10 @@ obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/gl_rmain.o: override PRIVATE_CC = 
 
 #obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/s_dsp.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
 #obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/s_utils.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
-#obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/s_vox.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
-#obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/s_mouth.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
-#obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/s_stream.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
-#obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/s_load.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
+obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/s_vox.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
+obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/s_mouth.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
+obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/s_stream.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
+obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/s_load.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
 #obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/s_mix.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
 obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/gl_draw.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
 obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/gl_decals.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
@@ -72,5 +71,5 @@ obj/local/$(TARGET_ARCH_ABI)/objs/xash/server/sv_move.o: override PRIVATE_CC = $
 obj/local/$(TARGET_ARCH_ABI)/objs/xash/server/sv_pmove.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
 obj/local/$(TARGET_ARCH_ABI)/objs/xash/server/sv_world.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
 obj/local/$(TARGET_ARCH_ABI)/objs/xash/server/sv_phys.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
-
+obj/local/$(TARGET_ARCH_ABI)/objs/xash/server/sv_frame.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
 endif
