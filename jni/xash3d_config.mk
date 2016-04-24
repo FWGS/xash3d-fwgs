@@ -24,7 +24,7 @@ obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/cl_frame.o: override PRIVATE_CC = 
 obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/cl_parse.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
 obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/gl_warp.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
 obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/cl_main.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
-obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/cl_tent.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
+#obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/cl_tent.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
 obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/cl_events.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
 obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/gl_sprite.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
 obj/local/$(TARGET_ARCH_ABI)/objs/xash/client/gl_image.o: override PRIVATE_CC = $(TARGET_CC) -ftree-parallelize-loops=$(XASH_THREAD_NUM)
