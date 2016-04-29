@@ -23,13 +23,15 @@ import android.os.Environment;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.io.File;
+import android.widget.TabHost;
+import android.widget.ToggleButton;
 
 import in.celest.xash3d.hl.R;
 
 public class LauncherActivity extends Activity {
    // public final static String ARGV = "in.celest.xash3d.MESSAGE";
 	static EditText cmdArgs;
-	static CheckBox useVolume;
+	static ToggleButton useVolume;
 	static EditText resPath;
 	static SharedPreferences mPref;
 	String getDefaultPath()
@@ -43,13 +45,29 @@ public class LauncherActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launcher);
+        this.requestWindowFeature(Window.FEATURE_NO_TITLE);
+	TabHost tabHost = (TabHost) findViewById(R.id.tabhost);
+
+	tabHost.setup();
+
+	TabHost.TabSpec tabSpec;
+	tabSpec = tabHost.newTabSpec("tabtag1");
+	tabSpec.setIndicator(getString(R.string.text_tab1));
+	tabSpec.setContent(R.id.tab1);
+	tabHost.addTab(tabSpec);
+	
+	tabSpec = tabHost.newTabSpec("tabtag2");
+	tabSpec.setIndicator(getString(R.string.text_tab2));
+	tabSpec.setContent(R.id.tab2);
+	tabHost.addTab(tabSpec);
+	
         Button selectFolder = ( Button ) findViewById( R.id.button_select );
 		if ( Build.VERSION.SDK_INT < 21 )
 			selectFolder.setVisibility( View.GONE );
 		mPref = getSharedPreferences("engine", 0);
 		cmdArgs = (EditText)findViewById(R.id.cmdArgs);
 		cmdArgs.setText(mPref.getString("argv","-dev 3 -log"));
-		useVolume = ( CheckBox ) findViewById( R.id.useVolume );
+		useVolume = ( ToggleButton ) findViewById( R.id.useVolume );
 		useVolume.setChecked(mPref.getBoolean("usevolume",true));
 		resPath = ( EditText ) findViewById( R.id.cmdPath );
 		resPath.setText(mPref.getString("basedir", getDefaultPath()));
