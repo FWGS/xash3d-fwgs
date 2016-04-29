@@ -45,8 +45,9 @@ public class LauncherActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_launcher);
         this.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        setContentView(R.layout.activity_launcher);
+     
 	TabHost tabHost = (TabHost) findViewById(R.id.tabhost);
 
 	tabHost.setup();
