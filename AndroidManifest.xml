@@ -86,7 +86,7 @@
 	</application>
 
 	<!-- Some devices with Android 2.2 should support native activity, it was in unstable hidden API -->
-	<uses-sdk android:minSdkVersion="8" android:targetSdkVersion="13" />
+	<uses-sdk android:minSdkVersion="8" android:targetSdkVersion="19" />
 
 	<!-- OpenGL ES 1.1 -->
 	<uses-feature android:glEsVersion="0x00010000" /> 
