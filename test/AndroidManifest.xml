@@ -54,6 +54,8 @@
 				<category android:name="android.intent.category.DEFAULT" />
 			</intent-filter>
 		</activity>
+	<activity android:name="in.celest.xash3d.FPicker"></activity>
+
 	<activity android:name="org.libsdl.app.SDLActivity"
 	   android:screenOrientation="sensorLandscape"
 	   android:configChanges="orientation|screenSize"

@@ -21,6 +21,9 @@ public class ShortcutActivity extends Activity
 	protected void onCreate(Bundle bundle)
 	{
 		super.onCreate(bundle);
+		//material dialog
+		if ( Build.VERSION.SDK_INT >= 21 )
+			super.setTheme( 0x01030225 );
 		setContentView(R.layout.activity_shortcut);
 		Intent intent=getIntent();
 		name = (EditText)findViewById(R.id.shortcut_name);

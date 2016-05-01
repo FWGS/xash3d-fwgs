@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.os.Environment;
 import android.os.Bundle;
+import android.os.Build;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -34,6 +35,8 @@ public class FPicker extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if ( Build.VERSION.SDK_INT >= 21 )
+            super.setTheme( 0x01030224 );
         setContentView(R.layout.activity_fpicker);
         String path = Environment.getExternalStorageDirectory().toString();
         currentDir = new File(path);

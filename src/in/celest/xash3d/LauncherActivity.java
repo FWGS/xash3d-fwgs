@@ -46,6 +46,9 @@ public class LauncherActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         this.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        //super.setTheme( 0x01030005 );
+        if ( Build.VERSION.SDK_INT >= 21 )
+		super.setTheme( 0x01030224 );
         setContentView(R.layout.activity_launcher);
      
 	TabHost tabHost = (TabHost) findViewById(R.id.tabhost);
