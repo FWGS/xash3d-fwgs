@@ -47,6 +47,13 @@ public class FPicker extends Activity {
     private void fill(File folder)
     {
         File[]dirs = folder.listFiles();
+        while( dirs == null )
+        {
+            folder = new File(folder.getParent());
+            if( folder == null )
+                return;
+            dirs = folder.listFiles();
+        }
         this.setTitle("Current Dir: "+folder.getName());
         List<Item> dir = new ArrayList<Item>();
 
