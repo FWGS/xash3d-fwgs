@@ -68,7 +68,7 @@
 			android:screenOrientation="landscape"
 			android:label="@string/app_name">
 		</activity> 
-		
+		<activity android:name="in.celest.xash3d.FPicker"></activity>
 		<receiver android:name="in.celest.xash3d.InstallReceiver">
 			<intent-filter android:priority="100">
 				<category android:name="android.intent.category.DEFAULT" />
