@@ -43,4 +43,5 @@ Special thanks to:\n
     <string name="text_res_tittle3">Advanced settings</string>
     <string name="use_volume">Gamepad support off!</string>
     <string name="no_volume">Gamepad support active!</string>
+    <string name="folder">Set current folder</string>
 </resources>
