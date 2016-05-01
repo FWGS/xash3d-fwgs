@@ -64,15 +64,15 @@ public class LauncherActivity extends Activity {
 	tabHost.addTab(tabSpec);
 	
         Button selectFolder = ( Button ) findViewById( R.id.button_select );
-		if ( Build.VERSION.SDK_INT < 21 )
-			selectFolder.setVisibility( View.GONE );
-		mPref = getSharedPreferences("engine", 0);
-		cmdArgs = (EditText)findViewById(R.id.cmdArgs);
-		cmdArgs.setText(mPref.getString("argv","-dev 3 -log"));
-		useVolume = ( ToggleButton ) findViewById( R.id.useVolume );
-		useVolume.setChecked(mPref.getBoolean("usevolume",true));
-		resPath = ( EditText ) findViewById( R.id.cmdPath );
-		resPath.setText(mPref.getString("basedir", getDefaultPath()));
+//		if ( Build.VERSION.SDK_INT < 21 )
+//			selectFolder.setVisibility( View.GONE );
+	mPref = getSharedPreferences("engine", 0);
+	cmdArgs = (EditText)findViewById(R.id.cmdArgs);
+	cmdArgs.setText(mPref.getString("argv","-dev 3 -log"));
+	useVolume = ( ToggleButton ) findViewById( R.id.useVolume );
+	useVolume.setChecked(mPref.getBoolean("usevolume",true));
+	resPath = ( EditText ) findViewById( R.id.cmdPath );
+	resPath.setText(mPref.getString("basedir", getDefaultPath()));
 	}
     
     public void startXash(View view)
@@ -106,20 +106,26 @@ public class LauncherActivity extends Activity {
 
 	public void selectFolder(View view)
 	{
-		Intent intent = new Intent("android.intent.action.OPEN_DOCUMENT_TREE");
+		Intent intent = new Intent(this, in.celest.xash3d.FPicker.class);
+		//intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+	//	Intent intent = new Intent("android.intent.action.OPEN_DOCUMENT_TREE");
 		startActivityForResult(intent, 42);
 		resPath.setEnabled(false);
 	}
 
-	public void onActivityResult(int requestCode, int resultCode, Intent resultData) {
+public void onActivityResult(int requestCode, int resultCode, Intent resultData) {
 		if (resultCode == RESULT_OK) {
 try{
-			final List<String> paths = resultData.getData().getPathSegments();
-			String[] parts = paths.get(1).split(":");
-			String storagepath = Environment.getExternalStorageDirectory().getPath() + "/";
-			String path = storagepath + parts[1];
-			if( path != null)
-				resPath.setText( path );
+
+		resPath = ( EditText ) findViewById( R.id.cmdPath );
+		resPath.setText( resultData.getStringExtra("GetPath"));
+
+//	final List<String> paths = resultData.getData().getPathSegments();
+//			String[] parts = paths.get(1).split(":");
+//			String storagepath = Environment.getExternalStorageDirectory().getPath() + "/";
+//			String path = storagepath + parts[1];
+//			if( path != null)
+//				resPath.setText( path );
 			resPath.setEnabled(true);
 		}
 		catch(Exception e)
