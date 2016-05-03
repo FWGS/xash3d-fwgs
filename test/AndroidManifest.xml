@@ -73,10 +73,15 @@
 			<category android:name="android.intent.category.DEFAULT" />
 		</intent-filter>
 	</activity>
-	<!--<activity android:name="in.celest.xash3d.XashActivity"
+	<activity android:name="in.celest.xash3d.XashActivity"
 		android:screenOrientation="landscape"
 		android:label="@string/app_name">
-	</activity> -->
+		<intent-filter>
+			<action android:name="org.libsdl.app.SDLActivity"/>
+			<action android:name="android.intent.action.MAIN" />
+			<category android:name="android.intent.category.LAUNCHER" />
+		</intent-filter>
+	</activity>
 		<receiver android:name="in.celest.xash3d.InstallReceiver">
 			<intent-filter android:priority="100">
 				<category android:name="android.intent.category.DEFAULT" />

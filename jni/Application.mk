@@ -3,7 +3,7 @@
 # See CPLUSPLUS-SUPPORT.html in the NDK documentation for more information
 #APP_STL := stlport_static 
 
-XASH_SDL ?= 1
+XASH_SDL ?= 0
 
 ifeq ($(XASH_SDL),1)
 APP_PLATFORM := android-12
