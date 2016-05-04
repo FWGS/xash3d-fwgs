@@ -501,28 +501,54 @@ View.OnKeyListener, View.OnTouchListener  {
 
     // Touch events
     public boolean onTouch(View v, MotionEvent event) {
-			final int touchDevId = event.getDeviceId();
-			final int pointerCount = event.getPointerCount();
-			// touchId, pointerId, action, x, y, pressure
-			int actionPointerIndex = event.getActionIndex();
-			int pointerFingerId = event.getPointerId(actionPointerIndex);
-			int action = event.getActionMasked();
+		/* Ref: http://developer.android.com/training/gestures/multi.html */
 
-			float x = event.getX(actionPointerIndex);
-			float y = event.getY(actionPointerIndex);
+        final int touchDevId = event.getDeviceId();
+        final int pointerCount = event.getPointerCount();
+        int action = event.getActionMasked();
+        int pointerFingerId;
+        int mouseButton;
+        int i = -1;
+        float x,y;
+            switch(action) {
+                case MotionEvent.ACTION_MOVE:
+                    for (i = 0; i < pointerCount; i++) {
+                        pointerFingerId = event.getPointerId(i);
+                        x = event.getX(i);
+                        y = event.getY(i);
+                        XashActivity.nativeTouch(pointerFingerId, action, x, y);
+                    }
+                    break;
 
-			if (action == MotionEvent.ACTION_MOVE && pointerCount > 1) {
-                // TODO send motion to every pointer if its position has
-                // changed since prev event.
-                for (int i = 0; i < pointerCount; i++) {
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_DOWN:
+                    // Primary pointer up/down, the index is always zero
+                    i = 0;
+                case MotionEvent.ACTION_POINTER_UP:
+                case MotionEvent.ACTION_POINTER_DOWN:
+                    // Non primary pointer up/down
+                    if (i == -1) {
+                        i = event.getActionIndex();
+                    }
+
                     pointerFingerId = event.getPointerId(i);
                     x = event.getX(i);
                     y = event.getY(i);
                     XashActivity.nativeTouch(pointerFingerId, action, x, y);
-                }
-			} else {
-                XashActivity.nativeTouch(pointerFingerId, action, x, y);
-			}
+                    break;
+
+                case MotionEvent.ACTION_CANCEL:
+                    for (i = 0; i < pointerCount; i++) {
+                        pointerFingerId = event.getPointerId(i);
+                        x = event.getX(i);
+                        y = event.getY(i);
+                       XashActivity.nativeTouch(pointerFingerId, action, x, y);
+                    }
+                    break;
+
+                default:
+                    break;
+        }
 		return true;
 	}
 
