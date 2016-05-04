@@ -28,7 +28,10 @@ public class XashActivity extends Activity {
     // Main components
     protected static XashActivity mSingleton;
     private static EngineSurface mSurface;
-    private static String mArgv;
+    private static String mArgv[];
+
+    	// Preferences
+    public static SharedPreferences mPref = null;
 
     // Audio
     private static Thread mAudioThread;
@@ -52,7 +55,44 @@ public class XashActivity extends Activity {
         setContentView(mSurface);
         SurfaceHolder holder = mSurface.getHolder();
         holder.setType(SurfaceHolder.SURFACE_TYPE_GPU);
-        setenv( "XASH3D_BASEDIR", "/sdcard/xash", true );
+		mPref = this.getSharedPreferences("engine", 0);
+		String argv = intent.getStringExtra("argv");
+		if(argv == null) argv = mPref.getString("argv", "-dev 3 -log");
+		if(argv == null) argv = "-dev 3 -log";
+		mArgv= argv.split(" ");
+		String gamelibdir = intent.getStringExtra("gamelibdir");
+		if(gamelibdir == null)
+			gamelibdir = getFilesDir().getParentFile().getPath() + "/lib";
+		String gamedir = intent.getStringExtra("gamedir");
+		if(gamedir == null)
+			gamedir = "valve";
+		String basedir = intent.getStringExtra("basedir");
+		if(basedir == null)
+			basedir = mPref.getString("basedir","/sdcard/xash/");
+
+		setenv("XASH3D_BASEDIR", basedir, true);
+		setenv("XASH3D_ENGLIBDIR", getFilesDir().getParentFile().getPath() + "/lib", true);
+		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
+		setenv("XASH3D_GAMEDIR", gamedir, true);
+
+		//extractPAK(this, false);
+		setenv("XASH3D_EXTRAS_PAK1", getFilesDir().getPath() + "/extras.pak", true);
+		String pakfile = intent.getStringExtra("pakfile");
+		if( pakfile != null && pakfile != "" )
+			setenv("XASH3D_EXTRAS_PAK2", pakfile, true);
+		String[] env = intent.getStringArrayExtra("env");
+		try
+		{
+			if( env != null )
+			for(int i = 0; i+1 < env.length; i+=2)
+			{
+				setenv(env[i],env[i+1], true);
+			}
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
     }
 
     // Events
@@ -89,7 +129,7 @@ public class XashActivity extends Activity {
     {
 
 
-        return "-dev 5 -log -noch".split(" ");
+        return "-dev 5 -log +map crossfire -noch +deathmatch 1 +map crossfire".split(" ");
     }
     // C functions we call
     public static native int nativeInit(Object arguments);
@@ -97,9 +137,9 @@ public class XashActivity extends Activity {
     public static native void onNativeResize(int x, int y);
     public static native void onNativeKeyDown(int keycode);
     public static native void onNativeKeyUp(int keycode);
-    public static native void onNativeTouch(int touchDevId, int pointerFingerId,
-                                            int action, float x, 
-                                            float y, float p);
+    public static native void nativeTouch(int pointerFingerId,
+                                            int action, float x,
+                                            float y);
     public static native void onNativeAccel(float x, float y, float z);
     public static native void nativeRunAudioThread();
     public static native int setenv(String key, String value, boolean overwrite);
@@ -149,7 +189,7 @@ public class XashActivity extends Activity {
         if (is16Bit) {
             buf = new short[desiredFrames * (isStereo ? 2 : 1)];
         } else {
-            buf = new byte[desiredFrames * (isStereo ? 2 : 1)]; 
+            buf = new byte[desiredFrames * (isStereo ? 2 : 1)];
         }
         return buf;
     }
@@ -239,15 +279,15 @@ class XashMain implements Runnable {
 
 /**
  SDLSurface. This is what we draw on, so we need to know when it's created
- in order to do anything useful. 
+ in order to do anything useful.
 
  Because of this, that's where we set up the SDL thread
  */
-class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, 
+class EngineSurface extends SurfaceView implements SurfaceHolder.Callback,
 View.OnKeyListener, View.OnTouchListener  {
 
     // This is what SDL runs in. It invokes SDL_main(), eventually
-    private Thread mEngThread;    
+    private Thread mEngThread;
 
     // EGL private objects
     private EGLContext  mEGLContext;
@@ -256,16 +296,16 @@ View.OnKeyListener, View.OnTouchListener  {
 
     // Sensors
 
-    // Startup    
+    // Startup
     public EngineSurface(Context context) {
         super(context);
-        getHolder().addCallback(this); 
+        getHolder().addCallback(this);
 
         setFocusable(true);
         setFocusableInTouchMode(true);
         requestFocus();
-        setOnKeyListener(this); 
-        setOnTouchListener(this);   
+        setOnKeyListener(this);
+        setOnTouchListener(this);
     }
 
     // Called when we have a valid drawing surface
@@ -342,14 +382,14 @@ View.OnKeyListener, View.OnTouchListener  {
 				Log.v("SDL", "pixel format unknown " + format);
 				break;
         }*/
-        
-        
+
+
         XashActivity.onNativeResize(width, height);
         // Now start up the C app thread
         if (mEngThread == null) {
-			
-            mEngThread = new Thread(new XashMain(), "EngineThread"); 
-            mEngThread.start();       
+
+            mEngThread = new Thread(new XashMain(), "EngineThread");
+            mEngThread.start();
         }
     }
 
@@ -367,7 +407,7 @@ View.OnKeyListener, View.OnTouchListener  {
 
             int[] version = new int[2];
             egl.eglInitialize(dpy, version);
-			
+
             int[] configSpec = {
                 EGL10.EGL_DEPTH_SIZE,   8,
                 EGL10.EGL_RED_SIZE,   8,
@@ -389,7 +429,7 @@ View.OnKeyListener, View.OnTouchListener  {
             {
                 EGL_CONTEXT_CLIENT_VERSION, 1,
                 EGL10.EGL_NONE
-            }; 
+            };
             EGLContext ctx = egl.eglCreateContext(dpy, config, EGL10.EGL_NO_CONTEXT, contextAttrs);
             if (ctx == EGL10.EGL_NO_CONTEXT) {
                 Log.e("SDL", "Couldn't create context");
@@ -461,7 +501,6 @@ View.OnKeyListener, View.OnTouchListener  {
 
     // Touch events
     public boolean onTouch(View v, MotionEvent event) {
-			/*
 			final int touchDevId = event.getDeviceId();
 			final int pointerCount = event.getPointerCount();
 			// touchId, pointerId, action, x, y, pressure
@@ -471,7 +510,6 @@ View.OnKeyListener, View.OnTouchListener  {
 
 			float x = event.getX(actionPointerIndex);
 			float y = event.getY(actionPointerIndex);
-			float p = event.getPressure(actionPointerIndex);
 
 			if (action == MotionEvent.ACTION_MOVE && pointerCount > 1) {
                 // TODO send motion to every pointer if its position has
@@ -480,16 +518,13 @@ View.OnKeyListener, View.OnTouchListener  {
                     pointerFingerId = event.getPointerId(i);
                     x = event.getX(i);
                     y = event.getY(i);
-                    p = event.getPressure(i);
-                    XashActivity.onNativeTouch(touchDevId, pointerFingerId, action, x, y, p);
+                    XashActivity.nativeTouch(pointerFingerId, action, x, y);
                 }
 			} else {
-                XashActivity.onNativeTouch(touchDevId, pointerFingerId, action, x, y, p);
+                XashActivity.nativeTouch(pointerFingerId, action, x, y);
 			}
-        }*/
-        //XashActivity.controlInterp.onTouchEvent(event);
 		return true;
-	} 
+	}
 
 }
 
