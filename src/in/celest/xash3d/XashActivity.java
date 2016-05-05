@@ -140,6 +140,8 @@ public class XashActivity extends Activity {
     public static native void nativeTouch(int pointerFingerId,
                                             int action, float x,
                                             float y);
+    public static native void nativeKey( int down, int code );
+    public static native void nativeString( String text );
     public static native void onNativeAccel(float x, float y, float z);
     public static native void nativeRunAudioThread();
     public static native int setenv(String key, String value, boolean overwrite);
@@ -413,6 +415,7 @@ View.OnKeyListener, View.OnTouchListener  {
                 EGL10.EGL_RED_SIZE,   8,
                 EGL10.EGL_GREEN_SIZE,   8,
                 EGL10.EGL_BLUE_SIZE,   8,
+                EGL10.EGL_ALPHA_SIZE, 0,
                 EGL10.EGL_RENDERABLE_TYPE, 1,
                 EGL10.EGL_NONE
             };
@@ -485,17 +488,21 @@ View.OnKeyListener, View.OnTouchListener  {
 
     // Key events
     public boolean onKey(View  v, int keyCode, KeyEvent event) {
+		/*
+		 * This handles the keycodes from soft keyboard (and IME-translated
+		 * input from hardkeyboard)
+		 */
+		if (event.getAction() == KeyEvent.ACTION_DOWN) {
+			if (event.isPrintingKey()|| keyCode == 62) {
+				XashActivity.nativeString(String.valueOf((char) event.getUnicodeChar()));
+			}
+			XashActivity.nativeKey(1,keyCode);
+			return true;
+		} else if (event.getAction() == KeyEvent.ACTION_UP) {
 
-        if (event.getAction() == KeyEvent.ACTION_DOWN) {
-            //Log.v("SDL", "key down: " + keyCode);
-            //XashActivity.controlInterp.onKeyDown(keyCode, event);
-            return true;
-        }
-        else if (event.getAction() == KeyEvent.ACTION_UP) {
-            //Log.v("SDL", "key up: " + keyCode);
-           // XashActivity.controlInterp.onKeyUp(keyCode, event);
-            return true;
-        }
+			XashActivity.nativeKey(0,keyCode);
+			return true;
+		}
         return false;
     }
 
@@ -516,7 +523,7 @@ View.OnKeyListener, View.OnTouchListener  {
                         pointerFingerId = event.getPointerId(i);
                         x = event.getX(i);
                         y = event.getY(i);
-                        XashActivity.nativeTouch(pointerFingerId, action, x, y);
+                        XashActivity.nativeTouch(pointerFingerId, 2, x, y);
                     }
                     break;
 
@@ -532,9 +539,13 @@ View.OnKeyListener, View.OnTouchListener  {
                     }
 
                     pointerFingerId = event.getPointerId(i);
+
                     x = event.getX(i);
                     y = event.getY(i);
-                    XashActivity.nativeTouch(pointerFingerId, action, x, y);
+                    if( action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP )
+                    	XashActivity.nativeTouch(pointerFingerId,1, x, y);
+                    if( action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN )
+                    	XashActivity.nativeTouch(pointerFingerId,0, x, y);
                     break;
 
                 case MotionEvent.ACTION_CANCEL:
@@ -542,7 +553,7 @@ View.OnKeyListener, View.OnTouchListener  {
                         pointerFingerId = event.getPointerId(i);
                         x = event.getX(i);
                         y = event.getY(i);
-                       XashActivity.nativeTouch(pointerFingerId, action, x, y);
+                       XashActivity.nativeTouch(pointerFingerId, 1, x, y);
                     }
                     break;
 
