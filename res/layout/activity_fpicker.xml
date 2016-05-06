@@ -19,7 +19,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/folder"
-        android:id="@+id/button2"
+        android:id="@+id/button_fpicker_select"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
         android:onClick="onFileClick" />

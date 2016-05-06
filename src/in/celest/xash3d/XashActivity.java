@@ -29,6 +29,7 @@ public class XashActivity extends Activity {
     protected static XashActivity mSingleton;
     private static EngineSurface mSurface;
     private static String mArgv[];
+    public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
 
     	// Preferences
     public static SharedPreferences mPref = null;
@@ -270,7 +271,8 @@ public class XashActivity extends Activity {
 class XashMain implements Runnable {
     public void run() {
         // Runs SDL_main()
-		XashActivity.createGLContext();
+
+	  XashActivity.createGLContext();
 
         XashActivity.nativeInit(XashActivity.getArguments());
 
@@ -286,7 +288,7 @@ class XashMain implements Runnable {
  Because of this, that's where we set up the SDL thread
  */
 class EngineSurface extends SurfaceView implements SurfaceHolder.Callback,
-View.OnKeyListener, View.OnTouchListener  {
+View.OnKeyListener {
 
     // This is what SDL runs in. It invokes SDL_main(), eventually
     private Thread mEngThread;
@@ -307,7 +309,10 @@ View.OnKeyListener, View.OnTouchListener  {
         setFocusableInTouchMode(true);
         requestFocus();
         setOnKeyListener(this);
-        setOnTouchListener(this);
+        if( XashActivity.sdk >= 5 )
+         setOnTouchListener(new EngineTouchListener_v5());
+        else
+        	setOnTouchListener(new EngineTouchListener_v1());
     }
 
     // Called when we have a valid drawing surface
@@ -412,11 +417,10 @@ View.OnKeyListener, View.OnTouchListener  {
 
             int[] configSpec = {
                 EGL10.EGL_DEPTH_SIZE,   8,
-                EGL10.EGL_RED_SIZE,   8,
-                EGL10.EGL_GREEN_SIZE,   8,
-                EGL10.EGL_BLUE_SIZE,   8,
+                EGL10.EGL_RED_SIZE,   5,
+                EGL10.EGL_GREEN_SIZE,   6,
+                EGL10.EGL_BLUE_SIZE,   5,
                 EGL10.EGL_ALPHA_SIZE, 0,
-                EGL10.EGL_RENDERABLE_TYPE, 1,
                 EGL10.EGL_NONE
             };
             EGLConfig[] configs = new EGLConfig[1];
@@ -505,11 +509,18 @@ View.OnKeyListener, View.OnTouchListener  {
 		}
         return false;
     }
-
-    // Touch events
+}
+class EngineTouchListener_v1 implements View.OnTouchListener{
+       // Touch events
     public boolean onTouch(View v, MotionEvent event) {
-		/* Ref: http://developer.android.com/training/gestures/multi.html */
+                XashActivity.nativeTouch(0, event.getAction(), event.getX(), event.getY());
+		return true;
+	}
+}
 
+class EngineTouchListener_v5 implements View.OnTouchListener{
+       // Touch events
+    public boolean onTouch(View v, MotionEvent event) {
         final int touchDevId = event.getDeviceId();
         final int pointerCount = event.getPointerCount();
         int action = event.getActionMasked();
@@ -559,9 +570,7 @@ View.OnKeyListener, View.OnTouchListener  {
 
                 default:
                     break;
-        }
+       	 }
 		return true;
 	}
-
 }
-

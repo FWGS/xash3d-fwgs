@@ -97,7 +97,7 @@
     </application>
 
     <!-- Android 2.3 -->
-    <uses-sdk android:minSdkVersion="5" android:targetSdkVersion="9" />
+    <uses-sdk android:minSdkVersion="3" android:targetSdkVersion="9" />
 
     <!-- OpenGL ES 1.1 -->
     <uses-feature android:glEsVersion="0x00010000" /> 

@@ -31,6 +31,7 @@ import in.celest.xash3d.hl.R;
 
 public class LauncherActivity extends Activity {
    // public final static String ARGV = "in.celest.xash3d.MESSAGE";
+   	public final static int sdk = Integer.valueOf(Build.VERSION.SDK);
 	static EditText cmdArgs;
 	static ToggleButton useVolume;
 	static EditText resPath;
@@ -47,10 +48,10 @@ public class LauncherActivity extends Activity {
         super.onCreate(savedInstanceState);
         this.requestWindowFeature(Window.FEATURE_NO_TITLE);
         //super.setTheme( 0x01030005 );
-        if ( Build.VERSION.SDK_INT >= 21 )
+        if ( sdk >= 21 )
 		super.setTheme( 0x01030224 );
         setContentView(R.layout.activity_launcher);
-     
+
 	TabHost tabHost = (TabHost) findViewById(R.id.tabhost);
 
 	tabHost.setup();
@@ -60,13 +61,37 @@ public class LauncherActivity extends Activity {
 	tabSpec.setIndicator(getString(R.string.text_tab1));
 	tabSpec.setContent(R.id.tab1);
 	tabHost.addTab(tabSpec);
-	
+
 	tabSpec = tabHost.newTabSpec("tabtag2");
 	tabSpec.setIndicator(getString(R.string.text_tab2));
 	tabSpec.setContent(R.id.tab2);
 	tabHost.addTab(tabSpec);
-	
-        Button selectFolder = ( Button ) findViewById( R.id.button_select );
+
+        Button selectFolderButton = ( Button ) findViewById( R.id.button_select );
+        selectFolderButton.setOnClickListener(new View.OnClickListener(){
+           	   @Override
+            public void onClick(View v) {
+			selectFolder(v);
+                }
+        });
+        ((Button)findViewById( R.id.button_launch )).setOnClickListener(new View.OnClickListener(){
+           	   @Override
+            public void onClick(View v) {
+			startXash(v);
+                }
+        });
+        ((Button)findViewById( R.id.button_shortcut )).setOnClickListener(new View.OnClickListener(){
+           	   @Override
+            public void onClick(View v) {
+			createShortcut(v);
+                }
+        });
+        ((Button)findViewById( R.id.button_about )).setOnClickListener(new View.OnClickListener(){
+           	   @Override
+            public void onClick(View v) {
+			aboutXash(v);
+                }
+        });
 //		if ( Build.VERSION.SDK_INT < 21 )
 //			selectFolder.setVisibility( View.GONE );
 	mPref = getSharedPreferences("engine", 0);
@@ -77,7 +102,7 @@ public class LauncherActivity extends Activity {
 	resPath = ( EditText ) findViewById( R.id.cmdPath );
 	resPath.setText(mPref.getString("basedir", getDefaultPath()));
 	}
-    
+
     public void startXash(View view)
     {
 	Intent intent = new Intent(this, org.libsdl.app.SDLActivity.class);
@@ -88,7 +113,6 @@ public class LauncherActivity extends Activity {
 	editor.putBoolean("usevolume",useVolume.isChecked());
 	editor.putString("basedir", resPath.getText().toString());
 	editor.commit();
-	editor.apply();
 	startActivity(intent);
     }
 

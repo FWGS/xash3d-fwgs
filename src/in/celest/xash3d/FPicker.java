@@ -18,6 +18,7 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.Button;
 
 import java.io.File;
 import java.text.DateFormat;
@@ -32,15 +33,22 @@ public class FPicker extends Activity {
     private File currentDir;
     private FileArrayAdapter adapter;
     static ListView delta;
+    public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if ( Build.VERSION.SDK_INT >= 21 )
+        if ( sdk >= 21 )
             super.setTheme( 0x01030224 );
         setContentView(R.layout.activity_fpicker);
         String path = Environment.getExternalStorageDirectory().toString();
         currentDir = new File(path);
-
+        ((Button)findViewById( R.id.button_fpicker_select )).setOnClickListener(new View.OnClickListener(){
+           	   @Override
+            public void onClick(View v) {
+			onFileClick(v);
+                }
+        });
         fill(currentDir);
     }
 
