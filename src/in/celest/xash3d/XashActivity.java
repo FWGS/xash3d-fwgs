@@ -50,8 +50,19 @@ public class XashActivity extends Activity {
 	      // So we can call stuff from static callbacks
 	      mSingleton = this;
 	      Intent intent = getIntent();
-	      //  mArgv = intent.getStringExtra(in.celest.xash3d.LauncherActivity.ARGV);
-	      // Set up the surface
+
+	      // fullscreen
+		requestWindowFeature(Window.FEATURE_NO_TITLE);
+		if(sdk >= 12) {
+			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+					WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		}
+
+		// keep screen on
+		getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+				WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+		// Set up the surface
 	      mSurface = new EngineSurface(getApplication());
 	      setContentView(mSurface);
 	      SurfaceHolder holder = mSurface.getHolder();
@@ -76,7 +87,7 @@ public class XashActivity extends Activity {
 		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
 		setenv("XASH3D_GAMEDIR", gamedir, true);
 
-		//extractPAK(this, false);
+		InstallReceiver.extractPAK(this, false);
 		setenv("XASH3D_EXTRAS_PAK1", getFilesDir().getPath() + "/extras.pak", true);
 		String pakfile = intent.getStringExtra("pakfile");
 		if( pakfile != null && pakfile != "" )
