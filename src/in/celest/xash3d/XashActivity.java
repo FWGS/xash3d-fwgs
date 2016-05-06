@@ -150,6 +150,8 @@ public class XashActivity extends Activity {
     public static native void nativeString( String text );
     public static native void onNativeAccel(float x, float y, float z);
     public static native void nativeRunAudioThread();
+    public static native void nativeSetPause(int pause);
+
     public static native int setenv(String key, String value, boolean overwrite);
 
 
@@ -161,6 +163,10 @@ public class XashActivity extends Activity {
 
     public static void swapBuffers() {
         mSurface.SwapBuffers();
+    }
+
+    public static void restoreEGL() {
+        mSurface.restoreEGL();
     }
 
     public static void setActivityTitle(String title) {
@@ -302,6 +308,8 @@ View.OnKeyListener {
     private EGLContext  mEGLContext;
     private EGLSurface  mEGLSurface;
     private EGLDisplay  mEGLDisplay;
+    private EGL10 mEGL;
+    private EGLConfig mEGLConfig;
 
     // Sensors
 
@@ -323,26 +331,36 @@ View.OnKeyListener {
     // Called when we have a valid drawing surface
     public void surfaceCreated(SurfaceHolder holder) {
         //Log.v("SDL", "surfaceCreated()");
+        if( mEGL == null )
+        	return;
+        XashActivity.nativeSetPause(0);
+        //mEGL = (EGL10)EGLContext.getEGL();
+        //mEGL.eglWaitNative(EGL10.EGL_CORE_NATIVE_ENGINE, null);
+
+        //mEGL.eglWaitGL();
+     	  //mEGL.eglDestroyContext(mEGLDisplay, mEGLContext);
+     	  int EGL_CONTEXT_CLIENT_VERSION=0x3098;
+            int contextAttrs[] = new int[]
+            {
+                EGL_CONTEXT_CLIENT_VERSION, 1,
+                EGL10.EGL_NONE
+            };
+        //mEGLContext = mEGL.eglCreateContext(mEGLDisplay, mEGLConfig, EGL10.EGL_NO_CONTEXT, contextAttrs);
+
     }
 
     // Called when we lose the surface
     public void surfaceDestroyed(SurfaceHolder holder) {
-        //Log.v("SDL", "surfaceDestroyed()");
+      if( mEGL == null )
+        	return;
+      XashActivity.nativeSetPause(1);
+      //mEGL = (EGL10)EGLContext.getEGL();
+     // mEGL.eglWaitNative(EGL10.EGL_CORE_NATIVE_ENGINE, null);
 
-        // Send a quit message to the application
-        XashActivity.nativeQuit();
-
-        // Now wait for the SDL thread to quit
-        if (mEngThread != null) {
-            try {
-                mEngThread.join();
-            } catch(Exception e) {
-                Log.v("SDL", "Problem stopping thread: " + e);
-            }
-            mEngThread = null;
-
-            //Log.v("SDL", "Finished waiting for SDL thread");
-        }
+      //mEGL.eglWaitGL();
+	mEGL.eglMakeCurrent(mEGLDisplay, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT);
+     	mEGL.eglDestroySurface(mEGLDisplay, mEGLSurface);
+     // mEGLSurface = null;
     }
 
     // Called when the surface is resized
@@ -420,17 +438,52 @@ View.OnKeyListener {
             int[] version = new int[2];
             egl.eglInitialize(dpy, version);
 
-            int[] configSpec = {
+            int[] configSpec1 = {
+                EGL10.EGL_DEPTH_SIZE,   8,
+                EGL10.EGL_RED_SIZE,   8,
+                EGL10.EGL_GREEN_SIZE,  8,
+                EGL10.EGL_BLUE_SIZE,   8,
+                EGL10.EGL_ALPHA_SIZE, 8,
+                EGL10.EGL_NONE
+            };
+            int[] configSpec2 = {
                 EGL10.EGL_DEPTH_SIZE,   8,
                 EGL10.EGL_RED_SIZE,   5,
-                EGL10.EGL_GREEN_SIZE,   6,
+                EGL10.EGL_GREEN_SIZE,  6,
                 EGL10.EGL_BLUE_SIZE,   5,
-                EGL10.EGL_ALPHA_SIZE, 0,
+                EGL10.EGL_ALPHA_SIZE, 8,
+                EGL10.EGL_NONE
+            };
+            int[] configSpec3 = {
+                EGL10.EGL_DEPTH_SIZE,   8,
+                EGL10.EGL_RED_SIZE,   5,
+                EGL10.EGL_GREEN_SIZE,  6,
+                EGL10.EGL_BLUE_SIZE,   5,
+                EGL10.EGL_ALPHA_SIZE, 1,
+                EGL10.EGL_NONE
+            };
+             int[] configSpec4 = {
+                EGL10.EGL_DEPTH_SIZE,   8,
+                EGL10.EGL_RED_SIZE,   8,
+                EGL10.EGL_GREEN_SIZE,  8,
+                EGL10.EGL_BLUE_SIZE,   8,
+                EGL10.EGL_NONE
+            };
+             int[] configSpec5 = {
+                EGL10.EGL_DEPTH_SIZE,   8,
+                EGL10.EGL_RED_SIZE,   5,
+                EGL10.EGL_GREEN_SIZE,  6,
+                EGL10.EGL_BLUE_SIZE,   5,
                 EGL10.EGL_NONE
             };
             EGLConfig[] configs = new EGLConfig[1];
             int[] num_config = new int[1];
-            if (!egl.eglChooseConfig(dpy, configSpec, configs, 1, num_config) || num_config[0] == 0) {
+            if (!egl.eglChooseConfig(dpy, configSpec1, configs, 1, num_config) || num_config[0] == 0)
+             if (!egl.eglChooseConfig(dpy, configSpec2, configs, 1, num_config) || num_config[0] == 0)
+               if (!egl.eglChooseConfig(dpy, configSpec3, configs, 1, num_config) || num_config[0] == 0)
+                 if (!egl.eglChooseConfig(dpy, configSpec4, configs, 1, num_config) || num_config[0] == 0)
+                   if (!egl.eglChooseConfig(dpy, configSpec5, configs, 1, num_config) || num_config[0] == 0)
+            {
                 Log.e("SDL", "No EGL config available");
                 return false;
             }
@@ -462,6 +515,8 @@ View.OnKeyListener {
             mEGLContext = ctx;
             mEGLDisplay = dpy;
             mEGLSurface = surface;
+            mEGL = egl;
+            mEGLConfig = config;
 
         } catch(Exception e) {
             Log.v("SDL", e + "");
@@ -476,15 +531,13 @@ View.OnKeyListener {
     // EGL buffer flip
     public void SwapBuffers() {
         try {
-            EGL10 egl = (EGL10)EGLContext.getEGL();
+            //EGL10 egl = (EGL10)EGLContext.getEGL();
 
-            egl.eglWaitNative(EGL10.EGL_CORE_NATIVE_ENGINE, null);
+            //egl.eglWaitNative(EGL10.EGL_CORE_NATIVE_ENGINE, null);
 
-            // drawing here
+            //egl.eglWaitGL();
 
-            egl.eglWaitGL();
-
-            egl.eglSwapBuffers(mEGLDisplay, mEGLSurface);
+            mEGL.eglSwapBuffers(mEGLDisplay, mEGLSurface);
 
 
         } catch(Exception e) {
@@ -493,6 +546,11 @@ View.OnKeyListener {
                 Log.v("SDL", s.toString());
             }
         }
+    }
+    public void restoreEGL()
+    {
+               mEGLSurface = mEGL.eglCreateWindowSurface(mEGLDisplay, mEGLConfig, this, null);
+        		mEGL.eglMakeCurrent(mEGLDisplay, mEGLSurface, mEGLSurface, mEGLContext);
     }
 
     // Key events
