@@ -52,7 +52,7 @@
 				<category android:name="android.intent.category.DEFAULT" />
 			</intent-filter>
 		</activity>
-		
+		<!--
 		<activity android:name="org.libsdl.app.SDLActivity"
 			android:screenOrientation="sensorLandscape"
 			android:configChanges="orientation|screenSize"
@@ -63,15 +63,13 @@
 				<category android:name="android.intent.category.DEFAULT" />
 			</intent-filter>
 		</activity>
-		
+		-->
 		<activity android:name="in.celest.xash3d.XashActivity"
 			android:screenOrientation="landscape"
 			android:label="@string/app_name">
 			<intent-filter>
-
-			<action android:name="in.celest.xash3d.XashActivity"/>
-			<action android:name="android.intent.action.MAIN" />
-			<category android:name="android.intent.category.LAUNCHER" />
+				<action android:name="in.celest.xash3d.START" />
+				<category android:name="android.intent.category.DEFAULT" />
 			</intent-filter>
 		</activity> 
 		<activity android:name="in.celest.xash3d.FPicker"></activity>

@@ -8,7 +8,7 @@ sh gen-version.sh test build
 rm assets/extras.pak
 python2.7 makepak.py xash-extras assets/extras.pak
 $AAPT package -m -J gen/ --rename-manifest-package in.celest.xash3d.hl -M AndroidManifest.xml -S test/res -I $ANDROID_JAR
-$JAVA_HOME/bin/javac -d bin/classes -s bin/classes -cp $ANDROID_JAR src/org/libsdl/app/SDLActivity.java gen/in/celest/xash3d/hl/R.java src/in/celest/xash3d/*
+$JAVA_HOME/bin/javac -d bin/classes -s bin/classes -cp $ANDROID_JAR src/org/libsdl/app/SDLActivity.java gen/in/celest/xash3d/hl/R.java src/in/celest/xash3d/*.java
 $DX --dex --output=bin/classes.dex bin/classes/
 /mnt/app/apktool/aapt package -f -M test/AndroidManifest.xml -S test/res -I $ANDROID_JAR -F bin/xash3d.apk.unaligned
 zip bin/xash3d.apk.unaligned assets/*

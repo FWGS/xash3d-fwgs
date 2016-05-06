@@ -105,7 +105,7 @@ public class LauncherActivity extends Activity {
 
     public void startXash(View view)
     {
-	Intent intent = new Intent(this, org.libsdl.app.SDLActivity.class);
+	Intent intent = new Intent(this, XashActivity.class);
 	intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
 	SharedPreferences.Editor editor = mPref.edit();

@@ -28,7 +28,7 @@ public class XashActivity extends Activity {
     // Main components
     protected static XashActivity mSingleton;
     private static EngineSurface mSurface;
-    private static String mArgv[];
+    public static String mArgv[];
     public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
 
     	// Preferences
@@ -44,18 +44,18 @@ public class XashActivity extends Activity {
 
     // Setup
     protected void onCreate(Bundle savedInstanceState) {
-        //Log.v("SDL", "onCreate()");
-        super.onCreate(savedInstanceState);
+	      //Log.v("SDL", "onCreate()");
+	      super.onCreate(savedInstanceState);
 
-        // So we can call stuff from static callbacks
-        mSingleton = this;
-        Intent intent = getIntent();
-      //  mArgv = intent.getStringExtra(in.celest.xash3d.LauncherActivity.ARGV);
-        // Set up the surface
-        mSurface = new EngineSurface(getApplication());
-        setContentView(mSurface);
-        SurfaceHolder holder = mSurface.getHolder();
-        holder.setType(SurfaceHolder.SURFACE_TYPE_GPU);
+	      // So we can call stuff from static callbacks
+	      mSingleton = this;
+	      Intent intent = getIntent();
+	      //  mArgv = intent.getStringExtra(in.celest.xash3d.LauncherActivity.ARGV);
+	      // Set up the surface
+	      mSurface = new EngineSurface(getApplication());
+	      setContentView(mSurface);
+	      SurfaceHolder holder = mSurface.getHolder();
+	      holder.setType(SurfaceHolder.SURFACE_TYPE_GPU);
 		mPref = this.getSharedPreferences("engine", 0);
 		String argv = intent.getStringExtra("argv");
 		if(argv == null) argv = mPref.getString("argv", "-dev 3 -log");
@@ -125,12 +125,6 @@ public class XashActivity extends Activity {
         msg.arg1 = command;
         msg.obj = data;
         commandHandler.sendMessage(msg);
-    }
-    public static String[] getArguments()
-    {
-
-
-        return "-dev 5 -log +map crossfire -noch +deathmatch 1 +map crossfire".split(" ");
     }
     // C functions we call
     public static native int nativeInit(Object arguments);
@@ -274,7 +268,7 @@ class XashMain implements Runnable {
 
 	  XashActivity.createGLContext();
 
-        XashActivity.nativeInit(XashActivity.getArguments());
+        XashActivity.nativeInit(XashActivity.mArgv);
 
         //Log.v("SDL", "SDL thread terminated");
     }
@@ -310,7 +304,7 @@ View.OnKeyListener {
         requestFocus();
         setOnKeyListener(this);
         if( XashActivity.sdk >= 5 )
-         setOnTouchListener(new EngineTouchListener_v5());
+        	setOnTouchListener(new EngineTouchListener_v5());
         else
         	setOnTouchListener(new EngineTouchListener_v1());
     }

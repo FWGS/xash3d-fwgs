@@ -4,15 +4,10 @@
 #APP_STL := stlport_static 
 
 XASH_SDL ?= 0
-XASH_LEGACY ?= 0
 ifeq ($(XASH_SDL),1)
 APP_PLATFORM := android-12
 else
-ifneq ($(XASH_LEGACY),1)
 APP_PLATFORM := android-8
-else
-APP_PLATFORM := android-3
-endif
 endif
 
 
