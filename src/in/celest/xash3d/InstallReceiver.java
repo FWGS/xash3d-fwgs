@@ -8,23 +8,24 @@ import java.io.InputStream;
 import android.content.SharedPreferences;
 
 public class InstallReceiver extends BroadcastReceiver {
-private static final String TAG = "XASH3D";
-@Override
-public void onReceive(Context context, Intent arg1) {
-	Log.d( TAG, "Install received, extracting PAK" );
-    	if( context.getPackageName() == arg1.getData().getEncodedSchemeSpecificPart() )
-    		extractPAK(context, true);
-    }
-    public static SharedPreferences mPref = null;
-    	private static final int PAK_VERSION = 5;
+	private static final String TAG = "XASH3D";
+	@Override
+	public void onReceive(Context context, Intent arg1) {
+		String pkgname = arg1.getData().getEncodedSchemeSpecificPart();
+		Log.d( TAG, "Install received, package " + pkgname );
+    		if( context.getPackageName().equals(pkgname) )
+    			extractPAK(context, true);
+	}
+	public static SharedPreferences mPref = null;
+	private static final int PAK_VERSION = 5;
 	public static void extractPAK(Context context, Boolean force) {
 		InputStream is = null;
 		FileOutputStream os = null;
 		try {
-		if( mPref == null )
-			mPref = context.getSharedPreferences("engine", 0);
-		if( mPref.getInt( "pakversion", 0 ) == PAK_VERSION && !force )
-			return;
+			if( mPref == null )
+				mPref = context.getSharedPreferences("engine", 0);
+			if( mPref.getInt( "pakversion", 0 ) == PAK_VERSION && !force )
+				return;
 			String path = context.getFilesDir().getPath()+"/extras.pak";
 
 			is = context.getAssets().open("extras.pak");
