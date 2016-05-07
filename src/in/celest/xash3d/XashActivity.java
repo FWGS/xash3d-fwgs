@@ -165,8 +165,8 @@ public class XashActivity extends Activity {
         mSurface.SwapBuffers();
     }
 
-    public static void restoreEGL() {
-        mSurface.restoreEGL();
+    public static void toggleEGL(int toggle) {
+        mSurface.toggleEGL(toggle);
     }
 
     public static void setActivityTitle(String title) {
@@ -334,19 +334,6 @@ View.OnKeyListener {
         if( mEGL == null )
         	return;
         XashActivity.nativeSetPause(0);
-        //mEGL = (EGL10)EGLContext.getEGL();
-        //mEGL.eglWaitNative(EGL10.EGL_CORE_NATIVE_ENGINE, null);
-
-        //mEGL.eglWaitGL();
-     	  //mEGL.eglDestroyContext(mEGLDisplay, mEGLContext);
-     	  int EGL_CONTEXT_CLIENT_VERSION=0x3098;
-            int contextAttrs[] = new int[]
-            {
-                EGL_CONTEXT_CLIENT_VERSION, 1,
-                EGL10.EGL_NONE
-            };
-        //mEGLContext = mEGL.eglCreateContext(mEGLDisplay, mEGLConfig, EGL10.EGL_NO_CONTEXT, contextAttrs);
-
     }
 
     // Called when we lose the surface
@@ -354,13 +341,6 @@ View.OnKeyListener {
       if( mEGL == null )
         	return;
       XashActivity.nativeSetPause(1);
-      //mEGL = (EGL10)EGLContext.getEGL();
-     // mEGL.eglWaitNative(EGL10.EGL_CORE_NATIVE_ENGINE, null);
-
-      //mEGL.eglWaitGL();
-	mEGL.eglMakeCurrent(mEGLDisplay, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT);
-     	mEGL.eglDestroySurface(mEGLDisplay, mEGLSurface);
-     // mEGLSurface = null;
     }
 
     // Called when the surface is resized
@@ -530,6 +510,8 @@ View.OnKeyListener {
 
     // EGL buffer flip
     public void SwapBuffers() {
+       if( mEGLSurface == null )
+       	return;
         try {
             //EGL10 egl = (EGL10)EGLContext.getEGL();
 
@@ -547,10 +529,19 @@ View.OnKeyListener {
             }
         }
     }
-    public void restoreEGL()
+    public void toggleEGL(int toggle)
     {
-               mEGLSurface = mEGL.eglCreateWindowSurface(mEGLDisplay, mEGLConfig, this, null);
-        		mEGL.eglMakeCurrent(mEGLDisplay, mEGLSurface, mEGLSurface, mEGLContext);
+       if( toggle != 0 )
+       {
+		mEGLSurface = mEGL.eglCreateWindowSurface(mEGLDisplay, mEGLConfig, this, null);
+		mEGL.eglMakeCurrent(mEGLDisplay, mEGLSurface, mEGLSurface, mEGLContext);
+       }
+       else
+       {
+		mEGL.eglMakeCurrent(mEGLDisplay, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT);
+     		mEGL.eglDestroySurface(mEGLDisplay, mEGLSurface);
+     		mEGLSurface = null;
+       }
     }
 
     // Key events
