@@ -7,7 +7,7 @@ XASH_SDL ?= 0
 ifeq ($(XASH_SDL),1)
 APP_PLATFORM := android-12
 else
-APP_PLATFORM := android-8
+APP_PLATFORM := android-9
 endif
 
 
