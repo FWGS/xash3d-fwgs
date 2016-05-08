@@ -17,6 +17,9 @@ import android.text.*;
 import android.media.*;
 import android.hardware.*;
 import android.content.*;
+import android.widget.*;
+
+import android.view.inputmethod.*;
 
 import java.lang.*;
 
@@ -27,10 +30,12 @@ public class XashActivity extends Activity {
 
     // Main components
     protected static XashActivity mSingleton;
+    protected static View mTextEdit;
     private static EngineSurface mSurface;
     public static String mArgv[];
     public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
     public static int mPixelFormat;
+    protected static ViewGroup mLayout;
 
     	// Preferences
     public static SharedPreferences mPref = null;
@@ -69,7 +74,9 @@ public class XashActivity extends Activity {
 
 		// Set up the surface
 	      mSurface = new EngineSurface(getApplication());
-	      setContentView(mSurface);
+	      mLayout = new FrameLayout(this);
+	      mLayout.addView(mSurface);
+	      setContentView(mLayout);
 	      SurfaceHolder holder = mSurface.getHolder();
 	      holder.setType(SurfaceHolder.SURFACE_TYPE_GPU);
 		mPref = this.getSharedPreferences("engine", 0);
@@ -169,6 +176,10 @@ public class XashActivity extends Activity {
 
     public static void swapBuffers() {
         mSurface.SwapBuffers();
+    }
+
+    public static void vibrate( int time ) {
+	 ((Vibrator) mSingleton.getSystemService(Context.VIBRATOR_SERVICE)).vibrate( time );
     }
 
     public static void toggleEGL(int toggle) {
@@ -280,6 +291,72 @@ public class XashActivity extends Activity {
             mAudioTrack = null;
         }
     }
+    public static boolean handleKey( int keyCode, KeyEvent event)
+    {
+    		/*
+		 * This handles the keycodes from soft keyboard (and IME-translated
+		 * input from hardkeyboard)
+		 */
+		Log.d("XASH3D", "Keycode " + keyCode );
+		if (event.getAction() == KeyEvent.ACTION_DOWN) {
+			if (event.isPrintingKey() || keyCode == 62) {
+				XashActivity.nativeString(String.valueOf((char) event.getUnicodeChar()));
+			}
+			XashActivity.nativeKey(1,keyCode);
+			return true;
+		} else if (event.getAction() == KeyEvent.ACTION_UP) {
+
+			XashActivity.nativeKey(0,keyCode);
+			return true;
+		}
+		return false;
+	}
+	static class ShowTextInputTask implements Runnable {
+		/*
+		 * This is used to regulate the pan&scan method to have some offset from
+		 * the bottom edge of the input region and the top edge of an input
+		 * method (soft keyboard)
+		 */
+		private int show;
+
+		public ShowTextInputTask(int show1) {
+		   show = show1;
+		}
+
+		@Override
+		public void run() {
+		   	InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+
+
+			if (mTextEdit == null)
+			{
+				mTextEdit = new DummyEdit(getContext());
+				mLayout.addView(mTextEdit);
+			}
+			if( show == 1 )
+			{
+
+			mTextEdit.setVisibility(View.VISIBLE);
+			mTextEdit.requestFocus();
+
+			imm.showSoftInput(mTextEdit, 0);
+			}
+			else
+			{
+				mTextEdit.setVisibility(View.GONE);
+				imm.hideSoftInputFromWindow(mTextEdit.getWindowToken(), 0);
+			}
+		}
+	}
+
+	/**
+	 * This method is called by SDL using JNI.
+	 */
+	public static void showKeyboard( int show ) {
+		// Transfer the task to the main thread as a Runnable
+		mSingleton.runOnUiThread(new ShowTextInputTask(show));
+	}
+
 }
 
 /**
@@ -554,25 +631,98 @@ View.OnKeyListener {
        }
     }
 
-    // Key events
-    public boolean onKey(View  v, int keyCode, KeyEvent event) {
-		/*
-		 * This handles the keycodes from soft keyboard (and IME-translated
-		 * input from hardkeyboard)
-		 */
-		if (event.getAction() == KeyEvent.ACTION_DOWN) {
-			if (event.isPrintingKey()|| keyCode == 62) {
-				XashActivity.nativeString(String.valueOf((char) event.getUnicodeChar()));
-			}
-			XashActivity.nativeKey(1,keyCode);
-			return true;
-		} else if (event.getAction() == KeyEvent.ACTION_UP) {
 
-			XashActivity.nativeKey(0,keyCode);
+	@Override
+	public boolean onKey(View v, int keyCode, KeyEvent event) {
+
+		return XashActivity.handleKey( keyCode, event );
+	}
+}
+
+/* This is a fake invisible editor view that receives the input and defines the
+ * pan&scan region
+ */
+class DummyEdit extends View implements View.OnKeyListener {
+	InputConnection ic;
+
+	public DummyEdit(Context context) {
+		super(context);
+		setFocusableInTouchMode(true);
+		setFocusable(true);
+		setOnKeyListener(this);
+	}
+
+	@Override
+	public boolean onCheckIsTextEditor() {
+		return true;
+	}
+
+	@Override
+	public boolean onKey(View v, int keyCode, KeyEvent event) {
+
+		return XashActivity.handleKey( keyCode, event );
+	}
+
+	@Override
+	public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+		ic = new XashInputConnection(this, true);
+
+		outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI
+				| 33554432 /* API 11: EditorInfo.IME_FLAG_NO_FULLSCREEN */;
+
+		return ic;
+	}
+}
+
+class XashInputConnection extends BaseInputConnection {
+
+	public XashInputConnection(View targetView, boolean fullEditor) {
+		super(targetView, fullEditor);
+
+	}
+
+	@Override
+	public boolean sendKeyEvent(KeyEvent event) {
+
+		if( XashActivity.handleKey( event.getKeyCode(), event ) )
 			return true;
+		return super.sendKeyEvent(event);
+	}
+
+	@Override
+	public boolean commitText(CharSequence text, int newCursorPosition) {
+
+		//nativeCommitText(text.toString(), newCursorPosition);
+		XashActivity.nativeString(text.toString());
+
+		return super.commitText(text, newCursorPosition);
+	}
+
+	@Override
+	public boolean setComposingText(CharSequence text, int newCursorPosition) {
+
+		//nativeSetComposingText(text.toString(), newCursorPosition);
+		XashActivity.nativeString(text.toString());
+
+		return super.setComposingText(text, newCursorPosition);
+	}
+
+	public native void nativeSetComposingText(String text, int newCursorPosition);
+
+	@Override
+	public boolean deleteSurroundingText(int beforeLength, int afterLength) {
+		// Workaround to capture backspace key. Ref: http://stackoverflow.com/questions/14560344/android-backspace-in-webview-baseinputconnection
+		if (beforeLength == 1 && afterLength == 0) {
+
+			// backspace
+			XashActivity.nativeKey(1,KeyEvent.KEYCODE_DEL);
+			XashActivity.nativeKey(0,KeyEvent.KEYCODE_DEL);
+			//return super.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL))
+					//&& super.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL));
 		}
-        return false;
-    }
+
+		return super.deleteSurroundingText(beforeLength, afterLength);
+	}
 }
 class EngineTouchListener_v1 implements View.OnTouchListener{
        // Touch events
