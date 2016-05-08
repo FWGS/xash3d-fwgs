@@ -13,6 +13,9 @@ import android.widget.EditText;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.Button;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
+
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -36,6 +39,7 @@ public class LauncherActivity extends Activity {
 	static ToggleButton useVolume;
 	static EditText resPath;
 	static SharedPreferences mPref;
+	static Spinner pixelSpinner;
 	String getDefaultPath()
 	{
 		File dir = Environment.getExternalStorageDirectory();
@@ -67,6 +71,19 @@ public class LauncherActivity extends Activity {
 	tabSpec.setContent(R.id.tab2);
 	tabHost.addTab(tabSpec);
 
+	final String[] list = {
+	"RGBA8888",
+	"RGBA888",
+	"RGB565",
+	"RGBA5551",
+	"RGBA4444",
+	"RGB332"
+	};
+	pixelSpinner = (Spinner) findViewById(R.id.pixelSpinner);
+	ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item, list);
+	//ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this, list, android.R.layout.simple_spinner_item);
+	adapter.setDropDownViewResource(android.R.layout.simple_spinner_item);
+	pixelSpinner.setAdapter(adapter);
         Button selectFolderButton = ( Button ) findViewById( R.id.button_select );
         selectFolderButton.setOnClickListener(new View.OnClickListener(){
            	   @Override
@@ -101,6 +118,7 @@ public class LauncherActivity extends Activity {
 	useVolume.setChecked(mPref.getBoolean("usevolume",true));
 	resPath = ( EditText ) findViewById( R.id.cmdPath );
 	resPath.setText(mPref.getString("basedir", getDefaultPath()));
+	pixelSpinner.setSelection(mPref.getInt("pixelformat", 0));
 	}
 
     public void startXash(View view)
@@ -112,6 +130,7 @@ public class LauncherActivity extends Activity {
 	editor.putString("argv", cmdArgs.getText().toString());
 	editor.putBoolean("usevolume",useVolume.isChecked());
 	editor.putString("basedir", resPath.getText().toString());
+	editor.putInt("pixelformat", pixelSpinner.getSelectedItemPosition());
 	editor.commit();
 	startActivity(intent);
     }

@@ -233,6 +233,14 @@
                             android:layout_marginTop="10dp"
                             android:onClick="createShortcut"
                             android:text="@string/create_shortcut_button" />
+                    <Spinner
+			    android:layout_height="match_parent"
+			    android:layout_width="wrap_content"
+			    android:id="@+id/pixelSpinner"
+                            android:layout_marginBottom="10dp"
+                            android:layout_marginLeft="10dp"
+                            android:layout_marginRight="10dp"
+                            android:layout_marginTop="10dp"/>
 
                         <TextView
                             android:id="@+id/textView7"

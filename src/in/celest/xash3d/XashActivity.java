@@ -30,6 +30,7 @@ public class XashActivity extends Activity {
     private static EngineSurface mSurface;
     public static String mArgv[];
     public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
+    public static int mPixelFormat;
 
     	// Preferences
     public static SharedPreferences mPref = null;
@@ -109,6 +110,7 @@ public class XashActivity extends Activity {
 		{
 			e.printStackTrace();
 		}
+		mPixelFormat = mPref.getInt("pixelformat", 0);
     }
 
     // Events
@@ -422,51 +424,55 @@ View.OnKeyListener {
             int[] version = new int[2];
             egl.eglInitialize(dpy, version);
 
-            int[] configSpec1 = {
+            int[][] configSpec = {{
                 EGL10.EGL_DEPTH_SIZE,   8,
                 EGL10.EGL_RED_SIZE,   8,
                 EGL10.EGL_GREEN_SIZE,  8,
                 EGL10.EGL_BLUE_SIZE,   8,
                 EGL10.EGL_ALPHA_SIZE, 8,
                 EGL10.EGL_NONE
-            };
-            int[] configSpec2 = {
+            }, {
+                EGL10.EGL_DEPTH_SIZE,   8,
+                EGL10.EGL_RED_SIZE,   8,
+                EGL10.EGL_GREEN_SIZE,  8,
+                EGL10.EGL_BLUE_SIZE,   8,
+                EGL10.EGL_ALPHA_SIZE, 0,
+                EGL10.EGL_NONE
+            }, {
                 EGL10.EGL_DEPTH_SIZE,   8,
                 EGL10.EGL_RED_SIZE,   5,
                 EGL10.EGL_GREEN_SIZE,  6,
                 EGL10.EGL_BLUE_SIZE,   5,
-                EGL10.EGL_ALPHA_SIZE, 8,
+                EGL10.EGL_ALPHA_SIZE, 0,
                 EGL10.EGL_NONE
-            };
-            int[] configSpec3 = {
+            }, {
                 EGL10.EGL_DEPTH_SIZE,   8,
                 EGL10.EGL_RED_SIZE,   5,
-                EGL10.EGL_GREEN_SIZE,  6,
+                EGL10.EGL_GREEN_SIZE,  5,
                 EGL10.EGL_BLUE_SIZE,   5,
                 EGL10.EGL_ALPHA_SIZE, 1,
+
                 EGL10.EGL_NONE
-            };
-             int[] configSpec4 = {
+            }, {
                 EGL10.EGL_DEPTH_SIZE,   8,
-                EGL10.EGL_RED_SIZE,   8,
-                EGL10.EGL_GREEN_SIZE,  8,
-                EGL10.EGL_BLUE_SIZE,   8,
+                EGL10.EGL_RED_SIZE,   4,
+                EGL10.EGL_GREEN_SIZE,  4,
+                EGL10.EGL_BLUE_SIZE,   4,
+                EGL10.EGL_ALPHA_SIZE,   4,
+
                 EGL10.EGL_NONE
-            };
-             int[] configSpec5 = {
+            }, {
                 EGL10.EGL_DEPTH_SIZE,   8,
-                EGL10.EGL_RED_SIZE,   5,
-                EGL10.EGL_GREEN_SIZE,  6,
-                EGL10.EGL_BLUE_SIZE,   5,
+                EGL10.EGL_RED_SIZE,   3,
+                EGL10.EGL_GREEN_SIZE,  3,
+                EGL10.EGL_BLUE_SIZE,   2,
+                EGL10.EGL_ALPHA_SIZE,   0,
+
                 EGL10.EGL_NONE
-            };
+            }};
             EGLConfig[] configs = new EGLConfig[1];
             int[] num_config = new int[1];
-            if (!egl.eglChooseConfig(dpy, configSpec1, configs, 1, num_config) || num_config[0] == 0)
-             if (!egl.eglChooseConfig(dpy, configSpec2, configs, 1, num_config) || num_config[0] == 0)
-               if (!egl.eglChooseConfig(dpy, configSpec3, configs, 1, num_config) || num_config[0] == 0)
-                 if (!egl.eglChooseConfig(dpy, configSpec4, configs, 1, num_config) || num_config[0] == 0)
-                   if (!egl.eglChooseConfig(dpy, configSpec5, configs, 1, num_config) || num_config[0] == 0)
+            if (!egl.eglChooseConfig(dpy, configSpec[XashActivity.mPixelFormat], configs, 1, num_config) || num_config[0] == 0)
             {
                 Log.e("SDL", "No EGL config available");
                 return false;
