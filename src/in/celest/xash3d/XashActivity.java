@@ -58,6 +58,10 @@ public class XashActivity extends Activity {
 					WindowManager.LayoutParams.FLAG_FULLSCREEN);
 		}
 
+		// landscapeSensor is not supported until API9
+		if( sdk < 9 )
+			setRequestedOrientation(0);
+
 		// keep screen on
 		getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
 				WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
