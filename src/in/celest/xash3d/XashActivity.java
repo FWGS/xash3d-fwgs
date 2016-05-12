@@ -160,6 +160,10 @@ public class XashActivity extends Activity {
 		mSurface.SwapBuffers();
 	}
 
+	public static Surface getNativeSurface() {
+		return XashActivity.mSurface.getNativeSurface();
+	}
+
 	public static void vibrate( int time ) {
 		((Vibrator) mSingleton.getSystemService(Context.VIBRATOR_SERVICE)).vibrate( time );
 	}
@@ -281,11 +285,9 @@ public class XashActivity extends Activity {
 class XashMain implements Runnable {
 	public void run()
 	{
-		XashActivity.createGLContext();
 		XashActivity.nativeInit(XashActivity.mArgv);
 	}
 }
-
 
 /**
  SDLSurface. This is what we draw on, so we need to know when it's created
@@ -360,6 +362,10 @@ View.OnKeyListener {
 	// unused
 	public void onDraw(Canvas canvas) {}
 
+	// first, initialize native backend
+	public Surface getNativeSurface() {
+		return getHolder().getSurface();
+	}
 
 	// EGL functions
 	public boolean InitGL() {
