@@ -41,14 +41,5 @@ script:
 
 
 after_script:
-  - curl --upload-file xashdroid-armv7.apk https://transfer.sh/xash3d-armv7-`date -u +%y-%m-%d_%H-%M`.apk
-  - curl --upload-file xashdroid-armv6.apk https://transfer.sh/xash3d-armv6-`date -u +%y-%m-%d_%H-%M`.apk
-  - curl --upload-file xashdroid-x86.apk https://transfer.sh/xash3d-x86-`date -u +%y-%m-%d_%H-%M`.apk
-  - curl --upload-file xashdroid-armv7-tegra2.apk https://transfer.sh/xash3d-armv7-tegra2-`date -u +%y-%m-%d_%H-%M`.apk
-  - curl --upload-file xashdroid-armv5.apk https://transfer.sh/xash3d-armv5-`date -u +%y-%m-%d_%H-%M`.apk
-  - curl -T xashdroid-armv7.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-armv7-`date -u +%y-%m-%d_%H-%M`-`git rev-parse --short HEAD`.apk
-  - curl -T xashdroid-armv6.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-armv6-`date -u +%y-%m-%d_%H-%M`-`git rev-parse --short HEAD`.apk
-  - curl -T xashdroid-x86.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-x86-`date -u +%y-%m-%d_%H-%M`-`git rev-parse --short HEAD`.apk
-  - curl -T xashdroid-armv7-tegra2.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-armv7-tegra2-`date -u +%y-%m-%d_%H-%M`-`git rev-parse --short HEAD`.apk
-  - curl -T xashdroid-armv5.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/xashdroid-armv5-`date -u +%y-%m-%d_%H-%M`-`git rev-parse --short HEAD`.apk
+  - scripts/travis_upload.sh
 
