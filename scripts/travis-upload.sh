@@ -25,7 +25,12 @@ TRANSFERSH_ARMV7=`curl --upload-file xashdroid-armv7.apk https://transfer.sh/$(g
 TRANSFERSH_ARMV7TEGRA2=`curl --upload-file xashdroid-armv7-tegra2.apk https://transfer.sh/$(generateFileName armv7-tegra2)`
 TRANSFERSH_X86=`curl --upload-file xashdroid-x86.apk https://transfer.sh/$(generateFileName x86)`
 
-echo "Transfer.sh links:\narmv5:\t${TRANSFERSH_ARMV5}\narmv6:\t${TRANSFERSH_ARMV6}\narmv7:\t${TRANSFERSH_ARMV7}\ntegra2:\t${TRANSFERSH_ARMV7TEGRA2}\nx86:\t${TRANSFERSH_X86}\n"
+echo "Transfer.sh links:"
+echo "armv5:              ${TRANSFERSH_ARMV5}"
+echo "armv6:              ${TRANSFERSH_ARMV6}"
+echo "armv7:              ${TRANSFERSH_ARMV7}"
+echo "tegra2:             ${TRANSFERSH_ARMV7TEGRA2}"
+echo "x86:                ${TRANSFERSH_X86}"
 
 # YaDisk
 
@@ -42,16 +47,17 @@ curl -T xashdroid-armv7-tegra2.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://
 curl -T xashdroid-x86.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$YADISKPATH/$(generateFileName x86)
 
 # Update current
+# $TRAVIS_BRANCH is predefined by Travis CI
 function generateFileName_current
 {
-	echo "xash3d-current-$1-$CURRENTBRANCH-$COMMITHASH.apk"
+	echo "xash3d-current-$1-$TRAVIS_BRANCH.apk"
 }
 
-curl -T xashdroid-armv7.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$YADISKPATH/$(generateFileName_current armv7)
-curl -T xashdroid-armv6.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$YADISKPATH/$(generateFileName_current armv6)
-curl -T xashdroid-armv5.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$YADISKPATH/$(generateFileName_current armv5)
-curl -T xashdroid-armv7-tegra2.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$YADISKPATH/$(generateFileName_current armv7-tegra2)
-curl -T xashdroid-x86.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$YADISKPATH/$(generateFileName_current x86)
+curl -T xashdroid-armv7.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$(generateFileName_current armv7)
+curl -T xashdroid-armv6.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$(generateFileName_current armv6)
+curl -T xashdroid-armv5.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$(generateFileName_current armv5)
+curl -T xashdroid-armv7-tegra2.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$(generateFileName_current armv7-tegra2)
+curl -T xashdroid-x86.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$(generateFileName_current x86)
 
 
 exit 0
