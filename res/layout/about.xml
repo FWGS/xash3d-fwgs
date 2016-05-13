@@ -48,8 +48,7 @@
             android:textAppearance="?android:attr/textAppearanceMedium"
             android:text="@string/about_links"
             android:id="@+id/textView6"
-            android:autoText="false"
-            android:autoLink="web" />
+            android:autoText="false" />
 	
         <TextView
             android:layout_width="match_parent"

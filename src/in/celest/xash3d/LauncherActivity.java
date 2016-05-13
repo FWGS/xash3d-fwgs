@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.os.Bundle;
 import android.os.Build;
+import android.text.method.LinkMovementMethod;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -12,6 +13,7 @@ import android.widget.EditText;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.Button;
+import android.widget.TextView;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -80,6 +82,8 @@ public class LauncherActivity extends Activity {
 				dialog.setCancelable(true);
 
 				dialog.show();
+				TextView tView6 = (TextView) dialog.findViewById(R.id.textView6);
+				tView6.setMovementMethod(LinkMovementMethod.getInstance());
 			}
 		});
 	}
