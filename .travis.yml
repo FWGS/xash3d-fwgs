@@ -41,5 +41,5 @@ script:
 
 
 after_script:
-  - scripts/travis-upload.sh
+  - sh scripts/travis-upload.sh
 
