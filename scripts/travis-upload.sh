@@ -4,7 +4,7 @@
 
 function getDaysSinceRelease
 {
-	printf %04d $(( ( $(date -ud +'%s') - $(date -ud '150401' +'%s') )/60/60/24 ))
+	printf %04d $(( ( $(date +'%s') - $(date -ud '150401' +'%s') )/60/60/24 ))
 }
 
 DAYSSINCERELEASE=`getDaysSinceRelease`
