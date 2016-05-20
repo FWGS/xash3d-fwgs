@@ -17,7 +17,6 @@
   <string name="shortcut_name">نام میانبر</string>
   <string name="about_main">Xash3D Android</string>
   <string name="about_copyright">یا شرکای آن ندارد. تمامی حقوق کپی برای صاحبان هر کدام محفوظ است. Valve هیچ نسبتی با SDLash3D</string>
-  <string name="version_string" translatable="false">v0.17.1</string>
   <string name="about_authors">:SDLash3D پورت شده به اندروید توسط تیم \n • a1batross\n • mittorn \n • nicknekit.\n  تشکر ویژه از:\n • Xash3Dبرای موتور Uncle Mike\n •  Half-Life برای Valve\n • libSDL2 توسعه دهندگان.\n</string>
   <string name="about_links">ما را دنبال کنید در  : •<a href="https://vk.com/xashdroid">VK</a>•<a href="http://moddb.com/game/xash3d-android">ModDB</a>•<a href="https://github.com/SDLash3D">GitHub</a></string>
   <string name="about_button">Xash3D Android درباره</string>

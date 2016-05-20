@@ -21,7 +21,6 @@
 <!-- TODO: Remove or change this placeholder text -->
     <string name="about_main">Xash3D Android</string>
     <string name="about_copyright">SDLash3D no está afiliado con Valve o cualquiera de sus socios. Todos los derechos reservados a sus respectivos dueños.</string>
-    <string name="version_string" translatable="false">v0.17.1</string>
     <string name="about_authors">Adaptación para Android por SDLash3D team: \n
 &#8226; a1batross\n
 &#8226; mittorn \n
