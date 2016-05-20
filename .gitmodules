@@ -19,3 +19,6 @@
 [submodule "jni/src/hlsdk-xash3d"]
 	path = jni/src/hlsdk-xash3d
 	url = https://github.com/SDLash3D/hlsdk-xash3d
+[submodule "src/org/json"]
+	path = src/org/json
+	url = https://github.com/stleary/JSON-java
