@@ -26,5 +26,5 @@ About all bugs please write to issues with your device and OS info.
 
 ### Developers
 
-+ Just put into jni/src/XXXX/ a symlink to a repository. For example, for HLSDK it will be jni/src/HLSDK/halflife/
++ For compiling, run `git submodule init && git submodule update`. Otherwise you will get an empty APK, without any libraries. 
 + We use our SDL2 fork. See https://github.com/mittorn/SDL-mirror
