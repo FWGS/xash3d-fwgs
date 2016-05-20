@@ -1,296 +1,265 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/layout_shortcut"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#252525"
-    android:weightSum="1"
-    tools:context="in.celest.xash3d.LauncherActivity">
-
-    <TextView
-        android:id="@+id/textView_tittle"
-        android:layout_width="fill_parent"
-        android:layout_height="50dp"
-        android:layout_marginBottom="1dp"
-        android:layout_marginLeft="5dp"
-        android:background="#555555"
-        android:layout_marginRight="5dp"
-        android:layout_marginTop="20dp"
-        android:text="@string/launcher_name"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:textSize="25sp"
-        android:drawableLeft="@drawable/ic_launcher"
-        android:drawablePadding="10dp"
-        android:singleLine="true"
-        android:gravity="center_vertical" />
-
-    <TabHost
-        android:id="@+id/tabhost"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_weight="1.20"
-        android:paddingBottom="10dp"
-        android:paddingLeft="3dp"
-        android:paddingRight="3dp"
-        android:paddingTop="8dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="#555555"
-            android:orientation="vertical">
-
-            <TabWidget
-                android:id="@android:id/tabs"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:showDividers="middle"></TabWidget>
-
-            <ScrollView
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:id="@+id/scrollView2" >
-            <FrameLayout
-                android:id="@android:id/tabcontent"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                >
-
-                <LinearLayout
-                    android:id="@+id/tab1"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginLeft="10dp"
-                    android:layout_marginRight="10dp"
-                    android:layout_marginTop="15dp"
-                    android:layout_marginBottom="25dp"
-                    android:background="#333333"
-                    android:orientation="vertical"
-                    android:text="@string/text_tab1"
-                    android:weightSum="0.6">
-
-                    <TextView
-                        android:id="@+id/textView_path1"
-                        android:layout_width="fill_parent"
-                        android:layout_height="40dp"
-                        android:layout_marginBottom="2dp"
-                        android:layout_marginLeft="10dp"
-                        android:background="#444444"
-                        android:layout_marginRight="10dp"
-                        android:layout_marginTop="10dp"
-                        android:text="@string/text_res_tittle2"
-                        android:textAppearance="?android:attr/textAppearanceMedium"
-                        android:textSize="20sp"
-                        android:gravity="center_vertical|center_horizontal" />
-
-                    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                        xmlns:tools="http://schemas.android.com/tools"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginBottom="10dp"
-                        android:layout_marginLeft="10dp"
-                        android:layout_marginRight="10dp"
-                        android:layout_marginTop="10dp"
-                        android:background="#444444"
-                        android:orientation="vertical"
-                        android:weightSum="1">
-
-
-                        <ToggleButton
-                            android:id="@+id/useVolume"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_margin="10dp"
-                            android:layout_marginLeft="10dp"
-                            android:layout_marginRight="10dp"
-                            android:layout_marginTop="10dp"
-                            android:text="nothing"
-                            android:textOff="@string/no_volume"
-                            android:textOn="@string/use_volume" />
-
-                        <!--<CheckBox-->
-                        <!--android:layout_height="wrap_content"-->
-                        <!--android:layout_width="match_parent"-->
-                        <!--android:textAppearance="?android:attr/textAppearanceMedium"-->
-                        <!--android:text="@string/use_volume"-->
-                        <!--android:id="@+id/useVolume"/>-->
-
-                        <!--<CheckBox-->
-                        <!--android:layout_height="wrap_content"-->
-                        <!--android:layout_width="match_parent"-->
-                        <!--android:textAppearance="?android:attr/textAppearanceMedium"-->
-                        <!--android:text="@string/tracking"-->
-                        <!--android:id="@+id/Tracking"/>-->
-
-
-
-                        <Button
-                            android:id="@+id/button_select"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="bottom"
-                            android:layout_marginLeft="10dp"
-                            android:layout_marginTop="10dp"
-                            android:layout_marginBottom="10dp"
-                            android:layout_marginRight="10dp"
-                            android:onClick="selectFolder"
-                            android:text="@string/select_folder" />
-
-
-
-                    </LinearLayout>
-
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/tab2"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:layout_marginLeft="10dp"
-                    android:layout_marginRight="10dp"
-                    android:layout_marginTop="15dp"
-                    android:background="#333333"
-                    android:orientation="vertical"
-                    android:text="@string/text_tab2">
-
-                    <TextView
-                        android:id="@+id/textView_path2"
-                        android:layout_width="fill_parent"
-                        android:layout_height="40dp"
-                        android:layout_marginBottom="2dp"
-                        android:layout_marginLeft="10dp"
-                        android:background="#444444"
-                        android:layout_marginRight="10dp"
-                        android:layout_marginTop="13dp"
-                        android:text="@string/text_res_tittle3"
-                        android:textAppearance="?android:attr/textAppearanceMedium"
-                        android:textSize="20sp"
-                        android:gravity="center_vertical|center_horizontal" />
-
-                    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                        xmlns:tools="http://schemas.android.com/tools"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginBottom="10dp"
-                        android:layout_marginLeft="10dp"
-                        android:layout_marginRight="10dp"
-                        android:layout_marginTop="10dp"
-                        android:background="#444444"
-                        android:orientation="vertical"
-                        android:weightSum="1">
-
-                        <TextView
-                            android:id="@+id/textView_args"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="10dp"
-                            android:layout_marginLeft="10dp"
-                            android:layout_marginRight="10dp"
-                            android:layout_marginTop="20dp"
-                            android:text="@string/cmd_args_text"
-                            android:textAppearance="?android:attr/textAppearanceMedium" />
-
-                        <EditText
-                            android:id="@+id/cmdArgs"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="10dp"
-                            android:layout_marginLeft="10dp"
-                            android:layout_marginRight="10dp"
-                            android:layout_marginTop="3dp" />
-
-                        <TextView
-                            android:id="@+id/textView_path"
-                            android:layout_width="fill_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="10dp"
-                            android:layout_marginLeft="10dp"
-                            android:layout_marginRight="10dp"
-                            android:layout_marginTop="3dp"
-                            android:text="@string/text_res_path"
-                            android:textAppearance="?android:attr/textAppearanceMedium" />
-
-                        <EditText
-                            android:id="@+id/cmdPath"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="10dp"
-                            android:layout_marginLeft="10dp"
-                            android:layout_marginRight="10dp"
-                            android:layout_marginTop="3dp" />
-
-
-                        <Button
-                            android:id="@+id/button_shortcut"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="10dp"
-                            android:layout_marginLeft="10dp"
-                            android:layout_marginRight="10dp"
-                            android:layout_marginTop="10dp"
-                            android:onClick="createShortcut"
-                            android:text="@string/create_shortcut_button" />
-                    <Spinner
-			    android:layout_height="match_parent"
-			    android:layout_width="wrap_content"
-			    android:id="@+id/pixelSpinner"
-                            android:layout_marginBottom="10dp"
-                            android:layout_marginLeft="10dp"
-                            android:layout_marginRight="10dp"
-                            android:layout_marginTop="10dp"/>
-
-                        <TextView
-                            android:id="@+id/textView7"
-                            android:layout_marginBottom="10dp"
-                            android:layout_width="fill_parent"
-                            android:layout_height="0dp"
-                            android:layout_gravity="center_horizontal"
-                            android:layout_weight="1"
-                            android:clickable="false" />
-                    </LinearLayout>
-                </LinearLayout>
-
-
-            </FrameLayout>
-
-            </ScrollView>
-        </LinearLayout>
-
-    </TabHost>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:background="#444444"
-        android:layout_marginBottom="-20dp"
-        android:paddingTop="5dp"
-        android:layout_gravity="bottom"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/button_about"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="left"
-
-            android:onClick="aboutXash"
-            android:text="@string/about_button" />
-
-        <Button
-            android:id="@+id/button_launch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_column="6"
-            android:layout_marginLeft="0dp"
-            android:layout_weight="0.87"
-            android:onClick="startXash"
-            android:text="@string/launch_button" />
-
-    </LinearLayout>
-
-
+			  xmlns:tools="http://schemas.android.com/tools"
+			  android:id="@+id/layout_shortcut"
+			  android:layout_width="match_parent"
+			  android:layout_height="match_parent"
+			  android:orientation="vertical"
+			  android:background="#252525"
+			  android:weightSum="1"
+			  tools:context="in.celest.xash3d.LauncherActivity">
+	<TextView
+		android:id="@+id/textView_tittle"
+		android:layout_width="fill_parent"
+		android:layout_height="50dp"
+		android:layout_marginBottom="1dp"
+		android:layout_marginLeft="5dp"
+		android:background="#555555"
+		android:layout_marginRight="5dp"
+		android:layout_marginTop="20dp"
+		android:text="@string/launcher_name"
+		android:textAppearance="?android:attr/textAppearanceMedium"
+		android:textSize="25sp"
+		android:drawableLeft="@drawable/ic_launcher"
+		android:drawablePadding="10dp"
+		android:singleLine="true"
+		android:gravity="center_vertical" />
+	<TabHost
+		android:id="@+id/tabhost"
+		android:layout_width="match_parent"
+		android:layout_height="match_parent"
+		android:layout_weight="1.20"
+		android:paddingBottom="10dp"
+		android:paddingLeft="3dp"
+		android:paddingRight="3dp"
+		android:paddingTop="8dp">
+		<LinearLayout
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:background="#555555"
+			android:orientation="vertical">
+			<TabWidget
+				android:id="@android:id/tabs"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:showDividers="middle" />
+			<ScrollView
+				android:layout_width="match_parent"
+				android:layout_height="match_parent"
+				android:id="@+id/scrollView2">
+				<FrameLayout
+					android:id="@android:id/tabcontent"
+					android:layout_width="match_parent"
+					android:layout_height="match_parent">
+					<LinearLayout
+						android:id="@+id/tab1"
+						android:layout_width="match_parent"
+						android:layout_height="wrap_content"
+						android:layout_marginLeft="10dp"
+						android:layout_marginRight="10dp"
+						android:layout_marginTop="15dp"
+						android:layout_marginBottom="25dp"
+						android:background="#333333"
+						android:orientation="vertical"
+						android:text="@string/text_tab1"
+						android:weightSum="0.6">
+						<TextView
+							android:id="@+id/textView_path1"
+							android:layout_width="fill_parent"
+							android:layout_height="40dp"
+							android:layout_marginBottom="2dp"
+							android:layout_marginLeft="10dp"
+							android:background="#444444"
+							android:layout_marginRight="10dp"
+							android:layout_marginTop="10dp"
+							android:text="@string/text_res_tittle2"
+							android:textAppearance="?android:attr/textAppearanceMedium"
+							android:textSize="20sp"
+							android:gravity="center_vertical|center_horizontal" />
+						<LinearLayout 
+							android:layout_width="match_parent"
+							android:layout_height="match_parent"
+							android:layout_marginBottom="10dp"
+							android:layout_marginLeft="10dp"
+							android:layout_marginRight="10dp"
+							android:layout_marginTop="10dp"
+							android:background="#444444"
+							android:orientation="vertical"
+							android:weightSum="1">
+							<ToggleButton
+								android:id="@+id/useVolume"
+								android:layout_width="match_parent"
+								android:layout_height="wrap_content"
+								android:layout_margin="10dp"
+								android:layout_marginLeft="10dp"
+								android:layout_marginRight="10dp"
+								android:layout_marginTop="10dp"
+								android:text="nothing"
+								android:textOff="@string/no_volume"
+								android:textOn="@string/use_volume" />
+							<!--
+							<CheckBox
+								android:layout_height="wrap_content"
+								android:layout_width="match_parent"
+								android:textAppearance="?android:attr/textAppearanceMedium"
+								android:text="@string/use_volume"
+								android:id="@+id/useVolume"/>
+							-->
+							
+							<!--
+							<CheckBox
+								android:layout_height="wrap_content"
+								android:layout_width="match_parent"
+								android:textAppearance="?android:attr/textAppearanceMedium"
+								android:text="@string/tracking"
+								android:id="@+id/Tracking"/>
+							-->
+							<Button
+								android:id="@+id/button_select"
+								android:layout_width="match_parent"
+								android:layout_height="wrap_content"
+								android:layout_gravity="bottom"
+								android:layout_marginLeft="10dp"
+								android:layout_marginTop="10dp"
+								android:layout_marginBottom="10dp"
+								android:layout_marginRight="10dp"
+								android:onClick="selectFolder"
+								android:text="@string/select_folder" />
+						</LinearLayout>
+					</LinearLayout>
+					<LinearLayout
+						android:id="@+id/tab2"
+						android:layout_width="match_parent"
+						android:layout_height="match_parent"
+						android:layout_marginLeft="10dp"
+						android:layout_marginRight="10dp"
+						android:layout_marginTop="15dp"
+						android:background="#333333"
+						android:orientation="vertical"
+						android:text="@string/text_tab2">
+						<TextView
+							android:id="@+id/textView_path2"
+							android:layout_width="fill_parent"
+							android:layout_height="40dp"
+							android:layout_marginBottom="2dp"
+							android:layout_marginLeft="10dp"
+							android:background="#444444"
+							android:layout_marginRight="10dp"
+							android:layout_marginTop="13dp"
+							android:text="@string/text_res_tittle3"
+							android:textAppearance="?android:attr/textAppearanceMedium"
+							android:textSize="20sp"
+							android:gravity="center_vertical|center_horizontal" />
+						<LinearLayout 
+							android:layout_width="match_parent"
+							android:layout_height="match_parent"
+							android:layout_marginBottom="10dp"
+							android:layout_marginLeft="10dp"
+							android:layout_marginRight="10dp"
+							android:layout_marginTop="10dp"
+							android:background="#444444"
+							android:orientation="vertical"
+							android:weightSum="1">
+							<TextView
+								android:id="@+id/textView_args"
+								android:layout_width="wrap_content"
+								android:layout_height="wrap_content"
+								android:layout_marginBottom="10dp"
+								android:layout_marginLeft="10dp"
+								android:layout_marginRight="10dp"
+								android:layout_marginTop="20dp"
+								android:text="@string/cmd_args_text"
+								android:textAppearance="?android:attr/textAppearanceMedium" />
+							<EditText
+								android:id="@+id/cmdArgs"
+								android:layout_width="match_parent"
+								android:layout_height="wrap_content"
+								android:layout_marginBottom="10dp"
+								android:layout_marginLeft="10dp"
+								android:layout_marginRight="10dp"
+								android:layout_marginTop="3dp" />
+							<TextView
+								android:id="@+id/textView_path"
+								android:layout_width="fill_parent"
+								android:layout_height="wrap_content"
+								android:layout_marginBottom="10dp"
+								android:layout_marginLeft="10dp"
+								android:layout_marginRight="10dp"
+								android:layout_marginTop="3dp"
+								android:text="@string/text_res_path"
+								android:textAppearance="?android:attr/textAppearanceMedium" />
+							<EditText
+								android:id="@+id/cmdPath"
+								android:layout_width="match_parent"
+								android:layout_height="wrap_content"
+								android:layout_marginBottom="10dp"
+								android:layout_marginLeft="10dp"
+								android:layout_marginRight="10dp"
+								android:layout_marginTop="3dp" />
+							<Button
+								android:id="@+id/button_shortcut"
+								android:layout_width="match_parent"
+								android:layout_height="wrap_content"
+								android:layout_marginBottom="10dp"
+								android:layout_marginLeft="10dp"
+								android:layout_marginRight="10dp"
+								android:layout_marginTop="10dp"
+								android:onClick="createShortcut"
+								android:text="@string/create_shortcut_button" />
+							<Spinner
+								android:layout_height="match_parent"
+								android:layout_width="wrap_content"
+								android:id="@+id/pixelSpinner"
+								android:layout_marginBottom="10dp"
+								android:layout_marginLeft="10dp"
+								android:layout_marginRight="10dp"
+								android:layout_marginTop="10dp" />
+							<CheckBox
+								android:id="@+id/check_updates"
+								android:layout_width="match_parent"
+								android:layout_height="wrap_content"
+								android:layout_margin="10dp"
+								android:layout_marginLeft="10dp"
+								android:layout_marginRight="10dp"
+								android:layout_marginTop="10dp"
+								android:text="@string/update_button" />
+							<TextView
+								android:id="@+id/textView7"
+								android:layout_marginBottom="10dp"
+								android:layout_width="fill_parent"
+								android:layout_height="0dp"
+								android:layout_gravity="center_horizontal"
+								android:layout_weight="1"
+								android:clickable="false" />
+						</LinearLayout>
+					</LinearLayout>
+				</FrameLayout>
+			</ScrollView>
+		</LinearLayout>
+	</TabHost>
+	<LinearLayout
+		android:layout_width="match_parent"
+		android:layout_height="50dp"
+		android:background="#444444"
+		android:layout_marginBottom="-20dp"
+		android:paddingTop="5dp"
+		android:layout_gravity="bottom"
+		android:orientation="horizontal">
+		<Button
+			android:id="@+id/button_about"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_gravity="left"
+			android:onClick="aboutXash"
+			android:text="@string/about_button" />
+		<Button
+			android:id="@+id/button_launch"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_column="6"
+			android:layout_marginLeft="0dp"
+			android:layout_weight="0.87"
+			android:onClick="startXash"
+			android:text="@string/launch_button" />
+	</LinearLayout>
 </LinearLayout>
-
