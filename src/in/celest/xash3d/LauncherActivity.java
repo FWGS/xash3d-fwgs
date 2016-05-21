@@ -121,7 +121,7 @@ public class LauncherActivity extends Activity {
 
 		if(mPref.getBoolean("check_updates", true))
 		{
-			new RetrieveJSON(true).execute(UPDATE_LINK);
+			new CheckUpdate(true).execute(UPDATE_LINK);
 		}
 
 	}
@@ -221,12 +221,12 @@ public class LauncherActivity extends Activity {
         return super.onOptionsItemSelected(item);
     }
 
-	private class RetrieveJSON extends AsyncTask<String, Void, String> {
+	private class CheckUpdate extends AsyncTask<String, Void, String> {
 		InputStream is = null;
 		ByteArrayOutputStream os = null;
 		boolean mSilent;
 
-		public RetrieveJSON( boolean silent )
+		public CheckUpdate( boolean silent )
 		{
 			mSilent = silent;
 		}
@@ -272,7 +272,8 @@ public class LauncherActivity extends Activity {
 
 			try
 			{
-				if (os != null) {
+				if (os != null) 
+				{
 					os.close();
 					os = null;
 				}
@@ -288,9 +289,10 @@ public class LauncherActivity extends Activity {
 			Log.d("Xash", "Found: " + version +
 				", I: " + getString(R.string.version_string));
 
-			if( !getString(R.string.version_string).equals(version) )
+			// this is an update
+			if( getString(R.string.version_string).compareTo(version) < 0 )
 			{
-				String dialog_message = getString(R.string.update_message).format(name);
+				String dialog_message = String.format(getString(R.string.update_message), name);
 				AlertDialog.Builder builder = new AlertDialog.Builder(getBaseContext());
 				builder.setMessage(dialog_message)
 					.setPositiveButton(R.string.update, new DialogInterface.OnClickListener()
