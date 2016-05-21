@@ -1,29 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-
+	<!--<string name="app_name" translatable="false">Xash3D</string>
+	<string name="launcher_name" translatable="false">Xash3D</string>
+	<string name="launcher_name_test" translatable="false">Xash3D (test)</string>
+	<string name="version_string" translatable="false">v0.17.1</string>-->
+	
+    <string name="launch_button">Запустить Xash3D</strin g>
     <string name="cmd_args_text">Аргументы командной строки(только для экспертов)</string>
-    <string name="launch_button">Запустить Xash3D</string>
-	<string name="use_controls">Включить экранное управление</string>
-	<string name="use_volume">Использовать кнопки громкости</string>
 	<string name="text_res_path">Путь к ресурсам игры</string>
 	<string name="touch_set">Настройки управления</string>
 	<string name="text_shortcut">Ярлык Xash3D</string>
+	<string name="text_shortcut_test">Ярлык Xash3D (тест)</string>
 	<string name="shortcut_button_save">Сохранить ярлык</string>
 	<string name="gamedir">Каталог мода</string>
 	<string name="pkgname">Пакет мода (только для экспертов)</string>
 	<string name="shortcut_name">Название ярлыка</string>
-	<string name="about_authors">Порт на Android осуществлен командой SDLash3D:\n
-&#8226; a1batross\n
-&#8226; mittorn\n
-&#8226; nicknekit\n
 
-Особые благодарности:\n
-&#8226; Дяде Мише за Xash3D\n
-&#8226; Valve за Half-Life\n
-&#8226; Beloko Games за поддержку сенсорного управления\n
-&#8226; Разработчикам libSDL2</string>
-	<string name="about_button">О Xash3D Android</string>
+	<!--<string name="about_main" translatable="false">Xash3D Android</string>-->
 	<string name="about_copyright">SDLash3D не связан с Valve или с любыми из их партнеров. Все авторские права принадлежат их соотвественным обладателям.</string>
-	<string name="action_settings">Настройки</string>
-	<string name="text_shortcut_test">Ярлык Xash3D (тест)</string>
+	<!-- Seems Android skips any line breaks and tabs here. -->
+	<string name="about_authors">
+		Порт на Android осуществлен командой SDLash3D:\n
+		&#8226; a1batross\n
+		&#8226; mittorn\n
+		&#8226; nicknekit\n
+
+		Особые благодарности:\n
+		&#8226; Дяде Мише за Xash3D\n
+		&#8226; Valve за Half-Life\n
+		&#8226; Разработчикам libSDL2
+	</string>
+	<string name="about_links">
+		Подпишись на нас: \n
+		&#8226; <a href="https://vk.com/xashdroid">VK</a>\n
+		&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>\n
+		&#8226; <a href="https://github.com/SDLash3D">GitHub</a>
+	</string>
+	<string name="about_button">О Xash3D Android</string>
 	<string name="create_shortcut_button">Создать ярлык</string>
+    <string name="select_folder">Выбрать путь игровых файлов</string>
+    
+    <string name="text_tab1">Стандартный</string>
+    <string name="text_tab2">Продвинутый</string>
+    <string name="text_res_tittle2">Стандартные настройки</string>
+    <string name="text_res_tittle3">Продвинутые настройки</string>
+    <string name="use_volume">Использовать кнопки громкости</string>
+    <string name="no_volume">Не использовать кнопки громкости</string>
+    <string name="folder">Выбрать текущий каталог</string>
+	
+	<string name="update_button">Проверять обновления при запуске</string>
+	<string name="update_message">%s доступен! Скачай его сейчас!</string>
+	<string name="update">Обновить</string>
+	<string name="cancel">Отмена</string>
+	<string name="no_updates">Обновления не найдены</string>
+	<string name="checking_updates">Работаю...</string>-
 </resources>

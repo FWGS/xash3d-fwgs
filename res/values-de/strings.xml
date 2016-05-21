@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <string name="app_name">Xash3D</string>
-	<string name="launcher_name">Xash3D</string>
-	<string name="launcher_name_test">Xash3D (test)</string>
-
     <string name="launch_button">Xash3D starten!</string>
 	<string name="cmd_args_text">Command line arguments(experts only)</string>
 	<string name="use_controls">Touch Kontroller aktivieren</string>
@@ -19,7 +14,6 @@
 	<string name="shortcut_name">Kurzbefehl Name</string>
 
 <!-- TODO: Remove or change this placeholder text -->
-    <string name="about_main">Xash3D Android</string>
 	<string name="about_copyright">SDLash3D steht in keinem Zusammenhang zu Valve oder einem ihrer Partners. All copyrights reserved to their respective owners.</string>
     <string name="about_authors">Portierung auf Android by SDLash3D team: \n
 &#8226; a1batross\n
@@ -30,9 +24,9 @@ Spezieller Dank an:\n
 &#8226; Uncle Mike für Xash3D engine\n
 &#8226; Valve for Half-Life\n
 &#8226; libSDL2 developers.\n</string>
-<string name="about_links">Folge uns auf:
-	&#8226; <a href="https://vk.com/xashdroid">VK</a>
-	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>
+<string name="about_links">Folge uns auf:\n
+	&#8226; <a href="https://vk.com/xashdroid">VK</a>\n
+	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>\n
 	&#8226; <a href="https://github.com/SDLash3D">GitHub</a></string>
 	<string name="about_button">Über Xash3D Android</string>
 	<string name="create_shortcut_button">mod Kurzbefehl ersellen</string>

@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <string name="app_name">Xash3D</string>
-	<string name="launcher_name">Xash3D</string>
-	<string name="launcher_name_test">Xash3D (test)</string>
-
     <string name="launch_button">Xash3D\'yi Başlat!</string>
     <string name="cmd_args_text">Komut satırı parametreleri(uzmanlar için)</string>
 	<string name="use_controls">Dokunmatik kontrolleri etkinleştir</string>
@@ -18,8 +13,6 @@
 	<string name="pkgname">Mod\'un paket adı (uzmanlar için)</string>
 	<string name="shortcut_name">Kısayol adı</string>
 
-<!-- TODO: Remove or change this placeholder text -->
-    <string name="about_main">Xash3D Android</string>
     <string name="about_copyright">SDLash3D, Valve veya Valve\'ın herhangi bir partnerine bağlı değildir. Tüm telif hakları kendi sahiplerine aittir.</string>
     <string name="about_authors">SDLash3D takımından Android Port\'u: \n
 &#8226; a1batross\n
@@ -30,9 +23,9 @@
 &#8226; Uncle Mike for Xash3D engine\n
 &#8226; Valve for Half-Life\n
 &#8226; libSDL2 developers.\n</string>
-<string name="about_links">Bizi buralardan takip edin: 
-	&#8226; <a href="https://vk.com/xashdroid">VK</a>
-	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>
+<string name="about_links">Bizi buralardan takip edin: \n
+	&#8226; <a href="https://vk.com/xashdroid">VK</a>\n
+	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>\n
 	&#8226; <a href="https://github.com/SDLash3D">GitHub</a></string>
     <string name="about_button">Xash3D Android Hakkında</string>
     <string name="create_shortcut_button">Mod kısayolu oluştur</string>

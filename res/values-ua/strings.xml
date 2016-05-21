@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-	<string name="app_name">Xash3D</string>
-	<string name="launcher_name">Xash3D</string>
-	<string name="launcher_name_test">Xash3D (test)</string>
-
 	<string name="launch_button">Запустити Xash3D</string>
 	<string name="cmd_args_text">Аргументи командного рядка(тільки для експертів)</string>
 	<string name="use_controls">Включити екранне управління</string>
@@ -16,9 +12,6 @@
 	<string name="gamedir">Каталог мода</string>
 	<string name="pkgname">Пакет мода (тільки для експертів)</string>
 	<string name="shortcut_name">Назва ярлика</string>
-
-<!-- TODO: Remove or change this placeholder text -->
-	<string name="about_main">Xash3D Android</string>
 	<string name="about_copyright">SDLash3D не пов\'язаний з Valve або з будь-якими з їх партнерів. Всі авторські права належать їх відповідним власникам.</string>
 	<string name="about_authors">Порт на Android здійснений командою SDLash3D:\n
 &#8226; a1batross\n
@@ -29,9 +22,9 @@
 &#8226; Дяде Мише за Xash3D\n
 &#8226; Valve за Half-Life\n
 &#8226; Розробникам libSDL2.\n</string>
-	<string name="about_links">Слідуйте за нами в:
-	&#8226; <a href="https://vk.com/xashdroid">VK</a>
-	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>
+	<string name="about_links">Слідуйте за нами в:\n
+	&#8226; <a href="https://vk.com/xashdroid">VK</a>\n
+	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>\n
 	&#8226; <a href="https://github.com/SDLash3D">GitHub</a></string>
 	<string name="about_button">О Xash3D Android</string>
 	<string name="create_shortcut_button">Створити ярлик мода</string>
