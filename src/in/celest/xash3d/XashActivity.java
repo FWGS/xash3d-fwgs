@@ -40,6 +40,7 @@ public class XashActivity extends Activity {
 
 		// Preferences
 	public static SharedPreferences mPref = null;
+	private static boolean mUseVolume;
 
 	// Audio
 	private static Thread mAudioThread;
@@ -125,6 +126,7 @@ public class XashActivity extends Activity {
 		InstallReceiver.extractPAK(this, false);
 
 		mPixelFormat = mPref.getInt("pixelformat", 0);
+		mUseVolume = mPref.getBoolean("usevolume", false);
 		AndroidBug5497Workaround.assistActivity(this);
 	}
 
@@ -211,6 +213,9 @@ public class XashActivity extends Activity {
 	public static boolean handleKey( int keyCode, KeyEvent event )
 	{
 
+	if ( mUseVolume && ( keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
+			keyCode == KeyEvent.KEYCODE_VOLUME_UP ) )
+		return false;
 		//Log.d( TAG, "Keycode " + keyCode );
 		if (event.getAction() == KeyEvent.ACTION_DOWN)
 		{
