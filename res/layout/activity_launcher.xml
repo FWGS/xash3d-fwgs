@@ -97,6 +97,15 @@
                         android:orientation="vertical"
                         android:weightSum="1">
 
+                        <TextView
+                            android:layout_width="fill_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="10dp"
+                            android:layout_marginLeft="10dp"
+                            android:layout_marginRight="10dp"
+                            android:layout_marginTop="3dp"
+                            android:text="@string/volume"
+                            android:textAppearance="?android:attr/textAppearanceMedium" />
 
                         <ToggleButton
                             android:id="@+id/useVolume"
@@ -125,6 +134,17 @@
                         <!--android:id="@+id/Tracking"/>-->
 
 
+                        <TextView
+                            android:id="@+id/textView_path"
+                            android:layout_width="fill_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="10dp"
+                            android:layout_marginLeft="10dp"
+                            android:layout_marginRight="10dp"
+                            android:layout_marginTop="3dp"
+                            android:text="@string/text_res_path"
+                            android:textAppearance="?android:attr/textAppearanceMedium" />
+
 
                         <Button
                             android:id="@+id/button_select"
@@ -137,8 +157,16 @@
                             android:layout_marginRight="10dp"
                             android:onClick="selectFolder"
                             android:text="@string/select_folder" />
-
-
+                        <Button
+                            android:id="@+id/button_shortcut"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="10dp"
+                            android:layout_marginLeft="10dp"
+                            android:layout_marginRight="10dp"
+                            android:layout_marginTop="10dp"
+                            android:onClick="createShortcut"
+                            android:text="@string/create_shortcut_button" />
 
                     </LinearLayout>
 
@@ -203,7 +231,6 @@
                             android:layout_marginTop="3dp" />
 
                         <TextView
-                            android:id="@+id/textView_path"
                             android:layout_width="fill_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="10dp"
@@ -212,6 +239,7 @@
                             android:layout_marginTop="3dp"
                             android:text="@string/text_res_path"
                             android:textAppearance="?android:attr/textAppearanceMedium" />
+
 
                         <EditText
                             android:id="@+id/cmdPath"
@@ -223,19 +251,19 @@
                             android:layout_marginTop="3dp" />
 
 
-                        <Button
-                            android:id="@+id/button_shortcut"
-                            android:layout_width="match_parent"
+                    <TextView
+                            android:layout_width="fill_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="10dp"
                             android:layout_marginLeft="10dp"
                             android:layout_marginRight="10dp"
-                            android:layout_marginTop="10dp"
-                            android:onClick="createShortcut"
-                            android:text="@string/create_shortcut_button" />
+                            android:layout_marginTop="3dp"
+                            android:text="Pixel format"
+                            android:textAppearance="?android:attr/textAppearanceMedium" />
+
                     <Spinner
-			    android:layout_height="match_parent"
-			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			    android:layout_width="match_parent"
 			    android:id="@+id/pixelSpinner"
                             android:layout_marginBottom="10dp"
                             android:layout_marginLeft="10dp"

@@ -10,6 +10,8 @@ import android.view.View;
 import android.content.Intent;
 import android.view.Window;
 import android.widget.EditText;
+import android.widget.TextView;
+
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.Button;
@@ -40,6 +42,7 @@ public class LauncherActivity extends Activity {
 	static EditText resPath;
 	static SharedPreferences mPref;
 	static Spinner pixelSpinner;
+	static TextView tvResPath;
 	String getDefaultPath()
 	{
 		File dir = Environment.getExternalStorageDirectory();
@@ -72,12 +75,12 @@ public class LauncherActivity extends Activity {
 	tabHost.addTab(tabSpec);
 
 	final String[] list = {
-	"RGBA8888",
-	"RGBA888",
-	"RGB565",
-	"RGBA5551",
-	"RGBA4444",
-	"RGB332"
+	"32 bit (RGBA8888)",
+	"24 bit (RGB888)",
+	"16 bit (RGB565)",
+	"15 bit (RGBA5551)",
+	"12 bit (RGBA4444)",
+	"8 bit (RGB332)"
 	};
 	pixelSpinner = (Spinner) findViewById(R.id.pixelSpinner);
 	ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item, list);
@@ -117,10 +120,26 @@ public class LauncherActivity extends Activity {
 	useVolume = ( ToggleButton ) findViewById( R.id.useVolume );
 	useVolume.setChecked(mPref.getBoolean("usevolume",true));
 	resPath = ( EditText ) findViewById( R.id.cmdPath );
-	resPath.setText(mPref.getString("basedir", getDefaultPath()));
+	tvResPath = ( TextView ) findViewById( R.id.textView_path );
+	updatePath(mPref.getString("basedir", getDefaultPath()));
+	resPath.setOnFocusChangeListener( new View.OnFocusChangeListener()
+	
+	{
+		@Override
+		public void onFocusChange(View v, boolean hasFocus)
+		{
+			updatePath( resPath.getText().toString() );
+		}
+	} );
 	pixelSpinner.setSelection(mPref.getInt("pixelformat", 0));
 	}
 
+	void updatePath( String text )
+	{
+		tvResPath.setText(getResources().getString(R.string.text_res_path) + ":\n" + text );
+		resPath.setText(text);
+	
+	}
     public void startXash(View view)
     {
 	Intent intent = new Intent(this, XashActivity.class);
@@ -163,8 +182,9 @@ public void onActivityResult(int requestCode, int resultCode, Intent resultData)
 		if (resultCode == RESULT_OK) {
 try{
 
-		resPath = ( EditText ) findViewById( R.id.cmdPath );
-		resPath.setText( resultData.getStringExtra("GetPath"));
+		if( resPath == null )
+		    return;
+		updatePath( resultData.getStringExtra("GetPath"));
 
 //	final List<String> paths = resultData.getData().getPathSegments();
 //			String[] parts = paths.get(1).split(":");

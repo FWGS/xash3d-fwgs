@@ -35,13 +35,14 @@ Special thanks to:\n
 	&#8226; <a href="https://github.com/SDLash3D">GitHub</a></string>
     <string name="about_button">About Xash3D Android</string>
     <string name="create_shortcut_button">Create mod shortcut</string>
-    <string name="select_folder">(select)</string>
+    <string name="select_folder">Select folder</string>
     
     <string name="text_tab1">Normal</string>
     <string name="text_tab2">Advanced</string>
     <string name="text_res_tittle2">Normal settings</string>
     <string name="text_res_tittle3">Advanced settings</string>
-    <string name="use_volume">Gamepad support off!</string>
-    <string name="no_volume">Gamepad support active!</string>
+    <string name="volume">Volume buttons mode</string>
+    <string name="use_volume">Default action</string>
+    <string name="no_volume">Use in game</string>
     <string name="folder">Set current folder</string>
 </resources>
