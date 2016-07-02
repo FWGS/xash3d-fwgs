@@ -39,6 +39,7 @@ public class LauncherActivity extends Activity {
    	public final static int sdk = Integer.valueOf(Build.VERSION.SDK);
 	static EditText cmdArgs;
 	static ToggleButton useVolume;
+	static ToggleButton resizeWorkaround;
 	static EditText resPath;
 	static SharedPreferences mPref;
 	static Spinner pixelSpinner;
@@ -78,8 +79,8 @@ public class LauncherActivity extends Activity {
 	"32 bit (RGBA8888)",
 	"24 bit (RGB888)",
 	"16 bit (RGB565)",
-	"15 bit (RGBA5551)",
-	"12 bit (RGBA4444)",
+	"16 bit (RGBA5551)",
+	"16 bit (RGBA4444)",
 	"8 bit (RGB332)"
 	};
 	pixelSpinner = (Spinner) findViewById(R.id.pixelSpinner);
@@ -119,6 +120,8 @@ public class LauncherActivity extends Activity {
 	cmdArgs.setText(mPref.getString("argv","-dev 3 -log"));
 	useVolume = ( ToggleButton ) findViewById( R.id.useVolume );
 	useVolume.setChecked(mPref.getBoolean("usevolume",true));
+	resizeWorkaround = ( ToggleButton ) findViewById( R.id.enableResizeWorkaround );
+	resizeWorkaround.setChecked(mPref.getBoolean("enableResizeWorkaround",true));
 	resPath = ( EditText ) findViewById( R.id.cmdPath );
 	tvResPath = ( TextView ) findViewById( R.id.textView_path );
 	updatePath(mPref.getString("basedir", getDefaultPath()));
@@ -150,6 +153,7 @@ public class LauncherActivity extends Activity {
 	editor.putBoolean("usevolume",useVolume.isChecked());
 	editor.putString("basedir", resPath.getText().toString());
 	editor.putInt("pixelformat", pixelSpinner.getSelectedItemPosition());
+	editor.putBoolean("enableResizeWorkaround",resizeWorkaround.isChecked());
 	editor.commit();
 	startActivity(intent);
     }

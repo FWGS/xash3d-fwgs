@@ -127,7 +127,8 @@ public class XashActivity extends Activity {
 
 		mPixelFormat = mPref.getInt("pixelformat", 0);
 		mUseVolume = mPref.getBoolean("usevolume", false);
-		AndroidBug5497Workaround.assistActivity(this);
+		if( mPref.getBoolean("enableResizeWorkaround", true) )
+			AndroidBug5497Workaround.assistActivity(this);
 	}
 
 	// Events
