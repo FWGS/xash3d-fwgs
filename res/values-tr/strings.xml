@@ -18,10 +18,9 @@
 	<string name="pkgname">Mod\'un paket adı (uzmanlar için)</string>
 	<string name="shortcut_name">Kısayol adı</string>
 
-<!-- TODO: Remove or change this placeholder text -->
     <string name="about_main">Xash3D Android</string>
-    <string name="about_copyright">SDLash3D, Valve veya Valve\'ın herhangi bir partnerine bağlı değildir. Tüm telif hakları kendi sahiplerine aittir.</string>
-    <string name="about_authors">SDLash3D takımından Android Port\'u: \n
+    <string name="about_copyright">Flying With Gauss, Valve veya Valve\'ın herhangi bir partnerine bağlı değildir. Tüm telif hakları kendi sahiplerine aittir.</string>
+    <string name="about_authors">Flying With Gauss takımından Android Port\'u: \n
 &#8226; a1batross\n
 &#8226; mittorn \n
 &#8226; nicknekit.\n
@@ -33,7 +32,7 @@
 <string name="about_links">Bizi buralardan takip edin: 
 	&#8226; <a href="https://vk.com/xashdroid">VK</a>
 	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>
-	&#8226; <a href="https://github.com/SDLash3D">GitHub</a></string>
+	&#8226; <a href="https://github.com/FWGS">GitHub</a></string>
     <string name="about_button">Xash3D Android Hakkında</string>
     <string name="create_shortcut_button">Mod kısayolu oluştur</string>
     <string name="select_folder">(seç)</string>

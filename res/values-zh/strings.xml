@@ -38,11 +38,11 @@
 
     <string name="about_main">Xash3D Android</string>
 
-    <string name="about_copyright">SDLash3D不隶属于Valve或其合作伙伴。 版权归各自所有。</string>
+    <string name="about_copyright">Flying With Gauss不隶属于Valve或其合作伙伴。 版权归各自所有。</string>
 
     <string name="version_string" translatable="false">v0.17.1</string>
 
-    <string name="about_authors">由SDLash3D团队移植到Android系统，成员： \n
+    <string name="about_authors">由Flying With Gauss团队移植到Android系统，成员： \n
 
 &#8226; a1batross\n
 
@@ -65,7 +65,7 @@
 
 	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>
 
-	&#8226; <a href="https://github.com/SDLash3D">GitHub</a></string>
+	&#8226; <a href="https://github.com/FWGS">GitHub</a></string>
 
     <string name="about_button">关于 Xash3D Android</string>
 

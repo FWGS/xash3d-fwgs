@@ -20,9 +20,9 @@
 
 <!-- TODO: Remove or change this placeholder text -->
     <string name="about_main">Xash3D Android</string>
-    <string name="about_copyright">SDLash3D não é afiliado com a Valve ou qualquer um dos seus parceiros. Todos os direitos autorais reservados aos respectivos proprietários.</string>
+    <string name="about_copyright">Flying With Gauss não é afiliado com a Valve ou qualquer um dos seus parceiros. Todos os direitos autorais reservados aos respectivos proprietários.</string>
     <string name="version_string" translatable="false">v0.17.1</string>
-    <string name="about_authors">Porta para android pelo time SDLash3D: \n
+    <string name="about_authors">Porta para android pelo Flying With Gauss: \n
 &#8226; a1batross\n
 &#8226; mittorn \n
 &#8226; nicknekit.\n
@@ -34,7 +34,7 @@ Agradecimentos especiais para:\n
 <string name="about_links">Siga-nos no:
 	&#8226; <a href="https://vk.com/xashdroid">VK</a>
 	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>
-	&#8226; <a href="https://github.com/SDLash3D">GitHub</a></string>
+	&#8226; <a href="https://github.com/FWGS">GitHub</a></string>
     <string name="about_button">Sobre Android Xash3D</string>
     <string name="create_shortcut_button">Criar atalho para o mod</string>
     <string name="select_folder">(selecionar)</string>

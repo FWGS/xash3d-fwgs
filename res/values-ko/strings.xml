@@ -18,8 +18,8 @@
 	<string name="pkgname">모드 패키지 이름(고급설정)</string>
 	<string name="shortcut_name">바로가기 이름</string>
 	<string name="about_main">Xash3D 안드로이드</string>
-	<string name="about_copyright">우리 SDLash3D는 밸브와 상업적으로 관련이 없습니다. 모든 저작권은 소유주로 보류되어있음을 알립니다..</string>
-	<string name="about_authors">안드로이드 이식 by SDLash3D팀: \n
+	<string name="about_copyright">우리 Flying With Gauss는 밸브와 상업적으로 관련이 없습니다. 모든 저작권은 소유주로 보류되어있음을 알립니다..</string>
+	<string name="about_authors">안드로이드 이식 by Flying With Gauss: \n
 • a1batross\n 
 • mittorn \n 
 • nicknekit.\n 
@@ -32,7 +32,7 @@
 	<string name="about_links">
 여기서 우리를: • <a href="https://vk.com/xashdroid">VK</a>
 • <a href="http://moddb.com/game/xash3d-android">모드디비</a>
-• <a href="https://github.com/SDLash3D">깃허브</a>
+• <a href="https://github.com/FWGS">깃허브</a>
 	</string>
 	<string name="about_button">Xash3D 안드로이드 정보</string>
 	<string name="create_shortcut_button">바로가기 만들기</string>

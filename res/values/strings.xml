@@ -4,7 +4,6 @@
     <string name="app_name">Xash3D</string>
 	<string name="launcher_name">Xash3D</string>
 	<string name="launcher_name_test">Xash3D (test)</string>
-
     <string name="launch_button">Launch Xash3D!</string>
     <string name="cmd_args_text">Command line arguments(experts only)</string>
 	<string name="use_controls">Enable touch controls</string>
@@ -17,12 +16,10 @@
 	<string name="gamedir">Mod directory</string>
 	<string name="pkgname">Mod package name (experts only)</string>
 	<string name="shortcut_name">Shortcut name</string>
-
-<!-- TODO: Remove or change this placeholder text -->
     <string name="about_main">Xash3D Android</string>
-    <string name="about_copyright">SDLash3D is not affiliated with Valve or any of their partners. All copyrights reserved to their respective owners.</string>
+    <string name="about_copyright">Flying With Gauss is not affiliated with Valve or any of their partners. All copyrights reserved to their respective owners.</string>
     <string name="version_string" translatable="false">v0.17.1</string>
-    <string name="about_authors">Port to Android by SDLash3D team: \n
+    <string name="about_authors">Port to Android by Flying With Gauss: \n
 &#8226; a1batross\n
 &#8226; mittorn \n
 &#8226; nicknekit.\n
@@ -34,7 +31,7 @@ Special thanks to:\n
 <string name="about_links">Follow us in: 
 	&#8226; <a href="https://vk.com/xashdroid">VK</a>
 	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>
-	&#8226; <a href="https://github.com/SDLash3D">GitHub</a></string>
+	&#8226; <a href="https://github.com/FWGS">GitHub</a></string>
     <string name="about_button">About Xash3D Android</string>
     <string name="create_shortcut_button">Create mod shortcut</string>
     <string name="select_folder">(select)</string>

@@ -20,8 +20,8 @@
 
 <!-- TODO: Remove or change this placeholder text -->
     <string name="about_main">Xash3D Android</string>
-	<string name="about_copyright">SDLash3D steht in keinem Zusammenhang zu Valve oder einem ihrer Partners. All copyrights reserved to their respective owners.</string>
-    <string name="about_authors">Portierung auf Android by SDLash3D team: \n
+	<string name="about_copyright">Flying With Gauss steht in keinem Zusammenhang zu Valve oder einem ihrer Partners. All copyrights reserved to their respective owners.</string>
+    <string name="about_authors">Portierung auf Android by Flying With Gauss: \n
 &#8226; a1batross\n
 &#8226; mittorn \n
 &#8226; nicknekit.\n
@@ -33,7 +33,7 @@ Spezieller Dank an:\n
 <string name="about_links">Folge uns auf:
 	&#8226; <a href="https://vk.com/xashdroid">VK</a>
 	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>
-	&#8226; <a href="https://github.com/SDLash3D">GitHub</a></string>
+	&#8226; <a href="https://github.com/FWGS">GitHub</a></string>
 	<string name="about_button">Über Xash3D Android</string>
 	<string name="create_shortcut_button">mod Kurzbefehl ersellen</string>
     <string name="select_folder">(auswahl)</string>
