@@ -50,6 +50,7 @@
     <string name="folder">Set current folder</string>
 	
 	<string name="update_button">Check updates on start</string>
+	<string name="update_button">Update to unstable version if available</string>
 	<string name="update_message">%s is available! Download it now!</string>
 	<string name="update">Update</string>
 	<string name="cancel">Cancel</string>

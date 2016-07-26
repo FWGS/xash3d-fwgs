@@ -57,6 +57,7 @@
     <string name="folder">Выбрать текущий каталог</string>
 	
 	<string name="update_button">Проверять обновления при запуске</string>
+	<string name="update_button">Обновлять до нестабильной версии, если доступно</string>
 	<string name="update_message">%s доступен! Скачай его сейчас!</string>
 	<string name="update">Обновить</string>
 	<string name="cancel">Отмена</string>
