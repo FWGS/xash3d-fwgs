@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <string name="app_name">Xash3D</string>
-	<string name="launcher_name">Xash3D</string>
-	<string name="launcher_name_test">Xash3D (test)</string>
-
     <string name="launch_button">Iniciar Xash3D!</string>
     <string name="cmd_args_text">Argumentos de linha de comando(apenas expecialistas)</string>
 	<string name="use_controls">Habilitar controles de touch</string>
@@ -18,10 +13,7 @@
 	<string name="pkgname">Nome do pacote de Mod (apenas expecialistas)</string>
 	<string name="shortcut_name">Nome do atalho</string>
 
-<!-- TODO: Remove or change this placeholder text -->
-    <string name="about_main">Xash3D Android</string>
     <string name="about_copyright">SDLash3D não é afiliado com a Valve ou qualquer um dos seus parceiros. Todos os direitos autorais reservados aos respectivos proprietários.</string>
-    <string name="version_string" translatable="false">v0.17.1</string>
     <string name="about_authors">Porta para android pelo time SDLash3D: \n
 &#8226; a1batross\n
 &#8226; mittorn \n
@@ -31,9 +23,9 @@ Agradecimentos especiais para:\n
 &#8226; Uncle Mike pelo motor Xash3D\n
 &#8226; Valve pelo Half-Life\n
 &#8226; Desenvolvedores libSDL2.\n</string>
-<string name="about_links">Siga-nos no:
-	&#8226; <a href="https://vk.com/xashdroid">VK</a>
-	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>
+<string name="about_links">Siga-nos no:\n
+	&#8226; <a href="https://vk.com/xashdroid">VK</a>\n
+	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>\n
 	&#8226; <a href="https://github.com/SDLash3D">GitHub</a></string>
     <string name="about_button">Sobre Android Xash3D</string>
     <string name="create_shortcut_button">Criar atalho para o mod</string>

@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <resources>
-	<string name="app_name">Xash3D</string>
-	<string name="launcher_name">Xash3D</string>
-	<string name="launcher_name_test">Xash3D (테스트)</string>
-
 	<string name="launch_button">Xash3D 실행!</string>
 	<string name="cmd_args_text">커멘드 라인 입력(고급 설정)</string>
 	<string name="use_controls">터치 컨트롤 사용</string>
@@ -17,7 +13,6 @@
 	<string name="gamedir">모드 디렉토리</string>
 	<string name="pkgname">모드 패키지 이름(고급설정)</string>
 	<string name="shortcut_name">바로가기 이름</string>
-	<string name="about_main">Xash3D 안드로이드</string>
 	<string name="about_copyright">우리 SDLash3D는 밸브와 상업적으로 관련이 없습니다. 모든 저작권은 소유주로 보류되어있음을 알립니다..</string>
 	<string name="about_authors">안드로이드 이식 by SDLash3D팀: \n
 • a1batross\n 
@@ -29,9 +24,9 @@
 • 밸브의 하프라이프\n 
 • libSDL2 개발자분들\n 
 • 한글화 byAIC from X3A NaverCafe</string>
-	<string name="about_links">
-여기서 우리를: • <a href="https://vk.com/xashdroid">VK</a>
-• <a href="http://moddb.com/game/xash3d-android">모드디비</a>
+	<string name="about_links">\n
+여기서 우리를: • <a href="https://vk.com/xashdroid">VK</a>\n
+• <a href="http://moddb.com/game/xash3d-android">모드디비</a>\n
 • <a href="https://github.com/SDLash3D">깃허브</a>
 	</string>
 	<string name="about_button">Xash3D 안드로이드 정보</string>
