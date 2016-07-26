@@ -56,7 +56,7 @@ import in.celest.xash3d.hl.R;
 public class LauncherActivity extends Activity {
    // public final static String ARGV = "in.celest.xash3d.MESSAGE";
    	public final static int sdk = Integer.valueOf(Build.VERSION.SDK);
-	public final static String UPDATE_LINK = "https://api.github.com/repos/SDLash3D/xash3d-android-project/releases"; // releases/latest doesn't return prerelease and drafts
+	public final static String UPDATE_LINK = "https://api.github.com/repos/FWGS/xash3d-android-project/releases"; // releases/latest doesn't return prerelease and drafts
 	static EditText cmdArgs, resPath;
 	static ToggleButton useVolume, resizeWorkaround;
 	static CheckBox	checkUpdates, updateToBeta;
