@@ -38,7 +38,7 @@ public class XashActivity extends Activity {
 	public static int mPixelFormat;
 	protected static ViewGroup mLayout;
 
-		// Preferences
+	// Preferences
 	public static SharedPreferences mPref = null;
 	private static boolean mUseVolume;
 
@@ -150,8 +150,16 @@ public class XashActivity extends Activity {
 	public static native void nativeString( String text );
 	public static native void nativeSetPause(int pause);
 
+	public static native void nativeHat(int id, byte hat, byte keycode, byte down);
+	public static native void nativeAxis(int id, byte axis, short value);
+	public static native void nativeJoyButton(int id, byte button, byte down);
+	
+	// for future expansion
+	public static native void nativeBall(int id, byte ball, short xrel, short yrel);
+	public static native void nativeJoyAdd( int id );
+	public static native void nativeJoyDel( int id );
+	
 	public static native int setenv(String key, String value, boolean overwrite);
-
 
 	// Java functions called from C
 
@@ -213,27 +221,160 @@ public class XashActivity extends Activity {
 
 	public static boolean handleKey( int keyCode, KeyEvent event )
 	{
-
-	if ( mUseVolume && ( keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
+		if ( mUseVolume && ( keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
 			keyCode == KeyEvent.KEYCODE_VOLUME_UP ) )
-		return false;
-		//Log.d( TAG, "Keycode " + keyCode );
+			return false;
+			
+		int source = event.getSource();
+		boolean isGamePad  = (source & InputDevice.SOURCE_GAMEPAD)  == InputDevice.SOURCE_GAMEPAD;
+		boolean isJoystick = (source & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_CLASS_JOYSTICK;
+		boolean isDPad     = (source & InputDevice.SOURCE_DPAD)     == InputDevice.SOURCE_DPAD;
+		
+		if( isGamePad || isJoystick )
+		{
+			byte value;
+			
+			switch( keyCode )
+			{
+			// main buttons. DONT CHANGE THIS!!!!111oneone
+			case KeyEvent.KEYCODE_BUTTON_A:      value = 0; break;
+			case KeyEvent.KEYCODE_BUTTON_B:	     value = 1; break;
+			case KeyEvent.KEYCODE_BUTTON_X:	     value = 2; break;
+			case KeyEvent.KEYCODE_BUTTON_Y:	     value = 3; break;
+			case KeyEvent.KEYCODE_BUTTON_L1:     value = 4;	break;
+			case KeyEvent.KEYCODE_BUTTON_R1:     value = 5;	break;
+			case KeyEvent.KEYCODE_BUTTON_SELECT: value = 6;	break;
+			case KeyEvent.KEYCODE_BUTTON_MODE:   value = 7; break;
+			case KeyEvent.KEYCODE_BUTTON_START:  value = 8; break;
+			case KeyEvent.KEYCODE_BUTTON_THUMBL: value = 9; break;
+			case KeyEvent.KEYCODE_BUTTON_THUMBR: value = 10; break;
+			
+			// other
+			case KeyEvent.KEYCODE_BUTTON_C:  value = 11; break;
+			case KeyEvent.KEYCODE_BUTTON_Z:  value = 12; break;
+			case KeyEvent.KEYCODE_BUTTON_L2: value = 13; break;
+			case KeyEvent.KEYCODE_BUTTON_R2: value = 14; break;
+			default: 
+				if( keyCode >= KeyEvent.KEYCODE_BUTTON_1 && keyCode <= KeyEvent.KEYCODE_BUTTON_16 )
+				{
+					value = keyCode - KeyEvent.KEYCODE_BUTTON_1 + 15;
+				}
+				else if( KeyEvent.isGamePadButton(keyCode) )
+				{
+					Log.d(TAG, "Unhandled GamePad button: " + KeyEvent.keyCodeToString(keyCode) );
+					return false;
+				}
+			}
+			if( event.getAction() == KeyEvent.ACTION_DOWN )
+				nativeJoyButton( 0, value, true );
+			else if( event.getAction() == KeyEvent.ACTION_UP )
+				nativeJoyButton( 0, value, false );
+				
+			return true;
+		}
+		
+		if( isDPad )
+		{
+			int dpad;
+						
+			switch( keyCode )
+			{
+			case KeyEvent.KEYCODE_DPAD_CENTER:
+				dpad = 0; break;
+			case KeyEvent.KEYCODE_DPAD_UP:
+				dpad = 1; break;
+			case KeyEvent.KEYCODE_DPAD_RIGHT:
+				dpad = 2; break;
+			case KeyEvent.KEYCODE_DPAD_LEFT:
+				dpad = 3; break;
+			case KeyEvent.KEYCODE_DPAD_DOWN:
+				dpad = 4; break;
+			default: return false;
+			}
+			
+			if( event.getAction() == KeyEvent.ACTION_DOWN )
+				nativeJoyButton( 0, 0, dpad, true );
+			else if( event.getAction() == KeyEvent.ACTION_UP )
+				nativeJoyButton( 0, 0, dpad, false );
+			
+			return true;
+		}
+				
+		Log.d( TAG, "Keycode " + KeyEvent.keyCodeToString(keyCode) + 
+			". IsGamePadButton(" + KeyEvent.isGamePadButton(keyCode) + ")" );
 		if (event.getAction() == KeyEvent.ACTION_DOWN)
 		{
 			if (event.isPrintingKey() || keyCode == 62)// space is printing too
 				XashActivity.nativeString(String.valueOf((char) event.getUnicodeChar()));
 
-			XashActivity.nativeKey(1,keyCode);
+			XashActivity.nativeKey(1, keyCode);
 
 			return true;
 		}
 		else if (event.getAction() == KeyEvent.ACTION_UP)
 		{
 
-			XashActivity.nativeKey(0,keyCode);
+			XashActivity.nativeKey(0, keyCode);
 			return true;
 		}
 		return false;
+	}
+	
+	public static float performEngineAxisEvent( MotionEvent event, int axis, byte engineAxis, float prev )
+	{
+		final float current = event.getAxisValue( axis );
+		if( prev != current && engineAxis != 255 )
+		{
+			if( current < 0 )
+				nativeAxis( 0, engineAxis, (short)(current * -32768) );
+			else nativeAxis(0, engineAxis, (short)(current * 32767) );
+		}
+		
+		return current;
+	}
+	
+	private static float prevLeftX, prevLeftY, prevRightX, prevRightY, prevLT, prevRT, prevHX, prevHY;
+	public static boolean handleAxis( MotionEvent event )
+	{
+		
+		prevLeftX = performEngineAxisEvent(event, event.AXIS_X, 0, prevLeftX);
+		prevLeftY = performEngineAxisEvent(event, event.AXIS_Y, 1, prevLeftY);
+		prevRightX = performEngineAxisEvent(event, event.AXIS_Z, 2, prevRightX);
+		prevRightY = performEngineAxisEvent(event, event.AXIS_RZ, 3, prevRightY);
+		prevLT = performEngineAxisEvent(event, event.LTRIGGER, 4, prevLT);
+		prevRT = performEngineAxisEvent(event, event.RTRIGGER, 5, prevRT);
+		
+		// Because Android may map DPad to AXIS_HAT_X/Y, we need to check these again here
+		float HX = motionEvent.getAxisValue(MotionEvent.AXIS_HAT_X);
+		float HY = motionEvent.getAxisValue(MotionEvent.AXIS_HAT_Y);
+		
+		if(prevHX != HX)
+		{
+			if(HX == 1.0f)
+				nativeHat( 0, 0, 2, true );
+			else if(HX == -1.0f)
+				nativeHat( 0, 0, 3, true );
+			else
+			{
+				nativeHat( 0, 0, 2, false );
+				nativeHat( 0, 0, 3, false );
+			}
+			prevHX = HX;
+		}
+		
+		if( prevHY != HY )
+		{
+			if(HX == 1.0f)
+				nativeHat( 0, 0, 1, true );
+			else if(HX == -1.0f)
+				nativeHat( 0, 0, 4, true );
+			else
+			{
+				nativeHat( 0, 0, 1, false );
+				nativeHat( 0, 0, 4, false );
+			}
+			prevHY = HY;
+		}
 	}
 
 	static class ShowTextInputTask implements Runnable
@@ -503,9 +644,20 @@ View.OnKeyListener {
 
 
 	@Override
-	public boolean onKey(View v, int keyCode, KeyEvent event) {
-
+	public boolean onKey(View v, int keyCode, KeyEvent event) 
+	{
 		return XashActivity.handleKey( keyCode, event );
+	}
+	
+	@Override 
+	public boolean onGenericMotionEvent(MotionEvent event)
+	{
+		if( (event.getSource & InputDevice.SOURCE_CLASS_JOYSTICK) == InputDevice.SOURCE_CLASS_JOYSTICK )
+			return XashActivity.handleAxis( event );
+		// TODO: Add it someday
+		// else if( (event.getSource & InputDevice.SOURCE_CLASS_TRACKBALL) == InputDevice.SOURCE_CLASS_TRACKBALL )
+		//	return XashActivity.handleBall( event );
+		return super.onGenericMotionEvent( event );
 	}
 }
 

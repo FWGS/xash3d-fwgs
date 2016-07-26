@@ -6,7 +6,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.widget.Toast;
-import in.celest.xash3d.hl.R;
+import in.celest.xash3d.hl.*;
 import android.widget.EditText;
 import android.widget.Button;
 import java.io.File;

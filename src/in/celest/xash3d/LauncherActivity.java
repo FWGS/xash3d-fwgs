@@ -120,7 +120,7 @@ public class LauncherActivity extends Activity {
 		pixelSpinner.setAdapter(adapter);
 		useVolume.setChecked(mPref.getBoolean("usevolume",true));
 		checkUpdates.setChecked(mPref.getBoolean("check_updates",true));
-		updateToBeta.setChecked(mPref.getBoolean("check_betas", false);
+		updateToBeta.setChecked(mPref.getBoolean("check_betas", false));
 		updatePath(mPref.getString("basedir", getDefaultPath()));
 		cmdArgs.setText(mPref.getString("argv","-dev 3 -log"));
 		pixelSpinner.setSelection(mPref.getInt("pixelformat", 0));
@@ -264,6 +264,8 @@ public class LauncherActivity extends Activity {
 				{
 					os.write(buffer, 0, len);
 				}
+				os.flush();
+				
 				return os.toString();
 			}
 			catch(Exception e)
@@ -324,7 +326,7 @@ public class LauncherActivity extends Activity {
 				// this is an update
 				if( getString(R.string.version_string).compareTo(version) < 0 )
 				{
-					String dialog_message String.format(getString(R.string.update_message), name);
+					String dialog_message = String.format(getString(R.string.update_message), name);
 					AlertDialog.Builder builder = new AlertDialog.Builder(getBaseContext());
 					builder.setMessage(dialog_message)
 						.setPositiveButton(R.string.update, new DialogInterface.OnClickListener()
