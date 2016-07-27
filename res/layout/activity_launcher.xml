@@ -116,7 +116,7 @@
 								android:layout_marginRight="10dp"
 								android:layout_marginTop="3dp"
 								android:text="@string/text_res_path"
-								android:textAppearance="?android:attr/	textAppearanceMedium" />
+								android:textAppearance="?android:attr/textAppearanceMedium" />
 							<Button
 								android:id="@+id/button_select"
 								android:layout_width="match_parent"
@@ -219,7 +219,7 @@
 								android:textAppearance="?android:attr/textAppearanceMedium" />
 							<Spinner
 								android:layout_height="wrap_content"
-								android:layout_width="math_parent"
+								android:layout_width="match_parent"
 								android:id="@+id/pixelSpinner"
 								android:layout_marginBottom="10dp"
 								android:layout_marginLeft="10dp"

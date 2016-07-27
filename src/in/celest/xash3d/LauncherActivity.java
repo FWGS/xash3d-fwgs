@@ -57,9 +57,12 @@ public class LauncherActivity extends Activity {
    // public final static String ARGV = "in.celest.xash3d.MESSAGE";
    	public final static int sdk = Integer.valueOf(Build.VERSION.SDK);
 	public final static String UPDATE_LINK = "https://api.github.com/repos/FWGS/xash3d-android-project/releases"; // releases/latest doesn't return prerelease and drafts
-	static EditText cmdArgs, resPath;
-	static ToggleButton useVolume, resizeWorkaround;
-	static CheckBox	checkUpdates, updateToBeta;
+	static EditText cmdArgs;
+	static EditText resPath;
+	static ToggleButton useVolume;
+	static ToggleButton resizeWorkaround;
+	static CheckBox	checkUpdates;
+	static CheckBox updateToBeta;
 	static SharedPreferences mPref;
 	static Spinner pixelSpinner;
 	static TextView tvResPath;
@@ -137,7 +140,7 @@ public class LauncherActivity extends Activity {
 
 		if(mPref.getBoolean("check_updates", true))
 		{
-			new CheckUpdate(true, updateToBeta.getBoolean()).execute(UPDATE_LINK);
+			new CheckUpdate(true, updateToBeta.isChecked()).execute(UPDATE_LINK);
 		}
 	}
 
@@ -309,10 +312,20 @@ public class LauncherActivity extends Activity {
 			if( releases == null )
 				return;
 			
-			for( JSONObject obj: releases )
+			for( int i = 0; i < releases.length(); i++ )
 			{
+				final JSONObject obj;
+				try 
+				{
+					obj = releases.getJSONObject(i);
+				}
+				catch(Exception e)
+				{
+					e.printStackTrace();
+					continue;
+				}
 				final String version, url, name;
-				final bool beta = obj.getBoolean("prerelease");
+				final boolean beta = obj.getBoolean("prerelease");
 				
 				if( beta && !mBeta )
 					continue;
