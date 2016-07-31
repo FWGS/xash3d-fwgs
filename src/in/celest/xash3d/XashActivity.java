@@ -55,9 +55,9 @@ public class XashActivity extends Activity {
 	private final static byte JOY_HAT_LEFT     = 8;
 	
 	private final static byte JOY_AXIS_SIDE  = 0; // this represents default 
-	private final static byte JOY_AXIS_FWD   = 1; // engine binding: SFYPRL
-	private final static byte JOY_AXIS_YAW   = 2;
-	private final static byte JOY_AXIS_PITCH = 3;
+	private final static byte JOY_AXIS_FWD   = 1; // engine binding: SFPYRL
+	private final static byte JOY_AXIS_PITCH = 2;
+	private final static byte JOY_AXIS_YAW   = 3;
 	private final static byte JOY_AXIS_RT    = 4;
 	private final static byte JOY_AXIS_LT    = 5;
 	private static float prevSide, prevFwd, prevYaw, prevPtch, prevLT, prevRT, prevHX, prevHY;
