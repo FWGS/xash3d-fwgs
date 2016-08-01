@@ -32,12 +32,27 @@ public class XashActivity extends Activity {
 	// Main components
 	protected static XashActivity mSingleton;
 	protected static View mTextEdit;
-	private static EngineSurface mSurface;
+	public static EngineSurface mSurface;
 	public static String mArgv[];
 	public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
 	public static final String TAG = "XASH3D:XashActivity";
 	public static int mPixelFormat;
 	protected static ViewGroup mLayout;
+	public static JoystickHandler handler;
+
+	// Joystick constants
+	public final static byte JOY_HAT_CENTERED = 0; // bitmasks for hat current status
+	public final static byte JOY_HAT_UP       = 1;
+	public final static byte JOY_HAT_RIGHT    = 2;
+	public final static byte JOY_HAT_DOWN     = 4;
+	public final static byte JOY_HAT_LEFT     = 8;
+
+	public final static byte JOY_AXIS_SIDE  = 0; // this represents default
+	public final static byte JOY_AXIS_FWD   = 1; // engine binding: SFPYRL
+	public final static byte JOY_AXIS_PITCH = 2;
+	public final static byte JOY_AXIS_YAW   = 3;
+	public final static byte JOY_AXIS_RT    = 4;
+	public final static byte JOY_AXIS_LT    = 5;
 
 	// Preferences
 	public static SharedPreferences mPref = null;
@@ -46,21 +61,6 @@ public class XashActivity extends Activity {
 	// Audio
 	private static Thread mAudioThread;
 	private static AudioTrack mAudioTrack;
-	
-	// Joystick constants
-	private final static byte JOY_HAT_CENTERED = 0; // bitmasks for hat current status
-	private final static byte JOY_HAT_UP       = 1;
-	private final static byte JOY_HAT_RIGHT    = 2;
-	private final static byte JOY_HAT_DOWN     = 4;
-	private final static byte JOY_HAT_LEFT     = 8;
-	
-	private final static byte JOY_AXIS_SIDE  = 0; // this represents default 
-	private final static byte JOY_AXIS_FWD   = 1; // engine binding: SFPYRL
-	private final static byte JOY_AXIS_PITCH = 2;
-	private final static byte JOY_AXIS_YAW   = 3;
-	private final static byte JOY_AXIS_RT    = 4;
-	private final static byte JOY_AXIS_LT    = 5;
-	private static float prevSide, prevFwd, prevYaw, prevPtch, prevLT, prevRT, prevHX, prevHY;
 
 	// Load the .so
 	static {
@@ -84,6 +84,10 @@ public class XashActivity extends Activity {
 		// landscapeSensor is not supported until API9
 		if( sdk < 9 )
 			setRequestedOrientation(0);
+		if( sdk < 12 )
+			handler = new JoystickHandler_stub();
+		else
+			handler = new JoystickHandler_v12();
 
 		// keep screen on
 		getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON, WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -242,7 +246,7 @@ public class XashActivity extends Activity {
 			keyCode == KeyEvent.KEYCODE_VOLUME_UP ) )
 			return false;
 			
-		final int source = event.getSource();
+		final int source = XashActivity.handler.getSource(event);
 		final int action = event.getAction();
 		final boolean isGamePad  = (source & InputDevice.SOURCE_GAMEPAD)        == InputDevice.SOURCE_GAMEPAD;
 		final boolean isJoystick = (source & InputDevice.SOURCE_CLASS_JOYSTICK) == InputDevice.SOURCE_CLASS_JOYSTICK;
@@ -279,9 +283,9 @@ public class XashActivity extends Activity {
 				{
 					val = (byte)(keyCode - KeyEvent.KEYCODE_BUTTON_1 + 15);
 				}
-				else if( KeyEvent.isGamepadButton(keyCode) )
+				else if( XashActivity.handler.isGamepadButton(keyCode) )
 				{
-					Log.d(TAG, "Unhandled GamePad button: " + KeyEvent.keyCodeToString(keyCode) );
+					Log.d(TAG, "Unhandled GamePad button: " + XashActivity.handler.keyCodeToString(keyCode) );
 					return false;
 				}
 			}
@@ -334,7 +338,7 @@ public class XashActivity extends Activity {
 		return false;
 	}
 	
-	private static float performEngineAxisEvent( float current, byte engineAxis, float prev, float flat )
+	public static float performEngineAxisEvent( float current, byte engineAxis, float prev, float flat )
 	{
 		if( prev != current )
 		{
@@ -349,7 +353,7 @@ public class XashActivity extends Activity {
 		return current;
 	}
 	
-	private static float performEngineHatEvent( float curr, boolean isXAxis, float prev )
+	public static float performEngineHatEvent( float curr, boolean isXAxis, float prev )
 	{
 		if( prev != curr )
 		{
@@ -373,32 +377,6 @@ public class XashActivity extends Activity {
 			}
 		}
 		return curr;
-	}
-	
-	public static boolean handleAxis( MotionEvent event )
-	{
-		// maybe I need to cache this...
-		for( InputDevice.MotionRange range: event.getDevice().getMotionRanges() )
-		{
-			// normalize in -1.0..1.0 (copied from SDL2)
-			final float cur = ( event.getAxisValue( range.getAxis(), event.getActionIndex() ) - range.getMin() ) / range.getRange() * 2.0f - 1.0f;
-			final float dead = range.getFlat(); // get axis dead zone
-			switch( range.getAxis() )
-			{
-			// typical axes
-			case MotionEvent.AXIS_X:   prevSide = performEngineAxisEvent(cur, JOY_AXIS_SIDE,  prevSide, dead); break;
-			case MotionEvent.AXIS_Y:   prevFwd  = performEngineAxisEvent(cur, JOY_AXIS_FWD,   prevFwd,  dead); break;
-			case MotionEvent.AXIS_Z:   prevYaw  = performEngineAxisEvent(cur, JOY_AXIS_YAW,   prevYaw,  dead); break;
-			case MotionEvent.AXIS_RZ:  prevPtch = performEngineAxisEvent(cur, JOY_AXIS_PITCH, prevPtch, dead); break;
-			case MotionEvent.AXIS_RTRIGGER:	prevLT = performEngineAxisEvent(cur, JOY_AXIS_RT, prevLT,   dead); break;
-			case MotionEvent.AXIS_LTRIGGER:	prevRT = performEngineAxisEvent(cur, JOY_AXIS_LT, prevRT,   dead); break;
-			// hats
-			case MotionEvent.AXIS_HAT_X: prevHX = performEngineHatEvent(cur, true, prevHX); break;
-			case MotionEvent.AXIS_HAT_Y: prevHY = performEngineHatEvent(cur, false, prevHY); break;
-			}
-		}
-		
-		return true;
 	}
 
 	static class ShowTextInputTask implements Runnable
@@ -672,18 +650,7 @@ View.OnKeyListener {
 	{
 		return XashActivity.handleKey( keyCode, event );
 	}
-	
-	@Override 
-	public boolean onGenericMotionEvent(MotionEvent event)
-	{
-		if( ((event.getSource() & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) || 
-			(event.getSource() & InputDevice.SOURCE_GAMEPAD) != 0 )
-			return XashActivity.handleAxis( event );
-		// TODO: Add it someday
-		// else if( (event.getSource() & InputDevice.SOURCE_CLASS_TRACKBALL) == InputDevice.SOURCE_CLASS_TRACKBALL )
-		//	return XashActivity.handleBall( event );
-		return super.onGenericMotionEvent( event );
-	}
+
 }
 
 /* This is a fake invisible editor view that receives the input and defines the
@@ -883,3 +850,110 @@ class AndroidBug5497Workaround {
 	}
 
 }
+
+interface JoystickHandler
+{
+	public int getSource(KeyEvent event);
+	public int getSource(MotionEvent event);
+	public boolean handleAxis(MotionEvent event);
+	public boolean isGamepadButton(int keyCode);
+	public String keyCodeToString(int keyCode);
+	public void init();
+}
+class JoystickHandler_stub implements JoystickHandler
+{
+	public int getSource(KeyEvent event)
+	{
+		return InputDevice.SOURCE_UNKNOWN;
+	}
+	public int getSource(MotionEvent event)
+	{
+		return InputDevice.SOURCE_UNKNOWN;
+	}
+	public boolean handleAxis(MotionEvent event)
+	{
+		return false;
+	}
+	public boolean isGamepadButton(int keyCode)
+	{
+		return false;
+	}
+	public String keyCodeToString(int keyCode)
+	{
+		return String.valueOf(keyCode);
+	}
+	public void init()
+	{
+	}
+}
+
+class JoystickHandler_v12 implements JoystickHandler
+{
+
+
+	private static float prevSide, prevFwd, prevYaw, prevPtch, prevLT, prevRT, prevHX, prevHY;
+
+	public int getSource(KeyEvent event)
+	{
+		return event.getSource();
+	}
+	public int getSource(MotionEvent event)
+	{
+		return event.getSource();
+	}
+	public boolean handleAxis( MotionEvent event )
+	{
+		// maybe I need to cache this...
+		for( InputDevice.MotionRange range: event.getDevice().getMotionRanges() )
+		{
+			// normalize in -1.0..1.0 (copied from SDL2)
+			final float cur = ( event.getAxisValue( range.getAxis(), event.getActionIndex() ) - range.getMin() ) / range.getRange() * 2.0f - 1.0f;
+			final float dead = range.getFlat(); // get axis dead zone
+			switch( range.getAxis() )
+			{
+			// typical axes
+			case MotionEvent.AXIS_X:   prevSide = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_SIDE,  prevSide, dead); break;
+			case MotionEvent.AXIS_Y:   prevFwd  = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_FWD,   prevFwd,  dead); break;
+			case MotionEvent.AXIS_Z:   prevYaw  = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_YAW,   prevYaw,  dead); break;
+			case MotionEvent.AXIS_RZ:  prevPtch = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_PITCH, prevPtch, dead); break;
+			case MotionEvent.AXIS_RTRIGGER:	prevLT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_RT, prevLT,   dead); break;
+			case MotionEvent.AXIS_LTRIGGER:	prevRT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_LT, prevRT,   dead); break;
+			// hats
+			case MotionEvent.AXIS_HAT_X: prevHX = XashActivity.performEngineHatEvent(cur, true, prevHX); break;
+			case MotionEvent.AXIS_HAT_Y: prevHY = XashActivity.performEngineHatEvent(cur, false, prevHY); break;
+			}
+		}
+
+		return true;
+	}
+	public boolean isGamepadButton(int keyCode)
+	{
+		return KeyEvent.isGamepadButton(keyCode);
+	}
+	public String keyCodeToString(int keyCode)
+	{
+		return KeyEvent.keyCodeToString(keyCode);
+	}
+	public void init()
+	{
+		XashActivity.mSurface.setOnGenericMotionListener(new MotionListener());
+	}
+
+	class MotionListener implements View.OnGenericMotionListener
+	{
+		@Override
+		public boolean onGenericMotion(View view, MotionEvent event)
+		{
+			if( ((XashActivity.handler.getSource(event) & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) ||
+				(XashActivity.handler.getSource(event) & InputDevice.SOURCE_GAMEPAD) != 0 )
+				return XashActivity.handler.handleAxis( event );
+			// TODO: Add it someday
+			// else if( (event.getSource() & InputDevice.SOURCE_CLASS_TRACKBALL) == InputDevice.SOURCE_CLASS_TRACKBALL )
+			//	return XashActivity.handleBall( event );
+			//return super.onGenericMotion( view, event );
+			return false;
+		}
+	}
+
+}
+
