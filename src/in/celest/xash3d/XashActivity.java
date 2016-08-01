@@ -84,16 +84,19 @@ public class XashActivity extends Activity {
 		// landscapeSensor is not supported until API9
 		if( sdk < 9 )
 			setRequestedOrientation(0);
-		if( sdk < 12 )
-			handler = new JoystickHandler_stub();
-		else
-			handler = new JoystickHandler_v12();
 
 		// keep screen on
 		getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON, WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
 		// Set up the surface
 		mSurface = new EngineSurface(getApplication());
+
+		if( sdk < 12 )
+			handler = new JoystickHandler_stub();
+		else
+			handler = new JoystickHandler_v12();
+		handler.init();
+
 		mLayout = new FrameLayout(this);
 		mLayout.addView(mSurface);
 		setContentView(mLayout);
