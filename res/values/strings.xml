@@ -3,7 +3,7 @@
     <string name="app_name" translatable="false">Xash3D</string>
 	<string name="launcher_name" translatable="false">Xash3D</string>
 	<string name="launcher_name_test" translatable="false">Xash3D (test)</string>
-	<string name="version_string" translatable="false">v0.17.1</string>
+	<string name="version_string" translatable="false">v0.18</string>
 
     <string name="launch_button">Launch Xash3D!</string>
     <string name="cmd_args_text">Command line arguments(experts only)</string>
