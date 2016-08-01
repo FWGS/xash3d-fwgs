@@ -318,49 +318,50 @@ public class LauncherActivity extends Activity {
 				try 
 				{
 					obj = releases.getJSONObject(i);
+
+					final String version, url, name;
+					final boolean beta = obj.getBoolean("prerelease");
+
+					if( beta && !mBeta )
+						continue;
+
+					version = obj.getString("tag_name");
+					url = obj.getString("html_url");
+					name = obj.getString("name");
+					Log.d("Xash", "Found: " + version +
+						", I: " + getString(R.string.version_string));
+
+					// this is an update
+					if( getString(R.string.version_string).compareTo(version) < 0 )
+					{
+						String dialog_message = String.format(getString(R.string.update_message), name);
+						AlertDialog.Builder builder = new AlertDialog.Builder(getBaseContext());
+						builder.setMessage(dialog_message)
+							.setPositiveButton(R.string.update, new DialogInterface.OnClickListener()
+							{
+								public void onClick(DialogInterface dialog, int id)
+								{
+									final Intent intent = new Intent(Intent.ACTION_VIEW).setData(Uri.parse(url));
+									startActivity(intent);
+								}
+							})
+							.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener()
+								{ public void onClick(DialogInterface dialog, int id) {} } );
+						builder.create().show();
+					}
+					else if( !mSilent )
+					{
+						Toast.makeText(getBaseContext(), R.string.no_updates, Toast.LENGTH_SHORT).show();
+					}
+
+					// No need to check other releases, so we will stop here.
+					break;
 				}
 				catch(Exception e)
 				{
 					e.printStackTrace();
 					continue;
 				}
-				final String version, url, name;
-				final boolean beta = obj.getBoolean("prerelease");
-				
-				if( beta && !mBeta )
-					continue;
-					
-				version = obj.getString("tag_name");
-				url = obj.getString("html_url");
-				name = obj.getString("name");
-				Log.d("Xash", "Found: " + version +
-					", I: " + getString(R.string.version_string));
-					
-				// this is an update
-				if( getString(R.string.version_string).compareTo(version) < 0 )
-				{
-					String dialog_message = String.format(getString(R.string.update_message), name);
-					AlertDialog.Builder builder = new AlertDialog.Builder(getBaseContext());
-					builder.setMessage(dialog_message)
-						.setPositiveButton(R.string.update, new DialogInterface.OnClickListener()
-						{
-							public void onClick(DialogInterface dialog, int id) 
-							{
-								final Intent intent = new Intent(Intent.ACTION_VIEW).setData(Uri.parse(url));
-								startActivity(intent);
-							}
-						})
-						.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener()
-							{ public void onClick(DialogInterface dialog, int id) {} } );
-					builder.create().show();
-				}
-				else if( !mSilent )
-				{
-					Toast.makeText(getBaseContext(), R.string.no_updates, Toast.LENGTH_SHORT).show();
-				}
-				
-				// No need to check other releases, so we will stop here.
-				break;
 			}
 		}
 	}
