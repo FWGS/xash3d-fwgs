@@ -254,7 +254,31 @@ public class XashActivity extends Activity {
 		final boolean isGamePad  = (source & InputDevice.SOURCE_GAMEPAD)        == InputDevice.SOURCE_GAMEPAD;
 		final boolean isJoystick = (source & InputDevice.SOURCE_CLASS_JOYSTICK) == InputDevice.SOURCE_CLASS_JOYSTICK;
 		final boolean isDPad     = (source & InputDevice.SOURCE_DPAD)           == InputDevice.SOURCE_DPAD;
-		
+
+		if( isDPad )
+		{
+			byte val;
+			final byte hat = 0;
+			final int id = 0;
+			Log.d(TAG, "DPAD button: " + keyCode );
+			switch( keyCode )
+			{
+			case KeyEvent.KEYCODE_DPAD_CENTER: val = JOY_HAT_CENTERED; break;
+			case KeyEvent.KEYCODE_DPAD_UP:     val = JOY_HAT_UP;       break;
+			case KeyEvent.KEYCODE_DPAD_RIGHT:  val = JOY_HAT_RIGHT;    break;
+			case KeyEvent.KEYCODE_DPAD_DOWN:   val = JOY_HAT_DOWN;     break;
+			case KeyEvent.KEYCODE_DPAD_LEFT:   val = JOY_HAT_LEFT;     break;
+			default: return false;
+			}
+
+			if(action == KeyEvent.ACTION_DOWN)
+				nativeHat(id, hat, val, true);
+			else if(action == KeyEvent.ACTION_UP)
+				nativeHat(id, hat, val, false);
+
+			return true;
+		}
+
 		// Engine will bind these to AUX${val} virtual keys
 		if( isGamePad || isJoystick )
 		{
@@ -291,6 +315,23 @@ public class XashActivity extends Activity {
 					Log.d(TAG, "Unhandled GamePad button: " + XashActivity.handler.keyCodeToString(keyCode) );
 					return false;
 				}
+				else
+				{
+					if (action == KeyEvent.ACTION_DOWN)
+					{
+						if (event.isPrintingKey() || keyCode == 62)// space is printing too
+							XashActivity.nativeString(String.valueOf((char) event.getUnicodeChar()));
+
+						XashActivity.nativeKey(1, keyCode);
+
+						return true;
+					}
+					else if (action == KeyEvent.ACTION_UP)
+					{
+						XashActivity.nativeKey(0, keyCode);
+						return true;
+					}
+				}
 			}
 
 			if( event.getAction() == KeyEvent.ACTION_DOWN )
@@ -300,30 +341,7 @@ public class XashActivity extends Activity {
 			else return false;
 			return true;
 		}
-		
-		if( isDPad )
-		{
-			byte val;
-			final byte hat = 0;
-			final int id = 0;
-			switch( keyCode )
-			{
-			case KeyEvent.KEYCODE_DPAD_CENTER: val = JOY_HAT_CENTERED; break;
-			case KeyEvent.KEYCODE_DPAD_UP:     val = JOY_HAT_UP;       break;
-			case KeyEvent.KEYCODE_DPAD_RIGHT:  val = JOY_HAT_RIGHT;    break;
-			case KeyEvent.KEYCODE_DPAD_DOWN:   val = JOY_HAT_DOWN;     break;
-			case KeyEvent.KEYCODE_DPAD_LEFT:   val = JOY_HAT_LEFT;     break;
-			default: return false;
-			}
-			
-			if(action == KeyEvent.ACTION_DOWN)
-				nativeHat(id, hat, val, true);
-			else if(action == KeyEvent.ACTION_UP)
-				nativeHat(id, hat, val, false);
-			
-			return true;
-		}
-		
+
 		if (action == KeyEvent.ACTION_DOWN)
 		{
 			if (event.isPrintingKey() || keyCode == 62)// space is printing too
