@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ndk-build NDK_TOOLCHAIN_VERSION=4.8 NDK_DEBUG=1 SUPPORT_WEBP=false V=1 -j3 APP_CFLAGS="-gdwarf-3" XASH_SDL=1
+ndk-build NDK_TOOLCHAIN_VERSION=4.8 NDK_DEBUG=1 SUPPORT_WEBP=false V=1 -j3 APP_CFLAGS="-gdwarf-3" XASH_SDL=0
 sh gen-version.sh default-debug
 rm assets/extras.pak 2>/dev/null
 python2 makepak.py xash-extras assets/extras.pak
