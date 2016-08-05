@@ -7,6 +7,7 @@ import android.app.AlertDialog;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Build;
+import android.text.method.LinkMovementMethod;
 import android.os.Environment;
 
 import android.view.Menu;
@@ -221,6 +222,8 @@ public class LauncherActivity extends Activity {
 				dialog.setContentView(R.layout.about);
 				dialog.setCancelable(true);
 				dialog.show();
+				TextView tView6 = (TextView) dialog.findViewById(R.id.textView6);
+				tView6.setMovementMethod(LinkMovementMethod.getInstance());
 			}
 		});
 	}
