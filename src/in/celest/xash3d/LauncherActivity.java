@@ -13,6 +13,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 
 import android.content.Intent;
 import android.content.ComponentName;
@@ -63,6 +64,7 @@ public class LauncherActivity extends Activity {
 	static ToggleButton resizeWorkaround;
 	static CheckBox	checkUpdates;
 	static CheckBox updateToBeta;
+	static CheckBox immersiveMode;
 	static SharedPreferences mPref;
 	static Spinner pixelSpinner;
 	static TextView tvResPath;
@@ -82,7 +84,9 @@ public class LauncherActivity extends Activity {
 		this.requestWindowFeature(Window.FEATURE_NO_TITLE);
 		//super.setTheme( 0x01030005 );
 		if ( sdk >= 21 )
+		{
 			super.setTheme( 0x01030224 );
+		}
 		
 		setContentView(R.layout.activity_launcher);
 
@@ -101,14 +105,15 @@ public class LauncherActivity extends Activity {
 		tabHost.addTab(tabSpec);
 
 		mPref        = getSharedPreferences("engine", 0);
-		cmdArgs      = (EditText)findViewById(R.id.cmdArgs);
+		cmdArgs      = (EditText) findViewById(R.id.cmdArgs);
 		useVolume    = (ToggleButton) findViewById( R.id.useVolume );
 		resPath      = (EditText) findViewById( R.id.cmdPath );
-		checkUpdates = (CheckBox)findViewById(R.id.check_updates);
-		updateToBeta = (CheckBox)findViewById(R.id.check_betas);
-		pixelSpinner = (Spinner) findViewById(R.id.pixelSpinner);
+		checkUpdates = (CheckBox)findViewById( R.id.check_updates );
+		updateToBeta = (CheckBox)findViewById( R.id.check_betas );
+		pixelSpinner = (Spinner) findViewById( R.id.pixelSpinner );
 		resizeWorkaround = (ToggleButton) findViewById( R.id.enableResizeWorkaround );
 		tvResPath    = (TextView) findViewById( R.id.textView_path );
+		immersiveMode = (CheckBox) findViewById( R.id.immersive_mode );
 		
 		final String[] list = {
 			"32 bit (RGBA8888)",
@@ -121,31 +126,6 @@ public class LauncherActivity extends Activity {
 		ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item, list);
 		adapter.setDropDownViewResource(android.R.layout.simple_spinner_item);
 		pixelSpinner.setAdapter(adapter);
-		Button selectFolderButton = ( Button ) findViewById( R.id.button_select );
-		selectFolderButton.setOnClickListener(new View.OnClickListener(){
-			   @Override
-			public void onClick(View v) {
-			selectFolder(v);
-				}
-		});
-		((Button)findViewById( R.id.button_launch )).setOnClickListener(new View.OnClickListener(){
-			   @Override
-			public void onClick(View v) {
-			startXash(v);
-				}
-		});
-		((Button)findViewById( R.id.button_shortcut )).setOnClickListener(new View.OnClickListener(){
-			   @Override
-			public void onClick(View v) {
-			createShortcut(v);
-				}
-		});
-		((Button)findViewById( R.id.button_about )).setOnClickListener(new View.OnClickListener(){
-			   @Override
-			public void onClick(View v) {
-			aboutXash(v);
-				}
-		});
 		useVolume.setChecked(mPref.getBoolean("usevolume",true));
 		checkUpdates.setChecked(mPref.getBoolean("check_updates",true));
 		updateToBeta.setChecked(mPref.getBoolean("check_betas", false));
@@ -154,6 +134,15 @@ public class LauncherActivity extends Activity {
 		pixelSpinner.setSelection(mPref.getInt("pixelformat", 0));
 		resizeWorkaround.setChecked(mPref.getBoolean("enableResizeWorkaround", true));
 		
+		if( sdk >= 19 )
+		{
+			immersiveMode.setChecked(mPref.getBoolean("immersive_mode", true));
+		}
+		else
+		{
+			immersiveMode.setVisibility(View.GONE); // not available
+		}
+				
 		resPath.setOnFocusChangeListener( new View.OnFocusChangeListener()
 		{
 			@Override
@@ -188,6 +177,10 @@ public class LauncherActivity extends Activity {
 		editor.putInt("pixelformat", pixelSpinner.getSelectedItemPosition());
 		editor.putBoolean("enableResizeWorkaround",resizeWorkaround.isChecked());
 		editor.putBoolean("check_updates", checkUpdates.isChecked());
+		if( sdk >= 19 )
+			editor.putBoolean("immersive_mode", immersiveMode.isChecked());
+		else
+			editor.putBoolean("immersive_mode", false); // just in case...
 		editor.commit();
 		startActivity(intent);
     }

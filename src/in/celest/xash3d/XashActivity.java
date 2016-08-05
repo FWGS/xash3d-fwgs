@@ -57,6 +57,8 @@ public class XashActivity extends Activity {
 	// Preferences
 	public static SharedPreferences mPref = null;
 	private static boolean mUseVolume;
+	private static boolean mEnableImmersive;
+	private static View mDecorView;
 
 	// Audio
 	private static Thread mAudioThread;
@@ -68,6 +70,7 @@ public class XashActivity extends Activity {
 	}
 
 	// Setup
+	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		Log.v(TAG, "onCreate()");
 		super.onCreate(savedInstanceState);
@@ -153,18 +156,41 @@ public class XashActivity extends Activity {
 		mUseVolume = mPref.getBoolean("usevolume", false);
 		if( mPref.getBoolean("enableResizeWorkaround", true) )
 			AndroidBug5497Workaround.assistActivity(this);
+		
+		// Immersive Mode is available only at >KitKat
+		mEnableImmersive = (sdk >= 19 && mPref.getBoolean("immersive_mode", true));
+		mDecorView = getWindow().getDecorView();
 	}
 
 	// Events
+	@Override
 	protected void onPause() {
 		Log.v(TAG, "onPause()");
 		super.onPause();
 	}
 
+	@Override
 	protected void onResume() {
 		Log.v(TAG, "onResume()");
 		super.onResume();
 	}
+	
+	@Override
+	public void onWindowFocusChanged(boolean hasFocus) 
+	{
+		super.onWindowFocusChanged(hasFocus);
+
+		if( mEnableImmersive && hasFocus ) 
+		{
+			mDecorView.setSystemUiVisibility(
+				View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+				| View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+				| View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+				| View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
+				| View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
+				| View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+		}
+	}	
 
 	public static native int nativeInit(Object arguments);
 	public static native void nativeQuit();
@@ -205,6 +231,11 @@ public class XashActivity extends Activity {
 
 	public static void toggleEGL(int toggle) {
 		mSurface.toggleEGL(toggle);
+	}
+	
+	public static boolean deleteGLContext() {
+		mSurface.ShutdownGL();
+		return true;
 	}
 
 	public static Context getContext() {
@@ -539,7 +570,6 @@ View.OnKeyListener {
 
 	// EGL functions
 	public boolean InitGL() {
-
 		try
 		{
 			EGL10 egl = (EGL10)EGLContext.getEGL();
@@ -663,6 +693,17 @@ View.OnKeyListener {
 			mEGL.eglDestroySurface(mEGLDisplay, mEGLSurface);
 			mEGLSurface = null;
 	   }
+	}
+	public void ShutdownGL()
+	{
+		mEGL.eglDestroyContext(mEGLDisplay, mEGLContext);
+		mEGLContext = null;
+		
+		mEGL.eglDestroySurface(mEGLDisplay, mEGLSurface);
+		mEGLSurface = null;
+		
+		mEGL.eglTerminate(mEGLDisplay);
+		mEGLDisplay = null;
 	}
 
 

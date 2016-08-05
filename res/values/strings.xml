@@ -56,4 +56,5 @@
 	<string name="cancel">Cancel</string>
 	<string name="no_updates">No updates was found</string>
 	<string name="checking_updates">Working...</string>
+	<string name="immersive_mode">Enable Immersive Mode(fullscreen, KitKat or higher)</string>
 </resources>

@@ -254,6 +254,15 @@
 								android:layout_marginRight="10dp"
 								android:layout_marginTop="10dp"
 								android:text="@string/update_to_beta" />
+							<CheckBox
+								android:id="@+id/immersive_mode"
+								android:layout_width="match_parent"
+								android:layout_height="wrap_content"
+								android:layout_margin="10dp"
+								android:layout_marginLeft="10dp"
+								android:layout_marginRight="10dp"
+								android:layout_marginTop="10dp"
+								android:text="@string/immersive_mode" />
 							<TextView
 								android:id="@+id/textView7"
 								android:layout_marginBottom="10dp"
