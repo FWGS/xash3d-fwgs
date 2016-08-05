@@ -126,6 +126,31 @@ public class LauncherActivity extends Activity {
 		ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item, list);
 		adapter.setDropDownViewResource(android.R.layout.simple_spinner_item);
 		pixelSpinner.setAdapter(adapter);
+		Button selectFolderButton = ( Button ) findViewById( R.id.button_select );
+	selectFolderButton.setOnClickListener(new View.OnClickListener(){
+	       @Override
+	    public void onClick(View v) {
+	    selectFolder(v);
+		}
+	});
+	((Button)findViewById( R.id.button_launch )).setOnClickListener(new View.OnClickListener(){
+	       @Override
+	    public void onClick(View v) {
+	    startXash(v);
+		}
+	});
+	((Button)findViewById( R.id.button_shortcut )).setOnClickListener(new View.OnClickListener(){
+	       @Override
+	    public void onClick(View v) {
+	    createShortcut(v);
+		}
+	});
+	((Button)findViewById( R.id.button_about )).setOnClickListener(new View.OnClickListener(){
+	       @Override
+	    public void onClick(View v) {
+	    aboutXash(v);
+		}
+	});
 		useVolume.setChecked(mPref.getBoolean("usevolume",true));
 		checkUpdates.setChecked(mPref.getBoolean("check_updates",true));
 		updateToBeta.setChecked(mPref.getBoolean("check_betas", false));

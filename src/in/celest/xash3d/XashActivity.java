@@ -39,6 +39,7 @@ public class XashActivity extends Activity {
 	public static int mPixelFormat;
 	protected static ViewGroup mLayout;
 	public static JoystickHandler handler;
+	ImmersiveMode mImmersiveMode;
 
 	// Joystick constants
 	public final static byte JOY_HAT_CENTERED = 0; // bitmasks for hat current status
@@ -58,7 +59,7 @@ public class XashActivity extends Activity {
 	public static SharedPreferences mPref = null;
 	private static boolean mUseVolume;
 	private static boolean mEnableImmersive;
-	private static View mDecorView;
+	public static View mDecorView;
 
 	// Audio
 	private static Thread mAudioThread;
@@ -95,7 +96,7 @@ public class XashActivity extends Activity {
 		mSurface = new EngineSurface(getApplication());
 
 		if( sdk < 12 )
-			handler = new JoystickHandler_stub();
+			handler = new JoystickHandler();
 		else
 			handler = new JoystickHandler_v12();
 		handler.init();
@@ -159,6 +160,8 @@ public class XashActivity extends Activity {
 		
 		// Immersive Mode is available only at >KitKat
 		mEnableImmersive = (sdk >= 19 && mPref.getBoolean("immersive_mode", true));
+		if( mEnableImmersive )
+			mImmersiveMode = new ImmersiveMode_v19();
 		mDecorView = getWindow().getDecorView();
 	}
 
@@ -180,16 +183,19 @@ public class XashActivity extends Activity {
 	{
 		super.onWindowFocusChanged(hasFocus);
 
-		if( mEnableImmersive && hasFocus ) 
+		/*if( mEnableImmersive && hasFocus ) 
 		{
 			mDecorView.setSystemUiVisibility(
-				View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-				| View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-				| View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-				| View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
-				| View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
-				| View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-		}
+				0x00000100 // View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+				| 0x00000200 // View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+				| 0x00000400 // View.SYSTEM_UI_FLAG_LAYOUT_FULSCREEN
+				| 0x00000002 // View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
+				| 0x00000004 // View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
+				| 0x00001000 // View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+				);
+		}*/
+		if( mImmersiveMode != null )
+			mImmersiveMode.apply();
 	}	
 
 	public static native int nativeInit(Object arguments);
@@ -913,7 +919,7 @@ class AndroidBug5497Workaround {
 
 }
 
-interface JoystickHandler
+/*interface JoystickHandler
 {
 	public int getSource(KeyEvent event);
 	public int getSource(MotionEvent event);
@@ -921,8 +927,8 @@ interface JoystickHandler
 	public boolean isGamepadButton(int keyCode);
 	public String keyCodeToString(int keyCode);
 	public void init();
-}
-class JoystickHandler_stub implements JoystickHandler
+}*/
+class JoystickHandler
 {
 	public int getSource(KeyEvent event)
 	{
@@ -949,7 +955,7 @@ class JoystickHandler_stub implements JoystickHandler
 	}
 }
 
-class JoystickHandler_v12 implements JoystickHandler
+class JoystickHandler_v12 extends JoystickHandler
 {
 
 
@@ -1019,3 +1025,27 @@ class JoystickHandler_v12 implements JoystickHandler
 
 }
 
+class ImmersiveMode
+{
+	void apply()
+	{
+		//stub
+	}
+}
+
+class ImmersiveMode_v19 extends ImmersiveMode
+{
+	@Override
+	void apply()
+	{
+		XashActivity.mDecorView.setSystemUiVisibility(
+				0x00000100 // View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+				| 0x00000200 // View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+				| 0x00000400 // View.SYSTEM_UI_FLAG_LAYOUT_FULSCREEN
+				| 0x00000002 // View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
+				| 0x00000004 // View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
+				| 0x00001000 // View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+				);
+
+	}
+}
