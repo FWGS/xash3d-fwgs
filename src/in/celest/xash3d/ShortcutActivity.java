@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory;
 import android.widget.Toast;
 import in.celest.xash3d.hl.R;
 import android.widget.EditText;
+import android.widget.Button;
 import java.io.File;
 import java.io.FilenameFilter;
 
@@ -17,16 +18,26 @@ public class ShortcutActivity extends Activity
 {
 	static EditText name, gamedir, pkgname, argv;
 	String [] env = null;
+	public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
 	@Override
 	protected void onCreate(Bundle bundle)
 	{
 		super.onCreate(bundle);
+		//material dialog
+		if ( sdk >= 21 )
+			super.setTheme( 0x01030225 );
 		setContentView(R.layout.activity_shortcut);
 		Intent intent=getIntent();
 		name = (EditText)findViewById(R.id.shortcut_name);
 		pkgname = (EditText)findViewById(R.id.shortcut_pkgname);
 		gamedir = (EditText)findViewById(R.id.shortcut_gamedir);
 		argv = (EditText)findViewById(R.id.shortcut_cmdArgs);
+		((Button)findViewById( R.id.shortcut_buttonOk )).setOnClickListener(new View.OnClickListener(){
+           	   @Override
+            public void onClick(View v) {
+			saveShortcut(v);
+                }
+		});
 		String argvs = intent.getStringExtra("argv");
 		if( argvs != null )
 			argv.setText(argvs);
@@ -40,7 +51,7 @@ public class ShortcutActivity extends Activity
 		if( names != null )
 			name.setText(names);
 		env = intent.getStringArrayExtra("env");
-		
+
 		//name.setText("Name");
 	}
 	public void saveShortcut(View view)
@@ -59,7 +70,7 @@ public class ShortcutActivity extends Activity
 		Intent wrapIntent = new Intent();
 		wrapIntent.putExtra(Intent.EXTRA_SHORTCUT_INTENT, intent);
 		wrapIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, name.getText().toString());
-		
+
 		Bitmap icon = null;
 		// Try find icon
 		int size = (int) getResources().getDimension(android.R.dimen.app_icon_size);
@@ -88,7 +99,7 @@ public class ShortcutActivity extends Activity
 					return false;
 				}
 			};
-			
+
 			File gamedirfile = new File(gamedirstring);
 			String files[] = gamedirfile.list(icoFilter);
 			icon = Bitmap.createScaledBitmap(BitmapFactory.decodeFile(gamedirstring+"/"+files[0]), size, size, false);

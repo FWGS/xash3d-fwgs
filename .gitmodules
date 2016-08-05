@@ -1,21 +1,15 @@
-[submodule "jni/src/HLSDK/halflife"]
-	path = jni/src/HLSDK/halflife
-	url = https://github.com/SDLash3D/halflife
 [submodule "jni/src/NanoGL/nanogl"]
 	path = jni/src/NanoGL/nanogl
-	url = https://github.com/SDLash3D/nanogl
-[submodule "jni/src/SDL2/SDL-mirror"]
-	path = jni/src/SDL2/SDL-mirror
-	url = https://github.com/mittorn/SDL-mirror
+	url = https://github.com/FWGS/nanogl
 [submodule "jni/src/Xash3D/xash3d"]
 	path = jni/src/Xash3D/xash3d
-	url = https://github.com/SDLash3D/xash3d
+	url = https://github.com/FWGS/xash3d
 [submodule "xash-extras"]
 	path = xash-extras
-	url = https://github.com/SDLash3D/xash-extras
-[submodule "jni/src/hlsdk-client"]
-	path = jni/src/hlsdk-client
-	url = https://github.com/SDLash3D/hlsdk-client
+	url = https://github.com/FWGS/xash-extras
 [submodule "jni/src/hlsdk-xash3d"]
 	path = jni/src/hlsdk-xash3d
-	url = https://github.com/SDLash3D/hlsdk-xash3d
+	url = https://github.com/FWGS/hlsdk-xash3d
+[submodule "src/org/json"]
+	path = src/org/json
+	url = https://github.com/stleary/JSON-java

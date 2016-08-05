@@ -65,19 +65,18 @@ import android.content.*;
  */
 public class SDLActivity extends Activity {
 	private static final String TAG = "SDL";
-	private static final int PAK_VERSION = 5;
 
 	// Keep track of the paused state
 	public static boolean mIsPaused, mIsSurfaceReady, mHasFocus, mUseVolume;
 	public static boolean mExitCalledFromJava;
 
 	/** If shared libraries (e.g. SDL or the native application) could not be loaded. */
-	public static boolean mBrokenLibraries;    
+	public static boolean mBrokenLibraries;
 
 	// If we want to separate mouse and touch events.
 	//  This is only toggled in native code when a hint is set!
 	public static boolean mSeparateMouseAndTouch;
-	
+
 	private static Vibrator mVibrator;
 
 	// Main components
@@ -95,7 +94,7 @@ public class SDLActivity extends Activity {
 
 	// Preferences
 	public static SharedPreferences mPref = null;
-	
+
 	// Arguments
 	public static String[] mArgv;
 	/**
@@ -153,15 +152,15 @@ public class SDLActivity extends Activity {
 		Log.v("SDL", "Model: " + android.os.Build.MODEL);
 		Log.v("SDL", "onCreate():" + mSingleton);
 		super.onCreate(savedInstanceState);
-  
-		// fullscreen   
+
+		// fullscreen
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		if(Build.VERSION.SDK_INT >= 12) {
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
 					WindowManager.LayoutParams.FLAG_FULLSCREEN);
 		}
 
-		// keep screen on 
+		// keep screen on
 		getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
 				WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -205,7 +204,7 @@ public class SDLActivity extends Activity {
 
 			return;
 		}
-		
+
 		Intent intent=getIntent();
 		String argv = intent.getStringExtra("argv");
 		if(argv == null) argv = mPref.getString("argv", "-dev 3 -log");
@@ -220,13 +219,13 @@ public class SDLActivity extends Activity {
 		String basedir = intent.getStringExtra("basedir");
 		if(basedir == null)
 			basedir = mPref.getString("basedir","/sdcard/xash/");
-		
+
 		setenv("XASH3D_BASEDIR", basedir, true);
 		setenv("XASH3D_ENGLIBDIR", getFilesDir().getParentFile().getPath() + "/lib", true);
 		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
 		setenv("XASH3D_GAMEDIR", gamedir, true);
-		
-		extractPAK(this, false);
+
+		in.celest.xash3d.InstallReceiver.extractPAK(this, false);
 		setenv("XASH3D_EXTRAS_PAK1", getFilesDir().getPath() + "/extras.pak", true);
 		String pakfile = intent.getStringExtra("pakfile");
 		if( pakfile != null && pakfile != "" )
@@ -271,7 +270,7 @@ public class SDLActivity extends Activity {
 		}
 
 		if( mVibrator != null ) mVibrator.cancel();
-		
+
 		SDLActivity.handlePause();
 	}
 
@@ -322,10 +321,10 @@ public class SDLActivity extends Activity {
 		and kills process while engine is writing config.
 		it results in configuration loss, so we preferred to disable it
 		*/
-		
+
 		/*
 		if( mVibrator != null ) mVibrator.cancel();
-		
+
 		if (SDLActivity.mBrokenLibraries) {
 			super.onDestroy();
 			// Reset everything in case the user re opens the app
@@ -352,7 +351,7 @@ public class SDLActivity extends Activity {
 		super.onDestroy();
 		// Reset everything in case the user re opens the app
 		finish();
-		
+
 	}
 
 	@Override
@@ -511,23 +510,23 @@ public class SDLActivity extends Activity {
 	public static native int nativeRemoveJoystick(int device_id);
 	public static native String nativeGetHint(String name);
 	public static native int setenv(String key, String value, boolean overwrite);
-	
+
 	/**
 	 * This method is called by SDL using JNI.
 	 */
 	public static void flipBuffers() {
 		SDLActivity.nativeFlipBuffers();
 	}
-	
+
 	/**
          * This method is called by Xash3D engine using JNI
          */
         public void vibrate( short time ) {
                 mVibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
- 
+
                 mVibrator.vibrate( time );
         }
-         
+
 	/**
 	 * This method is called by SDL using JNI.
 	 */
@@ -1033,34 +1032,7 @@ public class SDLActivity extends Activity {
 			Log.e( TAG, "Failed to extract PAK:" + e.toString() );
 		}
 	}*/
-	public static void extractPAK(Context context, Boolean force) {
-		InputStream is = null;
-		FileOutputStream os = null;
-		try {
-		if( mPref == null )
-			mPref = context.getSharedPreferences("engine", 0);
-		if( mPref.getInt( "pakversion", 0 ) == PAK_VERSION && !force )
-			return;
-			String path = context.getFilesDir().getPath()+"/extras.pak";
-		
-			is = context.getAssets().open("extras.pak");
-			os = new FileOutputStream(path);
-			byte[] buffer = new byte[1024];
-			int length;
-			while ((length = is.read(buffer)) > 0) {
-				os.write(buffer, 0, length);
-			}
-			os.close();
-			is.close();
-			SharedPreferences.Editor editor = mPref.edit();
-			editor.putInt( "pakversion", PAK_VERSION );
-			editor.commit();
-			editor.apply();
-		} catch( Exception e )
-		{
-			Log.e( TAG, "Failed to extract PAK:" + e.toString() );
-		}
-	}
+
 }
 
 /**
@@ -1070,7 +1042,7 @@ class SDLMain implements Runnable {
 	@Override
 	public void run() {
 		// Runs SDL_main()
-		SDLActivity.nativeInit(SDLActivity.mArgv); 
+		SDLActivity.nativeInit(SDLActivity.mArgv);
 		//Log.v("SDL", "SDL thread terminated");
 	}
 }
@@ -1278,7 +1250,7 @@ View.OnKeyListener, View.OnTouchListener, SensorEventListener  {
 	public boolean onTouch(View v, MotionEvent event) {
 
 		/* Ref: http://developer.android.com/training/gestures/multi.html */
-		
+
         final int touchDevId = event.getDeviceId();
         final int pointerCount = event.getPointerCount();
         int action = event.getActionMasked();
