@@ -39,7 +39,8 @@ public class XashActivity extends Activity {
 	public static int mPixelFormat;
 	protected static ViewGroup mLayout;
 	public static JoystickHandler handler;
-	ImmersiveMode mImmersiveMode;
+	public static ImmersiveMode mImmersiveMode;
+	public static boolean keyboardVisible = false;
 
 	// Joystick constants
 	public final static byte JOY_HAT_CENTERED = 0; // bitmasks for hat current status
@@ -183,17 +184,6 @@ public class XashActivity extends Activity {
 	{
 		super.onWindowFocusChanged(hasFocus);
 
-		/*if( mEnableImmersive && hasFocus ) 
-		{
-			mDecorView.setSystemUiVisibility(
-				0x00000100 // View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-				| 0x00000200 // View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-				| 0x00000400 // View.SYSTEM_UI_FLAG_LAYOUT_FULSCREEN
-				| 0x00000002 // View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
-				| 0x00000004 // View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
-				| 0x00001000 // View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-				);
-		}*/
 		if( mImmersiveMode != null )
 			mImmersiveMode.apply();
 	}	
@@ -466,11 +456,17 @@ public class XashActivity extends Activity {
 				mTextEdit.requestFocus();
 
 				imm.showSoftInput(mTextEdit, 0);
+				keyboardVisible = true;
+				if( XashActivity.mImmersiveMode != null )
+					XashActivity.mImmersiveMode.apply();
 			}
 			else
 			{
 				mTextEdit.setVisibility(View.GONE);
 				imm.hideSoftInputFromWindow(mTextEdit.getWindowToken(), 0);
+				keyboardVisible = false;
+				if( XashActivity.mImmersiveMode != null )
+					XashActivity.mImmersiveMode.apply();
 			}
 		}
 	}
@@ -506,7 +502,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback,
 View.OnKeyListener {
 
 	// This is what Xash3D runs in. It invokes main(), eventually
-	private Thread mEngThread;
+	private static Thread mEngThread = null;
 
 	// EGL private objects
 	private EGLContext  mEGLContext;
@@ -902,10 +898,14 @@ class AndroidBug5497Workaround {
 			if (heightDifference > (usableHeightSansKeyboard/4)) {
 				// keyboard probably just became visible
 				frameLayoutParams.height = usableHeightSansKeyboard - heightDifference;
+				XashActivity.keyboardVisible = true;
 			} else {
 				// keyboard probably just became hidden
 				frameLayoutParams.height = usableHeightSansKeyboard;
+				XashActivity.keyboardVisible = false;
 			}
+			if( XashActivity.mImmersiveMode != null )
+				XashActivity.mImmersiveMode.apply();
 			mChildOfContent.requestLayout();
 			usableHeightPrevious = usableHeightNow;
 		}
@@ -1038,14 +1038,17 @@ class ImmersiveMode_v19 extends ImmersiveMode
 	@Override
 	void apply()
 	{
-		XashActivity.mDecorView.setSystemUiVisibility(
-				0x00000100 // View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-				| 0x00000200 // View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-				| 0x00000400 // View.SYSTEM_UI_FLAG_LAYOUT_FULSCREEN
-				| 0x00000002 // View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
-				| 0x00000004 // View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
-				| 0x00001000 // View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-				);
+		if( !XashActivity.keyboardVisible )
+			XashActivity.mDecorView.setSystemUiVisibility(
+					0x00000100 // View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+					| 0x00000200 // View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+					| 0x00000400 // View.SYSTEM_UI_FLAG_LAYOUT_FULSCREEN
+					| 0x00000002 // View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
+					| 0x00000004 // View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
+					| 0x00001000 // View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+					);
+		else
+			XashActivity.mDecorView.setSystemUiVisibility( 0 );
 
 	}
 }
