@@ -18,28 +18,31 @@ public class InstallReceiver extends BroadcastReceiver {
 	}
 	public static SharedPreferences mPref = null;
 	private static final int PAK_VERSION = 5;
-	public static void extractPAK(Context context, Boolean force) {
+	public static synchronized void extractPAK(Context context, Boolean force) {
 		InputStream is = null;
 		FileOutputStream os = null;
 		try {
 			if( mPref == null )
 				mPref = context.getSharedPreferences("engine", 0);
-			if( mPref.getInt( "pakversion", 0 ) == PAK_VERSION && !force )
-				return;
-			String path = context.getFilesDir().getPath()+"/extras.pak";
+			synchronized( mPref )
+			{
+				if( mPref.getInt( "pakversion", 0 ) == PAK_VERSION && !force )
+					return;
+				String path = context.getFilesDir().getPath()+"/extras.pak";
 
-			is = context.getAssets().open("extras.pak");
-			os = new FileOutputStream(path);
-			byte[] buffer = new byte[1024];
-			int length;
-			while ((length = is.read(buffer)) > 0) {
-				os.write(buffer, 0, length);
+				is = context.getAssets().open("extras.pak");
+				os = new FileOutputStream(path);
+				byte[] buffer = new byte[1024];
+				int length;
+				while ((length = is.read(buffer)) > 0) {
+					os.write(buffer, 0, length);
+				}
+				os.close();
+				is.close();
+				SharedPreferences.Editor editor = mPref.edit();
+				editor.putInt( "pakversion", PAK_VERSION );
+				editor.commit();
 			}
-			os.close();
-			is.close();
-			SharedPreferences.Editor editor = mPref.edit();
-			editor.putInt( "pakversion", PAK_VERSION );
-			editor.commit();
 		} catch( Exception e )
 		{
 			Log.e( TAG, "Failed to extract PAK:" + e.toString() );
