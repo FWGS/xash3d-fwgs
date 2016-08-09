@@ -16,7 +16,8 @@
 		
 		<activity android:name="in.celest.xash3d.LauncherActivity"
 			android:label="@string/launcher_name"
-			android:windowSoftInputMode="adjustResize">
+			android:windowSoftInputMode="adjustResize"
+			android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|uiMode|screenSize|smallestScreenSize">
 			<intent-filter>
 				<action android:name="in.celest.xash3d.LauncherActivity"/>
 				<action android:name="android.intent.action.MAIN" />
@@ -66,7 +67,7 @@
 		-->
 		<activity android:name="in.celest.xash3d.XashActivity"
 			android:screenOrientation="sensorLandscape"
-			android:configChanges="orientation|screenSize"
+			android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|uiMode|screenSize|smallestScreenSize"
 			android:label="@string/app_name">
 			<intent-filter>
 				<action android:name="in.celest.xash3d.START" />
