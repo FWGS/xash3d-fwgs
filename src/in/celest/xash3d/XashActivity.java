@@ -974,12 +974,18 @@ class JoystickHandler_v12 implements JoystickHandler
 			switch( range.getAxis() )
 			{
 			// typical axes
+			// move
 			case MotionEvent.AXIS_X:   prevSide = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_SIDE,  prevSide, dead); break;
 			case MotionEvent.AXIS_Y:   prevFwd  = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_FWD,   prevFwd,  dead); break;
-			case MotionEvent.AXIS_Z:   prevPtch = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_PITCH, prevPtch, dead); break;
-			case MotionEvent.AXIS_RZ:  prevYaw  = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_YAW,   prevYaw,  dead); break;
+			
+			// rotate. Invert, so by default this works as it's should
+			case MotionEvent.AXIS_Z:   prevPtch = XashActivity.performEngineAxisEvent(-cur, XashActivity.JOY_AXIS_PITCH, prevPtch, dead); break;
+			case MotionEvent.AXIS_RZ:  prevYaw  = XashActivity.performEngineAxisEvent(-cur, XashActivity.JOY_AXIS_YAW,   prevYaw,  dead); break;
+			
+			// trigger
 			case MotionEvent.AXIS_RTRIGGER:	prevLT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_RT, prevLT,   dead); break;
 			case MotionEvent.AXIS_LTRIGGER:	prevRT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_LT, prevRT,   dead); break;
+			
 			// hats
 			case MotionEvent.AXIS_HAT_X: prevHX = XashActivity.performEngineHatEvent(cur, true, prevHX); break;
 			case MotionEvent.AXIS_HAT_Y: prevHY = XashActivity.performEngineHatEvent(cur, false, prevHY); break;
