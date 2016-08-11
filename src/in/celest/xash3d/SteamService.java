@@ -480,6 +480,7 @@ public class SteamService extends Service
 		// called on every char in line until return true
 		private boolean processPartial( String str ) throws CancelException, IOException
 		{
+			//printText(str);
 			{
 				if( str.contains( "Steam>" ) )
 				{
@@ -529,7 +530,7 @@ public class SteamService extends Service
 						processInput.write( (passwd + '\n').getBytes() );
 					return true;
 				}
-				if( str.startsWith("Steam Guard code:" ))
+				if( str.startsWith("Steam Guard code:" )|| str.startsWith("Two-factor code:") )
 				{
 					String passwd = promptDialog("Steam Guard code", "Please enter your SteamGuard code", true);
 					if( passwd == null )
