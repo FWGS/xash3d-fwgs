@@ -6,7 +6,6 @@ echo -n '<b>Version information:</b> ' $*_endl| sed -e s/_endl/'\\n'/ >> res/val
 echo -n '<b>android:</b>' $(git log --abbrev-commit --pretty=oneline -1) _endl\
 '<b>engine:</b>' $(cd jni/src/Xash3D/*/;git log --abbrev-commit --pretty=oneline -1) _endl\
 '<b>hlsdk:</b>' $(cd jni/src/hlsdk-xash3d/;git log --abbrev-commit --pretty=oneline -1) _endl\
-'<b>SDL2:</b>' $(cd jni/src/SDL2/*/;git log --abbrev-commit --pretty=oneline -1) _endl\
 '<b>extras:</b>' $(cd xash-extras/;git log --abbrev-commit --pretty=oneline -1) _endl\
 '<b>nanogl:</b>' $(cd jni/src/NanoGL/*/;git log --abbrev-commit --pretty=oneline -1)_endl\
  | sed -e s/\'//g -e s/_endl/'\\n'/g >> res/values/git-rev.xml
