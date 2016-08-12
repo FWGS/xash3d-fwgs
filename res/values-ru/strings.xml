@@ -20,10 +20,10 @@
 	<string name="shortcut_name">Название ярлыка</string>
 
 	<!--<string name="about_main" translatable="false">Xash3D Android</string>-->
-	<string name="about_copyright">SDLash3D не связан с Valve или с любыми из их партнеров. Все авторские права принадлежат их соотвественным обладателям.</string>
+	<string name="about_copyright">FWGS не связан с Valve или с любыми из их партнеров. Все авторские права принадлежат их соотвественным обладателям.</string>
 	<!-- Seems Android skips any line breaks and tabs here. -->
 	<string name="about_authors">
-		Порт на Android осуществлен командой SDLash3D:\n
+		Порт на Android осуществлен командой FWGS:\n
 		&#8226; a1batross\n
 		&#8226; mittorn\n
 		&#8226; nicknekit\n
@@ -31,13 +31,12 @@
 		Особые благодарности:\n
 		&#8226; Дяде Мише за Xash3D\n
 		&#8226; Valve за Half-Life\n
-		&#8226; Разработчикам libSDL2
 	</string>
 	<string name="about_links">
 		Подпишись на нас: \n
 		&#8226; <a href="https://vk.com/xashdroid">VK</a>\n
 		&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>\n
-		&#8226; <a href="https://github.com/SDLash3D">GitHub</a>
+		&#8226; <a href="https://github.com/FWGS">GitHub</a>
 	</string>
 	<string name="about_button">О Xash3D Android</string>
 	<string name="create_shortcut_button">Создать ярлык</string>
