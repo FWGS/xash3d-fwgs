@@ -10,7 +10,7 @@ import android.app.*;
 import android.content.*;
 import android.view.*;
 import android.os.*;
-import android.util.Log;
+import android.util.*;
 import android.graphics.*;
 import android.text.method.*;
 import android.text.*;
@@ -18,11 +18,15 @@ import android.media.*;
 import android.hardware.*;
 import android.content.*;
 import android.widget.*;
+import android.content.pm.*;
 
 import android.view.inputmethod.*;
 
 import java.lang.*;
 import java.util.List;
+import java.security.MessageDigest;
+
+import in.celest.xash3d.hl.BuildConfig;
 
 /**
  Xash Activity
@@ -65,18 +69,72 @@ public class XashActivity extends Activity {
 	// Audio
 	private static Thread mAudioThread;
 	private static AudioTrack mAudioTrack;
+	
+	// Certificate checking
+	private static String SIG = "DMsE8f5hlR7211D8uehbFpbA0n8=";
+	private static String SIG_TEST = ""; // a1ba: mittorn, add your signature later
 
 	// Load the .so
 	static {
 		System.loadLibrary("xash");
 	}
 
+	// Shared between this activity and LauncherActivity
+	public static boolean dumbAntiPDALifeCheck( Context context )
+	{
+		if( BuildConfig.DEBUG )
+			return false; // disable checking for debug builds
+	
+		final boolean isTest = context.getPackageName().contains("test");
+				
+		try
+		{
+			PackageInfo info = context.getPackageManager()
+				.getPackageInfo( context.getPackageName(), PackageManager.GET_SIGNATURES );
+			
+			for( Signature signature: info.signatures )
+			{
+				MessageDigest md = MessageDigest.getInstance( "SHA" );
+				final byte[] signatureBytes = signature.toByteArray();
+
+				md.update( signatureBytes );
+
+				final String curSIG = Base64.encodeToString( md.digest(), Base64.NO_WRAP );
+
+				if( isTest )
+				{
+					if( SIG_TEST.equals(curSIG) )
+						return false;
+				}
+				else
+				{
+					if( SIG.equals(curSIG) )
+						return false;
+				}
+			}
+		} 
+		catch( Exception e ) 
+		{
+			e.printStackTrace();
+		}
+		
+		Log.e(TAG, "Please, don't resign our public release builds!");
+		Log.e(TAG, "If you want to insert some features, rebuild package with ANOTHER package name from git repository.");
+		return true;
+	}
+	
 	// Setup
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		Log.v(TAG, "onCreate()");
 		super.onCreate(savedInstanceState);
-
+		
+		if( dumbAntiPDALifeCheck(this) )
+		{
+			finish();
+			return;
+		}
+		
 		// So we can call stuff from static callbacks
 		mSingleton = this;
 		Intent intent = getIntent();

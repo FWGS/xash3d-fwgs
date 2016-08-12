@@ -54,6 +54,7 @@ import java.net.URL;
 import org.json.*;
 
 import in.celest.xash3d.hl.R;
+import in.celest.xash3d.XashActivity;
 
 public class LauncherActivity extends Activity {
    // public final static String ARGV = "in.celest.xash3d.MESSAGE";
@@ -87,6 +88,12 @@ public class LauncherActivity extends Activity {
 		if ( sdk >= 21 )
 		{
 			super.setTheme( 0x01030224 );
+		}
+		
+		if( XashActivity.dumbAntiPDALifeCheck( this ) )
+		{
+			finish();
+			return;
 		}
 		
 		setContentView(R.layout.activity_launcher);
