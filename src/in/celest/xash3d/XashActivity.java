@@ -295,7 +295,7 @@ public class XashActivity extends Activity {
 			case KeyEvent.KEYCODE_DPAD_RIGHT:  val = JOY_HAT_RIGHT;    break;
 			case KeyEvent.KEYCODE_DPAD_DOWN:   val = JOY_HAT_DOWN;     break;
 			case KeyEvent.KEYCODE_DPAD_LEFT:   val = JOY_HAT_LEFT;     break;
-			default: return false;
+			default: return performEngineKeyEvent( action, keyCode, event );
 			}
 
 			if(action == KeyEvent.ACTION_DOWN)
@@ -344,20 +344,8 @@ public class XashActivity extends Activity {
 				}
 				else
 				{
-					if (action == KeyEvent.ACTION_DOWN)
-					{
-						if (event.isPrintingKey() || keyCode == 62)// space is printing too
-							XashActivity.nativeString(String.valueOf((char) event.getUnicodeChar()));
-
-						XashActivity.nativeKey(1, keyCode);
-
+					if( performEngineKeyEvent( action, keyCode, event ) )
 						return true;
-					}
-					else if (action == KeyEvent.ACTION_UP)
-					{
-						XashActivity.nativeKey(0, keyCode);
-						return true;
-					}
 				}
 			}
 
@@ -369,18 +357,23 @@ public class XashActivity extends Activity {
 			return true;
 		}
 
-		if (action == KeyEvent.ACTION_DOWN)
-		{
-			if (event.isPrintingKey() || keyCode == 62)// space is printing too
-				XashActivity.nativeString(String.valueOf((char) event.getUnicodeChar()));
+		return performEngineKeyEvent( action, keyCode, event );
+	}
 
-			XashActivity.nativeKey(1, keyCode);
+	public static boolean performEngineKeyEvent( int action, int keyCode, KeyEvent event)
+	{
+		if( action == KeyEvent.ACTION_DOWN )
+		{
+			if( event.isPrintingKey() || keyCode == 62 )// space is printing too
+				XashActivity.nativeString( String.valueOf( (char) event.getUnicodeChar() ) );
+
+			XashActivity.nativeKey( 1, keyCode );
 
 			return true;
 		}
-		else if (action == KeyEvent.ACTION_UP)
+		else if( action == KeyEvent.ACTION_UP )
 		{
-			XashActivity.nativeKey(0, keyCode);
+			XashActivity.nativeKey( 0, keyCode );
 			return true;
 		}
 		return false;
