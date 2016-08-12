@@ -27,4 +27,4 @@ About all bugs please write to issues with your device and OS info.
 ### Developers
 
 + For compiling, run `git submodule init && git submodule update`. Otherwise you will get an empty APK, without any libraries. 
-+ We use our SDL2 fork. See https://github.com/mittorn/SDL-mirror
++ ~~We use our SDL2 fork. See https://github.com/mittorn/SDL-mirror~~. Nevermind. We don't use SDL2 anymore.
