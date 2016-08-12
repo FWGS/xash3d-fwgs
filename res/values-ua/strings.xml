@@ -12,20 +12,19 @@
 	<string name="gamedir">Каталог мода</string>
 	<string name="pkgname">Пакет мода (тільки для експертів)</string>
 	<string name="shortcut_name">Назва ярлика</string>
-	<string name="about_copyright">SDLash3D не пов\'язаний з Valve або з будь-якими з їх партнерів. Всі авторські права належать їх відповідним власникам.</string>
-	<string name="about_authors">Порт на Android здійснений командою SDLash3D:\n
+	<string name="about_copyright">FWGS не пов\'язаний з Valve або з будь-якими з їх партнерів. Всі авторські права належать їх відповідним власникам.</string>
+	<string name="about_authors">Порт на Android здійснений командою FWGS:\n
 &#8226; a1batross\n
 &#8226; mittorn\n
 &#8226; nicknekit\n
 
 Особливі подяки:\n
 &#8226; Дяде Мише за Xash3D\n
-&#8226; Valve за Half-Life\n
-&#8226; Розробникам libSDL2.\n</string>
+&#8226; Valve за Half-Life\n</string>
 	<string name="about_links">Слідуйте за нами в:\n
 	&#8226; <a href="https://vk.com/xashdroid">VK</a>\n
 	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>\n
-	&#8226; <a href="https://github.com/SDLash3D">GitHub</a></string>
+	&#8226; <a href="https://github.com/FWGS">GitHub</a></string>
 	<string name="about_button">О Xash3D Android</string>
 	<string name="create_shortcut_button">Створити ярлик мода</string>
 	<string name="select_folder">(вибрати)</string>

@@ -12,9 +12,9 @@
   <string name="gamedir">مسیر مود</string>
   <string name="pkgname">نام بسته مود (فقط برای حرفه ای ها):</string>
   <string name="shortcut_name">نام میانبر</string>
-  <string name="about_copyright">یا شرکای آن ندارد. تمامی حقوق کپی برای صاحبان هر کدام محفوظ است. Valve هیچ نسبتی با SDLash3D</string>
-  <string name="about_authors">:SDLash3D پورت شده به اندروید توسط تیم \n • a1batross\n • mittorn \n • nicknekit.\n  تشکر ویژه از:\n • Xash3Dبرای موتور Uncle Mike\n •  Half-Life برای Valve\n • libSDL2 توسعه دهندگان.\n</string>
-  <string name="about_links">ما را دنبال کنید در  :\n •<a href="https://vk.com/xashdroid">VK</a>\n•<a href="http://moddb.com/game/xash3d-android">ModDB</a>\n•<a href="https://github.com/SDLash3D">GitHub</a></string>
+  <string name="about_copyright">یا شرکای آن ندارد. تمامی حقوق کپی برای صاحبان هر کدام محفوظ است. Valve هیچ نسبتی با FWGS</string>
+  <string name="about_authors">:FWGS پورت شده به اندروید توسط تیم \n • a1batross\n • mittorn \n • nicknekit.\n  تشکر ویژه از:\n • Xash3Dبرای موتور Uncle Mike\n •  Half-Life برای Valve\n</string>
+  <string name="about_links">ما را دنبال کنید در  :\n •<a href="https://vk.com/xashdroid">VK</a>\n•<a href="http://moddb.com/game/xash3d-android">ModDB</a>\n•<a href="https://github.com/FWGS">GitHub</a></string>
   <string name="about_button">Xash3D Android درباره</string>
   <string name="create_shortcut_button">ایجاد میانبر مود</string>
   <string name="select_folder">(انتخاب)</string>

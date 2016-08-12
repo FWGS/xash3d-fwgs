@@ -13,20 +13,19 @@
 	<string name="pkgname">Nome do pacote de Mod (apenas expecialistas)</string>
 	<string name="shortcut_name">Nome do atalho</string>
 
-    <string name="about_copyright">SDLash3D não é afiliado com a Valve ou qualquer um dos seus parceiros. Todos os direitos autorais reservados aos respectivos proprietários.</string>
-    <string name="about_authors">Porta para android pelo time SDLash3D: \n
+    <string name="about_copyright">FWGS não é afiliado com a Valve ou qualquer um dos seus parceiros. Todos os direitos autorais reservados aos respectivos proprietários.</string>
+    <string name="about_authors">Porta para android pelo time FWGS: \n
 &#8226; a1batross\n
 &#8226; mittorn \n
 &#8226; nicknekit.\n
 
 Agradecimentos especiais para:\n
 &#8226; Uncle Mike pelo motor Xash3D\n
-&#8226; Valve pelo Half-Life\n
-&#8226; Desenvolvedores libSDL2.\n</string>
+&#8226; Valve pelo Half-Life\n</string>
 <string name="about_links">Siga-nos no:\n
 	&#8226; <a href="https://vk.com/xashdroid">VK</a>\n
 	&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>\n
-	&#8226; <a href="https://github.com/SDLash3D">GitHub</a></string>
+	&#8226; <a href="https://github.com/FWGS">GitHub</a></string>
     <string name="about_button">Sobre Android Xash3D</string>
     <string name="create_shortcut_button">Criar atalho para o mod</string>
     <string name="select_folder">(selecionar)</string>

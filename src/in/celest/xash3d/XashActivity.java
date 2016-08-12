@@ -39,6 +39,8 @@ public class XashActivity extends Activity {
 	public static int mPixelFormat;
 	protected static ViewGroup mLayout;
 	public static JoystickHandler handler;
+	public static ImmersiveMode mImmersiveMode;
+	public static boolean keyboardVisible = false;
 
 	// Joystick constants
 	public final static byte JOY_HAT_CENTERED = 0; // bitmasks for hat current status
@@ -58,7 +60,7 @@ public class XashActivity extends Activity {
 	public static SharedPreferences mPref = null;
 	private static boolean mUseVolume;
 	private static boolean mEnableImmersive;
-	private static View mDecorView;
+	public static View mDecorView;
 
 	// Audio
 	private static Thread mAudioThread;
@@ -95,7 +97,7 @@ public class XashActivity extends Activity {
 		mSurface = new EngineSurface(getApplication());
 
 		if( sdk < 12 )
-			handler = new JoystickHandler_stub();
+			handler = new JoystickHandler();
 		else
 			handler = new JoystickHandler_v12();
 		handler.init();
@@ -159,6 +161,8 @@ public class XashActivity extends Activity {
 		
 		// Immersive Mode is available only at >KitKat
 		mEnableImmersive = (sdk >= 19 && mPref.getBoolean("immersive_mode", true));
+		if( mEnableImmersive )
+			mImmersiveMode = new ImmersiveMode_v19();
 		mDecorView = getWindow().getDecorView();
 	}
 
@@ -180,16 +184,8 @@ public class XashActivity extends Activity {
 	{
 		super.onWindowFocusChanged(hasFocus);
 
-		if( mEnableImmersive && hasFocus ) 
-		{
-			mDecorView.setSystemUiVisibility(
-				View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-				| View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-				| View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-				| View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
-				| View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
-				| View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-		}
+		if( mImmersiveMode != null )
+			mImmersiveMode.apply();
 	}	
 
 	public static native int nativeInit(Object arguments);
@@ -299,7 +295,7 @@ public class XashActivity extends Activity {
 			case KeyEvent.KEYCODE_DPAD_RIGHT:  val = JOY_HAT_RIGHT;    break;
 			case KeyEvent.KEYCODE_DPAD_DOWN:   val = JOY_HAT_DOWN;     break;
 			case KeyEvent.KEYCODE_DPAD_LEFT:   val = JOY_HAT_LEFT;     break;
-			default: return false;
+			default: return performEngineKeyEvent( action, keyCode, event );
 			}
 
 			if(action == KeyEvent.ACTION_DOWN)
@@ -348,20 +344,8 @@ public class XashActivity extends Activity {
 				}
 				else
 				{
-					if (action == KeyEvent.ACTION_DOWN)
-					{
-						if (event.isPrintingKey() || keyCode == 62)// space is printing too
-							XashActivity.nativeString(String.valueOf((char) event.getUnicodeChar()));
-
-						XashActivity.nativeKey(1, keyCode);
-
+					if( performEngineKeyEvent( action, keyCode, event ) )
 						return true;
-					}
-					else if (action == KeyEvent.ACTION_UP)
-					{
-						XashActivity.nativeKey(0, keyCode);
-						return true;
-					}
 				}
 			}
 
@@ -373,18 +357,23 @@ public class XashActivity extends Activity {
 			return true;
 		}
 
-		if (action == KeyEvent.ACTION_DOWN)
-		{
-			if (event.isPrintingKey() || keyCode == 62)// space is printing too
-				XashActivity.nativeString(String.valueOf((char) event.getUnicodeChar()));
+		return performEngineKeyEvent( action, keyCode, event );
+	}
 
-			XashActivity.nativeKey(1, keyCode);
+	public static boolean performEngineKeyEvent( int action, int keyCode, KeyEvent event)
+	{
+		if( action == KeyEvent.ACTION_DOWN )
+		{
+			if( event.isPrintingKey() || keyCode == 62 )// space is printing too
+				XashActivity.nativeString( String.valueOf( (char) event.getUnicodeChar() ) );
+
+			XashActivity.nativeKey( 1, keyCode );
 
 			return true;
 		}
-		else if (action == KeyEvent.ACTION_UP)
+		else if( action == KeyEvent.ACTION_UP )
 		{
-			XashActivity.nativeKey(0, keyCode);
+			XashActivity.nativeKey( 0, keyCode );
 			return true;
 		}
 		return false;
@@ -460,11 +449,17 @@ public class XashActivity extends Activity {
 				mTextEdit.requestFocus();
 
 				imm.showSoftInput(mTextEdit, 0);
+				keyboardVisible = true;
+				if( XashActivity.mImmersiveMode != null )
+					XashActivity.mImmersiveMode.apply();
 			}
 			else
 			{
 				mTextEdit.setVisibility(View.GONE);
 				imm.hideSoftInputFromWindow(mTextEdit.getWindowToken(), 0);
+				keyboardVisible = false;
+				if( XashActivity.mImmersiveMode != null )
+					XashActivity.mImmersiveMode.apply();
 			}
 		}
 	}
@@ -500,7 +495,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback,
 View.OnKeyListener {
 
 	// This is what Xash3D runs in. It invokes main(), eventually
-	private Thread mEngThread;
+	private static Thread mEngThread = null;
 
 	// EGL private objects
 	private EGLContext  mEGLContext;
@@ -896,10 +891,14 @@ class AndroidBug5497Workaround {
 			if (heightDifference > (usableHeightSansKeyboard/4)) {
 				// keyboard probably just became visible
 				frameLayoutParams.height = usableHeightSansKeyboard - heightDifference;
+				XashActivity.keyboardVisible = true;
 			} else {
 				// keyboard probably just became hidden
 				frameLayoutParams.height = usableHeightSansKeyboard;
+				XashActivity.keyboardVisible = false;
 			}
+			if( XashActivity.mImmersiveMode != null )
+				XashActivity.mImmersiveMode.apply();
 			mChildOfContent.requestLayout();
 			usableHeightPrevious = usableHeightNow;
 		}
@@ -913,7 +912,7 @@ class AndroidBug5497Workaround {
 
 }
 
-interface JoystickHandler
+/*interface JoystickHandler
 {
 	public int getSource(KeyEvent event);
 	public int getSource(MotionEvent event);
@@ -921,8 +920,8 @@ interface JoystickHandler
 	public boolean isGamepadButton(int keyCode);
 	public String keyCodeToString(int keyCode);
 	public void init();
-}
-class JoystickHandler_stub implements JoystickHandler
+}*/
+class JoystickHandler
 {
 	public int getSource(KeyEvent event)
 	{
@@ -949,7 +948,7 @@ class JoystickHandler_stub implements JoystickHandler
 	}
 }
 
-class JoystickHandler_v12 implements JoystickHandler
+class JoystickHandler_v12 extends JoystickHandler
 {
 
 
@@ -1025,3 +1024,30 @@ class JoystickHandler_v12 implements JoystickHandler
 
 }
 
+class ImmersiveMode
+{
+	void apply()
+	{
+		//stub
+	}
+}
+
+class ImmersiveMode_v19 extends ImmersiveMode
+{
+	@Override
+	void apply()
+	{
+		if( !XashActivity.keyboardVisible )
+			XashActivity.mDecorView.setSystemUiVisibility(
+					0x00000100 // View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+					| 0x00000200 // View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+					| 0x00000400 // View.SYSTEM_UI_FLAG_LAYOUT_FULSCREEN
+					| 0x00000002 // View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
+					| 0x00000004 // View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
+					| 0x00001000 // View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+					);
+		else
+			XashActivity.mDecorView.setSystemUiVisibility( 0 );
+
+	}
+}
