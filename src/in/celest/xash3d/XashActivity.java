@@ -822,6 +822,11 @@ class XashInputConnection extends BaseInputConnection {
 	public boolean commitText(CharSequence text, int newCursorPosition) {
 
 		//nativeCommitText(text.toString(), newCursorPosition);
+		if(text.toString().equals("\n"))
+		{
+			XashActivity.nativeKey(KeyEvent.KEYCODE_ENTER,1);
+			XashActivity.nativeKey(KeyEvent.KEYCODE_ENTER,0);
+		}
 		XashActivity.nativeString(text.toString());
 
 		return super.commitText(text, newCursorPosition);
