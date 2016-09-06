@@ -27,6 +27,7 @@ import java.util.List;
 import java.security.MessageDigest;
 
 import in.celest.xash3d.hl.BuildConfig;
+import in.celest.xash3d.XashConfig;
 
 /**
  Xash Activity
@@ -82,11 +83,10 @@ public class XashActivity extends Activity {
 	// Shared between this activity and LauncherActivity
 	public static boolean dumbAntiPDALifeCheck( Context context )
 	{
-		if( BuildConfig.DEBUG )
+		if( BuildConfig.DEBUG || 
+			!XashConfig.CHECK_SIGNATURES )
 			return false; // disable checking for debug builds
 	
-		final boolean isTest = context.getPackageName().contains("test");
-				
 		try
 		{
 			PackageInfo info = context.getPackageManager()
@@ -101,7 +101,7 @@ public class XashActivity extends Activity {
 
 				final String curSIG = Base64.encodeToString( md.digest(), Base64.NO_WRAP );
 
-				if( isTest )
+				if( XashConfig.PKG_TEST )
 				{
 					if( SIG_TEST.equals(curSIG) )
 						return false;
