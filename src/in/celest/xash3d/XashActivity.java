@@ -365,7 +365,9 @@ public class XashActivity extends Activity {
 		}
 
 		// Engine will bind these to AUX${val} virtual keys
-		if( isGamePad || isJoystick )
+		// Android may send event without source flags set to GAMEPAD or CLASS_JOYSTICK
+		// so check for gamepad buttons anyway
+		if( isGamePad || isJoystick || XashActivity.handler.isGamepadButton( keyCode ) )
 		{
 			final int id = 0;
 			byte val = 15;
@@ -377,42 +379,48 @@ public class XashActivity extends Activity {
 			case KeyEvent.KEYCODE_BUTTON_B:	     val = 1; break;
 			case KeyEvent.KEYCODE_BUTTON_X:	     val = 2; break;
 			case KeyEvent.KEYCODE_BUTTON_Y:	     val = 3; break;
-			case KeyEvent.KEYCODE_BUTTON_L1:     val = 4;	break;
-			case KeyEvent.KEYCODE_BUTTON_R1:     val = 5;	break;
-			case KeyEvent.KEYCODE_BUTTON_SELECT: val = 6;	break;
+			case KeyEvent.KEYCODE_BUTTON_L1:     val = 4; break;
+			case KeyEvent.KEYCODE_BUTTON_R1:     val = 5; break;
+			case KeyEvent.KEYCODE_BUTTON_SELECT: val = 6; break;
 			case KeyEvent.KEYCODE_BUTTON_MODE:   val = 7; break;
 			case KeyEvent.KEYCODE_BUTTON_START:  val = 8; break;
 			case KeyEvent.KEYCODE_BUTTON_THUMBL: val = 9; break;
 			case KeyEvent.KEYCODE_BUTTON_THUMBR: val = 10; break;
 			
 			// other
-			case KeyEvent.KEYCODE_BUTTON_L2: val = 13; break;
-			case KeyEvent.KEYCODE_BUTTON_R2: val = 14; break;
 			case KeyEvent.KEYCODE_BUTTON_C:  val = 11; break;
 			case KeyEvent.KEYCODE_BUTTON_Z:  val = 12; break;
+			case KeyEvent.KEYCODE_BUTTON_L2: val = 13; break;
+			case KeyEvent.KEYCODE_BUTTON_R2: val = 14; break;
 			default: 
 				if( keyCode >= KeyEvent.KEYCODE_BUTTON_1 && keyCode <= KeyEvent.KEYCODE_BUTTON_16 )
 				{
-					val = (byte)(keyCode - KeyEvent.KEYCODE_BUTTON_1 + 15);
+					val = (byte)((keyCode - KeyEvent.KEYCODE_BUTTON_1) + 15);
 				}
 				else if( XashActivity.handler.isGamepadButton(keyCode) )
 				{
+					// maybe never reached, as all possible gamepad buttons are checked before
 					Log.d(TAG, "Unhandled GamePad button: " + XashActivity.handler.keyCodeToString(keyCode) );
 					return false;
 				}
 				else
 				{
-					if( performEngineKeyEvent( action, keyCode, event ) )
-						return true;
+					// must be never reached too
+					return performEngineKeyEvent( action, keyCode, event );
 				}
 			}
 
 			if( event.getAction() == KeyEvent.ACTION_DOWN )
+			{
 				nativeJoyButton( id, val, true );
+				return true;
+			}
 			else if( event.getAction() == KeyEvent.ACTION_UP )
+			{
 				nativeJoyButton( id, val, false );
-			else return false;
-			return true;
+				return true;
+			}
+			return false;
 		}
 
 		return performEngineKeyEvent( action, keyCode, event );
