@@ -14,6 +14,7 @@ fi
 : ${OUTPUT:=$1}
 : ${OUTPUT:=bin/xash3d-signed.apk}
 sh gen-version.sh test build
+sh gen-config.sh test
 rm assets/extras.pak
 python2.7 makepak.py xash-extras assets/extras.pak
 $AAPT package -m -J gen/ --rename-manifest-package in.celest.xash3d.hl -M AndroidManifest.xml -S test/res -I $ANDROID_JAR
