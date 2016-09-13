@@ -1,3 +1,5 @@
+#!/bin/bash
+
 git update-index --assume-unchanged res/values/git-rev.xml
 echo '<?xml version="1.0" encoding="utf-8"?>' > res/values/git-rev.xml
 echo '<resources>' >> res/values/git-rev.xml
