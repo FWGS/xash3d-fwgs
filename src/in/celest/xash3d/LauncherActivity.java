@@ -86,9 +86,8 @@ public class LauncherActivity extends Activity {
 		this.requestWindowFeature(Window.FEATURE_NO_TITLE);
 		//super.setTheme( 0x01030005 );
 		if ( sdk >= 21 )
-		{
 			super.setTheme( 0x01030224 );
-		}
+		else super.setTheme( 0x01030005 );
 		
 		if( XashActivity.dumbAntiPDALifeCheck( this ) )
 		{

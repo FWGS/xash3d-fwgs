@@ -44,6 +44,7 @@ public class FPicker extends Activity {
 		super.onCreate(savedInstanceState);
 		if ( sdk >= 21 )
 			super.setTheme( 0x01030224 );
+		else super.setTheme( 0x01030005 );
 
 		setContentView(R.layout.activity_fpicker);
 		String path = Environment.getExternalStorageDirectory().toString();
