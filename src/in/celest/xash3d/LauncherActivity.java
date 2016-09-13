@@ -184,7 +184,8 @@ public class LauncherActivity extends Activity {
 			}
 		} );
 
-		if(mPref.getBoolean("check_updates", true))
+		if( !XashConfig.GP_VERSION && // disable autoupdater for Google Play
+			mPref.getBoolean("check_updates", true))
 		{
 			new CheckUpdate(true, updateToBeta.isChecked()).execute(UPDATE_LINK);
 		}
