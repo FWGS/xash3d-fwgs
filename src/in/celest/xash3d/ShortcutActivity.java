@@ -26,7 +26,7 @@ public class ShortcutActivity extends Activity
 		//material dialog
 		if ( sdk >= 21 )
 			super.setTheme( 0x01030225 );
-		else super.setTheme( 0x01030005 );
+		else super.setTheme( 0x0103000b );
 		setContentView(R.layout.activity_shortcut);
 		Intent intent=getIntent();
 		name = (EditText)findViewById(R.id.shortcut_name);
