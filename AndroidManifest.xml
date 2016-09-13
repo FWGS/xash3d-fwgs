@@ -4,7 +4,7 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 	package="in.celest.xash3d.hl"
-	android:versionCode="528"
+	android:versionCode="531"
 	android:versionName="0.18.1"
 	android:installLocation="auto">
 
