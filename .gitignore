@@ -1,12 +1,20 @@
+
+# Build data
 libs
 obj
 bin
 gen
 
+# Private info
 local.properties
 
+# Builds
 *.apk
 
-assets/extras.pak
+# VKontakte gives a shit when uploading APK
+*.bin 
 
+# Generated
+assets/extras.pak
 res/values/git-rev.xml
+src/in/celest/xash3d/XashConfig.java
