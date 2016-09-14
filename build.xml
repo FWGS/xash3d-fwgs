@@ -68,6 +68,35 @@
     -->
     <import file="custom_rules.xml" optional="true" />
 
+ <!-- allow the package name to be overridden when building -->
+<property name="override.package.name" value="in.celest.xash3d.hl"/>
+<!-- Puts the project's resources into the output package file
+This actually can create multiple resource package in case
+Some custom apk with specific configuration have been
+declared in default.properties.
+-->
+<!-- Replaces the target in tools\ant\build.xml -->
+<target name="-package-resources" depends="-crunch">
+            <!-- this exec replicates the output of the aapt task in build.xml
+                 -package-resources with the addition of a rename-manifest-package option. -->
+            <exec executable="${aapt}" failonerror="true">
+                <arg value="package" />
+                <arg value="-f" />
+                <arg value="--auto-add-overlay" />
+                <arg value="-M" />
+                <arg path="${basedir}/test/AndroidManifest.xml" />
+                <arg value="-S" />
+                <arg path="${basedir}/test/res" />
+                <arg value="-A" />
+                <arg path="${basedir}/assets" />
+                <arg value="-I" />
+                <arg path="${project.target.android.jar}" />
+                <arg value="-F" />
+                <arg path="${out.absolute.dir}/${resource.package.file.name}" />
+                <arg value="--rename-manifest-package" />
+                <arg value="in.celest.xash3d.hl" />
+            </exec>
+</target>
     <!-- Import the actual build file.
 
          To customize existing targets, there are two options:
@@ -88,5 +117,6 @@
     -->
     <!-- version-tag: 1 -->
     <import file="${sdk.dir}/tools/ant/build.xml" />
+
 
 </project>
