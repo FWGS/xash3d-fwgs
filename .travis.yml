@@ -22,5 +22,24 @@ script:
   - sh gen-version.sh travis build
   - sh gen-config.sh test
   - python2 makepak.py xash-extras assets/extras.pak
+  - ndk-build NDK_TOOLCHAIN_VERSION=4.8 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w" APP_ABI="armeabi-v7a-hard"
   - ant debug
-  - cp bin/xashdroid-debug.apk xashdroid-stub.apk
+  - cp bin/xashdroid-debug.apk xashdroid-armv7.apk
+  - ndk-build NDK_TOOLCHAIN_VERSION=4.8 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w" APP_ABI="armeabi"
+  - ant debug
+  - cp bin/xashdroid-debug.apk xashdroid-armv6.apk
+  - ndk-build NDK_TOOLCHAIN_VERSION=4.8 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w" APP_ABI="x86"
+  - ant debug
+  - cp bin/xashdroid-debug.apk xashdroid-x86.apk
+  - ndk-build NDK_TOOLCHAIN_VERSION=4.8 clean
+  - ndk-build NDK_TOOLCHAIN_VERSION=4.8 -j2 APP_CFLAGS="-w" APP_ABI="armeabi-v7a-hard" CFLAGS_OPT_ARM="-mthumb -mfpu=vfpv3-d16 -mcpu=cortex-a9 -pipe -fPIC"
+  - ant debug
+  - cp bin/xashdroid-debug.apk xashdroid-armv7-tegra2.apk
+  - ndk-build NDK_TOOLCHAIN_VERSION=4.8 clean
+  - ndk-build NDK_TOOLCHAIN_VERSION=4.8 -j2 APP_CFLAGS="-w" APP_ABI="armeabi" CFLAGS_OPT_ARMv5="-marm -march=armv5te -msoft-float -fPIC"
+  - ant debug
+  - cp bin/xashdroid-debug.apk xashdroid-armv5.apk
+
+
+after_script:
+  - bash scripts/travis-upload.sh
