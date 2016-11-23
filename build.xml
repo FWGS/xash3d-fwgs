@@ -84,7 +84,7 @@ declared in default.properties.
                 <arg value="-f" />
                 <arg value="--auto-add-overlay" />
                 <arg value="-M" />
-                <arg path="${basedir}/test/AndroidManifest.xml" />
+                <arg path="${basedir}/AndroidManifest.xml" />
                 <arg value="-S" />
                 <arg path="${basedir}/test/res" />
                 <arg value="-A" />
@@ -94,7 +94,7 @@ declared in default.properties.
                 <arg value="-F" />
                 <arg path="${out.absolute.dir}/${resource.package.file.name}" />
                 <arg value="--rename-manifest-package" />
-                <arg value="in.celest.xash3d.hl" />
+                <arg value="in.celest.xash3d.hl.test" />
             </exec>
 </target>
     <!-- Import the actual build file.
