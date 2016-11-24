@@ -75,9 +75,8 @@ Some custom apk with specific configuration have been
 declared in default.properties.
 -->
 <!-- Replaces the target in tools\ant\build.xml -->
-<taskdef name="if"
-classname="com.android.ant.IfElseTask"
-classpathref="android.antlibs" />
+    <import file="${sdk.dir}/tools/ant/build.xml" />
+
 <if>
 <condition>
 <isset property="test.version"/>
@@ -127,7 +126,6 @@ classpathref="android.antlibs" />
          in order to avoid having your file be overridden by tools such as "android update project"
     -->
     <!-- version-tag: 1 -->
-    <import file="${sdk.dir}/tools/ant/build.xml" />
 
 
 </project>
