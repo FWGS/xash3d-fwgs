@@ -77,12 +77,12 @@ declared in default.properties.
 <!-- Replaces the target in tools\ant\build.xml -->
     <import file="${sdk.dir}/tools/ant/build.xml" />
 
+<target name="-package-resources" depends="-crunch">
 <if>
 <condition>
 <isset property="test.version"/>
 </condition>
 <then>
-<target name="-package-resources" depends="-crunch">
             <!-- this exec replicates the output of the aapt task in build.xml
                  -package-resources with the addition of a rename-manifest-package option. -->
             <exec executable="${aapt}" failonerror="true">
@@ -104,9 +104,9 @@ declared in default.properties.
                 <arg value="--rename-manifest-package" />
                 <arg value="in.celest.xash3d.hl.test" />
             </exec>
-</target>
 </then>
 </if>
+</target>
     <!-- Import the actual build file.
 
          To customize existing targets, there are two options:
