@@ -75,7 +75,9 @@ Some custom apk with specific configuration have been
 declared in default.properties.
 -->
 <!-- Replaces the target in tools\ant\build.xml -->
-
+<taskdef name="if"
+classname="com.android.ant.IfElseTask"
+classpathref="android.antlibs" />
 <if>
 <condition>
 <isset property="test.version"/>
