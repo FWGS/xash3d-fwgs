@@ -25,6 +25,10 @@ script:
   - ndk-build NDK_TOOLCHAIN_VERSION=4.8 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w" APP_ABI="armeabi-v7a-hard"
   - ant debug -Dtest.version=1
   - cp bin/xashdroid-debug.apk xashdroid-armv7.apk
+  - ndk-build NDK_TOOLCHAIN_VERSION=4.8 clean
+  - ndk-build NDK_TOOLCHAIN_VERSION=4.8 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w" APP_ABI="armeabi-v7a-hard" CFLAGS_OPT_ARM="-mthumb -mfpu=neon-vfpv4 -mcpu=cortex-a15 -ffast-math -pipe -fPIC"
+  - ant debug -Dtest.version=1
+  - cp bin/xashdroid-debug.apk xashdroid-armv7-cortex-a7-a15.apk
   - ndk-build NDK_TOOLCHAIN_VERSION=4.8 SUPPORT_WEBP=false -j2 APP_CFLAGS="-w" APP_ABI="armeabi"
   - ant debug -Dtest.version=1
   - cp bin/xashdroid-debug.apk xashdroid-armv6.apk
