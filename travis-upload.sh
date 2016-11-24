@@ -15,7 +15,7 @@ COMMITHASH=$(git rev-parse --short HEAD)
 PREFIX=$DAYSSINCERELEASE-$(date +"%H-%M")
 POSTFIX=$COMMITHASH
 
-while [ -n $1 ]; do
+while [ "$1" != "" ]; do
 FNAME=$1
 FILE_BASE=${FNAME%.*}
 FILE_EXT="${FNAME##*.}"
