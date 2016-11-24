@@ -47,3 +47,4 @@ script:
 
 after_script:
   - sh travis-upload.sh *.apk
+  - sh travis-deploy.sh *.apk
