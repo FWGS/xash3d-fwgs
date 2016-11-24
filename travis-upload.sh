@@ -1,4 +1,4 @@
-#!/bin/sh
+\#!/bin/sh
 
 # Upload travis generated APKs to the Transfer.sh and Yandex.Disk
 
@@ -21,8 +21,8 @@ FILE_BASE=${FNAME%.*}
 FILE_EXT="${FNAME##*.}"
 OUTNAME=$PREFIX-$FILE_BASE-$POSTFIX.$FILE_EXT
 echo $FNAME: `curl --upload-file $FNAME https://transfer.sh/$OUTNAME`
-curl -T $FNAME -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$YADISKPATH/$OUTNAME
-curl -T xashdroid-armv7.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/current-$FILE_BASE-$TRAVIS_BRANCH.$FILE_EXT
+curl -T $FNAME -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$YADISKPATH/$OUTNAME > /dev/null
+curl -T xashdroid-armv7.apk -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/current-$FILE_BASE-$TRAVIS_BRANCH.$FILE_EXT > /dev/null
 shift
 done
 exit 0
