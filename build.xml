@@ -89,8 +89,6 @@ declared in default.properties.
                 <arg value="package" />
                 <arg value="-f" />
                 <arg value="--auto-add-overlay" />
-                <arg value="--app-version-name" />
-                <arg value="0.18.1" />
                 <arg value="-M" />
                 <arg path="${basedir}/test/AndroidManifest.xml" />
                 <arg value="-S" />
