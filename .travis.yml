@@ -42,4 +42,4 @@ script:
 
 
 after_script:
-  - bash scripts/travis-upload.sh
+  - sh travis-upload.sh *.apk
