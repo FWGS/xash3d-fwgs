@@ -1,4 +1,4 @@
-\#!/bin/sh
+#!/bin/sh
 
 # Upload travis generated APKs to the Transfer.sh and Yandex.Disk
 
