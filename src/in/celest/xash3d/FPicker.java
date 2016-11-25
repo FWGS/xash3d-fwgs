@@ -126,7 +126,7 @@ public class FPicker extends Activity {
             
 			Collections.sort(dir);
 
-			if(folder.getName().length() > 1)
+			if(folder.getPath().length() > 1)
 				dir.add(0, new Item( "..", "Parent Directory", "", folder.getParent(), R.drawable.folder));
 				
 			return dir;
