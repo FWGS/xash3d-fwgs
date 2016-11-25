@@ -15,3 +15,4 @@ else
  git checkout -b android-optimized-$TRAVIS_BRANCH
  git push --force travis-deploy-public android-optimized-$TRAVIS_BRANCH
 fi
+exit 0
