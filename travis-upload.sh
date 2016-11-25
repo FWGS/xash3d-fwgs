@@ -20,9 +20,9 @@ FNAME=$1
 FILE_BASE=${FNAME%.*}
 FILE_EXT="${FNAME##*.}"
 OUTNAME=$PREFIX-$FILE_BASE-$POSTFIX.$FILE_EXT
-echo $FNAME: `curl --upload-file $FNAME https://transfer.sh/$OUTNAME`
-curl -T $FNAME -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$YADISKPATH/$OUTNAME > /dev/null
-curl -T $FNAME -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/current-$FILE_BASE-$TRAVIS_BRANCH.$FILE_EXT > /dev/null
+echo $FNAME: `curl -s --upload-file $FNAME https://transfer.sh/$OUTNAME 2>/dev/null`
+curl -T $FNAME -s -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/$YADISKPATH/$OUTNAME > /dev/null
+curl -T $FNAME -s -u $YADISK_USERNAME:$YADISK_PASSWORD https://webdav.yandex.ru/XashTestVersions/current-$FILE_BASE-$TRAVIS_BRANCH.$FILE_EXT > /dev/null
 shift
 done
 exit 0
