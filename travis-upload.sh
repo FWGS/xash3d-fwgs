@@ -15,6 +15,13 @@ COMMITHASH=$(git rev-parse --short HEAD)
 PREFIX=$DAYSSINCERELEASE-$(date +"%H-%M")
 POSTFIX=$COMMITHASH
 
+YADISKPATH=`date +%Y/%m/%d`
+
+curl -u $YADISK_USERNAME:$YADISK_PASSWORD -X MKCOL https://webdav.yandex.ru/XashTestVersions/`date +%Y`
+curl -u $YADISK_USERNAME:$YADISK_PASSWORD -X MKCOL https://webdav.yandex.ru/XashTestVersions/`date +%Y/%m`/
+curl -u $YADISK_USERNAME:$YADISK_PASSWORD -X MKCOL https://webdav.yandex.ru/XashTestVersions/`date +%Y/%m/%d`/
+
+
 while [ "$1" != "" ]; do
 FNAME=$1
 FILE_BASE=${FNAME%.*}
