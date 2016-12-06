@@ -625,7 +625,8 @@ View.OnKeyListener {
 	public void onDraw(Canvas canvas) {}
 
 	// first, initialize native backend
-	public Surface getNativeSurface() {
+	public Surface getNativeSurface() 
+	{
 		return getHolder().getSurface();
 	}
 
@@ -634,13 +635,30 @@ View.OnKeyListener {
 		try
 		{
 			EGL10 egl = (EGL10)EGLContext.getEGL();
+			
+			if( egl == null )
+			{
+				Log.e( TAG, "Cannot get EGL from context" );
+				return false;
+			}
 
 			EGLDisplay dpy = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
 
+			if( dpy == null )
+			{
+				Log.e( TAG, "Cannot get display" );
+				return false;
+			}
+			
 			int[] version = new int[2];
-			egl.eglInitialize(dpy, version);
-
-			int[][] configSpec = {{
+			if( !egl.eglInitialize(dpy, version) )
+			{
+				Log.e(TAG, "No EGL config available");
+				return false;
+			}
+			
+			int[][] configSpec = 
+			{{
 				EGL10.EGL_DEPTH_SIZE,   8,
 				EGL10.EGL_RED_SIZE,   8,
 				EGL10.EGL_GREEN_SIZE,  8,
@@ -695,7 +713,7 @@ View.OnKeyListener {
 			}
 			EGLConfig config = configs[0];
 
-			int EGL_CONTEXT_CLIENT_VERSION=0x3098;
+			int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
 			int contextAttrs[] = new int[]
 			{
 				EGL_CONTEXT_CLIENT_VERSION, 1,
@@ -724,9 +742,12 @@ View.OnKeyListener {
 			mEGL = egl;
 			mEGLConfig = config;
 
-		} catch(Exception e) {
+		} 
+		catch(Exception e) 
+		{
 			Log.v(TAG, e + "");
-			for (StackTraceElement s : e.getStackTrace()) {
+			for (StackTraceElement s : e.getStackTrace()) 
+			{
 				Log.v(TAG, s.toString());
 			}
 		}
@@ -1034,9 +1055,14 @@ class JoystickHandler_v12 extends JoystickHandler
 		return event.getSource();
 	}
 	public boolean handleAxis( MotionEvent event )
-	{
+	{		
+		// how event can be from null device, Android?
+		final InputDevice device = event.getDevice();
+		if( device == null )
+			return;
+		
 		// maybe I need to cache this...
-		for( InputDevice.MotionRange range: event.getDevice().getMotionRanges() )
+		for( InputDevice.MotionRange range: device.getMotionRanges() )
 		{
 			// normalize in -1.0..1.0 (copied from SDL2)
 			final float cur = ( event.getAxisValue( range.getAxis(), event.getActionIndex() ) - range.getMin() ) / range.getRange() * 2.0f - 1.0f;
@@ -1045,20 +1071,36 @@ class JoystickHandler_v12 extends JoystickHandler
 			{
 			// typical axes
 			// move
-			case MotionEvent.AXIS_X:   prevSide = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_SIDE,  prevSide, dead); break;
-			case MotionEvent.AXIS_Y:   prevFwd  = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_FWD,   prevFwd,  dead); break;
+			case MotionEvent.AXIS_X:   
+				prevSide = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_SIDE,  prevSide, dead); 
+				break;
+			case MotionEvent.AXIS_Y: 
+				prevFwd  = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_FWD,   prevFwd,  dead); 
+				break;
 			
 			// rotate. Invert, so by default this works as it's should
-			case MotionEvent.AXIS_Z:   prevPtch = XashActivity.performEngineAxisEvent(-cur, XashActivity.JOY_AXIS_PITCH, prevPtch, dead); break;
-			case MotionEvent.AXIS_RZ:  prevYaw  = XashActivity.performEngineAxisEvent(-cur, XashActivity.JOY_AXIS_YAW,   prevYaw,  dead); break;
+			case MotionEvent.AXIS_Z: 
+				prevPtch = XashActivity.performEngineAxisEvent(-cur, XashActivity.JOY_AXIS_PITCH, prevPtch, dead); 
+				break;
+			case MotionEvent.AXIS_RZ: 
+				prevYaw  = XashActivity.performEngineAxisEvent(-cur, XashActivity.JOY_AXIS_YAW,   prevYaw,  dead); 
+				break;
 			
 			// trigger
-			case MotionEvent.AXIS_RTRIGGER:	prevLT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_RT, prevLT,   dead); break;
-			case MotionEvent.AXIS_LTRIGGER:	prevRT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_LT, prevRT,   dead); break;
+			case MotionEvent.AXIS_RTRIGGER:	
+				prevLT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_RT, prevLT,   dead); 
+				break;
+			case MotionEvent.AXIS_LTRIGGER:	
+				prevRT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_LT, prevRT,   dead); 
+				break;
 			
 			// hats
-			case MotionEvent.AXIS_HAT_X: prevHX = XashActivity.performEngineHatEvent(cur, true, prevHX); break;
-			case MotionEvent.AXIS_HAT_Y: prevHY = XashActivity.performEngineHatEvent(cur, false, prevHY); break;
+			case MotionEvent.AXIS_HAT_X: 
+				prevHX = XashActivity.performEngineHatEvent(cur, true, prevHX); 
+				break;
+			case MotionEvent.AXIS_HAT_Y: 
+				prevHY = XashActivity.performEngineHatEvent(cur, false, prevHY); 
+				break;
 			}
 		}
 
