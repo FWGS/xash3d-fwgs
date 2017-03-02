@@ -37,7 +37,7 @@ APP_ABI := x86 armeabi armeabi-v7a-hard
 # ARMv6 and ARMv5 xash3d builds use softfp only and compatible only with softfp mods
 # Build both armeabi-v7a-hard and armeabi-v7a supported only for mods, not for engine
 
-APP_MODULES := xash menu client server NanoGL
+APP_MODULES := xash menu client server NanoGL jnisetenv
 ifeq ($(XASH_SDL),1)
 APP_MODULES += SDL2
 endif

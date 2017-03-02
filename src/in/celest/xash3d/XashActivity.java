@@ -75,6 +75,11 @@ public class XashActivity extends Activity {
 	private static String SIG = "DMsE8f5hlR7211D8uehbFpbA0n8=";
 	private static String SIG_TEST = ""; // a1ba: mittorn, add your signature later
 
+	// Load the .so
+	static {
+		System.loadLibrary("jnisetenv");
+	}
+
 	// Shared between this activity and LauncherActivity
 	public static boolean dumbAntiPDALifeCheck( Context context )
 	{
