@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #include <jni.h>
 #include <stdlib.h>
 
-JAVA_EXPORT int Java_in_celest_xash3d_XashActivity_setenv( JNIEnv* env, jclass clazz, jstring key, jstring value, jboolean overwrite )
+JNIEXPORT int JNICALL Java_in_celest_xash3d_XashActivity_setenv( JNIEnv* env, jclass clazz, jstring key, jstring value, jboolean overwrite )
 {
 	char* k = (char *) (*env)->GetStringUTFChars(env, key, NULL);
 	char* v = (char *) (*env)->GetStringUTFChars(env, value, NULL);
