@@ -200,18 +200,7 @@ public class XashActivity extends Activity {
 		System.loadLibrary("xash");
 		
 		InstallReceiver.extractPAK(this, false);
-		
-		mPixelFormat = mPref.getInt("pixelformat", 0);
-		mUseVolume = mPref.getBoolean("usevolume", false);
-		if( mPref.getBoolean("enableResizeWorkaround", true) )
-			AndroidBug5497Workaround.assistActivity(this);
-		
-		// Immersive Mode is available only at >KitKat
-		mEnableImmersive = (sdk >= 19 && mPref.getBoolean("immersive_mode", true));
-		if( mEnableImmersive )
-			mImmersiveMode = new ImmersiveMode_v19();
-		mDecorView = getWindow().getDecorView();
-		
+				
 		// Set up the surface
 		mSurface = new EngineSurface(getApplication());
 
@@ -226,7 +215,17 @@ public class XashActivity extends Activity {
 		else
 			handler = new JoystickHandler_v12();
 		handler.init();
-
+		
+		mPixelFormat = mPref.getInt("pixelformat", 0);
+		mUseVolume = mPref.getBoolean("usevolume", false);
+		if( mPref.getBoolean("enableResizeWorkaround", true) )
+			AndroidBug5497Workaround.assistActivity(this);
+		
+		// Immersive Mode is available only at >KitKat
+		mEnableImmersive = (sdk >= 19 && mPref.getBoolean("immersive_mode", true));
+		if( mEnableImmersive )
+			mImmersiveMode = new ImmersiveMode_v19();
+		mDecorView = getWindow().getDecorView();
 	}
 
 	// Events
