@@ -1059,7 +1059,7 @@ class JoystickHandler_v12 extends JoystickHandler
 		// how event can be from null device, Android?
 		final InputDevice device = event.getDevice();
 		if( device == null )
-			return;
+			return false;
 		
 		// maybe I need to cache this...
 		for( InputDevice.MotionRange range: device.getMotionRanges() )
