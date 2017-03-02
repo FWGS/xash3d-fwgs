@@ -75,11 +75,6 @@ public class XashActivity extends Activity {
 	private static String SIG = "DMsE8f5hlR7211D8uehbFpbA0n8=";
 	private static String SIG_TEST = ""; // a1ba: mittorn, add your signature later
 
-	// Load the .so
-	static {
-		System.loadLibrary("xash");
-	}
-
 	// Shared between this activity and LauncherActivity
 	public static boolean dumbAntiPDALifeCheck( Context context )
 	{
@@ -151,28 +146,12 @@ public class XashActivity extends Activity {
 		// keep screen on
 		getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON, WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-		// Set up the surface
-		mSurface = new EngineSurface(getApplication());
-
-		if( sdk < 12 )
-			handler = new JoystickHandler();
-		else
-			handler = new JoystickHandler_v12();
-		handler.init();
-
-		mLayout = new FrameLayout(this);
-		mLayout.addView(mSurface);
-		setContentView(mLayout);
-
-		SurfaceHolder holder = mSurface.getHolder();
-		holder.setType(SurfaceHolder.SURFACE_TYPE_GPU);
-
 		// setup envs
 		mPref = this.getSharedPreferences("engine", 0);
 		String argv = intent.getStringExtra("argv");
-		if(argv == null) argv = mPref.getString("argv", "-dev 3 -log");
-		if(argv == null) argv = "-dev 3 -log";
-		mArgv= argv.split(" ");
+		if(argv == null) 
+			argv = mPref.getString("argv", "-dev 3 -log");
+		mArgv = argv.split(" ");
 
 		String gamelibdir = intent.getStringExtra("gamelibdir");
 		if(gamelibdir == null)
@@ -191,27 +170,32 @@ public class XashActivity extends Activity {
 		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
 		setenv("XASH3D_GAMEDIR", gamedir, true);
 
-
 		setenv("XASH3D_EXTRAS_PAK1", getFilesDir().getPath() + "/extras.pak", true);
 		String pakfile = intent.getStringExtra("pakfile");
 		if( pakfile != null && pakfile != "" )
 			setenv("XASH3D_EXTRAS_PAK2", pakfile, true);
+		
 		String[] env = intent.getStringArrayExtra("env");
-		try
+		if( env != null )
 		{
-			if( env != null )
-			for(int i = 0; i+1 < env.length; i+=2)
+			try
 			{
-				setenv(env[i],env[i+1], true);
+				for(int i = 0; i+1 < env.length; i+=2)
+				{
+					setenv(env[i],env[i+1], true);
+				}
+			}
+			catch(Exception e)
+			{
+				e.printStackTrace();
 			}
 		}
-		catch(Exception e)
-		{
-			e.printStackTrace();
-		}
-
+		// HACKHACK: Call it here, so JNI_OnLoad will have proper envvars
+		// Don't call ANYTHING native before onCreate finish, otherwise you will get a link exception!
+		System.loadLibrary("xash");
+		
 		InstallReceiver.extractPAK(this, false);
-
+		
 		mPixelFormat = mPref.getInt("pixelformat", 0);
 		mUseVolume = mPref.getBoolean("usevolume", false);
 		if( mPref.getBoolean("enableResizeWorkaround", true) )
@@ -222,6 +206,22 @@ public class XashActivity extends Activity {
 		if( mEnableImmersive )
 			mImmersiveMode = new ImmersiveMode_v19();
 		mDecorView = getWindow().getDecorView();
+		
+		// Set up the surface
+		mSurface = new EngineSurface(getApplication());
+
+		mLayout = new FrameLayout(this);
+		mLayout.addView(mSurface);
+		setContentView(mLayout);
+
+		SurfaceHolder holder = mSurface.getHolder();
+		holder.setType(SurfaceHolder.SURFACE_TYPE_GPU);
+		if( sdk < 12 )
+			handler = new JoystickHandler();
+		else
+			handler = new JoystickHandler_v12();
+		handler.init();
+
 	}
 
 	// Events
