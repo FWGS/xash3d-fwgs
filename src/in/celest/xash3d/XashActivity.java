@@ -232,6 +232,13 @@ public class XashActivity extends Activity {
 	@Override
 	protected void onPause() {
 		Log.v(TAG, "onPause()");
+		
+		// let engine save all configs before exiting.
+		nativeOnPause();
+		
+		// wait until Xash will save all configs
+		mSurface.engineThreadWait();
+
 		super.onPause();
 	}
 
@@ -246,10 +253,10 @@ public class XashActivity extends Activity {
 		Log.v(TAG, "onStop()");
 		
 		// let engine properly exit, instead of killing it's thread
-		nativeQuitEvent();
+		nativeOnStop();
+		
 		// wait until Xash will exit
 		mSurface.engineThreadJoin();
-		
 		
 		super.onStop();
 	}
@@ -279,7 +286,8 @@ public class XashActivity extends Activity {
 	public static native void nativeBall(int id, byte ball, short xrel, short yrel);
 	public static native void nativeJoyAdd( int id );
 	public static native void nativeJoyDel( int id );
-	public static native void nativeQuitEvent();
+	public static native void nativeOnStop();
+	public static native void nativeOnPause();
 	
 	public static native int setenv(String key, String value, boolean overwrite);
 
@@ -291,6 +299,10 @@ public class XashActivity extends Activity {
 
 	public static void swapBuffers() {
 		mSurface.SwapBuffers();
+	}
+	
+	public static void engineThreadNotify() {
+		mSurface.engineThreadNotify();
 	}
 
 	public static Surface getNativeSurface() {
@@ -649,7 +661,24 @@ View.OnKeyListener {
 		catch(InterruptedException e)
 		{
 		}
-		
+	}
+	
+	public void engineThreadWait()
+	{
+		Log.v(TAG, "engineThreadWait()");
+		try
+		{
+			mEngThread.wait(); // wait until Xash will quit
+		}
+		catch(InterruptedException e)
+		{
+		}
+	}
+	
+	public void engineThreadNotify()
+	{
+		Log.v(TAG, "engineThreadNotify()");
+		mEngThread.notify(); // unblock
 	}
 
 	// unused
