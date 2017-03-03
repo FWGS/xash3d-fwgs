@@ -242,6 +242,19 @@ public class XashActivity extends Activity {
 	}
 	
 	@Override
+	protected void onStop() {
+		Log.v(TAG, "onStop()");
+		
+		// let engine properly exit, instead of killing it's thread
+		nativeQuitEvent();
+		// wait until Xash will exit
+		mSurface.engineThreadJoin();
+		
+		
+		super.onStop();
+	}
+	
+	@Override
 	public void onWindowFocusChanged(boolean hasFocus) 
 	{
 		super.onWindowFocusChanged(hasFocus);
@@ -266,6 +279,7 @@ public class XashActivity extends Activity {
 	public static native void nativeBall(int id, byte ball, short xrel, short yrel);
 	public static native void nativeJoyAdd( int id );
 	public static native void nativeJoyDel( int id );
+	public static native void nativeQuitEvent();
 	
 	public static native int setenv(String key, String value, boolean overwrite);
 
@@ -623,6 +637,19 @@ View.OnKeyListener {
 			mEngThread = new Thread(new XashMain(), "EngineThread");
 			mEngThread.start();
 		}
+	}
+	
+	public void engineThreadJoin()
+	{
+		Log.v(TAG, "engineThreadJoin()");
+		try
+		{
+			mEngThread.join(); // wait until Xash will quit
+		}
+		catch(InterruptedException e)
+		{
+		}
+		
 	}
 
 	// unused
