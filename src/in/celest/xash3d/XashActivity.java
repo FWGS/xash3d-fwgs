@@ -38,12 +38,12 @@ public class XashActivity extends Activity {
 	// Main components
 	protected static XashActivity mSingleton;
 	protected static View mTextEdit;
+	protected static ViewGroup mLayout;
 	public static EngineSurface mSurface;
 	public static String mArgv[];
 	public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
 	public static final String TAG = "XASH3D:XashActivity";
 	public static int mPixelFormat;
-	protected static ViewGroup mLayout;
 	public static JoystickHandler handler;
 	public static ImmersiveMode mImmersiveMode;
 	public static boolean keyboardVisible = false;
@@ -69,10 +69,6 @@ public class XashActivity extends Activity {
 	public static SharedPreferences mPref = null;
 	private static boolean mUseVolume;
 	public static View mDecorView;
-
-	// Audio
-	private static Thread mAudioThread;
-	private static AudioTrack mAudioTrack;
 	
 	// Certificate checking
 	private static String SIG = "DMsE8f5hlR7211D8uehbFpbA0n8=";
@@ -80,7 +76,8 @@ public class XashActivity extends Activity {
 
 	// Load the .so
 	static {
-		System.loadLibrary("jnisetenv");
+		System.loadLibrary("gpgs_support");
+		System.loadLibrary("xash");
 	}
 
 	// Shared between this activity and LauncherActivity
@@ -154,12 +151,8 @@ public class XashActivity extends Activity {
 
 		setupEnvironment();
 		
-		// HACKHACK: Call it here, so JNI_OnLoad will have proper envvars
-		// Don't call ANYTHING native before onCreate finish, otherwise you will get a link exception!
-		System.loadLibrary("xash");
-		
 		InstallReceiver.extractPAK(this, false);
-				
+		
 		// Set up the surface
 		mSurface = new EngineSurface(getApplication());
 
@@ -190,6 +183,14 @@ public class XashActivity extends Activity {
 		mHasVibrator = ( mVibrator != null ) && ( mVibrator.hasVibrator() );
 	}
 	
+	private String getStringExtraFromIntent( Intent intent, String extraString, String ifNotFound )
+	{
+		String ret = intent.getStringExtra(extraString);
+		if( ret == null ) ret = ifNotFound;
+		
+		return ret;
+	}
+	
 	private void setupEnvironment()
 	{
 		Intent intent = getIntent();
@@ -198,20 +199,13 @@ public class XashActivity extends Activity {
 		// setup envs
 		mPref = this.getSharedPreferences("engine", 0);
 		
-		String argv = intent.getStringExtra("argv");
-		if(argv == null) argv = mPref.getString("argv", "-dev 3 -log");
+		String argv = getStringExtraFromIntent(intent, "argv", mPref.getString("argv", "-dev 3 -log"));
+		String gamelibdir = getStringExtraFromIntent(intent, "gamelibdir", enginedir);
+		String gamedir = getStringExtraFromIntent(intent, "gamedir", "valve");
+		String basedir = getStringExtraFromIntent(intent, "basedir", mPref.getString("basedir","/sdcard/xash/"));
 		
 		mArgv = argv.split(" ");
 
-		String gamelibdir = intent.getStringExtra("gamelibdir");
-		if(gamelibdir == null) gamelibdir = enginedir;
-
-		String gamedir = intent.getStringExtra("gamedir");
-		if(gamedir == null) gamedir = "valve";
-
-		String basedir = intent.getStringExtra("basedir");
-		if(basedir == null) basedir = mPref.getString("basedir","/sdcard/xash/");
-			
 		setenv("XASH3D_BASEDIR",    basedir,    true);
 		setenv("XASH3D_ENGLIBDIR",  enginedir,  true);
 		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);

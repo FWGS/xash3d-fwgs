@@ -10,6 +10,8 @@ else
 APP_PLATFORM := android-9
 endif
 
+APP_STL := gnustl_static
+
 # if non-zero, works only if single ABI selected
 XASH_THREAD_NUM ?= 0
 
@@ -37,7 +39,12 @@ APP_ABI := x86 armeabi armeabi-v7a-hard
 # ARMv6 and ARMv5 xash3d builds use softfp only and compatible only with softfp mods
 # Build both armeabi-v7a-hard and armeabi-v7a supported only for mods, not for engine
 
-APP_MODULES := xash menu client server NanoGL jnisetenv
+APP_MODULES := xash menu client server NanoGL gpgs_support
+ifeq ($(GOOGLE_PLAY_BUILD),1)
+	APP_MODULES += libgpg-1
+	CFLAGS_OPT += -DGOOGLE_PLAY_BUILD
+endif
+
 ifeq ($(XASH_SDL),1)
-APP_MODULES += SDL2
+	APP_MODULES += SDL2
 endif
