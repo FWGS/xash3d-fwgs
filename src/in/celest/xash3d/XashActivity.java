@@ -28,6 +28,7 @@ import java.security.MessageDigest;
 
 import in.celest.xash3d.hl.BuildConfig;
 import in.celest.xash3d.XashConfig;
+import in.celest.xash3d.JoystickHandler;
 
 /**
  Xash Activity
@@ -46,6 +47,9 @@ public class XashActivity extends Activity {
 	public static JoystickHandler handler;
 	public static ImmersiveMode mImmersiveMode;
 	public static boolean keyboardVisible = false;
+	
+	private static Vibrator mVibrator;
+	private static boolean mHasVibrator;
 
 	// Joystick constants
 	public final static byte JOY_HAT_CENTERED = 0; // bitmasks for hat current status
@@ -64,7 +68,6 @@ public class XashActivity extends Activity {
 	// Preferences
 	public static SharedPreferences mPref = null;
 	private static boolean mUseVolume;
-	private static boolean mEnableImmersive;
 	public static View mDecorView;
 
 	// Audio
@@ -137,64 +140,20 @@ public class XashActivity extends Activity {
 		
 		// So we can call stuff from static callbacks
 		mSingleton = this;
-		Intent intent = getIntent();
 
 		// fullscreen
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
-		//if(sdk >= 12)
-		getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		
+		int flags = WindowManager.LayoutParams.FLAG_FULLSCREEN 
+			| WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON;
+		getWindow().setFlags(flags, flags);
 
 		// landscapeSensor is not supported until API9
 		if( sdk < 9 )
 			setRequestedOrientation(0);
 
-		// keep screen on
-		getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON, WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-		// setup envs
-		mPref = this.getSharedPreferences("engine", 0);
-		String argv = intent.getStringExtra("argv");
-		if(argv == null) 
-			argv = mPref.getString("argv", "-dev 3 -log");
-		mArgv = argv.split(" ");
-
-		String gamelibdir = intent.getStringExtra("gamelibdir");
-		if(gamelibdir == null)
-			gamelibdir = getFilesDir().getParentFile().getPath() + "/lib";
-
-		String gamedir = intent.getStringExtra("gamedir");
-		if(gamedir == null)
-			gamedir = "valve";
-
-		String basedir = intent.getStringExtra("basedir");
-		if(basedir == null)
-			basedir = mPref.getString("basedir","/sdcard/xash/");
-
-		setenv("XASH3D_BASEDIR", basedir, true);
-		setenv("XASH3D_ENGLIBDIR", getFilesDir().getParentFile().getPath() + "/lib", true);
-		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
-		setenv("XASH3D_GAMEDIR", gamedir, true);
-
-		setenv("XASH3D_EXTRAS_PAK1", getFilesDir().getPath() + "/extras.pak", true);
-		String pakfile = intent.getStringExtra("pakfile");
-		if( pakfile != null && pakfile != "" )
-			setenv("XASH3D_EXTRAS_PAK2", pakfile, true);
+		setupEnvironment();
 		
-		String[] env = intent.getStringArrayExtra("env");
-		if( env != null )
-		{
-			try
-			{
-				for(int i = 0; i+1 < env.length; i+=2)
-				{
-					setenv(env[i],env[i+1], true);
-				}
-			}
-			catch(Exception e)
-			{
-				e.printStackTrace();
-			}
-		}
 		// HACKHACK: Call it here, so JNI_OnLoad will have proper envvars
 		// Don't call ANYTHING native before onCreate finish, otherwise you will get a link exception!
 		System.loadLibrary("xash");
@@ -210,10 +169,9 @@ public class XashActivity extends Activity {
 
 		SurfaceHolder holder = mSurface.getHolder();
 		holder.setType(SurfaceHolder.SURFACE_TYPE_GPU);
-		if( sdk < 12 )
-			handler = new JoystickHandler();
-		else
-			handler = new JoystickHandler_v12();
+		
+		if( sdk < 12 ) handler = new JoystickHandler();
+		else handler = new JoystickHandler_v12();
 		handler.init();
 		
 		mPixelFormat = mPref.getInt("pixelformat", 0);
@@ -222,12 +180,65 @@ public class XashActivity extends Activity {
 			AndroidBug5497Workaround.assistActivity(this);
 		
 		// Immersive Mode is available only at >KitKat
-		mEnableImmersive = (sdk >= 19 && mPref.getBoolean("immersive_mode", true));
-		if( mEnableImmersive )
+		Boolean enableImmersive = (sdk >= 19) && (mPref.getBoolean("immersive_mode", true));
+		if( enableImmersive )
 			mImmersiveMode = new ImmersiveMode_v19();
+			
 		mDecorView = getWindow().getDecorView();
+		
+		mVibrator = (Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
+		mHasVibrator = ( mVibrator != null ) && ( mVibrator.hasVibrator() );
 	}
+	
+	private void setupEnvironment()
+	{
+		Intent intent = getIntent();
+		final String enginedir = getFilesDir().getParentFile().getPath() + "/lib";
+		
+		// setup envs
+		mPref = this.getSharedPreferences("engine", 0);
+		
+		String argv = intent.getStringExtra("argv");
+		if(argv == null) argv = mPref.getString("argv", "-dev 3 -log");
+		
+		mArgv = argv.split(" ");
 
+		String gamelibdir = intent.getStringExtra("gamelibdir");
+		if(gamelibdir == null) gamelibdir = enginedir;
+
+		String gamedir = intent.getStringExtra("gamedir");
+		if(gamedir == null) gamedir = "valve";
+
+		String basedir = intent.getStringExtra("basedir");
+		if(basedir == null) basedir = mPref.getString("basedir","/sdcard/xash/");
+			
+		setenv("XASH3D_BASEDIR",    basedir,    true);
+		setenv("XASH3D_ENGLIBDIR",  enginedir,  true);
+		setenv("XASH3D_GAMELIBDIR", gamelibdir, true);
+		setenv("XASH3D_GAMEDIR",    gamedir,    true);
+		setenv("XASH3D_EXTRAS_PAK1", getFilesDir().getPath() + "/extras.pak", true);
+		
+		String pakfile = intent.getStringExtra("pakfile");
+		if( pakfile != null && pakfile != "" )
+			setenv("XASH3D_EXTRAS_PAK2", pakfile, true);
+		
+		String[] env = intent.getStringArrayExtra("env");
+		if( env != null )
+		{
+			try
+			{
+				for(int i = 0; i+1 < env.length; i+=2)
+				{
+					setenv(env[i], env[i+1], true);
+				}
+			}
+			catch(Exception e)
+			{
+				e.printStackTrace();
+			}
+		}
+	}
+	
 	// Events
 	@Override
 	protected void onPause() {
@@ -255,10 +266,23 @@ public class XashActivity extends Activity {
 		// let engine properly exit, instead of killing it's thread
 		nativeOnStop();
 		
+		// wait for engine
+		mSurface.engineThreadWait();
+		
+		super.onStop();
+	}
+	
+	@Override
+	protected void onDestroy() {
+		Log.v(TAG, "onStop()");
+		
+		// let engine a chance to properly exit
+		nativeOnDestroy();
+		
 		// wait until Xash will exit
 		mSurface.engineThreadJoin();
 		
-		super.onStop();
+		super.onDestroy();
 	}
 	
 	@Override
@@ -268,16 +292,18 @@ public class XashActivity extends Activity {
 
 		if( mImmersiveMode != null )
 			mImmersiveMode.apply();
-	}	
+	}
 
-	public static native int nativeInit(Object arguments);
+	public static native int  nativeInit(Object arguments);
 	public static native void nativeQuit();
 	public static native void onNativeResize(int x, int y);
 	public static native void nativeTouch(int pointerFingerId, int action, float x, float y);
 	public static native void nativeKey( int down, int code );
 	public static native void nativeString( String text );
 	public static native void nativeSetPause(int pause);
-
+	public static native void nativeOnDestroy();
+	public static native void nativeOnStop();
+	public static native void nativeOnPause();
 	public static native void nativeHat(int id, byte hat, byte keycode, boolean down);
 	public static native void nativeAxis(int id, byte axis, short value);
 	public static native void nativeJoyButton(int id, byte button, boolean down);
@@ -286,9 +312,8 @@ public class XashActivity extends Activity {
 	public static native void nativeBall(int id, byte ball, short xrel, short yrel);
 	public static native void nativeJoyAdd( int id );
 	public static native void nativeJoyDel( int id );
-	public static native void nativeOnStop();
-	public static native void nativeOnPause();
 	
+	// libjnisetenv
 	public static native int setenv(String key, String value, boolean overwrite);
 
 	// Java functions called from C
@@ -310,7 +335,7 @@ public class XashActivity extends Activity {
 	}
 
 	public static void vibrate( int time ) {
-		((Vibrator) mSingleton.getSystemService(Context.VIBRATOR_SERVICE)).vibrate( time );
+		if( mHasVibrator ) mVibrator.vibrate( time );
 	}
 
 	public static void toggleEGL(int toggle) {
@@ -325,6 +350,7 @@ public class XashActivity extends Activity {
 	public static Context getContext() {
 		return mSingleton;
 	}
+	
 	protected final String[] messageboxData = new String[2];
 	public static void messageBox(String title, String text)
 	{
@@ -587,11 +613,12 @@ class XashMain implements Runnable {
 
  Because of this, that's where we set up the Xash3D thread
  */
-class EngineSurface extends SurfaceView implements SurfaceHolder.Callback,
-View.OnKeyListener {
+class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.OnKeyListener 
+{
 
 	// This is what Xash3D runs in. It invokes main(), eventually
 	private static Thread mEngThread = null;
+	private static Object mPauseLock = new Object(); 
 
 	// EGL private objects
 	private EGLContext  mEGLContext;
@@ -666,19 +693,26 @@ View.OnKeyListener {
 	public void engineThreadWait()
 	{
 		Log.v(TAG, "engineThreadWait()");
-		try
+		synchronized(mPauseLock)
 		{
-			mEngThread.wait(); // wait until Xash will quit
+			try
+			{
+				mPauseLock.wait(); // wait until Xash will quit
+			}
+			catch(InterruptedException e)
+			{
+			}
 		}
-		catch(InterruptedException e)
-		{
-		}
+		
 	}
 	
 	public void engineThreadNotify()
 	{
 		Log.v(TAG, "engineThreadNotify()");
-		mEngThread.notify(); // unblock
+		synchronized(mPauseLock)
+		{
+			mPauseLock.notify(); // wait until Xash will quit
+		}
 	}
 
 	// unused
@@ -1011,6 +1045,7 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 		return true;
 	}
 }
+
 class AndroidBug5497Workaround {
 
 	// For more information, see https://code.google.com/p/android/issues/detail?id=5497
@@ -1064,139 +1099,6 @@ class AndroidBug5497Workaround {
 
 }
 
-/*interface JoystickHandler
-{
-	public int getSource(KeyEvent event);
-	public int getSource(MotionEvent event);
-	public boolean handleAxis(MotionEvent event);
-	public boolean isGamepadButton(int keyCode);
-	public String keyCodeToString(int keyCode);
-	public void init();
-}*/
-class JoystickHandler
-{
-	public int getSource(KeyEvent event)
-	{
-		return InputDevice.SOURCE_UNKNOWN;
-	}
-	public int getSource(MotionEvent event)
-	{
-		return InputDevice.SOURCE_UNKNOWN;
-	}
-	public boolean handleAxis(MotionEvent event)
-	{
-		return false;
-	}
-	public boolean isGamepadButton(int keyCode)
-	{
-		return false;
-	}
-	public String keyCodeToString(int keyCode)
-	{
-		return String.valueOf(keyCode);
-	}
-	public void init()
-	{
-	}
-}
-
-class JoystickHandler_v12 extends JoystickHandler
-{
-
-
-	private static float prevSide, prevFwd, prevYaw, prevPtch, prevLT, prevRT, prevHX, prevHY;
-
-	public int getSource(KeyEvent event)
-	{
-		return event.getSource();
-	}
-	public int getSource(MotionEvent event)
-	{
-		return event.getSource();
-	}
-	public boolean handleAxis( MotionEvent event )
-	{		
-		// how event can be from null device, Android?
-		final InputDevice device = event.getDevice();
-		if( device == null )
-			return false;
-		
-		// maybe I need to cache this...
-		for( InputDevice.MotionRange range: device.getMotionRanges() )
-		{
-			// normalize in -1.0..1.0 (copied from SDL2)
-			final float cur = ( event.getAxisValue( range.getAxis(), event.getActionIndex() ) - range.getMin() ) / range.getRange() * 2.0f - 1.0f;
-			final float dead = range.getFlat(); // get axis dead zone
-			switch( range.getAxis() )
-			{
-			// typical axes
-			// move
-			case MotionEvent.AXIS_X:   
-				prevSide = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_SIDE,  prevSide, dead); 
-				break;
-			case MotionEvent.AXIS_Y: 
-				prevFwd  = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_FWD,   prevFwd,  dead); 
-				break;
-			
-			// rotate. Invert, so by default this works as it's should
-			case MotionEvent.AXIS_Z: 
-				prevPtch = XashActivity.performEngineAxisEvent(-cur, XashActivity.JOY_AXIS_PITCH, prevPtch, dead); 
-				break;
-			case MotionEvent.AXIS_RZ: 
-				prevYaw  = XashActivity.performEngineAxisEvent(-cur, XashActivity.JOY_AXIS_YAW,   prevYaw,  dead); 
-				break;
-			
-			// trigger
-			case MotionEvent.AXIS_RTRIGGER:	
-				prevLT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_RT, prevLT,   dead); 
-				break;
-			case MotionEvent.AXIS_LTRIGGER:	
-				prevRT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_LT, prevRT,   dead); 
-				break;
-			
-			// hats
-			case MotionEvent.AXIS_HAT_X: 
-				prevHX = XashActivity.performEngineHatEvent(cur, true, prevHX); 
-				break;
-			case MotionEvent.AXIS_HAT_Y: 
-				prevHY = XashActivity.performEngineHatEvent(cur, false, prevHY); 
-				break;
-			}
-		}
-
-		return true;
-	}
-	public boolean isGamepadButton(int keyCode)
-	{
-		return KeyEvent.isGamepadButton(keyCode);
-	}
-	public String keyCodeToString(int keyCode)
-	{
-		return KeyEvent.keyCodeToString(keyCode);
-	}
-	public void init()
-	{
-		XashActivity.mSurface.setOnGenericMotionListener(new MotionListener());
-	}
-
-	class MotionListener implements View.OnGenericMotionListener
-	{
-		@Override
-		public boolean onGenericMotion(View view, MotionEvent event)
-		{
-			if( ((XashActivity.handler.getSource(event) & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) ||
-				(XashActivity.handler.getSource(event) & InputDevice.SOURCE_GAMEPAD) != 0 )
-				return XashActivity.handler.handleAxis( event );
-			// TODO: Add it someday
-			// else if( (event.getSource() & InputDevice.SOURCE_CLASS_TRACKBALL) == InputDevice.SOURCE_CLASS_TRACKBALL )
-			//	return XashActivity.handleBall( event );
-			//return super.onGenericMotion( view, event );
-			return false;
-		}
-	}
-
-}
-
 class ImmersiveMode
 {
 	void apply()
@@ -1212,7 +1114,7 @@ class ImmersiveMode_v19 extends ImmersiveMode
 	{
 		if( !XashActivity.keyboardVisible )
 			XashActivity.mDecorView.setSystemUiVisibility(
-					0x00000100 // View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+					0x00000100   // View.SYSTEM_UI_FLAG_LAYOUT_STABLE
 					| 0x00000200 // View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
 					| 0x00000400 // View.SYSTEM_UI_FLAG_LAYOUT_FULSCREEN
 					| 0x00000002 // View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
