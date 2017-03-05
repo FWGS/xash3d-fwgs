@@ -14,7 +14,7 @@ using gpg::GameServices;
 typedef void *GameServices;
 #endif
 
-GameServices *services = NULL;
+GameServices *services = nullptr;
 
 extern "C"
 {
@@ -44,12 +44,12 @@ void SetGameServicesPtr( GameServices *ptr )
 #endif
 }
 
-gpg::GameServices *GetGameServicesPtr( void )
+GameServices *GetGameServicesPtr( void )
 {
 #ifdef GOOGLE_PLAY_BUILD
 	return services;
 #else
-	return NULL;
+	return nullptr;
 #endif
 }
 
