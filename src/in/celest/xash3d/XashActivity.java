@@ -50,6 +50,9 @@ public class XashActivity extends Activity {
 	
 	private static Vibrator mVibrator;
 	private static boolean mHasVibrator;
+	
+	private static int OPEN_DOCUMENT_TREE_RESULT = 1;
+	private static int FPICKER_RESULT = 2;
 
 	// Joystick constants
 	public final static byte JOY_HAT_CENTERED = 0; // bitmasks for hat current status
@@ -148,23 +151,30 @@ public class XashActivity extends Activity {
 		// landscapeSensor is not supported until API9
 		if( sdk < 9 )
 			setRequestedOrientation(0);
-
-		setupEnvironment();
+			
+		mPref = this.getSharedPreferences("engine", 0);
 		
-		InstallReceiver.extractPAK(this, false);
+		if( mPref.getBoolean("folderask", true ) )
+		{
+			Log.v(TAG, "folderask == true. Opening FPicker...");
 		
-		// Set up the surface
-		mSurface = new EngineSurface(getApplication());
+			Intent intent = new Intent(this, in.celest.xash3d.FPicker.class);
+			startActivityForResult( intent, FPICKER_RESULT );
+		}
+		else
+		{
+			Log.v(TAG, "folderask == false. Checking write permission...");
 
-		mLayout = new FrameLayout(this);
-		mLayout.addView(mSurface);
-		setContentView(mLayout);
-
-		SurfaceHolder holder = mSurface.getHolder();
-		holder.setType(SurfaceHolder.SURFACE_TYPE_GPU);
+			// check write permission and run engine, if possible
+			String basedir = getStringExtraFromIntent( getIntent(), "basedir", mPref.getString("basedir","/sdcard/xash/"));
+			checkWritePermission( basedir );
+		}
 		
-		if( sdk < 12 ) handler = new JoystickHandler();
-		else handler = new JoystickHandler_v12();
+						
+		if( sdk < 12 ) 
+			handler = new JoystickHandler();
+		else 
+			handler = new JoystickHandler_v12();
 		handler.init();
 		
 		mPixelFormat = mPref.getInt("pixelformat", 0);
@@ -183,6 +193,64 @@ public class XashActivity extends Activity {
 		mHasVibrator = ( mVibrator != null ) && ( mVibrator.hasVibrator() );
 	}
 	
+	@Override
+	public void onActivityResult(int requestCode, int resultCode, Intent resultData) 
+	{
+		if( resultCode != RESULT_OK )
+		{
+			Log.v(TAG, "onActivityResult: result is not OK. Code: " + requestCode + ". Will exit now");
+			finish();
+		}
+	
+		if( requestCode == FPICKER_RESULT )
+		{
+			String newBaseDir = resultData.getStringExtra("GetPath");
+			setNewBasedir( newBaseDir );
+			setFolderAsk( false ); // don't ask on next run
+			checkWritePermission( newBaseDir );
+		}
+		else if( requestCode == OPEN_DOCUMENT_TREE_RESULT )
+		{
+			String basedir = getStringExtraFromIntent( getIntent(), "basedir", mPref.getString("basedir","/sdcard/xash/"));
+
+			if( !nativeTestWritePermission( basedir ) )
+			{
+				String msg = getString(R.string.lollipop_request_permission_fail_msg) + getString(R.string.ask_about_new_basedir_msg);
+			
+				new AlertDialog.Builder(this)
+					.setTitle( R.string.write_failed )
+					.setMessage( msg )
+					.setPositiveButton( R.string.ok, new DialogInterface.OnClickListener() 
+						{
+							public void onClick(DialogInterface dialog, int whichButton) 
+							{
+								XashActivity act = (XashActivity)getActivity();
+								act.setFolderAsk( true );
+								act.finish();
+							}
+						})
+					.setCancelable(false)
+					.show();
+			}
+		}
+	}
+	
+	public void setFolderAsk( Boolean b )
+	{
+		SharedPreferences.Editor editor = mPref.edit();
+		
+		editor.putBoolean( "folderask", b );
+		editor.commit();
+	}
+	
+	private void setNewBasedir( String baseDir )
+	{
+		SharedPreferences.Editor editor = mPref.edit();
+		
+		editor.putBoolean( "basedir", baseDir );
+		editor.commit();
+	}
+	
 	private String getStringExtraFromIntent( Intent intent, String extraString, String ifNotFound )
 	{
 		String ret = intent.getStringExtra(extraString);
@@ -191,14 +259,104 @@ public class XashActivity extends Activity {
 		return ret;
 	}
 	
+	private void checkWritePermission( String basedir )
+	{
+		if( !nativeTestWritePermission( basedir ) )
+		{
+			Object lock = new Object;
+		
+			if( sdk > 20 )
+			{
+				// OPEN_DOCUMENT_TREE
+				
+				// first try
+				new AlertDialog.Builder(this)
+					.setTitle( R.string.write_failed )
+					.setMessage( R.string.lollipop_request_permission_msg )
+					.setPositiveButton( R.string.lollipop_select_folder_btn, new DialogInterface.OnClickListener() 
+						{
+							public void onClick(DialogInterface dialog, int whichButton) 
+							{
+								Intent intent = new Intent("android.intent.action.OPEN_DOCUMENT_TREE");
+								intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+								getActivity().startActivityForResult(intent, OPEN_DOCUMENT_TREE_RESULT);
+							}
+						})
+					.setCancelable(false)
+					.show();
+			}
+			else if( sdk > 18 )
+			{
+				// 4.4 and 4.4W does not allow SD card write at all
+				String msg = getString(R.string.kitkat_write_fail_msg) + getString(R.string.ask_about_new_basedir_msg);
+
+				new AlertDialog.Builder(this)
+					.setTitle( R.string.write_failed )
+					.setMessage( msg )
+					.setPositiveButton( R.string.ok, new DialogInterface.OnClickListener() 
+						{
+							public void onClick(DialogInterface dialog, int whichButton) 
+							{
+								XashActivity act = (XashActivity)getActivity();
+								act.setFolderAsk( true );
+								act.finish();
+							}
+						})
+					.setCancelable(false)
+					.show();
+			}
+			else
+			{
+				String msg = getString(R.string.readonly_fs_fail_msg) + getString(R.string.ask_about_new_basedir_msg);
+			
+				// Read-only filesystem
+				// Logically should be never reached
+				new AlertDialog.Builder(this)
+					.setTitle( R.string.write_failed )
+					.setMessage( msg )
+					.setPositiveButton( R.string.ok, new DialogInterface.OnClickListener() 
+						{
+							public void onClick(DialogInterface dialog, int whichButton) 
+							{
+								XashActivity act = (XashActivity)getActivity();
+								act.setFolderAsk( true );
+								act.finish();
+							}
+						})
+					.setCancelable(false)
+					.show();
+			}
+		}
+		else
+		{
+			// everything is normal, so launch engine
+			launchSurfaceAndEngine();
+		}
+	}
+	
+	private void launchSurfaceAndEngine()
+	{
+		setupEnvironment();
+		InstallReceiver.extractPAK(this, false);
+
+	
+		// Set up the surface
+		mSurface = new EngineSurface(getApplication());
+
+		mLayout = new FrameLayout(this);
+		mLayout.addView(mSurface);
+		setContentView(mLayout);
+
+		SurfaceHolder holder = mSurface.getHolder();
+		holder.setType(SurfaceHolder.SURFACE_TYPE_GPU);
+
+	}
+	
 	private void setupEnvironment()
 	{
 		Intent intent = getIntent();
 		final String enginedir = getFilesDir().getParentFile().getPath() + "/lib";
-		
-		// setup envs
-		mPref = this.getSharedPreferences("engine", 0);
-		
+				
 		String argv = getStringExtraFromIntent(intent, "argv", mPref.getString("argv", "-dev 3 -log"));
 		String gamelibdir = getStringExtraFromIntent(intent, "gamelibdir", enginedir);
 		String gamedir = getStringExtraFromIntent(intent, "gamedir", "valve");
@@ -301,6 +459,7 @@ public class XashActivity extends Activity {
 	public static native void nativeHat(int id, byte hat, byte keycode, boolean down);
 	public static native void nativeAxis(int id, byte axis, short value);
 	public static native void nativeJoyButton(int id, byte button, boolean down);
+	public static native int  nativeTestWritePermission( String path );
 	
 	// for future expansion
 	public static native void nativeBall(int id, byte ball, short xrel, short yrel);
