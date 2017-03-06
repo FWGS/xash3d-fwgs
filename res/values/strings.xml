@@ -61,12 +61,12 @@
 
 	<string name="write_failed">Write test has failed</string>
 	
-	<string name="ask_about_new_basedir_msg">Move your game files somewhere else, for example Android/data/%s or internal memory. At next run I will ask you about folder again.</string>
+	<string name="ask_about_new_basedir_msg">Move your game files somewhere else, for example Android/data/in.celest.xash3d.hl or internal memory. At next run I will ask you about folder again.</string>
 	<string name="lollipop_request_permission_msg">Due to writing politics of newer Android versions, you need to select a root folder of storage where game data is located.</string>
 	<string name="lollipop_select_folder_btn">Select folder</string>
 	
 	<!-- These strings must be concat with a "ask_about_new_basedir" string -->
 	<string name="lollipop_request_permission_fail_msg">Write test has been failed twice. </string>
-	<string name="kitkat_write_fail_msg">Due to writing politics of Android 4.4, you can't use this storage. </string>
+	<string name="kitkat_write_fail_msg">Due to writing politics of Android 4.4, you can\'t use this storage. </string>
 	<string name="readonly_fs_fail_msg">Seems you have read-only filesystem. </string>
 </resources>

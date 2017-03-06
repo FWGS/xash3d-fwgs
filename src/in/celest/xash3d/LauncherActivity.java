@@ -55,6 +55,7 @@ import org.json.*;
 
 import in.celest.xash3d.hl.R;
 import in.celest.xash3d.XashActivity;
+import in.celest.xash3d.CertCheck;
 
 public class LauncherActivity extends Activity {
    // public final static String ARGV = "in.celest.xash3d.MESSAGE";
@@ -89,7 +90,7 @@ public class LauncherActivity extends Activity {
 			super.setTheme( 0x01030224 );
 		else super.setTheme( 0x01030005 );
 		
-		if( XashActivity.dumbAntiPDALifeCheck( this ) )
+		if( CertCheck.dumbAntiPDALifeCheck( this ) )
 		{
 			finish();
 			return;

@@ -19,6 +19,9 @@ import android.hardware.*;
 import android.content.*;
 import android.widget.*;
 import android.content.pm.*;
+import android.net.Uri;
+import android.provider.*;
+import android.database.*;
 
 import android.view.inputmethod.*;
 
@@ -26,9 +29,11 @@ import java.lang.*;
 import java.util.List;
 import java.security.MessageDigest;
 
+import in.celest.xash3d.hl.R;
 import in.celest.xash3d.hl.BuildConfig;
 import in.celest.xash3d.XashConfig;
 import in.celest.xash3d.JoystickHandler;
+import in.celest.xash3d.CertCheck;
 
 /**
  Xash Activity
@@ -47,12 +52,15 @@ public class XashActivity extends Activity {
 	public static JoystickHandler handler;
 	public static ImmersiveMode mImmersiveMode;
 	public static boolean keyboardVisible = false;
+	public static boolean mEngineReady = false;
 	
 	private static Vibrator mVibrator;
 	private static boolean mHasVibrator;
+	private int mReturingWithResultCode = 0;
 	
 	private static int OPEN_DOCUMENT_TREE_RESULT = 1;
 	private static int FPICKER_RESULT = 2;
+	
 
 	// Joystick constants
 	public final static byte JOY_HAT_CENTERED = 0; // bitmasks for hat current status
@@ -73,9 +81,6 @@ public class XashActivity extends Activity {
 	private static boolean mUseVolume;
 	public static View mDecorView;
 	
-	// Certificate checking
-	private static String SIG = "DMsE8f5hlR7211D8uehbFpbA0n8=";
-	private static String SIG_TEST = ""; // a1ba: mittorn, add your signature later
 
 	// Load the .so
 	static {
@@ -83,56 +88,15 @@ public class XashActivity extends Activity {
 		System.loadLibrary("xash");
 	}
 
-	// Shared between this activity and LauncherActivity
-	public static boolean dumbAntiPDALifeCheck( Context context )
-	{
-		if( BuildConfig.DEBUG || 
-			!XashConfig.CHECK_SIGNATURES )
-			return false; // disable checking for debug builds
-	
-		try
-		{
-			PackageInfo info = context.getPackageManager()
-				.getPackageInfo( context.getPackageName(), PackageManager.GET_SIGNATURES );
-			
-			for( Signature signature: info.signatures )
-			{
-				MessageDigest md = MessageDigest.getInstance( "SHA" );
-				final byte[] signatureBytes = signature.toByteArray();
-
-				md.update( signatureBytes );
-
-				final String curSIG = Base64.encodeToString( md.digest(), Base64.NO_WRAP );
-
-				if( XashConfig.PKG_TEST )
-				{
-					if( SIG_TEST.equals(curSIG) )
-						return false;
-				}
-				else
-				{
-					if( SIG.equals(curSIG) )
-						return false;
-				}
-			}
-		} 
-		catch( Exception e ) 
-		{
-			e.printStackTrace();
-		}
-		
-		Log.e(TAG, "Please, don't resign our public release builds!");
-		Log.e(TAG, "If you want to insert some features, rebuild package with ANOTHER package name from git repository.");
-		return true;
-	}
 	
 	// Setup
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		Log.v(TAG, "onCreate()");
 		super.onCreate(savedInstanceState);
+		mEngineReady = false;
 		
-		if( dumbAntiPDALifeCheck(this) )
+		if( CertCheck.dumbAntiPDALifeCheck(this) )
 		{
 			finish();
 			return;
@@ -170,27 +134,6 @@ public class XashActivity extends Activity {
 			checkWritePermission( basedir );
 		}
 		
-						
-		if( sdk < 12 ) 
-			handler = new JoystickHandler();
-		else 
-			handler = new JoystickHandler_v12();
-		handler.init();
-		
-		mPixelFormat = mPref.getInt("pixelformat", 0);
-		mUseVolume = mPref.getBoolean("usevolume", false);
-		if( mPref.getBoolean("enableResizeWorkaround", true) )
-			AndroidBug5497Workaround.assistActivity(this);
-		
-		// Immersive Mode is available only at >KitKat
-		Boolean enableImmersive = (sdk >= 19) && (mPref.getBoolean("immersive_mode", true));
-		if( enableImmersive )
-			mImmersiveMode = new ImmersiveMode_v19();
-			
-		mDecorView = getWindow().getDecorView();
-		
-		mVibrator = (Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
-		mHasVibrator = ( mVibrator != null ) && ( mVibrator.hasVibrator() );
 	}
 	
 	@Override
@@ -198,41 +141,143 @@ public class XashActivity extends Activity {
 	{
 		if( resultCode != RESULT_OK )
 		{
-			Log.v(TAG, "onActivityResult: result is not OK. Code: " + requestCode + ". Will exit now");
-			finish();
+			Log.v(TAG, "onActivityResult: result is not OK. ReqCode: " + requestCode + ". ResCode: " + resultCode);
 		}
-	
-		if( requestCode == FPICKER_RESULT )
+		else
 		{
-			String newBaseDir = resultData.getStringExtra("GetPath");
-			setNewBasedir( newBaseDir );
-			setFolderAsk( false ); // don't ask on next run
-			checkWritePermission( newBaseDir );
-		}
-		else if( requestCode == OPEN_DOCUMENT_TREE_RESULT )
-		{
-			String basedir = getStringExtraFromIntent( getIntent(), "basedir", mPref.getString("basedir","/sdcard/xash/"));
-
-			if( !nativeTestWritePermission( basedir ) )
+			// it's not possible to create dialogs here
+			// so most work will be done after Activity resuming, in onPostResume()
+			mReturingWithResultCode = requestCode;
+			if( requestCode == FPICKER_RESULT )
 			{
-				String msg = getString(R.string.lollipop_request_permission_fail_msg) + getString(R.string.ask_about_new_basedir_msg);
-			
-				new AlertDialog.Builder(this)
-					.setTitle( R.string.write_failed )
-					.setMessage( msg )
-					.setPositiveButton( R.string.ok, new DialogInterface.OnClickListener() 
-						{
-							public void onClick(DialogInterface dialog, int whichButton) 
-							{
-								XashActivity act = (XashActivity)getActivity();
-								act.setFolderAsk( true );
-								act.finish();
-							}
-						})
-					.setCancelable(false)
-					.show();
+				String newBaseDir = resultData.getStringExtra("GetPath");
+				setNewBasedir( newBaseDir );
+				setFolderAsk( false ); // don't ask on next run
+				Log.v(TAG, "Got new basedir from FPicker: " + newBaseDir );
+			}
+			else if( requestCode == OPEN_DOCUMENT_TREE_RESULT )
+			{
+				Uri uri = resultData.getData();
+				if( uri != null )
+				{
+					getContentResolver().takePersistableUriPermission(uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION );
+				}
 			}
 		}
+	}
+	
+	@Override
+	public void onPostResume()
+	{
+		super.onPostResume();
+		
+		if( mReturingWithResultCode != 0 )
+		{
+			if( mReturingWithResultCode == FPICKER_RESULT )
+			{
+				String basedir = mPref.getString( "basedir", "/sdcard/xash/" );
+				checkWritePermission( basedir );
+			}
+			else if( mReturingWithResultCode == OPEN_DOCUMENT_TREE_RESULT )
+			{
+				String basedir = getStringExtraFromIntent( getIntent(), "basedir", mPref.getString("basedir","/sdcard/xash/"));
+				Log.v(TAG, "Got permissions. Checking writing again...");
+
+				if( nativeTestWritePermission( basedir ) == 0 )
+				{
+					Log.v(TAG, "Write test has failed twice!");
+					String msg = getString(R.string.lollipop_request_permission_fail_msg) + getString(R.string.ask_about_new_basedir_msg);
+			
+					new AlertDialog.Builder(this)
+						.setTitle( R.string.write_failed )
+						.setMessage( msg )
+						.setPositiveButton( R.string.ok, new DialogInterface.OnClickListener() 
+							{
+								public void onClick(DialogInterface dialog, int whichButton) 
+								{
+									XashActivity act = XashActivity.this;
+									act.setFolderAsk( true );
+									act.finish();
+								}
+							})
+						.setCancelable(false)
+						.show();
+				}
+				else
+				{
+					launchSurfaceAndEngine();
+				}
+			}
+			
+			mReturingWithResultCode = 0;
+		}
+	}
+	
+		// Events
+	@Override
+	protected void onPause() {
+		Log.v(TAG, "onPause()");
+		
+		if( mEngineReady )
+		{
+			// let engine save all configs before exiting.
+			nativeOnPause();
+		
+			// wait until Xash will save all configs
+			mSurface.engineThreadWait();
+
+		}
+		
+		super.onPause();
+	}
+
+	@Override
+	protected void onResume() {
+		Log.v(TAG, "onResume()");
+		super.onResume();
+	}
+	
+	@Override
+	protected void onStop() {
+		Log.v(TAG, "onStop()");
+		
+		if( mEngineReady )
+		{
+			// let engine properly exit, instead of killing it's thread
+			nativeOnStop();
+		
+			// wait for engine
+			mSurface.engineThreadWait();
+		}
+		
+		super.onStop();
+	}
+	
+	@Override
+	protected void onDestroy() {
+		Log.v(TAG, "onStop()");
+		
+		if( mEngineReady )
+		{
+			// let engine a chance to properly exit
+			nativeOnDestroy();
+		
+			// wait until Xash will exit
+			mSurface.engineThreadJoin();
+		}
+		
+		
+		super.onDestroy();
+	}
+	
+	@Override
+	public void onWindowFocusChanged(boolean hasFocus) 
+	{
+		super.onWindowFocusChanged(hasFocus);
+
+		if( mImmersiveMode != null )
+			mImmersiveMode.apply();
 	}
 	
 	public void setFolderAsk( Boolean b )
@@ -247,7 +292,7 @@ public class XashActivity extends Activity {
 	{
 		SharedPreferences.Editor editor = mPref.edit();
 		
-		editor.putBoolean( "basedir", baseDir );
+		editor.putString( "basedir", baseDir );
 		editor.commit();
 	}
 	
@@ -261,10 +306,12 @@ public class XashActivity extends Activity {
 	
 	private void checkWritePermission( String basedir )
 	{
-		if( !nativeTestWritePermission( basedir ) )
+		Log.v(TAG, "Checking write permissions...");
+
+		if( nativeTestWritePermission( basedir ) == 0 )
 		{
-			Object lock = new Object;
-		
+			Log.v(TAG, "First check has failed!");
+			
 			if( sdk > 20 )
 			{
 				// OPEN_DOCUMENT_TREE
@@ -278,8 +325,7 @@ public class XashActivity extends Activity {
 							public void onClick(DialogInterface dialog, int whichButton) 
 							{
 								Intent intent = new Intent("android.intent.action.OPEN_DOCUMENT_TREE");
-								intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-								getActivity().startActivityForResult(intent, OPEN_DOCUMENT_TREE_RESULT);
+								XashActivity.this.startActivityForResult(intent, OPEN_DOCUMENT_TREE_RESULT);
 							}
 						})
 					.setCancelable(false)
@@ -297,7 +343,7 @@ public class XashActivity extends Activity {
 						{
 							public void onClick(DialogInterface dialog, int whichButton) 
 							{
-								XashActivity act = (XashActivity)getActivity();
+								XashActivity act = XashActivity.this;
 								act.setFolderAsk( true );
 								act.finish();
 							}
@@ -318,7 +364,7 @@ public class XashActivity extends Activity {
 						{
 							public void onClick(DialogInterface dialog, int whichButton) 
 							{
-								XashActivity act = (XashActivity)getActivity();
+								XashActivity act = XashActivity.this;
 								act.setFolderAsk( true );
 								act.finish();
 							}
@@ -336,10 +382,11 @@ public class XashActivity extends Activity {
 	
 	private void launchSurfaceAndEngine()
 	{
+		Log.v(TAG, "Everything is OK. Launching engine...");
+
 		setupEnvironment();
 		InstallReceiver.extractPAK(this, false);
 
-	
 		// Set up the surface
 		mSurface = new EngineSurface(getApplication());
 
@@ -350,6 +397,28 @@ public class XashActivity extends Activity {
 		SurfaceHolder holder = mSurface.getHolder();
 		holder.setType(SurfaceHolder.SURFACE_TYPE_GPU);
 
+				if( sdk < 12 ) 
+			handler = new JoystickHandler();
+		else 
+			handler = new JoystickHandler_v12();
+		handler.init();
+		
+		mPixelFormat = mPref.getInt("pixelformat", 0);
+		mUseVolume = mPref.getBoolean("usevolume", false);
+		if( mPref.getBoolean("enableResizeWorkaround", true) )
+			AndroidBug5497Workaround.assistActivity(this);
+		
+		// Immersive Mode is available only at >KitKat
+		Boolean enableImmersive = (sdk >= 19) && (mPref.getBoolean("immersive_mode", true));
+		if( enableImmersive )
+			mImmersiveMode = new ImmersiveMode_v19();
+			
+		mDecorView = getWindow().getDecorView();
+		
+		mVibrator = (Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
+		mHasVibrator = ( mVibrator != null ) && ( mVibrator.hasVibrator() );
+
+		mEngineReady = true;
 	}
 	
 	private void setupEnvironment()
@@ -390,61 +459,7 @@ public class XashActivity extends Activity {
 			}
 		}
 	}
-	
-	// Events
-	@Override
-	protected void onPause() {
-		Log.v(TAG, "onPause()");
-		
-		// let engine save all configs before exiting.
-		nativeOnPause();
-		
-		// wait until Xash will save all configs
-		mSurface.engineThreadWait();
 
-		super.onPause();
-	}
-
-	@Override
-	protected void onResume() {
-		Log.v(TAG, "onResume()");
-		super.onResume();
-	}
-	
-	@Override
-	protected void onStop() {
-		Log.v(TAG, "onStop()");
-		
-		// let engine properly exit, instead of killing it's thread
-		nativeOnStop();
-		
-		// wait for engine
-		mSurface.engineThreadWait();
-		
-		super.onStop();
-	}
-	
-	@Override
-	protected void onDestroy() {
-		Log.v(TAG, "onStop()");
-		
-		// let engine a chance to properly exit
-		nativeOnDestroy();
-		
-		// wait until Xash will exit
-		mSurface.engineThreadJoin();
-		
-		super.onDestroy();
-	}
-	
-	@Override
-	public void onWindowFocusChanged(boolean hasFocus) 
-	{
-		super.onWindowFocusChanged(hasFocus);
-
-		if( mImmersiveMode != null )
-			mImmersiveMode.apply();
-	}
 
 	public static native int  nativeInit(Object arguments);
 	public static native void nativeQuit();
