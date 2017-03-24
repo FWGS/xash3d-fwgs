@@ -1,4 +1,4 @@
-ANDROID_JAR=../android-13.jar
+ANDROID_JAR=../android-14_.jar
 AAPT=./../aapt
 DX=./../dx
 APKBUILDER=./../apkbuilder

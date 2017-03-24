@@ -155,15 +155,6 @@ public class XashActivity extends Activity {
 				setFolderAsk( false ); // don't ask on next run
 				Log.v(TAG, "Got new basedir from FPicker: " + newBaseDir );
 			}
-			else if( requestCode == OPEN_DOCUMENT_TREE_RESULT )
-			{
-				Uri uri = resultData.getData();
-				if( uri != null )
-				{
-					getContentResolver().takePersistableUriPermission(uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION );
-				}
-			}
 		}
 	}
 	
@@ -235,34 +226,41 @@ public class XashActivity extends Activity {
 	@Override
 	protected void onResume() {
 		Log.v(TAG, "onResume()");
+
+		if( mEngineReady )
+			nativeOnResume();
+
 		super.onResume();
 	}
 	
 	@Override
 	protected void onStop() {
 		Log.v(TAG, "onStop()");
-		
+		/*
 		if( mEngineReady )
 		{
+			nativeSetPause(0);
 			// let engine properly exit, instead of killing it's thread
 			nativeOnStop();
 		
 			// wait for engine
 			mSurface.engineThreadWait();
 		}
-		
+*/
 		super.onStop();
 	}
 	
 	@Override
 	protected void onDestroy() {
-		Log.v(TAG, "onStop()");
+		Log.v(TAG, "onDestroy()");
 		
 		if( mEngineReady )
 		{
+			nativeUnPause();
 			// let engine a chance to properly exit
 			nativeOnDestroy();
-		
+			
+			//mSurface.engineThreadWait();
 			// wait until Xash will exit
 			mSurface.engineThreadJoin();
 		}
@@ -274,6 +272,9 @@ public class XashActivity extends Activity {
 	@Override
 	public void onWindowFocusChanged(boolean hasFocus) 
 	{
+
+		if( mEngineReady )
+			nativeOnFocusChange();
 		super.onWindowFocusChanged(hasFocus);
 
 		if( mImmersiveMode != null )
@@ -418,6 +419,8 @@ public class XashActivity extends Activity {
 		mVibrator = (Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
 		mHasVibrator = ( mVibrator != null ) && ( mVibrator.hasVibrator() );
 
+		startService(new Intent(getBaseContext(), XashService.class));
+
 		mEngineReady = true;
 	}
 	
@@ -469,8 +472,10 @@ public class XashActivity extends Activity {
 	public static native void nativeString( String text );
 	public static native void nativeSetPause(int pause);
 	public static native void nativeOnDestroy();
-	public static native void nativeOnStop();
+	public static native void nativeOnResume();
+	public static native void nativeOnFocusChange();
 	public static native void nativeOnPause();
+	public static native void nativeUnPause();
 	public static native void nativeHat(int id, byte hat, byte keycode, boolean down);
 	public static native void nativeAxis(int id, byte axis, short value);
 	public static native void nativeJoyButton(int id, byte button, boolean down);
@@ -764,6 +769,7 @@ public class XashActivity extends Activity {
 	}
 
 }
+
 
 /**
  Simple nativeInit() runnable
