@@ -31,8 +31,8 @@ else
  git add .
  git commit -m "Laterst travis deploy $TRAVIS_COMMIT"
  git checkout -b $SOURCE_NAME-$TRAVIS_BRANCH
- git push -q --force travis-deploy-public $SOURCE_NAME-$TRAVIS_BRANCH
+ git push -q --force travis-deploy-public $SOURCE_NAME-$TRAVIS_BRANCH > /dev/null 2>/dev/null
  git checkout -b $SOURCE_NAME-latest
- git push -q --force travis-deploy-public $SOURCE_NAME-latest
+ git push -q --force travis-deploy-public $SOURCE_NAME-latest > /dev/null 2>/dev/null
 fi
 exit 0
