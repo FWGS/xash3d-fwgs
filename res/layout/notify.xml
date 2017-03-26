@@ -3,12 +3,12 @@
 
         android:layout_width="fill_parent"
         android:layout_height="65sp"
-        android:orientation="horizontal" >
+		android:orientation="horizontal">
 
         <ImageView
           android:id="@+id/status_image"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
+		  android:layout_width="32sp"
+		  android:layout_height="32sp"
           android:src="@drawable/ic_launcher"
           android:layout_weight="00"
           android:layout_gravity="center_vertical" />
@@ -22,7 +22,7 @@
           android:singleLine="true"
           android:layout_weight="90"
           android:text="Xash3D"
-          android:layout_gravity="center_vertical" />
+		  android:layout_gravity="center_vertical"/>
          <Button
     android:id="@+id/status_exit_button"
     android:layout_width="wrap_content"
@@ -30,5 +30,5 @@
     android:text="Exit"
     android:layout_weight="0"
     android:layout_alignParentLeft="true"
-    android:layout_gravity="center_vertical" />
+	android:layout_gravity="center_vertical" />
       </LinearLayout>

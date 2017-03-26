@@ -53,8 +53,9 @@ public class XashActivity extends Activity {
 	public static ImmersiveMode mImmersiveMode;
 	public static boolean keyboardVisible = false;
 	public static boolean mEngineReady = false;
-	
-	private static Vibrator mVibrator;
+	public static boolean mEnginePaused = false;
+	public static Vibrator mVibrator;
+
 	private static boolean mHasVibrator;
 	private int mReturingWithResultCode = 0;
 	
@@ -88,7 +89,6 @@ public class XashActivity extends Activity {
 		System.loadLibrary("xash");
 	}
 
-	
 	// Setup
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -229,6 +229,8 @@ public class XashActivity extends Activity {
 
 		if( mEngineReady )
 			nativeOnResume();
+
+		mEnginePaused = false;
 
 		super.onResume();
 	}
@@ -417,9 +419,13 @@ public class XashActivity extends Activity {
 		mDecorView = getWindow().getDecorView();
 		
 		mVibrator = (Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
-		mHasVibrator = ( mVibrator != null ) && ( mVibrator.hasVibrator() );
 
-		startService(new Intent(getBaseContext(), XashService.class));
+		mHasVibrator = ( mVibrator != null );
+		if( sdk >= 11 )
+			mHasVibrator = ( mVibrator != null ) && ( handler.hasVibrator() );
+
+		if( sdk >= 5 )
+			startService(new Intent(getBaseContext(), XashService.class));
 
 		mEngineReady = true;
 	}
@@ -768,6 +774,37 @@ public class XashActivity extends Activity {
 		mSingleton.runOnUiThread(new ShowTextInputTask(show));
 	}
 
+	public static void setIcon(String path)
+	{
+		Log.v(TAG,"setIcon("+path+")");
+		if( sdk < 5 )
+			return;
+		try{
+			BitmapFactory.Options o = new BitmapFactory.Options();
+			o.inJustDecodeBounds = true;
+			Bitmap icon = BitmapFactory.decodeFile(path,o);
+			if( icon.getWidth() < 16 )
+				return;
+			XashService.notification.contentView.setImageViewUri (XashService.status_image, Uri.parse("file://"+path));
+			((NotificationManager) mSingleton.getApplicationContext()
+							.getSystemService(Context.NOTIFICATION_SERVICE)).notify(100,XashService.notification);
+			}
+		catch( Exception e)
+		{
+		}
+	}
+
+	public static void setTitle(String title)
+	{
+		Log.v(TAG,"setTitle("+title+")");
+		if( sdk < 5 )
+			return;
+		XashService.notification.contentView.setTextViewText(XashService.status_text, title);
+		((NotificationManager) mSingleton.getApplicationContext()
+						.getSystemService(Context.NOTIFICATION_SERVICE)).notify(100,XashService.notification);
+
+	}
+
 }
 
 
@@ -827,6 +864,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 		if( mEGL == null )
 			return;
 		XashActivity.nativeSetPause(0);
+		XashActivity.mEnginePaused = false;
 	}
 
 	// Called when we lose the surface
@@ -1298,5 +1336,146 @@ class ImmersiveMode_v19 extends ImmersiveMode
 		else
 			XashActivity.mDecorView.setSystemUiVisibility( 0 );
 
+	}
+}
+
+class JoystickHandler
+{
+	public int getSource(KeyEvent event)
+	{
+		return InputDevice.SOURCE_UNKNOWN;
+	}
+	public int getSource(MotionEvent event)
+	{
+		return InputDevice.SOURCE_UNKNOWN;
+	}
+	public boolean handleAxis(MotionEvent event)
+	{
+		return false;
+	}
+	public boolean isGamepadButton(int keyCode)
+	{
+		return false;
+	}
+	public String keyCodeToString(int keyCode)
+	{
+		return String.valueOf(keyCode);
+	}
+	public void init()
+	{
+	}
+	public boolean hasVibrator()
+	{
+		return true;
+	}
+}
+
+class JoystickHandler_v12 extends JoystickHandler
+{
+	private static float prevSide, prevFwd, prevYaw, prevPtch, prevLT, prevRT, prevHX, prevHY;
+
+	@Override
+	public void init()
+	{
+		XashActivity.mSurface.setOnGenericMotionListener(new MotionListener());
+	}
+
+	@Override
+	public int getSource(KeyEvent event)
+	{
+		return event.getSource();
+	}
+
+	@Override
+	public int getSource(MotionEvent event)
+	{
+		return event.getSource();
+	}
+
+	@Override
+	public boolean handleAxis( MotionEvent event )
+	{
+		// how event can be from null device, Android?
+		final InputDevice device = event.getDevice();
+		if( device == null )
+			return false;
+
+		// maybe I need to cache this...
+		for( InputDevice.MotionRange range: device.getMotionRanges() )
+		{
+			// normalize in -1.0..1.0 (copied from SDL2)
+			final float cur = ( event.getAxisValue( range.getAxis(), event.getActionIndex() ) - range.getMin() ) / range.getRange() * 2.0f - 1.0f;
+			final float dead = range.getFlat(); // get axis dead zone
+			switch( range.getAxis() )
+			{
+			// typical axes
+			// move
+			case MotionEvent.AXIS_X:
+				prevSide = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_SIDE,  prevSide, dead);
+				break;
+			case MotionEvent.AXIS_Y:
+				prevFwd  = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_FWD,   prevFwd,  dead);
+				break;
+
+			// rotate. Invert, so by default this works as it's should
+			case MotionEvent.AXIS_Z:
+				prevPtch = XashActivity.performEngineAxisEvent(-cur, XashActivity.JOY_AXIS_PITCH, prevPtch, dead);
+				break;
+			case MotionEvent.AXIS_RZ:
+				prevYaw  = XashActivity.performEngineAxisEvent(-cur, XashActivity.JOY_AXIS_YAW,   prevYaw,  dead);
+				break;
+
+			// trigger
+			case MotionEvent.AXIS_RTRIGGER:
+				prevLT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_RT, prevLT,   dead);
+				break;
+			case MotionEvent.AXIS_LTRIGGER:
+				prevRT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_LT, prevRT,   dead);
+				break;
+
+			// hats
+			case MotionEvent.AXIS_HAT_X:
+				prevHX = XashActivity.performEngineHatEvent(cur, true, prevHX);
+				break;
+			case MotionEvent.AXIS_HAT_Y:
+				prevHY = XashActivity.performEngineHatEvent(cur, false, prevHY);
+				break;
+			}
+		}
+
+		return true;
+	}
+
+	@Override
+	public boolean isGamepadButton(int keyCode)
+	{
+		return KeyEvent.isGamepadButton(keyCode);
+	}
+
+	@Override
+	public String keyCodeToString(int keyCode)
+	{
+		return KeyEvent.keyCodeToString(keyCode);
+	}
+
+	class MotionListener implements View.OnGenericMotionListener
+	{
+		@Override
+		public boolean onGenericMotion(View view, MotionEvent event)
+		{
+			final int source = XashActivity.handler.getSource(event);
+			final int axisDevices = InputDevice.SOURCE_CLASS_JOYSTICK | InputDevice.SOURCE_GAMEPAD;
+			if( (source & axisDevices) != 0 )
+				return XashActivity.handler.handleAxis( event );
+			// TODO: Add it someday
+			// else if( (event.getSource() & InputDevice.SOURCE_CLASS_TRACKBALL) == InputDevice.SOURCE_CLASS_TRACKBALL )
+			//	return XashActivity.handleBall( event );
+			//return super.onGenericMotion( view, event );
+			return false;
+		}
+	}
+	public boolean hasVibrator()
+	{
+		return XashActivity.mVibrator.hasVibrator();
 	}
 }

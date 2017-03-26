@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+	  <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+
+		android:layout_width="fill_parent"
+		android:layout_height="65sp"
+		android:orientation="horizontal"
+		android:background="#FFFFFF">
+
+		<ImageView
+		  android:id="@+id/status_image_21"
+		  android:src="@drawable/ic_launcher"
+		  android:layout_weight="00"
+		  android:layout_gravity="center_vertical"
+		  android:layout_width="32sp"
+		  android:layout_height="32sp"/>
+
+		<TextView
+		  android:id="@+id/status_text_21"
+		  android:layout_width="wrap_content"
+		  android:layout_height="wrap_content"
+		  android:layout_alignParentTop="true"
+		  android:layout_marginLeft="10dip"
+		  android:singleLine="true"
+		  android:layout_weight="90"
+		  android:text="Xash3D"
+		  android:layout_gravity="center_vertical"
+		  android:textColor="#000000"/>
+		 <Button
+	android:id="@+id/status_exit_button_21"
+	android:layout_width="wrap_content"
+	android:layout_height="wrap_content"
+	android:text="Exit"
+	android:layout_weight="0"
+	android:layout_alignParentLeft="true"
+	android:layout_gravity="center_vertical" />
+	  </LinearLayout>
