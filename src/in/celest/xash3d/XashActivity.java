@@ -34,6 +34,7 @@ import in.celest.xash3d.hl.BuildConfig;
 import in.celest.xash3d.XashConfig;
 import in.celest.xash3d.JoystickHandler;
 import in.celest.xash3d.CertCheck;
+import android.provider.Settings.Secure;
 
 /**
  Xash Activity
@@ -805,6 +806,26 @@ public class XashActivity extends Activity {
 
 	}
 
+	public static String getAndroidID()
+	{
+		String str = Secure.getString( mSingleton.getContentResolver(), Secure.ANDROID_ID );
+		if( str == null )
+			return "";
+		return str;
+	}
+
+	public static String loadID()
+	{
+		return mPref.getString("xash_id", "");
+	}
+
+	public static void saveID(String id)
+	{
+		SharedPreferences.Editor editor = mPref.edit();
+
+		editor.putString( "xash_id", id );
+		editor.commit();
+	}
 }
 
 
