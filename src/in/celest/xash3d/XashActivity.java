@@ -26,6 +26,7 @@ import android.database.*;
 import android.view.inputmethod.*;
 
 import java.lang.*;
+import java.lang.reflect.*;
 import java.util.List;
 import java.security.MessageDigest;
 
@@ -487,6 +488,7 @@ public class XashActivity extends Activity {
 	public static native void nativeAxis(int id, byte axis, short value);
 	public static native void nativeJoyButton(int id, byte button, boolean down);
 	public static native int  nativeTestWritePermission( String path );
+	public static native void nativeMouseMove( float x, float y );
 	
 	// for future expansion
 	public static native void nativeBall(int id, byte ball, short xrel, short yrel);
@@ -825,6 +827,11 @@ public class XashActivity extends Activity {
 
 		editor.putString( "xash_id", id );
 		editor.commit();
+	}
+
+	public static void showMouse( int show )
+	{
+		handler.showMouse( show != 0 );
 	}
 }
 
@@ -1389,16 +1396,71 @@ class JoystickHandler
 	{
 		return true;
 	}
+	public void showMouse( boolean show )
+	{
+	}
+}
+
+class Wrap_NVMouseExtensions{
+   private static Object inputManager;
+   private static Method mInputManager_setCursorVisibility;
+   private static int nMotionEvent_AXIS_RELATIVE_X = 0;
+   private static int nMotionEvent_AXIS_RELATIVE_Y = 0;
+
+
+   //**************************************************************************
+   static {
+	  try { mInputManager_setCursorVisibility =
+			Class.forName("android.hardware.input.InputManager").getMethod("setCursorVisibility", boolean.class);
+			inputManager = XashActivity.mSingleton.getSystemService("input");
+	  }
+	  catch (Exception ex) { }
+
+
+
+
+	  /* DO THE SAME FOR RELATIVEY */
+   }
+   //**************************************************************************
+   public static void checkAvailable() throws Exception {
+	 Field fieldMotionEvent_AXIS_RELATIVE_X = MotionEvent.class.getField("AXIS_RELATIVE_X");
+	 nMotionEvent_AXIS_RELATIVE_X = (Integer)fieldMotionEvent_AXIS_RELATIVE_X.get(null);
+	Field fieldMotionEvent_AXIS_RELATIVE_Y = MotionEvent.class.getField("AXIS_RELATIVE_Y");
+	nMotionEvent_AXIS_RELATIVE_Y = (Integer)fieldMotionEvent_AXIS_RELATIVE_Y.get(null);
+
+	};
+
+   //**************************************************************************
+   public static void setCursorVisibility(boolean fVisibility) {
+	  try { mInputManager_setCursorVisibility.invoke(inputManager, fVisibility); }
+	  catch (Exception e)
+	{
+	}
+   }
+
+   //**************************************************************************
+   public static int getAxisRelativeX() { return nMotionEvent_AXIS_RELATIVE_X; };
+   public static int getAxisRelativeY() { return nMotionEvent_AXIS_RELATIVE_Y; };
 }
 
 class JoystickHandler_v12 extends JoystickHandler
 {
 	private static float prevSide, prevFwd, prevYaw, prevPtch, prevLT, prevRT, prevHX, prevHY;
 
+	public static boolean mNVMouseExtensions = false;
+
+	static {
+	   try { Wrap_NVMouseExtensions.checkAvailable();
+			 mNVMouseExtensions = true;
+	   }
+	   catch (Throwable t) { mNVMouseExtensions = false; }
+	}
+
 	@Override
 	public void init()
 	{
 		XashActivity.mSurface.setOnGenericMotionListener(new MotionListener());
+		Log.d(XashActivity.TAG, "mNVMouseExtensions = " + mNVMouseExtensions );
 	}
 
 	@Override
@@ -1488,6 +1550,15 @@ class JoystickHandler_v12 extends JoystickHandler
 			final int axisDevices = InputDevice.SOURCE_CLASS_JOYSTICK | InputDevice.SOURCE_GAMEPAD;
 			if( (source & axisDevices) != 0 )
 				return XashActivity.handler.handleAxis( event );
+			if( (source & InputDevice.SOURCE_MOUSE) != 0 && mNVMouseExtensions )
+			{
+				float x = event.getAxisValue(Wrap_NVMouseExtensions.getAxisRelativeX(), 0);
+				float y = event.getAxisValue(Wrap_NVMouseExtensions.getAxisRelativeY(), 0);
+
+				XashActivity.nativeMouseMove( x, y );
+				Log.v("XashInput", "MouseMove: " +x + " " + y );
+				return true;
+			}
 			// TODO: Add it someday
 			// else if( (event.getSource() & InputDevice.SOURCE_CLASS_TRACKBALL) == InputDevice.SOURCE_CLASS_TRACKBALL )
 			//	return XashActivity.handleBall( event );
@@ -1498,5 +1569,10 @@ class JoystickHandler_v12 extends JoystickHandler
 	public boolean hasVibrator()
 	{
 		return XashActivity.mVibrator.hasVibrator();
+	}
+	public void showMouse( boolean show )
+	{
+		if( mNVMouseExtensions )
+			Wrap_NVMouseExtensions.setCursorVisibility( show );
 	}
 }
