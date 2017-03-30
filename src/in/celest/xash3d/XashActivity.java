@@ -57,6 +57,7 @@ public class XashActivity extends Activity {
 	public static boolean mEngineReady = false;
 	public static boolean mEnginePaused = false;
 	public static Vibrator mVibrator;
+	public static boolean fMouseShown = true;
 
 	private static boolean mHasVibrator;
 	private int mReturingWithResultCode = 0;
@@ -831,6 +832,7 @@ public class XashActivity extends Activity {
 
 	public static void showMouse( int show )
 	{
+		fMouseShown = show != 0;
 		handler.showMouse( show != 0 );
 	}
 }
@@ -1229,6 +1231,8 @@ class EngineTouchListener_v1 implements View.OnTouchListener{
 }
 
 class EngineTouchListener_v5 implements View.OnTouchListener{
+	float lx=0, ly=0;
+	boolean secondarypressed = false;
 	// Touch events
 	public boolean onTouch(View v, MotionEvent event)
 	{
@@ -1239,8 +1243,19 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 		int mouseButton;
 		int i = -1;
 		float x,y;
+
 			switch(action) {
 				case MotionEvent.ACTION_MOVE:
+					if( !XashActivity.fMouseShown && (XashActivity.handler.getSource(event) & InputDevice.SOURCE_MOUSE) != 0 )
+					{
+						x = event.getX();
+						y = event.getY();
+
+						XashActivity.nativeMouseMove(x - lx, y -ly);
+						lx = x;
+						ly = y;
+						return;
+					}
 					for (i = 0; i < pointerCount; i++) {
 						pointerFingerId = event.getPointerId(i);
 						x = event.getX(i);
@@ -1248,13 +1263,32 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 						XashActivity.nativeTouch(pointerFingerId, 2, x, y);
 					}
 					break;
-
-				case MotionEvent.ACTION_UP:
-				case MotionEvent.ACTION_DOWN:
-					// Primary pointer up/down, the index is always zero
-					i = 0;
 				case MotionEvent.ACTION_POINTER_UP:
 				case MotionEvent.ACTION_POINTER_DOWN:
+				case MotionEvent.ACTION_UP:
+				case MotionEvent.ACTION_DOWN:
+					 if( !XashActivity.fMouseShown && (XashActivity.handler.getSource(event) & InputDevice.SOURCE_MOUSE) != 0 )
+					 {
+						lx = event.getX();
+						ly = event.getY();
+						boolean down = action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN;
+						if( down && (event.getButtonState() & MotionEvent.BUTTON_SECONDARY) != 0 )
+						{
+							XashActivity.nativeKey( 1,-243 );
+							secondarypressed = true;
+							return true;
+						}
+						else if( !down && secondarypressed  && (event.getButtonState() & MotionEvent.BUTTON_SECONDARY) == 0 )
+						{
+							secondarypressed = false;
+							XashActivity.nativeKey( 0,-243 );
+							return true;
+						}
+						XashActivity.nativeKey( down?1:0,-241 );
+						return true;
+					}
+					i = 0;
+
 					// Non primary pointer up/down
 					if (i == -1) {
 						i = event.getActionIndex();
@@ -1404,8 +1438,8 @@ class JoystickHandler
 class Wrap_NVMouseExtensions{
    private static Object inputManager;
    private static Method mInputManager_setCursorVisibility;
-   private static int nMotionEvent_AXIS_RELATIVE_X = 0;
-   private static int nMotionEvent_AXIS_RELATIVE_Y = 0;
+   public static int nMotionEvent_AXIS_RELATIVE_X = 0;
+   public static int nMotionEvent_AXIS_RELATIVE_Y = 0;
 
 
    //**************************************************************************
@@ -1548,17 +1582,35 @@ class JoystickHandler_v12 extends JoystickHandler
 		{
 			final int source = XashActivity.handler.getSource(event);
 			final int axisDevices = InputDevice.SOURCE_CLASS_JOYSTICK | InputDevice.SOURCE_GAMEPAD;
-			if( (source & axisDevices) != 0 )
-				return XashActivity.handler.handleAxis( event );
+
 			if( (source & InputDevice.SOURCE_MOUSE) != 0 && mNVMouseExtensions )
 			{
 				float x = event.getAxisValue(Wrap_NVMouseExtensions.getAxisRelativeX(), 0);
 				float y = event.getAxisValue(Wrap_NVMouseExtensions.getAxisRelativeY(), 0);
+				switch (event.getAction()) {
+				  case MotionEvent.ACTION_SCROLL:
+					if (event.getAxisValue(MotionEvent.AXIS_VSCROLL) < 0.0f)
+					{
+					  XashActivity.nativeKey(1,-239);
+					  XashActivity.nativeKey(0,-239);
+					  return true;
+					}
+					else
+					  {
+						XashActivity.nativeKey(1,-240);
+						XashActivity.nativeKey(0,-240);
+					  }
+					return true;
+				}
 
 				XashActivity.nativeMouseMove( x, y );
 				Log.v("XashInput", "MouseMove: " +x + " " + y );
 				return true;
 			}
+
+			if( (source & axisDevices) != 0 )
+				return XashActivity.handler.handleAxis( event );
+
 			// TODO: Add it someday
 			// else if( (event.getSource() & InputDevice.SOURCE_CLASS_TRACKBALL) == InputDevice.SOURCE_CLASS_TRACKBALL )
 			//	return XashActivity.handleBall( event );
