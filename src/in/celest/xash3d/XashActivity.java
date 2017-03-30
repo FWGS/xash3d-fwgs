@@ -403,10 +403,12 @@ public class XashActivity extends Activity {
 		SurfaceHolder holder = mSurface.getHolder();
 		holder.setType(SurfaceHolder.SURFACE_TYPE_GPU);
 
-				if( sdk < 12 ) 
-			handler = new JoystickHandler();
-		else 
+		if( sdk >= 14 )
+			handler = new JoystickHandler_v14();
+		else if( sdk >= 12 )
 			handler = new JoystickHandler_v12();
+		else 
+			handler = new JoystickHandler();
 		handler.init();
 		
 		mPixelFormat = mPref.getInt("pixelformat", 0);
@@ -1272,13 +1274,14 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 						lx = event.getX();
 						ly = event.getY();
 						boolean down = action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN;
-						if( down && (event.getButtonState() & MotionEvent.BUTTON_SECONDARY) != 0 )
+						int buttonState = XashActivity.handler.getButtonState( event );
+						if( down && (buttonState & MotionEvent.BUTTON_SECONDARY) != 0 )
 						{
 							XashActivity.nativeKey( 1,-243 );
 							secondarypressed = true;
 							return true;
 						}
-						else if( !down && secondarypressed  && (event.getButtonState() & MotionEvent.BUTTON_SECONDARY) == 0 )
+						else if( !down && secondarypressed  && (buttonState & MotionEvent.BUTTON_SECONDARY) == 0 )
 						{
 							secondarypressed = false;
 							XashActivity.nativeKey( 0,-243 );
@@ -1432,6 +1435,10 @@ class JoystickHandler
 	}
 	public void showMouse( boolean show )
 	{
+	}
+	public int getButtonState( MotionEvent event)
+	{
+		return 0;
 	}
 }
 
@@ -1628,3 +1635,11 @@ class JoystickHandler_v12 extends JoystickHandler
 			Wrap_NVMouseExtensions.setCursorVisibility( show );
 	}
 }
+
+class JoystickHandler_v14 extends JoystickHandler_v12
+{
+	public int getButtonState( MotionEvent event )
+	{
+		return event.getButtonState();
+	}
+};
