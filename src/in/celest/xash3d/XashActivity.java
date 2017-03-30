@@ -1254,7 +1254,7 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 						XashActivity.nativeMouseMove(x - lx, y -ly);
 						lx = x;
 						ly = y;
-						return;
+						return true;
 					}
 					for (i = 0; i < pointerCount; i++) {
 						pointerFingerId = event.getPointerId(i);
