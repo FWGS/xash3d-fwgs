@@ -1265,8 +1265,6 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 						XashActivity.nativeTouch(pointerFingerId, 2, x, y);
 					}
 					break;
-				case MotionEvent.ACTION_POINTER_UP:
-				case MotionEvent.ACTION_POINTER_DOWN:
 				case MotionEvent.ACTION_UP:
 				case MotionEvent.ACTION_DOWN:
 					 if( !XashActivity.fMouseShown && (XashActivity.handler.getSource(event) & InputDevice.SOURCE_MOUSE) != 0 )
@@ -1291,6 +1289,9 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 						return true;
 					}
 					i = 0;
+
+				case MotionEvent.ACTION_POINTER_UP:
+				case MotionEvent.ACTION_POINTER_DOWN:
 
 					// Non primary pointer up/down
 					if (i == -1) {
