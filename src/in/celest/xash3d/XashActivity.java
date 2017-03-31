@@ -173,7 +173,7 @@ public class XashActivity extends Activity {
 				String basedir = mPref.getString( "basedir", "/sdcard/xash/" );
 				checkWritePermission( basedir );
 			}
-			else if( mReturingWithResultCode == OPEN_DOCUMENT_TREE_RESULT )
+			/*else if( mReturingWithResultCode == OPEN_DOCUMENT_TREE_RESULT )
 			{
 				String basedir = getStringExtraFromIntent( getIntent(), "basedir", mPref.getString("basedir","/sdcard/xash/"));
 				Log.v(TAG, "Got permissions. Checking writing again...");
@@ -202,7 +202,7 @@ public class XashActivity extends Activity {
 				{
 					launchSurfaceAndEngine();
 				}
-			}
+			}*/
 			
 			mReturingWithResultCode = 0;
 		}
@@ -320,18 +320,19 @@ public class XashActivity extends Activity {
 			
 			if( sdk > 20 )
 			{
-				// OPEN_DOCUMENT_TREE
-				
-				// first try
+				// 5.0 and higher _allows_ writing to SD card, but have broken fopen() call. So, no Xash here. F*ck you, Google!
+				String msg = getString(R.string.lollipop_write_fail_msg) + getString(R.string.ask_about_new_basedir_msg);
+
 				new AlertDialog.Builder(this)
 					.setTitle( R.string.write_failed )
-					.setMessage( R.string.lollipop_request_permission_msg )
-					.setPositiveButton( R.string.lollipop_select_folder_btn, new DialogInterface.OnClickListener() 
+					.setMessage( msg )
+					.setPositiveButton( R.string.ok, new DialogInterface.OnClickListener() 
 						{
 							public void onClick(DialogInterface dialog, int whichButton) 
 							{
-								Intent intent = new Intent("android.intent.action.OPEN_DOCUMENT_TREE");
-								XashActivity.this.startActivityForResult(intent, OPEN_DOCUMENT_TREE_RESULT);
+								XashActivity act = XashActivity.this;
+								act.setFolderAsk( true );
+								act.finish();
 							}
 						})
 					.setCancelable(false)

@@ -54,4 +54,17 @@
 	<string name="cancel">Отмена</string>
 	<string name="no_updates">Обновления не найдены</string>
 	<string name="checking_updates">Работаю...</string>
+	<string name="immersive_mode">Включить Immersive Mode(Полноэкранный режим, для KitKat и старше)</string>
+	
+	<string name="write_failed">Тест чтения не удался</string>
+	
+	<string name="ask_about_new_basedir_msg">Переместите файлы игры куда-нибудь ещё. Например, в Android/data/in.celest.xash3d.hl или во внутренюю память. На следующий запуск я снова спрошу местоположение файлов игры.</string>
+	<!-- <string name="lollipop_select_folder_btn">Select folder</string> -->
+	
+	<!-- These strings must be concat with a "ask_about_new_basedir" string -->
+	<string name="lollipop_request_permission_fail_msg">Тест записи не удался дважды. </string>
+	<string name="lollipop_write_fail_msg">Из-за политик записи в новых версиях Android, полноценно воспользоваться внешней памятью невозможно. </string>
+	<string name="kitkat_write_fail_msg">Из-за политик записи Android 4.4, вы не можете воспользоваться внешней памятью. </string>
+	<string name="readonly_fs_fail_msg">Похоже, ваша файловая система в режиме только для чтения. </string>
+
 </resources>
