@@ -5,8 +5,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="in.celest.xash3d.hl.test"
       android:versionCode="1"
-      android:versionName="0.18.1-beta"
-      android:installLocation="auto">
+	  android:versionName="0.19"
+	  android:installLocation="auto">
 
     <!-- Create a Java class extending SDLActivity and place it in a
          directory under src matching the package, e.g.
@@ -77,13 +77,16 @@
 		android:screenOrientation="sensorLandscape"
 		android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
 		android:windowSoftInputMode="adjustResize"
-		android:label="@string/app_name">
+		android:label="@string/app_name"
+		android:launchMode="singleTask">
                <intent-filter>
                         <action android:name="in.celest.xash3d.START" />
                         <category android:name="android.intent.category.DEFAULT" />
                 </intent-filter>
 	</activity>
-		<receiver android:name="in.celest.xash3d.InstallReceiver">
+	<service android:name="in.celest.xash3d.XashService" android:stopWithTask="false"/>
+	<receiver android:name="in.celest.xash3d.XashService$exitButtonListener" />
+	<receiver android:name="in.celest.xash3d.InstallReceiver">
 			<intent-filter android:priority="100">
 				<category android:name="android.intent.category.DEFAULT" />
 				<action android:name="android.intent.action.PACKAGE_ADDED"  />

@@ -26,6 +26,7 @@ import android.database.*;
 import android.view.inputmethod.*;
 
 import java.lang.*;
+import java.lang.reflect.*;
 import java.util.List;
 import java.security.MessageDigest;
 
@@ -34,6 +35,7 @@ import in.celest.xash3d.hl.BuildConfig;
 import in.celest.xash3d.XashConfig;
 import in.celest.xash3d.JoystickHandler;
 import in.celest.xash3d.CertCheck;
+import android.provider.Settings.Secure;
 
 /**
  Xash Activity
@@ -53,8 +55,10 @@ public class XashActivity extends Activity {
 	public static ImmersiveMode mImmersiveMode;
 	public static boolean keyboardVisible = false;
 	public static boolean mEngineReady = false;
-	
-	private static Vibrator mVibrator;
+	public static boolean mEnginePaused = false;
+	public static Vibrator mVibrator;
+	public static boolean fMouseShown = true;
+
 	private static boolean mHasVibrator;
 	private int mReturingWithResultCode = 0;
 	
@@ -88,7 +92,6 @@ public class XashActivity extends Activity {
 		System.loadLibrary("xash");
 	}
 
-	
 	// Setup
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -154,15 +157,6 @@ public class XashActivity extends Activity {
 				setNewBasedir( newBaseDir );
 				setFolderAsk( false ); // don't ask on next run
 				Log.v(TAG, "Got new basedir from FPicker: " + newBaseDir );
-			}
-			else if( requestCode == OPEN_DOCUMENT_TREE_RESULT )
-			{
-				Uri uri = resultData.getData();
-				if( uri != null )
-				{
-					getContentResolver().takePersistableUriPermission(uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION );
-				}
 			}
 		}
 	}
@@ -235,34 +229,43 @@ public class XashActivity extends Activity {
 	@Override
 	protected void onResume() {
 		Log.v(TAG, "onResume()");
+
+		if( mEngineReady )
+			nativeOnResume();
+
+		mEnginePaused = false;
+
 		super.onResume();
 	}
 	
 	@Override
 	protected void onStop() {
 		Log.v(TAG, "onStop()");
-		
+		/*
 		if( mEngineReady )
 		{
+			nativeSetPause(0);
 			// let engine properly exit, instead of killing it's thread
 			nativeOnStop();
 		
 			// wait for engine
 			mSurface.engineThreadWait();
 		}
-		
+*/
 		super.onStop();
 	}
 	
 	@Override
 	protected void onDestroy() {
-		Log.v(TAG, "onStop()");
+		Log.v(TAG, "onDestroy()");
 		
 		if( mEngineReady )
 		{
+			nativeUnPause();
 			// let engine a chance to properly exit
 			nativeOnDestroy();
-		
+			
+			//mSurface.engineThreadWait();
 			// wait until Xash will exit
 			mSurface.engineThreadJoin();
 		}
@@ -274,6 +277,9 @@ public class XashActivity extends Activity {
 	@Override
 	public void onWindowFocusChanged(boolean hasFocus) 
 	{
+
+		if( mEngineReady )
+			nativeOnFocusChange();
 		super.onWindowFocusChanged(hasFocus);
 
 		if( mImmersiveMode != null )
@@ -397,10 +403,12 @@ public class XashActivity extends Activity {
 		SurfaceHolder holder = mSurface.getHolder();
 		holder.setType(SurfaceHolder.SURFACE_TYPE_GPU);
 
-				if( sdk < 12 ) 
-			handler = new JoystickHandler();
-		else 
+		if( sdk >= 14 )
+			handler = new JoystickHandler_v14();
+		else if( sdk >= 12 )
 			handler = new JoystickHandler_v12();
+		else 
+			handler = new JoystickHandler();
 		handler.init();
 		
 		mPixelFormat = mPref.getInt("pixelformat", 0);
@@ -416,7 +424,13 @@ public class XashActivity extends Activity {
 		mDecorView = getWindow().getDecorView();
 		
 		mVibrator = (Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
-		mHasVibrator = ( mVibrator != null ) && ( mVibrator.hasVibrator() );
+
+		mHasVibrator = ( mVibrator != null );
+		if( sdk >= 11 )
+			mHasVibrator = ( mVibrator != null ) && ( handler.hasVibrator() );
+
+		if( sdk >= 5 )
+			startService(new Intent(getBaseContext(), XashService.class));
 
 		mEngineReady = true;
 	}
@@ -469,12 +483,15 @@ public class XashActivity extends Activity {
 	public static native void nativeString( String text );
 	public static native void nativeSetPause(int pause);
 	public static native void nativeOnDestroy();
-	public static native void nativeOnStop();
+	public static native void nativeOnResume();
+	public static native void nativeOnFocusChange();
 	public static native void nativeOnPause();
+	public static native void nativeUnPause();
 	public static native void nativeHat(int id, byte hat, byte keycode, boolean down);
 	public static native void nativeAxis(int id, byte axis, short value);
 	public static native void nativeJoyButton(int id, byte button, boolean down);
 	public static native int  nativeTestWritePermission( String path );
+	public static native void nativeMouseMove( float x, float y );
 	
 	// for future expansion
 	public static native void nativeBall(int id, byte ball, short xrel, short yrel);
@@ -763,7 +780,65 @@ public class XashActivity extends Activity {
 		mSingleton.runOnUiThread(new ShowTextInputTask(show));
 	}
 
+	public static void setIcon(String path)
+	{
+		Log.v(TAG,"setIcon("+path+")");
+		if( sdk < 5 )
+			return;
+		try{
+			BitmapFactory.Options o = new BitmapFactory.Options();
+			o.inJustDecodeBounds = true;
+			Bitmap icon = BitmapFactory.decodeFile(path,o);
+			if( icon.getWidth() < 16 )
+				return;
+			XashService.notification.contentView.setImageViewUri (XashService.status_image, Uri.parse("file://"+path));
+			((NotificationManager) mSingleton.getApplicationContext()
+							.getSystemService(Context.NOTIFICATION_SERVICE)).notify(100,XashService.notification);
+			}
+		catch( Exception e)
+		{
+		}
+	}
+
+	public static void setTitle(String title)
+	{
+		Log.v(TAG,"setTitle("+title+")");
+		if( sdk < 5 )
+			return;
+		XashService.notification.contentView.setTextViewText(XashService.status_text, title);
+		((NotificationManager) mSingleton.getApplicationContext()
+						.getSystemService(Context.NOTIFICATION_SERVICE)).notify(100,XashService.notification);
+
+	}
+
+	public static String getAndroidID()
+	{
+		String str = Secure.getString( mSingleton.getContentResolver(), Secure.ANDROID_ID );
+		if( str == null )
+			return "";
+		return str;
+	}
+
+	public static String loadID()
+	{
+		return mPref.getString("xash_id", "");
+	}
+
+	public static void saveID(String id)
+	{
+		SharedPreferences.Editor editor = mPref.edit();
+
+		editor.putString( "xash_id", id );
+		editor.commit();
+	}
+
+	public static void showMouse( int show )
+	{
+		fMouseShown = show != 0;
+		handler.showMouse( show != 0 );
+	}
 }
+
 
 /**
  Simple nativeInit() runnable
@@ -821,6 +896,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 		if( mEGL == null )
 			return;
 		XashActivity.nativeSetPause(0);
+		XashActivity.mEnginePaused = false;
 	}
 
 	// Called when we lose the surface
@@ -1157,6 +1233,8 @@ class EngineTouchListener_v1 implements View.OnTouchListener{
 }
 
 class EngineTouchListener_v5 implements View.OnTouchListener{
+	float lx=0, ly=0;
+	boolean secondarypressed = false;
 	// Touch events
 	public boolean onTouch(View v, MotionEvent event)
 	{
@@ -1167,8 +1245,19 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 		int mouseButton;
 		int i = -1;
 		float x,y;
+
 			switch(action) {
 				case MotionEvent.ACTION_MOVE:
+					if( !XashActivity.fMouseShown && (XashActivity.handler.getSource(event) & InputDevice.SOURCE_MOUSE) != 0 )
+					{
+						x = event.getX();
+						y = event.getY();
+
+						XashActivity.nativeMouseMove(x - lx, y -ly);
+						lx = x;
+						ly = y;
+						return true;
+					}
 					for (i = 0; i < pointerCount; i++) {
 						pointerFingerId = event.getPointerId(i);
 						x = event.getX(i);
@@ -1176,13 +1265,34 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 						XashActivity.nativeTouch(pointerFingerId, 2, x, y);
 					}
 					break;
-
 				case MotionEvent.ACTION_UP:
 				case MotionEvent.ACTION_DOWN:
-					// Primary pointer up/down, the index is always zero
+					 if( !XashActivity.fMouseShown && (XashActivity.handler.getSource(event) & InputDevice.SOURCE_MOUSE) != 0 )
+					 {
+						lx = event.getX();
+						ly = event.getY();
+						boolean down = action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN;
+						int buttonState = XashActivity.handler.getButtonState( event );
+						if( down && (buttonState & MotionEvent.BUTTON_SECONDARY) != 0 )
+						{
+							XashActivity.nativeKey( 1,-243 );
+							secondarypressed = true;
+							return true;
+						}
+						else if( !down && secondarypressed  && (buttonState & MotionEvent.BUTTON_SECONDARY) == 0 )
+						{
+							secondarypressed = false;
+							XashActivity.nativeKey( 0,-243 );
+							return true;
+						}
+						XashActivity.nativeKey( down?1:0,-241 );
+						return true;
+					}
 					i = 0;
+
 				case MotionEvent.ACTION_POINTER_UP:
 				case MotionEvent.ACTION_POINTER_DOWN:
+
 					// Non primary pointer up/down
 					if (i == -1) {
 						i = event.getActionIndex();
@@ -1294,3 +1404,243 @@ class ImmersiveMode_v19 extends ImmersiveMode
 
 	}
 }
+
+class JoystickHandler
+{
+	public int getSource(KeyEvent event)
+	{
+		return InputDevice.SOURCE_UNKNOWN;
+	}
+	public int getSource(MotionEvent event)
+	{
+		return InputDevice.SOURCE_UNKNOWN;
+	}
+	public boolean handleAxis(MotionEvent event)
+	{
+		return false;
+	}
+	public boolean isGamepadButton(int keyCode)
+	{
+		return false;
+	}
+	public String keyCodeToString(int keyCode)
+	{
+		return String.valueOf(keyCode);
+	}
+	public void init()
+	{
+	}
+	public boolean hasVibrator()
+	{
+		return true;
+	}
+	public void showMouse( boolean show )
+	{
+	}
+	public int getButtonState( MotionEvent event)
+	{
+		return 0;
+	}
+}
+
+class Wrap_NVMouseExtensions{
+   private static Object inputManager;
+   private static Method mInputManager_setCursorVisibility;
+   public static int nMotionEvent_AXIS_RELATIVE_X = 0;
+   public static int nMotionEvent_AXIS_RELATIVE_Y = 0;
+
+
+   //**************************************************************************
+   static {
+	  try { mInputManager_setCursorVisibility =
+			Class.forName("android.hardware.input.InputManager").getMethod("setCursorVisibility", boolean.class);
+			inputManager = XashActivity.mSingleton.getSystemService("input");
+	  }
+	  catch (Exception ex) { }
+
+
+
+
+	  /* DO THE SAME FOR RELATIVEY */
+   }
+   //**************************************************************************
+   public static void checkAvailable() throws Exception {
+	 Field fieldMotionEvent_AXIS_RELATIVE_X = MotionEvent.class.getField("AXIS_RELATIVE_X");
+	 nMotionEvent_AXIS_RELATIVE_X = (Integer)fieldMotionEvent_AXIS_RELATIVE_X.get(null);
+	Field fieldMotionEvent_AXIS_RELATIVE_Y = MotionEvent.class.getField("AXIS_RELATIVE_Y");
+	nMotionEvent_AXIS_RELATIVE_Y = (Integer)fieldMotionEvent_AXIS_RELATIVE_Y.get(null);
+
+	};
+
+   //**************************************************************************
+   public static void setCursorVisibility(boolean fVisibility) {
+	  try { mInputManager_setCursorVisibility.invoke(inputManager, fVisibility); }
+	  catch (Exception e)
+	{
+	}
+   }
+
+   //**************************************************************************
+   public static int getAxisRelativeX() { return nMotionEvent_AXIS_RELATIVE_X; };
+   public static int getAxisRelativeY() { return nMotionEvent_AXIS_RELATIVE_Y; };
+}
+
+class JoystickHandler_v12 extends JoystickHandler
+{
+	private static float prevSide, prevFwd, prevYaw, prevPtch, prevLT, prevRT, prevHX, prevHY;
+
+	public static boolean mNVMouseExtensions = false;
+
+	static {
+	   try { Wrap_NVMouseExtensions.checkAvailable();
+			 mNVMouseExtensions = true;
+	   }
+	   catch (Throwable t) { mNVMouseExtensions = false; }
+	}
+
+	@Override
+	public void init()
+	{
+		XashActivity.mSurface.setOnGenericMotionListener(new MotionListener());
+		Log.d(XashActivity.TAG, "mNVMouseExtensions = " + mNVMouseExtensions );
+	}
+
+	@Override
+	public int getSource(KeyEvent event)
+	{
+		return event.getSource();
+	}
+
+	@Override
+	public int getSource(MotionEvent event)
+	{
+		return event.getSource();
+	}
+
+	@Override
+	public boolean handleAxis( MotionEvent event )
+	{
+		// how event can be from null device, Android?
+		final InputDevice device = event.getDevice();
+		if( device == null )
+			return false;
+
+		// maybe I need to cache this...
+		for( InputDevice.MotionRange range: device.getMotionRanges() )
+		{
+			// normalize in -1.0..1.0 (copied from SDL2)
+			final float cur = ( event.getAxisValue( range.getAxis(), event.getActionIndex() ) - range.getMin() ) / range.getRange() * 2.0f - 1.0f;
+			final float dead = range.getFlat(); // get axis dead zone
+			switch( range.getAxis() )
+			{
+			// typical axes
+			// move
+			case MotionEvent.AXIS_X:
+				prevSide = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_SIDE,  prevSide, dead);
+				break;
+			case MotionEvent.AXIS_Y:
+				prevFwd  = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_FWD,   prevFwd,  dead);
+				break;
+
+			// rotate. Invert, so by default this works as it's should
+			case MotionEvent.AXIS_Z:
+				prevPtch = XashActivity.performEngineAxisEvent(-cur, XashActivity.JOY_AXIS_PITCH, prevPtch, dead);
+				break;
+			case MotionEvent.AXIS_RZ:
+				prevYaw  = XashActivity.performEngineAxisEvent(-cur, XashActivity.JOY_AXIS_YAW,   prevYaw,  dead);
+				break;
+
+			// trigger
+			case MotionEvent.AXIS_RTRIGGER:
+				prevLT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_RT, prevLT,   dead);
+				break;
+			case MotionEvent.AXIS_LTRIGGER:
+				prevRT = XashActivity.performEngineAxisEvent(cur, XashActivity.JOY_AXIS_LT, prevRT,   dead);
+				break;
+
+			// hats
+			case MotionEvent.AXIS_HAT_X:
+				prevHX = XashActivity.performEngineHatEvent(cur, true, prevHX);
+				break;
+			case MotionEvent.AXIS_HAT_Y:
+				prevHY = XashActivity.performEngineHatEvent(cur, false, prevHY);
+				break;
+			}
+		}
+
+		return true;
+	}
+
+	@Override
+	public boolean isGamepadButton(int keyCode)
+	{
+		return KeyEvent.isGamepadButton(keyCode);
+	}
+
+	@Override
+	public String keyCodeToString(int keyCode)
+	{
+		return KeyEvent.keyCodeToString(keyCode);
+	}
+
+	class MotionListener implements View.OnGenericMotionListener
+	{
+		@Override
+		public boolean onGenericMotion(View view, MotionEvent event)
+		{
+			final int source = XashActivity.handler.getSource(event);
+			final int axisDevices = InputDevice.SOURCE_CLASS_JOYSTICK | InputDevice.SOURCE_GAMEPAD;
+
+			if( (source & InputDevice.SOURCE_MOUSE) != 0 && mNVMouseExtensions )
+			{
+				float x = event.getAxisValue(Wrap_NVMouseExtensions.getAxisRelativeX(), 0);
+				float y = event.getAxisValue(Wrap_NVMouseExtensions.getAxisRelativeY(), 0);
+				switch (event.getAction()) {
+				  case MotionEvent.ACTION_SCROLL:
+					if (event.getAxisValue(MotionEvent.AXIS_VSCROLL) < 0.0f)
+					{
+					  XashActivity.nativeKey(1,-239);
+					  XashActivity.nativeKey(0,-239);
+					  return true;
+					}
+					else
+					  {
+						XashActivity.nativeKey(1,-240);
+						XashActivity.nativeKey(0,-240);
+					  }
+					return true;
+				}
+
+				XashActivity.nativeMouseMove( x, y );
+				Log.v("XashInput", "MouseMove: " +x + " " + y );
+				return true;
+			}
+
+			if( (source & axisDevices) != 0 )
+				return XashActivity.handler.handleAxis( event );
+
+			// TODO: Add it someday
+			// else if( (event.getSource() & InputDevice.SOURCE_CLASS_TRACKBALL) == InputDevice.SOURCE_CLASS_TRACKBALL )
+			//	return XashActivity.handleBall( event );
+			//return super.onGenericMotion( view, event );
+			return false;
+		}
+	}
+	public boolean hasVibrator()
+	{
+		return XashActivity.mVibrator.hasVibrator();
+	}
+	public void showMouse( boolean show )
+	{
+		if( mNVMouseExtensions )
+			Wrap_NVMouseExtensions.setCursorVisibility( show );
+	}
+}
+
+class JoystickHandler_v14 extends JoystickHandler_v12
+{
+	public int getButtonState( MotionEvent event )
+	{
+		return event.getButtonState();
+	}
+};
