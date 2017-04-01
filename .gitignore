@@ -1,6 +1,7 @@
 
 # Build data
-libs
+libs/armeabi*
+libs/x86
 obj
 bin
 gen
