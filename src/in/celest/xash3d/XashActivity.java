@@ -652,12 +652,12 @@ public class XashActivity extends Activity {
 				}
 			}
 
-			if( event.getAction() == KeyEvent.ACTION_DOWN )
+			if( action == KeyEvent.ACTION_DOWN )
 			{
 				nativeJoyButton( id, val, true );
 				return true;
 			}
-			else if( event.getAction() == KeyEvent.ACTION_UP )
+			else if( action == KeyEvent.ACTION_UP )
 			{
 				nativeJoyButton( id, val, false );
 				return true;
@@ -670,6 +670,9 @@ public class XashActivity extends Activity {
 
 	public static boolean performEngineKeyEvent( int action, int keyCode, KeyEvent event)
 	{
+		Log.v(TAG, "EngineKeyEvent( " + action +", " + keyCode +" "+ event.isCtrlPressed() +" )");
+
+
 		if( action == KeyEvent.ACTION_DOWN )
 		{
 			if( event.isPrintingKey() || keyCode == 62 )// space is printing too
@@ -681,6 +684,8 @@ public class XashActivity extends Activity {
 		}
 		else if( action == KeyEvent.ACTION_UP )
 		{
+			if( keyCode == 62 && event.isCtrlPressed() )
+				XashActivity.nativeKey( 1, keyCode );
 			XashActivity.nativeKey( 0, keyCode );
 			return true;
 		}
@@ -1134,6 +1139,12 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 		return XashActivity.handleKey( keyCode, event );
 	}
 
+	@Override
+	public boolean onKeyPreIme(int keyCode, KeyEvent event) {
+		Log.v(TAG, "PreIme: " + keyCode );
+		return super.dispatchKeyEvent(event);
+	}
+
 }
 
 /* This is a fake invisible editor view that receives the input and defines the
@@ -1249,7 +1260,7 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 
 			switch(action) {
 				case MotionEvent.ACTION_MOVE:
-					if( !XashActivity.fMouseShown && (XashActivity.handler.getSource(event) & InputDevice.SOURCE_MOUSE) != 0 )
+					if( (!XashActivity.fMouseShown) && ( (XashActivity.handler.getSource(event) & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE ) )
 					{
 						x = event.getX();
 						y = event.getY();
@@ -1268,7 +1279,7 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 					break;
 				case MotionEvent.ACTION_UP:
 				case MotionEvent.ACTION_DOWN:
-					 if( !XashActivity.fMouseShown && (XashActivity.handler.getSource(event) & InputDevice.SOURCE_MOUSE) != 0 )
+					 if( !XashActivity.fMouseShown && ( (XashActivity.handler.getSource(event) & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE ) )
 					 {
 						lx = event.getX();
 						ly = event.getY();
@@ -1592,7 +1603,7 @@ class JoystickHandler_v12 extends JoystickHandler
 			final int source = XashActivity.handler.getSource(event);
 			final int axisDevices = InputDevice.SOURCE_CLASS_JOYSTICK | InputDevice.SOURCE_GAMEPAD;
 
-			if( (source & InputDevice.SOURCE_MOUSE) != 0 && mNVMouseExtensions )
+			if( ( (source & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE ) && mNVMouseExtensions )
 			{
 				float x = event.getAxisValue(Wrap_NVMouseExtensions.getAxisRelativeX(), 0);
 				float y = event.getAxisValue(Wrap_NVMouseExtensions.getAxisRelativeY(), 0);
