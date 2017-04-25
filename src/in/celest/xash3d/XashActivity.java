@@ -58,6 +58,7 @@ public class XashActivity extends Activity {
 	public static boolean mEnginePaused = false;
 	public static Vibrator mVibrator;
 	public static boolean fMouseShown = true;
+	public static boolean fGDBSafe = false;
 
 	private static boolean mHasVibrator;
 	private int mReturingWithResultCode = 0;
@@ -445,7 +446,13 @@ public class XashActivity extends Activity {
 		String gamelibdir = getStringExtraFromIntent(intent, "gamelibdir", enginedir);
 		String gamedir = getStringExtraFromIntent(intent, "gamedir", "valve");
 		String basedir = getStringExtraFromIntent(intent, "basedir", mPref.getString("basedir","/sdcard/xash/"));
-		
+		String gdbsafe = intent.getStringExtra("gdbsafe");
+		if( gdbsafe != null )
+			fGDBSafe = true;
+		if( Debug.isDebuggerConnected() )
+			fGDBSafe = true;
+		if( fGDBSafe )
+			Log.e(TAG, "GDBSafe mode enabled!");
 		mArgv = argv.split(" ");
 
 		setenv("XASH3D_BASEDIR",    basedir,    true);
@@ -788,6 +795,8 @@ public class XashActivity extends Activity {
 
 	public static void setIcon(String path)
 	{
+		if( fGDBSafe )
+			return;
 		Log.v(TAG,"setIcon("+path+")");
 		if( sdk < 5 )
 			return;
@@ -801,7 +810,7 @@ public class XashActivity extends Activity {
 			((NotificationManager) mSingleton.getApplicationContext()
 							.getSystemService(Context.NOTIFICATION_SERVICE)).notify(100,XashService.notification);
 			}
-		catch( Exception e)
+		catch( Exception e )
 		{
 		}
 	}
@@ -942,6 +951,8 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 	
 	public void engineThreadWait()
 	{
+		if( XashActivity.fGDBSafe )
+			return;
 		Log.v(TAG, "engineThreadWait()");
 		synchronized(mPauseLock)
 		{
@@ -958,6 +969,8 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 	
 	public void engineThreadNotify()
 	{
+		if( XashActivity.fGDBSafe )
+			return;
 		Log.v(TAG, "engineThreadNotify()");
 		synchronized(mPauseLock)
 		{
