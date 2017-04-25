@@ -1624,7 +1624,7 @@ class JoystickHandler_v12 extends JoystickHandler
 				}
 
 				XashActivity.nativeMouseMove( x, y );
-				Log.v("XashInput", "MouseMove: " +x + " " + y );
+				//Log.v("XashInput", "MouseMove: " +x + " " + y );
 				return true;
 			}
 
