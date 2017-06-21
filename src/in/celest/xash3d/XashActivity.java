@@ -677,7 +677,7 @@ public class XashActivity extends Activity {
 
 	public static boolean performEngineKeyEvent( int action, int keyCode, KeyEvent event)
 	{
-		Log.v(TAG, "EngineKeyEvent( " + action +", " + keyCode +" "+ event.isCtrlPressed() +" )");
+		//Log.v(TAG, "EngineKeyEvent( " + action +", " + keyCode +" "+ event.isCtrlPressed() +" )");
 
 
 		if( action == KeyEvent.ACTION_DOWN )
@@ -691,8 +691,8 @@ public class XashActivity extends Activity {
 		}
 		else if( action == KeyEvent.ACTION_UP )
 		{
-			if( keyCode == 62 && event.isCtrlPressed() )
-				XashActivity.nativeKey( 1, keyCode );
+			//if( keyCode == 62 && event.isCtrlPressed() )
+				//XashActivity.nativeKey( 1, keyCode );
 			XashActivity.nativeKey( 0, keyCode );
 			return true;
 		}
