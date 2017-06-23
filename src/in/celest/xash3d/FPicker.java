@@ -78,15 +78,16 @@ public class FPicker extends Activity {
 		{
 			File[] dirs = folder.listFiles();
 			List<Item> dir = new ArrayList<Item>();
-			
+
 			while( dirs == null )
 			{
-				folder = new File(folder.getParent());
-				if( folder == null )
-					return dir;
+				try {
+					folder = new File(folder.getParent());
+				} catch (NullPointerException e) {
+					folder = new File(Environment.getExternalStorageDirectory().toString());
+				}
 				dirs = folder.listFiles();
 			}
-		
 
 			for(File ff: dirs)
 			{
