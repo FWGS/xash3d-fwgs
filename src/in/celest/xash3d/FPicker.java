@@ -81,11 +81,11 @@ public class FPicker extends Activity {
 
 			while( dirs == null )
 			{
-				try {
-					folder = new File(folder.getParent());
-				} catch (NullPointerException e) {
+				String parent = folder.getParent();
+				if (parent != null)
+					folder = new File(parent);
+				else
 					folder = new File(Environment.getExternalStorageDirectory().toString());
-				}
 				dirs = folder.listFiles();
 			}
 
