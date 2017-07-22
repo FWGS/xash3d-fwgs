@@ -1,61 +1,21 @@
 package in.celest.xash3d;
 
-import android.app.Activity;
-import android.app.Dialog;
-import android.app.AlertDialog;
-
-import android.os.AsyncTask;
-import android.os.Bundle;
-import android.os.Build;
-import android.text.method.LinkMovementMethod;
-import android.os.Environment;
-
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
-
-import android.content.Intent;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.pm.PackageManager;
-import android.content.SharedPreferences;
-import android.content.DialogInterface;
-import android.content.DialogInterface.OnDismissListener;
-
-import android.widget.EditText;
-import android.widget.TextView;
-import android.widget.CheckBox;
-import android.widget.CompoundButton;
-import android.widget.Button;
-import android.widget.Spinner;
-import android.widget.ArrayAdapter;
-import android.widget.TabHost;
-import android.widget.ToggleButton;
-import android.widget.Toast;
-
-import android.net.Uri;
-
-import android.util.Log;
-
-import java.lang.reflect.Method;
-
-import java.util.List;
-
-import java.io.File;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.FileOutputStream;
-
-import java.net.URLConnection;
-import java.net.URL;
-
+import android.app.*;
+import android.content.*;
+import android.graphics.*;
+import android.graphics.drawable.*;
+import android.net.*;
+import android.os.*;
+import android.text.*;
+import android.text.method.*;
+import android.text.style.*;
+import android.util.*;
+import android.view.*;
+import android.widget.*;
+import in.celest.xash3d.hl.*;
+import java.io.*;
+import java.net.*;
 import org.json.*;
-
-import in.celest.xash3d.hl.R;
-import in.celest.xash3d.XashActivity;
-import in.celest.xash3d.CertCheck;
 
 public class LauncherActivity extends Activity {
    // public final static String ARGV = "in.celest.xash3d.MESSAGE";
@@ -79,6 +39,35 @@ public class LauncherActivity extends Activity {
 			return dir.getPath() + "/xash";
 		return "/sdcard/xash";
 	}
+	public static void changeButtonsStyle(ViewGroup parent) {
+		if(sdk >= 21)
+			return;
+        for (int i = parent.getChildCount() - 1; i >= 0; i--) {
+			try{
+            final View child = parent.getChildAt(i);
+			if( child == null )
+				continue;
+            if (child instanceof ViewGroup) {
+                changeButtonsStyle((ViewGroup) child);
+                // DO SOMETHING WITH VIEWGROUP, AFTER CHILDREN HAS BEEN LOOPED
+            } else if (child instanceof Button)  {
+				final Button b = (Button)child;
+				final Drawable bg = b.getBackground();
+				if(bg!= null)bg.setAlpha(96);
+				b.setTextColor(0xFFFFFFFF);
+				b.setTextSize(15f);
+				//b.setText(b.getText().toString().toUpperCase());
+				b.setTypeface(b.getTypeface(),Typeface.BOLD);
+            }else if (child instanceof EditText)  {
+				final EditText b = (EditText)child;
+				b.setBackgroundColor(0xFF353535);
+				b.setTextColor(0xFFFFFFFF);
+				b.setTextSize(15f);
+				}
+			}
+			catch(Exception e){}
+        }
+    }
     
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -99,6 +88,7 @@ public class LauncherActivity extends Activity {
 		setContentView(R.layout.activity_launcher);
 
 		TabHost tabHost = (TabHost) findViewById(R.id.tabhost);
+
 		tabHost.setup();
 		
 		TabHost.TabSpec tabSpec;
@@ -111,6 +101,20 @@ public class LauncherActivity extends Activity {
 		tabSpec.setIndicator(getString(R.string.text_tab2));
 		tabSpec.setContent(R.id.tab2);
 		tabHost.addTab(tabSpec);
+		if( sdk < 21 )
+		{
+			try
+			{
+				tabHost.invalidate();
+				for(int i = 0; i < tabHost.getTabWidget().getChildCount(); i++)
+				{
+				tabHost.getTabWidget().getChildAt(i).getBackground().setAlpha(96);
+				tabHost.getTabWidget().getChildAt(i).getLayoutParams().height = (int) (40 * this.getResources().getDisplayMetrics().density);
+				}
+			}
+			catch(Exception e){}
+		}
+		
 
 		mPref        = getSharedPreferences("engine", 0);
 		cmdArgs      = (EditText) findViewById(R.id.cmdArgs);
@@ -190,6 +194,7 @@ public class LauncherActivity extends Activity {
 		{
 			new CheckUpdate(true, updateToBeta.isChecked()).execute(UPDATE_LINK);
 		}
+		changeButtonsStyle((ViewGroup)tabHost.getParent());
 
 	}
 
