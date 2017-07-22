@@ -17,7 +17,6 @@ import java.lang.*;
 import java.util.List;
 import java.security.MessageDigest;
 
-import in.celest.xash3d.hl.BuildConfig;
 import in.celest.xash3d.XashConfig;
 
 public class CertCheck
@@ -30,8 +29,7 @@ public class CertCheck
 
 	public static boolean dumbAntiPDALifeCheck( Context context )
 	{
-		if( BuildConfig.DEBUG || 
-			!XashConfig.CHECK_SIGNATURES )
+		if( !XashConfig.CHECK_SIGNATURES )
 			return false; // disable checking for debug builds
 	
 		try

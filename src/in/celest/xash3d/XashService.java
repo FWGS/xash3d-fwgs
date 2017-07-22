@@ -30,7 +30,6 @@ import java.util.List;
 import java.security.MessageDigest;
 
 import in.celest.xash3d.hl.R;
-import in.celest.xash3d.hl.BuildConfig;
 import in.celest.xash3d.XashConfig;
 import in.celest.xash3d.JoystickHandler;
 import in.celest.xash3d.CertCheck;

@@ -31,7 +31,6 @@ import java.util.List;
 import java.security.MessageDigest;
 
 import in.celest.xash3d.hl.R;
-import in.celest.xash3d.hl.BuildConfig;
 import in.celest.xash3d.XashConfig;
 import in.celest.xash3d.JoystickHandler;
 import in.celest.xash3d.CertCheck;
@@ -942,7 +941,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 		Log.v(TAG, "engineThreadJoin()");
 		try
 		{
-			mEngThread.join(); // wait until Xash will quit
+			mEngThread.join(5000); // wait until Xash will quit
 		}
 		catch(InterruptedException e)
 		{
@@ -958,7 +957,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 		{
 			try
 			{
-				mPauseLock.wait(); // wait until Xash will quit
+				mPauseLock.wait(5000); // wait until engine notify
 			}
 			catch(InterruptedException e)
 			{
@@ -974,7 +973,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 		Log.v(TAG, "engineThreadNotify()");
 		synchronized(mPauseLock)
 		{
-			mPauseLock.notify(); // wait until Xash will quit
+			mPauseLock.notify(); // send notify
 		}
 	}
 
