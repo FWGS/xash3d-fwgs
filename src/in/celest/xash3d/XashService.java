@@ -47,8 +47,12 @@ public class XashService  extends Service {
 	public static class exitButtonListener extends BroadcastReceiver {
 		@Override
 		public void onReceive(Context context, Intent intent) {
+			XashActivity.mEngineReady = false;
 			XashActivity.nativeUnPause();
 			XashActivity.nativeOnDestroy();
+			if( XashActivity.mSurface != null )
+				XashActivity.mSurface.engineThreadJoin();
+			System.exit(0);
 		}
 	}
 
@@ -104,11 +108,14 @@ public class XashService  extends Service {
 	@Override
 	public void onTaskRemoved(Intent rootIntent) {
 		Log.e("XashService", "OnTaskRemoved");
-		if( XashActivity.mEngineReady )
+		//if( XashActivity.mEngineReady )
 		{
 			XashActivity.mEngineReady = false;
 			XashActivity.nativeUnPause();
 			XashActivity.nativeOnDestroy();
+			if( XashActivity.mSurface != null )
+				XashActivity.mSurface.engineThreadJoin();
+			System.exit(0);
 		}
 		stopSelf();
 	}
