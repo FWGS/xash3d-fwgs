@@ -260,6 +260,13 @@ public class LauncherActivity extends Activity {
 				dialog.show();
 				TextView tView6 = (TextView) dialog.findViewById(R.id.textView6);
 				tView6.setMovementMethod(LinkMovementMethod.getInstance());
+				((Button)dialog.findViewById( R.id.button_about_ok )).setOnClickListener(new View.OnClickListener(){
+	       			@Override
+	    			public void onClick(View v) {
+	    				dialog.cancel();
+					}
+				});
+
 			}
 		});
 	}
