@@ -58,6 +58,8 @@ public class XashActivity extends Activity {
 	public static Vibrator mVibrator;
 	public static boolean fMouseShown = true;
 	public static boolean fGDBSafe = false;
+	public static float mScale = 0, mTouchScaleX = 1, mTouchScaleY = 1;
+	public static int mForceHeight = 0, mForceWidth = 0;
 
 	private static boolean mHasVibrator;
 	private int mReturingWithResultCode = 0;
@@ -426,6 +428,21 @@ public class XashActivity extends Activity {
 		
 		mVibrator = (Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
 
+		if( mPref.getBoolean("resolution_fixed", false) )
+		{
+			if( mPref.getBoolean("resolution_custom", false) )
+			{
+				mForceWidth = mPref.getInt( "resolution_width", 854 );
+				mForceHeight = mPref.getInt( "resolution_height", 480 );
+				if( mForceWidth < 10 || mForceHeight < 10 )
+					mForceWidth = mForceHeight = 0;
+			}
+			else
+				mScale = mPref.getFloat( "resolution_scale", 1  );
+			if( mScale < 0.5 )
+				mScale = 0;
+		}
+
 		mHasVibrator = ( mVibrator != null );
 		if( sdk >= 11 )
 			mHasVibrator = ( mVibrator != null ) && ( handler.hasVibrator() );
@@ -790,6 +807,7 @@ public class XashActivity extends Activity {
 	{
 		// Transfer the task to the main thread as a Runnable
 		mSingleton.runOnUiThread(new ShowTextInputTask(show));
+		//if( show == 1 )mSurface.getHolder().setSizeFromLayout();
 	}
 
 	public static void setIcon(String path)
@@ -883,6 +901,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 	private EGLDisplay  mEGLDisplay;
 	private EGL10 mEGL;
 	private EGLConfig mEGLConfig;
+	private boolean resizing = false;
 	public static final String TAG = "XASH3D-EngineSurface";
 
 	// Sensors
@@ -911,6 +930,8 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 			return;
 		XashActivity.nativeSetPause(0);
 		XashActivity.mEnginePaused = false;
+		//holder.setFixedSize(640,480);
+		//SurfaceHolder.setFixedSize(640,480);
 	}
 
 	// Called when we lose the surface
@@ -926,14 +947,36 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height)
 	{
 		Log.v(TAG, "surfaceChanged()");
+		if( ( XashActivity.mForceHeight!= 0 && XashActivity.mForceWidth!= 0 || XashActivity.mScale!= 0 ) && !resizing )
+		{
+			int newWidth, newHeight;
+			resizing = true;
+			if( XashActivity.mForceHeight != 0 && XashActivity.mForceWidth != 0 )
+			{
+				newWidth = XashActivity.mForceWidth;
+				newHeight = XashActivity.mForceHeight;
+			}
+			else
+			{
+				newWidth = (int)(getWidth() / XashActivity.mScale);
+				newHeight = (int)(getHeight() / XashActivity.mScale);
+			}
+			holder.setFixedSize( newWidth, newHeight );
+			XashActivity.mTouchScaleX = (float)newWidth / getWidth();
+			XashActivity.mTouchScaleY = (float)newHeight / getHeight();
+			
+			return;
+		}
 
 		XashActivity.onNativeResize(width, height);
+		//holder.setFixedSize(width/2,height/2);
 		// Now start up the C app thread
 		if (mEngThread == null) {
 
 			mEngThread = new Thread(new XashMain(), "EngineThread");
 			mEngThread.start();
 		}
+		resizing = false;
 	}
 	
 	public void engineThreadJoin()
@@ -1284,8 +1327,8 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 					}
 					for (i = 0; i < pointerCount; i++) {
 						pointerFingerId = event.getPointerId(i);
-						x = event.getX(i);
-						y = event.getY(i);
+						x = event.getX(i)*XashActivity.mTouchScaleX;
+						y = event.getY(i)*XashActivity.mTouchScaleY;
 						XashActivity.nativeTouch(pointerFingerId, 2, x, y);
 					}
 					break;
@@ -1324,8 +1367,8 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 
 					pointerFingerId = event.getPointerId(i);
 
-					x = event.getX(i);
-					y = event.getY(i);
+					x = event.getX(i)*XashActivity.mTouchScaleX;
+					y = event.getY(i)*XashActivity.mTouchScaleY;
 					if( action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP )
 						XashActivity.nativeTouch(pointerFingerId,1, x, y);
 					if( action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN )
@@ -1335,8 +1378,8 @@ class EngineTouchListener_v5 implements View.OnTouchListener{
 				case MotionEvent.ACTION_CANCEL:
 					for (i = 0; i < pointerCount; i++) {
 						pointerFingerId = event.getPointerId(i);
-						x = event.getX(i);
-						y = event.getY(i);
+						x = event.getX(i)*XashActivity.mTouchScaleX;
+						y = event.getY(i)*XashActivity.mTouchScaleY;
 					   XashActivity.nativeTouch(pointerFingerId, 1, x, y);
 					}
 					break;

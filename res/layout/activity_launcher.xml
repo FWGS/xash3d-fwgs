@@ -263,6 +263,55 @@
 								android:layout_marginRight="10dp"
 								android:layout_marginTop="10dp"
 								android:text="@string/immersive_mode" />
+							<CheckBox
+								android:id="@+id/resolution"
+								android:layout_width="match_parent"
+								android:layout_height="wrap_content"
+								android:layout_margin="10dp"
+								android:layout_marginLeft="10dp"
+								android:layout_marginRight="10dp"
+								android:layout_marginTop="10dp"
+								android:text="@string/resolution" />
+							<RadioGroup
+								android:layout_width="match_parent"
+								android:layout_height="wrap_content"
+								android:layout_marginBottom="10dp"
+								android:layout_marginLeft="10dp"
+								android:layout_marginRight="10dp"
+								android:layout_marginTop="10dp"
+								android:background="#444444"
+								android:orientation="vertical"
+								android:weightSum="1">
+								<RadioButton android:id="@+id/resolution_scale_r" android:text="@string/resolution_scale" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+								<EditText
+									android:id="@+id/resolution_scale"
+									android:layout_width="match_parent"
+									android:layout_height="wrap_content"
+									android:layout_marginBottom="10dp"
+									android:layout_marginLeft="10dp"
+									android:layout_marginRight="10dp"
+									android:layout_marginTop="3dp" />
+								
+									<RadioButton android:id="@+id/resolution_custom_r" android:text="@string/resolution_custom" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+								<EditText
+									android:id="@+id/resolution_width"
+									android:layout_width="match_parent"
+									android:layout_height="wrap_content"
+									android:layout_marginBottom="10dp"
+									android:layout_marginLeft="10dp"
+									android:layout_marginRight="10dp"
+									android:layout_marginTop="3dp" />
+								<EditText
+									android:id="@+id/resolution_height"
+									android:layout_width="match_parent"
+									android:layout_height="wrap_content"
+									android:layout_marginBottom="10dp"
+									android:layout_marginLeft="10dp"
+									android:layout_marginRight="10dp"
+									android:layout_marginTop="3dp" />
+								
+								
+							</RadioGroup>
 							<TextView
 								android:id="@+id/textView7"
 								android:layout_marginBottom="10dp"

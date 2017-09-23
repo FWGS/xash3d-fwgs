@@ -16,6 +16,7 @@ import in.celest.xash3d.hl.*;
 import java.io.*;
 import java.net.*;
 import org.json.*;
+import android.preference.*;
 
 public class LauncherActivity extends Activity {
    // public final static String ARGV = "in.celest.xash3d.MESSAGE";
@@ -31,7 +32,9 @@ public class LauncherActivity extends Activity {
 	static SharedPreferences mPref;
 	static Spinner pixelSpinner;
 	static TextView tvResPath;
-	
+	static EditText resScale, resWidth, resHeight;
+	static RadioButton radioScale, radioCustom;
+	static CheckBox resolution;
 	String getDefaultPath()
 	{
 		File dir = Environment.getExternalStorageDirectory();
@@ -126,6 +129,12 @@ public class LauncherActivity extends Activity {
 		resizeWorkaround = (ToggleButton) findViewById( R.id.enableResizeWorkaround );
 		tvResPath    = (TextView) findViewById( R.id.textView_path );
 		immersiveMode = (CheckBox) findViewById( R.id.immersive_mode );
+		resolution = (CheckBox) findViewById(R.id.resolution);
+		resWidth = (EditText) findViewById(R.id.resolution_width);
+		resHeight = (EditText) findViewById(R.id.resolution_height);
+		resScale = (EditText) findViewById(R.id.resolution_scale);
+		radioCustom = (RadioButton) findViewById(R.id.resolution_custom_r);
+		radioScale = (RadioButton) findViewById(R.id.resolution_scale_r);
 		
 		final String[] list = {
 			"32 bit (RGBA8888)",
@@ -170,7 +179,13 @@ public class LauncherActivity extends Activity {
 		cmdArgs.setText(mPref.getString("argv","-dev 3 -log"));
 		pixelSpinner.setSelection(mPref.getInt("pixelformat", 0));
 		resizeWorkaround.setChecked(mPref.getBoolean("enableResizeWorkaround", true));
-		
+		resolution.setChecked(mPref.getBoolean("resolution_fixed", false ));
+		resWidth.setText(String.valueOf(mPref.getInt("resolution_width",854)));
+		resHeight.setText(String.valueOf(mPref.getInt("resolution_height",480)));
+		resScale.setText(String.valueOf(mPref.getFloat("resolution_scale",2.0f)));
+		if( mPref.getBoolean("resolution_custom", false) )
+			radioCustom.setChecked(true);
+		else radioScale.setChecked(true);
 		if( sdk >= 19 )
 		{
 			immersiveMode.setChecked(mPref.getBoolean("immersive_mode", true));
@@ -216,6 +231,14 @@ public class LauncherActivity extends Activity {
 		editor.putInt("pixelformat", pixelSpinner.getSelectedItemPosition());
 		editor.putBoolean("enableResizeWorkaround",resizeWorkaround.isChecked());
 		editor.putBoolean("check_updates", checkUpdates.isChecked());
+		editor.putBoolean("resolution_fixed", resolution.isChecked());
+		editor.putBoolean("resolution_custom", radioCustom.isChecked());
+		editor.putFloat("resolution_scale", Float.valueOf(resScale.getText().toString()));
+		editor.putInt("resolution_width", Integer.valueOf(resWidth.getText().toString()));
+		editor.putInt("resolution_height", Integer.valueOf(resHeight.getText().toString()));
+		
+		
+
 		if( sdk >= 19 )
 			editor.putBoolean("immersive_mode", immersiveMode.isChecked());
 		else
