@@ -7,6 +7,12 @@ android:
     - extra-android-support
 
 install: ant
+
+
+addons:
+  apt:
+    packages:
+      - ant
 jdk: oraclejdk8
 
 notifications:
