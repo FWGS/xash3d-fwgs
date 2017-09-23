@@ -3,7 +3,7 @@ android:
   components:
     - platform-tools
     - build-tools-21.1.1
-    - android-13
+    - android-19
     - extra-android-support
 
 install: ant
