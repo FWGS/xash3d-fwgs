@@ -13,7 +13,7 @@ else
  git config user.email FWGS-deployer@users.noreply.github.com
  git config credential.helper "store --file=.git/credentials"
  git config credential.https://github.com.com.username FWGS-deployer
- echo "https://FWGS-deployer${GH_TOKEN}@github.com" > .git/credentials
+ echo "https://FWGS-deployer:${GH_TOKEN}@github.com" > .git/credentials
  git remote add travis-deploy-public https://github.com/FWGS/xash3d-deploy.git
  echo \# $TRAVIS_BRANCH branch autobuilds from $SOURCE_NAME >> README.md
  echo >> README.md
