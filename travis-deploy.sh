@@ -11,7 +11,10 @@ else
  git init
  git config user.name FWGS-deployer
  git config user.email FWGS-deployer@users.noreply.github.com
- git remote add travis-deploy-public https://FWGS-deployer:${GH_TOKEN}@github.com/FWGS/xash3d-deploy.git
+ git config credential.helper "store --file=.git/credentials"
+ git config credential.https://github.com.com.username FWGS-deployer
+ echo "https://FWGS-deployer${GH_TOKEN}@github.com" > .git/credentials
+ git remote add travis-deploy-public https://github.com/FWGS/xash3d-deploy.git
  echo \# $TRAVIS_BRANCH branch autobuilds from $SOURCE_NAME >> README.md
  echo >> README.md
  echo Short changelog: >> README.md
@@ -31,8 +34,8 @@ else
  git add .
  git commit -m "Laterst travis deploy $TRAVIS_COMMIT"
  git checkout -b $SOURCE_NAME-$TRAVIS_BRANCH
- git push -q --force travis-deploy-public $SOURCE_NAME-$TRAVIS_BRANCH > /dev/null 2>/dev/null
+ git push -q --force travis-deploy-public $SOURCE_NAME-$TRAVIS_BRANCH
  git checkout -b $SOURCE_NAME-latest
- git push -q --force travis-deploy-public $SOURCE_NAME-latest > /dev/null 2>/dev/null
+ git push -q --force travis-deploy-public $SOURCE_NAME-latest
 fi
 exit 0
