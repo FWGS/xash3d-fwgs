@@ -60,6 +60,8 @@ public class XashActivity extends Activity {
 	public static boolean fGDBSafe = false;
 	public static float mScale = 0, mTouchScaleX = 1, mTouchScaleY = 1;
 	public static int mForceHeight = 0, mForceWidth = 0;
+	public static int mMinHeight = 240, mMinWidth = 320; // hl1 support 320 width, but mods may not.
+	public static boolean bIsCstrike = false;
 
 	private static boolean mHasVibrator;
 	private int mReturingWithResultCode = 0;
@@ -158,7 +160,7 @@ public class XashActivity extends Activity {
 			{
 				String newBaseDir = resultData.getStringExtra( "GetPath" );
 				setNewBasedir( newBaseDir );
-				setFolderAsk( false ); // don't ask on next run
+				setFolderAsk( this, false ); // don't ask on next run
 				Log.v( TAG, "Got new basedir from FPicker: " + newBaseDir );
 			}
 		}
@@ -291,9 +293,14 @@ public class XashActivity extends Activity {
 		}
 	}
 	
-	public void setFolderAsk( Boolean b )
+	public static void setFolderAsk( Context ctx, Boolean b )
 	{
-		SharedPreferences.Editor editor = mPref.edit();
+		SharedPreferences pref = ctx.getSharedPreferences( "engine", 0 );
+		
+		if( pref.getBoolean( "folderask", true ) == b )
+			return;
+	
+		SharedPreferences.Editor editor = pref.edit();
 		
 		editor.putBoolean( "folderask", b );
 		editor.commit();
@@ -353,7 +360,7 @@ public class XashActivity extends Activity {
 						public void onClick( DialogInterface dialog, int whichButton ) 
 						{
 							XashActivity act = XashActivity.this;
-							act.setFolderAsk( true );
+							act.setFolderAsk( XashActivity.this, true );
 							act.finish();
 						}
 					})
@@ -415,16 +422,24 @@ public class XashActivity extends Activity {
 			{
 				mForceWidth = mPref.getInt( "resolution_width", 854 );
 				mForceHeight = mPref.getInt( "resolution_height", 480 );
-				if( mForceWidth < 10 || mForceHeight < 10 )
+				if( mForceWidth < mMinWidth || mForceHeight < mMinHeight )
 					mForceWidth = mForceHeight = 0;
 			}
 			else
 			{
 				mScale = mPref.getFloat( "resolution_scale", 1 );
+				if( mScale < 0.5 )
+					mScale = 0;
+				
+				DisplayMetrics metrics = new DisplayMetrics();
+				getWindowManager().getDefaultDisplay().getMetrics(metrics);
+				
+				if( (float)metrics.widthPixels / mScale < (float)mMinWidth || 
+					(float)metrics.heightPixels / mScale < (float)mMinHeight )
+				{
+					mScale = 0;
+				}
 			}
-			
-			if( mScale < 0.5 )
-				mScale = 0;
 		}
 
 		if( sdk >= 5 )
@@ -443,6 +458,14 @@ public class XashActivity extends Activity {
 		String gamedir    = getStringExtraFromIntent( intent, "gamedir", "valve" );
 		String basedir    = getStringExtraFromIntent( intent, "basedir", mPref.getString( "basedir", "/sdcard/xash/" ) );
 		String gdbsafe    = intent.getStringExtra( "gdbsafe" );
+		
+		bIsCstrike = ( gamedir == "cstrike" || gamedir == "czero" );
+		
+		if( gamedir != "valve" )
+		{
+			mMinWidth = 640;
+			mMinHeight = 480;
+		}
 		
 		if( gdbsafe != null || Debug.isDebuggerConnected() )
 		{
@@ -974,7 +997,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 	public void surfaceChanged( SurfaceHolder holder, int format, int width, int height )
 	{
 		Log.v( TAG, "surfaceChanged()" );
-		if( ( XashActivity.mForceHeight!= 0 && XashActivity.mForceWidth!= 0 || XashActivity.mScale!= 0 ) && !resizing )
+		if( ( XashActivity.mForceHeight!= 0 && XashActivity.mForceWidth!= 0 || XashActivity.mScale != 0 ) && !resizing )
 		{
 			int newWidth, newHeight;
 			resizing = true;
@@ -995,7 +1018,10 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 			return;
 		}
 
-		XashActivity.onNativeResize( width, height );
+		// Android may force only-landscape app to portait during lock
+		// Just don't notify engine in that case
+		if( width > height || mEngThread == null )
+			XashActivity.onNativeResize( width, height );
 		// holder.setFixedSize( width / 2, height / 2 );
 		// Now start up the C app thread
 		if( mEngThread == null ) 
