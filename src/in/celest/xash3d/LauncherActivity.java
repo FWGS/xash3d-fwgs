@@ -35,6 +35,8 @@ public class LauncherActivity extends Activity {
 	static EditText resScale, resWidth, resHeight;
 	static RadioButton radioScale, radioCustom;
 	static CheckBox resolution;
+	
+	static int mWidth, mHeight;
 	String getDefaultPath()
 	{
 		File dir = Environment.getExternalStorageDirectory();
@@ -179,13 +181,31 @@ public class LauncherActivity extends Activity {
 		cmdArgs.setText(mPref.getString("argv","-dev 3 -log"));
 		pixelSpinner.setSelection(mPref.getInt("pixelformat", 0));
 		resizeWorkaround.setChecked(mPref.getBoolean("enableResizeWorkaround", true));
-		resolution.setChecked(mPref.getBoolean("resolution_fixed", false ));
-		resWidth.setText(String.valueOf(mPref.getInt("resolution_width",854)));
-		resHeight.setText(String.valueOf(mPref.getInt("resolution_height",480)));
+		
+		boolean enableResolutionChange = mPref.getBoolean("resolution_fixed", false );
+		resolution.setChecked( enableResolutionChange );
+		
+		DisplayMetrics metrics = new DisplayMetrics();
+		getWindowManager().getDefaultDisplay().getMetrics(metrics);
+		mWidth = metrics.widthPixels;
+		mHeight = metrics.heightPixels;
+		
+		resWidth.setText(String.valueOf(mPref.getInt("resolution_width", mWidth )));
+		resHeight.setText(String.valueOf(mPref.getInt("resolution_height", mHeight )));
 		resScale.setText(String.valueOf(mPref.getFloat("resolution_scale",2.0f)));
 		if( mPref.getBoolean("resolution_custom", false) )
 			radioCustom.setChecked(true);
 		else radioScale.setChecked(true);
+		hideResolutionSettings( !enableResolutionChange );
+		resolution.setOnCheckedChangeListener( new CompoundButton.OnCheckedChangeListener()
+		{
+			@Override
+			public void onCheckedChanged( CompoundButton v, boolean isChecked )
+			{
+				hideResolutionSettings( !isChecked );
+			}
+		});
+		
 		if( sdk >= 19 )
 		{
 			immersiveMode.setChecked(mPref.getBoolean("immersive_mode", true));
@@ -201,6 +221,9 @@ public class LauncherActivity extends Activity {
 			public void onFocusChange(View v, boolean hasFocus)
 			{
 				updatePath( resPath.getText().toString() );
+				
+				// I know what I am doing, so don't ask me about folder!
+				XashActivity.setFolderAsk( LauncherActivity.this, false );
 			}
 		} );
 
@@ -217,8 +240,28 @@ public class LauncherActivity extends Activity {
 	{
 		tvResPath.setText(getResources().getString(R.string.text_res_path) + ":\n" + text );
 		resPath.setText(text);
-	
 	}
+	
+	void hideResolutionSettings( boolean hide )
+	{
+		if( hide )
+		{
+			resWidth.setVisibility( View.GONE );
+			resHeight.setVisibility( View.GONE );
+			resScale.setVisibility( View.GONE );
+			radioCustom.setVisibility( View.GONE );
+			radioScale.setVisibility( View.GONE );
+		}
+		else
+		{
+			resWidth.setVisibility( View.VISIBLE );
+			resHeight.setVisibility( View.VISIBLE );
+			resScale.setVisibility( View.VISIBLE );
+			radioCustom.setVisibility( View.VISIBLE );
+			radioScale.setVisibility( View.VISIBLE );
+		}
+	}
+	
     public void startXash(View view)
     {
 		Intent intent = new Intent(this, XashActivity.class);
@@ -233,12 +276,33 @@ public class LauncherActivity extends Activity {
 		editor.putBoolean("check_updates", checkUpdates.isChecked());
 		editor.putBoolean("resolution_fixed", resolution.isChecked());
 		editor.putBoolean("resolution_custom", radioCustom.isChecked());
-		editor.putFloat("resolution_scale", Float.valueOf(resScale.getText().toString()));
-		editor.putInt("resolution_width", Integer.valueOf(resWidth.getText().toString()));
-		editor.putInt("resolution_height", Integer.valueOf(resHeight.getText().toString()));
 		
+		float scale = 1.0f;
+		int w = mWidth, h = mHeight;
 		
-
+		try
+		{
+			scale = Float.valueOf( resScale.getText().toString() );
+		}
+		catch( Exception e ) 
+		{
+		}
+		
+		try
+		{
+			w = Integer.valueOf( resWidth.getText().toString() );
+			h = Integer.valueOf( resHeight.getText().toString() );
+		}
+		catch( Exception e )
+		{
+			w = mWidth;
+			h = mHeight;
+		}
+		
+		editor.putFloat("resolution_scale", scale );
+		editor.putInt("resolution_width", w );
+		editor.putInt("resolution_height", h );
+		
 		if( sdk >= 19 )
 			editor.putBoolean("immersive_mode", immersiveMode.isChecked());
 		else
@@ -278,6 +342,7 @@ public class LauncherActivity extends Activity {
 		//Intent intent = new Intent("android.intent.action.OPEN_DOCUMENT_TREE");
 		startActivityForResult(intent, 42);
 		resPath.setEnabled(false);
+		XashActivity.setFolderAsk( this, false );
 	}
 
 	public void onActivityResult(int requestCode, int resultCode, Intent resultData) 
@@ -289,7 +354,7 @@ public class LauncherActivity extends Activity {
 				if( resPath == null )
 					return;
 				updatePath(resultData.getStringExtra("GetPath"));
-				resPath.setEnabled(true);
+				resPath.setEnabled( true );
 			}
 			catch(Exception e)
 			{
