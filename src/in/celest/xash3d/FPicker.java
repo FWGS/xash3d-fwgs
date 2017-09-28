@@ -38,6 +38,7 @@ public class FPicker extends Activity {
     private FileArrayAdapter adapter;
     static ListView delta;
     public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
+    static private Button mSelectBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,10 +47,11 @@ public class FPicker extends Activity {
 			super.setTheme( 0x01030224 );
 		else super.setTheme( 0x01030005 );
 
-		setContentView(R.layout.activity_fpicker);
+		setContentView( R.layout.activity_fpicker );
 		String path = Environment.getExternalStorageDirectory().toString();
-		currentDir = new File(path);
-		((Button)findViewById( R.id.button_fpicker_select )).setOnClickListener(new View.OnClickListener()
+		currentDir = new File( path );
+		mSelectBtn = ((Button)findViewById( R.id.button_fpicker_select ));
+		mSelectBtn.setOnClickListener(new View.OnClickListener()
 		{
 			@Override
 			public void onClick(View v) 
@@ -62,6 +64,7 @@ public class FPicker extends Activity {
 
     private void fill(File folder)
     {
+		mSelectBtn.setEnabled( false );
 		new Fill(folder).execute();
     }
     
@@ -114,7 +117,7 @@ public class FPicker extends Activity {
 						num_item = "Some items";
 					else 
 						num_item +=" items";
-					if(isXashDir)
+					if( isXashDir )
 					{
 						dir.add(new Item(ff.getName(), num_item, date_modify, ff.getAbsolutePath(), R.drawable.ic_launcher));
 					}
@@ -150,7 +153,7 @@ public class FPicker extends Activity {
 					fill(currentDir);
 				}
 			});
-
+			FPicker.mSelectBtn.setEnabled( true );
 		}
     }
     
@@ -214,7 +217,8 @@ class FileArrayAdapter extends ArrayAdapter<Item>
 	}
 }
 
-class Item implements Comparable<Item>{
+class Item implements Comparable<Item>
+{
 	private String name;
 	private String data;
 	private String date;
