@@ -77,34 +77,40 @@ declared in default.properties.
 <!-- Replaces the target in tools\ant\build.xml -->
     <import file="${sdk.dir}/tools/ant/build.xml" />
 
-<target name="-package-resources" depends="-crunch">
-<if>
-<condition>
-<isset property="test.version"/>
-</condition>
-<then>
-            <!-- this exec replicates the output of the aapt task in build.xml
-                 -package-resources with the addition of a rename-manifest-package option. -->
-            <exec executable="${aapt}" failonerror="true">
-                <arg value="package" />
-                <arg value="-f" />
-                <arg value="--auto-add-overlay" />
-                <arg value="-M" />
-                <arg path="${basedir}/test/AndroidManifest.xml" />
-                <arg value="-S" />
-                <arg path="${basedir}/test/res" />
-                <arg value="-A" />
-                <arg path="${basedir}/assets" />
-                <arg value="-I" />
-                <arg path="${project.target.android.jar}" />
-                <arg value="-F" />
-                <arg path="${out.absolute.dir}/${resource.package.file.name}" />
-                <arg value="--rename-manifest-package" />
-                <arg value="in.celest.xash3d.hl.test" />
-            </exec>
-</then>
-</if>
-</target>
+	<if>
+		<condition>
+			<isset property="test.version"/>
+		</condition>
+		<then>
+			<property file="test.properties" />
+		</then>
+		<else>
+			<property name="test.dir" value="" />
+			<property name="test.pkg.postfix" value="" />
+		</else>
+	</if>
+	
+	<target name="-package-resources" depends="-crunch">
+		<!-- this exec replicates the output of the aapt task in build.xml
+			-package-resources with the addition of a rename-manifest-package option. -->
+		<exec executable="${aapt}" failonerror="true">
+			<arg value="package" />
+			<arg value="-f" />
+			<arg value="--auto-add-overlay" />
+			<arg value="-M" />
+			<arg path="${basedir}/${test.dir}AndroidManifest.xml" />
+			<arg value="-S" />
+			<arg path="${basedir}/${test.dir}res" />
+			<arg value="-A" />
+			<arg path="${basedir}/assets" />
+			<arg value="-I" />
+			<arg path="${project.target.android.jar}" />
+			<arg value="-F" />
+			<arg path="${out.absolute.dir}/${resource.package.file.name}" />
+			<arg value="--rename-manifest-package" />
+			<arg value="in.celest.xash3d.hl${test.pkg.postfix}" />
+		</exec>
+	</target>
     <!-- Import the actual build file.
 
          To customize existing targets, there are two options:
