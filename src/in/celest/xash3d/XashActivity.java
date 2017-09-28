@@ -705,6 +705,17 @@ public class XashActivity extends Activity {
 			
 			return true;
 		}
+		/*else if( action == KeyEvent.ACTION_MULTIPLE )
+		{
+			if( keyCode == KeyEvent.KEYCODE_UNKNOWN )
+			{
+				XashActivity.nativeString( event.getCharacters() );
+			}
+			else
+			{
+				// maybe unneeded
+			}
+		}*/
 		else if( action == KeyEvent.ACTION_UP )
 		{
 			XashActivity.nativeKey( 0, keyCode );
@@ -1302,8 +1313,13 @@ class XashInputConnection extends BaseInputConnection
 	@Override
 	public boolean setComposingText( CharSequence text, int newCursorPosition )
 	{
-		// nativeSetComposingText(text.toString(), newCursorPosition);
-		XashActivity.nativeString( text.toString() );
+		// a1batross:
+		//  This method is intended to show composed text immediately
+		//  that after will be replaced by text from "commitText" method
+		//  Just leaving this unimplemented fixes "twice" input on T9/Swype-like keyboards
+	
+		//ativeSetComposingText(text.toString(), newCursorPosition);
+		// XashActivity.nativeString( text.toString() );
 		
 		return super.setComposingText( text, newCursorPosition );
 	}
@@ -1314,14 +1330,21 @@ class XashInputConnection extends BaseInputConnection
 	public boolean deleteSurroundingText( int beforeLength, int afterLength )
 	{
 		// Workaround to capture backspace key. Ref: http://stackoverflow.com/questions/14560344/android-backspace-in-webview-baseinputconnection
-		if( beforeLength == 1 && afterLength == 0 )
+		// and https://bugzilla.libsdl.org/show_bug.cgi?id=2265
+		if( beforeLength > 0 && afterLength == 0 ) 
 		{
-			// backspace
-			XashActivity.nativeKey( 1, KeyEvent.KEYCODE_DEL );
-			XashActivity.nativeKey( 0, KeyEvent.KEYCODE_DEL );
+			boolean ret = true;
+			// backspace(s)
+			while( beforeLength-- > 0 ) 
+			{
+				boolean ret_key = sendKeyEvent( new KeyEvent( KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL ) )
+								&& sendKeyEvent( new KeyEvent( KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL ) );
+				ret = ret && ret_key; 
+			}
+			return ret;
 		}
-
-		return super.deleteSurroundingText( beforeLength, afterLength );
+		
+		return super.deleteSurroundingText(beforeLength, afterLength);	
 	}
 }
 class EngineTouchListener_v1 implements View.OnTouchListener
