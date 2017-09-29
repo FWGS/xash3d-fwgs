@@ -273,16 +273,39 @@
 								android:layout_marginTop="10dp"
 								android:text="@string/resolution" />
 							<RadioGroup
+								android:id="@+id/scale_group"
 								android:layout_width="match_parent"
 								android:layout_height="wrap_content"
 								android:layout_marginBottom="10dp"
 								android:layout_marginLeft="10dp"
 								android:layout_marginRight="10dp"
 								android:layout_marginTop="10dp"
-								android:background="#444444"
 								android:orientation="vertical"
 								android:weightSum="1">
-								<RadioButton android:id="@+id/resolution_scale_r" android:text="@string/resolution_scale" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+								<TextView
+									android:layout_width="wrap_content"
+									android:layout_height="wrap_content"
+									android:layout_marginBottom="10dp"
+									android:layout_marginLeft="10dp"
+									android:layout_marginRight="10dp"
+									android:layout_marginTop="3dp"
+									android:text="@string/resolution_mod_warn"
+									android:textAppearance="@style/red_small_text" />
+								<TextView
+									android:id="@+id/resolution_result"
+									android:layout_width="wrap_content"
+									android:layout_height="wrap_content"
+									android:layout_marginBottom="10dp"
+									android:layout_marginLeft="10dp"
+									android:layout_marginRight="10dp"
+									android:layout_marginTop="3dp"
+									android:textAppearance="?android:attr/textAppearanceSmall" />
+								<RadioButton 
+									android:id="@+id/resolution_scale_r" 
+									android:text="@string/resolution_scale"
+									android:layout_width="wrap_content" 
+									android:layout_height="wrap_content" />
+								
 								<EditText
 									android:id="@+id/resolution_scale"
 									android:layout_width="match_parent"
@@ -290,27 +313,49 @@
 									android:layout_marginBottom="10dp"
 									android:layout_marginLeft="10dp"
 									android:layout_marginRight="10dp"
-									android:layout_marginTop="3dp" />
+									android:layout_marginTop="3dp"
+									android:numeric="decimal" />
 								
-									<RadioButton android:id="@+id/resolution_custom_r" android:text="@string/resolution_custom" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-								<EditText
-									android:id="@+id/resolution_width"
+								<RadioButton 
+									android:id="@+id/resolution_custom_r" 
+									android:text="@string/resolution_custom" 
+									android:layout_width="wrap_content" 
+									android:layout_height="wrap_content" />
+								
+								<LinearLayout
 									android:layout_width="match_parent"
 									android:layout_height="wrap_content"
-									android:layout_marginBottom="10dp"
-									android:layout_marginLeft="10dp"
-									android:layout_marginRight="10dp"
-									android:layout_marginTop="3dp" />
-								<EditText
-									android:id="@+id/resolution_height"
-									android:layout_width="match_parent"
-									android:layout_height="wrap_content"
-									android:layout_marginBottom="10dp"
-									android:layout_marginLeft="10dp"
-									android:layout_marginRight="10dp"
-									android:layout_marginTop="3dp" />
-								
-								
+									android:layout_marginBottom="0dp"
+									android:layout_marginLeft="0dp"
+									android:layout_marginRight="0dp"
+									android:layout_marginTop="0dp"
+									android:orientation="horizontal"
+									android:weightSum="1">
+									<EditText
+										android:id="@+id/resolution_width"
+										android:layout_width="100dp"
+										android:layout_height="wrap_content"
+										android:layout_marginBottom="10dp"
+										android:layout_marginLeft="10dp"
+										android:layout_marginRight="3dp"
+										android:layout_marginTop="3dp"
+										android:numeric="integer" />
+									<TextView
+										android:layout_width="wrap_content"
+										android:layout_height="wrap_content"
+										android:layout_marginBottom="10dp"
+										android:layout_marginTop="3dp"
+										android:text="x"
+										android:textAppearance="?android:attr/textAppearanceSmall" />
+									<EditText
+										android:id="@+id/resolution_height"
+										android:layout_width="100dp"
+										android:layout_height="wrap_content"
+										android:layout_marginBottom="10dp"
+										android:layout_marginLeft="3dp"
+										android:layout_marginTop="3dp"
+										android:numeric="integer" />
+								</LinearLayout>
 							</RadioGroup>
 							<TextView
 								android:id="@+id/textView7"

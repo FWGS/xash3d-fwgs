@@ -36,6 +36,8 @@ import in.celest.xash3d.JoystickHandler;
 import in.celest.xash3d.CertCheck;
 import android.provider.Settings.Secure;
 
+import su.xash.fwgslib.*;
+
 /**
  Xash Activity
  */
@@ -459,12 +461,21 @@ public class XashActivity extends Activity {
 		String basedir    = getStringExtraFromIntent( intent, "basedir", mPref.getString( "basedir", "/sdcard/xash/" ) );
 		String gdbsafe    = intent.getStringExtra( "gdbsafe" );
 		
-		bIsCstrike = ( gamedir == "cstrike" || gamedir == "czero" );
+		bIsCstrike = ( gamedir.equals("cstrike") || gamedir.equals("czero") || gamedir.equals("czeror") );
 		
-		if( gamedir != "valve" )
+		if( bIsCstrike )
 		{
 			mMinWidth = 640;
 			mMinHeight = 480;
+			
+			final String allowed = "in.celest.xash3d.cs16client";
+			
+			if( !FWGSLib.checkGameLibDir( gamelibdir, allowed ) || 
+				CertCheck.dumbCertificateCheck( getContext(), allowed, null, true ) )
+			{
+				finish();
+				return;
+			}
 		}
 		
 		if( gdbsafe != null || Debug.isDebuggerConnected() )
@@ -1037,7 +1048,8 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 		Log.v( TAG, "engineThreadJoin()" );
 		try
 		{
-			mEngThread.join( 5000 ); // wait until Xash will quit
+			if( mEngThread != null )
+				mEngThread.join( 5000 ); // wait until Xash will quit
 		}
 		catch( InterruptedException e )
 		{

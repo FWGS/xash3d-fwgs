@@ -17,10 +17,11 @@ import java.io.*;
 import java.net.*;
 import org.json.*;
 import android.preference.*;
+import su.xash.fwgslib.*;
 
 public class LauncherActivity extends Activity {
    // public final static String ARGV = "in.celest.xash3d.MESSAGE";
-   	public final static int sdk = Integer.valueOf(Build.VERSION.SDK);
+   	public final static int sdk = FWGSLib.sdk;
 	public final static String UPDATE_LINK = "https://api.github.com/repos/FWGS/xash3d-android-project/releases"; // releases/latest doesn't return prerelease and drafts
 	static EditText cmdArgs;
 	static EditText resPath;
@@ -32,45 +33,54 @@ public class LauncherActivity extends Activity {
 	static SharedPreferences mPref;
 	static Spinner pixelSpinner;
 	static TextView tvResPath;
+	static TextView resResult;
 	static EditText resScale, resWidth, resHeight;
 	static RadioButton radioScale, radioCustom;
+	static RadioGroup scaleGroup;
 	static CheckBox resolution;
 	
-	static int mWidth, mHeight;
-	String getDefaultPath()
+	static int mEngineWidth, mEngineHeight;
+	
+	public static void changeButtonsStyle( ViewGroup parent )
 	{
-		File dir = Environment.getExternalStorageDirectory();
-		if( dir != null && dir.exists() )
-			return dir.getPath() + "/xash";
-		return "/sdcard/xash";
-	}
-	public static void changeButtonsStyle(ViewGroup parent) {
-		if(sdk >= 21)
+		if( sdk >= 21 )
 			return;
-        for (int i = parent.getChildCount() - 1; i >= 0; i--) {
-			try{
-            final View child = parent.getChildAt(i);
-			if( child == null )
-				continue;
-            if (child instanceof ViewGroup) {
-                changeButtonsStyle((ViewGroup) child);
-                // DO SOMETHING WITH VIEWGROUP, AFTER CHILDREN HAS BEEN LOOPED
-            } else if (child instanceof Button)  {
-				final Button b = (Button)child;
-				final Drawable bg = b.getBackground();
-				if(bg!= null)bg.setAlpha(96);
-				b.setTextColor(0xFFFFFFFF);
-				b.setTextSize(15f);
-				//b.setText(b.getText().toString().toUpperCase());
-				b.setTypeface(b.getTypeface(),Typeface.BOLD);
-            }else if (child instanceof EditText)  {
-				final EditText b = (EditText)child;
-				b.setBackgroundColor(0xFF353535);
-				b.setTextColor(0xFFFFFFFF);
-				b.setTextSize(15f);
+		
+		for( int i = parent.getChildCount() - 1; i >= 0; i-- ) 
+		{
+			try
+			{
+				final View child = parent.getChildAt(i);
+				
+				if( child == null )
+					continue;
+				
+				if( child instanceof ViewGroup )
+				{
+					changeButtonsStyle((ViewGroup) child);
+					// DO SOMETHING WITH VIEWGROUP, AFTER CHILDREN HAS BEEN LOOPED
+				} 
+				else if( child instanceof Button )
+				{
+					final Button b = (Button)child;
+					final Drawable bg = b.getBackground();
+					if(bg!= null)bg.setAlpha( 96 );
+					b.setTextColor( 0xFFFFFFFF );
+					b.setTextSize( 15f );
+					//b.setText(b.getText().toString().toUpperCase());
+					b.setTypeface( b.getTypeface(),Typeface.BOLD );
+				}
+				else if( child instanceof EditText )
+				{
+					final EditText b = ( EditText )child;
+					b.setBackgroundColor( 0xFF353535 );
+					b.setTextColor( 0xFFFFFFFF );
+					b.setTextSize( 15f );
 				}
 			}
-			catch(Exception e){}
+			catch( Exception e )
+			{
+			}
         }
     }
     
@@ -137,6 +147,8 @@ public class LauncherActivity extends Activity {
 		resScale = (EditText) findViewById(R.id.resolution_scale);
 		radioCustom = (RadioButton) findViewById(R.id.resolution_custom_r);
 		radioScale = (RadioButton) findViewById(R.id.resolution_scale_r);
+		scaleGroup = (RadioGroup) findViewById( R.id.scale_group );
+		resResult = (TextView) findViewById( R.id.resolution_result );
 		
 		final String[] list = {
 			"32 bit (RGBA8888)",
@@ -146,38 +158,46 @@ public class LauncherActivity extends Activity {
 			"16 bit (RGBA4444)",
 			"8 bit (RGB332)"
 		};
-		ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item, list);
-		adapter.setDropDownViewResource(android.R.layout.simple_spinner_item);
+		ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item, list);
+		adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		pixelSpinner.setAdapter(adapter);
 		Button selectFolderButton = ( Button ) findViewById( R.id.button_select );
-	selectFolderButton.setOnClickListener(new View.OnClickListener(){
-	       @Override
-	    public void onClick(View v) {
-	    selectFolder(v);
-		}
-	});
-	((Button)findViewById( R.id.button_launch )).setOnClickListener(new View.OnClickListener(){
-	       @Override
-	    public void onClick(View v) {
-	    startXash(v);
-		}
-	});
-	((Button)findViewById( R.id.button_shortcut )).setOnClickListener(new View.OnClickListener(){
-	       @Override
-	    public void onClick(View v) {
-	    createShortcut(v);
-		}
-	});
-	((Button)findViewById( R.id.button_about )).setOnClickListener(new View.OnClickListener(){
-	       @Override
-	    public void onClick(View v) {
-	    aboutXash(v);
-		}
-	});
+		selectFolderButton.setOnClickListener(new View.OnClickListener()
+		{
+			@Override
+			public void onClick(View v) 
+			{
+				selectFolder(v);
+			}
+		});
+		((Button)findViewById( R.id.button_launch )).setOnClickListener(new View.OnClickListener()
+		{
+			@Override
+			public void onClick(View v) 
+			{
+				startXash(v);
+			}
+		});
+		((Button)findViewById( R.id.button_shortcut )).setOnClickListener(new View.OnClickListener()
+		{
+			@Override
+			public void onClick(View v) 
+			{
+				createShortcut(v);
+			}
+		});
+		((Button)findViewById( R.id.button_about )).setOnClickListener(new View.OnClickListener()
+		{
+			@Override
+			public void onClick(View v) 
+			{
+				aboutXash(v);
+			}
+		});
 		useVolume.setChecked(mPref.getBoolean("usevolume",true));
 		checkUpdates.setChecked(mPref.getBoolean("check_updates",true));
 		updateToBeta.setChecked(mPref.getBoolean("check_betas", false));
-		updatePath(mPref.getString("basedir", getDefaultPath()));
+		updatePath(mPref.getString("basedir", FWGSLib.getDefaultXashPath() ) );
 		cmdArgs.setText(mPref.getString("argv","-dev 3 -log"));
 		pixelSpinner.setSelection(mPref.getInt("pixelformat", 0));
 		resizeWorkaround.setChecked(mPref.getBoolean("enableResizeWorkaround", true));
@@ -187,16 +207,40 @@ public class LauncherActivity extends Activity {
 		
 		DisplayMetrics metrics = new DisplayMetrics();
 		getWindowManager().getDefaultDisplay().getMetrics(metrics);
-		mWidth = metrics.widthPixels;
-		mHeight = metrics.heightPixels;
 		
-		resWidth.setText(String.valueOf(mPref.getInt("resolution_width", mWidth )));
-		resHeight.setText(String.valueOf(mPref.getInt("resolution_height", mHeight )));
-		resScale.setText(String.valueOf(mPref.getFloat("resolution_scale",2.0f)));
+		// Swap resolution here, because engine is always(should be always) run in landscape mode
+		if( FWGSLib.isLandscapeOrientation( this ) )
+		{
+			mEngineWidth = metrics.widthPixels;
+			mEngineHeight = metrics.heightPixels;
+		}
+		else
+		{
+			mEngineWidth = metrics.heightPixels;
+			mEngineHeight = metrics.widthPixels;
+		}		
+		
+		resWidth.setText(String.valueOf(mPref.getInt("resolution_width", mEngineWidth )));
+		resHeight.setText(String.valueOf(mPref.getInt("resolution_height", mEngineHeight )));
+		resScale.setText(String.valueOf(mPref.getFloat("resolution_scale", 2.0f)));
+		
+		resWidth.addTextChangedListener( resTextChangeWatcher );
+		resHeight.addTextChangedListener( resTextChangeWatcher );
+		resScale.addTextChangedListener( resTextChangeWatcher );
+		
 		if( mPref.getBoolean("resolution_custom", false) )
 			radioCustom.setChecked(true);
 		else radioScale.setChecked(true);
-		hideResolutionSettings( !enableResolutionChange );
+		
+		radioCustom.setOnCheckedChangeListener( new CompoundButton.OnCheckedChangeListener()
+		{
+			@Override
+			public void onCheckedChanged( CompoundButton v, boolean isChecked )
+			{
+				updateResolutionResult();
+				toggleResolutionFields();
+			}
+		} );
 		resolution.setOnCheckedChangeListener( new CompoundButton.OnCheckedChangeListener()
 		{
 			@Override
@@ -233,33 +277,76 @@ public class LauncherActivity extends Activity {
 			new CheckUpdate(true, updateToBeta.isChecked()).execute(UPDATE_LINK);
 		}
 		changeButtonsStyle((ViewGroup)tabHost.getParent());
-
+		hideResolutionSettings( !enableResolutionChange );
+		updateResolutionResult();
+		toggleResolutionFields();
 	}
 
 	void updatePath( String text )
 	{
-		tvResPath.setText(getResources().getString(R.string.text_res_path) + ":\n" + text );
+		tvResPath.setText(getString(R.string.text_res_path) + ":\n" + text );
 		resPath.setText(text);
 	}
 	
 	void hideResolutionSettings( boolean hide )
 	{
-		if( hide )
+		scaleGroup.setVisibility( hide ? View.GONE : View.VISIBLE );
+	}
+		
+	TextWatcher resTextChangeWatcher = new TextWatcher()
+	{
+		@Override
+		public void afterTextChanged(Editable s){}
+		
+		@Override
+		public void beforeTextChanged(CharSequence s, int start, int count, int after){}
+		
+		@Override
+		public void onTextChanged(CharSequence s, int start, int before, int count)
 		{
-			resWidth.setVisibility( View.GONE );
-			resHeight.setVisibility( View.GONE );
-			resScale.setVisibility( View.GONE );
-			radioCustom.setVisibility( View.GONE );
-			radioScale.setVisibility( View.GONE );
+			updateResolutionResult();
+		}
+	};
+	
+	void updateResolutionResult( )
+	{
+		int w, h;
+		if( radioCustom.isChecked() )
+		{
+			w = getCustomEngineWidth();
+			h = getCustomEngineHeight();
 		}
 		else
 		{
-			resWidth.setVisibility( View.VISIBLE );
-			resHeight.setVisibility( View.VISIBLE );
-			resScale.setVisibility( View.VISIBLE );
-			radioCustom.setVisibility( View.VISIBLE );
-			radioScale.setVisibility( View.VISIBLE );
+			final float scale = getResolutionScale();
+			w = (int)((float)mEngineWidth / scale);
+			h = (int)((float)mEngineHeight / scale);
 		}
+		
+		resResult.setText( getString( R.string.resolution_result ) + w + "x" + h );
+	}
+	
+	void toggleResolutionFields()
+	{
+		boolean isChecked = radioCustom.isChecked();
+		resWidth.setEnabled( isChecked );
+		resHeight.setEnabled( isChecked );
+		resScale.setEnabled( !isChecked );
+	}
+	
+	float getResolutionScale()
+	{
+		return FWGSLib.atof( resScale.getText().toString(), 1.0f );
+	}
+	
+	int getCustomEngineHeight()
+	{
+		return FWGSLib.atoi( resHeight.getText().toString(), mEngineHeight );
+	}
+	
+	int getCustomEngineWidth()
+	{
+		return FWGSLib.atoi( resWidth.getText().toString(), mEngineWidth );
 	}
 	
     public void startXash(View view)
@@ -276,32 +363,9 @@ public class LauncherActivity extends Activity {
 		editor.putBoolean("check_updates", checkUpdates.isChecked());
 		editor.putBoolean("resolution_fixed", resolution.isChecked());
 		editor.putBoolean("resolution_custom", radioCustom.isChecked());
-		
-		float scale = 1.0f;
-		int w = mWidth, h = mHeight;
-		
-		try
-		{
-			scale = Float.valueOf( resScale.getText().toString() );
-		}
-		catch( Exception e ) 
-		{
-		}
-		
-		try
-		{
-			w = Integer.valueOf( resWidth.getText().toString() );
-			h = Integer.valueOf( resHeight.getText().toString() );
-		}
-		catch( Exception e )
-		{
-			w = mWidth;
-			h = mHeight;
-		}
-		
-		editor.putFloat("resolution_scale", scale );
-		editor.putInt("resolution_width", w );
-		editor.putInt("resolution_height", h );
+		editor.putFloat("resolution_scale", getResolutionScale() );
+		editor.putInt("resolution_width", getCustomEngineWidth() );
+		editor.putInt("resolution_height", getCustomEngineHeight() );
 		
 		if( sdk >= 19 )
 			editor.putBoolean("immersive_mode", immersiveMode.isChecked());

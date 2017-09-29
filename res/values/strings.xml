@@ -73,5 +73,7 @@
 	<string name="resolution">Fixed screen resolution (experimental)</string>
 	<string name="resolution_scale">Scale screen keeping aspect ratio</string>
 	<string name="resolution_custom">Specify custom screen width and height</string>
-	
+	<string name="resolution_result">Resolution: </string>	
+	<string name="resolution_mod_warn">Use with caution! Some games does not support too low resolution, in case of bugs increase resolution to 640x480 or higher.\n
+	Resolution lower than 320x240 is not allowed.</string>	
 </resources>
