@@ -31,14 +31,42 @@ public class CertCheck
 	{
 		if( !XashConfig.CHECK_SIGNATURES )
 			return false; // disable checking for debug builds
+			
+		final String sig;
+		
+		if( XashConfig.PKG_TEST )
+		{
+			sig = SIG_TEST;
+		}
+		else
+		{
+			sig = SIG;
+		}
 	
+		if( dumbCertificateCheck( context, context.getPackageName(), sig, false ) )
+		{
+			Log.e(TAG, "Please, don't resign our public release builds!");
+			Log.e(TAG, "If you want to insert some features, rebuild package with ANOTHER package name from git repository.");
+			return true;
+		}
+		
+		return false;
+	}
+	
+	public static boolean dumbCertificateCheck( Context context, String pkgName, String sig, boolean failIfNoPkg )
+	{
+		if( sig == null )
+			sig = SIG;
+	
+		Log.d( TAG, "pkgName = " + pkgName );
 		try
 		{
 			PackageInfo info = context.getPackageManager()
-				.getPackageInfo( context.getPackageName(), PackageManager.GET_SIGNATURES );
+				.getPackageInfo( pkgName, PackageManager.GET_SIGNATURES );
 			
 			for( Signature signature: info.signatures )
 			{
+				Log.d( TAG, "found signature" );
 				MessageDigest md = MessageDigest.getInstance( "SHA" );
 				final byte[] signatureBytes = signature.toByteArray();
 
@@ -46,25 +74,27 @@ public class CertCheck
 
 				final String curSIG = Base64.encodeToString( md.digest(), Base64.NO_WRAP );
 
-				if( XashConfig.PKG_TEST )
+				if( sig.equals(curSIG) )
 				{
-					if( SIG_TEST.equals(curSIG) )
-						return false;
-				}
-				else
-				{
-					if( SIG.equals(curSIG) )
-						return false;
+					Log.d( TAG, "Found valid cert" );
+					return false;
 				}
 			}
 		} 
+		catch( PackageManager.NameNotFoundException e )
+		{
+			Log.d( TAG, "Package not found" );
+
+			e.printStackTrace();
+			if( !failIfNoPkg )
+				return false;
+			
+		}
 		catch( Exception e ) 
 		{
 			e.printStackTrace();
 		}
 		
-		Log.e(TAG, "Please, don't resign our public release builds!");
-		Log.e(TAG, "If you want to insert some features, rebuild package with ANOTHER package name from git repository.");
 		return true;
 	}
 }
