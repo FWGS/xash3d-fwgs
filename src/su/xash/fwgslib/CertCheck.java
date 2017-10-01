@@ -1,4 +1,4 @@
- package in.celest.xash3d;
+ package su.xash.fwgslib;
 
 import android.content.*;
 import android.view.*;
