@@ -74,6 +74,10 @@
 	<string name="resolution_scale">Scale screen keeping aspect ratio</string>
 	<string name="resolution_custom">Specify custom screen width and height</string>
 	<string name="resolution_result">Resolution: </string>	
-	<string name="resolution_mod_warn">Use with caution! Some games does not support too low resolution, in case of bugs increase resolution to 640x480 or higher.\n
-	Resolution lower than 320x240 is not allowed.</string>	
+	<string name="resolution_mod_warn"><img src="https://ya.ru/favicon.ico" /> <br />Use with caution! Some games does not support too low resolution, in case of bugs increase resolution to 640x480 or higher.\n
+	Resolution lower than 320x240 is not allowed.</string>
+	<string name="firstrun">Show firstrun dialog</string>
+	<string name="next">Next</string>
+	<string name="prev">Prev</string>
+	<string name="skip">Skip</string>
 </resources>

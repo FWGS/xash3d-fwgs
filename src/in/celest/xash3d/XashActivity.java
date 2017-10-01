@@ -887,6 +887,9 @@ public class XashActivity extends Activity {
 	public static void setTitle( String title )
 	{
 		Log.v( TAG, "setTitle(" + title + ")" );
+		SharedPreferences.Editor editor = mPref.edit();
+		editor.putBoolean("successfulRun", true);
+		editor.commit();
 		
 		if( sdk < 5 )
 			return;

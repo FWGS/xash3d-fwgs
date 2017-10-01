@@ -90,8 +90,13 @@
             android:id="@+id/textView2"
             android:layout_weight="0.58" />
 		<Button
+			android:id="@+id/show_firstrun"
+			android:layout_width="fill_parent"
+			android:layout_height="wrap_content"
+			android:text="@string/firstrun"/>
+		<Button
 			android:id="@+id/button_about_ok"
-			android:text="Ok"
+			android:text="@string/ok"
 			android:layout_height="wrap_content"
 			android:layout_width="fill_parent"
 			/>
