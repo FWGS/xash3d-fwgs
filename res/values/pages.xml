@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="page_title0">Welcome!</string>
+	<string name="page_content0"><![CDATA[<p><h1><font color="#ff0000">Under Construction!</font></h1><br/></p>It seems you first time running xash3d. Please read following instructions to correctly install game. Press next to continue. Press skip if you have already installed the game (use button in about dialog to read this instrucyions again). This dialog will shown again until successful game start]]></string>
+	<string name="page_title1">Obtain game from steam</string>
+	<string name="page_content1">You must obtain the game legally to play it. Use you PC, iMac or Linux desktop to get it if you still not have it installed. Install Steam client, find the game and press "Install" or "Purchase" button. Wait for download complete.</string>
+	<string name="page_title2">Copy game to your device</string>
+	<string name="page_content2">Open SteamApps\\common\\Half-Life folder (todo: full windows path here). Connect your device to PC. Make "xash" folder in device\'s internal storage and copy "valve" folder into "xash". If you have not enough internal storage, you may use external SD. Then you need to use Android/data/in.celest.xash3d.hl/files folder on external SD.</string>
+	<string name="page_title3">Setting game path</string>
+	<string name="page_content3">After successfully copying game to device, you need tell Xash3D where you placed it. Press "Next" to close this dialog and select game folder (that contains "valve" folder) by pressing "Select game data location" button</string>
+</resources>
