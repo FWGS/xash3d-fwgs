@@ -927,6 +927,13 @@ public class XashActivity extends Activity {
 		fMouseShown = show != 0;
 		handler.showMouse( fMouseShown );
 	}
+	
+	// Just opens browser
+	public static void shellExecute( String path )
+	{
+		final Intent intent = new Intent(Intent.ACTION_VIEW).setData(Uri.parse(path));
+		mSingleton.startActivity(intent);
+	}
 }
 
 
