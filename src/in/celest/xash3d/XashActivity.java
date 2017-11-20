@@ -539,9 +539,14 @@ public class XashActivity extends Activity {
 	public static native int setenv( String key, String value, boolean overwrite );
 	
 	// Java functions called from C
-	public static boolean createGLContext() 
+	public static boolean createGLContext( int stencilBits ) 
 	{
-		return mSurface.InitGL();
+		return mSurface.InitGL(stencilBits);
+	}
+	
+	public static int getGLAttribute( int attr )
+	{
+		return mSurface.getGLAttribute( attr );
 	}
 	
 	public static void swapBuffers() 
@@ -1106,8 +1111,53 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 		return getHolder().getSurface();
 	}
 	
+	public int getGLAttribute( final int attr )
+	{
+		try
+		{
+			EGL10 egl = ( EGL10 )EGLContext.getEGL();
+			// check input for invalid attributes
+			if( attr == egl.EGL_ALPHA_SIZE ||
+				attr == egl.EGL_DEPTH_SIZE ||
+				attr == egl.EGL_RED_SIZE ||
+				attr == egl.EGL_GREEN_SIZE ||
+				attr == egl.EGL_BLUE_SIZE ||
+				attr == egl.EGL_STENCIL_SIZE )
+			{
+				int[] value = new int[1];
+				
+				boolean ret = egl.eglGetConfigAttrib(mEGLDisplay, mEGLConfig, attr, value);
+				
+				if( !ret )
+				{
+					Log.e(TAG, "getGLAttribute(): eglGetConfigAttrib error " + egl.eglGetError());
+					return 0;
+				}
+				
+				// Log.e(TAG, "getGLAttribute(): " + attr + " => " + value[0]);
+				
+				return value[0];
+			}
+			else
+			{
+				// engine don't cares about others
+				Log.e(TAG, "getGLAttribute(): Unknown attribute " + attr);
+				return 0;
+			}
+		}
+		catch( Exception e  )
+		{
+			Log.v( TAG, e + "" );
+			for( StackTraceElement s : e.getStackTrace() ) 
+			{
+				Log.v( TAG, s.toString() );
+			}
+		}
+		return 0;
+	}
+	
 	// EGL functions
-	public boolean InitGL() 
+	public boolean InitGL( int stencilBits ) 
 	{
 		try
 		{
@@ -1134,9 +1184,11 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 				return false;
 			}
 			
+			// Make EGL_STENCIL_SIZE first argument, so it's easy to fall back to null stencil buffer, if we failed
 			int[][] configSpec = 
 			{
 				{
+					EGL10.EGL_STENCIL_SIZE, stencilBits,
 					EGL10.EGL_DEPTH_SIZE, 8,
 					EGL10.EGL_RED_SIZE,   8,
 					EGL10.EGL_GREEN_SIZE, 8,
@@ -1145,6 +1197,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 					EGL10.EGL_NONE
 				}, 
 				{
+					EGL10.EGL_STENCIL_SIZE, stencilBits,
 					EGL10.EGL_DEPTH_SIZE, 8,
 					EGL10.EGL_RED_SIZE,   8,
 					EGL10.EGL_GREEN_SIZE, 8,
@@ -1153,6 +1206,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 					EGL10.EGL_NONE
 				}, 
 				{
+					EGL10.EGL_STENCIL_SIZE, stencilBits,
 					EGL10.EGL_DEPTH_SIZE, 8,
 					EGL10.EGL_RED_SIZE,   5,
 					EGL10.EGL_GREEN_SIZE, 6,
@@ -1161,6 +1215,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 					EGL10.EGL_NONE
 				}, 
 				{
+					EGL10.EGL_STENCIL_SIZE, stencilBits,
 					EGL10.EGL_DEPTH_SIZE, 8,
 					EGL10.EGL_RED_SIZE,   5,
 					EGL10.EGL_GREEN_SIZE, 5,
@@ -1169,6 +1224,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 					EGL10.EGL_NONE
 				}, 
 				{
+					EGL10.EGL_STENCIL_SIZE, stencilBits,
 					EGL10.EGL_DEPTH_SIZE, 8,
 					EGL10.EGL_RED_SIZE,   4,
 					EGL10.EGL_GREEN_SIZE, 4,
@@ -1177,6 +1233,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 					EGL10.EGL_NONE
 				}, 
 				{
+					EGL10.EGL_STENCIL_SIZE, stencilBits,
 					EGL10.EGL_DEPTH_SIZE, 8,
 					EGL10.EGL_RED_SIZE,   3,
 					EGL10.EGL_GREEN_SIZE, 3,
@@ -1189,8 +1246,13 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 			int[] num_config = new int[1];
 			if( !egl.eglChooseConfig( dpy, configSpec[XashActivity.mPixelFormat], configs, 1, num_config ) || num_config[0] == 0 )
 			{
-				Log.e( TAG, "No EGL config available" );
-				return false;
+				Log.e( TAG, "Failed to choose config with " + stencilBits + " stencil size. Trying without..." );
+				configSpec[XashActivity.mPixelFormat][1] = 0; // disable stencil
+				if( !egl.eglChooseConfig( dpy, configSpec[XashActivity.mPixelFormat], configs, 1, num_config ) || num_config[0] == 0 )
+				{
+					Log.e( TAG, "No EGL config available" );
+					return false;
+				}
 			}
 			EGLConfig config = configs[0];
 
