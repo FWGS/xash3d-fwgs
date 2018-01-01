@@ -18,7 +18,7 @@ import org.json.*;
 import android.preference.*;
 
 /*
- * This utility class is intended to hide some Android and Java design-flaws
+ * This utility class is intended to hide some Android and Java design-flaws and
  * also just shortcuts
  */
 public class FWGSLib
@@ -63,29 +63,38 @@ public class FWGSLib
 	{
 		try
 		{
-			// Log.d( TAG, " gamelibdir = " + gamelibdir + " allowed = " + allowed );
+			Log.d( TAG, " gamelibdir = " + gamelibdir + " allowed = " + allowed );
+			
+			if( gamelibdir.contains( "/.." ))
+				return false;
 			
 			File f = new File( gamelibdir );
 		
 			if( !f.isDirectory() )
 			{
-				// Log.d( TAG, "Not a directory" );
+				Log.d( TAG, "Not a directory" );
 				return false;
 			}
 		
 			if( !f.exists() )
 			{
-				// Log.d( TAG, "Does not exist" );
+				Log.d( TAG, "Does not exist" );
 				return false;
 			}
 			
-			final String path = f.getCanonicalPath();
+			// add trailing / for simple regexp
+			if( gamelibdir.charAt(gamelibdir.length() - 1) != '/' )
+				gamelibdir = gamelibdir + "/";
+					
+			final String regex = ".+\\/" + allowed.replace(".",  "\\.") + "(|(-\\d))\\/(.+|)";
 			
-			// Log.d( TAG, "path = " + path );
+			Log.d( TAG, regex );
 		
-			final String regex = ".+\\/" + allowed + "(\\/|(-\\d)?\\/).+";
-		
-			return path.matches( regex );		
+			final boolean ret =  gamelibdir.matches( regex );
+			
+			Log.d( TAG, "ret = " + ret );
+			
+			return ret;
 		}
 		catch( Exception e )
 		{
