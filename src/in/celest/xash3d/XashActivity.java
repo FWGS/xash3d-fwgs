@@ -379,7 +379,11 @@ public class XashActivity extends Activity {
 	{
 		Log.v( TAG, "Everything is OK. Launching engine..." );
 
-		setupEnvironment();
+		if( !setupEnvironment() )
+		{
+			finish();
+			return;
+		}
 		InstallReceiver.extractPAK( this, false );
 
 		// Set up the surface
@@ -449,7 +453,7 @@ public class XashActivity extends Activity {
 		mEngineReady = true;
 	}
 	
-	private void setupEnvironment()
+	private boolean setupEnvironment()
 	{
 		Intent intent = getIntent();
 		final String enginedir = getFilesDir().getParentFile().getPath() + "/lib";
@@ -473,7 +477,7 @@ public class XashActivity extends Activity {
 				CertCheck.dumbCertificateCheck( getContext(), allowed, null, true ) )
 			{
 				finish();
-				return;
+				return false;
 			}
 		}
 		
@@ -510,6 +514,8 @@ public class XashActivity extends Activity {
 				e.printStackTrace();
 			}
 		}
+		
+		return true;
 	}
 	
 	public static native int  nativeInit( Object arguments );
