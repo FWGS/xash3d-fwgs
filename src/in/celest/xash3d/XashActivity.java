@@ -939,9 +939,38 @@ public class XashActivity extends Activity {
 		handler.showMouse( fMouseShown );
 	}
 	
-	// Just opens browser
+	public static void GenericUpdatePage()
+	{
+		mSingleton.startActivity( new Intent( Intent.ACTION_VIEW, Uri.parse("https://github.com/FWGS/xash3d/releases/latest" ) ) );
+	}
+	
+	public static void PlatformUpdatePage()
+	{
+		// open GP
+		try 
+		{
+			mSingleton.startActivity( new Intent( Intent.ACTION_VIEW, Uri.parse("market://details?id=in.celest.xash3d.hl") ) );
+		}
+		catch( android.content.ActivityNotFoundException e ) 
+		{
+			GenericUpdatePage();
+		}
+	}
+	
+	// Just opens browser or update page
 	public static void shellExecute( String path )
 	{
+		if( path.equals("PlatformUpdatePage"))
+		{
+			PlatformUpdatePage();
+			return;
+		}
+		else if( path.equals( "GenericUpdatePage" ))
+		{
+			GenericUpdatePage();
+			return;
+		}
+	
 		final Intent intent = new Intent(Intent.ACTION_VIEW).setData(Uri.parse(path));
 		mSingleton.startActivity(intent);
 	}
