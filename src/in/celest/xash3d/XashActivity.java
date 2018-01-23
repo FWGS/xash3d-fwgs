@@ -36,6 +36,7 @@ import in.celest.xash3d.JoystickHandler;
 import android.provider.Settings.Secure;
 
 import su.xash.fwgslib.*;
+import android.sax.*;
 
 /**
  Xash Activity
@@ -59,7 +60,7 @@ public class XashActivity extends Activity {
 	public static Vibrator mVibrator;
 	public static boolean fMouseShown = true;
 	public static boolean fGDBSafe = false;
-	public static float mScale = 0, mTouchScaleX = 1, mTouchScaleY = 1;
+	public static float mScale = 0.0f, mTouchScaleX = 1.0f, mTouchScaleY = 1.0f;
 	public static int mForceHeight = 0, mForceWidth = 0;
 	public static int mMinHeight = 240, mMinWidth = 320; // hl1 support 320 width, but mods may not.
 	public static boolean bIsCstrike = false;
@@ -1509,7 +1510,7 @@ class EngineTouchListener_v5 implements View.OnTouchListener
 	// Touch events
 	public boolean onTouch( View v, MotionEvent event )
 	{
-		final int touchDevId   = event.getDeviceId();
+		//final int touchDevId   = event.getDeviceId();
 		final int pointerCount = event.getPointerCount();
 		int action = event.getActionMasked();
 		int pointerFingerId, mouseButton, i = -1;
@@ -1735,6 +1736,9 @@ class Wrap_NVMouseExtensions
 {
 	private static Object inputManager;
 	private static Method mInputManager_setCursorVisibility;
+	private static Method mView_setPointerIcon;
+	private static Class mPointerIcon;
+	private static Object mEmptyIcon;
 	public static int nMotionEvent_AXIS_RELATIVE_X = 0;
 	public static int nMotionEvent_AXIS_RELATIVE_Y = 0;
 	
@@ -1749,12 +1753,22 @@ class Wrap_NVMouseExtensions
 			inputManager = XashActivity.mSingleton.getSystemService( "input" );
 		}
 		catch( Exception ex ) 
-		{ 
+		{
+			try
+			{
+				mPointerIcon=Class.forName("android.view.PointerIcon");
+				mEmptyIcon = mPointerIcon.getDeclaredMethod("getSystemIcon",android.content.Context.class, int.class).invoke(null,XashActivity.mSingleton.getContext(),0);
+				mView_setPointerIcon = View.class.getMethod("setPointerIcon",mPointerIcon);
+			}
+			catch( Exception ex1 )
+			{
+				ex1.printStackTrace();
+			}
 		}
 		/* DO THE SAME FOR RELATIVEY */
 	}
 	
-	//**************************************************************************
+	//*************************************************************************
 	public static void checkAvailable() throws Exception 
 	{
 		Field fieldMotionEvent_AXIS_RELATIVE_X = MotionEvent.class.getField( "AXIS_RELATIVE_X" );
@@ -1763,15 +1777,67 @@ class Wrap_NVMouseExtensions
 		nMotionEvent_AXIS_RELATIVE_Y = ( Integer )fieldMotionEvent_AXIS_RELATIVE_Y.get( null );
 	}
 	
+	static void setPointerIcon( View view, boolean fVisibility )
+	{
+		Log.v("XashInput", "SET CURSOR VISIBILITY " + fVisibility + " obj " + mEmptyIcon.toString() );
+		try
+		{
+			mView_setPointerIcon.invoke(view,fVisibility?null:mEmptyIcon);
+		}
+		catch( Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+	static void setGroupPointerIcon( ViewGroup parent, boolean fVisibility )
+	{
+		for( int i = parent.getChildCount() - 1; i >= 0; i-- ) 
+		{
+			try
+			{
+				final View child = parent.getChildAt(i);
+
+				if( child == null )
+					continue;
+
+				if( child instanceof ViewGroup )
+				{
+					setGroupPointerIcon((ViewGroup) child, fVisibility);
+				} 
+				setPointerIcon( child, fVisibility);
+			
+			}
+			catch( Exception ex )
+			{
+				ex.printStackTrace();
+			}
+		}
+	}
+	
 	//**************************************************************************
 	public static void setCursorVisibility( boolean fVisibility ) 
 	{
 		try 
 		{ 
 			mInputManager_setCursorVisibility.invoke( inputManager, fVisibility ); 
+			
 		}
 		catch( Exception e )
 		{
+			try
+			{
+				ViewGroup rootViewGroup = (ViewGroup) XashActivity.mSingleton.getWindow().getDecorView();
+				setGroupPointerIcon(rootViewGroup, fVisibility);
+				setGroupPointerIcon((ViewGroup)XashActivity.mDecorView, fVisibility);
+				for (int i = 0; i < rootViewGroup.getChildCount(); i++) {
+					View view = rootViewGroup.getChildAt(i);
+					setPointerIcon(view, fVisibility);
+				}
+				}
+				catch( Exception ex)
+				{
+					ex.printStackTrace();
+				}
 		}
 	}
 	
@@ -1793,6 +1859,7 @@ class JoystickHandler_v12 extends JoystickHandler
 
 	public static boolean mNVMouseExtensions = false;
 
+	static int mouseId;
 	static 
 	{
 		try 
@@ -1822,6 +1889,8 @@ class JoystickHandler_v12 extends JoystickHandler
 	@Override
 	public int getSource( MotionEvent event )
 	{
+		if( event.getDeviceId() == mouseId )
+			return InputDevice.SOURCE_MOUSE;
 		return event.getSource();
 	}
 
@@ -1897,11 +1966,13 @@ class JoystickHandler_v12 extends JoystickHandler
 		{
 			final int source = XashActivity.handler.getSource( event );
 			final int axisDevices = InputDevice.SOURCE_CLASS_JOYSTICK | InputDevice.SOURCE_GAMEPAD;
-			
-			if( ( ( source & InputDevice.SOURCE_MOUSE ) == InputDevice.SOURCE_MOUSE ) && mNVMouseExtensions )
+
+			if( mNVMouseExtensions )
 			{
 				float x = event.getAxisValue( Wrap_NVMouseExtensions.getAxisRelativeX(), 0 );
 				float y = event.getAxisValue( Wrap_NVMouseExtensions.getAxisRelativeY(), 0 );
+				if( ( source & InputDevice.SOURCE_MOUSE) != InputDevice.SOURCE_MOUSE && (x != 0 || y != 0 ))
+					mouseId = event.getDeviceId();
 				switch( event.getAction() ) 
 				{
 					case MotionEvent.ACTION_SCROLL:
