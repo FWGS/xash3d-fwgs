@@ -408,96 +408,86 @@ public class LauncherActivity extends Activity {
 		});
 	}
 
-	int m_iFirstRunCounter;
+	int m_iFirstRunCounter = 0;
 	public void showFirstRun()
 	{
-		if(m_iFirstRunCounter < 0)
+		if( m_iFirstRunCounter < 0 )
 			m_iFirstRunCounter = 0;
+		
 		final int titleres = getResources().getIdentifier("page_title" + String.valueOf(m_iFirstRunCounter), "string", getPackageName());
 		final int contentres = getResources().getIdentifier("page_content" + String.valueOf(m_iFirstRunCounter), "string", getPackageName());
 		final Activity a = this;
 		if( titleres == 0 || contentres == 0 )
 			return;
 		this.runOnUiThread(new Runnable() 
+		{
+			public void run()
 			{
-				public void run()
-				{
-					TextView content = new TextView(LauncherActivity.this);
-					content.setText(Html.fromHtml(getResources().getText(contentres).toString(),  new Html.ImageGetter(){
-
-											@Override
-											public Drawable getDrawable(String source) {
-												Drawable drawable;
-												int dourceId = 
-													getApplicationContext()
-													.getResources()
-													.getIdentifier(source, "drawable", getPackageName());
-
-												drawable = 
-													getApplicationContext()
-													.getResources()
-													.getDrawable(dourceId);
-
-												drawable.setBounds(
-													0, 
-													0, 
-													drawable.getIntrinsicWidth(),
-													drawable.getIntrinsicHeight());
-
-												return drawable;
-											}
-
-										}, null));
-					content.setMovementMethod(LinkMovementMethod.getInstance());
-
-					AlertDialog.Builder builder = new AlertDialog.Builder(a)
+				final TextView content = new TextView(LauncherActivity.this);
+				content.setMovementMethod(LinkMovementMethod.getInstance());
+				AlertDialog.Builder builder = new AlertDialog.Builder(a)
 					.setTitle(titleres)
 					.setView(content);
-					if( sdk >= 21 )
+				DialogInterface.OnClickListener nextClick = new DialogInterface.OnClickListener()
+				{
+					public void onClick(DialogInterface d, int p1)
 					{
-						builder.setPositiveButton(R.string.next, new DialogInterface.OnClickListener(){
-							public void onClick(DialogInterface d, int p1)
-							{
-								m_iFirstRunCounter++;
-								showFirstRun();
-							}
-						});
-						if( m_iFirstRunCounter > 0 )
-							builder.setNegativeButton(R.string.prev, new DialogInterface.OnClickListener(){
-								public void onClick(DialogInterface d, int p1)
-								{
-									m_iFirstRunCounter--;
-									showFirstRun();
-								}
-							});
-						builder.setNeutralButton(R.string.skip, null);
+						m_iFirstRunCounter++;
+						showFirstRun();
 					}
-					else
+				};
+				DialogInterface.OnClickListener prevClick = new DialogInterface.OnClickListener()
+				{
+					public void onClick(DialogInterface d, int p1)
 					{
-						builder.setNegativeButton(R.string.next, new DialogInterface.OnClickListener(){
-								public void onClick(DialogInterface d, int p1)
-								{
-									m_iFirstRunCounter++;
-									showFirstRun();
-								}
-							});
-						if( m_iFirstRunCounter > 0 )
-							builder.setNeutralButton(R.string.prev, new DialogInterface.OnClickListener(){
-									public void onClick(DialogInterface d, int p1)
-									{
-										m_iFirstRunCounter--;
-										showFirstRun();
-									}
-								});
-						builder.setPositiveButton(R.string.skip,null);
+						m_iFirstRunCounter--;
+						showFirstRun();
 					}
-					
-					builder.setCancelable(false);
-					builder.show();
-		
-					
+				};
+				
+				if( sdk >= 21 )
+				{
+					builder.setPositiveButton(R.string.next, nextClick);
+					if( m_iFirstRunCounter > 0 )
+					{
+						builder.setNegativeButton(R.string.prev, prevClick);
+					}
+					builder.setNeutralButton(R.string.skip, null);
 				}
-			});
+				else
+				{
+					builder.setNegativeButton(R.string.next, nextClick);
+					if( m_iFirstRunCounter > 0 )
+					{
+						builder.setNeutralButton(R.string.prev, prevClick);
+					}
+					builder.setPositiveButton(R.string.skip, null);
+				}
+				builder.setCancelable(false);
+				final AlertDialog dialog = builder.create();
+				dialog.show();
+				content.setText(Html.fromHtml(getResources().getText(contentres).toString(),
+					new Html.ImageGetter()
+					{
+						@Override
+						public Drawable getDrawable(String source)
+						{
+							int dourceId = getApplicationContext().getResources().getIdentifier(source, "drawable", getPackageName());
+							Drawable drawable = getApplicationContext().getResources().getDrawable(dourceId);
+							final int visibleWidth = dialog.getWindow().getDecorView().getWidth();
+							final int picWidth = drawable.getIntrinsicWidth();
+							final int picHeight = drawable.getIntrinsicHeight();
+							
+							final int calcWidth = visibleWidth < picWidth ? visibleWidth : picWidth;
+							// final int calcHeight = (int)((float)picHeight * ((float)calcWidth / (float)picWidth));
+							final int calcHeight = (int)((float)picHeight);
+							
+							drawable.setBounds( 0, 0, calcWidth, calcHeight);
+							return drawable;
+						}
+					}, null));
+			}
+		});
 	}
 
 	public void selectFolder(View view)
