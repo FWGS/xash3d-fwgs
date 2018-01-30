@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Xash3D</string>
+	<string name="app_name" translatable="false">Xash3D</string>
 	<string name="launcher_name" translatable="false">Xash3D</string>
 	<string name="launcher_name_test" translatable="false">Xash3D (test)</string>
-	<string name="version_string" translatable="false">v0.19</string>
+	<string name="version_string" translatable="false">v0.19.1</string>
 
-    <string name="launch_button">Launch Xash3D!</string>
-    <string name="cmd_args_text">Command line arguments(experts only)</string>
+	<string name="launch_button">Launch Xash3D!</string>
+	<string name="cmd_args_text">Command line arguments(experts only)</string>
 	<string name="text_res_path">Path to game resources</string>
 	<string name="touch_set">Controls settings</string>
 	<string name="text_shortcut">Xash3D shortcut</string>
@@ -16,18 +16,20 @@
 	<string name="pkgname">Mod package name (experts only)</string>
 	<string name="shortcut_name">Shortcut name</string>
 
-    <string name="about_main" translatable="false">Xash3D Android</string>
-    <string name="about_copyright">FWGS is not affiliated with Valve or any of their partners. All copyrights reserved to their respective owners.</string>
+	<string name="about_main" translatable="false">Xash3D Android</string>
+	<string name="about_copyright">FWGS is not affiliated with Valve or any of their partners. All copyrights reserved to their respective owners.</string>
 	<!-- Seems Android skips any line breaks and tabs here. -->
-    <string name="about_authors">
+	<string name="about_authors">
 		Port to Android by FWGS team: \n
 		&#8226; a1batross\n
 		&#8226; mittorn \n
-		&#8226; nicknekit.\n
+		&#8226; nicknekit\n
+		&#8226; nekonomicon.\n
 
 		Special thanks to:\n
 		&#8226; Uncle Mike for Xash3D engine\n
 		&#8226; Valve for Half-Life\n
+		&#8226; msayan for tutorial-view library\n
 	</string>
 	<string name="about_links">
 		Follow us in: \n
@@ -35,19 +37,17 @@
 		&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>\n
 		&#8226; <a href="https://github.com/FWGS">GitHub</a>
 	</string>
-    <string name="about_button">About</string>
-    <string name="create_shortcut_button">Create mod shortcut</string>
-    <string name="select_folder">Select game data location</string>
-    
-    <string name="text_tab1">Normal</string>
-    <string name="text_tab2">Advanced</string>
-    <string name="text_res_tittle2">Normal settings</string>
-    <string name="text_res_tittle3">Advanced settings</string>
-    <string name="volume">Volume buttons mode</string>
-    <string name="use_volume">Default action</string>
-    <string name="no_volume">Use in game</string>
-    <string name="folder">Set current folder</string>
-	
+	<string name="about_button">About</string>
+	<string name="create_shortcut_button">Create mod shortcut</string>
+	<string name="select_folder">Select game data location</string>
+	<string name="text_tab1">Normal</string>
+	<string name="text_tab2">Advanced</string>
+	<string name="text_res_tittle2">Normal settings</string>
+	<string name="text_res_tittle3">Advanced settings</string>
+	<string name="volume">Volume buttons mode</string>
+	<string name="use_volume">Default action</string>
+	<string name="no_volume">Use in game</string>
+	<string name="folder">Set current folder</string>
 	<string name="update_button">Check updates on start</string>
 	<string name="update_to_beta">Update to unstable version if available</string>
 	<string name="update_message">%s is available! Download it now!</string>
@@ -80,4 +80,5 @@
 	<string name="next">Next</string>
 	<string name="prev">Prev</string>
 	<string name="skip">Skip</string>
+	<string name="finish">Finish</string>
 </resources>
