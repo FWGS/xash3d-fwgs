@@ -400,7 +400,8 @@ public class LauncherActivity extends Activity {
 						@Override
 						public void onClick(View v) {
 							dialog.cancel();
-							showFirstRun();
+							Intent intent = new Intent(a, XashTutorialActivity.class);
+							startActivity(intent);
 						}
 					});
 
