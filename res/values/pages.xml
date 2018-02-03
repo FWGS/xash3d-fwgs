@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 	<string name="page_title0">Welcome!</string>
-	<string name="page_content0"><![CDATA[<img src="ic_launcher" align="middle" /><br />Welcome to Xash3D FWGS! Before continue, we recommend you to read our installation guide. Press "Next" to continue. Press "Skip" to close this dialog, if you already have installed the game data files.]]></string>
+	<string name="page_content0">Welcome to Xash3D FWGS! Before continue, we recommend you to read our installation guide. Press "Next" to continue. Press "Skip" to close this dialog, if you already have installed the game data files.</string>
 	
 	<string name="page_title1">Purchase Half-Life in Steam</string>
-	<string name="page_content1"><![CDATA[<img src="page1_en" align="middle" width="100%" vspace="20" /><br />To play, you need to have Half-Life on your Steam account. Install Steam client on your PC. Purchase the game, if you still not. Press "Install" button. Wait until download finishes.]]></string>
+	<string name="page_content1">To play, you need to have Half-Life on your Steam account. Install Steam client on your PC. Purchase the game, if you still not. Press "Install" button. Wait until download finishes.</string>
 	
 	<string name="page_title2">Get game files directory</string>
-	<string name="page_content2"><![CDATA[<img src="page2_en" align="middle" width="100%" vspace="20" /><br />Open game properties in Steam, move to "Local Files" tab and press "Browse local files..." button. File manager window will appear.]]></string>
+	<string name="page_content2">Open game properties in Steam, move to "Local Files" tab and press "Browse local files..." button. File manager window will appear.</string>
 	
 	<string name="page_title3">Copy game files to device</string>
-	<string name="page_content3"><![CDATA[Connect your device to PC. Create "xash" folder in device\'s internal storage and copy "valve" folder from game local files into "xash" on your device. If you have not enough internal storage, you may use external SD. Then you need to use "Android/data/in.celest.xash3d.hl/files" folder on external SD(create these folders, if they does not exist).]]></string>
+	<string name="page_content3">Connect your device to PC. Create "xash" folder in device\'s internal storage and copy "valve" folder from game local files into "xash" on your device. If you have not enough internal storage, you may use external SD. Then you need to use "Android/data/in.celest.xash3d.hl/files" folder on external SD(create these folders, if they does not exist).</string>
 	
 	<string name="page_title4">Setting game path</string>
-	<string name="page_content4"><![CDATA[After successfully copying game to device, you need to tell Xash3D FWGS where you placed it. Press "Next" to close this dialog and select game folder (that contains "valve" folder) by pressing "Select game data location" button]]></string>
+	<string name="page_content4">After successfully copying game to device, you need to tell Xash3D FWGS where you placed it. Press "Next" to close this dialog and select game folder (that contains "valve" folder) by pressing "Select game data location" button</string>
 </resources>

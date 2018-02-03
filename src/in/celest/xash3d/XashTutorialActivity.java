@@ -32,7 +32,7 @@ public class XashTutorialActivity extends TutorialActivity
 		addFragment(new Step.Builder().setTitle(getString(R.string.page_title0))
 			.setContent(getString(R.string.page_content0))
 			.setBackgroundColor(Color.parseColor("#555555")) // int background color
-			.setDrawable(R.drawable.ic_launcher) // int top drawable
+			.setDrawable(R.drawable.page0) // int top drawable
 			.build());
 
 		addFragment(new Step.Builder().setTitle(getString(R.string.page_title1))
@@ -48,7 +48,7 @@ public class XashTutorialActivity extends TutorialActivity
 		addFragment(new Step.Builder().setTitle(getString(R.string.page_title3))
 			.setContent(getString(R.string.page_content3))
 			.setBackgroundColor(Color.parseColor("#555555")) // int background color
-			// .setDrawable(R.drawable.ic_launcher) // int top drawable
+			.setDrawable(R.drawable.page3_en) // int top drawable
 			.build());
 		addFragment(new Step.Builder().setTitle(getString(R.string.page_title4))
 			.setContent(getString(R.string.page_content4))
