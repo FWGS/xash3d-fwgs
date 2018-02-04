@@ -30,7 +30,7 @@
             android:layout_alignParentLeft="true"
             android:layout_alignParentStart="true"
             android:layout_centerVertical="true"
-            android:text="@string/back"
+            android:text="@string/prev"
             android:textColor="#FFF" />
 
 
