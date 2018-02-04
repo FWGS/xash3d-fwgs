@@ -666,7 +666,7 @@ public class XashActivity extends Activity {
 
 			if( action == KeyEvent.ACTION_DOWN )
 			{
-				nativeHat( id, hat, val, true );
+				nativeHat( id, hat, val, true  );
 			}
 			else if( action == KeyEvent.ACTION_UP )
 			{
@@ -686,7 +686,8 @@ public class XashActivity extends Activity {
 			
 			switch( keyCode )
 			{
-			// main buttons. DONT CHANGE THIS!!!!111oneone
+			// main buttons
+			// see keydefs.h and keys.c
 			case KeyEvent.KEYCODE_BUTTON_A:      val = 0; break;
 			case KeyEvent.KEYCODE_BUTTON_B:	     val = 1; break;
 			case KeyEvent.KEYCODE_BUTTON_X:	     val = 2; break;
@@ -700,10 +701,10 @@ public class XashActivity extends Activity {
 			case KeyEvent.KEYCODE_BUTTON_THUMBR: val = 10; break;
 			
 			// other
-			case KeyEvent.KEYCODE_BUTTON_C:  val = 11; break;
-			case KeyEvent.KEYCODE_BUTTON_Z:  val = 12; break;
-			case KeyEvent.KEYCODE_BUTTON_L2: val = 13; break;
-			case KeyEvent.KEYCODE_BUTTON_R2: val = 14; break;
+			case KeyEvent.KEYCODE_BUTTON_L2: val = 11; break;
+			case KeyEvent.KEYCODE_BUTTON_R2: val = 12; break;
+			case KeyEvent.KEYCODE_BUTTON_C:  val = 13; break;
+			case KeyEvent.KEYCODE_BUTTON_Z:  val = 14; break;
 			default: 
 				if( keyCode >= KeyEvent.KEYCODE_BUTTON_1 && keyCode <= KeyEvent.KEYCODE_BUTTON_16 )
 				{
