@@ -10,8 +10,8 @@
 		android:layout_gravity="center_vertical"
 		android:layout_width="48dp"
 		android:layout_height="48dp"
-		android:layout_marginLeft="16dp"
-		android:layout_marginRight="16dp"/>
+		android:layout_marginLeft="8dp"
+		android:layout_marginRight="8dp"/>
 	<TextView
 		android:id="@+id/status_text"
 		android:layout_width="wrap_content"
@@ -29,5 +29,5 @@
 		android:layout_weight="0"
 		android:layout_alignParentLeft="true"
 		android:layout_gravity="center_vertical"
-		android:layout_marginRight="16dp" />
+		android:layout_marginRight="8dp" />
 </LinearLayout>
