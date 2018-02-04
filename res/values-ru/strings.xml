@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-	<!--<string name="app_name" translatable="false">Xash3D</string>
-	<string name="launcher_name" translatable="false">Xash3D</string>
-	<string name="launcher_name_test" translatable="false">Xash3D (test)</string>-->
-	
     <string name="launch_button">Запустить Xash3D</string>
     <string name="cmd_args_text">Аргументы командной строки(только для экспертов)</string>
 	<string name="use_controls">Включить экранное управление</string>
@@ -18,35 +14,14 @@
 	<string name="gamedir">Каталог мода</string>
 	<string name="pkgname">Пакет мода (только для экспертов)</string>
 	<string name="shortcut_name">Название ярлыка</string>
-
-	<!--<string name="about_main" translatable="false">Xash3D Android</string>-->
 	<string name="about_copyright">FWGS не связан с Valve или с любыми из их партнеров. Все авторские права принадлежат их соотвественным обладателям.</string>
-	<!-- Seems Android skips any line breaks and tabs here. -->
-	<string name="about_authors">
-		Порт на Android осуществлен командой FWGS:\n
-		&#8226; a1batross\n
-		&#8226; mittorn\n
-		&#8226; nicknekit\n
-
-		Особые благодарности:\n
-		&#8226; Дяде Мише за Xash3D\n
-		&#8226; Valve за Half-Life\n
-	</string>
-	<string name="about_links">
-		Подпишись на нас: \n
-		&#8226; <a href="https://vk.com/xashdroid">VK</a>\n
-		&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>\n
-		&#8226; <a href="https://github.com/FWGS">GitHub</a>
-	</string>
 	<string name="about_button">О Xash3D Android</string>
 	<string name="create_shortcut_button">Создать ярлык</string>
     <string name="select_folder">Выбрать путь игровых файлов</string>
-    
     <string name="text_tab1">Стандартный</string>
     <string name="text_tab2">Продвинутый</string>
     <string name="text_res_tittle2">Стандартные настройки</string>
     <string name="text_res_tittle3">Продвинутые настройки</string>
-	
 	<string name="update_button">Проверять обновления при запуске</string>
 	<string name="update_to_beta">Обновлять до нестабильной версии, если доступно</string>
 	<string name="update_message">%s доступен! Скачай его сейчас!</string>
@@ -55,16 +30,16 @@
 	<string name="no_updates">Обновления не найдены</string>
 	<string name="checking_updates">Работаю...</string>
 	<string name="immersive_mode">Включить Immersive Mode(Полноэкранный режим, для KitKat и старше)</string>
-	
 	<string name="write_failed">Тест чтения не удался</string>
-	
 	<string name="ask_about_new_basedir_msg">Переместите файлы игры куда-нибудь ещё. Например, в Android/data/in.celest.xash3d.hl или во внутренюю память. На следующий запуск я снова спрошу местоположение файлов игры.</string>
-	<!-- <string name="lollipop_select_folder_btn">Select folder</string> -->
-	
-	<!-- These strings must be concat with a "ask_about_new_basedir" string -->
 	<string name="lollipop_request_permission_fail_msg">Тест записи не удался дважды. </string>
 	<string name="lollipop_write_fail_msg">Из-за политик записи в новых версиях Android, полноценно воспользоваться внешней памятью невозможно. </string>
 	<string name="kitkat_write_fail_msg">Из-за политик записи Android 4.4, вы не можете воспользоваться внешней памятью. </string>
 	<string name="readonly_fs_fail_msg">Похоже, ваша файловая система в режиме только для чтения. </string>
-
+	<string name="firstrun">Открыть руководство по установке</string>
+	<string name="next">Далее</string>
+	<string name="prev">Назад</string>
+	<string name="skip">Пропустить</string>
+	<string name="finish">Конец</string>
+	<string name="exit">Выход</string>
 </resources>

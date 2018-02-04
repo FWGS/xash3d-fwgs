@@ -19,20 +19,20 @@
 	<string name="about_main" translatable="false">Xash3D Android</string>
 	<string name="about_copyright">FWGS is not affiliated with Valve or any of their partners. All copyrights reserved to their respective owners.</string>
 	<!-- Seems Android skips any line breaks and tabs here. -->
-	<string name="about_authors">
+	<string name="about_authors" translatable="false">
 		Port to Android by FWGS team: \n
 		&#8226; a1batross\n
 		&#8226; mittorn \n
 		&#8226; nicknekit\n
 		&#8226; nekonomicon.\n
-
+		
 		Special thanks to:\n
+		&#8226; Beloko for some touch controls textures
 		&#8226; Uncle Mike for Xash3D engine\n
 		&#8226; Valve for Half-Life\n
 		&#8226; msayan for tutorial-view library\n
 	</string>
-	<string name="about_links">
-		Follow us in: \n
+	<string name="about_links" translatable="false">
 		&#8226; <a href="https://vk.com/xashdroid">VK</a>\n
 		&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>\n
 		&#8226; <a href="https://github.com/FWGS">GitHub</a>
@@ -60,25 +60,23 @@
 	
 
 	<string name="write_failed">Write test has failed</string>
-	
 	<string name="ask_about_new_basedir_msg">Move your game files somewhere else, for example Android/data/in.celest.xash3d.hl or internal memory. At next run I will ask you about folder again.</string>
-	<!--<string name="lollipop_request_permission_msg">Due to writing politics of newer Android versions, you need to select a root folder of storage where game data is located.</string>
-	<string name="lollipop_select_folder_btn">Select folder</string>-->
-	
 	<!-- These strings must be concat with a "ask_about_new_basedir" string -->
 	<string name="lollipop_request_permission_fail_msg">Write test has been failed twice. </string>
 	<string name="lollipop_write_fail_msg">Due to writing politics of newer Android versions, you can\'t use this storage. </string>
 	<string name="kitkat_write_fail_msg">Due to writing politics of Android 4.4, you can\'t use this storage. </string>
 	<string name="readonly_fs_fail_msg">Seems you have read-only filesystem. </string>
+	
 	<string name="resolution">Fixed screen resolution (experimental)</string>
 	<string name="resolution_scale">Scale screen keeping aspect ratio</string>
 	<string name="resolution_custom">Specify custom screen width and height</string>
 	<string name="resolution_result">Resolution: </string>	
 	<string name="resolution_mod_warn"><img src="https://ya.ru/favicon.ico" /> <br />Use with caution! Some games does not support too low resolution, in case of bugs increase resolution to 640x480 or higher.\n
 	Resolution lower than 320x240 is not allowed.</string>
-	<string name="firstrun">Show firstrun dialog</string>
+	<string name="firstrun">Open installation guide</string>
 	<string name="next">Next</string>
 	<string name="prev">Prev</string>
 	<string name="skip">Skip</string>
 	<string name="finish">Finish</string>
+	<string name="exit">Exit</string>
 </resources>

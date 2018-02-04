@@ -25,7 +25,7 @@
 		android:id="@+id/status_exit_button"
 		android:layout_width="wrap_content"
 		android:layout_height="48dp"
-		android:text="Exit"
+		android:text="@string/exit"
 		android:layout_weight="0"
 		android:layout_alignParentLeft="true"
 		android:layout_gravity="center_vertical"
