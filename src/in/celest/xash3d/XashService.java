@@ -34,18 +34,23 @@ import in.celest.xash3d.XashConfig;
 import in.celest.xash3d.JoystickHandler;
 
 
-public class XashService  extends Service {
+public class XashService extends Service 
+{
 	public static Notification notification;
 	public static int status_image = R.id.status_image;
 	public static int status_text = R.id.status_text;
 
 	@Override
-	public IBinder onBind(Intent intent) {
+	public IBinder onBind(Intent intent) 
+	{
 		return null;
 	}
-	public static class exitButtonListener extends BroadcastReceiver {
+	
+	public static class exitButtonListener extends BroadcastReceiver 
+	{
 		@Override
-		public void onReceive(Context context, Intent intent) {
+		public void onReceive(Context context, Intent intent) 
+		{
 			XashActivity.mEngineReady = false;
 			XashActivity.nativeUnPause();
 			XashActivity.nativeOnDestroy();
@@ -56,8 +61,8 @@ public class XashService  extends Service {
 	}
 
 	@Override
-	public int onStartCommand(Intent intent, int flags, int startId) {
-
+	public int onStartCommand(Intent intent, int flags, int startId) 
+	{
 		int status_exit_button = R.id.status_exit_button;
 		int notify = R.layout.notify;
 		if( XashActivity.sdk >= 21 )
@@ -67,33 +72,32 @@ public class XashService  extends Service {
 			status_exit_button = R.id.status_exit_button_21;
 			notify = R.layout.notify_21;
 		}
+		
 		Log.d("XashService", "Service Started");
-		Intent intent_ = new Intent(this, XashActivity.class);
-		intent_.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-		final PendingIntent pendingIntent = PendingIntent.getActivity(
-			getApplicationContext(), 0, intent_, 0);
-		notification = new Notification(R.drawable.ic_launcher,
-										"Xash3D", System.currentTimeMillis());
+		
+		Intent engineIntent = new Intent(this, XashActivity.class);
+		engineIntent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+		
+		Intent exitIntent = new Intent(this, exitButtonListener.class);
+		final PendingIntent pendingExitIntent = PendingIntent.getBroadcast(this, 0, exitIntent, 0);
+		
+		notification = new Notification(R.drawable.ic_launcher, "Xash3D", System.currentTimeMillis());
 
-		notification.contentView = new RemoteViews(getApplicationContext()
-												   .getPackageName(),  notify);
-		notification.contentIntent = pendingIntent;
-				notification.flags = notification.flags
-			| Notification.FLAG_ONGOING_EVENT | Notification.FLAG_FOREGROUND_SERVICE;
-
-
+		notification.contentView = new RemoteViews(getApplicationContext().getPackageName(),  notify);
 		notification.contentView.setTextViewText(status_text, "Xash3D Engine");
-	Intent exitIntent = new Intent(this, exitButtonListener.class);
-	PendingIntent pendingExitIntent = PendingIntent.getBroadcast(this, 0,
-			exitIntent, 0);
-
 		notification.contentView.setOnClickPendingIntent(status_exit_button, pendingExitIntent);
+
+		notification.contentIntent = PendingIntent.getActivity(getApplicationContext(), 0, engineIntent, 0);
+		notification.flags |= Notification.FLAG_ONGOING_EVENT | Notification.FLAG_FOREGROUND_SERVICE;
+		
 		startForeground(100, notification);
+		
 		return START_NOT_STICKY;
 	}
 
 	@Override
-	public void onDestroy() {
+	public void onDestroy() 
+	{
 		super.onDestroy();
 		Log.d("XashService", "Service Destroyed");
 	}
@@ -101,11 +105,11 @@ public class XashService  extends Service {
 	@Override
 	public void onCreate()
 	{
-
 	}
 
 	@Override
-	public void onTaskRemoved(Intent rootIntent) {
+	public void onTaskRemoved(Intent rootIntent) 
+	{
 		Log.e("XashService", "OnTaskRemoved");
 		//if( XashActivity.mEngineReady )
 		{
@@ -118,5 +122,4 @@ public class XashService  extends Service {
 		}
 		stopSelf();
 	}
-
 };
