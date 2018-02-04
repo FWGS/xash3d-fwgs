@@ -10,6 +10,8 @@ else
 APP_PLATFORM := android-9
 endif
 
+APP_CFLAGS += -Wl,--no-undefined
+
 # if non-zero, works only if single ABI selected
 XASH_THREAD_NUM ?= 0
 
@@ -47,3 +49,4 @@ endif
 ifeq ($(XASH_SDL),1)
 	APP_MODULES += SDL2
 endif
+
