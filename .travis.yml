@@ -23,9 +23,9 @@ before_install:
   - chmod +x android-ndk-r10e-linux-x86_64.bin && ./android-ndk-r10e-linux-x86_64.bin > /dev/null
   - mv android-ndk-r10e android-ndk
   - export PATH=`pwd`/android-ndk:`pwd`/android-sdk-linux/tools:`pwd`/android-sdk-linux/platform-tools:$PATH
-  - git submodule init 
-  - git submodule update
+  - git submodule update --init --recursive
 script:
+  - cp debug.keystore ~/.android/debug.keystore
   - sh gen-version.sh travis build
   - sh gen-config.sh test
   - python2 makepak.py xash-extras assets/extras.pak
