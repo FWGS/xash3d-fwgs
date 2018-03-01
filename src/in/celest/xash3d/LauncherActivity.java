@@ -412,7 +412,7 @@ public class LauncherActivity extends Activity {
 	int m_iFirstRunCounter = 0;
 	public void showFirstRun()
 	{
-		if( m_iFirstRunCounter < 0 )
+		/*if( m_iFirstRunCounter < 0 )
 			m_iFirstRunCounter = 0;
 		
 		final int titleres = getResources().getIdentifier("page_title" + String.valueOf(m_iFirstRunCounter), "string", getPackageName());
@@ -488,7 +488,8 @@ public class LauncherActivity extends Activity {
 						}
 					}, null));
 			}
-		});
+		});*/
+		startActivity(new Intent(this, in.celest.xash3d.XashTutorialActivity.class));
 	}
 
 	public void selectFolder(View view)
