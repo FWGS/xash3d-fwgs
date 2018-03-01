@@ -41,10 +41,10 @@
 	<string name="immersive_mode">Enable Immersive Mode(fullscreen, KitKat or higher)</string>
 	<string name="resolution">Fixed screen resolution (experimental)</string>
 	<string name="resolution_scale">Scale screen keeping aspect ratio</string>
-	<string name="resolution_custom">Specify custom screen width and height</string>
+	<string name="resolution_custom">Specify screen width and height</string>
 	<string name="resolution_result">Resolution: </string>	
 	<string name="resolution_mod_warn">Use with caution! Some games does not support too low resolution, in case of bugs increase resolution to 640x480 or higher.\n
-	Resolution lower than 320x240 is not allowed.</string>
+	Resolution lower than 320x240 is ignored.</string>
 	<!-- Launcher(advanced) -->
 	
 	<!-- Launcher(buttons) -->
@@ -113,9 +113,9 @@
 	<string name="current_dir">Current directory:</string>
 
 	<plurals name="item_plurals">
-		<item quantity="zero">No items</items>
-		<item quantity="one">%d item</item>
-        <item quantity="other">%d items</item>
+		<item quantity="zero">No folders</items>
+		<item quantity="one">%d folder</item>
+        <item quantity="other">%d folders</item>
 	</plurals>
 	<!-- /FPicker -->
 </resources>
