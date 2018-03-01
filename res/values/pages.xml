@@ -13,5 +13,5 @@
 	<string name="page_content3">Connect your device to PC. Create "xash" folder in device\'s internal storage and copy "valve" folder from game local files into "xash" on your device. If you have not enough internal storage, you may use external SD. Then you need to use "Android/data/in.celest.xash3d.hl/files" folder on external SD(create these folders, if they does not exist).</string>
 	
 	<string name="page_title4">Setting game path</string>
-	<string name="page_content4">After successfully copying game to device, you need to tell Xash3D FWGS where you placed it. Press "Next" to close this dialog and select game folder (that contains "valve" folder) by pressing "Select game data location" button</string>
+	<string name="page_content4">After successfully copying game to device, you need to tell Xash3D FWGS where "valve" is located. Note that you MUST NOT select "valve" folder itself. Now close this dialog and select game folder by pressing "Select game data location" button. Good luck, have fun!</string>
 </resources>
