@@ -113,7 +113,7 @@
 	<string name="current_dir">Current directory:</string>
 
 	<plurals name="item_plurals">
-		<item quantity="zero">No folders</items>
+		<item quantity="zero">No folders</item>
 		<item quantity="one">%d folder</item>
         <item quantity="other">%d folders</item>
 	</plurals>

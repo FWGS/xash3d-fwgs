@@ -110,7 +110,7 @@ public class FPicker extends Activity {
 						}
 					}
 					
-					String num_item = res.getQuantityString(R.plurals.item_plurals, buf, buf);
+					String num_item = getResources().getQuantityString(R.plurals.item_plurals, buf, buf);
 					dir.add(new Item(ff.getName(), num_item, date_modify, ff.getAbsolutePath(), isXashDir ? R.drawable.ic_launcher : R.drawable.folder ));
 				}
             }
@@ -118,14 +118,14 @@ public class FPicker extends Activity {
 			Collections.sort(dir);
 
 			if(folder.getPath().length() > 1)
-				dir.add(0, new Item( "..", R.string.parent_directory, "", folder.getParent(), R.drawable.folder));
+				dir.add(0, new Item( "..", getString(R.string.parent_directory), "", folder.getParent(), R.drawable.folder));
 				
 			return dir;
 		}
 		
 		protected void onPostExecute(List<Item> dir)
 		{
-			setTitle(R.string.current_dir + " " +folder.getName());
+			setTitle(getString(R.string.current_dir) + " " +folder.getName());
 			
 			adapter = new FileArrayAdapter(FPicker.this,R.layout.row,dir);
 			delta = (ListView)findViewById(R.id.FileView);
@@ -146,7 +146,7 @@ public class FPicker extends Activity {
     
 	public void onFileClick(View v)
 	{
-		Toast.makeText(this, R.string.chosen_path + " " + currentDir, Toast.LENGTH_SHORT).show();
+		Toast.makeText(this, getString(R.string.chosen_path) + " " + currentDir, Toast.LENGTH_SHORT).show();
 		Intent intent = new Intent();
 		intent.putExtra("GetPath",currentDir.toString());
 		setResult(RESULT_OK, intent);
