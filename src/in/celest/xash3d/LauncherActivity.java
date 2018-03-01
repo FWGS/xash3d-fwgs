@@ -28,7 +28,7 @@ public class LauncherActivity extends Activity {
 	static ToggleButton useVolume;
 	static ToggleButton resizeWorkaround;
 	static CheckBox	checkUpdates;
-	static CheckBox updateToBeta;
+	//static CheckBox updateToBeta;
 	static CheckBox immersiveMode;
 	static SharedPreferences mPref;
 	static Spinner pixelSpinner;
@@ -136,7 +136,7 @@ public class LauncherActivity extends Activity {
 		useVolume    = (ToggleButton) findViewById( R.id.useVolume );
 		resPath      = (EditText) findViewById( R.id.cmdPath );
 		checkUpdates = (CheckBox)findViewById( R.id.check_updates );
-		updateToBeta = (CheckBox)findViewById( R.id.check_betas );
+		//updateToBeta = (CheckBox)findViewById( R.id.check_betas );
 		pixelSpinner = (Spinner) findViewById( R.id.pixelSpinner );
 		resizeWorkaround = (ToggleButton) findViewById( R.id.enableResizeWorkaround );
 		tvResPath    = (TextView) findViewById( R.id.textView_path );
@@ -196,7 +196,7 @@ public class LauncherActivity extends Activity {
 		});
 		useVolume.setChecked(mPref.getBoolean("usevolume",true));
 		checkUpdates.setChecked(mPref.getBoolean("check_updates",true));
-		updateToBeta.setChecked(mPref.getBoolean("check_betas", false));
+		//updateToBeta.setChecked(mPref.getBoolean("check_betas", false));
 		updatePath(mPref.getString("basedir", FWGSLib.getDefaultXashPath() ) );
 		cmdArgs.setText(mPref.getString("argv","-dev 3 -log"));
 		pixelSpinner.setSelection(mPref.getInt("pixelformat", 0));
@@ -274,7 +274,7 @@ public class LauncherActivity extends Activity {
 		if( !XashConfig.GP_VERSION && // disable autoupdater for Google Play
 			mPref.getBoolean("check_updates", true))
 		{
-			new CheckUpdate(true, updateToBeta.isChecked()).execute(UPDATE_LINK);
+			new CheckUpdate(true, false).execute(UPDATE_LINK);
 		}
 		changeButtonsStyle((ViewGroup)tabHost.getParent());
 		hideResolutionSettings( !enableResolutionChange );

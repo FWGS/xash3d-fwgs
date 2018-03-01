@@ -215,7 +215,7 @@
 								android:layout_marginLeft="10dp"
 								android:layout_marginRight="10dp"
 								android:layout_marginTop="3dp"
-								android:text="Pixel Format"
+								android:text="@string/pixel_format"
 								android:textAppearance="?android:attr/textAppearanceMedium" />
 							<Spinner
 								android:layout_height="wrap_content"
@@ -234,8 +234,8 @@
 								android:layout_marginRight="10dp"
 								android:layout_marginTop="10dp"
 								android:text="enableResizeWorkaround"
-								android:textOff="Keyboard does not resize screen"
-								android:textOn="Keyboard resizes screen" />
+								android:textOff="@string/resize_off"
+								android:textOn="@string/resize_on" />
 							<CheckBox
 								android:id="@+id/check_updates"
 								android:layout_width="match_parent"
@@ -245,7 +245,7 @@
 								android:layout_marginRight="10dp"
 								android:layout_marginTop="10dp"
 								android:text="@string/update_button" />
-							<CheckBox
+							<!--<CheckBox
 								android:id="@+id/check_betas"
 								android:layout_width="match_parent"
 								android:layout_height="wrap_content"
@@ -253,7 +253,7 @@
 								android:layout_marginLeft="10dp"
 								android:layout_marginRight="10dp"
 								android:layout_marginTop="10dp"
-								android:text="@string/update_to_beta" />
+								android:text="@string/update_to_beta" />-->
 							<CheckBox
 								android:id="@+id/immersive_mode"
 								android:layout_width="match_parent"

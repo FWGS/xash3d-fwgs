@@ -1,26 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-	<string name="app_name" translatable="false">Xash3D</string>
-	<string name="launcher_name" translatable="false">Xash3D</string>
-	<string name="launcher_name_test" translatable="false">Xash3D (test)</string>
+	<string name="app_name" translatable="false">Xash3D FWGS</string>
+	<string name="launcher_name" translatable="false">Xash3D FWGS</string>
+	<string name="launcher_name_test" translatable="false">Xash3D FWGS Test</string>
 	<string name="version_string" translatable="false">v0.19.1</string>
-
-	<string name="launch_button">Launch Xash3D!</string>
-	<string name="cmd_args_text">Command line arguments(experts only)</string>
+	
+	<!-- Generic -->
+	<string name="cancel">Cancel</string>
+	<string name="ok">Ok</string>
+	<string name="next">Next</string>
+	<string name="prev">Previous</string>
+	<string name="skip">Skip</string>
+	<string name="finish">Finish</string>
+	<string name="exit">Exit</string>
 	<string name="text_res_path">Path to game resources</string>
-	<string name="touch_set">Controls settings</string>
-	<string name="text_shortcut">Xash3D shortcut</string>
-	<string name="text_shortcut_test">Xash3D_test shortcut</string>
+	<!-- Generic -->
+
+	<!-- Launcher(tabs) -->
+	<string name="text_tab1">Normal</string>
+	<string name="text_tab2">Advanced</string>
+	<!-- Launcher(tabs) -->
+	
+	<!-- Launcher(normal) -->
+	<string name="text_res_tittle2">Normal settings</string>
+	<string name="volume">Volume buttons mode</string>
+	<string name="use_volume">Default action</string>
+	<string name="no_volume">Use in game</string>
+	<string name="select_folder">Select game data location</string>
+	<string name="create_shortcut_button">Create mod shortcut</string>
+	<!-- Launcher(normal) -->
+	
+	<!-- Launcher(advanced) -->
+	<string name="text_res_tittle3">Advanced settings</string>
+	<string name="cmd_args_text">Command line arguments(experts only)</string>
+	<string name="pixel_format">Pixel format</string>
+	<string name="resize_off">Keyboard does not resize screen</string>
+	<string name="resize_on">Keyboard resizes screen</string>
+	<string name="update_button">Check updates on start</string>
+	<!--<string name="update_to_beta">Update to unstable version if available</string>-->
+	<string name="immersive_mode">Enable Immersive Mode(fullscreen, KitKat or higher)</string>
+	<string name="resolution">Fixed screen resolution (experimental)</string>
+	<string name="resolution_scale">Scale screen keeping aspect ratio</string>
+	<string name="resolution_custom">Specify custom screen width and height</string>
+	<string name="resolution_result">Resolution: </string>	
+	<string name="resolution_mod_warn">Use with caution! Some games does not support too low resolution, in case of bugs increase resolution to 640x480 or higher.\n
+	Resolution lower than 320x240 is not allowed.</string>
+	<!-- Launcher(advanced) -->
+	
+	<!-- Launcher(buttons) -->
+	<string name="about_button">About</string>
+	<string name="launch_button">Launch Xash3D FWGS!</string>
+	<!-- Launcher(buttons) -->
+	
+	<!-- Shorcut -->
+	<string name="text_shortcut">Xash3D FWGS shortcut</string>
+	<string name="text_shortcut_test">Xash3D FWGS Test shortcut</string>
 	<string name="shortcut_button_save">Save shortcut</string>
 	<string name="gamedir">Mod directory</string>
 	<string name="pkgname">Mod package name (experts only)</string>
 	<string name="shortcut_name">Shortcut name</string>
-
-	<string name="about_main" translatable="false">Xash3D Android</string>
-	<string name="about_copyright">FWGS is not affiliated with Valve or any of their partners. All copyrights reserved to their respective owners.</string>
+	<!-- Shorcut -->
+	
+	<!-- About -->
+	<string name="about_main" translatable="false">Xash3D FWGS</string>
+	<string name="about_copyright">Flying With Gauss is not affiliated with Valve or any of their partners. All copyrights reserved to their respective owners.</string>
 	<!-- Seems Android skips any line breaks and tabs here. -->
 	<string name="about_authors" translatable="false">
-		Port to Android by FWGS team: \n
+		Port to Android by Flying With Gauss team: \n
 		&#8226; a1batross\n
 		&#8226; mittorn \n
 		&#8226; nicknekit\n
@@ -37,28 +83,16 @@
 		&#8226; <a href="http://moddb.com/game/xash3d-android">ModDB</a>\n
 		&#8226; <a href="https://github.com/FWGS">GitHub</a>
 	</string>
-	<string name="about_button">About</string>
-	<string name="create_shortcut_button">Create mod shortcut</string>
-	<string name="select_folder">Select game data location</string>
-	<string name="text_tab1">Normal</string>
-	<string name="text_tab2">Advanced</string>
-	<string name="text_res_tittle2">Normal settings</string>
-	<string name="text_res_tittle3">Advanced settings</string>
-	<string name="volume">Volume buttons mode</string>
-	<string name="use_volume">Default action</string>
-	<string name="no_volume">Use in game</string>
-	<string name="folder">Set current folder</string>
-	<string name="update_button">Check updates on start</string>
-	<string name="update_to_beta">Update to unstable version if available</string>
+	<!-- About -->
+	
+	<!-- Update -->
 	<string name="update_message">%s is available! Download it now!</string>
 	<string name="update">Update</string>
-	<string name="cancel">Cancel</string>
-	<string name="ok">Ok</string>
 	<string name="no_updates">No updates was found</string>
 	<string name="checking_updates">Working...</string>
-	<string name="immersive_mode">Enable Immersive Mode(fullscreen, KitKat or higher)</string>
+	<!-- Update -->
 	
-
+	<!-- Write check  -->
 	<string name="write_failed">Write test has failed</string>
 	<string name="ask_about_new_basedir_msg">Move your game files somewhere else, for example Android/data/in.celest.xash3d.hl or internal memory. At next run I will ask you about folder again.</string>
 	<!-- These strings must be concat with a "ask_about_new_basedir" string -->
@@ -66,17 +100,22 @@
 	<string name="lollipop_write_fail_msg">Due to writing politics of newer Android versions, you can\'t use this storage. </string>
 	<string name="kitkat_write_fail_msg">Due to writing politics of Android 4.4, you can\'t use this storage. </string>
 	<string name="readonly_fs_fail_msg">Seems you have read-only filesystem. </string>
+	<!-- /Write check  -->
 	
-	<string name="resolution">Fixed screen resolution (experimental)</string>
-	<string name="resolution_scale">Scale screen keeping aspect ratio</string>
-	<string name="resolution_custom">Specify custom screen width and height</string>
-	<string name="resolution_result">Resolution: </string>	
-	<string name="resolution_mod_warn"><img src="https://ya.ru/favicon.ico" /> <br />Use with caution! Some games does not support too low resolution, in case of bugs increase resolution to 640x480 or higher.\n
-	Resolution lower than 320x240 is not allowed.</string>
+	<!-- Tutorial -->
 	<string name="firstrun">Open installation guide</string>
-	<string name="next">Next</string>
-	<string name="prev">Prev</string>
-	<string name="skip">Skip</string>
-	<string name="finish">Finish</string>
-	<string name="exit">Exit</string>
+	<!-- /Tutorial -->
+	
+	<!-- FPicker -->
+	<string name="folder">Set current folder</string>
+	<string name="parent_directory">Parent directory</string>
+	<string name="chosen_path">Chosen path:</string>
+	<string name="current_dir">Current directory:</string>
+
+	<plurals name="item_plurals">
+		<item quantity="zero">No items</items>
+		<item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+	</plurals>
+	<!-- /FPicker -->
 </resources>

@@ -85,24 +85,22 @@ public class FPicker extends Activity {
 			while( dirs == null )
 			{
 				String parent = folder.getParent();
-				if (parent != null)
-					folder = new File(parent);
-				else
-					folder = new File(Environment.getExternalStorageDirectory().toString());
+				folder = new File( parent != null ? parent : Environment.getExternalStorageDirectory().toString() );
 				dirs = folder.listFiles();
 			}
 
-			for(File ff: dirs)
+			for( File ff: dirs )
 			{
 				Date lastModDate = new Date(ff.lastModified());
 				DateFormat formater = DateFormat.getDateTimeInstance();
 				String date_modify = formater.format(lastModDate);
 				if(ff.isDirectory())
 				{
-					boolean isXashDir=false;
+					boolean isXashDir = false;
 					File[] fbuf = ff.listFiles();
 					int buf = 0;
-					if(fbuf != null&&fbuf.length<20)
+					
+					if( fbuf != null && fbuf.length < 20 )
 					{
 						buf = fbuf.length;
 						for (File valves: fbuf) 
@@ -112,33 +110,22 @@ public class FPicker extends Activity {
 						}
 					}
 					
-					String num_item = String.valueOf(buf);
-					if(buf == 0) 
-						num_item = "Some items";
-					else 
-						num_item +=" items";
-					if( isXashDir )
-					{
-						dir.add(new Item(ff.getName(), num_item, date_modify, ff.getAbsolutePath(), R.drawable.ic_launcher));
-					}
-					else 
-					{
-						dir.add(new Item(ff.getName(), num_item, date_modify, ff.getAbsolutePath(), R.drawable.folder));
-                    }
+					String num_item = res.getQuantityString(R.plurals.item_plurals, buf, buf);
+					dir.add(new Item(ff.getName(), num_item, date_modify, ff.getAbsolutePath(), isXashDir ? R.drawable.ic_launcher : R.drawable.folder ));
 				}
             }
             
 			Collections.sort(dir);
 
 			if(folder.getPath().length() > 1)
-				dir.add(0, new Item( "..", "Parent Directory", "", folder.getParent(), R.drawable.folder));
+				dir.add(0, new Item( "..", R.string.parent_directory, "", folder.getParent(), R.drawable.folder));
 				
 			return dir;
 		}
 		
 		protected void onPostExecute(List<Item> dir)
 		{
-			setTitle("Current Dir: "+folder.getName());
+			setTitle(R.string.current_dir + " " +folder.getName());
 			
 			adapter = new FileArrayAdapter(FPicker.this,R.layout.row,dir);
 			delta = (ListView)findViewById(R.id.FileView);
@@ -159,7 +146,7 @@ public class FPicker extends Activity {
     
 	public void onFileClick(View v)
 	{
-		Toast.makeText(this, "Chosen path : " + currentDir, Toast.LENGTH_SHORT).show();
+		Toast.makeText(this, R.string.chosen_path + " " + currentDir, Toast.LENGTH_SHORT).show();
 		Intent intent = new Intent();
 		intent.putExtra("GetPath",currentDir.toString());
 		setResult(RESULT_OK, intent);
