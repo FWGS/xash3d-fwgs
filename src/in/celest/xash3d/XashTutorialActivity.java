@@ -53,7 +53,7 @@ public class XashTutorialActivity extends TutorialActivity
 		addFragment(new Step.Builder().setTitle(getString(R.string.page_title4))
 			.setContent(getString(R.string.page_content4))
 			.setBackgroundColor(Color.parseColor("#555555")) // int background color
-			// .setDrawable(R.drawable.ic_launcher) // int top drawable
+			.setDrawable(R.drawable.page4_en)
 			.build());
 
     }
