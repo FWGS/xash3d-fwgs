@@ -54,7 +54,7 @@ public class TutorialActivity extends FragmentActivity /* AppCompatActivity */ i
     private void initTexts() {
         prevText = getString(R.string.prev);
         cancelText = getString(R.string.cancel);
-        finishText = "Finish";
+        finishText = getString(R.string.finish);
         nextText = getString(R.string.next);
     }
 
