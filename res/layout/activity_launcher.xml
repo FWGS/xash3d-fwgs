@@ -13,11 +13,8 @@
 		android:id="@+id/textView_tittle"
 		android:layout_width="fill_parent"
 		android:layout_height="50dp"
-		android:layout_marginBottom="1dp"
-		android:layout_marginLeft="5dp"
+		android:layout_margin="5dp"
 		android:background="#555555"
-		android:layout_marginRight="5dp"
-		android:layout_marginTop="20dp"
 		android:text="@string/launcher_name"
 		android:textAppearance="?android:attr/textAppearanceMedium"
 		android:textSize="25sp"
@@ -30,10 +27,10 @@
 		android:layout_width="match_parent"
 		android:layout_height="match_parent"
 		android:layout_weight="1.20"
-		android:paddingBottom="10dp"
-		android:paddingLeft="3dp"
-		android:paddingRight="3dp"
-		android:paddingTop="8dp">
+		android:paddingBottom="5dp"
+		android:paddingLeft="5dp"
+		android:paddingRight="5dp"
+		android:paddingTop="5dp" >
 		<LinearLayout
 			android:layout_width="match_parent"
 			android:layout_height="match_parent"
@@ -56,10 +53,7 @@
 						android:id="@+id/tab1"
 						android:layout_width="match_parent"
 						android:layout_height="wrap_content"
-						android:layout_marginLeft="10dp"
-						android:layout_marginRight="10dp"
-						android:layout_marginTop="15dp"
-						android:layout_marginBottom="25dp"
+						android:layout_margin="10dp"
 						android:background="#333333"
 						android:orientation="vertical"
 						android:text="@string/text_tab1"
@@ -80,20 +74,15 @@
 						<LinearLayout 
 							android:layout_width="match_parent"
 							android:layout_height="match_parent"
-							android:layout_marginBottom="10dp"
-							android:layout_marginLeft="10dp"
-							android:layout_marginRight="10dp"
-							android:layout_marginTop="10dp"
+							android:layout_margin="10dp"
 							android:background="#444444"
 							android:orientation="vertical"
 							android:weightSum="1">
 							<TextView
 								android:layout_width="fill_parent"
 								android:layout_height="wrap_content"
-								android:layout_marginBottom="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="3dp"
+								android:layout_margin="10dp"
+								android:layout_marginTop="5dp"
 								android:text="@string/volume"
 								android:textAppearance="?android:attr/textAppearanceMedium" />
 							<ToggleButton
@@ -101,9 +90,7 @@
 								android:layout_width="match_parent"
 								android:layout_height="wrap_content"
 								android:layout_margin="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="10dp"
+								android:layout_marginTop="5dp"
 								android:text="nothing"
 								android:textOff="@string/no_volume"
 								android:textOn="@string/use_volume" />
@@ -111,10 +98,7 @@
 								android:id="@+id/textView_path"
 								android:layout_width="fill_parent"
 								android:layout_height="wrap_content"
-								android:layout_marginBottom="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="3dp"
+								android:layout_margin="10dp"
 								android:text="@string/text_res_path"
 								android:textAppearance="?android:attr/textAppearanceMedium" />
 							<Button
@@ -122,20 +106,15 @@
 								android:layout_width="match_parent"
 								android:layout_height="wrap_content"
 								android:layout_gravity="bottom"
-								android:layout_marginLeft="10dp"
-								android:layout_marginTop="10dp"
-								android:layout_marginBottom="10dp"
-								android:layout_marginRight="10dp"
+								android:layout_margin="10dp"
+								android:layout_marginTop="5dp"
 								android:onClick="selectFolder"
 								android:text="@string/select_folder" />
 							<Button
 								android:id="@+id/button_shortcut"
 								android:layout_width="match_parent"
 								android:layout_height="wrap_content"
-								android:layout_marginBottom="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="10dp"
+								android:layout_margin="10dp"
 								android:onClick="createShortcut"
 								android:text="@string/create_shortcut_button" />
 						</LinearLayout>
@@ -143,13 +122,12 @@
 					<LinearLayout
 						android:id="@+id/tab2"
 						android:layout_width="match_parent"
-						android:layout_height="match_parent"
-						android:layout_marginLeft="10dp"
-						android:layout_marginRight="10dp"
-						android:layout_marginTop="15dp"
+						android:layout_height="wrap_content"
+						android:layout_margin="10dp"
 						android:background="#333333"
 						android:orientation="vertical"
-						android:text="@string/text_tab2">
+						android:text="@string/text_tab2"
+						android:weightSum="0.6">
 						<TextView
 							android:id="@+id/textView_path2"
 							android:layout_width="fill_parent"
@@ -158,7 +136,7 @@
 							android:layout_marginLeft="10dp"
 							android:background="#444444"
 							android:layout_marginRight="10dp"
-							android:layout_marginTop="13dp"
+							android:layout_marginTop="10dp"
 							android:text="@string/text_res_tittle3"
 							android:textAppearance="?android:attr/textAppearanceMedium"
 							android:textSize="20sp"
@@ -166,10 +144,7 @@
 						<LinearLayout 
 							android:layout_width="match_parent"
 							android:layout_height="match_parent"
-							android:layout_marginBottom="10dp"
-							android:layout_marginLeft="10dp"
-							android:layout_marginRight="10dp"
-							android:layout_marginTop="10dp"
+							android:layout_margin="10dp"
 							android:background="#444444"
 							android:orientation="vertical"
 							android:weightSum="1">
@@ -177,62 +152,123 @@
 								android:id="@+id/textView_args"
 								android:layout_width="wrap_content"
 								android:layout_height="wrap_content"
-								android:layout_marginBottom="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="20dp"
+								android:layout_margin="10dp"
+								android:layout_marginTop="5dp"
 								android:text="@string/cmd_args_text"
 								android:textAppearance="?android:attr/textAppearanceMedium" />
 							<EditText
 								android:id="@+id/cmdArgs"
 								android:layout_width="match_parent"
 								android:layout_height="wrap_content"
-								android:layout_marginBottom="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="3dp" />
+								android:layout_margin="10dp"
+								android:layout_marginTop="5dp" />
 							<TextView
 								android:layout_width="fill_parent"
 								android:layout_height="wrap_content"
-								android:layout_marginBottom="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="3dp"
+								android:layout_margin="10dp"
 								android:text="@string/text_res_path"
 								android:textAppearance="?android:attr/textAppearanceMedium" />
-							<EditText
-								android:id="@+id/cmdPath"
+							<LinearLayout
+								android:orientation="horizontal"
+								android:weightSum="1"
 								android:layout_width="match_parent"
 								android:layout_height="wrap_content"
-								android:layout_marginBottom="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="3dp" />
-							<TextView
-								android:layout_width="fill_parent"
-								android:layout_height="wrap_content"
-								android:layout_marginBottom="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="3dp"
-								android:text="@string/pixel_format"
-								android:textAppearance="?android:attr/textAppearanceMedium" />
-							<Spinner
-								android:layout_height="wrap_content"
+								android:layout_margin="10dp"
+								android:layout_marginTop="5dp" >
+								<EditText
+									android:id="@+id/cmd_path"
+									android:layout_width="0dp"
+									android:layout_height="wrap_content"
+									android:layout_weight="1"
+									android:maxLines="1"
+									android:inputType="text"
+									android:layout_gravity="center_vertical"
+									android:scrollHorizontally="true" />
+								<Button
+									android:id="@+id/cmd_path_select"
+									android:layout_width="40dp"
+									android:layout_height="wrap_content"
+									android:layout_gravity="right|center_vertical"
+									android:text="..."
+									android:onClick="selectFolder" />
+							</LinearLayout>
+							<ToggleButton
+								android:id="@+id/use_rodir"
 								android:layout_width="match_parent"
-								android:id="@+id/pixelSpinner"
-								android:layout_marginBottom="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="10dp" />
+								android:layout_height="wrap_content"
+								android:layout_margin="10dp"
+								android:textOff="@string/no_rodir"
+								android:textOn="@string/use_rodir" />
+							<LinearLayout
+								android:id="@+id/rodir_settings"
+								android:layout_width="match_parent"
+								android:layout_height="wrap_content"
+								android:layout_margin="10dp"
+								android:layout_marginTop="5dp"
+								android:orientation="vertical"
+								android:weightSum="1">
+								<TextView
+									android:layout_width="wrap_content"
+									android:layout_height="wrap_content"
+									android:text="@string/text_res_rw_path"
+									android:textAppearance="?android:attr/textAppearanceMedium" />
+								<CheckBox
+									android:id="@+id/use_rodir_auto"
+									android:text="@string/use_rodir_auto"
+									android:layout_width="match_parent"
+									android:layout_height="wrap_content"
+									android:layout_marginBottom="10dp"
+									android:layout_marginTop="5dp" />
+								<LinearLayout
+									android:orientation="horizontal"
+									android:weightSum="1"
+									android:layout_width="match_parent"
+									android:layout_height="wrap_content"
+									android:layout_marginTop="5dp">
+									<EditText
+										android:id="@+id/cmd_path_rw"
+										android:layout_width="0dp"
+										android:layout_height="wrap_content"
+										android:layout_weight="1"
+										android:maxLines="1"
+										android:inputType="text"
+										android:layout_gravity="center_vertical"
+										android:scrollHorizontally="true" />
+									<Button
+										android:id="@+id/cmd_path_rw_select"
+										android:layout_width="40dp"
+										android:layout_height="wrap_content"
+										android:layout_gravity="right|center_vertical"
+										android:text="..."
+										android:onClick="selectRwFolder" />
+								</LinearLayout>
+							</LinearLayout>
+							<LinearLayout
+								android:orientation="horizontal"
+								android:weightSum="1"
+								android:layout_width="match_parent"
+								android:layout_height="wrap_content"
+								android:layout_margin="10dp">
+								<TextView
+									android:layout_width="wrap_content"
+									android:layout_height="40dp"
+									android:text="@string/pixel_format"
+									android:id="@+id/pixel_format"
+									android:gravity="center_vertical"
+									android:textAppearance="?android:attr/textAppearanceMedium" />
+								<Spinner
+									android:layout_height="40dp"
+									android:layout_alignBaseline="@id/pixel_format"
+									android:layout_width="0dp"
+									android:layout_weight="1"
+									android:layout_gravity="right|center_vertical"
+									android:id="@+id/pixelSpinner"/>
+							</LinearLayout>
 							<ToggleButton
 								android:id="@+id/enableResizeWorkaround"
 								android:layout_width="match_parent"
 								android:layout_height="wrap_content"
 								android:layout_margin="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="10dp"
 								android:text="enableResizeWorkaround"
 								android:textOff="@string/resize_off"
 								android:textOn="@string/resize_on" />
@@ -241,130 +277,101 @@
 								android:layout_width="match_parent"
 								android:layout_height="wrap_content"
 								android:layout_margin="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="10dp"
 								android:text="@string/update_button" />
 							<!--<CheckBox
 								android:id="@+id/check_betas"
 								android:layout_width="match_parent"
 								android:layout_height="wrap_content"
 								android:layout_margin="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="10dp"
 								android:text="@string/update_to_beta" />-->
 							<CheckBox
 								android:id="@+id/immersive_mode"
 								android:layout_width="match_parent"
 								android:layout_height="wrap_content"
 								android:layout_margin="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="10dp"
 								android:text="@string/immersive_mode" />
 							<CheckBox
 								android:id="@+id/resolution"
 								android:layout_width="match_parent"
 								android:layout_height="wrap_content"
 								android:layout_margin="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="10dp"
 								android:text="@string/resolution" />
 							<RadioGroup
 								android:id="@+id/scale_group"
 								android:layout_width="match_parent"
 								android:layout_height="wrap_content"
-								android:layout_marginBottom="10dp"
-								android:layout_marginLeft="10dp"
-								android:layout_marginRight="10dp"
-								android:layout_marginTop="10dp"
+								android:layout_margin="10dp"
 								android:orientation="vertical"
 								android:weightSum="1">
 								<TextView
 									android:layout_width="wrap_content"
 									android:layout_height="wrap_content"
-									android:layout_marginBottom="10dp"
-									android:layout_marginLeft="10dp"
-									android:layout_marginRight="10dp"
-									android:layout_marginTop="3dp"
+									android:layout_margin="10dp"
 									android:text="@string/resolution_mod_warn"
 									android:textAppearance="@style/red_small_text" />
 								<TextView
 									android:id="@+id/resolution_result"
 									android:layout_width="wrap_content"
 									android:layout_height="wrap_content"
-									android:layout_marginBottom="10dp"
-									android:layout_marginLeft="10dp"
-									android:layout_marginRight="10dp"
-									android:layout_marginTop="3dp"
+									android:layout_margin="10dp"
+									android:layout_marginTop="5dp"
 									android:textAppearance="?android:attr/textAppearanceSmall" />
 								<RadioButton 
 									android:id="@+id/resolution_scale_r" 
 									android:text="@string/resolution_scale"
 									android:layout_width="wrap_content" 
 									android:layout_height="wrap_content" />
-								
 								<EditText
 									android:id="@+id/resolution_scale"
 									android:layout_width="match_parent"
 									android:layout_height="wrap_content"
-									android:layout_marginBottom="10dp"
-									android:layout_marginLeft="10dp"
-									android:layout_marginRight="10dp"
+									android:layout_margin="10dp"
 									android:layout_marginTop="3dp"
 									android:numeric="decimal" />
-								
 								<RadioButton 
 									android:id="@+id/resolution_custom_r" 
 									android:text="@string/resolution_custom" 
 									android:layout_width="wrap_content" 
 									android:layout_height="wrap_content" />
-								
 								<LinearLayout
 									android:layout_width="match_parent"
 									android:layout_height="wrap_content"
-									android:layout_marginBottom="0dp"
-									android:layout_marginLeft="0dp"
-									android:layout_marginRight="0dp"
-									android:layout_marginTop="0dp"
 									android:orientation="horizontal"
 									android:weightSum="1">
 									<EditText
 										android:id="@+id/resolution_width"
 										android:layout_width="100dp"
 										android:layout_height="wrap_content"
-										android:layout_marginBottom="10dp"
-										android:layout_marginLeft="10dp"
+										android:layout_marginBottom="5dp"
+										android:layout_marginLeft="5dp"
 										android:layout_marginRight="3dp"
 										android:layout_marginTop="3dp"
 										android:numeric="integer" />
 									<TextView
 										android:layout_width="wrap_content"
 										android:layout_height="wrap_content"
-										android:layout_marginBottom="10dp"
-										android:layout_marginTop="3dp"
+										android:layout_marginBottom="5dp"
+										android:layout_marginTop="5dp"
 										android:text="x"
 										android:textAppearance="?android:attr/textAppearanceSmall" />
 									<EditText
 										android:id="@+id/resolution_height"
 										android:layout_width="100dp"
 										android:layout_height="wrap_content"
-										android:layout_marginBottom="10dp"
+										android:layout_marginBottom="5dp"
 										android:layout_marginLeft="3dp"
-										android:layout_marginTop="3dp"
+										android:layout_marginTop="5dp"
 										android:numeric="integer" />
 								</LinearLayout>
 							</RadioGroup>
-							<TextView
+							<!--<TextView
 								android:id="@+id/textView7"
 								android:layout_marginBottom="10dp"
 								android:layout_width="fill_parent"
 								android:layout_height="0dp"
 								android:layout_gravity="center_horizontal"
 								android:layout_weight="1"
-								android:clickable="false" />
+							android:clickable="false" />-->
 						</LinearLayout>
 					</LinearLayout>
 				</FrameLayout>
@@ -376,7 +383,6 @@
 		android:layout_height="50dp"
 		android:background="#444444"
 		android:layout_marginBottom="-20dp"
-		android:paddingTop="5dp"
 		android:layout_gravity="bottom"
 		android:orientation="horizontal">
 		<Button

@@ -111,6 +111,15 @@ public class FWGSLib
 		return "/sdcard/xash";
 	}
 	
+	public static String getExternalFilesDir( Context ctx )
+	{
+		File f = ctx.getExternalFilesDir( null );
+		
+		f.mkdirs();
+		
+		return f.getAbsolutePath();
+	}
+	
 	public static boolean isLandscapeOrientation( Activity act )
 	{
 		DisplayMetrics metrics = new DisplayMetrics();

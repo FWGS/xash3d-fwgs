@@ -19,25 +19,22 @@ import org.json.*;
 import android.preference.*;
 import su.xash.fwgslib.*;
 
-public class LauncherActivity extends Activity {
-   // public final static String ARGV = "in.celest.xash3d.MESSAGE";
-   	public final static int sdk = FWGSLib.sdk;
+public class LauncherActivity extends Activity 
+{
+	// public final static String ARGV = "in.celest.xash3d.MESSAGE";
+	public final static int sdk = FWGSLib.sdk;
 	public final static String UPDATE_LINK = "https://api.github.com/repos/FWGS/xash3d-android-project/releases"; // releases/latest doesn't return prerelease and drafts
-	static EditText cmdArgs;
-	static EditText resPath;
-	static ToggleButton useVolume;
-	static ToggleButton resizeWorkaround;
-	static CheckBox	checkUpdates;
-	//static CheckBox updateToBeta;
-	static CheckBox immersiveMode;
 	static SharedPreferences mPref;
-	static Spinner pixelSpinner;
-	static TextView tvResPath;
-	static TextView resResult;
-	static EditText resScale, resWidth, resHeight;
+	
+	static EditText cmdArgs, resPath, writePath, resScale, resWidth, resHeight;
+	static ToggleButton useVolume, resizeWorkaround, useRoDir;
+	static CheckBox	checkUpdates, immersiveMode, useRoDirAuto;
+	static TextView tvResPath, resResult;
 	static RadioButton radioScale, radioCustom;
 	static RadioGroup scaleGroup;
 	static CheckBox resolution;
+	static Spinner pixelSpinner;
+	static LinearLayout rodirSettings; // to easy show/hide
 	
 	static int mEngineWidth, mEngineHeight;
 	
@@ -93,7 +90,7 @@ public class LauncherActivity extends Activity {
 		if ( sdk >= 21 )
 			super.setTheme( 0x01030224 );
 		else super.setTheme( 0x01030005 );
-		
+				
 		if( CertCheck.dumbAntiPDALifeCheck( this ) )
 		{
 			finish();
@@ -123,8 +120,8 @@ public class LauncherActivity extends Activity {
 				tabHost.invalidate();
 				for(int i = 0; i < tabHost.getTabWidget().getChildCount(); i++)
 				{
-				tabHost.getTabWidget().getChildAt(i).getBackground().setAlpha(96);
-				tabHost.getTabWidget().getChildAt(i).getLayoutParams().height = (int) (40 * this.getResources().getDisplayMetrics().density);
+					tabHost.getTabWidget().getChildAt(i).getBackground().setAlpha(255);
+					tabHost.getTabWidget().getChildAt(i).getLayoutParams().height = (int) (40 * getResources().getDisplayMetrics().density);
 				}
 			}
 			catch(Exception e){}
@@ -134,7 +131,7 @@ public class LauncherActivity extends Activity {
 		mPref        = getSharedPreferences("engine", 0);
 		cmdArgs      = (EditText) findViewById(R.id.cmdArgs);
 		useVolume    = (ToggleButton) findViewById( R.id.useVolume );
-		resPath      = (EditText) findViewById( R.id.cmdPath );
+		resPath      = (EditText) findViewById( R.id.cmd_path );
 		checkUpdates = (CheckBox)findViewById( R.id.check_updates );
 		//updateToBeta = (CheckBox)findViewById( R.id.check_betas );
 		pixelSpinner = (Spinner) findViewById( R.id.pixelSpinner );
@@ -149,6 +146,10 @@ public class LauncherActivity extends Activity {
 		radioScale = (RadioButton) findViewById(R.id.resolution_scale_r);
 		scaleGroup = (RadioGroup) findViewById( R.id.scale_group );
 		resResult = (TextView) findViewById( R.id.resolution_result );
+		writePath = (EditText) findViewById( R.id.cmd_path_rw );
+		useRoDir = (ToggleButton) findViewById( R.id.use_rodir );
+		useRoDirAuto = (CheckBox) findViewById( R.id.use_rodir_auto );
+		rodirSettings = (LinearLayout) findViewById( R.id.rodir_settings );
 		
 		final String[] list = {
 			"32 bit (RGBA8888)",
@@ -201,9 +202,10 @@ public class LauncherActivity extends Activity {
 		cmdArgs.setText(mPref.getString("argv","-dev 3 -log"));
 		pixelSpinner.setSelection(mPref.getInt("pixelformat", 0));
 		resizeWorkaround.setChecked(mPref.getBoolean("enableResizeWorkaround", true));
-		
-		boolean enableResolutionChange = mPref.getBoolean("resolution_fixed", false );
-		resolution.setChecked( enableResolutionChange );
+		useRoDir.setChecked( mPref.getBoolean("use_rodir", false) );
+		useRoDirAuto.setChecked( mPref.getBoolean("use_rodir_auto", true) );
+		writePath.setText(mPref.getString("writedir", FWGSLib.getExternalFilesDir(this)));
+		resolution.setChecked( mPref.getBoolean("resolution_fixed", false ) );
 		
 		DisplayMetrics metrics = new DisplayMetrics();
 		getWindowManager().getDefaultDisplay().getMetrics(metrics);
@@ -250,6 +252,16 @@ public class LauncherActivity extends Activity {
 			}
 		});
 		
+		useRoDir.setOnCheckedChangeListener( new CompoundButton.OnCheckedChangeListener()
+		{
+			@Override
+			public void onCheckedChanged( CompoundButton v, boolean isChecked )
+			{
+				enableRoDir( isChecked );
+			}
+		});
+		
+		
 		if( sdk >= 19 )
 		{
 			immersiveMode.setChecked(mPref.getBoolean("immersive_mode", true));
@@ -258,7 +270,7 @@ public class LauncherActivity extends Activity {
 		{
 			immersiveMode.setVisibility(View.GONE); // not available
 		}
-				
+		
 		resPath.setOnFocusChangeListener( new View.OnFocusChangeListener()
 		{
 			@Override
@@ -270,14 +282,28 @@ public class LauncherActivity extends Activity {
 				XashActivity.setFolderAsk( LauncherActivity.this, false );
 			}
 		} );
+		
+		useRoDirAuto.setOnCheckedChangeListener( new CompoundButton.OnCheckedChangeListener()
+		{
+			@Override
+			public void onCheckedChanged( CompoundButton b, boolean isChecked )
+			{
+				if( isChecked )
+				{
+					writePath.setText( FWGSLib.getExternalFilesDir( LauncherActivity.this ) );
+				}
+				writePath.setEnabled( !isChecked );
+			}
+		});
 
-		if( !XashConfig.GP_VERSION && // disable autoupdater for Google Play
-			mPref.getBoolean("check_updates", true))
+		// disable autoupdater for Google Play
+		if( !XashConfig.GP_VERSION && mPref.getBoolean("check_updates", true))
 		{
 			new CheckUpdate(true, false).execute(UPDATE_LINK);
 		}
 		changeButtonsStyle((ViewGroup)tabHost.getParent());
-		hideResolutionSettings( !enableResolutionChange );
+		hideResolutionSettings( !resolution.isChecked() );
+		enableRoDir( useRoDir.isChecked() );
 		updateResolutionResult();
 		toggleResolutionFields();
 		if( !mPref.getBoolean("successfulRun",false) )
@@ -293,6 +319,11 @@ public class LauncherActivity extends Activity {
 	void hideResolutionSettings( boolean hide )
 	{
 		scaleGroup.setVisibility( hide ? View.GONE : View.VISIBLE );
+	}
+	
+	void enableRoDir( boolean enable )
+	{
+		rodirSettings.setVisibility( enable ? View.VISIBLE : View.GONE );
 	}
 		
 	TextWatcher resTextChangeWatcher = new TextWatcher()
@@ -359,6 +390,9 @@ public class LauncherActivity extends Activity {
 		SharedPreferences.Editor editor = mPref.edit();
 		editor.putString("argv", cmdArgs.getText().toString());
 		editor.putBoolean("usevolume",useVolume.isChecked());
+		editor.putBoolean("use_rodir", useRoDir.isChecked() );
+		editor.putBoolean("use_rodir_auto", useRoDirAuto.isChecked() );
+		editor.putString("writedir", writePath.getText().toString());
 		editor.putString("basedir", resPath.getText().toString());
 		editor.putInt("pixelformat", pixelSpinner.getSelectedItemPosition());
 		editor.putBoolean("enableResizeWorkaround",resizeWorkaround.isChecked());
@@ -495,30 +529,63 @@ public class LauncherActivity extends Activity {
 	public void selectFolder(View view)
 	{
 		Intent intent = new Intent(this, in.celest.xash3d.FPicker.class);
-		//intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-		//Intent intent = new Intent("android.intent.action.OPEN_DOCUMENT_TREE");
 		startActivityForResult(intent, 42);
 		resPath.setEnabled(false);
 		XashActivity.setFolderAsk( this, false );
 	}
+	
+	public void selectRwFolder(View view)
+	{
+		Intent intent = new Intent(this, in.celest.xash3d.FPicker.class);
+		startActivityForResult(intent, 43);
+		writePath.setEnabled(false);
+		XashActivity.setFolderAsk( this, false );
+	}
+
 
 	public void onActivityResult(int requestCode, int resultCode, Intent resultData) 
 	{
-		if (resultCode == RESULT_OK) 
+		switch(requestCode)
 		{
-			try	
+		case 42:
+		{
+			if (resultCode == RESULT_OK) 
 			{
-				if( resPath == null )
-					return;
-				updatePath(resultData.getStringExtra("GetPath"));
-				resPath.setEnabled( true );
+				try	
+				{
+					if( resPath == null )
+						return;
+					updatePath(resultData.getStringExtra("GetPath"));
+					resPath.setEnabled( true );
+				}
+				catch(Exception e)
+				{
+					e.printStackTrace();
+				}
 			}
-			catch(Exception e)
-			{
-				e.printStackTrace();
-			}
+			resPath.setEnabled(true);
+			break;
 		}
-		resPath.setEnabled(true);
+		case 43:
+		{
+			if (resultCode == RESULT_OK) 
+			{
+				try	
+				{
+					if( writePath == null )
+						return;
+					writePath.setText(resultData.getStringExtra("GetPath"));
+					writePath.setEnabled( true );
+				}
+				catch(Exception e)
+				{
+					e.printStackTrace();
+				}
+			}
+			writePath.setEnabled(true);
+			break;
+		}
+		}
 	}
 
 	public void createShortcut(View view)

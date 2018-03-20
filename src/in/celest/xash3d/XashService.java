@@ -81,7 +81,7 @@ public class XashService extends Service
 		Intent exitIntent = new Intent(this, exitButtonListener.class);
 		final PendingIntent pendingExitIntent = PendingIntent.getBroadcast(this, 0, exitIntent, 0);
 		
-		notification = new Notification(R.drawable.ic_launcher, "Xash3D", System.currentTimeMillis());
+		notification = new Notification(R.drawable.ic_statusbar, "Xash3D", System.currentTimeMillis());
 
 		notification.contentView = new RemoteViews(getApplicationContext().getPackageName(),  notify);
 		notification.contentView.setTextViewText(status_text, "Xash3D Engine");

@@ -33,7 +33,11 @@
 	<!-- Launcher(advanced) -->
 	<string name="text_res_tittle3">Advanced settings</string>
 	<string name="cmd_args_text">Command line arguments(experts only)</string>
-	<string name="pixel_format">Pixel format</string>
+	<string name="no_rodir">Classic game data placement</string>
+	<string name="use_rodir">Store writable data separately</string>
+	<string name="text_res_rw_path">Path to store writable data(configs, game saves, etc)</string>
+	<string name="use_rodir_auto">Use application folder</string>
+	<string name="pixel_format" translatable="false">Pixel format:</string>
 	<string name="resize_off">Keyboard does not resize screen</string>
 	<string name="resize_on">Keyboard resizes screen</string>
 	<string name="update_button">Check updates on start</string>
@@ -43,8 +47,7 @@
 	<string name="resolution_scale">Scale screen keeping aspect ratio</string>
 	<string name="resolution_custom">Specify screen width and height</string>
 	<string name="resolution_result">Resolution: </string>	
-	<string name="resolution_mod_warn">Use with caution! Some games does not support too low resolution, in case of bugs increase resolution to 640x480 or higher.\n
-	Resolution lower than 320x240 is ignored.</string>
+	<string name="resolution_mod_warn">Use with caution! Some games does not support too low resolution, in case of bugs increase resolution to 640x480 or higher.\nResolution lower than 320x240 is ignored.</string>
 	<!-- Launcher(advanced) -->
 	
 	<!-- Launcher(buttons) -->

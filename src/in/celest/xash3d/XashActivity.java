@@ -47,6 +47,10 @@ public class XashActivity extends Activity {
 	protected static XashActivity mSingleton;
 	protected static View mTextEdit;
 	protected static ViewGroup mLayout;
+	
+	private static boolean mUseRoDir;
+	private static String mWriteDir;
+	
 	public static EngineSurface mSurface;
 	public static String mArgv[];
 	public static final int sdk = Integer.valueOf( Build.VERSION.SDK );
@@ -128,6 +132,9 @@ public class XashActivity extends Activity {
 			setRequestedOrientation( 0 );
 			
 		mPref = this.getSharedPreferences( "engine", 0 );
+		
+		mUseRoDir = mPref.getBoolean("use_rodir", false);
+		mWriteDir = mPref.getString("writedir", FWGSLib.getExternalFilesDir(this) );
 		
 		if( mPref.getBoolean( "folderask", true ) )
 		{
@@ -330,8 +337,10 @@ public class XashActivity extends Activity {
 	private void checkWritePermission( String basedir )
 	{
 		Log.v( TAG, "Checking write permissions..." );
+		
+		String testDir = mUseRoDir ? mWriteDir : basedir;
 
-		if( nativeTestWritePermission( basedir ) == 0 )
+		if( nativeTestWritePermission( testDir ) == 0 )
 		{
 			Log.v( TAG, "First check has failed!" );
 			
@@ -490,7 +499,20 @@ public class XashActivity extends Activity {
 		
 		mArgv = argv.split( " " );
 
-		setenv( "XASH3D_BASEDIR",    basedir,    true );
+		
+		if( mUseRoDir )
+		{
+			Log.d( TAG, "Enabled RoDir: " + basedir + " -> " + mWriteDir );
+		
+			setenv( "XASH3D_RODIR",   basedir,   true );
+			setenv( "XASH3D_BASEDIR", mWriteDir, true );
+		}
+		else
+		{
+			Log.d( TAG, "Disabled RoDir: " + basedir );
+			
+			setenv( "XASH3D_BASEDIR", basedir,   true );
+		}
 		setenv( "XASH3D_ENGLIBDIR",  enginedir,  true );
 		setenv( "XASH3D_GAMELIBDIR", gamelibdir, true );
 		setenv( "XASH3D_GAMEDIR",    gamedir,    true );
