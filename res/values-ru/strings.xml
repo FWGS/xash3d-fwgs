@@ -76,6 +76,9 @@
 	<string name="lollipop_write_fail_msg">Из-за политик записи в новых версиях Android, полноценно воспользоваться внешней памятью невозможно. </string>
 	<string name="kitkat_write_fail_msg">Из-за политик записи Android 4.4, вы не можете воспользоваться внешней памятью. </string>
 	<string name="readonly_fs_fail_msg">Похоже, ваша файловая система в режиме только для чтения. </string>
+	<string name="convert_to_rodir">Конвертировать в RoDir</string>
+	<string name="rodir_warning">Обратите внимание, что теперь ваши настройки будут сохранены в %s</string>
+
 	<!-- /Write check  -->
 	
 	<!-- Tutorial -->

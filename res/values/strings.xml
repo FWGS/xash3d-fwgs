@@ -103,6 +103,8 @@
 	<string name="lollipop_write_fail_msg">Due to writing politics of newer Android versions, you can\'t use this storage. </string>
 	<string name="kitkat_write_fail_msg">Due to writing politics of Android 4.4, you can\'t use this storage. </string>
 	<string name="readonly_fs_fail_msg">Seems you have read-only filesystem. </string>
+	<string name="convert_to_rodir">Convert to RoDir</string>
+	<string name="rodir_warning">Please note, that your game settings and saves will be stored in %s</string>
 	<!-- /Write check  -->
 	
 	<!-- Tutorial -->

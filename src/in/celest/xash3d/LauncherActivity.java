@@ -257,7 +257,7 @@ public class LauncherActivity extends Activity
 			@Override
 			public void onCheckedChanged( CompoundButton v, boolean isChecked )
 			{
-				enableRoDir( isChecked );
+				hideRodirSettings( !isChecked );
 			}
 		});
 		
@@ -303,11 +303,23 @@ public class LauncherActivity extends Activity
 		}
 		changeButtonsStyle((ViewGroup)tabHost.getParent());
 		hideResolutionSettings( !resolution.isChecked() );
-		enableRoDir( useRoDir.isChecked() );
+		hideRodirSettings( !useRoDir.isChecked() );
 		updateResolutionResult();
 		toggleResolutionFields();
 		if( !mPref.getBoolean("successfulRun",false) )
 			showFirstRun();
+	}
+	
+	@Override
+	public void onResume()
+	{
+		super.onResume();
+		
+		useRoDir.setChecked( mPref.getBoolean("use_rodir", false) );
+		useRoDirAuto.setChecked( mPref.getBoolean("use_rodir_auto", true) );
+		writePath.setText(mPref.getString("writedir", FWGSLib.getExternalFilesDir(this)));
+		
+		hideRodirSettings( !useRoDir.isChecked() );
 	}
 
 	void updatePath( String text )
@@ -321,9 +333,9 @@ public class LauncherActivity extends Activity
 		scaleGroup.setVisibility( hide ? View.GONE : View.VISIBLE );
 	}
 	
-	void enableRoDir( boolean enable )
+	void hideRodirSettings( boolean hide )
 	{
-		rodirSettings.setVisibility( enable ? View.VISIBLE : View.GONE );
+		rodirSettings.setVisibility( hide ? View.GONE : View.VISIBLE );
 	}
 		
 	TextWatcher resTextChangeWatcher = new TextWatcher()
