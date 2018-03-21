@@ -72,7 +72,6 @@ public class XashActivity extends Activity {
 	private static boolean mHasVibrator;
 	private int mReturingWithResultCode = 0;
 	
-	private static int OPEN_DOCUMENT_TREE_RESULT = 1;
 	private static int FPICKER_RESULT = 2;
 	
 
@@ -148,7 +147,7 @@ public class XashActivity extends Activity {
 			Log.v( TAG, "folderask == false. Checking write permission..." );
 
 			// check write permission and run engine, if possible
-			String basedir = getStringExtraFromIntent( getIntent(), "basedir", mPref.getString( "basedir", "/sdcard/xash/" ) );
+			String basedir = FWGSLib.getStringExtraFromIntent( getIntent(), "basedir", mPref.getString( "basedir", "/sdcard/xash/" ) );
 			checkWritePermission( basedir );
 		}
 	}
@@ -187,36 +186,6 @@ public class XashActivity extends Activity {
 				String basedir = mPref.getString( "basedir", "/sdcard/xash/" );
 				checkWritePermission( basedir );
 			}
-			/*else if( mReturingWithResultCode == OPEN_DOCUMENT_TREE_RESULT )
-			{
-				String basedir = getStringExtraFromIntent( getIntent(), "basedir", mPref.getString("basedir","/sdcard/xash/"));
-				Log.v(TAG, "Got permissions. Checking writing again...");
-
-				if( nativeTestWritePermission( basedir ) == 0 )
-				{
-					Log.v(TAG, "Write test has failed twice!");
-					String msg = getString(R.string.lollipop_request_permission_fail_msg) + getString(R.string.ask_about_new_basedir_msg);
-			
-					new AlertDialog.Builder(this)
-						.setTitle( R.string.write_failed )
-						.setMessage( msg )
-						.setPositiveButton( R.string.ok, new DialogInterface.OnClickListener() 
-							{
-								public void onClick(DialogInterface dialog, int whichButton) 
-								{
-									XashActivity act = XashActivity.this;
-									act.setFolderAsk( true );
-									act.finish();
-								}
-							})
-						.setCancelable(false)
-						.show();
-				}
-				else
-				{
-					launchSurfaceAndEngine();
-				}
-			}*/
 			
 			mReturingWithResultCode = 0;
 		}
@@ -323,16 +292,17 @@ public class XashActivity extends Activity {
 		editor.commit();
 	}
 	
-	private String getStringExtraFromIntent( Intent intent, String extraString, String ifNotFound )
+	
+	private DialogInterface.OnClickListener folderAskEnable = new DialogInterface.OnClickListener()
 	{
-		String ret = intent.getStringExtra( extraString );
-		if( ret == null )
+		@Override
+		public void onClick( DialogInterface dialog, int whichButton ) 
 		{
-			ret = ifNotFound;
+			XashActivity act = XashActivity.this;
+			act.setFolderAsk( XashActivity.this, true );
+			act.finish();
 		}
-		
-		return ret;
-	}
+	};
 	
 	private void checkWritePermission( String basedir )
 	{
@@ -366,13 +336,12 @@ public class XashActivity extends Activity {
 			new AlertDialog.Builder( this )
 				.setTitle( R.string.write_failed )
 				.setMessage( msg )
-				.setPositiveButton( R.string.ok, new DialogInterface.OnClickListener() 
+				.setPositiveButton( R.string.ok, folderAskEnable )
+				.setNegativeButton( R.string.convert_to_rodir, new DialogInterface.OnClickListener()
 					{
-						public void onClick( DialogInterface dialog, int whichButton ) 
+						public void onClick( DialogInterface dialog, int whichButton )
 						{
-							XashActivity act = XashActivity.this;
-							act.setFolderAsk( XashActivity.this, true );
-							act.finish();
+							XashActivity.this.convertToRodir();
 						}
 					})
 				.setCancelable( false )
@@ -383,6 +352,33 @@ public class XashActivity extends Activity {
 			// everything is normal, so launch engine
 			launchSurfaceAndEngine();
 		}
+	}
+	
+	private void convertToRodir()
+	{
+		mWriteDir = FWGSLib.getExternalFilesDir(this);
+
+		new AlertDialog.Builder( this )
+			.setTitle( R.string.convert_to_rodir )
+			.setMessage( String.format( getString( R.string.rodir_warning, mWriteDir ) ) )
+			.setNegativeButton( R.string.cancel, folderAskEnable )
+			.setPositiveButton( R.string.ok, new DialogInterface.OnClickListener()
+			{
+				@Override
+				public void onClick( DialogInterface dialog, int whichButton )
+				{
+					XashActivity.mUseRoDir = true;
+														
+					SharedPreferences.Editor editor = XashActivity.this.mPref.edit();
+					editor.putBoolean("use_rodir", XashActivity.mUseRoDir);
+					editor.putString("writedir", XashActivity.mWriteDir);
+					editor.commit();
+					
+					XashActivity.this.launchSurfaceAndEngine();
+				}
+			})
+			.setCancelable( false )
+			.show();		
 	}
 	
 	private void launchSurfaceAndEngine()
@@ -468,10 +464,10 @@ public class XashActivity extends Activity {
 		Intent intent = getIntent();
 		final String enginedir = getFilesDir().getParentFile().getPath() + "/lib";
 				
-		String argv       = getStringExtraFromIntent( intent, "argv", mPref.getString( "argv", "-dev 3 -log" ) );
-		String gamelibdir = getStringExtraFromIntent( intent, "gamelibdir", enginedir );
-		String gamedir    = getStringExtraFromIntent( intent, "gamedir", "valve" );
-		String basedir    = getStringExtraFromIntent( intent, "basedir", mPref.getString( "basedir", "/sdcard/xash/" ) );
+		String argv       = FWGSLib.getStringExtraFromIntent( intent, "argv", mPref.getString( "argv", "-dev 3 -log" ) );
+		String gamelibdir = FWGSLib.getStringExtraFromIntent( intent, "gamelibdir", enginedir );
+		String gamedir    = FWGSLib.getStringExtraFromIntent( intent, "gamedir", "valve" );
+		String basedir    = FWGSLib.getStringExtraFromIntent( intent, "basedir", mPref.getString( "basedir", "/sdcard/xash/" ) );
 		String gdbsafe    = intent.getStringExtra( "gdbsafe" );
 		
 		bIsCstrike = ( gamedir.equals("cstrike") || gamedir.equals("czero") || gamedir.equals("czeror") );

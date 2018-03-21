@@ -127,6 +127,17 @@ public class FWGSLib
 		return (metrics.widthPixels > metrics.heightPixels);
 	}
 	
+	public static String getStringExtraFromIntent( Intent intent, String extraString, String ifNotFound )
+	{
+		String ret = intent.getStringExtra( extraString );
+		if( ret == null )
+		{
+			ret = ifNotFound;
+		}
+		
+		return ret;
+	}
+
 	
 	public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
 }
