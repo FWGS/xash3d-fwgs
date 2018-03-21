@@ -6,7 +6,7 @@ Xash3D Android
 #### Инструкция по установке
 0. Скачайте APK последней версии с Github. https://github.com/SDLash3D/xash3d-android-project/releases/latest
 1. Откройте и установите APK.
-2. Create папку /sdcard/xash.
+2. Создайте папку /sdcard/xash.
 3. Скопируйте папку "valve" со Steam версии Half-Life в /sdcard/xash/. Пример: /sdcard/xash/valve -- игровые данные
 4. Откройте игру 
 
