@@ -133,7 +133,13 @@ public class XashActivity extends Activity {
 		mPref = this.getSharedPreferences( "engine", 0 );
 		
 		mUseRoDir = mPref.getBoolean("use_rodir", false);
-		mWriteDir = mPref.getString("writedir", FWGSLib.getExternalFilesDir(this) );
+		mWriteDir = mPref.getString("writedir", FWGSLib.getExternalFilesDir( this ));
+		
+		// just in case
+		if( mWriteDir.length() == 0 )
+		{
+			mWriteDir = FWGSLib.getExternalFilesDir( this );
+		}
 		
 		if( mPref.getBoolean( "folderask", true ) )
 		{
