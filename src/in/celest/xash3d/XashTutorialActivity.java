@@ -39,7 +39,7 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
 
     private void initTexts() {
         prevText = R.string.prev;
-        cancelText = R.string.cancel;
+        cancelText = R.string.skip;
         finishText = R.string.finish;
         nextText = R.string.next;
     }
@@ -66,13 +66,6 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
 			});*/
     }
 
-    private void changeStatusBarColor(int backgroundColor) {
-        // Window window = getWindow();
-        // window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
-        // window.addFlags(0x80000000) //WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS
-        // window.setStatusBarColor(backgroundColor);
-    }
-
     private void controlPosition( boolean last) {
         notifyIndicator();
         if (last) {
@@ -85,10 +78,7 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
             prev.setText(prevText);
             next.setText(nextText);
         }
-
-        //containerLayout.setBackgroundColor(steps.get(position).getBackgroundColor());
-        //buttonContainer.setBackgroundColor(steps.get(position).getBackgroundColor());
-    }
+	}
 
     private void initViews() {
         currentItem = 0;
