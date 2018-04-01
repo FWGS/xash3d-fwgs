@@ -1,60 +1,208 @@
 package in.celest.xash3d;
 
-import com.hololo.tutorial.library.TutorialActivity;
-import com.hololo.tutorial.library.Step;
-import android.app.Activity;
-import android.os.Build;
-import android.os.Bundle;
-import android.support.v4.view.ViewPager;
-import android.support.v4.app.FragmentActivity;
-// import android.support.v7.app.AppCompatActivity;
-import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.FrameLayout;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
-import android.graphics.Color;
+import android.app.*;
+import android.os.*;
+import android.view.*;
+import android.widget.*;
+import in.celest.xash3d.hl.*;
+import java.util.*;
+import su.xash.fwgslib.*;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import in.celest.xash3d.hl.R;
-
-public class XashTutorialActivity extends TutorialActivity
+public class XashTutorialActivity extends Activity implements View.OnClickListener
 {
+	private Button next, prev;
+    private LinearLayout indicatorLayout;
+    private FrameLayout containerLayout;
+    private RelativeLayout buttonContainer;
+	private TextView title;
+	private TextView text;
+	private ImageView drawable;
+
+    private int currentItem;
+
+    private int prevText, nextText, finishText, cancelText;
+	
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+		if( FWGSLib.sdk >= 21 ) // material
+			setTheme(0x0103022e); // Theme_Material_NoActionBar
+		else
+			setTheme(0x01030006); // Theme_NoTitleBar
+		setContentView(R.layout.activity_tutorial);
+		initTexts();
+		initViews();
+		changeFragment(0);
+		
+    }
+	
 
-		addFragment(new Step.Builder().setTitle(getString(R.string.page_title0))
-			.setContent(getString(R.string.page_content0))
-			.setBackgroundColor(Color.parseColor("#555555")) // int background color
-			.setDrawable(R.drawable.page0) // int top drawable
-			.build());
+    private void initTexts() {
+        prevText = R.string.prev;
+        cancelText = R.string.cancel;
+        finishText = R.string.finish;
+        nextText = R.string.next;
+    }
 
-		addFragment(new Step.Builder().setTitle(getString(R.string.page_title1))
-			.setContent(getString(R.string.page_content1))
-			.setBackgroundColor(Color.parseColor("#555555")) // int background color
-			.setDrawable(R.drawable.page1_en) // int top drawable
-			.build());
-		addFragment(new Step.Builder().setTitle(getString(R.string.page_title2))
-			.setContent(getString(R.string.page_content2))
-			.setBackgroundColor(Color.parseColor("#555555")) // int background color
-			.setDrawable(R.drawable.page2_en) // int top drawable
-			.build());
-		addFragment(new Step.Builder().setTitle(getString(R.string.page_title3))
-			.setContent(getString(R.string.page_content3))
-			.setBackgroundColor(Color.parseColor("#555555")) // int background color
-			.setDrawable(R.drawable.page3_en) // int top drawable
-			.build());
-		addFragment(new Step.Builder().setTitle(getString(R.string.page_title4))
-			.setContent(getString(R.string.page_content4))
-			.setBackgroundColor(Color.parseColor("#555555")) // int background color
-			.setDrawable(R.drawable.page4_en)
-			.build());
+    private void initAdapter() {
+        /*adapter = new StepPagerAdapter(getSupportFragmentManager(), steps);
+        pager.setAdapter(adapter);
+        pager.setOnPageChangeListener(new ViewPager.OnPageChangeListener() {
+				@Override
+				public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
 
+				}
+
+				@Override
+				public void onPageSelected(int position) {
+					currentItem = position;
+					controlPosition(position);
+				}
+
+				@Override
+				public void onPageScrollStateChanged(int state) {
+
+				}
+			});*/
+    }
+
+    private void changeStatusBarColor(int backgroundColor) {
+        // Window window = getWindow();
+        // window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+        // window.addFlags(0x80000000) //WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS
+        // window.setStatusBarColor(backgroundColor);
+    }
+
+    private void controlPosition( boolean last) {
+        notifyIndicator();
+        if (last) {
+            next.setText(finishText);
+            prev.setText(prevText);
+        } else if ( currentItem == 0) {
+            prev.setText(cancelText);
+            next.setText(nextText);
+        } else {
+            prev.setText(prevText);
+            next.setText(nextText);
+        }
+
+        //containerLayout.setBackgroundColor(steps.get(position).getBackgroundColor());
+        //buttonContainer.setBackgroundColor(steps.get(position).getBackgroundColor());
+    }
+
+    private void initViews() {
+        currentItem = 0;
+
+       // pager = (ViewPager) findViewById(R.id.viewPager);
+        next = (Button) findViewById(R.id.next);
+        prev = (Button) findViewById(R.id.prev);
+        indicatorLayout = (LinearLayout) findViewById(R.id.indicatorLayout);
+        containerLayout = (FrameLayout) findViewById(R.id.containerLayout);
+        buttonContainer = (RelativeLayout) findViewById(R.id.buttonContainer);
+		title = (TextView) findViewById(R.id.title);
+		text = (TextView) findViewById(R.id.content);
+		drawable = (ImageView) findViewById(R.id.image);
+
+        next.setOnClickListener(this);
+        prev.setOnClickListener(this);
+    }
+
+
+    public void notifyIndicator() {
+        if (indicatorLayout.getChildCount() > 0)
+            indicatorLayout.removeAllViews();
+
+        for (int i = 0; i < 5; i++) {
+            ImageView imageView = new ImageView(this);
+            imageView.setPadding(8, 8, 8, 8);
+            int drawable = R.drawable.circle_black;
+            if (i == currentItem)
+                drawable = R.drawable.circle_white;
+
+            imageView.setImageResource(drawable);
+
+            final int finalI = i;
+            imageView.setOnClickListener(new View.OnClickListener() {
+					@Override
+					public void onClick(View v) {
+						changeFragment(finalI);
+					}
+				});
+
+            indicatorLayout.addView(imageView);
+        }
+
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (currentItem == 0) {
+            super.onBackPressed();
+        } else {
+            changeFragment(false);
+        }
+    }
+
+    @Override
+    public void onClick(View v) {
+        if (v.getId() == R.id.next) {
+            changeFragment(true);
+        } else if (v.getId() == R.id.prev) {
+            changeFragment(false);
+        }
+    }
+
+    private void changeFragment(int position) {
+        currentItem = position;
+		updateStep();
+    }
+
+    private void changeFragment(boolean isNext) {
+        if (isNext) {
+            currentItem++;
+        } else {
+            currentItem--;
+        }
+            updateStep();
+    }
+
+
+	void updateStep()
+	{
+		int titleres = getResources().getIdentifier("page_title" + String.valueOf(currentItem), "string", getPackageName());
+
+		if( titleres == 0 )
+		{
+			finish();
+			return;
+		}
+		int titlenext = getResources().getIdentifier("page_title" + String.valueOf(currentItem+1), "string", getPackageName());
+		int contentres = getResources().getIdentifier("page_content" + String.valueOf(currentItem), "string", getPackageName());
+		int drawableres = getResources().getIdentifier("page" + String.valueOf(currentItem), "drawable", getPackageName());
+		if( drawableres == 0)
+			drawableres = getResources().getIdentifier("page" + String.valueOf(currentItem) + "_" + Locale.getDefault().getLanguage(), "drawable", getPackageName());
+		if( drawableres == 0 )
+			drawableres = getResources().getIdentifier("page" + String.valueOf(currentItem) + "_en", "drawable", getPackageName());
+		
+		title.setText(titleres);
+		text.setText(contentres);
+		drawable.setImageResource(drawableres);
+		controlPosition(titlenext == 0);
+	}
+
+    public void setPrevText(int text) {
+        prevText = text;
+    }
+
+    public void setNextText(int text) {
+        nextText = text;
+    }
+
+    public void setFinishText(int text) {
+        finishText = text;
+    }
+
+    public void setCancelText(int text) {
+        cancelText = text;
     }
 }
