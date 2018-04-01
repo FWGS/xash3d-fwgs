@@ -691,13 +691,15 @@ public class XashActivity extends Activity {
 			if( action == KeyEvent.ACTION_DOWN )
 			{
 				nativeHat( id, hat, val, true  );
+				return true;
 			}
 			else if( action == KeyEvent.ACTION_UP )
 			{
 				nativeHat( id, hat, val, false );
+				return true;
 			}
 
-			return true;
+			return false;
 		}
 
 		// Engine will bind these to AUX${val} virtual keys

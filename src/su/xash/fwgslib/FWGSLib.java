@@ -115,6 +115,11 @@ public class FWGSLib
 	{
 		File f = ctx.getExternalFilesDir( null );
 		
+		if( f == null )
+		{
+			f = new File( getDefaultXashPath() );
+		}
+		
 		f.mkdirs();
 		
 		return f.getAbsolutePath();
