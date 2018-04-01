@@ -74,8 +74,7 @@
 			</intent-filter>
 		</activity> 
 		<activity android:name="in.celest.xash3d.FPicker"></activity>
-		<activity android:name="in.celest.xash3d.XashTutorialActivity"
-			android:screenOrientation="portrait">
+		<activity android:name="in.celest.xash3d.XashTutorialActivity">
 		</activity>
 
 		<service android:name="in.celest.xash3d.XashService" android:stopWithTask="false" />
