@@ -23,7 +23,7 @@
 			android:id="@+id/title"
 			style="@android:style/TextAppearance.DeviceDefault.Large"
 			android:layout_width="match_parent"
-			android:layout_height="50dp"
+			android:layout_height="wrap_content"
 			android:gravity="center_horizontal|bottom"
 			android:paddingEnd="16dp"
 			android:paddingStart="16dp"
