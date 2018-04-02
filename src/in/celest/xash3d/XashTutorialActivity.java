@@ -1,12 +1,19 @@
 package in.celest.xash3d;
 
+import android.animation.*;
 import android.app.*;
+import android.content.*;
 import android.os.*;
+import android.util.*;
 import android.view.*;
+import android.view.View.*;
 import android.widget.*;
+import android.widget.TableRow.*;
 import in.celest.xash3d.hl.*;
 import java.util.*;
 import su.xash.fwgslib.*;
+
+import android.view.View.MeasureSpec;
 
 public class XashTutorialActivity extends Activity implements View.OnClickListener
 {
@@ -14,13 +21,139 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
     private LinearLayout indicatorLayout;
     private FrameLayout containerLayout;
     private RelativeLayout buttonContainer;
-	private TextView title;
-	private TextView text;
-	private ImageView drawable;
 
     private int currentItem;
 
-    private int prevText, nextText, finishText, cancelText;
+    private int prevText, nextText, finishText, cancelText, numPages;
+	static class PagedView extends HorizontalScrollView
+	{
+		boolean isDelayed, isInc, anim;
+		int lastScroll, pageWidth, currentPage, numPages, targetPage;
+		float firstx,lastx;
+		LinearLayout pageContainer;
+		ViewGroup.LayoutParams pageParams;
+
+		// allow detect animation end
+		static abstract class OnPageListener
+		{
+			abstract public void onPage(int page);
+		}
+		OnPageListener listener;
+
+		public PagedView(Context ctx, int pagewidth)
+		{
+			super(ctx);
+			pageContainer = new LinearLayout(ctx);
+			pageContainer.setOrientation(LinearLayout.HORIZONTAL);
+			setLayoutParams(new ViewGroup.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.FILL_PARENT));
+			setScrollBarStyle(SCROLLBARS_INSIDE_INSET);
+			addView(pageContainer);
+			pageWidth = pagewidth;
+			// this will be applied to every page
+			pageParams = new ViewGroup.LayoutParams(pagewidth, LayoutParams.FILL_PARENT);
+		}
+
+		private void animateScroll()
+		{
+			if( !anim )
+			{
+				// allow only correct position if anim disabled
+				scrollTo(pageWidth*currentPage,0);
+				return;
+			}
+			if( isInc && lastScroll >= pageWidth * targetPage || !isInc && lastScroll <= pageWidth * targetPage )
+			{
+				// got target page, stop now
+				anim = false;
+				currentPage = targetPage;
+				scrollTo(pageWidth*targetPage,0);
+				if( listener != null )
+					listener.onPage(currentPage);
+				return;
+			}
+
+			if( !isDelayed ) //semaphore
+			{
+				isDelayed = true;
+				postDelayed(new Runnable()
+					{
+						public void run()
+						{
+							isDelayed = false;
+							// animate to 1/10 of page every 10 ms
+							scrollBy(isInc?pageWidth/100:-pageWidth/100,0);
+						}
+					},10);
+			}
+		}
+
+		// add view and set layout
+		public void addPage(View view)
+		{
+			view.setLayoutParams(pageParams);
+			pageContainer.addView(view);
+			numPages++;
+		}
+
+		@Override
+		protected void onScrollChanged(int l, int t, int oldl, int oldt) 
+		{
+			// this called on every scrollTo/scrollBy and touch scroll
+			super.onScrollChanged(l,t,oldl,oldt);
+			lastScroll=l;
+			isInc = l>oldl;
+			animateScroll();
+		}
+
+		@Override
+		public boolean onTouchEvent(MotionEvent e)
+		{
+			switch( e.getAction() )
+			{
+				case e.ACTION_DOWN:
+					// store swipe start
+					lastx = firstx = e.getX();
+					// animation will be started on next scroll event
+					anim = true;
+					break;
+				case e.ACTION_MOVE:
+					// animation will start in supercall, so select direction now
+					isInc = e.getX() < lastx;
+					targetPage = isInc?currentPage+1:currentPage-1;
+					lastx = e.getX();
+					break;
+				case e.ACTION_UP:
+					// detect misstouch (<100 pixels)
+					if( Math.abs(e.getX()-firstx) < 100)
+					{
+						anim = false;
+						targetPage = currentPage;
+						scrollTo(currentPage*pageWidth,0);
+					}
+					return false;
+			}
+
+
+			return super.onTouchEvent(e);
+		}
+
+		// set page number
+		public void changePage(int page)
+		{
+			targetPage = page;
+			anim = true;
+			isInc = targetPage > currentPage;
+			animateScroll();
+		}
+
+		// call when animation ends
+		public void setOnPageListener(OnPageListener listener1)
+		{
+			listener = listener1;
+		}
+	}
+
+	PagedView scroll;
 	
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,6 +165,7 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
 		setContentView(R.layout.activity_tutorial);
 		initTexts();
 		initViews();
+		initPages();
 		changeFragment(0);
 		
     }
@@ -44,31 +178,59 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
         nextText = R.string.next;
     }
 
-    private void initAdapter() {
-        /*adapter = new StepPagerAdapter(getSupportFragmentManager(), steps);
-        pager.setAdapter(adapter);
-        pager.setOnPageChangeListener(new ViewPager.OnPageChangeListener() {
-				@Override
-				public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+    private void initPages() {
+		LayoutInflater inflater;
 
-				}
+		inflater = (LayoutInflater) this.getSystemService(Context.LAYOUT_INFLATER_SERVICE);              
+		LinearLayout container = (LinearLayout)findViewById(R.id.container);
 
-				@Override
-				public void onPageSelected(int position) {
-					currentItem = position;
-					controlPosition(position);
-				}
+		DisplayMetrics metrics = new DisplayMetrics();
+		getWindowManager().getDefaultDisplay().getMetrics(metrics);
 
-				@Override
-				public void onPageScrollStateChanged(int state) {
+		scroll = new PagedView(this,metrics.widthPixels);
+		container.addView(scroll);
 
-				}
-			});*/
+		while( true )
+		{
+			int titleres = getResources().getIdentifier("page_title" + String.valueOf(numPages), "string", getPackageName());
+			
+			if( titleres == 0 )
+				break;
+			
+			LinearLayout layout = (LinearLayout) inflater.inflate(R.layout.tutorial_step , null);
+			
+			TextView title = (TextView) layout.findViewById(R.id.title);
+			TextView text = (TextView) layout.findViewById(R.id.content);
+			ImageView drawable = (ImageView) layout.findViewById(R.id.image);
+
+			int contentres = getResources().getIdentifier("page_content" + String.valueOf(numPages), "string", getPackageName());
+			int drawableres = getResources().getIdentifier("page" + String.valueOf(numPages), "drawable", getPackageName());
+			if( drawableres == 0)
+				drawableres = getResources().getIdentifier("page" + String.valueOf(numPages) + "_" + Locale.getDefault().getLanguage(), "drawable", getPackageName());
+			if( drawableres == 0 )
+				drawableres = getResources().getIdentifier("page" + String.valueOf(numPages) + "_en", "drawable", getPackageName());
+
+			title.setText(titleres);
+			text.setText(contentres);
+			drawable.setImageResource(drawableres);
+			scroll.addPage(layout);
+			numPages++;
+		}
+		scroll.setOnPageListener(new PagedView.OnPageListener(){
+			@Override
+			public void onPage(int page)
+			{
+				currentItem = page;
+				controlPosition();
+			}
+		});
     }
 
-    private void controlPosition( boolean last) {
+    private void controlPosition()
+	{
         notifyIndicator();
-        if (last) {
+
+        if (currentItem == numPages - 1) {
             next.setText(finishText);
             prev.setText(prevText);
         } else if ( currentItem == 0) {
@@ -83,15 +245,12 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
     private void initViews() {
         currentItem = 0;
 
-       // pager = (ViewPager) findViewById(R.id.viewPager);
         next = (Button) findViewById(R.id.next);
         prev = (Button) findViewById(R.id.prev);
+
         indicatorLayout = (LinearLayout) findViewById(R.id.indicatorLayout);
         containerLayout = (FrameLayout) findViewById(R.id.containerLayout);
         buttonContainer = (RelativeLayout) findViewById(R.id.buttonContainer);
-		title = (TextView) findViewById(R.id.title);
-		text = (TextView) findViewById(R.id.content);
-		drawable = (ImageView) findViewById(R.id.image);
 
         next.setOnClickListener(this);
         prev.setOnClickListener(this);
@@ -136,49 +295,33 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
     @Override
     public void onClick(View v) {
         if (v.getId() == R.id.next) {
+			if( currentItem == numPages - 1 )
+			{
+				finish();
+				return;
+			}
             changeFragment(true);
         } else if (v.getId() == R.id.prev) {
+			if( currentItem == 0 )
+			{
+				finish();
+				return;
+			}
             changeFragment(false);
         }
     }
 
     private void changeFragment(int position) {
-        currentItem = position;
-		updateStep();
+        scroll.changePage(position);
     }
 
     private void changeFragment(boolean isNext) {
         if (isNext) {
-            currentItem++;
+            scroll.changePage(currentItem+1);
         } else {
-            currentItem--;
+            scroll.changePage(currentItem-1);
         }
-            updateStep();
     }
-
-
-	void updateStep()
-	{
-		int titleres = getResources().getIdentifier("page_title" + String.valueOf(currentItem), "string", getPackageName());
-
-		if( titleres == 0 )
-		{
-			finish();
-			return;
-		}
-		int titlenext = getResources().getIdentifier("page_title" + String.valueOf(currentItem+1), "string", getPackageName());
-		int contentres = getResources().getIdentifier("page_content" + String.valueOf(currentItem), "string", getPackageName());
-		int drawableres = getResources().getIdentifier("page" + String.valueOf(currentItem), "drawable", getPackageName());
-		if( drawableres == 0)
-			drawableres = getResources().getIdentifier("page" + String.valueOf(currentItem) + "_" + Locale.getDefault().getLanguage(), "drawable", getPackageName());
-		if( drawableres == 0 )
-			drawableres = getResources().getIdentifier("page" + String.valueOf(currentItem) + "_en", "drawable", getPackageName());
-		
-		title.setText(titleres);
-		text.setText(contentres);
-		drawable.setImageResource(drawableres);
-		controlPosition(titlenext == 0);
-	}
 
     public void setPrevText(int text) {
         prevText = text;

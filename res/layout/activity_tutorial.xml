@@ -7,57 +7,11 @@
     android:clipToPadding="false"
     android:fitsSystemWindows="true"
     android:orientation="vertical">
-
-    <LinearLayout
-		android:id="@+id/container"
+	<LinearLayout android:id="@+id/container"
 		android:layout_width="match_parent"
-		android:layout_height="fill_parent"
-		android:orientation="vertical"
-		android:paddingBottom="60dp"
-		android:weightSum="100">
-		<LinearLayout
-			android:layout_width="fill_parent"
-			android:layout_height="match_parent"
-			android:layout_weight="20"
-			android:orientation="vertical">
-
-
-		<ImageView
-			android:id="@+id/image"
-			android:layout_width="fill_parent"
-			android:layout_height="wrap_content"
-			android:layout_gravity="fill_horizontal|top|start"
-			android:layout_marginBottom="16dp"
-			android:layout_marginTop="16dp"
-			android:adjustViewBounds="true" />
-		</LinearLayout>
-
-		<TextView
-			android:id="@+id/title"
-			style="@android:style/TextAppearance.DeviceDefault.Large"
-			android:layout_width="match_parent"
-			android:layout_height="match_parent"
-			android:gravity="center_horizontal|bottom"
-			android:paddingEnd="16dp"
-			android:paddingStart="16dp"
-			android:text="Lorem ipsum dolor sit amet"
-			android:textColor="#FFF"
-			android:layout_weight="80" />
-
-		<TextView
-			android:id="@+id/content"
-			android:layout_width="match_parent"
-			android:layout_height="wrap_content"
-			android:layout_marginTop="16dp"
-			android:layout_marginBottom="32dp"
-			android:gravity="center_horizontal"
-			android:paddingEnd="32dp"
-			android:paddingStart="32dp"
-			android:text="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec tempus elementum sem congue laoreet. Sed pulvinar at purus quis aliquet. Quisque feugiat sed leo nec aliquet. In hac habitasse platea dictumst. Vestibulum enim sapien, gravida et tempus vel, feugiat in turpis. Fusce interdum elit et libero rhoncus dapibus"
-			android:textColor="#FFF"
-			android:textSize="14sp"/>
-	</LinearLayout>
-
+		android:layout_height="match_parent"
+		android:paddingBottom="60dp"/>
+    
     <RelativeLayout
         android:id="@+id/buttonContainer"
         android:layout_width="match_parent"
