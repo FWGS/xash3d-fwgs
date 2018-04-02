@@ -126,9 +126,12 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
 					// detect misstouch (<100 pixels)
 					if( Math.abs(e.getX()-firstx) < 100)
 					{
+						/*
 						anim = false;
 						targetPage = currentPage;
-						scrollTo(currentPage*pageWidth,0);
+						scrollTo(currentPage*pageWidth,0);*/
+						targetPage = currentPage;
+						isInc = currentPage * pageWidth > lastScroll;
 					}
 					return false;
 			}
