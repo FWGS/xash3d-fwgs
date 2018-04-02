@@ -80,8 +80,8 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
 						public void run()
 						{
 							isDelayed = false;
-							// animate to 1/10 of page every 10 ms
-							scrollBy(isInc?pageWidth/100:-pageWidth/100,0);
+							// animate to 1/50 of page every 10 ms
+							scrollBy(isInc?pageWidth/50:-pageWidth/50,0);
 						}
 					},10);
 			}
