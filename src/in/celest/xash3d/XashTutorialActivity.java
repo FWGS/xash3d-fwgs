@@ -110,19 +110,19 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
 		{
 			switch( e.getAction() )
 			{
-				case e.ACTION_DOWN:
+				case MotionEvent.ACTION_DOWN:
 					// store swipe start
 					lastx = firstx = e.getX();
 					// animation will be started on next scroll event
 					anim = true;
 					break;
-				case e.ACTION_MOVE:
+				case MotionEvent.ACTION_MOVE:
 					// animation will start in supercall, so select direction now
 					isInc = e.getX() < lastx;
 					targetPage = isInc?currentPage+1:currentPage-1;
 					lastx = e.getX();
 					break;
-				case e.ACTION_UP:
+				case MotionEvent.ACTION_UP:
 					// detect misstouch (<100 pixels)
 					if( Math.abs(e.getX()-firstx) < 100)
 					{
