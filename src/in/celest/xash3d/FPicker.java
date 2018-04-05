@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import su.xash.fwgslib.FWGSLib;
 
 import in.celest.xash3d.hl.R;
 
@@ -59,6 +60,9 @@ public class FPicker extends Activity {
 				onFileClick(v);
 			}
 		});
+
+		FWGSLib.changeButtonsStyle((ViewGroup)mSelectBtn.getParent());
+
 		fill(currentDir);
     }
 

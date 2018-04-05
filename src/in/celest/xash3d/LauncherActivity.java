@@ -37,50 +37,7 @@ public class LauncherActivity extends Activity
 	static LinearLayout rodirSettings; // to easy show/hide
 	
 	static int mEngineWidth, mEngineHeight;
-	
-	public static void changeButtonsStyle( ViewGroup parent )
-	{
-		if( sdk >= 21 )
-			return;
-		
-		for( int i = parent.getChildCount() - 1; i >= 0; i-- ) 
-		{
-			try
-			{
-				final View child = parent.getChildAt(i);
-				
-				if( child == null )
-					continue;
-				
-				if( child instanceof ViewGroup )
-				{
-					changeButtonsStyle((ViewGroup) child);
-					// DO SOMETHING WITH VIEWGROUP, AFTER CHILDREN HAS BEEN LOOPED
-				} 
-				else if( child instanceof Button )
-				{
-					final Button b = (Button)child;
-					final Drawable bg = b.getBackground();
-					if(bg!= null)bg.setAlpha( 96 );
-					b.setTextColor( 0xFFFFFFFF );
-					b.setTextSize( 15f );
-					//b.setText(b.getText().toString().toUpperCase());
-					b.setTypeface( b.getTypeface(),Typeface.BOLD );
-				}
-				else if( child instanceof EditText )
-				{
-					final EditText b = ( EditText )child;
-					b.setBackgroundColor( 0xFF353535 );
-					b.setTextColor( 0xFFFFFFFF );
-					b.setTextSize( 15f );
-				}
-			}
-			catch( Exception e )
-			{
-			}
-        }
-    }
-    
+
     @Override
     protected void onCreate(Bundle savedInstanceState)
     {
@@ -91,7 +48,7 @@ public class LauncherActivity extends Activity
 			super.setTheme( 0x01030224 );
 		else super.setTheme( 0x01030005 );
 				
-		if( CertCheck.dumbAntiPDALifeCheck( this ) )
+		if( sdk >= 8 && CertCheck.dumbAntiPDALifeCheck( this ) )
 		{
 			finish();
 			return;
@@ -301,7 +258,7 @@ public class LauncherActivity extends Activity
 		{
 			new CheckUpdate(true, false).execute(UPDATE_LINK);
 		}
-		changeButtonsStyle((ViewGroup)tabHost.getParent());
+		FWGSLib.changeButtonsStyle((ViewGroup)tabHost.getParent());
 		hideResolutionSettings( !resolution.isChecked() );
 		hideRodirSettings( !useRoDir.isChecked() );
 		updateResolutionResult();
@@ -450,6 +407,7 @@ public class LauncherActivity extends Activity
 							startActivity(intent);
 						}
 					});
+				FWGSLib.changeButtonsStyle((ViewGroup)dialog.findViewById( R.id.show_firstrun ).getParent());
 
 			}
 		});
