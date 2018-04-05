@@ -185,7 +185,7 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
 		LayoutInflater inflater;
 
 		inflater = (LayoutInflater) this.getSystemService(Context.LAYOUT_INFLATER_SERVICE);              
-		LinearLayout container = (LinearLayout)findViewById(R.id.container);
+		ViewGroup container = (ViewGroup)findViewById(R.id.container);
 
 		DisplayMetrics metrics = new DisplayMetrics();
 		getWindowManager().getDefaultDisplay().getMetrics(metrics);
@@ -200,7 +200,7 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
 			if( titleres == 0 )
 				break;
 			
-			LinearLayout layout = (LinearLayout) inflater.inflate(R.layout.tutorial_step , null);
+			ViewGroup layout = (ViewGroup) inflater.inflate(R.layout.tutorial_step , null);
 			
 			TextView title = (TextView) layout.findViewById(R.id.title);
 			TextView text = (TextView) layout.findViewById(R.id.content);
@@ -215,6 +215,8 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
 
 			title.setText(titleres);
 			text.setText(contentres);
+			if( FWGSLib.isLandscapeOrientation(this) )
+				drawable.setScaleType(ImageView.ScaleType.FIT_CENTER);
 			drawable.setImageResource(drawableres);
 			scroll.addPage(layout);
 			numPages++;
