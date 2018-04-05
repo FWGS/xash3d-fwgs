@@ -182,6 +182,50 @@ public class FWGSLib
 		return ret;
 	}
 
+	public static void changeButtonsStyle( ViewGroup parent )
+	{
+		if( sdk >= 21 )
+			return;
+		
+		for( int i = parent.getChildCount() - 1; i >= 0; i-- ) 
+		{
+			try
+			{
+				final View child = parent.getChildAt(i);
+				
+				if( child == null )
+					continue;
+				
+				if( child instanceof ViewGroup )
+				{
+					changeButtonsStyle((ViewGroup) child);
+					// DO SOMETHING WITH VIEWGROUP, AFTER CHILDREN HAS BEEN LOOPED
+				} 
+				else if( child instanceof Button )
+				{
+					final Button b = (Button)child;
+					final Drawable bg = b.getBackground();
+					if(bg!= null)bg.setAlpha( 96 );
+					b.setTextColor( 0xFFFFFFFF );
+					b.setTextSize( 15f );
+					//b.setText(b.getText().toString().toUpperCase());
+					b.setTypeface( b.getTypeface(),Typeface.BOLD );
+				}
+				else if( child instanceof EditText )
+				{
+					final EditText b = ( EditText )child;
+					b.setBackgroundColor( 0xFF353535 );
+					b.setTextColor( 0xFFFFFFFF );
+					b.setTextSize( 15f );
+				}
+			}
+			catch( Exception e )
+			{
+			}
+        }
+    }
+
+
 	
 	public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
 }

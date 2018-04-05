@@ -110,7 +110,7 @@ public class XashActivity extends Activity {
 		super.onCreate( savedInstanceState );
 		mEngineReady = false;
 		
-		if( CertCheck.dumbAntiPDALifeCheck( this ) )
+		if( sdk >= 8 && CertCheck.dumbAntiPDALifeCheck( this ) )
 		{
 			finish();
 			return;

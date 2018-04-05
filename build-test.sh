@@ -1,4 +1,4 @@
-ANDROID_JAR=../android-14_.jar
+ANDROID_JAR=../android-24.jar
 AAPT=./../aapt
 DX=./../dx
 APKBUILDER=./../apkbuilder
@@ -19,7 +19,7 @@ rm assets/extras.pak
 python2.7 makepak.py xash-extras assets/extras.pak
 $AAPT package -m -J gen/ --rename-manifest-package in.celest.xash3d.hl -M AndroidManifest.xml -S test/res -I $ANDROID_JAR
 echo "package in.celest.xash3d.hl;public final class BuildConfig {public final static boolean DEBUG = true;}" > gen/in/celest/xash3d/hl/BuildConfig.java
-$JAVAC -d bin/classes -s bin/classes -cp $ANDROID_JAR gen/in/celest/xash3d/hl/*  src/in/celest/xash3d/*.java
+$JAVAC -d bin/classes -s bin/classes -cp $ANDROID_JAR gen/in/celest/xash3d/hl/*  src/in/celest/xash3d/*.java src/su/xash/fwgslib/*.java
 $DX --dex --output=bin/classes.dex bin/classes/
 $AAPT package -f -M test/AndroidManifest.xml -S test/res -I $ANDROID_JAR -F bin/xash3d.apk.unaligned
 zip bin/xash3d.apk.unaligned assets/*
