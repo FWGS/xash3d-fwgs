@@ -104,8 +104,10 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
 
     private void controlPosition()
 	{
-        notifyIndicator();
+        if( currentItem > numPages - 1 )
+        	currentItem = numPages - 1;
 
+        notifyIndicator();
         if (currentItem == numPages - 1) {
             next.setText(finishText);
             prev.setText(prevText);
