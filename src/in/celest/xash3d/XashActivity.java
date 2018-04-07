@@ -27,7 +27,7 @@ import android.view.inputmethod.*;
 
 import java.lang.*;
 import java.lang.reflect.*;
-import java.util.List;
+import java.util.*;
 import java.security.MessageDigest;
 
 import in.celest.xash3d.hl.R;
@@ -219,10 +219,12 @@ public class XashActivity extends Activity {
 		Log.v( TAG, "onResume()" );
 		
 		if( mEngineReady )
+		{
 			nativeOnResume();
+		}
 		
 		mEnginePaused = false;
-		
+
 		super.onResume();
 	}
 	
@@ -667,9 +669,9 @@ public class XashActivity extends Activity {
 			
 		final int source = XashActivity.handler.getSource( event );
 		final int action = event.getAction();
-		final boolean isGamePad  = ( source & InputDevice.SOURCE_GAMEPAD )        == InputDevice.SOURCE_GAMEPAD;
-		final boolean isJoystick = ( source & InputDevice.SOURCE_CLASS_JOYSTICK ) == InputDevice.SOURCE_CLASS_JOYSTICK;
-		final boolean isDPad     = ( source & InputDevice.SOURCE_DPAD )           == InputDevice.SOURCE_DPAD;
+		final boolean isGamePad  = FWGSLib.FExactBitSet( source, InputDevice.SOURCE_GAMEPAD );
+		final boolean isJoystick = FWGSLib.FExactBitSet( source, InputDevice.SOURCE_CLASS_JOYSTICK );
+		final boolean isDPad     = FWGSLib.FExactBitSet( source, InputDevice.SOURCE_DPAD );
 		
 		if( isDPad )
 		{
@@ -744,7 +746,8 @@ public class XashActivity extends Activity {
 				}
 				else
 				{
-					// must be never reached too
+					// must be never reached too, but sometimes happens(for DPad, for example)
+					Log.d( TAG, "Unhandled GamePad button: " + XashActivity.handler.keyCodeToString( keyCode ) + ". Passed as simple key.");
 					return performEngineKeyEvent( action, keyCode, event );
 				}
 			}
@@ -1992,14 +1995,18 @@ class JoystickHandler_v12 extends JoystickHandler
 		public boolean onGenericMotion( View view, MotionEvent event )
 		{
 			final int source = XashActivity.handler.getSource( event );
-			final int axisDevices = InputDevice.SOURCE_CLASS_JOYSTICK | InputDevice.SOURCE_GAMEPAD;
+			
+			if( FWGSLib.FExactBitSet( source, InputDevice.SOURCE_GAMEPAD ) || 
+				FWGSLib.FExactBitSet( source, InputDevice.SOURCE_CLASS_JOYSTICK ) )
+				return XashActivity.handler.handleAxis( event );
 
 			if( mNVMouseExtensions )
 			{
 				float x = event.getAxisValue( Wrap_NVMouseExtensions.getAxisRelativeX(), 0 );
 				float y = event.getAxisValue( Wrap_NVMouseExtensions.getAxisRelativeY(), 0 );
-				if( ( source & InputDevice.SOURCE_MOUSE) != InputDevice.SOURCE_MOUSE && (x != 0 || y != 0 ))
+				if( !FWGSLib.FExactBitSet( source, InputDevice.SOURCE_MOUSE) && (x != 0 || y != 0 ))
 					mouseId = event.getDeviceId();
+				
 				switch( event.getAction() ) 
 				{
 					case MotionEvent.ACTION_SCROLL:
@@ -2018,12 +2025,9 @@ class JoystickHandler_v12 extends JoystickHandler
 				}
 				
 				XashActivity.nativeMouseMove( x, y );
-				//Log.v("XashInput", "MouseMove: " +x + " " + y );
+				// Log.v("XashInput", "MouseMove: " +x + " " + y );
 				return true;
 			}
-
-			if( ( source & axisDevices ) != 0 )
-				return XashActivity.handler.handleAxis( event );
 
 			// TODO: Add it someday
 			// else if( (event.getSource() & InputDevice.SOURCE_CLASS_TRACKBALL) == InputDevice.SOURCE_CLASS_TRACKBALL )
@@ -2032,11 +2036,14 @@ class JoystickHandler_v12 extends JoystickHandler
 			return false;
 		}
 	}
+	
+	@Override
 	public boolean hasVibrator()
 	{
 		return XashActivity.mVibrator.hasVibrator();
 	}
 	
+	@Override
 	public void showMouse( boolean show )
 	{
 		if( mNVMouseExtensions )
@@ -2046,6 +2053,7 @@ class JoystickHandler_v12 extends JoystickHandler
 
 class JoystickHandler_v14 extends JoystickHandler_v12
 {
+	@Override
 	public int getButtonState( MotionEvent event )
 	{
 		return event.getButtonState();
