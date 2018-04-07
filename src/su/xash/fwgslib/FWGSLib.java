@@ -27,7 +27,12 @@ public class FWGSLib
 	static String externalFilesDir;
 	public static boolean FBitSet( final int bits, final int mask )
 	{
-		return ((bits & mask) == mask);
+		return ((bits & mask) != 0);
+	}
+	
+	public static boolean FExactBitSet( final int bits, final int mask )
+	{
+		return ((bits & mask) == mask );
 	}
 	
 	public static float atof( String str, float fallback )
