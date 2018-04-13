@@ -1,5 +1,5 @@
 /*
-avikit.c - playing AVI files (based on original AVIKit code)
+avi_win.c - playing AVI files (based on original AVIKit code, Win32 version)
 Copyright (C) 2010 Uncle Mike
 
 This program is free software: you can redistribute it and/or modify
@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#ifdef _WIN32
 #include "common.h"
 #include "client.h"
 #include "gl_local.h"
@@ -710,3 +711,4 @@ void AVI_Shutdown( void )
 	Sys_FreeLibrary( &msacm_dll );
 	avi_initialized = false;
 }
+#endif // _WIN32
