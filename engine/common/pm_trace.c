@@ -18,7 +18,7 @@ GNU General Public License for more details.
 #include "mod_local.h"
 #include "pm_local.h"
 #include "pm_movevars.h"
-#include "features.h"
+#include "enginefeatures.h"
 #include "studio.h"
 #include "world.h"
 

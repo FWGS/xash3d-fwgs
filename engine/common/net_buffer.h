@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #ifndef NET_BUFFER_H
 #define NET_BUFFER_H
 
-#include "features.h"
+#include "enginefeatures.h"
 
 /*
 ==============================================================================

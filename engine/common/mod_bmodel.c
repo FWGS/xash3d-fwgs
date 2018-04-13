@@ -21,7 +21,7 @@ GNU General Public License for more details.
 #include "wadfile.h"
 #include "world.h"
 #include "gl_local.h"
-#include "features.h"
+#include "enginefeatures.h"
 #include "client.h"
 #include "server.h"			// LUMP_ error codes
 
