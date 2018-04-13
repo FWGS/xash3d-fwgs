@@ -112,8 +112,8 @@ typedef struct
 	dword	reserved0;	// bmfh.bfReserved1 + bmfh.bfReserved2
 	dword	bitmapDataOffset;	// bmfh.bfOffBits
 	dword	bitmapHeaderSize;	// bmih.biSize
-	int	width;		// bmih.biWidth
-	int	height;		// bmih.biHeight
+	int		width;		// bmih.biWidth
+	int		height;		// bmih.biHeight
 	word	planes;		// bmih.biPlanes
 	word	bitsPerPixel;	// bmih.biBitCount
 	dword	compression;	// bmih.biCompression
