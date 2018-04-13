@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <math.h>
 #include "common.h"
 #include "mathlib.h"
 #include "eiface.h"
@@ -308,6 +309,7 @@ SinCos
 */
 void SinCos( float radians, float *sine, float *cosine )
 {
+#if _MSC_VER == 1200
 	_asm
 	{
 		fld	dword ptr [radians]
@@ -319,6 +321,10 @@ void SinCos( float radians, float *sine, float *cosine )
 		fstp dword ptr [edx]
 		fstp dword ptr [eax]
 	}
+#else
+	*sine = sinf(radians);
+	*cosine = cosf(radians);
+#endif
 }
 
 float VectorNormalizeLength2( const vec3_t v, vec3_t out )
