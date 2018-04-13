@@ -81,6 +81,7 @@ double Sys_DoubleTime( void );
 char *Sys_GetClipboardData( void );
 char *Sys_GetCurrentUser( void );
 int Sys_CheckParm( const char *parm );
+void Sys_Warn( const char *format, ... );
 void Sys_Error( const char *error, ... );
 qboolean Sys_LoadLibrary( dll_info_t *dll );
 void* Sys_GetProcAddress( dll_info_t *dll, const char* name );
