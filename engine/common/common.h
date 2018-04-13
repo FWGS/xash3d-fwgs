@@ -191,6 +191,7 @@ typedef enum
 #define FS_STATIC_PATH	1	// FS_ClearSearchPath will be ignore this path
 #define FS_NOWRITE_PATH	2	// default behavior - last added gamedir set as writedir. This flag disables it
 #define FS_GAMEDIR_PATH	4	// just a marker for gamedir path
+#define FS_CUSTOM_PATH  8   // custom directory
 
 #define GI		SI.GameInfo
 #define FS_Gamedir()	SI.GameInfo->gamedir
