@@ -36,21 +36,53 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 ===================================================================================================================================
 */
 
-// configuration
-#define HACKS_RELATED_HLMODS		// some HL-mods works differently under Xash and can't be fixed without some hacks at least at current time
+#include "port.h"
 
-// disable some warnings
-#pragma warning(disable : 4244)	// MIPS
-#pragma warning(disable : 4018)	// signed/unsigned mismatch
-#pragma warning(disable : 4305)	// truncation from const double to float
-#pragma warning(disable : 4115)	// named type definition in parentheses
-#pragma warning(disable : 4100)	// unreferenced formal parameter
-#pragma warning(disable : 4127)	// conditional expression is constant
-#pragma warning(disable : 4057)	// differs in indirection to slightly different base types
-#pragma warning(disable : 4201)	// nonstandard extension used
-#pragma warning(disable : 4706)	// assignment within conditional expression
-#pragma warning(disable : 4054)	// type cast' : from function pointer
-#pragma warning(disable : 4310)	// cast truncates constant value
+#include "backends.h"
+#include "defaults.h"
+
+#include <stdio.h>
+#include <stdlib.h> // rand, adbs
+#include <stdarg.h> // va
+
+#ifndef _WIN32
+#include <stddef.h> // size_t
+
+#ifdef __i386__
+#define EXPORT __attribute__ ((visibility ("default"),force_align_arg_pointer))
+#else
+#define EXPORT __attribute__ ((visibility ("default")))
+#endif
+#else
+#include <sys/types.h> // off_t
+
+#define EXPORT		__declspec( dllexport )
+#endif
+
+// configuration
+
+//
+// check if selected backend not allowed
+//
+#if XASH_TIMER == TIMER_NULL
+	#error "Please select timer backend"
+#endif
+
+#ifndef XASH_DEDICATED
+	#if XASH_VIDEO == VIDEO_NULL
+		#error "Please select video backend"
+	#endif
+#endif
+
+#ifndef XASH_SDL
+
+#if XASH_TIMER == TIMER_SDL || XASH_VIDEO == VIDEO_SDL || XASH_SOUND == SOUND_SDL || XASH_INPUT == INPUT_SDL
+#error "SDL backends without XASH_SDL not allowed"
+#endif
+
+#endif
+
+#define HACKS_RELATED_HLMODS		// some HL-mods works differently under Xash and can't be fixed without some hacks at least at current time
 
 #define MAX_STRING		256	// generic string
 #define MAX_INFO_STRING	256	// infostrings are transmitted across network
@@ -62,8 +94,7 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 #define MAX_MODS		512	// environment games that engine can keep visible
 #define MAX_USERMSG_LENGTH	2048	// don't modify it's relies on a client-side definitions
 
-#define EXPORT		__declspec( dllexport )
-#define BIT( n )		(1<<( n ))
+#define BIT( n )		( 1 << ( n ))
 #define GAMMA		( 2.2 )		// Valve Software gamma
 #define INVGAMMA		( 1.0 / 2.2 )	// back to 1.0
 #define TEXGAMMA		( 0.9 )		// compensate dim textures
@@ -367,8 +398,6 @@ typedef struct
 typedef struct host_parm_s
 {
 	HINSTANCE			hInst;
-	HANDLE			hMutex;
-	LPTOP_LEVEL_EXCEPTION_FILTER	oldFilter;
 
 	host_status_t	status;		// global host state
 	game_status_t	game;		// game manager
@@ -397,7 +426,7 @@ typedef struct host_parm_s
 	vec3_t		player_mins[MAX_MAP_HULLS];	// 4 hulls allowed
 	vec3_t		player_maxs[MAX_MAP_HULLS];	// 4 hulls allowed
 
-	HWND		hWnd;		// main window
+	void*			hWnd;		// main window
 	qboolean		allow_console;	// allow console in dev-mode or multiplayer game
 	qboolean		allow_console_init;	// initial value to allow the console
 	qboolean		key_overstrike;	// key overstrike mode

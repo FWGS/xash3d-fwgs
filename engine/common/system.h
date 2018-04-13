@@ -20,24 +20,34 @@ GNU General Public License for more details.
 extern "C" {
 #endif
 
+#include "port.h"
+
 #include <setjmp.h>
 #include <stdio.h>
 #include <time.h>
-#include <windows.h>
 
-#define MSGBOX( x )		MessageBox( NULL, x, "Xash Error", MB_OK|MB_SETFOREGROUND|MB_ICONSTOP )
+#ifdef XASH_SDL
+#include <SDL_messagebox.h>
+
+#define MSGBOX( x )		SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, "Xash Error", x, NULL )
+#define MSGBOX2( x )	SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, "Host Error", x, host.hWnd )
+#define MSGBOX3( x )	SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, "Host Recursive Error", x, host.hWnd )
+#elif defined(__ANDROID__) && !defined(XASH_DEDICATED)
+#define MSGBOX( x ) 	Android_MessageBox( "Xash Error", x )
+#define MSGBOX2( x )	Android_MessageBox( "Host Error", x )
+#define MSGBOX3( x )	Android_MessageBox( "Host Recursive Error", x )
+#elif defined _WIN32
+#define MSGBOX( x ) 	MessageBox( NULL, x, "Xash Error", MB_OK|MB_SETFOREGROUND|MB_ICONSTOP )
 #define MSGBOX2( x )	MessageBox( host.hWnd, x, "Host Error", MB_OK|MB_SETFOREGROUND|MB_ICONSTOP )
 #define MSGBOX3( x )	MessageBox( host.hWnd, x, "Host Recursive Error", MB_OK|MB_SETFOREGROUND|MB_ICONSTOP )
+#else
+#define BORDER1 "======================================\n"
+#define MSGBOX( x )		fprintf( stderr, BORDER1 "Xash Error: %s\n" BORDER1, x )
+#define MSGBOX2( x )	fprintf( stderr, BORDER1 "Host Error: %s\n" BORDER1, x )
+#define MSGBOX3( x )	fprintf( stderr, BORDER1 "Host Recursive Error: %s\n" BORDER1, x )
+#endif
 
-// basic typedefs
-typedef int		sound_t;
-typedef float		vec_t;
-typedef vec_t		vec2_t[2];
-typedef vec_t		vec3_t[3];
-typedef vec_t		vec4_t[4];
-typedef byte		rgba_t[4];	// unsigned byte colorpack
-typedef vec_t		matrix3x4[3][4];
-typedef vec_t		matrix4x4[4][4];
+#include "xash3d_types.h"
 
 #include "const.h"
 
@@ -77,7 +87,6 @@ void* Sys_GetProcAddress( dll_info_t *dll, const char* name );
 qboolean Sys_FreeLibrary( dll_info_t *dll );
 void Sys_ParseCommandLine( LPSTR lpCmdLine, qboolean uncensored );
 void Sys_MergeCommandLine( LPSTR lpCmdLine );
-long _stdcall Sys_Crash( PEXCEPTION_POINTERS pInfo );
 void Sys_SetClipboardData( const byte *buffer, size_t size );
 #define Sys_GetParmFromCmdLine( parm, out ) _Sys_GetParmFromCmdLine( parm, out, sizeof( out ))
 qboolean _Sys_GetParmFromCmdLine( char *parm, char *out, size_t size );
