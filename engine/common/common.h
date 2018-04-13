@@ -148,6 +148,12 @@ typedef enum
 	HOST_DEDICATED,
 } instance_t;
 
+#ifdef XASH_DEDICATED
+#define Host_IsDedicated() ( true )
+#else
+#define Host_IsDedicated() ( host.type == HOST_DEDICATED )
+#endif
+
 #include "system.h"
 #include "com_model.h"
 #include "com_strings.h"
@@ -446,6 +452,9 @@ typedef struct host_parm_s
 	qboolean		config_executed;	// a bit who indicated was config.cfg already executed e.g. from valve.rc
 	int		sv_cvars_restored;	// count of restored server cvars
 	qboolean		crashed;		// set to true if crashed
+	qboolean		daemonized;
+	qboolean		enabledll;
+	qboolean		textmode;
 
 	// some settings were changed and needs to global update
 	qboolean		userinfo_changed;

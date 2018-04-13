@@ -192,64 +192,28 @@ Sys_ParseCommandLine
 
 ==================
 */
-void Sys_ParseCommandLine( LPSTR lpCmdLine, qboolean uncensored )
+void Sys_ParseCommandLine( int argc, const char** argv )
 {
 	const char	*blank = "censored";
-	static char	commandline[MAX_SYSPATH];
 	int		i;
 
-	host.argc = 1;
-	host.argv[0] = "exe";
+	host.argc = argc;
+	host.argv = argv;
 
-	Q_strncpy( commandline, lpCmdLine, Q_strlen( lpCmdLine ) + 1 );
-	lpCmdLine = commandline; // to prevent modify original commandline
-
-	while( *lpCmdLine && ( host.argc < MAX_NUM_ARGVS ))
-	{
-		while( *lpCmdLine && *lpCmdLine <= ' ' )
-			lpCmdLine++;
-		if( !*lpCmdLine ) break;
-
-		if( *lpCmdLine == '\"' )
-		{
-			// quoted string
-			lpCmdLine++;
-			host.argv[host.argc] = lpCmdLine;
-			host.argc++;
-			while( *lpCmdLine && ( *lpCmdLine != '\"' ))
-				lpCmdLine++;
-		}
-		else
-		{
-			// unquoted word
-			host.argv[host.argc] = lpCmdLine;
-			host.argc++;
-			while( *lpCmdLine && *lpCmdLine > ' ')
-				lpCmdLine++;
-		}
-
-		if( *lpCmdLine )
-		{
-			*lpCmdLine = 0;
-			lpCmdLine++;
-		}
-	}
-
-	if( uncensored || !host.change_game )
-		return;
+	if( !host.change_game ) return;
 
 	for( i = 0; i < host.argc; i++ )
 	{
-		// we wan't return to first game
-		if( !Q_stricmp( "-game", host.argv[i] )) host.argv[i] = (char *)blank;
+		// we don't want to return to first game
+			 if( !Q_stricmp( "-game", host.argv[i] )) host.argv[i] = (char *)blank;
 		// probably it's timewaster, because engine rejected second change
-		if( !Q_stricmp( "+game", host.argv[i] )) host.argv[i] = (char *)blank;
-		// you sure what is map exists in new game?
-		if( !Q_stricmp( "+map", host.argv[i] )) host.argv[i] = (char *)blank;
+		else if( !Q_stricmp( "+game", host.argv[i] )) host.argv[i] = (char *)blank;
+		// you sure that map exists in new game?
+		else if( !Q_stricmp( "+map", host.argv[i] )) host.argv[i] = (char *)blank;
 		// just stupid action
-		if( !Q_stricmp( "+load", host.argv[i] )) host.argv[i] = (char *)blank;
+		else if( !Q_stricmp( "+load", host.argv[i] )) host.argv[i] = (char *)blank;
 		// changelevel beetwen games? wow it's great idea!
-		if( !Q_stricmp( "+changelevel", host.argv[i] )) host.argv[i] = (char *)blank;
+		else if( !Q_stricmp( "+changelevel", host.argv[i] )) host.argv[i] = (char *)blank;
 	}
 }
 
@@ -259,44 +223,18 @@ Sys_MergeCommandLine
 
 ==================
 */
-void Sys_MergeCommandLine( LPSTR lpCmdLine )
+void Sys_MergeCommandLine( )
 {
-	static char	commandline[MAX_SYSPATH];
+	const char	*blank = "censored";
+	int		i;
 
 	if( !host.change_game ) return;
 
-	Q_strncpy( commandline, lpCmdLine, Q_strlen( lpCmdLine ) + 1 );
-	lpCmdLine = commandline; // to prevent modify original commandline
-
-	while( *lpCmdLine && ( host.argc < MAX_NUM_ARGVS ))
+	for( i = 0; i < host.argc; i++ )
 	{
-		while( *lpCmdLine && *lpCmdLine <= ' ' )
-			lpCmdLine++;
-		if( !*lpCmdLine ) break;
-
-		if( *lpCmdLine == '\"' )
-		{
-			// quoted string
-			lpCmdLine++;
-			host.argv[host.argc] = lpCmdLine;
-			host.argc++;
-			while( *lpCmdLine && ( *lpCmdLine != '\"' ))
-				lpCmdLine++;
-		}
-		else
-		{
-			// unquoted word
-			host.argv[host.argc] = lpCmdLine;
-			host.argc++;
-			while( *lpCmdLine && *lpCmdLine > ' ')
-				lpCmdLine++;
-		}
-
-		if( *lpCmdLine )
-		{
-			*lpCmdLine = 0;
-			lpCmdLine++;
-		}
+		// second call
+		if( Host_IsDedicated() && !Q_strnicmp( "+menu_", host.argv[i], 6 ))
+			host.argv[i] = (char *)blank;
 	}
 }
 

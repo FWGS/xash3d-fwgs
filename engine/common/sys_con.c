@@ -307,8 +307,6 @@ void Con_CreateConsole( void )
 		fontsize = 14;
 	}
 
-	Sys_InitLog();
-
 	if( !RegisterClass( &wc ))
 	{
 		// print into log

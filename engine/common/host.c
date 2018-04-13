@@ -13,6 +13,22 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#ifdef XASH_SDL
+#include <SDL.h>
+#endif // XASH_SDL
+#include <stdarg.h>  // va_args
+#include <errno.h> // errno
+#include <string.h> // strerror
+#ifndef _WIN32
+#include <unistd.h> // fork
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#endif
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
+#include <errno.h>
 #include "common.h"
 #include "netchan.h"
 #include "protocol.h"
@@ -22,11 +38,11 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "render_api.h"	// decallist_t
 
+
 typedef void (*pfnChangeGame)( const char *progname );
 
 pfnChangeGame	pChangeGame = NULL;
-HINSTANCE		hCurrent;	// hinstance of current .dll
-host_parm_t	host;	// host parms
+host_parm_t		host;	// host parms
 sysinfo_t		SI;
 
 CVAR_DEFINE( host_developer, "developer", "0", 0, "engine is in development-mode" );
@@ -275,7 +291,9 @@ void Host_MemStats_f( void )
 
 void Host_Minimize_f( void )
 {
-	if( host.hWnd ) ShowWindow( host.hWnd, SW_MINIMIZE );
+#ifdef XASH_SDL
+	if( host.hWnd ) SDL_MinimizeWindow( host.hWnd );
+#endif
 }
 
 /*
@@ -495,7 +513,9 @@ void Host_Error( const char *error, ... )
 	if( host.mouse_visible && !CL_IsInMenu( ))
 	{
 		// hide VGUI mouse
-		while( ShowCursor( false ) >= 0 );
+#ifdef XASH_SDL
+		SDL_ShowCursor( 0 );
+#endif
 		host.mouse_visible = false;
 	}
 
@@ -588,60 +608,106 @@ static void Host_Crash_f( void )
 Host_InitCommon
 =================
 */
-void Host_InitCommon( const char *hostname, qboolean bChangeGame )
+void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bChangeGame )
 {
-	MEMORYSTATUS	lpBuffer;
 	char		dev_level[4];
-	char		progname[128];
-	char		cmdline[128];
-	qboolean		parse_cmdline = false;
-	char		szTemp[MAX_SYSPATH];
 	int		developer = 0;
-	string		szRootPath;
-	char		*in, *out;
+	const char *baseDir;
 
-	lpBuffer.dwLength = sizeof( MEMORYSTATUS );
-	GlobalMemoryStatus( &lpBuffer );
+	// some commands may turn engine into infinite loop,
+	// e.g. xash.exe +game xash -game xash
+	// so we clear all cmd_args, but leave dbg states as well
+	Sys_ParseCommandLine( argc, argv );
 
-	if( !GetCurrentDirectory( sizeof( host.rootdir ), host.rootdir ))
-		Sys_Error( "couldn't determine current directory\n" );
+	if( !Sys_CheckParm( "-noch" ) )
+		Sys_SetupCrashHandler();
+
+	// to be accessed later
+	if( ( host.daemonized = Sys_CheckParm( "-daemonize" ) ) )
+	{
+#if defined(_POSIX_VERSION) && !defined(XASH_MOBILE_PLATFORM)
+		pid_t daemon;
+
+		daemon = fork();
+
+		if( daemon < 0 )
+		{
+			Host_Error( "fork() failed: %s\n", strerror( errno ) );
+		}
+
+		if( daemon > 0 )
+		{
+			// parent
+			MsgDev( D_INFO, "Child pid: %i\n", daemon );
+			exit( 0 );
+		}
+		else
+		{
+			// don't be closed by parent
+			if( setsid() < 0 )
+			{
+				Host_Error( "setsid() failed: %s\n", strerror( errno ) );
+			}
+
+			// set permissions
+			umask( 0 );
+
+			// engine will still use stdin/stdout,
+			// so just redirect them to /dev/null
+			close( STDIN_FILENO );
+			close( STDOUT_FILENO );
+			close( STDERR_FILENO );
+			open("/dev/null", O_RDONLY); // becomes stdin
+			open("/dev/null", O_RDWR); // stdout
+			open("/dev/null", O_RDWR); // stderr
+
+			// fallthrough
+		}
+#elif defined(XASH_MOBILE_PLATFORM)
+		Sys_Error( "Can't run in background on mobile platforms!" );
+#else
+		Sys_Error( "Daemonize not supported on this platform!" );
+#endif
+	}
+
+	if( ( baseDir = getenv( "XASH3D_BASEDIR" ) ) )
+	{
+		Q_strncpy( host.rootdir, baseDir, sizeof(host.rootdir) );
+	}
+	else
+	{
+#if TARGET_OS_IOS
+		const char *IOS_GetDocsDir();
+		Q_strncpy( host.rootdir, IOS_GetDocsDir(), sizeof(host.rootdir) );
+#elif defined(XASH_SDL)
+		if( !( baseDir = SDL_GetBasePath() ) )
+			Sys_Error( "couldn't determine current directory: %s", SDL_GetError() );
+		Q_strncpy( host.rootdir, baseDir, sizeof( host.rootdir ) );
+		SDL_free( baseDir );
+#else
+		if( !getcwd( host.rootdir, sizeof(host.rootdir) ) )
+		{
+			Sys_Error( "couldn't determine current directory: %s", strerror( errno ) );
+			host.rootdir[0] = 0;
+		}
+#endif
+	}
 
 	if( host.rootdir[Q_strlen( host.rootdir ) - 1] == '/' )
 		host.rootdir[Q_strlen( host.rootdir ) - 1] = 0;
 
-	host.oldFilter = SetUnhandledExceptionFilter( Sys_Crash );
-	host.hInst = GetModuleHandle( NULL );
+	host.enabledll = !Sys_CheckParm( "-nodll" );
+
+#ifdef DLL_LOADER
+	if( host.enabledll )
+		Setup_LDT_Keeper( ); // Must call before creating any thread
+#endif
+
 	host.change_game = bChangeGame;
 	host.config_executed = false;
 	host.status = HOST_INIT; // initialzation started
 
 	Memory_Init(); // init memory subsystem
-
-	progname[0] = cmdline[0] = '\0';
-	in = (char *)hostname;
-	out = progname;
-
-	while( *in != '\0' )
-	{
-		if( parse_cmdline )
-		{
-			*out++ = *in++;
-		}
-		else
-		{
-			if( *in == ' ' )
-			{
-				parse_cmdline = true;
-				*out++ = '\0';
-				out = cmdline;
-			}
-			else *out++ = *in++; 
-		}
-	}
-	*out = '\0'; // write terminator
-
-	Sys_ParseCommandLine( GetCommandLine( ), false );
-	SetErrorMode( SEM_FAILCRITICALERRORS );	// no abort/retry/fail errors
 
 	host.mempool = Mem_AllocPool( "Zone Engine" );
 
@@ -663,46 +729,51 @@ void Host_InitCommon( const char *hostname, qboolean bChangeGame )
 	host.type = HOST_NORMAL; // predict state
 	host.con_showalways = true;
 
-	// we can specified custom name, from Sys_NewInstance
-	if( GetModuleFileName( NULL, szTemp, sizeof( szTemp )) && !host.change_game )
-		COM_FileBase( szTemp, SI.exeName );
-
-	COM_ExtractFilePath( szTemp, szRootPath );
-	if( Q_stricmp( host.rootdir, szRootPath ))
+#ifdef XASH_DEDICATED
+	host.type = HOST_DEDICATED; // predict state
+#else
+	if( Sys_CheckParm("-dedicated") || progname[0] == '#' )
 	{
-		Q_strncpy( host.rootdir, szRootPath, sizeof( host.rootdir ));
-		SetCurrentDirectory( host.rootdir );
+		host.type = HOST_DEDICATED;
 	}
+	else
+	{
+		host.type = HOST_NORMAL;
+	}
+#endif
 
-	if( SI.exeName[0] == '#' ) host.type = HOST_DEDICATED; 
+#ifdef XASH_SDL
+	// should work even if it failed
+	SDL_Init( SDL_INIT_TIMER );
 
-	// determine host type
+	if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS ) )
+	{
+		Sys_Warn( "SDL_Init failed: %s", SDL_GetError() );
+		host.type = HOST_DEDICATED;
+	}
+	SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
+#if defined XASH_GLES && !defined __EMSCRIPTEN__ && !TARGET_OS_IOS
+	SDL_SetHint( SDL_HINT_OPENGL_ES_DRIVER, "1" );
+#endif
+#endif
+
+	if ( !host.rootdir[0] || SetCurrentDirectory( host.rootdir ) != 0)
+		MsgDev( D_INFO, "%s is working directory now\n", host.rootdir );
+	else
+		Sys_Error( "Changing working directory to %s failed.\n", host.rootdir );
+
+	Sys_InitLog();
+
+	// set default gamedir
 	if( progname[0] == '#' )
+		progname++;
+
+	Q_strncpy( SI.exeName, progname, sizeof( SI.exeName ));
+
+	if( Host_IsDedicated() )
 	{
-		Q_strncpy( SI.basedirName, progname + 1, sizeof( SI.basedirName ));
-		host.type = HOST_DEDICATED;
-	}
-	else Q_strncpy( SI.basedirName, progname, sizeof( SI.basedirName )); 
+		Sys_MergeCommandLine( );
 
-	if( Sys_CheckParm( "-dedicated" ))
-		host.type = HOST_DEDICATED;
-
-	if( host.type == HOST_DEDICATED )
-	{
-		// check for duplicate dedicated server
-		host.hMutex = CreateMutex( NULL, 0, "Xash Dedicated Server" );
-
-		if( !host.hMutex )
-		{
-			MSGBOX( "Dedicated server already running" );
-			Sys_Quit();
-			return;
-		}
-
-		Sys_MergeCommandLine( cmdline );
-
-		CloseHandle( host.hMutex );
-		host.hMutex = CreateSemaphore( NULL, 0, 1, "Xash Dedicated Server" );
 		host.allow_console = true;
 	}
 	else
@@ -773,13 +844,13 @@ void Host_FreeCommon( void )
 Host_Main
 =================
 */
-int EXPORT Host_Main( const char *progname, int bChangeGame, pfnChangeGame func )
+int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func )
 {
 	static double	oldtime, newtime;
 
 	pChangeGame = func;	// may be NULL
 
-	Host_InitCommon( progname, bChangeGame );
+	Host_InitCommon( argc, argv, progname, bChangeGame );
 
 	// init commands and vars
 	if( host_developer.value >= DEV_EXTENDED )
@@ -897,13 +968,6 @@ void EXPORT Host_Shutdown( void )
 	// must be last, console uses this
 	Mem_FreePool( &host.mempool );
 
-	// restore filter	
-	if( host.oldFilter ) SetUnhandledExceptionFilter( host.oldFilter );
-}
-
-// main DLL entry point
-BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
-{
-	hCurrent = hinstDLL;
-	return TRUE;
+	// restore filter
+	Sys_RestoreCrashHandler();
 }
