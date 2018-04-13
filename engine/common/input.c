@@ -17,100 +17,38 @@ GNU General Public License for more details.
 #include "input.h"
 #include "client.h"
 #include "vgui_draw.h"
+#include "gl_local.h"
 
-#define PRINTSCREEN_ID	1
-#define WND_HEADSIZE	wnd_caption		// some offset
-#define WND_BORDER		3			// sentinel border in pixels
+#ifdef XASH_SDL
+#include <SDL.h>
+#endif
 
-HICON	in_mousecursor;
+#ifdef _WIN32
+#include "windows.h"
+#endif
+
+void*		in_mousecursor;
 qboolean	in_mouseactive;				// false when not focus app
-qboolean	in_restore_spi;
 qboolean	in_mouseinitialized;
-int	in_mouse_oldbuttonstate;
 qboolean	in_mouse_suspended;
+POINT		in_lastvalidpos;
 qboolean	in_mouse_savedpos;
-int	in_mouse_buttons;
-RECT	window_rect, real_rect;
-POINT	in_lastvalidpos;
-uint	in_mouse_wheel;
-int	wnd_caption;
-
-static byte scan_to_key[128] = 
-{ 
-	0,27,'1','2','3','4','5','6','7','8','9','0','-','=',K_BACKSPACE,9,
-	'q','w','e','r','t','y','u','i','o','p','[',']', 13 , K_CTRL,
-	'a','s','d','f','g','h','j','k','l',';','\'','`',
-	K_SHIFT,'\\','z','x','c','v','b','n','m',',','.','/',K_SHIFT,
-	'*',K_ALT,' ',K_CAPSLOCK,
-	K_F1,K_F2,K_F3,K_F4,K_F5,K_F6,K_F7,K_F8,K_F9,K_F10,
-	K_PAUSE,0,K_HOME,K_UPARROW,K_PGUP,K_KP_MINUS,K_LEFTARROW,K_KP_5,
-	K_RIGHTARROW,K_KP_PLUS,K_END,K_DOWNARROW,K_PGDN,K_INS,K_DEL,
-	0,0,0,K_F11,K_F12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-};
-
-// extra mouse buttons
-static int mouse_buttons[] =
+static struct inputstate_s
 {
-	MK_LBUTTON,
-	MK_RBUTTON,
-	MK_MBUTTON,
-	MK_XBUTTON1,
-	MK_XBUTTON2,
-	MK_XBUTTON3,
-	MK_XBUTTON4,
-	MK_XBUTTON5
-};
-	
-/*
-=======
-Host_MapKey
+	float lastpitch, lastyaw;
+} inputstate;
 
-Map from windows to engine keynums
-=======
-*/
-static int Host_MapKey( int key )
-{
-	int	result, modified;
-	qboolean	is_extended = false;
+extern convar_t *vid_fullscreen;
+convar_t *m_enginemouse;
+convar_t *m_pitch;
+convar_t *m_yaw;
 
-	modified = ( key >> 16 ) & 255;
-	if( modified > 127 ) return 0;
-
-	if( key & ( 1 << 24 ))
-		is_extended = true;
-
-	result = scan_to_key[modified];
-
-	if( !is_extended )
-	{
-		switch( result )
-		{
-		case K_HOME: return K_KP_HOME;
-		case K_UPARROW: return K_KP_UPARROW;
-		case K_PGUP: return K_KP_PGUP;
-		case K_LEFTARROW: return K_KP_LEFTARROW;
-		case K_RIGHTARROW: return K_KP_RIGHTARROW;
-		case K_END: return K_KP_END;
-		case K_DOWNARROW: return K_KP_DOWNARROW;
-		case K_PGDN: return K_KP_PGDN;
-		case K_INS: return K_KP_INS;
-		case K_DEL: return K_KP_DEL;
-		default: return result;
-		}
-	}
-	else
-	{
-		switch( result )
-		{
-		case K_PAUSE: return K_KP_NUMLOCK;
-		case 0x0D: return K_KP_ENTER;
-		case 0x2F: return K_KP_SLASH;
-		case 0xAF: return K_KP_PLUS;
-		default: return result;
-		}
-	}
-}
+convar_t *m_enginesens;
+convar_t *m_ignore;
+convar_t *cl_forwardspeed;
+convar_t *cl_sidespeed;
+convar_t *cl_backspeed;
+convar_t *look_filter;
 
 /*
 ===========
@@ -119,40 +57,28 @@ IN_StartupMouse
 */
 void IN_StartupMouse( void )
 {
-	if( host.type == HOST_DEDICATED ) return;
-	if( Sys_CheckParm( "-nomouse" )) return; 
+	m_ignore = Cvar_Get( "m_ignore", DEFAULT_M_IGNORE, FCVAR_ARCHIVE , "ignore mouse events" );
 
-	in_mouse_buttons = 8;
+	m_enginemouse = Cvar_Get( "m_enginemouse", "0", FCVAR_ARCHIVE, "read mouse events in engine instead of client" );
+	m_enginesens = Cvar_Get( "m_enginesens", "0.3", FCVAR_ARCHIVE, "mouse sensitivity, when m_enginemouse enabled" );
+	m_pitch = Cvar_Get( "m_pitch", "0.022", FCVAR_ARCHIVE, "mouse pitch value" );
+	m_yaw = Cvar_Get( "m_yaw", "0.022", FCVAR_ARCHIVE, "mouse yaw value" );
+	look_filter = Cvar_Get( "look_filter", "0", FCVAR_ARCHIVE, "filter look events making it smoother" );
+
+	// You can use -nomouse argument to prevent using mouse from client
+	// -noenginemouse will disable all mouse input
+	if( Sys_CheckParm(  "-noenginemouse" )) return;
+
 	in_mouseinitialized = true;
-	in_mouse_wheel = RegisterWindowMessage( "MSWHEEL_ROLLMSG" );
-}
-
-static qboolean IN_CursorInRect( void )
-{
-	POINT	curpos;
-	
-	if( !in_mouseinitialized || !in_mouseactive )
-		return false;
-
-	// find mouse movement
-	GetCursorPos( &curpos );
-
-	if( curpos.x < real_rect.left + WND_BORDER )
-		return false;
-	if( curpos.x > real_rect.right - WND_BORDER * 3 )
-		return false;
-	if( curpos.y < real_rect.top + WND_HEADSIZE + WND_BORDER )
-		return false;
-	if( curpos.y > real_rect.bottom - WND_BORDER * 3 )
-		return false;
-	return true;
 }
 
 static void IN_ActivateCursor( void )
 {
 	if( cls.key_dest == key_menu )
 	{
-		SetCursor( in_mousecursor );
+#ifdef XASH_SDL
+		SDL_SetCursor( in_mousecursor );
+#endif
 	}
 }
 
@@ -175,8 +101,10 @@ void IN_MouseSavePos( void )
 	if( !in_mouseactive )
 		return;
 
-	GetCursorPos( &in_lastvalidpos );
+#ifdef XASH_SDL
+	SDL_GetMouseState( &in_lastvalidpos.x, &in_lastvalidpos.y );
 	in_mouse_savedpos = true;
+#endif
 }
 
 /*
@@ -191,7 +119,10 @@ void IN_MouseRestorePos( void )
 	if( !in_mouse_savedpos )
 		return;
 
-	SetCursorPos( in_lastvalidpos.x, in_lastvalidpos.y );
+#ifdef XASH_SDL
+	SDL_WarpMouseInWindow( host.hWnd, in_lastvalidpos.x, in_lastvalidpos.y );
+#endif
+
 	in_mouse_savedpos = false;
 }
 
@@ -213,16 +144,46 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 	else if( newstate == key_game )
 	{
 		// reset mouse pos, so cancel effect in game
-		SetCursorPos( host.window_center_x, host.window_center_y );	
-		clgame.dllFuncs.IN_ActivateMouse();
+#ifdef XASH_SDL
+		if( touch_enable->value )
+		{
+			SDL_SetRelativeMouseMode( SDL_FALSE );
+			SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
+		}
+		else
+		{
+			SDL_WarpMouseInWindow( host.hWnd, host.window_center_x, host.window_center_y );
+			SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
+			if( clgame.dllFuncs.pfnLookEvent )
+				SDL_SetRelativeMouseMode( SDL_TRUE );
+		}
+#endif // XASH_SDL
+		if( cls.initialized )
+			clgame.dllFuncs.IN_ActivateMouse();
 	}
 
-	if( newstate == key_menu && ( !CL_IsBackgroundMap() || CL_IsBackgroundDemo( )))
+	if( ( newstate == key_menu  || newstate == key_console || newstate == key_message ) && ( !CL_IsBackgroundMap() || CL_IsBackgroundDemo( )))
 	{
-		in_mouseactive = false;
-		ClipCursor( NULL );
-		ReleaseCapture();
-		while( ShowCursor( true ) < 0 );
+#ifdef XASH_SDL
+		SDL_SetWindowGrab(host.hWnd, SDL_FALSE);
+		if( clgame.dllFuncs.pfnLookEvent )
+			SDL_SetRelativeMouseMode( SDL_FALSE );
+#endif
+#ifdef __ANDROID__
+		Android_ShowMouse( true );
+#endif
+#ifdef USE_EVDEV
+		Evdev_SetGrab( false );
+#endif
+	}
+	else
+	{
+#ifdef __ANDROID__
+		Android_ShowMouse( false );
+#endif
+#ifdef USE_EVDEV
+		Evdev_SetGrab( true );
+#endif
 	}
 }
 
@@ -254,16 +215,16 @@ void IN_ActivateMouse( qboolean force )
 		{
 			if( in_mouse_suspended )
 			{
-				ClipCursor( NULL );
-				ReleaseCapture();
-				while( ShowCursor( true ) < 0 );
+#ifdef XASH_SDL
+				SDL_ShowCursor( false );
+#endif
 				UI_ShowCursor( false );
 			}
 		}
 
 		oldstate = in_mouse_suspended;
 
-		if( in_mouse_suspended && IN_CursorInRect( ))
+		if( in_mouse_suspended )
 		{
 			in_mouse_suspended = false;
 			in_mouseactive = false; // re-initialize mouse
@@ -279,24 +240,10 @@ void IN_ActivateMouse( qboolean force )
 	if( cls.key_dest == key_game )
 	{
 		clgame.dllFuncs.IN_ActivateMouse();
+#ifdef XASH_SDL
+		SDL_GetRelativeMouseState( 0, 0 ); // Reset mouse position
+#endif
 	}
-
-	width = GetSystemMetrics( SM_CXSCREEN );
-	height = GetSystemMetrics( SM_CYSCREEN );
-
-	GetWindowRect( host.hWnd, &window_rect );
-	if( window_rect.left < 0 ) window_rect.left = 0;
-	if( window_rect.top < 0 ) window_rect.top = 0;
-	if( window_rect.right >= width ) window_rect.right = width - 1;
-	if( window_rect.bottom >= height - 1 ) window_rect.bottom = height - 1;
-
-	host.window_center_x = (window_rect.right + window_rect.left) / 2;
-	host.window_center_y = (window_rect.top + window_rect.bottom) / 2;
-	SetCursorPos( host.window_center_x, host.window_center_y );
-
-	SetCapture( host.hWnd );
-	ClipCursor( &window_rect );
-	while( ShowCursor( false ) >= 0 );
 }
 
 /*
@@ -317,9 +264,9 @@ void IN_DeactivateMouse( void )
 	}
 
 	in_mouseactive = false;
-	ClipCursor( NULL );
-	ReleaseCapture();
-	while( ShowCursor( true ) < 0 );
+#ifdef XASH_SDL
+	SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
+#endif
 }
 
 /*
@@ -335,10 +282,18 @@ void IN_MouseMove( void )
 		return;
 
 	// find mouse movement
-	GetCursorPos( &current_pos );
-	ScreenToClient( host.hWnd, &current_pos );
+#ifdef XASH_SDL
+	SDL_GetMouseState( &current_pos.x, &current_pos.y );
+#endif
 
 	VGui_MouseMove( current_pos.x, current_pos.y );
+
+	// HACKHACK: show cursor in UI, as mainui doesn't call
+	// platform-dependent SetCursor anymore
+#ifdef XASH_SDL
+	if( UI_IsVisible() )
+		SDL_ShowCursor( SDL_TRUE );
+#endif
 
 	// if the menu is visible, move the menu cursor
 	UI_MouseMove( current_pos.x, current_pos.y );
@@ -351,34 +306,62 @@ void IN_MouseMove( void )
 IN_MouseEvent
 ===========
 */
-void IN_MouseEvent( int mstate )
+void IN_MouseEvent( void )
 {
 	int	i;
 
 	if( !in_mouseinitialized || !in_mouseactive )
 		return;
 
+	if( m_ignore->value )
+		return;
+
 	if( cls.key_dest == key_game )
 	{
-		clgame.dllFuncs.IN_MouseEvent( mstate );
+#if defined( XASH_SDL )
+		static qboolean ignore; // igonre mouse warp event
+		int x, y;
+		SDL_GetMouseState(&x, &y);
+		if( host.mouse_visible )
+			SDL_ShowCursor( SDL_TRUE );
+		else
+			SDL_ShowCursor( SDL_FALSE );
+
+		if( x < host.window_center_x / 2 ||
+			y < host.window_center_y / 2 ||
+			x > host.window_center_x + host.window_center_x / 2 ||
+			y > host.window_center_y + host.window_center_y / 2 )
+		{
+			SDL_WarpMouseInWindow(host.hWnd, host.window_center_x, host.window_center_y);
+			ignore = 1; // next mouse event will be mouse warp
+			return;
+		}
+
+		if ( !ignore )
+		{
+			if( !m_enginemouse->value )
+			{
+				// a1ba: mouse keys are now separated
+				// so pass 0 here
+				clgame.dllFuncs.IN_MouseEvent( 0 );
+			}
+		}
+		else
+		{
+			SDL_GetRelativeMouseState( 0, 0 ); // reset relative state
+			ignore = 0;
+		}
+#endif
 		return;
 	}
-
-	// perform button actions
-	for( i = 0; i < in_mouse_buttons; i++ )
+	else
 	{
-		if( FBitSet( mstate, BIT( i )) && !FBitSet( in_mouse_oldbuttonstate, BIT( i )))
-		{
-			Key_Event( K_MOUSE1 + i, true );
-		}
-
-		if( !FBitSet( mstate, BIT( i )) && FBitSet( in_mouse_oldbuttonstate, BIT( i )))
-		{
-			Key_Event( K_MOUSE1 + i, false );
-		}
-	}	
-
-	in_mouse_oldbuttonstate = mstate;
+#if defined(XASH_SDL) && !defined(_WIN32)
+		SDL_SetRelativeMouseMode( SDL_FALSE );
+		SDL_ShowCursor( SDL_TRUE );
+#endif
+		IN_MouseMove();
+	}
 }
 
 /*
@@ -389,6 +372,10 @@ IN_Shutdown
 void IN_Shutdown( void )
 {
 	IN_DeactivateMouse( );
+
+#ifdef XASH_USE_EVDEV
+	Evdev_Shutdown();
+#endif
 }
 
 
@@ -399,7 +386,171 @@ IN_Init
 */
 void IN_Init( void )
 {
-	IN_StartupMouse( );
+	cl_forwardspeed	= Cvar_Get( "cl_forwardspeed", "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL, "Default forward move speed" );
+	cl_backspeed	= Cvar_Get( "cl_backspeed", "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL, "Default back move speed"  );
+	cl_sidespeed	= Cvar_Get( "cl_sidespeed", "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL, "Default side move speed"  );
+
+	if( !Host_IsDedicated() )
+	{
+		IN_StartupMouse( );
+
+		Joy_Init(); // common joystick support init
+
+#ifdef XASH_USE_EVDEV
+		Evdev_Init();
+#endif
+	}
+}
+
+/*
+================
+IN_JoyMove
+
+Common function for engine joystick movement
+
+	-1 < forwardmove < 1,	-1 < sidemove < 1
+
+================
+*/
+
+#define F (1U << 0)	// Forward
+#define B (1U << 1)	// Back
+#define L (1U << 2)	// Left
+#define R (1U << 3)	// Right
+#define T (1U << 4)	// Forward stop
+#define S (1U << 5)	// Side stop
+void IN_JoyAppendMove( usercmd_t *cmd, float forwardmove, float sidemove )
+{
+	static uint moveflags = T | S;
+
+	if( forwardmove ) cmd->forwardmove  = forwardmove * cl_forwardspeed->value;
+	if( sidemove ) cmd->sidemove  = sidemove * cl_sidespeed->value;
+
+	if( forwardmove )
+	{
+		moveflags &= ~T;
+	}
+	else if( !( moveflags & T ) )
+	{
+		Cmd_ExecuteString( "-back" );
+		Cmd_ExecuteString( "-forward" );
+		moveflags |= T;
+	}
+
+	if( sidemove )
+	{
+		moveflags &= ~S;
+	}
+	else if( !( moveflags & S ) )
+	{
+		Cmd_ExecuteString( "-moveleft" );
+		Cmd_ExecuteString( "-moveright" );
+		moveflags |= S;
+	}
+
+	if ( forwardmove > 0.7 && !( moveflags & F ))
+	{
+		moveflags |= F;
+		Cmd_ExecuteString( "+forward" );
+	}
+	else if ( forwardmove < 0.7 && ( moveflags & F ))
+	{
+		moveflags &= ~F;
+		Cmd_ExecuteString( "-forward" );
+	}
+
+	if ( forwardmove < -0.7 && !( moveflags & B ))
+	{
+		moveflags |= B;
+		Cmd_ExecuteString( "+back" );
+	}
+	else if ( forwardmove > -0.7 && ( moveflags & B ))
+	{
+		moveflags &= ~B;
+		Cmd_ExecuteString( "-back" );
+	}
+
+	if ( sidemove > 0.9 && !( moveflags & R ))
+	{
+		moveflags |= R;
+		Cmd_ExecuteString( "+moveright" );
+	}
+	else if ( sidemove < 0.9 && ( moveflags & R ))
+	{
+		moveflags &= ~R;
+		Cmd_ExecuteString( "-moveright" );
+	}
+
+	if ( sidemove < -0.9 && !( moveflags & L ))
+	{
+		moveflags |= L;
+		Cmd_ExecuteString( "+moveleft" );
+	}
+	else if ( sidemove > -0.9 && ( moveflags & L ))
+	{
+		moveflags &= ~L;
+		Cmd_ExecuteString( "-moveleft" );
+	}
+}
+
+/*
+================
+IN_EngineAppendMove
+
+Called from cl_main.c after generating command in client
+================
+*/
+void IN_EngineAppendMove( float frametime, usercmd_t *cmd, qboolean active )
+{
+	float forward, side, dpitch, dyaw;
+
+	if( clgame.dllFuncs.pfnLookEvent )
+		return;
+
+	if( cls.key_dest != key_game || cl.paused || cl.intermission )
+		return;
+
+	forward = side = dpitch = dyaw = 0;
+
+	if(active)
+	{
+		float sensitivity = ( (float)RI.fov_x / (float)90.0f );
+#if XASH_INPUT == INPUT_SDL
+		if( m_enginemouse->value && !m_ignore->value )
+		{
+			int mouse_x, mouse_y;
+			SDL_GetRelativeMouseState( &mouse_x, &mouse_y );
+			RI.viewangles[PITCH] += mouse_y * m_pitch->value * sensitivity;
+			RI.viewangles[YAW]   -= mouse_x * m_yaw->value * sensitivity;
+		}
+#endif
+#ifdef __ANDROID__
+		if( !m_ignore->value )
+		{
+			float mouse_x, mouse_y;
+			Android_MouseMove( &mouse_x, &mouse_y );
+			RI.viewangles[PITCH] += mouse_y * m_pitch->value * sensitivity;
+			RI.viewangles[YAW]   -= mouse_x * m_yaw->value * sensitivity;
+		}
+#endif
+		Joy_FinalizeMove( &forward, &side, &dyaw, &dpitch );
+		IN_TouchMove( &forward, &side, &dyaw, &dpitch );
+		IN_JoyAppendMove( cmd, forward, side );
+#ifdef USE_EVDEV
+		IN_EvdevMove( &dyaw, &dpitch );
+#endif
+		if( look_filter->value )
+		{
+			dpitch = ( inputstate.lastpitch + dpitch ) / 2;
+			dyaw = ( inputstate.lastyaw + dyaw ) / 2;
+			inputstate.lastpitch = dpitch;
+			inputstate.lastyaw = dyaw;
+		}
+
+		RI.viewangles[YAW] += dyaw * sensitivity;
+		RI.viewangles[PITCH] += dpitch * sensitivity;
+		RI.viewangles[PITCH] = bound( -90, RI.viewangles[PITCH], 90 );
+	}
 }
 
 /*
@@ -412,8 +563,56 @@ Called every frame, even if not generating commands
 void Host_InputFrame( void )
 {
 	qboolean	shutdownMouse = false;
+	float forward = 0, side = 0, pitch = 0, yaw = 0;
 
 	Sys_SendKeyEvents ();
+
+#ifdef XASH_USE_EVDEV
+	IN_EvdevFrame();
+#endif
+
+	if( clgame.dllFuncs.pfnLookEvent )
+	{
+		int dx, dy;
+
+#ifndef __ANDROID__
+		if( in_mouseinitialized && !m_ignore->value )
+		{
+			SDL_GetRelativeMouseState( &dx, &dy );
+			pitch += dy * m_pitch->value, yaw -= dx * m_yaw->value; //mouse speed
+		}
+#endif
+
+#ifdef __ANDROID__
+		if( !m_ignore->value )
+		{
+			float  mouse_x, mouse_y;
+			Android_MouseMove( &mouse_x, &mouse_y );
+			pitch += mouse_y * m_pitch->value, yaw -= mouse_x * m_yaw->value; //mouse speed
+		}
+#endif
+
+		Joy_FinalizeMove( &forward, &side, &yaw, &pitch );
+		IN_TouchMove( &forward, &side, &yaw, &pitch );
+#ifdef USE_EVDEV
+		IN_EvdevMove( &yaw, &pitch );
+#endif
+		if( look_filter->value )
+		{
+			pitch = ( inputstate.lastpitch + pitch ) / 2;
+			yaw = ( inputstate.lastyaw + yaw ) / 2;
+			inputstate.lastpitch = pitch;
+			inputstate.lastyaw = yaw;
+		}
+
+		if( cls.key_dest == key_game )
+		{
+			clgame.dllFuncs.pfnLookEvent( yaw, pitch );
+			clgame.dllFuncs.pfnMoveEvent( forward, side );
+		}
+	}
+
+	Cbuf_Execute ();
 
 	if( !in_mouseinitialized )
 		return;

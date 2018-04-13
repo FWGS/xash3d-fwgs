@@ -18,12 +18,12 @@ GNU General Public License for more details.
 #include "client.h"
 #include "vgui_draw.h"
 
-typedef struct key_s
+typedef struct
 {
 	qboolean		down;
 	int		repeats;	// if > 1, it is autorepeating
 	const char	*binding;
-} key_t;
+} enginekey_t;
 
 typedef struct keyname_s
 {
@@ -32,7 +32,7 @@ typedef struct keyname_s
 	const char	*binding;	// default bind
 } keyname_t;
 
-key_t	keys[256];
+enginekey_t	keys[256];
 
 keyname_t keynames[] =
 {
@@ -548,15 +548,11 @@ void Key_Event( int key, qboolean down )
 	// console key is hardcoded, so the user can never unbind it
 	if( key == '`' || key == '~' )
 	{
-		// we are in typing mode. So don't switch to console
-		if( (word)GetKeyboardLayout( 0 ) == (word)0x419 )
-		{
-			if( cls.key_dest != key_game )
-				return;
-                    }
+		// we are in typing mode, so don't switch to console
+		if( cls.key_dest == key_message || !down )
+			return;
 
-		if( !down ) return;
-    		Con_ToggleConsole_f();
+		Con_ToggleConsole_f();
 		return;
 	}
 
