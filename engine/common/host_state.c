@@ -1,0 +1,181 @@
+/*
+host_cmd.c - dedicated and normal host
+Copyright (C) 2017 Uncle Mike
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
+
+#include "common.h"
+
+void COM_InitHostState( void )
+{
+	memset( GameState, 0, sizeof( game_status_t ));
+}
+
+static void Host_SetState( host_state_t newState, qboolean clearNext )
+{
+	if( clearNext )
+		GameState->nextstate = newState;
+	GameState->curstate = newState;
+}
+
+static void Host_SetNextState( host_state_t nextState )
+{
+	ASSERT( GameState->curstate == STATE_RUNFRAME );
+	GameState->nextstate = nextState;
+}
+
+void COM_NewGame( char const *pMapName )
+{
+	if( GameState->nextstate != STATE_RUNFRAME )
+		return;
+
+	Q_strncpy( GameState->levelName, pMapName, sizeof( GameState->levelName ));
+	Host_SetNextState( STATE_LOAD_LEVEL );
+
+	GameState->backgroundMap = false;
+	GameState->landmarkName[0] = 0;
+	GameState->loadGame = false;
+	GameState->newGame = true;
+}
+
+void COM_LoadLevel( char const *pMapName, qboolean background )
+{
+	if( GameState->nextstate != STATE_RUNFRAME )
+		return;
+
+	Q_strncpy( GameState->levelName, pMapName, sizeof( GameState->levelName ));
+	Host_SetNextState( STATE_LOAD_LEVEL );
+
+	GameState->backgroundMap = background;
+	GameState->landmarkName[0] = 0;
+	GameState->loadGame = false;
+	GameState->newGame = false;
+}
+
+void COM_LoadGame( char const *pMapName )
+{
+	if( GameState->nextstate != STATE_RUNFRAME )
+		return;
+
+	Q_strncpy( GameState->levelName, pMapName, sizeof( GameState->levelName ));
+	Host_SetNextState( STATE_LOAD_GAME );
+	GameState->backgroundMap = false;
+	GameState->newGame = false;
+	GameState->loadGame = true;
+}
+
+void COM_ChangeLevel( char const *pNewLevel, char const *pLandmarkName, qboolean background )
+{
+	if( GameState->nextstate != STATE_RUNFRAME )
+		return;
+
+	Q_strncpy( GameState->levelName, pNewLevel, sizeof( GameState->levelName ));
+	GameState->backgroundMap = background;
+
+	if( COM_CheckString( pLandmarkName ))
+	{
+		Q_strncpy( GameState->landmarkName, pLandmarkName, sizeof( GameState->landmarkName ));
+		GameState->loadGame = true;
+	}
+	else
+	{
+		GameState->landmarkName[0] = 0;
+		GameState->loadGame = false;
+	}
+
+	Host_SetNextState( STATE_CHANGELEVEL );
+	GameState->newGame = false;
+}
+
+void Host_ShutdownGame( void )
+{
+	SV_ShutdownGame();
+
+	switch( GameState->nextstate )
+	{
+	case STATE_LOAD_GAME:
+	case STATE_LOAD_LEVEL:
+		Host_SetState( GameState->nextstate, true );
+		break;
+	default:
+		Host_SetState( STATE_RUNFRAME, true );
+		break;
+	}
+}
+
+void Host_RunFrame( float time )
+{
+	// engine main frame
+	Host_Frame( time );
+
+	switch( GameState->nextstate )
+	{
+	case STATE_RUNFRAME:
+		break;
+	case STATE_LOAD_GAME:
+	case STATE_LOAD_LEVEL:
+		SCR_BeginLoadingPlaque( GameState->backgroundMap );
+		// intentionally fallthrough
+	case STATE_GAME_SHUTDOWN:
+		Host_SetState( STATE_GAME_SHUTDOWN, false );
+		break;
+	case STATE_CHANGELEVEL:
+		SCR_BeginLoadingPlaque( GameState->backgroundMap );
+		Host_SetState( GameState->nextstate, true );
+		break;
+	default:
+		Host_SetState( STATE_RUNFRAME, true );
+		break;
+	}
+}
+
+void COM_Frame( float time )
+{
+	int	loopCount = 0;
+
+	if( setjmp( host.abortframe ))
+		return;
+
+	while( 1 )
+	{
+		int	oldState = GameState->curstate;
+
+		// execute the current state (and transition to the next state if not in HS_RUN)
+		switch( GameState->curstate )
+		{
+		case STATE_LOAD_LEVEL:
+			SV_ExecLoadLevel();
+			Host_SetState( STATE_RUNFRAME, true );
+			break;
+		case STATE_LOAD_GAME:
+			SV_ExecLoadGame();
+			Host_SetState( STATE_RUNFRAME, true );
+			break;
+		case STATE_CHANGELEVEL:
+			SV_ExecChangeLevel();
+			Host_SetState( STATE_RUNFRAME, true );
+			break;
+		case STATE_RUNFRAME:
+			Host_RunFrame( time );
+			break;
+		case STATE_GAME_SHUTDOWN:
+			Host_ShutdownGame();
+			break;
+		}
+
+		if( oldState == STATE_RUNFRAME )
+			break;
+
+		if(( GameState->curstate == oldState ) || ( ++loopCount > 8 ))
+			Sys_Error( "state infinity loop!\n" );
+	}
+}
