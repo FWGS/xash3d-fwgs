@@ -1279,24 +1279,5 @@ void ( APIENTRY *pglGenVertexArrays )( GLsizei n, const GLuint *arrays );
 GLboolean ( APIENTRY *pglIsVertexArray )( GLuint array );
 void ( APIENTRY * pglSwapInterval) ( int interval );
 extern void *pglGetProcAddress( const GLubyte * );
-BOOL  ( WINAPI * pwglSwapBuffers)(HDC);
-BOOL  ( WINAPI * pwglCopyContext)(HGLRC, HGLRC, UINT);
-HGLRC ( WINAPI * pwglCreateContext)(HDC);
-HGLRC ( WINAPI * pwglCreateLayerContext)(HDC, int);
-BOOL  ( WINAPI * pwglDeleteContext)(HGLRC);
-HGLRC ( WINAPI * pwglGetCurrentContext)(VOID);
-PROC  ( WINAPI * pwglGetProcAddress)(LPCSTR);
-BOOL  ( WINAPI * pwglMakeCurrent)(HDC, HGLRC);
-BOOL  ( WINAPI * pwglShareLists)(HGLRC, HGLRC);
-BOOL  ( WINAPI * pwglUseFontBitmaps)(HDC, DWORD, DWORD, DWORD);
-BOOL  ( WINAPI * pwglUseFontOutlines)(HDC, DWORD, DWORD, DWORD, FLOAT, FLOAT, int, LPGLYPHMETRICSFLOAT);
-BOOL  ( WINAPI * pwglDescribeLayerPlane)(HDC, int, int, UINT, LPLAYERPLANEDESCRIPTOR);
-int   ( WINAPI * pwglSetLayerPaletteEntries)(HDC, int, int, int, CONST COLORREF *);
-int   ( WINAPI * pwglGetLayerPaletteEntries)(HDC, int, int, int, COLORREF *);
-BOOL  ( WINAPI * pwglRealizeLayerPalette)(HDC, int, BOOL);
-BOOL  ( WINAPI * pwglSwapLayerBuffers)(HDC, UINT);
-BOOL  ( WINAPI * pwglSwapIntervalEXT)( int interval );
-HGLRC ( WINAPI * pwglCreateContextAttribsARB)( HDC hDC, HGLRC hShareContext, const int *attribList );
-const char *( WINAPI * pwglGetExtensionsStringEXT)( void );
 
 #endif//GL_EXPORT_H

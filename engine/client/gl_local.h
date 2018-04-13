@@ -616,8 +616,7 @@ typedef struct
 
 typedef struct
 {
-	HDC		hDC;		// handle to device context
-	HGLRC		hGLRC;		// handle to GL rendering context
+	void*	context; // handle to GL rendering context
 
 	int		desktopBitsPixel;
 	int		desktopWidth;
