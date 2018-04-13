@@ -259,9 +259,9 @@ byte *LZSS_CompressNoAlloc( lzss_state_t *state, byte *pInput, int input_length,
 	header->size = input_length;
 
 	// create the compression work buffers, small enough (~64K) for stack
-	state->hash_table = (lzss_list_t *)_alloca( 256 * sizeof( lzss_list_t ));
+	state->hash_table = (lzss_list_t *)alloca( 256 * sizeof( lzss_list_t ));
 	memset( state->hash_table, 0, 256 * sizeof( lzss_list_t ));
-	state->hash_node = (lzss_node_t *)_alloca( state->window_size * sizeof( lzss_node_t ));
+	state->hash_node = (lzss_node_t *)alloca( state->window_size * sizeof( lzss_node_t ));
 	memset( state->hash_node, 0, state->window_size * sizeof( lzss_node_t ));
 
 	while( input_length > 0 )
