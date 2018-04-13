@@ -1,0 +1,29 @@
+CC ?= gcc -m32
+CXX ?= g++ -m32 -std=gnu++98
+CFLAGS ?= -O2 -ggdb -fPIC
+TOPDIR = $(PWD)/..
+VGUI_DIR ?= ./vgui-dev
+INCLUDES = -I../common -I../engine -I../engine/common -I../engine/client -I../engine/client/vgui -I../pm_shared
+INCLUDES += -I$(VGUI_DIR)/include/
+DEFINES = -DNO_STL
+%.o : %.cpp
+	$(CXX) $(CFLAGS) $(INCLUDES) $(DEFINES) -c $< -o $@
+
+SRCS = $(wildcard *.cpp)
+OBJS = $(SRCS:.cpp=.o)
+
+libvgui_support.so : $(OBJS)
+	$(CXX) $(LDFLAGS) -o libvgui_support.so -shared $(OBJS) vgui.so
+
+.PHONY: depend clean
+
+clean : 
+	$(RM) $(OBJS) libvgui_support.so
+
+depend: Makefile.dep
+
+Makefile.dep: $(SRCS)
+	rm -f ./Makefile.dep
+	$(CC) $(CFLAGS) $(INCLUDES) $(DEFINES) -MM $^>>./Makefile.dep
+
+include Makefile.dep

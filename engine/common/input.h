@@ -48,7 +48,6 @@ void IN_DeactivateMouse( void );
 void IN_MouseSavePos( void );
 void IN_MouseRestorePos( void );
 void IN_ToggleClientMouse( int newstate, int oldstate );
-LONG IN_WndProc( HWND hWnd, UINT uMsg, UINT wParam, LONG lParam );
-void IN_SetCursor( HICON hCursor );
+void IN_SetCursor( void *hCursor );
 
 #endif//INPUT_H

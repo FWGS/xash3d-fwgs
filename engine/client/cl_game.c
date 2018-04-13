@@ -3476,6 +3476,11 @@ float Voice_GetControlFloat( VoiceTweakControl iControl )
 	return 1.0f;
 }
 
+static void GAME_EXPORT VGui_ViewportPaintBackground( int extents[4] )
+{
+	// stub
+}
+
 // shared between client and server			
 triangleapi_t gTriApi =
 {
@@ -3758,7 +3763,6 @@ void CL_UnloadProgs( void )
 	CL_FreeParticles();
 	CL_ClearAllRemaps();
 	Mod_ClearUserData();
-	VGui_Shutdown();
 
 	// NOTE: HLFX 0.5 has strange bug: hanging on exit if no map was loaded
 	if( Q_stricmp( GI->gamedir, "hlfx" ) || GI->version != 0.5f )
@@ -3768,6 +3772,7 @@ void CL_UnloadProgs( void )
 	Cvar_FullSet( "host_clientloaded", "0", FCVAR_READ_ONLY );
 
 	COM_FreeLibrary( clgame.hInstance );
+	VGui_Shutdown();
 	Mem_FreePool( &cls.mempool );
 	Mem_FreePool( &clgame.mempool );
 	memset( &clgame, 0, sizeof( clgame ));
@@ -3791,6 +3796,11 @@ qboolean CL_LoadProgs( const char *name )
 	cls.mempool = Mem_AllocPool( "Client Static Pool" );
 	clgame.mempool = Mem_AllocPool( "Client Edicts Zone" );
 	clgame.entities = NULL;
+
+	// NOTE: important stuff!
+	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS
+	// during LoadLibrary
+	VGui_Startup( gameui.globals->scrWidth, gameui.globals->scrHeight );
 
 	clgame.hInstance = COM_LoadLibrary( name, false, false );
 	if( !clgame.hInstance ) return false;
@@ -3886,9 +3896,6 @@ qboolean CL_LoadProgs( const char *name )
 	clgame.dllFuncs.pfnInit();
 
 	CL_InitStudioAPI( );
-
-	// initialize VGui
-	VGui_Startup ();
 
 	// trying to grab them from client.dll
 	cl_righthand = Cvar_FindVar( "cl_righthand" );

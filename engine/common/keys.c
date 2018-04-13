@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "input.h"
 #include "client.h"
+#include "vgui_draw.h"
 
 typedef struct key_s
 {
@@ -541,6 +542,8 @@ void Key_Event( int key, qboolean down )
 	{
 		keys[key].repeats = 0;
 	}
+
+	VGui_KeyEvent( key, down );
 
 	// console key is hardcoded, so the user can never unbind it
 	if( key == '`' || key == '~' )

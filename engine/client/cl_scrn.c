@@ -683,7 +683,7 @@ void SCR_VidInit( void )
 	gameui.globals->scrWidth = glState.width;
 	gameui.globals->scrHeight = glState.height;
 
-	VGui_Startup ();
+	VGui_Startup( glState.width, glState.height );
 
 	CL_ClearSpriteTextures(); // now all hud sprites are invalid
 	

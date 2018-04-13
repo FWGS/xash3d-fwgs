@@ -11,10 +11,19 @@ This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
+
+In addition, as a special exception, the author gives permission
+to link the code of this program with VGUI library developed by
+Valve, L.L.C ("Valve"). You must obey the GNU General Public License
+in all respects for all of the code used other than VGUI library.
+If you modify this file, you may extend this exception to your
+version of the file, but you are not obligated to do so. If
+you do not wish to do so, delete this exception statement
+from your version.
+
 */
 
-#include "common.h"
-#include "vgui_draw.h"
+#include "vgui_main.h"
 #include "wrect.h"
 	
 //-----------------------------------------------------------------------------
@@ -22,7 +31,7 @@ GNU General Public License for more details.
 //-----------------------------------------------------------------------------
 static wrect_t g_ScissorRect;
 static qboolean g_bScissor = false;
-
+namespace vgui_support {
 //-----------------------------------------------------------------------------
 // Enable/disable scissoring...
 //-----------------------------------------------------------------------------
@@ -95,11 +104,15 @@ qboolean ClipRect( const vpoint_t &inUL, const vpoint_t &inLR, vpoint_t *pOutUL,
 			return false;
 		}
 
-		pOutUL->coord[0] = InterpTCoord(pOutUL->point[0], inUL.point[0], inLR.point[0], inUL.coord[0], inLR.coord[0] );
-		pOutLR->coord[0] = InterpTCoord(pOutLR->point[0], inUL.point[0], inLR.point[0], inUL.coord[0], inLR.coord[0] );
+		pOutUL->coord[0] = InterpTCoord(pOutUL->point[0], 
+				inUL.point[0], inLR.point[0], inUL.coord[0], inLR.coord[0] );
+			pOutLR->coord[0] = InterpTCoord(pOutLR->point[0],  
+				inUL.point[0], inLR.point[0], inUL.coord[0], inLR.coord[0] );
 
-		pOutUL->coord[1] = InterpTCoord(pOutUL->point[1], inUL.point[1], inLR.point[1], inUL.coord[1], inLR.coord[1] );
-		pOutLR->coord[1] = InterpTCoord(pOutLR->point[1], inUL.point[1], inLR.point[1], inUL.coord[1], inLR.coord[1] );
+			pOutUL->coord[1] = InterpTCoord(pOutUL->point[1], 
+				inUL.point[1], inLR.point[1], inUL.coord[1], inLR.coord[1] );
+			pOutLR->coord[1] = InterpTCoord(pOutLR->point[1],  
+				inUL.point[1], inLR.point[1], inUL.coord[1], inLR.coord[1] );
 	}
 	else
 	{
@@ -107,4 +120,5 @@ qboolean ClipRect( const vpoint_t &inUL, const vpoint_t &inLR, vpoint_t *pOutUL,
 		*pOutLR = inLR;
 	}
 	return true;
+}
 }
