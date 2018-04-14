@@ -186,8 +186,6 @@ typedef enum
 #define CIN_MAIN		0
 #define CIN_LOGO		1
 
-#define MAX_NUM_ARGVS	128
-
 // config strings are a general means of communication from
 // the server to all connected clients.
 // each config string can be at most CS_SIZE characters.
@@ -426,7 +424,7 @@ typedef struct host_parm_s
 
 	// command line parms
 	int		argc;
-	const char	*argv[MAX_NUM_ARGVS];
+	const char	**argv;
 
 	double		realtime;		// host.curtime
 	double		frametime;	// time between engine frames
@@ -916,6 +914,8 @@ void Key_SetKeyDest( int key_dest );
 #include "avi/avi.h"
 
 // shared calls
+typedef struct sv_client_s sv_client_t;
+typedef struct sizebuf_s sizebuf_t;
 qboolean CL_IsInGame( void );
 qboolean CL_IsInMenu( void );
 qboolean CL_IsInConsole( void );
@@ -934,12 +934,12 @@ int COM_ExpandFilename( const char *fileName, char *nameOutBuffer, int nameOutBu
 struct pmtrace_s *PM_TraceLine( float *start, float *end, int flags, int usehull, int ignore_pe );
 void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
 void SV_StartMusic( const char *curtrack, const char *looptrack, long position );
-void SV_CreateDecal( struct sizebuf_s *msg, const float *origin, int decalIndex, int entityIndex, int modelIndex, int flags, float scale );
+void SV_CreateDecal( sizebuf_t *msg, const float *origin, int decalIndex, int entityIndex, int modelIndex, int flags, float scale );
 void Log_Printf( const char *fmt, ... );
 struct sizebuf_s *SV_GetReliableDatagram( void );
 void SV_BroadcastCommand( const char *fmt, ... );
 qboolean SV_RestoreCustomDecal( struct decallist_s *entry, edict_t *pEdict, qboolean adjacent );
-void SV_BroadcastPrintf( struct sv_client_s *ignore, char *fmt, ... );
+void SV_BroadcastPrintf( sv_client_t *ignore, char *fmt, ... );
 int R_CreateDecalList( struct decallist_s *pList );
 void R_DecalRemoveAll( int texture );
 void R_ClearAllDecals( void );

@@ -86,7 +86,7 @@ void Sys_Error( const char *error, ... );
 qboolean Sys_LoadLibrary( dll_info_t *dll );
 void* Sys_GetProcAddress( dll_info_t *dll, const char* name );
 qboolean Sys_FreeLibrary( dll_info_t *dll );
-void Sys_ParseCommandLine( int argc, char **argv );
+void Sys_ParseCommandLine( int argc, const char **argv );
 void Sys_MergeCommandLine( void );
 void Sys_SetupCrashHandler( void );
 void Sys_RestoreCrashHandler( void );
@@ -94,7 +94,6 @@ void Sys_SetClipboardData( const byte *buffer, size_t size );
 #define Sys_GetParmFromCmdLine( parm, out ) _Sys_GetParmFromCmdLine( parm, out, sizeof( out ))
 qboolean _Sys_GetParmFromCmdLine( char *parm, char *out, size_t size );
 void Sys_ShellExecute( const char *path, const char *parms, qboolean exit );
-const char *Sys_GetMachineKey( int *nLength );
 void Sys_SendKeyEvents( void );
 void Sys_Print( const char *pMsg );
 void Sys_PrintLog( const char *pMsg );
@@ -105,14 +104,26 @@ void Sys_Quit( void );
 //
 // sys_con.c
 //
-void Con_ShowConsole( qboolean show );
-void Con_WinPrint( const char *pMsg );
-void Con_InitConsoleCommands( void );
-void Con_CreateConsole( void );
-void Con_DestroyConsole( void );
-void Con_RegisterHotkeys( void );
-void Con_DisableInput( void );
-char *Con_Input( void );
+char *Sys_Input( void );
+void Sys_DestroyConsole( void );
+void Sys_CloseLog( void );
+void Sys_InitLog( void );
+void Sys_PrintLog( const char *pMsg );
+int Sys_LogFileNo( void );
+
+//
+// con_win.c
+//
+#ifdef _WIN32
+void Wcon_ShowConsole( qboolean show );
+void Wcon_Print( const char *pMsg );
+void Wcon_Init( void );
+void Wcon_CreateConsole( void );
+void Wcon_DestroyConsole( void );
+void Wcon_DisableInput( void );
+void Wcon_Clear( void );
+char *Wcon_Input( void );
+#endif
 
 // text messages
 #define Msg	Con_Printf

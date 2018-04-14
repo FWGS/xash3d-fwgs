@@ -164,6 +164,13 @@ typedef struct ui_enginefuncs_s
 	const char *(*pfnGetModeString)( int vid_mode );
 } ui_enginefuncs_t;
 
+typedef struct ui_textfuncs_s {
+	void (*pfnEnableTextInput)( int enable );
+	int (*pfnUtfProcessChar) ( int ch );
+	int (*pfnUtfMoveLeft) ( char *str, int pos );
+	int (*pfnUtfMoveRight) ( char *str, int pos, int length );
+} ui_textfuncs_t;
+
 typedef struct
 {
 	int	(*pfnVidInit)( void );
@@ -185,5 +192,12 @@ typedef struct
 } UI_FUNCTIONS;
 
 typedef int (*MENUAPI)( UI_FUNCTIONS *pFunctionTable, ui_enginefuncs_t* engfuncs, ui_globalvars_t *pGlobals );
+
+typedef int (*UITEXTAPI)( ui_textfuncs_t* engfuncs );
+
+typedef void (*ADDTOUCHBUTTONTOLIST)( const char *name, const char *texture, const char *command, unsigned char *color, int flags );
+
+#define PLATFORM_UPDATE_PAGE "PlatformUpdatePage"
+#define GENERIC_UPDATE_PAGE "GenericUpdatePage"
 
 #endif//MENU_INT_H

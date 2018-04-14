@@ -393,12 +393,11 @@ void Host_GetCommands( void )
 {
 	char	*cmd;
 
-	if( host.type != HOST_DEDICATED )
-		return;
-
-	cmd = Con_Input();
-	if( cmd ) Cbuf_AddText( cmd );
-	Cbuf_Execute ();
+	while( ( cmd = Sys_Input() ) )
+	{
+		Cbuf_AddText( cmd );
+		Cbuf_Execute();
+	}
 }
 
 /*
@@ -786,7 +785,9 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	// member console allowing
 	host.allow_console_init = host.allow_console;
 
-	Con_CreateConsole(); // system console used by dedicated server or show fatal errors
+#ifdef _WIN32
+	Wcon_CreateConsole(); // system console used by dedicated server or show fatal errors
+#endif
 
 	// NOTE: this message couldn't be passed into game console but it doesn't matter
 	MsgDev( D_NOTE, "Sys_LoadLibrary: Loading xash.dll - ok\n" );
@@ -889,7 +890,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	if( host.type == HOST_DEDICATED )
 	{
-		Con_InitConsoleCommands ();
+#ifdef _WIN32
+		Wcon_InitConsoleCommands ();
+#endif
 
 		Cmd_AddCommand( "quit", Sys_Quit, "quit the game" );
 		Cmd_AddCommand( "exit", Sys_Quit, "quit the game" );
@@ -902,7 +905,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	switch( host.type )
 	{
 	case HOST_NORMAL:
-		Con_ShowConsole( false ); // hide console
+#ifdef _WIN32
+		Wcon_ShowConsole( false ); // hide console
+#endif
 		// execute startup config and cmdline
 		Cbuf_AddText( va( "exec %s.rc\n", SI.rcName ));
 		Cbuf_Execute();
@@ -963,7 +968,9 @@ void EXPORT Host_Shutdown( void )
 	Mod_Shutdown();
 	NET_Shutdown();
 	Host_FreeCommon();
-	Con_DestroyConsole();
+#ifdef _WIN32
+	Wcon_DestroyConsole();
+#endif
 
 	// must be last, console uses this
 	Mem_FreePool( &host.mempool );

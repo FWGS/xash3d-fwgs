@@ -15,16 +15,40 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "mathlib.h"
+#include <time.h>
+#include <stdlib.h>
+
+#ifdef XASH_SDL
+#include <SDL.h>
+#endif
+
+#ifndef _WIN32
+#include <unistd.h>
+#include <signal.h>
+#include <dlfcn.h>
+
+#ifndef __ANDROID__
+extern char **environ;
+#include <pwd.h>
+#endif
+#endif
+
+#include "menu_int.h" // _UPDATE_PAGE macro
 
 qboolean	error_on_exit = false;	// arg for exit();
+#define DEBUG_BREAK
+#if defined _WIN32 && !defined XASH_SDL
+#include <winbase.h>
+#endif
 
 /*
 ================
 Sys_DoubleTime
 ================
 */
-double Sys_DoubleTime( void )
+double GAME_EXPORT Sys_DoubleTime( void )
 {
+#if XASH_TIMER == TIMER_WIN32
 	static LARGE_INTEGER	g_PerformanceFrequency;
 	static LARGE_INTEGER	g_ClockStart;
 	LARGE_INTEGER		CurrentTime;
@@ -37,7 +61,91 @@ double Sys_DoubleTime( void )
 	QueryPerformanceCounter( &CurrentTime );
 
 	return (double)( CurrentTime.QuadPart - g_ClockStart.QuadPart ) / (double)( g_PerformanceFrequency.QuadPart );
+#elif XASH_TIMER == TIMER_SDL
+	static longtime_t g_PerformanceFrequency;
+	static longtime_t g_ClockStart;
+	longtime_t CurrentTime;
+
+	if( !g_PerformanceFrequency )
+	{
+		g_PerformanceFrequency = SDL_GetPerformanceFrequency();
+		g_ClockStart = SDL_GetPerformanceCounter();
+	}
+	CurrentTime = SDL_GetPerformanceCounter();
+	return (double)( CurrentTime - g_ClockStart ) / (double)( g_PerformanceFrequency );
+#elif XASH_TIMER == TIMER_LINUX
+	static longtime_t g_PerformanceFrequency;
+	static longtime_t g_ClockStart;
+	longtime_t CurrentTime;
+	struct timespec ts;
+
+	if( !g_PerformanceFrequency )
+	{
+		struct timespec res;
+		if( !clock_getres(CLOCK_MONOTONIC, &res) )
+			g_PerformanceFrequency = 1000000000LL/res.tv_nsec;
+	}
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
+#endif
 }
+
+#ifdef GDB_BREAK
+#include <fcntl.h>
+qboolean Sys_DebuggerPresent( void )
+{
+	char buf[1024];
+
+	int status_fd = open( "/proc/self/status", O_RDONLY );
+	if ( status_fd == -1 )
+		return 0;
+
+	ssize_t num_read = read( status_fd, buf, sizeof( buf ) );
+
+	if ( num_read > 0 )
+	{
+		static const char TracerPid[] = "TracerPid:";
+		const byte *tracer_pid;
+
+		buf[num_read] = 0;
+		tracer_pid    = (const byte*)Q_strstr( buf, TracerPid );
+		if( !tracer_pid )
+			return false;
+		//printf( "%s\n", tracer_pid );
+		while( *tracer_pid < '0' || *tracer_pid > '9'  )
+			if( *tracer_pid++ == '\n' )
+				return false;
+		//printf( "%s\n", tracer_pid );
+		return !!Q_atoi( (const char*)tracer_pid );
+	}
+
+	return false;
+}
+
+#undef DEBUG_BREAK
+#ifdef __i386__
+#define DEBUG_BREAK \
+	if( Sys_DebuggerPresent() ) \
+		asm volatile("int $3;")
+#else
+#define DEBUG_BREAK \
+	if( Sys_DebuggerPresent() ) \
+		raise( SIGINT )
+#endif
+#endif
+
+#if defined _WIN32 && !defined XASH_64BIT
+#ifdef _MSC_VER
+
+
+BOOL WINAPI IsDebuggerPresent(void);
+#define DEBUG_BREAK	if( IsDebuggerPresent() ) \
+		_asm{ int 3 }
+#else
+#define DEBUG_BREAK	if( IsDebuggerPresent() ) \
+		asm volatile("int $3;")
+#endif
+#endif
 
 /*
 ================
@@ -48,31 +156,19 @@ create buffer, that contain clipboard
 */
 char *Sys_GetClipboardData( void )
 {
-	static char	*data = NULL;
+	static char data[1024];
 	char		*cliptext;
 
-	if( data )
-	{
-		// release previous cbd
-		Z_Free( data );
-		data = NULL;
-	}
+	data[0] = '\0';
 
-	if( OpenClipboard( NULL ) != 0 )
+#ifdef XASH_SDL
+	cliptext = SDL_GetClipboardText();
+	if( cliptext )
 	{
-		HANDLE	hClipboardData;
-
-		if(( hClipboardData = GetClipboardData( CF_TEXT )) != 0 )
-		{
-			if(( cliptext = GlobalLock( hClipboardData )) != 0 ) 
-			{
-				data = Z_Malloc( GlobalSize( hClipboardData ) + 1 );
-				Q_strcpy( data, cliptext );
-				GlobalUnlock( hClipboardData );
-			}
-		}
-		CloseClipboard();
+		Q_strncpy( data, cliptext, sizeof( data ) );
+		SDL_free( cliptext );
 	}
+#endif // XASH_SDL
 
 	return data;
 }
@@ -86,23 +182,9 @@ write screenshot into clipboard
 */
 void Sys_SetClipboardData( const byte *buffer, size_t size )
 {
-	EmptyClipboard();
-
-	if( OpenClipboard( NULL ) != 0 )
-	{
-		HGLOBAL hResult = GlobalAlloc( GMEM_MOVEABLE, size ); 
-		byte *bufferCopy = (byte *)GlobalLock( hResult ); 
-
-		memcpy( bufferCopy, buffer, size ); 
-		GlobalUnlock( hResult ); 
-
-		if( SetClipboardData( CF_DIB, hResult ) == NULL )
-		{
-			MsgDev( D_ERROR, "unable to write screenshot\n" );
-			GlobalFree( hResult );
-		}
-		CloseClipboard();
-	}
+#ifdef XASH_SDL
+	SDL_SetClipboardText((char *)buffer);
+#endif
 }
 
 /*
@@ -114,8 +196,17 @@ freeze application for some time
 */
 void Sys_Sleep( int msec )
 {
-	msec = bound( 1, msec, 1000 );
+	if( !msec )
+		return;
+
+	msec = min( msec, 1000 );
+#if XASH_TIMER == TIMER_WIN32
 	Sleep( msec );
+#elif XASH_TIMER == TIMER_SDL
+	SDL_Delay( msec );
+#elif XASH_TIEMR == TIMER_LINUX
+	usleep( msec * 1000 );
+#endif
 }
 
 /*
@@ -127,63 +218,106 @@ returns username for current profile
 */
 char *Sys_GetCurrentUser( void )
 {
-	static string	sys_user_name;
-	dword		size = sizeof( sys_user_name );
+#if defined(_WIN32)
+	static string	s_userName;
+	unsigned long size = sizeof( s_userName );
 
-	if( !sys_user_name[0] )
-	{
-		HINSTANCE	advapi32_dll = LoadLibrary( "advapi32.dll" );
-		BOOL (_stdcall *pGetUserNameA)( LPSTR lpBuffer, LPDWORD nSize ) = NULL;
-		if( advapi32_dll ) pGetUserNameA = (void *)GetProcAddress( advapi32_dll, "GetUserNameA" );
-		if( pGetUserNameA) pGetUserNameA( sys_user_name, &size );
-		if( advapi32_dll ) FreeLibrary( advapi32_dll ); // no need anymore...
-		if( !sys_user_name[0] ) Q_strcpy( sys_user_name, "player" );
-	}
+	if( GetUserName( s_userName, &size ))
+		return s_userName;
+#elif !defined(__ANDROID__)
+	uid_t uid = geteuid();
+	struct passwd *pw = getpwuid( uid );
 
-	return sys_user_name;
+	if( pw )
+		return pw->pw_name;
+#endif
+	return "Player";
 }
 
-/*
-=================
-Sys_GetMachineKey
-=================
-*/
-const char *Sys_GetMachineKey( int *nLength )
+#if (defined(__linux__) && !defined(__ANDROID__)) || defined (__FreeBSD__) || defined (__NetBSD__) || defined(__OpenBSD__) || defined(__APPLE__)
+static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size )
 {
-	HINSTANCE		rpcrt4_dll = LoadLibrary( "rpcrt4.dll" );
-	RPC_STATUS	(_stdcall *pUuidCreateSequential)( UUID __RPC_FAR *Uuid ) = NULL;
-	static byte	key[32];
-	byte		mac[8];
-	UUID		uuid;
-	int		i;
+	char *envPath;
+	char *part;
+	size_t length;
+	size_t baseNameLength;
+	size_t needTrailingSlash;
 
-	if( rpcrt4_dll ) pUuidCreateSequential = (void *)GetProcAddress( rpcrt4_dll, "UuidCreateSequential" );
-	if( pUuidCreateSequential ) pUuidCreateSequential( &uuid );	// ask OS to create UUID
-	if( rpcrt4_dll ) FreeLibrary( rpcrt4_dll ); // no need anymore...
+	if( !baseName || !baseName[0] )
+		return false;
 
-	for( i = 2; i < 8; i++ ) // bytes 2 through 7 inclusive are MAC address
-		mac[i-2] = uuid.Data4[i];
+	envPath = getenv( "PATH" );
+	if( !envPath )
+		return false;
 
-	Q_snprintf( key, sizeof( key ), "%02X-%02X-%02X-%02X-%02X-%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5] );
+	baseNameLength = Q_strlen( baseName );
+	while( *envPath )
+	{
+		part = Q_strchr( envPath, ':' );
+		if( part )
+			length = part - envPath;
+		else
+			length = Q_strlen( envPath );
 
-	if( nLength ) *nLength = Q_strlen( key );
-	return key;
+		if( length > 0 )
+		{
+			needTrailingSlash = ( envPath[length - 1] == '/' ) ? 0 : 1;
+			if( length + baseNameLength + needTrailingSlash < size )
+			{
+				Q_strncpy( buf, envPath, length + 1 );
+				if( needTrailingSlash )
+					Q_strcpy( buf + length, "/" );
+				Q_strcpy( buf + length + needTrailingSlash, baseName );
+				buf[length + needTrailingSlash + baseNameLength] = '\0';
+				if( access( buf, X_OK ) == 0 )
+					return true;
+			}
+		}
+
+		envPath += length;
+		if( *envPath == ':' )
+			envPath++;
+	}
+	return false;
 }
+#endif
 
 /*
 =================
 Sys_ShellExecute
 =================
 */
-void Sys_ShellExecute( const char *path, const char *parms, qboolean exit )
+void Sys_ShellExecute( const char *path, const char *parms, qboolean shouldExit )
 {
-	HINSTANCE	shell32_dll = LoadLibrary( "shell32.dll" );
-	HINSTANCE (_stdcall *pShellExecuteA)( HWND hwnd, LPCSTR lpOp, LPCSTR lpFile, LPCSTR lpParam, LPCSTR lpDir, INT nShowCmd ) = NULL;
-	if( shell32_dll ) pShellExecuteA = (void *)GetProcAddress( shell32_dll, "ShellExecuteA" );
-	if( pShellExecuteA ) pShellExecuteA( NULL, "open", path, parms, NULL, SW_SHOW );
-	if( shell32_dll ) FreeLibrary( shell32_dll ); // no need anymore...
+#ifdef _WIN32
+	if( !Q_strcmp( path, GENERIC_UPDATE_PAGE ) || !Q_strcmp( path, PLATFORM_UPDATE_PAGE ))
+		path = DEFAULT_UPDATE_PAGE;
 
-	if( exit ) Sys_Quit();
+	ShellExecute( NULL, "open", path, parms, NULL, SW_SHOW );
+#elif (defined(__linux__) && !defined (__ANDROID__)) || defined (__FreeBSD__) || defined (__NetBSD__) || defined(__OpenBSD__) || defined(__APPLE__)
+
+	if( !Q_strcmp( path, GENERIC_UPDATE_PAGE ) || !Q_strcmp( path, PLATFORM_UPDATE_PAGE ))
+		path = DEFAULT_UPDATE_PAGE;
+
+	char xdgOpen[128];
+	if( Sys_FindExecutable( OPEN_COMMAND, xdgOpen, sizeof( xdgOpen ) ) )
+	{
+		const char *argv[] = {xdgOpen, path, NULL};
+		pid_t id = fork( );
+		if( id == 0 )
+		{
+			execve( xdgOpen, (char **)argv, environ );
+			fprintf( stderr, "error opening %s %s", xdgOpen, path );
+			_exit( 1 );
+		}
+	}
+	else MsgDev( D_WARN, "Could not find "OPEN_COMMAND" utility\n" );
+#elif defined(__ANDROID__) && !defined(XASH_DEDICATED)
+	Android_ShellExecute( path, parms );
+#endif
+
+	if( shouldExit )
+		Sys_Quit();
 }
 
 /*
@@ -223,7 +357,7 @@ Sys_MergeCommandLine
 
 ==================
 */
-void Sys_MergeCommandLine( )
+void Sys_MergeCommandLine( void )
 {
 	const char	*blank = "censored";
 	int		i;
@@ -280,6 +414,7 @@ qboolean _Sys_GetParmFromCmdLine( char *parm, char *out, size_t size )
 
 void Sys_SendKeyEvents( void )
 {
+#ifdef _WIN32
 	MSG	msg;
 
 	while( PeekMessage( &msg, NULL, 0, 0, PM_NOREMOVE ))
@@ -290,6 +425,7 @@ void Sys_SendKeyEvents( void )
       		TranslateMessage( &msg );
       		DispatchMessage( &msg );
 	}
+#endif
 }
 
 //=======================================================================
@@ -383,6 +519,7 @@ wait for 'Esc' key will be hit
 */
 void Sys_WaitForQuit( void )
 {
+#ifdef _WIN32
 	MSG	msg;
 
 	Con_RegisterHotkeys();		
@@ -399,37 +536,7 @@ void Sys_WaitForQuit( void )
 		} 
 		else Sys_Sleep( 20 );
 	}
-}
-
-long _stdcall Sys_Crash( PEXCEPTION_POINTERS pInfo )
-{
-	// save config
-	if( host.status != HOST_CRASHED )
-	{
-		// check to avoid recursive call
-		error_on_exit = true;
-		host.crashed = true;
-
-		if( host.type == HOST_NORMAL )
-			CL_Crashed(); // tell client about crash
-		else host.status = HOST_CRASHED;
-
-		Con_Printf( "unhandled exception: %p at address %p\n", pInfo->ExceptionRecord->ExceptionAddress, pInfo->ExceptionRecord->ExceptionCode );
-
-		if( !host_developer.value )
-		{
-			// for non-development mode
-			Sys_Quit();
-			return EXCEPTION_CONTINUE_EXECUTION;
-		}
-
-		// all other states keep unchanged to let debugger find bug
-		Con_DestroyConsole();
-	}
-
-	if( host.oldFilter )
-		return host.oldFilter( pInfo );
-	return EXCEPTION_CONTINUE_EXECUTION;
+#endif
 }
 
 /*
@@ -466,7 +573,9 @@ void Sys_Error( const char *error, ... )
 {
 	va_list	argptr;
 	char	text[MAX_SYSPATH];
-         
+
+	DEBUG_BREAK;
+
 	if( host.status == HOST_ERR_FATAL )
 		return; // don't multiple executes
 
@@ -481,26 +590,47 @@ void Sys_Error( const char *error, ... )
 
 	SV_SysError( text );
 
-	if( host.type == HOST_NORMAL )
+	if( !Host_IsDedicated() )
 	{
-		if( host.hWnd ) ShowWindow( host.hWnd, SW_HIDE );
+#ifdef XASH_SDL
+		if( host.hWnd ) SDL_HideWindow( host.hWnd );
+#endif
 	}
 
 	if( host_developer.value )
 	{
+#ifdef _WIN32
 		Con_ShowConsole( true );
 		Con_DisableInput();	// disable input line for dedicated server
+#endif
 		Sys_Print( text );	// print error message
 		Sys_WaitForQuit();
 	}
 	else
 	{
+#ifdef _WIN32
 		Con_ShowConsole( false );
+#endif
 		MSGBOX( text );
 	}
 
 	Sys_Quit();
 }
+
+#ifdef __EMSCRIPTEN__
+/* strange glitchy bug on emscripten
+_exit->_Exit->asm._exit->_exit
+As we do not need atexit(), just throw hidden exception
+*/
+#include <emscripten.h>
+#define exit my_exit
+void my_exit(int ret)
+{
+	emscripten_cancel_main_loop();
+	printf("exit(%d)\n", ret);
+	EM_ASM(if(showElement)showElement('reload', true);throw 'SimulateInfiniteLoop');
+}
+#endif
 
 /*
 ================
@@ -522,65 +652,75 @@ print into window console
 */
 void Sys_Print( const char *pMsg )
 {
-	const char	*msg;
-	static char	buffer[MAX_PRINT_MSG];
-	static char	logbuf[MAX_PRINT_MSG];
-	char		*b = buffer;
-	char		*c = logbuf;	
-	int		i = 0;
-
-	if( host.type == HOST_NORMAL )
+	if( !Host_IsDedicated() )
 		Con_Print( pMsg );
 
-	// if the message is REALLY long, use just the last portion of it
-	if( Q_strlen( pMsg ) > sizeof( buffer ) - 1 )
-		msg = pMsg + Q_strlen( pMsg ) - sizeof( buffer ) + 1;
-	else msg = pMsg;
-
-	// copy into an intermediate buffer
-	while( msg[i] && (( b - buffer ) < sizeof( buffer ) - 1 ))
+#ifdef _WIN32
 	{
-		if( msg[i] == '\n' && msg[i+1] == '\r' )
+		const char	*msg;
+		static char	buffer[MAX_PRINT_MSG];
+		static char	logbuf[MAX_PRINT_MSG];
+		char		*b = buffer;
+		char		*c = logbuf;
+		int		i = 0;
+
+		if( host.type == HOST_NORMAL )
+			Con_Print( pMsg );
+
+		// if the message is REALLY long, use just the last portion of it
+		if( Q_strlen( pMsg ) > sizeof( buffer ) - 1 )
+			msg = pMsg + Q_strlen( pMsg ) - sizeof( buffer ) + 1;
+		else msg = pMsg;
+
+		// copy into an intermediate buffer
+		while( msg[i] && (( b - buffer ) < sizeof( buffer ) - 1 ))
 		{
-			b[0] = '\r';
-			b[1] = c[0] = '\n';
-			b += 2, c++;
+			if( msg[i] == '\n' && msg[i+1] == '\r' )
+			{
+				b[0] = '\r';
+				b[1] = c[0] = '\n';
+				b += 2, c++;
+				i++;
+			}
+			else if( msg[i] == '\r' )
+			{
+				b[0] = c[0] = '\r';
+				b[1] = '\n';
+				b += 2, c++;
+			}
+			else if( msg[i] == '\n' )
+			{
+				b[0] = '\r';
+				b[1] = c[0] = '\n';
+				b += 2, c++;
+			}
+			else if( msg[i] == '\35' || msg[i] == '\36' || msg[i] == '\37' )
+			{
+				i++; // skip console pseudo graph
+			}
+			else if( IsColorString( &msg[i] ))
+			{
+				i++; // skip color prefix
+			}
+			else
+			{
+				if( msg[i] == '\1' || msg[i] == '\2' )
+					i++;
+					*b = *c = msg[i];
+					b++, c++;
+			}
 			i++;
 		}
-		else if( msg[i] == '\r' )
-		{
-			b[0] = c[0] = '\r';
-			b[1] = '\n';
-			b += 2, c++;
-		}
-		else if( msg[i] == '\n' )
-		{
-			b[0] = '\r';
-			b[1] = c[0] = '\n';
-			b += 2, c++;
-		}
-		else if( msg[i] == '\35' || msg[i] == '\36' || msg[i] == '\37' )
-		{
-			i++; // skip console pseudo graph
-		}
-		else if( IsColorString( &msg[i] ))
-		{
-			i++; // skip color prefix
-		}
-		else
-		{
-			if( msg[i] == '\1' || msg[i] == '\2' )
-				i++;
-			*b = *c = msg[i];
-			b++, c++;
-		}
-		i++;
+
+		*b = *c = 0; // terminator
+
+		Con_WinPrint( buffer );
 	}
+#endif
 
-	*b = *c = 0; // terminator
+	Sys_PrintLog( pMsg );
 
-	Sys_PrintLog( logbuf );
-	Con_WinPrint( buffer );
+	// Rcon_Print( pMsg );
 }
 
 /*
@@ -616,71 +756,4 @@ void MsgDev( int type, const char *pMsg, ... )
 		Sys_Print( text );
 		break;
 	}
-}
-
-/*
-===============================================================================
-
-SYSTEM LOG
-
-===============================================================================
-*/
-void Sys_InitLog( void )
-{
-	const char	*mode;
-
-	if( host.change_game && host.type != HOST_DEDICATED )
-		mode = "a";
-	else mode = "w";
-
-	// create log if needed
-	if( s_wcd.log_active )
-	{
-		s_wcd.logfile = fopen( s_wcd.log_path, mode );
-		if( !s_wcd.logfile ) MsgDev( D_ERROR, "Sys_InitLog: can't create log file %s\n", s_wcd.log_path );
-
-		fprintf( s_wcd.logfile, "=================================================================================\n" );
-		fprintf( s_wcd.logfile, "\t%s (build %i) started at %s\n", s_wcd.title, Q_buildnum(), Q_timestamp( TIME_FULL ));
-		fprintf( s_wcd.logfile, "=================================================================================\n" );
-	}
-}
-
-void Sys_CloseLog( void )
-{
-	char	event_name[64];
-
-	// continue logged
-	switch( host.status )
-	{
-	case HOST_CRASHED:
-		Q_strncpy( event_name, "crashed", sizeof( event_name ));
-		break;
-	case HOST_ERR_FATAL:
-		Q_strncpy( event_name, "stopped with error", sizeof( event_name ));
-		break;
-	default:
-		if( !host.change_game ) Q_strncpy( event_name, "stopped", sizeof( event_name ));
-		else Q_strncpy( event_name, host.finalmsg, sizeof( event_name ));
-		break;
-	}
-
-	if( s_wcd.logfile )
-	{
-		fprintf( s_wcd.logfile, "\n");
-		fprintf( s_wcd.logfile, "=================================================================================");
-		if( host.change_game ) fprintf( s_wcd.logfile, "\n\t%s (build %i) %s\n", s_wcd.title, Q_buildnum(), event_name );
-		else fprintf( s_wcd.logfile, "\n\t%s (build %i) %s at %s\n", s_wcd.title, Q_buildnum(), event_name, Q_timestamp( TIME_FULL ));
-		fprintf( s_wcd.logfile, "=================================================================================");
-		if( host.change_game ) fprintf( s_wcd.logfile, "\n" ); // just for tabulate
-
-		fclose( s_wcd.logfile );
-		s_wcd.logfile = NULL;
-	}
-}
-
-void Sys_PrintLog( const char *pMsg )
-{
-	if( !s_wcd.logfile ) return;
-	fprintf( s_wcd.logfile, pMsg );
-	fflush( s_wcd.logfile );
 }

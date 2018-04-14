@@ -56,12 +56,11 @@ typedef struct
 	// log stuff
 	qboolean		log_active;
 	char		log_path[MAX_SYSPATH];
-	FILE		*logfile;
 } WinConData;
 
 static WinConData	s_wcd;
 
-void Con_ShowConsole( qboolean show )
+void Wcon_ShowConsole( qboolean show )
 {
 	if( !s_wcd.hWnd || show == s_wcd.status )
 		return;
@@ -75,21 +74,21 @@ void Con_ShowConsole( qboolean show )
 	else ShowWindow( s_wcd.hWnd, SW_HIDE );
 }
 
-void Con_DisableInput( void )
+void Wcon_DisableInput( void )
 {
 	if( host.type != HOST_DEDICATED ) return;
 	SendMessage( s_wcd.hwndButtonSubmit, WM_ENABLE, 0, 0 );
 	SendMessage( s_wcd.hwndInputLine, WM_ENABLE, 0, 0 );
 }
 
-void Con_SetInputText( const char *inputText )
+void Wcon_SetInputText( const char *inputText )
 {
 	if( host.type != HOST_DEDICATED ) return;
 	SetWindowText( s_wcd.hwndInputLine, inputText );
 	SendMessage( s_wcd.hwndInputLine, EM_SETSEL, Q_strlen( inputText ), -1 );
 }
 
-static void Con_Clear_f( void )
+static void Wcon_Clear_f( void )
 {
 	if( host.type != HOST_DEDICATED ) return;
 	SendMessage( s_wcd.hwndBuffer, EM_SETSEL, 0, -1 );
@@ -97,7 +96,7 @@ static void Con_Clear_f( void )
 	UpdateWindow( s_wcd.hwndBuffer );
 }
 
-static int Con_KeyEvent( int key, qboolean down )
+static int Wcon_KeyEvent( int key, qboolean down )
 {
 	char	inputBuffer[1024];
 
@@ -109,24 +108,24 @@ static int Con_KeyEvent( int key, qboolean down )
 	case VK_TAB:
 		GetWindowText( s_wcd.hwndInputLine, inputBuffer, sizeof( inputBuffer ));
 		Cmd_AutoComplete( inputBuffer );
-		Con_SetInputText( inputBuffer );
+		Wcon_SetInputText( inputBuffer );
 		return 1;
 	case VK_DOWN:
 		if( s_wcd.historyLine == s_wcd.nextHistoryLine )
 			return 0;
 		s_wcd.historyLine++;
-		Con_SetInputText( s_wcd.historyLines[s_wcd.historyLine % COMMAND_HISTORY] );
+		Wcon_SetInputText( s_wcd.historyLines[s_wcd.historyLine % COMMAND_HISTORY] );
 		return 1;
 	case VK_UP:
 		if( s_wcd.nextHistoryLine - s_wcd.historyLine < COMMAND_HISTORY && s_wcd.historyLine > 0 )
 			s_wcd.historyLine--;
-		Con_SetInputText( s_wcd.historyLines[s_wcd.historyLine % COMMAND_HISTORY] );
+		Wcon_SetInputText( s_wcd.historyLines[s_wcd.historyLine % COMMAND_HISTORY] );
 		return 1;
 	}
 	return 0;
 }
 
-static long _stdcall Con_WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+static long _stdcall Wcon_WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	switch( uMsg )
 	{
@@ -172,7 +171,7 @@ static long _stdcall Con_WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 	return DefWindowProc( hWnd, uMsg, wParam, lParam );
 }
 
-long _stdcall Con_InputLineProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
+long _stdcall Wcon_InputLineProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
 	char	inputBuffer[1024];
 
@@ -187,16 +186,16 @@ long _stdcall Con_InputLineProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		break;
 	case WM_SYSKEYDOWN:
 	case WM_KEYDOWN:
-		if( Con_KeyEvent( LOWORD( wParam ), true ))
+		if( Wcon_KeyEvent( LOWORD( wParam ), true ))
 			return 0;
 		break;
 	case WM_SYSKEYUP:
 	case WM_KEYUP:
-		if( Con_KeyEvent( LOWORD( wParam ), false ))
+		if( Wcon_KeyEvent( LOWORD( wParam ), false ))
 			return 0;
 		break;
 	case WM_CHAR:
-		if( Con_KeyEvent( wParam, true ))
+		if( Wcon_KeyEvent( wParam, true ))
 			return 0;
 		if( wParam == 13 && host.status != HOST_ERR_FATAL )
 		{
@@ -232,7 +231,7 @@ Con_WinPrint
 print into window console
 ================
 */
-void Con_WinPrint( const char *pMsg )
+void Wcon_WinPrint( const char *pMsg )
 {
 	size_t	len = Q_strlen( pMsg );
 
@@ -259,7 +258,7 @@ Con_CreateConsole
 create win32 console
 ================
 */
-void Con_CreateConsole( void )
+void Wcon_CreateConsole( void )
 {
 	HDC	hDC;
 	WNDCLASS	wc;
@@ -345,7 +344,7 @@ void Con_CreateConsole( void )
 
 		s_wcd.hwndButtonSubmit = CreateWindow( "button", NULL, BS_PUSHBUTTON|WS_VISIBLE|WS_CHILD|BS_DEFPUSHBUTTON, 552, 367, 87, 25, s_wcd.hWnd, (HMENU)SUBMIT_ID, host.hInst, NULL );
 		SendMessage( s_wcd.hwndButtonSubmit, WM_SETTEXT, 0, ( LPARAM ) "submit" );
-          }
+	}
           
 	// create the scrollbuffer
 	GetClientRect( s_wcd.hWnd, &rect );
@@ -355,7 +354,7 @@ void Con_CreateConsole( void )
 
 	if( host.type == HOST_DEDICATED )
 	{
-		s_wcd.SysInputLineWndProc = (WNDPROC)SetWindowLong( s_wcd.hwndInputLine, GWL_WNDPROC, (long)Con_InputLineProc );
+		s_wcd.SysInputLineWndProc = (WNDPROC)SetWindowLong( s_wcd.hwndInputLine, GWL_WNDPROC, (long)Wcon_InputLineProc );
 		SendMessage( s_wcd.hwndInputLine, WM_SETFONT, ( WPARAM )s_wcd.hfBufferFont, 0 );
           }
 
@@ -382,7 +381,7 @@ Con_InitConsoleCommands
 register console commands (dedicated only)
 ================
 */
-void Con_InitConsoleCommands( void )
+void Wcon_InitConsoleCommands( void )
 {
 	if( host.type != HOST_DEDICATED ) return;
 	Cmd_AddCommand( "clear", Con_Clear_f, "clear console history" );
@@ -395,7 +394,7 @@ Con_DestroyConsole
 destroy win32 console
 ================
 */
-void Con_DestroyConsole( void )
+void Wcon_DestroyConsole( void )
 {
 	// last text message into console or log 
 	MsgDev( D_NOTE, "Sys_FreeLibrary: Unloading xash.dll\n" );
@@ -440,7 +439,7 @@ Con_Input
 returned input text 
 ================
 */
-char *Con_Input( void )
+char *Wcon_Input( void )
 {
 	if( s_wcd.consoleText[0] == 0 )
 		return NULL;
@@ -458,7 +457,7 @@ Con_SetFocus
 change focus to console hwnd 
 ================
 */
-void Con_RegisterHotkeys( void )
+void Wcon_RegisterHotkeys( void )
 {
 	SetFocus( s_wcd.hWnd );
 
