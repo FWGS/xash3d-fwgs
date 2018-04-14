@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#ifdef _WIN32
 #include "common.h"
 
 /*
@@ -464,70 +465,4 @@ void Con_RegisterHotkeys( void )
 	// user can hit escape for quit
 	RegisterHotKey( s_wcd.hWnd, QUIT_ON_ESCAPE_ID, 0, VK_ESCAPE );
 }
-
-/*
-===============================================================================
-
-SYSTEM LOG
-
-===============================================================================
-*/
-void Sys_InitLog( void )
-{
-	const char	*mode;
-
-	if( host.change_game && host.type != HOST_DEDICATED )
-		mode = "a";
-	else mode = "w";
-
-	// create log if needed
-	if( s_wcd.log_active )
-	{
-		s_wcd.logfile = fopen( s_wcd.log_path, mode );
-		if( !s_wcd.logfile ) MsgDev( D_ERROR, "Sys_InitLog: can't create log file %s\n", s_wcd.log_path );
-
-		fprintf( s_wcd.logfile, "=================================================================================\n" );
-		fprintf( s_wcd.logfile, "\t%s (build %i) started at %s\n", s_wcd.title, Q_buildnum(), Q_timestamp( TIME_FULL ));
-		fprintf( s_wcd.logfile, "=================================================================================\n" );
-	}
-}
-
-void Sys_CloseLog( void )
-{
-	char	event_name[64];
-
-	// continue logged
-	switch( host.status )
-	{
-	case HOST_CRASHED:
-		Q_strncpy( event_name, "crashed", sizeof( event_name ));
-		break;
-	case HOST_ERR_FATAL:
-		Q_strncpy( event_name, "stopped with error", sizeof( event_name ));
-		break;
-	default:
-		if( !host.change_game ) Q_strncpy( event_name, "stopped", sizeof( event_name ));
-		else Q_strncpy( event_name, host.finalmsg, sizeof( event_name ));
-		break;
-	}
-
-	if( s_wcd.logfile )
-	{
-		fprintf( s_wcd.logfile, "\n");
-		fprintf( s_wcd.logfile, "=================================================================================");
-		if( host.change_game ) fprintf( s_wcd.logfile, "\n\t%s (build %i) %s\n", s_wcd.title, Q_buildnum(), event_name );
-		else fprintf( s_wcd.logfile, "\n\t%s (build %i) %s at %s\n", s_wcd.title, Q_buildnum(), event_name, Q_timestamp( TIME_FULL ));
-		fprintf( s_wcd.logfile, "=================================================================================");
-		if( host.change_game ) fprintf( s_wcd.logfile, "\n" ); // just for tabulate
-
-		fclose( s_wcd.logfile );
-		s_wcd.logfile = NULL;
-	}
-}
-
-void Sys_PrintLog( const char *pMsg )
-{
-	if( !s_wcd.logfile ) return;
-	fprintf( s_wcd.logfile, pMsg );
-	fflush( s_wcd.logfile );
-}
+#endif // _WIN32

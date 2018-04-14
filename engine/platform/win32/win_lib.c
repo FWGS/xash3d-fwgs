@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#ifdef _WIN32
 #include "common.h"
 #include "library.h"
 
@@ -889,3 +890,4 @@ const char *COM_NameForFunction( void *hInstance, dword function )
 
 	return NULL;
 }
+#endif // _WIN32
