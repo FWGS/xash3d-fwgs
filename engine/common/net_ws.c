@@ -13,7 +13,24 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#ifdef _WIN32
+// Winsock
 #include <winsock.h>
+#include <wsipx.h>
+#define socklen_t int //#include <ws2tcpip.h>
+#else
+// BSD sockets
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/select.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+// Errors handling
+#include <errno.h>
+#include <fcntl.h>
+#endif
 #include "common.h"
 #include "netchan.h"
 #include "mathlib.h"
@@ -28,6 +45,11 @@ GNU General Public License for more details.
 #define SPLIT_SIZE			( MAX_ROUTEABLE_PACKET - sizeof( SPLITPACKET ))
 #define NET_MAX_FRAGMENTS		( NET_MAX_FRAGMENT / SPLIT_SIZE )
 
+#ifndef _WIN32 // it seems we need to use WS2 to support it
+#define HAVE_GETADDRINFO
+#endif
+
+#ifdef _WIN32
 // wsock32.dll exports
 static int (_stdcall *pWSACleanup)( void );
 static word (_stdcall *pNtohs)( word netshort );
@@ -81,6 +103,69 @@ static dllfunc_t winsock_funcs[] =
 
 dll_info_t winsock_dll = { "wsock32.dll", winsock_funcs, false };
 
+static dllfunc_t kernel32_funcs[] =
+{
+	{ "InitializeCriticalSection", (void **) &pInitializeCriticalSection },
+	{ "EnterCriticalSection", (void **) &pEnterCriticalSection },
+	{ "LeaveCriticalSection", (void **) &pLeaveCriticalSection },
+	{ "DeleteCriticalSection", (void **) &pDeleteCriticalSection },
+	{ NULL, NULL }
+};
+
+dll_info_t kernel32_dll = { "kernel32.dll", kernel32_funcs, false };
+
+
+static void NET_InitializeCriticalSections( void );
+
+qboolean NET_OpenWinSock( void )
+{
+	if( Sys_LoadLibrary( &kernel32_dll ) )
+		NET_InitializeCriticalSections();
+
+	// initialize the Winsock function vectors (we do this instead of statically linking
+	// so we can run on Win 3.1, where there isn't necessarily Winsock)
+	return Sys_LoadLibrary( &winsock_dll );
+}
+
+void NET_FreeWinSock( void )
+{
+	Sys_FreeLibrary( &winsock_dll );
+}
+#else
+#define pHtons htons
+#define pConnect connect
+#define pInet_Addr inet_addr
+#define pRecvFrom recvfrom
+#define pSendTo sendto
+#define pSocket socket
+#define pIoctlSocket ioctl
+#define pCloseSocket close
+#define pSetSockopt setsockopt
+#define pBind bind
+#define pGetHostName gethostname
+#define pGetSockName getsockname
+#define pGetHs
+#define pRecv recv
+#define pSend send
+#define pInet_Ntoa inet_ntoa
+#define pNtohs ntohs
+#define pGetHostByName gethostbyname
+#define pSelect select
+#define pGetAddrInfo getaddrinfo
+#define SOCKET int
+#define INVALID_SOCKET 0
+#endif
+
+#ifdef __EMSCRIPTEN__
+/* All socket operations are non-blocking already */
+static int ioctl_stub( int d, unsigned long r, ...)
+{
+	return 0;
+}
+#undef pIoctlSocket
+#define pIoctlSocket ioctl_stub
+#endif
+
 typedef struct
 {
 	byte		data[NET_MAX_MESSAGE];
@@ -132,10 +217,12 @@ typedef struct
 	int		split_flags[NET_MAX_FRAGMENTS];
 	long		sequence_number;
 	int		ip_sockets[NS_COUNT];
-	WSADATA		winsockdata;
 	qboolean		initialized;
 	qboolean		configured;
 	qboolean		allow_ip;
+#ifdef _WIN32
+	WSADATA		winsockdata;
+#endif
 } net_state_t;
 
 static net_state_t		net;
@@ -152,39 +239,12 @@ netadr_t			net_local;
 
 /*
 ====================
-NET_OpenWinSock
-
-load wsock32.dll
-====================
-*/
-qboolean NET_OpenWinSock( void )
-{
-	// initialize the Winsock function vectors (we do this instead of statically linking
-	// so we can run on Win 3.1, where there isn't necessarily Winsock)
-	if( Sys_LoadLibrary( &winsock_dll ))
-		return true;
-	return false;
-}
-
-/*
-====================
-NET_FreeWinSock
-
-unload wsock32.dll
-====================
-*/
-void NET_FreeWinSock( void )
-{
-	Sys_FreeLibrary( &winsock_dll );
-}
-
-/*
-====================
 NET_ErrorString
 ====================
 */
 char *NET_ErrorString( void )
 {
+#ifdef _WIN32
 	int	err = WSANOTINITIALISED;
 
 	if( net.initialized )
@@ -238,6 +298,27 @@ char *NET_ErrorString( void )
 	case WSANO_DATA: return "WSANO_DATA";
 	default: return "NO ERROR";
 	}
+#else
+	return strerror( errno );
+#endif
+}
+
+_inline qboolean NET_IsSocketError( int retval )
+{
+#ifdef _WIN32
+	return retval == SOCKET_ERROR ? true : false;
+#else
+	return retval < 0 ? true : false;
+#endif
+}
+
+_inline qboolean NET_IsSocketValid( int socket )
+{
+#ifdef _WIN32
+	return socket != INVALID_SOCKET;
+#else
+	return socket;
+#endif
 }
 
 /*
@@ -278,6 +359,151 @@ static void NET_SockadrToNetadr( struct sockaddr *s, netadr_t *a )
 	}
 }
 
+#if !defined XASH_NO_ASYNC_NS_RESOLVE && ( defined _WIN32 || !defined __EMSCRIPTEN__ )
+#define CAN_ASYNC_NS_RESOLVE
+#endif
+
+#ifdef CAN_ASYNC_NS_RESOLVE
+static void NET_ResolveThread( void );
+#if !defined _WIN32
+#include <pthread.h>
+#define mutex_lock pthread_mutex_lock
+#define mutex_unlock pthread_mutex_unlock
+#define exit_thread( x ) pthread_exit(x)
+#define create_thread( pfn ) !pthread_create( &nsthread.thread, NULL, (pfn), NULL )
+#define detach_thread( x ) pthread_detach(x)
+#define mutex_t  pthread_mutex_t
+#define thread_t pthread_t
+
+void *NET_ThreadStart( void *unused )
+{
+	NET_ResolveThread();
+	return NULL;
+}
+
+#else // WIN32
+struct cs {
+	void* p1;
+	int   i1, i2;
+	void *p2, *p3;
+	uint  i4;
+};
+#define mutex_lock pEnterCriticalSection
+#define mutex_unlock pLeaveCriticalSection
+#define detach_thread( x ) CloseHandle(x)
+#define create_thread( pfn ) nsthread.thread = CreateThread( NULL, 0, pfn, NULL, 0, NULL )
+#define mutex_t  struct cs
+#define thread_t HANDLE
+DWORD WINAPI NET_ThreadStart( LPVOID unused )
+{
+	NET_ResolveThread();
+	ExitThread(0);
+	return 0;
+}
+#endif
+
+#ifdef DEBUG_RESOLVE
+#define RESOLVE_DBG(x) Sys_PrintLog(x)
+#else
+#define RESOLVE_DBG(x)
+#endif //  DEBUG_RESOLVE
+
+static struct nsthread_s
+{
+	mutex_t mutexns;
+	mutex_t mutexres;
+	thread_t thread;
+	int     result;
+	string  hostname;
+	qboolean busy;
+} nsthread
+#ifndef _WIN32
+= { PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER }
+#endif
+;
+
+#ifdef _WIN32
+static void NET_InitializeCriticalSections( void )
+{
+	pInitializeCriticalSection( &nsthread.mutexns );
+	pInitializeCriticalSection( &nsthread.mutexres );
+}
+#endif
+
+void NET_ResolveThread( void )
+{
+#ifdef HAVE_GETADDRINFO
+	struct addrinfo *ai = NULL, *cur;
+	struct addrinfo hints;
+	int sin_addr = 0;
+
+	RESOLVE_DBG( "[resolve thread] starting resolve for " );
+	RESOLVE_DBG( nsthread.hostname );
+	RESOLVE_DBG( " with getaddrinfo\n" );
+	memset( &hints, 0, sizeof( hints ) );
+	hints.ai_family = AF_INET;
+	if( !pGetAddrInfo( nsthread.hostname, NULL, &hints, &ai ) )
+	{
+		for( cur = ai; cur; cur = cur->ai_next ) {
+			if( cur->ai_family == AF_INET ) {
+				sin_addr = *((int*)&((struct sockaddr_in *)cur->ai_addr)->sin_addr);
+				freeaddrinfo( ai );
+				ai = NULL;
+				break;
+			}
+		}
+
+		if( ai )
+			freeaddrinfo( ai );
+	}
+
+	if( sin_addr )
+		RESOLVE_DBG( "[resolve thread] getaddrinfo success\n" );
+	else
+		RESOLVE_DBG( "[resolve thread] getaddrinfo failed\n" );
+	mutex_lock( &nsthread.mutexres );
+	nsthread.result = sin_addr;
+	nsthread.busy = false;
+	RESOLVE_DBG( "[resolve thread] returning result\n" );
+	mutex_unlock( &nsthread.mutexres );
+	RESOLVE_DBG( "[resolve thread] exiting thread\n" );
+#else
+	struct hostent *res;
+
+	RESOLVE_DBG( "[resolve thread] starting resolve for " );
+	RESOLVE_DBG( nsthread.hostname );
+	RESOLVE_DBG( " with gethostbyname\n" );
+
+	mutex_lock( &nsthread.mutexns );
+	RESOLVE_DBG( "[resolve thread] locked gethostbyname mutex\n" );
+	res = pGetHostByName( nsthread.hostname );
+	if(res)
+		RESOLVE_DBG( "[resolve thread] gethostbyname success\n" );
+	else
+		RESOLVE_DBG( "[resolve thread] gethostbyname failed\n" );
+
+	mutex_lock( &nsthread.mutexres );
+	RESOLVE_DBG( "[resolve thread] returning result\n" );
+	if( res )
+		nsthread.result = *(int *)res->h_addr_list[0];
+	else
+		nsthread.result = 0;
+
+	nsthread.busy = false;
+
+	mutex_unlock( &nsthread.mutexns );
+
+	RESOLVE_DBG( "[resolve thread] unlocked gethostbyname mutex\n" );
+
+	mutex_unlock( &nsthread.mutexres );
+
+	RESOLVE_DBG( "[resolve thread] exiting thread\n" );
+#endif
+}
+
+#endif // CAN_ASYNC_NS_RESOLVE
+
+
 /*
 =============
 NET_StringToAdr
@@ -289,8 +515,9 @@ idnewt:28000
 192.246.40.70:28000
 =============
 */
-static qboolean NET_StringToSockaddr( const char *s, struct sockaddr *sadr )
+static int NET_StringToSockaddr( const char *s, struct sockaddr *sadr, qboolean nonblocking )
 {
+	int ip = 0;
 	char	*colon;
 	char	copy[128];
 
@@ -309,22 +536,141 @@ static qboolean NET_StringToSockaddr( const char *s, struct sockaddr *sadr )
 		if( *colon == ':' )
 		{
 			*colon = 0;
-			((struct sockaddr_in *)sadr)->sin_port = pHtons((short)Q_atoi( colon + 1 ));	
+			((struct sockaddr_in *)sadr)->sin_port = pHtons((short)Q_atoi( colon + 1 ));
 		}
 	}
 
-	((struct sockaddr_in *)sadr)->sin_addr.s_addr = pInet_Addr( copy );
-
-	if(((struct sockaddr_in *)sadr)->sin_addr.s_addr == INADDR_NONE )
+	if( copy[0] >= '0' && copy[0] <= '9' )
 	{
-		struct hostent	*h = pGetHostByName( copy );
-
-		if( h == NULL || h->h_addr == NULL )
-			return false;
-
-		((struct sockaddr_in *)sadr)->sin_addr.s_addr = *(uint *)h->h_addr;	
+		*(int *)&((struct sockaddr_in *)sadr)->sin_addr = pInet_Addr( copy );
 	}
-	return true;
+	else
+	{
+#ifdef CAN_ASYNC_NS_RESOLVE
+		qboolean asyncfailed = false;
+#ifdef _WIN32
+		if( pInitializeCriticalSection )
+#endif // _WIN32
+		{
+			if( !nonblocking )
+			{
+#ifdef HAVE_GETADDRINFO
+				struct addrinfo *ai = NULL, *cur;
+				struct addrinfo hints;
+
+				memset( &hints, 0, sizeof( hints ) );
+				hints.ai_family = AF_INET;
+				if( !pGetAddrInfo( copy, NULL, &hints, &ai ) )
+				{
+					for( cur = ai; cur; cur = cur->ai_next )
+					{
+						if( cur->ai_family == AF_INET )
+						{
+							ip = *((int*)&((struct sockaddr_in *)cur->ai_addr)->sin_addr);
+							freeaddrinfo(ai);
+							ai = NULL;
+							break;
+						}
+					}
+
+					if( ai )
+						freeaddrinfo(ai);
+				}
+#else
+				struct hostent *h;
+
+				mutex_lock( &nsthread.mutexns );
+				h = pGetHostByName( copy );
+				if( !h )
+				{
+					mutex_unlock( &nsthread.mutexns );
+					return 0;
+				}
+
+				ip = *(int *)h->h_addr_list[0];
+				mutex_unlock( &nsthread.mutexns );
+#endif
+			}
+			else
+			{
+				mutex_lock( &nsthread.mutexres );
+
+				if( nsthread.busy )
+				{
+					mutex_unlock( &nsthread.mutexres );
+					return 2;
+				}
+
+				if( !Q_strcmp( copy, nsthread.hostname ) )
+				{
+					ip = nsthread.result;
+					nsthread.hostname[0] = 0;
+					detach_thread( nsthread.thread );
+				}
+				else
+				{
+					Q_strncpy( nsthread.hostname, copy, MAX_STRING );
+					nsthread.busy = true;
+					mutex_unlock( &nsthread.mutexres );
+
+					if( create_thread( NET_ThreadStart ) )
+						return 2;
+					else // failed to create thread
+					{
+						MsgDev( D_ERROR, "NET_StringToSockaddr: failed to create thread!\n");
+						nsthread.busy = false;
+						asyncfailed = true;
+					}
+				}
+
+				mutex_unlock( &nsthread.mutexres );
+			}
+		}
+#ifdef _WIN32
+		else
+			asyncfailed = true;
+#else
+		if( asyncfailed )
+#endif // _WIN32
+#endif // CAN_ASYNC_NS_RESOLVE
+		{
+#ifdef HAVE_GETADDRINFO
+			struct addrinfo *ai = NULL, *cur;
+			struct addrinfo hints;
+
+			memset( &hints, 0, sizeof( hints ) );
+			hints.ai_family = AF_INET;
+			if( !pGetAddrInfo( copy, NULL, &hints, &ai ) )
+			{
+				for( cur = ai; cur; cur = cur->ai_next )
+				{
+					if( cur->ai_family == AF_INET )
+					{
+						ip = *((int*)&((struct sockaddr_in *)cur->ai_addr)->sin_addr);
+						freeaddrinfo(ai);
+						ai = NULL;
+						break;
+					}
+				}
+
+				if( ai )
+					freeaddrinfo(ai);
+			}
+#else
+			struct hostent *h;
+			if(!( h = pGetHostByName( copy )))
+				return 0;
+			ip = *(int *)h->h_addr_list[0];
+#endif
+		}
+
+		if( !ip )
+			return 0;
+
+		*(int *)&((struct sockaddr_in *)sadr)->sin_addr = ip;
+	}
+
+	return 1;
 }
 
 /*
@@ -477,15 +823,38 @@ qboolean NET_StringToAdr( const char *string, netadr_t *adr )
 {
 	struct sockaddr s;
 
-	if( !Q_stricmp( string, "localhost" ))
+	memset( adr, 0, sizeof( netadr_t ));
+
+	if( !Q_stricmp( string, "localhost" ) || !Q_stricmp( string, "loopback" ) )
 	{
-		memset( adr, 0, sizeof( netadr_t ));
 		adr->type = NA_LOOPBACK;
 		return true;
 	}
 
-	if( !NET_StringToSockaddr( string, &s ))
+	if( !NET_StringToSockaddr( string, &s, false ))
 		return false;
+	NET_SockadrToNetadr( &s, adr );
+
+	return true;
+}
+
+int NET_StringToAdrNB( const char *string, netadr_t *adr )
+{
+	struct sockaddr s;
+	int res;
+
+	memset( adr, 0, sizeof( netadr_t ));
+	if( !Q_stricmp( string, "localhost" )  || !Q_stricmp( string, "loopback" ) )
+	{
+		adr->type = NA_LOOPBACK;
+		return true;
+	}
+
+	res = NET_StringToSockaddr( string, &s, true );
+
+	if( res == 0 || res == 2 )
+		return res;
+
 	NET_SockadrToNetadr( &s, adr );
 
 	return true;
@@ -758,7 +1127,7 @@ static qboolean NET_LagPacket( qboolean newdata, netsrc_t sock, netadr_t *from, 
 
 	Mem_Free( pPacket );
 
-	return TRUE;
+	return true;
 }
 
 /*
@@ -858,7 +1227,7 @@ queue normal and lagged packets
 qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *length )
 {
 	byte		buf[NET_MAX_FRAGMENT];
-	int		ret = SOCKET_ERROR;
+	int		ret;
 	int		net_socket;
 	int		addr_len;
 	struct sockaddr	addr;
@@ -867,12 +1236,12 @@ qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *len
 
 	net_socket = net.ip_sockets[sock];
 
-	if( net_socket != INVALID_SOCKET )
+	if( NET_IsSocketValid( net_socket ) )
 	{
 		addr_len = sizeof( addr );
 		ret = pRecvFrom( net_socket, buf, sizeof( buf ), 0, (struct sockaddr *)&addr, &addr_len );
 
-		if( ret != SOCKET_ERROR )
+		if( !NET_IsSocketError( ret ) )
 		{
 			NET_SockadrToNetadr( &addr, from );
 
@@ -898,6 +1267,7 @@ qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *len
 		}
 		else
 		{
+#ifdef _WIN32
 			int	err = pWSAGetLastError();
 
 			switch( err )
@@ -911,6 +1281,19 @@ qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *len
 				MsgDev( D_ERROR, "NET_QueuePacket: %s from %s\n", NET_ErrorString(), NET_AdrToString( *from ));
 				break;
 			}
+#else
+			switch( errno )
+			{
+			case EWOULDBLOCK:
+			case ECONNRESET:
+			case ECONNREFUSED:
+			case EMSGSIZE:
+				break;
+			default:	// let's continue even after errors
+				MsgDev( D_ERROR, "NET_QueuePacket: %s from %s\n", NET_ErrorString(), NET_AdrToString( *from ));
+				break;
+			}
+#endif
 		}
 	}
 
@@ -1026,13 +1409,13 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 	else if( to.type == NA_BROADCAST )
 	{
 		net_socket = net.ip_sockets[sock];
-		if( net_socket == INVALID_SOCKET )
+		if( !NET_IsSocketValid( net_socket ) )
 			return;
 	}
 	else if( to.type == NA_IP )
 	{
 		net_socket = net.ip_sockets[sock];
-		if( net_socket == INVALID_SOCKET )
+		if( !NET_IsSocketValid( net_socket ) )
 			return;
 	}
 	else
@@ -1044,24 +1427,38 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 
 	ret = NET_SendLong( sock, net_socket, data, length, 0, &addr, sizeof( addr ));
 
-	if( ret == SOCKET_ERROR )
+	if( NET_IsSocketError( err ))
 	{
-		err = pWSAGetLastError();
+		{
+#ifdef _WIN32
+			err = pWSAGetLastError();
 
-		// WSAEWOULDBLOCK is silent
-		if( err == WSAEWOULDBLOCK )
-			return;
+			// WSAEWOULDBLOCK is silent
+			if( err == WSAEWOULDBLOCK )
+				return;
 
-		// some PPP links don't allow broadcasts
-		if( err == WSAEADDRNOTAVAIL && to.type == NA_BROADCAST )
-			return;
+			// some PPP links don't allow broadcasts
+			if( err == WSAEADDRNOTAVAIL && to.type == NA_BROADCAST )
+				return;
+#else
+			// WSAEWOULDBLOCK is silent
+			if( errno == EWOULDBLOCK )
+				return;
 
-		// let dedicated servers continue after errors
+			// some PPP links don't allow broadcasts
+			if( errno == EADDRNOTAVAIL && to.type == NA_BROADCAST )
+				return;
+#endif
+		}
 		if( host.type == HOST_DEDICATED )
 		{
 			MsgDev( D_ERROR, "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
 		}
+#ifdef _WIN32
 		else if( err == WSAEADDRNOTAVAIL || err == WSAENOBUFS )
+#else
+		else if( err == EADDRNOTAVAIL || err == ENOBUFS )
+#endif
 		{
 			MsgDev( D_ERROR, "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
 		}
@@ -1070,6 +1467,7 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 			Host_Error( "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
 		}
 	}
+
 }
 
 /*
@@ -1141,36 +1539,41 @@ NET_IPSocket
 */
 static int NET_IPSocket( const char *net_interface, int port, qboolean multicast )
 {
+	struct sockaddr_in	addr;
 	int		err, net_socket;
 	uint		optval = 1;
-	struct sockaddr_in	addr;
+	dword		_true = 1;
 
-	if(( net_socket = pSocket( PF_INET, SOCK_DGRAM, IPPROTO_UDP )) == SOCKET_ERROR )
+	if( NET_IsSocketError(( net_socket = pSocket( PF_INET, SOCK_DGRAM, IPPROTO_UDP )) ) )
 	{
-		err = pWSAGetLastError();
+#ifdef _WIN32
+		int err = pWSAGetLastError();
 		if( err != WSAEAFNOSUPPORT )
-			MsgDev( D_WARN, "NET_UDPSocket: port: %d socket: %s\n", port, NET_ErrorString( ));
+#else
+		if( err != EAFNOSUPPORT )
+#endif
+			MsgDev( D_WARN, "NET_UDPSocket: socket = %s\n", NET_ErrorString( ));
 		return INVALID_SOCKET;
 	}
 
-	if( pIoctlSocket( net_socket, FIONBIO, &optval ) == SOCKET_ERROR )
+	if( NET_IsSocketError( pIoctlSocket( net_socket, FIONBIO, &_true ) ) )
 	{
-		MsgDev( D_WARN, "NET_UDPSocket: port: %d ioctl FIONBIO: %s\n", port, NET_ErrorString( ));
+		MsgDev( D_WARN, "NET_UDPSocket: ioctlsocket FIONBIO = %s\n", NET_ErrorString( ));
 		pCloseSocket( net_socket );
 		return INVALID_SOCKET;
 	}
 
 	// make it broadcast capable
-	if( pSetSockopt( net_socket, SOL_SOCKET, SO_BROADCAST, (const char *)&optval, sizeof( optval )) == SOCKET_ERROR )
+	if( NET_IsSocketError( pSetSockopt( net_socket, SOL_SOCKET, SO_BROADCAST, (char *)&_true, sizeof( _true ) ) ) )
 	{
-		MsgDev( D_WARN, "NET_UDPSocket: port: %d setsockopt SO_BROADCAST: %s\n", port, NET_ErrorString( ));
+		MsgDev( D_WARN, "NET_UDPSocket: setsockopt SO_BROADCAST = %s\n", NET_ErrorString( ));
 		pCloseSocket( net_socket );
 		return INVALID_SOCKET;
 	}
 
 	if( Sys_CheckParm( "-reuse" ) || multicast )
 	{
-		if( pSetSockopt( net_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&optval, sizeof( optval )) == SOCKET_ERROR )
+		if( NET_IsSocketError( pSetSockopt( net_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&optval, sizeof( optval )) ) )
 		{
 			MsgDev( D_WARN, "NET_UDPSocket: port: %d setsockopt SO_REUSEADDR: %s\n", port, NET_ErrorString( ));
 			pCloseSocket( net_socket );
@@ -1183,10 +1586,14 @@ static int NET_IPSocket( const char *net_interface, int port, qboolean multicast
 		optval = 16;
 		Con_Printf( "Enabling LOWDELAY TOS option\n" );
 
-		if( pSetSockopt( net_socket, IPPROTO_IP, IP_TOS, (const char *)&optval, sizeof( optval )) == SOCKET_ERROR )
+		if( NET_IsSocketError( pSetSockopt( net_socket, IPPROTO_IP, IP_TOS, (const char *)&optval, sizeof( optval )) ) )
 		{
+#ifdef _WIN32
 			err = pWSAGetLastError();
 			if( err != WSAENOPROTOOPT )
+#else
+			if( errno != ENOPROTOOPT )
+#endif
 				Con_Printf( S_WARN "NET_UDPSocket: port: %d  setsockopt IP_TOS: %s\n", port, NET_ErrorString( ));
 			pCloseSocket( net_socket );
 			return INVALID_SOCKET;
@@ -1195,14 +1602,14 @@ static int NET_IPSocket( const char *net_interface, int port, qboolean multicast
 
 	if( !net_interface[0] || !Q_stricmp( net_interface, "localhost" ))
 		addr.sin_addr.s_addr = INADDR_ANY;
-	else NET_StringToSockaddr( net_interface, (struct sockaddr *)&addr );
+	else NET_StringToSockaddr( net_interface, (struct sockaddr *)&addr, false );
 
 	if( port == PORT_ANY ) addr.sin_port = 0;
 	else addr.sin_port = pHtons((short)port);
 
 	addr.sin_family = AF_INET;
 
-	if( pBind( net_socket, (void *)&addr, sizeof( addr )) == SOCKET_ERROR )
+	if( NET_IsSocketError( pBind( net_socket, (void *)&addr, sizeof( addr )) ) )
 	{
 		MsgDev( D_WARN, "NET_UDPSocket: port: %d bind: %s\n", port, NET_ErrorString( ));
 		pCloseSocket( net_socket );
@@ -1212,7 +1619,7 @@ static int NET_IPSocket( const char *net_interface, int port, qboolean multicast
 	if( Sys_CheckParm( "-loopback" ))
 	{
 		optval = 1;
-		if( pSetSockopt( net_socket, IPPROTO_IP, IP_MULTICAST_LOOP, (const char *)&optval, sizeof( optval )) == SOCKET_ERROR )
+		if( NET_IsSocketError( pSetSockopt( net_socket, IPPROTO_IP, IP_MULTICAST_LOOP, (const char *)&optval, sizeof( optval )) ) )
 			MsgDev( D_WARN, "NET_UDPSocket: port %d setsockopt IP_MULTICAST_LOOP: %s\n", port, NET_ErrorString( ));
 	}
 
@@ -1228,14 +1635,14 @@ static void NET_OpenIP( void )
 {
 	int	port, sv_port = 0, cl_port = 0;
 
-	if( net.ip_sockets[NS_SERVER] == INVALID_SOCKET )
+	if( !NET_IsSocketValid( net.ip_sockets[NS_SERVER] ) )
 	{
 		port = net_iphostport->value;
 		if( !port ) port = net_hostport->value;
 		if( !port ) port = PORT_SERVER; // forcing to default
 		net.ip_sockets[NS_SERVER] = NET_IPSocket( net_ipname->string, port, false );
 
-		if( net.ip_sockets[NS_SERVER] == INVALID_SOCKET && host.type == HOST_DEDICATED )
+		if( !NET_IsSocketValid( net.ip_sockets[NS_SERVER] ) && host.type == HOST_DEDICATED )
 			Host_Error( "Couldn't allocate dedicated server IP port %d.\n", port );
 		sv_port = port;
 	}
@@ -1243,14 +1650,14 @@ static void NET_OpenIP( void )
 	// dedicated servers don't need client ports
 	if( host.type == HOST_DEDICATED ) return;
 
-	if( net.ip_sockets[NS_CLIENT] == INVALID_SOCKET )
+	if( !NET_IsSocketValid( net.ip_sockets[NS_CLIENT] ) )
 	{
 		port = net_ipclientport->value;
 		if( !port ) port = net_clientport->value;
 		if( !port ) port = PORT_ANY; // forcing to default
 		net.ip_sockets[NS_CLIENT] = NET_IPSocket( net_ipname->string, port, false );
 
-		if( net.ip_sockets[NS_CLIENT] == INVALID_SOCKET )
+		if( !NET_IsSocketValid( net.ip_sockets[NS_CLIENT] ) )
 			net.ip_sockets[NS_CLIENT] = NET_IPSocket( net_ipname->string, PORT_ANY, false );
 		cl_port = port;
 	}
@@ -1291,7 +1698,7 @@ void NET_GetLocalAddress( void )
 		{
 			namelen = sizeof( address );
 
-			if( pGetSockName( net.ip_sockets[NS_SERVER], (struct sockaddr *)&address, &namelen ) == SOCKET_ERROR )
+			if( NET_IsSocketError( pGetSockName( net.ip_sockets[NS_SERVER], (struct sockaddr *)&address, &namelen ) ) )
 			{
 				// this may happens if multiple clients running on single machine
 				MsgDev( D_ERROR, "Could not get TCP/IP address. Reason:  %s\n", NET_ErrorString( ));
@@ -1461,6 +1868,7 @@ void NET_Init( void )
 		net.ip_sockets[i] = INVALID_SOCKET;
 	}
 
+#ifdef _WIN32
 	if( !NET_OpenWinSock( ))	// loading wsock32.dll
 	{
 		MsgDev( D_ERROR, "network failed to load wsock32.dll.\n" );
@@ -1473,6 +1881,7 @@ void NET_Init( void )
 		NET_FreeWinSock();
 		return;
 	}
+#endif
 
 	if( Sys_CheckParm( "-noip" ))
 		net.allow_ip = false;
@@ -1505,7 +1914,9 @@ void NET_Shutdown( void )
 	NET_ClearLagData( true, true );
 
 	NET_Config( false );
+#ifdef _WIN32
 	pWSACleanup();
 	NET_FreeWinSock();
+#endif
 	net.initialized = false;
 }
