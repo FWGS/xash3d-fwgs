@@ -98,6 +98,9 @@ typedef struct hud_player_info_s
 	short		bottomcolor;
 } hud_player_info_t;
 
+typedef struct event_args_s event_args_t;
+typedef struct screenfade_s screenfade_t;
+
 typedef struct cl_enginefuncs_s
 {
 	// sprite handlers
@@ -195,14 +198,14 @@ typedef struct cl_enginefuncs_s
 	void	(*pfnWeaponAnim)( int iAnim, int body );
 	float	(*pfnRandomFloat)( float flLow, float flHigh );	
 	long	(*pfnRandomLong)( long lLow, long lHigh );
-	void	(*pfnHookEvent)( char *name, void ( *pfnEvent )( struct event_args_s *args ));
+	void	(*pfnHookEvent)( char *name, void ( *pfnEvent )( event_args_t *args ));
 	int	(*Con_IsVisible) ();
 	const char *(*pfnGetGameDirectory)( void );
 	struct cvar_s *(*pfnGetCvarPointer)( const char *szName );
 	const char *(*Key_LookupBinding)( const char *pBinding );
 	const char *(*pfnGetLevelName)( void );
-	void	(*pfnGetScreenFade)( struct screenfade_s *fade );
-	void	(*pfnSetScreenFade)( struct screenfade_s *fade );
+	void	(*pfnGetScreenFade)( screenfade_t *fade );
+	void	(*pfnSetScreenFade)( screenfade_t *fade );
 	void*	(*VGui_GetPanel)( );
 	void	(*VGui_ViewportPaintBackground)( int extents[4] );
 
