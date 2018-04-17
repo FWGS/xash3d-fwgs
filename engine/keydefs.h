@@ -71,6 +71,7 @@
 #define K_KP_PLUS		174
 #define K_CAPSLOCK		175
 #define K_KP_NUMLOCK	176
+#define K_WIN			177
 	
 //
 // joystick buttons
@@ -85,20 +86,50 @@
 // the normal binding process
 //
 #define K_AUX1		207
+#define K_A_BUTTON	K_AUX1
+
 #define K_AUX2		208
+#define K_B_BUTTON	K_AUX2
+
 #define K_AUX3		209
+#define K_X_BUTTON	K_AUX3
+
 #define K_AUX4		210
+#define K_Y_BUTTON	K_AUX4
+
 #define K_AUX5		211
+#define K_L1_BUTTON	K_AUX5
+
 #define K_AUX6		212
-#define K_AUX7		213
-#define K_AUX8		214
-#define K_AUX9		215
+#define K_R1_BUTTON K_AUX6
+
+#define K_AUX7		  213
+#define K_BACK_BUTTON K_AUX7
+
+#define K_AUX8		  214
+#define K_MODE_BUTTON K_AUX8
+
+#define K_AUX9		   215
+#define K_START_BUTTON K_AUX9
+
 #define K_AUX10		216
+#define K_LSTICK	K_AUX10
+
 #define K_AUX11		217
+#define K_RSTICK	K_AUX11
+
 #define K_AUX12		218
+#define K_L2_BUTTON	K_AUX12
+
 #define K_AUX13		219
+#define K_R2_BUTTON K_AUX13
+
 #define K_AUX14		220
+#define K_C_BUTTON  K_AUX14
+
 #define K_AUX15		221
+#define K_Z_BUTTON  K_AUX15
+
 #define K_AUX16		222
 #define K_AUX17		223
 #define K_AUX18		224
@@ -125,8 +156,8 @@
 // mouse buttons generate virtual keys
 //
 #define K_MOUSE1		241
-#define K_MOUSE2		242
-#define K_MOUSE3		243
+#define K_MOUSE2		243
+#define K_MOUSE3		242
 #define K_MOUSE4		244
 #define K_MOUSE5		245
 
