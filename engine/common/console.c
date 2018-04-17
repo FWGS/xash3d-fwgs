@@ -25,6 +25,12 @@ GNU General Public License for more details.
 convar_t	*con_notifytime;
 convar_t	*scr_conspeed;
 convar_t	*con_fontsize;
+convar_t	*con_charset;
+convar_t	*con_fontscale;
+convar_t	*con_fontnum;
+
+static int g_codepage = 0;
+static qboolean g_utf8 = false;
 
 #define CON_TIMES		4	// notify lines
 #define CON_MAX_TIMES	64	// notify max lines
@@ -636,12 +642,29 @@ INTERNAL RESOURCE
 */
 static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 {
+	const char *path = NULL;
+	dword crc = 0;
+
 	if( font->valid ) return; // already loaded
+
+	// replace default fonts.wad textures by current charset's font
+	if( !CRC32_File( &crc, "fonts.wad" ) || crc == 0x3c0a0029 )
+	{
+		const char *path2 = va("font%i_%s.fnt", fontNumber, Cvar_VariableString( "con_charset" ) );
+		if( FS_FileExists( path2, false ) )
+			path = path2;
+	}
 
 	// loading conchars
 	if( Sys_CheckParm( "-oldfont" ))
-		Con_LoadVariableWidthFont( "gfx.wad/conchars.fnt", font );
-	else Con_LoadVariableWidthFont( va( "fonts.wad/font%i", fontNumber ), font );
+		Con_LoadVariableWidthFont( "gfx/conchars.fnt", font );
+	else
+	{
+		if( !path )
+			path = va( "fonts/font%i", fontNumber );
+
+		Con_LoadVariableWidthFont( path, font );
+	}
 
 	// quake fixed font as fallback
 	if( !font->valid ) Con_LoadFixedWidthFont( "gfx/conchars", font );
@@ -669,7 +692,150 @@ static void Con_LoadConchars( void )
 
 	// sets the current font
 	con.lastUsedFont = con.curFont = &con.chars[fontSize];
-	
+}
+
+// CP1251 table
+
+int table_cp1251[64] = {
+	0x0402, 0x0403, 0x201A, 0x0453, 0x201E, 0x2026, 0x2020, 0x2021,
+	0x20AC, 0x2030, 0x0409, 0x2039, 0x040A, 0x040C, 0x040B, 0x040F,
+	0x0452, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+	0x007F, 0x2122, 0x0459, 0x203A, 0x045A, 0x045C, 0x045B, 0x045F,
+	0x00A0, 0x040E, 0x045E, 0x0408, 0x00A4, 0x0490, 0x00A6, 0x00A7,
+	0x0401, 0x00A9, 0x0404, 0x00AB, 0x00AC, 0x00AD, 0x00AE, 0x0407,
+	0x00B0, 0x00B1, 0x0406, 0x0456, 0x0491, 0x00B5, 0x00B6, 0x00B7,
+	0x0451, 0x2116, 0x0454, 0x00BB, 0x0458, 0x0405, 0x0455, 0x0457
+};
+
+/*
+============================
+Con_UtfProcessChar
+
+Convert utf char to current font's single-byte encoding
+============================
+*/
+int Con_UtfProcessCharForce( int in )
+{
+	static int m = -1, k = 0; //multibyte state
+	static int uc = 0; //unicode char
+
+	if( !in )
+	{
+		m = -1;
+		k = 0;
+		uc = 0;
+		return 0;
+	}
+
+	// Get character length
+	if(m == -1)
+	{
+		uc = 0;
+		if( in >= 0xF8 )
+			return 0;
+		else if( in >= 0xF0 )
+			uc = in & 0x07, m = 3;
+		else if( in >= 0xE0 )
+			uc = in & 0x0F, m = 2;
+		else if( in >= 0xC0 )
+			uc = in & 0x1F, m = 1;
+		else if( in <= 0x7F)
+			return in; //ascii
+		// return 0 if we need more chars to decode one
+		k=0;
+		return 0;
+	}
+	// get more chars
+	else if( k <= m )
+	{
+		uc <<= 6;
+		uc += in & 0x3F;
+		k++;
+	}
+	if( in > 0xBF || m < 0 )
+	{
+		m = -1;
+		return 0;
+	}
+	if( k == m )
+	{
+		k = m = -1;
+		if( g_codepage == 1251 )
+		{
+			// cp1251 now
+			if( uc >= 0x0410 && uc <= 0x042F )
+				return uc - 0x410 + 0xC0;
+			if( uc >= 0x0430 && uc <= 0x044F )
+				return uc - 0x430 + 0xE0;
+			else
+			{
+				int i;
+				for( i = 0; i < 64; i++ )
+					if( table_cp1251[i] == uc )
+						return i + 0x80;
+			}
+		}
+		else if( g_codepage == 1252 )
+		{
+			if( uc < 255 )
+				return uc;
+		}
+
+		// not implemented yet
+		return '?';
+	}
+	return 0;
+}
+
+int GAME_EXPORT Con_UtfProcessChar( int in )
+{
+	if( !g_utf8 )
+		return in;
+	else
+		return Con_UtfProcessCharForce( in );
+}
+/*
+=================
+Con_UtfMoveLeft
+
+get position of previous printful char
+=================
+*/
+int Con_UtfMoveLeft( char *str, int pos )
+{
+	int i, k = 0;
+	// int j;
+	if( !g_utf8 )
+		return pos - 1;
+	Con_UtfProcessChar( 0 );
+	if(pos == 1) return 0;
+	for( i = 0; i < pos-1; i++ )
+		if( Con_UtfProcessChar( (unsigned char)str[i] ) )
+			k = i+1;
+	Con_UtfProcessChar( 0 );
+	return k;
+}
+
+/*
+=================
+Con_UtfMoveRight
+
+get next of previous printful char
+=================
+*/
+int Con_UtfMoveRight( char *str, int pos, int length )
+{
+	int i;
+	if( !g_utf8 )
+		return pos + 1;
+	Con_UtfProcessChar( 0 );
+	for( i = pos; i <= length; i++ )
+	{
+		if( Con_UtfProcessChar( (unsigned char)str[i] ) )
+			return i+1;
+	}
+	Con_UtfProcessChar( 0 );
+	return pos+1;
 }
 
 static void Con_DrawCharToConback( int num, byte *conchars, byte *dest )
@@ -942,6 +1108,9 @@ void Con_Init( void )
 	scr_conspeed = Cvar_Get( "scr_conspeed", "600", FCVAR_ARCHIVE, "console moving speed" );
 	con_notifytime = Cvar_Get( "con_notifytime", "3", FCVAR_ARCHIVE, "notify time to live" );
 	con_fontsize = Cvar_Get( "con_fontsize", "1", FCVAR_ARCHIVE, "console font number (0, 1 or 2)" );
+	con_charset = Cvar_Get( "con_charset", "cp1251", FCVAR_ARCHIVE, "console font charset (only cp1251 supported now)" );
+	con_fontscale = Cvar_Get( "con_fontscale", "1.0", FCVAR_ARCHIVE, "scale font texture" );
+	con_fontnum = Cvar_Get( "con_fontnum", "-1", FCVAR_ARCHIVE, "console font number (0, 1 or 2), -1 for autoselect" );
 
 	// init the console buffer
 	con.bufsize = CON_TEXTSIZE;
@@ -2290,6 +2459,30 @@ void Con_RunConsole( void )
 		con.vislines += lines_per_frame;
 		if( con.showlines < con.vislines )
 			con.vislines = con.showlines;
+	}
+
+	if( FBitSet( con_charset->flags,   FCVAR_CHANGED ) ||
+		FBitSet( con_fontscale->flags, FCVAR_CHANGED ) ||
+		FBitSet( con_fontnum->flags,   FCVAR_CHANGED ) ||
+		FBitSet( cl_charset->flags,    FCVAR_CHANGED ) )
+	{
+		// update codepage parameters
+		g_codepage = 0;
+		if( !Q_stricmp( con_charset->string, "cp1251" ) )
+			g_codepage = 1251;
+		else if( !Q_stricmp( con_charset->string, "cp1252" ) )
+			g_codepage = 1252;
+
+		g_utf8 = !Q_stricmp( cl_charset->string, "utf-8" );
+		Con_InvalidateFonts();
+		Con_LoadConchars();
+		cls.creditsFont.valid = false;
+		SCR_LoadCreditsFont();
+		ClearBits( con_charset->flags,   FCVAR_CHANGED );
+		ClearBits( con_fontnum->flags,   FCVAR_CHANGED );
+		ClearBits( con_fontscale->flags, FCVAR_CHANGED );
+		ClearBits( cl_charset->flags,    FCVAR_CHANGED );
+
 	}
 }
 
