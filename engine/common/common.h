@@ -208,6 +208,8 @@ typedef enum
 #define FS_Title()		SI.GameInfo->title
 #define GameState		(&host.game)
 
+#define FORCE_DRAW_VERSION_TIME 5.0f // draw version for 5 seconds
+
 #ifdef _DEBUG
 void DBG_AssertFunction( qboolean fExpr, const char* szExpr, const char* szFile, int szLine, const char* szMessage );
 #define Assert( f )		DBG_AssertFunction( f, #f, __FILE__, __LINE__, NULL )
@@ -281,7 +283,18 @@ typedef struct gameinfo_s
 	int		max_tents;	// min temp ents is 300, max is 2048
 	int		max_beams;	// min beams is 64, max beams is 512
 	int		max_particles;	// min particles is 4096, max particles is 32768
+
+	char		game_dll_linux[64];	// custom path for game.dll
+	char		game_dll_osx[64];	// custom path for game.dll
+	char		client_lib[64];	// custom name of client library
 } gameinfo_t;
+
+typedef enum
+{
+	GAME_NORMAL,
+	GAME_SINGLEPLAYER_ONLY,
+	GAME_MULTIPLAYER_ONLY
+} gametype_t;
 
 typedef struct sysinfo_s
 {
@@ -451,6 +464,7 @@ typedef struct host_parm_s
 	qboolean		mouse_visible;	// vgui override cursor control
 	qboolean		shutdown_issued;	// engine is shutting down
 	qboolean		force_draw_version;	// used when fraps is loaded
+	float			force_draw_version_time;
 	qboolean		write_to_clipboard;	// put image to clipboard instead of disk
 	qboolean		apply_game_config;	// when true apply only to game cvars and ignore all other commands
 	qboolean		config_executed;	// a bit who indicated was config.cfg already executed e.g. from valve.rc
@@ -478,6 +492,7 @@ typedef struct host_parm_s
 
 	struct decallist_s	*decalList;	// used for keep decals, when renderer is restarted or changed
 	int		numdecals;
+
 } host_parm_t;
 
 extern host_parm_t	host;
@@ -505,6 +520,7 @@ const char *COM_FileWithoutPath( const char *in );
 byte *W_LoadLump( wfile_t *wad, const char *lumpname, size_t *lumpsizeptr, const char type );
 void W_Close( wfile_t *wad );
 byte *FS_LoadFile( const char *path, long *filesizeptr, qboolean gamedironly );
+byte *FS_LoadDirectFile( const char *path, long *filesizeptr );
 qboolean FS_WriteFile( const char *filename, const void *data, long len );
 qboolean COM_ParseVector( char **pfile, float *v, size_t size );
 void COM_NormalizeAngles( vec3_t angles );
@@ -526,6 +542,7 @@ long FS_FileTime( const char *filename, qboolean gamedironly );
 int FS_Print( file_t *file, const char *msg );
 qboolean FS_Rename( const char *oldname, const char *newname );
 qboolean FS_FileExists( const char *filename, qboolean gamedironly );
+qboolean FS_SysFileExists( const char *path, qboolean casesensitive );
 qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize );
 qboolean FS_Delete( const char *path );
 int FS_UnGetc( file_t *file, byte c );
@@ -910,6 +927,7 @@ int Key_StringToKeynum( const char *str );
 int Key_GetKey( const char *binding );
 void Key_EnumCmds_f( void );
 void Key_SetKeyDest( int key_dest );
+void Key_EnableTextInput( qboolean enable, qboolean force );
 
 #include "avi/avi.h"
 
@@ -1026,7 +1044,7 @@ void Cmd_Null_f( void );
 // soundlib shared exports
 qboolean S_Init( void );
 void S_Shutdown( void );
-void S_Activate( qboolean active, void *hInst );
+void S_Activate( qboolean active );
 void S_StopSound( int entnum, int channel, const char *soundname );
 int S_GetCurrentStaticSounds( soundlist_t *pout, int size );
 void S_StopBackgroundTrack( void );
@@ -1036,6 +1054,13 @@ void S_StopAllSounds( qboolean ambient );
 void BuildGammaTable( float gamma, float brightness );
 byte LightToTexGamma( byte b );
 byte TextureToGamma( byte b );
+
+//
+// identification.c
+//
+void ID_Init( void );
+const char *ID_GetMD5( void );
+void GAME_EXPORT ID_SetCustomClientID( const char *id );
 
 #ifdef __cplusplus
 }

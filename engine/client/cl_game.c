@@ -29,6 +29,9 @@ GNU General Public License for more details.
 #include "library.h"
 #include "vgui_draw.h"
 #include "sound.h"		// SND_STOP_LOOPING
+#ifdef XASH_SDL
+#include <SDL.h>
+#endif
 
 #define MAX_LINELENGTH	80
 #define MAX_TEXTCHANNELS	8		// must be power of two (GoldSrc uses 4 channels)
@@ -1596,7 +1599,7 @@ pfnGetScreenInfo
 get actual screen info
 =============
 */
-static int pfnGetScreenInfo( SCREENINFO *pscrinfo )
+int CL_GetScreenInfo( SCREENINFO *pscrinfo )
 {
 	// setup screen info
 	clgame.scrInfo.iSize = sizeof( clgame.scrInfo );
@@ -2001,19 +2004,18 @@ static float pfnGetClientMaxspeed( void )
 
 /*
 =============
-pfnGetMousePosition
+CL_GetMousePosition
 
 =============
 */
-static void pfnGetMousePosition( int *mx, int *my )
+void CL_GetMousePosition( int *mx, int *my )
 {
-	POINT	curpos;
-
-	GetCursorPos( &curpos );
-	ScreenToClient( host.hWnd, &curpos );
-
-	if( mx ) *mx = curpos.x;
-	if( my ) *my = curpos.y;
+#ifdef XASH_SDL
+	SDL_GetMouseState( mx, my );
+#else
+	if( mx ) *mx = 0;
+	if( my ) *my = 0;
+#endif
 }
 
 /*
@@ -2723,7 +2725,10 @@ pfnGetMousePos
 */
 void pfnGetMousePos( struct tagPOINT *ppt )
 {
-	GetCursorPos( ppt );
+	if( !ppt )
+		return;
+
+	CL_GetMousePosition( &ppt->x, &ppt->y );
 }
 
 /*
@@ -2734,7 +2739,9 @@ pfnSetMousePos
 */
 void pfnSetMousePos( int mx, int my )
 {
-	SetCursorPos( mx, my );
+#ifdef XASH_SDL
+	SDL_WarpMouseInWindow( host.hWnd, mx, my );
+#endif
 }
 
 /*
@@ -2984,7 +2991,7 @@ int TriSpriteTexture( model_t *pSpriteModel, int frame )
 	if( gl_texturenum <= 0 || gl_texturenum > MAX_TEXTURES )
 		gl_texturenum = tr.defaultTexture;
 
-	GL_Bind( GL_TEXTURE0, gl_texturenum );
+	GL_Bind( XASH_TEXTURE0, gl_texturenum );
 
 	return 1;
 }
@@ -3665,7 +3672,7 @@ static cl_enginefunc_t gEngfuncs =
 	SPR_DisableScissor,
 	pfnSPR_GetList,
 	CL_FillRGBA,
-	pfnGetScreenInfo,
+	CL_GetScreenInfo,
 	pfnSetCrosshair,
 	pfnCvar_RegisterClientVariable,
 	Cvar_VariableValue,
@@ -3702,7 +3709,7 @@ static cl_enginefunc_t gEngfuncs =
 	pfnGetClientMaxspeed,
 	COM_CheckParm,
 	Key_Event,
-	pfnGetMousePosition,
+	CL_GetMousePosition,
 	pfnIsNoClipping,
 	CL_GetLocalPlayer,
 	pfnGetViewModel,

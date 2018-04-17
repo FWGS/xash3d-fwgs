@@ -111,7 +111,7 @@ Studio models are position independent, so the cache manager can move them.
 #define STUDIO_HAS_BBOX		0x0004
 #define STUDIO_HAS_CHROME		0x0008	// if any of the textures have chrome on them
 
-typedef struct
+typedef struct studiohdr_s
 {
 	int		ident;
 	int		version;
@@ -199,7 +199,7 @@ typedef struct
 } studioseqhdr_t;
 
 // bones
-typedef struct 
+typedef struct mstudiobone_s
 {
 	char		name[32];		// bone name for symbolic links
 	int		parent;		// parent bone
@@ -258,7 +258,7 @@ typedef struct
 } mstudioseqgroup_t;
 
 // sequence descriptions
-typedef struct
+typedef struct mstudioseqdesc_s
 {
 	char		label[32];	// sequence label
 
@@ -324,7 +324,7 @@ typedef struct
 	vec3_t		vectors[3];
 } mstudioattachment_t;
 
-typedef struct
+typedef struct mstudioanim_s
 {
 	unsigned short	offset[6];
 } mstudioanim_t;

@@ -116,6 +116,7 @@ typedef enum
 {
 	GLES_WRAPPER_NONE = 0,		// native GLES
 	GLES_WRAPPER_NANOGL,		// used on GLES platforms
+	GLES_WRAPPER_WES,		// used on GLES platforms
 } gles_wrapper_t;
 
 // 30 bytes here
@@ -229,7 +230,7 @@ typedef struct render_api_s
 	void		(*Host_Error)( const char *error, ... ); // cause Host Error
 	void*		( *pfnGetModel )( int modelindex );
 	float		(*pfnTime)( void );				// Sys_DoubleTime
-	void		(*Cvar_Set)( char *name, char *value );
+	void		(*Cvar_Set)( const char *name, const char *value );
 	void		(*S_FadeMusicVolume)( float fadePercent );	// fade background track (0-100 percents)
 	void		(*SetRandomSeed)( long lSeed );		// set custom seed for RANDOM_FLOAT\RANDOM_LONG for predictable random
 	// ONLY ADD NEW FUNCTIONS TO THE END OF THIS STRUCT.  INTERFACE VERSION IS FROZEN AT 37

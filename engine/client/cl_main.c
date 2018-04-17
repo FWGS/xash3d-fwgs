@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "input.h"
 #include "kbutton.h"
 #include "vgui_draw.h"
+#include "library.h"
 
 #define MAX_TOTAL_CMDS		32
 #define MAX_CMD_BUFFER		8000
@@ -63,6 +64,7 @@ convar_t	*cl_cmdrate;
 convar_t	*cl_interp;
 convar_t	*cl_dlmax;
 convar_t	*cl_lw;
+convar_t	*cl_charset;
 
 //
 // userinfo
@@ -974,38 +976,6 @@ void CL_Drop( void )
 
 /*
 =======================
-CL_GetCDKeyHash()
-
-Connections will now use a hashed cd key value
-=======================
-*/
-char *CL_GetCDKeyHash( void )
-{
-	const char	*keyBuffer;
-	static char	szHashedKeyBuffer[256];
-	int		nKeyLength = 0;
-	byte		digest[17]; // The MD5 Hash
-	MD5Context_t	ctx;
-
-	keyBuffer = Sys_GetMachineKey( &nKeyLength );
-
-	// now get the md5 hash of the key
-	memset( &ctx, 0, sizeof( ctx ));
-	memset( digest, 0, sizeof( digest ));
-	
-	MD5Init( &ctx );
-	MD5Update( &ctx, (byte *)keyBuffer, nKeyLength );
-	MD5Final( digest, &ctx );
-	digest[16] = '\0';
-
-	memset( szHashedKeyBuffer, 0, 256 );
-	Q_strncpy( szHashedKeyBuffer, MD5_Print( digest ), sizeof( szHashedKeyBuffer ));
-
-	return szHashedKeyBuffer;
-}
-
-/*
-=======================
 CL_SendConnectPacket
 
 We have gotten a challenge from the server, so try and
@@ -1016,7 +986,7 @@ void CL_SendConnectPacket( void )
 {
 	char	protinfo[MAX_INFO_STRING];
 	char	*qport;
-	char	*key;
+	const char	*key;
 	netadr_t	adr;
 
 	if( !NET_StringToAdr( cls.servername, &adr ))
@@ -1028,7 +998,7 @@ void CL_SendConnectPacket( void )
 
 	if( adr.port == 0 ) adr.port = MSG_BigShort( PORT_SERVER );
 	qport = Cvar_VariableString( "net_qport" );
-	key = CL_GetCDKeyHash();
+	key = ID_GetMD5();
 
 	memset( protinfo, 0, sizeof( protinfo ));
 	Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
@@ -1771,8 +1741,9 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			return;
 		}
 
-		ShowWindow( host.hWnd, SW_RESTORE );
-		SetForegroundWindow ( host.hWnd );
+#ifdef XASH_SDL
+		SDL_ShowWindow( host.hWnd );
+#endif
 		args = MSG_ReadString( msg );
 		Cbuf_AddText( args );
 		Cbuf_AddText( "\n" );
@@ -1888,7 +1859,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 					nr->pfnFunc( &nr->resp );
 
 					// throw the list, now it will be stored in user area
-					prev = &((net_adrlist_t *)nr->resp.response);
+					prev = &nr->resp.response;
 
 					while( 1 )
 					{
@@ -2548,6 +2519,7 @@ void CL_InitLocal( void )
 	cl_solid_players = Cvar_Get( "cl_solid_players", "1", 0, "Make all players not solid (can't traceline them)" );
 	cl_interp = Cvar_Get( "ex_interp", "0.1", FCVAR_ARCHIVE, "Interpolate object positions starting this many seconds in past" ); 
 	cl_timeout = Cvar_Get( "cl_timeout", "60", 0, "connect timeout (in-seconds)" );
+	cl_charset = Cvar_Get( "cl_charset", "utf-8", FCVAR_ARCHIVE, "1-byte charset to use (iconv style)" );
 
 	rcon_client_password = Cvar_Get( "rcon_password", "", 0, "remote control client password" );
 	rcon_address = Cvar_Get( "rcon_address", "", 0, "remote control address" );
@@ -2794,7 +2766,10 @@ void CL_Init( void )
 	// unreliable buffer. unsed for unreliable commands and voice stream
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));
 
-	if( !CL_LoadProgs( va( "%s/client.dll", GI->dll_path )))
+	IN_TouchInit();
+
+	COM_ResetLibraryError();
+	if( !CL_LoadProgs( va( "%s/%s", GI->dll_path, GI->client_lib)))
 		Host_Error( "can't initialize client.dll\n" );
 
 	cls.initialized = true;

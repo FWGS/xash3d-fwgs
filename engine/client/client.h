@@ -535,6 +535,8 @@ typedef struct
 	long		logo_xres;
 	long		logo_yres;
 	float		logo_length;
+
+	qboolean use_text_api;
 } gameui_static_t;
 
 typedef struct
@@ -688,6 +690,7 @@ extern convar_t	*gl_showtextures;
 extern convar_t	*cl_bmodelinterp;
 extern convar_t	*cl_righthand;
 extern convar_t	*cl_lw;		// local weapons
+extern convar_t	*cl_charset;
 extern convar_t	*cl_showevents;
 extern convar_t	*scr_centertime;
 extern convar_t	*scr_viewsize;
@@ -816,10 +819,12 @@ model_t *CL_LoadModel( const char *modelname, int *index );
 HSPRITE pfnSPR_Load( const char *szPicName );
 HSPRITE pfnSPR_LoadExt( const char *szPicName, uint texFlags );
 void PicAdjustSize( float *x, float *y, float *w, float *h );
+int CL_GetScreenInfo( SCREENINFO *pscrinfo );
 void CL_FillRGBA( int x, int y, int width, int height, int r, int g, int b, int a );
 void CL_PlayerTrace( float *start, float *end, int traceFlags, int ignore_pe, pmtrace_t *tr );
 void CL_PlayerTraceExt( float *start, float *end, int traceFlags, int (*pfnIgnore)( physent_t *pe ), pmtrace_t *tr );
 void CL_SetTraceHull( int hull );
+void CL_GetMousePosition( int *mx, int *my ); // TODO: move to input
 
 _inline cl_entity_t *CL_EDICT_NUM( int n )
 {
@@ -982,6 +987,10 @@ void Con_DrawDebug( void );
 void Con_RunConsole( void );
 void Con_DrawConsole( void );
 void Con_DrawVersion( void );
+int Con_UtfProcessChar( int in );
+int Con_UtfProcessCharForce( int in );
+int Con_UtfMoveLeft( char *str, int pos );
+int Con_UtfMoveRight( char *str, int pos, int length );
 void Con_DrawStringLen( const char *pText, int *length, int *height );
 int Con_DrawString( int x, int y, const char *string, rgba_t setColor );
 int Con_DrawCharacter( int x, int y, int number, rgba_t color );
@@ -994,6 +1003,10 @@ void Con_RestoreFont( void );
 void Key_Console( int key );
 void Key_Message( int key );
 void Con_FastClose( void );
+void Con_Bottom( void );
+void Con_Top( void );
+void Con_PageDown( int lines );
+void Con_PageUp( int lines );
 
 //
 // s_main.c
@@ -1033,6 +1046,7 @@ qboolean UI_CreditsActive( void );
 void UI_CharEvent( int key );
 qboolean UI_MouseInRect( void );
 qboolean UI_IsVisible( void );
+void UI_AddTouchButtonToList( const char *name, const char *texture, const char *command, unsigned char *color, int flags );
 void pfnPIC_Set( HIMAGE hPic, int r, int g, int b, int a );
 void pfnPIC_Draw( int x, int y, int width, int height, const wrect_t *prc );
 void pfnPIC_DrawTrans( int x, int y, int width, int height, const wrect_t *prc );

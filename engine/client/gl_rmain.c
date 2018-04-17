@@ -1115,11 +1115,11 @@ void R_EndFrame( void )
 	// flush any remaining 2D bits
 	R_Set2DMode( false );
 
-	if( !pwglSwapBuffers( glw_state.hDC ))
-	{
-		Con_Printf( S_ERROR "failed to swap buffers\n" );
-		Host_NewInstance( va("#%s", GI->gamefolder ), "stopped" );
-	}
+#ifdef XASH_SDL
+	SDL_GL_SwapWindow( host.hWnd );
+#elif defined __ANDROID__ // For direct android backend
+	Android_SwapBuffers();
+#endif
 }
 
 /*

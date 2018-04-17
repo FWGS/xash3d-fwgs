@@ -441,27 +441,15 @@ void R_AliasInit( void );
 //
 // gl_warp.c
 //
-void R_InitSkyClouds( struct mip_s *mt, struct texture_s *tx, qboolean custom_palette );
+typedef struct mip_s mip_t;
+void R_InitSkyClouds( mip_t *mt, struct texture_s *tx, qboolean custom_palette );
 void R_AddSkyBoxSurface( msurface_t *fa );
 void R_ClearSkyBox( void );
 void R_DrawSkyBox( void );
 void R_DrawClouds( void );
 void EmitWaterPolys( msurface_t *warp, qboolean reverse );
 
-//
-// gl_vidnt.c
-//
-#define GL_CheckForErrors() GL_CheckForErrors_( __FILE__, __LINE__ )
-void GL_CheckForErrors_( const char *filename, const int fileline );
-const char *VID_GetModeString( int vid_mode );
-void *GL_GetProcAddress( const char *name );
-void GL_UpdateSwapInterval( void );
-qboolean GL_DeleteContext( void );
-qboolean GL_Support( int r_ext );
-void VID_CheckChanges( void );
-int GL_MaxTextureUnits( void );
-qboolean R_Init( void );
-void R_Shutdown( void );
+#include "vid_common.h"
 
 //
 // renderer exports
@@ -542,9 +530,12 @@ enum
 enum
 {
 	GL_KEEP_UNIT = -1,
-	GL_TEXTURE0 = 0,
-	GL_TEXTURE1,		// used in some cases
-	MAX_TEXTURE_UNITS = 32	// can't acess to all over units without GLSL or cg
+	XASH_TEXTURE0 = 0,
+	XASH_TEXTURE1,
+	XASH_TEXTURE2,
+	XASH_TEXTURE3,		// g-cont. 4 units should be enough
+	XASH_TEXTURE4,		// mittorn. bump+detail needs 5 for single-pass
+	MAX_TEXTURE_UNITS = 32	// can't access to all over units without GLSL or cg
 };
 
 typedef enum
@@ -565,7 +556,6 @@ typedef struct
 
 	// list of supported extensions
 	const char	*extensions_string;
-	const char	*wgl_extensions_string;
 	byte		extension[GL_EXTCOUNT];
 
 	int		max_texture_units;
@@ -587,11 +577,14 @@ typedef struct
 	int		alpha_bits;
 	int		depth_bits;
 	int		stencil_bits;
+	int		msaasamples;
 
 	gl_context_type_t	context;
 	gles_wrapper_t	wrapper;
 
 	qboolean		softwareGammaUpdate;
+	int		prev_width;
+	int		prev_height;
 	int		prev_mode;
 } glconfig_t;
 
@@ -614,9 +607,19 @@ typedef struct
 	qboolean		in2DMode;
 } glstate_t;
 
+typedef enum
+{
+	SAFE_NO,
+	SAFE_NOACC,
+	SAFE_NODEPTH,
+	SAFE_NOATTRIB,
+	SAFE_DONTCARE
+} safe_context_t;
+
 typedef struct
 {
 	void*	context; // handle to GL rendering context
+	safe_context_t	safe;
 
 	int		desktopBitsPixel;
 	int		desktopWidth;
@@ -647,6 +650,9 @@ extern convar_t	*gl_finish;
 extern convar_t	*gl_nosort;
 extern convar_t	*gl_clear;
 extern convar_t	*gl_test;		// cvar to testify new effects
+extern convar_t	*gl_msaa;
+extern convar_t *gl_stencilbits;
+
 
 extern convar_t	*r_speeds;
 extern convar_t	*r_fullbright;
@@ -672,5 +678,11 @@ extern convar_t	*vid_fullscreen;
 extern convar_t	*vid_brightness;
 extern convar_t	*vid_gamma;
 extern convar_t	*vid_mode;
+extern convar_t	*vid_highdpi;
+
+extern convar_t	*window_xpos;
+extern convar_t	*window_ypos;
+extern convar_t *scr_width;
+extern convar_t *scr_height;
 
 #endif//GL_LOCAL_H
