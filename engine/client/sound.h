@@ -127,8 +127,16 @@ typedef struct
 	float		percent;
 } musicfade_t;
 
+typedef struct snd_format_s
+{
+	unsigned int	speed;
+	unsigned int	width;
+	unsigned int	channels;
+} snd_format_t;
+
 typedef struct
 {
+	snd_format_t	format;
 	int		samples;		// mono samples in buffer
 	int		samplepos;	// in mono samples
 	byte		*buffer;
@@ -266,6 +274,7 @@ extern convar_t	*s_mixahead;
 extern convar_t	*s_lerping;
 extern convar_t	*dsp_off;
 extern convar_t	*s_test;		// cvar to testify new effects
+extern convar_t *s_samplecount;
 
 void S_InitScaletable( void );
 wavdata_t *S_LoadSound( sfx_t *sfx );
@@ -303,7 +312,7 @@ void DSP_ClearState( void );
 
 qboolean S_Init( void );
 void S_Shutdown( void );
-void S_Activate( qboolean active, void *hInst );
+void S_Activate( qboolean active );
 void S_SoundList_f( void );
 void S_SoundInfo_f( void );
 
