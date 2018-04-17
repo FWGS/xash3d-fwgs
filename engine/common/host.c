@@ -768,6 +768,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		progname++;
 
 	Q_strncpy( SI.exeName, progname, sizeof( SI.exeName ));
+	Q_strncpy( SI.basedirName, progname, sizeof( SI.exeName ));
 
 	if( Host_IsDedicated() )
 	{
@@ -887,6 +888,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	SV_Init();
 	CL_Init();
+
+	ID_Init();
 
 	if( host.type == HOST_DEDICATED )
 	{
