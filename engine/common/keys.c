@@ -17,6 +17,9 @@ GNU General Public License for more details.
 #include "input.h"
 #include "client.h"
 #include "vgui_draw.h"
+#ifdef XASH_SDL
+#include "platform/sdl/events.h"
+#endif // XASH_SDL
 
 typedef struct
 {
@@ -679,6 +682,18 @@ void Key_Event( int key, qboolean down )
 	{
 		Key_Message( key );
 	}
+}
+
+void Key_EnableTextInput( qboolean enable, qboolean force )
+{
+#if XASH_INPUT == INPUT_SDL
+	SDLash_EnableTextInput( enable, force );
+#elif XASH_INPUT == INPUT_ANDROID
+	Android_EnableTextInput( enable, force );
+#endif
+#if 0
+	Joy_EnableTextInput( enable, force );
+#endif
 }
 
 /*

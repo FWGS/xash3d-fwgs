@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include "common.h"
 #include "input.h"
 #include "keydefs.h"
-#include "joyinput.h"
 #include "client.h"
 #include "gl_local.h"
 
@@ -149,11 +148,11 @@ void Joy_ProcessTrigger( const engineAxis_t engineAxis, short value )
 	{
 	case JOY_AXIS_RT:
 		trigButton = K_JOY2;
-		trigThreshold = joy_rt_threshold->integer;
+		trigThreshold = joy_rt_threshold->value;
 		break;
 	case JOY_AXIS_LT:
 		trigButton = K_JOY1;
-		trigThreshold = joy_lt_threshold->integer;
+		trigThreshold = joy_lt_threshold->value;
 		break;
 	default:
 		MsgDev( D_ERROR, "Joy_ProcessTrigger: invalid axis = %i", engineAxis );
@@ -183,12 +182,12 @@ int Joy_GetHatValueForAxis( const engineAxis_t engineAxis )
 	switch( engineAxis )
 	{
 	case JOY_AXIS_SIDE:
-		threshold = joy_side_key_threshold->integer;
+		threshold = joy_side_key_threshold->value;
 		negative = JOY_HAT_LEFT;
 		positive = JOY_HAT_RIGHT;
 		break;
 	case JOY_AXIS_FWD:
-		threshold = joy_side_key_threshold->integer;
+		threshold = joy_side_key_threshold->value;
 		negative = JOY_HAT_UP;
 		positive = JOY_HAT_DOWN;
 		break;
@@ -222,10 +221,10 @@ void Joy_ProcessStick( const engineAxis_t engineAxis, short value )
 
 	switch( engineAxis )
 	{
-	case JOY_AXIS_FWD:   deadzone = joy_forward_deadzone->integer; break;
-	case JOY_AXIS_SIDE:  deadzone = joy_side_deadzone->integer; break;
-	case JOY_AXIS_PITCH: deadzone = joy_pitch_deadzone->integer; break;
-	case JOY_AXIS_YAW:   deadzone = joy_yaw_deadzone->integer; break;
+	case JOY_AXIS_FWD:   deadzone = joy_forward_deadzone->value; break;
+	case JOY_AXIS_SIDE:  deadzone = joy_side_deadzone->value; break;
+	case JOY_AXIS_PITCH: deadzone = joy_pitch_deadzone->value; break;
+	case JOY_AXIS_YAW:   deadzone = joy_yaw_deadzone->value; break;
 	default:
 		MsgDev( D_ERROR, "Joy_ProcessStick: invalid axis = %i", engineAxis );
 		break;
@@ -332,8 +331,8 @@ Called when joystick is removed. For future expansion
 */
 void Joy_RemoveEvent( int id )
 {
-	if( !forcedisable && initialized && joy_found->integer )
-		Cvar_SetFloat("joy_found", joy_found->value - 1.0f);
+	if( !forcedisable && initialized && joy_found->value )
+		Cvar_SetValue("joy_found", joy_found->value - 1.0f);
 }
 
 /*
@@ -350,7 +349,7 @@ void Joy_AddEvent( int id )
 
 	initialized = true;
 
-	Cvar_SetFloat("joy_found", joy_found->value + 1.0f);
+	Cvar_SetValue("joy_found", joy_found->value + 1.0f);
 }
 
 /*
@@ -362,10 +361,10 @@ Append movement from axis. Called everyframe
 */
 void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 {
-	if( !initialized || !joy_enable->integer )
+	if( !initialized || !joy_enable->value )
 		return;
 
-	if( joy_axis_binding->modified )
+	if( FBitSet( joy_axis_binding->flags, FCVAR_CHANGED ) )
 	{
 		char bind[7] = { 0 }; // fill it with zeros
 		size_t i;
@@ -384,7 +383,7 @@ void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 			default : joyaxesmap[i] = JOY_AXIS_NULL; break;
 			}
 		}
-		joy_axis_binding->modified = false;
+		ClearBits( joy_axis_binding->flags, FCVAR_CHANGED );
 	}
 
 	*fw     -= joy_forward->value * (float)joyaxis[JOY_AXIS_FWD ].val/(float)SHRT_MAX;  // must be form -1.0 to 1.0
@@ -408,32 +407,32 @@ Main init procedure
 */
 void Joy_Init( void )
 {
-	joy_pitch   = Cvar_Get( "joy_pitch",   "100.0", CVAR_ARCHIVE, "joystick pitch sensitivity" );
-	joy_yaw     = Cvar_Get( "joy_yaw",     "100.0", CVAR_ARCHIVE, "joystick yaw sensitivity" );
-	joy_side    = Cvar_Get( "joy_side",    "1.0", CVAR_ARCHIVE, "joystick side sensitivity. Values from -1.0 to 1.0" );
-	joy_forward = Cvar_Get( "joy_forward", "1.0", CVAR_ARCHIVE, "joystick forward sensitivity. Values from -1.0 to 1.0" );
+	joy_pitch   = Cvar_Get( "joy_pitch",   "100.0", FCVAR_ARCHIVE, "joystick pitch sensitivity" );
+	joy_yaw     = Cvar_Get( "joy_yaw",     "100.0", FCVAR_ARCHIVE, "joystick yaw sensitivity" );
+	joy_side    = Cvar_Get( "joy_side",    "1.0", FCVAR_ARCHIVE, "joystick side sensitivity. Values from -1.0 to 1.0" );
+	joy_forward = Cvar_Get( "joy_forward", "1.0", FCVAR_ARCHIVE, "joystick forward sensitivity. Values from -1.0 to 1.0" );
 
-	joy_lt_threshold = Cvar_Get( "joy_lt_threshold", "-16384", CVAR_ARCHIVE, "left trigger threshold. Value from -32768 to 32767");
-	joy_rt_threshold = Cvar_Get( "joy_rt_threshold", "-16384", CVAR_ARCHIVE, "right trigger threshold. Value from -32768 to 32767" );
+	joy_lt_threshold = Cvar_Get( "joy_lt_threshold", "-16384", FCVAR_ARCHIVE, "left trigger threshold. Value from -32768 to 32767");
+	joy_rt_threshold = Cvar_Get( "joy_rt_threshold", "-16384", FCVAR_ARCHIVE, "right trigger threshold. Value from -32768 to 32767" );
 
 	// emit a key event at 75% axis move
-	joy_side_key_threshold = Cvar_Get( "joy_side_key_threshold", "24576", CVAR_ARCHIVE, "side axis key event emit threshold. Value from 0 to 32767" );
-	joy_forward_key_threshold = Cvar_Get( "joy_forward_key_threshold", "24576", CVAR_ARCHIVE, "forward axis key event emit threshold. Value from 0 to 32767");
+	joy_side_key_threshold = Cvar_Get( "joy_side_key_threshold", "24576", FCVAR_ARCHIVE, "side axis key event emit threshold. Value from 0 to 32767" );
+	joy_forward_key_threshold = Cvar_Get( "joy_forward_key_threshold", "24576", FCVAR_ARCHIVE, "forward axis key event emit threshold. Value from 0 to 32767");
 
 	// by default, we rely on deadzone detection come from system, but some glitchy devices report false deadzones
-	joy_side_deadzone = Cvar_Get( "joy_side_deadzone", "0", CVAR_ARCHIVE, "side axis deadzone. Value from 0 to 32767" );
-	joy_forward_deadzone = Cvar_Get( "joy_forward_deadzone", "0", CVAR_ARCHIVE, "forward axis deadzone. Value from 0 to 32767");
-	joy_pitch_deadzone = Cvar_Get( "joy_pitch_deadzone", "0", CVAR_ARCHIVE, "pitch axis deadzone. Value from 0 to 32767");
-	joy_yaw_deadzone = Cvar_Get( "joy_yaw_deadzone", "0", CVAR_ARCHIVE, "yaw axis deadzone. Value from 0 to 32767" );
+	joy_side_deadzone = Cvar_Get( "joy_side_deadzone", "0", FCVAR_ARCHIVE, "side axis deadzone. Value from 0 to 32767" );
+	joy_forward_deadzone = Cvar_Get( "joy_forward_deadzone", "0", FCVAR_ARCHIVE, "forward axis deadzone. Value from 0 to 32767");
+	joy_pitch_deadzone = Cvar_Get( "joy_pitch_deadzone", "0", FCVAR_ARCHIVE, "pitch axis deadzone. Value from 0 to 32767");
+	joy_yaw_deadzone = Cvar_Get( "joy_yaw_deadzone", "0", FCVAR_ARCHIVE, "yaw axis deadzone. Value from 0 to 32767" );
 
-	joy_axis_binding = Cvar_Get( "joy_axis_binding", "sfpyrl", CVAR_ARCHIVE, "axis hardware id to engine inner axis binding, "
+	joy_axis_binding = Cvar_Get( "joy_axis_binding", "sfpyrl", FCVAR_ARCHIVE, "axis hardware id to engine inner axis binding, "
 																			 "s - side, f - forward, y - yaw, p - pitch, r - left trigger, l - right trigger" );
-	joy_found   = Cvar_Get( "joy_found", "0", CVAR_READ_ONLY, "total num of connected joysticks" );
+	joy_found   = Cvar_Get( "joy_found", "0", FCVAR_READ_ONLY, "total num of connected joysticks" );
 	// we doesn't loaded config.cfg yet, so this cvar is not archive.
 	// change by +set joy_index in cmdline
-	joy_index   = Cvar_Get( "joy_index", "0", CVAR_READ_ONLY, "current active joystick" );
+	joy_index   = Cvar_Get( "joy_index", "0", FCVAR_READ_ONLY, "current active joystick" );
 
-	joy_enable = Cvar_Get( "joy_enable", "1", CVAR_ARCHIVE, "enable joystick" );
+	joy_enable = Cvar_Get( "joy_enable", "1", FCVAR_ARCHIVE, "enable joystick" );
 
 	if( Sys_CheckParm("-nojoy" ) )
 	{
@@ -443,14 +442,14 @@ void Joy_Init( void )
 
 #if defined(XASH_SDL)
 	// SDL can tell us about connected joysticks
-	Cvar_SetFloat( "joy_found", SDLash_JoyInit( joy_index->integer ) );
+	Cvar_SetValue( "joy_found", SDLash_JoyInit( joy_index->value ) );
 #elif defined(ANDROID)
 	// Initalized after first Joy_AddEvent
 #else
 #warning "Any platform must implement platform-dependent JoyInit, start event system. Otherwise no joystick support"
 #endif
 
-	if( joy_found->integer > 0 )
+	if( joy_found->value > 0 )
 		initialized = true;
 	else
 		initialized = false;
@@ -465,7 +464,7 @@ Shutdown joystick code
 */
 void Joy_Shutdown( void )
 {
-	Cvar_SetFloat( "joy_found", 0 );
+	Cvar_SetValue( "joy_found", 0 );
 
 	initialized = false;
 }
