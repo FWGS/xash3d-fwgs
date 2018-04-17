@@ -31,6 +31,12 @@ GNU General Public License for more details.
 #define XASH_MOBILE_PLATFORM
 #endif
 
+#ifdef _WIN32
+#define PATH_SPLITTER "\\"
+#else
+#define PATH_SPLITTER "/"
+#endif
+
 #if !defined(_WIN32)
 	#include <limits.h>
 	#include <dlfcn.h>
