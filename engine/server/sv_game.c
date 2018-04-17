@@ -42,7 +42,7 @@ edict_t *SV_EdictNum( int n )
 	return NULL;	
 }
 
-#ifdef _DEBUG
+#ifndef NDEBUG
 qboolean SV_CheckEdict( const edict_t *e, const char *file, const int line )
 {
 	int	n;
@@ -3225,9 +3225,9 @@ pfnFunctionFromName
 
 =============
 */
-dword pfnFunctionFromName( const char *pName )
+void *pfnFunctionFromName( const char *pName )
 {
-	return COM_FunctionFromName( svgame.hInstance, pName );
+	return COM_FunctionFromName_SR( svgame.hInstance, pName );
 }
 
 /*
@@ -3236,7 +3236,7 @@ pfnNameForFunction
 
 =============
 */
-const char *pfnNameForFunction( dword function )
+const char *pfnNameForFunction( void *function )
 {
 	return COM_NameForFunction( svgame.hInstance, function );
 }
@@ -4371,8 +4371,8 @@ static enginefuncs_t gEngfuncs =
 	pfnRegUserMsg,
 	pfnAnimationAutomove,
 	pfnGetBonePosition,
-	pfnFunctionFromName,
-	pfnNameForFunction,	
+	(void*)pfnFunctionFromName,
+	pfnNameForFunction,
 	pfnClientPrintf,
 	pfnServerPrint,	
 	Cmd_Args,
