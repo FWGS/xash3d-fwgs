@@ -15,14 +15,15 @@ GNU General Public License for more details.
 
 #ifndef XASH_DEDICATED
 
+#include <string.h>
 #include "common.h"
 #include "client.h"
 #include "gl_local.h"
 #include "vgui_draw.h"
 #include "vgui_api.h"
 #include "library.h"
-#include <string.h>
-#include "../keydefs.h"
+#include "keydefs.h"
+#include "gl_local.h"
 
 int	g_textures[VGUI_MAX_TEXTURES];
 int	g_textureId = 0;
@@ -35,6 +36,7 @@ static enum VGUI_DefaultCursor s_currentCursor;
 static SDL_Cursor* s_pDefaultCursor[20];
 #endif
 static void *s_pVGuiSupport; // vgui_support library
+static convar_t	*vgui_utf8 = NULL;
 
 void VGUI_DrawInit( void );
 void VGUI_DrawShutdown( void );
@@ -76,8 +78,8 @@ qboolean GAME_EXPORT VGUI_IsInGame( void )
 
 void GAME_EXPORT VGUI_GetMousePos( int *_x, int *_y )
 {
-	float xscale = scr_width->value / (float)clgame.scrInfo.iWidth;
-	float yscale = scr_height->value / (float)clgame.scrInfo.iHeight;
+	float xscale = (float)glState.width / (float)clgame.scrInfo.iWidth;
+	float yscale = (float)glState.height / (float)clgame.scrInfo.iHeight;
 	int x, y;
 
 	CL_GetMousePosition( &x, &y );
@@ -109,7 +111,7 @@ void VGUI_InitCursors( void )
 void GAME_EXPORT VGUI_CursorSelect(enum VGUI_DefaultCursor cursor )
 {
 	qboolean visible;
-	if( cls.key_dest != key_game || cl.refdef.paused )
+	if( cls.key_dest != key_game || cl.paused )
 		return;
 	
 	switch( cursor )
@@ -166,7 +168,7 @@ void GAME_EXPORT VGUI_SetVisible( qboolean state )
 
 int GAME_EXPORT VGUI_UtfProcessChar( int in )
 {
-	if( vgui_utf8->integer )
+	if( CVAR_TO_BOOL( vgui_utf8 ) )
 		return Con_UtfProcessCharForce( in );
 	else
 		return in;
@@ -233,12 +235,14 @@ void VGui_Startup( int width, int height )
 
 	if( !vgui.initialized )
 	{
+		vgui_utf8 = Cvar_Get( "vgui_utf8", "0", FCVAR_ARCHIVE, "enable utf-8 support for vgui text" );
+
 #ifdef XASH_INTERNAL_GAMELIBS
-		s_pVGuiSupport = Com_LoadLibrary( "client", false );
+		s_pVGuiSupport = COM_LoadLibrary( "client", false, false );
 
 		if( s_pVGuiSupport )
 		{
-			F = Com_GetProcAddress( s_pVGuiSupport, "InitVGUISupportAPI" );
+			F = COM_GetProcAddress( s_pVGuiSupport, "InitVGUISupportAPI" );
 			if( F )
 			{
 				F( &vgui );
@@ -249,7 +253,7 @@ void VGui_Startup( int width, int height )
 		}
 #endif // XASH_INTERNAL_GAMELIBS
 
-		Com_ResetLibraryError();
+		COM_ResetLibraryError();
 
 		// HACKHACK: load vgui with correct path first if specified.
 		// it will be reused while resolving vgui support and client deps
@@ -260,7 +264,7 @@ void VGui_Startup( int width, int height )
 			else
 				Q_strncpy( vguiloader, VGUI_SUPPORT_DLL, 256 );
 
-			if( !Com_LoadLibrary( vguilib, false ) )
+			if( !COM_LoadLibrary( vguilib, false, false ) )
 				MsgDev( D_WARN, "VGUI preloading failed. Default library will be used!\n");
 		}
 
@@ -270,23 +274,23 @@ void VGui_Startup( int width, int height )
 		if( !vguiloader[0] && !Sys_GetParmFromCmdLine( "-vguiloader", vguiloader ) )
 			Q_strncpy( vguiloader, VGUI_SUPPORT_DLL, 256 );
 
-		s_pVGuiSupport = Com_LoadLibrary( vguiloader, false );
+		s_pVGuiSupport = COM_LoadLibrary( vguiloader, false, false );
 
 		if( !s_pVGuiSupport )
 		{
-			s_pVGuiSupport = Com_LoadLibrary( va( "../%s", vguiloader ), false );
+			s_pVGuiSupport = COM_LoadLibrary( va( "../%s", vguiloader ), false, false );
 		}
 
 		if( !s_pVGuiSupport )
 		{
-			if( FS_SysFileExists( vguiloader, false ) )
-				MsgDev( D_ERROR, "Failed to load vgui_support library: %s", Com_GetLibraryError() );
+			if( FS_FileExists( vguiloader, false ) )
+				MsgDev( D_ERROR, "Failed to load vgui_support library: %s", COM_GetLibraryError() );
 			else
 				MsgDev( D_INFO, "vgui_support: not found\n" );
 		}
 		else
 		{
-			F = Com_GetProcAddress( s_pVGuiSupport, "InitAPI" );
+			F = COM_GetProcAddress( s_pVGuiSupport, "InitAPI" );
 			if( F )
 			{
 				F( &vgui );
@@ -343,7 +347,7 @@ void VGui_Shutdown( void )
 		vgui.Shutdown();
 
 	if( s_pVGuiSupport )
-		Com_FreeLibrary( s_pVGuiSupport );
+		COM_FreeLibrary( s_pVGuiSupport );
 	s_pVGuiSupport = NULL;
 
 	vgui.initialized = false;
@@ -359,7 +363,7 @@ void VGUI_InitKeyTranslationTable( void )
 	bInitted = true;
 
 	// set virtual key translation table
-	Q_memset( s_pVirtualKeyTrans, -1, sizeof( s_pVirtualKeyTrans ) );
+	memset( s_pVirtualKeyTrans, -1, sizeof( s_pVirtualKeyTrans ) );
 
 	s_pVirtualKeyTrans['0'] = KEY_0;
 	s_pVirtualKeyTrans['1'] = KEY_1;
@@ -522,8 +526,8 @@ void VGui_KeyEvent( int key, int down )
 
 void VGui_MouseMove( int x, int y )
 {
-	float xscale = scr_width->value / (float)clgame.scrInfo.iWidth;
-	float yscale = scr_height->value / (float)clgame.scrInfo.iHeight;
+	float xscale = (float)glState.width / (float)clgame.scrInfo.iWidth;
+	float yscale = (float)glState.height / (float)clgame.scrInfo.iHeight;
 	if( vgui.initialized )
 		vgui.MouseMove( x / xscale, y / yscale );
 }
@@ -537,7 +541,7 @@ Startup VGUI backend
 */
 void GAME_EXPORT VGUI_DrawInit( void )
 {
-	Q_memset( g_textures, 0, sizeof( g_textures ));
+	memset( g_textures, 0, sizeof( g_textures ));
 	g_textureId = g_iBoundTexture = 0;
 }
 
@@ -591,7 +595,7 @@ void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int width, int 
 	}
 
 	Q_snprintf( texName, sizeof( texName ), "*vgui%i", id );
-	Q_memset( &r_image, 0, sizeof( r_image ));
+	memset( &r_image, 0, sizeof( r_image ));
 
 	r_image.width = width;
 	r_image.height = height;
@@ -601,7 +605,6 @@ void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int width, int 
 	r_image.buffer = (byte *)buffer;
 
 	g_textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE, false );
-	GL_SetTextureType( g_textures[id], TEX_VGUI );
 	g_iBoundTexture = id;
 }
 
@@ -624,7 +627,7 @@ void GAME_EXPORT VGUI_CreateTexture( int id, int width, int height )
 	}
 
 	Q_snprintf( texName, sizeof( texName ), "*vgui%i", id );
-	Q_memset( &r_image, 0, sizeof( r_image ));
+	memset( &r_image, 0, sizeof( r_image ));
 
 	r_image.width = width;
 	r_image.height = height;
@@ -634,13 +637,12 @@ void GAME_EXPORT VGUI_CreateTexture( int id, int width, int height )
 	r_image.buffer = NULL;
 
 	g_textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE|TF_NEAREST, false );
-	GL_SetTextureType( g_textures[id], TEX_VGUI );
 	g_iBoundTexture = id;
 }
 
 void GAME_EXPORT VGUI_UploadTextureBlock( int id, int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight )
 {
-	if( id <= 0 || id >= VGUI_MAX_TEXTURES || g_textures[id] == 0 || g_textures[id] == cls.fillImage )
+	if( id <= 0 || id >= VGUI_MAX_TEXTURES || g_textures[id] == 0 || g_textures[id] == tr.whiteTexture )
 	{
 		MsgDev( D_ERROR, "VGUI_UploadTextureBlock: bad texture %i. Ignored\n", id );
 		return;
@@ -736,8 +738,8 @@ generic method to fill rectangle
 */
 void GAME_EXPORT VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr )
 {
-	float xscale = scr_width->value / (float)clgame.scrInfo.iWidth;
-	float yscale = scr_height->value / (float)clgame.scrInfo.iHeight;
+	float xscale = glState.width / (float)clgame.scrInfo.iWidth;
+	float yscale = glState.height / (float)clgame.scrInfo.iHeight;
 
 	ASSERT( ul != NULL && lr != NULL );
 
