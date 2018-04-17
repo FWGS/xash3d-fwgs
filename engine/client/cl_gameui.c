@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "input.h"
 
 static MENUAPI	GetMenuAPI;
+static ADDTOUCHBUTTONTOLIST pfnAddTouchButtonToList;
 static void 	UI_UpdateUserinfo( void );
 
 gameui_static_t	gameui;
@@ -471,6 +472,21 @@ void pfnPIC_DrawAdditive( int x, int y, int width, int height, const wrect_t *pr
 {
 	GL_SetRenderMode( kRenderTransAdd );
 	PIC_DrawGeneric( x, y, width, height, prc );
+}
+
+/*
+=======================
+UI_AddTouchButtonToList
+
+send button parameters to menu
+=======================
+*/
+void UI_AddTouchButtonToList( const char *name, const char *texture, const char *command, unsigned char *color, int flags )
+{
+	if( pfnAddTouchButtonToList )
+	{
+		pfnAddTouchButtonToList( name, texture, command, color, flags );
+	}
 }
 
 /*
@@ -987,6 +1003,19 @@ static ui_enginefuncs_t gEngfuncs =
 	VID_GetModeString,
 };
 
+static void pfnEnableTextInput( int enable )
+{
+	Key_EnableTextInput( enable, false );
+}
+
+static ui_textfuncs_t gTextfuncs =
+{
+	pfnEnableTextInput,
+	Con_UtfProcessChar,
+	Con_UtfMoveLeft,
+	Con_UtfMoveRight
+};
+
 void UI_UnloadProgs( void )
 {
 	if( !gameui.hInstance ) return;
@@ -1007,7 +1036,9 @@ void UI_UnloadProgs( void )
 qboolean UI_LoadProgs( void )
 {
 	static ui_enginefuncs_t	gpEngfuncs;
+	static ui_textfuncs_t	gpTextfuncs;
 	static ui_globalvars_t	gpGlobals;
+	UITEXTAPI GiveTextApi;
 	int			i;
 
 	if( gameui.hInstance ) UI_UnloadProgs();
@@ -1015,11 +1046,24 @@ qboolean UI_LoadProgs( void )
 	// setup globals
 	gameui.globals = &gpGlobals;
 
-	if(( gameui.hInstance = COM_LoadLibrary( va( "%s/menu.dll", GI->dll_path ), false, false )) == NULL )
+#ifdef XASH_INTERNAL_GAMELIBS
+	if(!( gameui.hInstance = COM_LoadLibrary( "menu", false, false )))
+		return false;
+#else
+	if(!( gameui.hInstance = COM_LoadLibrary( va( "%s/" MENUDLL, GI->dll_path ), false, false )))
 	{
-		if(( gameui.hInstance = COM_LoadLibrary( "menu.dll", false, true )) == NULL )
+		FS_AllowDirectPaths( true );
+
+		if(!( gameui.hInstance = COM_LoadLibrary( "../" MENUDLL, false, false ))
+				&& !( gameui.hInstance = COM_LoadLibrary( MENUDLL, false, false )))
+
+		{
+			FS_AllowDirectPaths( false );
 			return false;
+		}
 	}
+#endif
+	FS_AllowDirectPaths( false );
 
 	if(( GetMenuAPI = (MENUAPI)COM_GetProcAddress( gameui.hInstance, "GetMenuAPI" )) == NULL )
 	{
@@ -1027,6 +1071,24 @@ qboolean UI_LoadProgs( void )
 		MsgDev( D_NOTE, "UI_LoadProgs: can't init menu API\n" );
 		gameui.hInstance = NULL;
 		return false;
+	}
+
+
+	gameui.use_text_api = false;
+
+	if( ( GiveTextApi = (UITEXTAPI)COM_GetProcAddress( gameui.hInstance, "GiveTextAPI" ) ) )
+	{
+		MsgDev( D_NOTE, "UI_LoadProgs: extended Text API initialized\n" );
+		// make local copy of engfuncs to prevent overwrite it with user dll
+		memcpy( &gpTextfuncs, &gTextfuncs, sizeof( gpTextfuncs ));
+		if( GiveTextApi( &gpTextfuncs ) )
+			gameui.use_text_api = true;
+	}
+
+	pfnAddTouchButtonToList = (ADDTOUCHBUTTONTOLIST)COM_GetProcAddress( gameui.hInstance, "AddTouchButtonToList" );
+	if( pfnAddTouchButtonToList )
+	{
+		MsgDev( D_NOTE, "UI_LoadProgs: AddTouchButtonToList call found\n" );
 	}
 
 	// make local copy of engfuncs to prevent overwrite it with user dll
