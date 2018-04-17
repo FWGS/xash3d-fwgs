@@ -66,7 +66,7 @@ R_DrawStretchPic
 */
 void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
-	GL_Bind( GL_TEXTURE0, texnum );
+	GL_Bind( XASH_TEXTURE0, texnum );
 
 	pglBegin( GL_QUADS );
 		pglTexCoord2f( s1, t1 );
@@ -98,7 +98,7 @@ void R_DrawTileClear( int x, int y, int w, int h )
 
 	GL_SetRenderMode( kRenderNormal );
 	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-	GL_Bind( GL_TEXTURE0, cls.tileImage );
+	GL_Bind( XASH_TEXTURE0, cls.tileImage );
 
 	glt = R_GetTexture( cls.tileImage );
 	tw = glt->srcWidth;
@@ -156,7 +156,7 @@ void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, c
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
 
 	tex = R_GetTexture( tr.cinTexture );
-	GL_Bind( GL_TEXTURE0, tr.cinTexture );
+	GL_Bind( XASH_TEXTURE0, tr.cinTexture );
 
 	if( cols == tex->width && rows == tex->height )
 	{

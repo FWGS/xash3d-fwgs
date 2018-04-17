@@ -380,7 +380,7 @@ void CL_DrawParticles( double frametime )
 	pglDisable( GL_ALPHA_TEST );
 	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
-	GL_Bind( GL_TEXTURE0, tr.particleTexture );
+	GL_Bind( XASH_TEXTURE0, tr.particleTexture );
 	pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 	pglDepthMask( GL_FALSE );
 

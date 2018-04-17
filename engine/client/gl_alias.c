@@ -1074,8 +1074,8 @@ void GL_DrawAliasFrame( aliashdr_t *paliashdr )
 			// texture coordinates come from the draw list
 			if( GL_Support( GL_ARB_MULTITEXTURE ) && glState.activeTMU > 0 )
 			{
-				GL_MultiTexCoord2f( GL_TEXTURE0, ((float *)order)[0], ((float *)order)[1] );
-				GL_MultiTexCoord2f( GL_TEXTURE1, ((float *)order)[0], ((float *)order)[1] );
+				GL_MultiTexCoord2f( XASH_TEXTURE0, ((float *)order)[0], ((float *)order)[1] );
+				GL_MultiTexCoord2f( XASH_TEXTURE1, ((float *)order)[0], ((float *)order)[1] );
 			}
 			else
 			{
@@ -1290,7 +1290,7 @@ static void R_AliasDrawAbsBBox( cl_entity_t *e, const vec3_t absmin, const vec3_
 		p[i][2] = ( i & 4 ) ? absmin[2] : absmax[2];
 	}
 
-	GL_Bind( GL_TEXTURE0, tr.whiteTexture );
+	GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
 	TriColor4f( 0.5f, 0.5f, 1.0f, 0.5f );
 	TriRenderMode( kRenderTransAdd );
 	pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
@@ -1440,16 +1440,16 @@ void R_DrawAliasModel( cl_entity_t *e )
 	if( m_fDoRemap ) pinfo = CL_GetRemapInfoForEntity( e );
 
 	if( r_lightmap->value && !r_fullbright->value )
-		GL_Bind( GL_TEXTURE0, tr.whiteTexture );
+		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
 	else if( pinfo != NULL && pinfo->textures[skin] != 0 )
-		GL_Bind( GL_TEXTURE0, pinfo->textures[skin] );	// FIXME: allow remapping for skingroups someday
-	else GL_Bind( GL_TEXTURE0, m_pAliasHeader->gl_texturenum[skin][anim] );
+		GL_Bind( XASH_TEXTURE0, pinfo->textures[skin] );	// FIXME: allow remapping for skingroups someday
+	else GL_Bind( XASH_TEXTURE0, m_pAliasHeader->gl_texturenum[skin][anim] );
 
 	pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
 	if( GL_Support( GL_ARB_MULTITEXTURE ) && m_pAliasHeader->fb_texturenum[skin][anim] )
 	{
-		GL_Bind( GL_TEXTURE1, m_pAliasHeader->fb_texturenum[skin][anim] );
+		GL_Bind( XASH_TEXTURE1, m_pAliasHeader->fb_texturenum[skin][anim] );
 		pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_ADD );
 	}
 

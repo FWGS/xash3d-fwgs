@@ -729,7 +729,7 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 	mstudioseqgroup_t	*pseqgroup;
 	cache_user_t	*paSequences;
 	size_t		filesize;
-          byte		*buf;
+	byte		*buf;
 
 	pseqgroup = (mstudioseqgroup_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqgroupindex) + pseqdesc->seqgroup;
 	if( pseqdesc->seqgroup == 0 )
@@ -2058,8 +2058,8 @@ static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 	if( !ptexture ) ptexture = (mstudiotexture_t *)((byte *)ptexturehdr + ptexturehdr->textureindex); // fallback
 
 	if( r_lightmap->value && !r_fullbright->value )
-		GL_Bind( GL_TEXTURE0, tr.whiteTexture );
-	else GL_Bind( GL_TEXTURE0, ptexture[index].index );
+		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
+	else GL_Bind( XASH_TEXTURE0, ptexture[index].index );
 }
 
 /*
@@ -2163,7 +2163,7 @@ R_StudioDrawNormalMesh
 generic path
 ===============
 */
-static _inline void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float s, float t )
+_inline void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float s, float t )
 {
 	float	*lv;
 	int	i;
@@ -2199,7 +2199,7 @@ R_StudioDrawNormalMesh
 generic path
 ===============
 */
-static _inline void R_StudioDrawFloatMesh( short *ptricmds, vec3_t *pstudionorms )
+_inline void R_StudioDrawFloatMesh( short *ptricmds, vec3_t *pstudionorms )
 {
 	float	*lv;
 	int	i;
@@ -2234,7 +2234,7 @@ R_StudioDrawNormalMesh
 generic path
 ===============
 */
-static _inline void R_StudioDrawChromeMesh( short *ptricmds, vec3_t *pstudionorms, float s, float t, float scale )
+_inline void R_StudioDrawChromeMesh( short *ptricmds, vec3_t *pstudionorms, float s, float t, float scale )
 {
 	float	*lv, *av;
 	int	i, idx;
@@ -2465,7 +2465,7 @@ static void R_StudioDrawHulls( void )
 		alpha = 0.5f;
 	else alpha = 1.0f;
 
-	GL_Bind( GL_TEXTURE0, tr.whiteTexture );
+	GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
 	pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
 	for( i = 0; i < m_pStudioHeader->numhitboxes; i++ )
@@ -2522,7 +2522,7 @@ static void R_StudioDrawAbsBBox( void )
 	if( !R_StudioComputeBBox( p ))
 		return;
 
-	GL_Bind( GL_TEXTURE0, tr.whiteTexture );
+	GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
 	TriColor4f( 0.5f, 0.5f, 1.0f, 0.5f );
 	TriRenderMode( kRenderTransAdd );
 

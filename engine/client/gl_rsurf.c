@@ -41,7 +41,7 @@ static qboolean		draw_details = false;
 static msurface_t		*skychain = NULL;
 static gllightmapstate_t	gl_lms;
 
-static void LM_UploadBlock( int lightmapnum );
+static void LM_UploadBlock( qboolean dynamic );
 
 byte *Mod_GetCurrentVis( void )
 {
@@ -625,8 +625,8 @@ static void LM_UploadBlock( qboolean dynamic )
 		}
 
 		if( host.features & ENGINE_LARGE_LIGHTMAPS )
-			GL_Bind( GL_TEXTURE0, tr.dlightTexture2 );
-		else GL_Bind( GL_TEXTURE0, tr.dlightTexture );
+			GL_Bind( XASH_TEXTURE0, tr.dlightTexture2 );
+		else GL_Bind( XASH_TEXTURE0, tr.dlightTexture );
 
 		pglTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, BLOCK_SIZE, height, GL_RGBA, GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer );
 	}
@@ -864,7 +864,7 @@ void R_BlendLightmaps( void )
 	{
 		if( gl_lms.lightmap_surfaces[i] )
 		{
-			GL_Bind( GL_TEXTURE0, tr.lightmapTextures[i] );
+			GL_Bind( XASH_TEXTURE0, tr.lightmapTextures[i] );
 
 			for( surf = gl_lms.lightmap_surfaces[i]; surf != NULL; surf = surf->info->lightmapchain )
 			{
@@ -879,8 +879,8 @@ void R_BlendLightmaps( void )
 		LM_InitBlock();
 
 		if( host.features & ENGINE_LARGE_LIGHTMAPS )
-			GL_Bind( GL_TEXTURE0, tr.dlightTexture2 );
-		else GL_Bind( GL_TEXTURE0, tr.dlightTexture );
+			GL_Bind( XASH_TEXTURE0, tr.dlightTexture2 );
+		else GL_Bind( XASH_TEXTURE0, tr.dlightTexture );
 
 		newsurf = gl_lms.dynamic_surfaces;
 
@@ -985,7 +985,7 @@ void R_RenderFullbrights( void )
 		es = fullbright_surfaces[i];
 		if( !es ) continue;
 
-		GL_Bind( GL_TEXTURE0, i );
+		GL_Bind( XASH_TEXTURE0, i );
 
 		for( p = es; p; p = p->lumachain )
 			DrawGLPoly( p->surf->polys, 0.0f, 0.0f );
@@ -1030,7 +1030,7 @@ void R_RenderDetails( void )
 		es = detail_surfaces[i];
 		if( !es ) continue;
 
-		GL_Bind( GL_TEXTURE0, i );
+		GL_Bind( XASH_TEXTURE0, i );
 
 		for( p = es; p; p = p->detailchain )
 		{
@@ -1071,7 +1071,7 @@ void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 
 	t = R_TextureAnimation( fa );
 
-	GL_Bind( GL_TEXTURE0, t->gl_texturenum );
+	GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
 
 	if( FBitSet( fa->flags, SURF_DRAWTURB ))
 	{	
@@ -1164,7 +1164,7 @@ dynamic:
 			R_BuildLightMap( fa, temp, smax * 4, true );
 			R_SetCacheState( fa );
                               
-			GL_Bind( GL_TEXTURE0, tr.lightmapTextures[fa->lightmaptexturenum] );
+			GL_Bind( XASH_TEXTURE0, tr.lightmapTextures[fa->lightmaptexturenum] );
 
 			pglTexSubImage2D( GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax,
 			GL_RGBA, GL_UNSIGNED_BYTE, temp );
@@ -1347,7 +1347,7 @@ void R_DrawWaterSurfaces( void )
 			continue;
 
 		// set modulate mode explicitly
-		GL_Bind( GL_TEXTURE0, t->gl_texturenum );
+		GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
 
 		for( ; s; s = s->texturechain )
 			EmitWaterPolys( s, false );

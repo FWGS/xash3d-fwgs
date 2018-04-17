@@ -382,8 +382,8 @@ void R_DrawSkyBox( void )
 			continue;
 
 		if( tr.skyboxTextures[r_skyTexOrder[i]] )
-			GL_Bind( GL_TEXTURE0, tr.skyboxTextures[r_skyTexOrder[i]] );
-		else GL_Bind( GL_TEXTURE0, tr.skyTexture ); // stub
+			GL_Bind( XASH_TEXTURE0, tr.skyboxTextures[r_skyTexOrder[i]] );
+		else GL_Bind( XASH_TEXTURE0, tr.skyTexture ); // stub
 
 		pglBegin( GL_QUADS );
 		MakeSkyVec( RI.skyMins[0][i], RI.skyMins[1][i], i );
@@ -521,7 +521,7 @@ void R_CloudDrawPoly( glpoly_t *p )
 	int		i;
 
 	GL_SetRenderMode( kRenderNormal );
-	GL_Bind( GL_TEXTURE0, tr.solidskyTexture );
+	GL_Bind( XASH_TEXTURE0, tr.solidskyTexture );
 
 	pglBegin( GL_QUADS );
 	for( i = 0, v = p->verts[0]; i < 4; i++, v += VERTEXSIZE )
@@ -533,7 +533,7 @@ void R_CloudDrawPoly( glpoly_t *p )
 	pglEnd();
 
 	GL_SetRenderMode( kRenderTransTexture );
-	GL_Bind( GL_TEXTURE0, tr.alphaskyTexture );
+	GL_Bind( XASH_TEXTURE0, tr.alphaskyTexture );
 
 	pglBegin( GL_QUADS );
 	for( i = 0, v = p->verts[0]; i < 4; i++, v += VERTEXSIZE )

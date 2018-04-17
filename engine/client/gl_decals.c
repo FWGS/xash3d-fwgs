@@ -891,7 +891,7 @@ void DrawSingleDecal( decal_t *pDecal, msurface_t *fa )
 	v = R_DecalSetupVerts( pDecal, fa, pDecal->texture, &numVerts );
 	if( !numVerts ) return;
 
-	GL_Bind( GL_TEXTURE0, pDecal->texture );
+	GL_Bind( XASH_TEXTURE0, pDecal->texture );
 
 	pglBegin( GL_POLYGON );
 

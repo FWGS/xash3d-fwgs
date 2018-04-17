@@ -1031,7 +1031,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	{
 		// draw the single non-lerped frame
 		pglColor4f( color[0], color[1], color[2], tr.blend );
-		GL_Bind( GL_TEXTURE0, frame->gl_texturenum );
+		GL_Bind( XASH_TEXTURE0, frame->gl_texturenum );
 		R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
 	}
 	else
@@ -1043,14 +1043,14 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		if( ilerp != 0.0f )
 		{
 			pglColor4f( color[0], color[1], color[2], tr.blend * ilerp );
-			GL_Bind( GL_TEXTURE0, oldframe->gl_texturenum );
+			GL_Bind( XASH_TEXTURE0, oldframe->gl_texturenum );
 			R_DrawSpriteQuad( oldframe, origin, v_right, v_up, scale );
 		}
 
 		if( lerp != 0.0f )
 		{
 			pglColor4f( color[0], color[1], color[2], tr.blend * lerp );
-			GL_Bind( GL_TEXTURE0, frame->gl_texturenum );
+			GL_Bind( XASH_TEXTURE0, frame->gl_texturenum );
 			R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
 		}
 	}
@@ -1067,7 +1067,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
 		pglColor4f( color2[0], color2[1], color2[2], tr.blend );
-		GL_Bind( GL_TEXTURE0, tr.whiteTexture );
+		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
 		R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
 		pglAlphaFunc( GL_GREATER, 0.0f );
 		pglDepthFunc( GL_LEQUAL );

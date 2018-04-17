@@ -253,7 +253,7 @@ static void GL_UpdateTextureParams( int iTexture )
 
 	if( !tex->texnum ) return; // free slot
 
-	GL_Bind( GL_TEXTURE0, iTexture );
+	GL_Bind( XASH_TEXTURE0, iTexture );
 
 	// set texture anisotropy if available
 	if( GL_Support( GL_ANISOTROPY_EXT ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_DEPTHMAP ))
