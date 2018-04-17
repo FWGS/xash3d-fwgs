@@ -400,7 +400,7 @@ Sys_GetParmFromCmdLine
 Returns the argument for specified parm
 ================
 */
-qboolean _Sys_GetParmFromCmdLine( char *parm, char *out, size_t size )
+qboolean _Sys_GetParmFromCmdLine( const char *parm, char *out, size_t size )
 {
 	int	argc = Sys_CheckParm( parm );
 
@@ -409,6 +409,20 @@ qboolean _Sys_GetParmFromCmdLine( char *parm, char *out, size_t size )
 
 	Q_strncpy( out, host.argv[argc+1], size );
 
+	return true;
+}
+
+qboolean Sys_GetIntFromCmdLine( const char* argName, int *out )
+{
+	int argIndex = Sys_CheckParm( argName );
+
+	if( argIndex < 1 || argIndex + 1 >= host.argc || !host.argv[argIndex + 1] )
+	{
+		*out = 0;
+		return false;
+	}
+
+	*out = Q_atoi( host.argv[argIndex + 1] );
 	return true;
 }
 
