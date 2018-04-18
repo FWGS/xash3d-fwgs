@@ -77,7 +77,7 @@ static void Mod_FreeUserData( model_t *mod )
 	if( !mod->name[0] || mod->name[0] == '*' )
 		return;
 
-	if( host.type == HOST_DEDICATED )
+	if( Host_IsDedicated() )
 	{
 		if( svgame.physFuncs.Mod_ProcessUserData != NULL )
 		{
@@ -85,6 +85,7 @@ static void Mod_FreeUserData( model_t *mod )
 			svgame.physFuncs.Mod_ProcessUserData( mod, false, NULL );
 		}
 	}
+#ifndef XASH_DEDICATED
 	else
 	{
 		if( clgame.drawFuncs.Mod_ProcessUserData != NULL )
@@ -93,6 +94,7 @@ static void Mod_FreeUserData( model_t *mod )
 			clgame.drawFuncs.Mod_ProcessUserData( mod, false, NULL );
 		}
 	}
+#endif
 }
 
 /*
@@ -115,14 +117,16 @@ static void Mod_FreeModel( model_t *mod )
 	case mod_sprite:
 		Mod_UnloadSpriteModel( mod );
 		break;
+#ifndef XASH_DEDICATED
+	case mod_alias:
+		Mod_UnloadAliasModel( mod );
+		break;
+#endif
 	case mod_studio:
 		Mod_UnloadStudioModel( mod );
 		break;
 	case mod_brush:
 		Mod_UnloadBrushModel( mod );
-		break;
-	case mod_alias:
-		Mod_UnloadAliasModel( mod );
 		break;
 	}
 
@@ -302,9 +306,12 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	case IDSPRITEHEADER:
 		Mod_LoadSpriteModel( mod, buf, &loaded, 0 );
 		break;
+	// TODO: Load alias models on dedicated too?
+#ifndef XASH_DEDICATED
 	case IDALIASHEADER:
 		Mod_LoadAliasModel( mod, buf, &loaded );
 		break;
+#endif
 	case Q1BSP_VERSION:
 	case HLBSP_VERSION:
 	case QBSP2_VERSION:
@@ -332,7 +339,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		if( world.loading )
 			SetBits( mod->flags, MODEL_WORLD ); // mark worldmodel
 
-		if( host.type == HOST_DEDICATED )
+		if( Host_IsDedicated() )
 		{
 			if( svgame.physFuncs.Mod_ProcessUserData != NULL )
 			{
@@ -340,6 +347,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 				svgame.physFuncs.Mod_ProcessUserData( mod, true, buf );
 			}
 		}
+#ifndef XASH_DEDICATED
 		else
 		{
 			if( clgame.drawFuncs.Mod_ProcessUserData != NULL )
@@ -348,6 +356,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 				clgame.drawFuncs.Mod_ProcessUserData( mod, true, buf );
 			}
 		}
+#endif
 	}
 
 	p = &mod_crcinfo[mod - mod_known];

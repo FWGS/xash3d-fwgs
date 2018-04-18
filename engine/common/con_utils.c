@@ -464,6 +464,7 @@ qboolean Cmd_GetSoundList( const char *s, char *completedname, int length )
 	return true;
 }
 
+#ifndef XASH_DEDICATED
 /*
 =====================================
 Cmd_GetItemsList
@@ -510,6 +511,7 @@ qboolean Cmd_GetItemsList( const char *s, char *completedname, int length )
 	}
 	return true;
 }
+#endif
 
 /*
 =====================================
@@ -817,8 +819,10 @@ autocomplete_list_t cmd_list[] =
 { "music", Cmd_GetMusicList, },
 { "movie", Cmd_GetMovieList },
 { "exec", Cmd_GetConfigList },
+#ifndef XASH_DEDICATED
 { "give", Cmd_GetItemsList },
 { "drop", Cmd_GetItemsList },
+#endif
 { "game", Cmd_GetGamesList },
 { "save", Cmd_GetSavesList },
 { "load", Cmd_GetSavesList },
@@ -901,6 +905,7 @@ void Cmd_WriteOpenGLVariables( file_t *f )
 	Cvar_LookupVars( FCVAR_GLCONFIG, NULL, f, Cmd_WriteOpenGLCvar ); 
 }
 
+#ifndef XASH_DEDICATED
 /*
 ===============
 Host_WriteConfig
@@ -946,6 +951,7 @@ void Host_WriteConfig( void )
 	}
 	else MsgDev( D_ERROR, "Couldn't write config.cfg.\n" );
 }
+#endif
 
 /*
 ===============

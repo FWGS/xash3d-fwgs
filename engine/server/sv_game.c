@@ -584,11 +584,13 @@ void SV_RestartAmbientSounds( void )
 		SV_StartSound( pfnPEntityOfEntIndex( si->entnum ), CHAN_STATIC, si->name, si->volume, si->attenuation, 0, si->pitch );
 	}
 
+#ifndef XASH_DEDICATED // TODO: ???
 	// restart soundtrack
 	if( S_StreamGetCurrentState( curtrack, looptrack, &position ))
 	{
 		SV_StartMusic( curtrack, looptrack, position );
 	}
+#endif
 }
 
 /*

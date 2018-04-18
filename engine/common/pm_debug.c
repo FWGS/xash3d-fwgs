@@ -29,6 +29,7 @@ draw line from particles
 */
 void PM_ParticleLine( const vec3_t start, const vec3_t end, int pcolor, float life, float zvel )
 {
+#ifndef XASH_DEDICATED
 	float	len, curdist;
 	vec3_t	diff, pos;
 
@@ -43,6 +44,7 @@ void PM_ParticleLine( const vec3_t start, const vec3_t end, int pcolor, float li
 		CL_Particle( pos, pcolor, life, 0, zvel );
 		curdist += 2.0f;
 	}
+#endif // XASH_DEDICATED
 }
 
 /*
@@ -67,6 +69,7 @@ PM_DrawBBox
 */
 void PM_DrawBBox( const vec3_t mins, const vec3_t maxs, const vec3_t origin, int pcolor, float life )
 {
+#ifndef XASH_DEDICATED
 	vec3_t	p[8], tmp;
 	float	gap = BOX_GAP;
 	int	i;
@@ -85,4 +88,5 @@ void PM_DrawBBox( const vec3_t mins, const vec3_t maxs, const vec3_t origin, int
 	{
 		PM_DrawRectangle( p[boxpnt[i][1]], p[boxpnt[i][0]], p[boxpnt[i][2]], p[boxpnt[i][3]], pcolor, life );
 	}
+#endif // XASH_DEDICATED
 }

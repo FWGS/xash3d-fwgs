@@ -116,11 +116,13 @@ void Host_EndGame( qboolean abort, const char *message, ... )
 	MsgDev( D_INFO, "Host_EndGame: %s\n", string );
 
 	SV_Shutdown( "\n" );	
+#ifndef XASH_DEDICATED
 	CL_Disconnect();
 
 	// recreate world if needs
 	CL_ClearEdicts ();
-
+#endif
+	
 	// release all models
 	Mod_FreeAll();
 
@@ -412,17 +414,20 @@ double Host_CalcFPS( void )
 	double	fps = 0.0;
 
 	// NOTE: we should play demos with same fps as it was recorded
+#ifndef XASH_DEDICATED
 	if( CL_IsPlaybackDemo() || CL_IsRecordDemo( ))
 		fps = CL_GetDemoFramerate();
-	else if( Host_IsLocalGame( ))
+	else 
+#endif
+	if( Host_IsLocalGame( ))
 		fps = host_maxfps->value;
 	else
 	{
 		fps = host_maxfps->value;
 		if( fps == 0.0 ) fps = HOST_FPS; // default for multiplayer
-		fps = bound( MIN_FPS, fps, MAX_FPS );
 	}
 
+#ifndef XASH_DEDICATED
 	// probably left part of this condition is redundant :-)
 	if( host.type != HOST_DEDICATED && Host_IsLocalGame( ) && !CL_IsTimeDemo( ))
 	{
@@ -434,6 +439,7 @@ double Host_CalcFPS( void )
 			else fps = 60.0; // default
 		}
 	}
+#endif
 
 	return fps;
 }
@@ -962,8 +968,10 @@ void EXPORT Host_Shutdown( void )
 	if( host.status != HOST_ERR_FATAL ) host.status = HOST_SHUTDOWN; // prepare host to normal shutdown
 	if( !host.change_game ) Q_strncpy( host.finalmsg, "Server shutdown", sizeof( host.finalmsg ));
 
+#ifndef XASH_DEDICATED
 	if( host.type == HOST_NORMAL )
 		Host_WriteConfig();
+#endif
 
 	SV_Shutdown( "" );
 	CL_Shutdown();

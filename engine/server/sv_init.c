@@ -645,9 +645,10 @@ qboolean SV_InitGame( void )
 		return true; // already initialized ?
 
 	// first initialize?
-	if( !SV_LoadProgs( GI->game_dll ))
+	COM_ResetLibraryError();
+	if( !SV_LoadProgs( SI.gamedll ))
 	{
-		Con_Printf( S_ERROR "can't initialize %s\n", GI->game_dll );
+		Con_Printf( S_ERROR "can't initialize %s: %s\n", SI.gamedll, COM_GetLibraryError() );
 		return false; // failed to loading server.dll
 	}
 

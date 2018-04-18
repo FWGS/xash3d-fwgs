@@ -1778,11 +1778,13 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 	if( bmod->isworld )
 	{
+#ifndef XASH_DEDICATED
 		// release old sky layers first
 		GL_FreeTexture( tr.solidskyTexture );
 		GL_FreeTexture( tr.alphaskyTexture );
 		tr.solidskyTexture = 0;
 		tr.alphaskyTexture = 0;
+#endif
 	}
 
 	if( !bmod->texdatasize )
@@ -1805,8 +1807,10 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 			loadmodel->textures[i] = tx;
 
 			Q_strncpy( tx->name, "*default", sizeof( tx->name ));
+#ifndef XASH_DEDICATED
 			tx->gl_texturenum = tr.defaultTexture;
 			tx->width = tx->height = 16;
+#endif
 			continue; // missed
 		}
 
@@ -1851,6 +1855,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 			if( remaining >= 770 ) custom_palette = true;
 		}
 
+#ifndef XASH_DEDICATED
 		// check for multi-layered sky texture (quake1 specific)
 		if( bmod->isworld && !Q_strncmp( mt->name, "sky", 3 ) && (( mt->width / mt->height ) == 2 ))
 		{	
@@ -1943,6 +1948,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 				if( src ) Mem_Free( src );
 			}
 		}
+#endif
 	}
 
 	// sequence the animations and detail textures
@@ -2224,8 +2230,10 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 			next_lightofs = 99999999;
 		}
 
+#ifndef XASH_DEDICATED // TODO: Do we need subdivide on server?
 		if( FBitSet( out->flags, SURF_DRAWTURB ))
 			GL_SubdivideSurface( out ); // cut up polygon for warps
+#endif
 	}
 
 	// now we have enough data to trying determine samplecount per lightmap pixel
@@ -2794,6 +2802,7 @@ void Mod_UnloadBrushModel( model_t *mod )
 
 	if( mod->name[0] != '*' )
 	{
+#ifndef XASH_DEDICATED
 		for( i = 0; i < mod->numtextures; i++ )
 		{
 			tx = mod->textures[i];
@@ -2803,6 +2812,7 @@ void Mod_UnloadBrushModel( model_t *mod )
 			GL_FreeTexture( tx->gl_texturenum );	// main texture
 			GL_FreeTexture( tx->fb_texturenum );	// luma texture
 		}
+#endif
 		Mem_FreePool( &mod->mempool );
 	}
 

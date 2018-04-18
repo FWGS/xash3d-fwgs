@@ -323,6 +323,27 @@ void SV_AddLaddersToPmove( areanode_t *node, const vec3_t pmove_mins, const vec3
 		SV_AddLaddersToPmove( node->children[1], pmove_mins, pmove_maxs );
 }
 
+static void pfnParticle( float *origin, int color, float life, int zpos, int zvel )
+{
+	int	v;
+
+	if( !origin )
+	{
+		MsgDev( D_ERROR, "SV_StartParticle: NULL origin. Ignored\n" );
+		return;
+	}
+
+	MSG_WriteByte( &sv.reliable_datagram, svc_particle );
+	MSG_WriteVec3Coord( &sv.reliable_datagram, origin );
+	MSG_WriteChar( &sv.reliable_datagram, 0 ); // no x-vel
+	MSG_WriteChar( &sv.reliable_datagram, 0 ); // no y-vel
+	v = bound( -128, (zpos * zvel) * 16.0f, 127 );
+	MSG_WriteChar( &sv.reliable_datagram, v ); // write z-vel
+	MSG_WriteByte( &sv.reliable_datagram, 1 );
+	MSG_WriteByte( &sv.reliable_datagram, color );
+	MSG_WriteByte( &sv.reliable_datagram, bound( 0, life * 8, 255 ));
+}
+
 static int pfnTestPlayerPosition( float *pos, pmtrace_t *ptrace )
 {
 	return PM_TestPlayerPosition( svgame.pmove, pos, ptrace, NULL );
@@ -564,7 +585,7 @@ void SV_InitClientMove( void )
 
 	// common utilities
 	svgame.pmove->PM_Info_ValueForKey = Info_ValueForKey;
-	svgame.pmove->PM_Particle = CL_Particle; // for local system only
+	svgame.pmove->PM_Particle = pfnParticle;
 	svgame.pmove->PM_TestPlayerPosition = pfnTestPlayerPosition;
 	svgame.pmove->Con_NPrintf = Con_NPrintf;
 	svgame.pmove->Con_DPrintf = Con_DPrintf;

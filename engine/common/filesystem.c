@@ -1386,6 +1386,27 @@ void FS_LoadGameInfo( const char *rootfolder )
 		Sys_Error( "Couldn't find game directory '%s'\n", fs_gamedir );
 
 	SI.GameInfo = SI.games[i];
+	if( !Sys_GetParmFromCmdLine( "-dll", SI.gamedll ) )
+	{
+#ifdef XASH_INTERNAL_GAMELIBS
+		Q_strncpy( SI.gamedll, "server", sizeof( SI.gamedll ) );
+#elif defined(_WIN32)
+		Q_strncpy( SI.gamedll, GI->game_dll, sizeof( SI.gamedll ) );
+#elif defined(__APPLE__)
+		Q_strncpy( SI.gamedll, GI->game_dll_osx, sizeof( SI.gamedll ) );
+#else
+		Q_strncpy( SI.gamedll, GI->game_dll_linux, sizeof( SI.gamedll ) );
+#endif
+	}
+	if( !Sys_GetParmFromCmdLine( "-clientlib", SI.clientlib ) )
+	{
+#ifdef __ANDROID__
+		Q_strncpy( SI.clientlib, CLIENTDLL, sizeof( SI.clientlib ) );
+#else
+		Q_strncpy( SI.clientlib, GI->client_lib, sizeof( SI.clientlib ) );
+#endif
+	}
+	
 	FS_Rescan(); // create new filesystem
 
 	Host_InitDecals ();	// reload decals

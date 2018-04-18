@@ -977,13 +977,16 @@ void Cmd_ExecuteString( char *text )
 	if( host.apply_game_config )
 		return; // don't send nothing to server: we is a server!
 
+#ifndef XASH_DEDICATED
 	// forward the command line to the server, so the entity DLL can parse it
 	if( host.type == HOST_NORMAL )
 	{
 		if( cls.state >= ca_connected )
 			Cmd_ForwardToServer();
 	}
-	else if( text[0] != '@' && host.type == HOST_NORMAL )
+	else 
+#endif
+	if( text[0] != '@' && host.type == HOST_NORMAL )
 	{
 		// commands with leading '@' are hidden system commands
 		Con_Printf( S_WARN "Unknown command \"%s\"\n", text );
@@ -999,6 +1002,7 @@ things like godmode, noclip, etc, are commands directed to the server,
 so when they are typed in at the console, they will need to be forwarded.
 ===================
 */
+#ifndef XASH_DEDICATED
 void Cmd_ForwardToServer( void )
 {
 	char	str[MAX_CMD_BUFFER];
@@ -1032,6 +1036,7 @@ void Cmd_ForwardToServer( void )
 
 	MSG_WriteString( &cls.netchan.message, str );
 }
+#endif // XASH_DEDICATED
 
 /*
 ============
@@ -1141,7 +1146,9 @@ void Cmd_Init( void )
 	Cmd_AddCommand( "wait", Cmd_Wait_f, "make script execution wait for some rendered frames" );
 	Cmd_AddCommand( "cmdlist", Cmd_List_f, "display all console commands beginning with the specified prefix" );
 	Cmd_AddCommand( "stuffcmds", Cmd_StuffCmds_f, "execute commandline parameters (must be present in .rc script)" );
+#ifndef XASH_DEDICATED
 	Cmd_AddCommand( "cmd", Cmd_ForwardToServer, "send a console commandline to the server" );
+#endif
 	Cmd_AddCommand( "alias", Cmd_Alias_f, "create a script function. Without arguments show the list of all alias" );
 	Cmd_AddCommand( "unalias", Cmd_UnAlias_f, "remove a script function" );
 	Cmd_AddCommand( "if", Cmd_If_f, "compare and set condition bits" );

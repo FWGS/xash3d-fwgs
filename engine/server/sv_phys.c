@@ -21,7 +21,9 @@ GNU General Public License for more details.
 #include "gl_export.h"
 
 typedef int (*PHYSICAPI)( int, server_physics_api_t*, physics_interface_t* );
+#ifndef XASH_DEDICATED
 extern triangleapi_t gTriApi;
+#endif
 
 /*
 pushmove objects do not obey gravity, and do not interact with each other or trigger fields,
@@ -2004,10 +2006,17 @@ static server_physics_api_t gPhysicsAPI =
 	SV_GetHeadNode,
 	SV_ServerState,
 	Host_Error,
+#ifndef XASH_DEDICATED
 	&gTriApi,	// ouch!
 	pfnDrawConsoleString,
 	pfnDrawSetTextColor,
 	pfnDrawConsoleStringLen,
+#else
+	NULL,		// ouch! ouch!
+	NULL,		// ouch! ouch!
+	NULL,		// ouch! ouch!
+	NULL,		// ouch! ouch!
+#endif
 	Con_NPrintf,
 	Con_NXPrintf,
 	SV_GetLightStyle,

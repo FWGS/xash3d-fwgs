@@ -2769,7 +2769,7 @@ void CL_Init( void )
 	IN_TouchInit();
 
 	COM_ResetLibraryError();
-	if( !CL_LoadProgs( va( "%s/%s", GI->dll_path, GI->client_lib)))
+	if( !CL_LoadProgs( va( "%s/%s", GI->dll_path, SI.clientlib)))
 		Host_Error( "can't initialize client.dll\n" );
 
 	cls.initialized = true;

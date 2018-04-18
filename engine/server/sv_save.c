@@ -1118,8 +1118,10 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 	{
 	 	// sounds won't going across transition
 		header.soundCount = S_GetCurrentDynamicSounds( soundInfo, MAX_CHANNELS );
+#ifndef XASH_DEDICATED
 		// music not reqiured to save position: it's just continue playing on a next level
 		S_StreamGetCurrentState( header.introTrack, header.mainTrack, &header.trackPosition );
+#endif
 	}
 
 	// save viewentity to allow camera works after save\restore
@@ -2098,8 +2100,10 @@ void SV_SaveGame( const char *pName )
 	SaveBuildComment( comment, sizeof( comment ));
 	result = SaveGameSlot( savename, comment );
 
+#ifndef XASH_DEDICATED
 	if( result && !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
 		CL_HudMessage( "GAMESAVED" ); // defined in titles.txt
+#endif
 }
 
 /* 

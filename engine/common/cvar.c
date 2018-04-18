@@ -90,12 +90,13 @@ static qboolean Cvar_UpdateInfo( convar_t *var, const char *value, qboolean noti
 {
 	if( FBitSet( var->flags, FCVAR_USERINFO ))
 	{
-		if ( host.type == HOST_DEDICATED )
+		if ( Host_IsDedicated() )
 		{
 			// g-cont. this is a very strange behavior...
 			Info_SetValueForKey( SV_Serverinfo(), var->name, value, MAX_SERVERINFO_STRING ),
 			SV_BroadcastCommand( "fullserverinfo \"%s\"\n", SV_Serverinfo( ));
 		}
+#ifndef XASH_DEDICATED
 		else
 		{
 			if( !Info_SetValueForKey( CL_Userinfo(), var->name, value, MAX_INFO_STRING ))
@@ -104,6 +105,7 @@ static qboolean Cvar_UpdateInfo( convar_t *var, const char *value, qboolean noti
 			// time to update server copy of userinfo
 			CL_ServerCommand( true, "setinfo \"%s\" \"%s\"\n", var->name, value );
 		}
+#endif
 	}
 
 	if( FBitSet( var->flags, FCVAR_SERVER ) && notify )

@@ -1798,6 +1798,7 @@ Can go from either a baseline or a previous packet_entity
 */
 qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state_t *to, int number, qboolean player, float timebase )
 {
+#ifndef XASH_DEDICATED
 	delta_info_t	*dt = NULL;
 	delta_t		*pField;
 	int		i, fRemoveType;
@@ -1877,7 +1878,7 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 	{
 		Delta_ReadField( msg, pField, from, to, timebase );
 	}
-
+#endif // XASH_DEDICATED
 	// message parsed
 	return true;
 }
