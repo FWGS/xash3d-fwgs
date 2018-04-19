@@ -21,13 +21,6 @@ GNU General Public License for more details.
 #define MAX_CMD_LINE	2048
 #define MAX_ALIAS_NAME	32
 
-typedef struct cmdalias_s
-{
-	struct cmdalias_s	*next;
-	char		name[MAX_ALIAS_NAME];
-	char		*value;
-} cmdalias_t;
-
 typedef struct
 {
 	byte		*data;
@@ -49,6 +42,7 @@ int			cmd_condlevel;
 
 =============================================================================
 */
+
 /*
 ============
 Cbuf_Init
@@ -496,6 +490,56 @@ Cmd_Args
 char *Cmd_Args( void )
 {
 	return cmd_args;
+}
+
+
+/*
+===========================
+
+Client exports
+
+===========================
+*/
+
+
+/*
+============
+Cmd_AliasGetList
+============
+*/
+cmdalias_t *GAME_EXPORT Cmd_AliasGetList( void )
+{
+	return cmd_alias;
+}
+
+/*
+============
+Cmd_GetList
+============
+*/
+cmd_t *GAME_EXPORT Cmd_GetFirstFunctionHandle( void )
+{
+	return cmd_functions;
+}
+
+/*
+============
+Cmd_GetNext
+============
+*/
+cmd_t *GAME_EXPORT Cmd_GetNextFunctionHandle( cmd_t *cmd )
+{
+	return (cmd) ? cmd->next : NULL;
+}
+
+/*
+============
+Cmd_GetName
+============
+*/
+char *GAME_EXPORT Cmd_GetName( cmd_t *cmd )
+{
+	return cmd->name;
 }
 
 /*

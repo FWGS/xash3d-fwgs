@@ -48,6 +48,7 @@ typedef struct convar_s
 #define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc )	convar_t cv = { #cv, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
 #define CVAR_TO_BOOL( x )		((x) && ((x)->value != 0.0f) ? true : false )
 
+cvar_t *Cvar_GetList( void );
 #define Cvar_FindVar( name )	Cvar_FindVarExt( name, 0 )
 convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group );
 void Cvar_RegisterVariable( convar_t *var );

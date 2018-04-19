@@ -93,6 +93,49 @@ byte *Sound_Copy( size_t size )
 	return out; 
 }
 
+uint GAME_EXPORT Sound_GetApproxWavePlayLen( const char *filepath )
+{
+	file_t	*f;
+	wavehdr_t	wav;
+	size_t	filesize;
+	float	seconds;
+	uint	samples;
+
+	f = FS_Open( filepath, "rb", false );
+	if( !f ) return 0;
+
+	if( FS_Read( f, &wav, sizeof( wav )) != sizeof( wav ))
+	{
+		FS_Close( f );
+		return 0;
+	}
+
+	filesize = FS_FileLength( f );
+	filesize -= ( sizeof( wavehdr_t ) + sizeof( chunkhdr_t ));
+
+	FS_Close( f );
+
+	// is real wav file ?
+	if( wav.riff_id != RIFFHEADER || wav.wave_id != WAVEHEADER || wav.fmt_id != FORMHEADER )
+		return 0;
+
+	if( wav.wFormatTag != 1 )
+		return 0;
+
+	if( wav.nChannels != 1 && wav.nChannels != 2 )
+		return 0;
+
+	if( wav.nBitsPerSample != 8 && wav.nBitsPerSample != 16 )
+		return 0;
+
+	// calc samplecount
+	seconds = (float)filesize / wav.nAvgBytesPerSec / wav.nChannels;
+	samples = (uint)(( wav.nSamplesPerSec * wav.nChannels ) * seconds );
+
+	// g-cont. this function returns samplecount or time in milliseconds ???
+	return (uint)(seconds * 1000);
+}
+
 /*
 ================
 Sound_ConvertToSigned

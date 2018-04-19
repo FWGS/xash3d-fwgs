@@ -1321,3 +1321,110 @@ qboolean COM_IsSafeFileToDownload( const char *filename )
 
 	return true;
 }
+
+/*
+======================
+
+COMMON EXPORT STUBS
+
+======================
+*/
+
+
+/*
+=============
+pfnSequenceGet
+
+used by CS:CZ
+=============
+*/
+void *GAME_EXPORT pfnSequenceGet( const char *fileName, const char *entryName )
+{
+	Msg( "Sequence_Get: file %s, entry %s\n", fileName, entryName );
+
+
+	return Sequence_Get( fileName, entryName );
+}
+
+/*
+=============
+pfnSequencePickSentence
+
+used by CS:CZ
+=============
+*/
+void *GAME_EXPORT pfnSequencePickSentence( const char *groupName, int pickMethod, int *picked )
+{
+	Msg( "Sequence_PickSentence: group %s, pickMethod %i\n", groupName, pickMethod );
+
+	return  Sequence_PickSentence( groupName, pickMethod, picked );
+
+}
+
+/*
+=============
+pfnIsCareerMatch
+
+used by CS:CZ (client stub)
+=============
+*/
+int GAME_EXPORT GAME_EXPORT pfnIsCareerMatch( void )
+{
+	return 0;
+}
+
+/*
+=============
+pfnRegisterTutorMessageShown
+
+only exists in PlayStation version
+=============
+*/
+void GAME_EXPORT pfnRegisterTutorMessageShown( int mid )
+{
+}
+
+/*
+=============
+pfnGetTimesTutorMessageShown
+
+only exists in PlayStation version
+=============
+*/
+int GAME_EXPORT pfnGetTimesTutorMessageShown( int mid )
+{
+	return 0;
+}
+
+/*
+=============
+pfnProcessTutorMessageDecayBuffer
+
+only exists in PlayStation version
+=============
+*/
+void GAME_EXPORT pfnProcessTutorMessageDecayBuffer( int *buffer, int bufferLength )
+{
+}
+
+/*
+=============
+pfnConstructTutorMessageDecayBuffer
+
+only exists in PlayStation version
+=============
+*/
+void GAME_EXPORT pfnConstructTutorMessageDecayBuffer( int *buffer, int bufferLength )
+{
+}
+
+/*
+=============
+pfnResetTutorMessageDecayData
+
+only exists in PlayStation version
+=============
+*/
+void GAME_EXPORT pfnResetTutorMessageDecayData( void )
+{
+}

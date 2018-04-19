@@ -21,6 +21,17 @@ convar_t	*cmd_scripting;
 
 /*
 ============
+Cvar_GetList
+============
+*/
+cvar_t *GAME_EXPORT Cvar_GetList( void )
+{
+	return (cvar_t *)cvar_vars;
+}
+
+
+/*
+============
 Cvar_FindVar
 
 find the specified variable by name

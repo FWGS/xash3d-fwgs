@@ -27,6 +27,16 @@ extern "C" {
 #endif
 
 #include "const.h"
+#include <stdint.h>
+
+#define MAX_ALIAS_NAME	32
+
+typedef struct cmdalias_s
+{
+	struct cmdalias_s	*next;
+	char		name[MAX_ALIAS_NAME];
+	char		*value;
+} cmdalias_t;
 
 // this file is included by both the engine and the client-dll,
 // so make sure engine declarations aren't done twice
@@ -96,10 +106,12 @@ typedef struct hud_player_info_s
 	char		*model;
 	short		topcolor;
 	short		bottomcolor;
+
+	uint64_t	m_nSteamID;
 } hud_player_info_t;
 
-typedef struct event_args_s event_args_t;
-typedef struct screenfade_s screenfade_t;
+struct screenfade_s;
+struct tagPOINT;
 
 typedef struct cl_enginefuncs_s
 {
@@ -197,15 +209,15 @@ typedef struct cl_enginefuncs_s
 	void	(*pfnPlaybackEvent)( int flags, const struct edict_s *pInvoker, unsigned short eventindex, float delay, float *origin, float *angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 );
 	void	(*pfnWeaponAnim)( int iAnim, int body );
 	float	(*pfnRandomFloat)( float flLow, float flHigh );	
-	long	(*pfnRandomLong)( long lLow, long lHigh );
-	void	(*pfnHookEvent)( char *name, void ( *pfnEvent )( event_args_t *args ));
+	int	(*pfnRandomLong)( int lLow, int lHigh );
+	void	(*pfnHookEvent)( char *name, void ( *pfnEvent )( struct event_args_s *args ));
 	int	(*Con_IsVisible) ();
 	const char *(*pfnGetGameDirectory)( void );
 	struct cvar_s *(*pfnGetCvarPointer)( const char *szName );
 	const char *(*Key_LookupBinding)( const char *pBinding );
 	const char *(*pfnGetLevelName)( void );
-	void	(*pfnGetScreenFade)( screenfade_t *fade );
-	void	(*pfnSetScreenFade)( screenfade_t *fade );
+	void	(*pfnGetScreenFade)( struct screenfade_s *fade );
+	void	(*pfnSetScreenFade)( struct screenfade_s *fade );
 	void*	(*VGui_GetPanel)( );
 	void	(*VGui_ViewportPaintBackground)( int extents[4] );
 
@@ -251,6 +263,44 @@ typedef struct cl_enginefuncs_s
 	void	(*pfnGetMousePos)( struct tagPOINT *ppt );
 	void	(*pfnSetMousePos)( int x, int y );
 	void	(*pfnSetMouseEnable)( qboolean fEnable );
+
+	// undocumented interface starts here
+	struct cvar_s*	(*pfnGetFirstCvarPtr)( void );
+	void*		(*pfnGetFirstCmdFunctionHandle)( void );
+	void*		(*pfnGetNextCmdFunctionHandle)( void *cmdhandle );
+	const char*	(*pfnGetCmdFunctionName)( void *cmdhandle );
+	float		(*pfnGetClientOldTime)( void );
+	float		(*pfnGetGravity)( void );
+	struct model_s*	(*pfnGetModelByIndex)( int index );
+	void		(*pfnSetFilterMode)( int mode ); // same as gl_texsort in original Quake
+	void		(*pfnSetFilterColor)( float red, float green, float blue );
+	void		(*pfnSetFilterBrightness)( float brightness );
+	void		*(*pfnSequenceGet)( const char *fileName, const char *entryName );
+	void		(*pfnSPR_DrawGeneric)( int frame, int x, int y, const wrect_t *prc, int blendsrc, int blenddst, int width, int height );
+	void		*(*pfnSequencePickSentence)( const char *groupName, int pickMethod, int *entryPicked );
+	int		(*pfnDrawString)( int x, int y, const char *str, int r, int g, int b );
+	int		(*pfnDrawStringReverse)( int x, int y, const char *str, int r, int g, int b );
+	const char	*(*LocalPlayerInfo_ValueForKey)( const char* key );
+	int		(*pfnVGUI2DrawCharacter)( int x, int y, int ch, unsigned int font );
+	int		(*pfnVGUI2DrawCharacterAdditive)( int x, int y, int ch, int r, int g, int b, unsigned int font );
+	unsigned int	(*pfnGetApproxWavePlayLen)( char *filename );
+	void*		(*GetCareerGameUI)( void );	// g-cont. !!!! potential crash-point!
+	void		(*Cvar_Set)( char *name, char *value );
+	int		(*pfnIsPlayingCareerMatch)( void );
+	void		(*pfnPlaySoundVoiceByName)( char *szSound, float volume, int pitch );
+	void		(*pfnPrimeMusicStream)( char *filename, int looping );
+	double		(*pfnSys_FloatTime)( void );
+
+	// decay funcs
+	void		(*pfnProcessTutorMessageDecayBuffer)( int *buffer, int buflen );
+	void		(*pfnConstructTutorMessageDecayBuffer)( int *buffer, int buflen );
+	void		(*pfnResetTutorMessageDecayData)( void );
+
+	void		(*pfnPlaySoundByNameAtPitch)( char *szSound, float volume, int pitch );
+	void		(*pfnFillRGBABlend)( int x, int y, int width, int height, int r, int g, int b, int a );
+	int		(*pfnGetAppID)( void );
+	cmdalias_t	*(*pfnGetAliases)( void );
+	void		(*pfnVguiWrap2_GetMouseDelta)( int *x, int *y );
 } cl_enginefunc_t;
 
 #define CLDLL_INTERFACE_VERSION	7

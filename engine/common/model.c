@@ -602,3 +602,20 @@ void Mod_NeedCRC( const char *name, qboolean needCRC )
 	if( needCRC ) SetBits( p->flags, FCRC_SHOULD_CHECKSUM );
 	else ClearBits( p->flags, FCRC_SHOULD_CHECKSUM );
 }
+
+
+/*
+==================
+Mod_Handle
+
+==================
+*/
+model_t *GAME_EXPORT Mod_Handle( int handle )
+{
+	if( handle < 0 || handle >= MAX_MODELS )
+	{
+		MsgDev( D_NOTE, "Mod_Handle: bad handle #%i\n", handle );
+		return NULL;
+	}
+	return &mod_known[handle];
+}

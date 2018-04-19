@@ -2772,6 +2772,281 @@ void pfnSetMouseEnable( qboolean fEnable )
 {
 }
 
+
+/*
+=============
+pfnGetServerTime
+
+=============
+*/
+static float GAME_EXPORT pfnGetClientOldTime( void )
+{
+	return cl.oldtime;
+}
+
+/*
+=============
+pfnGetGravity
+
+=============
+*/
+static float GAME_EXPORT pfnGetGravity( void )
+{
+	return clgame.movevars.gravity;
+}
+
+/*
+=============
+pfnEnableTexSort
+
+TODO: implement
+=============
+*/
+static void GAME_EXPORT pfnEnableTexSort( int enable )
+{
+}
+
+/*
+=============
+pfnSetLightmapColor
+
+TODO: implement
+=============
+*/
+static void GAME_EXPORT pfnSetLightmapColor( float red, float green, float blue )
+{
+}
+
+/*
+=============
+pfnSetLightmapScale
+
+TODO: implement
+=============
+*/
+static void GAME_EXPORT pfnSetLightmapScale( float scale )
+{
+}
+
+/*
+=============
+pfnSPR_DrawGeneric
+
+=============
+*/
+static void GAME_EXPORT pfnSPR_DrawGeneric( int frame, int x, int y, const wrect_t *prc, int blendsrc, int blenddst, int width, int height )
+{
+	pglEnable( GL_BLEND );
+	pglBlendFunc( blendsrc, blenddst ); // g-cont. are params is valid?
+	SPR_DrawGeneric( frame, x, y, width, height, prc );
+}
+
+/*
+=============
+LocalPlayerInfo_ValueForKey
+
+=============
+*/
+static const char *GAME_EXPORT LocalPlayerInfo_ValueForKey( const char* key )
+{
+	return Info_ValueForKey( CL_Userinfo(), key );
+}
+
+/*
+=============
+pfnVGUI2DrawCharacter
+
+=============
+*/
+static int GAME_EXPORT pfnVGUI2DrawCharacter( int x, int y, int number, unsigned int font )
+{
+	if( !cls.creditsFont.valid )
+		return 0;
+
+	number &= 255;
+
+	number = Con_UtfProcessChar( number );
+
+	if( number < 32 ) return 0;
+	if( y < -clgame.scrInfo.iCharHeight )
+		return 0;
+
+	clgame.ds.adjust_size = true;
+	gameui.ds.gl_texturenum = cls.creditsFont.hFontTexture;
+	pfnPIC_DrawAdditive( x, y, -1, -1, &cls.creditsFont.fontRc[number] );
+	clgame.ds.adjust_size = false;
+
+	return clgame.scrInfo.charWidths[number];
+}
+
+/*
+=============
+pfnVGUI2DrawCharacterAdditive
+
+=============
+*/
+static int GAME_EXPORT pfnVGUI2DrawCharacterAdditive( int x, int y, int ch, int r, int g, int b, unsigned int font )
+{
+	/// TODO: fix UTF-8
+#if 0
+	if( !hud_utf8->integer )
+		ch = Con_UtfProcessChar( ch );
+#endif
+
+	return pfnDrawCharacter( x, y, ch, r, g, b );
+}
+
+/*
+=============
+pfnDrawString
+
+=============
+*/
+static int GAME_EXPORT pfnDrawString( int x, int y, const char *str, int r, int g, int b )
+{
+	Con_UtfProcessChar(0);
+
+	// draw the string until we hit the null character or a newline character
+	for ( ; *str != 0 && *str != '\n'; str++ )
+	{
+		x += pfnVGUI2DrawCharacterAdditive( x, y, (unsigned char)*str, r, g, b, 0 );
+	}
+
+	return x;
+}
+
+/*
+=============
+pfnDrawStringReverse
+
+=============
+*/
+static int GAME_EXPORT pfnDrawStringReverse( int x, int y, const char *str, int r, int g, int b )
+{
+	// find the end of the string
+	char *szIt;
+	for( szIt = (char*)str; *szIt != 0; szIt++ )
+		x -= clgame.scrInfo.charWidths[ (unsigned char) *szIt ];
+	pfnDrawString( x, y, str, r, g, b );
+	return x;
+}
+
+/*
+=============
+GetCareerGameInterface
+
+=============
+*/
+static void *GAME_EXPORT GetCareerGameInterface( void )
+{
+	Msg( "^1Career GameInterface called!\n" );
+	return NULL;
+}
+
+/*
+=============
+pfnPlaySoundVoiceByName
+
+=============
+*/
+static void GAME_EXPORT pfnPlaySoundVoiceByName( char *filename, float volume, int pitch )
+{
+	int hSound = S_RegisterSound( filename );
+
+	S_StartSound( NULL, cl.viewentity, CHAN_NETWORKVOICE_END + 1, hSound, volume, 1.0, pitch, SND_STOP_LOOPING );
+}
+
+/*
+=============
+pfnMP3_InitStream
+
+=============
+*/
+static void GAME_EXPORT pfnMP3_InitStream( char *filename, int looping )
+{
+	if( !filename )
+	{
+		S_StopBackgroundTrack();
+		return;
+	}
+
+	if( looping )
+	{
+		S_StartBackgroundTrack( filename, filename, 0, false );
+	}
+	else
+	{
+		S_StartBackgroundTrack( filename, NULL, 0, false );
+	}
+}
+
+/*
+=============
+pfnPlaySoundByNameAtPitch
+
+=============
+*/
+static void GAME_EXPORT pfnPlaySoundByNameAtPitch( char *filename, float volume, int pitch )
+{
+	int hSound = S_RegisterSound( filename );
+	S_StartSound( NULL, cl.viewentity, CHAN_ITEM, hSound, volume, 1.0, pitch, SND_STOP_LOOPING );
+}
+
+/*
+=============
+pfnFillRGBABlend
+
+=============
+*/
+void GAME_EXPORT CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int b, int a )
+{
+	r = bound( 0, r, 255 );
+	g = bound( 0, g, 255 );
+	b = bound( 0, b, 255 );
+	a = bound( 0, a, 255 );
+
+	SPR_AdjustSize( (float *)&x, (float *)&y, (float *)&w, (float *)&h );
+
+	pglDisable( GL_TEXTURE_2D );
+	pglEnable( GL_BLEND );
+	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+	pglColor4f( r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f );
+
+	pglBegin( GL_QUADS );
+		pglVertex2f( x, y );
+		pglVertex2f( x + w, y );
+		pglVertex2f( x + w, y + h );
+		pglVertex2f( x, y + h );
+	pglEnd ();
+
+	pglColor3f( 1.0f, 1.0f, 1.0f );
+	pglEnable( GL_TEXTURE_2D );
+	pglDisable( GL_BLEND );
+}
+
+/*
+=============
+pfnGetAppID
+
+=============
+*/
+static int GAME_EXPORT pfnGetAppID( void )
+{
+	return 70; // Half-Life AppID
+}
+
+/*
+=============
+pfnVguiWrap2_GetMouseDelta
+
+TODO: implement
+=============
+*/
+static void GAME_EXPORT pfnVguiWrap2_GetMouseDelta( int *x, int *y )
+{
+}
+
 /*
 =============
 pfnParseFile
@@ -3779,6 +4054,39 @@ static cl_enginefunc_t gEngfuncs =
 	pfnGetMousePos,
 	pfnSetMousePos,
 	pfnSetMouseEnable,
+	Cvar_GetList,
+	(void*)Cmd_GetFirstFunctionHandle,
+	(void*)Cmd_GetNextFunctionHandle,
+	(void*)Cmd_GetName,
+	pfnGetClientOldTime,
+	pfnGetGravity,
+	Mod_Handle,
+	pfnEnableTexSort,
+	pfnSetLightmapColor,
+	pfnSetLightmapScale,
+	pfnSequenceGet,
+	pfnSPR_DrawGeneric,
+	pfnSequencePickSentence,
+	pfnDrawString,
+	pfnDrawStringReverse,
+	LocalPlayerInfo_ValueForKey,
+	pfnVGUI2DrawCharacter,
+	pfnVGUI2DrawCharacterAdditive,
+	(void*)Sound_GetApproxWavePlayLen,
+	GetCareerGameInterface,
+	(void*)Cvar_Set,
+	pfnIsCareerMatch,
+	pfnPlaySoundVoiceByName,
+	pfnMP3_InitStream,
+	Sys_DoubleTime,
+	pfnProcessTutorMessageDecayBuffer,
+	pfnConstructTutorMessageDecayBuffer,
+	pfnResetTutorMessageDecayData,
+	pfnPlaySoundByNameAtPitch,
+	CL_FillRGBABlend,
+	pfnGetAppID,
+	Cmd_AliasGetList,
+	pfnVguiWrap2_GetMouseDelta,
 };
 
 void CL_UnloadProgs( void )

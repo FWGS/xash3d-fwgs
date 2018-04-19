@@ -122,6 +122,7 @@ typedef char		string[MAX_STRING];
 typedef struct file_s	file_t;		// normal file
 typedef struct wfile_s	wfile_t;		// wad file
 typedef struct stream_s	stream_t;		// sound stream for background music playing
+typedef off_t fs_offset_t;
 
 typedef void (*setpair_t)( const char *key, const char *value, void *buffer, void *numpairs );
 
@@ -768,6 +769,7 @@ long FS_SetStreamPos( stream_t *stream, long newpos );
 long FS_GetStreamPos( stream_t *stream );
 void FS_FreeStream( stream_t *stream );
 qboolean Sound_Process( wavdata_t **wav, int rate, int width, uint flags );
+uint Sound_GetApproxWavePlayLen( const char *filepath );
 
 //
 // build.c
@@ -859,6 +861,19 @@ void Con_Printf( char *szFmt, ... );
 int pfnNumberOfEntities( void );
 int pfnIsInGame( void );
 float pfnTime( void );
+
+// CS:CS engfuncs (stubs)
+void *pfnSequenceGet( const char *fileName, const char *entryName );
+void *pfnSequencePickSentence( const char *groupName, int pickMethod, int *picked );
+int pfnIsCareerMatch( void );
+
+// Decay engfuncs (stubs)
+int pfnGetTimesTutorMessageShown( int mid );
+void pfnRegisterTutorMessageShown( int mid );
+void pfnConstructTutorMessageDecayBuffer( int *buffer, int buflen );
+void pfnProcessTutorMessageDecayBuffer( int *buffer, int bufferLength );
+void pfnResetTutorMessageDecayData( void );
+
 
 /*
 ==============================================================
@@ -952,6 +967,10 @@ byte *COM_LoadFile( const char *filename, int usehunk, int *pLength );
 qboolean CL_GetDemoComment( const char *demoname, char *comment );
 void COM_AddAppDirectoryToSearchPath( const char *pszBaseDir, const char *appName );
 int COM_ExpandFilename( const char *fileName, char *nameOutBuffer, int nameOutBufferSize );
+struct cmd_s *Cmd_GetFirstFunctionHandle( void );
+struct cmd_s *Cmd_GetNextFunctionHandle( struct cmd_s *cmd );
+struct cmdalias_s *Cmd_AliasGetList( void );
+char *Cmd_GetName( struct cmd_s *cmd );
 struct pmtrace_s *PM_TraceLine( float *start, float *end, int flags, int usehull, int ignore_pe );
 void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
 void SV_StartMusic( const char *curtrack, const char *looptrack, long position );
