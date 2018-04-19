@@ -544,7 +544,7 @@ void CL_ParseStaticEntity( sizebuf_t *msg )
 	ent->prevstate = state;
 
 	// statics may be respawned in game e.g. for demo recording
-	if( cls.state == ca_connected )
+	if( cls.state == ca_connected || cls.state == ca_validate )
 		ent->trivial_accept = INVALID_HANDLE;
 
 	// setup the new static entity
@@ -1758,7 +1758,7 @@ void CL_RegisterResources( sizebuf_t *msg )
 	}
 	else
 	{
-		MsgDev( D_ERROR, "client world model is NULL\n" );
+		Con_Printf( S_ERROR "client world model is NULL\n" );
 		CL_Disconnect();
 	}
 }

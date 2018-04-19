@@ -28,6 +28,7 @@ GNU General Public License for more details.
 
 convar_t		*r_sprite_lerping;
 convar_t		*r_sprite_lighting;
+char		sprite_name[MAX_QPATH];
 char		group_suffix[8];
 static uint	r_texFlags = 0;
 static int	sprite_version;
@@ -67,12 +68,12 @@ static dframetype_t *R_SpriteLoadFrame( model_t *mod, void *pin, mspriteframe_t 
 	// build uinque frame name
 	if( FBitSet( mod->flags, MODEL_CLIENT )) // it's a HUD sprite
 	{
-		Q_snprintf( texname, sizeof( texname ), "#HUD/%s_%s_%i%i.spr", mod->name, group_suffix, num / 10, num % 10 );
+		Q_snprintf( texname, sizeof( texname ), "#HUD/%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
 		gl_texturenum = GL_LoadTexture( texname, pin, pinframe->width * pinframe->height * bytes, r_texFlags, NULL );
 	}
 	else
 	{
-		Q_snprintf( texname, sizeof( texname ), "#%s_%s_%i%i.spr", mod->name, group_suffix, num / 10, num % 10 );
+		Q_snprintf( texname, sizeof( texname ), "#%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
 		gl_texturenum = GL_LoadTexture( texname, pin, pinframe->width * pinframe->height * bytes, r_texFlags, NULL );
 	}	
 
@@ -223,6 +224,9 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		return;
 	}
 
+	Q_strncpy( sprite_name, mod->name, sizeof( sprite_name ));
+	COM_StripExtension( sprite_name );
+
 	if( numi == NULL )
 	{
 		rgbdata_t	*pal;
@@ -273,15 +277,15 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		switch( frametype )
 		{
 		case FRAME_SINGLE:
-			Q_strncpy( group_suffix, "one", sizeof( group_suffix ));
+			Q_strncpy( group_suffix, "frame", sizeof( group_suffix ));
 			pframetype = R_SpriteLoadFrame( mod, pframetype + 1, &psprite->frames[i].frameptr, i );
 			break;
 		case FRAME_GROUP:
-			Q_strncpy( group_suffix, "grp", sizeof( group_suffix ));
+			Q_strncpy( group_suffix, "group", sizeof( group_suffix ));
 			pframetype = R_SpriteLoadGroup( mod, pframetype + 1, &psprite->frames[i].frameptr, i );
 			break;
 		case FRAME_ANGLED:
-			Q_strncpy( group_suffix, "ang", sizeof( group_suffix ));
+			Q_strncpy( group_suffix, "angle", sizeof( group_suffix ));
 			pframetype = R_SpriteLoadGroup( mod, pframetype + 1, &psprite->frames[i].frameptr, i );
 			break;
 		}

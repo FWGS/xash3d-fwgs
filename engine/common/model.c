@@ -23,7 +23,7 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "features.h"
 #include "client.h"
-#include "server.h"			// LUMP_ error codes
+#include "server.h"
 
 static model_info_t	mod_crcinfo[MAX_MODELS];
 static model_t	mod_known[MAX_MODELS];
@@ -132,7 +132,7 @@ static void Mod_FreeModel( model_t *mod )
 /*
 ===============================================================================
 
-			MODEL INITALIZE\SHUTDOWN
+			MODEL INITIALIZE\SHUTDOWN
 
 ===============================================================================
 */
@@ -156,11 +156,10 @@ Mod_FreeAll
 */
 void Mod_FreeAll( void )
 {
-	model_t	*mod;
 	int	i;
 
-	for( i = 0, mod = mod_known; i < mod_numknown; i++, mod++ )
-		Mod_FreeModel( mod );
+	for( i = 0; i < mod_numknown; i++ )
+		Mod_FreeModel( &mod_known[i] );
 	mod_numknown = 0;
 }
 
@@ -232,7 +231,7 @@ model_t *Mod_FindName( const char *filename, qboolean trackCRC )
 	if( i == mod_numknown )
 	{
 		if( mod_numknown == MAX_MODELS )
-			Host_Error( "Mod_ForName: MAX_MODELS limit exceeded\n" );
+			Host_Error( "MAX_MODELS limit exceeded (%d)\n", MAX_MODELS );
 		mod_numknown++;
 	}
 
@@ -255,7 +254,7 @@ Loads a model into the cache
 */
 model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 {
-	char		tempname[64];
+	char		tempname[MAX_QPATH];
 	long		length = 0;
 	qboolean		loaded;
 	byte		*buf;
@@ -364,7 +363,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		if( FBitSet( p->flags, FCRC_CHECKSUM_DONE ))
 		{
 			if( currentCRC != p->initialCRC )
-				Host_Error( "Mod_ForName: %s has a bad checksum\n", tempname );
+				Host_Error( "%s has a bad checksum\n", tempname );
 		}
 		else
 		{
@@ -397,7 +396,7 @@ Mod_PurgeStudioCache
 free studio cache on change level
 ==================
 */
-void Mod_PurgeStudioCache( void )
+static void Mod_PurgeStudioCache( void )
 {
 	int	i;
 

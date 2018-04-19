@@ -361,7 +361,7 @@ void Host_InitDecals( void )
 	}
 
 	if( t ) Mem_Free( t );
-	Con_DPrintf( "InitDecals: %i decals\n", num_decals );
+	Con_Reportf( "InitDecals: %i decals\n", num_decals );
 }
 
 /*

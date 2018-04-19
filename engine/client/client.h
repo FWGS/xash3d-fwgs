@@ -411,6 +411,13 @@ typedef struct
 
 typedef struct
 {
+	char		szListName[MAX_QPATH];
+	client_sprite_t	*pList;
+	int		count;
+} cached_spritelist_t;
+
+typedef struct
+{
 	// centerprint stuff
 	float		time;
 	int		y, lines;
@@ -504,6 +511,8 @@ typedef struct
 	SCREENINFO	scrInfo;			// actual screen info
 	ref_overview_t	overView;			// overView params
 	color24		palette[256];		// palette used for particle colors
+
+	cached_spritelist_t	sprlist[MAX_CLIENT_SPRITES];	// client list sprites
 
 	client_textmessage_t *titles;			// title messages, not network messages
 	int		numTitles;

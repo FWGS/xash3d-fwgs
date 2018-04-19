@@ -165,31 +165,17 @@ typedef struct
 
 typedef struct
 {
-	int		cinTexture;      	// cinematic texture
-	int		skyTexture;	// default sky texture
+	int		defaultTexture;   	// use for bad textures
+	int		particleTexture;
 	int		whiteTexture;
 	int		grayTexture;
 	int		blackTexture;
-	int		particleTexture;
-	int		defaultTexture;   	// use for bad textures
 	int		solidskyTexture;	// quake1 solid-sky layer
 	int		alphaskyTexture;	// quake1 alpha-sky layer
 	int		lightmapTextures[MAX_LIGHTMAPS];
 	int		dlightTexture;	// custom dlight texture
-	int		dlightTexture2;	// big dlight texture (for big lightmaps)
-	int		attenuationTexture;	// normal attenuation
-	int		attenuationTexture2;// dark attenuation
-	int		attenuationTexture3;// bright attenuation
-	int		attenuationTexture3D;// 3D attenuation
-	int		attenuationStubTexture;
-	int		blankbumpTexture;
-	int		blankdeluxeTexture;
-	int		normalizeTexture;
-	int		dlightCubeTexture;	// dynamic cubemap
-	int		vsdctCubeTexture;	// Virtual Shadow Depth Cubemap Texture
-	int		grayCubeTexture;
-	int		whiteCubeTexture;
 	int		skyboxTextures[6];	// skybox sides
+	int		cinTexture;      	// cinematic texture
 
 	int		skytexturenum;	// this not a gl_texturenum!
 	int		skyboxbasenum;	// start with 5800
@@ -325,6 +311,7 @@ int GL_FindTexture( const char *name );
 void GL_FreeTexture( GLenum texnum );
 void GL_FreeImage( const char *name );
 const char *GL_Target( GLenum target );
+void R_InitDlightTexture( void );
 void R_TextureList_f( void );
 void R_InitImages( void );
 void R_ShutdownImages( void );
@@ -583,6 +570,8 @@ typedef struct
 	GLint		max_vertex_uniforms;
 	GLint		max_vertex_attribs;
 
+	GLint		max_multisamples;
+
 	int		color_bits;
 	int		alpha_bits;
 	int		depth_bits;
@@ -641,6 +630,7 @@ extern convar_t	*gl_texture_lodbias;
 extern convar_t	*gl_texture_nearest;
 extern convar_t	*gl_lightmap_nearest;
 extern convar_t	*gl_keeptjunctions;
+extern convar_t	*gl_round_down;
 extern convar_t	*gl_detailscale;
 extern convar_t	*gl_wireframe;
 extern convar_t	*gl_polyoffset;

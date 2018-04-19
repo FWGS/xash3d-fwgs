@@ -383,7 +383,7 @@ void R_DrawSkyBox( void )
 
 		if( tr.skyboxTextures[r_skyTexOrder[i]] )
 			GL_Bind( GL_TEXTURE0, tr.skyboxTextures[r_skyTexOrder[i]] );
-		else GL_Bind( GL_TEXTURE0, tr.skyTexture ); // stub
+		else GL_Bind( GL_TEXTURE0, tr.grayTexture ); // stub
 
 		pglBegin( GL_QUADS );
 		MakeSkyVec( RI.skyMins[0][i], RI.skyMins[1][i], i );

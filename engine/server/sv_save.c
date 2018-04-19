@@ -2154,7 +2154,7 @@ qboolean SV_GetSaveComment( const char *savename, char *comment )
 {
 	int	i, tag, size, nNumberOfFields, nFieldSize, tokenSize, tokenCount;
 	char	*pData, *pSaveData, *pFieldName, **pTokenList;
-	string	name, description;
+	string	mapName, description;
 	file_t	*f;
 
 	if(( f = FS_Open( savename, "rb", true )) == NULL )
@@ -2197,7 +2197,7 @@ qboolean SV_GetSaveComment( const char *savename, char *comment )
 		return 0;
 	}
 
-	name[0] = '\0';
+	mapName[0] = '\0';
 	comment[0] = '\0';
 
 	FS_Read( f, &size, sizeof( int ));
@@ -2276,7 +2276,7 @@ qboolean SV_GetSaveComment( const char *savename, char *comment )
 		}
 		else if( !Q_stricmp( pFieldName, "mapName" ))
 		{
-			Q_strncpy( name, pData, nFieldSize );
+			Q_strncpy( mapName, pData, nFieldSize );
 		}
 
 		// move to start of next field.
@@ -2289,11 +2289,27 @@ qboolean SV_GetSaveComment( const char *savename, char *comment )
 	FS_Close( f );	
 
 	// at least mapname should be filled
-	if( Q_strlen( name ) > 0 )
+	if( Q_strlen( mapName ) > 0 )
 	{
 		time_t		fileTime;
 		const struct tm	*file_tm;
 		string		timestring;
+		int		flags;
+
+		// now check for map problems
+		flags = SV_MapIsValid( mapName, GI->sp_entity, NULL );
+
+		if( FBitSet( flags, MAP_INVALID_VERSION ))
+		{
+			Q_strncpy( comment, va( "<map %s has invalid format>", mapName ), MAX_STRING );
+			return 0;
+		}
+	
+		if( !FBitSet( flags, MAP_IS_EXIST ))
+		{
+			Q_strncpy( comment, va( "<map %s is missed>", mapName ), MAX_STRING );
+			return 0;
+		}
 	
 		fileTime = FS_FileTime( savename, true );
 		file_tm = localtime( &fileTime );

@@ -1489,13 +1489,32 @@ for parsing half-life scripts - hud.txt etc
 */
 static client_sprite_t *pfnSPR_GetList( char *psz, int *piCount )
 {
-	client_sprite_t	*pList;
-	int		index, numSprites = 0;
+	cached_spritelist_t	*pEntry = &clgame.sprlist[0];
+	int		slot, index, numSprites = 0;
 	char		*afile, *pfile;
 	string		token;
-	byte		*pool;
 
 	if( piCount ) *piCount = 0;
+
+	// see if already in list
+	// NOTE: client.dll is cache hud.txt but reparse weapon lists again and again
+	// obviously there a memory leak by-design. Cache the sprite lists to prevent it
+	for( slot = 0; slot < MAX_CLIENT_SPRITES && pEntry->szListName[0]; slot++ )
+	{
+		pEntry = &clgame.sprlist[slot];
+
+		if( !Q_stricmp( pEntry->szListName, psz ))
+		{
+			if( piCount ) *piCount = pEntry->count;
+			return pEntry->pList;
+		}
+	}
+
+	if( slot == MAX_CLIENT_SPRITES )
+	{
+		Con_Printf( S_ERROR "SPR_GetList: overflow cache!\n" );
+		return NULL;
+          }
 
 	if( !clgame.itemspath[0] )	// typically it's sprites\*.txt
 		COM_ExtractFilePath( psz, clgame.itemspath );
@@ -1507,50 +1526,48 @@ static client_sprite_t *pfnSPR_GetList( char *psz, int *piCount )
 	pfile = COM_ParseFile( pfile, token );          
 	numSprites = Q_atoi( token );
 
-	if( !cl.video_prepped ) pool = cls.mempool;	// static memory
-	else pool = com_studiocache;			// temporary
+	Q_strncpy( pEntry->szListName, psz, sizeof( pEntry->szListName ));
 
 	// name, res, pic, x, y, w, h
-	// NOTE: we must use com_studiocache because it will be purge on next restart or change map
-	pList = Mem_Alloc( pool, sizeof( client_sprite_t ) * numSprites );
+	pEntry->pList = Mem_Alloc( cls.mempool, sizeof( client_sprite_t ) * numSprites );
 
 	for( index = 0; index < numSprites; index++ )
 	{
 		if(( pfile = COM_ParseFile( pfile, token )) == NULL )
 			break;
 
-		Q_strncpy( pList[index].szName, token, sizeof( pList[index].szName ));
+		Q_strncpy( pEntry->pList[index].szName, token, sizeof( pEntry->pList[0].szName ));
 
 		// read resolution
 		pfile = COM_ParseFile( pfile, token );
-		pList[index].iRes = Q_atoi( token );
+		pEntry->pList[index].iRes = Q_atoi( token );
 
 		// read spritename
 		pfile = COM_ParseFile( pfile, token );
-		Q_strncpy( pList[index].szSprite, token, sizeof( pList[index].szSprite ));
+		Q_strncpy( pEntry->pList[index].szSprite, token, sizeof( pEntry->pList[0].szSprite ));
 
 		// parse rectangle
 		pfile = COM_ParseFile( pfile, token );
-		pList[index].rc.left = Q_atoi( token );
+		pEntry->pList[index].rc.left = Q_atoi( token );
 
 		pfile = COM_ParseFile( pfile, token );
-		pList[index].rc.top = Q_atoi( token );
+		pEntry->pList[index].rc.top = Q_atoi( token );
 
 		pfile = COM_ParseFile( pfile, token );
-		pList[index].rc.right = pList[index].rc.left + Q_atoi( token );
+		pEntry->pList[index].rc.right = pEntry->pList[index].rc.left + Q_atoi( token );
 
 		pfile = COM_ParseFile( pfile, token );
-		pList[index].rc.bottom = pList[index].rc.top + Q_atoi( token );
+		pEntry->pList[index].rc.bottom = pEntry->pList[index].rc.top + Q_atoi( token );
 
-		if( piCount ) (*piCount)++;
+		pEntry->count++;
 	}
 
 	if( index < numSprites )
-		MsgDev( D_WARN, "SPR_GetList: unexpected end of %s (%i should be %i)\n", psz, numSprites, index );
-
+		Con_DPrintf( S_WARN "unexpected end of %s (%i should be %i)\n", psz, numSprites, index );
+	if( piCount ) *piCount = pEntry->count;
 	Mem_Free( afile );
 
-	return pList;
+	return pEntry->pList;
 }
 
 /*
@@ -3609,6 +3626,7 @@ static event_api_t gEventApi =
 	pfnGetMoveVars,
 	CL_VisTraceLine,
 	pfnGetVisent,
+	CL_TestLine,
 };
 
 static demo_api_t gDemoApi =
@@ -3877,7 +3895,7 @@ qboolean CL_LoadProgs( const char *name )
 	CL_InitTempEnts ();
 
 	if( !R_InitRenderAPI())	// Xash3D extension
-		MsgDev( D_WARN, "CL_LoadProgs: couldn't get render API\n" );
+		Con_Reportf( S_WARN "CL_LoadProgs: couldn't get render API\n" );
 
 	CL_InitEdicts ();		// initailize local player and world
 	CL_InitClientMove();	// initialize pm_shared

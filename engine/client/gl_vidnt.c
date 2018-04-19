@@ -36,6 +36,8 @@ convar_t	*gl_keeptjunctions;
 convar_t	*gl_showtextures;
 convar_t	*gl_detailscale;
 convar_t	*gl_check_errors;
+convar_t	*gl_enable_msaa;
+convar_t	*gl_round_down;
 convar_t	*gl_polyoffset;
 convar_t	*gl_wireframe;
 convar_t	*gl_finish;
@@ -76,6 +78,10 @@ ref_globals_t	tr;
 glconfig_t	glConfig;
 glstate_t		glState;
 glwstate_t	glw_state;
+static HWND	hWndFake;
+static HDC	hDCFake;
+static HGLRC	hGLRCFake;
+static qboolean	debug_context;
 
 typedef enum
 {
@@ -522,6 +528,10 @@ static void GL_SetDefaultState( void )
 	memset( &glState, 0, sizeof( glState ));
 	GL_SetDefaultTexState ();
 
+	if( Sys_CheckParm( "-gldebug" ) && host_developer.value )
+		debug_context = true;
+	else debug_context = false;
+
 	// init draw stack
 	tr.draw_list = &tr.draw_stack[0];
 	tr.draw_stack_pos = 0;
@@ -570,12 +580,12 @@ qboolean GL_CreateContext( void )
 	if(!( pwglMakeCurrent( glw_state.hDC, glw_state.hGLRC )))
 		return GL_DeleteContext();
 
-	if( !Sys_CheckParm( "-gldebug" ) || !host_developer.value ) // debug bit kill the perfomance
+	if( !debug_context ) // debug bit kill the perfomance
 		return true;
 
 	pwglCreateContextAttribsARB = GL_GetProcAddress( "wglCreateContextAttribsARB" );
 
-	if( pwglCreateContextAttribsARB != NULL )
+	if( debug_context && pwglCreateContextAttribsARB != NULL )
 	{
 		int attribs[] =
 		{
@@ -660,11 +670,50 @@ VID_ChoosePFD
 */
 static int VID_ChoosePFD( PIXELFORMATDESCRIPTOR *pfd, int colorBits, int alphaBits, int depthBits, int stencilBits )
 {
-	int	pixelFormat = 0;
+	if( pwglChoosePixelFormat != NULL )
+	{
+		UINT	numPixelFormats;
+		int	pixelFormat = 0;
+		int	attribs[24];
 
-	MsgDev( D_NOTE, "VID_ChoosePFD( color %i, alpha %i, depth %i, stencil %i )\n", colorBits, alphaBits, depthBits, stencilBits );
+		attribs[0] = WGL_ACCELERATION_ARB;
+		attribs[1] = WGL_FULL_ACCELERATION_ARB;
+		attribs[2] = WGL_DRAW_TO_WINDOW_ARB;
+		attribs[3] = TRUE;
+		attribs[4] = WGL_SUPPORT_OPENGL_ARB;
+		attribs[5] = TRUE;
+		attribs[6] = WGL_DOUBLE_BUFFER_ARB;
+		attribs[7] = TRUE;
+		attribs[8] = WGL_PIXEL_TYPE_ARB;
+		attribs[9] = WGL_TYPE_RGBA_ARB;
+		attribs[10] = WGL_COLOR_BITS_ARB;
+		attribs[11] = colorBits;
+		attribs[12] = WGL_ALPHA_BITS_ARB;
+		attribs[13] = alphaBits;
+		attribs[14] = WGL_DEPTH_BITS_ARB;
+		attribs[15] = depthBits;
+		attribs[16] = WGL_STENCIL_BITS_ARB;
+		attribs[17] = stencilBits;
+		attribs[18] = WGL_SAMPLE_BUFFERS_ARB;
+		attribs[19] = 1;
+		attribs[20] = WGL_SAMPLES_ARB;
+		attribs[21] = bound( 2, (int)gl_enable_msaa->value, 16 );
+		attribs[22] = 0;
+		attribs[23] = 0;
 
-	// Fill out the PFD
+		pwglChoosePixelFormat( glw_state.hDC, attribs, NULL, 1, &pixelFormat, &numPixelFormats );
+
+		if( pixelFormat )
+		{
+			attribs[0] = WGL_SAMPLES_ARB;
+			pwglGetPixelFormatAttribiv( glw_state.hDC, pixelFormat, 0, 1, attribs, &glConfig.max_multisamples );
+			if( glConfig.max_multisamples <= 1 ) Con_DPrintf( S_WARN "MSAA is not allowed\n" );
+
+			return pixelFormat;
+		}
+	}
+
+	// fallback: fill out the PFD
 	pfd->nSize = sizeof (PIXELFORMATDESCRIPTOR);
 	pfd->nVersion = 1;
 	pfd->dwFlags = PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;
@@ -699,15 +748,7 @@ static int VID_ChoosePFD( PIXELFORMATDESCRIPTOR *pfd, int colorBits, int alphaBi
 	pfd->dwDamageMask = 0;
 
 	// count PFDs
-	pixelFormat = ChoosePixelFormat( glw_state.hDC, pfd );
-
-	if( !pixelFormat )
-	{
-		Con_Printf( S_ERROR "VID_ChoosePFD failed\n" );
-		return 0;
-	}
-
-	return pixelFormat;
+	return ChoosePixelFormat( glw_state.hDC, pfd );
 }
 
 /*
@@ -750,15 +791,136 @@ const char *VID_GetModeString( int vid_mode )
 
 /*
 =================
+VID_DestroyFakeWindow
+=================
+*/
+void VID_DestroyFakeWindow( void )
+{
+	if( hGLRCFake )
+	{
+		pwglMakeCurrent( NULL, NULL );
+		pwglDeleteContext( hGLRCFake );
+		hGLRCFake = NULL;
+	}
+
+	if( hDCFake )
+	{
+		ReleaseDC( hWndFake, hDCFake );
+		hDCFake = NULL;
+	}
+
+	if( hWndFake )
+	{
+		DestroyWindow( hWndFake );
+		UnregisterClass( "TestWindow", host.hInst );
+		hWndFake = NULL;
+	}
+}
+
+/*
+=================
+VID_CreateFakeWindow
+=================
+*/
+void VID_CreateFakeWindow( void )
+{
+	WNDCLASSEX		wndClass;
+	PIXELFORMATDESCRIPTOR	pfd;
+	int			pixelFormat;
+
+	// MSAA disabled
+	if( !gl_enable_msaa->value )
+		return;
+
+	memset( &wndClass, 0, sizeof( WNDCLASSEX ));
+	hGLRCFake = NULL;
+	hWndFake = NULL;
+	hDCFake = NULL;
+
+	// register the window class
+	wndClass.cbSize = sizeof( WNDCLASSEX );
+	wndClass.lpfnWndProc = DefWindowProc;
+	wndClass.hInstance = host.hInst;
+	wndClass.lpszClassName = "TestWindow";
+
+	if( !RegisterClassEx( &wndClass ))
+		return;
+
+	// Create the fake window
+	if(( hWndFake = CreateWindowEx( 0, "TestWindow", "Xash3D", 0, 0, 0, 100, 100, NULL, NULL, wndClass.hInstance, NULL )) == NULL )
+	{
+		UnregisterClass( "TestWindow", wndClass.hInstance );
+		return;
+	}
+
+	// Get a DC for the fake window
+	if(( hDCFake = GetDC( hWndFake )) == NULL )
+	{
+		VID_DestroyFakeWindow();
+		return;
+	}
+
+	// Choose a pixel format
+	memset( &pfd, 0, sizeof( PIXELFORMATDESCRIPTOR ));
+
+	pfd.nSize = sizeof( PIXELFORMATDESCRIPTOR );
+	pfd.nVersion = 1;
+	pfd.dwFlags = PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;
+	pfd.iPixelType = PFD_TYPE_RGBA;
+	pfd.iLayerType = PFD_MAIN_PLANE;
+	pfd.cColorBits = 32;
+	pfd.cAlphaBits = 8;
+	pfd.cDepthBits = 24;
+	pfd.cStencilBits = 8;
+
+	if(( pixelFormat = ChoosePixelFormat( hDCFake, &pfd )) == 0 )
+	{
+		VID_DestroyFakeWindow();
+		return;
+	}
+
+	// Set the pixel format
+	if( !SetPixelFormat( hDCFake, pixelFormat, &pfd ))
+	{
+		VID_DestroyFakeWindow();
+		return;
+	}
+
+	// Create the fake GL context
+	if(( hGLRCFake = pwglCreateContext( hDCFake )) == NULL )
+	{
+		VID_DestroyFakeWindow();
+		return;
+	}
+
+	// Make the fake GL context current
+	if( !pwglMakeCurrent( hDCFake, hGLRCFake ))
+	{
+		VID_DestroyFakeWindow();
+		return;
+	}
+
+	// We only need these function pointers if available
+	pwglGetPixelFormatAttribiv = GL_GetProcAddress( "wglGetPixelFormatAttribivARB" );
+	pwglChoosePixelFormat = GL_GetProcAddress( "wglChoosePixelFormatARB" );
+
+	// destory now it's no longer needed
+	VID_DestroyFakeWindow();
+}
+
+/*
+=================
 GL_SetPixelformat
 =================
 */
 qboolean GL_SetPixelformat( void )
 {
 	PIXELFORMATDESCRIPTOR	PFD;
+	int			colorBits = 32;
 	int			alphaBits = 8;
 	int			stencilBits = 8;
 	int			pixelFormat = 0;
+	int			depthBits = 24;
 
 	if(( glw_state.hDC = GetDC( host.hWnd )) == NULL )
 		return false;
@@ -766,16 +928,22 @@ qboolean GL_SetPixelformat( void )
 	if( glw_state.desktopBitsPixel < 32 )
 	{
 		// clear alphabits in case we in 16-bit mode
+		colorBits = glw_state.desktopBitsPixel;
 		alphaBits = 0;
+	}
+	else
+	{
+		// no reason to trying enable MSAA on a highcolor
+		VID_CreateFakeWindow();
 	}
 
 	// choose a pixel format
-	pixelFormat = VID_ChoosePFD( &PFD, 24, alphaBits, 32, stencilBits );
+	pixelFormat = VID_ChoosePFD( &PFD, colorBits, alphaBits, depthBits, stencilBits );
 
 	if( !pixelFormat )
 	{
 		// try again with default color/depth/stencil
-		pixelFormat = VID_ChoosePFD( &PFD, 24, 0, 32, 0 );
+		pixelFormat = VID_ChoosePFD( &PFD, colorBits, 0, depthBits, 0 );
 
 		if( !pixelFormat )
 		{
@@ -820,7 +988,7 @@ qboolean GL_SetPixelformat( void )
 	else glState.stencilEnabled = false;
 
 	// print out PFD specifics 
-	MsgDev( D_NOTE, "GL PFD: color( %d-bits ) alpha( %d-bits ) Z( %d-bit )\n", PFD.cColorBits, PFD.cAlphaBits, PFD.cDepthBits );
+	Con_Reportf( "PixelFormat: color: %d-bit, Z-Buffer: %d-bit, stencil: %d-bit\n", PFD.cColorBits, PFD.cDepthBits, PFD.cStencilBits );
 
 	return true;
 }
@@ -938,7 +1106,6 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	GetWindowRect(WindowHandle, &WindowRect);
 	WindowHeight = WindowRect.bottom - WindowRect.top;
 #endif
-
 	if( !fullscreen )
 	{
 		x = window_xpos->value;
@@ -1272,7 +1439,7 @@ qboolean R_Init_OpenGL( void )
 	if( !opengl_dll.link )
 		return false;
 
-	if( Sys_CheckParm( "-gldebug" ) && host_developer.value )
+	if( debug_context || gl_enable_msaa->value )
 		GL_CheckExtension( "OpenGL Internal ProcAddress", wglproc_funcs, NULL, GL_WGL_PROCADDRESS );
 
 	return VID_SetMode();
@@ -1312,6 +1479,9 @@ static void GL_SetDefaults( void )
 	pglDisable( GL_SCISSOR_TEST );
 	pglDepthFunc( GL_LEQUAL );
 	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
+
+	if( glConfig.max_multisamples > 1 )
+		pglEnable( GL_MULTISAMPLE_ARB );
 
 	if( glState.stencilEnabled )
 	{
@@ -1420,6 +1590,7 @@ void GL_InitCommands( void )
 	window_ypos = Cvar_Get( "_window_ypos", "48", FCVAR_RENDERINFO, "window position by vertical" );
 
 	gl_extensions = Cvar_Get( "gl_allow_extensions", "1", FCVAR_GLCONFIG, "allow gl_extensions" );			
+	gl_enable_msaa = Cvar_Get( "gl_enable_msaa", "4", FCVAR_GLCONFIG, "enable multisample anti-aliasing" );
 	gl_texture_nearest = Cvar_Get( "gl_texture_nearest", "0", FCVAR_ARCHIVE, "disable texture filter" );
 	gl_lightmap_nearest = Cvar_Get( "gl_lightmap_nearest", "0", FCVAR_ARCHIVE, "disable lightmap filter" );
 	gl_check_errors = Cvar_Get( "gl_check_errors", "1", FCVAR_ARCHIVE, "ignore video engine errors" );
@@ -1434,6 +1605,7 @@ void GL_InitCommands( void )
 	gl_clear = Cvar_Get( "gl_clear", "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
 	gl_test = Cvar_Get( "gl_test", "0", 0, "engine developer cvar for quick testing new features" );
 	gl_wireframe = Cvar_Get( "gl_wireframe", "0", FCVAR_ARCHIVE|FCVAR_SPONLY, "show wireframe overlay" );
+	gl_round_down = Cvar_Get( "gl_round_down", "2", FCVAR_RENDERINFO, "round texture sizes to nearest POT value" );
 
 	// these cvar not used by engine but some mods requires this
 	gl_polyoffset = Cvar_Get( "gl_polyoffset", "2.0", FCVAR_ARCHIVE, "polygon offset for decals" );
@@ -1502,7 +1674,7 @@ void GL_InitExtensions( void )
 	else glConfig.hardware_type = GLHW_GENERIC;
 
 	// initalize until base opengl functions loaded (old-context)
-	if( !Sys_CheckParm( "-gldebug" ) || !host_developer.value )
+	if( !debug_context && !gl_enable_msaa->value )
 		GL_CheckExtension( "OpenGL Internal ProcAddress", wglproc_funcs, NULL, GL_WGL_PROCADDRESS );
 
 	// windows-specific extensions

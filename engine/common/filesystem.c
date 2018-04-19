@@ -1367,12 +1367,12 @@ void FS_Init( void )
 		if( FS_CheckNastyPath( fs_basedir, true ))
 		{
 			// this is completely fatal...
-			Sys_Error( "FS_Init: invalid base directory \"%s\"\n", fs_basedir );
+			Sys_Error( "invalid base directory \"%s\"\n", fs_basedir );
 		}
 
 		if( FS_CheckNastyPath( fs_gamedir, true ))
 		{
-			MsgDev( D_ERROR, "FS_Init: invalid game directory \"%s\"\n", fs_gamedir );
+			Con_Printf( S_ERROR "invalid game directory \"%s\"\n", fs_gamedir );
 			Q_strncpy( fs_gamedir, fs_basedir, sizeof( fs_gamedir )); // default dir
 		}
 
@@ -1388,7 +1388,7 @@ void FS_Init( void )
 
 		if( !hasGameDir )
 		{
-			MsgDev( D_ERROR, "FS_Init: game directory \"%s\" not exist\n", fs_gamedir );
+			Con_Printf( S_ERROR "game directory \"%s\" not exist\n", fs_gamedir );
 			if( hasBaseDir ) Q_strncpy( fs_gamedir, fs_basedir, sizeof( fs_gamedir ));
 		}
 
@@ -1410,7 +1410,7 @@ void FS_Init( void )
 		stringlistfreecontents( &dirs );
 	}	
 
-	MsgDev( D_NOTE, "FS_Init: done\n" );
+	Con_Reportf( "FS_Init: done\n" );
 }
 
 void FS_AllowDirectPaths( qboolean enable )

@@ -187,7 +187,7 @@ Determine if client is outside appropriate address range
 */
 int SV_CheckIPRestrictions( netadr_t from )
 {
-	if( !sv_lan.value )
+	if( sv_lan.value )
 	{
 		if( !NET_CompareClassBAdr( from, net_local ) && !NET_IsReservedAdr( from ))
 			return 0;

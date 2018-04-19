@@ -624,10 +624,7 @@ static void LM_UploadBlock( qboolean dynamic )
 				height = gl_lms.allocated[i];
 		}
 
-		if( host.features & ENGINE_LARGE_LIGHTMAPS )
-			GL_Bind( GL_TEXTURE0, tr.dlightTexture2 );
-		else GL_Bind( GL_TEXTURE0, tr.dlightTexture );
-
+		GL_Bind( GL_TEXTURE0, tr.dlightTexture );
 		pglTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, BLOCK_SIZE, height, GL_RGBA, GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer );
 	}
 	else
@@ -878,10 +875,7 @@ void R_BlendLightmaps( void )
 	{
 		LM_InitBlock();
 
-		if( host.features & ENGINE_LARGE_LIGHTMAPS )
-			GL_Bind( GL_TEXTURE0, tr.dlightTexture2 );
-		else GL_Bind( GL_TEXTURE0, tr.dlightTexture );
-
+		GL_Bind( GL_TEXTURE0, tr.dlightTexture );
 		newsurf = gl_lms.dynamic_surfaces;
 
 		for( surf = gl_lms.dynamic_surfaces; surf != NULL; surf = surf->info->lightmapchain )
@@ -2119,6 +2113,9 @@ void GL_BuildLightmaps( void )
 	tr.modelviewIdentity = false;
 	tr.realframecount = 1;
 	nColinElim = 0;
+
+	// setup the texture for dlights
+	R_InitDlightTexture();
 
 	// setup all the lightstyles
 	CL_RunLightStyles();

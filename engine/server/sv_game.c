@@ -755,7 +755,9 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 		ents = FS_LoadFile( entfilename, NULL, true ); 
 	}
 
-	if( !ents && lumplen >= 10 )
+	// at least entities should contain "{ "classname" "worldspawn" }\0"
+	// for correct spawn the level
+	if( !ents && lumplen >= 32 )
 	{
 		FS_Seek( f, lumpofs, SEEK_SET );
 		ents = Z_Malloc( lumplen + 1 );

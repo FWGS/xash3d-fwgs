@@ -216,15 +216,15 @@ int R_CountSurfaceDlights( msurface_t *surf )
 
 =======================================================================
 */
-static float	g_trace_fraction;
 static vec3_t	g_trace_lightspot;
+static float	g_trace_fraction;
 
 /*
 =================
 R_RecursiveLightPoint
 =================
 */
-static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f, float p2f, colorVec *cv, const vec3_t start, const vec3_t end, qboolean debug )
+static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f, float p2f, colorVec *cv, const vec3_t start, const vec3_t end )
 {
 	float		front, back, frac, midf;
 	int		i, map, side, size;
@@ -249,7 +249,7 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 
 	side = front < 0;
 	if(( back < 0 ) == side )
-		return R_RecursiveLightPoint( model, node->children[side], p1f, p2f, cv, start, end, debug );
+		return R_RecursiveLightPoint( model, node->children[side], p1f, p2f, cv, start, end );
 
 	frac = front / ( front - back );
 
@@ -257,7 +257,7 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 	midf = p1f + ( p2f - p1f ) * frac;
 
 	// co down front side	
-	if( R_RecursiveLightPoint( model, node->children[side], p1f, midf, cv, start, mid, debug ))
+	if( R_RecursiveLightPoint( model, node->children[side], p1f, midf, cv, start, mid ))
 		return true; // hit something
 
 	if(( back < 0 ) == side )
@@ -330,15 +330,7 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 	}
 
 	// go down back side
-	return R_RecursiveLightPoint( model, node->children[!side], midf, p2f, cv, mid, end, debug );
-}
-
-int R_LightTraceFilter( physent_t *pe )
-{
-	if( !pe || pe->solid != SOLID_BSP || pe->info == 0 )
-		return 1;
-
-	return 0;
+	return R_RecursiveLightPoint( model, node->children[!side], midf, p2f, cv, mid, end );
 }
 
 /*
@@ -353,6 +345,8 @@ colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot )
 	float	last_fraction;
 	int	i, maxEnts = 1;
 	colorVec	light, cv;
+
+	if( lspot ) VectorClear( lspot );
 
 	if( cl.worldmodel && cl.worldmodel->lightdata )
 	{
@@ -391,7 +385,7 @@ colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot )
 			VectorClear( g_trace_lightspot );
 			g_trace_fraction = 1.0f;
 
-			if( !R_RecursiveLightPoint( pe->model, pnodes, 0.0f, 1.0f, &cv, start_l, end_l, lspot != NULL ))
+			if( !R_RecursiveLightPoint( pe->model, pnodes, 0.0f, 1.0f, &cv, start_l, end_l ))
 				continue;	// didn't hit anything
 
 			if( g_trace_fraction < last_fraction )
