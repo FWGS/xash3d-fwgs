@@ -62,6 +62,7 @@ convar_t	*r_lockfrustum;
 convar_t	*r_traceglow;
 convar_t	*r_dynamic;
 convar_t	*r_lightmap;
+convar_t	*gl_round_down;
 
 convar_t	*vid_displayfrequency;
 convar_t	*vid_fullscreen;
@@ -452,7 +453,7 @@ void GL_InitCommands( void )
 	gl_wireframe = Cvar_Get( "gl_wireframe", "0", FCVAR_ARCHIVE|FCVAR_SPONLY, "show wireframe overlay" );
 	gl_msaa = Cvar_Get( "gl_msaa", "0", FCVAR_GLCONFIG, "MSAA samples. Use with caution, engine may fail with some values" );
 	gl_stencilbits = Cvar_Get( "gl_stencilbits", "8", FCVAR_GLCONFIG, "pixelformat stencil bits (0 - auto)" );
-
+	gl_round_down = Cvar_Get( "gl_round_down", "2", FCVAR_RENDERINFO, "round texture sizes to nearest POT value" );
 	// these cvar not used by engine but some mods requires this
 	gl_polyoffset = Cvar_Get( "gl_polyoffset", "2.0", FCVAR_ARCHIVE, "polygon offset for decals" );
 

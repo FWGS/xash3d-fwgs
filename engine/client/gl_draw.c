@@ -167,6 +167,7 @@ void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, c
 	}
 	else
 	{
+		tex->size = cols * rows * 4;
 		tex->width = cols;
 		tex->height = rows;
 		if( dirty )

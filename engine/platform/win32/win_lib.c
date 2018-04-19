@@ -787,7 +787,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 
 	if( !hInst->hInstance )
 	{
-		Con_DPrintf( "LoadLibrary: Loading %s - failed\n", dllname );
+		Con_Reportf( "LoadLibrary: Loading %s - failed\n", dllname );
 		COM_FreeLibrary( hInst );
 		return NULL;
 	}
@@ -797,13 +797,13 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	{
 		if( !LibraryLoadSymbols( hInst ))
 		{
-			Con_DPrintf( "LoadLibrary: Loading %s - failed\n", dllname );
+			Con_Reportf( "LoadLibrary: Loading %s - failed\n", dllname );
 			COM_FreeLibrary( hInst );
 			return NULL;
 		}
 	}
 
-	Con_DPrintf( "LoadLibrary: Loading %s - ok\n", dllname );
+	Con_Reportf( "LoadLibrary: Loading %s - ok\n", dllname );
 
 	return hInst;
 }

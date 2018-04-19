@@ -928,9 +928,9 @@ void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 
 			VectorAdd( lightDir, dist, lightDir );
 
-			finalLight[0] += LightToTexGamma( dl->color.r ) * ( add * 512.0f );
-			finalLight[1] += LightToTexGamma( dl->color.g ) * ( add * 512.0f );
-			finalLight[2] += LightToTexGamma( dl->color.b ) * ( add * 512.0f );
+			finalLight[0] += LightToTexGamma( dl->color.r ) * ( add / 256.0f ) * 2.0f;
+			finalLight[1] += LightToTexGamma( dl->color.g ) * ( add / 256.0f ) * 2.0f;
+			finalLight[2] += LightToTexGamma( dl->color.b ) * ( add / 256.0f ) * 2.0f;
 		}
 	}
 

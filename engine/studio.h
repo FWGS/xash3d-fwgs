@@ -103,7 +103,6 @@ Studio models are position independent, so the cache manager can move them.
 
 // sequence flags
 #define STUDIO_LOOPING		0x0001
-#define STUDIO_LIGHT_FROM_ROOT	0x8000	// get lighting point from root bonepos not from entity origin
 
 // bone flags
 #define STUDIO_HAS_NORMALS		0x0001
