@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "library.h"
 #include "input.h"
+#include "server.h" // !!svgame.hInstance
 
 static MENUAPI	GetMenuAPI;
 static ADDTOUCHBUTTONTOLIST pfnAddTouchButtonToList;
@@ -870,13 +871,23 @@ int pfnCheckGameDll( void )
 {
 	void	*hInst;
 
-	if( SV_Initialized( )) return true;
+#if TARGET_OS_IPHONE
+	// loading server library drains too many ram
+	// so 512MB iPod Touch cannot even connect to
+	// to servers in cstrike
+	return true;
+#endif
 
-	if(( hInst = COM_LoadLibrary( GI->game_dll, true, false )) != NULL )
+	if( svgame.hInstance )
+		return true;
+
+	COM_ResetLibraryError();
+	if(( hInst = COM_LoadLibrary( SI.gamedll, true, false )) != NULL )
 	{
-		COM_FreeLibrary( hInst );
 		return true;
 	}
+	MsgDev( D_WARN, "Could not load server library:\n%s", COM_GetLibraryError() );
+	COM_ResetLibraryError();
 	return false;
 }
 
