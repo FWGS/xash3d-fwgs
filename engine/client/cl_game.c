@@ -1618,24 +1618,16 @@ get actual screen info
 */
 int CL_GetScreenInfo( SCREENINFO *pscrinfo )
 {
+	float scale_factor = hud_scale->value;
+
 	// setup screen info
 	clgame.scrInfo.iSize = sizeof( clgame.scrInfo );
 	clgame.scrInfo.iFlags = SCRINFO_SCREENFLASH;
 
-	if( Cvar_VariableInteger( "hud_scale" ))
+	if( scale_factor && scale_factor != 1.0f)
 	{
-		if( glState.width < 640 )
-		{
-			// virtual screen space 320x200
-			clgame.scrInfo.iWidth = 320;
-			clgame.scrInfo.iHeight = 200;
-		}
-		else
-		{
-			// virtual screen space 640x480
-			clgame.scrInfo.iWidth = 640;
-			clgame.scrInfo.iHeight = 480;
-		}
+		clgame.scrInfo.iWidth = (float)glState.width / scale_factor;
+		clgame.scrInfo.iHeight = (float)glState.height / scale_factor;
 		clgame.scrInfo.iFlags |= SCRINFO_STRETCHED;
 	}
 	else
