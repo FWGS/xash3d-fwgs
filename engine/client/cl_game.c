@@ -2849,7 +2849,7 @@ LocalPlayerInfo_ValueForKey
 */
 static const char *GAME_EXPORT LocalPlayerInfo_ValueForKey( const char* key )
 {
-	return Info_ValueForKey( CL_Userinfo(), key );
+	return Info_ValueForKey( cls.userinfo, key );
 }
 
 /*
@@ -3063,83 +3063,6 @@ char *pfnParseFile( char *data, char *token )
 	host.com_handlecolon = false;
 
 	return out;
-}
-
-/*
-=============
-pfnGetServerTime
-
-=============
-*/
-float pfnGetClientOldTime( void )
-{
-	return cl.oldtime;
-}
-
-/*
-=============
-pfnGetGravity
-
-=============
-*/
-float pfnGetGravity( void )
-{
-	return clgame.movevars.gravity;
-}
-
-/*
-=============
-LocalPlayerInfo_ValueForKey
-
-=============
-*/
-const char *LocalPlayerInfo_ValueForKey( const char* key )
-{
-	return Info_ValueForKey( cls.userinfo, key );
-}
-
-/*
-=============
-CL_FillRGBABlend
-
-=============
-*/
-void CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int b, int a )
-{
-	r = bound( 0, r, 255 );
-	g = bound( 0, g, 255 );
-	b = bound( 0, b, 255 );
-	a = bound( 0, a, 255 );
-
-	SPR_AdjustSize( (float *)&x, (float *)&y, (float *)&w, (float *)&h );
-
-	pglDisable( GL_TEXTURE_2D );
-	pglEnable( GL_BLEND );
-	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-	pglColor4f( r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f );
-
-	pglBegin( GL_QUADS );
-		pglVertex2f( x, y );
-		pglVertex2f( x + w, y );
-		pglVertex2f( x + w, y + h );
-		pglVertex2f( x, y + h );
-	pglEnd ();
-
-	pglColor3f( 1.0f, 1.0f, 1.0f );
-	pglEnable( GL_TEXTURE_2D );
-	pglDisable( GL_BLEND );
-}
-
-/*
-=============
-pfnGetAppID
-
-=============
-*/
-int pfnGetAppID( void )
-{
-	return 70;
 }
 
 /*
