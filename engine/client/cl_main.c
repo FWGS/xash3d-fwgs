@@ -2802,11 +2802,17 @@ void CL_Shutdown( void )
 
 	Con_Printf( "CL_Shutdown()\n" );
 
-	Host_WriteOpenGLConfig ();
-	Host_WriteVideoConfig ();
+	if( !host.crashed )
+	{
+		Host_WriteOpenGLConfig ();
+		Host_WriteVideoConfig ();
+	}
 
-	CL_CloseDemoHeader();
+	IN_TouchShutdown ();
+	Joy_Shutdown ();
+	CL_CloseDemoHeader ();
 	IN_Shutdown ();
+	Mobile_Shutdown ();
 	SCR_Shutdown ();
 	CL_UnloadProgs ();
 
