@@ -1234,8 +1234,7 @@ FS_ParseLiblistGam
 */
 static qboolean FS_ParseLiblistGam( const char *filename, const char *gamedir, gameinfo_t *GameInfo )
 {
-	char	*afile, *pfile;
-	string	token;
+	char	*afile;
 
 	if( !GameInfo ) return false;	
 	afile = FS_LoadFile( filename, NULL, false );
@@ -1275,16 +1274,14 @@ FS_ReadGameInfo
 */
 static qboolean FS_ReadGameInfo( const char *filepath, const char *gamedir, gameinfo_t *GameInfo )
 {
-	char	*afile, *pfile;
-	char	token[1204];
-	string	fs_path;
+	char	*afile;
 
 	afile = FS_LoadFile( filepath, NULL, false );
 	if( !afile ) return false;
 
 	FS_InitGameInfo( GameInfo, gamedir );
 
-	FS_ParseGenericGameInfo( GameInfo, afile, false );
+	FS_ParseGenericGameInfo( GameInfo, afile, true );
 
 	Mem_Free( afile );
 
