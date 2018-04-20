@@ -681,6 +681,13 @@ qboolean Cvar_Command( void )
 {
 	convar_t	*v;
 
+	// special case for setup opengl configuration
+	if( host.apply_opengl_config )
+	{
+		Cvar_FullSet( Cmd_Argv( 0 ), Cmd_Argv( 1 ), FCVAR_GLCONFIG );
+		return true;
+	}
+
 	// check variables
 	v = Cvar_FindVar( Cmd_Argv( 0 ));
 	if( !v ) return false;
@@ -754,24 +761,6 @@ void Cvar_Toggle_f( void )
 	v = !Cvar_VariableInteger( Cmd_Argv( 1 ));
 
 	Cvar_Set( Cmd_Argv( 1 ), va( "%i", v ));
-}
-
-/*
-============
-Cvar_SetR_f
-
-keep for legacy configs
-============
-*/
-void Cvar_SetR_f( void )
-{
-	if( Cmd_Argc() != 3 )
-	{
-		Con_Printf( S_USAGE "setr <variable> <value>\n" );
-		return;
-	}
-
-	Cvar_Set( Cmd_Argv( 1 ), Cmd_Argv( 2 ));
 }
 
 /*
@@ -882,8 +871,7 @@ void Cvar_Init( void )
 	cmd_scripting = Cvar_Get( "cmd_scripting", "0", FCVAR_ARCHIVE, "enable simple condition checking and variable operations" );
 	Cvar_RegisterVariable (&host_developer); // early registering for dev 
 
-	Cmd_AddCommand( "setr", Cvar_SetR_f, "create or change the value of a renderinfo variable" );
-	Cmd_AddCommand( "setgl", Cvar_SetGL_f, "create or change the value of a opengl variable" );
+	Cmd_AddCommand( "setgl", Cvar_SetGL_f, "create or change the value of a opengl variable" );	// OBSOLETE
 	Cmd_AddCommand( "toggle", Cvar_Toggle_f, "toggles a console variable's values (use for more info)" );
 	Cmd_AddCommand( "reset", Cvar_Reset_f, "reset any type variable to initial value" );
 	Cmd_AddCommand( "cvarlist", Cvar_List_f, "display all console variables beginning with the specified prefix" );

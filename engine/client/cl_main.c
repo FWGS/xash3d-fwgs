@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #define MAX_CMD_BUFFER		8000
 #define CONNECTION_PROBLEM_TIME	15.0	// 15 seconds
 #define CL_CONNECTION_RETRIES		10
+#define CL_TEST_RETRIES_NORESPONCE	2
 #define CL_TEST_RETRIES		5
 
 CVAR_DEFINE_AUTO( mp_decals, "300", FCVAR_ARCHIVE, "decals limit in multiplayer" );
@@ -194,7 +195,7 @@ int CL_GetFragmentSize( void *unused )
 	if( Netchan_IsLocal( &cls.netchan ))
 		return FRAGMENT_LOCAL_SIZE;
 
-	return FRAGMENT_MAX_SIZE;
+	return bound( FRAGMENT_MIN_SIZE, cl_dlmax->value, FRAGMENT_MAX_SIZE );
 }
 
 /*
@@ -1089,11 +1090,12 @@ void CL_CheckForResend( void )
 
 	if( adr.port == 0 ) adr.port = MSG_BigShort( PORT_SERVER );
 
-	if( cls.connect_retry == CL_TEST_RETRIES )
+	if( cls.connect_retry == CL_TEST_RETRIES_NORESPONCE )
 	{
 		// too many fails use default connection method
+		Msg( "hi-speed coonection is failed, use default method\n" );
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "getchallenge\n" );
-		Cvar_SetValue( "cl_dlmax", FRAGMENT_MAX_SIZE );
+		Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
 		cls.connect_time = host.realtime;
 		cls.connect_retry++;
 		return;
@@ -1103,7 +1105,7 @@ void CL_CheckForResend( void )
 	cls.connect_time = host.realtime; // for retransmit requests
 	cls.connect_retry++;
 
-	Con_Printf( "Connecting to %s...\n", cls.servername );
+	Con_Printf( "Connecting to %s... [retry #%i]\n", cls.servername, cls.connect_retry );
 
 	if( cl_test_bandwidth.value )
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "bandwidth %i %i\n", PROTOCOL_VERSION, cls.max_fragment_size );
@@ -1182,11 +1184,15 @@ void CL_Connect_f( void )
 	Q_strncpy( server, Cmd_Argv( 1 ), sizeof( server ));
 
 	// if running a local server, kill it and reissue
-//	if( SV_Active( )) Host_ShutdownServer();
+	if( SV_Active( )) Host_ShutdownServer();
 	NET_Config( true ); // allow remote
 
 	Con_Printf( "server %s\n", server );
 	CL_Disconnect();
+
+	// TESTTEST: a see console during connection
+	UI_SetActiveMenu( false );
+	Key_SetKeyDest( key_console );
 
 	cls.state = ca_connecting;
 	Q_strncpy( cls.servername, server, sizeof( cls.servername ));
@@ -1794,8 +1800,9 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			if( cls.connect_retry >= CL_TEST_RETRIES )
 			{
 				// too many fails use default connection method
+				Msg( "hi-speed coonection is failed, use default method\n" );
 				Netchan_OutOfBandPrint( NS_CLIENT, from, "getchallenge\n" );
-				Cvar_SetValue( "cl_dlmax", FRAGMENT_MAX_SIZE );
+				Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
 				cls.connect_time = host.realtime;
 				return;
 			}
@@ -1825,8 +1832,9 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			if( cls.connect_retry >= CL_TEST_RETRIES )
 			{
 				// too many fails use default connection method
+				Msg( "hi-speed coonection is failed, use default method\n" );
 				Netchan_OutOfBandPrint( NS_CLIENT, from, "getchallenge\n" );
-				Cvar_SetValue( "cl_dlmax", FRAGMENT_MAX_SIZE );
+				Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
 				cls.connect_time = host.realtime;
 				return;
 			}
@@ -2595,6 +2603,7 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("give", NULL, "give specified item or weapon" );
 	Cmd_AddCommand ("drop", NULL, "drop current/specified item or weapon" );
 	Cmd_AddCommand ("gametitle", NULL, "show game logo" );
+	Cmd_AddCommand( "kill", NULL, "die instantly" );
 	Cmd_AddCommand ("god", NULL, "enable godmode" );
 	Cmd_AddCommand ("fov", NULL, "set client field of view" );
 	Cmd_AddCommand ("log", NULL, "logging server events" );

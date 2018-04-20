@@ -1480,9 +1480,6 @@ static void GL_SetDefaults( void )
 	pglDepthFunc( GL_LEQUAL );
 	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
 
-	if( glConfig.max_multisamples > 1 )
-		pglEnable( GL_MULTISAMPLE_ARB );
-
 	if( glState.stencilEnabled )
 	{
 		pglDisable( GL_STENCIL_TEST );
@@ -1620,6 +1617,12 @@ void GL_InitCommands( void )
 	vid_displayfrequency = Cvar_Get ( "vid_displayfrequency", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "fullscreen refresh rate" );
 
 	Cmd_AddCommand( "r_info", R_RenderInfo_f, "display renderer info" );
+
+	// give initial OpenGL configuration
+	host.apply_opengl_config = true;
+	Cbuf_AddText( "exec opengl.cfg\n" );
+	Cbuf_Execute();
+	host.apply_opengl_config = false;
 
 	// apply actual video mode to window
 	Cbuf_AddText( "exec video.cfg\n" );
@@ -1825,9 +1828,6 @@ qboolean R_Init( void )
 {
 	if( glw_state.initialized )
 		return true;
-
-	// give initial OpenGL configuration
-	Cbuf_AddText( "exec opengl.cfg\n" );
 
 	GL_InitCommands();
 	GL_InitRandomTable();

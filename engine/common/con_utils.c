@@ -875,8 +875,9 @@ with the archive flag set to true.
 */
 static void Cmd_WriteOpenGLCvar( const char *name, const char *string, const char *desc, void *f )
 {
-	if( !desc || !*desc ) return; // ignore cvars without description (fantom variables)
-	FS_Printf( f, "setgl %s \"%s\"\n", name, string );
+	if( !COM_CheckString( desc ))
+		return; // ignore cvars without description (fantom variables)
+	FS_Printf( f, "%s \"%s\"\n", name, string );
 }
 
 static void Cmd_WriteHelp(const char *name, const char *unused, const char *desc, void *f )

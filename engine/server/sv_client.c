@@ -1164,7 +1164,7 @@ a deathmatch.
 */
 void SV_PutClientInServer( sv_client_t *cl )
 {
-	static byte    	msg_buf[MAX_INIT_MSG];
+	static byte    	msg_buf[0x20200];	// MAX_INIT_MSG + some space
 	edict_t		*ent = cl->edict;
 	sizebuf_t		msg;
 
@@ -1214,6 +1214,9 @@ void SV_PutClientInServer( sv_client_t *cl )
 	{	
 		if( Q_atoi( Info_ValueForKey( cl->userinfo, "hltv" )))
 			SetBits( cl->flags, FCL_HLTV_PROXY );
+
+		// need to realloc private data for client
+		SV_InitEdict( ent );
 
 		if( FBitSet( cl->flags, FCL_HLTV_PROXY ))
 			SetBits( ent->v.flags, FL_PROXY );
@@ -1270,11 +1273,17 @@ void SV_PutClientInServer( sv_client_t *cl )
 		MSG_WriteByte( &msg, 1 );
 
 		if( MSG_CheckOverflow( &msg ))
-			Host_Error( "overflow\n" );
-
-		// send initialization data
-		Netchan_CreateFragments( &cl->netchan, &msg );
-		Netchan_FragSend( &cl->netchan );
+		{
+			if( svs.maxclients == 1 )
+				Host_Error( "spawn player: overflowed\n" );
+			else SV_DropClient( cl, false );
+		}
+		else
+		{
+			// send initialization data
+			Netchan_CreateFragments( &cl->netchan, &msg );
+			Netchan_FragSend( &cl->netchan );
+		}
 	}
 }
 
@@ -1753,6 +1762,27 @@ static qboolean SV_Notarget_f( sv_client_t *cl )
 
 /*
 ==================
+SV_Kill_f
+==================
+*/
+static qboolean SV_Kill_f( sv_client_t *cl )
+{
+	if( !SV_IsValidEdict( cl->edict ))
+		return true;
+
+	if( cl->edict->v.health <= 0.0f )
+	{
+		SV_ClientPrintf( cl, "Can't suicide - already dead!\n");
+		return true;
+	}
+
+	svgame.dllFuncs.pfnClientKill( cl->edict );
+
+	return true;
+}
+
+/*
+==================
 SV_SendRes_f
 ==================
 */
@@ -1903,6 +1933,7 @@ ucmd_t ucmds[] =
 {
 { "new", SV_New_f },
 { "god", SV_Godmode_f },
+{ "kill", SV_Kill_f },
 { "begin", SV_Begin_f },
 { "spawn", SV_Spawn_f },
 { "pause", SV_Pause_f },

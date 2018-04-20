@@ -848,7 +848,6 @@ int EXPORT Host_Main( const char *progname, int bChangeGame, pfnChangeGame func 
 	}
 
 	host.change_game = false;	// done
-	Cmd_RemoveCommand( "setr" );	// remove potentially backdoor for change render settings
 	Cmd_RemoveCommand( "setgl" );
 	Cbuf_ExecStuffCmds();	// execute stuffcmds (commandline)
 	SCR_CheckStartupVids();	// must be last
@@ -886,7 +885,7 @@ void EXPORT Host_Shutdown( void )
 	if( host.type == HOST_NORMAL )
 		Host_WriteConfig();
 
-	SV_Shutdown( "" );
+	SV_Shutdown( "Server shutdown\n" );
 	CL_Shutdown();
 
 	Mod_Shutdown();

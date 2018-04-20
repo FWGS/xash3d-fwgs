@@ -231,8 +231,6 @@ int CSCR_WriteGameCVars( file_t *cfg, const char *scriptfilename )
 		goto finish;
 	}
 
-	FS_Printf( cfg, "// declared in %s:\n", scriptfilename );
-
 	while( !CSCR_ExpectString( &state, "}", false, false ))
 	{
 		scrvardef_t	var = { 0 };
@@ -245,8 +243,8 @@ int CSCR_WriteGameCVars( file_t *cfg, const char *scriptfilename )
 			{
 				// cvars will be placed in game.cfg and restored on map start
 				if( var.flags & FCVAR_USERINFO )
-					FS_Printf( cfg, "// %s ( %s )\nsetu %s \"%s\"\n", var.desc, var.value, var.name, cvar->string );
-				else FS_Printf( cfg, "// %s ( %s )\nset %s \"%s\"\n", var.desc, var.value, var.name, cvar->string );
+					FS_Printf( cfg, "%s \"%s\"\n", var.name, cvar->string );
+				else FS_Printf( cfg, "%s \"%s\"\n", var.name, cvar->string );
 			}
 			count++;
 		}

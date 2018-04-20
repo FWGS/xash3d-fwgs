@@ -2781,6 +2781,83 @@ char *pfnParseFile( char *data, char *token )
 }
 
 /*
+=============
+pfnGetServerTime
+
+=============
+*/
+float pfnGetClientOldTime( void )
+{
+	return cl.oldtime;
+}
+
+/*
+=============
+pfnGetGravity
+
+=============
+*/
+float pfnGetGravity( void )
+{
+	return clgame.movevars.gravity;
+}
+
+/*
+=============
+LocalPlayerInfo_ValueForKey
+
+=============
+*/
+const char *LocalPlayerInfo_ValueForKey( const char* key )
+{
+	return Info_ValueForKey( cls.userinfo, key );
+}
+
+/*
+=============
+CL_FillRGBABlend
+
+=============
+*/
+void CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int b, int a )
+{
+	r = bound( 0, r, 255 );
+	g = bound( 0, g, 255 );
+	b = bound( 0, b, 255 );
+	a = bound( 0, a, 255 );
+
+	SPR_AdjustSize( (float *)&x, (float *)&y, (float *)&w, (float *)&h );
+
+	pglDisable( GL_TEXTURE_2D );
+	pglEnable( GL_BLEND );
+	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+	pglColor4f( r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f );
+
+	pglBegin( GL_QUADS );
+		pglVertex2f( x, y );
+		pglVertex2f( x + w, y );
+		pglVertex2f( x + w, y + h );
+		pglVertex2f( x, y + h );
+	pglEnd ();
+
+	pglColor3f( 1.0f, 1.0f, 1.0f );
+	pglEnable( GL_TEXTURE_2D );
+	pglDisable( GL_BLEND );
+}
+
+/*
+=============
+pfnGetAppID
+
+=============
+*/
+int pfnGetAppID( void )
+{
+	return 70;
+}
+
+/*
 =================
 TriApi implementation
 
@@ -3493,6 +3570,17 @@ float Voice_GetControlFloat( VoiceTweakControl iControl )
 	return 1.0f;
 }
 
+/*
+=============
+pfnEngineStub
+
+extended iface stubs
+=============
+*/
+static void pfnEngineStub( void )
+{
+}
+
 // shared between client and server			
 triangleapi_t gTriApi =
 {
@@ -3764,6 +3852,39 @@ static cl_enginefunc_t gEngfuncs =
 	pfnGetMousePos,
 	pfnSetMousePos,
 	pfnSetMouseEnable,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnGetClientOldTime,
+	pfnGetGravity,
+	CL_ModelHandle,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnEngineStub,
+	LocalPlayerInfo_ValueForKey,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnEngineStub,
+	Cvar_Set,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnEngineStub,
+	Sys_DoubleTime,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnEngineStub,
+	pfnEngineStub,
+	CL_FillRGBABlend,
+	pfnGetAppID,
+	pfnEngineStub,
+	pfnEngineStub,
 };
 
 void CL_UnloadProgs( void )

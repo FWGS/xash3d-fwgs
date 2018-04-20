@@ -732,6 +732,8 @@ typedef int		string_t;
 typedef unsigned char	byte;
 typedef unsigned short	word;
 
+#define Q_isspace( ch )	(ch < 32 || ch > 255)
+
 #undef true
 #undef false
 
