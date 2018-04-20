@@ -733,6 +733,7 @@ typedef unsigned char	byte;
 typedef unsigned short	word;
 
 #include "xash3d_types.h"
+#define Q_isspace( ch )	(ch < 32 || ch > 255)
 
 typedef struct
 {

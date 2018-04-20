@@ -1352,6 +1352,7 @@ for embedded submodels
 */
 static void Mod_SetupSubmodels( dbspmodel_t *bmod )
 {
+	qboolean	colored = false;
 	byte	*mempool;
 	char	*ents;
 	model_t	*mod;
@@ -1360,6 +1361,8 @@ static void Mod_SetupSubmodels( dbspmodel_t *bmod )
 
 	ents = loadmodel->entities;
 	mempool = loadmodel->mempool;
+	if( FBitSet( loadmodel->flags, MODEL_COLORED_LIGHTING ))
+		colored = true;
 	mod = loadmodel;
 
 	loadmodel->numframes = 2;	// regular and alternate animation
@@ -1384,7 +1387,10 @@ static void Mod_SetupSubmodels( dbspmodel_t *bmod )
 
 		mod->radius = RadiusFromBounds( mod->mins, mod->maxs );
 		mod->numleafs = bm->visleafs;
-//		mod->flags = 0;
+		mod->flags = 0;
+
+		// this bit will be shared between all the submodels include worldmodel
+		if( colored ) SetBits( mod->flags, MODEL_COLORED_LIGHTING );
 
 		if( i != 0 )
 		{

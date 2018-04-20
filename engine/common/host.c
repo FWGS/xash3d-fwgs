@@ -933,7 +933,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	}
 
 	host.change_game = false;	// done
-	Cmd_RemoveCommand( "setr" );	// remove potentially backdoor for change render settings
 	Cmd_RemoveCommand( "setgl" );
 	Cbuf_ExecStuffCmds();	// execute stuffcmds (commandline)
 	SCR_CheckStartupVids();	// must be last
@@ -973,7 +972,7 @@ void EXPORT Host_Shutdown( void )
 		Host_WriteConfig();
 #endif
 
-	SV_Shutdown( "" );
+	SV_Shutdown( "Server shutdown\n" );
 	CL_Shutdown();
 
 	Mod_Shutdown();

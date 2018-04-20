@@ -1084,6 +1084,9 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 	if( gl_finish->value && RI.drawWorld )
 		pglFinish();
 
+	if( glConfig.max_multisamples > 1 )
+		pglEnable( GL_MULTISAMPLE_ARB );
+
 	// completely override rendering
 	if( clgame.drawFuncs.GL_RenderFrame != NULL )
 	{

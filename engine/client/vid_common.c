@@ -469,6 +469,12 @@ void GL_InitCommands( void )
 
 	Cmd_AddCommand( "r_info", R_RenderInfo_f, "display renderer info" );
 
+	// give initial OpenGL configuration
+	host.apply_opengl_config = true;
+	Cbuf_AddText( "exec opengl.cfg\n" );
+	Cbuf_Execute();
+	host.apply_opengl_config = false;
+
 	// apply actual video mode to window
 	Cbuf_AddText( "exec video.cfg\n" );
 	Cbuf_Execute();
@@ -588,9 +594,6 @@ qboolean R_Init( void )
 {
 	if( glw_state.initialized )
 		return true;
-
-	// give initial OpenGL configuration
-	Cbuf_AddText( "exec opengl.cfg\n" );
 
 	GL_InitCommands();
 	GL_InitRandomTable();

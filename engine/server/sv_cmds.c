@@ -470,30 +470,6 @@ void SV_Kick_f( void )
 
 /*
 ==================
-SV_Kill_f
-==================
-*/
-void SV_Kill_f( void )
-{
-	sv_client_t	*cl;
-
-	if(( cl = SV_SetPlayer( )) == NULL )
-		return;
-
-	if( !SV_IsValidEdict( cl->edict ))
-		return;
-
-	if( cl->edict->v.health <= 0.0f )
-	{
-		SV_ClientPrintf( cl, "Can't suicide - already dead!\n");
-		return;
-	}
-
-	svgame.dllFuncs.pfnClientKill( cl->edict );	
-}
-
-/*
-==================
 SV_EntPatch_f
 ==================
 */
@@ -833,7 +809,6 @@ void SV_InitOperatorCommands( void )
 {
 	Cmd_AddCommand( "heartbeat", SV_Heartbeat_f, "send a heartbeat to the master server" );
 	Cmd_AddCommand( "kick", SV_Kick_f, "kick a player off the server by number or name" );
-	Cmd_AddCommand( "kill", SV_Kill_f, "die instantly" );
 	Cmd_AddCommand( "status", SV_Status_f, "print server status information" );
 	Cmd_AddCommand( "localinfo", SV_LocalInfo_f, "examine or change the localinfo string" );
 	Cmd_AddCommand( "serverinfo", SV_ServerInfo_f, "examine or change the serverinfo string" );
@@ -866,12 +841,8 @@ SV_KillOperatorCommands
 */
 void SV_KillOperatorCommands( void )
 {
-	Cvar_Reset( "public" );
-	Cvar_Reset( "sv_lan" );
-
 	Cmd_RemoveCommand( "heartbeat" );
 	Cmd_RemoveCommand( "kick" );
-	Cmd_RemoveCommand( "kill" );
 	Cmd_RemoveCommand( "status" );
 	Cmd_RemoveCommand( "localinfo" );
 	Cmd_RemoveCommand( "serverinfo" );
