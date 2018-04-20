@@ -1084,6 +1084,14 @@ void ID_Init( void );
 const char *ID_GetMD5( void );
 void GAME_EXPORT ID_SetCustomClientID( const char *id );
 
+//
+// sequence.c
+//
+typedef struct sequenceEntry_ sequenceEntry_s;
+typedef struct sentenceEntry_ sentenceEntry_s;
+sequenceEntry_s *Sequence_Get( const char *fileName, const char *entryName );
+sentenceEntry_s *Sequence_PickSentence( const char *groupName, int pickMethod, int *picked );
+
 #ifdef __cplusplus
 }
 #endif
