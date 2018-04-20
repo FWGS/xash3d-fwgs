@@ -597,6 +597,17 @@ void Key_Event( int key, qboolean down )
 	if( cls.key_dest == key_menu )
 	{
 		// only non printable keys passed
+		if( !gameui.use_text_api )
+			Key_EnableTextInput( true, false );
+		//pass printable chars for old menus
+		if( !gameui.use_text_api && !host.textmode && down && ( key >= 32 ) && ( key <= 'z' ) )
+		{
+			if( Key_IsDown( K_SHIFT ) )
+			{
+				key += 'A' - 'a';
+			}
+			UI_CharEvent( key );
+		}
 		UI_KeyEvent( key, down );
 		return;
 	}
@@ -708,15 +719,19 @@ void Key_SetKeyDest( int key_dest )
 	switch( key_dest )
 	{
 	case key_game:
+		Key_EnableTextInput( false, false );
 		cls.key_dest = key_game;
 		break;
 	case key_menu:
+		Key_EnableTextInput( false, false );
 		cls.key_dest = key_menu;
 		break;
 	case key_console:
+		Key_EnableTextInput( true, false );
 		cls.key_dest = key_console;
 		break;
 	case key_message:
+		Key_EnableTextInput( true, false );
 		cls.key_dest = key_message;
 		break;
 	default:

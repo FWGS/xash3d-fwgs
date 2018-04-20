@@ -760,6 +760,8 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #if defined XASH_GLES && !defined __EMSCRIPTEN__ && !TARGET_OS_IOS
 	SDL_SetHint( SDL_HINT_OPENGL_ES_DRIVER, "1" );
 #endif
+
+	SDL_StopTextInput();
 #endif
 
 	if ( !host.rootdir[0] || SetCurrentDirectory( host.rootdir ) != 0)
