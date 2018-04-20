@@ -1397,7 +1397,7 @@ NET_SendPacket
 */
 void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to )
 {
-	int		ret, err;
+	int		ret;
 	struct sockaddr	addr;
 	SOCKET		net_socket;
 
@@ -1427,11 +1427,11 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 
 	ret = NET_SendLong( sock, net_socket, data, length, 0, &addr, sizeof( addr ));
 
-	if( NET_IsSocketError( err ))
+	if( NET_IsSocketError( ret ))
 	{
 		{
 #ifdef _WIN32
-			err = pWSAGetLastError();
+			int err = pWSAGetLastError();
 
 			// WSAEWOULDBLOCK is silent
 			if( err == WSAEWOULDBLOCK )
@@ -1457,7 +1457,7 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 #ifdef _WIN32
 		else if( err == WSAEADDRNOTAVAIL || err == WSAENOBUFS )
 #else
-		else if( err == EADDRNOTAVAIL || err == ENOBUFS )
+		else if( errno == EADDRNOTAVAIL || errno == ENOBUFS )
 #endif
 		{
 			MsgDev( D_ERROR, "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
