@@ -852,11 +852,11 @@ void FS_Rescan( void )
 
 	FS_ClearSearchPath();
 
-	if( Q_stricmp( GI->basedir, GI->gamedir ))
+	if( Q_stricmp( GI->basedir, GI->gamefolder ))
 		FS_AddGameHierarchy( GI->basedir, 0 );
-	if( Q_stricmp( GI->basedir, GI->falldir ) && Q_stricmp( GI->gamedir, GI->falldir ))
+	if( Q_stricmp( GI->basedir, GI->falldir ) && Q_stricmp( GI->gamefolder, GI->falldir ))
 		FS_AddGameHierarchy( GI->falldir, 0 );
-	FS_AddGameHierarchy( GI->gamedir, FS_GAMEDIR_PATH );
+	FS_AddGameHierarchy( GI->gamefolder, FS_GAMEDIR_PATH );
 
 	if( FS_FileExists( va( "%s.rc", SI.basedirName ), false ))
 		Q_strncpy( SI.rcName, SI.basedirName, sizeof( SI.rcName ));	// e.g. valve.rc
@@ -890,8 +890,10 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 	if( Q_strlen( GameInfo->basedir ))
 		FS_Printf( f, "basedir\t\t\"%s\"\n", GameInfo->basedir );
 
-	if( Q_strlen( GameInfo->gamedir ))
-		FS_Printf( f, "gamedir\t\t\"%s\"\n", GameInfo->gamedir );
+	// DEPRECATED: gamedir key isn't supported by FWGS fork
+	// but write it anyway to keep compability with original Xash3D
+	if( Q_strlen( GameInfo->gamefolder ))
+		FS_Printf( f, "gamedir\t\t\"%s\"\n", GameInfo->gamefolder );
 
 	if( Q_strlen( GameInfo->falldir ))
 		FS_Printf( f, "fallback_dir\t\"%s\"\n", GameInfo->falldir );
@@ -1341,7 +1343,7 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 		{
 			// now we have copy of game info from basedir but needs to change gamedir
 			Con_DPrintf( "Convert %s to %s\n", default_gameinfo_path, gameinfo_path );
-			Q_strncpy( tmpGameInfo.gamedir, gamedir, sizeof( tmpGameInfo.gamedir ));
+			Q_strncpy( tmpGameInfo.gamefolder, gamedir, sizeof( tmpGameInfo.gamefolder ));
 			FS_WriteGameInfo( gameinfo_path, &tmpGameInfo );
 		}
 		else FS_CreateDefaultGameInfo( gameinfo_path );

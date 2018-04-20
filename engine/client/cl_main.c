@@ -1440,9 +1440,9 @@ void CL_InternetServers_f( void )
 	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ) )
 		MsgDev( D_ERROR, "Can't resolve adr: %s\n", MASTERSERVER_ADR );
 
-	Q_strcpy( &fullquery[22], GI->gamedir );
+	Q_strcpy( &fullquery[22], GI->gamefolder );
 
-	NET_SendPacket( NS_CLIENT, Q_strlen( GI->gamedir ) + 23, fullquery, adr );
+	NET_SendPacket( NS_CLIENT, Q_strlen( GI->gamefolder ) + 23, fullquery, adr );
 
 	// now we clearing the vgui request
 	if( clgame.master_request != NULL )

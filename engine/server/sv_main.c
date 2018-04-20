@@ -716,7 +716,7 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	Info_SetValueForKey( s, "players", va( "%d", clients ), len ); // current player number, without bots
 	Info_SetValueForKey( s, "max", va( "%d", svs.maxclients ), len ); // max_players
 	Info_SetValueForKey( s, "bots", va( "%d", bots ), len ); // bot count
-	Info_SetValueForKey( s, "gamedir", GI->gamedir, len ); // gamedir
+	Info_SetValueForKey( s, "gamedir", GI->gamefolder, len ); // gamedir
 	Info_SetValueForKey( s, "map", sv.name, len ); // current map
 	Info_SetValueForKey( s, "type", (host.type == HOST_DEDICATED) ? "d" : "l", len ); // dedicated or local
 	Info_SetValueForKey( s, "password", "0", len ); // is password set

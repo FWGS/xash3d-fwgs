@@ -1275,7 +1275,7 @@ pfnGetGameDir
 void pfnGetGameDir( char *szGetGameDir )
 {
 	if( !szGetGameDir ) return;
-	Q_sprintf( szGetGameDir, "%s/%s", host.rootdir, GI->gamedir );
+	Q_sprintf( szGetGameDir, "%s/%s", host.rootdir, GI->gamefolder );
 }
 
 qboolean COM_IsSafeFileToDownload( const char *filename )

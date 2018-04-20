@@ -2557,7 +2557,7 @@ const char *pfnGetGameDirectory( void )
 {
 	static char	szGetGameDir[MAX_SYSPATH];
 
-	Q_sprintf( szGetGameDir, "%s/%s", host.rootdir, GI->gamedir );
+	Q_sprintf( szGetGameDir, "%s/%s", host.rootdir, GI->gamefolder );
 	return szGetGameDir;
 }
 
@@ -3576,8 +3576,8 @@ void NetAPI_SendRequest( int context, int request, int flags, double timeout, ne
 		if( !nr->resp.remote_address.port ) nr->resp.remote_address.port = MSG_BigShort( PORT_MASTER );
 
 		// grab the list from the master server
-		Q_strcpy( &fullquery[22], GI->gamedir );
-		NET_SendPacket( NS_CLIENT, Q_strlen( GI->gamedir ) + 23, fullquery, nr->resp.remote_address );
+		Q_strcpy( &fullquery[22], GI->gamefolder );
+		NET_SendPacket( NS_CLIENT, Q_strlen( GI->gamefolder ) + 23, fullquery, nr->resp.remote_address );
 		clgame.request_type = NET_REQUEST_CLIENT;
 		clgame.master_request = nr; // holds the master request unitl the master acking
 	}
@@ -4092,7 +4092,7 @@ void CL_UnloadProgs( void )
 	Mod_ClearUserData();
 
 	// NOTE: HLFX 0.5 has strange bug: hanging on exit if no map was loaded
-	if( Q_stricmp( GI->gamedir, "hlfx" ) || GI->version != 0.5f )
+	if( Q_stricmp( GI->gamefolder, "hlfx" ) || GI->version != 0.5f )
 		clgame.dllFuncs.pfnShutdown();
 
 	Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );

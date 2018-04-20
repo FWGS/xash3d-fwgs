@@ -2030,7 +2030,7 @@ void SV_TSourceEngineQuery( netadr_t from )
 	MSG_WriteByte( &buf, host.type == HOST_DEDICATED ? 'D' : 'L' );
 	MSG_WriteByte( &buf, 'W' );
 
-	if( Q_stricmp( GI->gamedir, "valve" ))
+	if( Q_stricmp( GI->gamefolder, "valve" ))
 	{
 		MSG_WriteByte( &buf, 1 ); // mod
 		MSG_WriteString( &buf, GI->game_url );

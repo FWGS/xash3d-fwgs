@@ -4549,7 +4549,7 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 
 #ifdef HACKS_RELATED_HLMODS
 	// chemical existence have broked changelevels
-	if( !Q_stricmp( GI->gamedir, "ce" ))
+	if( !Q_stricmp( GI->gamefolder, "ce" ))
 	{
 	 	if( !Q_stricmp( sv.name, "ce08_02" ) && !Q_stricmp( classname, "info_player_start_force" ))
 			adjust_origin = true;
