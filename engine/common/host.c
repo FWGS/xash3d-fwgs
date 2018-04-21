@@ -826,6 +826,8 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	FS_LoadGameInfo( NULL );
 	Q_strncpy( host.gamefolder, GI->gamefolder, sizeof( host.gamefolder ));
 
+	// DEPRECATED: by FWGS fork
+#if 0
 	if( GI->secure )
 	{
 		// clear all developer levels when game is protected
@@ -834,6 +836,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		host.con_showalways = false;
 		host.allow_console = false;
 	}
+#endif
 	HPAK_Init();
 
 	IN_Init();
