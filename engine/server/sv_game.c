@@ -4848,8 +4848,7 @@ qboolean SV_LoadProgs( const char *name )
 	{
 		Con_Printf( S_WARN "SV_LoadProgs: couldn't get physics API\n" );
 	}
-// TESTTEST
-//host.features |= ENGINE_FIXED_FRAMERATE;
+
 	// grab function SV_SaveGameComment
 	SV_InitSaveRestore ();
 

@@ -78,9 +78,6 @@ void Host_PrintEngineFeatures( void )
 
 	if( FBitSet( host.features, ENGINE_COMPENSATE_QUAKE_BUG ))
 		MsgDev( D_REPORT, "^3EXT:^7 Compensate quake bug enabled\n" );
-
-	if( FBitSet( host.features, ENGINE_FIXED_FRAMERATE ))
-		MsgDev( D_REPORT, "^3EXT:^7 runnung server at constant fps\n" );
 }
 
 /*
@@ -133,7 +130,7 @@ void Host_CheckSleep( void )
 	if( host.type == HOST_DEDICATED )
 	{
 		// let the dedicated server some sleep
-		Sys_Sleep( 1 );
+//		Sys_Sleep( 1 );
 	}
 	else
 	{
@@ -645,7 +642,8 @@ void Host_InitCommon( const char *hostname, qboolean bChangeGame )
 
 	host.mempool = Mem_AllocPool( "Zone Engine" );
 
-	if( Sys_CheckParm( "-console" ))
+	// HACKHACK: Quake console is always allowed
+	if( Sys_CheckParm( "-console" ) || !Q_stricmp( progname, "id1" ))
 		host.allow_console = true;
 
 	if( Sys_CheckParm( "-dev" ))
@@ -789,7 +787,7 @@ int EXPORT Host_Main( const char *progname, int bChangeGame, pfnChangeGame func 
 		Cmd_AddCommand ( "crash", Host_Crash_f, "a way to force a bus error for development reasons");
 	}
 
-	host_maxfps = Cvar_Get( "fps_max", "72", FCVAR_ARCHIVE, "host fps upper limit" );
+	host_maxfps = Cvar_Get( "fps_max", "100", FCVAR_ARCHIVE, "host fps upper limit" );
 	host_framerate = Cvar_Get( "host_framerate", "0", 0, "locks frame timing to this value in seconds" );  
 	host_gameloaded = Cvar_Get( "host_gameloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded game.dll" );
 	host_clientloaded = Cvar_Get( "host_clientloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );

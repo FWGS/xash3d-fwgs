@@ -195,8 +195,8 @@ typedef struct server_s
 
 	model_t		*worldmodel;	// pointer to world
 
-	qboolean		simulating;
 	qboolean		playersonly;
+	qboolean		simulating;	// physics is running
 	qboolean		paused;
 
 	// statistics
@@ -237,7 +237,6 @@ typedef struct sv_client_s
 	double		next_sendinfotime;		// time to send info about all players
 	double		cl_updaterate;		// client requested updaterate
 	double		timebase;			// client timebase
-	double		lastservertime;		// check if server time was not changed so no resaon to send update
 	double		connection_started;
 
 	char		hashedcdkey[34];		// MD5 hash is 32 hex #'s, plus trailing 0

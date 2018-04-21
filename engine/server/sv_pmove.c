@@ -67,17 +67,17 @@ qboolean SV_CopyEdictToPhysEnt( physent_t *pe, edict_t *ed )
 	VectorCopy( ed->v.origin, pe->origin );
 	VectorCopy( ed->v.angles, pe->angles );
 
-	if( ed->v.flags & FL_CLIENT )
-	{
-		// client
-		SV_GetTrueOrigin( &svs.clients[pe->info - 1], (pe->info - 1), pe->origin );
-		Q_strncpy( pe->name, "player", sizeof( pe->name ));
-		pe->player = pe->info;
-	}
-	else if( ed->v.flags & FL_FAKECLIENT && ed->v.solid != MOVETYPE_PUSH )
+	if( FBitSet( ed->v.flags, FL_FAKECLIENT ))
 	{
 		// bot
 		Q_strncpy( pe->name, "bot", sizeof( pe->name ));
+		pe->player = pe->info;
+	}
+	else if( FBitSet( ed->v.flags, FL_CLIENT ))
+	{
+		// client
+		SV_GetTrueOrigin( &svs.clients[pe->info - 1], pe->info, pe->origin );
+		Q_strncpy( pe->name, "player", sizeof( pe->name ));
 		pe->player = pe->info;
 	}
 	else
@@ -148,39 +148,51 @@ qboolean SV_CopyEdictToPhysEnt( physent_t *pe, edict_t *ed )
 	return true;
 }
 
+qboolean SV_ShouldUnlagForPlayer( sv_client_t *cl )
+{
+	// can't unlag in singleplayer
+	if( svs.maxclients <= 1 )
+		return false;
+
+	// unlag disabled globally
+	if( !svgame.dllFuncs.pfnAllowLagCompensation() || !sv_unlag.value )
+		return false;
+
+	if( !FBitSet( cl->flags, FCL_LAG_COMPENSATION ))
+		return false;
+
+	// player not ready
+	if( cl->state != cs_spawned )
+		return false;
+
+	return true;
+}
+
 void SV_GetTrueOrigin( sv_client_t *cl, int edictnum, vec3_t origin )
 {
-	// don't allow unlag in singleplayer
-	if( svs.maxclients <= 1 ) return;
-
-	if( cl->state < cs_connected || edictnum < 0 || edictnum >= svs.maxclients )
+	if( !SV_ShouldUnlagForPlayer( cl ))
 		return;
 
-	if( !FBitSet( cl->flags, FCL_LAG_COMPENSATION ) || !sv_unlag.value )
+	if( edictnum < 1 || edictnum > svs.maxclients )
 		return;
 
-	if( !svgame.interp[edictnum].active || !svgame.interp[edictnum].moving )
-		return;
-
-	VectorCopy( svgame.interp[edictnum].newpos, origin ); 
+	if( svgame.interp[edictnum-1].active && svgame.interp[edictnum-1].moving )
+		VectorCopy( svgame.interp[edictnum-1].newpos, origin ); 
 }
 
 void SV_GetTrueMinMax( sv_client_t *cl, int edictnum, vec3_t mins, vec3_t maxs )
 {
-	// don't allow unlag in singleplayer
-	if( svs.maxclients <= 1 ) return;
-
-	if( cl->state < cs_connected || edictnum < 0 || edictnum >= svs.maxclients )
+	if( !SV_ShouldUnlagForPlayer( cl ))
 		return;
 
-	if( !FBitSet( cl->flags, FCL_LAG_COMPENSATION ) || !sv_unlag.value )
+	if( edictnum < 1 || edictnum > svs.maxclients )
 		return;
 
-	if( !svgame.interp[edictnum].active || !svgame.interp[edictnum].moving )
-		return;
-
-	VectorCopy( svgame.interp[edictnum].mins, mins );
-	VectorCopy( svgame.interp[edictnum].maxs, maxs );
+	if( svgame.interp[edictnum-1].active && svgame.interp[edictnum-1].moving )
+	{
+		VectorCopy( svgame.interp[edictnum-1].mins, mins );
+		VectorCopy( svgame.interp[edictnum-1].maxs, maxs );
+	}
 }
 
 /*
@@ -247,12 +259,13 @@ void SV_AddLinksToPmove( areanode_t *node, const vec3_t pmove_mins, const vec3_t
 		VectorCopy( check->v.absmin, mins );
 		VectorCopy( check->v.absmax, maxs );
 
-		if( FBitSet( check->v.flags, FL_CLIENT ))
+		if( FBitSet( check->v.flags, FL_CLIENT ) && !FBitSet( check->v.flags, FL_FAKECLIENT ))
 		{
-			int	e = NUM_FOR_EDICT( check ) - 1;
-
-			// trying to get interpolated values
-			SV_GetTrueMinMax( &svs.clients[e], e, mins, maxs );
+			if( sv.current_client )
+			{
+				// trying to get interpolated values
+				SV_GetTrueMinMax( sv.current_client, NUM_FOR_EDICT( check ), mins, maxs );
+			}
 		}
 
 		if( !BoundsIntersect( pmove_mins, pmove_maxs, mins, maxs ))
@@ -807,16 +820,7 @@ void SV_SetupMoveInterpolant( sv_client_t *cl )
 	memset( svgame.interp, 0, sizeof( svgame.interp ));
 	has_update = false;
 
-	// don't allow unlag in singleplayer
-	if( svs.maxclients <= 1 || cl->state != cs_spawned )
-		return;
-
-	// unlag disabled by game request
-	if( !svgame.dllFuncs.pfnAllowLagCompensation() || !sv_unlag.value )
-		return;
-
-	// unlag disabled for current client
-	if( !FBitSet( cl->flags, FCL_LAG_COMPENSATION ))
+	if( !SV_ShouldUnlagForPlayer( cl ))
 		return;
 
 	has_update = true;
@@ -834,17 +838,13 @@ void SV_SetupMoveInterpolant( sv_client_t *cl )
 		lerp->active = true;
 	}
 
-	if( cl->latency > 1.5f )
-		latency = 1.5f;
-	else latency = cl->latency;
+	latency = Q_min( cl->latency, 1.5f );
 
 	if( sv_maxunlag.value != 0.0f )
 	{
 		if (sv_maxunlag.value < 0.0f )
 			Cvar_SetValue( "sv_maxunlag", 0.0f );
-
-		if( latency >= sv_maxunlag.value )
-			latency = sv_maxunlag.value;
+		latency = Q_min( latency, sv_maxunlag.value );
 	}
 
 	lerp_msec = cl->lastcmd.lerp_msec * 0.001f;
@@ -856,9 +856,9 @@ void SV_SetupMoveInterpolant( sv_client_t *cl )
 	finalpush = ( host.realtime - latency - lerp_msec ) + sv_unlagpush.value;
 	if( finalpush > host.realtime ) finalpush = host.realtime; // pushed too much ?
 
-	frame = NULL;
+	frame = frame2 = NULL;
 
-	for( frame2 = NULL, i = 0; i < SV_UPDATE_BACKUP; i++, frame2 = frame )
+	for( i = 0; i < SV_UPDATE_BACKUP; i++, frame2 = frame )
 	{
 		frame = &cl->frames[(cl->netchan.outgoing_sequence - (i + 1)) & SV_UPDATE_MASK];
 
@@ -866,19 +866,24 @@ void SV_SetupMoveInterpolant( sv_client_t *cl )
 		{
 			state = &svs.packet_entities[(frame->first_entity+j)%svs.num_client_entities];
 
-			if( state->number <= 0 || state->number >= svs.maxclients )
+			if( state->number < 1 || state->number > svs.maxclients )
 				continue;
 
 			lerp = &svgame.interp[state->number-1];
 			if( lerp->nointerp ) continue;
 
-			if( state->health <= 0 || ( state->effects & EF_NOINTERP ))
+			if( state->health <= 0 || FBitSet( state->effects, EF_NOINTERP ))
 				lerp->nointerp = true;
 
-			if( !lerp->firstframe )
+			if( lerp->firstframe )
+			{
+				if( SV_UnlagCheckTeleport( state->origin, lerp->finalpos ))
+					lerp->nointerp = true;
+			}
+			else
+			{
 				lerp->firstframe = true;
-			else if( SV_UnlagCheckTeleport( state->origin, lerp->finalpos ))
-				lerp->nointerp = true;
+			}
 
 			VectorCopy( state->origin, lerp->finalpos );
 		}
@@ -916,7 +921,7 @@ void SV_SetupMoveInterpolant( sv_client_t *cl )
 	{
 		state = &svs.packet_entities[(frame->first_entity+i)%svs.num_client_entities];
 
-		if( state->number <= 0 || state->number >= svs.maxclients )
+		if( state->number < 1 || state->number > svs.maxclients )
 			continue;
 
 		clientnum = state->number - 1;
@@ -966,16 +971,7 @@ void SV_RestoreMoveInterpolant( sv_client_t *cl )
 		return;
 	}
 
-	// don't allow unlag in singleplayer
-	if( svs.maxclients <= 1 || cl->state != cs_spawned )
-		return;
-
-	// unlag disabled by game request
-	if( !svgame.dllFuncs.pfnAllowLagCompensation() || !sv_unlag.value )
-		return;
-
-	// unlag disabled for current client
-	if( !FBitSet( cl->flags, FCL_LAG_COMPENSATION ))
+	if( !SV_ShouldUnlagForPlayer( cl ))
 		return;
 
 	for( i = 0, check = svs.clients; i < svs.maxclients; i++, check++ )
@@ -985,11 +981,11 @@ void SV_RestoreMoveInterpolant( sv_client_t *cl )
 
 		oldlerp = &svgame.interp[i];
 
-		if( VectorCompare( oldlerp->oldpos, oldlerp->newpos ))
+		if( VectorCompare( oldlerp->oldpos, oldlerp->newpos ) || !oldlerp->moving )
 			continue; // they didn't actually move.
 
-		if( !oldlerp->moving || !oldlerp->active )
-			return;
+		if( !oldlerp->active )
+			continue;
 
 		if( VectorCompare( oldlerp->curpos, check->edict->v.origin ))
 		{

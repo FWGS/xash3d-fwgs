@@ -314,7 +314,9 @@ int Sys_CheckParm( const char *parm )
 
 	for( i = 1; i < host.argc; i++ )
 	{
-		if( !host.argv[i] ) continue;
+		if( !host.argv[i] )
+			continue;
+
 		if( !Q_stricmp( parm, host.argv[i] ))
 			return i;
 	}

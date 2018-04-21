@@ -652,20 +652,11 @@ void SV_SendClientDatagram( sv_client_t *cl )
 	byte	msg_buf[MAX_DATAGRAM];
 	sizebuf_t	msg;
 
-	// if we running server with fixed fps so no reason
-	// to send updates too fast: time just not changed
-	if( FBitSet( host.features, ENGINE_FIXED_FRAMERATE ))
-	{
-		if( sv.simulating && cl->lastservertime == sv.time )
-			return;
-	}
-
 	MSG_Init( &msg, "Datagram", msg_buf, sizeof( msg_buf ));
 
 	// always send servertime at new frame
 	MSG_BeginServerCmd( &msg, svc_time );
 	MSG_WriteFloat( &msg, sv.time );
-	cl->lastservertime = sv.time;
 
 	SV_WriteClientdataToMessage( cl, &msg );
 	SV_WriteEntitiesToClient( cl, &msg );
@@ -825,11 +816,8 @@ void SV_SendClientMessages( void )
 			continue;
 		}
 
-		if( !FBitSet( host.features, ENGINE_FIXED_FRAMERATE ))
-		{
-			if( !host_limitlocal->value && NET_IsLocalAddress( cl->netchan.remote_address ))
-				SetBits( cl->flags, FCL_SEND_NET_MESSAGE );
-                    }
+		if( !host_limitlocal->value && NET_IsLocalAddress( cl->netchan.remote_address ))
+			SetBits( cl->flags, FCL_SEND_NET_MESSAGE );
 
 		if( cl->state == cs_spawned )
 		{

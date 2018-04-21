@@ -250,7 +250,7 @@ static float CL_LerpPoint( void )
 		return 1.0f;
 	}
 
-	if( cl_interp->value > 0.001f && !FBitSet( host.features, ENGINE_FIXED_FRAMERATE ))
+	if( cl_interp->value > 0.001f )
 	{
 		// manual lerp value (goldsrc mode)
 		frac = ( cl.time - cl.mtime[0] ) / cl_interp->value;
@@ -439,12 +439,11 @@ void CL_FindInterpolatedAddAngle( float t, float *frac, pred_viewangle_t **prev,
 
 void CL_ApplyAddAngle( void )
 {
-	float		curtime = cl.time - cl_serverframetime();
 	pred_viewangle_t	*prev = NULL, *next = NULL;
 	float		addangletotal = 0.0f;
 	float		amove, frac = 0.0f;
 
-	CL_FindInterpolatedAddAngle( curtime, &frac, &prev, &next );
+	CL_FindInterpolatedAddAngle( cl.time, &frac, &prev, &next );
 
 	if( prev && next )
 		addangletotal = prev->total + frac * ( next->total - prev->total );
@@ -616,7 +615,6 @@ void CL_CreateCmd( void )
 		pcmd->receivedtime = -1.0;
 		pcmd->heldback = false;
 		pcmd->sendsize = 0;
-		CL_ApplyAddAngle();
 	}
 
 	active = (( cls.signon == SIGNONS ) && !cl.paused && !cls.demoplayback );
@@ -1591,6 +1589,9 @@ void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 
 	CL_FixupColorStringsForInfoString( s, infostring );
 
+	if( !COM_CheckString( Info_ValueForKey( infostring, "gamedir" )))
+		return;	// unsupported proto
+
 	// more info about servers
 	Con_Printf( "Server: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
 
@@ -2051,6 +2052,8 @@ void CL_ReadPackets( void )
 		cls.demotime += host.frametime;
 
 	CL_ReadNetMessage();
+
+	CL_ApplyAddAngle();
 #if 0
 	// keep cheat cvars are unchanged
 	if( cl.maxclients > 1 && cls.state == ca_active && !host_developer.value )

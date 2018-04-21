@@ -248,7 +248,7 @@ void CL_CheckPredictionError( void )
 		// save for error interpolation
 		VectorCopy( delta, cl.local.prediction_error );
 
-		if(( dist > MIN_CORRECTION_DISTANCE ) && (( cl.maxclients > 1 ) || FBitSet( host.features, ENGINE_FIXED_FRAMERATE )))
+		if( dist > MIN_CORRECTION_DISTANCE )
 			cls.correction_time = cl_smoothtime->value;
 	}
 }

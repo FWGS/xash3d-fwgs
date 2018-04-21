@@ -25,6 +25,5 @@ GNU General Public License for more details.
 #define ENGINE_COMPENSATE_QUAKE_BUG	(1<<5)	// compensate stupid quake bug (inverse pitch) for mods where this bug is fixed
 // reserved
 #define ENGINE_COMPUTE_STUDIO_LERP	(1<<7)	// enable MOVETYPE_STEP lerping back in engine
-#define ENGINE_FIXED_FRAMERATE	(1<<8)	// keep constant rate for client and server (but don't clamp renderer calls)
 
 #endif//FEATURES_H

@@ -410,8 +410,8 @@ int CL_InterpolateModel( cl_entity_t *e )
 	if( cls.timedemo || !e->model )
 		return 1;
 
-	if( cl.maxclients <= 1 && !FBitSet( host.features, ENGINE_FIXED_FRAMERATE ))
-		return 1;
+	if( fabs( cl_serverframetime() - cl_clientframetime()) < 0.0001f )
+		return 1;	// interpolation disabled
 
 	if( e->model->type == mod_brush && !cl_bmodelinterp->value )
 		return 1;
@@ -419,10 +419,8 @@ int CL_InterpolateModel( cl_entity_t *e )
 	if( cl.local.moving && cl.local.onground == e->index )
 		return 1;
 
-	if( cl.maxclients <= 1 && FBitSet( host.features, ENGINE_FIXED_FRAMERATE ))
-		t = cl.time - cl_serverframetime();
-	else t = cl.time - cl_interp->value;
-
+//	t = cl.time - cl_serverframetime();
+	t = cl.time - cl_interp->value;
 	CL_FindInterpolationUpdates( e, t, &ph0, &ph1 );
 
 	if( ph0 == NULL || ph1 == NULL )
