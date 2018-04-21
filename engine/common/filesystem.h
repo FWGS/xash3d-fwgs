@@ -80,9 +80,9 @@ typedef struct
 	int		filepos;		// file offset in WAD
 	int		disksize;		// compressed or uncompressed
 	int		size;		// uncompressed
-	char		type;		// TYP_*
-	char		attribs;		// file attribs
-	char		img_type;		// IMG_*
+	signed char	type;		// TYP_*
+	signed char	attribs;		// file attribs
+	signed char	img_type;		// IMG_*
 	char		pad;
 	char		name[WAD3_NAMELEN];	// must be null terminated
 } dlumpinfo_t;

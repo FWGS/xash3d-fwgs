@@ -42,6 +42,7 @@ GNU General Public License for more details.
 	#include <dlfcn.h>
 	#include <stdlib.h>
 	#include <unistd.h>
+	#include <string.h>
 
 	#if defined(__APPLE__)
 		#include <sys/syslimits.h>
