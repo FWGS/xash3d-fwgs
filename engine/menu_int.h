@@ -20,6 +20,10 @@ GNU General Public License for more details.
 #include "gameinfo.h"
 #include "wrect.h"
 
+// a macro for mainui_cpp, indicating that mainui should be compiled for
+// Xash3D 1.0 interface
+#define NEW_ENGINE_INTERFACE
+
 typedef int		HIMAGE;		// handle to a graphic
 
 // flags for PIC_Load
@@ -36,7 +40,7 @@ typedef struct ui_globalvars_s
 	int		scrHeight;
 
 	int		maxClients;
-	int		allow_console;
+	int		developer; // boolean, changed from allow_console to make mainui_cpp compile for both engines
 	int		demoplayback;
 	int		demorecording;
 	char		demoname[64];	// name of currently playing demo
