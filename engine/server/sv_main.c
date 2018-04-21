@@ -96,6 +96,7 @@ CVAR_DEFINE_AUTO( showtriggers, "0", FCVAR_LATCH, "debug cvar shows triggers" );
 CVAR_DEFINE_AUTO( sv_airmove, "1", FCVAR_SERVER, "obsolete, compatibility issues" );
 CVAR_DEFINE_AUTO( sv_version, "", FCVAR_READ_ONLY, "engine version string" );
 CVAR_DEFINE_AUTO( hostname, "", FCVAR_SERVER|FCVAR_PRINTABLEONLY, "name of current host" );
+CVAR_DEFINE_AUTO( sv_fps, "0.0", FCVAR_SERVER, "server framerate" );
 
 // gore-related cvars
 CVAR_DEFINE_AUTO( violence_hblood, "1", 0, "draw human blood" );
@@ -216,6 +217,15 @@ void SV_CheckCmdTimes( void )
 	static double	lastreset = 0;
 	float		diff;
 	int		i;
+
+	if( sv_fps.value != 0.0f )
+	{
+		if( sv_fps.value < MIN_FPS )
+			Cvar_SetValue( "sv_fps", MIN_FPS );
+
+		if( sv_fps.value > MAX_FPS )
+			Cvar_SetValue( "sv_fps", MAX_FPS );
+	}
 
 	if( Host_IsLocalGame( ))
 		return;
@@ -544,32 +554,37 @@ SV_RunGameFrame
 SV_RunGameFrame
 =================
 */
-void SV_RunGameFrame( void )
+qboolean SV_RunGameFrame( void )
 {
-	int	numFrames = 0; // debug
+	sv.simulating = SV_IsSimulating();
 
-	if(!( sv.simulating = SV_IsSimulating( )))
-		return;
+	if( !sv.simulating )
+		return true;
 
-	if( FBitSet( host.features, ENGINE_FIXED_FRAMERATE ))
+	if( sv_fps.value != 0.0f )
 	{
-		sv.time_residual += host.frametime;
+		double		fps = (1.0 / (double)( sv_fps.value - 0.01 )); // FP issues
+		int		numFrames = 0;
+		static double	oldtime;
 
-		if( sv.time_residual >= sv.frametime )
+		while( sv.time_residual >= fps )
 		{
+			sv.frametime = fps;
+
 			SV_Physics();
 
-			sv.time_residual -= sv.frametime;
-			sv.time += sv.frametime;
+			sv.time_residual -= fps;
+			sv.time += fps;
 			numFrames++;
 		}
+
+		return (numFrames != 0);
 	}
 	else
 	{
 		SV_Physics();
-
 		sv.time += sv.frametime;
-		numFrames++;
+		return true;
 	}
 }
 
@@ -584,10 +599,11 @@ void Host_ServerFrame( void )
 	// if server is not active, do nothing
 	if( !svs.initialized ) return;
 
-	if( FBitSet( host.features, ENGINE_FIXED_FRAMERATE ))
-		sv.frametime = ( 1.0 / (double)GAME_FPS );
-	else sv.frametime = host.frametime; // GoldSrc style
+	if( sv.simulating || sv.state != ss_active )
+		sv.time_residual += host.frametime;
 
+	if( sv_fps.value == 0.0f )
+		sv.frametime = host.frametime;
 	svgame.globals->frametime = sv.frametime;
 
 	// check clients timewindow
@@ -595,9 +611,6 @@ void Host_ServerFrame( void )
 
 	// read packets from clients
 	SV_ReadPackets ();
-
-	// let everything in the world think and move
-	SV_RunGameFrame ();
 
 	// refresh physic movevars on the client side
 	SV_UpdateMovevars ( false );
@@ -607,6 +620,9 @@ void Host_ServerFrame( void )
 
 	// check timeouts
 	SV_CheckTimeouts ();
+
+	// let everything in the world think and move
+	if( !SV_RunGameFrame ()) return;
 		
 	// send messages back to the clients that had packets read this frame
 	SV_SendClientMessages ();
@@ -770,7 +786,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable (&sv_wateralpha);
 	Cvar_RegisterVariable (&sv_cheats);
 	Cvar_RegisterVariable (&sv_airmove);
-
+	Cvar_RegisterVariable (&sv_fps);
 	Cvar_RegisterVariable (&showtriggers);
 	Cvar_RegisterVariable (&sv_aim);
 	Cvar_RegisterVariable (&motdfile);

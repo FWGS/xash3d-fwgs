@@ -1448,13 +1448,10 @@ void CL_ParseAddAngle( sizebuf_t *msg )
 	float		delta_yaw;
 	
 	delta_yaw = MSG_ReadBitAngle( msg, 16 );
-
-	if( cl.maxclients <= 1 && !FBitSet( host.features, ENGINE_FIXED_FRAMERATE ))
-	{
-		cl.viewangles[YAW] += delta_yaw;
-		return;
-	}
-
+#if 0
+	cl.viewangles[YAW] += delta_yaw;
+	return;
+#endif
 	// update running counter	
 	cl.addangletotal += delta_yaw;
 

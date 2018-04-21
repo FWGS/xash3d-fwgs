@@ -380,7 +380,6 @@ void SV_ConnectClient( netadr_t from )
 #endif
 	newcl->next_messagetime = host.realtime + newcl->cl_updaterate;
 	newcl->next_sendinfotime = 0.0;
-	newcl->lastservertime = -1.0;
 	newcl->ignored_ents = 0;
 	newcl->chokecount = 0;
 

@@ -1244,15 +1244,16 @@ COM_CheckParm
 */
 int COM_CheckParm( char *parm, char **ppnext )
 {
-	static char	str[64];
+	int	i = Sys_CheckParm( parm );
 
-	if( Sys_GetParmFromCmdLine( parm, str ))
+	if( ppnext )
 	{
-		// get the pointer on cmdline param
-		if( ppnext ) *ppnext = str;
-		return 1;
+		if( i != 0 && i < host.argc - 1 )
+			*ppnext = (char *)host.argv[i + 1];
+		else *ppnext = NULL;
 	}
-	return 0;
+
+	return i;
 }
 
 /*
