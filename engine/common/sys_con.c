@@ -19,11 +19,13 @@ GNU General Public License for more details.
 #endif
 
 #if !defined( _WIN32 ) && !defined( XASH_MOBILE_PLATFORM )
-#define COLORIZE_CONSOLE
-#define USE_SELECT
+#define XASH_COLORIZE_CONSOLE
+// use with caution, running engine in Qt Creator may cause a freeze in read() call
+// I was never encountered this bug anywhere else, so still enable by default
+#define XASH_USE_SELECT
 #endif
 
-#ifdef USE_SELECT
+#ifdef XASH_USE_SELECT
 // non-blocking console input
 #include <sys/select.h>
 #endif
@@ -40,7 +42,7 @@ static LogData s_ld;
 
 char *Sys_Input( void )
 {
-#ifdef USE_SELECT
+#ifdef XASH_USE_SELECT
 	{
 		fd_set rfds;
 		static char line[1024];
@@ -48,9 +50,9 @@ char *Sys_Input( void )
 		struct timeval tv;
 		tv.tv_sec = 0;
 		tv.tv_usec = 0;
-		FD_ZERO(&rfds);
-		FD_SET(0, &rfds); // stdin
-		while( select(1, &rfds, NULL, NULL, &tv ) > 0 )
+		FD_ZERO( &rfds );
+		FD_SET( 0, &rfds); // stdin
+		while( select( 1, &rfds, NULL, NULL, &tv ) > 0 )
 		{
 			if( read( 0, &line[len], 1 ) != 1 )
 				break;
@@ -163,7 +165,7 @@ void Sys_PrintLog( const char *pMsg )
 	if( !lastchar || lastchar == '\n')
 		strftime( logtime, sizeof( logtime ), "[%H:%M:%S] ", crt_tm ); //short time
 
-#ifdef COLORIZE_CONSOLE
+#ifdef XASH_COLORIZE_CONSOLE
 	{
 		char colored[4096];
 		const char *msg = pMsg;
