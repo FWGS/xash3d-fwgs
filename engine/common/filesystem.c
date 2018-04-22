@@ -299,9 +299,12 @@ static void listdirectory( stringlist_t *list, const char *path, qboolean lowerc
 	closedir( dir );
 #endif
 
+	// seems not needed anymore
+#if 0
 	// convert names to lowercase because windows doesn't care, but pattern matching code often does
 	if( lowercase )
 		listlowercase( list );
+#endif
 }
 
 /*
