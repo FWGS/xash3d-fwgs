@@ -884,6 +884,7 @@ int pfnCheckGameDll( void )
 	COM_ResetLibraryError();
 	if(( hInst = COM_LoadLibrary( SI.gamedll, true, false )) != NULL )
 	{
+		COM_FreeLibrary( hInst ); // don't increase linker's reference counter
 		return true;
 	}
 	MsgDev( D_WARN, "Could not load server library:\n%s", COM_GetLibraryError() );
