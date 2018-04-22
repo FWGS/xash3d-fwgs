@@ -67,6 +67,7 @@ convar_t	*cl_interp;
 convar_t	*cl_dlmax;
 convar_t	*cl_lw;
 convar_t	*cl_charset;
+convar_t	*hud_utf8;
 
 //
 // userinfo
@@ -2532,6 +2533,7 @@ void CL_InitLocal( void )
 	cl_interp = Cvar_Get( "ex_interp", "0.1", FCVAR_ARCHIVE, "Interpolate object positions starting this many seconds in past" ); 
 	cl_timeout = Cvar_Get( "cl_timeout", "60", 0, "connect timeout (in-seconds)" );
 	cl_charset = Cvar_Get( "cl_charset", "utf-8", FCVAR_ARCHIVE, "1-byte charset to use (iconv style)" );
+	hud_utf8 = Cvar_Get( "hud_utf8", "0", FCVAR_ARCHIVE, "Use utf-8 encoding for hud text" );
 
 	rcon_client_password = Cvar_Get( "rcon_password", "", 0, "remote control client password" );
 	rcon_address = Cvar_Get( "rcon_address", "", 0, "remote control address" );

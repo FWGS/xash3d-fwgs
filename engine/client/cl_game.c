@@ -1838,6 +1838,9 @@ static int pfnDrawCharacter( int x, int y, int number, int r, int g, int b )
 	if( !cls.creditsFont.valid )
 		return 0;
 
+	if( hud_utf8->value )
+		number = Con_UtfProcessChar( number );
+
 	number &= 255;
 
 	if( number < 32 ) return 0;
@@ -2879,11 +2882,8 @@ pfnVGUI2DrawCharacterAdditive
 */
 static int GAME_EXPORT pfnVGUI2DrawCharacterAdditive( int x, int y, int ch, int r, int g, int b, unsigned int font )
 {
-	/// TODO: fix UTF-8
-#if 0
-	if( !hud_utf8->integer )
+	if( !hud_utf8->value )
 		ch = Con_UtfProcessChar( ch );
-#endif
 
 	return pfnDrawCharacter( x, y, ch, r, g, b );
 }
