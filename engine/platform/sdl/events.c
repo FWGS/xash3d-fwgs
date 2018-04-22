@@ -177,17 +177,14 @@ SDLash_InputEvent
 */
 static void SDLash_InputEvent( SDL_TextInputEvent input )
 {
-	int i;
-
-	// Pass characters one by one to Con_CharEvent
-	for(i = 0; input.text[i]; ++i)
+	for( char *text = input.text; *text; text++ )
 	{
 		int ch;
 
 		if( !Q_stricmp( cl_charset->string, "utf-8" ) )
-			ch = (unsigned char)input.text[i];
+			ch = (unsigned char)*text;
 		else
-			ch = Con_UtfProcessCharForce( (unsigned char)input.text[i] );
+			ch = Con_UtfProcessCharForce( (unsigned char)*text );
 
 		if( !ch )
 			continue;
@@ -202,28 +199,9 @@ SDLash_EnableTextInput
 
 =============
 */
-void SDLash_EnableTextInput( int enable, qboolean force )
+void SDLash_EnableTextInput( qboolean enable )
 {
-	if( force )
-	{
-		if( enable )
-			SDL_StartTextInput();
-		else
-			SDL_StopTextInput();
-	}
-	else if( enable )
-	{
-		if( !host.textmode )
-		{
-			SDL_StartTextInput();
-		}
-		host.textmode = true;
-	}
-	else
-	{
-		SDL_StopTextInput();
-		host.textmode = false;
-	}
+	enable ? SDL_StartTextInput() : SDL_StopTextInput();
 }
 
 /*

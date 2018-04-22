@@ -32,7 +32,6 @@ static enum VGUI_KeyCode s_pVirtualKeyTrans[256];
 static enum VGUI_DefaultCursor s_currentCursor;
 #ifdef XASH_SDL
 #include <SDL_events.h>
-#include "platform/sdl/events.h"
 static SDL_Cursor* s_pDefaultCursor[20];
 #endif
 static void *s_pVGuiSupport; // vgui_support library
@@ -161,9 +160,8 @@ void GAME_EXPORT VGUI_SetVisible( qboolean state )
 	SDL_ShowCursor( state );
 	if( !state )
 		SDL_GetRelativeMouseState( NULL, NULL );
-
-	SDLash_EnableTextInput( state, true );
 #endif
+	Key_EnableTextInput( state, true );
 }
 
 int GAME_EXPORT VGUI_UtfProcessChar( int in )
@@ -491,21 +489,19 @@ void VGui_KeyEvent( int key, int down )
 	if( !vgui.initialized )
 		return;
 
-#ifdef XASH_SDL
 	if( host.mouse_visible )
-		SDLash_EnableTextInput( 1, false );
-#endif
+		Key_EnableTextInput( true, false );
 
 	switch( key )
 	{
 	case K_MOUSE1:
-		vgui.Mouse( down?MA_PRESSED:MA_RELEASED, MOUSE_LEFT );
+		vgui.Mouse( down ? MA_PRESSED : MA_RELEASED, MOUSE_LEFT );
 		return;
 	case K_MOUSE2:
-		vgui.Mouse( down?MA_PRESSED:MA_RELEASED, MOUSE_RIGHT );
+		vgui.Mouse( down ? MA_PRESSED : MA_RELEASED, MOUSE_RIGHT );
 		return;
 	case K_MOUSE3:
-		vgui.Mouse( down?MA_PRESSED:MA_RELEASED, MOUSE_MIDDLE );
+		vgui.Mouse( down ? MA_PRESSED : MA_RELEASED, MOUSE_MIDDLE );
 		return;
 	case K_MWHEELDOWN:
 		vgui.Mouse( MA_WHEEL, 1 );

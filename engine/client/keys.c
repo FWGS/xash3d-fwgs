@@ -695,16 +695,31 @@ void Key_Event( int key, qboolean down )
 	}
 }
 
+/*
+================
+Key_EnableTextInput
+
+================
+*/
 void Key_EnableTextInput( qboolean enable, qboolean force )
 {
+	void (*pfnEnableTextInput)( qboolean enable );
+
 #if XASH_INPUT == INPUT_SDL
-	SDLash_EnableTextInput( enable, force );
+	pfnEnableTextInput = SDLash_EnableTextInput;
 #elif XASH_INPUT == INPUT_ANDROID
-	Android_EnableTextInput( enable, force );
+	pfnEnableTextInput = Android_EnableTextInput;
+#else
+#error "Here must be a text input for your platform"
+	return;
 #endif
-#if 0
-	Joy_EnableTextInput( enable, force );
-#endif
+	if( enable && ( !host.textmode || force ) )
+		pfnEnableTextInput( true );
+	else if( !enable )
+		pfnEnableTextInput( false );
+
+	if( !force )
+		host.textmode = enable;
 }
 
 /*
