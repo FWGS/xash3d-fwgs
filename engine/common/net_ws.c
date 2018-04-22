@@ -35,7 +35,7 @@ GNU General Public License for more details.
 #include "netchan.h"
 #include "mathlib.h"
 
-//#define NET_USE_FRAGMENTS
+// #define NET_USE_FRAGMENTS
 
 #define PORT_ANY			-1
 #define MAX_LOOPBACK		4
@@ -1377,7 +1377,7 @@ int NET_SendLong( netsrc_t sock, int net_socket, const char *buf, int len, int f
 				total_sent += size;
 			len -= size;
 			packet_number++;
-			Sleep( 1 );
+			Sys_Sleep( 1 );
 		}
 
 		return total_sent;

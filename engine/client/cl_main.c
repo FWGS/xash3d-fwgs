@@ -199,7 +199,7 @@ int CL_GetFragmentSize( void *unused )
 	if( Netchan_IsLocal( &cls.netchan ))
 		return FRAGMENT_LOCAL_SIZE;
 
-	return bound( FRAGMENT_MIN_SIZE, cl_dlmax->value, FRAGMENT_MAX_SIZE );
+	return FRAGMENT_MIN_SIZE;
 }
 
 /*
@@ -1060,6 +1060,7 @@ void CL_CheckForResend( void )
 
 	if( adr.port == 0 ) adr.port = MSG_BigShort( PORT_SERVER );
 
+	Msg( "%i\n", cls.connect_retry );
 	if( cls.connect_retry == CL_TEST_RETRIES_NORESPONCE )
 	{
 		// too many fails use default connection method
