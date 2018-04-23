@@ -149,6 +149,8 @@ typedef struct decallist_s
 	modelstate_t	studio_state;	// studio decals only
 } decallist_t;
 
+struct ref_viewpass_s;
+
 typedef struct render_api_s
 {
 	// Get renderer info (doesn't changes engine state at all)
@@ -172,9 +174,9 @@ typedef struct render_api_s
 	const char*	(*GL_TextureName)( unsigned int texnum );
 	const byte*	(*GL_TextureData)( unsigned int texnum ); // may be NULL
 	int		(*GL_LoadTexture)( const char *name, const byte *buf, size_t size, int flags );
-	int		(*GL_CreateTexture)( const char *name, int width, int height, const void *buffer, int flags ); 
+	int		(*GL_CreateTexture)( const char *name, int width, int height, const void *buffer, texFlags_t flags );
 	int		(*GL_LoadTextureArray)( const char **names, int flags );
-	int		(*GL_CreateTextureArray)( const char *name, int width, int height, int depth, const void *buffer, int flags );
+	int		(*GL_CreateTextureArray)( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 	void		(*GL_FreeTexture)( unsigned int texnum );
 
 	// Decals manipulating (draw & remove)
@@ -225,7 +227,7 @@ typedef struct render_api_s
 
  	// engine utils (not related with render API but placed here)
 	char		**(*pfnGetFilesList)( const char *pattern, int *numFiles, int gamedironly );
-	unsigned long	(*pfnFileBufferCRC32)( const void *buffer, const int length );
+	unsigned int	(*pfnFileBufferCRC32)( const void *buffer, const int length );
 	int		(*COM_CompareFileTime)( const char *filename1, const char *filename2, int *iCompare );
 	void		(*Host_Error)( const char *error, ... ); // cause Host Error
 	void*		( *pfnGetModel )( int modelindex );

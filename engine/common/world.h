@@ -72,8 +72,6 @@ int RankForContents( int contents );
 
 #define check_angles( x )	( (int)x == 90 || (int)x == 180 || (int)x == 270 || (int)x == -90 || (int)x == -180 || (int)x == -270 )
 
-#include "pm_shared.h"
-
 /*
 ===============================================================================
 

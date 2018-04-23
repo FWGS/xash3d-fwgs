@@ -94,7 +94,7 @@ typedef struct
 	int	fPlayTrack;
 } CDStatus;
 		
-typedef unsigned long	CRC32_t;
+typedef unsigned int	CRC32_t;
 
 typedef struct delta_s delta_t;
 struct entity_state_s;
@@ -102,13 +102,13 @@ struct entity_state_s;
 // Engine hands this to DLLs for functionality callbacks
 typedef struct enginefuncs_s
 {
-	int	(*pfnPrecacheModel)( char* s );
-	int	(*pfnPrecacheSound)( char* s );
+	int	(*pfnPrecacheModel)( const char* s );
+	int	(*pfnPrecacheSound)( const char* s );
 	void	(*pfnSetModel)( edict_t *e, const char *m );
 	int	(*pfnModelIndex)( const char *m );
 	int	(*pfnModelFrames)( int modelIndex );
 	void	(*pfnSetSize)( edict_t *e, const float *rgflMin, const float *rgflMax );
-	void	(*pfnChangeLevel)( char* s1, char* s2 );
+	void	(*pfnChangeLevel)( const char* s1, const char* s2 );
 	void	(*pfnGetSpawnParms)( edict_t *ent );
 	void	(*pfnSaveSpawnParms)( edict_t *ent );
 	float	(*pfnVecToYaw)( const float *rgflVector );
@@ -141,11 +141,11 @@ typedef struct enginefuncs_s
 	const char *(*pfnTraceTexture)( edict_t *pTextureEntity, const float *v1, const float *v2 );
 	void	(*pfnTraceSphere)( const float *v1, const float *v2, int fNoMonsters, float radius, edict_t *pentToSkip, TraceResult *ptr );
 	void	(*pfnGetAimVector)( edict_t* ent, float speed, float *rgflReturn );
-	void	(*pfnServerCommand)( char* str );
+	void	(*pfnServerCommand)( const char* str );
 	void	(*pfnServerExecute)( void );
 	void	(*pfnClientCommand)( edict_t* pEdict, char* szFmt, ... );
 	void	(*pfnParticleEffect)( const float *org, const float *dir, float color, float count );
-	void	(*pfnLightStyle)( int style, char* val );
+	void	(*pfnLightStyle)( int style, const char* val );
 	int	(*pfnDecalIndex)( const char *name );
 	int	(*pfnPointContents)( const float *rgflVector );
 	void	(*pfnMessageBegin)( int msg_dest, int msg_type, const float *pOrigin, edict_t *ed );
@@ -189,18 +189,18 @@ typedef struct enginefuncs_s
 	int	(*pfnCmd_Argc)( void );		// access client 'cmd' strings
 	void	(*pfnGetAttachment)( const edict_t *pEdict, int iAttachment, float *rgflOrigin, float *rgflAngles );
 	void	(*pfnCRC32_Init)( CRC32_t *pulCRC );
-	void	(*pfnCRC32_ProcessBuffer)( CRC32_t *pulCRC, void *p, int len );
+	void	(*pfnCRC32_ProcessBuffer)( CRC32_t *pulCRC, const void *p, int len );
 	void	(*pfnCRC32_ProcessByte)( CRC32_t *pulCRC, unsigned char ch );
 	CRC32_t	(*pfnCRC32_Final)( CRC32_t pulCRC );
-	long	(*pfnRandomLong)( long lLow, long lHigh );
+	int		(*pfnRandomLong)( int lLow, int lHigh );
 	float	(*pfnRandomFloat)( float flLow, float flHigh );
 	void	(*pfnSetView)( const edict_t *pClient, const edict_t *pViewent );
 	float	(*pfnTime)( void );
 	void	(*pfnCrosshairAngle)( const edict_t *pClient, float pitch, float yaw );
-	byte*	(*pfnLoadFileForMe)( char *filename, int *pLength );
+	byte*	(*pfnLoadFileForMe)( const char *filename, int *pLength );
 	void	(*pfnFreeFile)( void *buffer );
 	void	(*pfnEndSection)( const char *pszSectionName ); // trigger_endsection
-	int	(*pfnCompareFileTime)( char *filename1, char *filename2, int *iCompare );
+	int	(*pfnCompareFileTime)( const char *filename1, const char *filename2, int *iCompare );
 	void	(*pfnGetGameDir)( char *szGetGameDir );
 	void	(*pfnCvar_RegisterVariable)( cvar_t *variable );
 	void	(*pfnFadeClientVolume)( const edict_t *pEdict, int fadePercent, int fadeOutSeconds, int holdTime, int fadeInSeconds );
@@ -209,12 +209,12 @@ typedef struct enginefuncs_s
 	void	(*pfnRunPlayerMove)( edict_t *fakeclient, const float *viewangles, float forwardmove, float sidemove, float upmove, unsigned short buttons, byte impulse, byte msec );
 	int	(*pfnNumberOfEntities)( void );
 	char*	(*pfnGetInfoKeyBuffer)( edict_t *e );			// passing in NULL gets the serverinfo
-	char*	(*pfnInfoKeyValue)( char *infobuffer, char *key );
+	const char*	(*pfnInfoKeyValue)( const char *infobuffer, const char *key );
 	void	(*pfnSetKeyValue)( char *infobuffer, char *key, char *value );
 	void	(*pfnSetClientKeyValue)( int clientIndex, char *infobuffer, char *key, char *value );
 	int	(*pfnIsMapValid)( char *filename );
 	void	(*pfnStaticDecal)( const float *origin, int decalIndex, int entityIndex, int modelIndex );
-	int	(*pfnPrecacheGeneric)( char *s );
+	int	(*pfnPrecacheGeneric)( const char *s );
 	int	(*pfnGetPlayerUserId)( edict_t *e ); // returns the server assigned userid for this player.  useful for logging frags, etc.  returns -1 if the edict couldn't be found in the list of clients
 	void	(*pfnBuildSoundMsg)( edict_t *entity, int channel, const char *sample, /*int*/float volume, float attenuation, int fFlags, int pitch, int msg_dest, int msg_type, const float *pOrigin, edict_t *ed );
 	int	(*pfnIsDedicatedServer)( void );			// is this a dedicated server?
@@ -229,8 +229,8 @@ typedef struct enginefuncs_s
 	unsigned short (*pfnPrecacheEvent)( int type, const char*psz );
 	void	(*pfnPlaybackEvent)( int flags, const edict_t *pInvoker, unsigned short eventindex, float delay, float *origin, float *angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 );
 	
-	unsigned char *(*pfnSetFatPVS)( float *org );
-	unsigned char *(*pfnSetFatPAS)( float *org );
+	unsigned char *(*pfnSetFatPVS)( const float *org );
+	unsigned char *(*pfnSetFatPAS)( const float *org );
 
 	int	(*pfnCheckVisibility )( const edict_t *entity, unsigned char *pset );
 
@@ -244,7 +244,7 @@ typedef struct enginefuncs_s
 	void	(*pfnDeltaUnsetFieldByIndex)( delta_t *pFields, int fieldNumber );
 	void	(*pfnSetGroupMask)( int mask, int op );
 	int	(*pfnCreateInstancedBaseline)( int classname, struct entity_state_s *baseline );
-	void	(*pfnCvar_DirectSet)( struct cvar_s *var, char *value );
+	void	(*pfnCvar_DirectSet)( struct cvar_s *var, const char *value );
 
 	// Forces the client and server to be running with the same version of the specified file
 	//  ( e.g., a player model ).
@@ -253,7 +253,7 @@ typedef struct enginefuncs_s
 
 	void	(*pfnGetPlayerStats)( const edict_t *pClient, int *ping, int *packet_loss );
 
-	void	(*pfnAddServerCommand)( char *cmd_name, void (*function) (void) );
+	void	(*pfnAddServerCommand)( const char *cmd_name, void (*function) (void) );
 
 	// For voice communications, set which clients hear eachother.
 	// NOTE: these functions take player entity indices (starting at 1).

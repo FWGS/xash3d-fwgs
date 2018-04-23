@@ -26,7 +26,7 @@ typedef struct engine_studio_api_s
 	// Check to see if pointer is in the cache
 	void		*( *Cache_Check )( struct cache_user_s *c );
 	// Load file into cache ( can be swapped out on demand )
-	void		( *LoadCacheFile )( char *path, struct cache_user_s *cu );
+	void		( *LoadCacheFile )( const char *path, struct cache_user_s *cu );
 	// Retrieve model pointer for the named model
 	struct model_s	*( *Mod_ForName )( const char *name, int crash_if_missing );
 	// Retrieve pointer to studio model data block from a model
@@ -120,7 +120,7 @@ typedef struct server_studio_api_s
 	// Check to see if pointer is in the cache
 	void		*( *Cache_Check )( struct cache_user_s *c );
 	// Load file into cache ( can be swapped out on demand )
-	void		( *LoadCacheFile )( char *path, struct cache_user_s *cu );
+	void		( *LoadCacheFile )( const char *path, struct cache_user_s *cu );
 	// Retrieve pointer to studio model data block from a model
 	void		*( *Mod_Extradata )( struct model_s *mod );
 } server_studio_api_t;

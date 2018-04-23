@@ -75,8 +75,8 @@ typedef struct server_physics_api_s
 	int		( *pfnDrawConsoleString )( int x, int y, char *string );
 	void		( *pfnDrawSetTextColor )( float r, float g, float b );
 	void		( *pfnDrawConsoleStringLen )( const char *string, int *length, int *height );
-	void		( *Con_NPrintf )( int pos, char *fmt, ... );
-	void		( *Con_NXPrintf )( struct con_nprint_s *info, char *fmt, ... );
+	void		( *Con_NPrintf )( int pos, const char *fmt, ... );
+	void		( *Con_NXPrintf )( struct con_nprint_s *info, const char *fmt, ... );
 	const char	*( *pfnGetLightStyle )( int style ); // read custom appreance for selected lightstyle
 	void		( *pfnUpdateFogSettings )( unsigned int packed_fog );
 	char		**(*pfnGetFilesList)( const char *pattern, int *numFiles, int gamedironly );
@@ -94,7 +94,7 @@ typedef struct server_physics_api_s
 	int		(*pfnBoxInPVS)( const float *org, const float *boxmins, const float *boxmaxs );
 
 	// message handler (missed function to write raw bytes)
-	void		(*pfnWriteBytes)( byte *bytes, int count );
+	void		(*pfnWriteBytes)( const byte *bytes, int count );
 
 	// BSP lump management
 	int		(*pfnCheckLump)( const char *filename, const int lump, int *lumpsize );

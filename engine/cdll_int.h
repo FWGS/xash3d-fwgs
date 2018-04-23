@@ -135,20 +135,20 @@ typedef struct cl_enginefuncs_s
 	void	(*pfnSetCrosshair)( HSPRITE hspr, wrect_t rc, int r, int g, int b );
 
 	// cvar handlers
-	struct cvar_s *(*pfnRegisterVariable)( char *szName, char *szValue, int flags );
-	float	(*pfnGetCvarFloat)( char *szName );
-	char*	(*pfnGetCvarString)( char *szName );
+	struct cvar_s *(*pfnRegisterVariable)( const char *szName, const char *szValue, int flags );
+	float	(*pfnGetCvarFloat)( const char *szName );
+	const char*	(*pfnGetCvarString)( const char *szName );
 
 	// command handlers
-	int	(*pfnAddCommand)( char *cmd_name, void (*function)(void) );
-	int	(*pfnHookUserMsg)( char *szMsgName, pfnUserMsgHook pfn );
-	int	(*pfnServerCmd)( char *szCmdString );
-	int	(*pfnClientCmd)( char *szCmdString );
+	int	(*pfnAddCommand)( const char *cmd_name, void (*function)(void) );
+	int	(*pfnHookUserMsg)( const char *szMsgName, pfnUserMsgHook pfn );
+	int	(*pfnServerCmd)( const char *szCmdString );
+	int	(*pfnClientCmd)( const char *szCmdString );
 
 	void	(*pfnGetPlayerInfo)( int ent_num, hud_player_info_t *pinfo );
 
 	// sound handlers
-	void	(*pfnPlaySoundByName)( char *szSound, float volume );
+	void	(*pfnPlaySoundByName)( const char *szSound, float volume );
 	void	(*pfnPlaySoundByIndex)( int iSound, float volume );
 
 	// vector helpers
@@ -170,14 +170,14 @@ typedef struct cl_enginefuncs_s
 	void	(*GetViewAngles)( float * );
 	void	(*SetViewAngles)( float * );
 	int	(*GetMaxClients)( void );
-	void	(*Cvar_SetValue)( char *cvar, float value );
+	void	(*Cvar_SetValue)( const char *cvar, float value );
 
 	int       (*Cmd_Argc)( void );	
-	char	*(*Cmd_Argv)( int arg );
-	void	(*Con_Printf)( char *fmt, ... );
-	void	(*Con_DPrintf)( char *fmt, ... );
-	void	(*Con_NPrintf)( int pos, char *fmt, ... );
-	void	(*Con_NXPrintf)( struct con_nprint_s *info, char *fmt, ... );
+	const char	*(*Cmd_Argv)( int arg );
+	void	(*Con_Printf)( const char *fmt, ... );
+	void	(*Con_DPrintf)( const char *fmt, ... );
+	void	(*Con_NPrintf)( int pos, const char *fmt, ... );
+	void	(*Con_NXPrintf)( struct con_nprint_s *info, const char *fmt, ... );
 
 	const char* (*PhysInfo_ValueForKey)( const char *key );
 	const char* (*ServerInfo_ValueForKey)( const char *key );
@@ -196,8 +196,8 @@ typedef struct cl_enginefuncs_s
 	void	(*V_CalcShake)( void );
 	void	(*V_ApplyShake)( float *origin, float *angles, float factor );
 
-	int	(*PM_PointContents)( float *point, int *truecontents );
-	int	(*PM_WaterEntity)( float *p );
+	int	(*PM_PointContents)( const float *point, int *truecontents );
+	int	(*PM_WaterEntity)( const float *p );
 	struct pmtrace_s *(*PM_TraceLine)( float *start, float *end, int flags, int usehull, int ignore_pe );
 
 	struct model_s *(*CL_LoadModel)( const char *modelname, int *index );
@@ -211,7 +211,7 @@ typedef struct cl_enginefuncs_s
 	void	(*pfnWeaponAnim)( int iAnim, int body );
 	float	(*pfnRandomFloat)( float flLow, float flHigh );	
 	int	(*pfnRandomLong)( int lLow, int lHigh );
-	void	(*pfnHookEvent)( char *name, void ( *pfnEvent )( struct event_args_s *args ));
+	void	(*pfnHookEvent)( const char *name, void ( *pfnEvent )( struct event_args_s *args ));
 	int	(*Con_IsVisible) ();
 	const char *(*pfnGetGameDirectory)( void );
 	struct cvar_s *(*pfnGetCvarPointer)( const char *szName );
@@ -222,7 +222,7 @@ typedef struct cl_enginefuncs_s
 	void*	(*VGui_GetPanel)( );
 	void	(*VGui_ViewportPaintBackground)( int extents[4] );
 
-	byte*	(*COM_LoadFile)( char *path, int usehunk, int *pLength );
+	byte*	(*COM_LoadFile)( const char *path, int usehunk, int *pLength );
 	char*	(*COM_ParseFile)( char *data, char *token );
 	void	(*COM_FreeFile)( void *buffer );
 

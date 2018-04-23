@@ -70,7 +70,7 @@ typedef struct ui_enginefuncs_s
 	// cvar handlers
 	cvar_t*	(*pfnRegisterVariable)( const char *szName, const char *szValue, int flags );
 	float	(*pfnGetCvarFloat)( const char *szName );
-	char*	(*pfnGetCvarString)( const char *szName );
+	const char*	(*pfnGetCvarString)( const char *szName );
 	void	(*pfnCvarSetString)( const char *szName, const char *szValue );
 	void	(*pfnCvarSetValue)( const char *szName, float flValue );
 
@@ -79,8 +79,8 @@ typedef struct ui_enginefuncs_s
 	void	(*pfnClientCmd)( int execute_now, const char *szCmdString );
 	void	(*pfnDelCommand)( const char *cmd_name );
 	int       (*pfnCmdArgc)( void );	
-	char*	(*pfnCmdArgv)( int argc );
-	char*	(*pfnCmd_Args)( void );
+	const char*	(*pfnCmdArgv)( int argc );
+	const char*	(*pfnCmd_Args)( void );
 
 	// debug messages (in-menu shows only notify)	
 	void	(*Con_Printf)( const char *fmt, ... );
@@ -145,7 +145,7 @@ typedef struct ui_enginefuncs_s
 	int	(*pfnGetGameInfo)( GAMEINFO *pgameinfo );
 	GAMEINFO	**(*pfnGetGamesList)( int *numGames );			// collect info about all mods
 	char 	**(*pfnGetFilesList)( const char *pattern, int *numFiles, int gamedironly );	// find in files
-	int 	(*pfnGetSaveComment)( const char *savename, char *comment );
+	int (*pfnGetSaveComment)( const char *savename, char *comment );
 	int	(*pfnGetDemoComment)( const char *demoname, char *comment );
 	int	(*pfnCheckGameDll)( void );				// returns false if hl.dll is missed or invalid
 	char	*(*pfnGetClipboardData)( void );
@@ -160,12 +160,12 @@ typedef struct ui_enginefuncs_s
 	// menu interface is freezed at version 0.75
 	// new functions starts here 
 	float	(*pfnRandomFloat)( float flLow, float flHigh );	
-	long	(*pfnRandomLong)( long lLow, long lHigh );
+	int		(*pfnRandomLong)( int lLow, int lHigh );
 
 	void	(*pfnSetCursor)( void *hCursor );			// change cursor
 	int	(*pfnIsMapValid)( char *filename );
 	void	(*pfnProcessImage)( int texnum, float gamma, int topColor, int bottomColor );
-	int	(*pfnCompareFileTime)( char *filename1, char *filename2, int *iCompare );
+	int	(*pfnCompareFileTime)( const char *filename1, const char *filename2, int *iCompare );
 
 	const char *(*pfnGetModeString)( int vid_mode );
 } ui_enginefuncs_t;
