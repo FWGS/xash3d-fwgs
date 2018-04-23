@@ -903,7 +903,7 @@ static void Cmd_WriteHelp(const char *name, const char *unused, const char *desc
 
 void Cmd_WriteOpenGLVariables( file_t *f )
 {
-	Cvar_LookupVars( FCVAR_GLCONFIG, NULL, f, Cmd_WriteOpenGLCvar ); 
+	Cvar_LookupVars( FCVAR_GLCONFIG, NULL, f, (setpair_t)Cmd_WriteOpenGLCvar );
 }
 
 #ifndef XASH_DEDICATED
@@ -1057,9 +1057,9 @@ void Key_EnumCmds_f( void )
 		FS_Printf( f, "//=======================================================================\n");
 
 		FS_Printf( f, "\n\n\t\t\tconsole variables\n\n");
-		Cvar_LookupVars( 0, NULL, f, Cmd_WriteHelp ); 
+		Cvar_LookupVars( 0, NULL, f, (setpair_t)Cmd_WriteHelp );
 		FS_Printf( f, "\n\n\t\t\tconsole commands\n\n");
-		Cmd_LookupCmds( NULL, f, Cmd_WriteHelp ); 
+		Cmd_LookupCmds( NULL, f, (setpair_t)Cmd_WriteHelp );
   		FS_Printf( f, "\n\n");
 		FS_Close( f );
 		Con_Printf( "help.txt created\n" );

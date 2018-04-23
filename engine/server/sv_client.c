@@ -87,8 +87,9 @@ void SV_GetChallenge( netadr_t from )
 	Netchan_OutOfBandPrint( NS_SERVER, svs.challenges[i].adr, "challenge %i", svs.challenges[i].challenge );
 }
 
-int SV_GetFragmentSize( sv_client_t *cl )
+int SV_GetFragmentSize( void *pcl )
 {
+	sv_client_t *cl = (sv_client_t*)pcl;
 	int	cl_frag_size;
 
 	if( Netchan_IsLocal( &cl->netchan ))
@@ -736,7 +737,7 @@ Responds with long info for local and broadcast requests
 */
 void SV_BuildNetAnswer( netadr_t from )
 {
-	char	string[MAX_INFO_STRING], answer[512];
+	char	string[MAX_INFO_STRING];
 	int	version, context, type;
 	int	i, count = 0;
 
@@ -755,21 +756,18 @@ void SV_BuildNetAnswer( netadr_t from )
 		Info_SetValueForKey( string, "neterror", "protocol", MAX_INFO_STRING );
 
 		// send error unsupported protocol
-		Q_snprintf( answer, sizeof( answer ), "netinfo %i %i %s\n", context, type, string );
-		Netchan_OutOfBandPrint( NS_SERVER, from, answer );
+		Netchan_OutOfBandPrint( NS_SERVER, from, "netinfo %i %i %s\n", context, type, string );
 		return;
 	}
 
 	if( type == NETAPI_REQUEST_PING )
 	{
-		Q_snprintf( answer, sizeof( answer ), "netinfo %i %i %s\n", context, type, "" );
-		Netchan_OutOfBandPrint( NS_SERVER, from, answer );
+		Netchan_OutOfBandPrint( NS_SERVER, from, "netinfo %i %i %s\n", context, type, "" );
 	}
 	else if( type == NETAPI_REQUEST_RULES )
 	{
 		// send serverinfo
-		Q_snprintf( answer, sizeof( answer ), "netinfo %i %i %s\n", context, type, svs.serverinfo );
-		Netchan_OutOfBandPrint( NS_SERVER, from, answer );
+		Netchan_OutOfBandPrint( NS_SERVER, from, "netinfo %i %i %s\n", context, type, svs.serverinfo );
 	}
 	else if( type == NETAPI_REQUEST_PLAYERS )
 	{
@@ -787,8 +785,7 @@ void SV_BuildNetAnswer( netadr_t from )
 		}
 
 		// send playernames
-		Q_snprintf( answer, sizeof( answer ), "netinfo %i %i %s\n", context, type, string );
-		Netchan_OutOfBandPrint( NS_SERVER, from, answer );
+		Netchan_OutOfBandPrint( NS_SERVER, from, "netinfo %i %i %s\n", context, type, string );
 	}
 	else if( type == NETAPI_REQUEST_DETAILS )
 	{
@@ -804,8 +801,7 @@ void SV_BuildNetAnswer( netadr_t from )
 		Info_SetValueForKey( string, "map", sv.name, MAX_INFO_STRING );
 
 		// send serverinfo
-		Q_snprintf( answer, sizeof( answer ), "netinfo %i %i %s\n", context, type, string );
-		Netchan_OutOfBandPrint( NS_SERVER, from, answer );
+		Netchan_OutOfBandPrint( NS_SERVER, from, "netinfo %i %i %s\n", context, type, string );
 	}
 	else
 	{
@@ -813,8 +809,7 @@ void SV_BuildNetAnswer( netadr_t from )
 		Info_SetValueForKey( string, "neterror", "undefined", MAX_INFO_STRING );
 
 		// send error undefined request type
-		Q_snprintf( answer, sizeof( answer ), "netinfo %i %i %s\n", context, type, string );
-		Netchan_OutOfBandPrint( NS_SERVER, from, answer );
+		Netchan_OutOfBandPrint( NS_SERVER, from, "netinfo %i %i %s\n", context, type, string );
 	}
 }
 
@@ -1934,10 +1929,11 @@ static qboolean SV_Begin_f( sv_client_t *cl )
 SV_SendBuildInfo_f
 ==================
 */
-static void SV_SendBuildInfo_f( sv_client_t *cl )
+static qboolean SV_SendBuildInfo_f( sv_client_t *cl )
 {
 	SV_ClientPrintf( cl, "Server running %s %s (build %i-%s, %s-%s)\n",
 		XASH_ENGINE_NAME, XASH_VERSION, Q_buildnum(), Q_buildcommit(), Q_buildos(), Q_buildarch() );
+	return true;
 }
 
 

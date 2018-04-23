@@ -812,7 +812,7 @@ void HPAK_RemoveLump( const char *name, resource_t *pResource )
 
 	if( !HPAK_FindResource( &hpak_read, pResource->rgucMD5_hash, NULL ))
 	{
-		MsgDev( D_ERROR, "HPAK doesn't contain specified lump: %s\n", pResource->szFileName, read_path );
+		MsgDev( D_ERROR, "HPAK %s doesn't contain specified lump: %s\n", read_path, pResource->szFileName );
 		Mem_Free( hpak_read.entries );
 		Mem_Free( hpak_save.entries );
 		FS_Close( file_src );
@@ -1023,7 +1023,7 @@ void HPAK_Extract_f( void )
 
 		if( entry->disksize <= 0 || entry->disksize >= HPAK_MAX_SIZE )
 		{
-			MsgDev( D_WARN, "Unable to extract data, size invalid:  %s\n", nDataSize );
+			MsgDev( D_WARN, "Unable to extract data, size invalid: %i\n", nDataSize );
 			continue;
 		}
 

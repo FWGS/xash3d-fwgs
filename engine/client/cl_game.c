@@ -243,7 +243,7 @@ void CL_InitCDAudio( const char *filename )
 
 		if( ++c > MAX_CDTRACKS - 1 )
 		{
-			MsgDev( D_WARN, "CD_Init: too many tracks %i in %s\n", filename, MAX_CDTRACKS );
+			MsgDev( D_WARN, "CD_Init: too many tracks %i in %s\n", MAX_CDTRACKS, filename );
 			break;
 		}
 	}
@@ -3585,7 +3585,7 @@ void NetAPI_SendRequest( int context, int request, int flags, double timeout, ne
 	{
 		// local servers request
 		Q_snprintf( req, sizeof( req ), "netinfo %i %i %i", PROTOCOL_VERSION, context, request );
-		Netchan_OutOfBandPrint( NS_CLIENT, nr->resp.remote_address, req );
+		Netchan_OutOfBandPrint( NS_CLIENT, nr->resp.remote_address, "%s", req );
 	}
 }
 

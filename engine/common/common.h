@@ -116,7 +116,7 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 #define GAME_EXPORT
 #endif
 
-typedef unsigned long	dword;
+typedef unsigned int	dword;
 typedef unsigned int	uint;
 typedef char		string[MAX_STRING];
 typedef struct file_s	file_t;		// normal file
@@ -439,7 +439,7 @@ typedef struct host_parm_s
 
 	// command line parms
 	int		argc;
-	const char	**argv;
+	char	**argv;
 
 	double		realtime;		// host.curtime
 	double		frametime;	// time between engine frames

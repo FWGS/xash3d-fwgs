@@ -553,7 +553,7 @@ void Host_Error( const char *error, ... )
 	if( recursive )
 	{ 
 		Con_Printf( "Host_RecursiveError: %s", hosterror2 );
-		Sys_Error( hosterror1 );
+		Sys_Error( "%s", hosterror1 );
 		return; // don't multiple executes
 	}
 
@@ -685,7 +685,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		if( !( baseDir = SDL_GetBasePath() ) )
 			Sys_Error( "couldn't determine current directory: %s", SDL_GetError() );
 		Q_strncpy( host.rootdir, baseDir, sizeof( host.rootdir ) );
-		SDL_free( baseDir );
+		SDL_free( (void*)baseDir );
 #else
 		if( !getcwd( host.rootdir, sizeof(host.rootdir) ) )
 		{

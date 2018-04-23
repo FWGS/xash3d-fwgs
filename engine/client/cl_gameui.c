@@ -915,7 +915,7 @@ pfnHostEndGame
 static void pfnHostEndGame( const char *szFinalMessage )
 {
 	if( !szFinalMessage ) szFinalMessage = "";
-	Host_EndGame( true, szFinalMessage );
+	Host_EndGame( true, "%s", szFinalMessage );
 }
 
 /*

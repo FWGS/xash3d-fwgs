@@ -87,7 +87,7 @@ void Sys_Error( const char *error, ... ) _format( 1 );
 qboolean Sys_LoadLibrary( dll_info_t *dll );
 void* Sys_GetProcAddress( dll_info_t *dll, const char* name );
 qboolean Sys_FreeLibrary( dll_info_t *dll );
-void Sys_ParseCommandLine( int argc, const char **argv );
+void Sys_ParseCommandLine( int argc, char **argv );
 void Sys_MergeCommandLine( void );
 void Sys_SetupCrashHandler( void );
 void Sys_RestoreCrashHandler( void );

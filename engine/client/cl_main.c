@@ -1796,7 +1796,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		if( crcValue == crcValue2 )
 		{
 			// packet was sucessfully delivered, adjust the fragment size and get challenge
-			Msg( "CRC %p is matched, get challenge, fragment size %d\n", crcValue, cls.max_fragment_size );
+			Msg( "CRC 0x%08x is matched, get challenge, fragment size %d\n", crcValue, cls.max_fragment_size );
 			Netchan_OutOfBandPrint( NS_CLIENT, from, "getchallenge\n" );
 			Cvar_SetValue( "cl_dlmax", cls.max_fragment_size );
 			cls.connect_time = host.realtime;
@@ -1813,7 +1813,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 				return;
 			}
 
-			Msg( "got testpacket, CRC mismatched %p should be %p, trying next fragment size %d\n", crcValue2, crcValue, cls.max_fragment_size >> 1 );
+			Msg( "got testpacket, CRC mismatched 0x%08x should be 0x%08x, trying next fragment size %d\n", crcValue2, crcValue, cls.max_fragment_size >> 1 );
 			// trying the next size of packet
 			cls.connect_time = MAX_HEARTBEAT;
 		}
@@ -2189,7 +2189,7 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 				}
 				else
 				{
-					Con_Printf( "Downloaded %i bytes for purported %i byte file, ignoring download\n", p->nDownloadSize );
+					Con_Printf( "Downloaded %i bytes for purported %i byte file, ignoring download\n", cls.netchan.tempbuffersize, p->nDownloadSize );
 				}
 
 				if( cls.netchan.tempbuffer )

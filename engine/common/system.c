@@ -326,7 +326,7 @@ Sys_ParseCommandLine
 
 ==================
 */
-void Sys_ParseCommandLine( int argc, const char** argv )
+void Sys_ParseCommandLine( int argc, char** argv )
 {
 	const char	*blank = "censored";
 	int		i;
@@ -492,8 +492,8 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 error:
 	MsgDev( D_NOTE, " - failed\n" );
 	Sys_FreeLibrary( dll ); // trying to free 
-	if( dll->crash ) Sys_Error( errorstring );
-	else MsgDev( D_ERROR, errorstring );			
+	if( dll->crash ) Sys_Error( "%s", errorstring );
+	else MsgDev( D_ERROR, "%s", errorstring );
 
 	return false;
 }
