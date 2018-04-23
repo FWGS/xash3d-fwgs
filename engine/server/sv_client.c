@@ -107,6 +107,7 @@ SV_RejectConnection
 Rejects connection request and sends back a message
 ================
 */
+void SV_RejectConnection( netadr_t from, char *fmt, ... ) _format( 2 );
 void SV_RejectConnection( netadr_t from, char *fmt, ... )
 {
 	char	text[1024];
@@ -1928,6 +1929,18 @@ static qboolean SV_Begin_f( sv_client_t *cl )
 	return true;
 }
 
+/*
+==================
+SV_SendBuildInfo_f
+==================
+*/
+static void SV_SendBuildInfo_f( sv_client_t *cl )
+{
+	SV_ClientPrintf( cl, "Server running %s %s (build %i-%s, %s-%s)\n",
+		XASH_ENGINE_NAME, XASH_VERSION, Q_buildnum(), Q_buildcommit(), Q_buildos(), Q_buildarch() );
+}
+
+
 ucmd_t ucmds[] =
 {
 { "new", SV_New_f },
@@ -1945,6 +1958,7 @@ ucmd_t ucmds[] =
 { "dlfile", SV_DownloadFile_f },
 { "disconnect", SV_Disconnect_f },
 { "userinfo", SV_UpdateUserinfo_f },
+{ "_sv_build_info", SV_SendBuildInfo_f },
 { NULL, NULL }
 };
 
