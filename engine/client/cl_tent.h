@@ -16,6 +16,8 @@ GNU General Public License for more details.
 #ifndef CL_TENT_H
 #define CL_TENT_H
 
+#include "triangleapi.h"
+
 // EfxAPI
 struct particle_s *R_AllocParticle( void (*callback)( struct particle_s*, float ));
 void R_Explosion( vec3_t pos, int model, float scale, float framerate, int flags );
@@ -111,7 +113,7 @@ int TriWorldToScreen( float *world, float *screen );
 void TriColor4ub( byte r, byte g, byte b, byte a );
 void TriBrightness( float brightness );
 void TriRenderMode( int mode );
-void TriCullFace( int mode );
+void TriCullFace( TRICULLSTYLE mode );
 void TriEnd( void );
 
 extern model_t	*cl_sprite_dot;

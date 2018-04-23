@@ -61,7 +61,7 @@ void Cvar_SetValue( const char *var_name, float value );
 const char *Cvar_BuildAutoDescription( int flags );
 float Cvar_VariableValue( const char *var_name );
 int Cvar_VariableInteger( const char *var_name );
-char *Cvar_VariableString( const char *var_name );
+const char *Cvar_VariableString( const char *var_name );
 void Cvar_WriteVariables( file_t *f, int group );
 void Cvar_Reset( const char *var_name );
 void Cvar_SetCheatState( void );

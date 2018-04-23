@@ -338,7 +338,7 @@ void Cmd_Alias_f( void )
 	cmdalias_t	*a;
 	char		cmd[MAX_CMD_LINE];
 	int		i, c;
-	char		*s;
+	const char		*s;
 
 	if( Cmd_Argc() == 1 )
 	{
@@ -465,7 +465,7 @@ static cmd_t		*cmd_functions;			// possible commands to execute
 Cmd_Argc
 ============
 */
-uint Cmd_Argc( void )
+int Cmd_Argc( void )
 {
 	return cmd_argc;
 }
@@ -475,7 +475,7 @@ uint Cmd_Argc( void )
 Cmd_Argv
 ============
 */
-char *Cmd_Argv( int arg )
+const char *Cmd_Argv( int arg )
 {
 	if((uint)arg >= cmd_argc )
 		return "";
@@ -487,7 +487,7 @@ char *Cmd_Argv( int arg )
 Cmd_Args
 ============
 */
-char *Cmd_Args( void )
+const char *Cmd_Args( void )
 {
 	return cmd_args;
 }
@@ -1091,7 +1091,7 @@ void Cmd_List_f( void )
 {
 	cmd_t	*cmd;
 	int	i = 0;
-	char	*match;
+	const char	*match;
 
 	if( Cmd_Argc() > 1 ) match = Cmd_Argv( 1 );
 	else match = NULL;

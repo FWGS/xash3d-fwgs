@@ -130,8 +130,8 @@ typedef struct
 	// console auto-complete
 	string		shortestMatch;
 	field_t		*completionField;	// con.input or dedicated server fake field-line
-	char		*completionString;
-	char		*completionBuffer;
+	const char	*completionString;
+	const char	*completionBuffer;
 	char		*cmds[CON_MAXCMDS];
 	int		matchCount;
 } console_t;
@@ -537,7 +537,7 @@ void Con_Bottom( void )
 Con_Visible
 ================
 */
-qboolean Con_Visible( void )
+int Con_Visible( void )
 {
 	return (con.vislines > 0);
 }
@@ -1245,7 +1245,7 @@ Con_NPrint
 Draw a single debug line with specified height
 ================
 */
-void Con_NPrintf( int idx, char *fmt, ... )
+void Con_NPrintf( int idx, const char *fmt, ... )
 {
 	va_list	args;
 
@@ -1272,7 +1272,7 @@ Con_NXPrint
 Draw a single debug line with specified height, color and time to live
 ================
 */
-void Con_NXPrintf( con_nprint_t *info, char *fmt, ... )
+void Con_NXPrintf( con_nprint_t *info, const char *fmt, ... )
 {
 	va_list	args;
 
@@ -1301,7 +1301,7 @@ UI_NPrint
 Draw a single debug line with specified height (menu version)
 ================
 */
-void UI_NPrintf( int idx, char *fmt, ... )
+void UI_NPrintf( int idx, const char *fmt, ... )
 {
 	va_list	args;
 
@@ -1328,7 +1328,7 @@ UI_NXPrint
 Draw a single debug line with specified height, color and time to live (menu version)
 ================
 */
-void UI_NXPrintf( con_nprint_t *info, char *fmt, ... )
+void UI_NXPrintf( con_nprint_t *info, const char *fmt, ... )
 {
 	va_list	args;
 
@@ -1419,7 +1419,7 @@ Con_ConcatRemaining
 */
 static void Con_ConcatRemaining( const char *src, const char *start )
 {
-	char	*arg;
+	const char	*arg;
 	int	i;
 
 	arg = Q_strstr( src, start );

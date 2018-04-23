@@ -565,7 +565,7 @@ void SV_ActivateServer( int runPhysics )
 		Con_Printf( "%i player server started\n", svs.maxclients );
 	else Con_Printf( "Game started\n" );
 
-	Log_Printf( "Started map \"%s\" (CRC \"%lu\")\n", sv.name, sv.worldmapCRC );
+	Log_Printf( "Started map \"%s\" (CRC \"%u\")\n", sv.name, sv.worldmapCRC );
 
 	// dedicated server purge unused resources here
 	if( host.type == HOST_DEDICATED )

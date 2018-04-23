@@ -108,7 +108,7 @@ keyname_t keynames[] =
 Key_IsDown
 ===================
 */
-qboolean Key_IsDown( int keynum )
+int Key_IsDown( int keynum )
 {
 	if( keynum == -1 )
 		return false;
@@ -516,7 +516,7 @@ Key_Event
 Called by the system for both key up and key down events
 ===================
 */
-void Key_Event( int key, qboolean down )
+void Key_Event( int key, int down )
 {
 	const char	*kb;
 	char		cmd[1024];

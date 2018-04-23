@@ -287,7 +287,7 @@ static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size
 Sys_ShellExecute
 =================
 */
-void Sys_ShellExecute( const char *path, const char *parms, qboolean shouldExit )
+void Sys_ShellExecute( const char *path, const char *parms, int shouldExit )
 {
 #ifdef _WIN32
 	if( !Q_strcmp( path, GENERIC_UPDATE_PAGE ) || !Q_strcmp( path, PLATFORM_UPDATE_PAGE ))

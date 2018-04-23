@@ -649,7 +649,7 @@ SV_BoxInPVS
 check brush boxes in fat pvs
 ==============
 */
-qboolean SV_BoxInPVS( const vec3_t org, const vec3_t absmin, const vec3_t absmax )
+int SV_BoxInPVS( const vec3_t org, const vec3_t absmin, const vec3_t absmax )
 {
 	if( !Mod_BoxVisible( absmin, absmax, Mod_GetPVSForPoint( org )))
 		return false;
@@ -4379,12 +4379,12 @@ static enginefuncs_t gEngfuncs =
 	pfnAnimationAutomove,
 	pfnGetBonePosition,
 	(void*)pfnFunctionFromName,
-	pfnNameForFunction,
+	(void*)pfnNameForFunction,
 	pfnClientPrintf,
 	pfnServerPrint,	
 	Cmd_Args,
 	Cmd_Argv,
-	Cmd_Argc,
+	(void*)Cmd_Argc,
 	pfnGetAttachment,
 	CRC32_Init,
 	CRC32_ProcessBuffer,
@@ -4418,7 +4418,7 @@ static enginefuncs_t gEngfuncs =
 	pfnIsDedicatedServer,
 	pfnCVarGetPointer,
 	pfnGetPlayerWONId,
-	Info_RemoveKey,
+	(void*)Info_RemoveKey,
 	pfnGetPhysicsKeyValue,
 	pfnSetPhysicsKeyValue,
 	pfnGetPhysicsInfoString,

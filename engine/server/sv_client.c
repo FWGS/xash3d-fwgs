@@ -241,7 +241,7 @@ void SV_ConnectClient( netadr_t from )
 	int		qport, version;
 	int		i, count = 0;
 	int		challenge;
-	char		*s;
+	const char		*s;
 
 	if( Cmd_Argc() < 5 )
 	{
@@ -1562,7 +1562,7 @@ void SV_UserinfoChanged( sv_client_t *cl )
 	edict_t		*ent = cl->edict;
 	string		name1, name2;	
 	sv_client_t	*current;
-	char		*val;
+	const char		*val;
 
 	if( !COM_CheckString( cl->userinfo ))
 		return;
@@ -1810,7 +1810,7 @@ SV_DownloadFile_f
 */
 static qboolean SV_DownloadFile_f( sv_client_t *cl )
 {
-	char	*name;
+	const char	*name;
 
 	if( Cmd_Argc() < 2 )
 		return true;
@@ -2077,7 +2077,8 @@ connectionless packets.
 void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 {
 	char	*args;
-	char	*pcmd, buf[MAX_SYSPATH];
+	const char	*pcmd;
+	char buf[MAX_SYSPATH];
 	int	len = sizeof( buf );
 
 	MSG_Clear( msg );

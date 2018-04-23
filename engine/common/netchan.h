@@ -214,7 +214,7 @@ extern int		net_drop;
 void Netchan_Init( void );
 void Netchan_Shutdown( void );
 void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, void *client, int (*pfnBlockSize)(void * ) );
-void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, char *filename, byte *pbuf, int size );
+void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filename, byte *pbuf, int size );
 qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *length );
 qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg );
 void Netchan_CreateFragments( netchan_t *chan, sizebuf_t *msg );

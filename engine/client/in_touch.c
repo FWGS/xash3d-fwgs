@@ -246,7 +246,7 @@ void IN_TouchWriteConfig( void )
 void IN_TouchExportConfig_f( void )
 {
 	file_t	*f;
-	char *name;
+	const char *name;
 
 	if( Cmd_Argc() != 2 )
 	{

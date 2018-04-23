@@ -83,7 +83,7 @@ client_static_t	cls;
 clgame_static_t	clgame;
 
 //======================================================================
-qboolean CL_Active( void )
+int CL_Active( void )
 {
 	return ( cls.state == ca_active );
 }
@@ -878,7 +878,7 @@ CL_BeginUpload_f
 */
 void CL_BeginUpload_f( void )
 {
-	char		*name;
+	const char		*name;
 	resource_t	custResource;
 	byte		*buf = NULL;
 	int		size = 0;
@@ -986,7 +986,7 @@ connect.
 void CL_SendConnectPacket( void )
 {
 	char	protinfo[MAX_INFO_STRING];
-	char	*qport;
+	const char	*qport;
 	const char	*key;
 	netadr_t	adr;
 
@@ -1583,7 +1583,7 @@ void CL_ParseNETInfoMessage( netadr_t from, sizebuf_t *msg, const char *s )
 	static char	infostring[MAX_INFO_STRING+8];
 	int		i, context, type;
 	int		errorBits = 0;
-	char		*val;
+	const char		*val;
 
 	context = Q_atoi( Cmd_Argv( 1 ));
 	type = Q_atoi( Cmd_Argv( 2 ));
@@ -1704,7 +1704,8 @@ Responses to broadcasts, etc
 void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 {
 	char	*args;
-	char	*c, buf[MAX_SYSPATH];
+	const char	*c;
+	char	buf[MAX_SYSPATH];
 	int	len = sizeof( buf );
 	int	dataoffset = 0;
 	netadr_t	servadr;
@@ -1870,7 +1871,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 					nr->pfnFunc( &nr->resp );
 
 					// throw the list, now it will be stored in user area
-					prev = &nr->resp.response;
+					prev = (net_adrlist_t**)&nr->resp.response;
 
 					while( 1 )
 					{

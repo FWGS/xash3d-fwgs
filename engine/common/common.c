@@ -121,7 +121,7 @@ float COM_RandomFloat( float flLow, float flHigh )
 	return (fl * (flHigh - flLow)) + flLow; // float in [low, high)
 }
 
-long COM_RandomLong( long lLow, long lHigh )
+int COM_RandomLong( int lLow, int lHigh )
 {
 	dword	maxAcceptable;
 	dword	n, x = lHigh - lLow + 1; 	
@@ -1009,7 +1009,7 @@ byte* COM_LoadFileForMe( const char *filename, int *pLength )
 {
 	string	name;
 	byte	*file, *pfile;
-	int	iLength;
+	long	iLength;
 
 	if( !COM_CheckString( filename ))
 	{
@@ -1022,7 +1022,7 @@ byte* COM_LoadFileForMe( const char *filename, int *pLength )
 	COM_FixSlashes( name );
 
 	pfile = FS_LoadFile( name, &iLength, false );
-	if( pLength ) *pLength = iLength;
+	if( pLength ) *pLength = (int)iLength;
 
 	if( pfile )
 	{

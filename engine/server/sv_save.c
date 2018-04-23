@@ -2154,7 +2154,7 @@ SV_GetSaveComment
 check savegame for valid
 ================== 
 */
-qboolean SV_GetSaveComment( const char *savename, char *comment )
+int SV_GetSaveComment( const char *savename, char *comment )
 {
 	int	i, tag, size, nNumberOfFields, nFieldSize, tokenSize, tokenCount;
 	char	*pData, *pSaveData, *pFieldName, **pTokenList;

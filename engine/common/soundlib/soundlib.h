@@ -77,7 +77,7 @@ typedef struct stream_s
 	char		temp[OUTBUF_SIZE]; // mpeg decoder stuff
 	size_t		pos;	// actual track position (or actual buffer remains)
 	int		buffsize;	// cached buffer size
-};
+} stream_t;
 
 /*
 ========================================================================

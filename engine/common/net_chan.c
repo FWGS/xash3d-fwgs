@@ -726,7 +726,7 @@ Netchan_CreateFileFragmentsFromBuffer
 
 ==============================
 */
-void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, char *filename, byte *pbuf, int size )
+void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filename, byte *pbuf, int size )
 {
 	int		chunksize;
 	int		send, pos;

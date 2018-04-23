@@ -136,7 +136,7 @@ Convert a given point from world into screen space
 Returns true if we behind to screen
 ===============
 */
-qboolean R_WorldToScreen( const vec3_t point, vec3_t screen )
+int R_WorldToScreen( const vec3_t point, vec3_t screen )
 {
 	matrix4x4	worldToScreen;
 	qboolean	behind;
@@ -1275,7 +1275,7 @@ R_EnvShot
 
 =================
 */
-static void R_EnvShot( const float *vieworg, const char *name, int skyshot, int shotsize )
+static void R_EnvShot( const float *vieworg, const char *name, qboolean skyshot, int shotsize )
 {
 	static vec3_t viewPoint;
 
@@ -1469,13 +1469,13 @@ static render_api_t gRenderAPI =
 	DrawSingleDecal,
 	R_DecalSetupVerts,
 	R_EntityRemoveDecals,
-	AVI_LoadVideoNoSound,
-	AVI_GetVideoInfo,
-	AVI_GetVideoFrameNumber,
-	AVI_GetVideoFrame,
+	(void*)AVI_LoadVideoNoSound,
+	(void*)AVI_GetVideoInfo,
+	(void*)AVI_GetVideoFrameNumber,
+	(void*)AVI_GetVideoFrame,
 	R_UploadStretchRaw,
-	AVI_FreeVideo,
-	AVI_IsActive,
+	(void*)AVI_FreeVideo,
+	(void*)AVI_IsActive,
 	NULL,
 	NULL,
 	NULL,
@@ -1506,7 +1506,7 @@ static render_api_t gRenderAPI =
 	pfnFileBufferCRC32,
 	COM_CompareFileTime,
 	Host_Error,
-	CL_ModelHandle,
+	(void*)CL_ModelHandle,
 	pfnTime,
 	Cvar_Set,
 	S_FadeMusicVolume,

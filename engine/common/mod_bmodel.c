@@ -181,28 +181,28 @@ static model_t		*worldmodel;
 static mlumpstat_t		worldstats[HEADER_LUMPS+EXTRA_LUMPS];
 static mlumpinfo_t		srclumps[HEADER_LUMPS] =
 {
-{ LUMP_ENTITIES, 32, MAX_MAP_ENTSTRING, sizeof( byte ), -1, "entities", 0, (void **)&srcmodel.entdata, &srcmodel.entdatasize },
-{ LUMP_PLANES, 1, MAX_MAP_PLANES, sizeof( dplane_t ), -1, "planes", 0, (void **)&srcmodel.planes, &srcmodel.numplanes },
-{ LUMP_TEXTURES, 1, MAX_MAP_MIPTEX, sizeof( byte ), -1, "textures", 0, (void **)&srcmodel.textures, &srcmodel.texdatasize },
-{ LUMP_VERTEXES, 0, MAX_MAP_VERTS, sizeof( dvertex_t ), -1, "vertexes", 0, (void **)&srcmodel.vertexes, &srcmodel.numvertexes },
-{ LUMP_VISIBILITY, 0, MAX_MAP_VISIBILITY, sizeof( byte ), -1, "visibility", 0, (void **)&srcmodel.visdata, &srcmodel.visdatasize },
-{ LUMP_NODES, 1, MAX_MAP_NODES, sizeof( dnode_t ), sizeof( dnode32_t ), "nodes", CHECK_OVERFLOW, (void **)&srcmodel.nodes, &srcmodel.numnodes },
-{ LUMP_TEXINFO, 0, MAX_MAP_TEXINFO, sizeof( dtexinfo_t ), -1, "texinfo", CHECK_OVERFLOW, (void **)&srcmodel.texinfo, &srcmodel.numtexinfo },
-{ LUMP_FACES, 0, MAX_MAP_FACES, sizeof( dface_t ), sizeof( dface32_t ), "faces", CHECK_OVERFLOW, (void **)&srcmodel.surfaces, &srcmodel.numsurfaces },
-{ LUMP_LIGHTING, 0, MAX_MAP_LIGHTING, sizeof( byte ), -1, "lightmaps", 0, (void **)&srcmodel.lightdata, &srcmodel.lightdatasize },
-{ LUMP_CLIPNODES, 0, MAX_MAP_CLIPNODES, sizeof( dclipnode_t ), sizeof( dclipnode32_t ), "clipnodes", 0, (void **)&srcmodel.clipnodes, &srcmodel.numclipnodes },
-{ LUMP_LEAFS, 1, MAX_MAP_LEAFS, sizeof( dleaf_t ), sizeof( dleaf32_t ), "leafs", CHECK_OVERFLOW, (void **)&srcmodel.leafs, &srcmodel.numleafs },
-{ LUMP_MARKSURFACES, 0, MAX_MAP_MARKSURFACES, sizeof( dmarkface_t ), sizeof( dmarkface32_t ), "markfaces", 0, (void **)&srcmodel.markfaces, &srcmodel.nummarkfaces },
-{ LUMP_EDGES, 0, MAX_MAP_EDGES, sizeof( dedge_t ), sizeof( dedge32_t ), "edges", 0, (void **)&srcmodel.edges, &srcmodel.numedges },
-{ LUMP_SURFEDGES, 0, MAX_MAP_SURFEDGES, sizeof( dsurfedge_t ), -1, "surfedges", 0, (void **)&srcmodel.surfedges, &srcmodel.numsurfedges },
-{ LUMP_MODELS, 1, MAX_MAP_MODELS, sizeof( dmodel_t ), -1, "models", CHECK_OVERFLOW, (void **)&srcmodel.submodels, &srcmodel.numsubmodels },
+{ LUMP_ENTITIES, 32, MAX_MAP_ENTSTRING, sizeof( byte ), -1, "entities", 0, (const void **)&srcmodel.entdata, &srcmodel.entdatasize },
+{ LUMP_PLANES, 1, MAX_MAP_PLANES, sizeof( dplane_t ), -1, "planes", 0, (const void **)&srcmodel.planes, &srcmodel.numplanes },
+{ LUMP_TEXTURES, 1, MAX_MAP_MIPTEX, sizeof( byte ), -1, "textures", 0, (const void **)&srcmodel.textures, &srcmodel.texdatasize },
+{ LUMP_VERTEXES, 0, MAX_MAP_VERTS, sizeof( dvertex_t ), -1, "vertexes", 0, (const void **)&srcmodel.vertexes, &srcmodel.numvertexes },
+{ LUMP_VISIBILITY, 0, MAX_MAP_VISIBILITY, sizeof( byte ), -1, "visibility", 0, (const void **)&srcmodel.visdata, &srcmodel.visdatasize },
+{ LUMP_NODES, 1, MAX_MAP_NODES, sizeof( dnode_t ), sizeof( dnode32_t ), "nodes", CHECK_OVERFLOW, (const void **)&srcmodel.nodes, &srcmodel.numnodes },
+{ LUMP_TEXINFO, 0, MAX_MAP_TEXINFO, sizeof( dtexinfo_t ), -1, "texinfo", CHECK_OVERFLOW, (const void **)&srcmodel.texinfo, &srcmodel.numtexinfo },
+{ LUMP_FACES, 0, MAX_MAP_FACES, sizeof( dface_t ), sizeof( dface32_t ), "faces", CHECK_OVERFLOW, (const void **)&srcmodel.surfaces, &srcmodel.numsurfaces },
+{ LUMP_LIGHTING, 0, MAX_MAP_LIGHTING, sizeof( byte ), -1, "lightmaps", 0, (const void **)&srcmodel.lightdata, &srcmodel.lightdatasize },
+{ LUMP_CLIPNODES, 0, MAX_MAP_CLIPNODES, sizeof( dclipnode_t ), sizeof( dclipnode32_t ), "clipnodes", 0, (const void **)&srcmodel.clipnodes, &srcmodel.numclipnodes },
+{ LUMP_LEAFS, 1, MAX_MAP_LEAFS, sizeof( dleaf_t ), sizeof( dleaf32_t ), "leafs", CHECK_OVERFLOW, (const void **)&srcmodel.leafs, &srcmodel.numleafs },
+{ LUMP_MARKSURFACES, 0, MAX_MAP_MARKSURFACES, sizeof( dmarkface_t ), sizeof( dmarkface32_t ), "markfaces", 0, (const void **)&srcmodel.markfaces, &srcmodel.nummarkfaces },
+{ LUMP_EDGES, 0, MAX_MAP_EDGES, sizeof( dedge_t ), sizeof( dedge32_t ), "edges", 0, (const void **)&srcmodel.edges, &srcmodel.numedges },
+{ LUMP_SURFEDGES, 0, MAX_MAP_SURFEDGES, sizeof( dsurfedge_t ), -1, "surfedges", 0, (const void **)&srcmodel.surfedges, &srcmodel.numsurfedges },
+{ LUMP_MODELS, 1, MAX_MAP_MODELS, sizeof( dmodel_t ), -1, "models", CHECK_OVERFLOW, (const void **)&srcmodel.submodels, &srcmodel.numsubmodels },
 };
 
 static mlumpinfo_t		extlumps[EXTRA_LUMPS] =
 {
-{ LUMP_LIGHTVECS, 0, MAX_MAP_LIGHTING, sizeof( byte ), -1, "deluxmaps", USE_EXTRAHEADER, (void **)&srcmodel.deluxdata, &srcmodel.deluxdatasize },
-{ LUMP_FACEINFO, 0, MAX_MAP_FACEINFO, sizeof( dfaceinfo_t ), -1, "faceinfos", CHECK_OVERFLOW|USE_EXTRAHEADER, (void **)&srcmodel.faceinfo, &srcmodel.numfaceinfo },
-{ LUMP_SHADOWMAP, 0, MAX_MAP_LIGHTING / 3, sizeof( byte ), -1, "shadowmap", USE_EXTRAHEADER, (void **)&srcmodel.shadowdata, &srcmodel.shadowdatasize },
+{ LUMP_LIGHTVECS, 0, MAX_MAP_LIGHTING, sizeof( byte ), -1, "deluxmaps", USE_EXTRAHEADER, (const void **)&srcmodel.deluxdata, &srcmodel.deluxdatasize },
+{ LUMP_FACEINFO,  0, MAX_MAP_FACEINFO, sizeof( dfaceinfo_t ), -1, "faceinfos", CHECK_OVERFLOW|USE_EXTRAHEADER, (const void **)&srcmodel.faceinfo, &srcmodel.numfaceinfo },
+{ LUMP_SHADOWMAP, 0, MAX_MAP_LIGHTING / 3, sizeof( byte ), -1, "shadowmap", USE_EXTRAHEADER, (const void **)&srcmodel.shadowdata, &srcmodel.shadowdatasize },
 };
 
 /*

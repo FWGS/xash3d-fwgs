@@ -198,7 +198,7 @@ void GL_FrustumInitProjFromMatrix( gl_frustum_t *out, const matrix4x4 projection
 
 void GL_FrustumComputeCorners( gl_frustum_t *out, vec3_t corners[8] )
 {
-	memset( corners, 0, sizeof( corners ));
+	memset( corners, 0, sizeof( vec3_t ) * 8 );
 
 	PlanesGetIntersectionPoint( &out->planes[FRUSTUM_LEFT], &out->planes[FRUSTUM_TOP], &out->planes[FRUSTUM_FAR], corners[0] );
 	PlanesGetIntersectionPoint( &out->planes[FRUSTUM_RIGHT], &out->planes[FRUSTUM_TOP], &out->planes[FRUSTUM_FAR], corners[1] );

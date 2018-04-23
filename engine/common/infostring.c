@@ -188,7 +188,7 @@ Searches the string for the given
 key and returns the associated value, or an empty string.
 ===============
 */
-char *Info_ValueForKey( const char *s, const char *key )
+const char *Info_ValueForKey( const char *s, const char *key )
 {
 	char	pkey[MAX_KV_SIZE];
 	static	char value[4][MAX_KV_SIZE]; // use two buffers so compares work without stomping on each other

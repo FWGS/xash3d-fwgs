@@ -345,7 +345,8 @@ void SV_ReadPackets( void )
 		{
 			if( !svs.initialized )
 			{
-				char	*args, *c;
+				char	*args;
+				const char *c;
 
 				MSG_Clear( &net_message  );
 				MSG_ReadLong( &net_message  );// skip the -1 marker

@@ -988,7 +988,7 @@ void CL_RunLightStyles( void );
 // console.c
 //
 extern convar_t *con_fontsize;
-qboolean Con_Visible( void );
+int Con_Visible( void );
 qboolean Con_FixedFont( void );
 void Con_VidInit( void );
 void Con_Shutdown( void );

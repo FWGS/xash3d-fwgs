@@ -647,7 +647,7 @@ int Cvar_VariableInteger( const char *var_name )
 Cvar_VariableString
 ============
 */
-char *Cvar_VariableString( const char *var_name )
+const char *Cvar_VariableString( const char *var_name )
 {
 	convar_t	*var;
 
@@ -818,7 +818,7 @@ Cvar_List_f
 void Cvar_List_f( void )
 {
 	convar_t	*var;
-	char	*match = NULL;
+	const char	*match = NULL;
 	char	*value;
 	int	count = 0;
 

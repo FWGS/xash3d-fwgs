@@ -2415,7 +2415,7 @@ FS_FileExists
 Look for a file in the packages and in the filesystem
 ==================
 */
-qboolean FS_FileExists( const char *filename, qboolean gamedironly )
+int FS_FileExists( const char *filename, int gamedironly )
 {
 	if( FS_FindFile( filename, NULL, gamedironly ))
 		return true;

@@ -336,7 +336,7 @@ void SV_AddLaddersToPmove( areanode_t *node, const vec3_t pmove_mins, const vec3
 		SV_AddLaddersToPmove( node->children[1], pmove_mins, pmove_maxs );
 }
 
-static void pfnParticle( float *origin, int color, float life, int zpos, int zvel )
+static void pfnParticle( const float *origin, int color, float life, int zpos, int zvel )
 {
 	int	v;
 
@@ -614,7 +614,7 @@ void SV_InitClientMove( void )
 	svgame.pmove->RandomFloat = COM_RandomFloat;
 	svgame.pmove->PM_GetModelType = pfnGetModelType;
 	svgame.pmove->PM_GetModelBounds = pfnGetModelBounds;	
-	svgame.pmove->PM_HullForBsp = pfnHullForBsp;
+	svgame.pmove->PM_HullForBsp = (void*)pfnHullForBsp;
 	svgame.pmove->PM_TraceModel = pfnTraceModel;
 	svgame.pmove->COM_FileSize = COM_FileSize;
 	svgame.pmove->COM_LoadFile = COM_LoadFile;

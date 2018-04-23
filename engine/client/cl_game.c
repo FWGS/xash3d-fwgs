@@ -3243,7 +3243,7 @@ TriCullFace
 
 =============
 */
-void TriCullFace( int mode )
+void TriCullFace( TRICULLSTYLE mode )
 {
 	switch( mode )
 	{

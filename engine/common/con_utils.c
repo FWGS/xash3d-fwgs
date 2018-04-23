@@ -802,7 +802,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 	return false;
 }
 
-qboolean Cmd_CheckMapsList( qboolean fRefresh )
+int Cmd_CheckMapsList( int fRefresh )
 {
 	return Cmd_CheckMapsList_R( fRefresh, true );
 }

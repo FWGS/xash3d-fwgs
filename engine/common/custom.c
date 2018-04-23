@@ -63,7 +63,7 @@ void COM_ClearCustomizationList( customization_t *pHead, qboolean bCleanDecals )
 qboolean COM_CreateCustomization( customization_t *pListHead, resource_t *pResource, int playernumber, int flags, customization_t **pOut, int *nLumps )
 {
 	qboolean		bError = false;
-	int		checksize = 0;
+	long		checksize = 0;
 	customization_t	*pCust;
 
 	if( pOut ) *pOut = NULL;
@@ -85,7 +85,7 @@ qboolean COM_CreateCustomization( customization_t *pListHead, resource_t *pResou
 	{
 
 		pCust->pBuffer = FS_LoadFile( pResource->szFileName, &checksize, true );
-		if( checksize != pCust->resource.nDownloadSize )
+		if( (int)checksize != pCust->resource.nDownloadSize )
 			bError = true;
 	}
 

@@ -73,7 +73,7 @@ void SV_BroadcastPrintf( sv_client_t *ignore, char *fmt, ... )
 	}
 
 	// echo to console
-	Con_DPrintf( string );
+	Con_DPrintf( "%s", string );
 }
 
 /*
@@ -108,7 +108,7 @@ Sets sv_client and sv_player to the player with idnum Cmd_Argv(1)
 */
 static sv_client_t *SV_SetPlayer( void )
 {
-	char		*s;
+	const char	*s;
 	sv_client_t	*cl;
 	int		i, idnum;
 
@@ -550,7 +550,8 @@ SV_ConSay_f
 */
 void SV_ConSay_f( void )
 {
-	char	*p, text[MAX_SYSPATH];
+	const char	*p;
+	char		text[MAX_SYSPATH];
 
 	if( Cmd_Argc() < 2 ) return;
 
@@ -560,18 +561,17 @@ void SV_ConSay_f( void )
 		return;
 	}
 
-	Q_snprintf( text, sizeof( text ), "%s: ", Cvar_VariableString( "hostname" ));
 	p = Cmd_Args();
+	Q_strncpy( text, *p == '"' ? p + 1 : p, MAX_SYSPATH );
 
 	if( *p == '"' )
 	{
-		p++;
-		p[Q_strlen(p) - 1] = 0;
+		text[Q_strlen(text) - 1] = 0;
 	}
 
-	Q_strncat( text, p, MAX_SYSPATH );
+	Log_Printf( "Server say: \"%s\"\n", text );
+	Q_snprintf( text, sizeof( text ), "%s: %s", Cvar_VariableString( "hostname" ), p );
 	SV_BroadcastPrintf( NULL, "%s\n", text );
-	Log_Printf( "Server say: \"%s\"\n", p );
 }
 
 /*

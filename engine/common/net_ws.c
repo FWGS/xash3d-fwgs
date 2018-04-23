@@ -1708,7 +1708,7 @@ void NET_GetLocalAddress( void )
 			{
 				net_local.port = address.sin_port;
 				Con_Printf( "Server IP address %s\n", NET_AdrToString( net_local ));
-				Cvar_FullSet( "net_address", va( NET_AdrToString( net_local )), FCVAR_READ_ONLY );
+				Cvar_FullSet( "net_address", va( "%s", NET_AdrToString( net_local )), FCVAR_READ_ONLY );
 			}
 		}
 		else

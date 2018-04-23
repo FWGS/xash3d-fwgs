@@ -992,7 +992,7 @@ void CL_InitClientMove( void )
 	clgame.pmove->RandomFloat = COM_RandomFloat;
 	clgame.pmove->PM_GetModelType = pfnGetModelType;
 	clgame.pmove->PM_GetModelBounds = pfnGetModelBounds;	
-	clgame.pmove->PM_HullForBsp = pfnHullForBsp;
+	clgame.pmove->PM_HullForBsp = (void*)pfnHullForBsp;
 	clgame.pmove->PM_TraceModel = pfnTraceModel;
 	clgame.pmove->COM_FileSize = COM_FileSize;
 	clgame.pmove->COM_LoadFile = COM_LoadFile;
