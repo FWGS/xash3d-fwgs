@@ -519,8 +519,8 @@ void SV_WaterMove( edict_t *ent );
 // sv_send.c
 //
 void SV_SendClientMessages( void );
-void SV_ClientPrintf( sv_client_t *cl, char *fmt, ... );
-void SV_BroadcastCommand( const char *fmt, ... );
+void SV_ClientPrintf( sv_client_t *cl, char *fmt, ... ) _format( 2 );
+void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
 
 //
 // sv_client.c
