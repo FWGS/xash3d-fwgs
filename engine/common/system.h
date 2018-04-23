@@ -50,6 +50,7 @@ extern "C" {
 #include "xash3d_types.h"
 
 #include "const.h"
+#include "crtlib.h"
 
 #define ASSERT( exp )	if(!( exp )) Sys_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
 
@@ -81,8 +82,8 @@ double Sys_DoubleTime( void );
 char *Sys_GetClipboardData( void );
 char *Sys_GetCurrentUser( void );
 int Sys_CheckParm( const char *parm );
-void Sys_Warn( const char *format, ... );
-void Sys_Error( const char *error, ... );
+void Sys_Warn( const char *format, ... ) _format( 1 );
+void Sys_Error( const char *error, ... ) _format( 1 );
 qboolean Sys_LoadLibrary( dll_info_t *dll );
 void* Sys_GetProcAddress( dll_info_t *dll, const char* name );
 qboolean Sys_FreeLibrary( dll_info_t *dll );
@@ -128,7 +129,7 @@ char *Wcon_Input( void );
 
 // text messages
 #define Msg	Con_Printf
-void MsgDev( int level, const char *pMsg, ... );
+void MsgDev( int level, const char *pMsg, ... ) _format( 2 );
 
 #ifdef __cplusplus
 }

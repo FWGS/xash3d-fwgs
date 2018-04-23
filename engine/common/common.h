@@ -168,7 +168,7 @@ typedef enum
 #include "cvar.h"
 #include "con_nprint.h"
 
-#define XASH_VERSION	0.99f		// engine current version
+#define XASH_VERSION	"0.99"		// engine current version
 
 // PERFORMANCE INFO
 #define MIN_FPS         	20.0		// host minimum fps value for maxfps.
@@ -539,7 +539,7 @@ long FS_Read( file_t *file, void *buffer, size_t buffersize );
 int FS_VPrintf( file_t *file, const char *format, va_list ap );
 int FS_Seek( file_t *file, long offset, int whence );
 int FS_Gets( file_t *file, byte *string, size_t bufsize );
-int FS_Printf( file_t *file, const char *format, ... );
+int FS_Printf( file_t *file, const char *format, ... ) _format( 2 );
 long FS_FileSize( const char *filename, qboolean gamedironly );
 long FS_FileTime( const char *filename, qboolean gamedironly );
 int FS_Print( file_t *file, const char *msg );
@@ -775,6 +775,10 @@ uint Sound_GetApproxWavePlayLen( const char *filepath );
 // build.c
 //
 int Q_buildnum( void );
+const char *Q_buildos( void );
+const char *Q_buildarch( void );
+const char *Q_buildcommit( void );
+
 
 //
 // host.c
@@ -782,7 +786,7 @@ int Q_buildnum( void );
 void EXPORT Host_Shutdown( void );
 int Host_CompareFileTime( long ft1, long ft2 );
 void Host_NewInstance( const char *name, const char *finalmsg );
-void Host_EndGame( qboolean abort, const char *message, ... );
+void Host_EndGame( qboolean abort, const char *message, ... ) _format( 2 );
 void Host_AbortCurrentFrame( void );
 void Host_WriteServerConfig( const char *name );
 void Host_WriteOpenGLConfig( void );
@@ -791,7 +795,7 @@ void Host_WriteConfig( void );
 qboolean Host_IsLocalGame( void );
 qboolean Host_IsLocalClient( void );
 void Host_ShutdownServer( void );
-void Host_Error( const char *error, ... );
+void Host_Error( const char *error, ... ) _format( 1 );
 void Host_PrintEngineFeatures( void );
 void Host_Frame( float time );
 void Host_InitDecals( void );
@@ -855,9 +859,9 @@ void pfnGetGameDir( char *szGetGameDir );
 int pfnDecalIndex( const char *m );
 int pfnGetModelType( model_t *mod );
 int pfnIsMapValid( char *filename );
-void Con_Reportf( char *szFmt, ... );
-void Con_DPrintf( char *fmt, ... );
-void Con_Printf( char *szFmt, ... );
+void Con_Reportf( char *szFmt, ... ) _format( 1 );
+void Con_DPrintf( char *fmt, ... ) _format( 1 );
+void Con_Printf( char *szFmt, ... ) _format( 1 );
 int pfnNumberOfEntities( void );
 int pfnIsInGame( void );
 float pfnTime( void );
@@ -975,11 +979,11 @@ struct pmtrace_s *PM_TraceLine( float *start, float *end, int flags, int usehull
 void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
 void SV_StartMusic( const char *curtrack, const char *looptrack, long position );
 void SV_CreateDecal( sizebuf_t *msg, const float *origin, int decalIndex, int entityIndex, int modelIndex, int flags, float scale );
-void Log_Printf( const char *fmt, ... );
+void Log_Printf( const char *fmt, ... ) _format( 1 );
 struct sizebuf_s *SV_GetReliableDatagram( void );
-void SV_BroadcastCommand( const char *fmt, ... );
+void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
 qboolean SV_RestoreCustomDecal( struct decallist_s *entry, edict_t *pEdict, qboolean adjacent );
-void SV_BroadcastPrintf( sv_client_t *ignore, char *fmt, ... );
+void SV_BroadcastPrintf( sv_client_t *ignore, char *fmt, ... ) _format( 2 );
 int R_CreateDecalList( struct decallist_s *pList );
 void R_DecalRemoveAll( int texture );
 void R_ClearAllDecals( void );
@@ -987,7 +991,7 @@ void R_ClearStaticEntities( void );
 qboolean S_StreamGetCurrentState( char *currentTrack, char *loopTrack, int *position );
 struct cl_entity_s *CL_GetEntityByIndex( int index );
 struct player_info_s *CL_GetPlayerInfo( int playerIndex );
-void CL_ServerCommand( qboolean reliable, char *fmt, ... );
+void CL_ServerCommand( qboolean reliable, char *fmt, ... ) _format( 2 );
 void CL_HudMessage( const char *pMessage );
 const char *CL_MsgInfo( int cmd );
 void SV_DrawDebugTriangles( void );
@@ -1033,10 +1037,10 @@ long SCR_GetAudioChunk( char *rawdata, long length );
 wavdata_t *SCR_GetMovieInfo( void );
 void SCR_Shutdown( void );
 void Con_Print( const char *txt );
-void Con_NPrintf( int idx, char *fmt, ... );
-void Con_NXPrintf( con_nprint_t *info, char *fmt, ... );
-void UI_NPrintf( int idx, char *fmt, ... );
-void UI_NXPrintf( con_nprint_t *info, char *fmt, ... );
+void Con_NPrintf( int idx, char *fmt, ... ) _format( 2 );
+void Con_NXPrintf( con_nprint_t *info, char *fmt, ... ) _format( 2 );
+void UI_NPrintf( int idx, char *fmt, ... ) _format( 2 );
+void UI_NXPrintf( con_nprint_t *info, char *fmt, ... ) _format( 2 );
 char *Info_ValueForKey( const char *s, const char *key );
 void Info_RemovePrefixedKeys( char *start, char prefix );
 qboolean Info_RemoveKey( char *s, const char *key );

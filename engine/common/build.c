@@ -51,3 +51,91 @@ int Q_buildnum( void )
 	return 3847;
 #endif
 }
+
+/*
+============
+Q_buildos
+
+Returns current name of operating system. Without any spaces.
+============
+*/
+const char *Q_buildos( void )
+{
+	const char *osname;
+
+#if defined(_WIN32) && defined(_MSC_VER)
+	osname = "Win32";
+#elif defined(_WIN32) && defined(__MINGW32__)
+	osname = "Win32-MinGW";
+#elif defined(__ANDROID__)
+	osname = "Android";
+#elif defined(__linux__)
+	osname = "Linux";
+#elif defined(__APPLE__)
+	osname = "Apple";
+#elif defined(__FreeBSD__)
+	osname = "FreeBSD";
+#elif defined(__NetBSD__)
+	osname = "NetBSD";
+#elif defined(__OpenBSD__)
+	osname = "OpenBSD";
+#elif defined __EMSCRIPTEN__
+	osname = "Emscripten";
+#else
+#error "Place your operating system name here! If this is a mistake, try to fix conditions above and report a bug"
+#endif
+
+	return osname;
+}
+
+/*
+============
+Q_buildos
+
+Returns current name of operating system. Without any spaces.
+============
+*/
+const char *Q_buildarch( void )
+{
+	const char *archname;
+
+#if defined( __x86_64__) || defined(_M_X64)
+	archname = "amd64";
+#elif defined(__i386__) || defined(_X86_) || defined(_M_IX86)
+	archname = "i386";
+#elif defined __aarch64__
+	archname = "aarch64";
+#elif defined __arm__ || defined _M_ARM
+	archname = "arm";
+#elif defined __mips__
+	archname = "mips";
+#elif defined __EMSCRIPTEN__
+	archname = "javascript";
+#else
+#error "Place your architecture name here! If this is a mistake, try to fix conditions above and report a bug"
+#endif
+
+	return archname;
+}
+
+/*
+=============
+Q_buildcommit
+
+Returns a short hash of current commit in VCS as string.
+XASH_BUILD_COMMIT must be passed in quotes
+
+if XASH_BUILD_COMMIT is not defined,
+Q_buildcommit will identify this build as release or "notset"
+=============
+*/
+const char *Q_buildcommit( void )
+{
+#ifdef XASH_BUILD_COMMIT
+	return XASH_BUILD_COMMIT;
+#elif defined(XASH_RELEASE) // don't check it elsewhere to avoid random bugs
+	return "release";
+#else
+	return "notset";
+#endif
+}

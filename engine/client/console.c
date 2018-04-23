@@ -2043,8 +2043,8 @@ void Con_DrawDebug( void )
 
 	if( scr_download->value != -1.0f )
 	{
-		Q_snprintf( dlstring, sizeof( dlstring ), "Downloading [%d remaining]: ^2%s^7 %5.1f%%",
-		host.downloadcount, host.downloadfile, scr_download->value, Sys_DoubleTime() - timeStart ); 
+		Q_snprintf( dlstring, sizeof( dlstring ), "Downloading [%d remaining]: ^2%s^7 %5.1f%% (%f elapsed)",
+			host.downloadcount, host.downloadfile, scr_download->value, Sys_DoubleTime() - timeStart );
 		x = glState.width - 400;
 		y = con.curFont->charHeight * 1.05f;
 		Con_DrawString( x, y, dlstring, g_color_table[7] );
@@ -2199,7 +2199,7 @@ void Con_DrawSolidConsole( int lines )
 
 		memcpy( color, g_color_table[7], sizeof( color ));
 
-		Q_snprintf( curbuild, MAX_STRING, "Xash3D %i/%g (hw build %i)", PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
+		Q_snprintf( curbuild, MAX_STRING, "%s %i/%s (hw build %i)", XASH_ENGINE_NAME, PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
 		Con_DrawStringLen( curbuild, &stringLen, &charH );
 		start = glState.width - stringLen;
 		stringLen = Con_StringLength( curbuild );
@@ -2349,8 +2349,8 @@ void Con_DrawVersion( void )
 	}
 
 	if( host.force_draw_version || draw_version )
-		Q_snprintf( curbuild, MAX_STRING, "Xash3D v%i/%g (build %i)", PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
-	else Q_snprintf( curbuild, MAX_STRING, "v%i/%g (build %i)", PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( )); 
+		Q_snprintf( curbuild, MAX_STRING, "%s v%i/%s (build %i)", XASH_ENGINE_NAME, PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
+	else Q_snprintf( curbuild, MAX_STRING, "v%i/%s (build %i)", PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
 	Con_DrawStringLen( curbuild, &stringLen, &charH );
 	start = glState.width - stringLen * 1.05f;
 	stringLen = Con_StringLength( curbuild );

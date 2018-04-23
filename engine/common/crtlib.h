@@ -16,6 +16,12 @@ GNU General Public License for more details.
 #ifndef STDLIB_H
 #define STDLIB_H
 
+#ifdef __GNUC__
+#define _format(x) __attribute__((format(printf, x, x+1)))
+#else
+#define _format(x)
+#endif
+
 // timestamp modes
 enum
 {
@@ -97,11 +103,11 @@ char *Q_stristr( const char *string, const char *string2 );
 char *Q_strstr( const char *string, const char *string2 );
 #define Q_vsprintf( buffer, format, args ) Q_vsnprintf( buffer, 99999, format, args )
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args );
-int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... );
-int Q_sprintf( char *buffer, const char *format, ... );
+int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) _format( 3 );
+int Q_sprintf( char *buffer, const char *format, ... ) _format( 2 );
 #define Q_memprint( val ) Q_pretifymem( val, 2 )
 char *Q_pretifymem( float value, int digitsafterdecimal );
-char *va( const char *format, ... );
+char *va( const char *format, ... ) _format( 1 );
 
 //
 // zone.c

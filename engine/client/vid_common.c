@@ -20,7 +20,7 @@ GNU General Public License for more details.
 #include "input.h"
 #include "vid_common.h"
 
-#define WINDOW_NAME			"Xash3D Window" // Half-Life
+#define WINDOW_NAME			XASH_ENGINE_NAME " Window" // Half-Life
 
 convar_t	*gl_extensions;
 convar_t	*gl_texture_anisotropy;

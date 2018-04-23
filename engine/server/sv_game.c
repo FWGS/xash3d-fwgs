@@ -2134,7 +2134,7 @@ SV_StartMusic
 void SV_StartMusic( const char *curtrack, const char *looptrack, long position )
 {
 	MSG_BeginServerCmd( &sv.multicast, svc_stufftext );
-	MSG_WriteString( &sv.multicast, va( "music \"%s\" \"%s\" %i\n", curtrack, looptrack, position ));
+	MSG_WriteString( &sv.multicast, va( "music \"%s\" \"%s\" %li\n", curtrack, looptrack, position ));
 	SV_Multicast( MSG_ALL, NULL, NULL, false, false );
 }
 
@@ -2404,6 +2404,7 @@ pfnClientCommand
 
 =========
 */
+void pfnClientCommand( edict_t* pEdict, char* szFmt, ... ) _format( 2 );
 void pfnClientCommand( edict_t* pEdict, char* szFmt, ... )
 {
 	sv_client_t	*cl;
@@ -2834,6 +2835,7 @@ pfnAlertMessage
 
 =============
 */
+static void pfnAlertMessage( ALERT_TYPE type, char *szFmt, ... ) _format( 2 );
 static void pfnAlertMessage( ALERT_TYPE type, char *szFmt, ... )
 {
 	char	buffer[2048];
@@ -2887,6 +2889,7 @@ pfnEngineFprintf
 OBSOLETE, UNUSED
 =============
 */
+static void pfnEngineFprintf( FILE *pfile, char *szFmt, ... ) _format( 2 );
 static void pfnEngineFprintf( FILE *pfile, char *szFmt, ... )
 {
 }

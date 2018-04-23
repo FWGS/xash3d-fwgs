@@ -59,4 +59,6 @@ GNU General Public License for more details.
 
 #define DEFAULT_UPDATE_PAGE "https://github.com/FWGS/xash3d-fwgs/releases/latest"
 
+#define XASH_ENGINE_NAME "Xash3D FWGS"
+
 #endif//COM_STRINGS_H

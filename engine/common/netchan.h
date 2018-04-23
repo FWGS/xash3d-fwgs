@@ -23,6 +23,7 @@ GNU General Public License for more details.
 
 ==========================================================
 */
+#include "crtlib.h"
 #include "net_buffer.h"
 
 // 0 == regular, 1 == file stream
@@ -221,7 +222,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename );
 void Netchan_Transmit( netchan_t *chan, int lengthInBytes, byte *data );
 void Netchan_TransmitBits( netchan_t *chan, int lengthInBits, byte *data );
 void Netchan_OutOfBand( int net_socket, netadr_t adr, int length, byte *data );
-void Netchan_OutOfBandPrint( int net_socket, netadr_t adr, char *format, ... );
+void Netchan_OutOfBandPrint( int net_socket, netadr_t adr, char *format, ... ) _format( 3 );
 qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg );
 void Netchan_UpdateProgress( netchan_t *chan );
 qboolean Netchan_IncomingReady( netchan_t *chan );
