@@ -1013,6 +1013,8 @@ static ui_enginefuncs_t gEngfuncs =
 	GL_ProcessTexture,
 	COM_CompareFileTime,
 	VID_GetModeString,
+	(void*)COM_SaveFile,
+	(void*)FS_Delete
 };
 
 static void pfnEnableTextInput( int enable )
