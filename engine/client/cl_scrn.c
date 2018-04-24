@@ -691,8 +691,11 @@ void SCR_VidInit( void )
 	memset( &clgame.centerPrint, 0, sizeof( clgame.centerPrint ));
 
 	// update screen sizes for menu
-	gameui.globals->scrWidth = glState.width;
-	gameui.globals->scrHeight = glState.height;
+	if( gameui.globals )
+	{
+		gameui.globals->scrWidth = glState.width;
+		gameui.globals->scrHeight = glState.height;
+	}
 
 	VGui_Startup( glState.width, glState.height );
 

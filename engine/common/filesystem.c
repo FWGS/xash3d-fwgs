@@ -930,8 +930,16 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 
 	if( Q_strlen( GameInfo->dll_path ))
 		FS_Printf( f, "dllpath\t\t\"%s\"\n", GameInfo->dll_path );	
+
 	if( Q_strlen( GameInfo->game_dll ))
 		FS_Printf( f, "gamedll\t\t\"%s\"\n", GameInfo->game_dll );
+
+	if( Q_strlen( GameInfo->game_dll_linux ))
+		FS_Printf( f, "gamedll_linux\t\t\"%s\"\n", GameInfo->game_dll_linux );
+
+	if( Q_strlen( GameInfo->game_dll_osx ))
+		FS_Printf( f, "gamedll_osx\t\t\"%s\"\n", GameInfo->game_dll_osx );
+
 
 	if( Q_strlen( GameInfo->iconpath ))
 		FS_Printf( f, "icon\t\t\"%s\"\n", GameInfo->iconpath );
@@ -1125,7 +1133,7 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 		else if( !Q_stricmp( token, isGameInfo ? "max_edicts" : "edicts" ))
 		{
 			pfile = COM_ParseFile( pfile, token );
-			GameInfo->max_edicts = bound( 600, Q_atoi( token ), 4096 );
+			GameInfo->max_edicts = bound( 600, Q_atoi( token ), MAX_EDICTS );
 		}
 		// only for gameinfo
 		else if( isGameInfo )

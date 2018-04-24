@@ -2786,7 +2786,7 @@ void CL_Init( void )
 
 	COM_ResetLibraryError();
 	if( !CL_LoadProgs( va( "%s/%s", GI->dll_path, SI.clientlib)))
-		Host_Error( "can't initialize client.dll\n" );
+		Host_Error( "can't initialize %s: %s\n", SI.clientlib, COM_GetLibraryError() );
 
 	cls.initialized = true;
 	cl.maxclients = 1; // allow to drawing player in menu
