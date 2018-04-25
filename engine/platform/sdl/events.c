@@ -40,8 +40,9 @@ SDLash_KeyEvent
 
 =============
 */
-static void SDLash_KeyEvent( SDL_KeyboardEvent key, int down )
+static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 {
+	int down = key.state != SDL_RELEASED;
 	int keynum = key.keysym.scancode;
 	qboolean numLock = SDL_GetModState() & KMOD_NUM;
 
@@ -162,7 +163,7 @@ SDLash_MouseEvent
 */
 static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 {
-	int down = button.type == SDL_MOUSEBUTTONDOWN ? 1 : 0;
+	int down = button.state != SDL_RELEASED;
 	if( in_mouseinitialized && !m_ignore->value && button.which != SDL_TOUCH_MOUSEID )
 	{
 		Key_Event( K_MOUSE1 - 1 + button.button, down );
@@ -238,18 +239,9 @@ static void SDLash_EventFilter( SDL_Event *event )
 		break;
 
 	case SDL_MOUSEBUTTONUP:
-#ifdef TOUCHEMU
-		mdown = 0;
-		IN_TouchEvent( event_up, 0,
-					   event->button.x/scr_width->value,
-					   event->button.y/scr_height->value, 0, 0);
-#else
-		SDLash_MouseEvent( event->button );
-#endif
-		break;
 	case SDL_MOUSEBUTTONDOWN:
 #ifdef TOUCHEMU
-		mdown = 1;
+		mdown = event->button.state != SDL_RELEASED;
 		IN_TouchEvent( event_down, 0,
 					   event->button.x/scr_width->value,
 					   event->button.y/scr_height->value, 0, 0);
@@ -265,11 +257,8 @@ static void SDLash_EventFilter( SDL_Event *event )
 
 	/* Keyboard events */
 	case SDL_KEYDOWN:
-		SDLash_KeyEvent( event->key, 1 );
-		break;
-
 	case SDL_KEYUP:
-		SDLash_KeyEvent( event->key, 0 );
+		SDLash_KeyEvent( event->key );
 		break;
 
 
