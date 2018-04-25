@@ -279,7 +279,7 @@ typedef struct gameinfo_s
 
 	char		ambientsound[NUM_AMBIENTS][MAX_QPATH];	// quake ambient sounds
 
-	int		max_edicts;	// min edicts is 600, max edicts is 4096
+	int		max_edicts;	// min edicts is 600, max edicts is 8196
 	int		max_tents;	// min temp ents is 300, max is 2048
 	int		max_beams;	// min beams is 64, max beams is 512
 	int		max_particles;	// min particles is 4096, max particles is 32768
