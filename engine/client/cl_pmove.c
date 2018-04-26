@@ -1220,6 +1220,7 @@ void CL_PredictMovement( qboolean repredicting )
 	int		i, stoppoint;
 	qboolean		runfuncs;
 	double		f = 1.0;
+	cl_entity_t	*ent;
 	double		time;
 
 	if( cls.state != ca_active || cls.spectator )
@@ -1349,8 +1350,7 @@ void CL_PredictMovement( qboolean repredicting )
 
 	if( FBitSet( to->client.flags, FL_ONGROUND ))
 	{
-		cl_entity_t	*ent = CL_GetEntityByIndex( cl.local.lastground );
-			
+		ent = CL_GetEntityByIndex( cl.local.lastground );
 		cl.local.onground = cl.local.lastground;
 		cl.local.moving = false;
 

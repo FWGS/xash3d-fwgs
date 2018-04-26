@@ -730,7 +730,7 @@ void CL_BatchResourceRequest( qboolean initialize )
 			if( !COM_IsSafeFileToDownload( p->szFileName ))
 			{
 				CL_RemoveFromResourceList( p );
-				MsgDev( D_WARN, "Invalid file type...skipping download of %s\n", p );
+				MsgDev( D_WARN, "Invalid file type...skipping download of %s\n", p->szFileName );
 				Mem_Free( p );
 				break;
 			}
@@ -1039,7 +1039,7 @@ void CL_CreateCustomizationList( void )
 		pResource = &cl.resourcelist[i];
 
 		if( !COM_CreateCustomization( &pPlayer->customdata, pResource, cl.playernum, 0, NULL, NULL ))
-			Con_Printf( "problem with client customization %i, ignoring...", pResource );
+			Con_Printf( "problem with client customization %s, ignoring...", pResource->szFileName );
 	}
 }
 

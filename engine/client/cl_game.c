@@ -237,7 +237,7 @@ void CL_InitCDAudio( const char *filename )
 
 		if( ++c > MAX_CDTRACKS - 1 )
 		{
-			MsgDev( D_WARN, "CD_Init: too many tracks %i in %s\n", filename, MAX_CDTRACKS );
+			MsgDev( D_WARN, "CD_Init: too many tracks %i in %s\n", MAX_CDTRACKS, filename );
 			break;
 		}
 	}

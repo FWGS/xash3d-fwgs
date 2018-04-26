@@ -1528,7 +1528,7 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 		{
 			if( ft1 > ft2 )
 			{
-				Con_Printf( S_WARN "Entity patch is older than bsp. Ignored.\n", entfilename );			
+				Con_Printf( S_WARN "Entity patch is older than bsp. Ignored.\n" );			
 			}
 			else if(( entpatch = FS_LoadFile( entfilename, &entpatchsize, true )) != NULL )
 			{

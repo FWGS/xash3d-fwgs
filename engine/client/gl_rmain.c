@@ -1119,10 +1119,7 @@ void R_EndFrame( void )
 	R_Set2DMode( false );
 
 	if( !pwglSwapBuffers( glw_state.hDC ))
-	{
-		Con_Printf( S_ERROR "failed to swap buffers\n" );
-		Host_NewInstance( va("#%s", GI->gamefolder ), "stopped" );
-	}
+		Sys_Error( "failed to swap buffers\nCheck your video driver and as possible of reinstall it" );
 }
 
 /*

@@ -164,11 +164,16 @@ static const char *Mem_CheckFilename( const char *filename )
 	const char	*out = filename;
 	int		i;
 
-	if( !out ) return dummy;
+	if( !COM_CheckString( out ))
+		return dummy;
+
 	for( i = 0; i < 128; i++, out++ )
-		if( out == '\0' ) break; // valid name
-	if( i == 128 ) return dummy;
-	return filename;
+	{
+		if( *out == '\0' )
+			return filename; // valid name
+	}
+
+	return dummy;
 }
 
 static void Mem_FreeBlock( memheader_t *mem, const char *filename, int fileline )

@@ -985,6 +985,8 @@ static ui_enginefuncs_t gEngfuncs =
 	GL_ProcessTexture,
 	COM_CompareFileTime,
 	VID_GetModeString,
+	COM_SaveFile,
+	FS_Delete,
 };
 
 void UI_UnloadProgs( void )

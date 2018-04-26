@@ -361,7 +361,10 @@ static void CALLBACK GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		Con_Printf( S_OPENGL_NOTE "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_OTHER_ARB:
-	default:	Con_Printf( S_OPENGL_NOTE "%s\n", message );
+	default:
+		if( host_developer.value < DEV_EXTENDED )
+			return;
+		Con_Printf( S_OPENGL_NOTE "%s\n", message );
 		break;
 	}
 }
@@ -904,7 +907,7 @@ void VID_CreateFakeWindow( void )
 	pwglGetPixelFormatAttribiv = GL_GetProcAddress( "wglGetPixelFormatAttribivARB" );
 	pwglChoosePixelFormat = GL_GetProcAddress( "wglChoosePixelFormatARB" );
 
-	// destory now it's no longer needed
+	// destroy now it's no longer needed
 	VID_DestroyFakeWindow();
 }
 

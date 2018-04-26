@@ -874,6 +874,10 @@ void SV_InitEdict( edict_t *pEdict )
 	SV_FreePrivateData( pEdict );
 	memset( &pEdict->v, 0, sizeof( entvars_t ));
 	pEdict->v.pContainingEntity = pEdict;
+	pEdict->v.controller[0] = 0x7F;
+	pEdict->v.controller[1] = 0x7F;
+	pEdict->v.controller[2] = 0x7F;
+	pEdict->v.controller[3] = 0x7F;
 	pEdict->free = false;
 }
 

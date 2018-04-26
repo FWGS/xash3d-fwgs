@@ -114,7 +114,7 @@ freeze application for some time
 */
 void Sys_Sleep( int msec )
 {
-	msec = bound( 1, msec, 1000 );
+	msec = bound( 0, msec, 1000 );
 	Sleep( msec );
 }
 

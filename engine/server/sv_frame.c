@@ -60,8 +60,8 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 	byte		*clientpvs;
 	byte		*clientphs;
 	qboolean		fullvis = false;
-	sv_client_t	*netclient;
 	sv_client_t	*cl = NULL;
+	qboolean		player;
 	entity_state_t	*state;
 	int		e;
 
@@ -101,15 +101,29 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 		if( CHECKVISBIT( ents->sended, e ))
 			continue;
 
+		if( e >= 1 && e <= svs.maxclients )
+			player = 1;
+		else player = 0;
+
+		if( player )
+		{
+			sv_client_t *cl = &svs.clients[e - 1];
+
+			if( cl->state != cs_spawned )
+				continue;
+
+			if( FBitSet( cl->flags, FCL_HLTV_PROXY ))
+				continue;
+		}
+
 		if( FBitSet( ent->v.effects, EF_REQUEST_PHS ))
 			pset = clientphs;
 		else pset = clientpvs;
 
 		state = &ents->entities[ents->num_entities];
-		netclient = SV_ClientFromEdict( ent, true );
 
 		// add entity to the net packet
-		if( svgame.dllFuncs.pfnAddToFullPack( state, e, ent, pClient, sv.hostflags, ( netclient != NULL ), pset ))
+		if( svgame.dllFuncs.pfnAddToFullPack( state, e, ent, pClient, sv.hostflags, player, pset ))
 		{
 			// to prevent adds it twice through portals
 			SETVISBIT( ents->sended, e );
@@ -807,7 +821,7 @@ void SV_SendClientMessages( void )
 	{
 		cl = sv.current_client;
 
-		if( !cl->state || FBitSet( cl->flags, FCL_FAKECLIENT ))
+		if( cl->state <= cs_zombie || FBitSet( cl->flags, FCL_FAKECLIENT ))
 			continue;
 
 		if( FBitSet( cl->flags, FCL_SKIP_NET_MESSAGE ))
