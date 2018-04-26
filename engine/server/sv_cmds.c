@@ -72,8 +72,11 @@ void SV_BroadcastPrintf( sv_client_t *ignore, char *fmt, ... )
 		}
 	}
 
-	// echo to console
-	Con_DPrintf( "%s", string );
+	if( Host_IsDedicated() )
+	{
+		// echo to console
+		Con_DPrintf( string );
+	}
 }
 
 /*

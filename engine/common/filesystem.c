@@ -1596,7 +1596,7 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 			opt |= O_BINARY;
 			break;
 		default:
-			MsgDev( D_ERROR, "FS_SysOpen: %s: unknown char %c in mode (%s)\n", filepath, mode[ind], mode );
+			MsgDev( D_ERROR, "FS_SysOpen: %s: unknown char (%c) in mode (%s)\n", filepath, mode[ind], mode );
 			break;
 		}
 	}

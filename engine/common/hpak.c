@@ -1023,7 +1023,7 @@ void HPAK_Extract_f( void )
 
 		if( entry->disksize <= 0 || entry->disksize >= HPAK_MAX_SIZE )
 		{
-			MsgDev( D_WARN, "Unable to extract data, size invalid: %i\n", nDataSize );
+			MsgDev( D_WARN, "Unable to extract data, size invalid:  %s\n", Q_memprint( entry->disksize ));
 			continue;
 		}
 

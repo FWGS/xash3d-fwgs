@@ -1063,7 +1063,7 @@ void CL_CheckForResend( void )
 	if( cls.connect_retry == CL_TEST_RETRIES_NORESPONCE )
 	{
 		// too many fails use default connection method
-		Msg( "hi-speed coonection is failed, use default method\n" );
+		Con_Printf( "hi-speed connection is failed, use default method\n" );
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "getchallenge\n" );
 		Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
 		cls.connect_time = host.realtime;
@@ -1775,7 +1775,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			if( cls.connect_retry >= CL_TEST_RETRIES )
 			{
 				// too many fails use default connection method
-				Msg( "hi-speed coonection is failed, use default method\n" );
+				Con_Printf( "hi-speed connection is failed, use default method\n" );
 				Netchan_OutOfBandPrint( NS_CLIENT, from, "getchallenge\n" );
 				Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
 				cls.connect_time = host.realtime;
@@ -1807,7 +1807,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			if( cls.connect_retry >= CL_TEST_RETRIES )
 			{
 				// too many fails use default connection method
-				Msg( "hi-speed coonection is failed, use default method\n" );
+				Con_Printf( "hi-speed connection is failed, use default method\n" );
 				Netchan_OutOfBandPrint( NS_CLIENT, from, "getchallenge\n" );
 				Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
 				cls.connect_time = host.realtime;
@@ -2190,7 +2190,8 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 				}
 				else
 				{
-					Con_Printf( "Downloaded %i bytes for purported %i byte file, ignoring download\n", cls.netchan.tempbuffersize, p->nDownloadSize );
+					Con_Printf( "Downloaded %i bytes for purported %i byte file, ignoring download\n", 
+					cls.netchan.tempbuffersize, p->nDownloadSize );
 				}
 
 				if( cls.netchan.tempbuffer )

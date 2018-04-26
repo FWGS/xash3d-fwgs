@@ -311,9 +311,9 @@ void R_SetTextureParameters( void )
 	if( GL_Support( GL_TEXTURE_LOD_BIAS ))
 	{
 		if( gl_texture_lodbias->value < -glConfig.max_texture_lod_bias )
-			Cvar_SetValue( "gl_mipmap_bias", -glConfig.max_texture_lod_bias );
+			Cvar_SetValue( "gl_texture_lodbias", -glConfig.max_texture_lod_bias );
 		else if( gl_texture_lodbias->value > glConfig.max_texture_lod_bias )
-			Cvar_SetValue( "gl_mipmap_bias", glConfig.max_texture_lod_bias );
+			Cvar_SetValue( "gl_texture_lodbias", glConfig.max_texture_lod_bias );
 	}
 
 	ClearBits( gl_texture_anisotropy->flags, FCVAR_CHANGED );

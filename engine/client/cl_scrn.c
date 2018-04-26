@@ -126,7 +126,7 @@ void SCR_NetSpeeds( void )
 	if( !host.allow_console )
 		return;
 
-	if( !net_speeds->value || cls.demoplayback || cls.state != ca_active )
+	if( !net_speeds->value || cls.state != ca_active )
 		return;
 
 	// prevent to get too big values at max

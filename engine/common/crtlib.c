@@ -562,7 +562,22 @@ int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list ar
 {
 	size_t	result;
 
+#ifndef _MSC_VER
 	result = vsnprintf( buffer, buffersize, format, args );
+#else
+	__try
+	{
+		result = _vsnprintf( buffer, buffersize, format, args );
+	}
+
+	// to prevent crash while output
+	__except( EXCEPTION_EXECUTE_HANDLER )
+	{
+		Q_strncpy( buffer, "^1sprintf throw exception^7\n", buffersize );
+//		memset( buffer, 0, buffersize );
+		result = buffersize;
+	}
+#endif
 
 	if( result < 0 || result >= buffersize )
 	{

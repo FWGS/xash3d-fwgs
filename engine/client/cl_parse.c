@@ -1039,7 +1039,7 @@ void CL_CreateCustomizationList( void )
 		pResource = &cl.resourcelist[i];
 
 		if( !COM_CreateCustomization( &pPlayer->customdata, pResource, cl.playernum, 0, NULL, NULL ))
-			Con_Printf( "problem with client customization %i, ignoring...", pResource );
+			Con_Printf( "problem with client customization %s, ignoring...", pResource->szFileName );
 	}
 }
 

@@ -46,10 +46,10 @@ host_parm_t		host;	// host parms
 sysinfo_t		SI;
 
 CVAR_DEFINE( host_developer, "developer", "0", 0, "engine is in development-mode" );
+CVAR_DEFINE_AUTO( sys_ticrate, "100", 0, "framerate in dedicated mode" );
 convar_t	*host_gameloaded;
 convar_t	*host_clientloaded;
 convar_t	*host_limitlocal;
-convar_t	host_developer;
 convar_t	*host_maxfps;
 convar_t	*host_framerate;
 convar_t	*con_gamemaps;
@@ -148,7 +148,7 @@ void Host_CheckSleep( void )
 	if( host.type == HOST_DEDICATED )
 	{
 		// let the dedicated server some sleep
-//		Sys_Sleep( 1 );
+		Sys_Sleep( 1 );
 	}
 	else
 	{
@@ -413,15 +413,23 @@ double Host_CalcFPS( void )
 	// NOTE: we should play demos with same fps as it was recorded
 #ifndef XASH_DEDICATED
 	if( CL_IsPlaybackDemo() || CL_IsRecordDemo( ))
+	{
 		fps = CL_GetDemoFramerate();
-	else 
-#endif
-	if( Host_IsLocalGame( ))
+	}
+	else if( Host_IsLocalGame( ))
+	{
 		fps = host_maxfps->value;
+	}
+	else
+#endif
+	if( Host_IsDedicated() )
+	{
+		fps = sys_ticrate.value;
+	}
 	else
 	{
 		fps = host_maxfps->value;
-		if( fps == 0.0 ) fps = HOST_FPS; // default for multiplayer
+		fps = bound( MIN_FPS, fps, MAX_FPS );
 	}
 
 #ifndef XASH_DEDICATED
@@ -462,8 +470,16 @@ qboolean Host_FilterTime( float time )
 		// limit fps to withing tolerable range
 		fps = bound( MIN_FPS, fps, MAX_FPS );
 
-		if(( host.realtime - oldtime ) < ( 1.0 / fps ))
-			return false;		
+		if( host.type == HOST_DEDICATED )
+		{
+			if(( host.realtime - oldtime ) < ( 1.0 / ( fps + 1.0 )))
+				return false;
+		}
+		else
+		{
+			if(( host.realtime - oldtime ) < ( 1.0 / fps ))
+				return false;		
+		}
 	}
 
 	host.frametime = host.realtime - oldtime;
@@ -795,6 +811,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #ifdef _WIN32
 	Wcon_CreateConsole(); // system console used by dedicated server or show fatal errors
 #endif
+	// timeBeginPeriod( 1 ); // a1ba: Do we need this?
 
 	// NOTE: this message couldn't be passed into game console but it doesn't matter
 	MsgDev( D_NOTE, "Sys_LoadLibrary: Loading xash.dll - ok\n" );
@@ -812,6 +829,13 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	// share developer level across all dlls
 	Q_snprintf( dev_level, sizeof( dev_level ), "%i", developer );
 	Cvar_DirectSet( &host_developer, dev_level );
+	Cvar_RegisterVariable( &sys_ticrate );
+
+	if( Sys_GetParmFromCmdLine( "-sys_ticrate", ticrate ))
+	{
+		fps = bound( MIN_FPS, atof( ticrate ), MAX_FPS );
+		Cvar_SetValue( "sys_ticrate", fps );
+	}
 
 	Con_Init(); // early console running to catch all the messages
 	Cmd_AddCommand( "exec", Host_Exec_f, "execute a script file" );
@@ -871,7 +895,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Cmd_AddCommand ( "crash", Host_Crash_f, "a way to force a bus error for development reasons");
 	}
 
-	host_maxfps = Cvar_Get( "fps_max", "100", FCVAR_ARCHIVE, "host fps upper limit" );
+	host_maxfps = Cvar_Get( "fps_max", "72", FCVAR_ARCHIVE, "host fps upper limit" );
 	host_framerate = Cvar_Get( "host_framerate", "0", 0, "locks frame timing to this value in seconds" );  
 	host_gameloaded = Cvar_Get( "host_gameloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded game.dll" );
 	host_clientloaded = Cvar_Get( "host_clientloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );
