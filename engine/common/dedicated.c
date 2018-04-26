@@ -84,7 +84,7 @@ const char *svc_strings[256] =
 	"svc_unused63",
 };
 
-qboolean CL_Active( void )
+int CL_Active( void )
 {
 	return false;
 }
@@ -284,12 +284,12 @@ void S_StopAllSounds( qboolean ambient )
 
 }
 
-void Con_NPrintf( int idx, char *fmt, ... )
+void Con_NPrintf( int idx, const char *fmt, ... )
 {
 
 }
 
-void Con_NXPrintf( struct  con_nprint_s *info, char *fmt, ... )
+void Con_NXPrintf( struct  con_nprint_s *info, const char *fmt, ... )
 {
 
 }

@@ -631,6 +631,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	char		dev_level[4];
 	int		developer = 0;
 	const char *baseDir;
+	char ticrate[16];
 
 	// some commands may turn engine into infinite loop,
 	// e.g. xash.exe +game xash -game xash
@@ -833,7 +834,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	if( Sys_GetParmFromCmdLine( "-sys_ticrate", ticrate ))
 	{
-		fps = bound( MIN_FPS, atof( ticrate ), MAX_FPS );
+		double fps = bound( MIN_FPS, atof( ticrate ), MAX_FPS );
 		Cvar_SetValue( "sys_ticrate", fps );
 	}
 
