@@ -1,0 +1,42 @@
+#! /usr/bin/env python
+# encoding: utf-8
+# mittorn, 2018
+
+VERSION='0.99'
+APPNAME='xash3d-fwgs'
+
+top = '.'
+
+def options(opt):
+	opt.load('compiler_c')
+#	opt.load('msvs')
+        
+def configure(conf):
+	conf.load('compiler_c')
+	conf.env.append_unique('CFLAGS', '-O2')
+	conf.env.append_unique('DEFINES', 'XASH_SDL')
+	conf.env.append_unique('DEFINES', 'SINGLE_BINARY')
+	conf.env.append_value('LINKFLAGS', '-ldl')
+	conf.env.append_value('LINKFLAGS', '-lm')
+	conf.env.append_value('LINKFLAGS', '-pthread')
+	conf.env.append_value('LINKFLAGS', '-m32')
+	conf.env.append_value('CFLAGS', '-m32')
+	conf.check_cfg(path='sdl2-config', args='--cflags --libs', package='', uselib_store='SDL2')
+
+def build(bld):
+	bld(
+		target = 'xash',
+		features = 'c cprogram',
+		includes = ['../common', '../pm_shared', 'common', 'server', 'client', 'client/vgui', '.' ],
+		source = bld.path.ant_glob([
+		'common/*.c',
+		'common/imagelib/*.c',
+		'common/soundlib/*.c',
+		'common/soundlib/libmpg/*.c',
+		'client/*.c',
+		'client/vgui/*.c',
+		'client/avi/*.c',
+		'server/*.c',
+		'platform/sdl/*.c']),
+		use = ['SDL2', 'm', 'pthread']
+	)
