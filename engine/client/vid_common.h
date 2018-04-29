@@ -5,9 +5,8 @@
 typedef struct vidmode_s
 {
 	const char	*desc;
-	int		width;
-	int		height;
-	qboolean		wideScreen;
+	int			width;
+	int			height;
 } vidmode_t;
 
 typedef enum
@@ -18,12 +17,9 @@ typedef enum
 	rserr_unknown
 } rserr_t;
 
-typedef enum
-{
-	VID_NOMODE = -2,
-	VID_AUTOMODE = -1,
-	VID_DEFAULTMODE = 3 // 640x480
-} vidmode_e;
+// minimal recommended resolution
+#define VID_MIN_WIDTH	640
+#define VID_MIN_HEIGHT	480
 
 //
 // vid_common.c
@@ -38,7 +34,6 @@ int GL_MaxTextureUnits( void );
 qboolean R_Init( void );
 void R_Shutdown( void );
 const char *VID_GetModeString( int vid_mode );
-qboolean R_DescribeVIDMode( int width, int height );
 void R_SaveVideoMode( int w, int h );
 void VID_StartupGamma( void );
 void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cvarname, int r_ext );

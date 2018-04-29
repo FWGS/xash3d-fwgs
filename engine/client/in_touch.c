@@ -1697,7 +1697,7 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 			Key_Event( K_MOUSE1, true );
 		if( type == event_up )
 			Key_Event( K_MOUSE1, false );
-		Android_AddMove( dx * scr_width->value, dy * scr_height->value );
+		Android_AddMove( dx * (float)glState.width, dy * glState.height );
 #endif
 		return 0;
 	}

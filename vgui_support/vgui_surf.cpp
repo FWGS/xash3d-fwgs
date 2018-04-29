@@ -322,11 +322,6 @@ bool CEngineSurface :: setFullscreenMode( int wide, int tall, int bpp )
 {
 	// NOTE: Xash3D always working in 32-bit mode
 	// Skip it now. VGUI cannot change video modes
-	/*if( R_DescribeVIDMode( wide, tall ))
-	{
-		Cvar_SetFloat( "fullscreen", 1.0f );
-		return true;
-	}*/
 	return false;
 }
 	

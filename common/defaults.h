@@ -147,7 +147,7 @@ Default build-depended cvar and constant values
 #endif
 
 #ifndef DEFAULT_FULLSCREEN
-#define DEFAULT_FULLSCREEN 1
+	#define DEFAULT_FULLSCREEN 1
 #endif
 
 #if TARGET_OS_IPHONE

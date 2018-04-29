@@ -20,37 +20,8 @@ GNU General Public License for more details.
 #include "vid_common.h"
 #include <SDL.h>
 
-#define num_vidmodes		ARRAYSIZE( vidmode )
-
-vidmode_t vidmode[] =
-{
-{ "640 x 480",		640,	480,	false	},
-{ "800 x 600",		800,	600,	false	},
-{ "960 x 720",		960,	720,	false	},
-{ "1024 x 768",		1024,	768,	false	},
-{ "1152 x 864",		1152,	864,	false	},
-{ "1280 x 800",		1280,	800,	false	},
-{ "1280 x 960",		1280,	960,	false	},
-{ "1280 x 1024",		1280,	1024,	false	},
-{ "1600 x 1200",		1600,	1200,	false	},
-{ "2048 x 1536",		2048,	1536,	false	},
-{ "800 x 480 (wide)",	800,	480,	true	},
-{ "856 x 480 (wide)",	856,	480,	true	},
-{ "960 x 540 (wide)",	960,	540,	true	},
-{ "1024 x 576 (wide)",	1024,	576,	true	},
-{ "1024 x 600 (wide)",	1024,	600,	true	},
-{ "1280 x 720 (wide)",	1280,	720,	true	},
-{ "1360 x 768 (wide)",	1360,	768,	true	},
-{ "1366 x 768 (wide)",	1366,	768,	true	},
-{ "1440 x 900 (wide)",	1440,	900,	true	},
-{ "1680 x 1050 (wide)",	1680,	1050,	true	},
-{ "1920 x 1080 (wide)",	1920,	1080,	true	},
-{ "1920 x 1200 (wide)",	1920,	1200,	true	},
-{ "2560 x 1440 (wide)",	2560,	1440,	true	},
-{ "2560 x 1600 (wide)",	2560,	1600,	true	},
-{ "1600 x 900 (wide)",	1600,	 900,	true	},
-{ "3840 x 2160 (wide)",	3840,	2160,	true	},
-};
+static vidmode_t *vidmodes = NULL;
+static int num_vidmodes = 0;
 
 static dllfunc_t opengl_110funcs[] =
 {
@@ -225,6 +196,145 @@ static dllfunc_t texturecompressionfuncs[] =
 
 static void GL_SetupAttributes( void );
 
+int R_MaxVideoModes( void )
+{
+	return num_vidmodes;
+}
+
+vidmode_t R_GetVideoMode( int num )
+{
+	static vidmode_t error = { NULL };
+
+	if( !vidmodes || num < 0 || num > R_MaxVideoModes() )
+	{
+		error.width = glState.width;
+		error.height = glState.height;
+		return error;
+	}
+
+	return vidmodes[num];
+}
+
+static void R_InitVideoModes( void )
+{
+	int displayIndex = 0; // TODO: handle multiple displays somehow
+	int i, modes;
+
+	modes = SDL_GetNumDisplayModes( displayIndex );
+
+	if( !modes )
+		return;
+
+	vidmodes = Mem_Alloc( host.mempool, modes * sizeof( vidmode_t ) );
+
+	for( i = 0; i < modes; i++ )
+	{
+		int j;
+		qboolean skip = false;
+		SDL_DisplayMode mode;
+
+		if( SDL_GetDisplayMode( displayIndex, i, &mode ) )
+		{
+			Msg( "SDL_GetDisplayMode: %s\n", SDL_GetError() );
+			continue;
+		}
+
+		if( mode.w < VID_MIN_WIDTH || mode.h < VID_MIN_HEIGHT )
+			continue;
+
+		for( j = 0; j < num_vidmodes; j++ )
+		{
+			if( mode.w == vidmodes[j].width &&
+				mode.h == vidmodes[j].height )
+			{
+				skip = true;
+				break;
+			}
+		}
+		if( j != num_vidmodes )
+			continue;
+
+		vidmodes[num_vidmodes].width = mode.w;
+		vidmodes[num_vidmodes].height = mode.h;
+		vidmodes[num_vidmodes].desc = copystring( va( "%ix%i", mode.w, mode.h ));
+
+		num_vidmodes++;
+	}
+}
+
+static void R_FreeVideoModes( void )
+{
+	int i;
+
+	for( i = 0; i < num_vidmodes; i++ )
+		Mem_Free( (char*)vidmodes[i].desc );
+	Mem_Free( vidmodes );
+
+	vidmodes = NULL;
+}
+
+#ifdef WIN32
+typedef enum _XASH_DPI_AWARENESS
+{
+	XASH_DPI_UNAWARE = 0,
+	XASH_SYSTEM_DPI_AWARE = 1,
+	XASH_PER_MONITOR_DPI_AWARE = 2
+} XASH_DPI_AWARENESS;
+
+static void WIN_SetDPIAwareness( void )
+{
+	HMODULE hModule;
+	HRESULT ( __stdcall *pSetProcessDpiAwareness )( XASH_DPI_AWARENESS );
+	BOOL ( __stdcall *pSetProcessDPIAware )( void );
+	BOOL bSuccess = FALSE;
+
+	if( ( hModule = LoadLibrary( "shcore.dll" ) ) )
+	{
+		if( ( pSetProcessDpiAwareness = (void*)GetProcAddress( hModule, "SetProcessDpiAwareness" ) ) )
+		{
+			// I hope SDL don't handle WM_DPICHANGED message
+			HRESULT hResult = pSetProcessDpiAwareness( XASH_SYSTEM_DPI_AWARE );
+
+			if( hResult == S_OK )
+			{
+				MsgDev( D_NOTE, "SetDPIAwareness: Success\n" );
+				bSuccess = TRUE;
+			}
+			else if( hResult = E_INVALIDARG ) MsgDev( D_NOTE, "SetDPIAwareness: Invalid argument\n" );
+			else if( hResult == E_ACCESSDENIED ) MsgDev( D_NOTE, "SetDPIAwareness: Access Denied\n" );
+		}
+		else MsgDev( D_NOTE, "SetDPIAwareness: Can't get SetProcessDpiAwareness\n" );
+		FreeLibrary( hModule );
+	}
+	else MsgDev( D_NOTE, "SetDPIAwareness: Can't load shcore.dll\n" );
+
+
+	if( !bSuccess )
+	{
+		MsgDev( D_NOTE, "SetDPIAwareness: Trying SetProcessDPIAware...\n" );
+
+		if( ( hModule = LoadLibrary( "user32.dll" ) ) )
+		{
+			if( ( pSetProcessDPIAware = ( void* )GetProcAddress( hModule, "SetProcessDPIAware" ) ) )
+			{
+				// I hope SDL don't handle WM_DPICHANGED message
+				BOOL hResult = pSetProcessDPIAware();
+
+				if( hResult )
+				{
+					MsgDev( D_NOTE, "SetDPIAwareness: Success\n" );
+					bSuccess = TRUE;
+				}
+				else MsgDev( D_NOTE, "SetDPIAwareness: fail\n" );
+			}
+			else MsgDev( D_NOTE, "SetDPIAwareness: Can't get SetProcessDPIAware\n" );
+			FreeLibrary( hModule );
+		}
+		else MsgDev( D_NOTE, "SetDPIAwareness: Can't load user32.dll\n" );
+	}
+}
+#endif
+
 /*
 ========================
 DebugCallback
@@ -377,7 +487,6 @@ qboolean GL_DeleteContext( void )
 	return false;
 }
 
-static qboolean recreate = false;
 qboolean VID_SetScreenResolution( int width, int height )
 {
 	SDL_DisplayMode want, got;
@@ -397,21 +506,12 @@ qboolean VID_SetScreenResolution( int width, int height )
 
 	MsgDev(D_NOTE, "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate);
 
-#ifdef XASH_SDL_WINDOW_RECREATE
-	if( recreate )
-	{
-		SDL_DestroyWindow( host.hWnd );
-		host.hWnd = SDL_CreateWindow(wndname, 0, 0, width, height, wndFlags | SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_INPUT_GRABBED );
-		SDL_GL_MakeCurrent( host.hWnd, glw_state.context );
-		recreate = false;
-	}
-#endif
-
 	if( SDL_SetWindowDisplayMode( host.hWnd, &got) == -1 )
 		return false;
 
 	if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN) == -1 )
 		return false;
+
 	SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
 	//SDL_SetWindowPosition( host.hWnd, 0, 0 );
 	SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
@@ -428,14 +528,12 @@ void VID_RestoreScreenResolution( void )
 	if( !Cvar_VariableInteger("fullscreen") )
 	{
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
-		//SDL_SetWindowPosition( host.hWnd, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED  );
 		SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
 	}
 	else
 	{
 		SDL_MinimizeWindow( host.hWnd );
 		SDL_SetWindowFullscreen( host.hWnd, 0 );
-		recreate = true;
 	}
 }
 
@@ -462,8 +560,9 @@ VID_CreateWindow
 qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 {
 	static string	wndname;
-	Uint32 wndFlags = SDL_WINDOW_OPENGL;
+	Uint32 wndFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS;
 	rgbdata_t *icon = NULL;
+	qboolean iconLoaded = false;
 	char iconpath[MAX_STRING];
 
 	if( vid_highdpi->value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
@@ -471,15 +570,16 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 	if( !fullscreen )
 	{
-#ifndef XASH_SDL_DISABLE_RESIZE
 		wndFlags |= SDL_WINDOW_RESIZABLE;
-#endif
-		host.hWnd = SDL_CreateWindow( wndname, window_xpos->value,
-			window_ypos->value, width, height, wndFlags | SDL_WINDOW_MOUSE_FOCUS );
+		host.hWnd = SDL_CreateWindow( wndname,
+			Cvar_VariableInteger( "_window_xpos" ),
+			Cvar_VariableInteger( "_window_ypos" ),
+			width, height, wndFlags );
 	}
 	else
 	{
-		host.hWnd = SDL_CreateWindow( wndname, 0, 0, width, height, wndFlags | SDL_WINDOW_FULLSCREEN | SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_INPUT_GRABBED );
+		wndFlags |= SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_INPUT_GRABBED;
+		host.hWnd = SDL_CreateWindow( wndname, 0, 0, width, height, wndFlags );
 	}
 
 
@@ -522,20 +622,19 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		Q_snprintf( localPath, sizeof( localPath ), "%s/%s", GI->gamefolder, GI->iconpath );
 		ico = (HICON)LoadImage( NULL, localPath, IMAGE_ICON, 0, 0, LR_LOADFROMFILE|LR_DEFAULTSIZE );
 
-		if( !ico )
+		if( ico )
 		{
-			MsgDev( D_INFO, "Extract %s from pak if you want to see it.\n", GI->iconpath );
-			ico = LoadIcon( host.hInst, MAKEINTRESOURCE( 101 ) );
+			iconLoaded = true;
+			WIN_SetWindowIcon( ico );
 		}
-
-		WIN_SetWindowIcon( ico );
 	}
-	else
 #endif // _WIN32 && !XASH_64BIT
+
+	if( !iconLoaded )
 	{
 		Q_strcpy( iconpath, GI->iconpath );
 		COM_StripExtension( iconpath );
-		COM_DefaultExtension( iconpath, ".tga") ;
+		COM_DefaultExtension( iconpath, ".tga" );
 
 		icon = FS_LoadImage( iconpath, NULL, 0 );
 
@@ -549,17 +648,20 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 			{
 				SDL_SetWindowIcon( host.hWnd, surface );
 				SDL_FreeSurface( surface );
+				iconLoaded = true;
 			}
 
 			FS_FreeImage( icon );
 		}
-#if defined(_WIN32) && !defined(XASH_64BIT) // ICO support only for Win32
-		else
-		{
-			WIN_SetWindowIcon( LoadIcon( host.hInst, MAKEINTRESOURCE( 101 ) ) );
-		}
-#endif
 	}
+
+#if defined(_WIN32) && !defined(XASH_64BIT) // ICO support only for Win32
+	if( !iconLoaded )
+	{
+		WIN_SetWindowIcon( LoadIcon( host.hInst, MAKEINTRESOURCE( 101 ) ) );
+		iconLoaded = true;
+	}
+#endif
 
 	SDL_ShowWindow( host.hWnd );
 	if( !glw_state.initialized )
@@ -750,6 +852,13 @@ qboolean R_Init_OpenGL( void )
 		MsgDev( D_ERROR, "Couldn't initialize OpenGL: %s\n", SDL_GetError());
 		return false;
 	}
+
+	R_InitVideoModes();
+
+	// must be initialized before creating window
+#ifdef _WIN32
+	WIN_SetDPIAwareness();
+#endif
 
 	return VID_SetMode();
 }
@@ -999,26 +1108,6 @@ void GL_InitExtensions( void )
 	glw_state.initialized = true;
 }
 
-int R_MaxVideoModes( void )
-{
-	return num_vidmodes;
-}
-
-vidmode_t R_GetVideoMode( int num )
-{
-	static vidmode_t error = { "NOMODE" };
-
-	if( num < 0 || num > num_vidmodes )
-	{
-		error.width = scr_width->value;
-		error.height = scr_height->value;
-		error.wideScreen = false;
-		return error;
-	}
-
-	return vidmode[num];
-}
-
 /*
 ==================
 R_ChangeDisplaySettingsFast
@@ -1028,69 +1117,40 @@ Change window size fastly to custom values, without setting vid mode
 */
 void R_ChangeDisplaySettingsFast( int width, int height )
 {
-	// Cvar_SetValue( "vid_mode", VID_NOMODE );
-	Cvar_SetValue( "width", width );
-	Cvar_SetValue( "height", height );
+	R_SaveVideoMode( width, height );
 
-	// as we don't recreate window here, update center positions by hand
-	host.window_center_x = glState.width / 2;
-	host.window_center_y = glState.height / 2;
-
-	if( glState.width != width || glState.height != height )
-	{
-		glState.width = width;
-		glState.height = height;
-		if( width * 3 != height * 4 && width * 4 != height * 5 )
-			glState.wideScreen = true;
-		else glState.wideScreen = false;
-
-		SCR_VidInit();
-	}
+	SCR_VidInit();
 }
 
 rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 {
 	SDL_DisplayMode displayMode;
-	qboolean old_fullscreen = glState.fullScreen;
 
-	SDL_GetCurrentDisplayMode(0, &displayMode);
-#ifdef XASH_NOMODESWITCH
-	width = displayMode.w;
-	height = displayMode.h;
-	fullscreen = false;
-#endif
+	SDL_GetCurrentDisplayMode( 0, &displayMode );
 
-	MsgDev(D_INFO, "R_ChangeDisplaySettings: Setting video mode to %dx%d %s\n", width, height, fullscreen ? "fullscreen" : "windowed");
-	R_SaveVideoMode( width, height );
+	MsgDev( D_INFO, "R_ChangeDisplaySettings: Setting video mode to %dx%d %s\n", width, height, fullscreen ? "fullscreen" : "windowed" );
 
 	// check our desktop attributes
-	glw_state.desktopBitsPixel = SDL_BITSPERPIXEL(displayMode.format);
+	glw_state.desktopBitsPixel = SDL_BITSPERPIXEL( displayMode.format );
 	glw_state.desktopWidth = displayMode.w;
 	glw_state.desktopHeight = displayMode.h;
 
 	glState.fullScreen = fullscreen;
 
-	// check for 4:3 or 5:4
-	if( width * 3 != height * 4 && width * 4 != height * 5 )
-		glState.wideScreen = true;
-	else glState.wideScreen = false;
-
-
-	if(!host.hWnd)
+	if( !host.hWnd )
 	{
 		if( !VID_CreateWindow( width, height, fullscreen ) )
 			return rserr_invalid_mode;
 	}
-#ifndef XASH_NOMODESWITCH
 	else if( fullscreen )
 	{
 		if( !VID_SetScreenResolution( width, height ) )
 			return rserr_invalid_fullscreen;
 	}
-	else if( old_fullscreen )
+	else
 	{
 		VID_RestoreScreenResolution();
-		if( SDL_SetWindowFullscreen(host.hWnd, 0) )
+		if( SDL_SetWindowFullscreen( host.hWnd, 0 ) )
 			return rserr_invalid_fullscreen;
 		SDL_RestoreWindow( host.hWnd );
 #if SDL_VERSION_ATLEAST( 2, 0, 5 )
@@ -1101,7 +1161,6 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 		SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
 		R_ChangeDisplaySettingsFast( width, height );
 	}
-#endif
 
 	return rserr_ok;
 }
@@ -1119,33 +1178,28 @@ qboolean VID_SetMode( void )
 	int iScreenWidth, iScreenHeight;
 	rserr_t	err;
 
-	if( vid_mode->value == -1 )	// trying to get resolution automatically by default
+	iScreenWidth = Cvar_VariableInteger( "width" );
+	iScreenHeight = Cvar_VariableInteger( "height" );
+
+	if( iScreenWidth < VID_MIN_WIDTH ||
+		iScreenHeight < VID_MIN_HEIGHT )	// trying to get resolution automatically by default
 	{
+#if !defined( DEFAULT_MODE_WIDTH ) || !defined( DEFAULT_MODE_HEIGHT )
 		SDL_DisplayMode mode;
-#if !defined DEFAULT_MODE_WIDTH || !defined DEFAULT_MODE_HEIGHT
+
 		SDL_GetDesktopDisplayMode( 0, &mode );
-#else
-		mode.w = DEFAULT_MODE_WIDTH;
-		mode.h = DEFAULT_MODE_HEIGHT;
-#endif
 
 		iScreenWidth = mode.w;
 		iScreenHeight = mode.h;
+#else
+		iScreenWidth = DEFAULT_MODE_WIDTH;
+		iScreenHeight = DEFAULT_MODE_HEIGHT;
+#endif
 
 		if( !FBitSet( vid_fullscreen->flags, FCVAR_CHANGED ) )
 			Cvar_SetValue( "fullscreen", DEFAULT_FULLSCREEN );
 		else
 			ClearBits( vid_fullscreen->flags, FCVAR_CHANGED );
-	}
-	else if( FBitSet( vid_mode->flags, FCVAR_CHANGED ) && vid_mode->value >= 0 && vid_mode->value <= num_vidmodes )
-	{
-		iScreenWidth = vidmode[(int)vid_mode->value].width;
-		iScreenHeight = vidmode[(int)vid_mode->value].height;
-	}
-	else
-	{
-		iScreenHeight = scr_height->value;
-		iScreenWidth = scr_width->value;
 	}
 
 	SetBits( gl_vsync->flags, FCVAR_CHANGED );
@@ -1168,7 +1222,6 @@ qboolean VID_SetMode( void )
 		}
 		else if( err == rserr_invalid_mode )
 		{
-			Cvar_SetValue( "vid_mode", glConfig.prev_mode );
 			MsgDev( D_ERROR, "VID_SetMode: invalid mode\n" );
 			Sys_Warn( "invalid mode" );
 		}
@@ -1194,6 +1247,8 @@ void R_Free_OpenGL( void )
 	GL_DeleteContext ();
 
 	VID_DestroyWindow ();
+
+	R_FreeVideoModes();
 
 	// now all extensions are disabled
 	memset( glConfig.extension, 0, sizeof( glConfig.extension ));

@@ -574,7 +574,6 @@ typedef struct
 	qboolean		softwareGammaUpdate;
 	int		prev_width;
 	int		prev_height;
-	int		prev_mode;
 } glconfig_t;
 
 typedef struct
@@ -667,12 +666,10 @@ extern convar_t	*vid_displayfrequency;
 extern convar_t	*vid_fullscreen;
 extern convar_t	*vid_brightness;
 extern convar_t	*vid_gamma;
-extern convar_t	*vid_mode;
 extern convar_t	*vid_highdpi;
 
 extern convar_t	*window_xpos;
 extern convar_t	*window_ypos;
-extern convar_t *scr_width;
 extern convar_t *scr_height;
 
 #endif//GL_LOCAL_H

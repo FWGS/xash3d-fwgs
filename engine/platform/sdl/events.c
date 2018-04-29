@@ -230,10 +230,10 @@ static void SDLash_EventFilter( SDL_Event *event )
 #ifdef TOUCHEMU
 		if( mdown )
 			IN_TouchEvent( event_motion, 0,
-						   event->motion.x/scr_width->value,
-						   event->motion.y/scr_height->value,
-						   event->motion.xrel/scr_width->value,
-						   event->motion.yrel/scr_height->value );
+						   event->motion.x/(float)glState.width,
+						   event->motion.y/(float)glState.height,
+						   event->motion.xrel/(float)glState.width,
+						   event->motion.yrel/(float)glState.height );
 		SDL_ShowCursor( true );
 #endif
 		break;
@@ -243,8 +243,8 @@ static void SDLash_EventFilter( SDL_Event *event )
 #ifdef TOUCHEMU
 		mdown = event->button.state != SDL_RELEASED;
 		IN_TouchEvent( event_down, 0,
-					   event->button.x/scr_width->value,
-					   event->button.y/scr_height->value, 0, 0);
+					   event->button.x/(float)glState.width,
+					   event->button.y/(float)glState.height, 0, 0);
 #else
 		SDLash_MouseEvent( event->button );
 #endif
@@ -261,14 +261,13 @@ static void SDLash_EventFilter( SDL_Event *event )
 		SDLash_KeyEvent( event->key );
 		break;
 
-
 	/* Touch events */
 	case SDL_FINGERDOWN:
 	case SDL_FINGERUP:
 	case SDL_FINGERMOTION:
 	{
-		touchEventType type;
 		static int scale = 0;
+		touchEventType type;
 		float x, y, dx, dy;
 
 		if( event->type == SDL_FINGERDOWN )
@@ -456,7 +455,6 @@ static void SDLash_EventFilter( SDL_Event *event )
 			break;
 		case SDL_WINDOWEVENT_RESIZED:
 			if( vid_fullscreen->value ) break;
-			Cvar_SetValue( "vid_mode",  VID_NOMODE ); // no mode
 			R_ChangeDisplaySettingsFast( event->window.data1,
 										 event->window.data2 );
 			break;
@@ -464,7 +462,6 @@ static void SDLash_EventFilter( SDL_Event *event )
 		{
 			int w, h;
 			if( vid_fullscreen->value ) break;
-			Cvar_SetValue( "vid_mode", VID_NOMODE ); // no mode
 
 			SDL_GL_GetDrawableSize( host.hWnd, &w, &h );
 			R_ChangeDisplaySettingsFast( w, h );

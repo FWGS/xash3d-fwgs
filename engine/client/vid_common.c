@@ -41,8 +41,6 @@ convar_t	*gl_test;
 convar_t	*gl_msaa;
 convar_t	*gl_stencilbits;
 
-convar_t	*scr_width;
-convar_t	*scr_height;
 convar_t	*window_xpos;
 convar_t	*window_ypos;
 convar_t	*r_speeds;
@@ -68,7 +66,6 @@ convar_t	*vid_displayfrequency;
 convar_t	*vid_fullscreen;
 convar_t	*vid_brightness;
 convar_t	*vid_gamma;
-convar_t	*vid_mode;
 convar_t	*vid_highdpi;
 
 byte		*r_temppool;
@@ -236,39 +233,19 @@ R_SaveVideoMode
 */
 void R_SaveVideoMode( int w, int h )
 {
+	host.window_center_x = glState.width / 2;
+	host.window_center_y = glState.height / 2;
+
 	glState.width = w;
 	glState.height = h;
 
-	Cvar_FullSet( "width", va( "%i", w ), FCVAR_READ_ONLY | FCVAR_RENDERINFO );
-	Cvar_FullSet( "height", va( "%i", h ), FCVAR_READ_ONLY | FCVAR_RENDERINFO );
+	Cvar_SetValue( "width", w );
+	Cvar_SetValue( "height", h );
 
-	if( vid_mode->value >= 0 && vid_mode->value <= R_MaxVideoModes() )
-		glState.wideScreen = R_GetVideoMode( vid_mode->value ).wideScreen;
-
-	MsgDev( D_NOTE, "Set: [%dx%d]\n", w, h );
-}
-
-/*
-=================
-R_DescribeVIDMode
-=================
-*/
-qboolean R_DescribeVIDMode( int width, int height )
-{
-	int	i;
-
-	for( i = 0; i < R_MaxVideoModes(); i++ )
-	{
-		vidmode_t vidmode = R_GetVideoMode( i );
-		if( vidmode.width == width && vidmode.height == height )
-		{
-			// found specified mode
-			Cvar_SetValue( "vid_mode", i );
-			return true;
-		}
-	}
-
-	return false;
+	// check for 4:3 or 5:4
+	if( w * 3 != h * 4 && w * 4 != h * 5 )
+		glState.wideScreen = true;
+	else glState.wideScreen = false;
 }
 
 /*
@@ -302,15 +279,15 @@ void VID_CheckChanges( void )
 
 	if( host.renderinfo_changed )
 	{
-		if( !VID_SetMode( ))
+		if( VID_SetMode( ))
 		{
-			Sys_Error( "Can't re-initialize video subsystem\n" );
+			SCR_VidInit(); // tell the client.dll what vid_mode has changed
 		}
 		else
 		{
-			host.renderinfo_changed = false;
-			SCR_VidInit(); // tell the client.dll what vid_mode has changed
+			Sys_Error( "Can't re-initialize video subsystem\n" );
 		}
+		host.renderinfo_changed = false;
 	}
 }
 
@@ -397,11 +374,41 @@ void R_RenderInfo_f( void )
 	}
 
 	Con_Printf( "\n" );
-	Con_Printf( "MODE: %s\n", R_GetVideoMode(vid_mode->value).desc );
+	Con_Printf( "MODE: %ix%i\n", glState.width, glState.height );
 	Con_Printf( "\n" );
 	Con_Printf( "VERTICAL SYNC: %s\n", gl_vsync->value ? "enabled" : "disabled" );
 	Con_Printf( "Color %d bits, Alpha %d bits, Depth %d bits, Stencil %d bits\n", glConfig.color_bits,
 		glConfig.alpha_bits, glConfig.depth_bits, glConfig.stencil_bits );
+}
+
+static void VID_Mode_f( void )
+{
+	int w, h;
+
+	switch( Cmd_Argc() )
+	{
+	case 2:
+	{
+		vidmode_t vidmode;
+
+		vidmode = R_GetVideoMode( Q_atoi( Cmd_Argv( 1 )) );
+
+		w = vidmode.width;
+		h = vidmode.height;
+		break;
+	}
+	case 3:
+	{
+		w = Q_atoi( Cmd_Argv( 1 ));
+		h = Q_atoi( Cmd_Argv( 2 ));
+		break;
+	}
+	default:
+		Msg( "Usage: vid_mode <modenum>|<width height>\n" );
+		return;
+	}
+
+	R_ChangeDisplaySettings( w, h, Cvar_VariableInteger( "fullscreen" ) );
 }
 
 //=======================================================================
@@ -414,8 +421,8 @@ GL_InitCommands
 void GL_InitCommands( void )
 {
 	// system screen width and height (don't suppose for change from console at all)
-	scr_width = Cvar_Get( "width", "640", FCVAR_RENDERINFO, "screen width" );
-	scr_height = Cvar_Get( "height", "480", FCVAR_RENDERINFO, "screen height" );
+	Cvar_Get( "width", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen width" );
+	Cvar_Get( "height", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen height" );
 	r_speeds = Cvar_Get( "r_speeds", "0", FCVAR_ARCHIVE, "shows renderer speeds" );
 	r_fullbright = Cvar_Get( "r_fullbright", "0", FCVAR_CHEAT, "disable lightmaps, get fullbright for entities" );
 	r_norefresh = Cvar_Get( "r_norefresh", "0", 0, "disable 3D rendering (use with caution)" );
@@ -461,13 +468,16 @@ void GL_InitCommands( void )
 	SetBits( gl_vsync->flags, FCVAR_CHANGED );
 
 	vid_gamma = Cvar_Get( "gamma", "2.5", FCVAR_ARCHIVE, "gamma amount" );
-	vid_brightness = Cvar_Get( "brightness", "0.0", FCVAR_ARCHIVE, "brighntess factor" );
-	vid_mode = Cvar_Get( "vid_mode", "-1", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "display resolution mode" );
+	vid_brightness = Cvar_Get( "brightness", "0.0", FCVAR_ARCHIVE, "brightness factor" );
 	vid_fullscreen = Cvar_Get( "fullscreen", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "enable fullscreen mode" );
 	vid_displayfrequency = Cvar_Get ( "vid_displayfrequency", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "fullscreen refresh rate" );
-	vid_highdpi = Cvar_Get( "vid_highdpi", "1", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "Enable High-DPI mode" );
+	vid_highdpi = Cvar_Get( "vid_highdpi", "1", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "enable High-DPI mode" );
 
 	Cmd_AddCommand( "r_info", R_RenderInfo_f, "display renderer info" );
+
+	// a1ba: planned to be named vid_mode for compability
+	// but supported mode list is filled by backends, so numbers are not portable any more
+	Cmd_AddCommand( "vid_setmode", VID_Mode_f, "display video mode" );
 
 	// give initial OpenGL configuration
 	host.apply_opengl_config = true;
@@ -490,72 +500,9 @@ void GL_RemoveCommands( void )
 	Cmd_RemoveCommand( "r_info");
 }
 
-#ifdef WIN32
-typedef enum _XASH_DPI_AWARENESS
-{
-	XASH_DPI_UNAWARE = 0,
-	XASH_SYSTEM_DPI_AWARE = 1,
-	XASH_PER_MONITOR_DPI_AWARE = 2
-} XASH_DPI_AWARENESS;
-
-void WIN_SetDPIAwareness( void )
-{
-	HMODULE hModule;
-	HRESULT ( __stdcall *pSetProcessDpiAwareness )( XASH_DPI_AWARENESS );
-	BOOL ( __stdcall *pSetProcessDPIAware )( void );
-	BOOL bSuccess = FALSE;
-
-	if( ( hModule = LoadLibrary( "shcore.dll" ) ) )
-	{
-		if( ( pSetProcessDpiAwareness = (void*)GetProcAddress( hModule, "SetProcessDpiAwareness" ) ) )
-		{
-			// I hope SDL don't handle WM_DPICHANGED message
-			HRESULT hResult = pSetProcessDpiAwareness( XASH_SYSTEM_DPI_AWARE );
-
-			if( hResult == S_OK )
-			{
-				MsgDev( D_NOTE, "SetDPIAwareness: Success\n" );
-				bSuccess = TRUE;
-			}
-			else if( hResult = E_INVALIDARG ) MsgDev( D_NOTE, "SetDPIAwareness: Invalid argument\n" );
-			else if( hResult == E_ACCESSDENIED ) MsgDev( D_NOTE, "SetDPIAwareness: Access Denied\n" );
-		}
-		else MsgDev( D_NOTE, "SetDPIAwareness: Can't get SetProcessDpiAwareness\n" );
-		FreeLibrary( hModule );
-	}
-	else MsgDev( D_NOTE, "SetDPIAwareness: Can't load shcore.dll\n" );
-
-
-	if( !bSuccess )
-	{
-		MsgDev( D_NOTE, "SetDPIAwareness: Trying SetProcessDPIAware...\n" );
-
-		if( ( hModule = LoadLibrary( "user32.dll" ) ) )
-		{
-			if( ( pSetProcessDPIAware = ( void* )GetProcAddress( hModule, "SetProcessDPIAware" ) ) )
-			{
-				// I hope SDL don't handle WM_DPICHANGED message
-				BOOL hResult = pSetProcessDPIAware();
-
-				if( hResult )
-				{
-					MsgDev( D_NOTE, "SetDPIAwareness: Success\n" );
-					bSuccess = TRUE;
-				}
-				else MsgDev( D_NOTE, "SetDPIAwareness: fail\n" );
-			}
-			else MsgDev( D_NOTE, "SetDPIAwareness: Can't get SetProcessDPIAware\n" );
-			FreeLibrary( hModule );
-		}
-		else MsgDev( D_NOTE, "SetDPIAwareness: Can't load user32.dll\n" );
-	}
-}
-#endif
-
 static void SetWidthAndHeightFromCommandLine()
 {
-	int width;
-	int height;
+	int width, height;
 
 	Sys_GetIntFromCmdLine( "-width", &width );
 	Sys_GetIntFromCmdLine( "-height", &height );
@@ -566,9 +513,7 @@ static void SetWidthAndHeightFromCommandLine()
 		return;
 	}
 
-	Cvar_SetValue( "vid_mode", VID_NOMODE );
-	Cvar_SetValue( "width", width );
-	Cvar_SetValue( "height", height );
+	R_SaveVideoMode( width, height );
 }
 
 static void SetFullscreenModeFromCommandLine( )
@@ -604,10 +549,6 @@ qboolean R_Init( void )
 	SetFullscreenModeFromCommandLine();
 
 	GL_SetDefaultState();
-
-#ifdef WIN32
-	WIN_SetDPIAwareness( );
-#endif
 
 	// create the window and set up the context
 	if( !R_Init_OpenGL( ))
