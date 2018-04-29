@@ -307,3 +307,7 @@ build-*
 
 # Android
 *.apk
+
+# Waf
+.waf-*
+.lock-waf*

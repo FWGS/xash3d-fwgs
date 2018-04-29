@@ -2160,6 +2160,12 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num )
 	// parse user message into buffer
 	MSG_ReadBytes( msg, pbuf, iSize );
 
+	if( cl_trace_messages->value )
+	{
+		MsgDev( D_INFO, "^3USERMSG %s SIZE %i SVC_NUM %i\n",
+			clgame.msg[i].name, iSize, clgame.msg[i].number );
+	}
+
 	if( clgame.msg[i].func )
 	{
 		clgame.msg[i].func( clgame.msg[i].name, iSize, pbuf );
