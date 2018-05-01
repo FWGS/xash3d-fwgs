@@ -3393,7 +3393,7 @@ pfnIsDedicatedServer
 */
 int pfnIsDedicatedServer( void )
 {
-	return (host.type == HOST_DEDICATED);
+	return Host_IsDedicated();
 }
 
 /*

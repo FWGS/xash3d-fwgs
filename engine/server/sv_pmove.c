@@ -514,7 +514,7 @@ static void pfnPlaybackEventFull( int flags, int clientindex, word eventindex, f
 	ent = EDICT_NUM( clientindex + 1 );
 	if( !SV_IsValidEdict( ent )) return;
 
-	if( host.type == HOST_DEDICATED )
+	if( Host_IsDedicated() )
 		flags |= FEV_NOTHOST; // no local clients for dedicated server
 
 	SV_PlaybackEventFull( flags, ent, eventindex,

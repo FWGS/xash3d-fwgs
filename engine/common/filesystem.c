@@ -1446,7 +1446,7 @@ void FS_Init( void )
 #endif
 
 	// ignore commandlineoption "-game" for other stuff
-	if( host.type == HOST_NORMAL || host.type == HOST_DEDICATED )
+	if( host.type == HOST_NORMAL || Host_IsDedicated() )
 	{
 		stringlistinit( &dirs );
 		listdirectory( &dirs, "./", false );

@@ -145,7 +145,7 @@ Host_CheckSleep
 */
 void Host_CheckSleep( void )
 {
-	if( host.type == HOST_DEDICATED )
+	if( Host_IsDedicated() )
 	{
 		// let the dedicated server some sleep
 		Sys_Sleep( 1 );
@@ -470,7 +470,7 @@ qboolean Host_FilterTime( float time )
 		// limit fps to withing tolerable range
 		fps = bound( MIN_FPS, fps, MAX_FPS );
 
-		if( host.type == HOST_DEDICATED )
+		if( Host_IsDedicated() )
 		{
 			if(( host.realtime - oldtime ) < ( 1.0 / ( fps + 1.0 )))
 				return false;
@@ -746,7 +746,6 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		}
 	}
 
-	host.type = HOST_NORMAL; // predict state
 	host.con_showalways = true;
 
 #ifdef XASH_DEDICATED
@@ -925,7 +924,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	ID_Init();
 
-	if( host.type == HOST_DEDICATED )
+	if( Host_IsDedicated() )
 	{
 #ifdef _WIN32
 		Wcon_InitConsoleCommands ();
@@ -967,7 +966,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	oldtime = Sys_DoubleTime() - 0.1;
 
-	if( host.type == HOST_DEDICATED && GameState->nextstate == STATE_RUNFRAME )
+	if( Host_IsDedicated() && GameState->nextstate == STATE_RUNFRAME )
 		Con_Printf( "type 'map <mapname>' to run server... (TAB-autocomplete is working too)\n" );
 
 	// main window message loop

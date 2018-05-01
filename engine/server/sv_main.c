@@ -532,7 +532,7 @@ qboolean SV_IsSimulating( void )
 	if( !SV_HasActivePlayers( ))
 		return false;
 
-	if( host.type == HOST_DEDICATED )
+	if( Host_IsDedicated() )
 		return true; // always active for dedicated servers
 
 	// allow to freeze everything in singleplayer
@@ -735,7 +735,7 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	Info_SetValueForKey( s, "bots", va( "%d", bots ), len ); // bot count
 	Info_SetValueForKey( s, "gamedir", GI->gamefolder, len ); // gamedir
 	Info_SetValueForKey( s, "map", sv.name, len ); // current map
-	Info_SetValueForKey( s, "type", (host.type == HOST_DEDICATED) ? "d" : "l", len ); // dedicated or local
+	Info_SetValueForKey( s, "type", (Host_IsDedicated()) ? "d" : "l", len ); // dedicated or local
 	Info_SetValueForKey( s, "password", "0", len ); // is password set
 	Info_SetValueForKey( s, "os", "w", len ); // Windows
 	Info_SetValueForKey( s, "secure", "0", len ); // server anti-cheat

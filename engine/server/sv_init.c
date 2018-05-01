@@ -568,7 +568,7 @@ void SV_ActivateServer( int runPhysics )
 	Log_Printf( "Started map \"%s\" (CRC \"%u\")\n", sv.name, sv.worldmapCRC );
 
 	// dedicated server purge unused resources here
-	if( host.type == HOST_DEDICATED )
+	if( Host_IsDedicated() )
 		Mod_FreeUnused ();
 
 	host.movevars_changed = true;
@@ -709,7 +709,7 @@ void SV_SetupClients( void )
 	svs.maxclients = (int)sv_maxclients->value;
 
 	// dedicated servers are can't be single player and are usually DM
-	if( host.type == HOST_DEDICATED )
+	if( Host_IsDedicated() )
 		svs.maxclients = bound( 4, svs.maxclients, MAX_CLIENTS );
 	else svs.maxclients = bound( 1, svs.maxclients, MAX_CLIENTS );
 

@@ -388,7 +388,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		numi = (short *)(pinhl + 1);
 	}
 
-	if( host.type == HOST_DEDICATED )
+	if( Host_IsDedicated() )
 	{
 		// skip frames loading
 		if( loaded ) *loaded = true;	// done

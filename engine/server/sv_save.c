@@ -1996,7 +1996,7 @@ qboolean SV_LoadGame( const char *pPath )
 	file_t		*pFile;
 	int		flags;
 
-	if( host.type == HOST_DEDICATED )
+	if( Host_IsDedicated() )
 		return false;
 
 	if( !COM_CheckString( pPath ))

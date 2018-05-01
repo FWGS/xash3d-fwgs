@@ -1450,7 +1450,7 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 				return;
 #endif
 		}
-		if( host.type == HOST_DEDICATED )
+		if( Host_IsDedicated() )
 		{
 			MsgDev( D_ERROR, "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
 		}
@@ -1642,13 +1642,13 @@ static void NET_OpenIP( void )
 		if( !port ) port = PORT_SERVER; // forcing to default
 		net.ip_sockets[NS_SERVER] = NET_IPSocket( net_ipname->string, port, false );
 
-		if( !NET_IsSocketValid( net.ip_sockets[NS_SERVER] ) && host.type == HOST_DEDICATED )
+		if( !NET_IsSocketValid( net.ip_sockets[NS_SERVER] ) && Host_IsDedicated() )
 			Host_Error( "Couldn't allocate dedicated server IP port %d.\n", port );
 		sv_port = port;
 	}
 
 	// dedicated servers don't need client ports
-	if( host.type == HOST_DEDICATED ) return;
+	if( Host_IsDedicated() ) return;
 
 	if( !NET_IsSocketValid( net.ip_sockets[NS_CLIENT] ) )
 	{

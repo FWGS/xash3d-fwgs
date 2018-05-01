@@ -2036,7 +2036,7 @@ void SV_TSourceEngineQuery( netadr_t from )
 	MSG_WriteByte( &buf, count );
 	MSG_WriteByte( &buf, svs.maxclients );
 	MSG_WriteByte( &buf, PROTOCOL_VERSION );
-	MSG_WriteByte( &buf, host.type == HOST_DEDICATED ? 'D' : 'L' );
+	MSG_WriteByte( &buf, Host_IsDedicated() ? 'D' : 'L' );
 	MSG_WriteByte( &buf, 'W' );
 
 	if( Q_stricmp( GI->gamefolder, "valve" ))
