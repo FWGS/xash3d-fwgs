@@ -204,7 +204,7 @@ void Sys_Sleep( int msec )
 	Sleep( msec );
 #elif XASH_TIMER == TIMER_SDL
 	SDL_Delay( msec );
-#elif XASH_TIEMR == TIMER_LINUX
+#elif XASH_TIMER == TIMER_LINUX
 	usleep( msec * 1000 );
 #endif
 }
