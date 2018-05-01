@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <ctype.h>
 #include "common.h"
 #include "eiface.h"
 #include "sequence.h"

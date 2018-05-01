@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include <math.h>
 #include <stdarg.h>
+#include <ctype.h>
 #include "common.h"
 
 void Q_strnupr( const char *in, char *out, size_t size_out )
