@@ -12,6 +12,8 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
+#ifndef XASH_DEDICATED
+
 #include "common.h"
 #include "client.h"
 #include "gl_local.h"
@@ -1254,3 +1256,5 @@ void R_Free_OpenGL( void )
 	memset( glConfig.extension, 0, sizeof( glConfig.extension ));
 	glw_state.initialized = false;
 }
+
+#endif // XASH_DEDICATED

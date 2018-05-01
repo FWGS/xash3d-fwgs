@@ -13,7 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#ifdef XASH_SDL
+#if defined( XASH_SDL ) && !defined( XASH_DEDICATED )
 #include <SDL.h>
 
 #include "common.h"
@@ -637,4 +637,4 @@ int SDLash_JoyInit( int numjoy )
 }
 
 
-#endif // XASH_SDL
+#endif //  defined( XASH_SDL ) && !defined( XASH_DEDICATED )
