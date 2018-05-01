@@ -2788,7 +2788,6 @@ void CL_Init( void )
 
 	IN_TouchInit();
 
-	COM_ResetLibraryError();
 	if( !CL_LoadProgs( va( "%s/%s", GI->dll_path, SI.clientlib)))
 		Host_Error( "can't initialize %s: %s\n", SI.clientlib, COM_GetLibraryError() );
 

@@ -2511,7 +2511,7 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 	}
 	dllpath[i] = '\0';
 
-	COM_DefaultExtension( dllpath, ".dll" );	// apply ext if forget
+	COM_DefaultExtension( dllpath, "."OS_LIB_EXT );	// apply ext if forget
 	search = FS_FindFile( dllpath, &index, false );
 
 	if( !search )

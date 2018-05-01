@@ -157,7 +157,10 @@ const char *COM_NameForFunction( void *hInstance, void *function );
 void *COM_FunctionFromName_SR( void *hInstance, const char *pName ); // Save/Restore version
 void *COM_FunctionFromName( void *hInstance, const char *pName );
 void COM_FreeLibrary( void *hInstance );
-void COM_ResetLibraryError( void );
 const char *COM_GetLibraryError( void );
 
+// TODO: Move to internal?
+void COM_ResetLibraryError( void );
+void COM_PushLibraryError( const char *error );
+const char *COM_OffsetNameForFunction( void *function );
 #endif//LIBRARY_H

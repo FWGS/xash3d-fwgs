@@ -251,8 +251,6 @@ void VGui_Startup( int width, int height )
 		}
 #endif // XASH_INTERNAL_GAMELIBS
 
-		COM_ResetLibraryError();
-
 		// HACKHACK: load vgui with correct path first if specified.
 		// it will be reused while resolving vgui support and client deps
 		if( Sys_GetParmFromCmdLine( "-vguilib", vguilib ) )
@@ -263,7 +261,7 @@ void VGui_Startup( int width, int height )
 				Q_strncpy( vguiloader, VGUI_SUPPORT_DLL, 256 );
 
 			if( !COM_LoadLibrary( vguilib, false, false ) )
-				MsgDev( D_WARN, "VGUI preloading failed. Default library will be used!\n");
+				MsgDev( D_WARN, "VGUI preloading failed. Default library will be used! Reason: %s\n", COM_GetLibraryError());
 		}
 
 		if( Q_strstr( GI->client_lib, ".dll" ) )
