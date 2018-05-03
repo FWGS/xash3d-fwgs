@@ -443,12 +443,11 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 
 	// Iterator to resample noise waveform (it needs to be generated in powers of 2)
 	noiseStep = (int)((float)( NOISE_DIVISIONS - 1 ) * div * 65536.0f );
-	noiseIndex = 0;
 	
 	if( FBitSet( flags, FBEAM_SINENOISE ))
-	{
 		noiseIndex = 0;
-	}
+	else
+		noiseIndex = noiseStep;
 
 	brightness = 1.0f;
 

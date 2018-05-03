@@ -66,7 +66,7 @@ int __stdcall WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR cmdLine, int n
 int main( int argc, char** argv )
 {
 	char gamedir_buf[32] = "";
-	const char *gamedir = getenv("XASH3D_GAMEDIR");
+	const char *gamedir = getenv( "XASH3D_GAMEDIR" );
 
 	if( !gamedir )
 	{
