@@ -94,6 +94,12 @@ void Sys_InitLog( void )
 {
 	const char	*mode;
 
+	if( Sys_CheckParm( "-log" ) && host.allow_console != 0 )
+	{
+		s_ld.log_active = true;
+		Q_strncpy( s_ld.log_path, "engine.log", sizeof( s_ld.log_path ));
+	}
+
 	if( host.change_game && host.type != HOST_DEDICATED )
 		mode = "a";
 	else mode = "w";
@@ -135,8 +141,7 @@ void Sys_CloseLog( void )
 		fprintf( s_ld.logfile, "=================================================================================");
 		if( host.change_game ) fprintf( s_ld.logfile, "\n\t%s (build %i) %s\n", s_ld.title, Q_buildnum(), event_name );
 		else fprintf( s_ld.logfile, "\n\t%s (build %i) %s at %s\n", s_ld.title, Q_buildnum(), event_name, Q_timestamp( TIME_FULL ));
-		fprintf( s_ld.logfile, "=================================================================================");
-		if( host.change_game ) fprintf( s_ld.logfile, "\n" ); // just for tabulate
+		fprintf( s_ld.logfile, "=================================================================================\n");
 
 		fclose( s_ld.logfile );
 		s_ld.logfile = NULL;
@@ -213,12 +218,15 @@ void Sys_PrintLog( const char *pMsg )
 	fflush( stdout );
 #endif
 #endif
-	lastchar = pMsg[strlen(pMsg)-1];
+
 	if( !s_ld.logfile )
 		return;
 
 	if( !lastchar || lastchar == '\n')
 		strftime( logtime, sizeof( logtime ), "[%Y:%m:%d|%H:%M:%S]", crt_tm ); //full time
+
+	// save last char to detect when line was not ended
+	lastchar = pMsg[strlen(pMsg)-1];
 
 	fprintf( s_ld.logfile, "%s %s", logtime, pMsg );
 	fflush( s_ld.logfile );

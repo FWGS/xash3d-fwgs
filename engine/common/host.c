@@ -1014,4 +1014,5 @@ void EXPORT Host_Shutdown( void )
 
 	// restore filter
 	Sys_RestoreCrashHandler();
+	Sys_CloseLog();
 }
