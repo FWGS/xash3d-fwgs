@@ -903,7 +903,9 @@ static int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
 	if( !con.curFont || !con.curFont->valid )
 		return 0;
 
-//	if( number < 32 ) return 0;
+	number = Con_UtfProcessChar(number);
+	if( number < 32 )
+		return 0;
 	if( y < -con.curFont->charHeight )
 		return 0;
 
@@ -1015,7 +1017,13 @@ void Con_DrawStringLen( const char *pText, int *length, int *height )
 			continue;
 		}
 
-		curLength += con.curFont->charWidths[c];
+
+		// Convert to unicode
+		c = Con_UtfProcessChar( c );
+
+		if( c )
+			curLength += con.curFont->charWidths[c];
+
 		pText++;
 
 		if( curLength > *length )
@@ -1039,6 +1047,8 @@ int Con_DrawGenericString( int x, int y, const char *string, rgba_t setColor, qb
 	const char	*s;
 
 	if( !con.curFont ) return 0; // no font set
+
+	Con_UtfProcessChar( 0 );
 
 	// draw the colored text
 	*(uint *)color = *(uint *)setColor;
@@ -1623,24 +1633,25 @@ void Field_KeyDownEvent( field_t *edit, int key )
 	{
 		if( edit->cursor > 0 )
 		{
-			memmove( edit->buffer + edit->cursor - 1, edit->buffer + edit->cursor, len - edit->cursor + 1 );
-			edit->cursor--;
+			int newcursor = Con_UtfMoveLeft( edit->buffer, edit->cursor );
+			memmove( edit->buffer + newcursor, edit->buffer + edit->cursor, len - edit->cursor + 1 );
+			edit->cursor = newcursor;
 			if( edit->scroll ) edit->scroll--;
 		}
 		return;
 	}
 
-	if( key == K_RIGHTARROW ) 
+	if( key == K_RIGHTARROW )
 	{
-		if( edit->cursor < len ) edit->cursor++;
+		if( edit->cursor < len ) edit->cursor = Con_UtfMoveRight( edit->buffer, edit->cursor, edit->widthInChars );
 		if( edit->cursor >= edit->scroll + edit->widthInChars && edit->cursor <= len )
 			edit->scroll++;
 		return;
 	}
 
-	if( key == K_LEFTARROW ) 
+	if( key == K_LEFTARROW )
 	{
-		if( edit->cursor > 0 ) edit->cursor--;
+		if( edit->cursor > 0 ) edit->cursor= Con_UtfMoveLeft( edit->buffer, edit->cursor );
 		if( edit->cursor < edit->scroll ) edit->scroll--;
 		return;
 	}
@@ -1784,6 +1795,7 @@ void Field_DrawInputLine( int x, int y, field_t *edit )
 	// calc cursor position
 	str[edit->cursor - prestep] = 0;
 	Con_DrawStringLen( str, &curPos, NULL );
+	Con_UtfProcessChar( 0 );
 
 	if( host.key_overstrike && cursorChar )
 	{
@@ -1794,7 +1806,11 @@ void Field_DrawInputLine( int x, int y, field_t *edit )
 		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 		Con_DrawGenericChar( x + curPos, y, cursorChar, colorDefault );
 	}
-	else Con_DrawCharacter( x + curPos, y, '_', colorDefault );
+	else
+	{
+		Con_UtfProcessChar( 0 );
+		Con_DrawCharacter( x + curPos, y, '_', colorDefault );
+	}
 }
 
 /*
