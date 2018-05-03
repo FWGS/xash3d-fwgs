@@ -67,17 +67,19 @@ qboolean SV_CopyEdictToPhysEnt( physent_t *pe, edict_t *ed )
 	VectorCopy( ed->v.origin, pe->origin );
 	VectorCopy( ed->v.angles, pe->angles );
 
-	if( FBitSet( ed->v.flags, FL_FAKECLIENT ))
-	{
-		// bot
-		Q_strncpy( pe->name, "bot", sizeof( pe->name ));
-		pe->player = pe->info;
-	}
-	else if( FBitSet( ed->v.flags, FL_CLIENT ))
+	if( FBitSet( ed->v.flags, FL_CLIENT ))
 	{
 		// client
 		SV_GetTrueOrigin( &svs.clients[pe->info - 1], pe->info, pe->origin );
-		Q_strncpy( pe->name, "player", sizeof( pe->name ));
+		if( FBitSet( ed->v.flags, FL_FAKECLIENT )) // fakeclients have client flag too
+		{
+			// bot
+			Q_strncpy( pe->name, "bot", sizeof( pe->name ));
+		}
+		else
+		{
+			Q_strncpy( pe->name, "player", sizeof( pe->name ));
+		}
 		pe->player = pe->info;
 	}
 	else
@@ -177,7 +179,7 @@ void SV_GetTrueOrigin( sv_client_t *cl, int edictnum, vec3_t origin )
 		return;
 
 	if( svgame.interp[edictnum-1].active && svgame.interp[edictnum-1].moving )
-		VectorCopy( svgame.interp[edictnum-1].newpos, origin ); 
+		VectorCopy( svgame.interp[edictnum-1].oldpos, origin );
 }
 
 void SV_GetTrueMinMax( sv_client_t *cl, int edictnum, vec3_t mins, vec3_t maxs )
