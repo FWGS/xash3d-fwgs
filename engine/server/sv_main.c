@@ -529,11 +529,11 @@ qboolean SV_IsSimulating( void )
 		return true; // force simulating for background map
 	}
 
-	if( !SV_HasActivePlayers( ))
-		return false;
-
 	if( Host_IsDedicated() )
 		return true; // always active for dedicated servers
+
+	if( !SV_HasActivePlayers( ))
+		return false;
 
 	// allow to freeze everything in singleplayer
 	if( svs.maxclients <= 1 && sv.playersonly )
