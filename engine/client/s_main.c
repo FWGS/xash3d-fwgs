@@ -817,6 +817,8 @@ void SND_Spatialize( channel_t *ch )
 	dist = VectorNormalizeLength( source_vec );
 	dot = DotProduct( s_listener.right, source_vec );
 
+	// a1ba: disabled for better multiplayer
+#if 0
 	// for sounds with a radius, spatialize left/right evenly within the radius
 	if( ch->radius > 0 && dist < ch->radius )
 	{
@@ -824,13 +826,14 @@ void SND_Spatialize( channel_t *ch )
 		float	blend = dist - interval;
 
 		if( blend < 0 ) blend = 0;
-		blend /= interval;	
+		blend /= interval;
 
 		// blend is 0.0 - 1.0, from 50% radius -> 100% radius
 		// at radius * 0.5, dot is 0 (ie: sound centered left/right)
 		// at radius dot == dot
 		dot *= blend;
 	}
+#endif
 
 	if( s_cull->value )
 	{
