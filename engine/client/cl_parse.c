@@ -778,7 +778,7 @@ int CL_EstimateNeededResources( void )
 			break;
 		case t_model:
 			nSize = FS_FileSize( p->szFileName, false );
-			if( p->szFileName[0] != '*' && p->ucFlags && nSize == -1 )
+			if( p->szFileName[0] != '*' && nSize == -1 )
 			{
 				SetBits( p->ucFlags, RES_WASMISSING );
 				nTotalSize += p->nDownloadSize;
