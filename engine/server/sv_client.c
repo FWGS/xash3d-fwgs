@@ -1839,7 +1839,7 @@ static qboolean SV_DownloadFile_f( sv_client_t *cl )
 				const char *cmpname = name;
 
 				if( sv.resources[i].type == t_sound )
-					cmpname += sizeof( DEFAULT_SOUNDPATH ); // cut "sound/" off
+					cmpname += sizeof( DEFAULT_SOUNDPATH ) - 1; // cut "sound/" off
 
 				if( !Q_strncmp( sv.resources[i].szFileName, cmpname, 64 ) )
 					break;
