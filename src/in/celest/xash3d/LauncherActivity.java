@@ -443,10 +443,12 @@ public class LauncherActivity extends Activity
 		startActivity(new Intent(this, in.celest.xash3d.XashTutorialActivity.class));
 	}
 
+	public static final int ID_SELECT_FOLDER = 42, ID_SELECT_RW_FOLDER = 43;
+
 	public void selectFolder(View view)
 	{
 		Intent intent = new Intent(this, in.celest.xash3d.FPicker.class);
-		startActivityForResult(intent, 42);
+		startActivityForResult(intent, ID_SELECT_FOLDER);
 		resPath.setEnabled(false);
 		XashActivity.setFolderAsk( this, false );
 	}
@@ -454,7 +456,7 @@ public class LauncherActivity extends Activity
 	public void selectRwFolder(View view)
 	{
 		Intent intent = new Intent(this, in.celest.xash3d.FPicker.class);
-		startActivityForResult(intent, 43);
+		startActivityForResult(intent, ID_SELECT_RW_FOLDER);
 		writePath.setEnabled(false);
 		XashActivity.setFolderAsk( this, false );
 	}
@@ -464,7 +466,7 @@ public class LauncherActivity extends Activity
 	{
 		switch(requestCode)
 		{
-		case 42:
+		case ID_SELECT_FOLDER:
 		{
 			if (resultCode == RESULT_OK) 
 			{
@@ -483,7 +485,7 @@ public class LauncherActivity extends Activity
 			resPath.setEnabled(true);
 			break;
 		}
-		case 43:
+		case ID_SELECT_RW_FOLDER:
 		{
 			if (resultCode == RESULT_OK) 
 			{
