@@ -183,7 +183,7 @@ public class LauncherActivity extends Activity
 		resHeight.setText(String.valueOf(mPref.getInt("resolution_height", mEngineHeight )));
 		resScale.setText(String.valueOf(mPref.getFloat("resolution_scale", 2.0f)));
 		
-		resWidth.addTextChangedListener( resTextChangeWatcher );
+		resWidth.addTextChangedListener( resWidthTextChangeWatcher );
 		resHeight.addTextChangedListener( resTextChangeWatcher );
 		resScale.addTextChangedListener( resTextChangeWatcher );
 		
@@ -256,7 +256,7 @@ public class LauncherActivity extends Activity
 		// disable autoupdater for Google Play
 		if( !XashConfig.GP_VERSION && mPref.getBoolean("check_updates", true))
 		{
-			new CheckUpdate(true, false).execute(UPDATE_LINK);
+			new CheckUpdate(getBaseContext(),true, false).execute(UPDATE_LINK);
 		}
 		FWGSLib.changeButtonsStyle((ViewGroup)tabHost.getParent());
 		hideResolutionSettings( !resolution.isChecked() );
@@ -295,7 +295,7 @@ public class LauncherActivity extends Activity
 		rodirSettings.setVisibility( hide ? View.GONE : View.VISIBLE );
 	}
 		
-	TextWatcher resTextChangeWatcher = new TextWatcher()
+	TextWatcher resWidthTextChangeWatcher = new TextWatcher()
 	{
 		@Override
 		public void afterTextChanged(Editable s){}
@@ -303,6 +303,23 @@ public class LauncherActivity extends Activity
 		@Override
 		public void beforeTextChanged(CharSequence s, int start, int count, int after){}
 		
+		@Override
+		public void onTextChanged(CharSequence s, int start, int before, int count)
+		{
+			int h = (int)((float)mEngineHeight / mEngineWidth * getCustomEngineWidth());
+			resHeight.setText(String.valueOf(h));
+			updateResolutionResult();
+		}
+	};
+
+	TextWatcher resTextChangeWatcher = new TextWatcher()
+	{
+		@Override
+		public void afterTextChanged(Editable s){}
+
+		@Override
+		public void beforeTextChanged(CharSequence s, int start, int count, int after){}
+
 		@Override
 		public void onTextChanged(CharSequence s, int start, int before, int count)
 		{
@@ -317,6 +334,13 @@ public class LauncherActivity extends Activity
 		{
 			w = getCustomEngineWidth();
 			h = getCustomEngineHeight();
+
+			// some fool-proof
+			if( Math.abs((float)w/(float)h - 4.0/3.0) < 0.001 )
+			{
+				w = (int)((float)mEngineWidth / mEngineHeight * h+0.5);
+				resWidth.setText(String.valueOf(w));
+			}
 		}
 		else
 		{
@@ -416,83 +440,6 @@ public class LauncherActivity extends Activity
 	int m_iFirstRunCounter = 0;
 	public void showFirstRun()
 	{
-		/*if( m_iFirstRunCounter < 0 )
-			m_iFirstRunCounter = 0;
-		
-		final int titleres = getResources().getIdentifier("page_title" + String.valueOf(m_iFirstRunCounter), "string", getPackageName());
-		final int contentres = getResources().getIdentifier("page_content" + String.valueOf(m_iFirstRunCounter), "string", getPackageName());
-		final Activity a = this;
-		if( titleres == 0 || contentres == 0 )
-			return;
-		this.runOnUiThread(new Runnable() 
-		{
-			public void run()
-			{
-				final TextView content = new TextView(LauncherActivity.this);
-				content.setMovementMethod(LinkMovementMethod.getInstance());
-				AlertDialog.Builder builder = new AlertDialog.Builder(a)
-					.setTitle(titleres)
-					.setView(content);
-				DialogInterface.OnClickListener nextClick = new DialogInterface.OnClickListener()
-				{
-					public void onClick(DialogInterface d, int p1)
-					{
-						m_iFirstRunCounter++;
-						showFirstRun();
-					}
-				};
-				DialogInterface.OnClickListener prevClick = new DialogInterface.OnClickListener()
-				{
-					public void onClick(DialogInterface d, int p1)
-					{
-						m_iFirstRunCounter--;
-						showFirstRun();
-					}
-				};
-				
-				if( sdk >= 21 )
-				{
-					builder.setPositiveButton(R.string.next, nextClick);
-					if( m_iFirstRunCounter > 0 )
-					{
-						builder.setNegativeButton(R.string.prev, prevClick);
-					}
-					builder.setNeutralButton(R.string.skip, null);
-				}
-				else
-				{
-					builder.setNegativeButton(R.string.next, nextClick);
-					if( m_iFirstRunCounter > 0 )
-					{
-						builder.setNeutralButton(R.string.prev, prevClick);
-					}
-					builder.setPositiveButton(R.string.skip, null);
-				}
-				builder.setCancelable(false);
-				final AlertDialog dialog = builder.create();
-				dialog.show();
-				content.setText(Html.fromHtml(getResources().getText(contentres).toString(),
-					new Html.ImageGetter()
-					{
-						@Override
-						public Drawable getDrawable(String source)
-						{
-							int dourceId = getApplicationContext().getResources().getIdentifier(source, "drawable", getPackageName());
-							Drawable drawable = getApplicationContext().getResources().getDrawable(dourceId);
-							final int visibleWidth = dialog.getWindow().getDecorView().getWidth();
-							final int picWidth = drawable.getIntrinsicWidth();
-							final int picHeight = drawable.getIntrinsicHeight();
-							
-							final int calcWidth = visibleWidth < picWidth ? visibleWidth : picWidth;
-							// final int calcHeight = (int)((float)picHeight * ((float)calcWidth / (float)picWidth));
-							final int calcHeight = (int)((float)picHeight);
-							
-							drawable.setBounds( 0, 0, calcWidth, calcHeight);
-							return drawable;
-						}
-					}, null));
-			}
-		});*/
 		startActivity(new Intent(this, in.celest.xash3d.XashTutorialActivity.class));
 	}
 
@@ -588,130 +535,4 @@ public class LauncherActivity extends Activity
 
         return super.onOptionsItemSelected(item);
     }
-
-	private class CheckUpdate extends AsyncTask<String, Void, String> {
-		InputStream is = null;
-		ByteArrayOutputStream os = null;
-		boolean mSilent;
-		boolean mBeta;
-
-		public CheckUpdate( boolean silent, boolean beta )
-		{
-			mSilent = silent;
-			mBeta = beta;
-		}
-
-		protected String doInBackground(String... urls) 
-		{
-			try
-			{
-				URL url = new URL(urls[0]);
-				is = url.openConnection().getInputStream();
-				os = new ByteArrayOutputStream();
-
-				byte[] buffer = new byte[8196];
-				int len;
-
-				while ((len = is.read(buffer)) > 0)
-				{
-					os.write(buffer, 0, len);
-				}
-				os.flush();
-				
-				return os.toString();
-			}
-			catch(Exception e)
-			{
-				e.printStackTrace();
-				return null;
-			}
-		}
-
-		protected void onPostExecute(String result)
-		{
-			JSONArray releases = null;
-			try
-			{
-				if (is != null)
-				{
-					is.close();
-					is = null;
-				}
-			}
-			catch(Exception e)
-			{
-				e.printStackTrace();
-			}
-
-			try
-			{
-				if (os != null) 
-				{
-					releases = new JSONArray(os.toString());
-					os.close();
-					os = null;
-				}
-			}
-			catch(Exception e)
-			{
-				e.printStackTrace();
-				return;
-			}
-			
-			if( releases == null )
-				return;
-			
-			for( int i = 0; i < releases.length(); i++ )
-			{
-				final JSONObject obj;
-				try 
-				{
-					obj = releases.getJSONObject(i);
-
-					final String version, url, name;
-					final boolean beta = obj.getBoolean("prerelease");
-
-					if( beta && !mBeta )
-						continue;
-
-					version = obj.getString("tag_name");
-					url = obj.getString("html_url");
-					name = obj.getString("name");
-					Log.d("Xash", "Found: " + version +
-						", I: " + getString(R.string.version_string));
-
-					// this is an update
-					if( getString(R.string.version_string).compareTo(version) < 0 )
-					{
-						String dialog_message = String.format(getString(R.string.update_message), name);
-						AlertDialog.Builder builder = new AlertDialog.Builder(getBaseContext());
-						builder.setMessage(dialog_message)
-							.setPositiveButton(R.string.update, new DialogInterface.OnClickListener()
-							{
-								public void onClick(DialogInterface dialog, int id)
-								{
-									final Intent intent = new Intent(Intent.ACTION_VIEW).setData(Uri.parse(url));
-									startActivity(intent);
-								}
-							})
-							.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener()
-								{ public void onClick(DialogInterface dialog, int id) {} } );
-						builder.create().show();
-					}
-					else if( !mSilent )
-					{
-						Toast.makeText(getBaseContext(), R.string.no_updates, Toast.LENGTH_SHORT).show();
-					}
-
-					// No need to check other releases, so we will stop here.
-					break;
-				}
-				catch(Exception e)
-				{
-					e.printStackTrace();
-					continue;
-				}
-			}
-		}
-	}
 }
