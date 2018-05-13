@@ -302,7 +302,7 @@ static void WIN_SetDPIAwareness( void )
 				MsgDev( D_NOTE, "SetDPIAwareness: Success\n" );
 				bSuccess = TRUE;
 			}
-			else if( hResult = E_INVALIDARG ) MsgDev( D_NOTE, "SetDPIAwareness: Invalid argument\n" );
+			else if( hResult == E_INVALIDARG ) MsgDev( D_NOTE, "SetDPIAwareness: Invalid argument\n" );
 			else if( hResult == E_ACCESSDENIED ) MsgDev( D_NOTE, "SetDPIAwareness: Access Denied\n" );
 		}
 		else MsgDev( D_NOTE, "SetDPIAwareness: Can't get SetProcessDpiAwareness\n" );
@@ -540,6 +540,7 @@ void VID_RestoreScreenResolution( void )
 }
 
 #if defined(_WIN32) && !defined(XASH_64BIT) // ICO support only for Win32
+#include "SDL_syswm.h"
 static void WIN_SetWindowIcon( HICON ico )
 {
 	SDL_SysWMinfo wminfo;
