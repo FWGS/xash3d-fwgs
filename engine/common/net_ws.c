@@ -103,6 +103,11 @@ static dllfunc_t winsock_funcs[] =
 
 dll_info_t winsock_dll = { "wsock32.dll", winsock_funcs, false };
 
+static void (_stdcall *pInitializeCriticalSection)( void* );
+static void (_stdcall *pEnterCriticalSection)( void* );
+static void (_stdcall *pLeaveCriticalSection)( void* );
+static void (_stdcall *pDeleteCriticalSection)( void* );
+
 static dllfunc_t kernel32_funcs[] =
 {
 	{ "InitializeCriticalSection", (void **) &pInitializeCriticalSection },
@@ -1429,9 +1434,10 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 
 	if( NET_IsSocketError( ret ))
 	{
+		int err = 0;
 		{
 #ifdef _WIN32
-			int err = pWSAGetLastError();
+			err = pWSAGetLastError();
 
 			// WSAEWOULDBLOCK is silent
 			if( err == WSAEWOULDBLOCK )

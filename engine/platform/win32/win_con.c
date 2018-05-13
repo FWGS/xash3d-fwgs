@@ -270,7 +270,7 @@ void Wcon_CreateConsole( void )
 	string	FontName;
 
 	wc.style         = 0;
-	wc.lpfnWndProc   = (WNDPROC)Con_WndProc;
+	wc.lpfnWndProc   = (WNDPROC)Wcon_WndProc;
 	wc.cbClsExtra    = 0;
 	wc.cbWndExtra    = 0;
 	wc.hInstance     = host.hInst;
@@ -384,7 +384,7 @@ register console commands (dedicated only)
 void Wcon_InitConsoleCommands( void )
 {
 	if( host.type != HOST_DEDICATED ) return;
-	Cmd_AddCommand( "clear", Con_Clear_f, "clear console history" );
+	Cmd_AddCommand( "clear", Wcon_Clear_f, "clear console history" );
 }
 
 /*
