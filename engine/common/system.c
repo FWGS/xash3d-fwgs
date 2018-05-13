@@ -538,7 +538,7 @@ void Sys_WaitForQuit( void )
 #ifdef _WIN32
 	MSG	msg;
 
-	Con_RegisterHotkeys();		
+	Wcon_RegisterHotkeys();		
 
 	msg.message = 0;
 
@@ -616,8 +616,8 @@ void Sys_Error( const char *error, ... )
 	if( host_developer.value )
 	{
 #ifdef _WIN32
-		Con_ShowConsole( true );
-		Con_DisableInput();	// disable input line for dedicated server
+		Wcon_ShowConsole( true );
+		Wcon_DisableInput();	// disable input line for dedicated server
 #endif
 		Sys_Print( text );	// print error message
 		Sys_WaitForQuit();
@@ -625,7 +625,7 @@ void Sys_Error( const char *error, ... )
 	else
 	{
 #ifdef _WIN32
-		Con_ShowConsole( false );
+		Wcon_ShowConsole( false );
 #endif
 		MSGBOX( text );
 	}
@@ -730,7 +730,7 @@ void Sys_Print( const char *pMsg )
 
 		*b = *c = 0; // terminator
 
-		Con_WinPrint( buffer );
+		Wcon_WinPrint( buffer );
 	}
 #endif
 
