@@ -208,7 +208,7 @@ void GL_SetupFogColorForSurfaces( void )
 		return;
 
 	if( RI.currententity && RI.currententity->curstate.rendermode == kRenderTransTexture )
-          {
+	{
 		pglFogfv( GL_FOG_COLOR, RI.fogColor );
 		return;
 	}

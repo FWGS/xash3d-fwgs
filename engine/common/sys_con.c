@@ -90,6 +90,11 @@ SYSTEM LOG
 
 ===============================================================================
 */
+int Sys_LogFileNo( void )
+{
+	return s_ld.logfileno;
+}
+
 void Sys_InitLog( void )
 {
 	const char	*mode;
