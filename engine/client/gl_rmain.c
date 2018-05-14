@@ -24,9 +24,7 @@ GNU General Public License for more details.
 
 #define IsLiquidContents( cnt )	( cnt == CONTENTS_WATER || cnt == CONTENTS_SLIME || cnt == CONTENTS_LAVA )
 
-msurface_t	*r_debug_surface;
-const char	*r_debug_hitbox;
-float		gldepthmin, gldepthmax;
+float			gldepthmin, gldepthmax;
 ref_instance_t	RI;
 
 static int R_RankForRenderMode( int rendermode )

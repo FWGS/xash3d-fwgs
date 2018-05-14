@@ -235,8 +235,6 @@ extern ref_instance_t	RI;
 extern ref_globals_t	tr;
 
 extern float		gldepthmin, gldepthmax;
-extern mleaf_t		*r_viewleaf, *r_oldviewleaf;
-extern mleaf_t		*r_viewleaf2, *r_oldviewleaf2;
 extern dlight_t		cl_dlights[MAX_DLIGHTS];
 extern dlight_t		cl_elights[MAX_ELIGHTS];
 #define r_numEntities	(tr.draw_list->num_solid_entities + tr.draw_list->num_trans_entities)
@@ -328,7 +326,6 @@ void R_PushDlights( void );
 void R_AnimateLight( void );
 void R_GetLightSpot( vec3_t lightspot );
 void R_MarkLights( dlight_t *light, int bit, mnode_t *node );
-void R_LightForPoint( const vec3_t point, color24 *ambientLight, qboolean invLight, qboolean useAmbient, float radius );
 colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lightspot );
 int R_CountSurfaceDlights( msurface_t *surf );
 colorVec R_LightPoint( const vec3_t p0 );
