@@ -40,7 +40,7 @@ def configure(conf):
 
 	conf.env.HAVE_VGUI = 1
 
-	Logs.info('VGUI configured as {0}, {1}, {2}'.format(conf.env.LIB_VGUI, conf.env.LIBPATH_VGUI, conf.env.INCLUDES_VGUI))
+	conf.msg('Checking VGUI', '{0}, {1}, {2}'.format(conf.env.LIB_VGUI, conf.env.LIBPATH_VGUI, conf.env.INCLUDES_VGUI))
 
 def get_subproject_name(ctx):
 	return os.path.basename(os.path.realpath(str(ctx.path)))

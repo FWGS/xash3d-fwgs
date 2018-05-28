@@ -1,0 +1,3 @@
+[submodule "mainui"]
+	path = mainui
+	url = https://github.com/FWGS/mainui_cpp

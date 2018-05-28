@@ -21,7 +21,7 @@ def get_git_version():
 VERSION = '0.99'
 APPNAME = 'xash3d-fwgs'
 GIT_SHA = get_git_version()
-SUBDIRS = [ 'game_launch', 'vgui_support', 'engine' ]
+SUBDIRS = [ 'game_launch', 'vgui_support', 'engine', 'mainui' ]
 
 top = '.'
 
@@ -72,7 +72,6 @@ def configure(conf):
 	else:
 		conf.env.append_unique('CFLAGS', '-Og')
 		conf.env.append_unique('CFLAGS', '-g')
-
 		
 	conf.check( lib='dl' )
 	conf.check( lib='m' )
