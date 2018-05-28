@@ -6,6 +6,7 @@
 
 # Other
 *.save
+
 # Qt Creator for some reason creates *.user.$version files, so exclude it too
 *.user*
 *~
@@ -46,7 +47,6 @@ DerivedData
 Network Trash Folder
 Temporary Items
 .apdisk
-
 
 ### CMake ###
 CMakeCache.txt
@@ -307,6 +307,10 @@ build-*
 
 # Android
 *.apk
+*.config
+*.creator
+*.includes
+*.files
 
 # Waf
 .waf-*
