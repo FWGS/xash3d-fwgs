@@ -54,5 +54,6 @@ def build(bld):
 		target   = 'xash3d', # hl.exe
 		features = 'c cprogram',
 		includes = includes,
-		use      = libs
+		use      = libs,
+		install_path = bld.env.BINDIR
 	)
