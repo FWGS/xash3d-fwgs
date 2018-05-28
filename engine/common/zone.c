@@ -280,7 +280,7 @@ void *_Mem_Realloc( byte *poolptr, void *memptr, size_t size, const char *filena
 		size_t newsize = memhdr->size < size ? memhdr->size : size; // upper data can be trucnated!
 		memcpy( nb, memptr, newsize );
 		_Mem_Free( memptr, filename, fileline ); // free unused old block
-          }
+	}
 
 	return (void *)nb;
 }

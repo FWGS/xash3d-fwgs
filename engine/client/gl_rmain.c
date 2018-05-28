@@ -205,7 +205,7 @@ void R_PushScene( void )
 
 /*
 ===============
-R_PushScene
+R_PopScene
 ===============
 */
 void R_PopScene( void )
