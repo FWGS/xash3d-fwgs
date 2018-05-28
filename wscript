@@ -41,6 +41,10 @@ def options(opt):
 	opt.add_option(
 		'--release', action = 'store_true', dest = 'RELEASE', default=False,
 		help = 'strip debug info from binary and enable optimizations')
+	
+	opt.add_option(
+		'--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
+		help = 'install like Windows build, ignore prefix, useful for development')
 
 	opt.recurse(SUBDIRS)
         
@@ -69,9 +73,12 @@ def configure(conf):
 	
 	if(conf.options.RELEASE):
 		conf.env.append_unique('CFLAGS', '-O2')
+		conf.env.append_unique('CXXFLAGS', '-O2')
 	else:
 		conf.env.append_unique('CFLAGS', '-Og')
 		conf.env.append_unique('CFLAGS', '-g')
+		conf.env.append_unique('CXXFLAGS', '-Og')
+		conf.env.append_unique('CXXFLAGS', '-g')
 		
 	conf.check( lib='dl' )
 	conf.check( lib='m' )
@@ -80,6 +87,15 @@ def configure(conf):
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.DEDICATED
 	
+	# indicate if we are packaging for Linux/BSD
+	if(not conf.options.WIN_INSTALL and 
+		conf.env.DEST_OS != 'win32' and 
+		conf.env.DEST_OS != 'darwin'):
+		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
+	else:
+		# prefix is ignored
+		conf.env.LIBDIR = conf.env.BINDIR = '/'
+		
 	# global
 	conf.env.append_unique('XASH_BUILD_COMMIT', GIT_SHA)
 	

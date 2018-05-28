@@ -68,7 +68,8 @@ def build(bld):
 			target   = 'xash',
 			features = 'c cprogram',
 			includes = includes,
-			use      = libs
+			use      = libs,
+			install_path = bld.env.BINDIR
 		)
 	else:
 		bld.shlib(
@@ -76,5 +77,6 @@ def build(bld):
 			target   = 'xash',
 			features = 'c',
 			includes = includes,
-			use      = libs
+			use      = libs,
+			install_path = bld.env.LIBDIR
 		)
