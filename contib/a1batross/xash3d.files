@@ -239,7 +239,10 @@ engine/sprite.h
 engine/studio.h
 engine/vgui_api.h
 engine/warpsin.h
+engine/wscript
 game_launch/game.cpp
+game_launch/wscript
+mainui/wscript
 mainui/BaseMenu.cpp
 mainui/BaseMenu.h
 mainui/Btns.cpp
@@ -372,3 +375,5 @@ vgui_support/vgui_input.cpp
 vgui_support/vgui_int.cpp
 vgui_support/vgui_main.h
 vgui_support/vgui_surf.cpp
+vgui_support/wscript
+wscript
