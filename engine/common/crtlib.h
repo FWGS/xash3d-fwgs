@@ -36,6 +36,7 @@ enum
 #define CMD_SERVERDLL	BIT( 0 )		// added by server.dll
 #define CMD_CLIENTDLL	BIT( 1 )		// added by client.dll
 #define CMD_GAMEUIDLL	BIT( 2 )		// added by GameUI.dll
+#define CMD_LOCALONLY	BIT( 3 )		// restricted from server commands
 
 typedef void (*xcommand_t)( void );
 
@@ -54,6 +55,7 @@ const char *Cmd_Argv( int arg );
 void Cmd_Init( void );
 void Cmd_Unlink( int group );
 void Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc );
+void Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc );
 void Cmd_AddServerCommand( const char *cmd_name, xcommand_t function );
 int Cmd_AddClientCommand( const char *cmd_name, xcommand_t function );
 int Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function );

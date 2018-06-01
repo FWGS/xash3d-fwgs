@@ -603,32 +603,40 @@ void Cmd_TokenizeString( char *text )
 
 /*
 ============
-Cmd_AddCommand
+Cmd_AddCommandEx
 ============
 */
-void Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
+static int Cmd_AddCommandEx( const char *funcname, const char *cmd_name, xcommand_t function,
+	const char *cmd_desc, int iFlags )
 {
 	cmd_t	*cmd, *cur, *prev;
+
+	if( !cmd_name || !*cmd_name )
+	{
+		MsgDev( D_ERROR, "Cmd_AddServerCommand: NULL name\n" );
+		return 0;
+	}
 
 	// fail if the command is a variable name
 	if( Cvar_FindVar( cmd_name ))
 	{
-		Con_Printf( S_ERROR "Cmd_AddCommand: %s already defined as a var\n", cmd_name );
-		return;
+		MsgDev( D_ERROR, "Cmd_AddServerCommand: %s already defined as a var\n", cmd_name );
+		return 0;
 	}
-	
+
 	// fail if the command already exists
 	if( Cmd_Exists( cmd_name ))
 	{
-		Con_Printf( S_ERROR "Cmd_AddCommand: %s already defined\n", cmd_name );
-		return;
+		MsgDev( D_ERROR, "Cmd_AddServerCommand: %s already defined\n", cmd_name );
+		return 0;
 	}
 
 	// use a small malloc to avoid zone fragmentation
-	cmd = Z_Malloc( sizeof( cmd_t ));
+	cmd = Z_Malloc( sizeof( cmd_t ) );
 	cmd->name = copystring( cmd_name );
 	cmd->desc = copystring( cmd_desc );
 	cmd->function = function;
+	cmd->flags = iFlags;
 
 	// insert it at the right alphanumeric position
 	for( prev = NULL, cur = cmd_functions; cur && Q_strcmp( cur->name, cmd_name ) < 0; prev = cur, cur = cur->next );
@@ -636,6 +644,32 @@ void Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_
 	if( prev ) prev->next = cmd;
 	else cmd_functions = cmd;
 	cmd->next = cur;
+
+#if defined(XASH_HASHED_VARS)
+	BaseCmd_Insert( HM_CMD, cmd, cmd->name );
+#endif
+
+	return 1;
+}
+
+/*
+============
+Cmd_AddCommand
+============
+*/
+void Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
+{
+	Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, cmd_desc, 0 );
+}
+
+/*
+============
+Cmd_AddRestrictedCommand
+============
+*/
+void Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
+{
+	Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, cmd_desc, CMD_LOCALONLY );
 }
 
 /*
@@ -645,41 +679,7 @@ Cmd_AddServerCommand
 */
 void Cmd_AddServerCommand( const char *cmd_name, xcommand_t function )
 {
-	cmd_t	*cmd, *cur, *prev;
-
-	if( !cmd_name || !*cmd_name )
-	{
-		MsgDev( D_ERROR, "Cmd_AddServerCommand: NULL name\n" );
-		return;
-	}
-
-	// fail if the command is a variable name
-	if( Cvar_FindVar( cmd_name ))
-	{
-		MsgDev( D_ERROR, "Cmd_AddServerCommand: %s already defined as a var\n", cmd_name );
-		return;
-	}
-	
-	// fail if the command already exists
-	if( Cmd_Exists( cmd_name ))
-	{
-		MsgDev( D_ERROR, "Cmd_AddServerCommand: %s already defined\n", cmd_name );
-		return;
-	}
-
-	// use a small malloc to avoid zone fragmentation
-	cmd = Z_Malloc( sizeof( cmd_t ));
-	cmd->name = copystring( cmd_name );
-	cmd->desc = copystring( "server command" );
-	cmd->function = function;
-	cmd->flags = CMD_SERVERDLL;
-
-	// insert it at the right alphanumeric position
-	for( prev = NULL, cur = cmd_functions; cur && Q_strcmp( cur->name, cmd_name ) < 0; prev = cur, cur = cur->next );
-
-	if( prev ) prev->next = cmd;
-	else cmd_functions = cmd;
-	cmd->next = cur;
+	Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, "server command", CMD_SERVERDLL );
 }
 
 /*
@@ -689,43 +689,7 @@ Cmd_AddClientCommand
 */
 int Cmd_AddClientCommand( const char *cmd_name, xcommand_t function )
 {
-	cmd_t	*cmd, *cur, *prev;
-
-	if( !cmd_name || !*cmd_name )
-	{
-		MsgDev( D_ERROR, "Cmd_AddClientCommand: NULL name\n" );
-		return 0;
-	}
-
-	// fail if the command is a variable name
-	if( Cvar_FindVar( cmd_name ))
-	{
-		MsgDev( D_ERROR, "Cmd_AddClientCommand: %s already defined as a var\n", cmd_name );
-		return 0;
-	}
-	
-	// fail if the command already exists
-	if( Cmd_Exists( cmd_name ))
-	{
-		MsgDev( D_ERROR, "Cmd_AddClientCommand: %s already defined\n", cmd_name );
-		return 0;
-	}
-
-	// use a small malloc to avoid zone fragmentation
-	cmd = Z_Malloc( sizeof( cmd_t ));
-	cmd->name = copystring( cmd_name );
-	cmd->desc = copystring( "client command" );
-	cmd->function = function;
-	cmd->flags = CMD_CLIENTDLL;
-
-	// insert it at the right alphanumeric position
-	for( prev = NULL, cur = cmd_functions; cur && Q_strcmp( cur->name, cmd_name ) < 0; prev = cur, cur = cur->next );
-
-	if( prev ) prev->next = cmd;
-	else cmd_functions = cmd;
-	cmd->next = cur;
-
-	return 1;
+	return Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, "server command", CMD_CLIENTDLL );
 }
 
 /*
@@ -735,43 +699,7 @@ Cmd_AddGameUICommand
 */
 int Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function )
 {
-	cmd_t	*cmd, *cur, *prev;
-
-	if( !cmd_name || !*cmd_name )
-	{
-		MsgDev( D_ERROR, "Cmd_AddGameUICommand: NULL name\n" );
-		return 0;
-	}
-
-	// fail if the command is a variable name
-	if( Cvar_FindVar( cmd_name ))
-	{
-		MsgDev( D_ERROR, "Cmd_AddGameUICommand: %s already defined as a var\n", cmd_name );
-		return 0;
-	}
-	
-	// fail if the command already exists
-	if( Cmd_Exists( cmd_name ))
-	{
-		MsgDev( D_ERROR, "Cmd_AddGameUICommand: %s already defined\n", cmd_name );
-		return 0;
-	}
-
-	// use a small malloc to avoid zone fragmentation
-	cmd = Z_Malloc( sizeof( cmd_t ));
-	cmd->name = copystring( cmd_name );
-	cmd->desc = copystring( "GameUI command" );
-	cmd->function = function;
-	cmd->flags = CMD_GAMEUIDLL;
-
-	// insert it at the right alphanumeric position
-	for( prev = NULL, cur = cmd_functions; cur && Q_strcmp( cur->name, cmd_name ) < 0; prev = cur, cur = cur->next );
-
-	if( prev ) prev->next = cmd;
-	else cmd_functions = cmd;
-	cmd->next = cur;
-
-	return 1;
+	return Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, "server command", CMD_GAMEUIDLL );
 }
 
 /*
