@@ -40,6 +40,10 @@ find the specified variable by name
 */
 convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group )
 {
+	// TODO: ignore group for cvar
+#if defined(XASH_HASHED_VARS)
+	return (convar_t *)BaseCmd_Find( HM_CVAR, var_name );
+#else
 	convar_t	*var;
 
 	if( !var_name )
@@ -55,6 +59,7 @@ convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group )
 	}
 
 	return NULL;
+#endif
 }
 
 /*
@@ -239,6 +244,10 @@ int Cvar_UnlinkVar( const char *var_name, int group )
 			continue;
 		}
 
+#if defined(XASH_HASHED_VARS)
+		BaseCmd_Remove( HM_CVAR, var->name );
+#endif
+
 		// unlink variable from list
 		freestring( var->string );
 		*prev = var->next;
@@ -401,6 +410,11 @@ convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *
 	// tell engine about changes
 	Cvar_Changed( var );
 
+#if defined(XASH_HASHED_VARS)
+	// add to map
+	BaseCmd_Insert( HM_CVAR, var, var->name );
+#endif
+
 	return var;
 }
 
@@ -464,6 +478,11 @@ void Cvar_RegisterVariable( convar_t *var )
 
 	// tell engine about changes
 	Cvar_Changed( var );
+
+#if defined(XASH_HASHED_VARS)
+	// add to map
+	BaseCmd_Insert( HM_CVAR, var, var->name );
+#endif
 }
 
 /*
