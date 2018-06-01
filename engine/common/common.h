@@ -1096,6 +1096,13 @@ typedef struct sentenceEntry_ sentenceEntry_s;
 sequenceEntry_s *Sequence_Get( const char *fileName, const char *entryName );
 sentenceEntry_s *Sequence_PickSentence( const char *groupName, int pickMethod, int *picked );
 
+//
+// masterlist.c
+//
+void NET_InitMasters( void );
+void NET_SaveMasters( void );
+qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data );
+
 #ifdef __cplusplus
 }
 #endif

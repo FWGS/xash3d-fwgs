@@ -951,6 +951,8 @@ void Host_WriteConfig( void )
 		FS_Close( f );
 	}
 	else MsgDev( D_ERROR, "Couldn't write config.cfg.\n" );
+
+	NET_SaveMasters();
 }
 #endif
 

@@ -648,6 +648,8 @@ typedef struct
 
 	file_t		*demofile;
 	file_t		*demoheader;		// contain demo startup info in case we record a demo on this level
+	qboolean internetservers_wait;	// internetservers is waiting for dns request
+	qboolean internetservers_pending;	// internetservers is waiting for dns request
 } client_static_t;
 
 #ifdef __cplusplus

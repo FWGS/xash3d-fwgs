@@ -250,7 +250,7 @@ void IN_TouchExportConfig_f( void )
 
 	if( Cmd_Argc() != 2 )
 	{
-		Msg( "Usage: touch_exportconfig <name>\n" );
+		Msg( S_USAGE "touch_exportconfig <name>\n" );
 		return;
 	}
 
@@ -340,7 +340,7 @@ void IN_TouchGenetateCode_f( void )
 
 	if( Cmd_Argc() != 1 )
 	{
-		Msg( "Usage: touch_generate_code\n" );
+		Msg( S_USAGE "touch_generate_code\n" );
 		return;
 	}
 
@@ -584,7 +584,7 @@ void IN_TouchSetColor_f( void )
 		IN_TouchSetColor( &touch.list_user, Cmd_Argv(1), color );
 		return;
 	}
-	Msg( "Usage: touch_setcolor <pattern> <r> <g> <b> <a>\n" );
+	Msg( S_USAGE "touch_setcolor <pattern> <r> <g> <b> <a>\n" );
 }
 
 void IN_TouchSetTexture_f( void )
@@ -594,7 +594,7 @@ void IN_TouchSetTexture_f( void )
 		IN_TouchSetTexture( &touch.list_user, Cmd_Argv( 1 ), Cmd_Argv( 2 ) );
 		return;
 	}
-	Msg( "Usage: touch_settexture <name> <file>\n" );
+	Msg( S_USAGE "touch_settexture <name> <file>\n" );
 }
 
 void IN_TouchSetFlags_f( void )
@@ -606,7 +606,7 @@ void IN_TouchSetFlags_f( void )
 			button->flags = Q_atoi( Cmd_Argv( 2 ) );
 		return;
 	}
-	Msg( "Usage: touch_setflags <name> <file>\n" );
+	Msg( S_USAGE "touch_setflags <name> <file>\n" );
 }
 
 void IN_TouchSetCommand_f( void )
@@ -616,7 +616,7 @@ void IN_TouchSetCommand_f( void )
 		IN_TouchSetCommand( &touch.list_user, Cmd_Argv( 1 ), Cmd_Argv( 2 ) );
 		return;
 	}
-	Msg( "Usage: touch_command <name> <command>\n" );
+	Msg( S_USAGE "touch_command <name> <command>\n" );
 }
 void IN_TouchReloadConfig_f( void )
 {
@@ -779,7 +779,7 @@ void IN_TouchAddButton_f( void )
 		IN_TouchAddButton( &touch.list_user, Cmd_Argv(1), Cmd_Argv(2), Cmd_Argv(3), 0.4, 0.4, 0.6, 0.6, color );
 		return;
 	}
-	Msg( "Usage: touch_addbutton <name> <texture> <command> [<x1> <y1> <x2> <y2> [ r g b a ] ]\n" );
+	Msg( S_USAGE "touch_addbutton <name> <texture> <command> [<x1> <y1> <x2> <y2> [ r g b a ] ]\n" );
 }
 
 void IN_TouchEnableEdit_f( void )
@@ -806,7 +806,7 @@ void IN_TouchDeleteProfile_f( void )
 {
 	if( Cmd_Argc() != 2 )
 	{
-		Msg( "Usage: touch_deleteprofile <name>\n" );
+		Msg( S_USAGE "touch_deleteprofile <name>\n" );
 		return;
 	}
 

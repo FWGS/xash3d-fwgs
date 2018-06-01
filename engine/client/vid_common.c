@@ -404,7 +404,7 @@ static void VID_Mode_f( void )
 		break;
 	}
 	default:
-		Msg( "Usage: vid_mode <modenum>|<width height>\n" );
+		Msg( S_USAGE "vid_mode <modenum>|<width height>\n" );
 		return;
 	}
 
