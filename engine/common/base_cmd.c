@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "base_cmd.h"
+#include "cdll_int.h"
 
 // TODO: use another hash function, as COM_HashKey depends on string length
 #define HASH_SIZE 128 // 128 * 4 * 4 == 2048 bytes
@@ -226,4 +227,61 @@ void BaseCmd_Stats_f( void )
 	Con_Printf( "Bucket minimal length: %d\n", minsize );
 	Con_Printf( "Bucket maximum length: %d\n", maxsize );
 	Con_Printf( "Empty buckets: %d\n", empty );
+}
+
+static void BaseCmd_CheckCvars( const char *key, const char *value, void *buffer, void *ptr )
+{
+	base_command_t *v = BaseCmd_Find( HM_CVAR, key );
+	qboolean *invalid = ptr;
+
+	if( !v )
+	{
+		Con_Printf( "Cvar %s is missing in basecmd\n", key );
+		*invalid = true;
+	}
+}
+
+/*
+============
+BaseCmd_Stats_f
+
+testing order matches cbuf execute
+============
+*/
+void BaseCmd_Test_f( void )
+{
+	void *cmd;
+	cmdalias_t *a;
+	qboolean invalid = false;
+
+	// Cmd_LookupCmds don't allows to check alias, so just iterate
+	for( a = Cmd_AliasGetList(); a; a = a->next )
+	{
+		base_command_t *v = BaseCmd_Find( HM_CMDALIAS, a->name );
+
+		if( !v )
+		{
+			Con_Printf( "Alias %s is missing in basecmd\n", a->name );
+			invalid = true;
+		}
+	}
+
+	for( cmd = Cmd_GetFirstFunctionHandle(); cmd;
+		 cmd = Cmd_GetNextFunctionHandle( cmd ) )
+	{
+		base_command_t *v = BaseCmd_Find( HM_CMD, Cmd_GetName( cmd ) );
+
+		if( !v )
+		{
+			Con_Printf( "Command %s is missing in basecmd\n", Cmd_GetName( cmd ) );
+			invalid = true;
+		}
+	}
+
+	Cvar_LookupVars( 0, NULL, &invalid, BaseCmd_CheckCvars );
+
+	if( !invalid )
+	{
+		Con_Printf( "BaseCmd is valid\n" );
+	}
 }

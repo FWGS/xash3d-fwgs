@@ -1164,5 +1164,6 @@ void Cmd_Init( void )
 
 #if defined(XASH_HASHED_VARS)
 	Cmd_AddCommand( "basecmd_stats", BaseCmd_Stats_f, "print info about basecmd usage" );
+	Cmd_AddCommand( "basecmd_test", BaseCmd_Test_f, "test basecmd" );
 #endif
 }
