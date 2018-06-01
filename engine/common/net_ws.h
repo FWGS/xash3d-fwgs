@@ -54,6 +54,7 @@ char *NET_BaseAdrToString( const netadr_t a );
 qboolean NET_IsReservedAdr( netadr_t a );
 qboolean NET_CompareClassBAdr( netadr_t a, netadr_t b );
 qboolean NET_StringToAdr( const char *string, netadr_t *adr );
+int NET_StringToAdrNB( const char *string, netadr_t *adr );
 qboolean NET_CompareAdr( const netadr_t a, const netadr_t b );
 qboolean NET_CompareBaseAdr( const netadr_t a, const netadr_t b );
 qboolean NET_GetPacket( netsrc_t sock, netadr_t *from, byte *data, size_t *length );

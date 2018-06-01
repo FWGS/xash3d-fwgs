@@ -54,7 +54,7 @@ static void Vibrate_f()
 {
 	if( Cmd_Argc() != 2 )
 	{
-		Msg( "Usage: vibrate <time>\n" );
+		Msg( S_USAGE "vibrate <time>\n" );
 		return;
 	}
 

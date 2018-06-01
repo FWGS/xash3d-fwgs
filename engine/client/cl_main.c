@@ -1020,6 +1020,10 @@ Resend a connect message if the last one has timed out
 void CL_CheckForResend( void )
 {
 	netadr_t	adr;
+	int res;
+
+	if( cls.internetservers_wait )
+		CL_InternetServers_f();
 
 	// if the local server is running and we aren't then connect
 	if( cls.state == ca_disconnected && SV_Active( ))
@@ -1044,10 +1048,18 @@ void CL_CheckForResend( void )
 	if(( host.realtime - cls.connect_time ) < cl_resend.value )
 		return;
 
-	if( !NET_StringToAdr( cls.servername, &adr ))
+	res = NET_StringToAdrNB( cls.servername, &adr );
+
+	if( !res )
 	{
 		MsgDev( D_ERROR, "CL_CheckForResend: bad server address\n" );
 		CL_Disconnect();
+		return;
+	}
+
+	if( res == 2 )
+	{
+		cls.connect_time = MAX_HEARTBEAT;
 		return;
 	}
 
@@ -1424,6 +1436,8 @@ void CL_LocalServers_f( void )
 	Netchan_OutOfBandPrint( NS_CLIENT, adr, "info %i", PROTOCOL_VERSION );
 }
 
+#define MS_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0"
+
 /*
 =================
 CL_InternetServers_f
@@ -1431,23 +1445,28 @@ CL_InternetServers_f
 */
 void CL_InternetServers_f( void )
 {
-	netadr_t	adr;
-	char	fullquery[512] = "1\xFF" "0.0.0.0:0\0" "\\gamedir\\";
+	char	fullquery[512] = MS_SCAN_REQUEST;
+	char *info = fullquery + sizeof( MS_SCAN_REQUEST ) - 1;
+	const size_t remaining = sizeof( fullquery ) - sizeof( MS_SCAN_REQUEST );
 
-	Con_Printf( "Scanning for servers on the internet area...\n" );
+	// Info_SetValueForKey( info, "nat", cl_nat->string, remaining );
+	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
+
+	// let master know about client version
+	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining );
+
 	NET_Config( true ); // allow remote
 
-	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ) )
-		MsgDev( D_ERROR, "Can't resolve adr: %s\n", MASTERSERVER_ADR );
+	cls.internetservers_wait = NET_SendToMasters( NS_CLIENT, sizeof( MS_SCAN_REQUEST ) + Q_strlen( info ), fullquery );
+	cls.internetservers_pending = true;
 
-	Q_strcpy( &fullquery[22], GI->gamefolder );
-
-	NET_SendPacket( NS_CLIENT, Q_strlen( GI->gamefolder ) + 23, fullquery, adr );
-
-	// now we clearing the vgui request
-	if( clgame.master_request != NULL )
-		memset( clgame.master_request, 0, sizeof( net_request_t ));
-	clgame.request_type = NET_REQUEST_GAMEUI;
+	if( !cls.internetservers_wait )
+	{
+		// now we clearing the vgui request
+		if( clgame.master_request != NULL )
+			memset( clgame.master_request, 0, sizeof( net_request_t ));
+		clgame.request_type = NET_REQUEST_GAMEUI;
+	}
 }
 
 /*
@@ -1906,6 +1925,12 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 				NET_Config( true ); // allow remote
 				Netchan_OutOfBandPrint( NS_CLIENT, servadr, "info %i", PROTOCOL_VERSION );
 			}
+		}
+
+		if( cls.internetservers_pending )
+		{
+			Cbuf_AddText( "menu_resetping\n" ); // TODO: New Menu API
+			cls.internetservers_pending = false;
 		}
 	}
 	else if( clgame.dllFuncs.pfnConnectionlessPacket( &from, args, buf, &len ))

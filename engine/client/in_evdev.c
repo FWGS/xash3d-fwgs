@@ -183,7 +183,7 @@ void Evdev_OpenDevice ( const char *path )
 void Evdev_OpenDevice_f( void )
 {
 	if( Cmd_Argc() < 2 )
-		Msg( "Usage: evdev_opendevice <path>\n" );
+		Msg( S_USAGE "evdev_opendevice <path>\n" );
 
 	Evdev_OpenDevice( Cmd_Argv( 1 ) );
 }
