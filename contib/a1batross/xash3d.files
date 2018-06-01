@@ -108,6 +108,8 @@ engine/client/vgui/vgui_draw.h
 engine/client/vid_common.c
 engine/client/vid_common.h
 engine/client/vox.h
+engine/common/base_cmd.c
+engine/common/base_cmd.h
 engine/common/build.c
 engine/common/cfgscript.c
 engine/common/cmd.c

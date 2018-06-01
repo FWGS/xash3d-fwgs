@@ -83,6 +83,8 @@ client_t		cl;
 client_static_t	cls;
 clgame_static_t	clgame;
 
+void CL_InternetServers_f( void );
+
 //======================================================================
 int CL_Active( void )
 {
