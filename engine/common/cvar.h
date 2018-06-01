@@ -66,7 +66,7 @@ const char *Cvar_VariableString( const char *var_name );
 void Cvar_WriteVariables( file_t *f, int group );
 void Cvar_Reset( const char *var_name );
 void Cvar_SetCheatState( void );
-qboolean Cvar_Command( void );
+qboolean Cvar_Command( convar_t *v );
 void Cvar_Init( void );
 void Cvar_Unlink( int group );
 

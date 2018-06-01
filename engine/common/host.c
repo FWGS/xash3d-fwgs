@@ -822,6 +822,9 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	// init host state machine
 	COM_InitHostState();
 
+	// init hashed commands
+	BaseCmd_Init();
+
 	// startup cmds and cvars subsystem
 	Cmd_Init();
 	Cvar_Init();

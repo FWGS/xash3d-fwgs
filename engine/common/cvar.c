@@ -13,8 +13,9 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <math.h>	// fabs...
 #include "common.h"
-#include "math.h"	// fabs...
+#include "base_cmd.h"
 
 convar_t	*cvar_vars = NULL; // head of list
 convar_t	*cmd_scripting;
@@ -690,10 +691,8 @@ Cvar_Command
 Handles variable inspection and changing from the console
 ============
 */
-qboolean Cvar_Command( void )
+qboolean Cvar_Command( convar_t *v )
 {
-	convar_t	*v;
-
 	// special case for setup opengl configuration
 	if( host.apply_opengl_config )
 	{
@@ -702,7 +701,8 @@ qboolean Cvar_Command( void )
 	}
 
 	// check variables
-	v = Cvar_FindVar( Cmd_Argv( 0 ));
+	if( !v ) // already found in basecmd
+		v = Cvar_FindVar( Cmd_Argv( 0 ));
 	if( !v ) return false;
 
 	// perform a variable print or set

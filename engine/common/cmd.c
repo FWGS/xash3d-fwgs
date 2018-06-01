@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "client.h"
 #include "server.h"
+#include "base_cmd.h"
 
 #define MAX_CMD_BUFFER	32768
 #define MAX_CMD_LINE	2048
@@ -380,6 +381,10 @@ void Cmd_Alias_f( void )
 		if( prev ) prev->next = a;
 		else cmd_alias = a;
 		a->next = cur;
+
+#if defined( XASH_HASHED_VARS )
+		BaseCmd_Insert( HM_CMDALIAS, a, a->name );
+#endif
 	}
 
 	// copy the rest of the command line
@@ -425,6 +430,9 @@ static void Cmd_UnAlias_f ( void )
 		{
 			if( !Q_strcmp( s, a->name ))
 			{
+#if defined( XASH_HASHED_VARS )
+				BaseCmd_Remove( HM_CMDALIAS, a->name );
+#endif
 				if( a == cmd_alias )
 					cmd_alias = a->next;
 				if( p ) p->next = a->next;
@@ -722,6 +730,10 @@ void Cmd_RemoveCommand( const char *cmd_name )
 
 		if( !Q_strcmp( cmd_name, cmd->name ))
 		{
+#if defined(XASH_HASHED_VARS)
+			BaseCmd_Remove( HM_CMD, cmd->name );
+#endif
+
 			*back = cmd->next;
 
 			if( cmd->name )
@@ -768,6 +780,9 @@ Cmd_Exists
 */
 qboolean Cmd_Exists( const char *cmd_name )
 {
+#if defined(XASH_HASHED_VARS)
+	return BaseCmd_Find( HM_CMD, cmd_name ) != NULL;
+#else
 	cmd_t	*cmd;
 
 	for( cmd = cmd_functions; cmd; cmd = cmd->next )
@@ -776,6 +791,7 @@ qboolean Cmd_Exists( const char *cmd_name )
 			return true;
 	}
 	return false;
+#endif
 }
 
 /*
@@ -860,8 +876,9 @@ A complete command line has been parsed, so try to execute it
 */
 void Cmd_ExecuteString( char *text )
 {	
-	cmd_t		*cmd;
-	cmdalias_t	*a;
+	cmd_t	*cmd = NULL;
+	cmdalias_t	*a = NULL;
+	convar_t *cvar = NULL;
 	char		command[MAX_CMD_LINE];
 	char		*pcmd = command;
 	int		len = 0;
@@ -916,9 +933,22 @@ void Cmd_ExecuteString( char *text )
 
 	if( !Cmd_Argc( )) return; // no tokens
 
+#if defined(XASH_HASHED_VARS)
+	BaseCmd_FindAll( cmd_argv[0],
+		(base_command_t**)&cmd,
+		(base_command_t**)&a,
+		(base_command_t**)&cvar );
+#endif
+
 	if( !host.apply_game_config )
 	{
 		// check aliases
+		if( a ) // already found in basecmd
+		{
+			Cbuf_InsertText( a->value );
+			return;
+		}
+
 		for( a = cmd_alias; a; a = a->next )
 		{
 			if( !Q_stricmp( cmd_argv[0], a->name ))
@@ -933,6 +963,12 @@ void Cmd_ExecuteString( char *text )
 	if( !host.apply_game_config || !Q_strcmp( cmd_argv[0], "exec" ))
 	{
 		// check functions
+		if( cmd && cmd->function ) // already found in basecmd
+		{
+			cmd->function();
+			return;
+		}
+
 		for( cmd = cmd_functions; cmd; cmd = cmd->next )
 		{
 			if( !Q_stricmp( cmd_argv[0], cmd->name ) && cmd->function )
@@ -944,7 +980,7 @@ void Cmd_ExecuteString( char *text )
 	}
 
 	// check cvars
-	if( Cvar_Command( )) return;
+	if( Cvar_Command( cvar )) return;
 
 	if( host.apply_game_config )
 		return; // don't send nothing to server: we is a server!
@@ -1125,4 +1161,8 @@ void Cmd_Init( void )
 	Cmd_AddCommand( "unalias", Cmd_UnAlias_f, "remove a script function" );
 	Cmd_AddCommand( "if", Cmd_If_f, "compare and set condition bits" );
 	Cmd_AddCommand( "else", Cmd_Else_f, "invert condition bit" );
+
+#if defined(XASH_HASHED_VARS)
+	Cmd_AddCommand( "basecmd_stats", BaseCmd_Stats_f, "print info about basecmd usage" );
+#endif
 }
