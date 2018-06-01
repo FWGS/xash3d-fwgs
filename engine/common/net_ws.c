@@ -119,7 +119,6 @@ static dllfunc_t kernel32_funcs[] =
 
 dll_info_t kernel32_dll = { "kernel32.dll", kernel32_funcs, false };
 
-
 static void NET_InitializeCriticalSections( void );
 
 qboolean NET_OpenWinSock( void )
@@ -136,7 +135,7 @@ void NET_FreeWinSock( void )
 {
 	Sys_FreeLibrary( &winsock_dll );
 }
-#else
+#else // _WIN32
 #define pHtons htons
 #define pConnect connect
 #define pInet_Addr inet_addr
@@ -157,9 +156,47 @@ void NET_FreeWinSock( void )
 #define pGetHostByName gethostbyname
 #define pSelect select
 #define pGetAddrInfo getaddrinfo
+#define pWSAGetLastError() errno
+
 #define SOCKET int
-#define INVALID_SOCKET 0
-#endif
+#define INVALID_SOCKET -1
+
+#define WSAEINTR           EINTR
+#define WSAEBADF           EBADF
+#define WSAEACCES          EACCES
+#define WSAEFAULT          EFAULT
+#define WSAEINVAL          EINVAL
+#define WSAEMFILE          EMFILE
+#define WSAEWOULDBLOCK     EWOULDBLOCK
+#define WSAEINPROGRESS     EINPROGRESS
+#define WSAEALREADY        EALREADY
+#define WSAENOTSOCK        ENOTSOCK
+#define WSAEDESTADDRREQ    EDESTADDRREQ
+#define WSAEMSGSIZE        EMSGSIZE
+#define WSAEPROTOTYPE      EPROTOTYPE
+#define WSAENOPROTOOPT     ENOPROTOOPT
+#define WSAEPROTONOSUPPORT EPROTONOSUPPORT
+#define WSAESOCKTNOSUPPORT ESOCKTNOSUPPORT
+#define WSAEOPNOTSUPP      EOPNOTSUPP
+#define WSAEPFNOSUPPORT    EPFNOSUPPORT
+#define WSAEAFNOSUPPORT    EAFNOSUPPORT
+#define WSAEADDRINUSE      EADDRINUSE
+#define WSAEADDRNOTAVAIL   EADDRNOTAVAIL
+#define WSAENETDOWN        ENETDOWN
+#define WSAENETUNREACH     ENETUNREACH
+#define WSAENETRESET       ENETRESET
+#define WSAECONNABORTED    ECONNABORTED
+#define WSAECONNRESET      ECONNRESET
+#define WSAENOBUFS         ENOBUFS
+#define WSAEISCONN         EISCONN
+#define WSAENOTCONN        ENOTCONN
+#define WSAESHUTDOWN       ESHUTDOWN
+#define WSAETOOMANYREFS    ETOOMANYREFS
+#define WSAETIMEDOUT       ETIMEDOUT
+#define WSAECONNREFUSED    ECONNREFUSED
+#define WSAELOOP           ELOOP
+#define WSAENAMETOOLONG    ENAMETOOLONG
+#define WSAEHOSTDOWN       EHOSTDOWN
 
 #ifdef __EMSCRIPTEN__
 /* All socket operations are non-blocking already */
@@ -169,7 +206,8 @@ static int ioctl_stub( int d, unsigned long r, ...)
 }
 #undef pIoctlSocket
 #define pIoctlSocket ioctl_stub
-#endif
+#endif // __EMSCRIPTEN__
+#endif // !_WIN32
 
 typedef struct
 {
@@ -223,6 +261,7 @@ typedef struct
 	long		sequence_number;
 	int		ip_sockets[NS_COUNT];
 	qboolean		initialized;
+	qboolean		threads_initialized;
 	qboolean		configured;
 	qboolean		allow_ip;
 #ifdef _WIN32
@@ -260,7 +299,6 @@ char *NET_ErrorString( void )
 	case WSAEINTR: return "WSAEINTR";
 	case WSAEBADF: return "WSAEBADF";
 	case WSAEACCES: return "WSAEACCES";
-	case WSAEDISCON: return "WSAEDISCON";
 	case WSAEFAULT: return "WSAEFAULT";
 	case WSAEINVAL: return "WSAEINVAL";
 	case WSAEMFILE: return "WSAEMFILE";
@@ -294,6 +332,7 @@ char *NET_ErrorString( void )
 	case WSAELOOP: return "WSAELOOP";
 	case WSAENAMETOOLONG: return "WSAENAMETOOLONG";
 	case WSAEHOSTDOWN: return "WSAEHOSTDOWN";
+	case WSAEDISCON: return "WSAEDISCON";
 	case WSASYSNOTREADY: return "WSASYSNOTREADY";
 	case WSAVERNOTSUPPORTED: return "WSAVERNOTSUPPORTED";
 	case WSANOTINITIALISED: return "WSANOTINITIALISED";
@@ -322,7 +361,7 @@ _inline qboolean NET_IsSocketValid( int socket )
 #ifdef _WIN32
 	return socket != INVALID_SOCKET;
 #else
-	return socket;
+	return socket >= 0;
 #endif
 }
 
@@ -364,12 +403,52 @@ static void NET_SockadrToNetadr( struct sockaddr *s, netadr_t *a )
 	}
 }
 
+/*
+============
+NET_GetHostByName
+============
+*/
+int NET_GetHostByName( const char *hostname )
+{
+#ifdef HAVE_GETADDRINFO
+	struct addrinfo *ai = NULL, *cur;
+	struct addrinfo hints;
+	int ip;
+
+	memset( &hints, 0, sizeof( hints ));
+	hints.ai_family = AF_INET;
+
+	if( !pGetAddrInfo( hostname, NULL, &hints, &ai ))
+	{
+		for( cur = ai; cur; cur = cur->ai_next )
+		{
+			if( cur->ai_family == AF_INET )
+			{
+				ip = *((int*)&((struct sockaddr_in *)cur->ai_addr)->sin_addr);
+				break;
+			}
+		}
+
+		if( ai )
+			freeaddrinfo( ai );
+	}
+
+	return ip;
+#else
+	struct hostent *h;
+	if(!( h = pGetHostByName( copy )))
+		return 0;
+	return *(int *)h->h_addr_list[0];
+#endif
+}
+
 #if !defined XASH_NO_ASYNC_NS_RESOLVE && ( defined _WIN32 || !defined __EMSCRIPTEN__ )
 #define CAN_ASYNC_NS_RESOLVE
 #endif
 
 #ifdef CAN_ASYNC_NS_RESOLVE
 static void NET_ResolveThread( void );
+
 #if !defined _WIN32
 #include <pthread.h>
 #define mutex_lock pthread_mutex_lock
@@ -385,14 +464,14 @@ void *NET_ThreadStart( void *unused )
 	NET_ResolveThread();
 	return NULL;
 }
-
 #else // WIN32
-struct cs {
+typedef struct cs
+{
 	void* p1;
 	int   i1, i2;
 	void *p2, *p3;
 	uint  i4;
-};
+} mutex_t;
 #define mutex_lock pEnterCriticalSection
 #define mutex_unlock pLeaveCriticalSection
 #define detach_thread( x ) CloseHandle(x)
@@ -405,7 +484,7 @@ DWORD WINAPI NET_ThreadStart( LPVOID unused )
 	ExitThread(0);
 	return 0;
 }
-#endif
+#endif // !_WIN32
 
 #ifdef DEBUG_RESOLVE
 #define RESOLVE_DBG(x) Sys_PrintLog(x)
@@ -430,6 +509,7 @@ static struct nsthread_s
 #ifdef _WIN32
 static void NET_InitializeCriticalSections( void )
 {
+	net.threads_initialized = true;
 	pInitializeCriticalSection( &nsthread.mutexns );
 	pInitializeCriticalSection( &nsthread.mutexres );
 }
@@ -437,75 +517,29 @@ static void NET_InitializeCriticalSections( void )
 
 void NET_ResolveThread( void )
 {
-#ifdef HAVE_GETADDRINFO
-	struct addrinfo *ai = NULL, *cur;
-	struct addrinfo hints;
 	int sin_addr = 0;
 
 	RESOLVE_DBG( "[resolve thread] starting resolve for " );
 	RESOLVE_DBG( nsthread.hostname );
+#ifdef HAVE_GETADDRINFO
 	RESOLVE_DBG( " with getaddrinfo\n" );
-	memset( &hints, 0, sizeof( hints ) );
-	hints.ai_family = AF_INET;
-	if( !pGetAddrInfo( nsthread.hostname, NULL, &hints, &ai ) )
-	{
-		for( cur = ai; cur; cur = cur->ai_next ) {
-			if( cur->ai_family == AF_INET ) {
-				sin_addr = *((int*)&((struct sockaddr_in *)cur->ai_addr)->sin_addr);
-				freeaddrinfo( ai );
-				ai = NULL;
-				break;
-			}
-		}
+#else
+	RESOLVE_DBG( " with gethostbyname\n" );
+#endif
 
-		if( ai )
-			freeaddrinfo( ai );
-	}
+	sin_addr = NET_GetHostByName( nsthread.hostname );
 
 	if( sin_addr )
-		RESOLVE_DBG( "[resolve thread] getaddrinfo success\n" );
+		RESOLVE_DBG( "[resolve thread] success\n" );
 	else
-		RESOLVE_DBG( "[resolve thread] getaddrinfo failed\n" );
+		RESOLVE_DBG( "[resolve thread] failed\n" );
 	mutex_lock( &nsthread.mutexres );
 	nsthread.result = sin_addr;
 	nsthread.busy = false;
 	RESOLVE_DBG( "[resolve thread] returning result\n" );
 	mutex_unlock( &nsthread.mutexres );
 	RESOLVE_DBG( "[resolve thread] exiting thread\n" );
-#else
-	struct hostent *res;
-
-	RESOLVE_DBG( "[resolve thread] starting resolve for " );
-	RESOLVE_DBG( nsthread.hostname );
-	RESOLVE_DBG( " with gethostbyname\n" );
-
-	mutex_lock( &nsthread.mutexns );
-	RESOLVE_DBG( "[resolve thread] locked gethostbyname mutex\n" );
-	res = pGetHostByName( nsthread.hostname );
-	if(res)
-		RESOLVE_DBG( "[resolve thread] gethostbyname success\n" );
-	else
-		RESOLVE_DBG( "[resolve thread] gethostbyname failed\n" );
-
-	mutex_lock( &nsthread.mutexres );
-	RESOLVE_DBG( "[resolve thread] returning result\n" );
-	if( res )
-		nsthread.result = *(int *)res->h_addr_list[0];
-	else
-		nsthread.result = 0;
-
-	nsthread.busy = false;
-
-	mutex_unlock( &nsthread.mutexns );
-
-	RESOLVE_DBG( "[resolve thread] unlocked gethostbyname mutex\n" );
-
-	mutex_unlock( &nsthread.mutexres );
-
-	RESOLVE_DBG( "[resolve thread] exiting thread\n" );
-#endif
 }
-
 #endif // CAN_ASYNC_NS_RESOLVE
 
 
@@ -526,7 +560,8 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr *sadr, qboolean 
 	char	*colon;
 	char	copy[128];
 
-	if( !net.initialized ) return false;
+	if( !net.initialized )
+		return false;
 	
 	memset( sadr, 0, sizeof( *sadr ));
 
@@ -551,122 +586,50 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr *sadr, qboolean 
 	}
 	else
 	{
+		qboolean asyncfailed = true;
+
 #ifdef CAN_ASYNC_NS_RESOLVE
-		qboolean asyncfailed = false;
-#ifdef _WIN32
-		if( pInitializeCriticalSection )
-#endif // _WIN32
+		if( net.threads_initialized && !nonblocking )
 		{
-			if( !nonblocking )
+			mutex_lock( &nsthread.mutexres );
+
+			if( nsthread.busy )
 			{
-#ifdef HAVE_GETADDRINFO
-				struct addrinfo *ai = NULL, *cur;
-				struct addrinfo hints;
+				mutex_unlock( &nsthread.mutexres );
+				return 2;
+			}
 
-				memset( &hints, 0, sizeof( hints ) );
-				hints.ai_family = AF_INET;
-				if( !pGetAddrInfo( copy, NULL, &hints, &ai ) )
-				{
-					for( cur = ai; cur; cur = cur->ai_next )
-					{
-						if( cur->ai_family == AF_INET )
-						{
-							ip = *((int*)&((struct sockaddr_in *)cur->ai_addr)->sin_addr);
-							freeaddrinfo(ai);
-							ai = NULL;
-							break;
-						}
-					}
-
-					if( ai )
-						freeaddrinfo(ai);
-				}
-#else
-				struct hostent *h;
-
-				mutex_lock( &nsthread.mutexns );
-				h = pGetHostByName( copy );
-				if( !h )
-				{
-					mutex_unlock( &nsthread.mutexns );
-					return 0;
-				}
-
-				ip = *(int *)h->h_addr_list[0];
-				mutex_unlock( &nsthread.mutexns );
-#endif
+			if( !Q_strcmp( copy, nsthread.hostname ) )
+			{
+				ip = nsthread.result;
+				nsthread.hostname[0] = 0;
+				detach_thread( nsthread.thread );
 			}
 			else
 			{
-				mutex_lock( &nsthread.mutexres );
+				Q_strncpy( nsthread.hostname, copy, MAX_STRING );
+				nsthread.busy = true;
+				mutex_unlock( &nsthread.mutexres );
 
-				if( nsthread.busy )
+				if( create_thread( NET_ThreadStart ) )
 				{
-					mutex_unlock( &nsthread.mutexres );
+					asyncfailed = false;
 					return 2;
 				}
-
-				if( !Q_strcmp( copy, nsthread.hostname ) )
+				else // failed to create thread
 				{
-					ip = nsthread.result;
-					nsthread.hostname[0] = 0;
-					detach_thread( nsthread.thread );
+					MsgDev( D_ERROR, "NET_StringToSockaddr: failed to create thread!\n");
+					nsthread.busy = false;
 				}
-				else
-				{
-					Q_strncpy( nsthread.hostname, copy, MAX_STRING );
-					nsthread.busy = true;
-					mutex_unlock( &nsthread.mutexres );
-
-					if( create_thread( NET_ThreadStart ) )
-						return 2;
-					else // failed to create thread
-					{
-						MsgDev( D_ERROR, "NET_StringToSockaddr: failed to create thread!\n");
-						nsthread.busy = false;
-						asyncfailed = true;
-					}
-				}
-
-				mutex_unlock( &nsthread.mutexres );
 			}
+
+			mutex_unlock( &nsthread.mutexres );
 		}
-#ifdef _WIN32
-		else
-			asyncfailed = true;
-#else
-		if( asyncfailed )
-#endif // _WIN32
 #endif // CAN_ASYNC_NS_RESOLVE
+
+		if( asyncfailed )
 		{
-#ifdef HAVE_GETADDRINFO
-			struct addrinfo *ai = NULL, *cur;
-			struct addrinfo hints;
-
-			memset( &hints, 0, sizeof( hints ) );
-			hints.ai_family = AF_INET;
-			if( !pGetAddrInfo( copy, NULL, &hints, &ai ) )
-			{
-				for( cur = ai; cur; cur = cur->ai_next )
-				{
-					if( cur->ai_family == AF_INET )
-					{
-						ip = *((int*)&((struct sockaddr_in *)cur->ai_addr)->sin_addr);
-						freeaddrinfo(ai);
-						ai = NULL;
-						break;
-					}
-				}
-
-				if( ai )
-					freeaddrinfo(ai);
-			}
-#else
-			struct hostent *h;
-			if(!( h = pGetHostByName( copy )))
-				return 0;
-			ip = *(int *)h->h_addr_list[0];
-#endif
+			ip = NET_GetHostByName( copy );
 		}
 
 		if( !ip )
@@ -1272,7 +1235,6 @@ qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *len
 		}
 		else
 		{
-#ifdef _WIN32
 			int	err = pWSAGetLastError();
 
 			switch( err )
@@ -1286,19 +1248,6 @@ qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *len
 				MsgDev( D_ERROR, "NET_QueuePacket: %s from %s\n", NET_ErrorString(), NET_AdrToString( *from ));
 				break;
 			}
-#else
-			switch( errno )
-			{
-			case EWOULDBLOCK:
-			case ECONNRESET:
-			case ECONNREFUSED:
-			case EMSGSIZE:
-				break;
-			default:	// let's continue even after errors
-				MsgDev( D_ERROR, "NET_QueuePacket: %s from %s\n", NET_ErrorString(), NET_AdrToString( *from ));
-				break;
-			}
-#endif
 		}
 	}
 
@@ -1434,37 +1383,21 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 
 	if( NET_IsSocketError( ret ))
 	{
-		int err = 0;
-		{
-#ifdef _WIN32
-			err = pWSAGetLastError();
+		int err = pWSAGetLastError();
 
-			// WSAEWOULDBLOCK is silent
-			if( err == WSAEWOULDBLOCK )
-				return;
+		// WSAEWOULDBLOCK is silent
+		if( err == WSAEWOULDBLOCK )
+			return;
 
-			// some PPP links don't allow broadcasts
-			if( err == WSAEADDRNOTAVAIL && to.type == NA_BROADCAST )
-				return;
-#else
-			// WSAEWOULDBLOCK is silent
-			if( errno == EWOULDBLOCK )
-				return;
+		// some PPP links don't allow broadcasts
+		if( err == WSAEADDRNOTAVAIL && to.type == NA_BROADCAST )
+			return;
 
-			// some PPP links don't allow broadcasts
-			if( errno == EADDRNOTAVAIL && to.type == NA_BROADCAST )
-				return;
-#endif
-		}
 		if( Host_IsDedicated() )
 		{
 			MsgDev( D_ERROR, "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
 		}
-#ifdef _WIN32
 		else if( err == WSAEADDRNOTAVAIL || err == WSAENOBUFS )
-#else
-		else if( errno == EADDRNOTAVAIL || errno == ENOBUFS )
-#endif
 		{
 			MsgDev( D_ERROR, "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
 		}
@@ -1552,12 +1485,8 @@ static int NET_IPSocket( const char *net_interface, int port, qboolean multicast
 
 	if( NET_IsSocketError(( net_socket = pSocket( PF_INET, SOCK_DGRAM, IPPROTO_UDP )) ) )
 	{
-#ifdef _WIN32
-		int err = pWSAGetLastError();
+		err = pWSAGetLastError();
 		if( err != WSAEAFNOSUPPORT )
-#else
-		if( err != EAFNOSUPPORT )
-#endif
 			MsgDev( D_WARN, "NET_UDPSocket: socket = %s\n", NET_ErrorString( ));
 		return INVALID_SOCKET;
 	}
@@ -1594,12 +1523,8 @@ static int NET_IPSocket( const char *net_interface, int port, qboolean multicast
 
 		if( NET_IsSocketError( pSetSockopt( net_socket, IPPROTO_IP, IP_TOS, (const char *)&optval, sizeof( optval )) ) )
 		{
-#ifdef _WIN32
 			err = pWSAGetLastError();
 			if( err != WSAENOPROTOOPT )
-#else
-			if( errno != ENOPROTOOPT )
-#endif
 				Con_Printf( S_WARN "NET_UDPSocket: port: %d  setsockopt IP_TOS: %s\n", port, NET_ErrorString( ));
 			pCloseSocket( net_socket );
 			return INVALID_SOCKET;
@@ -1887,6 +1812,9 @@ void NET_Init( void )
 		NET_FreeWinSock();
 		return;
 	}
+#else
+	// we have pthreads by default
+	net.threads_initialized = true;
 #endif
 
 	if( Sys_CheckParm( "-noip" ))
