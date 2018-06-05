@@ -417,8 +417,9 @@ public class XashActivity extends Activity {
 		else 
 			handler = new JoystickHandler();
 		handler.init();
-		
-		mHasVibrator = mHasVibrator && ( handler.hasVibrator() );
+
+		mVibrator = ( Vibrator )getSystemService( Context.VIBRATOR_SERVICE );
+		mHasVibrator =  handler.hasVibrator() && (mVibrator != null);
 		
 		mPixelFormat = mPref.getInt( "pixelformat", 0 );
 		mUseVolume = mPref.getBoolean( "usevolume", false );
@@ -432,8 +433,6 @@ public class XashActivity extends Activity {
 		else mImmersiveMode = new ImmersiveMode();
 			
 		mDecorView = getWindow().getDecorView();
-		
-		mVibrator = ( Vibrator )getSystemService( Context.VIBRATOR_SERVICE );
 
 		if( mPref.getBoolean( "resolution_fixed", false ) )
 		{
@@ -2040,7 +2039,9 @@ class JoystickHandler_v12 extends JoystickHandler
 	@Override
 	public boolean hasVibrator()
 	{
-		return XashActivity.mVibrator.hasVibrator();
+		if( XashActivity.mVibrator != null )
+			return XashActivity.mVibrator.hasVibrator();
+		return false;
 	}
 	
 	@Override
