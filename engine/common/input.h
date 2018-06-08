@@ -26,8 +26,11 @@ INPUT
 
 #include "keydefs.h"
 
-#define WHEEL_DELTA		120		// Default value for rolling one notch
+#ifndef WM_MOUSEWHEEL
 #define WM_MOUSEWHEEL	( WM_MOUSELAST + 1 )// message that will be supported by the OS
+#endif
+
+#define WHEEL_DELTA		120		// Default value for rolling one notch
 #define MK_XBUTTON1		0x0020
 #define MK_XBUTTON2		0x0040
 #define MK_XBUTTON3		0x0080
@@ -35,6 +38,7 @@ INPUT
 #define MK_XBUTTON5		0x0200
 #define WM_XBUTTONUP	0x020C
 #define WM_XBUTTONDOWN	0x020B
+
 
 //
 // input.c

@@ -898,6 +898,8 @@ void CL_SetupPMove( playermove_t *pmove, local_state_t *from, usercmd_t *ucmd, q
 int CL_TestLine( const vec3_t start, const vec3_t end, int flags );
 pmtrace_t *CL_VisTraceLine( vec3_t start, vec3_t end, int flags );
 pmtrace_t CL_TraceLine( vec3_t start, vec3_t end, int flags );
+void CL_PushTraceBounds( int hullnum, const float *mins, const float *maxs );
+void CL_PopTraceBounds( void );
 void CL_MoveSpectatorCamera( void );
 void CL_SetLastUpdate( void );
 void CL_RedoPrediction( void );

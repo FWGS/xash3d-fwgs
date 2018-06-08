@@ -442,20 +442,15 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	}
 
 	// Iterator to resample noise waveform (it needs to be generated in powers of 2)
-	noiseStep = (int)((float)( NOISE_DIVISIONS - 1 ) * div * 65536.0f );
-	noiseIndex = 0;
-	
+	noiseStep = noiseIndex = (int)((float)( NOISE_DIVISIONS - 1 ) * div * 65536.0f );
+
 	if( FBitSet( flags, FBEAM_SINENOISE ))
-	{
 		noiseIndex = 0;
-	}
 
 	brightness = 1.0f;
 
 	if( FBitSet( flags, FBEAM_SHADEIN ))
-	{
 		brightness = 0;
-	}
 
 	// Choose two vectors that are perpendicular to the beam
 	R_BeamComputePerpendicular( delta, perp1 );
@@ -1333,7 +1328,7 @@ CL_InitViewBeams
 */
 void CL_InitViewBeams( void )
 {
-	cl_viewbeams = Mem_Alloc( cls.mempool, sizeof( BEAM ) * GI->max_beams );
+	cl_viewbeams = Mem_Calloc( cls.mempool, sizeof( BEAM ) * GI->max_beams );
 	CL_ClearViewBeams();
 }
 

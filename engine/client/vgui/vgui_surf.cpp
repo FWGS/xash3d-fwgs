@@ -42,7 +42,7 @@ static Font* staticFont = NULL;
 static FontInfo* staticFontInfo;
 static Dar<FontInfo*> staticFontInfoDar;
 static PaintStack paintStack[MAX_PAINT_STACK];
-static staticPaintStackPos = 0;
+static int staticPaintStackPos = 0;
 
 CEngineSurface :: CEngineSurface( Panel *embeddedPanel ):SurfaceBase( embeddedPanel )
 {

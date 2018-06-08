@@ -1454,7 +1454,7 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 	if( !raw_channels[best] )
 	{
 		raw_samples = MAX_RAW_SAMPLES;
-		raw_channels[best] = Mem_Alloc( sndpool, sizeof( *ch ) + sizeof( portable_samplepair_t ) * ( raw_samples - 1 ));
+		raw_channels[best] = Mem_Calloc( sndpool, sizeof( *ch ) + sizeof( portable_samplepair_t ) * ( raw_samples - 1 ));
 	}
 
 	ch = raw_channels[best];

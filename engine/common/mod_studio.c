@@ -828,7 +828,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 			// give space for textures and skinrefs
 			size1 = thdr->numtextures * sizeof( mstudiotexture_t );
 			size2 = thdr->numskinfamilies * thdr->numskinref * sizeof( short );
-			mod->cache.data = Mem_Alloc( loadmodel->mempool, phdr->length + size1 + size2 );
+			mod->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length + size1 + size2 );
 			memcpy( loadmodel->cache.data, buffer, phdr->length ); // copy main mdl buffer
 			phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
 			phdr->numskinfamilies = thdr->numskinfamilies;
@@ -847,7 +847,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	else
 	{
 		// NOTE: don't modify source buffer because it's used for CRC computing
-		loadmodel->cache.data = Mem_Alloc( loadmodel->mempool, phdr->length );
+		loadmodel->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length );
 		memcpy( loadmodel->cache.data, buffer, phdr->length );
 		phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
 		Mod_StudioLoadTextures( mod, phdr );

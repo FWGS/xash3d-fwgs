@@ -41,6 +41,8 @@ GNU General Public License for more details.
 
 #define NUMVERTEXNORMALS	162
 
+#define BOGUS_RANGE		((vec_t)114032.64)	// world.size * 1.74
+
 #define SIDE_FRONT		0
 #define SIDE_BACK		1
 #define SIDE_ON		2

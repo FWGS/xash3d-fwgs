@@ -1109,16 +1109,16 @@ void CL_InitEdicts( void )
 
 	CL_UPDATE_BACKUP = ( cl.maxclients == 1 ) ? SINGLEPLAYER_BACKUP : MULTIPLAYER_BACKUP;
 	cls.num_client_entities = CL_UPDATE_BACKUP * NUM_PACKET_ENTITIES;
-	cls.packet_entities = Z_Realloc( cls.packet_entities, sizeof( entity_state_t ) * cls.num_client_entities );
-	clgame.entities = Mem_Alloc( clgame.mempool, sizeof( cl_entity_t ) * clgame.maxEntities );
-	clgame.static_entities = Mem_Alloc( clgame.mempool, sizeof( cl_entity_t ) * MAX_STATIC_ENTITIES );
+	cls.packet_entities = Mem_Realloc( clgame.mempool, cls.packet_entities, sizeof( entity_state_t ) * cls.num_client_entities );
+	clgame.entities = Mem_Calloc( clgame.mempool, sizeof( cl_entity_t ) * clgame.maxEntities );
+	clgame.static_entities = Mem_Calloc( clgame.mempool, sizeof( cl_entity_t ) * MAX_STATIC_ENTITIES );
 	clgame.numStatics = 0;
 
 	if(( clgame.maxRemapInfos - 1 ) != clgame.maxEntities )
 	{
 		CL_ClearAllRemaps (); // purge old remap info
 		clgame.maxRemapInfos = clgame.maxEntities + 1; 
-		clgame.remap_info = (remap_info_t **)Mem_Alloc( clgame.mempool, sizeof( remap_info_t* ) * clgame.maxRemapInfos );
+		clgame.remap_info = (remap_info_t **)Mem_Calloc( clgame.mempool, sizeof( remap_info_t* ) * clgame.maxRemapInfos );
 	}
 
 	if( clgame.drawFuncs.R_ProcessEntData != NULL )
@@ -1529,7 +1529,7 @@ static client_sprite_t *pfnSPR_GetList( char *psz, int *piCount )
 	Q_strncpy( pEntry->szListName, psz, sizeof( pEntry->szListName ));
 
 	// name, res, pic, x, y, w, h
-	pEntry->pList = Mem_Alloc( cls.mempool, sizeof( client_sprite_t ) * numSprites );
+	pEntry->pList = Mem_Calloc( cls.mempool, sizeof( client_sprite_t ) * numSprites );
 
 	for( index = 0; index < numSprites; index++ )
 	{
@@ -3715,6 +3715,8 @@ static event_api_t gEventApi =
 	CL_VisTraceLine,
 	pfnGetVisent,
 	CL_TestLine,
+	CL_PushTraceBounds,
+	CL_PopTraceBounds,
 };
 
 static demo_api_t gDemoApi =

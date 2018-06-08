@@ -945,9 +945,9 @@ void Con_Init( void )
 
 	// init the console buffer
 	con.bufsize = CON_TEXTSIZE;
-	con.buffer = (char *)Z_Malloc( con.bufsize );
+	con.buffer = (char *)Z_Calloc( con.bufsize );
 	con.maxlines = CON_MAXLINES;
-	con.lines = (con_lineinfo_t *)Z_Malloc( con.maxlines * sizeof( *con.lines ));
+	con.lines = (con_lineinfo_t *)Z_Calloc( con.maxlines * sizeof( *con.lines ));
 	con.lines_first = con.lines_count = 0;
 	con.num_times = CON_TIMES; // default as 4
 

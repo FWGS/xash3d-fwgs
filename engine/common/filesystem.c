@@ -26,7 +26,7 @@ GNU General Public License for more details.
 #include "protocol.h"
 
 #define FILE_COPY_SIZE		(1024 * 1024)
-#define FILE_BUFF_SIZE		(65535)
+#define FILE_BUFF_SIZE		(2048)
 
 // PAK errors
 #define PAK_LOAD_OK			0
@@ -218,7 +218,7 @@ static void stringlistappend( stringlist_t *list, char *text )
 	}
 
 	textlen = Q_strlen( text ) + 1;
-	list->strings[list->numstrings] = Mem_Alloc( fs_mempool, textlen );
+	list->strings[list->numstrings] = Mem_Calloc( fs_mempool, textlen );
 	memcpy( list->strings[list->numstrings], text, textlen );
 	list->numstrings++;
 }
@@ -455,7 +455,7 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 		return NULL;
 	}
 
-	info = (dpackfile_t *)Mem_Alloc( fs_mempool, sizeof( *info ) * numpackfiles );
+	info = (dpackfile_t *)Mem_Malloc( fs_mempool, sizeof( *info ) * numpackfiles );
 	lseek( packhandle, header.dirofs, SEEK_SET );
 
 	if( header.dirlen != read( packhandle, (void *)info, header.dirlen ))
@@ -467,9 +467,9 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 		return NULL;
 	}
 
-	pack = (pack_t *)Mem_Alloc( fs_mempool, sizeof( pack_t ));
+	pack = (pack_t *)Mem_Calloc( fs_mempool, sizeof( pack_t ));
 	Q_strncpy( pack->filename, packfile, sizeof( pack->filename ));
-	pack->files = (dpackfile_t *)Mem_Alloc( fs_mempool, numpackfiles * sizeof( dpackfile_t ));
+	pack->files = (dpackfile_t *)Mem_Calloc( fs_mempool, numpackfiles * sizeof( dpackfile_t ));
 	pack->filetime = FS_SysFileTime( packfile );
 	pack->handle = packhandle;
 	pack->numfiles = 0;
@@ -511,7 +511,7 @@ static qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loade
 
 	if( wad )
 	{
-		search = (searchpath_t *)Mem_Alloc( fs_mempool, sizeof( searchpath_t ));
+		search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
 		search->wad = wad;
 		search->next = fs_searchpaths;
 		search->flags |= flags;
@@ -567,7 +567,7 @@ static qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loade
 	{
 		string	fullpath;
 
-		search = (searchpath_t *)Mem_Alloc( fs_mempool, sizeof( searchpath_t ));
+		search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
 		search->pack = pak;
 		search->next = fs_searchpaths;
 		search->flags |= flags;
@@ -644,7 +644,7 @@ void FS_AddGameDirectory( const char *dir, int flags )
 
 	// add the directory to the search path
 	// (unpacked files have the priority over packed files)
-	search = (searchpath_t *)Mem_Alloc( fs_mempool, sizeof( searchpath_t ));
+	search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
 	Q_strncpy( search->filename, dir, sizeof ( search->filename ));
 	search->next = fs_searchpaths;
 	search->flags = flags;
@@ -1352,64 +1352,60 @@ void FS_Init( void )
 	Cmd_AddCommand( "fs_clearpaths", FS_ClearPaths_f, "clear filesystem search pathes" );
 
 	// ignore commandlineoption "-game" for other stuff
-	if( host.type == HOST_NORMAL || host.type == HOST_DEDICATED )
-	{
-		stringlistinit( &dirs );
-		listdirectory( &dirs, "./" );
-		stringlistsort( &dirs );
-		SI.numgames = 0;
+	stringlistinit( &dirs );
+	listdirectory( &dirs, "./" );
+	stringlistsort( &dirs );
+	SI.numgames = 0;
 
-		Q_strncpy( fs_basedir, SI.basedirName, sizeof( fs_basedir )); // default dir
+	Q_strncpy( fs_basedir, SI.basedirName, sizeof( fs_basedir )); // default dir
 	
-		if( !Sys_GetParmFromCmdLine( "-game", fs_gamedir ))
-			Q_strncpy( fs_gamedir, fs_basedir, sizeof( fs_gamedir )); // gamedir == basedir
+	if( !Sys_GetParmFromCmdLine( "-game", fs_gamedir ))
+		Q_strncpy( fs_gamedir, fs_basedir, sizeof( fs_gamedir )); // gamedir == basedir
 
-		if( FS_CheckNastyPath( fs_basedir, true ))
-		{
-			// this is completely fatal...
-			Sys_Error( "invalid base directory \"%s\"\n", fs_basedir );
-		}
+	if( FS_CheckNastyPath( fs_basedir, true ))
+	{
+		// this is completely fatal...
+		Sys_Error( "invalid base directory \"%s\"\n", fs_basedir );
+	}
 
-		if( FS_CheckNastyPath( fs_gamedir, true ))
-		{
-			Con_Printf( S_ERROR "invalid game directory \"%s\"\n", fs_gamedir );
-			Q_strncpy( fs_gamedir, fs_basedir, sizeof( fs_gamedir )); // default dir
-		}
+	if( FS_CheckNastyPath( fs_gamedir, true ))
+	{
+		Con_Printf( S_ERROR "invalid game directory \"%s\"\n", fs_gamedir );
+		Q_strncpy( fs_gamedir, fs_basedir, sizeof( fs_gamedir )); // default dir
+	}
 
-		// validate directories
-		for( i = 0; i < dirs.numstrings; i++ )
-		{
-			if( !Q_stricmp( fs_basedir, dirs.strings[i] ))
-				hasBaseDir = true;
+	// validate directories
+	for( i = 0; i < dirs.numstrings; i++ )
+	{
+		if( !Q_stricmp( fs_basedir, dirs.strings[i] ))
+			hasBaseDir = true;
 
-			if( !Q_stricmp( fs_gamedir, dirs.strings[i] ))
-				hasGameDir = true;
-		}
+		if( !Q_stricmp( fs_gamedir, dirs.strings[i] ))
+			hasGameDir = true;
+	}
 
-		if( !hasGameDir )
-		{
-			Con_Printf( S_ERROR "game directory \"%s\" not exist\n", fs_gamedir );
-			if( hasBaseDir ) Q_strncpy( fs_gamedir, fs_basedir, sizeof( fs_gamedir ));
-		}
+	if( !hasGameDir )
+	{
+		Con_Printf( S_ERROR "game directory \"%s\" not exist\n", fs_gamedir );
+		if( hasBaseDir ) Q_strncpy( fs_gamedir, fs_basedir, sizeof( fs_gamedir ));
+	}
 
-		// build list of game directories here
-		FS_AddGameDirectory( "./", 0 );
+	// build list of game directories here
+	FS_AddGameDirectory( "./", 0 );
 
-		for( i = 0; i < dirs.numstrings; i++ )
-		{
-			if( !FS_SysFolderExists( dirs.strings[i] ) || ( !Q_stricmp( dirs.strings[i], ".." ) && !fs_ext_path ))
-				continue;
+	for( i = 0; i < dirs.numstrings; i++ )
+	{
+		if( !FS_SysFolderExists( dirs.strings[i] ) || ( !Q_stricmp( dirs.strings[i], ".." ) && !fs_ext_path ))
+			continue;
 
-			if( SI.games[SI.numgames] == NULL )
-				SI.games[SI.numgames] = (gameinfo_t *)Mem_Alloc( fs_mempool, sizeof( gameinfo_t ));
+		if( SI.games[SI.numgames] == NULL )
+			SI.games[SI.numgames] = (gameinfo_t *)Mem_Calloc( fs_mempool, sizeof( gameinfo_t ));
 
-			if( FS_ParseGameInfo( dirs.strings[i], SI.games[SI.numgames] ))
-				SI.numgames++; // added
-		}
+		if( FS_ParseGameInfo( dirs.strings[i], SI.games[SI.numgames] ))
+			SI.numgames++; // added
+	}
 
-		stringlistfreecontents( &dirs );
-	}	
-
+	stringlistfreecontents( &dirs );
 	Con_Reportf( "FS_Init: done\n" );
 }
 
@@ -1507,7 +1503,7 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 		}
 	}
 
-	file = (file_t *)Mem_Alloc( fs_mempool, sizeof( *file ));
+	file = (file_t *)Mem_Calloc( fs_mempool, sizeof( *file ));
 	file->filetime = FS_SysFileTime( filepath );
 	file->ungetc = EOF;
 
@@ -1551,7 +1547,7 @@ file_t *FS_OpenPackedFile( pack_t *pack, int pack_ind )
 	if( dup_handle < 0 )
 		return NULL;
 
-	file = (file_t *)Mem_Alloc( fs_mempool, sizeof( *file ));
+	file = (file_t *)Mem_Calloc( fs_mempool, sizeof( *file ));
 	file->handle = dup_handle;
 	file->real_length = pfile->filelen;
 	file->offset = pfile->filepos;
@@ -2003,7 +1999,7 @@ int FS_VPrintf( file_t *file, const char *format, va_list ap )
 
 	while( 1 )
 	{
-		tempbuff = (char *)Mem_Alloc( fs_mempool, buff_size );
+		tempbuff = (char *)Mem_Malloc( fs_mempool, buff_size );
 		len = Q_vsprintf( tempbuff, format, ap );
 
 		if( len >= 0 && len < buff_size )
@@ -2191,7 +2187,7 @@ byte *FS_LoadFile( const char *path, long *filesizeptr, qboolean gamedironly )
 	if( file )
 	{
 		filesize = file->real_length;
-		buf = (byte *)Mem_Alloc( fs_mempool, filesize + 1 );
+		buf = (byte *)Mem_Malloc( fs_mempool, filesize + 1 );
 		buf[filesize] = '\0';
 		FS_Read( file, buf, filesize );
 		FS_Close( file );
@@ -2349,7 +2345,7 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 	}
 
 	// all done, create dll_user_t struct
-	hInst = Mem_Alloc( host.mempool, sizeof( dll_user_t ));	
+	hInst = Mem_Calloc( host.mempool, sizeof( dll_user_t ));	
 
 	// save dllname for debug purposes
 	Q_strncpy( hInst->dllName, dllname, sizeof( hInst->dllName ));
@@ -2499,7 +2495,7 @@ FS_FileCopy
 */
 qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize )
 {
-	char	*buf = Mem_Alloc( fs_mempool, FILE_COPY_SIZE );
+	char	*buf = Mem_Malloc( fs_mempool, FILE_COPY_SIZE );
 	int	size, readSize;
 	qboolean	done = true;
 
@@ -2557,7 +2553,7 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 	separator = max( slash, backslash );
 	separator = max( separator, colon );
 	basepathlength = separator ? (separator + 1 - pattern) : 0;
-	basepath = Mem_Alloc( fs_mempool, basepathlength + 1 );
+	basepath = Mem_Calloc( fs_mempool, basepathlength + 1 );
 	if( basepathlength ) memcpy( basepath, pattern, basepathlength );
 	basepath[basepathlength] = 0;
 
@@ -2717,7 +2713,7 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 
 		for( resultlistindex = 0; resultlistindex < resultlist.numstrings; resultlistindex++ )
 			numchars += (int)Q_strlen( resultlist.strings[resultlistindex]) + 1;
-		search = Mem_Alloc( fs_mempool, sizeof(search_t) + numchars + numfiles * sizeof( char* ));
+		search = Mem_Calloc( fs_mempool, sizeof(search_t) + numchars + numfiles * sizeof( char* ));
 		search->filenames = (char **)((char *)search + sizeof( search_t ));
 		search->filenamesbuffer = (char *)((char *)search + sizeof( search_t ) + numfiles * sizeof( char* ));
 		search->numfilenames = (int)numfiles;
@@ -3013,7 +3009,7 @@ byte *W_ReadLump( wfile_t *wad, dlumpinfo_t *lump, long *lumpsizeptr )
 		return NULL;
 	}
 
-	buf = (byte *)Mem_Alloc( wad->mempool, lump->disksize );
+	buf = (byte *)Mem_Malloc( wad->mempool, lump->disksize );
 	size = FS_Read( wad->handle, buf, lump->disksize );
 
 	if( size < lump->disksize )
@@ -3046,7 +3042,7 @@ open the wad for reading & writing
 */
 wfile_t *W_Open( const char *filename, int *error )
 {
-	wfile_t		*wad = (wfile_t *)Mem_Alloc( fs_mempool, sizeof( wfile_t ));
+	wfile_t		*wad = (wfile_t *)Mem_Calloc( fs_mempool, sizeof( wfile_t ));
 	int		i, lumpcount;
 	dlumpinfo_t	*srclumps;
 	size_t		lat_size;
@@ -3114,7 +3110,7 @@ wfile_t *W_Open( const char *filename, int *error )
 	lat_size = lumpcount * sizeof( dlumpinfo_t );
 
 	// NOTE: lumps table can be reallocated for O_APPEND mode
-	srclumps = (dlumpinfo_t *)Mem_Alloc( wad->mempool, lat_size );
+	srclumps = (dlumpinfo_t *)Mem_Malloc( wad->mempool, lat_size );
 
 	if( FS_Read( wad->handle, srclumps, lat_size ) != lat_size )
 	{
@@ -3126,7 +3122,7 @@ wfile_t *W_Open( const char *filename, int *error )
 	}
 
 	// starting to add lumps
-	wad->lumps = (dlumpinfo_t *)Mem_Alloc( wad->mempool, lat_size );
+	wad->lumps = (dlumpinfo_t *)Mem_Calloc( wad->mempool, lat_size );
 	wad->numlumps = 0;
 
 	// sort lumps for binary search

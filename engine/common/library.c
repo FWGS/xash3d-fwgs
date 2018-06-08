@@ -671,7 +671,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 		goto table_error;
 	}
 
-	hInst->ordinals = Mem_Alloc( host.mempool, hInst->num_ordinals * sizeof( word ));
+	hInst->ordinals = Mem_Malloc( host.mempool, hInst->num_ordinals * sizeof( word ));
 
 	if( FS_Read( f, hInst->ordinals, hInst->num_ordinals * sizeof( word )) != (hInst->num_ordinals * sizeof( word )))
 	{
@@ -687,7 +687,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 		goto table_error;
 	}
 
-	hInst->funcs = Mem_Alloc( host.mempool, hInst->num_ordinals * sizeof( dword ));
+	hInst->funcs = Mem_Malloc( host.mempool, hInst->num_ordinals * sizeof( dword ));
 
 	if( FS_Read( f, hInst->funcs, hInst->num_ordinals * sizeof( dword )) != (hInst->num_ordinals * sizeof( dword )))
 	{
@@ -703,7 +703,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 		goto table_error;
 	}
 
-	p_Names = Mem_Alloc( host.mempool, hInst->num_ordinals * sizeof( dword ));
+	p_Names = Mem_Malloc( host.mempool, hInst->num_ordinals * sizeof( dword ));
 
 	if( FS_Read( f, p_Names, hInst->num_ordinals * sizeof( dword )) != (hInst->num_ordinals * sizeof( dword )))
 	{

@@ -205,8 +205,8 @@ qboolean AVI_ACMConvertAudio( movie_state_t *Avi )
 		return false;
 	}
 
-	Avi->cpa_srcbuffer = (byte *)Mem_Alloc( cls.mempool, Avi->cpa_blockalign );
-	Avi->cpa_dstbuffer = (byte *)Mem_Alloc( cls.mempool, dest_length ); // maintained buffer for raw data
+	Avi->cpa_srcbuffer = (byte *)Mem_Malloc( cls.mempool, Avi->cpa_blockalign );
+	Avi->cpa_dstbuffer = (byte *)Mem_Malloc( cls.mempool, dest_length ); // maintained buffer for raw data
 
 	// prep the headers!
 	Avi->cpa_conversion_header.cbStruct = sizeof( ACMSTREAMHEADER );
@@ -532,7 +532,7 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 			// read the audio header
 			pAVIStreamReadFormat( Avi->audio_stream, pAVIStreamStart( Avi->audio_stream ), 0, &size );
 
-			Avi->audio_header = (WAVEFORMAT *)Mem_Alloc( cls.mempool, size );
+			Avi->audio_header = (WAVEFORMAT *)Mem_Malloc( cls.mempool, size );
 			pAVIStreamReadFormat( Avi->audio_stream, pAVIStreamStart( Avi->audio_stream ), Avi->audio_header, &size );
 			Avi->audio_header_size = size;
 			Avi->audio_codec = Avi->audio_header->wFormatTag;
@@ -634,7 +634,7 @@ movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio )
 		return NULL;
 	}
 
-	Avi = Mem_Alloc( cls.mempool, sizeof( movie_state_t ));
+	Avi = Mem_Malloc( cls.mempool, sizeof( movie_state_t ));
 	AVI_OpenVideo( Avi, fullpath, load_audio, false );
 
 	if( !AVI_IsActive( Avi ))

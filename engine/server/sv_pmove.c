@@ -177,7 +177,7 @@ void SV_GetTrueOrigin( sv_client_t *cl, int edictnum, vec3_t origin )
 		return;
 
 	if( svgame.interp[edictnum-1].active && svgame.interp[edictnum-1].moving )
-		VectorCopy( svgame.interp[edictnum-1].newpos, origin ); 
+		VectorCopy( svgame.interp[edictnum-1].oldpos, origin ); 
 }
 
 void SV_GetTrueMinMax( sv_client_t *cl, int edictnum, vec3_t mins, vec3_t maxs )

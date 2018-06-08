@@ -805,7 +805,8 @@ float pfnTime( void );
 
 ==============================================================
 */
-#define Z_Malloc( size )		Mem_Alloc( host.mempool, size )
+#define Z_Malloc( size )		Mem_Malloc( host.mempool, size )
+#define Z_Calloc( size )		Mem_Calloc( host.mempool, size )
 #define Z_Realloc( ptr, size )	Mem_Realloc( host.mempool, ptr, size )
 #define Z_Free( ptr )		if( ptr != NULL ) Mem_Free( ptr )
 

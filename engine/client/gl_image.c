@@ -173,7 +173,7 @@ void GL_ApplyTextureParams( gltexture_t *tex )
 		}
 
 		// set texture anisotropy if available
-		if( GL_Support( GL_ANISOTROPY_EXT ) && ( tex->numMips > 1 ))
+		if( GL_Support( GL_ANISOTROPY_EXT ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_ALPHACONTRAST ))
 			pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy->value );
 
 		// set texture LOD bias if available
@@ -256,7 +256,7 @@ static void GL_UpdateTextureParams( int iTexture )
 	GL_Bind( GL_TEXTURE0, iTexture );
 
 	// set texture anisotropy if available
-	if( GL_Support( GL_ANISOTROPY_EXT ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_DEPTHMAP ))
+	if( GL_Support( GL_ANISOTROPY_EXT ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_DEPTHMAP|TF_ALPHACONTRAST ))
 		pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy->value );
 
 	// set texture LOD bias if available
@@ -554,10 +554,6 @@ static void GL_SetTextureDimensions( gltexture_t *tex, int width, int height, in
 		height = scaled_height;
 	}
 
-#if 1	// TESTTEST
-	width = (width + 3) & ~3;
-	height = (height + 3) & ~3;
-#endif
 	if( width > maxTextureSize || height > maxTextureSize || depth > maxDepthSize )
 	{
 		if( tex->target == GL_TEXTURE_1D )
@@ -709,7 +705,11 @@ static void GL_SetTextureFormat( gltexture_t *tex, pixformat_t format, int chann
 
 		switch( GL_CalcTextureSamples( channelMask ))
 		{
-		case 1: tex->format = GL_LUMINANCE8; break;
+		case 1: 
+			if( FBitSet( tex->flags, TF_ALPHACONTRAST ))
+				tex->format = GL_INTENSITY8;
+			else tex->format = GL_LUMINANCE8;
+			break;
 		case 2: tex->format = GL_LUMINANCE8_ALPHA8; break;
 		case 3:
 			switch( bits )
@@ -883,7 +883,7 @@ byte *GL_ApplyFilter( const byte *source, int width, int height )
 	byte	*out = (byte *)source;
 	int	i;
 
-	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ) || glConfig.max_multisamples > 1 )
 		return in;
 
 	for( i = 0; source && i < width * height; i++, in += 4 )
@@ -927,7 +927,7 @@ GL_BuildMipMap
 Operates in place, quartering the size of the texture
 =================
 */
-static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth, qboolean isNormalMap )
+static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth, int flags )
 {
 	byte	*out = in;
 	int	instride = ALIGN( srcWidth * 4, 1 );
@@ -937,15 +937,21 @@ static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth,
 
 	if( !in ) return;
 
-	mipWidth = max( 1, ( srcWidth >> 1 ));
-	mipHeight = max( 1, ( srcHeight >> 1 ));
+	mipWidth = Q_max( 1, ( srcWidth >> 1 ));
+	mipHeight = Q_max( 1, ( srcHeight >> 1 ));
 	outpadding = ALIGN( mipWidth * 4, 1 ) - mipWidth * 4;
 	row = srcWidth << 2;
+
+	if( FBitSet( flags, TF_ALPHACONTRAST ))
+	{
+		memset( in, mipWidth, mipWidth * mipHeight * 4 );
+		return;
+	}
 
 	// move through all layers
 	for( z = 0; z < srcDepth; z++ )
 	{
-		if( isNormalMap )
+		if( FBitSet( flags, TF_NORMALMAP ))
 		{
 			for( y = 0; y < mipHeight; y++, in += instride * 2, out += outpadding )
 			{
@@ -1218,10 +1224,10 @@ static qboolean GL_UploadTexture( gltexture_t *tex, rgbdata_t *pic )
 			if(( tex->depth == 1 ) && ( pic->width != tex->width ) || ( pic->height != tex->height ))
 				data = GL_ResampleTexture( buf, pic->width, pic->height, tex->width, tex->height, normalMap );
 			else data = buf;
-
+#if 0			// g-cont. we can't apply gamma to each texture so we shouldn't do it at all
 			if( !ImageDXT( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP|TF_SKYSIDE ))
 				data = GL_ApplyGamma( data, tex->width * tex->height * tex->depth, FBitSet( tex->flags, TF_NORMALMAP ));
-
+#endif
 			if( !ImageDXT( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
 				data = GL_ApplyFilter( data, tex->width, tex->height );
 
@@ -1234,7 +1240,7 @@ static qboolean GL_UploadTexture( gltexture_t *tex, rgbdata_t *pic )
 				size = GL_CalcImageSize( pic->type, width, height, tex->depth );
 				GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, data );
 				if( mipCount > 1 )
-					GL_BuildMipMap( data, width, height, tex->depth, normalMap );
+					GL_BuildMipMap( data, width, height, tex->depth, tex->flags );
 				tex->size += texsize;
 				tex->numMips++;
 
@@ -1495,11 +1501,11 @@ int GL_LoadTextureArray( const char **names, int flags, imgfilter_t *filter )
 		else
 		{
 			// create new image
-			pic = Mem_Alloc( host.imagepool, sizeof( rgbdata_t ));
+			pic = Mem_Malloc( host.imagepool, sizeof( rgbdata_t ));
 			memcpy( pic, src, sizeof( rgbdata_t ));
 
 			// expand pic buffer for all layers
-			pic->buffer = Mem_Alloc( host.imagepool, pic->size * numLayers );
+			pic->buffer = Mem_Malloc( host.imagepool, pic->size * numLayers );
 			pic->depth = 0;
 		}
 
@@ -1677,6 +1683,9 @@ int GL_CreateTexture( const char *name, int width, int height, const void *buffe
 	r_empty.size = r_empty.width * r_empty.height * 4;
 	r_empty.flags = IMAGE_HAS_COLOR | (( flags & TF_HAS_ALPHA ) ? IMAGE_HAS_ALPHA : 0 );
 	r_empty.buffer = (byte *)buffer;
+
+	if( FBitSet( flags, TF_ALPHACONTRAST ))
+		ClearBits( r_empty.flags, IMAGE_HAS_COLOR );
 
 	if( FBitSet( flags, TF_TEXTURE_1D ))
 	{

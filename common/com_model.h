@@ -166,6 +166,7 @@ struct decal_s
 // Xash3D specific
 	vec3_t		position;		// location of the decal center in world space.
 	glpoly_t		*polys;		// precomputed decal vertices
+	int		reserved[4];	// just for future expansions or mod-makers
 };
 
 typedef struct mleaf_s

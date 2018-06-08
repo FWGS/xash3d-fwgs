@@ -96,7 +96,7 @@ typedef enum
 	TF_BORDER		= (1<<19),	// zero clamp for projected textures
 	TF_TEXTURE_3D	= (1<<20),	// this is GL_TEXTURE_3D
 	TF_ATLAS_PAGE	= (1<<21),	// bit who indicate lightmap page or deluxemap page
-// reserved
+	TF_ALPHACONTRAST	= (1<<22),	// special texture mode for A2C
 // reserved
 // reserved
 	TF_IMG_UPLOADED	= (1<<25),	// this is set for first time when called glTexImage, otherwise it will be call glTexSubImage
@@ -211,7 +211,7 @@ typedef struct render_api_s
 	void		(*GL_DrawParticles)( const struct ref_viewpass_s *rvp, qboolean trans_pass, float frametime );
 	void		(*EnvShot)( const float *vieworg, const char *name, qboolean skyshot, int shotsize ); // store skybox into gfx\env folder
 	int		(*SPR_LoadExt)( const char *szPicName, unsigned int texFlags ); // extended version of SPR_Load
-	colorVec		(*LightVec)( const float *start, const float *end, float *lightspot );
+	colorVec		(*LightVec)( const float *start, const float *end, float *lightspot, float *lightvec );
 	struct mstudiotex_s *( *StudioGetTexture )( struct cl_entity_s *e );
 	const struct ref_overview_s *( *GetOverviewParms )( void );
 	const char	*( *GetFileByIndex )( int fileindex );

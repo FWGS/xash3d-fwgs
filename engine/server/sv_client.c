@@ -340,7 +340,7 @@ void SV_ConnectClient( netadr_t from )
 	sv.current_client = newcl;
 	newcl->edict = EDICT_NUM( (newcl - svs.clients) + 1 );
 	newcl->challenge = challenge; // save challenge for checksumming
-	newcl->frames = (client_frame_t *)Z_Malloc( sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
+	newcl->frames = (client_frame_t *)Z_Calloc( sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
 	newcl->userid = g_userid++;	// create unique userid
 	newcl->state = cs_connected;
 
@@ -2252,7 +2252,7 @@ void SV_ParseResourceList( sv_client_t *cl, sizebuf_t *msg )
 
 	for( i = 0; i < total; i++ )
 	{
-		resource = Z_Malloc( sizeof( resource_t ) );
+		resource = Z_Calloc( sizeof( resource_t ) );
 		Q_strncpy( resource->szFileName, MSG_ReadString( msg ), sizeof( resource->szFileName ));
 		resource->type = MSG_ReadByte( msg );
 		resource->nIndex = MSG_ReadShort( msg );

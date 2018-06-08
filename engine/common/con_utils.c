@@ -102,7 +102,7 @@ qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
 			if( !ents && lumplen >= 10 )
 			{
 				FS_Seek( f, lumpofs, SEEK_SET );
-				ents = (char *)Mem_Alloc( host.mempool, lumplen + 1 );
+				ents = (char *)Mem_Calloc( host.mempool, lumplen + 1 );
 				FS_Read( f, ents, lumplen );
 			}
 
@@ -692,7 +692,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		return false;
 	}
 
-	buffer = Mem_Alloc( host.mempool, t->numfilenames * 2 * sizeof( result ));
+	buffer = Mem_Calloc( host.mempool, t->numfilenames * 2 * sizeof( result ));
 
 	for( i = 0; i < t->numfilenames; i++ )
 	{
@@ -734,7 +734,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 			if( !ents && lumplen >= 10 )
 			{
 				FS_Seek( f, lumpofs, SEEK_SET );
-				ents = Z_Malloc( lumplen + 1 );
+				ents = Z_Calloc( lumplen + 1 );
 				FS_Read( f, ents, lumplen );
 			}
 

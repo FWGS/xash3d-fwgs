@@ -236,7 +236,7 @@ void Host_Exec_f( void )
 		host.config_executed = true;
 
 	// adds \n\0 at end of the file
-	txt = Z_Malloc( len + 2 );
+	txt = Z_Calloc( len + 2 );
 	memcpy( txt, f, len );
 	Q_strncat( txt, "\n", len + 2 );
 	Mem_Free( f );

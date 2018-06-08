@@ -95,6 +95,27 @@ typedef struct
 #define NL_NEEDS_LOADED	1
 #define NL_PRESENT		2
 
+typedef struct hullnode_s
+{
+	struct hullnode_s	*next;
+	struct hullnode_s	*prev;
+} hullnode_t;
+
+typedef struct winding_s
+{
+	const mplane_t	*plane;
+	struct winding_s	*pair;
+	hullnode_t	chain;
+	int		numpoints;
+	vec3_t		p[4];		// variable sized
+} winding_t;
+
+typedef struct
+{
+	hullnode_t	polys;
+	uint		num_polys;
+} hull_model_t;
+
 typedef struct
 {
 	msurface_t	*surf;
@@ -115,6 +136,9 @@ typedef struct
 	sortedface_t	*draw_surfaces;	// used for sorting translucent surfaces
 	int		max_surfaces;	// max surfaces per submodel (for all models)
 
+	hull_model_t	*hull_models;
+	int		num_hull_models;
+
 	// visibility info
 	byte		*visdata;		// uncompressed visdata
 	size_t		visbytes;		// cluster size
@@ -132,6 +156,7 @@ extern byte		*com_studiocache;
 extern model_t		*loadmodel;
 extern convar_t		*mod_studiocache;
 extern convar_t		*r_wadtextures;
+extern convar_t		*r_showhull;
 
 //
 // model.c
@@ -170,6 +195,13 @@ int Mod_SampleSizeForFace( msurface_t *surf );
 byte *Mod_GetPVSForPoint( const vec3_t p );
 void Mod_UnloadBrushModel( model_t *mod );
 void Mod_PrintWorldStats_f( void );
+
+//
+// mod_dbghulls.c
+//
+void Mod_InitDebugHulls( void );
+void Mod_CreatePolygonsForHull( int hullnum );
+void Mod_ReleaseHullPolygons( void );
 
 //
 // mod_studio.c

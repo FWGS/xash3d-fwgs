@@ -266,7 +266,7 @@ static void InitEntityTable( SAVERESTOREDATA *pSaveData, int entityCount )
 	ENTITYTABLE	*pTable;
 	int		i;
 
-	pSaveData->pTable = Mem_Alloc( host.mempool, sizeof( ENTITYTABLE ) * entityCount );
+	pSaveData->pTable = Mem_Calloc( host.mempool, sizeof( ENTITYTABLE ) * entityCount );
 	pSaveData->tableCount = entityCount;
 
 	// setup entitytable
@@ -604,8 +604,8 @@ static SAVERESTOREDATA *SaveInit( int size, int tokenCount )
 {
 	SAVERESTOREDATA	*pSaveData;
 
-	pSaveData = Mem_Alloc( host.mempool, sizeof( SAVERESTOREDATA ) + size );
-	pSaveData->pTokens = (char **)Mem_Alloc( host.mempool, tokenCount * sizeof( char* ));
+	pSaveData = Mem_Calloc( host.mempool, sizeof( SAVERESTOREDATA ) + size );
+	pSaveData->pTokens = (char **)Mem_Calloc( host.mempool, tokenCount * sizeof( char* ));
 	pSaveData->tokenCount = tokenCount;
 
 	pSaveData->pBaseData = (char *)(pSaveData + 1); // skip the save structure);
@@ -1108,7 +1108,7 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 	memset( &header, 0, sizeof( header ));
 
 	// g-cont. add space for studiodecals if present
-	decalList = (decallist_t *)Z_Malloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
+	decalList = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
 
 	// initialize client header
 	header.decalCount = R_CreateDecalList( decalList );
@@ -2220,14 +2220,14 @@ qboolean SV_GetSaveComment( const char *savename, char *comment )
 		return 0;
 	}
 
-	pSaveData = (char *)Mem_Alloc( host.mempool, size );
+	pSaveData = (char *)Mem_Malloc( host.mempool, size );
 	FS_Read( f, pSaveData, size );
 	pData = pSaveData;
 
 	// allocate a table for the strings, and parse the table
 	if( tokenSize > 0 )
 	{
-		pTokenList = Mem_Alloc( host.mempool, tokenCount * sizeof( char* ));
+		pTokenList = Mem_Calloc( host.mempool, tokenCount * sizeof( char* ));
 
 		// make sure the token strings pointed to by the pToken hashtable.
 		for( i = 0; i < tokenCount; i++ )

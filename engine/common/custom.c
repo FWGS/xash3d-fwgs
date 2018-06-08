@@ -66,7 +66,7 @@ qboolean COM_CreateCustomization( customization_t *pListHead, resource_t *pResou
 
 	if( pOut ) *pOut = NULL;
 
-	pCust = Z_Malloc( sizeof( customization_t ));
+	pCust = Z_Calloc( sizeof( customization_t ));
 	pCust->resource = *pResource;
 
 	if( pResource->nDownloadSize <= 0 )

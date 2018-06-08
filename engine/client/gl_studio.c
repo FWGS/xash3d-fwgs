@@ -139,7 +139,7 @@ void R_StudioInit( void )
 	Matrix3x4_LoadIdentity( g_studio.rotationmatrix );
 	Cvar_RegisterVariable( &r_glowshellfreq );
 
-// g-cont. especially not registered
+	// g-cont. cvar disabled by Valve
 //	Cvar_RegisterVariable( &r_shadows );
 
 	g_studio.interpolate = true;
@@ -739,7 +739,7 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 
 	if( paSequences == NULL )
 	{
-		paSequences = (cache_user_t *)Mem_Alloc( com_studiocache, MAXSTUDIOGROUPS * sizeof( cache_user_t ));
+		paSequences = (cache_user_t *)Mem_Calloc( com_studiocache, MAXSTUDIOGROUPS * sizeof( cache_user_t ));
 		m_pSubModel->submodels = (void *)paSequences;
 	}
 
@@ -760,7 +760,7 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 
 		Con_Printf( "loading: %s\n", filepath );
 			
-		paSequences[pseqdesc->seqgroup].data = Mem_Alloc( com_studiocache, filesize );
+		paSequences[pseqdesc->seqgroup].data = Mem_Calloc( com_studiocache, filesize );
 		memcpy( paSequences[pseqdesc->seqgroup].data, buf, filesize );
 		Mem_Free( buf );
 	}
@@ -1688,40 +1688,44 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 		VectorScale( lightDir, 2048.0f, vecEnd );
 		VectorAdd( vecEnd, vecSrc, vecEnd );
 
-		light = R_LightVec( vecSrc, vecEnd, g_studio.lightspot );
+		light = R_LightVec( vecSrc, vecEnd, g_studio.lightspot, g_studio.lightvec );
 
-		VectorScale( lightDir, 2048.0f, vecEnd );
-		VectorAdd( vecEnd, vecSrc, vecEnd );
+		if( VectorIsNull( g_studio.lightvec ))
+		{
+			vecSrc[0] -= 16.0f;
+			vecSrc[1] -= 16.0f;
+			vecEnd[0] -= 16.0f;
+			vecEnd[1] -= 16.0f;
 
-		vecSrc[0] -= 16.0f;
-		vecSrc[1] -= 16.0f;
-		vecEnd[0] -= 16.0f;
-		vecEnd[1] -= 16.0f;
+			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
+			grad[0] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
 
-		gcolor = R_LightVec( vecSrc, vecEnd, NULL );
-		grad[0] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
+			vecSrc[0] += 32.0f;
+			vecEnd[0] += 32.0f;
 
-		vecSrc[0] += 32.0f;
-		vecEnd[0] += 32.0f;
+			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
+			grad[1] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
 
-		gcolor = R_LightVec( vecSrc, vecEnd, NULL );
-		grad[1] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
+			vecSrc[1] += 32.0f;
+			vecEnd[1] += 32.0f;
 
-		vecSrc[1] += 32.0f;
-		vecEnd[1] += 32.0f;
+			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
+			grad[2] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
 
-		gcolor = R_LightVec( vecSrc, vecEnd, NULL );
-		grad[2] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
+			vecSrc[0] -= 32.0f;
+			vecEnd[0] -= 32.0f;
 
-		vecSrc[0] -= 32.0f;
-		vecEnd[0] -= 32.0f;
+			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
+			grad[3] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
 
-		gcolor = R_LightVec( vecSrc, vecEnd, NULL );
-		grad[3] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
-
-		lightDir[0] = grad[0] - grad[1] - grad[2] + grad[3];
-		lightDir[1] = grad[1] + grad[0] - grad[2] - grad[3];
-		VectorNormalize( lightDir );
+			lightDir[0] = grad[0] - grad[1] - grad[2] + grad[3];
+			lightDir[1] = grad[1] + grad[0] - grad[2] - grad[3];
+			VectorNormalize( lightDir );
+		}
+		else
+		{
+			VectorCopy( g_studio.lightvec, lightDir );
+		}
 	}
 
 	VectorSet( finalLight, light.r, light.g, light.b );
@@ -2427,7 +2431,7 @@ static void R_StudioDrawPoints( void )
 
 		if( FBitSet( g_nFaceFlags, STUDIO_NF_MASKED ))
 		{
-			pglAlphaFunc( GL_GREATER, 0.0f );
+			pglAlphaFunc( GL_GREATER, DEFAULT_ALPHATEST );
 			pglDisable( GL_ALPHA_TEST );
 		}
 		else if( FBitSet( g_nFaceFlags, STUDIO_NF_ADDITIVE ) && R_ModelOpaque( RI.currententity->curstate.rendermode ))
@@ -2531,6 +2535,7 @@ static void R_StudioDrawAbsBBox( void )
 		TriVertex3fv( p[boxpnt[i][3]] );
 	}
 	TriEnd();
+	TriRenderMode( kRenderNormal );
 }
 
 /*
@@ -3126,6 +3131,13 @@ void R_StudioRenderFinal( void )
 		pglVertex3fv( g_studio.lightspot );
 		pglEnd();
 
+		pglBegin( GL_LINES );
+		pglColor3f( 0, 0.5, 1 );
+		VectorMA( g_studio.lightspot, -64.0f, g_studio.lightvec, origin );
+		pglVertex3fv( g_studio.lightspot );
+		pglVertex3fv( origin );
+		pglEnd();
+
 		pglPointSize( 5.0f );
 		pglColor3f( 1, 0, 0 );
 		pglBegin( GL_POINTS );
@@ -3631,10 +3643,10 @@ void R_RunViewmodelEvents( void )
 
 /*
 =================
-R_DrawViewModel
+R_GatherPlayerLight
 =================
 */
-void R_DrawViewModel( void )
+void R_GatherPlayerLight( void )
 {
 	cl_entity_t	*view = &clgame.viewent;
 	colorVec		c;
@@ -3643,6 +3655,18 @@ void R_DrawViewModel( void )
 	c = R_LightPoint( view->origin );
 	tr.ignore_lightgamma = false;
 	cl.local.light_level = (c.r + c.g + c.b) / 3;
+}
+
+/*
+=================
+R_DrawViewModel
+=================
+*/
+void R_DrawViewModel( void )
+{
+	cl_entity_t	*view = &clgame.viewent;
+
+	R_GatherPlayerLight();
 
 	if( r_drawviewmodel->value == 0 )
 		return;
@@ -3674,6 +3698,10 @@ void R_DrawViewModel( void )
 		pglFrontFace( GL_CW );
 	}
 
+	// FIXME: viewmodel is invisible when alpha to coverage is enabled
+	if( glConfig.max_multisamples > 1 && gl_msaa->value > 1.0f )
+		pglDisable( GL_SAMPLE_ALPHA_TO_COVERAGE_ARB );
+
 	switch( RI.currententity->model->type )
 	{
 	case mod_alias:
@@ -3684,6 +3712,9 @@ void R_DrawViewModel( void )
 		R_StudioDrawModelInternal( RI.currententity, STUDIO_RENDER );
 		break;
 	}
+
+	if( glConfig.max_multisamples > 1 && gl_msaa->value > 1.0f )
+		pglEnable( GL_SAMPLE_ALPHA_TO_COVERAGE_ARB );
 
 	// restore depth range
 	pglDepthRange( gldepthmin, gldepthmax );
@@ -3724,7 +3755,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 		i = mod->numtextures;
 		mod->textures = (texture_t **)Mem_Realloc( mod->mempool, mod->textures, ( i + 1 ) * sizeof( texture_t* ));
 		size = ptexture->width * ptexture->height + 768;
-		tx = Mem_Alloc( mod->mempool, sizeof( *tx ) + size );
+		tx = Mem_Calloc( mod->mempool, sizeof( *tx ) + size );
 		mod->textures[i] = tx;
 
 		// store ranges into anim_min, anim_max etc

@@ -151,7 +151,7 @@ static void SubdividePolygon_r( msurface_t *warpface, int numverts, float *verts
 		ClearBits( warpface->flags, SURF_DRAWTURB_QUADS ); 
 
 	// add a point in the center to help keep warp valid
-	poly = Mem_Alloc( loadmodel->mempool, sizeof( glpoly_t ) + (numverts - 4) * VERTEXSIZE * sizeof( float ));
+	poly = Mem_Calloc( loadmodel->mempool, sizeof( glpoly_t ) + (numverts - 4) * VERTEXSIZE * sizeof( float ));
 	poly->next = warpface->polys;
 	poly->flags = warpface->flags;
 	warpface->polys = poly;
@@ -280,13 +280,10 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 	float		s, t;
 	glpoly_t		*poly;
 
-	// already created
-	if( !mod || fa->polys ) return;
-
-	if( !fa->texinfo || !fa->texinfo->texture )
+	if( !mod || !fa->texinfo || !fa->texinfo->texture )
 		return; // bad polygon ?
 
-	if( fa->flags & SURF_CONVEYOR && fa->texinfo->texture->gl_texturenum != 0 )
+	if( FBitSet( fa->flags, SURF_CONVEYOR ) && fa->texinfo->texture->gl_texturenum != 0 )
 	{
 		glt = R_GetTexture( fa->texinfo->texture->gl_texturenum );
 		tex = fa->texinfo->texture;
@@ -304,8 +301,12 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 	lnumverts = fa->numedges;
 	vertpage = 0;
 
-	// draw texture
-	poly = Mem_Alloc( mod->mempool, sizeof( glpoly_t ) + ( lnumverts - 4 ) * VERTEXSIZE * sizeof( float ));
+	// detach if already created, reconstruct again
+	poly = fa->polys;
+	fa->polys = NULL;
+
+	// quake simple models (healthkits etc) need to be reconstructed their polys because LM coords has changed after the map change
+	poly = Mem_Realloc( mod->mempool, poly, sizeof( glpoly_t ) + ( lnumverts - 4 ) * VERTEXSIZE * sizeof( float ));
 	poly->next = fa->polys;
 	poly->flags = fa->flags;
 	fa->polys = poly;
@@ -1294,7 +1295,7 @@ void R_DrawAlphaTextureChains( void )
 	GL_ResetFogColor();
 	R_BlendLightmaps();
 	RI.currententity->curstate.rendermode = kRenderNormal; // restore world rendermode
-	pglAlphaFunc( GL_GREATER, 0.0f );
+	pglAlphaFunc( GL_GREATER, DEFAULT_ALPHATEST );
 }
 
 /*
@@ -1564,9 +1565,10 @@ void R_DrawBrushModel( cl_entity_t *e )
 
 	e->curstate.rendermode = old_rendermode;
 	pglDisable( GL_ALPHA_TEST );
-	pglAlphaFunc( GL_GREATER, 0.0f );
+	pglAlphaFunc( GL_GREATER, DEFAULT_ALPHATEST );
 	pglDisable( GL_BLEND );
 	pglDepthMask( GL_TRUE );
+	R_DrawModelHull();	// draw before restore
 	R_LoadIdentity();	// restore worldmatrix
 }
 
@@ -1904,6 +1906,8 @@ void R_DrawWorld( void )
 	skychain = NULL;
 
 	R_DrawTriangleOutlines ();
+
+	R_DrawWorldHull();
 }
 
 /*
@@ -1996,8 +2000,10 @@ void GL_CreateSurfaceLightmap( msurface_t *surf )
 	mextrasurf_t	*info = surf->info;
 	byte		*base;
 
-	if( !cl.worldmodel->lightdata ) return;
-	if( surf->flags & SURF_DRAWTILED )
+	if( !loadmodel->lightdata )
+		return;
+
+	if( FBitSet( surf->flags, SURF_DRAWTILED ))
 		return;
 
 	sample_size = Mod_SampleSizeForFace( surf );

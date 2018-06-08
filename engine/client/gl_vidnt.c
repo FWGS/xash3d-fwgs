@@ -32,11 +32,11 @@ convar_t	*gl_texture_anisotropy;
 convar_t	*gl_texture_lodbias;
 convar_t	*gl_texture_nearest;
 convar_t	*gl_lightmap_nearest;
+convar_t	*gl_wgl_msaa_samples;
 convar_t	*gl_keeptjunctions;
 convar_t	*gl_showtextures;
 convar_t	*gl_detailscale;
 convar_t	*gl_check_errors;
-convar_t	*gl_enable_msaa;
 convar_t	*gl_round_down;
 convar_t	*gl_polyoffset;
 convar_t	*gl_wireframe;
@@ -45,6 +45,7 @@ convar_t	*gl_nosort;
 convar_t	*gl_vsync;
 convar_t	*gl_clear;
 convar_t	*gl_test;
+convar_t	*gl_msaa;
 
 convar_t	*window_xpos;
 convar_t	*window_ypos;
@@ -356,8 +357,6 @@ static void CALLBACK GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		Con_Printf( S_OPENGL_WARN "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_PERFORMANCE_ARB:
-		if( host_developer.value < DEV_EXTENDED )
-			return;
 		Con_Printf( S_OPENGL_NOTE "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_OTHER_ARB:
@@ -531,7 +530,7 @@ static void GL_SetDefaultState( void )
 	memset( &glState, 0, sizeof( glState ));
 	GL_SetDefaultTexState ();
 
-	if( Sys_CheckParm( "-gldebug" ) && host_developer.value )
+	if( Sys_CheckParm( "-gldebug" ))
 		debug_context = true;
 	else debug_context = false;
 
@@ -698,9 +697,9 @@ static int VID_ChoosePFD( PIXELFORMATDESCRIPTOR *pfd, int colorBits, int alphaBi
 		attribs[16] = WGL_STENCIL_BITS_ARB;
 		attribs[17] = stencilBits;
 		attribs[18] = WGL_SAMPLE_BUFFERS_ARB;
-		attribs[19] = 1;
+		attribs[19] = TRUE;
 		attribs[20] = WGL_SAMPLES_ARB;
-		attribs[21] = bound( 2, (int)gl_enable_msaa->value, 16 );
+		attribs[21] = bound( 1, (int)gl_wgl_msaa_samples->value, 16 );
 		attribs[22] = 0;
 		attribs[23] = 0;
 
@@ -832,7 +831,7 @@ void VID_CreateFakeWindow( void )
 	int			pixelFormat;
 
 	// MSAA disabled
-	if( !gl_enable_msaa->value )
+	if( !CVAR_TO_BOOL( gl_wgl_msaa_samples ))
 		return;
 
 	memset( &wndClass, 0, sizeof( WNDCLASSEX ));
@@ -1442,7 +1441,7 @@ qboolean R_Init_OpenGL( void )
 	if( !opengl_dll.link )
 		return false;
 
-	if( debug_context || gl_enable_msaa->value )
+	if( debug_context || CVAR_TO_BOOL( gl_wgl_msaa_samples ))
 		GL_CheckExtension( "OpenGL Internal ProcAddress", wglproc_funcs, NULL, GL_WGL_PROCADDRESS );
 
 	return VID_SetMode();
@@ -1499,7 +1498,7 @@ static void GL_SetDefaults( void )
 	pglDisable( GL_BLEND );
 	pglDisable( GL_ALPHA_TEST );
 	pglDisable( GL_POLYGON_OFFSET_FILL );
-	pglAlphaFunc( GL_GREATER, 0.0f );
+	pglAlphaFunc( GL_GREATER, DEFAULT_ALPHATEST );
 	pglEnable( GL_TEXTURE_2D );
 	pglShadeModel( GL_SMOOTH );
 	pglFrontFace( GL_CCW );
@@ -1590,7 +1589,7 @@ void GL_InitCommands( void )
 	window_ypos = Cvar_Get( "_window_ypos", "48", FCVAR_RENDERINFO, "window position by vertical" );
 
 	gl_extensions = Cvar_Get( "gl_allow_extensions", "1", FCVAR_GLCONFIG, "allow gl_extensions" );			
-	gl_enable_msaa = Cvar_Get( "gl_enable_msaa", "4", FCVAR_GLCONFIG, "enable multisample anti-aliasing" );
+	gl_wgl_msaa_samples = Cvar_Get( "gl_wgl_msaa_samples", "4", FCVAR_GLCONFIG, "enable multisample anti-aliasing" );
 	gl_texture_nearest = Cvar_Get( "gl_texture_nearest", "0", FCVAR_ARCHIVE, "disable texture filter" );
 	gl_lightmap_nearest = Cvar_Get( "gl_lightmap_nearest", "0", FCVAR_ARCHIVE, "disable lightmap filter" );
 	gl_check_errors = Cvar_Get( "gl_check_errors", "1", FCVAR_ARCHIVE, "ignore video engine errors" );
@@ -1606,6 +1605,7 @@ void GL_InitCommands( void )
 	gl_test = Cvar_Get( "gl_test", "0", 0, "engine developer cvar for quick testing new features" );
 	gl_wireframe = Cvar_Get( "gl_wireframe", "0", FCVAR_ARCHIVE|FCVAR_SPONLY, "show wireframe overlay" );
 	gl_round_down = Cvar_Get( "gl_round_down", "2", FCVAR_RENDERINFO, "round texture sizes to nearest POT value" );
+	gl_msaa = Cvar_Get( "gl_msaa", "2", FCVAR_ARCHIVE, "enable multi sample anti-aliasing" );
 
 	// these cvar not used by engine but some mods requires this
 	gl_polyoffset = Cvar_Get( "gl_polyoffset", "2.0", FCVAR_ARCHIVE, "polygon offset for decals" );
@@ -1680,7 +1680,7 @@ void GL_InitExtensions( void )
 	else glConfig.hardware_type = GLHW_GENERIC;
 
 	// initalize until base opengl functions loaded (old-context)
-	if( !debug_context && !gl_enable_msaa->value )
+	if( !debug_context && !CVAR_TO_BOOL( gl_wgl_msaa_samples ))
 		GL_CheckExtension( "OpenGL Internal ProcAddress", wglproc_funcs, NULL, GL_WGL_PROCADDRESS );
 
 	// windows-specific extensions
@@ -1761,7 +1761,6 @@ void GL_InitExtensions( void )
 	GL_CheckExtension( "GL_ARB_depth_buffer_float", NULL, "gl_texture_float", GL_ARB_DEPTH_FLOAT_EXT );
 	GL_CheckExtension( "GL_EXT_gpu_shader4", NULL, NULL, GL_EXT_GPU_SHADER4 ); // don't confuse users
 	GL_CheckExtension( "GL_ARB_shading_language_100", NULL, NULL, GL_SHADER_GLSL100_EXT );
-//	GL_CheckExtension( "GL_ARB_texture_rg", NULL, "gl_arb_texture_rg", GL_ARB_TEXTURE_RG );
 
 	// this won't work without extended context
 	if( glw_state.extended )
@@ -1779,7 +1778,7 @@ void GL_InitExtensions( void )
 		pglGetIntegerv( GL_MAX_VERTEX_UNIFORM_COMPONENTS_ARB, &glConfig.max_vertex_uniforms );
 		pglGetIntegerv( GL_MAX_VERTEX_ATTRIBS_ARB, &glConfig.max_vertex_attribs );
 
-		if( glConfig.hardware_type == GLHW_RADEON )
+		if( glConfig.hardware_type == GLHW_RADEON && glConfig.max_vertex_uniforms > 512 )
 			glConfig.max_vertex_uniforms /= 4; // radeon returns not correct info
 	}
 	else
@@ -1814,8 +1813,7 @@ void GL_InitExtensions( void )
 		pglEnable( GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB );
 
 		// enable all the low priority messages
-		if( host_developer.value >= DEV_EXTENDED )
-			pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
+		pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
 	}
 
 	tr.framecount = tr.visframecount = 1;

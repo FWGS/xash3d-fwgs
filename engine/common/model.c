@@ -31,6 +31,7 @@ static int	mod_numknown = 0;
 byte		*com_studiocache;		// cache for submodels
 convar_t		*mod_studiocache;
 convar_t		*r_wadtextures;
+convar_t		*r_showhull;
 model_t		*loadmodel;
 
 /*
@@ -141,6 +142,7 @@ void Mod_Init( void )
 	com_studiocache = Mem_AllocPool( "Studio Cache" );
 	mod_studiocache = Cvar_Get( "r_studiocache", "1", FCVAR_ARCHIVE, "enables studio cache for speedup tracing hitboxes" );
 	r_wadtextures = Cvar_Get( "r_wadtextures", "0", 0, "completely ignore textures in the bsp-file if enabled" );
+	r_showhull = Cvar_Get( "r_showhull", "0", 0, "draw collision hulls 1-3" );
 
 	Cmd_AddCommand( "mapstats", Mod_PrintWorldStats_f, "show stats for currently loaded map" );
 	Cmd_AddCommand( "modellist", Mod_Modellist_f, "display loaded models list" );
@@ -158,6 +160,7 @@ void Mod_FreeAll( void )
 {
 	int	i;
 
+	Mod_ReleaseHullPolygons();
 	for( i = 0; i < mod_numknown; i++ )
 		Mod_FreeModel( &mod_known[i] );
 	mod_numknown = 0;
@@ -400,6 +403,10 @@ static void Mod_PurgeStudioCache( void )
 {
 	int	i;
 
+	// refresh hull data
+	SetBits( r_showhull->flags, FCVAR_CHANGED );
+	Mod_ReleaseHullPolygons();
+
 	// release previois map
 	Mod_FreeModel( mod_known );	// world is stuck on slot #0 always
 
@@ -485,7 +492,7 @@ void *Mod_Calloc( int number, size_t size )
 	cache_user_t	*cu;
 
 	if( number <= 0 || size <= 0 ) return NULL;
-	cu = (cache_user_t *)Mem_Alloc( com_studiocache, sizeof( cache_user_t ) + number * size );
+	cu = (cache_user_t *)Mem_Calloc( com_studiocache, sizeof( cache_user_t ) + number * size );
 	cu->data = (void *)cu; // make sure what cu->data is not NULL
 
 	return cu;
@@ -524,7 +531,7 @@ void Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
 
 	buf = FS_LoadFile( modname, &size, false );
 	if( !buf || !size ) Host_Error( "LoadCacheFile: ^1can't load %s^7\n", filename );
-	cu->data = Mem_Alloc( com_studiocache, size );
+	cu->data = Mem_Malloc( com_studiocache, size );
 	memcpy( cu->data, buf, size );
 	Mem_Free( buf );
 }

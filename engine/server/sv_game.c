@@ -609,7 +609,7 @@ void SV_RestartDecals( void )
 	if( !SV_Active( )) return;
 
 	// g-cont. add space for studiodecals if present
-	host.decalList = (decallist_t *)Z_Malloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
+	host.decalList = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
 	host.numdecals = R_CreateDecalList( host.decalList );
 
 	// remove decals from map
@@ -692,7 +692,7 @@ void SV_WriteEntityPatch( const char *filename )
 		char	*entities = NULL;
 		
 		FS_Seek( f, lumpofs, SEEK_SET );
-		entities = (char *)Z_Malloc( lumplen + 1 );
+		entities = (char *)Z_Calloc( lumplen + 1 );
 		FS_Read( f, entities, lumplen );
 		FS_WriteFile( va( "maps/%s.ent", filename ), entities, lumplen );
 		Con_Printf( "Write 'maps/%s.ent'\n", filename );
@@ -760,7 +760,7 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	if( !ents && lumplen >= 32 )
 	{
 		FS_Seek( f, lumpofs, SEEK_SET );
-		ents = Z_Malloc( lumplen + 1 );
+		ents = Z_Calloc( lumplen + 1 );
 		FS_Read( f, ents, lumplen );
 	}
 	FS_Close( f ); // all done
@@ -2011,8 +2011,14 @@ int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample
 
 	if( sample[0] == '!' && Q_isdigit( sample + 1 ))
 	{
-		SetBits( flags, SND_SENTENCE );
 		sound_idx = Q_atoi( sample + 1 );
+
+		if( sound_idx >= MAX_SOUNDS )
+		{
+			SetBits( flags, SND_SENTENCE|SND_SEQUENCE );
+			sound_idx -= MAX_SOUNDS;
+		}
+		else SetBits( flags, SND_SENTENCE );
 	}
 	else if( sample[0] == '#' && Q_isdigit( sample + 1 ))
 	{
@@ -2922,7 +2928,7 @@ void *pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 	if( cb > 0 )
 	{
 		// a poke646 have memory corrupt in somewhere - this is trashed last sixteen bytes :(
-		pEdict->pvPrivateData = Mem_Alloc( svgame.mempool, (cb + 15) & ~15 );
+		pEdict->pvPrivateData = Mem_Calloc( svgame.mempool, (cb + 15) & ~15 );
 	}
 
 	return pEdict->pvPrivateData;
@@ -2962,7 +2968,7 @@ string_t SV_AllocString( const char *szString )
 
 	l = Q_strlen( szString ) + 1;
 
-	out = out_p = Mem_Alloc( svgame.stringspool, l );
+	out = out_p = Mem_Calloc( svgame.stringspool, l );
 	for( i = 0; i < l; i++ )
 	{
 		if( szString[i] == '\\' && i < l - 1 )
@@ -4094,7 +4100,7 @@ void pfnEndSection( const char *pszSection )
 {
 	if( !Q_stricmp( "oem_end_credits", pszSection ))
 		Host_Credits ();
-	else Cbuf_AddText( va( "endgame \"%s\"\n", pszSection ));
+	else Cbuf_AddText( "\ndisconnect\n" );
 }
 
 /*
@@ -4860,8 +4866,8 @@ qboolean SV_LoadProgs( const char *name )
 
 	svgame.globals->maxEntities = GI->max_edicts;
 	svgame.globals->maxClients = svs.maxclients;
-	svgame.edicts = Mem_Alloc( svgame.mempool, sizeof( edict_t ) * GI->max_edicts );
-	svs.baselines = Z_Malloc( sizeof( entity_state_t ) * GI->max_edicts );
+	svgame.edicts = Mem_Calloc( svgame.mempool, sizeof( edict_t ) * GI->max_edicts );
+	svs.baselines = Z_Calloc( sizeof( entity_state_t ) * GI->max_edicts );
 	svgame.numEntities = svs.maxclients + 1; // clients + world
 
 	for( i = 0, e = svgame.edicts; i < GI->max_edicts; i++, e++ )

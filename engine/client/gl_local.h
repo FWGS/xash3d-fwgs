@@ -38,6 +38,7 @@ extern byte	*r_temppool;
 
 #define SHADEDOT_QUANT 	16		// precalculated dot products for quantized angles
 #define SHADE_LAMBERT	1.495f
+#define DEFAULT_ALPHATEST	0.0f
 
 // refparams
 #define RP_NONE		0
@@ -294,6 +295,12 @@ void R_DrawTileClear( int x, int y, int w, int h );
 void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data );
 
 //
+// gl_drawhulls.c
+//
+void R_DrawWorldHull( void );
+void R_DrawModelHull( void );
+
+//
 // gl_image.c
 //
 void R_SetTextureParameters( void );
@@ -329,7 +336,7 @@ void R_AnimateLight( void );
 void R_GetLightSpot( vec3_t lightspot );
 void R_MarkLights( dlight_t *light, int bit, mnode_t *node );
 void R_LightForPoint( const vec3_t point, color24 *ambientLight, qboolean invLight, qboolean useAmbient, float radius );
-colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lightspot );
+colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lightspot, vec3_t lightvec );
 int R_CountSurfaceDlights( msurface_t *surf );
 colorVec R_LightPoint( const vec3_t p0 );
 int R_CountDlights( void );
@@ -417,6 +424,7 @@ float CL_GetStudioEstimatedFrame( cl_entity_t *ent );
 int R_GetEntityRenderMode( cl_entity_t *ent );
 void R_DrawStudioModel( cl_entity_t *e );
 player_info_t *pfnPlayerInfo( int index );
+void R_GatherPlayerLight( void );
 
 //
 // gl_alias.c
@@ -520,7 +528,6 @@ enum
 	GL_ARB_DEPTH_FLOAT_EXT,
 	GL_ARB_SEAMLESS_CUBEMAP,
 	GL_EXT_GPU_SHADER4,		// shaders only
-	GL_ARB_TEXTURE_RG,
 	GL_DEPTH_TEXTURE,
 	GL_DEBUG_OUTPUT,
 	GL_EXTCOUNT,		// must be last
@@ -638,6 +645,7 @@ extern convar_t	*gl_finish;
 extern convar_t	*gl_nosort;
 extern convar_t	*gl_clear;
 extern convar_t	*gl_test;		// cvar to testify new effects
+extern convar_t	*gl_msaa;	
 
 extern convar_t	*r_speeds;
 extern convar_t	*r_fullbright;

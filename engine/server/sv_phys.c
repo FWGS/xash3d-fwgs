@@ -1943,7 +1943,7 @@ static char **pfnGetFilesList( const char *pattern, int *numFiles, int gamediron
 
 static void *pfnMem_Alloc( size_t cb, const char *filename, const int fileline )
 {
-	return _Mem_Alloc( svgame.mempool, cb, filename, fileline );
+	return _Mem_Alloc( svgame.mempool, cb, true, filename, fileline );
 }
 
 static void pfnMem_Free( void *mem, const char *filename, const int fileline )
@@ -1979,7 +1979,7 @@ const byte *pfnLoadImagePixels( const char *filename, int *width, int *height )
 
 	if( !pic ) return NULL;
 
-	buffer = Mem_Alloc( svgame.mempool, pic->size );
+	buffer = Mem_Malloc( svgame.mempool, pic->size );
 	if( buffer ) memcpy( buffer, pic->buffer, pic->size );
 	if( width ) *width = pic->width;
 	if( height ) *height = pic->height;

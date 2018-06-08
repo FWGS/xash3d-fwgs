@@ -380,7 +380,7 @@ void CL_WriteDemoHeader( const char *name )
 	FS_Write( cls.demofile, &demo.header, sizeof( demo.header ));
 
 	demo.directory.numentries = 2;
-	demo.directory.entries = Mem_Alloc( cls.mempool, sizeof( demoentry_t ) * demo.directory.numentries );
+	demo.directory.entries = Mem_Calloc( cls.mempool, sizeof( demoentry_t ) * demo.directory.numentries );
 
 	// DIRECTORY ENTRY # 0
 	demo.entry = &demo.directory.entries[0];	// only one here.
@@ -812,7 +812,7 @@ qboolean CL_DemoReadMessage( byte *buffer, size_t *length )
 			return false; // header is ended, skip frame
 		case dem_userdata:
 			FS_Read( cls.demofile, &size, sizeof( int ));
-			userbuf = Mem_Alloc( cls.mempool, size );
+			userbuf = Mem_Malloc( cls.mempool, size );
 			FS_Read( cls.demofile, userbuf, size );
 
 			if( clgame.hInstance )
@@ -1316,7 +1316,7 @@ void CL_PlayDemo_f( void )
 	}
 
 	// allocate demo entries
-	demo.directory.entries = Mem_Alloc( cls.mempool, sizeof( demoentry_t ) * demo.directory.numentries );
+	demo.directory.entries = Mem_Malloc( cls.mempool, sizeof( demoentry_t ) * demo.directory.numentries );
 
 	for( i = 0; i < demo.directory.numentries; i++ )
 	{

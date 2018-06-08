@@ -768,7 +768,7 @@ pfnMemAlloc
 */
 static void *pfnMemAlloc( size_t cb, const char *filename, const int fileline )
 {
-	return _Mem_Alloc( gameui.mempool, cb, filename, fileline );
+	return _Mem_Alloc( gameui.mempool, cb, true, filename, fileline );
 }
 
 /*
@@ -1050,7 +1050,7 @@ qboolean UI_LoadProgs( void )
 	// setup gameinfo
 	for( i = 0; i < SI.numgames; i++ )
 	{
-		gameui.modsInfo[i] = Mem_Alloc( gameui.mempool, sizeof( GAMEINFO ));
+		gameui.modsInfo[i] = Mem_Calloc( gameui.mempool, sizeof( GAMEINFO ));
 		UI_ConvertGameInfo( gameui.modsInfo[i], SI.games[i] );
 	}
 

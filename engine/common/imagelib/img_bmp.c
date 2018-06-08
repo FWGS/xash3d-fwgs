@@ -136,7 +136,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
 
 	if( Image_CheckFlag( IL_KEEP_8BIT ) && bhdr.bitsPerPixel == 8 )
 	{
-		pixbuf = image.palette = Mem_Alloc( host.imagepool, 1024 );
+		pixbuf = image.palette = Mem_Malloc( host.imagepool, 1024 );
 
 		// bmp have a reversed palette colors
 		for( i = 0; i < bhdr.colors; i++ )
@@ -157,7 +157,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
 
 	buf_p += cbPalBytes;
 	image.size = image.width * image.height * bpp;
-	image.rgba = Mem_Alloc( host.imagepool, image.size );
+	image.rgba = Mem_Malloc( host.imagepool, image.size );
 	bps = image.width * (bhdr.bitsPerPixel >> 3);
 
 	switch( bhdr.bitsPerPixel )
@@ -403,7 +403,7 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 		FS_Write( pfile, &bmih, sizeof( bmih ));
 	}
 
-	pbBmpBits = Mem_Alloc( host.imagepool, cbBmpBits );
+	pbBmpBits = Mem_Malloc( host.imagepool, cbBmpBits );
 
 	if( pixel_size == 1 )
 	{
