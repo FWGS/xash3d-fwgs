@@ -241,7 +241,7 @@ qboolean Image_LoadSPR( const char *name, const byte *buffer, size_t filesize )
 	{
 		// spr32 support
 		image.size = image.width * image.height * 4;
-		image.rgba = Mem_Alloc( host.imagepool, image.size );
+		image.rgba = Mem_Malloc( host.imagepool, image.size );
 		memcpy( image.rgba, (byte *)(pin + 1), image.size );
 		SetBits( image.flags, IMAGE_HAS_COLOR ); // Color. True Color!
 		return true;

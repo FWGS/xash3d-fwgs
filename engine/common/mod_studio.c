@@ -598,7 +598,7 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 	mstudioseqgroup_t	*pseqgroup;
 	cache_user_t	*paSequences;
 	size_t		filesize;
-	byte		*buf;
+		  byte		*buf;
 
 	pseqgroup = (mstudioseqgroup_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqgroupindex) + pseqdesc->seqgroup;
 	if( pseqdesc->seqgroup == 0 )
@@ -608,7 +608,7 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 
 	if( paSequences == NULL )
 	{
-		paSequences = (cache_user_t *)Mem_Alloc( com_studiocache, MAXSTUDIOGROUPS * sizeof( cache_user_t ));
+		paSequences = (cache_user_t *)Mem_Calloc( com_studiocache, MAXSTUDIOGROUPS * sizeof( cache_user_t ));
 		m_pSubModel->submodels = (void *)paSequences;
 	}
 
@@ -628,8 +628,8 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 		if( IDSEQGRPHEADER != *(uint *)buf ) Host_Error( "StudioGetAnim: %s is corrupted\n", filepath );
 
 		Con_Printf( "loading: %s\n", filepath );
-			
-		paSequences[pseqdesc->seqgroup].data = Mem_Alloc( com_studiocache, filesize );
+
+		paSequences[pseqdesc->seqgroup].data = Mem_Calloc( com_studiocache, filesize );
 		memcpy( paSequences[pseqdesc->seqgroup].data, buf, filesize );
 		Mem_Free( buf );
 	}
@@ -1070,7 +1070,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 			// give space for textures and skinrefs
 			size1 = thdr->numtextures * sizeof( mstudiotexture_t );
 			size2 = thdr->numskinfamilies * thdr->numskinref * sizeof( short );
-			mod->cache.data = Mem_Alloc( loadmodel->mempool, phdr->length + size1 + size2 );
+			mod->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length + size1 + size2 );
 			memcpy( loadmodel->cache.data, buffer, phdr->length ); // copy main mdl buffer
 			phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
 			phdr->numskinfamilies = thdr->numskinfamilies;
@@ -1089,7 +1089,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	else
 	{
 		// NOTE: don't modify source buffer because it's used for CRC computing
-		loadmodel->cache.data = Mem_Alloc( loadmodel->mempool, phdr->length );
+		loadmodel->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length );
 		memcpy( loadmodel->cache.data, buffer, phdr->length );
 		phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
 		Mod_StudioLoadTextures( mod, phdr );

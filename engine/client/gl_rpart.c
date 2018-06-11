@@ -128,7 +128,7 @@ void CL_InitParticles( void )
 {
 	int	i;
 
-	cl_particles = Mem_Alloc( cls.mempool, sizeof( particle_t ) * GI->max_particles );
+	cl_particles = Mem_Calloc( cls.mempool, sizeof( particle_t ) * GI->max_particles );
 	CL_ClearParticles ();
 
 	// this is used for EF_BRIGHTFIELD

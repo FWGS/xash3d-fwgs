@@ -24,7 +24,7 @@ GNU General Public License for more details.
 
 #define IsLiquidContents( cnt )	( cnt == CONTENTS_WATER || cnt == CONTENTS_SLIME || cnt == CONTENTS_LAVA )
 
-float			gldepthmin, gldepthmax;
+float		gldepthmin, gldepthmax;
 ref_instance_t	RI;
 
 static int R_RankForRenderMode( int rendermode )
@@ -240,10 +240,10 @@ qboolean R_AddEntity( struct cl_entity_s *clent, int type )
 	if( !clent || !clent->model )
 		return false; // if set to invisible, skip
 
-	if( clent->curstate.effects & EF_NODRAW )
+	if( FBitSet( clent->curstate.effects, EF_NODRAW ))
 		return false; // done
 
-	if( clent->curstate.rendermode != kRenderNormal && CL_FxBlend( clent ) <= 0 )
+	if( !R_ModelOpaque( clent->curstate.rendermode ) && CL_FxBlend( clent ) <= 0 )
 		return true; // invisible
 
 	if( type == ET_FRAGMENTED )
@@ -539,7 +539,7 @@ void R_SetupGL( qboolean set_gl_state )
 	pglMatrixMode( GL_MODELVIEW );
 	GL_LoadMatrix( RI.worldviewMatrix );
 
-	if( RI.params & RP_CLIPPLANE )
+	if( FBitSet( RI.params, RP_CLIPPLANE ))
 	{
 		GLdouble	clip[4];
 		mplane_t	*p = &RI.clipPlane;
@@ -1082,8 +1082,22 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 	if( gl_finish->value && RI.drawWorld )
 		pglFinish();
 
-	if( glConfig.max_multisamples > 1 )
-		pglEnable( GL_MULTISAMPLE_ARB );
+	if( glConfig.max_multisamples > 1 && FBitSet( gl_msaa->flags, FCVAR_CHANGED ))
+	{
+		if( CVAR_TO_BOOL( gl_msaa ))
+		{
+			pglEnable( GL_MULTISAMPLE_ARB );
+			if( gl_msaa->value > 1.0f )
+				pglEnable( GL_SAMPLE_ALPHA_TO_COVERAGE_ARB );
+			else pglDisable( GL_SAMPLE_ALPHA_TO_COVERAGE_ARB );
+		}
+		else
+		{
+			pglDisable( GL_SAMPLE_ALPHA_TO_COVERAGE_ARB );
+			pglDisable( GL_MULTISAMPLE_ARB );
+		}
+		ClearBits( gl_msaa->flags, FCVAR_CHANGED );
+	}
 
 	// completely override rendering
 	if( clgame.drawFuncs.GL_RenderFrame != NULL )
@@ -1092,6 +1106,7 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 
 		if( clgame.drawFuncs.GL_RenderFrame( rvp ))
 		{
+			R_GatherPlayerLight();
 			tr.realframecount++;
 			tr.fResetVis = true;
 			return;
@@ -1384,7 +1399,7 @@ static const ref_overview_t *GL_GetOverviewParms( void )
 
 static void *R_Mem_Alloc( size_t cb, const char *filename, const int fileline )
 {
-	return _Mem_Alloc( cls.mempool, cb, filename, fileline );
+	return _Mem_Alloc( cls.mempool, cb, true, filename, fileline );
 }
 
 static void R_Mem_Free( void *mem, const char *filename, const int fileline )

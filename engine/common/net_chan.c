@@ -406,7 +406,7 @@ fragbuf_t *Netchan_AllocFragbuf( void )
 {
 	fragbuf_t	*buf;
 
-	buf = (fragbuf_t *)Mem_Alloc( net_mempool, sizeof( fragbuf_t ));
+	buf = (fragbuf_t *)Mem_Calloc( net_mempool, sizeof( fragbuf_t ));
 	MSG_Init( &buf->frag_message, "Frag Message", buf->frag_message_buf, sizeof( buf->frag_message_buf ));
 
 	return buf;
@@ -578,7 +578,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 		chunksize = chan->pfnBlockSize( chan->client );
 	else chunksize = FRAGMENT_MAX_SIZE; // fallback
 
-	wait = (fragbufwaiting_t *)Mem_Alloc( net_mempool, sizeof( fragbufwaiting_t ));
+	wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 
 	if( !LZSS_IsCompressed( MSG_GetData( msg )))
 	{
@@ -588,7 +588,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 
 		if( pbOut && uCompressedSize > 0 && uCompressedSize < uSourceSize )
 		{
-			Con_DPrintf( "Compressing split packet (%d -> %d bytes)\n", uSourceSize, uCompressedSize );
+			Con_Reportf( "Compressing split packet (%d -> %d bytes)\n", uSourceSize, uCompressedSize );
 			memcpy( msg->pData, pbOut, uCompressedSize );
 			MSG_SeekToBit( msg, uCompressedSize << 3, SEEK_SET );
 		}
@@ -756,7 +756,7 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 		if( pbOut ) free( pbOut );
 	}
 
-	wait = (fragbufwaiting_t *)Mem_Alloc( net_mempool, sizeof( fragbufwaiting_t ));
+	wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 	remaining = size;
 	pos = 0;
 
@@ -871,7 +871,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 		Mem_Free( uncompressed );
 	}
 
-	wait = (fragbufwaiting_t *)Mem_Alloc( net_mempool, sizeof( fragbufwaiting_t ));
+	wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 	remaining = filesize;
 	pos = 0;
 
@@ -1077,7 +1077,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		p = p->next;
 	}
 
-	buffer = Mem_Alloc( net_mempool, nsize + 1 );
+	buffer = Mem_Calloc( net_mempool, nsize + 1 );
 	p = chan->incomingbufs[FRAG_FILE_STREAM];
 	pos = 0;
 
@@ -1110,7 +1110,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 	if( LZSS_IsCompressed( buffer ))
 	{
 		uint	uncompressedSize = LZSS_GetActualSize( buffer ) + 1;
-		byte	*uncompressedBuffer = Mem_Alloc( net_mempool, uncompressedSize );
+		byte	*uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
 
 		nsize = LZSS_Decompress( buffer, uncompressedBuffer );
 		Mem_Free( buffer );

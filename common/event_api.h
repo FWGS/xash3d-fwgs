@@ -51,6 +51,8 @@ typedef struct event_api_s
 	struct pmtrace_s *( *EV_VisTraceLine )( float *start, float *end, int flags );
 	struct physent_s *( *EV_GetVisent )( int idx );
 	int	( *EV_TestLine)( const vec3_t start, const vec3_t end, int flags );
+	void	( *EV_PushTraceBounds)( int hullnum, const float *mins, const float *maxs );
+	void	( *EV_PopTraceBounds)( void );
 } event_api_t;
 
 #endif//EVENT_API_H

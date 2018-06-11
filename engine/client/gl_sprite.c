@@ -78,7 +78,7 @@ static dframetype_t *R_SpriteLoadFrame( model_t *mod, void *pin, mspriteframe_t 
 	}	
 
 	// setup frame description
-	pspriteframe = Mem_Alloc( mod->mempool, sizeof( mspriteframe_t ));
+	pspriteframe = Mem_Malloc( mod->mempool, sizeof( mspriteframe_t ));
 	pspriteframe->width = pinframe->width;
 	pspriteframe->height = pinframe->height;
 	pspriteframe->up = pinframe->origin[1];
@@ -111,12 +111,12 @@ static dframetype_t *R_SpriteLoadGroup( model_t *mod, void *pin, mspriteframe_t 
 	numframes = pingroup->numframes;
 
 	groupsize = sizeof( mspritegroup_t ) + (numframes - 1) * sizeof( pspritegroup->frames[0] );
-	pspritegroup = Mem_Alloc( mod->mempool, groupsize );
+	pspritegroup = Mem_Calloc( mod->mempool, groupsize );
 	pspritegroup->numframes = numframes;
 
 	*ppframe = (mspriteframe_t *)pspritegroup;
 	pin_intervals = (dspriteinterval_t *)(pingroup + 1);
-	poutintervals = Mem_Alloc( mod->mempool, numframes * sizeof( float ));
+	poutintervals = Mem_Calloc( mod->mempool, numframes * sizeof( float ));
 	pspritegroup->intervals = poutintervals;
 
 	for( i = 0; i < numframes; i++ )
@@ -179,7 +179,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	{
 		pinq1 = (dsprite_q1_t *)buffer;
 		size = sizeof( msprite_t ) + ( pinq1->numframes - 1 ) * sizeof( psprite->frames );
-		psprite = Mem_Alloc( mod->mempool, size );
+		psprite = Mem_Calloc( mod->mempool, size );
 		mod->cache.data = psprite;	// make link to extradata
 
 		psprite->type = pinq1->type;
@@ -199,7 +199,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	{
 		pinhl = (dsprite_hl_t *)buffer;
 		size = sizeof( msprite_t ) + ( pinhl->numframes - 1 ) * sizeof( psprite->frames );
-		psprite = Mem_Alloc( mod->mempool, size );
+		psprite = Mem_Calloc( mod->mempool, size );
 		mod->cache.data = psprite;	// make link to extradata
 
 		psprite->type = pinhl->type;
@@ -347,7 +347,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 	// determine how many frames we needs
 	numframes = (pix->width * pix->height) / (w * h);
 	mod->mempool = Mem_AllocPool( va( "^2%s^7", mod->name ));
-	psprite = Mem_Alloc( mod->mempool, sizeof( msprite_t ) + ( numframes - 1 ) * sizeof( psprite->frames ));
+	psprite = Mem_Calloc( mod->mempool, sizeof( msprite_t ) + ( numframes - 1 ) * sizeof( psprite->frames ));
 	mod->cache.data = psprite;	// make link to extradata
 
 	psprite->type = SPR_FWD_PARALLEL_ORIENTED;
@@ -367,7 +367,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 	temp.type = pix->type;
 	temp.flags = pix->flags;	
 	temp.size = w * h * PFDesc[temp.type].bpp;
-	temp.buffer = Mem_Alloc( r_temppool, temp.size );
+	temp.buffer = Mem_Malloc( r_temppool, temp.size );
 	temp.palette = NULL;
 
 	// chop the image and upload into video memory
@@ -392,7 +392,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 		// build uinque frame name
 		Q_snprintf( texname, sizeof( texname ), "#MAP/%s_%i%i.spr", mod->name, i / 10, i % 10 );
 
-		psprite->frames[i].frameptr = Mem_Alloc( mod->mempool, sizeof( mspriteframe_t ));
+		psprite->frames[i].frameptr = Mem_Calloc( mod->mempool, sizeof( mspriteframe_t ));
 		pspriteframe = psprite->frames[i].frameptr;
 		pspriteframe->width = w;
 		pspriteframe->height = h;
@@ -979,7 +979,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		color2[1] = (float)lightColor.g * ( 1.0f / 255.0f );
 		color2[2] = (float)lightColor.b * ( 1.0f / 255.0f );
 		// NOTE: sprites with 'lightmap' looks ugly when alpha func is GL_GREATER 0.0
-		pglAlphaFunc( GL_GREATER, 0.25f );
+		pglAlphaFunc( GL_GREATER, 0.5f );
 	}
 
 	if( R_SpriteAllowLerping( e, psprite ))
@@ -1073,7 +1073,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		pglColor4f( color2[0], color2[1], color2[2], tr.blend );
 		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
 		R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
-		pglAlphaFunc( GL_GREATER, 0.0f );
+		pglAlphaFunc( GL_GREATER, DEFAULT_ALPHATEST );
 		pglDepthFunc( GL_LEQUAL );
 	}
 

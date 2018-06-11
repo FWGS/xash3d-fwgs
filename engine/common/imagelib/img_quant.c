@@ -447,7 +447,7 @@ rgbdata_t *Image_Quantize( rgbdata_t *pic )
 	learn();
 	unbiasnet();
 
-	pic->palette = Mem_Alloc( host.imagepool, netsize * 3 );
+	pic->palette = Mem_Malloc( host.imagepool, netsize * 3 );
 
 	for( i = 0; i < netsize; i++ )
 	{
