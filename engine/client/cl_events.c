@@ -164,7 +164,7 @@ void CL_RegisterEvent( int lastnum, const char *szEvName, pfnEventHook func )
 
 	// clear existing or allocate new one
 	if( !clgame.events[lastnum] )
-		clgame.events[lastnum] = Mem_Alloc( cls.mempool, sizeof( cl_user_event_t ));
+		clgame.events[lastnum] = Mem_Calloc( cls.mempool, sizeof( cl_user_event_t ));
 	else memset( clgame.events[lastnum], 0, sizeof( cl_user_event_t ));
 
 	ev = clgame.events[lastnum];

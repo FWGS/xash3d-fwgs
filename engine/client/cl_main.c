@@ -2061,13 +2061,11 @@ void CL_ReadPackets( void )
 	if( cl.maxclients > 1 && cls.state == ca_active && !host_developer.value )
 		Cvar_SetCheatState();
 #endif
-	// singleplayer never has connection timeout
-	if( NET_IsLocalAddress( cls.netchan.remote_address ))
-		return;
-
 	// hot precache and downloading resources
 	if( cls.signon == SIGNONS && cl.lastresourcecheck < host.realtime )
 	{
+		double checktime = Host_IsLocalGame() ? 0.1 : 1.0;
+
 		if( !cls.dl.custom && cl.resourcesneeded.pNext != &cl.resourcesneeded )
 		{
 			// check resource for downloading and precache
@@ -2075,8 +2073,13 @@ void CL_ReadPackets( void )
 			CL_BatchResourceRequest( false );
 			cls.dl.custom = true;
 		}
-		cl.lastresourcecheck = host.realtime + 5.0f; // don't checking too often
+
+		cl.lastresourcecheck = host.realtime + checktime;
 	}
+
+	// singleplayer never has connection timeout
+	if( NET_IsLocalAddress( cls.netchan.remote_address ))
+		return;
 
 	// if in the debugger last frame, don't timeout
 	if( host.frametime > 5.0f ) cls.netchan.last_received = Sys_DoubleTime();
@@ -2779,12 +2782,6 @@ void Host_ClientFrame( void )
 
 	// update audio
 	SND_UpdateSound ();
-
-	// animate lightestyles
-	CL_RunLightStyles ();
-
-	// decay dynamic lights
-	CL_DecayLights ();
 
 	// play avi-files
 	SCR_RunCinematic ();

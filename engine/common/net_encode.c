@@ -682,7 +682,7 @@ void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char *encode
 	const delta_field_t	*pInfo;
 
 	// allocate the delta-structures
-	if( !dt->pFields ) dt->pFields = (delta_t *)Z_Malloc( dt->maxFields * sizeof( delta_t ));
+	if( !dt->pFields ) dt->pFields = (delta_t *)Z_Calloc( dt->maxFields * sizeof( delta_t ));
 
 	pField = dt->pFields;
 	pInfo = dt->pInfo;

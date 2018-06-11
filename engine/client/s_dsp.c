@@ -273,7 +273,7 @@ int DLY_Init( int idelay, float delay )
 
 	cur = &rgsxdly[idelay];
 	cur->cdelaysamplesmax = ((int)(delay * idsp_dma_speed) << sxhires) + 1;
-	cur->lpdelayline = (int *)Z_Malloc( cur->cdelaysamplesmax * sizeof( int ));
+	cur->lpdelayline = (int *)Z_Calloc( cur->cdelaysamplesmax * sizeof( int ));
 	cur->xfade = 0;
 
 	// init modulation

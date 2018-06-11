@@ -1226,6 +1226,12 @@ void CL_EmitEntities( void )
 	if( !cl.frames[cl.parsecountmod].valid )
 		return;
 
+	// animate lightestyles
+	CL_RunLightStyles ();
+
+	// decay dynamic lights
+	CL_DecayLights ();
+
 	// compute last interpolation amount
 	CL_UpdateFrameLerp ();
 

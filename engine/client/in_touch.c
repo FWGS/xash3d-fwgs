@@ -625,7 +625,7 @@ void IN_TouchReloadConfig_f( void )
 
 touchbutton2_t *IN_TouchAddButton( touchbuttonlist_t *list, const char *name,  const char *texture, const char *command, float x1, float y1, float x2, float y2, byte *color )
 {
-	touchbutton2_t *button = Mem_Alloc( touch.mempool, sizeof( touchbutton2_t ) );
+	touchbutton2_t *button = Mem_Malloc( touch.mempool, sizeof( touchbutton2_t ) );
 	button->texture = -1;
 	Q_strncpy( button->texturefile, texture, sizeof( button->texturefile ) );
 	Q_strncpy( button->name, name, 32 );

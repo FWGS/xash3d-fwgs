@@ -318,10 +318,10 @@ void GL_MakeAliasModelDisplayLists( model_t *m )
 	// save the data out
 	m_pAliasHeader->poseverts = g_numorder;
 
-	m_pAliasHeader->commands = Mem_Alloc( m->mempool, g_numcommands * 4 );
+	m_pAliasHeader->commands = Mem_Malloc( m->mempool, g_numcommands * 4 );
 	memcpy( m_pAliasHeader->commands, g_commands, g_numcommands * 4 );
 
-	m_pAliasHeader->posedata = Mem_Alloc( m->mempool, m_pAliasHeader->numposes * m_pAliasHeader->poseverts * sizeof( trivertex_t ));
+	m_pAliasHeader->posedata = Mem_Malloc( m->mempool, m_pAliasHeader->numposes * m_pAliasHeader->poseverts * sizeof( trivertex_t ));
 	verts = m_pAliasHeader->posedata;
 
 	for( i = 0; i < m_pAliasHeader->numposes; i++ )
@@ -453,7 +453,7 @@ rgbdata_t *Mod_CreateSkinData( model_t *mod, byte *data, int width, int height )
 		i = mod->numtextures;
 		mod->textures = (texture_t **)Mem_Realloc( mod->mempool, mod->textures, ( i + 1 ) * sizeof( texture_t* ));
 		size = width * height + 768;
-		tx = Mem_Alloc( mod->mempool, sizeof( *tx ) + size );
+		tx = Mem_Calloc( mod->mempool, sizeof( *tx ) + size );
 		mod->textures[i] = tx;
 
 		Q_strncpy( tx->name, "DM_Skin", sizeof( tx->name ));
@@ -639,7 +639,7 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 	// skin and group info
 	size = sizeof( aliashdr_t ) + (pinmodel->numframes - 1) * sizeof( maliasframedesc_t );
 
-	m_pAliasHeader = Mem_Alloc( mod->mempool, size );
+	m_pAliasHeader = Mem_Calloc( mod->mempool, size );
 	mod->flags = pinmodel->flags;	// share effects flags
 
 	// endian-adjust and copy the data, starting with the alias model header
@@ -863,40 +863,44 @@ void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 		VectorScale( lightDir, 2048.0f, vecEnd );
 		VectorAdd( vecEnd, vecSrc, vecEnd );
 
-		light = R_LightVec( vecSrc, vecEnd, g_alias.lightspot );
+		light = R_LightVec( vecSrc, vecEnd, g_alias.lightspot, g_alias.lightvec );
 
-		VectorScale( lightDir, 2048.0f, vecEnd );
-		VectorAdd( vecEnd, vecSrc, vecEnd );
+		if( VectorIsNull( g_alias.lightvec ))
+		{
+			vecSrc[0] -= 16.0f;
+			vecSrc[1] -= 16.0f;
+			vecEnd[0] -= 16.0f;
+			vecEnd[1] -= 16.0f;
 
-		vecSrc[0] -= 16.0f;
-		vecSrc[1] -= 16.0f;
-		vecEnd[0] -= 16.0f;
-		vecEnd[1] -= 16.0f;
+			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
+			grad[0] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
 
-		gcolor = R_LightVec( vecSrc, vecEnd, NULL );
-		grad[0] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
+			vecSrc[0] += 32.0f;
+			vecEnd[0] += 32.0f;
 
-		vecSrc[0] += 32.0f;
-		vecEnd[0] += 32.0f;
+			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
+			grad[1] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
 
-		gcolor = R_LightVec( vecSrc, vecEnd, NULL );
-		grad[1] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
+			vecSrc[1] += 32.0f;
+			vecEnd[1] += 32.0f;
 
-		vecSrc[1] += 32.0f;
-		vecEnd[1] += 32.0f;
+			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
+			grad[2] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
 
-		gcolor = R_LightVec( vecSrc, vecEnd, NULL );
-		grad[2] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
+			vecSrc[0] -= 32.0f;
+			vecEnd[0] -= 32.0f;
 
-		vecSrc[0] -= 32.0f;
-		vecEnd[0] -= 32.0f;
+			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
+			grad[3] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
 
-		gcolor = R_LightVec( vecSrc, vecEnd, NULL );
-		grad[3] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
-
-		lightDir[0] = grad[0] - grad[1] - grad[2] + grad[3];
-		lightDir[1] = grad[1] + grad[0] - grad[2] - grad[3];
-		VectorNormalize( lightDir );
+			lightDir[0] = grad[0] - grad[1] - grad[2] + grad[3];
+			lightDir[1] = grad[1] + grad[0] - grad[2] - grad[3];
+			VectorNormalize( lightDir );
+		}
+		else
+		{
+			VectorCopy( g_alias.lightvec, lightDir );
+		}
 	}
 
 	VectorSet( finalLight, light.r, light.g, light.b );
@@ -1313,6 +1317,8 @@ static void R_AliasDrawLightTrace( cl_entity_t *e )
 {
 	if( r_drawentities->value == 7 )
 	{
+		vec3_t	origin;
+
 		pglDisable( GL_TEXTURE_2D );
 		pglDisable( GL_DEPTH_TEST );
 
@@ -1320,6 +1326,13 @@ static void R_AliasDrawLightTrace( cl_entity_t *e )
 		pglColor3f( 1, 0.5, 0 );
 		pglVertex3fv( e->origin );
 		pglVertex3fv( g_alias.lightspot );
+		pglEnd();
+
+		pglBegin( GL_LINES );
+		pglColor3f( 0, 0.5, 1 );
+		VectorMA( g_alias.lightspot, -64.0f, g_alias.lightvec, origin );
+		pglVertex3fv( g_alias.lightspot );
+		pglVertex3fv( origin );
 		pglEnd();
 
 		pglPointSize( 5.0f );
@@ -1429,11 +1442,16 @@ void R_DrawAliasModel( cl_entity_t *e )
 		R_AliasSetRemapColors( topcolor, bottomcolor );
 	}
 
-	pglTranslatef( m_pAliasHeader->scale_origin[0], m_pAliasHeader->scale_origin[1], m_pAliasHeader->scale_origin[2] );
-
 	if( tr.fFlipViewModel )
+	{
+		pglTranslatef( m_pAliasHeader->scale_origin[0], -m_pAliasHeader->scale_origin[1], m_pAliasHeader->scale_origin[2] );
 		pglScalef( m_pAliasHeader->scale[0], -m_pAliasHeader->scale[1], m_pAliasHeader->scale[2] );
-	else pglScalef( m_pAliasHeader->scale[0], m_pAliasHeader->scale[1], m_pAliasHeader->scale[2] );
+	}
+	else
+	{
+		pglTranslatef( m_pAliasHeader->scale_origin[0], m_pAliasHeader->scale_origin[1], m_pAliasHeader->scale_origin[2] );
+		pglScalef( m_pAliasHeader->scale[0], m_pAliasHeader->scale[1], m_pAliasHeader->scale[2] );
+	}
 
 	anim = (int)(g_alias.time * 10) & 3;
 	skin = bound( 0, RI.currententity->curstate.skin, m_pAliasHeader->numskins - 1 );

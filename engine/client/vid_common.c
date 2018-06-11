@@ -26,6 +26,7 @@ convar_t	*gl_extensions;
 convar_t	*gl_texture_anisotropy;
 convar_t	*gl_texture_lodbias;
 convar_t	*gl_texture_nearest;
+convar_t	*gl_wgl_msaa_samples;
 convar_t	*gl_lightmap_nearest;
 convar_t	*gl_keeptjunctions;
 convar_t	*gl_showtextures;
@@ -324,7 +325,7 @@ static void GL_SetDefaults( void )
 	pglDisable( GL_BLEND );
 	pglDisable( GL_ALPHA_TEST );
 	pglDisable( GL_POLYGON_OFFSET_FILL );
-	pglAlphaFunc( GL_GREATER, 0.0f );
+	pglAlphaFunc( GL_GREATER, DEFAULT_ALPHATEST );
 	pglEnable( GL_TEXTURE_2D );
 	pglShadeModel( GL_SMOOTH );
 	pglFrontFace( GL_CCW );
@@ -458,7 +459,8 @@ void GL_InitCommands( void )
 	gl_clear = Cvar_Get( "gl_clear", "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
 	gl_test = Cvar_Get( "gl_test", "0", 0, "engine developer cvar for quick testing new features" );
 	gl_wireframe = Cvar_Get( "gl_wireframe", "0", FCVAR_ARCHIVE|FCVAR_SPONLY, "show wireframe overlay" );
-	gl_msaa = Cvar_Get( "gl_msaa", "0", FCVAR_GLCONFIG, "MSAA samples. Use with caution, engine may fail with some values" );
+	gl_wgl_msaa_samples = Cvar_Get( "gl_wgl_msaa_samples", "4", FCVAR_GLCONFIG, "enable multisample anti-aliasing" );
+	gl_msaa = Cvar_Get( "gl_msaa", "2", FCVAR_ARCHIVE, "enable multi sample anti-aliasing" );
 	gl_stencilbits = Cvar_Get( "gl_stencilbits", "8", FCVAR_GLCONFIG, "pixelformat stencil bits (0 - auto)" );
 	gl_round_down = Cvar_Get( "gl_round_down", "2", FCVAR_RENDERINFO, "round texture sizes to nearest POT value" );
 	// these cvar not used by engine but some mods requires this

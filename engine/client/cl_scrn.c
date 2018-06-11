@@ -176,7 +176,7 @@ SCR_RSpeeds
 */
 void SCR_RSpeeds( void )
 {
-	char	msg[MAX_SYSPATH];
+	char	msg[2048];
 
 	if( !host.allow_console )
 		return;
@@ -202,6 +202,9 @@ void SCR_RSpeeds( void )
 			Con_DrawString( x, y, p, color );
 			y += height;
 
+			// handle '\n\n'
+			if( *p == '\n' ) 
+				y += height;
 			if( end ) p = end + 1;
 			else break;
 		} while( 1 );

@@ -227,7 +227,7 @@ static void R_InitVideoModes( void )
 	if( !modes )
 		return;
 
-	vidmodes = Mem_Alloc( host.mempool, modes * sizeof( vidmode_t ) );
+	vidmodes = Mem_Malloc( host.mempool, modes * sizeof( vidmode_t ) );
 
 	for( i = 0; i < modes; i++ )
 	{
@@ -363,8 +363,6 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		Con_Printf( S_OPENGL_WARN "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_PERFORMANCE_ARB:
-		if( host_developer.value < DEV_EXTENDED )
-			return;
 		Con_Printf( S_OPENGL_NOTE "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_OTHER_ARB:
@@ -592,9 +590,9 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 		// remove MSAA, if it present, because
 		// window creating may fail on GLX visual choose
-		if( gl_msaa->value || glw_state.safe >= 0 )
+		if( gl_wgl_msaa_samples->value || glw_state.safe >= 0 )
 		{
-			Cvar_Set( "gl_msaa", "0" );
+			Cvar_Set( "gl_wgl_msaa_samples", "0" );
 			glw_state.safe++;
 			GL_SetupAttributes(); // re-choose attributes
 
@@ -740,13 +738,12 @@ static void GL_SetupAttributes( void )
 #endif
 
 #elif !defined XASH_GL_STATIC
-	if( Sys_CheckParm( "-gldebug" ) && host_developer.value >= 1 )
+	if( Sys_CheckParm( "-gldebug" ) )
 	{
 		MsgDev( D_NOTE, "Creating an extended GL context for debug...\n" );
 		SDL_GL_SetAttribute( SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG );
 		glw_state.extended = true;
 	}
-
 #endif // XASH_GLES
 
 	SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
@@ -795,13 +792,13 @@ static void GL_SetupAttributes( void )
 
 	SDL_GL_SetAttribute( SDL_GL_STENCIL_SIZE, gl_stencilbits->value );
 
-	switch( (int)gl_msaa->value )
+	switch( (int)gl_wgl_msaa_samples->value )
 	{
 	case 2:
 	case 4:
 	case 8:
 	case 16:
-		samples = gl_msaa->value;
+		samples = gl_wgl_msaa_samples->value;
 		break;
 	default:
 		samples = 0; // don't use, because invalid parameter is passed
@@ -811,11 +808,15 @@ static void GL_SetupAttributes( void )
 	{
 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, samples);
+
+		glConfig.max_multisamples = samples;
 	}
 	else
 	{
 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
+
+		glConfig.max_multisamples = 0;
 	}
 }
 
@@ -1037,7 +1038,7 @@ void GL_InitExtensionsBigGL()
 		pglGetIntegerv( GL_MAX_VERTEX_ATTRIBS_ARB, &glConfig.max_vertex_attribs );
 
 #ifdef _WIN32 // Win32 only drivers?
-		if( glConfig.hardware_type == GLHW_RADEON )
+		if( glConfig.hardware_type == GLHW_RADEON && glConfig.max_vertex_uniforms > 512 )
 			glConfig.max_vertex_uniforms /= 4; // radeon returns not correct info
 #endif
 	}
@@ -1067,8 +1068,7 @@ void GL_InitExtensionsBigGL()
 		}
 
 		// enable all the low priority messages
-		if( host_developer.value >= 2 )
-			pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
+		pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
 	}
 #endif
 }

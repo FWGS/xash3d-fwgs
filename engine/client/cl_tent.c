@@ -127,7 +127,7 @@ void CL_AddClientResource( const char *filename, int type )
 	if( p != &cl.resourcesneeded )
 		return; // already in list?
 
-	pResource = Mem_Alloc( cls.mempool, sizeof( resource_t ));
+	pResource = Mem_Calloc( cls.mempool, sizeof( resource_t ));
 
 	Q_strncpy( pResource->szFileName, filename, sizeof( pResource->szFileName ));
 	pResource->type = type;
@@ -325,7 +325,7 @@ CL_InitTempents
 */
 void CL_InitTempEnts( void )
 {
-	cl_tempents = Mem_Alloc( cls.mempool, sizeof( TEMPENTITY ) * GI->max_tents );
+	cl_tempents = Mem_Calloc( cls.mempool, sizeof( TEMPENTITY ) * GI->max_tents );
 	CL_ClearTempEnts();
 
 	// load tempent sprites (glowshell, muzzleflashes etc)

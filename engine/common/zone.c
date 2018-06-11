@@ -15,12 +15,6 @@ GNU General Public License for more details.
 
 #include "common.h"
 
-#define MEMUNIT		8		// smallest unit we care about is this many bytes
-#define MEMCLUMPSIZE	(65536 - 1536)	// give malloc padding so we can't waste most of a page at the end
-#define MEMBITS		(MEMCLUMPSIZE / MEMUNIT)
-#define MEMBITINTS		(MEMBITS / 32)
-
-#define MEMCLUMP_SENTINEL	0xABADCAFE
 #define MEMHEADER_SENTINEL1	0xDEADF00D
 #define MEMHEADER_SENTINEL2	0xDF
 
@@ -29,7 +23,6 @@ typedef struct memheader_s
 	struct memheader_s	*next;		// next and previous memheaders in chain belonging to pool
 	struct memheader_s	*prev;
 	struct mempool_s	*pool;		// pool this memheader belongs to
-	struct memclump_s	*clump;		// clump this memheader lives in, NULL if not in a clump
 	size_t		size;		// size of the memory after the header (excluding header and sentinel2)
 	const char	*filename;	// file name and line where Mem_Alloc was called
 	uint		fileline;
@@ -38,22 +31,10 @@ typedef struct memheader_s
 	// immediately followed by data, which is followed by a MEMHEADER_SENTINEL2 byte
 } memheader_t;
 
-typedef struct memclump_s
-{
-	byte		block[MEMCLUMPSIZE];// contents of the clump
-	uint		sentinel1;	// should always be MEMCLUMP_SENTINEL
-	int		bits[MEMBITINTS];	// if a bit is on, it means that the MEMUNIT bytes it represents are allocated, otherwise free
-	uint		sentinel2;	// should always be MEMCLUMP_SENTINEL
-	size_t		blocksinuse;	// if this drops to 0, the clump is freed
-	size_t		largestavailable;	// largest block of memory available
-	struct memclump_s	*chain;		// next clump in the chain
-} memclump_t;
-
 typedef struct mempool_s
 {
 	uint		sentinel1;	// should always be MEMHEADER_SENTINEL1
 	struct memheader_s	*chain;		// chain of individual memory allocations
-	struct memclump_s	*clumpchain;	// chain of clumps (if any)
 	size_t		totalsize;	// total memory allocated in this pool (inside memheaders)
 	size_t		realsize;		// total memory allocated in this pool (actual malloc total)
 	size_t		lastchecksize;	// updated each time the pool is displayed by memlist
@@ -66,10 +47,8 @@ typedef struct mempool_s
 
 mempool_t *poolchain = NULL; // critical stuff
 
-void *_Mem_Alloc( byte *poolptr, size_t size, const char *filename, int fileline )
+void *_Mem_Alloc( byte *poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
-	int		i, j, k, needed, endbit, largest;
-	memclump_t	*clump, **clumpchainpointer;
 	memheader_t	*mem;
 	mempool_t		*pool = (mempool_t *)poolptr;
 
@@ -77,68 +56,10 @@ void *_Mem_Alloc( byte *poolptr, size_t size, const char *filename, int fileline
 	if( poolptr == NULL ) Sys_Error( "Mem_Alloc: pool == NULL (alloc at %s:%i)\n", filename, fileline );
 	pool->totalsize += size;
 
-	if( size < 4096 )
-	{
-		// clumping
-		needed = ( sizeof( memheader_t ) + size + sizeof( int ) + (MEMUNIT - 1)) / MEMUNIT;
-		endbit = MEMBITS - needed;
-		for( clumpchainpointer = &pool->clumpchain; *clumpchainpointer; clumpchainpointer = &(*clumpchainpointer)->chain )
-		{
-			clump = *clumpchainpointer;
-			if( clump->sentinel1 != MEMCLUMP_SENTINEL )
-				Sys_Error( "Mem_Alloc: trashed clump sentinel 1 (alloc at %s:%d)\n", filename, fileline );
-			if( clump->sentinel2 != MEMCLUMP_SENTINEL )
-				Sys_Error( "Mem_Alloc: trashed clump sentinel 2 (alloc at %s:%d)\n", filename, fileline );
-			if( clump->largestavailable >= needed )
-			{
-				largest = 0;
-				for( i = 0; i < endbit; i++ )
-				{
-					if( clump->bits[i>>5] & (1 << (i & 31)))
-						continue;
-					k = i + needed;
-					for( j = i; i < k; i++ )
-						if( clump->bits[i>>5] & (1 << (i & 31)))
-							goto loopcontinue;
-					goto choseclump;
-loopcontinue:;
-					if( largest < j - i )
-						largest = j - i;
-				}
-				// since clump falsely advertised enough space (nothing wrong
-				// with that), update largest count to avoid wasting time in
-				// later allocations
-				clump->largestavailable = largest;
-			}
-		}
-
-		pool->realsize += sizeof( memclump_t );
-		clump = malloc( sizeof( memclump_t ));
-		if( clump == NULL ) Sys_Error( "Mem_Alloc: out of memory (alloc at %s:%i)\n", filename, fileline );
-		memset( clump, 0, sizeof( memclump_t ));
-		*clumpchainpointer = clump;
-		clump->sentinel1 = MEMCLUMP_SENTINEL;
-		clump->sentinel2 = MEMCLUMP_SENTINEL;
-		clump->chain = NULL;
-		clump->blocksinuse = 0;
-		clump->largestavailable = MEMBITS - needed;
-		j = 0;
-choseclump:
-		mem = (memheader_t *)((byte *)clump->block + j * MEMUNIT );
-		mem->clump = clump;
-		clump->blocksinuse += needed;
-
-		for( i = j + needed; j < i; j++ )
-			clump->bits[j >> 5] |= (1 << (j & 31));
-	}
-	else
-	{
-		// big allocations are not clumped
-		pool->realsize += sizeof( memheader_t ) + size + sizeof( int );
-		mem = (memheader_t *)malloc( sizeof( memheader_t ) + size + sizeof( int ));
-		if( mem == NULL ) Sys_Error( "Mem_Alloc: out of memory (alloc at %s:%i)\n", filename, fileline );
-		mem->clump = NULL;
-	}
+	// big allocations are not clumped
+	pool->realsize += sizeof( memheader_t ) + size + sizeof( int );
+	mem = (memheader_t *)malloc( sizeof( memheader_t ) + size + sizeof( int ));
+	if( mem == NULL ) Sys_Error( "Mem_Alloc: out of memory (alloc at %s:%i)\n", filename, fileline );
 
 	mem->filename = filename;
 	mem->fileline = fileline;
@@ -153,7 +74,7 @@ choseclump:
 	mem->prev = NULL;
 	pool->chain = mem;
 	if( mem->next ) mem->next->prev = mem;
-	memset((void *)((byte *)mem + sizeof( memheader_t )), 0, mem->size );
+	if( clear ) memset((void *)((byte *)mem + sizeof( memheader_t )), 0, mem->size );
 
 	return (void *)((byte *)mem + sizeof( memheader_t ));
 }
@@ -167,7 +88,7 @@ static const char *Mem_CheckFilename( const char *filename )
 	if( !COM_CheckString( out ))
 		return dummy;
 
-	for( i = 0; i < 128; i++, out++ )
+	for( i = 0; i < MAX_OSPATH; i++, out++ )
 	{
 		if( *out == '\0' )
 			return filename; // valid name
@@ -178,8 +99,6 @@ static const char *Mem_CheckFilename( const char *filename )
 
 static void Mem_FreeBlock( memheader_t *mem, const char *filename, int fileline )
 {
-	int		i, firstblock, endblock;
-	memclump_t	*clump, **clumpchainpointer;
 	mempool_t		*pool;
 
 	if( mem->sentinel1 != MEMHEADER_SENTINEL1 )
@@ -208,50 +127,8 @@ static void Mem_FreeBlock( memheader_t *mem, const char *filename, int fileline 
 	// memheader has been unlinked, do the actual free now
 	pool->totalsize -= mem->size;
 
-	if(( clump = mem->clump ) != NULL )
-	{
-		if( clump->sentinel1 != MEMCLUMP_SENTINEL )
-			Sys_Error( "Mem_Free: trashed clump sentinel 1 (free at %s:%i)\n", filename, fileline );
-		if( clump->sentinel2 != MEMCLUMP_SENTINEL )
-			Sys_Error( "Mem_Free: trashed clump sentinel 2 (free at %s:%i)\n", filename, fileline );
-		firstblock = ((byte *)mem - (byte *)clump->block );
-		if( firstblock & ( MEMUNIT - 1 ))
-			Sys_Error( "Mem_Free: address not valid in clump (free at %s:%i)\n", filename, fileline );
-		firstblock /= MEMUNIT;
-		endblock = firstblock + ((sizeof( memheader_t ) + mem->size + sizeof( int ) + (MEMUNIT - 1)) / MEMUNIT );
-		clump->blocksinuse -= endblock - firstblock;
-
-		// could use &, but we know the bit is set
-		for( i = firstblock; i < endblock; i++ )
-			clump->bits[i >> 5] -= (1 << (i & 31));
-		if( clump->blocksinuse <= 0 )
-		{
-			// unlink from chain
-			for( clumpchainpointer = &pool->clumpchain; *clumpchainpointer; clumpchainpointer = &(*clumpchainpointer)->chain )
-			{
-				if (*clumpchainpointer == clump)
-				{
-					*clumpchainpointer = clump->chain;
-					break;
-				}
-			}
-
-			pool->realsize -= sizeof( memclump_t );
-			memset( clump, 0xBF, sizeof( memclump_t ));
-			free( clump );
-		}
-		else
-		{
-			// clump still has some allocations
-			// force re-check of largest available space on next alloc
-			clump->largestavailable = MEMBITS - clump->blocksinuse;
-		}
-	}
-	else
-	{
-		pool->realsize -= sizeof( memheader_t ) + mem->size + sizeof( int );
-		free( mem );
-	}
+	pool->realsize -= sizeof( memheader_t ) + mem->size + sizeof( int );
+	free( mem );
 }
 
 void _Mem_Free( void *data, const char *filename, int fileline )
@@ -260,7 +137,7 @@ void _Mem_Free( void *data, const char *filename, int fileline )
 	Mem_FreeBlock((memheader_t *)((byte *)data - sizeof( memheader_t )), filename, fileline );
 }
 
-void *_Mem_Realloc( byte *poolptr, void *memptr, size_t size, const char *filename, int fileline )
+void *_Mem_Realloc( byte *poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
 	memheader_t	*memhdr = NULL;
 	char		*nb;
@@ -273,7 +150,7 @@ void *_Mem_Realloc( byte *poolptr, void *memptr, size_t size, const char *filena
 		if( size == memhdr->size ) return memptr;
 	}
 
-	nb = _Mem_Alloc( poolptr, size, filename, fileline );
+	nb = _Mem_Alloc( poolptr, size, clear, filename, fileline );
 
 	if( memptr ) // first allocate?
 	{ 
@@ -399,20 +276,10 @@ void Mem_CheckHeaderSentinels( void *data, const char *filename, int fileline )
 	}
 }
 
-static void Mem_CheckClumpSentinels( memclump_t *clump, const char *filename, int fileline )
-{
-	// this isn't really very useful
-	if( clump->sentinel1 != MEMCLUMP_SENTINEL )
-		Sys_Error( "Mem_CheckClumpSentinels: trashed sentinel 1 (sentinel check at %s:%i)\n", filename, fileline );
-	if( clump->sentinel2 != MEMCLUMP_SENTINEL )
-		Sys_Error( "Mem_CheckClumpSentinels: trashed sentinel 2 (sentinel check at %s:%i)\n", filename, fileline );
-}
-
 void _Mem_Check( const char *filename, int fileline )
 {
 	memheader_t	*mem;
 	mempool_t		*pool;
-	memclump_t	*clump;
 
 	for( pool = poolchain; pool; pool = pool->next )
 	{
@@ -425,10 +292,6 @@ void _Mem_Check( const char *filename, int fileline )
 	for( pool = poolchain; pool; pool = pool->next )
 		for( mem = pool->chain; mem; mem = mem->next )
 			Mem_CheckHeaderSentinels((void *)((byte *) mem + sizeof(memheader_t)), filename, fileline );
-
-	for( pool = poolchain; pool; pool = pool->next )
-		for( clump = pool->clumpchain; clump; clump = clump->chain )
-			Mem_CheckClumpSentinels( clump, filename, fileline );
 }
 
 void Mem_PrintStats( void )

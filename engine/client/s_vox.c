@@ -617,6 +617,12 @@ void VOX_ReadSentenceFile( const char *psentenceFileName )
 
 	while( pch < pchlast )
 	{
+		if( g_numSentences >= MAX_SENTENCES )
+		{
+			Con_Printf( S_ERROR "VOX_Init: too many sentences specified\n" );
+			break;
+		}
+
 		// only process this pass on sentences
 		pSentenceData = NULL;
 

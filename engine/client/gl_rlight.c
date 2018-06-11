@@ -49,7 +49,7 @@ void CL_RunLightStyles( void )
 	// 'm' is normal light, 'a' is no light, 'z' is double bright
 	for( i = 0, ls = cl.lightstyles; i < MAX_LIGHTSTYLES; i++, ls++ )
 	{
-		if( r_fullbright->value || !cl.worldmodel->lightdata )
+		if( !cl.worldmodel->lightdata )
 		{
 			tr.lightstylevalue[i] = 256 * 256;
 			continue;
@@ -217,6 +217,7 @@ int R_CountSurfaceDlights( msurface_t *surf )
 =======================================================================
 */
 static vec3_t	g_trace_lightspot;
+static vec3_t	g_trace_lightvec;
 static float	g_trace_fraction;
 
 /*
@@ -230,10 +231,11 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 	int		i, map, side, size;
 	float		ds, dt, s, t;
 	int		sample_size;
+	color24		*lm, *dm;
 	mextrasurf_t	*info;
 	msurface_t	*surf;
 	mtexinfo_t	*tex;
-	color24		*lm;
+	matrix3x4		tbn;
 	vec3_t		mid;
 
 	// didn't hit anything
@@ -306,6 +308,31 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 		lm = surf->samples + Q_rint( dt ) * smax + Q_rint( ds );
 		g_trace_fraction = midf;
 		size = smax * tmax;
+		dm = NULL;
+
+		if( surf->info->deluxemap )
+		{
+			vec3_t	faceNormal;
+
+			if( FBitSet( surf->flags, SURF_PLANEBACK ))
+				VectorNegate( surf->plane->normal, faceNormal );
+			else VectorCopy( surf->plane->normal, faceNormal );
+
+			// compute face TBN
+#if 1
+			Vector4Set( tbn[0], surf->info->lmvecs[0][0], surf->info->lmvecs[0][1], surf->info->lmvecs[0][2], 0.0f );
+			Vector4Set( tbn[1], -surf->info->lmvecs[1][0], -surf->info->lmvecs[1][1], -surf->info->lmvecs[1][2], 0.0f );
+			Vector4Set( tbn[2], faceNormal[0], faceNormal[1], faceNormal[2], 0.0f );
+#else
+			Vector4Set( tbn[0], surf->info->lmvecs[0][0], -surf->info->lmvecs[1][0], faceNormal[0], 0.0f );
+			Vector4Set( tbn[1], surf->info->lmvecs[0][1], -surf->info->lmvecs[1][1], faceNormal[1], 0.0f );
+			Vector4Set( tbn[2], surf->info->lmvecs[0][2], -surf->info->lmvecs[1][2], faceNormal[2], 0.0f );
+#endif
+			VectorNormalize( tbn[0] );
+			VectorNormalize( tbn[1] );
+			VectorNormalize( tbn[2] );
+			dm = surf->info->deluxemap + Q_rint( dt ) * smax + Q_rint( ds );
+		}
 
 		for( map = 0; map < MAXLIGHTMAPS && surf->styles[map] != 255; map++ )
 		{
@@ -324,6 +351,18 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 				cv->b += LightToTexGamma( lm->b ) * scale;
 			}
 			lm += size; // skip to next lightmap
+
+			if( dm != NULL )
+			{
+				vec3_t	srcNormal, lightNormal;
+				float	f = (1.0f / 255.0f);
+
+				VectorSet( srcNormal, (dm->r * f) * 2.0f - 1.0f, (dm->g * f) * 2.0f - 1.0f, (dm->b * f) * 2.0f - 1.0f );
+				Matrix3x4_VectorIRotate( tbn, srcNormal, lightNormal );		// turn to world space
+				VectorScale( lightNormal, (float)scale * -1.0f, lightNormal );	// turn direction from light
+				VectorAdd( g_trace_lightvec, lightNormal, g_trace_lightvec );
+				dm += size; // skip to next deluxmap
+			}
 		}
 
 		return true;
@@ -340,13 +379,14 @@ R_LightVec
 check bspmodels to get light from
 =================
 */
-colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot )
+colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t lvec )
 {
 	float	last_fraction;
 	int	i, maxEnts = 1;
 	colorVec	light, cv;
 
 	if( lspot ) VectorClear( lspot );
+	if( lvec ) VectorClear( lvec );
 
 	if( cl.worldmodel && cl.worldmodel->lightdata )
 	{
@@ -354,7 +394,7 @@ colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot )
 		last_fraction = 1.0f;
 
 		// get light from bmodels too
-		if( r_lighting_extended->value )
+		if( CVAR_TO_BOOL( r_lighting_extended ))
 			maxEnts = clgame.pmove->numphysent;
 
 		// check all the bsp-models
@@ -383,6 +423,7 @@ colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot )
 			}
 
 			VectorClear( g_trace_lightspot );
+			VectorClear( g_trace_lightvec );
 			g_trace_fraction = 1.0f;
 
 			if( !R_RecursiveLightPoint( pe->model, pnodes, 0.0f, 1.0f, &cv, start_l, end_l ))
@@ -391,6 +432,7 @@ colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot )
 			if( g_trace_fraction < last_fraction )
 			{
 				if( lspot ) VectorCopy( g_trace_lightspot, lspot );
+				if( lvec ) VectorNormalize2( g_trace_lightvec, lvec );
 				light.r = Q_min(( cv.r >> 7 ), 255 );
 				light.g = Q_min(( cv.g >> 7 ), 255 );
 				light.b = Q_min(( cv.b >> 7 ), 255 );
@@ -420,5 +462,5 @@ colorVec R_LightPoint( const vec3_t p0 )
 
 	VectorSet( p1, p0[0], p0[1], p0[2] - 2048.0f );
 
-	return R_LightVec( p0, p1, NULL );
+	return R_LightVec( p0, p1, NULL, NULL );
 }

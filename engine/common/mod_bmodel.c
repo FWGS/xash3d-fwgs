@@ -362,7 +362,7 @@ static int Mod_ArrayUsage( const char *szItem, int items, int maxitems, int item
 
 	Con_Printf( "%-12s  %7i/%-7i  %8i/%-8i  (%4.1f%%) ", szItem, items, maxitems, items * itemsize, maxitems * itemsize, percentage );
 
-	if( percentage > 99.9f )
+	if( percentage > 99.99f )
 		Con_Printf( "^1SIZE OVERFLOW!!!^7\n" );
 	else if( percentage > 95.0f )
 		Con_Printf( "^3SIZE DANGER!^7\n" );
@@ -384,7 +384,7 @@ static int Mod_GlobUsage( const char *szItem, int itemstorage, int maxstorage )
 
 	Con_Printf( "%-15s  %-12s  %8i/%-8i  (%4.1f%%) ", szItem, "[variable]", itemstorage, maxstorage, percentage );
 
-	if( percentage > 99.9f )
+	if( percentage > 99.99f )
 		Con_Printf( "^1SIZE OVERFLOW!!!^7\n" );
 	else if( percentage > 95.0f )
 		Con_Printf( "^3SIZE DANGER!^7\n" );
@@ -1162,7 +1162,7 @@ static void Mod_MakeHull0( void )
 	int		i, j;
 	
 	hull = &loadmodel->hulls[0];	
-	hull->clipnodes = out = Mem_Alloc( loadmodel->mempool, loadmodel->numnodes * sizeof( *out ));	
+	hull->clipnodes = out = Mem_Malloc( loadmodel->mempool, loadmodel->numnodes * sizeof( *out ));	
 	in = loadmodel->nodes;
 
 	hull->firstclipnode = 0;
@@ -1230,7 +1230,7 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, byte *mempool, int h
 	count = hull->lastclipnode;
 
 	// fit array to real count
-	hull->clipnodes = (mclipnode_t *)Mem_Alloc( mempool, sizeof( mclipnode_t ) * hull->lastclipnode );
+	hull->clipnodes = (mclipnode_t *)Mem_Malloc( mempool, sizeof( mclipnode_t ) * hull->lastclipnode );
 	hull->planes = mod->planes; // share planes
 	hull->lastclipnode = 0; // restart counting
 
@@ -1281,7 +1281,7 @@ static qboolean Mod_LoadColoredLighting( dbspmodel_t *bmod )
 		return false;
 	}
 
-	loadmodel->lightdata = Mem_Alloc( loadmodel->mempool, litdatasize );
+	loadmodel->lightdata = Mem_Malloc( loadmodel->mempool, litdatasize );
 	memcpy( loadmodel->lightdata, in + 8, litdatasize );
 	SetBits( loadmodel->flags, MODEL_COLORED_LIGHTING );
 	bmod->lightdatasize = litdatasize;
@@ -1336,7 +1336,7 @@ static void Mod_LoadDeluxemap( dbspmodel_t *bmod )
 		return;
 	}
 
-	bmod->deluxedata_out = Mem_Alloc( loadmodel->mempool, deluxdatasize );
+	bmod->deluxedata_out = Mem_Malloc( loadmodel->mempool, deluxdatasize );
 	memcpy( bmod->deluxedata_out, in + 8, deluxdatasize );
 	bmod->deluxdatasize = deluxdatasize;
 	Mem_Free( in );
@@ -1435,7 +1435,8 @@ static void Mod_SetupSubmodels( dbspmodel_t *bmod )
 		}
 	}
 
-	Mem_Free( bmod->clipnodes_out );
+	if( bmod->clipnodes_out != NULL )
+		Mem_Free( bmod->clipnodes_out );
 }
 
 /*
@@ -1457,7 +1458,7 @@ static void Mod_LoadSubmodels( dbspmodel_t *bmod )
 	int	i, j;
 
 	// allocate extradata for each dmodel_t
-	out = Mem_Alloc( loadmodel->mempool, bmod->numsubmodels * sizeof( *out ));
+	out = Mem_Malloc( loadmodel->mempool, bmod->numsubmodels * sizeof( *out ));
 
 	loadmodel->numsubmodels = bmod->numsubmodels;
 	loadmodel->submodels = out;
@@ -1540,7 +1541,7 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 	}
 
 	// make sure what we really has terminator
-	loadmodel->entities = Mem_Alloc( loadmodel->mempool, bmod->entdatasize + 1 );
+	loadmodel->entities = Mem_Calloc( loadmodel->mempool, bmod->entdatasize + 1 );
 	memcpy( loadmodel->entities, bmod->entdata, bmod->entdatasize ); // moving to private model pool
 	if( entpatch ) Mem_Free( entpatch ); // release entpatch if present
 	if( !bmod->isworld ) return;
@@ -1623,11 +1624,12 @@ static void Mod_LoadPlanes( dbspmodel_t *bmod )
 	int	i, j;
 
 	in = bmod->planes;
-	loadmodel->planes = out = Mem_Alloc( loadmodel->mempool, bmod->numplanes * sizeof( *out ));
+	loadmodel->planes = out = Mem_Malloc( loadmodel->mempool, bmod->numplanes * sizeof( *out ));
 	loadmodel->numplanes = bmod->numplanes;
 
 	for( i = 0; i < bmod->numplanes; i++, in++, out++ )
 	{
+		out->signbits = 0;
 		for( j = 0; j < 3; j++ )
 		{
 			out->normal[j] = in->normal[j];
@@ -1656,7 +1658,7 @@ static void Mod_LoadVertexes( dbspmodel_t *bmod )
 	int	i;
 
 	in = bmod->vertexes;
-	out = loadmodel->vertexes = Mem_Alloc( loadmodel->mempool, bmod->numvertexes * sizeof( mvertex_t ));
+	out = loadmodel->vertexes = Mem_Malloc( loadmodel->mempool, bmod->numvertexes * sizeof( mvertex_t ));
 	loadmodel->numvertexes = bmod->numvertexes;
 
 	if( bmod->isworld ) ClearBounds( world.mins, world.maxs );
@@ -1690,7 +1692,7 @@ static void Mod_LoadEdges( dbspmodel_t *bmod )
 	medge_t	*out;
 	int	i;
 
-	loadmodel->edges = out = Mem_Alloc( loadmodel->mempool, bmod->numedges * sizeof( medge_t ));
+	loadmodel->edges = out = Mem_Malloc( loadmodel->mempool, bmod->numedges * sizeof( medge_t ));
 	loadmodel->numedges = bmod->numedges;
 
 	if( bmod->version == QBSP2_VERSION )
@@ -1722,7 +1724,7 @@ Mod_LoadSurfEdges
 */
 static void Mod_LoadSurfEdges( dbspmodel_t *bmod )
 {
-	loadmodel->surfedges = Mem_Alloc( loadmodel->mempool, bmod->numsurfedges * sizeof( dsurfedge_t ));
+	loadmodel->surfedges = Mem_Malloc( loadmodel->mempool, bmod->numsurfedges * sizeof( dsurfedge_t ));
 	memcpy( loadmodel->surfedges, bmod->surfedges, bmod->numsurfedges * sizeof( dsurfedge_t ));
 	loadmodel->numsurfedges = bmod->numsurfedges;
 }
@@ -1737,7 +1739,7 @@ static void Mod_LoadMarkSurfaces( dbspmodel_t *bmod )
 	msurface_t	**out;
 	int		i;
 
-	loadmodel->marksurfaces = out = Mem_Alloc( loadmodel->mempool, bmod->nummarkfaces * sizeof( *out ));
+	loadmodel->marksurfaces = out = Mem_Malloc( loadmodel->mempool, bmod->nummarkfaces * sizeof( *out ));
 	loadmodel->nummarksurfaces = bmod->nummarkfaces;
 
 	if( bmod->version == QBSP2_VERSION )
@@ -1801,7 +1803,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 	}
 
 	in = bmod->textures;
-	loadmodel->textures = (texture_t **)Mem_Alloc( loadmodel->mempool, in->nummiptex * sizeof( texture_t* ));
+	loadmodel->textures = (texture_t **)Mem_Calloc( loadmodel->mempool, in->nummiptex * sizeof( texture_t* ));
 	loadmodel->numtextures = in->nummiptex;
 
 	for( i = 0; i < loadmodel->numtextures; i++ )
@@ -1809,7 +1811,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 		if( in->dataofs[i] == -1 )
 		{
 			// create default texture (some mods requires this)
-			tx = Mem_Alloc( loadmodel->mempool, sizeof( *tx ));
+			tx = Mem_Calloc( loadmodel->mempool, sizeof( *tx ));
 			loadmodel->textures[i] = tx;
 
 			Q_strncpy( tx->name, "*default", sizeof( tx->name ));
@@ -1828,7 +1830,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 			Q_snprintf( mt->name, sizeof( mt->name ), "miptex_%i", i );
 		}
 
-		tx = Mem_Alloc( loadmodel->mempool, sizeof( *tx ));
+		tx = Mem_Calloc( loadmodel->mempool, sizeof( *tx ));
 		loadmodel->textures[i] = tx;
 
 		// convert to lowercase
@@ -2073,7 +2075,7 @@ static void Mod_LoadTexInfo( dbspmodel_t *bmod )
 	dtexinfo_t	*in;
 
 	// trying to load faceinfo
-          faceinfo = fout = Mem_Alloc( loadmodel->mempool, bmod->numfaceinfo * sizeof( *fout ));
+	faceinfo = fout = Mem_Calloc( loadmodel->mempool, bmod->numfaceinfo * sizeof( *fout ));
 	fin = bmod->faceinfo;
 
 	for( i = 0; i < bmod->numfaceinfo; i++, fin++, fout++ )
@@ -2084,7 +2086,7 @@ static void Mod_LoadTexInfo( dbspmodel_t *bmod )
 		fout->groupid = fin->groupid;
 	}
 
-	loadmodel->texinfo = out = Mem_Alloc( loadmodel->mempool, bmod->numtexinfo * sizeof( *out ));
+	loadmodel->texinfo = out = Mem_Calloc( loadmodel->mempool, bmod->numtexinfo * sizeof( *out ));
 	loadmodel->numtexinfo = bmod->numtexinfo;
 	in = bmod->texinfo;
 
@@ -2123,8 +2125,8 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 	mextrasurf_t	*info;
 	msurface_t	*out;
 
-	loadmodel->surfaces = out = Mem_Alloc( loadmodel->mempool, bmod->numsurfaces * sizeof( msurface_t ));
-	info = Mem_Alloc( loadmodel->mempool, bmod->numsurfaces * sizeof( mextrasurf_t ));
+	loadmodel->surfaces = out = Mem_Calloc( loadmodel->mempool, bmod->numsurfaces * sizeof( msurface_t ));
+	info = Mem_Calloc( loadmodel->mempool, bmod->numsurfaces * sizeof( mextrasurf_t ));
 	loadmodel->numsurfaces = bmod->numsurfaces;
 
 	// predict samplecount based on bspversion
@@ -2273,7 +2275,7 @@ static void Mod_LoadNodes( dbspmodel_t *bmod )
 	mnode_t	*out;
 	int	i, j, p;
 
-	loadmodel->nodes = out = (mnode_t *)Mem_Alloc( loadmodel->mempool, bmod->numnodes * sizeof( *out ));
+	loadmodel->nodes = out = (mnode_t *)Mem_Calloc( loadmodel->mempool, bmod->numnodes * sizeof( *out ));
 	loadmodel->numnodes = bmod->numnodes;
 
 	for( i = 0; i < loadmodel->numnodes; i++, out++ )
@@ -2338,7 +2340,7 @@ static void Mod_LoadLeafs( dbspmodel_t *bmod )
 	mleaf_t	*out;
 	int	i, j, p;
 
-	loadmodel->leafs = out = (mleaf_t *)Mem_Alloc( loadmodel->mempool, bmod->numleafs * sizeof( *out ));
+	loadmodel->leafs = out = (mleaf_t *)Mem_Calloc( loadmodel->mempool, bmod->numleafs * sizeof( *out ));
 	loadmodel->numleafs = bmod->numleafs;
 
 	if( bmod->isworld )
@@ -2346,7 +2348,7 @@ static void Mod_LoadLeafs( dbspmodel_t *bmod )
 		// get visleafs from the submodel data
 		world.visclusters = loadmodel->submodels[0].visleafs;
 		world.visbytes = (world.visclusters + 7) >> 3;
-		world.visdata = (byte *)Mem_Alloc( loadmodel->mempool, world.visclusters * world.visbytes );
+		world.visdata = (byte *)Mem_Malloc( loadmodel->mempool, world.visclusters * world.visbytes );
 		world.fatbytes = (world.visclusters + 31) >> 3;
 
 		// enable full visibility as default
@@ -2450,7 +2452,7 @@ static void Mod_LoadClipnodes( dbspmodel_t *bmod )
 	dclipnode32_t	*out;
 	int		i;
 
-	bmod->clipnodes_out = out = (dclipnode32_t *)Mem_Alloc( loadmodel->mempool, bmod->numclipnodes * sizeof( *out ));	
+	bmod->clipnodes_out = out = (dclipnode32_t *)Mem_Malloc( loadmodel->mempool, bmod->numclipnodes * sizeof( *out ));	
 
 	if(( bmod->version == QBSP2_VERSION ) || ( bmod->version == HLBSP_VERSION && bmod->numclipnodes >= MAX_MAP_CLIPNODES ))
 	{
@@ -2493,7 +2495,7 @@ Mod_LoadVisibility
 */
 static void Mod_LoadVisibility( dbspmodel_t *bmod )
 {
-	loadmodel->visdata = Mem_Alloc( loadmodel->mempool, bmod->visdatasize );
+	loadmodel->visdata = Mem_Malloc( loadmodel->mempool, bmod->visdatasize );
 	memcpy( loadmodel->visdata, bmod->visdata, bmod->visdatasize );
 }
 
@@ -2512,7 +2514,7 @@ static void Mod_LoadLightVecs( dbspmodel_t *bmod )
 		return;
 	}
 
-	bmod->deluxedata_out = Mem_Alloc( loadmodel->mempool, bmod->deluxdatasize );
+	bmod->deluxedata_out = Mem_Malloc( loadmodel->mempool, bmod->deluxdatasize );
 	memcpy( bmod->deluxedata_out, bmod->deluxdata, bmod->deluxdatasize );
 }
 
@@ -2530,7 +2532,7 @@ static void Mod_LoadShadowmap( dbspmodel_t *bmod )
 		return;
 	}
 
-	bmod->shadowdata_out = Mem_Alloc( loadmodel->mempool, bmod->shadowdatasize );
+	bmod->shadowdata_out = Mem_Malloc( loadmodel->mempool, bmod->shadowdatasize );
 	memcpy( bmod->shadowdata_out, bmod->shadowdata, bmod->shadowdatasize );
 }
 
@@ -2554,7 +2556,7 @@ static void Mod_LoadLighting( dbspmodel_t *bmod )
 	case 1:
 		if( !Mod_LoadColoredLighting( bmod ))
 		{
-			loadmodel->lightdata = out = (color24 *)Mem_Alloc( loadmodel->mempool, bmod->lightdatasize * sizeof( color24 ));
+			loadmodel->lightdata = out = (color24 *)Mem_Malloc( loadmodel->mempool, bmod->lightdatasize * sizeof( color24 ));
 			in = bmod->lightdata;
 
 			// expand the white lighting data
@@ -2563,7 +2565,7 @@ static void Mod_LoadLighting( dbspmodel_t *bmod )
 		}
 		break;
 	case 3:	// load colored lighting
-		loadmodel->lightdata = Mem_Alloc( loadmodel->mempool, bmod->lightdatasize );
+		loadmodel->lightdata = Mem_Malloc( loadmodel->mempool, bmod->lightdatasize );
 		memcpy( loadmodel->lightdata, bmod->lightdata, bmod->lightdatasize );
 		SetBits( loadmodel->flags, MODEL_COLORED_LIGHTING );
 		break;
@@ -2622,6 +2624,7 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	dheader_t		*header = (dheader_t *)mod_base;
 	dextrahdr_t	*extrahdr = (dextrahdr_t *)((byte *)mod_base + sizeof( dheader_t ));
 	dbspmodel_t	*bmod = &srcmodel;
+	model_t		*mod = loadmodel;
 	char		wadvalue[2048];
 	int		i;
 
@@ -2691,6 +2694,12 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	// preform some post-initalization
 	Mod_MakeHull0 ();
 	Mod_SetupSubmodels( bmod );
+
+	if( isworld )
+	{
+		loadmodel = mod;		// restore pointer to world
+		Mod_InitDebugHulls();	// FIXME: build hulls for separate bmodels (shells, medkits etc)
+	}
 
 	for( i = 0; i < bmod->wadlist.count; i++ )
 		Q_strncat( wadvalue, va( "%s.wad; ", bmod->wadlist.wadnames[i] ), sizeof( wadvalue ));

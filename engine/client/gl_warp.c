@@ -679,7 +679,7 @@ void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 
 	// make an average value for the back to avoid
 	// a fringe on the top level
-	trans = Mem_Alloc( r_temppool, r_sky->height * r_sky->height * sizeof( *trans ));
+	trans = Mem_Malloc( r_temppool, r_sky->height * r_sky->height * sizeof( *trans ));
 	r = g = b = 0;
 
 	for( i = 0; i < r_sky->width >> 1; i++ )

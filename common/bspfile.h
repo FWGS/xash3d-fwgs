@@ -117,14 +117,14 @@ BRUSH MODELS
 #define LUMP_FACEINFO		1	// landscape and lightmap resolution info
 #define LUMP_CUBEMAPS		2	// cubemap description
 #define LUMP_VERTNORMALS		3	// phong shaded vertex normals
-#define LUMP_VERTEX_LIGHT		4	// contain compressed light cubes per empty leafs
+#define LUMP_LEAF_LIGHTING		4	// store vertex lighting for statics
 #define LUMP_WORLDLIGHTS		5	// list of all the virtual and real lights (used to relight models in-game)
-#define LUMP_COLLISION		6	// physics engine collision hull dump
-#define LUMP_AINODEGRAPH		7	// node graph that stored into the bsp
+#define LUMP_COLLISION		6	// physics engine collision hull dump (userdata)
+#define LUMP_AINODEGRAPH		7	// node graph that stored into the bsp (userdata)
 #define LUMP_SHADOWMAP		8	// contains shadow map for direct light
-#define LUMP_UNUSED1		9	// one lump reserved for me
-#define LUMP_UNUSED2		10	// one lump reserved for me
-#define LUMP_UNUSED3		11	// one lump reserved for me
+#define LUMP_VERTEX_LIGHT		9	// store vertex lighting for statics
+#define LUMP_UNUSED0		10	// one lump reserved for me
+#define LUMP_UNUSED1		11	// one lump reserved for me
 #define EXTRA_LUMPS			12	// count of the extra lumps
 
 // texture flags

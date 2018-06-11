@@ -285,7 +285,7 @@ void CL_ParseSoundPacket( sizebuf_t *msg )
 		char	sentenceName[32];
 
 		if( FBitSet( flags, SND_SEQUENCE ))
-			Q_snprintf( sentenceName, sizeof( sentenceName ), "!#%i", sound );
+			Q_snprintf( sentenceName, sizeof( sentenceName ), "!#%i", sound + MAX_SOUNDS );
 		else Q_snprintf( sentenceName, sizeof( sentenceName ), "!%i", sound );
 
 		handle = S_RegisterSound( sentenceName );
@@ -352,7 +352,7 @@ void CL_ParseRestoreSoundPacket( sizebuf_t *msg )
 		char	sentenceName[32];
 
 		if( flags & SND_SEQUENCE )
-			Q_snprintf( sentenceName, sizeof( sentenceName ), "!#%i", sound );
+			Q_snprintf( sentenceName, sizeof( sentenceName ), "!#%i", sound + MAX_SOUNDS );
 		else Q_snprintf( sentenceName, sizeof( sentenceName ), "!%i", sound );
 
 		handle = S_RegisterSound( sentenceName );
@@ -778,7 +778,7 @@ int CL_EstimateNeededResources( void )
 			break;
 		case t_model:
 			nSize = FS_FileSize( p->szFileName, false );
-			if( p->szFileName[0] != '*' && p->ucFlags && nSize == -1 )
+			if( p->szFileName[0] != '*' && nSize == -1 )
 			{
 				SetBits( p->ucFlags, RES_WASMISSING );
 				nTotalSize += p->nDownloadSize;
@@ -897,7 +897,7 @@ void CL_ParseCustomization( sizebuf_t *msg )
 	if( i >= MAX_CLIENTS )
 		Host_Error( "Bogus player index during customization parsing.\n" );
 
-	pRes = Mem_Alloc( cls.mempool, sizeof( resource_t ));
+	pRes = Mem_Calloc( cls.mempool, sizeof( resource_t ));
 	pRes->type = MSG_ReadByte( msg );
 
 	Q_strncpy( pRes->szFileName, MSG_ReadString( msg ), sizeof( pRes->szFileName ));
@@ -1576,7 +1576,7 @@ void CL_ParseResource( sizebuf_t *msg )
 {
 	resource_t	*pResource;
 
-	pResource = Mem_Alloc( cls.mempool, sizeof( resource_t ));
+	pResource = Mem_Calloc( cls.mempool, sizeof( resource_t ));
 	pResource->type = MSG_ReadUBitLong( msg, 4 );
 
 	Q_strncpy( pResource->szFileName, MSG_ReadString( msg ), sizeof( pResource->szFileName ));
@@ -1834,7 +1834,7 @@ void CL_ParseResourceList( sizebuf_t *msg )
 
 	for( i = 0; i < total; i++ )
 	{
-		pResource = Mem_Alloc( cls.mempool, sizeof( resource_t ));
+		pResource = Mem_Calloc( cls.mempool, sizeof( resource_t ));
 		pResource->type = MSG_ReadUBitLong( msg, 4 );
 
 		Q_strncpy( pResource->szFileName, MSG_ReadString( msg ), sizeof( pResource->szFileName ));
@@ -1982,8 +1982,8 @@ void CL_ParseScreenFade( sizebuf_t *msg )
 	screenfade_t	*sf = &clgame.fade;
 	float		flScale;
 
-	duration = (float)MSG_ReadShort( msg );
-	holdTime = (float)MSG_ReadShort( msg );
+	duration = (float)MSG_ReadWord( msg );
+	holdTime = (float)MSG_ReadWord( msg );
 	sf->fadeFlags = MSG_ReadShort( msg );
 	flScale = ( sf->fadeFlags & FFADE_LONGFADE ) ? (1.0f / 256.0f) : (1.0f / 4096.0f);
 

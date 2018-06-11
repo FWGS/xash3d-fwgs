@@ -120,7 +120,7 @@ void Image_Reset( void )
 
 rgbdata_t *ImagePack( void )
 {
-	rgbdata_t	*pack = Mem_Alloc( host.imagepool, sizeof( rgbdata_t ));
+	rgbdata_t	*pack = Mem_Calloc( host.imagepool, sizeof( rgbdata_t ));
 
 	// clear any force flags
 	image.force_flags = 0;
@@ -479,7 +479,7 @@ rgbdata_t *FS_CopyImage( rgbdata_t *in )
 
 	if( !in ) return NULL;
 
-	out = Mem_Alloc( host.imagepool, sizeof( rgbdata_t ));
+	out = Mem_Malloc( host.imagepool, sizeof( rgbdata_t ));
 	*out = *in;
 
 	switch( in->type )
@@ -494,13 +494,13 @@ rgbdata_t *FS_CopyImage( rgbdata_t *in )
 
 	if( palSize )
 	{
-		out->palette = Mem_Alloc( host.imagepool, palSize );
+		out->palette = Mem_Malloc( host.imagepool, palSize );
 		memcpy( out->palette, in->palette, palSize );
 	}
 
 	if( in->size )
 	{
-		out->buffer = Mem_Alloc( host.imagepool, in->size );
+		out->buffer = Mem_Malloc( host.imagepool, in->size );
 		memcpy( out->buffer, in->buffer, in->size );
 	}
 

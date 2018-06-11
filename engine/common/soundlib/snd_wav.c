@@ -279,7 +279,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, size_t filesize )
 
 	// Load the data
 	sound.size = sound.samples * sound.width * sound.channels;
-	sound.wav = Mem_Alloc( host.soundpool, sound.size );
+	sound.wav = Mem_Malloc( host.soundpool, sound.size );
 
 	memcpy( sound.wav, buffer + (iff_dataPtr - buffer), sound.size );
 
@@ -384,7 +384,7 @@ stream_t *Stream_OpenWAV( const char *filename )
 	sound.samples = ( sound.samples / sound.width ) / sound.channels;
 
 	// at this point we have valid stream
-	stream = Mem_Alloc( host.soundpool, sizeof( stream_t ));
+	stream = Mem_Calloc( host.soundpool, sizeof( stream_t ));
 	stream->file = file;
 	stream->size = sound.samples * sound.width * sound.channels;
 	stream->buffsize = FS_Tell( file ); // header length

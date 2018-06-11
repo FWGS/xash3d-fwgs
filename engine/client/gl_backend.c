@@ -463,14 +463,14 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 	int	width = 0, height = 0;
 	qboolean	result;
 
-	r_shot = Mem_Alloc( r_temppool, sizeof( rgbdata_t ));
+	r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
 	r_shot->width = (glState.width + 3) & ~3;
 	r_shot->height = (glState.height + 3) & ~3;
 	r_shot->flags = IMAGE_HAS_COLOR;
 	r_shot->type = PF_RGB_24;
 	r_shot->size = r_shot->width * r_shot->height * PFDesc[r_shot->type].bpp;
 	r_shot->palette = NULL;
-	r_shot->buffer = Mem_Alloc( r_temppool, r_shot->size );
+	r_shot->buffer = Mem_Malloc( r_temppool, r_shot->size );
 
 	// get screen frame
 	pglReadPixels( 0, 0, r_shot->width, r_shot->height, GL_RGB, GL_UNSIGNED_BYTE, r_shot->buffer );
@@ -546,10 +546,10 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 	RI.params |= RP_ENVVIEW;	// do not render non-bmodel entities
 
 	// alloc space
-	temp = Mem_Alloc( r_temppool, size * size * 3 );
-	buffer = Mem_Alloc( r_temppool, size * size * 3 * 6 );
-	r_shot = Mem_Alloc( r_temppool, sizeof( rgbdata_t ));
-	r_side = Mem_Alloc( r_temppool, sizeof( rgbdata_t ));
+	temp = Mem_Malloc( r_temppool, size * size * 3 );
+	buffer = Mem_Malloc( r_temppool, size * size * 3 * 6 );
+	r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
+	r_side = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
 
 	// use client vieworg
 	if( !vieworg ) vieworg = RI.vieworg;
@@ -568,7 +568,7 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 		{
 			R_DrawCubemapView( vieworg, r_envMapInfo[i].angles, size );
 			flags = r_envMapInfo[i].flags;
-                    }
+		}
 
 		pglReadPixels( 0, 0, size, size, GL_RGB, GL_UNSIGNED_BYTE, temp );
 		r_side->flags = IMAGE_HAS_COLOR;

@@ -21,6 +21,10 @@ GNU General Public License for more details.
 #define NUMBER_OF_DIRECTORY_ENTRIES	16
 #define MAX_LIBRARY_EXPORTS		4096
 
+#ifndef IMAGE_SIZEOF_BASE_RELOCATION
+#define IMAGE_SIZEOF_BASE_RELOCATION	( sizeof( IMAGE_BASE_RELOCATION ))
+#endif
+
 typedef struct
 {	
 	// dos .exe header

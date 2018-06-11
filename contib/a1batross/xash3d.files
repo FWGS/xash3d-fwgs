@@ -150,6 +150,7 @@ engine/common/mathlib.h
 engine/common/matrixlib.c
 engine/common/masterlist.c
 engine/common/mod_bmodel.c
+engine/common/mod_dbghulls.c
 engine/common/mod_local.h
 engine/common/mod_studio.c
 engine/common/model.c
