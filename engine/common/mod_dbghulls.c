@@ -711,6 +711,7 @@ void Mod_ReleaseHullPolygons( void )
 		hull_model_t *model = &world.hull_models[i];
 		free_hull_polys( &model->polys );
 	}
+	world.num_hull_models = 0;
 }
 
 void R_DrawWorldHull( void )

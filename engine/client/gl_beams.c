@@ -1897,14 +1897,14 @@ void CL_ParseViewBeam( sizebuf_t *msg, int beamType )
 		startFrame = MSG_ReadByte( msg );
 		frameRate = (float)(MSG_ReadByte( msg ));
 		life = (float)(MSG_ReadByte( msg ) * 0.1f);
-		width = (float)(MSG_ReadByte( msg ) * 0.1f);
-		noise = (float)(MSG_ReadByte( msg ) * 0.01f);
+		width = (float)(MSG_ReadByte( msg ));
+		noise = (float)(MSG_ReadByte( msg ) * 0.1f);
 		r = (float)MSG_ReadByte( msg ) / 255.0f;
 		g = (float)MSG_ReadByte( msg ) / 255.0f;
 		b = (float)MSG_ReadByte( msg ) / 255.0f;
 		a = (float)MSG_ReadByte( msg ) / 255.0f;
-		speed = (float)MSG_ReadByte( msg );
-		R_BeamCirclePoints( beamType, start, end, modelIndex, life, width, noise, a, speed / 10.0f, startFrame, frameRate, r, g, b );
+		speed = (float)(MSG_ReadByte( msg ) / 0.1f);
+		R_BeamCirclePoints( beamType, start, end, modelIndex, life, width, noise, a, speed, startFrame, frameRate, r, g, b );
 		break;
 	case TE_BEAMFOLLOW:
 		startEnt = MSG_ReadShort( msg );

@@ -1084,7 +1084,7 @@ void GL_InitExtensions( void )
 	glConfig.renderer_string = pglGetString( GL_RENDERER );
 	glConfig.version_string = pglGetString( GL_VERSION );
 	glConfig.extensions_string = pglGetString( GL_EXTENSIONS );
-	MsgDev( D_INFO, "Video: %s\n", glConfig.renderer_string );
+	MsgDev( D_INFO, "^3Video^7: %s\n", glConfig.renderer_string );
 
 #ifdef XASH_GLES
 	GL_InitExtensionsGLES();
