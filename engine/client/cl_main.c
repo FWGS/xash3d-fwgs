@@ -215,7 +215,7 @@ An svc_signonnum has been received, perform a client side setup
 void CL_SignonReply( void )
 {
 	// g-cont. my favorite message :-)
-	Con_DPrintf( "CL_SignonReply: %i\n", cls.signon );
+	Con_Reportf( "CL_SignonReply: %i\n", cls.signon );
 
 	switch( cls.signon )
 	{
@@ -1740,7 +1740,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	Cmd_TokenizeString( args );
 	c = Cmd_Argv( 0 );
 
-	MsgDev( D_NOTE, "CL_ConnectionlessPacket: %s : %s\n", NET_AdrToString( from ), c );
+	Con_Reportf( "CL_ConnectionlessPacket: %s : %s\n", NET_AdrToString( from ), c );
 
 	// server connection
 	if( !Q_strcmp( c, "client_connect" ))
@@ -2389,7 +2389,7 @@ qboolean CL_PrecacheResources( void )
 
 			if( cl.models[pRes->nIndex] == NULL )
 			{
-				MsgDev( D_ERROR, "submodel %s not found\n", pRes->szFileName );
+				Con_Printf( S_ERROR "submodel %s not found\n", pRes->szFileName );
 
 				if( FBitSet( pRes->ucFlags, RES_FATALIFMISSING ))
 				{
@@ -2416,6 +2416,7 @@ qboolean CL_PrecacheResources( void )
 			{
 				if( FBitSet( pRes->ucFlags, RES_WASMISSING ))
 				{
+					Con_Printf( S_ERROR "%s%s couldn't load\n", DEFAULT_SOUNDPATH, pRes->szFileName );
 					cl.sound_precache[pRes->nIndex][0] = 0;
 					cl.sound_index[pRes->nIndex] = 0;
 				}

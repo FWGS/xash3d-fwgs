@@ -41,6 +41,10 @@ GNU General Public License for more details.
 // debug beams
 #define DEFAULT_LASERBEAM_PATH	"sprites/laserbeam.spr"
 
+#define DEFAULT_INTERNAL_PALETTE	"gfx/palette.lmp"
+
+#define DEFAULT_EXTERNAL_PALETTE	"gfx/palette.pal"
+
 // path to folders where placed all sounds
 #define DEFAULT_SOUNDPATH		"sound/"
 

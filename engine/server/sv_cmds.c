@@ -315,7 +315,7 @@ SV_Load_f
 */
 void SV_Load_f( void )
 {
-	string	path;
+	char	path[MAX_QPATH];
 
 	if( Cmd_Argc() != 2 )
 	{

@@ -355,9 +355,9 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 			if( dm != NULL )
 			{
 				vec3_t	srcNormal, lightNormal;
-				float	f = (1.0f / 255.0f);
+				float	f = (1.0f / 128.0f);
 
-				VectorSet( srcNormal, (dm->r * f) * 2.0f - 1.0f, (dm->g * f) * 2.0f - 1.0f, (dm->b * f) * 2.0f - 1.0f );
+				VectorSet( srcNormal, ((float)dm->r - 128.0f) * f, ((float)dm->g - 128.0f) * f, ((float)dm->b - 128.0f) * f );
 				Matrix3x4_VectorIRotate( tbn, srcNormal, lightNormal );		// turn to world space
 				VectorScale( lightNormal, (float)scale * -1.0f, lightNormal );	// turn direction from light
 				VectorAdd( g_trace_lightvec, lightNormal, g_trace_lightvec );
