@@ -1211,6 +1211,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 		}
 		else
 		{
+			Con_Printf( S_ERROR "%s couldn't load\n", szSpriteName );
 			Mod_UnloadSpriteModel( m_pSprite );
 			return false;
 		}
@@ -1865,7 +1866,8 @@ int pfnDrawConsoleString( int x, int y, char *string )
 {
 	int	drawLen;
 
-	if( !string || !*string ) return 0; // silent ignore
+	if( !COM_CheckString( string ))
+			return 0; // silent ignore
 	Con_SetFont( con_fontsize->value );
 
 	clgame.ds.adjust_size = true;

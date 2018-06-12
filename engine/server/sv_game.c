@@ -1318,6 +1318,7 @@ void pfnChangeLevel( const char *level, const char *landmark )
 	COM_StripExtension( mapname );
 	landname[0] ='\0';
 
+#ifdef HACKS_RELATED_HLMODS
 	// g-cont. some level-designers wrote landmark name with space
 	// and Cmd_TokenizeString separating all the after space as next argument
 	// emulate this bug for compatibility
@@ -1326,9 +1327,13 @@ void pfnChangeLevel( const char *level, const char *landmark )
 		text = (char *)landname;
 		while( *landmark && ((byte)*landmark) != ' ' )
 			*text++ = *landmark++;
-		smooth = true;
 		*text = '\0';
 	}
+#else
+	Q_strncpy( landname, landmark, sizeof( landname ));
+#endif
+	if( COM_CheckString( landname ))
+		smooth = true;
 
 	// determine spawn entity classname
 	if( svs.maxclients == 1 )
@@ -2399,7 +2404,7 @@ void pfnServerExecute( void )
 	Cbuf_Execute();
 
 	if( host.sv_cvars_restored > 0 )
-		Con_DPrintf( "server executing ^2config.cfg^7 (%i cvars)\n", host.sv_cvars_restored );
+		Con_Reportf( "server executing ^2config.cfg^7 (%i cvars)\n", host.sv_cvars_restored );
 
 	host.apply_game_config = false;
 	svgame.config_executed = true;
@@ -3406,7 +3411,7 @@ OBSOLETE, UNUSED
 */
 uint pfnGetPlayerWONId( edict_t *e )
 {
-	return -1;
+	return (uint)-1;
 }
 
 /*
@@ -4841,7 +4846,7 @@ qboolean SV_LoadProgs( const char *name )
 				return false;
 			}
 		}
-		else Con_DPrintf( "SV_LoadProgs: ^2initailized extended EntityAPI ^7ver. %i\n", version );
+		else Con_Reportf( "SV_LoadProgs: ^2initailized extended EntityAPI ^7ver. %i\n", version );
 	}
 	else if( !GetEntityAPI( &svgame.dllFuncs, version ))
 	{

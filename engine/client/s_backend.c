@@ -311,9 +311,6 @@ int SNDDMA_Init( void *hInst )
 	// init DirectSound
 	if( SNDDMA_InitDirect( hInst ) != SIS_SUCCESS )
 		return false;
-
-	if( snd_firsttime )
-		Con_Printf( "Audio: DirectSound\n" );
 	dma.initialized = true;
 	snd_firsttime = false;
 

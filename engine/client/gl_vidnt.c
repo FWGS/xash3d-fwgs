@@ -1657,7 +1657,7 @@ void GL_InitExtensions( void )
 	glConfig.renderer_string = pglGetString( GL_RENDERER );
 	glConfig.version_string = pglGetString( GL_VERSION );
 	glConfig.extensions_string = pglGetString( GL_EXTENSIONS );
-	Con_Printf( "Video: %s\n", glConfig.renderer_string );
+	Con_Printf( "^3Video:^7 %s\n", glConfig.renderer_string );
 
 	// intialize wrapper type
 	glConfig.context = CONTEXT_TYPE_GL;

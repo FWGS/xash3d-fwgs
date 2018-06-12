@@ -586,8 +586,8 @@ void SCR_InstallParticlePalette( void )
 	int	i;
 
 	// first check 'palette.lmp' then 'palette.pal'
-	pic = FS_LoadImage( "gfx/palette.lmp", NULL, 0 );
-	if( !pic ) pic = FS_LoadImage( "gfx/palette.pal", NULL, 0 );
+	pic = FS_LoadImage( DEFAULT_INTERNAL_PALETTE, NULL, 0 );
+	if( !pic ) pic = FS_LoadImage( DEFAULT_EXTERNAL_PALETTE, NULL, 0 );
 
 	// NOTE: imagelib required this fakebuffer for loading internal palette
 	if( !pic ) pic = FS_LoadImage( "#valve.pal", (byte *)&i, 768 );
@@ -604,13 +604,13 @@ void SCR_InstallParticlePalette( void )
 	}
 	else
 	{
+		// someone deleted internal palette from code...
 		for( i = 0; i < 256; i++ )
 		{
 			clgame.palette[i].r = i;
 			clgame.palette[i].g = i;
 			clgame.palette[i].b = i;
 		}
-		MsgDev( D_WARN, "CL_InstallParticlePalette: failed. Force to grayscale\n" );
 	}
 }
 
@@ -731,12 +731,12 @@ void SCR_Init( void )
 		host.allow_console = true; // we need console, because menu is missing
 	}
 
+	SCR_VidInit();
 	SCR_LoadCreditsFont ();
-	SCR_InstallParticlePalette ();
 	SCR_RegisterTextures ();
+	SCR_InstallParticlePalette ();
 	SCR_InitCinematic();
 	CL_InitNetgraph();
-	SCR_VidInit();
 
 	if( host.allow_console && Sys_CheckParm( "-toconsole" ))
 		Cbuf_AddText( "toggleconsole\n" );

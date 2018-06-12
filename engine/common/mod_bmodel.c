@@ -28,6 +28,7 @@ GNU General Public License for more details.
 typedef struct wadlist_s
 {
 	char			wadnames[MAX_MAP_WADS][32];
+	int			wadusage[MAX_MAP_WADS];
 	int			count;
 } wadlist_t;
 
@@ -334,11 +335,10 @@ static void Mod_LoadLump( const byte *in, mlumpinfo_t *info, mlumpstat_t *stat, 
 			loadstat.numerrors++;
 			return;
 		}
-		else
+		else if( !FBitSet( flags, LUMP_SILENT ))
 		{
 			// just throw warning
-			if( !FBitSet( flags, LUMP_SILENT ))
-				MsgDev( D_WARN, "map ^2%s^7 has too many %s\n", loadstat.name, msg1 );
+			MsgDev( D_WARN, "map ^2%s^7 has too many %s\n", loadstat.name, msg1 );
 			loadstat.numwarnings++;
 		}
 	}
@@ -1595,6 +1595,7 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 					{
 						int num = bmod->wadlist.count++;
 						Q_strncpy( bmod->wadlist.wadnames[num], token, sizeof( bmod->wadlist.wadnames[0] ));
+						bmod->wadlist.wadusage[num] = 0;
 					}
 
 					if( bmod->wadlist.count >= MAX_MAP_WADS )
@@ -1886,6 +1887,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 				if( FS_FileExists( texpath, false ))
 				{
 					tx->gl_texturenum = GL_LoadTexture( texpath, NULL, 0, 0, filter );
+					bmod->wadlist.wadusage[j]++; // this wad are really used
 					break;
 				}
 			}
@@ -1942,6 +1944,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 					if( FS_FileExists( texpath, false ))
 					{
 						src = FS_LoadFile( texpath, &srcSize, false );
+						bmod->wadlist.wadusage[j]++; // this wad are really used
 						break;
 					}
 				}
@@ -2694,11 +2697,15 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	}
 
 	for( i = 0; i < bmod->wadlist.count; i++ )
+	{
+		if( !bmod->wadlist.wadusage[i] )
+			continue;
 		Q_strncat( wadvalue, va( "%s.wad; ", bmod->wadlist.wadnames[i] ), sizeof( wadvalue ));
+	}
 
 	if( COM_CheckString( wadvalue ))
 	{
-		wadvalue[Q_strlen( wadvalue ) - 2] = '\0';
+		wadvalue[Q_strlen( wadvalue ) - 2] = '\0'; // kill the last semicolon
 		Con_DPrintf( "Wad files required to run the map: \"%s\"\n", wadvalue );
 	}
 
@@ -2974,16 +2981,29 @@ only empty lumps is allows
 */
 int Mod_SaveLump( const char *filename, const int lump, void *lumpdata, int lumpsize )
 {
-	file_t		*f = FS_Open( filename, "e+b", true );
 	byte		buffer[sizeof( dheader_t ) + sizeof( dextrahdr_t )];
 	size_t		prefetch_size = sizeof( buffer );
+	int		result, dummy = lumpsize;
 	dextrahdr_t	*extrahdr;
 	dheader_t		*header;
-
-	if( !f ) return LUMP_SAVE_COULDNT_OPEN;
+	file_t		*f;
 
 	if( !lumpdata || lumpsize <= 0 )
 		return LUMP_SAVE_NO_DATA;
+
+	// make sure what .bsp is placed into gamedir and not in pak
+	if( !FS_GetDiskPath( filename, true ))
+		return LUMP_SAVE_COULDNT_OPEN;
+
+	// first we should sure what we allow to rewrite this .bsp
+	result = Mod_CheckLump( filename, lump, &dummy );
+
+	if( result != LUMP_LOAD_NOT_EXIST )
+		return result;
+
+	f = FS_Open( filename, "e+b", true );
+
+	if( !f ) return LUMP_SAVE_COULDNT_OPEN;
 
 	if( FS_Read( f, buffer, prefetch_size ) != prefetch_size )
 	{
@@ -2993,6 +3013,7 @@ int Mod_SaveLump( const char *filename, const int lump, void *lumpdata, int lump
 
 	header = (dheader_t *)buffer;
 
+	// these checks below are redundant
 	if( header->version != HLBSP_VERSION )
 	{
 		FS_Close( f );

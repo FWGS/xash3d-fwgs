@@ -346,6 +346,10 @@ void Host_InitDecals( void )
 	int	i, num_decals = 0;
 	search_t	*t;
 
+	// NOTE: only once resource without which engine can't continue work
+	if( !FS_FileExists( "gfx/conchars", false ))
+		Sys_Error( "W_LoadWadFile: couldn't load gfx.wad\n" );
+
 	memset( host.draw_decals, 0, sizeof( host.draw_decals ));
 
 	// lookup all the decals in decals.wad (basedir, gamedir, falldir)

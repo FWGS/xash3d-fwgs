@@ -149,7 +149,7 @@ void COM_Frame( float time )
 	{
 		int	oldState = GameState->curstate;
 
-		// execute the current state (and transition to the next state if not in HS_RUN)
+		// execute the current state (and transition to the next state if not in STATE_RUNFRAME)
 		switch( GameState->curstate )
 		{
 		case STATE_LOAD_LEVEL:

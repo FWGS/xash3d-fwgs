@@ -481,9 +481,6 @@ void CL_AddLinksToPmove( frame_t *frame )
 		if( VectorIsNull( state->mins ) && VectorIsNull( state->maxs ))
 			continue;
 
-		if ( !model->hulls[1].lastclipnode && model->type != mod_studio )
-			continue;
-
 		if( state->solid == SOLID_NOT && state->skin < CONTENTS_EMPTY )
 		{
 			if( clgame.pmove->nummoveent >= MAX_MOVEENTS )
@@ -495,6 +492,9 @@ void CL_AddLinksToPmove( frame_t *frame )
 		}
 		else
 		{
+			if( !model->hulls[1].lastclipnode && model->type != mod_studio )
+				continue;
+
 			// reserve slots for all the clients
 			if( clgame.pmove->numphysent >= ( MAX_PHYSENTS - cl.maxclients ))
 				continue;

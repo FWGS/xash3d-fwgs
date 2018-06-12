@@ -329,7 +329,7 @@ void SV_ConnectClient( netadr_t from )
 	}
 	else
 	{
-		MsgDev( D_INFO, "%s:reconnect\n", NET_AdrToString( from ));
+		Con_Reportf( S_NOTE "%s:reconnect\n", NET_AdrToString( from ));
 	}
 
 	// find a client slot
@@ -2077,7 +2077,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	Cmd_TokenizeString( args );
 
 	pcmd = Cmd_Argv( 0 );
-	Con_DPrintf( "SV_ConnectionlessPacket: %s : %s\n", NET_AdrToString( from ), pcmd );
+	Con_Reportf( "SV_ConnectionlessPacket: %s : %s\n", NET_AdrToString( from ), pcmd );
 
 	if( !Q_strcmp( pcmd, "ping" )) SV_Ping( from );
 	else if( !Q_strcmp( pcmd, "ack" )) SV_Ack( from );
