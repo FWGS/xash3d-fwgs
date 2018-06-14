@@ -49,40 +49,46 @@ def options(opt):
 	opt.recurse(SUBDIRS)
         
 def configure(conf):
+	conf.env.MSVC_TARGETS = ['x86']
 	conf.load('compiler_cxx compiler_c')
-	conf.check_cc(
-		fragment='''
-		#include <stdio.h>
-		int main( void ) { printf("%ld", sizeof( void * )); return 0; }
-		''',
-		execute      = True,
-		define_ret   = True,
-		uselib_store = 'SIZEOF_VOID_P',
-		msg          = 'Checking sizeof(void*)')
-	
-	if(conf.env.SIZEOF_VOID_P != '4' and not conf.options.ALLOW64):
-		conf.env.append_value('LINKFLAGS', '-m32')
-		conf.env.append_value('CFLAGS', '-m32')
-		conf.env.append_value('CXXFLAGS', '-m32')
-		Logs.info('NOTE: will build engine with 64-bit toolchain using -m32')
+	if(conf.env.COMPILER_CC != 'msvc'):
+		conf.check_cc(
+			fragment='''
+			#include <stdio.h>
+			int main( void ) { printf("%ld", sizeof( void * )); return 0; }
+			''',
+			execute      = True,
+			define_ret   = True,
+			uselib_store = 'SIZEOF_VOID_P',
+			msg          = 'Checking sizeof(void*)')
 	else:
-		Logs.warn('WARNING: 64-bit engine may be unstable')
+		conf.env.SIZEOF_VOID_P = '4' # TODO: detect target
 	
-	if(conf.env.COMPILER_CC == 'gcc'):
-		conf.env.append_value('LINKFLAGS', '-Wl,--no-undefined')
+	if(int(conf.env.SIZEOF_VOID_P) != 4):
+		if(not conf.options.ALLOW64):
+			conf.env.append_value('LINKFLAGS', '-m32')
+			conf.env.append_value('CFLAGS', '-m32')
+			conf.env.append_value('CXXFLAGS', '-m32')
+			Logs.info('NOTE: will build engine with 64-bit toolchain using -m32')
+		else:
+			Logs.warn('WARNING: 64-bit engine may be unstable')
 	
-	if(conf.options.RELEASE):
-		conf.env.append_unique('CFLAGS', '-O2')
-		conf.env.append_unique('CXXFLAGS', '-O2')
-	else:
-		conf.env.append_unique('CFLAGS', '-Og')
-		conf.env.append_unique('CFLAGS', '-g')
-		conf.env.append_unique('CXXFLAGS', '-Og')
-		conf.env.append_unique('CXXFLAGS', '-g')
-		
-	conf.check( lib='dl' )
-	conf.check( lib='m' )
-	conf.check( lib='pthread' )
+	if(conf.env.COMPILER_CC != 'msvc'):
+		if(conf.env.COMPILER_CC == 'gcc'):
+			conf.env.append_value('LINKFLAGS', '-Wl,--no-undefined')
+		if(conf.options.RELEASE):
+			conf.env.append_unique('CFLAGS', '-O2')
+			conf.env.append_unique('CXXFLAGS', '-O2')
+		else:
+			conf.env.append_unique('CFLAGS', '-Og')
+			conf.env.append_unique('CFLAGS', '-g')
+			conf.env.append_unique('CXXFLAGS', '-Og')
+			conf.env.append_unique('CXXFLAGS', '-g')
+
+	if(conf.env.DEST_OS != 'win32'):
+		conf.check( lib='dl' )
+		conf.check( lib='m' )
+		conf.check( lib='pthread' )
 	
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.DEDICATED
