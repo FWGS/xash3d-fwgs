@@ -164,7 +164,9 @@ void Mod_FreeAll( void )
 {
 	int	i;
 
+#ifndef XASH_DEDICATED
 	Mod_ReleaseHullPolygons();
+#endif
 	for( i = 0; i < mod_numknown; i++ )
 		Mod_FreeModel( &mod_known[i] );
 	mod_numknown = 0;
@@ -414,8 +416,9 @@ static void Mod_PurgeStudioCache( void )
 
 	// refresh hull data
 	SetBits( r_showhull->flags, FCVAR_CHANGED );
+#ifndef XASH_DEDICATED
 	Mod_ReleaseHullPolygons();
-
+#endif
 	// release previois map
 	Mod_FreeModel( mod_known );	// world is stuck on slot #0 always
 

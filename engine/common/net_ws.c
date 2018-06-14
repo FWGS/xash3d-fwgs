@@ -436,7 +436,7 @@ int NET_GetHostByName( const char *hostname )
 	return ip;
 #else
 	struct hostent *h;
-	if(!( h = pGetHostByName( copy )))
+	if(!( h = pGetHostByName( hostname )))
 		return 0;
 	return *(int *)h->h_addr_list[0];
 #endif
