@@ -20,16 +20,32 @@ GNU General Public License for more details.
 
 extern convar_t	*con_gamemaps;
 
+#define CON_MAXCMDS		4096	// auto-complete intermediate list
+
 typedef struct autocomplete_list_s
 {
 	const char *name;
 	qboolean (*func)( const char *s, char *name, int length );
 } autocomplete_list_t;
 
+typedef struct
+{
+	// console auto-complete
+	string		shortestMatch;
+	field_t		*completionField;	// con.input or dedicated server fake field-line
+	const char	*completionString;
+	const char	*completionBuffer;
+	char		*cmds[CON_MAXCMDS];
+	int		matchCount;
+} con_autocomplete_t;
+
+static con_autocomplete_t		con;
+
 /*
 =======================================================================
 
 			FILENAME AUTOCOMPLETION
+
 =======================================================================
 */
 /*
@@ -867,6 +883,268 @@ qboolean Cmd_AutocompleteName( const char *source, char *buffer, size_t bufsize 
 	}
 
 	return false;
+}
+
+/*
+===============
+Con_AddCommandToList
+
+===============
+*/
+static void Con_AddCommandToList( const char *s, const char *unused1, const char *unused2, void *unused3 )
+{
+	if( *s == '@' ) return; // never show system cvars or cmds
+	if( con.matchCount >= CON_MAXCMDS ) return; // list is full
+
+	if( Q_strnicmp( s, con.completionString, Q_strlen( con.completionString ) ) )
+		return; // no match
+
+	con.cmds[con.matchCount++] = copystring( s );
+}
+
+/*
+=================
+Con_SortCmds
+=================
+*/
+static int Con_SortCmds( const char **arg1, const char **arg2 )
+{
+	return Q_stricmp( *arg1, *arg2 );
+}
+
+/*
+===============
+Con_PrintCmdMatches
+===============
+*/
+static void Con_PrintCmdMatches( const char *s, const char *unused1, const char *m, void *unused2 )
+{
+	if( !Q_strnicmp( s, con.shortestMatch, Q_strlen( con.shortestMatch ) ) )
+	{
+		if( COM_CheckString( m ) ) Con_Printf( "    %s ^3\"%s\"\n", s, m );
+		else Con_Printf( "    %s\n", s ); // variable or command without description
+	}
+}
+
+/*
+===============
+Con_PrintCvarMatches
+===============
+*/
+static void Con_PrintCvarMatches( const char *s, const char *value, const char *m, void *unused2 )
+{
+	if( !Q_strnicmp( s, con.shortestMatch, Q_strlen( con.shortestMatch ) ) )
+	{
+		if( COM_CheckString( m ) ) Con_Printf( "    %s (%s)   ^3\"%s\"\n", s, value, m );
+		else Con_Printf( "    %s  (%s)\n", s, value ); // variable or command without description
+	}
+}
+
+/*
+===============
+Con_ConcatRemaining
+===============
+*/
+static void Con_ConcatRemaining( const char *src, const char *start )
+{
+	const char	*arg;
+	int	i;
+
+	arg = Q_strstr( src, start );
+
+	if( !arg )
+	{
+		for( i = 1; i < Cmd_Argc(); i++ )
+		{
+			Q_strncat( con.completionField->buffer, " ", sizeof( con.completionField->buffer ) );
+			arg = Cmd_Argv( i );
+			while( *arg )
+			{
+				if( *arg == ' ' )
+				{
+					Q_strncat( con.completionField->buffer, "\"", sizeof( con.completionField->buffer ) );
+					break;
+				}
+				arg++;
+			}
+
+			Q_strncat( con.completionField->buffer, Cmd_Argv( i ), sizeof( con.completionField->buffer ) );
+			if( *arg == ' ' ) Q_strncat( con.completionField->buffer, "\"", sizeof( con.completionField->buffer ) );
+		}
+		return;
+	}
+
+	arg += Q_strlen( start );
+	Q_strncat( con.completionField->buffer, arg, sizeof( con.completionField->buffer ) );
+}
+
+/*
+===============
+Con_CompleteCommand
+
+perform Tab expansion
+===============
+*/
+void Con_CompleteCommand( field_t *field )
+{
+	field_t	temp;
+	string	filename;
+	qboolean	nextcmd;
+	int	i;
+
+	// setup the completion field
+	con.completionField = field;
+
+	// only look at the first token for completion purposes
+	Cmd_TokenizeString( con.completionField->buffer );
+
+	nextcmd = (con.completionField->buffer[Q_strlen( con.completionField->buffer ) - 1] == ' ') ? true : false;
+
+	con.completionString = Cmd_Argv( 0 );
+	con.completionBuffer = Cmd_Argv( 1 );
+
+	// skip backslash
+	while( *con.completionString && (*con.completionString == '\\' || *con.completionString == '/') )
+		con.completionString++;
+
+	// skip backslash
+	while( *con.completionBuffer && (*con.completionBuffer == '\\' || *con.completionBuffer == '/') )
+		con.completionBuffer++;
+
+	if( !Q_strlen( con.completionString ) )
+		return;
+
+	// free the old autocomplete list
+	for( i = 0; i < con.matchCount; i++ )
+	{
+		if( con.cmds[i] != NULL )
+		{
+			Mem_Free( con.cmds[i] );
+			con.cmds[i] = NULL;
+		}
+	}
+
+	con.matchCount = 0;
+	con.shortestMatch[0] = 0;
+
+	// find matching commands and variables
+	Cmd_LookupCmds( NULL, NULL, Con_AddCommandToList );
+	Cvar_LookupVars( 0, NULL, NULL, Con_AddCommandToList );
+
+	if( !con.matchCount ) return; // no matches
+
+	memcpy( &temp, con.completionField, sizeof( field_t ) );
+
+	// autocomplete second arg
+	if( (Cmd_Argc() == 2) || ((Cmd_Argc() == 1) && nextcmd) )
+	{
+		if( !Q_strlen( con.completionBuffer ) )
+			return;
+
+		if( Cmd_AutocompleteName( con.completionBuffer, filename, sizeof( filename ) ) )
+		{
+			Q_sprintf( con.completionField->buffer, "%s %s", Cmd_Argv( 0 ), filename );
+			con.completionField->cursor = Q_strlen( con.completionField->buffer );
+		}
+
+		// don't adjusting cursor pos if we nothing found
+		return;
+	}
+	else if( Cmd_Argc() >= 3 )
+	{
+		// disable autocomplete for all next args
+		return;
+	}
+
+	if( con.matchCount == 1 )
+	{
+		Q_sprintf( con.completionField->buffer, "\\%s", con.cmds[0] );
+		if( Cmd_Argc() == 1 ) Q_strncat( con.completionField->buffer, " ", sizeof( con.completionField->buffer ) );
+		else Con_ConcatRemaining( temp.buffer, con.completionString );
+		con.completionField->cursor = Q_strlen( con.completionField->buffer );
+	}
+	else
+	{
+		char	*first, *last;
+		int	len = 0;
+
+		qsort( con.cmds, con.matchCount, sizeof( char* ), Con_SortCmds );
+
+		// find the number of matching characters between the first and
+		// the last element in the list and copy it
+		first = con.cmds[0];
+		last = con.cmds[con.matchCount - 1];
+
+		while( *first && *last && Q_tolower( *first ) == Q_tolower( *last ) )
+		{
+			first++;
+			last++;
+
+			con.shortestMatch[len] = con.cmds[0][len];
+			len++;
+		}
+		con.shortestMatch[len] = 0;
+
+		// multiple matches, complete to shortest
+		Q_sprintf( con.completionField->buffer, "\\%s", con.shortestMatch );
+		con.completionField->cursor = Q_strlen( con.completionField->buffer );
+		Con_ConcatRemaining( temp.buffer, con.completionString );
+
+		Con_Printf( "]%s\n", con.completionField->buffer );
+
+		// run through again, printing matches
+		Cmd_LookupCmds( NULL, NULL, Con_PrintCmdMatches );
+		Cvar_LookupVars( 0, NULL, NULL, Con_PrintCvarMatches );
+	}
+}
+
+/*
+=========
+Cmd_AutoComplete
+
+NOTE: input string must be equal or longer than MAX_STRING
+=========
+*/
+void Cmd_AutoComplete( char *complete_string )
+{
+	field_t	input;
+
+	if( !complete_string || !*complete_string )
+		return;
+
+	// setup input
+	Q_strncpy( input.buffer, complete_string, sizeof( input.buffer ) );
+	input.cursor = input.scroll = 0;
+
+	Con_CompleteCommand( &input );
+
+	// setup output
+	if( input.buffer[0] == '\\' || input.buffer[0] == '/' )
+		Q_strncpy( complete_string, input.buffer + 1, sizeof( input.buffer ) );
+	else Q_strncpy( complete_string, input.buffer, sizeof( input.buffer ) );
+}
+
+/*
+============
+Cmd_AutoCompleteClear
+
+============
+*/
+void Cmd_AutoCompleteClear( void )
+{
+	int i;
+
+	// free the old autocomplete list
+	for( i = 0; i < con.matchCount; i++ )
+	{
+		if( con.cmds[i] != NULL )
+		{
+			Mem_Free( con.cmds[i] );
+			con.cmds[i] = NULL;
+		}
+	}
+
+	con.matchCount = 0;
 }
 
 /*
