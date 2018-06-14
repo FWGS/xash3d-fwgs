@@ -28,7 +28,7 @@ top = '.'
 def options(opt):
 	opt.load('compiler_cxx compiler_c')
 	if sys.platform == 'win32':
-		opt.load('msvc')
+		opt.load('msvc msvs')
 	
 	opt.add_option(
 		'--dedicated', action = 'store_true', dest = 'DEDICATED', default=False,
@@ -84,6 +84,11 @@ def configure(conf):
 			conf.env.append_unique('CFLAGS', '-g')
 			conf.env.append_unique('CXXFLAGS', '-Og')
 			conf.env.append_unique('CXXFLAGS', '-g')
+	else:
+		if(not conf.options.RELEASE):
+			conf.env.append_unique('CFLAGS', '/Z7')
+			conf.env.append_unique('CXXFLAGS', '/Z7')
+			conf.env.append_unique('LINKFLAGS', '/DEBUG')
 
 	if(conf.env.DEST_OS != 'win32'):
 		conf.check( lib='dl' )
