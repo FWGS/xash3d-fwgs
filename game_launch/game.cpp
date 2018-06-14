@@ -36,6 +36,7 @@ GNU General Public License for more details.
 	#else
 		#define XASHLIB "xash_dedicated.dll"
 	#endif
+	#define dlerror() GetStringLastError()
 	#include <windows.h>
 #endif
 
