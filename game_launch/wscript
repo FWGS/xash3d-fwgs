@@ -16,27 +16,33 @@ def configure(conf):
 		return
 	
 	# check for dedicated server build
-	if conf.env.DEST_OS != 'win32' and not conf.env.DEDICATED:
-		# TODO: add way to specify SDL2 path, move to separate function
-		try:
-			conf.check_cfg(
-				path='sdl2-config', 
-				args='--cflags --libs', 
-				package='', 
-				msg='Checking for SDL2', 
-				uselib_store='SDL2')
-		except conf.errors.ConfigurationError:
-			conf.fatal('SDL2 not availiable! If you want to build dedicated server, specify --dedicated')
-		conf.env.append_unique('DEFINES', 'XASH_SDL')
+	if not conf.env.DEDICATED:
+		if conf.env.DEST_OS != 'win32': # We need SDL2 for showing messagebox in case launcher has failed
+			# TODO: add way to specify SDL2 path, move to separate function
+			try:
+				conf.check_cfg(
+					path='sdl2-config', 
+					args='--cflags --libs', 
+					package='', 
+					msg='Checking for SDL2', 
+					uselib_store='SDL2')
+			except conf.errors.ConfigurationError:
+				conf.fatal('SDL2 not availiable! If you want to build dedicated server, specify --dedicated')
+			conf.env.append_unique('DEFINES', 'XASH_SDL')
+		else:
+			conf.check(lib='USER32')
 
 def get_subproject_name(ctx):
         return os.path.basename(os.path.realpath(str(ctx.path)))
 
 def build(bld):
+	if bld.env.SINGLE_BINARY:
+		return
+
 	bld.load_envs()
 	bld.env = bld.all_envs[get_subproject_name(bld)]
 
-	source = 'game.cpp'
+	source = ['game.cpp']
 	includes = '. ../common'
 	libs = []
 	
@@ -47,7 +53,8 @@ def build(bld):
 	else:
 		# compile resource on Windows
 		bld.load('winres')
-		source += 'game.rc'
+		libs += ['USER32']
+		source += ['game.rc']
 
 	bld(
 		source   = source,
