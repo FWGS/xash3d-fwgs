@@ -950,7 +950,7 @@ const char *COM_NameForFunction( void *hInstance, void *function )
 	{
 		index = hInst->ordinals[i];
 
-		if(( function - hInst->funcBase ) == hInst->funcs[index] )
+		if(( (char*)function - (char*)hInst->funcBase ) == hInst->funcs[index] )
 			return hInst->names[i];
 	}
 

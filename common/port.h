@@ -118,6 +118,7 @@ GNU General Public License for more details.
 	#define strncasecmp _strnicmp
 	#define open _open
 	#define read _read
+	#define alloca _alloca
 
 	// shut-up compiler warnings
 	#pragma warning(disable : 4244)	// MIPS
