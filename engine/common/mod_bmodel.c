@@ -2701,7 +2701,9 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	if( isworld )
 	{
 		loadmodel = mod;		// restore pointer to world
+#ifndef XASH_DEDICATED
 		Mod_InitDebugHulls();	// FIXME: build hulls for separate bmodels (shells, medkits etc)
+#endif // XASH_DEDICATED
 	}
 
 	for( i = 0; i < bmod->wadlist.count; i++ )

@@ -1101,7 +1101,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	}
 #else
 	// just copy model into memory
-	loadmodel->cache.data = Mem_Alloc( loadmodel->mempool, phdr->length );
+	loadmodel->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length );
 	memcpy( loadmodel->cache.data, buffer, phdr->length );
 
 	phdr = loadmodel->cache.data;

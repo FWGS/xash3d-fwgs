@@ -668,8 +668,10 @@ print into window console
 */
 void Sys_Print( const char *pMsg )
 {
+#ifndef XASH_DEDICATED
 	if( !Host_IsDedicated() )
 		Con_Print( pMsg );
+#endif
 
 #ifdef _WIN32
 	{
@@ -680,8 +682,10 @@ void Sys_Print( const char *pMsg )
 		char		*c = logbuf;
 		int		i = 0;
 
-		if( host.type == HOST_NORMAL )
+#ifndef XASH_DEDICATED
+		if( !Host_IsDedicated() )
 			Con_Print( pMsg );
+#endif
 
 		// if the message is REALLY long, use just the last portion of it
 		if( Q_strlen( pMsg ) > sizeof( buffer ) - 1 )
