@@ -364,6 +364,15 @@ typedef enum
 
 #include "net_ws.h"
 
+// console field
+typedef struct
+{
+	string		buffer;
+	int		cursor;
+	int		scroll;
+	int		widthInChars;
+} field_t;
+
 typedef struct host_redirect_s
 {
 	rdtype_t		target;
@@ -893,6 +902,13 @@ void pfnResetTutorMessageDecayData( void );
 #define Z_Free( ptr )		if( ptr != NULL ) Mem_Free( ptr )
 
 //
+// con_utils.c
+//
+qboolean Cmd_AutocompleteName( const char *source, char *buffer, size_t bufsize );
+void Cmd_AutoComplete( char *complete_string );
+void Cmd_AutoCompleteClear( void );
+
+//
 // crclib.c
 //
 void CRC32_Init( dword *pulCRC );
@@ -1053,8 +1069,6 @@ void Info_WriteVars( file_t *f );
 void Info_Print( const char *s );
 void Cmd_WriteVariables( file_t *f );
 int Cmd_CheckMapsList( int fRefresh );
-qboolean Cmd_AutocompleteName( const char *source, char *buffer, size_t bufsize );
-void Cmd_AutoComplete( char *complete_string );
 void COM_SetRandomSeed( long lSeed );
 int COM_RandomLong( int lMin, int lMax );
 float COM_RandomFloat( float fMin, float fMax );
