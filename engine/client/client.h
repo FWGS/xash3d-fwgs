@@ -53,6 +53,13 @@ GNU General Public License for more details.
 
 typedef int		sound_t;
 
+typedef enum
+{
+	DEMO_INACTIVE = 0,
+	DEMO_XASH3D,
+	DEMO_QUAKE1
+} demo_mode;
+
 //=============================================================================
 typedef struct netbandwithgraph_s
 {
@@ -595,6 +602,7 @@ typedef struct
 
 	float		packet_loss;
 	double		packet_loss_recalc_time;
+	int		starting_count;		// message num readed bits
 
 	float		nextcmdtime;		// when can we send the next command packet?                
 	int		lastoutgoingcommand;	// sequence number of last outgoing command
@@ -603,6 +611,7 @@ typedef struct
 	int		td_lastframe;		// to meter out one message a frame
 	int		td_startframe;		// host_framecount at start
 	double		td_starttime;		// realtime at second frame of timedemo
+	int		forcetrack;		// -1 = use normal cd track
 
 	// game images
 	int		pauseIcon;		// draw 'paused' when game in-pause
@@ -632,7 +641,8 @@ typedef struct
 	// demo loop control
 	int		demonum;			// -1 = don't play demos
 	int		olddemonum;		// restore playing
-	string		demos[MAX_DEMOS];		// when not playing
+	char		demos[MAX_DEMOS][MAX_QPATH];	// when not playing
+	qboolean		demos_pending;
 
 	// movie playlist
 	int		movienum;
@@ -748,6 +758,15 @@ void CL_MoveToOnHandList( resource_t *pResource );
 void CL_ClearResourceLists( void );
 
 //
+// cl_debug.c
+//
+void CL_Parse_Debug( qboolean enable );
+void CL_Parse_RecordCommand( int cmd, int startoffset );
+void CL_ResetFrame( frame_t *frame );
+void CL_WriteMessageHistory( void );
+const char *CL_MsgInfo( int cmd );
+
+//
 // cl_main.c
 //
 void CL_Init( void );
@@ -774,8 +793,10 @@ void CL_WriteDemoMessage( qboolean startup, int start, sizebuf_t *msg );
 void CL_WriteDemoUserMessage( const byte *buffer, size_t size );
 qboolean CL_DemoReadMessage( byte *buffer, size_t *length );
 void CL_DemoInterpolateAngles( void );
+void CL_CheckStartupDemos( void );
 void CL_WriteDemoJumpTime( void );
 void CL_CloseDemoHeader( void );
+void CL_DemoCompleted( void );
 void CL_StopPlayback( void );
 void CL_StopRecord( void );
 void CL_PlayDemo_f( void );
@@ -785,7 +806,6 @@ void CL_Demos_f( void );
 void CL_DeleteDemo_f( void );
 void CL_Record_f( void );
 void CL_Stop_f( void );
-void CL_FreeDemo( void );
 
 //
 // cl_events.c
@@ -858,6 +878,8 @@ void CL_StartResourceDownloading( const char *pszMessage, qboolean bCustom );
 qboolean CL_DispatchUserMessage( const char *pszName, int iSize, void *pbuf );
 qboolean CL_RequestMissingResources( void );
 void CL_RegisterResources ( sizebuf_t *msg );
+void CL_ParseViewEntity( sizebuf_t *msg );
+void CL_ParseServerTime( sizebuf_t *msg );
 
 //
 // cl_scrn.c
@@ -920,6 +942,11 @@ void CL_PopPMStates( void );
 void CL_SetUpPlayerPrediction( int dopred, int bIncludeLocalClient );
 
 //
+// cl_qparse.c
+//
+void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message );
+
+//
 // cl_studio.c
 //
 void CL_InitStudioAPI( void );
@@ -935,7 +962,7 @@ void CL_ResetLatchedVars( cl_entity_t *ent, qboolean full_reset );
 qboolean CL_GetEntitySpatialization( channel_t *ch );
 qboolean CL_GetMovieSpatialization( rawchan_t *ch );
 void CL_ComputePlayerOrigin( cl_entity_t *clent );
-void CL_UpdateEntityFields( cl_entity_t *ent );
+void CL_ProcessPacket( frame_t *frame );
 void CL_MoveThirdpersonCamera( void );
 qboolean CL_IsPlayerIndex( int idx );
 void CL_SetIdealPitch( void );

@@ -229,6 +229,8 @@ typedef struct
 	uint		c_particle_count;
 
 	uint		c_client_ents;	// entities that moved to client
+	double		t_world_node;
+	double		t_world_draw;
 } ref_speeds_t;
 
 extern ref_speeds_t		r_stats;

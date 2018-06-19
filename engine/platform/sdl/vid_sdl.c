@@ -24,6 +24,7 @@ GNU General Public License for more details.
 
 static vidmode_t *vidmodes = NULL;
 static int num_vidmodes = 0;
+static int context_flags = 0;
 
 static dllfunc_t opengl_110funcs[] =
 {
@@ -737,12 +738,25 @@ static void GL_SetupAttributes( void )
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 0 );
 #endif
 
-#elif !defined XASH_GL_STATIC
+#else // GL1.x
+#ifndef XASH_GL_STATIC
 	if( Sys_CheckParm( "-gldebug" ) )
 	{
 		MsgDev( D_NOTE, "Creating an extended GL context for debug...\n" );
+		SetBits( context_flags, FCONTEXT_DEBUG_ARB );
 		SDL_GL_SetAttribute( SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG );
 		glw_state.extended = true;
+	}
+#endif // XASH_GL_STATIC
+	if( Sys_CheckParm( "-glcore" ))
+	{
+		SetBits( context_flags, FCONTEXT_CORE_PROFILE );
+
+		SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
+	}
+	else
+	{
+		SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY );
 	}
 #endif // XASH_GLES
 

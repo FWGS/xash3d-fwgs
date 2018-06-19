@@ -49,6 +49,7 @@ engine/client/avi/avi_win.c
 engine/client/cl_cmds.c
 engine/client/cl_custom.c
 engine/client/cl_demo.c
+engine/client/cl_debug.c
 engine/client/cl_events.c
 engine/client/cl_frame.c
 engine/client/cl_game.c
@@ -64,6 +65,7 @@ engine/client/cl_tent.c
 engine/client/cl_tent.h
 engine/client/cl_video.c
 engine/client/cl_view.c
+engine/client/cl_qparse.c
 engine/client/client.h
 engine/client/console.c
 engine/client/gl_alias.c

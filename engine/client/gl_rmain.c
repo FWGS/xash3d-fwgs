@@ -658,7 +658,7 @@ static void R_CheckFog( void )
 	int		i, cnt, count;
 
 	// quake global fog
-	if( clgame.movevars.fog_settings != 0 && FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+	if( clgame.movevars.fog_settings != 0 && Host_IsQuakeCompatible( ))
 	{
 		// quake-style global fog
 		RI.fogColor[0] = ((clgame.movevars.fog_settings & 0xFF000000) >> 24) / 255.0f;
@@ -1210,6 +1210,8 @@ static int GL_RenderGetParm( int parm, int arg )
 		return tr.lightmapTextures[arg];
 	case PARM_SKY_SPHERE:
 		return FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX );
+	case PARAM_GAMEPAUSED:
+		return cl.paused;
 	case PARM_WIDESCREEN:
 		return glState.wideScreen;
 	case PARM_FULLSCREEN:

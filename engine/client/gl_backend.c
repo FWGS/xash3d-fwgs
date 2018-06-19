@@ -45,6 +45,25 @@ qboolean R_SpeedsMessage( char *out, size_t size )
 
 /*
 ==============
+R_Speeds_Printf
+
+helper to print into r_speeds message
+==============
+*/
+void R_Speeds_Printf( const char *msg, ... )
+{
+	va_list	argptr;
+	char	text[2048];
+
+	va_start( argptr, msg );
+	Q_vsprintf( text, msg, argptr );
+	va_end( argptr );
+
+	Q_strncat( r_speeds_msg, text, sizeof( r_speeds_msg ));
+}
+
+/*
+==============
 GL_BackendStartFrame
 ==============
 */
@@ -60,8 +79,16 @@ GL_BackendEndFrame
 */
 void GL_BackendEndFrame( void )
 {
+	mleaf_t	*curleaf;
+
 	if( r_speeds->value <= 0 || !RI.drawWorld )
 		return;
+
+	if( !RI.viewleaf )
+		curleaf = cl.worldmodel->leafs;
+	else curleaf = RI.viewleaf;
+
+	R_Speeds_Printf( "Renderer: ^1Engine^7\n\n" );
 
 	switch( (int)r_speeds->value )
 	{
@@ -70,8 +97,8 @@ void GL_BackendEndFrame( void )
 		r_stats.c_world_polys, r_stats.c_alias_polys, r_stats.c_studio_polys, r_stats.c_sprite_polys );
 		break;		
 	case 2:
-		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "visible leafs:\n%3i leafs\ncurrent leaf %3i",
-		r_stats.c_world_leafs, Mod_PointInLeaf( RI.pvsorigin, cl.worldmodel->nodes ) - cl.worldmodel->leafs );
+		R_Speeds_Printf( "visible leafs:\n%3i leafs\ncurrent leaf %3i\n", r_stats.c_world_leafs, curleaf - cl.worldmodel->leafs );
+		R_Speeds_Printf( "ReciusiveWorldNode: %3lf secs\nDrawTextureChains %lf\n", r_stats.t_world_node, r_stats.t_world_draw );
 		break;
 	case 3:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i alias models drawn\n%3i studio models drawn\n%3i sprites drawn",
