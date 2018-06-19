@@ -804,7 +804,7 @@ void Delta_Init( void )
 	Delta_AddField( "movevars_t", "stepsize", DT_FLOAT|DT_SIGNED, 16, 16.0f, 1.0f );
 	Delta_AddField( "movevars_t", "maxvelocity", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
 
-	if( host.features & ENGINE_WRITE_LARGE_COORD )
+	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
 		Delta_AddField( "movevars_t", "zmax", DT_FLOAT|DT_SIGNED, 18, 1.0f, 1.0f );
 	else Delta_AddField( "movevars_t", "zmax", DT_FLOAT|DT_SIGNED, 16, 1.0f, 1.0f );
 
@@ -1703,7 +1703,7 @@ If force is not set, then nothing at all will be generated if the entity is
 identical, under the assumption that the in-order delta code will catch it.
 ==================
 */
-void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *msg, qboolean force, qboolean player, float timebase, int baseline ) 
+void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *msg, qboolean force, int delta_type, float timebase, int baseline ) 
 {
 	delta_info_t	*dt = NULL;
 	delta_t		*pField;
@@ -1757,7 +1757,7 @@ void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *
 	{
 		dt = Delta_FindStruct( "custom_entity_state_t" );
 	}
-	else if( player )
+	else if( delta_type == DELTA_PLAYER )
 	{
 		dt = Delta_FindStruct( "entity_state_player_t" );
 	}
@@ -1771,8 +1771,17 @@ void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *
 	pField = dt->pFields;
 	Assert( pField != NULL );
 
-	// activate fields and call custom encode func
-	Delta_CustomEncode( dt, from, to );
+	if( delta_type == DELTA_STATIC )
+	{
+		// static entities won't to be custom encoded
+		for( i = 0; i < dt->numFields; i++ )
+			dt->pFields[i].bInactive = false;
+	}
+	else
+	{
+		// activate fields and call custom encode func
+		Delta_CustomEncode( dt, from, to );
+	}
 
 	// process fields
 	for( i = 0; i < dt->numFields; i++, pField++ )
@@ -1796,7 +1805,7 @@ If the delta removes the entity, entity_state_t->number will be set to MAX_EDICT
 Can go from either a baseline or a previous packet_entity
 ==================
 */
-qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state_t *to, int number, qboolean player, float timebase )
+qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state_t *to, int number, int delta_type, float timebase )
 {
 	delta_info_t	*dt = NULL;
 	delta_t		*pField;
@@ -1834,7 +1843,12 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 
 	if( baseline_offset != 0 )
 	{
-		if( baseline_offset > 0 )
+		if( delta_type == DELTA_STATIC )
+		{
+			int backup = Q_max( 0, clgame.numStatics - abs( baseline_offset ));
+			from = &clgame.static_entities[backup].baseline;
+		}
+		else if( baseline_offset > 0 )
 		{
 			int backup = cls.next_client_entities - baseline_offset;
 			from = &cls.packet_entities[backup % cls.num_client_entities];
@@ -1858,7 +1872,7 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 	{
 		dt = Delta_FindStruct( "custom_entity_state_t" );
 	}
-	else if( player )
+	else if( delta_type == DELTA_PLAYER )
 	{
 		dt = Delta_FindStruct( "entity_state_player_t" );
 	}

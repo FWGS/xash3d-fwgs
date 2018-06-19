@@ -844,8 +844,8 @@ void R_StudioCalcBoneAdj( float dadt, float *adj, const byte *pcontroller1, cons
 			{
 				if( abs( pcontroller1[i] - pcontroller2[i] ) > 128 )
 				{
-					int a = (pcontroller1[j] + 128) % 256;
-					int b = (pcontroller2[j] + 128) % 256;
+					int a = (pcontroller1[i] + 128) % 256;
+					int b = (pcontroller2[i] + 128) % 256;
 					value = (( a * dadt ) + ( b * ( 1.0f - dadt )) - 128) * (360.0f / 256.0f) + pbonecontroller[j].start;
 				}
 				else 

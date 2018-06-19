@@ -465,9 +465,12 @@ void R_NewMap( void )
 	if( v_dark->value )
 	{
 		screenfade_t		*sf = &clgame.fade;
+		float			fadetime = 5.0f;
 		client_textmessage_t	*title;
 
 		title = CL_TextMessageGet( "GAMETITLE" );
+		if( CL_IsQuakeCompatible( ))
+			fadetime = 1.0f;
 
 		if( title )
 		{
@@ -475,7 +478,7 @@ void R_NewMap( void )
 			sf->fadeEnd = title->holdtime + title->fadeout;
 			sf->fadeReset = title->fadeout;
 		}
-		else sf->fadeEnd = sf->fadeReset = 5.0f;
+		else sf->fadeEnd = sf->fadeReset = fadetime;
 	
 		sf->fadeFlags = FFADE_IN;
 		sf->fader = sf->fadeg = sf->fadeb = 0;

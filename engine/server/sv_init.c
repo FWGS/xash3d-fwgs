@@ -378,7 +378,7 @@ void SV_CreateBaseline( void )
 {
 	entity_state_t	nullstate, *base;
 	int		playermodel;
-	qboolean		player;
+	int		delta_type;
 	int		entnum;
 
 	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
@@ -396,13 +396,13 @@ void SV_CreateBaseline( void )
 
 		if( entnum != 0 && entnum <= svs.maxclients )
 		{
-			player = true;
+			delta_type = DELTA_PLAYER;
 		}
 		else
 		{
 			if( !pEdict->v.modelindex )
 				continue; // invisible
-			player = false;
+			delta_type = DELTA_ENTITY;
 		}
 
 		// take current state as baseline
@@ -415,7 +415,7 @@ void SV_CreateBaseline( void )
 			base->entityType = ENTITY_BEAM;
 		else base->entityType = ENTITY_NORMAL;
 
-		svgame.dllFuncs.pfnCreateBaseline( player, entnum, base, pEdict, playermodel, host.player_mins[0], host.player_maxs[0] );
+		svgame.dllFuncs.pfnCreateBaseline( delta_type, entnum, base, pEdict, playermodel, host.player_mins[0], host.player_maxs[0] );
 		sv.last_valid_baseline = entnum;
 	}
 
@@ -434,19 +434,19 @@ void SV_CreateBaseline( void )
 
 		if( entnum != 0 && entnum <= svs.maxclients )
 		{
-			player = true;
+			delta_type = DELTA_PLAYER;
 		}
 		else
 		{
 			if( !pEdict->v.modelindex )
 				continue; // invisible
-			player = false;
+			delta_type = DELTA_ENTITY;
 		}
 
 		// take current state as baseline
 		base = &svs.baselines[entnum];
 
-		MSG_WriteDeltaEntity( &nullstate, base, &sv.signon, true, player, 1.0f, 0 );
+		MSG_WriteDeltaEntity( &nullstate, base, &sv.signon, true, delta_type, 1.0f, 0 );
 	}
 
 	MSG_WriteUBitLong( &sv.signon, LAST_EDICT, MAX_ENTITY_BITS ); // end of baselines
@@ -455,7 +455,7 @@ void SV_CreateBaseline( void )
 	for( entnum = 0; entnum < sv.num_instanced; entnum++ )
 	{
 		base = &sv.instanced[entnum].baseline;
-		MSG_WriteDeltaEntity( &nullstate, base, &sv.signon, true, false, 1.0f, 0 );
+		MSG_WriteDeltaEntity( &nullstate, base, &sv.signon, true, DELTA_ENTITY, 1.0f, 0 );
 	}
 }
 
@@ -783,6 +783,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	MSG_Init( &sv.spec_datagram, "Spectator Datagram", sv.spectator_buf, sizeof( sv.spectator_buf ));
 
 	// clearing all the baselines
+	memset( svs.static_entities, 0, sizeof( entity_state_t ) * MAX_STATIC_ENTITIES );
 	memset( svs.baselines, 0, sizeof( entity_state_t ) * GI->max_edicts );
 
 	// make cvars consistant

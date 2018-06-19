@@ -58,7 +58,7 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, size_t filesize )
 	size_t	pos = 0;
 	size_t	bytesWrite = 0;
 	char	out[OUTBUF_SIZE];
-	size_t	outsize;
+	size_t	outsize, padsize;
 	int	ret;
 	wavinfo_t	sc;
 
@@ -91,7 +91,8 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, size_t filesize )
 	sound.width = 2; // always 16-bit PCM
 	sound.loopstart = -1;
 	sound.size = ( sound.channels * sound.rate * sound.width ) * ( sc.playtime / 1000 ); // in bytes
-	pos += FRAME_SIZE;	// evaluate pos
+	padsize = sound.size % FRAME_SIZE;
+	pos += FRAME_SIZE; // evaluate pos
 
 	if( !sound.size )
 	{
@@ -101,8 +102,9 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, size_t filesize )
 		return false;
 	}
 
+	// add sentinel make sure we not overrun
+	sound.wav = (byte *)Mem_Calloc( host.soundpool, sound.size + padsize );
 	sound.type = WF_PCMDATA;
-	sound.wav = (byte *)Mem_Malloc( host.soundpool, sound.size );
 
 	// decompress mpg into pcm wav format
 	while( bytesWrite < sound.size )

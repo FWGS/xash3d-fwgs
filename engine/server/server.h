@@ -113,24 +113,6 @@ typedef struct
 	file_t		*file;
 } server_log_t;
 
-// like as entity_state_t in Quake
-typedef struct
-{
-	char		model[MAX_QPATH];	// name of static-entity model for right precache
-	vec3_t		origin;
-	vec3_t		angles;
-	short		sequence;
-	short		frame;
-	short		colormap;
-	byte		skin;		// can't set contents! only real skin!
-	byte		body;
-	float		scale;
-	byte		rendermode;
-	byte		renderamt;
-	color24		rendercolor;
-	byte		renderfx;
-} sv_static_entity_t;
-
 typedef struct server_s
 {
 	sv_state_t	state;		// precache commands are only valid during load
@@ -159,8 +141,6 @@ typedef struct server_s
 	char		event_precache[MAX_EVENTS][MAX_QPATH];
 	byte		model_precache_flags[MAX_MODELS];
 	model_t		*models[MAX_MODELS];
-
-	sv_static_entity_t	static_entities[MAX_STATIC_ENTITIES];
 	int		num_static_entities;
 
 	// run local lightstyles to let SV_LightPoint grab the actual information
@@ -386,6 +366,7 @@ typedef struct
 	int		next_client_entities;	// next client_entity to use
 	entity_state_t	*packet_entities;		// [num_client_entities]
 	entity_state_t	*baselines;		// [GI->max_edicts]
+	entity_state_t	*static_entities;		// [MAX_STATIC_ENTITIES];
 
 	double		last_heartbeat;
 	challenge_t	challenges[MAX_CHALLENGES];	// to prevent invalid IPs from connecting
@@ -576,6 +557,7 @@ void SV_RequestMissingResources( void );
 // sv_frame.c
 //
 void SV_InactivateClients( void );
+int SV_FindBestBaselineForStatic( int index, entity_state_t **baseline, entity_state_t *to );
 void SV_WriteFrameToClient( sv_client_t *client, sizebuf_t *msg );
 void SV_BuildClientFrame( sv_client_t *client );
 void SV_SendMessagesToAll( void );
@@ -612,8 +594,8 @@ const char *SV_GetString( string_t iString );
 sv_client_t *SV_ClientFromEdict( const edict_t *pEdict, qboolean spawned_only );
 int SV_MapIsValid( const char *filename, const char *spawn_entity, const char *landmark_name );
 void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
-void SV_CreateStaticEntity( struct sizebuf_s *msg, sv_static_entity_t *ent );
 edict_t *SV_FindGlobalEntity( string_t classname, string_t globalname );
+qboolean SV_CreateStaticEntity( struct sizebuf_s *msg, int index );
 void SV_SendUserReg( sizebuf_t *msg, sv_user_message_t *user );
 edict_t* pfnPEntityOfEntIndex( int iEntIndex );
 int pfnIndexOfEdict( const edict_t *pEdict );
@@ -622,6 +604,7 @@ void SV_UpdateBaseVelocity( edict_t *ent );
 byte *pfnSetFatPVS( const float *org );
 byte *pfnSetFatPAS( const float *org );
 int pfnPrecacheModel( const char *s );
+int pfnModelIndex( const char *m );
 void pfnRemoveEntity( edict_t* e );
 void SV_RestartAmbientSounds( void );
 void SV_RestartDecals( void );

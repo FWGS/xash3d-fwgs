@@ -179,6 +179,67 @@ GNU General Public License for more details.
 #define FRAGMENT_MAX_SIZE		64000		// maximal fragment size
 #define FRAGMENT_LOCAL_SIZE		FRAGMENT_MAX_SIZE	// local connection
 
+// Quake1 Protocol
+#define PROTOCOL_VERSION_QUAKE	15
+
+// listed only unmatched ops
+#define svc_updatestat		3	// [byte] [long]			(svc_event)
+#define svc_version			4	// [long] server version		(svc_changing)
+#define svc_updatename		13	// [byte] [string]			(svc_updateuserinfo)
+#define svc_updatefrags		14	// [byte] [short]			(svc_deltatable)
+#define svc_stopsound		16	// <see code>			(svc_resource)
+#define svc_updatecolors		17	// [byte] [byte]			(svc_pings)
+#define svc_damage			19	//				(svc_restoresound)
+#define svc_spawnbinary		21	//				(svc_event_reliable)
+#define svc_killedmonster		27
+#define svc_foundsecret		28
+#define svc_spawnstaticsound		29	// [coord3] [byte] samp [byte] vol [byte] aten
+#define svc_sellscreen		33	//				(svc_restore)
+// Nehahra added
+#define svc_showlmp			35	// [string] slotname [string] lmpfilename [coord] x [coord] y
+#define svc_hidelmp			36	// [string] slotname
+#define svc_skybox			37	// [string] skyname
+#define svc_skyboxsize		50	// [coord] size (default is 4096)
+#define svc_fog			51	// [byte] enable <optional past this point, only included if enable is true>
+					// [float] density [byte] red [byte] green [byte] blue
+
+// if the high bit of the servercmd is set, the low bits are fast update flags:
+#define U_MOREBITS		(1<<0)
+#define U_ORIGIN1		(1<<1)
+#define U_ORIGIN2		(1<<2)
+#define U_ORIGIN3		(1<<3)
+#define U_ANGLE2		(1<<4)
+#define U_NOLERP		(1<<5)		// don't interpolate movement
+#define U_FRAME		(1<<6)
+#define U_SIGNAL		(1<<7)		// just differentiates from other updates
+
+// svc_update can pass all of the fast update bits, plus more
+#define U_ANGLE1		(1<<8)
+#define U_ANGLE3		(1<<9)
+#define U_MODEL		(1<<10)
+#define U_COLORMAP		(1<<11)
+#define U_SKIN		(1<<12)
+#define U_EFFECTS		(1<<13)
+#define U_LONGENTITY	(1<<14)
+#define U_TRANS		(1<<15)		// nehahra
+
+// clientdata flags
+#define SU_VIEWHEIGHT	(1<<0)
+#define SU_IDEALPITCH	(1<<1)
+#define SU_PUNCH1		(1<<2)
+#define SU_PUNCH2		(1<<3)
+#define SU_PUNCH3		(1<<4)
+#define SU_VELOCITY1	(1<<5)
+#define SU_VELOCITY2	(1<<6)
+#define SU_VELOCITY3	(1<<7)
+//define	SU_AIMENT		(1<<8)  AVAILABLE BIT
+#define SU_ITEMS		(1<<9)
+#define SU_ONGROUND		(1<<10)		// no data follows, the bit is it
+#define SU_INWATER		(1<<11)		// no data follows, the bit is it
+#define SU_WEAPONFRAME	(1<<12)
+#define SU_ARMOR		(1<<13)
+#define SU_WEAPON		(1<<14)
+
 extern const char	*svc_strings[svc_lastmsg+1];
 extern const char	*clc_strings[clc_lastmsg+1];
 

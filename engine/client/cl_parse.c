@@ -23,199 +23,7 @@ GNU General Public License for more details.
 #include "hltv.h"
 #include "input.h"
 
-#define MSG_COUNT		32		// last 32 messages parsed
-#define MSG_MASK		(MSG_COUNT - 1)
-
 int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
-
-const char *svc_strings[svc_lastmsg+1] =
-{
-	"svc_bad",
-	"svc_nop",
-	"svc_disconnect",
-	"svc_event",
-	"svc_changing",
-	"svc_setview",
-	"svc_sound",
-	"svc_time",
-	"svc_print",
-	"svc_stufftext",
-	"svc_setangle",
-	"svc_serverdata",
-	"svc_lightstyle",
-	"svc_updateuserinfo",
-	"svc_deltatable",
-	"svc_clientdata",
-	"svc_resource",
-	"svc_pings",
-	"svc_particle",
-	"svc_restoresound",
-	"svc_spawnstatic",
-	"svc_event_reliable",
-	"svc_spawnbaseline",
-	"svc_temp_entity",
-	"svc_setpause",
-	"svc_signonnum",
-	"svc_centerprint",
-	"svc_unused27",
-	"svc_unused28",
-	"svc_unused29",
-	"svc_intermission",
-	"svc_finale",
-	"svc_cdtrack",
-	"svc_restore",
-	"svc_cutscene",
-	"svc_weaponanim",
-	"svc_bspdecal",
-	"svc_roomtype",
-	"svc_addangle",
-	"svc_usermessage",
-	"svc_packetentities",
-	"svc_deltapacketentities",
-	"svc_choke",
-	"svc_resourcelist",
-	"svc_deltamovevars",
-	"svc_resourcerequest",
-	"svc_customization",
-	"svc_crosshairangle",
-	"svc_soundfade",
-	"svc_filetxferfailed",
-	"svc_hltv",
-	"svc_director",
-	"svc_voiceinit",
-	"svc_voicedata",
-	"svc_unused54",
-	"svc_unused55",
-	"svc_resourcelocation",
-	"svc_querycvarvalue",
-	"svc_querycvarvalue2",
-};
-
-typedef struct
-{
-	int	command;
-	int	starting_offset;
-	int	frame_number;
-} oldcmd_t;
-
-typedef struct
-{
-	oldcmd_t	oldcmd[MSG_COUNT];   
-	int	currentcmd;
-	qboolean	parsing;
-} msg_debug_t;
-
-static msg_debug_t		cls_message_debug;
-static int		starting_count;
-
-const char *CL_MsgInfo( int cmd )
-{
-	static string	sz;
-
-	Q_strcpy( sz, "???" );
-
-	if( cmd >= 0 && cmd <= svc_lastmsg )
-	{
-		// get engine message name
-		Q_strncpy( sz, svc_strings[cmd], sizeof( sz ));
-	}
-	else if( cmd > svc_lastmsg && cmd <= ( svc_lastmsg + MAX_USER_MESSAGES ))
-	{
-		int	i;
-
-		for( i = 0; i < MAX_USER_MESSAGES; i++ )
-		{
-			if( clgame.msg[i].number == cmd )
-			{
-				Q_strncpy( sz, clgame.msg[i].name, sizeof( sz ));
-				break;
-			}
-		}
-	}
-	return sz;
-}
-
-/*
-=====================
-CL_Parse_RecordCommand
-
-record new message params into debug buffer
-=====================
-*/
-void CL_Parse_RecordCommand( int cmd, int startoffset )
-{
-	int	slot;
-
-	if( cmd == svc_nop ) return;
-	
-	slot = ( cls_message_debug.currentcmd++ & MSG_MASK );
-	cls_message_debug.oldcmd[slot].command = cmd;
-	cls_message_debug.oldcmd[slot].starting_offset = startoffset;
-	cls_message_debug.oldcmd[slot].frame_number = host.framecount;
-}
-
-/*
-=====================
-CL_WriteErrorMessage
-
-write net_message into buffer.dat for debugging
-=====================
-*/
-void CL_WriteErrorMessage( int current_count, sizebuf_t *msg )
-{
-	const char	*buffer_file = "buffer.dat";
-	file_t		*fp;	
-
-	fp = FS_Open( buffer_file, "wb", false );
-	if( !fp ) return;
-
-	FS_Write( fp, &starting_count, sizeof( int ));
-	FS_Write( fp, &current_count, sizeof( int ));
-	FS_Write( fp, MSG_GetData( msg ), MSG_GetMaxBytes( msg ));
-	FS_Close( fp );
-
-	Con_Printf( "Wrote erroneous message to %s\n", buffer_file );
-}
-
-/*
-=====================
-CL_WriteMessageHistory
-
-list last 32 messages for debugging net troubleshooting
-=====================
-*/
-void CL_WriteMessageHistory( void )
-{
-	oldcmd_t	*old, *failcommand;
-	sizebuf_t	*msg = &net_message;
-	int	i, thecmd;
-
-	if( !cls.initialized || cls.state == ca_disconnected )
-		return;
-
-	if( !cls_message_debug.parsing )
-		return;
-
-	Con_Printf( "Last %i messages parsed.\n", MSG_COUNT );
-
-	// finish here
-	thecmd = cls_message_debug.currentcmd - 1;
-	thecmd -= ( MSG_COUNT - 1 );	// back up to here
-
-	for( i = 0; i < MSG_COUNT - 1; i++ )
-	{
-		thecmd &= MSG_MASK;
-		old = &cls_message_debug.oldcmd[thecmd];
-		Con_Printf( "%i %04i %s\n", old->frame_number, old->starting_offset, CL_MsgInfo( old->command ));
-		thecmd++;
-	}
-
-	failcommand = &cls_message_debug.oldcmd[thecmd];
-	Con_Printf( "BAD:  %3i:%s\n", MSG_GetNumBytesRead( msg ) - 1, CL_MsgInfo( failcommand->command ));
-	if( host_developer.value >= DEV_EXTENDED )
-		CL_WriteErrorMessage( MSG_GetNumBytesRead( msg ) - 1, msg );
-	cls_message_debug.parsing = false;
-}
 
 /*
 ===============
@@ -387,6 +195,9 @@ void CL_ParseServerTime( sizebuf_t *msg )
 	cl.mtime[1] = cl.mtime[0];
 	cl.mtime[0] = MSG_ReadFloat( msg );
 
+	if( cls.demoplayback == DEMO_QUAKE1 )
+		return; // don't mess the time
+
 	if( cl.maxclients == 1 )
 		cl.time = cl.mtime[0];
 
@@ -502,46 +313,27 @@ static client entity
 */
 void CL_ParseStaticEntity( sizebuf_t *msg )
 {
-	entity_state_t	state;
+	int		i, newnum;
+	entity_state_t	from, to;
 	cl_entity_t	*ent;
-	int		i;
 
-	memset( &state, 0, sizeof( state ));
-
-	state.modelindex = MSG_ReadShort( msg );
-	state.sequence = MSG_ReadWord( msg );
-	state.frame = MSG_ReadWord( msg ) * (1.0f / 128.0f);
-	state.colormap = MSG_ReadWord( msg );
-	state.skin = MSG_ReadByte( msg );
-	state.body = MSG_ReadByte( msg );
-	state.scale = MSG_ReadCoord( msg );
-	MSG_ReadVec3Coord( msg, state.origin );
-	MSG_ReadVec3Angles( msg, state.angles );
-	state.rendermode = MSG_ReadByte( msg );
-
-	if( state.rendermode != kRenderNormal )
-	{
-		state.renderamt = MSG_ReadByte( msg );
-		state.rendercolor.r = MSG_ReadByte( msg );
-		state.rendercolor.g = MSG_ReadByte( msg );
-		state.rendercolor.b = MSG_ReadByte( msg );
-		state.renderfx = MSG_ReadByte( msg );
-	}
+	memset( &from, 0, sizeof( from ));
+	newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
+	MSG_ReadDeltaEntity( msg, &from, &to, 0, DELTA_STATIC, cl.mtime[0] );
 
 	i = clgame.numStatics;
 	if( i >= MAX_STATIC_ENTITIES )
 	{
-		MsgDev( D_ERROR, "CL_ParseStaticEntity: static entities limit exceeded!\n" );
+		Con_Printf( S_ERROR, "MAX_STATIC_ENTITIES limit exceeded!\n" );
 		return;
 	}
 
 	ent = &clgame.static_entities[i];
 	clgame.numStatics++;
 
-	ent->index = 0; // ???
-	ent->baseline = state;
-	ent->curstate = state;
-	ent->prevstate = state;
+	// all states are same
+	ent->baseline = ent->curstate = ent->prevstate = to;
+	ent->index = 0; // static entities doesn't has the numbers
 
 	// statics may be respawned in game e.g. for demo recording
 	if( cls.state == ca_connected || cls.state == ca_validate )
@@ -550,14 +342,14 @@ void CL_ParseStaticEntity( sizebuf_t *msg )
 	// setup the new static entity
 	VectorCopy( ent->curstate.origin, ent->origin );
 	VectorCopy( ent->curstate.angles, ent->angles );
-	ent->model = CL_ModelHandle( state.modelindex );
+	ent->model = CL_ModelHandle( to.modelindex );
 	ent->curstate.framerate = 1.0f;
 	CL_ResetLatchedVars( ent, true );
 
 	if( ent->curstate.rendermode == kRenderNormal && ent->model != NULL )
 	{
 		// auto 'solid' faces
-		if( FBitSet( ent->model->flags, MODEL_TRANSPARENT ) && FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		if( FBitSet( ent->model->flags, MODEL_TRANSPARENT ) && CL_IsQuakeCompatible( ))
 		{
 			ent->curstate.rendermode = kRenderTransAlpha;
 			ent->curstate.renderamt = 255;
@@ -2182,21 +1974,6 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num )
 }
 
 /*
-=====================
-CL_ResetFrame
-=====================
-*/
-void CL_ResetFrame( frame_t *frame )
-{
-	memset( &frame->graphdata, 0, sizeof( netbandwidthgraph_t ));
-	frame->receivedtime = host.realtime;
-	frame->valid = true;
-	frame->choked = false;
-	frame->latency = 0.0;
-	frame->time = cl.mtime[0];
-}
-
-/*
 =====================================================================
 
 ACTION MESSAGES
@@ -2216,8 +1993,8 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 	int	cmd, param1, param2;
 	int	old_background;
 
-	cls_message_debug.parsing = true;		// begin parsing
-	starting_count = MSG_GetNumBytesRead( msg );	// updates each frame
+	cls.starting_count = MSG_GetNumBytesRead( msg );	// updates each frame
+	CL_Parse_Debug( true );			// begin parsing
 
 	if( normal_message )
 	{
@@ -2251,6 +2028,8 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 
 		cmd = MSG_ReadServerCmd( msg );
 
+//		Msg( "%s\n", CL_MsgInfo( cmd ));
+
 		// record command for debugging spew on parse problem
 		CL_Parse_RecordCommand( cmd, bufStart );
 
@@ -2278,7 +2057,7 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 				cls.changelevel = true;
 				S_StopAllSounds( true );
 
-				MsgDev( D_INFO, "Server changing, reconnecting\n" );
+				Con_Printf( "Server changing, reconnecting\n" );
 
 				if( cls.demoplayback )
 				{
@@ -2289,7 +2068,7 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 				CL_ClearState ();
 				CL_InitEdicts (); // re-arrange edicts
 			}
-			else MsgDev( D_INFO, "Server disconnected, reconnecting\n" );
+			else Con_Printf( "Server disconnected, reconnecting\n" );
 
 			if( cls.demoplayback )
 			{
@@ -2299,7 +2078,8 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 			else
 			{
 				// g-cont. local client skip the challenge
-				if( SV_Active()) cls.state = ca_disconnected;
+				if( SV_Active( ))
+					cls.state = ca_disconnected;
 				else cls.state = ca_connecting;
 				cl.background = old_background;
 				cls.connect_time = MAX_HEARTBEAT;
@@ -2477,8 +2257,8 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 		}
 	}
 
-	cl.frames[cl.parsecountmod].graphdata.msgbytes += MSG_GetNumBytesRead( msg ) - starting_count;
-	cls_message_debug.parsing = false; // done
+	cl.frames[cl.parsecountmod].graphdata.msgbytes += MSG_GetNumBytesRead( msg ) - cls.starting_count;
+	CL_Parse_Debug( false ); // done
 
 	// we don't know if it is ok to save a demo message until
 	// after we have parsed the frame
@@ -2486,11 +2266,11 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 	{
 		if( cls.demorecording && !cls.demowaiting )
 		{
-			CL_WriteDemoMessage( false, starting_count, msg );
+			CL_WriteDemoMessage( false, cls.starting_count, msg );
 		}
 		else if( cls.state != ca_active )
 		{
-			CL_WriteDemoMessage( true, starting_count, msg );
+			CL_WriteDemoMessage( true, cls.starting_count, msg );
 		}
 	}
 }

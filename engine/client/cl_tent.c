@@ -151,7 +151,7 @@ void CL_AddClientResources( void )
 	int	i;
 
 	// don't request resources from localhost or in quake-compatibility mode
-	if( cl.maxclients <= 1 || FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+	if( cl.maxclients <= 1 || CL_IsQuakeCompatible( ))
 		return;
 
 	// check sprites first
@@ -2808,7 +2808,7 @@ void CL_AddEntityEffects( cl_entity_t *ent )
 
 	if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))
 	{
-		if( ent->player && !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		if( ent->player && !CL_IsQuakeCompatible( ))
 		{
 			CL_UpdateFlashlight( ent );
 		}

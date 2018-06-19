@@ -935,6 +935,7 @@ qboolean CL_IsTimeDemo( void );
 qboolean CL_IsPlaybackDemo( void );
 qboolean CL_IsBackgroundDemo( void );
 qboolean CL_IsBackgroundMap( void );
+qboolean CL_IsQuakeCompatible( void );
 qboolean SV_Initialized( void );
 qboolean CL_LoadProgs( const char *name );
 qboolean SV_GetSaveComment( const char *savename, char *comment );

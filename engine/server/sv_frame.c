@@ -172,6 +172,13 @@ Encode a client frame onto the network channel
 
 =============================================================================
 */
+/*
+=============
+SV_FindBestBaseline
+
+trying to deltas with previous entities
+=============
+*/
 int SV_FindBestBaseline( sv_client_t *cl, int index, entity_state_t **baseline, entity_state_t *to, client_frame_t *frame, qboolean player )
 {
 	int	bestBitCount;
@@ -202,6 +209,43 @@ int SV_FindBestBaseline( sv_client_t *cl, int index, entity_state_t **baseline, 
 	// using delta from previous entity as baseline for current
 	if( index != bestfound )
 		*baseline = &svs.packet_entities[(frame->first_entity+bestfound) % svs.num_client_entities];
+	return index - bestfound;
+}
+
+/*
+=============
+SV_FindBestBaselineForStatic
+
+trying to deltas with previous static entities
+=============
+*/
+int SV_FindBestBaselineForStatic( int index, entity_state_t **baseline, entity_state_t *to )
+{
+	int	bestBitCount;
+	int	i, bitCount;
+	int	bestfound, j;
+
+	bestBitCount = j = Delta_TestBaseline( *baseline, to, false, sv.time );
+	bestfound = index;
+
+	// lookup backward for previous 64 states and try to interpret current delta as baseline
+	for( i = index - 1; bestBitCount > 0 && i >= 0 && ( index - i ) < ( MAX_CUSTOM_BASELINES - 1 ); i-- )
+	{
+		// don't worry about underflow in circular buffer
+		entity_state_t	*test = &svs.static_entities[i];
+
+		bitCount = Delta_TestBaseline( test, to, false, sv.time );
+
+		if( bitCount < bestBitCount )
+		{
+			bestBitCount = bitCount;
+			bestfound = i;
+		}
+	}
+
+	// using delta from previous entity as baseline for current
+	if( index != bestfound )
+		*baseline = &svs.static_entities[bestfound];
 	return index - bestfound;
 }
 

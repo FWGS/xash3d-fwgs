@@ -1298,7 +1298,7 @@ int S_GetCurrentDynamicSounds( soundlist_t *pout, int size )
 
 		looped = ( channels[i].use_loop && channels[i].sfx->cache->loopStart != -1 );
 
-		if( channels[i].entchannel == CHAN_STATIC && looped && !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		if( channels[i].entchannel == CHAN_STATIC && looped && !CL_IsQuakeCompatible())
 			continue;	// never serialize static looped sounds. It will be restoring in game code 
 
 		if( channels[i].isSentence && channels[i].name[0] )
@@ -2014,6 +2014,23 @@ void S_Play_f( void )
 	S_StartLocalSound( Cmd_Argv( 1 ), VOL_NORM, false );
 }
 
+void S_Play2_f( void )
+{
+	int	i = 1;
+
+	if( Cmd_Argc() == 1 )
+	{
+		Con_Printf( S_USAGE "play <soundfile>\n" );
+		return;
+	}
+
+	while( i < Cmd_Argc( ))
+	{
+		S_StartLocalSound( Cmd_Argv( i ), VOL_NORM, true );
+		i++;
+	}
+}
+
 void S_PlayVol_f( void )
 {
 	if( Cmd_Argc() == 1 )
@@ -2180,6 +2197,7 @@ qboolean S_Init( void )
 	s_phs = Cvar_Get( "s_phs", "0", FCVAR_ARCHIVE, "cull sounds by PHS" );
 
 	Cmd_AddCommand( "play", S_Play_f, "playing a specified sound file" );
+	Cmd_AddCommand( "play2", S_Play2_f, "playing a group of specified sound files" ); // nehahra stuff
 	Cmd_AddCommand( "playvol", S_PlayVol_f, "playing a specified sound file with specified volume" );
 	Cmd_AddCommand( "stopsound", S_StopSound_f, "stop all sounds" );
 	Cmd_AddCommand( "music", S_Music_f, "starting a background track" );

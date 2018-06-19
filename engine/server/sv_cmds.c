@@ -800,6 +800,7 @@ void SV_InitHostCommands( void )
 		Cmd_AddCommand( "map_background", SV_MapBackground_f, "set background map" );
 		Cmd_AddCommand( "load", SV_Load_f, "load a saved game file" );
 		Cmd_AddCommand( "loadquick", SV_QuickLoad_f, "load a quick-saved game file" );
+		Cmd_AddCommand( "reload", SV_Reload_f, "continue from latest save or restart level" );
 	}
 }
 
@@ -818,7 +819,6 @@ void SV_InitOperatorCommands( void )
 	Cmd_AddCommand( "clientinfo", SV_ClientInfo_f, "print user infostring (player num required)" );
 	Cmd_AddCommand( "playersonly", SV_PlayersOnly_f, "freezes time, except for players" );
 	Cmd_AddCommand( "restart", SV_Restart_f, "restarting current level" );
-	Cmd_AddCommand( "reload", SV_Reload_f, "continue from latest save or restart level" );
 	Cmd_AddCommand( "entpatch", SV_EntPatch_f, "write entity patch to allow external editing" );
 	Cmd_AddCommand( "edict_usage", SV_EdictUsage_f, "show info about edicts usage" );
 	Cmd_AddCommand( "entity_info", SV_EntityInfo_f, "show more info about edicts" );
@@ -852,7 +852,6 @@ void SV_KillOperatorCommands( void )
 	Cmd_RemoveCommand( "clientinfo" );
 	Cmd_RemoveCommand( "playersonly" );
 	Cmd_RemoveCommand( "restart" );
-	Cmd_RemoveCommand( "reload" );
 	Cmd_RemoveCommand( "entpatch" );
 	Cmd_RemoveCommand( "edict_usage" );
 	Cmd_RemoveCommand( "entity_info" );

@@ -26,6 +26,8 @@ GNU General Public License for more details.
 #define WINDOW_STYLE		(WS_OVERLAPPED|WS_BORDER|WS_SYSMENU|WS_CAPTION|WS_VISIBLE)
 #define WINDOW_EX_STYLE		(0)
 #define WINDOW_NAME			"Xash3D Window" // Half-Life
+#define FCONTEXT_CORE_PROFILE		BIT( 0 )
+#define FCONTEXT_DEBUG_ARB		BIT( 1 )
 
 convar_t	*gl_extensions;
 convar_t	*gl_texture_anisotropy;
@@ -82,7 +84,7 @@ glwstate_t	glw_state;
 static HWND	hWndFake;
 static HDC	hDCFake;
 static HGLRC	hGLRCFake;
-static qboolean	debug_context;
+static int	context_flags;
 
 typedef enum
 {
@@ -531,8 +533,10 @@ static void GL_SetDefaultState( void )
 	GL_SetDefaultTexState ();
 
 	if( Sys_CheckParm( "-gldebug" ))
-		debug_context = true;
-	else debug_context = false;
+		SetBits( context_flags, FCONTEXT_DEBUG_ARB );
+
+	if( Sys_CheckParm( "-glcore" ))
+		SetBits( context_flags, FCONTEXT_CORE_PROFILE );
 
 	// init draw stack
 	tr.draw_list = &tr.draw_stack[0];
@@ -572,7 +576,9 @@ GL_CreateContext
 */
 qboolean GL_CreateContext( void )
 {
-	HGLRC hBaseRC;
+	HGLRC	hBaseRC;
+	int	profile_mask;
+	int	arb_flags;
 
 	glw_state.extended = false;
 
@@ -582,19 +588,27 @@ qboolean GL_CreateContext( void )
 	if(!( pwglMakeCurrent( glw_state.hDC, glw_state.hGLRC )))
 		return GL_DeleteContext();
 
-	if( !debug_context ) // debug bit kill the perfomance
+	if( !context_flags ) // debug bit kill the perfomance
 		return true;
 
 	pwglCreateContextAttribsARB = GL_GetProcAddress( "wglCreateContextAttribsARB" );
 
-	if( debug_context && pwglCreateContextAttribsARB != NULL )
+	if( FBitSet( context_flags, FCONTEXT_CORE_PROFILE ))
+		profile_mask = WGL_CONTEXT_CORE_PROFILE_BIT_ARB;
+	else profile_mask = WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB;
+
+	if( FBitSet( context_flags, FCONTEXT_DEBUG_ARB ))
+		arb_flags = WGL_CONTEXT_DEBUG_BIT_ARB;
+	else arb_flags = 0;
+
+	if( pwglCreateContextAttribsARB != NULL )
 	{
 		int attribs[] =
 		{
 		WGL_CONTEXT_MAJOR_VERSION_ARB, 2,
 		WGL_CONTEXT_MINOR_VERSION_ARB, 0,
-		WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,         
-//		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+		WGL_CONTEXT_FLAGS_ARB, arb_flags,         
+		WGL_CONTEXT_PROFILE_MASK_ARB, profile_mask,
 		0
 		};
 
@@ -1441,7 +1455,7 @@ qboolean R_Init_OpenGL( void )
 	if( !opengl_dll.link )
 		return false;
 
-	if( debug_context || CVAR_TO_BOOL( gl_wgl_msaa_samples ))
+	if( context_flags || CVAR_TO_BOOL( gl_wgl_msaa_samples ))
 		GL_CheckExtension( "OpenGL Internal ProcAddress", wglproc_funcs, NULL, GL_WGL_PROCADDRESS );
 
 	return VID_SetMode();
@@ -1583,7 +1597,7 @@ void GL_InitCommands( void )
 	r_dynamic = Cvar_Get( "r_dynamic", "1", FCVAR_ARCHIVE, "allow dynamic lighting (dlights, lightstyles)" );
 	r_traceglow = Cvar_Get( "r_traceglow", "1", FCVAR_ARCHIVE, "cull flares behind models" );
 	r_lightmap = Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
-	r_drawentities = Cvar_Get( "r_drawentities", "1", FCVAR_CHEAT, "render entities" );
+	r_drawentities = Cvar_Get( "r_drawentities", "1", FCVAR_CHEAT|FCVAR_ARCHIVE, "render entities" );
 	r_decals = Cvar_Get( "r_decals", "4096", FCVAR_ARCHIVE, "sets the maximum number of decals" );
 	window_xpos = Cvar_Get( "_window_xpos", "130", FCVAR_RENDERINFO, "window position by horizontal" );
 	window_ypos = Cvar_Get( "_window_ypos", "48", FCVAR_RENDERINFO, "window position by vertical" );
@@ -1680,7 +1694,7 @@ void GL_InitExtensions( void )
 	else glConfig.hardware_type = GLHW_GENERIC;
 
 	// initalize until base opengl functions loaded (old-context)
-	if( !debug_context && !CVAR_TO_BOOL( gl_wgl_msaa_samples ))
+	if( !context_flags && !CVAR_TO_BOOL( gl_wgl_msaa_samples ))
 		GL_CheckExtension( "OpenGL Internal ProcAddress", wglproc_funcs, NULL, GL_WGL_PROCADDRESS );
 
 	// windows-specific extensions

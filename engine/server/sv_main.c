@@ -158,7 +158,7 @@ void SV_UpdateMovevars( qboolean initialize )
 	if( sv_zmax.value < 256.0f ) Cvar_SetValue( "sv_zmax", 256.0f );
 
 	// clamp it right
-	if( host.features & ENGINE_WRITE_LARGE_COORD )
+	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
 	{
 		if( sv_zmax.value > 131070.0f )
 			Cvar_SetValue( "sv_zmax", 131070.0f );
@@ -599,7 +599,7 @@ void Host_ServerFrame( void )
 	// if server is not active, do nothing
 	if( !svs.initialized ) return;
 
-	if( sv.simulating || sv.state != ss_active )
+	if( sv_fps.value != 0.0f && ( sv.simulating || sv.state != ss_active ))
 		sv.time_residual += host.frametime;
 
 	if( sv_fps.value == 0.0f )

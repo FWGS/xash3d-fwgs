@@ -228,6 +228,33 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 
 /*
 ===========
+IN_RecalcCenter
+
+Recalc the center of screen
+===========
+*/
+void IN_RecalcCenter( qboolean setpos )
+{
+	int	width, height;
+
+	if( host.status != HOST_FRAME )
+		return;
+
+	width = GetSystemMetrics( SM_CXSCREEN );
+	height = GetSystemMetrics( SM_CYSCREEN );
+	GetWindowRect( host.hWnd, &window_rect );
+	if( window_rect.left < 0 ) window_rect.left = 0;
+	if( window_rect.top < 0 ) window_rect.top = 0;
+	if( window_rect.right >= width ) window_rect.right = width - 1;
+	if( window_rect.bottom >= height - 1 ) window_rect.bottom = height - 1;
+
+	host.window_center_x = (window_rect.right + window_rect.left) / 2;
+	host.window_center_y = (window_rect.top + window_rect.bottom) / 2;
+	if( setpos ) SetCursorPos( host.window_center_x, host.window_center_y );
+}
+
+/*
+===========
 IN_ActivateMouse
 
 Called when the window gains focus or changes in some way
@@ -235,7 +262,6 @@ Called when the window gains focus or changes in some way
 */
 void IN_ActivateMouse( qboolean force )
 {
-	int		width, height;
 	static int	oldstate;
 			
 	if( !in_mouseinitialized )
@@ -281,18 +307,7 @@ void IN_ActivateMouse( qboolean force )
 		clgame.dllFuncs.IN_ActivateMouse();
 	}
 
-	width = GetSystemMetrics( SM_CXSCREEN );
-	height = GetSystemMetrics( SM_CYSCREEN );
-
-	GetWindowRect( host.hWnd, &window_rect );
-	if( window_rect.left < 0 ) window_rect.left = 0;
-	if( window_rect.top < 0 ) window_rect.top = 0;
-	if( window_rect.right >= width ) window_rect.right = width - 1;
-	if( window_rect.bottom >= height - 1 ) window_rect.bottom = height - 1;
-
-	host.window_center_x = (window_rect.right + window_rect.left) / 2;
-	host.window_center_y = (window_rect.top + window_rect.bottom) / 2;
-	SetCursorPos( host.window_center_x, host.window_center_y );
+	IN_RecalcCenter( true );
 
 	SetCapture( host.hWnd );
 	ClipCursor( &window_rect );
@@ -498,6 +513,7 @@ LONG IN_WndProc( HWND hWnd, UINT uMsg, UINT wParam, LONG lParam )
 		S_Activate( fActivate, host.hWnd );
 		IN_ActivateMouse( fActivate );
 		Key_ClearStates();
+		IN_RecalcCenter( false );
 
 		if( host.status == HOST_FRAME )
 		{

@@ -146,6 +146,19 @@ qboolean CL_IsBackgroundMap( void )
 	return ( cl.background && !cls.demoplayback );
 }
 
+qboolean CL_IsQuakeCompatible( void )
+{
+	// feature set
+	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		return true;
+
+	// quake demo playing
+	if( cls.demoplayback == DEMO_QUAKE1 )
+		return true;
+
+	return false;
+}
+
 char *CL_Userinfo( void )
 {
 	return cls.userinfo;
@@ -242,14 +255,31 @@ static float CL_LerpPoint( void )
 	if( f == 0.0f || cls.timedemo )
 	{
 		cl.time = cl.mtime[0];
-
-		// g-cont. probably this is redundant
-		if( cls.demoplayback )
-			cl.oldtime = cl.mtime[0] - cl_clientframetime();
-
 		return 1.0f;
 	}
 
+	if( f > 0.1f )
+	{	
+		// dropped packet, or start of demo
+		cl.mtime[1] = cl.mtime[0] - 0.1f;
+		f = 0.1f;
+	}
+#if 1
+	frac = (cl.time - cl.mtime[1]) / f;
+
+	if( frac < 0.0f )
+	{
+		if( frac < -0.01 )
+			cl.time = cl.mtime[1];
+		frac = 0.0f;
+	}
+	else if( frac > 1.0f )
+	{
+		if( frac > 1.01 )
+			cl.time = cl.mtime[0];
+		frac = 1.0f;
+	}
+#else
 	if( cl_interp->value > 0.001f )
 	{
 		// manual lerp value (goldsrc mode)
@@ -260,7 +290,7 @@ static float CL_LerpPoint( void )
 		// automatic lerp (classic mode)
 		frac = ( cl.time - cl.mtime[1] ) / f;
 	}
-
+#endif
 	return frac;
 }
 
@@ -2001,7 +2031,10 @@ void CL_ReadNetMessage( void )
 		if( !cls.demoplayback && !Netchan_Process( &cls.netchan, &net_message ))
 			continue;	// wasn't accepted for some reason
 
-		CL_ParseServerMessage( &net_message, true );
+		// run special handler for quake demos
+		if( cls.demoplayback == DEMO_QUAKE1 )
+			CL_ParseQuakeMessage( &net_message, true );
+		else CL_ParseServerMessage( &net_message, true );
 		cl.send_reply = true;
 	}
 
@@ -2044,7 +2077,7 @@ void CL_ReadPackets( void )
 	// decide the simulation time
 	cl.oldtime = cl.time;
 
-	if( !cls.demoplayback && !cl.paused )
+	if( cls.demoplayback != DEMO_XASH3D && !cl.paused )
 		cl.time += host.frametime;
 
 	// demo time

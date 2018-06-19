@@ -1867,7 +1867,7 @@ int pfnDrawConsoleString( int x, int y, char *string )
 	int	drawLen;
 
 	if( !COM_CheckString( string ))
-			return 0; // silent ignore
+		return 0; // silent ignore
 	Con_SetFont( con_fontsize->value );
 
 	clgame.ds.adjust_size = true;

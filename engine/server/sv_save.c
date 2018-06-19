@@ -30,7 +30,7 @@ half-life implementation of saverestore system
 #define SAVEFILE_HEADER		(('V'<<24)+('L'<<16)+('A'<<8)+'V')	// little-endian "VALV"
 #define SAVEGAME_HEADER		(('V'<<24)+('A'<<16)+('S'<<8)+'J')	// little-endian "JSAV"
 #define SAVEGAME_VERSION		0x0071				// Version 0.71 GoldSrc compatible
-#define CLIENT_SAVEGAME_VERSION	0x0065				// Version 0.65
+#define CLIENT_SAVEGAME_VERSION	0x0067				// Version 0.67
 
 #define SAVE_HEAPSIZE		0x400000				// reserve 4Mb for now
 #define SAVE_HASHSTRINGS		0xFFF				// 4095 unique strings
@@ -160,19 +160,40 @@ static TYPEDESCRIPTION gDecalEntry[] =
 
 static TYPEDESCRIPTION gStaticEntry[] =
 {
-	DEFINE_ARRAY( sv_static_entity_t, model, FIELD_CHARACTER, 64 ),
-	DEFINE_FIELD( sv_static_entity_t, origin, FIELD_VECTOR ),
-	DEFINE_FIELD( sv_static_entity_t, angles, FIELD_VECTOR ),
-	DEFINE_FIELD( sv_static_entity_t, sequence, FIELD_SHORT ),
-	DEFINE_FIELD( sv_static_entity_t, frame, FIELD_SHORT ),
-	DEFINE_FIELD( sv_static_entity_t, colormap, FIELD_SHORT ),
-	DEFINE_FIELD( sv_static_entity_t, skin, FIELD_CHARACTER ),
-	DEFINE_FIELD( sv_static_entity_t, body, FIELD_CHARACTER ),
-	DEFINE_FIELD( sv_static_entity_t, scale, FIELD_FLOAT ),
-	DEFINE_FIELD( sv_static_entity_t, rendermode, FIELD_CHARACTER ),
-	DEFINE_FIELD( sv_static_entity_t, renderamt, FIELD_CHARACTER ),
-	DEFINE_ARRAY( sv_static_entity_t, rendercolor, FIELD_CHARACTER, sizeof( color24 )),
-	DEFINE_FIELD( sv_static_entity_t, renderfx, FIELD_CHARACTER ),
+	DEFINE_FIELD( entity_state_t, messagenum, FIELD_MODELNAME ), // HACKHACK: store model into messagenum
+	DEFINE_FIELD( entity_state_t, origin, FIELD_VECTOR ),
+	DEFINE_FIELD( entity_state_t, angles, FIELD_VECTOR ),
+	DEFINE_FIELD( entity_state_t, sequence, FIELD_INTEGER ),
+	DEFINE_FIELD( entity_state_t, frame, FIELD_FLOAT ),
+	DEFINE_FIELD( entity_state_t, colormap, FIELD_INTEGER ),
+	DEFINE_FIELD( entity_state_t, skin, FIELD_SHORT ),
+	DEFINE_FIELD( entity_state_t, body, FIELD_INTEGER ),
+	DEFINE_FIELD( entity_state_t, scale, FIELD_FLOAT ),
+	DEFINE_FIELD( entity_state_t, effects, FIELD_INTEGER ),
+	DEFINE_FIELD( entity_state_t, framerate, FIELD_FLOAT ),
+	DEFINE_FIELD( entity_state_t, mins, FIELD_VECTOR ),
+	DEFINE_FIELD( entity_state_t, maxs, FIELD_VECTOR ),
+	DEFINE_FIELD( entity_state_t, rendermode, FIELD_INTEGER ),
+	DEFINE_FIELD( entity_state_t, renderamt, FIELD_FLOAT ),
+	DEFINE_ARRAY( entity_state_t, rendercolor, FIELD_CHARACTER, sizeof( color24 )),
+	DEFINE_FIELD( entity_state_t, renderfx, FIELD_INTEGER ),
+	DEFINE_FIELD( entity_state_t, controller, FIELD_INTEGER ),
+	DEFINE_FIELD( entity_state_t, blending, FIELD_INTEGER ),
+	DEFINE_FIELD( entity_state_t, solid, FIELD_SHORT ),
+	DEFINE_FIELD( entity_state_t, animtime, FIELD_TIME ),
+	DEFINE_FIELD( entity_state_t, movetype, FIELD_INTEGER ),
+	DEFINE_FIELD( entity_state_t, vuser1, FIELD_VECTOR ),
+	DEFINE_FIELD( entity_state_t, vuser2, FIELD_VECTOR ),
+	DEFINE_FIELD( entity_state_t, vuser3, FIELD_VECTOR ),
+	DEFINE_FIELD( entity_state_t, vuser4, FIELD_VECTOR ),
+	DEFINE_FIELD( entity_state_t, iuser1, FIELD_INTEGER ),
+	DEFINE_FIELD( entity_state_t, iuser2, FIELD_INTEGER ),
+	DEFINE_FIELD( entity_state_t, iuser3, FIELD_INTEGER ),
+	DEFINE_FIELD( entity_state_t, iuser4, FIELD_INTEGER ),
+	DEFINE_FIELD( entity_state_t, fuser1, FIELD_FLOAT ),
+	DEFINE_FIELD( entity_state_t, fuser2, FIELD_FLOAT ),
+	DEFINE_FIELD( entity_state_t, fuser3, FIELD_FLOAT ),
+	DEFINE_FIELD( entity_state_t, fuser4, FIELD_FLOAT ),
 };
 
 static TYPEDESCRIPTION gSoundEntry[] =
@@ -1145,7 +1166,7 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 
 	// write client entities
 	for( i = 0; i < header.entityCount; i++ )
-		svgame.dllFuncs.pfnSaveWriteFields( pSaveData, "STATICENTITY", &sv.static_entities[i], gStaticEntry, ARRAYSIZE( gStaticEntry ));
+		svgame.dllFuncs.pfnSaveWriteFields( pSaveData, "STATICENTITY", &svs.static_entities[i], gStaticEntry, ARRAYSIZE( gStaticEntry ));
 
 	// write sounds
 	for( i = 0; i < header.soundCount; i++ )
@@ -1188,7 +1209,6 @@ static void LoadClientState( SAVERESTOREDATA *pSaveData, const char *level, qboo
 	int		i, size, id, version;
 	sv_client_t	*cl = svs.clients;
 	char		name[MAX_QPATH];
-	sv_static_entity_t	staticEntry;
 	soundlist_t	soundEntry;
 	decallist_t	decalEntry;
 	SAVE_CLIENT	header;
@@ -1248,22 +1268,19 @@ static void LoadClientState( SAVERESTOREDATA *pSaveData, const char *level, qboo
 	// clear old entities
 	if( !adjacent )
 	{
-		memset( sv.static_entities, 0, sizeof( sv.static_entities ));
+		memset( svs.static_entities, 0, sizeof( entity_state_t ) * MAX_STATIC_ENTITIES );
 		sv.num_static_entities = 0;		
 	}
 
 	// restore client entities
 	for( i = 0; i < header.entityCount; i++ )
 	{
-		svgame.dllFuncs.pfnSaveReadFields( pSaveData, "STATICENTITY", &staticEntry, gStaticEntry, ARRAYSIZE( gStaticEntry ));
+		id = sv.num_static_entities;
+		svgame.dllFuncs.pfnSaveReadFields( pSaveData, "STATICENTITY", &svs.static_entities[id], gStaticEntry, ARRAYSIZE( gStaticEntry ));
 		if( adjacent ) continue; // static entities won't loading from adjacent levels
 
-		if( i >= MAX_STATIC_ENTITIES )
-			continue;	// silently overflowed
-
-		SV_CreateStaticEntity( &sv.signon, &staticEntry );
-		sv.static_entities[i] = staticEntry;
-		sv.num_static_entities++;
+		if( SV_CreateStaticEntity( &sv.signon, id ))
+			sv.num_static_entities++;
 	}
 
 	// restore sounds
@@ -1558,7 +1575,7 @@ static int LoadGameState( char const *level, qboolean changelevel )
 
 		if( pent != NULL )
 		{
-			if( svgame.dllFuncs.pfnRestore( pent, pSaveData, false ) < 0 )
+			if( svgame.dllFuncs.pfnRestore( pent, pSaveData, 0 ) < 0 )
 			{
 				SetBits( pent->v.flags, FL_KILLME );
 				pTable->pent = NULL;

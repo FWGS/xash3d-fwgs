@@ -2333,18 +2333,18 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 	COM_DefaultExtension( dllpath, ".dll" );	// apply ext if forget
 	search = FS_FindFile( dllpath, &index, false );
 
-	if( !search )
+	if( !search && !directpath )
 	{
 		fs_ext_path = false;
-		if( directpath ) return NULL;	// direct paths fails here
 
 		// trying check also 'bin' folder for indirect paths
 		Q_strncpy( dllpath, dllname, sizeof( dllpath ));
 		search = FS_FindFile( dllpath, &index, false );
-		if( !search ) return NULL;	// unable to find
+		if( !search ) return NULL; // unable to find
 	}
 
-	// all done, create dll_user_t struct
+	// NOTE: for libraries we not fail even if search is NULL
+	// let the OS find library himself
 	hInst = Mem_Calloc( host.mempool, sizeof( dll_user_t ));	
 
 	// save dllname for debug purposes
@@ -2355,15 +2355,16 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 
 	hInst->encrypted = FS_CheckForCrypt( dllpath );
 
-	if( index < 0 && !hInst->encrypted )
+	if( index < 0 && !hInst->encrypted && search )
 	{
 		Q_snprintf( hInst->fullPath, sizeof( hInst->fullPath ), "%s%s", search->filename, dllpath );
 		hInst->custom_loader = false;	// we can loading from disk and use normal debugging
 	}
 	else
 	{
+		// NOTE: if search is NULL let the OS found library himself
 		Q_strncpy( hInst->fullPath, dllpath, sizeof( hInst->fullPath ));
-		hInst->custom_loader = true;	// loading from pack or wad - for release, debug don't working
+		hInst->custom_loader = (search) ? true : false;
 	}
 	fs_ext_path = false; // always reset direct paths
 		
