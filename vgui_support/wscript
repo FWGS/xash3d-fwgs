@@ -19,15 +19,19 @@ def configure(conf):
 	if conf.options.DEDICATED:
 		return
 
+	conf.start_msg('Checking for VGUI')
+
 	if not conf.options.VGUI_DEV:
+		conf.end_msg('no')
 		conf.fatal("Provide a path to vgui-dev repository using --vgui key")
 
-	if conf.env.DEST_CPU != 'x86' and not (conf.env.DEST_CPU == 'x86_64' and not conf.options.ALLOW64): # multilib case
+	if conf.env.DEST_CPU != 'x86' and not (conf.env.DEST_CPU == 'x86_64' and not conf.options.ALLOW64):
+		conf.end_msg('no')
 		conf.fatal('vgui is not supported on this CPU: ' + conf.env.DEST_CPU)
 
 	if conf.env.DEST_OS == 'win32':
-                conf.env.LIB_VGUI = ['vgui.lib']
-                conf.env.LIBPATH_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'lib/win32_vc6/'))]
+		conf.env.LIB_VGUI = ['vgui.lib']
+		conf.env.LIBPATH_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'lib/win32_vc6/'))]
 	else:
 		if conf.env.DEST_OS == 'linux':
 			conf.env.LIB_VGUI = [':vgui.so']
@@ -39,8 +43,7 @@ def configure(conf):
         conf.env.INCLUDES_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'include'))]
 
 	conf.env.HAVE_VGUI = 1
-
-	conf.msg('Checking VGUI', '{0}, {1}, {2}'.format(conf.env.LIB_VGUI, conf.env.LIBPATH_VGUI, conf.env.INCLUDES_VGUI))
+	conf.end_msg('yes: {0}, {1}, {2}'.format(conf.env.LIB_VGUI, conf.env.LIBPATH_VGUI, conf.env.INCLUDES_VGUI))
 
 def get_subproject_name(ctx):
 	return os.path.basename(os.path.realpath(str(ctx.path)))
