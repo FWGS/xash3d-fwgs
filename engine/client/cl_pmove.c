@@ -115,6 +115,10 @@ qboolean CL_IsPredicted( void )
 {
 	if( cl_nopred->value || cl.intermission )
 		return false;
+
+	// never predict the quake demos
+	if( cls.demoplayback == DEMO_QUAKE1 )
+		return false;
 	return true;
 }
 

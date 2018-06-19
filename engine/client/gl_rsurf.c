@@ -1232,7 +1232,7 @@ void R_DrawTextureChains( void )
 		if(( s->flags & SURF_DRAWTURB ) && clgame.movevars.wateralpha < 1.0f )
 			continue;	// draw translucent water later
 
-		if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ) && FBitSet( s->flags, SURF_TRANSPARENT ))
+		if( Host_IsQuakeCompatible() && FBitSet( s->flags, SURF_TRANSPARENT ))
 		{
 			draw_alpha_surfaces = true;
 			continue;	// draw transparent surfaces later
@@ -1412,7 +1412,7 @@ void R_SetRenderMode( cl_entity_t *e )
 	case kRenderTransAlpha:
 		pglEnable( GL_ALPHA_TEST );
 		pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		if( Host_IsQuakeCompatible( ))
 		{
 			pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 			pglColor4f( 1.0f, 1.0f, 1.0f, tr.blend );
@@ -1482,7 +1482,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	if( rotated ) R_RotateForEntity( e );
 	else R_TranslateForEntity( e );
 
-	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ) && FBitSet( clmodel->flags, MODEL_TRANSPARENT ))
+	if( Host_IsQuakeCompatible() && FBitSet( clmodel->flags, MODEL_TRANSPARENT ))
 		e->curstate.rendermode = kRenderTransAlpha;
 
 	e->visframe = tr.realframecount; // visible
@@ -1515,7 +1515,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 
 	for( i = 0; i < clmodel->nummodelsurfaces; i++, psurf++ )
 	{
-		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !Host_IsQuakeCompatible( ))
 		{
 			if( psurf->plane->type != PLANE_Z && !FBitSet( e->curstate.effects, EF_WATERSIDES ))
 				continue;
@@ -1591,14 +1591,14 @@ void R_RecursiveWorldNode( mnode_t *node, uint clipflags )
 	mleaf_t		*pleaf;
 	int		c, side;
 	float		dot;
-
+loc0:
 	if( node->contents == CONTENTS_SOLID )
 		return; // hit a solid leaf
 
 	if( node->visframe != tr.visframecount )
 		return;
 
-	if( clipflags && !r_nocull->value )
+	if( clipflags && !CVAR_TO_BOOL( r_nocull ))
 	{
 		for( i = 0; i < 6; i++ )
 		{
@@ -1667,7 +1667,8 @@ void R_RecursiveWorldNode( mnode_t *node, uint clipflags )
 	}
 
 	// recurse down the back side
-	R_RecursiveWorldNode( node->children[!side], clipflags );
+	node = node->children[!side];
+	goto loc0;
 }
 
 /*
@@ -1864,6 +1865,8 @@ R_DrawWorld
 */
 void R_DrawWorld( void )
 {
+	double	start, end;
+
 	// paranoia issues: when gl_renderer is "0" we need have something valid for currententity
 	// to prevent crashing until HeadShield drawing.
 	RI.currententity = clgame.entities;
@@ -1884,10 +1887,15 @@ void R_DrawWorld( void )
 
 	R_ClearSkyBox ();
 
+	start = Sys_DoubleTime();
 	if( RI.drawOrtho )
 		R_DrawWorldTopView( cl.worldmodel->nodes, RI.frustum.clipFlags );
 	else R_RecursiveWorldNode( cl.worldmodel->nodes, RI.frustum.clipFlags );
+	end = Sys_DoubleTime();
 
+	r_stats.t_world_node = end - start;
+
+	start = Sys_DoubleTime();
 	R_DrawTextureChains();
 
 	if( !CL_IsDevOverviewMode( ))
@@ -1902,6 +1910,9 @@ void R_DrawWorld( void )
 			R_DrawSkyBox();
 	}
 
+	end = Sys_DoubleTime();
+
+	r_stats.t_world_draw = end - start;
 	tr.num_draw_decals = 0;
 	skychain = NULL;
 

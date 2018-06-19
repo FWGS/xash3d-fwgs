@@ -81,7 +81,6 @@ R_SplitEntityOnNode
 static void R_SplitEntityOnNode( mnode_t *node )
 {
 	efrag_t	*ef;
-	mplane_t	*splitplane;
 	mleaf_t	*leaf;
 	int	sides;
 	
@@ -100,7 +99,7 @@ static void R_SplitEntityOnNode( mnode_t *node )
 		ef = clgame.free_efrags;
 		if( !ef )
 		{
-			MsgDev( D_ERROR, "too many efrags!\n" );
+			Con_Printf( S_ERROR "too many efrags!\n" );
 			return; // no free fragments...
 		}
 
@@ -120,8 +119,7 @@ static void R_SplitEntityOnNode( mnode_t *node )
 	}
 	
 	// NODE_MIXED
-	splitplane = node->plane;
-	sides = BOX_ON_PLANE_SIDE( r_emins, r_emaxs, splitplane );
+	sides = BOX_ON_PLANE_SIDE( r_emins, r_emaxs, node->plane );
 	
 	if( sides == 3 )
 	{

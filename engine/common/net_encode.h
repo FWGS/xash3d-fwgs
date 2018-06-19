@@ -41,8 +41,16 @@ GNU General Public License for more details.
 enum
 {
 	CUSTOM_NONE = 0,
-	CUSTOM_SERVER_ENCODE,	// keyword "gamedll"
-	CUSTOM_CLIENT_ENCODE,	// keyword "client"
+	CUSTOM_SERVER_ENCODE,	// known as "gamedll"
+	CUSTOM_CLIENT_ENCODE,	// known as "client"
+};
+
+// don't change order!
+enum
+{
+	DELTA_ENTITY = 0,
+	DELTA_PLAYER,
+	DELTA_STATIC,
 };
 
 // struct info (filled by engine)
@@ -121,8 +129,8 @@ void MSG_WriteClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, 
 void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, float timebase );
 void MSG_WriteWeaponData( sizebuf_t *msg, weapon_data_t *from, weapon_data_t *to, float timebase, int index );
 void MSG_ReadWeaponData( sizebuf_t *msg, weapon_data_t *from, weapon_data_t *to, float timebase );
-void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *msg, qboolean force, qboolean pl, float tbase, int bl );
-qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state_t *to, int num, qboolean player, float timebase );
+void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *msg, qboolean force, int type, float tbase, int ofs );
+qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state_t *to, int num, int type, float timebase );
 int Delta_TestBaseline( entity_state_t *from, entity_state_t *to, qboolean player, float timebase );
 
 #endif//NET_ENCODE_H

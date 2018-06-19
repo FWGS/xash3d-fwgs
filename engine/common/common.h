@@ -793,6 +793,7 @@ const char *Q_buildcommit( void );
 //
 // host.c
 //
+qboolean Host_IsQuakeCompatible( void );
 void EXPORT Host_Shutdown( void );
 int Host_CompareFileTime( long ft1, long ft2 );
 void Host_NewInstance( const char *name, const char *finalmsg );
@@ -905,6 +906,7 @@ void pfnResetTutorMessageDecayData( void );
 // con_utils.c
 //
 qboolean Cmd_AutocompleteName( const char *source, char *buffer, size_t bufsize );
+void Con_CompleteCommand( field_t *field );
 void Cmd_AutoComplete( char *complete_string );
 void Cmd_AutoCompleteClear( void );
 

@@ -48,6 +48,7 @@ qboolean SCR_NextMovie( void )
 	{
 		S_StopAllSounds( true );
 		SCR_StopCinematic();
+		CL_CheckStartupDemos();
 		return false; // don't play movies
 	}
 
@@ -56,6 +57,7 @@ qboolean SCR_NextMovie( void )
 		S_StopAllSounds( true );
 		SCR_StopCinematic();
 		cls.movienum = -1;
+		CL_CheckStartupDemos();
 		return false;
 	}
 
@@ -90,6 +92,7 @@ void SCR_CheckStartupVids( void )
 	{
 		// don't run movies where we in developer-mode
 		cls.movienum = -1;
+		CL_CheckStartupDemos();
 		return;
 	}
 

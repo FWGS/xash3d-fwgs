@@ -284,7 +284,7 @@ void MSG_WriteCoord( sizebuf_t *sb, float val )
 {
 	// g-cont. we loose precision here but keep old size of coord variable!
 	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
-		MSG_WriteShort( sb, (int)( val * 2.0f ));
+		MSG_WriteShort( sb, Q_rint( val ));
 	else MSG_WriteShort( sb, (int)( val * 8.0f ));
 }
 
@@ -598,7 +598,7 @@ float MSG_ReadCoord( sizebuf_t *sb )
 {
 	// g-cont. we loose precision here but keep old size of coord variable!
 	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
-		return (float)(MSG_ReadShort( sb ) * ( 1.0f / 2.0f ));
+		return (float)(MSG_ReadShort( sb ));
 	return (float)(MSG_ReadShort( sb ) * ( 1.0f / 8.0f ));
 }
 

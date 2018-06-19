@@ -497,39 +497,47 @@ SV_CreateStaticEntity
 NOTE: static entities only accepted when game is loading
 =======================
 */
-void SV_CreateStaticEntity( sizebuf_t *msg, sv_static_entity_t *ent )
+qboolean SV_CreateStaticEntity( sizebuf_t *msg, int index )
 {
-	int	index;
+	entity_state_t	nullstate, *baseline;	
+	entity_state_t	*state;
+	int		offset;
+
+	if( index >= ( MAX_STATIC_ENTITIES - 1 ))
+	{
+		if( !sv.static_ents_overflow )
+		{
+			Con_Printf( S_WARN "MAX_STATIC_ENTITIES limit exceeded (%d)\n", MAX_STATIC_ENTITIES );
+			sv.static_ents_overflow = true;
+		}
+
+		sv.ignored_static_ents++; // continue overflowed entities
+		return false;
+	}
 
 	// this can happens if serialized map contain too many static entities...
-	if( MSG_GetNumBytesLeft( msg ) < 35 )
+	if( MSG_GetNumBytesLeft( msg ) < 50 )
 	{
 		sv.ignored_static_ents++;
-		return;
+		return false;
 	}
 
-	index = SV_ModelIndex( ent->model );
+	state = &svs.static_entities[index]; // allocate a new one
+	memset( &nullstate, 0, sizeof( nullstate ));
+	baseline = &nullstate;
+
+	// restore modelindex from modelname (already precached)
+	state->modelindex = pfnModelIndex( STRING( state->messagenum ));
+	state->entityType = ENTITY_NORMAL; // select delta-encode
+	state->number = 0;
+
+	// trying to compress with previous delta's
+	offset = SV_FindBestBaselineForStatic( index, &baseline, state );
 
 	MSG_BeginServerCmd( msg, svc_spawnstatic );
-	MSG_WriteShort( msg, index );
-	MSG_WriteWord( msg, ent->sequence );
-	MSG_WriteWord( msg, ent->frame );
-	MSG_WriteWord( msg, ent->colormap );
-	MSG_WriteByte( msg, ent->skin );
-	MSG_WriteByte( msg, ent->body );
-	MSG_WriteCoord( msg, ent->scale );
-	MSG_WriteVec3Coord( msg, ent->origin );
-	MSG_WriteVec3Angles( msg, ent->angles );
-	MSG_WriteByte( msg, ent->rendermode );
+	MSG_WriteDeltaEntity( baseline, state, msg, true, DELTA_STATIC, sv.time, offset );
 
-	if( ent->rendermode != kRenderNormal )
-	{
-		MSG_WriteByte( msg, ent->renderamt );
-		MSG_WriteByte( msg, ent->rendercolor.r );
-		MSG_WriteByte( msg, ent->rendercolor.g );
-		MSG_WriteByte( msg, ent->rendercolor.b );
-		MSG_WriteByte( msg, ent->renderfx );
-	}
+	return true;
 }
 
 /*
@@ -541,18 +549,14 @@ Write all the static ents into demo
 */
 void SV_RestartStaticEnts( void )
 {
-	sv_static_entity_t	*clent;
-	int		i;
+	int	i;
 
 	// remove all the static entities on the client
 	R_ClearStaticEntities();
 
 	// resend them again
 	for( i = 0; i < sv.num_static_entities; i++ )
-	{
-		clent = &sv.static_entities[i];
-		SV_CreateStaticEntity( &sv.reliable_datagram, clent );
-	}
+		SV_CreateStaticEntity( &sv.reliable_datagram, i );
 }
 
 /*
@@ -1837,42 +1841,18 @@ move entity to client
 */
 static void pfnMakeStatic( edict_t *ent )
 {
-	sv_static_entity_t	*clent;
+	entity_state_t	*state;
 
 	if( !SV_IsValidEdict( ent ))
 		return;
 
-	if( sv.num_static_entities >= MAX_STATIC_ENTITIES )
-	{
-		if( !sv.static_ents_overflow )
-		{
-			Con_Printf( S_WARN "MAX_STATIC_ENTITIES limit exceeded (%d)\n", MAX_STATIC_ENTITIES );
-			sv.static_ents_overflow = true;
-		}
-		sv.ignored_static_ents++; // continue overflowed entities
-		return;
-	}
+	// fill the entity state
+	state = &svs.static_entities[sv.num_static_entities];	// allocate a new one
+	svgame.dllFuncs.pfnCreateBaseline( false, NUM_FOR_EDICT( ent ), state, ent, 0, vec3_origin, vec3_origin );
+	state->messagenum = ent->v.model; // member modelname
 
-	clent = &sv.static_entities[sv.num_static_entities++];
-
-	Q_strncpy( clent->model, STRING( ent->v.model ), sizeof( clent->model ));
-	VectorCopy( ent->v.origin, clent->origin );
-	VectorCopy( ent->v.angles, clent->angles );
-
-	clent->sequence = ent->v.sequence;
-	clent->frame = ent->v.frame * 128;
-	clent->colormap = ent->v.colormap;
-	clent->skin = ent->v.skin;
-	clent->body = ent->v.body;
-	clent->scale = ent->v.scale;
-	clent->rendermode = ent->v.rendermode;
-	clent->renderamt = ent->v.renderamt;
-	clent->rendercolor.r = ent->v.rendercolor[0];
-	clent->rendercolor.g = ent->v.rendercolor[1];
-	clent->rendercolor.b = ent->v.rendercolor[2];
-	clent->renderfx = ent->v.renderfx;
-
-	SV_CreateStaticEntity( &sv.signon, clent );
+	if( SV_CreateStaticEntity( &sv.signon, sv.num_static_entities ))
+		sv.num_static_entities++;
 
 	// remove at end of the frame
 	SetBits( ent->v.flags, FL_KILLME );
@@ -1988,31 +1968,31 @@ int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample
 
 	if( vol < 0 || vol > 255 )
 	{
-		Con_Printf( S_ERROR "SV_StartSound: volume = %i\n", vol );
+		Con_Reportf( S_ERROR "SV_StartSound: volume = %i\n", vol );
 		vol = bound( 0, vol, 255 );
 	}
 
 	if( attn < 0.0f || attn > 4.0f )
 	{
-		Con_Printf( S_ERROR "SV_StartSound: attenuation %g must be in range 0-4\n", attn );
+		Con_Reportf( S_ERROR "SV_StartSound: attenuation %g must be in range 0-4\n", attn );
 		attn = bound( 0.0f, attn, 4.0f );
 	}
 
 	if( chan < 0 || chan > 7 )
 	{
-		Con_Printf( S_ERROR "SV_StartSound: channel must be in range 0-7\n" );
+		Con_Reportf( S_ERROR "SV_StartSound: channel must be in range 0-7\n" );
 		chan = bound( 0, chan, 7 );
 	}
 
 	if( pitch < 0 || pitch > 255 )
 	{
-		Con_Printf( S_ERROR "SV_StartSound: pitch = %i\n", pitch );
+		Con_Reportf( S_ERROR "SV_StartSound: pitch = %i\n", pitch );
 		pitch = bound( 0, pitch, 255 );
 	}
 
 	if( !COM_CheckString( sample ))
 	{
-		Con_Printf( S_ERROR "SV_StartSound: passed NULL sample\n" );
+		Con_Reportf( S_ERROR "SV_StartSound: passed NULL sample\n" );
 		return 0;
 	}
 
@@ -4749,6 +4729,7 @@ void SV_UnloadProgs( void )
 	Cvar_FullSet( "sv_background", "0", FCVAR_READ_ONLY );
 
 	// free entity baselines
+	Z_Free( svs.static_entities );
 	Z_Free( svs.baselines );
 	svs.baselines = NULL;
 
@@ -4877,6 +4858,7 @@ qboolean SV_LoadProgs( const char *name )
 	svgame.globals->maxEntities = GI->max_edicts;
 	svgame.globals->maxClients = svs.maxclients;
 	svgame.edicts = Mem_Calloc( svgame.mempool, sizeof( edict_t ) * GI->max_edicts );
+	svs.static_entities = Z_Calloc( sizeof( entity_state_t ) * MAX_STATIC_ENTITIES );
 	svs.baselines = Z_Calloc( sizeof( entity_state_t ) * GI->max_edicts );
 	svgame.numEntities = svs.maxclients + 1; // clients + world
 

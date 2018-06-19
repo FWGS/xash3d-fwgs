@@ -1472,6 +1472,12 @@ static void Mod_LoadSubmodels( dbspmodel_t *bmod )
 	{
 		for( j = 0; j < 3; j++ )
 		{
+			// reset empty bounds to prevent error
+			if( in->mins[j] == 999999.0f )
+				in->mins[j] = 0.0f;
+			if( in->maxs[j] == -999999.0f)
+				in->maxs[j] = 0.0f; 
+
 			// spread the mins / maxs by a unit
 			out->mins[j] = in->mins[j] - 1.0f;
 			out->maxs[j] = in->maxs[j] + 1.0f;
@@ -2194,7 +2200,7 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 		if(( tex->name[0] == '*' && Q_stricmp( tex->name, "*default" )) || tex->name[0] == '!' )
 			SetBits( out->flags, SURF_DRAWTURB|SURF_DRAWTILED );
 
-		if( !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		if( !Host_IsQuakeCompatible( ))
 		{
 			if( !Q_strncmp( tex->name, "water", 5 ) || !Q_strnicmp( tex->name, "laser", 5 ))
 				SetBits( out->flags, SURF_DRAWTURB|SURF_DRAWTILED );

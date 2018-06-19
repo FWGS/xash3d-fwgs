@@ -603,13 +603,13 @@ void CL_FlushEntityPacket( sizebuf_t *msg )
 	// read it all, but ignore it
 	while( 1 )
 	{
-		newnum = MSG_ReadUBitLong( msg, MAX_VISIBLE_PACKET_BITS );
+		newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
 		if( newnum == LAST_EDICT ) break; // done
 
 		if( MSG_CheckOverflow( msg ))
 			Host_Error( "CL_FlushEntityPacket: overflow\n" );
 
-		MSG_ReadDeltaEntity( msg, &from, &to, newnum, CL_IsPlayerIndex( newnum ), cl.mtime[0] );
+		MSG_ReadDeltaEntity( msg, &from, &to, newnum, CL_IsPlayerIndex( newnum ) ? DELTA_PLAYER : DELTA_ENTITY, cl.mtime[0] );
 	}
 }
 
@@ -626,17 +626,18 @@ void CL_DeltaEntity( sizebuf_t *msg, frame_t *frame, int newnum, entity_state_t 
 	entity_state_t	*state;
 	qboolean		newent = (old) ? false : true;
 	int		pack = frame->num_entities;
-	qboolean		player = CL_IsPlayerIndex( newnum ); 
+	int		delta_type = DELTA_ENTITY;
 	qboolean		alive = true;
 
 	// alloc next slot to store update
 	state = &cls.packet_entities[cls.next_client_entities % cls.num_client_entities];
+	if( CL_IsPlayerIndex( newnum )) delta_type = DELTA_PLAYER;
 
 	if(( newnum < 0 ) || ( newnum >= clgame.maxEntities ))
 	{
 		MsgDev( D_ERROR, "CL_DeltaEntity: invalid newnum: %d\n", newnum );
 		if( has_update )
-			MSG_ReadDeltaEntity( msg, old, state, newnum, player, cl.mtime[0] );
+			MSG_ReadDeltaEntity( msg, old, state, newnum, delta_type, cl.mtime[0] );
 		return;
 	}
 
@@ -645,7 +646,7 @@ void CL_DeltaEntity( sizebuf_t *msg, frame_t *frame, int newnum, entity_state_t 
 	if( newent ) old = &ent->baseline;
 
 	if( has_update )
-		alive = MSG_ReadDeltaEntity( msg, old, state, newnum, player, cl.mtime[0] );
+		alive = MSG_ReadDeltaEntity( msg, old, state, newnum, delta_type, cl.mtime[0] );
 	else memcpy( state, old, sizeof( entity_state_t ));
 
 	if( !alive )
@@ -1074,7 +1075,7 @@ void CL_LinkPacketEntities( frame_t *frame )
 		if( ent->curstate.rendermode == kRenderNormal )
 		{
 			// auto 'solid' faces
-			if( FBitSet( ent->model->flags, MODEL_TRANSPARENT ) && FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+			if( FBitSet( ent->model->flags, MODEL_TRANSPARENT ) && Host_IsQuakeCompatible( ))
 			{
 				ent->curstate.rendermode = kRenderTransAlpha;
 				ent->curstate.renderamt = 255;
