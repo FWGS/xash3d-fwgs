@@ -199,10 +199,13 @@ typedef enum
 #define MAX_STATIC_ENTITIES	3096	// static entities that moved on the client when level is spawn
 
 // filesystem flags
-#define FS_STATIC_PATH	1	// FS_ClearSearchPath will be ignore this path
-#define FS_NOWRITE_PATH	2	// default behavior - last added gamedir set as writedir. This flag disables it
-#define FS_GAMEDIR_PATH	4	// just a marker for gamedir path
-#define FS_CUSTOM_PATH  8   // custom directory
+#define FS_STATIC_PATH  ( 1U << 0 )  // FS_ClearSearchPath will be ignore this path
+#define FS_NOWRITE_PATH ( 1U << 1 )  // default behavior - last added gamedir set as writedir. This flag disables it
+#define FS_GAMEDIR_PATH ( 1U << 2 )  // just a marker for gamedir path
+#define FS_CUSTOM_PATH  ( 1U << 3 )  // custom directory
+#define FS_GAMERODIR_PATH	( 1U << 4 ) // caseinsensitive
+
+#define FS_GAMEDIRONLY_SEARCH_FLAGS ( FS_GAMEDIR_PATH | FS_CUSTOM_PATH | FS_GAMERODIR_PATH )
 
 #define GI		SI.GameInfo
 #define FS_Gamedir()	SI.GameInfo->gamefolder
@@ -287,6 +290,8 @@ typedef struct gameinfo_s
 	char		game_dll_linux[64];	// custom path for game.dll
 	char		game_dll_osx[64];	// custom path for game.dll
 	char		client_lib[64];	// custom name of client library
+
+	qboolean	added;
 } gameinfo_t;
 
 typedef enum
@@ -493,6 +498,7 @@ typedef struct host_parm_s
 	qboolean		renderinfo_changed;
 
 	char		rootdir[256];	// member root directory
+	char		rodir[256];		// readonly root
 	char		gamefolder[MAX_QPATH];	// it's a default gamefolder	
 	byte		*imagepool;	// imagelib mempool
 	byte		*soundpool;	// soundlib mempool
@@ -520,8 +526,8 @@ void FS_Rescan( void );
 void FS_Shutdown( void );
 void FS_ClearSearchPath( void );
 void FS_AllowDirectPaths( qboolean enable );
-void FS_AddGameDirectory( const char *dir, int flags );
-void FS_AddGameHierarchy( const char *dir, int flags );
+void FS_AddGameDirectory( const char *dir, uint flags );
+void FS_AddGameHierarchy( const char *dir, uint flags );
 void FS_LoadGameInfo( const char *rootfolder );
 void COM_FileBase( const char *in, char *out );
 const char *COM_FileExtension( const char *in );

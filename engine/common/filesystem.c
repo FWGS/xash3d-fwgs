@@ -330,7 +330,9 @@ static const char *FS_FixFileCase( const char *path )
 	if( !fs_caseinsensitive )
 		return path;
 
-	Q_snprintf( path2, sizeof( path2 ), "./%s", path );
+	if( path[0] != '/' )
+		Q_snprintf( path2, sizeof( path2 ), "./%s", path );
+	else Q_strncpy( path2, path, PATH_MAX );
 
 	fname = Q_strrchr( path2, '/' );
 
@@ -465,9 +467,13 @@ void FS_Path_f( void )
 		else if( s->wad ) Con_Printf( "%s (%i files)", s->wad->filename, s->wad->numlumps );
 		else Con_Printf( "%s", s->filename );
 
-		if( FBitSet( s->flags, FS_GAMEDIR_PATH ))
-			Con_Printf( " ^2gamedir^7\n" );
-		else Con_Printf( "\n" );
+		if( s->flags & FS_GAMERODIR_PATH ) Con_Printf( " ^2rodir^7" );
+		if( s->flags & FS_GAMEDIR_PATH ) Con_Printf( " ^2gamedir^7" );
+		if( s->flags & FS_CUSTOM_PATH ) Con_Printf( " ^2custom^7" );
+		if( s->flags & FS_NOWRITE_PATH ) Con_Printf( " ^2nowrite^7" );
+		if( s->flags & FS_STATIC_PATH ) Con_Printf( " ^2static^7" );
+
+		Con_Printf( "\n" );
 	}
 }
 
@@ -703,7 +709,7 @@ Sets fs_writedir, adds the directory to the head of the path,
 then loads and adds pak1.pak pak2.pak ...
 ================
 */
-void FS_AddGameDirectory( const char *dir, int flags )
+void FS_AddGameDirectory( const char *dir, uint flags )
 {
 	stringlist_t	list;
 	searchpath_t	*search;
@@ -756,11 +762,51 @@ void FS_AddGameDirectory( const char *dir, int flags )
 FS_AddGameHierarchy
 ================
 */
-void FS_AddGameHierarchy( const char *dir, int flags )
+void FS_AddGameHierarchy( const char *dir, uint flags )
 {
-	// Add the common game directory
-	if( COM_CheckString( dir ))
-		FS_AddGameDirectory( va( "%s/", dir ), flags );
+	int i;
+	qboolean isGameDir = flags & FS_GAMEDIR_PATH;
+
+	GI->added = true;
+
+	if( !COM_CheckString( dir ))
+		return;
+
+	// add the common game directory
+
+	// recursive gamedirs
+	// for example, czeror->czero->cstrike->valve
+	for( i = 0; i < SI.numgames; i++ )
+	{
+		if( !Q_strnicmp( SI.games[i]->gamefolder, dir, 64 ))
+		{
+			MsgDev( D_NOTE, "FS_AddGameHierarchy: %d %s %s\n", i, SI.games[i]->gamefolder, SI.games[i]->basedir );
+			if( !SI.games[i]->added && Q_stricmp( SI.games[i]->gamefolder, SI.games[i]->basedir ) )
+			{
+				SI.games[i]->added = true;
+				FS_AddGameHierarchy( SI.games[i]->basedir, flags & (~FS_GAMEDIR_PATH) );
+			}
+			break;
+		}
+	}
+
+	if( host.rodir[0] )
+	{
+		// append new flags to rodir, except FS_GAMEDIR_PATH and FS_CUSTOM_PATH
+		uint newFlags = FS_NOWRITE_PATH | (flags & (~FS_GAMEDIR_PATH|FS_CUSTOM_PATH));
+		if( isGameDir )
+			newFlags |= FS_GAMERODIR_PATH;
+
+		FS_AllowDirectPaths( true );
+		FS_AddGameDirectory( va( "%s/%s/", host.rodir, dir ), newFlags );
+		FS_AllowDirectPaths( false );
+	}
+
+	if( isGameDir )
+		FS_AddGameDirectory( va( "%s/downloaded/", dir ), FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+	FS_AddGameDirectory( va( "%s/", dir ), flags );
+	if( isGameDir )
+		FS_AddGameDirectory( va( "%s/custom/", dir ), FS_NOWRITE_PATH | FS_CUSTOM_PATH );
 }
 
 /*
@@ -854,6 +900,25 @@ void FS_Rescan( void )
 	MsgDev( D_NOTE, "FS_Rescan( %s )\n", GI->title );
 
 	FS_ClearSearchPath();
+
+#ifdef __ANDROID__
+	char *str;
+	if( str = getenv("XASH3D_EXTRAS_PAK1") )
+		FS_AddPack_Fullpath( str, NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+	if( str = getenv("XASH3D_EXTRAS_PAK2") )
+		FS_AddPack_Fullpath( str, NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+	//FS_AddPack_Fullpath( "/data/data/in.celest.xash3d.hl.test/files/pak.pak", NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+#elif TARGET_OS_IPHONE
+	{
+		FS_AddPack_Fullpath( va( "%sextras.pak", SDL_GetBasePath() ), NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+		FS_AddPack_Fullpath( va( "%sextras_%s.pak", SDL_GetBasePath(), GI->gamefolder ), NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+	}
+#elif defined(__SAILFISH__)
+	{
+		FS_AddPack_Fullpath( va( SHAREPATH"/extras.pak" ), NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+		FS_AddPack_Fullpath( va( SHAREPATH"/%s/extras.pak", GI->gamefolder ), NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+	}
+#endif
 
 	if( Q_stricmp( GI->basedir, GI->gamefolder ))
 		FS_AddGameHierarchy( GI->basedir, 0 );
@@ -1265,7 +1330,7 @@ static qboolean FS_ParseLiblistGam( const char *filename, const char *gamedir, g
 FS_ConvertGameInfo
 ================
 */
-void FS_ConvertGameInfo( const char *gamedir, const char *gameinfo_path, const char *liblist_path )
+static qboolean FS_ConvertGameInfo( const char *gamedir, const char *gameinfo_path, const char *liblist_path )
 {
 	gameinfo_t	GameInfo;
 
@@ -1275,7 +1340,11 @@ void FS_ConvertGameInfo( const char *gamedir, const char *gameinfo_path, const c
 	{
 		Con_DPrintf( "Convert %s to %s\n", liblist_path, gameinfo_path );
 		FS_WriteGameInfo( gameinfo_path, &GameInfo );
+
+		return true;
 	}
+
+	return false;
 }
 
 /*
@@ -1333,10 +1402,46 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 	string		liblist_path, gameinfo_path;
 	string		default_gameinfo_path;
 	gameinfo_t	tmpGameInfo;
+	qboolean	haveUpdate = false;
 
 	Q_snprintf( default_gameinfo_path, sizeof( default_gameinfo_path ), "%s/gameinfo.txt", fs_basedir );
 	Q_snprintf( gameinfo_path, sizeof( gameinfo_path ), "%s/gameinfo.txt", gamedir );
 	Q_snprintf( liblist_path, sizeof( liblist_path ), "%s/liblist.gam", gamedir );
+
+	// here goes some RoDir magic...
+	if( host.rodir[0] )
+	{
+		string	filepath_ro, liblist_ro;
+		fs_offset_t roLibListTime, roGameInfoTime, rwGameInfoTime;
+
+		Q_snprintf( filepath_ro, sizeof( filepath_ro ), "%s/%s/gameinfo.txt", host.rodir, gamedir );
+		Q_snprintf( liblist_ro, sizeof( liblist_ro ), "%s/%s/liblist.gam", host.rodir, gamedir );
+
+		roLibListTime = FS_SysFileTime( liblist_ro );
+		roGameInfoTime = FS_SysFileTime( filepath_ro );
+		rwGameInfoTime = FS_SysFileTime( gameinfo_path );
+
+		if( roLibListTime > rwGameInfoTime )
+		{
+			haveUpdate = FS_ConvertGameInfo( gamedir, gameinfo_path, liblist_ro );
+		}
+		else if( roGameInfoTime > rwGameInfoTime )
+		{
+			char *afile_ro = FS_LoadDirectFile( filepath_ro, NULL );
+
+			if( afile_ro )
+			{
+				gameinfo_t gi;
+
+				haveUpdate = true;
+
+				FS_InitGameInfo( &gi, gamedir );
+				FS_ParseGenericGameInfo( &gi, afile_ro, true );
+				FS_WriteGameInfo( gameinfo_path, &gi );
+				Mem_Free( afile_ro );
+			}
+		}
+	}
 
 	// if user change liblist.gam update the gameinfo.txt
 	if( FS_FileTime( liblist_path, false ) > FS_FileTime( gameinfo_path, false ))
@@ -1443,12 +1548,24 @@ void FS_Init( void )
 #ifndef _WIN32
 	if( Sys_CheckParm( "-casesensitive" ) )
 		fs_caseinsensitive = false;
+
+	if( !fs_caseinsensitive )
+	{
+		if( host.rodir[0] && !Q_strcmp( host.rodir, host.rootdir ) )
+		{
+			Sys_Error( "RoDir and default rootdir can't point to same directory!" );
+		}
+	}
+	else
 #endif
+	{
+		if( host.rodir[0] && !Q_stricmp( host.rodir, host.rootdir ) )
+		{
+			Sys_Error( "RoDir and default rootdir can't point to same directory!" );
+		}
+	}
 
 	// ignore commandlineoption "-game" for other stuff
-	stringlistinit( &dirs );
-	listdirectory( &dirs, "./", false );
-	stringlistsort( &dirs );
 	SI.numgames = 0;
 
 	Q_strncpy( fs_basedir, SI.basedirName, sizeof( fs_basedir )); // default dir
@@ -1468,7 +1585,32 @@ void FS_Init( void )
 		Q_strncpy( fs_gamedir, fs_basedir, sizeof( fs_gamedir )); // default dir
 	}
 
+	// add readonly directories first
+	if( host.rodir[0] )
+	{
+		stringlistinit( &dirs );
+		listdirectory( &dirs, host.rodir, false );
+		stringlistsort( &dirs );
+
+		for( i = 0; i < dirs.numstrings; i++ )
+		{
+			if( !FS_SysFolderExists( dirs.strings[i] ) || ( !Q_stricmp( dirs.strings[i], ".." ) && !fs_ext_path ))
+				continue;
+
+			// magic here is that dirs.strings don't contain full path
+			// so code below checks and creates folders in current directory(host.rootdir)
+			if( !FS_SysFolderExists( dirs.strings[i] ) )
+				FS_CreatePath( dirs.strings[i] );
+		}
+
+		stringlistfreecontents( &dirs );
+	}
+
 	// validate directories
+	stringlistinit( &dirs );
+	listdirectory( &dirs, "./", false );
+	stringlistsort( &dirs );
+
 	for( i = 0; i < dirs.numstrings; i++ )
 	{
 		if( !Q_stricmp( fs_basedir, dirs.strings[i] ))
@@ -1749,7 +1891,7 @@ static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedir
 	// search through the path, one element at a time
 	for( search = fs_searchpaths; search; search = search->next )
 	{
-		if( gamedironly & !FBitSet( search->flags, FS_GAMEDIR_PATH ))
+		if( gamedironly & !FBitSet( search->flags, FS_GAMEDIRONLY_SEARCH_FLAGS ))
 			continue;
 
 		// is the element a pak file?
@@ -2738,7 +2880,7 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 	// search through the path, one element at a time
 	for( searchpath = fs_searchpaths; searchpath; searchpath = searchpath->next )
 	{
-		if( gamedironly && !FBitSet( searchpath->flags, FS_GAMEDIR_PATH ))
+		if( gamedironly && !FBitSet( searchpath->flags, FS_GAMEDIRONLY_SEARCH_FLAGS ))
 			continue;
 
 		// is the element a pak file?
@@ -3221,17 +3363,24 @@ open the wad for reading & writing
 wfile_t *W_Open( const char *filename, int *error )
 {
 	wfile_t		*wad = (wfile_t *)Mem_Calloc( fs_mempool, sizeof( wfile_t ));
+	const char *basename;
 	int		i, lumpcount;
 	dlumpinfo_t	*srclumps;
 	size_t		lat_size;
 	dwadinfo_t	header;
 
 	// NOTE: FS_Open is load wad file from the first pak in the list (while fs_ext_path is false)
-	if( fs_ext_path ) wad->handle = FS_Open( filename, "rb", false );
-	else wad->handle = FS_Open( COM_FileWithoutPath( filename ), "rb", false );
+	if( fs_ext_path ) basename = filename;
+	else basename = COM_FileWithoutPath( filename );
+
+	wad->handle = FS_Open( basename, "rb", false );
+
+	// HACKHACK: try to open WAD by full path for RoDir, when searchpaths are not ready
+	if( host.rodir[0] && fs_ext_path && wad->handle == NULL )
+		wad->handle = FS_SysOpen( filename, "rb" );
 
 	if( wad->handle == NULL )
-	{
+	{	
 		MsgDev( D_ERROR, "W_Open: couldn't open %s\n", filename );
 		if( error ) *error = WAD_LOAD_COULDNT_OPEN;
 		W_Close( wad );
