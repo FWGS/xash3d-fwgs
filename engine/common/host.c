@@ -742,6 +742,20 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	if( host.rootdir[Q_strlen( host.rootdir ) - 1] == '/' )
 		host.rootdir[Q_strlen( host.rootdir ) - 1] = 0;
 
+	// get readonly root. The order is: check for arg, then env.
+	// if still not got it, rodir is disabled.
+	host.rodir[0] = 0;
+	if( !Sys_GetParmFromCmdLine( "-rodir", host.rodir ))
+	{
+		char *roDir;
+
+		if(( roDir = getenv( "XASH3D_RODIR" )))
+			Q_strncpy( host.rodir, roDir, sizeof( host.rodir ));
+	}
+
+	if( host.rodir[0] && host.rodir[Q_strlen( host.rodir ) - 1] == '/' )
+		host.rodir[Q_strlen( host.rodir ) - 1] = 0;
+
 	host.enabledll = !Sys_CheckParm( "-nodll" );
 
 #ifdef DLL_LOADER
