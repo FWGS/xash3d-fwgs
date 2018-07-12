@@ -954,13 +954,11 @@ void CL_InitStudioAPI( void );
 //
 // cl_frame.c
 //
-typedef struct channel_s channel_t;
-typedef struct rawchan_s rawchan_t;
 int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta );
 qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType );
 void CL_ResetLatchedVars( cl_entity_t *ent, qboolean full_reset );
-qboolean CL_GetEntitySpatialization( channel_t *ch );
-qboolean CL_GetMovieSpatialization( rawchan_t *ch );
+qboolean CL_GetEntitySpatialization( struct channel_s *ch );
+qboolean CL_GetMovieSpatialization( struct rawchan_s *ch );
 void CL_ComputePlayerOrigin( cl_entity_t *clent );
 void CL_ProcessPacket( frame_t *frame );
 void CL_MoveThirdpersonCamera( void );
@@ -981,7 +979,6 @@ void CL_ClearAllRemaps( void );
 //
 // cl_tent.c
 //
-typedef struct particle_s particle_t;
 int CL_AddEntity( int entityType, cl_entity_t *pEnt );
 void CL_WeaponAnim( int iAnim, int body );
 void CL_ClearEffects( void );
@@ -991,7 +988,7 @@ void CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean trans_pass, f
 void CL_FireCustomDecal( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags, float scale );
 void CL_DecalShoot( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags );
 void CL_PlayerDecal( int playerIndex, int textureIndex, int entityIndex, float *pos );
-void R_FreeDeadParticles( particle_t **ppparticles );
+void R_FreeDeadParticles( struct particle_s **ppparticles );
 void CL_AddClientResource( const char *filename, int type );
 void CL_AddClientResources( void );
 int CL_FxBlend( cl_entity_t *e );
@@ -1113,7 +1110,5 @@ qboolean SCR_NextMovie( void );
 void SCR_RunCinematic( void );
 void SCR_StopCinematic( void );
 void CL_PlayVideo_f( void );
-
-extern rgba_t g_color_table[8];
 
 #endif//CLIENT_H

@@ -981,7 +981,6 @@ void Key_EnableTextInput( qboolean enable, qboolean force );
 // shared calls
 typedef struct sv_client_s sv_client_t;
 typedef struct sizebuf_s sizebuf_t;
-typedef struct physent_s physent_t;
 qboolean CL_IsInGame( void );
 qboolean CL_IsInMenu( void );
 qboolean CL_IsInConsole( void );
@@ -1036,8 +1035,8 @@ qboolean SV_Initialized( void );
 qboolean CL_LoadProgs( const char *name );
 int SV_GetSaveComment( const char *savename, char *comment );
 qboolean SV_NewGame( const char *mapName, qboolean loadGame );
-void SV_ClipPMoveToEntity( physent_t *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, struct pmtrace_s *tr );
-void CL_ClipPMoveToEntity( physent_t *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, struct pmtrace_s *tr );
+void SV_ClipPMoveToEntity( struct physent_s *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, struct pmtrace_s *tr );
+void CL_ClipPMoveToEntity( struct physent_s *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, struct pmtrace_s *tr );
 void CL_Particle( const vec3_t origin, int color, float life, int zpos, int zvel ); // debug thing
 void SV_SysError( const char *error_string );
 void SV_ShutdownGame( void );

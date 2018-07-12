@@ -76,6 +76,7 @@ GNU General Public License for more details.
 	// Windows-specific
 	#define __cdecl
 	#define __stdcall
+
 	#define _inline	static inline
 	#define O_BINARY 0 // O_BINARY is Windows extension
 	#define O_TEXT 0 // O_TEXT is Windows extension

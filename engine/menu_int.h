@@ -47,8 +47,6 @@ typedef struct ui_globalvars_s
 	char		maptitle[64];	// title of active map
 } ui_globalvars_t;
 
-typedef struct ref_viewpass_s ref_viewpass_t;
-
 typedef struct ui_enginefuncs_s
 {
 	// image handlers
