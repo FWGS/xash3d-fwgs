@@ -954,6 +954,8 @@ void CL_InitStudioAPI( void );
 //
 // cl_frame.c
 //
+struct channel_s;
+struct rawchan_s;
 int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta );
 qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType );
 void CL_ResetLatchedVars( cl_entity_t *ent, qboolean full_reset );
@@ -979,6 +981,7 @@ void CL_ClearAllRemaps( void );
 //
 // cl_tent.c
 //
+struct particle_s;
 int CL_AddEntity( int entityType, cl_entity_t *pEnt );
 void CL_WeaponAnim( int iAnim, int body );
 void CL_ClearEffects( void );
@@ -1110,5 +1113,7 @@ qboolean SCR_NextMovie( void );
 void SCR_RunCinematic( void );
 void SCR_StopCinematic( void );
 void CL_PlayVideo_f( void );
+
+extern rgba_t g_color_table[8];
 
 #endif//CLIENT_H

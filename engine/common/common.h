@@ -979,6 +979,7 @@ void Key_EnableTextInput( qboolean enable, qboolean force );
 #include "avi/avi.h"
 
 // shared calls
+struct physent_s;
 typedef struct sv_client_s sv_client_t;
 typedef struct sizebuf_s sizebuf_t;
 qboolean CL_IsInGame( void );
