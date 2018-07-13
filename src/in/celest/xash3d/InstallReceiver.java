@@ -17,7 +17,7 @@ public class InstallReceiver extends BroadcastReceiver {
     			extractPAK(context, true);
 	}
 	public static SharedPreferences mPref = null;
-	private static final int PAK_VERSION = 6;
+	private static final int PAK_VERSION = 7;
 	public static synchronized void extractPAK(Context context, Boolean force) {
 		InputStream is = null;
 		FileOutputStream os = null;
