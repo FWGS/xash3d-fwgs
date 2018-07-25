@@ -482,7 +482,7 @@ public class XashActivity extends Activity {
 		if( bIsCstrike )
 		{
 			mMinWidth = 640;
-			mMinHeight = 480;
+			mMinHeight = 300;
 			
 			final String allowed = "in.celest.xash3d.cs16client";
 			
