@@ -28,7 +28,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textAppearance="?android:attr/textAppearanceMedium"
-            android:text="https://FWGS.github.io"
+            android:text="https://xash.su"
             android:id="@+id/textView9"
             android:autoText="false"
             android:autoLink="web"
