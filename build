@@ -4,7 +4,7 @@ PROJECT="xashdroid"
 KEYSTORE="../myks.keystore"
 KEYSTORE_ALIAS="xashdroid"
 ANDROID_SDK_PATH="$HOME/.android"
-BUILD_TOOLS_VER="27.0.2"
+BUILD_TOOLS_VER="28.0.3"
 
 if [[ "$1" = "--help" ]]; then
 	echo "Usage: ./build.sh <release|debug>"
