@@ -114,6 +114,7 @@ typedef struct
 	field_t		historyLines[CON_HISTORY];
 	int		historyLine;	// the line being displayed from history buffer will be <= nextHistoryLine
 	int		nextHistoryLine;	// the last line in the history buffer, not masked
+	field_t backup;
 
 	notify_t		notify[MAX_DBG_NOTIFY]; // for Con_NXPrintf
 	qboolean		draw_notify;	// true if we have NXPrint message
@@ -1650,6 +1651,8 @@ void Key_Console( int key )
 	// command history (ctrl-p ctrl-n for unix style)
 	if(( key == K_MWHEELUP && Key_IsDown( K_SHIFT )) || ( key == K_UPARROW ) || (( Q_tolower(key) == 'p' ) && Key_IsDown( K_CTRL )))
 	{
+		if( con.historyLine == con.nextHistoryLine )
+			con.backup = con.input;
 		if( con.nextHistoryLine - con.historyLine < CON_HISTORY && con.historyLine > 0 )
 			con.historyLine--;
 		con.input = con.historyLines[con.historyLine % CON_HISTORY];
@@ -1658,9 +1661,13 @@ void Key_Console( int key )
 
 	if(( key == K_MWHEELDOWN && Key_IsDown( K_SHIFT )) || ( key == K_DOWNARROW ) || (( Q_tolower(key) == 'n' ) && Key_IsDown( K_CTRL )))
 	{
-		if( con.historyLine == con.nextHistoryLine ) return;
-		con.historyLine++;
-		con.input = con.historyLines[con.historyLine % CON_HISTORY];
+		if( con.historyLine >= con.nextHistoryLine - 1 )
+			con.input = con.backup;
+		else
+		{
+			con.historyLine++;
+			con.input = con.historyLines[con.historyLine % CON_HISTORY];
+		}
 		return;
 	}
 
