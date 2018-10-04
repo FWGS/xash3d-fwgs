@@ -225,7 +225,7 @@ particle_t *R_AllocParticle( void (*callback)( particle_t*, float ))
 		if( cl_lasttimewarn < host.realtime )
 		{
 			// don't spam about overflow
-			MsgDev( D_ERROR, "Overflow %d particles\n", GI->max_particles );
+			Con_DPrintf( S_ERROR "Overflow %d particles\n", GI->max_particles );
 			cl_lasttimewarn = host.realtime + 1.0f;
 		}
 		return NULL;
@@ -276,7 +276,7 @@ particle_t *R_AllocTracer( const vec3_t org, const vec3_t vel, float life )
 		if( cl_lasttimewarn < host.realtime )
 		{
 			// don't spam about overflow
-			MsgDev( D_ERROR, "Overflow %d tracers\n", GI->max_particles );
+			Con_DPrintf( S_ERROR "Overflow %d tracers\n", GI->max_particles );
 			cl_lasttimewarn = host.realtime + 1.0f;
 		}
 		return NULL;
@@ -1501,14 +1501,11 @@ void R_UserTracerParticle( float *org, float *vel, float life, int colorIndex, f
 	particle_t	*p;
 
 	if( colorIndex < 0 )
-	{
-		MsgDev( D_ERROR, "UserTracer with color < 0\n" );
 		return;
-	}
 
 	if( colorIndex > ARRAYSIZE( gTracerColors ))
 	{
-		MsgDev( D_ERROR, "UserTracer with color > %d\n", ARRAYSIZE( gTracerColors ));
+		Con_Printf( S_ERROR "UserTracer with color > %d\n", ARRAYSIZE( gTracerColors ));
 		return;
 	}
 

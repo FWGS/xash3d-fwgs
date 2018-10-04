@@ -101,10 +101,7 @@ void CL_ParseSoundPacket( sizebuf_t *msg )
 	else handle = cl.sound_index[sound];	// see precached sound
 
 	if( !cl.audio_prepped )
-	{
-		MsgDev( D_WARN, "CL_StartSoundPacket: ignore sound message: too early\n" );
 		return; // too early
-	}
 
 	// g-cont. sound and ambient sound have only difference with channel
 	if( chan == CHAN_STATIC )
@@ -160,7 +157,7 @@ void CL_ParseRestoreSoundPacket( sizebuf_t *msg )
 		char	sentenceName[32];
 
 		if( flags & SND_SEQUENCE )
-			Q_snprintf( sentenceName, sizeof( sentenceName ), "!#%i", sound + MAX_SOUNDS );
+			Q_snprintf( sentenceName, sizeof( sentenceName ), "!%i", sound + MAX_SOUNDS );
 		else Q_snprintf( sentenceName, sizeof( sentenceName ), "!%i", sound );
 
 		handle = S_RegisterSound( sentenceName );
@@ -174,10 +171,7 @@ void CL_ParseRestoreSoundPacket( sizebuf_t *msg )
 	MSG_ReadBytes( msg, &forcedEnd, sizeof( forcedEnd ));
 
 	if( !cl.audio_prepped )
-	{
-		MsgDev( D_WARN, "CL_RestoreSoundPacket: ignore sound message: too early\n" );
 		return; // too early
-	}
 
 	S_RestoreSound( pos, entnum, chan, handle, volume, attn, pitch, flags, samplePos, forcedEnd, wordIndex );
 }
@@ -229,7 +223,7 @@ void CL_ParseSignon( sizebuf_t *msg )
 
 	if( i <= cls.signon )
 	{
-		MsgDev( D_ERROR, "received signon %i when at %i\n", i, cls.signon );
+		Con_Reportf( S_ERROR "received signon %i when at %i\n", i, cls.signon );
 		CL_Disconnect();
 		return;
 	}
@@ -522,7 +516,6 @@ void CL_BatchResourceRequest( qboolean initialize )
 			if( !COM_IsSafeFileToDownload( p->szFileName ))
 			{
 				CL_RemoveFromResourceList( p );
-				MsgDev( D_WARN, "Invalid file type...skipping download of %s\n", p->szFileName );
 				Mem_Free( p );
 				break;
 			}
@@ -777,16 +770,10 @@ void CL_ParseResourceRequest( sizebuf_t *msg )
 	nStartIndex = MSG_ReadLong( msg );
 
 	if( cl.servercount != arg )
-	{
-		MsgDev( D_ERROR, "request resources from different level\n" );
 		return;
-	}
 
 	if( nStartIndex < 0 && nStartIndex > cl.num_resources )
-	{
-		MsgDev( D_ERROR, "custom resource list request out of range\n" );
 		return;
-	}
 
 	MSG_BeginClientCmd( &sbuf, clc_resourcelist );
 	MSG_WriteShort( &sbuf, cl.num_resources );
@@ -867,7 +854,7 @@ void CL_ParseServerData( sizebuf_t *msg )
 	qboolean	background;
 	int	i;
 
-	MsgDev( D_NOTE, "Serverdata packet received.\n" );
+	Con_Reportf( "Serverdata packet received.\n" );
 	cls.timestart = Sys_DoubleTime();
 
 	cls.demowaiting = false;	// server is changed
@@ -1687,7 +1674,7 @@ void CL_ParseResLocation( sizebuf_t *msg )
 		if( lastSlash && lastSlash[1] == '\0' )
 			Q_strncpy( cl.downloadUrl, url, sizeof( cl.downloadUrl ));
 		else Q_snprintf( cl.downloadUrl, sizeof( cl.downloadUrl ), "%s/", url );
-		MsgDev( D_REPORT, "Using %s as primary download location\n", cl.downloadUrl );
+		Con_Reportf( "Using %s as primary download location\n", cl.downloadUrl );
 	}
 }
 
@@ -1722,7 +1709,6 @@ void CL_ParseHLTV( sizebuf_t *msg )
 		SCR_EndLoadingPlaque();
 		break;
 	default:
-		MsgDev( D_ERROR, "CL_ParseHLTV: unknown HLTV command.\n" );
 		break;
 	}
 }
@@ -1995,9 +1981,10 @@ dispatch messages
 */
 void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 {
-	size_t	bufStart, playerbytes;
-	int	cmd, param1, param2;
-	int	old_background;
+	size_t		bufStart, playerbytes;
+	int		cmd, param1, param2;
+	int		old_background;
+	const char	*s;
 
 	cls.starting_count = MSG_GetNumBytesRead( msg );	// updates each frame
 	CL_Parse_Debug( true );			// begin parsing
@@ -2033,8 +2020,6 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 			break;		
 
 		cmd = MSG_ReadServerCmd( msg );
-
-//		Msg( "%s\n", CL_MsgInfo( cmd ));
 
 		// record command for debugging spew on parse problem
 		CL_Parse_RecordCommand( cmd, bufStart );
@@ -2105,7 +2090,13 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 			Con_Printf( "%s", MSG_ReadString( msg ));
 			break;
 		case svc_stufftext:
-			Cbuf_AddText( MSG_ReadString( msg ));
+			s = MSG_ReadString( msg );
+#ifdef HACKS_RELATED_HLMODS
+			// dsiable Cry Of Fear antisave protection
+			if( !Q_strnicmp( s, "disconnect", 10 ) && cls.signon != SIGNONS )
+				break; // too early
+#endif
+			Cbuf_AddText( s );
 			break;
 		case svc_setangle:
 			CL_ParseSetAngle( msg );

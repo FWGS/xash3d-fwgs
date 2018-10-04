@@ -82,7 +82,7 @@ const char *svc_strings[svc_lastmsg+1] =
 	"svc_director",
 	"svc_voiceinit",
 	"svc_voicedata",
-	"svc_unused54",
+	"svc_deltapacketbones",
 	"svc_unused55",
 	"svc_resourcelocation",
 	"svc_querycvarvalue",

@@ -612,46 +612,46 @@ void R_Shutdown( void )
 
 /*
 =================
-GL_CheckForErrors
+GL_ErrorString
+convert errorcode to string
+=================
+*/
+const char *GL_ErrorString( int err )
+{
+	switch( err )
+	{
+	case GL_STACK_OVERFLOW:
+		return "GL_STACK_OVERFLOW";
+	case GL_STACK_UNDERFLOW:
+		return "GL_STACK_UNDERFLOW";
+	case GL_INVALID_ENUM:
+		return "GL_INVALID_ENUM";
+	case GL_INVALID_VALUE:
+		return "GL_INVALID_VALUE";
+	case GL_INVALID_OPERATION:
+		return "GL_INVALID_OPERATION";
+	case GL_OUT_OF_MEMORY:
+		return "GL_OUT_OF_MEMORY";
+	default:
+		return "UNKNOWN ERROR";
+	}
+}
 
+/*
+=================
+GL_CheckForErrors
 obsolete
 =================
 */
 void GL_CheckForErrors_( const char *filename, const int fileline )
 {
 	int	err;
-	char	*str;
 
-	if( !gl_check_errors->value )
+	if( !CVAR_TO_BOOL( gl_check_errors ))
 		return;
 
 	if(( err = pglGetError( )) == GL_NO_ERROR )
 		return;
 
-	switch( err )
-	{
-	case GL_STACK_OVERFLOW:
-		str = "GL_STACK_OVERFLOW";
-		break;
-	case GL_STACK_UNDERFLOW:
-		str = "GL_STACK_UNDERFLOW";
-		break;
-	case GL_INVALID_ENUM:
-		str = "GL_INVALID_ENUM";
-		break;
-	case GL_INVALID_VALUE:
-		str = "GL_INVALID_VALUE";
-		break;
-	case GL_INVALID_OPERATION:
-		str = "GL_INVALID_OPERATION";
-		break;
-	case GL_OUT_OF_MEMORY:
-		str = "GL_OUT_OF_MEMORY";
-		break;
-	default:
-		str = "UNKNOWN ERROR";
-		break;
-	}
-
-	Con_Printf( S_OPENGL_ERROR "%s (called at %s:%i)\n", str, filename, fileline );
+	Con_Printf( S_OPENGL_ERROR "%s (called at %s:%i)\n", GL_ErrorString( err ), filename, fileline );
 }

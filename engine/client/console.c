@@ -439,7 +439,7 @@ void Con_CheckResize( void )
 	int	i, width;
 
 	if( con.curFont && con.curFont->hFontTexture )
-		charWidth = con.curFont->charWidths['M'] - 1;
+		charWidth = con.curFont->charWidths['O'] - 1;
 
 	width = ( glState.width / charWidth ) - 2;
 	if( !glw_state.initialized ) width = (640 / 5);
@@ -1117,7 +1117,7 @@ void Con_Init( void )
 	Cmd_AddCommand( "contimes", Con_SetTimes_f, "change number of console overlay lines (4-64)" );
 	con.initialized = true;
 
-	MsgDev( D_INFO, "Console initialized.\n" );
+	Con_Printf( "Console initialized.\n" );
 }
 
 /*
@@ -1629,6 +1629,7 @@ void Key_Console( int key )
 
 		Con_ClearField( &con.input );
 		con.input.widthInChars = con.linewidth;
+		Con_Bottom();
 
 		if( cls.state == ca_disconnected )
 		{
@@ -1642,6 +1643,7 @@ void Key_Console( int key )
 	if( key == K_TAB )
 	{
 		Con_CompleteCommand( &con.input );
+		Con_Bottom();
 		return;
 	}
 
@@ -1979,7 +1981,9 @@ void Con_DrawSolidConsole( int lines )
 
 		memcpy( color, g_color_table[7], sizeof( color ));
 
+
 		Q_snprintf( curbuild, MAX_STRING, "%s %i/%s (hw build %i)", XASH_ENGINE_NAME, PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
+
 		Con_DrawStringLen( curbuild, &stringLen, &charH );
 		start = glState.width - stringLen;
 		stringLen = Con_StringLength( curbuild );
@@ -2131,6 +2135,7 @@ void Con_DrawVersion( void )
 	if( host.force_draw_version || draw_version )
 		Q_snprintf( curbuild, MAX_STRING, "%s v%i/%s (build %i)", XASH_ENGINE_NAME, PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
 	else Q_snprintf( curbuild, MAX_STRING, "v%i/%s (build %i)", PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
+
 	Con_DrawStringLen( curbuild, &stringLen, &charH );
 	start = glState.width - stringLen * 1.05f;
 	stringLen = Con_StringLength( curbuild );
@@ -2275,7 +2280,7 @@ void Con_VidInit( void )
 	{
 		qboolean		draw_to_console = false;
 		int		length = 0;
-		gltexture_t	*chars;
+		gl_texture_t	*chars;
 
 		// NOTE: only these games want to draw build number into console background
 		if( !Q_stricmp( FS_Gamedir(), "id1" ))

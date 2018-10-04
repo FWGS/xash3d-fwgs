@@ -577,11 +577,7 @@ static void R_DecalCreate( decalinfo_t *decalinfo, msurface_t *surf, float x, fl
 	decal_t	*pdecal, *pold;
 	int	count, vertCount;
 
-	if( !surf )
-	{
-		MsgDev( D_ERROR, "psurface NULL in R_DecalCreate!\n" );
-		return;
-	}
+	if( !surf ) return;	// ???
 	
 	pold = R_DecalIntersect( decalinfo, surf, &count );
 	if( count < MAX_OVERLAP_DECALS ) pold = NULL;
@@ -763,7 +759,7 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 
 	if( textureIndex <= 0 || textureIndex >= MAX_TEXTURES )
 	{
-		MsgDev( D_ERROR, "Decal has invalid texture!\n" );
+		Con_Printf( S_ERROR "Decal has invalid texture!\n" );
 		return;
 	}
 
@@ -783,7 +779,7 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 	
 	if( model->type != mod_brush )
 	{
-		MsgDev( D_ERROR, "Decals must hit mod_brush!\n" );
+		Con_Printf( S_ERROR "Decals must hit mod_brush!\n" );
 		return;
 	}
 
@@ -988,7 +984,6 @@ void DrawSurfaceDecals( msurface_t *fa, qboolean single, qboolean reverse )
 		}
 	}
 
-	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
 	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
 	if( reverse && e->curstate.rendermode == kRenderTransTexture )
@@ -1224,10 +1219,7 @@ void R_DecalRemoveAll( int textureIndex )
 	int	i;
 
 	if( textureIndex < 0 || textureIndex >= MAX_TEXTURES )
-	{
-		MsgDev( D_ERROR, "Decal has invalid texture!\n" );
-		return;
-	}
+		return; // out of bounds
 
 	for( i = 0; i < gDecalCount; i++ )
 	{

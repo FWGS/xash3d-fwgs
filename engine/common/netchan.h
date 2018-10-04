@@ -71,6 +71,8 @@ GNU General Public License for more details.
 
 #define MASTERSERVER_ADR		"ms.xash.su:27010"
 #define MASTERSERVER_ADR2		"ms2.xash.su:27010"
+#define MS_SCAN_REQUEST		"1\xFF" "0.0.0.0:0\0"
+
 #define PORT_MASTER			27010
 #define PORT_CLIENT			27005
 #define PORT_SERVER			27015

@@ -117,6 +117,9 @@ void Image_DXTGetPixelFormat( dds_t *hdr )
 		case TYPE_DXT5:
 			image.type = PF_DXT5;
 			break;
+		case TYPE_ATI2:
+			image.type = PF_ATI2;
+			break;
 		default:
 			image.type = PF_UNKNOWN; // assume error
 			break;
@@ -157,7 +160,8 @@ size_t Image_DXTGetLinearSize( int type, int width, int height, int depth )
 	{
 	case PF_DXT1: return ((( width + 3 ) / 4 ) * (( height + 3 ) / 4 ) * depth * 8 );
 	case PF_DXT3:
-	case PF_DXT5: return ((( width + 3 ) / 4 ) * (( height + 3 ) / 4 ) * depth * 16 );
+	case PF_DXT5:
+	case PF_ATI2: return ((( width + 3 ) / 4 ) * (( height + 3 ) / 4 ) * depth * 16 );
 	case PF_BGR_24:
 	case PF_RGB_24: return (width * height * depth * 3);
 	case PF_BGRA_32:
@@ -214,7 +218,8 @@ uint Image_DXTCalcSize( const char *name, dds_t *hdr, size_t filesize )
 	if( filesize != buffsize ) // main check
 	{
 		MsgDev( D_WARN, "Image_LoadDDS: (%s) probably corrupted(%i should be %i)\n", name, buffsize, filesize );
-		return false;
+		if( buffsize > filesize )
+			return false;
 	}
 
 	return buffsize;
@@ -274,7 +279,7 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, size_t filesize )
 	Image_DXTGetPixelFormat( &header ); // and image type too :)
 	Image_DXTAdjustVolume( &header );
 
-	if( !Image_CheckFlag( IL_DDS_HARDWARE ) && ( image.type == PF_DXT1 || image.type == PF_DXT3 || image.type == PF_DXT5 ))
+	if( !Image_CheckFlag( IL_DDS_HARDWARE ) && ImageDXT( image.type ))
 		return false; // silently rejected
 
 	if( image.type == PF_UNKNOWN ) 
@@ -324,7 +329,7 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, size_t filesize )
 	// dds files will be uncompressed on a render. requires minimal of info for set this
 	image.rgba = Mem_Malloc( host.imagepool, image.size ); 
 	memcpy( image.rgba, fin, image.size );
-	image.flags |= IMAGE_DDS_FORMAT;
+	SetBits( image.flags, IMAGE_DDS_FORMAT );
 
 	return true;
 }

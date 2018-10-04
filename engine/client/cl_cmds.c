@@ -152,7 +152,7 @@ qboolean CL_ScreenshotGetName( int lastnum, char *filename )
 
 	if( lastnum < 0 || lastnum > 9999 )
 	{
-		MsgDev( D_ERROR, "unable to write screenshot\n" );
+		Con_Printf( S_ERROR "unable to write screenshot\n" );
 		return false;
 	}
 
@@ -180,7 +180,7 @@ qboolean CL_SnapshotGetName( int lastnum, char *filename )
 
 	if( lastnum < 0 || lastnum > 9999 )
 	{
-		MsgDev( D_ERROR, "unable to write snapshot\n" );
+		Con_Printf( S_ERROR "unable to write snapshot\n" );
 		FS_AllowDirectPaths( false );
 		return false;
 	}

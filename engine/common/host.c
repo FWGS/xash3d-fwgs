@@ -83,19 +83,19 @@ Host_PrintEngineFeatures
 void Host_PrintEngineFeatures( void )
 {
 	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
-		MsgDev( D_REPORT, "^3EXT:^7 big world support enabled\n" );
+		Con_Reportf( "^3EXT:^7 big world support enabled\n" );
 
 	if( FBitSet( host.features, ENGINE_LOAD_DELUXEDATA ))
-		MsgDev( D_REPORT, "^3EXT:^7 deluxemap support enabled\n" );
+		Con_Reportf( "^3EXT:^7 deluxemap support enabled\n" );
 
 	if( FBitSet( host.features, ENGINE_PHYSICS_PUSHER_EXT ))
-		MsgDev( D_REPORT, "^3EXT:^7 Improved MOVETYPE_PUSH is used\n" );
+		Con_Reportf( "^3EXT:^7 Improved MOVETYPE_PUSH is used\n" );
 
 	if( FBitSet( host.features, ENGINE_LARGE_LIGHTMAPS ))
-		MsgDev( D_REPORT, "^3EXT:^7 Large lightmaps enabled\n" );
+		Con_Reportf( "^3EXT:^7 Large lightmaps enabled\n" );
 
 	if( FBitSet( host.features, ENGINE_COMPENSATE_QUAKE_BUG ))
-		MsgDev( D_REPORT, "^3EXT:^7 Compensate quake bug enabled\n" );
+		Con_Reportf( "^3EXT:^7 Compensate quake bug enabled\n" );
 }
 
 /*
@@ -133,7 +133,7 @@ void Host_EndGame( qboolean abort, const char *message, ... )
 	Q_vsnprintf( string, sizeof( string ), message, argptr );
 	va_end( argptr );
 
-	MsgDev( D_INFO, "Host_EndGame: %s\n", string );
+	Con_Printf( "Host_EndGame: %s\n", string );
 
 	SV_Shutdown( "\n" );	
 #ifndef XASH_DEDICATED
@@ -269,7 +269,7 @@ void Host_Exec_f( void )
 	f = FS_LoadFile( cfgpath, &len, false );
 	if( !f )
 	{
-		MsgDev( D_NOTE, "couldn't exec %s\n", Cmd_Argv( 1 ));
+		Con_Reportf( "couldn't exec %s\n", Cmd_Argv( 1 ));
 		return;
 	}
 
@@ -283,7 +283,7 @@ void Host_Exec_f( void )
 	Mem_Free( f );
 
 	if( !host.apply_game_config )
-		MsgDev( D_INFO, "execing %s\n", Cmd_Argv( 1 ));
+		Con_Printf( "execing %s\n", Cmd_Argv( 1 ));
 	Cbuf_InsertText( txt );
 	Mem_Free( txt );
 }
@@ -368,7 +368,7 @@ qboolean Host_RegisterDecal( const char *name, int *count )
 
 	if( i == MAX_DECALS )
 	{
-		MsgDev( D_ERROR, "MAX_DECALS limit exceeded (%d)\n", MAX_DECALS );
+		Con_DPrintf( S_ERROR "MAX_DECALS limit exceeded (%d)\n", MAX_DECALS );
 		return false;
 	}
 
@@ -855,7 +855,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	// timeBeginPeriod( 1 ); // a1ba: Do we need this?
 
 	// NOTE: this message couldn't be passed into game console but it doesn't matter
-	MsgDev( D_NOTE, "Sys_LoadLibrary: Loading xash.dll - ok\n" );
+	Con_Reportf( "Sys_LoadLibrary: Loading xash.dll - ok\n" );
 
 	// get default screen res
 	VID_InitDefaultResolution();
@@ -945,7 +945,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	host_clientloaded = Cvar_Get( "host_clientloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );
 	host_limitlocal = Cvar_Get( "host_limitlocal", "0", 0, "apply cl_cmdrate and rate to loopback connection" );
 	con_gamemaps = Cvar_Get( "con_mapfilter", "1", FCVAR_ARCHIVE, "when true show only maps in game folder" );
-	build = Cvar_Get( "build", va( "%i", Q_buildnum()), FCVAR_READ_ONLY, "returns a current build number" );
+
+	build = Cvar_Get( "buildnum", va( "%i", Q_buildnum()), FCVAR_READ_ONLY, "returns a current build number" );
+
 	ver = Cvar_Get( "ver", va( "%i/%s (hw build %i)", PROTOCOL_VERSION, XASH_VERSION, Q_buildnum()), FCVAR_READ_ONLY, "shows an engine version" );
 
 	Mod_Init();

@@ -400,7 +400,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 		pspriteframe->left = -( w >> 1 );
 		pspriteframe->down = ( h >> 1 ) - h;
 		pspriteframe->right = w + -( w >> 1 );
-		pspriteframe->gl_texturenum = GL_LoadTextureInternal( texname, &temp, TF_IMAGE, false );
+		pspriteframe->gl_texturenum = GL_LoadTextureInternal( texname, &temp, TF_IMAGE );
 
 		xl += w;
 		if( xl >= pix->width )
@@ -493,7 +493,7 @@ mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 	else if( frame >= psprite->numframes )
 	{
 		if( frame > psprite->numframes )
-			MsgDev( D_WARN, "R_GetSpriteFrame: no such frame %d (%s)\n", frame, pModel->name );
+			Con_Reportf( S_WARN "R_GetSpriteFrame: no such frame %d (%s)\n", frame, pModel->name );
 		frame = psprite->numframes - 1;
 	}
 
@@ -561,7 +561,7 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 	}          
 	else if( frame >= psprite->numframes )
 	{
-		MsgDev( D_WARN, "R_GetSpriteFrameInterpolant: no such frame %d (%s)\n", frame, ent->model->name );
+		Con_Reportf( S_WARN "R_GetSpriteFrameInterpolant: no such frame %d (%s)\n", frame, ent->model->name );
 		frame = psprite->numframes - 1;
 	}
 

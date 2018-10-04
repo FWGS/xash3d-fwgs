@@ -185,7 +185,7 @@ void GL_SelectTexture( GLint tmu )
 
 	if( tmu >= GL_MaxTextureUnits( ))
 	{
-		MsgDev( D_ERROR, "GL_SelectTexture: bad tmu state %i\n", tmu );
+		Con_Reportf( S_ERROR "GL_SelectTexture: bad tmu state %i\n", tmu );
 		return; 
 	}
 
@@ -249,6 +249,7 @@ GL_CleanupAllTextureUnits
 */
 void GL_CleanupAllTextureUnits( void )
 {
+	if( !glw_state.initialized ) return;
 	// force to cleanup all the units
 	GL_SelectTexture( GL_MaxTextureUnits() - 1 );
 	GL_CleanUpTextureUnits( 0 );
@@ -277,7 +278,7 @@ void GL_TextureTarget( uint target )
 {
 	if( glState.activeTMU < 0 || glState.activeTMU >= GL_MaxTextureUnits( ))
 	{
-		MsgDev( D_ERROR, "GL_TextureTarget: bad tmu state %i\n", glState.activeTMU );
+		Con_Reportf( S_ERROR "GL_TextureTarget: bad tmu state %i\n", glState.activeTMU );
 		return; 
 	}
 
@@ -644,7 +645,7 @@ was there.  This is used to test for texture thrashing.
 */
 void R_ShowTextures( void )
 {
-	gltexture_t	*image;
+	gl_texture_t	*image;
 	float		x, y, w, h;
 	int		total, start, end;
 	int		i, j, k, base_w, base_h;

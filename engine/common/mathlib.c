@@ -136,6 +136,7 @@ void RoundUpHullSize( vec3_t size )
 		value = size[i];
 		if( value < 0.0f ) negative = true;
 		value = Q_ceil( fabs( value ));
+		result = Q_ceil( size[i] );
 
 		// lookup hull table to find nearest supposed value
 		for( j = 0; j < NUM_HULL_ROUNDS; j++ )
@@ -325,6 +326,25 @@ void SinCos( float radians, float *sine, float *cosine )
 	*sine = sinf(radians);
 	*cosine = cosf(radians);
 #endif
+}
+
+/*
+==============
+VectorCompareEpsilon
+
+==============
+*/
+qboolean VectorCompareEpsilon( const vec3_t vec1, const vec3_t vec2, vec_t epsilon )
+{
+	vec_t	ax, ay, az;
+
+	ax = fabs( vec1[0] - vec2[0] );
+	ay = fabs( vec1[1] - vec2[1] );
+	az = fabs( vec1[2] - vec2[2] );
+
+	if(( ax <= epsilon ) && ( ay <= epsilon ) && ( az <= epsilon ))
+		return true;
+	return false;
 }
 
 float VectorNormalizeLength2( const vec3_t v, vec3_t out )

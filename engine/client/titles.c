@@ -201,7 +201,7 @@ static int ParseDirective( const char *pText )
 		}
 		else
 		{
-			MsgDev( D_ERROR, "unknown token: %s\n", pText );
+			Con_DPrintf( S_ERROR "unknown token: %s\n", pText );
 		}
 		return 1;
 	}
@@ -249,7 +249,7 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 
 			if( IsEndOfText( trim ))
 			{
-				MsgDev( D_ERROR, "TextMessage: unexpected '}' found, line %d\n", lineNumber );
+				Con_Reportf( "TextMessage: unexpected '}' found, line %d\n", lineNumber );
 				return;
 			}
 			Q_strcpy( currentName, trim );
@@ -260,9 +260,9 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 				int length = Q_strlen( currentName );
 
 				// save name on name heap
-				if( lastNamePos + length > 16384 )
+				if( lastNamePos + length > 32768 )
 				{
-					MsgDev( D_ERROR, "TextMessage: error while parsing!\n" );
+					Con_Reportf( "TextMessage: error while parsing!\n" );
 					return;
 				}
 
@@ -285,7 +285,7 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 			}
 			if( IsStartOfText( trim ))
 			{
-				MsgDev( D_ERROR, "TextMessage: unexpected '{' found, line %d\n", lineNumber );
+				Con_Reportf( "TextMessage: unexpected '{' found, line %d\n", lineNumber );
 				return;
 			}
 			break;
@@ -296,12 +296,12 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 
 		if( messageCount >= MAX_MESSAGES )
 		{
-			MsgDev( D_WARN, "Too many messages in titles.txt, max is %d\n", MAX_MESSAGES );
+			Con_Printf( S_WARN "Too many messages in titles.txt, max is %d\n", MAX_MESSAGES );
 			break;
 		}
 	}
 
-	MsgDev( D_NOTE, "TextMessage: parsed %d text messages\n", messageCount );
+	Con_Reportf( "TextMessage: parsed %d text messages\n", messageCount );
 	nameHeapSize = lastNamePos;
 	textHeapSize = 0;
 
@@ -339,7 +339,7 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 	}
 
 	if(( pCurrentText - (char *)clgame.titles ) != ( textHeapSize + nameHeapSize + messageSize ))
-		MsgDev( D_ERROR, "TextMessage: overflow text message buffer!\n" );
+		Con_DPrintf( S_ERROR "TextMessage: overflow text message buffer!\n" );
 
 	clgame.numTitles = messageCount;
 }

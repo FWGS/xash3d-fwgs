@@ -266,7 +266,7 @@ static qboolean R_BeamComputePoint( int beamEnt, vec3_t pt )
 
 	if( !ent )
 	{
-		MsgDev( D_ERROR, "R_BeamComputePoint: invalid entity %i\n", BEAMENT_ENTITY( beamEnt ));
+		Con_DPrintf( S_ERROR "R_BeamComputePoint: invalid entity %i\n", BEAMENT_ENTITY( beamEnt ));
 		VectorClear( pt );
 		return false;
 	}
@@ -418,8 +418,6 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 
 	div = 1.0f / (segments - 1);
 	length *= 0.01f;
-
-	// UNDONE: Expose texture length scale factor to control "fuzziness"
 	vStep = length * div;	// Texture length texels per space pixel
 
 	// Scroll speed 3.5 -- initial texture position, scrolls 3.5/sec (1.0 is entire texture)
@@ -432,22 +430,18 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			segments = 16;
 			div = 1.0f / ( segments - 1 );
 		}
-
 		scale *= 100.0f;
 		length = segments * 0.1f;
 	}
 	else
 	{
-		scale *= length;
+		scale *= length * 2.0;
 	}
 
 	// Iterator to resample noise waveform (it needs to be generated in powers of 2)
-	noiseStep = noiseIndex = (int)((float)( NOISE_DIVISIONS - 1 ) * div * 65536.0f );
-
-	if( FBitSet( flags, FBEAM_SINENOISE ))
-		noiseIndex = 0;
-
+	noiseStep = (int)((float)( NOISE_DIVISIONS - 1 ) * div * 65536.0f );
 	brightness = 1.0f;
+	noiseIndex = 0;
 
 	if( FBitSet( flags, FBEAM_SHADEIN ))
 		brightness = 0;
@@ -467,20 +461,6 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 		Assert( noiseIndex < ( NOISE_DIVISIONS << 16 ));
 
 		fraction = i * div;
-
-		if( FBitSet( flags, FBEAM_SHADEIN ) && FBitSet( flags, FBEAM_SHADEOUT ))
-		{
-			if( fraction < 0.5f ) brightness = 2.0f * fraction;
-			else brightness = 2.0f * ( 1.0f - fraction );
-		}
-		else if( FBitSet( flags, FBEAM_SHADEIN ))
-		{
-			brightness = fraction;
-		}
-		else if( FBitSet( flags, FBEAM_SHADEOUT ))
-		{
-			brightness = 1.0f - fraction;
-		}
 
 		VectorMA( source, fraction, delta, nextSeg.pos );
 
@@ -548,6 +528,20 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 
 		curSeg = nextSeg;
 		segs_drawn++;
+
+		if( FBitSet( flags, FBEAM_SHADEIN ) && FBitSet( flags, FBEAM_SHADEOUT ))
+		{
+			if( fraction < 0.5f ) brightness = fraction;
+			else brightness = ( 1.0f - fraction );
+		}
+		else if( FBitSet( flags, FBEAM_SHADEIN ))
+		{
+			brightness = fraction;
+		}
+		else if( FBitSet( flags, FBEAM_SHADEOUT ))
+		{
+			brightness = 1.0f - fraction;
+		}
 
  		if( segs_drawn == total_segs )
 		{
@@ -1377,7 +1371,7 @@ void CL_AddCustomBeam( cl_entity_t *pEnvBeam )
 {
 	if( tr.draw_list->num_beam_entities >= MAX_VISIBLE_PACKET )
 	{
-		MsgDev( D_ERROR, "Too many custom beams %d!\n", tr.draw_list->num_beam_entities );
+		Con_Printf( S_ERROR "Too many beams %d!\n", tr.draw_list->num_beam_entities );
 		return;
 	}
 
@@ -1492,7 +1486,7 @@ void CL_DrawBeams( int fTrans )
 	BEAM	*pPrev = NULL;
 	int	i, flags;
 
-	if( !cl_draw_beams->value )
+	if( !CVAR_TO_BOOL( cl_draw_beams ))
 		return;
 
 	pglShadeModel( GL_SMOOTH );
@@ -1871,7 +1865,6 @@ void CL_ParseViewBeam( sizebuf_t *msg, int beamType )
 		R_BeamEnts( startEnt, endEnt, modelIndex, life, width, noise, a, speed, startFrame, frameRate, r, g, b );
 		break;
 	case TE_BEAM:
-		MsgDev( D_ERROR, "TE_BEAM is obsolete\n" );
 		break;
 	case TE_BEAMSPRITE:
 		start[0] = MSG_ReadCoord( msg );
@@ -1934,7 +1927,6 @@ void CL_ParseViewBeam( sizebuf_t *msg, int beamType )
 		R_BeamRing( startEnt, endEnt, modelIndex, life, width, noise, a, speed, startFrame, frameRate, r, g, b );
 		break;
 	case TE_BEAMHOSE:
-		MsgDev( D_ERROR, "TE_BEAMHOSE is obsolete\n" );
 		break;
 	case TE_KILLBEAM:
 		startEnt = MSG_ReadShort( msg );

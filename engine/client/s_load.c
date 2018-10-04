@@ -44,7 +44,7 @@ void S_SoundList_f( void )
 
 	for( i = 0, sfx = s_knownSfx; i < s_numSfx; i++, sfx++ )
 	{
-		if( !sfx->servercount )
+		if( !sfx->name[0] )
 			continue;
 
 		sc = sfx->cache;
@@ -54,7 +54,9 @@ void S_SoundList_f( void )
 
 			if( sc->loopStart >= 0 ) Con_Printf( "L" );
 			else Con_Printf( " " );
-			Con_Printf( " (%2db) %s : sound/%s\n", sc->width * 8, Q_memprint( sc->size ), sfx->name );
+			if( sfx->name[0] == '*' )
+				Con_Printf( " (%2db) %s : %s\n", sc->width * 8, Q_memprint( sc->size ), sfx->name );
+			else Con_Printf( " (%2db) %s : %s%s\n", sc->width * 8, Q_memprint( sc->size ), DEFAULT_SOUNDPATH, sfx->name );
 			totalSfx++;
 		}
 	}
@@ -127,16 +129,21 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	wavdata_t	*sc = NULL;
 
 	if( !sfx ) return NULL;
-	if( sfx->cache ) return sfx->cache; // see if still in memory
 
-	if( Q_stricmp( sfx->name, "*default" ))
+	// see if still in memory
+	if( sfx->cache )
+		return sfx->cache;
+
+	if( !COM_CheckString( sfx->name ))
 	{
-		// load it from disk
-		if( sfx->name[0] == '*' )
-			sc = FS_LoadSound( sfx->name + 1, NULL, 0 );
-		else sc = FS_LoadSound( sfx->name, NULL, 0 );
+		// debug
+		Con_Printf( "S_LoadSound: sfx %d has NULL name\n", sfx - s_knownSfx );
+		return NULL;
 	}
 
+	// load it from disk
+	if( Q_stricmp( sfx->name, "*default" ))
+		sc = FS_LoadSound( sfx->name, NULL, 0 );
 	if( !sc ) sc = S_CreateDefaultSound();
 
 	if( sc->rate < SOUND_11k ) // some bad sounds
@@ -169,11 +176,8 @@ sfx_t *S_FindName( const char *pname, int *pfInCache )
 	if( !COM_CheckString( pname ) || !dma.initialized )
 		return NULL;
 
-	if( Q_strlen( pname ) >= MAX_STRING )
-	{
-		MsgDev( D_ERROR, "S_FindSound: sound name too long: %s", pname );
+	if( Q_strlen( pname ) >= sizeof( sfx->name ))
 		return NULL;
-	}
 
 	Q_strncpy( name, pname, sizeof( name ));
 	COM_FixSlashes( name );
@@ -202,10 +206,7 @@ sfx_t *S_FindName( const char *pname, int *pfInCache )
 	if( i == s_numSfx )
 	{
 		if( s_numSfx == MAX_SFX )
-		{
-			MsgDev( D_ERROR, "S_FindName: MAX_SFX limit exceeded\n" );
 			return NULL;
-		}
 		s_numSfx++;
 	}
 	
@@ -233,7 +234,8 @@ void S_FreeSound( sfx_t *sfx )
 	sfx_t	*hashSfx;
 	sfx_t	**prev;
 
-	if( !sfx || !sfx->name[0] ) return;
+	if( !sfx || !sfx->name[0] )
+		return;
 
 	// de-link it from the hash tree
 	prev = &s_sfxHashList[sfx->hashValue];
@@ -251,7 +253,8 @@ void S_FreeSound( sfx_t *sfx )
 		prev = &hashSfx->hashNext;
 	}
 
-	if( sfx->cache ) FS_FreeSound( sfx->cache );
+	if( sfx->cache )
+		FS_FreeSound( sfx->cache );
 	memset( sfx, 0, sizeof( *sfx ));
 }
 
@@ -266,11 +269,6 @@ void S_BeginRegistration( void )
 	int	i;
 
 	s_registration_sequence++;
-	s_registering = true;
-
-	// create unused 0-entry
-	S_RegisterSound( "*default" );
-
 	snd_ambient = false;
 
 	// check for automatic ambient sounds
@@ -279,11 +277,11 @@ void S_BeginRegistration( void )
 		if( !GI->ambientsound[i][0] )
 			continue;	// empty slot
 
-		if( !ambient_sfx[i] )
-			MsgDev( D_NOTE, "Loading ambient[%i]: ^2%s^7\n", i, GI->ambientsound[i] );
 		ambient_sfx[i] = S_RegisterSound( GI->ambientsound[i] );
 		if( ambient_sfx[i] ) snd_ambient = true; // allow auto-ambients
 	}
+
+	s_registering = true;
 }
 
 /*
@@ -303,7 +301,9 @@ void S_EndRegistration( void )
 	// free any sounds not from this registration sequence
 	for( i = 0, sfx = s_knownSfx; i < s_numSfx; i++, sfx++ )
 	{
-		if( !sfx->name[0] ) continue;
+		if( !sfx->name[0] || sfx->name[0] == '*' )
+			continue; // don't release default sound
+
 		if( sfx->servercount != s_registration_sequence )
 			S_FreeSound( sfx ); // don't need this sound
 	}
@@ -311,7 +311,8 @@ void S_EndRegistration( void )
 	// load everything in
 	for( i = 0, sfx = s_knownSfx; i < s_numSfx; i++, sfx++ )
 	{
-		if( !sfx->name[0] ) continue;
+		if( !sfx->name[0] )
+			continue;
 		S_LoadSound( sfx );
 	}
 	s_registering = false;
@@ -351,21 +352,33 @@ sound_t S_RegisterSound( const char *name )
 
 sfx_t *S_GetSfxByHandle( sound_t handle )
 {
-	if( handle == -1 || !dma.initialized )
+	if( !dma.initialized )
 		return NULL;
 
+	// create new sfx
 	if( handle == SENTENCE_INDEX )
-	{
-		// create new sfx
 		return S_FindName( s_sentenceImmediateName, NULL );
-	}
 
 	if( handle < 0 || handle >= s_numSfx )
-	{
-		MsgDev( D_ERROR, "S_GetSfxByHandle: handle %i out of range (%i)\n", handle, s_numSfx );
 		return NULL;
-	}
+
 	return &s_knownSfx[handle];
+}
+
+/*
+=================
+S_InitSounds
+=================
+*/
+void S_InitSounds( void )
+{
+	// create unused 0-entry
+	Q_strncpy( s_knownSfx->name, "*default", MAX_QPATH );
+	s_knownSfx->hashValue = COM_HashKey( s_knownSfx->name, MAX_SFX_HASH );
+	s_knownSfx->hashNext = s_sfxHashList[s_knownSfx->hashValue];
+	s_sfxHashList[s_knownSfx->hashValue] = s_knownSfx;
+	s_knownSfx->cache = S_CreateDefaultSound();
+	s_numSfx = 1;
 }
 
 /*

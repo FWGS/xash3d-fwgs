@@ -286,7 +286,7 @@ qboolean V_PreRender( void )
 	{
 		if(( host.realtime - cls.disable_screen ) > cl_timeout->value )
 		{
-			MsgDev( D_ERROR, "V_PreRender: loading plaque timed out\n" );
+			Con_Reportf( "V_PreRender: loading plaque timed out\n" );
 			cls.disable_screen = 0.0f;
 		}
 		return false;

@@ -140,10 +140,8 @@ typedef struct
 	int		num_hull_models;
 
 	// visibility info
-	byte		*visdata;		// uncompressed visdata
 	size_t		visbytes;		// cluster size
 	size_t		fatbytes;		// fatpvs size
-	int		visclusters;	// num visclusters
 
 	// world bounds
 	vec3_t		mins;		// real accuracy world bounds

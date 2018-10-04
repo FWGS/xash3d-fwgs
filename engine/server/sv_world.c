@@ -28,7 +28,8 @@ typedef struct moveclip_s
 	edict_t		*passedict;
 	trace_t		trace;
 	int		type;		// move type
-	int		flags;		// trace flags
+	qboolean		ignoretrans;
+	qboolean		monsterclip;
 } moveclip_t;
 
 /*
@@ -820,18 +821,18 @@ returns true if the entity is in solid currently
 */
 qboolean SV_TestEntityPosition( edict_t *ent, edict_t *blocker )
 {
-	trace_t	trace;
 	qboolean	monsterClip = FBitSet( ent->v.flags, FL_MONSTERCLIP ) ? true : false;
+	trace_t	trace;
 
-	if( ent->v.flags & (FL_CLIENT|FL_FAKECLIENT))
+	if( FBitSet( ent->v.flags, FL_CLIENT|FL_FAKECLIENT ))
 	{
 		// to avoid falling through tracktrain update client mins\maxs here
-		if( ent->v.flags & FL_DUCKING ) 
+		if( FBitSet( ent->v.flags, FL_DUCKING )) 
 			SV_SetMinMaxSize( ent, svgame.pmove->player_mins[1], svgame.pmove->player_maxs[1], true );
 		else SV_SetMinMaxSize( ent, svgame.pmove->player_mins[0], svgame.pmove->player_maxs[0], true );
 	}
 
-	trace = SV_Move( ent->v.origin, ent->v.mins, ent->v.maxs, ent->v.origin, MOVE_NORMAL|FMOVE_SIMPLEBOX, ent, monsterClip );
+	trace = SV_Move( ent->v.origin, ent->v.mins, ent->v.maxs, ent->v.origin, MOVE_NORMAL, ent, monsterClip );
 
 	if( SV_IsValidEdict( blocker ) && SV_IsValidEdict( trace.ent ))
 	{
@@ -839,6 +840,7 @@ qboolean SV_TestEntityPosition( edict_t *ent, edict_t *blocker )
 			return trace.startsolid;
 		return false;
 	}
+
 	return trace.startsolid;
 }
 
@@ -1159,18 +1161,15 @@ static qboolean SV_ClipToEntity( edict_t *touch, moveclip_t *clip )
 	if( svgame.dllFuncs2.pfnShouldCollide )
 	{
 		if( !svgame.dllFuncs2.pfnShouldCollide( touch, clip->passedict ))
-			return true; // originally this was 'return' but is completely wrong!
+			return true;
 	}
 
 	// monsterclip filter (solid custom is a static or dynamic bodies)
 	if( touch->v.solid == SOLID_BSP || touch->v.solid == SOLID_CUSTOM )
 	{
-		if( FBitSet( touch->v.flags, FL_MONSTERCLIP ))
-		{
-			// func_monsterclip works only with monsters that have same flag!
-			if( !FBitSet( clip->flags, FMOVE_MONSTERCLIP ))
-				return true;
-		}
+		// func_monsterclip works only with monsters that have same flag!
+		if( FBitSet( touch->v.flags, FL_MONSTERCLIP ) && !clip->monsterclip )
+			return true;
 	}
 	else
 	{
@@ -1181,7 +1180,7 @@ static qboolean SV_ClipToEntity( edict_t *touch, moveclip_t *clip )
 
 	mod = SV_ModelHandle( touch->v.modelindex );
 
-	if( mod && mod->type == mod_brush && FBitSet( clip->flags, FMOVE_IGNORE_GLASS ))
+	if( mod && mod->type == mod_brush && clip->ignoretrans )
 	{
 		// we ignore brushes with rendermode != kRenderNormal and without FL_WORLDBRUSH set
 		if( touch->v.rendermode != kRenderNormal && !FBitSet( touch->v.flags, FL_WORLDBRUSH ))
@@ -1226,7 +1225,7 @@ static qboolean SV_ClipToEntity( edict_t *touch, moveclip_t *clip )
 
 	if( touch->v.solid == SOLID_CUSTOM )
 		SV_CustomClipMoveToEntity( touch, clip->start, clip->mins, clip->maxs, clip->end, &trace );
-	else if( touch->v.flags & FL_MONSTER )
+	else if( FBitSet( touch->v.flags, FL_MONSTER ))
 		SV_ClipMoveToEntity( touch, clip->start, clip->mins2, clip->maxs2, clip->end, &trace );
 	else SV_ClipMoveToEntity( touch, clip->start, clip->mins, clip->maxs, clip->end, &trace );
 
@@ -1363,13 +1362,14 @@ trace_t SV_Move( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end,
 		clip.start = start;
 		clip.end = trace_endpos;
 		clip.type = (type & 0xFF);
-		clip.flags = (type & 0xFF00);
+		clip.ignoretrans = type >> 8;
+		clip.monsterclip = false;
 		clip.passedict = (e) ? e : EDICT_NUM( 0 );
 		clip.mins = mins;
 		clip.maxs = maxs;
 
 		if( monsterclip && !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
-			SetBits( clip.flags, FMOVE_MONSTERCLIP );
+			clip.monsterclip = true;
 
 		if( clip.type == MOVE_MISSILE )
 		{
@@ -1422,7 +1422,8 @@ trace_t SV_MoveNoEnts( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_
 		clip.start = start;
 		clip.end = trace_endpos;
 		clip.type = (type & 0xFF);
-		clip.flags = (type & 0xFF00);
+		clip.ignoretrans = type >> 8;
+		clip.monsterclip = false;
 		clip.passedict = (e) ? e : EDICT_NUM( 0 );
 		clip.mins = mins;
 		clip.maxs = maxs;

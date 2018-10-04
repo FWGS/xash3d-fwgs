@@ -273,9 +273,8 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 	medge_t		*pedges, *r_pedge;
 	mextrasurf_t	*info = fa->info;
 	float		sample_size;
-	int		vertpage;
 	texture_t		*tex;
-	gltexture_t	*glt;
+	gl_texture_t	*glt;
 	float		*vec;
 	float		s, t;
 	glpoly_t		*poly;
@@ -299,7 +298,6 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 	// reconstruct the polygon
 	pedges = mod->edges;
 	lnumverts = fa->numedges;
-	vertpage = 0;
 
 	// detach if already created, reconstruct again
 	poly = fa->polys;
@@ -341,13 +339,13 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 		s = DotProduct( vec, info->lmvecs[0] ) + info->lmvecs[0][3];
 		s -= info->lightmapmins[0];
 		s += fa->light_s * sample_size;
-		s += sample_size / 2.0;
+		s += sample_size * 0.5f;
 		s /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->width;
 
 		t = DotProduct( vec, info->lmvecs[1] ) + info->lmvecs[1][3];
 		t -= info->lightmapmins[1];
 		t += fa->light_t * sample_size;
-		t += sample_size / 2.0;
+		t += sample_size * 0.5f;
 		t /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->height;
 
 		poly->verts[i][5] = s;
@@ -355,7 +353,7 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 	}
 
 	// remove co-linear points - Ed
-	if( !gl_keeptjunctions->value && !( fa->flags & SURF_UNDERWATER ))
+	if( !CVAR_TO_BOOL( gl_keeptjunctions ) && !FBitSet( fa->flags, SURF_UNDERWATER ))
 	{
 		for( i = 0; i < lnumverts; i++ )
 		{
@@ -439,17 +437,8 @@ texture_t *R_TextureAnimation( msurface_t *s )
 	{
 		base = base->anim_next;
 
-		if( !base )
-		{
-			MsgDev( D_ERROR, "R_TextureAnimation: broken loop\n" );
+		if( !base || ++count > MOD_FRAMES )
 			return s->texinfo->texture;
-		}
-
-		if( ++count > MOD_FRAMES )
-		{
-			MsgDev( D_ERROR, "R_TextureAnimation: infinite loop\n" );
-			return s->texinfo->texture;
-		}
 	}
 
 	return base;
@@ -645,7 +634,7 @@ static void LM_UploadBlock( qboolean dynamic )
 		r_lightmap.size = r_lightmap.width * r_lightmap.height * 4;
 		r_lightmap.flags = IMAGE_HAS_COLOR;
 		r_lightmap.buffer = gl_lms.lightmap_buffer;
-		tr.lightmapTextures[i] = GL_LoadTextureInternal( lmName, &r_lightmap, TF_FONT|TF_ATLAS_PAGE, false );
+		tr.lightmapTextures[i] = GL_LoadTextureInternal( lmName, &r_lightmap, TF_FONT|TF_ATLAS_PAGE );
 
 		if( ++gl_lms.current_lightmap_texture == MAX_LIGHTMAPS )
 			Host_Error( "AllocBlock: full\n" );
@@ -703,9 +692,9 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 	{
 		for( s = 0; s < smax; s++ )
 		{
-			dest[0] = min((bl[0] >> 7), 255 );
-			dest[1] = min((bl[1] >> 7), 255 );
-			dest[2] = min((bl[2] >> 7), 255 );
+			dest[0] = Q_min((bl[0] >> 7), 255 );
+			dest[1] = Q_min((bl[1] >> 7), 255 );
+			dest[2] = Q_min((bl[2] >> 7), 255 );
 			dest[3] = 255;
 
 			bl += 3;
@@ -734,7 +723,7 @@ void DrawGLPoly( glpoly_t *p, float xScale, float yScale )
 
 	if( p->flags & SURF_CONVEYOR )
 	{
-		gltexture_t	*texture;
+		gl_texture_t	*texture;
 		float		flConveyorSpeed;
 		float		flRate, flAngle;
 
@@ -824,7 +813,7 @@ void R_BlendLightmaps( void )
 	msurface_t	*surf, *newsurf = NULL;
 	int		i;
 
-	if( r_fullbright->value || !cl.worldmodel->lightdata )
+	if( CVAR_TO_BOOL( r_fullbright ) || !cl.worldmodel->lightdata )
 		return;
 
 	if( RI.currententity )
@@ -845,7 +834,7 @@ void R_BlendLightmaps( void )
 
 	GL_SetupFogColorForSurfaces ();
 
-	if( !r_lightmap->value )
+	if( !CVAR_TO_BOOL( r_lightmap ))
 		pglEnable( GL_BLEND );
 	else pglDisable( GL_BLEND );
 
@@ -872,7 +861,7 @@ void R_BlendLightmaps( void )
 	}
 
 	// render dynamic lightmaps
-	if( r_dynamic->value )
+	if( CVAR_TO_BOOL( r_dynamic ))
 	{
 		LM_InitBlock();
 
@@ -1005,7 +994,7 @@ R_RenderDetails
 */
 void R_RenderDetails( void )
 {
-	gltexture_t	*glt;
+	gl_texture_t	*glt;
 	mextrasurf_t	*es, *p;
 	msurface_t	*fa;
 	int		i;
@@ -1082,7 +1071,7 @@ void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 		draw_fullbrights = true;
 	}
 
-	if( r_detailtextures->value )
+	if( CVAR_TO_BOOL( r_detailtextures ))
 	{
 		if( pglIsEnabled( GL_FOG ))
 		{
@@ -1125,7 +1114,7 @@ void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 		DrawSurfaceDecals( fa, true, (cull_type == CULL_BACKSIDE));
 	}
 
-	if( fa->flags & SURF_DRAWTILED )
+	if( FBitSet( fa->flags, SURF_DRAWTILED ))
 		return; // no lightmaps anyway
 
 	// check for lightmap modification
@@ -1543,7 +1532,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	}
 
 	// sort faces if needs
-	if( !FBitSet( clmodel->flags, MODEL_LIQUID ) && e->curstate.rendermode == kRenderTransTexture && !gl_nosort->value )
+	if( !FBitSet( clmodel->flags, MODEL_LIQUID ) && e->curstate.rendermode == kRenderTransTexture && !CVAR_TO_BOOL( gl_nosort ))
 		qsort( world.draw_surfaces, num_sorted, sizeof( sortedface_t ), R_SurfaceCompare );
 
 	// draw sorted translucent surfaces
@@ -2180,9 +2169,6 @@ void GL_BuildLightmaps( void )
 	// now gamma and brightness are valid
 	ClearBits( vid_brightness->flags, FCVAR_CHANGED );
 	ClearBits( vid_gamma->flags, FCVAR_CHANGED );
-
-	if( !gl_keeptjunctions->value )
-		MsgDev( D_INFO, "Eliminate %i vertexes\n", nColinElim );
 }
 
 void GL_InitRandomTable( void )

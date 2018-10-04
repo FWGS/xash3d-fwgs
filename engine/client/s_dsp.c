@@ -33,7 +33,7 @@ GNU General Public License for more details.
 
 #define MAXDLY		(STEREODLY + 1)
 #define MAXLP		10
-#define MAXPRESETS		ARRAYSIZE( rgsxpre )
+#define MAXPRESETS		29
 
 typedef struct sx_preset_s
 {
@@ -79,7 +79,7 @@ typedef struct dly_s
 	int	*lpdelayline;
 } dly_t;
 
-const sx_preset_t rgsxpre[] =
+const sx_preset_t rgsxpre[MAXPRESETS] =
 {
 //          -------reverb--------  -------delay--------
 // lp  mod  size   refl   rvblp  delay  feedback  dlylp  left
@@ -193,7 +193,7 @@ void SX_Init( void )
 	sxmod1cur = sxmod1 = 350 * ( idsp_dma_speed / SOUND_11k );
 	sxmod2cur = sxmod2 = 450 * ( idsp_dma_speed / SOUND_11k );
 
-	dsp_off          = Cvar_Get( "dsp_off",        "0",  0, "disable DSP processing" );
+	dsp_off          = Cvar_Get( "dsp_off",        "0",  FCVAR_ARCHIVE, "disable DSP processing" );
 	roomwater_type   = Cvar_Get( "waterroom_type", "14", 0, "water room type" );
 	room_type        = Cvar_Get( "room_type",      "0",  0, "current room type preset" );
 
@@ -609,15 +609,14 @@ int RVB_DoReverbForOneDly( dly_t *dly, const int vlr, const portable_samplepair_
 	if( dly->xfade || delay || samplepair->left || samplepair->right )
 	{
 		// modulate delay rate
-		if( !dly->mod )
+		if( !dly->xfade && !dly->modcur && dly->mod )
 		{
 			dly->idelayoutputxf = dly->idelayoutput + ((COM_RandomLong( 0, 255 ) * delay) >> 9 );
 
-			if( dly->idelayoutputxf >= dly->cdelaysamplesmax )
-				dly->idelayoutputxf -= dly->cdelaysamplesmax;
-
-			dly->xfade = REVERB_XFADE;
+			//dly->xfade = 32;
 		}
+
+		dly->idelayoutputxf %= dly->cdelaysamplesmax;
 
 		if( dly->xfade )
 		{
@@ -818,6 +817,9 @@ void CheckNewDspPresets( void )
 	if( s_listener.waterlevel > 2 )
 		idsp_room = roomwater_type->value;
 	else idsp_room = room_type->value;
+
+	// don't pass invalid presets
+	idsp_room = bound( 0, idsp_room, MAXPRESETS - 1 );
 
 	if( FBitSet( hisound->flags, FCVAR_CHANGED ))
 	{

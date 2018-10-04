@@ -74,8 +74,8 @@ realcheck:
 	stop[2] = start[2] - 2.0f * svgame.movevars.stepsize;
 
 	if( iMode == WALKMOVE_WORLDONLY )
-		trace = SV_MoveNoEnts( start, vec3_origin, vec3_origin, stop, MOVE_NORMAL, ent );
-	else trace = SV_Move( start, vec3_origin, vec3_origin, stop, MOVE_NORMAL, ent, monsterClip );
+		trace = SV_MoveNoEnts( start, vec3_origin, vec3_origin, stop, MOVE_NOMONSTERS, ent );
+	else trace = SV_Move( start, vec3_origin, vec3_origin, stop, MOVE_NOMONSTERS, ent, monsterClip );
 
 	if( trace.fraction == 1.0f )
 		return false;
@@ -91,8 +91,8 @@ realcheck:
 			start[1] = stop[1] = y ? maxs[1] : mins[1];
 
 			if( iMode == WALKMOVE_WORLDONLY )
-				trace = SV_MoveNoEnts( start, vec3_origin, vec3_origin, stop, MOVE_NORMAL, ent );
-			else trace = SV_Move( start, vec3_origin, vec3_origin, stop, MOVE_NORMAL, ent, monsterClip );
+				trace = SV_MoveNoEnts( start, vec3_origin, vec3_origin, stop, MOVE_NOMONSTERS, ent );
+			else trace = SV_Move( start, vec3_origin, vec3_origin, stop, MOVE_NOMONSTERS, ent, monsterClip );
 
 			if( trace.fraction != 1.0f && trace.endpos[2] > bottom )
 				bottom = trace.endpos[2];

@@ -99,7 +99,7 @@ Dupliacte texture with remap pixels
 */
 void CL_DuplicateTexture( mstudiotexture_t *ptexture, int topcolor, int bottomcolor )
 {
-	gltexture_t	*glt;
+	gl_texture_t	*glt;
 	texture_t		*tx = NULL;
 	char		texname[128];
 	int		i, size, index;
@@ -141,7 +141,7 @@ Update texture top and bottom colors
 */
 void CL_UpdateStudioTexture( mstudiotexture_t *ptexture, int topcolor, int bottomcolor )
 {
-	gltexture_t	*glt;
+	gl_texture_t	*glt;
 	rgbdata_t		*pic;
 	texture_t		*tx = NULL;
 	char		texname[128], name[128], mdlname[128];
@@ -179,11 +179,11 @@ void CL_UpdateStudioTexture( mstudiotexture_t *ptexture, int topcolor, int botto
 	pic = FS_LoadImage( glt->name, raw, size );
 	if( !pic )
 	{
-		MsgDev( D_ERROR, "Couldn't update texture %s\n", glt->name );
+		Con_DPrintf( S_ERROR "Couldn't update texture %s\n", glt->name );
 		return;
 	}
 
-	index = GL_LoadTextureInternal( glt->name, pic, 0, true );
+	index = GL_UpdateTextureInternal( glt->name, pic, 0 );
 	FS_FreeImage( pic );
 
 	// restore original palette
@@ -224,7 +224,7 @@ void CL_UpdateAliasTexture( unsigned short *texture, int skinnum, int topcolor, 
 		skin.buffer = (byte *)(tx + 1);
 		skin.palette = skin.buffer + skin.size;
 		pic = FS_CopyImage( &skin ); // because GL_LoadTextureInternal will freed a rgbdata_t at end
-		*texture = GL_LoadTextureInternal( texname, pic, TF_KEEP_SOURCE, false );
+		*texture = GL_LoadTextureInternal( texname, pic, TF_KEEP_SOURCE );
 	}
 
 	// and now we can remap with internal routines

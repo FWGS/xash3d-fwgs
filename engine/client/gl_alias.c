@@ -487,7 +487,7 @@ void *Mod_LoadSingleSkin( daliasskintype_t *pskintype, int skinnum, int size )
 	m_pAliasHeader->gl_texturenum[skinnum][0] =
 	m_pAliasHeader->gl_texturenum[skinnum][1] =
 	m_pAliasHeader->gl_texturenum[skinnum][2] =
-	m_pAliasHeader->gl_texturenum[skinnum][3] = GL_LoadTextureInternal( name, pic, 0, false );
+	m_pAliasHeader->gl_texturenum[skinnum][3] = GL_LoadTextureInternal( name, pic, 0 );
 	FS_FreeImage( pic );
 
 	if( R_GetTexture( m_pAliasHeader->gl_texturenum[skinnum][0] )->flags & TF_HAS_LUMA )
@@ -496,7 +496,7 @@ void *Mod_LoadSingleSkin( daliasskintype_t *pskintype, int skinnum, int size )
 		m_pAliasHeader->fb_texturenum[skinnum][0] =
 		m_pAliasHeader->fb_texturenum[skinnum][1] =
 		m_pAliasHeader->fb_texturenum[skinnum][2] =
-		m_pAliasHeader->fb_texturenum[skinnum][3] = GL_LoadTextureInternal( lumaname, pic, TF_MAKELUMA, false );
+		m_pAliasHeader->fb_texturenum[skinnum][3] = GL_LoadTextureInternal( lumaname, pic, TF_MAKELUMA );
 		FS_FreeImage( pic );
 	}
 
@@ -521,14 +521,14 @@ void *Mod_LoadGroupSkin( daliasskintype_t *pskintype, int skinnum, int size )
 	{
 		Q_snprintf( name, sizeof( name ), "%s_%i_%i", loadmodel->name, skinnum, i );
 		pic = Mod_CreateSkinData( loadmodel, (byte *)(pskintype), m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
-		m_pAliasHeader->gl_texturenum[skinnum][i & 3] = GL_LoadTextureInternal( name, pic, 0, false );
+		m_pAliasHeader->gl_texturenum[skinnum][i & 3] = GL_LoadTextureInternal( name, pic, 0 );
 		FS_FreeImage( pic );
 
 		if( R_GetTexture( m_pAliasHeader->gl_texturenum[skinnum][i & 3] )->flags & TF_HAS_LUMA )
 		{
 			Q_snprintf( lumaname, sizeof( lumaname ), "%s_%i_%i_luma", loadmodel->name, skinnum, i );
 			pic = Mod_CreateSkinData( NULL, (byte *)(pskintype), m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
-			m_pAliasHeader->fb_texturenum[skinnum][i & 3] = GL_LoadTextureInternal( lumaname, pic, TF_MAKELUMA, false );
+			m_pAliasHeader->fb_texturenum[skinnum][i & 3] = GL_LoadTextureInternal( lumaname, pic, TF_MAKELUMA );
 			FS_FreeImage( pic );
 		}
 

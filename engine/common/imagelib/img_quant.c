@@ -245,15 +245,14 @@ int inxsearch( int r, int g, int b )
 // Search for biased BGR values
 int contest( int r, int g, int b )
 {
-	// finds closest neuron (min dist) and updates freq
-	// finds best neuron (min dist-bias) and returns position
-	// for frequently chosen neurons, freq[i] is high and bias[i] is negative
-	// bias[i] = gamma * ((1 / netsize) - freq[i])
-
 	register int	*p, *f, *n;
 	register int	i, dist, a, biasdist, betafreq;
 	int		bestpos, bestbiaspos, bestd, bestbiasd;
 
+	// finds closest neuron (min dist) and updates freq
+	// finds best neuron (min dist-bias) and returns position
+	// for frequently chosen neurons, freq[i] is high and bias[i] is negative
+	// bias[i] = gamma * ((1 / netsize) - freq[i])
 	bestd = ~(1<<31);
 	bestbiasd = bestd;
 	bestpos = -1;

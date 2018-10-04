@@ -248,7 +248,8 @@ void SV_MapBackground_f( void )
 
 	if( SV_Active() && !sv.background )
 	{
-		MsgDev( D_ERROR, "can't set background map while game is active\n" );
+		if( GameState->nextstate == STATE_RUNFRAME )
+			Con_Printf( S_ERROR "can't set background map while game is active\n" );
 		return;
 	}
 

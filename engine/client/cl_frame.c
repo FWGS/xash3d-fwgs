@@ -270,8 +270,8 @@ void CL_ProcessEntityUpdate( cl_entity_t *ent )
 	ent->model = CL_ModelHandle( ent->curstate.modelindex );
 	ent->index = ent->curstate.number;
 
-	// g-cont. make sure what it's no broke XashXT physics
-	COM_NormalizeAngles( ent->curstate.angles );
+	if( FBitSet( ent->curstate.entityType, ENTITY_NORMAL ))
+		COM_NormalizeAngles( ent->curstate.angles );
 
 	parametric = CL_ParametricMove( ent );
 
@@ -407,11 +407,8 @@ int CL_InterpolateModel( cl_entity_t *e )
 	VectorCopy( e->curstate.origin, e->origin );
 	VectorCopy( e->curstate.angles, e->angles );
 
-	if( cls.timedemo || !e->model )
+	if( cls.timedemo || !e->model || cl.maxclients <= 1 )
 		return 1;
-
-	if( fabs( cl_serverframetime() - cl_clientframetime()) < 0.0001f )
-		return 1;	// interpolation disabled
 
 	if( e->model->type == mod_brush && !cl_bmodelinterp->value )
 		return 1;
@@ -419,7 +416,6 @@ int CL_InterpolateModel( cl_entity_t *e )
 	if( cl.local.moving && cl.local.onground == e->index )
 		return 1;
 
-//	t = cl.time - cl_serverframetime();
 	t = cl.time - cl_interp->value;
 	CL_FindInterpolationUpdates( e, t, &ph0, &ph1 );
 
@@ -635,7 +631,7 @@ void CL_DeltaEntity( sizebuf_t *msg, frame_t *frame, int newnum, entity_state_t 
 
 	if(( newnum < 0 ) || ( newnum >= clgame.maxEntities ))
 	{
-		MsgDev( D_ERROR, "CL_DeltaEntity: invalid newnum: %d\n", newnum );
+		Con_DPrintf( S_ERROR "CL_DeltaEntity: invalid newnum: %d\n", newnum );
 		if( has_update )
 			MSG_ReadDeltaEntity( msg, old, state, newnum, delta_type, cl.mtime[0] );
 		return;
@@ -734,7 +730,6 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 
 		if(( cls.next_client_entities - oldframe->first_entity ) > ( cls.num_client_entities - NUM_PACKET_ENTITIES ))
 		{
-			MsgDev( D_NOTE, "CL_ParsePacketEntities: delta frame is too old (flush)\n");
 			Con_NPrintf( 2, "^3Warning:^1 delta frame is too old^7\n" );
 			CL_FlushEntityPacket( msg );
 			return playerbytes;
@@ -847,7 +842,7 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 	}
 
 	if( newframe->num_entities != count && newframe->num_entities != 0 )
-		MsgDev( D_WARN, "CL_Parse%sPacketEntities: (%i should be %i)\n", delta ? "Delta" : "", newframe->num_entities, count );
+		Con_Reportf( S_WARN "CL_Parse%sPacketEntities: (%i should be %i)\n", delta ? "Delta" : "", newframe->num_entities, count );
 
 	if( !newframe->valid )
 		return playerbytes; // frame is not valid but message was parsed
@@ -943,7 +938,7 @@ void CL_LinkCustomEntity( cl_entity_t *ent, entity_state_t *state )
 	ent->curstate.movetype = state->modelindex; // !!!
 
 	if( ent->model->type != mod_sprite )
-		MsgDev( D_WARN, "bad model on beam ( %s )\n", ent->model->name );
+		Con_Reportf( S_WARN "bad model on beam ( %s )\n", ent->model->name );
 
 	ent->latched.prevsequence = ent->curstate.sequence;
 	VectorCopy( ent->origin, ent->latched.prevorigin );
@@ -1042,6 +1037,7 @@ void CL_LinkPacketEntities( frame_t *frame )
 	cl_entity_t	*ent;
 	entity_state_t	*state;
 	qboolean		parametric;
+	qboolean		interpolate;
 	int		i;
 
 	for( i = 0; i < frame->num_entities; i++ )
@@ -1060,15 +1056,14 @@ void CL_LinkPacketEntities( frame_t *frame )
 
 		if( !ent )
 		{
-			MsgDev( D_ERROR, "CL_LinkPacketEntity: bad entity %i\n", state->number );
+			Con_Reportf( S_ERROR "CL_LinkPacketEntity: bad entity %i\n", state->number );
 			continue;
 		}
 
-		ent->curstate = *state;
-
-		// XASH SPECIFIC
-		if( ent->curstate.rendermode == kRenderNormal && ent->curstate.renderfx == kRenderFxNone )
-			ent->curstate.renderamt = 255.0f;
+		// animtime must keep an actual
+		ent->curstate.animtime = state->animtime;
+		ent->curstate.frame = state->frame;
+		interpolate = false;
 
 		if( !ent->model ) continue;
 
@@ -1096,7 +1091,9 @@ void CL_LinkPacketEntities( frame_t *frame )
 #ifdef STUDIO_INTERPOLATION_FIX
 					if( ent->lastmove >= cl.time )
 						VectorCopy( ent->curstate.origin, ent->latched.prevorigin );
-					ent->curstate.movetype = MOVETYPE_STEP;
+					if( FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP ))
+						interpolate = true;
+					else ent->curstate.movetype = MOVETYPE_STEP;
 #else
 					if( ent->lastmove >= cl.time )
 					{
@@ -1149,7 +1146,7 @@ void CL_LinkPacketEntities( frame_t *frame )
 
 			if( ent->model->type == mod_studio )
 			{
-				if( ent->curstate.movetype == MOVETYPE_STEP && FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP )) 
+				if( interpolate && FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP )) 
 					R_StudioLerpMovement( ent, cl.time, ent->origin, ent->angles );
 			}
 		}
@@ -1166,6 +1163,10 @@ void CL_LinkPacketEntities( frame_t *frame )
 			if( !ent->curstate.rendercolor.r && !ent->curstate.rendercolor.g && !ent->curstate.rendercolor.b )
 				ent->curstate.rendercolor.r = ent->curstate.rendercolor.g = ent->curstate.rendercolor.b = 255;
 		}
+
+		// XASH SPECIFIC
+		if( ent->curstate.rendermode == kRenderNormal && ent->curstate.renderfx == kRenderFxNone )
+			ent->curstate.renderamt = 255.0f;
 
 		if( ent->curstate.aiment != 0 && ent->curstate.movetype != MOVETYPE_COMPOUND )
 			ent->curstate.movetype = MOVETYPE_FOLLOW;

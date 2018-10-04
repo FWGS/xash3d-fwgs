@@ -23,7 +23,7 @@ static char mond[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 int Q_buildnum( void )
 {
 // do not touch this! Only author of Xash3D can increase buildnumbers!
-#if 0 
+#if 1 
 	int m = 0, d = 0, y = 0;
 	static int b = 0;
 
@@ -48,7 +48,7 @@ int Q_buildnum( void )
 
 	return b;
 #else
-	return 4150;
+	return 4140;
 #endif
 }
 
@@ -139,3 +139,4 @@ const char *Q_buildcommit( void )
 	return "notset";
 #endif
 }
+
