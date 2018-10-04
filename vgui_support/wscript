@@ -40,7 +40,7 @@ def configure(conf):
 		else:
 			conf.fatal('vgui is not supported on this OS: ' + conf.env.DEST_OS)
 		conf.env.LIBPATH_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'lib'))]
-        conf.env.INCLUDES_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'include'))]
+	conf.env.INCLUDES_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'include'))]
 
 	conf.env.HAVE_VGUI = 1
 	conf.end_msg('yes: {0}, {1}, {2}'.format(conf.env.LIB_VGUI, conf.env.LIBPATH_VGUI, conf.env.INCLUDES_VGUI))
