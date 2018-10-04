@@ -2836,6 +2836,7 @@ void CL_Init( void )
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));
 
 	IN_TouchInit();
+	Con_LoadHistory();
 
 	if( !CL_LoadProgs( va( "%s/%s", GI->dll_path, SI.clientlib)))
 		Host_Error( "can't initialize %s: %s\n", SI.clientlib, COM_GetLibraryError() );

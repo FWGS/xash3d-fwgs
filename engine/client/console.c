@@ -1068,6 +1068,61 @@ int Con_DrawString( int x, int y, const char *string, rgba_t setColor )
 	return Con_DrawGenericString( x, y, string, setColor, false, -1 );
 }
 
+void Con_LoadHistory( void )
+{
+	const char *aFile = FS_LoadFile( "console_history.txt", NULL, true );
+	const char *pLine = aFile, *pFile = aFile;
+	int i;
+
+	if( !aFile )
+		return;
+
+	while( true )
+	{
+		if( !*pFile )
+				break;
+		if( *pFile == '\n')
+		{
+				int len = pFile - pLine + 1;
+				if( len > 255 ) len = 255;
+				Con_ClearField( &con.historyLines[con.nextHistoryLine] );
+				field_t *f = &con.historyLines[con.nextHistoryLine % CON_HISTORY];
+				f->widthInChars = con.linewidth;
+				f->cursor = len - 1;
+				Q_strncpy( f->buffer, pLine, len);
+				con.nextHistoryLine++;
+				pLine = pFile + 1;
+		}
+		pFile++;
+	}
+
+	for( i = con.nextHistoryLine; i < CON_HISTORY; i++ )
+	{
+		Con_ClearField( &con.historyLines[i] );
+		con.historyLines[i].widthInChars = con.linewidth;
+	}
+
+	con.historyLine = con.nextHistoryLine;
+
+}
+
+void Con_SaveHistory( void )
+{
+	int historyStart = con.nextHistoryLine - CON_HISTORY;
+	int i;
+	file_t *f;
+
+	if( historyStart < 0 )
+		historyStart = 0;
+
+	f = FS_Open("console_history.txt", "w", true );
+
+	for( i = historyStart; i < con.nextHistoryLine; i++ )
+		FS_Printf( f, "%s\n", con.historyLines[i % CON_HISTORY].buffer );
+
+	FS_Close(f);
+}
+
 /*
 ================
 Con_Init
@@ -1104,12 +1159,6 @@ void Con_Init( void )
 	Con_ClearField( &con.chat );
 	con.chat.widthInChars = con.linewidth;
 
-	for( i = 0; i < CON_HISTORY; i++ )
-	{
-		Con_ClearField( &con.historyLines[i] );
-		con.historyLines[i].widthInChars = con.linewidth;
-	}
-
 	Cmd_AddCommand( "toggleconsole", Con_ToggleConsole_f, "opens or closes the console" );
 	Cmd_AddCommand( "con_color", Con_SetColor_f, "set a custom console color" );
 	Cmd_AddCommand( "clear", Con_Clear_f, "clear console history" );
@@ -1138,6 +1187,7 @@ void Con_Shutdown( void )
 
 	con.buffer = NULL;
 	con.lines = NULL;
+	Con_SaveHistory();
 }
 
 /*
