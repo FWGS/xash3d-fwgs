@@ -74,12 +74,13 @@ enum
 
 typedef enum
 {
+	TF_COLORMAP	= 0,		// just for tabulate source
 	TF_NEAREST	= (1<<0),		// disable texfilter
 	TF_KEEP_SOURCE	= (1<<1),		// some images keep source
 	TF_NOFLIP_TGA	= (1<<2),		// Steam background completely ignore tga attribute 0x20
 	TF_EXPAND_SOURCE	= (1<<3),		// Don't keep source as 8-bit expand to RGBA
-	TF_TEXTURE_2D_ARRAY	= (1<<4),		// this is 2D texture array (multi-layers)
-	TF_TEXTURE_RECTANGLE= (1<<5),		// this is GL_TEXTURE_RECTANGLE
+// reserved
+	TF_RECTANGLE	= (1<<5),		// this is GL_TEXTURE_RECTANGLE
 	TF_CUBEMAP	= (1<<6),		// it's cubemap texture
 	TF_DEPTHMAP	= (1<<7),		// custom texture filter used
 	TF_QUAKEPAL	= (1<<8),		// image has an quake1 palette
@@ -92,7 +93,7 @@ typedef enum
 	TF_NORMALMAP	= (1<<15),	// is a normalmap
 	TF_HAS_ALPHA	= (1<<16),	// image has alpha (used only for GL_CreateTexture)
 	TF_FORCE_COLOR	= (1<<17),	// force upload monochrome textures as RGB (detail textures)
-	TF_TEXTURE_1D	= (1<<18),	// this is GL_TEXTURE_1D
+// reserved
 	TF_BORDER		= (1<<19),	// zero clamp for projected textures
 	TF_TEXTURE_3D	= (1<<20),	// this is GL_TEXTURE_3D
 	TF_ATLAS_PAGE	= (1<<21),	// bit who indicate lightmap page or deluxemap page
@@ -206,9 +207,9 @@ typedef struct render_api_s
 	void		(*GL_TextureTarget)( unsigned int target ); // change texture unit mode without bind texture
 	void		(*GL_TexCoordArrayMode)( unsigned int texmode );
 	void*		(*GL_GetProcAddress)( const char *name );
+	void		(*GL_UpdateTexSize)( int texnum, int width, int height, int depth ); // recalc statistics
 	void		(*GL_Reserved0)( void );	// for potential interface expansion without broken compatibility
 	void		(*GL_Reserved1)( void );
-	void		(*GL_Reserved2)( void );
 
 	// Misc renderer functions
 	void		(*GL_DrawParticles)( const struct ref_viewpass_s *rvp, qboolean trans_pass, float frametime );
@@ -218,8 +219,8 @@ typedef struct render_api_s
 	struct mstudiotex_s *( *StudioGetTexture )( struct cl_entity_s *e );
 	const struct ref_overview_s *( *GetOverviewParms )( void );
 	const char	*( *GetFileByIndex )( int fileindex );
-	void		(*R_Reserved1)( void );	// for potential interface expansion without broken compatibility
-	void		(*R_Reserved2)( void );
+	void		(*R_Reserved0)( void );	// for potential interface expansion without broken compatibility
+	void		(*R_Reserved1)( void );
 
 	// static allocations
 	void		*(*pfnMemAlloc)( size_t cb, const char *filename, const int fileline );

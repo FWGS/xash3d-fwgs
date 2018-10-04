@@ -216,6 +216,7 @@ void Sys_PrintLog( const char *pMsg )
 		}
 		colored[len] = 0;
 		printf( "\033[34m%s\033[0m%s\033[0m", logtime, colored );
+
 	}
 #else
 #if !defined __ANDROID__ || defined XASH_DEDICATED

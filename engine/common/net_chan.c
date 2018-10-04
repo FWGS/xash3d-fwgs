@@ -705,7 +705,7 @@ void Netchan_CheckForCompletion( netchan_t *chan, int stream, int intotalbuffers
 		{
 			if( chan->sock == NS_CLIENT )
 			{
-				MsgDev( D_ERROR, "Lost/dropped fragment would cause stall, retrying connection\n" );
+				Con_DPrintf( S_ERROR "Lost/dropped fragment would cause stall, retrying connection\n" );
 				Cbuf_AddText( "reconnect\n" );
 			}
 		}
@@ -714,10 +714,7 @@ void Netchan_CheckForCompletion( netchan_t *chan, int stream, int intotalbuffers
 
 	// received final message
 	if( c == intotalbuffers )
-	{
-//		MsgDev( D_NOTE, "\n%s: incoming is complete %i bytes waiting\n", ns_strings[chan->sock], size );
 		chan->incomingready[stream] = true;
-	}
 }
 
 /*

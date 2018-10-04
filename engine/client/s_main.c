@@ -277,6 +277,28 @@ void SND_ChannelTraceReset( void )
 
 /*
 =================
+SND_FStreamIsPlaying
+
+Select a channel from the dynamic channel allocation area.  For the given entity, 
+override any other sound playing on the same channel (see code comments below for
+exceptions).
+=================
+*/
+qboolean SND_FStreamIsPlaying( sfx_t *sfx )
+{
+	int	ch_idx;
+
+	for( ch_idx = NUM_AMBIENTS; ch_idx < MAX_DYNAMIC_CHANNELS; ch_idx++ )
+	{
+		if( channels[ch_idx].sfx == sfx )
+			return true;
+	}
+
+	return false;
+}
+
+/*
+=================
 SND_PickDynamicChannel
 
 Select a channel from the dynamic channel allocation area.  For the given entity, 
@@ -295,6 +317,13 @@ channel_t *SND_PickDynamicChannel( int entnum, int channel, sfx_t *sfx, qboolean
 	first_to_die = -1;
 	life_left = 0x7fffffff;
 	if( ignore ) *ignore = false;
+
+	if( channel == CHAN_STREAM && SND_FStreamIsPlaying( sfx ))
+	{
+		if( ignore )
+			*ignore = true;
+		return NULL;
+	}
 
 	for( ch_idx = NUM_AMBIENTS; ch_idx < MAX_DYNAMIC_CHANNELS; ch_idx++ )
 	{
@@ -392,7 +421,7 @@ channel_t *SND_PickStaticChannel( const vec3_t pos, sfx_t *sfx )
 		// no empty slots, alloc a new static sound channel
 		if( total_channels == MAX_CHANNELS )
 		{
-			MsgDev( D_ERROR, "S_PickStaticChannel: no free channels\n" );
+			Con_DPrintf( S_ERROR "S_PickStaticChannel: no free channels\n" );
 			return NULL;
 		}
 
@@ -896,13 +925,10 @@ void S_StartSound( const vec3_t pos, int ent, int chan, sound_t handle, float fv
 		// and we didn't find it (it's not playing), go ahead and start it up
 	}
 
-	if( pitch == 0 )
-	{
-		MsgDev( D_WARN, "S_StartSound: ( %s ) ignored, called with pitch 0\n", sfx->name );
-		return;
-	}
-
 	if( !pos ) pos = RI.vieworg;
+
+	if( chan == CHAN_STREAM )
+		SetBits( flags, SND_STOP_LOOPING );
 
 	// pick a channel to play on
 	if( chan == CHAN_STATIC ) target_chan = SND_PickStaticChannel( pos, sfx );
@@ -1023,12 +1049,6 @@ void S_RestoreSound( const vec3_t pos, int ent, int chan, sound_t handle, float 
 
 	vol = bound( 0, fvol * 255, 255 );
 	if( pitch <= 1 ) pitch = PITCH_NORM; // Invasion issues
-
-	if( pitch == 0 )
-	{
-		MsgDev( D_WARN, "S_RestoreSound: ( %s ) ignored, called with pitch 0\n", sfx->name );
-		return;
-	}
 
 	// pick a channel to play on
 	if( chan == CHAN_STATIC ) target_chan = SND_PickStaticChannel( pos, sfx );
@@ -1156,12 +1176,6 @@ void S_AmbientSound( const vec3_t pos, int ent, sound_t handle, float fvol, floa
 		if( S_AlterChannel( ent, CHAN_STATIC, sfx, vol, pitch, flags ))
 			return;
 		if( flags & SND_STOP ) return;
-	}
-	
-	if( pitch == 0 )
-	{
-		MsgDev( D_WARN, "S_AmbientSound: ( %s ) ignored, called with pitch 0\n", sfx->name );
-		return;
 	}
 
 	// pick a channel to play on from the static area
@@ -1380,7 +1394,13 @@ void S_UpdateAmbientSounds( void )
 		chan = &channels[ambient_channel];	
 		chan->sfx = S_GetSfxByHandle( ambient_sfx[ambient_channel] );
 
-		if( !chan->sfx ) continue;
+		// ambient is unused
+		if( !chan->sfx )
+		{
+			chan->rightvol = 0;
+			chan->leftvol = 0;
+			continue;
+		}
 
 		vol = s_ambient_level->value * leaf->ambient_sound_level[ambient_channel];
 		if( vol < 0 ) vol = 0;
@@ -1963,7 +1983,7 @@ void SND_UpdateSound( void )
 	S_SpatializeRawChannels();
 
 	// debugging output
-	if( s_show->value )
+	if( CVAR_TO_BOOL( s_show ))
 	{
 		info.color[0] = 1.0f;
 		info.color[1] = 0.6f;
@@ -2179,7 +2199,7 @@ qboolean S_Init( void )
 {
 	if( Sys_CheckParm( "-nosound" ))
 	{
-		MsgDev( D_INFO, "Audio: Disabled\n" );
+		Con_Printf( "Audio: Disabled\n" );
 		return false;
 	}
 
@@ -2190,7 +2210,7 @@ qboolean S_Init( void )
 	s_lerping = Cvar_Get( "s_lerping", "0", FCVAR_ARCHIVE, "apply interpolation to sound output" );
 	s_ambient_level = Cvar_Get( "ambient_level", "0.3", FCVAR_ARCHIVE, "volume of environment noises (water and wind)" );
 	s_ambient_fade = Cvar_Get( "ambient_fade", "1000", FCVAR_ARCHIVE, "rate of volume fading when client is moving" );
-	s_combine_sounds = Cvar_Get( "s_combine_channels", "1", FCVAR_ARCHIVE, "combine channels with same sounds" ); 
+	s_combine_sounds = Cvar_Get( "s_combine_channels", "0", FCVAR_ARCHIVE, "combine channels with same sounds" ); 
 	snd_foliage_db_loss = Cvar_Get( "snd_foliage_db_loss", "4", 0, "foliage loss factor" ); 
 	snd_gain_max = Cvar_Get( "snd_gain_max", "1", 0, "gain maximal threshold" );
 	snd_gain_min = Cvar_Get( "snd_gain_min", "0.01", 0, "gain minimal threshold" );
@@ -2218,7 +2238,7 @@ qboolean S_Init( void )
 
 	if( !SNDDMA_Init( host.hWnd ))
 	{
-		MsgDev( D_INFO, "S_Init: sound system can't be initialized\n" );
+		Con_Printf( "Audio: sound system can't be initialized\n" );
 		return false;
 	}
 
@@ -2233,6 +2253,7 @@ qboolean S_Init( void )
 	SX_Init ();
 	S_InitScaletable ();
 	S_StopAllSounds ( true );
+	S_InitSounds ();
 	VOX_Init ();
 
 	return true;

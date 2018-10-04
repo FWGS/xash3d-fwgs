@@ -30,6 +30,7 @@ typedef enum
 qboolean VID_SetMode( void );
 #define GL_CheckForErrors() GL_CheckForErrors_( __FILE__, __LINE__ )
 void GL_CheckForErrors_( const char *filename, const int fileline );
+const char *GL_ErrorString( int err );
 void GL_UpdateSwapInterval( void );
 qboolean GL_Support( int r_ext );
 void VID_CheckChanges( void );

@@ -560,7 +560,7 @@ void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, vec3_t an
 	// Con_Printf( "%4.2f %.2f %.2f\n", f, e->curstate.animtime, g_studio.time );
 	VectorLerp( e->latched.prevorigin, f, e->curstate.origin, origin );
 
-	if( !VectorCompare( e->curstate.angles, e->latched.prevangles ))
+	if( !VectorCompareEpsilon( e->curstate.angles, e->latched.prevangles, ON_EPSILON ))
 	{
 		vec4_t	q, q1, q2;
 
@@ -2177,6 +2177,7 @@ static void R_StudioDrawPoints( void )
 				pglBlendFunc( GL_ONE, GL_ONE );
 				pglDepthMask( GL_FALSE );
 				pglEnable( GL_BLEND );
+				R_AllowFog( false );
 			}
 			else pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
 		}
@@ -2198,6 +2199,7 @@ static void R_StudioDrawPoints( void )
 		{
 			pglDepthMask( GL_TRUE );
 			pglDisable( GL_BLEND );
+			R_AllowFog( true );
 		}
 
 		r_stats.c_studio_polys += pmesh->numtris;
@@ -2478,11 +2480,11 @@ check for texture flags
 */
 int R_GetEntityRenderMode( cl_entity_t *ent )
 {
-	studiohdr_t	*phdr;
+	int		i, opaque, trans;
 	mstudiotexture_t	*ptexture;
 	cl_entity_t	*oldent;
 	model_t		*model;
-	int		i;
+	studiohdr_t	*phdr;
 
 	oldent = RI.currententity;
 	RI.currententity = ent;
@@ -2495,21 +2497,27 @@ int R_GetEntityRenderMode( cl_entity_t *ent )
 
 	if(( phdr = Mod_StudioExtradata( model )) == NULL )
 	{
-		// forcing to choose right sorting type
-		if(( model && model->type == mod_brush ) && FBitSet( model->flags, MODEL_TRANSPARENT ))
-			return kRenderTransAlpha;
+		if( R_ModelOpaque( ent->curstate.rendermode ))
+		{
+			// forcing to choose right sorting type
+			if(( model && model->type == mod_brush ) && FBitSet( model->flags, MODEL_TRANSPARENT ))
+				return kRenderTransAlpha;
+		}
 		return ent->curstate.rendermode;
 	}
 	ptexture = (mstudiotexture_t *)((byte *)phdr + phdr->textureindex);
 
-	for( i = 0; i < phdr->numtextures; i++, ptexture++ )
+	for( opaque = trans = i = 0; i < phdr->numtextures; i++, ptexture++ )
 	{
-		// g-cont. this is not fully proper but better than was
-		if( FBitSet( ptexture->flags, STUDIO_NF_ADDITIVE ))
-			return kRenderTransAdd;
-//		if( FBitSet( ptexture->flags, STUDIO_NF_MASKED ))
-//			return kRenderTransAlpha;
+		// ignore chrome & additive it's just a specular-like effect
+		if( FBitSet( ptexture->flags, STUDIO_NF_ADDITIVE ) && !FBitSet( ptexture->flags, STUDIO_NF_CHROME ))
+			trans++;
+		else opaque++;
 	}
+
+	// if model is more additive than opaque
+	if( trans > opaque )
+		return kRenderTransAdd;
 	return ent->curstate.rendermode;
 }
 
@@ -3458,10 +3466,6 @@ void R_DrawViewModel( void )
 		pglFrontFace( GL_CW );
 	}
 
-	// FIXME: viewmodel is invisible when alpha to coverage is enabled
-	if( glConfig.max_multisamples > 1 && gl_msaa->value > 1.0f )
-		pglDisable( GL_SAMPLE_ALPHA_TO_COVERAGE_ARB );
-
 	switch( RI.currententity->model->type )
 	{
 	case mod_alias:
@@ -3472,9 +3476,6 @@ void R_DrawViewModel( void )
 		R_StudioDrawModelInternal( RI.currententity, STUDIO_RENDER );
 		break;
 	}
-
-	if( glConfig.max_multisamples > 1 && gl_msaa->value > 1.0f )
-		pglEnable( GL_SAMPLE_ALPHA_TO_COVERAGE_ARB );
 
 	// restore depth range
 	pglDepthRange( gldepthmin, gldepthmax );

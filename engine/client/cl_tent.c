@@ -593,7 +593,7 @@ TEMPENTITY *CL_TempEntAlloc( const vec3_t org, model_t *pmodel )
 
 	if( !cl_free_tents )
 	{
-		MsgDev( D_INFO, "Overflow %d temporary ents!\n", GI->max_tents );
+		Con_DPrintf( "Overflow %d temporary ents!\n", GI->max_tents );
 		return NULL;
 	}
 
@@ -633,7 +633,7 @@ TEMPENTITY *CL_TempEntAllocHigh( const vec3_t org, model_t *pmodel )
 	{
 		// didn't find anything? The tent list is either full of high-priority tents
 		// or all tents in the list are still due to live for > 10 seconds. 
-		MsgDev( D_INFO, "Couldn't alloc a high priority TENT!\n" );
+		Con_DPrintf( "Couldn't alloc a high priority TENT!\n" );
 		return NULL;
 	}
 
@@ -870,10 +870,7 @@ void R_AttachTentToPlayer( int client, int modelIndex, float zoffset, float life
 	model_t		*pModel;
 
 	if( client <= 0 || client > cl.maxclients )
-	{
-		MsgDev( D_ERROR, "Bad client %i in AttachTentToPlayer()!\n", client );
 		return;
-	}
 
 	pClient = CL_GetEntityByIndex( client );
 
@@ -926,10 +923,7 @@ void R_KillAttachedTents( int client )
 	int	i;
 
 	if( client <= 0 || client > cl.maxclients )
-	{
-		MsgDev( D_ERROR, "Bad client %i in KillAttachedTents()!\n", client );
 		return;
-	}
 
 	for( i = 0; i < GI->max_tents; i++ )
 	{
@@ -1282,7 +1276,7 @@ TEMPENTITY *R_DefaultSprite( const vec3_t pos, int spriteIndex, float framerate 
 
 	if(( psprite = CL_ModelHandle( spriteIndex )) == NULL || psprite->type != mod_sprite )
 	{
-		MsgDev( D_INFO, "No Sprite %d!\n", spriteIndex );
+		Con_Reportf( "No Sprite %d!\n", spriteIndex );
 		return NULL;
 	}
 
@@ -1339,7 +1333,7 @@ TEMPENTITY *R_TempSprite( vec3_t pos, const vec3_t dir, float scale, int modelIn
 
 	if(( pmodel = CL_ModelHandle( modelIndex )) == NULL )
 	{
-		MsgDev( D_ERROR, "No model %d!\n", modelIndex );
+		Con_Reportf( S_ERROR "No model %d!\n", modelIndex );
 		return NULL;
 	}
 
@@ -1446,7 +1440,7 @@ void R_Spray( const vec3_t pos, const vec3_t dir, int modelIndex, int count, int
 
 	if(( pmodel = CL_ModelHandle( modelIndex )) == NULL )
 	{
-		MsgDev( D_INFO, "No model %d!\n", modelIndex );
+		Con_Reportf( "No model %d!\n", modelIndex );
 		return;
 	}
 
@@ -1577,7 +1571,7 @@ void R_FunnelSprite( const vec3_t org, int modelIndex, int reverse )
 
 	if(( pmodel = CL_ModelHandle( modelIndex )) == NULL )
 	{
-		MsgDev( D_ERROR, "no model %d!\n", modelIndex );
+		Con_Reportf( S_ERROR "no model %d!\n", modelIndex );
 		return;
 	}
 
@@ -1823,10 +1817,7 @@ void R_PlayerSprites( int client, int modelIndex, int count, int size )
 	pEnt = CL_GetEntityByIndex( client );
 
 	if( !pEnt || !pEnt->player )
-	{
-		MsgDev( D_INFO, "Bad ent %i in R_PlayerSprites()!\n", client );
 		return;
-	}
 
 	vel = 128;
 
@@ -2511,12 +2502,13 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 		R_UserTracerParticle( pos, pos2, life, color, scale, 0, NULL );
 		break;
 	default:
-		MsgDev( D_ERROR, "ParseTempEntity: illegible TE message %i\n", type );
+		Con_DPrintf( S_ERROR "ParseTempEntity: illegible TE message %i\n", type );
 		break;
 	}
 
 	// throw warning
-	if( MSG_CheckOverflow( &buf )) MsgDev( D_WARN, "ParseTempEntity: overflow TE message\n" );
+	if( MSG_CheckOverflow( &buf ))
+		Con_DPrintf( S_WARN "ParseTempEntity: overflow TE message\n" );
 }
 
 
@@ -2573,7 +2565,8 @@ void CL_SetLightstyle( int style, const char *s, float f )
 			break;
 		}
 	}
-	MsgDev( D_REPORT, "Lightstyle %i (%s), interp %s\n", style, ls->pattern, ls->interp ? "Yes" : "No" );
+
+	Con_Reportf( "Lightstyle %i (%s), interp %s\n", style, ls->pattern, ls->interp ? "Yes" : "No" );
 }
 
 /*
@@ -3014,7 +3007,7 @@ void CL_PlayerDecal( int playernum, int customIndex, int entityIndex, float *pos
 			if( !pCust->nUserData1 && pCust->pInfo != NULL )
 			{
 				const char *decalname = va( "player%dlogo%d", playernum, customIndex );
-				pCust->nUserData1 = GL_LoadTextureInternal( decalname, pCust->pInfo, TF_DECAL, false );
+				pCust->nUserData1 = GL_LoadTextureInternal( decalname, pCust->pInfo, TF_DECAL );
 			}
 			textureIndex = pCust->nUserData1;
 		}

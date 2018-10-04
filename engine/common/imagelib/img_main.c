@@ -47,16 +47,6 @@ static const suffix_t skybox_qv2[6] =
 
 static const suffix_t cubemap_v1[6] =
 {
-{ "posx", 0, CB_HINT_POSX },
-{ "negx", 0, CB_HINT_NEGX },
-{ "posy", 0, CB_HINT_POSY },
-{ "negy", 0, CB_HINT_NEGY },
-{ "posz", 0, CB_HINT_POSZ },
-{ "negz", 0, CB_HINT_NEGZ },
-};
-
-static const suffix_t cubemap_v2[6] =
-{
 { "px", 0, CB_HINT_POSX },
 { "nx", 0, CB_HINT_NEGX },
 { "py", 0, CB_HINT_POSY },
@@ -75,8 +65,7 @@ static const cubepack_t load_cubemap[] =
 {
 { "3Ds Sky1", skybox_qv1 },
 { "3Ds Sky2", skybox_qv2 },
-{ "3Ds Cube", cubemap_v2 },
-{ "Tenebrae", cubemap_v1 },
+{ "3Ds Cube", cubemap_v1 },
 { NULL, NULL },
 };
 
@@ -93,6 +82,7 @@ const bpc_desc_t PFDesc[] =
 {PF_DXT1,		"DXT 1",	0x83F1, 4 },
 {PF_DXT3,		"DXT 3",	0x83F2, 4 },
 {PF_DXT5,		"DXT 5",	0x83F3, 4 },
+{PF_ATI2,		"ATI 2",	0x8837, 4 },
 };
 
 void Image_Reset( void )
@@ -128,7 +118,6 @@ rgbdata_t *ImagePack( void )
 	if( image.cubemap && image.num_sides != 6 )
 	{
 		// this never be happens, just in case
-		MsgDev( D_NOTE, "ImagePack: inconsistent cubemap pack %d\n", image.num_sides );
 		FS_FreeImage( pack );
 		return NULL;
 	}
@@ -229,8 +218,8 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 	const cubepack_t	*cmap;
 	byte		*f;
 
-	Image_Reset(); // clear old image
 	Q_strncpy( loadname, filename, sizeof( loadname ));
+	Image_Reset(); // clear old image
 
 	if( Q_stricmp( ext, "" ))
 	{
@@ -259,6 +248,7 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 			Q_sprintf( path, format->formatstring, loadname, "", format->ext );
 			image.hint = format->hint;
 			f = FS_LoadFile( path, &filesize, false );
+
 			if( f && filesize > 0 )
 			{
 				if( format->loadfunc( path, f, filesize ))
@@ -266,7 +256,7 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 					Mem_Free( f ); // release buffer
 					return ImagePack(); // loaded
 				}
-				else Mem_Free(f); // release buffer 
+				else Mem_Free( f ); // release buffer 
 			}
 		}
 	}
@@ -308,8 +298,6 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 				// first side not found, probably it's not cubemap
 				// it contain info about image_type and dimensions, don't generate black cubemaps 
 				if( !image.cubemap ) break;
-				MsgDev( D_ERROR, "FS_LoadImage: couldn't load (%s%s), create black image\n", loadname, cmap->type[i].suf );
-
 				// Mem_Alloc already filled memblock with 0x00, no need to do it again
 				image.cubemap = Mem_Realloc( host.imagepool, image.cubemap, image.ptr + image.size );
 				image.ptr += image.size; // move to next
@@ -345,10 +333,8 @@ load_internal:
 		}
 	}
 
-	if( !image.loadformats || image.loadformats->ext == NULL )
-		MsgDev( D_NOTE, "FS_LoadImage: imagelib offline\n" );
-	else if( filename[0] != '#' )
-		MsgDev( D_WARN, "FS_LoadImage: couldn't load \"%s\"\n", loadname );
+	if( filename[0] != '#' )
+		Con_Reportf( S_WARN "FS_LoadImage: couldn't load \"%s\"\n", loadname );
 
 	// clear any force flags
 	image.force_flags = 0;
@@ -390,7 +376,7 @@ qboolean FS_SaveImage( const char *filename, rgbdata_t *pix )
 		if( pix->flags & IMAGE_SKYBOX )
 			box = skybox_qv1;
 		else if( pix->flags & IMAGE_CUBEMAP )
-			box = cubemap_v2;
+			box = cubemap_v1;
 		else
 		{
 			// clear any force flags
@@ -456,13 +442,10 @@ free RGBA buffer
 */
 void FS_FreeImage( rgbdata_t *pack )
 {
-	if( pack )
-	{
-		if( pack->buffer ) Mem_Free( pack->buffer );
-		if( pack->palette ) Mem_Free( pack->palette );
-		Mem_Free( pack );
-	}
-	else MsgDev( D_WARN, "FS_FreeImage: trying to free NULL image\n" );
+	if( !pack ) return;
+	if( pack->buffer ) Mem_Free( pack->buffer );
+	if( pack->palette ) Mem_Free( pack->palette );
+	Mem_Free( pack );
 }
 
 /*

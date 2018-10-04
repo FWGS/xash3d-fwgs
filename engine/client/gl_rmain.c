@@ -579,9 +579,9 @@ using to find source waterleaf with
 watertexture to grab fog values from it
 =============
 */
-static gltexture_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mnode_t *ignore, qboolean down )
+static gl_texture_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mnode_t *ignore, qboolean down )
 {
-	gltexture_t *tex = NULL;
+	gl_texture_t *tex = NULL;
 
 	// assure the initial node is not null
 	// we could check it here, but we would rather check it 
@@ -654,7 +654,7 @@ from underwater leaf (idea: XaeroX)
 static void R_CheckFog( void )
 {
 	cl_entity_t	*ent;
-	gltexture_t	*tex;
+	gl_texture_t	*tex;
 	int		i, cnt, count;
 
 	// quake global fog
@@ -673,15 +673,6 @@ static void R_CheckFog( void )
 		return;
 	}
 
-#ifdef HACKS_RELATED_HLMODS
-	// special condition for Spirit 1.9 that used direct calls of glFog-functions
-	if(( !RI.fogEnabled && !RI.fogCustom ) && pglIsEnabled( GL_FOG ) && VectorIsNull( RI.fogColor ))
-	{
-		// fill the fog color from GL-state machine
-		pglGetFloatv( GL_FOG_COLOR, RI.fogColor );
-		RI.fogSkybox = true;
-	}
-#endif
 	RI.fogEnabled = false;
 
 	if( RI.onlyClientDraw || cl.local.waterlevel < 3 || !RI.drawWorld || !RI.viewleaf )
@@ -749,6 +740,26 @@ static void R_CheckFog( void )
 		RI.fogEnabled = true;
 		RI.fogSkybox = true;
 	}
+}
+
+/*
+=============
+R_CheckGLFog
+
+special condition for Spirit 1.9
+that used direct calls of glFog-functions
+=============
+*/
+static void R_CheckGLFog( void )
+{
+#ifdef HACKS_RELATED_HLMODS
+	if(( !RI.fogEnabled && !RI.fogCustom ) && pglIsEnabled( GL_FOG ) && VectorIsNull( RI.fogColor ))
+	{
+		// fill the fog color from GL-state machine
+		pglGetFloatv( GL_FOG_COLOR, RI.fogColor );
+		RI.fogSkybox = true;
+	}
+#endif
 }
 
 /*
@@ -937,7 +948,8 @@ void R_RenderScene( void )
 
 	R_MarkLeaves();
 	R_DrawFog ();
-	
+
+	R_CheckGLFog();	
 	R_DrawWorld();
 	R_CheckFog();
 
@@ -1085,17 +1097,8 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 	if( glConfig.max_multisamples > 1 && FBitSet( gl_msaa->flags, FCVAR_CHANGED ))
 	{
 		if( CVAR_TO_BOOL( gl_msaa ))
-		{
 			pglEnable( GL_MULTISAMPLE_ARB );
-			if( gl_msaa->value > 1.0f )
-				pglEnable( GL_SAMPLE_ALPHA_TO_COVERAGE_ARB );
-			else pglDisable( GL_SAMPLE_ALPHA_TO_COVERAGE_ARB );
-		}
-		else
-		{
-			pglDisable( GL_SAMPLE_ALPHA_TO_COVERAGE_ARB );
-			pglDisable( GL_MULTISAMPLE_ARB );
-		}
+		else pglDisable( GL_MULTISAMPLE_ARB );
 		ClearBits( gl_msaa->flags, FCVAR_CHANGED );
 	}
 
@@ -1167,7 +1170,7 @@ void R_DrawCubemapView( const vec3_t origin, const vec3_t angles, int size )
 
 static int GL_RenderGetParm( int parm, int arg )
 {
-	gltexture_t *glt;
+	gl_texture_t *glt;
 
 	switch( parm )
 	{
@@ -1268,7 +1271,7 @@ static int GL_RenderGetParm( int parm, int arg )
 
 static void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScale )
 {
-	gltexture_t *glt = R_GetTexture( texture );
+	gl_texture_t *glt = R_GetTexture( texture );
 
 	if( xScale ) *xScale = glt->xscale;
 	if( yScale ) *yScale = glt->yscale;
@@ -1276,7 +1279,7 @@ static void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScal
 
 static void R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
 {
-	gltexture_t *glt = R_GetTexture( texture );
+	gl_texture_t *glt = R_GetTexture( texture );
 
 	if( red ) *red = glt->fogParams[0];
 	if( green ) *green = glt->fogParams[1];
@@ -1294,16 +1297,13 @@ static void R_EnvShot( const float *vieworg, const char *name, qboolean skyshot,
 {
 	static vec3_t viewPoint;
 
-	if( !name )
-	{
-		MsgDev( D_ERROR, "R_%sShot: bad name\n", skyshot ? "Sky" : "Env" );
+	if( !COM_CheckString( name ))
 		return; 
-	}
 
 	if( cls.scrshot_action != scrshot_inactive )
 	{
 		if( cls.scrshot_action != scrshot_skyshot && cls.scrshot_action != scrshot_envshot )
-			MsgDev( D_ERROR, "R_%sShot: subsystem is busy, try later.\n", skyshot ? "Sky" : "Env" );
+			Con_Printf( S_ERROR "R_%sShot: subsystem is busy, try for next frame.\n", skyshot ? "Sky" : "Env" );
 		return;
 	}
 
@@ -1503,7 +1503,7 @@ static render_api_t gRenderAPI =
 	GL_TextureTarget,
 	GL_SetTexCoordArrayMode,
 	GL_GetProcAddress,
-	NULL,
+	GL_UpdateTexSize,
 	NULL,
 	NULL,
 	CL_DrawParticlesExternal,
@@ -1544,7 +1544,7 @@ qboolean R_InitRenderAPI( void )
 	{
 		if( clgame.dllFuncs.pfnGetRenderInterface( CL_RENDER_INTERFACE_VERSION, &gRenderAPI, &clgame.drawFuncs ))
 		{
-			MsgDev( D_REPORT, "CL_LoadProgs: ^2initailized extended RenderAPI ^7ver. %i\n", CL_RENDER_INTERFACE_VERSION );
+			Con_Reportf( "CL_LoadProgs: ^2initailized extended RenderAPI ^7ver. %i\n", CL_RENDER_INTERFACE_VERSION );
 			return true;
 		}
 

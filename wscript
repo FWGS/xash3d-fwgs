@@ -91,7 +91,7 @@ def configure(conf):
 			conf.env.append_unique('CFLAGS',   ['-O2'])
 			conf.env.append_unique('CXXFLAGS', ['-O2'])
 		else:
-			conf.env.append_unique('CFLAGS',   ['-Og', '-g'])
+			conf.env.append_unique('CFLAGS',   ['-Og', '-g', '-fdiagnostics-color=always', '-w'])
 			conf.env.append_unique('CXXFLAGS', ['-Og', '-g'])
 	else:
 		if(conf.options.RELEASE):

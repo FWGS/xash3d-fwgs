@@ -48,17 +48,10 @@ CL_PushPMStates
 */
 void CL_PushPMStates( void )
 {
-	if( clgame.pushed )
-	{
-		MsgDev( D_ERROR, "PushPMStates: stack overflow\n");
-	}
-	else
-	{
-		clgame.oldphyscount = clgame.pmove->numphysent;
-		clgame.oldviscount  = clgame.pmove->numvisent;
-		clgame.pushed = true;
-	}
-
+	if( clgame.pushed ) return;
+	clgame.oldphyscount = clgame.pmove->numphysent;
+	clgame.oldviscount  = clgame.pmove->numvisent;
+	clgame.pushed = true;
 }
 
 /*
@@ -69,16 +62,10 @@ CL_PopPMStates
 */
 void CL_PopPMStates( void )
 {
-	if( clgame.pushed )
-	{
-		clgame.pmove->numphysent = clgame.oldphyscount;
-		clgame.pmove->numvisent  = clgame.oldviscount;
-		clgame.pushed = false;
-	}
-	else
-	{
-		MsgDev( D_ERROR, "PopPMStates: stack underflow\n");
-	}
+	if( !clgame.pushed ) return;
+	clgame.pmove->numphysent = clgame.oldphyscount;
+	clgame.pmove->numvisent  = clgame.oldviscount;
+	clgame.pushed = false;
 }
 
 /*
@@ -794,10 +781,7 @@ static void pfnStuckTouch( int hitent, pmtrace_t *tr )
 	}
 
 	if( clgame.pmove->numtouch >= MAX_PHYSENTS )
-	{
-		MsgDev( D_ERROR, "PM_StuckTouch: MAX_TOUCHENTS limit exceeded\n" );
 		return;
-	}
 
 	VectorCopy( clgame.pmove->velocity, tr->deltavelocity );
 	tr->ent = hitent;
@@ -995,7 +979,7 @@ void CL_InitClientMove( void )
 	for( i = 0; i < MAX_MAP_HULLS; i++ )
 	{
 		if( clgame.dllFuncs.pfnGetHullBounds( i, host.player_mins[i], host.player_maxs[i] ))
-			MsgDev( D_NOTE, "CL: hull%i, player_mins: %g %g %g, player_maxs: %g %g %g\n", i,
+			Con_Reportf( "CL: hull%i, player_mins: %g %g %g, player_maxs: %g %g %g\n", i,
 			host.player_mins[i][0], host.player_mins[i][1], host.player_mins[i][2],
 			host.player_maxs[i][0], host.player_maxs[i][1], host.player_maxs[i][2] );
 	}
@@ -1344,7 +1328,7 @@ void CL_PredictMovement( qboolean repredicting )
 			cl.local.onground = frame->playerstate[cl.playernum].onground;
 		else cl.local.onground = -1;
 
-		if( !repredicting || !cl_lw->value )
+		if( !repredicting || !CVAR_TO_BOOL( cl_lw ))
 			cl.local.viewmodel = to->client.viewmodel;
 		cl.local.repredicting = false;
 		cl.local.moving = false;
@@ -1374,7 +1358,7 @@ void CL_PredictMovement( qboolean repredicting )
 
 	cl.local.waterlevel = to->client.waterlevel;
 	cl.local.usehull = to->playerstate.usehull;
-	if( !repredicting || !cl_lw->value )
+	if( !repredicting || !CVAR_TO_BOOL( cl_lw ))
 		cl.local.viewmodel = to->client.viewmodel;
 
 	if( FBitSet( to->client.flags, FL_ONGROUND ))

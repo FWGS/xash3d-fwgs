@@ -276,9 +276,9 @@ void SCR_MakeScreenShot( void )
 	{
 		// snapshots don't writes message about image		
 		if( cls.scrshot_action != scrshot_snapshot )
-			MsgDev( D_REPORT, "Write %s\n", cls.shotname );
+			Con_Reportf( "Write %s\n", cls.shotname );
 	}
-	else MsgDev( D_ERROR, "Unable to write %s\n", cls.shotname );
+	else Con_Printf( S_ERROR "Unable to write %s\n", cls.shotname );
 
 	cls.envshot_vieworg = NULL;
 	cls.scrshot_action = scrshot_inactive;
@@ -411,10 +411,10 @@ void SCR_TileClear( void )
 	if( clear.y2 <= clear.y1 )
 		return; // nothing disturbed
 
-	top = RI.viewport[1];
-	bottom = top + RI.viewport[3] - 1;
-	left = RI.viewport[0];
-	right = left + RI.viewport[2] - 1;
+	top = clgame.viewport[1];
+	bottom = top + clgame.viewport[3] - 1;
+	left = clgame.viewport[0];
+	right = left + clgame.viewport[2] - 1;
 
 	if( clear.y1 < top )
 	{	
@@ -580,7 +580,7 @@ void SCR_LoadCreditsFont( void )
 	if( !SCR_LoadVariableWidthFont( path ))
 	{
 		if( !SCR_LoadFixedWidthFont( "gfx/conchars" ))
-			MsgDev( D_ERROR, "failed to load HUD font\n" );
+			Con_DPrintf( S_ERROR "failed to load HUD font\n" );
 	}
 }
 
@@ -721,7 +721,6 @@ void SCR_Init( void )
 {
 	if( scr_init ) return;
 
-	MsgDev( D_NOTE, "SCR_Init()\n" );
 	scr_centertime = Cvar_Get( "scr_centertime", "2.5", 0, "centerprint hold time" );
 	cl_levelshot_name = Cvar_Get( "cl_levelshot_name", "*black", 0, "contains path to current levelshot" );
 	cl_allow_levelshots = Cvar_Get( "allow_levelshots", "0", FCVAR_ARCHIVE, "allow engine to use indivdual levelshots instead of 'loading' image" );
@@ -764,7 +763,6 @@ void SCR_Shutdown( void )
 {
 	if( !scr_init ) return;
 
-	MsgDev( D_NOTE, "SCR_Shutdown()\n" );
 	Cmd_RemoveCommand( "timerefresh" );
 	Cmd_RemoveCommand( "skyname" );
 	Cmd_RemoveCommand( "viewpos" );

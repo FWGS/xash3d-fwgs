@@ -126,7 +126,7 @@ void CL_StartupDemoHeader( void )
 
 	if( !cls.demoheader )
 	{
-		MsgDev( D_ERROR, "couldn't open temporary header file.\n" );
+		Con_DPrintf( S_ERROR "couldn't open temporary header file.\n" );
 		return;
 	}
 
@@ -359,7 +359,7 @@ void CL_WriteDemoHeader( const char *name )
 
 	if( !cls.demofile )
 	{
-		MsgDev( D_ERROR, "couldn't open %s.\n", name );
+		Con_Printf( S_ERROR "couldn't open %s.\n", name );
 		return;
 	}
 
@@ -773,14 +773,14 @@ qboolean CL_ReadRawNetworkData( byte *buffer, size_t *length )
 
 	if( msglen < 0 )
 	{
-		MsgDev( D_ERROR, "Demo message length < 0\n" );
+		Con_Reportf( S_ERROR "Demo message length < 0\n" );
 		CL_DemoCompleted();
 		return false;
 	}
 
 	if( msglen > MAX_INIT_MSG )
 	{
-		MsgDev( D_ERROR, "Demo message %i > %i\n", msglen, MAX_INIT_MSG );
+		Con_Reportf( S_ERROR "Demo message %i > %i\n", msglen, MAX_INIT_MSG );
 		CL_DemoCompleted();
 		return false;
 	}
@@ -789,7 +789,7 @@ qboolean CL_ReadRawNetworkData( byte *buffer, size_t *length )
 	{
 		if( FS_Read( cls.demofile, buffer, msglen ) != msglen )
 		{
-			MsgDev( D_ERROR, "Error reading demo message data\n" );
+			Con_Reportf( S_ERROR "Error reading demo message data\n" );
 			CL_DemoCompleted();
 			return false;
 		}
@@ -862,14 +862,14 @@ qboolean CL_DemoReadMessageQuake( byte *buffer, size_t *length )
 
 	if( msglen < 0 )
 	{
-		MsgDev( D_ERROR, "Demo message length < 0\n" );
+		Con_Reportf( S_ERROR "Demo message length < 0\n" );
 		CL_DemoCompleted();
 		return false;
 	}
 
 	if( msglen > MAX_INIT_MSG )
 	{
-		MsgDev( D_ERROR, "Demo message %i > %i\n", msglen, MAX_INIT_MSG );
+		Con_Reportf( S_ERROR "Demo message %i > %i\n", msglen, MAX_INIT_MSG );
 		CL_DemoCompleted();
 		return false;
 	}
@@ -878,7 +878,7 @@ qboolean CL_DemoReadMessageQuake( byte *buffer, size_t *length )
 	{
 		if( FS_Read( cls.demofile, buffer, msglen ) != msglen )
 		{
-			MsgDev( D_ERROR, "Error reading demo message data\n" );
+			Con_Reportf( S_ERROR "Error reading demo message data\n" );
 			CL_DemoCompleted();
 			return false;
 		}
@@ -910,7 +910,6 @@ qboolean CL_DemoReadMessage( byte *buffer, size_t *length )
 
 	if( !cls.demofile )
 	{
-		MsgDev( D_ERROR, "tried to read a demo message with no demo file\n" );
 		CL_DemoCompleted();
 		return false;
 	}
@@ -1454,7 +1453,7 @@ void CL_PlayDemo_f( void )
 	}
 	else if( !FS_FileExists( filename2, true ))
 	{
-		MsgDev( D_ERROR, "couldn't open %s\n", filename2 );
+		Con_Printf( S_ERROR "couldn't open %s\n", filename2 );
 		CL_DemoAborted();
 		return;
 	}
@@ -1468,7 +1467,7 @@ void CL_PlayDemo_f( void )
 
 	if( demo.header.id != IDEMOHEADER )
 	{
-		MsgDev( D_ERROR, "%s is not a demo file\n", demoname );
+		Con_Printf( S_ERROR "%s is not a demo file\n", demoname );
 		CL_DemoAborted();
 		return;
 	}
@@ -1476,10 +1475,10 @@ void CL_PlayDemo_f( void )
 	if( demo.header.net_protocol != PROTOCOL_VERSION || demo.header.dem_protocol != DEMO_PROTOCOL )
 	{
 		if( demo.header.dem_protocol != DEMO_PROTOCOL )
-			MsgDev( D_ERROR, "playdemo: demo protocol outdated (%i should be %i)\n", demo.header.dem_protocol, DEMO_PROTOCOL );
+			Con_Printf( S_ERROR "playdemo: demo protocol outdated (%i should be %i)\n", demo.header.dem_protocol, DEMO_PROTOCOL );
 
 		if( demo.header.net_protocol != PROTOCOL_VERSION )
-			MsgDev( D_ERROR, "playdemo: net protocol outdated (%i should be %i)\n", demo.header.net_protocol, PROTOCOL_VERSION );
+			Con_Printf( S_ERROR "playdemo: net protocol outdated (%i should be %i)\n", demo.header.net_protocol, PROTOCOL_VERSION );
 		CL_DemoAborted();
 		return;
 	}
@@ -1490,7 +1489,7 @@ void CL_PlayDemo_f( void )
 
 	if( demo.directory.numentries < 1 || demo.directory.numentries > 1024 )
 	{
-		MsgDev( D_ERROR, "demo had bogus # of directory entries: %i\n", demo.directory.numentries );
+		Con_Printf( S_ERROR "demo had bogus # of directory entries: %i\n", demo.directory.numentries );
 		CL_DemoAborted();
 		return;
 	}
@@ -1559,7 +1558,7 @@ void CL_StartDemos_f( void )
 	c = Cmd_Argc() - 1;
 	if( c > MAX_DEMOS )
 	{
-		MsgDev( D_WARN, "Host_StartDemos: max %i demos in demoloop\n", MAX_DEMOS );
+		Con_DPrintf( S_WARN "Host_StartDemos: max %i demos in demoloop\n", MAX_DEMOS );
 		c = MAX_DEMOS;
 	}
 

@@ -97,6 +97,19 @@ static int CL_UpdateQuakeStats( sizebuf_t *msg, int statnum, qboolean has_update
 
 /*
 ==================
+CL_UpdateQuakeGameMode
+
+redirect to qwrap->client
+==================
+*/
+static void CL_UpdateQuakeGameMode( int gamemode )
+{
+	MSG_WriteByte( &msg_demo, gamemode );
+	CL_DispatchQuakeMessage( "GameMode" );
+}
+
+/*
+==================
 CL_ParseQuakeSound
 
 ==================
@@ -132,10 +145,7 @@ static void CL_ParseQuakeSound( sizebuf_t *msg )
 	handle = cl.sound_index[sound];
 
 	if( !cl.audio_prepped )
-	{
-		Con_Printf( S_WARN "CL_StartSoundPacket: ignore sound message: too early\n" );
 		return; // too early
-	}
 
 	S_StartSound( pos, entnum, channel, handle, volume, attn, PITCH_NORM, flags );
 }
@@ -171,7 +181,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 		Host_Error( "Server use invalid protocol (%i should be %i)\n", i, PROTOCOL_VERSION_QUAKE );
 
 	cl.maxclients = MSG_ReadByte( msg );
-	gametype = MSG_ReadByte( msg ); // FIXME: tell the client about gametype
+	gametype = MSG_ReadByte( msg );
 	clgame.maxEntities = GI->max_edicts;
 	clgame.maxEntities = bound( 600, clgame.maxEntities, MAX_EDICTS );
 	clgame.maxModels = MAX_MODELS;
@@ -282,6 +292,9 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	memset( &clgame.centerPrint, 0, sizeof( clgame.centerPrint ));
 	cl.video_prepped = false;
 	cl.audio_prepped = false;
+
+	// GAME_COOP or GAME_DEATHMATCH
+	CL_UpdateQuakeGameMode( gametype );
 
 	// now we can start to precache
 	CL_BatchResourceRequest( true );
@@ -420,6 +433,7 @@ void CL_ParseQuakeEntityData( sizebuf_t *msg, int bits )
 	ent = CL_EDICT_NUM( newnum );
 	ent->index = newnum; // enumerate entity index
 	ent->player = CL_IsPlayerIndex( newnum );
+	state->animtime = cl.mtime[0];
 
 	if( ent->curstate.msg_time != cl.mtime[1] )
 		forcelink = true;	// no previous frame to lerp from
@@ -730,7 +744,7 @@ static void CL_ParseQuakeSignon( sizebuf_t *msg )
 	int	i = MSG_ReadByte( msg );
 
 	if( i == 3 ) cls.signon = SIGNONS - 1;
-	Msg( "CL_Signon: %d\n", i );
+	Con_Printf( "CL_Signon: %d\n", i );
 }
 
 /*
@@ -819,8 +833,6 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
 			continue;
 		}
 
-//		Msg( "%s\n", CL_MsgInfo( cmd ));
-
 		// record command for debugging spew on parse problem
 		CL_Parse_RecordCommand( cmd, bufStart );
 
@@ -855,6 +867,7 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
 			Con_Printf( "%s", MSG_ReadString( msg ));
 			break;
 		case svc_stufftext:
+			// FIXME: do revision for all Quake and Nehahra console commands
 			str = MSG_ReadString( msg );
 			Msg( "%s\n", str );
 			Cbuf_AddText( str );
@@ -881,7 +894,8 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
 		case svc_updatefrags:
 			param1 = MSG_ReadByte( msg );
 			param2 = MSG_ReadShort( msg );
-			// FIXME: tell the client about scores
+			// HACKHACK: store frags into spectator
+			cl.players[param1].spectator = param2;
 			break;
 		case svc_clientdata:
 			CL_ParseQuakeClientData( msg );
@@ -944,15 +958,15 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
 			break;
 		case svc_cdtrack:
 			param1 = MSG_ReadByte( msg );
-			param1 = bound( 0, param1, MAX_CDTRACKS ); // tracknum
+			param1 = bound( 0, param1, MAX_CDTRACKS - 1 ); // tracknum
 			param2 = MSG_ReadByte( msg );
-			param2 = bound( 0, param2, MAX_CDTRACKS ); // loopnum
-			Msg( "main track %d, loop track %d\n", param1, param2 );
-			// FIXME: allow cls.forcetrack from demo
-			S_StartBackgroundTrack( clgame.cdtracks[param1], clgame.cdtracks[param2], 0, false );
+			param2 = bound( 0, param2, MAX_CDTRACKS - 1 ); // loopnum
+			if(( cls.demoplayback || cls.demorecording ) && ( cls.forcetrack != -1 ))
+				S_StartBackgroundTrack( clgame.cdtracks[cls.forcetrack], clgame.cdtracks[cls.forcetrack], 0, false );
+			else S_StartBackgroundTrack( clgame.cdtracks[param1], clgame.cdtracks[param2], 0, false );
 			break;
 		case svc_sellscreen:
-			Cmd_ExecuteString( "help" );
+			Cmd_ExecuteString( "help" );	// open quake menu
 			break;
 		case svc_cutscene:
 			CL_ParseFinaleCutscene( msg, 3 );

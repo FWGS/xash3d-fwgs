@@ -69,7 +69,7 @@ GNU General Public License for more details.
 #define Q_recip( a )	((float)(1.0f / (float)(a)))
 #define Q_floor( a )	((float)(long)(a))
 #define Q_ceil( a )		((float)(long)((a) + 1))
-
+#define Q_round( x, y )	(floor( x / y + 0.5 ) * y )
 #define Q_rint(x)		((x) < 0 ? ((int)((x)-0.5f)) : ((int)((x)+0.5f)))
 #define IS_NAN(x)		(((*(int *)&x) & (255<<23)) == (255<<23))
 
@@ -131,6 +131,7 @@ int PlaneTypeForNormal( const vec3_t normal );
 int NearestPOW( int value, qboolean roundDown );
 void SinCos( float radians, float *sine, float *cosine );
 float VectorNormalizeLength2( const vec3_t v, vec3_t out );
+qboolean VectorCompareEpsilon( const vec3_t vec1, const vec3_t vec2, vec_t epsilon );
 void VectorVectors( const vec3_t forward, vec3_t right, vec3_t up );
 void VectorAngles( const float *forward, float *angles );
 void AngleVectors( const vec3_t angles, vec3_t forward, vec3_t right, vec3_t up );
@@ -166,10 +167,12 @@ void Matrix3x4_ConcatTransforms( matrix3x4 out, const matrix3x4 in1, const matri
 void Matrix3x4_FromOriginQuat( matrix3x4 out, const vec4_t quaternion, const vec3_t origin );
 void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_t origin, float scale );
 void Matrix3x4_TransformPositivePlane( const matrix3x4 in, const vec3_t normal, float d, vec3_t out, float *dist );
+void Matrix3x4_TransformAABB( const matrix3x4 world, const vec3_t mins, const vec3_t maxs, vec3_t absmin, vec3_t absmax );
 void Matrix3x4_SetOrigin( matrix3x4 out, float x, float y, float z );
 void Matrix3x4_Invert_Simple( matrix3x4 out, const matrix3x4 in1 );
 void Matrix3x4_OriginFromMatrix( const matrix3x4 in, float *out );
 void Matrix3x4_AnglesFromMatrix( const matrix3x4 in, vec3_t out );
+void Matrix3x4_Transpose( matrix3x4 out, const matrix3x4 in1 );
 
 #define Matrix4x4_LoadIdentity( mat )	Matrix4x4_Copy( mat, matrix4x4_identity )
 #define Matrix4x4_Copy( out, in )	memcpy( out, in, sizeof( matrix4x4 ))

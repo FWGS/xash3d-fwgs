@@ -158,7 +158,6 @@ void World_TransformAABB( matrix4x4 transform, const vec3_t mins, const vec3_t m
 	{
 		if( outmins[i] > outmaxs[i] )
 		{
-			MsgDev( D_ERROR, "World_TransformAABB: backwards mins/maxs\n" );
 			VectorClear( outmins );
 			VectorClear( outmaxs );
 			return;

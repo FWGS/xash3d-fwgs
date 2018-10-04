@@ -209,7 +209,7 @@ qboolean SCR_PlayCinematic( const char *arg )
 
 	if( FS_FileExists( arg, false ) && !fullpath )
 	{
-		MsgDev( D_ERROR, "Couldn't load %s from packfile. Please extract it\n", path );
+		Con_Printf( S_ERROR "Couldn't load %s from packfile. Please extract it\n", path );
 		return false;
 	}
 
@@ -235,6 +235,7 @@ qboolean SCR_PlayCinematic( const char *arg )
 
 	UI_SetActiveMenu( false );
 	cls.state = ca_cinematic;
+	Con_FastClose();
 	cin_time = 0.0f;
 	cls.signon = 0;
 	

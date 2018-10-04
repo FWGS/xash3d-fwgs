@@ -251,6 +251,47 @@ void Matrix3x4_Invert_Simple( matrix3x4 out, const matrix3x4 in1 )
 	out[2][3] = -(in1[0][3] * out[2][0] + in1[1][3] * out[2][1] + in1[2][3] * out[2][2]);
 }
 
+void Matrix3x4_Transpose( matrix3x4 out, const matrix3x4 in1 )
+{
+	// transpose only rotational component
+	out[0][0] = in1[0][0];
+	out[0][1] = in1[1][0];
+	out[0][2] = in1[2][0];
+	out[1][0] = in1[0][1];
+	out[1][1] = in1[1][1];
+	out[1][2] = in1[2][1];
+	out[2][0] = in1[0][2];
+	out[2][1] = in1[1][2];
+	out[2][2] = in1[2][2];
+
+	// copy origin
+	out[0][3] = in1[0][3];
+	out[1][3] = in1[1][3];
+	out[2][3] = in1[2][3];
+}
+
+/*
+==================
+Matrix3x4_TransformAABB
+==================
+*/
+void Matrix3x4_TransformAABB( const matrix3x4 world, const vec3_t mins, const vec3_t maxs, vec3_t absmin, vec3_t absmax )
+{
+	vec3_t	localCenter, localExtents;
+	vec3_t	worldCenter, worldExtents;
+
+	VectorAverage( mins, maxs, localCenter );
+	VectorSubtract( maxs, localCenter, localExtents );
+
+	Matrix3x4_VectorTransform( world, localCenter, worldCenter );
+	worldExtents[0] = DotProductAbs( localExtents, world[0] );	// auto-transposed!
+	worldExtents[1] = DotProductAbs( localExtents, world[1] );
+	worldExtents[2] = DotProductAbs( localExtents, world[2] );
+
+	VectorSubtract( worldCenter, worldExtents, absmin );
+	VectorAdd( worldCenter, worldExtents, absmax );
+}
+
 const matrix4x4 matrix4x4_identity =
 {
 { 1, 0, 0, 0 },	// PITCH

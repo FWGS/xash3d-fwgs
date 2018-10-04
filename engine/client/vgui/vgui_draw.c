@@ -552,7 +552,7 @@ void GAME_EXPORT VGUI_DrawShutdown( void )
 
 	for( i = 1; i < g_textureId; i++ )
 	{
-		GL_FreeImage( va( "*vgui%i", i ));
+		GL_FreeTexture( g_textures[i] );
 	}
 }
 
@@ -584,7 +584,7 @@ void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int width, int 
 
 	if( id <= 0 || id >= VGUI_MAX_TEXTURES )
 	{
-		MsgDev( D_ERROR, "VGUI_UploadTexture: bad texture %i. Ignored\n", id );
+		Con_DPrintf( S_ERROR "VGUI_UploadTexture: bad texture %i. Ignored\n", id );
 		return;
 	}
 
@@ -598,8 +598,7 @@ void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int width, int 
 	r_image.flags = IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA;
 	r_image.buffer = (byte *)buffer;
 
-	g_textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE, false );
-	g_iBoundTexture = id;
+	g_textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE );
 }
 
 /*
@@ -630,7 +629,7 @@ void GAME_EXPORT VGUI_CreateTexture( int id, int width, int height )
 	r_image.flags = IMAGE_HAS_ALPHA;
 	r_image.buffer = NULL;
 
-	g_textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE|TF_NEAREST, false );
+	g_textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE|TF_NEAREST );
 	g_iBoundTexture = id;
 }
 
@@ -698,7 +697,7 @@ returns wide and tall for currently binded texture
 */
 void GAME_EXPORT VGUI_GetTextureSizes( int *width, int *height )
 {
-	gltexture_t	*glt;
+	gl_texture_t	*glt;
 	int		texnum;
 
 	if( g_iBoundTexture )

@@ -113,11 +113,12 @@ searchpath_t		fs_directpath;		// static direct path
 char			fs_basedir[MAX_SYSPATH];	// base game directory
 char			fs_gamedir[MAX_SYSPATH];	// game current directory
 char			fs_writedir[MAX_SYSPATH];	// path that game allows to overwrite, delete and rename files (and create new of course)
+
 qboolean		fs_ext_path = false;	// attempt to read\write from ./ or ../ pathes
 #ifndef _WIN32
 qboolean		fs_caseinsensitive = true; // try to search missing files
 #endif
-static const wadtype_t	wad_hints[10];
+
 
 static void FS_InitMemory( void );
 static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedironly );
@@ -1178,8 +1179,12 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 			pfile = COM_ParseFile( pfile, token );
 			GameInfo->size = Q_atoi( token );
 		}
-		// different names
-		else if( !Q_stricmp( token, isGameInfo ? "mp_entity" : "mpentity" ))
+		else if( !Q_stricmp( token, "edicts" ))
+		{
+			pfile = COM_ParseFile( pfile, token );
+			GameInfo->max_edicts = Q_atoi( token );
+		}
+		else if( !Q_stricmp( token, "mpentity" ))
 		{
 			pfile = COM_ParseFile( pfile, GameInfo->mp_entity );
 		}
@@ -2960,7 +2965,7 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 					continue;
 
 				// build the lumpname with image suffix (if present)
-				Q_snprintf( temp, sizeof( temp ), "%s%s", wad->lumps[i].name, wad_hints[wad->lumps[i].img_type].ext );
+				Q_strncpy( temp, wad->lumps[i].name, sizeof( temp ));
 
 				while( temp[0] )
 				{
@@ -3083,21 +3088,6 @@ static const wadtype_t wad_types[7] =
 { NULL,  TYP_NONE		}
 };
 
-// suffix converts to img_type and back
-static const wadtype_t wad_hints[10] =
-{
-{ "",	 IMG_DIFFUSE	}, // no suffix
-{ "_mask", IMG_ALPHAMASK	}, // alpha-channel stored to another lump
-{ "_norm", IMG_NORMALMAP	}, // indexed normalmap
-{ "_spec", IMG_GLOSSMAP	}, // grayscale\color specular
-{ "_gpow", IMG_GLOSSPOWER	}, // grayscale gloss power
-{ "_hmap", IMG_HEIGHTMAP	}, // heightmap (can be converted to normalmap)
-{ "_luma", IMG_LUMA		}, // self-illuminate parts on the diffuse
-{ "_adec", IMG_DECAL_ALPHA	}, // classic HL-decal (with alpha-channel)
-{ "_cdec", IMG_DECAL_COLOR	}, // paranoia decal (base 127 127 127)
-{ NULL,    0		}  // terminator
-};
-
 /*
 ===========
 W_TypeFromExt
@@ -3147,40 +3137,6 @@ static const char *W_ExtFromType( char lumptype )
 
 /*
 ===========
-W_HintFromSuf
-
-Convert name suffix into image type
-===========
-*/
-char W_HintFromSuf( const char *lumpname )
-{
-	char		barename[64];
-	char		suffix[8];
-	size_t		namelen;
-	const wadtype_t	*hint;
-
-	// trying to extract hint from the name
-	COM_FileBase( lumpname, barename );
-	namelen = Q_strlen( barename );
-
-	if( namelen <= HINT_NAMELEN )
-		return IMG_DIFFUSE;
-
-	Q_strncpy( suffix, barename + namelen - HINT_NAMELEN, sizeof( suffix ));
-
-	// we not known about filetype, so match only by filename
-	for( hint = wad_hints; hint->ext; hint++ )
-	{
-		if( !Q_stricmp( suffix, hint->ext ))
-			return hint->type;
-	}
-
-	// no any special type was found
-	return IMG_DIFFUSE;
-}
-
-/*
-===========
 W_FindLump
 
 Serach for already existed lump
@@ -3188,36 +3144,10 @@ Serach for already existed lump
 */
 static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const char matchtype )
 {
-	char		img_type = IMG_DIFFUSE;
-	char		barename[64], suffix[8];
-	int		left, right;
-	size_t		namelen;
-	const wadtype_t	*hint;
+	int	left, right;
 
 	if( !wad || !wad->lumps || matchtype == TYP_NONE )
 		return NULL;
-
-	// trying to extract hint from the name
-	COM_FileBase( name, barename );
-	namelen = Q_strlen( barename );
-
-	if( namelen > HINT_NAMELEN )
-	{
-		Q_strncpy( suffix, barename + namelen - HINT_NAMELEN, sizeof( suffix ));
-
-		// we not known about filetype, so match only by filename
-		for( hint = wad_hints; hint->ext; hint++ )
-		{
-			if( !Q_stricmp( suffix, hint->ext ))
-			{
-				img_type = hint->type;
-				break;
-			}
-		}
-
-		if( img_type != IMG_DIFFUSE )
-			barename[namelen - HINT_NAMELEN] = '\0'; // kill the suffix
-	}
 
 	// look for the file (binary search)
 	left = 0;
@@ -3226,15 +3156,11 @@ static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const char match
 	while( left <= right )
 	{
 		int	middle = (left + right) / 2;
-		int	diff = Q_stricmp( wad->lumps[middle].name, barename );
+		int	diff = Q_stricmp( wad->lumps[middle].name, name );
 
 		if( !diff )
 		{
-			if( wad->lumps[middle].img_type > img_type )
-				diff = 1;
-			else if( wad->lumps[middle].img_type < img_type )
-				diff = -1;
-			else if(( matchtype == TYP_ANY ) || ( matchtype == wad->lumps[middle].type ))
+			if(( matchtype == TYP_ANY ) || ( matchtype == wad->lumps[middle].type ))
 				return &wad->lumps[middle]; // found
 			else if( wad->lumps[middle].type < matchtype )
 				diff = 1;
@@ -3275,11 +3201,7 @@ static dlumpinfo_t *W_AddFileToWad( const char *name, wfile_t *wad, dlumpinfo_t 
 
 		if( !diff )
 		{
-			if( wad->lumps[middle].img_type > newlump->img_type )
-				diff = 1;
-			else if( wad->lumps[middle].img_type < newlump->img_type )			
-				diff = -1;
-			else if( wad->lumps[middle].type < newlump->type )
+			if( wad->lumps[middle].type < newlump->type )
 				diff = 1;
 			else if( wad->lumps[middle].type > newlump->type )
 				diff = -1;
@@ -3468,10 +3390,6 @@ wfile_t *W_Open( const char *filename, int *error )
 		// check for Quake 'conchars' issues (only lmp loader really allows to read this lame pic)
 		if( srclumps[i].type == 68 && !Q_stricmp( srclumps[i].name, "conchars" ))
 			srclumps[i].type = TYP_GFXPIC; 
-
-		// fixups bad image types (some quake wads)
-		if( srclumps[i].img_type < 0 || srclumps[i].img_type > IMG_DECAL_COLOR )
-			srclumps[i].img_type = IMG_DIFFUSE;
 
 		W_AddFileToWad( name, wad, &srclumps[i] );
 	}
