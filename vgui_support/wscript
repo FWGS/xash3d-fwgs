@@ -11,12 +11,16 @@ def options(opt):
 	opt.add_option(
 		'--vgui', action = 'store', type='string', dest = 'VGUI_DEV',
 		help = 'path to vgui-dev repo', default='' )
+	opt.add_option(
+		'--no-vgui', action = 'store_true', dest = 'NO_VGUI',
+		help = 'disable vgui_support', default=False )
 
 	# stub
 	return
 
 def configure(conf):
-	if conf.options.DEDICATED:
+	conf.env.NO_VGUI = conf.options.NO_VGUI
+	if conf.options.DEDICATED or conf.options.NO_VGUI:
 		return
 
 	conf.start_msg('Checking for VGUI')
@@ -52,7 +56,7 @@ def build(bld):
 	bld.load_envs()
 	bld.env = bld.all_envs[get_subproject_name(bld)]
 
-	if bld.env.DEDICATED:
+	if bld.env.DEDICATED or bld.env.NO_VGUI:
 		return
 
 	# basic build: dedicated only, no dependencies
