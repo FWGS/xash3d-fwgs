@@ -21,7 +21,7 @@ GNU General Public License for more details.
 #define SKYCLOUDS_QUALITY	12
 #define MAX_CLIP_VERTS	128 // skybox clip vertices
 #define TURBSCALE		( 256.0f / ( M_PI2 ))
-static const char*		r_skyBoxSuffix[6] = { "rt", "bk", "lf", "ft", "up", "dn" };
+const char*		r_skyBoxSuffix[6] = { "rt", "bk", "lf", "ft", "up", "dn" };
 static const int		r_skyTexOrder[6] = { 0, 2, 1, 3, 4, 5 };
 
 static const vec3_t skyclip[6] =
@@ -672,7 +672,7 @@ void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 	// make sure what sky image is valid
 	if( !r_sky || !r_sky->palette || r_sky->type != PF_INDEXED_32 || r_sky->height == 0 )
 	{
-		MsgDev( D_ERROR, "R_InitSky: unable to load sky texture %s\n", tx->name );
+		Con_Reportf( S_ERROR "R_InitSky: unable to load sky texture %s\n", tx->name );
 		if( r_sky ) FS_FreeImage( r_sky );
 		return;
 	}
@@ -711,7 +711,7 @@ void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 	r_temp.palette = NULL;
 
 	// load it in
-	tr.solidskyTexture = GL_LoadTextureInternal( "solid_sky", &r_temp, TF_NOMIPMAP, false );
+	tr.solidskyTexture = GL_LoadTextureInternal( "solid_sky", &r_temp, TF_NOMIPMAP );
 
 	for( i = 0; i < r_sky->width >> 1; i++ )
 	{
@@ -734,7 +734,7 @@ void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 	r_temp.flags = IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA;
 
 	// load it in
-	tr.alphaskyTexture = GL_LoadTextureInternal( "alpha_sky", &r_temp, TF_NOMIPMAP, false );
+	tr.alphaskyTexture = GL_LoadTextureInternal( "alpha_sky", &r_temp, TF_NOMIPMAP );
 
 	// clean up
 	FS_FreeImage( r_sky );

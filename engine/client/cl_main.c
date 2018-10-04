@@ -1488,8 +1488,10 @@ CL_InternetServers_f
 */
 void CL_InternetServers_f( void )
 {
+	char	fullquery[512] = MS_SCAN_REQUEST;
+	char	*info = fullquery + sizeof( MS_SCAN_REQUEST ) - 1;
+	int	remaining = sizeof( fullquery ) - sizeof( MS_SCAN_REQUEST );
 	netadr_t	adr;
-	char	fullquery[512] = "1\xFF" "0.0.0.0:0\0" "\\gamedir\\";
 
 	Con_Printf( "Scanning for servers on the internet area...\n" );
 	NET_Config( true ); // allow remote
@@ -1497,9 +1499,10 @@ void CL_InternetServers_f( void )
 	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ) )
 		MsgDev( D_ERROR, "Can't resolve adr: %s\n", MASTERSERVER_ADR );
 
-	Q_strcpy( &fullquery[22], GI->gamedir );
+	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
+	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining ); // let master know about client version
 
-	NET_SendPacket( NS_CLIENT, Q_strlen( GI->gamedir ) + 23, fullquery, adr );
+	NET_SendPacket( NS_CLIENT, sizeof( MS_SCAN_REQUEST ) + Q_strlen( info ), fullquery, adr );
 
 	// now we clearing the vgui request
 	if( clgame.master_request != NULL )
@@ -1620,10 +1623,13 @@ void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	CL_FixupColorStringsForInfoString( s, infostring );
 
 	if( !COM_CheckString( Info_ValueForKey( infostring, "gamedir" )))
-		return;	// unsupported proto
+	{
+		Con_Printf( "^1Server^7: %s, Info: %s\n", NET_AdrToString( from ), infostring );
+		return; // unsupported proto
+	}
 
 	// more info about servers
-	Con_Printf( "Server: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
+	Con_Printf( "^2Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
 
 	UI_AddServerToList( from, infostring );
 }
@@ -1839,7 +1845,6 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			}
 
 			// if we waiting more than cl_timeout or packet was trashed
-			Msg( "got testpacket, size mismatched %d should be %d\n", MSG_GetMaxBytes( msg ), cls.max_fragment_size );
 			cls.connect_time = MAX_HEARTBEAT;
 			return; // just wait for a next responce
 		}
@@ -1853,7 +1858,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		if( crcValue == crcValue2 )
 		{
 			// packet was sucessfully delivered, adjust the fragment size and get challenge
-			Msg( "CRC %p is matched, get challenge, fragment size %d\n", crcValue, cls.max_fragment_size );
+			Con_DPrintf( "CRC %p is matched, get challenge, fragment size %d\n", crcValue, cls.max_fragment_size );
 			Netchan_OutOfBandPrint( NS_CLIENT, from, "getchallenge\n" );
 			Cvar_SetValue( "cl_dlmax", cls.max_fragment_size );
 			cls.connect_time = host.realtime;
@@ -1870,7 +1875,6 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 				return;
 			}
 
-			Msg( "got testpacket, CRC mismatched %p should be %p, trying next fragment size %d\n", crcValue2, crcValue, cls.max_fragment_size >> 1 );
 			// trying the next size of packet
 			cls.connect_time = MAX_HEARTBEAT;
 		}
@@ -2618,7 +2622,7 @@ void CL_InitLocal( void )
 
 	cl_showfps = Cvar_Get( "cl_showfps", "1", FCVAR_ARCHIVE, "show client fps" );
 	cl_nosmooth = Cvar_Get( "cl_nosmooth", "0", FCVAR_ARCHIVE, "disable smooth up stair climbing and interpolate position in multiplayer" );
-	cl_smoothtime = Cvar_Get( "cl_smoothtime", "0.1", FCVAR_ARCHIVE, "time to smooth up" );
+	cl_smoothtime = Cvar_Get( "cl_smoothtime", "0", FCVAR_ARCHIVE, "time to smooth up" );
 	cl_cmdbackup = Cvar_Get( "cl_cmdbackup", "10", FCVAR_ARCHIVE, "how many additional history commands are sent" );
 	cl_cmdrate = Cvar_Get( "cl_cmdrate", "30", FCVAR_ARCHIVE, "Max number of command packets sent to server per second" );
 	cl_draw_particles = Cvar_Get( "r_drawparticles", "1", FCVAR_CHEAT, "render particles" );

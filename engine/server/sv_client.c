@@ -116,7 +116,7 @@ void SV_RejectConnection( netadr_t from, char *fmt, ... )
 	Q_vsnprintf( text, sizeof( text ), fmt, argptr );
 	va_end( argptr );
 
-	MsgDev( D_REPORT, "%s connection refused. Reason: %s\n", NET_AdrToString( from ), text );
+	Con_Reportf( "%s connection refused. Reason: %s\n", NET_AdrToString( from ), text );
 	Netchan_OutOfBandPrint( NS_SERVER, from, "print\n^1Server was reject the connection:^7 %s", text );
 	Netchan_OutOfBandPrint( NS_SERVER, from, "disconnect\n" );
 }
@@ -858,7 +858,7 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 	char		remaining[1024];
 	int		i;
 
-	MsgDev( D_INFO, "Rcon from %s:\n%s\n", NET_AdrToString( from ), MSG_GetData( msg ) + 4 );
+	Con_Printf( "Rcon from %s:\n%s\n", NET_AdrToString( from ), MSG_GetData( msg ) + 4 );
 	Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, NET_AdrToString( from ));
 	SV_BeginRedirect( from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );
 
@@ -872,7 +872,7 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 		}
 		Cmd_ExecuteString( remaining );
 	}
-	else MsgDev( D_ERROR, "Bad rcon_password.\n" );
+	else Con_Printf( S_ERROR "Bad rcon_password.\n" );
 
 	SV_EndRedirect();
 }
@@ -1241,10 +1241,11 @@ void SV_PutClientInServer( sv_client_t *cl )
 		}
 	}
 
+#ifdef HACKS_RELATED_HLMODS
 	// enable dev-mode to prevent crash cheat-protecting from Invasion mod
 	if( FBitSet( ent->v.flags, FL_GODMODE|FL_NOTARGET ) && !Q_stricmp( GI->gamefolder, "invasion" ))
 		SV_ExecuteClientCommand( cl, "test\n" );
-
+#endif
 	// refresh the userinfo and movevars
 	// NOTE: because movevars can be changed during the connection process
 	SetBits( cl->flags, FCL_RESEND_USERINFO|FCL_RESEND_MOVEVARS );
@@ -1965,7 +1966,7 @@ void SV_ExecuteClientCommand( sv_client_t *cl, char *s )
 		{
 			if( !u->func( cl ))
 				Con_Printf( "'%s' is not valid from the console\n", u->name );
-			else MsgDev( D_NOTE, "ucmd->%s()\n", u->name );
+			else Con_Reportf( "ucmd->%s()\n", u->name );
 			break;
 		}
 	}
@@ -2095,7 +2096,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		// user out of band message (must be handled in CL_ConnectionlessPacket)
 		if( len > 0 ) Netchan_OutOfBand( NS_SERVER, from, len, buf );
 	}
-	else MsgDev( D_ERROR, "bad connectionless packet from %s:\n%s\n", NET_AdrToString( from ), args );
+	else Con_DPrintf( S_ERROR "bad connectionless packet from %s:\n%s\n", NET_AdrToString( from ), args );
 }
 
 /*
@@ -2139,7 +2140,7 @@ static void SV_ParseClientMove( sv_client_t *cl, sizebuf_t *msg )
 
 	if( totalcmds < 0 || totalcmds >= CMD_MASK )
 	{
-		MsgDev( D_ERROR, "SV_ParseClientMove: %s sending too many commands %i\n", cl->name, totalcmds );
+		Con_Reportf( S_ERROR "SV_ParseClientMove: %s sending too many commands %i\n", cl->name, totalcmds );
 		SV_DropClient( cl, false );
 		return;
 	}
@@ -2162,11 +2163,15 @@ static void SV_ParseClientMove( sv_client_t *cl, sizebuf_t *msg )
 
 	if( checksum2 != checksum1 )
 	{
-		MsgDev( D_ERROR, "SV_UserMove: failed command checksum for %s (%d != %d)\n", cl->name, checksum2, checksum1 );
+		Con_Reportf( S_ERROR "SV_UserMove: failed command checksum for %s (%d != %d)\n", cl->name, checksum2, checksum1 );
 		return;
 	}
 
 	cl->packet_loss = packet_loss;
+
+	// freeze player for some reasons if loadgame was executed
+	if( GameState->loadGame )
+		return;
 
 	// check for pause or frozen
 	if( sv.paused || !CL_IsInGame() || SV_PlayerIsFrozen( player ))
@@ -2274,13 +2279,12 @@ void SV_ParseResourceList( sv_client_t *cl, sizebuf_t *msg )
 		SV_AddToResourceList( resource, &cl->resourcesneeded );
 	}
 
-	if( sv_allow_upload.value )
-		MsgDev( D_REPORT, "Verifying and uploading resources...\n" );
-
 	totalsize = COM_SizeofResourceList( &cl->resourcesneeded, &ri );
 
 	if( totalsize != 0 && sv_allow_upload.value )
 	{
+		Con_DPrintf( "Verifying and uploading resources...\n" );
+
 		if( totalsize != 0 )
 		{
 			Con_DPrintf( "Custom resources total %.2fK\n", totalsize / 1024.0 );
@@ -2314,7 +2318,7 @@ void SV_ParseResourceList( sv_client_t *cl, sizebuf_t *msg )
 			SV_ClearResourceList( &cl->resourcesonhand );
 			return;
 		}
-		MsgDev( D_REPORT, "resources to request: %s\n", Q_memprint( totalsize ));
+		Con_DPrintf( "resources to request: %s\n", Q_memprint( totalsize ));
 	}
 
 	cl->upstate = us_processing;
@@ -2334,7 +2338,7 @@ void SV_ParseCvarValue( sv_client_t *cl, sizebuf_t *msg )
 
 	if( svgame.dllFuncs2.pfnCvarValue != NULL )
 		svgame.dllFuncs2.pfnCvarValue( cl->edict, value );
-	MsgDev( D_REPORT, "Cvar query response: name:%s, value:%s\n", cl->name, value );
+	Con_Reportf( "Cvar query response: name:%s, value:%s\n", cl->name, value );
 }
 
 /*
@@ -2354,7 +2358,7 @@ void SV_ParseCvarValue2( sv_client_t *cl, sizebuf_t *msg )
 
 	if( svgame.dllFuncs2.pfnCvarValue2 != NULL )
 		svgame.dllFuncs2.pfnCvarValue2( cl->edict, requestID, name, value );
-	MsgDev( D_REPORT, "Cvar query response: name:%s, request ID %d, cvar:%s, value:%s\n", cl->name, requestID, name, value );
+	Con_Reportf( "Cvar query response: name:%s, request ID %d, cvar:%s, value:%s\n", cl->name, requestID, name, value );
 }
 
 /*
@@ -2368,7 +2372,6 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg )
 {
 	qboolean		move_issued = false;
 	client_frame_t	*frame;
-	char		*s;
 	int		c;
 
 	ASSERT( cl->frames != NULL );
@@ -2394,7 +2397,7 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg )
 	{
 		if( MSG_CheckOverflow( msg ))
 		{
-			MsgDev( D_ERROR, "SV_ReadClientMessage: clc_bad\n" );
+			Con_DPrintf( S_ERROR "incoming overflow for %s\n", cl->name );
 			SV_DropClient( cl, false );
 			return;
 		}
@@ -2418,10 +2421,9 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg )
 			SV_ParseClientMove( cl, msg );
 			break;
 		case clc_stringcmd:	
-			s = MSG_ReadString( msg );
-			// malicious users may try using too many string commands
-			SV_ExecuteClientCommand( cl, s );
-			if( cl->state == cs_zombie ) return; // disconnect command
+			SV_ExecuteClientCommand( cl, MSG_ReadString( msg ));
+			if( cl->state == cs_zombie )
+				return; // disconnect command
 			break;
 		case clc_resourcelist:
 			SV_ParseResourceList( cl, msg );
@@ -2436,7 +2438,7 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg )
 			SV_ParseCvarValue2( cl, msg );
 			break;
 		default:
-			MsgDev( D_ERROR, "clc_bad\n" );
+			Con_DPrintf( S_ERROR "%s: clc_bad\n", cl->name );
 			SV_DropClient( cl, false );
 			return;
 		}

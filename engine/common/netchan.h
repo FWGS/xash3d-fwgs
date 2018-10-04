@@ -69,6 +69,7 @@ GNU General Public License for more details.
 #define NET_MAX_MESSAGE		PAD_NUMBER(( NET_MAX_PAYLOAD + HEADER_BYTES ), 16 )
 
 #define MASTERSERVER_ADR		"ms.xash.su:27010"
+#define MS_SCAN_REQUEST		"1\xFF" "0.0.0.0:0\0"
 #define PORT_MASTER			27010
 #define PORT_CLIENT			27005
 #define PORT_SERVER			27015

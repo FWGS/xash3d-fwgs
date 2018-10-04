@@ -90,6 +90,7 @@ protected:
 	int _drawTextColor[4];
 	int _translateX, _translateY;
 	int _currentTexture;
+	Panel *currentPanel;
 };
 
 // initialize VGUI::App as external (part of engine)

@@ -675,10 +675,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 	file_t	*f;
 
 	if( FS_FileSize( "maps.lst", onlyingamedir ) > 0 && !fRefresh )
-	{
-		MsgDev( D_NOTE, "maps.lst is exist: %s\n", onlyingamedir ? "basedir" : "gamedir" );
 		return true; // exist 
-	}
 
 	t = FS_Search( "maps/*.bsp", false, onlyingamedir );
 
@@ -917,10 +914,11 @@ void Host_WriteConfig( void )
 
 	if( !clgame.hInstance ) return;
 
-	MsgDev( D_NOTE, "Host_WriteConfig()\n" );
+
 	f = FS_Open( "config.cfg", "w", false );
 	if( f )
 	{
+		Con_Reportf( "Host_WriteConfig()\n" );
 		FS_Printf( f, "//=======================================================================\n");
 		FS_Printf( f, "//\t\t\tCopyright XashXT Group %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\t\tconfig.cfg - archive of cvars\n" );
@@ -945,7 +943,7 @@ void Host_WriteConfig( void )
 
 		FS_Close( f );
 	}
-	else MsgDev( D_ERROR, "Couldn't write config.cfg.\n" );
+	else Con_DPrintf( S_ERROR "Couldn't write config.cfg.\n" );
 }
 
 /*
@@ -974,7 +972,7 @@ void Host_WriteServerConfig( const char *name )
 		CSCR_WriteGameCVars( f, "settings.scr" );
 		FS_Close( f );
 	}
-	else MsgDev( D_ERROR, "Couldn't write %s.\n", name );
+	else Con_DPrintf( S_ERROR "Couldn't write %s.\n", name );
 
 	SV_FreeGameProgs();	// release progs with all variables
 }
@@ -990,10 +988,11 @@ void Host_WriteOpenGLConfig( void )
 {
 	file_t	*f;
 
-	MsgDev( D_NOTE, "Host_WriteGLConfig()\n" );
+
 	f = FS_Open( "opengl.cfg", "w", false );
 	if( f )
 	{
+		Con_Reportf( "Host_WriteGLConfig()\n" );
 		FS_Printf( f, "//=======================================================================\n" );
 		FS_Printf( f, "//\t\t\tCopyright XashXT Group %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\t    opengl.cfg - archive of opengl extension cvars\n");
@@ -1002,7 +1001,7 @@ void Host_WriteOpenGLConfig( void )
 		Cmd_WriteOpenGLVariables( f );
 		FS_Close( f );	
 	}                                                
-	else MsgDev( D_ERROR, "can't update opengl.cfg.\n" );
+	else Con_DPrintf( S_ERROR "can't update opengl.cfg.\n" );
 }
 
 /*
@@ -1016,10 +1015,10 @@ void Host_WriteVideoConfig( void )
 {
 	file_t	*f;
 
-	MsgDev( D_NOTE, "Host_WriteVideoConfig()\n" );
 	f = FS_Open( "video.cfg", "w", false );
 	if( f )
 	{
+		Con_Reportf( "Host_WriteVideoConfig()\n" );
 		FS_Printf( f, "//=======================================================================\n" );
 		FS_Printf( f, "//\t\t\tCopyright XashXT Group %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\tvideo.cfg - archive of renderer variables\n");
@@ -1027,7 +1026,7 @@ void Host_WriteVideoConfig( void )
 		Cvar_WriteVariables( f, FCVAR_RENDERINFO );
 		FS_Close( f );	
 	}                                                
-	else MsgDev( D_ERROR, "can't update video.cfg.\n" );
+	else Con_DPrintf( S_ERROR "can't update video.cfg.\n" );
 }
 
 void Key_EnumCmds_f( void )

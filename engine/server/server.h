@@ -387,6 +387,7 @@ extern convar_t		sv_unlagpush;
 extern convar_t		sv_unlagsamples;
 extern convar_t		rcon_password;
 extern convar_t		sv_instancedbaseline;
+extern convar_t		sv_background_freeze;
 extern convar_t		sv_minupdaterate;
 extern convar_t		sv_maxupdaterate;
 extern convar_t		sv_downloadurl;

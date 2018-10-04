@@ -140,7 +140,7 @@ typedef struct physics_interface_s
 	// called at end the frame of SV_Physics call
 	void		( *SV_EndFrame )( void );
 	// obsolete
-	void		(*pfnReserved)( void );
+	void		(*pfnPrepWorldFrame)( void );
 	// called through save\restore process
 	void		(*pfnCreateEntitiesInRestoreList)( SAVERESTOREDATA *pSaveData, int levelMask, qboolean create_world );
 	// allocate custom string (e.g. using user implementation of stringtable, not engine strings)

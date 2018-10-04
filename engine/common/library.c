@@ -187,7 +187,7 @@ static void PerformBaseRelocation( MEMORYMODULE *module, DWORD delta )
 					*patchAddrHL += delta;
 					break;
 				default:
-					MsgDev( D_ERROR, "PerformBaseRelocation: unknown relocation: %d\n", type );
+					Con_Reportf( S_ERROR "PerformBaseRelocation: unknown relocation: %d\n", type );
 					break;
 				}
 			}
@@ -272,7 +272,7 @@ static int BuildImportTable( MEMORYMODULE *module )
 
 			if( handle == NULL )
 			{
-				MsgDev( D_ERROR, "couldn't load library %s\n", libname );
+				Con_Printf( S_ERROR "couldn't load library %s\n", libname );
 				result = 0;
 				break;
 			}
@@ -294,20 +294,23 @@ static int BuildImportTable( MEMORYMODULE *module )
 
 			for( ; *thunkRef; thunkRef++, funcRef++ )
 			{
+				LPCSTR	funcName;
+
 				if( IMAGE_SNAP_BY_ORDINAL( *thunkRef ))
 				{
-					LPCSTR	funcName = (LPCSTR)IMAGE_ORDINAL( *thunkRef );
+					funcName = (LPCSTR)IMAGE_ORDINAL( *thunkRef );
 					*funcRef = (DWORD)COM_GetProcAddress( handle, funcName );
 				}
 				else
 				{
 					PIMAGE_IMPORT_BY_NAME thunkData = (PIMAGE_IMPORT_BY_NAME)CALCULATE_ADDRESS( codeBase, *thunkRef );
-					LPCSTR	funcName = (LPCSTR)&thunkData->Name;
+					funcName = (LPCSTR)&thunkData->Name;
 					*funcRef = (DWORD)COM_GetProcAddress( handle, funcName );
 				}
 
 				if( *funcRef == 0 )
 				{
+					Con_Printf( S_ERROR "%s unable to find address: %s\n", libname, funcName );
 					result = 0;
 					break;
 				}
@@ -470,7 +473,7 @@ library_error:
 	// cleanup
 	if( data ) Mem_Free( data );
 	MemoryFreeLibrary( result );
-	MsgDev( D_ERROR, "LoadLibrary: %s\n", errorstring );
+	Con_Printf( S_ERROR "LoadLibrary: %s\n", errorstring );
 
 	return NULL;
 }
@@ -816,7 +819,7 @@ void *COM_GetProcAddress( void *hInstance, const char *name )
 
 	if( hInst->custom_loader )
 		return (void *)MemoryGetProcAddress( hInst->hInstance, name );
-	return (void *)GetProcAddress( hInst->hInstance, GetMSVCName( name ));
+	return (void *)GetProcAddress( hInst->hInstance, name );
 }
 
 void COM_FreeLibrary( void *hInstance )
@@ -829,10 +832,10 @@ void COM_FreeLibrary( void *hInstance )
 	if( host.status == HOST_CRASHED )
 	{
 		// we need to hold down all modules, while MSVC can find error
-		MsgDev( D_NOTE, "Sys_FreeLibrary: hold %s for debugging\n", hInst->dllName );
+		Con_Reportf( "Sys_FreeLibrary: hold %s for debugging\n", hInst->dllName );
 		return;
 	}
-	else MsgDev( D_NOTE, "Sys_FreeLibrary: Unloading %s\n", hInst->dllName );
+	else Con_Reportf( "Sys_FreeLibrary: Unloading %s\n", hInst->dllName );
 	
 	if( hInst->custom_loader )
 		MemoryFreeLibrary( hInst->hInstance );

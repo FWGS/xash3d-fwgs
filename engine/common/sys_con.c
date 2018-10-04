@@ -290,7 +290,7 @@ void Con_CreateConsole( void )
 		rect.top = 0;
 		rect.bottom = 364;
 		Q_strncpy( FontName, "Fixedsys", sizeof( FontName ));
-		Q_strncpy( s_wcd.title, va( "Xash3D %g", XASH_VERSION ), sizeof( s_wcd.title ));
+		Q_strncpy( s_wcd.title, va( "Xash3D %s", XASH_VERSION ), sizeof( s_wcd.title ));
 		Q_strncpy( s_wcd.log_path, "engine.log", sizeof( s_wcd.log_path ));
 		fontsize = 8;
 	}
@@ -312,7 +312,7 @@ void Con_CreateConsole( void )
 	if( !RegisterClass( &wc ))
 	{
 		// print into log
-		MsgDev( D_ERROR, "Can't register window class '%s'\n", SYSCONSOLE );
+		Con_DPrintf( S_ERROR "Can't register window class '%s'\n", SYSCONSOLE );
 		return;
 	} 
 
@@ -329,7 +329,7 @@ void Con_CreateConsole( void )
 	s_wcd.hWnd = CreateWindowEx( WS_EX_DLGMODALFRAME, SYSCONSOLE, s_wcd.title, DEDSTYLE, ( swidth - 600 ) / 2, ( sheight - 450 ) / 2 , rect.right - rect.left + 1, rect.bottom - rect.top + 1, NULL, NULL, host.hInst, NULL );
 	if( s_wcd.hWnd == NULL )
 	{
-		MsgDev( D_ERROR, "Can't create window '%s'\n", s_wcd.title );
+		Con_DPrintf( S_ERROR "Can't create window '%s'\n", s_wcd.title );
 		return;
 	}
 
@@ -399,7 +399,7 @@ destroy win32 console
 void Con_DestroyConsole( void )
 {
 	// last text message into console or log 
-	MsgDev( D_NOTE, "Sys_FreeLibrary: Unloading xash.dll\n" );
+	Con_Reportf( "Sys_FreeLibrary: Unloading xash.dll\n" );
 
 	Sys_CloseLog();
 
@@ -486,7 +486,12 @@ void Sys_InitLog( void )
 	if( s_wcd.log_active )
 	{
 		s_wcd.logfile = fopen( s_wcd.log_path, mode );
-		if( !s_wcd.logfile ) MsgDev( D_ERROR, "Sys_InitLog: can't create log file %s\n", s_wcd.log_path );
+
+		if( !s_wcd.logfile )
+		{
+			MSGBOX( va( "can't create log file %s\n", s_wcd.log_path ));
+			return;
+		}
 
 		fprintf( s_wcd.logfile, "=================================================================================\n" );
 		fprintf( s_wcd.logfile, "\t%s (build %i) started at %s\n", s_wcd.title, Q_buildnum(), Q_timestamp( TIME_FULL ));

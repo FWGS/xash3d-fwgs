@@ -815,8 +815,8 @@ trace_t SV_PushEntity( edict_t *ent, const vec3_t lpush, const vec3_t apush, int
 	if( blocked )
 	{
 		// more accuracy blocking code
-		if( flDamage <= 0.0f )
-			*blocked = !VectorCompare( ent->v.origin, end ); // can't move full distance
+		if( flDamage <= 0.0f && FBitSet( host.features, ENGINE_PHYSICS_PUSHER_EXT ))
+			*blocked = !VectorCompareEpsilon( ent->v.origin, end, ON_EPSILON ); // can't move full distance
 		else *blocked = true;
 	}
 
@@ -864,9 +864,8 @@ static qboolean SV_CanBlock( edict_t *ent )
 	if( ent->v.solid == SOLID_NOT || ent->v.solid == SOLID_TRIGGER )
 	{
 		// clear bounds for deadbody
-		ent->v.mins[0] = ent->v.mins[1] = 0.0f;
-		ent->v.maxs[0] = ent->v.maxs[1] = 0.0f;
-		ent->v.maxs[2] = ent->v.mins[2];
+		ent->v.mins[0] = ent->v.mins[1] = 0;
+		VectorCopy( ent->v.mins, ent->v.maxs );
 		return false;
           }
 
@@ -936,7 +935,7 @@ static edict_t *SV_PushMove( edict_t *pusher, float movetime )
 		if( block ) continue;
 
 		// if the entity is standing on the pusher, it will definately be moved
-		if( !(( check->v.flags & FL_ONGROUND ) && check->v.groundentity == pusher ))
+		if( !( FBitSet( check->v.flags, FL_ONGROUND ) && check->v.groundentity == pusher ))
 		{
 			if( check->v.absmin[0] >= maxs[0]
 			 || check->v.absmin[1] >= maxs[1]
@@ -2046,7 +2045,7 @@ qboolean SV_InitPhysicsAPI( void )
 	{
 		if( pPhysIface( SV_PHYSICS_INTERFACE_VERSION, &gPhysicsAPI, &svgame.physFuncs ))
 		{
-			MsgDev( D_REPORT, "SV_LoadProgs: ^2initailized extended PhysicAPI ^7ver. %i\n", SV_PHYSICS_INTERFACE_VERSION );
+			Con_Reportf( "SV_LoadProgs: ^2initailized extended PhysicAPI ^7ver. %i\n", SV_PHYSICS_INTERFACE_VERSION );
 
 			if( svgame.physFuncs.SV_CheckFeatures != NULL )
 			{

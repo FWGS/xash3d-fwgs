@@ -317,7 +317,7 @@ delta_info_t *Delta_FindStruct( const char *name )
 			return &dt_info[i];
 	}
 
-	MsgDev( D_WARN, "Struct %s not found in delta_info\n", name );
+	Con_DPrintf( S_WARN "Struct %s not found in delta_info\n", name );
 
 	// found nothing
 	return NULL;
@@ -427,7 +427,7 @@ qboolean Delta_AddField( const char *pStructName, const char *pName, int flags, 
 	{
 		if( !Q_strcmp( pField->name, pName ))
 		{
-			MsgDev( D_NOTE, "Delta_Add: %s->%s already existing\n", pStructName, pName );
+			Con_Reportf( "Delta_Add: %s->%s already existing\n", pStructName, pName );
 			return false; // field already exist		
 		}
 	}
@@ -436,13 +436,13 @@ qboolean Delta_AddField( const char *pStructName, const char *pName, int flags, 
 	pFieldInfo = Delta_FindFieldInfo( dt->pInfo, pName );
 	if( !pFieldInfo )
 	{
-		MsgDev( D_ERROR, "Delta_Add: couldn't find description for %s->%s\n", pStructName, pName );
+		Con_DPrintf( S_ERROR "Delta_Add: couldn't find description for %s->%s\n", pStructName, pName );
 		return false;
 	}
 
 	if( dt->numFields + 1 > dt->maxFields )
 	{
-		MsgDev( D_WARN, "Delta_Add: can't add %s->%s encoder list is full\n", pStructName, pName );
+		Con_DPrintf( S_WARN "Delta_Add: can't add %s->%s encoder list is full\n", pStructName, pName );
 		return false; // too many fields specified (duplicated ?)
 	}
 
@@ -543,28 +543,28 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	*delta_script = COM_ParseFile( *delta_script, token );
 	if( Q_strcmp( token, "(" ))
 	{
-		MsgDev( D_ERROR, "Delta_ParseField: expected '(', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "Delta_ParseField: expected '(', found '%s' instead\n", token );
 		return false;
 	}
 
 	// read the variable name
 	if(( *delta_script = COM_ParseFile( *delta_script, token )) == NULL )
 	{
-		MsgDev( D_ERROR, "Delta_ParseField: missing field name\n" );
+		Con_DPrintf( S_ERROR "Delta_ParseField: missing field name\n" );
 		return false;
 	}
 
 	pFieldInfo = Delta_FindFieldInfo( pInfo, token );
 	if( !pFieldInfo )
 	{
-		MsgDev( D_ERROR, "Delta_ParseField: unable to find field %s\n", token );
+		Con_DPrintf( S_ERROR "Delta_ParseField: unable to find field %s\n", token );
 		return false;
 	}
 
 	*delta_script = COM_ParseFile( *delta_script, token );
 	if( Q_strcmp( token, "," ))
 	{
-		MsgDev( D_ERROR, "Delta_ParseField: expected ',', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "Delta_ParseField: expected ',', found '%s' instead\n", token );
 		return false;
 	}
 
@@ -605,7 +605,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 
 	if( Q_strcmp( token, "," ))
 	{
-		MsgDev( D_ERROR, "Delta_ParseField: expected ',', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "Delta_ParseField: expected ',', found '%s' instead\n", token );
 		return false;
 	}
 
@@ -613,7 +613,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 
 	if(( *delta_script = COM_ParseFile( *delta_script, token )) == NULL )
 	{
-		MsgDev( D_ERROR, "Delta_ReadField: %s field bits argument is missing\n", pField->name );
+		Con_DPrintf( S_ERROR "Delta_ReadField: %s field bits argument is missing\n", pField->name );
 		return false;
 	}
 
@@ -622,14 +622,14 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	*delta_script = COM_ParseFile( *delta_script, token ); 
 	if( Q_strcmp( token, "," ))
 	{
-		MsgDev( D_ERROR, "Delta_ReadField: expected ',', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "Delta_ReadField: expected ',', found '%s' instead\n", token );
 		return false;
 	}
 
 	// read delta-multiplier
 	if(( *delta_script = COM_ParseFile( *delta_script, token )) == NULL )
 	{
-		MsgDev( D_ERROR, "Delta_ReadField: %s missing 'multiplier' argument\n", pField->name );
+		Con_DPrintf( S_ERROR "Delta_ReadField: %s missing 'multiplier' argument\n", pField->name );
 		return false;
 	}
 
@@ -640,14 +640,14 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 		*delta_script = COM_ParseFile( *delta_script, token );
 		if( Q_strcmp( token, "," ))
 		{
-			MsgDev( D_ERROR, "Delta_ReadField: expected ',', found '%s' instead\n", token );
+			Con_DPrintf( S_ERROR "Delta_ReadField: expected ',', found '%s' instead\n", token );
 			return false;
 		}
 
 		// read delta-postmultiplier
 		if(( *delta_script = COM_ParseFile( *delta_script, token )) == NULL )
 		{
-			MsgDev( D_ERROR, "Delta_ReadField: %s missing 'post_multiply' argument\n", pField->name );
+			Con_DPrintf( S_ERROR "Delta_ReadField: %s missing 'post_multiply' argument\n", pField->name );
 			return false;
 		}
 
@@ -663,7 +663,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	*delta_script = COM_ParseFile( *delta_script, token );
 	if( Q_strcmp( token, ")" ))
 	{
-		MsgDev( D_ERROR, "Delta_ParseField: expected ')', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "Delta_ParseField: expected ')', found '%s' instead\n", token );
 		return false;
 	}
 
@@ -1911,13 +1911,13 @@ void Delta_AddEncoder( char *name, pfnDeltaEncode encodeFunc )
 
 	if( !dt || !dt->bInitialized )
 	{
-		MsgDev( D_ERROR, "Delta_AddEncoder: couldn't find delta with specified custom encode %s\n", name );
+		Con_DPrintf( S_ERROR "Delta_AddEncoder: couldn't find delta with specified custom encode %s\n", name );
 		return;
 	}
 
 	if( dt->customEncode == CUSTOM_NONE )
 	{
-		MsgDev( D_ERROR, "Delta_AddEncoder: %s not supposed for custom encoding\n", dt->pName );
+		Con_DPrintf( S_ERROR "Delta_AddEncoder: %s not supposed for custom encoding\n", dt->pName );
 		return;
 	}
 

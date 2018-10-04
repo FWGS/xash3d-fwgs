@@ -40,8 +40,8 @@ void DBG_AssertFunction( qboolean fExpr, const char* szExpr, const char* szFile,
 	if( fExpr ) return;
 
 	if( szMessage != NULL )
-		MsgDev( at_error, "ASSERT FAILED:\n %s \n(%s@%d)\n%s\n", szExpr, szFile, szLine, szMessage );
-	else MsgDev( at_error, "ASSERT FAILED:\n %s \n(%s@%d)\n", szExpr, szFile, szLine );
+		Con_DPrintf( S_ERROR "ASSERT FAILED:\n %s \n(%s@%d)\n%s\n", szExpr, szFile, szLine, szMessage );
+	else Con_DPrintf( S_ERROR "ASSERT FAILED:\n %s \n(%s@%d)\n", szExpr, szFile, szLine );
 }
 #endif	// DEBUG
 
@@ -769,7 +769,7 @@ COM_CheckString
 */
 int COM_CheckString( const char *string )
 {
-	if( !string || (byte)*string <= ' ' )
+	if( !string || !*string )
 		return 0;
 	return 1;
 }

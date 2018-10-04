@@ -131,7 +131,7 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, size_t filesize )
 		else size = outsize;
 
 		memcpy( &sound.wav[bytesWrite], out, size );
-		bytesWrite += outsize;
+		bytesWrite += size;
 	}
 
 	sound.samples = bytesWrite / ( sound.width * sound.channels );

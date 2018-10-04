@@ -948,6 +948,7 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType );
 void CL_ResetLatchedVars( cl_entity_t *ent, qboolean full_reset );
 qboolean CL_GetEntitySpatialization( struct channel_s *ch );
 qboolean CL_GetMovieSpatialization( struct rawchan_s *ch );
+void CL_ProcessPlayerState( int playerindex, entity_state_t *state );
 void CL_ComputePlayerOrigin( cl_entity_t *clent );
 void CL_ProcessPacket( frame_t *frame );
 void CL_MoveThirdpersonCamera( void );

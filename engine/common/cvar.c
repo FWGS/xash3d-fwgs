@@ -320,7 +320,7 @@ convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *
 	// check for command coexisting
 	if( Cmd_Exists( name ))
 	{
-		MsgDev( D_ERROR, "can't register variable '%s', is already defined as command\n", name );
+		Con_DPrintf( S_ERROR "can't register variable '%s', is already defined as command\n", name );
 		return NULL;
 	}
 
@@ -356,7 +356,7 @@ convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *
 		if( FBitSet( var->flags, FCVAR_ALLOCATED ) && Q_strcmp( var_desc, var->desc ))
 		{
 			if( !FBitSet( flags, FCVAR_GLCONFIG ))
-				MsgDev( D_REPORT, "%s change description from %s to %s\n", var->name, var->desc, var_desc );
+				Con_Reportf( "%s change description from %s to %s\n", var->name, var->desc, var_desc );
 			// update description if needs
 			freestring( var->desc );
 			var->desc = copystring( var_desc );
@@ -410,7 +410,7 @@ void Cvar_RegisterVariable( convar_t *var )
 	{
 		if( !FBitSet( dup->flags, FCVAR_TEMPORARY ))
 		{
-			MsgDev( D_ERROR, "can't register variable '%s', is already defined\n", var->name );
+			Con_DPrintf( S_ERROR "can't register variable '%s', is already defined\n", var->name );
 			return;
 		}
 
@@ -421,7 +421,7 @@ void Cvar_RegisterVariable( convar_t *var )
 	// check for overlap with a command
 	if( Cmd_Exists( var->name ))
 	{
-		MsgDev( D_ERROR, "can't register variable '%s', is already defined as command\n", var->name );
+		Con_DPrintf( S_ERROR "can't register variable '%s', is already defined as command\n", var->name );
 		return;
 	}
 
@@ -469,16 +469,12 @@ void Cvar_DirectSet( convar_t *var, const char *value )
 	if( CVAR_CHECK_SENTINEL( var ) || ( var->next == NULL && !FBitSet( var->flags, FCVAR_EXTENDED|FCVAR_ALLOCATED )))
 	{
 		// need to registering cvar fisrt
-		MsgDev( D_WARN, "Cvar_DirectSet: called for unregistered cvar '%s'\n", var->name );
 		Cvar_RegisterVariable( var );	// ok, register it
 	}
 
 	// lookup for registration again
 	if( var != Cvar_FindVar( var->name ))
-	{
-		MsgDev( D_ERROR, "Cvar_DirectSet: couldn't find cvar '%s' in linked list\n", var->name );
-		return;
-	}
+		return; // how this possible?
 
 	if( FBitSet( var->flags, FCVAR_READ_ONLY|FCVAR_GLCONFIG ))
 	{
@@ -565,8 +561,7 @@ void Cvar_Set( const char *var_name, const char *value )
 	if( !var )
 	{
 		// there is an error in C code if this happens
-		if( host.type != HOST_DEDICATED )
-			MsgDev( D_ERROR, "Cvar_Set: variable '%s' not found\n", var_name );
+		Con_Printf( "Cvar_Set: variable '%s' not found\n", var_name );
 		return;
 	}
 

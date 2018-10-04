@@ -384,13 +384,13 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, size_t filesize )
 			// NOTE: decals with 'blue base' can be interpret as colored decals
 			if( !Image_CheckFlag( IL_LOAD_DECAL ) || ( pal[765] == 0 && pal[766] == 0 && pal[767] == 255 ))
 			{
+				SetBits( image.flags, IMAGE_ONEBIT_ALPHA );
 				rendermode = LUMP_MASKED;
-				image.flags |= IMAGE_ONEBIT_ALPHA;
 			}
 			else
 			{
 				// classic gradient decals
-				image.flags |= IMAGE_COLORINDEX;
+				SetBits( image.flags, IMAGE_COLORINDEX );
 				rendermode = LUMP_GRADIENT;
 			}
 
@@ -405,8 +405,8 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, size_t filesize )
 			// this is a good reason for using fullbright pixels
 			pal_type = Image_ComparePalette( pal );
 
-			// check for luma pixels (but ignore liquid textures, this a Xash3D limitation)
-			if( mip.name[0] != '!' && pal_type == PAL_QUAKE1 )
+			// check for luma pixels (but ignore liquid textures because they have no lightmap)
+			if( mip.name[0] != '*' && mip.name[0] != '!' && pal_type == PAL_QUAKE1 )
 			{
 				for( i = 0; i < image.width * image.height; i++ )
 				{
@@ -440,11 +440,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, size_t filesize )
 		{
 			if( fin[i] > 224 && fin[i] != 255 )
 			{
-				// don't apply luma to water surfaces because
-				// we use glpoly->next for store luma chain each frame
-				// and can't modify glpoly_t because many-many HL mods
-				// expected unmodified glpoly_t and can crashes on changed struct
-				// water surfaces uses glpoly->next as pointer to subdivided surfaces (as q1)
+				// don't apply luma to water surfaces because they have no lightmap
 				if( mip.name[0] != '*' && mip.name[0] != '!' )
 					image.flags |= IMAGE_HAS_LUMA;
 				break;
@@ -503,8 +499,9 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, size_t filesize )
 		// calc the decal reflectivity
 		image.fogParams[3] = VectorAvg( image.fogParams );         
 	}
-	else if( pal != NULL )// calc texture reflectivity
+	else if( pal != NULL )
 	{
+		// calc texture reflectivity
 		for( i = 0; i < 256; i++ )
 		{
 			reflectivity[0] += pal[i*3+0];

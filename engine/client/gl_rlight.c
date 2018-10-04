@@ -74,7 +74,7 @@ void CL_RunLightStyles( void )
 			tr.lightstylevalue[i] = ls->map[0] * 22 * scale;
 			continue;
 		}
-		else if( !ls->interp || !cl_lightstyle_lerping->value )
+		else if( !ls->interp || !CVAR_TO_BOOL( cl_lightstyle_lerping ))
 		{
 			tr.lightstylevalue[i] = ls->map[flight%ls->length] * 22 * scale;
 			continue;
@@ -379,7 +379,7 @@ R_LightVec
 check bspmodels to get light from
 =================
 */
-colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t lvec )
+colorVec R_LightVecInternal( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t lvec )
 {
 	float	last_fraction;
 	int	i, maxEnts = 1;
@@ -437,6 +437,9 @@ colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t 
 				light.g = Q_min(( cv.g >> 7 ), 255 );
 				light.b = Q_min(( cv.b >> 7 ), 255 );
 				last_fraction = g_trace_fraction;
+
+				if(( light.r + light.g + light.b ) != 0 )
+					break; // we get light now
 			}
 		}
 	}
@@ -444,6 +447,27 @@ colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t 
 	{
 		light.r = light.g = light.b = 255;
 		light.a = 0;
+	}
+
+	return light;
+}
+
+/*
+=================
+R_LightVec
+
+check bspmodels to get light from
+=================
+*/
+colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t lvec )
+{
+	colorVec	light = R_LightVecInternal( start, end, lspot, lvec );
+
+	if( CVAR_TO_BOOL( r_lighting_extended ) && lspot != NULL && lvec != NULL )
+	{
+		// trying to get light from ceiling (but ignore gradient analyze)
+		if(( light.r + light.g + light.b ) == 0 )
+			return R_LightVecInternal( end, start, lspot, lvec );
 	}
 
 	return light;

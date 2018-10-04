@@ -313,7 +313,7 @@ void SV_MoveToOnHandList( sv_client_t *cl, resource_t *pResource )
 {
 	if( !pResource )
 	{
-		MsgDev( D_REPORT, "Null resource passed to SV_MoveToOnHandList\n" );
+		Con_Reportf( "Null resource passed to SV_MoveToOnHandList\n" );
 		return;
 	}
 
@@ -325,7 +325,7 @@ void SV_AddToResourceList( resource_t *pResource, resource_t *pList )
 {
 	if( pResource->pPrev != NULL || pResource->pNext != NULL )
 	{
-		MsgDev( D_ERROR, "Resource already linked\n" );
+		Con_Reportf( S_ERROR "Resource already linked\n" );
 		return;
 	}
 
@@ -524,7 +524,7 @@ void SV_BatchUploadRequest( sv_client_t *cl )
 			}
 			else
 			{
-				MsgDev( D_ERROR, "Non customization in upload queue!\n" );
+				Con_Reportf( S_ERROR "Non customization in upload queue!\n" );
 				SV_MoveToOnHandList( cl, p );
 			}
 		}

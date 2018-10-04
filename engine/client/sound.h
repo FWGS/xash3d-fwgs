@@ -292,6 +292,7 @@ char *S_SkipSoundChar( const char *pch );
 sfx_t *S_FindName( const char *name, int *pfInCache );
 sound_t S_RegisterSound( const char *name );
 void S_FreeSound( sfx_t *sfx );
+void S_InitSounds( void );
 
 // s_dsp.c
 void SX_Init( void );

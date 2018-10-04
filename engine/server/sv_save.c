@@ -422,7 +422,7 @@ static int IsValidSave( void )
 	}
 
 	// ignore autosave during background
-	if( sv.background )
+	if( sv.background || UI_CreditsActive( ))
 		return 0;
 
 	if( svgame.physFuncs.SV_AllowSaveGame != NULL )
@@ -538,9 +538,6 @@ build the savename
 static qboolean SaveGetName( int lastnum, char *filename )
 {
 	int	a, b, c;
-
-	if( !COM_CheckString( filename ))
-		return false;
 
 	if( lastnum < 0 || lastnum > 999 )
 		return false;
@@ -664,7 +661,7 @@ static void SaveClear( SAVERESTOREDATA *pSaveData )
 
 /*
 =============
-SaveInit
+SaveFinish
 
 release global save-restore buffer
 =============
@@ -1790,7 +1787,7 @@ static int CreateEntityTransitionList( SAVERESTOREDATA *pSaveData, int levelMask
 			}
 			else 
 			{
-				Con_DPrintf( "Transferring %s (%d)\n", STRING( pTable->classname ), NUM_FOR_EDICT( pent ));
+				Con_Reportf( "Transferring %s (%d)\n", STRING( pTable->classname ), NUM_FOR_EDICT( pent ));
 
 				if( svgame.dllFuncs.pfnRestore( pent, pSaveData, 0 ) < 0 )
 				{
@@ -1802,7 +1799,7 @@ static int CreateEntityTransitionList( SAVERESTOREDATA *pSaveData, int levelMask
 					{
 						// this can happen during normal processing - PVS is just a guess,
 						// some map areas won't exist in the new map
-						Con_DPrintf( "Suppressing %s\n", STRING( pTable->classname ));
+						Con_Reportf( "Suppressing %s\n", STRING( pTable->classname ));
 						SetBits( pent->v.flags, FL_KILLME );
 					}
 					else
@@ -2012,6 +2009,9 @@ qboolean SV_LoadGame( const char *pPath )
 	int		flags;
 
 	if( host.type == HOST_DEDICATED )
+		return false;
+
+	if( UI_CreditsActive( ))
 		return false;
 
 	if( !COM_CheckString( pPath ))

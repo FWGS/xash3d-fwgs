@@ -429,7 +429,7 @@ static void SV_StudioSetupBones( model_t *pModel,	float frame, int sequence, con
 	{
 		// only show warn if sequence that out of range was specified intentionally
 		if( sequence > mod_studiohdr->numseq )
-			MsgDev( D_WARN, "SV_StudioSetupBones: sequence %i/%i out of range for model %s\n", sequence, mod_studiohdr->numseq, mod_studiohdr->name );
+			Con_Reportf( S_WARN "SV_StudioSetupBones: sequence %i/%i out of range for model %s\n", sequence, mod_studiohdr->numseq, pModel->name );
 		sequence = 0;
 	}
 
@@ -783,7 +783,7 @@ studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 
 	if( i != STUDIO_VERSION )
 	{
-		MsgDev( D_ERROR, "%s has wrong version number (%i should be %i)\n", mod->name, i, STUDIO_VERSION );
+		Con_Printf( S_ERROR "%s has wrong version number (%i should be %i)\n", mod->name, i, STUDIO_VERSION );
 		return NULL;
 	}	
 
@@ -818,7 +818,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 
 		if( !thdr )
 		{
-			MsgDev( D_WARN, "Mod_LoadStudioModel: %s missing textures file\n", mod->name ); 
+			Con_Printf( S_WARN "Mod_LoadStudioModel: %s missing textures file\n", mod->name ); 
 			if( buffer2 ) Mem_Free( buffer2 );
 		}
                     else
@@ -933,7 +933,7 @@ void Mod_InitStudioAPI( void )
 	pBlendIface = (STUDIOAPI)COM_GetProcAddress( svgame.hInstance, "Server_GetBlendingInterface" );
 	if( pBlendIface && pBlendIface( SV_BLENDING_INTERFACE_VERSION, &pBlendAPI, &gStudioAPI, &studio_transform, &studio_bones ))
 	{
-		MsgDev( D_REPORT, "SV_LoadProgs: ^2initailized Server Blending interface ^7ver. %i\n", SV_BLENDING_INTERFACE_VERSION );
+		Con_Reportf( "SV_LoadProgs: ^2initailized Server Blending interface ^7ver. %i\n", SV_BLENDING_INTERFACE_VERSION );
 		return;
 	}
 

@@ -62,10 +62,6 @@ infotable	dlumpinfo_t[dwadinfo_t->numlumps]
 #define HINT_NAMELEN	5	// e.g. _mask, _norm
 #define MAX_FILES_IN_WAD	65535	// real limit as above <2Gb size not a lumpcount
 
-// hidden virtual lump types
-#define TYP_ANY		-1	// any type can be accepted
-#define TYP_NONE		0	// unknown lump type
-
 #include "const.h"
 
 typedef struct
@@ -82,8 +78,8 @@ typedef struct
 	int		size;		// uncompressed
 	char		type;		// TYP_*
 	char		attribs;		// file attribs
-	char		img_type;		// IMG_*
-	char		pad;
+	char		pad0;
+	char		pad1;
 	char		name[WAD3_NAMELEN];	// must be null terminated
 } dlumpinfo_t;
 

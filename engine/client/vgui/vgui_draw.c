@@ -50,7 +50,7 @@ void VGUI_DrawShutdown( void )
 
 	for( i = 1; i < g_textureId; i++ )
 	{
-		GL_FreeImage( va( "*vgui%i", i ));
+		GL_FreeTexture( g_textures[i] );
 	}
 }
 
@@ -82,7 +82,7 @@ void VGUI_UploadTexture( int id, const char *buffer, int width, int height )
 
 	if( id <= 0 || id >= VGUI_MAX_TEXTURES )
 	{
-		MsgDev( D_ERROR, "VGUI_UploadTexture: bad texture %i. Ignored\n", id );
+		Con_DPrintf( S_ERROR "VGUI_UploadTexture: bad texture %i. Ignored\n", id );
 		return;
 	}
 
@@ -96,7 +96,7 @@ void VGUI_UploadTexture( int id, const char *buffer, int width, int height )
 	r_image.flags = IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA;
 	r_image.buffer = (byte *)buffer;
 
-	g_textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE, false );
+	g_textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE );
 }
 
 /*

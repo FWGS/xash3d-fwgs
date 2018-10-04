@@ -416,7 +416,7 @@ qboolean Info_SetValueForStarKey( char *s, const char *key, const char *value, i
 
 	if( Q_strstr( key, "\\" ) || Q_strstr( value, "\\" ))
 	{
-		MsgDev( D_ERROR, "SetValueForKey: can't use keys or values with a \\\n" );
+		Con_Printf( S_ERROR "SetValueForKey: can't use keys or values with a \\\n" );
 		return false;
 	}
 
@@ -425,15 +425,12 @@ qboolean Info_SetValueForStarKey( char *s, const char *key, const char *value, i
 
 	if( Q_strstr( key, "\"" ) || Q_strstr( value, "\"" ))
 	{
-		MsgDev( D_ERROR, "SetValueForKey: can't use keys or values with a \"\n" );
+		Con_Printf( S_ERROR "SetValueForKey: can't use keys or values with a \"\n" );
 		return false;
 	}
 
 	if( Q_strlen( key ) > ( MAX_KV_SIZE - 1 ) || Q_strlen( value ) > ( MAX_KV_SIZE - 1 ))
-	{
-		MsgDev( D_ERROR, "SetValueForKey: keys and values must be < %i characters.\n", MAX_KV_SIZE );
 		return false;
-	}
 
 	Info_RemoveKey( s, key );
 
@@ -458,14 +455,12 @@ qboolean Info_SetValueForStarKey( char *s, const char *key, const char *value, i
 			if( largekey[0] == 0 )
 			{
 				// no room to add setting
-				MsgDev( D_ERROR, "SetValueForKey: info string length exceeded\n" );
 				return true; // info changed, new value can't saved
 			}
 		}
 		else
 		{
 			// no room to add setting
-			MsgDev( D_ERROR, "SetValueForKey: info string length exceeded\n" );
 			return true; // info changed, new value can't saved
 		}
 	}
@@ -492,7 +487,7 @@ qboolean Info_SetValueForKey( char *s, const char *key, const char *value, int m
 {
 	if( key[0] == '*' )
 	{
-		MsgDev( D_ERROR, "Can't set *keys\n" );
+		Con_Printf( S_ERROR "Can't set *keys\n" );
 		return false;
 	}
 

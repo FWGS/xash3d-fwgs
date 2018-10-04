@@ -106,7 +106,7 @@ void Cbuf_AddText( const char *text )
 
 	if(( cmd_text.cursize + l ) >= cmd_text.maxsize )
 	{
-		MsgDev( D_WARN, "Cbuf_AddText: overflow\n" );
+		Con_Reportf( S_WARN "Cbuf_AddText: overflow\n" );
 	}
 	else
 	{
@@ -128,7 +128,7 @@ void Cbuf_InsertText( const char *text )
 
 	if(( cmd_text.cursize + l ) >= cmd_text.maxsize )
 	{
-		MsgDev( D_WARN, "Cbuf_InsertText: overflow\n" );
+		Con_Reportf( S_WARN "Cbuf_InsertText: overflow\n" );
 	}
 	else
 	{
@@ -184,7 +184,7 @@ void Cbuf_Execute( void )
 
 		if( i >= ( MAX_CMD_LINE - 1 ))
 		{
-			MsgDev( D_ERROR, "Cbuf_Execute: command string owerflow\n" );
+			Con_DPrintf( S_ERROR "Cbuf_Execute: command string owerflow\n" );
 			line[0] = 0;
 		}
 		else
@@ -604,23 +604,20 @@ void Cmd_AddServerCommand( const char *cmd_name, xcommand_t function )
 {
 	cmd_t	*cmd, *cur, *prev;
 
-	if( !cmd_name || !*cmd_name )
-	{
-		MsgDev( D_ERROR, "Cmd_AddServerCommand: NULL name\n" );
+	if( !COM_CheckString( cmd_name ))
 		return;
-	}
 
 	// fail if the command is a variable name
 	if( Cvar_FindVar( cmd_name ))
 	{
-		MsgDev( D_ERROR, "Cmd_AddServerCommand: %s already defined as a var\n", cmd_name );
+		Con_DPrintf( S_ERROR "Cmd_AddServerCommand: %s already defined as a var\n", cmd_name );
 		return;
 	}
 	
 	// fail if the command already exists
 	if( Cmd_Exists( cmd_name ))
 	{
-		MsgDev( D_ERROR, "Cmd_AddServerCommand: %s already defined\n", cmd_name );
+		Con_DPrintf( S_ERROR "Cmd_AddServerCommand: %s already defined\n", cmd_name );
 		return;
 	}
 
@@ -648,23 +645,20 @@ int Cmd_AddClientCommand( const char *cmd_name, xcommand_t function )
 {
 	cmd_t	*cmd, *cur, *prev;
 
-	if( !cmd_name || !*cmd_name )
-	{
-		MsgDev( D_ERROR, "Cmd_AddClientCommand: NULL name\n" );
+	if( !COM_CheckString( cmd_name ))
 		return 0;
-	}
 
 	// fail if the command is a variable name
 	if( Cvar_FindVar( cmd_name ))
 	{
-		MsgDev( D_ERROR, "Cmd_AddClientCommand: %s already defined as a var\n", cmd_name );
+		Con_DPrintf( S_ERROR "Cmd_AddClientCommand: %s already defined as a var\n", cmd_name );
 		return 0;
 	}
 	
 	// fail if the command already exists
 	if( Cmd_Exists( cmd_name ))
 	{
-		MsgDev( D_ERROR, "Cmd_AddClientCommand: %s already defined\n", cmd_name );
+		Con_DPrintf( S_ERROR "Cmd_AddClientCommand: %s already defined\n", cmd_name );
 		return 0;
 	}
 
@@ -694,23 +688,20 @@ int Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function )
 {
 	cmd_t	*cmd, *cur, *prev;
 
-	if( !cmd_name || !*cmd_name )
-	{
-		MsgDev( D_ERROR, "Cmd_AddGameUICommand: NULL name\n" );
+	if( !COM_CheckString( cmd_name ))
 		return 0;
-	}
 
 	// fail if the command is a variable name
 	if( Cvar_FindVar( cmd_name ))
 	{
-		MsgDev( D_ERROR, "Cmd_AddGameUICommand: %s already defined as a var\n", cmd_name );
+		Con_DPrintf( S_ERROR "Cmd_AddGameUICommand: %s already defined as a var\n", cmd_name );
 		return 0;
 	}
 	
 	// fail if the command already exists
 	if( Cmd_Exists( cmd_name ))
 	{
-		MsgDev( D_ERROR, "Cmd_AddGameUICommand: %s already defined\n", cmd_name );
+		Con_DPrintf( S_ERROR "Cmd_AddGameUICommand: %s already defined\n", cmd_name );
 		return 0;
 	}
 

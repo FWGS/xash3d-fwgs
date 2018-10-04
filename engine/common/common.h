@@ -123,7 +123,7 @@ typedef enum
 #include "crtlib.h"
 #include "cvar.h"
 
-#define XASH_VERSION	0.99f		// engine current version
+#define XASH_VERSION	"0.99"		// engine current version
 
 // PERFORMANCE INFO
 #define MIN_FPS         	20.0		// host minimum fps value for maxfps.
@@ -379,6 +379,7 @@ typedef struct host_parm_s
 	string		finalmsg;		// server shutdown final message
 	string		downloadfile;	// filename to be downloading
 	int		downloadcount;	// how many files remain to downloading
+	char		deferred_cmd[128];	// deferred commands
 	host_redirect_t	rd;		// remote console
 
 	// command line parms
@@ -503,7 +504,7 @@ NOTE: number at end of pixelformat name it's a total bitscount e.g. PF_RGB_24 ==
 ========================================================================
 */
 #define ImageRAW( type )	(type == PF_RGBA_32 || type == PF_BGRA_32 || type == PF_RGB_24 || type == PF_BGR_24)
-#define ImageDXT( type )	(type == PF_DXT1 || type == PF_DXT3 || type == PF_DXT5)
+#define ImageDXT( type )	(type == PF_DXT1 || type == PF_DXT3 || type == PF_DXT5 || type == PF_ATI2)
 
 typedef enum
 {
@@ -517,6 +518,7 @@ typedef enum
 	PF_DXT1,		// s3tc DXT1 format
 	PF_DXT3,		// s3tc DXT3 format
 	PF_DXT5,		// s3tc DXT5 format
+	PF_ATI2,		// latc ATI2N format
 	PF_TOTALCOUNT,	// must be last
 } pixformat_t;
 

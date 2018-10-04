@@ -93,7 +93,7 @@ typedef struct gltexture_s
 	int		servercount;
 	uint		hashValue;
 	struct gltexture_s	*nextHash;
-} gltexture_t;
+} gl_texture_t;
 
 typedef struct
 {
@@ -306,16 +306,18 @@ void R_DrawModelHull( void );
 // gl_image.c
 //
 void R_SetTextureParameters( void );
-gltexture_t *R_GetTexture( GLenum texnum );
+gl_texture_t *R_GetTexture( GLenum texnum );
+#define GL_LoadTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, false )
+#define GL_UpdateTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, true )
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags, imgfilter_t *filter );
 int GL_LoadTextureArray( const char **names, int flags, imgfilter_t *filter );
-int GL_LoadTextureInternal( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
+int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
 byte *GL_ResampleTexture( const byte *source, int in_w, int in_h, int out_w, int out_h, qboolean isNormalMap );
 int GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags );
 int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor );
-void GL_ApplyTextureParams( gltexture_t *tex );
-void R_FreeImage( gltexture_t *image );
+void GL_UpdateTexSize( int texnum, int width, int height, int depth );
+void GL_ApplyTextureParams( gl_texture_t *tex );
 int GL_FindTexture( const char *name );
 void GL_FreeTexture( GLenum texnum );
 void GL_FreeImage( const char *name );
@@ -452,6 +454,7 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse );
 void GL_CheckForErrors_( const char *filename, const int fileline );
 const char *VID_GetModeString( int vid_mode );
 void *GL_GetProcAddress( const char *name );
+const char *GL_ErrorString( int err );
 void GL_UpdateSwapInterval( void );
 qboolean GL_DeleteContext( void );
 qboolean GL_Support( int r_ext );

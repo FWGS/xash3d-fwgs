@@ -250,7 +250,7 @@ qboolean Image_ValidSize( const char *name )
 {
 	if( image.width > IMAGE_MAXWIDTH || image.height > IMAGE_MAXHEIGHT || image.width <= 0 || image.height <= 0 )
 	{
-		MsgDev( D_ERROR, "Image: %s has invalid sizes %i x %i\n", name, image.width, image.height );
+		Con_DPrintf( S_ERROR "Image: (%s) dims out of range [%dx%d]\n", name, image.width, image.height );
 		return false;
 	}
 	return true;
@@ -260,7 +260,7 @@ qboolean Image_LumpValidSize( const char *name )
 {
 	if( image.width > LUMP_MAXWIDTH || image.height > LUMP_MAXHEIGHT || image.width <= 0 || image.height <= 0 )
 	{
-		MsgDev(D_WARN, "Image_LumpValidSize: (%s) dims out of range[%dx%d]\n", name, image.width,image.height );
+		Con_DPrintf( S_ERROR "Image: (%s) dims out of range [%dx%d]\n", name, image.width,image.height );
 		return false;
 	}
 	return true;
@@ -309,7 +309,6 @@ void Image_SetPalette( const byte *pal, uint *d_table )
 			rgba[3] = i;
 			d_table[i] = *(uint *)rgba;
 		}
-//		d_table[0] = 0x00808080;
 		break;
 	case LUMP_MASKED:
 		for( i = 0; i < 255; i++ )
@@ -390,11 +389,11 @@ void Image_GetPaletteLMP( const byte *pal, int rendermode )
 			Image_GetPaletteQ1();
 			break;
 		case LUMP_HALFLIFE:
-			Image_GetPaletteHL(); // default half-life palette
+			Image_GetPaletteHL();
 			break;
 		default:
-			MsgDev( D_ERROR, "Image_GetPaletteLMP: invalid palette specified\n" );
-			Image_GetPaletteHL(); // defaulting to half-life palette
+			// defaulting to half-life palette
+			Image_GetPaletteHL();
 			break;
 		}
 	}
@@ -574,17 +573,8 @@ qboolean Image_Copy8bitRGBA( const byte *in, byte *out, int pixels )
 	byte	*col;
 	int	i;
 
-	if( !image.d_currentpal )
-	{
-		MsgDev( D_ERROR, "Image_Copy8bitRGBA: no palette set\n" );
+	if( !in || !image.d_currentpal )
 		return false;
-	}
-
-	if( !in )
-	{
-		MsgDev( D_ERROR, "Image_Copy8bitRGBA: no input image\n" );
-		return false;
-	}
 
 	// this is a base image with luma - clear luma pixels
 	if( image.flags & IMAGE_HAS_LUMA )
@@ -741,7 +731,7 @@ void Image_Resample32Lerp( const void *indata, int inwidth, int inheight, void *
 			if( yi != oldy )
 			{
 				inrow = (byte *)indata + inwidth4 * yi;
-				if (yi == oldy+1) memcpy( resamplerow1, resamplerow2, outwidth4 );
+				if( yi == oldy + 1 ) memcpy( resamplerow1, resamplerow2, outwidth4 );
 				else Image_Resample32LerpLine( inrow, resamplerow1, inwidth, outwidth );
 				Image_Resample32LerpLine( inrow + inwidth4, resamplerow2, inwidth, outwidth );
 				oldy = yi;
@@ -806,7 +796,7 @@ void Image_Resample32Lerp( const void *indata, int inwidth, int inheight, void *
 		{
 			if( yi != oldy )
 			{
-				inrow = (byte *)indata + inwidth4*yi;
+				inrow = (byte *)indata + inwidth4 * yi;
 				if( yi == oldy + 1 ) memcpy( resamplerow1, resamplerow2, outwidth4 );
 				else Image_Resample32LerpLine( inrow, resamplerow1, inwidth, outwidth);
 				oldy = yi;
@@ -1085,7 +1075,6 @@ byte *Image_ResampleInternal( const void *indata, int inwidth, int inheight, int
 		else Image_Resample32Nolerp( indata, inwidth, inheight, image.tempbuffer, outwidth, outheight );
 		break;
 	default:
-		MsgDev( D_WARN, "Image_Resample: unsupported format %s\n", PFDesc[type].name );
 		*resampled = false;
 		return (byte *)indata;	
 	}
@@ -1105,9 +1094,9 @@ byte *Image_FlipInternal( const byte *in, word *srcwidth, word *srcheight, int t
 	word	width = *srcwidth;
 	word	height = *srcheight; 
 	int	samples = PFDesc[type].bpp;
-	qboolean	flip_x = ( flags & IMAGE_FLIP_X ) ? true : false;
-	qboolean	flip_y = ( flags & IMAGE_FLIP_Y ) ? true : false;
-	qboolean	flip_i = ( flags & IMAGE_ROT_90 ) ? true : false;
+	qboolean	flip_x = FBitSet( flags, IMAGE_FLIP_X ) ? true : false;
+	qboolean	flip_y = FBitSet( flags, IMAGE_FLIP_Y ) ? true : false;
+	qboolean	flip_i = FBitSet( flags, IMAGE_ROT_90 ) ? true : false;
 	int	row_inc = ( flip_y ? -samples : samples ) * width;
 	int	col_inc = ( flip_x ? -samples : samples );
 	int	row_ofs = ( flip_y ? ( height - 1 ) * width * samples : 0 );
@@ -1130,7 +1119,6 @@ byte *Image_FlipInternal( const byte *in, word *srcwidth, word *srcheight, int t
 		image.tempbuffer = Mem_Realloc( host.imagepool, image.tempbuffer, width * height * samples );
 		break;
 	default:
-		MsgDev( D_WARN, "Image_Flip: unsupported format %s\n", PFDesc[type].name );
 		return (byte *)in;	
 	}
 
@@ -1334,10 +1322,7 @@ rgbdata_t *Image_LightGamma( rgbdata_t *pic )
 qboolean Image_RemapInternal( rgbdata_t *pic, int topColor, int bottomColor )
 {
 	if( !pic->palette )
-	{
-		MsgDev( D_ERROR, "Image_Remap: palette is missed\n" );
 		return false;
-	}
 
 	switch( pic->type )
 	{
@@ -1347,7 +1332,6 @@ qboolean Image_RemapInternal( rgbdata_t *pic, int topColor, int bottomColor )
 		Image_ConvertPalTo24bit( pic );
 		break;
 	default:
-		MsgDev( D_ERROR, "Image_Remap: unsupported format %s\n", PFDesc[pic->type].name );
 		return false;
 	}
 
@@ -1495,7 +1479,6 @@ qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, imgf
 	// check for buffers
 	if( !pic || !pic->buffer )
 	{
-		MsgDev( D_WARN, "Image_Process: NULL image\n" );
 		image.force_flags = 0;
 		return false;
 	}
@@ -1540,7 +1523,7 @@ qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, imgf
 
 		if( resampled ) // resampled or filled
 		{
-			MsgDev( D_NOTE, "Image_Resample: from[%d x %d] to [%d x %d]\n", pic->width, pic->height, w, h );
+			Con_Reportf( "Image_Resample: from[%d x %d] to [%d x %d]\n", pic->width, pic->height, w, h );
 			pic->width = w, pic->height = h;
 			pic->size = w * h * PFDesc[pic->type].bpp;
 			Mem_Free( pic->buffer );		// free original image buffer

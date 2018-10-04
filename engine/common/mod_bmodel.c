@@ -135,7 +135,6 @@ typedef struct
 	int			lightmap_samples;	// samples per lightmap (1 or 3)
 	int			version;		// model version
 	qboolean			isworld;
-	qboolean			vis_errors;	// don't spam about vis decompression errors
 } dbspmodel_t;
 
 typedef struct
@@ -179,6 +178,7 @@ world_static_t		world;
 static dbspmodel_t		srcmodel;
 static loadstat_t		loadstat;
 static model_t		*worldmodel;
+static byte		g_visdata[(MAX_MAP_LEAFS+7)/8];	// intermediate buffer
 static mlumpstat_t		worldstats[HEADER_LUMPS+EXTRA_LUMPS];
 static mlumpinfo_t		srclumps[HEADER_LUMPS] =
 {
@@ -291,7 +291,7 @@ static void Mod_LoadLump( const byte *in, mlumpinfo_t *info, mlumpstat_t *stat, 
 			{
 				if( !FBitSet( flags, LUMP_SILENT ))
 				{
-					MsgDev( D_WARN, "map ^2%s^7 has no %s\n", loadstat.name, msg1 );
+					Con_DPrintf( S_WARN "map ^2%s^7 has no %s\n", loadstat.name, msg1 );
 					loadstat.numwarnings++;
 				}
 			}
@@ -299,7 +299,7 @@ static void Mod_LoadLump( const byte *in, mlumpinfo_t *info, mlumpstat_t *stat, 
 			{
 				// it has the mincount and the lump is completely missed!
 				if( !FBitSet( flags, LUMP_SILENT ))
-					MsgDev( D_ERROR, "map ^2%s^7 has no %s\n", loadstat.name, msg1 );
+					Con_DPrintf( S_ERROR "map ^2%s^7 has no %s\n", loadstat.name, msg1 );
 				loadstat.numerrors++;
 			}
 		}
@@ -309,7 +309,7 @@ static void Mod_LoadLump( const byte *in, mlumpinfo_t *info, mlumpstat_t *stat, 
 	if( l->filelen % real_entrysize )
 	{
 		if( !FBitSet( flags, LUMP_SILENT ))
-			MsgDev( D_ERROR, "Mod_Load%s: funny lump size\n", msg2 );
+			Con_DPrintf( S_ERROR "Mod_Load%s: funny lump size\n", msg2 );
 		loadstat.numerrors++;
 		return;
 	}
@@ -320,7 +320,7 @@ static void Mod_LoadLump( const byte *in, mlumpinfo_t *info, mlumpstat_t *stat, 
 	{
 		// it has the mincount and it's smaller than this limit
 		if( !FBitSet( flags, LUMP_SILENT ))
-			MsgDev( D_ERROR, "map ^2%s^7 has no %s\n", loadstat.name, msg1 );
+			Con_DPrintf( S_ERROR "map ^2%s^7 has no %s\n", loadstat.name, msg1 );
 		loadstat.numerrors++;
 		return;
 	}
@@ -331,14 +331,14 @@ static void Mod_LoadLump( const byte *in, mlumpinfo_t *info, mlumpstat_t *stat, 
 		if( FBitSet( info->flags, CHECK_OVERFLOW ))
 		{
 			if( !FBitSet( flags, LUMP_SILENT ))
-				MsgDev( D_ERROR, "map ^2%s^7 has too many %s\n", loadstat.name, msg1 );
+				Con_DPrintf( S_ERROR "map ^2%s^7 has too many %s\n", loadstat.name, msg1 );
 			loadstat.numerrors++;
 			return;
 		}
 		else if( !FBitSet( flags, LUMP_SILENT ))
 		{
 			// just throw warning
-			MsgDev( D_WARN, "map ^2%s^7 has too many %s\n", loadstat.name, msg1 );
+			Con_DPrintf( S_WARN "map ^2%s^7 has too many %s\n", loadstat.name, msg1 );
 			loadstat.numwarnings++;
 		}
 	}
@@ -449,62 +449,46 @@ void Mod_PrintWorldStats_f( void )
 */
 /*
 ===================
-Mod_DecompressVis
+Mod_DecompressPVS
 ===================
 */
-static void Mod_DecompressVis( dbspmodel_t *bmod, const byte *in, const byte *inend, byte *out, byte *outend )
+byte *Mod_DecompressPVS( const byte *in, int visbytes )
 {
-	byte	*outstart = out;
+	byte	*out;
 	int	c;
 
-	while( out < outend )
-	{
-		if( in == inend )
-		{
-			if( !bmod->vis_errors )
-			{
-				MsgDev( D_WARN, "Mod_DecompressVis: input underrun (decompressed %i of %i output bytes)\n",
-				(int)(out - outstart), (int)(outend - outstart));
-				bmod->vis_errors = true;
-			}
-			return;
-		}
+	out = g_visdata;
 
-		c = *in++;
-
-		if( c )
+	if( !in )
+	{	
+		// no vis info, so make all visible
+		while( visbytes )
 		{
-			*out++ = c;
+			*out++ = 0xff;
+			visbytes--;
 		}
-		else
-		{
-			if( in == inend )
-			{
-				if( !bmod->vis_errors )
-				{
-					MsgDev( D_NOTE, "Mod_DecompressVis: input underrun (during zero-run) (decompressed %i of %i output bytes)\n",
-					(int)(out - outstart), (int)(outend - outstart));
-					bmod->vis_errors = true;
-				}
-				return;
-			}
-
-			for( c = *in++; c > 0; c-- )
-			{
-				if( out == outend )
-				{
-					if( !bmod->vis_errors )
-					{
-						MsgDev( D_NOTE, "Mod_DecompressVis: output overrun (decompressed %i of %i output bytes)\n",
-						(int)(out - outstart), (int)(outend - outstart));
-						bmod->vis_errors = true;
-					}
-					return;
-				}
-				*out++ = 0;
-			}
-		}
+		return g_visdata;
 	}
+
+	do
+	{
+		if( *in )
+		{
+			*out++ = *in++;
+			continue;
+		}
+
+		c = in[1];
+		in += 2;
+
+		while( c )
+		{
+			*out++ = 0;
+			c--;
+		}
+	} while( out - g_visdata < visbytes );
+
+	return g_visdata;
 }
 
 /*
@@ -556,7 +540,7 @@ byte *Mod_GetPVSForPoint( const vec3_t p )
 	}
 
 	if( leaf && leaf->cluster >= 0 )
-		return world.visdata + leaf->cluster * world.visbytes;
+		return Mod_DecompressPVS( leaf->compressed_vis, world.visbytes );
 	return NULL;
 }
 
@@ -589,7 +573,7 @@ static void Mod_FatPVS_RecursiveBSPNode( const vec3_t org, float radius, byte *v
 	// if this leaf is in a cluster, accumulate the vis bits
 	if(((mleaf_t *)node)->cluster >= 0 )
 	{
-		byte	*vis = world.visdata + ((mleaf_t *)node)->cluster * world.visbytes;
+		byte	*vis = Mod_DecompressPVS( ((mleaf_t *)node)->compressed_vis, world.visbytes );
 
 		for( i = 0; i < visbytes; i++ )
 			visbuffer[i] |= vis[i];
@@ -615,7 +599,7 @@ int Mod_FatPVS( const vec3_t org, float radius, byte *visbuffer, int visbytes, q
 	bytes = Q_min( bytes, visbytes );
 
 	// enable full visibility for some reasons
-	if( fullvis || !world.visclusters || !leaf || leaf->cluster < 0 )
+	if( fullvis || !worldmodel->visdata || !leaf || leaf->cluster < 0 )
 	{
 		memset( visbuffer, 0xFF, bytes );
 		return bytes;
@@ -863,7 +847,7 @@ static qboolean Mod_CheckWaterAlphaSupport( dbspmodel_t *bmod )
 	{
 		if(( leaf->contents == CONTENTS_WATER || leaf->contents == CONTENTS_SLIME ) && leaf->cluster >= 0 )
 		{
-			pvs = world.visdata + leaf->cluster * world.visbytes;
+			pvs = Mod_DecompressPVS( leaf->compressed_vis, world.visbytes );
 
 			for( j = 0; j < loadmodel->numleafs; j++ )
 			{
@@ -1049,8 +1033,8 @@ static void Mod_CalcSurfaceExtents( msurface_t *surf )
 			info->lightextents[i] = surf->extents[i];
 		}
 
-		if( !FBitSet( tex->flags, TEX_SPECIAL ) && surf->extents[i] > 4096 )
-			MsgDev( D_ERROR, "Bad surface extents %i\n", surf->extents[i] );
+		if( !FBitSet( tex->flags, TEX_SPECIAL ) && ( surf->extents[i] > 16384 ) && ( tr.block_size == BLOCK_SIZE_DEFAULT ))
+			Con_Reportf( S_ERROR "Bad surface extents %i\n", surf->extents[i] );
 	}
 }
 
@@ -1259,7 +1243,7 @@ static qboolean Mod_LoadColoredLighting( dbspmodel_t *bmod )
 		return false;
 
 	if( iCompare < 0 ) // this may happens if level-designer used -onlyents key for hlcsg
-		MsgDev( D_WARN, "%s probably is out of date\n", path );
+		Con_Printf( S_WARN "%s probably is out of date\n", path );
 
 	in = FS_LoadFile( path, &litdatasize, false );
 
@@ -1314,7 +1298,7 @@ static void Mod_LoadDeluxemap( dbspmodel_t *bmod )
 		return;
 
 	if( iCompare < 0 ) // this may happens if level-designer used -onlyents key for hlcsg
-		MsgDev( D_WARN, "%s probably is out of date\n", path );
+		Con_Printf( S_WARN "%s probably is out of date\n", path );
 
 	in = FS_LoadFile( path, &deluxdatasize, false );
 
@@ -1331,7 +1315,7 @@ static void Mod_LoadDeluxemap( dbspmodel_t *bmod )
 
 	if( deluxdatasize != bmod->lightdatasize )
 	{
-		MsgDev( D_ERROR, "%s has mismatched size (%i should be %i)\n", path, deluxdatasize, bmod->lightdatasize );
+		Con_Reportf( S_ERROR "%s has mismatched size (%i should be %i)\n", path, deluxdatasize, bmod->lightdatasize );
 		Mem_Free( in );
 		return;
 	}
@@ -1828,11 +1812,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 		mt = (mip_t *)((byte *)in + in->dataofs[i] );
 
 		if( !mt->name[0] )
-		{
-			MsgDev( D_WARN, "unnamed texture in %s\n", loadstat.name );
 			Q_snprintf( mt->name, sizeof( mt->name ), "miptex_%i", i );
-		}
-
 		tx = Mem_Calloc( loadmodel->mempool, sizeof( *tx ));
 		loadmodel->textures[i] = tx;
 
@@ -1915,7 +1895,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 		if( !tx->gl_texturenum )
 		{
 			if( host.type != HOST_DEDICATED )
-				MsgDev( D_ERROR, "couldn't load %s.mip\n", mt->name );
+				Con_DPrintf( S_ERROR "unable to find %s.mip\n", mt->name );
 			tx->gl_texturenum = tr.defaultTexture;
 		}
 
@@ -1994,7 +1974,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 			altanims[altmax] = tx;
 			altmax++;
 		}
-		else MsgDev( D_ERROR, "Mod_LoadTextures: bad animating texture %s\n", tx->name );
+		else Con_Printf( S_ERROR "Mod_LoadTextures: bad animating texture %s\n", tx->name );
 
 		for( j = i + 1; j < loadmodel->numtextures; j++ )
 		{
@@ -2022,7 +2002,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 				if( num + 1 > altmax )
 					altmax = num + 1;
 			}
-			else MsgDev( D_ERROR, "Mod_LoadTextures: bad animating texture %s\n", tx->name );
+			else Con_Printf( S_ERROR "Mod_LoadTextures: bad animating texture %s\n", tx->name );
 		}
 
 		// link them all together
@@ -2032,7 +2012,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 			if( !tx2 )
 			{
-				MsgDev( D_ERROR, "Mod_LoadTextures: missing frame %i of %s\n", j, tx->name );
+				Con_Printf( S_ERROR "Mod_LoadTextures: missing frame %i of %s\n", j, tx->name );
 				tx->anim_total = 0;
 				break;
 			}
@@ -2050,7 +2030,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 			if( !tx2 )
 			{
-				MsgDev( D_ERROR, "Mod_LoadTextures: missing frame %i of %s\n", j, tx->name );
+				Con_Printf( S_ERROR "Mod_LoadTextures: missing frame %i of %s\n", j, tx->name );
 				tx->anim_total = 0;
 				break;
 			}
@@ -2100,11 +2080,7 @@ static void Mod_LoadTexInfo( dbspmodel_t *bmod )
 
 		miptex = in->miptex;
 		if( miptex < 0 || miptex > loadmodel->numtextures )
-		{
-			MsgDev( D_WARN, "Mod_LoadTexInfo: bad miptex number %i in '%s'\n", miptex, loadmodel->name );
-			miptex = 0;
-		}
-
+			miptex = 0; // this is possible?
 		out->texture = loadmodel->textures[miptex];
 		out->flags = in->flags;
 
@@ -2150,11 +2126,7 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 			dface32_t	*in = &bmod->surfaces32[i];
 
 			if(( in->firstedge + in->numedges ) > loadmodel->numsurfedges )
-			{
-				MsgDev( D_ERROR, "bad surface %i from %i\n", i, bmod->numsurfaces );
-				continue;
-			}
-
+				continue;	// corrupted level?
 			out->firstedge = in->firstedge;
 			out->numedges = in->numedges;
 			if( in->side ) SetBits( out->flags, SURF_PLANEBACK );
@@ -2171,7 +2143,7 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 
 			if(( in->firstedge + in->numedges ) > loadmodel->numsurfedges )
 			{
-				MsgDev( D_ERROR, "bad surface %i from %i\n", i, bmod->numsurfaces );
+				Con_Reportf( S_ERROR "bad surface %i from %i\n", i, bmod->numsurfaces );
 				continue;
 			}
 
@@ -2189,15 +2161,15 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 		tex = out->texinfo->texture;
 
 		if( !Q_strncmp( tex->name, "sky", 3 ))
-			SetBits( out->flags, SURF_DRAWTILED|SURF_DRAWSKY );
+			SetBits( out->flags, SURF_DRAWSKY );
 
 		if(( tex->name[0] == '*' && Q_stricmp( tex->name, "*default" )) || tex->name[0] == '!' )
-			SetBits( out->flags, SURF_DRAWTURB|SURF_DRAWTILED );
+			SetBits( out->flags, SURF_DRAWTURB );
 
 		if( !CL_IsQuakeCompatible( ))
 		{
 			if( !Q_strncmp( tex->name, "water", 5 ) || !Q_strnicmp( tex->name, "laser", 5 ))
-				SetBits( out->flags, SURF_DRAWTURB|SURF_DRAWTILED );
+				SetBits( out->flags, SURF_DRAWTURB );
 		}
 
 		if( !Q_strncmp( tex->name, "scroll", 6 ))
@@ -2259,10 +2231,10 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 		if( samples == 1 || samples == 3 )
 		{
 			bmod->lightmap_samples = (int)samples;
-			MsgDev( D_REPORT, "lighting: %s\n", (bmod->lightmap_samples == 1) ? "monochrome" : "colored" );
+			Con_Reportf( "lighting: %s\n", (bmod->lightmap_samples == 1) ? "monochrome" : "colored" );
 			bmod->lightmap_samples = Q_max( bmod->lightmap_samples, 1 ); // avoid division by zero
 		}
-		else MsgDev( D_WARN, "lighting invalid samplecount: %g, defaulting to %i\n", samples, bmod->lightmap_samples );
+		else Con_DPrintf( S_WARN "lighting invalid samplecount: %g, defaulting to %i\n", samples, bmod->lightmap_samples );
 	}
 }
 
@@ -2340,20 +2312,16 @@ static void Mod_LoadLeafs( dbspmodel_t *bmod )
 {
 	mleaf_t	*out;
 	int	i, j, p;
+	int	visclusters = 0;
 
 	loadmodel->leafs = out = (mleaf_t *)Mem_Calloc( loadmodel->mempool, bmod->numleafs * sizeof( *out ));
 	loadmodel->numleafs = bmod->numleafs;
 
 	if( bmod->isworld )
 	{
-		// get visleafs from the submodel data
-		world.visclusters = loadmodel->submodels[0].visleafs;
-		world.visbytes = (world.visclusters + 7) >> 3;
-		world.visdata = (byte *)Mem_Malloc( loadmodel->mempool, world.visclusters * world.visbytes );
-		world.fatbytes = (world.visclusters + 31) >> 3;
-
-		// enable full visibility as default
-		memset( world.visdata, 0xFF, world.visclusters * world.visbytes );
+		visclusters = loadmodel->submodels[0].visleafs;
+		world.visbytes = (visclusters + 7) >> 3;
+		world.fatbytes = (visclusters + 31) >> 3;
 	}
 
 	for( i = 0; i < bmod->numleafs; i++, out++ )
@@ -2401,22 +2369,15 @@ static void Mod_LoadLeafs( dbspmodel_t *bmod )
 		{
 			out->cluster = ( i - 1 ); // solid leaf 0 has no visdata
 
-			if( out->cluster >= world.visclusters )
+			if( out->cluster >= visclusters )
 				out->cluster = -1;
 
 			// ignore visofs errors on leaf 0 (solid)
 			if( p >= 0 && out->cluster >= 0 && loadmodel->visdata )
 			{
 				if( p < bmod->visdatasize )
-				{
-					byte	*inrow =  loadmodel->visdata + p;
-					byte	*inrowend = loadmodel->visdata + bmod->visdatasize;
-					byte	*outrow = world.visdata + out->cluster * world.visbytes;
-					byte	*outrowend = world.visdata + (out->cluster + 1) * world.visbytes;
-
-					Mod_DecompressVis( bmod, inrow, inrowend, outrow, outrowend );
-				}
-				else MsgDev( D_WARN, "Mod_LoadLeafs: invalid visofs for leaf #%i\n", i );
+					out->compressed_vis = loadmodel->visdata + p;
+				else Con_Reportf( S_WARN "Mod_LoadLeafs: invalid visofs for leaf #%i\n", i );
 			}
 	          }
 		else out->cluster = -1; // no visclusters on bmodels
@@ -2510,7 +2471,7 @@ static void Mod_LoadLightVecs( dbspmodel_t *bmod )
 	if( bmod->deluxdatasize != bmod->lightdatasize )
 	{
 		if( bmod->deluxdatasize > 0 )
-			MsgDev( D_ERROR, "Mod_LoadLightVecs: has mismatched size (%i should be %i)\n", bmod->deluxdatasize, bmod->lightdatasize );
+			Con_Printf( S_ERROR "Mod_LoadLightVecs: has mismatched size (%i should be %i)\n", bmod->deluxdatasize, bmod->lightdatasize );
 		else Mod_LoadDeluxemap( bmod ); // old method
 		return;
 	}
@@ -2529,7 +2490,7 @@ static void Mod_LoadShadowmap( dbspmodel_t *bmod )
 	if( bmod->shadowdatasize != ( bmod->lightdatasize / 3 ))
 	{
 		if( bmod->shadowdatasize > 0 )
-			MsgDev( D_ERROR, "Mod_LoadShadowmap: has mismatched size (%i should be %i)\n", bmod->shadowdatasize, bmod->lightdatasize / 3 );
+			Con_Printf( S_ERROR "Mod_LoadShadowmap: has mismatched size (%i should be %i)\n", bmod->shadowdatasize, bmod->lightdatasize / 3 );
 		return;
 	}
 
@@ -2650,7 +2611,7 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	case QBSP2_VERSION:
 		break;
 	default:
-		MsgDev( D_ERROR, "%s has wrong version number (%i should be %i)\n", loadmodel->name, header->version, HLBSP_VERSION );
+		Con_Printf( S_ERROR "%s has wrong version number (%i should be %i)\n", loadmodel->name, header->version, HLBSP_VERSION );
 		loadstat.numerrors++;
 		return false;
 	}
@@ -2712,7 +2673,7 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	if( COM_CheckString( wadvalue ))
 	{
 		wadvalue[Q_strlen( wadvalue ) - 2] = '\0'; // kill the last semicolon
-		Con_DPrintf( "Wad files required to run the map: \"%s\"\n", wadvalue );
+		Con_Reportf( "Wad files required to run the map: \"%s\"\n", wadvalue );
 	}
 
 	return true;
@@ -2754,7 +2715,7 @@ qboolean Mod_TestBmodelLumps( const char *name, const byte *mod_base, qboolean s
 	default:
 		// don't early out: let me analyze errors
 		if( !FBitSet( flags, LUMP_SILENT ))
-			MsgDev( D_ERROR, "%s has wrong version number (%i should be %i)\n", name, header->version, HLBSP_VERSION );
+			Con_Printf( S_ERROR "%s has wrong version number (%i should be %i)\n", name, header->version, HLBSP_VERSION );
 		loadstat.numerrors++;
 		break;
 	}
