@@ -51,6 +51,10 @@ def options(opt):
 		'--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
 		help = 'install like Windows build, ignore prefix, useful for development')
 
+	opt.add_option(
+		'--no-gcc-colors', action = 'store_false', dest = 'GCC_COLORS', default = True,
+		help = 'do not enable gcc colors')
+
 	opt.recurse(SUBDIRS)
 
 def configure(conf):
@@ -91,8 +95,11 @@ def configure(conf):
 			conf.env.append_unique('CFLAGS',   ['-O2'])
 			conf.env.append_unique('CXXFLAGS', ['-O2'])
 		else:
-			conf.env.append_unique('CFLAGS',   ['-Og', '-g', '-fdiagnostics-color=always', '-w'])
+			conf.env.append_unique('CFLAGS',   ['-Og', '-g'])
 			conf.env.append_unique('CXXFLAGS', ['-Og', '-g'])
+		if conf.options.GCC_COLORS:
+			conf.env.append_unique('CFLAGS', ['-fdiagnostics-color=always'])
+			conf.env.append_unique('CXXFLAGS', ['-fdiagnostics-color=always'])
 	else:
 		if(conf.options.RELEASE):
 			conf.env.append_unique('CFLAGS',   ['/O2'])
