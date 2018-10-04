@@ -1182,6 +1182,23 @@ void Cmd_WriteOpenGLVariables( file_t *f )
 }
 
 #ifndef XASH_DEDICATED
+
+
+#define CFG_END(f,x) \
+	if( FS_Printf( f,"// end of " x "\n" ) >= (int)sizeof( "// end of " x "\n" ) - 2 )\
+	{ \
+		FS_Close( f );\
+		FS_Delete( x ".bak" ); \
+		FS_Rename( x, x ".bak" ); \
+		FS_Delete( x ); \
+		FS_Rename( x ".new", x );\
+	}\
+	else\
+	{\
+		FS_Close( f );\
+		MsgDev( D_ERROR, "could not update " x "\n" );\
+	}
+
 /*
 ===============
 Host_WriteConfig
@@ -1195,10 +1212,10 @@ void Host_WriteConfig( void )
 	kbutton_t	*jlook = NULL;
 	file_t	*f;
 
-	if( !clgame.hInstance ) return;
+	if( !clgame.hInstance || Sys_CheckParm( "-nowriteconfig" ) ) return;
 
 
-	f = FS_Open( "config.cfg", "w", false );
+	f = FS_Open( "config.cfg.new", "w", false );
 	if( f )
 	{
 		Con_Reportf( "Host_WriteConfig()\n" );
@@ -1224,7 +1241,7 @@ void Host_WriteConfig( void )
 
 		FS_Printf( f, "exec userconfig.cfg" );
 
-		FS_Close( f );
+		CFG_END( f, "config.cfg" );
 	}
 	else Con_DPrintf( S_ERROR "Couldn't write config.cfg.\n" );
 
@@ -1242,21 +1259,32 @@ save serverinfo variables into server.cfg (using for dedicated server too)
 void Host_WriteServerConfig( const char *name )
 {
 	file_t	*f;
+	string oldconfigfile, newconfigfile;
+
+	Q_snprintf( oldconfigfile, MAX_STRING, "%s.bak", name );
+	Q_snprintf( newconfigfile, MAX_STRING, "%s.new", name );
 
 	SV_InitGameProgs();	// collect user variables
 
 	// FIXME: move this out until menu parser is done
 	CSCR_LoadDefaultCVars( "settings.scr" );
 	
-	if(( f = FS_Open( name, "w", false )) != NULL )
+	if(( f = FS_Open( newconfigfile, "w", false )) != NULL )
 	{
 		FS_Printf( f, "//=======================================================================\n" );
 		FS_Printf( f, "//\t\t\tCopyright XashXT Group %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\tgame.cfg - multiplayer server temporare config\n" );
 		FS_Printf( f, "//=======================================================================\n" );
+
 		Cvar_WriteVariables( f, FCVAR_SERVER );
 		CSCR_WriteGameCVars( f, "settings.scr" );
+
 		FS_Close( f );
+
+		FS_Rename( name, oldconfigfile );
+		FS_Delete( name );
+		FS_Rename( newconfigfile, name );
+		FS_Delete( oldconfigfile );
 	}
 	else Con_DPrintf( S_ERROR "Couldn't write %s.\n", name );
 
@@ -1274,8 +1302,10 @@ void Host_WriteOpenGLConfig( void )
 {
 	file_t	*f;
 
+	if( Sys_CheckParm( "-nowriteconfig" ) )
+		return;
 
-	f = FS_Open( "opengl.cfg", "w", false );
+	f = FS_Open( "opengl.cfg.new", "w", false );
 	if( f )
 	{
 		Con_Reportf( "Host_WriteGLConfig()\n" );
@@ -1285,7 +1315,7 @@ void Host_WriteOpenGLConfig( void )
 		FS_Printf( f, "//=======================================================================\n" );
 		FS_Printf( f, "\n" );
 		Cmd_WriteOpenGLVariables( f );
-		FS_Close( f );	
+		CFG_END( f, "opengl.cfg" );
 	}                                                
 	else Con_DPrintf( S_ERROR "can't update opengl.cfg.\n" );
 }
@@ -1301,7 +1331,10 @@ void Host_WriteVideoConfig( void )
 {
 	file_t	*f;
 
-	f = FS_Open( "video.cfg", "w", false );
+	if( Sys_CheckParm( "-nowriteconfig" ) )
+		return;
+
+	f = FS_Open( "video.cfg.new", "w", false );
 	if( f )
 	{
 		Con_Reportf( "Host_WriteVideoConfig()\n" );
@@ -1310,7 +1343,7 @@ void Host_WriteVideoConfig( void )
 		FS_Printf( f, "//\t\tvideo.cfg - archive of renderer variables\n");
 		FS_Printf( f, "//=======================================================================\n" );
 		Cvar_WriteVariables( f, FCVAR_RENDERINFO );
-		FS_Close( f );	
+		CFG_END( f, "video.cfg" );
 	}                                                
 	else Con_DPrintf( S_ERROR "can't update video.cfg.\n" );
 }
