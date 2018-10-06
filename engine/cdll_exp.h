@@ -15,6 +15,14 @@ GNU General Public License for more details.
 #ifndef CDLL_EXP_H
 #define CDLL_EXP_H
 
+struct tempent_s;
+struct usercmd_s;
+struct physent_s;
+struct playermove_s;
+struct mstudioevent_s;
+struct engine_studio_api_s;
+struct r_studio_interface_s;
+
 // NOTE: ordering is important!
 typedef struct cldll_func_s
 {

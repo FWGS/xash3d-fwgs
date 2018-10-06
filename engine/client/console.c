@@ -122,6 +122,7 @@ typedef struct
 
 static console_t		con;
 
+void Con_ClearField( field_t *edit );
 void Field_CharEvent( field_t *edit, int ch );
 
 /*
@@ -1388,7 +1389,7 @@ EDIT FIELDS
 Con_ClearField
 ================
 */
-void Con_ClearField(field_t *edit)
+void Con_ClearField( field_t *edit )
 {
 	memset(edit->buffer, 0, MAX_STRING);
 	edit->cursor = 0;

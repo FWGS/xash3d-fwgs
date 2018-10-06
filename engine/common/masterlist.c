@@ -92,7 +92,7 @@ NET_AddMaster
 Add master to the list
 ========================
 */
-static void NET_AddMaster( char *addr, qboolean save )
+static void NET_AddMaster( const char *addr, qboolean save )
 {
 	master_t *master, *last;
 

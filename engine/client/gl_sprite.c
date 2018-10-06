@@ -243,7 +243,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		// install palette
 		switch( psprite->texFormat )
 		{
-                    case SPR_INDEXALPHA:
+		case SPR_INDEXALPHA:
 			pal = FS_LoadImage( "#gradient.pal", src, 768 ); 
 			break;
 		case SPR_ALPHTEST:		

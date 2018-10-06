@@ -393,6 +393,12 @@ typedef struct
 #undef ARRAYSIZE
 #define ARRAYSIZE(p)	(sizeof(p)/sizeof(p[0]))
 
+struct weapon_data_s;
+struct playermove_s;
+struct clientdata_s;
+struct usercmd_s;
+struct edict_s;
+
 typedef struct 
 {
 	// Initialize/shutdown the game (one-time call after loading of game .dll )

@@ -1839,7 +1839,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		{
 			// packet was sucessfully delivered, adjust the fragment size and get challenge
 
-			Con_DPrintf( "CRC %p is matched, get challenge, fragment size %d\n", crcValue, cls.max_fragment_size );
+			Con_DPrintf( "CRC %x is matched, get challenge, fragment size %d\n", crcValue, cls.max_fragment_size );
 			Netchan_OutOfBandPrint( NS_CLIENT, from, "getchallenge\n" );
 			Cvar_SetValue( "cl_dlmax", cls.max_fragment_size );
 			cls.connect_time = host.realtime;

@@ -2500,7 +2500,7 @@ Filename are relative to the xash directory.
 Always appends a 0 byte.
 ============
 */
-byte *FS_LoadDirectFile(const char *path, long *filesizeptr )
+byte *FS_LoadDirectFile( const char *path, long *filesizeptr )
 {
 	file_t		*file;
 	byte		*buf = NULL;

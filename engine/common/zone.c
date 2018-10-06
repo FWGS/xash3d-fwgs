@@ -307,7 +307,7 @@ void Mem_PrintStats( void )
 		realsize += pool->realsize;
 	}
 
-	Con_Printf( "^3%lu^7 memory pools, totalling: ^1%s\n", (dword)count, Q_memprint( size ));
+	Con_Printf( "^3%lu^7 memory pools, totalling: ^1%s\n", count, Q_memprint( size ));
 	Con_Printf( "total allocated size: ^1%s\n", Q_memprint( realsize ));
 }
 
