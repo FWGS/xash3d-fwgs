@@ -1101,6 +1101,20 @@ qboolean UI_LoadProgs( void )
 
 	gameui.use_text_api = false;
 
+	// make local copy of engfuncs to prevent overwrite it with user dll
+	memcpy( &gpEngfuncs, &gEngfuncs, sizeof( gpEngfuncs ));
+
+	gameui.mempool = Mem_AllocPool( "Menu Pool" );
+
+	if( !GetMenuAPI( &gameui.dllFuncs, &gpEngfuncs, gameui.globals ))
+	{
+		COM_FreeLibrary( gameui.hInstance );
+		Con_Reportf( "UI_LoadProgs: can't init menu API\n" );
+		Mem_FreePool( &gameui.mempool );
+		gameui.hInstance = NULL;
+		return false;
+	}
+
 	if( ( GiveTextApi = (UITEXTAPI)COM_GetProcAddress( gameui.hInstance, "GiveTextAPI" ) ) )
 	{
 		MsgDev( D_NOTE, "UI_LoadProgs: extended Text API initialized\n" );
@@ -1114,20 +1128,6 @@ qboolean UI_LoadProgs( void )
 	if( pfnAddTouchButtonToList )
 	{
 		MsgDev( D_NOTE, "UI_LoadProgs: AddTouchButtonToList call found\n" );
-	}
-
-	// make local copy of engfuncs to prevent overwrite it with user dll
-	memcpy( &gpEngfuncs, &gEngfuncs, sizeof( gpEngfuncs ));
-
-	gameui.mempool = Mem_AllocPool( "Menu Pool" );
-
-	if( !GetMenuAPI( &gameui.dllFuncs, &gpEngfuncs, gameui.globals ))
-	{
-		COM_FreeLibrary( gameui.hInstance );
-		Con_Reportf( "UI_LoadProgs: can't init menu API\n" );
-		Mem_FreePool( &gameui.mempool );
-		gameui.hInstance = NULL;
-		return false;
 	}
 
 	Cvar_FullSet( "host_gameuiloaded", "1", FCVAR_READ_ONLY );
