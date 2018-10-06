@@ -28,6 +28,7 @@
 // kill the request hook after receiving the first response
 #define FNETAPI_MULTIPLE_RESPONSE		( 1<<0 )
 
+struct net_response_s;
 typedef void (*net_api_response_func_t) ( struct net_response_s *response );
 
 #define NET_SUCCESS				( 0 )
