@@ -123,9 +123,8 @@ def configure(conf):
 		conf.env.DEST_OS != 'darwin'):
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 	else:
-		# prefix is ignored
-		conf.env.LIBDIR = conf.env.BINDIR = '/'
-	
+		conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
+
 	conf.start_msg('Checking git hash')
 	git_version = get_git_version()
 	conf.end_msg(git_version)
