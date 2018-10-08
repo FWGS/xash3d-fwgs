@@ -31,6 +31,7 @@ def configure(conf):
 			conf.env.append_unique('DEFINES', 'XASH_SDL')
 		else:
 			conf.check(lib='USER32')
+			conf.check(lib='SHELL32')
 
 def get_subproject_name(ctx):
         return os.path.basename(os.path.realpath(str(ctx.path)))
@@ -53,7 +54,7 @@ def build(bld):
 	else:
 		# compile resource on Windows
 		bld.load('winres')
-		libs += ['USER32']
+		libs += ['USER32', 'SHELL32']
 		source += ['game.rc']
 
 	bld(
