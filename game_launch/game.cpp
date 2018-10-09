@@ -31,11 +31,7 @@ GNU General Public License for more details.
 	#if !__MINGW32__ && _MSC_VER >= 1200
 		#define USE_WINMAIN
 	#endif
-	#ifndef XASH_DEDICATED
-		#define XASHLIB "xash_sdl.dll"
-	#else
-		#define XASHLIB "xash_dedicated.dll"
-	#endif
+	#define XASHLIB "xash.dll"
 	#define dlerror() GetStringLastError()
 	#include <windows.h>
 #endif
