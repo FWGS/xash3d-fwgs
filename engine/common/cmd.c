@@ -1112,6 +1112,10 @@ void Cmd_Unlink( int group )
 			continue;
 		}
 
+#if defined(XASH_HASHED_VARS)
+		BaseCmd_Remove( HM_CMD, cmd->name );
+#endif
+
 		*prev = cmd->next;
 
 		if( cmd->name ) Mem_Free( cmd->name );
