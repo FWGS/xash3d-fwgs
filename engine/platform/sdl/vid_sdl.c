@@ -461,9 +461,9 @@ GL_UpdateContext
 */
 qboolean GL_UpdateContext( void )
 {
-	if( !SDL_GL_MakeCurrent( host.hWnd, glw_state.context ))
+	if( SDL_GL_MakeCurrent( host.hWnd, glw_state.context ))
 	{
-		MsgDev(D_ERROR, "GL_UpdateContext: %s", SDL_GetError());
+		MsgDev(D_ERROR, "GL_UpdateContext: %s\n", SDL_GetError());
 		return GL_DeleteContext();
 	}
 
@@ -566,6 +566,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	rgbdata_t *icon = NULL;
 	qboolean iconLoaded = false;
 	char iconpath[MAX_STRING];
+	int xpos, ypos;
 
 	if( vid_highdpi->value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
 	Q_strncpy( wndname, GI->title, sizeof( wndname ));
@@ -573,17 +574,16 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	if( !fullscreen )
 	{
 		wndFlags |= SDL_WINDOW_RESIZABLE;
-		host.hWnd = SDL_CreateWindow( wndname,
-			Cvar_VariableInteger( "_window_xpos" ),
-			Cvar_VariableInteger( "_window_ypos" ),
-			width, height, wndFlags );
+		xpos = max( 0, Cvar_VariableInteger( "_window_xpos" ) );
+		ypos = max( 0, Cvar_VariableInteger( "_window_ypos" ) );
 	}
 	else
 	{
 		wndFlags |= SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_INPUT_GRABBED;
-		host.hWnd = SDL_CreateWindow( wndname, 0, 0, width, height, wndFlags );
+		xpos = ypos = 0;
 	}
 
+	host.hWnd = SDL_CreateWindow( wndname, xpos, ypos, width, height, wndFlags );
 
 	if( !host.hWnd )
 	{
@@ -669,17 +669,13 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	if( !glw_state.initialized )
 	{
 		if( !GL_CreateContext( ))
-		{
 			return false;
-		}
 
 		VID_StartupGamma();
 	}
-	else
-	{
-		if( !GL_UpdateContext( ))
-			return false;
-	}
+
+	if( !GL_UpdateContext( ))
+		return false;
 
 	SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
 	R_ChangeDisplaySettingsFast( width, height );
