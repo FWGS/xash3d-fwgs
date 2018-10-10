@@ -234,11 +234,11 @@ R_SaveVideoMode
 */
 void R_SaveVideoMode( int w, int h )
 {
-	host.window_center_x = glState.width / 2;
-	host.window_center_y = glState.height / 2;
-
 	glState.width = w;
 	glState.height = h;
+
+	host.window_center_x = w / 2;
+	host.window_center_y = h / 2;
 
 	Cvar_SetValue( "width", w );
 	Cvar_SetValue( "height", h );
