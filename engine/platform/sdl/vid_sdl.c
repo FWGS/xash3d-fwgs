@@ -208,7 +208,7 @@ vidmode_t R_GetVideoMode( int num )
 {
 	static vidmode_t error = { NULL };
 
-	if( !vidmodes || num < 0 || num > R_MaxVideoModes() )
+	if( !vidmodes || num < 0 || num >= R_MaxVideoModes() )
 	{
 		error.width = glState.width;
 		error.height = glState.height;
@@ -223,6 +223,7 @@ static void R_InitVideoModes( void )
 	int displayIndex = 0; // TODO: handle multiple displays somehow
 	int i, modes;
 
+	num_vidmodes = 0;
 	modes = SDL_GetNumDisplayModes( displayIndex );
 
 	if( !modes )
