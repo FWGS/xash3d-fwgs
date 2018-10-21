@@ -155,7 +155,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 			SDL_WarpMouseInWindow( host.hWnd, host.window_center_x, host.window_center_y );
 			SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
 			if( clgame.dllFuncs.pfnLookEvent )
-				SDL_SetRelativeMouseMode( SDL_TRUE );
+				SDL_SetRelativeMouseMode( SDL_FALSE );
 		}
 #endif // XASH_SDL
 		if( cls.initialized )
@@ -515,15 +515,15 @@ void IN_CollectInput( float *forward, float *side, float *pitch, float *yaw, qbo
 			*yaw   -= x * m_yaw->value;
 		}
 #endif // ANDROID
+
+#ifdef USE_EVDEV
+		IN_EvdevMove( yaw, pitch );
+#endif
 	}
 	
 	Joy_FinalizeMove( forward, side, yaw, pitch );
 	IN_TouchMove( forward, side, yaw, pitch );
 	
-#ifdef USE_EVDEV
-	IN_EvdevMove( yaw, pitch );
-#endif
-
 	if( look_filter->value )
 	{
 		*pitch = ( inputstate.lastpitch + *pitch ) / 2;
