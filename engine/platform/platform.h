@@ -40,6 +40,9 @@ int Platform_JoyInit( int numjoy ); // returns number of connected gamepads, neg
 void Platform_EnableTextInput( qboolean enable );
 // System events
 void Platform_RunEvents( void );
+// Mouse
+void Platform_GetMousePos( int *x, int *y );
+void Platform_SetMousePos( int x, int y );
 
 /* 
 ============================================================================== 

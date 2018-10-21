@@ -101,10 +101,8 @@ void IN_MouseSavePos( void )
 	if( !in_mouseactive )
 		return;
 
-#ifdef XASH_SDL
-	SDL_GetMouseState( &in_lastvalidpos.x, &in_lastvalidpos.y );
+	Platform_GetMousePos( &in_lastvalidpos.x, &in_lastvalidpos.y );
 	in_mouse_savedpos = true;
-#endif
 }
 
 /*
@@ -119,9 +117,7 @@ void IN_MouseRestorePos( void )
 	if( !in_mouse_savedpos )
 		return;
 
-#ifdef XASH_SDL
-	SDL_WarpMouseInWindow( host.hWnd, in_lastvalidpos.x, in_lastvalidpos.y );
-#endif
+	Platform_SetMousePos( in_lastvalidpos.x, in_lastvalidpos.y );
 
 	in_mouse_savedpos = false;
 }
@@ -152,7 +148,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 		}
 		else
 		{
-			SDL_WarpMouseInWindow( host.hWnd, host.window_center_x, host.window_center_y );
+			Platform_SetMousePos( host.window_center_x, host.window_center_y );
 			SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
 			if( clgame.dllFuncs.pfnLookEvent )
 				SDL_SetRelativeMouseMode( SDL_TRUE );
@@ -282,9 +278,7 @@ void IN_MouseMove( void )
 		return;
 
 	// find mouse movement
-#ifdef XASH_SDL
-	SDL_GetMouseState( &current_pos.x, &current_pos.y );
-#endif
+	Platform_GetMousePos( &current_pos.x, &current_pos.y );
 
 	VGui_MouseMove( current_pos.x, current_pos.y );
 
@@ -321,7 +315,7 @@ void IN_MouseEvent( void )
 #if defined( XASH_SDL )
 		static qboolean ignore; // igonre mouse warp event
 		int x, y;
-		SDL_GetMouseState(&x, &y);
+		Platform_GetMousePos(&x, &y);
 		if( host.mouse_visible )
 			SDL_ShowCursor( SDL_TRUE );
 		else
@@ -332,7 +326,7 @@ void IN_MouseEvent( void )
 			x > host.window_center_x + host.window_center_x / 2 ||
 			y > host.window_center_y + host.window_center_y / 2 )
 		{
-			SDL_WarpMouseInWindow(host.hWnd, host.window_center_x, host.window_center_y);
+			Platform_SetMousePos( host.window_center_x, host.window_center_y );
 			ignore = 1; // next mouse event will be mouse warp
 			return;
 		}
