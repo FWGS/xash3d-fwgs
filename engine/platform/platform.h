@@ -25,6 +25,7 @@ GNU General Public License for more details.
 ============================================================================== 
 */
 void Platform_Vibrate( float life, char flags );
+void*Platform_GetNativeObject( const char *name );
 
 /* 
 ============================================================================== 
