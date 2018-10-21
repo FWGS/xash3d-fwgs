@@ -43,6 +43,9 @@ void Platform_RunEvents( void );
 // Mouse
 void Platform_GetMousePos( int *x, int *y );
 void Platform_SetMousePos( int x, int y );
+// Clipboard
+void Platform_GetClipboardText( char *buffer, size_t size );
+void Platform_SetClipboardText( char *buffer, size_t size );
 
 /* 
 ============================================================================== 

@@ -907,9 +907,6 @@ void IN_TouchInit( void )
 
 	// input devices cvar
 	touch_enable = Cvar_Get( "touch_enable", DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE, "enable touch controls" );
-#if defined(XASH_SDL) && defined(__ANDROID__)
-	SDL_SetHint( SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH, "1" );
-#endif
 	touch.initialized = true;
 }
 
