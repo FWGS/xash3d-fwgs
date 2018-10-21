@@ -275,6 +275,7 @@ extern convar_t	*s_lerping;
 extern convar_t	*dsp_off;
 extern convar_t	*s_test;		// cvar to testify new effects
 extern convar_t *s_samplecount;
+extern convar_t *snd_mute_losefocus;
 
 void S_InitScaletable( void );
 wavdata_t *S_LoadSound( sfx_t *sfx );
