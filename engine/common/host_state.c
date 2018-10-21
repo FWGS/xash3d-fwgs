@@ -14,10 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
-
-#ifdef XASH_SDL
-#include "platform/sdl/events.h"
-#endif
+#include "platform/platform.h"
 
 void COM_InitHostState( void )
 {
@@ -138,11 +135,7 @@ void Host_ShutdownGame( void )
 
 void Host_RunFrame( float time )
 {
-#if XASH_INPUT == INPUT_SDL
-	SDLash_RunEvents();
-#elif XASH_INPUT == INPUT_ANDROID
-	Android_RunEvents();
-#endif
+	Platform_RunEvents();
 
 	// engine main frame
 	Host_Frame( time );

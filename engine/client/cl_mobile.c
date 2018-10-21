@@ -21,10 +21,7 @@ GNU General Public License for more details.
 #include "library.h"
 #include "gl_local.h"
 #include "input.h"
-
-#if defined(__ANDROID__)
-#include "platform/android/android-main.h"
-#endif
+#include "platform/platform.h"
 
 mobile_engfuncs_t *gMobileEngfuncs;
 
@@ -45,9 +42,7 @@ static void pfnVibrate( float life, char flags )
 	//MsgDev( D_NOTE, "Vibrate: %f %d\n", life, flags );
 
 	// here goes platform-specific backends
-#ifdef __ANDROID__
-	Android_Vibrate( life * vibration_length->value, flags );
-#endif
+	Platform_Vibrate( life * vibration_length->value, flags );
 }
 
 static void Vibrate_f()
@@ -97,13 +92,8 @@ static void *pfnGetNativeObject( const char *obj )
 	if( !obj )
 		return NULL;
 
-	// Backend should handle NULL
 	// Backend should consider that obj is case-sensitive
-#ifdef __ANDROID__
-	return Android_GetNativeObject( obj );
-#else
-	return NULL;
-#endif
+	return Platform_GetNativeObject( obj );
 }
 
 static mobile_engfuncs_t gpMobileEngfuncs =
