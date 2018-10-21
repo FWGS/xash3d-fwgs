@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "mathlib.h"
+#include "platform/platform.h"
 #include <time.h>
 #include <stdlib.h>
 
@@ -157,18 +158,10 @@ create buffer, that contain clipboard
 char *Sys_GetClipboardData( void )
 {
 	static char data[1024];
-	char		*cliptext;
 
 	data[0] = '\0';
 
-#ifdef XASH_SDL
-	cliptext = SDL_GetClipboardText();
-	if( cliptext )
-	{
-		Q_strncpy( data, cliptext, sizeof( data ) );
-		SDL_free( cliptext );
-	}
-#endif // XASH_SDL
+	Platform_GetClipboardText( data, sizeof( data ));
 
 	return data;
 }
@@ -182,9 +175,7 @@ write screenshot into clipboard
 */
 void Sys_SetClipboardData( const byte *buffer, size_t size )
 {
-#ifdef XASH_SDL
-	SDL_SetClipboardText((char *)buffer);
-#endif
+	Platform_SetClipboardText( (char *)buffer, size );
 }
 
 /*

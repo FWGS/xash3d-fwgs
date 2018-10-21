@@ -52,6 +52,34 @@ void Platform_SetMousePos( int x, int y )
 
 /*
 =============
+Platform_GetClipobardText
+
+=============
+*/
+void Platform_GetClipboardText( char *buffer, size_t size )
+{
+	char *sdlbuffer = SDL_GetClipboardText();
+
+	if( !sdlbuffer )
+		return;
+
+	Q_strncpy( buffer, sdlbuffer, size );
+	SDL_free( sdlbuffer );
+}
+
+/*
+=============
+Platform_SetClipobardText
+
+=============
+*/
+void Platform_SetClipboardText( char *buffer, size_t size )
+{
+	SDL_SetClipboardText( buffer );
+}
+
+/*
+=============
 Platform_Vibrate
 
 =============
