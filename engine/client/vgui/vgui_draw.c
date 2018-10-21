@@ -81,7 +81,7 @@ void GAME_EXPORT VGUI_GetMousePos( int *_x, int *_y )
 	float yscale = (float)glState.height / (float)clgame.scrInfo.iHeight;
 	int x, y;
 
-	CL_GetMousePosition( &x, &y );
+	Platform_GetMousePos( &x, &y );
 	*_x = x / xscale, *_y = y / yscale;
 }
 

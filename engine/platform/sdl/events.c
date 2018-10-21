@@ -470,7 +470,7 @@ void Platform_RunEvents( void )
 		SDLash_EventFilter( &event );
 }
 
-void* Platform_GetNativeObject( void )
+void* Platform_GetNativeObject( const char *name )
 {
 	return NULL; // SDL don't have it
 }

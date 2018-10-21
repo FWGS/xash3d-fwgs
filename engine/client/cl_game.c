@@ -29,9 +29,7 @@ GNU General Public License for more details.
 #include "library.h"
 #include "vgui_draw.h"
 #include "sound.h"		// SND_STOP_LOOPING
-#ifdef XASH_SDL
-#include <SDL.h>
-#endif
+#include "platform/platform.h"
 
 #define MAX_LINELENGTH	80
 #define MAX_TEXTCHANNELS	8		// must be power of two (GoldSrc uses 4 channels)
@@ -2023,22 +2021,6 @@ static float pfnGetClientMaxspeed( void )
 
 /*
 =============
-CL_GetMousePosition
-
-=============
-*/
-void CL_GetMousePosition( int *mx, int *my )
-{
-#ifdef XASH_SDL
-	SDL_GetMouseState( mx, my );
-#else
-	if( mx ) *mx = 0;
-	if( my ) *my = 0;
-#endif
-}
-
-/*
-=============
 pfnIsNoClipping
 
 =============
@@ -2747,20 +2729,7 @@ void pfnGetMousePos( struct tagPOINT *ppt )
 	if( !ppt )
 		return;
 
-	CL_GetMousePosition( &ppt->x, &ppt->y );
-}
-
-/*
-=============
-pfnSetMousePos
-
-=============
-*/
-void pfnSetMousePos( int mx, int my )
-{
-#ifdef XASH_SDL
-	SDL_WarpMouseInWindow( host.hWnd, mx, my );
-#endif
+	Platform_GetMousePos( &ppt->x, &ppt->y );
 }
 
 /*
@@ -4002,7 +3971,7 @@ static cl_enginefunc_t gEngfuncs =
 	pfnGetClientMaxspeed,
 	COM_CheckParm,
 	Key_Event,
-	CL_GetMousePosition,
+	Platform_GetMousePos,
 	pfnIsNoClipping,
 	CL_GetLocalPlayer,
 	pfnGetViewModel,
@@ -4052,7 +4021,7 @@ static cl_enginefunc_t gEngfuncs =
 	pfnGetPlayerForTrackerID,
 	pfnServerCmdUnreliable,
 	pfnGetMousePos,
-	pfnSetMousePos,
+	Platform_SetMousePos,
 	pfnSetMouseEnable,
 	Cvar_GetList,
 	(void*)Cmd_GetFirstFunctionHandle,

@@ -1728,7 +1728,7 @@ void IN_TouchKeyEvent( int key, int down )
 	if( !touch.clientonly )
 		return;
 
-	CL_GetMousePosition( &xi, &yi );
+	Platform_GetMousePos( &xi, &yi );
 
 	x = xi/SCR_W;
 	y = yi/SCR_H;
