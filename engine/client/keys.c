@@ -17,9 +17,7 @@ GNU General Public License for more details.
 #include "input.h"
 #include "client.h"
 #include "vgui_draw.h"
-#ifdef XASH_SDL
-#include "platform/sdl/events.h"
-#endif // XASH_SDL
+#include "platform/platform.h"
 
 typedef struct
 {
@@ -702,20 +700,10 @@ Key_EnableTextInput
 */
 void Key_EnableTextInput( qboolean enable, qboolean force )
 {
-	void (*pfnEnableTextInput)( qboolean enable );
-
-#if XASH_INPUT == INPUT_SDL
-	pfnEnableTextInput = SDLash_EnableTextInput;
-#elif XASH_INPUT == INPUT_ANDROID
-	pfnEnableTextInput = Android_EnableTextInput;
-#else
-#error "Here must be a text input for your platform"
-	return;
-#endif
 	if( enable && ( !host.textmode || force ) )
-		pfnEnableTextInput( true );
+		Platform_EnableTextInput( true );
 	else if( !enable )
-		pfnEnableTextInput( false );
+		Platform_EnableTextInput( false );
 
 	if( !force )
 		host.textmode = enable;

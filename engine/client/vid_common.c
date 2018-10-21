@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "mod_local.h"
 #include "input.h"
 #include "vid_common.h"
+#include "platform/platform.h"
 
 #define WINDOW_NAME			XASH_ENGINE_NAME " Window" // Half-Life
 
@@ -256,10 +257,14 @@ VID_GetModeString
 */
 const char *VID_GetModeString( int vid_mode )
 {
+	vidmode_t *vidmode;
 	if( vid_mode < 0 || vid_mode > R_MaxVideoModes() )
 		return NULL;
 
-	return R_GetVideoMode( vid_mode ).desc;
+	if( !( vidmode = R_GetVideoMode( vid_mode ) ) )
+		return NULL;
+
+	return vidmode->desc;
 }
 
 /*
@@ -390,12 +395,17 @@ static void VID_Mode_f( void )
 	{
 	case 2:
 	{
-		vidmode_t vidmode;
+		vidmode_t *vidmode;
 
 		vidmode = R_GetVideoMode( Q_atoi( Cmd_Argv( 1 )) );
+		if( !vidmode )
+		{
+			Con_Print( S_ERROR "unable to set mode, backend returned null" );
+			return;
+		}
 
-		w = vidmode.width;
-		h = vidmode.height;
+		w = vidmode->width;
+		h = vidmode->height;
 		break;
 	}
 	case 3:
@@ -553,10 +563,10 @@ qboolean R_Init( void )
 	GL_SetDefaultState();
 
 	// create the window and set up the context
-	if( !R_Init_OpenGL( ))
+	if( !R_Init_Video( ))
 	{
 		GL_RemoveCommands();
-		R_Free_OpenGL();
+		R_Free_Video();
 
 		Sys_Error( "Can't initialize video subsystem\nProbably driver was not installed" );
 		return false;
@@ -565,7 +575,6 @@ qboolean R_Init( void )
 	host.renderinfo_changed = false;
 	r_temppool = Mem_AllocPool( "Render Zone" );
 
-	GL_InitExtensions();
 	GL_SetDefaults();
 	R_InitImages();
 	R_SpriteInit();
@@ -607,7 +616,7 @@ void R_Shutdown( void )
 	Mem_FreePool( &r_temppool );
 
 	// shut down OS specific OpenGL stuff like contexts, etc.
-	R_Free_OpenGL();
+	R_Free_Video();
 }
 
 /*
