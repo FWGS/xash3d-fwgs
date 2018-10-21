@@ -13,14 +13,14 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #ifndef XASH_DEDICATED
-
+#include <SDL.h>
 #include "common.h"
 #include "client.h"
 #include "gl_local.h"
 #include "mod_local.h"
 #include "input.h"
 #include "vid_common.h"
-#include <SDL.h>
+#include "platform/sdl/events.h"
 
 static vidmode_t *vidmodes = NULL;
 static int num_vidmodes = 0;
@@ -204,18 +204,14 @@ int R_MaxVideoModes( void )
 	return num_vidmodes;
 }
 
-vidmode_t R_GetVideoMode( int num )
+vidmode_t *R_GetVideoMode( int num )
 {
-	static vidmode_t error = { NULL };
-
 	if( !vidmodes || num < 0 || num >= R_MaxVideoModes() )
 	{
-		error.width = glState.width;
-		error.height = glState.height;
-		return error;
+		return NULL;
 	}
 
-	return vidmodes[num];
+	return vidmodes + num;
 }
 
 static void R_InitVideoModes( void )
@@ -419,6 +415,24 @@ void GL_UpdateSwapInterval( void )
 
 /*
 =================
+GL_DeleteContext
+
+always return false
+=================
+*/
+qboolean GL_DeleteContext( void )
+{
+	if( glw_state.context )
+	{
+		SDL_GL_DeleteContext(glw_state.context);
+		glw_state.context = NULL;
+	}
+
+	return false;
+}
+
+/*
+=================
 GL_CreateContext
 =================
 */
@@ -469,24 +483,6 @@ qboolean GL_UpdateContext( void )
 	}
 
 	return true;
-}
-
-/*
-=================
-GL_DeleteContext
-
-always return false
-=================
-*/
-qboolean GL_DeleteContext( void )
-{
-	if( glw_state.context )
-	{
-		SDL_GL_DeleteContext(glw_state.context);
-		glw_state.context = NULL;
-	}
-
-	return false;
 }
 
 qboolean VID_SetScreenResolution( int width, int height )
@@ -837,13 +833,14 @@ static void GL_SetupAttributes( void )
 
 /*
 ==================
-R_Init_OpenGL
+R_Init_Video
 ==================
 */
-qboolean R_Init_OpenGL( void )
+qboolean R_Init_Video( void )
 {
 	SDL_DisplayMode displayMode;
 	string safe;
+	qboolean retval;
 
 	SDL_GetCurrentDisplayMode(0, &displayMode);
 	glw_state.desktopBitsPixel = SDL_BITSPERPIXEL(displayMode.format);
@@ -875,7 +872,12 @@ qboolean R_Init_OpenGL( void )
 	WIN_SetDPIAwareness();
 #endif
 
-	return VID_SetMode();
+	if( !(retval = VID_SetMode()) )
+	{
+		return retval;
+	}
+
+	GL_InitExtensions();
 }
 
 #ifdef XASH_GLES
@@ -1253,10 +1255,10 @@ qboolean VID_SetMode( void )
 
 /*
 ==================
-R_Free_OpenGL
+R_Free_Video
 ==================
 */
-void R_Free_OpenGL( void )
+void R_Free_Video( void )
 {
 	GL_DeleteContext ();
 
