@@ -6,10 +6,6 @@ engine/common
 engine/common/imagelib
 engine/common/soundlib
 engine/common/soundlib/libmpg
-engine/platform/android
-engine/platform/apple
-engine/platform/emscripten
-engine/platform/sdl
 engine/server
 mainui
 mainui/controls
@@ -20,3 +16,4 @@ mainui/utl
 pm_shared
 vgui_support
 common
+/usr/include/SDL2
