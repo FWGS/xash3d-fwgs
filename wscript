@@ -55,6 +55,10 @@ def options(opt):
 		'--no-gcc-colors', action = 'store_false', dest = 'GCC_COLORS', default = True,
 		help = 'do not enable gcc colors')
 
+	opt.add_option(
+		'--sdl2', action='store', type='string', dest = 'SDL2_PATH', default = None,
+		help = 'SDL2 path to build(required for Windows)')
+
 	opt.recurse(SUBDIRS)
 
 def configure(conf):

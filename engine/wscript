@@ -9,9 +9,6 @@ top = '.'
 
 def options(opt):
 	opt.add_option(
-		'--sdl2', action='store', type='string', dest = 'SDL2_PATH', default = None,
-		help = 'SDL2 path to build(required for Windows)')
-	opt.add_option(
 	    '--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
 		help = 'build engine with BSP2 map support(recommended for Quake, breaks compability!)')
 
