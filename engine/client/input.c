@@ -155,7 +155,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 			SDL_WarpMouseInWindow( host.hWnd, host.window_center_x, host.window_center_y );
 			SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
 			if( clgame.dllFuncs.pfnLookEvent )
-				SDL_SetRelativeMouseMode( SDL_FALSE );
+				SDL_SetRelativeMouseMode( SDL_TRUE );
 		}
 #endif // XASH_SDL
 		if( cls.initialized )
@@ -493,15 +493,15 @@ void IN_JoyAppendMove( usercmd_t *cmd, float forwardmove, float sidemove )
 	}
 }
 
-void IN_CollectInput( float *forward, float *side, float *pitch, float *yaw, qboolean includeSdlMouse )
+void IN_CollectInput( float *forward, float *side, float *pitch, float *yaw, qboolean includeMouse, qboolean includeSdlMouse )
 {
-	if( !m_ignore->value )
+	if( !m_ignore->value || includeMouse )
 	{
 #if XASH_INPUT == INPUT_SDL
 		if( includeSdlMouse )
 		{
 			int x, y;
-			SDL_GetMouseState( &x, &y );
+			SDL_GetRelativeMouseState( &x, &y );
 			*pitch += y * m_pitch->value;
 			*yaw   -= x * m_yaw->value;
 		}
@@ -557,7 +557,7 @@ void IN_EngineAppendMove( float frametime, usercmd_t *cmd, qboolean active )
 	{
 		float sensitivity = ( (float)RI.fov_x / (float)90.0f );
 
-		IN_CollectInput( &forward, &side, &yaw, &pitch, m_enginemouse->value );
+		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized, m_enginemouse->value );
 		
 		IN_JoyAppendMove( cmd, forward, side );
 
@@ -587,7 +587,7 @@ void Host_InputFrame( void )
 
 	if( clgame.dllFuncs.pfnLookEvent )
 	{
-		IN_CollectInput( &forward, &side, &yaw, &pitch, in_mouseinitialized );
+		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized, true );
 
 		if( cls.key_dest == key_game )
 		{
