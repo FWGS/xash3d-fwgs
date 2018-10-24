@@ -63,5 +63,6 @@ def build(bld):
 		features = 'c cprogram',
 		includes = includes,
 		use      = libs,
-		install_path = bld.env.BINDIR
+		install_path = bld.env.BINDIR,
+		subsystem = bld.env.MSVC_SUBSYSTEM
 	)

@@ -71,18 +71,16 @@ def configure(conf):
 	conf.env.DEST_64BIT = False # predict state
 	try:
 		conf.check_cc(
-			fragment='''
-			int main( void ) 
-			{ 
-				int check[sizeof(void*) == 4 ? 1: -1]; 
-				return 0; 
-			}
-			''',
+			fragment='''int main( void )
+			{
+				int check[sizeof(void*) == 4 ? 1: -1];
+				return 0;
+			}''',
 			msg          = 'Checking if compiler create 32 bit code')
 	except conf.errors.ConfigurationError:
 		# Program not compiled, we have 64 bit 
 		conf.env.DEST_64BIT = True
-	
+
 	if(conf.env.DEST_64BIT):
 		if(not conf.options.ALLOW64):
 			conf.env.append_value('LINKFLAGS', ['-m32'])
@@ -91,7 +89,7 @@ def configure(conf):
 			Logs.info('NOTE: will build engine with 64-bit toolchain using -m32')
 		else:
 			Logs.warn('WARNING: 64-bit engine may be unstable')
-	
+
 	if(conf.env.COMPILER_CC != 'msvc'):
 		if(conf.env.COMPILER_CC == 'gcc'):
 			conf.env.append_unique('LINKFLAGS', ['-Wl,--no-undefined'])
@@ -112,15 +110,21 @@ def configure(conf):
 			conf.env.append_unique('CFLAGS',   ['/Z7'])
 			conf.env.append_unique('CXXFLAGS', ['/Z7'])
 			conf.env.append_unique('LINKFLAGS', ['/DEBUG'])
+		conf.env.append_unique('DEFINES', '_USING_V110_SDK71_') # Force XP compability
+
+	# Force XP compability, all build targets should add
+	# subsystem=bld.env.MSVC_SUBSYSTEM
+	# TODO: wrapper around bld.stlib, bld.shlib and so on?
+	conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
 
 	if(conf.env.DEST_OS != 'win32'):
 		conf.check( lib='dl' )
 		conf.check( lib='m' )
 		conf.check( lib='pthread' )
-	
+
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.DEDICATED # We don't need game launcher on dedicated
-	
+
 	# indicate if we are packaging for Linux/BSD
 	if(not conf.options.WIN_INSTALL and 
 		conf.env.DEST_OS != 'win32' and 
