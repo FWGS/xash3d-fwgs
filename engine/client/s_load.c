@@ -135,15 +135,17 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		return sfx->cache;
 
 	if( !COM_CheckString( sfx->name ))
-	{
-		// debug
-		Con_Printf( "S_LoadSound: sfx %d has NULL name\n", sfx - s_knownSfx );
 		return NULL;
-	}
 
 	// load it from disk
 	if( Q_stricmp( sfx->name, "*default" ))
-		sc = FS_LoadSound( sfx->name, NULL, 0 );
+	{
+		// load it from disk
+		if( sfx->name[0] == '*' )
+			sc = FS_LoadSound( sfx->name + 1, NULL, 0 );
+		else sc = FS_LoadSound( sfx->name, NULL, 0 );
+	}
+
 	if( !sc ) sc = S_CreateDefaultSound();
 
 	if( sc->rate < SOUND_11k ) // some bad sounds
@@ -301,7 +303,7 @@ void S_EndRegistration( void )
 	// free any sounds not from this registration sequence
 	for( i = 0, sfx = s_knownSfx; i < s_numSfx; i++, sfx++ )
 	{
-		if( !sfx->name[0] || sfx->name[0] == '*' )
+		if( !sfx->name[0] || !Q_stricmp( sfx->name, "*default" ))
 			continue; // don't release default sound
 
 		if( sfx->servercount != s_registration_sequence )

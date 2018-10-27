@@ -60,17 +60,17 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, size_t filesize )
 		// uncompressed colormapped image
 		if( targa_header.pixel_size != 8 )
 		{
-			MsgDev( D_WARN, "Image_LoadTGA: (%s) Only 8 bit images supported for type 1 and 9\n", name );
+			Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) Only 8 bit images supported for type 1 and 9\n", name );
 			return false;
 		}
 		if( targa_header.colormap_length != 256 )
 		{
-			MsgDev( D_WARN, "Image_LoadTGA: (%s) Only 8 bit colormaps are supported for type 1 and 9\n", name );
+			Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) Only 8 bit colormaps are supported for type 1 and 9\n", name );
 			return false;
 		}
 		if( targa_header.colormap_index )
 		{
-			MsgDev( D_WARN, "Image_LoadTGA: (%s) colormap_index is not supported for type 1 and 9\n", name );
+			Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) colormap_index is not supported for type 1 and 9\n", name );
 			return false;
 		}
 		if( targa_header.colormap_size == 24 )
@@ -95,7 +95,7 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, size_t filesize )
 		}
 		else
 		{
-			MsgDev( D_WARN, "Image_LoadTGA: (%s) only 24 and 32 bit colormaps are supported for type 1 and 9\n", name );
+			Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) only 24 and 32 bit colormaps are supported for type 1 and 9\n", name );
 			return false;
 		}
 	}
@@ -104,7 +104,7 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, size_t filesize )
 		// uncompressed or RLE compressed RGB
 		if( targa_header.pixel_size != 32 && targa_header.pixel_size != 24 )
 		{
-			MsgDev( D_WARN, "Image_LoadTGA: (%s) Only 32 or 24 bit images supported for type 2 and 10\n", name );
+			Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) Only 32 or 24 bit images supported for type 2 and 10\n", name );
 			return false;
 		}
 	}
@@ -113,7 +113,7 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, size_t filesize )
 		// uncompressed greyscale
 		if( targa_header.pixel_size != 8 )
 		{
-			MsgDev( D_WARN, "Image_LoadTGA: (%s) Only 8 bit images supported for type 3 and 11\n", name );
+			Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) Only 8 bit images supported for type 3 and 11\n", name );
 			return false;
 		}
 	}
@@ -257,7 +257,6 @@ qboolean Image_SaveTGA( const char *name, rgbdata_t *pix )
 	case PF_RGBA_32:
 	case PF_BGRA_32: pixel_size = 4; break;	
 	default:
-		MsgDev( D_ERROR, "Image_SaveTGA: unsupported image type %s\n", PFDesc[pix->type].name );
 		Mem_Free( buffer );
 		return false;
 	}

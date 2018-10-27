@@ -2838,7 +2838,7 @@ void CL_AddEntityEffects( cl_entity_t *ent )
 	}
 
 	// studio models are handle muzzleflashes difference
-	if( FBitSet( ent->curstate.effects, EF_MUZZLEFLASH ) && ent->model->type == mod_alias )
+	if( FBitSet( ent->curstate.effects, EF_MUZZLEFLASH ) && Mod_AliasExtradata( ent->model ))
 	{
 		dlight_t	*dl = CL_AllocDlight( ent->index );
 		vec3_t	fv;
@@ -2864,6 +2864,7 @@ these effects will be enable by flag in model header
 */
 void CL_AddModelEffects( cl_entity_t *ent )
 {
+	vec3_t	neworigin;
 	vec3_t	oldorigin;
 
 	if( !ent->model ) return;
@@ -2876,23 +2877,33 @@ void CL_AddModelEffects( cl_entity_t *ent )
 	default:	return;
 	}
 
-	VectorCopy( ent->prevstate.origin, oldorigin );
+	if( cls.demoplayback == DEMO_QUAKE1 )
+	{
+		VectorCopy( ent->baseline.vuser1, oldorigin );
+		VectorCopy( ent->origin, ent->baseline.vuser1 );
+		VectorCopy( ent->origin, neworigin );
+	}
+	else
+	{
+		VectorCopy( ent->prevstate.origin, oldorigin );
+		VectorCopy( ent->curstate.origin, neworigin );
+	}
 
 	// NOTE: this completely over control about angles and don't broke interpolation
 	if( FBitSet( ent->model->flags, STUDIO_ROTATE ))
 		ent->angles[1] = anglemod( 100.0f * cl.time );
 
 	if( FBitSet( ent->model->flags, STUDIO_GIB ))
-		R_RocketTrail( oldorigin, ent->curstate.origin, 2 );
+		R_RocketTrail( oldorigin, neworigin, 2 );
 
 	if( FBitSet( ent->model->flags, STUDIO_ZOMGIB ))
-		R_RocketTrail( oldorigin, ent->curstate.origin, 4 );
+		R_RocketTrail( oldorigin, neworigin, 4 );
 
 	if( FBitSet( ent->model->flags, STUDIO_TRACER ))
-		R_RocketTrail( oldorigin, ent->curstate.origin, 3 );
+		R_RocketTrail( oldorigin, neworigin, 3 );
 
 	if( FBitSet( ent->model->flags, STUDIO_TRACER2 ))
-		R_RocketTrail( oldorigin, ent->curstate.origin, 5 );
+		R_RocketTrail( oldorigin, neworigin, 5 );
 
 	if( FBitSet( ent->model->flags, STUDIO_ROCKET ))
 	{
@@ -2908,14 +2919,14 @@ void CL_AddModelEffects( cl_entity_t *ent )
 
 		dl->die = cl.time + 0.01f;
 
-		R_RocketTrail( oldorigin, ent->curstate.origin, 0 );
+		R_RocketTrail( oldorigin, neworigin, 0 );
 	}
 
 	if( FBitSet( ent->model->flags, STUDIO_GRENADE ))
-		R_RocketTrail( oldorigin, ent->curstate.origin, 1 );
+		R_RocketTrail( oldorigin, neworigin, 1 );
 
 	if( FBitSet( ent->model->flags, STUDIO_TRACER3 ))
-		R_RocketTrail( oldorigin, ent->curstate.origin, 6 );
+		R_RocketTrail( oldorigin, neworigin, 6 );
 }
 
 /*
@@ -3053,7 +3064,7 @@ int CL_DecalIndex( int id )
 	if( cl.decal_index[id] == 0 )
 	{
 		Image_SetForceFlags( IL_LOAD_DECAL );
-		cl.decal_index[id] = GL_LoadTexture( host.draw_decals[id], NULL, 0, TF_DECAL, NULL );
+		cl.decal_index[id] = GL_LoadTexture( host.draw_decals[id], NULL, 0, TF_DECAL );
 		Image_ClearForceFlags();
 	}
 

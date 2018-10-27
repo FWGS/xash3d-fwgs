@@ -51,9 +51,14 @@ movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio )
 	return NULL;
 }
 
-movie_state_t *AVI_LoadVideoNoSound( const char *filename )
+long AVI_TimeToSoundPosition( movie_state_t *Avi, long time )
 {
-	return NULL;
+	return 0;
+}
+
+long AVI_GetVideoFrameCount( movie_state_t *Avi )
+{
+	return 0;
 }
 
 void AVI_CloseVideo( movie_state_t *Avi )

@@ -172,7 +172,7 @@ void Evdev_OpenDevice ( const char *path )
 	ret = open( path, O_RDONLY | O_NONBLOCK );
 	if( ret < 0 )
 	{
-		MsgDev( D_ERROR, "Could not open input device %s: %s\n", path, strerror( errno ) );
+		Con_Reportf( S_ERROR  "Could not open input device %s: %s\n", path, strerror( errno ) );
 		return;
 	}
 	Msg( "Input device #%d: %s opened sucessfully\n", evdev.devices, path );

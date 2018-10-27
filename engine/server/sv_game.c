@@ -653,11 +653,96 @@ SV_BoxInPVS
 check brush boxes in fat pvs
 ==============
 */
-int SV_BoxInPVS( const vec3_t org, const vec3_t absmin, const vec3_t absmax )
+qboolean SV_BoxInPVS( const vec3_t org, const vec3_t absmin, const vec3_t absmax )
 {
 	if( !Mod_BoxVisible( absmin, absmax, Mod_GetPVSForPoint( org )))
 		return false;
 	return true;
+}
+
+/*
+=============
+SV_ChangeLevel
+
+Issue changing level
+=============
+*/
+void SV_QueueChangeLevel( const char *level, const char *landname )
+{
+	int	flags, smooth = false;
+	char	mapname[MAX_QPATH];
+	char	*spawn_entity;
+
+	// hold mapname to other place
+	Q_strncpy( mapname, level, sizeof( mapname ));
+	COM_StripExtension( mapname );
+
+	if( COM_CheckString( landname ))
+		smooth = true;
+
+	// determine spawn entity classname
+	if( svs.maxclients == 1 )
+		spawn_entity = GI->sp_entity;
+	else spawn_entity = GI->mp_entity;
+
+	flags = SV_MapIsValid( mapname, spawn_entity, landname );
+
+	if( FBitSet( flags, MAP_INVALID_VERSION ))
+	{
+		Con_Printf( S_ERROR "changelevel: %s is invalid or not supported\n", mapname );
+		return;
+	}
+	
+	if( !FBitSet( flags, MAP_IS_EXIST ))
+	{
+		Con_Printf( S_ERROR "changelevel: map %s doesn't exist\n", mapname );
+		return;
+	}
+
+	if( smooth && !FBitSet( flags, MAP_HAS_LANDMARK ))
+	{
+		if( sv_validate_changelevel->value )
+		{
+			// NOTE: we find valid map but specified landmark it's doesn't exist
+			// run simple changelevel like in q1, throw warning
+			Con_Printf( S_WARN "changelevel: %s doesn't contain landmark [%s]. smooth transition was disabled\n", mapname, landname );
+			smooth = false;
+		}
+	}
+
+	if( svs.maxclients > 1 )
+		smooth = false; // multiplayer doesn't support smooth transition
+
+	if( smooth && !Q_stricmp( sv.name, level ))
+	{
+		Con_Printf( S_ERROR "can't changelevel with same map. Ignored.\n" );
+		return;	
+	}
+
+	if( !smooth && !FBitSet( flags, MAP_HAS_SPAWNPOINT ))
+	{
+		if( sv_validate_changelevel->value )
+		{
+			Con_Printf( S_ERROR "changelevel: %s doesn't have a valid spawnpoint. Ignored.\n", mapname );
+			return;	
+		}
+	}
+
+	// bad changelevel position invoke enables in one-way transition
+	if( sv.framecount < 15 )
+	{
+		if( sv_validate_changelevel->value )
+		{
+			Con_Printf( S_WARN "an infinite changelevel was detected and will be disabled until a next save\\restore\n" );
+			return; // lock with svs.spawncount here
+		}
+	}
+
+	SV_SkipUpdates ();
+
+	// changelevel will be executed on a next frame
+	if( smooth ) COM_ChangeLevel( mapname, landname, sv.background );	// Smoothed Half-Life changelevel
+	else COM_ChangeLevel( mapname, NULL, sv.background );		// Classic Quake changlevel
 }
 
 /*
@@ -1314,11 +1399,8 @@ pfnChangeLevel
 */
 void pfnChangeLevel( const char *level, const char *landmark )
 {
-	int		flags, smooth = false;
 	static uint	last_spawncount = 0;
-	char		mapname[MAX_QPATH];
 	char		landname[MAX_QPATH];
-	char		*spawn_entity;
 	char		*text;
 
 	if( !COM_CheckString( level ) || sv.state != ss_active )
@@ -1328,10 +1410,6 @@ void pfnChangeLevel( const char *level, const char *landmark )
 	if( svs.spawncount == last_spawncount )
 		return;
 	last_spawncount = svs.spawncount;
-
-	// hold mapname to other place
-	Q_strncpy( mapname, level, sizeof( mapname ));
-	COM_StripExtension( mapname );
 	landname[0] ='\0';
 
 #ifdef HACKS_RELATED_HLMODS
@@ -1348,72 +1426,7 @@ void pfnChangeLevel( const char *level, const char *landmark )
 #else
 	Q_strncpy( landname, landmark, sizeof( landname ));
 #endif
-	if( COM_CheckString( landname ))
-		smooth = true;
-
-	// determine spawn entity classname
-	if( svs.maxclients == 1 )
-		spawn_entity = GI->sp_entity;
-	else spawn_entity = GI->mp_entity;
-
-	flags = SV_MapIsValid( mapname, spawn_entity, landname );
-
-	if( FBitSet( flags, MAP_INVALID_VERSION ))
-	{
-		Con_Printf( S_ERROR "changelevel: %s is invalid or not supported\n", mapname );
-		return;
-	}
-	
-	if( !FBitSet( flags, MAP_IS_EXIST ))
-	{
-		Con_Printf( S_ERROR "changelevel: map %s doesn't exist\n", mapname );
-		return;
-	}
-
-	if( smooth && !FBitSet( flags, MAP_HAS_LANDMARK ))
-	{
-		if( sv_validate_changelevel->value )
-		{
-			// NOTE: we find valid map but specified landmark it's doesn't exist
-			// run simple changelevel like in q1, throw warning
-			Con_Printf( S_WARN "changelevel: %s doesn't contain landmark [%s]. smooth transition was disabled\n", mapname, landname );
-			smooth = false;
-		}
-	}
-
-	if( svs.maxclients > 1 )
-		smooth = false; // multiplayer doesn't support smooth transition
-
-	if( smooth && !Q_stricmp( sv.name, level ))
-	{
-		Con_Printf( S_ERROR "can't changelevel with same map. Ignored.\n" );
-		return;	
-	}
-
-	if( !smooth && !FBitSet( flags, MAP_HAS_SPAWNPOINT ))
-	{
-		if( sv_validate_changelevel->value )
-		{
-			Con_Printf( S_ERROR "changelevel: %s doesn't have a valid spawnpoint. Ignored.\n", mapname );
-			return;	
-		}
-	}
-
-	// bad changelevel position invoke enables in one-way transition
-	if( sv.framecount < 15 )
-	{
-		if( sv_validate_changelevel->value )
-		{
-			Con_Printf( S_WARN "an infinite changelevel was detected and will be disabled until a next save\\restore\n" );
-			return; // lock with svs.spawncount here
-		}
-	}
-
-	SV_SkipUpdates ();
-
-	// changelevel will be executed on a next frame
-	if( smooth ) COM_ChangeLevel( mapname, landname, sv.background );	// Smoothed Half-Life changelevel
-	else COM_ChangeLevel( mapname, NULL, sv.background );		// Classic Quake changlevel
+	SV_QueueChangeLevel( level, landname );
 }
 
 /*
@@ -2024,6 +2037,9 @@ int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample
 	}
 	else
 	{
+		// TESTTEST
+		if( *sample == '*' ) chan = CHAN_AUTO;
+
 		// precache_sound can be used twice: cache sounds when loading
 		// and return sound index when server is active
 		sound_idx = SV_SoundIndex( sample );
@@ -2092,7 +2108,7 @@ void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float
 		msg_dest = MSG_ALL;
 	else if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
 		msg_dest = MSG_ALL;
-	else msg_dest = MSG_PAS_R;
+	else msg_dest = (svs.maxclients <= 1 ) ? MSG_ALL : MSG_PAS_R;
 
 	// always sending stop sound command
 	if( FBitSet( flags, SND_STOP ))
@@ -2113,7 +2129,7 @@ pfnEmitAmbientSound
 */
 void pfnEmitAmbientSound( edict_t *ent, float *pos, const char *sample, float vol, float attn, int flags, int pitch )
 {
-	int	msg_dest = MSG_PAS_R;
+	int	msg_dest;
 
 	if( sv.state == ss_loading )
 		SetBits( flags, SND_SPAWNING );
@@ -4603,8 +4619,11 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 		}
 
 		// no reason to keep this data
-		Mem_Free( pkvd[i].szKeyName );
-		Mem_Free( pkvd[i].szValue );
+		if( Mem_IsAllocatedExt( host.mempool, pkvd[i].szKeyName ))
+			Mem_Free( pkvd[i].szKeyName );
+
+		if( Mem_IsAllocatedExt( host.mempool, pkvd[i].szValue ))
+			Mem_Free( pkvd[i].szValue );
 	}
 
 	if( classname )

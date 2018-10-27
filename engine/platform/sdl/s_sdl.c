@@ -69,7 +69,7 @@ qboolean SNDDMA_Init( void *hInst )
 
 	if( SDL_Init( SDL_INIT_AUDIO ) )
 	{
-		MsgDev( D_ERROR, "Audio: SDL: %s \n", SDL_GetError( ) );
+		Con_Reportf( S_ERROR  "Audio: SDL: %s \n", SDL_GetError( ) );
 		return false;
 	}
 

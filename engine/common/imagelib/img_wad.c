@@ -31,7 +31,7 @@ qboolean Image_LoadPAL( const char *name, const byte *buffer, size_t filesize )
 
 	if( filesize != 768 )
 	{
-		MsgDev( D_ERROR, "Image_LoadPAL: (%s) have invalid size (%d should be %d)\n", name, filesize, 768 );
+		Con_DPrintf( S_ERROR "Image_LoadPAL: (%s) have invalid size (%d should be %d)\n", name, filesize, 768 );
 		return false;
 	}
 
@@ -82,7 +82,7 @@ qboolean Image_LoadFNT( const char *name, const byte *buffer, size_t filesize )
 	int		numcolors;
 
 	if( image.hint == IL_HINT_Q1 )
-		return false;	// Quake1 doesn't have qfonts
+		return false; // Quake1 doesn't have qfonts
 
 	if( filesize < sizeof( font ))
 		return false;
@@ -120,8 +120,6 @@ qboolean Image_LoadFNT( const char *name, const byte *buffer, size_t filesize )
 	}
 	else 
 	{
-		if( image.hint == IL_HINT_NO )
-			MsgDev( D_ERROR, "Image_LoadFNT: (%s) have invalid palette size %d\n", name, numcolors );
 		return false;
 	}
 
@@ -151,7 +149,8 @@ qboolean Image_LoadMDL( const char *name, const byte *buffer, size_t filesize )
 	pixels = image.width * image.height;
 	fin = (byte *)pin->index;	// setup buffer
 
-	if( !Image_ValidSize( name )) return false;
+	if( !Image_ValidSize( name ))
+		return false;
 
 	if( image.hint == IL_HINT_HL )
 	{
@@ -169,8 +168,6 @@ qboolean Image_LoadMDL( const char *name, const byte *buffer, size_t filesize )
 	}
 	else
 	{
-		if( image.hint == IL_HINT_NO )
-			MsgDev( D_ERROR, "Image_LoadMDL: lump (%s) is corrupted\n", name );
 		return false; // unknown or unsupported mode rejected
 	}
 
@@ -193,10 +190,7 @@ qboolean Image_LoadSPR( const char *name, const byte *buffer, size_t filesize )
 	if( image.hint == IL_HINT_HL )
 	{
 		if( !image.d_currentpal )
-		{
-			MsgDev( D_ERROR, "Image_LoadSPR: (%s) palette not installed\n", name );
 			return false;		
-		}
 	}
 	else if( image.hint == IL_HINT_Q1 )
 	{
@@ -213,10 +207,7 @@ qboolean Image_LoadSPR( const char *name, const byte *buffer, size_t filesize )
 	image.height = pin->height;
 
 	if( filesize < image.width * image.height )
-	{
-		MsgDev( D_ERROR, "Image_LoadSPR: file (%s) have invalid size\n", name );
 		return false;
-	}
 
 	if( filesize == ( image.width * image.height * 4 ))
 		truecolor = true;
@@ -263,10 +254,7 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, size_t filesize )
 	int	i, pixels;
 
 	if( filesize < sizeof( lmp ))
-	{
-		MsgDev( D_ERROR, "Image_LoadLMP: file (%s) have invalid size\n", name );
 		return false;
-	}
 
 	// valve software trick (particle palette)
 	if( Q_stristr( name, "palette.lmp" ))
@@ -296,10 +284,7 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, size_t filesize )
 	pixels = image.width * image.height;
 
 	if( filesize < sizeof( lmp ) + pixels )
-	{
-		MsgDev( D_ERROR, "Image_LoadLMP: file (%s) have invalid size %d\n", name, filesize );
 		return false;
-	}
 
 	if( !Image_ValidSize( name ))
 		return false;         
@@ -352,10 +337,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, size_t filesize )
 	int	reflectivity[3] = { 0, 0, 0 };
 
 	if( filesize < sizeof( mip ))
-	{
-		MsgDev( D_ERROR, "Image_LoadMIP: file (%s) have invalid size\n", name );
 		return false;
-	}
 
 	memcpy( &mip, buffer, sizeof( mip ));
 	image.width = mip.width;
@@ -466,8 +448,6 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, size_t filesize )
 	}
 	else
 	{
-		if( image.hint == IL_HINT_NO )
-			MsgDev( D_ERROR, "Image_LoadMIP: lump (%s) is corrupted\n", name );
 		return false; // unknown or unsupported mode rejected
 	} 
 

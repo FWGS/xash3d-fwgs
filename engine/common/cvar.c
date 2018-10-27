@@ -674,6 +674,18 @@ const char *Cvar_VariableString( const char *var_name )
 
 /*
 ============
+Cvar_Exists
+============
+*/
+qboolean Cvar_Exists( const char *var_name )
+{
+	if( Cvar_FindVar( var_name ))
+		return true;
+	return false;
+}
+
+/*
+============
 Cvar_SetCheatState
 
 Any testing variables will be reset to the safe values

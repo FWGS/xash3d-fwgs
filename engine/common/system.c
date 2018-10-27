@@ -302,7 +302,7 @@ void Sys_ShellExecute( const char *path, const char *parms, int shouldExit )
 			_exit( 1 );
 		}
 	}
-	else MsgDev( D_WARN, "Could not find "OPEN_COMMAND" utility\n" );
+	else Con_Reportf( S_WARN "Could not find "OPEN_COMMAND" utility\n" );
 #elif defined(__ANDROID__) && !defined(XASH_DEDICATED)
 	Android_ShellExecute( path, parms );
 #endif
@@ -450,7 +450,7 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 	if( !dll->name || !*dll->name )
 		return false; // nothing to load
 
-	MsgDev( D_NOTE, "Sys_LoadLibrary: Loading %s", dll->name );
+	Con_Reportf( "Sys_LoadLibrary: Loading %s", dll->name );
 
 	if( dll->fcts ) 
 	{
@@ -477,14 +477,14 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 			goto error;
 		}
 	}
-          MsgDev( D_NOTE, " - ok\n" );
+          Con_Reportf( " - ok\n" );
 
 	return true;
 error:
-	MsgDev( D_NOTE, " - failed\n" );
+	Con_Reportf( " - failed\n" );
 	Sys_FreeLibrary( dll ); // trying to free 
 	if( dll->crash ) Sys_Error( "%s", errorstring );
-	else MsgDev( D_ERROR, "%s", errorstring );
+	else Con_Reportf( S_ERROR  "%s", errorstring );
 
 	return false;
 }
@@ -506,10 +506,10 @@ qboolean Sys_FreeLibrary( dll_info_t *dll )
 	if( host.status == HOST_CRASHED )
 	{
 		// we need to hold down all modules, while MSVC can find error
-		MsgDev( D_NOTE, "Sys_FreeLibrary: hold %s for debugging\n", dll->name );
+		Con_Reportf( "Sys_FreeLibrary: hold %s for debugging\n", dll->name );
 		return false;
 	}
-	else MsgDev( D_NOTE, "Sys_FreeLibrary: Unloading %s\n", dll->name );
+	else Con_Reportf( "Sys_FreeLibrary: Unloading %s\n", dll->name );
 
 	FreeLibrary( dll->link );
 	dll->link = NULL;

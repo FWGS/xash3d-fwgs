@@ -215,7 +215,7 @@ void NET_SaveMasters( void )
 
 	if( !ml.modified )
 	{
-		MsgDev( D_NOTE, "Master server list not changed\n" );
+		Con_Reportf( "Master server list not changed\n" );
 		return;
 	}
 
@@ -223,7 +223,7 @@ void NET_SaveMasters( void )
 
 	if( !f )
 	{
-		MsgDev( D_ERROR, "Couldn't write xashcomm.lst\n" );
+		Con_Reportf( S_ERROR  "Couldn't write xashcomm.lst\n" );
 		return;
 	}
 

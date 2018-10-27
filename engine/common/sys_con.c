@@ -77,7 +77,7 @@ char *Sys_Input( void )
 void Sys_DestroyConsole( void )
 {
 	// last text message into console or log
-	MsgDev( D_NOTE, "Sys_DestroyConsole: Exiting!\n" );
+	Con_Reportf( "Sys_DestroyConsole: Exiting!\n" );
 #ifdef _WIN32
 	Wcon_DestroyConsole();
 #endif
@@ -113,7 +113,7 @@ void Sys_InitLog( void )
 	if( s_ld.log_active )
 	{
 		s_ld.logfile = fopen( s_ld.log_path, mode );
-		if( !s_ld.logfile ) MsgDev( D_ERROR, "Sys_InitLog: can't create log file %s\n", s_ld.log_path );
+		if( !s_ld.logfile ) Con_Reportf( S_ERROR  "Sys_InitLog: can't create log file %s\n", s_ld.log_path );
 
 		fprintf( s_ld.logfile, "=================================================================================\n" );
 		fprintf( s_ld.logfile, "\t%s (build %i) started at %s\n", s_ld.title, Q_buildnum(), Q_timestamp( TIME_FULL ));

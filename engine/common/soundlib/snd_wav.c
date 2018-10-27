@@ -155,7 +155,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, size_t filesize )
 
 	if( !( iff_dataPtr && !Q_strncmp( iff_dataPtr + 8, "WAVE", 4 )))
 	{
-		MsgDev( D_ERROR, "Sound_LoadWAV: %s missing 'RIFF/WAVE' chunks\n", name );
+		Con_DPrintf( S_ERROR "Sound_LoadWAV: %s missing 'RIFF/WAVE' chunks\n", name );
 		return false;
 	}
 
@@ -165,7 +165,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, size_t filesize )
 
 	if( !iff_dataPtr )
 	{
-		MsgDev( D_ERROR, "Sound_LoadWAV: %s missing 'fmt ' chunk\n", name );
+		Con_DPrintf( S_ERROR "Sound_LoadWAV: %s missing 'fmt ' chunk\n", name );
 		return false;
 	}
 
@@ -176,7 +176,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, size_t filesize )
 	{
 		if( fmt != 85 )
 		{
-			MsgDev( D_ERROR, "Sound_LoadWAV: %s not a microsoft PCM format\n", name );
+			Con_DPrintf( S_ERROR "Sound_LoadWAV: %s not a microsoft PCM format\n", name );
 			return false;
 		}
 		else
@@ -189,7 +189,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, size_t filesize )
 	sound.channels = GetLittleShort();
 	if( sound.channels != 1 && sound.channels != 2 )
 	{
-		MsgDev( D_ERROR, "Sound_LoadWAV: only mono and stereo WAV files supported (%s)\n", name );
+		Con_DPrintf( S_ERROR "Sound_LoadWAV: only mono and stereo WAV files supported (%s)\n", name );
 		return false;
 	}
 
@@ -201,7 +201,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, size_t filesize )
 
 	if( sound.width != 1 && sound.width != 2 )
 	{
-		MsgDev( D_WARN, "Sound_LoadWAV: only 8 and 16 bit WAV files supported (%s)\n", name );
+		Con_DPrintf( S_ERROR "Sound_LoadWAV: only 8 and 16 bit WAV files supported (%s)\n", name );
 		return false;
 	}
 
@@ -235,7 +235,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, size_t filesize )
 
 	if( !iff_dataPtr )
 	{
-		MsgDev( D_WARN, "Sound_LoadWAV: %s missing 'data' chunk\n", name );
+		Con_DPrintf( S_ERROR "Sound_LoadWAV: %s missing 'data' chunk\n", name );
 		return false;
 	}
 
@@ -246,7 +246,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, size_t filesize )
 	{
 		if( samples < sound.samples )
 		{
-			MsgDev( D_ERROR, "Sound_LoadWAV: %s has a bad loop length\n", name );
+			Con_DPrintf( S_ERROR "Sound_LoadWAV: %s has a bad loop length\n", name );
 			return false;
 		}
 	}
@@ -254,7 +254,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, size_t filesize )
 
 	if( sound.samples <= 0 )
 	{
-		MsgDev( D_ERROR, "Sound_LoadWAV: file with %i samples (%s)\n", sound.samples, name );
+		Con_DPrintf( S_ERROR "Sound_LoadWAV: file with %i samples (%s)\n", sound.samples, name );
 		return false;
 	}
 
@@ -326,7 +326,7 @@ stream_t *Stream_OpenWAV( const char *filename )
 	// find "RIFF" chunk
 	if( !StreamFindNextChunk( file, "RIFF", &last_chunk ))
 	{
-		MsgDev( D_ERROR, "Stream_OpenWAV: %s missing RIFF chunk\n", filename );
+		Con_DPrintf( S_ERROR "Stream_OpenWAV: %s missing RIFF chunk\n", filename );
 		FS_Close( file );
 		return NULL;
 	}
@@ -334,7 +334,7 @@ stream_t *Stream_OpenWAV( const char *filename )
 	FS_Read( file, chunkName, 4 );
 	if( !Q_strncmp( chunkName, "WAVE", 4 ))
 	{
-		MsgDev( D_ERROR, "Stream_OpenWAV: %s missing WAVE chunk\n", filename );
+		Con_DPrintf( S_ERROR "Stream_OpenWAV: %s missing WAVE chunk\n", filename );
 		FS_Close( file );
 		return NULL;
 	}
@@ -344,7 +344,7 @@ stream_t *Stream_OpenWAV( const char *filename )
 	last_chunk = iff_data;
 	if( !StreamFindNextChunk( file, "fmt ", &last_chunk ))
 	{
-		MsgDev( D_ERROR, "Stream_OpenWAV: %s missing 'fmt ' chunk\n", filename );
+		Con_DPrintf( S_ERROR "Stream_OpenWAV: %s missing 'fmt ' chunk\n", filename );
 		FS_Close( file );
 		return NULL;
 	}
@@ -354,7 +354,7 @@ stream_t *Stream_OpenWAV( const char *filename )
 	FS_Read( file, &t, sizeof( t ));
 	if( t != 1 )
 	{
-		MsgDev( D_ERROR, "Stream_OpenWAV: %s not a microsoft PCM format\n", filename );
+		Con_DPrintf( S_ERROR "Stream_OpenWAV: %s not a microsoft PCM format\n", filename );
 		FS_Close( file );
 		return NULL;
 	}
@@ -375,7 +375,7 @@ stream_t *Stream_OpenWAV( const char *filename )
 	last_chunk = iff_data;
 	if( !StreamFindNextChunk( file, "data", &last_chunk ))
 	{
-		MsgDev( D_ERROR, "Stream_OpenWAV: %s missing 'data' chunk\n", filename );
+		Con_DPrintf( S_ERROR "Stream_OpenWAV: %s missing 'data' chunk\n", filename );
 		FS_Close( file );
 		return NULL;
 	}

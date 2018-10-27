@@ -49,6 +49,6 @@ const char *COM_OffsetNameForFunction( void *function )
 {
 	static string sname;
 	Q_snprintf( sname, MAX_STRING, "ofs:%d", (size_t)((byte*)function - (byte*)svgame.dllFuncs.pfnGameInit) );
-	MsgDev( D_NOTE, "COM_OffsetNameForFunction %s\n", sname );
+	Con_Reportf( "COM_OffsetNameForFunction %s\n", sname );
 	return sname;
 }

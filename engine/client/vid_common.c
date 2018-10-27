@@ -30,6 +30,7 @@ convar_t	*gl_texture_nearest;
 convar_t	*gl_wgl_msaa_samples;
 convar_t	*gl_lightmap_nearest;
 convar_t	*gl_keeptjunctions;
+convar_t	*gl_emboss_scale;
 convar_t	*gl_showtextures;
 convar_t	*gl_detailscale;
 convar_t	*gl_check_errors;
@@ -126,7 +127,7 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 	convar_t		*parm = NULL;
 	const char	*extensions_string;
 
-	MsgDev( D_NOTE, "GL_CheckExtension: %s ", name );
+	Con_Reportf( "GL_CheckExtension: %s ", name );
 	GL_SetExtension( r_ext, true );
 
 	if( cvarname )
@@ -137,7 +138,7 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 
 	if(( parm && !CVAR_TO_BOOL( parm )) || ( !CVAR_TO_BOOL( gl_extensions ) && r_ext != GL_OPENGL_110 ))
 	{
-		MsgDev( D_NOTE, "- disabled\n" );
+		Con_Reportf( "- disabled\n" );
 		GL_SetExtension( r_ext, false );
 		return; // nothing to process at
 	}
@@ -147,7 +148,7 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 	if(( name[2] == '_' || name[3] == '_' ) && !Q_strstr( extensions_string, name ))
 	{
 		GL_SetExtension( r_ext, false );	// update render info
-		MsgDev( D_NOTE, "- ^1failed\n" );
+		Con_Reportf( "- ^1failed\n" );
 		return;
 	}
 
@@ -163,8 +164,8 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 	}
 
 	if( GL_Support( r_ext ))
-		MsgDev( D_NOTE, "- ^2enabled\n" );
-	else MsgDev( D_NOTE, "- ^1failed\n" );
+		Con_Reportf( "- ^2enabled\n" );
+	else Con_Reportf( "- ^1failed\n" );
 }
 
 /*
@@ -210,7 +211,7 @@ VID_StartupGamma
 void VID_StartupGamma( void )
 {
 	BuildGammaTable( vid_gamma->value, vid_brightness->value );
-	MsgDev( D_NOTE, "VID_StartupGamma: gamma %g brightness %g\n", vid_gamma->value, vid_brightness->value );
+	Con_Reportf( "VID_StartupGamma: gamma %g brightness %g\n", vid_gamma->value, vid_brightness->value );
 	ClearBits( vid_brightness->flags, FCVAR_CHANGED );
 	ClearBits( vid_gamma->flags, FCVAR_CHANGED );
 }
@@ -463,6 +464,7 @@ void GL_InitCommands( void )
 	gl_texture_anisotropy = Cvar_Get( "gl_anisotropy", "8", FCVAR_ARCHIVE, "textures anisotropic filter" );
 	gl_texture_lodbias =  Cvar_Get( "gl_texture_lodbias", "0.0", FCVAR_ARCHIVE, "LOD bias for mipmapped textures (perfomance|quality)" );
 	gl_keeptjunctions = Cvar_Get( "gl_keeptjunctions", "1", FCVAR_ARCHIVE, "removing tjuncs causes blinking pixels" );
+	gl_emboss_scale = Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
 	gl_showtextures = Cvar_Get( "r_showtextures", "0", FCVAR_CHEAT, "show all uploaded textures" );
 	gl_finish = Cvar_Get( "gl_finish", "0", FCVAR_ARCHIVE, "use glFinish instead of glFlush" );
 	gl_nosort = Cvar_Get( "gl_nosort", "0", FCVAR_ARCHIVE, "disable sorting of translucent surfaces" );

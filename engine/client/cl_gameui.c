@@ -262,6 +262,8 @@ static void UI_ConvertGameInfo( GAMEINFO *out, gameinfo_t *in )
 
 	if( in->nomodels )
 		out->flags |= GFL_NOMODELS;
+	if( in->noskills )
+		out->flags |= GFL_NOSKILLS;
 }
 
 static qboolean PIC_Scissor( float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 )
@@ -388,7 +390,7 @@ static HIMAGE pfnPIC_Load( const char *szPicName, const byte *image_buf, long im
 	SetBits( flags, TF_IMAGE );
 
 	Image_SetForceFlags( IL_LOAD_DECAL ); // allow decal images for menu
-	tx = GL_LoadTexture( szPicName, image_buf, image_size, flags, NULL );
+	tx = GL_LoadTexture( szPicName, image_buf, image_size, flags );
 	Image_ClearForceFlags();
 
 	return tx;
@@ -899,7 +901,7 @@ int pfnCheckGameDll( void )
 		COM_FreeLibrary( hInst ); // don't increase linker's reference counter
 		return true;
 	}
-	MsgDev( D_WARN, "Could not load server library:\n%s", COM_GetLibraryError() );
+	Con_Reportf( S_WARN "Could not load server library:\n%s", COM_GetLibraryError() );
 	return false;
 }
 
@@ -1117,7 +1119,7 @@ qboolean UI_LoadProgs( void )
 
 	if( ( GiveTextApi = (UITEXTAPI)COM_GetProcAddress( gameui.hInstance, "GiveTextAPI" ) ) )
 	{
-		MsgDev( D_NOTE, "UI_LoadProgs: extended Text API initialized\n" );
+		Con_Reportf( "UI_LoadProgs: extended Text API initialized\n" );
 		// make local copy of engfuncs to prevent overwrite it with user dll
 		memcpy( &gpTextfuncs, &gTextfuncs, sizeof( gpTextfuncs ));
 		if( GiveTextApi( &gpTextfuncs ) )
@@ -1127,7 +1129,7 @@ qboolean UI_LoadProgs( void )
 	pfnAddTouchButtonToList = (ADDTOUCHBUTTONTOLIST)COM_GetProcAddress( gameui.hInstance, "AddTouchButtonToList" );
 	if( pfnAddTouchButtonToList )
 	{
-		MsgDev( D_NOTE, "UI_LoadProgs: AddTouchButtonToList call found\n" );
+		Con_Reportf( "UI_LoadProgs: AddTouchButtonToList call found\n" );
 	}
 
 	Cvar_FullSet( "host_gameuiloaded", "1", FCVAR_READ_ONLY );

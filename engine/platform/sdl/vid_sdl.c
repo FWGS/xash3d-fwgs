@@ -297,21 +297,21 @@ static void WIN_SetDPIAwareness( void )
 
 			if( hResult == S_OK )
 			{
-				MsgDev( D_NOTE, "SetDPIAwareness: Success\n" );
+				Con_Reportf( "SetDPIAwareness: Success\n" );
 				bSuccess = TRUE;
 			}
-			else if( hResult == E_INVALIDARG ) MsgDev( D_NOTE, "SetDPIAwareness: Invalid argument\n" );
-			else if( hResult == E_ACCESSDENIED ) MsgDev( D_NOTE, "SetDPIAwareness: Access Denied\n" );
+			else if( hResult == E_INVALIDARG ) Con_Reportf( "SetDPIAwareness: Invalid argument\n" );
+			else if( hResult == E_ACCESSDENIED ) Con_Reportf( "SetDPIAwareness: Access Denied\n" );
 		}
-		else MsgDev( D_NOTE, "SetDPIAwareness: Can't get SetProcessDpiAwareness\n" );
+		else Con_Reportf( "SetDPIAwareness: Can't get SetProcessDpiAwareness\n" );
 		FreeLibrary( hModule );
 	}
-	else MsgDev( D_NOTE, "SetDPIAwareness: Can't load shcore.dll\n" );
+	else Con_Reportf( "SetDPIAwareness: Can't load shcore.dll\n" );
 
 
 	if( !bSuccess )
 	{
-		MsgDev( D_NOTE, "SetDPIAwareness: Trying SetProcessDPIAware...\n" );
+		Con_Reportf( "SetDPIAwareness: Trying SetProcessDPIAware...\n" );
 
 		if( ( hModule = LoadLibrary( "user32.dll" ) ) )
 		{
@@ -322,15 +322,15 @@ static void WIN_SetDPIAwareness( void )
 
 				if( hResult )
 				{
-					MsgDev( D_NOTE, "SetDPIAwareness: Success\n" );
+					Con_Reportf( "SetDPIAwareness: Success\n" );
 					bSuccess = TRUE;
 				}
-				else MsgDev( D_NOTE, "SetDPIAwareness: fail\n" );
+				else Con_Reportf( "SetDPIAwareness: fail\n" );
 			}
-			else MsgDev( D_NOTE, "SetDPIAwareness: Can't get SetProcessDPIAware\n" );
+			else Con_Reportf( "SetDPIAwareness: Can't get SetProcessDPIAware\n" );
 			FreeLibrary( hModule );
 		}
-		else MsgDev( D_NOTE, "SetDPIAwareness: Can't load user32.dll\n" );
+		else Con_Reportf( "SetDPIAwareness: Can't load user32.dll\n" );
 	}
 }
 #endif
@@ -384,7 +384,7 @@ void *GL_GetProcAddress( const char *name )
 
 	if( !func )
 	{
-		MsgDev( D_ERROR, "Error: GL_GetProcAddress failed for %s\n", name );
+		Con_Reportf( S_ERROR  "Error: GL_GetProcAddress failed for %s\n", name );
 	}
 
 	return func;
@@ -401,7 +401,7 @@ void GL_UpdateSwapInterval( void )
 	if( cls.state < ca_active )
 	{
 		if( SDL_GL_SetSwapInterval( gl_vsync->value ) )
-			MsgDev( D_ERROR, "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ) );
+			Con_Reportf( S_ERROR  "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ) );
 		SetBits( gl_vsync->flags, FCVAR_CHANGED );
 	}
 	else if( FBitSet( gl_vsync->flags, FCVAR_CHANGED ))
@@ -409,7 +409,7 @@ void GL_UpdateSwapInterval( void )
 		ClearBits( gl_vsync->flags, FCVAR_CHANGED );
 
 		if( SDL_GL_SetSwapInterval( gl_vsync->value ) )
-			MsgDev( D_ERROR, "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ) );
+			Con_Reportf( S_ERROR  "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ) );
 	}
 }
 
@@ -584,7 +584,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 	if( !host.hWnd )
 	{
-		MsgDev( D_ERROR, "VID_CreateWindow: couldn't create '%s': %s\n", wndname, SDL_GetError());
+		Con_Reportf( S_ERROR  "VID_CreateWindow: couldn't create '%s': %s\n", wndname, SDL_GetError());
 
 		// remove MSAA, if it present, because
 		// window creating may fail on GLX visual choose
@@ -735,7 +735,7 @@ static void GL_SetupAttributes( void )
 #ifndef XASH_GL_STATIC
 	if( Sys_CheckParm( "-gldebug" ) )
 	{
-		MsgDev( D_NOTE, "Creating an extended GL context for debug...\n" );
+		Con_Reportf( "Creating an extended GL context for debug...\n" );
 		SetBits( context_flags, FCONTEXT_DEBUG_ARB );
 		SDL_GL_SetAttribute( SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG );
 		glw_state.extended = true;
@@ -861,7 +861,7 @@ qboolean R_Init_Video( void )
 
 	if( SDL_GL_LoadLibrary( EGL_LIB ) )
 	{
-		MsgDev( D_ERROR, "Couldn't initialize OpenGL: %s\n", SDL_GetError());
+		Con_Reportf( S_ERROR  "Couldn't initialize OpenGL: %s\n", SDL_GetError());
 		return false;
 	}
 
@@ -1073,7 +1073,7 @@ void GL_InitExtensionsBigGL()
 	{
 		if( host_developer.value )
 		{
-			MsgDev( D_NOTE, "Installing GL_DebugOutput...\n");
+			Con_Reportf( "Installing GL_DebugOutput...\n");
 			pglDebugMessageCallbackARB( GL_DebugOutput, NULL );
 
 			// force everything to happen in the main thread instead of in a separate driver thread
@@ -1231,21 +1231,21 @@ qboolean VID_SetMode( void )
 		if( err == rserr_invalid_fullscreen )
 		{
 			Cvar_SetValue( "fullscreen", 0 );
-			MsgDev( D_ERROR, "VID_SetMode: fullscreen unavailable in this mode\n" );
+			Con_Reportf( S_ERROR  "VID_SetMode: fullscreen unavailable in this mode\n" );
 			Sys_Warn("fullscreen unavailable in this mode!");
 			if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, false )) == rserr_ok )
 				return true;
 		}
 		else if( err == rserr_invalid_mode )
 		{
-			MsgDev( D_ERROR, "VID_SetMode: invalid mode\n" );
+			Con_Reportf( S_ERROR  "VID_SetMode: invalid mode\n" );
 			Sys_Warn( "invalid mode" );
 		}
 
 		// try setting it back to something safe
 		if(( err = R_ChangeDisplaySettings( glConfig.prev_width, glConfig.prev_height, false )) != rserr_ok )
 		{
-			MsgDev( D_ERROR, "VID_SetMode: could not revert to safe mode\n" );
+			Con_Reportf( S_ERROR  "VID_SetMode: could not revert to safe mode\n" );
 			Sys_Warn("could not revert to safe mode!");
 			return false;
 		}

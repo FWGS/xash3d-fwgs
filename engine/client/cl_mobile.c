@@ -35,11 +35,11 @@ static void pfnVibrate( float life, char flags )
 
 	if( life < 0.0f )
 	{
-		MsgDev( D_WARN, "Negative vibrate time: %f\n", life );
+		Con_Reportf( S_WARN "Negative vibrate time: %f\n", life );
 		return;
 	}
 
-	//MsgDev( D_NOTE, "Vibrate: %f %d\n", life, flags );
+	//Con_Reportf( "Vibrate: %f %d\n", life, flags );
 
 	// here goes platform-specific backends
 	Platform_Vibrate( life * vibration_length->value, flags );

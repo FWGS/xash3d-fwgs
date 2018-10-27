@@ -725,7 +725,7 @@ void CL_DemoCompleted( void )
 
 	CL_StopPlayback();
 
-	if( !CL_NextDemo() && host_developer.value <= DEV_NONE )
+	if( !CL_NextDemo() && !cls.changedemo )
 		UI_SetActiveMenu( true );
 
 	Cvar_SetValue( "v_dark", 0.0f );
@@ -795,6 +795,8 @@ qboolean CL_ReadRawNetworkData( byte *buffer, size_t *length )
 		}
 	}
 
+	cls.netchan.last_received = host.realtime;
+	cls.netchan.total_received += msglen;
 	*length = msglen;
 
 	if( cls.state != ca_active )
@@ -812,6 +814,7 @@ reads demo data and write it to client
 */
 qboolean CL_DemoReadMessageQuake( byte *buffer, size_t *length )
 {
+	vec3_t		viewangles;
 	int		msglen = 0;
 	demoangle_t	*a;
 
@@ -841,10 +844,12 @@ qboolean CL_DemoReadMessageQuake( byte *buffer, size_t *length )
 
 	// get the next message
 	FS_Read( cls.demofile, &msglen, sizeof( int ));
-	FS_Read( cls.demofile, &cl.viewangles[0], sizeof( float ));
-	FS_Read( cls.demofile, &cl.viewangles[1], sizeof( float ));
-	FS_Read( cls.demofile, &cl.viewangles[2], sizeof( float ));
+	FS_Read( cls.demofile, &viewangles[0], sizeof( float ));
+	FS_Read( cls.demofile, &viewangles[1], sizeof( float ));
+	FS_Read( cls.demofile, &viewangles[2], sizeof( float ));
 	cls.netchan.incoming_sequence++;
+	demo.timestamp = cl.mtime[0];
+	cl.skip_interp = false;
 
 	// make sure what interp info contain angles from different frames
 	// or lerping will stop working
@@ -856,7 +861,7 @@ qboolean CL_DemoReadMessageQuake( byte *buffer, size_t *length )
 
 		// record update
 		a->starttime = demo.timestamp;
-		VectorCopy( cl.viewangles, a->viewangles );
+		VectorCopy( viewangles, a->viewangles );
 		demo.lasttime = demo.timestamp;
 	}
 
@@ -884,6 +889,8 @@ qboolean CL_DemoReadMessageQuake( byte *buffer, size_t *length )
 		}
 	}
 
+	cls.netchan.last_received = host.realtime;
+	cls.netchan.total_received += msglen;
 	*length = msglen;
 
 	if( cls.state != ca_active )
@@ -1073,14 +1080,26 @@ but viewangles interpolate here
 */
 void CL_DemoInterpolateAngles( void )
 {
-	float		curtime = (CL_GetDemoPlaybackClock() - demo.starttime) - host.frametime;
 	demoangle_t	*prev = NULL, *next = NULL;
 	float		frac = 0.0f;
+	float		curtime;
 
-	if( curtime > demo.timestamp )
-		curtime = demo.timestamp; // don't run too far
+	if( cls.demoplayback == DEMO_QUAKE1 )
+	{
+		// manually select next & prev states
+		next = &demo.cmds[(demo.angle_position - 0) & ANGLE_MASK];
+		prev = &demo.cmds[(demo.angle_position - 1) & ANGLE_MASK];
+		if( cl.skip_interp ) *prev = *next; // camera was teleported
+		frac = cl.lerpFrac;
+	}
+	else
+	{
+		curtime = (CL_GetDemoPlaybackClock() - demo.starttime) - host.frametime;
+		if( curtime > demo.timestamp )
+			curtime = demo.timestamp; // don't run too far
 
-	CL_DemoFindInterpolatedViewAngles( curtime, &frac, &prev, &next );
+		CL_DemoFindInterpolatedViewAngles( curtime, &frac, &prev, &next );
+	}
 
 	if( prev && next )
 	{
@@ -1091,7 +1110,7 @@ void CL_DemoInterpolateAngles( void )
 		QuaternionSlerp( q2, q1, frac, q );
 		QuaternionAngle( q, cl.viewangles );
 	}
-	else if( cls.demoplayback != DEMO_QUAKE1 )
+	else if( cl.cmd != NULL )
 		VectorCopy( cl.cmd->viewangles, cl.viewangles );
 }
 
@@ -1295,6 +1314,7 @@ void CL_CheckStartupDemos( void )
 
 	// run demos loop in background mode
 	Cvar_SetValue( "v_dark", 1.0f );
+	cls.demos_pending = false;
 	cls.demonum = 0;
 	CL_NextDemo ();
 }
@@ -1304,11 +1324,10 @@ void CL_CheckStartupDemos( void )
 CL_DemoGetName
 ================== 
 */  
-void CL_DemoGetName( int lastnum, char *filename )
+static void CL_DemoGetName( int lastnum, char *filename )
 {
 	int	a, b, c, d;
 
-	if( !filename ) return;
 	if( lastnum < 0 || lastnum > 9999 )
 	{
 		// bound
@@ -1584,17 +1603,15 @@ void CL_Demos_f( void )
 		return;
 	}
 
+	// demos loop are not running
+	if( cls.olddemonum == -1 )
+		return;
+
 	cls.demonum = cls.olddemonum;
 
-	if( cls.demonum == -1 )
-		cls.demonum = 0;
-
+	// run demos loop in background mode
 	if( !SV_Active() && !cls.demoplayback )
-	{
-		// run demos loop in background mode
-		cls.changedemo = true;
 		CL_NextDemo ();
-	}
 }
 
 
