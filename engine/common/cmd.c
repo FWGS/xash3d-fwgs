@@ -539,11 +539,11 @@ void Cmd_TokenizeString( char *text )
 
 		if( !*text )
 			return;
-	
+
 		if( cmd_argc == 1 )
 			 cmd_args = text;
 
-		host.com_ignorebracket = true;			
+		host.com_ignorebracket = true;
 		text = COM_ParseFile( text, cmd_token );
 		host.com_ignorebracket = false;
 
@@ -973,12 +973,14 @@ void Cmd_ExecuteString( char *text )
 	if( host.type == HOST_NORMAL )
 	{
 		if( cls.state >= ca_connected )
+		{
 			Cmd_ForwardToServer();
-	}
-	else if( text[0] != '@' && host.type == HOST_NORMAL )
-	{
-		// commands with leading '@' are hidden system commands
-		Con_Printf( S_WARN "Unknown command \"%s\"\n", text );
+		}
+		else if( text[0] != '@' && Cvar_VariableInteger( "host_gameloaded" ))
+		{
+			// commands with leading '@' are hidden system commands
+			Con_Printf( S_WARN "Unknown command \"%s\"\n", text );
+		}
 	}
 }
 

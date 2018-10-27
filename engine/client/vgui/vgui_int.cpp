@@ -120,7 +120,7 @@ void VGui_Paint( int paintAll )
 
 void VGui_ViewportPaintBackground( int extents[4] )
 {
-//	Msg( "Vgui_ViewportPaintBackground( %i, %i, %i, %i )\n", extents[0], extents[1], extents[2], extents[3] );
+	// not used
 }
 
 void *VGui_GetPanel( void )

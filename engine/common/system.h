@@ -104,7 +104,6 @@ char *Con_Input( void );
 
 // text messages
 #define Msg	Con_Printf
-void MsgDev( int level, const char *pMsg, ... );
 
 #ifdef __cplusplus
 }

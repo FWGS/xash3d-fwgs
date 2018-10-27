@@ -1239,7 +1239,7 @@ void CL_PredictMovement( qboolean repredicting )
 	if( cls.state != ca_active || cls.spectator )
 		return;
 
-	if( cls.demoplayback && cl.cmd != NULL && !repredicting )
+	if( cls.demoplayback && !repredicting )
 		CL_DemoInterpolateAngles();
 
 	CL_SetUpPlayerPrediction( false, false );

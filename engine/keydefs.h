@@ -23,6 +23,7 @@
 #define K_ENTER		13
 #define K_ESCAPE		27
 #define K_SPACE		32
+#define K_SCROLLOCK		70
 
 // normal keys should be passed as lowercased ascii
 

@@ -63,7 +63,7 @@ qboolean CSCR_ExpectString( parserstate_t *ps, const char *pExpect, qboolean ski
 	}
 
 	if( skip ) ps->buf = tmp;
-	if( error ) MsgDev( D_ERROR, "Syntax error in %s: got \"%s\" instead of \"%s\"\n", ps->filename, ps->token, pExpect );
+	if( error ) Con_DPrintf( S_ERROR "Syntax error in %s: got \"%s\" instead of \"%s\"\n", ps->filename, ps->token, pExpect );
 
 	return false;
 }
@@ -85,7 +85,7 @@ cvartype_t CSCR_ParseType( parserstate_t *ps )
 			return i;
 	}
 
-	MsgDev( D_ERROR, "Cannot parse %s: Bad type %s\n", ps->filename, ps->token );
+	Con_DPrintf( S_ERROR "Cannot parse %s: Bad type %s\n", ps->filename, ps->token );
 	return T_NONE;
 }
 
@@ -181,7 +181,7 @@ qboolean CSCR_ParseHeader( parserstate_t *ps )
 
 	if( Q_atof( ps->token ) != 1 )
 	{
-		MsgDev( D_ERROR, "File %s has wrong version %s!\n", ps->filename, ps->token );
+		Con_DPrintf( S_ERROR "File %s has wrong version %s!\n", ps->filename, ps->token );
 		return false;
 	}
 
@@ -192,7 +192,7 @@ qboolean CSCR_ParseHeader( parserstate_t *ps )
 
 	if( Q_stricmp( ps->token, "INFO_OPTIONS") && Q_stricmp( ps->token, "SERVER_OPTIONS" ))
 	{
-		MsgDev( D_ERROR, "DESCRIPTION must be INFO_OPTIONS or SERVER_OPTIONS\n");
+		Con_DPrintf( S_ERROR "DESCRIPTION must be INFO_OPTIONS or SERVER_OPTIONS\n");
 		return false;
 	}
 
@@ -223,13 +223,10 @@ int CSCR_WriteGameCVars( file_t *cfg, const char *scriptfilename )
 	if( !state.buf || !length )
 		return 0;
 
-	MsgDev( D_INFO, "Reading config script file %s\n", scriptfilename );
+	Con_DPrintf( "Reading config script file %s\n", scriptfilename );
 
 	if( !CSCR_ParseHeader( &state ))
-	{
-		MsgDev( D_ERROR, "Failed to parse header!\n" );
 		goto finish;
-	}
 
 	while( !CSCR_ExpectString( &state, "}", false, false ))
 	{
@@ -258,7 +255,7 @@ int CSCR_WriteGameCVars( file_t *cfg, const char *scriptfilename )
 	}
 
 	if( COM_ParseFile( state.buf, state.token ))
-		MsgDev( D_ERROR, "Got extra tokens!\n" );
+		Con_DPrintf( S_ERROR "Got extra tokens!\n" );
 	else success = true;
 finish:
 	if( !success )
@@ -266,8 +263,8 @@ finish:
 		state.token[sizeof( state.token ) - 1] = 0;
 
 		if( start && state.buf )
-			MsgDev( D_ERROR, "Parse error in %s, byte %d, token %s\n", scriptfilename, (int)( state.buf - start ), state.token );
-		else MsgDev( D_ERROR, "Parse error in %s, token %s\n", scriptfilename, state.token );
+			Con_DPrintf( S_ERROR "Parse error in %s, byte %d, token %s\n", scriptfilename, (int)( state.buf - start ), state.token );
+		else Con_DPrintf( S_ERROR "Parse error in %s, token %s\n", scriptfilename, state.token );
 	}
 
 	if( start ) Mem_Free( start );
@@ -296,13 +293,10 @@ int CSCR_LoadDefaultCVars( const char *scriptfilename )
 	if( !state.buf || !length )
 		return 0;
 
-	MsgDev( D_INFO, "Reading config script file %s\n", scriptfilename );
+	Con_DPrintf( "Reading config script file %s\n", scriptfilename );
 
 	if( !CSCR_ParseHeader( &state ))
-	{
-		MsgDev( D_ERROR, "Failed to parse header!\n" );
 		goto finish;
-	}
 
 	while( !CSCR_ExpectString( &state, "}", false, false ))
 	{
@@ -322,15 +316,15 @@ int CSCR_LoadDefaultCVars( const char *scriptfilename )
 	}
 
 	if( COM_ParseFile( state.buf, state.token ))
-		MsgDev( D_ERROR, "Got extra tokens!\n" );
+		Con_DPrintf( S_ERROR "Got extra tokens!\n" );
 	else success = true;
 finish:
 	if( !success )
 	{
 		state.token[sizeof( state.token ) - 1] = 0;
 		if( start && state.buf )
-			MsgDev( D_ERROR, "Parse error in %s, byte %d, token %s\n", scriptfilename, (int)( state.buf - start ), state.token );
-		else MsgDev( D_ERROR, "Parse error in %s, token %s\n", scriptfilename, state.token );
+			Con_DPrintf( S_ERROR "Parse error in %s, byte %d, token %s\n", scriptfilename, (int)( state.buf - start ), state.token );
+		else Con_DPrintf( S_ERROR "Parse error in %s, token %s\n", scriptfilename, state.token );
 	}
 
 	if( start ) Mem_Free( start );

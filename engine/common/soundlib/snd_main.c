@@ -118,7 +118,7 @@ load_internal:
 	}
 
 	if( filename[0] != '#' )
-		Con_Reportf( S_WARN "FS_LoadSound: couldn't load \"%s\"\n", loadname );
+		Con_DPrintf( S_WARN "FS_LoadSound: couldn't load \"%s\"\n", loadname );
 
 	return NULL;
 }

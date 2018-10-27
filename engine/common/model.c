@@ -201,6 +201,7 @@ void Mod_Shutdown( void )
 ==================
 Mod_FindName
 
+never return NULL
 ==================
 */
 model_t *Mod_FindName( const char *filename, qboolean trackCRC )
@@ -208,9 +209,6 @@ model_t *Mod_FindName( const char *filename, qboolean trackCRC )
 	char	modname[MAX_QPATH];
 	model_t	*mod;
 	int	i;
-	
-	if( !COM_CheckString( filename ))
-		return NULL;
 
 	Q_strncpy( modname, filename, sizeof( modname ));
 
@@ -388,7 +386,12 @@ Loads in a model for the given name
 */
 model_t *Mod_ForName( const char *name, qboolean crash, qboolean trackCRC )
 {
-	model_t	*mod = Mod_FindName( name, trackCRC );
+	model_t	*mod;
+
+	if( !COM_CheckString( name ))
+		return NULL;
+
+	mod = Mod_FindName( name, trackCRC );
 	return Mod_LoadModel( mod, crash );
 }
 

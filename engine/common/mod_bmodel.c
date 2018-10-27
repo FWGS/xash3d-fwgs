@@ -1771,7 +1771,6 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 	int		num, max, altmax;
 	qboolean		custom_palette;
 	char		texname[64];
-	imgfilter_t	*filter;
 	mip_t		*mt;
 	int 		i, j; 
 
@@ -1819,7 +1818,6 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 		// convert to lowercase
 		Q_strncpy( tx->name, mt->name, sizeof( tx->name ));
 		Q_strnlwr( tx->name, tx->name, sizeof( tx->name ));
-		filter = R_FindTexFilter( tx->name ); // grab texture filter
 		custom_palette = false;
 
 		tx->width = mt->width;
@@ -1872,7 +1870,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 				if( FS_FileExists( texpath, false ))
 				{
-					tx->gl_texturenum = GL_LoadTexture( texpath, NULL, 0, 0, filter );
+					tx->gl_texturenum = GL_LoadTexture( texpath, NULL, 0, TF_ALLOW_EMBOSS );
 					bmod->wadlist.wadusage[j]++; // this wad are really used
 					break;
 				}
@@ -1888,7 +1886,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 			if( custom_palette ) size += sizeof( short ) + 768;
 			Q_snprintf( texname, sizeof( texname ), "#%s:%s.mip", loadstat.name, mt->name );
-			tx->gl_texturenum = GL_LoadTexture( texname, (byte *)mt, size, 0, filter );
+			tx->gl_texturenum = GL_LoadTexture( texname, (byte *)mt, size, TF_ALLOW_EMBOSS );
 		}
 
 		// if texture is completely missed
@@ -1911,7 +1909,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 				int	size = (int)sizeof( mip_t ) + ((mt->width * mt->height * 85)>>6);
 
 				if( custom_palette ) size += sizeof( short ) + 768;
-				tx->fb_texturenum = GL_LoadTexture( texname, (byte *)mt, size, TF_MAKELUMA, NULL );
+				tx->fb_texturenum = GL_LoadTexture( texname, (byte *)mt, size, TF_MAKELUMA );
 			}
 			else
 			{
@@ -1936,7 +1934,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 				}
 
 				// okay, loading it from wad or hi-res version
-				tx->fb_texturenum = GL_LoadTexture( texname, src, srcSize, TF_MAKELUMA, NULL );
+				tx->fb_texturenum = GL_LoadTexture( texname, src, srcSize, TF_MAKELUMA );
 				if( src ) Mem_Free( src );
 			}
 		}

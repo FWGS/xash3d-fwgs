@@ -126,7 +126,7 @@ void CL_DuplicateTexture( mstudiotexture_t *ptexture, int topcolor, int bottomco
 	memcpy( paletteBackup, pal, 768 );
 
 	raw = CL_CreateRawTextureFromPixels( tx, &size, topcolor, bottomcolor );
-	ptexture->index = GL_LoadTexture( texname, raw, size, TF_FORCE_COLOR, NULL ); // do copy
+	ptexture->index = GL_LoadTexture( texname, raw, size, TF_FORCE_COLOR ); // do copy
 
 	// restore original palette
 	memcpy( pal, paletteBackup, 768 );
@@ -213,7 +213,7 @@ void CL_UpdateAliasTexture( unsigned short *texture, int skinnum, int topcolor, 
 
 	if( *texture == 0 )
 	{
-		Q_snprintf( texname, sizeof( texname ), "%s:remap%i", RI.currentmodel->name, skinnum );
+		Q_snprintf( texname, sizeof( texname ), "%s:remap%i_%i", RI.currentmodel->name, skinnum, RI.currententity->index );
 		skin.width = tx->width;
 		skin.height = tx->height;
 		skin.depth = skin.numMips = 1;

@@ -309,8 +309,8 @@ void R_SetTextureParameters( void );
 gl_texture_t *R_GetTexture( GLenum texnum );
 #define GL_LoadTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, false )
 #define GL_UpdateTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, true )
-int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags, imgfilter_t *filter );
-int GL_LoadTextureArray( const char **names, int flags, imgfilter_t *filter );
+int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
+int GL_LoadTextureArray( const char **names, int flags );
 int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
 byte *GL_ResampleTexture( const byte *source, int in_w, int in_h, int out_w, int out_h, qboolean isNormalMap );
 int GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags );
@@ -387,8 +387,7 @@ void Matrix4x4_CreateModelview( matrix4x4 out );
 //
 // gl_rmisc.
 //
-void R_ParseTexFilters( const char *filename );
-imgfilter_t *R_FindTexFilter( const char *texname );
+void R_ClearStaticEntities( void );
 
 //
 // gl_rsurf.c
@@ -469,7 +468,7 @@ void R_Shutdown( void );
 qboolean R_Init( void );
 void R_Shutdown( void );
 void VID_CheckChanges( void );
-int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags, imgfilter_t *filter );
+int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
 void GL_FreeImage( const char *name );
 qboolean VID_ScreenShot( const char *filename, int shot_type );
 qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot );
@@ -642,6 +641,7 @@ extern convar_t	*gl_texture_lodbias;
 extern convar_t	*gl_texture_nearest;
 extern convar_t	*gl_lightmap_nearest;
 extern convar_t	*gl_keeptjunctions;
+extern convar_t	*gl_emboss_scale;
 extern convar_t	*gl_round_down;
 extern convar_t	*gl_detailscale;
 extern convar_t	*gl_wireframe;

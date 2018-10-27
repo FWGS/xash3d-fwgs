@@ -418,7 +418,7 @@ double Host_CalcFPS( void )
 	if( host.type != HOST_DEDICATED && Host_IsLocalGame( ) && !CL_IsTimeDemo( ))
 	{
 		// ajdust fps for vertical synchronization
-		if( gl_vsync != NULL && gl_vsync->value )
+		if( CVAR_TO_BOOL( gl_vsync ))
 		{
 			if( vid_displayfrequency->value != 0.0f )
 				fps = vid_displayfrequency->value;
@@ -647,7 +647,8 @@ void Host_InitCommon( const char *hostname, qboolean bChangeGame )
 		}
 		else
 		{
-			if( *in == ' ' )
+			// now we found cmdline
+			if( *in == ' ' && ( in[1] == '+' || in[1] == '-' ))
 			{
 				parse_cmdline = true;
 				*out++ = '\0';
@@ -663,8 +664,12 @@ void Host_InitCommon( const char *hostname, qboolean bChangeGame )
 
 	host.mempool = Mem_AllocPool( "Zone Engine" );
 
+	// get name of executable
+	if( GetModuleFileName( NULL, szTemp, sizeof( szTemp )))
+		COM_FileBase( szTemp, SI.exeName );
+
 	// HACKHACK: Quake console is always allowed
-	if( Sys_CheckParm( "-console" ) || !Q_stricmp( progname, "id1" ))
+	if( Sys_CheckParm( "-console" ) || !Q_stricmp( SI.exeName, "quake" ))
 		host.allow_console = true;
 
 	if( Sys_CheckParm( "-dev" ))
@@ -681,10 +686,6 @@ void Host_InitCommon( const char *hostname, qboolean bChangeGame )
 
 	host.type = HOST_NORMAL; // predict state
 	host.con_showalways = true;
-
-	// we can specified custom name, from Sys_NewInstance
-	if( GetModuleFileName( NULL, szTemp, sizeof( szTemp )) && !host.change_game )
-		COM_FileBase( szTemp, SI.exeName );
 
 	COM_ExtractFilePath( szTemp, szRootPath );
 	if( Q_stricmp( host.rootdir, szRootPath ))

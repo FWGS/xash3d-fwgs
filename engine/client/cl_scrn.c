@@ -296,7 +296,7 @@ void SCR_DrawPlaque( void )
 {
 	if(( cl_allow_levelshots->value && !cls.changelevel ) || cl.background )
 	{
-		int levelshot = GL_LoadTexture( cl_levelshot_name->string, NULL, 0, TF_IMAGE, NULL );
+		int levelshot = GL_LoadTexture( cl_levelshot_name->string, NULL, 0, TF_IMAGE );
 		GL_SetRenderMode( kRenderNormal );
 		R_DrawStretchPic( 0, 0, glState.width, glState.height, 0, 0, 1, 1, levelshot );
 		if( !cl.background ) CL_DrawHUD( CL_LOADING );
@@ -496,7 +496,7 @@ qboolean SCR_LoadFixedWidthFont( const char *fontname )
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	cls.creditsFont.hFontTexture = GL_LoadTexture( fontname, NULL, 0, TF_IMAGE|TF_KEEP_SOURCE, NULL );
+	cls.creditsFont.hFontTexture = GL_LoadTexture( fontname, NULL, 0, TF_IMAGE|TF_KEEP_SOURCE );
 	R_GetTextureParms( &fontWidth, NULL, cls.creditsFont.hFontTexture );
 	cls.creditsFont.charHeight = clgame.scrInfo.iCharHeight = fontWidth / 16;
 	cls.creditsFont.type = FONT_FIXED;
@@ -528,7 +528,7 @@ qboolean SCR_LoadVariableWidthFont( const char *fontname )
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	cls.creditsFont.hFontTexture = GL_LoadTexture( fontname, NULL, 0, TF_IMAGE, NULL );
+	cls.creditsFont.hFontTexture = GL_LoadTexture( fontname, NULL, 0, TF_IMAGE );
 	R_GetTextureParms( &fontWidth, NULL, cls.creditsFont.hFontTexture );
 
 	// half-life font with variable chars witdh
@@ -626,24 +626,24 @@ void SCR_RegisterTextures( void )
 	// register gfx.wad images
 
 	if( FS_FileExists( "gfx/paused.lmp", false ))
-		cls.pauseIcon = GL_LoadTexture( "gfx/paused.lmp", NULL, 0, TF_IMAGE, NULL );
+		cls.pauseIcon = GL_LoadTexture( "gfx/paused.lmp", NULL, 0, TF_IMAGE );
 	else if( FS_FileExists( "gfx/pause.lmp", false ))
-		cls.pauseIcon = GL_LoadTexture( "gfx/pause.lmp", NULL, 0, TF_IMAGE, NULL );
+		cls.pauseIcon = GL_LoadTexture( "gfx/pause.lmp", NULL, 0, TF_IMAGE );
 
 	if( FS_FileExists( "gfx/lambda.lmp", false ))
 	{
 		if( cl_allow_levelshots->value )
-			cls.loadingBar = GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE, NULL );
-		else cls.loadingBar = GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE, NULL ); 
+			cls.loadingBar = GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE );
+		else cls.loadingBar = GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE ); 
 	}
 	else if( FS_FileExists( "gfx/loading.lmp", false ))
 	{
 		if( cl_allow_levelshots->value )
-			cls.loadingBar = GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE, NULL );
-		else cls.loadingBar = GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE, NULL ); 
+			cls.loadingBar = GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE );
+		else cls.loadingBar = GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE ); 
 	}
 	
-	cls.tileImage = GL_LoadTexture( "gfx/backtile.lmp", NULL, 0, TF_NOMIPMAP, NULL );
+	cls.tileImage = GL_LoadTexture( "gfx/backtile.lmp", NULL, 0, TF_NOMIPMAP );
 }
 
 /*

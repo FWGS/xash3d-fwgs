@@ -255,7 +255,7 @@ static void listlowercase( stringlist_t *list )
 	}
 }
 
-static void listdirectory( stringlist_t *list, const char *path )
+static void listdirectory( stringlist_t *list, const char *path, int lower )
 {
 	char		pattern[4096];
 	struct _finddata_t	n_file;
@@ -277,7 +277,7 @@ static void listdirectory( stringlist_t *list, const char *path )
 	_findclose( hFile );
 
 	// g-cont. disabled for some reasons
-//	listlowercase( list );
+	if( lower ) listlowercase( list );
 }
 
 /*
@@ -310,8 +310,8 @@ static dpackfile_t *FS_AddFileToPack( const char *name, pack_t *pack, long offse
 		middle = (left + right) / 2;
 		diff = Q_stricmp( pack->files[middle].name, name );
 
-		// If we found the file, there's a problem
-		if( !diff ) MsgDev( D_WARN, "package %s contains the file %s several times\n", pack->filename, name );
+		// If we found the file, there's a problem (but don't confuse the users)
+		if( !diff ) Con_Reportf( S_WARN "package %s contains the file %s several times\n", pack->filename, name );
 
 		// If we're too far in the list
 		if( diff > 0 ) right = middle - 1;
@@ -413,7 +413,7 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 
 	if( packhandle < 0 )
 	{
-		MsgDev( D_NOTE, "%s couldn't open\n", packfile );
+		Con_Reportf( "%s couldn't open\n", packfile );
 		if( error ) *error = PAK_LOAD_COULDNT_OPEN;
 		return NULL;
 	}
@@ -422,7 +422,7 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 
 	if( header.ident != IDPACKV1HEADER )
 	{
-		MsgDev( D_NOTE, "%s is not a packfile. Ignored.\n", packfile );
+		Con_Reportf( "%s is not a packfile. Ignored.\n", packfile );
 		if( error ) *error = PAK_LOAD_BAD_HEADER;
 		close( packhandle );
 		return NULL;
@@ -430,7 +430,7 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 
 	if( header.dirlen % sizeof( dpackfile_t ))
 	{
-		MsgDev( D_ERROR, "%s has an invalid directory size. Ignored.\n", packfile );
+		Con_Reportf( "%s has an invalid directory size. Ignored.\n", packfile );
 		if( error ) *error = PAK_LOAD_BAD_FOLDERS;
 		close( packhandle );
 		return NULL;
@@ -440,7 +440,7 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 
 	if( numpackfiles > MAX_FILES_IN_PACK )
 	{
-		MsgDev( D_ERROR, "%s has too many files ( %i ). Ignored.\n", packfile, numpackfiles );
+		Con_DPrintf( S_ERROR "%s has too many files ( %i ). Ignored.\n", packfile, numpackfiles );
 		if( error ) *error = PAK_LOAD_TOO_MANY_FILES;
 		close( packhandle );
 		return NULL;
@@ -448,7 +448,7 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 
 	if( numpackfiles <= 0 )
 	{
-		MsgDev( D_NOTE, "%s has no files. Ignored.\n", packfile );
+		Con_Reportf( "%s has no files. Ignored.\n", packfile );
 		if( error ) *error = PAK_LOAD_NO_FILES;
 		close( packhandle );
 		return NULL;
@@ -459,7 +459,7 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 
 	if( header.dirlen != read( packhandle, (void *)info, header.dirlen ))
 	{
-		MsgDev( D_NOTE, "%s is an incomplete PAK, not loading\n", packfile );
+		Con_Reportf( "%s is an incomplete PAK, not loading\n", packfile );
 		if( error ) *error = PAK_LOAD_CORRUPTED;
 		close( packhandle );
 		Mem_Free( info );
@@ -504,9 +504,11 @@ static qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loade
 		}
 	}
           
-	if( already_loaded ) *already_loaded = false;
-	if( !Q_stricmp( ext, "wad" )) wad = W_Open( wadfile, &errorcode );
-	else MsgDev( D_ERROR, "\"%s\" doesn't have a wad extension\n", wadfile );
+	if( already_loaded )
+		*already_loaded = false;
+
+	if( !Q_stricmp( ext, "wad" ))
+		wad = W_Open( wadfile, &errorcode );
 
 	if( wad )
 	{
@@ -516,13 +518,13 @@ static qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loade
 		search->flags |= flags;
 		fs_searchpaths = search;
 
-		MsgDev( D_REPORT, "Adding wadfile: %s (%i files)\n", wadfile, wad->numlumps );
+		Con_Reportf( "Adding wadfile: %s (%i files)\n", wadfile, wad->numlumps );
 		return true;
 	}
 	else
 	{
 		if( errorcode != WAD_LOAD_NO_FILES )
-			MsgDev( D_ERROR, "FS_AddWad_Fullpath: unable to load wad \"%s\"\n", wadfile );
+			Con_DPrintf( S_ERROR "FS_AddWad_Fullpath: unable to load wad \"%s\"\n", wadfile );
 		return false;
 	}
 }
@@ -557,10 +559,11 @@ static qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loade
 		}
 	}
 
-	if( already_loaded ) *already_loaded = false;
+	if( already_loaded )
+		*already_loaded = false;
 
-	if( !Q_stricmp( ext, "pak" )) pak = FS_LoadPackPAK( pakfile, &errorcode );
-	else MsgDev( D_ERROR, "\"%s\" does not have a pack extension\n", pakfile );
+	if( !Q_stricmp( ext, "pak" ))
+		pak = FS_LoadPackPAK( pakfile, &errorcode );
 
 	if( pak )
 	{
@@ -572,7 +575,7 @@ static qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loade
 		search->flags |= flags;
 		fs_searchpaths = search;
 
-		MsgDev( D_REPORT, "Adding pakfile: %s (%i files)\n", pakfile, pak->numfiles );
+		Con_Reportf( "Adding pakfile: %s (%i files)\n", pakfile, pak->numfiles );
 
 		// time to add in search list all the wads that contains in current pakfile (if do)
 		for( i = 0; i < pak->numfiles; i++ )
@@ -589,7 +592,7 @@ static qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loade
 	else
 	{
 		if( errorcode != PAK_LOAD_NO_FILES )
-			MsgDev( D_ERROR, "FS_AddPak_Fullpath: unable to load pak \"%s\"\n", pakfile );
+			Con_DPrintf( S_ERROR "FS_AddPak_Fullpath: unable to load pak \"%s\"\n", pakfile );
 		return false;
 	}
 }
@@ -613,7 +616,7 @@ void FS_AddGameDirectory( const char *dir, int flags )
 		Q_strncpy( fs_writedir, dir, sizeof( fs_writedir ));
 
 	stringlistinit( &list );
-	listdirectory( &list, dir );
+	listdirectory( &list, dir, true );
 	stringlistsort( &list );
 
 	// add any PAK package in the directory
@@ -750,7 +753,7 @@ FS_Rescan
 */
 void FS_Rescan( void )
 {
-	MsgDev( D_NOTE, "FS_Rescan( %s )\n", GI->title );
+	Con_Reportf( "FS_Rescan( %s )\n", GI->title );
 
 	FS_ClearSearchPath();
 
@@ -785,6 +788,8 @@ assume GameInfo is valid
 static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 {
 	file_t	*f = FS_Open( filepath, "w", false ); // we in binary-mode
+	int	i, write_ambients = false;
+
 	if( !f ) Sys_Error( "FS_WriteGameInfo: can't write %s\n", filepath );	// may be disk-space is out?
 
 	FS_Print( f, "// generated by Xash3D\n\n\n" );
@@ -843,6 +848,8 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 		FS_Printf( f, "sp_entity\t\t\"%s\"\n", GameInfo->sp_entity );
 	if( Q_strlen( GameInfo->mp_entity ))
 		FS_Printf( f, "mp_entity\t\t\"%s\"\n", GameInfo->mp_entity );
+	if( Q_strlen( GameInfo->mp_filter ))
+		FS_Printf( f, "mp_filter\t\t\"%s\"\n", GameInfo->mp_filter );
 
 	if( GameInfo->secure )
 		FS_Printf( f, "secure\t\t\"%i\"\n", GameInfo->secure );
@@ -858,6 +865,19 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 		FS_Printf( f, "max_beams\t\t%i\n", GameInfo->max_beams );
 	if( GameInfo->max_particles > 0 )
 		FS_Printf( f, "max_particles\t%i\n", GameInfo->max_particles );
+
+	for( i = 0; i < NUM_AMBIENTS; i++ )
+	{
+		if( *GameInfo->ambientsound[i] )
+		{
+			if( !write_ambients )
+			{
+				FS_Print( f, "\n" );
+				write_ambients = true;
+			}
+			FS_Printf( f, "ambient%i\t\t%s\n", i, GameInfo->ambientsound[i] );
+		}
+	}
 
 	FS_Print( f, "\n\n\n" );
 	FS_Close( f );	// all done
@@ -1013,6 +1033,10 @@ static qboolean FS_ParseLiblistGam( const char *filename, const char *gamedir, g
 		{
 			pfile = COM_ParseFile( pfile, GameInfo->mp_entity );
 		}
+		else if( !Q_stricmp( token, "mpfilter" ))
+		{
+			pfile = COM_ParseFile( pfile, GameInfo->mp_filter );
+		}
 		else if( !Q_stricmp( token, "secure" ))
 		{
 			pfile = COM_ParseFile( pfile, token );
@@ -1119,6 +1143,10 @@ static qboolean FS_ReadGameInfo( const char *filepath, const char *gamedir, game
 		{
 			pfile = COM_ParseFile( pfile, GameInfo->mp_entity );
 		}
+		else if( !Q_stricmp( token, "mp_filter" ))
+		{
+			pfile = COM_ParseFile( pfile, GameInfo->mp_filter );
+		}
 		else if( !Q_stricmp( token, "gamedll" ))
 		{
 			pfile = COM_ParseFile( pfile, GameInfo->game_dll );
@@ -1206,18 +1234,18 @@ static qboolean FS_ReadGameInfo( const char *filepath, const char *gamedir, game
 			pfile = COM_ParseFile( pfile, token );
 			GameInfo->nomodels = Q_atoi( token );
 		}
+		else if( !Q_stricmp( token, "noskills" ))
+		{
+			pfile = COM_ParseFile( pfile, token );
+			GameInfo->noskills = Q_atoi( token );
+		}
 		else if( !Q_strnicmp( token, "ambient", 7 ))
 		{
 			int	ambientNum = Q_atoi( token + 7 );
 
 			if( ambientNum < 0 || ambientNum > ( NUM_AMBIENTS - 1 ))
-			{
-				MsgDev( D_ERROR, "FS_ReadGameInfo: Invalid ambient number %i. Ignored.\n", ambientNum );
-			}
-			else
-			{
-				pfile = COM_ParseFile( pfile, GameInfo->ambientsound[ambientNum] );
-			}
+				ambientNum = 0;
+			pfile = COM_ParseFile( pfile, GameInfo->ambientsound[ambientNum] );
 		}
 	}
 
@@ -1316,7 +1344,7 @@ void FS_LoadGameInfo( const char *rootfolder )
 	fs_ext_path = false;
 
 	if( rootfolder ) Q_strcpy( fs_gamedir, rootfolder );
-	MsgDev( D_NOTE, "FS_LoadGameInfo( %s )\n", fs_gamedir );
+	Con_Reportf( "FS_LoadGameInfo( %s )\n", fs_gamedir );
 
 	// clear any old pathes
 	FS_ClearSearchPath();
@@ -1357,7 +1385,7 @@ void FS_Init( void )
 
 	// ignore commandlineoption "-game" for other stuff
 	stringlistinit( &dirs );
-	listdirectory( &dirs, "./" );
+	listdirectory( &dirs, "./", true );
 	stringlistsort( &dirs );
 	SI.numgames = 0;
 
@@ -1487,7 +1515,6 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 		opt = O_CREAT;
 		break;
 	default:
-		MsgDev( D_ERROR, "FS_SysOpen(%s, %s): invalid mode\n", filepath, mode );
 		return NULL;
 	}
 
@@ -1502,7 +1529,6 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 			opt |= O_BINARY;
 			break;
 		default:
-			MsgDev( D_ERROR, "FS_SysOpen: %s: unknown char (%c) in mode (%s)\n", filepath, mode[ind], mode );
 			break;
 		}
 	}
@@ -2222,7 +2248,7 @@ qboolean FS_WriteFile( const char *filename, const void *data, long len )
 
 	if( !file )
 	{
-		MsgDev( D_ERROR, "FS_WriteFile: failed on %s\n", filename);
+		Con_DPrintf( S_ERROR "FS_WriteFile: failed on %s\n", filename );
 		return false;
 	}
 
@@ -2512,7 +2538,7 @@ qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize )
 
 		if(( readSize = FS_Read( pInput, buf, size )) < size )
 		{
-			MsgDev( D_ERROR, "FS_FileCopy: unexpected end of input file (%d < %d)\n", readSize, size );
+			Con_DPrintf( S_ERROR "FS_FileCopy: unexpected end of input file (%d < %d)\n", readSize, size );
 			fileSize = 0;
 			done = false;
 			break;
@@ -2687,7 +2713,7 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 			// get a directory listing and look at each name
 			Q_sprintf( netpath, "%s%s", searchpath->filename, basepath );
 			stringlistinit( &dirlist );
-			listdirectory( &dirlist, netpath );
+			listdirectory( &dirlist, netpath, false );
 
 			for( dirlistindex = 0; dirlistindex < dirlist.numstrings; dirlistindex++ )
 			{
@@ -2885,7 +2911,7 @@ static dlumpinfo_t *W_AddFileToWad( const char *name, wfile_t *wad, dlumpinfo_t 
 				diff = 1;
 			else if( wad->lumps[middle].type > newlump->type )
 				diff = -1;
-			else MsgDev( D_WARN, "Wad %s contains the file %s several times\n", wad->filename, name );
+			else Con_Reportf( S_WARN "Wad %s contains the file %s several times\n", wad->filename, name );
 		}
 
 		// If we're too far in the list
@@ -2926,7 +2952,7 @@ byte *W_ReadLump( wfile_t *wad, dlumpinfo_t *lump, long *lumpsizeptr )
 
 	if( FS_Seek( wad->handle, lump->filepos, SEEK_SET ) == -1 )
 	{
-		MsgDev( D_ERROR, "W_ReadLump: %s is corrupted\n", lump->name );
+		Con_DPrintf( S_ERROR "W_ReadLump: %s is corrupted\n", lump->name );
 		FS_Seek( wad->handle, oldpos, SEEK_SET );
 		return NULL;
 	}
@@ -2936,7 +2962,7 @@ byte *W_ReadLump( wfile_t *wad, dlumpinfo_t *lump, long *lumpsizeptr )
 
 	if( size < lump->disksize )
 	{
-		MsgDev( D_WARN, "W_ReadLump: %s is probably corrupted\n", lump->name );
+		Con_DPrintf( S_WARN "W_ReadLump: %s is probably corrupted\n", lump->name );
 		FS_Seek( wad->handle, oldpos, SEEK_SET );
 		Mem_Free( buf );
 		return NULL;
@@ -2976,7 +3002,7 @@ wfile_t *W_Open( const char *filename, int *error )
 
 	if( wad->handle == NULL )
 	{
-		MsgDev( D_ERROR, "W_Open: couldn't open %s\n", filename );
+		Con_DPrintf( S_ERROR "W_Open: couldn't open %s\n", filename );
 		if( error ) *error = WAD_LOAD_COULDNT_OPEN;
 		W_Close( wad );
 		return NULL;
@@ -2989,7 +3015,7 @@ wfile_t *W_Open( const char *filename, int *error )
 
 	if( FS_Read( wad->handle, &header, sizeof( dwadinfo_t )) != sizeof( dwadinfo_t ))
 	{
-		MsgDev( D_ERROR, "W_Open: %s can't read header\n", filename );
+		Con_DPrintf( S_ERROR "W_Open: %s can't read header\n", filename );
 		if( error ) *error = WAD_LOAD_BAD_HEADER;
 		W_Close( wad );
 		return NULL;
@@ -2997,7 +3023,7 @@ wfile_t *W_Open( const char *filename, int *error )
 
 	if( header.ident != IDWAD2HEADER && header.ident != IDWAD3HEADER )
 	{
-		MsgDev( D_ERROR, "W_Open: %s is not a WAD2 or WAD3 file\n", filename );
+		Con_DPrintf( S_ERROR "W_Open: %s is not a WAD2 or WAD3 file\n", filename );
 		if( error ) *error = WAD_LOAD_BAD_HEADER;
 		W_Close( wad );
 		return NULL;
@@ -3007,12 +3033,12 @@ wfile_t *W_Open( const char *filename, int *error )
 
 	if( lumpcount >= MAX_FILES_IN_WAD )
 	{
-		MsgDev( D_WARN, "W_Open: %s is full (%i lumps)\n", filename, lumpcount );
+		Con_DPrintf( S_WARN "W_Open: %s is full (%i lumps)\n", filename, lumpcount );
 		if( error ) *error = WAD_LOAD_TOO_MANY_FILES;
 	}
 	else if( lumpcount <= 0 )
 	{
-		MsgDev( D_ERROR, "W_Open: %s has no lumps\n", filename );
+		Con_DPrintf( S_ERROR "W_Open: %s has no lumps\n", filename );
 		if( error ) *error = WAD_LOAD_NO_FILES;
 		W_Close( wad );
 		return NULL;
@@ -3023,7 +3049,7 @@ wfile_t *W_Open( const char *filename, int *error )
 
 	if( FS_Seek( wad->handle, wad->infotableofs, SEEK_SET ) == -1 )
 	{
-		MsgDev( D_ERROR, "W_Open: %s can't find lump allocation table\n", filename );
+		Con_DPrintf( S_ERROR "W_Open: %s can't find lump allocation table\n", filename );
 		if( error ) *error = WAD_LOAD_BAD_FOLDERS;
 		W_Close( wad );
 		return NULL;
@@ -3036,7 +3062,7 @@ wfile_t *W_Open( const char *filename, int *error )
 
 	if( FS_Read( wad->handle, srclumps, lat_size ) != lat_size )
 	{
-		MsgDev( D_ERROR, "W_ReadLumpTable: %s has corrupted lump allocation table\n", wad->filename );
+		Con_DPrintf( S_ERROR "W_ReadLumpTable: %s has corrupted lump allocation table\n", wad->filename );
 		if( error ) *error = WAD_LOAD_CORRUPTED;
 		Mem_Free( srclumps );
 		W_Close( wad );

@@ -49,6 +49,7 @@ keyname_t keynames[] =
 {"CTRL",		K_CTRL,		"+attack"		},
 {"SHIFT",		K_SHIFT,		"+speed"		},
 {"CAPSLOCK",	K_CAPSLOCK,	""		},
+{"SCROLLOCK",	K_SCROLLOCK,	""		},
 {"F1",		K_F1,		"cmd help"	},
 {"F2",		K_F2,		"menu_savegame"	},
 {"F3",		K_F3,		"menu_loadgame"	},
@@ -202,7 +203,7 @@ const char *Key_KeynumToString( int keynum )
 	if ( keynum < 0 || keynum > 255 ) return "<OUT OF RANGE>";
 
 	// check for printable ascii (don't use quote)
-	if( keynum > 32 && keynum < 127 && keynum != '"' && keynum != ';' )
+	if( keynum > 32 && keynum < 127 && keynum != '"' && keynum != ';' && keynum != K_SCROLLOCK )
 	{
 		tinystr[0] = keynum;
 		tinystr[1] = 0;
@@ -419,8 +420,10 @@ void Key_WriteBindings( file_t *f )
 
 	for( i = 0; i < 256; i++ )
 	{
-		if( keys[i].binding && keys[i].binding[0] )
-			FS_Printf( f, "bind %s \"%s\"\n", Key_KeynumToString( i ), keys[i].binding );
+		if( !COM_CheckString( keys[i].binding ))
+			continue;
+
+		FS_Printf( f, "bind %s \"%s\"\n", Key_KeynumToString( i ), keys[i].binding );
 	}
 }
 
@@ -436,8 +439,10 @@ void Key_Bindlist_f( void )
 
 	for( i = 0; i < 256; i++ )
 	{
-		if( keys[i].binding && keys[i].binding[0] )
-			Con_Printf( "%s \"%s\"\n", Key_KeynumToString( i ), keys[i].binding );
+		if( !COM_CheckString( keys[i].binding ))
+			continue;
+
+		Con_Printf( "%s \"%s\"\n", Key_KeynumToString( i ), keys[i].binding );
 	}
 }
 

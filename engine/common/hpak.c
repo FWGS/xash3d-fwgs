@@ -95,20 +95,17 @@ void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *pData, f
 		return;
 
 	if(( fin != NULL && pData != NULL ) || ( fin == NULL && pData == NULL ))
-	{
-		MsgDev( D_ERROR, "HPAK_CreatePak, must specify one of pData or fpSource\n" );
 		return;
-	}
 
 	Q_strncpy( pakname, filename, sizeof( pakname ));
 	COM_ReplaceExtension( pakname, ".hpk" );
 
-	MsgDev( D_INFO, "creating HPAK %s.\n", pakname );
+	Con_Printf( "creating HPAK %s.\n", pakname );
 
 	fout = FS_Open( pakname, "wb", false );
 	if( !fout )
 	{
-		MsgDev( D_ERROR, "HPAK_CreatePak: can't write %s.\n", pakname );
+		Con_DPrintf( S_ERROR "HPAK_CreatePak: can't write %s.\n", pakname );
 		return;
 	}
 
@@ -135,7 +132,7 @@ void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *pData, f
 
 	if( memcmp( md5, pResource->rgucMD5_hash, 16 ))
 	{
-		MsgDev( D_ERROR, "HPAK_CreatePak: bad checksum for %s. Ignored\n", pakname );
+		Con_DPrintf( S_ERROR "HPAK_CreatePak: bad checksum for %s. Ignored\n", pakname );
 		return;
 	}
 
@@ -204,10 +201,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	MD5Context_t	ctx;
 
 	if( pData == NULL && pFile == NULL )
-	{
-		MsgDev( D_ERROR, "HPAK_AddLump: no data\n" );
 		return;
-	}
 
 	if( pResource->nDownloadSize < HPAK_MIN_SIZE || pResource->nDownloadSize > HPAK_MAX_SIZE )
 	{
@@ -238,7 +232,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 
 	if( memcmp( md5, pResource->rgucMD5_hash, 16 ))
 	{
-		MsgDev( D_ERROR, "HPAK_AddLump: bad checksum for %s. Ignored\n", pResource->szFileName );
+		Con_DPrintf( S_ERROR "HPAK_AddLump: bad checksum for %s. Ignored\n", pResource->szFileName );
 		return;
 	}
 
@@ -267,7 +261,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 
 	if( !file_dst )
 	{
-		MsgDev( D_ERROR, "HPAK_AddLump: couldn't open %s.\n", srcname );
+		Con_DPrintf( S_ERROR "HPAK_AddLump: couldn't open %s.\n", srcname );
 		FS_Close( file_src );
 		return;
 	}
@@ -278,7 +272,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	if( hash_pack_header.version != IDHPAK_VERSION )
 	{
 		// we don't check the HPAK bit for some reason.
-		MsgDev( D_ERROR, "HPAK_AddLump: %s does not have a valid header.\n", srcname );
+		Con_DPrintf( S_ERROR "HPAK_AddLump: %s does not have a valid header.\n", srcname );
 		FS_Close( file_src );
 		FS_Close( file_dst );
 	}
@@ -292,7 +286,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 
 	if( srcpak.count < 1 || srcpak.count > HPAK_MAX_ENTRIES )
 	{
-		MsgDev( D_ERROR, "HPAK_AddLump: %s contain too many lumps.\n", srcname );
+		Con_DPrintf( S_ERROR "HPAK_AddLump: %s contain too many lumps.\n", srcname );
 		FS_Close( file_src );
 		FS_Close( file_dst );
 		return;
@@ -386,16 +380,16 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 	f = FS_Open( pakname, "rb", false );
 	if( !f )
 	{
-		MsgDev( D_INFO, "Couldn't find %s.\n", pakname );
+		Con_DPrintf( S_ERROR "Couldn't find %s.\n", pakname );
 		return true;
 	}
 
-	if( !quiet ) MsgDev( D_INFO, "Validating %s\n", pakname );
+	if( !quiet ) Con_Printf( "Validating %s\n", pakname );
 
 	FS_Read( f, &hdr, sizeof( hdr ));
 	if( hdr.ident != IDHPAKHEADER || hdr.version != IDHPAK_VERSION )
 	{
-		MsgDev( D_ERROR, "HPAK_ValidatePak: %s does not have a valid HPAK header.\n", pakname );
+		Con_DPrintf( S_ERROR "HPAK_ValidatePak: %s does not have a valid HPAK header.\n", pakname );
 		FS_Close( f );
 		return false;
 	}
@@ -405,24 +399,24 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 
 	if( num_lumps < 1 || num_lumps > MAX_FILES_IN_WAD )
 	{
-		MsgDev( D_ERROR, "HPAK_ValidatePak: %s has too many lumps %u.\n", pakname, num_lumps );
+		Con_DPrintf( S_ERROR "HPAK_ValidatePak: %s has too many lumps %u.\n", pakname, num_lumps );
 		FS_Close( f );
 		return false;
 	}
 
-	if( !quiet ) MsgDev( D_INFO, "# of Entries:  %i\n", num_lumps );
+	if( !quiet ) Con_Printf( "# of Entries:  %i\n", num_lumps );
 
 	dataDir = Z_Malloc( sizeof( hpak_lump_t ) * num_lumps );
 	FS_Read( f, dataDir, sizeof( hpak_lump_t ) * num_lumps );
 
-	if( !quiet ) MsgDev( D_INFO, "# Type Size FileName : MD5 Hash\n" );
+	if( !quiet ) Con_Printf( "# Type Size FileName : MD5 Hash\n" );
 
 	for( i = 0; i < num_lumps; i++ )
 	{
 		if( dataDir[i].disksize < 1 || dataDir[i].disksize > 131071 )
 		{
 			// odd max size
-			MsgDev( D_ERROR, "HPAK_ValidatePak: lump %i has invalid size %s\n", i, Q_pretifymem( dataDir[i].disksize, 2 ));
+			Con_DPrintf( S_ERROR "HPAK_ValidatePak: lump %i has invalid size %s\n", i, Q_pretifymem( dataDir[i].disksize, 2 ));
 			Mem_Free( dataDir );
 			FS_Close(f);
 			return false;
@@ -439,24 +433,24 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 
 		pRes = &dataDir[i].resource;
 
-		MsgDev( D_INFO, "%i:      %s %s %s:   ", i, HPAK_TypeFromIndex( pRes->type ),
+		Con_Printf( "%i:      %s %s %s:   ", i, HPAK_TypeFromIndex( pRes->type ),
 		Q_pretifymem( pRes->nDownloadSize, 2 ), pRes->szFileName );  
 
 		if( memcmp( md5, pRes->rgucMD5_hash, 0x10 ))
 		{
 			if( quiet )
 			{
-				MsgDev( D_ERROR, "HPAK_ValidatePak: %s has invalid checksum.\n", pakname );
+				Con_DPrintf( S_ERROR "HPAK_ValidatePak: %s has invalid checksum.\n", pakname );
 				Mem_Free( dataPak );
 				Mem_Free( dataDir );
 				FS_Close( f );
 				return false;
 			}
-			else MsgDev( D_INFO, "failed\n" );
+			else Con_DPrintf( S_ERROR "failed\n" );
 		}
 		else
 		{
-			if( !quiet ) MsgDev( D_INFO, "OK\n" );
+			if( !quiet ) Con_Printf( "OK\n" );
 		}
 
 		// at this point, it's passed our checks.
@@ -584,21 +578,21 @@ static qboolean HPAK_ResourceForIndex( const char *filename, int index, resource
 	f = FS_Open( pakname, "rb", false );
 	if( !f )
 	{
-		MsgDev( D_ERROR, "couldn't open %s.\n", pakname );
+		Con_DPrintf( S_ERROR "couldn't open %s.\n", pakname );
 		return false;
 	}
 
 	FS_Read( f, &header, sizeof( header ));
 	if( header.ident != IDHPAKHEADER )
 	{
-		MsgDev( D_ERROR, "%s is not an HPAK file\n", pakname );
+		Con_DPrintf( S_ERROR "%s is not an HPAK file\n", pakname );
 		FS_Close( f );
 		return false;
 	}
 
 	if( header.version != IDHPAK_VERSION )
 	{
-		MsgDev( D_ERROR, "%s has invalid version (%i should be %i).\n", pakname, header.version, IDHPAK_VERSION );
+		Con_DPrintf( S_ERROR "%s has invalid version (%i should be %i).\n", pakname, header.version, IDHPAK_VERSION );
 		FS_Close( f );
 		return false;
 	}
@@ -608,14 +602,14 @@ static qboolean HPAK_ResourceForIndex( const char *filename, int index, resource
 
 	if( directory.count < 1 || directory.count > HPAK_MAX_ENTRIES )
 	{
-		MsgDev( D_ERROR, "%s has too many lumps %u.\n", pakname, directory.count );
+		Con_DPrintf( S_ERROR "%s has too many lumps %u.\n", pakname, directory.count );
 		FS_Close( f );
 		return false;
 	}
 
 	if( index < 1 || index > directory.count )
 	{
-		MsgDev( D_ERROR, "%s, lump with index %i doesn't exist.\n", pakname, index );
+		Con_DPrintf( S_ERROR "%s, lump with index %i doesn't exist.\n", pakname, index );
 		FS_Close( f );
 		return false;
 	}
@@ -674,14 +668,14 @@ qboolean HPAK_GetDataPointer( const char *filename, resource_t *pResource, byte 
 
 	if( header.ident != IDHPAKHEADER )
 	{
-		MsgDev( D_ERROR, "%s it's not a HPK file.\n", pakname );
+		Con_DPrintf( S_ERROR "%s it's not a HPK file.\n", pakname );
 		FS_Close( f );
 		return false;
 	}
 
 	if( header.version != IDHPAK_VERSION )
 	{
-		MsgDev( D_ERROR, "%s has invalid version (%i should be %i).\n", pakname, header.version, IDHPAK_VERSION );
+		Con_DPrintf( S_ERROR "%s has invalid version (%i should be %i).\n", pakname, header.version, IDHPAK_VERSION );
 		FS_Close( f );
 		return false;
 	}
@@ -691,7 +685,7 @@ qboolean HPAK_GetDataPointer( const char *filename, resource_t *pResource, byte 
 
 	if( directory.count < 1 || directory.count > HPAK_MAX_ENTRIES )
 	{
-		MsgDev( D_ERROR, "HPAK_GetDataPointer: %s has too many lumps %u.\n", filename, directory.count );
+		Con_DPrintf( S_ERROR "HPAK_GetDataPointer: %s has too many lumps %u.\n", filename, directory.count );
 		FS_Close( f );
 		return false;
 	}
@@ -751,7 +745,7 @@ void HPAK_RemoveLump( const char *name, resource_t *pResource )
 	file_src = FS_Open( read_path, "rb", false );
 	if( !file_src )
 	{
-		MsgDev( D_ERROR, "%s couldn't open.\n", read_path );
+		Con_DPrintf( S_ERROR "%s couldn't open.\n", read_path );
 		return;
 	}
 
@@ -761,7 +755,7 @@ void HPAK_RemoveLump( const char *name, resource_t *pResource )
 
 	if( !file_dst )
 	{
-		MsgDev( D_ERROR, "%s couldn't open.\n", save_path );
+		Con_DPrintf( S_ERROR "%s couldn't open.\n", save_path );
 		FS_Close( file_src );
 		return;
 	}
@@ -775,7 +769,7 @@ void HPAK_RemoveLump( const char *name, resource_t *pResource )
 
 	if( hash_pack_header.ident != IDHPAKHEADER || hash_pack_header.version != IDHPAK_VERSION )
 	{
-		MsgDev( D_ERROR, "%s has invalid header.\n", read_path );
+		Con_DPrintf( S_ERROR "%s has invalid header.\n", read_path );
 		FS_Close( file_src );
 		FS_Close( file_dst );
 		FS_Delete( save_path ); // delete temp file
@@ -787,7 +781,7 @@ void HPAK_RemoveLump( const char *name, resource_t *pResource )
 
 	if( hpak_read.count < 1 || hpak_read.count > HPAK_MAX_ENTRIES )
 	{
-		MsgDev( D_ERROR, "%s has invalid number of lumps.\n", read_path );
+		Con_DPrintf( S_ERROR "%s has invalid number of lumps.\n", read_path );
 		FS_Close( file_src );
 		FS_Close( file_dst );
 		FS_Delete( save_path ); // delete temp file
@@ -796,7 +790,7 @@ void HPAK_RemoveLump( const char *name, resource_t *pResource )
 
 	if( hpak_read.count == 1 )
 	{
-		MsgDev( D_WARN, "%s only has one element, so HPAK will be removed\n", read_path );
+		Con_DPrintf( S_WARN "%s only has one element, so HPAK will be removed\n", read_path );
 		FS_Close( file_src );
 		FS_Close( file_dst );
 		FS_Delete( read_path );
@@ -812,7 +806,7 @@ void HPAK_RemoveLump( const char *name, resource_t *pResource )
 
 	if( !HPAK_FindResource( &hpak_read, pResource->rgucMD5_hash, NULL ))
 	{
-		MsgDev( D_ERROR, "HPAK doesn't contain specified lump: %s\n", pResource->szFileName, read_path );
+		Con_DPrintf( S_ERROR "HPAK doesn't contain specified lump: %s\n", pResource->szFileName, read_path );
 		Mem_Free( hpak_read.entries );
 		Mem_Free( hpak_save.entries );
 		FS_Close( file_src );
@@ -821,7 +815,7 @@ void HPAK_RemoveLump( const char *name, resource_t *pResource )
 		return;
 	}
 
-	MsgDev( D_INFO, "Removing %s from HPAK %s.\n", pResource->szFileName, read_path );
+	Con_Printf( "Removing %s from HPAK %s.\n", pResource->szFileName, read_path );
 
 	// If there's a collision, we've just corrupted this hpak.
 	for( i = 0, j = 0; i < hpak_read.count; i++ )
@@ -881,7 +875,7 @@ void HPAK_List_f( void )
 	f = FS_Open( pakname, "rb", false );
 	if( !f )
 	{
-		MsgDev( D_ERROR, "couldn't open %s.\n", pakname );
+		Con_DPrintf( S_ERROR "couldn't open %s.\n", pakname );
 		return;
 	}
 
@@ -889,14 +883,14 @@ void HPAK_List_f( void )
 
 	if( header.ident != IDHPAKHEADER )
 	{
-		MsgDev( D_ERROR, "%s is not an HPAK file\n", pakname );
+		Con_DPrintf( S_ERROR "%s is not an HPAK file\n", pakname );
 		FS_Close( f );
 		return;
 	}
 
 	if( header.version != IDHPAK_VERSION )
 	{
-		MsgDev( D_ERROR, "%s has invalid version (%i should be %i).\n", pakname, header.version, IDHPAK_VERSION );
+		Con_DPrintf( S_ERROR "%s has invalid version (%i should be %i).\n", pakname, header.version, IDHPAK_VERSION );
 		FS_Close( f );
 		return;
 	}
@@ -906,7 +900,7 @@ void HPAK_List_f( void )
 
 	if( directory.count < 1 || directory.count > HPAK_MAX_ENTRIES )
 	{
-		MsgDev( D_ERROR, "%s has too many lumps %u.\n", pakname, directory.count );
+		Con_DPrintf( S_ERROR "%s has too many lumps %u.\n", pakname, directory.count );
 		FS_Close( f );
 		return;
 	}
@@ -972,7 +966,7 @@ void HPAK_Extract_f( void )
 	f = FS_Open( pakname, "rb", false );
 	if( !f )
 	{
-		MsgDev( D_ERROR, "couldn't open %s.\n", pakname );
+		Con_DPrintf( S_ERROR "couldn't open %s.\n", pakname );
 		return;
 	}
 
@@ -980,14 +974,14 @@ void HPAK_Extract_f( void )
 
 	if( header.ident != IDHPAKHEADER )
 	{
-		MsgDev( D_ERROR, "%s is not an HPAK file\n", pakname );
+		Con_DPrintf( S_ERROR "%s is not an HPAK file\n", pakname );
 		FS_Close( f );
 		return;
 	}
 
 	if( header.version != IDHPAK_VERSION )
 	{
-		MsgDev( D_ERROR, "%s has invalid version (%i should be %i).\n", pakname, header.version, IDHPAK_VERSION );
+		Con_DPrintf( S_ERROR "%s has invalid version (%i should be %i).\n", pakname, header.version, IDHPAK_VERSION );
 		FS_Close( f );
 		return;
 	}
@@ -997,7 +991,7 @@ void HPAK_Extract_f( void )
 
 	if( directory.count < 1 || directory.count > HPAK_MAX_ENTRIES )
 	{
-		MsgDev( D_ERROR, "%s has too many lumps %u.\n", pakname, directory.count );
+		Con_DPrintf( S_ERROR "%s has too many lumps %u.\n", pakname, directory.count );
 		FS_Close( f );
 		return;
 	}
@@ -1023,7 +1017,7 @@ void HPAK_Extract_f( void )
 
 		if( entry->disksize <= 0 || entry->disksize >= HPAK_MAX_SIZE )
 		{
-			MsgDev( D_WARN, "Unable to extract data, size invalid:  %s\n", Q_memprint( entry->disksize ));
+			Con_DPrintf( S_WARN "Unable to extract data, size invalid:  %s\n", Q_memprint( entry->disksize ));
 			continue;
 		}
 
@@ -1061,7 +1055,7 @@ void HPAK_Remove_f( void )
 	}
 	else
 	{
-		MsgDev( D_ERROR, "Could not locate resource %i in %s\n", Q_atoi( Cmd_Argv( 2 )), Cmd_Argv( 1 ));
+		Con_DPrintf( S_ERROR "Could not locate resource %i in %s\n", Q_atoi( Cmd_Argv( 2 )), Cmd_Argv( 1 ));
 	}
 }
 

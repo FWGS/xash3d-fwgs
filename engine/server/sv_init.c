@@ -671,6 +671,7 @@ void SV_ShutdownGame( void )
 
 	SV_FinalMessage( "", true );
 	S_StopBackgroundTrack();
+	CL_StopPlayback(); // stop demo too
 
 	if( GameState->newGame )
 	{

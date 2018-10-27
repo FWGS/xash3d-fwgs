@@ -667,7 +667,9 @@ qboolean Cmd_GetCDList( const char *s, char *completedname, int length )
 
 qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 {
+	qboolean	use_filter = false;
 	byte	buf[MAX_SYSPATH];
+	string	mpfilter;
 	char	*buffer;
 	string	result;
 	int	i, size;
@@ -677,6 +679,8 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 	if( FS_FileSize( "maps.lst", onlyingamedir ) > 0 && !fRefresh )
 		return true; // exist 
 
+	// setup mpfilter
+	Q_snprintf( mpfilter, sizeof( mpfilter ), "maps/%s", GI->mp_filter );
 	t = FS_Search( "maps/*.bsp", false, onlyingamedir );
 
 	if( !t )
@@ -690,6 +694,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 	}
 
 	buffer = Mem_Calloc( host.mempool, t->numfilenames * 2 * sizeof( result ));
+	use_filter = Q_strlen( GI->mp_filter ) ? true : false;
 
 	for( i = 0; i < t->numfilenames; i++ )
 	{
@@ -698,6 +703,9 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		string		mapname, message, entfilename;
 
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "bsp" ))
+			continue;
+
+		if( use_filter && !Q_strnicmp( t->filenames[i], mpfilter, Q_strlen( mpfilter )))
 			continue;
 
 		f = FS_Open( t->filenames[i], "rb", onlyingamedir );
@@ -757,7 +765,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 					else if( !Q_strcmp( token, "classname" ))
 					{
 						pfile = COM_ParseFile( pfile, token );
-						if( !Q_strcmp( token, GI->mp_entity ))
+						if( !Q_strcmp( token, GI->mp_entity ) || use_filter )
 							num_spawnpoints++;
 					}
 					if( num_spawnpoints ) break; // valid map
@@ -805,6 +813,7 @@ qboolean Cmd_CheckMapsList( qboolean fRefresh )
 autocomplete_list_t cmd_list[] =
 {
 { "map_background", Cmd_GetMapList },
+{ "changelevel2", Cmd_GetMapList },
 { "changelevel", Cmd_GetMapList },
 { "playdemo", Cmd_GetDemoList, },
 { "timedemo", Cmd_GetDemoList, },

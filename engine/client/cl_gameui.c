@@ -260,6 +260,8 @@ static void UI_ConvertGameInfo( GAMEINFO *out, gameinfo_t *in )
 
 	if( in->nomodels )
 		out->flags |= GFL_NOMODELS;
+	if( in->noskills )
+		out->flags |= GFL_NOSKILLS;
 }
 
 static qboolean PIC_Scissor( float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 )
@@ -386,7 +388,7 @@ static HIMAGE pfnPIC_Load( const char *szPicName, const byte *image_buf, long im
 	SetBits( flags, TF_IMAGE );
 
 	Image_SetForceFlags( IL_LOAD_DECAL ); // allow decal images for menu
-	tx = GL_LoadTexture( szPicName, image_buf, image_size, flags, NULL );
+	tx = GL_LoadTexture( szPicName, image_buf, image_size, flags );
 	Image_ClearForceFlags();
 
 	return tx;

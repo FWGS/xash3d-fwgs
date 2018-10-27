@@ -1232,13 +1232,13 @@ void SV_PutClientInServer( sv_client_t *cl )
 			SetBits( ent->v.flags, FL_GODMODE|FL_NOTARGET );
 
 		cl->pViewEntity = NULL; // reset pViewEntity
+	}
 
-		if( svgame.globals->cdAudioTrack )
-		{
-			MSG_BeginServerCmd( &msg, svc_stufftext );
-			MSG_WriteString( &msg, va( "cd loop %3d\n", svgame.globals->cdAudioTrack ));
-			svgame.globals->cdAudioTrack = 0;
-		}
+	if( svgame.globals->cdAudioTrack )
+	{
+		MSG_BeginServerCmd( &msg, svc_stufftext );
+		MSG_WriteString( &msg, va( "cd loop %3d\n", svgame.globals->cdAudioTrack ));
+		svgame.globals->cdAudioTrack = 0;
 	}
 
 #ifdef HACKS_RELATED_HLMODS
@@ -1731,6 +1731,9 @@ static qboolean SV_Godmode_f( sv_client_t *cl )
 		return true;
 
 	pEntity->v.flags = pEntity->v.flags ^ FL_GODMODE;
+	if( pEntity->v.takedamage == DAMAGE_AIM )
+		pEntity->v.takedamage = DAMAGE_NO;
+	else pEntity->v.takedamage = DAMAGE_AIM;
 
 	if( !FBitSet( pEntity->v.flags, FL_GODMODE ))
 		SV_ClientPrintf( cl, "godmode OFF\n" );

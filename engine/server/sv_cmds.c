@@ -442,6 +442,42 @@ void SV_Reload_f( void )
 
 /*
 ==================
+SV_ChangeLevel_f
+
+classic change level
+==================
+*/
+void SV_ChangeLevel_f( void )
+{
+	if( Cmd_Argc() != 2 )
+	{
+		Con_Printf( S_USAGE "changelevel <mapname>\n" );
+		return;
+	}
+
+	SV_QueueChangeLevel( Cmd_Argv( 1 ), NULL );
+}
+
+/*
+==================
+SV_ChangeLevel2_f
+
+smooth change level
+==================
+*/
+void SV_ChangeLevel2_f( void )
+{
+	if( Cmd_Argc() != 3 )
+	{
+		Con_Printf( S_USAGE "changelevel2 <mapname> <landmark>\n" );
+		return;
+	}
+
+	SV_QueueChangeLevel( Cmd_Argv( 1 ), Cmd_Argv( 2 ));
+}
+
+/*
+==================
 SV_Kick_f
 
 Kick a user off of the server
@@ -802,6 +838,7 @@ void SV_InitHostCommands( void )
 		Cmd_AddCommand( "load", SV_Load_f, "load a saved game file" );
 		Cmd_AddCommand( "loadquick", SV_QuickLoad_f, "load a quick-saved game file" );
 		Cmd_AddCommand( "reload", SV_Reload_f, "continue from latest save or restart level" );
+		Cmd_AddCommand( "killsave", SV_DeleteSave_f, "delete a saved game file and saveshot" );
 	}
 }
 
@@ -824,13 +861,14 @@ void SV_InitOperatorCommands( void )
 	Cmd_AddCommand( "edict_usage", SV_EdictUsage_f, "show info about edicts usage" );
 	Cmd_AddCommand( "entity_info", SV_EntityInfo_f, "show more info about edicts" );
 	Cmd_AddCommand( "shutdownserver", SV_KillServer_f, "shutdown current server" );
+	Cmd_AddCommand( "changelevel", SV_ChangeLevel_f, "change level" );
+	Cmd_AddCommand( "changelevel2", SV_ChangeLevel2_f, "smooth change level" );
 
 	if( host.type == HOST_NORMAL )
 	{
 		Cmd_AddCommand( "save", SV_Save_f, "save the game to a file" );
 		Cmd_AddCommand( "savequick", SV_QuickSave_f, "save the game to the quicksave" );
 		Cmd_AddCommand( "autosave", SV_AutoSave_f, "save the game to 'autosave' file" );
-		Cmd_AddCommand( "killsave", SV_DeleteSave_f, "delete a saved game file and saveshot" );
 	}
 	else if( host.type == HOST_DEDICATED )
 	{
@@ -857,12 +895,13 @@ void SV_KillOperatorCommands( void )
 	Cmd_RemoveCommand( "edict_usage" );
 	Cmd_RemoveCommand( "entity_info" );
 	Cmd_RemoveCommand( "shutdownserver" );
+	Cmd_RemoveCommand( "changelevel" );
+	Cmd_RemoveCommand( "changelevel2" );
 
 	if( host.type == HOST_NORMAL )
 	{
 		Cmd_RemoveCommand( "save" );
 		Cmd_RemoveCommand( "savequick" );
-		Cmd_RemoveCommand( "killsave" );
 		Cmd_RemoveCommand( "autosave" );
 	}
 	else if( host.type == HOST_DEDICATED )

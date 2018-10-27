@@ -1680,7 +1680,7 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 		}
 	}
 
-	if(( light.r + light.g + light.b ) == 0 )
+	if(( light.r + light.g + light.b ) < 16 ) // TESTTEST
 	{
 		colorVec	gcolor;
 		float	grad[4];
@@ -3740,7 +3740,6 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	size_t		size;
 	int		flags = 0;
 	char		texname[128], name[128], mdlname[128];
-	imgfilter_t	*filter = NULL;
 	texture_t		*tx = NULL;
 	
 	if( ptexture->flags & STUDIO_NF_NORMALMAP )
@@ -3797,10 +3796,6 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	COM_FileBase( ptexture->name, name );
 	COM_StripExtension( mdlname );
 
-	// loading texture filter for studiomodel
-	if( !FBitSet( ptexture->flags, STUDIO_NF_COLORMAP ))
-		filter = R_FindTexFilter( va( "%s.mdl/%s", mdlname, name )); // grab texture filter
-
 	if( FBitSet( ptexture->flags, STUDIO_NF_NOMIPS ))
 		SetBits( flags, TF_NOMIPMAP );
 
@@ -3813,7 +3808,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 
 	// build the texname
 	Q_snprintf( texname, sizeof( texname ), "#%s/%s.mdl", mdlname, name );
-	ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags, filter );
+	ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags );
 
 	if( !ptexture->index )
 	{

@@ -780,6 +780,7 @@ Does not change the entities velocity at all
 trace_t SV_PushEntity( edict_t *ent, const vec3_t lpush, const vec3_t apush, int *blocked, float flDamage )
 {
 	trace_t	trace;
+	qboolean	monsterBlock;
 	qboolean	monsterClip;
 	int	type;
 	vec3_t	end;
@@ -812,10 +813,14 @@ trace_t SV_PushEntity( edict_t *ent, const vec3_t lpush, const vec3_t apush, int
 
 	SV_LinkEdict( ent, true );
 
+	if( ent->v.movetype == MOVETYPE_WALK || ent->v.movetype == MOVETYPE_STEP || ent->v.movetype == MOVETYPE_PUSHSTEP )
+		monsterBlock = true;
+	else monsterBlock = false;
+
 	if( blocked )
 	{
 		// more accuracy blocking code
-		if( flDamage <= 0.0f && FBitSet( host.features, ENGINE_PHYSICS_PUSHER_EXT ))
+		if( monsterBlock )
 			*blocked = !VectorCompareEpsilon( ent->v.origin, end, ON_EPSILON ); // can't move full distance
 		else *blocked = true;
 	}

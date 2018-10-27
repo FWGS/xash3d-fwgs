@@ -913,16 +913,10 @@ void CL_BeginUpload_f( void )
 	name = Cmd_Argv( 1 );
 
 	if( !COM_CheckString( name ))
-	{
-		MsgDev( D_ERROR, "upload without filename\n" );
 		return;
-	}
 
 	if( !cl_allow_upload.value )
-	{
-		MsgDev( D_WARN, "ingoring decal upload ( cl_allow_upload is 0 )\n" );
 		return;
-	}
 
 	if( Q_strlen( name ) != 36 || Q_strnicmp( name, "!MD5", 4 ))
 	{
@@ -937,7 +931,7 @@ void CL_BeginUpload_f( void )
 	{
 		if( memcmp( md5, custResource.rgucMD5_hash, 16 ))
 		{
-			MsgDev( D_REPORT, "Bogus data retrieved from %s, attempting to delete entry\n", CUSTOM_RES_PATH );
+			Con_Reportf( "Bogus data retrieved from %s, attempting to delete entry\n", CUSTOM_RES_PATH );
 			HPAK_RemoveLump( CUSTOM_RES_PATH, &custResource );
 			return;
 		}
@@ -954,25 +948,21 @@ void CL_BeginUpload_f( void )
 
 			if( memcmp( custResource.rgucMD5_hash, md5, 16 ))
 			{
-				MsgDev( D_REPORT, "HPAK_AddLump called with bogus lump, md5 mismatch\n" );
-				MsgDev( D_REPORT, "Purported:  %s\n", MD5_Print( custResource.rgucMD5_hash ) );
-				MsgDev( D_REPORT, "Actual   :  %s\n", MD5_Print( md5 ) );
-				MsgDev( D_REPORT, "Removing conflicting lump\n" );
+				Con_Reportf( "HPAK_AddLump called with bogus lump, md5 mismatch\n" );
+				Con_Reportf( "Purported:  %s\n", MD5_Print( custResource.rgucMD5_hash ) );
+				Con_Reportf( "Actual   :  %s\n", MD5_Print( md5 ) );
+				Con_Reportf( "Removing conflicting lump\n" );
 				HPAK_RemoveLump( CUSTOM_RES_PATH, &custResource );
 				return;
 			}
 		}
 	}
 
-	if( buf && size )
+	if( buf && size > 0 )
 	{
 		Netchan_CreateFileFragmentsFromBuffer( &cls.netchan, name, buf, size );
 		Netchan_FragSend( &cls.netchan );
 		Mem_Free( buf );
-	}
-	else
-	{
-		MsgDev( D_REPORT, "ingoring customization upload, couldn't find decal locally\n" );
 	}
 }
 
@@ -1103,7 +1093,6 @@ void CL_CheckForResend( void )
 
 	if( !NET_StringToAdr( cls.servername, &adr ))
 	{
-		MsgDev( D_ERROR, "CL_CheckForResend: bad server address\n" );
 		CL_Disconnect();
 		return;
 	}
@@ -1111,7 +1100,7 @@ void CL_CheckForResend( void )
 	// only retry so many times before failure.
 	if( cls.connect_retry >= CL_CONNECTION_RETRIES )
 	{
-		MsgDev( D_ERROR, "CL_CheckForResend: couldn't connected\n" );
+		Con_DPrintf( S_ERROR "CL_CheckForResend: couldn't connected\n" );
 		CL_Disconnect();
 		return;
 	}
@@ -1493,12 +1482,15 @@ void CL_InternetServers_f( void )
 	int	remaining = sizeof( fullquery ) - sizeof( MS_SCAN_REQUEST );
 	netadr_t	adr;
 
-	Con_Printf( "Scanning for servers on the internet area...\n" );
 	NET_Config( true ); // allow remote
 
 	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ) )
-		MsgDev( D_ERROR, "Can't resolve adr: %s\n", MASTERSERVER_ADR );
+	{
+		Con_DPrintf( S_ERROR "Can't resolve adr: %s\n", MASTERSERVER_ADR );
+		return;
+	}
 
+	Con_Printf( "Scanning for servers on the internet area...\n" );
 	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
 	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining ); // let master know about client version
 
@@ -1788,7 +1780,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	{
 		if( cls.state == ca_connected )
 		{
-			MsgDev( D_ERROR, "dup connect received. ignored\n");
+			Con_DPrintf( S_ERROR "dup connect received. ignored\n");
 			return;
 		}
 
@@ -1972,7 +1964,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		// user out of band message (must be handled in CL_ConnectionlessPacket)
 		if( len > 0 ) Netchan_OutOfBand( NS_SERVER, from, len, buf );
 	}
-	else MsgDev( D_ERROR, "bad connectionless packet from %s:\n%s\n", NET_AdrToString( from ), args );
+	else Con_DPrintf( S_ERROR "bad connectionless packet from %s:\n%s\n", NET_AdrToString( from ), args );
 }
 
 /*
@@ -2021,14 +2013,14 @@ void CL_ReadNetMessage( void )
 
 		if( !cls.demoplayback && MSG_GetMaxBytes( &net_message ) < 8 )
 		{
-			MsgDev( D_WARN, "%s: runt packet\n", NET_AdrToString( net_from ));
+			Con_Printf( S_WARN "CL_ReadPackets: %s:runt packet\n", NET_AdrToString( net_from ));
 			continue;
 		}
 
 		// packet from server
 		if( !cls.demoplayback && !NET_CompareAdr( net_from, cls.netchan.remote_address ))
 		{
-			MsgDev( D_ERROR, "CL_ReadPackets: %s:sequenced packet without connection\n", NET_AdrToString( net_from ));
+			Con_DPrintf( S_ERROR "CL_ReadPackets: %s:sequenced packet without connection\n", NET_AdrToString( net_from ));
 			continue;
 		}
 
@@ -2516,7 +2508,6 @@ qboolean CL_PrecacheResources( void )
 			CL_SetEventIndex( cl.event_precache[pRes->nIndex], pRes->nIndex );
 			break;
 		default:
-			MsgDev( D_REPORT, "unknown resource type\n" );
 			break;
 		}
 
