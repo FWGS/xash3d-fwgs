@@ -69,12 +69,12 @@ static dframetype_t *R_SpriteLoadFrame( model_t *mod, void *pin, mspriteframe_t 
 	if( FBitSet( mod->flags, MODEL_CLIENT )) // it's a HUD sprite
 	{
 		Q_snprintf( texname, sizeof( texname ), "#HUD/%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
-		gl_texturenum = GL_LoadTexture( texname, pin, pinframe->width * pinframe->height * bytes, r_texFlags, NULL );
+		gl_texturenum = GL_LoadTexture( texname, pin, pinframe->width * pinframe->height * bytes, r_texFlags );
 	}
 	else
 	{
 		Q_snprintf( texname, sizeof( texname ), "#%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
-		gl_texturenum = GL_LoadTexture( texname, pin, pinframe->width * pinframe->height * bytes, r_texFlags, NULL );
+		gl_texturenum = GL_LoadTexture( texname, pin, pinframe->width * pinframe->height * bytes, r_texFlags );
 	}	
 
 	// setup frame description
@@ -162,13 +162,13 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 
 	if( pin->ident != IDSPRITEHEADER )
 	{
-		MsgDev( D_ERROR, "%s has wrong id (%x should be %x)\n", mod->name, pin->ident, IDSPRITEHEADER );
+		Con_DPrintf( S_ERROR "%s has wrong id (%x should be %x)\n", mod->name, pin->ident, IDSPRITEHEADER );
 		return;
 	}
 		
 	if( i != SPRITE_VERSION_Q1 && i != SPRITE_VERSION_HL && i != SPRITE_VERSION_32 )
 	{
-		MsgDev( D_ERROR, "%s has wrong version number (%i should be %i or %i)\n", mod->name, i, SPRITE_VERSION_Q1, SPRITE_VERSION_HL );
+		Con_DPrintf( S_ERROR "%s has wrong version number (%i should be %i or %i)\n", mod->name, i, SPRITE_VERSION_Q1, SPRITE_VERSION_HL );
 		return;
 	}
 
@@ -259,15 +259,12 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	}
 	else 
 	{
-		MsgDev( D_ERROR, "%s has wrong number of palette colors %i (should be 256)\n", mod->name, *numi );
+		Con_DPrintf( S_ERROR "%s has wrong number of palette colors %i (should be 256)\n", mod->name, *numi );
 		return;
 	}
 
 	if( mod->numframes < 1 )
-	{
-		MsgDev( D_ERROR, "%s has invalid # of frames: %d\n", mod->name, mod->numframes );
 		return;
-	}
 
 	for( i = 0; i < mod->numframes; i++ )
 	{
@@ -336,7 +333,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 	if( h < MAPSPRITE_SIZE ) h = MAPSPRITE_SIZE;
 
 	// resample image if needed
-	Image_Process( &pix, w, h, IMAGE_FORCE_RGBA|IMAGE_RESAMPLE, NULL );
+	Image_Process( &pix, w, h, IMAGE_FORCE_RGBA|IMAGE_RESAMPLE, 0.0f );
 
 	w = h = MAPSPRITE_SIZE;
 

@@ -140,7 +140,7 @@ qboolean BaseCmd_Replace( base_command_type_e type, base_command_t *basecmd, con
 
 	if( !i )
 	{
-		MsgDev( D_ERROR, "BaseCmd_Replace: couldn't find %s\n", name);
+		Con_Reportf( S_ERROR  "BaseCmd_Replace: couldn't find %s\n", name);
 		return false;
 	}
 
@@ -168,7 +168,7 @@ void BaseCmd_Remove( base_command_type_e type, const char *name )
 
 	if( !i )
 	{
-		MsgDev( D_ERROR, "Couldn't find %s in buckets\n", name );
+		Con_Reportf( S_ERROR  "Couldn't find %s in buckets\n", name );
 		return;
 	}
 

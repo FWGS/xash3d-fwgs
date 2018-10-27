@@ -40,6 +40,7 @@ GNU General Public License for more details.
 #define STAT_MONSTERS	14		// bumped by svc_killedmonster
 #define MAX_STATS		32
 
+static char	cmd_buf[8192];
 static char	msg_buf[8192];
 static sizebuf_t	msg_demo;
 
@@ -67,6 +68,28 @@ static void CL_ParseQuakeStats( sizebuf_t *msg )
 	MSG_WriteByte( &msg_demo, MSG_ReadByte( msg ));	// stat num
 	MSG_WriteLong( &msg_demo, MSG_ReadLong( msg ));	// stat value
 	CL_DispatchQuakeMessage( "Stats" );
+}
+
+/*
+==================
+CL_EntityTeleported
+
+check for instant movement in case
+we don't want interpolate this
+==================
+*/
+static qboolean CL_QuakeEntityTeleported( cl_entity_t *ent, entity_state_t *newstate )
+{
+	float	len, maxlen;
+	vec3_t	delta;
+
+	VectorSubtract( newstate->origin, ent->prevstate.origin, delta );
+
+	// compute potential max movement in units per frame and compare with entity movement
+	maxlen = ( clgame.movevars.maxvelocity * ( 1.0 / GAME_FPS ));
+	len = VectorLength( delta );
+
+	return (len > maxlen);
 }
 
 /*
@@ -304,6 +327,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	clgame.movevars.waveHeight = 0.0f;
 	clgame.movevars.zmax = 14172.0f;	// 8192 * 1.74
 	clgame.movevars.gravity = 800.0f;	// quake doesn't write gravity in demos
+	clgame.movevars.maxvelocity = 2000.0f;
 
 	memcpy( &clgame.oldmovevars, &clgame.movevars, sizeof( movevars_t ));
 }
@@ -501,7 +525,16 @@ void CL_ParseQuakeEntityData( sizebuf_t *msg, int bits )
 	}
 
 	if( FBitSet( bits, U_NOLERP ))
+		state->movetype = MOVETYPE_STEP;
+	else state->movetype = MOVETYPE_NOCLIP;
+
+	if( CL_QuakeEntityTeleported( ent, state ))
+	{
+		// remove smooth stepping
+		if( cl.viewentity == ent->index )
+			cl.skip_interp = true;
 		forcelink = true;
+	}
 
 	if( FBitSet( state->effects, 16 ))
 		SetBits( state->effects, EF_NODRAW );
@@ -511,6 +544,10 @@ void CL_ParseQuakeEntityData( sizebuf_t *msg, int bits )
 
 	if( forcelink )
 	{
+		VectorCopy( state->origin, ent->baseline.vuser1 );
+
+		SetBits( state->effects, EF_NOINTERP );
+
 		// interpolation must be reset
 		SETVISBIT( frame->flags, pack );
 
@@ -697,6 +734,9 @@ static void CL_ParseQuakeTempEntity( sizebuf_t *msg )
 
 	MSG_WriteByte( &msg_demo, type );
 
+	if( type == 17 )
+		MSG_WriteString( &msg_demo, MSG_ReadString( msg ));
+
 	// TE_LIGHTNING1, TE_LIGHTNING2, TE_LIGHTNING3, TE_BEAM, TE_LIGHTNING4
 	if( type == 5 || type == 6 || type == 9 || type == 13 || type == 17 )
 		MSG_WriteWord( &msg_demo, MSG_ReadWord( msg ));
@@ -722,9 +762,6 @@ static void CL_ParseQuakeTempEntity( sizebuf_t *msg )
 		MSG_WriteByte( &msg_demo, MSG_ReadByte( msg ));
 	}
 
-	if( type == 17 )
-		MSG_WriteString( &msg_demo, MSG_ReadString( msg ));
-
 	// TE_SMOKE (nehahra)
 	if( type == 18 )
 		MSG_WriteByte( &msg_demo, MSG_ReadByte( msg ));
@@ -744,7 +781,7 @@ static void CL_ParseQuakeSignon( sizebuf_t *msg )
 	int	i = MSG_ReadByte( msg );
 
 	if( i == 3 ) cls.signon = SIGNONS - 1;
-	Con_Printf( "CL_Signon: %d\n", i );
+	Con_Reportf( "CL_Signon: %d\n", i );
 }
 
 /*
@@ -774,6 +811,75 @@ static void CL_ParseNehahraHideLMP( sizebuf_t *msg )
 {
 	MSG_WriteString( &msg_demo, MSG_ReadString( msg ));
 	CL_DispatchQuakeMessage( "Stats" );
+}
+
+/*
+==================
+CL_QuakeStuffText
+
+==================
+*/
+void CL_QuakeStuffText( const char *text )
+{
+	Q_strncat( cmd_buf, text, sizeof( cmd_buf ));
+	Cbuf_AddText( text );
+}
+
+/*
+==================
+CL_QuakeExecStuff
+
+==================
+*/
+void CL_QuakeExecStuff( void )
+{
+	char	*text = cmd_buf;
+	char	token[256];
+	int	argc = 0;
+
+	// check if no commands this frame
+	if( !COM_CheckString( text ))
+		return;
+
+	while( 1 )
+	{
+		// skip whitespace up to a /n
+		while( *text && ((byte)*text) <= ' ' && *text != '\r' && *text != '\n' )
+			text++;
+
+		if( *text == '\n' || *text == '\r' )
+		{
+			// a newline seperates commands in the buffer
+			if( *text == '\r' && text[1] == '\n' )
+				text++;
+			argc = 0;
+			text++;
+		}
+
+		if( !*text ) break;
+
+		host.com_ignorebracket = true;
+		text = COM_ParseFile( text, token );
+		host.com_ignorebracket = false;
+
+		if( !text ) break;
+
+		if( argc == 0 )
+		{
+			// debug: find all missed commands and cvars to add them into QWrap
+			if( !Cvar_Exists( token ) && !Cmd_Exists( token ))
+				Con_Printf( S_WARN "'%s' is not exist\n", token );
+//			else Msg( "cmd: %s\n", token );
+
+			// process some special commands
+			if( !Q_stricmp( token, "playdemo" ))
+				cls.changedemo = true;
+			argc++;
+		}
+	}
+
+	// reset the buffer
+	cmd_buf[0] = '\0';
 }
 
 /*
@@ -861,16 +967,15 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
 			cl.frames[cl.parsecountmod].graphdata.sound += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_time:
+			Cbuf_AddText( "\n" ); // new frame was started
 			CL_ParseServerTime( msg );
 			break;
 		case svc_print:
-			Con_Printf( "%s", MSG_ReadString( msg ));
+			str = MSG_ReadString( msg );
+			Con_Printf( "%s%s", str, *str == 2 ? "\n" : "" );
 			break;
 		case svc_stufftext:
-			// FIXME: do revision for all Quake and Nehahra console commands
-			str = MSG_ReadString( msg );
-			Msg( "%s\n", str );
-			Cbuf_AddText( str );
+			CL_QuakeStuffText( MSG_ReadString( msg ));
 			break;
 		case svc_setangle:
 			cl.viewangles[0] = MSG_ReadAngle( msg );
@@ -909,8 +1014,8 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
 		case svc_updatecolors:
 			param1 = MSG_ReadByte( msg );
 			param2 = MSG_ReadByte( msg );
-			cl.players[param1].topcolor = param2 & 0xF0;
-			cl.players[param1].bottomcolor = (param2 & 15) << 4;
+			cl.players[param1].topcolor = param2 & 0xF;
+			cl.players[param1].bottomcolor = (param2 & 0xF0) >> 4;
 			break;
 		case svc_particle:
 			CL_ParseQuakeParticle( msg );
@@ -1018,4 +1123,7 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
 
 	// add new entities into physic lists
 	CL_SetSolidEntities();
+
+	// check deferred cmds
+	CL_QuakeExecStuff();
 }

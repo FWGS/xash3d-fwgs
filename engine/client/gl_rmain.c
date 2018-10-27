@@ -1385,16 +1385,6 @@ const byte *GL_TextureData( unsigned int texnum )
 	return NULL;	
 }
 
-static int GL_LoadTextureNoFilter( const char *name, const byte *buf, size_t size, int flags )
-{
-	return GL_LoadTexture( name, buf, size, flags, NULL );	
-}
-
-static int GL_LoadTextureArrayNoFilter( const char **names, int flags )
-{
-	return GL_LoadTextureArray( names, flags, NULL );	
-}
-
 static const ref_overview_t *GL_GetOverviewParms( void )
 {
 	return &clgame.overView;
@@ -1477,22 +1467,22 @@ static render_api_t gRenderAPI =
 	GL_FindTexture,
 	GL_TextureName,
 	GL_TextureData,
-	GL_LoadTextureNoFilter,
+	GL_LoadTexture,
 	GL_CreateTexture,
-	GL_LoadTextureArrayNoFilter,
+	GL_LoadTextureArray,
 	GL_CreateTextureArray,
 	GL_FreeTexture,
 	DrawSingleDecal,
 	R_DecalSetupVerts,
 	R_EntityRemoveDecals,
-	(void*)AVI_LoadVideoNoSound,
+	(void*)AVI_LoadVideo,
 	(void*)AVI_GetVideoInfo,
 	(void*)AVI_GetVideoFrameNumber,
 	(void*)AVI_GetVideoFrame,
 	R_UploadStretchRaw,
 	(void*)AVI_FreeVideo,
 	(void*)AVI_IsActive,
-	NULL,
+	S_StreamAviSamples,
 	NULL,
 	NULL,
 	GL_Bind,

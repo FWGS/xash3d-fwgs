@@ -618,10 +618,9 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 	daliashdr_t	*pinmodel;
 	stvert_t		*pinstverts;
 	dtriangle_t	*pintriangles;
-	int		numframes, size;
 	daliasframetype_t	*pframetype;
 	daliasskintype_t	*pskintype;
-	int		i, j;
+	int		i, j, size;
 
 	if( loaded ) *loaded = false;
 	pinmodel = (daliashdr_t *)buffer;
@@ -629,9 +628,12 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 
 	if( i != ALIAS_VERSION )
 	{
-		MsgDev( D_ERROR, "%s has wrong version number (%i should be %i)\n", mod->name, i, ALIAS_VERSION );
+		Con_DPrintf( S_ERROR "%s has wrong version number (%i should be %i)\n", mod->name, i, ALIAS_VERSION );
 		return;
 	}
+
+	if( pinmodel->numverts <= 0 || pinmodel->numtris <= 0 || pinmodel->numframes <= 0 )
+		return; // how to possible is make that?
 
 	mod->mempool = Mem_AllocPool( va( "^2%s^7", mod->name ));
 
@@ -648,33 +650,12 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 	m_pAliasHeader->skinwidth = pinmodel->skinwidth;
 	m_pAliasHeader->skinheight = pinmodel->skinheight;
 	m_pAliasHeader->numverts = pinmodel->numverts;
-
-	if( m_pAliasHeader->numverts <= 0 )
-	{
-		MsgDev( D_ERROR, "model %s has no vertices\n", mod->name );
-		return;
-	}
+	m_pAliasHeader->numtris = pinmodel->numtris;
+	m_pAliasHeader->numframes = pinmodel->numframes;
 
 	if( m_pAliasHeader->numverts > MAXALIASVERTS )
 	{
-		MsgDev( D_ERROR, "model %s has too many vertices\n", mod->name );
-		return;
-	}
-
-	m_pAliasHeader->numtris = pinmodel->numtris;
-
-	if( m_pAliasHeader->numtris <= 0 )
-	{
-		MsgDev( D_ERROR, "model %s has no triangles\n", mod->name );
-		return;
-	}
-
-	m_pAliasHeader->numframes = pinmodel->numframes;
-	numframes = m_pAliasHeader->numframes;
-
-	if( numframes < 1 )
-	{
-		MsgDev( D_ERROR, "Mod_LoadAliasModel: Invalid # of frames: %d\n", numframes );
+		Con_DPrintf( S_ERROR "model %s has too many vertices\n", mod->name );
 		return;
 	}
 
@@ -718,7 +699,7 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 	pframetype = (daliasframetype_t *)&pintriangles[m_pAliasHeader->numtris];
 	g_posenum = 0;
 
-	for( i = 0; i < numframes; i++ )
+	for( i = 0; i < m_pAliasHeader->numframes; i++ )
 	{
 		aliasframetype_t	frametype = pframetype->type;
 
@@ -1193,15 +1174,18 @@ void R_AliasLerpMovement( cl_entity_t *e )
 	if( g_alias.interpolate && ( g_alias.time < e->curstate.animtime + 1.0f ) && ( e->curstate.animtime != e->latched.prevanimtime ))
 		f = ( g_alias.time - e->curstate.animtime ) / ( e->curstate.animtime - e->latched.prevanimtime );
 
+	if( cls.demoplayback == DEMO_QUAKE1 )
+		f = f + 1.0f;
+
 	g_alias.lerpfrac = bound( 0.0f, f, 1.0f );
 
 	if( e->player || e->curstate.movetype != MOVETYPE_STEP )
 		return; // monsters only
 
-	// Con_Printf( "%4.2f %.2f %.2f\n", f, e->curstate.animtime, g_studio.time );
+	// Con_Printf( "%4.2f %.2f %.2f\n", f, e->curstate.animtime, g_alias.time );
 	VectorLerp( e->latched.prevorigin, f, e->curstate.origin, e->origin );
 
-	if( !VectorCompare( e->curstate.angles, e->latched.prevangles ))
+	if( !VectorCompareEpsilon( e->curstate.angles, e->latched.prevangles, ON_EPSILON ))
 	{
 		vec4_t	q, q1, q2;
 
@@ -1240,7 +1224,7 @@ void R_SetupAliasFrame( cl_entity_t *e, aliashdr_t *paliashdr )
 	else if( newframe >= paliashdr->numframes )
 	{
 		if( newframe > paliashdr->numframes )
-			MsgDev( D_WARN, "R_GetAliasFrame: no such frame %d (%s)\n", newframe, e->model->name );
+			Con_Reportf( S_WARN "R_GetAliasFrame: no such frame %d (%s)\n", newframe, e->model->name );
 		newframe = paliashdr->numframes - 1;
 	}
 

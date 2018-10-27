@@ -1597,19 +1597,79 @@ void S_RawSamples( uint samples, uint rate, word width, word channels, const byt
 S_PositionedRawSamples
 ===================
 */
-static void S_PositionedRawSamples( int entnum, float fvol, float attn, uint samples, uint rate, word width, word channels, const byte *data )
+void S_StreamAviSamples( void *Avi, int entnum, float fvol, float attn, float synctime )
 {
-	rawchan_t	*ch;
-	
+	int	bufferSamples;
+	int	fileSamples;
+	byte	raw[MAX_RAW_SAMPLES];
+	float	duration = 0.0f;
+	int	r, fileBytes;
+	rawchan_t	*ch = NULL;
+
+	if( !dma.initialized || s_listener.paused || !CL_IsInGame( ))
+		return;
+
 	if( entnum < 0 || entnum >= GI->max_edicts )
 		return;
 
 	if( !( ch = S_FindRawChannel( entnum, true )))
 		return;
 
+	if( ch->sound_info.rate == 0 )
+	{
+		if( !AVI_GetAudioInfo( Avi, &ch->sound_info ))
+			return; // no audiotrack
+	}
+
 	ch->master_vol = bound( 0, fvol * 255, 255 );
 	ch->dist_mult = (attn / SND_CLIP_DISTANCE);
-	ch->s_rawend = S_RawSamplesStereo( ch->rawsamples, ch->s_rawend, ch->max_samples, samples, rate, width, channels, data );
+
+	// see how many samples should be copied into the raw buffer
+	if( ch->s_rawend < soundtime )
+		ch->s_rawend = soundtime;
+
+	// position is changed, synchronization is lost etc
+	if( fabs( ch->oldtime - synctime ) > s_mixahead->value )
+		ch->sound_info.loopStart = AVI_TimeToSoundPosition( Avi, synctime * 1000 );
+	ch->oldtime = synctime; // keep actual time
+
+	while( ch->s_rawend < soundtime + ch->max_samples )
+	{
+		wavdata_t	*info = &ch->sound_info;
+
+		bufferSamples = ch->max_samples - (ch->s_rawend - soundtime);
+
+		// decide how much data needs to be read from the file
+		fileSamples = bufferSamples * ((float)info->rate / SOUND_DMA_SPEED );
+		if( fileSamples <= 1 ) return; // no more samples need
+
+		// our max buffer size
+		fileBytes = fileSamples * ( info->width * info->channels );
+
+		if( fileBytes > sizeof( raw ))
+		{
+			fileBytes = sizeof( raw );
+			fileSamples = fileBytes / ( info->width * info->channels );
+		}
+
+		// read audio stream
+		r = AVI_GetAudioChunk( Avi, raw, info->loopStart, fileBytes );
+		info->loopStart += r; // advance play position
+
+		if( r < fileBytes )
+		{
+			fileBytes = r;
+			fileSamples = r / ( info->width * info->channels );
+		}
+
+		if( r > 0 )
+		{
+			// add to raw buffer
+			ch->s_rawend = S_RawSamplesStereo( ch->rawsamples, ch->s_rawend, ch->max_samples,
+			fileSamples, info->rate, info->width, info->channels, raw );
+		}
+		else break; // no more samples for this frame
+	}
 }
 
 /*
@@ -1685,6 +1745,7 @@ static void S_ClearRawChannels( void )
 
 		if( !ch ) continue;
 		ch->s_rawend = 0;
+		ch->oldtime = -1;
 	}
 }
 
@@ -1890,6 +1951,23 @@ void S_ExtraUpdate( void )
 
 /*
 ============
+S_UpdateFrame
+
+update listener position
+============
+*/
+void S_UpdateFrame( struct ref_viewpass_s *rvp )
+{
+	if( !FBitSet( rvp->flags, RF_DRAW_WORLD ) || FBitSet( rvp->flags, RF_ONLY_CLIENTDRAW ))
+		return; 
+
+	VectorCopy( rvp->vieworigin, s_listener.origin );
+	AngleVectors( rvp->viewangles, s_listener.forward, s_listener.right, s_listener.up );
+	s_listener.entnum = rvp->viewentity; // can be camera entity too
+}
+
+/*
+============
 SND_UpdateSound
 
 Called once each time through the main loop
@@ -1912,16 +1990,12 @@ void SND_UpdateSound( void )
 	// release raw-channels that no longer used more than 10 secs
 	S_FreeIdleRawChannels();
 
-	s_listener.entnum = cl.viewentity;	// can be camera entity too
+	VectorCopy( cl.simvel, s_listener.velocity );
 	s_listener.frametime = (cl.time - cl.oldtime);
 	s_listener.waterlevel = cl.local.waterlevel;
 	s_listener.active = CL_IsInGame();
 	s_listener.inmenu = CL_IsInMenu();
 	s_listener.paused = cl.paused;
-
-	VectorCopy( RI.vieworg, s_listener.origin );
-	VectorCopy( cl.simvel, s_listener.velocity );
-	AngleVectors( RI.viewangles, s_listener.forward, s_listener.right, s_listener.up );
 
 	if( cl.worldmodel != NULL )
 		Mod_FatPVS( s_listener.origin, FATPHS_RADIUS, s_listener.pasbytes, world.visbytes, false, !s_phs->value );
@@ -2045,7 +2119,7 @@ void S_Play2_f( void )
 
 	if( Cmd_Argc() == 1 )
 	{
-		Con_Printf( S_USAGE "play <soundfile>\n" );
+		Con_Printf( S_USAGE "play2 <soundfile>\n" );
 		return;
 	}
 

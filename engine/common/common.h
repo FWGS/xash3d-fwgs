@@ -89,7 +89,7 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 #define MAX_SERVERINFO_STRING	512	// server handles too many settings. expand to 1024?
 #define MAX_LOCALINFO_STRING	32768	// localinfo used on server and not sended to the clients
 #define MAX_SYSPATH		1024	// system filepath
-#define MAX_PRINT_MSG	8192	// how many symbols can handle single call of Msg or MsgDev
+#define MAX_PRINT_MSG	8192	// how many symbols can handle single call of Con_Printf or Con_DPrintf
 #define MAX_TOKEN		2048	// parse token length
 #define MAX_MODS		512	// environment games that engine can keep visible
 #define MAX_USERMSG_LENGTH	2048	// don't modify it's relies on a client-side definitions
@@ -276,9 +276,11 @@ typedef struct gameinfo_s
 	int		gamemode;
 	qboolean		secure;		// prevent to console acess
 	qboolean		nomodels;		// don't let player to choose model (use player.mdl always)
+	qboolean		noskills;		// disable skill menu selection
 
 	char		sp_entity[32];	// e.g. info_player_start
 	char		mp_entity[32];	// e.g. info_player_deathmatch
+	char		mp_filter[32];	// filtering multiplayer-maps
 
 	char		ambientsound[NUM_AMBIENTS][MAX_QPATH];	// quake ambient sounds
 
@@ -655,7 +657,7 @@ typedef enum
 	IMAGE_ROT_90	= BIT(18),	// flip from upper left corner to down right corner
 	IMAGE_ROT180	= IMAGE_FLIP_X|IMAGE_FLIP_Y,
 	IMAGE_ROT270	= IMAGE_FLIP_X|IMAGE_FLIP_Y|IMAGE_ROT_90,	
-// reserved
+	IMAGE_EMBOSS	= BIT(19),	// apply emboss mapping
 	IMAGE_RESAMPLE	= BIT(20),	// resample image to specified dims
 // reserved
 // reserved
@@ -665,16 +667,6 @@ typedef enum
 	IMAGE_LIGHTGAMMA	= BIT(26),	// apply gamma for image
 	IMAGE_REMAP	= BIT(27),	// interpret width and height as top and bottom color
 } imgFlags_t;
-
-// ordering is important!
-typedef enum
-{
-	BLUR_FILTER = 0,
-	BLUR_FILTER2,
-	EDGE_FILTER,
-	EMBOSS_FILTER,
-	NUM_FILTERS,
-} pixfilter_t;
 
 typedef struct rgbdata_s
 {
@@ -691,21 +683,6 @@ typedef struct rgbdata_s
 	size_t	size;		// for bounds checking
 } rgbdata_t;
 
-// imgfilter processing flags
-typedef enum
-{
-	FILTER_GRAYSCALE	= BIT(0),
-} flFlags_t;
-
-typedef struct imgfilter_s
-{
-	int	filter;		// pixfilter_t
-	float	factor;		// filter factor value
-	float	bias;		// filter bias value
-	flFlags_t	flags;		// filter additional flags
-	uint	blendFunc;	// blending mode
-} imgfilter_t;
-
 //
 // imagelib
 //
@@ -717,7 +694,7 @@ qboolean FS_SaveImage( const char *filename, rgbdata_t *pix );
 rgbdata_t *FS_CopyImage( rgbdata_t *in );
 void FS_FreeImage( rgbdata_t *pack );
 extern const bpc_desc_t PFDesc[];	// image get pixelformat
-qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, imgfilter_t *filter );
+qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, float bumpscale );
 void Image_PaletteHueReplace( byte *palSrc, int newHue, int start, int end, int pal_size );
 void Image_PaletteTranslate( byte *palSrc, int top, int bottom, int pal_size );
 void Image_SetForceFlags( uint flags );	// set image force flags on loading
@@ -1026,6 +1003,7 @@ void SV_DrawDebugTriangles( void );
 void SV_DrawOrthoTriangles( void );
 double CL_GetDemoFramerate( void );
 qboolean UI_CreditsActive( void );
+void CL_StopPlayback( void );
 void CL_ExtraUpdate( void );
 int CL_GetMaxClients( void );
 int SV_GetMaxClients( void );

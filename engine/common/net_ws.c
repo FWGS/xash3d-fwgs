@@ -618,7 +618,7 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr *sadr, qboolean 
 				}
 				else // failed to create thread
 				{
-					MsgDev( D_ERROR, "NET_StringToSockaddr: failed to create thread!\n");
+					Con_Reportf( S_ERROR  "NET_StringToSockaddr: failed to create thread!\n");
 					nsthread.busy = false;
 				}
 			}
@@ -765,7 +765,7 @@ qboolean NET_CompareAdr( const netadr_t a, const netadr_t b )
 		return false;
 	}
 
-	MsgDev( D_ERROR, "NET_CompareAdr: bad address type\n" );
+	Con_DPrintf( S_ERROR "NET_CompareAdr: bad address type\n" );
 	return false;
 }
 
@@ -1230,7 +1230,7 @@ qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *len
 			}
 			else
 			{
-				MsgDev( D_REPORT, "NET_QueuePacket: oversize packet from %s\n", NET_AdrToString( *from ));
+				Con_Reportf( "NET_QueuePacket: oversize packet from %s\n", NET_AdrToString( *from ));
 			}
 		}
 		else
@@ -1245,7 +1245,7 @@ qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *len
 			case WSAEMSGSIZE:
 				break;
 			default:	// let's continue even after errors
-				MsgDev( D_ERROR, "NET_QueuePacket: %s from %s\n", NET_ErrorString(), NET_AdrToString( *from ));
+				Con_DPrintf( S_ERROR "NET_QueuePacket: %s from %s\n", NET_ErrorString(), NET_AdrToString( *from ));
 				break;
 			}
 		}
@@ -1395,11 +1395,11 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 
 		if( Host_IsDedicated() )
 		{
-			MsgDev( D_ERROR, "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
+			Con_DPrintf( S_ERROR "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
 		}
 		else if( err == WSAEADDRNOTAVAIL || err == WSAENOBUFS )
 		{
-			MsgDev( D_ERROR, "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
+			Con_DPrintf( S_ERROR "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
 		}
 		else
 		{
@@ -1487,13 +1487,13 @@ static int NET_IPSocket( const char *net_interface, int port, qboolean multicast
 	{
 		err = pWSAGetLastError();
 		if( err != WSAEAFNOSUPPORT )
-			MsgDev( D_WARN, "NET_UDPSocket: socket = %s\n", NET_ErrorString( ));
+			Con_DPrintf( S_WARN "NET_UDPSocket: port: %d socket: %s\n", port, NET_ErrorString( ));
 		return INVALID_SOCKET;
 	}
 
 	if( NET_IsSocketError( pIoctlSocket( net_socket, FIONBIO, &_true ) ) )
 	{
-		MsgDev( D_WARN, "NET_UDPSocket: ioctlsocket FIONBIO = %s\n", NET_ErrorString( ));
+		Con_DPrintf( S_WARN "NET_UDPSocket: port: %d ioctl FIONBIO: %s\n", port, NET_ErrorString( ));
 		pCloseSocket( net_socket );
 		return INVALID_SOCKET;
 	}
@@ -1501,7 +1501,7 @@ static int NET_IPSocket( const char *net_interface, int port, qboolean multicast
 	// make it broadcast capable
 	if( NET_IsSocketError( pSetSockopt( net_socket, SOL_SOCKET, SO_BROADCAST, (char *)&_true, sizeof( _true ) ) ) )
 	{
-		MsgDev( D_WARN, "NET_UDPSocket: setsockopt SO_BROADCAST = %s\n", NET_ErrorString( ));
+		Con_DPrintf( S_WARN "NET_UDPSocket: port: %d setsockopt SO_BROADCAST: %s\n", port, NET_ErrorString( ));
 		pCloseSocket( net_socket );
 		return INVALID_SOCKET;
 	}
@@ -1510,7 +1510,7 @@ static int NET_IPSocket( const char *net_interface, int port, qboolean multicast
 	{
 		if( NET_IsSocketError( pSetSockopt( net_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&optval, sizeof( optval )) ) )
 		{
-			MsgDev( D_WARN, "NET_UDPSocket: port: %d setsockopt SO_REUSEADDR: %s\n", port, NET_ErrorString( ));
+			Con_DPrintf( S_WARN "NET_UDPSocket: port: %d setsockopt SO_REUSEADDR: %s\n", port, NET_ErrorString( ));
 			pCloseSocket( net_socket );
 			return INVALID_SOCKET;
 		}
@@ -1542,7 +1542,7 @@ static int NET_IPSocket( const char *net_interface, int port, qboolean multicast
 
 	if( NET_IsSocketError( pBind( net_socket, (void *)&addr, sizeof( addr )) ) )
 	{
-		MsgDev( D_WARN, "NET_UDPSocket: port: %d bind: %s\n", port, NET_ErrorString( ));
+		Con_DPrintf( S_WARN "NET_UDPSocket: port: %d bind: %s\n", port, NET_ErrorString( ));
 		pCloseSocket( net_socket );
 		return INVALID_SOCKET;
 	}
@@ -1551,7 +1551,7 @@ static int NET_IPSocket( const char *net_interface, int port, qboolean multicast
 	{
 		optval = 1;
 		if( NET_IsSocketError( pSetSockopt( net_socket, IPPROTO_IP, IP_MULTICAST_LOOP, (const char *)&optval, sizeof( optval )) ) )
-			MsgDev( D_WARN, "NET_UDPSocket: port %d setsockopt IP_MULTICAST_LOOP: %s\n", port, NET_ErrorString( ));
+			Con_DPrintf( S_WARN "NET_UDPSocket: port %d setsockopt IP_MULTICAST_LOOP: %s\n", port, NET_ErrorString( ));
 	}
 
 	return net_socket;
@@ -1632,7 +1632,7 @@ void NET_GetLocalAddress( void )
 			if( NET_IsSocketError( pGetSockName( net.ip_sockets[NS_SERVER], (struct sockaddr *)&address, &namelen ) ) )
 			{
 				// this may happens if multiple clients running on single machine
-				MsgDev( D_ERROR, "Could not get TCP/IP address. Reason:  %s\n", NET_ErrorString( ));
+				Con_DPrintf( S_ERROR "Could not get TCP/IP address. Reason:  %s\n", NET_ErrorString( ));
 //				net.allow_ip = false;
 			}
 			else
@@ -1644,7 +1644,7 @@ void NET_GetLocalAddress( void )
 		}
 		else
 		{
-			MsgDev( D_ERROR, "Could not get TCP/IP address, Invalid hostname: '%s'\n", buff );
+			Con_DPrintf( S_ERROR "Could not get TCP/IP address, Invalid hostname: '%s'\n", buff );
 		}
 	}
 	else
@@ -1802,13 +1802,13 @@ void NET_Init( void )
 #ifdef _WIN32
 	if( !NET_OpenWinSock( ))	// loading wsock32.dll
 	{
-		MsgDev( D_ERROR, "network failed to load wsock32.dll.\n" );
+		Con_DPrintf( S_ERROR "network failed to load wsock32.dll.\n" );
 		return;
 	}
 
 	if( pWSAStartup( MAKEWORD( 1, 1 ), &net.winsockdata ))
 	{
-		MsgDev( D_ERROR, "network initialization failed.\n" );
+		Con_DPrintf( S_ERROR "network initialization failed.\n" );
 		NET_FreeWinSock();
 		return;
 	}
@@ -1831,7 +1831,7 @@ void NET_Init( void )
 
 	net.sequence_number = 1;
 	net.initialized = true;
-	MsgDev( D_REPORT, "Base networking initialized.\n" );
+	Con_Reportf( "Base networking initialized.\n" );
 }
 
 

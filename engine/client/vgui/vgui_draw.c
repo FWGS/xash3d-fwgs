@@ -261,7 +261,7 @@ void VGui_Startup( int width, int height )
 				Q_strncpy( vguiloader, VGUI_SUPPORT_DLL, 256 );
 
 			if( !COM_LoadLibrary( vguilib, false, false ) )
-				MsgDev( D_WARN, "VGUI preloading failed. Default library will be used! Reason: %s\n", COM_GetLibraryError());
+				Con_Reportf( S_WARN "VGUI preloading failed. Default library will be used! Reason: %s\n", COM_GetLibraryError());
 		}
 
 		if( Q_strstr( GI->client_lib, ".dll" ) )
@@ -280,7 +280,7 @@ void VGui_Startup( int width, int height )
 		if( !s_pVGuiSupport )
 		{
 			if( FS_FileExists( vguiloader, false ) )
-				MsgDev( D_ERROR, "Failed to load vgui_support library: %s", COM_GetLibraryError() );
+				Con_Reportf( S_ERROR  "Failed to load vgui_support library: %s", COM_GetLibraryError() );
 			else
 				MsgDev( D_INFO, "vgui_support: not found\n" );
 		}
@@ -294,7 +294,7 @@ void VGui_Startup( int width, int height )
 				VGUI_InitCursors();
 			}
 			else
-				MsgDev( D_ERROR, "Failed to find vgui_support library entry point!\n" );
+				Con_Reportf( S_ERROR  "Failed to find vgui_support library entry point!\n" );
 		}
 
 	}
@@ -615,7 +615,7 @@ void GAME_EXPORT VGUI_CreateTexture( int id, int width, int height )
 
 	if( id <= 0 || id >= VGUI_MAX_TEXTURES )
 	{
-		MsgDev( D_ERROR, "VGUI_CreateTexture: bad texture %i. Ignored\n", id );
+		Con_Reportf( S_ERROR  "VGUI_CreateTexture: bad texture %i. Ignored\n", id );
 		return;
 	}
 
@@ -637,7 +637,7 @@ void GAME_EXPORT VGUI_UploadTextureBlock( int id, int drawX, int drawY, const by
 {
 	if( id <= 0 || id >= VGUI_MAX_TEXTURES || g_textures[id] == 0 || g_textures[id] == tr.whiteTexture )
 	{
-		MsgDev( D_ERROR, "VGUI_UploadTextureBlock: bad texture %i. Ignored\n", id );
+		Con_Reportf( S_ERROR  "VGUI_UploadTextureBlock: bad texture %i. Ignored\n", id );
 		return;
 	}
 

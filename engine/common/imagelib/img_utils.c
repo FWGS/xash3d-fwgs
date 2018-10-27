@@ -81,36 +81,13 @@ static byte palette_hl[768] =
 147,255,247,199,255,255,255,159,91,83
 };
 
-static float FILTER[NUM_FILTERS][FILTER_SIZE][FILTER_SIZE] = 
-{ 
-{ // regular blur 
-{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }, 
-{ 0.0f, 1.0f, 1.0f, 1.0f, 0.0f }, 
-{ 0.0f, 1.0f, 1.0f, 1.0f, 0.0f }, 
-{ 0.0f, 1.0f, 1.0f, 1.0f, 0.0f }, 
-{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }, 
-}, 
-{ // light blur 
-{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }, 
-{ 0.0f, 1.0f, 1.0f, 1.0f, 0.0f }, 
-{ 0.0f, 1.0f, 4.0f, 1.0f, 0.0f }, 
-{ 0.0f, 1.0f, 1.0f, 1.0f, 0.0f }, 
-{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }, 
-}, 
-{ // find edges 
-{ 0.0f,  0.0f,  0.0f,  0.0f, 0.0f }, 
-{ 0.0f, -1.0f, -1.0f, -1.0f, 0.0f }, 
-{ 0.0f, -1.0f,  8.0f, -1.0f, 0.0f }, 
-{ 0.0f, -1.0f, -1.0f, -1.0f, 0.0f }, 
-{ 0.0f,  0.0f,  0.0f,  0.0f, 0.0f }, 
-}, 
-{ // emboss  
+static float img_emboss[FILTER_SIZE][FILTER_SIZE] = 
+{
 {-0.7f, -0.7f, -0.7f, -0.7f, 0.0f }, 
 {-0.7f, -0.7f, -0.7f,  0.0f, 0.7f }, 
 {-0.7f, -0.7f,  0.0f,  0.7f, 0.7f }, 
 {-0.7f,  0.0f,  0.7f,  0.7f, 0.7f }, 
 { 0.0f,  0.7f,  0.7f,  0.7f, 0.7f }, 
-}
 }; 
 
 /*
@@ -1361,7 +1338,7 @@ Filtering algorithm from http://www.student.kuleuven.ac.be/~m0216922/CG/filterin
 All credit due 
 ================== 
 */
-qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias, flFlags_t flags, GLenum blendFunc )
+static void Image_ApplyFilter( rgbdata_t *pic, float factor )
 { 
 	int	i, x, y; 
 	uint	*fin, *fout; 
@@ -1369,7 +1346,7 @@ qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias
 
 	// first expand the image into 32-bit buffer
 	pic = Image_DecompressInternal( pic );
-
+	factor = bound( 0.0f, factor, 1.0f );
 	size = image.width * image.height * 4;
 	image.tempbuffer = Mem_Realloc( host.imagepool, image.tempbuffer, size );
 	fout = (uint *)image.tempbuffer;
@@ -1381,6 +1358,7 @@ qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias
 		{ 
 			vec3_t	vout = { 0.0f, 0.0f, 0.0f }; 
 			int	pos_x, pos_y;
+			float	avg;
 
 			for( pos_x = 0; pos_x < FILTER_SIZE; pos_x++ ) 
 			{ 
@@ -1391,9 +1369,9 @@ qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias
 
 					// casting's a unary operation anyway, so the othermost set of brackets in the left part 
 					// of the rvalue should not be necessary... but i'm paranoid when it comes to C... 
-					vout[0] += ((float)((byte *)&fin[img_y * image.width + img_x])[0]) * FILTER[filter][pos_x][pos_y]; 
-					vout[1] += ((float)((byte *)&fin[img_y * image.width + img_x])[1]) * FILTER[filter][pos_x][pos_y]; 
-					vout[2] += ((float)((byte *)&fin[img_y * image.width + img_x])[2]) * FILTER[filter][pos_x][pos_y]; 
+					vout[0] += ((float)((byte *)&fin[img_y * image.width + img_x])[0]) * img_emboss[pos_x][pos_y]; 
+					vout[1] += ((float)((byte *)&fin[img_y * image.width + img_x])[1]) * img_emboss[pos_x][pos_y]; 
+					vout[2] += ((float)((byte *)&fin[img_y * image.width + img_x])[2]) * img_emboss[pos_x][pos_y]; 
 				} 
 			} 
 
@@ -1401,20 +1379,17 @@ qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias
 			for( i = 0; i < 3; i++ ) 
 			{ 
 				vout[i] *= factor; 
-				vout[i] += bias; 
+				vout[i] += 128.0f; // base 
 				vout[i] = bound( 0.0f, vout[i], 255.0f );
 			} 
 
-			if( flags & FILTER_GRAYSCALE ) 
-			{ 
-				// NTSC greyscale conversion standard 
-				float avg = (vout[0] * 30.0f + vout[1] * 59.0f + vout[2] * 11.0f) / 100.0f; 
+			// NTSC greyscale conversion standard 
+			avg = (vout[0] * 30.0f + vout[1] * 59.0f + vout[2] * 11.0f) / 100.0f; 
 
-				// divide by 255 so GL operations work as expected 
-				vout[0] = avg / 255.0f; 
-				vout[1] = avg / 255.0f; 
-				vout[2] = avg / 255.0f; 
-			} 
+			// divide by 255 so GL operations work as expected 
+			vout[0] = avg / 255.0f; 
+			vout[1] = avg / 255.0f; 
+			vout[2] = avg / 255.0f; 
 
 			// write to temp - first, write data in (to get the alpha channel quickly and 
 			// easily, which will be left well alone by this particular operation...!) 
@@ -1429,29 +1404,9 @@ qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias
 				float	src = ((float)((byte *)&fin[y * image.width + x])[i]) / 255.0f; 
 				float	tmp;
 
-				switch( blendFunc ) 
-				{ 
-				case GL_ADD: 
-					tmp = vout[i] + src; 
-					break; 
-				case GL_BLEND: 
-					// default is FUNC_ADD here 
-					// CsS + CdD works out as Src * Dst * 2 
-					tmp = vout[i] * src * 2.0f; 
-					break; 
-				case GL_DECAL: 
-					// same as GL_REPLACE unless there's alpha, which we ignore for this 
-				case GL_REPLACE: 
-					tmp = vout[i]; 
-					break; 
-				case GL_ADD_SIGNED: 
-					tmp = (vout[i] + src) - 0.5f; 
-					break; 
-				case GL_MODULATE: 
-				default:	// same as default 
-					tmp = vout[i] * src; 
-					break; 
-				} 
+				// default is GL_BLEND here 
+				// CsS + CdD works out as Src * Dst * 2 
+				tmp = vout[i] * src * 2.0f; 
 
 				// multiply back by 255 to get the proper byte scale 
 				tmp *= 255.0f; 
@@ -1466,11 +1421,9 @@ qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias
 
 	// copy result back
 	memcpy( fin, fout, size );
-
-	return true;
 }
 
-qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, imgfilter_t *filter )
+qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, float bumpscale )
 {
 	rgbdata_t	*pic = *pix;
 	qboolean	result = true;
@@ -1483,7 +1436,7 @@ qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, imgf
 		return false;
 	}
 
-	if( !flags && !filter )
+	if( !flags )
 	{
 		// clear any force flags
 		image.force_flags = 0;
@@ -1497,7 +1450,7 @@ qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, imgf
 		ClearBits( pic->flags, IMAGE_HAS_LUMA );
 	}
 
-	if( flags & IMAGE_REMAP )
+	if( FBitSet( flags, IMAGE_REMAP ))
 	{
 		// NOTE: user should keep copy of indexed image manually for new changes
 		if( Image_RemapInternal( pic, width, height ))
@@ -1505,10 +1458,14 @@ qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, imgf
 	}
 
 	// update format to RGBA if any
-	if( flags & IMAGE_FORCE_RGBA ) pic = Image_DecompressInternal( pic );
-	if( flags & IMAGE_LIGHTGAMMA ) pic = Image_LightGamma( pic );
+	if( FBitSet( flags, IMAGE_FORCE_RGBA ))
+		pic = Image_DecompressInternal( pic );
 
-	if( filter ) Image_ApplyFilter( pic, filter->filter, filter->factor, filter->bias, filter->flags, filter->blendFunc );
+	if( FBitSet( flags, IMAGE_LIGHTGAMMA ))
+		pic = Image_LightGamma( pic );
+
+	if( FBitSet( flags, IMAGE_EMBOSS ))
+		Image_ApplyFilter( pic, bumpscale );
 
 	out = Image_FlipInternal( pic->buffer, &pic->width, &pic->height, pic->type, flags );
 	if( pic->buffer != out ) memcpy( pic->buffer, image.tempbuffer, pic->size );

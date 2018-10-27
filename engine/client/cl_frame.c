@@ -96,7 +96,7 @@ we don't want interpolate this
 */
 qboolean CL_EntityTeleported( cl_entity_t *ent )
 {
-	int	len, maxlen;
+	float	len, maxlen;
 	vec3_t	delta;
 
 	VectorSubtract( ent->curstate.origin, ent->prevstate.origin, delta );
@@ -407,7 +407,21 @@ int CL_InterpolateModel( cl_entity_t *e )
 	VectorCopy( e->curstate.origin, e->origin );
 	VectorCopy( e->curstate.angles, e->angles );
 
-	if( cls.timedemo || !e->model || cl.maxclients <= 1 )
+	if( cls.timedemo || !e->model )
+		return 1;
+
+	if( cls.demoplayback == DEMO_QUAKE1 )
+	{
+		// quake lerping is easy
+		VectorLerp( e->prevstate.origin, cl.lerpFrac, e->curstate.origin, e->origin );
+		AngleQuaternion( e->prevstate.angles, q1, false );
+		AngleQuaternion( e->curstate.angles, q2, false );
+		QuaternionSlerp( q1, q2, cl.lerpFrac, q );
+		QuaternionAngle( q, e->angles );
+		return 1;
+	}
+
+	if( cl.maxclients <= 1 )
 		return 1;
 
 	if( e->model->type == mod_brush && !cl_bmodelinterp->value )
@@ -474,11 +488,23 @@ interpolate non-local clients
 void CL_ComputePlayerOrigin( cl_entity_t *ent )
 {
 	float	targettime;
+	vec4_t	q, q1, q2;
 	vec3_t	origin;
 	vec3_t	angles;
 
 	if( !ent->player || ent->index == ( cl.playernum + 1 ))
 		return;
+
+	if( cls.demoplayback == DEMO_QUAKE1 )
+	{
+		// quake lerping is easy
+		VectorLerp( ent->prevstate.origin, cl.lerpFrac, ent->curstate.origin, ent->origin );
+		AngleQuaternion( ent->prevstate.angles, q1, false );
+		AngleQuaternion( ent->curstate.angles, q2, false );
+		QuaternionSlerp( q1, q2, cl.lerpFrac, q );
+		QuaternionAngle( q, ent->angles );
+		return;
+	}
 
 	targettime = cl.time - cl_interp->value;
 	CL_PureOrigin( ent, targettime, origin, angles );
@@ -985,9 +1011,12 @@ void CL_LinkPlayers( frame_t *frame )
 
 		if( i == cl.playernum )
 		{
-			VectorCopy( state->origin, ent->origin );
-			VectorCopy( state->origin, ent->prevstate.origin );
-			VectorCopy( state->origin, ent->curstate.origin );
+			if( cls.demoplayback != DEMO_QUAKE1 )
+			{
+				VectorCopy( state->origin, ent->origin );
+				VectorCopy( state->origin, ent->prevstate.origin );
+				VectorCopy( state->origin, ent->curstate.origin );
+			}
 			VectorCopy( ent->curstate.angles, ent->angles );
 		}
 
@@ -1003,6 +1032,8 @@ void CL_LinkPlayers( frame_t *frame )
 
 		if ( i == cl.playernum )
 		{
+			if( cls.demoplayback == DEMO_QUAKE1 )
+				VectorLerp( ent->prevstate.origin, cl.lerpFrac, ent->curstate.origin, cl.simorg );
 			VectorCopy( cl.simorg, ent->origin );
 		}
 		else
@@ -1321,8 +1352,25 @@ qboolean CL_GetEntitySpatialization( channel_t *ch )
 
 qboolean CL_GetMovieSpatialization( rawchan_t *ch )
 {
-	// UNDONE
-	return false;
+	cl_entity_t	*ent;
+	qboolean		valid_origin;
+
+	valid_origin = VectorIsNull( ch->origin ) ? false : true;          
+	ent = CL_GetEntityByIndex( ch->entnum );
+
+	// entity is not present on the client but has valid origin
+	if( !ent || !ent->index || ent->curstate.messagenum == 0 )
+		return valid_origin;
+
+	// setup origin
+	VectorAverage( ent->curstate.mins, ent->curstate.maxs, ch->origin );
+	VectorAdd( ch->origin, ent->curstate.origin, ch->origin );
+
+	// setup radius
+	if( ent->model != NULL && ent->model->radius ) ch->radius = ent->model->radius;
+	else ch->radius = RadiusFromBounds( ent->curstate.mins, ent->curstate.maxs );
+
+	return true;
 }
 
 void CL_ExtraUpdate( void )

@@ -59,6 +59,7 @@ dll_info_t msacm_dll = { "msacm32.dll", msacm_funcs, false };
 static int (_stdcall *pAVIStreamInfo)( PAVISTREAM pavi, AVISTREAMINFO *psi, LONG lSize );
 static int (_stdcall *pAVIStreamRead)( PAVISTREAM pavi, LONG lStart, LONG lSamples, void *lpBuffer, LONG cbBuffer, LONG *plBytes, LONG *plSamples );
 static PGETFRAME (_stdcall *pAVIStreamGetFrameOpen)( PAVISTREAM pavi, LPBITMAPINFOHEADER lpbiWanted );
+static long (_stdcall *pAVIStreamTimeToSample)( PAVISTREAM pavi, LONG lTime );
 static void* (_stdcall *pAVIStreamGetFrame)( PGETFRAME pg, LONG lPos );
 static int (_stdcall *pAVIStreamGetFrameClose)( PGETFRAME pg );
 static dword (_stdcall *pAVIStreamRelease)( PAVISTREAM pavi );
@@ -85,6 +86,7 @@ static dllfunc_t avifile_funcs[] =
 { "AVIStreamReadFormat", (void **) &pAVIStreamReadFormat },
 { "AVIStreamRelease", (void **) &pAVIStreamRelease },
 { "AVIStreamStart", (void **) &pAVIStreamStart },
+{ "AVIStreamTimeToSample", (void **) &pAVIStreamTimeToSample },
 { NULL, NULL }
 };
 
@@ -274,6 +276,23 @@ long AVI_GetVideoFrameNumber( movie_state_t *Avi, float time )
 		return 0;
 
 	return (time * Avi->video_fps);
+}
+
+long AVI_GetVideoFrameCount( movie_state_t *Avi )
+{
+	if( !Avi->active )
+		return 0;
+
+	return Avi->video_frames;
+}
+
+long AVI_TimeToSoundPosition( movie_state_t *Avi, long time )
+{
+	if( !Avi->active || !Avi->audio_stream )
+		return 0;
+
+	// UNDONE: what about compressed audio?
+	return pAVIStreamTimeToSample( Avi->audio_stream, time ) * Avi->audio_bytes_per_sample;
 }
 
 // gets the raw frame data
@@ -655,11 +674,6 @@ movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio )
 
 	// all done
 	return Avi;
-}
-
-movie_state_t *AVI_LoadVideoNoSound( const char *filename )
-{
-	return AVI_LoadVideo( filename, false );
 }
 
 void AVI_FreeVideo( movie_state_t *state )

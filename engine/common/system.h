@@ -129,7 +129,6 @@ char *Wcon_Input( void );
 
 // text messages
 #define Msg	Con_Printf
-void MsgDev( int level, const char *pMsg, ... ) _format( 2 );
 
 #ifdef __cplusplus
 }

@@ -347,7 +347,7 @@ static void pfnParticle( const float *origin, int color, float life, int zpos, i
 
 	if( !origin )
 	{
-		MsgDev( D_ERROR, "SV_StartParticle: NULL origin. Ignored\n" );
+		Con_Reportf( S_ERROR  "SV_StartParticle: NULL origin. Ignored\n" );
 		return;
 	}
 

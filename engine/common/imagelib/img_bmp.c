@@ -69,13 +69,13 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
 
 	if( memcmp( bhdr.id, "BM", 2 ))
 	{
-		MsgDev( D_ERROR, "Image_LoadBMP: only Windows-style BMP files supported (%s)\n", name );
+		Con_DPrintf( S_ERROR "Image_LoadBMP: only Windows-style BMP files supported (%s)\n", name );
 		return false;
 	} 
 
 	if( bhdr.bitmapHeaderSize != 0x28 )
 	{
-		MsgDev( D_ERROR, "Image_LoadBMP: invalid header size %i\n", bhdr.bitmapHeaderSize );
+		Con_DPrintf( S_ERROR "Image_LoadBMP: invalid header size %i\n", bhdr.bitmapHeaderSize );
 		return false;
 	}
 
@@ -83,13 +83,13 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
 	if( bhdr.fileSize != filesize )
 	{
 		// Sweet Half-Life issues. splash.bmp have bogus filesize
-		MsgDev( D_REPORT, "Image_LoadBMP: %s have incorrect file size %i should be %i\n", name, filesize, bhdr.fileSize );
+		Con_Reportf( S_WARN "Image_LoadBMP: %s have incorrect file size %i should be %i\n", name, filesize, bhdr.fileSize );
 	}
           
 	// bogus compression?  Only non-compressed supported.
 	if( bhdr.compression != BI_RGB ) 
 	{
-		MsgDev( D_ERROR, "Image_LoadBMP: only uncompressed BMP files supported (%s)\n", name );
+		Con_DPrintf( S_ERROR "Image_LoadBMP: only uncompressed BMP files supported (%s)\n", name );
 		return false;
 	}
 
@@ -296,7 +296,6 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
 				if( alpha != 255 ) image.flags |= IMAGE_HAS_ALPHA;
 				break;
 			default:
-				MsgDev( D_ERROR, "Image_LoadBMP: illegal pixel_size (%s)\n", name );
 				Mem_Free( image.palette );
 				Mem_Free( image.rgba );
 				return false;
@@ -354,7 +353,6 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 		pixel_size = 4;
 		break;	
 	default:
-		MsgDev( D_ERROR, "Image_SaveBMP: unsupported image type %s\n", PFDesc[pix->type].name );
 		return false;
 	}
 

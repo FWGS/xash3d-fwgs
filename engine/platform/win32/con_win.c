@@ -310,7 +310,7 @@ void Wcon_CreateConsole( void )
 	if( !RegisterClass( &wc ))
 	{
 		// print into log
-		MsgDev( D_ERROR, "Can't register window class '%s'\n", SYSCONSOLE );
+		Con_Reportf( S_ERROR  "Can't register window class '%s'\n", SYSCONSOLE );
 		return;
 	} 
 
@@ -327,7 +327,7 @@ void Wcon_CreateConsole( void )
 	s_wcd.hWnd = CreateWindowEx( WS_EX_DLGMODALFRAME, SYSCONSOLE, s_wcd.title, DEDSTYLE, ( swidth - 600 ) / 2, ( sheight - 450 ) / 2 , rect.right - rect.left + 1, rect.bottom - rect.top + 1, NULL, NULL, host.hInst, NULL );
 	if( s_wcd.hWnd == NULL )
 	{
-		MsgDev( D_ERROR, "Can't create window '%s'\n", s_wcd.title );
+		Con_Reportf( S_ERROR  "Can't create window '%s'\n", s_wcd.title );
 		return;
 	}
 
@@ -397,7 +397,7 @@ destroy win32 console
 void Wcon_DestroyConsole( void )
 {
 	// last text message into console or log 
-	MsgDev( D_NOTE, "Sys_FreeLibrary: Unloading xash.dll\n" );
+	Con_Reportf( "Sys_FreeLibrary: Unloading xash.dll\n" );
 
 	Sys_CloseLog();
 
