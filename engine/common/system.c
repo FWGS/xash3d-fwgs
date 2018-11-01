@@ -148,6 +148,7 @@ BOOL WINAPI IsDebuggerPresent(void);
 #endif
 #endif
 
+#ifndef XASH_DEDICATED
 /*
 ================
 Sys_GetClipboardData
@@ -177,6 +178,7 @@ void Sys_SetClipboardData( const byte *buffer, size_t size )
 {
 	Platform_SetClipboardText( (char *)buffer, size );
 }
+#endif // XASH_DEDICATED
 
 /*
 ================

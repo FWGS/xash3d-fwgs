@@ -304,9 +304,14 @@ void SCR_CheckStartupVids()
 
 }
 
-imgfilter_t *R_FindTexFilter( const char *texname )
+void Sys_SetClipboardData( const byte *text, size_t size )
 {
-	return NULL;
+
+}
+
+void CL_StopPlayback( void )
+{
+
 }
 
 #include "sprite.h"

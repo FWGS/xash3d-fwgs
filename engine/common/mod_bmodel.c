@@ -1033,8 +1033,10 @@ static void Mod_CalcSurfaceExtents( msurface_t *surf )
 			info->lightextents[i] = surf->extents[i];
 		}
 
+#ifndef XASH_DEDICATED
 		if( !FBitSet( tex->flags, TEX_SPECIAL ) && ( surf->extents[i] > 16384 ) && ( tr.block_size == BLOCK_SIZE_DEFAULT ))
 			Con_Reportf( S_ERROR "Bad surface extents %i\n", surf->extents[i] );
+#endif // XASH_DEDICATED
 	}
 }
 
