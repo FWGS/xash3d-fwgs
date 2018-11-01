@@ -44,10 +44,6 @@ def options(opt):
 		help = 'strip debug info from binary and enable optimizations')
 		
 	opt.add_option(
-		'--no-download-deps', action = 'store_false', dest = 'AUTODL', default = True,
-		help = 'don\'t try to download dependencies from network')
-	
-	opt.add_option(
 		'--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
 		help = 'install like Windows build, ignore prefix, useful for development')
 
