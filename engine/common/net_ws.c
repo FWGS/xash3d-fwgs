@@ -1615,15 +1615,15 @@ void NET_GetLocalAddress( void )
 		// If we have changed the ip var from the command line, use that instead.
 		if( Q_strcmp( net_ipname->string, "localhost" ))
 		{
-			Q_strcpy( buff, net_ipname->string );
+			Q_strncpy( buff, net_ipname->string, sizeof( buff ) );
 		}
 		else
 		{
 			pGetHostName( buff, 512 );
-		}
 
-		// ensure that it doesn't overrun the buffer
-		buff[511] = 0;
+			// ensure that it doesn't overrun the buffer
+			buff[511] = 0;
+		}
 
 		if( NET_StringToAdr( buff, &net_local ))
 		{
@@ -1824,6 +1824,10 @@ void NET_Init( void )
 	// specify custom host port
 	if( Sys_GetParmFromCmdLine( "-port", cmd ) && Q_isdigit( cmd ))
 		Cvar_FullSet( "hostport", cmd, FCVAR_READ_ONLY );
+
+	// specify custom ip
+	if( Sys_GetParmFromCmdLine( "-ip", cmd ))
+		Cvar_FullSet( "ip", cmd, FCVAR_READ_ONLY );
 
 	// adjust clockwindow
 	if( Sys_GetParmFromCmdLine( "-clockwindow", cmd ))
