@@ -1256,7 +1256,6 @@ void Host_WriteConfig( void )
 
 	NET_SaveMasters();
 }
-#endif
 
 /*
 ===============
@@ -1325,7 +1324,7 @@ void Host_WriteOpenGLConfig( void )
 		FS_Printf( f, "\n" );
 		Cmd_WriteOpenGLVariables( f );
 		CFG_END( f, "opengl.cfg" );
-	}                                                
+	}
 	else Con_DPrintf( S_ERROR "can't update opengl.cfg.\n" );
 }
 
@@ -1356,6 +1355,7 @@ void Host_WriteVideoConfig( void )
 	}                                                
 	else Con_DPrintf( S_ERROR "can't update video.cfg.\n" );
 }
+#endif // XASH_DEDICATED
 
 void Key_EnumCmds_f( void )
 {
