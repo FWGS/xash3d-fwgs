@@ -281,7 +281,7 @@ int Key_GetKey( const char *pBinding )
 			continue;
 
 		if( *keys[i].binding == '+' )
-                    {
+		{
 			if( !Q_strnicmp( keys[i].binding + 1, pBinding, Q_strlen( pBinding )))
 				return i;
 		}
