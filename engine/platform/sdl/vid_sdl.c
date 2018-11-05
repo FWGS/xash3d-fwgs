@@ -878,6 +878,8 @@ qboolean R_Init_Video( void )
 	}
 
 	GL_InitExtensions();
+
+	return true;
 }
 
 #ifdef XASH_GLES

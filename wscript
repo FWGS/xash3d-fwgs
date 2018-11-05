@@ -87,14 +87,18 @@ def configure(conf):
 			Logs.warn('WARNING: 64-bit engine may be unstable')
 
 	if(conf.env.COMPILER_CC != 'msvc'):
-		if(conf.env.COMPILER_CC == 'gcc'):
+		if(conf.env.COMPILER_CC == 'gcc') or (conf.env.COMPILER_CC == 'clang'):
 			conf.env.append_unique('LINKFLAGS', ['-Wl,--no-undefined'])
 		if(conf.options.RELEASE):
 			conf.env.append_unique('CFLAGS',   ['-O2'])
 			conf.env.append_unique('CXXFLAGS', ['-O2'])
-		else:
+		elif(conf.env.COMPILER_CC == 'gcc'):
 			conf.env.append_unique('CFLAGS',   ['-Og', '-g'])
 			conf.env.append_unique('CXXFLAGS', ['-Og', '-g'])
+		else:
+			conf.env.append_unique('CFLAGS',   ['-O0', '-g', '-gdwarf-2'])
+			conf.env.append_unique('CXXFLAGS', ['-O0', '-g', '-gdwarf-2'])
+
 		if conf.options.GCC_COLORS:
 			conf.env.append_unique('CFLAGS', ['-fdiagnostics-color=always'])
 			conf.env.append_unique('CXXFLAGS', ['-fdiagnostics-color=always'])
@@ -113,8 +117,10 @@ def configure(conf):
 	# TODO: wrapper around bld.stlib, bld.shlib and so on?
 	conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
 
-	if(conf.env.DEST_OS != 'win32'):
+	if(conf.env.DEST_OS == 'linux'):
 		conf.check( lib='dl' )
+
+	if(conf.env.DEST_OS != 'win32'):
 		conf.check( lib='m' )
 		conf.check( lib='pthread' )
 
