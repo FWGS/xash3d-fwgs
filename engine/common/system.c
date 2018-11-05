@@ -29,7 +29,6 @@ GNU General Public License for more details.
 #include <dlfcn.h>
 
 #ifndef __ANDROID__
-extern char **environ;
 #include <pwd.h>
 #endif
 #endif
@@ -299,7 +298,7 @@ void Sys_ShellExecute( const char *path, const char *parms, int shouldExit )
 		pid_t id = fork( );
 		if( id == 0 )
 		{
-			execve( xdgOpen, (char **)argv, environ );
+			execv( xdgOpen, (char **)argv );
 			fprintf( stderr, "error opening %s %s", xdgOpen, path );
 			_exit( 1 );
 		}
