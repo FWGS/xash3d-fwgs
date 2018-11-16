@@ -715,15 +715,19 @@ for drawing playermodel previews
 */
 static void pfnRenderScene( const ref_viewpass_t *rvp )
 {
+	ref_viewpass_t copy;
+
 	// to avoid division by zero
 	if( !rvp || rvp->fov_x <= 0.0f || rvp->fov_y <= 0.0f )
 		return;
 
+	copy = *rvp;
+
 	// don't allow special modes from menu
-	((ref_viewpass_t *)&rvp)->flags = 0;
+	copy.flags = 0;
 
 	R_Set2DMode( false );
-	R_RenderFrame( rvp );
+	R_RenderFrame( &copy );
 	R_Set2DMode( true );
 	R_PopScene();
 }
