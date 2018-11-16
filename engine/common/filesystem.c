@@ -901,27 +901,27 @@ FS_Rescan
 */
 void FS_Rescan( void )
 {
+	const char *str;
+	const int extrasFlags = FS_NOWRITE_PATH | FS_CUSTOM_PATH;
 	Con_Reportf( "FS_Rescan( %s )\n", GI->title );
 
 	FS_ClearSearchPath();
 
-#ifdef __ANDROID__
-	char *str;
-	if( str = getenv("XASH3D_EXTRAS_PAK1") )
-		FS_AddPack_Fullpath( str, NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
-	if( str = getenv("XASH3D_EXTRAS_PAK2") )
-		FS_AddPack_Fullpath( str, NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
-	//FS_AddPack_Fullpath( "/data/data/in.celest.xash3d.hl.test/files/pak.pak", NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
-#elif TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE
 	{
-		FS_AddPack_Fullpath( va( "%sextras.pak", SDL_GetBasePath() ), NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
-		FS_AddPack_Fullpath( va( "%sextras_%s.pak", SDL_GetBasePath(), GI->gamefolder ), NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+		FS_AddPak_Fullpath( va( "%sextras.pak", SDL_GetBasePath() ), NULL, extrasFlags );
+		FS_AddPak_Fullpath( va( "%sextras_%s.pak", SDL_GetBasePath(), GI->gamefolder ), NULL, extrasFlags );
 	}
 #elif defined(__SAILFISH__)
 	{
-		FS_AddPack_Fullpath( va( SHAREPATH"/extras.pak" ), NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
-		FS_AddPack_Fullpath( va( SHAREPATH"/%s/extras.pak", GI->gamefolder ), NULL, false, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+		FS_AddPak_Fullpath( va( SHAREPATH"/extras.pak" ), NULL, extrasFlags );
+		FS_AddPak_Fullpath( va( SHAREPATH"/%s/extras.pak", GI->gamefolder ), NULL, extrasFlags );
 	}
+#else
+	if( ( str = getenv( "XASH3D_EXTRAS_PAK1" ) ) )
+		FS_AddPak_Fullpath( str, NULL, extrasFlags );
+	if( ( str = getenv( "XASH3D_EXTRAS_PAK2" ) ) )
+		FS_AddPak_Fullpath( str, NULL, extrasFlags );
 #endif
 
 	if( Q_stricmp( GI->basedir, GI->gamefolder ))
