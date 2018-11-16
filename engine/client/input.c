@@ -27,6 +27,8 @@ GNU General Public License for more details.
 #include "windows.h"
 #endif
 
+#include "platform/platform.h"
+
 void*		in_mousecursor;
 qboolean	in_mouseactive;				// false when not focus app
 qboolean	in_mouseinitialized;

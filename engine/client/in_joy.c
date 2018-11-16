@@ -259,7 +259,7 @@ void Joy_AxisMotionEvent( int id, byte axis, short value )
 
 	if( axis >= MAX_AXES )
 	{
-		MsgDev( D_INFO, "Only 6 axes is supported\n" );
+		Con_Reportf( "Only 6 axes is supported\n" );
 		return;
 	}
 
@@ -308,7 +308,7 @@ void Joy_ButtonEvent( int id, byte button, byte down )
 		int origbutton = button;
 		button = ( button & 31 ) + K_AUX1;
 
-		MsgDev( D_INFO, "Only 32 joybuttons is supported, converting %i button ID to %s\n", origbutton, Key_KeynumToString( button ) );
+		Con_Reportf( "Only 32 joybuttons is supported, converting %i button ID to %s\n", origbutton, Key_KeynumToString( button ) );
 	}
 	else button += K_AUX1;
 

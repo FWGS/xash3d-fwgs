@@ -1564,7 +1564,7 @@ void Sequence_ParseFile( const char *fileName, qboolean isGlobal )
 	if( !buffer )
 		return;
 
-	MsgDev( D_INFO, "reading sequence file: %s\n", fileName );
+	Con_Reportf( "reading sequence file: %s\n", fileName );
 
 	Sequence_ParseBuffer( buffer, bufSize );
 

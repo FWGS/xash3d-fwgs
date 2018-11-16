@@ -806,7 +806,7 @@ void HPAK_RemoveLump( const char *name, resource_t *pResource )
 
 	if( !HPAK_FindResource( &hpak_read, pResource->rgucMD5_hash, NULL ))
 	{
-		Con_DPrintf( S_ERROR "HPAK doesn't contain specified lump: %s\n", pResource->szFileName, read_path );
+		Con_DPrintf( S_ERROR "HPAK %s doesn't contain specified lump: %s\n", read_path, pResource->szFileName );
 		Mem_Free( hpak_read.entries );
 		Mem_Free( hpak_save.entries );
 		FS_Close( file_src );

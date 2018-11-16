@@ -445,7 +445,7 @@ qboolean GL_CreateContext( void )
 
 	if( ( glw_state.context = SDL_GL_CreateContext( host.hWnd ) ) == NULL)
 	{
-		MsgDev(D_ERROR, "GL_CreateContext: %s\n", SDL_GetError());
+		Con_Reportf( S_ERROR "GL_CreateContext: %s\n", SDL_GetError());
 		return GL_DeleteContext();
 	}
 
@@ -478,7 +478,7 @@ qboolean GL_UpdateContext( void )
 {
 	if( SDL_GL_MakeCurrent( host.hWnd, glw_state.context ))
 	{
-		MsgDev(D_ERROR, "GL_UpdateContext: %s\n", SDL_GetError());
+		Con_Reportf( S_ERROR "GL_UpdateContext: %s\n", SDL_GetError());
 		return GL_DeleteContext();
 	}
 
@@ -502,7 +502,7 @@ qboolean VID_SetScreenResolution( int width, int height )
 	if( !SDL_GetClosestDisplayMode(0, &want, &got) )
 		return false;
 
-	MsgDev(D_NOTE, "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate);
+	Con_Reportf( "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate);
 
 	if( SDL_SetWindowDisplayMode( host.hWnd, &got) == -1 )
 		return false;
@@ -1099,7 +1099,7 @@ void GL_InitExtensions( void )
 	glConfig.renderer_string = pglGetString( GL_RENDERER );
 	glConfig.version_string = pglGetString( GL_VERSION );
 	glConfig.extensions_string = pglGetString( GL_EXTENSIONS );
-	MsgDev( D_INFO, "^3Video^7: %s\n", glConfig.renderer_string );
+	Con_Reportf( "^3Video^7: %s\n", glConfig.renderer_string );
 
 #ifdef XASH_GLES
 	GL_InitExtensionsGLES();
@@ -1146,7 +1146,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 
 	SDL_GetCurrentDisplayMode( 0, &displayMode );
 
-	MsgDev( D_INFO, "R_ChangeDisplaySettings: Setting video mode to %dx%d %s\n", width, height, fullscreen ? "fullscreen" : "windowed" );
+	Con_Reportf( "R_ChangeDisplaySettings: Setting video mode to %dx%d %s\n", width, height, fullscreen ? "fullscreen" : "windowed" );
 
 	// check our desktop attributes
 	glw_state.desktopBitsPixel = SDL_BITSPERPIXEL( displayMode.format );

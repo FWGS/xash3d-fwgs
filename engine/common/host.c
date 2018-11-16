@@ -684,7 +684,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		if( daemon > 0 )
 		{
 			// parent
-			MsgDev( D_INFO, "Child pid: %i\n", daemon );
+			Con_Reportf( "Child pid: %i\n", daemon );
 			exit( 0 );
 		}
 		else
@@ -726,10 +726,12 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		const char *IOS_GetDocsDir();
 		Q_strncpy( host.rootdir, IOS_GetDocsDir(), sizeof(host.rootdir) );
 #elif defined(XASH_SDL)
-		if( !( baseDir = SDL_GetBasePath() ) )
+		char *szBasePath;
+
+		if( !( szBasePath = SDL_GetBasePath() ) )
 			Sys_Error( "couldn't determine current directory: %s", SDL_GetError() );
-		Q_strncpy( host.rootdir, baseDir, sizeof( host.rootdir ) );
-		SDL_free( (void*)baseDir );
+		Q_strncpy( host.rootdir, szBasePath, sizeof( host.rootdir ) );
+		SDL_free( szBasePath );
 #else
 		if( !getcwd( host.rootdir, sizeof(host.rootdir) ) )
 		{
@@ -821,7 +823,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #endif
 
 	if ( !host.rootdir[0] || SetCurrentDirectory( host.rootdir ) != 0)
-		MsgDev( D_INFO, "%s is working directory now\n", host.rootdir );
+		Con_Reportf( "%s is working directory now\n", host.rootdir );
 	else
 		Sys_Error( "Changing working directory to %s failed.\n", host.rootdir );
 

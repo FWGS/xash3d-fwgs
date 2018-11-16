@@ -54,7 +54,7 @@ qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data )
 
 		if( !res )
 		{
-			MsgDev( D_INFO, "Can't resolve adr: %s\n", list->address );
+			Con_Reportf( "Can't resolve adr: %s\n", list->address );
 			list->sent = true;
 			continue;
 		}
@@ -181,7 +181,7 @@ static void NET_LoadMasters( void )
 
 	if( !afile ) // file doesn't exist yet
 	{
-		MsgDev( D_INFO, "Cannot load xashcomm.lst\n" );
+		Con_Reportf( "Cannot load xashcomm.lst\n" );
 		return;
 	}
 

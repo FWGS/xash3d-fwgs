@@ -175,7 +175,7 @@ void *COM_FunctionFromName( void *hInstance, const char *pName )
 	void *function;
 	if( !( function = COM_GetProcAddress( hInstance, pName ) ) )
 	{
-		MsgDev(D_ERROR, "FunctionFromName: Can't get symbol %s: %s\n", pName, dlerror());
+		Con_Reportf( S_ERROR "FunctionFromName: Can't get symbol %s: %s\n", pName, dlerror());
 	}
 	return function;
 }
