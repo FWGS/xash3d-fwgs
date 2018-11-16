@@ -1940,7 +1940,7 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num )
 
 	if( cl_trace_messages->value )
 	{
-		MsgDev( D_INFO, "^3USERMSG %s SIZE %i SVC_NUM %i\n",
+		Con_Reportf( "^3USERMSG %s SIZE %i SVC_NUM %i\n",
 			clgame.msg[i].name, iSize, clgame.msg[i].number );
 	}
 

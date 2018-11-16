@@ -731,38 +731,3 @@ void Sys_Print( const char *pMsg )
 
 	// Rcon_Print( pMsg );
 }
-
-/*
-================
-MsgDev
-
-formatted developer message
-================
-*/
-void MsgDev( int type, const char *pMsg, ... )
-{
-	static char	text[MAX_PRINT_MSG];
-	va_list		argptr;
-
-	if( type >= D_REPORT && host_developer.value < DEV_EXTENDED )
-		return;
-
-	va_start( argptr, pMsg );
-	Q_vsnprintf( text, sizeof( text ) - 1, pMsg, argptr );
-	va_end( argptr );
-
-	switch( type )
-	{
-	case D_WARN:
-		Sys_Print( va( "^3Warning:^7 %s", text ));
-		break;
-	case D_ERROR:
-		Sys_Print( va( "^1Error:^7 %s", text ));
-		break;
-	case D_INFO:
-	case D_NOTE:
-	case D_REPORT:
-		Sys_Print( text );
-		break;
-	}
-}

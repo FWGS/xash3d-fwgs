@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #ifdef XASH_SDL
 #include <SDL.h>
 #endif
+#include "platform/platform.h"
 
 typedef enum
 {

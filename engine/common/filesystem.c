@@ -626,7 +626,7 @@ static qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loade
 		search->flags |= flags;
 		fs_searchpaths = search;
 
-		MsgDev( D_REPORT, "Adding wadfile: %s (%i files)\n", wadfile, wad->numlumps );
+		Con_Reportf( "Adding wadfile: %s (%i files)\n", wadfile, wad->numlumps );
 		return true;
 	}
 	else
@@ -683,7 +683,7 @@ static qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loade
 		search->flags |= flags;
 		fs_searchpaths = search;
 
-		MsgDev( D_REPORT, "Adding pakfile: %s (%i files)\n", pakfile, pak->numfiles );
+		Con_Reportf( "Adding pakfile: %s (%i files)\n", pakfile, pak->numfiles );
 
 		// time to add in search list all the wads that contains in current pakfile (if do)
 		for( i = 0; i < pak->numfiles; i++ )

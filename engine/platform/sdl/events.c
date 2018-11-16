@@ -137,11 +137,11 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 			return;
 		case SDL_SCANCODE_UNKNOWN:
 		{
-			if( down ) MsgDev( D_INFO, "SDLash_KeyEvent: Unknown scancode\n" );
+			if( down ) Con_Reportf( "SDLash_KeyEvent: Unknown scancode\n" );
 			return;
 		}
 		default:
-			if( down ) MsgDev( D_INFO, "SDLash_KeyEvent: Unknown key: %s = %i\n", SDL_GetScancodeName( keynum ), keynum );
+			if( down ) Con_Reportf( "SDLash_KeyEvent: Unknown key: %s = %i\n", SDL_GetScancodeName( keynum ), keynum );
 			return;
 		}
 	}
@@ -272,7 +272,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 				if( ( event->tfinger.x > 2 ) && ( event->tfinger.y > 2 ) )
 				{
 					scale = 2;
-					MsgDev( D_INFO, "SDL reports screen coordinates, workaround enabled!\n");
+					Con_Reportf( "SDL reports screen coordinates, workaround enabled!\n");
 				}
 				else
 				{

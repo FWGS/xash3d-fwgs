@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include <SDL_events.h>
 static SDL_Cursor* s_pDefaultCursor[20];
 #endif
+#include "platform/platform.h"
 
 int	g_textures[VGUI_MAX_TEXTURES];
 int	g_textureId = 0;
@@ -246,7 +247,7 @@ void VGui_Startup( int width, int height )
 				F( &vgui );
 				vgui.initialized = true;
 				VGUI_InitCursors();
-				MsgDev( D_INFO, "vgui_support: found interal client support\n" );
+				Con_Reportf( "vgui_support: found interal client support\n" );
 			}
 		}
 #endif // XASH_INTERNAL_GAMELIBS
@@ -282,7 +283,7 @@ void VGui_Startup( int width, int height )
 			if( FS_FileExists( vguiloader, false ) )
 				Con_Reportf( S_ERROR  "Failed to load vgui_support library: %s", COM_GetLibraryError() );
 			else
-				MsgDev( D_INFO, "vgui_support: not found\n" );
+				Con_Reportf( "vgui_support: not found\n" );
 		}
 		else
 		{
