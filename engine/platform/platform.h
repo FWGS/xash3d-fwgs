@@ -17,6 +17,23 @@ GNU General Public License for more details.
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
+#include "common.h"
+#include "system.h"
+#include "defaults.h"
+
+/*
+==============================================================================
+
+                       SYSTEM UTILS
+
+==============================================================================
+*/
+double Platform_DoubleTime( void );
+void Platform_Sleep( int msec );
+// commented out, as this is an optional feature or maybe implemented in system API directly
+// see system.c
+// qboolean Sys_DebuggerPresent( void );
+
 /* 
 ============================================================================== 
  

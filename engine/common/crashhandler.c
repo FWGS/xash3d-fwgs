@@ -23,9 +23,6 @@ Sys_Crash
 Crash handler, called from system
 ================
 */
-#define DEBUG_BREAK
-/// TODO: implement on windows too
-
 #if XASH_CRASHHANDLER == CRASHHANDLER_DBGHELP || XASH_CRASHHANDLER == CRASHHANDLER_WIN32
 #if XASH_CRASHHANDLER == CRASHHANDLER_DBGHELP
 #pragma comment( lib, "dbghelp" )
