@@ -2033,7 +2033,7 @@ static server_physics_api_t gPhysicsAPI =
 	pfnPointContents,
 	SV_MoveNormal,
 	SV_MoveNoEnts,
-	SV_BoxInPVS,
+	(void*)SV_BoxInPVS,
 	pfnWriteBytes,
 	Mod_CheckLump,
 	Mod_ReadLump,
