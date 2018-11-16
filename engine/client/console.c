@@ -537,7 +537,7 @@ static qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font )
 
 	if( font->hFontTexture && fontWidth != 0 )
 	{
-		font->charHeight = fontWidth / 16;
+		font->charHeight = fontWidth / 16 * con_fontscale->value;
 		font->type = FONT_FIXED;
 
 		// build fixed rectangles
@@ -547,7 +547,7 @@ static qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font )
 			font->fontRc[i].right = font->fontRc[i].left + fontWidth / 16;
 			font->fontRc[i].top = (i / 16) * (fontWidth / 16);
 			font->fontRc[i].bottom = font->fontRc[i].top + fontWidth / 16;
-			font->charWidths[i] = fontWidth / 16;
+			font->charWidths[i] = fontWidth / 16 * con_fontscale->value;
 		}
 		font->valid = true;
 	}
@@ -871,8 +871,9 @@ static int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
 		return 0;
 
 	number = Con_UtfProcessChar(number);
-	if( number < 32 )
+	if( !number )
 		return 0;
+
 	if( y < -con.curFont->charHeight )
 		return 0;
 
