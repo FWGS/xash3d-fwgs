@@ -16,7 +16,6 @@ GNU General Public License for more details.
 #include "common.h"
 #include "mathlib.h"
 #include "platform/platform.h"
-#include <time.h>
 #include <stdlib.h>
 
 #ifdef XASH_SDL
@@ -37,9 +36,6 @@ GNU General Public License for more details.
 
 qboolean	error_on_exit = false;	// arg for exit();
 #define DEBUG_BREAK
-#if defined _WIN32 && !defined XASH_SDL
-#include <winbase.h>
-#endif
 
 /*
 ================
@@ -48,103 +44,25 @@ Sys_DoubleTime
 */
 double GAME_EXPORT Sys_DoubleTime( void )
 {
-#if XASH_TIMER == TIMER_WIN32
-	static LARGE_INTEGER	g_PerformanceFrequency;
-	static LARGE_INTEGER	g_ClockStart;
-	LARGE_INTEGER		CurrentTime;
-
-	if( !g_PerformanceFrequency.QuadPart )
-	{
-		QueryPerformanceFrequency( &g_PerformanceFrequency );
-		QueryPerformanceCounter( &g_ClockStart );
-	}
-	QueryPerformanceCounter( &CurrentTime );
-
-	return (double)( CurrentTime.QuadPart - g_ClockStart.QuadPart ) / (double)( g_PerformanceFrequency.QuadPart );
-#elif XASH_TIMER == TIMER_SDL
-	static longtime_t g_PerformanceFrequency;
-	static longtime_t g_ClockStart;
-	longtime_t CurrentTime;
-
-	if( !g_PerformanceFrequency )
-	{
-		g_PerformanceFrequency = SDL_GetPerformanceFrequency();
-		g_ClockStart = SDL_GetPerformanceCounter();
-	}
-	CurrentTime = SDL_GetPerformanceCounter();
-	return (double)( CurrentTime - g_ClockStart ) / (double)( g_PerformanceFrequency );
-#elif XASH_TIMER == TIMER_LINUX
-	static longtime_t g_PerformanceFrequency;
-	static longtime_t g_ClockStart;
-	longtime_t CurrentTime;
-	struct timespec ts;
-
-	if( !g_PerformanceFrequency )
-	{
-		struct timespec res;
-		if( !clock_getres(CLOCK_MONOTONIC, &res) )
-			g_PerformanceFrequency = 1000000000LL/res.tv_nsec;
-	}
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
-#endif
+	return Platform_DoubleTime();
 }
 
-#ifdef GDB_BREAK
-#include <fcntl.h>
-qboolean Sys_DebuggerPresent( void )
-{
-	char buf[1024];
-
-	int status_fd = open( "/proc/self/status", O_RDONLY );
-	if ( status_fd == -1 )
-		return 0;
-
-	ssize_t num_read = read( status_fd, buf, sizeof( buf ) );
-
-	if ( num_read > 0 )
-	{
-		static const char TracerPid[] = "TracerPid:";
-		const byte *tracer_pid;
-
-		buf[num_read] = 0;
-		tracer_pid    = (const byte*)Q_strstr( buf, TracerPid );
-		if( !tracer_pid )
-			return false;
-		//printf( "%s\n", tracer_pid );
-		while( *tracer_pid < '0' || *tracer_pid > '9'  )
-			if( *tracer_pid++ == '\n' )
-				return false;
-		//printf( "%s\n", tracer_pid );
-		return !!Q_atoi( (const char*)tracer_pid );
-	}
-
-	return false;
-}
-
-#undef DEBUG_BREAK
-#ifdef __i386__
-#define DEBUG_BREAK \
-	if( Sys_DebuggerPresent() ) \
-		asm volatile("int $3;")
-#else
-#define DEBUG_BREAK \
-	if( Sys_DebuggerPresent() ) \
-		raise( SIGINT )
-#endif
-#endif
-
-#if defined _WIN32 && !defined XASH_64BIT
-#ifdef _MSC_VER
-
-
-BOOL WINAPI IsDebuggerPresent(void);
-#define DEBUG_BREAK	if( IsDebuggerPresent() ) \
-		_asm{ int 3 }
-#else
-#define DEBUG_BREAK	if( IsDebuggerPresent() ) \
-		asm volatile("int $3;")
-#endif
+#if defined __linux__ || ( defined _WIN32 && !defined XASH_64BIT )
+	#undef DEBUG_BREAK
+	qboolean Sys_DebuggerPresent(); // see sys_linux.c
+	#ifdef _MSC_VER
+		#define DEBUG_BREAK \
+			if( Sys_IsDebuggerPresent() ) \
+				_asm{ int 3 }
+	#elif __i386__
+		#define DEBUG_BREAK \
+			if( Sys_DebuggerPresent() ) \
+				asm volatile("int $3;")
+	#else
+		#define DEBUG_BREAK \
+			if( Sys_DebuggerPresent() ) \
+				raise( SIGINT )
+	#endif
 #endif
 
 #ifndef XASH_DEDICATED
@@ -192,13 +110,7 @@ void Sys_Sleep( int msec )
 		return;
 
 	msec = min( msec, 1000 );
-#if XASH_TIMER == TIMER_WIN32
-	Sleep( msec );
-#elif XASH_TIMER == TIMER_SDL
-	SDL_Delay( msec );
-#elif XASH_TIMER == TIMER_LINUX
-	usleep( msec * 1000 );
-#endif
+	Platform_Sleep( msec );
 }
 
 /*

@@ -74,6 +74,9 @@ def build(bld):
 		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP']
 		source += bld.path.ant_glob(['platform/win32/*.c'])
 
+	if bld.env.DEST_OS == 'linux':
+		source += bld.path.ant_glob(['platform/linux/*.c'])
+
 	# add client files and sdl2 library
 	if not bld.env.DEDICATED:
 		libs.append( 'SDL2' )

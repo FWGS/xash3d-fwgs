@@ -21,7 +21,7 @@ GNU General Public License for more details.
 /*
 ===================================================================
 
-SETUP BACKENDS DEFINATIONS
+SETUP BACKENDS DEFINITIONS
 
 ===================================================================
 */
