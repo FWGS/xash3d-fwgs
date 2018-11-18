@@ -413,7 +413,7 @@ int NET_GetHostByName( const char *hostname )
 #ifdef HAVE_GETADDRINFO
 	struct addrinfo *ai = NULL, *cur;
 	struct addrinfo hints;
-	int ip;
+	int ip = 0;
 
 	memset( &hints, 0, sizeof( hints ));
 	hints.ai_family = AF_INET;
