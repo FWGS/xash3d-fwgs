@@ -50,11 +50,11 @@ def configure(conf):
 		conf.env.append_unique('DEFINES', 'SUPPORT_BSP2_FORMAT')
 
 	if conf.env.DEST_OS == 'win32':
-		conf.check( lib='USER32' )
-		conf.check( lib='SHELL32' )
-		conf.check( lib='GDI32' )
-		conf.check( lib='ADVAPI32' )
-		conf.check( lib='DBGHELP' )
+		conf.check( lib='user32' )
+		conf.check( lib='shell32' )
+		conf.check( lib='gdi32' )
+		conf.check( lib='advapi32' )
+		conf.check( lib='dbghelp' )
 		conf.env.append_unique('DEFINES', 'DBGHELP')
 
 def get_subproject_name(ctx):
@@ -77,7 +77,7 @@ def build(bld):
 		libs += [ 'DL', 'M', 'PTHREAD' ]
 		source += bld.path.ant_glob(['platform/posix/*.c'])
 	else:
-		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP']
+		libs += ['user32', 'shell32', 'gdi32', 'advapi32', 'dbghelp']
 		source += bld.path.ant_glob(['platform/win32/*.c'])
 
 	if bld.env.DEST_OS == 'linux':
@@ -94,7 +94,7 @@ def build(bld):
 	else:
 		if(bld.env.DEST_OS == 'linux'):
 			libs.append('RT')
-	
+
 	includes = ['common', 'server', 'client', 'client/vgui', '.', '../common', '../pm_shared' ]
 
 	if(bld.env.SINGLE_BINARY):

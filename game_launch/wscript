@@ -18,8 +18,8 @@ def configure(conf):
 	# check for dedicated server build
 	if not conf.env.DEDICATED:
 		if conf.env.DEST_OS == 'win32':
-			conf.check(lib='USER32')
-			conf.check(lib='SHELL32')
+			conf.check(lib='user32')
+			conf.check(lib='shell32')
 
 def get_subproject_name(ctx):
         return os.path.basename(os.path.realpath(str(ctx.path)))
@@ -40,7 +40,7 @@ def build(bld):
 	else:
 		# compile resource on Windows
 		bld.load('winres')
-		libs += ['USER32', 'SHELL32']
+		libs += ['user32', 'shell32']
 		source += ['game.rc']
 
 	bld(
