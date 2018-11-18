@@ -2,7 +2,7 @@
 
 # Build custom SDL2
 
-cd $TRAVIS_BUILD_DIR/SDL2-2.0.7
+cd $TRAVIS_BUILD_DIR/SDL2_src
 export CC="ccache gcc -msse2 -march=i686 -m32 -ggdb -O2"
 ./configure \
 	--disable-dependency-tracking \

@@ -33,7 +33,10 @@ def configure(conf):
 				conf.start_msg('Configuring SDL2 by provided path')
 				conf.env.HAVE_SDL2 = 1
 				conf.env.INCLUDES_SDL2 = [os.path.abspath(os.path.join(conf.options.SDL2_PATH, 'include'))]
-				conf.env.LIBPATH_SDL2  = [os.path.abspath(os.path.join(conf.options.SDL2_PATH, 'lib/x86'))]
+				libpath = 'lib'
+				if(conf.env.COMPILER_CC == 'msvc'):
+					libpath = 'lib/x86'
+				conf.env.LIBPATH_SDL2 = [os.path.abspath(os.path.join(conf.options.SDL2_PATH, libpath))]
 				conf.env.LIB_SDL2 = ['SDL2']
 				conf.end_msg('ok')
 			else:
