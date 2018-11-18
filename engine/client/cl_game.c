@@ -1583,12 +1583,14 @@ CL_FillRGBA
 */
 void CL_FillRGBA( int x, int y, int w, int h, int r, int g, int b, int a )
 {
+	float _x = x, _y = y, _w = w, _h = h;
+
 	r = bound( 0, r, 255 );
 	g = bound( 0, g, 255 );
 	b = bound( 0, b, 255 );
 	a = bound( 0, a, 255 );
 
-	SPR_AdjustSize( (float *)&x, (float *)&y, (float *)&w, (float *)&h );
+	SPR_AdjustSize( &_x, &_y, &_w, &_h );
 
 	pglDisable( GL_TEXTURE_2D );
 	pglEnable( GL_BLEND );
@@ -1597,10 +1599,10 @@ void CL_FillRGBA( int x, int y, int w, int h, int r, int g, int b, int a )
 	pglColor4f( r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f );
 
 	pglBegin( GL_QUADS );
-		pglVertex2f( x, y );
-		pglVertex2f( x + w, y );
-		pglVertex2f( x + w, y + h );
-		pglVertex2f( x, y + h );
+		pglVertex2f( _x, _y );
+		pglVertex2f( _x + _w, _y );
+		pglVertex2f( _x + _w, _y + _h );
+		pglVertex2f( _x, _y + _h );
 	pglEnd ();
 
 	pglColor3f( 1.0f, 1.0f, 1.0f );
@@ -2968,12 +2970,14 @@ pfnFillRGBABlend
 */
 void GAME_EXPORT CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int b, int a )
 {
+	float _x = x, _y = y, _w = w, _h = h;
+
 	r = bound( 0, r, 255 );
 	g = bound( 0, g, 255 );
 	b = bound( 0, b, 255 );
 	a = bound( 0, a, 255 );
 
-	SPR_AdjustSize( (float *)&x, (float *)&y, (float *)&w, (float *)&h );
+	SPR_AdjustSize( &_x, &_y, &_w, &_h );
 
 	pglDisable( GL_TEXTURE_2D );
 	pglEnable( GL_BLEND );
@@ -2982,10 +2986,10 @@ void GAME_EXPORT CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int
 	pglColor4f( r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f );
 
 	pglBegin( GL_QUADS );
-		pglVertex2f( x, y );
-		pglVertex2f( x + w, y );
-		pglVertex2f( x + w, y + h );
-		pglVertex2f( x, y + h );
+		pglVertex2f( _x, _y );
+		pglVertex2f( _x + _w, _y );
+		pglVertex2f( _x + _w, _y + _h );
+		pglVertex2f( _x, _y + _h );
 	pglEnd ();
 
 	pglColor3f( 1.0f, 1.0f, 1.0f );
