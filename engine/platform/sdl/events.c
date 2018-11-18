@@ -172,7 +172,8 @@ SDLash_InputEvent
 */
 static void SDLash_InputEvent( SDL_TextInputEvent input )
 {
-	for( char *text = input.text; *text; text++ )
+	char *text;
+	for( text = input.text; *text; text++ )
 	{
 		int ch;
 
