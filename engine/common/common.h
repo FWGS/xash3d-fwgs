@@ -103,6 +103,10 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 #define FBitSet( iBitVector, bit )	((iBitVector) & (bit))
 
 #ifndef __cplusplus
+#ifdef NULL
+#undef NULL
+#endif
+
 #define NULL		((void *)0)
 #endif
 
