@@ -17,19 +17,7 @@ def configure(conf):
 	
 	# check for dedicated server build
 	if not conf.env.DEDICATED:
-		if conf.env.DEST_OS != 'win32': # We need SDL2 for showing messagebox in case launcher has failed
-			# TODO: add way to specify SDL2 path, move to separate function
-			try:
-				conf.check_cfg(
-					path='sdl2-config', 
-					args='--cflags --libs', 
-					package='', 
-					msg='Checking for SDL2', 
-					uselib_store='SDL2')
-			except conf.errors.ConfigurationError:
-				conf.fatal('SDL2 not availiable! If you want to build dedicated server, specify --dedicated')
-			conf.env.append_unique('DEFINES', 'XASH_SDL')
-		else:
+		if conf.env.DEST_OS == 'win32':
 			conf.check(lib='USER32')
 			conf.check(lib='SHELL32')
 
@@ -49,8 +37,6 @@ def build(bld):
 	
 	if bld.env.DEST_OS != 'win32':
 		libs += [ 'DL' ]
-		if not bld.env.DEDICATED:
-			libs += [ 'SDL2' ]
 	else:
 		# compile resource on Windows
 		bld.load('winres')

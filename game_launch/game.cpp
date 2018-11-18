@@ -15,11 +15,6 @@ GNU General Public License for more details.
 
 #include "port.h"
 
-#ifdef XASH_SDL
-#include <SDL_main.h>
-#include <SDL_messagebox.h>
-#endif
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -69,9 +64,7 @@ static void Xash_Error( const char *szFmt, ... )
 	vsnprintf( buffer, sizeof(buffer), szFmt, args );
 	va_end( args );
 
-#ifdef XASH_SDL
-	SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, "Xash Error", buffer, NULL );
-#elif defined( _WIN32 )
+#if defined( _WIN32 )
 	MessageBoxA( NULL, buffer, "Xash Error", MB_OK );
 #else
 	fprintf( stderr, "Xash Error: %s\n", buffer );
