@@ -19,7 +19,8 @@ export CC="ccache gcc -msse2 -march=i686 -m32 -ggdb -O2"
 	--disable-dbus \
 	--disable-ibus \
 	--disable-ime \
-	--disable-fcitx
+	--disable-fcitx \
+	--prefix / # get rid of /usr/local stuff
 make -j2
 mkdir -p $TRAVIS_BUILD_DIR/SDL2_linux
 make install DESTDIR=$TRAVIS_BUILD_DIR/SDL2_linux
