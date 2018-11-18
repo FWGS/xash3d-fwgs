@@ -18,6 +18,7 @@ def configure(conf):
 	# check for dedicated server build
 	if not conf.env.DEDICATED:
 		if conf.env.DEST_OS == 'win32':
+			conf.load('winres')
 			conf.check(lib='user32')
 			conf.check(lib='shell32')
 
@@ -34,13 +35,11 @@ def build(bld):
 	source = ['game.cpp']
 	includes = '. ../common'
 	libs = []
-	
+
 	if bld.env.DEST_OS != 'win32':
 		libs += [ 'DL' ]
 	else:
-		# compile resource on Windows
-		bld.load('winres')
-		libs += ['user32', 'shell32']
+		libs += ['USER32', 'SHELL32']
 		source += ['game.rc']
 
 	bld(

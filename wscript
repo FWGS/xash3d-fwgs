@@ -105,10 +105,14 @@ def configure(conf):
 
 	if(conf.env.DEST_64BIT):
 		if(not conf.options.ALLOW64):
-			conf.env.append_value('LINKFLAGS', ['-m32'])
-			conf.env.append_value('CFLAGS',    ['-m32'])
-			conf.env.append_value('CXXFLAGS',  ['-m32'])
-			Logs.info('NOTE: will build engine with 64-bit toolchain using -m32')
+			flag = '-m32'
+			# Think different.
+			if(conf.env.DEST_OS == 'darwin'):
+				flag = '-arch i386'
+			conf.env.append_value('LINKFLAGS', [flag])
+			conf.env.append_value('CFLAGS',    [flag])
+			conf.env.append_value('CXXFLAGS',  [flag])
+			Logs.info('NOTE: will build engine with 64-bit toolchain using %s' % flag)
 		else:
 			Logs.warn('WARNING: 64-bit engine may be unstable')
 
@@ -169,7 +173,7 @@ def configure(conf):
 	git_version = get_git_version()
 	conf.end_msg(git_version)
 	conf.env.append_unique('DEFINES', 'XASH_BUILD_COMMIT="' + git_version + '"')
-	
+
 	for i in SUBDIRS:
 		conf.setenv(i, conf.env) # derive new env from global one
 		conf.env.ENVNAME = i
