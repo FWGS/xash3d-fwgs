@@ -26,6 +26,22 @@ def get_git_version():
 
 	return version
 
+def get_flags_by_compiler(flags, compiler):
+	out = []
+	if compiler in flags:
+		out += flags[compiler]
+	elif 'default' in flags:
+		out += flags['default']
+	return out
+
+def get_flags_by_type(flags, type, compiler):
+	out = []
+	if 'common' in flags:
+		out += get_flags_by_compiler(flags['common'], compiler)
+	if type in flags:
+		out += get_flags_by_compiler(flags[type], compiler)
+	return out
+
 def options(opt):
 	opt.load('compiler_cxx compiler_c')
 	if sys.platform == 'win32':
@@ -38,11 +54,7 @@ def options(opt):
 	opt.add_option(
 		'--64bits', action = 'store_true', dest = 'ALLOW64', default = False,
 		help = 'allow targetting 64-bit engine')
-	
-	opt.add_option(
-		'--release', action = 'store_true', dest = 'RELEASE', default = False,
-		help = 'strip debug info from binary and enable optimizations')
-		
+			
 	opt.add_option(
 		'--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
 		help = 'install like Windows build, ignore prefix, useful for development')
@@ -55,9 +67,22 @@ def options(opt):
 		'--sdl2', action='store', type='string', dest = 'SDL2_PATH', default = None,
 		help = 'SDL2 path to build(required for Windows)')
 
+	opt.add_option(
+	    '--build-type', action='store', type='string', dest='BUILD_TYPE', default = None,
+		help = 'build type: debug, release or none(custom flags)')
+
 	opt.recurse(SUBDIRS)
 
 def configure(conf):
+	conf.start_msg('Build type')
+	if conf.options.BUILD_TYPE == None:
+		conf.end_msg('not set', color='RED')
+		conf.fatal('Please set a build type, for example "--build-type=release"')
+	elif not conf.options.BUILD_TYPE in ['release', 'debug', 'none']:
+		conf.end_msg(conf.options.BUILD_TYPE, color='RED')
+		conf.fatal('Invalid build type. Valid are "debug", "release" or "none"')
+	conf.end_msg(conf.options.BUILD_TYPE)
+
 	conf.env.MSVC_TARGETS = ['x86'] # explicitly request x86 target for MSVC
 	conf.load('compiler_cxx compiler_c')
 	if sys.platform == 'win32':
@@ -72,45 +97,50 @@ def configure(conf):
 				int check[sizeof(void*) == 4 ? 1: -1];
 				return 0;
 			}''',
-			msg          = 'Checking if compiler create 32 bit code')
+			msg	= 'Checking if compiler create 32 bit code')
 	except conf.errors.ConfigurationError:
 		# Program not compiled, we have 64 bit 
 		conf.env.DEST_64BIT = True
 
+
 	if(conf.env.DEST_64BIT):
 		if(not conf.options.ALLOW64):
 			conf.env.append_value('LINKFLAGS', ['-m32'])
-			conf.env.append_value('CFLAGS', ['-m32'])
-			conf.env.append_value('CXXFLAGS', ['-m32'])
+			conf.env.append_value('CFLAGS',    ['-m32'])
+			conf.env.append_value('CXXFLAGS',  ['-m32'])
 			Logs.info('NOTE: will build engine with 64-bit toolchain using -m32')
 		else:
 			Logs.warn('WARNING: 64-bit engine may be unstable')
 
-	if(conf.env.COMPILER_CC != 'msvc'):
-		if(conf.env.COMPILER_CC == 'gcc') or (conf.env.COMPILER_CC == 'clang'):
-			conf.env.append_unique('LINKFLAGS', ['-Wl,--no-undefined'])
-		if(conf.options.RELEASE):
-			conf.env.append_unique('CFLAGS',   ['-O2'])
-			conf.env.append_unique('CXXFLAGS', ['-O2'])
-		elif(conf.env.COMPILER_CC == 'gcc'):
-			conf.env.append_unique('CFLAGS',   ['-Og', '-g'])
-			conf.env.append_unique('CXXFLAGS', ['-Og', '-g'])
-		else:
-			conf.env.append_unique('CFLAGS',   ['-O0', '-g', '-gdwarf-2'])
-			conf.env.append_unique('CXXFLAGS', ['-O0', '-g', '-gdwarf-2'])
+	linker_flags = {
+	    'common': {
+		    'msvc':    ['/DEBUG'],
+			'default': ['-Wl,--no-undefined']
+		}
+	}
 
-		if conf.options.GCC_COLORS:
-			conf.env.append_unique('CFLAGS', ['-fdiagnostics-color=always'])
-			conf.env.append_unique('CXXFLAGS', ['-fdiagnostics-color=always'])
-	else:
-		if(conf.options.RELEASE):
-			conf.env.append_unique('CFLAGS',   ['/O2'])
-			conf.env.append_unique('CXXFLAGS', ['/O2'])
-		else:
-			conf.env.append_unique('CFLAGS',   ['/Z7'])
-			conf.env.append_unique('CXXFLAGS', ['/Z7'])
-			conf.env.append_unique('LINKFLAGS', ['/DEBUG'])
-		conf.env.append_unique('DEFINES', '_USING_V110_SDK71_') # Force XP compability
+	compiler_c_cxx_flags = {
+	    'common': {
+		    'msvc':    ['/D_USING_V110_SDK71_'],
+			'default': ['-g']
+		},
+		'release': {
+		    'msvc':    ['/Zi', '/O2'],
+			'default': ['-O3']
+		},
+		'debug': {
+		    'msvc':    ['/Z7'],
+			'clang':   ['-O0', '-gdwarf-2'],
+			'default': ['-O0']
+		}
+	}
+
+	conf.env.append_unique('CFLAGS', get_flags_by_type(
+	    compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC))
+	conf.env.append_unique('CXXFLAGS', get_flags_by_type(
+	    compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC))
+	conf.env.append_unique('LINKFLAGS', get_flags_by_type(
+	    linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC))
 
 	# Force XP compability, all build targets should add
 	# subsystem=bld.env.MSVC_SUBSYSTEM
