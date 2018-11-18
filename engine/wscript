@@ -34,7 +34,7 @@ def configure(conf):
 				conf.env.HAVE_SDL2 = 1
 				conf.env.INCLUDES_SDL2 = [
 					os.path.abspath(os.path.join(conf.options.SDL2_PATH, 'include')),
-					os.path.abspath(os.path.join(conf.options.SDL2_PATH, 'include/SDL'))
+					os.path.abspath(os.path.join(conf.options.SDL2_PATH, 'include/SDL2'))
 				]
 				libpath = 'lib'
 				if(conf.env.COMPILER_CC == 'msvc'):
