@@ -27,10 +27,11 @@ git:
   submodules: true
 jdk:
   - oraclejdk8
-os:
-  - linux
-  - osx
-# - windows
+matrix:
+  include:
+    - os: linux
+      dist: xenial
+    - os: osx
 before_script:
   - sh scripts/travis_common_deps.sh
   - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh

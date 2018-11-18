@@ -63,7 +63,7 @@ def build(bld):
 
 	# basic build: dedicated only, no dependencies
 	if bld.env.DEST_OS != 'win32':
-		libs = [ 'DL', 'M'  ]
+		libs += ['DL','M']
 
 	libs.append('VGUI')
 
