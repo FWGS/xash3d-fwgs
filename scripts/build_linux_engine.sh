@@ -29,7 +29,7 @@ make install DESTDIR=$TRAVIS_BUILD_DIR/SDL2_linux
 cd $TRAVIS_BUILD_DIR
 export CC="ccache gcc"
 export CXX="ccache g++"
-./waf configure --sdl2=$TRAVIS_BUILD_DIR/SDL2_linux --vgui=$TRAVIS_BUILD_DIR/vgui-dev --build-type=debug
+./waf configure --sdl2=$TRAVIS_BUILD_DIR/SDL2_linux --vgui=$TRAVIS_BUILD_DIR/vgui-dev --build-type=debug --use-stb
 ./waf build -j2
 # cp engine/xash3d mainui/libxashmenu.so vgui_support/libvgui_support.so vgui_support/vgui.so ../scripts/xash3d.sh .
 # cp $TRAVIS_BUILD_DIR/sdl2-linux/usr/local/lib/$(readlink $TRAVIS_BUILD_DIR/sdl2-linux/usr/local/lib/libSDL2-2.0.so.0) libSDL2-2.0.so.0
