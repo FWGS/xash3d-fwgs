@@ -561,8 +561,8 @@ LONG IN_WndProc( HWND hWnd, UINT uMsg, UINT wParam, LONG lParam )
 		IN_MouseEvent( temp );
 		break;
 	case WM_SYSCOMMAND:
-		// never turn screensaver while Xash is active
-		if( wParam == SC_SCREENSAVE && host.status != HOST_SLEEP )
+		// never turn screensaver or display off while Xash is active
+		if(( wParam == SC_SCREENSAVE || wParam == SC_MONITORPOWER ) && host.status != HOST_SLEEP )
 			return 0;
 		break;
 	case WM_SYSKEYDOWN:

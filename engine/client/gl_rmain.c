@@ -658,13 +658,21 @@ static void R_CheckFog( void )
 	int		i, cnt, count;
 
 	// quake global fog
-	if( clgame.movevars.fog_settings != 0 && CL_IsQuakeCompatible( ))
+	if( CL_IsQuakeCompatible( ))
 	{
+		if( !clgame.movevars.fog_settings )
+		{
+			if( pglIsEnabled( GL_FOG ))
+				pglDisable( GL_FOG );
+			RI.fogEnabled = false;
+			return;
+		}
+
 		// quake-style global fog
 		RI.fogColor[0] = ((clgame.movevars.fog_settings & 0xFF000000) >> 24) / 255.0f;
 		RI.fogColor[1] = ((clgame.movevars.fog_settings & 0xFF0000) >> 16) / 255.0f;
 		RI.fogColor[2] = ((clgame.movevars.fog_settings & 0xFF00) >> 8) / 255.0f;
-		RI.fogDensity = ((clgame.movevars.fog_settings & 0xFF) / 255.0f) * 0.015625f;
+		RI.fogDensity = ((clgame.movevars.fog_settings & 0xFF) / 255.0f) * 0.01f;
 		RI.fogStart = RI.fogEnd = 0.0f;
 		RI.fogColor[3] = 1.0f;
 		RI.fogCustom = false;
@@ -773,7 +781,9 @@ void R_DrawFog( void )
 	if( !RI.fogEnabled ) return;
 
 	pglEnable( GL_FOG );
-	pglFogi( GL_FOG_MODE, GL_EXP );
+	if( CL_IsQuakeCompatible( ))
+		pglFogi( GL_FOG_MODE, GL_EXP2 );
+	else pglFogi( GL_FOG_MODE, GL_EXP );
 	pglFogf( GL_FOG_DENSITY, RI.fogDensity );
 	pglFogfv( GL_FOG_COLOR, RI.fogColor );
 	pglHint( GL_FOG_HINT, GL_NICEST );
@@ -987,7 +997,6 @@ qboolean R_DoResetGamma( void )
 		return false;
 	case scrshot_plaque:
 	case scrshot_savegame:
-	case scrshot_demoshot:
 	case scrshot_envshot:
 	case scrshot_skyshot:
 	case scrshot_mapshot:

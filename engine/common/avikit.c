@@ -401,8 +401,11 @@ long AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, long offset, long l
 		}
 		else
 		{
+			// we out of soundtrack, just zeroing buffer
 			for( i = 0; i < length; i++ )
 				audiodata[i] = 0;
+
+			return length;
 		}
 	}
 

@@ -422,7 +422,7 @@ void MD5Final( byte digest[16], MD5Context_t *ctx )
 
 	MD5Transform( ctx->buf, (uint *)ctx->in );
 	memcpy( digest, ctx->buf, 16 );
-	memset( ctx, 0, sizeof( ctx ));	// in case it's sensitive
+	memset( ctx, 0, sizeof( *ctx ));	// in case it's sensitive
 }
 
 // The four core functions

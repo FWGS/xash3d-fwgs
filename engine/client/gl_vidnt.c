@@ -60,6 +60,7 @@ convar_t	*r_lighting_ambient;
 convar_t	*r_detailtextures;
 convar_t	*r_drawentities;
 convar_t	*r_adjust_fov;
+convar_t	*r_showtree;
 convar_t	*r_decals;
 convar_t	*r_novis;
 convar_t	*r_nocull;
@@ -1596,6 +1597,7 @@ void GL_InitCommands( void )
 	r_lightmap = Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
 	r_drawentities = Cvar_Get( "r_drawentities", "1", FCVAR_CHEAT|FCVAR_ARCHIVE, "render entities" );
 	r_decals = Cvar_Get( "r_decals", "4096", FCVAR_ARCHIVE, "sets the maximum number of decals" );
+	r_showtree = Cvar_Get( "r_showtree", "0", FCVAR_ARCHIVE, "build the graph of visible BSP tree" );
 	window_xpos = Cvar_Get( "_window_xpos", "130", FCVAR_RENDERINFO, "window position by horizontal" );
 	window_ypos = Cvar_Get( "_window_ypos", "48", FCVAR_RENDERINFO, "window position by vertical" );
 

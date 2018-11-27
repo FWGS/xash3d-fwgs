@@ -191,7 +191,8 @@ qboolean Cmd_GetDemoList( const char *s, char *completedname, int length )
 	string		matchbuf;
 	int		i, numdems;
 
-	t = FS_Search( va( "demos/%s*.dem", s ), true, true );	// lookup only in gamedir
+	// lookup only in gamedir
+	t = FS_Search( va( "%s*.dem", s ), true, true );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf ); 

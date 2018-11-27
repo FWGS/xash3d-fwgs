@@ -202,6 +202,10 @@ typedef struct
 	qboolean		fResetVis;
 	qboolean		fFlipViewModel;
 
+	// tree visualization stuff
+	int		recursion_level;
+	int		max_recursion;
+
 	byte		visbytes[(MAX_MAP_LEAFS+7)/8];	// member custom PVS
 	int		lightstylevalue[MAX_LIGHTSTYLES];	// value 0 - 65536
 	int		block_size;			// lightmap blocksize
@@ -270,6 +274,7 @@ void GL_SetRenderMode( int mode );
 void GL_TextureTarget( uint target );
 void GL_Cull( GLenum cull );
 void R_ShowTextures( void );
+void R_ShowTree( void );
 
 //
 // gl_cull.c
@@ -655,6 +660,7 @@ extern convar_t	*gl_msaa;
 extern convar_t	*r_speeds;
 extern convar_t	*r_fullbright;
 extern convar_t	*r_norefresh;
+extern convar_t	*r_showtree;	// build graph of visible hull
 extern convar_t	*r_lighting_extended;
 extern convar_t	*r_lighting_modulate;
 extern convar_t	*r_lighting_ambient;
