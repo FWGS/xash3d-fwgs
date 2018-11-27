@@ -1088,7 +1088,7 @@ static void Mod_SetParent( mnode_t *node, mnode_t *parent )
 CountClipNodes_r
 ==================
 */
-static void CountClipNodes_r( dclipnode32_t *src, hull_t *hull, int nodenum )
+static void CountClipNodes_r( mclipnode_t *src, hull_t *hull, int nodenum )
 {
 	// leaf?
 	if( nodenum < 0 ) return;
@@ -1099,6 +1099,24 @@ static void CountClipNodes_r( dclipnode32_t *src, hull_t *hull, int nodenum )
 
 	CountClipNodes_r( src, hull, src[nodenum].children[0] );
 	CountClipNodes_r( src, hull, src[nodenum].children[1] );
+}
+
+/*
+==================
+CountClipNodes32_r
+==================
+*/
+static void CountClipNodes32_r( dclipnode32_t *src, hull_t *hull, int nodenum )
+{
+	// leaf?
+	if( nodenum < 0 ) return;
+
+	if( hull->lastclipnode == MAX_MAP_CLIPNODES )
+		Host_Error( "MAX_MAP_CLIPNODES limit exceeded\n" );
+	hull->lastclipnode++;
+
+	CountClipNodes32_r( src, hull, src[nodenum].children[0] );
+	CountClipNodes32_r( src, hull, src[nodenum].children[1] );
 }
 
 /*
@@ -1212,7 +1230,7 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, byte *mempool, int h
 	if( VectorIsNull( hull->clip_mins ) && VectorIsNull( hull->clip_maxs ))
 		return;	// no hull specified
 
-	CountClipNodes_r( bmod->clipnodes_out, hull, headnode );
+	CountClipNodes32_r( bmod->clipnodes_out, hull, headnode );
 	count = hull->lastclipnode;
 
 	// fit array to real count
@@ -1360,6 +1378,10 @@ static void Mod_SetupSubmodels( dbspmodel_t *bmod )
 
 		// hull 0 is just shared across all bmodels
 		mod->hulls[0].firstclipnode = bm->headnode[0];
+		mod->hulls[0].lastclipnode = bm->headnode[0]; // need to be real count
+
+		// counting a real number of clipnodes per each submodel
+		CountClipNodes_r( mod->hulls[0].clipnodes, &mod->hulls[0], bm->headnode[0] );
 
 		// but hulls1-3 is build individually for a each given submodel
 		for( j = 1; j < MAX_MAP_HULLS; j++ )

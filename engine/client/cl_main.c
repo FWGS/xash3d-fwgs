@@ -1390,6 +1390,7 @@ void CL_Disconnect( void )
 	Netchan_Clear( &cls.netchan );
 
 	cls.state = ca_disconnected;
+	cls.set_lastdemo = false;
 	cls.connect_retry = 0;
 	cls.signon = 0;
 
@@ -2616,6 +2617,7 @@ void CL_InitLocal( void )
 	hud_scale = Cvar_Get( "hud_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "scale hud at current resolution" );
 	Cvar_Get( "cl_background", "0", FCVAR_READ_ONLY, "indicate what background map is running" );
 	cl_showevents = Cvar_Get( "cl_showevents", "0", FCVAR_ARCHIVE, "show events playback" );
+	Cvar_Get( "lastdemo", "", FCVAR_ARCHIVE, "last played demo" );
 
 	// these two added to shut up CS 1.5 about 'unknown' commands
 	Cvar_Get( "lightgamma", "1", FCVAR_ARCHIVE, "ambient lighting level (legacy, unused)" );
@@ -2647,7 +2649,7 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("record", CL_Record_f, "record a demo" );
 	Cmd_AddCommand ("playdemo", CL_PlayDemo_f, "play a demo" );
 	Cmd_AddCommand ("timedemo", CL_TimeDemo_f, "demo benchmark" );
-	Cmd_AddCommand ("killdemo", CL_DeleteDemo_f, "delete a specified demo file and demoshot" );
+	Cmd_AddCommand ("killdemo", CL_DeleteDemo_f, "delete a specified demo file" );
 	Cmd_AddCommand ("startdemos", CL_StartDemos_f, "start playing back the selected demos sequentially" );
 	Cmd_AddCommand ("demos", CL_Demos_f, "restart looping demos defined by the last startdemos command" );
 	Cmd_AddCommand ("movie", CL_PlayVideo_f, "play a movie" );
@@ -2669,7 +2671,6 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("skyshot", CL_SkyShot_f, "takes a six-sides envmap (skybox) shot with specified name" );
 	Cmd_AddCommand ("levelshot", CL_LevelShot_f, "same as \"screenshot\", used for create plaque images" );
 	Cmd_AddCommand ("saveshot", CL_SaveShot_f, "used for create save previews with LoadGame menu" );
-	Cmd_AddCommand ("demoshot", CL_DemoShot_f, "used for create demo previews with PlayDemo menu" );
 
 	Cmd_AddCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
 	Cmd_AddCommand ("reconnect", CL_Reconnect_f, "reconnect to current level" );
