@@ -671,31 +671,6 @@ void CL_DemoStartPlayback( int mode )
 
 /*
 =================
-CL_PlayDemoQuake
-=================
-*/
-void CL_PlayDemoQuake( const char *demoname )
-{
-	int	c, neg = false;
-
-	cls.demofile = FS_Open( demoname, "rb", true );
-	Q_strncpy( cls.demoname, demoname, sizeof( cls.demoname ));
-	Q_strncpy( gameui.globals->demoname, demoname, sizeof( gameui.globals->demoname ));
-	demo.header.host_fps = host_maxfps->value;
-	cls.forcetrack = 0;
-
-	while(( c = FS_Getc( cls.demofile )) != '\n' )
-	{
-		if( c == '-' ) neg = true;
-		else cls.forcetrack = cls.forcetrack * 10 + (c - '0');
-	}
-
-	if( neg ) cls.forcetrack = -cls.forcetrack;
-	CL_DemoStartPlayback( DEMO_QUAKE1 );
-}
-
-/*
-=================
 CL_DemoAborted
 =================
 */
@@ -1178,6 +1153,7 @@ void CL_StopPlayback( void )
 		// let game known about demo state	
 		Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
 		cls.state = ca_disconnected;
+		cls.set_lastdemo = false;
 		S_StopBackgroundTrack();
 		cls.connect_time = 0;
 		cls.demonum = -1;
@@ -1356,8 +1332,8 @@ Begins recording a demo from the current position
 */
 void CL_Record_f( void )
 {
+	string		demoname, demopath;
 	const char	*name;
-	string		demoname, demopath, demoshot;
 	int		n;
 
 	if( Cmd_Argc() == 1 )
@@ -1398,7 +1374,7 @@ void CL_Record_f( void )
 		for( n = 0; n < 10000; n++ )
 		{
 			CL_DemoGetName( n, demoname );
-			if( !FS_FileExists( va( "demos/%s.dem", demoname ), true ))
+			if( !FS_FileExists( va( "%s.dem", demoname ), true ))
 				break;
 		}
 
@@ -1411,18 +1387,12 @@ void CL_Record_f( void )
 	else Q_strncpy( demoname, name, sizeof( demoname ));
 
 	// open the demo file
-	Q_sprintf( demopath, "demos/%s.dem", demoname );
-	Q_sprintf( demoshot, "demos/%s.bmp", demoname );
-
-	// unload previous image from memory (it's will be overwritten)
-	GL_FreeImage( demoshot );
+	Q_sprintf( demopath, "%s.dem", demoname );
 
 	// make sure what old demo is removed
-	if( FS_FileExists( demopath, false )) FS_Delete( demopath );
-	if( FS_FileExists( demoshot, false )) FS_Delete( demoshot );
+	if( FS_FileExists( demopath, false ))
+		FS_Delete( demopath );
 
-	// write demoshot for preview
-	Cbuf_AddText( va( "demoshot \"%s\"\n", demoname ));
 	Q_strncpy( cls.demoname, demoname, sizeof( cls.demoname ));
 	Q_strncpy( gameui.globals->demoname, demoname, sizeof( gameui.globals->demoname ));
 	
@@ -1438,12 +1408,11 @@ playdemo <demoname>
 */
 void CL_PlayDemo_f( void )
 {
-	char	filename1[MAX_QPATH];
-	char	filename2[MAX_QPATH];
+	char	filename[MAX_QPATH];
 	char	demoname[MAX_QPATH];
-	int	i;
+	int	i, ident;
 
-	if( Cmd_Argc() != 2 )
+	if( Cmd_Argc() < 2 )
 	{
 		Con_Printf( S_USAGE "playdemo <demoname>\n" );
 		return;
@@ -1462,26 +1431,50 @@ void CL_PlayDemo_f( void )
 
 	Q_strncpy( demoname, Cmd_Argv( 1 ), sizeof( demoname ));
 	COM_StripExtension( demoname );
-	Q_snprintf( filename1, sizeof( filename1 ), "%s.dem", demoname );
-	Q_snprintf( filename2, sizeof( filename2 ), "demos/%s.dem", demoname );
+	Q_snprintf( filename, sizeof( filename ), "%s.dem", demoname );
 
-	if( FS_FileExists( filename1, true ))
+	// hidden parameter
+	if( Cmd_Argc() > 2 )
+		cls.set_lastdemo = Q_atoi( Cmd_Argv( 2 ));
+
+	// member last demo
+	if( cls.set_lastdemo )
+		Cvar_Set( "lastdemo", demoname );
+
+	if( !FS_FileExists( filename, true ))
 	{
-		CL_PlayDemoQuake( filename1 );
-		return;
-	}
-	else if( !FS_FileExists( filename2, true ))
-	{
-		Con_Printf( S_ERROR "couldn't open %s\n", filename2 );
+		Con_Printf( S_ERROR "couldn't open %s\n", filename );
 		CL_DemoAborted();
 		return;
 	}
 
-	cls.demofile = FS_Open( filename2, "rb", true );
+	cls.demofile = FS_Open( filename, "rb", true );
 	Q_strncpy( cls.demoname, demoname, sizeof( cls.demoname ));
 	Q_strncpy( gameui.globals->demoname, demoname, sizeof( gameui.globals->demoname ));
 
-	// read in the m_DemoHeader
+	FS_Read( cls.demofile, &ident, sizeof( int ));
+	FS_Seek( cls.demofile, 0, SEEK_SET ); // rewind back to start
+	cls.forcetrack = 0;
+
+	// check for quake demos
+	if( ident != IDEMOHEADER )
+	{
+		int	c, neg = false;
+
+		demo.header.host_fps = host_maxfps->value;
+
+		while(( c = FS_Getc( cls.demofile )) != '\n' )
+		{
+			if( c == '-' ) neg = true;
+			else cls.forcetrack = cls.forcetrack * 10 + (c - '0');
+		}
+
+		if( neg ) cls.forcetrack = -cls.forcetrack;
+		CL_DemoStartPlayback( DEMO_QUAKE1 );
+		return; // quake demo is started
+	}
+
+	// read in the demo header
 	FS_Read( cls.demofile, &demo.header, sizeof( demoheader_t ));
 
 	if( demo.header.id != IDEMOHEADER )

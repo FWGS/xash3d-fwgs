@@ -269,6 +269,57 @@ void SV_MapBackground_f( void )
 }
 
 /*
+==================
+SV_NextMap_f
+
+Change map for next in alpha-bethical ordering
+For development work
+==================
+*/
+void SV_NextMap_f( void )
+{
+	char	nextmap[MAX_QPATH];
+	int	i, next;
+	search_t	*t;
+
+	t = FS_Search( "maps/*.bsp", true, true ); // only in gamedir
+	if( !t )
+	{
+		Con_Printf( "next map can't be found\n" );
+		return;
+	}
+
+	for( i = 0; i < t->numfilenames; i++ )
+	{
+		const char *ext = COM_FileExtension( t->filenames[i] );
+
+		if( Q_stricmp( ext, "bsp" ))
+			continue;
+
+		COM_FileBase( t->filenames[i], nextmap );
+		if( Q_stricmp( sv_hostmap->string, nextmap ))
+			continue; 
+
+		next = ( i + 1 ) % t->numfilenames;
+		COM_FileBase( t->filenames[next], nextmap );
+		Cvar_DirectSet( sv_hostmap, nextmap );
+
+		// found current point, check for valid
+		if( SV_ValidateMap( nextmap, true ))
+		{
+			// found and valid
+			COM_LoadLevel( nextmap, false );
+			Mem_Free( t );
+			return;
+		}
+		// jump to next map
+	}
+
+	Con_Printf( "failed to load next map\n" );
+	Mem_Free( t );
+}
+
+/*
 ==============
 SV_NewGame_f
 
@@ -839,6 +890,7 @@ void SV_InitHostCommands( void )
 		Cmd_AddCommand( "loadquick", SV_QuickLoad_f, "load a quick-saved game file" );
 		Cmd_AddCommand( "reload", SV_Reload_f, "continue from latest save or restart level" );
 		Cmd_AddCommand( "killsave", SV_DeleteSave_f, "delete a saved game file and saveshot" );
+		Cmd_AddCommand( "nextmap", SV_NextMap_f, "load next level" );
 	}
 }
 

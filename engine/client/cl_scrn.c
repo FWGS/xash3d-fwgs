@@ -255,7 +255,6 @@ void SCR_MakeScreenShot( void )
 		iRet = VID_ScreenShot( cls.shotname, VID_LEVELSHOT );
 		break;
 	case scrshot_savegame:
-	case scrshot_demoshot:
 		iRet = VID_ScreenShot( cls.shotname, VID_MINISHOT );
 		break;
 	case scrshot_envshot:

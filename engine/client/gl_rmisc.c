@@ -179,6 +179,7 @@ void R_NewMap( void )
 		cl.worldmodel->leafs[i+1].efrags = NULL;
 
 	tr.skytexturenum = -1;
+	tr.max_recursion = 0;
 	pglDisable( GL_FOG );
 
 	// clearing texture chains

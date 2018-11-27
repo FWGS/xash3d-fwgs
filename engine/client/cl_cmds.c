@@ -345,7 +345,7 @@ void CL_LevelShot_f( void )
 	if( cls.demoplayback && ( cls.demonum != -1 ))
 	{
 		Q_sprintf( cls.shotname, "levelshots/%s_%s.bmp", cls.demoname, glState.wideScreen ? "16x9" : "4x3" );
-		Q_snprintf( filename, sizeof( filename ), "demos/%s.dem", cls.demoname );
+		Q_snprintf( filename, sizeof( filename ), "%s.dem", cls.demoname );
 
 		// make sure what levelshot is newer than demo
 		ft1 = FS_FileTime( filename, false );
@@ -385,25 +385,6 @@ void CL_SaveShot_f( void )
 	cls.scrshot_action = scrshot_savegame;	// build new frame for saveshot
 }
 
-/* 
-================== 
-CL_DemoShot_f
-
-mini-pic in playdemo menu
-================== 
-*/ 
-void CL_DemoShot_f( void )
-{
-	if( Cmd_Argc() < 2 )
-	{
-		Con_Printf( S_USAGE "demoshot <demoname>\n" );
-		return;
-	}
-
-	Q_sprintf( cls.shotname, "demos/%s.bmp", Cmd_Argv( 1 ));
-	cls.scrshot_action = scrshot_demoshot; // build new frame for demoshot
-}
-
 /*
 ==============
 CL_DeleteDemo_f
@@ -424,9 +405,8 @@ void CL_DeleteDemo_f( void )
 		return;
 	}
 
-	// delete save and saveshot
-	FS_Delete( va( "demos/%s.dem", Cmd_Argv( 1 )));
-	FS_Delete( va( "demos/%s.bmp", Cmd_Argv( 1 )));
+	// delete demo
+	FS_Delete( va( "%s.dem", Cmd_Argv( 1 )));
 }
 
 /*
