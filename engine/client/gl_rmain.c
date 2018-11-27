@@ -782,7 +782,7 @@ void R_DrawFog( void )
 	if( !RI.fogEnabled ) return;
 
 	pglEnable( GL_FOG );
-	if( CL_IsQuakeCompatible( ))
+	if( Host_IsQuakeCompatible( ))
 		pglFogi( GL_FOG_MODE, GL_EXP2 );
 	else pglFogi( GL_FOG_MODE, GL_EXP );
 	pglFogf( GL_FOG_DENSITY, RI.fogDensity );

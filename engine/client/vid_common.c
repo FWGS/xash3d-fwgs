@@ -49,6 +49,7 @@ convar_t	*window_ypos;
 convar_t	*r_speeds;
 convar_t	*r_fullbright;
 convar_t	*r_norefresh;
+convar_t	*r_showtree;
 convar_t	*r_lighting_extended;
 convar_t	*r_lighting_modulate;
 convar_t	*r_lighting_ambient;
