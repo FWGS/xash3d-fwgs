@@ -953,6 +953,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	ver = Cvar_Get( "ver", va( "%i/%s (hw build %i)", PROTOCOL_VERSION, XASH_VERSION, Q_buildnum()), FCVAR_READ_ONLY, "shows an engine version" );
 
+	Cvar_Get( "host_ver", va( "%i %s %s %s %s", Q_buildnum(), XASH_VERSION, Q_buildos(), Q_buildarch(), Q_buildcommit() ), FCVAR_READ_ONLY, "detailed info about this build" );
+
 	Mod_Init();
 	NET_Init();
 	NET_InitMasters();
