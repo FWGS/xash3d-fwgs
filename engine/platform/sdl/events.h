@@ -22,7 +22,6 @@ GNU General Public License for more details.
 
 // window management
 void VID_RestoreScreenResolution( void );
-void R_ChangeDisplaySettingsFast( int width, int height ); // for fast resizing
 qboolean  VID_CreateWindow( int width, int height, qboolean fullscreen );
 void      VID_DestroyWindow( void );
 void GL_InitExtensions( void );

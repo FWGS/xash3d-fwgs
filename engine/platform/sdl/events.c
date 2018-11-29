@@ -380,9 +380,9 @@ static void SDLash_EventFilter( SDL_Event *event )
 		if( event->window.windowID != SDL_GetWindowID( host.hWnd ) )
 			return;
 
-		if( ( host.status == HOST_SHUTDOWN ) ||
-			( Host_IsDedicated() ) )
+		if( host.status == HOST_SHUTDOWN || Host_IsDedicated() )
 			break; // no need to activate
+
 		switch( event->window.event )
 		{
 		case SDL_WINDOWEVENT_MOVED:
@@ -392,10 +392,14 @@ static void SDLash_EventFilter( SDL_Event *event )
 				Cvar_SetValue( "_window_ypos", (float)event->window.data1 );
 			}
 			break;
+		case SDL_WINDOWEVENT_MINIMIZED:
+			host.status = HOST_SLEEP;
+			VID_RestoreScreenResolution( );
+			break;
 		case SDL_WINDOWEVENT_RESTORED:
 			host.status = HOST_FRAME;
 			host.force_draw_version = true;
-			host.force_draw_version_time = host.realtime + 2;
+			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			if( vid_fullscreen->value )
 				VID_SetMode();
 			break;
@@ -407,16 +411,11 @@ static void SDLash_EventFilter( SDL_Event *event )
 				S_Activate( true );
 			}
 			host.force_draw_version = true;
-			host.force_draw_version_time = host.realtime + 2;
+			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			if( vid_fullscreen->value )
 				VID_SetMode();
 			break;
-		case SDL_WINDOWEVENT_MINIMIZED:
-			host.status = HOST_SLEEP;
-			VID_RestoreScreenResolution();
-			break;
 		case SDL_WINDOWEVENT_FOCUS_LOST:
-
 #if TARGET_OS_IPHONE
 			{
 				// Keep running if ftp server enabled
@@ -431,24 +430,19 @@ static void SDLash_EventFilter( SDL_Event *event )
 				S_Activate( false );
 			}
 			host.force_draw_version = true;
-			host.force_draw_version_time = host.realtime + 1;
+			host.force_draw_version_time = host.realtime + 2;
 			VID_RestoreScreenResolution();
 			break;
-		case SDL_WINDOWEVENT_CLOSE:
-			Sys_Quit();
-			break;
 		case SDL_WINDOWEVENT_RESIZED:
-			if( vid_fullscreen->value ) break;
-			R_ChangeDisplaySettingsFast( event->window.data1,
-										 event->window.data2 );
-			break;
 		case SDL_WINDOWEVENT_MAXIMIZED:
 		{
-			int w, h;
-			if( vid_fullscreen->value ) break;
+			int w = VID_MIN_WIDTH, h = VID_MIN_HEIGHT;
+			if( vid_fullscreen->value )
+				break;
 
 			SDL_GL_GetDrawableSize( host.hWnd, &w, &h );
-			R_ChangeDisplaySettingsFast( w, h );
+			R_SaveVideoMode( w, h );
+			SCR_VidInit(); // tell the client.dll what vid_mode has changed
 			break;
 		}
 		default:
