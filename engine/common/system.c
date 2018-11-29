@@ -52,7 +52,7 @@ double GAME_EXPORT Sys_DoubleTime( void )
 	qboolean Sys_DebuggerPresent(); // see sys_linux.c
 	#ifdef _MSC_VER
 		#define DEBUG_BREAK \
-			if( Sys_IsDebuggerPresent() ) \
+			if( Sys_DebuggerPresent() ) \
 				_asm{ int 3 }
 	#elif __i386__
 		#define DEBUG_BREAK \
