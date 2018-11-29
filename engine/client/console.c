@@ -2191,6 +2191,9 @@ void Con_DrawVersion( void )
 			return;
 	}
 
+	if( host.force_draw_version_time > host.realtime )
+		host.force_draw_version = false;
+
 	if( host.force_draw_version || draw_version )
 		Q_snprintf( curbuild, MAX_STRING, "%s v%i/%s (build %i)", XASH_ENGINE_NAME, PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
 	else Q_snprintf( curbuild, MAX_STRING, "v%i/%s (build %i)", PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
