@@ -1949,7 +1949,21 @@ GetWindowCenterX
 */
 static int pfnGetWindowCenterX( void )
 {
-	return host.window_center_x;
+	int x = 0;
+#ifdef _WIN32
+	if( m_ignore->value )
+	{
+		POINT pos;
+		GetCursorPos( &pos );
+		return pos.x;
+	}
+#endif
+
+#ifdef XASH_SDL
+	SDL_GetWindowPosition( host.hWnd, &x, NULL );
+#endif
+
+	return host.window_center_x + x;
 }
 
 /*
@@ -1960,7 +1974,21 @@ GetWindowCenterY
 */
 static int pfnGetWindowCenterY( void )
 {
-	return host.window_center_y;
+	int y = 0;
+#ifdef _WIN32
+	if( m_ignore->value )
+	{
+		POINT pos;
+		GetCursorPos( &pos );
+		return pos.y;
+	}
+#endif
+
+#ifdef XASH_SDL
+	SDL_GetWindowPosition( host.hWnd, NULL, &y );
+#endif
+
+	return host.window_center_y + y;
 }
 
 /*
