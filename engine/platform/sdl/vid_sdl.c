@@ -517,7 +517,7 @@ qboolean VID_SetScreenResolution( int width, int height )
 
 	SDL_GL_GetDrawableSize( host.hWnd, &got.w, &got.h );
 
-	R_ChangeDisplaySettingsFast( got.w, got.h );
+	R_SaveVideoMode( got.w, got.h );
 	return true;
 }
 
@@ -571,8 +571,10 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	if( !fullscreen )
 	{
 		wndFlags |= SDL_WINDOW_RESIZABLE;
-		xpos = max( 0, Cvar_VariableInteger( "_window_xpos" ) );
-		ypos = max( 0, Cvar_VariableInteger( "_window_ypos" ) );
+		xpos = Cvar_VariableInteger( "_window_xpos" );
+		ypos = Cvar_VariableInteger( "_window_ypos" );
+		if( xpos < 0 ) xpos = SDL_WINDOWPOS_CENTERED;
+		if( ypos < 0 ) ypos = SDL_WINDOWPOS_CENTERED;
 	}
 	else
 	{
@@ -675,7 +677,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		return false;
 
 	SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
-	R_ChangeDisplaySettingsFast( width, height );
+	R_SaveVideoMode( width, height );
 
 	return true;
 }
@@ -1126,20 +1128,6 @@ void GL_InitExtensions( void )
 	glw_state.initialized = true;
 }
 
-/*
-==================
-R_ChangeDisplaySettingsFast
-
-Change window size fastly to custom values, without setting vid mode
-==================
-*/
-void R_ChangeDisplaySettingsFast( int width, int height )
-{
-	R_SaveVideoMode( width, height );
-
-	SCR_VidInit();
-}
-
 rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 {
 	SDL_DisplayMode displayMode;
@@ -1177,7 +1165,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 		SDL_SetWindowBordered( host.hWnd, true );
 		SDL_SetWindowSize( host.hWnd, width, height );
 		SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
-		R_ChangeDisplaySettingsFast( width, height );
+		R_SaveVideoMode( width, height );
 	}
 
 	return rserr_ok;
