@@ -325,16 +325,18 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 	// copy Name heap
 	pNameHeap = ((char *)clgame.titles) + messageSize;
 	memcpy( pNameHeap, nameHeap, nameHeapSize );
-	nameOffset = pNameHeap - clgame.titles[0].pName;
+	//nameOffset = pNameHeap - clgame.titles[0].pName; //undefined on amd64
+
 
 	// copy text & fixup pointers
 	pCurrentText = pNameHeap + nameHeapSize;
 
 	for( i = 0; i < messageCount; i++ )
 	{
-		clgame.titles[i].pName += nameOffset;			// adjust name pointer (parallel buffer)
+		clgame.titles[i].pName = pNameHeap;			// adjust name pointer (parallel buffer)
 		Q_strcpy( pCurrentText, clgame.titles[i].pMessage );	// copy text over
 		clgame.titles[i].pMessage = pCurrentText;
+		pNameHeap += Q_strlen( pNameHeap ) + 1;
 		pCurrentText += Q_strlen( pCurrentText ) + 1;
 	}
 

@@ -71,7 +71,7 @@ float S_GetMusicVolume( void )
 S_StartBackgroundTrack
 =================
 */
-void S_StartBackgroundTrack( const char *introTrack, const char *mainTrack, long position, qboolean fullpath )
+void S_StartBackgroundTrack( const char *introTrack, const char *mainTrack, int position, qboolean fullpath )
 {
 	S_StopBackgroundTrack();
 

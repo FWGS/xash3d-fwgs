@@ -287,7 +287,7 @@ typedef struct KeyValueData_s
 	char	*szClassName;	// in: entity classname
 	char	*szKeyName;	// in: name of key
 	char	*szValue;		// in: value of key
-	long	fHandled;		// out: DLL sets to true if key-value pair was understood
+	int	fHandled;		// out: DLL sets to true if key-value pair was understood
 } KeyValueData;
 
 

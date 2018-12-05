@@ -3560,7 +3560,8 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 		SetBits( flags, TF_NOMIPMAP );
 
 	// NOTE: replace index with pointer to start of imagebuffer, ImageLib expected it
-	ptexture->index = (int)((byte *)phdr) + ptexture->index;
+	//ptexture->index = (int)((byte *)phdr) + ptexture->index;
+	Image_SetMDLPointer((byte *)phdr + ptexture->index);
 	size = sizeof( mstudiotexture_t ) + ptexture->width * ptexture->height + 768;
 
 	if( FBitSet( host.features, ENGINE_LOAD_DELUXEDATA ) && FBitSet( ptexture->flags, STUDIO_NF_MASKED ))

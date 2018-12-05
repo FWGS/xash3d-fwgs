@@ -2133,7 +2133,7 @@ used for reload game after player death
 const char *SV_GetLatestSave( void )
 {
 	static char	savename[MAX_QPATH];
-	long		newest = 0, ft;
+	int		newest = 0, ft;
 	int		i, found = 0;
 	search_t		*t;
 

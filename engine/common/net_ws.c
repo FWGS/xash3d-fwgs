@@ -258,7 +258,7 @@ typedef struct
 	float		fakelag;			// cached fakelag value
 	LONGPACKET	split;
 	int		split_flags[NET_MAX_FRAGMENTS];
-	long		sequence_number;
+	int		sequence_number;
 	int		ip_sockets[NS_COUNT];
 	qboolean		initialized;
 	qboolean		threads_initialized;

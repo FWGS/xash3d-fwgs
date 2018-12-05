@@ -349,9 +349,9 @@ Write demo header
 */
 void CL_WriteDemoHeader( const char *name )
 {
-	long	copysize;
-	long	savepos;
-	long	curpos;
+	int	copysize;
+	int	savepos;
+	int	curpos;
 	
 	Con_Printf( "recording to %s.\n", name );
 	cls.demofile = FS_Open( name, "wb", false );
@@ -489,7 +489,7 @@ void CL_DrawDemoRecording( void )
 {
 	char	string[64];
 	rgba_t	color = { 255, 255, 255, 255 };
-	long	pos;
+	int	pos;
 	int	len;
 
 	if(!( host_developer.value && cls.demorecording ))

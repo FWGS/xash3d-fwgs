@@ -376,7 +376,7 @@ pfnPIC_Load
 
 =========
 */
-static HIMAGE pfnPIC_Load( const char *szPicName, const byte *image_buf, long image_size, long flags )
+static HIMAGE pfnPIC_Load( const char *szPicName, const byte *image_buf, int image_size, int flags )
 {
 	HIMAGE	tx;
 

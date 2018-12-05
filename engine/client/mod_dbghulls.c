@@ -733,7 +733,7 @@ void R_DrawWorldHull( void )
 
 	list_for_each_entry( poly, &hull->polys, chain )
 	{
-		srand((unsigned long)poly);
+		srand((unsigned int)poly);
 		pglColor3f( rand() % 256 / 255.0, rand() % 256 / 255.0, rand() % 256 / 255.0 );
 		pglBegin( GL_POLYGON );
 		for( i = 0; i < poly->numpoints; i++ )
@@ -766,7 +766,7 @@ void R_DrawModelHull( void )
 	pglDisable( GL_TEXTURE_2D );
 	list_for_each_entry( poly, &hull->polys, chain )
 	{
-		srand((unsigned long)poly);
+		srand((unsigned int)poly);
 		pglColor3f( rand() % 256 / 255.0, rand() % 256 / 255.0, rand() % 256 / 255.0 );
 		pglBegin( GL_POLYGON );
 		for( i = 0; i < poly->numpoints; i++ )

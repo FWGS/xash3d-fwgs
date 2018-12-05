@@ -68,13 +68,13 @@ typedef struct wadtype_s
 typedef struct file_s
 {
 	int		handle;			// file descriptor
-	long		real_length;		// uncompressed file size (for files opened in "read" mode)
-	long		position;			// current position in the file
-	long		offset;			// offset into the package (0 if external file)
+	fs_offset_t		real_length;		// uncompressed file size (for files opened in "read" mode)
+	fs_offset_t		position;			// current position in the file
+	fs_offset_t		offset;			// offset into the package (0 if external file)
 	int		ungetc;			// single stored character from ungetc, cleared to EOF when read
 	time_t		filetime;			// pak, wad or real filetime
 						// contents buffer
-	long		buff_ind, buff_len;		// buffer current index and length
+	fs_offset_t		buff_ind, buff_len;		// buffer current index and length
 	byte		buff[FILE_BUFF_SIZE];	// intermediate buffer
 } file_t;
 
@@ -123,11 +123,11 @@ qboolean		fs_caseinsensitive = true; // try to search missing files
 static void FS_InitMemory( void );
 static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedironly );
 static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const char matchtype );
-static dpackfile_t *FS_AddFileToPack( const char* name, pack_t *pack, long offset, long size );
-static byte *W_LoadFile( const char *path, long *filesizeptr, qboolean gamedironly );
+static dpackfile_t *FS_AddFileToPack( const char* name, pack_t *pack, fs_offset_t offset, fs_offset_t size );
+static byte *W_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly );
 static wfile_t *W_Open( const char *filename, int *errorcode );
 static qboolean FS_SysFolderExists( const char *path );
-static long FS_SysFileTime( const char *filename );
+static int FS_SysFileTime( const char *filename );
 static char W_TypeFromExt( const char *lumpname );
 static const char *W_ExtFromType( char lumptype );
 static void FS_Purge( file_t* file );
@@ -389,7 +389,7 @@ FS_AddFileToPack
 Add a file to the list of files contained into a package
 ====================
 */
-static dpackfile_t *FS_AddFileToPack( const char *name, pack_t *pack, long offset, long size )
+static dpackfile_t *FS_AddFileToPack( const char *name, pack_t *pack, fs_offset_t offset, fs_offset_t size )
 {
 	int		left, right, middle;
 	dpackfile_t	*pfile;
@@ -1705,7 +1705,7 @@ FS_SysFileTime
 Internal function used to determine filetime
 ====================
 */
-static long FS_SysFileTime( const char *filename )
+static int FS_SysFileTime( const char *filename )
 {
 	struct stat buf;
 	
@@ -2154,9 +2154,9 @@ FS_Write
 Write "datasize" bytes into a file
 ====================
 */
-long FS_Write( file_t *file, const void *data, size_t datasize )
+fs_offset_t FS_Write( file_t *file, const void *data, size_t datasize )
 {
-	long	result;
+	fs_offset_t	result;
 
 	if( !file ) return 0;
 
@@ -2168,7 +2168,7 @@ long FS_Write( file_t *file, const void *data, size_t datasize )
 	FS_Purge( file );
 
 	// write the buffer and update the position
-	result = write( file->handle, data, (long)datasize );
+	result = write( file->handle, data, (fs_offset_t)datasize );
 	file->position = lseek( file->handle, 0, SEEK_CUR );
 
 	if( file->real_length < file->position )
@@ -2186,10 +2186,10 @@ FS_Read
 Read up to "buffersize" bytes from a file
 ====================
 */
-long FS_Read( file_t *file, void *buffer, size_t buffersize )
+fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 {
-	long	count, done;
-	long	nb;
+	fs_offset_t	count, done;
+	fs_offset_t	nb;
 
 	// nothing to copy
 	if( buffersize == 0 ) return 1;
@@ -2209,7 +2209,7 @@ long FS_Read( file_t *file, void *buffer, size_t buffersize )
 	{
 		count = file->buff_len - file->buff_ind;
 
-		done += ((long)buffersize > count ) ? count : (long)buffersize;
+		done += ((fs_offset_t)buffersize > count ) ? count : (fs_offset_t)buffersize;
 		memcpy( buffer, &file->buff[file->buff_ind], done );
 		file->buff_ind += done;
 
@@ -2226,8 +2226,8 @@ long FS_Read( file_t *file, void *buffer, size_t buffersize )
 	// if we have a lot of data to get, put them directly into "buffer"
 	if( buffersize > sizeof( file->buff ) / 2 )
 	{
-		if( count > (long)buffersize )
-			count = (long)buffersize;
+		if( count > (fs_offset_t)buffersize )
+			count = (fs_offset_t)buffersize;
 		lseek( file->handle, file->offset + file->position, SEEK_SET );
 		nb = read (file->handle, &((byte *)buffer)[done], count );
 
@@ -2241,8 +2241,8 @@ long FS_Read( file_t *file, void *buffer, size_t buffersize )
 	}
 	else
 	{
-		if( count > (long)sizeof( file->buff ))
-			count = (long)sizeof( file->buff );
+		if( count > (fs_offset_t)sizeof( file->buff ))
+			count = (fs_offset_t)sizeof( file->buff );
 		lseek( file->handle, file->offset + file->position, SEEK_SET );
 		nb = read( file->handle, file->buff, count );
 
@@ -2252,7 +2252,7 @@ long FS_Read( file_t *file, void *buffer, size_t buffersize )
 			file->position += nb;
 
 			// copy the requested data in "buffer" (as much as we can)
-			count = (long)buffersize > file->buff_len ? file->buff_len : (long)buffersize;
+			count = (fs_offset_t)buffersize > file->buff_len ? file->buff_len : (fs_offset_t)buffersize;
 			memcpy( &((byte *)buffer)[done], file->buff, count );
 			file->buff_ind = count;
 			done += count;
@@ -2303,7 +2303,7 @@ Print a string into a file
 int FS_VPrintf( file_t *file, const char *format, va_list ap )
 {
 	int	len;
-	long	buff_size = MAX_SYSPATH;
+	fs_offset_t	buff_size = MAX_SYSPATH;
 	char	*tempbuff;
 
 	if( !file ) return 0;
@@ -2402,7 +2402,7 @@ FS_Seek
 Move the position index in a file
 ====================
 */
-int FS_Seek( file_t *file, long offset, int whence )
+int FS_Seek( file_t *file, fs_offset_t offset, int whence )
 {
 	// compute the file offset
 	switch( whence )
@@ -2446,7 +2446,7 @@ FS_Tell
 Give the current position in a file
 ====================
 */
-long FS_Tell( file_t *file )
+fs_offset_t FS_Tell( file_t *file )
 {
 	if( !file ) return 0;
 	return file->position - file->buff_len + file->buff_ind;
@@ -2487,11 +2487,11 @@ Filename are relative to the xash directory.
 Always appends a 0 byte.
 ============
 */
-byte *FS_LoadFile( const char *path, long *filesizeptr, qboolean gamedironly )
+byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
 {
 	file_t	*file;
 	byte	*buf = NULL;
-	long	filesize = 0;
+	fs_offset_t	filesize = 0;
 
 	file = FS_Open( path, "rb", gamedironly );
 
@@ -2522,11 +2522,11 @@ Filename are relative to the xash directory.
 Always appends a 0 byte.
 ============
 */
-byte *FS_LoadDirectFile( const char *path, long *filesizeptr )
+byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 {
 	file_t		*file;
 	byte		*buf = NULL;
-	long	filesize = 0;
+	fs_offset_t	filesize = 0;
 
 	file = FS_SysOpen( path, "rb" );
 
@@ -2556,7 +2556,7 @@ FS_WriteFile
 The filename will be prefixed by the current game directory
 ============
 */
-qboolean FS_WriteFile( const char *filename, const void *data, long len )
+qboolean FS_WriteFile( const char *filename, const void *data, fs_offset_t len )
 {
 	file_t *file;
 
@@ -2724,7 +2724,7 @@ FS_FileSize
 return size of file in bytes
 ==================
 */
-long FS_FileSize( const char *filename, qboolean gamedironly )
+fs_offset_t FS_FileSize( const char *filename, qboolean gamedironly )
 {
 	int	length = -1; // in case file was missed
 	file_t	*fp;	
@@ -2749,7 +2749,7 @@ FS_FileLength
 return size of file in bytes
 ==================
 */
-long FS_FileLength( file_t *f )
+fs_offset_t FS_FileLength( file_t *f )
 {
 	if( !f ) return 0;
 	return f->real_length;
@@ -2762,7 +2762,7 @@ FS_FileTime
 return time of creation file in seconds
 ==================
 */
-long FS_FileTime( const char *filename, qboolean gamedironly )
+int FS_FileTime( const char *filename, qboolean gamedironly )
 {
 	searchpath_t	*search;
 	int		pack_ind;
@@ -3253,7 +3253,7 @@ W_ReadLump
 reading lump into temp buffer
 ===========
 */
-byte *W_ReadLump( wfile_t *wad, dlumpinfo_t *lump, long *lumpsizeptr )
+byte *W_ReadLump( wfile_t *wad, dlumpinfo_t *lump, fs_offset_t *lumpsizeptr )
 {
 	size_t	oldpos, size = 0;
 	byte	*buf;
@@ -3454,7 +3454,7 @@ W_LoadFile
 loading lump into the tmp buffer
 ===========
 */
-static byte *W_LoadFile( const char *path, long *lumpsizeptr, qboolean gamedironly )
+static byte *W_LoadFile( const char *path, fs_offset_t *lumpsizeptr, qboolean gamedironly )
 {
 	searchpath_t	*search;
 	int		index;
