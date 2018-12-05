@@ -548,8 +548,8 @@ typedef struct
 	ui_globalvars_t	*globals;
 
 	qboolean		drawLogo;			// set to TRUE if logo.avi missed or corrupted
-	long		logo_xres;
-	long		logo_yres;
+	int		logo_xres;
+	int		logo_yres;
 	float		logo_length;
 
 	qboolean use_text_api;
@@ -1058,7 +1058,7 @@ void Con_LoadHistory( void );
 //
 void S_StreamRawSamples( int samples, int rate, int width, int channels, const byte *data );
 void S_StreamAviSamples( void *Avi, int entnum, float fvol, float attn, float synctime );
-void S_StartBackgroundTrack( const char *intro, const char *loop, long position, qboolean fullpath );
+void S_StartBackgroundTrack( const char *intro, const char *loop, int position, qboolean fullpath );
 void S_StopBackgroundTrack( void );
 void S_StreamSetPause( int pause );
 void S_StartStreaming( void );

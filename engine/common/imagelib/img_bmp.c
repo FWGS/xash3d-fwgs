@@ -48,20 +48,20 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
 	buf_p = (byte *)buffer;
 	bhdr.id[0] = *buf_p++;
 	bhdr.id[1] = *buf_p++;				// move pointer
-	bhdr.fileSize = *(long *)buf_p;	buf_p += 4;
-	bhdr.reserved0 = *(long *)buf_p;	buf_p += 4;
-	bhdr.bitmapDataOffset = *(long *)buf_p;	buf_p += 4;
-	bhdr.bitmapHeaderSize = *(long *)buf_p;	buf_p += 4;
-	bhdr.width = *(long *)buf_p;		buf_p += 4;
-	bhdr.height = *(long *)buf_p;		buf_p += 4;
+	bhdr.fileSize = *(int *)buf_p;	buf_p += 4;
+	bhdr.reserved0 = *(int *)buf_p;	buf_p += 4;
+	bhdr.bitmapDataOffset = *(int *)buf_p;	buf_p += 4;
+	bhdr.bitmapHeaderSize = *(int *)buf_p;	buf_p += 4;
+	bhdr.width = *(int *)buf_p;		buf_p += 4;
+	bhdr.height = *(int *)buf_p;		buf_p += 4;
 	bhdr.planes = *(short *)buf_p;	buf_p += 2;
 	bhdr.bitsPerPixel = *(short *)buf_p;	buf_p += 2;
-	bhdr.compression = *(long *)buf_p;	buf_p += 4;
-	bhdr.bitmapDataSize = *(long *)buf_p;	buf_p += 4;
-	bhdr.hRes = *(long *)buf_p;		buf_p += 4;
-	bhdr.vRes = *(long *)buf_p;		buf_p += 4;
-	bhdr.colors = *(long *)buf_p;		buf_p += 4;
-	bhdr.importantColors = *(long *)buf_p;	buf_p += 4;
+	bhdr.compression = *(int *)buf_p;	buf_p += 4;
+	bhdr.bitmapDataSize = *(int *)buf_p;	buf_p += 4;
+	bhdr.hRes = *(int *)buf_p;		buf_p += 4;
+	bhdr.vRes = *(int *)buf_p;		buf_p += 4;
+	bhdr.colors = *(int *)buf_p;		buf_p += 4;
+	bhdr.importantColors = *(int *)buf_p;	buf_p += 4;
 
 	// bogus file header check
 	if( bhdr.reserved0 != 0 ) return false;

@@ -63,7 +63,7 @@ void COM_ClearCustomizationList( customization_t *pHead, qboolean bCleanDecals )
 qboolean COM_CreateCustomization( customization_t *pListHead, resource_t *pResource, int playernumber, int flags, customization_t **pOut, int *nLumps )
 {
 	qboolean		bError = false;
-	long		checksize = 0;
+	size_t		checksize = 0;
 	customization_t	*pCust;
 
 	if( pOut ) *pOut = NULL;

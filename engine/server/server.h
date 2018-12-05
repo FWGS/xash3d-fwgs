@@ -592,6 +592,11 @@ edict_t* SV_CreateNamedEntity( edict_t *ent, string_t className );
 string_t SV_AllocString( const char *szValue );
 string_t SV_MakeString( const char *szValue );
 const char *SV_GetString( string_t iString );
+void SV_SetStringArrayMode( qboolean dynamic );
+void SV_EmptyStringPool( void );
+#ifdef XASH_64BIT
+void SV_PrintStr64Stats_f( void );
+#endif
 sv_client_t *SV_ClientFromEdict( const edict_t *pEdict, qboolean spawned_only );
 int SV_MapIsValid( const char *filename, const char *spawn_entity, const char *landmark_name );
 void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
@@ -613,7 +618,6 @@ void SV_RestartStaticEnts( void );
 int pfnGetCurrentPlayer( void );
 edict_t *SV_EdictNum( int n );
 char *SV_Localinfo( void );
-
 //
 // sv_log.c
 //

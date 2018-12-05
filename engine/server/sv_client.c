@@ -2049,7 +2049,7 @@ void SV_TSourceEngineQuery( netadr_t from )
 		MSG_WriteString( &buf, GI->game_url );
 		MSG_WriteString( &buf, GI->update_url );
 		MSG_WriteByte( &buf, 0 );
-		MSG_WriteLong( &buf, (long)GI->version );
+		MSG_WriteLong( &buf, (int)GI->version );
 		MSG_WriteLong( &buf, GI->size );
 
 		if( GI->gamemode == 2 )

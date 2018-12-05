@@ -403,7 +403,7 @@ Stream_ReadWAV
 assume stream is valid
 =================
 */
-long Stream_ReadWAV( stream_t *stream, long bytes, void *buffer )
+int Stream_ReadWAV( stream_t *stream, int bytes, void *buffer )
 {
 	int	remaining;
 
@@ -426,7 +426,7 @@ Stream_SetPosWAV
 assume stream is valid
 =================
 */
-long Stream_SetPosWAV( stream_t *stream, long newpos )
+int Stream_SetPosWAV( stream_t *stream, int newpos )
 {
 	// NOTE: stream->pos it's real file position without header size
 	if( FS_Seek( stream->file, stream->buffsize + newpos, SEEK_SET ) != -1 )
@@ -445,7 +445,7 @@ Stream_GetPosWAV
 assume stream is valid
 =================
 */
-long Stream_GetPosWAV( stream_t *stream )
+int Stream_GetPosWAV( stream_t *stream )
 {
 	return stream->pos;
 }

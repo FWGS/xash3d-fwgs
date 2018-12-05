@@ -514,6 +514,8 @@ void SV_ActivateServer( int runPhysics )
 	svgame.globals->time = sv.time;
 	svgame.dllFuncs.pfnServerActivate( svgame.edicts, svgame.numEntities, svs.maxclients );
 
+	SV_SetStringArrayMode( true );
+
 	// parse user-specified resources
 	SV_CreateGenericResources();
 
@@ -616,7 +618,7 @@ void SV_DeactivateServer( void )
 
 	SV_ClearPhysEnts ();
 
-	Mem_EmptyPool( svgame.stringspool );
+	SV_EmptyStringPool();
 
 	for( i = 0; i < svs.maxclients; i++ )
 	{
@@ -914,6 +916,7 @@ State machine exec new map
 */
 void SV_ExecLoadLevel( void )
 {
+	SV_SetStringArrayMode( false );
 	if( SV_SpawnServer( GameState->levelName, NULL, GameState->backgroundMap ))
 	{
 		SV_SpawnEntities( GameState->levelName );

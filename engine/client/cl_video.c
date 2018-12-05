@@ -242,7 +242,7 @@ qboolean SCR_PlayCinematic( const char *arg )
 	return true;
 }
 
-long SCR_GetAudioChunk( char *rawdata, long length )
+int SCR_GetAudioChunk( char *rawdata, int length )
 {
 	int	r;
 

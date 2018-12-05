@@ -1528,7 +1528,7 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 	if( bmod->isworld )
 	{
 		char	entfilename[MAX_QPATH];
-		long	entpatchsize;
+		int	entpatchsize;
 		size_t	ft1, ft2;
 
 		// world is check for entfile too

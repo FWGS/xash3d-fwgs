@@ -30,7 +30,7 @@ GNU General Public License for more details.
 #define svc_print			8	// [byte] id [string] null terminated string
 #define svc_stufftext		9	// [string] stuffed into client's console buffer
 #define svc_setangle		10	// [angle angle angle] set the view angle to this absolute value
-#define svc_serverdata		11	// [long] protocol ...
+#define svc_serverdata		11	// [int] protocol ...
 #define svc_lightstyle		12	// [index][pattern][float]
 #define svc_updateuserinfo		13	// [byte] playernum, [string] userinfo
 #define svc_deltatable		14	// [table header][...]
@@ -77,7 +77,7 @@ GNU General Public License for more details.
 // reserved
 #define svc_resourcelocation		56	// [string]
 #define svc_querycvarvalue		57	// [string]
-#define svc_querycvarvalue2		58	// [string][long] (context)
+#define svc_querycvarvalue2		58	// [string][int] (context)
 #define svc_lastmsg			58	// start user messages at this point
 
 // client to server
@@ -183,8 +183,8 @@ GNU General Public License for more details.
 #define PROTOCOL_VERSION_QUAKE	15
 
 // listed only unmatched ops
-#define svc_updatestat		3	// [byte] [long]			(svc_event)
-#define svc_version			4	// [long] server version		(svc_changing)
+#define svc_updatestat		3	// [byte] [int]			(svc_event)
+#define svc_version			4	// [int] server version		(svc_changing)
 #define svc_updatename		13	// [byte] [string]			(svc_updateuserinfo)
 #define svc_updatefrags		14	// [byte] [short]			(svc_deltatable)
 #define svc_stopsound		16	// <see code>			(svc_resource)

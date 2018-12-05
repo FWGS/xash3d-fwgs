@@ -130,6 +130,19 @@ qboolean Image_LoadFNT( const char *name, const byte *buffer, size_t filesize )
 }
 
 /*
+======================
+Image_SetMDLPointer
+
+Transfer buffer pointer before Image_LoadMDL
+======================
+*/
+static void *g_mdltexdata;
+void Image_SetMDLPointer(byte *p)
+{
+	g_mdltexdata = p;
+}
+
+/*
 ============
 Image_LoadMDL
 ============
@@ -147,7 +160,9 @@ qboolean Image_LoadMDL( const char *name, const byte *buffer, size_t filesize )
 	image.width = pin->width;
 	image.height = pin->height;
 	pixels = image.width * image.height;
-	fin = (byte *)pin->index;	// setup buffer
+	fin = (byte *)g_mdltexdata;
+	ASSERT(fin);
+	g_mdltexdata = NULL;
 
 	if( !Image_ValidSize( name ))
 		return false;

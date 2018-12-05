@@ -57,7 +57,7 @@ convar_t	*host_framerate;
 convar_t	*con_gamemaps;
 convar_t	*build, *ver;
 
-int Host_CompareFileTime( long ft1, long ft2 )
+int Host_CompareFileTime( int ft1, int ft2 )
 {
 	if( ft1 < ft2 )
 	{

@@ -602,7 +602,7 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 
 	pseqgroup = (mstudioseqgroup_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqgroupindex) + pseqdesc->seqgroup;
 	if( pseqdesc->seqgroup == 0 )
-		return ((byte *)m_pStudioHeader + pseqgroup->data + pseqdesc->animindex);
+		return ((byte *)m_pStudioHeader + pseqdesc->animindex);
 
 	paSequences = (cache_user_t *)m_pSubModel->submodels;
 
@@ -914,7 +914,7 @@ void Mod_StudioComputeBounds( void *buffer, vec3_t mins, vec3_t maxs, qboolean i
 		pseqgroup = (mstudioseqgroup_t *)((byte *)pstudiohdr + pstudiohdr->seqgroupindex) + pseqdesc->seqgroup;
 
 		if( pseqdesc->seqgroup == 0 )
-			panim = (mstudioanim_t *)((byte *)pstudiohdr + pseqgroup->data + pseqdesc->animindex);
+			panim = (mstudioanim_t *)((byte *)pstudiohdr + pseqdesc->animindex);
 		else continue;
 
 		for( j = 0; j < pstudiohdr->numbones; j++ )
