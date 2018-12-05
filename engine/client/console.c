@@ -2026,7 +2026,7 @@ void Con_DrawSolidConsole( int lines )
 	// draw the background
 	GL_SetRenderMode( kRenderNormal );
 	pglColor4ub( 255, 255, 255, 255 ); // to prevent grab color from screenfade
-	R_DrawStretchPic( 0, lines - glState.height, glState.width, glState.height, 0, 0, 1, 1, con.background );
+	R_DrawStretchPic( 0, lines - glState.width * 3 / 4, glState.width, glState.width * 3 / 4, 0, 0, 1, 1, con.background );
 
 	if( !con.curFont || !host.allow_console )
 		return; // nothing to draw
