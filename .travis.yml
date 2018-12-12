@@ -42,3 +42,7 @@ script:
   - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
 # - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/build_android_engine.sh; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/build_mingw_engine.sh; fi
+after_script:
+  - cd ${TRAVIS_BUILD_DIR}
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ccache --show-stats > ccache_stats.log; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/travis-deploy.sh newengine Xash3DFWGS-i386.AppImage ccache_stats.log; fi
