@@ -19,6 +19,7 @@ addons:
       - libasound-dev
       - zlib1g:i386
       - libstdc++6:i386
+      - libfuse2:i386
 env:
   global:
     - SDL_VERSION=2.0.8
