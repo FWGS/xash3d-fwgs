@@ -2,7 +2,7 @@
 
 APP=Xash3DFWGS
 ARCH=i686
-APPDIR=$APP.AppDir
+APPDIR=$APP-i386.AppDir
 mkdir -p $APPDIR
 
 # Generate extras.pak
