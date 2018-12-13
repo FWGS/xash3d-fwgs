@@ -4,10 +4,12 @@
 
 from waflib import Logs
 import os
+from fwgslib import get_subproject_name
 
 top = '.'
 
 def options(opt):
+	opt.load('sdl2')
 	opt.add_option(
 	    '--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
 		help = 'build engine with BSP2 map support(recommended for Quake, breaks compability!)')
@@ -20,46 +22,16 @@ def configure(conf):
 		conf.env.append_unique('DEFINES', 'SINGLE_BINARY')
 		conf.env.append_unique('DEFINES', 'XASH_DEDICATED')
 	else:
-		# TODO: add way to specify SDL2 path, move to separate function
-		try:
-			conf.check_cfg(
-				path='sdl2-config', 
-				args='--cflags --libs', 
-				package='', 
-				msg='Checking for SDL2', 
-				uselib_store='SDL2')
-		except conf.errors.ConfigurationError:
-			if(conf.options.SDL2_PATH):
-				conf.start_msg('Configuring SDL2 by provided path')
-				conf.env.HAVE_SDL2 = 1
-				conf.env.INCLUDES_SDL2 = [
-					os.path.abspath(os.path.join(conf.options.SDL2_PATH, 'include')),
-					os.path.abspath(os.path.join(conf.options.SDL2_PATH, 'include/SDL2'))
-				]
-				libpath = 'lib'
-				if(conf.env.COMPILER_CC == 'msvc'):
-					libpath = 'lib/x86'
-				conf.env.LIBPATH_SDL2 = [os.path.abspath(os.path.join(conf.options.SDL2_PATH, libpath))]
-				conf.env.LIB_SDL2 = ['SDL2']
-				conf.end_msg('yes: {0}, {1}, {2}'.format(conf.env.LIB_SDL2, conf.env.LIBPATH_SDL2, conf.env.INCLUDES_SDL2))
-			else:
-				conf.fatal('SDL2 not availiable! If you want to build dedicated server, specify --dedicated')
+		conf.load('sdl2')
+		if not conf.env.HAVE_SDL2:
+			conf.fatal('SDL2 not availiable! If you want to build dedicated server, specify --dedicated')
 		conf.env.append_unique('DEFINES', 'XASH_SDL')
 
-	if(conf.options.SUPPORT_BSP2_FORMAT):
+	if conf.options.SUPPORT_BSP2_FORMAT:
 		conf.env.append_unique('DEFINES', 'SUPPORT_BSP2_FORMAT')
 
 	if conf.env.DEST_OS == 'win32':
-		conf.check( lib='user32' )
-		conf.check( lib='shell32' )
-		conf.check( lib='gdi32' )
-		conf.check( lib='advapi32' )
-		conf.check( lib='dbghelp' )
-		conf.check( lib='psapi' )
 		conf.env.append_unique('DEFINES', 'DBGHELP')
-
-def get_subproject_name(ctx):
-	return os.path.basename(os.path.realpath(str(ctx.path)))
 
 def build(bld):
 	bld.load_envs()
@@ -98,7 +70,7 @@ def build(bld):
 
 	includes = ['common', 'server', 'client', 'client/vgui', '.', '../common', '../pm_shared' ]
 
-	if(bld.env.SINGLE_BINARY):
+	if bld.env.SINGLE_BINARY:
 		bld(
 			source   = source,
 			target   = 'xash',
