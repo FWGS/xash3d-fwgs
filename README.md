@@ -40,8 +40,8 @@ If you're stuck somewhere and you need a clear example, open `.travis.yml`.
 ### Prerequisites
 #### Windows(Visual Studio)
 * Install Visual Studio.
-* Install latest [Python](https://python.org) *OR* run `cinst python.install` if you have Chocolatey.
-* Install latest [Git](https://git-scm.com/download/win) *OR* run `cinst git.install` if you have Chocolatey.
+* Install latest [Python](https://python.org) **OR** run `cinst python.install` if you have Chocolatey.
+* Install latest [Git](https://git-scm.com/download/win) **OR** run `cinst git.install` if you have Chocolatey.
 * Download [SDL2](https://libsdl.org/download-2.0.php) development package for Visual Studio.
 * Clone this repository: `git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
 * Clone `vgui-dev` repository: `git clone https://github.com/FWGS/vgui-dev`.
@@ -49,11 +49,12 @@ If you're stuck somewhere and you need a clear example, open `.travis.yml`.
 
 #### Linux
 NOTE: Make sure you're OK with targetting 32-bit.
+
 Even if Xash3D FWGS does support targetting 64-bit, anything can happen, not to mention that you can't load games without recompiling them from source code!
 
-* *Gentoo*: TODO
-* *Debian*: TODO
-* *ArchLinux*: TODO
+* **Gentoo**: TODO
+* **Debian**: TODO
+* **ArchLinux**: TODO
 
 ### Building
 #### Windows(Visual Studio)
@@ -71,8 +72,8 @@ Even if Xash3D FWGS does support targetting 64-bit, anything can happen, not to 
 3) Install(optional): `./waf install`
 
 ## Running
-1) Copy libraries and main executable somewhere, if you're skipped installation stage.
-2) Copy game files to same directory
-3) Run `xash3d.exe`/`xash3d.sh`/`xash3d` depending on which platform you're using.
+0) Copy libraries and main executable somewhere, if you're skipped installation stage.
+1) Copy game files to same directory
+2) Run `xash3d.exe`/`xash3d.sh`/`xash3d` depending on which platform you're using.
 
 For additional info, run Xash3D with `-help` command line key.
