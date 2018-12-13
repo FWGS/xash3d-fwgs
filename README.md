@@ -1,6 +1,7 @@
 # Xash3D FWGS Engine
+![](https://api.travis-ci.org/FWGS/xash3d-fwgs.svg?branch=master) ![](https://img.shields.io/discord/355697768582610945.svg)
 
-Xash3D FWGS is a fork of Xash3D Engine by Unkle Mike.
+Xash3D FWGS is a fork of Xash3D Engine by Unkle Mike with extended features and crossplatform.
 
 ```
 Xash3D is a game engine, aimed to provide compatibility with Half-Life Engine, 
@@ -8,17 +9,21 @@ as well as to give game developers well known workflow and extend it.
 Read more about Xash3D on ModDB: https://www.moddb.com/engines/xash3d-engine
 ```
 
+Latest release build: https://github.com/FWGS/xash3d-fwgs/releases/latest
+Latest development build: https://github.com/FWGS/xash3d-deploy/tree/newengine-latest
+
 ## Fork features
 * HLSDK 2.4 support.
 * Crossplatform: officially supported x86 and ARM on Windows/Linux/BSD/macOS/Android/iOS/Haiku.
-* Modern compilers support, say no more to VC6.
+* Modern compilers support: say no more to MSVC6.
 * Better multiplayer support: multiple master servers, headless dedicated server.
-* Mobility API, which allows better game integration on mobile devices(vibration, touch controls)
+* Mobility API: allows better game integration on mobile devices(vibration, touch controls)
 * Different input methods: touch, gamepad and classic mouse & keyboard.
 * TrueType font rendering, as a part of mainui_cpp.
 * A set of small improvements, without broken compatibility.
 
 ## Planned fork features
+* Virtual Reality support and game API(in development!)
 * Voice support
 * Multiple renderers support(OpenGL, GLES, Vulkan, software)
 
@@ -29,11 +34,40 @@ Read more about Xash3D on ModDB: https://www.moddb.com/engines/xash3d-engine
 ## Build instructions
 We are using Waf build system. If you have some Waf-related questions, I recommend you to read https://waf.io/book/
 
-1) Clone this repository: `git clone --recursive https://github.com/FWGS/xash3d-fwgs`
-2) Examine which build options are available: `waf --help`
-3) Configure build: `waf configure`
+If you're stuck somewhere and you need a clear example, open `.travis.yml`. 
+
+### Prerequisites
+#### Windows(Visual Studio)
+* Install Visual Studio.
+* Install latest [Python](https://python.org) *OR* run `cinst python.install` if you have Chocolatey.
+* Install latest [Git](https://git-scm.com/download/win) *OR* run `cinst git.install` if you have Chocolatey.
+* Download [SDL2](https://libsdl.org/download-2.0.php) development package for Visual Studio.
+* Clone this repository: `git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
+* Clone `vgui-dev` repository: `git clone https://github.com/FWGS/vgui-dev`.
+* Make sure you have at least 12GB of free space to store all build-time dependencies: ~10GB for Visual Studio, 300 MB for Git, 100 MB for Python and other.
+
+#### Linux
+NOTE: Make sure you're OK with targetting 32-bit.
+Even if Xash3D FWGS does support targetting 64-bit, anything can happen, not to mention that you can't load games without recompiling them from source code!
+
+* *Gentoo*: TODO
+* *Debian*: TODO
+* *ArchLinux*: TODO
+
+### Building
+#### Windows(Visual Studio)
+0) Open command line
+1) Navigate to `xash3d-fwgs` directory.
+2) Carefully examine which build options are available: `waf --help`
+3) Configure build: `waf configure --build-type=release --sdl2=c:/path/to/SDL2 --vgui-dev=c:/path/to/vgui-dev --prefix=c:/path/to/any/output/directory`
 4) Compile: `waf build`
-5) Install(optional): `waf install`
+5) Install: `waf install`
+
+#### Linux
+0) Examine which build options are available: `./waf --help`
+1) Configure build: `./waf configure --build-type=release`
+2) Compile: `./waf build`
+3) Install(optional): `./waf install`
 
 ## Running
 1) Copy libraries and main executable somewhere, if you're skipped installation stage.
