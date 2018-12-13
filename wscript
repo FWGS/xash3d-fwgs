@@ -20,7 +20,7 @@ def options(opt):
 	opt.load('compiler_cxx compiler_c')
 	if sys.platform == 'win32':
 		opt.load('msvc msvs')
-		
+
 	opt.add_option(
 		'--build-type', action='store', type='string', dest='BUILD_TYPE', default = None,
 		help = 'build type: debug, release or none(custom flags)')
@@ -36,7 +36,7 @@ def options(opt):
 	opt.add_option(
 		'--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
 		help = 'install like Windows build, ignore prefix, useful for development')
-	
+
 	opt.recurse(SUBDIRS)
 
 def configure(conf):
@@ -61,7 +61,7 @@ def configure(conf):
 	conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
 	conf.env.BIT32_ALLOW64 = conf.options.ALLOW64
 	conf.load('force_32bit')
-	
+
 	if conf.env.DEST_SIZEOF_VOID_P == 4:
 		Logs.info('NOTE: will build engine for 32-bit target')
 	else:
@@ -127,7 +127,7 @@ def configure(conf):
 	else:
 		conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
-	conf.env.append_unique('DEFINES', 'XASH_BUILD_COMMIT="' + conf.env.GIT_VERSION if conf.env.GITVERSION else 'notset' + '"')
+	conf.env.append_unique('DEFINES', 'XASH_BUILD_COMMIT="{0}"'.format(conf.env.GIT_VERSION if conf.env.GITVERSION else 'notset'))
 
 	for i in SUBDIRS:
 		conf.setenv(i, conf.env) # derive new env from global one
