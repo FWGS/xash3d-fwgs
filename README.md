@@ -61,13 +61,13 @@ Even if Xash3D FWGS does support targetting 64-bit, anything can happen, not to 
 0) Open command line
 1) Navigate to `xash3d-fwgs` directory.
 2) Carefully examine which build options are available: `waf --help`
-3) Configure build: `waf configure --build-type=release --sdl2=c:/path/to/SDL2 --vgui-dev=c:/path/to/vgui-dev --prefix=c:/path/to/any/output/directory`
+3) Configure build: `waf configure --build-type=release --sdl2=c:/path/to/SDL2 --vgui=c:/path/to/vgui-dev --prefix=c:/path/to/any/output/directory`
 4) Compile: `waf build`
 5) Install: `waf install`
 
 #### Linux
 0) Examine which build options are available: `./waf --help`
-1) Configure build: `./waf configure --build-type=release`
+1) Configure build: `./waf configure --build-type=release --vgui=vgui-dev`
 2) Compile: `./waf build`
 3) Install(optional): `./waf install`
 
