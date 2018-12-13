@@ -4,6 +4,7 @@
 
 from waflib import Logs
 import os
+from fwgslib import get_subproject_name
 
 top = '.'
 
@@ -11,9 +12,14 @@ def options(opt):
 	opt.add_option(
 		'--vgui', action = 'store', type='string', dest = 'VGUI_DEV',
 		help = 'path to vgui-dev repo', default='' )
+
 	opt.add_option(
-		'--no-vgui', action = 'store_true', dest = 'NO_VGUI',
+		'--disable-vgui', action = 'store_true', dest = 'NO_VGUI',
 		help = 'disable vgui_support', default=False )
+
+	opt.add_option(
+		'--skip-vgui-sanity-check', action = 'store_false', dest = 'VGUI_SANITY_CHECK',
+		help = 'Skip checking VGUI sanity', default=True )
 
 	# stub
 	return
@@ -23,7 +29,7 @@ def configure(conf):
 	if conf.options.DEDICATED or conf.options.NO_VGUI:
 		return
 
-	conf.start_msg('Checking for VGUI')
+	conf.start_msg('Configuring VGUI by provided path')
 
 	if not conf.options.VGUI_DEV:
 		conf.end_msg('no')
@@ -49,8 +55,23 @@ def configure(conf):
 	conf.env.HAVE_VGUI = 1
 	conf.end_msg('yes: {0}, {1}, {2}'.format(conf.env.LIB_VGUI, conf.env.LIBPATH_VGUI, conf.env.INCLUDES_VGUI))
 
-def get_subproject_name(ctx):
-	return os.path.basename(os.path.realpath(str(ctx.path)))
+	if conf.env.HAVE_VGUI and conf.options.VGUI_SANITY_CHECK:
+		try:
+			conf.check_cxx(
+				fragment='''
+				#include <VGUI.h>
+				#include <VGUI_App.h>
+				int main( int argc, char **argv )
+				{
+					vgui::App *app = vgui::App::getInstance();
+					app->main(argc, argv);
+					return 0;
+				}''',
+				msg	= 'Checking for library VGUI sanity',
+				use = 'VGUI',
+				execute = False)
+		except conf.errors.ConfigurationError:
+			conf.fatal("Can't compile simple program. Check your path to vgui-dev repository.")
 
 def build(bld):
 	bld.load_envs()
