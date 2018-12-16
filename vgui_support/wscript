@@ -46,7 +46,8 @@ def configure(conf):
 		if conf.env.DEST_OS == 'linux':
 			conf.env.LIB_VGUI = [':vgui.so']
 		elif conf.env.DEST_OS == 'darwin':
-			conf.env.LIB_VGUI = ['vgui.dylib']
+			conf.env.LIB_VGUI = ['vgui']
+			conf.parse_flags('-Wl,-rpath,', 'VGUI')
 		else:
 			conf.fatal('vgui is not supported on this OS: ' + conf.env.DEST_OS)
 		conf.env.LIBPATH_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'lib'))]
@@ -60,11 +61,8 @@ def configure(conf):
 			conf.check_cxx(
 				fragment='''
 				#include <VGUI.h>
-				#include <VGUI_App.h>
 				int main( int argc, char **argv )
 				{
-					vgui::App *app = vgui::App::getInstance();
-					app->main(argc, argv);
 					return 0;
 				}''',
 				msg	= 'Checking for library VGUI sanity',
