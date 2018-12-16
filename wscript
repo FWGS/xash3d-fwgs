@@ -101,22 +101,22 @@ def configure(conf):
 	conf.env.SINGLE_BINARY = conf.options.DEDICATED # We don't need game launcher on dedicated
 
 	if conf.env.DEST_OS == 'linux':
-		conf.check( lib='dl' )
+		conf.check_cc( lib='dl' )
 
 	if conf.env.DEST_OS != 'win32':
-		conf.check( lib='m' )
-		conf.check( lib='pthread' )
+		conf.check_cc( lib='m' )
+		conf.check_cc( lib='pthread' )
 	else:
 		# Common Win32 libraries
 		# Don't check them more than once, to save time
 		# Usually, they are always available
 		# but we need them in uselib
-		conf.check( lib='user32' )
-		conf.check( lib='shell32' )
-		conf.check( lib='gdi32' )
-		conf.check( lib='advapi32' )
-		conf.check( lib='dbghelp' )
-		conf.check( lib='psapi' )
+		conf.check_cc( lib='user32' )
+		conf.check_cc( lib='shell32' )
+		conf.check_cc( lib='gdi32' )
+		conf.check_cc( lib='advapi32' )
+		conf.check_cc( lib='dbghelp' )
+		conf.check_cc( lib='psapi' )
 
 
 	# indicate if we are packaging for Linux/BSD

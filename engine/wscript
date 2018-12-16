@@ -18,7 +18,7 @@ def configure(conf):
 	# check for dedicated server build
 	if conf.options.DEDICATED:
 		if(conf.env.DEST_OS == 'linux'):
-			conf.check( lib='rt' )
+			conf.check_cc( lib='rt' )
 		conf.env.append_unique('DEFINES', 'SINGLE_BINARY')
 		conf.env.append_unique('DEFINES', 'XASH_DEDICATED')
 	else:
