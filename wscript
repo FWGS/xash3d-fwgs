@@ -70,7 +70,7 @@ def configure(conf):
 	linker_flags = {
 		'common': {
 			'msvc':    ['/DEBUG'], # always create PDB, doesn't affect result binaries
-			'default': ['-Wl,--no-undefined']
+			'gcc': ['-Wl,--no-undefined']
 		}
 	}
 
