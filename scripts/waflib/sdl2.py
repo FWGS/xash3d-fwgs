@@ -28,7 +28,7 @@ def sdl2_configure_path(conf, path):
 		conf.env.INCLUDES_SDL2 = [
 			os.path.abspath(os.path.join(path, 'Headers'))
 		]
-		conf.env.FRAMEWORKPATH_SDL2 = [path]
+		conf.env.FRAMEWORKPATH_SDL2 = [os.path.dirname(path)]
 		conf.env.FRAMEWORK_SDL2 = ['SDL2']
 	else:
 		conf.env.INCLUDES_SDL2 = [
