@@ -22,13 +22,19 @@ def options(opt):
 		'--skip-sdl2-sanity-check', action='store_false', default = True, dest='SDL2_SANITY_CHECK',
 		help = 'Skip checking SDL2 sanity')
 
+def my_dirname(path):
+	# really dumb, will not work with /path/framework//, but still enough
+	if path[-1] == '/':
+		path = path[:-1]
+	return os.path.dirname(path)
+
 def sdl2_configure_path(conf, path):
 	conf.env.HAVE_SDL2 = 1
 	if conf.env.DEST_OS == 'darwin':
 		conf.env.INCLUDES_SDL2 = [
 			os.path.abspath(os.path.join(path, 'Headers'))
 		]
-		conf.env.FRAMEWORKPATH_SDL2 = [os.path.dirname(path)]
+		conf.env.FRAMEWORKPATH_SDL2 = [my_dirname(path)]
 		conf.env.FRAMEWORK_SDL2 = ['SDL2']
 	else:
 		conf.env.INCLUDES_SDL2 = [
