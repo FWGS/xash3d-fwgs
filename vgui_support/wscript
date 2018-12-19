@@ -43,14 +43,14 @@ def configure(conf):
 		conf.env.LIB_VGUI = ['vgui']
 		conf.env.LIBPATH_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'lib/win32_vc6/'))]
 	else:
+		libpath = os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'lib'))
 		if conf.env.DEST_OS == 'linux':
 			conf.env.LIB_VGUI = [':vgui.so']
+			conf.env.LIBPATH_VGUI = [libpath]
 		elif conf.env.DEST_OS == 'darwin':
-			conf.env.LIB_VGUI = ['vgui']
-			conf.parse_flags('-Wl,-rpath,', 'VGUI')
+			conf.env.LDFLAGS_VGUI = [os.path.join(libpath, 'vgui.dylib')]
 		else:
 			conf.fatal('vgui is not supported on this OS: ' + conf.env.DEST_OS)
-		conf.env.LIBPATH_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'lib'))]
 	conf.env.INCLUDES_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'include'))]
 
 	conf.env.HAVE_VGUI = 1
