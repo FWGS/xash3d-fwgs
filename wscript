@@ -17,7 +17,7 @@ SUBDIRS = [ 'engine', 'game_launch', 'mainui', 'vgui_support' ]
 top = '.'
 
 def options(opt):
-	opt.load('compiler_cxx compiler_c')
+	opt.load('xcompile compiler_cxx compiler_c')
 	if sys.platform == 'win32':
 		opt.load('msvc msvs')
 
@@ -54,9 +54,11 @@ def configure(conf):
 	# TODO: wrapper around bld.stlib, bld.shlib and so on?
 	conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
 	conf.env.MSVC_TARGETS = ['x86'] # explicitly request x86 target for MSVC
-	conf.load('compiler_cxx compiler_c gitversion')
+	conf.load('xcompile compiler_c compiler_cxx gitversion')
 	if sys.platform == 'win32':
 		conf.load('msvc msvs')
+
+	# print(conf.options.ALLOW64)
 
 	conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
 	conf.env.BIT32_ALLOW64 = conf.options.ALLOW64
@@ -105,7 +107,8 @@ def configure(conf):
 
 	if conf.env.DEST_OS != 'win32':
 		conf.check_cc( lib='m' )
-		conf.check_cc( lib='pthread' )
+		if conf.env.DEST_OS2 != 'android':
+			conf.check_cc( lib='pthread' )
 	else:
 		# Common Win32 libraries
 		# Don't check them more than once, to save time

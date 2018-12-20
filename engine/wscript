@@ -21,7 +21,7 @@ def configure(conf):
 			conf.check_cc( lib='rt' )
 		conf.env.append_unique('DEFINES', 'SINGLE_BINARY')
 		conf.env.append_unique('DEFINES', 'XASH_DEDICATED')
-	else:
+	elif conf.env.DEST_OS2 != 'android': # Android doesn't need SDL2
 		conf.load('sdl2')
 		if not conf.env.HAVE_SDL2:
 			conf.fatal('SDL2 not availiable! If you want to build dedicated server, specify --dedicated')
@@ -56,16 +56,21 @@ def build(bld):
 	if bld.env.DEST_OS == 'linux':
 		source += bld.path.ant_glob(['platform/linux/*.c'])
 
-	# add client files and sdl2 library
+	if bld.env.HAVE_SDL2:
+		libs.append('SDL2')
+		source += bld.path.ant_glob(['platform/sdl/*.c'])
+
+	if bld.env.DEST_OS2 == 'android':
+		source += bld.path.ant_glob(['platform/android/*.c'])
+
+	# add client files
 	if not bld.env.DEDICATED:
-		libs.append( 'SDL2' )
 		source += bld.path.ant_glob([
 			'client/*.c',
 			'client/vgui/*.c',
-			'client/avi/*.c',
-			'platform/sdl/*.c'])
+			'client/avi/*.c'])
 	else:
-		if(bld.env.DEST_OS == 'linux'):
+		if bld.env.DEST_OS == 'linux':
 			libs.append('RT')
 
 	includes = ['common', 'server', 'client', 'client/vgui', '.', '../common', '../pm_shared' ]
