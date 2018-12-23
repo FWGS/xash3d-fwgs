@@ -54,6 +54,7 @@ convar_t	*host_clientloaded;
 convar_t	*host_limitlocal;
 convar_t	*host_maxfps;
 convar_t	*host_framerate;
+convar_t	*host_sleeptime;
 convar_t	*con_gamemaps;
 convar_t	*build, *ver;
 
@@ -168,23 +169,28 @@ Host_CheckSleep
 */
 void Host_CheckSleep( void )
 {
+	int sleeptime = host_sleeptime->value;
 	if( Host_IsDedicated() )
 	{
 		// let the dedicated server some sleep
-		Sys_Sleep( 1 );
+		Sys_Sleep( sleeptime );
 	}
 	else
 	{
 		if( host.status == HOST_NOFOCUS )
 		{
 			if( SV_Active() && CL_IsInGame( ))
-				Sys_Sleep( 1 ); // listenserver
+				Sys_Sleep( sleeptime ); // listenserver
 			else Sys_Sleep( 20 ); // sleep 20 ms otherwise
 		}
 		else if( host.status == HOST_SLEEP )
 		{
 			// completely sleep in minimized state
 			Sys_Sleep( 20 );
+		}
+		else
+		{
+			Sys_Sleep( sleeptime );
 		}
 	}
 }
@@ -944,6 +950,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	host_maxfps = Cvar_Get( "fps_max", "72", FCVAR_ARCHIVE, "host fps upper limit" );
 	host_framerate = Cvar_Get( "host_framerate", "0", 0, "locks frame timing to this value in seconds" );  
+	host_sleeptime = Cvar_Get( "sleeptime", "1", FCVAR_ARCHIVE, "milliseconds to sleep for each frame. higher values reduce fps accuracy" );
 	host_gameloaded = Cvar_Get( "host_gameloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded game.dll" );
 	host_clientloaded = Cvar_Get( "host_clientloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );
 	host_limitlocal = Cvar_Get( "host_limitlocal", "0", 0, "apply cl_cmdrate and rate to loopback connection" );
