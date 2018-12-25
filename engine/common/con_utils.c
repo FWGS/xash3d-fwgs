@@ -1249,7 +1249,7 @@ void Host_WriteConfig( void )
 		if( jlook && ( jlook->state & 1 ))
 			FS_Printf( f, "+jlook\n" );
 
-		FS_Printf( f, "exec userconfig.cfg" );
+		FS_Printf( f, "exec userconfig.cfg\n" );
 
 		CFG_END( f, "config.cfg" );
 	}
