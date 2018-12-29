@@ -132,6 +132,7 @@ BRUSH MODELS
 #define TEX_WORLD_LUXELS		BIT( 1 )	// alternative lightmap matrix will be used (luxels per world units instead of luxels per texels)
 #define TEX_AXIAL_LUXELS		BIT( 2 )	// force world luxels to axial positive scales
 #define TEX_EXTRA_LIGHTMAP		BIT( 3 )	// bsp31 legacy - using 8 texels per luxel instead of 16 texels per luxel
+#define TEX_SCROLL			BIT( 6 )	// Doom special FX
 
 // ambient sound types
 enum

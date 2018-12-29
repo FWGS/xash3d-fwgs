@@ -201,7 +201,11 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	i = MSG_ReadLong( msg );
 
 	if( i != PROTOCOL_VERSION_QUAKE )
-		Host_Error( "Server use invalid protocol (%i should be %i)\n", i, PROTOCOL_VERSION_QUAKE );
+	{
+		Con_Printf( "\n" S_ERROR "Server use invalid protocol (%i should be %i)\n", i, PROTOCOL_VERSION_QUAKE );
+		CL_StopPlayback();
+		Host_AbortCurrentFrame();
+	}
 
 	cl.maxclients = MSG_ReadByte( msg );
 	gametype = MSG_ReadByte( msg );
