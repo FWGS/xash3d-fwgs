@@ -189,6 +189,11 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		psprite->radius = pinq1->boundingradius;
 		psprite->synctype = pinq1->synctype;
 
+		// LordHavoc: hack to allow sprites to be non-fullbright
+		for( i = 0; i < MAX_QPATH && mod->name[i]; i++ )
+			if( mod->name[i] == '!' )
+				psprite->texFormat = SPR_ALPHTEST;
+
 		mod->mins[0] = mod->mins[1] = -pinq1->bounds[0] * 0.5f;
 		mod->maxs[0] = mod->maxs[1] = pinq1->bounds[0] * 0.5f;
 		mod->mins[2] = -pinq1->bounds[1] * 0.5f;

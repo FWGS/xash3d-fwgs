@@ -179,6 +179,16 @@ byte *Image_Copy( size_t size )
 
 /*
 =================
+Image_CustomPalette
+=================
+*/
+qboolean Image_CustomPalette( void )
+{
+	return image.custom_palette;
+}
+
+/*
+=================
 Image_CheckFlag
 =================
 */
@@ -311,6 +321,58 @@ void Image_SetPalette( const byte *pal, uint *d_table )
 	}
 }
 
+static void Image_ConvertPalTo24bit( rgbdata_t *pic )
+{
+	byte	*pal32, *pal24;
+	byte	*converted;
+	int	i;
+
+	if( pic->type == PF_INDEXED_24 )
+		return; // does nothing
+
+	pal24 = converted = Mem_Malloc( host.imagepool, 768 );
+	pal32 = pic->palette;
+
+	for( i = 0; i < 256; i++, pal24 += 3, pal32 += 4 )
+	{
+		pal24[0] = pal32[0];
+		pal24[1] = pal32[1];
+		pal24[2] = pal32[2];
+	}
+
+	Mem_Free( pic->palette );
+	pic->palette = converted;
+	pic->type = PF_INDEXED_24;
+}
+
+void Image_CopyPalette32bit( void )
+{
+	if( image.palette ) return; // already created ?
+	image.palette = Mem_Malloc( host.imagepool, 1024 );
+	memcpy( image.palette, image.d_currentpal, 1024 );
+}
+
+void Image_CheckPaletteQ1( void )
+{
+	rgbdata_t	*pic = FS_LoadImage( DEFAULT_INTERNAL_PALETTE, NULL, 0 );
+
+	if( pic && pic->size == 1024 )
+	{
+		Image_ConvertPalTo24bit( pic );
+		if( Image_ComparePalette( pic->palette ) == PAL_CUSTOM )
+		{
+			image.d_rendermode = LUMP_NORMAL;
+			Con_DPrintf( "custom quake palette detected\n" );
+			Image_SetPalette( pic->palette, d_8toQ1table );
+			d_8toQ1table[255] = 0; // 255 is transparent
+			image.custom_palette = true;
+			q1palette_init = true;
+		}
+	}
+
+	if( pic ) FS_FreeImage( pic );
+}
+
 void Image_GetPaletteQ1( void )
 {
 	if( !q1palette_init )
@@ -374,37 +436,6 @@ void Image_GetPaletteLMP( const byte *pal, int rendermode )
 			break;
 		}
 	}
-}
-
-static void Image_ConvertPalTo24bit( rgbdata_t *pic )
-{
-	byte	*pal32, *pal24;
-	byte	*converted;
-	int	i;
-
-	if( pic->type == PF_INDEXED_24 )
-		return; // does nothing
-
-	pal24 = converted = Mem_Malloc( host.imagepool, 768 );
-	pal32 = pic->palette;
-
-	for( i = 0; i < 256; i++, pal24 += 3, pal32 += 4 )
-	{
-		pal24[0] = pal32[0];
-		pal24[1] = pal32[1];
-		pal24[2] = pal32[2];
-	}
-
-	Mem_Free( pic->palette );
-	pic->palette = converted;
-	pic->type = PF_INDEXED_24;
-}
-
-void Image_CopyPalette32bit( void )
-{
-	if( image.palette ) return; // already created ?
-	image.palette = Mem_Malloc( host.imagepool, 1024 );
-	memcpy( image.palette, image.d_currentpal, 1024 );
 }
 
 void Image_PaletteHueReplace( byte *palSrc, int newHue, int start, int end, int pal_size )

@@ -95,6 +95,7 @@ typedef struct imglib_s
 	byte			*tempbuffer;	// for convert operations
 	int			cmd_flags;	// global imglib flags
 	int			force_flags;	// override cmd_flags
+	qboolean			custom_palette;	// custom palette was installed
 } imglib_t;
 
 /*
