@@ -620,7 +620,9 @@ void Image_PaletteHueReplace( byte *palSrc, int newHue, int start, int end, int 
 void Image_PaletteTranslate( byte *palSrc, int top, int bottom, int pal_size );
 void Image_SetForceFlags( uint flags );	// set image force flags on loading
 size_t Image_DXTGetLinearSize( int type, int width, int height, int depth );
+qboolean Image_CustomPalette( void );
 void Image_ClearForceFlags( void );
+void Image_CheckPaletteQ1( void );
 
 /*
 ========================================================================

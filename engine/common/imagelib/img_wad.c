@@ -261,7 +261,7 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, size_t filesize )
 		return Image_LoadPAL( name, buffer, filesize );
 
 	// id software trick (image without header)
-	if( image.hint != IL_HINT_HL && Q_stristr( name, "conchars" ))
+	if( Q_stristr( name, "conchars" ) && filesize == 16384 )
 	{
 		image.width = image.height = 128;
 		rendermode = LUMP_QUAKE1;
@@ -293,10 +293,14 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, size_t filesize )
 	{
 		int	numcolors;
 
-		if( fin[0] == 255 )
+		for( i = 0; i < pixels; i++ )
 		{
-			image.flags |= IMAGE_HAS_ALPHA;
-			rendermode = LUMP_MASKED;
+			if( fin[i] == 255 )
+			{
+				image.flags |= IMAGE_HAS_ALPHA;
+				rendermode = LUMP_MASKED;
+				break;
+			}
 		}
 		pal = fin + pixels;
 		numcolors = *(short *)pal;
@@ -418,14 +422,17 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, size_t filesize )
 		hl_texture = false;
 
 		// check for luma and alpha pixels
-		for( i = 0; i < image.width * image.height; i++ )
+		if( !image.custom_palette )
 		{
-			if( fin[i] > 224 && fin[i] != 255 )
+			for( i = 0; i < image.width * image.height; i++ )
 			{
-				// don't apply luma to water surfaces because they have no lightmap
-				if( mip.name[0] != '*' && mip.name[0] != '!' )
-					image.flags |= IMAGE_HAS_LUMA;
-				break;
+				if( fin[i] > 224 && fin[i] != 255 )
+				{
+					// don't apply luma to water surfaces because they have no lightmap
+					if( mip.name[0] != '*' && mip.name[0] != '!' )
+						image.flags |= IMAGE_HAS_LUMA;
+					break;
+				}
 			}
 		}
 

@@ -2195,6 +2195,9 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 		if( !Q_strncmp( tex->name, "scroll", 6 ))
 			SetBits( out->flags, SURF_CONVEYOR );
 
+		if( FBitSet( out->texinfo->flags, TEX_SCROLL ))
+			SetBits( out->flags, SURF_CONVEYOR );
+
 		// g-cont. added a combined conveyor-transparent
 		if( !Q_strncmp( tex->name, "{scroll", 7 ))
 			SetBits( out->flags, SURF_CONVEYOR|SURF_TRANSPARENT );

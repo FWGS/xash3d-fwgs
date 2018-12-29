@@ -728,22 +728,31 @@ draw console single character
 */
 static int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
 {
-	int	width, height;
-	float	s1, t1, s2, t2;
-	wrect_t	*rc;
+	int		width, height;
+	float		s1, t1, s2, t2;
+	gl_texture_t	*glt;
+	wrect_t		*rc;
 
 	number &= 255;
 
 	if( !con.curFont || !con.curFont->valid )
 		return 0;
 
-//	if( number < 32 ) return 0;
 	if( y < -con.curFont->charHeight )
 		return 0;
 
 	rc = &con.curFont->fontRc[number];
+	glt = R_GetTexture( con.curFont->hFontTexture );
+	width = glt->srcWidth;
+	height = glt->srcHeight;
 
-	pglColor4ubv( color );
+	if( !width || !height )
+		return con.curFont->charWidths[number];
+
+	// don't apply color to fixed fonts it's already colored
+	if( con.curFont->type != FONT_FIXED || glt->format == GL_LUMINANCE8_ALPHA8 )
+		pglColor4ubv( color );
+	else pglColor4ub( 255, 255, 255, color[3] );
 	R_GetTextureParms( &width, &height, con.curFont->hFontTexture );
 
 	// calc rectangle

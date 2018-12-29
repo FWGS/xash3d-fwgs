@@ -723,12 +723,20 @@ void DrawGLPoly( glpoly_t *p, float xScale, float yScale )
 
 	if( p->flags & SURF_CONVEYOR )
 	{
-		gl_texture_t	*texture;
-		float		flConveyorSpeed;
+		float		flConveyorSpeed = 0.0f;
 		float		flRate, flAngle;
+		gl_texture_t	*texture;
 
-		flConveyorSpeed = (e->curstate.rendercolor.g<<8|e->curstate.rendercolor.b) / 16.0f;
-		if( e->curstate.rendercolor.r ) flConveyorSpeed = -flConveyorSpeed;
+		if( CL_IsQuakeCompatible() && RI.currententity == clgame.entities )
+		{
+			// same as doom speed
+			flConveyorSpeed = -35.0f;
+		}
+		else
+		{
+			flConveyorSpeed = (e->curstate.rendercolor.g<<8|e->curstate.rendercolor.b) / 16.0f;
+			if( e->curstate.rendercolor.r ) flConveyorSpeed = -flConveyorSpeed;
+		}
 		texture = R_GetTexture( glState.currentTextures[glState.activeTMU] );
 
 		flRate = abs( flConveyorSpeed ) / (float)texture->srcWidth;

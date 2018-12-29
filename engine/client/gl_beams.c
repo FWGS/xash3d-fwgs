@@ -2003,7 +2003,7 @@ void CL_ReadLineFile_f( void )
 
 		count++;
 		
-		if( !R_BeamPoints( p1, p2, modelIndex, 99999, 2, 0, 255, 0, 0, 0, 255.0f, 0.0f, 0.0f ))
+		if( !R_BeamPoints( p1, p2, modelIndex, 0, 2, 0, 255, 0, 0, 0, 255.0f, 0.0f, 0.0f ))
 		{
 			if( !model || model->type != mod_sprite )
 				Con_Printf( S_ERROR "failed to load \"%s\"!\n", DEFAULT_LASERBEAM_PATH );

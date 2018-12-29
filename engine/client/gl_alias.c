@@ -433,12 +433,15 @@ rgbdata_t *Mod_CreateSkinData( model_t *mod, byte *data, int width, int height )
 	skin.palette = (byte *)&clgame.palette;
 	skin.size = width * height;
 
-	for( i = 0; i < skin.width * skin.height; i++ )
+	if( !Image_CustomPalette() )
 	{
-		if( data[i] > 224 && data[i] != 255 )
+		for( i = 0; i < skin.width * skin.height; i++ )
 		{
-			SetBits( skin.flags, IMAGE_HAS_LUMA );
-			break;
+			if( data[i] > 224 && data[i] != 255 )
+			{
+				SetBits( skin.flags, IMAGE_HAS_LUMA );
+				break;
+			}
 		}
 	}
 
@@ -478,11 +481,14 @@ rgbdata_t *Mod_CreateSkinData( model_t *mod, byte *data, int width, int height )
 void *Mod_LoadSingleSkin( daliasskintype_t *pskintype, int skinnum, int size )
 {
 	string	name, lumaname;
+	string	checkname;
 	rgbdata_t	*pic;
 
 	Q_snprintf( name, sizeof( name ), "%s:frame%i", loadmodel->name, skinnum );
 	Q_snprintf( lumaname, sizeof( lumaname ), "%s:luma%i", loadmodel->name, skinnum );
-	pic = Mod_CreateSkinData( loadmodel, (byte *)(pskintype + 1), m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
+	Q_snprintf( checkname, sizeof( checkname ), "%s_%i.tga", loadmodel->name, skinnum );
+	if( !FS_FileExists( checkname, false ) || ( pic = FS_LoadImage( checkname, NULL, 0 )) == NULL )
+		pic = Mod_CreateSkinData( loadmodel, (byte *)(pskintype + 1), m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
 
 	m_pAliasHeader->gl_texturenum[skinnum][0] =
 	m_pAliasHeader->gl_texturenum[skinnum][1] =
@@ -1445,7 +1451,17 @@ void R_DrawAliasModel( cl_entity_t *e )
 		GL_Bind( GL_TEXTURE0, tr.whiteTexture );
 	else if( pinfo != NULL && pinfo->textures[skin] != 0 )
 		GL_Bind( GL_TEXTURE0, pinfo->textures[skin] );	// FIXME: allow remapping for skingroups someday
-	else GL_Bind( GL_TEXTURE0, m_pAliasHeader->gl_texturenum[skin][anim] );
+	else
+	{
+		GL_Bind( GL_TEXTURE0, m_pAliasHeader->gl_texturenum[skin][anim] );
+
+		if( FBitSet( R_GetTexture( m_pAliasHeader->gl_texturenum[skin][anim] )->flags, TF_HAS_ALPHA ))
+		{
+			pglEnable( GL_ALPHA_TEST );
+			pglAlphaFunc( GL_GREATER, 0.0f );
+			tr.blend = 1.0f;
+		}
+	}
 
 	pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
@@ -1472,6 +1488,8 @@ void R_DrawAliasModel( cl_entity_t *e )
 	R_AliasDrawLightTrace( e );
 
 	pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
+	pglAlphaFunc( GL_GREATER, DEFAULT_ALPHATEST );
+	pglDisable( GL_ALPHA_TEST );
 
 	if( r_shadows.value )
 	{
