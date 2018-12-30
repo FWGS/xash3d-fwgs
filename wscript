@@ -142,5 +142,4 @@ def configure(conf):
 		conf.setenv('')
 
 def build(bld):
-	for i in SUBDIRS:
-		bld.recurse(SUBDIRS)
+	bld.recurse(SUBDIRS)
