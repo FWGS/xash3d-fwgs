@@ -237,22 +237,6 @@ typedef struct
 	int		source;		// may be game, menu, etc
 } bg_track_t;
 
-/*
-====================================================================
-
-  SYSTEM SPECIFIC FUNCTIONS
-
-====================================================================
-*/
-// initializes cycling through a DMA buffer and returns information on it
-qboolean SNDDMA_Init( void *hInst );
-int SNDDMA_GetSoundtime( void );
-void SNDDMA_Shutdown( void );
-void SNDDMA_BeginPainting( void );
-void SNDDMA_Submit( void );
-void SNDDMA_LockSound( void );
-void SNDDMA_UnlockSound( void );
-
 //====================================================================
 
 #define MAX_DYNAMIC_CHANNELS	(60 + NUM_AMBIENTS)

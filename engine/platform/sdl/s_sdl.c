@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
+#include "platform/platform.h"
 #if XASH_SOUND == SOUND_SDL
 
 #include "sound.h"
@@ -238,23 +239,13 @@ void SNDDMA_Shutdown( void )
 
 /*
 ===========
-S_PrintDeviceName
-===========
-*/
-void S_PrintDeviceName( void )
-{
-	Msg( "Audio: SDL (driver: %s)\n", SDL_GetCurrentAudioDriver( ) );
-}
-
-/*
-===========
-S_Activate
+SNDDMA_Activate
 Called when the main window gains or loses focus.
 The window have been destroyed and recreated
 between a deactivate and an activate.
 ===========
 */
-void S_Activate( qboolean active )
+void SNDDMA_Activate( qboolean active )
 {
 	SDL_PauseAudioDevice( sdl_dev, !active );
 }
