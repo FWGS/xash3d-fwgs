@@ -3,7 +3,7 @@
 # a1batross, mittorn, 2018
 
 from __future__ import print_function
-from waflib import Logs, Options
+from waflib import Logs
 import sys
 import os
 
@@ -79,7 +79,7 @@ def configure(conf):
 	compiler_c_cxx_flags = {
 		'common': {
 			'msvc':    ['/D_USING_V110_SDK71_'],
-			'default': ['-g']
+			'default': ['-g', '-Werror=implicit-function-declaration']
 		},
 		'release': {
 			'msvc':    ['/Zi', '/O2'],
