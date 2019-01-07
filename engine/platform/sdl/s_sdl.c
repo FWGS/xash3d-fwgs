@@ -74,10 +74,10 @@ qboolean SNDDMA_Init( void *hInst )
 		return false;
 	}
 
-#ifdef __linux__
+	// even if we don't have PA
+	// we still can safely set env variables
 	setenv( "PULSE_PROP_application.name", GI->title, 1 );
 	setenv( "PULSE_PROP_media.role", "game", 1 );
-#endif
 
 	memset( &desired, 0, sizeof( desired ) );
 	desired.freq     = SOUND_DMA_SPEED;
