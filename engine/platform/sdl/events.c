@@ -408,7 +408,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 			IN_ActivateMouse(true);
 			if( snd_mute_losefocus->value )
 			{
-				S_Activate( true );
+				SNDDMA_Activate( true );
 			}
 			host.force_draw_version = true;
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
@@ -427,7 +427,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 			IN_DeactivateMouse();
 			if( snd_mute_losefocus->value )
 			{
-				S_Activate( false );
+				SNDDMA_Activate( false );
 			}
 			host.force_draw_version = true;
 			host.force_draw_version_time = host.realtime + 2;

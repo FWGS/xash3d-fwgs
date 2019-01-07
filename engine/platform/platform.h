@@ -90,6 +90,22 @@ int       R_MaxVideoModes();
 vidmode_t*R_GetVideoMode( int num );
 void*     GL_GetProcAddress( const char *name ); // RenderAPI requirement
 
+/*
+==============================================================================
 
+			AUDIO INPUT/OUTPUT
+
+==============================================================================
+*/
+// initializes cycling through a DMA buffer and returns information on it
+qboolean SNDDMA_Init( void *hInst );
+int  SNDDMA_GetSoundtime( void );
+void SNDDMA_Shutdown( void );
+void SNDDMA_BeginPainting( void );
+void SNDDMA_Submit( void );
+void SNDDMA_Activate( qboolean active ); // pause audio
+// void SNDDMA_PrintDeviceName( void ); // unused
+// void SNDDMA_LockSound( void ); // unused
+// void SNDDMA_UnlockSound( void ); // unused
 
 #endif // PLATFORM_H
