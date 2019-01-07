@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include "common.h"
+#include "platform.h"
 #if XASH_SOUND == SOUND_OPENSLES
 #include <SLES/OpenSLES.h>
 #include "pthread.h"
@@ -50,7 +51,7 @@ static SLresult SLAPIENTRY (*pslCreateEngine)(
 		const SLboolean         * pInterfaceRequired
 );
 
-void S_Activate( qboolean active )
+void SNDDMA_Activate( qboolean active )
 {
 	if( !dma.initialized )
 		return;
@@ -300,10 +301,5 @@ int SNDDMA_GetSoundtime( void )
 	oldsamplepos = samplepos;
 
 	return (buffers * fullsamples + samplepos / 2);
-}
-
-void S_PrintDeviceName( void )
-{
-	Msg( "Audio: OpenSL\n" );
 }
 #endif
