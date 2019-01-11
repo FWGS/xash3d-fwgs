@@ -6,12 +6,11 @@ APPDIR=$APP-i386.AppDir
 mkdir -p $APPDIR
 
 # Generate extras.pak
-python3 scripts/makepak.py extras.pak
+python3 scripts/makepak.py xash-extras/ $APPDIR/extras.pak
 
 # Copy all needed files
 cp SDL2_linux/lib/libSDL2-2.0.so.0 $APPDIR/
 cp vgui-dev/lib/vgui.so $APPDIR/
-cp extras.pak $APPDIR/extras.pak
 cp build/engine/libxash.so \
 	build/mainui/libmenu.so \
 	build/vgui_support/libvgui_support.so \
