@@ -117,6 +117,7 @@ int Sys_LogFileNo( void );
 // con_win.c
 //
 #ifdef _WIN32
+void Wcon_InitConsoleCommands( void );
 void Wcon_ShowConsole( qboolean show );
 void Wcon_Print( const char *pMsg );
 void Wcon_Init( void );
