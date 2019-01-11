@@ -983,6 +983,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	if( Host_IsDedicated() )
 	{
 #ifdef _WIN32
+		void Wcon_InitConsoleCommands( void ) // con_win.c
 		Wcon_InitConsoleCommands ();
 #endif
 
