@@ -1,3 +1,6 @@
 [submodule "mainui"]
 	path = mainui
 	url = https://github.com/FWGS/mainui_cpp
+[submodule "vgui_support/miniutl"]
+	path = vgui_support/miniutl
+	url = https://github.com/FWGS/miniutl
