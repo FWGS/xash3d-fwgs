@@ -86,9 +86,9 @@ def build(bld):
 
 	libs.append('VGUI')
 
-	source = bld.path.ant_glob(['*.cpp'])
+	source = bld.path.ant_glob(['*.cpp', 'miniutl/utlvector.cpp', 'miniutl/utlmemory.cpp'])
 
-	includes = [ '.', '../common', '../engine' ]
+	includes = [ '.', 'miniutl/', '../common', '../engine' ]
 
 	bld.shlib(
 		source   = source,
