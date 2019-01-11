@@ -170,6 +170,9 @@ Host_CheckSleep
 void Host_CheckSleep( void )
 {
 	int sleeptime = host_sleeptime->value;
+
+	if( host.frametime !)
+
 	if( Host_IsDedicated() )
 	{
 		// let the dedicated server some sleep
@@ -443,9 +446,12 @@ double Host_CalcFPS( void )
 {
 	double	fps = 0.0;
 
-	// NOTE: we should play demos with same fps as it was recorded
+	if( Host_IsDedicated() )
+	{
+		fps = sys_ticrate.value;
+	}
 #ifndef XASH_DEDICATED
-	if( CL_IsPlaybackDemo() || CL_IsRecordDemo( ))
+	else if( CL_IsPlaybackDemo() || CL_IsRecordDemo( )) // NOTE: we should play demos with same fps as it was recorded
 	{
 		fps = CL_GetDemoFramerate();
 	}
@@ -454,18 +460,11 @@ double Host_CalcFPS( void )
 		fps = host_maxfps->value;
 	}
 	else
-#endif
-	if( Host_IsDedicated() )
-	{
-		fps = sys_ticrate.value;
-	}
-	else
 	{
 		fps = host_maxfps->value;
 		fps = bound( MIN_FPS, fps, MAX_FPS );
 	}
 
-#ifndef XASH_DEDICATED
 	// probably left part of this condition is redundant :-)
 	if( host.type != HOST_DEDICATED && Host_IsLocalGame( ) && !CL_IsTimeDemo( ))
 	{
