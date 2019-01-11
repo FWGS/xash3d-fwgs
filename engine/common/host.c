@@ -171,8 +171,6 @@ void Host_CheckSleep( void )
 {
 	int sleeptime = host_sleeptime->value;
 
-	if( host.frametime !)
-
 	if( Host_IsDedicated() )
 	{
 		// let the dedicated server some sleep
