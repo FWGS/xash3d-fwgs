@@ -76,8 +76,8 @@ qboolean SNDDMA_Init( void *hInst )
 
 	// even if we don't have PA
 	// we still can safely set env variables
-	setenv( "PULSE_PROP_application.name", GI->title, 1 );
-	setenv( "PULSE_PROP_media.role", "game", 1 );
+	SDL_setenv( "PULSE_PROP_application.name", GI->title, 1 );
+	SDL_setenv( "PULSE_PROP_media.role", "game", 1 );
 
 	memset( &desired, 0, sizeof( desired ) );
 	desired.freq     = SOUND_DMA_SPEED;
