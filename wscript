@@ -54,7 +54,7 @@ def configure(conf):
 	# TODO: wrapper around bld.stlib, bld.shlib and so on?
 	conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
 	conf.env.MSVC_TARGETS = ['x86'] # explicitly request x86 target for MSVC
-	conf.load('xcompile compiler_c compiler_cxx gitversion')
+	conf.load('xcompile compiler_c compiler_cxx gitversion clang_compilation_database')
 	if sys.platform == 'win32':
 		conf.load('msvc msvs')
 
