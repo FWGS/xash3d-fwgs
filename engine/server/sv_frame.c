@@ -998,8 +998,14 @@ void SV_InactivateClients( void )
 		if( !cl->state || !cl->edict )
 			continue;
 			
-		if( !cl->edict || FBitSet( cl->edict->v.flags, FL_FAKECLIENT ))
+		if( !cl->edict  )
 			continue;
+
+		if( FBitSet( cl->edict->v.flags, FL_FAKECLIENT ))
+		{
+			SV_DropClient( cl, false );
+			continue;
+		}
 
 		if( cl->state > cs_connected )
 			cl->state = cs_connected;
