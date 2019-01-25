@@ -661,6 +661,7 @@ typedef struct
 	file_t		*demoheader;		// contain demo startup info in case we record a demo on this level
 	qboolean internetservers_wait;	// internetservers is waiting for dns request
 	qboolean internetservers_pending;	// internetservers is waiting for dns request
+	qboolean legacymode;				// one-way 48 protocol compatibility
 } client_static_t;
 
 #ifdef __cplusplus
@@ -873,6 +874,9 @@ _inline cl_entity_t *CL_EDICT_NUM( int n )
 // cl_parse.c
 //
 void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message );
+void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message );
+void CL_LegacyPrecache_f( void );
+
 void CL_ParseTempEntity( sizebuf_t *msg );
 void CL_StartResourceDownloading( const char *pszMessage, qboolean bCustom );
 qboolean CL_DispatchUserMessage( const char *pszName, int iSize, void *pbuf );

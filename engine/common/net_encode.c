@@ -81,6 +81,10 @@ static const delta_field_t pm_fields[] =
 { PHYS_DEF( skyvec_z )		},
 { PHYS_DEF( fog_settings )		},
 { PHYS_DEF( wateralpha )		},
+{ PHYS_DEF( skydir_x )		},
+{ PHYS_DEF( skydir_y )		},
+{ PHYS_DEF( skydir_z )		},
+{ PHYS_DEF( skyangle )		},
 { NULL },
 };
 
@@ -511,12 +515,23 @@ void Delta_ParseTableField( sizebuf_t *msg )
 
 	tableIndex = MSG_ReadUBitLong( msg, 4 );
 	dt = Delta_FindStructByIndex( tableIndex );
-
-	Assert( dt != NULL );
+	if( !dt )
+		Host_Error( "Delta_ParseTableField: not initialized" );
 
 	nameIndex = MSG_ReadUBitLong( msg, 8 );	// read field name index		
-	Assert( nameIndex >= 0 && nameIndex < dt->maxFields );
+	if( !( nameIndex >= 0 && nameIndex < dt->maxFields ) )
+	{
+		Con_Reportf( "Delta_ParseTableField: wrong nameIndex %d for table %s, ignoring\n", nameIndex,  dt->pName );
+		MSG_ReadUBitLong( msg, 10 );
+		MSG_ReadUBitLong( msg, 5 ) + 1;
+		if( MSG_ReadOneBit( msg ))
+			MSG_ReadFloat( msg );
+		if( MSG_ReadOneBit( msg ))
+			MSG_ReadFloat( msg );
+		return;
+	}
 	pName = dt->pInfo[nameIndex].name;
+
 	flags = MSG_ReadUBitLong( msg, 10 );
 	bits = MSG_ReadUBitLong( msg, 5 ) + 1;
 
@@ -1600,7 +1615,7 @@ void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, f
 
 	*to = *from;
 
-	if( !MSG_ReadOneBit( msg ))
+	if( !cls.legacymode && !MSG_ReadOneBit( msg ))
 		return; // we have no changes
 
 	// process fields
@@ -1839,29 +1854,31 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 		Host_Error( "MSG_ReadDeltaEntity: unknown update type %i\n", fRemoveType );
 	}
 
-	if( MSG_ReadOneBit( msg ))
-		baseline_offset = MSG_ReadSBitLong( msg, 7 );
-
-	if( baseline_offset != 0 )
+	if( !cls.legacymode )
 	{
-		if( delta_type == DELTA_STATIC )
-		{
-			int backup = Q_max( 0, clgame.numStatics - abs( baseline_offset ));
-			from = &clgame.static_entities[backup].baseline;
-		}
-		else if( baseline_offset > 0 )
-		{
-			int backup = cls.next_client_entities - baseline_offset;
-			from = &cls.packet_entities[backup % cls.num_client_entities];
-		}
-		else
-		{
-			baseline_offset = abs( baseline_offset );
-			if( baseline_offset < cl.instanced_baseline_count )
-				from = &cl.instanced_baseline[baseline_offset];
-		}
-	}
+		if( MSG_ReadOneBit( msg ))
+			baseline_offset = MSG_ReadSBitLong( msg, 7 );
 
+		if( baseline_offset != 0 )
+		{
+			if( delta_type == DELTA_STATIC )
+			{
+				int backup = Q_max( 0, clgame.numStatics - abs( baseline_offset ));
+				from = &clgame.static_entities[backup].baseline;
+			}
+			else if( baseline_offset > 0 )
+			{
+				int backup = cls.next_client_entities - baseline_offset;
+				from = &cls.packet_entities[backup % cls.num_client_entities];
+			}
+			else
+			{
+				baseline_offset = abs( baseline_offset );
+				if( baseline_offset < cl.instanced_baseline_count )
+					from = &cl.instanced_baseline[baseline_offset];
+			}
+		}
+		}
 	// g-cont. probably is redundant
 	*to = *from;
 
@@ -1869,7 +1886,7 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 		to->entityType = MSG_ReadUBitLong( msg, 2 );
 	to->number = number;
 
-	if( FBitSet( to->entityType, ENTITY_BEAM ))
+	if( cls.legacymode?(to->entityType == ENTITY_BEAM):FBitSet(to->entityType, ENTITY_BEAM) )
 	{
 		dt = Delta_FindStruct( "custom_entity_state_t" );
 	}

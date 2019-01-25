@@ -645,7 +645,7 @@ qboolean MSG_ReadBytes( sizebuf_t *sb, void *pOut, int nBytes )
 
 char *MSG_ReadStringExt( sizebuf_t *sb, qboolean bLine )
 {
-	static char	string[2048];
+	static char	string[4096];
 	int		l = 0, c;
 	
 	do

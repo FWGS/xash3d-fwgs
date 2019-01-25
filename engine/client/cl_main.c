@@ -69,6 +69,7 @@ convar_t	*cl_lw;
 convar_t	*cl_charset;
 convar_t	*cl_trace_messages;
 convar_t	*hud_utf8;
+convar_t	*cl_legacymode;
 
 //
 // userinfo
@@ -1015,7 +1016,11 @@ void CL_SendConnectPacket( void )
 	Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
 	Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
 
-	Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, cls.challenge, protinfo, cls.userinfo );
+	/// TODO: identification for legacy mode
+	if( cls.legacymode )
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\"\n", 48, Q_atoi(qport), cls.challenge, cls.userinfo );
+	else
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, cls.challenge, protinfo, cls.userinfo );
 	cls.timestart = Sys_DoubleTime();
 }
 
@@ -1098,9 +1103,10 @@ void CL_CheckForResend( void )
 
 	Con_Printf( "Connecting to %s... [retry #%i]\n", cls.servername, cls.connect_retry );
 
-	if( cl_test_bandwidth.value )
+	if( !cls.legacymode && cl_test_bandwidth.value )
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "bandwidth %i %i\n", PROTOCOL_VERSION, cls.max_fragment_size );
-	else Netchan_OutOfBandPrint( NS_CLIENT, adr, "getchallenge\n" );
+	else
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, "getchallenge\n" );
 }
 
 resource_t *CL_AddResource( resourcetype_t type, const char *name, int size, qboolean bFatalIfMissing, int index )
@@ -1371,6 +1377,8 @@ This is also called on Host_Error, so it shouldn't cause any errors
 */
 void CL_Disconnect( void )
 {
+	cls.legacymode = cl_legacymode->value;
+
 	if( cls.state == ca_disconnected )
 		return;
 
@@ -1437,12 +1445,15 @@ void CL_LocalServers_f( void )
 
 	Con_Printf( "Scanning for servers on the local network area...\n" );
 	NET_Config( true ); // allow remote
-	
+
+	if( cls.state == ca_disconnected )
+		cls.legacymode = cl_legacymode->value;
+
 	// send a broadcast packet
 	adr.type = NA_BROADCAST;
 	adr.port = MSG_BigShort( PORT_SERVER );
 
-	Netchan_OutOfBandPrint( NS_CLIENT, adr, "info %i", PROTOCOL_VERSION );
+	Netchan_OutOfBandPrint( NS_CLIENT, adr, "info %i", cls.legacymode?PROTOCOL_LEGACY_VERSION:PROTOCOL_VERSION );
 }
 
 #define MS_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0"
@@ -1459,6 +1470,9 @@ void CL_InternetServers_f( void )
 	const size_t remaining = sizeof( fullquery ) - sizeof( MS_SCAN_REQUEST );
 
 	NET_Config( true ); // allow remote
+
+	if( cls.state == ca_disconnected )
+		cls.legacymode = cl_legacymode->value;
 
 	Con_Printf( "Scanning for servers on the internet area...\n" );
 	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
@@ -1935,7 +1949,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			else if( clgame.request_type == NET_REQUEST_GAMEUI )
 			{
 				NET_Config( true ); // allow remote
-				Netchan_OutOfBandPrint( NS_CLIENT, servadr, "info %i", PROTOCOL_VERSION );
+				Netchan_OutOfBandPrint( NS_CLIENT, servadr, "info %i", cls.legacymode?PROTOCOL_LEGACY_VERSION:PROTOCOL_VERSION );
 			}
 		}
 
@@ -2016,6 +2030,7 @@ void CL_ReadNetMessage( void )
 		// run special handler for quake demos
 		if( cls.demoplayback == DEMO_QUAKE1 )
 			CL_ParseQuakeMessage( &net_message, true );
+		else if( cls.legacymode ) CL_ParseLegacyServerMessage( &net_message, true );
 		else CL_ParseServerMessage( &net_message, true );
 		cl.send_reply = true;
 	}
@@ -2617,6 +2632,7 @@ void CL_InitLocal( void )
 	hud_scale = Cvar_Get( "hud_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "scale hud at current resolution" );
 	Cvar_Get( "cl_background", "0", FCVAR_READ_ONLY, "indicate what background map is running" );
 	cl_showevents = Cvar_Get( "cl_showevents", "0", FCVAR_ARCHIVE, "show events playback" );
+	cl_legacymode = Cvar_Get( "cl_legacymode", "0", 0, "legacy mode compatibility" );
 	Cvar_Get( "lastdemo", "", FCVAR_ARCHIVE, "last played demo" );
 
 	// these two added to shut up CS 1.5 about 'unknown' commands
@@ -2676,6 +2692,8 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("reconnect", CL_Reconnect_f, "reconnect to current level" );
 
 	Cmd_AddCommand ("rcon", CL_Rcon_f, "sends a command to the server console (rcon_password and rcon_address required)" );
+	Cmd_AddCommand ("precache", CL_LegacyPrecache_f, "legacy server compatibility" );
+
 }
 
 //============================================================================

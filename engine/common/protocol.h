@@ -243,4 +243,18 @@ GNU General Public License for more details.
 extern const char	*svc_strings[svc_lastmsg+1];
 extern const char	*clc_strings[clc_lastmsg+1];
 
+// legacy protocol definitons
+#define PROTOCOL_LEGACY_VERSION		48
+#define svc_legacy_modelindex		31	// [index][modelpath]
+#define svc_legacy_soundindex		28	// [index][soundpath]
+#define svc_legacy_eventindex		34	// [index][eventname]
+#define svc_legacy_ambientsound		29
+#define svc_legacy_chokecount 42		// old client specified count, new just sends svc_choke
+#define svc_legacy_event			27	// playback event queue
+#define svc_legacy_changing			3	// changelevel by server request
+
+#define SND_LEGACY_LARGE_INDEX		(1<<2)	// a send sound as short
+#define MAX_LEGACY_ENTITY_BITS		12
+#define MAX_LEGACY_WEAPON_BITS		5
+#define MAX_LEGACY_MODEL_BITS 11
 #endif//NET_PROTOCOL_H
