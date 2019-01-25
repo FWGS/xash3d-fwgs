@@ -104,7 +104,7 @@ void R_MarkLights( dlight_t *light, int bit, mnode_t *node )
 	msurface_t	*surf;
 	int		i;
 	
-	if( node->contents < 0 )
+	if( !node || node->contents < 0 )
 		return;
 
 	dist = PlaneDiff( light->origin, node->plane );
