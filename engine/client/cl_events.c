@@ -393,7 +393,7 @@ void CL_ParseEvent( sizebuf_t *msg )
 		event_index = MSG_ReadUBitLong( msg, MAX_EVENT_BITS );
 
 		if( MSG_ReadOneBit( msg ))
-			packet_index = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
+			packet_index = MSG_ReadUBitLong( msg, cls.legacymode?MAX_LEGACY_ENTITY_BITS:MAX_ENTITY_BITS );
 		else packet_index = -1;
 
 		if( MSG_ReadOneBit( msg ))
