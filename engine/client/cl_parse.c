@@ -2952,6 +2952,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 			{
 				if( cl.frames[j & CL_UPDATE_MASK].receivedtime != -3.0 )
 				{
+					cl.frames[j & CL_UPDATE_MASK].choked = true;
 					cl.frames[j & CL_UPDATE_MASK].receivedtime = -2.0;
 					i--;
 				}
