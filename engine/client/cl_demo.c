@@ -497,10 +497,10 @@ void CL_DrawDemoRecording( void )
 
 	pos = FS_Tell( cls.demofile );
 	Q_snprintf( string, sizeof( string ), "^1RECORDING:^7 %s: %s time: %02d:%02d", cls.demoname,
-	Q_memprint( pos ), (int)(cls.demotime / 60.0f ), (int)fmod( cls.demotime, 60.0f ));
+		Q_memprint( pos ), (int)(cls.demotime / 60.0f ), (int)fmod( cls.demotime, 60.0f ));
 
 	Con_DrawStringLen( string, &len, NULL );
-	Con_DrawString(( glState.width - len ) >> 1, glState.height >> 2, string, color );
+	Con_DrawString(( glState.width - len ) >> 1, glState.height >> 4, string, color );
 }
 
 /*
