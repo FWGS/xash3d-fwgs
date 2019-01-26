@@ -585,14 +585,14 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 	if( !host.hWnd )
 	{
-		Con_Reportf( S_ERROR  "VID_CreateWindow: couldn't create '%s': %s\n", wndname, SDL_GetError());
+		Con_Reportf( S_ERROR "VID_CreateWindow: couldn't create '%s': %s\n", wndname, SDL_GetError());
 
-		// remove MSAA, if it present, because
-		// window creating may fail on GLX visual choose
-		if( gl_wgl_msaa_samples->value || glw_state.safe >= 0 )
+		// skip some attribs in hope that context creating will not fail
+		if( glw_state.safe >= SAFE_NO )
 		{
-			Cvar_Set( "gl_wgl_msaa_samples", "0" );
-			glw_state.safe++;
+			if( !gl_wgl_msaa_samples->value && glw_state.safe + 1 == SAFE_NOMSAA )
+				glw_state.safe += 2; // no need to skip msaa, if we already disabled it
+			else glw_state.safe++;
 			GL_SetupAttributes(); // re-choose attributes
 
 			// try again
@@ -719,11 +719,9 @@ static void GL_SetupAttributes( void )
 
 	SDL_GL_ResetAttributes();
 
-
 #ifdef XASH_GLES
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES );
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_EGL, 1 );
-
 #ifdef XASH_NANOGL
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 1 );
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 1 );
@@ -731,7 +729,6 @@ static void GL_SetupAttributes( void )
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 2 );
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 0 );
 #endif
-
 #else // GL1.x
 #ifndef XASH_GL_STATIC
 	if( Sys_CheckParm( "-gldebug" ) )
@@ -754,77 +751,89 @@ static void GL_SetupAttributes( void )
 	}
 #endif // XASH_GLES
 
-	SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
-
 	if( glw_state.safe > SAFE_DONTCARE )
 	{
-		glw_state.safe = -1;
+		glw_state.safe = -1; // can't retry anymore, can only shutdown engine
 		return;
 	}
 
-	if( glw_state.safe > SAFE_NO )
-		Msg("Trying safe opengl mode %d\n", glw_state.safe );
+	Msg( "Trying safe opengl mode %d\n", glw_state.safe );
 
-	if( glw_state.safe >= SAFE_NOACC )
+	if( glw_state.safe == SAFE_DONTCARE )
+		return;
+
+	SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
+
+	if( glw_state.safe < SAFE_NOACC )
 		SDL_GL_SetAttribute( SDL_GL_ACCELERATED_VISUAL, 1 );
 
-	Msg ("bpp %d\n", glw_state.desktopBitsPixel );
+	Msg( "bpp %d\n", glw_state.desktopBitsPixel );
+
+	if( glw_state.safe < SAFE_NOSTENCIL )
+		SDL_GL_SetAttribute( SDL_GL_STENCIL_SIZE, gl_stencilbits->value );
+
+	if( glw_state.safe < SAFE_NOALPHA )
+		SDL_GL_SetAttribute( SDL_GL_ALPHA_SIZE, 8 );
 
 	if( glw_state.safe < SAFE_NODEPTH )
 		SDL_GL_SetAttribute( SDL_GL_DEPTH_SIZE, 24 );
-	else if( glw_state.safe < 5 )
+	else
 		SDL_GL_SetAttribute( SDL_GL_DEPTH_SIZE, 8 );
 
-
-	if( glw_state.safe < SAFE_NOATTRIB )
+	if( glw_state.safe < SAFE_NOCOLOR )
 	{
 		if( glw_state.desktopBitsPixel >= 24 )
 		{
-			if( glw_state.desktopBitsPixel == 32 )
-				SDL_GL_SetAttribute( SDL_GL_ALPHA_SIZE, 8 );
-
 			SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 8 );
 			SDL_GL_SetAttribute( SDL_GL_GREEN_SIZE, 8 );
 			SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 8 );
 		}
-		else
+		else if( glw_state.desktopBitsPixel >= 16 )
 		{
 			SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 5 );
 			SDL_GL_SetAttribute( SDL_GL_GREEN_SIZE, 6 );
 			SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 5 );
 		}
+		else
+		{
+			SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 3 );
+			SDL_GL_SetAttribute( SDL_GL_GREEN_SIZE, 3 );
+			SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 2 );
+		}
 	}
 
-	if( glw_state.safe >= SAFE_DONTCARE )
-		return;
-
-	SDL_GL_SetAttribute( SDL_GL_STENCIL_SIZE, gl_stencilbits->value );
-
-	switch( (int)gl_wgl_msaa_samples->value )
+	if( glw_state.safe < SAFE_NOMSAA )
 	{
-	case 2:
-	case 4:
-	case 8:
-	case 16:
-		samples = gl_wgl_msaa_samples->value;
-		break;
-	default:
-		samples = 0; // don't use, because invalid parameter is passed
-	}
+		switch( (int)gl_wgl_msaa_samples->value )
+		{
+		case 2:
+		case 4:
+		case 8:
+		case 16:
+			samples = gl_wgl_msaa_samples->value;
+			break;
+		default:
+			samples = 0; // don't use, because invalid parameter is passed
+		}
 
-	if( samples )
-	{
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, samples);
+		if( samples )
+		{
+			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 1 );
+			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, samples );
 
-		glConfig.max_multisamples = samples;
+			glConfig.max_multisamples = samples;
+		}
+		else
+		{
+			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 0 );
+			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, 0 );
+
+			glConfig.max_multisamples = 0;
+		}
 	}
 	else
 	{
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
-
-		glConfig.max_multisamples = 0;
+		Cvar_Set( "gl_wgl_msaa_samples", "0" );
 	}
 }
 
@@ -849,14 +858,7 @@ qboolean R_Init_Video( void )
 	glw_state.desktopHeight = displayMode.h;
 
 	if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", safe ) )
-	{
-		glw_state.safe = Q_atoi( safe );
-		if( glw_state.safe < SAFE_NOACC || glw_state.safe > SAFE_DONTCARE  )
-			glw_state.safe = SAFE_DONTCARE;
-	}
-
-	if( glw_state.safe < SAFE_NO || glw_state.safe > SAFE_DONTCARE  )
-		return false;
+		glw_state.safe = bound( SAFE_NO, Q_atoi( safe ), SAFE_DONTCARE );
 
 	GL_SetupAttributes();
 
