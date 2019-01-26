@@ -69,7 +69,6 @@ convar_t	*cl_lw;
 convar_t	*cl_charset;
 convar_t	*cl_trace_messages;
 convar_t	*hud_utf8;
-convar_t	*cl_legacymode;
 
 //
 // userinfo
@@ -1016,11 +1015,19 @@ void CL_SendConnectPacket( void )
 	Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
 	Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
 
-	/// TODO: identification for legacy mode
 	if( cls.legacymode )
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\"\n", 48, Q_atoi(qport), cls.challenge, cls.userinfo );
+	{
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\"\n",
+			PROTOCOL_LEGACY_VERSION, Q_atoi( qport ), cls.challenge, cls.userinfo );
+		Con_Printf( "Trying to connect by legacy protocol\n" );
+	}
 	else
+	{
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, cls.challenge, protinfo, cls.userinfo );
+		Con_Printf( "Trying to connect by modern protocol\n" );
+	}
+
+
 	cls.timestart = Sys_DoubleTime();
 }
 
@@ -1171,8 +1178,14 @@ CL_Connect_f
 void CL_Connect_f( void )
 {
 	string	server;
+	qboolean legacyconnect = false;
 
-	if( Cmd_Argc() != 2 )
+	// hidden hint to connect by using legacy protocol
+	if( Cmd_Argc() == 3 )
+	{
+		legacyconnect = !Q_strcmp( Cmd_Argv( 2 ), "legacy" );
+	}
+	else if( Cmd_Argc() != 2 )
 	{
 		Con_Printf( S_USAGE "connect <server>\n" );
 		return;	
@@ -1192,6 +1205,7 @@ void CL_Connect_f( void )
 	Key_SetKeyDest( key_console );
 
 	cls.state = ca_connecting;
+	cls.legacymode = legacyconnect;
 	Q_strncpy( cls.servername, server, sizeof( cls.servername ));
 	cls.connect_time = MAX_HEARTBEAT; // CL_CheckForResend() will fire immediately
 	cls.max_fragment_size = FRAGMENT_MAX_SIZE; // guess a we can establish connection with maximum fragment size
@@ -1377,7 +1391,7 @@ This is also called on Host_Error, so it shouldn't cause any errors
 */
 void CL_Disconnect( void )
 {
-	cls.legacymode = cl_legacymode->value;
+	cls.legacymode = false;
 
 	if( cls.state == ca_disconnected )
 		return;
@@ -1446,9 +1460,6 @@ void CL_LocalServers_f( void )
 	Con_Printf( "Scanning for servers on the local network area...\n" );
 	NET_Config( true ); // allow remote
 
-	if( cls.state == ca_disconnected )
-		cls.legacymode = cl_legacymode->value;
-
 	// send a broadcast packet
 	adr.type = NA_BROADCAST;
 	adr.port = MSG_BigShort( PORT_SERVER );
@@ -1470,9 +1481,6 @@ void CL_InternetServers_f( void )
 	const size_t remaining = sizeof( fullquery ) - sizeof( MS_SCAN_REQUEST );
 
 	NET_Config( true ); // allow remote
-
-	if( cls.state == ca_disconnected )
-		cls.legacymode = cl_legacymode->value;
 
 	Con_Printf( "Scanning for servers on the internet area...\n" );
 	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
@@ -1603,7 +1611,7 @@ void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 
 	CL_FixupColorStringsForInfoString( s, infostring );
 
-	if( cl_legacymode->value && Q_strstr( infostring, "wrong version" ) )
+	if( Q_strstr( infostring, "wrong version" ) )
 	{
 		Netchan_OutOfBandPrint( NS_CLIENT, from, "info %i", PROTOCOL_LEGACY_VERSION );
 		Con_Printf( "^1Server^7: %s, Info: %s\n", NET_AdrToString( from ), infostring );
@@ -1815,6 +1823,14 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		// print command from somewhere
 		Con_Printf( "%s", MSG_ReadString( msg ));
 	}
+	else if( !Q_strcmp( c, "errormsg" ))
+	{
+		args = MSG_ReadString( msg );
+		if( !Q_strcmp( args, "Server uses protocol version 48.\n" ))
+		{
+			cls.legacyserver = from;
+		}
+	}
 	else if( !Q_strcmp( c, "testpacket" ))
 	{
 		byte	recv_buf[NET_MAX_FRAGMENT];
@@ -1894,6 +1910,12 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		// a disconnect message from the server, which will happen if the server
 		// dropped the connection but it is still getting packets from us
 		CL_Disconnect_f();
+
+		if( NET_CompareAdr( from, cls.legacyserver ))
+		{
+			Cbuf_AddText( va( "connect %s legacy\n", NET_AdrToString( from )));
+			memset( &cls.legacyserver, 0, sizeof( cls.legacyserver ));
+		}
 	}
 	else if( !Q_strcmp( c, "f" ))
 	{
@@ -2639,7 +2661,6 @@ void CL_InitLocal( void )
 	hud_scale = Cvar_Get( "hud_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "scale hud at current resolution" );
 	Cvar_Get( "cl_background", "0", FCVAR_READ_ONLY, "indicate what background map is running" );
 	cl_showevents = Cvar_Get( "cl_showevents", "0", FCVAR_ARCHIVE, "show events playback" );
-	cl_legacymode = Cvar_Get( "cl_legacymode", "0", 0, "legacy mode compatibility" );
 	Cvar_Get( "lastdemo", "", FCVAR_ARCHIVE, "last played demo" );
 
 	// these two added to shut up CS 1.5 about 'unknown' commands
