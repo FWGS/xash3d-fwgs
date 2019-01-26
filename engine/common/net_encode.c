@@ -1603,6 +1603,7 @@ Read the clientdata
 */
 void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, float timebase )
 {
+#ifndef XASH_DEDICATED
 	delta_t		*pField;
 	delta_info_t	*dt;
 	int		i;
@@ -1623,6 +1624,7 @@ void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, f
 	{
 		Delta_ReadField( msg, pField, from, to, timebase );
 	}
+#endif
 }
 
 /*
