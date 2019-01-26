@@ -1453,7 +1453,7 @@ void CL_LocalServers_f( void )
 	adr.type = NA_BROADCAST;
 	adr.port = MSG_BigShort( PORT_SERVER );
 
-	Netchan_OutOfBandPrint( NS_CLIENT, adr, "info %i", cls.legacymode?PROTOCOL_LEGACY_VERSION:PROTOCOL_VERSION );
+	Netchan_OutOfBandPrint( NS_CLIENT, adr, "info %i", PROTOCOL_VERSION );
 }
 
 #define MS_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0"
@@ -1602,6 +1602,13 @@ void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	char		*s = MSG_ReadString( msg );
 
 	CL_FixupColorStringsForInfoString( s, infostring );
+
+	if( cl_legacymode->value && Q_strstr( infostring, "wrong version" ) )
+	{
+		Netchan_OutOfBandPrint( NS_CLIENT, from, "info %i", PROTOCOL_LEGACY_VERSION );
+		Con_Printf( "^1Server^7: %s, Info: %s\n", NET_AdrToString( from ), infostring );
+		return;
+	}
 
 	if( !COM_CheckString( Info_ValueForKey( infostring, "gamedir" )))
 	{
@@ -1949,7 +1956,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			else if( clgame.request_type == NET_REQUEST_GAMEUI )
 			{
 				NET_Config( true ); // allow remote
-				Netchan_OutOfBandPrint( NS_CLIENT, servadr, "info %i", cls.legacymode?PROTOCOL_LEGACY_VERSION:PROTOCOL_VERSION );
+				Netchan_OutOfBandPrint( NS_CLIENT, servadr, "info %i", PROTOCOL_VERSION );
 			}
 		}
 
