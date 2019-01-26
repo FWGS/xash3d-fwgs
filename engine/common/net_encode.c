@@ -543,7 +543,8 @@ void Delta_ParseTableField( sizebuf_t *msg )
 		post_mul = MSG_ReadFloat( msg );
 
 	// delta encoders it's already initialized on this machine (local game)
-	if( delta_init ) return;
+	if( delta_init )
+		Delta_Shutdown();
 
 	// add field to table
 	Delta_AddField( dt->pName, pName, flags, bits, mul, post_mul );
