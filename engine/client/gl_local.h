@@ -609,17 +609,20 @@ typedef struct
 
 typedef enum
 {
-	SAFE_NO,
-	SAFE_NOACC,
-	SAFE_NODEPTH,
-	SAFE_NOATTRIB,
-	SAFE_DONTCARE
+	SAFE_NO = 0,
+	SAFE_NOMSAA,      // skip msaa
+	SAFE_NOACC,       // don't set acceleration flag
+	SAFE_NOSTENCIL,   // don't set stencil bits
+	SAFE_NOALPHA,     // don't set alpha bits
+	SAFE_NODEPTH,     // don't set depth bits
+	SAFE_NOCOLOR,     // don't set color bits
+	SAFE_DONTCARE     // ignore everything, let SDL/EGL decide
 } safe_context_t;
 
 typedef struct
 {
 	void*	context; // handle to GL rendering context
-	safe_context_t	safe;
+	int		safe;
 
 	int		desktopBitsPixel;
 	int		desktopWidth;
