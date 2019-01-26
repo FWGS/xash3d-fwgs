@@ -837,6 +837,7 @@ void Delta_Init( void )
 	Delta_AddField( "movevars_t", "skyvec_z", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
 	Delta_AddField( "movevars_t", "wateralpha", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
 	Delta_AddField( "movevars_t", "fog_settings", DT_INTEGER, 32, 1.0f, 1.0f );
+	dt->numFields = NUM_FIELDS( pm_fields ) - 4;
 
 	// now done
 	dt->bInitialized = true;
