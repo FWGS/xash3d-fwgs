@@ -712,6 +712,26 @@ void Cvar_SetCheatState( void )
 
 /*
 ============
+Cvar_SetGL
+
+As Cvar_Set, but also flags it as glconfig
+============
+*/
+static void Cvar_SetGL( const char *name, const char *value )
+{
+	convar_t *var = Cvar_FindVar( name );
+
+	if( var && !FBitSet( var->flags, FCVAR_GLCONFIG ))
+	{
+		Con_Reportf( S_ERROR "Can't set non-GL cvar %s to %s\n", name, value );
+		return;
+	}
+
+	Cvar_FullSet( name, value, FCVAR_GLCONFIG );
+}
+
+/*
+============
 Cvar_Command
 
 Handles variable inspection and changing from the console
@@ -722,7 +742,7 @@ qboolean Cvar_Command( convar_t *v )
 	// special case for setup opengl configuration
 	if( host.apply_opengl_config )
 	{
-		Cvar_FullSet( Cmd_Argv( 0 ), Cmd_Argv( 1 ), FCVAR_GLCONFIG );
+		Cvar_SetGL( Cmd_Argv( 0 ), Cmd_Argv( 1 ) );
 		return true;
 	}
 
@@ -811,13 +831,15 @@ As Cvar_Set, but also flags it as glconfig
 */
 void Cvar_SetGL_f( void )
 {
+	convar_t *var;
+
 	if( Cmd_Argc() != 3 )
 	{
 		Con_Printf( S_USAGE "setgl <variable> <value>\n" );
 		return;
 	}
 
-	Cvar_FullSet( Cmd_Argv( 1 ), Cmd_Argv( 2 ), FCVAR_GLCONFIG );
+	Cvar_SetGL( Cmd_Argv( 1 ), Cmd_Argv( 2 ) );
 }
 
 /*
@@ -910,7 +932,7 @@ void Cvar_Init( void )
 	cmd_scripting = Cvar_Get( "cmd_scripting", "0", FCVAR_ARCHIVE, "enable simple condition checking and variable operations" );
 	Cvar_RegisterVariable (&host_developer); // early registering for dev 
 
-	Cmd_AddCommand( "setgl", Cvar_SetGL_f, "create or change the value of a opengl variable" );	// OBSOLETE
+	Cmd_AddCommand( "setgl", Cvar_SetGL_f, "change the value of a opengl variable" );	// OBSOLETE
 	Cmd_AddCommand( "toggle", Cvar_Toggle_f, "toggles a console variable's values (use for more info)" );
 	Cmd_AddCommand( "reset", Cvar_Reset_f, "reset any type variable to initial value" );
 	Cmd_AddCommand( "cvarlist", Cvar_List_f, "display all console variables beginning with the specified prefix" );
