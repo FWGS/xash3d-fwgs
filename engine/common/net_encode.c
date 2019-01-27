@@ -1890,7 +1890,7 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 		to->entityType = MSG_ReadUBitLong( msg, 2 );
 	to->number = number;
 
-	if( cls.legacymode?(to->entityType == ENTITY_BEAM):FBitSet(to->entityType, ENTITY_BEAM) )
+	if( cls.legacymode ? ( to->entityType == ENTITY_BEAM ) : FBitSet( to->entityType, ENTITY_BEAM ))
 	{
 		dt = Delta_FindStruct( "custom_entity_state_t" );
 	}

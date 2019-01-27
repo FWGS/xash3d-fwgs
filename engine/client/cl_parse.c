@@ -1128,7 +1128,7 @@ void CL_ParseClientData( sizebuf_t *msg )
 		if( !MSG_ReadOneBit( msg )) break;
 
 		// read the weapon idx
-		idx = MSG_ReadUBitLong( msg, cls.legacymode?MAX_LEGACY_WEAPON_BITS:MAX_WEAPON_BITS );
+		idx = MSG_ReadUBitLong( msg, cls.legacymode ? MAX_LEGACY_WEAPON_BITS : MAX_WEAPON_BITS );
 
 		MSG_ReadWeaponData( msg, &from_wd[idx], &to_wd[idx], cl.mtime[0] );
 	}
@@ -1295,14 +1295,26 @@ register new user message or update existing
 void CL_RegisterUserMessage( sizebuf_t *msg )
 {
 	char	*pszName;
-	int	svc_num, size;
+	int	svc_num, size, bits;
 	
 	svc_num = MSG_ReadByte( msg );
-	size = cls.legacymode?MSG_ReadByte( msg ):MSG_ReadWord( msg );
+
+	if( cls.legacymode )
+	{
+		size = MSG_ReadByte( msg );
+		bits = 8;
+	}
+	else
+	{
+		size = MSG_ReadWord( msg );
+		bits = 16;
+	}
+
 	pszName = MSG_ReadString( msg );
 
 	// important stuff
-	if( size == (cls.legacymode?0xFF:0xFFFF) ) size = -1;
+	if( size == ( BIT( bits ) - 1 ) )
+		size = -1;
 	svc_num = bound( 0, svc_num, 255 );
 
 	CL_LinkUserMessage( pszName, svc_num, size );
@@ -1958,7 +1970,13 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num )
 	iSize = clgame.msg[i].size;
 
 	// message with variable sizes receive an actual size as first byte
-	if( iSize == -1 ) iSize = cls.legacymode?MSG_ReadByte( msg ):MSG_ReadWord( msg );
+	if( iSize == -1 )
+	{
+		if( cls.legacymode )
+			iSize = MSG_ReadByte( msg );
+		else iSize = MSG_ReadWord( msg );
+	}
+
 	if( iSize >= MAX_USERMSG_LENGTH )
 	{
 		Msg("WTF??? %d %d\n", i, svc_num );

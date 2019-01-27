@@ -721,7 +721,10 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 		CL_WriteDemoJumpTime();
 
 	// sentinel count. save it for debug checking
-	count =  cls.legacymode?MSG_ReadWord( msg ) : ( MSG_ReadUBitLong( msg, MAX_VISIBLE_PACKET_BITS ) + 1 );
+	if( cls.legacymode )
+		count = MSG_ReadWord( msg );
+	else count = MSG_ReadUBitLong( msg, MAX_VISIBLE_PACKET_BITS ) + 1;
+
 	newframe = &cl.frames[cl.parsecountmod];
 
 	// allocate parse entities
@@ -795,8 +798,19 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 
 	while( 1 )
 	{
-		newnum = cls.legacymode ? MSG_ReadWord( msg ) : MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
-		if( newnum == (cls.legacymode?0:LAST_EDICT) ) break; // end of packet entities
+		int lastedict;
+		if( cls.legacymode )
+		{
+			newnum = MSG_ReadWord( msg );
+			lastedict = 0;
+		}
+		else
+		{
+			newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
+			lastedict = LAST_EDICT;
+		}
+
+		if( newnum == lastedict ) break; // end of packet entities
 		if( MSG_CheckOverflow( msg ))
 			Host_Error( "CL_ParsePacketEntities: overflow\n" );
 		player = CL_IsPlayerIndex( newnum );
