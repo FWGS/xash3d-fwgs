@@ -2024,7 +2024,7 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 {
 	sizebuf_t		buf;
 	byte		pbuf[256];
-	int		iSize = cls.legacymode?MSG_ReadByte( msg ):MSG_ReadWord( msg );
+	int		iSize;
 	int		type, color, count, flags;
 	int		decalIndex, modelIndex, entityIndex;
 	float		scale, life, frameRate, vel, random;
@@ -2034,6 +2034,10 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 	TEMPENTITY	*pTemp;
 	cl_entity_t	*pEnt;
 	dlight_t		*dl;
+
+	if( cls.legacymode )
+		iSize = MSG_ReadByte( msg );
+	else iSize = MSG_ReadWord( msg );
 
 	decalIndex = modelIndex = entityIndex = 0;
 
