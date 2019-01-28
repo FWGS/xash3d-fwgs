@@ -545,7 +545,7 @@ void VOX_ParseLineCommands( char *pSentenceData, int sentenceIndex )
 		length = pNext - pSentenceData;
 		if( tempBufferPos + length > sizeof( tempBuffer ))
 		{
-			Con_Printf( S_ERROR "sentence too long!\n" );
+			Con_Printf( S_ERROR "Sentence exceeded max length of %d\n", sizeof(tempBuffer) - 1 );
 			return;
 		}
 
@@ -619,7 +619,7 @@ void VOX_ReadSentenceFile( const char *psentenceFileName )
 	{
 		if( g_numSentences >= MAX_SENTENCES )
 		{
-			Con_Printf( S_ERROR "VOX_Init: too many sentences specified\n" );
+			Con_Printf( S_ERROR "VOX_Init: too many sentences specified, max is %d\n", MAX_SENTENCES );
 			break;
 		}
 
