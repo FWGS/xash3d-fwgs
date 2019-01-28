@@ -3095,3 +3095,15 @@ void CL_LegacyPrecache_f( void )
 	MSG_WriteString( &cls.netchan.message, va( "begin %i", spawncount ));
 	cls.signon = SIGNONS;
 }
+
+void CL_LegacyUpdateInfo( void )
+{
+	if( !cls.legacymode )
+		return;
+
+	if( cls.state != ca_active )
+		return;
+
+	MSG_BeginClientCmd( &cls.netchan.message, clc_legacy_userinfo );
+	MSG_WriteString( &cls.netchan.message, cls.userinfo );
+}
