@@ -100,8 +100,6 @@ def configure(conf):
 	    linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC))
 
 	conf.env.DEDICATED     = conf.options.DEDICATED
-	conf.env.SINGLE_BINARY = conf.options.DEDICATED # We don't need game launcher on dedicated
-
 	if conf.env.DEST_OS == 'linux':
 		conf.check_cc( lib='dl' )
 
