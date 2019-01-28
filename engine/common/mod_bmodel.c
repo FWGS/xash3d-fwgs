@@ -309,7 +309,7 @@ static void Mod_LoadLump( const byte *in, mlumpinfo_t *info, mlumpstat_t *stat, 
 	if( l->filelen % real_entrysize )
 	{
 		if( !FBitSet( flags, LUMP_SILENT ))
-			Con_DPrintf( S_ERROR "Mod_Load%s: funny lump size\n", msg2 );
+			Con_DPrintf( S_ERROR "Mod_Load%s: Lump size %d was not a multiple of %u bytes\n", msg2, l->filelen, real_entrysize );
 		loadstat.numerrors++;
 		return;
 	}

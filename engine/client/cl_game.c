@@ -1215,7 +1215,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 		}
 		else
 		{
-			Con_Reportf( S_ERROR "%s couldn't load\n", szSpriteName );
+			Con_Reportf( S_ERROR "Could not load HUD sprite %s\n", szSpriteName );
 			Mod_UnloadSpriteModel( m_pSprite );
 			return false;
 		}
@@ -2341,7 +2341,7 @@ int CL_FindModelIndex( const char *m )
 	if( lasttimewarn < host.realtime )
 	{
 		// tell user about problem (but don't spam console)
-		Con_Printf( S_ERROR "%s not precached\n", filepath );
+		Con_Printf( S_ERROR "Could not find index for model %s: not precached\n", filepath );
 		lasttimewarn = host.realtime + 1.0f;
 	}
 
