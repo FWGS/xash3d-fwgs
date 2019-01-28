@@ -253,6 +253,8 @@ extern const char	*clc_strings[clc_lastmsg+1];
 #define svc_legacy_event			27	// playback event queue
 #define svc_legacy_changing			3	// changelevel by server request
 
+#define clc_legacy_userinfo		6	// [[userinfo string]
+
 #define SND_LEGACY_LARGE_INDEX		(1<<2)	// a send sound as short
 #define MAX_LEGACY_ENTITY_BITS		12
 #define MAX_LEGACY_WEAPON_BITS		5
