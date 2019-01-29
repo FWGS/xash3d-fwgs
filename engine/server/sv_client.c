@@ -87,7 +87,7 @@ void SV_GetChallenge( netadr_t from )
 	Netchan_OutOfBandPrint( NS_SERVER, svs.challenges[i].adr, "challenge %i", svs.challenges[i].challenge );
 }
 
-int SV_GetFragmentSize( void *pcl )
+int SV_GetFragmentSize( void *pcl, fragsize_t mode )
 {
 	sv_client_t *cl = (sv_client_t*)pcl;
 	int	cl_frag_size;
@@ -95,10 +95,25 @@ int SV_GetFragmentSize( void *pcl )
 	if( Netchan_IsLocal( &cl->netchan ))
 		return FRAGMENT_LOCAL_SIZE;
 
+	if( mode == FRAGSIZE_UNRELIABLE )
+	{
+		cl_frag_size = Q_atoi( Info_ValueForKey( cl->userinfo, "cl_urmax" ));
+		if( cl_frag_size == 0 )
+			return NET_MAX_MESSAGE;
+		return bound( FRAGMENT_MAX_SIZE, cl_frag_size, NET_MAX_MESSAGE );
+	}
+
 	cl_frag_size = Q_atoi( Info_ValueForKey( cl->userinfo, "cl_dlmax" ));
 	cl_frag_size = bound( FRAGMENT_MIN_SIZE, cl_frag_size, FRAGMENT_MAX_SIZE );
 
-	return cl_frag_size;
+	if( mode != FRAGSIZE_FRAG )
+		return cl_frag_size;
+
+	// add window for unreliable
+	if( cl->state == cs_spawned )
+		cl_frag_size /= 2;
+
+	return cl_frag_size - HEADER_BYTES;
 }
 
 /*

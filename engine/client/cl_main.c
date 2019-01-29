@@ -65,6 +65,8 @@ convar_t	*cl_showevents;
 convar_t	*cl_cmdrate;
 convar_t	*cl_interp;
 convar_t	*cl_dlmax;
+convar_t	*cl_upmax;
+
 convar_t	*cl_lw;
 convar_t	*cl_charset;
 convar_t	*cl_trace_messages;
@@ -197,12 +199,18 @@ void CL_CheckClientState( void )
 	}
 }
 
-int CL_GetFragmentSize( void *unused )
+int CL_GetFragmentSize( void *unused, fragsize_t mode )
 {
+	if( mode == FRAGSIZE_SPLIT )
+		return 0;
+
+	if( mode == FRAGSIZE_UNRELIABLE )
+		return NET_MAX_MESSAGE;
+
 	if( Netchan_IsLocal( &cls.netchan ))
 		return FRAGMENT_LOCAL_SIZE;
 
-	return FRAGMENT_MIN_SIZE;
+	return cl_upmax->value;
 }
 
 /*
@@ -1876,7 +1884,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 				// too many fails use default connection method
 				Con_Printf( "hi-speed connection is failed, use default method\n" );
 				Netchan_OutOfBandPrint( NS_CLIENT, from, "getchallenge\n" );
-				Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
+				Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
 				cls.connect_time = host.realtime;
 				return;
 			}
@@ -2671,7 +2679,8 @@ void CL_InitLocal( void )
 	name = Cvar_Get( "name", Sys_GetCurrentUser(), FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_PRINTABLEONLY, "player name" );
 	model = Cvar_Get( "model", "", FCVAR_USERINFO|FCVAR_ARCHIVE, "player model ('player' is a singleplayer model)" );
 	cl_updaterate = Cvar_Get( "cl_updaterate", "20", FCVAR_USERINFO|FCVAR_ARCHIVE, "refresh rate of server messages" );
-	cl_dlmax = Cvar_Get( "cl_dlmax", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "max allowed fragment size on download resources" );
+	cl_dlmax = Cvar_Get( "cl_dlmax", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "max allowed outcoming fragment size" );
+	cl_upmax = Cvar_Get( "cl_upmax", "1200", FCVAR_ARCHIVE, "max allowed incoming fragment size" );
 	rate = Cvar_Get( "rate", "3500", FCVAR_USERINFO|FCVAR_ARCHIVE, "player network rate" );
 	topcolor = Cvar_Get( "topcolor", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "player top color" );
 	bottomcolor = Cvar_Get( "bottomcolor", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "player bottom color" );
