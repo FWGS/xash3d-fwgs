@@ -59,10 +59,10 @@ GNU General Public License for more details.
 // {
 //  byte (on/off)
 //  int (fragment id)
-//  short (startpos)
-//  short (length)
+//  int (startpos)
+//  int (length)
 // }
-#define HEADER_BYTES		( 8 + MAX_STREAMS * 9 )
+#define HEADER_BYTES		( 8 + MAX_STREAMS * 13 )
 
 // Pad this to next higher 16 byte boundary
 // This is the largest packet that can come in/out over the wire, before processing the header
@@ -182,6 +182,13 @@ typedef struct fbufqueue_s
 	fragbuf_t		*fragbufs;	// the actual buffers
 } fragbufwaiting_t;
 
+typedef enum fragsize_e
+{
+	FRAGSIZE_FRAG,
+	FRAGSIZE_SPLIT,
+	FRAGSIZE_UNRELIABLE
+} fragsize_t;
+
 // Network Connection Channel
 typedef struct netchan_s
 {
@@ -205,7 +212,7 @@ typedef struct netchan_s
 
 	// callback to get actual framgment size
 	void		*client;
-	int (*pfnBlockSize)( void *cl );
+	int (*pfnBlockSize)( void *cl, fragsize_t mode );
 
 	// staging and holding areas
 	sizebuf_t		message;
