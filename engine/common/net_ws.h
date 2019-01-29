@@ -63,4 +63,8 @@ qboolean NET_BufferToBufferDecompress( char *dest, uint *destLen, char *source, 
 void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to );
 void NET_ClearLagData( qboolean bClient, qboolean bServer );
 
+#ifndef XASH_DEDICATED
+qboolean CL_LegacyMode( void );
+#endif
+
 #endif//NET_WS_H

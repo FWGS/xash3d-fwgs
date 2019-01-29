@@ -189,7 +189,7 @@ qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *l
 		*length = len;
 
 		// Con_Reportf( S_NOTE "NetSplit_GetLong: packet from %s, id %d received %d length %d\n", NET_AdrToString( *from ), (int)packet->id, (int)p->received, (int)packet->length );
-	memcpy( data, p->data, len );
+		memcpy( data, p->data, len );
 		return true;
 	}
 	else

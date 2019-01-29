@@ -1015,6 +1015,13 @@ void CL_SendConnectPacket( void )
 
 	if( cls.legacymode )
 	{
+		// set related userinfo keys
+		if( cl_dlmax->value >= 40000 || cl_dlmax->value < 100 )
+			Cvar_FullSet( "cl_maxpacket", "1400", FCVAR_USERINFO );
+		else
+			Cvar_FullSet( "cl_maxpacket", cl_dlmax->string, FCVAR_USERINFO );
+		Cvar_FullSet( "cl_maxpayload", "1000", FCVAR_USERINFO );
+
 		/// TODO: add input devices list
 		//Info_SetValueForKey( protinfo, "d", va( "%d", input_devices ), sizeof( protinfo ) );
 		Info_SetValueForKey( protinfo, "v", XASH_VERSION, sizeof( protinfo ) );
@@ -1023,12 +1030,15 @@ void CL_SendConnectPacket( void )
 		Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
 		Info_SetValueForKey( protinfo, "i", ID_GetMD5(), sizeof( protinfo ) );
 
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\" 0 \"%s\"\n",
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\" 2 \"%s\"\n",
 			PROTOCOL_LEGACY_VERSION, Q_atoi( qport ), cls.challenge, cls.userinfo, protinfo );
 		Con_Printf( "Trying to connect by legacy protocol\n" );
 	}
 	else
 	{
+		// remove useless userinfo keys
+		Cvar_FullSet( "cl_maxpacket", "0", 0 );
+		Cvar_FullSet( "cl_maxpayload", "1000", 0 );
 		Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
 		Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, cls.challenge, protinfo, cls.userinfo );
@@ -1365,6 +1375,19 @@ void CL_Reconnect( qboolean setup_netchan )
 	if( setup_netchan )
 	{
 		Netchan_Setup( NS_CLIENT, &cls.netchan, net_from, Cvar_VariableInteger( "net_qport" ), NULL, CL_GetFragmentSize );
+
+		if( cls.legacymode )
+		{
+			unsigned int extensions = Q_atoi( Cmd_Argv( 1 ) );
+
+			if( extensions & NET_EXT_SPLIT )
+			{
+				// only enable incoming split for legacy mode
+				cls.netchan.split = true;
+				Con_Reportf( "^2NET_EXT_SPLIT enabled^7 (packet sizes is %d/%d)\n", (int)cl_dlmax->value, 65536 );
+			}
+		}
+
 	}
 	else
 	{
@@ -2036,6 +2059,11 @@ void CL_ReadNetMessage( void )
 
 	while( CL_GetMessage( net_message_buffer, &curSize ))
 	{
+		if( cls.legacymode && *((int *)&net_message_buffer) == 0xFFFFFFFE )
+			// Will rewrite existing packet by merged
+			if( !NetSplit_GetLong( &cls.netchan.netsplit, &net_from, net_message_buffer, &curSize ) )
+				continue;
+
 		MSG_Init( &net_message, "ServerData", net_message_buffer, curSize );
 
 		// check for connectionless packet (0xffffffff) first
@@ -2652,6 +2680,10 @@ void CL_InitLocal( void )
 	Cvar_Get( "password", "", FCVAR_USERINFO, "server password" );
 	Cvar_Get( "team", "", FCVAR_USERINFO, "player team" );
 	Cvar_Get( "skin", "", FCVAR_USERINFO, "player skin" );
+
+	// legacy mode cvars (need this to add it to userinfo)
+	Cvar_Get( "cl_maxpacket", "0", 0, "legacy server compatibility" );
+	Cvar_Get( "cl_maxpayload", "1000", 0, "legacy server compatibility" );
 
 	cl_showfps = Cvar_Get( "cl_showfps", "1", FCVAR_ARCHIVE, "show client fps" );
 	cl_nosmooth = Cvar_Get( "cl_nosmooth", "0", FCVAR_ARCHIVE, "disable smooth up stair climbing and interpolate position in multiplayer" );

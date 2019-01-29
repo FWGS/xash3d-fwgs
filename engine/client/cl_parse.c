@@ -3107,3 +3107,8 @@ void CL_LegacyUpdateInfo( void )
 	MSG_BeginClientCmd( &cls.netchan.message, clc_legacy_userinfo );
 	MSG_WriteString( &cls.netchan.message, cls.userinfo );
 }
+
+qboolean CL_LegacyMode( void )
+{
+	return cls.legacymode;
+}
