@@ -1012,17 +1012,25 @@ void CL_SendConnectPacket( void )
 	key = ID_GetMD5();
 
 	memset( protinfo, 0, sizeof( protinfo ));
-	Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
-	Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
 
 	if( cls.legacymode )
 	{
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\"\n",
-			PROTOCOL_LEGACY_VERSION, Q_atoi( qport ), cls.challenge, cls.userinfo );
+		/// TODO: add input devices list
+		//Info_SetValueForKey( protinfo, "d", va( "%d", input_devices ), sizeof( protinfo ) );
+		Info_SetValueForKey( protinfo, "v", XASH_VERSION, sizeof( protinfo ) );
+		Info_SetValueForKey( protinfo, "b", va( "%d", Q_buildnum() ), sizeof( protinfo ) );
+		Info_SetValueForKey( protinfo, "o", Q_buildos(), sizeof( protinfo ) );
+		Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
+		Info_SetValueForKey( protinfo, "i", ID_GetMD5(), sizeof( protinfo ) );
+
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\" 0 \"%s\"\n",
+			PROTOCOL_LEGACY_VERSION, Q_atoi( qport ), cls.challenge, cls.userinfo, protinfo );
 		Con_Printf( "Trying to connect by legacy protocol\n" );
 	}
 	else
 	{
+		Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
+		Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, cls.challenge, protinfo, cls.userinfo );
 		Con_Printf( "Trying to connect by modern protocol\n" );
 	}
