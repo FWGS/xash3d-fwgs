@@ -1218,7 +1218,10 @@ qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *len
 				// Transfer data
 				memcpy( data, buf, ret );
 				*length = ret;
-
+#ifndef XASH_DEDICATED
+				if( CL_LegacyMode() )
+					return NET_LagPacket( true, sock, from, length, data );
+#endif
 				// check for split message
 				if( *(int *)data == NET_HEADER_SPLITPACKET )
 				{
