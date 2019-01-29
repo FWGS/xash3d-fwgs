@@ -206,8 +206,8 @@ qboolean ID_ValidateNetDevice( const char *dev )
 	int assignType;
 
 	// These devices are fake, their mac address is generated each boot, while assign_type is 0
-	if( Q_strnicmp( dev, "ccmni", sizeof( "ccmni" ) ) ||
-		Q_strnicmp( dev, "ifb", sizeof( "ifb" ) ) )
+	if( !Q_strnicmp( dev, "ccmni", sizeof( "ccmni" ) ) ||
+		!Q_strnicmp( dev, "ifb", sizeof( "ifb" ) ) )
 		return false;
 
 	pfile = FS_LoadDirectFile( va( "%s/%s/addr_assign_type", prefix, dev ), NULL );
