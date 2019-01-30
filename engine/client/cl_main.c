@@ -1025,10 +1025,12 @@ void CL_SendConnectPacket( void )
 	{
 		// set related userinfo keys
 		if( cl_dlmax->value >= 40000 || cl_dlmax->value < 100 )
-			Cvar_FullSet( "cl_maxpacket", "1400", FCVAR_USERINFO );
+			Info_SetValueForKey( cls.userinfo, "cl_maxpacket", "1400", sizeof( cls.userinfo ) );
 		else
-			Cvar_FullSet( "cl_maxpacket", cl_dlmax->string, FCVAR_USERINFO );
-		Cvar_FullSet( "cl_maxpayload", "1000", FCVAR_USERINFO );
+			Info_SetValueForKey( cls.userinfo, "cl_maxpacket", cl_dlmax->string, sizeof( cls.userinfo ) );
+
+		if( !*Info_ValueForKey( cls.userinfo,"cl_maxpayload") )
+			Info_SetValueForKey( cls.userinfo, "cl_maxpayload", "1000", sizeof( cls.userinfo ) );
 
 		/// TODO: add input devices list
 		//Info_SetValueForKey( protinfo, "d", va( "%d", input_devices ), sizeof( protinfo ) );
@@ -1049,9 +1051,8 @@ void CL_SendConnectPacket( void )
 		if( cl_dlmax->value > FRAGMENT_MAX_SIZE  || cl_dlmax->value < FRAGMENT_MIN_SIZE )
 			Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
 
-		// remove useless userinfo keys
-		Cvar_FullSet( "cl_maxpacket", "0", 0 );
-		Cvar_FullSet( "cl_maxpayload", "1000", 0 );
+		Info_RemoveKey( cls.userinfo,"cl_maxpacket" );
+		Info_RemoveKey( cls.userinfo, "cl_maxpayload" );
 
 		Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
 		Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
@@ -2724,10 +2725,6 @@ void CL_InitLocal( void )
 	Cvar_Get( "password", "", FCVAR_USERINFO, "server password" );
 	Cvar_Get( "team", "", FCVAR_USERINFO, "player team" );
 	Cvar_Get( "skin", "", FCVAR_USERINFO, "player skin" );
-
-	// legacy mode cvars (need this to add it to userinfo)
-	Cvar_Get( "cl_maxpacket", "0", 0, "legacy server compatibility" );
-	Cvar_Get( "cl_maxpayload", "1000", 0, "legacy server compatibility" );
 
 	cl_showfps = Cvar_Get( "cl_showfps", "1", FCVAR_ARCHIVE, "show client fps" );
 	cl_nosmooth = Cvar_Get( "cl_nosmooth", "0", FCVAR_ARCHIVE, "disable smooth up stair climbing and interpolate position in multiplayer" );
