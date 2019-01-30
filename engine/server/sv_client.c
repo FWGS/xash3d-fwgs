@@ -97,6 +97,7 @@ int SV_GetFragmentSize( void *pcl, fragsize_t mode )
 
 	if( mode == FRAGSIZE_UNRELIABLE )
 	{
+		// allow setting unreliable limit with "setinfo cl_urmax"
 		cl_frag_size = Q_atoi( Info_ValueForKey( cl->userinfo, "cl_urmax" ));
 		if( cl_frag_size == 0 )
 			return NET_MAX_MESSAGE;
@@ -109,9 +110,17 @@ int SV_GetFragmentSize( void *pcl, fragsize_t mode )
 	if( mode != FRAGSIZE_FRAG )
 		return cl_frag_size;
 
-	// add window for unreliable
+	// get in-game fragmentation size
 	if( cl->state == cs_spawned )
-		cl_frag_size /= 2;
+	{
+		// allow setting in-game fragsize with "setinfo cl_frmax"
+		int frmax = Q_atoi( Info_ValueForKey( cl->userinfo, "cl_frmax" ));
+
+		if( frmax < FRAGMENT_MIN_SIZE || frmax > FRAGMENT_MAX_SIZE )
+			cl_frag_size = frmax;
+		else
+			cl_frag_size /= 2;// add window for unreliable
+	}
 
 	return cl_frag_size - HEADER_BYTES;
 }
