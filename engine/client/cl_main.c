@@ -1038,8 +1038,8 @@ void CL_SendConnectPacket( void )
 		Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
 		Info_SetValueForKey( protinfo, "i", ID_GetMD5(), sizeof( protinfo ) );
 
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\" 2 \"%s\"\n",
-			PROTOCOL_LEGACY_VERSION, Q_atoi( qport ), cls.challenge, cls.userinfo, protinfo );
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\" %d \"%s\"\n",
+			PROTOCOL_LEGACY_VERSION, Q_atoi( qport ), cls.challenge, cls.userinfo, NET_LEGACY_EXT_SPLIT, protinfo );
 		Con_Printf( "Trying to connect by legacy protocol\n" );
 	}
 	else
@@ -1392,7 +1392,7 @@ void CL_Reconnect( qboolean setup_netchan )
 		{
 			unsigned int extensions = Q_atoi( Cmd_Argv( 1 ) );
 
-			if( extensions & NET_EXT_SPLIT )
+			if( extensions & NET_LEGACY_EXT_SPLIT )
 			{
 				// only enable incoming split for legacy mode
 				cls.netchan.split = true;
