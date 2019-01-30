@@ -1044,6 +1044,8 @@ void CL_SendConnectPacket( void )
 	}
 	else
 	{
+		int extensions = NET_EXT_SPLITSIZE;
+
 		if( cl_dlmax->value > FRAGMENT_MAX_SIZE  || cl_dlmax->value < FRAGMENT_MIN_SIZE )
 			Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
 
@@ -1053,6 +1055,8 @@ void CL_SendConnectPacket( void )
 
 		Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
 		Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
+		Info_SetValueForKey( protinfo, "ext", va("%d", extensions), sizeof( protinfo ));
+
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, cls.challenge, protinfo, cls.userinfo );
 		Con_Printf( "Trying to connect by modern protocol\n" );
 	}
@@ -1375,6 +1379,24 @@ void CL_SendDisconnectMessage( void )
 	Netchan_TransmitBits( &cls.netchan, MSG_GetNumBitsWritten( &buf ), MSG_GetData( &buf ));
 }
 
+int CL_GetSplitSize( void )
+{
+	int splitsize;
+
+	if( Host_IsDedicated() )
+		return 0;
+
+	if( !(cls.extensions & NET_EXT_SPLITSIZE) )
+		return 1400;
+
+	splitsize = cl_dlmax->value;
+
+	if( splitsize < FRAGMENT_MIN_SIZE || splitsize > FRAGMENT_MAX_SIZE )
+		Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
+
+	return cl_dlmax->value;
+}
+
 /*
 =====================
 CL_Reconnect
@@ -1397,6 +1419,15 @@ void CL_Reconnect( qboolean setup_netchan )
 				// only enable incoming split for legacy mode
 				cls.netchan.split = true;
 				Con_Reportf( "^2NET_EXT_SPLIT enabled^7 (packet sizes is %d/%d)\n", (int)cl_dlmax->value, 65536 );
+			}
+		}
+		else
+		{
+			cls.extensions = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "ext" ));
+
+			if( cls.extensions & NET_LEGACY_EXT_SPLIT )
+			{
+				Con_Reportf( "^2NET_EXT_SPLITSIZE enabled^7 (packet size is %d)\n", (int)cl_dlmax->value );
 			}
 		}
 

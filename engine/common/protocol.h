@@ -243,6 +243,9 @@ GNU General Public License for more details.
 extern const char	*svc_strings[svc_lastmsg+1];
 extern const char	*clc_strings[clc_lastmsg+1];
 
+// FWGS extensions
+#define NET_EXT_SPLITSIZE (1U<<0) // set splitsize by cl_dlmax
+
 // legacy protocol definitons
 #define PROTOCOL_LEGACY_VERSION		48
 #define svc_legacy_modelindex		31	// [index][modelpath]

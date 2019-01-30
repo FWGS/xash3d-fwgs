@@ -66,6 +66,7 @@ void NET_ClearLagData( qboolean bClient, qboolean bServer );
 
 #ifndef XASH_DEDICATED
 qboolean CL_LegacyMode( void );
+int CL_GetSplitSize( void );
 #endif
 
 #endif//NET_WS_H
