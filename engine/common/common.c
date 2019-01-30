@@ -20,18 +20,18 @@ GNU General Public License for more details.
 #include "client.h"
 #include "library.h"
 
-const char *file_exts[10] =
+static const char *file_exts[] =
 {
-	".cfg",
-	".lst",
-	".exe",
-	".vbs",
-	".com",
-	".bat",
-	".dll",
-	".ini",
-	".log",
-	".sys",
+	"cfg",
+	"lst",
+	"exe",
+	"vbs",
+	"com",
+	"bat",
+	"dll",
+	"ini",
+	"log",
+	"sys",
 };
 
 #ifdef _DEBUG

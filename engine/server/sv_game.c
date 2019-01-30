@@ -1294,14 +1294,19 @@ void pfnSetModel( edict_t *e, const char *m )
 
 	if( COM_CheckString( name ))
 	{
+		qboolean notfound = true;
+
 		// check to see if model was properly precached
 		for( i = 1; i < MAX_MODELS && sv.model_precache[i][0]; i++ )
 		{
 			if( !Q_stricmp( sv.model_precache[i], name ))
+			{
+				notfound = false;
 				break;
+			}
 		}
 
-		if( i == MAX_MODELS )
+		if( notfound )
 		{
 			Con_Printf( S_ERROR "no precache: %s\n", name );
 			return;
