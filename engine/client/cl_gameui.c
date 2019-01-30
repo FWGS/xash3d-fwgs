@@ -31,6 +31,19 @@ void UI_UpdateMenu( float realtime )
 {
 	if( !gameui.hInstance ) return;
 
+	// if some deferred cmds is waiting
+	if( UI_IsVisible() && COM_CheckString( host.deferred_cmd ))
+	{
+		Cbuf_AddText( host.deferred_cmd );
+		host.deferred_cmd[0] = '\0';
+		Cbuf_Execute();
+		return;
+	}
+
+	// don't show menu while level is loaded
+	if( GameState->nextstate != STATE_RUNFRAME && !GameState->loadGame )
+		return;
+
 	// menu time (not paused, not clamped)
 	gameui.globals->time = host.realtime;
 	gameui.globals->frametime = host.realframetime;
@@ -148,7 +161,7 @@ static void UI_DrawLogo( const char *filename, float x, float y, float width, fl
 
 		if( FS_FileExists( path, false ) && !fullpath )
 		{
-			MsgDev( D_ERROR, "Couldn't load %s from packfile. Please extract it\n", path );
+			Con_Printf( S_ERROR "Couldn't load %s from packfile. Please extract it\n", path );
 			gameui.drawLogo = false;
 			return;
 		}
@@ -249,6 +262,8 @@ static void UI_ConvertGameInfo( GAMEINFO *out, gameinfo_t *in )
 
 	if( in->nomodels )
 		out->flags |= GFL_NOMODELS;
+	if( in->noskills )
+		out->flags |= GFL_NOSKILLS;
 }
 
 static qboolean PIC_Scissor( float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 )
@@ -361,13 +376,13 @@ pfnPIC_Load
 
 =========
 */
-static HIMAGE pfnPIC_Load( const char *szPicName, const byte *image_buf, long image_size, long flags )
+static HIMAGE pfnPIC_Load( const char *szPicName, const byte *image_buf, int image_size, int flags )
 {
 	HIMAGE	tx;
 
 	if( !szPicName || !*szPicName )
 	{
-		MsgDev( D_ERROR, "CL_LoadImage: bad name!\n" );
+		Con_Reportf( S_ERROR "CL_LoadImage: bad name!\n" );
 		return 0;
 	}
 
@@ -375,7 +390,7 @@ static HIMAGE pfnPIC_Load( const char *szPicName, const byte *image_buf, long im
 	SetBits( flags, TF_IMAGE );
 
 	Image_SetForceFlags( IL_LOAD_DECAL ); // allow decal images for menu
-	tx = GL_LoadTexture( szPicName, image_buf, image_size, flags, NULL );
+	tx = GL_LoadTexture( szPicName, image_buf, image_size, flags );
 	Image_ClearForceFlags();
 
 	return tx;
@@ -700,15 +715,19 @@ for drawing playermodel previews
 */
 static void pfnRenderScene( const ref_viewpass_t *rvp )
 {
+	ref_viewpass_t copy;
+
 	// to avoid division by zero
 	if( !rvp || rvp->fov_x <= 0.0f || rvp->fov_y <= 0.0f )
 		return;
 
+	copy = *rvp;
+
 	// don't allow special modes from menu
-	((ref_viewpass_t *)&rvp)->flags = 0;
+	copy.flags = 0;
 
 	R_Set2DMode( false );
-	R_RenderFrame( rvp );
+	R_RenderFrame( &copy );
 	R_Set2DMode( true );
 	R_PopScene();
 }
@@ -785,7 +804,7 @@ pfnMemAlloc
 */
 static void *pfnMemAlloc( size_t cb, const char *filename, const int fileline )
 {
-	return _Mem_Alloc( gameui.mempool, cb, filename, fileline );
+	return _Mem_Alloc( gameui.mempool, cb, true, filename, fileline );
 }
 
 /*
@@ -886,7 +905,7 @@ int pfnCheckGameDll( void )
 		COM_FreeLibrary( hInst ); // don't increase linker's reference counter
 		return true;
 	}
-	MsgDev( D_WARN, "Could not load server library:\n%s", COM_GetLibraryError() );
+	Con_Reportf( S_WARN "Could not load server library:\n%s", COM_GetLibraryError() );
 	return false;
 }
 
@@ -1080,28 +1099,13 @@ qboolean UI_LoadProgs( void )
 	if(( GetMenuAPI = (MENUAPI)COM_GetProcAddress( gameui.hInstance, "GetMenuAPI" )) == NULL )
 	{
 		COM_FreeLibrary( gameui.hInstance );
-		MsgDev( D_NOTE, "UI_LoadProgs: can't init menu API\n" );
+		Con_Reportf( "UI_LoadProgs: can't init menu API\n" );
 		gameui.hInstance = NULL;
 		return false;
 	}
 
 
 	gameui.use_text_api = false;
-
-	if( ( GiveTextApi = (UITEXTAPI)COM_GetProcAddress( gameui.hInstance, "GiveTextAPI" ) ) )
-	{
-		MsgDev( D_NOTE, "UI_LoadProgs: extended Text API initialized\n" );
-		// make local copy of engfuncs to prevent overwrite it with user dll
-		memcpy( &gpTextfuncs, &gTextfuncs, sizeof( gpTextfuncs ));
-		if( GiveTextApi( &gpTextfuncs ) )
-			gameui.use_text_api = true;
-	}
-
-	pfnAddTouchButtonToList = (ADDTOUCHBUTTONTOLIST)COM_GetProcAddress( gameui.hInstance, "AddTouchButtonToList" );
-	if( pfnAddTouchButtonToList )
-	{
-		MsgDev( D_NOTE, "UI_LoadProgs: AddTouchButtonToList call found\n" );
-	}
 
 	// make local copy of engfuncs to prevent overwrite it with user dll
 	memcpy( &gpEngfuncs, &gEngfuncs, sizeof( gpEngfuncs ));
@@ -1111,10 +1115,25 @@ qboolean UI_LoadProgs( void )
 	if( !GetMenuAPI( &gameui.dllFuncs, &gpEngfuncs, gameui.globals ))
 	{
 		COM_FreeLibrary( gameui.hInstance );
-		MsgDev( D_NOTE, "UI_LoadProgs: can't init menu API\n" );
+		Con_Reportf( "UI_LoadProgs: can't init menu API\n" );
 		Mem_FreePool( &gameui.mempool );
 		gameui.hInstance = NULL;
 		return false;
+	}
+
+	if( ( GiveTextApi = (UITEXTAPI)COM_GetProcAddress( gameui.hInstance, "GiveTextAPI" ) ) )
+	{
+		Con_Reportf( "UI_LoadProgs: extended Text API initialized\n" );
+		// make local copy of engfuncs to prevent overwrite it with user dll
+		memcpy( &gpTextfuncs, &gTextfuncs, sizeof( gpTextfuncs ));
+		if( GiveTextApi( &gpTextfuncs ) )
+			gameui.use_text_api = true;
+	}
+
+	pfnAddTouchButtonToList = (ADDTOUCHBUTTONTOLIST)COM_GetProcAddress( gameui.hInstance, "AddTouchButtonToList" );
+	if( pfnAddTouchButtonToList )
+	{
+		Con_Reportf( "UI_LoadProgs: AddTouchButtonToList call found\n" );
 	}
 
 	Cvar_FullSet( "host_gameuiloaded", "1", FCVAR_READ_ONLY );
@@ -1122,7 +1141,7 @@ qboolean UI_LoadProgs( void )
 	// setup gameinfo
 	for( i = 0; i < SI.numgames; i++ )
 	{
-		gameui.modsInfo[i] = Mem_Alloc( gameui.mempool, sizeof( GAMEINFO ));
+		gameui.modsInfo[i] = Mem_Calloc( gameui.mempool, sizeof( GAMEINFO ));
 		UI_ConvertGameInfo( gameui.modsInfo[i], SI.games[i] );
 	}
 

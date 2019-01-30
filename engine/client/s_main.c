@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "con_nprint.h"
 #include "gl_local.h"
 #include "pm_local.h"
+#include "platform/platform.h"
 
 #define SND_CLIP_DISTANCE		1000.0f
 
@@ -277,6 +278,28 @@ void SND_ChannelTraceReset( void )
 
 /*
 =================
+SND_FStreamIsPlaying
+
+Select a channel from the dynamic channel allocation area.  For the given entity, 
+override any other sound playing on the same channel (see code comments below for
+exceptions).
+=================
+*/
+qboolean SND_FStreamIsPlaying( sfx_t *sfx )
+{
+	int	ch_idx;
+
+	for( ch_idx = NUM_AMBIENTS; ch_idx < MAX_DYNAMIC_CHANNELS; ch_idx++ )
+	{
+		if( channels[ch_idx].sfx == sfx )
+			return true;
+	}
+
+	return false;
+}
+
+/*
+=================
 SND_PickDynamicChannel
 
 Select a channel from the dynamic channel allocation area.  For the given entity, 
@@ -295,6 +318,13 @@ channel_t *SND_PickDynamicChannel( int entnum, int channel, sfx_t *sfx, qboolean
 	first_to_die = -1;
 	life_left = 0x7fffffff;
 	if( ignore ) *ignore = false;
+
+	if( channel == CHAN_STREAM && SND_FStreamIsPlaying( sfx ))
+	{
+		if( ignore )
+			*ignore = true;
+		return NULL;
+	}
 
 	for( ch_idx = NUM_AMBIENTS; ch_idx < MAX_DYNAMIC_CHANNELS; ch_idx++ )
 	{
@@ -392,7 +422,7 @@ channel_t *SND_PickStaticChannel( const vec3_t pos, sfx_t *sfx )
 		// no empty slots, alloc a new static sound channel
 		if( total_channels == MAX_CHANNELS )
 		{
-			MsgDev( D_ERROR, "S_PickStaticChannel: no free channels\n" );
+			Con_DPrintf( S_ERROR "S_PickStaticChannel: no free channels\n" );
 			return NULL;
 		}
 
@@ -896,13 +926,10 @@ void S_StartSound( const vec3_t pos, int ent, int chan, sound_t handle, float fv
 		// and we didn't find it (it's not playing), go ahead and start it up
 	}
 
-	if( pitch == 0 )
-	{
-		MsgDev( D_WARN, "S_StartSound: ( %s ) ignored, called with pitch 0\n", sfx->name );
-		return;
-	}
-
 	if( !pos ) pos = RI.vieworg;
+
+	if( chan == CHAN_STREAM )
+		SetBits( flags, SND_STOP_LOOPING );
 
 	// pick a channel to play on
 	if( chan == CHAN_STATIC ) target_chan = SND_PickStaticChannel( pos, sfx );
@@ -1023,12 +1050,6 @@ void S_RestoreSound( const vec3_t pos, int ent, int chan, sound_t handle, float 
 
 	vol = bound( 0, fvol * 255, 255 );
 	if( pitch <= 1 ) pitch = PITCH_NORM; // Invasion issues
-
-	if( pitch == 0 )
-	{
-		MsgDev( D_WARN, "S_RestoreSound: ( %s ) ignored, called with pitch 0\n", sfx->name );
-		return;
-	}
 
 	// pick a channel to play on
 	if( chan == CHAN_STATIC ) target_chan = SND_PickStaticChannel( pos, sfx );
@@ -1156,12 +1177,6 @@ void S_AmbientSound( const vec3_t pos, int ent, sound_t handle, float fvol, floa
 		if( S_AlterChannel( ent, CHAN_STATIC, sfx, vol, pitch, flags ))
 			return;
 		if( flags & SND_STOP ) return;
-	}
-	
-	if( pitch == 0 )
-	{
-		MsgDev( D_WARN, "S_AmbientSound: ( %s ) ignored, called with pitch 0\n", sfx->name );
-		return;
 	}
 
 	// pick a channel to play on from the static area
@@ -1303,7 +1318,7 @@ int S_GetCurrentDynamicSounds( soundlist_t *pout, int size )
 
 		looped = ( channels[i].use_loop && channels[i].sfx->cache->loopStart != -1 );
 
-		if( channels[i].entchannel == CHAN_STATIC && looped && !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		if( channels[i].entchannel == CHAN_STATIC && looped && !Host_IsQuakeCompatible())
 			continue;	// never serialize static looped sounds. It will be restoring in game code 
 
 		if( channels[i].isSentence && channels[i].name[0] )
@@ -1380,7 +1395,13 @@ void S_UpdateAmbientSounds( void )
 		chan = &channels[ambient_channel];	
 		chan->sfx = S_GetSfxByHandle( ambient_sfx[ambient_channel] );
 
-		if( !chan->sfx ) continue;
+		// ambient is unused
+		if( !chan->sfx )
+		{
+			chan->rightvol = 0;
+			chan->leftvol = 0;
+			continue;
+		}
 
 		vol = s_ambient_level->value * leaf->ambient_sound_level[ambient_channel];
 		if( vol < 0 ) vol = 0;
@@ -1459,7 +1480,7 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 	if( !raw_channels[best] )
 	{
 		raw_samples = MAX_RAW_SAMPLES;
-		raw_channels[best] = Mem_Alloc( sndpool, sizeof( *ch ) + sizeof( portable_samplepair_t ) * ( raw_samples - 1 ));
+		raw_channels[best] = Mem_Calloc( sndpool, sizeof( *ch ) + sizeof( portable_samplepair_t ) * ( raw_samples - 1 ));
 	}
 
 	ch = raw_channels[best];
@@ -1564,7 +1585,7 @@ S_RawSamples
 */
 void S_RawSamples( uint samples, uint rate, word width, word channels, const byte *data, int entnum )
 {
-	int	snd_vol;
+	int	snd_vol = 128;
 
 	if( entnum < 0 ) snd_vol = 256; // bg track or movie track
 	if( snd_vol < 0 ) snd_vol = 0; // fixup negative values
@@ -1577,19 +1598,79 @@ void S_RawSamples( uint samples, uint rate, word width, word channels, const byt
 S_PositionedRawSamples
 ===================
 */
-static void S_PositionedRawSamples( int entnum, float fvol, float attn, uint samples, uint rate, word width, word channels, const byte *data )
+void S_StreamAviSamples( void *Avi, int entnum, float fvol, float attn, float synctime )
 {
-	rawchan_t	*ch;
-	
+	int	bufferSamples;
+	int	fileSamples;
+	byte	raw[MAX_RAW_SAMPLES];
+	float	duration = 0.0f;
+	int	r, fileBytes;
+	rawchan_t	*ch = NULL;
+
+	if( !dma.initialized || s_listener.paused || !CL_IsInGame( ))
+		return;
+
 	if( entnum < 0 || entnum >= GI->max_edicts )
 		return;
 
 	if( !( ch = S_FindRawChannel( entnum, true )))
 		return;
 
+	if( ch->sound_info.rate == 0 )
+	{
+		if( !AVI_GetAudioInfo( Avi, &ch->sound_info ))
+			return; // no audiotrack
+	}
+
 	ch->master_vol = bound( 0, fvol * 255, 255 );
 	ch->dist_mult = (attn / SND_CLIP_DISTANCE);
-	ch->s_rawend = S_RawSamplesStereo( ch->rawsamples, ch->s_rawend, ch->max_samples, samples, rate, width, channels, data );
+
+	// see how many samples should be copied into the raw buffer
+	if( ch->s_rawend < soundtime )
+		ch->s_rawend = soundtime;
+
+	// position is changed, synchronization is lost etc
+	if( fabs( ch->oldtime - synctime ) > s_mixahead->value )
+		ch->sound_info.loopStart = AVI_TimeToSoundPosition( Avi, synctime * 1000 );
+	ch->oldtime = synctime; // keep actual time
+
+	while( ch->s_rawend < soundtime + ch->max_samples )
+	{
+		wavdata_t	*info = &ch->sound_info;
+
+		bufferSamples = ch->max_samples - (ch->s_rawend - soundtime);
+
+		// decide how much data needs to be read from the file
+		fileSamples = bufferSamples * ((float)info->rate / SOUND_DMA_SPEED );
+		if( fileSamples <= 1 ) return; // no more samples need
+
+		// our max buffer size
+		fileBytes = fileSamples * ( info->width * info->channels );
+
+		if( fileBytes > sizeof( raw ))
+		{
+			fileBytes = sizeof( raw );
+			fileSamples = fileBytes / ( info->width * info->channels );
+		}
+
+		// read audio stream
+		r = AVI_GetAudioChunk( Avi, raw, info->loopStart, fileBytes );
+		info->loopStart += r; // advance play position
+
+		if( r < fileBytes )
+		{
+			fileBytes = r;
+			fileSamples = r / ( info->width * info->channels );
+		}
+
+		if( r > 0 )
+		{
+			// add to raw buffer
+			ch->s_rawend = S_RawSamplesStereo( ch->rawsamples, ch->s_rawend, ch->max_samples,
+			fileSamples, info->rate, info->width, info->channels, raw );
+		}
+		else break; // no more samples for this frame
+	}
 }
 
 /*
@@ -1665,6 +1746,7 @@ static void S_ClearRawChannels( void )
 
 		if( !ch ) continue;
 		ch->s_rawend = 0;
+		ch->oldtime = -1;
 	}
 }
 
@@ -1870,6 +1952,23 @@ void S_ExtraUpdate( void )
 
 /*
 ============
+S_UpdateFrame
+
+update listener position
+============
+*/
+void S_UpdateFrame( struct ref_viewpass_s *rvp )
+{
+	if( !FBitSet( rvp->flags, RF_DRAW_WORLD ) || FBitSet( rvp->flags, RF_ONLY_CLIENTDRAW ))
+		return; 
+
+	VectorCopy( rvp->vieworigin, s_listener.origin );
+	AngleVectors( rvp->viewangles, s_listener.forward, s_listener.right, s_listener.up );
+	s_listener.entnum = rvp->viewentity; // can be camera entity too
+}
+
+/*
+============
 SND_UpdateSound
 
 Called once each time through the main loop
@@ -1892,16 +1991,12 @@ void SND_UpdateSound( void )
 	// release raw-channels that no longer used more than 10 secs
 	S_FreeIdleRawChannels();
 
-	s_listener.entnum = cl.viewentity;	// can be camera entity too
+	VectorCopy( cl.simvel, s_listener.velocity );
 	s_listener.frametime = (cl.time - cl.oldtime);
 	s_listener.waterlevel = cl.local.waterlevel;
 	s_listener.active = CL_IsInGame();
 	s_listener.inmenu = CL_IsInMenu();
 	s_listener.paused = cl.paused;
-
-	VectorCopy( RI.vieworg, s_listener.origin );
-	VectorCopy( cl.simvel, s_listener.velocity );
-	AngleVectors( RI.viewangles, s_listener.forward, s_listener.right, s_listener.up );
 
 	if( cl.worldmodel != NULL )
 		Mod_FatPVS( s_listener.origin, FATPHS_RADIUS, s_listener.pasbytes, world.visbytes, false, !s_phs->value );
@@ -1963,7 +2058,7 @@ void SND_UpdateSound( void )
 	S_SpatializeRawChannels();
 
 	// debugging output
-	if( s_show->value )
+	if( CVAR_TO_BOOL( s_show ))
 	{
 		info.color[0] = 1.0f;
 		info.color[1] = 0.6f;
@@ -2017,6 +2112,23 @@ void S_Play_f( void )
 	}
 
 	S_StartLocalSound( Cmd_Argv( 1 ), VOL_NORM, false );
+}
+
+void S_Play2_f( void )
+{
+	int	i = 1;
+
+	if( Cmd_Argc() == 1 )
+	{
+		Con_Printf( S_USAGE "play2 <soundfile>\n" );
+		return;
+	}
+
+	while( i < Cmd_Argc( ))
+	{
+		S_StartLocalSound( Cmd_Argv( i ), VOL_NORM, true );
+		i++;
+	}
 }
 
 void S_PlayVol_f( void )
@@ -2162,7 +2274,7 @@ qboolean S_Init( void )
 {
 	if( Sys_CheckParm( "-nosound" ))
 	{
-		MsgDev( D_INFO, "Audio: Disabled\n" );
+		Con_Printf( "Audio: Disabled\n" );
 		return false;
 	}
 
@@ -2173,7 +2285,7 @@ qboolean S_Init( void )
 	s_lerping = Cvar_Get( "s_lerping", "0", FCVAR_ARCHIVE, "apply interpolation to sound output" );
 	s_ambient_level = Cvar_Get( "ambient_level", "0.3", FCVAR_ARCHIVE, "volume of environment noises (water and wind)" );
 	s_ambient_fade = Cvar_Get( "ambient_fade", "1000", FCVAR_ARCHIVE, "rate of volume fading when client is moving" );
-	s_combine_sounds = Cvar_Get( "s_combine_channels", "1", FCVAR_ARCHIVE, "combine channels with same sounds" ); 
+	s_combine_sounds = Cvar_Get( "s_combine_channels", "0", FCVAR_ARCHIVE, "combine channels with same sounds" ); 
 	snd_foliage_db_loss = Cvar_Get( "snd_foliage_db_loss", "4", 0, "foliage loss factor" ); 
 	snd_gain_max = Cvar_Get( "snd_gain_max", "1", 0, "gain maximal threshold" );
 	snd_gain_min = Cvar_Get( "snd_gain_min", "0.01", 0, "gain minimal threshold" );
@@ -2187,6 +2299,7 @@ qboolean S_Init( void )
 	s_samplecount = Cvar_Get( "s_samplecount", "0", FCVAR_ARCHIVE, "sample count (0 for default value)" );
 
 	Cmd_AddCommand( "play", S_Play_f, "playing a specified sound file" );
+	Cmd_AddCommand( "play2", S_Play2_f, "playing a group of specified sound files" ); // nehahra stuff
 	Cmd_AddCommand( "playvol", S_PlayVol_f, "playing a specified sound file with specified volume" );
 	Cmd_AddCommand( "stopsound", S_StopSound_f, "stop all sounds" );
 	Cmd_AddCommand( "music", S_Music_f, "starting a background track" );
@@ -2200,7 +2313,7 @@ qboolean S_Init( void )
 
 	if( !SNDDMA_Init( host.hWnd ))
 	{
-		MsgDev( D_INFO, "S_Init: sound system can't be initialized\n" );
+		Con_Printf( "Audio: sound system can't be initialized\n" );
 		return false;
 	}
 
@@ -2215,6 +2328,7 @@ qboolean S_Init( void )
 	SX_Init ();
 	S_InitScaletable ();
 	S_StopAllSounds ( true );
+	S_InitSounds ();
 	VOX_Init ();
 
 	return true;

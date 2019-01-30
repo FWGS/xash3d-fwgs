@@ -212,6 +212,7 @@ typedef struct cl_enginefuncs_s
 	float	(*pfnRandomFloat)( float flLow, float flHigh );	
 	int	(*pfnRandomLong)( int lLow, int lHigh );
 	void	(*pfnHookEvent)( const char *name, void ( *pfnEvent )( struct event_args_s *args ));
+
 	int	(*Con_IsVisible) ();
 	const char *(*pfnGetGameDirectory)( void );
 	struct cvar_s *(*pfnGetCvarPointer)( const char *szName );

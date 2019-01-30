@@ -43,6 +43,7 @@ typedef struct convar_s
 #define FCVAR_ALLOCATED		(1<<19)	// this convar_t is fully dynamic allocated (include description)
 #define FCVAR_VIDRESTART		(1<<20)	// recreate the window is cvar with this flag was changed
 #define FCVAR_TEMPORARY		(1<<21)	// these cvars holds their values and can be unlink in any time
+#define FCVAR_LOCALONLY     (1<<22) // can be set only from local buffers
 
 #define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc )	convar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
 #define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc )	convar_t cv = { #cv, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
@@ -63,9 +64,10 @@ float Cvar_VariableValue( const char *var_name );
 int Cvar_VariableInteger( const char *var_name );
 const char *Cvar_VariableString( const char *var_name );
 void Cvar_WriteVariables( file_t *f, int group );
+qboolean Cvar_Exists( const char *var_name );
 void Cvar_Reset( const char *var_name );
 void Cvar_SetCheatState( void );
-qboolean Cvar_Command( void );
+qboolean Cvar_Command( convar_t *v );
 void Cvar_Init( void );
 void Cvar_Unlink( int group );
 

@@ -32,12 +32,12 @@ typedef struct
 } wavinfo_t;
 
 // custom stdio
-typedef long (*pfread)( void *handle, void *buf, size_t count );
-typedef long (*pfseek)( void *handle, long offset, int whence );
+typedef int (*pfread)( void *handle, void *buf, size_t count );
+typedef int (*pfseek)( void *handle, int offset, int whence );
 
 extern void *create_decoder( int *error );
-extern int feed_mpeg_header( void *mpg, const char *data, long bufsize, long streamsize, wavinfo_t *sc );
-extern int feed_mpeg_stream( void *mpg, const char *data, long bufsize, char *outbuf, size_t *outsize );
+extern int feed_mpeg_header( void *mpg, const char *data, int bufsize, int streamsize, wavinfo_t *sc );
+extern int feed_mpeg_stream( void *mpg, const char *data, int bufsize, char *outbuf, size_t *outsize );
 extern int open_mpeg_stream( void *mpg, void *file, pfread f_read, pfseek f_seek, wavinfo_t *sc );
 extern int read_mpeg_stream( void *mpg, char *outbuf, size_t *outsize );
 extern int get_stream_pos( void *mpg );
@@ -58,7 +58,7 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, size_t filesize )
 	size_t	pos = 0;
 	size_t	bytesWrite = 0;
 	char	out[OUTBUF_SIZE];
-	size_t	outsize;
+	size_t	outsize, padsize;
 	int	ret;
 	wavinfo_t	sc;
 
@@ -71,16 +71,16 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, size_t filesize )
 		return false;
 
 #ifdef _DEBUG
-	if( ret ) MsgDev( D_ERROR, "%s\n", get_error( mpeg ));
+	if( ret ) Con_DPrintf( S_ERROR "%s\n", get_error( mpeg ));
 #endif
 
 	// trying to read header
 	if( !feed_mpeg_header( mpeg, buffer, FRAME_SIZE, filesize, &sc ))
 	{
 #ifdef _DEBUG
-		MsgDev( D_ERROR, "Sound_LoadMPG: failed to load (%s): %s\n", name, get_error( mpeg ));
+		Con_DPrintf( S_ERROR "Sound_LoadMPG: failed to load (%s): %s\n", name, get_error( mpeg ));
 #else
-		MsgDev( D_ERROR, "Sound_LoadMPG: (%s) is probably corrupted\n", name );
+		Con_DPrintf( S_ERROR "Sound_LoadMPG: (%s) is probably corrupted\n", name );
 #endif
 		close_decoder( mpeg );
 		return false;
@@ -91,18 +91,20 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, size_t filesize )
 	sound.width = 2; // always 16-bit PCM
 	sound.loopstart = -1;
 	sound.size = ( sound.channels * sound.rate * sound.width ) * ( sc.playtime / 1000 ); // in bytes
-	pos += FRAME_SIZE;	// evaluate pos
+	padsize = sound.size % FRAME_SIZE;
+	pos += FRAME_SIZE; // evaluate pos
 
 	if( !sound.size )
 	{
 		// bad mpeg file ?
-		MsgDev( D_ERROR, "Sound_LoadMPG: (%s) is probably corrupted\n", name );
+		Con_DPrintf( S_ERROR "Sound_LoadMPG: (%s) is probably corrupted\n", name );
 		close_decoder( mpeg );
 		return false;
 	}
 
+	// add sentinel make sure we not overrun
+	sound.wav = (byte *)Mem_Calloc( host.soundpool, sound.size + padsize );
 	sound.type = WF_PCMDATA;
-	sound.wav = (byte *)Mem_Alloc( host.soundpool, sound.size );
 
 	// decompress mpg into pcm wav format
 	while( bytesWrite < sound.size )
@@ -129,7 +131,7 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, size_t filesize )
 		else size = outsize;
 
 		memcpy( &sound.wav[bytesWrite], out, size );
-		bytesWrite += outsize;
+		bytesWrite += size;
 	}
 
 	sound.samples = bytesWrite / ( sound.width * sound.channels );
@@ -155,29 +157,29 @@ stream_t *Stream_OpenMPG( const char *filename )
 	if( !file ) return NULL;
 
 	// at this point we have valid stream
-	stream = Mem_Alloc( host.soundpool, sizeof( stream_t ));
+	stream = Mem_Calloc( host.soundpool, sizeof( stream_t ));
 	stream->file = file;
 	stream->pos = 0;
 
 	// couldn't create decoder
 	if(( mpeg = create_decoder( &ret )) == NULL )
 	{
-		MsgDev( D_ERROR, "Stream_OpenMPG: couldn't create decoder\n" );
+		Con_DPrintf( S_ERROR "Stream_OpenMPG: couldn't create decoder\n" );
 		Mem_Free( stream );
 		FS_Close( file );
 		return NULL;
 	}
 
 #ifdef _DEBUG
-	if( ret ) MsgDev( D_ERROR, "%s\n", get_error( mpeg ));
+	if( ret ) Con_DPrintf( S_ERROR "%s\n", get_error( mpeg ));
 #endif
 	// trying to open stream and read header
 	if( !open_mpeg_stream( mpeg, file, FS_Read, FS_Seek, &sc ))
 	{
 #ifdef _DEBUG
-		MsgDev( D_ERROR, "Stream_OpenMPG: failed to load (%s): %s\n", filename, get_error( mpeg ));
+		Con_DPrintf( S_ERROR "Stream_OpenMPG: failed to load (%s): %s\n", filename, get_error( mpeg ));
 #else
-		MsgDev( D_ERROR, "Stream_OpenMPG: (%s) is probably corrupted\n", filename );
+		Con_DPrintf( S_ERROR "Stream_OpenMPG: (%s) is probably corrupted\n", filename );
 #endif
 		close_decoder( mpeg );
 		Mem_Free( stream );
@@ -203,7 +205,7 @@ Stream_ReadMPG
 assume stream is valid
 =================
 */
-long Stream_ReadMPG( stream_t *stream, long needBytes, void *buffer )
+int Stream_ReadMPG( stream_t *stream, int needBytes, void *buffer )
 {
 	// buffer handling
 	int	bytesWritten = 0;
@@ -214,7 +216,7 @@ long Stream_ReadMPG( stream_t *stream, long needBytes, void *buffer )
 	while( 1 )
 	{
 		byte	*data;
-		long	outsize;
+		int	outsize;
 
 		if( !stream->buffsize )
 		{
@@ -251,7 +253,7 @@ Stream_SetPosMPG
 assume stream is valid
 =================
 */
-long Stream_SetPosMPG( stream_t *stream, long newpos )
+int Stream_SetPosMPG( stream_t *stream, int newpos )
 {
 	if( set_stream_pos( stream->ptr, newpos ) != -1 )
 	{
@@ -271,7 +273,7 @@ Stream_GetPosMPG
 assume stream is valid
 =================
 */
-long Stream_GetPosMPG( stream_t *stream )
+int Stream_GetPosMPG( stream_t *stream )
 {
 	return get_stream_pos( stream->ptr );
 }

@@ -30,7 +30,7 @@ GNU General Public License for more details.
 #define svc_print			8	// [byte] id [string] null terminated string
 #define svc_stufftext		9	// [string] stuffed into client's console buffer
 #define svc_setangle		10	// [angle angle angle] set the view angle to this absolute value
-#define svc_serverdata		11	// [long] protocol ...
+#define svc_serverdata		11	// [int] protocol ...
 #define svc_lightstyle		12	// [index][pattern][float]
 #define svc_updateuserinfo		13	// [byte] playernum, [string] userinfo
 #define svc_deltatable		14	// [table header][...]
@@ -73,11 +73,11 @@ GNU General Public License for more details.
 #define svc_director		51	// <variable sized>
 #define svc_voiceinit		52	// <see code>
 #define svc_voicedata		53	// [byte][short][...]
-// reserved
+#define svc_deltapacketbones		54	// [short][byte][...] 
 // reserved
 #define svc_resourcelocation		56	// [string]
 #define svc_querycvarvalue		57	// [string]
-#define svc_querycvarvalue2		58	// [string][long] (context)
+#define svc_querycvarvalue2		58	// [string][int] (context)
 #define svc_lastmsg			58	// start user messages at this point
 
 // client to server
@@ -179,7 +179,84 @@ GNU General Public License for more details.
 #define FRAGMENT_MAX_SIZE		64000		// maximal fragment size
 #define FRAGMENT_LOCAL_SIZE		FRAGMENT_MAX_SIZE	// local connection
 
+// Quake1 Protocol
+#define PROTOCOL_VERSION_QUAKE	15
+
+// listed only unmatched ops
+#define svc_updatestat		3	// [byte] [int]			(svc_event)
+#define svc_version			4	// [int] server version		(svc_changing)
+#define svc_updatename		13	// [byte] [string]			(svc_updateuserinfo)
+#define svc_updatefrags		14	// [byte] [short]			(svc_deltatable)
+#define svc_stopsound		16	// <see code>			(svc_resource)
+#define svc_updatecolors		17	// [byte] [byte]			(svc_pings)
+#define svc_damage			19	//				(svc_restoresound)
+#define svc_spawnbinary		21	//				(svc_event_reliable)
+#define svc_killedmonster		27
+#define svc_foundsecret		28
+#define svc_spawnstaticsound		29	// [coord3] [byte] samp [byte] vol [byte] aten
+#define svc_sellscreen		33	//				(svc_restore)
+// Nehahra added
+#define svc_showlmp			35	// [string] slotname [string] lmpfilename [coord] x [coord] y
+#define svc_hidelmp			36	// [string] slotname
+#define svc_skybox			37	// [string] skyname
+#define svc_skyboxsize		50	// [coord] size (default is 4096)
+#define svc_fog			51	// [byte] enable <optional past this point, only included if enable is true>
+					// [float] density [byte] red [byte] green [byte] blue
+
+// if the high bit of the servercmd is set, the low bits are fast update flags:
+#define U_MOREBITS		(1<<0)
+#define U_ORIGIN1		(1<<1)
+#define U_ORIGIN2		(1<<2)
+#define U_ORIGIN3		(1<<3)
+#define U_ANGLE2		(1<<4)
+#define U_NOLERP		(1<<5)		// don't interpolate movement
+#define U_FRAME		(1<<6)
+#define U_SIGNAL		(1<<7)		// just differentiates from other updates
+
+// svc_update can pass all of the fast update bits, plus more
+#define U_ANGLE1		(1<<8)
+#define U_ANGLE3		(1<<9)
+#define U_MODEL		(1<<10)
+#define U_COLORMAP		(1<<11)
+#define U_SKIN		(1<<12)
+#define U_EFFECTS		(1<<13)
+#define U_LONGENTITY	(1<<14)
+#define U_TRANS		(1<<15)		// nehahra
+
+// clientdata flags
+#define SU_VIEWHEIGHT	(1<<0)
+#define SU_IDEALPITCH	(1<<1)
+#define SU_PUNCH1		(1<<2)
+#define SU_PUNCH2		(1<<3)
+#define SU_PUNCH3		(1<<4)
+#define SU_VELOCITY1	(1<<5)
+#define SU_VELOCITY2	(1<<6)
+#define SU_VELOCITY3	(1<<7)
+//define	SU_AIMENT		(1<<8)  AVAILABLE BIT
+#define SU_ITEMS		(1<<9)
+#define SU_ONGROUND		(1<<10)		// no data follows, the bit is it
+#define SU_INWATER		(1<<11)		// no data follows, the bit is it
+#define SU_WEAPONFRAME	(1<<12)
+#define SU_ARMOR		(1<<13)
+#define SU_WEAPON		(1<<14)
+
 extern const char	*svc_strings[svc_lastmsg+1];
 extern const char	*clc_strings[clc_lastmsg+1];
 
+// legacy protocol definitons
+#define PROTOCOL_LEGACY_VERSION		48
+#define svc_legacy_modelindex		31	// [index][modelpath]
+#define svc_legacy_soundindex		28	// [index][soundpath]
+#define svc_legacy_eventindex		34	// [index][eventname]
+#define svc_legacy_ambientsound		29
+#define svc_legacy_chokecount 42		// old client specified count, new just sends svc_choke
+#define svc_legacy_event			27	// playback event queue
+#define svc_legacy_changing			3	// changelevel by server request
+
+#define clc_legacy_userinfo		6	// [[userinfo string]
+
+#define SND_LEGACY_LARGE_INDEX		(1<<2)	// a send sound as short
+#define MAX_LEGACY_ENTITY_BITS		12
+#define MAX_LEGACY_WEAPON_BITS		5
+#define MAX_LEGACY_MODEL_BITS 11
 #endif//NET_PROTOCOL_H

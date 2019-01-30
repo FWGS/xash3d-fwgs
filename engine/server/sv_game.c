@@ -497,39 +497,47 @@ SV_CreateStaticEntity
 NOTE: static entities only accepted when game is loading
 =======================
 */
-void SV_CreateStaticEntity( sizebuf_t *msg, sv_static_entity_t *ent )
+qboolean SV_CreateStaticEntity( sizebuf_t *msg, int index )
 {
-	int	index;
+	entity_state_t	nullstate, *baseline;	
+	entity_state_t	*state;
+	int		offset;
+
+	if( index >= ( MAX_STATIC_ENTITIES - 1 ))
+	{
+		if( !sv.static_ents_overflow )
+		{
+			Con_Printf( S_WARN "MAX_STATIC_ENTITIES limit exceeded (%d)\n", MAX_STATIC_ENTITIES );
+			sv.static_ents_overflow = true;
+		}
+
+		sv.ignored_static_ents++; // continue overflowed entities
+		return false;
+	}
 
 	// this can happens if serialized map contain too many static entities...
-	if( MSG_GetNumBytesLeft( msg ) < 35 )
+	if( MSG_GetNumBytesLeft( msg ) < 50 )
 	{
 		sv.ignored_static_ents++;
-		return;
+		return false;
 	}
 
-	index = SV_ModelIndex( ent->model );
+	state = &svs.static_entities[index]; // allocate a new one
+	memset( &nullstate, 0, sizeof( nullstate ));
+	baseline = &nullstate;
+
+	// restore modelindex from modelname (already precached)
+	state->modelindex = pfnModelIndex( STRING( state->messagenum ));
+	state->entityType = ENTITY_NORMAL; // select delta-encode
+	state->number = 0;
+
+	// trying to compress with previous delta's
+	offset = SV_FindBestBaselineForStatic( index, &baseline, state );
 
 	MSG_BeginServerCmd( msg, svc_spawnstatic );
-	MSG_WriteShort( msg, index );
-	MSG_WriteWord( msg, ent->sequence );
-	MSG_WriteWord( msg, ent->frame );
-	MSG_WriteWord( msg, ent->colormap );
-	MSG_WriteByte( msg, ent->skin );
-	MSG_WriteByte( msg, ent->body );
-	MSG_WriteCoord( msg, ent->scale );
-	MSG_WriteVec3Coord( msg, ent->origin );
-	MSG_WriteVec3Angles( msg, ent->angles );
-	MSG_WriteByte( msg, ent->rendermode );
+	MSG_WriteDeltaEntity( baseline, state, msg, true, DELTA_STATIC, sv.time, offset );
 
-	if( ent->rendermode != kRenderNormal )
-	{
-		MSG_WriteByte( msg, ent->renderamt );
-		MSG_WriteByte( msg, ent->rendercolor.r );
-		MSG_WriteByte( msg, ent->rendercolor.g );
-		MSG_WriteByte( msg, ent->rendercolor.b );
-		MSG_WriteByte( msg, ent->renderfx );
-	}
+	return true;
 }
 
 /*
@@ -541,18 +549,14 @@ Write all the static ents into demo
 */
 void SV_RestartStaticEnts( void )
 {
-	sv_static_entity_t	*clent;
-	int		i;
+	int	i;
 
 	// remove all the static entities on the client
 	R_ClearStaticEntities();
 
 	// resend them again
 	for( i = 0; i < sv.num_static_entities; i++ )
-	{
-		clent = &sv.static_entities[i];
-		SV_CreateStaticEntity( &sv.reliable_datagram, clent );
-	}
+		SV_CreateStaticEntity( &sv.reliable_datagram, i );
 }
 
 /*
@@ -567,7 +571,7 @@ void SV_RestartAmbientSounds( void )
 	soundlist_t	soundInfo[256];
 	string		curtrack, looptrack;
 	int		i, nSounds;
-	long		position;
+	int		position;
 
 	if( !SV_Active( )) return;
 
@@ -611,7 +615,7 @@ void SV_RestartDecals( void )
 	if( !SV_Active( )) return;
 
 	// g-cont. add space for studiodecals if present
-	host.decalList = (decallist_t *)Z_Malloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
+	host.decalList = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
 	host.numdecals = R_CreateDecalList( host.decalList );
 
 	// remove decals from map
@@ -649,11 +653,96 @@ SV_BoxInPVS
 check brush boxes in fat pvs
 ==============
 */
-int SV_BoxInPVS( const vec3_t org, const vec3_t absmin, const vec3_t absmax )
+qboolean SV_BoxInPVS( const vec3_t org, const vec3_t absmin, const vec3_t absmax )
 {
 	if( !Mod_BoxVisible( absmin, absmax, Mod_GetPVSForPoint( org )))
 		return false;
 	return true;
+}
+
+/*
+=============
+SV_ChangeLevel
+
+Issue changing level
+=============
+*/
+void SV_QueueChangeLevel( const char *level, const char *landname )
+{
+	int	flags, smooth = false;
+	char	mapname[MAX_QPATH];
+	char	*spawn_entity;
+
+	// hold mapname to other place
+	Q_strncpy( mapname, level, sizeof( mapname ));
+	COM_StripExtension( mapname );
+
+	if( COM_CheckString( landname ))
+		smooth = true;
+
+	// determine spawn entity classname
+	if( svs.maxclients == 1 )
+		spawn_entity = GI->sp_entity;
+	else spawn_entity = GI->mp_entity;
+
+	flags = SV_MapIsValid( mapname, spawn_entity, landname );
+
+	if( FBitSet( flags, MAP_INVALID_VERSION ))
+	{
+		Con_Printf( S_ERROR "changelevel: %s is invalid or not supported\n", mapname );
+		return;
+	}
+	
+	if( !FBitSet( flags, MAP_IS_EXIST ))
+	{
+		Con_Printf( S_ERROR "changelevel: map %s doesn't exist\n", mapname );
+		return;
+	}
+
+	if( smooth && !FBitSet( flags, MAP_HAS_LANDMARK ))
+	{
+		if( sv_validate_changelevel->value )
+		{
+			// NOTE: we find valid map but specified landmark it's doesn't exist
+			// run simple changelevel like in q1, throw warning
+			Con_Printf( S_WARN "changelevel: %s doesn't contain landmark [%s]. smooth transition was disabled\n", mapname, landname );
+			smooth = false;
+		}
+	}
+
+	if( svs.maxclients > 1 )
+		smooth = false; // multiplayer doesn't support smooth transition
+
+	if( smooth && !Q_stricmp( sv.name, level ))
+	{
+		Con_Printf( S_ERROR "can't changelevel with same map. Ignored.\n" );
+		return;	
+	}
+
+	if( !smooth && !FBitSet( flags, MAP_HAS_SPAWNPOINT ))
+	{
+		if( sv_validate_changelevel->value )
+		{
+			Con_Printf( S_ERROR "changelevel: %s doesn't have a valid spawnpoint. Ignored.\n", mapname );
+			return;	
+		}
+	}
+
+	// bad changelevel position invoke enables in one-way transition
+	if( sv.framecount < 15 )
+	{
+		if( sv_validate_changelevel->value )
+		{
+			Con_Printf( S_WARN "an infinite changelevel was detected and will be disabled until a next save\\restore\n" );
+			return; // lock with svs.spawncount here
+		}
+	}
+
+	SV_SkipUpdates ();
+
+	// changelevel will be executed on a next frame
+	if( smooth ) COM_ChangeLevel( mapname, landname, sv.background );	// Smoothed Half-Life changelevel
+	else COM_ChangeLevel( mapname, NULL, sv.background );		// Classic Quake changlevel
 }
 
 /*
@@ -694,7 +783,7 @@ void SV_WriteEntityPatch( const char *filename )
 		char	*entities = NULL;
 		
 		FS_Seek( f, lumpofs, SEEK_SET );
-		entities = (char *)Z_Malloc( lumplen + 1 );
+		entities = (char *)Z_Calloc( lumplen + 1 );
 		FS_Read( f, entities, lumplen );
 		FS_WriteFile( va( "maps/%s.ent", filename ), entities, lumplen );
 		Con_Printf( "Write 'maps/%s.ent'\n", filename );
@@ -762,7 +851,7 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	if( !ents && lumplen >= 32 )
 	{
 		FS_Seek( f, lumpofs, SEEK_SET );
-		ents = Z_Malloc( lumplen + 1 );
+		ents = Z_Calloc( lumplen + 1 );
 		FS_Read( f, ents, lumplen );
 	}
 	FS_Close( f ); // all done
@@ -1192,24 +1281,29 @@ pfnSetModel
 */
 void pfnSetModel( edict_t *e, const char *m )
 {
+	char	name[MAX_QPATH];
 	model_t	*mod;
 	int	i;
 
 	if( !SV_IsValidEdict( e ))
 		return;
 
-	if( COM_CheckString( m ))
+	if( *m == '\\' || *m == '/' ) m++;
+	Q_strncpy( name, m, sizeof( name ));
+	COM_FixSlashes( name );
+
+	if( COM_CheckString( name ))
 	{
 		// check to see if model was properly precached
 		for( i = 1; i < MAX_MODELS && sv.model_precache[i][0]; i++ )
 		{
-			if( !Q_stricmp( sv.model_precache[i], m ))
+			if( !Q_stricmp( sv.model_precache[i], name ))
 				break;
 		}
 
 		if( i == MAX_MODELS )
 		{
-			Con_Printf( S_ERROR "no precache: %s\n", m );
+			Con_Printf( S_ERROR "no precache: %s\n", name );
 			return;
 		}
 	}
@@ -1221,7 +1315,7 @@ void pfnSetModel( edict_t *e, const char *m )
 		return;
 	}
 
-	if( COM_CheckString( m ))
+	if( COM_CheckString( name ))
 	{
 		e->v.model = MAKE_STRING( sv.model_precache[i] );
 		e->v.modelindex = i;
@@ -1248,18 +1342,23 @@ pfnModelIndex
 */
 int pfnModelIndex( const char *m )
 {
+	char	name[MAX_QPATH];
 	int	i;
 
 	if( !COM_CheckString( m ))
 		return 0;
 
+	if( *m == '\\' || *m == '/' ) m++;
+	Q_strncpy( name, m, sizeof( name ));
+	COM_FixSlashes( name );
+
 	for( i = 1; i < MAX_MODELS && sv.model_precache[i][0]; i++ )
 	{
-		if( !Q_stricmp( sv.model_precache[i], m ))
+		if( !Q_stricmp( sv.model_precache[i], name ))
 			return i;
 	}
 
-	Con_Printf( S_ERROR "no precache: %s\n", m );
+	Con_Printf( S_ERROR "no precache: %s\n", name );
 	return 0; 
 }
 
@@ -1300,11 +1399,8 @@ pfnChangeLevel
 */
 void pfnChangeLevel( const char *level, const char *landmark )
 {
-	int		flags, smooth = false;
 	static uint	last_spawncount = 0;
-	char		mapname[MAX_QPATH];
 	char		landname[MAX_QPATH];
-	char		*spawn_entity;
 	char		*text;
 
 	if( !COM_CheckString( level ) || sv.state != ss_active )
@@ -1314,12 +1410,9 @@ void pfnChangeLevel( const char *level, const char *landmark )
 	if( svs.spawncount == last_spawncount )
 		return;
 	last_spawncount = svs.spawncount;
-
-	// hold mapname to other place
-	Q_strncpy( mapname, level, sizeof( mapname ));
-	COM_StripExtension( mapname );
 	landname[0] ='\0';
 
+#ifdef HACKS_RELATED_HLMODS
 	// g-cont. some level-designers wrote landmark name with space
 	// and Cmd_TokenizeString separating all the after space as next argument
 	// emulate this bug for compatibility
@@ -1328,73 +1421,12 @@ void pfnChangeLevel( const char *level, const char *landmark )
 		text = (char *)landname;
 		while( *landmark && ((byte)*landmark) != ' ' )
 			*text++ = *landmark++;
-		smooth = true;
 		*text = '\0';
 	}
-
-	// determine spawn entity classname
-	if( svs.maxclients == 1 )
-		spawn_entity = GI->sp_entity;
-	else spawn_entity = GI->mp_entity;
-
-	flags = SV_MapIsValid( mapname, spawn_entity, landname );
-
-	if( FBitSet( flags, MAP_INVALID_VERSION ))
-	{
-		Con_Printf( S_ERROR "changelevel: %s is invalid or not supported\n", mapname );
-		return;
-	}
-	
-	if( !FBitSet( flags, MAP_IS_EXIST ))
-	{
-		Con_Printf( S_ERROR "changelevel: map %s doesn't exist\n", mapname );
-		return;
-	}
-
-	if( smooth && !FBitSet( flags, MAP_HAS_LANDMARK ))
-	{
-		if( sv_validate_changelevel->value )
-		{
-			// NOTE: we find valid map but specified landmark it's doesn't exist
-			// run simple changelevel like in q1, throw warning
-			Con_Printf( S_WARN "changelevel: %s doesn't contain landmark [%s]. smooth transition was disabled\n", mapname, landname );
-			smooth = false;
-		}
-	}
-
-	if( svs.maxclients > 1 )
-		smooth = false; // multiplayer doesn't support smooth transition
-
-	if( smooth && !Q_stricmp( sv.name, level ))
-	{
-		Con_Printf( S_ERROR "can't changelevel with same map. Ignored.\n" );
-		return;	
-	}
-
-	if( !smooth && !FBitSet( flags, MAP_HAS_SPAWNPOINT ))
-	{
-		if( sv_validate_changelevel->value )
-		{
-			Con_Printf( S_ERROR "changelevel: %s doesn't have a valid spawnpoint. Ignored.\n", mapname );
-			return;	
-		}
-	}
-
-	// bad changelevel position invoke enables in one-way transition
-	if( sv.framecount < 15 )
-	{
-		if( sv_validate_changelevel->value )
-		{
-			Con_Printf( S_WARN "an infinite changelevel was detected and will be disabled until a next save\\restore\n" );
-			return; // lock with svs.spawncount here
-		}
-	}
-
-	SV_SkipUpdates ();
-
-	// changelevel will be executed on a next frame
-	if( smooth ) COM_ChangeLevel( mapname, landname, sv.background );	// Smoothed Half-Life changelevel
-	else COM_ChangeLevel( mapname, NULL, sv.background );		// Classic Quake changlevel
+#else
+	Q_strncpy( landname, landmark, sizeof( landname ));
+#endif
+	SV_QueueChangeLevel( level, landname );
 }
 
 /*
@@ -1832,42 +1864,18 @@ move entity to client
 */
 static void pfnMakeStatic( edict_t *ent )
 {
-	sv_static_entity_t	*clent;
+	entity_state_t	*state;
 
 	if( !SV_IsValidEdict( ent ))
 		return;
 
-	if( sv.num_static_entities >= MAX_STATIC_ENTITIES )
-	{
-		if( !sv.static_ents_overflow )
-		{
-			Con_Printf( S_WARN "MAX_STATIC_ENTITIES limit exceeded (%d)\n", MAX_STATIC_ENTITIES );
-			sv.static_ents_overflow = true;
-		}
-		sv.ignored_static_ents++; // continue overflowed entities
-		return;
-	}
+	// fill the entity state
+	state = &svs.static_entities[sv.num_static_entities];	// allocate a new one
+	svgame.dllFuncs.pfnCreateBaseline( false, NUM_FOR_EDICT( ent ), state, ent, 0, vec3_origin, vec3_origin );
+	state->messagenum = ent->v.model; // member modelname
 
-	clent = &sv.static_entities[sv.num_static_entities++];
-
-	Q_strncpy( clent->model, STRING( ent->v.model ), sizeof( clent->model ));
-	VectorCopy( ent->v.origin, clent->origin );
-	VectorCopy( ent->v.angles, clent->angles );
-
-	clent->sequence = ent->v.sequence;
-	clent->frame = ent->v.frame * 128;
-	clent->colormap = ent->v.colormap;
-	clent->skin = ent->v.skin;
-	clent->body = ent->v.body;
-	clent->scale = ent->v.scale;
-	clent->rendermode = ent->v.rendermode;
-	clent->renderamt = ent->v.renderamt;
-	clent->rendercolor.r = ent->v.rendercolor[0];
-	clent->rendercolor.g = ent->v.rendercolor[1];
-	clent->rendercolor.b = ent->v.rendercolor[2];
-	clent->renderfx = ent->v.renderfx;
-
-	SV_CreateStaticEntity( &sv.signon, clent );
+	if( SV_CreateStaticEntity( &sv.signon, sv.num_static_entities ))
+		sv.num_static_entities++;
 
 	// remove at end of the frame
 	SetBits( ent->v.flags, FL_KILLME );
@@ -1983,38 +1991,44 @@ int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample
 
 	if( vol < 0 || vol > 255 )
 	{
-		Con_Printf( S_ERROR "SV_StartSound: volume = %i\n", vol );
+		Con_Reportf( S_ERROR "SV_StartSound: volume = %i\n", vol );
 		vol = bound( 0, vol, 255 );
 	}
 
 	if( attn < 0.0f || attn > 4.0f )
 	{
-		Con_Printf( S_ERROR "SV_StartSound: attenuation %g must be in range 0-4\n", attn );
+		Con_Reportf( S_ERROR "SV_StartSound: attenuation %g must be in range 0-4\n", attn );
 		attn = bound( 0.0f, attn, 4.0f );
 	}
 
 	if( chan < 0 || chan > 7 )
 	{
-		Con_Printf( S_ERROR "SV_StartSound: channel must be in range 0-7\n" );
+		Con_Reportf( S_ERROR "SV_StartSound: channel must be in range 0-7\n" );
 		chan = bound( 0, chan, 7 );
 	}
 
 	if( pitch < 0 || pitch > 255 )
 	{
-		Con_Printf( S_ERROR "SV_StartSound: pitch = %i\n", pitch );
+		Con_Reportf( S_ERROR "SV_StartSound: pitch = %i\n", pitch );
 		pitch = bound( 0, pitch, 255 );
 	}
 
 	if( !COM_CheckString( sample ))
 	{
-		Con_Printf( S_ERROR "SV_StartSound: passed NULL sample\n" );
+		Con_Reportf( S_ERROR "SV_StartSound: passed NULL sample\n" );
 		return 0;
 	}
 
 	if( sample[0] == '!' && Q_isdigit( sample + 1 ))
 	{
-		SetBits( flags, SND_SENTENCE );
 		sound_idx = Q_atoi( sample + 1 );
+
+		if( sound_idx >= MAX_SOUNDS )
+		{
+			SetBits( flags, SND_SENTENCE|SND_SEQUENCE );
+			sound_idx -= MAX_SOUNDS;
+		}
+		else SetBits( flags, SND_SENTENCE );
 	}
 	else if( sample[0] == '#' && Q_isdigit( sample + 1 ))
 	{
@@ -2023,6 +2037,9 @@ int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample
 	}
 	else
 	{
+		// TESTTEST
+		if( *sample == '*' ) chan = CHAN_AUTO;
+
 		// precache_sound can be used twice: cache sounds when loading
 		// and return sound index when server is active
 		sound_idx = SV_SoundIndex( sample );
@@ -2091,7 +2108,7 @@ void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float
 		msg_dest = MSG_ALL;
 	else if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
 		msg_dest = MSG_ALL;
-	else msg_dest = MSG_PAS_R;
+	else msg_dest = (svs.maxclients <= 1 ) ? MSG_ALL : MSG_PAS_R;
 
 	// always sending stop sound command
 	if( FBitSet( flags, SND_STOP ))
@@ -2112,7 +2129,7 @@ pfnEmitAmbientSound
 */
 void pfnEmitAmbientSound( edict_t *ent, float *pos, const char *sample, float vol, float attn, int flags, int pitch )
 {
-	int	msg_dest = MSG_PAS_R;
+	int	msg_dest;
 
 	if( sv.state == ss_loading )
 		SetBits( flags, SND_SPAWNING );
@@ -2135,7 +2152,7 @@ SV_StartMusic
 
 =================
 */
-void SV_StartMusic( const char *curtrack, const char *looptrack, long position )
+void SV_StartMusic( const char *curtrack, const char *looptrack, int position )
 {
 	MSG_BeginServerCmd( &sv.multicast, svc_stufftext );
 	MSG_WriteString( &sv.multicast, va( "music \"%s\" \"%s\" %li\n", curtrack, looptrack, position ));
@@ -2395,7 +2412,7 @@ void pfnServerExecute( void )
 	Cbuf_Execute();
 
 	if( host.sv_cvars_restored > 0 )
-		Con_DPrintf( "server executing ^2config.cfg^7 (%i cvars)\n", host.sv_cvars_restored );
+		Con_Reportf( "server executing ^2config.cfg^7 (%i cvars)\n", host.sv_cvars_restored );
 
 	host.apply_game_config = false;
 	svgame.config_executed = true;
@@ -2927,7 +2944,7 @@ void *pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 	if( cb > 0 )
 	{
 		// a poke646 have memory corrupt in somewhere - this is trashed last sixteen bytes :(
-		pEdict->pvPrivateData = Mem_Alloc( svgame.mempool, (cb + 15) & ~15 );
+		pEdict->pvPrivateData = Mem_Calloc( svgame.mempool, (cb + 15) & ~15 );
 	}
 
 	return pEdict->pvPrivateData;
@@ -2947,41 +2964,248 @@ void *pfnPvEntPrivateData( edict_t *pEdict )
 	return NULL;
 }
 
+
+#ifdef XASH_64BIT
+static struct str64_s
+{
+	size_t maxstringarray;
+	qboolean allowdup;
+	char *staticstringarray;
+	char *pstringarray;
+	char *pstringarraystatic;
+	char *pstringbase;
+	char *poldstringbase;
+	char *plast;
+	qboolean dynamic;
+	size_t maxalloc;
+	size_t numdups;
+	size_t numoverflows;
+	size_t totalalloc;
+} str64;
+#endif
+
+/*
+==================
+SV_EmptyStringPool
+
+Free strings on server stop. Reset string pointer on 64 bits
+==================
+*/
+void SV_EmptyStringPool( void )
+{
+#ifdef XASH_64BIT
+	if( str64.dynamic ) // switch only after array fill (more space for multiplayer games)
+		str64.pstringbase = str64.pstringarray;
+	else
+	{
+		str64.pstringbase = str64.poldstringbase = str64.pstringarraystatic;
+		str64.plast = str64.pstringbase + 1;
+	}
+#else
+	Mem_EmptyPool( svgame.stringspool );
+#endif
+}
+
+/*
+===============
+SV_SetStringArrayMode
+
+use different arrays on 64 bit platforms
+set dynamic after complete server spawn
+this helps not to lose strings that belongs to static game part
+===============
+*/
+void SV_SetStringArrayMode( qboolean dynamic )
+{
+#ifdef XASH_64BIT
+	Con_Reportf( "SV_SetStringArrayMode(%d) %d\n", dynamic, str64.dynamic );
+
+	if( dynamic == str64.dynamic )
+		return;
+
+	str64.dynamic = dynamic;
+
+	SV_EmptyStringPool();
+#endif
+}
+
+#ifdef XASH_64BIT
+#ifndef _WIN32
+#define USE_MMAP
+#include <sys/mman.h>
+#endif
+#endif
+
+/*
+==================
+SV_AllocStringPool
+
+alloc string pool on 32bit platforms
+alloc string array near the server library on 64bit platforms if possible
+alloc string array somewhere if not (MAKE_STRING will not work. Always call ALLOC_STRING instead, or crash)
+this case need patched game dll with MAKE_STRING checking ptrdiff size
+==================
+*/
+void SV_AllocStringPool( void )
+{
+#ifdef XASH_64BIT
+	void *ptr = NULL;
+	string lenstr;
+
+	Con_Reportf( "SV_AllocStringPool()\n" );
+	if( Sys_GetParmFromCmdLine( "-str64alloc", lenstr ) )
+	{
+		str64.maxstringarray = Q_atoi( lenstr );
+		if( str64.maxstringarray < 1024 || str64.maxstringarray >= INT_MAX )
+			str64.maxstringarray = 65536;
+	}
+	else str64.maxstringarray = 65536;
+	if( Sys_CheckParm( "-str64dup" ) )
+		str64.allowdup = true;
+
+#ifdef USE_MMAP
+	{
+		size_t pagesize = sysconf( _SC_PAGESIZE );
+		int arrlen = (str64.maxstringarray * 2) & ~(pagesize - 1);
+		void *base = svgame.dllFuncs.pfnGameInit;
+		void *start = svgame.hInstance - arrlen;
+
+		while( start - base > INT_MIN )
+		{
+			void *mapptr = mmap((void*)((unsigned long)start & ~(pagesize - 1)), arrlen, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0 );
+			if( mapptr && mapptr != (void*)-1 && mapptr - base > INT_MIN && mapptr - base < INT_MAX )
+			{
+				ptr = mapptr;
+				break;
+			}
+			if( mapptr ) munmap( mapptr, arrlen );
+			start -= arrlen;
+		}
+
+		if( !ptr )
+		{
+			start = base;
+			while( start - base < INT_MAX )
+			{
+				void *mapptr = mmap((void*)((unsigned long)start & ~(pagesize - 1)), arrlen, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0 );
+				if( mapptr && mapptr != (void*)-1  && mapptr - base > INT_MIN && mapptr - base < INT_MAX )
+				{
+					ptr = mapptr;
+					break;
+				}
+				if( mapptr ) munmap( mapptr, arrlen );
+				start += arrlen;
+			}
+		}
+
+
+		if( ptr )
+		{
+			Con_Reportf( "SV_AllocStringPool: Allocated string array near the server library: %p %p\n", base, ptr );
+
+		}
+		else
+		{
+			Con_Reportf( "SV_AllocStringPool: Failed to allocate string array near the server library!\n" );
+			ptr = str64.staticstringarray = Mem_Calloc(host.mempool, str64.maxstringarray * 2);
+		}
+	}
+#else
+	ptr = str64.staticstringarray = Mem_Calloc(host.mempool, str64.maxstringarray * 2);
+#endif
+
+	str64.pstringarray = ptr;
+	str64.pstringarraystatic = ptr + str64.maxstringarray;
+	str64.pstringbase = str64.poldstringbase = ptr;
+	str64.plast = ptr + 1;
+	svgame.globals->pStringBase = ptr;
+#else
+	svgame.stringspool = Mem_AllocPool( "Server Strings" );
+	svgame.globals->pStringBase = "";
+#endif
+}
+
+void SV_FreeStringPool( void )
+{
+#ifdef XASH_64BIT
+	Con_Reportf( "SV_FreeStringPool()\n" );
+
+	if( str64.pstringarray != str64.staticstringarray )
+		munmap( str64.pstringarray, (str64.maxstringarray * 2) & ~(sysconf( _SC_PAGESIZE ) - 1) );
+	else
+		Mem_Free( str64.staticstringarray );
+#else
+	Mem_FreePool( &svgame.stringspool );
+#endif
+}
+
 /*
 =============
 SV_AllocString
 
 allocate new engine string
+on 64bit platforms find in array string if deduplication enabled (default)
+if not found, add to array
+use -str64dup to disable deduplication, -str64alloc to set array size
 =============
 */
-string_t SV_AllocString( const char *szString )
+string_t GAME_EXPORT SV_AllocString( const char *szValue )
 {
-	char	*out, *out_p;
-	int	i, l;
+	const char *newString = NULL;
 
 	if( svgame.physFuncs.pfnAllocString != NULL )
-		return svgame.physFuncs.pfnAllocString( szString );
+		return svgame.physFuncs.pfnAllocString( szValue );
+#ifdef XASH_64BIT
+	int cmp = 1;
 
-	if( !COM_CheckString( szString ))
-		return 0;
+	if( !str64.allowdup )
+		for( newString = str64.poldstringbase + 1; newString < str64.plast && ( cmp = Q_strcmp( newString, szValue ) ); newString += Q_strlen( newString ) + 1 );
 
-	l = Q_strlen( szString ) + 1;
-
-	out = out_p = Mem_Alloc( svgame.stringspool, l );
-	for( i = 0; i < l; i++ )
+	if( cmp )
 	{
-		if( szString[i] == '\\' && i < l - 1 )
-		{
-			i++;
-			if( szString[i] == 'n')
-				*out_p++ = '\n';
-			else *out_p++ = '\\';
-		}
-		else *out_p++ = szString[i];
-	}
+		uint len = Q_strlen( szValue );
 
-	return out - svgame.globals->pStringBase;
-}		
+		if( str64.plast - str64.poldstringbase + len + 2 > str64.maxstringarray )
+		{
+			str64.plast = str64.pstringbase + 1;
+			str64.poldstringbase = str64.pstringbase;
+			str64.numoverflows++;
+		}
+
+		//MsgDev( D_NOTE, "SV_AllocString: %ld %s\n", str64.plast - svgame.globals->pStringBase, szValue );
+		memcpy( str64.plast, szValue, len + 1 );
+		str64.totalalloc += len + 1;
+
+		newString = str64.plast;
+		str64.plast += len + 1;
+	}
+	else
+		str64.numdups++;
+		//MsgDev( D_NOTE, "SV_AllocString: dup %ld %s\n", newString - svgame.globals->pStringBase, szValue );
+
+	if( newString - str64.pstringarray > str64.maxalloc )
+		str64.maxalloc = newString - str64.pstringarray;
+
+	return newString - svgame.globals->pStringBase;
+#else
+	newString = _copystring( svgame.stringspool, szValue, __FILE__, __LINE__ );
+	return newString - svgame.globals->pStringBase;
+#endif
+}
+
+#ifdef XASH_64BIT
+void SV_PrintStr64Stats_f( void )
+{
+	Msg( "====================\n" );
+	Msg( "64 bit string pool statistics\n" );
+	Msg( "====================\n" );
+	Msg( "string array size: %lu\n", str64.maxstringarray );
+	Msg( "total alloc %lu\n", str64.totalalloc );
+	Msg( "maximum array usage: %lu\n", str64.maxalloc );
+	Msg( "overflow counter: %lu\n", str64.numoverflows );
+	Msg( "dup string counter: %lu\n", str64.numdups );
+}
+#endif
 
 /*
 =============
@@ -2994,9 +3218,18 @@ string_t SV_MakeString( const char *szValue )
 {
 	if( svgame.physFuncs.pfnMakeString != NULL )
 		return svgame.physFuncs.pfnMakeString( szValue );
+#ifdef XASH_64BIT
+	{
+		long long ptrdiff = szValue - svgame.globals->pStringBase;
+		if( ptrdiff > INT_MAX || ptrdiff < INT_MIN )
+			return SV_AllocString(szValue);
+		else
+			return (int)ptrdiff;
+	}
+#else
 	return szValue - svgame.globals->pStringBase;
-}		
-
+#endif
+}
 
 /*
 =============
@@ -3405,7 +3638,7 @@ OBSOLETE, UNUSED
 */
 uint pfnGetPlayerWONId( edict_t *e )
 {
-	return -1;
+	return (uint)-1;
 }
 
 /*
@@ -3435,10 +3668,7 @@ void pfnFadeClientVolume( const edict_t *pEdict, int fadePercent, int fadeOutSec
 	sv_client_t	*cl;
 
 	if(( cl = SV_ClientFromEdict( pEdict, true )) == NULL )
-	{
-		MsgDev( D_ERROR, "SV_FadeClientVolume: client is not spawned!\n" );
 		return;
-	}
 
 	if( FBitSet( cl->flags, FCL_FAKECLIENT ))
 		return;
@@ -4099,7 +4329,7 @@ void pfnEndSection( const char *pszSection )
 {
 	if( !Q_stricmp( "oem_end_credits", pszSection ))
 		Host_Credits ();
-	else Cbuf_AddText( va( "endgame \"%s\"\n", pszSection ));
+	else Cbuf_AddText( "\ndisconnect\n" );
 }
 
 /*
@@ -4589,7 +4819,7 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 
 			COM_ParseVector( &pstart, origin, 3 );
 			Mem_Free( pkvd[i].szValue );	// release old value, so we don't need these
-			copystring( va( "%g %g %g", origin[0], origin[1], origin[2] - 16.0f ));
+			pkvd[i].szValue = copystring( va( "%g %g %g", origin[0], origin[1], origin[2] - 16.0f ));
 		}
 #endif
 		if( !Q_strcmp( pkvd[i].szKeyName, "light" ))
@@ -4605,8 +4835,11 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 		}
 
 		// no reason to keep this data
-		Mem_Free( pkvd[i].szKeyName );
-		Mem_Free( pkvd[i].szValue );
+		if( Mem_IsAllocatedExt( host.mempool, pkvd[i].szKeyName ))
+			Mem_Free( pkvd[i].szKeyName );
+
+		if( Mem_IsAllocatedExt( host.mempool, pkvd[i].szValue ))
+			Mem_Free( pkvd[i].szValue );
 	}
 
 	if( classname )
@@ -4728,7 +4961,7 @@ void SV_UnloadProgs( void )
 	Delta_Shutdown ();
 	Mod_ClearUserData ();
 
-	Mem_FreePool( &svgame.stringspool );
+	SV_FreeStringPool();
 
 	if( svgame.dllFuncs2.pfnGameShutdown != NULL )
 		svgame.dllFuncs2.pfnGameShutdown ();
@@ -4738,6 +4971,7 @@ void SV_UnloadProgs( void )
 	Cvar_FullSet( "sv_background", "0", FCVAR_READ_ONLY );
 
 	// free entity baselines
+	Z_Free( svs.static_entities );
 	Z_Free( svs.baselines );
 	svs.baselines = NULL;
 
@@ -4840,7 +5074,7 @@ qboolean SV_LoadProgs( const char *name )
 				return false;
 			}
 		}
-		else Con_DPrintf( "SV_LoadProgs: ^2initailized extended EntityAPI ^7ver. %i\n", version );
+		else Con_Reportf( "SV_LoadProgs: ^2initailized extended EntityAPI ^7ver. %i\n", version );
 	}
 	else if( !GetEntityAPI( &svgame.dllFuncs, version ))
 	{
@@ -4865,15 +5099,16 @@ qboolean SV_LoadProgs( const char *name )
 
 	svgame.globals->maxEntities = GI->max_edicts;
 	svgame.globals->maxClients = svs.maxclients;
-	svgame.edicts = Mem_Alloc( svgame.mempool, sizeof( edict_t ) * GI->max_edicts );
-	svs.baselines = Z_Malloc( sizeof( entity_state_t ) * GI->max_edicts );
+	svgame.edicts = Mem_Calloc( svgame.mempool, sizeof( edict_t ) * GI->max_edicts );
+	svs.static_entities = Z_Calloc( sizeof( entity_state_t ) * MAX_STATIC_ENTITIES );
+	svs.baselines = Z_Calloc( sizeof( entity_state_t ) * GI->max_edicts );
 	svgame.numEntities = svs.maxclients + 1; // clients + world
 
 	for( i = 0, e = svgame.edicts; i < GI->max_edicts; i++, e++ )
 		e->free = true; // mark all edicts as freed
 
 	Cvar_FullSet( "host_gameloaded", "1", FCVAR_READ_ONLY );
-	svgame.stringspool = Mem_AllocPool( "Server Strings" );
+	SV_AllocStringPool();
 
 	// fire once
 	Con_Printf( "Dll loaded for game ^2\"%s\"\n", svgame.dllFuncs.pfnGetGameDescription( ));

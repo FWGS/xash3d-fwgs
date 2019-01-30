@@ -94,6 +94,106 @@ const char *COM_NameForFunction( void *hInstance, void *function )
 ---------------------------------------------------------------
 */
 
+#define DOS_SIGNATURE		0x5A4D		// MZ
+#define NT_SIGNATURE		0x00004550	// PE00
+#define NUMBER_OF_DIRECTORY_ENTRIES	16
+#ifndef IMAGE_SIZEOF_BASE_RELOCATION
+#define IMAGE_SIZEOF_BASE_RELOCATION	( sizeof( IMAGE_BASE_RELOCATION ))
+#endif
+
+typedef struct
+{
+	// dos .exe header
+	word	e_magic;		// magic number
+	word	e_cblp;		// bytes on last page of file
+	word	e_cp;		// pages in file
+	word	e_crlc;		// relocations
+	word	e_cparhdr;	// size of header in paragraphs
+	word	e_minalloc;	// minimum extra paragraphs needed
+	word	e_maxalloc;	// maximum extra paragraphs needed
+	word	e_ss;		// initial (relative) SS value
+	word	e_sp;		// initial SP value
+	word	e_csum;		// checksum
+	word	e_ip;		// initial IP value
+	word	e_cs;		// initial (relative) CS value
+	word	e_lfarlc;		// file address of relocation table
+	word	e_ovno;		// overlay number
+	word	e_res[4];		// reserved words
+	word	e_oemid;		// OEM identifier (for e_oeminfo)
+	word	e_oeminfo;	// OEM information; e_oemid specific
+	word	e_res2[10];	// reserved words
+	long	e_lfanew;		// file address of new exe header
+} DOS_HEADER;
+
+typedef struct
+{
+	// win .exe header
+	word	Machine;
+	word	NumberOfSections;
+	dword	TimeDateStamp;
+	dword	PointerToSymbolTable;
+	dword	NumberOfSymbols;
+	word	SizeOfOptionalHeader;
+	word	Characteristics;
+} PE_HEADER;
+
+typedef struct
+{
+	dword	VirtualAddress;
+	dword	Size;
+} DATA_DIRECTORY;
+
+typedef struct
+{
+	word	Magic;
+	byte	MajorLinkerVersion;
+	byte	MinorLinkerVersion;
+	dword	SizeOfCode;
+	dword	SizeOfInitializedData;
+	dword	SizeOfUninitializedData;
+	dword	AddressOfEntryPoint;
+	dword	BaseOfCode;
+	dword	BaseOfData;
+	dword	ImageBase;
+	dword	SectionAlignment;
+	dword	FileAlignment;
+	word	MajorOperatingSystemVersion;
+	word	MinorOperatingSystemVersion;
+	word	MajorImageVersion;
+	word	MinorImageVersion;
+	word	MajorSubsystemVersion;
+	word	MinorSubsystemVersion;
+	dword	Win32VersionValue;
+	dword	SizeOfImage;
+	dword	SizeOfHeaders;
+	dword	CheckSum;
+	word	Subsystem;
+	word	DllCharacteristics;
+	dword	SizeOfStackReserve;
+	dword	SizeOfStackCommit;
+	dword	SizeOfHeapReserve;
+	dword	SizeOfHeapCommit;
+	dword	LoaderFlags;
+	dword	NumberOfRvaAndSizes;
+
+	DATA_DIRECTORY	DataDirectory[NUMBER_OF_DIRECTORY_ENTRIES];
+} OPTIONAL_HEADER;
+
+typedef struct
+{
+	dword	Characteristics;
+	dword	TimeDateStamp;
+	word	MajorVersion;
+	word	MinorVersion;
+	dword	Name;
+	dword	Base;
+	dword	NumberOfFunctions;
+	dword	NumberOfNames;
+	dword	AddressOfFunctions;		// RVA from base of image
+	dword	AddressOfNames;		// RVA from base of image
+	dword	AddressOfNameOrdinals;	// RVA from base of image
+} EXPORT_DIRECTORY;
+
 typedef struct
 {
 	PIMAGE_NT_HEADERS	headers;
@@ -102,6 +202,26 @@ typedef struct
 	int		numModules;
 	int		initialized;
 } MEMORYMODULE, *PMEMORYMODULE;
+
+typedef struct
+{
+	byte	Name[8];	// dos name length
+
+	union
+	{
+		dword	PhysicalAddress;
+		dword	VirtualSize;
+	} Misc;
+
+	dword	VirtualAddress;
+	dword	SizeOfRawData;
+	dword	PointerToRawData;
+	dword	PointerToRelocations;
+	dword	PointerToLinenumbers;
+	word	NumberOfRelocations;
+	word	NumberOfLinenumbers;
+	dword	Characteristics;
+} SECTION_HEADER;
 
 // Protection flags for memory pages (Executable, Readable, Writeable)
 static int ProtectionFlags[2][2][2] =
@@ -257,7 +377,7 @@ static void PerformBaseRelocation( MEMORYMODULE *module, DWORD delta )
 					*patchAddrHL += delta;
 					break;
 				default:
-					MsgDev( D_ERROR, "PerformBaseRelocation: unknown relocation: %d\n", type );
+					Con_Reportf( S_ERROR "PerformBaseRelocation: unknown relocation: %d\n", type );
 					break;
 				}
 			}
@@ -342,7 +462,7 @@ static int BuildImportTable( MEMORYMODULE *module )
 
 			if( handle == NULL )
 			{
-				MsgDev( D_ERROR, "couldn't load library %s\n", libname );
+				Con_Printf( S_ERROR "couldn't load library %s\n", libname );
 				result = 0;
 				break;
 			}
@@ -364,20 +484,23 @@ static int BuildImportTable( MEMORYMODULE *module )
 
 			for( ; *thunkRef; thunkRef++, funcRef++ )
 			{
+				LPCSTR	funcName;
+
 				if( IMAGE_SNAP_BY_ORDINAL( *thunkRef ))
 				{
-					LPCSTR	funcName = (LPCSTR)IMAGE_ORDINAL( *thunkRef );
+					funcName = (LPCSTR)IMAGE_ORDINAL( *thunkRef );
 					*funcRef = (DWORD)COM_GetProcAddress( handle, funcName );
 				}
 				else
 				{
 					PIMAGE_IMPORT_BY_NAME thunkData = (PIMAGE_IMPORT_BY_NAME)CALCULATE_ADDRESS( codeBase, *thunkRef );
-					LPCSTR	funcName = (LPCSTR)&thunkData->Name;
+					funcName = (LPCSTR)&thunkData->Name;
 					*funcRef = (DWORD)COM_GetProcAddress( handle, funcName );
 				}
 
 				if( *funcRef == 0 )
 				{
+					Con_Printf( S_ERROR "%s unable to find address: %s\n", libname, funcName );
 					result = 0;
 					break;
 				}
@@ -540,7 +663,7 @@ library_error:
 	// cleanup
 	if( data ) Mem_Free( data );
 	MemoryFreeLibrary( result );
-	MsgDev( D_ERROR, "LoadLibrary: %s\n", errorstring );
+	Con_Printf( S_ERROR "LoadLibrary: %s\n", errorstring );
 
 	return NULL;
 }
@@ -741,7 +864,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 		goto table_error;
 	}
 
-	hInst->ordinals = Mem_Alloc( host.mempool, hInst->num_ordinals * sizeof( word ));
+	hInst->ordinals = Mem_Malloc( host.mempool, hInst->num_ordinals * sizeof( word ));
 
 	if( FS_Read( f, hInst->ordinals, hInst->num_ordinals * sizeof( word )) != (hInst->num_ordinals * sizeof( word )))
 	{
@@ -757,7 +880,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 		goto table_error;
 	}
 
-	hInst->funcs = Mem_Alloc( host.mempool, hInst->num_ordinals * sizeof( dword ));
+	hInst->funcs = Mem_Malloc( host.mempool, hInst->num_ordinals * sizeof( dword ));
 
 	if( FS_Read( f, hInst->funcs, hInst->num_ordinals * sizeof( dword )) != (hInst->num_ordinals * sizeof( dword )))
 	{
@@ -773,7 +896,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 		goto table_error;
 	}
 
-	p_Names = Mem_Alloc( host.mempool, hInst->num_ordinals * sizeof( dword ));
+	p_Names = Mem_Malloc( host.mempool, hInst->num_ordinals * sizeof( dword ));
 
 	if( FS_Read( f, p_Names, hInst->num_ordinals * sizeof( dword )) != (hInst->num_ordinals * sizeof( dword )))
 	{
@@ -886,7 +1009,7 @@ void *COM_GetProcAddress( void *hInstance, const char *name )
 
 	if( hInst->custom_loader )
 		return (void *)MemoryGetProcAddress( hInst->hInstance, name );
-	return (void *)GetProcAddress( hInst->hInstance, GetMSVCName( name ));
+	return (void *)GetProcAddress( hInst->hInstance, name );
 }
 
 void COM_FreeLibrary( void *hInstance )
@@ -899,10 +1022,10 @@ void COM_FreeLibrary( void *hInstance )
 	if( host.status == HOST_CRASHED )
 	{
 		// we need to hold down all modules, while MSVC can find error
-		MsgDev( D_NOTE, "Sys_FreeLibrary: hold %s for debugging\n", hInst->dllName );
+		Con_Reportf( "Sys_FreeLibrary: hold %s for debugging\n", hInst->dllName );
 		return;
 	}
-	else MsgDev( D_NOTE, "Sys_FreeLibrary: Unloading %s\n", hInst->dllName );
+	else Con_Reportf( "Sys_FreeLibrary: Unloading %s\n", hInst->dllName );
 	
 	if( hInst->custom_loader )
 		MemoryFreeLibrary( hInst->hInstance );
@@ -915,7 +1038,7 @@ void COM_FreeLibrary( void *hInstance )
 	Mem_Free( hInst );	// done
 }
 
-dword COM_FunctionFromName( void *hInstance, const char *pName )
+void *COM_FunctionFromName( void *hInstance, const char *pName )
 {
 	dll_user_t	*hInst = (dll_user_t *)hInstance;
 	int		i, index;
@@ -938,7 +1061,7 @@ dword COM_FunctionFromName( void *hInstance, const char *pName )
 	return 0;
 }
 
-const char *COM_NameForFunction( void *hInstance, dword function )
+const char *COM_NameForFunction( void *hInstance, void *function )
 {
 	dll_user_t	*hInst = (dll_user_t *)hInstance;
 	int		i, index;
@@ -950,7 +1073,7 @@ const char *COM_NameForFunction( void *hInstance, dword function )
 	{
 		index = hInst->ordinals[i];
 
-		if(( function - hInst->funcBase ) == hInst->funcs[index] )
+		if(( (char*)function - (char*)hInst->funcBase ) == hInst->funcs[index] )
 			return hInst->names[i];
 	}
 

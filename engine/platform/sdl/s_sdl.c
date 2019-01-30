@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
+#include "platform/platform.h"
 #if XASH_SOUND == SOUND_SDL
 
 #include "sound.h"
@@ -69,14 +70,14 @@ qboolean SNDDMA_Init( void *hInst )
 
 	if( SDL_Init( SDL_INIT_AUDIO ) )
 	{
-		MsgDev( D_ERROR, "Audio: SDL: %s \n", SDL_GetError( ) );
+		Con_Reportf( S_ERROR  "Audio: SDL: %s \n", SDL_GetError( ) );
 		return false;
 	}
 
-#ifdef __linux__
-	setenv( "PULSE_PROP_application.name", GI->title, 1 );
-	setenv( "PULSE_PROP_media.role", "game", 1 );
-#endif
+	// even if we don't have PA
+	// we still can safely set env variables
+	SDL_setenv( "PULSE_PROP_application.name", GI->title, 1 );
+	SDL_setenv( "PULSE_PROP_media.role", "game", 1 );
 
 	memset( &desired, 0, sizeof( desired ) );
 	desired.freq     = SOUND_DMA_SPEED;
@@ -238,23 +239,13 @@ void SNDDMA_Shutdown( void )
 
 /*
 ===========
-S_PrintDeviceName
-===========
-*/
-void S_PrintDeviceName( void )
-{
-	Msg( "Audio: SDL (driver: %s)\n", SDL_GetCurrentAudioDriver( ) );
-}
-
-/*
-===========
-S_Activate
+SNDDMA_Activate
 Called when the main window gains or loses focus.
 The window have been destroyed and recreated
 between a deactivate and an activate.
 ===========
 */
-void S_Activate( qboolean active )
+void SNDDMA_Activate( qboolean active )
 {
 	SDL_PauseAudioDevice( sdl_dev, !active );
 }

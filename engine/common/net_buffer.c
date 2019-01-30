@@ -165,7 +165,7 @@ void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits )
 		dword	iCurBitMasked;
 		int	nBitsWritten;
 
-		Assert(( iDWord * 4 + sizeof( long )) <= (uint)MSG_GetMaxBytes( sb ));
+		Assert(( iDWord * 4 + sizeof( int )) <= (uint)MSG_GetMaxBytes( sb ));
 
 		iCurBitMasked = iCurBit & 31;
 		((dword *)sb->pData)[iDWord] &= BitWriteMasks[iCurBitMasked][nBitsLeft];
@@ -284,7 +284,7 @@ void MSG_WriteCoord( sizebuf_t *sb, float val )
 {
 	// g-cont. we loose precision here but keep old size of coord variable!
 	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
-		MSG_WriteShort( sb, (int)( val * 2.0f ));
+		MSG_WriteShort( sb, Q_rint( val ));
 	else MSG_WriteShort( sb, (int)( val * 8.0f ));
 }
 
@@ -304,12 +304,12 @@ void MSG_WriteVec3Angles( sizebuf_t *sb, const float *fa )
 
 void MSG_WriteBitFloat( sizebuf_t *sb, float val )
 {
-	long	intVal;
+	int	intVal;
 
-	Assert( sizeof( long ) == sizeof( float ));
+	Assert( sizeof( int ) == sizeof( float ));
 	Assert( sizeof( float ) == 4 );
 
-	intVal = *((long *)&val );
+	intVal = *((int *)&val );
 	MSG_WriteUBitLong( sb, intVal, 32 );
 }
 
@@ -360,9 +360,9 @@ void MSG_WriteWord( sizebuf_t *sb, int val )
 	MSG_WriteUBitLong( sb, val, sizeof( word ) << 3 );
 }
 
-void MSG_WriteLong( sizebuf_t *sb, long val )
+void MSG_WriteLong( sizebuf_t *sb, int val )
 {
-	MSG_WriteSBitLong( sb, val, sizeof( long ) << 3 );
+	MSG_WriteSBitLong( sb, val, sizeof( int ) << 3 );
 }
 
 void MSG_WriteDword( sizebuf_t *sb, dword val )
@@ -456,10 +456,10 @@ uint MSG_ReadUBitLong( sizebuf_t *sb, int numbits )
 
 float MSG_ReadBitFloat( sizebuf_t *sb )
 {
-	long	val;
+	int	val;
 	int	bit, byte;
 
-	Assert( sizeof( float ) == sizeof( long ));
+	Assert( sizeof( float ) == sizeof( int ));
 	Assert( sizeof( float ) == 4 );
 
 	if( MSG_Overflow( sb, 32 ))
@@ -598,7 +598,7 @@ float MSG_ReadCoord( sizebuf_t *sb )
 {
 	// g-cont. we loose precision here but keep old size of coord variable!
 	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
-		return (float)(MSG_ReadShort( sb ) * ( 1.0f / 2.0f ));
+		return (float)(MSG_ReadShort( sb ));
 	return (float)(MSG_ReadShort( sb ) * ( 1.0f / 8.0f ));
 }
 
@@ -617,9 +617,9 @@ void MSG_ReadVec3Angles( sizebuf_t *sb, vec3_t fa )
 }
 
 
-long MSG_ReadLong( sizebuf_t *sb )
+int MSG_ReadLong( sizebuf_t *sb )
 {
-	return MSG_ReadSBitLong( sb, sizeof( long ) << 3 );
+	return MSG_ReadSBitLong( sb, sizeof( int ) << 3 );
 }
 
 dword MSG_ReadDword( sizebuf_t *sb )
@@ -645,7 +645,7 @@ qboolean MSG_ReadBytes( sizebuf_t *sb, void *pOut, int nBytes )
 
 char *MSG_ReadStringExt( sizebuf_t *sb, qboolean bLine )
 {
-	static char	string[2048];
+	static char	string[4096];
 	int		l = 0, c;
 	
 	do

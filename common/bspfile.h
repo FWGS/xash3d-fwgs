@@ -74,7 +74,7 @@ BRUSH MODELS
 #define MAX_MAP_MARKSURFACES		524288		// can be increased without problems
 #else
 #define MAX_MAP_MODELS		768		// embedded models
-#define MAX_MAP_ENTSTRING		0x80000		// 512 kB should be enough
+#define MAX_MAP_ENTSTRING		0x100000		// 1 Mb should be enough
 #define MAX_MAP_PLANES		65536		// can be increased without problems
 #define MAX_MAP_NODES		32767		// because negative shorts are leafs
 #define MAX_MAP_CLIPNODES		32767		// because negative shorts are contents
@@ -117,14 +117,14 @@ BRUSH MODELS
 #define LUMP_FACEINFO		1	// landscape and lightmap resolution info
 #define LUMP_CUBEMAPS		2	// cubemap description
 #define LUMP_VERTNORMALS		3	// phong shaded vertex normals
-#define LUMP_VERTEX_LIGHT		4	// contain compressed light cubes per empty leafs
+#define LUMP_LEAF_LIGHTING		4	// store vertex lighting for statics
 #define LUMP_WORLDLIGHTS		5	// list of all the virtual and real lights (used to relight models in-game)
-#define LUMP_COLLISION		6	// physics engine collision hull dump
-#define LUMP_AINODEGRAPH		7	// node graph that stored into the bsp
+#define LUMP_COLLISION		6	// physics engine collision hull dump (userdata)
+#define LUMP_AINODEGRAPH		7	// node graph that stored into the bsp (userdata)
 #define LUMP_SHADOWMAP		8	// contains shadow map for direct light
-#define LUMP_UNUSED1		9	// one lump reserved for me
-#define LUMP_UNUSED2		10	// one lump reserved for me
-#define LUMP_UNUSED3		11	// one lump reserved for me
+#define LUMP_VERTEX_LIGHT		9	// store vertex lighting for statics
+#define LUMP_UNUSED0		10	// one lump reserved for me
+#define LUMP_UNUSED1		11	// one lump reserved for me
 #define EXTRA_LUMPS			12	// count of the extra lumps
 
 // texture flags
@@ -132,6 +132,7 @@ BRUSH MODELS
 #define TEX_WORLD_LUXELS		BIT( 1 )	// alternative lightmap matrix will be used (luxels per world units instead of luxels per texels)
 #define TEX_AXIAL_LUXELS		BIT( 2 )	// force world luxels to axial positive scales
 #define TEX_EXTRA_LIGHTMAP		BIT( 3 )	// bsp31 legacy - using 8 texels per luxel instead of 16 texels per luxel
+#define TEX_SCROLL			BIT( 6 )	// Doom special FX
 
 // ambient sound types
 enum

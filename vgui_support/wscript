@@ -1,0 +1,101 @@
+#! /usr/bin/env python
+# encoding: utf-8
+# mittorn, 2018
+
+from waflib import Logs
+import os
+from fwgslib import get_subproject_name
+
+top = '.'
+
+def options(opt):
+	opt.add_option(
+		'--vgui', action = 'store', type='string', dest = 'VGUI_DEV',
+		help = 'path to vgui-dev repo', default='' )
+
+	opt.add_option(
+		'--disable-vgui', action = 'store_true', dest = 'NO_VGUI',
+		help = 'disable vgui_support', default=False )
+
+	opt.add_option(
+		'--skip-vgui-sanity-check', action = 'store_false', dest = 'VGUI_SANITY_CHECK',
+		help = 'Skip checking VGUI sanity', default=True )
+
+	# stub
+	return
+
+def configure(conf):
+	conf.env.NO_VGUI = conf.options.NO_VGUI
+	if conf.options.DEDICATED or conf.options.NO_VGUI:
+		return
+
+	conf.start_msg('Configuring VGUI by provided path')
+
+	if not conf.options.VGUI_DEV:
+		conf.end_msg('no')
+		conf.fatal("Provide a path to vgui-dev repository using --vgui key")
+
+	if conf.env.DEST_CPU != 'x86' and not (conf.env.DEST_CPU == 'x86_64' and not conf.options.ALLOW64):
+		conf.end_msg('no')
+		conf.fatal('vgui is not supported on this CPU: ' + conf.env.DEST_CPU)
+
+	if conf.env.DEST_OS == 'win32':
+		conf.env.LIB_VGUI = ['vgui']
+		conf.env.LIBPATH_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'lib/win32_vc6/'))]
+	else:
+		libpath = os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'lib'))
+		if conf.env.DEST_OS == 'linux':
+			conf.env.LIB_VGUI = [':vgui.so']
+			conf.env.LIBPATH_VGUI = [libpath]
+		elif conf.env.DEST_OS == 'darwin':
+			conf.env.LDFLAGS_VGUI = [os.path.join(libpath, 'vgui.dylib')]
+		else:
+			conf.fatal('vgui is not supported on this OS: ' + conf.env.DEST_OS)
+	conf.env.INCLUDES_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'include'))]
+
+	conf.env.HAVE_VGUI = 1
+	conf.end_msg('yes: {0}, {1}, {2}'.format(conf.env.LIB_VGUI, conf.env.LIBPATH_VGUI, conf.env.INCLUDES_VGUI))
+
+	if conf.env.HAVE_VGUI and conf.options.VGUI_SANITY_CHECK:
+		try:
+			conf.check_cxx(
+				fragment='''
+				#include <VGUI.h>
+				int main( int argc, char **argv )
+				{
+					return 0;
+				}''',
+				msg	= 'Checking for library VGUI sanity',
+				use = 'VGUI',
+				execute = False)
+		except conf.errors.ConfigurationError:
+			conf.fatal("Can't compile simple program. Check your path to vgui-dev repository.")
+
+def build(bld):
+	bld.load_envs()
+	bld.env = bld.all_envs[get_subproject_name(bld)]
+
+	if bld.env.DEDICATED or bld.env.NO_VGUI:
+		return
+
+	libs = []
+
+	# basic build: dedicated only, no dependencies
+	if bld.env.DEST_OS != 'win32':
+		libs += ['DL','M']
+
+	libs.append('VGUI')
+
+	source = bld.path.ant_glob(['*.cpp', 'miniutl/utlvector.cpp', 'miniutl/utlmemory.cpp'])
+
+	includes = [ '.', 'miniutl/', '../common', '../engine' ]
+
+	bld.shlib(
+		source   = source,
+		target   = 'vgui_support',
+		features = 'cxx',
+		includes = includes,
+		use      = libs,
+		install_path = bld.env.LIBDIR,
+		subsystem = bld.env.MSVC_SUBSYSTEM
+	)

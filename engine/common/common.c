@@ -40,12 +40,12 @@ void DBG_AssertFunction( qboolean fExpr, const char* szExpr, const char* szFile,
 	if( fExpr ) return;
 
 	if( szMessage != NULL )
-		MsgDev( at_error, "ASSERT FAILED:\n %s \n(%s@%d)\n%s\n", szExpr, szFile, szLine, szMessage );
-	else MsgDev( at_error, "ASSERT FAILED:\n %s \n(%s@%d)\n", szExpr, szFile, szLine );
+		Con_DPrintf( S_ERROR "ASSERT FAILED:\n %s \n(%s@%d)\n%s\n", szExpr, szFile, szLine, szMessage );
+	else Con_DPrintf( S_ERROR "ASSERT FAILED:\n %s \n(%s@%d)\n", szExpr, szFile, szLine );
 }
 #endif	// DEBUG
 
-static long idum = 0;
+static int idum = 0;
 
 #define MAX_RANDOM_RANGE	0x7FFFFFFFUL
 #define IA		16807
@@ -58,12 +58,12 @@ static long idum = 0;
 #define AM		(1.0 / IM)
 #define RNMX		(1.0 - EPS)
 
-static long lran1( void )
+static int lran1( void )
 {
-	static long	iy = 0;
-	static long	iv[NTAB];
+	static int	iy = 0;
+	static int	iv[NTAB];
 	int		j;
-	long		k;
+	int		k;
 
 	if( idum <= 0 || !iy )
 	{
@@ -100,7 +100,7 @@ static float fran1( void )
 	return temp;
 }
 
-void COM_SetRandomSeed( long lSeed )
+void COM_SetRandomSeed( int lSeed )
 {
 	if( lSeed ) idum = lSeed;
 	else idum = -time( NULL );
@@ -769,7 +769,7 @@ COM_CheckString
 */
 int COM_CheckString( const char *string )
 {
-	if( !string || (byte)*string <= ' ' )
+	if( !string || !*string )
 		return 0;
 	return 1;
 }
@@ -1009,7 +1009,7 @@ byte* COM_LoadFileForMe( const char *filename, int *pLength )
 {
 	string	name;
 	byte	*file, *pfile;
-	long	iLength;
+	size_t	iLength;
 
 	if( !COM_CheckString( filename ))
 	{
@@ -1052,11 +1052,11 @@ byte *COM_LoadFile( const char *filename, int usehunk, int *pLength )
 
 /*
 =============
-COM_LoadFile
+COM_SaveFile
 
 =============
 */
-int COM_SaveFile( const char *filename, const void *data, long len )
+int COM_SaveFile( const char *filename, const void *data, int len )
 {
 	// check for empty filename
 	if( !COM_CheckString( filename ))
@@ -1222,8 +1222,8 @@ int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCom
 
 	if( filename1 && filename2 )
 	{
-		long ft1 = FS_FileTime( filename1, false );
-		long ft2 = FS_FileTime( filename2, false );
+		int ft1 = FS_FileTime( filename1, false );
+		int ft2 = FS_FileTime( filename2, false );
 
 		// one of files is missing
 		if( ft1 == -1 || ft2 == -1 )

@@ -102,6 +102,141 @@ const char *ns_strings[NS_COUNT] =
 	"Server",
 };
 
+
+/*
+=================================
+
+NETWORK PACKET SPLIT
+
+=================================
+*/
+
+/*
+======================
+NetSplit_GetLong
+
+Collect fragmrnts with signature 0xFFFFFFFE to single packet
+return true when got full packet
+======================
+*/
+qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *length )
+{
+	netsplit_packet_t *packet = (netsplit_packet_t*)data;
+	netsplit_chain_packet_t * p;
+
+	//ASSERT( *length > NETSPLIT_HEADER_SIZE );
+	if( *length <= NETSPLIT_HEADER_SIZE ) return false;
+
+	LittleLongSW(packet->id);
+	LittleLongSW(packet->length);
+	LittleLongSW(packet->part);
+
+	p = &ns->packets[packet->id & NETSPLIT_BACKUP_MASK];
+	// Con_Reportf( S_NOTE "NetSplit_GetLong: packet from %s, id %d, index %d length %d\n", NET_AdrToString( *from ), (int)packet->id, (int)packet->index, (int)*length );
+
+	// no packets with this id received
+	if( packet->id != p->id )
+	{
+		// warn if previous packet not received
+		if( p->received < p->count )
+		{
+			//CL_WarnLostSplitPacket();
+			Con_Reportf( S_WARN "NetSplit_GetLong: lost packet %d\n", p->id );
+		}
+
+		p->id = packet->id;
+		p->count = packet->count;
+		p->received = 0;
+		memset( p->recieved_v, 0, 32 );
+	}
+
+	// use bool vector to detect dup packets
+	if( p->recieved_v[packet->index >> 5 ] & ( 1 << ( packet->index & 31 ) ) )
+	{
+		Con_Reportf( S_WARN "NetSplit_GetLong: dup packet from %s\n", NET_AdrToString( *from ) );
+		return false;
+	}
+
+	p->received++;
+
+	// mark as received
+	p->recieved_v[packet->index >> 5] |= 1 << ( packet->index & 31 );
+
+	// prevent overflow
+	if( packet->part * packet->index > NET_MAX_PAYLOAD )
+	{
+		Con_Reportf( S_WARN "NetSplit_GetLong: packet out fo bounds from %s (part %d index %d)\n", NET_AdrToString( *from ), packet->part, packet->index );
+		return false;
+	}
+
+	if( packet->length > NET_MAX_PAYLOAD )
+	{
+		Con_Reportf( S_WARN "NetSplit_GetLong: packet out fo bounds from %s (length %d)\n", NET_AdrToString( *from ), packet->length );
+		return false;
+	}
+
+	memcpy( p->data + packet->part * packet->index, packet->data, *length - 18 );
+
+	// rewrite results of NET_GetPacket
+	if( p->received == packet->count )
+	{
+		//ASSERT( packet->length % packet->part == (*length - NETSPLIT_HEADER_SIZE) % packet->part );
+		size_t len = packet->length;
+
+		ns->total_received += len;
+
+		ns->total_received_uncompressed += len;
+		*length = len;
+
+		// Con_Reportf( S_NOTE "NetSplit_GetLong: packet from %s, id %d received %d length %d\n", NET_AdrToString( *from ), (int)packet->id, (int)p->received, (int)packet->length );
+		memcpy( data, p->data, len );
+		return true;
+	}
+	else
+		*length = NETSPLIT_HEADER_SIZE + packet->part;
+
+
+	return false;
+}
+
+/*
+======================
+NetSplit_SendLong
+
+Send parts that are less or equal maxpacket
+======================
+*/
+void NetSplit_SendLong( netsrc_t sock, size_t length, void *data, netadr_t to, unsigned int maxpacket, unsigned int id)
+{
+	netsplit_packet_t packet = {0};
+	unsigned int part = maxpacket - NETSPLIT_HEADER_SIZE;
+
+	packet.signature = LittleLong(0xFFFFFFFE);
+	packet.id = LittleLong(id);
+	packet.length = LittleLong(length);
+	packet.part = LittleLong(part);
+	packet.count = ( length - 1 ) / part + 1;
+
+	//Con_Reportf( S_NOTE "NetSplit_SendLong: packet to %s, count %d, length %d\n", NET_AdrToString( to ), (int)packet.count, (int)packet.length );
+
+	while( packet.index < packet.count  )
+	{
+		unsigned int size = part;
+
+		if( size > length )
+			size = length;
+
+		length -= size;
+
+		memcpy( packet.data, (const byte*)data + packet.index * part, size );
+		//Con_Reportf( S_NOTE "NetSplit_SendLong: packet to %s, id %d, index %d\n", NET_AdrToString( to ), (int)packet.id, (int)packet.index );
+
+		NET_SendPacket( sock, size + NETSPLIT_HEADER_SIZE, &packet, to );
+		packet.index++;
+	}
+
+}
+
 /*
 ===============
 Netchan_Init
@@ -406,7 +541,7 @@ fragbuf_t *Netchan_AllocFragbuf( void )
 {
 	fragbuf_t	*buf;
 
-	buf = (fragbuf_t *)Mem_Alloc( net_mempool, sizeof( fragbuf_t ));
+	buf = (fragbuf_t *)Mem_Calloc( net_mempool, sizeof( fragbuf_t ));
 	MSG_Init( &buf->frag_message, "Frag Message", buf->frag_message_buf, sizeof( buf->frag_message_buf ));
 
 	return buf;
@@ -578,7 +713,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 		chunksize = chan->pfnBlockSize( chan->client );
 	else chunksize = FRAGMENT_MAX_SIZE; // fallback
 
-	wait = (fragbufwaiting_t *)Mem_Alloc( net_mempool, sizeof( fragbufwaiting_t ));
+	wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 
 	if( !LZSS_IsCompressed( MSG_GetData( msg )))
 	{
@@ -588,7 +723,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 
 		if( pbOut && uCompressedSize > 0 && uCompressedSize < uSourceSize )
 		{
-			Con_DPrintf( "Compressing split packet (%d -> %d bytes)\n", uSourceSize, uCompressedSize );
+			Con_Reportf( "Compressing split packet (%d -> %d bytes)\n", uSourceSize, uCompressedSize );
 			memcpy( msg->pData, pbOut, uCompressedSize );
 			MSG_SeekToBit( msg, uCompressedSize << 3, SEEK_SET );
 		}
@@ -705,7 +840,7 @@ void Netchan_CheckForCompletion( netchan_t *chan, int stream, int intotalbuffers
 		{
 			if( chan->sock == NS_CLIENT )
 			{
-				MsgDev( D_ERROR, "Lost/dropped fragment would cause stall, retrying connection\n" );
+				Con_DPrintf( S_ERROR "Lost/dropped fragment would cause stall, retrying connection\n" );
 				Cbuf_AddText( "reconnect\n" );
 			}
 		}
@@ -714,10 +849,7 @@ void Netchan_CheckForCompletion( netchan_t *chan, int stream, int intotalbuffers
 
 	// received final message
 	if( c == intotalbuffers )
-	{
-//		MsgDev( D_NOTE, "\n%s: incoming is complete %i bytes waiting\n", ns_strings[chan->sock], size );
 		chan->incomingready[stream] = true;
-	}
 }
 
 /*
@@ -756,7 +888,7 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 		if( pbOut ) free( pbOut );
 	}
 
-	wait = (fragbufwaiting_t *)Mem_Alloc( net_mempool, sizeof( fragbufwaiting_t ));
+	wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 	remaining = size;
 	pos = 0;
 
@@ -871,7 +1003,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 		Mem_Free( uncompressed );
 	}
 
-	wait = (fragbufwaiting_t *)Mem_Alloc( net_mempool, sizeof( fragbufwaiting_t ));
+	wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 	remaining = filesize;
 	pos = 0;
 
@@ -1077,7 +1209,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		p = p->next;
 	}
 
-	buffer = Mem_Alloc( net_mempool, nsize + 1 );
+	buffer = Mem_Calloc( net_mempool, nsize + 1 );
 	p = chan->incomingbufs[FRAG_FILE_STREAM];
 	pos = 0;
 
@@ -1110,7 +1242,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 	if( LZSS_IsCompressed( buffer ))
 	{
 		uint	uncompressedSize = LZSS_GetActualSize( buffer ) + 1;
-		byte	*uncompressedBuffer = Mem_Alloc( net_mempool, uncompressedSize );
+		byte	*uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
 
 		nsize = LZSS_Decompress( buffer, uncompressedBuffer );
 		Mem_Free( buffer );

@@ -81,36 +81,13 @@ static byte palette_hl[768] =
 147,255,247,199,255,255,255,159,91,83
 };
 
-static float FILTER[NUM_FILTERS][FILTER_SIZE][FILTER_SIZE] = 
-{ 
-{ // regular blur 
-{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }, 
-{ 0.0f, 1.0f, 1.0f, 1.0f, 0.0f }, 
-{ 0.0f, 1.0f, 1.0f, 1.0f, 0.0f }, 
-{ 0.0f, 1.0f, 1.0f, 1.0f, 0.0f }, 
-{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }, 
-}, 
-{ // light blur 
-{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }, 
-{ 0.0f, 1.0f, 1.0f, 1.0f, 0.0f }, 
-{ 0.0f, 1.0f, 4.0f, 1.0f, 0.0f }, 
-{ 0.0f, 1.0f, 1.0f, 1.0f, 0.0f }, 
-{ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }, 
-}, 
-{ // find edges 
-{ 0.0f,  0.0f,  0.0f,  0.0f, 0.0f }, 
-{ 0.0f, -1.0f, -1.0f, -1.0f, 0.0f }, 
-{ 0.0f, -1.0f,  8.0f, -1.0f, 0.0f }, 
-{ 0.0f, -1.0f, -1.0f, -1.0f, 0.0f }, 
-{ 0.0f,  0.0f,  0.0f,  0.0f, 0.0f }, 
-}, 
-{ // emboss  
+static float img_emboss[FILTER_SIZE][FILTER_SIZE] = 
+{
 {-0.7f, -0.7f, -0.7f, -0.7f, 0.0f }, 
 {-0.7f, -0.7f, -0.7f,  0.0f, 0.7f }, 
 {-0.7f, -0.7f,  0.0f,  0.7f, 0.7f }, 
 {-0.7f,  0.0f,  0.7f,  0.7f, 0.7f }, 
 { 0.0f,  0.7f,  0.7f,  0.7f, 0.7f }, 
-}
 }; 
 
 /*
@@ -194,10 +171,20 @@ byte *Image_Copy( size_t size )
 {
 	byte	*out;
 
-	out = Mem_Alloc( host.imagepool, size );
+	out = Mem_Malloc( host.imagepool, size );
 	memcpy( out, image.tempbuffer, size );
 
 	return out; 
+}
+
+/*
+=================
+Image_CustomPalette
+=================
+*/
+qboolean Image_CustomPalette( void )
+{
+	return image.custom_palette;
 }
 
 /*
@@ -250,7 +237,7 @@ qboolean Image_ValidSize( const char *name )
 {
 	if( image.width > IMAGE_MAXWIDTH || image.height > IMAGE_MAXHEIGHT || image.width <= 0 || image.height <= 0 )
 	{
-		MsgDev( D_ERROR, "Image: %s has invalid sizes %i x %i\n", name, image.width, image.height );
+		Con_DPrintf( S_ERROR "Image: (%s) dims out of range [%dx%d]\n", name, image.width, image.height );
 		return false;
 	}
 	return true;
@@ -260,7 +247,7 @@ qboolean Image_LumpValidSize( const char *name )
 {
 	if( image.width > LUMP_MAXWIDTH || image.height > LUMP_MAXHEIGHT || image.width <= 0 || image.height <= 0 )
 	{
-		MsgDev(D_WARN, "Image_LumpValidSize: (%s) dims out of range[%dx%d]\n", name, image.width,image.height );
+		Con_DPrintf( S_ERROR "Image: (%s) dims out of range [%dx%d]\n", name, image.width,image.height );
 		return false;
 	}
 	return true;
@@ -284,9 +271,9 @@ int Image_ComparePalette( const byte *pal )
 
 void Image_SetPalette( const byte *pal, uint *d_table )
 {
-	int	i;
 	byte	rgba[4];
-	
+	int	i;	
+
 	// setup palette
 	switch( image.d_rendermode )
 	{
@@ -332,6 +319,58 @@ void Image_SetPalette( const byte *pal, uint *d_table )
 		}
 		break;	
 	}
+}
+
+static void Image_ConvertPalTo24bit( rgbdata_t *pic )
+{
+	byte	*pal32, *pal24;
+	byte	*converted;
+	int	i;
+
+	if( pic->type == PF_INDEXED_24 )
+		return; // does nothing
+
+	pal24 = converted = Mem_Malloc( host.imagepool, 768 );
+	pal32 = pic->palette;
+
+	for( i = 0; i < 256; i++, pal24 += 3, pal32 += 4 )
+	{
+		pal24[0] = pal32[0];
+		pal24[1] = pal32[1];
+		pal24[2] = pal32[2];
+	}
+
+	Mem_Free( pic->palette );
+	pic->palette = converted;
+	pic->type = PF_INDEXED_24;
+}
+
+void Image_CopyPalette32bit( void )
+{
+	if( image.palette ) return; // already created ?
+	image.palette = Mem_Malloc( host.imagepool, 1024 );
+	memcpy( image.palette, image.d_currentpal, 1024 );
+}
+
+void Image_CheckPaletteQ1( void )
+{
+	rgbdata_t	*pic = FS_LoadImage( DEFAULT_INTERNAL_PALETTE, NULL, 0 );
+
+	if( pic && pic->size == 1024 )
+	{
+		Image_ConvertPalTo24bit( pic );
+		if( Image_ComparePalette( pic->palette ) == PAL_CUSTOM )
+		{
+			image.d_rendermode = LUMP_NORMAL;
+			Con_DPrintf( "custom quake palette detected\n" );
+			Image_SetPalette( pic->palette, d_8toQ1table );
+			d_8toQ1table[255] = 0; // 255 is transparent
+			image.custom_palette = true;
+			q1palette_init = true;
+		}
+	}
+
+	if( pic ) FS_FreeImage( pic );
 }
 
 void Image_GetPaletteQ1( void )
@@ -389,45 +428,14 @@ void Image_GetPaletteLMP( const byte *pal, int rendermode )
 			Image_GetPaletteQ1();
 			break;
 		case LUMP_HALFLIFE:
-			Image_GetPaletteHL(); // default half-life palette
+			Image_GetPaletteHL();
 			break;
 		default:
-			MsgDev( D_ERROR, "Image_GetPaletteLMP: invalid palette specified\n" );
-			Image_GetPaletteHL(); // defaulting to half-life palette
+			// defaulting to half-life palette
+			Image_GetPaletteHL();
 			break;
 		}
 	}
-}
-
-static void Image_ConvertPalTo24bit( rgbdata_t *pic )
-{
-	byte	*pal32, *pal24;
-	byte	*converted;
-	int	i;
-
-	if( pic->type == PF_INDEXED_24 )
-		return; // does nothing
-
-	pal24 = converted = Mem_Alloc( host.imagepool, 768 );
-	pal32 = pic->palette;
-
-	for( i = 0; i < 256; i++, pal24 += 3, pal32 += 4 )
-	{
-		pal24[0] = pal32[0];
-		pal24[1] = pal32[1];
-		pal24[2] = pal32[2];
-	}
-
-	Mem_Free( pic->palette );
-	pic->palette = converted;
-	pic->type = PF_INDEXED_24;
-}
-
-void Image_CopyPalette32bit( void )
-{
-	if( image.palette ) return; // already created ?
-	image.palette = Mem_Alloc( host.imagepool, 1024 );
-	memcpy( image.palette, image.d_currentpal, 1024 );
 }
 
 void Image_PaletteHueReplace( byte *palSrc, int newHue, int start, int end, int pal_size )
@@ -573,17 +581,8 @@ qboolean Image_Copy8bitRGBA( const byte *in, byte *out, int pixels )
 	byte	*col;
 	int	i;
 
-	if( !image.d_currentpal )
-	{
-		MsgDev( D_ERROR, "Image_Copy8bitRGBA: no palette set\n" );
+	if( !in || !image.d_currentpal )
 		return false;
-	}
-
-	if( !in )
-	{
-		MsgDev( D_ERROR, "Image_Copy8bitRGBA: no input image\n" );
-		return false;
-	}
 
 	// this is a base image with luma - clear luma pixels
 	if( image.flags & IMAGE_HAS_LUMA )
@@ -722,7 +721,7 @@ void Image_Resample32Lerp( const void *indata, int inwidth, int inheight, void *
 
 	fstep = (int)(inheight * 65536.0f / outheight);
 
-	resamplerow1 = (byte *)Mem_Alloc( host.imagepool, outwidth * 4 * 2);
+	resamplerow1 = (byte *)Mem_Malloc( host.imagepool, outwidth * 4 * 2);
 	resamplerow2 = resamplerow1 + outwidth * 4;
 
 	inrow = (const byte *)indata;
@@ -740,7 +739,7 @@ void Image_Resample32Lerp( const void *indata, int inwidth, int inheight, void *
 			if( yi != oldy )
 			{
 				inrow = (byte *)indata + inwidth4 * yi;
-				if (yi == oldy+1) memcpy( resamplerow1, resamplerow2, outwidth4 );
+				if( yi == oldy + 1 ) memcpy( resamplerow1, resamplerow2, outwidth4 );
 				else Image_Resample32LerpLine( inrow, resamplerow1, inwidth, outwidth );
 				Image_Resample32LerpLine( inrow + inwidth4, resamplerow2, inwidth, outwidth );
 				oldy = yi;
@@ -805,7 +804,7 @@ void Image_Resample32Lerp( const void *indata, int inwidth, int inheight, void *
 		{
 			if( yi != oldy )
 			{
-				inrow = (byte *)indata + inwidth4*yi;
+				inrow = (byte *)indata + inwidth4 * yi;
 				if( yi == oldy + 1 ) memcpy( resamplerow1, resamplerow2, outwidth4 );
 				else Image_Resample32LerpLine( inrow, resamplerow1, inwidth, outwidth);
 				oldy = yi;
@@ -869,7 +868,7 @@ void Image_Resample24Lerp( const void *indata, int inwidth, int inheight, void *
 	
 	fstep = (int)(inheight * 65536.0f / outheight);
 
-	resamplerow1 = (byte *)Mem_Alloc( host.imagepool, outwidth * 3 * 2 );
+	resamplerow1 = (byte *)Mem_Malloc( host.imagepool, outwidth * 3 * 2 );
 	resamplerow2 = resamplerow1 + outwidth*3;
 
 	inrow = (const byte *)indata;
@@ -1084,7 +1083,6 @@ byte *Image_ResampleInternal( const void *indata, int inwidth, int inheight, int
 		else Image_Resample32Nolerp( indata, inwidth, inheight, image.tempbuffer, outwidth, outheight );
 		break;
 	default:
-		MsgDev( D_WARN, "Image_Resample: unsupported format %s\n", PFDesc[type].name );
 		*resampled = false;
 		return (byte *)indata;	
 	}
@@ -1104,9 +1102,9 @@ byte *Image_FlipInternal( const byte *in, word *srcwidth, word *srcheight, int t
 	word	width = *srcwidth;
 	word	height = *srcheight; 
 	int	samples = PFDesc[type].bpp;
-	qboolean	flip_x = ( flags & IMAGE_FLIP_X ) ? true : false;
-	qboolean	flip_y = ( flags & IMAGE_FLIP_Y ) ? true : false;
-	qboolean	flip_i = ( flags & IMAGE_ROT_90 ) ? true : false;
+	qboolean	flip_x = FBitSet( flags, IMAGE_FLIP_X ) ? true : false;
+	qboolean	flip_y = FBitSet( flags, IMAGE_FLIP_Y ) ? true : false;
+	qboolean	flip_i = FBitSet( flags, IMAGE_ROT_90 ) ? true : false;
 	int	row_inc = ( flip_y ? -samples : samples ) * width;
 	int	col_inc = ( flip_x ? -samples : samples );
 	int	row_ofs = ( flip_y ? ( height - 1 ) * width * samples : 0 );
@@ -1129,7 +1127,6 @@ byte *Image_FlipInternal( const byte *in, word *srcwidth, word *srcheight, int t
 		image.tempbuffer = Mem_Realloc( host.imagepool, image.tempbuffer, width * height * samples );
 		break;
 	default:
-		MsgDev( D_WARN, "Image_Flip: unsupported format %s\n", PFDesc[type].name );
 		return (byte *)in;	
 	}
 
@@ -1206,7 +1203,7 @@ qboolean Image_AddIndexedImageToPack( const byte *in, int width, int height )
 	else Image_CopyPalette32bit(); 
 
 	// reallocate image buffer
-	image.rgba = Mem_Alloc( host.imagepool, image.size );	
+	image.rgba = Mem_Malloc( host.imagepool, image.size );	
 	if( !expand_to_rgba ) memcpy( image.rgba, in, image.size );
 	else if( !Image_Copy8bitRGBA( in, image.rgba, mipsize ))
 		return false; // probably pallette not installed
@@ -1333,10 +1330,7 @@ rgbdata_t *Image_LightGamma( rgbdata_t *pic )
 qboolean Image_RemapInternal( rgbdata_t *pic, int topColor, int bottomColor )
 {
 	if( !pic->palette )
-	{
-		MsgDev( D_ERROR, "Image_Remap: palette is missed\n" );
 		return false;
-	}
 
 	switch( pic->type )
 	{
@@ -1346,7 +1340,6 @@ qboolean Image_RemapInternal( rgbdata_t *pic, int topColor, int bottomColor )
 		Image_ConvertPalTo24bit( pic );
 		break;
 	default:
-		MsgDev( D_ERROR, "Image_Remap: unsupported format %s\n", PFDesc[pic->type].name );
 		return false;
 	}
 
@@ -1376,7 +1369,7 @@ Filtering algorithm from http://www.student.kuleuven.ac.be/~m0216922/CG/filterin
 All credit due 
 ================== 
 */
-qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias, flFlags_t flags, GLenum blendFunc )
+static void Image_ApplyFilter( rgbdata_t *pic, float factor )
 { 
 	int	i, x, y; 
 	uint	*fin, *fout; 
@@ -1384,7 +1377,7 @@ qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias
 
 	// first expand the image into 32-bit buffer
 	pic = Image_DecompressInternal( pic );
-
+	factor = bound( 0.0f, factor, 1.0f );
 	size = image.width * image.height * 4;
 	image.tempbuffer = Mem_Realloc( host.imagepool, image.tempbuffer, size );
 	fout = (uint *)image.tempbuffer;
@@ -1396,6 +1389,7 @@ qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias
 		{ 
 			vec3_t	vout = { 0.0f, 0.0f, 0.0f }; 
 			int	pos_x, pos_y;
+			float	avg;
 
 			for( pos_x = 0; pos_x < FILTER_SIZE; pos_x++ ) 
 			{ 
@@ -1406,9 +1400,9 @@ qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias
 
 					// casting's a unary operation anyway, so the othermost set of brackets in the left part 
 					// of the rvalue should not be necessary... but i'm paranoid when it comes to C... 
-					vout[0] += ((float)((byte *)&fin[img_y * image.width + img_x])[0]) * FILTER[filter][pos_x][pos_y]; 
-					vout[1] += ((float)((byte *)&fin[img_y * image.width + img_x])[1]) * FILTER[filter][pos_x][pos_y]; 
-					vout[2] += ((float)((byte *)&fin[img_y * image.width + img_x])[2]) * FILTER[filter][pos_x][pos_y]; 
+					vout[0] += ((float)((byte *)&fin[img_y * image.width + img_x])[0]) * img_emboss[pos_x][pos_y]; 
+					vout[1] += ((float)((byte *)&fin[img_y * image.width + img_x])[1]) * img_emboss[pos_x][pos_y]; 
+					vout[2] += ((float)((byte *)&fin[img_y * image.width + img_x])[2]) * img_emboss[pos_x][pos_y]; 
 				} 
 			} 
 
@@ -1416,20 +1410,17 @@ qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias
 			for( i = 0; i < 3; i++ ) 
 			{ 
 				vout[i] *= factor; 
-				vout[i] += bias; 
+				vout[i] += 128.0f; // base 
 				vout[i] = bound( 0.0f, vout[i], 255.0f );
 			} 
 
-			if( flags & FILTER_GRAYSCALE ) 
-			{ 
-				// NTSC greyscale conversion standard 
-				float avg = (vout[0] * 30.0f + vout[1] * 59.0f + vout[2] * 11.0f) / 100.0f; 
+			// NTSC greyscale conversion standard 
+			avg = (vout[0] * 30.0f + vout[1] * 59.0f + vout[2] * 11.0f) / 100.0f; 
 
-				// divide by 255 so GL operations work as expected 
-				vout[0] = avg / 255.0f; 
-				vout[1] = avg / 255.0f; 
-				vout[2] = avg / 255.0f; 
-			} 
+			// divide by 255 so GL operations work as expected 
+			vout[0] = avg / 255.0f; 
+			vout[1] = avg / 255.0f; 
+			vout[2] = avg / 255.0f; 
 
 			// write to temp - first, write data in (to get the alpha channel quickly and 
 			// easily, which will be left well alone by this particular operation...!) 
@@ -1444,29 +1435,9 @@ qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias
 				float	src = ((float)((byte *)&fin[y * image.width + x])[i]) / 255.0f; 
 				float	tmp;
 
-				switch( blendFunc ) 
-				{ 
-				case GL_ADD: 
-					tmp = vout[i] + src; 
-					break; 
-				case GL_BLEND: 
-					// default is FUNC_ADD here 
-					// CsS + CdD works out as Src * Dst * 2 
-					tmp = vout[i] * src * 2.0f; 
-					break; 
-				case GL_DECAL: 
-					// same as GL_REPLACE unless there's alpha, which we ignore for this 
-				case GL_REPLACE: 
-					tmp = vout[i]; 
-					break; 
-				case GL_ADD_SIGNED: 
-					tmp = (vout[i] + src) - 0.5f; 
-					break; 
-				case GL_MODULATE: 
-				default:	// same as default 
-					tmp = vout[i] * src; 
-					break; 
-				} 
+				// default is GL_BLEND here 
+				// CsS + CdD works out as Src * Dst * 2 
+				tmp = vout[i] * src * 2.0f; 
 
 				// multiply back by 255 to get the proper byte scale 
 				tmp *= 255.0f; 
@@ -1481,11 +1452,9 @@ qboolean Image_ApplyFilter( rgbdata_t *pic, int filter, float factor, float bias
 
 	// copy result back
 	memcpy( fin, fout, size );
-
-	return true;
 }
 
-qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, imgfilter_t *filter )
+qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, float bumpscale )
 {
 	rgbdata_t	*pic = *pix;
 	qboolean	result = true;
@@ -1494,12 +1463,11 @@ qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, imgf
 	// check for buffers
 	if( !pic || !pic->buffer )
 	{
-		MsgDev( D_WARN, "Image_Process: NULL image\n" );
 		image.force_flags = 0;
 		return false;
 	}
 
-	if( !flags && !filter )
+	if( !flags )
 	{
 		// clear any force flags
 		image.force_flags = 0;
@@ -1513,7 +1481,7 @@ qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, imgf
 		ClearBits( pic->flags, IMAGE_HAS_LUMA );
 	}
 
-	if( flags & IMAGE_REMAP )
+	if( FBitSet( flags, IMAGE_REMAP ))
 	{
 		// NOTE: user should keep copy of indexed image manually for new changes
 		if( Image_RemapInternal( pic, width, height ))
@@ -1521,10 +1489,14 @@ qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, imgf
 	}
 
 	// update format to RGBA if any
-	if( flags & IMAGE_FORCE_RGBA ) pic = Image_DecompressInternal( pic );
-	if( flags & IMAGE_LIGHTGAMMA ) pic = Image_LightGamma( pic );
+	if( FBitSet( flags, IMAGE_FORCE_RGBA ))
+		pic = Image_DecompressInternal( pic );
 
-	if( filter ) Image_ApplyFilter( pic, filter->filter, filter->factor, filter->bias, filter->flags, filter->blendFunc );
+	if( FBitSet( flags, IMAGE_LIGHTGAMMA ))
+		pic = Image_LightGamma( pic );
+
+	if( FBitSet( flags, IMAGE_EMBOSS ))
+		Image_ApplyFilter( pic, bumpscale );
 
 	out = Image_FlipInternal( pic->buffer, &pic->width, &pic->height, pic->type, flags );
 	if( pic->buffer != out ) memcpy( pic->buffer, image.tempbuffer, pic->size );
@@ -1539,7 +1511,7 @@ qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, imgf
 
 		if( resampled ) // resampled or filled
 		{
-			MsgDev( D_NOTE, "Image_Resample: from[%d x %d] to [%d x %d]\n", pic->width, pic->height, w, h );
+			Con_Reportf( "Image_Resample: from[%d x %d] to [%d x %d]\n", pic->width, pic->height, w, h );
 			pic->width = w, pic->height = h;
 			pic->size = w * h * PFDesc[pic->type].bpp;
 			Mem_Free( pic->buffer );		// free original image buffer

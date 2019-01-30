@@ -24,7 +24,7 @@ R_GetImageParms
 */
 void R_GetTextureParms( int *w, int *h, int texnum )
 {
-	gltexture_t	*glt;
+	gl_texture_t	*glt;
 
 	glt = R_GetTexture( texnum );
 	if( w ) *w = glt->srcWidth;
@@ -94,7 +94,7 @@ refresh window.
 void R_DrawTileClear( int x, int y, int w, int h )
 {
 	float		tw, th;
-	gltexture_t	*glt;
+	gl_texture_t	*glt;
 
 	GL_SetRenderMode( kRenderNormal );
 	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
@@ -124,7 +124,7 @@ R_DrawStretchRaw
 void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
 {
 	byte		*raw = NULL;
-	gltexture_t	*tex;
+	gl_texture_t	*tex;
 
 	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ))
 	{
@@ -196,7 +196,7 @@ R_UploadStretchRaw
 void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data )
 {
 	byte		*raw = NULL;
-	gltexture_t	*tex;
+	gl_texture_t	*tex;
 
 	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ))
 	{

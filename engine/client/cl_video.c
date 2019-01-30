@@ -48,6 +48,7 @@ qboolean SCR_NextMovie( void )
 	{
 		S_StopAllSounds( true );
 		SCR_StopCinematic();
+		CL_CheckStartupDemos();
 		return false; // don't play movies
 	}
 
@@ -56,6 +57,7 @@ qboolean SCR_NextMovie( void )
 		S_StopAllSounds( true );
 		SCR_StopCinematic();
 		cls.movienum = -1;
+		CL_CheckStartupDemos();
 		return false;
 	}
 
@@ -90,6 +92,7 @@ void SCR_CheckStartupVids( void )
 	{
 		// don't run movies where we in developer-mode
 		cls.movienum = -1;
+		CL_CheckStartupDemos();
 		return;
 	}
 
@@ -206,7 +209,7 @@ qboolean SCR_PlayCinematic( const char *arg )
 
 	if( FS_FileExists( arg, false ) && !fullpath )
 	{
-		MsgDev( D_ERROR, "Couldn't load %s from packfile. Please extract it\n", path );
+		Con_Printf( S_ERROR "Couldn't load %s from packfile. Please extract it\n", path );
 		return false;
 	}
 
@@ -232,13 +235,14 @@ qboolean SCR_PlayCinematic( const char *arg )
 
 	UI_SetActiveMenu( false );
 	cls.state = ca_cinematic;
+	Con_FastClose();
 	cin_time = 0.0f;
 	cls.signon = 0;
 	
 	return true;
 }
 
-long SCR_GetAudioChunk( char *rawdata, long length )
+int SCR_GetAudioChunk( char *rawdata, int length )
 {
 	int	r;
 

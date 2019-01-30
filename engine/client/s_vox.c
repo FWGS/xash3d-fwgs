@@ -478,7 +478,7 @@ void VOX_LoadSound( channel_t *pchan, const char *pszin )
 
 	if( Q_strlen( psz ) > sizeof( buffer ) - 1 )
 	{
-		MsgDev( D_ERROR, "VOX_LoadSound: sentence is too long %s\n", psz );
+		Con_Printf( S_ERROR "VOX_LoadSound: sentence is too long %s\n", psz );
 		return;
 	}
 
@@ -545,7 +545,7 @@ void VOX_ParseLineCommands( char *pSentenceData, int sentenceIndex )
 		length = pNext - pSentenceData;
 		if( tempBufferPos + length > sizeof( tempBuffer ))
 		{
-			MsgDev( D_ERROR, "sentence too long!\n" );
+			Con_Printf( S_ERROR "sentence too long!\n" );
 			return;
 		}
 
@@ -606,7 +606,7 @@ void VOX_ReadSentenceFile( const char *psentenceFileName )
 {
 	char	c, *pch, *pFileData;
 	char	*pchlast, *pSentenceData;
-	int	fileSize;
+	size_t	fileSize;
 
 	// load file
 	pFileData = (char *)FS_LoadFile( psentenceFileName, &fileSize, false );
@@ -617,6 +617,12 @@ void VOX_ReadSentenceFile( const char *psentenceFileName )
 
 	while( pch < pchlast )
 	{
+		if( g_numSentences >= MAX_SENTENCES )
+		{
+			Con_Printf( S_ERROR "VOX_Init: too many sentences specified\n" );
+			break;
+		}
+
 		// only process this pass on sentences
 		pSentenceData = NULL;
 

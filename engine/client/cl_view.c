@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "entity_types.h"
 #include "gl_local.h"
 #include "vgui_draw.h"
+#include "sound.h"
 
 /*
 ===============
@@ -143,7 +144,7 @@ void V_SetRefParams( ref_params_t *fd )
 	fd->demoplayback = cls.demoplayback;
 	fd->hardware = 1; // OpenGL
 
-	if( cl.first_frame )
+	if( cl.first_frame || cl.skip_interp )
 	{
 		cl.first_frame = false;		// now can be unlocked
 		fd->smoothing = true;		// NOTE: currently this used to prevent ugly un-duck effect while level is changed
@@ -286,7 +287,7 @@ qboolean V_PreRender( void )
 	{
 		if(( host.realtime - cls.disable_screen ) > cl_timeout->value )
 		{
-			MsgDev( D_ERROR, "V_PreRender: loading plaque timed out\n" );
+			Con_Reportf( "V_PreRender: loading plaque timed out\n" );
 			cls.disable_screen = 0.0f;
 		}
 		return false;
@@ -334,6 +335,7 @@ void V_RenderView( void )
 		}
 
 		R_RenderFrame( &rvp );
+		S_UpdateFrame( &rvp );
 		viewnum++;
 
 	} while( rp.nextView );
@@ -382,6 +384,7 @@ void V_PostRender( void )
 		CL_DrawDemoRecording();
 		CL_DrawHUD( CL_CHANGELEVEL );
 		R_ShowTextures();
+		R_ShowTree();
 		Con_DrawConsole();
 		UI_UpdateMenu( host.realtime );
 		Con_DrawVersion();

@@ -134,10 +134,10 @@ Sequence_WriteDefaults
 void Sequence_WriteDefaults( sequenceCommandLine_s *source, sequenceCommandLine_s *destination )
 {
 	if( !destination )
-		MsgDev( D_ERROR, "Attempt to bake defaults into a non-existant command." );
+		Con_Reportf( S_ERROR  "Attempt to bake defaults into a non-existant command." );
 
 	if( !source )
-		MsgDev( D_ERROR, "Attempt to bake defaults from a non-existant command." );
+		Con_Reportf( S_ERROR  "Attempt to bake defaults from a non-existant command." );
 
 	if( source->modifierBitField & SEQUENCE_MODIFIER_EFFECT_BIT )
 	{
@@ -215,10 +215,10 @@ void Sequence_BakeDefaults( sequenceCommandLine_s *destination, sequenceCommandL
 	char *saveName, *saveMessage;
 
 	if( !destination )
-		MsgDev( D_ERROR, "Attempt to bake defaults into a non-existant command." );
+		Con_Reportf( S_ERROR  "Attempt to bake defaults into a non-existant command." );
 
 	if( !source )
-		MsgDev( D_ERROR, "Attempt to bake defaults from a non-existant command." );
+		Con_Reportf( S_ERROR  "Attempt to bake defaults from a non-existant command." );
 
 	saveName= destination->clientMessage.pName;
 	saveMessage = destination->clientMessage.pMessage;
@@ -325,9 +325,9 @@ size_t Sequence_GetNameValueString( char *token, size_t len )
 	if( !Sequence_IsNameValueChar( *g_scan ) )
 	{
 		if( *g_scan == '#' || *g_scan == '$' )
-			MsgDev( D_ERROR, "Parsing error on line %d of %s.seq: cannot have more than one '%c' per line; '%c' must be at the beginning of the line ONLY\n", g_lineNum, g_sequenceParseFileName, *g_scan, *g_scan );
+			Con_Reportf( S_ERROR  "Parsing error on line %d of %s.seq: cannot have more than one '%c' per line; '%c' must be at the beginning of the line ONLY\n", g_lineNum, g_sequenceParseFileName, *g_scan, *g_scan );
 		else
-			MsgDev( D_ERROR, "Parsing error on line %d of %s.seq: expected name/value, found illegal character '%c'\n", g_lineNum, g_sequenceParseFileName, *g_scan );
+			Con_Reportf( S_ERROR  "Parsing error on line %d of %s.seq: expected name/value, found illegal character '%c'\n", g_lineNum, g_sequenceParseFileName, *g_scan );
 	}
 
 	for( p = token; Sequence_IsNameValueChar( *g_scan ) && len;  p++, g_scan++, len-- )
@@ -373,7 +373,7 @@ void Sequence_ValidateNameValueString( char *token )
 	for( scan = token; *scan; scan++ )
 	{
 		if( !Sequence_IsNameValueChar( *scan ) )
-			MsgDev( D_ERROR, "Parsing error on line %d of %s.seq: name/value string \"%s\" had illegal character '%c'\n", g_lineNum, g_sequenceParseFileName, token, *scan );
+			Con_Reportf( S_ERROR  "Parsing error on line %d of %s.seq: name/value string \"%s\" had illegal character '%c'\n", g_lineNum, g_sequenceParseFileName, token, *scan );
 	}
 }
 
@@ -393,7 +393,7 @@ size_t Sequence_GetToken( char *token, size_t size )
 	}
 
 	if( !Sequence_IsSymbol( *g_scan ) )
-		MsgDev( D_ERROR, "Parsing error on line %d of %s.seq: expected token, found '%c' instead\n", g_lineNum, g_sequenceParseFileName, *g_scan );
+		Con_Reportf( S_ERROR  "Parsing error on line %d of %s.seq: expected token, found '%c' instead\n", g_lineNum, g_sequenceParseFileName, *g_scan );
 
 	token[0] = *g_scan++;
 	token[1] = 0;
@@ -419,12 +419,12 @@ size_t Sequence_GetLine( char *line, int lineMaxLen )
 	read = Q_strchr( g_scan, '\n' );
 
 	if( !read )
-		MsgDev( D_ERROR, "Syntax Error on line %d of %s.seq: expected sentence definition or '}', found End-Of-File!\n", g_lineNum, g_sequenceParseFileName );
+		Con_Reportf( S_ERROR  "Syntax Error on line %d of %s.seq: expected sentence definition or '}', found End-Of-File!\n", g_lineNum, g_sequenceParseFileName );
 
 	lineLen = read - g_scan;
 
 	if( lineLen >= lineMaxLen )
-		MsgDev( D_ERROR, "Syntax Error on line %d of %s.seq: line was too long (was %d chars; max is %d chars)\n", g_lineNum, g_sequenceParseFileName, lineLen, lineMaxLen - 1 );
+		Con_Reportf( S_ERROR  "Syntax Error on line %d of %s.seq: line was too long (was %d chars; max is %d chars)\n", g_lineNum, g_sequenceParseFileName, lineLen, lineMaxLen - 1 );
 
 	Q_strncpy( write, g_scan, lineLen );
 	write[lineLen] = 0;
@@ -560,7 +560,7 @@ void Sequence_ReadQuotedString( char **dest, char *str, size_t len )
 
 	ch = Sequence_GetSymbol( );
 	if( ch != '\"' )
-		MsgDev( D_ERROR, "Parsing error on or before line %d of %s.seq: expected quote (\"), found '%c' instead\n", g_lineNum, g_sequenceParseFileName, ch );
+		Con_Reportf( S_ERROR  "Parsing error on or before line %d of %s.seq: expected quote (\"), found '%c' instead\n", g_lineNum, g_sequenceParseFileName, ch );
 
 	for( write = str; *g_scan && len; write++, g_scan++, len-- )
 	{
@@ -609,7 +609,7 @@ qboolean Sequence_IsCommandAModifier( sequenceCommandEnum_e commandEnum )
 			return ( g_sequenceCommandMappingTable[i].commandType == SEQUENCE_TYPE_MODIFIER );
 	}
 
-	MsgDev( D_ERROR, "Internal error caused by line %d of %s.seq: unknown command enum = %d\n", g_lineNum, g_sequenceParseFileName, commandEnum );
+	Con_Reportf( S_ERROR  "Internal error caused by line %d of %s.seq: unknown command enum = %d\n", g_lineNum, g_sequenceParseFileName, commandEnum );
 	return false;
 }
 
@@ -712,7 +712,7 @@ void Sequence_ReadCommandData( sequenceCommandEnum_e commandEnum, sequenceComman
 		break;
 
 	default:
-		MsgDev( D_ERROR, "Internal error caused by line %d of %s.seq: unknown command enum = %d\n", g_lineNum, g_sequenceParseFileName, commandEnum );
+		Con_Reportf( S_ERROR  "Internal error caused by line %d of %s.seq: unknown command enum = %d\n", g_lineNum, g_sequenceParseFileName, commandEnum );
 	}
 }
 
@@ -732,20 +732,20 @@ char Sequence_ParseModifier( sequenceCommandLine_s *defaults )
 	modifierEnum = Sequence_GetCommandEnumForName( modifierName, SEQUENCE_TYPE_MODIFIER );
 
 	if( modifierEnum == SEQUENCE_COMMAND_ERROR )
-		MsgDev( D_ERROR, "Parsing error on line %d of %s.seq: unknown modifier \"%s\"\n", g_lineNum, g_sequenceParseFileName, modifierName );
+		Con_Reportf( S_ERROR  "Parsing error on line %d of %s.seq: unknown modifier \"%s\"\n", g_lineNum, g_sequenceParseFileName, modifierName );
 
 	if( !Sequence_IsCommandAModifier( modifierEnum ) )
-		MsgDev( D_ERROR, "Parsing error on line %d of %s.seq: \"%s\" is a #command, not a $modifier\n", g_lineNum, g_sequenceParseFileName, modifierName );
+		Con_Reportf( S_ERROR  "Parsing error on line %d of %s.seq: \"%s\" is a #command, not a $modifier\n", g_lineNum, g_sequenceParseFileName, modifierName );
 
 	delimiter = Sequence_GetSymbol( );
 
 	if( delimiter != '=' )
-		MsgDev( D_ERROR, "Parsing error on or after line %d of %s.seq: after modifier \"%s\", expected '=', found '%c'\n", g_lineNum, g_sequenceParseFileName, modifierName, delimiter );
+		Con_Reportf( S_ERROR  "Parsing error on or after line %d of %s.seq: after modifier \"%s\", expected '=', found '%c'\n", g_lineNum, g_sequenceParseFileName, modifierName, delimiter );
 
 	Sequence_ReadCommandData( modifierEnum, defaults );
 
 	if( !Sequence_ConfirmCarriageReturnOrSymbol( ',' ) )
-		MsgDev( D_ERROR, "Parsing error on line %d of %s.seq: after value(s) for modifier \"%s\", expected ',' or End-Of-Line; found '%c'\n", g_lineNum, g_sequenceParseFileName, modifierName, *g_scan );
+		Con_Reportf( S_ERROR  "Parsing error on line %d of %s.seq: after value(s) for modifier \"%s\", expected ',' or End-Of-Line; found '%c'\n", g_lineNum, g_sequenceParseFileName, modifierName, *g_scan );
 
 	return Sequence_GetSymbol( );
 }
@@ -818,7 +818,7 @@ char Sequence_ParseCommand( sequenceCommandLine_s *newCommandLine )
 	commandEnum = Sequence_GetCommandEnumForName( commandName, SEQUENCE_TYPE_COMMAND );
 
 	if( commandEnum == SEQUENCE_COMMAND_ERROR )
-		MsgDev( D_ERROR, "Parsing error on line %d of %s.seq: unknown command \"%s\"\n", g_lineNum, g_sequenceParseFileName, commandName );
+		Con_Reportf( S_ERROR  "Parsing error on line %d of %s.seq: unknown command \"%s\"\n", g_lineNum, g_sequenceParseFileName, commandName );
 
 	if( Sequence_IsCommandAModifier( commandEnum ) )
 	{
@@ -834,7 +834,7 @@ char Sequence_ParseCommand( sequenceCommandLine_s *newCommandLine )
 
 	ch = Sequence_GetSymbol( );
 	if( ch != '=' )
-		MsgDev( D_ERROR, "Parsing error on or before line %d of %s.seq: after command \"%s\", expected '=', found '%c'\n",
+		Con_Reportf( S_ERROR  "Parsing error on or before line %d of %s.seq: after command \"%s\", expected '=', found '%c'\n",
 				   g_lineNum, g_sequenceParseFileName, commandName, ch );
 
 	Sequence_ReadCommandData( commandEnum, newCommandLine );
@@ -921,7 +921,7 @@ char Sequence_ParseLine( char start, sequenceEntry_s *entry )
 		break;
 
 	default:
-		MsgDev( D_ERROR, "Parsing error on line %d of %s.seq: line must begin with either '#' (command) or '$' (modifier); found '%c'\n", g_lineNum, g_sequenceParseFileName, start );
+		Con_Reportf( S_ERROR  "Parsing error on line %d of %s.seq: line must begin with either '#' (command) or '$' (modifier); found '%c'\n", g_lineNum, g_sequenceParseFileName, start );
 	}
 
 	return end;
@@ -1036,7 +1036,7 @@ char Sequence_ParseEntry( void )
 	symbol = Sequence_GetSymbol( );
 
 	if( symbol != '{' )
-		MsgDev( D_ERROR, "Parsing error on line %d of %s.seq: expected '{' to start a\n new entry block; found '%c' instead!", g_lineNum, g_sequenceParseFileName, symbol );
+		Con_Reportf( S_ERROR  "Parsing error on line %d of %s.seq: expected '{' to start a\n new entry block; found '%c' instead!", g_lineNum, g_sequenceParseFileName, symbol );
 
 	entry = Z_Malloc( sizeof( sequenceEntry_s ) );
 	Sequence_ResetDefaults( &g_blockScopeDefaults, &g_fileScopeDefaults );
@@ -1054,7 +1054,7 @@ char Sequence_ParseEntry( void )
 	}
 
 	if( !Sequence_IsEntrySafe( entry ) )
-		MsgDev( D_ERROR, "Logic error in file %s.seq before line %d: execution of entry \"%%%s\" would cause an infinite loop!", g_sequenceParseFileName, g_lineNum, entry->entryName );
+		Con_Reportf( S_ERROR  "Logic error in file %s.seq before line %d: execution of entry \"%%%s\" would cause an infinite loop!", g_sequenceParseFileName, g_lineNum, entry->entryName );
 
 	entry->nextEntry = g_sequenceList;
 	g_sequenceList   = entry;
@@ -1193,7 +1193,7 @@ void Sequence_AddSentenceToGroup( char *groupName, char *data )
 		group = Sequence_AddSentenceGroup( groupName );
 
 		if( !group )
-			MsgDev( D_ERROR, "Unable to allocate sentence group %s at line %d in file %s.seq", groupName, g_lineNum, g_sequenceParseFileName );
+			Con_Reportf( S_ERROR  "Unable to allocate sentence group %s at line %d in file %s.seq", groupName, g_lineNum, g_sequenceParseFileName );
 	}
 
 	entry            = Z_Malloc( sizeof( sentenceEntry_s ) );
@@ -1270,7 +1270,7 @@ char Sequence_ParseSentenceBlock( void )
 	qboolean end = false;
 	char ch = Sequence_GetSymbol( );
 	if( ch != '{' )
-		MsgDev( D_ERROR, "Parsing error on line %d of %s.seq: expected '{' to start a\n new sentence block; found '%c' instead!", g_lineNum, g_sequenceParseFileName, ch );
+		Con_Reportf( S_ERROR  "Parsing error on line %d of %s.seq: expected '{' to start a\n new sentence block; found '%c' instead!", g_lineNum, g_sequenceParseFileName, ch );
 
 	while( !end )
 	{
@@ -1293,7 +1293,7 @@ char Sequence_ParseGlobalDataBlock( void )
 	Sequence_GetNameValueString( token, MAX_STRING );
 
 	if( Q_stricmp( token, "Sentences" ) )
-		MsgDev( D_ERROR, "Syntax error in file %s.seq on line %d: found global data block symbol '!' with unknown data type \"%s\"", g_sequenceParseFileName, g_lineNum, token );
+		Con_Reportf( S_ERROR  "Syntax error in file %s.seq on line %d: found global data block symbol '!' with unknown data type \"%s\"", g_sequenceParseFileName, g_lineNum, token );
 
 	return Sequence_ParseSentenceBlock( );
 }
@@ -1401,12 +1401,12 @@ qboolean Sequence_ExpandGosubsForEntry( sequenceEntry_s *entry )
 			continue;
 
 		if( !Q_stricmp( cmd->clientMessage.pName, entry->entryName ) )
-			MsgDev( D_ERROR, "Error in %s.seq: entry \"%s\" gosubs itself!\n", entry->fileName, entry->entryName );
+			Con_Reportf( S_ERROR  "Error in %s.seq: entry \"%s\" gosubs itself!\n", entry->fileName, entry->entryName );
 
 		gosubEntry = Sequence_GetEntryForName( cmd->clientMessage.pName );
 
 		if( !gosubEntry )
-			MsgDev( D_ERROR, "Error in %s.seq: Gosub in entry \"%s\" specified unknown entry \"%s\"\n", entry->fileName, entry->entryName, cmd->clientMessage.pName );
+			Con_Reportf( S_ERROR  "Error in %s.seq: Gosub in entry \"%s\" specified unknown entry \"%s\"\n", entry->fileName, entry->entryName, cmd->clientMessage.pName );
 
 		foundGosubs = true;
 		copyList    = Sequence_CopyCommandList( gosubEntry->firstCommand );
@@ -1537,7 +1537,7 @@ void Sequence_ParseBuffer( byte *buffer, int bufferSize )
 			break;
 
 		default:
-			MsgDev( D_ERROR, "Parsing error on line %d of %s.seq: At file scope, lines must begin with '$' (modifier) or '%%' (entry block) or '!' (sentence / global data block); found '%c'\n", g_lineNum, g_sequenceParseFileName, symbol );
+			Con_Reportf( S_ERROR  "Parsing error on line %d of %s.seq: At file scope, lines must begin with '$' (modifier) or '%%' (entry block) or '!' (sentence / global data block); found '%c'\n", g_lineNum, g_sequenceParseFileName, symbol );
 		}
 	}
 
@@ -1564,7 +1564,7 @@ void Sequence_ParseFile( const char *fileName, qboolean isGlobal )
 	if( !buffer )
 		return;
 
-	MsgDev( D_INFO, "reading sequence file: %s\n", fileName );
+	Con_Reportf( "reading sequence file: %s\n", fileName );
 
 	Sequence_ParseBuffer( buffer, bufSize );
 

@@ -157,14 +157,11 @@ void CL_RegisterEvent( int lastnum, const char *szEvName, pfnEventHook func )
 	cl_user_event_t	*ev;
 
 	if( lastnum == MAX_EVENTS )
-	{
-		MsgDev( D_ERROR, "CL_RegisterEvent: MAX_EVENTS hit!\n" );
 		return;
-	}
 
 	// clear existing or allocate new one
 	if( !clgame.events[lastnum] )
-		clgame.events[lastnum] = Mem_Alloc( cls.mempool, sizeof( cl_user_event_t ));
+		clgame.events[lastnum] = Mem_Calloc( cls.mempool, sizeof( cl_user_event_t ));
 	else memset( clgame.events[lastnum], 0, sizeof( cl_user_event_t ));
 
 	ev = clgame.events[lastnum];
@@ -197,7 +194,7 @@ qboolean CL_FireEvent( event_info_t *ei, int slot )
 		if( !ev )
 		{
 			idx = bound( 1, ei->index, ( MAX_EVENTS - 1 ));
-			MsgDev( D_ERROR, "CL_FireEvent: %s not precached\n", cl.event_precache[idx] );
+			Con_Reportf( S_ERROR "CL_FireEvent: %s not precached\n", cl.event_precache[idx] );
 			break;
 		}
 
@@ -211,7 +208,7 @@ qboolean CL_FireEvent( event_info_t *ei, int slot )
 			}
 
 			name = cl.event_precache[ei->index];
-			MsgDev( D_ERROR, "CL_FireEvent: %s not hooked\n", name );
+			Con_Reportf( S_ERROR "CL_FireEvent: %s not hooked\n", name );
 			break;			
 		}
 	}
@@ -396,7 +393,7 @@ void CL_ParseEvent( sizebuf_t *msg )
 		event_index = MSG_ReadUBitLong( msg, MAX_EVENT_BITS );
 
 		if( MSG_ReadOneBit( msg ))
-			packet_index = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
+			packet_index = MSG_ReadUBitLong( msg, cls.legacymode ? MAX_LEGACY_ENTITY_BITS : MAX_ENTITY_BITS );
 		else packet_index = -1;
 
 		if( MSG_ReadOneBit( msg ))
@@ -439,10 +436,6 @@ void CL_ParseEvent( sizebuf_t *msg )
 					if( args.entindex > 0 && args.entindex <= cl.maxclients )
 						args.angles[PITCH] /= -3.0f;
 				}
-				else
-				{
-					MsgDev( D_WARN, "CL_ParseEvent: Received non-packet entity index 0 for event\n" );
-				}
 			}
 		
 			// Place event on queue
@@ -462,28 +455,25 @@ void CL_PlaybackEvent( int flags, const edict_t *pInvoker, word eventindex, floa
 {
 	event_args_t	args;
 
-	if( flags & FEV_SERVER )
-	{
-		MsgDev( D_WARN, "CL_PlaybackEvent: event with FEV_SERVER flag!\n" );
+	if( FBitSet( flags, FEV_SERVER ))
 		return;
-	}
 
 	// first check event for out of bounds
 	if( eventindex < 1 || eventindex > MAX_EVENTS )
 	{
-		MsgDev( D_ERROR, "CL_PlaybackEvent: invalid eventindex %i\n", eventindex );
+		Con_DPrintf( S_ERROR "CL_PlaybackEvent: invalid eventindex %i\n", eventindex );
 		return;
 	}
 
 	// check event for precached
 	if( !CL_EventIndex( cl.event_precache[eventindex] ))
 	{
-		MsgDev( D_ERROR, "CL_PlaybackEvent: event %i was not precached\n", eventindex );
+		Con_DPrintf( S_ERROR "CL_PlaybackEvent: event %i was not precached\n", eventindex );
 		return;		
 	}
 
-	flags |= FEV_CLIENT; // it's a client event
-	flags &= ~(FEV_NOTHOST|FEV_HOSTONLY|FEV_GLOBAL);
+	SetBits( flags, FEV_CLIENT ); // it's a client event
+	ClearBits( flags, FEV_NOTHOST|FEV_HOSTONLY|FEV_GLOBAL );
 	if( delay < 0.0f ) delay = 0.0f; // fixup negative delays
 
 	memset( &args, 0, sizeof( args ));

@@ -185,7 +185,7 @@ char *_copystring( byte *mempool, const char *s, const char *filename, int filel
 	if( !s ) return NULL;
 	if( !mempool ) mempool = host.mempool;
 
-	b = _Mem_Alloc( mempool, Q_strlen( s ) + 1, filename, fileline );
+	b = _Mem_Alloc( mempool, Q_strlen( s ) + 1, false, filename, fileline );
 	Q_strcpy( b, s );
 
 	return b;
@@ -575,7 +575,6 @@ int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list ar
 	__except( EXCEPTION_EXECUTE_HANDLER )
 	{
 		Q_strncpy( buffer, "^1sprintf throw exception^7\n", buffersize );
-//		memset( buffer, 0, buffersize );
 		result = buffersize;
 	}
 #endif

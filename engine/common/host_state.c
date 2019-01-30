@@ -14,10 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
-
-#ifdef XASH_SDL
-#include "platform/sdl/events.h"
-#endif
+#include "platform/platform.h"
 
 void COM_InitHostState( void )
 {
@@ -29,6 +26,14 @@ static void Host_SetState( host_state_t newState, qboolean clearNext )
 	if( clearNext )
 		GameState->nextstate = newState;
 	GameState->curstate = newState;
+
+	if( clearNext && newState == STATE_RUNFRAME )
+	{
+		// states finished here
+		GameState->backgroundMap = false;
+		GameState->loadGame = false;
+		GameState->newGame = false;
+	}
 }
 
 static void Host_SetNextState( host_state_t nextState )
@@ -40,6 +45,9 @@ static void Host_SetNextState( host_state_t nextState )
 void COM_NewGame( char const *pMapName )
 {
 	if( GameState->nextstate != STATE_RUNFRAME )
+		return;
+
+	if( UI_CreditsActive( ))
 		return;
 
 	Q_strncpy( GameState->levelName, pMapName, sizeof( GameState->levelName ));
@@ -56,6 +64,9 @@ void COM_LoadLevel( char const *pMapName, qboolean background )
 	if( GameState->nextstate != STATE_RUNFRAME )
 		return;
 
+	if( UI_CreditsActive( ))
+		return;
+
 	Q_strncpy( GameState->levelName, pMapName, sizeof( GameState->levelName ));
 	Host_SetNextState( STATE_LOAD_LEVEL );
 
@@ -70,6 +81,9 @@ void COM_LoadGame( char const *pMapName )
 	if( GameState->nextstate != STATE_RUNFRAME )
 		return;
 
+	if( UI_CreditsActive( ))
+		return;
+
 	Q_strncpy( GameState->levelName, pMapName, sizeof( GameState->levelName ));
 	Host_SetNextState( STATE_LOAD_GAME );
 	GameState->backgroundMap = false;
@@ -80,6 +94,9 @@ void COM_LoadGame( char const *pMapName )
 void COM_ChangeLevel( char const *pNewLevel, char const *pLandmarkName, qboolean background )
 {
 	if( GameState->nextstate != STATE_RUNFRAME )
+		return;
+
+	if( UI_CreditsActive( ))
 		return;
 
 	Q_strncpy( GameState->levelName, pNewLevel, sizeof( GameState->levelName ));
@@ -118,11 +135,10 @@ void Host_ShutdownGame( void )
 
 void Host_RunFrame( float time )
 {
-#if XASH_INPUT == INPUT_SDL
-	SDLash_RunEvents();
-#elif XASH_INPUT == INPUT_ANDROID
-	Android_RunEvents();
-#endif
+	// at this time, we don't need to get events from OS on dedicated
+#ifndef XASH_DEDICATED
+	Platform_RunEvents();
+#endif // XASH_DEDICATED
 
 	// engine main frame
 	Host_Frame( time );
@@ -159,7 +175,7 @@ void COM_Frame( float time )
 	{
 		int	oldState = GameState->curstate;
 
-		// execute the current state (and transition to the next state if not in HS_RUN)
+		// execute the current state (and transition to the next state if not in STATE_RUNFRAME)
 		switch( GameState->curstate )
 		{
 		case STATE_LOAD_LEVEL:

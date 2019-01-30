@@ -598,17 +598,17 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 	mstudioseqgroup_t	*pseqgroup;
 	cache_user_t	*paSequences;
 	size_t		filesize;
-	byte		*buf;
+		  byte		*buf;
 
 	pseqgroup = (mstudioseqgroup_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqgroupindex) + pseqdesc->seqgroup;
 	if( pseqdesc->seqgroup == 0 )
-		return ((byte *)m_pStudioHeader + pseqgroup->data + pseqdesc->animindex);
+		return ((byte *)m_pStudioHeader + pseqdesc->animindex);
 
 	paSequences = (cache_user_t *)m_pSubModel->submodels;
 
 	if( paSequences == NULL )
 	{
-		paSequences = (cache_user_t *)Mem_Alloc( com_studiocache, MAXSTUDIOGROUPS * sizeof( cache_user_t ));
+		paSequences = (cache_user_t *)Mem_Calloc( com_studiocache, MAXSTUDIOGROUPS * sizeof( cache_user_t ));
 		m_pSubModel->submodels = (void *)paSequences;
 	}
 
@@ -628,8 +628,8 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 		if( IDSEQGRPHEADER != *(uint *)buf ) Host_Error( "StudioGetAnim: %s is corrupted\n", filepath );
 
 		Con_Printf( "loading: %s\n", filepath );
-			
-		paSequences[pseqdesc->seqgroup].data = Mem_Alloc( com_studiocache, filesize );
+
+		paSequences[pseqdesc->seqgroup].data = Mem_Calloc( com_studiocache, filesize );
 		memcpy( paSequences[pseqdesc->seqgroup].data, buf, filesize );
 		Mem_Free( buf );
 	}
@@ -670,7 +670,7 @@ static void SV_StudioSetupBones( model_t *pModel,	float frame, int sequence, con
 	{
 		// only show warn if sequence that out of range was specified intentionally
 		if( sequence > mod_studiohdr->numseq )
-			MsgDev( D_WARN, "SV_StudioSetupBones: sequence %i/%i out of range for model %s\n", sequence, mod_studiohdr->numseq, mod_studiohdr->name );
+			Con_Reportf( S_WARN "SV_StudioSetupBones: sequence %i/%i out of range for model %s\n", sequence, mod_studiohdr->numseq, pModel->name );
 		sequence = 0;
 	}
 
@@ -914,7 +914,7 @@ void Mod_StudioComputeBounds( void *buffer, vec3_t mins, vec3_t maxs, qboolean i
 		pseqgroup = (mstudioseqgroup_t *)((byte *)pstudiohdr + pstudiohdr->seqgroupindex) + pseqdesc->seqgroup;
 
 		if( pseqdesc->seqgroup == 0 )
-			panim = (mstudioanim_t *)((byte *)pstudiohdr + pseqgroup->data + pseqdesc->animindex);
+			panim = (mstudioanim_t *)((byte *)pstudiohdr + pseqdesc->animindex);
 		else continue;
 
 		for( j = 0; j < pstudiohdr->numbones; j++ )
@@ -1024,7 +1024,7 @@ studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 
 	if( i != STUDIO_VERSION )
 	{
-		MsgDev( D_ERROR, "%s has wrong version number (%i should be %i)\n", mod->name, i, STUDIO_VERSION );
+		Con_Printf( S_ERROR "%s has wrong version number (%i should be %i)\n", mod->name, i, STUDIO_VERSION );
 		return NULL;
 	}	
 
@@ -1060,7 +1060,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 
 		if( !thdr )
 		{
-			MsgDev( D_WARN, "Mod_LoadStudioModel: %s missing textures file\n", mod->name ); 
+			Con_Printf( S_WARN "Mod_LoadStudioModel: %s missing textures file\n", mod->name ); 
 			if( buffer2 ) Mem_Free( buffer2 );
 		}
 		else
@@ -1070,7 +1070,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 			// give space for textures and skinrefs
 			size1 = thdr->numtextures * sizeof( mstudiotexture_t );
 			size2 = thdr->numskinfamilies * thdr->numskinref * sizeof( short );
-			mod->cache.data = Mem_Alloc( loadmodel->mempool, phdr->length + size1 + size2 );
+			mod->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length + size1 + size2 );
 			memcpy( loadmodel->cache.data, buffer, phdr->length ); // copy main mdl buffer
 			phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
 			phdr->numskinfamilies = thdr->numskinfamilies;
@@ -1089,7 +1089,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	else
 	{
 		// NOTE: don't modify source buffer because it's used for CRC computing
-		loadmodel->cache.data = Mem_Alloc( loadmodel->mempool, phdr->length );
+		loadmodel->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length );
 		memcpy( loadmodel->cache.data, buffer, phdr->length );
 		phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
 		Mod_StudioLoadTextures( mod, phdr );
@@ -1101,7 +1101,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	}
 #else
 	// just copy model into memory
-	loadmodel->cache.data = Mem_Alloc( loadmodel->mempool, phdr->length );
+	loadmodel->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length );
 	memcpy( loadmodel->cache.data, buffer, phdr->length );
 
 	phdr = loadmodel->cache.data;
@@ -1184,7 +1184,7 @@ void Mod_InitStudioAPI( void )
 	pBlendIface = (STUDIOAPI)COM_GetProcAddress( svgame.hInstance, "Server_GetBlendingInterface" );
 	if( pBlendIface && pBlendIface( SV_BLENDING_INTERFACE_VERSION, &pBlendAPI, &gStudioAPI, &studio_transform, &studio_bones ))
 	{
-		MsgDev( D_REPORT, "SV_LoadProgs: ^2initailized Server Blending interface ^7ver. %i\n", SV_BLENDING_INTERFACE_VERSION );
+		Con_Reportf( "SV_LoadProgs: ^2initailized Server Blending interface ^7ver. %i\n", SV_BLENDING_INTERFACE_VERSION );
 		return;
 	}
 

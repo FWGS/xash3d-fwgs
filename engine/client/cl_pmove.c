@@ -48,17 +48,10 @@ CL_PushPMStates
 */
 void CL_PushPMStates( void )
 {
-	if( clgame.pushed )
-	{
-		MsgDev( D_ERROR, "PushPMStates: stack overflow\n");
-	}
-	else
-	{
-		clgame.oldphyscount = clgame.pmove->numphysent;
-		clgame.oldviscount  = clgame.pmove->numvisent;
-		clgame.pushed = true;
-	}
-
+	if( clgame.pushed ) return;
+	clgame.oldphyscount = clgame.pmove->numphysent;
+	clgame.oldviscount  = clgame.pmove->numvisent;
+	clgame.pushed = true;
 }
 
 /*
@@ -69,16 +62,35 @@ CL_PopPMStates
 */
 void CL_PopPMStates( void )
 {
-	if( clgame.pushed )
-	{
-		clgame.pmove->numphysent = clgame.oldphyscount;
-		clgame.pmove->numvisent  = clgame.oldviscount;
-		clgame.pushed = false;
-	}
-	else
-	{
-		MsgDev( D_ERROR, "PopPMStates: stack underflow\n");
-	}
+	if( !clgame.pushed ) return;
+	clgame.pmove->numphysent = clgame.oldphyscount;
+	clgame.pmove->numvisent  = clgame.oldviscount;
+	clgame.pushed = false;
+}
+
+/*
+=============
+CL_PushTraceBounds
+
+=============
+*/
+void CL_PushTraceBounds( int hullnum, const float *mins, const float *maxs )
+{
+	hullnum = bound( 0, hullnum, 3 );
+	VectorCopy( mins, clgame.pmove->player_mins[hullnum] );
+	VectorCopy( maxs, clgame.pmove->player_maxs[hullnum] );
+}
+
+/*
+=============
+CL_PopTraceBounds
+
+=============
+*/
+void CL_PopTraceBounds( void )
+{
+	memcpy( clgame.pmove->player_mins, host.player_mins, sizeof( host.player_mins ));
+	memcpy( clgame.pmove->player_maxs, host.player_maxs, sizeof( host.player_maxs ));
 }
 
 /*
@@ -89,6 +101,10 @@ CL_IsPredicted
 qboolean CL_IsPredicted( void )
 {
 	if( cl_nopred->value || cl.intermission )
+		return false;
+
+	// never predict the quake demos
+	if( cls.demoplayback == DEMO_QUAKE1 )
 		return false;
 	return true;
 }
@@ -456,9 +472,6 @@ void CL_AddLinksToPmove( frame_t *frame )
 		if( VectorIsNull( state->mins ) && VectorIsNull( state->maxs ))
 			continue;
 
-		if ( !model->hulls[1].lastclipnode && model->type != mod_studio )
-			continue;
-
 		if( state->solid == SOLID_NOT && state->skin < CONTENTS_EMPTY )
 		{
 			if( clgame.pmove->nummoveent >= MAX_MOVEENTS )
@@ -470,6 +483,9 @@ void CL_AddLinksToPmove( frame_t *frame )
 		}
 		else
 		{
+			if( !model->hulls[1].lastclipnode && model->type != mod_studio )
+				continue;
+
 			// reserve slots for all the clients
 			if( clgame.pmove->numphysent >= ( MAX_PHYSENTS - cl.maxclients ))
 				continue;
@@ -765,10 +781,7 @@ static void pfnStuckTouch( int hitent, pmtrace_t *tr )
 	}
 
 	if( clgame.pmove->numtouch >= MAX_PHYSENTS )
-	{
-		MsgDev( D_ERROR, "PM_StuckTouch: MAX_TOUCHENTS limit exceeded\n" );
 		return;
-	}
 
 	VectorCopy( clgame.pmove->velocity, tr->deltavelocity );
 	tr->ent = hitent;
@@ -966,7 +979,7 @@ void CL_InitClientMove( void )
 	for( i = 0; i < MAX_MAP_HULLS; i++ )
 	{
 		if( clgame.dllFuncs.pfnGetHullBounds( i, host.player_mins[i], host.player_maxs[i] ))
-			MsgDev( D_NOTE, "CL: hull%i, player_mins: %g %g %g, player_maxs: %g %g %g\n", i,
+			Con_Reportf( "CL: hull%i, player_mins: %g %g %g, player_maxs: %g %g %g\n", i,
 			host.player_mins[i][0], host.player_mins[i][1], host.player_mins[i][2],
 			host.player_maxs[i][0], host.player_maxs[i][1], host.player_maxs[i][2] );
 	}
@@ -1226,7 +1239,7 @@ void CL_PredictMovement( qboolean repredicting )
 	if( cls.state != ca_active || cls.spectator )
 		return;
 
-	if( cls.demoplayback && cl.cmd != NULL && !repredicting )
+	if( cls.demoplayback && !repredicting )
 		CL_DemoInterpolateAngles();
 
 	CL_SetUpPlayerPrediction( false, false );
@@ -1315,7 +1328,7 @@ void CL_PredictMovement( qboolean repredicting )
 			cl.local.onground = frame->playerstate[cl.playernum].onground;
 		else cl.local.onground = -1;
 
-		if( !repredicting || !cl_lw->value )
+		if( !repredicting || !CVAR_TO_BOOL( cl_lw ))
 			cl.local.viewmodel = to->client.viewmodel;
 		cl.local.repredicting = false;
 		cl.local.moving = false;
@@ -1345,7 +1358,7 @@ void CL_PredictMovement( qboolean repredicting )
 
 	cl.local.waterlevel = to->client.waterlevel;
 	cl.local.usehull = to->playerstate.usehull;
-	if( !repredicting || !cl_lw->value )
+	if( !repredicting || !CVAR_TO_BOOL( cl_lw ))
 		cl.local.viewmodel = to->client.viewmodel;
 
 	if( FBitSet( to->client.flags, FL_ONGROUND ))

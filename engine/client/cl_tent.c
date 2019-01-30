@@ -127,7 +127,7 @@ void CL_AddClientResource( const char *filename, int type )
 	if( p != &cl.resourcesneeded )
 		return; // already in list?
 
-	pResource = Mem_Alloc( cls.mempool, sizeof( resource_t ));
+	pResource = Mem_Calloc( cls.mempool, sizeof( resource_t ));
 
 	Q_strncpy( pResource->szFileName, filename, sizeof( pResource->szFileName ));
 	pResource->type = type;
@@ -151,7 +151,7 @@ void CL_AddClientResources( void )
 	int	i;
 
 	// don't request resources from localhost or in quake-compatibility mode
-	if( cl.maxclients <= 1 || FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+	if( cl.maxclients <= 1 || Host_IsQuakeCompatible( ))
 		return;
 
 	// check sprites first
@@ -325,7 +325,7 @@ CL_InitTempents
 */
 void CL_InitTempEnts( void )
 {
-	cl_tempents = Mem_Alloc( cls.mempool, sizeof( TEMPENTITY ) * GI->max_tents );
+	cl_tempents = Mem_Calloc( cls.mempool, sizeof( TEMPENTITY ) * GI->max_tents );
 	CL_ClearTempEnts();
 
 	// load tempent sprites (glowshell, muzzleflashes etc)
@@ -593,7 +593,7 @@ TEMPENTITY *CL_TempEntAlloc( const vec3_t org, model_t *pmodel )
 
 	if( !cl_free_tents )
 	{
-		MsgDev( D_INFO, "Overflow %d temporary ents!\n", GI->max_tents );
+		Con_DPrintf( "Overflow %d temporary ents!\n", GI->max_tents );
 		return NULL;
 	}
 
@@ -633,7 +633,7 @@ TEMPENTITY *CL_TempEntAllocHigh( const vec3_t org, model_t *pmodel )
 	{
 		// didn't find anything? The tent list is either full of high-priority tents
 		// or all tents in the list are still due to live for > 10 seconds. 
-		MsgDev( D_INFO, "Couldn't alloc a high priority TENT!\n" );
+		Con_DPrintf( "Couldn't alloc a high priority TENT!\n" );
 		return NULL;
 	}
 
@@ -870,10 +870,7 @@ void R_AttachTentToPlayer( int client, int modelIndex, float zoffset, float life
 	model_t		*pModel;
 
 	if( client <= 0 || client > cl.maxclients )
-	{
-		MsgDev( D_ERROR, "Bad client %i in AttachTentToPlayer()!\n", client );
 		return;
-	}
 
 	pClient = CL_GetEntityByIndex( client );
 
@@ -926,10 +923,7 @@ void R_KillAttachedTents( int client )
 	int	i;
 
 	if( client <= 0 || client > cl.maxclients )
-	{
-		MsgDev( D_ERROR, "Bad client %i in KillAttachedTents()!\n", client );
 		return;
-	}
 
 	for( i = 0; i < GI->max_tents; i++ )
 	{
@@ -1282,7 +1276,7 @@ TEMPENTITY *R_DefaultSprite( const vec3_t pos, int spriteIndex, float framerate 
 
 	if(( psprite = CL_ModelHandle( spriteIndex )) == NULL || psprite->type != mod_sprite )
 	{
-		MsgDev( D_INFO, "No Sprite %d!\n", spriteIndex );
+		Con_Reportf( "No Sprite %d!\n", spriteIndex );
 		return NULL;
 	}
 
@@ -1339,7 +1333,7 @@ TEMPENTITY *R_TempSprite( vec3_t pos, const vec3_t dir, float scale, int modelIn
 
 	if(( pmodel = CL_ModelHandle( modelIndex )) == NULL )
 	{
-		MsgDev( D_ERROR, "No model %d!\n", modelIndex );
+		Con_Reportf( S_ERROR "No model %d!\n", modelIndex );
 		return NULL;
 	}
 
@@ -1446,7 +1440,7 @@ void R_Spray( const vec3_t pos, const vec3_t dir, int modelIndex, int count, int
 
 	if(( pmodel = CL_ModelHandle( modelIndex )) == NULL )
 	{
-		MsgDev( D_INFO, "No model %d!\n", modelIndex );
+		Con_Reportf( "No model %d!\n", modelIndex );
 		return;
 	}
 
@@ -1577,7 +1571,7 @@ void R_FunnelSprite( const vec3_t org, int modelIndex, int reverse )
 
 	if(( pmodel = CL_ModelHandle( modelIndex )) == NULL )
 	{
-		MsgDev( D_ERROR, "no model %d!\n", modelIndex );
+		Con_Reportf( S_ERROR "no model %d!\n", modelIndex );
 		return;
 	}
 
@@ -1823,10 +1817,7 @@ void R_PlayerSprites( int client, int modelIndex, int count, int size )
 	pEnt = CL_GetEntityByIndex( client );
 
 	if( !pEnt || !pEnt->player )
-	{
-		MsgDev( D_INFO, "Bad ent %i in R_PlayerSprites()!\n", client );
 		return;
-	}
 
 	vel = 128;
 
@@ -2033,7 +2024,7 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 {
 	sizebuf_t		buf;
 	byte		pbuf[256];
-	int		iSize = MSG_ReadWord( msg );
+	int		iSize;
 	int		type, color, count, flags;
 	int		decalIndex, modelIndex, entityIndex;
 	float		scale, life, frameRate, vel, random;
@@ -2043,6 +2034,10 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 	TEMPENTITY	*pTemp;
 	cl_entity_t	*pEnt;
 	dlight_t		*dl;
+
+	if( cls.legacymode )
+		iSize = MSG_ReadByte( msg );
+	else iSize = MSG_ReadWord( msg );
 
 	decalIndex = modelIndex = entityIndex = 0;
 
@@ -2511,12 +2506,13 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 		R_UserTracerParticle( pos, pos2, life, color, scale, 0, NULL );
 		break;
 	default:
-		MsgDev( D_ERROR, "ParseTempEntity: illegible TE message %i\n", type );
+		Con_DPrintf( S_ERROR "ParseTempEntity: illegible TE message %i\n", type );
 		break;
 	}
 
 	// throw warning
-	if( MSG_CheckOverflow( &buf )) MsgDev( D_WARN, "ParseTempEntity: overflow TE message\n" );
+	if( MSG_CheckOverflow( &buf ))
+		Con_DPrintf( S_WARN "ParseTempEntity: overflow TE message\n" );
 }
 
 
@@ -2573,7 +2569,8 @@ void CL_SetLightstyle( int style, const char *s, float f )
 			break;
 		}
 	}
-	MsgDev( D_REPORT, "Lightstyle %i (%s), interp %s\n", style, ls->pattern, ls->interp ? "Yes" : "No" );
+
+	Con_Reportf( "Lightstyle %i (%s), interp %s\n", style, ls->pattern, ls->interp ? "Yes" : "No" );
 }
 
 /*
@@ -2808,7 +2805,7 @@ void CL_AddEntityEffects( cl_entity_t *ent )
 
 	if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))
 	{
-		if( ent->player && !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		if( ent->player && !Host_IsQuakeCompatible( ))
 		{
 			CL_UpdateFlashlight( ent );
 		}
@@ -2845,7 +2842,7 @@ void CL_AddEntityEffects( cl_entity_t *ent )
 	}
 
 	// studio models are handle muzzleflashes difference
-	if( FBitSet( ent->curstate.effects, EF_MUZZLEFLASH ) && ent->model->type == mod_alias )
+	if( FBitSet( ent->curstate.effects, EF_MUZZLEFLASH ) && Mod_AliasExtradata( ent->model ))
 	{
 		dlight_t	*dl = CL_AllocDlight( ent->index );
 		vec3_t	fv;
@@ -2871,6 +2868,7 @@ these effects will be enable by flag in model header
 */
 void CL_AddModelEffects( cl_entity_t *ent )
 {
+	vec3_t	neworigin;
 	vec3_t	oldorigin;
 
 	if( !ent->model ) return;
@@ -2883,23 +2881,33 @@ void CL_AddModelEffects( cl_entity_t *ent )
 	default:	return;
 	}
 
-	VectorCopy( ent->prevstate.origin, oldorigin );
+	if( cls.demoplayback == DEMO_QUAKE1 )
+	{
+		VectorCopy( ent->baseline.vuser1, oldorigin );
+		VectorCopy( ent->origin, ent->baseline.vuser1 );
+		VectorCopy( ent->origin, neworigin );
+	}
+	else
+	{
+		VectorCopy( ent->prevstate.origin, oldorigin );
+		VectorCopy( ent->curstate.origin, neworigin );
+	}
 
 	// NOTE: this completely over control about angles and don't broke interpolation
 	if( FBitSet( ent->model->flags, STUDIO_ROTATE ))
 		ent->angles[1] = anglemod( 100.0f * cl.time );
 
 	if( FBitSet( ent->model->flags, STUDIO_GIB ))
-		R_RocketTrail( oldorigin, ent->curstate.origin, 2 );
+		R_RocketTrail( oldorigin, neworigin, 2 );
 
 	if( FBitSet( ent->model->flags, STUDIO_ZOMGIB ))
-		R_RocketTrail( oldorigin, ent->curstate.origin, 4 );
+		R_RocketTrail( oldorigin, neworigin, 4 );
 
 	if( FBitSet( ent->model->flags, STUDIO_TRACER ))
-		R_RocketTrail( oldorigin, ent->curstate.origin, 3 );
+		R_RocketTrail( oldorigin, neworigin, 3 );
 
 	if( FBitSet( ent->model->flags, STUDIO_TRACER2 ))
-		R_RocketTrail( oldorigin, ent->curstate.origin, 5 );
+		R_RocketTrail( oldorigin, neworigin, 5 );
 
 	if( FBitSet( ent->model->flags, STUDIO_ROCKET ))
 	{
@@ -2915,14 +2923,14 @@ void CL_AddModelEffects( cl_entity_t *ent )
 
 		dl->die = cl.time + 0.01f;
 
-		R_RocketTrail( oldorigin, ent->curstate.origin, 0 );
+		R_RocketTrail( oldorigin, neworigin, 0 );
 	}
 
 	if( FBitSet( ent->model->flags, STUDIO_GRENADE ))
-		R_RocketTrail( oldorigin, ent->curstate.origin, 1 );
+		R_RocketTrail( oldorigin, neworigin, 1 );
 
 	if( FBitSet( ent->model->flags, STUDIO_TRACER3 ))
-		R_RocketTrail( oldorigin, ent->curstate.origin, 6 );
+		R_RocketTrail( oldorigin, neworigin, 6 );
 }
 
 /*
@@ -3014,7 +3022,7 @@ void CL_PlayerDecal( int playernum, int customIndex, int entityIndex, float *pos
 			if( !pCust->nUserData1 && pCust->pInfo != NULL )
 			{
 				const char *decalname = va( "player%dlogo%d", playernum, customIndex );
-				pCust->nUserData1 = GL_LoadTextureInternal( decalname, pCust->pInfo, TF_DECAL, false );
+				pCust->nUserData1 = GL_LoadTextureInternal( decalname, pCust->pInfo, TF_DECAL );
 			}
 			textureIndex = pCust->nUserData1;
 		}
@@ -3060,7 +3068,7 @@ int CL_DecalIndex( int id )
 	if( cl.decal_index[id] == 0 )
 	{
 		Image_SetForceFlags( IL_LOAD_DECAL );
-		cl.decal_index[id] = GL_LoadTexture( host.draw_decals[id], NULL, 0, TF_DECAL, NULL );
+		cl.decal_index[id] = GL_LoadTexture( host.draw_decals[id], NULL, 0, TF_DECAL );
 		Image_ClearForceFlags();
 	}
 

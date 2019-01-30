@@ -81,6 +81,10 @@ static const delta_field_t pm_fields[] =
 { PHYS_DEF( skyvec_z )		},
 { PHYS_DEF( fog_settings )		},
 { PHYS_DEF( wateralpha )		},
+{ PHYS_DEF( skydir_x )		},
+{ PHYS_DEF( skydir_y )		},
+{ PHYS_DEF( skydir_z )		},
+{ PHYS_DEF( skyangle )		},
 { NULL },
 };
 
@@ -317,7 +321,7 @@ delta_info_t *Delta_FindStruct( const char *name )
 			return &dt_info[i];
 	}
 
-	MsgDev( D_WARN, "Struct %s not found in delta_info\n", name );
+	Con_DPrintf( S_WARN "Struct %s not found in delta_info\n", name );
 
 	// found nothing
 	return NULL;
@@ -427,7 +431,7 @@ qboolean Delta_AddField( const char *pStructName, const char *pName, int flags, 
 	{
 		if( !Q_strcmp( pField->name, pName ))
 		{
-			MsgDev( D_NOTE, "Delta_Add: %s->%s already existing\n", pStructName, pName );
+			Con_Reportf( "Delta_Add: %s->%s already existing\n", pStructName, pName );
 			return false; // field already exist		
 		}
 	}
@@ -436,13 +440,13 @@ qboolean Delta_AddField( const char *pStructName, const char *pName, int flags, 
 	pFieldInfo = Delta_FindFieldInfo( dt->pInfo, pName );
 	if( !pFieldInfo )
 	{
-		MsgDev( D_ERROR, "Delta_Add: couldn't find description for %s->%s\n", pStructName, pName );
+		Con_DPrintf( S_ERROR "Delta_Add: couldn't find description for %s->%s\n", pStructName, pName );
 		return false;
 	}
 
 	if( dt->numFields + 1 > dt->maxFields )
 	{
-		MsgDev( D_WARN, "Delta_Add: can't add %s->%s encoder list is full\n", pStructName, pName );
+		Con_DPrintf( S_WARN "Delta_Add: can't add %s->%s encoder list is full\n", pStructName, pName );
 		return false; // too many fields specified (duplicated ?)
 	}
 
@@ -511,12 +515,23 @@ void Delta_ParseTableField( sizebuf_t *msg )
 
 	tableIndex = MSG_ReadUBitLong( msg, 4 );
 	dt = Delta_FindStructByIndex( tableIndex );
-
-	Assert( dt != NULL );
+	if( !dt )
+		Host_Error( "Delta_ParseTableField: not initialized" );
 
 	nameIndex = MSG_ReadUBitLong( msg, 8 );	// read field name index		
-	Assert( nameIndex >= 0 && nameIndex < dt->maxFields );
+	if( !( nameIndex >= 0 && nameIndex < dt->maxFields ) )
+	{
+		Con_Reportf( "Delta_ParseTableField: wrong nameIndex %d for table %s, ignoring\n", nameIndex,  dt->pName );
+		MSG_ReadUBitLong( msg, 10 );
+		MSG_ReadUBitLong( msg, 5 ) + 1;
+		if( MSG_ReadOneBit( msg ))
+			MSG_ReadFloat( msg );
+		if( MSG_ReadOneBit( msg ))
+			MSG_ReadFloat( msg );
+		return;
+	}
 	pName = dt->pInfo[nameIndex].name;
+
 	flags = MSG_ReadUBitLong( msg, 10 );
 	bits = MSG_ReadUBitLong( msg, 5 ) + 1;
 
@@ -528,7 +543,8 @@ void Delta_ParseTableField( sizebuf_t *msg )
 		post_mul = MSG_ReadFloat( msg );
 
 	// delta encoders it's already initialized on this machine (local game)
-	if( delta_init ) return;
+	if( delta_init )
+		Delta_Shutdown();
 
 	// add field to table
 	Delta_AddField( dt->pName, pName, flags, bits, mul, post_mul );
@@ -543,28 +559,28 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	*delta_script = COM_ParseFile( *delta_script, token );
 	if( Q_strcmp( token, "(" ))
 	{
-		MsgDev( D_ERROR, "Delta_ParseField: expected '(', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "Delta_ParseField: expected '(', found '%s' instead\n", token );
 		return false;
 	}
 
 	// read the variable name
 	if(( *delta_script = COM_ParseFile( *delta_script, token )) == NULL )
 	{
-		MsgDev( D_ERROR, "Delta_ParseField: missing field name\n" );
+		Con_DPrintf( S_ERROR "Delta_ParseField: missing field name\n" );
 		return false;
 	}
 
 	pFieldInfo = Delta_FindFieldInfo( pInfo, token );
 	if( !pFieldInfo )
 	{
-		MsgDev( D_ERROR, "Delta_ParseField: unable to find field %s\n", token );
+		Con_DPrintf( S_ERROR "Delta_ParseField: unable to find field %s\n", token );
 		return false;
 	}
 
 	*delta_script = COM_ParseFile( *delta_script, token );
 	if( Q_strcmp( token, "," ))
 	{
-		MsgDev( D_ERROR, "Delta_ParseField: expected ',', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "Delta_ParseField: expected ',', found '%s' instead\n", token );
 		return false;
 	}
 
@@ -605,7 +621,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 
 	if( Q_strcmp( token, "," ))
 	{
-		MsgDev( D_ERROR, "Delta_ParseField: expected ',', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "Delta_ParseField: expected ',', found '%s' instead\n", token );
 		return false;
 	}
 
@@ -613,7 +629,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 
 	if(( *delta_script = COM_ParseFile( *delta_script, token )) == NULL )
 	{
-		MsgDev( D_ERROR, "Delta_ReadField: %s field bits argument is missing\n", pField->name );
+		Con_DPrintf( S_ERROR "Delta_ReadField: %s field bits argument is missing\n", pField->name );
 		return false;
 	}
 
@@ -622,14 +638,14 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	*delta_script = COM_ParseFile( *delta_script, token ); 
 	if( Q_strcmp( token, "," ))
 	{
-		MsgDev( D_ERROR, "Delta_ReadField: expected ',', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "Delta_ReadField: expected ',', found '%s' instead\n", token );
 		return false;
 	}
 
 	// read delta-multiplier
 	if(( *delta_script = COM_ParseFile( *delta_script, token )) == NULL )
 	{
-		MsgDev( D_ERROR, "Delta_ReadField: %s missing 'multiplier' argument\n", pField->name );
+		Con_DPrintf( S_ERROR "Delta_ReadField: %s missing 'multiplier' argument\n", pField->name );
 		return false;
 	}
 
@@ -640,14 +656,14 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 		*delta_script = COM_ParseFile( *delta_script, token );
 		if( Q_strcmp( token, "," ))
 		{
-			MsgDev( D_ERROR, "Delta_ReadField: expected ',', found '%s' instead\n", token );
+			Con_DPrintf( S_ERROR "Delta_ReadField: expected ',', found '%s' instead\n", token );
 			return false;
 		}
 
 		// read delta-postmultiplier
 		if(( *delta_script = COM_ParseFile( *delta_script, token )) == NULL )
 		{
-			MsgDev( D_ERROR, "Delta_ReadField: %s missing 'post_multiply' argument\n", pField->name );
+			Con_DPrintf( S_ERROR "Delta_ReadField: %s missing 'post_multiply' argument\n", pField->name );
 			return false;
 		}
 
@@ -663,7 +679,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	*delta_script = COM_ParseFile( *delta_script, token );
 	if( Q_strcmp( token, ")" ))
 	{
-		MsgDev( D_ERROR, "Delta_ParseField: expected ')', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "Delta_ParseField: expected ')', found '%s' instead\n", token );
 		return false;
 	}
 
@@ -682,7 +698,7 @@ void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char *encode
 	const delta_field_t	*pInfo;
 
 	// allocate the delta-structures
-	if( !dt->pFields ) dt->pFields = (delta_t *)Z_Malloc( dt->maxFields * sizeof( delta_t ));
+	if( !dt->pFields ) dt->pFields = (delta_t *)Z_Calloc( dt->maxFields * sizeof( delta_t ));
 
 	pField = dt->pFields;
 	pInfo = dt->pInfo;
@@ -804,7 +820,7 @@ void Delta_Init( void )
 	Delta_AddField( "movevars_t", "stepsize", DT_FLOAT|DT_SIGNED, 16, 16.0f, 1.0f );
 	Delta_AddField( "movevars_t", "maxvelocity", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
 
-	if( host.features & ENGINE_WRITE_LARGE_COORD )
+	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
 		Delta_AddField( "movevars_t", "zmax", DT_FLOAT|DT_SIGNED, 18, 1.0f, 1.0f );
 	else Delta_AddField( "movevars_t", "zmax", DT_FLOAT|DT_SIGNED, 16, 1.0f, 1.0f );
 
@@ -821,6 +837,7 @@ void Delta_Init( void )
 	Delta_AddField( "movevars_t", "skyvec_z", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
 	Delta_AddField( "movevars_t", "wateralpha", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
 	Delta_AddField( "movevars_t", "fog_settings", DT_INTEGER, 32, 1.0f, 1.0f );
+	dt->numFields = NUM_FIELDS( pm_fields ) - 4;
 
 	// now done
 	dt->bInitialized = true;
@@ -1588,6 +1605,7 @@ Read the clientdata
 */
 void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, float timebase )
 {
+#ifndef XASH_DEDICATED
 	delta_t		*pField;
 	delta_info_t	*dt;
 	int		i;
@@ -1600,7 +1618,7 @@ void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, f
 
 	*to = *from;
 
-	if( !MSG_ReadOneBit( msg ))
+	if( !cls.legacymode && !MSG_ReadOneBit( msg ))
 		return; // we have no changes
 
 	// process fields
@@ -1608,6 +1626,7 @@ void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, f
 	{
 		Delta_ReadField( msg, pField, from, to, timebase );
 	}
+#endif
 }
 
 /*
@@ -1703,7 +1722,7 @@ If force is not set, then nothing at all will be generated if the entity is
 identical, under the assumption that the in-order delta code will catch it.
 ==================
 */
-void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *msg, qboolean force, qboolean player, float timebase, int baseline ) 
+void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *msg, qboolean force, int delta_type, float timebase, int baseline ) 
 {
 	delta_info_t	*dt = NULL;
 	delta_t		*pField;
@@ -1757,7 +1776,7 @@ void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *
 	{
 		dt = Delta_FindStruct( "custom_entity_state_t" );
 	}
-	else if( player )
+	else if( delta_type == DELTA_PLAYER )
 	{
 		dt = Delta_FindStruct( "entity_state_player_t" );
 	}
@@ -1771,8 +1790,17 @@ void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *
 	pField = dt->pFields;
 	Assert( pField != NULL );
 
-	// activate fields and call custom encode func
-	Delta_CustomEncode( dt, from, to );
+	if( delta_type == DELTA_STATIC )
+	{
+		// static entities won't to be custom encoded
+		for( i = 0; i < dt->numFields; i++ )
+			dt->pFields[i].bInactive = false;
+	}
+	else
+	{
+		// activate fields and call custom encode func
+		Delta_CustomEncode( dt, from, to );
+	}
 
 	// process fields
 	for( i = 0; i < dt->numFields; i++, pField++ )
@@ -1796,7 +1824,7 @@ If the delta removes the entity, entity_state_t->number will be set to MAX_EDICT
 Can go from either a baseline or a previous packet_entity
 ==================
 */
-qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state_t *to, int number, qboolean player, float timebase )
+qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state_t *to, int number, int delta_type, float timebase )
 {
 #ifndef XASH_DEDICATED
 	delta_info_t	*dt = NULL;
@@ -1830,24 +1858,31 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 		Host_Error( "MSG_ReadDeltaEntity: unknown update type %i\n", fRemoveType );
 	}
 
-	if( MSG_ReadOneBit( msg ))
-		baseline_offset = MSG_ReadSBitLong( msg, 7 );
-
-	if( baseline_offset != 0 )
+	if( !cls.legacymode )
 	{
-		if( baseline_offset > 0 )
-		{
-			int backup = cls.next_client_entities - baseline_offset;
-			from = &cls.packet_entities[backup % cls.num_client_entities];
-		}
-		else
-		{
-			baseline_offset = abs( baseline_offset );
-			if( baseline_offset < cl.instanced_baseline_count )
-				from = &cl.instanced_baseline[baseline_offset];
-		}
-	}
+		if( MSG_ReadOneBit( msg ))
+			baseline_offset = MSG_ReadSBitLong( msg, 7 );
 
+		if( baseline_offset != 0 )
+		{
+			if( delta_type == DELTA_STATIC )
+			{
+				int backup = Q_max( 0, clgame.numStatics - abs( baseline_offset ));
+				from = &clgame.static_entities[backup].baseline;
+			}
+			else if( baseline_offset > 0 )
+			{
+				int backup = cls.next_client_entities - baseline_offset;
+				from = &cls.packet_entities[backup % cls.num_client_entities];
+			}
+			else
+			{
+				baseline_offset = abs( baseline_offset );
+				if( baseline_offset < cl.instanced_baseline_count )
+					from = &cl.instanced_baseline[baseline_offset];
+			}
+		}
+		}
 	// g-cont. probably is redundant
 	*to = *from;
 
@@ -1855,11 +1890,11 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 		to->entityType = MSG_ReadUBitLong( msg, 2 );
 	to->number = number;
 
-	if( FBitSet( to->entityType, ENTITY_BEAM ))
+	if( cls.legacymode ? ( to->entityType == ENTITY_BEAM ) : FBitSet( to->entityType, ENTITY_BEAM ))
 	{
 		dt = Delta_FindStruct( "custom_entity_state_t" );
 	}
-	else if( player )
+	else if( delta_type == DELTA_PLAYER )
 	{
 		dt = Delta_FindStruct( "entity_state_player_t" );
 	}
@@ -1898,13 +1933,13 @@ void Delta_AddEncoder( char *name, pfnDeltaEncode encodeFunc )
 
 	if( !dt || !dt->bInitialized )
 	{
-		MsgDev( D_ERROR, "Delta_AddEncoder: couldn't find delta with specified custom encode %s\n", name );
+		Con_DPrintf( S_ERROR "Delta_AddEncoder: couldn't find delta with specified custom encode %s\n", name );
 		return;
 	}
 
 	if( dt->customEncode == CUSTOM_NONE )
 	{
-		MsgDev( D_ERROR, "Delta_AddEncoder: %s not supposed for custom encoding\n", dt->pName );
+		Con_DPrintf( S_ERROR "Delta_AddEncoder: %s not supposed for custom encoding\n", dt->pName );
 		return;
 	}
 

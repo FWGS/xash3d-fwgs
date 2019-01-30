@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include <SDL_events.h>
 static SDL_Cursor* s_pDefaultCursor[20];
 #endif
+#include "platform/platform.h"
 
 int	g_textures[VGUI_MAX_TEXTURES];
 int	g_textureId = 0;
@@ -81,7 +82,7 @@ void GAME_EXPORT VGUI_GetMousePos( int *_x, int *_y )
 	float yscale = (float)glState.height / (float)clgame.scrInfo.iHeight;
 	int x, y;
 
-	CL_GetMousePosition( &x, &y );
+	Platform_GetMousePos( &x, &y );
 	*_x = x / xscale, *_y = y / yscale;
 }
 
@@ -246,7 +247,7 @@ void VGui_Startup( int width, int height )
 				F( &vgui );
 				vgui.initialized = true;
 				VGUI_InitCursors();
-				MsgDev( D_INFO, "vgui_support: found interal client support\n" );
+				Con_Reportf( "vgui_support: found interal client support\n" );
 			}
 		}
 #endif // XASH_INTERNAL_GAMELIBS
@@ -261,7 +262,7 @@ void VGui_Startup( int width, int height )
 				Q_strncpy( vguiloader, VGUI_SUPPORT_DLL, 256 );
 
 			if( !COM_LoadLibrary( vguilib, false, false ) )
-				MsgDev( D_WARN, "VGUI preloading failed. Default library will be used! Reason: %s\n", COM_GetLibraryError());
+				Con_Reportf( S_WARN "VGUI preloading failed. Default library will be used! Reason: %s\n", COM_GetLibraryError());
 		}
 
 		if( Q_strstr( GI->client_lib, ".dll" ) )
@@ -280,9 +281,9 @@ void VGui_Startup( int width, int height )
 		if( !s_pVGuiSupport )
 		{
 			if( FS_FileExists( vguiloader, false ) )
-				MsgDev( D_ERROR, "Failed to load vgui_support library: %s", COM_GetLibraryError() );
+				Con_Reportf( S_ERROR  "Failed to load vgui_support library: %s", COM_GetLibraryError() );
 			else
-				MsgDev( D_INFO, "vgui_support: not found\n" );
+				Con_Reportf( "vgui_support: not found\n" );
 		}
 		else
 		{
@@ -294,7 +295,7 @@ void VGui_Startup( int width, int height )
 				VGUI_InitCursors();
 			}
 			else
-				MsgDev( D_ERROR, "Failed to find vgui_support library entry point!\n" );
+				Con_Reportf( S_ERROR  "Failed to find vgui_support library entry point!\n" );
 		}
 
 	}
@@ -552,7 +553,7 @@ void GAME_EXPORT VGUI_DrawShutdown( void )
 
 	for( i = 1; i < g_textureId; i++ )
 	{
-		GL_FreeImage( va( "*vgui%i", i ));
+		GL_FreeTexture( g_textures[i] );
 	}
 }
 
@@ -584,7 +585,7 @@ void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int width, int 
 
 	if( id <= 0 || id >= VGUI_MAX_TEXTURES )
 	{
-		MsgDev( D_ERROR, "VGUI_UploadTexture: bad texture %i. Ignored\n", id );
+		Con_DPrintf( S_ERROR "VGUI_UploadTexture: bad texture %i. Ignored\n", id );
 		return;
 	}
 
@@ -598,8 +599,7 @@ void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int width, int 
 	r_image.flags = IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA;
 	r_image.buffer = (byte *)buffer;
 
-	g_textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE, false );
-	g_iBoundTexture = id;
+	g_textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE );
 }
 
 /*
@@ -616,7 +616,7 @@ void GAME_EXPORT VGUI_CreateTexture( int id, int width, int height )
 
 	if( id <= 0 || id >= VGUI_MAX_TEXTURES )
 	{
-		MsgDev( D_ERROR, "VGUI_CreateTexture: bad texture %i. Ignored\n", id );
+		Con_Reportf( S_ERROR  "VGUI_CreateTexture: bad texture %i. Ignored\n", id );
 		return;
 	}
 
@@ -630,7 +630,7 @@ void GAME_EXPORT VGUI_CreateTexture( int id, int width, int height )
 	r_image.flags = IMAGE_HAS_ALPHA;
 	r_image.buffer = NULL;
 
-	g_textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE|TF_NEAREST, false );
+	g_textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE|TF_NEAREST );
 	g_iBoundTexture = id;
 }
 
@@ -638,7 +638,7 @@ void GAME_EXPORT VGUI_UploadTextureBlock( int id, int drawX, int drawY, const by
 {
 	if( id <= 0 || id >= VGUI_MAX_TEXTURES || g_textures[id] == 0 || g_textures[id] == tr.whiteTexture )
 	{
-		MsgDev( D_ERROR, "VGUI_UploadTextureBlock: bad texture %i. Ignored\n", id );
+		Con_Reportf( S_ERROR  "VGUI_UploadTextureBlock: bad texture %i. Ignored\n", id );
 		return;
 	}
 
@@ -698,7 +698,7 @@ returns wide and tall for currently binded texture
 */
 void GAME_EXPORT VGUI_GetTextureSizes( int *width, int *height )
 {
-	gltexture_t	*glt;
+	gl_texture_t	*glt;
 	int		texnum;
 
 	if( g_iBoundTexture )

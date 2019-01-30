@@ -13,17 +13,18 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #ifndef XASH_DEDICATED
-
+#include <SDL.h>
 #include "common.h"
 #include "client.h"
 #include "gl_local.h"
 #include "mod_local.h"
 #include "input.h"
 #include "vid_common.h"
-#include <SDL.h>
+#include "platform/sdl/events.h"
 
 static vidmode_t *vidmodes = NULL;
 static int num_vidmodes = 0;
+static int context_flags = 0;
 
 static dllfunc_t opengl_110funcs[] =
 {
@@ -203,18 +204,14 @@ int R_MaxVideoModes( void )
 	return num_vidmodes;
 }
 
-vidmode_t R_GetVideoMode( int num )
+vidmode_t *R_GetVideoMode( int num )
 {
-	static vidmode_t error = { NULL };
-
-	if( !vidmodes || num < 0 || num > R_MaxVideoModes() )
+	if( !vidmodes || num < 0 || num >= R_MaxVideoModes() )
 	{
-		error.width = glState.width;
-		error.height = glState.height;
-		return error;
+		return NULL;
 	}
 
-	return vidmodes[num];
+	return vidmodes + num;
 }
 
 static void R_InitVideoModes( void )
@@ -222,12 +219,13 @@ static void R_InitVideoModes( void )
 	int displayIndex = 0; // TODO: handle multiple displays somehow
 	int i, modes;
 
+	num_vidmodes = 0;
 	modes = SDL_GetNumDisplayModes( displayIndex );
 
 	if( !modes )
 		return;
 
-	vidmodes = Mem_Alloc( host.mempool, modes * sizeof( vidmode_t ) );
+	vidmodes = Mem_Malloc( host.mempool, modes * sizeof( vidmode_t ) );
 
 	for( i = 0; i < modes; i++ )
 	{
@@ -299,21 +297,21 @@ static void WIN_SetDPIAwareness( void )
 
 			if( hResult == S_OK )
 			{
-				MsgDev( D_NOTE, "SetDPIAwareness: Success\n" );
+				Con_Reportf( "SetDPIAwareness: Success\n" );
 				bSuccess = TRUE;
 			}
-			else if( hResult = E_INVALIDARG ) MsgDev( D_NOTE, "SetDPIAwareness: Invalid argument\n" );
-			else if( hResult == E_ACCESSDENIED ) MsgDev( D_NOTE, "SetDPIAwareness: Access Denied\n" );
+			else if( hResult == E_INVALIDARG ) Con_Reportf( "SetDPIAwareness: Invalid argument\n" );
+			else if( hResult == E_ACCESSDENIED ) Con_Reportf( "SetDPIAwareness: Access Denied\n" );
 		}
-		else MsgDev( D_NOTE, "SetDPIAwareness: Can't get SetProcessDpiAwareness\n" );
+		else Con_Reportf( "SetDPIAwareness: Can't get SetProcessDpiAwareness\n" );
 		FreeLibrary( hModule );
 	}
-	else MsgDev( D_NOTE, "SetDPIAwareness: Can't load shcore.dll\n" );
+	else Con_Reportf( "SetDPIAwareness: Can't load shcore.dll\n" );
 
 
 	if( !bSuccess )
 	{
-		MsgDev( D_NOTE, "SetDPIAwareness: Trying SetProcessDPIAware...\n" );
+		Con_Reportf( "SetDPIAwareness: Trying SetProcessDPIAware...\n" );
 
 		if( ( hModule = LoadLibrary( "user32.dll" ) ) )
 		{
@@ -324,15 +322,15 @@ static void WIN_SetDPIAwareness( void )
 
 				if( hResult )
 				{
-					MsgDev( D_NOTE, "SetDPIAwareness: Success\n" );
+					Con_Reportf( "SetDPIAwareness: Success\n" );
 					bSuccess = TRUE;
 				}
-				else MsgDev( D_NOTE, "SetDPIAwareness: fail\n" );
+				else Con_Reportf( "SetDPIAwareness: fail\n" );
 			}
-			else MsgDev( D_NOTE, "SetDPIAwareness: Can't get SetProcessDPIAware\n" );
+			else Con_Reportf( "SetDPIAwareness: Can't get SetProcessDPIAware\n" );
 			FreeLibrary( hModule );
 		}
-		else MsgDev( D_NOTE, "SetDPIAwareness: Can't load user32.dll\n" );
+		else Con_Reportf( "SetDPIAwareness: Can't load user32.dll\n" );
 	}
 }
 #endif
@@ -363,8 +361,6 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		Con_Printf( S_OPENGL_WARN "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_PERFORMANCE_ARB:
-		if( host_developer.value < DEV_EXTENDED )
-			return;
 		Con_Printf( S_OPENGL_NOTE "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_OTHER_ARB:
@@ -388,7 +384,7 @@ void *GL_GetProcAddress( const char *name )
 
 	if( !func )
 	{
-		MsgDev( D_ERROR, "Error: GL_GetProcAddress failed for %s\n", name );
+		Con_Reportf( S_ERROR  "Error: GL_GetProcAddress failed for %s\n", name );
 	}
 
 	return func;
@@ -404,8 +400,7 @@ void GL_UpdateSwapInterval( void )
 	// disable VSync while level is loading
 	if( cls.state < ca_active )
 	{
-		if( SDL_GL_SetSwapInterval( gl_vsync->value ) )
-			MsgDev( D_ERROR, "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ) );
+		SDL_GL_SetSwapInterval( gl_vsync->value );
 		SetBits( gl_vsync->flags, FCVAR_CHANGED );
 	}
 	else if( FBitSet( gl_vsync->flags, FCVAR_CHANGED ))
@@ -413,8 +408,26 @@ void GL_UpdateSwapInterval( void )
 		ClearBits( gl_vsync->flags, FCVAR_CHANGED );
 
 		if( SDL_GL_SetSwapInterval( gl_vsync->value ) )
-			MsgDev( D_ERROR, "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ) );
+			Con_Reportf( S_ERROR  "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ) );
 	}
+}
+
+/*
+=================
+GL_DeleteContext
+
+always return false
+=================
+*/
+qboolean GL_DeleteContext( void )
+{
+	if( glw_state.context )
+	{
+		SDL_GL_DeleteContext(glw_state.context);
+		glw_state.context = NULL;
+	}
+
+	return false;
 }
 
 /*
@@ -431,7 +444,7 @@ qboolean GL_CreateContext( void )
 
 	if( ( glw_state.context = SDL_GL_CreateContext( host.hWnd ) ) == NULL)
 	{
-		MsgDev(D_ERROR, "GL_CreateContext: %s\n", SDL_GetError());
+		Con_Reportf( S_ERROR "GL_CreateContext: %s\n", SDL_GetError());
 		return GL_DeleteContext();
 	}
 
@@ -462,31 +475,13 @@ GL_UpdateContext
 */
 qboolean GL_UpdateContext( void )
 {
-	if( !SDL_GL_MakeCurrent( host.hWnd, glw_state.context ))
+	if( SDL_GL_MakeCurrent( host.hWnd, glw_state.context ))
 	{
-		MsgDev(D_ERROR, "GL_UpdateContext: %s", SDL_GetError());
+		Con_Reportf( S_ERROR "GL_UpdateContext: %s\n", SDL_GetError());
 		return GL_DeleteContext();
 	}
 
 	return true;
-}
-
-/*
-=================
-GL_DeleteContext
-
-always return false
-=================
-*/
-qboolean GL_DeleteContext( void )
-{
-	if( glw_state.context )
-	{
-		SDL_GL_DeleteContext(glw_state.context);
-		glw_state.context = NULL;
-	}
-
-	return false;
 }
 
 qboolean VID_SetScreenResolution( int width, int height )
@@ -506,7 +501,7 @@ qboolean VID_SetScreenResolution( int width, int height )
 	if( !SDL_GetClosestDisplayMode(0, &want, &got) )
 		return false;
 
-	MsgDev(D_NOTE, "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate);
+	Con_Reportf( "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate);
 
 	if( SDL_SetWindowDisplayMode( host.hWnd, &got) == -1 )
 		return false;
@@ -521,7 +516,7 @@ qboolean VID_SetScreenResolution( int width, int height )
 
 	SDL_GL_GetDrawableSize( host.hWnd, &got.w, &got.h );
 
-	R_ChangeDisplaySettingsFast( got.w, got.h );
+	R_SaveVideoMode( got.w, got.h );
 	return true;
 }
 
@@ -540,6 +535,7 @@ void VID_RestoreScreenResolution( void )
 }
 
 #if defined(_WIN32) && !defined(XASH_64BIT) // ICO support only for Win32
+#include "SDL_syswm.h"
 static void WIN_SetWindowIcon( HICON ico )
 {
 	SDL_SysWMinfo wminfo;
@@ -566,6 +562,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	rgbdata_t *icon = NULL;
 	qboolean iconLoaded = false;
 	char iconpath[MAX_STRING];
+	int xpos, ypos;
 
 	if( vid_highdpi->value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
 	Q_strncpy( wndname, GI->title, sizeof( wndname ));
@@ -573,28 +570,29 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	if( !fullscreen )
 	{
 		wndFlags |= SDL_WINDOW_RESIZABLE;
-		host.hWnd = SDL_CreateWindow( wndname,
-			Cvar_VariableInteger( "_window_xpos" ),
-			Cvar_VariableInteger( "_window_ypos" ),
-			width, height, wndFlags );
+		xpos = Cvar_VariableInteger( "_window_xpos" );
+		ypos = Cvar_VariableInteger( "_window_ypos" );
+		if( xpos < 0 ) xpos = SDL_WINDOWPOS_CENTERED;
+		if( ypos < 0 ) ypos = SDL_WINDOWPOS_CENTERED;
 	}
 	else
 	{
 		wndFlags |= SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_INPUT_GRABBED;
-		host.hWnd = SDL_CreateWindow( wndname, 0, 0, width, height, wndFlags );
+		xpos = ypos = 0;
 	}
 
+	host.hWnd = SDL_CreateWindow( wndname, xpos, ypos, width, height, wndFlags );
 
 	if( !host.hWnd )
 	{
-		MsgDev( D_ERROR, "VID_CreateWindow: couldn't create '%s': %s\n", wndname, SDL_GetError());
+		Con_Reportf( S_ERROR "VID_CreateWindow: couldn't create '%s': %s\n", wndname, SDL_GetError());
 
-		// remove MSAA, if it present, because
-		// window creating may fail on GLX visual choose
-		if( gl_msaa->value || glw_state.safe >= 0 )
+		// skip some attribs in hope that context creating will not fail
+		if( glw_state.safe >= SAFE_NO )
 		{
-			Cvar_Set( "gl_msaa", "0" );
-			glw_state.safe++;
+			if( !gl_wgl_msaa_samples->value && glw_state.safe + 1 == SAFE_NOMSAA )
+				glw_state.safe += 2; // no need to skip msaa, if we already disabled it
+			else glw_state.safe++;
 			GL_SetupAttributes(); // re-choose attributes
 
 			// try again
@@ -669,20 +667,16 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	if( !glw_state.initialized )
 	{
 		if( !GL_CreateContext( ))
-		{
 			return false;
-		}
 
 		VID_StartupGamma();
 	}
-	else
-	{
-		if( !GL_UpdateContext( ))
-			return false;
-	}
+
+	if( !GL_UpdateContext( ))
+		return false;
 
 	SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
-	R_ChangeDisplaySettingsFast( width, height );
+	R_SaveVideoMode( width, height );
 
 	return true;
 }
@@ -725,11 +719,9 @@ static void GL_SetupAttributes( void )
 
 	SDL_GL_ResetAttributes();
 
-
 #ifdef XASH_GLES
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES );
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_EGL, 1 );
-
 #ifdef XASH_NANOGL
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 1 );
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 1 );
@@ -737,84 +729,111 @@ static void GL_SetupAttributes( void )
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 2 );
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 0 );
 #endif
-
-#elif !defined XASH_GL_STATIC
-	if( Sys_CheckParm( "-gldebug" ) && host_developer.value >= 1 )
+#else // GL1.x
+#ifndef XASH_GL_STATIC
+	if( Sys_CheckParm( "-gldebug" ) )
 	{
-		MsgDev( D_NOTE, "Creating an extended GL context for debug...\n" );
+		Con_Reportf( "Creating an extended GL context for debug...\n" );
+		SetBits( context_flags, FCONTEXT_DEBUG_ARB );
 		SDL_GL_SetAttribute( SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG );
 		glw_state.extended = true;
 	}
+#endif // XASH_GL_STATIC
+	if( Sys_CheckParm( "-glcore" ))
+	{
+		SetBits( context_flags, FCONTEXT_CORE_PROFILE );
 
+		SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
+	}
+	else
+	{
+		SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY );
+	}
 #endif // XASH_GLES
-
-	SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
 
 	if( glw_state.safe > SAFE_DONTCARE )
 	{
-		glw_state.safe = -1;
+		glw_state.safe = -1; // can't retry anymore, can only shutdown engine
 		return;
 	}
 
-	if( glw_state.safe > SAFE_NO )
-		Msg("Trying safe opengl mode %d\n", glw_state.safe );
+	Msg( "Trying safe opengl mode %d\n", glw_state.safe );
 
-	if( glw_state.safe >= SAFE_NOACC )
+	if( glw_state.safe == SAFE_DONTCARE )
+		return;
+
+	SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
+
+	if( glw_state.safe < SAFE_NOACC )
 		SDL_GL_SetAttribute( SDL_GL_ACCELERATED_VISUAL, 1 );
 
-	Msg ("bpp %d\n", glw_state.desktopBitsPixel );
+	Msg( "bpp %d\n", glw_state.desktopBitsPixel );
+
+	if( glw_state.safe < SAFE_NOSTENCIL )
+		SDL_GL_SetAttribute( SDL_GL_STENCIL_SIZE, gl_stencilbits->value );
+
+	if( glw_state.safe < SAFE_NOALPHA )
+		SDL_GL_SetAttribute( SDL_GL_ALPHA_SIZE, 8 );
 
 	if( glw_state.safe < SAFE_NODEPTH )
 		SDL_GL_SetAttribute( SDL_GL_DEPTH_SIZE, 24 );
-	else if( glw_state.safe < 5 )
+	else
 		SDL_GL_SetAttribute( SDL_GL_DEPTH_SIZE, 8 );
 
-
-	if( glw_state.safe < SAFE_NOATTRIB )
+	if( glw_state.safe < SAFE_NOCOLOR )
 	{
 		if( glw_state.desktopBitsPixel >= 24 )
 		{
-			if( glw_state.desktopBitsPixel == 32 )
-				SDL_GL_SetAttribute( SDL_GL_ALPHA_SIZE, 8 );
-
 			SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 8 );
 			SDL_GL_SetAttribute( SDL_GL_GREEN_SIZE, 8 );
 			SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 8 );
 		}
-		else
+		else if( glw_state.desktopBitsPixel >= 16 )
 		{
 			SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 5 );
 			SDL_GL_SetAttribute( SDL_GL_GREEN_SIZE, 6 );
 			SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 5 );
 		}
+		else
+		{
+			SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 3 );
+			SDL_GL_SetAttribute( SDL_GL_GREEN_SIZE, 3 );
+			SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 2 );
+		}
 	}
 
-	if( glw_state.safe >= SAFE_DONTCARE )
-		return;
-
-	SDL_GL_SetAttribute( SDL_GL_STENCIL_SIZE, gl_stencilbits->value );
-
-	switch( (int)gl_msaa->value )
+	if( glw_state.safe < SAFE_NOMSAA )
 	{
-	case 2:
-	case 4:
-	case 8:
-	case 16:
-		samples = gl_msaa->value;
-		break;
-	default:
-		samples = 0; // don't use, because invalid parameter is passed
-	}
+		switch( (int)gl_wgl_msaa_samples->value )
+		{
+		case 2:
+		case 4:
+		case 8:
+		case 16:
+			samples = gl_wgl_msaa_samples->value;
+			break;
+		default:
+			samples = 0; // don't use, because invalid parameter is passed
+		}
 
-	if( samples )
-	{
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, samples);
+		if( samples )
+		{
+			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 1 );
+			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, samples );
+
+			glConfig.max_multisamples = samples;
+		}
+		else
+		{
+			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 0 );
+			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, 0 );
+
+			glConfig.max_multisamples = 0;
+		}
 	}
 	else
 	{
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
+		Cvar_Set( "gl_wgl_msaa_samples", "0" );
 	}
 }
 
@@ -824,13 +843,14 @@ static void GL_SetupAttributes( void )
 
 /*
 ==================
-R_Init_OpenGL
+R_Init_Video
 ==================
 */
-qboolean R_Init_OpenGL( void )
+qboolean R_Init_Video( void )
 {
 	SDL_DisplayMode displayMode;
 	string safe;
+	qboolean retval;
 
 	SDL_GetCurrentDisplayMode(0, &displayMode);
 	glw_state.desktopBitsPixel = SDL_BITSPERPIXEL(displayMode.format);
@@ -838,20 +858,13 @@ qboolean R_Init_OpenGL( void )
 	glw_state.desktopHeight = displayMode.h;
 
 	if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", safe ) )
-	{
-		glw_state.safe = Q_atoi( safe );
-		if( glw_state.safe < SAFE_NOACC || glw_state.safe > SAFE_DONTCARE  )
-			glw_state.safe = SAFE_DONTCARE;
-	}
-
-	if( glw_state.safe < SAFE_NO || glw_state.safe > SAFE_DONTCARE  )
-		return false;
+		glw_state.safe = bound( SAFE_NO, Q_atoi( safe ), SAFE_DONTCARE );
 
 	GL_SetupAttributes();
 
 	if( SDL_GL_LoadLibrary( EGL_LIB ) )
 	{
-		MsgDev( D_ERROR, "Couldn't initialize OpenGL: %s\n", SDL_GetError());
+		Con_Reportf( S_ERROR  "Couldn't initialize OpenGL: %s\n", SDL_GetError());
 		return false;
 	}
 
@@ -862,7 +875,14 @@ qboolean R_Init_OpenGL( void )
 	WIN_SetDPIAwareness();
 #endif
 
-	return VID_SetMode();
+	if( !(retval = VID_SetMode()) )
+	{
+		return retval;
+	}
+
+	GL_InitExtensions();
+
+	return true;
 }
 
 #ifdef XASH_GLES
@@ -1036,7 +1056,7 @@ void GL_InitExtensionsBigGL()
 		pglGetIntegerv( GL_MAX_VERTEX_ATTRIBS_ARB, &glConfig.max_vertex_attribs );
 
 #ifdef _WIN32 // Win32 only drivers?
-		if( glConfig.hardware_type == GLHW_RADEON )
+		if( glConfig.hardware_type == GLHW_RADEON && glConfig.max_vertex_uniforms > 512 )
 			glConfig.max_vertex_uniforms /= 4; // radeon returns not correct info
 #endif
 	}
@@ -1058,7 +1078,7 @@ void GL_InitExtensionsBigGL()
 	{
 		if( host_developer.value )
 		{
-			MsgDev( D_NOTE, "Installing GL_DebugOutput...\n");
+			Con_Reportf( "Installing GL_DebugOutput...\n");
 			pglDebugMessageCallbackARB( GL_DebugOutput, NULL );
 
 			// force everything to happen in the main thread instead of in a separate driver thread
@@ -1066,8 +1086,7 @@ void GL_InitExtensionsBigGL()
 		}
 
 		// enable all the low priority messages
-		if( host_developer.value >= 2 )
-			pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
+		pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
 	}
 #endif
 }
@@ -1083,7 +1102,7 @@ void GL_InitExtensions( void )
 	glConfig.renderer_string = pglGetString( GL_RENDERER );
 	glConfig.version_string = pglGetString( GL_VERSION );
 	glConfig.extensions_string = pglGetString( GL_EXTENSIONS );
-	MsgDev( D_INFO, "Video: %s\n", glConfig.renderer_string );
+	Con_Reportf( "^3Video^7: %s\n", glConfig.renderer_string );
 
 #ifdef XASH_GLES
 	GL_InitExtensionsGLES();
@@ -1110,27 +1129,13 @@ void GL_InitExtensions( void )
 	glw_state.initialized = true;
 }
 
-/*
-==================
-R_ChangeDisplaySettingsFast
-
-Change window size fastly to custom values, without setting vid mode
-==================
-*/
-void R_ChangeDisplaySettingsFast( int width, int height )
-{
-	R_SaveVideoMode( width, height );
-
-	SCR_VidInit();
-}
-
 rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 {
 	SDL_DisplayMode displayMode;
 
 	SDL_GetCurrentDisplayMode( 0, &displayMode );
 
-	MsgDev( D_INFO, "R_ChangeDisplaySettings: Setting video mode to %dx%d %s\n", width, height, fullscreen ? "fullscreen" : "windowed" );
+	Con_Reportf( "R_ChangeDisplaySettings: Setting video mode to %dx%d %s\n", width, height, fullscreen ? "fullscreen" : "windowed" );
 
 	// check our desktop attributes
 	glw_state.desktopBitsPixel = SDL_BITSPERPIXEL( displayMode.format );
@@ -1161,7 +1166,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 		SDL_SetWindowBordered( host.hWnd, true );
 		SDL_SetWindowSize( host.hWnd, width, height );
 		SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
-		R_ChangeDisplaySettingsFast( width, height );
+		R_SaveVideoMode( width, height );
 	}
 
 	return rserr_ok;
@@ -1217,21 +1222,21 @@ qboolean VID_SetMode( void )
 		if( err == rserr_invalid_fullscreen )
 		{
 			Cvar_SetValue( "fullscreen", 0 );
-			MsgDev( D_ERROR, "VID_SetMode: fullscreen unavailable in this mode\n" );
+			Con_Reportf( S_ERROR  "VID_SetMode: fullscreen unavailable in this mode\n" );
 			Sys_Warn("fullscreen unavailable in this mode!");
 			if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, false )) == rserr_ok )
 				return true;
 		}
 		else if( err == rserr_invalid_mode )
 		{
-			MsgDev( D_ERROR, "VID_SetMode: invalid mode\n" );
+			Con_Reportf( S_ERROR  "VID_SetMode: invalid mode\n" );
 			Sys_Warn( "invalid mode" );
 		}
 
 		// try setting it back to something safe
 		if(( err = R_ChangeDisplaySettings( glConfig.prev_width, glConfig.prev_height, false )) != rserr_ok )
 		{
-			MsgDev( D_ERROR, "VID_SetMode: could not revert to safe mode\n" );
+			Con_Reportf( S_ERROR  "VID_SetMode: could not revert to safe mode\n" );
 			Sys_Warn("could not revert to safe mode!");
 			return false;
 		}
@@ -1241,10 +1246,10 @@ qboolean VID_SetMode( void )
 
 /*
 ==================
-R_Free_OpenGL
+R_Free_Video
 ==================
 */
-void R_Free_OpenGL( void )
+void R_Free_Video( void )
 {
 	GL_DeleteContext ();
 

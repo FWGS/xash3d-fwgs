@@ -38,6 +38,7 @@ extern byte	*r_temppool;
 
 #define SHADEDOT_QUANT 	16		// precalculated dot products for quantized angles
 #define SHADE_LAMBERT	1.495f
+#define DEFAULT_ALPHATEST	0.0f
 
 // refparams
 #define RP_NONE		0
@@ -92,7 +93,7 @@ typedef struct gltexture_s
 	int		servercount;
 	uint		hashValue;
 	struct gltexture_s	*nextHash;
-} gltexture_t;
+} gl_texture_t;
 
 typedef struct
 {
@@ -201,6 +202,10 @@ typedef struct
 	qboolean		fResetVis;
 	qboolean		fFlipViewModel;
 
+	// tree visualization stuff
+	int		recursion_level;
+	int		max_recursion;
+
 	byte		visbytes[(MAX_MAP_LEAFS+7)/8];	// member custom PVS
 	int		lightstylevalue[MAX_LIGHTSTYLES];	// value 0 - 65536
 	int		block_size;			// lightmap blocksize
@@ -228,6 +233,8 @@ typedef struct
 	uint		c_particle_count;
 
 	uint		c_client_ents;	// entities that moved to client
+	double		t_world_node;
+	double		t_world_draw;
 } ref_speeds_t;
 
 extern ref_speeds_t		r_stats;
@@ -235,8 +242,6 @@ extern ref_instance_t	RI;
 extern ref_globals_t	tr;
 
 extern float		gldepthmin, gldepthmax;
-extern mleaf_t		*r_viewleaf, *r_oldviewleaf;
-extern mleaf_t		*r_viewleaf2, *r_oldviewleaf2;
 extern dlight_t		cl_dlights[MAX_DLIGHTS];
 extern dlight_t		cl_elights[MAX_ELIGHTS];
 #define r_numEntities	(tr.draw_list->num_solid_entities + tr.draw_list->num_trans_entities)
@@ -267,6 +272,7 @@ void GL_SetRenderMode( int mode );
 void GL_TextureTarget( uint target );
 void GL_Cull( GLenum cull );
 void R_ShowTextures( void );
+void R_ShowTree( void );
 
 //
 // gl_cull.c
@@ -294,19 +300,27 @@ void R_DrawTileClear( int x, int y, int w, int h );
 void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data );
 
 //
+// gl_drawhulls.c
+//
+void R_DrawWorldHull( void );
+void R_DrawModelHull( void );
+
+//
 // gl_image.c
 //
 void R_SetTextureParameters( void );
-gltexture_t *R_GetTexture( GLenum texnum );
-int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags, imgfilter_t *filter );
-int GL_LoadTextureArray( const char **names, int flags, imgfilter_t *filter );
-int GL_LoadTextureInternal( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
+gl_texture_t *R_GetTexture( GLenum texnum );
+#define GL_LoadTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, false )
+#define GL_UpdateTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, true )
+int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
+int GL_LoadTextureArray( const char **names, int flags );
+int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
 byte *GL_ResampleTexture( const byte *source, int in_w, int in_h, int out_w, int out_h, qboolean isNormalMap );
 int GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags );
 int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor );
-void GL_ApplyTextureParams( gltexture_t *tex );
-void R_FreeImage( gltexture_t *image );
+void GL_UpdateTexSize( int texnum, int width, int height, int depth );
+void GL_ApplyTextureParams( gl_texture_t *tex );
 int GL_FindTexture( const char *name );
 void GL_FreeTexture( GLenum texnum );
 void GL_FreeImage( const char *name );
@@ -328,8 +342,7 @@ void R_PushDlights( void );
 void R_AnimateLight( void );
 void R_GetLightSpot( vec3_t lightspot );
 void R_MarkLights( dlight_t *light, int bit, mnode_t *node );
-void R_LightForPoint( const vec3_t point, color24 *ambientLight, qboolean invLight, qboolean useAmbient, float radius );
-colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lightspot );
+colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lightspot, vec3_t lightvec );
 int R_CountSurfaceDlights( msurface_t *surf );
 colorVec R_LightPoint( const vec3_t p0 );
 int R_CountDlights( void );
@@ -376,8 +389,7 @@ void Matrix4x4_CreateModelview( matrix4x4 out );
 //
 // gl_rmisc.
 //
-void R_ParseTexFilters( const char *filename );
-imgfilter_t *R_FindTexFilter( const char *texname );
+void R_ClearStaticEntities( void );
 
 //
 // gl_rsurf.c
@@ -417,6 +429,7 @@ float CL_GetStudioEstimatedFrame( cl_entity_t *ent );
 int R_GetEntityRenderMode( cl_entity_t *ent );
 void R_DrawStudioModel( cl_entity_t *e );
 player_info_t *pfnPlayerInfo( int index );
+void R_GatherPlayerLight( void );
 
 //
 // gl_alias.c
@@ -444,7 +457,7 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse );
 qboolean R_Init( void );
 void R_Shutdown( void );
 void VID_CheckChanges( void );
-int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags, imgfilter_t *filter );
+int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
 void GL_FreeImage( const char *name );
 qboolean VID_ScreenShot( const char *filename, int shot_type );
 qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot );
@@ -508,7 +521,6 @@ enum
 	GL_ARB_DEPTH_FLOAT_EXT,
 	GL_ARB_SEAMLESS_CUBEMAP,
 	GL_EXT_GPU_SHADER4,		// shaders only
-	GL_ARB_TEXTURE_RG,
 	GL_DEPTH_TEXTURE,
 	GL_DEBUG_OUTPUT,
 	GL_EXTCOUNT,		// must be last
@@ -597,17 +609,20 @@ typedef struct
 
 typedef enum
 {
-	SAFE_NO,
-	SAFE_NOACC,
-	SAFE_NODEPTH,
-	SAFE_NOATTRIB,
-	SAFE_DONTCARE
+	SAFE_NO = 0,
+	SAFE_NOMSAA,      // skip msaa
+	SAFE_NOACC,       // don't set acceleration flag
+	SAFE_NOSTENCIL,   // don't set stencil bits
+	SAFE_NOALPHA,     // don't set alpha bits
+	SAFE_NODEPTH,     // don't set depth bits
+	SAFE_NOCOLOR,     // don't set color bits
+	SAFE_DONTCARE     // ignore everything, let SDL/EGL decide
 } safe_context_t;
 
 typedef struct
 {
 	void*	context; // handle to GL rendering context
-	safe_context_t	safe;
+	int		safe;
 
 	int		desktopBitsPixel;
 	int		desktopWidth;
@@ -629,8 +644,10 @@ extern convar_t	*gl_extensions;
 extern convar_t	*gl_check_errors;
 extern convar_t	*gl_texture_lodbias;
 extern convar_t	*gl_texture_nearest;
+extern convar_t	*gl_wgl_msaa_samples;
 extern convar_t	*gl_lightmap_nearest;
 extern convar_t	*gl_keeptjunctions;
+extern convar_t	*gl_emboss_scale;
 extern convar_t	*gl_round_down;
 extern convar_t	*gl_detailscale;
 extern convar_t	*gl_wireframe;
@@ -642,10 +659,10 @@ extern convar_t	*gl_test;		// cvar to testify new effects
 extern convar_t	*gl_msaa;
 extern convar_t *gl_stencilbits;
 
-
 extern convar_t	*r_speeds;
 extern convar_t	*r_fullbright;
 extern convar_t	*r_norefresh;
+extern convar_t	*r_showtree;	// build graph of visible hull
 extern convar_t	*r_lighting_extended;
 extern convar_t	*r_lighting_modulate;
 extern convar_t	*r_lighting_ambient;

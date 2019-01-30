@@ -782,6 +782,7 @@ Does not change the entities velocity at all
 trace_t SV_PushEntity( edict_t *ent, const vec3_t lpush, const vec3_t apush, int *blocked, float flDamage )
 {
 	trace_t	trace;
+	qboolean	monsterBlock;
 	qboolean	monsterClip;
 	int	type;
 	vec3_t	end;
@@ -814,11 +815,15 @@ trace_t SV_PushEntity( edict_t *ent, const vec3_t lpush, const vec3_t apush, int
 
 	SV_LinkEdict( ent, true );
 
+	if( ent->v.movetype == MOVETYPE_WALK || ent->v.movetype == MOVETYPE_STEP || ent->v.movetype == MOVETYPE_PUSHSTEP )
+		monsterBlock = true;
+	else monsterBlock = false;
+
 	if( blocked )
 	{
 		// more accuracy blocking code
-		if( flDamage <= 0.0f )
-			*blocked = !VectorCompare( ent->v.origin, end ); // can't move full distance
+		if( monsterBlock )
+			*blocked = !VectorCompareEpsilon( ent->v.origin, end, ON_EPSILON ); // can't move full distance
 		else *blocked = true;
 	}
 
@@ -866,9 +871,8 @@ static qboolean SV_CanBlock( edict_t *ent )
 	if( ent->v.solid == SOLID_NOT || ent->v.solid == SOLID_TRIGGER )
 	{
 		// clear bounds for deadbody
-		ent->v.mins[0] = ent->v.mins[1] = 0.0f;
-		ent->v.maxs[0] = ent->v.maxs[1] = 0.0f;
-		ent->v.maxs[2] = ent->v.mins[2];
+		ent->v.mins[0] = ent->v.mins[1] = 0;
+		VectorCopy( ent->v.mins, ent->v.maxs );
 		return false;
           }
 
@@ -938,7 +942,7 @@ static edict_t *SV_PushMove( edict_t *pusher, float movetime )
 		if( block ) continue;
 
 		// if the entity is standing on the pusher, it will definately be moved
-		if( !(( check->v.flags & FL_ONGROUND ) && check->v.groundentity == pusher ))
+		if( !( FBitSet( check->v.flags, FL_ONGROUND ) && check->v.groundentity == pusher ))
 		{
 			if( check->v.absmin[0] >= maxs[0]
 			 || check->v.absmin[1] >= maxs[1]
@@ -1945,7 +1949,7 @@ static char **pfnGetFilesList( const char *pattern, int *numFiles, int gamediron
 
 static void *pfnMem_Alloc( size_t cb, const char *filename, const int fileline )
 {
-	return _Mem_Alloc( svgame.mempool, cb, filename, fileline );
+	return _Mem_Alloc( svgame.mempool, cb, true, filename, fileline );
 }
 
 static void pfnMem_Free( void *mem, const char *filename, const int fileline )
@@ -1981,7 +1985,7 @@ const byte *pfnLoadImagePixels( const char *filename, int *width, int *height )
 
 	if( !pic ) return NULL;
 
-	buffer = Mem_Alloc( svgame.mempool, pic->size );
+	buffer = Mem_Malloc( svgame.mempool, pic->size );
 	if( buffer ) memcpy( buffer, pic->buffer, pic->size );
 	if( width ) *width = pic->width;
 	if( height ) *height = pic->height;
@@ -2029,7 +2033,7 @@ static server_physics_api_t gPhysicsAPI =
 	pfnPointContents,
 	SV_MoveNormal,
 	SV_MoveNoEnts,
-	SV_BoxInPVS,
+	(void*)SV_BoxInPVS,
 	pfnWriteBytes,
 	Mod_CheckLump,
 	Mod_ReadLump,
@@ -2055,7 +2059,7 @@ qboolean SV_InitPhysicsAPI( void )
 	{
 		if( pPhysIface( SV_PHYSICS_INTERFACE_VERSION, &gPhysicsAPI, &svgame.physFuncs ))
 		{
-			MsgDev( D_REPORT, "SV_LoadProgs: ^2initailized extended PhysicAPI ^7ver. %i\n", SV_PHYSICS_INTERFACE_VERSION );
+			Con_Reportf( "SV_LoadProgs: ^2initailized extended PhysicAPI ^7ver. %i\n", SV_PHYSICS_INTERFACE_VERSION );
 
 			if( svgame.physFuncs.SV_CheckFeatures != NULL )
 			{

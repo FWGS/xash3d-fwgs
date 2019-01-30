@@ -25,8 +25,6 @@ from your version.
 #ifndef VGUI_MAIN_H
 #define VGUI_MAIN_H
 
-#define Assert(x)
-
 #ifdef _WIN32
 #include <windows.h>
 #else

@@ -30,6 +30,8 @@ GNU General Public License for more details.
 #endif
 #include <errno.h>
 #include "common.h"
+#include "base_cmd.h"
+#include "client.h"
 #include "netchan.h"
 #include "protocol.h"
 #include "mod_local.h"
@@ -52,10 +54,11 @@ convar_t	*host_clientloaded;
 convar_t	*host_limitlocal;
 convar_t	*host_maxfps;
 convar_t	*host_framerate;
+convar_t	*host_sleeptime;
 convar_t	*con_gamemaps;
 convar_t	*build, *ver;
 
-int Host_CompareFileTime( long ft1, long ft2 )
+int Host_CompareFileTime( int ft1, int ft2 )
 {
 	if( ft1 < ft2 )
 	{
@@ -81,19 +84,40 @@ Host_PrintEngineFeatures
 void Host_PrintEngineFeatures( void )
 {
 	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
-		MsgDev( D_REPORT, "^3EXT:^7 big world support enabled\n" );
+		Con_Reportf( "^3EXT:^7 big world support enabled\n" );
 
 	if( FBitSet( host.features, ENGINE_LOAD_DELUXEDATA ))
-		MsgDev( D_REPORT, "^3EXT:^7 deluxemap support enabled\n" );
+		Con_Reportf( "^3EXT:^7 deluxemap support enabled\n" );
 
 	if( FBitSet( host.features, ENGINE_PHYSICS_PUSHER_EXT ))
-		MsgDev( D_REPORT, "^3EXT:^7 Improved MOVETYPE_PUSH is used\n" );
+		Con_Reportf( "^3EXT:^7 Improved MOVETYPE_PUSH is used\n" );
 
 	if( FBitSet( host.features, ENGINE_LARGE_LIGHTMAPS ))
-		MsgDev( D_REPORT, "^3EXT:^7 Large lightmaps enabled\n" );
+		Con_Reportf( "^3EXT:^7 Large lightmaps enabled\n" );
 
 	if( FBitSet( host.features, ENGINE_COMPENSATE_QUAKE_BUG ))
-		MsgDev( D_REPORT, "^3EXT:^7 Compensate quake bug enabled\n" );
+		Con_Reportf( "^3EXT:^7 Compensate quake bug enabled\n" );
+}
+
+/*
+==============
+Host_IsQuakeCompatible
+
+==============
+*/
+qboolean Host_IsQuakeCompatible( void )
+{
+	// feature set
+	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		return true;
+
+#ifndef XASH_DEDICATED
+	// quake demo playing
+	if( cls.demoplayback == DEMO_QUAKE1 )
+		return true;
+#endif // XASH_DEDICATED
+
+	return false;
 }
 
 /*
@@ -110,7 +134,7 @@ void Host_EndGame( qboolean abort, const char *message, ... )
 	Q_vsnprintf( string, sizeof( string ), message, argptr );
 	va_end( argptr );
 
-	MsgDev( D_INFO, "Host_EndGame: %s\n", string );
+	Con_Printf( "Host_EndGame: %s\n", string );
 
 	SV_Shutdown( "\n" );	
 #ifndef XASH_DEDICATED
@@ -145,23 +169,29 @@ Host_CheckSleep
 */
 void Host_CheckSleep( void )
 {
+	int sleeptime = host_sleeptime->value;
+
 	if( Host_IsDedicated() )
 	{
 		// let the dedicated server some sleep
-		Sys_Sleep( 1 );
+		Sys_Sleep( sleeptime );
 	}
 	else
 	{
 		if( host.status == HOST_NOFOCUS )
 		{
 			if( SV_Active() && CL_IsInGame( ))
-				Sys_Sleep( 1 ); // listenserver
+				Sys_Sleep( sleeptime ); // listenserver
 			else Sys_Sleep( 20 ); // sleep 20 ms otherwise
 		}
 		else if( host.status == HOST_SLEEP )
 		{
 			// completely sleep in minimized state
 			Sys_Sleep( 20 );
+		}
+		else
+		{
+			Sys_Sleep( sleeptime );
 		}
 	}
 }
@@ -246,7 +276,7 @@ void Host_Exec_f( void )
 	f = FS_LoadFile( cfgpath, &len, false );
 	if( !f )
 	{
-		MsgDev( D_NOTE, "couldn't exec %s\n", Cmd_Argv( 1 ));
+		Con_Reportf( "couldn't exec %s\n", Cmd_Argv( 1 ));
 		return;
 	}
 
@@ -254,13 +284,13 @@ void Host_Exec_f( void )
 		host.config_executed = true;
 
 	// adds \n\0 at end of the file
-	txt = Z_Malloc( len + 2 );
+	txt = Z_Calloc( len + 2 );
 	memcpy( txt, f, len );
 	Q_strncat( txt, "\n", len + 2 );
 	Mem_Free( f );
 
 	if( !host.apply_game_config )
-		MsgDev( D_INFO, "execing %s\n", Cmd_Argv( 1 ));
+		Con_Printf( "execing %s\n", Cmd_Argv( 1 ));
 	Cbuf_InsertText( txt );
 	Mem_Free( txt );
 }
@@ -345,7 +375,7 @@ qboolean Host_RegisterDecal( const char *name, int *count )
 
 	if( i == MAX_DECALS )
 	{
-		MsgDev( D_ERROR, "MAX_DECALS limit exceeded (%d)\n", MAX_DECALS );
+		Con_DPrintf( S_ERROR "MAX_DECALS limit exceeded (%d)\n", MAX_DECALS );
 		return false;
 	}
 
@@ -365,6 +395,10 @@ void Host_InitDecals( void )
 {
 	int	i, num_decals = 0;
 	search_t	*t;
+
+	// NOTE: only once resource without which engine can't continue work
+	if( !FS_FileExists( "gfx/conchars", false ))
+		Sys_Error( "W_LoadWadFile: couldn't load gfx.wad\n" );
 
 	memset( host.draw_decals, 0, sizeof( host.draw_decals ));
 
@@ -410,9 +444,12 @@ double Host_CalcFPS( void )
 {
 	double	fps = 0.0;
 
-	// NOTE: we should play demos with same fps as it was recorded
+	if( Host_IsDedicated() )
+	{
+		fps = sys_ticrate.value;
+	}
 #ifndef XASH_DEDICATED
-	if( CL_IsPlaybackDemo() || CL_IsRecordDemo( ))
+	else if( CL_IsPlaybackDemo() || CL_IsRecordDemo( )) // NOTE: we should play demos with same fps as it was recorded
 	{
 		fps = CL_GetDemoFramerate();
 	}
@@ -421,23 +458,16 @@ double Host_CalcFPS( void )
 		fps = host_maxfps->value;
 	}
 	else
-#endif
-	if( Host_IsDedicated() )
-	{
-		fps = sys_ticrate.value;
-	}
-	else
 	{
 		fps = host_maxfps->value;
 		fps = bound( MIN_FPS, fps, MAX_FPS );
 	}
 
-#ifndef XASH_DEDICATED
 	// probably left part of this condition is redundant :-)
 	if( host.type != HOST_DEDICATED && Host_IsLocalGame( ) && !CL_IsTimeDemo( ))
 	{
 		// ajdust fps for vertical synchronization
-		if( gl_vsync != NULL && gl_vsync->value )
+		if( CVAR_TO_BOOL( gl_vsync ))
 		{
 			if( vid_displayfrequency->value != 0.0f )
 				fps = vid_displayfrequency->value;
@@ -657,7 +687,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		if( daemon > 0 )
 		{
 			// parent
-			MsgDev( D_INFO, "Child pid: %i\n", daemon );
+			Con_Reportf( "Child pid: %i\n", daemon );
 			exit( 0 );
 		}
 		else
@@ -699,10 +729,12 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		const char *IOS_GetDocsDir();
 		Q_strncpy( host.rootdir, IOS_GetDocsDir(), sizeof(host.rootdir) );
 #elif defined(XASH_SDL)
-		if( !( baseDir = SDL_GetBasePath() ) )
+		char *szBasePath;
+
+		if( !( szBasePath = SDL_GetBasePath() ) )
 			Sys_Error( "couldn't determine current directory: %s", SDL_GetError() );
-		Q_strncpy( host.rootdir, baseDir, sizeof( host.rootdir ) );
-		SDL_free( (void*)baseDir );
+		Q_strncpy( host.rootdir, szBasePath, sizeof( host.rootdir ) );
+		SDL_free( szBasePath );
 #else
 		if( !getcwd( host.rootdir, sizeof(host.rootdir) ) )
 		{
@@ -714,6 +746,20 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	if( host.rootdir[Q_strlen( host.rootdir ) - 1] == '/' )
 		host.rootdir[Q_strlen( host.rootdir ) - 1] = 0;
+
+	// get readonly root. The order is: check for arg, then env.
+	// if still not got it, rodir is disabled.
+	host.rodir[0] = 0;
+	if( !Sys_GetParmFromCmdLine( "-rodir", host.rodir ))
+	{
+		char *roDir;
+
+		if(( roDir = getenv( "XASH3D_RODIR" )))
+			Q_strncpy( host.rodir, roDir, sizeof( host.rodir ));
+	}
+
+	if( host.rodir[0] && host.rodir[Q_strlen( host.rodir ) - 1] == '/' )
+		host.rodir[Q_strlen( host.rodir ) - 1] = 0;
 
 	host.enabledll = !Sys_CheckParm( "-nodll" );
 
@@ -731,7 +777,8 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	host.mempool = Mem_AllocPool( "Zone Engine" );
 
 	// HACKHACK: Quake console is always allowed
-	if( Sys_CheckParm( "-console" ) || !Q_stricmp( progname, "id1" ))
+	// TODO: determine if we are running QWrap more reliable
+	if( Sys_CheckParm( "-console" ) || !Q_stricmp( SI.exeName, "quake" ))
 		host.allow_console = true;
 
 	if( Sys_CheckParm( "-dev" ))
@@ -779,7 +826,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #endif
 
 	if ( !host.rootdir[0] || SetCurrentDirectory( host.rootdir ) != 0)
-		MsgDev( D_INFO, "%s is working directory now\n", host.rootdir );
+		Con_Reportf( "%s is working directory now\n", host.rootdir );
 	else
 		Sys_Error( "Changing working directory to %s failed.\n", host.rootdir );
 
@@ -814,13 +861,16 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	// timeBeginPeriod( 1 ); // a1ba: Do we need this?
 
 	// NOTE: this message couldn't be passed into game console but it doesn't matter
-	MsgDev( D_NOTE, "Sys_LoadLibrary: Loading xash.dll - ok\n" );
+	Con_Reportf( "Sys_LoadLibrary: Loading xash.dll - ok\n" );
 
 	// get default screen res
 	VID_InitDefaultResolution();
 
 	// init host state machine
 	COM_InitHostState();
+
+	// init hashed commands
+	BaseCmd_Init();
 
 	// startup cmds and cvars subsystem
 	Cmd_Init();
@@ -897,15 +947,21 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	host_maxfps = Cvar_Get( "fps_max", "72", FCVAR_ARCHIVE, "host fps upper limit" );
 	host_framerate = Cvar_Get( "host_framerate", "0", 0, "locks frame timing to this value in seconds" );  
+	host_sleeptime = Cvar_Get( "sleeptime", "1", FCVAR_ARCHIVE, "milliseconds to sleep for each frame. higher values reduce fps accuracy" );
 	host_gameloaded = Cvar_Get( "host_gameloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded game.dll" );
 	host_clientloaded = Cvar_Get( "host_clientloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );
 	host_limitlocal = Cvar_Get( "host_limitlocal", "0", 0, "apply cl_cmdrate and rate to loopback connection" );
 	con_gamemaps = Cvar_Get( "con_mapfilter", "1", FCVAR_ARCHIVE, "when true show only maps in game folder" );
-	build = Cvar_Get( "build", va( "%i", Q_buildnum()), FCVAR_READ_ONLY, "returns a current build number" );
+
+	build = Cvar_Get( "buildnum", va( "%i", Q_buildnum()), FCVAR_READ_ONLY, "returns a current build number" );
+
 	ver = Cvar_Get( "ver", va( "%i/%s (hw build %i)", PROTOCOL_VERSION, XASH_VERSION, Q_buildnum()), FCVAR_READ_ONLY, "shows an engine version" );
+
+	Cvar_Get( "host_ver", va( "%i %s %s %s %s", Q_buildnum(), XASH_VERSION, Q_buildos(), Q_buildarch(), Q_buildcommit() ), FCVAR_READ_ONLY, "detailed info about this build" );
 
 	Mod_Init();
 	NET_Init();
+	NET_InitMasters();
 	Netchan_Init();
 
 	// allow to change game from the console

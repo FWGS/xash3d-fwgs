@@ -78,7 +78,9 @@ byte *CL_CreateRawTextureFromPixels( texture_t *tx, size_t *size, int topcolor, 
 	// fill header
 	if( !pin.name[0] ) Q_strncpy( pin.name, "#raw_remap_image.mdl", sizeof( pin.name ));
 	pin.flags = STUDIO_NF_COLORMAP; // just in case :-)
-	pin.index = (int)(tx + 1); // pointer to pixels
+	//pin.index = (int)(tx + 1); // pointer to pixels
+	// no more pointer-to-int-to-pointer casts
+	Image_SetMDLPointer( (byte*)((texture_t *)tx + 1) );
 	pin.width = tx->width;
 	pin.height = tx->height;
 
@@ -99,10 +101,11 @@ Dupliacte texture with remap pixels
 */
 void CL_DuplicateTexture( mstudiotexture_t *ptexture, int topcolor, int bottomcolor )
 {
-	gltexture_t	*glt;
+	gl_texture_t	*glt;
 	texture_t		*tx = NULL;
 	char		texname[128];
-	int		i, size, index;
+	int		i, index;
+	size_t size;
 	byte		paletteBackup[768];
 	byte		*raw, *pal;
 
@@ -126,7 +129,7 @@ void CL_DuplicateTexture( mstudiotexture_t *ptexture, int topcolor, int bottomco
 	memcpy( paletteBackup, pal, 768 );
 
 	raw = CL_CreateRawTextureFromPixels( tx, &size, topcolor, bottomcolor );
-	ptexture->index = GL_LoadTexture( texname, raw, size, TF_FORCE_COLOR, NULL ); // do copy
+	ptexture->index = GL_LoadTexture( texname, raw, size, TF_FORCE_COLOR ); // do copy
 
 	// restore original palette
 	memcpy( pal, paletteBackup, 768 );
@@ -141,11 +144,12 @@ Update texture top and bottom colors
 */
 void CL_UpdateStudioTexture( mstudiotexture_t *ptexture, int topcolor, int bottomcolor )
 {
-	gltexture_t	*glt;
+	gl_texture_t	*glt;
 	rgbdata_t		*pic;
 	texture_t		*tx = NULL;
 	char		texname[128], name[128], mdlname[128];
-	int		i, size, index;
+	int		i, index;
+	size_t size;
 	byte		paletteBackup[768];
 	byte		*raw, *pal;
 
@@ -179,11 +183,11 @@ void CL_UpdateStudioTexture( mstudiotexture_t *ptexture, int topcolor, int botto
 	pic = FS_LoadImage( glt->name, raw, size );
 	if( !pic )
 	{
-		MsgDev( D_ERROR, "Couldn't update texture %s\n", glt->name );
+		Con_DPrintf( S_ERROR "Couldn't update texture %s\n", glt->name );
 		return;
 	}
 
-	index = GL_LoadTextureInternal( glt->name, pic, 0, true );
+	index = GL_UpdateTextureInternal( glt->name, pic, 0 );
 	FS_FreeImage( pic );
 
 	// restore original palette
@@ -213,7 +217,7 @@ void CL_UpdateAliasTexture( unsigned short *texture, int skinnum, int topcolor, 
 
 	if( *texture == 0 )
 	{
-		Q_snprintf( texname, sizeof( texname ), "%s:remap%i", RI.currentmodel->name, skinnum );
+		Q_snprintf( texname, sizeof( texname ), "%s:remap%i_%i", RI.currentmodel->name, skinnum, RI.currententity->index );
 		skin.width = tx->width;
 		skin.height = tx->height;
 		skin.depth = skin.numMips = 1;
@@ -224,7 +228,7 @@ void CL_UpdateAliasTexture( unsigned short *texture, int skinnum, int topcolor, 
 		skin.buffer = (byte *)(tx + 1);
 		skin.palette = skin.buffer + skin.size;
 		pic = FS_CopyImage( &skin ); // because GL_LoadTextureInternal will freed a rgbdata_t at end
-		*texture = GL_LoadTextureInternal( texname, pic, TF_KEEP_SOURCE, false );
+		*texture = GL_LoadTextureInternal( texname, pic, TF_KEEP_SOURCE );
 	}
 
 	// and now we can remap with internal routines
@@ -288,7 +292,7 @@ void CL_AllocRemapInfo( int topcolor, int bottomcolor )
 			// e.g. playermodel 'barney' with playermodel 'gordon'
 			if( clgame.remap_info[i] ) CL_FreeRemapInfo( clgame.remap_info[i] ); // free old info
 			size = sizeof( remap_info_t ) + ( sizeof( mstudiotexture_t ) * phdr->numtextures );
-			info = clgame.remap_info[i] = Mem_Alloc( clgame.mempool, size );	
+			info = clgame.remap_info[i] = Mem_Calloc( clgame.mempool, size );	
 			info->ptexture = (mstudiotexture_t *)(info + 1); // textures are immediately comes after remap_info
 		}
 		else
@@ -325,7 +329,7 @@ void CL_AllocRemapInfo( int topcolor, int bottomcolor )
 			// this code catches studiomodel change with another studiomodel with remap textures
 			// e.g. playermodel 'barney' with playermodel 'gordon'
 			if( clgame.remap_info[i] ) CL_FreeRemapInfo( clgame.remap_info[i] ); // free old info
-			info = clgame.remap_info[i] = Mem_Alloc( clgame.mempool, sizeof( remap_info_t ));	
+			info = clgame.remap_info[i] = Mem_Calloc( clgame.mempool, sizeof( remap_info_t ));	
 		}
 		else
 		{

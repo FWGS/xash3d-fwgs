@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "mathlib.h"
-#include <time.h>
+#include "platform/platform.h"
 #include <stdlib.h>
 
 #ifdef XASH_SDL
@@ -28,7 +28,6 @@ GNU General Public License for more details.
 #include <dlfcn.h>
 
 #ifndef __ANDROID__
-extern char **environ;
 #include <pwd.h>
 #endif
 #endif
@@ -37,9 +36,6 @@ extern char **environ;
 
 qboolean	error_on_exit = false;	// arg for exit();
 #define DEBUG_BREAK
-#if defined _WIN32 && !defined XASH_SDL
-#include <winbase.h>
-#endif
 
 /*
 ================
@@ -48,105 +44,28 @@ Sys_DoubleTime
 */
 double GAME_EXPORT Sys_DoubleTime( void )
 {
-#if XASH_TIMER == TIMER_WIN32
-	static LARGE_INTEGER	g_PerformanceFrequency;
-	static LARGE_INTEGER	g_ClockStart;
-	LARGE_INTEGER		CurrentTime;
-
-	if( !g_PerformanceFrequency.QuadPart )
-	{
-		QueryPerformanceFrequency( &g_PerformanceFrequency );
-		QueryPerformanceCounter( &g_ClockStart );
-	}
-	QueryPerformanceCounter( &CurrentTime );
-
-	return (double)( CurrentTime.QuadPart - g_ClockStart.QuadPart ) / (double)( g_PerformanceFrequency.QuadPart );
-#elif XASH_TIMER == TIMER_SDL
-	static longtime_t g_PerformanceFrequency;
-	static longtime_t g_ClockStart;
-	longtime_t CurrentTime;
-
-	if( !g_PerformanceFrequency )
-	{
-		g_PerformanceFrequency = SDL_GetPerformanceFrequency();
-		g_ClockStart = SDL_GetPerformanceCounter();
-	}
-	CurrentTime = SDL_GetPerformanceCounter();
-	return (double)( CurrentTime - g_ClockStart ) / (double)( g_PerformanceFrequency );
-#elif XASH_TIMER == TIMER_LINUX
-	static longtime_t g_PerformanceFrequency;
-	static longtime_t g_ClockStart;
-	longtime_t CurrentTime;
-	struct timespec ts;
-
-	if( !g_PerformanceFrequency )
-	{
-		struct timespec res;
-		if( !clock_getres(CLOCK_MONOTONIC, &res) )
-			g_PerformanceFrequency = 1000000000LL/res.tv_nsec;
-	}
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
-#endif
+	return Platform_DoubleTime();
 }
 
-#ifdef GDB_BREAK
-#include <fcntl.h>
-qboolean Sys_DebuggerPresent( void )
-{
-	char buf[1024];
-
-	int status_fd = open( "/proc/self/status", O_RDONLY );
-	if ( status_fd == -1 )
-		return 0;
-
-	ssize_t num_read = read( status_fd, buf, sizeof( buf ) );
-
-	if ( num_read > 0 )
-	{
-		static const char TracerPid[] = "TracerPid:";
-		const byte *tracer_pid;
-
-		buf[num_read] = 0;
-		tracer_pid    = (const byte*)Q_strstr( buf, TracerPid );
-		if( !tracer_pid )
-			return false;
-		//printf( "%s\n", tracer_pid );
-		while( *tracer_pid < '0' || *tracer_pid > '9'  )
-			if( *tracer_pid++ == '\n' )
-				return false;
-		//printf( "%s\n", tracer_pid );
-		return !!Q_atoi( (const char*)tracer_pid );
-	}
-
-	return false;
-}
-
-#undef DEBUG_BREAK
-#ifdef __i386__
-#define DEBUG_BREAK \
-	if( Sys_DebuggerPresent() ) \
-		asm volatile("int $3;")
-#else
-#define DEBUG_BREAK \
-	if( Sys_DebuggerPresent() ) \
-		raise( SIGINT )
-#endif
+#if defined __linux__ || ( defined _WIN32 && !defined XASH_64BIT )
+	#undef DEBUG_BREAK
+	qboolean Sys_DebuggerPresent(); // see sys_linux.c
+	#ifdef _MSC_VER
+		#define DEBUG_BREAK \
+			if( Sys_DebuggerPresent() ) \
+				_asm{ int 3 }
+	#elif __i386__
+		#define DEBUG_BREAK \
+			if( Sys_DebuggerPresent() ) \
+				asm volatile("int $3;")
+	#else
+		#define DEBUG_BREAK \
+			if( Sys_DebuggerPresent() ) \
+				raise( SIGINT )
+	#endif
 #endif
 
-#if defined _WIN32 && !defined XASH_64BIT
-#ifdef _MSC_VER
-
-
-BOOL WINAPI IsDebuggerPresent(void);
-#define DEBUG_BREAK	if( IsDebuggerPresent() ) \
-		_asm{ int 3 }
-#else
-#define DEBUG_BREAK	if( IsDebuggerPresent() ) \
-		asm volatile("int $3;")
-#endif
-#endif
-
+#ifndef XASH_DEDICATED
 /*
 ================
 Sys_GetClipboardData
@@ -157,18 +76,10 @@ create buffer, that contain clipboard
 char *Sys_GetClipboardData( void )
 {
 	static char data[1024];
-	char		*cliptext;
 
 	data[0] = '\0';
 
-#ifdef XASH_SDL
-	cliptext = SDL_GetClipboardText();
-	if( cliptext )
-	{
-		Q_strncpy( data, cliptext, sizeof( data ) );
-		SDL_free( cliptext );
-	}
-#endif // XASH_SDL
+	Platform_GetClipboardText( data, sizeof( data ));
 
 	return data;
 }
@@ -182,10 +93,9 @@ write screenshot into clipboard
 */
 void Sys_SetClipboardData( const byte *buffer, size_t size )
 {
-#ifdef XASH_SDL
-	SDL_SetClipboardText((char *)buffer);
-#endif
+	Platform_SetClipboardText( (char *)buffer, size );
 }
+#endif // XASH_DEDICATED
 
 /*
 ================
@@ -200,13 +110,7 @@ void Sys_Sleep( int msec )
 		return;
 
 	msec = min( msec, 1000 );
-#if XASH_TIMER == TIMER_WIN32
-	Sleep( msec );
-#elif XASH_TIMER == TIMER_SDL
-	SDL_Delay( msec );
-#elif XASH_TIMER == TIMER_LINUX
-	usleep( msec * 1000 );
-#endif
+	Platform_Sleep( msec );
 }
 
 /*
@@ -306,12 +210,12 @@ void Sys_ShellExecute( const char *path, const char *parms, int shouldExit )
 		pid_t id = fork( );
 		if( id == 0 )
 		{
-			execve( xdgOpen, (char **)argv, environ );
+			execv( xdgOpen, (char **)argv );
 			fprintf( stderr, "error opening %s %s", xdgOpen, path );
 			_exit( 1 );
 		}
 	}
-	else MsgDev( D_WARN, "Could not find "OPEN_COMMAND" utility\n" );
+	else Con_Reportf( S_WARN "Could not find "OPEN_COMMAND" utility\n" );
 #elif defined(__ANDROID__) && !defined(XASH_DEDICATED)
 	Android_ShellExecute( path, parms );
 #endif
@@ -459,7 +363,7 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 	if( !dll->name || !*dll->name )
 		return false; // nothing to load
 
-	MsgDev( D_NOTE, "Sys_LoadLibrary: Loading %s", dll->name );
+	Con_Reportf( "Sys_LoadLibrary: Loading %s", dll->name );
 
 	if( dll->fcts ) 
 	{
@@ -486,14 +390,14 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 			goto error;
 		}
 	}
-          MsgDev( D_NOTE, " - ok\n" );
+          Con_Reportf( " - ok\n" );
 
 	return true;
 error:
-	MsgDev( D_NOTE, " - failed\n" );
+	Con_Reportf( " - failed\n" );
 	Sys_FreeLibrary( dll ); // trying to free 
 	if( dll->crash ) Sys_Error( "%s", errorstring );
-	else MsgDev( D_ERROR, "%s", errorstring );
+	else Con_Reportf( S_ERROR  "%s", errorstring );
 
 	return false;
 }
@@ -515,10 +419,10 @@ qboolean Sys_FreeLibrary( dll_info_t *dll )
 	if( host.status == HOST_CRASHED )
 	{
 		// we need to hold down all modules, while MSVC can find error
-		MsgDev( D_NOTE, "Sys_FreeLibrary: hold %s for debugging\n", dll->name );
+		Con_Reportf( "Sys_FreeLibrary: hold %s for debugging\n", dll->name );
 		return false;
 	}
-	else MsgDev( D_NOTE, "Sys_FreeLibrary: Unloading %s\n", dll->name );
+	else Con_Reportf( "Sys_FreeLibrary: Unloading %s\n", dll->name );
 
 	FreeLibrary( dll->link );
 	dll->link = NULL;
@@ -538,7 +442,7 @@ void Sys_WaitForQuit( void )
 #ifdef _WIN32
 	MSG	msg;
 
-	Con_RegisterHotkeys();		
+	Wcon_RegisterHotkeys();		
 
 	msg.message = 0;
 
@@ -616,8 +520,8 @@ void Sys_Error( const char *error, ... )
 	if( host_developer.value )
 	{
 #ifdef _WIN32
-		Con_ShowConsole( true );
-		Con_DisableInput();	// disable input line for dedicated server
+		Wcon_ShowConsole( true );
+		Wcon_DisableInput();	// disable input line for dedicated server
 #endif
 		Sys_Print( text );	// print error message
 		Sys_WaitForQuit();
@@ -625,7 +529,7 @@ void Sys_Error( const char *error, ... )
 	else
 	{
 #ifdef _WIN32
-		Con_ShowConsole( false );
+		Wcon_ShowConsole( false );
 #endif
 		MSGBOX( text );
 	}
@@ -668,8 +572,12 @@ print into window console
 */
 void Sys_Print( const char *pMsg )
 {
+#ifndef XASH_DEDICATED
 	if( !Host_IsDedicated() )
+	{
 		Con_Print( pMsg );
+	}
+#endif
 
 #ifdef _WIN32
 	{
@@ -679,9 +587,6 @@ void Sys_Print( const char *pMsg )
 		char		*b = buffer;
 		char		*c = logbuf;
 		int		i = 0;
-
-		if( host.type == HOST_NORMAL )
-			Con_Print( pMsg );
 
 		// if the message is REALLY long, use just the last portion of it
 		if( Q_strlen( pMsg ) > sizeof( buffer ) - 1 )
@@ -730,46 +635,11 @@ void Sys_Print( const char *pMsg )
 
 		*b = *c = 0; // terminator
 
-		Con_WinPrint( buffer );
+		Wcon_WinPrint( buffer );
 	}
 #endif
 
 	Sys_PrintLog( pMsg );
 
 	// Rcon_Print( pMsg );
-}
-
-/*
-================
-MsgDev
-
-formatted developer message
-================
-*/
-void MsgDev( int type, const char *pMsg, ... )
-{
-	static char	text[MAX_PRINT_MSG];
-	va_list		argptr;
-
-	if( type >= D_REPORT && host_developer.value < DEV_EXTENDED )
-		return;
-
-	va_start( argptr, pMsg );
-	Q_vsnprintf( text, sizeof( text ) - 1, pMsg, argptr );
-	va_end( argptr );
-
-	switch( type )
-	{
-	case D_WARN:
-		Sys_Print( va( "^3Warning:^7 %s", text ));
-		break;
-	case D_ERROR:
-		Sys_Print( va( "^1Error:^7 %s", text ));
-		break;
-	case D_INFO:
-	case D_NOTE:
-	case D_REPORT:
-		Sys_Print( text );
-		break;
-	}
 }

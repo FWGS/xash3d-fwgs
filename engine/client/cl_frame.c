@@ -96,7 +96,7 @@ we don't want interpolate this
 */
 qboolean CL_EntityTeleported( cl_entity_t *ent )
 {
-	int	len, maxlen;
+	float	len, maxlen;
 	vec3_t	delta;
 
 	VectorSubtract( ent->curstate.origin, ent->prevstate.origin, delta );
@@ -270,8 +270,8 @@ void CL_ProcessEntityUpdate( cl_entity_t *ent )
 	ent->model = CL_ModelHandle( ent->curstate.modelindex );
 	ent->index = ent->curstate.number;
 
-	// g-cont. make sure what it's no broke XashXT physics
-	COM_NormalizeAngles( ent->curstate.angles );
+	if( FBitSet( ent->curstate.entityType, ENTITY_NORMAL ))
+		COM_NormalizeAngles( ent->curstate.angles );
 
 	parametric = CL_ParametricMove( ent );
 
@@ -410,8 +410,19 @@ int CL_InterpolateModel( cl_entity_t *e )
 	if( cls.timedemo || !e->model )
 		return 1;
 
-	if( fabs( cl_serverframetime() - cl_clientframetime()) < 0.0001f )
-		return 1;	// interpolation disabled
+	if( cls.demoplayback == DEMO_QUAKE1 )
+	{
+		// quake lerping is easy
+		VectorLerp( e->prevstate.origin, cl.lerpFrac, e->curstate.origin, e->origin );
+		AngleQuaternion( e->prevstate.angles, q1, false );
+		AngleQuaternion( e->curstate.angles, q2, false );
+		QuaternionSlerp( q1, q2, cl.lerpFrac, q );
+		QuaternionAngle( q, e->angles );
+		return 1;
+	}
+
+	if( cl.maxclients <= 1 )
+		return 1;
 
 	if( e->model->type == mod_brush && !cl_bmodelinterp->value )
 		return 1;
@@ -419,7 +430,6 @@ int CL_InterpolateModel( cl_entity_t *e )
 	if( cl.local.moving && cl.local.onground == e->index )
 		return 1;
 
-//	t = cl.time - cl_serverframetime();
 	t = cl.time - cl_interp->value;
 	CL_FindInterpolationUpdates( e, t, &ph0, &ph1 );
 
@@ -478,11 +488,23 @@ interpolate non-local clients
 void CL_ComputePlayerOrigin( cl_entity_t *ent )
 {
 	float	targettime;
+	vec4_t	q, q1, q2;
 	vec3_t	origin;
 	vec3_t	angles;
 
 	if( !ent->player || ent->index == ( cl.playernum + 1 ))
 		return;
+
+	if( cls.demoplayback == DEMO_QUAKE1 )
+	{
+		// quake lerping is easy
+		VectorLerp( ent->prevstate.origin, cl.lerpFrac, ent->curstate.origin, ent->origin );
+		AngleQuaternion( ent->prevstate.angles, q1, false );
+		AngleQuaternion( ent->curstate.angles, q2, false );
+		QuaternionSlerp( q1, q2, cl.lerpFrac, q );
+		QuaternionAngle( q, ent->angles );
+		return;
+	}
 
 	targettime = cl.time - cl_interp->value;
 	CL_PureOrigin( ent, targettime, origin, angles );
@@ -603,13 +625,13 @@ void CL_FlushEntityPacket( sizebuf_t *msg )
 	// read it all, but ignore it
 	while( 1 )
 	{
-		newnum = MSG_ReadUBitLong( msg, MAX_VISIBLE_PACKET_BITS );
+		newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
 		if( newnum == LAST_EDICT ) break; // done
 
 		if( MSG_CheckOverflow( msg ))
 			Host_Error( "CL_FlushEntityPacket: overflow\n" );
 
-		MSG_ReadDeltaEntity( msg, &from, &to, newnum, CL_IsPlayerIndex( newnum ), cl.mtime[0] );
+		MSG_ReadDeltaEntity( msg, &from, &to, newnum, CL_IsPlayerIndex( newnum ) ? DELTA_PLAYER : DELTA_ENTITY, cl.mtime[0] );
 	}
 }
 
@@ -626,17 +648,18 @@ void CL_DeltaEntity( sizebuf_t *msg, frame_t *frame, int newnum, entity_state_t 
 	entity_state_t	*state;
 	qboolean		newent = (old) ? false : true;
 	int		pack = frame->num_entities;
-	qboolean		player = CL_IsPlayerIndex( newnum ); 
+	int		delta_type = DELTA_ENTITY;
 	qboolean		alive = true;
 
 	// alloc next slot to store update
 	state = &cls.packet_entities[cls.next_client_entities % cls.num_client_entities];
+	if( CL_IsPlayerIndex( newnum )) delta_type = DELTA_PLAYER;
 
 	if(( newnum < 0 ) || ( newnum >= clgame.maxEntities ))
 	{
-		MsgDev( D_ERROR, "CL_DeltaEntity: invalid newnum: %d\n", newnum );
+		Con_DPrintf( S_ERROR "CL_DeltaEntity: invalid newnum: %d\n", newnum );
 		if( has_update )
-			MSG_ReadDeltaEntity( msg, old, state, newnum, player, cl.mtime[0] );
+			MSG_ReadDeltaEntity( msg, old, state, newnum, delta_type, cl.mtime[0] );
 		return;
 	}
 
@@ -645,7 +668,7 @@ void CL_DeltaEntity( sizebuf_t *msg, frame_t *frame, int newnum, entity_state_t 
 	if( newent ) old = &ent->baseline;
 
 	if( has_update )
-		alive = MSG_ReadDeltaEntity( msg, old, state, newnum, player, cl.mtime[0] );
+		alive = MSG_ReadDeltaEntity( msg, old, state, newnum, delta_type, cl.mtime[0] );
 	else memcpy( state, old, sizeof( entity_state_t ));
 
 	if( !alive )
@@ -698,7 +721,10 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 		CL_WriteDemoJumpTime();
 
 	// sentinel count. save it for debug checking
-	count = ( MSG_ReadUBitLong( msg, MAX_VISIBLE_PACKET_BITS ) + 1 );
+	if( cls.legacymode )
+		count = MSG_ReadWord( msg );
+	else count = MSG_ReadUBitLong( msg, MAX_VISIBLE_PACKET_BITS ) + 1;
+
 	newframe = &cl.frames[cl.parsecountmod];
 
 	// allocate parse entities
@@ -733,7 +759,6 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 
 		if(( cls.next_client_entities - oldframe->first_entity ) > ( cls.num_client_entities - NUM_PACKET_ENTITIES ))
 		{
-			MsgDev( D_NOTE, "CL_ParsePacketEntities: delta frame is too old (flush)\n");
 			Con_NPrintf( 2, "^3Warning:^1 delta frame is too old^7\n" );
 			CL_FlushEntityPacket( msg );
 			return playerbytes;
@@ -773,9 +798,19 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 
 	while( 1 )
 	{
-		newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
-		if( newnum == LAST_EDICT ) break; // end of packet entities
+		int lastedict;
+		if( cls.legacymode )
+		{
+			newnum = MSG_ReadWord( msg );
+			lastedict = 0;
+		}
+		else
+		{
+			newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
+			lastedict = LAST_EDICT;
+		}
 
+		if( newnum == lastedict ) break; // end of packet entities
 		if( MSG_CheckOverflow( msg ))
 			Host_Error( "CL_ParsePacketEntities: overflow\n" );
 		player = CL_IsPlayerIndex( newnum );
@@ -846,7 +881,7 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 	}
 
 	if( newframe->num_entities != count && newframe->num_entities != 0 )
-		MsgDev( D_WARN, "CL_Parse%sPacketEntities: (%i should be %i)\n", delta ? "Delta" : "", newframe->num_entities, count );
+		Con_Reportf( S_WARN "CL_Parse%sPacketEntities: (%i should be %i)\n", delta ? "Delta" : "", newframe->num_entities, count );
 
 	if( !newframe->valid )
 		return playerbytes; // frame is not valid but message was parsed
@@ -942,7 +977,7 @@ void CL_LinkCustomEntity( cl_entity_t *ent, entity_state_t *state )
 	ent->curstate.movetype = state->modelindex; // !!!
 
 	if( ent->model->type != mod_sprite )
-		MsgDev( D_WARN, "bad model on beam ( %s )\n", ent->model->name );
+		Con_Reportf( S_WARN "bad model on beam ( %s )\n", ent->model->name );
 
 	ent->latched.prevsequence = ent->curstate.sequence;
 	VectorCopy( ent->origin, ent->latched.prevorigin );
@@ -989,9 +1024,12 @@ void CL_LinkPlayers( frame_t *frame )
 
 		if( i == cl.playernum )
 		{
-			VectorCopy( state->origin, ent->origin );
-			VectorCopy( state->origin, ent->prevstate.origin );
-			VectorCopy( state->origin, ent->curstate.origin );
+			if( cls.demoplayback != DEMO_QUAKE1 )
+			{
+				VectorCopy( state->origin, ent->origin );
+				VectorCopy( state->origin, ent->prevstate.origin );
+				VectorCopy( state->origin, ent->curstate.origin );
+			}
 			VectorCopy( ent->curstate.angles, ent->angles );
 		}
 
@@ -1007,6 +1045,8 @@ void CL_LinkPlayers( frame_t *frame )
 
 		if ( i == cl.playernum )
 		{
+			if( cls.demoplayback == DEMO_QUAKE1 )
+				VectorLerp( ent->prevstate.origin, cl.lerpFrac, ent->curstate.origin, cl.simorg );
 			VectorCopy( cl.simorg, ent->origin );
 		}
 		else
@@ -1041,6 +1081,7 @@ void CL_LinkPacketEntities( frame_t *frame )
 	cl_entity_t	*ent;
 	entity_state_t	*state;
 	qboolean		parametric;
+	qboolean		interpolate;
 	int		i;
 
 	for( i = 0; i < frame->num_entities; i++ )
@@ -1059,22 +1100,21 @@ void CL_LinkPacketEntities( frame_t *frame )
 
 		if( !ent )
 		{
-			MsgDev( D_ERROR, "CL_LinkPacketEntity: bad entity %i\n", state->number );
+			Con_Reportf( S_ERROR "CL_LinkPacketEntity: bad entity %i\n", state->number );
 			continue;
 		}
 
-		ent->curstate = *state;
-
-		// XASH SPECIFIC
-		if( ent->curstate.rendermode == kRenderNormal && ent->curstate.renderfx == kRenderFxNone )
-			ent->curstate.renderamt = 255.0f;
+		// animtime must keep an actual
+		ent->curstate.animtime = state->animtime;
+		ent->curstate.frame = state->frame;
+		interpolate = false;
 
 		if( !ent->model ) continue;
 
 		if( ent->curstate.rendermode == kRenderNormal )
 		{
 			// auto 'solid' faces
-			if( FBitSet( ent->model->flags, MODEL_TRANSPARENT ) && FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+			if( FBitSet( ent->model->flags, MODEL_TRANSPARENT ) && Host_IsQuakeCompatible( ))
 			{
 				ent->curstate.rendermode = kRenderTransAlpha;
 				ent->curstate.renderamt = 255;
@@ -1095,7 +1135,9 @@ void CL_LinkPacketEntities( frame_t *frame )
 #ifdef STUDIO_INTERPOLATION_FIX
 					if( ent->lastmove >= cl.time )
 						VectorCopy( ent->curstate.origin, ent->latched.prevorigin );
-					ent->curstate.movetype = MOVETYPE_STEP;
+					if( FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP ))
+						interpolate = true;
+					else ent->curstate.movetype = MOVETYPE_STEP;
 #else
 					if( ent->lastmove >= cl.time )
 					{
@@ -1148,7 +1190,7 @@ void CL_LinkPacketEntities( frame_t *frame )
 
 			if( ent->model->type == mod_studio )
 			{
-				if( ent->curstate.movetype == MOVETYPE_STEP && FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP )) 
+				if( interpolate && FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP )) 
 					R_StudioLerpMovement( ent, cl.time, ent->origin, ent->angles );
 			}
 		}
@@ -1165,6 +1207,10 @@ void CL_LinkPacketEntities( frame_t *frame )
 			if( !ent->curstate.rendercolor.r && !ent->curstate.rendercolor.g && !ent->curstate.rendercolor.b )
 				ent->curstate.rendercolor.r = ent->curstate.rendercolor.g = ent->curstate.rendercolor.b = 255;
 		}
+
+		// XASH SPECIFIC
+		if( ent->curstate.rendermode == kRenderNormal && ent->curstate.renderfx == kRenderFxNone )
+			ent->curstate.renderamt = 255.0f;
 
 		if( ent->curstate.aiment != 0 && ent->curstate.movetype != MOVETYPE_COMPOUND )
 			ent->curstate.movetype = MOVETYPE_FOLLOW;
@@ -1225,6 +1271,12 @@ void CL_EmitEntities( void )
 	// make sure we have at least one valid update
 	if( !cl.frames[cl.parsecountmod].valid )
 		return;
+
+	// animate lightestyles
+	CL_RunLightStyles ();
+
+	// decay dynamic lights
+	CL_DecayLights ();
 
 	// compute last interpolation amount
 	CL_UpdateFrameLerp ();
@@ -1313,8 +1365,25 @@ qboolean CL_GetEntitySpatialization( channel_t *ch )
 
 qboolean CL_GetMovieSpatialization( rawchan_t *ch )
 {
-	// UNDONE
-	return false;
+	cl_entity_t	*ent;
+	qboolean		valid_origin;
+
+	valid_origin = VectorIsNull( ch->origin ) ? false : true;          
+	ent = CL_GetEntityByIndex( ch->entnum );
+
+	// entity is not present on the client but has valid origin
+	if( !ent || !ent->index || ent->curstate.messagenum == 0 )
+		return valid_origin;
+
+	// setup origin
+	VectorAverage( ent->curstate.mins, ent->curstate.maxs, ch->origin );
+	VectorAdd( ch->origin, ent->curstate.origin, ch->origin );
+
+	// setup radius
+	if( ent->model != NULL && ent->model->radius ) ch->radius = ent->model->radius;
+	else ch->radius = RadiusFromBounds( ent->curstate.mins, ent->curstate.maxs );
+
+	return true;
 }
 
 void CL_ExtraUpdate( void )

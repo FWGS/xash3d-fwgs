@@ -28,6 +28,9 @@
 // kill the request hook after receiving the first response
 #define FNETAPI_MULTIPLE_RESPONSE		( 1<<0 )
 
+struct net_response_s;
+typedef void (*net_api_response_func_t) ( struct net_response_s *response );
+
 #define NET_SUCCESS				( 0 )
 #define NET_ERROR_TIMEOUT			( 1<<0 )
 #define NET_ERROR_PROTO_UNSUPPORTED		( 1<<1 )
@@ -58,8 +61,6 @@ typedef struct net_response_s
 	void		*response;
 } net_response_t;
 
-typedef void (*net_api_response_func_t) ( net_response_t *response );
-
 typedef struct net_status_s
 {
 	// Connected to remote server?  1 == yes, 0 otherwise
@@ -83,12 +84,12 @@ typedef struct net_api_s
 	// APIs
 	void		(*InitNetworking)( void );
 	void		(*Status )( struct net_status_s *status );
-	void		(*SendRequest)( int context, int request, int flags, double timeout, netadr_t *remote_address, net_api_response_func_t response );
+	void		(*SendRequest)( int context, int request, int flags, double timeout, struct netadr_s *remote_address, net_api_response_func_t response );
 	void		(*CancelRequest)( int context );
 	void		(*CancelAllRequests)( void );
-	char		*(*AdrToString)( netadr_t *a );
-	int		( *CompareAdr)( netadr_t *a, netadr_t *b );
-	int		( *StringToAdr)( char *s, netadr_t *a );
+	char		*(*AdrToString)( struct netadr_s *a );
+	int		( *CompareAdr)( struct netadr_s *a, struct netadr_s *b );
+	int		( *StringToAdr)( char *s, struct netadr_s *a );
 	const char	*(*ValueForKey)( const char *s, const char *key );
 	void		(*RemoveKey)( char *s, const char *key );
 	void		(*SetValueForKey)( char *s, const char *key, const char *value, int maxsize );

@@ -20,16 +20,32 @@ GNU General Public License for more details.
 
 extern convar_t	*con_gamemaps;
 
+#define CON_MAXCMDS		4096	// auto-complete intermediate list
+
 typedef struct autocomplete_list_s
 {
 	const char *name;
 	qboolean (*func)( const char *s, char *name, int length );
 } autocomplete_list_t;
 
+typedef struct
+{
+	// console auto-complete
+	string		shortestMatch;
+	field_t		*completionField;	// con.input or dedicated server fake field-line
+	const char	*completionString;
+	const char	*completionBuffer;
+	char		*cmds[CON_MAXCMDS];
+	int		matchCount;
+} con_autocomplete_t;
+
+static con_autocomplete_t		con;
+
 /*
 =======================================================================
 
 			FILENAME AUTOCOMPLETION
+
 =======================================================================
 */
 /*
@@ -102,7 +118,7 @@ qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
 			if( !ents && lumplen >= 10 )
 			{
 				FS_Seek( f, lumpofs, SEEK_SET );
-				ents = (char *)Mem_Alloc( host.mempool, lumplen + 1 );
+				ents = (char *)Mem_Calloc( host.mempool, lumplen + 1 );
 				FS_Read( f, ents, lumplen );
 			}
 
@@ -191,7 +207,8 @@ qboolean Cmd_GetDemoList( const char *s, char *completedname, int length )
 	string		matchbuf;
 	int		i, numdems;
 
-	t = FS_Search( va( "demos/%s*.dem", s ), true, true );	// lookup only in gamedir
+	// lookup only in gamedir
+	t = FS_Search( va( "%s*.dem", s ), true, true );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf ); 
@@ -669,7 +686,9 @@ qboolean Cmd_GetCDList( const char *s, char *completedname, int length )
 
 qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 {
+	qboolean	use_filter = false;
 	byte	buf[MAX_SYSPATH];
+	string	mpfilter;
 	char	*buffer;
 	string	result;
 	int	i, size;
@@ -677,11 +696,10 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 	file_t	*f;
 
 	if( FS_FileSize( "maps.lst", onlyingamedir ) > 0 && !fRefresh )
-	{
-		MsgDev( D_NOTE, "maps.lst is exist: %s\n", onlyingamedir ? "basedir" : "gamedir" );
 		return true; // exist 
-	}
 
+	// setup mpfilter
+	Q_snprintf( mpfilter, sizeof( mpfilter ), "maps/%s", GI->mp_filter );
 	t = FS_Search( "maps/*.bsp", false, onlyingamedir );
 
 	if( !t )
@@ -694,7 +712,8 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		return false;
 	}
 
-	buffer = Mem_Alloc( host.mempool, t->numfilenames * 2 * sizeof( result ));
+	buffer = Mem_Calloc( host.mempool, t->numfilenames * 2 * sizeof( result ));
+	use_filter = Q_strlen( GI->mp_filter ) ? true : false;
 
 	for( i = 0; i < t->numfilenames; i++ )
 	{
@@ -703,6 +722,9 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		string		mapname, message, entfilename;
 
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "bsp" ))
+			continue;
+
+		if( use_filter && !Q_strnicmp( t->filenames[i], mpfilter, Q_strlen( mpfilter )))
 			continue;
 
 		f = FS_Open( t->filenames[i], "rb", onlyingamedir );
@@ -736,7 +758,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 			if( !ents && lumplen >= 10 )
 			{
 				FS_Seek( f, lumpofs, SEEK_SET );
-				ents = Z_Malloc( lumplen + 1 );
+				ents = Z_Calloc( lumplen + 1 );
 				FS_Read( f, ents, lumplen );
 			}
 
@@ -762,7 +784,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 					else if( !Q_strcmp( token, "classname" ))
 					{
 						pfile = COM_ParseFile( pfile, token );
-						if( !Q_strcmp( token, GI->mp_entity ))
+						if( !Q_strcmp( token, GI->mp_entity ) || use_filter )
 							num_spawnpoints++;
 					}
 					if( num_spawnpoints ) break; // valid map
@@ -810,6 +832,7 @@ int Cmd_CheckMapsList( int fRefresh )
 autocomplete_list_t cmd_list[] =
 {
 { "map_background", Cmd_GetMapList },
+{ "changelevel2", Cmd_GetMapList },
 { "changelevel", Cmd_GetMapList },
 { "playdemo", Cmd_GetDemoList, },
 { "timedemo", Cmd_GetDemoList, },
@@ -870,6 +893,268 @@ qboolean Cmd_AutocompleteName( const char *source, char *buffer, size_t bufsize 
 }
 
 /*
+===============
+Con_AddCommandToList
+
+===============
+*/
+static void Con_AddCommandToList( const char *s, const char *unused1, const char *unused2, void *unused3 )
+{
+	if( *s == '@' ) return; // never show system cvars or cmds
+	if( con.matchCount >= CON_MAXCMDS ) return; // list is full
+
+	if( Q_strnicmp( s, con.completionString, Q_strlen( con.completionString ) ) )
+		return; // no match
+
+	con.cmds[con.matchCount++] = copystring( s );
+}
+
+/*
+=================
+Con_SortCmds
+=================
+*/
+static int Con_SortCmds( const char **arg1, const char **arg2 )
+{
+	return Q_stricmp( *arg1, *arg2 );
+}
+
+/*
+===============
+Con_PrintCmdMatches
+===============
+*/
+static void Con_PrintCmdMatches( const char *s, const char *unused1, const char *m, void *unused2 )
+{
+	if( !Q_strnicmp( s, con.shortestMatch, Q_strlen( con.shortestMatch ) ) )
+	{
+		if( COM_CheckString( m ) ) Con_Printf( "    %s ^3\"%s\"\n", s, m );
+		else Con_Printf( "    %s\n", s ); // variable or command without description
+	}
+}
+
+/*
+===============
+Con_PrintCvarMatches
+===============
+*/
+static void Con_PrintCvarMatches( const char *s, const char *value, const char *m, void *unused2 )
+{
+	if( !Q_strnicmp( s, con.shortestMatch, Q_strlen( con.shortestMatch ) ) )
+	{
+		if( COM_CheckString( m ) ) Con_Printf( "    %s (%s)   ^3\"%s\"\n", s, value, m );
+		else Con_Printf( "    %s  (%s)\n", s, value ); // variable or command without description
+	}
+}
+
+/*
+===============
+Con_ConcatRemaining
+===============
+*/
+static void Con_ConcatRemaining( const char *src, const char *start )
+{
+	const char	*arg;
+	int	i;
+
+	arg = Q_strstr( src, start );
+
+	if( !arg )
+	{
+		for( i = 1; i < Cmd_Argc(); i++ )
+		{
+			Q_strncat( con.completionField->buffer, " ", sizeof( con.completionField->buffer ) );
+			arg = Cmd_Argv( i );
+			while( *arg )
+			{
+				if( *arg == ' ' )
+				{
+					Q_strncat( con.completionField->buffer, "\"", sizeof( con.completionField->buffer ) );
+					break;
+				}
+				arg++;
+			}
+
+			Q_strncat( con.completionField->buffer, Cmd_Argv( i ), sizeof( con.completionField->buffer ) );
+			if( *arg == ' ' ) Q_strncat( con.completionField->buffer, "\"", sizeof( con.completionField->buffer ) );
+		}
+		return;
+	}
+
+	arg += Q_strlen( start );
+	Q_strncat( con.completionField->buffer, arg, sizeof( con.completionField->buffer ) );
+}
+
+/*
+===============
+Con_CompleteCommand
+
+perform Tab expansion
+===============
+*/
+void Con_CompleteCommand( field_t *field )
+{
+	field_t	temp;
+	string	filename;
+	qboolean	nextcmd;
+	int	i;
+
+	// setup the completion field
+	con.completionField = field;
+
+	// only look at the first token for completion purposes
+	Cmd_TokenizeString( con.completionField->buffer );
+
+	nextcmd = (con.completionField->buffer[Q_strlen( con.completionField->buffer ) - 1] == ' ') ? true : false;
+
+	con.completionString = Cmd_Argv( 0 );
+	con.completionBuffer = Cmd_Argv( 1 );
+
+	// skip backslash
+	while( *con.completionString && (*con.completionString == '\\' || *con.completionString == '/') )
+		con.completionString++;
+
+	// skip backslash
+	while( *con.completionBuffer && (*con.completionBuffer == '\\' || *con.completionBuffer == '/') )
+		con.completionBuffer++;
+
+	if( !Q_strlen( con.completionString ) )
+		return;
+
+	// free the old autocomplete list
+	for( i = 0; i < con.matchCount; i++ )
+	{
+		if( con.cmds[i] != NULL )
+		{
+			Mem_Free( con.cmds[i] );
+			con.cmds[i] = NULL;
+		}
+	}
+
+	con.matchCount = 0;
+	con.shortestMatch[0] = 0;
+
+	// find matching commands and variables
+	Cmd_LookupCmds( NULL, NULL, Con_AddCommandToList );
+	Cvar_LookupVars( 0, NULL, NULL, Con_AddCommandToList );
+
+	if( !con.matchCount ) return; // no matches
+
+	memcpy( &temp, con.completionField, sizeof( field_t ) );
+
+	// autocomplete second arg
+	if( (Cmd_Argc() == 2) || ((Cmd_Argc() == 1) && nextcmd) )
+	{
+		if( !Q_strlen( con.completionBuffer ) )
+			return;
+
+		if( Cmd_AutocompleteName( con.completionBuffer, filename, sizeof( filename ) ) )
+		{
+			Q_sprintf( con.completionField->buffer, "%s %s", Cmd_Argv( 0 ), filename );
+			con.completionField->cursor = Q_strlen( con.completionField->buffer );
+		}
+
+		// don't adjusting cursor pos if we nothing found
+		return;
+	}
+	else if( Cmd_Argc() >= 3 )
+	{
+		// disable autocomplete for all next args
+		return;
+	}
+
+	if( con.matchCount == 1 )
+	{
+		Q_sprintf( con.completionField->buffer, "\\%s", con.cmds[0] );
+		if( Cmd_Argc() == 1 ) Q_strncat( con.completionField->buffer, " ", sizeof( con.completionField->buffer ) );
+		else Con_ConcatRemaining( temp.buffer, con.completionString );
+		con.completionField->cursor = Q_strlen( con.completionField->buffer );
+	}
+	else
+	{
+		char	*first, *last;
+		int	len = 0;
+
+		qsort( con.cmds, con.matchCount, sizeof( char* ), Con_SortCmds );
+
+		// find the number of matching characters between the first and
+		// the last element in the list and copy it
+		first = con.cmds[0];
+		last = con.cmds[con.matchCount - 1];
+
+		while( *first && *last && Q_tolower( *first ) == Q_tolower( *last ) )
+		{
+			first++;
+			last++;
+
+			con.shortestMatch[len] = con.cmds[0][len];
+			len++;
+		}
+		con.shortestMatch[len] = 0;
+
+		// multiple matches, complete to shortest
+		Q_sprintf( con.completionField->buffer, "\\%s", con.shortestMatch );
+		con.completionField->cursor = Q_strlen( con.completionField->buffer );
+		Con_ConcatRemaining( temp.buffer, con.completionString );
+
+		Con_Printf( "]%s\n", con.completionField->buffer );
+
+		// run through again, printing matches
+		Cmd_LookupCmds( NULL, NULL, Con_PrintCmdMatches );
+		Cvar_LookupVars( 0, NULL, NULL, Con_PrintCvarMatches );
+	}
+}
+
+/*
+=========
+Cmd_AutoComplete
+
+NOTE: input string must be equal or longer than MAX_STRING
+=========
+*/
+void Cmd_AutoComplete( char *complete_string )
+{
+	field_t	input;
+
+	if( !complete_string || !*complete_string )
+		return;
+
+	// setup input
+	Q_strncpy( input.buffer, complete_string, sizeof( input.buffer ) );
+	input.cursor = input.scroll = 0;
+
+	Con_CompleteCommand( &input );
+
+	// setup output
+	if( input.buffer[0] == '\\' || input.buffer[0] == '/' )
+		Q_strncpy( complete_string, input.buffer + 1, sizeof( input.buffer ) );
+	else Q_strncpy( complete_string, input.buffer, sizeof( input.buffer ) );
+}
+
+/*
+============
+Cmd_AutoCompleteClear
+
+============
+*/
+void Cmd_AutoCompleteClear( void )
+{
+	int i;
+
+	// free the old autocomplete list
+	for( i = 0; i < con.matchCount; i++ )
+	{
+		if( con.cmds[i] != NULL )
+		{
+			Mem_Free( con.cmds[i] );
+			con.cmds[i] = NULL;
+		}
+	}
+
+	con.matchCount = 0;
+}
+
+/*
 ============
 Cmd_WriteVariables
 
@@ -907,6 +1192,23 @@ void Cmd_WriteOpenGLVariables( file_t *f )
 }
 
 #ifndef XASH_DEDICATED
+
+
+#define CFG_END(f,x) \
+	if( FS_Printf( f,"// end of " x "\n" ) >= (int)sizeof( "// end of " x "\n" ) - 2 )\
+	{ \
+		FS_Close( f );\
+		FS_Delete( x ".bak" ); \
+		FS_Rename( x, x ".bak" ); \
+		FS_Delete( x ); \
+		FS_Rename( x ".new", x );\
+	}\
+	else\
+	{\
+		FS_Close( f );\
+		Con_Reportf( S_ERROR  "could not update " x "\n" );\
+	}
+
 /*
 ===============
 Host_WriteConfig
@@ -920,12 +1222,13 @@ void Host_WriteConfig( void )
 	kbutton_t	*jlook = NULL;
 	file_t	*f;
 
-	if( !clgame.hInstance ) return;
+	if( !clgame.hInstance || Sys_CheckParm( "-nowriteconfig" ) ) return;
 
-	MsgDev( D_NOTE, "Host_WriteConfig()\n" );
-	f = FS_Open( "config.cfg", "w", false );
+
+	f = FS_Open( "config.cfg.new", "w", false );
 	if( f )
 	{
+		Con_Reportf( "Host_WriteConfig()\n" );
 		FS_Printf( f, "//=======================================================================\n");
 		FS_Printf( f, "//\t\t\tCopyright XashXT Group %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\t\tconfig.cfg - archive of cvars\n" );
@@ -946,13 +1249,14 @@ void Host_WriteConfig( void )
 		if( jlook && ( jlook->state & 1 ))
 			FS_Printf( f, "+jlook\n" );
 
-		FS_Printf( f, "exec userconfig.cfg" );
+		FS_Printf( f, "exec userconfig.cfg\n" );
 
-		FS_Close( f );
+		CFG_END( f, "config.cfg" );
 	}
-	else MsgDev( D_ERROR, "Couldn't write config.cfg.\n" );
+	else Con_DPrintf( S_ERROR "Couldn't write config.cfg.\n" );
+
+	NET_SaveMasters();
 }
-#endif
 
 /*
 ===============
@@ -964,23 +1268,34 @@ save serverinfo variables into server.cfg (using for dedicated server too)
 void Host_WriteServerConfig( const char *name )
 {
 	file_t	*f;
+	string oldconfigfile, newconfigfile;
+
+	Q_snprintf( oldconfigfile, MAX_STRING, "%s.bak", name );
+	Q_snprintf( newconfigfile, MAX_STRING, "%s.new", name );
 
 	SV_InitGameProgs();	// collect user variables
 
 	// FIXME: move this out until menu parser is done
 	CSCR_LoadDefaultCVars( "settings.scr" );
 	
-	if(( f = FS_Open( name, "w", false )) != NULL )
+	if(( f = FS_Open( newconfigfile, "w", false )) != NULL )
 	{
 		FS_Printf( f, "//=======================================================================\n" );
 		FS_Printf( f, "//\t\t\tCopyright XashXT Group %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\tgame.cfg - multiplayer server temporare config\n" );
 		FS_Printf( f, "//=======================================================================\n" );
+
 		Cvar_WriteVariables( f, FCVAR_SERVER );
 		CSCR_WriteGameCVars( f, "settings.scr" );
+
 		FS_Close( f );
+
+		FS_Rename( name, oldconfigfile );
+		FS_Delete( name );
+		FS_Rename( newconfigfile, name );
+		FS_Delete( oldconfigfile );
 	}
-	else MsgDev( D_ERROR, "Couldn't write %s.\n", name );
+	else Con_DPrintf( S_ERROR "Couldn't write %s.\n", name );
 
 	SV_FreeGameProgs();	// release progs with all variables
 }
@@ -996,19 +1311,22 @@ void Host_WriteOpenGLConfig( void )
 {
 	file_t	*f;
 
-	MsgDev( D_NOTE, "Host_WriteGLConfig()\n" );
-	f = FS_Open( "opengl.cfg", "w", false );
+	if( Sys_CheckParm( "-nowriteconfig" ) )
+		return;
+
+	f = FS_Open( "opengl.cfg.new", "w", false );
 	if( f )
 	{
+		Con_Reportf( "Host_WriteGLConfig()\n" );
 		FS_Printf( f, "//=======================================================================\n" );
 		FS_Printf( f, "//\t\t\tCopyright XashXT Group %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\t    opengl.cfg - archive of opengl extension cvars\n");
 		FS_Printf( f, "//=======================================================================\n" );
 		FS_Printf( f, "\n" );
 		Cmd_WriteOpenGLVariables( f );
-		FS_Close( f );	
-	}                                                
-	else MsgDev( D_ERROR, "can't update opengl.cfg.\n" );
+		CFG_END( f, "opengl.cfg" );
+	}
+	else Con_DPrintf( S_ERROR "can't update opengl.cfg.\n" );
 }
 
 /*
@@ -1022,19 +1340,23 @@ void Host_WriteVideoConfig( void )
 {
 	file_t	*f;
 
-	MsgDev( D_NOTE, "Host_WriteVideoConfig()\n" );
-	f = FS_Open( "video.cfg", "w", false );
+	if( Sys_CheckParm( "-nowriteconfig" ) )
+		return;
+
+	f = FS_Open( "video.cfg.new", "w", false );
 	if( f )
 	{
+		Con_Reportf( "Host_WriteVideoConfig()\n" );
 		FS_Printf( f, "//=======================================================================\n" );
 		FS_Printf( f, "//\t\t\tCopyright XashXT Group %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\tvideo.cfg - archive of renderer variables\n");
 		FS_Printf( f, "//=======================================================================\n" );
 		Cvar_WriteVariables( f, FCVAR_RENDERINFO );
-		FS_Close( f );	
+		CFG_END( f, "video.cfg" );
 	}                                                
-	else MsgDev( D_ERROR, "can't update video.cfg.\n" );
+	else Con_DPrintf( S_ERROR "can't update video.cfg.\n" );
 }
+#endif // XASH_DEDICATED
 
 void Key_EnumCmds_f( void )
 {

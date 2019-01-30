@@ -43,6 +43,10 @@ struct movevars_s
 	int	features;		// engine features that shared across network
 	int	fog_settings;	// Global fog settings (packed color+density) 
 	float	wateralpha;	// World water alpha 1.0 - solid 0.0 - transparent
+	float	skydir_x;		// skybox rotate direction
+	float	skydir_y;		//
+	float	skydir_z;		//
+	float	skyangle;		// skybox rotate angle
 };
 
 extern movevars_t movevars;

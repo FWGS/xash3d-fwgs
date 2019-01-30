@@ -75,7 +75,7 @@ void SV_BroadcastPrintf( sv_client_t *ignore, char *fmt, ... )
 	if( Host_IsDedicated() )
 	{
 		// echo to console
-		Con_DPrintf( string );
+		Con_DPrintf( "%s", string );
 	}
 }
 
@@ -248,7 +248,8 @@ void SV_MapBackground_f( void )
 
 	if( SV_Active() && !sv.background )
 	{
-		MsgDev( D_ERROR, "can't set background map while game is active\n" );
+		if( GameState->nextstate == STATE_RUNFRAME )
+			Con_Printf( S_ERROR "can't set background map while game is active\n" );
 		return;
 	}
 
@@ -265,6 +266,57 @@ void SV_MapBackground_f( void )
 	Cvar_FullSet( "coop", "0", FCVAR_LATCH );
 
 	COM_LoadLevel( mapname, true );
+}
+
+/*
+==================
+SV_NextMap_f
+
+Change map for next in alpha-bethical ordering
+For development work
+==================
+*/
+void SV_NextMap_f( void )
+{
+	char	nextmap[MAX_QPATH];
+	int	i, next;
+	search_t	*t;
+
+	t = FS_Search( "maps/*.bsp", true, true ); // only in gamedir
+	if( !t )
+	{
+		Con_Printf( "next map can't be found\n" );
+		return;
+	}
+
+	for( i = 0; i < t->numfilenames; i++ )
+	{
+		const char *ext = COM_FileExtension( t->filenames[i] );
+
+		if( Q_stricmp( ext, "bsp" ))
+			continue;
+
+		COM_FileBase( t->filenames[i], nextmap );
+		if( Q_stricmp( sv_hostmap->string, nextmap ))
+			continue; 
+
+		next = ( i + 1 ) % t->numfilenames;
+		COM_FileBase( t->filenames[next], nextmap );
+		Cvar_DirectSet( sv_hostmap, nextmap );
+
+		// found current point, check for valid
+		if( SV_ValidateMap( nextmap, true ))
+		{
+			// found and valid
+			COM_LoadLevel( nextmap, false );
+			Mem_Free( t );
+			return;
+		}
+		// jump to next map
+	}
+
+	Con_Printf( "failed to load next map\n" );
+	Mem_Free( t );
 }
 
 /*
@@ -315,7 +367,7 @@ SV_Load_f
 */
 void SV_Load_f( void )
 {
-	string	path;
+	char	path[MAX_QPATH];
 
 	if( Cmd_Argc() != 2 )
 	{
@@ -437,6 +489,42 @@ void SV_Reload_f( void )
 
 	if( !SV_LoadGame( SV_GetLatestSave( )))
 		COM_LoadLevel( sv_hostmap->string, false );
+}
+
+/*
+==================
+SV_ChangeLevel_f
+
+classic change level
+==================
+*/
+void SV_ChangeLevel_f( void )
+{
+	if( Cmd_Argc() != 2 )
+	{
+		Con_Printf( S_USAGE "changelevel <mapname>\n" );
+		return;
+	}
+
+	SV_QueueChangeLevel( Cmd_Argv( 1 ), NULL );
+}
+
+/*
+==================
+SV_ChangeLevel2_f
+
+smooth change level
+==================
+*/
+void SV_ChangeLevel2_f( void )
+{
+	if( Cmd_Argc() != 3 )
+	{
+		Con_Printf( S_USAGE "changelevel2 <mapname> <landmark>\n" );
+		return;
+	}
+
+	SV_QueueChangeLevel( Cmd_Argv( 1 ), Cmd_Argv( 2 ));
 }
 
 /*
@@ -800,6 +888,9 @@ void SV_InitHostCommands( void )
 		Cmd_AddCommand( "map_background", SV_MapBackground_f, "set background map" );
 		Cmd_AddCommand( "load", SV_Load_f, "load a saved game file" );
 		Cmd_AddCommand( "loadquick", SV_QuickLoad_f, "load a quick-saved game file" );
+		Cmd_AddCommand( "reload", SV_Reload_f, "continue from latest save or restart level" );
+		Cmd_AddCommand( "killsave", SV_DeleteSave_f, "delete a saved game file and saveshot" );
+		Cmd_AddCommand( "nextmap", SV_NextMap_f, "load next level" );
 	}
 }
 
@@ -818,18 +909,18 @@ void SV_InitOperatorCommands( void )
 	Cmd_AddCommand( "clientinfo", SV_ClientInfo_f, "print user infostring (player num required)" );
 	Cmd_AddCommand( "playersonly", SV_PlayersOnly_f, "freezes time, except for players" );
 	Cmd_AddCommand( "restart", SV_Restart_f, "restarting current level" );
-	Cmd_AddCommand( "reload", SV_Reload_f, "continue from latest save or restart level" );
 	Cmd_AddCommand( "entpatch", SV_EntPatch_f, "write entity patch to allow external editing" );
 	Cmd_AddCommand( "edict_usage", SV_EdictUsage_f, "show info about edicts usage" );
 	Cmd_AddCommand( "entity_info", SV_EntityInfo_f, "show more info about edicts" );
 	Cmd_AddCommand( "shutdownserver", SV_KillServer_f, "shutdown current server" );
+	Cmd_AddCommand( "changelevel", SV_ChangeLevel_f, "change level" );
+	Cmd_AddCommand( "changelevel2", SV_ChangeLevel2_f, "smooth change level" );
 
 	if( host.type == HOST_NORMAL )
 	{
 		Cmd_AddCommand( "save", SV_Save_f, "save the game to a file" );
 		Cmd_AddCommand( "savequick", SV_QuickSave_f, "save the game to the quicksave" );
 		Cmd_AddCommand( "autosave", SV_AutoSave_f, "save the game to 'autosave' file" );
-		Cmd_AddCommand( "killsave", SV_DeleteSave_f, "delete a saved game file and saveshot" );
 	}
 	else if( host.type == HOST_DEDICATED )
 	{
@@ -852,17 +943,17 @@ void SV_KillOperatorCommands( void )
 	Cmd_RemoveCommand( "clientinfo" );
 	Cmd_RemoveCommand( "playersonly" );
 	Cmd_RemoveCommand( "restart" );
-	Cmd_RemoveCommand( "reload" );
 	Cmd_RemoveCommand( "entpatch" );
 	Cmd_RemoveCommand( "edict_usage" );
 	Cmd_RemoveCommand( "entity_info" );
 	Cmd_RemoveCommand( "shutdownserver" );
+	Cmd_RemoveCommand( "changelevel" );
+	Cmd_RemoveCommand( "changelevel2" );
 
 	if( host.type == HOST_NORMAL )
 	{
 		Cmd_RemoveCommand( "save" );
 		Cmd_RemoveCommand( "savequick" );
-		Cmd_RemoveCommand( "killsave" );
 		Cmd_RemoveCommand( "autosave" );
 	}
 	else if( host.type == HOST_DEDICATED )

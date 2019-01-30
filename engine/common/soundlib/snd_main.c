@@ -32,7 +32,7 @@ void Sound_Reset( void )
 
 wavdata_t *SoundPack( void )
 {
-	wavdata_t	*pack = Mem_Alloc( host.soundpool, sizeof( wavdata_t ));
+	wavdata_t	*pack = Mem_Calloc( host.soundpool, sizeof( wavdata_t ));
 
 	pack->buffer = sound.wav;
 	pack->width = sound.width;
@@ -59,7 +59,7 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 	const char	*ext = COM_FileExtension( filename );
 	string		path, loadname;
 	qboolean		anyformat = true;
-	int		filesize = 0;
+	size_t		filesize = 0;
 	const loadwavfmt_t	*format;
 	byte		*f;
 
@@ -117,10 +117,8 @@ load_internal:
 		}
 	}
 
-	if( !sound.loadformats || sound.loadformats->ext == NULL )
-		MsgDev( D_NOTE, "FS_LoadSound: soundlib offline\n" );
-	else if( filename[0] != '#' )
-		MsgDev( D_WARN, "FS_LoadSound: couldn't load \"%s\"\n", loadname );
+	if( filename[0] != '#' )
+		Con_DPrintf( S_WARN "FS_LoadSound: couldn't load \"%s\"\n", loadname );
 
 	return NULL;
 }
@@ -134,12 +132,9 @@ free WAV buffer
 */
 void FS_FreeSound( wavdata_t *pack )
 {
-	if( pack )
-	{
-		if( pack->buffer ) Mem_Free( pack->buffer );
-		Mem_Free( pack );
-	}
-	else MsgDev( D_WARN, "FS_FreeSound: trying to free NULL sound\n" );
+	if( !pack ) return;
+	if( pack->buffer ) Mem_Free( pack->buffer );
+	Mem_Free( pack );
 }
 
 /*
@@ -189,9 +184,7 @@ stream_t *FS_OpenStream( const char *filename )
 		}
 	}
 
-	if( !sound.streamformat || sound.streamformat->ext == NULL )
-		MsgDev( D_NOTE, "FS_OpenStream: soundlib offline\n" );
-	else MsgDev( D_NOTE, "FS_OpenStream: couldn't open \"%s\"\n", loadname );
+	Con_Reportf( "FS_OpenStream: couldn't open \"%s\"\n", loadname );
 
 	return NULL;
 }
@@ -230,7 +223,7 @@ FS_ReadStream
 extract stream as wav-data and put into buffer, move file pointer
 ================
 */
-long FS_ReadStream( stream_t *stream, int bytes, void *buffer )
+int FS_ReadStream( stream_t *stream, int bytes, void *buffer )
 {
 	if( !stream || !stream->format || !stream->format->readfunc )
 		return 0;
@@ -248,7 +241,7 @@ FS_GetStreamPos
 get stream position (in bytes)
 ================
 */
-long FS_GetStreamPos( stream_t *stream )
+int FS_GetStreamPos( stream_t *stream )
 {
 	if( !stream || !stream->format || !stream->format->getposfunc )
 		return -1;
@@ -263,7 +256,7 @@ FS_SetStreamPos
 set stream position (in bytes)
 ================
 */
-long FS_SetStreamPos( stream_t *stream, long newpos )
+int FS_SetStreamPos( stream_t *stream, int newpos )
 {
 	if( !stream || !stream->format || !stream->format->setposfunc )
 		return -1;

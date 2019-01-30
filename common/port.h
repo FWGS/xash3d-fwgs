@@ -67,15 +67,16 @@ GNU General Public License for more details.
 		#define SERVERDLL "libserver" POSTFIX "." OS_LIB_EXT
 		#define GAMEPATH "/sdcard/xash"
 	#else
-        #define MENUDLL "libxashmenu" ARCH_SUFFIX "." OS_LIB_EXT
-        #define CLIENTDLL "client" ARCH_SUFFIX "." OS_LIB_EXT
+	        #define MENUDLL "libmenu" ARCH_SUFFIX "." OS_LIB_EXT
+	        #define CLIENTDLL "client" ARCH_SUFFIX "." OS_LIB_EXT
 	#endif
 
 	#define VGUI_SUPPORT_DLL "libvgui_support." OS_LIB_EXT
 
 	// Windows-specific
 	#define __cdecl
-    #define __stdcall
+	#define __stdcall
+
 	#define _inline	static inline
 	#define O_BINARY 0 // O_BINARY is Windows extension
 	#define O_TEXT 0 // O_TEXT is Windows extension
@@ -118,6 +119,7 @@ GNU General Public License for more details.
 	#define strncasecmp _strnicmp
 	#define open _open
 	#define read _read
+	#define alloca _alloca
 
 	// shut-up compiler warnings
 	#pragma warning(disable : 4244)	// MIPS

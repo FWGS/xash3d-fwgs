@@ -176,7 +176,7 @@ SCR_RSpeeds
 */
 void SCR_RSpeeds( void )
 {
-	char	msg[MAX_SYSPATH];
+	char	msg[2048];
 
 	if( !host.allow_console )
 		return;
@@ -202,6 +202,9 @@ void SCR_RSpeeds( void )
 			Con_DrawString( x, y, p, color );
 			y += height;
 
+			// handle '\n\n'
+			if( *p == '\n' ) 
+				y += height;
 			if( end ) p = end + 1;
 			else break;
 		} while( 1 );
@@ -252,7 +255,6 @@ void SCR_MakeScreenShot( void )
 		iRet = VID_ScreenShot( cls.shotname, VID_LEVELSHOT );
 		break;
 	case scrshot_savegame:
-	case scrshot_demoshot:
 		iRet = VID_ScreenShot( cls.shotname, VID_MINISHOT );
 		break;
 	case scrshot_envshot:
@@ -273,9 +275,9 @@ void SCR_MakeScreenShot( void )
 	{
 		// snapshots don't writes message about image		
 		if( cls.scrshot_action != scrshot_snapshot )
-			MsgDev( D_REPORT, "Write %s\n", cls.shotname );
+			Con_Reportf( "Write %s\n", cls.shotname );
 	}
-	else MsgDev( D_ERROR, "Unable to write %s\n", cls.shotname );
+	else Con_Printf( S_ERROR "Unable to write %s\n", cls.shotname );
 
 	cls.envshot_vieworg = NULL;
 	cls.scrshot_action = scrshot_inactive;
@@ -293,7 +295,7 @@ void SCR_DrawPlaque( void )
 {
 	if(( cl_allow_levelshots->value && !cls.changelevel ) || cl.background )
 	{
-		int levelshot = GL_LoadTexture( cl_levelshot_name->string, NULL, 0, TF_IMAGE, NULL );
+		int levelshot = GL_LoadTexture( cl_levelshot_name->string, NULL, 0, TF_IMAGE );
 		GL_SetRenderMode( kRenderNormal );
 		R_DrawStretchPic( 0, 0, glState.width, glState.height, 0, 0, 1, 1, levelshot );
 		if( !cl.background ) CL_DrawHUD( CL_LOADING );
@@ -408,10 +410,10 @@ void SCR_TileClear( void )
 	if( clear.y2 <= clear.y1 )
 		return; // nothing disturbed
 
-	top = RI.viewport[1];
-	bottom = top + RI.viewport[3] - 1;
-	left = RI.viewport[0];
-	right = left + RI.viewport[2] - 1;
+	top = clgame.viewport[1];
+	bottom = top + clgame.viewport[3] - 1;
+	left = clgame.viewport[0];
+	right = left + clgame.viewport[2] - 1;
 
 	if( clear.y1 < top )
 	{	
@@ -493,7 +495,7 @@ qboolean SCR_LoadFixedWidthFont( const char *fontname )
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	cls.creditsFont.hFontTexture = GL_LoadTexture( fontname, NULL, 0, TF_IMAGE|TF_KEEP_SOURCE, NULL );
+	cls.creditsFont.hFontTexture = GL_LoadTexture( fontname, NULL, 0, TF_IMAGE|TF_KEEP_SOURCE );
 	R_GetTextureParms( &fontWidth, NULL, cls.creditsFont.hFontTexture );
 	cls.creditsFont.charHeight = clgame.scrInfo.iCharHeight = fontWidth / 16;
 	cls.creditsFont.type = FONT_FIXED;
@@ -525,7 +527,7 @@ qboolean SCR_LoadVariableWidthFont( const char *fontname )
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	cls.creditsFont.hFontTexture = GL_LoadTexture( fontname, NULL, 0, TF_IMAGE, NULL );
+	cls.creditsFont.hFontTexture = GL_LoadTexture( fontname, NULL, 0, TF_IMAGE );
 	R_GetTextureParms( &fontWidth, NULL, cls.creditsFont.hFontTexture );
 
 	// half-life font with variable chars witdh
@@ -577,7 +579,7 @@ void SCR_LoadCreditsFont( void )
 	if( !SCR_LoadVariableWidthFont( path ))
 	{
 		if( !SCR_LoadFixedWidthFont( "gfx/conchars" ))
-			MsgDev( D_ERROR, "failed to load HUD font\n" );
+			Con_DPrintf( S_ERROR "failed to load HUD font\n" );
 	}
 }
 
@@ -594,8 +596,8 @@ void SCR_InstallParticlePalette( void )
 	int	i;
 
 	// first check 'palette.lmp' then 'palette.pal'
-	pic = FS_LoadImage( "gfx/palette.lmp", NULL, 0 );
-	if( !pic ) pic = FS_LoadImage( "gfx/palette.pal", NULL, 0 );
+	pic = FS_LoadImage( DEFAULT_INTERNAL_PALETTE, NULL, 0 );
+	if( !pic ) pic = FS_LoadImage( DEFAULT_EXTERNAL_PALETTE, NULL, 0 );
 
 	// NOTE: imagelib required this fakebuffer for loading internal palette
 	if( !pic ) pic = FS_LoadImage( "#valve.pal", (byte *)&i, 768 );
@@ -612,13 +614,13 @@ void SCR_InstallParticlePalette( void )
 	}
 	else
 	{
+		// someone deleted internal palette from code...
 		for( i = 0; i < 256; i++ )
 		{
 			clgame.palette[i].r = i;
 			clgame.palette[i].g = i;
 			clgame.palette[i].b = i;
 		}
-		MsgDev( D_WARN, "CL_InstallParticlePalette: failed. Force to grayscale\n" );
 	}
 }
 
@@ -634,24 +636,24 @@ void SCR_RegisterTextures( void )
 	// register gfx.wad images
 
 	if( FS_FileExists( "gfx/paused.lmp", false ))
-		cls.pauseIcon = GL_LoadTexture( "gfx/paused.lmp", NULL, 0, TF_IMAGE, NULL );
+		cls.pauseIcon = GL_LoadTexture( "gfx/paused.lmp", NULL, 0, TF_IMAGE );
 	else if( FS_FileExists( "gfx/pause.lmp", false ))
-		cls.pauseIcon = GL_LoadTexture( "gfx/pause.lmp", NULL, 0, TF_IMAGE, NULL );
+		cls.pauseIcon = GL_LoadTexture( "gfx/pause.lmp", NULL, 0, TF_IMAGE );
 
 	if( FS_FileExists( "gfx/lambda.lmp", false ))
 	{
 		if( cl_allow_levelshots->value )
-			cls.loadingBar = GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE, NULL );
-		else cls.loadingBar = GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE, NULL ); 
+			cls.loadingBar = GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE );
+		else cls.loadingBar = GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE ); 
 	}
 	else if( FS_FileExists( "gfx/loading.lmp", false ))
 	{
 		if( cl_allow_levelshots->value )
-			cls.loadingBar = GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE, NULL );
-		else cls.loadingBar = GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE, NULL ); 
+			cls.loadingBar = GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE );
+		else cls.loadingBar = GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE ); 
 	}
 	
-	cls.tileImage = GL_LoadTexture( "gfx/backtile.lmp", NULL, 0, TF_NOMIPMAP, NULL );
+	cls.tileImage = GL_LoadTexture( "gfx/backtile.lmp", NULL, 0, TF_NOMIPMAP );
 }
 
 /*
@@ -718,7 +720,6 @@ void SCR_Init( void )
 {
 	if( scr_init ) return;
 
-	MsgDev( D_NOTE, "SCR_Init()\n" );
 	scr_centertime = Cvar_Get( "scr_centertime", "2.5", 0, "centerprint hold time" );
 	cl_levelshot_name = Cvar_Get( "cl_levelshot_name", "*black", 0, "contains path to current levelshot" );
 	cl_allow_levelshots = Cvar_Get( "allow_levelshots", "0", FCVAR_ARCHIVE, "allow engine to use indivdual levelshots instead of 'loading' image" );
@@ -732,6 +733,7 @@ void SCR_Init( void )
 	// register our commands
 	Cmd_AddCommand( "timerefresh", SCR_TimeRefresh_f, "turn quickly and print rendering statistcs" );
 	Cmd_AddCommand( "skyname", CL_SetSky_f, "set new skybox by basename" );
+	Cmd_AddCommand( "loadsky", CL_SetSky_f, "set new skybox by basename" );
 	Cmd_AddCommand( "viewpos", SCR_Viewpos_f, "prints current player origin" );
 	Cmd_AddCommand( "sizeup", SCR_SizeUp_f, "screen size up to 10 points" );
 	Cmd_AddCommand( "sizedown", SCR_SizeDown_f, "screen size down to 10 points" );
@@ -742,12 +744,12 @@ void SCR_Init( void )
 		host.allow_console = true; // we need console, because menu is missing
 	}
 
+	SCR_VidInit();
 	SCR_LoadCreditsFont ();
-	SCR_InstallParticlePalette ();
 	SCR_RegisterTextures ();
+	SCR_InstallParticlePalette ();
 	SCR_InitCinematic();
 	CL_InitNetgraph();
-	SCR_VidInit();
 
 	if( host.allow_console && Sys_CheckParm( "-toconsole" ))
 		Cbuf_AddText( "toggleconsole\n" );
@@ -760,7 +762,6 @@ void SCR_Shutdown( void )
 {
 	if( !scr_init ) return;
 
-	MsgDev( D_NOTE, "SCR_Shutdown()\n" );
 	Cmd_RemoveCommand( "timerefresh" );
 	Cmd_RemoveCommand( "skyname" );
 	Cmd_RemoveCommand( "viewpos" );
