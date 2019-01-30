@@ -1425,7 +1425,7 @@ void CL_Reconnect( qboolean setup_netchan )
 		{
 			cls.extensions = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "ext" ));
 
-			if( cls.extensions & NET_LEGACY_EXT_SPLIT )
+			if( cls.extensions & NET_EXT_SPLITSIZE )
 			{
 				Con_Reportf( "^2NET_EXT_SPLITSIZE enabled^7 (packet size is %d)\n", (int)cl_dlmax->value );
 			}
