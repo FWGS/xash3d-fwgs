@@ -84,7 +84,7 @@ GNU General Public License for more details.
 #define NUM_PACKET_ENTITIES		256	// 170 Mb for multiplayer with 32 players
 #define MAX_CUSTOM_BASELINES		64
 
-#define NET_EXT_SPLIT		(1U<<1)
+#define NET_LEGACY_EXT_SPLIT		(1U<<1)
 #define NETSPLIT_BACKUP 8
 #define NETSPLIT_BACKUP_MASK (NETSPLIT_BACKUP - 1)
 #define NETSPLIT_HEADER_SIZE 18
