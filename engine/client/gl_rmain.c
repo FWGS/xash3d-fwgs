@@ -21,11 +21,10 @@ GNU General Public License for more details.
 #include "beamdef.h"
 #include "particledef.h"
 #include "entity_types.h"
+#include "platform/platform.h"
 
 #define IsLiquidContents( cnt )	( cnt == CONTENTS_WATER || cnt == CONTENTS_SLIME || cnt == CONTENTS_LAVA )
 
-msurface_t	*r_debug_surface;
-const char	*r_debug_hitbox;
 float		gldepthmin, gldepthmax;
 ref_instance_t	RI;
 
@@ -207,7 +206,7 @@ void R_PushScene( void )
 
 /*
 ===============
-R_PushScene
+R_PopScene
 ===============
 */
 void R_PopScene( void )
@@ -242,10 +241,10 @@ qboolean R_AddEntity( struct cl_entity_s *clent, int type )
 	if( !clent || !clent->model )
 		return false; // if set to invisible, skip
 
-	if( clent->curstate.effects & EF_NODRAW )
+	if( FBitSet( clent->curstate.effects, EF_NODRAW ))
 		return false; // done
 
-	if( clent->curstate.rendermode != kRenderNormal && CL_FxBlend( clent ) <= 0 )
+	if( !R_ModelOpaque( clent->curstate.rendermode ) && CL_FxBlend( clent ) <= 0 )
 		return true; // invisible
 
 	if( type == ET_FRAGMENTED )
@@ -541,7 +540,7 @@ void R_SetupGL( qboolean set_gl_state )
 	pglMatrixMode( GL_MODELVIEW );
 	GL_LoadMatrix( RI.worldviewMatrix );
 
-	if( RI.params & RP_CLIPPLANE )
+	if( FBitSet( RI.params, RP_CLIPPLANE ))
 	{
 		GLdouble	clip[4];
 		mplane_t	*p = &RI.clipPlane;
@@ -581,9 +580,9 @@ using to find source waterleaf with
 watertexture to grab fog values from it
 =============
 */
-static gltexture_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mnode_t *ignore, qboolean down )
+static gl_texture_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mnode_t *ignore, qboolean down )
 {
-	gltexture_t *tex = NULL;
+	gl_texture_t *tex = NULL;
 
 	// assure the initial node is not null
 	// we could check it here, but we would rather check it 
@@ -656,17 +655,25 @@ from underwater leaf (idea: XaeroX)
 static void R_CheckFog( void )
 {
 	cl_entity_t	*ent;
-	gltexture_t	*tex;
+	gl_texture_t	*tex;
 	int		i, cnt, count;
 
 	// quake global fog
-	if( clgame.movevars.fog_settings != 0 && FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+	if( Host_IsQuakeCompatible( ))
 	{
+		if( !clgame.movevars.fog_settings )
+		{
+			if( pglIsEnabled( GL_FOG ))
+				pglDisable( GL_FOG );
+			RI.fogEnabled = false;
+			return;
+		}
+
 		// quake-style global fog
 		RI.fogColor[0] = ((clgame.movevars.fog_settings & 0xFF000000) >> 24) / 255.0f;
 		RI.fogColor[1] = ((clgame.movevars.fog_settings & 0xFF0000) >> 16) / 255.0f;
 		RI.fogColor[2] = ((clgame.movevars.fog_settings & 0xFF00) >> 8) / 255.0f;
-		RI.fogDensity = ((clgame.movevars.fog_settings & 0xFF) / 255.0f) * 0.015625f;
+		RI.fogDensity = ((clgame.movevars.fog_settings & 0xFF) / 255.0f) * 0.01f;
 		RI.fogStart = RI.fogEnd = 0.0f;
 		RI.fogColor[3] = 1.0f;
 		RI.fogCustom = false;
@@ -675,15 +682,6 @@ static void R_CheckFog( void )
 		return;
 	}
 
-#ifdef HACKS_RELATED_HLMODS
-	// special condition for Spirit 1.9 that used direct calls of glFog-functions
-	if(( !RI.fogEnabled && !RI.fogCustom ) && pglIsEnabled( GL_FOG ) && VectorIsNull( RI.fogColor ))
-	{
-		// fill the fog color from GL-state machine
-		pglGetFloatv( GL_FOG_COLOR, RI.fogColor );
-		RI.fogSkybox = true;
-	}
-#endif
 	RI.fogEnabled = false;
 
 	if( RI.onlyClientDraw || cl.local.waterlevel < 3 || !RI.drawWorld || !RI.viewleaf )
@@ -755,6 +753,26 @@ static void R_CheckFog( void )
 
 /*
 =============
+R_CheckGLFog
+
+special condition for Spirit 1.9
+that used direct calls of glFog-functions
+=============
+*/
+static void R_CheckGLFog( void )
+{
+#ifdef HACKS_RELATED_HLMODS
+	if(( !RI.fogEnabled && !RI.fogCustom ) && pglIsEnabled( GL_FOG ) && VectorIsNull( RI.fogColor ))
+	{
+		// fill the fog color from GL-state machine
+		pglGetFloatv( GL_FOG_COLOR, RI.fogColor );
+		RI.fogSkybox = true;
+	}
+#endif
+}
+
+/*
+=============
 R_DrawFog
 
 =============
@@ -764,7 +782,9 @@ void R_DrawFog( void )
 	if( !RI.fogEnabled ) return;
 
 	pglEnable( GL_FOG );
-	pglFogi( GL_FOG_MODE, GL_EXP );
+	if( Host_IsQuakeCompatible( ))
+		pglFogi( GL_FOG_MODE, GL_EXP2 );
+	else pglFogi( GL_FOG_MODE, GL_EXP );
 	pglFogf( GL_FOG_DENSITY, RI.fogDensity );
 	pglFogfv( GL_FOG_COLOR, RI.fogColor );
 	pglHint( GL_FOG_HINT, GL_NICEST );
@@ -939,7 +959,8 @@ void R_RenderScene( void )
 
 	R_MarkLeaves();
 	R_DrawFog ();
-	
+
+	R_CheckGLFog();	
 	R_DrawWorld();
 	R_CheckFog();
 
@@ -977,7 +998,6 @@ qboolean R_DoResetGamma( void )
 		return false;
 	case scrshot_plaque:
 	case scrshot_savegame:
-	case scrshot_demoshot:
 	case scrshot_envshot:
 	case scrshot_skyshot:
 	case scrshot_mapshot:
@@ -1084,8 +1104,13 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 	if( gl_finish->value && RI.drawWorld )
 		pglFinish();
 
-	if( glConfig.max_multisamples > 1 )
-		pglEnable( GL_MULTISAMPLE_ARB );
+	if( glConfig.max_multisamples > 1 && FBitSet( gl_msaa->flags, FCVAR_CHANGED ))
+	{
+		if( CVAR_TO_BOOL( gl_msaa ))
+			pglEnable( GL_MULTISAMPLE_ARB );
+		else pglDisable( GL_MULTISAMPLE_ARB );
+		ClearBits( gl_msaa->flags, FCVAR_CHANGED );
+	}
 
 	// completely override rendering
 	if( clgame.drawFuncs.GL_RenderFrame != NULL )
@@ -1094,6 +1119,7 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 
 		if( clgame.drawFuncs.GL_RenderFrame( rvp ))
 		{
+			R_GatherPlayerLight();
 			tr.realframecount++;
 			tr.fResetVis = true;
 			return;
@@ -1154,7 +1180,7 @@ void R_DrawCubemapView( const vec3_t origin, const vec3_t angles, int size )
 
 static int GL_RenderGetParm( int parm, int arg )
 {
-	gltexture_t *glt;
+	gl_texture_t *glt;
 
 	switch( parm )
 	{
@@ -1197,6 +1223,8 @@ static int GL_RenderGetParm( int parm, int arg )
 		return tr.lightmapTextures[arg];
 	case PARM_SKY_SPHERE:
 		return FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX );
+	case PARAM_GAMEPAUSED:
+		return cl.paused;
 	case PARM_WIDESCREEN:
 		return glState.wideScreen;
 	case PARM_FULLSCREEN:
@@ -1253,7 +1281,7 @@ static int GL_RenderGetParm( int parm, int arg )
 
 static void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScale )
 {
-	gltexture_t *glt = R_GetTexture( texture );
+	gl_texture_t *glt = R_GetTexture( texture );
 
 	if( xScale ) *xScale = glt->xscale;
 	if( yScale ) *yScale = glt->yscale;
@@ -1261,7 +1289,7 @@ static void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScal
 
 static void R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
 {
-	gltexture_t *glt = R_GetTexture( texture );
+	gl_texture_t *glt = R_GetTexture( texture );
 
 	if( red ) *red = glt->fogParams[0];
 	if( green ) *green = glt->fogParams[1];
@@ -1279,16 +1307,13 @@ static void R_EnvShot( const float *vieworg, const char *name, qboolean skyshot,
 {
 	static vec3_t viewPoint;
 
-	if( !name )
-	{
-		MsgDev( D_ERROR, "R_%sShot: bad name\n", skyshot ? "Sky" : "Env" );
+	if( !COM_CheckString( name ))
 		return; 
-	}
 
 	if( cls.scrshot_action != scrshot_inactive )
 	{
 		if( cls.scrshot_action != scrshot_skyshot && cls.scrshot_action != scrshot_envshot )
-			MsgDev( D_ERROR, "R_%sShot: subsystem is busy, try later.\n", skyshot ? "Sky" : "Env" );
+			Con_Printf( S_ERROR "R_%sShot: subsystem is busy, try for next frame.\n", skyshot ? "Sky" : "Env" );
 		return;
 	}
 
@@ -1369,16 +1394,6 @@ const byte *GL_TextureData( unsigned int texnum )
 	return NULL;	
 }
 
-static int GL_LoadTextureNoFilter( const char *name, const byte *buf, size_t size, int flags )
-{
-	return GL_LoadTexture( name, buf, size, flags, NULL );	
-}
-
-static int GL_LoadTextureArrayNoFilter( const char **names, int flags )
-{
-	return GL_LoadTextureArray( names, flags, NULL );	
-}
-
 static const ref_overview_t *GL_GetOverviewParms( void )
 {
 	return &clgame.overView;
@@ -1386,7 +1401,7 @@ static const ref_overview_t *GL_GetOverviewParms( void )
 
 static void *R_Mem_Alloc( size_t cb, const char *filename, const int fileline )
 {
-	return _Mem_Alloc( cls.mempool, cb, filename, fileline );
+	return _Mem_Alloc( cls.mempool, cb, true, filename, fileline );
 }
 
 static void R_Mem_Free( void *mem, const char *filename, const int fileline )
@@ -1461,22 +1476,22 @@ static render_api_t gRenderAPI =
 	GL_FindTexture,
 	GL_TextureName,
 	GL_TextureData,
-	GL_LoadTextureNoFilter,
+	GL_LoadTexture,
 	GL_CreateTexture,
-	GL_LoadTextureArrayNoFilter,
+	GL_LoadTextureArray,
 	GL_CreateTextureArray,
 	GL_FreeTexture,
 	DrawSingleDecal,
 	R_DecalSetupVerts,
 	R_EntityRemoveDecals,
-	(void*)AVI_LoadVideoNoSound,
+	(void*)AVI_LoadVideo,
 	(void*)AVI_GetVideoInfo,
 	(void*)AVI_GetVideoFrameNumber,
 	(void*)AVI_GetVideoFrame,
 	R_UploadStretchRaw,
 	(void*)AVI_FreeVideo,
 	(void*)AVI_IsActive,
-	NULL,
+	S_StreamAviSamples,
 	NULL,
 	NULL,
 	GL_Bind,
@@ -1488,7 +1503,7 @@ static render_api_t gRenderAPI =
 	GL_TextureTarget,
 	GL_SetTexCoordArrayMode,
 	GL_GetProcAddress,
-	NULL,
+	GL_UpdateTexSize,
 	NULL,
 	NULL,
 	CL_DrawParticlesExternal,
@@ -1529,7 +1544,7 @@ qboolean R_InitRenderAPI( void )
 	{
 		if( clgame.dllFuncs.pfnGetRenderInterface( CL_RENDER_INTERFACE_VERSION, &gRenderAPI, &clgame.drawFuncs ))
 		{
-			MsgDev( D_REPORT, "CL_LoadProgs: ^2initailized extended RenderAPI ^7ver. %i\n", CL_RENDER_INTERFACE_VERSION );
+			Con_Reportf( "CL_LoadProgs: ^2initailized extended RenderAPI ^7ver. %i\n", CL_RENDER_INTERFACE_VERSION );
 			return true;
 		}
 

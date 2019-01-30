@@ -138,7 +138,7 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 			}
 
 			// if we are full, silently discard entities
-			if( ents->num_entities < MAX_VISIBLE_PACKET )
+			if( ents->num_entities < ( MAX_VISIBLE_PACKET - 1 ))
 			{
 				ents->num_entities++;	// entity accepted
 				c_fullsend++;		// debug counter
@@ -172,6 +172,13 @@ Encode a client frame onto the network channel
 
 =============================================================================
 */
+/*
+=============
+SV_FindBestBaseline
+
+trying to deltas with previous entities
+=============
+*/
 int SV_FindBestBaseline( sv_client_t *cl, int index, entity_state_t **baseline, entity_state_t *to, client_frame_t *frame, qboolean player )
 {
 	int	bestBitCount;
@@ -202,6 +209,43 @@ int SV_FindBestBaseline( sv_client_t *cl, int index, entity_state_t **baseline, 
 	// using delta from previous entity as baseline for current
 	if( index != bestfound )
 		*baseline = &svs.packet_entities[(frame->first_entity+bestfound) % svs.num_client_entities];
+	return index - bestfound;
+}
+
+/*
+=============
+SV_FindBestBaselineForStatic
+
+trying to deltas with previous static entities
+=============
+*/
+int SV_FindBestBaselineForStatic( int index, entity_state_t **baseline, entity_state_t *to )
+{
+	int	bestBitCount;
+	int	i, bitCount;
+	int	bestfound, j;
+
+	bestBitCount = j = Delta_TestBaseline( *baseline, to, false, sv.time );
+	bestfound = index;
+
+	// lookup backward for previous 64 states and try to interpret current delta as baseline
+	for( i = index - 1; bestBitCount > 0 && i >= 0 && ( index - i ) < ( MAX_CUSTOM_BASELINES - 1 ); i-- )
+	{
+		// don't worry about underflow in circular buffer
+		entity_state_t	*test = &svs.static_entities[i];
+
+		bitCount = Delta_TestBaseline( test, to, false, sv.time );
+
+		if( bitCount < bestBitCount )
+		{
+			bestBitCount = bitCount;
+			bestfound = i;
+		}
+	}
+
+	// using delta from previous entity as baseline for current
+	if( index != bestfound )
+		*baseline = &svs.static_entities[bestfound];
 	return index - bestfound;
 }
 
@@ -685,7 +729,7 @@ void SV_SendClientDatagram( sv_client_t *cl )
 	{
 		if( MSG_GetNumBytesWritten( &cl->datagram ) < MSG_GetNumBytesLeft( &msg ))
 			MSG_WriteBits( &msg, MSG_GetData( &cl->datagram ), MSG_GetNumBitsWritten( &cl->datagram ));
-		else MsgDev( D_WARN, "Ignoring unreliable datagram for %s, would overflow on msg\n", cl->name );
+		else Con_DPrintf( S_WARN "Ignoring unreliable datagram for %s, would overflow on msg\n", cl->name );
 	}
 
 	MSG_Clear( &cl->datagram );
@@ -747,14 +791,14 @@ void SV_UpdateToReliableMessages( void )
 	// clear the server datagram if it overflowed.
 	if( MSG_CheckOverflow( &sv.datagram ))
 	{
-		MsgDev( D_ERROR, "sv.datagram overflowed!\n" );
+		Con_DPrintf( S_ERROR "sv.datagram overflowed!\n" );
 		MSG_Clear( &sv.datagram );
 	}
 
 	// clear the server datagram if it overflowed.
 	if( MSG_CheckOverflow( &sv.spec_datagram ))
 	{
-		MsgDev( D_ERROR, "sv.spec_datagram overflowed!\n" );
+		Con_DPrintf( S_ERROR "sv.spec_datagram overflowed!\n" );
 		MSG_Clear( &sv.spec_datagram );
 	}
 
@@ -779,7 +823,7 @@ void SV_UpdateToReliableMessages( void )
 		}
 		else
 		{
-			MsgDev( D_WARN, "Ignoring unreliable datagram for %s, would overflow\n", cl->name );
+			Con_DPrintf( S_WARN "Ignoring unreliable datagram for %s, would overflow\n", cl->name );
 		}
 
 		if( FBitSet( cl->flags, FCL_HLTV_PROXY ))
@@ -790,7 +834,7 @@ void SV_UpdateToReliableMessages( void )
 			}
 			else
 			{
-				MsgDev( D_WARN, "Ignoring spectator datagram for %s, would overflow\n", cl->name );
+				Con_DPrintf( S_WARN "Ignoring spectator datagram for %s, would overflow\n", cl->name );
 			}
 		}
 	}
@@ -845,7 +889,7 @@ void SV_SendClientMessages( void )
 			MSG_Clear( &cl->netchan.message );
 			MSG_Clear( &cl->datagram );
 			SV_BroadcastPrintf( NULL, "%s overflowed\n", cl->name );
-			MsgDev( D_WARN, "reliable overflow for %s\n", cl->name );
+			Con_DPrintf( S_ERROR "reliable overflow for %s\n", cl->name );
 			SV_DropClient( cl, false );
 			SetBits( cl->flags, FCL_SEND_NET_MESSAGE );
 			cl->netchan.cleartime = 0.0;	// don't choke this message
@@ -962,6 +1006,12 @@ void SV_InactivateClients( void )
 
 		COM_ClearCustomizationList( &cl->customdata, false );
 		memset( cl->physinfo, 0, MAX_PHYSINFO_STRING );
+
+		// NOTE: many mods sending messages that must be applied on a next level
+		// e.g. CryOfFear sending HideHud and PlayMp3 that affected after map change
+		if( svgame.globals->changelevel )
+			continue;
+
 		MSG_Clear( &cl->netchan.message );
 		MSG_Clear( &cl->datagram );
 	}

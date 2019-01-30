@@ -117,6 +117,9 @@ void Image_DXTGetPixelFormat( dds_t *hdr )
 		case TYPE_DXT5:
 			image.type = PF_DXT5;
 			break;
+		case TYPE_ATI2:
+			image.type = PF_ATI2;
+			break;
 		default:
 			image.type = PF_UNKNOWN; // assume error
 			break;
@@ -157,7 +160,8 @@ size_t Image_DXTGetLinearSize( int type, int width, int height, int depth )
 	{
 	case PF_DXT1: return ((( width + 3 ) / 4 ) * (( height + 3 ) / 4 ) * depth * 8 );
 	case PF_DXT3:
-	case PF_DXT5: return ((( width + 3 ) / 4 ) * (( height + 3 ) / 4 ) * depth * 16 );
+	case PF_DXT5:
+	case PF_ATI2: return ((( width + 3 ) / 4 ) * (( height + 3 ) / 4 ) * depth * 16 );
 	case PF_BGR_24:
 	case PF_RGB_24: return (width * height * depth * 3);
 	case PF_BGRA_32:
@@ -213,8 +217,9 @@ uint Image_DXTCalcSize( const char *name, dds_t *hdr, size_t filesize )
 
 	if( filesize != buffsize ) // main check
 	{
-		MsgDev( D_WARN, "Image_LoadDDS: (%s) probably corrupted(%i should be %i)\n", name, buffsize, filesize );
-		return false;
+		Con_DPrintf( S_WARN "Image_LoadDDS: (%s) probably corrupted (%i should be %i)\n", name, buffsize, filesize );
+		if( buffsize > filesize )
+			return false;
 	}
 
 	return buffsize;
@@ -240,10 +245,7 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, size_t filesize )
 	byte	*fin;
 
 	if( filesize < sizeof( dds_t ))
-	{
-		MsgDev( D_ERROR, "Image_LoadDDS: file (%s) have invalid size\n", name );
 		return false;
-	}
 
 	memcpy( &header, buffer, sizeof( dds_t ));
 
@@ -252,13 +254,13 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, size_t filesize )
 
 	if( header.dwSize != sizeof( dds_t ) - sizeof( uint )) // size of the structure (minus MagicNum)
 	{
-		MsgDev( D_ERROR, "Image_LoadDDS: (%s) have corrupted header\n", name );
+		Con_DPrintf( S_ERROR "Image_LoadDDS: (%s) have corrupted header\n", name );
 		return false;
 	}
 
 	if( header.dsPixelFormat.dwSize != sizeof( dds_pixf_t )) // size of the structure
 	{
-		MsgDev( D_ERROR, "Image_LoadDDS: (%s) have corrupt pixelformat header\n", name );
+		Con_DPrintf( S_ERROR "Image_LoadDDS: (%s) have corrupt pixelformat header\n", name );
 		return false;
 	}
 
@@ -274,12 +276,12 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, size_t filesize )
 	Image_DXTGetPixelFormat( &header ); // and image type too :)
 	Image_DXTAdjustVolume( &header );
 
-	if( !Image_CheckFlag( IL_DDS_HARDWARE ) && ( image.type == PF_DXT1 || image.type == PF_DXT3 || image.type == PF_DXT5 ))
+	if( !Image_CheckFlag( IL_DDS_HARDWARE ) && ImageDXT( image.type ))
 		return false; // silently rejected
 
 	if( image.type == PF_UNKNOWN ) 
 	{
-		MsgDev( D_WARN, "Image_LoadDDS: (%s) has unrecognized type\n", name );
+		Con_DPrintf( S_ERROR "Image_LoadDDS: (%s) has unrecognized type\n", name );
 		return false;
 	}
 
@@ -322,9 +324,9 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, size_t filesize )
 	}
 
 	// dds files will be uncompressed on a render. requires minimal of info for set this
-	image.rgba = Mem_Alloc( host.imagepool, image.size ); 
+	image.rgba = Mem_Malloc( host.imagepool, image.size ); 
 	memcpy( image.rgba, fin, image.size );
-	image.flags |= IMAGE_DDS_FORMAT;
+	SetBits( image.flags, IMAGE_DDS_FORMAT );
 
 	return true;
 }

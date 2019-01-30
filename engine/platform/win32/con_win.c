@@ -270,7 +270,7 @@ void Wcon_CreateConsole( void )
 	string	FontName;
 
 	wc.style         = 0;
-	wc.lpfnWndProc   = (WNDPROC)Con_WndProc;
+	wc.lpfnWndProc   = (WNDPROC)Wcon_WndProc;
 	wc.cbClsExtra    = 0;
 	wc.cbWndExtra    = 0;
 	wc.hInstance     = host.hInst;
@@ -290,7 +290,7 @@ void Wcon_CreateConsole( void )
 		rect.top = 0;
 		rect.bottom = 364;
 		Q_strncpy( FontName, "Fixedsys", sizeof( FontName ));
-		Q_strncpy( s_wcd.title, va( "Xash3D %g", XASH_VERSION ), sizeof( s_wcd.title ));
+		Q_strncpy( s_wcd.title, va( "Xash3D %s", XASH_VERSION ), sizeof( s_wcd.title ));
 		Q_strncpy( s_wcd.log_path, "engine.log", sizeof( s_wcd.log_path ));
 		fontsize = 8;
 	}
@@ -301,7 +301,7 @@ void Wcon_CreateConsole( void )
 		rect.top = 0;
 		rect.bottom = 392;
 		Q_strncpy( FontName, "System", sizeof( FontName ));
-		Q_strncpy( s_wcd.title, "Xash Dedicated Server", sizeof( s_wcd.title ));
+		Q_strncpy( s_wcd.title, va( "XashDS %s", XASH_VERSION ), sizeof( s_wcd.title ));
 		Q_strncpy( s_wcd.log_path, "dedicated.log", sizeof( s_wcd.log_path ));
 		s_wcd.log_active = true; // always make log
 		fontsize = 14;
@@ -310,7 +310,7 @@ void Wcon_CreateConsole( void )
 	if( !RegisterClass( &wc ))
 	{
 		// print into log
-		MsgDev( D_ERROR, "Can't register window class '%s'\n", SYSCONSOLE );
+		Con_Reportf( S_ERROR  "Can't register window class '%s'\n", SYSCONSOLE );
 		return;
 	} 
 
@@ -327,7 +327,7 @@ void Wcon_CreateConsole( void )
 	s_wcd.hWnd = CreateWindowEx( WS_EX_DLGMODALFRAME, SYSCONSOLE, s_wcd.title, DEDSTYLE, ( swidth - 600 ) / 2, ( sheight - 450 ) / 2 , rect.right - rect.left + 1, rect.bottom - rect.top + 1, NULL, NULL, host.hInst, NULL );
 	if( s_wcd.hWnd == NULL )
 	{
-		MsgDev( D_ERROR, "Can't create window '%s'\n", s_wcd.title );
+		Con_Reportf( S_ERROR  "Can't create window '%s'\n", s_wcd.title );
 		return;
 	}
 
@@ -356,7 +356,7 @@ void Wcon_CreateConsole( void )
 	{
 		s_wcd.SysInputLineWndProc = (WNDPROC)SetWindowLong( s_wcd.hwndInputLine, GWL_WNDPROC, (long)Wcon_InputLineProc );
 		SendMessage( s_wcd.hwndInputLine, WM_SETFONT, ( WPARAM )s_wcd.hfBufferFont, 0 );
-          }
+	}
 
 	// show console if needed
 	if( host.con_showalways )
@@ -370,7 +370,7 @@ void Wcon_CreateConsole( void )
 			SetFocus( s_wcd.hWnd );
 		else SetFocus( s_wcd.hwndInputLine );
 		s_wcd.status = true;
-          }
+	}
 	else s_wcd.status = false;
 }
 
@@ -384,7 +384,7 @@ register console commands (dedicated only)
 void Wcon_InitConsoleCommands( void )
 {
 	if( host.type != HOST_DEDICATED ) return;
-	Cmd_AddCommand( "clear", Con_Clear_f, "clear console history" );
+	Cmd_AddCommand( "clear", Wcon_Clear_f, "clear console history" );
 }
 
 /*
@@ -397,7 +397,7 @@ destroy win32 console
 void Wcon_DestroyConsole( void )
 {
 	// last text message into console or log 
-	MsgDev( D_NOTE, "Sys_FreeLibrary: Unloading xash.dll\n" );
+	Con_Reportf( "Sys_FreeLibrary: Unloading xash.dll\n" );
 
 	Sys_CloseLog();
 

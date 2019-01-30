@@ -55,17 +55,6 @@ infotable	dlumpinfo_t[dwadinfo_t->numlumps]
 #define TYP_COLORMAP2	69	// old stuff. build palette from LBM file (not used)
 #define TYP_QFONT		70	// half-life font (qfont_t)
 
-// dlumpinfo_t->img_type
-#define IMG_DIFFUSE		0	// same as default pad1 always equal 0
-#define IMG_ALPHAMASK	1	// alpha-channel that stored separate as luminance texture
-#define IMG_NORMALMAP	2	// indexed normalmap
-#define IMG_GLOSSMAP	3	// luminance or color specularity map
-#define IMG_GLOSSPOWER	4	// gloss power map (each value is a specular pow)
-#define IMG_HEIGHTMAP	5	// heightmap (for parallax occlusion mapping or source of normalmap)
-#define IMG_LUMA		6	// luma or glow texture with self-illuminated parts
-#define IMG_DECAL_ALPHA	7	// it's a decal texture (last color in palette is base color, and other colors his graduations)
-#define IMG_DECAL_COLOR	8	// decal without alpha-channel uses base, like 127 127 127 as transparent color
-
 /*
 ========================================================================
 

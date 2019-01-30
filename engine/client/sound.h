@@ -81,6 +81,8 @@ extern byte *sndpool;
 #define S_RAW_SOUND_SOUNDTRACK	-1
 #define S_RAW_SAMPLES_PRECISION_BITS	14
 
+#define CIN_FRAMETIME		(1.0f / 30.0f)
+
 typedef struct
 {
 	int			left;
@@ -164,6 +166,8 @@ typedef struct rawchan_s
 	vec3_t			origin;		// only use if fixed_origin is set
 	float			radius;		// radius of this sound effect
 	volatile uint		s_rawend;
+	wavdata_t			sound_info;	// advance play position
+	float			oldtime;		// catch time jumps
 	size_t			max_samples;	// buffer length
 	portable_samplepair_t	rawsamples[1];	// variable sized
 } rawchan_t;
@@ -233,22 +237,6 @@ typedef struct
 	int		source;		// may be game, menu, etc
 } bg_track_t;
 
-/*
-====================================================================
-
-  SYSTEM SPECIFIC FUNCTIONS
-
-====================================================================
-*/
-// initializes cycling through a DMA buffer and returns information on it
-qboolean SNDDMA_Init( void *hInst );
-int SNDDMA_GetSoundtime( void );
-void SNDDMA_Shutdown( void );
-void SNDDMA_BeginPainting( void );
-void SNDDMA_Submit( void );
-void SNDDMA_LockSound( void );
-void SNDDMA_UnlockSound( void );
-
 //====================================================================
 
 #define MAX_DYNAMIC_CHANNELS	(60 + NUM_AMBIENTS)
@@ -275,6 +263,7 @@ extern convar_t	*s_lerping;
 extern convar_t	*dsp_off;
 extern convar_t	*s_test;		// cvar to testify new effects
 extern convar_t *s_samplecount;
+extern convar_t *snd_mute_losefocus;
 
 void S_InitScaletable( void );
 wavdata_t *S_LoadSound( sfx_t *sfx );
@@ -301,6 +290,7 @@ char *S_SkipSoundChar( const char *pch );
 sfx_t *S_FindName( const char *name, int *pfInCache );
 sound_t S_RegisterSound( const char *name );
 void S_FreeSound( sfx_t *sfx );
+void S_InitSounds( void );
 
 // s_dsp.c
 void SX_Init( void );
@@ -316,6 +306,7 @@ void S_Activate( qboolean active );
 void S_SoundList_f( void );
 void S_SoundInfo_f( void );
 
+struct ref_viewpass_s;
 channel_t *SND_PickDynamicChannel( int entnum, int channel, sfx_t *sfx, qboolean *ignore );
 channel_t *SND_PickStaticChannel( const vec3_t pos, sfx_t *sfx );
 int S_GetCurrentStaticSounds( soundlist_t *pout, int size );
@@ -324,6 +315,7 @@ sfx_t *S_GetSfxByHandle( sound_t handle );
 rawchan_t *S_FindRawChannel( int entnum, qboolean create );
 void S_RawSamples( uint samples, uint rate, word width, word channels, const byte *data, int entnum );
 void S_StopSound( int entnum, int channel, const char *soundname );
+void S_UpdateFrame( struct ref_viewpass_s *rvp );
 uint S_GetRawSamplesLength( int entnum );
 void S_ClearRawChannel( int entnum );
 void S_StopAllSounds( qboolean ambient );

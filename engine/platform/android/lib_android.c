@@ -18,8 +18,8 @@ GNU General Public License for more details.
 #include "library.h"
 #include "filesystem.h"
 #include "server.h"
-#include "platform/android/android_lib.h"
-#include "platform/android/dlsym_weak.h" // Android < 5.0
+#include "platform/android/lib_android.h"
+#include "platform/android/dlsym-weak.h" // Android < 5.0
 
 void *ANDROID_LoadLibrary( const char *dllname )
 {

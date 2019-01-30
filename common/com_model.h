@@ -166,6 +166,7 @@ struct decal_s
 // Xash3D specific
 	vec3_t		position;		// location of the decal center in world space.
 	glpoly_t		*polys;		// precomputed decal vertices
+	int		reserved[4];	// just for future expansions or mod-makers
 };
 
 typedef struct mleaf_s
@@ -366,7 +367,7 @@ typedef struct player_info_s
 	int		userid;			// User id on server
 	char		userinfo[MAX_INFO_STRING];	// User info string
 	char		name[MAX_SCOREBOARDNAME];	// Name (extracted from userinfo)
-	int		spectator;		// Spectator or not, unused
+	int		spectator;		// Spectator or not, unused (frags for quake demo playback)
 
 	int		ping;
 	int		packet_loss;

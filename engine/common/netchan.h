@@ -70,6 +70,9 @@ GNU General Public License for more details.
 #define NET_MAX_MESSAGE		PAD_NUMBER(( NET_MAX_PAYLOAD + HEADER_BYTES ), 16 )
 
 #define MASTERSERVER_ADR		"ms.xash.su:27010"
+#define MASTERSERVER_ADR2		"ms2.xash.su:27010"
+#define MS_SCAN_REQUEST		"1\xFF" "0.0.0.0:0\0"
+
 #define PORT_MASTER			27010
 #define PORT_CLIENT			27005
 #define PORT_SERVER			27015
@@ -80,6 +83,47 @@ GNU General Public License for more details.
 #define CMD_MASK			(CMD_BACKUP - 1)
 #define NUM_PACKET_ENTITIES		256	// 170 Mb for multiplayer with 32 players
 #define MAX_CUSTOM_BASELINES		64
+
+#define NET_EXT_SPLIT		(1U<<1)
+#define NETSPLIT_BACKUP 8
+#define NETSPLIT_BACKUP_MASK (NETSPLIT_BACKUP - 1)
+#define NETSPLIT_HEADER_SIZE 18
+
+typedef struct netsplit_chain_packet_s
+{
+	// bool vector
+	unsigned int recieved_v[8];
+	// serial number
+	unsigned int id;
+	byte data[NET_MAX_PAYLOAD];
+	byte received;
+	byte count;
+} netsplit_chain_packet_t;
+
+// raw packet format
+typedef struct netsplit_packet_s
+{
+	unsigned int signature; // 0xFFFFFFFE
+	unsigned int length;
+	unsigned int part;
+	unsigned int id;
+	// max 256 parts
+	byte count;
+	byte index;
+	byte data[NET_MAX_PAYLOAD - NETSPLIT_HEADER_SIZE];
+} netsplit_packet_t;
+
+
+typedef struct netsplit_s
+{
+	netsplit_chain_packet_t packets[NETSPLIT_BACKUP];
+	integer64 total_received;
+	integer64 total_received_uncompressed;
+} netsplit_t;
+
+// packet splitting
+qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *length );
+
 
 /*
 ==============================================================
@@ -200,6 +244,10 @@ typedef struct netchan_s
 	// added for net_speeds
 	size_t		total_sended;
 	size_t		total_received;
+	qboolean	split;
+	unsigned int	maxpacket;
+	unsigned int	splitid;
+	netsplit_t netsplit;
 } netchan_t;
 
 extern netadr_t		net_from;

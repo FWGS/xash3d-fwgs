@@ -87,7 +87,7 @@ byte *Sound_Copy( size_t size )
 {
 	byte	*out;
 
-	out = Mem_Alloc( host.soundpool, size );
+	out = Mem_Malloc( host.soundpool, size );
 	memcpy( out, sound.tempbuffer, size );
 
 	return out; 
@@ -243,7 +243,7 @@ qboolean Sound_ResampleInternal( wavdata_t *sc, int inrate, int inwidth, int out
 			}
 		}
 
-		MsgDev( D_NOTE, "Sound_Resample: from[%d bit %d kHz] to [%d bit %d kHz]\n", inwidth * 8, inrate, outwidth * 8, outrate );
+		Con_Reportf( "Sound_Resample: from[%d bit %d kHz] to [%d bit %d kHz]\n", inwidth * 8, inrate, outwidth * 8, outrate );
 	}
 
 	sc->rate = outrate;
@@ -259,10 +259,7 @@ qboolean Sound_Process( wavdata_t **wav, int rate, int width, uint flags )
 				
 	// check for buffers
 	if( !snd || !snd->buffer )
-	{
-		MsgDev( D_WARN, "Sound_Process: NULL sound\n" );
 		return false;
-	}
 
 	if(( flags & SOUND_RESAMPLE ) && ( width > 0 || rate > 0 ))
 	{

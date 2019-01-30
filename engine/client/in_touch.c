@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #ifdef XASH_SDL
 #include <SDL.h>
 #endif
+#include "platform/platform.h"
 
 typedef enum
 {
@@ -173,7 +174,7 @@ void IN_TouchWriteConfig( void )
 	if( Sys_CheckParm( "-nowriteconfig" ) || !touch.configchanged )
 		return;
 
-	MsgDev( D_NOTE, "IN_TouchWriteConfig(): %s\n", touch_config_file->string );
+	Con_Reportf( "IN_TouchWriteConfig(): %s\n", touch_config_file->string );
 
 	Q_snprintf( newconfigfile, 64, "%s.new", touch_config_file->string );
 	Q_snprintf( oldconfigfile, 64, "%s.bak", touch_config_file->string );
@@ -240,7 +241,7 @@ void IN_TouchWriteConfig( void )
 		FS_Delete( touch_config_file->string );
 		FS_Rename( newconfigfile, touch_config_file->string );
 	}
-	else MsgDev( D_ERROR, "Couldn't write %s.\n", touch_config_file->string );
+	else Con_Reportf( S_ERROR  "Couldn't write %s.\n", touch_config_file->string );
 }
 
 void IN_TouchExportConfig_f( void )
@@ -250,7 +251,7 @@ void IN_TouchExportConfig_f( void )
 
 	if( Cmd_Argc() != 2 )
 	{
-		Msg( "Usage: touch_exportconfig <name>\n" );
+		Msg( S_USAGE "touch_exportconfig <name>\n" );
 		return;
 	}
 
@@ -258,7 +259,7 @@ void IN_TouchExportConfig_f( void )
 
 	name = Cmd_Argv( 1 );
 
-	MsgDev( D_NOTE, "Exporting config to %s\n", name );
+	Con_Reportf( "Exporting config to %s\n", name );
 	f = FS_Open( name, "w", true );
 	if( f )
 	{
@@ -330,7 +331,7 @@ void IN_TouchExportConfig_f( void )
 		FS_Printf( f, "touch_roundall\n" );
 		FS_Close( f );
 	}
-	else MsgDev( D_ERROR, "Couldn't write %s.\n", name );
+	else Con_Reportf( S_ERROR  "Couldn't write %s.\n", name );
 }
 
 void IN_TouchGenetateCode_f( void )
@@ -340,7 +341,7 @@ void IN_TouchGenetateCode_f( void )
 
 	if( Cmd_Argc() != 1 )
 	{
-		Msg( "Usage: touch_generate_code\n" );
+		Msg( S_USAGE "touch_generate_code\n" );
 		return;
 	}
 
@@ -584,7 +585,7 @@ void IN_TouchSetColor_f( void )
 		IN_TouchSetColor( &touch.list_user, Cmd_Argv(1), color );
 		return;
 	}
-	Msg( "Usage: touch_setcolor <pattern> <r> <g> <b> <a>\n" );
+	Msg( S_USAGE "touch_setcolor <pattern> <r> <g> <b> <a>\n" );
 }
 
 void IN_TouchSetTexture_f( void )
@@ -594,7 +595,7 @@ void IN_TouchSetTexture_f( void )
 		IN_TouchSetTexture( &touch.list_user, Cmd_Argv( 1 ), Cmd_Argv( 2 ) );
 		return;
 	}
-	Msg( "Usage: touch_settexture <name> <file>\n" );
+	Msg( S_USAGE "touch_settexture <name> <file>\n" );
 }
 
 void IN_TouchSetFlags_f( void )
@@ -606,7 +607,7 @@ void IN_TouchSetFlags_f( void )
 			button->flags = Q_atoi( Cmd_Argv( 2 ) );
 		return;
 	}
-	Msg( "Usage: touch_setflags <name> <file>\n" );
+	Msg( S_USAGE "touch_setflags <name> <file>\n" );
 }
 
 void IN_TouchSetCommand_f( void )
@@ -616,7 +617,7 @@ void IN_TouchSetCommand_f( void )
 		IN_TouchSetCommand( &touch.list_user, Cmd_Argv( 1 ), Cmd_Argv( 2 ) );
 		return;
 	}
-	Msg( "Usage: touch_command <name> <command>\n" );
+	Msg( S_USAGE "touch_command <name> <command>\n" );
 }
 void IN_TouchReloadConfig_f( void )
 {
@@ -625,7 +626,7 @@ void IN_TouchReloadConfig_f( void )
 
 touchbutton2_t *IN_TouchAddButton( touchbuttonlist_t *list, const char *name,  const char *texture, const char *command, float x1, float y1, float x2, float y2, byte *color )
 {
-	touchbutton2_t *button = Mem_Alloc( touch.mempool, sizeof( touchbutton2_t ) );
+	touchbutton2_t *button = Mem_Malloc( touch.mempool, sizeof( touchbutton2_t ) );
 	button->texture = -1;
 	Q_strncpy( button->texturefile, texture, sizeof( button->texturefile ) );
 	Q_strncpy( button->name, name, 32 );
@@ -779,7 +780,7 @@ void IN_TouchAddButton_f( void )
 		IN_TouchAddButton( &touch.list_user, Cmd_Argv(1), Cmd_Argv(2), Cmd_Argv(3), 0.4, 0.4, 0.6, 0.6, color );
 		return;
 	}
-	Msg( "Usage: touch_addbutton <name> <texture> <command> [<x1> <y1> <x2> <y2> [ r g b a ] ]\n" );
+	Msg( S_USAGE "touch_addbutton <name> <texture> <command> [<x1> <y1> <x2> <y2> [ r g b a ] ]\n" );
 }
 
 void IN_TouchEnableEdit_f( void )
@@ -806,7 +807,7 @@ void IN_TouchDeleteProfile_f( void )
 {
 	if( Cmd_Argc() != 2 )
 	{
-		Msg( "Usage: touch_deleteprofile <name>\n" );
+		Msg( S_USAGE "touch_deleteprofile <name>\n" );
 		return;
 	}
 
@@ -822,7 +823,7 @@ void IN_TouchInit( void )
 		return;
 	touch.mempool = Mem_AllocPool( "Touch" );
 	//touch.first = touch.last = NULL;
-	MsgDev( D_NOTE, "IN_TouchInit()\n");
+	Con_Reportf( "IN_TouchInit()\n");
 	touch.move_finger = touch.resize_finger = touch.look_finger = -1;
 	touch.state = state_none;
 	touch.showbuttons = true;
@@ -907,9 +908,6 @@ void IN_TouchInit( void )
 
 	// input devices cvar
 	touch_enable = Cvar_Get( "touch_enable", DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE, "enable touch controls" );
-#if defined(XASH_SDL) && defined(__ANDROID__)
-	SDL_SetHint( SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH, "1" );
-#endif
 	touch.initialized = true;
 }
 
@@ -923,11 +921,11 @@ void IN_TouchInitConfig( void )
 	if( FS_FileExists( touch_config_file->string, true ) )
 		Cbuf_AddText( va( "exec \"%s\"\n", touch_config_file->string ) );
 	else IN_TouchLoadDefaults_f( );
-	touch.closetexture = GL_LoadTexture( "touch_default/edit_close.tga", NULL, 0, TF_NOMIPMAP, NULL );
-	touch.hidetexture = GL_LoadTexture( "touch_default/edit_hide.tga", NULL, 0, TF_NOMIPMAP, NULL );
-	touch.showtexture = GL_LoadTexture( "touch_default/edit_show.tga", NULL, 0, TF_NOMIPMAP, NULL );
-	touch.resettexture = GL_LoadTexture( "touch_default/edit_reset.tga", NULL, 0, TF_NOMIPMAP, NULL );
-	touch.joytexture = GL_LoadTexture( touch_joy_texture->string, NULL, 0, TF_NOMIPMAP, NULL );
+	touch.closetexture = GL_LoadTexture( "touch_default/edit_close.tga", NULL, 0, TF_NOMIPMAP );
+	touch.hidetexture = GL_LoadTexture( "touch_default/edit_hide.tga", NULL, 0, TF_NOMIPMAP );
+	touch.showtexture = GL_LoadTexture( "touch_default/edit_show.tga", NULL, 0, TF_NOMIPMAP );
+	touch.resettexture = GL_LoadTexture( "touch_default/edit_reset.tga", NULL, 0, TF_NOMIPMAP );
+	touch.joytexture = GL_LoadTexture( touch_joy_texture->string, NULL, 0, TF_NOMIPMAP );
 	touch.configchanged = false;
 }
 qboolean IN_TouchIsVisible( touchbutton2_t *button )
@@ -1115,7 +1113,7 @@ void Touch_DrawButtons( touchbuttonlist_t *list )
 			{
 				if( button->texture == -1 )
 				{
-					button->texture = GL_LoadTexture( button->texturefile, NULL, 0, TF_NOMIPMAP, NULL );
+					button->texture = GL_LoadTexture( button->texturefile, NULL, 0, TF_NOMIPMAP );
 				}
 
 				if( B(flags) & TOUCH_FL_DRAW_ADDITIVE )
@@ -1260,7 +1258,7 @@ void IN_TouchDraw( void )
 		if( FBitSet( touch_joy_texture->flags, FCVAR_CHANGED ) )
 		{
 			ClearBits( touch_joy_texture->flags, FCVAR_CHANGED );
-			touch.joytexture = GL_LoadTexture( touch_joy_texture->string, NULL, 0, TF_NOMIPMAP, NULL );
+			touch.joytexture = GL_LoadTexture( touch_joy_texture->string, NULL, 0, TF_NOMIPMAP );
 		}
 		if( touch.move->type == touch_move )
 		{
@@ -1451,7 +1449,7 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 						//touch.move_finger = button->finger = -1;
 						for( newbutton = list->first; newbutton; newbutton = newbutton->next )
 							if( ( newbutton->type == touch_move ) || ( newbutton->type == touch_look ) ) newbutton->finger = -1;
-						MsgDev( D_NOTE, "Touch: touch_move on look finger %d!\n", fingerID );
+						Con_Reportf( "Touch: touch_move on look finger %d!\n", fingerID );
 						continue;
 					}
 					touch.move_finger = fingerID;
@@ -1490,7 +1488,7 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 						touch.move_finger = touch.look_finger = -1;
 						for( newbutton = list->first; newbutton; newbutton = newbutton->next )
 							if( ( newbutton->type == touch_move ) || ( newbutton->type == touch_look ) ) newbutton->finger = -1;
-						MsgDev( D_NOTE, "Touch: touch_look on move finger %d!\n", fingerID );
+						Con_Reportf( "Touch: touch_look on move finger %d!\n", fingerID );
 						continue;
 					}
 					touch.look_finger = fingerID;
@@ -1669,7 +1667,7 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 				Cbuf_AddText( "escape\n" );
 		}
 		UI_MouseMove( TO_SCRN_X(x), TO_SCRN_Y(y) );
-		//MsgDev( D_NOTE, "touch %d %d\n", TO_SCRN_X(x), TO_SCRN_Y(y) );
+		//Con_Reportf( "touch %d %d\n", TO_SCRN_X(x), TO_SCRN_Y(y) );
 		if( type == event_down )
 			Key_Event( K_MOUSE1, true );
 		if( type == event_up )
@@ -1728,7 +1726,7 @@ void IN_TouchKeyEvent( int key, int down )
 	if( !touch.clientonly )
 		return;
 
-	CL_GetMousePosition( &xi, &yi );
+	Platform_GetMousePos( &xi, &yi );
 
 	x = xi/SCR_W;
 	y = yi/SCR_H;

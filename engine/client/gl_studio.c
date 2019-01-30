@@ -139,7 +139,7 @@ void R_StudioInit( void )
 	Matrix3x4_LoadIdentity( g_studio.rotationmatrix );
 	Cvar_RegisterVariable( &r_glowshellfreq );
 
-// g-cont. especially not registered
+	// g-cont. cvar disabled by Valve
 //	Cvar_RegisterVariable( &r_shadows );
 
 	g_studio.interpolate = true;
@@ -560,7 +560,7 @@ void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, vec3_t an
 	// Con_Printf( "%4.2f %.2f %.2f\n", f, e->curstate.animtime, g_studio.time );
 	VectorLerp( e->latched.prevorigin, f, e->curstate.origin, origin );
 
-	if( !VectorCompare( e->curstate.angles, e->latched.prevangles ))
+	if( !VectorCompareEpsilon( e->curstate.angles, e->latched.prevangles, ON_EPSILON ))
 	{
 		vec4_t	q, q1, q2;
 
@@ -718,6 +718,7 @@ float CL_GetSequenceDuration( cl_entity_t *ent, int sequence )
 	return 0.1f;
 }
 
+
 /*
 ====================
 StudioFxTransform
@@ -794,8 +795,8 @@ void R_StudioCalcBoneAdj( float dadt, float *adj, const byte *pcontroller1, cons
 			{
 				if( abs( pcontroller1[i] - pcontroller2[i] ) > 128 )
 				{
-					int a = (pcontroller1[j] + 128) % 256;
-					int b = (pcontroller2[j] + 128) % 256;
+					int a = (pcontroller1[i] + 128) % 256;
+					int b = (pcontroller2[i] + 128) % 256;
 					value = (( a * dadt ) + ( b * ( 1.0f - dadt )) - 128) * (360.0f / 256.0f) + pbonecontroller[j].start;
 				}
 				else 
@@ -1439,7 +1440,7 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 		}
 	}
 
-	if(( light.r + light.g + light.b ) == 0 )
+	if(( light.r + light.g + light.b ) < 16 ) // TESTTEST
 	{
 		colorVec	gcolor;
 		float	grad[4];
@@ -1447,40 +1448,44 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 		VectorScale( lightDir, 2048.0f, vecEnd );
 		VectorAdd( vecEnd, vecSrc, vecEnd );
 
-		light = R_LightVec( vecSrc, vecEnd, g_studio.lightspot );
+		light = R_LightVec( vecSrc, vecEnd, g_studio.lightspot, g_studio.lightvec );
 
-		VectorScale( lightDir, 2048.0f, vecEnd );
-		VectorAdd( vecEnd, vecSrc, vecEnd );
+		if( VectorIsNull( g_studio.lightvec ))
+		{
+			vecSrc[0] -= 16.0f;
+			vecSrc[1] -= 16.0f;
+			vecEnd[0] -= 16.0f;
+			vecEnd[1] -= 16.0f;
 
-		vecSrc[0] -= 16.0f;
-		vecSrc[1] -= 16.0f;
-		vecEnd[0] -= 16.0f;
-		vecEnd[1] -= 16.0f;
+			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
+			grad[0] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
 
-		gcolor = R_LightVec( vecSrc, vecEnd, NULL );
-		grad[0] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
+			vecSrc[0] += 32.0f;
+			vecEnd[0] += 32.0f;
 
-		vecSrc[0] += 32.0f;
-		vecEnd[0] += 32.0f;
+			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
+			grad[1] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
 
-		gcolor = R_LightVec( vecSrc, vecEnd, NULL );
-		grad[1] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
+			vecSrc[1] += 32.0f;
+			vecEnd[1] += 32.0f;
 
-		vecSrc[1] += 32.0f;
-		vecEnd[1] += 32.0f;
+			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
+			grad[2] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
 
-		gcolor = R_LightVec( vecSrc, vecEnd, NULL );
-		grad[2] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
+			vecSrc[0] -= 32.0f;
+			vecEnd[0] -= 32.0f;
 
-		vecSrc[0] -= 32.0f;
-		vecEnd[0] -= 32.0f;
+			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
+			grad[3] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
 
-		gcolor = R_LightVec( vecSrc, vecEnd, NULL );
-		grad[3] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
-
-		lightDir[0] = grad[0] - grad[1] - grad[2] + grad[3];
-		lightDir[1] = grad[1] + grad[0] - grad[2] - grad[3];
-		VectorNormalize( lightDir );
+			lightDir[0] = grad[0] - grad[1] - grad[2] + grad[3];
+			lightDir[1] = grad[1] + grad[0] - grad[2] - grad[3];
+			VectorNormalize( lightDir );
+		}
+		else
+		{
+			VectorCopy( g_studio.lightvec, lightDir );
+		}
 	}
 
 	VectorSet( finalLight, light.r, light.g, light.b );
@@ -2172,6 +2177,7 @@ static void R_StudioDrawPoints( void )
 				pglBlendFunc( GL_ONE, GL_ONE );
 				pglDepthMask( GL_FALSE );
 				pglEnable( GL_BLEND );
+				R_AllowFog( false );
 			}
 			else pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
 		}
@@ -2186,13 +2192,14 @@ static void R_StudioDrawPoints( void )
 
 		if( FBitSet( g_nFaceFlags, STUDIO_NF_MASKED ))
 		{
-			pglAlphaFunc( GL_GREATER, 0.0f );
+			pglAlphaFunc( GL_GREATER, DEFAULT_ALPHATEST );
 			pglDisable( GL_ALPHA_TEST );
 		}
 		else if( FBitSet( g_nFaceFlags, STUDIO_NF_ADDITIVE ) && R_ModelOpaque( RI.currententity->curstate.rendermode ))
 		{
 			pglDepthMask( GL_TRUE );
 			pglDisable( GL_BLEND );
+			R_AllowFog( true );
 		}
 
 		r_stats.c_studio_polys += pmesh->numtris;
@@ -2290,6 +2297,7 @@ static void R_StudioDrawAbsBBox( void )
 		TriVertex3fv( p[boxpnt[i][3]] );
 	}
 	TriEnd();
+	TriRenderMode( kRenderNormal );
 }
 
 /*
@@ -2472,11 +2480,11 @@ check for texture flags
 */
 int R_GetEntityRenderMode( cl_entity_t *ent )
 {
-	studiohdr_t	*phdr;
+	int		i, opaque, trans;
 	mstudiotexture_t	*ptexture;
 	cl_entity_t	*oldent;
 	model_t		*model;
-	int		i;
+	studiohdr_t	*phdr;
 
 	oldent = RI.currententity;
 	RI.currententity = ent;
@@ -2489,21 +2497,27 @@ int R_GetEntityRenderMode( cl_entity_t *ent )
 
 	if(( phdr = Mod_StudioExtradata( model )) == NULL )
 	{
-		// forcing to choose right sorting type
-		if(( model && model->type == mod_brush ) && FBitSet( model->flags, MODEL_TRANSPARENT ))
-			return kRenderTransAlpha;
+		if( R_ModelOpaque( ent->curstate.rendermode ))
+		{
+			// forcing to choose right sorting type
+			if(( model && model->type == mod_brush ) && FBitSet( model->flags, MODEL_TRANSPARENT ))
+				return kRenderTransAlpha;
+		}
 		return ent->curstate.rendermode;
 	}
 	ptexture = (mstudiotexture_t *)((byte *)phdr + phdr->textureindex);
 
-	for( i = 0; i < phdr->numtextures; i++, ptexture++ )
+	for( opaque = trans = i = 0; i < phdr->numtextures; i++, ptexture++ )
 	{
-		// g-cont. this is not fully proper but better than was
-		if( FBitSet( ptexture->flags, STUDIO_NF_ADDITIVE ))
-			return kRenderTransAdd;
-//		if( FBitSet( ptexture->flags, STUDIO_NF_MASKED ))
-//			return kRenderTransAlpha;
+		// ignore chrome & additive it's just a specular-like effect
+		if( FBitSet( ptexture->flags, STUDIO_NF_ADDITIVE ) && !FBitSet( ptexture->flags, STUDIO_NF_CHROME ))
+			trans++;
+		else opaque++;
 	}
+
+	// if model is more additive than opaque
+	if( trans > opaque )
+		return kRenderTransAdd;
 	return ent->curstate.rendermode;
 }
 
@@ -2883,6 +2897,13 @@ void R_StudioRenderFinal( void )
 		pglColor3f( 1, 0.5, 0 );
 		pglVertex3fv( origin );
 		pglVertex3fv( g_studio.lightspot );
+		pglEnd();
+
+		pglBegin( GL_LINES );
+		pglColor3f( 0, 0.5, 1 );
+		VectorMA( g_studio.lightspot, -64.0f, g_studio.lightvec, origin );
+		pglVertex3fv( g_studio.lightspot );
+		pglVertex3fv( origin );
 		pglEnd();
 
 		pglPointSize( 5.0f );
@@ -3390,10 +3411,10 @@ void R_RunViewmodelEvents( void )
 
 /*
 =================
-R_DrawViewModel
+R_GatherPlayerLight
 =================
 */
-void R_DrawViewModel( void )
+void R_GatherPlayerLight( void )
 {
 	cl_entity_t	*view = &clgame.viewent;
 	colorVec		c;
@@ -3402,6 +3423,18 @@ void R_DrawViewModel( void )
 	c = R_LightPoint( view->origin );
 	tr.ignore_lightgamma = false;
 	cl.local.light_level = (c.r + c.g + c.b) / 3;
+}
+
+/*
+=================
+R_DrawViewModel
+=================
+*/
+void R_DrawViewModel( void )
+{
+	cl_entity_t	*view = &clgame.viewent;
+
+	R_GatherPlayerLight();
 
 	if( r_drawviewmodel->value == 0 )
 		return;
@@ -3467,7 +3500,6 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	size_t		size;
 	int		flags = 0;
 	char		texname[128], name[128], mdlname[128];
-	imgfilter_t	*filter = NULL;
 	texture_t		*tx = NULL;
 	
 	if( ptexture->flags & STUDIO_NF_NORMALMAP )
@@ -3483,7 +3515,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 		i = mod->numtextures;
 		mod->textures = (texture_t **)Mem_Realloc( mod->mempool, mod->textures, ( i + 1 ) * sizeof( texture_t* ));
 		size = ptexture->width * ptexture->height + 768;
-		tx = Mem_Alloc( mod->mempool, sizeof( *tx ) + size );
+		tx = Mem_Calloc( mod->mempool, sizeof( *tx ) + size );
 		mod->textures[i] = tx;
 
 		// store ranges into anim_min, anim_max etc
@@ -3524,15 +3556,12 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	COM_FileBase( ptexture->name, name );
 	COM_StripExtension( mdlname );
 
-	// loading texture filter for studiomodel
-	if( !FBitSet( ptexture->flags, STUDIO_NF_COLORMAP ))
-		filter = R_FindTexFilter( va( "%s.mdl/%s", mdlname, name )); // grab texture filter
-
 	if( FBitSet( ptexture->flags, STUDIO_NF_NOMIPS ))
 		SetBits( flags, TF_NOMIPMAP );
 
 	// NOTE: replace index with pointer to start of imagebuffer, ImageLib expected it
-	ptexture->index = (int)((byte *)phdr) + ptexture->index;
+	//ptexture->index = (int)((byte *)phdr) + ptexture->index;
+	Image_SetMDLPointer((byte *)phdr + ptexture->index);
 	size = sizeof( mstudiotexture_t ) + ptexture->width * ptexture->height + 768;
 
 	if( FBitSet( host.features, ENGINE_LOAD_DELUXEDATA ) && FBitSet( ptexture->flags, STUDIO_NF_MASKED ))
@@ -3540,7 +3569,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 
 	// build the texname
 	Q_snprintf( texname, sizeof( texname ), "#%s/%s.mdl", mdlname, name );
-	ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags, filter );
+	ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags );
 
 	if( !ptexture->index )
 	{

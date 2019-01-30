@@ -59,6 +59,7 @@ dll_info_t msacm_dll = { "msacm32.dll", msacm_funcs, false };
 static int (_stdcall *pAVIStreamInfo)( PAVISTREAM pavi, AVISTREAMINFO *psi, LONG lSize );
 static int (_stdcall *pAVIStreamRead)( PAVISTREAM pavi, LONG lStart, LONG lSamples, void *lpBuffer, LONG cbBuffer, LONG *plBytes, LONG *plSamples );
 static PGETFRAME (_stdcall *pAVIStreamGetFrameOpen)( PAVISTREAM pavi, LPBITMAPINFOHEADER lpbiWanted );
+static long (_stdcall *pAVIStreamTimeToSample)( PAVISTREAM pavi, LONG lTime );
 static void* (_stdcall *pAVIStreamGetFrame)( PGETFRAME pg, LONG lPos );
 static int (_stdcall *pAVIStreamGetFrameClose)( PGETFRAME pg );
 static dword (_stdcall *pAVIStreamRelease)( PAVISTREAM pavi );
@@ -85,6 +86,7 @@ static dllfunc_t avifile_funcs[] =
 { "AVIStreamReadFormat", (void **) &pAVIStreamReadFormat },
 { "AVIStreamRelease", (void **) &pAVIStreamRelease },
 { "AVIStreamStart", (void **) &pAVIStreamStart },
+{ "AVIStreamTimeToSample", (void **) &pAVIStreamTimeToSample },
 { NULL, NULL }
 };
 
@@ -142,7 +144,8 @@ qboolean AVI_ACMConvertAudio( movie_state_t *Avi )
 	// WMA codecs, both versions - they simply don't work.
 	if( Avi->audio_header->wFormatTag == 0x160 || Avi->audio_header->wFormatTag == 0x161 )
 	{
-		if( !Avi->quiet ) MsgDev( D_ERROR, "ACM does not support this audio codec.\n" );
+		if( !Avi->quiet )
+			Con_Reportf( S_ERROR "ACM does not support this audio codec.\n" );
 		return false;
 	}
 
@@ -151,7 +154,8 @@ qboolean AVI_ACMConvertAudio( movie_state_t *Avi )
 
 	if( Avi->audio_header_size < sizeof( WAVEFORMATEX ))
 	{
-		if( !Avi->quiet ) MsgDev( D_ERROR, "ACM failed to open conversion stream.\n" );
+		if( !Avi->quiet )
+			Con_Reportf( S_ERROR "ACM failed to open conversion stream.\n" );
 		return false;
 	}
 
@@ -181,7 +185,8 @@ qboolean AVI_ACMConvertAudio( movie_state_t *Avi )
 
 		if( pacmStreamOpen( &Avi->cpa_conversion_stream, NULL, sh, dh, NULL, 0, 0, 0 ) != MMSYSERR_NOERROR )
 		{
-			if( !Avi->quiet ) MsgDev( D_ERROR, "ACM failed to open conversion stream.\n" );
+			if( !Avi->quiet )
+				Con_Reportf( S_ERROR "ACM failed to open conversion stream.\n" );
 			return false;
 		}
 	}
@@ -201,13 +206,14 @@ qboolean AVI_ACMConvertAudio( movie_state_t *Avi )
 	// get the size of the output buffer for streaming the compressed audio
 	if( pacmStreamSize( Avi->cpa_conversion_stream, Avi->cpa_blockalign, &dest_length, ACM_STREAMSIZEF_SOURCE ) != MMSYSERR_NOERROR )
 	{
-		if( !Avi->quiet ) MsgDev( D_ERROR, "Couldn't get ACM conversion stream size.\n" );
+		if( !Avi->quiet )
+			Con_Reportf( S_ERROR "Couldn't get ACM conversion stream size.\n" );
 		pacmStreamClose( Avi->cpa_conversion_stream, 0 );
 		return false;
 	}
 
-	Avi->cpa_srcbuffer = (byte *)Mem_Alloc( cls.mempool, Avi->cpa_blockalign );
-	Avi->cpa_dstbuffer = (byte *)Mem_Alloc( cls.mempool, dest_length ); // maintained buffer for raw data
+	Avi->cpa_srcbuffer = (byte *)Mem_Malloc( cls.mempool, Avi->cpa_blockalign );
+	Avi->cpa_dstbuffer = (byte *)Mem_Malloc( cls.mempool, dest_length ); // maintained buffer for raw data
 
 	// prep the headers!
 	Avi->cpa_conversion_header.cbStruct = sizeof( ACMSTREAMHEADER );
@@ -224,7 +230,8 @@ qboolean AVI_ACMConvertAudio( movie_state_t *Avi )
 
 	if( pacmStreamPrepareHeader( Avi->cpa_conversion_stream, &Avi->cpa_conversion_header, 0 ) != MMSYSERR_NOERROR )
 	{
-		if( !Avi->quiet ) MsgDev( D_ERROR, "couldn't prep headers.\n" );
+		if( !Avi->quiet )
+			Con_Reportf( S_ERROR "couldn't prepare stream headers.\n" );
 		pacmStreamClose( Avi->cpa_conversion_stream, 0 );
 		return false;
 	}
@@ -269,6 +276,23 @@ long AVI_GetVideoFrameNumber( movie_state_t *Avi, float time )
 		return 0;
 
 	return (time * Avi->video_fps);
+}
+
+long AVI_GetVideoFrameCount( movie_state_t *Avi )
+{
+	if( !Avi->active )
+		return 0;
+
+	return Avi->video_frames;
+}
+
+long AVI_TimeToSoundPosition( movie_state_t *Avi, long time )
+{
+	if( !Avi->active || !Avi->audio_stream )
+		return 0;
+
+	// UNDONE: what about compressed audio?
+	return pAVIStreamTimeToSample( Avi->audio_stream, time ) * Avi->audio_bytes_per_sample;
 }
 
 // gets the raw frame data
@@ -378,8 +402,11 @@ long AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, long offset, long l
 		}
 		else
 		{
+			// we out of soundtrack, just zeroing buffer
 			for( i = 0; i < length; i++ )
 				audiodata[i] = 0;
+
+			return length;
 		}
 	}
 
@@ -482,20 +509,25 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 		switch( hr )
 		{
 		case AVIERR_BADFORMAT:
-			if( !Avi->quiet ) MsgDev( D_ERROR, "corrupt file or unknown format.\n" );
+			if( !Avi->quiet )
+				Con_DPrintf( S_ERROR "corrupt file or unknown format.\n" );
 			break;
 		case AVIERR_MEMORY:
-			if( !Avi->quiet ) MsgDev( D_ERROR, "insufficient memory to open file.\n" );
+			if( !Avi->quiet )
+				Con_DPrintf( S_ERROR "insufficient memory to open file.\n" );
 			break;
 		case AVIERR_FILEREAD:
-			if( !Avi->quiet ) MsgDev( D_ERROR, "disk error reading file.\n" );
+			if( !Avi->quiet )
+				Con_DPrintf( S_ERROR "disk error reading file.\n" );
 			break;
 		case AVIERR_FILEOPEN:
-			if( !Avi->quiet ) MsgDev( D_ERROR, "disk error opening file.\n" );
+			if( !Avi->quiet )
+				Con_DPrintf( S_ERROR "disk error opening file.\n" );
 			break;
 		case REGDB_E_CLASSNOTREG:
 		default:
-			if( !Avi->quiet ) MsgDev( D_ERROR, "no handler found (or file not found).\n" );
+			if( !Avi->quiet )
+				Con_DPrintf( S_ERROR "no handler found (or file not found).\n" );
 			break;
 		}
 		return;
@@ -533,7 +565,7 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 			// read the audio header
 			pAVIStreamReadFormat( Avi->audio_stream, pAVIStreamStart( Avi->audio_stream ), 0, &size );
 
-			Avi->audio_header = (WAVEFORMAT *)Mem_Alloc( cls.mempool, size );
+			Avi->audio_header = (WAVEFORMAT *)Mem_Malloc( cls.mempool, size );
 			pAVIStreamReadFormat( Avi->audio_stream, pAVIStreamStart( Avi->audio_stream ), Avi->audio_header, &size );
 			Avi->audio_header_size = size;
 			Avi->audio_codec = Avi->audio_header->wFormatTag;
@@ -565,7 +597,8 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 	{
 		if( Avi->pfile ) // if file is open, close it 
 			pAVIFileRelease( Avi->pfile );
-		if( !Avi->quiet ) MsgDev( D_ERROR, "couldn't find a valid video stream.\n" );
+		if( !Avi->quiet )
+			Con_DPrintf( S_ERROR "couldn't find a valid video stream.\n" );
 		return;
 	}
 
@@ -574,7 +607,8 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 
 	if( Avi->video_getframe == NULL )
 	{
-		if( !Avi->quiet ) MsgDev( D_ERROR, "error attempting to read video frames.\n" );
+		if( !Avi->quiet )
+			Con_DPrintf( S_ERROR "error attempting to read video frames.\n" );
 		return; // couldn't open frame getter.
 	}
 
@@ -619,10 +653,7 @@ movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio )
 
 	// fast reject
 	if( !avi_initialized )
-	{
-		MsgDev( D_ERROR, "AVI_LoadVideo: movie support is disabled\n" );
 		return NULL;
-	}	
 
 	// open cinematic
 	Q_snprintf( path, sizeof( path ), "media/%s", filename );
@@ -631,11 +662,11 @@ movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio )
 
 	if( FS_FileExists( path, false ) && !fullpath )
 	{
-		MsgDev( D_ERROR, "AVI_LoadVideo: Couldn't load %s from packfile. Please extract it\n", path );
+		Con_Printf( "Couldn't load %s from packfile. Please extract it\n", path );
 		return NULL;
 	}
 
-	Avi = Mem_Alloc( cls.mempool, sizeof( movie_state_t ));
+	Avi = Mem_Malloc( cls.mempool, sizeof( movie_state_t ));
 	AVI_OpenVideo( Avi, fullpath, load_audio, false );
 
 	if( !AVI_IsActive( Avi ))
@@ -646,11 +677,6 @@ movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio )
 
 	// all done
 	return Avi;
-}
-
-movie_state_t *AVI_LoadVideoNoSound( const char *filename )
-{
-	return AVI_LoadVideo( filename, false );
 }
 
 void AVI_FreeVideo( movie_state_t *state )
@@ -668,35 +694,29 @@ qboolean AVI_Initailize( void )
 {
 	if( Sys_CheckParm( "-noavi" ))
 	{
-		MsgDev( D_INFO, "AVI: Disabled\n" );
+		Con_Printf( "AVI: Disabled\n" );
 		return false;
 	}
 
 	if( !Sys_LoadLibrary( &avifile_dll ))
-	{
-		MsgDev( D_ERROR, "AVI_Initailize: failed\n" );
 		return false;
-	}
 
 	if( !Sys_LoadLibrary( &msvfw_dll ))
 	{
-		MsgDev( D_ERROR, "AVI_Initailize: failed\n" );
 		Sys_FreeLibrary( &avifile_dll );
 		return false;
 	}
 
 	if( !Sys_LoadLibrary( &msacm_dll ))
 	{
-		MsgDev( D_ERROR, "AVI_Initailize: failed\n" );
 		Sys_FreeLibrary( &avifile_dll );
 		Sys_FreeLibrary( &msvfw_dll );
 		return false;
 	}
 
-	pAVIFileInit();
 	avi_initialized = true;
-	MsgDev( D_NOTE, "AVI_Initailize: done\n" );
-		
+	pAVIFileInit();
+
 	return true;
 }
 

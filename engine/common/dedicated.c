@@ -304,9 +304,14 @@ void SCR_CheckStartupVids()
 
 }
 
-imgfilter_t *R_FindTexFilter( const char *texname )
+void Sys_SetClipboardData( const byte *text, size_t size )
 {
-	return NULL;
+
+}
+
+void CL_StopPlayback( void )
+{
+
 }
 
 #include "sprite.h"
@@ -335,13 +340,13 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 
 	if( pin->ident != IDSPRITEHEADER )
 	{
-		MsgDev( D_ERROR, "%s has wrong id (%x should be %x)\n", mod->name, pin->ident, IDSPRITEHEADER );
+		Con_Reportf( S_ERROR  "%s has wrong id (%x should be %x)\n", mod->name, pin->ident, IDSPRITEHEADER );
 		return;
 	}
 		
 	if( i != SPRITE_VERSION_Q1 && i != SPRITE_VERSION_HL && i != SPRITE_VERSION_32 )
 	{
-		MsgDev( D_ERROR, "%s has wrong version number (%i should be %i or %i)\n", mod->name, i, SPRITE_VERSION_Q1, SPRITE_VERSION_HL );
+		Con_Reportf( S_ERROR  "%s has wrong version number (%i should be %i or %i)\n", mod->name, i, SPRITE_VERSION_Q1, SPRITE_VERSION_HL );
 		return;
 	}
 
@@ -351,7 +356,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	{
 		pinq1 = (dsprite_q1_t *)buffer;
 		size = sizeof( msprite_t ) + ( pinq1->numframes - 1 ) * sizeof( psprite->frames );
-		psprite = Mem_Alloc( mod->mempool, size );
+		psprite = Mem_Calloc( mod->mempool, size );
 		mod->cache.data = psprite;	// make link to extradata
 
 		psprite->type = pinq1->type;
@@ -371,7 +376,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	{
 		pinhl = (dsprite_hl_t *)buffer;
 		size = sizeof( msprite_t ) + ( pinhl->numframes - 1 ) * sizeof( psprite->frames );
-		psprite = Mem_Alloc( mod->mempool, size );
+		psprite = Mem_Calloc( mod->mempool, size );
 		mod->cache.data = psprite;	// make link to extradata
 
 		psprite->type = pinhl->type;
@@ -428,13 +433,13 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	}
 	else 
 	{
-		MsgDev( D_ERROR, "%s has wrong number of palette colors %i (should be 256)\n", mod->name, *numi );
+		Con_Reportf( S_ERROR  "%s has wrong number of palette colors %i (should be 256)\n", mod->name, *numi );
 		return;
 	}
 
 	if( mod->numframes < 1 )
 	{
-		MsgDev( D_ERROR, "%s has invalid # of frames: %d\n", mod->name, mod->numframes );
+		Con_Reportf( S_ERROR  "%s has invalid # of frames: %d\n", mod->name, mod->numframes );
 		return;
 	}
 

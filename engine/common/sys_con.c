@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #define XASH_COLORIZE_CONSOLE
 // use with caution, running engine in Qt Creator may cause a freeze in read() call
 // I was never encountered this bug anywhere else, so still enable by default
-#define XASH_USE_SELECT
+// #define XASH_USE_SELECT
 #endif
 
 #ifdef XASH_USE_SELECT
@@ -77,7 +77,7 @@ char *Sys_Input( void )
 void Sys_DestroyConsole( void )
 {
 	// last text message into console or log
-	MsgDev( D_NOTE, "Sys_DestroyConsole: Exiting!\n" );
+	Con_Reportf( "Sys_DestroyConsole: Exiting!\n" );
 #ifdef _WIN32
 	Wcon_DestroyConsole();
 #endif
@@ -90,6 +90,11 @@ SYSTEM LOG
 
 ===============================================================================
 */
+int Sys_LogFileNo( void )
+{
+	return s_ld.logfileno;
+}
+
 void Sys_InitLog( void )
 {
 	const char	*mode;
@@ -108,7 +113,7 @@ void Sys_InitLog( void )
 	if( s_ld.log_active )
 	{
 		s_ld.logfile = fopen( s_ld.log_path, mode );
-		if( !s_ld.logfile ) MsgDev( D_ERROR, "Sys_InitLog: can't create log file %s\n", s_ld.log_path );
+		if( !s_ld.logfile ) Con_Reportf( S_ERROR  "Sys_InitLog: can't create log file %s\n", s_ld.log_path );
 
 		fprintf( s_ld.logfile, "=================================================================================\n" );
 		fprintf( s_ld.logfile, "\t%s (build %i) started at %s\n", s_ld.title, Q_buildnum(), Q_timestamp( TIME_FULL ));
@@ -211,6 +216,7 @@ void Sys_PrintLog( const char *pMsg )
 		}
 		colored[len] = 0;
 		printf( "\033[34m%s\033[0m%s\033[0m", logtime, colored );
+
 	}
 #else
 #if !defined __ANDROID__ || defined XASH_DEDICATED

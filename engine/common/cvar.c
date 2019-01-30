@@ -13,8 +13,9 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <math.h>	// fabs...
 #include "common.h"
-#include "math.h"	// fabs...
+#include "base_cmd.h"
 
 convar_t	*cvar_vars = NULL; // head of list
 convar_t	*cmd_scripting;
@@ -39,6 +40,10 @@ find the specified variable by name
 */
 convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group )
 {
+	// TODO: ignore group for cvar
+#if defined(XASH_HASHED_VARS)
+	return (convar_t *)BaseCmd_Find( HM_CVAR, var_name );
+#else
 	convar_t	*var;
 
 	if( !var_name )
@@ -54,6 +59,7 @@ convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group )
 	}
 
 	return NULL;
+#endif
 }
 
 /*
@@ -115,6 +121,7 @@ static qboolean Cvar_UpdateInfo( convar_t *var, const char *value, qboolean noti
 
 			// time to update server copy of userinfo
 			CL_ServerCommand( true, "setinfo \"%s\" \"%s\"\n", var->name, value );
+			CL_LegacyUpdateInfo();
 		}
 #endif
 	}
@@ -238,6 +245,10 @@ int Cvar_UnlinkVar( const char *var_name, int group )
 			continue;
 		}
 
+#if defined(XASH_HASHED_VARS)
+		BaseCmd_Remove( HM_CVAR, var->name );
+#endif
+
 		// unlink variable from list
 		freestring( var->string );
 		*prev = var->next;
@@ -333,7 +344,7 @@ convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *
 	// check for command coexisting
 	if( Cmd_Exists( name ))
 	{
-		MsgDev( D_ERROR, "can't register variable '%s', is already defined as command\n", name );
+		Con_DPrintf( S_ERROR "can't register variable '%s', is already defined as command\n", name );
 		return NULL;
 	}
 
@@ -369,7 +380,7 @@ convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *
 		if( FBitSet( var->flags, FCVAR_ALLOCATED ) && Q_strcmp( var_desc, var->desc ))
 		{
 			if( !FBitSet( flags, FCVAR_GLCONFIG ))
-				MsgDev( D_REPORT, "%s change description from %s to %s\n", var->name, var->desc, var_desc );
+				Con_Reportf( "%s change description from %s to %s\n", var->name, var->desc, var_desc );
 			// update description if needs
 			freestring( var->desc );
 			var->desc = copystring( var_desc );
@@ -400,6 +411,11 @@ convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *
 	// tell engine about changes
 	Cvar_Changed( var );
 
+#if defined(XASH_HASHED_VARS)
+	// add to map
+	BaseCmd_Insert( HM_CVAR, var, var->name );
+#endif
+
 	return var;
 }
 
@@ -423,7 +439,7 @@ void Cvar_RegisterVariable( convar_t *var )
 	{
 		if( !FBitSet( dup->flags, FCVAR_TEMPORARY ))
 		{
-			MsgDev( D_ERROR, "can't register variable '%s', is already defined\n", var->name );
+			Con_DPrintf( S_ERROR "can't register variable '%s', is already defined\n", var->name );
 			return;
 		}
 
@@ -434,7 +450,7 @@ void Cvar_RegisterVariable( convar_t *var )
 	// check for overlap with a command
 	if( Cmd_Exists( var->name ))
 	{
-		MsgDev( D_ERROR, "can't register variable '%s', is already defined as command\n", var->name );
+		Con_DPrintf( S_ERROR "can't register variable '%s', is already defined as command\n", var->name );
 		return;
 	}
 
@@ -463,6 +479,11 @@ void Cvar_RegisterVariable( convar_t *var )
 
 	// tell engine about changes
 	Cvar_Changed( var );
+
+#if defined(XASH_HASHED_VARS)
+	// add to map
+	BaseCmd_Insert( HM_CVAR, var, var->name );
+#endif
 }
 
 /*
@@ -482,16 +503,12 @@ void Cvar_DirectSet( convar_t *var, const char *value )
 	if( CVAR_CHECK_SENTINEL( var ) || ( var->next == NULL && !FBitSet( var->flags, FCVAR_EXTENDED|FCVAR_ALLOCATED )))
 	{
 		// need to registering cvar fisrt
-		MsgDev( D_WARN, "Cvar_DirectSet: called for unregistered cvar '%s'\n", var->name );
 		Cvar_RegisterVariable( var );	// ok, register it
 	}
 
 	// lookup for registration again
 	if( var != Cvar_FindVar( var->name ))
-	{
-		MsgDev( D_ERROR, "Cvar_DirectSet: couldn't find cvar '%s' in linked list\n", var->name );
-		return;
-	}
+		return; // how this possible?
 
 	if( FBitSet( var->flags, FCVAR_READ_ONLY|FCVAR_GLCONFIG ))
 	{
@@ -578,8 +595,7 @@ void Cvar_Set( const char *var_name, const char *value )
 	if( !var )
 	{
 		// there is an error in C code if this happens
-		if( host.type != HOST_DEDICATED )
-			MsgDev( D_ERROR, "Cvar_Set: variable '%s' not found\n", var_name );
+		Con_Printf( "Cvar_Set: variable '%s' not found\n", var_name );
 		return;
 	}
 
@@ -659,6 +675,18 @@ const char *Cvar_VariableString( const char *var_name )
 
 /*
 ============
+Cvar_Exists
+============
+*/
+qboolean Cvar_Exists( const char *var_name )
+{
+	if( Cvar_FindVar( var_name ))
+		return true;
+	return false;
+}
+
+/*
+============
 Cvar_SetCheatState
 
 Any testing variables will be reset to the safe values
@@ -685,24 +713,43 @@ void Cvar_SetCheatState( void )
 
 /*
 ============
+Cvar_SetGL
+
+As Cvar_Set, but also flags it as glconfig
+============
+*/
+static void Cvar_SetGL( const char *name, const char *value )
+{
+	convar_t *var = Cvar_FindVar( name );
+
+	if( var && !FBitSet( var->flags, FCVAR_GLCONFIG ))
+	{
+		Con_Reportf( S_ERROR "Can't set non-GL cvar %s to %s\n", name, value );
+		return;
+	}
+
+	Cvar_FullSet( name, value, FCVAR_GLCONFIG );
+}
+
+/*
+============
 Cvar_Command
 
 Handles variable inspection and changing from the console
 ============
 */
-qboolean Cvar_Command( void )
+qboolean Cvar_Command( convar_t *v )
 {
-	convar_t	*v;
-
 	// special case for setup opengl configuration
 	if( host.apply_opengl_config )
 	{
-		Cvar_FullSet( Cmd_Argv( 0 ), Cmd_Argv( 1 ), FCVAR_GLCONFIG );
+		Cvar_SetGL( Cmd_Argv( 0 ), Cmd_Argv( 1 ) );
 		return true;
 	}
 
 	// check variables
-	v = Cvar_FindVar( Cmd_Argv( 0 ));
+	if( !v ) // already found in basecmd
+		v = Cvar_FindVar( Cmd_Argv( 0 ));
 	if( !v ) return false;
 
 	// perform a variable print or set
@@ -785,13 +832,15 @@ As Cvar_Set, but also flags it as glconfig
 */
 void Cvar_SetGL_f( void )
 {
+	convar_t *var;
+
 	if( Cmd_Argc() != 3 )
 	{
 		Con_Printf( S_USAGE "setgl <variable> <value>\n" );
 		return;
 	}
 
-	Cvar_FullSet( Cmd_Argv( 1 ), Cmd_Argv( 2 ), FCVAR_GLCONFIG );
+	Cvar_SetGL( Cmd_Argv( 1 ), Cmd_Argv( 2 ) );
 }
 
 /*
@@ -884,7 +933,7 @@ void Cvar_Init( void )
 	cmd_scripting = Cvar_Get( "cmd_scripting", "0", FCVAR_ARCHIVE, "enable simple condition checking and variable operations" );
 	Cvar_RegisterVariable (&host_developer); // early registering for dev 
 
-	Cmd_AddCommand( "setgl", Cvar_SetGL_f, "create or change the value of a opengl variable" );	// OBSOLETE
+	Cmd_AddCommand( "setgl", Cvar_SetGL_f, "change the value of a opengl variable" );	// OBSOLETE
 	Cmd_AddCommand( "toggle", Cvar_Toggle_f, "toggles a console variable's values (use for more info)" );
 	Cmd_AddCommand( "reset", Cvar_Reset_f, "reset any type variable to initial value" );
 	Cmd_AddCommand( "cvarlist", Cvar_List_f, "display all console variables beginning with the specified prefix" );

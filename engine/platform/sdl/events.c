@@ -26,13 +26,7 @@ GNU General Public License for more details.
 #include "vid_common.h"
 #include "gl_local.h"
 
-extern convar_t *vid_fullscreen;
-extern convar_t *snd_mute_losefocus;
 static int wheelbutton;
-static SDL_Joystick *joy;
-static SDL_GameController *gamecontroller;
-
-void R_ChangeDisplaySettingsFast( int w, int h );
 
 /*
 =============
@@ -143,11 +137,11 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 			return;
 		case SDL_SCANCODE_UNKNOWN:
 		{
-			if( down ) MsgDev( D_INFO, "SDLash_KeyEvent: Unknown scancode\n" );
+			if( down ) Con_Reportf( "SDLash_KeyEvent: Unknown scancode\n" );
 			return;
 		}
 		default:
-			if( down ) MsgDev( D_INFO, "SDLash_KeyEvent: Unknown key: %s = %i\n", SDL_GetScancodeName( keynum ), keynum );
+			if( down ) Con_Reportf( "SDLash_KeyEvent: Unknown key: %s = %i\n", SDL_GetScancodeName( keynum ), keynum );
 			return;
 		}
 	}
@@ -178,7 +172,8 @@ SDLash_InputEvent
 */
 static void SDLash_InputEvent( SDL_TextInputEvent input )
 {
-	for( char *text = input.text; *text; text++ )
+	char *text;
+	for( text = input.text; *text; text++ )
 	{
 		int ch;
 
@@ -192,17 +187,6 @@ static void SDLash_InputEvent( SDL_TextInputEvent input )
 
 		CL_CharEvent( ch );
 	}
-}
-
-/*
-=============
-SDLash_EnableTextInput
-
-=============
-*/
-void SDLash_EnableTextInput( qboolean enable )
-{
-	enable ? SDL_StartTextInput() : SDL_StopTextInput();
 }
 
 /*
@@ -289,7 +273,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 				if( ( event->tfinger.x > 2 ) && ( event->tfinger.y > 2 ) )
 				{
 					scale = 2;
-					MsgDev( D_INFO, "SDL reports screen coordinates, workaround enabled!\n");
+					Con_Reportf( "SDL reports screen coordinates, workaround enabled!\n");
 				}
 				else
 				{
@@ -396,9 +380,9 @@ static void SDLash_EventFilter( SDL_Event *event )
 		if( event->window.windowID != SDL_GetWindowID( host.hWnd ) )
 			return;
 
-		if( ( host.status == HOST_SHUTDOWN ) ||
-			( Host_IsDedicated() ) )
+		if( host.status == HOST_SHUTDOWN || Host_IsDedicated() )
 			break; // no need to activate
+
 		switch( event->window.event )
 		{
 		case SDL_WINDOWEVENT_MOVED:
@@ -408,10 +392,14 @@ static void SDLash_EventFilter( SDL_Event *event )
 				Cvar_SetValue( "_window_ypos", (float)event->window.data1 );
 			}
 			break;
+		case SDL_WINDOWEVENT_MINIMIZED:
+			host.status = HOST_SLEEP;
+			VID_RestoreScreenResolution( );
+			break;
 		case SDL_WINDOWEVENT_RESTORED:
 			host.status = HOST_FRAME;
 			host.force_draw_version = true;
-			host.force_draw_version_time = host.realtime + 2;
+			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			if( vid_fullscreen->value )
 				VID_SetMode();
 			break;
@@ -420,19 +408,14 @@ static void SDLash_EventFilter( SDL_Event *event )
 			IN_ActivateMouse(true);
 			if( snd_mute_losefocus->value )
 			{
-				S_Activate( true );
+				SNDDMA_Activate( true );
 			}
 			host.force_draw_version = true;
-			host.force_draw_version_time = host.realtime + 2;
+			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			if( vid_fullscreen->value )
 				VID_SetMode();
 			break;
-		case SDL_WINDOWEVENT_MINIMIZED:
-			host.status = HOST_SLEEP;
-			VID_RestoreScreenResolution();
-			break;
 		case SDL_WINDOWEVENT_FOCUS_LOST:
-
 #if TARGET_OS_IPHONE
 			{
 				// Keep running if ftp server enabled
@@ -444,27 +427,22 @@ static void SDLash_EventFilter( SDL_Event *event )
 			IN_DeactivateMouse();
 			if( snd_mute_losefocus->value )
 			{
-				S_Activate( false );
+				SNDDMA_Activate( false );
 			}
 			host.force_draw_version = true;
-			host.force_draw_version_time = host.realtime + 1;
+			host.force_draw_version_time = host.realtime + 2;
 			VID_RestoreScreenResolution();
 			break;
-		case SDL_WINDOWEVENT_CLOSE:
-			Sys_Quit();
-			break;
 		case SDL_WINDOWEVENT_RESIZED:
-			if( vid_fullscreen->value ) break;
-			R_ChangeDisplaySettingsFast( event->window.data1,
-										 event->window.data2 );
-			break;
 		case SDL_WINDOWEVENT_MAXIMIZED:
 		{
-			int w, h;
-			if( vid_fullscreen->value ) break;
+			int w = VID_MIN_WIDTH, h = VID_MIN_HEIGHT;
+			if( vid_fullscreen->value )
+				break;
 
 			SDL_GL_GetDrawableSize( host.hWnd, &w, &h );
-			R_ChangeDisplaySettingsFast( w, h );
+			R_SaveVideoMode( w, h );
+			SCR_VidInit(); // tell the client.dll what vid_mode has changed
 			break;
 		}
 		default:
@@ -479,7 +457,7 @@ SDLash_RunEvents
 
 =============
 */
-void SDLash_RunEvents( void )
+void Platform_RunEvents( void )
 {
 	SDL_Event event;
 
@@ -487,154 +465,9 @@ void SDLash_RunEvents( void )
 		SDLash_EventFilter( &event );
 }
 
-/*
-=============
-SDLash_JoyInit_Old
-
-=============
-*/
-static int SDLash_JoyInit_Old( int numjoy )
+void* Platform_GetNativeObject( const char *name )
 {
-	int num;
-	int i;
-
-	MsgDev( D_INFO, "Joystick: SDL\n" );
-
-	if( SDL_WasInit( SDL_INIT_JOYSTICK ) != SDL_INIT_JOYSTICK &&
-		SDL_InitSubSystem( SDL_INIT_JOYSTICK ) )
-	{
-		MsgDev( D_INFO, "Failed to initialize SDL Joysitck: %s\n", SDL_GetError() );
-		return 0;
-	}
-
-	if( joy )
-	{
-		SDL_JoystickClose( joy );
-	}
-
-	num = SDL_NumJoysticks();
-
-	if( num > 0 )
-		MsgDev( D_INFO, "%i joysticks found:\n", num );
-	else
-	{
-		MsgDev( D_INFO, "No joystick found.\n" );
-		return 0;
-	}
-
-	for( i = 0; i < num; i++ )
-		MsgDev( D_INFO, "%i\t: %s\n", i, SDL_JoystickNameForIndex( i ) );
-
-	MsgDev( D_INFO, "Pass +set joy_index N to command line, where N is number, to select active joystick\n" );
-
-	joy = SDL_JoystickOpen( numjoy );
-
-	if( !joy )
-	{
-		MsgDev( D_INFO, "Failed to select joystick: %s\n", SDL_GetError( ) );
-		return 0;
-	}
-
-	MsgDev( D_INFO, "Selected joystick: %s\n"
-		"\tAxes: %i\n"
-		"\tHats: %i\n"
-		"\tButtons: %i\n"
-		"\tBalls: %i\n",
-		SDL_JoystickName( joy ), SDL_JoystickNumAxes( joy ), SDL_JoystickNumHats( joy ),
-		SDL_JoystickNumButtons( joy ), SDL_JoystickNumBalls( joy ) );
-
-	SDL_GameControllerEventState( SDL_DISABLE );
-	SDL_JoystickEventState( SDL_ENABLE );
-
-	return num;
+	return NULL; // SDL don't have it
 }
-
-/*
-=============
-SDLash_JoyInit_New
-
-=============
-*/
-static int SDLash_JoyInit_New( int numjoy )
-{
-	int temp, num;
-	int i;
-
-	MsgDev( D_INFO, "Joystick: SDL GameController API\n" );
-
-	if( SDL_WasInit( SDL_INIT_GAMECONTROLLER ) != SDL_INIT_GAMECONTROLLER &&
-		SDL_InitSubSystem( SDL_INIT_GAMECONTROLLER ) )
-	{
-		MsgDev( D_INFO, "Failed to initialize SDL GameController API: %s\n", SDL_GetError() );
-		return 0;
-	}
-
-	// chance to add mappings from file
-	SDL_GameControllerAddMappingsFromFile( "controllermappings.txt" );
-
-	if( gamecontroller )
-	{
-		SDL_GameControllerClose( gamecontroller );
-	}
-
-	temp = SDL_NumJoysticks();
-	num = 0;
-
-	for( i = 0; i < temp; i++ )
-	{
-		if( SDL_IsGameController( i ))
-			num++;
-	}
-
-	if( num > 0 )
-		MsgDev( D_INFO, "%i joysticks found:\n", num );
-	else
-	{
-		MsgDev( D_INFO, "No joystick found.\n" );
-		return 0;
-	}
-
-	for( i = 0; i < num; i++ )
-		MsgDev( D_INFO, "%i\t: %s\n", i, SDL_GameControllerNameForIndex( i ) );
-
-	MsgDev( D_INFO, "Pass +set joy_index N to command line, where N is number, to select active joystick\n" );
-
-	gamecontroller = SDL_GameControllerOpen( numjoy );
-
-	if( !gamecontroller )
-	{
-		MsgDev( D_INFO, "Failed to select joystick: %s\n", SDL_GetError( ) );
-		return 0;
-	}
-// was added in SDL2-2.0.6, allow build with earlier versions just in case
-#if SDL_MAJOR_VERSION > 2 || SDL_MINOR_VERSION > 0 || SDL_PATCHLEVEL >= 6
-	MsgDev( D_INFO, "Selected joystick: %s (%i:%i:%i)\n",
-		SDL_GameControllerName( gamecontroller ),
-		SDL_GameControllerGetVendor( gamecontroller ),
-		SDL_GameControllerGetProduct( gamecontroller ),
-		SDL_GameControllerGetProductVersion( gamecontroller ));
-#endif
-	SDL_GameControllerEventState( SDL_ENABLE );
-	SDL_JoystickEventState( SDL_DISABLE );
-
-	return num;
-}
-
-/*
-=============
-SDLash_JoyInit
-
-=============
-*/
-int SDLash_JoyInit( int numjoy )
-{
-	// SDL_Joystick is now an old API
-	// SDL_GameController is preferred
-	if( Sys_CheckParm( "-sdl_joy_old_api" ) )
-		return SDLash_JoyInit_Old(numjoy);
-
-	return SDLash_JoyInit_New(numjoy);
-}
-
 
 #endif //  defined( XASH_SDL ) && !defined( XASH_DEDICATED )

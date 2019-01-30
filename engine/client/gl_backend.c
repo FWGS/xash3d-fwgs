@@ -45,6 +45,25 @@ qboolean R_SpeedsMessage( char *out, size_t size )
 
 /*
 ==============
+R_Speeds_Printf
+
+helper to print into r_speeds message
+==============
+*/
+void R_Speeds_Printf( const char *msg, ... )
+{
+	va_list	argptr;
+	char	text[2048];
+
+	va_start( argptr, msg );
+	Q_vsprintf( text, msg, argptr );
+	va_end( argptr );
+
+	Q_strncat( r_speeds_msg, text, sizeof( r_speeds_msg ));
+}
+
+/*
+==============
 GL_BackendStartFrame
 ==============
 */
@@ -60,8 +79,16 @@ GL_BackendEndFrame
 */
 void GL_BackendEndFrame( void )
 {
+	mleaf_t	*curleaf;
+
 	if( r_speeds->value <= 0 || !RI.drawWorld )
 		return;
+
+	if( !RI.viewleaf )
+		curleaf = cl.worldmodel->leafs;
+	else curleaf = RI.viewleaf;
+
+	R_Speeds_Printf( "Renderer: ^1Engine^7\n\n" );
 
 	switch( (int)r_speeds->value )
 	{
@@ -70,8 +97,8 @@ void GL_BackendEndFrame( void )
 		r_stats.c_world_polys, r_stats.c_alias_polys, r_stats.c_studio_polys, r_stats.c_sprite_polys );
 		break;		
 	case 2:
-		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "visible leafs:\n%3i leafs\ncurrent leaf %3i",
-		r_stats.c_world_leafs, Mod_PointInLeaf( RI.pvsorigin, cl.worldmodel->nodes ) - cl.worldmodel->leafs );
+		R_Speeds_Printf( "visible leafs:\n%3i leafs\ncurrent leaf %3i\n", r_stats.c_world_leafs, curleaf - cl.worldmodel->leafs );
+		R_Speeds_Printf( "ReciusiveWorldNode: %3lf secs\nDrawTextureChains %lf\n", r_stats.t_world_node, r_stats.t_world_draw );
 		break;
 	case 3:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i alias models drawn\n%3i studio models drawn\n%3i sprites drawn",
@@ -158,7 +185,7 @@ void GL_SelectTexture( GLint tmu )
 
 	if( tmu >= GL_MaxTextureUnits( ))
 	{
-		MsgDev( D_ERROR, "GL_SelectTexture: bad tmu state %i\n", tmu );
+		Con_Reportf( S_ERROR "GL_SelectTexture: bad tmu state %i\n", tmu );
 		return; 
 	}
 
@@ -222,6 +249,7 @@ GL_CleanupAllTextureUnits
 */
 void GL_CleanupAllTextureUnits( void )
 {
+	if( !glw_state.initialized ) return;
 	// force to cleanup all the units
 	GL_SelectTexture( GL_MaxTextureUnits() - 1 );
 	GL_CleanUpTextureUnits( 0 );
@@ -250,7 +278,7 @@ void GL_TextureTarget( uint target )
 {
 	if( glState.activeTMU < 0 || glState.activeTMU >= GL_MaxTextureUnits( ))
 	{
-		MsgDev( D_ERROR, "GL_TextureTarget: bad tmu state %i\n", glState.activeTMU );
+		Con_Reportf( S_ERROR "GL_TextureTarget: bad tmu state %i\n", glState.activeTMU );
 		return; 
 	}
 
@@ -463,14 +491,14 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 	int	width = 0, height = 0;
 	qboolean	result;
 
-	r_shot = Mem_Alloc( r_temppool, sizeof( rgbdata_t ));
+	r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
 	r_shot->width = (glState.width + 3) & ~3;
 	r_shot->height = (glState.height + 3) & ~3;
 	r_shot->flags = IMAGE_HAS_COLOR;
 	r_shot->type = PF_RGB_24;
 	r_shot->size = r_shot->width * r_shot->height * PFDesc[r_shot->type].bpp;
 	r_shot->palette = NULL;
-	r_shot->buffer = Mem_Alloc( r_temppool, r_shot->size );
+	r_shot->buffer = Mem_Malloc( r_temppool, r_shot->size );
 
 	// get screen frame
 	pglReadPixels( 0, 0, r_shot->width, r_shot->height, GL_RGB, GL_UNSIGNED_BYTE, r_shot->buffer );
@@ -508,7 +536,7 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 		break;
 	}
 
-	Image_Process( &r_shot, width, height, flags, NULL );
+	Image_Process( &r_shot, width, height, flags, 0.0f );
 
 	// write image
 	result = FS_SaveImage( filename, r_shot );
@@ -546,10 +574,10 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 	RI.params |= RP_ENVVIEW;	// do not render non-bmodel entities
 
 	// alloc space
-	temp = Mem_Alloc( r_temppool, size * size * 3 );
-	buffer = Mem_Alloc( r_temppool, size * size * 3 * 6 );
-	r_shot = Mem_Alloc( r_temppool, sizeof( rgbdata_t ));
-	r_side = Mem_Alloc( r_temppool, sizeof( rgbdata_t ));
+	temp = Mem_Malloc( r_temppool, size * size * 3 );
+	buffer = Mem_Malloc( r_temppool, size * size * 3 * 6 );
+	r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
+	r_side = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
 
 	// use client vieworg
 	if( !vieworg ) vieworg = RI.vieworg;
@@ -568,7 +596,7 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 		{
 			R_DrawCubemapView( vieworg, r_envMapInfo[i].angles, size );
 			flags = r_envMapInfo[i].flags;
-                    }
+		}
 
 		pglReadPixels( 0, 0, size, size, GL_RGB, GL_UNSIGNED_BYTE, temp );
 		r_side->flags = IMAGE_HAS_COLOR;
@@ -577,7 +605,7 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 		r_side->size = r_side->width * r_side->height * 3;
 		r_side->buffer = temp;
 
-		if( flags ) Image_Process( &r_side, 0, 0, flags, NULL );
+		if( flags ) Image_Process( &r_side, 0, 0, flags, 0.0f );
 		memcpy( buffer + (size * size * 3 * i), r_side->buffer, size * size * 3 );
 	}
 
@@ -617,7 +645,7 @@ was there.  This is used to test for texture thrashing.
 */
 void R_ShowTextures( void )
 {
-	gltexture_t	*image;
+	gl_texture_t	*image;
 	float		x, y, w, h;
 	int		total, start, end;
 	int		i, j, k, base_w, base_h;
@@ -626,7 +654,7 @@ void R_ShowTextures( void )
 	static qboolean	showHelp = true;
 	string		shortname;
 
-	if( !gl_showtextures->value )
+	if( !CVAR_TO_BOOL( gl_showtextures ))
 		return;
 
 	if( showHelp )
@@ -718,4 +746,96 @@ rebuild_page:
 
 	CL_DrawCenterPrint ();
 	pglFinish();
+}
+
+#define POINT_SIZE		16.0f
+#define NODE_INTERVAL_X(x)	(x * 16.0f)
+#define NODE_INTERVAL_Y(x)	(x * 16.0f)
+
+void R_DrawLeafNode( float x, float y, float scale )
+{
+	float downScale = scale * 0.25f;// * POINT_SIZE;
+
+	R_DrawStretchPic( x - downScale * 0.5f, y - downScale * 0.5f, downScale, downScale, 0, 0, 1, 1, tr.particleTexture );
+}
+
+void R_DrawNodeConnection( float x, float y, float x2, float y2 )
+{
+	pglBegin( GL_LINES );
+		pglVertex2f( x, y );
+		pglVertex2f( x2, y2 );
+	pglEnd();
+}
+
+void R_ShowTree_r( mnode_t *node, float x, float y, float scale, int shownodes )
+{
+	float	downScale = scale * 0.8f;
+
+	downScale = Q_max( downScale, 1.0f );
+
+	if( !node ) return;
+
+	tr.recursion_level++;
+
+	if( node->contents < 0 )
+	{
+		mleaf_t	*leaf = (mleaf_t *)node;
+
+		if( tr.recursion_level > tr.max_recursion )
+			tr.max_recursion = tr.recursion_level;
+
+		if( shownodes == 1 )
+		{
+			if( cl.worldmodel->leafs == leaf )
+				pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
+			else if( RI.viewleaf && RI.viewleaf == leaf )
+				pglColor4f( 1.0f, 0.0f, 0.0f, 1.0f );
+			else pglColor4f( 0.0f, 1.0f, 0.0f, 1.0f );
+			R_DrawLeafNode( x, y, scale );
+		}
+		tr.recursion_level--;
+		return;
+	}
+
+	if( shownodes == 1 )
+	{
+		pglColor4f( 0.0f, 0.0f, 1.0f, 1.0f );
+		R_DrawLeafNode( x, y, scale );
+	}
+	else if( shownodes == 2 )
+	{
+		R_DrawNodeConnection( x, y, x - scale, y + scale );
+		R_DrawNodeConnection( x, y, x + scale, y + scale );
+	}
+
+	R_ShowTree_r( node->children[1], x - scale, y + scale, downScale, shownodes );
+	R_ShowTree_r( node->children[0], x + scale, y + scale, downScale, shownodes );
+
+	tr.recursion_level--;
+}
+
+void R_ShowTree( void )
+{
+	float	x = (float)((glState.width - (int)POINT_SIZE) >> 1);
+	float	y = NODE_INTERVAL_Y(1.0);
+
+	if( !cl.worldmodel || !CVAR_TO_BOOL( r_showtree ))
+		return;
+
+	tr.recursion_level = 0;
+
+	pglEnable( GL_BLEND );
+	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+
+	pglLineWidth( 2.0f );
+	pglColor3f( 1, 0.7f, 0 );
+	pglDisable( GL_TEXTURE_2D );
+	R_ShowTree_r( cl.worldmodel->nodes, x, y, tr.max_recursion * 3.5f, 2 );
+	pglEnable( GL_TEXTURE_2D );
+	pglLineWidth( 1.0f );
+
+	R_ShowTree_r( cl.worldmodel->nodes, x, y, tr.max_recursion * 3.5f, 1 );
+
+	Con_NPrintf( 0, "max recursion %d\n", tr.max_recursion );
 }

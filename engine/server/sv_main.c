@@ -92,6 +92,7 @@ CVAR_DEFINE_AUTO( sv_skyvec_x, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "skylight dir
 CVAR_DEFINE_AUTO( sv_skyvec_y, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "skylight direction by y-axis" );
 CVAR_DEFINE_AUTO( sv_skyvec_z, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "skylight direction by z-axis" );
 CVAR_DEFINE_AUTO( sv_wateralpha, "1", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "world surfaces water transparency factor. 1.0 - solid, 0.0 - fully transparent" );
+CVAR_DEFINE_AUTO( sv_background_freeze, "1", FCVAR_ARCHIVE, "freeze player movement on background maps (e.g. to prevent falling)" );
 CVAR_DEFINE_AUTO( showtriggers, "0", FCVAR_LATCH, "debug cvar shows triggers" );
 CVAR_DEFINE_AUTO( sv_airmove, "1", FCVAR_SERVER, "obsolete, compatibility issues" );
 CVAR_DEFINE_AUTO( sv_version, "", FCVAR_READ_ONLY, "engine version string" );
@@ -158,7 +159,7 @@ void SV_UpdateMovevars( qboolean initialize )
 	if( sv_zmax.value < 256.0f ) Cvar_SetValue( "sv_zmax", 256.0f );
 
 	// clamp it right
-	if( host.features & ENGINE_WRITE_LARGE_COORD )
+	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
 	{
 		if( sv_zmax.value > 131070.0f )
 			Cvar_SetValue( "sv_zmax", 131070.0f );
@@ -513,6 +514,9 @@ void SV_PrepWorldFrame( void )
 
 		ClearBits( ent->v.effects, EF_MUZZLEFLASH|EF_NOINTERP );
 	}
+
+	if( svgame.physFuncs.pfnPrepWorldFrame != NULL )
+		svgame.physFuncs.pfnPrepWorldFrame();
 }
 
 /*
@@ -600,7 +604,7 @@ void Host_ServerFrame( void )
 	// if server is not active, do nothing
 	if( !svs.initialized ) return;
 
-	if( sv.simulating || sv.state != ss_active )
+	if( sv_fps.value != 0.0f && ( sv.simulating || sv.state != ss_active ))
 		sv.time_residual += host.frametime;
 
 	if( sv_fps.value == 0.0f )
@@ -649,9 +653,8 @@ void Master_Add( void )
 	NET_Config( true ); // allow remote
 
 	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ))
-		MsgDev( D_INFO, "Can't resolve adr: %s\n", MASTERSERVER_ADR );
-
-	NET_SendPacket( NS_SERVER, 2, "q\xFF", adr );
+		Con_Printf( "can't resolve adr: %s\n", MASTERSERVER_ADR );
+	else NET_SendPacket( NS_SERVER, 2, "q\xFF", adr );
 }
 
 /*
@@ -693,9 +696,8 @@ void Master_Shutdown( void )
 	NET_Config( true ); // allow remote
 
 	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ))
-		MsgDev( D_INFO, "Can't resolve addr: %s\n", MASTERSERVER_ADR );
-
-	NET_SendPacket( NS_SERVER, 2, "\x62\x0A", adr );
+		Con_Printf( "can't resolve addr: %s\n", MASTERSERVER_ADR );
+	else NET_SendPacket( NS_SERVER, 2, "\x62\x0A", adr );
 }
 
 /*
@@ -848,6 +850,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable (&violence_hgibs);
 	Cvar_RegisterVariable (&mp_logecho);
 	Cvar_RegisterVariable (&mp_logfile);
+	Cvar_RegisterVariable (&sv_background_freeze);
 
 	// when we in developer-mode automatically turn cheats on
 	if( host_developer.value ) Cvar_SetValue( "sv_cheats", 1.0f );
@@ -856,6 +859,7 @@ void SV_Init( void )
 
 	Q_snprintf( versionString, sizeof( versionString ), "%s: %s-%s(%s-%s),%i,%i",
 		XASH_ENGINE_NAME, XASH_VERSION, Q_buildcommit(), Q_buildos(), Q_buildarch(), PROTOCOL_VERSION, Q_buildnum() );
+
 	Cvar_FullSet( "sv_version", versionString, FCVAR_READ_ONLY );
 
 	SV_ClearGameState ();	// delete all temporary *.hl files

@@ -29,9 +29,7 @@ GNU General Public License for more details.
 #include "library.h"
 #include "vgui_draw.h"
 #include "sound.h"		// SND_STOP_LOOPING
-#ifdef XASH_SDL
-#include <SDL.h>
-#endif
+#include "platform/platform.h"
 
 #define MAX_LINELENGTH	80
 #define MAX_TEXTCHANNELS	8		// must be power of two (GoldSrc uses 4 channels)
@@ -243,7 +241,7 @@ void CL_InitCDAudio( const char *filename )
 
 		if( ++c > MAX_CDTRACKS - 1 )
 		{
-			MsgDev( D_WARN, "CD_Init: too many tracks %i in %s\n", MAX_CDTRACKS, filename );
+			Con_Reportf( S_WARN "CD_Init: too many tracks %i in %s\n", MAX_CDTRACKS, filename );
 			break;
 		}
 	}
@@ -832,14 +830,14 @@ const char *CL_SoundFromIndex( int index )
 
 	if( !hSound )
 	{
-		MsgDev( D_ERROR, "CL_SoundFromIndex: invalid sound index %i\n", index );
+		Con_DPrintf( S_ERROR "CL_SoundFromIndex: invalid sound index %i\n", index );
 		return NULL;
 	}
 
 	sfx = S_GetSfxByHandle( hSound );
 	if( !sfx )
 	{
-		MsgDev( D_ERROR, "CL_SoundFromIndex: bad sfx for index %i\n", index );
+		Con_DPrintf( S_ERROR "CL_SoundFromIndex: bad sfx for index %i\n", index );
 		return NULL;
 	}
 
@@ -1065,7 +1063,7 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 	for( i = 0; i < MAX_USER_MESSAGES && clgame.msg[i].name[0]; i++ )
 	{
 		// NOTE: no check for DispatchFunc, check only name
-		if( !Q_strcmp( clgame.msg[i].name, pszName ))
+		if( !Q_stricmp( clgame.msg[i].name, pszName ))
 		{
 			clgame.msg[i].number = svc_num;
 			clgame.msg[i].size = iSize;
@@ -1115,16 +1113,16 @@ void CL_InitEdicts( void )
 
 	CL_UPDATE_BACKUP = ( cl.maxclients == 1 ) ? SINGLEPLAYER_BACKUP : MULTIPLAYER_BACKUP;
 	cls.num_client_entities = CL_UPDATE_BACKUP * NUM_PACKET_ENTITIES;
-	cls.packet_entities = Z_Realloc( cls.packet_entities, sizeof( entity_state_t ) * cls.num_client_entities );
-	clgame.entities = Mem_Alloc( clgame.mempool, sizeof( cl_entity_t ) * clgame.maxEntities );
-	clgame.static_entities = Mem_Alloc( clgame.mempool, sizeof( cl_entity_t ) * MAX_STATIC_ENTITIES );
+	cls.packet_entities = Mem_Realloc( clgame.mempool, cls.packet_entities, sizeof( entity_state_t ) * cls.num_client_entities );
+	clgame.entities = Mem_Calloc( clgame.mempool, sizeof( cl_entity_t ) * clgame.maxEntities );
+	clgame.static_entities = Mem_Calloc( clgame.mempool, sizeof( cl_entity_t ) * MAX_STATIC_ENTITIES );
 	clgame.numStatics = 0;
 
 	if(( clgame.maxRemapInfos - 1 ) != clgame.maxEntities )
 	{
 		CL_ClearAllRemaps (); // purge old remap info
 		clgame.maxRemapInfos = clgame.maxEntities + 1; 
-		clgame.remap_info = (remap_info_t **)Mem_Alloc( clgame.mempool, sizeof( remap_info_t* ) * clgame.maxRemapInfos );
+		clgame.remap_info = (remap_info_t **)Mem_Calloc( clgame.mempool, sizeof( remap_info_t* ) * clgame.maxRemapInfos );
 	}
 
 	if( clgame.drawFuncs.R_ProcessEntData != NULL )
@@ -1217,6 +1215,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 		}
 		else
 		{
+			Con_Reportf( S_ERROR "%s couldn't load\n", szSpriteName );
 			Mod_UnloadSpriteModel( m_pSprite );
 			return false;
 		}
@@ -1258,7 +1257,7 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 
 	if( !COM_CheckString( filename ))
 	{
-		MsgDev( D_ERROR, "CL_LoadSpriteModel: bad name!\n" );
+		Con_Reportf( S_ERROR "CL_LoadSpriteModel: bad name!\n" );
 		return NULL;
 	}
 
@@ -1535,7 +1534,7 @@ static client_sprite_t *pfnSPR_GetList( char *psz, int *piCount )
 	Q_strncpy( pEntry->szListName, psz, sizeof( pEntry->szListName ));
 
 	// name, res, pic, x, y, w, h
-	pEntry->pList = Mem_Alloc( cls.mempool, sizeof( client_sprite_t ) * numSprites );
+	pEntry->pList = Mem_Calloc( cls.mempool, sizeof( client_sprite_t ) * numSprites );
 
 	for( index = 0; index < numSprites; index++ )
 	{
@@ -1584,12 +1583,14 @@ CL_FillRGBA
 */
 void CL_FillRGBA( int x, int y, int w, int h, int r, int g, int b, int a )
 {
+	float _x = x, _y = y, _w = w, _h = h;
+
 	r = bound( 0, r, 255 );
 	g = bound( 0, g, 255 );
 	b = bound( 0, b, 255 );
 	a = bound( 0, a, 255 );
 
-	SPR_AdjustSize( (float *)&x, (float *)&y, (float *)&w, (float *)&h );
+	SPR_AdjustSize( &_x, &_y, &_w, &_h );
 
 	pglDisable( GL_TEXTURE_2D );
 	pglEnable( GL_BLEND );
@@ -1598,10 +1599,10 @@ void CL_FillRGBA( int x, int y, int w, int h, int r, int g, int b, int a )
 	pglColor4f( r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f );
 
 	pglBegin( GL_QUADS );
-		pglVertex2f( x, y );
-		pglVertex2f( x + w, y );
-		pglVertex2f( x + w, y + h );
-		pglVertex2f( x, y + h );
+		pglVertex2f( _x, _y );
+		pglVertex2f( _x + _w, _y );
+		pglVertex2f( _x + _w, _y + _h );
+		pglVertex2f( _x, _y + _h );
 	pglEnd ();
 
 	pglColor3f( 1.0f, 1.0f, 1.0f );
@@ -1682,7 +1683,7 @@ static int pfnHookUserMsg( const char *pszName, pfnUserMsgHook pfn )
 	for( i = 0; i < MAX_USER_MESSAGES && clgame.msg[i].name[0]; i++ )
 	{
 		// see if already hooked
-		if( !Q_strcmp( clgame.msg[i].name, pszName ))
+		if( !Q_stricmp( clgame.msg[i].name, pszName ))
 			return 1;
 	}
 
@@ -1709,7 +1710,7 @@ static int pfnServerCmd( const char *szCmdString )
 {
 	string	buf;
 
-	if( !szCmdString || !szCmdString[0] )
+	if( !COM_CheckString( szCmdString ))
 		return 0;
 
 	// just like the client typed "cmd xxxxx" at the console
@@ -1727,11 +1728,20 @@ pfnClientCmd
 */
 static int pfnClientCmd( const char *szCmdString )
 {
-	if( !szCmdString || !szCmdString[0] )
+	if( !COM_CheckString( szCmdString ))
 		return 0;
 
-	Cbuf_AddText( szCmdString );
-	Cbuf_AddText( "\n" );
+	if( cls.initialized )
+	{
+		Cbuf_AddText( szCmdString );
+		Cbuf_AddText( "\n" );
+	}
+	else
+	{
+		// will exec later
+		Q_strncat( host.deferred_cmd, va( "%s\n", szCmdString ), sizeof( host.deferred_cmd )); 
+	}
+
 	return 1;
 }
 
@@ -1790,12 +1800,8 @@ static void pfnPlaySoundByIndex( int iSound, float volume )
 	// make sure what we in-bounds
 	iSound = bound( 0, iSound, MAX_SOUNDS );
 	hSound = cl.sound_index[iSound];
+	if( !hSound ) return;
 
-	if( !hSound )
-	{
-		MsgDev( D_ERROR, "CL_PlaySoundByIndex: invalid sound handle %i\n", iSound );
-		return;
-	}
 	S_StartSound( NULL, cl.viewentity, CHAN_ITEM, hSound, volume, ATTN_NORM, PITCH_NORM, SND_STOP_LOOPING );
 }
 
@@ -1866,7 +1872,8 @@ int pfnDrawConsoleString( int x, int y, char *string )
 {
 	int	drawLen;
 
-	if( !string || !*string ) return 0; // silent ignore
+	if( !COM_CheckString( string ))
+		return 0; // silent ignore
 	Con_SetFont( con_fontsize->value );
 
 	clgame.ds.adjust_size = true;
@@ -1942,7 +1949,21 @@ GetWindowCenterX
 */
 static int pfnGetWindowCenterX( void )
 {
-	return host.window_center_x;
+	int x = 0;
+#ifdef _WIN32
+	if( m_ignore->value )
+	{
+		POINT pos;
+		GetCursorPos( &pos );
+		return pos.x;
+	}
+#endif
+
+#ifdef XASH_SDL
+	SDL_GetWindowPosition( host.hWnd, &x, NULL );
+#endif
+
+	return host.window_center_x + x;
 }
 
 /*
@@ -1953,7 +1974,21 @@ GetWindowCenterY
 */
 static int pfnGetWindowCenterY( void )
 {
-	return host.window_center_y;
+	int y = 0;
+#ifdef _WIN32
+	if( m_ignore->value )
+	{
+		POINT pos;
+		GetCursorPos( &pos );
+		return pos.y;
+	}
+#endif
+
+#ifdef XASH_SDL
+	SDL_GetWindowPosition( host.hWnd, NULL, &y );
+#endif
+
+	return host.window_center_y + y;
 }
 
 /*
@@ -2012,22 +2047,6 @@ value that come from server
 static float pfnGetClientMaxspeed( void )
 {
 	return cl.local.maxspeed;
-}
-
-/*
-=============
-CL_GetMousePosition
-
-=============
-*/
-void CL_GetMousePosition( int *mx, int *my )
-{
-#ifdef XASH_SDL
-	SDL_GetMouseState( mx, my );
-#else
-	if( mx ) *mx = 0;
-	if( my ) *my = 0;
-#endif
 }
 
 /*
@@ -2239,7 +2258,7 @@ static void pfnHookEvent( const char *filename, pfnEventHook pfn )
 
 		if( !Q_stricmp( name, ev->name ) && ev->func != NULL )
 		{
-			MsgDev( D_WARN, "CL_HookEvent: %s already hooked!\n", name );
+			Con_Reportf( S_WARN "CL_HookEvent: %s already hooked!\n", name );
 			return;
 		}
 	}
@@ -2720,7 +2739,7 @@ pfnServerCmdUnreliable
 */
 int pfnServerCmdUnreliable( char *szCmdString )
 {
-	if( !szCmdString || !szCmdString[0] )
+	if( !COM_CheckString( szCmdString ))
 		return 0;
 
 	MSG_BeginClientCmd( &cls.datagram, clc_stringcmd );
@@ -2740,20 +2759,7 @@ void pfnGetMousePos( struct tagPOINT *ppt )
 	if( !ppt )
 		return;
 
-	CL_GetMousePosition( &ppt->x, &ppt->y );
-}
-
-/*
-=============
-pfnSetMousePos
-
-=============
-*/
-void pfnSetMousePos( int mx, int my )
-{
-#ifdef XASH_SDL
-	SDL_WarpMouseInWindow( host.hWnd, mx, my );
-#endif
+	Platform_GetMousePos( &ppt->x, &ppt->y );
 }
 
 /*
@@ -2992,12 +2998,14 @@ pfnFillRGBABlend
 */
 void GAME_EXPORT CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int b, int a )
 {
+	float _x = x, _y = y, _w = w, _h = h;
+
 	r = bound( 0, r, 255 );
 	g = bound( 0, g, 255 );
 	b = bound( 0, b, 255 );
 	a = bound( 0, a, 255 );
 
-	SPR_AdjustSize( (float *)&x, (float *)&y, (float *)&w, (float *)&h );
+	SPR_AdjustSize( &_x, &_y, &_w, &_h );
 
 	pglDisable( GL_TEXTURE_2D );
 	pglEnable( GL_BLEND );
@@ -3006,10 +3014,10 @@ void GAME_EXPORT CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int
 	pglColor4f( r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f );
 
 	pglBegin( GL_QUADS );
-		pglVertex2f( x, y );
-		pglVertex2f( x + w, y );
-		pglVertex2f( x + w, y + h );
-		pglVertex2f( x, y + h );
+		pglVertex2f( _x, _y );
+		pglVertex2f( _x + _w, _y );
+		pglVertex2f( _x + _w, _y + _h );
+		pglVertex2f( _x, _y + _h );
 	pglEnd ();
 
 	pglColor3f( 1.0f, 1.0f, 1.0f );
@@ -3525,7 +3533,7 @@ void NetAPI_SendRequest( int context, int request, int flags, double timeout, ne
 
 	if( !response )
 	{
-		MsgDev( D_ERROR, "Net_SendRequest: no callbcak specified for request with context %i!\n", context );
+		Con_DPrintf( S_ERROR "Net_SendRequest: no callbcak specified for request with context %i!\n", context );
 		return;
 	}
 
@@ -3908,6 +3916,8 @@ static event_api_t gEventApi =
 	CL_VisTraceLine,
 	pfnGetVisent,
 	CL_TestLine,
+	CL_PushTraceBounds,
+	CL_PopTraceBounds,
 };
 
 static demo_api_t gDemoApi =
@@ -3993,7 +4003,7 @@ static cl_enginefunc_t gEngfuncs =
 	pfnGetClientMaxspeed,
 	COM_CheckParm,
 	Key_Event,
-	CL_GetMousePosition,
+	Platform_GetMousePos,
 	pfnIsNoClipping,
 	CL_GetLocalPlayer,
 	pfnGetViewModel,
@@ -4043,7 +4053,7 @@ static cl_enginefunc_t gEngfuncs =
 	pfnGetPlayerForTrackerID,
 	pfnServerCmdUnreliable,
 	pfnGetMousePos,
-	pfnSetMousePos,
+	Platform_SetMousePos,
 	pfnSetMouseEnable,
 	Cvar_GetList,
 	(void*)Cmd_GetFirstFunctionHandle,
@@ -4139,7 +4149,7 @@ qboolean CL_LoadProgs( const char *name )
 	// trying to get single export
 	if(( GetClientAPI = (void *)COM_GetProcAddress( clgame.hInstance, "GetClientAPI" )) != NULL )
 	{
-		MsgDev( D_NOTE, "CL_LoadProgs: found single callback export\n" );		
+		Con_Reportf( "CL_LoadProgs: found single callback export\n" );		
 
 		// trying to fill interface now
 		GetClientAPI( &clgame.dllFuncs );
@@ -4164,7 +4174,7 @@ qboolean CL_LoadProgs( const char *name )
 		// functions are cleared before all the extensions are evaluated
 		if(( *func->func = (void *)COM_GetProcAddress( clgame.hInstance, func->name )) == NULL )
 		{
-          		MsgDev( D_NOTE, "CL_LoadProgs: failed to get address of %s proc\n", func->name );
+          		Con_Reportf( "CL_LoadProgs: failed to get address of %s proc\n", func->name );
 
 			if( critical_exports )
 			{
@@ -4191,13 +4201,13 @@ qboolean CL_LoadProgs( const char *name )
 		// functions are cleared before all the extensions are evaluated
 		// NOTE: new exports can be missed without stop the engine
 		if(( *func->func = (void *)COM_GetProcAddress( clgame.hInstance, func->name )) == NULL )
-			MsgDev( D_NOTE, "CL_LoadProgs: failed to get address of %s proc\n", func->name );
+			Con_Reportf( "CL_LoadProgs: failed to get address of %s proc\n", func->name );
 	}
 
 	if( !clgame.dllFuncs.pfnInitialize( &gEngfuncs, CLDLL_INTERFACE_VERSION ))
 	{
 		COM_FreeLibrary( clgame.hInstance );
-		MsgDev( D_NOTE, "CL_LoadProgs: can't init client API\n" );
+		Con_Reportf( "CL_LoadProgs: can't init client API\n" );
 		clgame.hInstance = NULL;
 		return false;
 	}

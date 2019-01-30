@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "mod_local.h"
 #include "input.h"
 #include "vid_common.h"
+#include "platform/platform.h"
 
 #define WINDOW_NAME			XASH_ENGINE_NAME " Window" // Half-Life
 
@@ -26,8 +27,10 @@ convar_t	*gl_extensions;
 convar_t	*gl_texture_anisotropy;
 convar_t	*gl_texture_lodbias;
 convar_t	*gl_texture_nearest;
+convar_t	*gl_wgl_msaa_samples;
 convar_t	*gl_lightmap_nearest;
 convar_t	*gl_keeptjunctions;
+convar_t	*gl_emboss_scale;
 convar_t	*gl_showtextures;
 convar_t	*gl_detailscale;
 convar_t	*gl_check_errors;
@@ -46,6 +49,7 @@ convar_t	*window_ypos;
 convar_t	*r_speeds;
 convar_t	*r_fullbright;
 convar_t	*r_norefresh;
+convar_t	*r_showtree;
 convar_t	*r_lighting_extended;
 convar_t	*r_lighting_modulate;
 convar_t	*r_lighting_ambient;
@@ -124,7 +128,7 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 	convar_t		*parm = NULL;
 	const char	*extensions_string;
 
-	MsgDev( D_NOTE, "GL_CheckExtension: %s ", name );
+	Con_Reportf( "GL_CheckExtension: %s ", name );
 	GL_SetExtension( r_ext, true );
 
 	if( cvarname )
@@ -135,7 +139,7 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 
 	if(( parm && !CVAR_TO_BOOL( parm )) || ( !CVAR_TO_BOOL( gl_extensions ) && r_ext != GL_OPENGL_110 ))
 	{
-		MsgDev( D_NOTE, "- disabled\n" );
+		Con_Reportf( "- disabled\n" );
 		GL_SetExtension( r_ext, false );
 		return; // nothing to process at
 	}
@@ -145,7 +149,7 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 	if(( name[2] == '_' || name[3] == '_' ) && !Q_strstr( extensions_string, name ))
 	{
 		GL_SetExtension( r_ext, false );	// update render info
-		MsgDev( D_NOTE, "- ^1failed\n" );
+		Con_Reportf( "- ^1failed\n" );
 		return;
 	}
 
@@ -161,8 +165,8 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 	}
 
 	if( GL_Support( r_ext ))
-		MsgDev( D_NOTE, "- ^2enabled\n" );
-	else MsgDev( D_NOTE, "- ^1failed\n" );
+		Con_Reportf( "- ^2enabled\n" );
+	else Con_Reportf( "- ^1failed\n" );
 }
 
 /*
@@ -208,7 +212,7 @@ VID_StartupGamma
 void VID_StartupGamma( void )
 {
 	BuildGammaTable( vid_gamma->value, vid_brightness->value );
-	MsgDev( D_NOTE, "VID_StartupGamma: gamma %g brightness %g\n", vid_gamma->value, vid_brightness->value );
+	Con_Reportf( "VID_StartupGamma: gamma %g brightness %g\n", vid_gamma->value, vid_brightness->value );
 	ClearBits( vid_brightness->flags, FCVAR_CHANGED );
 	ClearBits( vid_gamma->flags, FCVAR_CHANGED );
 }
@@ -233,11 +237,11 @@ R_SaveVideoMode
 */
 void R_SaveVideoMode( int w, int h )
 {
-	host.window_center_x = glState.width / 2;
-	host.window_center_y = glState.height / 2;
-
 	glState.width = w;
 	glState.height = h;
+
+	host.window_center_x = w / 2;
+	host.window_center_y = h / 2;
 
 	Cvar_SetValue( "width", w );
 	Cvar_SetValue( "height", h );
@@ -255,10 +259,14 @@ VID_GetModeString
 */
 const char *VID_GetModeString( int vid_mode )
 {
+	vidmode_t *vidmode;
 	if( vid_mode < 0 || vid_mode > R_MaxVideoModes() )
 		return NULL;
 
-	return R_GetVideoMode( vid_mode ).desc;
+	if( !( vidmode = R_GetVideoMode( vid_mode ) ) )
+		return NULL;
+
+	return vidmode->desc;
 }
 
 /*
@@ -324,7 +332,7 @@ static void GL_SetDefaults( void )
 	pglDisable( GL_BLEND );
 	pglDisable( GL_ALPHA_TEST );
 	pglDisable( GL_POLYGON_OFFSET_FILL );
-	pglAlphaFunc( GL_GREATER, 0.0f );
+	pglAlphaFunc( GL_GREATER, DEFAULT_ALPHATEST );
 	pglEnable( GL_TEXTURE_2D );
 	pglShadeModel( GL_SMOOTH );
 	pglFrontFace( GL_CCW );
@@ -389,12 +397,17 @@ static void VID_Mode_f( void )
 	{
 	case 2:
 	{
-		vidmode_t vidmode;
+		vidmode_t *vidmode;
 
 		vidmode = R_GetVideoMode( Q_atoi( Cmd_Argv( 1 )) );
+		if( !vidmode )
+		{
+			Con_Print( S_ERROR "unable to set mode, backend returned null" );
+			return;
+		}
 
-		w = vidmode.width;
-		h = vidmode.height;
+		w = vidmode->width;
+		h = vidmode->height;
 		break;
 	}
 	case 3:
@@ -404,7 +417,7 @@ static void VID_Mode_f( void )
 		break;
 	}
 	default:
-		Msg( "Usage: vid_mode <modenum>|<width height>\n" );
+		Msg( S_USAGE "vid_mode <modenum>|<width height>\n" );
 		return;
 	}
 
@@ -426,6 +439,7 @@ void GL_InitCommands( void )
 	r_speeds = Cvar_Get( "r_speeds", "0", FCVAR_ARCHIVE, "shows renderer speeds" );
 	r_fullbright = Cvar_Get( "r_fullbright", "0", FCVAR_CHEAT, "disable lightmaps, get fullbright for entities" );
 	r_norefresh = Cvar_Get( "r_norefresh", "0", 0, "disable 3D rendering (use with caution)" );
+	r_showtree = Cvar_Get( "r_showtree", "0", FCVAR_ARCHIVE, "build the graph of visible BSP tree" );
 	r_lighting_extended = Cvar_Get( "r_lighting_extended", "1", FCVAR_ARCHIVE, "allow to get lighting from world and bmodels" );
 	r_lighting_modulate = Cvar_Get( "r_lighting_modulate", "0.6", FCVAR_ARCHIVE, "lightstyles modulate scale" );
 	r_lighting_ambient = Cvar_Get( "r_lighting_ambient", "0.3", FCVAR_ARCHIVE, "map ambient lighting scale" );
@@ -452,13 +466,15 @@ void GL_InitCommands( void )
 	gl_texture_anisotropy = Cvar_Get( "gl_anisotropy", "8", FCVAR_ARCHIVE, "textures anisotropic filter" );
 	gl_texture_lodbias =  Cvar_Get( "gl_texture_lodbias", "0.0", FCVAR_ARCHIVE, "LOD bias for mipmapped textures (perfomance|quality)" );
 	gl_keeptjunctions = Cvar_Get( "gl_keeptjunctions", "1", FCVAR_ARCHIVE, "removing tjuncs causes blinking pixels" );
+	gl_emboss_scale = Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
 	gl_showtextures = Cvar_Get( "r_showtextures", "0", FCVAR_CHEAT, "show all uploaded textures" );
 	gl_finish = Cvar_Get( "gl_finish", "0", FCVAR_ARCHIVE, "use glFinish instead of glFlush" );
 	gl_nosort = Cvar_Get( "gl_nosort", "0", FCVAR_ARCHIVE, "disable sorting of translucent surfaces" );
 	gl_clear = Cvar_Get( "gl_clear", "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
 	gl_test = Cvar_Get( "gl_test", "0", 0, "engine developer cvar for quick testing new features" );
 	gl_wireframe = Cvar_Get( "gl_wireframe", "0", FCVAR_ARCHIVE|FCVAR_SPONLY, "show wireframe overlay" );
-	gl_msaa = Cvar_Get( "gl_msaa", "0", FCVAR_GLCONFIG, "MSAA samples. Use with caution, engine may fail with some values" );
+	gl_wgl_msaa_samples = Cvar_Get( "gl_wgl_msaa_samples", "0", FCVAR_GLCONFIG, "samples number for multisample anti-aliasing" );
+	gl_msaa = Cvar_Get( "gl_msaa", "1", FCVAR_ARCHIVE, "enable or disable multisample anti-aliasing" );
 	gl_stencilbits = Cvar_Get( "gl_stencilbits", "8", FCVAR_GLCONFIG, "pixelformat stencil bits (0 - auto)" );
 	gl_round_down = Cvar_Get( "gl_round_down", "2", FCVAR_RENDERINFO, "round texture sizes to nearest POT value" );
 	// these cvar not used by engine but some mods requires this
@@ -551,10 +567,10 @@ qboolean R_Init( void )
 	GL_SetDefaultState();
 
 	// create the window and set up the context
-	if( !R_Init_OpenGL( ))
+	if( !R_Init_Video( ))
 	{
 		GL_RemoveCommands();
-		R_Free_OpenGL();
+		R_Free_Video();
 
 		Sys_Error( "Can't initialize video subsystem\nProbably driver was not installed" );
 		return false;
@@ -563,7 +579,6 @@ qboolean R_Init( void )
 	host.renderinfo_changed = false;
 	r_temppool = Mem_AllocPool( "Render Zone" );
 
-	GL_InitExtensions();
 	GL_SetDefaults();
 	R_InitImages();
 	R_SpriteInit();
@@ -605,51 +620,51 @@ void R_Shutdown( void )
 	Mem_FreePool( &r_temppool );
 
 	// shut down OS specific OpenGL stuff like contexts, etc.
-	R_Free_OpenGL();
+	R_Free_Video();
+}
+
+/*
+=================
+GL_ErrorString
+convert errorcode to string
+=================
+*/
+const char *GL_ErrorString( int err )
+{
+	switch( err )
+	{
+	case GL_STACK_OVERFLOW:
+		return "GL_STACK_OVERFLOW";
+	case GL_STACK_UNDERFLOW:
+		return "GL_STACK_UNDERFLOW";
+	case GL_INVALID_ENUM:
+		return "GL_INVALID_ENUM";
+	case GL_INVALID_VALUE:
+		return "GL_INVALID_VALUE";
+	case GL_INVALID_OPERATION:
+		return "GL_INVALID_OPERATION";
+	case GL_OUT_OF_MEMORY:
+		return "GL_OUT_OF_MEMORY";
+	default:
+		return "UNKNOWN ERROR";
+	}
 }
 
 /*
 =================
 GL_CheckForErrors
-
 obsolete
 =================
 */
 void GL_CheckForErrors_( const char *filename, const int fileline )
 {
 	int	err;
-	char	*str;
 
-	if( !gl_check_errors->value )
+	if( !CVAR_TO_BOOL( gl_check_errors ))
 		return;
 
 	if(( err = pglGetError( )) == GL_NO_ERROR )
 		return;
 
-	switch( err )
-	{
-	case GL_STACK_OVERFLOW:
-		str = "GL_STACK_OVERFLOW";
-		break;
-	case GL_STACK_UNDERFLOW:
-		str = "GL_STACK_UNDERFLOW";
-		break;
-	case GL_INVALID_ENUM:
-		str = "GL_INVALID_ENUM";
-		break;
-	case GL_INVALID_VALUE:
-		str = "GL_INVALID_VALUE";
-		break;
-	case GL_INVALID_OPERATION:
-		str = "GL_INVALID_OPERATION";
-		break;
-	case GL_OUT_OF_MEMORY:
-		str = "GL_OUT_OF_MEMORY";
-		break;
-	default:
-		str = "UNKNOWN ERROR";
-		break;
-	}
-
-	Con_Printf( S_OPENGL_ERROR "%s (called at %s:%i)\n", str, filename, fileline );
+	Con_Printf( S_OPENGL_ERROR "%s (called at %s:%i)\n", GL_ErrorString( err ), filename, fileline );
 }

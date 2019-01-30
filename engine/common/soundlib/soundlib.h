@@ -34,9 +34,9 @@ typedef struct streamfmt_s
 	const char *ext;
 
 	stream_t *(*openfunc)( const char *filename );
-	long (*readfunc)( stream_t *stream, long bytes, void *buffer );
-	long (*setposfunc)( stream_t *stream, long newpos );
-	long (*getposfunc)( stream_t *stream );
+	int (*readfunc)( stream_t *stream, int bytes, void *buffer );
+	int (*setposfunc)( stream_t *stream, int newpos );
+	int (*getposfunc)( stream_t *stream );
 	void (*freefunc)( stream_t *stream );
 } streamfmt_t;
 
@@ -95,14 +95,14 @@ typedef struct stream_s
 typedef struct
 {
 	int	riff_id;		// 'RIFF' 
-	long	rLen;
+	int	rLen;
 	int	wave_id;		// 'WAVE' 
 	int	fmt_id;		// 'fmt ' 
-	long	pcm_header_len;	// varies... 
+	int	pcm_header_len;	// varies...
 	short	wFormatTag;
 	short	nChannels;	// 1,2 for stereo data is (l,r) pairs 
-	long	nSamplesPerSec;
-	long	nAvgBytesPerSec;
+	int	nSamplesPerSec;
+	int	nAvgBytesPerSec;
 	short	nBlockAlign;      
 	short	nBitsPerSample;
 } wavehdr_t;
@@ -110,7 +110,7 @@ typedef struct
 typedef struct
 {
 	int	data_id;		// 'data' or 'fact' 
-	long	dLen;
+	int	dLen;
 } chunkhdr_t;
 
 extern sndlib_t sound;
@@ -124,14 +124,14 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, size_t filesize );
 // stream operate
 //
 stream_t *Stream_OpenWAV( const char *filename );
-long Stream_ReadWAV( stream_t *stream, long bytes, void *buffer );
-long Stream_SetPosWAV( stream_t *stream, long newpos );
-long Stream_GetPosWAV( stream_t *stream );
+int Stream_ReadWAV( stream_t *stream, int bytes, void *buffer );
+int Stream_SetPosWAV( stream_t *stream, int newpos );
+int Stream_GetPosWAV( stream_t *stream );
 void Stream_FreeWAV( stream_t *stream );
 stream_t *Stream_OpenMPG( const char *filename );
-long Stream_ReadMPG( stream_t *stream, long bytes, void *buffer );
-long Stream_SetPosMPG( stream_t *stream, long newpos );
-long Stream_GetPosMPG( stream_t *stream );
+int Stream_ReadMPG( stream_t *stream, int bytes, void *buffer );
+int Stream_SetPosMPG( stream_t *stream, int newpos );
+int Stream_GetPosMPG( stream_t *stream );
 void Stream_FreeMPG( stream_t *stream );
 
 #endif//SOUNDLIB_H

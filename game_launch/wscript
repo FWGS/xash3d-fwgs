@@ -1,0 +1,50 @@
+#! /usr/bin/env python
+# encoding: utf-8
+# a1batross, mittorn, 2018
+
+from waflib import Logs
+import os
+import sys
+from fwgslib import get_subproject_name
+
+top = '.'
+
+def options(opt):
+	# stub
+	return
+
+def configure(conf):
+	if conf.env.SINGLE_BINARY:
+		return
+	
+	# check for dedicated server build
+	if not conf.env.DEDICATED:
+		if conf.env.DEST_OS == 'win32':
+			conf.load('winres')
+
+def build(bld):
+	if bld.env.SINGLE_BINARY:
+		return
+
+	bld.load_envs()
+	bld.env = bld.all_envs[get_subproject_name(bld)]
+
+	source = ['game.cpp']
+	includes = '. ../common'
+	libs = []
+
+	if bld.env.DEST_OS != 'win32':
+		libs += [ 'DL' ]
+	else:
+		libs += ['USER32', 'SHELL32']
+		source += ['game.rc']
+
+	bld(
+		source   = source,
+		target   = 'xash3d', # hl.exe
+		features = 'c cprogram',
+		includes = includes,
+		use      = libs,
+		install_path = bld.env.BINDIR,
+		subsystem = bld.env.MSVC_SUBSYSTEM
+	)

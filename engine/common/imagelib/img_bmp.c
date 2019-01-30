@@ -48,20 +48,20 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
 	buf_p = (byte *)buffer;
 	bhdr.id[0] = *buf_p++;
 	bhdr.id[1] = *buf_p++;				// move pointer
-	bhdr.fileSize = *(long *)buf_p;	buf_p += 4;
-	bhdr.reserved0 = *(long *)buf_p;	buf_p += 4;
-	bhdr.bitmapDataOffset = *(long *)buf_p;	buf_p += 4;
-	bhdr.bitmapHeaderSize = *(long *)buf_p;	buf_p += 4;
-	bhdr.width = *(long *)buf_p;		buf_p += 4;
-	bhdr.height = *(long *)buf_p;		buf_p += 4;
+	bhdr.fileSize = *(int *)buf_p;	buf_p += 4;
+	bhdr.reserved0 = *(int *)buf_p;	buf_p += 4;
+	bhdr.bitmapDataOffset = *(int *)buf_p;	buf_p += 4;
+	bhdr.bitmapHeaderSize = *(int *)buf_p;	buf_p += 4;
+	bhdr.width = *(int *)buf_p;		buf_p += 4;
+	bhdr.height = *(int *)buf_p;		buf_p += 4;
 	bhdr.planes = *(short *)buf_p;	buf_p += 2;
 	bhdr.bitsPerPixel = *(short *)buf_p;	buf_p += 2;
-	bhdr.compression = *(long *)buf_p;	buf_p += 4;
-	bhdr.bitmapDataSize = *(long *)buf_p;	buf_p += 4;
-	bhdr.hRes = *(long *)buf_p;		buf_p += 4;
-	bhdr.vRes = *(long *)buf_p;		buf_p += 4;
-	bhdr.colors = *(long *)buf_p;		buf_p += 4;
-	bhdr.importantColors = *(long *)buf_p;	buf_p += 4;
+	bhdr.compression = *(int *)buf_p;	buf_p += 4;
+	bhdr.bitmapDataSize = *(int *)buf_p;	buf_p += 4;
+	bhdr.hRes = *(int *)buf_p;		buf_p += 4;
+	bhdr.vRes = *(int *)buf_p;		buf_p += 4;
+	bhdr.colors = *(int *)buf_p;		buf_p += 4;
+	bhdr.importantColors = *(int *)buf_p;	buf_p += 4;
 
 	// bogus file header check
 	if( bhdr.reserved0 != 0 ) return false;
@@ -69,13 +69,13 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
 
 	if( memcmp( bhdr.id, "BM", 2 ))
 	{
-		MsgDev( D_ERROR, "Image_LoadBMP: only Windows-style BMP files supported (%s)\n", name );
+		Con_DPrintf( S_ERROR "Image_LoadBMP: only Windows-style BMP files supported (%s)\n", name );
 		return false;
 	} 
 
 	if( bhdr.bitmapHeaderSize != 0x28 )
 	{
-		MsgDev( D_ERROR, "Image_LoadBMP: invalid header size %i\n", bhdr.bitmapHeaderSize );
+		Con_DPrintf( S_ERROR "Image_LoadBMP: invalid header size %i\n", bhdr.bitmapHeaderSize );
 		return false;
 	}
 
@@ -83,13 +83,13 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
 	if( bhdr.fileSize != filesize )
 	{
 		// Sweet Half-Life issues. splash.bmp have bogus filesize
-		MsgDev( D_REPORT, "Image_LoadBMP: %s have incorrect file size %i should be %i\n", name, filesize, bhdr.fileSize );
+		Con_Reportf( S_WARN "Image_LoadBMP: %s have incorrect file size %i should be %i\n", name, filesize, bhdr.fileSize );
 	}
           
 	// bogus compression?  Only non-compressed supported.
 	if( bhdr.compression != BI_RGB ) 
 	{
-		MsgDev( D_ERROR, "Image_LoadBMP: only uncompressed BMP files supported (%s)\n", name );
+		Con_DPrintf( S_ERROR "Image_LoadBMP: only uncompressed BMP files supported (%s)\n", name );
 		return false;
 	}
 
@@ -148,7 +148,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
 
 	if( Image_CheckFlag( IL_KEEP_8BIT ) && bhdr.bitsPerPixel == 8 )
 	{
-		pixbuf = image.palette = Mem_Alloc( host.imagepool, 1024 );
+		pixbuf = image.palette = Mem_Malloc( host.imagepool, 1024 );
 
 		// bmp have a reversed palette colors
 		for( i = 0; i < bhdr.colors; i++ )
@@ -169,7 +169,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
 
 	buf_p += cbPalBytes;
 	image.size = image.width * image.height * bpp;
-	image.rgba = Mem_Alloc( host.imagepool, image.size );
+	image.rgba = Mem_Malloc( host.imagepool, image.size );
 	bps = image.width * (bhdr.bitsPerPixel >> 3);
 
 	switch( bhdr.bitsPerPixel )
@@ -296,7 +296,6 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
 				if( alpha != 255 ) image.flags |= IMAGE_HAS_ALPHA;
 				break;
 			default:
-				MsgDev( D_ERROR, "Image_LoadBMP: illegal pixel_size (%s)\n", name );
 				Mem_Free( image.palette );
 				Mem_Free( image.rgba );
 				return false;
@@ -354,7 +353,6 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 		pixel_size = 4;
 		break;	
 	default:
-		MsgDev( D_ERROR, "Image_SaveBMP: unsupported image type %s\n", PFDesc[pix->type].name );
 		return false;
 	}
 
@@ -403,7 +401,7 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 		FS_Write( pfile, &sw, sizeof( bmp_t ));
 	}
 
-	pbBmpBits = Mem_Alloc( host.imagepool, cbBmpBits );
+	pbBmpBits = Mem_Malloc( host.imagepool, cbBmpBits );
 
 	if( pixel_size == 1 )
 	{

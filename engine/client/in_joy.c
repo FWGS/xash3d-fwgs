@@ -21,10 +21,7 @@ GNU General Public License for more details.
 #include "keydefs.h"
 #include "client.h"
 #include "gl_local.h"
-
-#if defined(XASH_SDL)
-#include "platform/sdl/events.h"
-#endif
+#include "platform/platform.h"
 
 #ifndef SHRT_MAX
 #define SHRT_MAX 0x7FFF
@@ -62,28 +59,24 @@ static struct joy_axis_s
 	short val;
 	short prevval;
 } joyaxis[MAX_AXES] = { 0 };
-static qboolean initialized = false, forcedisable = false;
-static convar_t *joy_enable;
+static qboolean forcedisable = false;
 static byte currentbinding; // add posibility to remap keys, to place it in joykeys[]
-
-float IN_TouchDrawText( float x1, float y1, float x2, float y2, const char *s, byte *color, float size );
-float IN_TouchDrawCharacter( float x, float y, int number, float size );
-
-convar_t *joy_pitch;
-convar_t *joy_yaw;
-convar_t *joy_forward;
-convar_t *joy_side;
-convar_t *joy_found;
-convar_t *joy_index;
-convar_t *joy_lt_threshold;
-convar_t *joy_rt_threshold;
-convar_t *joy_side_deadzone;
-convar_t *joy_forward_deadzone;
-convar_t *joy_side_key_threshold;
-convar_t *joy_forward_key_threshold;
-convar_t *joy_pitch_deadzone;
-convar_t *joy_yaw_deadzone;
-convar_t *joy_axis_binding;
+static convar_t *joy_enable;
+static convar_t *joy_pitch;
+static convar_t *joy_yaw;
+static convar_t *joy_forward;
+static convar_t *joy_side;
+static convar_t *joy_found;
+static convar_t *joy_index;
+static convar_t *joy_lt_threshold;
+static convar_t *joy_rt_threshold;
+static convar_t *joy_side_deadzone;
+static convar_t *joy_forward_deadzone;
+static convar_t *joy_side_key_threshold;
+static convar_t *joy_forward_key_threshold;
+static convar_t *joy_pitch_deadzone;
+static convar_t *joy_yaw_deadzone;
+static convar_t *joy_axis_binding;
 
 /*
 ============
@@ -92,7 +85,7 @@ Joy_IsActive
 */
 qboolean Joy_IsActive( void )
 {
-	return !forcedisable && initialized;
+	return !forcedisable && joy_found->value;
 }
 
 /*
@@ -117,7 +110,7 @@ void Joy_HatMotionEvent( int id, byte hat, byte value )
 	};
 	int i;
 
-	if( !initialized )
+	if( !joy_found->value )
 		return;
 
 	for( i = 0; i < ARRAYSIZE( keys ); i++ )
@@ -155,7 +148,7 @@ void Joy_ProcessTrigger( const engineAxis_t engineAxis, short value )
 		trigThreshold = joy_lt_threshold->value;
 		break;
 	default:
-		MsgDev( D_ERROR, "Joy_ProcessTrigger: invalid axis = %i", engineAxis );
+		Con_Reportf( S_ERROR  "Joy_ProcessTrigger: invalid axis = %i", engineAxis );
 		break;
 	}
 
@@ -226,7 +219,7 @@ void Joy_ProcessStick( const engineAxis_t engineAxis, short value )
 	case JOY_AXIS_PITCH: deadzone = joy_pitch_deadzone->value; break;
 	case JOY_AXIS_YAW:   deadzone = joy_yaw_deadzone->value; break;
 	default:
-		MsgDev( D_ERROR, "Joy_ProcessStick: invalid axis = %i", engineAxis );
+		Con_Reportf( S_ERROR  "Joy_ProcessStick: invalid axis = %i", engineAxis );
 		break;
 	}
 
@@ -261,12 +254,12 @@ void Joy_AxisMotionEvent( int id, byte axis, short value )
 {
 	byte engineAxis;
 
-	if( !initialized )
+	if( !joy_found->value )
 		return;
 
 	if( axis >= MAX_AXES )
 	{
-		MsgDev( D_INFO, "Only 6 axes is supported\n" );
+		Con_Reportf( "Only 6 axes is supported\n" );
 		return;
 	}
 
@@ -293,7 +286,7 @@ Trackball events. UNDONE
 */
 void Joy_BallMotionEvent( int id, byte ball, short xrel, short yrel )
 {
-	//if( !initialized )
+	//if( !joy_found->value )
 	//	return;
 }
 
@@ -306,7 +299,7 @@ Button events
 */
 void Joy_ButtonEvent( int id, byte button, byte down )
 {
-	if( !initialized )
+	if( !joy_found->value )
 		return;
 
 	// generic game button code.
@@ -315,7 +308,7 @@ void Joy_ButtonEvent( int id, byte button, byte down )
 		int origbutton = button;
 		button = ( button & 31 ) + K_AUX1;
 
-		MsgDev( D_INFO, "Only 32 joybuttons is supported, converting %i button ID to %s\n", origbutton, Key_KeynumToString( button ) );
+		Con_Reportf( "Only 32 joybuttons is supported, converting %i button ID to %s\n", origbutton, Key_KeynumToString( button ) );
 	}
 	else button += K_AUX1;
 
@@ -331,7 +324,7 @@ Called when joystick is removed. For future expansion
 */
 void Joy_RemoveEvent( int id )
 {
-	if( !forcedisable && initialized && joy_found->value )
+	if( !forcedisable && joy_found->value )
 		Cvar_SetValue("joy_found", joy_found->value - 1.0f);
 }
 
@@ -347,8 +340,6 @@ void Joy_AddEvent( int id )
 	if( forcedisable )
 		return;
 
-	initialized = true;
-
 	Cvar_SetValue("joy_found", joy_found->value + 1.0f);
 }
 
@@ -361,7 +352,7 @@ Append movement from axis. Called everyframe
 */
 void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 {
-	if( !initialized || !joy_enable->value )
+	if( !joy_found->value || !joy_enable->value )
 		return;
 
 	if( FBitSet( joy_axis_binding->flags, FCVAR_CHANGED ) )
@@ -440,19 +431,7 @@ void Joy_Init( void )
 		return;
 	}
 
-#if defined(XASH_SDL)
-	// SDL can tell us about connected joysticks
-	Cvar_SetValue( "joy_found", SDLash_JoyInit( joy_index->value ) );
-#elif defined(ANDROID)
-	// Initalized after first Joy_AddEvent
-#else
-#warning "Any platform must implement platform-dependent JoyInit, start event system. Otherwise no joystick support"
-#endif
-
-	if( joy_found->value > 0 )
-		initialized = true;
-	else
-		initialized = false;
+	Cvar_SetValue( "joy_found", Platform_JoyInit( joy_index->value ) );
 }
 
 /*
@@ -465,8 +444,6 @@ Shutdown joystick code
 void Joy_Shutdown( void )
 {
 	Cvar_SetValue( "joy_found", 0 );
-
-	initialized = false;
 }
 
 #endif // XASH_DEDICATED

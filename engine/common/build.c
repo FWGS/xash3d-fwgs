@@ -48,7 +48,7 @@ int Q_buildnum( void )
 
 	return b;
 #else
-	return 3847;
+	return 4260;
 #endif
 }
 
@@ -133,9 +133,8 @@ const char *Q_buildcommit( void )
 {
 #ifdef XASH_BUILD_COMMIT
 	return XASH_BUILD_COMMIT;
-#elif defined(XASH_RELEASE) // don't check it elsewhere to avoid random bugs
-	return "release";
 #else
 	return "notset";
 #endif
 }
+

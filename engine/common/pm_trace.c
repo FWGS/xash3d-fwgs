@@ -299,7 +299,7 @@ loc0:
 		{
 			trace->fraction = midf;
 			VectorCopy( mid, trace->endpos );
-			MsgDev( D_WARN, "trace backed up past 0.0\n" );
+			Con_Reportf( S_WARN "trace backed up past 0.0\n" );
 			return false;
 		}
 

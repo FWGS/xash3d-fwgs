@@ -69,16 +69,16 @@ static dframetype_t *R_SpriteLoadFrame( model_t *mod, void *pin, mspriteframe_t 
 	if( FBitSet( mod->flags, MODEL_CLIENT )) // it's a HUD sprite
 	{
 		Q_snprintf( texname, sizeof( texname ), "#HUD/%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
-		gl_texturenum = GL_LoadTexture( texname, pin, pinframe->width * pinframe->height * bytes, r_texFlags, NULL );
+		gl_texturenum = GL_LoadTexture( texname, pin, pinframe->width * pinframe->height * bytes, r_texFlags );
 	}
 	else
 	{
 		Q_snprintf( texname, sizeof( texname ), "#%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
-		gl_texturenum = GL_LoadTexture( texname, pin, pinframe->width * pinframe->height * bytes, r_texFlags, NULL );
+		gl_texturenum = GL_LoadTexture( texname, pin, pinframe->width * pinframe->height * bytes, r_texFlags );
 	}	
 
 	// setup frame description
-	pspriteframe = Mem_Alloc( mod->mempool, sizeof( mspriteframe_t ));
+	pspriteframe = Mem_Malloc( mod->mempool, sizeof( mspriteframe_t ));
 	pspriteframe->width = pinframe->width;
 	pspriteframe->height = pinframe->height;
 	pspriteframe->up = pinframe->origin[1];
@@ -111,12 +111,12 @@ static dframetype_t *R_SpriteLoadGroup( model_t *mod, void *pin, mspriteframe_t 
 	numframes = pingroup->numframes;
 
 	groupsize = sizeof( mspritegroup_t ) + (numframes - 1) * sizeof( pspritegroup->frames[0] );
-	pspritegroup = Mem_Alloc( mod->mempool, groupsize );
+	pspritegroup = Mem_Calloc( mod->mempool, groupsize );
 	pspritegroup->numframes = numframes;
 
 	*ppframe = (mspriteframe_t *)pspritegroup;
 	pin_intervals = (dspriteinterval_t *)(pingroup + 1);
-	poutintervals = Mem_Alloc( mod->mempool, numframes * sizeof( float ));
+	poutintervals = Mem_Calloc( mod->mempool, numframes * sizeof( float ));
 	pspritegroup->intervals = poutintervals;
 
 	for( i = 0; i < numframes; i++ )
@@ -162,13 +162,13 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 
 	if( pin->ident != IDSPRITEHEADER )
 	{
-		MsgDev( D_ERROR, "%s has wrong id (%x should be %x)\n", mod->name, pin->ident, IDSPRITEHEADER );
+		Con_DPrintf( S_ERROR "%s has wrong id (%x should be %x)\n", mod->name, pin->ident, IDSPRITEHEADER );
 		return;
 	}
 		
 	if( i != SPRITE_VERSION_Q1 && i != SPRITE_VERSION_HL && i != SPRITE_VERSION_32 )
 	{
-		MsgDev( D_ERROR, "%s has wrong version number (%i should be %i or %i)\n", mod->name, i, SPRITE_VERSION_Q1, SPRITE_VERSION_HL );
+		Con_DPrintf( S_ERROR "%s has wrong version number (%i should be %i or %i)\n", mod->name, i, SPRITE_VERSION_Q1, SPRITE_VERSION_HL );
 		return;
 	}
 
@@ -179,7 +179,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	{
 		pinq1 = (dsprite_q1_t *)buffer;
 		size = sizeof( msprite_t ) + ( pinq1->numframes - 1 ) * sizeof( psprite->frames );
-		psprite = Mem_Alloc( mod->mempool, size );
+		psprite = Mem_Calloc( mod->mempool, size );
 		mod->cache.data = psprite;	// make link to extradata
 
 		psprite->type = pinq1->type;
@@ -188,6 +188,11 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		psprite->facecull = SPR_CULL_FRONT;
 		psprite->radius = pinq1->boundingradius;
 		psprite->synctype = pinq1->synctype;
+
+		// LordHavoc: hack to allow sprites to be non-fullbright
+		for( i = 0; i < MAX_QPATH && mod->name[i]; i++ )
+			if( mod->name[i] == '!' )
+				psprite->texFormat = SPR_ALPHTEST;
 
 		mod->mins[0] = mod->mins[1] = -pinq1->bounds[0] * 0.5f;
 		mod->maxs[0] = mod->maxs[1] = pinq1->bounds[0] * 0.5f;
@@ -199,7 +204,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	{
 		pinhl = (dsprite_hl_t *)buffer;
 		size = sizeof( msprite_t ) + ( pinhl->numframes - 1 ) * sizeof( psprite->frames );
-		psprite = Mem_Alloc( mod->mempool, size );
+		psprite = Mem_Calloc( mod->mempool, size );
 		mod->cache.data = psprite;	// make link to extradata
 
 		psprite->type = pinhl->type;
@@ -243,7 +248,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		// install palette
 		switch( psprite->texFormat )
 		{
-                    case SPR_INDEXALPHA:
+		case SPR_INDEXALPHA:
 			pal = FS_LoadImage( "#gradient.pal", src, 768 ); 
 			break;
 		case SPR_ALPHTEST:		
@@ -259,15 +264,12 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	}
 	else 
 	{
-		MsgDev( D_ERROR, "%s has wrong number of palette colors %i (should be 256)\n", mod->name, *numi );
+		Con_DPrintf( S_ERROR "%s has wrong number of palette colors %i (should be 256)\n", mod->name, *numi );
 		return;
 	}
 
 	if( mod->numframes < 1 )
-	{
-		MsgDev( D_ERROR, "%s has invalid # of frames: %d\n", mod->name, mod->numframes );
 		return;
-	}
 
 	for( i = 0; i < mod->numframes; i++ )
 	{
@@ -336,7 +338,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 	if( h < MAPSPRITE_SIZE ) h = MAPSPRITE_SIZE;
 
 	// resample image if needed
-	Image_Process( &pix, w, h, IMAGE_FORCE_RGBA|IMAGE_RESAMPLE, NULL );
+	Image_Process( &pix, w, h, IMAGE_FORCE_RGBA|IMAGE_RESAMPLE, 0.0f );
 
 	w = h = MAPSPRITE_SIZE;
 
@@ -347,7 +349,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 	// determine how many frames we needs
 	numframes = (pix->width * pix->height) / (w * h);
 	mod->mempool = Mem_AllocPool( va( "^2%s^7", mod->name ));
-	psprite = Mem_Alloc( mod->mempool, sizeof( msprite_t ) + ( numframes - 1 ) * sizeof( psprite->frames ));
+	psprite = Mem_Calloc( mod->mempool, sizeof( msprite_t ) + ( numframes - 1 ) * sizeof( psprite->frames ));
 	mod->cache.data = psprite;	// make link to extradata
 
 	psprite->type = SPR_FWD_PARALLEL_ORIENTED;
@@ -367,7 +369,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 	temp.type = pix->type;
 	temp.flags = pix->flags;	
 	temp.size = w * h * PFDesc[temp.type].bpp;
-	temp.buffer = Mem_Alloc( r_temppool, temp.size );
+	temp.buffer = Mem_Malloc( r_temppool, temp.size );
 	temp.palette = NULL;
 
 	// chop the image and upload into video memory
@@ -392,7 +394,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 		// build uinque frame name
 		Q_snprintf( texname, sizeof( texname ), "#MAP/%s_%i%i.spr", mod->name, i / 10, i % 10 );
 
-		psprite->frames[i].frameptr = Mem_Alloc( mod->mempool, sizeof( mspriteframe_t ));
+		psprite->frames[i].frameptr = Mem_Calloc( mod->mempool, sizeof( mspriteframe_t ));
 		pspriteframe = psprite->frames[i].frameptr;
 		pspriteframe->width = w;
 		pspriteframe->height = h;
@@ -400,7 +402,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 		pspriteframe->left = -( w >> 1 );
 		pspriteframe->down = ( h >> 1 ) - h;
 		pspriteframe->right = w + -( w >> 1 );
-		pspriteframe->gl_texturenum = GL_LoadTextureInternal( texname, &temp, TF_IMAGE, false );
+		pspriteframe->gl_texturenum = GL_LoadTextureInternal( texname, &temp, TF_IMAGE );
 
 		xl += w;
 		if( xl >= pix->width )
@@ -493,7 +495,7 @@ mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 	else if( frame >= psprite->numframes )
 	{
 		if( frame > psprite->numframes )
-			MsgDev( D_WARN, "R_GetSpriteFrame: no such frame %d (%s)\n", frame, pModel->name );
+			Con_Reportf( S_WARN "R_GetSpriteFrame: no such frame %d (%s)\n", frame, pModel->name );
 		frame = psprite->numframes - 1;
 	}
 
@@ -561,7 +563,7 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 	}          
 	else if( frame >= psprite->numframes )
 	{
-		MsgDev( D_WARN, "R_GetSpriteFrameInterpolant: no such frame %d (%s)\n", frame, ent->model->name );
+		Con_Reportf( S_WARN "R_GetSpriteFrameInterpolant: no such frame %d (%s)\n", frame, ent->model->name );
 		frame = psprite->numframes - 1;
 	}
 
@@ -979,7 +981,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		color2[1] = (float)lightColor.g * ( 1.0f / 255.0f );
 		color2[2] = (float)lightColor.b * ( 1.0f / 255.0f );
 		// NOTE: sprites with 'lightmap' looks ugly when alpha func is GL_GREATER 0.0
-		pglAlphaFunc( GL_GREATER, 0.25f );
+		pglAlphaFunc( GL_GREATER, 0.5f );
 	}
 
 	if( R_SpriteAllowLerping( e, psprite ))
@@ -1073,7 +1075,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		pglColor4f( color2[0], color2[1], color2[2], tr.blend );
 		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
 		R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
-		pglAlphaFunc( GL_GREATER, 0.0f );
+		pglAlphaFunc( GL_GREATER, DEFAULT_ALPHATEST );
 		pglDepthFunc( GL_LEQUAL );
 	}
 

@@ -44,19 +44,19 @@ qboolean CL_CheckFile( sizebuf_t *msg, resource_t *pResource )
  
 	if( !COM_IsSafeFileToDownload( filepath ))
 	{
-		MsgDev( D_REPORT, "refusing to download %s\n", filepath );
+		Con_Reportf( "refusing to download %s\n", filepath );
 		return true;
 	}
 
 	if( !cl_allow_download.value )
 	{
-		MsgDev( D_REPORT, "Download refused, cl_allow_download is 0\n" );
+		Con_Reportf( "Download refused, cl_allow_download is 0\n" );
 		return true;
 	}
 
 	if( cls.state == ca_active && !cl_download_ingame.value )
 	{
-		MsgDev( D_REPORT, "In-game download refused...\n" );
+		Con_Reportf( "In-game download refused...\n" );
 		return true;
 	}
 
@@ -66,7 +66,7 @@ qboolean CL_CheckFile( sizebuf_t *msg, resource_t *pResource )
 
 	if( cls.demoplayback )
 	{
-		MsgDev( D_WARN, "file %s missing during demo playback.\n", filepath );
+		Con_Reportf( S_WARN "file %s missing during demo playback.\n", filepath );
 		return true;
 	}
 
@@ -81,7 +81,7 @@ void CL_AddToResourceList( resource_t *pResource, resource_t *pList )
 {
 	if( pResource->pPrev != NULL || pResource->pNext != NULL )
 	{
-		MsgDev( D_ERROR, "Resource already linked\n" );
+		Con_Reportf( S_ERROR "Resource already linked\n" );
 		return;
 	}
 
@@ -112,7 +112,7 @@ void CL_MoveToOnHandList( resource_t *pResource )
 {
 	if( !pResource )
 	{
-		MsgDev( D_REPORT, "Null resource passed to CL_MoveToOnHandList\n" );
+		Con_Reportf( "Null resource passed to CL_MoveToOnHandList\n" );
 		return;
 	}
 

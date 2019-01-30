@@ -20,10 +20,6 @@ GNU General Public License for more details.
 #define MOVE_NOMONSTERS	1	// ignore monsters (edicts with flags (FL_MONSTER|FL_FAKECLIENT|FL_CLIENT) set)
 #define MOVE_MISSILE	2	// extra size for monsters
 
-#define FMOVE_IGNORE_GLASS	0x100
-#define FMOVE_SIMPLEBOX	0x200
-#define FMOVE_MONSTERCLIP	0x400
-
 #define CONTENTS_NONE	0	// no custom contents specified
 
 /*

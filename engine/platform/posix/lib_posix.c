@@ -20,9 +20,9 @@ GNU General Public License for more details.
 #include "library.h"
 #include "filesystem.h"
 #include "server.h"
-#include "platform/android/android_lib.h"
-#include "platform/emscripten/em_lib.h"
-#include "platform/apple/ios_lib.h"
+#include "platform/android/lib_android.h"
+#include "platform/emscripten/lib_em.h"
+#include "platform/apple/lib_ios.h"
 
 #ifdef XASH_NO_LIBDL
 #ifndef XASH_DLL_LOADER
@@ -175,7 +175,7 @@ void *COM_FunctionFromName( void *hInstance, const char *pName )
 	void *function;
 	if( !( function = COM_GetProcAddress( hInstance, pName ) ) )
 	{
-		MsgDev(D_ERROR, "FunctionFromName: Can't get symbol %s: %s\n", pName, dlerror());
+		Con_Reportf( S_ERROR "FunctionFromName: Can't get symbol %s: %s\n", pName, dlerror());
 	}
 	return function;
 }

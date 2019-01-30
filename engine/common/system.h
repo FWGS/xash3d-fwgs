@@ -117,19 +117,20 @@ int Sys_LogFileNo( void );
 // con_win.c
 //
 #ifdef _WIN32
+void Wcon_InitConsoleCommands( void );
 void Wcon_ShowConsole( qboolean show );
-void Wcon_Print( const char *pMsg );
 void Wcon_Init( void );
 void Wcon_CreateConsole( void );
 void Wcon_DestroyConsole( void );
 void Wcon_DisableInput( void );
 void Wcon_Clear( void );
 char *Wcon_Input( void );
+void Wcon_WinPrint( const char *pMsg );
+void Wcon_RegisterHotkeys( void );
 #endif
 
 // text messages
 #define Msg	Con_Printf
-void MsgDev( int level, const char *pMsg, ... ) _format( 2 );
 
 #ifdef __cplusplus
 }
