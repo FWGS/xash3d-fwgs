@@ -1462,6 +1462,8 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 
 			if( chan->pfnBlockSize )
 				maxsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );
+			if( maxsize == 0 )
+				maxsize = MAX_RELIABLE_PAYLOAD;
 
 			// if the reliable buffer has gotten too big, queue it at the end of everything and clear out buffer
 			if( MSG_GetNumBytesWritten( &chan->message ) + (((uint)length) >> 3) > maxsize )
