@@ -1044,9 +1044,13 @@ void CL_SendConnectPacket( void )
 	}
 	else
 	{
+		if( cl_dlmax->value > FRAGMENT_MAX_SIZE  || cl_dlmax->value < FRAGMENT_MIN_SIZE )
+			Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
+
 		// remove useless userinfo keys
 		Cvar_FullSet( "cl_maxpacket", "0", 0 );
 		Cvar_FullSet( "cl_maxpayload", "1000", 0 );
+
 		Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
 		Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, cls.challenge, protinfo, cls.userinfo );
