@@ -1671,7 +1671,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 	// send the datagram
 	if( !CL_IsPlaybackDemo( ))
 	{
-		int splitsize = 1400;
+		int splitsize = 0;
 		if( chan->pfnBlockSize )
 			splitsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );
 		NET_SendPacketEx( chan->sock, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), chan->remote_address, splitsize );
