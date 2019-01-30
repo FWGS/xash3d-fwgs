@@ -1231,7 +1231,7 @@ qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *len
 				if( sock == NS_CLIENT && *(int *)data == NET_HEADER_SPLITPACKET )
 				{
 					int splitsize = Cvar_VariableInteger("cl_dlmax");
-					if( splitsize < SPLITPACKET_MIN_SIZE || splitsize < SPLITPACKET_MAX_SIZE )
+					if( splitsize < SPLITPACKET_MIN_SIZE || splitsize > SPLITPACKET_MAX_SIZE )
 						Cvar_SetValue( "cl_dlmax", MAX_ROUTEABLE_PACKET );
 					return NET_GetLong( data, ret, length, Cvar_VariableInteger("cl_dlmax") );
 				}
