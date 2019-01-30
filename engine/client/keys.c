@@ -527,8 +527,11 @@ Key_IsAllowedAutoRepeat
 List of keys that allows auto-repeat
 ===================
 */
-qboolean Key_IsAllowedAutoRepeat( int key )
+static qboolean Key_IsAllowedAutoRepeat( int key )
 {
+	if( cls.key_dest != key_game )
+		return true;
+
 	switch( key )
 	{
 	case K_BACKSPACE:
