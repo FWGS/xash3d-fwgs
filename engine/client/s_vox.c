@@ -545,7 +545,7 @@ void VOX_ParseLineCommands( char *pSentenceData, int sentenceIndex )
 		length = pNext - pSentenceData;
 		if( tempBufferPos + length > sizeof( tempBuffer ))
 		{
-			Con_Printf( S_ERROR "Sentence exceeded max length of %d\n", sizeof(tempBuffer) - 1 );
+			Con_Printf( S_ERROR "Sentence too long (max length %d characters)\n", sizeof(tempBuffer) - 1 );
 			return;
 		}
 

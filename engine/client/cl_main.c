@@ -2473,7 +2473,7 @@ qboolean CL_PrecacheResources( void )
 			{
 				if( FBitSet( pRes->ucFlags, RES_WASMISSING ))
 				{
-					Con_Printf( S_ERROR "Could not load sound %s%s for precache\n", DEFAULT_SOUNDPATH, pRes->szFileName );
+					Con_Printf( S_ERROR "Could not load sound %s%s\n", DEFAULT_SOUNDPATH, pRes->szFileName );
 					cl.sound_precache[pRes->nIndex][0] = 0;
 					cl.sound_index[pRes->nIndex] = 0;
 				}
