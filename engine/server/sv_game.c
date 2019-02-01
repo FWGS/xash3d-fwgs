@@ -1308,7 +1308,7 @@ void pfnSetModel( edict_t *e, const char *m )
 
 		if( notfound )
 		{
-			Con_Printf( S_ERROR "no precache: %s\n", name );
+			Con_Printf( S_ERROR "Failed to set model %s: was not precached\n", name );
 			return;
 		}
 	}
@@ -1316,7 +1316,7 @@ void pfnSetModel( edict_t *e, const char *m )
 	if( e == svgame.edicts )
 	{
 		if( sv.state == ss_active )
-			Con_Printf( S_ERROR "world model can't be changed\n" );
+			Con_Printf( S_ERROR "Failed to set model %s: world model cannot be changed\n", name );
 		return;
 	}
 
@@ -1363,8 +1363,8 @@ int pfnModelIndex( const char *m )
 			return i;
 	}
 
-	Con_Printf( S_ERROR "no precache: %s\n", name );
-	return 0; 
+	Con_Printf( S_ERROR "Cannot get index for model %s: not precached\n", name );
+	return 0;
 }
 
 /*
@@ -4415,7 +4415,7 @@ void pfnForceUnmodified( FORCE_TYPE type, float *mins, float *maxs, const char *
 			if( !Q_strcmp( filename, pc->filename ))
 				return;
 		}
-		Con_Printf( S_ERROR "no precache: %s\n", filename );
+		Con_Printf( S_ERROR "Failed to enforce consistency for %s: was not precached\n", filename );
 	}
 }
 

@@ -288,8 +288,8 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	{
 		memset( mod, 0, sizeof( model_t ));
 
-		if( crash ) Host_Error( "%s couldn't load\n", tempname );
-		else Con_Printf( S_ERROR "%s couldn't load\n", tempname );
+		if( crash ) Host_Error( "Could not load model %s from disk\n", tempname );
+		else Con_Printf( S_ERROR "Could not load model %s from disk\n", tempname );
 
 		return NULL;
 	}
@@ -331,8 +331,8 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		Mod_FreeModel( mod );
 		Mem_Free( buf );
 
-		if( crash ) Host_Error( "%s couldn't load\n", tempname );
-		else Con_Printf( S_ERROR "%s couldn't load\n", tempname );
+		if( crash ) Host_Error( "Could not load model %s\n", tempname );
+		else Con_Printf( S_ERROR "Could not load model %s\n", tempname );
 
 		return NULL;
 	}

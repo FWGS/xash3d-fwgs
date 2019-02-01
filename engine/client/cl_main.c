@@ -2314,7 +2314,7 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 				}
 				else
 				{
-					Con_Printf( "Downloaded %i bytes for purported %i byte file, ignoring download\n", 
+					Con_Printf( "Downloaded %i bytes for purported %i byte file, ignoring download\n",
 					cls.netchan.tempbuffersize, p->nDownloadSize );
 				}
 
@@ -2509,7 +2509,7 @@ qboolean CL_PrecacheResources( void )
 			{
 				if( FBitSet( pRes->ucFlags, RES_WASMISSING ))
 				{
-					Con_Printf( S_ERROR "%s%s couldn't load\n", DEFAULT_SOUNDPATH, pRes->szFileName );
+					Con_Printf( S_ERROR "Could not load sound %s%s\n", DEFAULT_SOUNDPATH, pRes->szFileName );
 					cl.sound_precache[pRes->nIndex][0] = 0;
 					cl.sound_index[pRes->nIndex] = 0;
 				}
