@@ -382,7 +382,7 @@ static HIMAGE pfnPIC_Load( const char *szPicName, const byte *image_buf, int ima
 
 	if( !szPicName || !*szPicName )
 	{
-		Con_Reportf( S_ERROR "CL_LoadImage: bad name!\n" );
+		Con_Reportf( S_ERROR "CL_LoadImage: refusing to load image with empty name\n" );
 		return 0;
 	}
 
