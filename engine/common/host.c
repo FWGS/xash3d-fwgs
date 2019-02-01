@@ -542,6 +542,7 @@ void Host_Frame( float time )
 	Host_GetCommands (); // dedicated in
 	Host_ServerFrame (); // server frame
 	Host_ClientFrame (); // client frame
+	HTTP_Run();			 // both server and client
 
 	host.framecount++;
 }
@@ -978,6 +979,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	SV_Init();
 	CL_Init();
 
+	HTTP_Init();
 	ID_Init();
 
 	if( Host_IsDedicated() )
@@ -1060,6 +1062,7 @@ void EXPORT Host_Shutdown( void )
 
 	Mod_Shutdown();
 	NET_Shutdown();
+	HTTP_Shutdown();
 	Host_FreeCommon();
 #ifdef _WIN32
 	Wcon_DestroyConsole();

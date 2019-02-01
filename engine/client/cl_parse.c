@@ -534,7 +534,11 @@ void CL_BatchResourceRequest( qboolean initialize )
 
 	if( cls.state != ca_disconnected )
 	{
-		if( !MSG_GetNumBytesWritten( &msg ) && CL_PrecacheResources( ))
+		if( !cl.downloadUrl[0] && !MSG_GetNumBytesWritten( &msg ) && CL_PrecacheResources( ))
+		{
+			CL_RegisterResources( &msg );
+		}
+		if( cl.downloadUrl[0] && host.downloadcount == 0 &&  CL_PrecacheResources( ) )
 		{
 			CL_RegisterResources( &msg );
 		}
@@ -1702,16 +1706,23 @@ CL_ParseResLocation
 */
 void CL_ParseResLocation( sizebuf_t *msg )
 {
-	const char	*url = MSG_ReadString( msg );
+	const char	*data = MSG_ReadString( msg );
+	char token[256];
 
-	if( url && ( !Q_strnicmp( "http://", url, 7 ) || !Q_strnicmp( "https://", url, 8 )))
+	if( Q_strlen( data ) > 256 )
 	{
-		const char	*lastSlash = Q_strrchr( url, '/' );
+		Con_Printf( S_ERROR "Resource location too long!\n" );
+		return;
+	}
 
-		if( lastSlash && lastSlash[1] == '\0' )
-			Q_strncpy( cl.downloadUrl, url, sizeof( cl.downloadUrl ));
-		else Q_snprintf( cl.downloadUrl, sizeof( cl.downloadUrl ), "%s/", url );
-		Con_Reportf( "Using %s as primary download location\n", cl.downloadUrl );
+	while( ( data = COM_ParseFile( data, token ) ) )
+	{
+		Con_Reportf( "Adding %s as download location\n", token );
+
+		if( !cl.downloadUrl[0] )
+			Q_strncpy( cl.downloadUrl, token, sizeof( token ) );
+
+		HTTP_AddCustomServer( token );
 	}
 }
 
