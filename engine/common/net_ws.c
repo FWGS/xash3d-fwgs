@@ -1928,28 +1928,6 @@ static convar_t *http_autoremove;
 static convar_t *http_timeout;
 static convar_t *http_maxconnections;
 
-#ifdef _WIN32
-#define ISBLOCK() (pWSAGetLastError() == WSAEWOULDBLOCK )
-#else
-#define ISBLOCK() ( errno == EWOULDBLOCK )
-#endif
-
-#ifdef _WIN32
-#define ISINPROGRESS() ( pWSAGetLastError() == WSAEINPROGRESS || pWSAGetLastError() == WSAEWOULDBLOCK )
-#elif defined(__APPLE__) || defined(__FreeBSD__) || defined __EMSCRIPTEN__
-#define ISINPROGRESS() ( errno == EINPROGRESS || errno == EWOULDBLOCK )
-#else
-#define ISINPROGRESS() ( errno == EINPROGRESS ) // Should give EWOOLDBLOCK if try recv too soon
-#endif
-
-#ifdef _WIN32
-#define ISNOTCONN() ( pWSAGetLastError() == WSAEWOULDBLOCK || pWSAGetLastError() == WSAENOTCONN )
-#elif defined(__APPLE__) || defined(__FreeBSD__) || defined __EMSCRIPTEN__
-#define ISNOTCONN() ( errno == EWOULDBLOCK || errno == ENOTCONN )
-#else
-#define ISNOTCONN() ( errno == EWOULDBLOCK )
-#endif
-
 /*
 ========================
 HTTP_ClearCustomServers
@@ -2254,10 +2232,9 @@ void HTTP_Run( void )
 			// Now set non-blocking mode
 			// You may skip this if not supported by system,
 			// but download will lock engine, maybe you will need to add manual returns
-	#if defined(_WIN32) || defined(__APPLE__) || defined(__FreeBSD__) || defined __EMSCRIPTEN__
 			mode = 1;
 			pIoctlSocket( curfile->socket, FIONBIO, &mode );
-	#else
+	#ifdef __linux__
 			// SOCK_NONBLOCK is not portable, so use fcntl
 			fcntl( curfile->socket, F_SETFL, fcntl( curfile->socket, F_GETFL, 0 ) | O_NONBLOCK );
 	#endif
@@ -2292,7 +2269,7 @@ void HTTP_Run( void )
 
 			if( res )
 			{
-				if( ISINPROGRESS() ) // Should give EWOOLDBLOCK if try recv too soon
+				if( pWSAGetLastError() == WSAEINPROGRESS || pWSAGetLastError() == WSAEWOULDBLOCK ) // Should give EWOOLDBLOCK if try recv too soon
 					curfile->state = HTTP_CONNECTED;
 				else
 				{
@@ -2328,7 +2305,7 @@ void HTTP_Run( void )
 
 				if( res < 0 )
 				{
-					if( !ISNOTCONN() )
+					if( pWSAGetLastError() != WSAEWOULDBLOCK && pWSAGetLastError() != WSAENOTCONN )
 					{
 						Con_Printf( S_ERROR "failed to send request: %s\n", NET_ErrorString() );
 						HTTP_FreeFile( curfile, true );
@@ -2377,7 +2354,7 @@ void HTTP_Run( void )
 			HTTP_FreeFile( curfile, false ); // success
 			continue;
 		}
-		else if( !ISBLOCK() )
+		else if( pWSAGetLastError() != WSAEWOULDBLOCK )
 			Con_Reportf( "problem downloading %s:\n%s\n", curfile->path, NET_ErrorString() );
 		else
 			curfile->blocktime += host.frametime;
