@@ -2177,7 +2177,7 @@ void HTTP_Run( void )
 	httpfile_t *curfile;
 	int iActiveCount = 0;
 	int iProgressCount = 0;
-	float flProgress;
+	float flProgress = 0;
 	qboolean fResolving = false;
 
 	for( curfile = http.first_file; curfile; curfile = curfile->next )
