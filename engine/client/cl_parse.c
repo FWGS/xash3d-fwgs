@@ -2728,6 +2728,61 @@ void CL_LegacyUpdateUserinfo( sizebuf_t *msg )
 }
 
 /*
+==============
+CL_ParseResourceList
+
+==============
+*/
+void CL_LegacyParseResourceList( sizebuf_t *msg )
+{
+	int	i = 0;
+
+	static struct
+	{
+		int  rescount;
+		int  restype[MAX_RESOURCES];
+		char resnames[MAX_RESOURCES][CS_SIZE];
+	} reslist;
+	memset( &reslist, 0, sizeof( reslist ));
+
+	reslist.rescount = MSG_ReadWord( msg ) - 1;
+
+	for( i = 0; i < reslist.rescount; i++ )
+	{
+		reslist.restype[i] = MSG_ReadWord( msg );
+		Q_strncpy( reslist.resnames[i], MSG_ReadString( msg ), CS_SIZE );
+	}
+
+	if( CL_IsPlaybackDemo() )
+	{
+		return;
+	}
+
+	host.downloadcount = 0;
+
+	for( i = 0; i < reslist.rescount; i++ )
+	{
+		const char *path;
+
+		if( reslist.restype[i] == t_sound )
+			path = va( "sound/%s", reslist.resnames[i] );
+		else path = reslist.resnames[i];
+
+		if( FS_FileExists( path, false ))
+			continue;	// already exists
+
+		host.downloadcount++;
+		HTTP_AddDownload( path, -1, true );
+	}
+
+	if( !host.downloadcount )
+	{
+		MSG_WriteByte( &cls.netchan.message, clc_stringcmd );
+		MSG_WriteString( &cls.netchan.message, "continueloading" );
+	}
+}
+
+/*
 =====================
 CL_ParseLegacyServerMessage
 
@@ -2856,13 +2911,9 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 			if( !Q_strnicmp( s, "disconnect", 10 ) && cls.signon != SIGNONS )
 				break; // too early
 #endif
-			if( !Q_strcmp(s, "cmd getresourcelist\n") )
-				Cbuf_AddText("cmd continueloading\n");
-			else
-			{
-				Con_Reportf( "Stufftext: %s", s );
-				Cbuf_AddText( s );
-			}
+
+			Con_Reportf( "Stufftext: %s", s );
+			Cbuf_AddText( s );
 			break;
 		case svc_setangle:
 			CL_ParseSetAngle( msg );
@@ -2992,7 +3043,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 			//cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].receivedtime = -2.0;
 			break;
 		case svc_resourcelist:
-			CL_ParseResourceList( msg );
+			CL_LegacyParseResourceList( msg );
 			break;
 		case svc_deltamovevars:
 			CL_ParseMovevars( msg );
