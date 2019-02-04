@@ -2281,6 +2281,17 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 	{
 		Con_Printf( S_ERROR "server failed to transmit file '%s'\n", CL_CleanFileName( filename ));
 	}
+	if( cls.legacymode )
+	{
+		if( host.downloadcount > 0 )
+			host.downloadcount--;
+		if( !host.downloadcount )
+		{
+			MSG_WriteByte( &cls.netchan.message, clc_stringcmd );
+			MSG_WriteString( &cls.netchan.message, "continueloading" );
+		}
+		return;
+	}
 
 	pfilename = filename;
 
