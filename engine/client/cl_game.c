@@ -1049,6 +1049,15 @@ void CL_DrawHUD( int state )
 	}
 }
 
+static void CL_ClearUserMessage( char *pszName, int svc_num )
+{
+	int i;
+
+	for( i = 0; i < MAX_USER_MESSAGES && clgame.msg[i].name[0]; i++ )
+		if( ( clgame.msg[i].number == svc_num ) && Q_strcmp( clgame.msg[i].name, pszName ) )
+			clgame.msg[i].number = 0;
+}
+
 void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 {
 	int	i;
@@ -1067,6 +1076,7 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 		{
 			clgame.msg[i].number = svc_num;
 			clgame.msg[i].size = iSize;
+			CL_ClearUserMessage( pszName, svc_num );
 			return;
 		}
 	}
@@ -1081,6 +1091,7 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 	Q_strncpy( clgame.msg[i].name, pszName, sizeof( clgame.msg[i].name ));
 	clgame.msg[i].number = svc_num;
 	clgame.msg[i].size = iSize;
+	CL_ClearUserMessage( pszName, svc_num );
 }
 
 void CL_FreeEntity( cl_entity_t *pEdict )
