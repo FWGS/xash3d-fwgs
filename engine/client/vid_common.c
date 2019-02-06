@@ -65,6 +65,8 @@ convar_t	*r_traceglow;
 convar_t	*r_dynamic;
 convar_t	*r_lightmap;
 convar_t	*gl_round_down;
+convar_t	*r_vbo;
+convar_t	*r_vbo_dlightmode;
 
 convar_t	*vid_displayfrequency;
 convar_t	*vid_fullscreen;
@@ -546,6 +548,51 @@ static void SetFullscreenModeFromCommandLine( )
 #endif
 }
 
+
+/*
+===============
+R_CheckVBO
+
+register VBO cvars and get default value
+===============
+*/
+static void R_CheckVBO( void )
+{
+	const char *def = "1";
+	const char *dlightmode = "1";
+	int flags = FCVAR_ARCHIVE;
+	qboolean disable = false;
+
+	// some bad GLES1 implementations breaks dlights completely
+	if( glConfig.max_texture_units < 3 )
+		disable = true;
+
+#ifdef XASH_MOBILE_PLATFORM
+	// VideoCore4 drivers have a problem with mixing VBO and client arrays
+	// Disable it, as there is no suitable workaround here
+	if( Q_stristr( glConfig.renderer_string, "VideoCore IV" ) || Q_stristr( glConfig.renderer_string, "vc4" ) )
+		disable = true;
+
+	// dlightmode 1 is not too much tested on android
+	// so better to left it off
+	dlightmode = "0";
+#endif
+
+	if( disable )
+	{
+		// do not keep in config unless dev > 3 and enabled
+		flags = 0;
+		def = "0";
+	}
+
+	r_vbo = Cvar_Get( "r_vbo", def, flags, "draw world using VBO" );
+	r_vbo_dlightmode = Cvar_Get( "r_vbo_dlightmode", dlightmode, FCVAR_ARCHIVE, "vbo dlight rendering mode(0-1)" );
+
+	// check if enabled manually
+	if( CVAR_TO_BOOL(r_vbo) )
+		r_vbo->flags |= FCVAR_ARCHIVE;
+}
+
 /*
 ===============
 R_Init
@@ -580,6 +627,7 @@ qboolean R_Init( void )
 	r_temppool = Mem_AllocPool( "Render Zone" );
 
 	GL_SetDefaults();
+	R_CheckVBO();
 	R_InitImages();
 	R_SpriteInit();
 	R_StudioInit();

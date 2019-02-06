@@ -199,4 +199,5 @@ void R_NewMap( void )
 	R_SetupSky( clgame.movevars.skyName );
 
 	GL_BuildLightmaps ();
+	R_GenerateVBO();
 }
