@@ -408,6 +408,9 @@ void GL_RebuildLightmaps( void );
 void GL_InitRandomTable( void );
 void GL_BuildLightmaps( void );
 void GL_ResetFogColor( void );
+void R_GenerateVBO();
+void R_ClearVBO();
+void R_AddDecalVBO( decal_t *pdecal, msurface_t *surf );
 
 //
 // gl_sprite.c
@@ -679,6 +682,8 @@ extern convar_t	*r_lockfrustum;
 extern convar_t	*r_traceglow;
 extern convar_t	*r_dynamic;
 extern convar_t	*r_lightmap;
+extern convar_t *r_vbo;
+extern convar_t *r_vbo_dlightmode;
 
 extern convar_t	*vid_displayfrequency;
 extern convar_t	*vid_fullscreen;
