@@ -885,7 +885,7 @@ _inline qboolean R_HasLightmap( void )
 	if( RI.currententity )
 	{
 		if( RI.currententity->curstate.effects & EF_FULLBRIGHT )
-			return;	// disabled by user
+			return false;	// disabled by user
 
 		// check for rendermode
 		switch( RI.currententity->curstate.rendermode )
