@@ -54,7 +54,7 @@ typedef struct
 static float	g_DecalClipVerts[MAX_DECALCLIPVERT][VERTEXSIZE];
 static float	g_DecalClipVerts2[MAX_DECALCLIPVERT][VERTEXSIZE];
 
-static decal_t	gDecalPool[MAX_RENDER_DECALS];
+decal_t	gDecalPool[MAX_RENDER_DECALS];
 static int	gDecalCount;
 
 void R_ClearDecals( void )
@@ -570,6 +570,7 @@ static void R_AddDecalToSurface( decal_t *pdecal, msurface_t *surf, decalinfo_t 
 
 	// alloc clipped poly for decal
 	R_DecalCreatePoly( decalinfo, pdecal, surf );
+	R_AddDecalVBO( pdecal, surf );
 }
 
 static void R_DecalCreate( decalinfo_t *decalinfo, msurface_t *surf, float x, float y )

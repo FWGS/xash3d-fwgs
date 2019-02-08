@@ -375,6 +375,7 @@ void SV_ConnectClient( netadr_t from )
 	sv.current_client = newcl;
 	newcl->edict = EDICT_NUM( (newcl - svs.clients) + 1 );
 	newcl->challenge = challenge; // save challenge for checksumming
+	if( newcl->frames ) Mem_Free( newcl->frames );
 	newcl->frames = (client_frame_t *)Z_Calloc( sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
 	newcl->userid = g_userid++;	// create unique userid
 	newcl->state = cs_connected;
@@ -1875,6 +1876,26 @@ static qboolean SV_DownloadFile_f( sv_client_t *cl )
 	{
 		if( sv_send_resources.value )
 		{
+			int i;
+
+			// security: allow download only precached resources
+			for( i = 0; i < sv.num_resources; i++ )
+			{
+				const char *cmpname = name;
+
+				if( sv.resources[i].type == t_sound )
+					cmpname += sizeof( DEFAULT_SOUNDPATH ) - 1; // cut "sound/" off
+
+				if( !Q_strncmp( sv.resources[i].szFileName, cmpname, 64 ) )
+					break;
+			}
+
+			if( i == sv.num_resources )
+			{
+				SV_FailDownload( cl, name );
+				return true;
+			}
+
 			// also check the model textures
 			if( !Q_stricmp( COM_FileExtension( name ), "mdl" ))
 			{

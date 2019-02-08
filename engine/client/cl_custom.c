@@ -70,6 +70,13 @@ qboolean CL_CheckFile( sizebuf_t *msg, resource_t *pResource )
 		return true;
 	}
 
+	if( cl.downloadUrl[0] )
+	{
+		HTTP_AddDownload( filepath, pResource->nDownloadSize, true );
+		host.downloadcount++;
+		return false;
+	}
+
 	MSG_BeginClientCmd( msg, clc_stringcmd );
 	MSG_WriteString( msg, va( "dlfile %s", filepath ));
 	host.downloadcount++;
