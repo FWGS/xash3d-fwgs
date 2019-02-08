@@ -534,7 +534,11 @@ void CL_BatchResourceRequest( qboolean initialize )
 
 	if( cls.state != ca_disconnected )
 	{
-		if( !MSG_GetNumBytesWritten( &msg ) && CL_PrecacheResources( ))
+		if( !cl.downloadUrl[0] && !MSG_GetNumBytesWritten( &msg ) && CL_PrecacheResources( ))
+		{
+			CL_RegisterResources( &msg );
+		}
+		if( cl.downloadUrl[0] && host.downloadcount == 0 &&  CL_PrecacheResources( ) )
 		{
 			CL_RegisterResources( &msg );
 		}
@@ -1702,16 +1706,23 @@ CL_ParseResLocation
 */
 void CL_ParseResLocation( sizebuf_t *msg )
 {
-	const char	*url = MSG_ReadString( msg );
+	const char	*data = MSG_ReadString( msg );
+	char token[256];
 
-	if( url && ( !Q_strnicmp( "http://", url, 7 ) || !Q_strnicmp( "https://", url, 8 )))
+	if( Q_strlen( data ) > 256 )
 	{
-		const char	*lastSlash = Q_strrchr( url, '/' );
+		Con_Printf( S_ERROR "Resource location too long!\n" );
+		return;
+	}
 
-		if( lastSlash && lastSlash[1] == '\0' )
-			Q_strncpy( cl.downloadUrl, url, sizeof( cl.downloadUrl ));
-		else Q_snprintf( cl.downloadUrl, sizeof( cl.downloadUrl ), "%s/", url );
-		Con_Reportf( "Using %s as primary download location\n", cl.downloadUrl );
+	while( ( data = COM_ParseFile( data, token ) ) )
+	{
+		Con_Reportf( "Adding %s as download location\n", token );
+
+		if( !cl.downloadUrl[0] )
+			Q_strncpy( cl.downloadUrl, token, sizeof( token ) );
+
+		HTTP_AddCustomServer( token );
 	}
 }
 
@@ -2717,6 +2728,61 @@ void CL_LegacyUpdateUserinfo( sizebuf_t *msg )
 }
 
 /*
+==============
+CL_ParseResourceList
+
+==============
+*/
+void CL_LegacyParseResourceList( sizebuf_t *msg )
+{
+	int	i = 0;
+
+	static struct
+	{
+		int  rescount;
+		int  restype[MAX_RESOURCES];
+		char resnames[MAX_RESOURCES][CS_SIZE];
+	} reslist;
+	memset( &reslist, 0, sizeof( reslist ));
+
+	reslist.rescount = MSG_ReadWord( msg ) - 1;
+
+	for( i = 0; i < reslist.rescount; i++ )
+	{
+		reslist.restype[i] = MSG_ReadWord( msg );
+		Q_strncpy( reslist.resnames[i], MSG_ReadString( msg ), CS_SIZE );
+	}
+
+	if( CL_IsPlaybackDemo() )
+	{
+		return;
+	}
+
+	host.downloadcount = 0;
+
+	for( i = 0; i < reslist.rescount; i++ )
+	{
+		const char *path;
+
+		if( reslist.restype[i] == t_sound )
+			path = va( "sound/%s", reslist.resnames[i] );
+		else path = reslist.resnames[i];
+
+		if( FS_FileExists( path, false ))
+			continue;	// already exists
+
+		host.downloadcount++;
+		HTTP_AddDownload( path, -1, true );
+	}
+
+	if( !host.downloadcount )
+	{
+		MSG_WriteByte( &cls.netchan.message, clc_stringcmd );
+		MSG_WriteString( &cls.netchan.message, "continueloading" );
+	}
+}
+
+/*
 =====================
 CL_ParseLegacyServerMessage
 
@@ -2845,13 +2911,9 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 			if( !Q_strnicmp( s, "disconnect", 10 ) && cls.signon != SIGNONS )
 				break; // too early
 #endif
-			if( !Q_strcmp(s, "cmd getresourcelist\n") )
-				Cbuf_AddText("cmd continueloading\n");
-			else
-			{
-				Con_Reportf( "Stufftext: %s", s );
-				Cbuf_AddText( s );
-			}
+
+			Con_Reportf( "Stufftext: %s", s );
+			Cbuf_AddText( s );
 			break;
 		case svc_setangle:
 			CL_ParseSetAngle( msg );
@@ -2981,7 +3043,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 			//cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].receivedtime = -2.0;
 			break;
 		case svc_resourcelist:
-			CL_ParseResourceList( msg );
+			CL_LegacyParseResourceList( msg );
 			break;
 		case svc_deltamovevars:
 			CL_ParseMovevars( msg );

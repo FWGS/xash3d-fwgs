@@ -842,7 +842,7 @@ static SAVERESTOREDATA *LoadSaveData( const char *level )
 
 	if(( pFile = FS_Open( name, "rb", true )) == NULL )
 	{
-		Con_Printf( S_ERROR "couldn't open.\n" );
+		Con_Printf( S_ERROR "Couldn't open save data file %s.\n", name );
 		return NULL;
 	}
 

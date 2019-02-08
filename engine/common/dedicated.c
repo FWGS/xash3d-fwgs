@@ -84,6 +84,11 @@ const char *svc_strings[256] =
 	"svc_unused63",
 };
 
+void CL_ProcessFile( qboolean successfully_received, const char *filename )
+{
+
+}
+
 int CL_Active( void )
 {
 	return false;

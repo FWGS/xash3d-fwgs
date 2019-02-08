@@ -1049,6 +1049,15 @@ void CL_DrawHUD( int state )
 	}
 }
 
+static void CL_ClearUserMessage( char *pszName, int svc_num )
+{
+	int i;
+
+	for( i = 0; i < MAX_USER_MESSAGES && clgame.msg[i].name[0]; i++ )
+		if( ( clgame.msg[i].number == svc_num ) && Q_strcmp( clgame.msg[i].name, pszName ) )
+			clgame.msg[i].number = 0;
+}
+
 void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 {
 	int	i;
@@ -1067,6 +1076,7 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 		{
 			clgame.msg[i].number = svc_num;
 			clgame.msg[i].size = iSize;
+			CL_ClearUserMessage( pszName, svc_num );
 			return;
 		}
 	}
@@ -1081,6 +1091,7 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 	Q_strncpy( clgame.msg[i].name, pszName, sizeof( clgame.msg[i].name ));
 	clgame.msg[i].number = svc_num;
 	clgame.msg[i].size = iSize;
+	CL_ClearUserMessage( pszName, svc_num );
 }
 
 void CL_FreeEntity( cl_entity_t *pEdict )
@@ -1215,7 +1226,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 		}
 		else
 		{
-			Con_Reportf( S_ERROR "%s couldn't load\n", szSpriteName );
+			Con_Reportf( S_ERROR "Could not load HUD sprite %s\n", szSpriteName );
 			Mod_UnloadSpriteModel( m_pSprite );
 			return false;
 		}
@@ -2341,7 +2352,7 @@ int CL_FindModelIndex( const char *m )
 	if( lasttimewarn < host.realtime )
 	{
 		// tell user about problem (but don't spam console)
-		Con_Printf( S_ERROR "%s not precached\n", filepath );
+		Con_Printf( S_ERROR "Could not find index for model %s: not precached\n", filepath );
 		lasttimewarn = host.realtime + 1.0f;
 	}
 

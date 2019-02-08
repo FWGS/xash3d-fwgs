@@ -274,14 +274,10 @@ model_t *SV_ModelHandle( int modelindex )
 	return sv.models[modelindex];
 }
 
-void SV_CreateGenericResources( void )
+void SV_ReadResourceList( const char *filename )
 {
-	string	filename, token;
+	string	token;
 	char	*afile, *pfile;
-
-	Q_strncpy( filename, sv.model_precache[1], sizeof( filename ));
-	COM_ReplaceExtension( filename, ".res" );
-	COM_FixSlashes( filename );
 
 	afile = FS_LoadFile( filename, NULL, false );
 	if( !afile ) return;
@@ -302,6 +298,18 @@ void SV_CreateGenericResources( void )
 
 	Con_DPrintf( "----------------------------------\n" );
 	Mem_Free( afile );
+}
+
+void SV_CreateGenericResources( void )
+{
+	string	filename;
+
+	Q_strncpy( filename, sv.model_precache[1], sizeof( filename ));
+	COM_ReplaceExtension( filename, ".res" );
+	COM_FixSlashes( filename );
+
+	SV_ReadResourceList( filename );
+	SV_ReadResourceList( "reslist.txt" );
 }
 
 void SV_CreateResourceList( void )

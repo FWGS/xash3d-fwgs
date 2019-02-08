@@ -69,4 +69,11 @@ qboolean CL_LegacyMode( void );
 int CL_GetSplitSize( void );
 #endif
 
+void HTTP_AddCustomServer( const char *url );
+void HTTP_AddDownload( const char *path, int size, qboolean process );
+void HTTP_ClearCustomServers( void );
+void HTTP_Shutdown( void );
+void HTTP_Init( void );
+void HTTP_Run( void );
+
 #endif//NET_WS_H
