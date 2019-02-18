@@ -222,8 +222,6 @@ void R_StudioCalcBoneQuaternion( int frame, float s, mstudiobone_t *pbone, mstud
 void R_StudioCalcBonePosition( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, vec3_t adj, vec3_t pos );
 void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstudioseqdesc_t *pseqdesc );
 void Mod_StudioComputeBounds( void *buffer, vec3_t mins, vec3_t maxs, qboolean ignore_sequences );
-void Mod_StudioLoadTextures( model_t *mod, void *data );
-void Mod_StudioUnloadTextures( void *data );
 int Mod_HitgroupForStudioHull( int index );
 void Mod_ClearStudioCache( void );
 

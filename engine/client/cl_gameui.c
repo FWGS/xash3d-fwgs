@@ -16,10 +16,10 @@ GNU General Public License for more details.
 #include "common.h"
 #include "client.h"
 #include "const.h"
-#include "gl_local.h"
 #include "library.h"
 #include "input.h"
 #include "server.h" // !!svgame.hInstance
+#include "vid_common.h"
 
 static MENUAPI	GetMenuAPI;
 static ADDTOUCHBUTTONTOLIST pfnAddTouchButtonToList;
@@ -203,7 +203,7 @@ static void UI_DrawLogo( const char *filename, float x, float y, float width, fl
 		redraw = true;
 	}
 
-	R_DrawStretchRaw( x, y, width, height, gameui.logo_xres, gameui.logo_yres, cin_data, redraw );
+	ref.dllFuncs.R_DrawStretchRaw( x, y, width, height, gameui.logo_xres, gameui.logo_yres, cin_data, redraw );
 }
 
 static int UI_GetLogoWidth( void )
@@ -360,8 +360,8 @@ static void PIC_DrawGeneric( float x, float y, float width, float height, const 
 		return;
 
 	PicAdjustSize( &x, &y, &width, &height );
-	R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, gameui.ds.gl_texturenum );
-	pglColor4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, gameui.ds.gl_texturenum );
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 }
 
 /*
@@ -390,7 +390,7 @@ static HIMAGE pfnPIC_Load( const char *szPicName, const byte *image_buf, int ima
 	SetBits( flags, TF_IMAGE );
 
 	Image_SetForceFlags( IL_LOAD_DECAL ); // allow decal images for menu
-	tx = GL_LoadTexture( szPicName, image_buf, image_size, flags );
+	tx = RefRenderAPI->GL_LoadTexture( szPicName, image_buf, image_size, flags );
 	Image_ClearForceFlags();
 
 	return tx;
@@ -439,7 +439,7 @@ void pfnPIC_Set( HIMAGE hPic, int r, int g, int b, int a )
 	g = bound( 0, g, 255 );
 	b = bound( 0, b, 255 );
 	a = bound( 0, a, 255 );
-	pglColor4ub( r, g, b, a );
+	ref.dllFuncs.Color4ub( r, g, b, a );
 }
 
 /*
@@ -450,7 +450,7 @@ pfnPIC_Draw
 */
 void pfnPIC_Draw( int x, int y, int width, int height, const wrect_t *prc )
 {
-	GL_SetRenderMode( kRenderNormal );
+	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
 	PIC_DrawGeneric( x, y, width, height, prc );
 }
 
@@ -462,7 +462,7 @@ pfnPIC_DrawTrans
 */
 void pfnPIC_DrawTrans( int x, int y, int width, int height, const wrect_t *prc )
 {
-	GL_SetRenderMode( kRenderTransTexture );
+	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 	PIC_DrawGeneric( x, y, width, height, prc );
 }
 
@@ -474,7 +474,7 @@ pfnPIC_DrawHoles
 */
 void pfnPIC_DrawHoles( int x, int y, int width, int height, const wrect_t *prc )
 {
-	GL_SetRenderMode( kRenderTransAlpha );
+	ref.dllFuncs.GL_SetRenderMode( kRenderTransAlpha );
 	PIC_DrawGeneric( x, y, width, height, prc );
 }
 
@@ -486,7 +486,7 @@ pfnPIC_DrawAdditive
 */
 void pfnPIC_DrawAdditive( int x, int y, int width, int height, const wrect_t *prc )
 {
-	GL_SetRenderMode( kRenderTransAdd );
+	ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
 	PIC_DrawGeneric( x, y, width, height, prc );
 }
 
@@ -553,10 +553,10 @@ static void pfnFillRGBA( int x, int y, int width, int height, int r, int g, int 
 	g = bound( 0, g, 255 );
 	b = bound( 0, b, 255 );
 	a = bound( 0, a, 255 );
-	pglColor4ub( r, g, b, a );
-	GL_SetRenderMode( kRenderTransTexture );
-	R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, tr.whiteTexture );
-	pglColor4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.Color4ub( r, g, b, a );
+	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, ref.dllFuncs.R_GetBuiltinTexture( REF_WHITE_TEXTURE ) );
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 }
 
 /*
@@ -614,7 +614,7 @@ static void pfnDrawCharacter( int ix, int iy, int iwidth, int iheight, int ch, i
 	color[0] = (ulRGBA & 0xFF0000) >> 16;
 	color[1] = (ulRGBA & 0xFF00) >> 8;
 	color[2] = (ulRGBA & 0xFF) >> 0;
-	pglColor4ubv( color );
+	ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
 
 	col = (ch & 15) * 0.0625f + (0.5f / 256.0f);
 	row = (ch >> 4) * 0.0625f + (0.5f / 256.0f);
@@ -629,9 +629,9 @@ static void pfnDrawCharacter( int ix, int iy, int iwidth, int iheight, int ch, i
 	if( gameui.ds.scissor_test && !PIC_Scissor( &x, &y, &width, &height, &s1, &t1, &s2, &t2 ))
 		return;
 
-	GL_SetRenderMode( kRenderTransTexture );
-	R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, hFont );
-	pglColor4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, hFont );
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 }
 
 /*
@@ -702,8 +702,8 @@ for drawing playermodel previews
 */
 static void pfnClearScene( void )
 {
-	R_PushScene();
-	R_ClearScene();
+	ref.dllFuncs.R_PushScene();
+	RefRenderIface->R_ClearScene();
 }
 
 /*
@@ -726,10 +726,10 @@ static void pfnRenderScene( const ref_viewpass_t *rvp )
 	// don't allow special modes from menu
 	copy.flags = 0;
 
-	R_Set2DMode( false );
-	R_RenderFrame( &copy );
-	R_Set2DMode( true );
-	R_PopScene();
+	ref.dllFuncs.R_Set2DMode( false );
+	RefRenderIface->GL_RenderFrame( &copy );
+	ref.dllFuncs.R_Set2DMode( true );
+	ref.dllFuncs.R_PopScene();
 }
 
 /*
@@ -741,7 +741,7 @@ adding player model into visible list
 */
 static int pfnAddEntity( int entityType, cl_entity_t *ent )
 {
-	if( !R_AddEntity( ent, entityType ))
+	if( !ref.dllFuncs.R_AddEntity( ent, entityType ))
 		return false;
 	return true;
 }
@@ -944,6 +944,11 @@ pfnStartBackgroundTrack
 static void pfnStartBackgroundTrack( const char *introTrack, const char *mainTrack )
 {
 	S_StartBackgroundTrack( introTrack, mainTrack, 0, false );
+}
+
+static void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
+{
+	ref.dllFuncs.GL_ProcessTexture( texnum, gamma, topColor, bottomColor );
 }
 
 // engine callbacks

@@ -150,6 +150,10 @@ Default build-depended cvar and constant values
 	#define DEFAULT_FULLSCREEN 1
 #endif
 
+#ifndef DEFAULT_RENDERER
+	#define DEFAULT_RENDERER "ref_gl"
+#endif
+
 #if TARGET_OS_IPHONE
     #define DEFAULT_CON_MAXFRAC "0.5"
 #else

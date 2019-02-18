@@ -16,7 +16,6 @@ GNU General Public License for more details.
 #ifdef _WIN32
 #include "common.h"
 #include "client.h"
-#include "gl_local.h"
 #include <vfw.h> // video for windows
 
 // msvfw32.dll exports

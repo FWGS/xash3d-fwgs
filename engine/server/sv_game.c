@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "const.h"
 #include "render_api.h"	// modelstate_t
+#include "ref_common.h" // decals
 
 #define ENTVARS_COUNT	ARRAYSIZE( gEntvarsDescription )
 
@@ -552,7 +553,7 @@ void SV_RestartStaticEnts( void )
 	int	i;
 
 	// remove all the static entities on the client
-	R_ClearStaticEntities();
+	CL_ClearStaticEntities();
 
 	// resend them again
 	for( i = 0; i < sv.num_static_entities; i++ )
@@ -616,10 +617,10 @@ void SV_RestartDecals( void )
 
 	// g-cont. add space for studiodecals if present
 	host.decalList = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
-	host.numdecals = R_CreateDecalList( host.decalList );
+	host.numdecals = ref.dllFuncs.R_CreateDecalList( host.decalList );
 
 	// remove decals from map
-	R_ClearAllDecals();
+	ref.dllFuncs.R_ClearAllDecals();
 
 	// write decals into reliable datagram
 	msg = SV_GetReliableDatagram();

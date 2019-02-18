@@ -17,11 +17,11 @@ GNU General Public License for more details.
 #include "client.h"
 #include "net_encode.h"
 #include "cl_tent.h"
-#include "gl_local.h"
 #include "input.h"
 #include "kbutton.h"
 #include "vgui_draw.h"
 #include "library.h"
+#include "vid_common.h"
 
 #define MAX_TOTAL_CMDS		32
 #define MAX_CMD_BUFFER		8000
@@ -1779,7 +1779,7 @@ void CL_SetupOverviewParams( void )
 
 	// calculate nearest aspect
 	mapAspect = world.size[!ov->rotated] / world.size[ov->rotated];
-	screenAspect = (float)glState.width / (float)glState.height;
+	screenAspect = (float)refState.width / (float)refState.height;
 	aspect = Q_max( mapAspect, screenAspect );
 
 	ov->zNear = world.maxs[2];
@@ -2936,7 +2936,7 @@ void CL_Init( void )
 	// unreliable buffer. unsed for unreliable commands and voice stream
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));
 
-	IN_TouchInit();
+	// IN_TouchInit();
 	Con_LoadHistory();
 
 	if( !CL_LoadProgs( va( "%s/%s", GI->dll_path, SI.clientlib)))
@@ -2968,7 +2968,7 @@ void CL_Shutdown( void )
 		Host_WriteVideoConfig ();
 	}
 
-	IN_TouchShutdown ();
+	// IN_TouchShutdown ();
 	Joy_Shutdown ();
 	CL_CloseDemoHeader ();
 	IN_Shutdown ();

@@ -23,7 +23,6 @@ GNU General Public License for more details.
 #include "events.h"
 #include "sound.h"
 #include "vid_common.h"
-#include "gl_local.h"
 
 static SDL_Joystick *joy;
 static SDL_GameController *gamecontroller;

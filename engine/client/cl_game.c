@@ -25,7 +25,6 @@ GNU General Public License for more details.
 #include "input.h"
 #include "shake.h"
 #include "sprite.h"
-#include "gl_local.h"
 #include "library.h"
 #include "vgui_draw.h"
 #include "sound.h"		// SND_STOP_LOOPING
@@ -278,18 +277,18 @@ static int CL_AdjustXPos( float x, int width, int totalWidth )
 
 	if( x == -1 )
 	{
-		xPos = ( glState.width - width ) * 0.5f;
+		xPos = ( refState.width - width ) * 0.5f;
 	}
 	else
 	{
 		if ( x < 0 )
-			xPos = (1.0f + x) * glState.width - totalWidth;	// Alight right
+			xPos = (1.0f + x) * refState.width - totalWidth;	// Alight right
 		else // align left
-			xPos = x * glState.width;
+			xPos = x * refState.width;
 	}
 
-	if( xPos + width > glState.width )
-		xPos = glState.width - width;
+	if( xPos + width > refState.width )
+		xPos = refState.width - width;
 	else if( xPos < 0 )
 		xPos = 0;
 
@@ -309,19 +308,19 @@ static int CL_AdjustYPos( float y, int height )
 
 	if( y == -1 ) // centered?
 	{
-		yPos = ( glState.height - height ) * 0.5f;
+		yPos = ( refState.height - height ) * 0.5f;
 	}
 	else
 	{
 		// Alight bottom?
 		if( y < 0 )
-			yPos = (1.0f + y) * glState.height - height; // Alight bottom
+			yPos = (1.0f + y) * refState.height - height; // Alight bottom
 		else // align top
-			yPos = y * glState.height;
+			yPos = y * refState.height;
 	}
 
-	if( yPos + height > glState.height )
-		yPos = glState.height - height;
+	if( yPos + height > refState.height )
+		yPos = refState.height - height;
 	else if( yPos < 0 )
 		yPos = 0;
 
@@ -383,8 +382,8 @@ static void SPR_AdjustSize( float *x, float *y, float *w, float *h )
 	if( !x && !y && !w && !h ) return;
 
 	// scale for screen sizes
-	xscale = glState.width / (float)clgame.scrInfo.iWidth;
-	yscale = glState.height / (float)clgame.scrInfo.iHeight;
+	xscale = refState.width / (float)clgame.scrInfo.iWidth;
+	yscale = refState.height / (float)clgame.scrInfo.iHeight;
 
 	if( x ) *x *= xscale;
 	if( y ) *y *= yscale;
@@ -407,8 +406,8 @@ void PicAdjustSize( float *x, float *y, float *w, float *h )
 	if( !x && !y && !w && !h ) return;
 
 	// scale for screen sizes
-	xscale = glState.width / (float)clgame.scrInfo.iWidth;
-	yscale = glState.height / (float)clgame.scrInfo.iHeight;
+	xscale = refState.width / (float)clgame.scrInfo.iWidth;
+	yscale = refState.height / (float)clgame.scrInfo.iHeight;
 
 	if( x ) *x *= xscale;
 	if( y ) *y *= yscale;
@@ -482,7 +481,7 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 		int	w, h;
 
 		// assume we get sizes from image
-		R_GetSpriteParms( &w, &h, NULL, frame, clgame.ds.pSprite );
+		ref.dllFuncs.R_GetSpriteParms( &w, &h, NULL, frame, clgame.ds.pSprite );
 
 		width = w;
 		height = h;
@@ -520,10 +519,9 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 
 	// scale for screen sizes
 	SPR_AdjustSize( &x, &y, &width, &height );
-	texnum = R_GetSpriteTexture( clgame.ds.pSprite, frame );
-	pglColor4ubv( clgame.ds.spriteColor );
-	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-	R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, texnum );
+	texnum = ref.dllFuncs.SpriteTexture( clgame.ds.pSprite, frame );
+	ref.dllFuncs.Color4ub( clgame.ds.spriteColor[0], clgame.ds.spriteColor[1], clgame.ds.spriteColor[2], clgame.ds.spriteColor[3] );
+	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, texnum );
 }
 
 /*
@@ -581,7 +579,7 @@ void CL_DrawCenterPrint( void )
 
 		for( j = 0; j < lineLength; j++ )
 		{
-			if( x >= 0 && y >= 0 && x <= glState.width )
+			if( x >= 0 && y >= 0 && x <= refState.width )
 				x += Con_DrawCharacter( x, y, line[j], colorDefault );
 		}
 		y += charHeight;
@@ -629,13 +627,14 @@ void CL_DrawScreenFade( void )
 		iFadeAlpha = bound( 0, iFadeAlpha, sf->fadealpha );
 	}
 
-	pglColor4ub( sf->fader, sf->fadeg, sf->fadeb, iFadeAlpha );
+	ref.dllFuncs.Color4ub( sf->fader, sf->fadeg, sf->fadeb, iFadeAlpha );
 
 	if( sf->fadeFlags & FFADE_MODULATE )
-		GL_SetRenderMode( kRenderTransAdd );
-	else GL_SetRenderMode( kRenderTransTexture );
-	R_DrawStretchPic( 0, 0, glState.width, glState.height, 0, 0, 1, 1, tr.whiteTexture );
-	pglColor4ub( 255, 255, 255, 255 );
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
+	else ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+	ref.dllFuncs.R_DrawStretchPic( 0, 0, refState.width, refState.height, 0, 0, 1, 1,
+		ref.dllFuncs.R_GetBuiltinTexture( REF_WHITE_TEXTURE ));
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 }
 
 /*
@@ -913,10 +912,10 @@ void CL_DrawCrosshair( void )
 		vec3_t	forward;
 		vec3_t	point, screen;
 
-		VectorAdd( RI.viewangles, cl.crosshairangle, angles );
+		VectorAdd( refState.viewangles, cl.crosshairangle, angles );
 		AngleVectors( angles, forward, NULL, NULL );
-		VectorAdd( RI.vieworg, forward, point );
-		R_WorldToScreen( point, screen );
+		VectorAdd( refState.vieworg, forward, point );
+		ref.dllFuncs.WorldToScreen( point, screen );
 
 		x += ( clgame.viewport[2] >> 1 ) * screen[0] + 0.5f;
 		y += ( clgame.viewport[3] >> 1 ) * screen[1] + 0.5f;
@@ -950,8 +949,8 @@ static void CL_DrawLoading( float percent )
 	x = ( clgame.scrInfo.iWidth - width ) >> 1;
 	y = ( clgame.scrInfo.iHeight - height) >> 1;
 
-	xscale = glState.width / (float)clgame.scrInfo.iWidth;
-	yscale = glState.height / (float)clgame.scrInfo.iHeight;
+	xscale = refState.width / (float)clgame.scrInfo.iWidth;
+	yscale = refState.height / (float)clgame.scrInfo.iHeight;
 
 	x *= xscale;
 	y *= yscale;
@@ -959,26 +958,26 @@ static void CL_DrawLoading( float percent )
 	height *= yscale;
 
 	if( cl_allow_levelshots->value )
-          {
-		pglColor4ub( 128, 128, 128, 255 );
-		GL_SetRenderMode( kRenderTransTexture );
-		R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.loadingBar );
+	{
+		ref.dllFuncs.Color4ub( 128, 128, 128, 255 );
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.loadingBar );
 
 		step = (float)width / 100.0f;
 		right = (int)ceil( percent * step );
 		s2 = (float)right / width;
 		width = right;
 	
-		pglColor4ub( 208, 152, 0, 255 );
-		GL_SetRenderMode( kRenderTransTexture );
-		R_DrawStretchPic( x, y, width, height, 0, 0, s2, 1, cls.loadingBar );
-		pglColor4ub( 255, 255, 255, 255 );
+		ref.dllFuncs.Color4ub( 208, 152, 0, 255 );
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, s2, 1, cls.loadingBar );
+		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 	}
 	else
 	{
-		pglColor4ub( 255, 255, 255, 255 );
-		GL_SetRenderMode( kRenderTransTexture );
-		R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.loadingBar );
+		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.loadingBar );
 	}
 }
 
@@ -998,17 +997,17 @@ static void CL_DrawPause( void )
 	x = ( clgame.scrInfo.iWidth - width ) >> 1;
 	y = ( clgame.scrInfo.iHeight - height) >> 1;
 
-	xscale = glState.width / (float)clgame.scrInfo.iWidth;
-	yscale = glState.height / (float)clgame.scrInfo.iHeight;
+	xscale = refState.width / (float)clgame.scrInfo.iWidth;
+	yscale = refState.height / (float)clgame.scrInfo.iHeight;
 
 	x *= xscale;
 	y *= yscale;
 	width *= xscale;
 	height *= yscale;
 
-	pglColor4ub( 255, 255, 255, 255 );
-	GL_SetRenderMode( kRenderTransTexture );
-	R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.pauseIcon );
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.pauseIcon );
 }
 
 void CL_DrawHUD( int state )
@@ -1097,7 +1096,7 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 void CL_FreeEntity( cl_entity_t *pEdict )
 {
 	Assert( pEdict != NULL );
-	R_RemoveEfrags( pEdict );
+	ref.dllFuncs.R_RemoveEfrags( pEdict );
 	CL_KillDeadBeams( pEdict );
 }
 
@@ -1112,7 +1111,7 @@ void CL_ClearWorld( void )
 	world->model = cl.worldmodel;
 	world->index = 0;
 
-	clgame.ds.cullMode = GL_FRONT;
+	clgame.ds.cullMode = TRI_FRONT;
 	clgame.numStatics = 0;
 }
 
@@ -1227,7 +1226,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 		else
 		{
 			Con_Reportf( S_ERROR "Could not load HUD sprite %s\n", szSpriteName );
-			Mod_UnloadSpriteModel( m_pSprite );
+			ref.dllFuncs.Mod_UnloadModel( m_pSprite );
 			return false;
 		}
 	}
@@ -1236,14 +1235,14 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 	ASSERT( buf != NULL );
 
 	if( type == SPR_MAPSPRITE )
-		Mod_LoadMapSprite( m_pSprite, buf, size, &loaded );
-	else Mod_LoadSpriteModel( m_pSprite, buf, &loaded, texFlags );		
+		ref.dllFuncs.Mod_LoadMapSprite( m_pSprite, buf, size, &loaded );
+	else ref.dllFuncs.Mod_LoadModel( mod_sprite, m_pSprite, buf, &loaded, texFlags );
 
 	Mem_Free( buf );
 
 	if( !loaded )
 	{
-		Mod_UnloadSpriteModel( m_pSprite );
+		ref.dllFuncs.Mod_UnloadModel( m_pSprite );
 		return false;
 	}
 
@@ -1399,7 +1398,7 @@ static int pfnSPR_Frames( HSPRITE hPic )
 {
 	int	numFrames;
 
-	R_GetSpriteParms( NULL, NULL, &numFrames, 0, CL_GetSpritePointer( hPic ));
+	ref.dllFuncs.R_GetSpriteParms( NULL, NULL, &numFrames, 0, CL_GetSpritePointer( hPic ));
 
 	return numFrames;
 }
@@ -1414,7 +1413,7 @@ static int pfnSPR_Height( HSPRITE hPic, int frame )
 {
 	int	sprHeight;
 
-	R_GetSpriteParms( NULL, &sprHeight, NULL, frame, CL_GetSpritePointer( hPic ));
+	ref.dllFuncs.R_GetSpriteParms( NULL, &sprHeight, NULL, frame, CL_GetSpritePointer( hPic ));
 
 	return sprHeight;
 }
@@ -1429,7 +1428,7 @@ static int pfnSPR_Width( HSPRITE hPic, int frame )
 {
 	int	sprWidth;
 
-	R_GetSpriteParms( &sprWidth, NULL, NULL, frame, CL_GetSpritePointer( hPic ));
+	ref.dllFuncs.R_GetSpriteParms( &sprWidth, NULL, NULL, frame, CL_GetSpritePointer( hPic ));
 
 	return sprWidth;
 }
@@ -1457,8 +1456,7 @@ pfnSPR_Draw
 */
 static void pfnSPR_Draw( int frame, int x, int y, const wrect_t *prc )
 {
-	pglDisable( GL_BLEND );
-
+	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
 	SPR_DrawGeneric( frame, x, y, -1, -1, prc );
 }
 
@@ -1470,14 +1468,21 @@ pfnSPR_DrawHoles
 */
 static void pfnSPR_DrawHoles( int frame, int x, int y, const wrect_t *prc )
 {
+#if 1 // REFTODO
+	ref.dllFuncs.GL_SetRenderMode( kRenderTransColor );
+#else
 	pglEnable( GL_ALPHA_TEST );
 	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 	pglEnable( GL_BLEND );
-
+#endif
 	SPR_DrawGeneric( frame, x, y, -1, -1, prc );
 
+#if 1
+	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
+#else
 	pglDisable( GL_ALPHA_TEST );
 	pglDisable( GL_BLEND );
+#endif
 }
 
 /*
@@ -1488,12 +1493,20 @@ pfnSPR_DrawAdditive
 */
 static void pfnSPR_DrawAdditive( int frame, int x, int y, const wrect_t *prc )
 {
+#if 1 // REFTODO
+	ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
+#else
 	pglEnable( GL_BLEND );
 	pglBlendFunc( GL_ONE, GL_ONE );
+#endif
 
 	SPR_DrawGeneric( frame, x, y, -1, -1, prc );
 
+#if 1 // REFTODO
+	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
+#else
 	pglDisable( GL_BLEND );
+#endif
 }
 
 /*
@@ -1603,6 +1616,9 @@ void CL_FillRGBA( int x, int y, int w, int h, int r, int g, int b, int a )
 
 	SPR_AdjustSize( &_x, &_y, &_w, &_h );
 
+#if 1
+	ref.dllFuncs.FillRGBA( _x, _y, _w, _h, r, g, b, a );
+#else
 	pglDisable( GL_TEXTURE_2D );
 	pglEnable( GL_BLEND );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
@@ -1619,6 +1635,7 @@ void CL_FillRGBA( int x, int y, int w, int h, int r, int g, int b, int a )
 	pglColor3f( 1.0f, 1.0f, 1.0f );
 	pglEnable( GL_TEXTURE_2D );
 	pglDisable( GL_BLEND );
+#endif
 }
 
 /*
@@ -1638,14 +1655,14 @@ int CL_GetScreenInfo( SCREENINFO *pscrinfo )
 
 	if( scale_factor && scale_factor != 1.0f)
 	{
-		clgame.scrInfo.iWidth = (float)glState.width / scale_factor;
-		clgame.scrInfo.iHeight = (float)glState.height / scale_factor;
+		clgame.scrInfo.iWidth = (float)refState.width / scale_factor;
+		clgame.scrInfo.iHeight = (float)refState.height / scale_factor;
 		clgame.scrInfo.iFlags |= SCRINFO_STRETCHED;
 	}
 	else
 	{
-		clgame.scrInfo.iWidth = glState.width;
-		clgame.scrInfo.iHeight = glState.height;
+		clgame.scrInfo.iWidth = refState.width;
+		clgame.scrInfo.iHeight = refState.height;
 		clgame.scrInfo.iFlags &= ~SCRINFO_STRETCHED;
 	}
 
@@ -2848,8 +2865,10 @@ pfnSPR_DrawGeneric
 */
 static void GAME_EXPORT pfnSPR_DrawGeneric( int frame, int x, int y, const wrect_t *prc, int blendsrc, int blenddst, int width, int height )
 {
+#if 0 // REFTODO:
 	pglEnable( GL_BLEND );
 	pglBlendFunc( blendsrc, blenddst ); // g-cont. are params is valid?
+#endif
 	SPR_DrawGeneric( frame, x, y, width, height, prc );
 }
 
@@ -3018,6 +3037,9 @@ void GAME_EXPORT CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int
 
 	SPR_AdjustSize( &_x, &_y, &_w, &_h );
 
+#if 1 // REFTODO:
+	ref.dllFuncs.FillRGBABlend( _x, _y, _w, _h, r, g, b, a );
+#else
 	pglDisable( GL_TEXTURE_2D );
 	pglEnable( GL_BLEND );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
@@ -3034,6 +3056,7 @@ void GAME_EXPORT CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int
 	pglColor3f( 1.0f, 1.0f, 1.0f );
 	pglEnable( GL_TEXTURE_2D );
 	pglDisable( GL_BLEND );
+#endif
 }
 
 /*
@@ -3078,111 +3101,31 @@ char *pfnParseFile( char *data, char *token )
 
 /*
 =================
-TriApi implementation
+TriAPI implementation
 
 =================
 */
 /*
-=============
+=================
 TriRenderMode
-
-set rendermode
-=============
+=================
 */
 void TriRenderMode( int mode )
 {
-	switch( mode )
-	{
-	case kRenderNormal:
-		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		pglDisable( GL_BLEND );
-		pglDepthMask( GL_TRUE );
-		break;
-	case kRenderTransAlpha:
-		pglEnable( GL_BLEND );
-		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-		pglDepthMask( GL_FALSE );
-		break;
-	case kRenderTransColor:
-	case kRenderTransTexture:
-		pglEnable( GL_BLEND );
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-		break;
-	case kRenderGlow:
-	case kRenderTransAdd:
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
-		pglEnable( GL_BLEND );
-		pglDepthMask( GL_FALSE );
-		break;
-	}
-
 	clgame.ds.renderMode = mode;
+	ref.dllFuncs.TriRenderMode( mode );
 }
 
 /*
-=============
-TriBegin
-
-begin triangle sequence
-=============
-*/
-void TriBegin( int mode )
-{
-	switch( mode )
-	{
-	case TRI_POINTS:
-		mode = GL_POINTS;
-		break;
-	case TRI_TRIANGLES:
-		mode = GL_TRIANGLES;
-		break;
-	case TRI_TRIANGLE_FAN:
-		mode = GL_TRIANGLE_FAN;
-		break;
-	case TRI_QUADS:
-		mode = GL_QUADS;
-		break;
-	case TRI_LINES:
-		mode = GL_LINES;
-		break;
-	case TRI_TRIANGLE_STRIP:
-		mode = GL_TRIANGLE_STRIP;
-		break;
-	case TRI_QUAD_STRIP:
-		mode = GL_QUAD_STRIP;
-		break;
-	case TRI_POLYGON:
-	default:	mode = GL_POLYGON;
-		break;
-	}
-
-	pglBegin( mode );
-}
-
-/*
-=============
-TriEnd
-
-draw triangle sequence
-=============
-*/
-void TriEnd( void )
-{
-	pglEnd();
-}
-
-/*
-=============
+=================
 TriColor4f
-
-=============
+=================
 */
 void TriColor4f( float r, float g, float b, float a )
 {
 	if( clgame.ds.renderMode == kRenderTransAlpha )
-		pglColor4ub( r * 255.9f, g * 255.9f, b * 255.9f, a * 255.0f );
-	else pglColor4f( r * a, g * a, b * a, 1.0 );
+		ref.dllFuncs.Color4ub( r * 255.9f, g * 255.9f, b * 255.9f, a * 255.0f );
+	else ref.dllFuncs.Color4f( r * a, g * a, b * a, 1.0 );
 
 	clgame.ds.triRGBA[0] = r;
 	clgame.ds.triRGBA[1] = g;
@@ -3193,7 +3136,6 @@ void TriColor4f( float r, float g, float b, float a )
 /*
 =============
 TriColor4ub
-
 =============
 */
 void TriColor4ub( byte r, byte g, byte b, byte a )
@@ -3203,46 +3145,12 @@ void TriColor4ub( byte r, byte g, byte b, byte a )
 	clgame.ds.triRGBA[2] = b * (1.0f / 255.0f);
 	clgame.ds.triRGBA[3] = a * (1.0f / 255.0f);
 
-	pglColor4f( clgame.ds.triRGBA[0], clgame.ds.triRGBA[1], clgame.ds.triRGBA[2], 1.0f );
-}
-
-/*
-=============
-TriTexCoord2f
-
-=============
-*/
-void TriTexCoord2f( float u, float v )
-{
-	pglTexCoord2f( u, v );
-}
-
-/*
-=============
-TriVertex3fv
-
-=============
-*/
-void TriVertex3fv( const float *v )
-{
-	pglVertex3fv( v );
-}
-
-/*
-=============
-TriVertex3f
-
-=============
-*/
-void TriVertex3f( float x, float y, float z )
-{
-	pglVertex3f( x, y, z );
+	ref.dllFuncs.Color4f( clgame.ds.triRGBA[0], clgame.ds.triRGBA[1], clgame.ds.triRGBA[2], 1.0f );
 }
 
 /*
 =============
 TriBrightness
-
 =============
 */
 void TriBrightness( float brightness )
@@ -3253,56 +3161,23 @@ void TriBrightness( float brightness )
 	g = clgame.ds.triRGBA[1] * clgame.ds.triRGBA[3] * brightness;
 	b = clgame.ds.triRGBA[2] * clgame.ds.triRGBA[3] * brightness;
 
-	pglColor4f( r, g, b, 1.0f );
+	ref.dllFuncs.Color4f( r, g, b, 1.0f );
 }
 
 /*
 =============
 TriCullFace
-
 =============
 */
-void TriCullFace( TRICULLSTYLE mode )
+void TriCullFace( TRICULLSTYLE style )
 {
-	switch( mode )
-	{
-	case TRI_FRONT:
-		clgame.ds.cullMode = GL_FRONT;
-		break;
-	default:
-		clgame.ds.cullMode = GL_NONE;
-		break;
-	}
-
-	GL_Cull( clgame.ds.cullMode );
-}
-
-/*
-=============
-TriSpriteTexture
-
-bind current texture
-=============
-*/
-int TriSpriteTexture( model_t *pSpriteModel, int frame )
-{
-	int	gl_texturenum;
-
-	if(( gl_texturenum = R_GetSpriteTexture( pSpriteModel, frame )) == 0 )
-		return 0;
-
-	if( gl_texturenum <= 0 || gl_texturenum > MAX_TEXTURES )
-		gl_texturenum = tr.defaultTexture;
-
-	GL_Bind( XASH_TEXTURE0, gl_texturenum );
-
-	return 1;
+	clgame.ds.cullMode = style;
+	ref.dllFuncs.CullFace( style );
 }
 
 /*
 =============
 TriWorldToScreen
-
 convert world coordinates (x,y,z) into screen (x, y)
 =============
 */
@@ -3310,7 +3185,7 @@ int TriWorldToScreen( float *world, float *screen )
 {
 	int	retval;
 
-	retval = R_WorldToScreen( world, screen );
+	retval = ref.dllFuncs.WorldToScreen( world, screen );
 
 	screen[0] =  0.5f * screen[0] * (float)clgame.viewport[2];
 	screen[1] = -0.5f * screen[1] * (float)clgame.viewport[3];
@@ -3322,60 +3197,6 @@ int TriWorldToScreen( float *world, float *screen )
 
 /*
 =============
-TriFog
-
-enables global fog on the level
-=============
-*/
-void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
-{
-	// overrided by internal fog
-	if( RI.fogEnabled ) return;
-	RI.fogCustom = bOn;
-
-	// check for invalid parms
-	if( flEnd <= flStart )
-	{
-		RI.fogCustom = false;
-		pglDisable( GL_FOG );
-		return;
-	}
-
-	if( RI.fogCustom )
-		pglEnable( GL_FOG );
-	else pglDisable( GL_FOG );
-
-	// copy fog params
-	RI.fogColor[0] = flFogColor[0] / 255.0f;
-	RI.fogColor[1] = flFogColor[1] / 255.0f;
-	RI.fogColor[2] = flFogColor[2] / 255.0f;
-	RI.fogStart = flStart;
-	RI.fogColor[3] = 1.0f;
-	RI.fogDensity = 0.0f;
-	RI.fogSkybox = true;
-	RI.fogEnd = flEnd;
-
-	pglFogi( GL_FOG_MODE, GL_LINEAR );
-	pglFogfv( GL_FOG_COLOR, RI.fogColor );
-	pglFogf( GL_FOG_START, RI.fogStart );
-	pglFogf( GL_FOG_END, RI.fogEnd );
-	pglHint( GL_FOG_HINT, GL_NICEST );
-}
-
-/*
-=============
-TriGetMatrix
-
-very strange export
-=============
-*/
-void TriGetMatrix( const int pname, float *matrix )
-{
-	pglGetFloatv( pname, matrix );
-}
-
-/*
-=============
 TriBoxInPVS
 
 check box in pvs (absmin, absmax)
@@ -3383,13 +3204,12 @@ check box in pvs (absmin, absmax)
 */
 int TriBoxInPVS( float *mins, float *maxs )
 {
-	return Mod_BoxVisible( mins, maxs, Mod_GetCurrentVis( ));
+	return Mod_BoxVisible( mins, maxs, RefRenderIface->Mod_GetCurrentVis( ));
 }
 
 /*
 =============
 TriLightAtPoint
-
 NOTE: dlights are ignored
 =============
 */
@@ -3399,7 +3219,7 @@ void TriLightAtPoint( float *pos, float *value )
 
 	if( !pos || !value ) return;
 
-	vLightColor = R_LightPoint( pos );
+	vLightColor = ref.dllFuncs.R_LightPoint( pos );
 
 	value[0] = vLightColor.r;
 	value[1] = vLightColor.g;
@@ -3409,7 +3229,6 @@ void TriLightAtPoint( float *pos, float *value )
 /*
 =============
 TriColor4fRendermode
-
 Heavy legacy of Quake...
 =============
 */
@@ -3418,22 +3237,18 @@ void TriColor4fRendermode( float r, float g, float b, float a, int rendermode )
 	if( clgame.ds.renderMode == kRenderTransAlpha )
 	{
 		clgame.ds.triRGBA[3] = a / 255.0f;
-		pglColor4f( r, g, b, a );
+		ref.dllFuncs.Color4f( r, g, b, a );
 	}
-	else pglColor4f( r * a, g * a, b * a, 1.0f );
+	else ref.dllFuncs.Color4f( r * a, g * a, b * a, 1.0f );
 }
 
-/*
-=============
-TriForParams
-
-=============
-*/
-void TriFogParams( float flDensity, int iFogSkybox )
+int TriSpriteTexture( model_t *pSpriteModel, int frame )
 {
-	RI.fogDensity = flDensity;
-	RI.fogSkybox = iFogSkybox;
+	if( ref.dllFuncs.SpriteTexture( pSpriteModel, frame ))
+		return 1;
+	return 0;
 }
+
 
 /*
 =================
@@ -3788,35 +3603,14 @@ float Voice_GetControlFloat( VoiceTweakControl iControl )
 {
 	return 1.0f;
 }
+
 static void GAME_EXPORT VGui_ViewportPaintBackground( int extents[4] )
 {
 	// stub
 }
 
 // shared between client and server			
-triangleapi_t gTriApi =
-{
-	TRI_API_VERSION,	
-	TriRenderMode,
-	TriBegin,
-	TriEnd,
-	TriColor4f,
-	TriColor4ub,
-	TriTexCoord2f,
-	TriVertex3fv,
-	TriVertex3f,
-	TriBrightness,
-	TriCullFace,
-	TriSpriteTexture,
-	R_WorldToScreen,	// NOTE: XPROJECT, YPROJECT should be done in client.dll
-	TriFog,
-	R_ScreenToWorld,
-	TriGetMatrix,
-	TriBoxInPVS,
-	TriLightAtPoint,
-	TriColor4fRendermode,
-	TriFogParams,
-};
+triangleapi_t gTriApi;
 
 static efx_api_t gEfxApi =
 {
@@ -4234,8 +4028,10 @@ qboolean CL_LoadProgs( const char *name )
 	CL_InitViewBeams ();
 	CL_InitTempEnts ();
 
+#if 0 // REFTODO:
 	if( !R_InitRenderAPI())	// Xash3D extension
 		Con_Reportf( S_WARN "CL_LoadProgs: couldn't get render API\n" );
+#endif
 	if( !Mobile_Init() ) // Xash3D FWGS extension: mobile interface
 		Con_Reportf( S_WARN "CL_LoadProgs: couldn't get mobility API\n" );
 

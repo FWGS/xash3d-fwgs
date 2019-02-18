@@ -1763,21 +1763,6 @@ int GL_FindTexture( const char *name )
 
 /*
 ================
-GL_FreeImage
-
-Frees image by name
-================
-*/
-void GL_FreeImage( const char *name )
-{
-	int	texnum;
-
-	if(( texnum = GL_FindTexture( name )) != 0 )
-		 GL_FreeTexture( texnum );
-}
-
-/*
-================
 GL_FreeTexture
 ================
 */

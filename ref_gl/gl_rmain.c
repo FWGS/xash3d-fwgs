@@ -1391,7 +1391,7 @@ const byte *GL_TextureData( unsigned int texnum )
 
 	if( pic != NULL )
 		return pic->buffer;
-	return NULL;	
+	return NULL;
 }
 
 static const ref_overview_t *GL_GetOverviewParms( void )

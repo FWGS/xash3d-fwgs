@@ -665,33 +665,6 @@ float R_StudioEstimateInterpolant( cl_entity_t *e )
 
 /*
 ====================
-CL_GetStudioEstimatedFrame
-
-====================
-*/
-float CL_GetStudioEstimatedFrame( cl_entity_t *ent )
-{
-	studiohdr_t	*pstudiohdr;
-	mstudioseqdesc_t	*pseqdesc;
-	int		sequence;
-
-	if( ent->model != NULL && ent->model->type == mod_studio )
-	{
-		pstudiohdr = (studiohdr_t *)Mod_StudioExtradata( ent->model );
-
-		if( pstudiohdr )
-		{
-			sequence = bound( 0, ent->curstate.sequence, pstudiohdr->numseq - 1 );
-			pseqdesc = (mstudioseqdesc_t *)((byte *)pstudiohdr + pstudiohdr->seqindex) + sequence;
-			return R_StudioEstimateFrame( ent, pseqdesc );
-		}
-	}
-
-	return 0;
-}
-
-/*
-====================
 CL_GetSequenceDuration
 
 ====================

@@ -254,7 +254,7 @@ typedef struct render_interface_s
 	// clear decals by engine request (e.g. for demo recording or vid_restart)
 	void		(*R_ClearStudioDecals)( void );
 	// grab r_speeds message
-	qboolean		(*R_SpeedsMessage)( char *out, size_t size );
+	qboolean	(*R_SpeedsMessage)( char *out, size_t size );
 	// alloc or destroy model custom data
 	void		(*Mod_ProcessUserData)( struct model_s *mod, qboolean create, const byte *buffer );
 	// alloc or destroy entity custom data

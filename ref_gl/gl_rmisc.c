@@ -104,29 +104,6 @@ static void R_ParseDetailTextures( const char *filename )
 	Mem_Free( afile );
 }
 
-/*
-=======================
-R_ClearStaticEntities
-
-e.g. by demo request
-=======================
-*/
-void R_ClearStaticEntities( void )
-{
-	int	i;
-
-	if( host.type == HOST_DEDICATED )
-		return;
-
-	// clear out efrags in case the level hasn't been reloaded
-	for( i = 0; i < cl.worldmodel->numleafs; i++ )
-		cl.worldmodel->leafs[i+1].efrags = NULL;
-
-	clgame.numStatics = 0;
-
-	CL_ClearEfrags ();
-}
-
 void R_NewMap( void )
 {
 	texture_t	*tx;

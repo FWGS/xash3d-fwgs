@@ -20,7 +20,6 @@ GNU General Public License for more details.
 #include "triangleapi.h"
 #include "cl_tent.h"
 #include "pm_local.h"
-#include "gl_local.h"
 #include "studio.h"
 #include "wadfile.h"	// acess decal size
 #include "sound.h"
@@ -225,7 +224,7 @@ int CL_FxBlend( cl_entity_t *e )
 		blend = e->curstate.renderamt + 0x10 * sin( cl.time * 8 + offset );
 		break;
 	case kRenderFxFadeSlow:			
-		if( RP_NORMALPASS( ))
+		if( ref.dllFuncs.IsNormalPass( ))
 		{
 			if( e->curstate.renderamt > 0 ) 
 				e->curstate.renderamt -= 1;
@@ -234,7 +233,7 @@ int CL_FxBlend( cl_entity_t *e )
 		blend = e->curstate.renderamt;
 		break;
 	case kRenderFxFadeFast:
-		if( RP_NORMALPASS( ))
+		if( ref.dllFuncs.IsNormalPass( ))
 		{
 			if( e->curstate.renderamt > 3 ) 
 				e->curstate.renderamt -= 4;
@@ -243,7 +242,7 @@ int CL_FxBlend( cl_entity_t *e )
 		blend = e->curstate.renderamt;
 		break;
 	case kRenderFxSolidSlow:
-		if( RP_NORMALPASS( ))
+		if( ref.dllFuncs.IsNormalPass( ))
 		{
 			if( e->curstate.renderamt < 255 ) 
 				e->curstate.renderamt += 1;
@@ -252,7 +251,7 @@ int CL_FxBlend( cl_entity_t *e )
 		blend = e->curstate.renderamt;
 		break;
 	case kRenderFxSolidFast:
-		if( RP_NORMALPASS( ))
+		if( ref.dllFuncs.IsNormalPass( ))
 		{
 			if( e->curstate.renderamt < 252 ) 
 				e->curstate.renderamt += 4;
@@ -288,8 +287,8 @@ int CL_FxBlend( cl_entity_t *e )
 	case kRenderFxHologram:
 	case kRenderFxDistort:
 		VectorCopy( e->origin, tmp );
-		VectorSubtract( tmp, RI.vieworg, tmp );
-		dist = DotProduct( tmp, RI.vforward );
+		VectorSubtract( tmp, refState.vieworg, tmp );
+		dist = DotProduct( tmp, refState.vforward );
 			
 		// turn off distance fade
 		if( e->curstate.renderfx == kRenderFxDistort )
@@ -522,7 +521,7 @@ int CL_TempEntAddEntity( cl_entity_t *pEntity )
 	
 		// add to list
 		if( CL_AddVisibleEntity( pEntity, ET_TEMPENTITY ))
-			r_stats.c_active_tents_count++;
+			ref.dllFuncs.R_IncrementSpeedsCounter( RS_ACTIVE_TENTS );
 
 		return 1;
 	}
@@ -2958,8 +2957,8 @@ void CL_TestLights( void )
 		r = 64 * ((i % 4) - 1.5f );
 		f = 64 * ( i / 4) + 128;
 
-		for( j = 0; j < 3; j++ )
-			dl->origin[j] = RI.vieworg[j] + RI.vforward[j] * f + RI.vright[j] * r;
+		VectorMAM( f, refState.vforward, r, refState.vright, dl->origin );
+		VectorAdd( dl->origin, refState.vieworg, dl->origin );
 
 		dl->color.r = ((((i % 6) + 1) & 1)>>0) * 255;
 		dl->color.g = ((((i % 6) + 1) & 2)>>1) * 255;
@@ -2978,18 +2977,6 @@ DECAL MANAGEMENT
 */
 /*
 ===============
-CL_DecalShoot
-
-normal temporary decal
-===============
-*/
-void CL_DecalShoot( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags )
-{
-	R_DecalShoot( textureIndex, entityIndex, modelIndex, pos, flags, 1.0f );
-}
-
-/*
-===============
 CL_FireCustomDecal
 
 custom temporary decal
@@ -2997,7 +2984,19 @@ custom temporary decal
 */
 void CL_FireCustomDecal( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags, float scale )
 {
-	R_DecalShoot( textureIndex, entityIndex, modelIndex, pos, flags, scale );
+	ref.dllFuncs.R_DecalShoot( textureIndex, entityIndex, modelIndex, pos, flags, scale );
+}
+
+/*
+===============
+CL_DecalShoot
+
+normal temporary decal
+===============
+*/
+void CL_DecalShoot( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags )
+{
+	CL_FireCustomDecal( textureIndex, entityIndex, modelIndex, pos, flags, 1.0f );
 }
 
 /*
@@ -3028,7 +3027,7 @@ void CL_PlayerDecal( int playernum, int customIndex, int entityIndex, float *pos
 		}
 	}
 
-	R_DecalShoot( textureIndex, entityIndex, 0, pos, FDECAL_CUSTOM, 1.0f );
+	CL_DecalShoot( textureIndex, entityIndex, 0, pos, FDECAL_CUSTOM );
 }
 
 /*
@@ -3068,7 +3067,7 @@ int CL_DecalIndex( int id )
 	if( cl.decal_index[id] == 0 )
 	{
 		Image_SetForceFlags( IL_LOAD_DECAL );
-		cl.decal_index[id] = GL_LoadTexture( host.draw_decals[id], NULL, 0, TF_DECAL );
+		cl.decal_index[id] = RefRenderAPI->GL_LoadTexture( host.draw_decals[id], NULL, 0, TF_DECAL );
 		Image_ClearForceFlags();
 	}
 
@@ -3085,7 +3084,7 @@ remove all decals with specified texture
 void CL_DecalRemoveAll( int textureIndex )
 {
 	int id = bound( 0, textureIndex, MAX_DECALS - 1 );	
-	R_DecalRemoveAll( cl.decal_index[id] );
+	ref.dllFuncs.R_DecalRemoveAll( cl.decal_index[id] );
 }
 
 /*
@@ -3113,6 +3112,29 @@ void CL_ClearEfrags( void )
 	for( i = 0; i < MAX_EFRAGS - 1; i++ )
 		clgame.free_efrags[i].entnext = &clgame.free_efrags[i+1];
 	clgame.free_efrags[i].entnext = NULL;
+}
+
+/*
+=======================
+R_ClearStaticEntities
+
+e.g. by demo request
+=======================
+*/
+void CL_ClearStaticEntities( void )
+{
+	int	i;
+
+	if( host.type == HOST_DEDICATED )
+		return;
+
+	// clear out efrags in case the level hasn't been reloaded
+	for( i = 0; i < cl.worldmodel->numleafs; i++ )
+		cl.worldmodel->leafs[i+1].efrags = NULL;
+
+	clgame.numStatics = 0;
+
+	CL_ClearEfrags ();
 }
 	
 /*

@@ -193,6 +193,9 @@ void Matrix4x4_OriginFromMatrix( const matrix4x4 in, float *out );
 void Matrix4x4_Transpose( matrix4x4 out, const matrix4x4 in1 );
 qboolean Matrix4x4_Invert_Full( matrix4x4 out, const matrix4x4 in1 );
 
+float V_CalcFov( float *fov_x, float width, float height );
+void V_AdjustFov( float *fov_x, float *fov_y, float width, float height, qboolean lock_x );
+
 extern vec3_t		vec3_origin;
 extern int		boxpnt[6][4];
 extern const matrix3x4	matrix3x4_identity;
