@@ -31,6 +31,7 @@ GNU General Public License for more details.
 #include "netchan.h"
 #include "net_api.h"
 #include "world.h"
+#include "ref_common.h"
 
 #define MAX_DEMOS		32
 #define MAX_MOVIES		8
@@ -378,7 +379,7 @@ typedef struct
 	qboolean		adjust_size;		// allow to adjust scale for fonts
 
 	int		renderMode;		// override kRenderMode from TriAPI
-	int		cullMode;			// override CULL FACE from TriAPI
+	TRICULLSTYLE	cullMode;			// override CULL FACE from TriAPI
 
 	// holds text color
 	rgba_t		textColor;

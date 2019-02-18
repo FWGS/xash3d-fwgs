@@ -1,5 +1,5 @@
 /*
-mod_bmodel.c - loading & handling world and brushmodels
+mod_dbghulls.c - loading & handling world and brushmodels
 Copyright (C) 2016 Uncle Mike
 
 This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,6 @@ GNU General Public License for more details.
 #include "mod_local.h"
 #include "mathlib.h"
 #include "world.h"
-#include "gl_local.h"
 #include "client.h"
 
 #define MAX_CLIPNODE_DEPTH		256	// should never exceeds
@@ -712,67 +711,4 @@ void Mod_ReleaseHullPolygons( void )
 		free_hull_polys( &model->polys );
 	}
 	world.num_hull_models = 0;
-}
-
-void R_DrawWorldHull( void )
-{
-	hull_model_t	*hull = &world.hull_models[0];
-	winding_t		*poly;
-	int		i;
-
-	if( FBitSet( r_showhull->flags, FCVAR_CHANGED ))
-	{
-		int val = bound( 0, (int)r_showhull->value, 3 );
-		if( val ) Mod_CreatePolygonsForHull( val );
-		ClearBits( r_showhull->flags, FCVAR_CHANGED );
-	}
-
-	if( !CVAR_TO_BOOL( r_showhull ))
-		return;
-	pglDisable( GL_TEXTURE_2D );
-
-	list_for_each_entry( poly, &hull->polys, chain )
-	{
-		srand((unsigned int)poly);
-		pglColor3f( rand() % 256 / 255.0, rand() % 256 / 255.0, rand() % 256 / 255.0 );
-		pglBegin( GL_POLYGON );
-		for( i = 0; i < poly->numpoints; i++ )
-			pglVertex3fv( poly->p[i] );
-		pglEnd();
-	}
-	pglEnable( GL_TEXTURE_2D );
-}
-
-void R_DrawModelHull( void )
-{
-	hull_model_t	*hull;
-	winding_t		*poly;
-	int		i;
-
-	if( !CVAR_TO_BOOL( r_showhull ))
-		return;
-
-	if( !RI.currentmodel || RI.currentmodel->name[0] != '*' )
-		return;
-
-	i = atoi( RI.currentmodel->name + 1 );
-	if( i < 1 || i >= world.num_hull_models )
-		return; 		
-
-	hull = &world.hull_models[i];
-
-	pglPolygonOffset( 1.0f, 2.0 );
-	pglEnable( GL_POLYGON_OFFSET_FILL ); 
-	pglDisable( GL_TEXTURE_2D );
-	list_for_each_entry( poly, &hull->polys, chain )
-	{
-		srand((unsigned int)poly);
-		pglColor3f( rand() % 256 / 255.0, rand() % 256 / 255.0, rand() % 256 / 255.0 );
-		pglBegin( GL_POLYGON );
-		for( i = 0; i < poly->numpoints; i++ )
-			pglVertex3fv( poly->p[i] );
-		pglEnd();
-	}
-	pglEnable( GL_TEXTURE_2D );
-	pglDisable( GL_POLYGON_OFFSET_FILL );
 }

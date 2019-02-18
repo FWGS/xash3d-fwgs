@@ -17,7 +17,7 @@ SUBDIRS = [ 'engine', 'game_launch', 'mainui', 'vgui_support' ]
 top = '.'
 
 def options(opt):
-	opt.load('xcompile compiler_cxx compiler_c')
+	opt.load('xcompile compiler_cxx compiler_c sdl2')
 	if sys.platform == 'win32':
 		opt.load('msvc msvs')
 
@@ -36,6 +36,10 @@ def options(opt):
 	opt.add_option(
 		'--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
 		help = 'install like Windows build, ignore prefix, useful for development')
+
+	opt.add_option(
+	    '--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
+		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compability!)')
 
 	opt.recurse(SUBDIRS)
 
@@ -62,7 +66,7 @@ def configure(conf):
 
 	conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
 	conf.env.BIT32_ALLOW64 = conf.options.ALLOW64
-	conf.load('force_32bit')
+	conf.load('force_32bit sdl2')
 
 	if conf.env.DEST_SIZEOF_VOID_P == 4:
 		Logs.info('NOTE: will build engine for 32-bit target')

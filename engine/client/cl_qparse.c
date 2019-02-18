@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include "client.h"
 #include "net_encode.h"
 #include "particledef.h"
-#include "gl_local.h"
 #include "cl_tent.h"
 #include "shake.h"
 #include "hltv.h"
@@ -303,8 +302,8 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 
 	// get splash name
 	if( cls.demoplayback && ( cls.demonum != -1 ))
-		Cvar_Set( "cl_levelshot_name", va( "levelshots/%s_%s", cls.demoname, glState.wideScreen ? "16x9" : "4x3" ));
-	else Cvar_Set( "cl_levelshot_name", va( "levelshots/%s_%s", clgame.mapname, glState.wideScreen ? "16x9" : "4x3" ));
+		Cvar_Set( "cl_levelshot_name", va( "levelshots/%s_%s", cls.demoname, refState.wideScreen ? "16x9" : "4x3" ));
+	else Cvar_Set( "cl_levelshot_name", va( "levelshots/%s_%s", clgame.mapname, refState.wideScreen ? "16x9" : "4x3" ));
 	Cvar_SetValue( "scr_loading", 0.0f ); // reset progress bar
 
 	if(( cl_allow_levelshots->value && !cls.changelevel ) || cl.background )
@@ -684,7 +683,7 @@ static void CL_ParseQuakeStaticEntity( sizebuf_t *msg )
 		}
 	}
 
-	R_AddEfrags( ent );	// add link
+	ref.dllFuncs.R_AddEfrags( ent );	// add link
 }
 
 /*

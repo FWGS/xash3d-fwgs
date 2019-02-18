@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include "input.h"
 #include "client.h"
 #include "vgui_draw.h"
-#include "gl_local.h"
 
 #ifdef XASH_SDL
 #include <SDL.h>
@@ -143,7 +142,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 	{
 		// reset mouse pos, so cancel effect in game
 #ifdef XASH_SDL
-		if( touch_enable->value )
+		if( 0 ) // touch_enable->value )
 		{
 			SDL_SetRelativeMouseMode( SDL_FALSE );
 			SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
@@ -518,7 +517,7 @@ void IN_CollectInput( float *forward, float *side, float *pitch, float *yaw, qbo
 	}
 	
 	Joy_FinalizeMove( forward, side, yaw, pitch );
-	IN_TouchMove( forward, side, yaw, pitch );
+	// IN_TouchMove( forward, side, yaw, pitch );
 	
 	if( look_filter->value )
 	{
@@ -551,15 +550,15 @@ void IN_EngineAppendMove( float frametime, usercmd_t *cmd, qboolean active )
 
 	if( active )
 	{
-		float sensitivity = ( (float)RI.fov_x / (float)90.0f );
+		float sensitivity = ( (float)refState.fov_x / (float)90.0f );
 
 		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized, m_enginemouse->value );
 		
 		IN_JoyAppendMove( cmd, forward, side );
 
-		RI.viewangles[YAW]   += yaw * sensitivity;
-		RI.viewangles[PITCH] += pitch * sensitivity;
-		RI.viewangles[PITCH] = bound( -90, RI.viewangles[PITCH], 90 );
+		refState.viewangles[YAW]   += yaw * sensitivity;
+		refState.viewangles[PITCH] += pitch * sensitivity;
+		refState.viewangles[PITCH] = bound( -90, refState.viewangles[PITCH], 90 );
 	}
 }
 

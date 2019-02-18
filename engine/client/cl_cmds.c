@@ -15,7 +15,6 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "client.h"
-#include "gl_local.h"
 
 /*
 ====================
@@ -344,7 +343,7 @@ void CL_LevelShot_f( void )
 	// check for exist
 	if( cls.demoplayback && ( cls.demonum != -1 ))
 	{
-		Q_sprintf( cls.shotname, "levelshots/%s_%s.bmp", cls.demoname, glState.wideScreen ? "16x9" : "4x3" );
+		Q_sprintf( cls.shotname, "levelshots/%s_%s.bmp", cls.demoname, refState.wideScreen ? "16x9" : "4x3" );
 		Q_snprintf( filename, sizeof( filename ), "%s.dem", cls.demoname );
 
 		// make sure what levelshot is newer than demo
@@ -353,7 +352,7 @@ void CL_LevelShot_f( void )
 	}
 	else
 	{
-		Q_sprintf( cls.shotname, "levelshots/%s_%s.bmp", clgame.mapname, glState.wideScreen ? "16x9" : "4x3" );
+		Q_sprintf( cls.shotname, "levelshots/%s_%s.bmp", clgame.mapname, refState.wideScreen ? "16x9" : "4x3" );
 
 		// make sure what levelshot is newer than bsp
 		ft1 = FS_FileTime( cl.worldmodel->name, false );
@@ -424,53 +423,7 @@ void CL_SetSky_f( void )
 		return;
 	}
 
-	R_SetupSky( Cmd_Argv( 1 ));
-}
-
-/*
-================
-SCR_TimeRefresh_f
-
-timerefresh [noflip]
-================
-*/
-void SCR_TimeRefresh_f( void )
-{
-	int	i;
-	double	start, stop;
-	double	time;
-
-	if( cls.state != ca_active )
-		return;
-
-	start = Sys_DoubleTime();
-
-	// run without page flipping like GoldSrc
-	if( Cmd_Argc() == 1 )
-	{	
-		pglDrawBuffer( GL_FRONT );
-		for( i = 0; i < 128; i++ )
-		{
-			RI.viewangles[1] = i / 128.0 * 360.0f;
-			R_RenderScene();
-		}
-		pglFinish();
-		R_EndFrame();
-	}
-	else
-	{
-		for( i = 0; i < 128; i++ )
-		{
-			R_BeginFrame( true );
-			RI.viewangles[1] = i / 128.0 * 360.0f;
-			R_RenderScene();
-			R_EndFrame();
-		}
-	}
-
-	stop = Sys_DoubleTime ();
-	time = (stop - start);
-	Con_Printf( "%f seconds (%f fps)\n", time, 128 / time );
+	ref.dllFuncs.R_SetupSky( Cmd_Argv( 1 ));
 }
 
 /*
@@ -482,6 +435,6 @@ viewpos (level-designer helper)
 */
 void SCR_Viewpos_f( void )
 {
-	Con_Printf( "org ( %g %g %g )\n", RI.vieworg[0], RI.vieworg[1], RI.vieworg[2] );
-	Con_Printf( "ang ( %g %g %g )\n", RI.viewangles[0], RI.viewangles[1], RI.viewangles[2] );
+	Con_Printf( "org ( %g %g %g )\n", refState.vieworg[0], refState.vieworg[1], refState.vieworg[2] );
+	Con_Printf( "ang ( %g %g %g )\n", refState.viewangles[0], refState.viewangles[1], refState.viewangles[2] );
 }

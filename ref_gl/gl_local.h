@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "protocol.h"
 #include "dlight.h"
 #include "gl_frustum.h"
+#include "ref_api.h"
 
 extern byte	*r_temppool;
 
@@ -51,11 +52,6 @@ extern byte	*r_temppool;
 #define R_StaticEntity( ent )	( VectorIsNull( ent->origin ) && VectorIsNull( ent->angles ))
 #define RP_LOCALCLIENT( e )	((e) != NULL && (e)->index == ( cl.playernum + 1 ) && e->player )
 #define RP_NORMALPASS()	( FBitSet( RI.params, RP_NONVIEWERREF ) == 0 )
-
-#define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP)
-#define TF_FONT		(TF_NOMIPMAP|TF_CLAMP)
-#define TF_IMAGE		(TF_NOMIPMAP|TF_CLAMP)
-#define TF_DECAL		(TF_CLAMP)
 
 #define CULL_VISIBLE	0		// not culled
 #define CULL_BACKSIDE	1		// backside of transparent wall
@@ -215,7 +211,7 @@ typedef struct
 
 	// cull info
 	vec3_t		modelorg;		// relative to viewpoint
-} ref_globals_t;
+} gl_globals_t;
 
 typedef struct
 {
@@ -239,7 +235,7 @@ typedef struct
 
 extern ref_speeds_t		r_stats;
 extern ref_instance_t	RI;
-extern ref_globals_t	tr;
+extern gl_globals_t	tr;
 
 extern float		gldepthmin, gldepthmax;
 extern dlight_t		cl_dlights[MAX_DLIGHTS];
@@ -323,7 +319,6 @@ void GL_UpdateTexSize( int texnum, int width, int height, int depth );
 void GL_ApplyTextureParams( gl_texture_t *tex );
 int GL_FindTexture( const char *name );
 void GL_FreeTexture( GLenum texnum );
-void GL_FreeImage( const char *name );
 const char *GL_Target( GLenum target );
 void R_InitDlightTexture( void );
 void R_TextureList_f( void );
@@ -369,8 +364,6 @@ void R_DrawFog( void );
 //
 // gl_rmath.c
 //
-float V_CalcFov( float *fov_x, float width, float height );
-void V_AdjustFov( float *fov_x, float *fov_y, float width, float height, qboolean lock_x );
 void Matrix4x4_ToArrayFloatGL( const matrix4x4 in, float out[16] );
 void Matrix4x4_FromArrayFloatGL( matrix4x4 out, const float in[16] );
 void Matrix4x4_Concat( matrix4x4 out, const matrix4x4 in1, const matrix4x4 in2 );
@@ -452,6 +445,23 @@ void R_DrawSkyBox( void );
 void R_DrawClouds( void );
 void EmitWaterPolys( msurface_t *warp, qboolean reverse );
 
+//
+// gl_vgui.c
+//
+void VGUI_DrawInit( void );
+void VGUI_DrawShutdown( void );
+void VGUI_SetupDrawingText( int *pColor );
+void VGUI_SetupDrawingRect( int *pColor );
+void VGUI_SetupDrawingImage( int *pColor );
+void VGUI_BindTexture( int id );
+void VGUI_EnableTexture( qboolean enable );
+void VGUI_CreateTexture( int id, int width, int height );
+void VGUI_UploadTexture( int id, const char *buffer, int width, int height );
+void VGUI_UploadTextureBlock( int id, int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight );
+void VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr );
+void VGUI_GetTextureSizes( int *width, int *height );
+int VGUI_GenerateTexture( void );
+
 #include "vid_common.h"
 
 //
@@ -528,17 +538,6 @@ enum
 	GL_DEBUG_OUTPUT,
 	GL_ARB_VERTEX_BUFFER_OBJECT_EXT,
 	GL_EXTCOUNT,		// must be last
-};
-
-enum
-{
-	GL_KEEP_UNIT = -1,
-	XASH_TEXTURE0 = 0,
-	XASH_TEXTURE1,
-	XASH_TEXTURE2,
-	XASH_TEXTURE3,		// g-cont. 4 units should be enough
-	XASH_TEXTURE4,		// mittorn. bump+detail needs 5 for single-pass
-	MAX_TEXTURE_UNITS = 32	// can't access to all over units without GLSL or cg
 };
 
 typedef enum
@@ -673,7 +672,6 @@ extern convar_t	*r_lighting_ambient;
 extern convar_t	*r_studio_lambert;
 extern convar_t	*r_detailtextures;
 extern convar_t	*r_drawentities;
-extern convar_t	*r_adjust_fov;
 extern convar_t	*r_decals;
 extern convar_t	*r_novis;
 extern convar_t	*r_nocull;
@@ -685,14 +683,8 @@ extern convar_t	*r_lightmap;
 extern convar_t *r_vbo;
 extern convar_t *r_vbo_dlightmode;
 
-extern convar_t	*vid_displayfrequency;
-extern convar_t	*vid_fullscreen;
 extern convar_t	*vid_brightness;
 extern convar_t	*vid_gamma;
 extern convar_t	*vid_highdpi;
-
-extern convar_t	*window_xpos;
-extern convar_t	*window_ypos;
-extern convar_t *scr_height;
 
 #endif//GL_LOCAL_H

@@ -24,7 +24,6 @@ GNU General Public License for more details.
 #include "events.h"
 #include "sound.h"
 #include "vid_common.h"
-#include "gl_local.h"
 
 static int wheelbutton;
 
@@ -214,10 +213,10 @@ static void SDLash_EventFilter( SDL_Event *event )
 #ifdef TOUCHEMU
 		if( mdown )
 			IN_TouchEvent( event_motion, 0,
-						   event->motion.x/(float)glState.width,
-						   event->motion.y/(float)glState.height,
-						   event->motion.xrel/(float)glState.width,
-						   event->motion.yrel/(float)glState.height );
+						   event->motion.x/(float)refState.width,
+						   event->motion.y/(float)refState.height,
+						   event->motion.xrel/(float)refState.width,
+						   event->motion.yrel/(float)refState.height );
 		SDL_ShowCursor( true );
 #endif
 		break;
@@ -227,8 +226,8 @@ static void SDLash_EventFilter( SDL_Event *event )
 #ifdef TOUCHEMU
 		mdown = event->button.state != SDL_RELEASED;
 		IN_TouchEvent( event_down, 0,
-					   event->button.x/(float)glState.width,
-					   event->button.y/(float)glState.height, 0, 0);
+					   event->button.x/(float)refState.width,
+					   event->button.y/(float)refState.height, 0, 0);
 #else
 		SDLash_MouseEvent( event->button );
 #endif
@@ -289,13 +288,13 @@ static void SDLash_EventFilter( SDL_Event *event )
 
 		if( scale == 2 )
 		{
-			x /= (float)glState.width;
-			y /= (float)glState.height;
-			dx /= (float)glState.width;
-			dy /= (float)glState.height;
+			x /= (float)refState.width;
+			y /= (float)refState.height;
+			dx /= (float)refState.width;
+			dy /= (float)refState.height;
 		}
 
-		IN_TouchEvent( type, event->tfinger.fingerId, x, y, dx, dy );
+		// IN_TouchEvent( type, event->tfinger.fingerId, x, y, dx, dy );
 		break;
 	}
 

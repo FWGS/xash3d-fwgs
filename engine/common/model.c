@@ -20,7 +20,6 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "wadfile.h"
 #include "world.h"
-#include "gl_local.h"
 #include "enginefeatures.h"
 #include "client.h"
 #include "server.h"
@@ -112,24 +111,9 @@ static void Mod_FreeModel( model_t *mod )
 	if( mod->name[0] != '*' )
 		Mod_FreeUserData( mod );
 
-	// select the properly unloader
-	switch( mod->type )
-	{
-	case mod_sprite:
-		Mod_UnloadSpriteModel( mod );
-		break;
-#ifndef XASH_DEDICATED
-	case mod_alias:
-		Mod_UnloadAliasModel( mod );
-		break;
-#endif
-	case mod_studio:
-		Mod_UnloadStudioModel( mod );
-		break;
-	case mod_brush:
-		Mod_UnloadBrushModel( mod );
-		break;
-	}
+	// notify renderer about unloading
+	if( ref.dllFuncs.Mod_UnloadModel )
+		ref.dllFuncs.Mod_UnloadModel( mod );
 
 	memset( mod, 0, sizeof( *mod ));
 }
@@ -303,21 +287,18 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	switch( *(uint *)buf )
 	{
 	case IDSTUDIOHEADER:
-		Mod_LoadStudioModel( mod, buf, &loaded );
+		ref.dllFuncs.Mod_LoadModel( mod_studio, mod, buf, &loaded, 0 );
 		break;
 	case IDSPRITEHEADER:
-		Mod_LoadSpriteModel( mod, buf, &loaded, 0 );
+		ref.dllFuncs.Mod_LoadModel( mod_sprite, mod, buf, &loaded, 0 );
 		break;
-	// TODO: Load alias models on dedicated too?
-#ifndef XASH_DEDICATED
 	case IDALIASHEADER:
-		Mod_LoadAliasModel( mod, buf, &loaded );
+		ref.dllFuncs.Mod_LoadModel( mod_alias, mod, buf, &loaded, 0 );
 		break;
-#endif
 	case Q1BSP_VERSION:
 	case HLBSP_VERSION:
 	case QBSP2_VERSION:
-		Mod_LoadBrushModel( mod, buf, &loaded );
+		ref.dllFuncs.Mod_LoadModel( mod_brush, mod, buf, &loaded, 0 );
 		break;
 	default:
 		Mem_Free( buf );

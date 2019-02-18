@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include "client.h"
 #include "net_encode.h"
 #include "particledef.h"
-#include "gl_local.h"
 #include "cl_tent.h"
 #include "shake.h"
 #include "hltv.h"

@@ -839,3 +839,49 @@ void R_ShowTree( void )
 
 	Con_NPrintf( 0, "max recursion %d\n", tr.max_recursion );
 }
+
+/*
+================
+SCR_TimeRefresh_f
+
+timerefresh [noflip]
+================
+*/
+void SCR_TimeRefresh_f( void )
+{
+	int	i;
+	double	start, stop;
+	double	time;
+
+	if( cls.state != ca_active )
+		return;
+
+	start = Sys_DoubleTime();
+
+	// run without page flipping like GoldSrc
+	if( Cmd_Argc() == 1 )
+	{
+		pglDrawBuffer( GL_FRONT );
+		for( i = 0; i < 128; i++ )
+		{
+			refState.viewangles[1] = i / 128.0 * 360.0f;
+			R_RenderScene();
+		}
+		pglFinish();
+		R_EndFrame();
+	}
+	else
+	{
+		for( i = 0; i < 128; i++ )
+		{
+			ref.dllFuncs.R_BeginFrame( true );
+			refState.viewangles[1] = i / 128.0 * 360.0f;
+			ref.dllFuncs.R_RenderScene();
+			ref.dllFuncs.R_EndFrame();
+		}
+	}
+
+	stop = Sys_DoubleTime ();
+	time = (stop - start);
+	Con_Printf( "%f seconds (%f fps)\n", time, 128 / time );
+}

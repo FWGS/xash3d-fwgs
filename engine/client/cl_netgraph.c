@@ -15,7 +15,6 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "client.h"
-#include "gl_local.h"
 
 #define NET_TIMINGS			1024
 #define NET_TIMINGS_MASK		(NET_TIMINGS - 1)
@@ -75,12 +74,12 @@ NetGraph_FillRGBA shortcut
 */
 static void NetGraph_DrawRect( wrect_t *rect, byte colors[4] )
 {
-	pglColor4ubv( colors );	// color for this quad
+	ref.dllFuncs.Color4ub( colors[0], colors[1], colors[2], colors[3] );	// color for this quad
 
-	pglVertex2f( rect->left, rect->top );
-	pglVertex2f( rect->left + rect->right, rect->top );
-	pglVertex2f( rect->left + rect->right, rect->top + rect->bottom );
-	pglVertex2f( rect->left, rect->top + rect->bottom );
+	ref.dllFuncs.Vertex3f( rect->left, rect->top, 0 );
+	ref.dllFuncs.Vertex3f( rect->left + rect->right, rect->top, 0 );
+	ref.dllFuncs.Vertex3f( rect->left + rect->right, rect->top + rect->bottom, 0 );
+	ref.dllFuncs.Vertex3f( rect->left, rect->top + rect->bottom, 0 );
 }
 
 /*
@@ -595,8 +594,8 @@ NetGraph_GetScreenPos
 void NetGraph_GetScreenPos( wrect_t *rect, int *w, int *x, int *y )
 {
 	rect->left = rect->top = 0;
-	rect->right = glState.width;
-	rect->bottom = glState.height;
+	rect->right = refState.width;
+	rect->bottom = refState.height;
 
 	*w = Q_min( NET_TIMINGS, net_graphwidth->value );
 	if( rect->right < *w + 10 )
@@ -652,20 +651,17 @@ void SCR_DrawNetGraph( void )
 
 	if( net_graph->value < 3 )
 	{
-		pglEnable( GL_BLEND );
-		pglDisable( GL_TEXTURE_2D );
-		pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
-		pglBegin( GL_QUADS ); // draw all the fills as a long solid sequence of quads for speedup reasons
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
+
+		ref.dllFuncs.Begin( TRI_QUADS ); // draw all the fills as a long solid sequence of quads for speedup reasons
 
 		// NOTE: fill colors without texture at this point
 		NetGraph_DrawDataUsage( x, y, w );
 		NetGraph_DrawTimes( rect, x, w );
 
-		pglEnd();
-		pglColor4ub( 255, 255, 255, 255 );
-		pglEnable( GL_TEXTURE_2D );
-		pglDisable( GL_BLEND );
+		ref.dllFuncs.End();
+		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+		ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
 	}
 }
 

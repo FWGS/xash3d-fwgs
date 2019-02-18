@@ -101,20 +101,16 @@ void R_BeamKill( int deadEntity );
 
 
 // TriAPI
-void TriBegin( int mode );
-void TriTexCoord2f( float u, float v );
-void TriVertex3fv( const float *v );
-void TriVertex3f( float x, float y, float z );
-int TriBoxInPVS( float *mins, float *maxs );
+void TriRenderMode( int mode );
 void TriColor4f( float r, float g, float b, float a );
-int TriSpriteTexture( model_t *pSpriteModel, int frame );
-void TriColor4fRendermode( float r, float g, float b, float a, int rendermode );
-int TriWorldToScreen( float *world, float *screen );
 void TriColor4ub( byte r, byte g, byte b, byte a );
 void TriBrightness( float brightness );
-void TriRenderMode( int mode );
 void TriCullFace( TRICULLSTYLE mode );
-void TriEnd( void );
+int TriWorldToScreen( float *world, float *screen );
+int TriBoxInPVS( float *mins, float *maxs );
+void TriLightAtPoint( float *pos, float *value );
+void TriColor4fRendermode( float r, float g, float b, float a, int rendermode );
+int TriSpriteTexture( model_t *pSpriteModel, int frame );
 
 extern model_t	*cl_sprite_dot;
 extern model_t	*cl_sprite_shell;

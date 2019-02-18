@@ -1398,7 +1398,7 @@ void CL_KillDeadBeams( cl_entity_t *pDeadEntity )
 
 	pbeam = cl_active_beams;	// old list.
 	pnewlist = NULL;		// new list.
-	
+
 	while( pbeam )
 	{
 		pnext = pbeam->next;
@@ -1418,7 +1418,7 @@ void CL_KillDeadBeams( cl_entity_t *pDeadEntity )
 		if( pbeam->type != TE_BEAMFOLLOW )
 		{
 			// remove beam
-			pbeam->die = cl.time - 0.1f;  
+			pbeam->die = cl.time - 0.1f;
 
 			// kill off particles
 			pHead = pbeam->particles;
@@ -1959,7 +1959,7 @@ void CL_ReadLineFile_f( void )
 		Con_Printf( S_ERROR "couldn't open %s\n", filename );
 		return;
 	}
-	
+
 	Con_Printf( "Reading %s...\n", filename );
 
 	count = 0;
@@ -2002,7 +2002,7 @@ void CL_ReadLineFile_f( void )
 		p2[2] = Q_atof( token );
 
 		count++;
-		
+
 		if( !R_BeamPoints( p1, p2, modelIndex, 0, 2, 0, 255, 0, 0, 0, 255.0f, 0.0f, 0.0f ))
 		{
 			if( !model || model->type != mod_sprite )
