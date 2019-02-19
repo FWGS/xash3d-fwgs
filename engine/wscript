@@ -9,17 +9,20 @@ from fwgslib import get_subproject_name
 top = '.'
 
 def options(opt):
-	opt.load('sdl2')
-	opt.add_option(
-	    '--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
-		help = 'build engine with BSP2 map support(recommended for Quake, breaks compability!)')
-	opt.add_option(
+	grp = opt.add_option_group('Engine options')
+	grp.add_option(
+		'--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
+		help = 'build engine with BSP2 map support(recommended for Quake, breaks compatibility!)')
+
+	grp.add_option(
 		'--single-binary', action = 'store_true', dest = 'SINGLE_BINARY', default = None,
 		help = 'build single "xash" binary instead of xash.dll/libxash.so (default for dedicated)')
-	opt.add_option(
+
+	grp.add_option(
 		'--stdin-input', action = 'store_true', dest = 'USE_SELECT', default = None,
 		help = 'enable console input from stdin (default for dedicated)')
 
+	opt.load('sdl2')
 
 def configure(conf):
 	# check for dedicated server build
