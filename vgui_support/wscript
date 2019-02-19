@@ -25,7 +25,7 @@ def options(opt):
 
 def configure(conf):
 	conf.env.NO_VGUI = conf.options.NO_VGUI
-	if conf.options.DEDICATED or conf.options.NO_VGUI:
+	if conf.options.NO_VGUI:
 		return
 
 	conf.start_msg('Configuring VGUI by provided path')
@@ -74,7 +74,7 @@ def build(bld):
 	bld.load_envs()
 	bld.env = bld.all_envs[get_subproject_name(bld)]
 
-	if bld.env.DEDICATED or bld.env.NO_VGUI:
+	if bld.env.NO_VGUI:
 		return
 
 	libs = []
