@@ -10,16 +10,13 @@ top = '.'
 
 def options(opt):
 	grp = opt.add_option_group('VGUI options')
-	grp.add_option(
-		'--vgui', action = 'store', type='string', dest = 'VGUI_DEV',
+	grp.add_option('--vgui', action = 'store', dest = 'VGUI_DEV',
 		help = 'path to vgui-dev repo', default='' )
 
-	grp.add_option(
-		'--disable-vgui', action = 'store_true', dest = 'NO_VGUI',
+	grp.add_option('--disable-vgui', action = 'store_true', dest = 'NO_VGUI',
 		help = 'disable vgui_support', default=False )
 
-	grp.add_option(
-		'--skip-vgui-sanity-check', action = 'store_false', dest = 'VGUI_SANITY_CHECK',
+	grp.add_option('--skip-vgui-sanity-check', action = 'store_false', dest = 'VGUI_SANITY_CHECK',
 		help = 'skip checking VGUI sanity', default=True )
 	return
 
