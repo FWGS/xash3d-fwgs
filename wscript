@@ -17,27 +17,28 @@ SUBDIRS = [ 'engine', 'game_launch', 'mainui', 'vgui_support' ]
 top = '.'
 
 def options(opt):
-	opt.load('xcompile compiler_cxx compiler_c')
-	if sys.platform == 'win32':
-		opt.load('msvc msvs')
+	grp = opt.add_option_group('Common options')
 
-	opt.add_option(
+	grp.add_option(
 		'--build-type', action='store', type='string', dest='BUILD_TYPE', default = None,
 		help = 'build type: debug, release or none(custom flags)')
 
-	opt.add_option(
+	grp.add_option(
 		'--dedicated', action = 'store_true', dest = 'DEDICATED', default = False,
 		help = 'build Xash Dedicated Server(XashDS)')
 
-	opt.add_option(
+	grp.add_option(
 		'--64bits', action = 'store_true', dest = 'ALLOW64', default = False,
 		help = 'allow targetting 64-bit engine')
 
-	opt.add_option(
+	grp.add_option(
 		'--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
 		help = 'install like Windows build, ignore prefix, useful for development')
 
 	opt.recurse(SUBDIRS)
+	opt.load('xcompile compiler_cxx compiler_c')
+	if sys.platform == 'win32':
+		opt.load('msvc msvs')
 
 def configure(conf):
 	conf.start_msg('Build type')
