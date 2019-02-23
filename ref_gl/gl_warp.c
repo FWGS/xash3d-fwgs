@@ -13,8 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
+
 #include "gl_local.h"
 #include "wadfile.h"
 
@@ -311,7 +310,7 @@ void R_AddSkyBoxSurface( msurface_t *fa )
 	float	*v;
 	int	i;
 
-	if( FBitSet( world.flags, FWORLD_SKYSPHERE ) && fa->polys && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX ))
+	if( FBitSet( WORLDMODEL->flags, FWORLD_SKYSPHERE ) && fa->polys && !FBitSet( WORLDMODEL->flags, FWORLD_CUSTOM_SKYBOX ))
 	{
 		glpoly_t	*p = fa->polys;
 
@@ -355,7 +354,7 @@ void R_UnloadSkybox( void )
 	tr.skyboxbasenum = 5800;	// set skybox base (to let some mods load hi-res skyboxes)
 
 	memset( tr.skyboxTextures, 0, sizeof( tr.skyboxTextures ));
-	ClearBits( world.flags, FWORLD_CUSTOM_SKYBOX );
+	ClearBits( WORLDMODEL->flags, FWORLD_CUSTOM_SKYBOX );
 }
 
 /*
@@ -455,7 +454,7 @@ void R_SetupSky( const char *skyboxname )
 
 	if( i == 6 )
 	{
-		SetBits( world.flags, FWORLD_CUSTOM_SKYBOX );
+		SetBits( WORLDMODEL->flags, FWORLD_CUSTOM_SKYBOX );
 		Con_DPrintf( "done\n" );
 		return; // loaded
 	}

@@ -15,7 +15,11 @@ GNU General Public License for more details.
 
 #ifndef GL_LOCAL_H
 #define GL_LOCAL_H
-
+#include "port.h"
+#include "xash3d_types.h"
+#include "cvardef.h"
+#include "const.h"
+#include "com_model.h"
 #include "gl_export.h"
 #include "cl_entity.h"
 #include "render_api.h"
@@ -23,6 +27,62 @@ GNU General Public License for more details.
 #include "dlight.h"
 #include "gl_frustum.h"
 #include "ref_api.h"
+#include "mathlib.h"
+#include "ref_params.h"
+#include "enginefeatures.h"
+#include "com_strings.h"
+#include "pm_movevars.h"
+typedef cvar_t convar_t;
+#include <stdio.h>
+#define Con_Reportf printf
+#define Con_Printf printf
+#define Con_DPrintf printf
+
+void CL_DrawEFX(double, double);
+void *CL_ModelHandle(int);
+void *GL_GetProcAddress(char *);
+void GL_CheckForErrors();
+void CL_ExtraUpdate();
+void Cbuf_AddText(char*);
+void Cbuf_Execute();
+int COM_HashKey(char*,int);
+extern convar_t cvstub;
+#define Cvar_Get(...) &cvstub
+#define Cvar_FindVar(...) &cvstub
+#define Cvar_SetValue(...)
+#define Cmd_AddCommand(...)
+#define Cmd_RemoveCommand(...)
+#define FS_FreeImage(...)
+#define Host_Error(...)
+#define ASSERT(x)
+#define Q_strcpy(...)
+#define Q_strncpy(...)
+#define Q_strncat(...)
+#define Q_strnat(...)
+#define Q_snprintf(...)
+#define Q_strcmp(...) 1
+#define Q_stricmp(...) 1
+#define Q_strncmp(...) 1
+#define Q_strnicmp(...) 1
+#define Q_strlen(...) 1
+#define Assert(x)
+#define va(...) ((const char*)NULL)
+
+void *FS_LoadImage(char *, void *, int);
+void *FS_CopyImage(void *);
+void *Mem_Calloc(void*, int);
+void *Mem_Malloc(void*, int);
+
+void *Mem_Realloc(void*,void*, int);
+
+
+#define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc )	convar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
+#define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc )	convar_t cv = { #cv, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
+#define CVAR_TO_BOOL( x )		((x) && ((x)->value != 0.0f) ? true : false )
+
+#define WORLDMODEL ((model_t*)NULL)
+#define MOVEVARS ((movevars_t*)NULL)
+
 
 extern byte	*r_temppool;
 
@@ -593,10 +653,8 @@ typedef struct
 
 typedef struct
 {
-	int		width, height;
-	qboolean		fullScreen;
-	qboolean		wideScreen;
 
+	int width, height;
 	int		activeTMU;
 	GLint		currentTextures[MAX_TEXTURE_UNITS];
 	GLuint		currentTextureTargets[MAX_TEXTURE_UNITS];
@@ -610,18 +668,7 @@ typedef struct
 	qboolean		in2DMode;
 } glstate_t;
 
-typedef enum
-{
-	SAFE_NO = 0,
-	SAFE_NOMSAA,      // skip msaa
-	SAFE_NOACC,       // don't set acceleration flag
-	SAFE_NOSTENCIL,   // don't set stencil bits
-	SAFE_NOALPHA,     // don't set alpha bits
-	SAFE_NODEPTH,     // don't set depth bits
-	SAFE_NOCOLOR,     // don't set color bits
-	SAFE_DONTCARE     // ignore everything, let SDL/EGL decide
-} safe_context_t;
-
+/*
 typedef struct
 {
 	void*	context; // handle to GL rendering context
@@ -634,10 +681,12 @@ typedef struct
 	qboolean		initialized;	// OpenGL subsystem started
 	qboolean		extended;		// extended context allows to GL_Debug
 } glwstate_t;
+*/
 
 extern glconfig_t		glConfig;
 extern glstate_t		glState;
-extern glwstate_t		glw_state;
+// move to engine
+//extern glwstate_t		glw_state;
 
 //
 // renderer cvars

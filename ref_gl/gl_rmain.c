@@ -13,15 +13,12 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
 #include "gl_local.h"
 #include "mathlib.h"
 #include "library.h"
 #include "beamdef.h"
 #include "particledef.h"
 #include "entity_types.h"
-#include "platform/platform.h"
 
 #define IsLiquidContents( cnt )	( cnt == CONTENTS_WATER || cnt == CONTENTS_SLIME || cnt == CONTENTS_LAVA )
 
@@ -318,8 +315,8 @@ R_GetFarClip
 */
 static float R_GetFarClip( void )
 {
-	if( cl.worldmodel && RI.drawWorld )
-		return clgame.movevars.zmax * 1.73f;
+	if( WORLDMODEL && RI.drawWorld )
+		return MOVEVARS->zmax * 1.73f;
 	return 2048.0f;
 }
 
@@ -475,7 +472,7 @@ R_FindViewLeaf
 void R_FindViewLeaf( void )
 {
 	RI.oldviewleaf = RI.viewleaf;
-	RI.viewleaf = Mod_PointInLeaf( RI.pvsorigin, cl.worldmodel->nodes );
+	RI.viewleaf = Mod_PointInLeaf( RI.pvsorigin, WORLDMODEL->nodes );
 }
 
 /*
@@ -661,7 +658,7 @@ static void R_CheckFog( void )
 	// quake global fog
 	if( Host_IsQuakeCompatible( ))
 	{
-		if( !clgame.movevars.fog_settings )
+		if( !MOVEVARS->fog_settings )
 		{
 			if( pglIsEnabled( GL_FOG ))
 				pglDisable( GL_FOG );
@@ -670,10 +667,10 @@ static void R_CheckFog( void )
 		}
 
 		// quake-style global fog
-		RI.fogColor[0] = ((clgame.movevars.fog_settings & 0xFF000000) >> 24) / 255.0f;
-		RI.fogColor[1] = ((clgame.movevars.fog_settings & 0xFF0000) >> 16) / 255.0f;
-		RI.fogColor[2] = ((clgame.movevars.fog_settings & 0xFF00) >> 8) / 255.0f;
-		RI.fogDensity = ((clgame.movevars.fog_settings & 0xFF) / 255.0f) * 0.01f;
+		RI.fogColor[0] = ((MOVEVARS->fog_settings & 0xFF000000) >> 24) / 255.0f;
+		RI.fogColor[1] = ((MOVEVARS->fog_settings & 0xFF0000) >> 16) / 255.0f;
+		RI.fogColor[2] = ((MOVEVARS->fog_settings & 0xFF00) >> 8) / 255.0f;
+		RI.fogDensity = ((MOVEVARS->fog_settings & 0xFF) / 255.0f) * 0.01f;
 		RI.fogStart = RI.fogEnd = 0.0f;
 		RI.fogColor[3] = 1.0f;
 		RI.fogCustom = false;
@@ -855,7 +852,7 @@ void R_DrawEntitiesOnList( void )
 
 	if( !RI.onlyClientDraw )
           {
-		CL_DrawBeams( false );
+		CL_DrawEFX( tr.frametime, false );
 	}
 
 	GL_CheckForErrors();
@@ -913,9 +910,7 @@ void R_DrawEntitiesOnList( void )
 	if( !RI.onlyClientDraw )
 	{
 		R_AllowFog( false );
-		CL_DrawBeams( true );
-		CL_DrawParticles( tr.frametime );
-		CL_DrawTracers( tr.frametime );
+		CL_DrawEFX( tr.frametime, true );
 		R_AllowFog( true );
 	}
 
@@ -939,7 +934,7 @@ R_SetupRefParams must be called right before
 */
 void R_RenderScene( void )
 {
-	if( !cl.worldmodel && RI.drawWorld )
+	if( !WORLDMODEL && RI.drawWorld )
 		Host_Error( "R_RenderView: NULL worldmodel\n" );
 
 	// frametime is valid only for normal pass
@@ -985,7 +980,7 @@ qboolean R_DoResetGamma( void )
 {
 	// FIXME: this looks ugly. apply the backward gamma changes to the output image
 	return false;
-
+#if 0
 	switch( cls.scrshot_action )
 	{
 	case scrshot_normal:
@@ -1005,6 +1000,7 @@ qboolean R_DoResetGamma( void )
 	default:
 		return false;
 	}
+#endif
 }
 
 /*
@@ -1222,7 +1218,7 @@ static int GL_RenderGetParm( int parm, int arg )
 		arg = bound( 0, arg, MAX_LIGHTMAPS - 1 );
 		return tr.lightmapTextures[arg];
 	case PARM_SKY_SPHERE:
-		return FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX );
+		return FBitSet( WORLDMODEL->flags, FWORLD_SKYSPHERE ) && !FBitSet( WORLDMODEL->flags, FWORLD_CUSTOM_SKYBOX );
 	case PARAM_GAMEPAUSED:
 		return cl.paused;
 	case PARM_WIDESCREEN:
@@ -1254,7 +1250,7 @@ static int GL_RenderGetParm( int parm, int arg )
 		arg = bound( 0, arg, MAX_LIGHTSTYLES - 1 );
 		return tr.lightstylevalue[arg];
 	case PARM_MAP_HAS_DELUXE:
-		return FBitSet( world.flags, FWORLD_HAS_DELUXEMAP );
+		return FBitSet( WORLDMODEL->flags, FWORLD_HAS_DELUXEMAP );
 	case PARM_MAX_IMAGE_UNITS:
 		return GL_MaxTextureUnits();
 	case PARM_CLIENT_ACTIVE:
@@ -1264,8 +1260,8 @@ static int GL_RenderGetParm( int parm, int arg )
 	case PARM_DEDICATED_SERVER:
 		return (host.type == HOST_DEDICATED);
 	case PARM_SURF_SAMPLESIZE:
-		if( arg >= 0 && arg < cl.worldmodel->numsurfaces )
-			return Mod_SampleSizeForFace( &cl.worldmodel->surfaces[arg] );
+		if( arg >= 0 && arg < WORLDMODEL->numsurfaces )
+			return Mod_SampleSizeForFace( &WORLDMODEL->surfaces[arg] );
 		return LM_SAMPLE_SIZE;
 	case PARM_GL_CONTEXT_TYPE:
 		return glConfig.context;
@@ -1274,7 +1270,7 @@ static int GL_RenderGetParm( int parm, int arg )
 	case PARM_STENCIL_ACTIVE:
 		return glState.stencilEnabled;
 	case PARM_WATER_ALPHA:
-		return FBitSet( world.flags, FWORLD_WATERALPHA );
+		return FBitSet( WORLDMODEL->flags, FWORLD_WATERALPHA );
 	}
 	return 0;
 }
@@ -1352,9 +1348,12 @@ static void R_SetCurrentModel( model_t *mod )
 	RI.currentmodel = mod;
 }
 
+// to engine?
+#if 0
+
 static int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis )
 {
-	return Mod_FatPVS( org, radius, visbuffer, world.visbytes, merge, fullvis );
+	return Mod_FatPVS( org, radius, visbuffer, WORLDMODEL->visbytes, merge, fullvis );
 }
 
 static lightstyle_t *CL_GetLightStyle( int number )
@@ -1458,9 +1457,11 @@ const char *CL_GenericHandle( int fileindex )
 		return 0;
 	return cl.files_precache[fileindex];
 }
+#endif
 	
 static render_api_t gRenderAPI =
 {
+#if 0
 	GL_RenderGetParm,
 	R_GetDetailScaleForTexture,
 	R_GetExtraParmsForTexture,
@@ -1526,6 +1527,7 @@ static render_api_t gRenderAPI =
 	Cvar_Set,
 	S_FadeMusicVolume,
 	COM_SetRandomSeed,
+#endif
 };
 
 /*

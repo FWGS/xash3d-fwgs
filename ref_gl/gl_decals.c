@@ -13,8 +13,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
 #include "gl_local.h"
 #include "cl_tent.h"
 
@@ -774,7 +772,7 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 	}
 	else if( modelIndex > 0 )
 		model = CL_ModelHandle( modelIndex );
-	else model = cl.worldmodel;
+	else model = WORLDMODEL;
 
 	if( !model ) return;
 	
@@ -1163,7 +1161,7 @@ int R_CreateDecalList( decallist_t *pList )
 	int	total = 0;
 	int	i, depth;
 
-	if( cl.worldmodel )
+	if( WORLDMODEL )
 	{
 		for( i = 0; i < MAX_RENDER_DECALS; i++ )
 		{

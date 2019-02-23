@@ -13,8 +13,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
 #include "mathlib.h"
 #include "gl_local.h"
 #include "pm_local.h"
@@ -41,7 +39,7 @@ void CL_RunLightStyles( void )
 	float		scale;
 	lightstyle_t	*ls;
 
-	if( !cl.worldmodel ) return;
+	if( !WORLDMODEL ) return;
 
 	scale = r_lighting_modulate->value;
 
@@ -49,7 +47,7 @@ void CL_RunLightStyles( void )
 	// 'm' is normal light, 'a' is no light, 'z' is double bright
 	for( i = 0, ls = cl.lightstyles; i < MAX_LIGHTSTYLES; i++, ls++ )
 	{
-		if( !cl.worldmodel->lightdata )
+		if( !WORLDMODEL->lightdata )
 		{
 			tr.lightstylevalue[i] = 256 * 256;
 			continue;
@@ -388,7 +386,7 @@ colorVec R_LightVecInternal( const vec3_t start, const vec3_t end, vec3_t lspot,
 	if( lspot ) VectorClear( lspot );
 	if( lvec ) VectorClear( lvec );
 
-	if( cl.worldmodel && cl.worldmodel->lightdata )
+	if( WORLDMODEL && WORLDMODEL->lightdata )
 	{
 		light.r = light.g = light.b = light.a = 0;
 		last_fraction = 1.0f;

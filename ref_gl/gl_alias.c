@@ -12,16 +12,13 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
-#include "common.h"
-#include "client.h"
+#include "gl_local.h"
 #include "mathlib.h"
 #include "const.h"
 #include "r_studioint.h"
 #include "triangleapi.h"
 #include "alias.h"
 #include "pm_local.h"
-#include "gl_local.h"
 #include "cl_tent.h"
 
 extern cvar_t r_shadows;

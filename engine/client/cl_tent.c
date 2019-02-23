@@ -2012,6 +2012,8 @@ void R_Sprite_WallPuff( TEMPENTITY *pTemp, float scale )
 	pTemp->die = cl.time + 0.01f;
 }
 
+
+
 /*
 ==============
 CL_ParseTempEntity
@@ -3151,3 +3153,4 @@ void CL_ClearEffects( void )
 	CL_ClearParticles ();
 	CL_ClearLightStyles ();
 }
+

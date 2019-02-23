@@ -8,21 +8,14 @@ ref_globals_t refState;
 
 convar_t *gl_vsync;
 convar_t *gl_showtextures;
-convar_t *vid_displayfrequency;
-convar_t *vid_fullscreen;
 convar_t *r_decals;
 convar_t *r_adjust_fov;
+convar_t *gl_wgl_msaa_samples;
 
 void R_GetTextureParms( int *w, int *h, int texnum )
 {
 	if( w ) *w = RENDER_GET_PARM( PARM_TEX_WIDTH, texnum );
 	if( h ) *h = RENDER_GET_PARM( PARM_TEX_HEIGHT, texnum );
-}
-
-void VID_InitDefaultResolution( void )
-{
-	refState.width = 640;
-	refState.height = 480;
 }
 
 /*
@@ -175,8 +168,6 @@ void R_Init( void )
 
 	gl_vsync = Cvar_Get( "gl_vsync", "0", FCVAR_ARCHIVE,  "enable vertical syncronization" );
 	gl_showtextures = Cvar_Get( "gl_showtextures", "0", FCVAR_CHEAT, "show all uploaded textures" );
-	vid_displayfrequency = Cvar_Get ( "vid_displayfrequency", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "fullscreen refresh rate" );
-	vid_fullscreen = Cvar_Get( "fullscreen", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "enable fullscreen mode" );
 	r_adjust_fov = Cvar_Get( "r_adjust_fov", "1", FCVAR_ARCHIVE, "making FOV adjustment for wide-screens" );
 	r_decals = Cvar_Get( "r_decals", "4096", FCVAR_ARCHIVE, "sets the maximum number of decals" );
 

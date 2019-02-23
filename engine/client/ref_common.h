@@ -18,11 +18,6 @@ GNU General Public License for more details.
 
 #include "ref_api.h"
 
-#define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP)
-#define TF_FONT		(TF_NOMIPMAP|TF_CLAMP)
-#define TF_IMAGE		(TF_NOMIPMAP|TF_CLAMP)
-#define TF_DECAL		(TF_CLAMP)
-
 #define RP_LOCALCLIENT( e )	((e) != NULL && (e)->index == ( cl.playernum + 1 ) && e->player )
 
 struct ref_state_s
@@ -48,7 +43,7 @@ void R_GetTextureParms( int *w, int *h, int texnum );
 extern convar_t	*r_decals;
 extern convar_t	*r_adjust_fov;
 
-extern convar_t	*vid_fullscreen;
-extern convar_t	*vid_displayfrequency;
+void R_Init( void );
+void R_Shutdown( void );
 
 #endif // REF_COMMON_H
