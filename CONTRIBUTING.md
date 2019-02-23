@@ -48,7 +48,9 @@
   * While macros are powerful, it's better to avoid overusing them.
   * If you unsure, try to mimic code style from anywhere else of engine source code.
 * **ANY** commit message should start from declaring a tags, in format:
+  
   `tag: added some bugs`
+  
   `tag: subtag: fixed some features`
   
   Tags can be any: subsystem, simple feature name or even just a filename, without extension.
