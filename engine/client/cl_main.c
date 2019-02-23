@@ -796,7 +796,7 @@ void CL_WritePacket( void )
 		newcmds = ( cls.netchan.outgoing_sequence - cls.lastoutgoingcommand );
 
 		// put an upper/lower bound on this
-		newcmds = bound( 0, newcmds, MAX_TOTAL_CMDS );
+		newcmds = bound( 0, newcmds, cls.legacymode?MAX_LEGACY_TOTAL_CMDS:MAX_TOTAL_CMDS );
 		if( cls.state == ca_connected ) newcmds = 0;
 	
 		MSG_WriteByte( &buf, newcmds );
