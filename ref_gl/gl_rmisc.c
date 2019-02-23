@@ -13,8 +13,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
 #include "gl_local.h"
 #include "mod_local.h"
 #include "shake.h"
@@ -79,9 +77,9 @@ static void R_ParseDetailTextures( const char *filename )
 			continue;
 
 		// search for existing texture and uploading detail texture
-		for( i = 0; i < cl.worldmodel->numtextures; i++ )
+		for( i = 0; i < WORLDMODEL->numtextures; i++ )
 		{
-			tex = cl.worldmodel->textures[i];
+			tex = WORLDMODEL->textures[i];
 
 			if( Q_stricmp( tex->name, texname ))
 				continue;
@@ -116,7 +114,7 @@ void R_NewMap( void )
 	{
 		string	mapname, filepath;
 
-		Q_strncpy( mapname, cl.worldmodel->name, sizeof( mapname ));
+		Q_strncpy( mapname, WORLDMODEL->name, sizeof( mapname ));
 		COM_StripExtension( mapname );
 		Q_sprintf( filepath, "%s_detail.txt", mapname );
 
@@ -152,20 +150,20 @@ void R_NewMap( void )
 	}
 
 	// clear out efrags in case the level hasn't been reloaded
-	for( i = 0; i < cl.worldmodel->numleafs; i++ )
-		cl.worldmodel->leafs[i+1].efrags = NULL;
+	for( i = 0; i < WORLDMODEL->numleafs; i++ )
+		WORLDMODEL->leafs[i+1].efrags = NULL;
 
 	tr.skytexturenum = -1;
 	tr.max_recursion = 0;
 	pglDisable( GL_FOG );
 
 	// clearing texture chains
-	for( i = 0; i < cl.worldmodel->numtextures; i++ )
+	for( i = 0; i < WORLDMODEL->numtextures; i++ )
 	{
-		if( !cl.worldmodel->textures[i] )
+		if( !WORLDMODEL->textures[i] )
 			continue;
 
-		tx = cl.worldmodel->textures[i];
+		tx = WORLDMODEL->textures[i];
 
 		if( !Q_strncmp( tx->name, "sky", 3 ) && tx->width == ( tx->height * 2 ))
 			tr.skytexturenum = i;
@@ -173,7 +171,7 @@ void R_NewMap( void )
  		tx->texturechain = NULL;
 	}
 
-	R_SetupSky( clgame.movevars.skyName );
+	R_SetupSky( MOVEVARS->skyName );
 
 	GL_BuildLightmaps ();
 	R_GenerateVBO();

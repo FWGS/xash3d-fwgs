@@ -33,20 +33,6 @@ GNU General Public License for more details.
 #include "world.h"
 #include "ref_common.h"
 
-#define MAX_DEMOS		32
-#define MAX_MOVIES		8
-#define MAX_CDTRACKS	32
-#define MAX_CLIENT_SPRITES	256	// SpriteTextures
-#define MAX_EFRAGS		8192	// Arcane Dimensions required
-#define MAX_REQUESTS	64
-
-// screenshot types
-#define VID_SCREENSHOT	0
-#define VID_LEVELSHOT	1
-#define VID_MINISHOT	2
-#define VID_MAPSHOT		3	// special case for overview layer
-#define VID_SNAPSHOT	4	// save screenshot into root dir and no gamma correction
-
 // client sprite types
 #define SPR_CLIENT		0	// client sprite for temp-entities or user-textures
 #define SPR_HUDSPRITE	1	// hud sprite
@@ -169,13 +155,6 @@ typedef struct
 
 typedef struct
 {
-	char		name[MAX_OSPATH];
-	char		modelname[MAX_OSPATH];
-	model_t		*model;
-} player_model_t;
-
-typedef struct
-{
 	qboolean		bUsed;
 	float		fTime;
 	int		nBytesRemaining;
@@ -238,7 +217,6 @@ typedef struct
 	float		timedelta;		// floating delta between two updates
 
 	char		serverinfo[MAX_SERVERINFO_STRING];
-	player_model_t	player_models[MAX_CLIENTS];	// cache of player models
 	player_info_t	players[MAX_CLIENTS];	// collected info about all other players include himself
 	double		lastresourcecheck;
 	string		downloadUrl;
@@ -1007,8 +985,6 @@ int CL_FxBlend( cl_entity_t *e );
 void CL_InitParticles( void );
 void CL_ClearParticles( void );
 void CL_FreeParticles( void );
-void CL_DrawParticles( double frametime );
-void CL_DrawTracers( double frametime );
 void CL_InitTempEnts( void );
 void CL_ClearTempEnts( void );
 void CL_FreeTempEnts( void );
@@ -1016,8 +992,6 @@ void CL_TempEntUpdate( void );
 void CL_InitViewBeams( void );
 void CL_ClearViewBeams( void );
 void CL_FreeViewBeams( void );
-void CL_DrawBeams( int fTrans );
-void CL_AddCustomBeam( cl_entity_t *pEnvBeam );
 void CL_KillDeadBeams( cl_entity_t *pDeadEntity );
 void CL_ParseViewBeam( sizebuf_t *msg, int beamType );
 void CL_LoadClientSprites( void );

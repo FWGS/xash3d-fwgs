@@ -1,6 +1,7 @@
 // basic typedefs
 #ifndef XASH_TYPES_H
 #define XASH_TYPES_H
+
 typedef unsigned char byte;
 typedef int		sound_t;
 typedef float		vec_t;
@@ -30,4 +31,95 @@ typedef Uint64 integer64;
 typedef unsigned long long integer64;
 #endif
 typedef integer64 longtime_t;
+
+#define MAX_STRING		256	// generic string
+#define MAX_INFO_STRING	256	// infostrings are transmitted across network
+#define MAX_SERVERINFO_STRING	512	// server handles too many settings. expand to 1024?
+#define MAX_LOCALINFO_STRING	32768	// localinfo used on server and not sended to the clients
+#define MAX_SYSPATH		1024	// system filepath
+#define MAX_PRINT_MSG	8192	// how many symbols can handle single call of Con_Printf or Con_DPrintf
+#define MAX_TOKEN		2048	// parse token length
+#define MAX_MODS		512	// environment games that engine can keep visible
+#define MAX_USERMSG_LENGTH	2048	// don't modify it's relies on a client-side definitions
+
+#define BIT( n )		( 1 << ( n ))
+#define GAMMA		( 2.2 )		// Valve Software gamma
+#define INVGAMMA		( 1.0 / 2.2 )	// back to 1.0
+#define TEXGAMMA		( 0.9 )		// compensate dim textures
+#define SetBits( iBitVector, bits )	((iBitVector) = (iBitVector) | (bits))
+#define ClearBits( iBitVector, bits )	((iBitVector) = (iBitVector) & ~(bits))
+#define FBitSet( iBitVector, bit )	((iBitVector) & (bit))
+
+#ifndef __cplusplus
+#ifdef NULL
+#undef NULL
+#endif
+
+#define NULL		((void *)0)
+#endif
+
+// color strings
+#define IsColorString( p )	( p && *( p ) == '^' && *(( p ) + 1) && *(( p ) + 1) >= '0' && *(( p ) + 1 ) <= '9' )
+#define ColorIndex( c )	((( c ) - '0' ) & 7 )
+
+#if defined __i386__ &&  defined __GNUC__
+#define GAME_EXPORT __attribute__((force_align_arg_pointer))
+#else
+#define GAME_EXPORT
+#endif
+
+
+#ifdef XASH_BIG_ENDIAN
+#define LittleLong(x) (((int)(((x)&255)<<24)) + ((int)((((x)>>8)&255)<<16)) + ((int)(((x)>>16)&255)<<8) + (((x) >> 24)&255))
+#define LittleLongSW(x) (x = LittleLong(x) )
+#define LittleShort(x) ((short)( (((short)(x) >> 8) & 255) + (((short)(x) & 255) << 8)))
+#define LittleShortSW(x) (x = LittleShort(x) )
+_inline float LittleFloat( float f )
+{
+	union
+	{
+		float f;
+		unsigned char b[4];
+	} dat1, dat2;
+
+	dat1.f = f;
+	dat2.b[0] = dat1.b[3];
+	dat2.b[1] = dat1.b[2];
+	dat2.b[2] = dat1.b[1];
+	dat2.b[3] = dat1.b[0];
+
+	return dat2.f;
+}
+#else
+#define LittleLong(x) (x)
+#define LittleLongSW(x)
+#define LittleShort(x) (x)
+#define LittleShortSW(x)
+#define LittleFloat(x) (x)
+#endif
+
+
+typedef unsigned int	dword;
+typedef unsigned int	uint;
+typedef char		string[MAX_STRING];
+typedef struct file_s	file_t;		// normal file
+typedef struct wfile_s	wfile_t;		// wad file
+typedef struct stream_s	stream_t;		// sound stream for background music playing
+typedef off_t fs_offset_t;
+
+typedef struct dllfunc_s
+{
+	const char	*name;
+	void		**func;
+} dllfunc_t;
+
+typedef struct dll_info_s
+{
+	const char	*name;	// name of library
+	const dllfunc_t	*fcts;	// list of dll exports
+	qboolean		crash;	// crash if dll not found
+	void		*link;	// hinstance of loading library
+} dll_info_t;
+
+
 #endif // XASH_TYPES_H

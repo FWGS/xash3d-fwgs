@@ -13,8 +13,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
 #include "gl_local.h"
 #include "mod_local.h"
 #include "entity_types.h"
@@ -161,7 +159,7 @@ void R_AddEfrags( cl_entity_t *ent )
 		r_emaxs[i] = ent->origin[i] + outmaxs[i];
 	}
 
-	R_SplitEntityOnNode( cl.worldmodel->nodes );
+	R_SplitEntityOnNode( WORLDMODEL->nodes );
 	ent->topnode = r_pefragtopnode;
 }
 

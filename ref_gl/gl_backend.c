@@ -13,8 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
+
 #include "gl_local.h"
 #include "mathlib.h"
 
@@ -85,7 +84,7 @@ void GL_BackendEndFrame( void )
 		return;
 
 	if( !RI.viewleaf )
-		curleaf = cl.worldmodel->leafs;
+		curleaf = WORLDMODEL->leafs;
 	else curleaf = RI.viewleaf;
 
 	R_Speeds_Printf( "Renderer: ^1Engine^7\n\n" );
@@ -97,7 +96,7 @@ void GL_BackendEndFrame( void )
 		r_stats.c_world_polys, r_stats.c_alias_polys, r_stats.c_studio_polys, r_stats.c_sprite_polys );
 		break;		
 	case 2:
-		R_Speeds_Printf( "visible leafs:\n%3i leafs\ncurrent leaf %3i\n", r_stats.c_world_leafs, curleaf - cl.worldmodel->leafs );
+		R_Speeds_Printf( "visible leafs:\n%3i leafs\ncurrent leaf %3i\n", r_stats.c_world_leafs, curleaf - WORLDMODEL->leafs );
 		R_Speeds_Printf( "ReciusiveWorldNode: %3lf secs\nDrawTextureChains %lf\n", r_stats.t_world_node, r_stats.t_world_draw );
 		break;
 	case 3:
@@ -560,7 +559,7 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 	string		basename;
 	int		i = 1, flags, result;
 
-	if( !RI.drawWorld || !cl.worldmodel )
+	if( !RI.drawWorld || !WORLDMODEL )
 		return false;
 
 	// make sure the specified size is valid
@@ -786,7 +785,7 @@ void R_ShowTree_r( mnode_t *node, float x, float y, float scale, int shownodes )
 
 		if( shownodes == 1 )
 		{
-			if( cl.worldmodel->leafs == leaf )
+			if( WORLDMODEL->leafs == leaf )
 				pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
 			else if( RI.viewleaf && RI.viewleaf == leaf )
 				pglColor4f( 1.0f, 0.0f, 0.0f, 1.0f );
@@ -819,7 +818,7 @@ void R_ShowTree( void )
 	float	x = (float)((glState.width - (int)POINT_SIZE) >> 1);
 	float	y = NODE_INTERVAL_Y(1.0);
 
-	if( !cl.worldmodel || !CVAR_TO_BOOL( r_showtree ))
+	if( !WORLDMODEL || !CVAR_TO_BOOL( r_showtree ))
 		return;
 
 	tr.recursion_level = 0;
@@ -831,11 +830,11 @@ void R_ShowTree( void )
 	pglLineWidth( 2.0f );
 	pglColor3f( 1, 0.7f, 0 );
 	pglDisable( GL_TEXTURE_2D );
-	R_ShowTree_r( cl.worldmodel->nodes, x, y, tr.max_recursion * 3.5f, 2 );
+	R_ShowTree_r( WORLDMODEL->nodes, x, y, tr.max_recursion * 3.5f, 2 );
 	pglEnable( GL_TEXTURE_2D );
 	pglLineWidth( 1.0f );
 
-	R_ShowTree_r( cl.worldmodel->nodes, x, y, tr.max_recursion * 3.5f, 1 );
+	R_ShowTree_r( WORLDMODEL->nodes, x, y, tr.max_recursion * 3.5f, 1 );
 
 	Con_NPrintf( 0, "max recursion %d\n", tr.max_recursion );
 }
@@ -874,10 +873,10 @@ void SCR_TimeRefresh_f( void )
 	{
 		for( i = 0; i < 128; i++ )
 		{
-			ref.dllFuncs.R_BeginFrame( true );
+			R_BeginFrame( true );
 			refState.viewangles[1] = i / 128.0 * 360.0f;
-			ref.dllFuncs.R_RenderScene();
-			ref.dllFuncs.R_EndFrame();
+			R_RenderScene();
+			R_EndFrame();
 		}
 	}
 

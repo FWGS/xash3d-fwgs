@@ -730,7 +730,6 @@ void SCR_Init( void )
 	scr_viewsize = Cvar_Get( "viewsize", "120", FCVAR_ARCHIVE, "screen size" );
 	
 	// register our commands
-	Cmd_AddCommand( "timerefresh", SCR_TimeRefresh_f, "turn quickly and print rendering statistcs" );
 	Cmd_AddCommand( "skyname", CL_SetSky_f, "set new skybox by basename" );
 	Cmd_AddCommand( "loadsky", CL_SetSky_f, "set new skybox by basename" );
 	Cmd_AddCommand( "viewpos", SCR_Viewpos_f, "prints current player origin" );

@@ -13,19 +13,24 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
+#include "gl_local.h"
 #include "mathlib.h"
 #include "const.h"
 #include "r_studioint.h"
 #include "triangleapi.h"
 #include "studio.h"
 #include "pm_local.h"
-#include "gl_local.h"
 #include "cl_tent.h"
 
 #define EVENT_CLIENT	5000	// less than this value it's a server-side studio events
 #define MAX_LOCALLIGHTS	4
+
+typedef struct
+{
+	char		name[MAX_OSPATH];
+	char		modelname[MAX_OSPATH];
+	model_t		*model;
+} player_model_t;
 
 CVAR_DEFINE_AUTO( r_glowshellfreq, "2.2", 0, "glowing shell frequency update" );
 CVAR_DEFINE_AUTO( r_shadows, "0", 0, "cast shadows from models" );
@@ -3669,6 +3674,12 @@ Initialize client studio
 void CL_InitStudioAPI( void )
 {
 	pStudioDraw = &gStudioDraw;
+
+	// trying to grab them from client.dll
+	cl_righthand = Cvar_FindVar( "cl_righthand" );
+
+	if( cl_righthand == NULL )
+		cl_righthand = Cvar_Get( "cl_righthand", "0", FCVAR_ARCHIVE, "flip viewmodel (left to right)" );
 
 	// Xash will be used internal StudioModelRenderer
 	if( !clgame.dllFuncs.pfnGetStudioModelInterface )

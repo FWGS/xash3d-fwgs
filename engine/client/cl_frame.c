@@ -965,7 +965,7 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 
 	if( entityType == ET_BEAM )
 	{
-		CL_AddCustomBeam( ent );
+		ref.dllFuncs.CL_AddCustomBeam( ent );
 		return true;
 	}
 	else if( !ref.dllFuncs.R_AddEntity( ent, entityType ))
@@ -1299,7 +1299,7 @@ void CL_EmitEntities( void )
 		return;
 
 	// animate lightestyles
-	CL_RunLightStyles ();
+	ref.dllFuncs.CL_RunLightStyles ();
 
 	// decay dynamic lights
 	CL_DecayLights ();

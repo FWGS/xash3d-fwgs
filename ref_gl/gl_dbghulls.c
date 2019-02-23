@@ -14,11 +14,7 @@ GNU General Public License for more details.
 */
 
 
-#include "mod_local.h"
-#include "mathlib.h"
-#include "world.h"
 #include "gl_local.h"
-#include "client.h"
 
 #define list_entry( ptr, type, member ) \
 	((type *)((char *)(ptr) - (size_t)(&((type *)0)->member)))
@@ -31,7 +27,7 @@ GNU General Public License for more details.
 
 void R_DrawWorldHull( void )
 {
-	hull_model_t	*hull = &world.hull_models[0];
+	hull_model_t	*hull = &WORLDMODEL->hull_models[0];
 	winding_t		*poly;
 	int		i;
 
@@ -71,10 +67,10 @@ void R_DrawModelHull( void )
 		return;
 
 	i = atoi( RI.currentmodel->name + 1 );
-	if( i < 1 || i >= world.num_hull_models )
+	if( i < 1 || i >= WORLDMODEL->num_hull_models )
 		return;
 
-	hull = &world.hull_models[i];
+	hull = &WORLDMODEL->hull_models[i];
 
 	pglPolygonOffset( 1.0f, 2.0 );
 	pglEnable( GL_POLYGON_OFFSET_FILL );

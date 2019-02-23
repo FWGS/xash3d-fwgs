@@ -3614,6 +3614,7 @@ triangleapi_t gTriApi;
 
 static efx_api_t gEfxApi =
 {
+#if 1
 	R_AllocParticle,
 	R_BlobExplosion,
 	R_Blood,
@@ -3688,6 +3689,7 @@ static efx_api_t gEfxApi =
 	R_LookupColor,
 	CL_DecalRemoveAll,
 	CL_FireCustomDecal,
+#endif
 };
 
 static event_api_t gEventApi =
@@ -4041,13 +4043,7 @@ qboolean CL_LoadProgs( const char *name )
 	// initialize game
 	clgame.dllFuncs.pfnInit();
 
-	CL_InitStudioAPI( );
-
-	// trying to grab them from client.dll
-	cl_righthand = Cvar_FindVar( "cl_righthand" );
-
-	if( cl_righthand == NULL )
-		cl_righthand = Cvar_Get( "cl_righthand", "0", FCVAR_ARCHIVE, "flip viewmodel (left to right)" );
+	ref.dllFuncs.CL_InitStudioAPI();
 
 	return true;
 }

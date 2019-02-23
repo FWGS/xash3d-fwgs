@@ -13,8 +13,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
 #include "gl_local.h"
 #include "mod_local.h"
 #include "mathlib.h"
@@ -879,7 +877,7 @@ void DrawGLPolyChain( glpoly_t *p, float soffset, float toffset )
 
 _inline qboolean R_HasLightmap( void )
 {
-	if( CVAR_TO_BOOL( r_fullbright ) || !cl.worldmodel->lightdata )
+	if( CVAR_TO_BOOL( r_fullbright ) || !WORLDMODEL->lightdata )
 		return false;
 
 	if( RI.currententity )
@@ -1272,7 +1270,7 @@ void R_DrawTextureChains( void )
 	RI.currententity = clgame.entities;
 	RI.currentmodel = RI.currententity->model;
 
-	if( FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX ))
+	if( FBitSet( WORLDMODEL->flags, FWORLD_SKYSPHERE ) && !FBitSet( WORLDMODEL->flags, FWORLD_CUSTOM_SKYBOX ))
 	{
 		pglDisable( GL_TEXTURE_2D );
 		pglColor3f( 1.0f, 1.0f, 1.0f );
@@ -1282,7 +1280,7 @@ void R_DrawTextureChains( void )
 	for( s = skychain; s != NULL; s = s->texturechain )
 		R_AddSkyBoxSurface( s );
 
-	if( FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX ))
+	if( FBitSet( WORLDMODEL->flags, FWORLD_SKYSPHERE ) && !FBitSet( WORLDMODEL->flags, FWORLD_CUSTOM_SKYBOX ))
 	{
 		pglEnable( GL_TEXTURE_2D );
 		if( skychain )
@@ -1290,9 +1288,9 @@ void R_DrawTextureChains( void )
 		skychain = NULL;
 	}
 
-	for( i = 0; i < cl.worldmodel->numtextures; i++ )
+	for( i = 0; i < WORLDMODEL->numtextures; i++ )
 	{
-		t = cl.worldmodel->textures[i];
+		t = WORLDMODEL->textures[i];
 		if( !t ) continue;
 
 		s = t->texturechain;
@@ -1300,7 +1298,7 @@ void R_DrawTextureChains( void )
 		if( !s || ( i == tr.skytexturenum ))
 			continue;
 
-		if(( s->flags & SURF_DRAWTURB ) && clgame.movevars.wateralpha < 1.0f )
+		if(( s->flags & SURF_DRAWTURB ) && MOVEVARS->wateralpha < 1.0f )
 			continue;	// draw translucent water later
 
 		if( Host_IsQuakeCompatible() && FBitSet( s->flags, SURF_TRANSPARENT ))
@@ -1348,9 +1346,9 @@ void R_DrawAlphaTextureChains( void )
 	RI.currententity->curstate.rendermode = kRenderTransAlpha;
 	draw_alpha_surfaces = false;
 
-	for( i = 0; i < cl.worldmodel->numtextures; i++ )
+	for( i = 0; i < WORLDMODEL->numtextures; i++ )
 	{
-		t = cl.worldmodel->textures[i];
+		t = WORLDMODEL->textures[i];
 		if( !t ) continue;
 
 		s = t->texturechain;
@@ -1384,7 +1382,7 @@ void R_DrawWaterSurfaces( void )
 		return;
 
 	// non-transparent water is already drawed
-	if( clgame.movevars.wateralpha >= 1.0f )
+	if( MOVEVARS->wateralpha >= 1.0f )
 		return;
 
 	// restore worldmodel
@@ -1399,11 +1397,11 @@ void R_DrawWaterSurfaces( void )
 	pglDisable( GL_ALPHA_TEST );
 	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-	pglColor4f( 1.0f, 1.0f, 1.0f, clgame.movevars.wateralpha );
+	pglColor4f( 1.0f, 1.0f, 1.0f, MOVEVARS->wateralpha );
 
-	for( i = 0; i < cl.worldmodel->numtextures; i++ )
+	for( i = 0; i < WORLDMODEL->numtextures; i++ )
 	{
-		t = cl.worldmodel->textures[i];
+		t = WORLDMODEL->textures[i];
 		if( !t ) continue;
 
 		s = t->texturechain;
@@ -1529,7 +1527,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	clmodel = e->model;
 
 	// external models not loaded to VBO
-	if( clmodel->surfaces != cl.worldmodel->surfaces )
+	if( clmodel->surfaces != WORLDMODEL->surfaces )
 		allow_vbo = false;
 
 	if( !VectorIsNull( e->angles ))
@@ -1610,22 +1608,22 @@ void R_DrawBrushModel( cl_entity_t *e )
 				continue;
 		}
 
-		if( num_sorted < world.max_surfaces )
+		if( num_sorted < WORLDMODEL->max_surfaces )
 		{
-			world.draw_surfaces[num_sorted].surf = psurf;
-			world.draw_surfaces[num_sorted].cull = cull_type;
+			WORLDMODEL->draw_surfaces[num_sorted].surf = psurf;
+			WORLDMODEL->draw_surfaces[num_sorted].cull = cull_type;
 			num_sorted++;
 		}
 	}
 
 	// sort faces if needs
 	if( !FBitSet( clmodel->flags, MODEL_LIQUID ) && e->curstate.rendermode == kRenderTransTexture && !CVAR_TO_BOOL( gl_nosort ))
-		qsort( world.draw_surfaces, num_sorted, sizeof( sortedface_t ), R_SurfaceCompare );
+		qsort( WORLDMODEL->draw_surfaces, num_sorted, sizeof( sortedface_t ), R_SurfaceCompare );
 
 	// draw sorted translucent surfaces
 	for( i = 0; i < num_sorted; i++ )
-		if( !allow_vbo || !R_AddSurfToVBO( world.draw_surfaces[i].surf, true ) )
-			R_RenderBrushPoly( world.draw_surfaces[i].surf, world.draw_surfaces[i].cull );
+		if( !allow_vbo || !R_AddSurfToVBO( WORLDMODEL->draw_surfaces[i].surf, true ) )
+			R_RenderBrushPoly( WORLDMODEL->draw_surfaces[i].surf, WORLDMODEL->draw_surfaces[i].cull );
 	R_DrawVBO( R_HasLightmap(), true );
 
 	if( e->curstate.rendermode == kRenderTransColor )
@@ -1775,7 +1773,7 @@ Allocate memory for arrays, fill it with vertex attribs and upload to GPU
 */
 void R_GenerateVBO()
 {
-	int numtextures = cl.worldmodel->numtextures;
+	int numtextures = WORLDMODEL->numtextures;
 	int numlightmaps = gl_lms.current_lightmap_texture;
 	int k, len = 0;
 	vboarray_t *vbo;
@@ -1806,7 +1804,7 @@ void R_GenerateVBO()
 	vbos.maxtexture = 0;
 
 	vbos.textures = Mem_Calloc( vbos.mempool, numtextures * numlightmaps * sizeof( vbotexture_t ) );
-	vbos.surfdata = Mem_Calloc( vbos.mempool, cl.worldmodel->numsurfaces * sizeof( vbosurfdata_t ) );
+	vbos.surfdata = Mem_Calloc( vbos.mempool, WORLDMODEL->numsurfaces * sizeof( vbosurfdata_t ) );
 	vbos.arraylist = vbo = Mem_Calloc( vbos.mempool, sizeof( vboarray_t ) );
 	vbos.decaldata = Mem_Calloc( vbos.mempool, sizeof( vbodecaldata_t ) );
 	vbos.decaldata->lm = Mem_Calloc( vbos.mempool, sizeof( msurface_t* ) * numlightmaps );
@@ -1821,9 +1819,9 @@ void R_GenerateVBO()
 			int i;
 			vbotexture_t *vbotex = &vbos.textures[k * numtextures + j];
 
-			for( i = 0; i < cl.worldmodel->numsurfaces; i++ )
+			for( i = 0; i < WORLDMODEL->numsurfaces; i++ )
 			{
-				msurface_t *surf = &cl.worldmodel->surfaces[i];
+				msurface_t *surf = &WORLDMODEL->surfaces[i];
 
 				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
 					continue;
@@ -1831,7 +1829,7 @@ void R_GenerateVBO()
 				if( surf->lightmaptexturenum != k )
 					continue;
 
-				if( R_TextureAnimation( surf ) != cl.worldmodel->textures[j] )
+				if( R_TextureAnimation( surf ) != WORLDMODEL->textures[j] )
 					continue;
 
 				if( vbo->array_len + surf->polys->numverts > USHRT_MAX )
@@ -1888,9 +1886,9 @@ void R_GenerateVBO()
 			if( maxindex < vbotex->len )
 				maxindex = vbotex->len;
 
-			for( i = 0; i < cl.worldmodel->numsurfaces; i++ )
+			for( i = 0; i < WORLDMODEL->numsurfaces; i++ )
 			{
-				msurface_t *surf = &cl.worldmodel->surfaces[i];
+				msurface_t *surf = &WORLDMODEL->surfaces[i];
 				int l;
 
 				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
@@ -1899,7 +1897,7 @@ void R_GenerateVBO()
 				if( surf->lightmaptexturenum != k )
 					continue;
 
-				if( R_TextureAnimation( surf ) != cl.worldmodel->textures[j] )
+				if( R_TextureAnimation( surf ) != WORLDMODEL->textures[j] )
 					continue;
 
 				// switch to next array
@@ -1935,9 +1933,9 @@ void R_GenerateVBO()
 					vbo->array[len + l].lm_tc[0] = v[5];
 					vbo->array[len + l].lm_tc[1] = v[6];
 #ifdef NO_TEXTURE_MATRIX
-					if( cl.worldmodel->textures[j]->dt_texturenum )
+					if( WORLDMODEL->textures[j]->dt_texturenum )
 					{
-						gl_texture_t *glt = R_GetTexture( cl.worldmodel->textures[j]->gl_texturenum );
+						gl_texture_t *glt = R_GetTexture( WORLDMODEL->textures[j]->gl_texturenum );
 						vbo->array[len + l].dt_tc[0] = v[3] * glt->xscale;
 						vbo->array[len + l].dt_tc[1] = v[4] * glt->yscale;
 					}
@@ -2162,7 +2160,7 @@ static texture_t *R_SetupVBOTexture( texture_t *tex, int number )
 		return tex;
 
 	if( !tex )
-		tex = R_TextureAnim( cl.worldmodel->textures[number] );
+		tex = R_TextureAnim( WORLDMODEL->textures[number] );
 
 	if( CVAR_TO_BOOL( r_detailtextures ) && tex->dt_texturenum && mtst.tmu_dt != -1 )
 	{
@@ -2307,7 +2305,7 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 		{
 			int	smax, tmax;
 			byte	*base;
-			uint indexbase = vbos.surfdata[((char*)surf - (char*)cl.worldmodel->surfaces) / sizeof( *surf )].startindex;
+			uint indexbase = vbos.surfdata[((char*)surf - (char*)WORLDMODEL->surfaces) / sizeof( *surf )].startindex;
 			uint index;
 			mextrasurf_t *info; // this stores current dlight offset
 			decal_t *pdecal;
@@ -2623,7 +2621,7 @@ Draw generated index arrays
 */
 void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 {
-	int numtextures = cl.worldmodel->numtextures;
+	int numtextures = WORLDMODEL->numtextures;
 	int numlightmaps =  gl_lms.current_lightmap_texture;
 	int k;
 	vboarray_t *vbo = vbos.arraylist;
@@ -2955,10 +2953,10 @@ static qboolean R_CheckLightMap( msurface_t *fa )
 
 qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 {
-	if( CVAR_TO_BOOL(r_vbo) && vbos.surfdata[surf - cl.worldmodel->surfaces].vbotexture )
+	if( CVAR_TO_BOOL(r_vbo) && vbos.surfdata[surf - WORLDMODEL->surfaces].vbotexture )
 	{
 		// find vbotexture_t assotiated with this surface
-		int idx = surf - cl.worldmodel->surfaces;
+		int idx = surf - WORLDMODEL->surfaces;
 		vbotexture_t *vbotex = vbos.surfdata[idx].vbotexture;
 		int texturenum = vbos.surfdata[idx].texturenum;
 
@@ -2974,7 +2972,7 @@ qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 		if( vbos.mintexture > texturenum )
 			vbos.mintexture = texturenum;
 
-		buildlightmap &= !CVAR_TO_BOOL( r_fullbright ) && !!cl.worldmodel->lightdata;
+		buildlightmap &= !CVAR_TO_BOOL( r_fullbright ) && !!WORLDMODEL->lightdata;
 
 		if( buildlightmap && R_CheckLightMap( surf ) )
 		{
@@ -3083,7 +3081,7 @@ loc0:
 	R_RecursiveWorldNode( node->children[side], clipflags );
 
 	// draw stuff
-	for( c = node->numsurfaces, surf = cl.worldmodel->surfaces + node->firstsurface; c; c--, surf++ )
+	for( c = node->numsurfaces, surf = WORLDMODEL->surfaces + node->firstsurface; c; c--, surf++ )
 	{
 		if( R_CullSurface( surf, &RI.frustum, clipflags ))
 			continue;
@@ -3211,7 +3209,7 @@ void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 		}
 
 		// draw stuff
-		for( c = node->numsurfaces, surf = cl.worldmodel->surfaces + node->firstsurface; c; c--, surf++ )
+		for( c = node->numsurfaces, surf = WORLDMODEL->surfaces + node->firstsurface; c; c--, surf++ )
 		{
 			// don't process the same surface twice
 			if( surf->visframe == tr.framecount )
@@ -3324,14 +3322,14 @@ void R_DrawWorld( void )
 
 	start = Sys_DoubleTime();
 	if( RI.drawOrtho )
-		R_DrawWorldTopView( cl.worldmodel->nodes, RI.frustum.clipFlags );
-	else R_RecursiveWorldNode( cl.worldmodel->nodes, RI.frustum.clipFlags );
+		R_DrawWorldTopView( WORLDMODEL->nodes, RI.frustum.clipFlags );
+	else R_RecursiveWorldNode( WORLDMODEL->nodes, RI.frustum.clipFlags );
 	end = Sys_DoubleTime();
 
 	r_stats.t_world_node = end - start;
 
 	start = Sys_DoubleTime();
-	R_DrawVBO( !CVAR_TO_BOOL(r_fullbright) && !!cl.worldmodel->lightdata, true );
+	R_DrawVBO( !CVAR_TO_BOOL(r_fullbright) && !!WORLDMODEL->lightdata, true );
 
 	R_DrawTextureChains();
 
@@ -3392,12 +3390,12 @@ void R_MarkLeaves( void )
 		if( RI.viewleaf->contents == CONTENTS_EMPTY )
 		{
 			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] - 16.0f );
-			leaf = Mod_PointInLeaf( test, cl.worldmodel->nodes );
+			leaf = Mod_PointInLeaf( test, WORLDMODEL->nodes );
 		}
 		else
 		{
 			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] + 16.0f );
-			leaf = Mod_PointInLeaf( test, cl.worldmodel->nodes );
+			leaf = Mod_PointInLeaf( test, WORLDMODEL->nodes );
 		}
 
 		if(( leaf->contents != CONTENTS_SOLID ) && ( RI.viewleaf != leaf ))
@@ -3414,17 +3412,17 @@ void R_MarkLeaves( void )
 	RI.oldviewleaf = RI.viewleaf;
 	tr.visframecount++;
 
-	if( r_novis->value || RI.drawOrtho || !RI.viewleaf || !cl.worldmodel->visdata )
+	if( r_novis->value || RI.drawOrtho || !RI.viewleaf || !WORLDMODEL->visdata )
 		novis = true;
 
-	Mod_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, world.visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), novis );
-	if( force && !novis ) Mod_FatPVS( test, REFPVS_RADIUS, RI.visbytes, world.visbytes, true, novis );
+	Mod_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, WORLDMODEL->visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), novis );
+	if( force && !novis ) Mod_FatPVS( test, REFPVS_RADIUS, RI.visbytes, WORLDMODEL->visbytes, true, novis );
 
-	for( i = 0; i < cl.worldmodel->numleafs; i++ )
+	for( i = 0; i < WORLDMODEL->numleafs; i++ )
 	{
 		if( CHECKVISBIT( RI.visbytes, i ))
 		{
-			node = (mnode_t *)&cl.worldmodel->leafs[i+1];
+			node = (mnode_t *)&WORLDMODEL->leafs[i+1];
 			do
 			{
 				if( node->visframe == tr.visframecount )

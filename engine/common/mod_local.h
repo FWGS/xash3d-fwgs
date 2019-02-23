@@ -20,25 +20,6 @@ GNU General Public License for more details.
 #include "edict.h"
 #include "eiface.h"
 
-// 1/32 epsilon to keep floating point happy
-#define DIST_EPSILON		(1.0f / 32.0f)
-#define FRAC_EPSILON		(1.0f / 1024.0f)
-#define BACKFACE_EPSILON		0.01f
-#define MAX_BOX_LEAFS		256
-#define ANIM_CYCLE			2
-#define MOD_FRAMES			20
-
-// remapping info
-#define SUIT_HUE_START		192
-#define SUIT_HUE_END		223
-#define PLATE_HUE_START		160
-#define PLATE_HUE_END		191
-
-#define SHIRT_HUE_START		16
-#define SHIRT_HUE_END		32
-#define PANTS_HUE_START		96
-#define PANTS_HUE_END		112
-
 #define LM_SAMPLE_SIZE		16
 #define LM_SAMPLE_EXTRASIZE		8
 

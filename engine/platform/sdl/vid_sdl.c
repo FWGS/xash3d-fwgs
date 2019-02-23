@@ -245,14 +245,15 @@ qboolean GL_CreateContext( void )
 	SDL_GL_GetAttribute( SDL_GL_RED_SIZE, &colorBits[0] );
 	SDL_GL_GetAttribute( SDL_GL_GREEN_SIZE, &colorBits[1] );
 	SDL_GL_GetAttribute( SDL_GL_BLUE_SIZE, &colorBits[2] );
-	glConfig.color_bits = colorBits[0] + colorBits[1] + colorBits[2];
+	glContext.color_bits = colorBits[0] + colorBits[1] + colorBits[2];
 
-	SDL_GL_GetAttribute( SDL_GL_ALPHA_SIZE, &glConfig.alpha_bits );
-	SDL_GL_GetAttribute( SDL_GL_DEPTH_SIZE, &glConfig.depth_bits );
-	SDL_GL_GetAttribute( SDL_GL_STENCIL_SIZE, &glConfig.stencil_bits );
-	glState.stencilEnabled = glConfig.stencil_bits ? true : false;
+	SDL_GL_GetAttribute( SDL_GL_ALPHA_SIZE, &glContext.alpha_bits );
+	SDL_GL_GetAttribute( SDL_GL_DEPTH_SIZE, &glContext.depth_bits );
+	SDL_GL_GetAttribute( SDL_GL_STENCIL_SIZE, &glContext.stencil_bits );
+	/// move to ref
+	//vidState.stencilEnabled = glContext.stencil_bits ? true : false;
 
-	SDL_GL_GetAttribute( SDL_GL_MULTISAMPLESAMPLES, &glConfig.msaasamples );
+	SDL_GL_GetAttribute( SDL_GL_MULTISAMPLESAMPLES, &glContext.msaasamples );
 
 #ifdef XASH_WES
 	void wes_init();
@@ -491,9 +492,9 @@ void VID_DestroyWindow( void )
 		host.hWnd = NULL;
 	}
 
-	if( glState.fullScreen )
+	if( vidState.fullScreen )
 	{
-		glState.fullScreen = false;
+		vidState.fullScreen = false;
 	}
 }
 
@@ -563,8 +564,9 @@ static void GL_SetupAttributes( void )
 
 	Msg( "bpp %d\n", glw_state.desktopBitsPixel );
 
-	if( glw_state.safe < SAFE_NOSTENCIL )
-		SDL_GL_SetAttribute( SDL_GL_STENCIL_SIZE, gl_stencilbits->value );
+	/// ref context attribs api
+//	if( glw_state.safe < SAFE_NOSTENCIL )
+//		SDL_GL_SetAttribute( SDL_GL_STENCIL_SIZE, gl_stencilbits->value );
 
 	if( glw_state.safe < SAFE_NOALPHA )
 		SDL_GL_SetAttribute( SDL_GL_ALPHA_SIZE, 8 );
@@ -615,14 +617,14 @@ static void GL_SetupAttributes( void )
 			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 1 );
 			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, samples );
 
-			glConfig.max_multisamples = samples;
+			glContext.max_multisamples = samples;
 		}
 		else
 		{
 			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 0 );
 			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, 0 );
 
-			glConfig.max_multisamples = 0;
+			glContext.max_multisamples = 0;
 		}
 	}
 	else
@@ -674,7 +676,7 @@ qboolean R_Init_Video( void )
 		return retval;
 	}
 
-	GL_InitExtensions();
+	ref.dllFuncs.GL_InitExtensions();
 
 	return true;
 }
@@ -692,7 +694,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 	glw_state.desktopWidth = displayMode.w;
 	glw_state.desktopHeight = displayMode.h;
 
-	glState.fullScreen = fullscreen;
+	vidState.fullScreen = fullscreen;
 
 	if( !host.hWnd )
 	{
@@ -764,8 +766,8 @@ qboolean VID_SetMode( void )
 
 	if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, fullscreen )) == rserr_ok )
 	{
-		glConfig.prev_width = iScreenWidth;
-		glConfig.prev_height = iScreenHeight;
+		vidState.prev_width = iScreenWidth;
+		vidState.prev_height = iScreenHeight;
 	}
 	else
 	{
@@ -784,7 +786,7 @@ qboolean VID_SetMode( void )
 		}
 
 		// try setting it back to something safe
-		if(( err = R_ChangeDisplaySettings( glConfig.prev_width, glConfig.prev_height, false )) != rserr_ok )
+		if(( err = R_ChangeDisplaySettings( vidState.prev_width, vidState.prev_height, false )) != rserr_ok )
 		{
 			Con_Reportf( S_ERROR  "VID_SetMode: could not revert to safe mode\n" );
 			Sys_Warn("could not revert to safe mode!");

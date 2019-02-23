@@ -15,7 +15,7 @@ GNU General Public License for more details.
 #pragma once
 #ifndef REF_API
 #define REF_API
-
+#include "com_image.h"
 #include "vgui_api.h"
 #include "render_api.h"
 #include "triangleapi.h"
@@ -26,6 +26,21 @@ GNU General Public License for more details.
 #include "r_efx.h"
 
 #define REF_API_VERSION 1
+
+
+#define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP)
+#define TF_FONT		(TF_NOMIPMAP|TF_CLAMP)
+#define TF_IMAGE		(TF_NOMIPMAP|TF_CLAMP)
+#define TF_DECAL		(TF_CLAMP)
+
+
+// screenshot types
+#define VID_SCREENSHOT	0
+#define VID_LEVELSHOT	1
+#define VID_MINISHOT	2
+#define VID_MAPSHOT		3	// special case for overview layer
+#define VID_SNAPSHOT	4	// save screenshot into root dir and no gamma correction
+
 
 typedef struct ref_globals_s
 {
@@ -108,6 +123,7 @@ typedef struct ref_interface_s
 	void (*GL_SetRenderMode)( int renderMode );
 
 	int (*R_AddEntity)( int entityType, cl_entity_t *ent );
+	void (*CL_AddCustomBeam)( cl_entity_t *pEnvBeam );
 
 	// view info
 	qboolean (*IsNormalPass)( void );
@@ -156,10 +172,12 @@ typedef struct ref_interface_s
 	// studio interface
 	float (*R_StudioEstimateFrame)( cl_entity_t *e, mstudioseqdesc_t *pseqdesc );
 	void (*R_StudioLerpMovement)( cl_entity_t *e, double time, vec3_t origin, vec3_t angles );
+	void (*CL_InitStudioAPI)( void );
 
 	// bmodel
 	void (*R_InitSkyClouds)( struct mip_s *mt, struct texture_s *tx, qboolean custom_palette );
 	void (*GL_SubdivideSurface)( msurface_t *fa );
+	void (*CL_RunLightStyles)( void );
 
 	// sprites
 	void (*R_GetSpriteParms)( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite );
@@ -174,6 +192,12 @@ typedef struct ref_interface_s
 
 	// particle renderer
 	void (*CL_Particle)( const vec3_t origin, int color, float life, int zpos, int zvel ); // debug thing
+
+	// efx implementation
+	void (*CL_DrawParticles)( double frametime, particle_t *particles );
+	void (*CL_DrawTracers)( double frametime, particle_t *tracers );
+	void (*CL_DrawBeams)( int fTrans , BEAM *beams );
+	qboolean (*R_BeamCull)( const vec3_t start, const vec3_t end, qboolean pvsOnly );
 
 	// Xash3D Render Interface
 	render_api_t *RenderAPI;         // partial RenderAPI implementation

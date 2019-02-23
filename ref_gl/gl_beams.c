@@ -13,8 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
+#include "gl_local.h"
 #include "r_efx.h"
 #include "event_flags.h"
 #include "entity_types.h"
@@ -22,7 +21,7 @@ GNU General Public License for more details.
 #include "customentity.h"
 #include "cl_tent.h"
 #include "pm_local.h"
-#include "gl_local.h"
+
 #include "studio.h"
 
 #define NOISE_DIVISIONS	64	// don't touch - many tripmines cause the crash when it equal 128
@@ -75,6 +74,7 @@ static void SineNoise( float *noise, int divs )
 	}
 }
 
+
 /*
 ==============================================================
 
@@ -108,230 +108,6 @@ static void R_BeamComputeNormal( const vec3_t vStartPos, const vec3_t vNextPos, 
 	VectorNormalizeFast( pNormal );
 }
 
-/*
-==============================================================
-
-BEAM ALLOCATE & PROCESSING
-
-==============================================================
-*/
-/*
-==============
-R_BeamAlloc
-
-==============
-*/
-BEAM *R_BeamAlloc( void )
-{
-	BEAM	*pBeam;
-
-	if( !cl_free_beams )
-		return NULL;
-
-	pBeam = cl_free_beams;
-	cl_free_beams = pBeam->next;
-	memset( pBeam, 0, sizeof( *pBeam ));
-	pBeam->next = cl_active_beams;
-	cl_active_beams = pBeam;
-	pBeam->die = cl.time;
-
-	return pBeam;
-}
-
-/*
-==============
-R_BeamFree
-
-==============
-*/
-void R_BeamFree( BEAM *pBeam )
-{
-	// free particles that have died off.
-	R_FreeDeadParticles( &pBeam->particles );
-
-	// now link into free list;
-	pBeam->next = cl_free_beams;
-	cl_free_beams = pBeam;
-}
-
-/*
-==============
-R_BeamSetup
-
-generic function. all beams must be
-passed through this
-==============
-*/
-void R_BeamSetup( BEAM *pbeam, vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude, float brightness, float speed )
-{
-	model_t	*sprite = CL_ModelHandle( modelIndex );
-
-	if( !sprite ) return;
-
-	pbeam->type = BEAM_POINTS;
-	pbeam->modelIndex = modelIndex;
-	pbeam->frame = 0;
-	pbeam->frameRate = 0;
-	pbeam->frameCount = sprite->numframes;
-
-	VectorCopy( start, pbeam->source );
-	VectorCopy( end, pbeam->target );
-	VectorSubtract( end, start, pbeam->delta );
-
-	pbeam->freq = speed * cl.time;
-	pbeam->die = life + cl.time;
-	pbeam->amplitude = amplitude;
-	pbeam->brightness = brightness;
-	pbeam->width = width;
-	pbeam->speed = speed;
-
-	if( amplitude >= 0.50f )
-		pbeam->segments = VectorLength( pbeam->delta ) * 0.25f + 3.0f;	// one per 4 pixels
-	else pbeam->segments = VectorLength( pbeam->delta ) * 0.075f + 3.0f;		// one per 16 pixels
-
-	pbeam->pFollowModel = NULL;
-	pbeam->flags = 0;
-}
-
-/*
-==============
-R_BeamSetAttributes
-
-set beam attributes
-==============
-*/
-void R_BeamSetAttributes( BEAM *pbeam, float r, float g, float b, float framerate, int startFrame )
-{
-	pbeam->frame = (float)startFrame;
-	pbeam->frameRate = framerate;
-	pbeam->r = r;
-	pbeam->g = g;
-	pbeam->b = b;
-}
-
-/*
-==============
-R_BeamLightning
-
-template for new beams
-==============
-*/
-BEAM *R_BeamLightning( vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude, float brightness, float speed )
-{
-	BEAM	*pbeam = R_BeamAlloc();
-
-	if( !pbeam ) return NULL;
-	pbeam->die = cl.time;
-
-	if( modelIndex < 0 )
-		return NULL;
-
-	R_BeamSetup( pbeam, start, end, modelIndex, life, width, amplitude, brightness, speed );
-
-	return pbeam;
-}
-
-/*
-==============
-R_BeamGetEntity
-
-extract entity number from index
-handle user entities
-==============
-*/
-static cl_entity_t *R_BeamGetEntity( int index )
-{
-	if( index < 0 )
-		return clgame.dllFuncs.pfnGetUserEntity( BEAMENT_ENTITY( -index ));
-	return CL_GetEntityByIndex( BEAMENT_ENTITY( index ));
-}
-
-/*
-==============
-R_BeamComputePoint
-
-compute attachment point for beam
-==============
-*/
-static qboolean R_BeamComputePoint( int beamEnt, vec3_t pt )
-{
-	cl_entity_t	*ent;
-	int		attach;
-
-	ent = R_BeamGetEntity( beamEnt );
-
-	if( beamEnt < 0 )
-		attach = BEAMENT_ATTACHMENT( -beamEnt );
-	else attach = BEAMENT_ATTACHMENT( beamEnt );
-
-	if( !ent )
-	{
-		Con_DPrintf( S_ERROR "R_BeamComputePoint: invalid entity %i\n", BEAMENT_ENTITY( beamEnt ));
-		VectorClear( pt );
-		return false;
-	}
-
-	// get attachment
-	if( attach > 0 )
-		VectorCopy( ent->attachment[attach - 1], pt );
-	else if(( ent->index - 1 ) == cl.playernum )
-		VectorCopy( cl.simorg, pt );
-	else VectorCopy( ent->origin, pt );
-
-	return true;
-}
-
-/*
-==============
-R_BeamRecomputeEndpoints
-
-Recomputes beam endpoints..
-==============
-*/
-qboolean R_BeamRecomputeEndpoints( BEAM *pbeam )
-{
-	if( FBitSet( pbeam->flags, FBEAM_STARTENTITY ))
-	{
-		cl_entity_t *start = R_BeamGetEntity( pbeam->startEntity );
-
-		if( R_BeamComputePoint( pbeam->startEntity, pbeam->source ))
-		{
-			if( !pbeam->pFollowModel )
-				pbeam->pFollowModel = start->model;
-			SetBits( pbeam->flags, FBEAM_STARTVISIBLE );
-		}
-		else if( !FBitSet( pbeam->flags, FBEAM_FOREVER ))
-		{
-			ClearBits( pbeam->flags, FBEAM_STARTENTITY );
-		}
-	}
-
-	if( FBitSet( pbeam->flags, FBEAM_ENDENTITY ))
-	{
-		cl_entity_t *end = R_BeamGetEntity( pbeam->endEntity );
-
-		if( R_BeamComputePoint( pbeam->endEntity, pbeam->target ))
-		{
-			if( !pbeam->pFollowModel )
-				pbeam->pFollowModel = end->model;
-			SetBits( pbeam->flags, FBEAM_ENDVISIBLE );
-		}
-		else if( !FBitSet( pbeam->flags, FBEAM_FOREVER ))
-		{
-			ClearBits( pbeam->flags, FBEAM_ENDENTITY );
-			pbeam->die = cl.time;
-			return false;
-		}
-		else
-		{
-			return false;
-		}
-	}
-
-	if( FBitSet( pbeam->flags, FBEAM_STARTENTITY ) && !FBitSet( pbeam->flags, FBEAM_STARTVISIBLE ))
-		return false;
-	return true;
-}
 
 /*
 ==============
@@ -357,7 +133,7 @@ qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
 			mins[i] = end[i];
 			maxs[i] = start[i];
 		}
-		
+
 		// don't let it be zero sized
 		if( mins[i] == maxs[i] )
 			maxs[i] += 1.0f;
@@ -369,13 +145,36 @@ qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
 		if( pvsOnly || !R_CullBox( mins, maxs ))
 		{
 			// beam is visible
-			return false;	
+			return false;
 		}
 	}
 
 	// beam is culled
 	return true;
 }
+
+/*
+================
+CL_AddCustomBeam
+
+Add the beam that encoded as custom entity
+================
+*/
+void CL_AddCustomBeam( cl_entity_t *pEnvBeam )
+{
+	if( tr.draw_list->num_beam_entities >= MAX_VISIBLE_PACKET )
+	{
+		Con_Printf( S_ERROR "Too many beams %d!\n", tr.draw_list->num_beam_entities );
+		return;
+	}
+
+	if( pEnvBeam )
+	{
+		tr.draw_list->beam_entities[tr.draw_list->num_beam_entities] = pEnvBeam;
+		tr.draw_list->num_beam_entities++;
+	}
+}
+
 
 /*
 ==============================================================
@@ -975,7 +774,7 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 	VectorAdd( center, last1, tmp );		// maxs
 	VectorSubtract( center, last1, screen );	// mins
 
-	if( !cl.worldmodel )
+	if( !WORLDMODEL )
 		return;
 
 	// is that box in PVS && frustum?
@@ -1044,6 +843,111 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 		}
 	}
 }
+
+/// export from engine...
+/*
+==============
+R_BeamGetEntity
+
+extract entity number from index
+handle user entities
+==============
+*/
+static cl_entity_t *R_BeamGetEntity( int index )
+{
+	if( index < 0 )
+		return clgame.dllFuncs.pfnGetUserEntity( BEAMENT_ENTITY( -index ));
+	return CL_GetEntityByIndex( BEAMENT_ENTITY( index ));
+}
+
+
+/*
+==============
+R_BeamComputePoint
+
+compute attachment point for beam
+==============
+*/
+static qboolean R_BeamComputePoint( int beamEnt, vec3_t pt )
+{
+	cl_entity_t	*ent;
+	int		attach;
+
+	ent = R_BeamGetEntity( beamEnt );
+
+	if( beamEnt < 0 )
+		attach = BEAMENT_ATTACHMENT( -beamEnt );
+	else attach = BEAMENT_ATTACHMENT( beamEnt );
+
+	if( !ent )
+	{
+		Con_DPrintf( S_ERROR "R_BeamComputePoint: invalid entity %i\n", BEAMENT_ENTITY( beamEnt ));
+		VectorClear( pt );
+		return false;
+	}
+
+	// get attachment
+	if( attach > 0 )
+		VectorCopy( ent->attachment[attach - 1], pt );
+	else if(( ent->index - 1 ) == cl.playernum )
+		VectorCopy( cl.simorg, pt );
+	else VectorCopy( ent->origin, pt );
+
+	return true;
+}
+
+/*
+==============
+R_BeamRecomputeEndpoints
+
+Recomputes beam endpoints..
+==============
+*/
+qboolean R_BeamRecomputeEndpoints( BEAM *pbeam )
+{
+	if( FBitSet( pbeam->flags, FBEAM_STARTENTITY ))
+	{
+		cl_entity_t *start = R_BeamGetEntity( pbeam->startEntity );
+
+		if( R_BeamComputePoint( pbeam->startEntity, pbeam->source ))
+		{
+			if( !pbeam->pFollowModel )
+				pbeam->pFollowModel = start->model;
+			SetBits( pbeam->flags, FBEAM_STARTVISIBLE );
+		}
+		else if( !FBitSet( pbeam->flags, FBEAM_FOREVER ))
+		{
+			ClearBits( pbeam->flags, FBEAM_STARTENTITY );
+		}
+	}
+
+	if( FBitSet( pbeam->flags, FBEAM_ENDENTITY ))
+	{
+		cl_entity_t *end = R_BeamGetEntity( pbeam->endEntity );
+
+		if( R_BeamComputePoint( pbeam->endEntity, pbeam->target ))
+		{
+			if( !pbeam->pFollowModel )
+				pbeam->pFollowModel = end->model;
+			SetBits( pbeam->flags, FBEAM_ENDVISIBLE );
+		}
+		else if( !FBitSet( pbeam->flags, FBEAM_FOREVER ))
+		{
+			ClearBits( pbeam->flags, FBEAM_ENDENTITY );
+			pbeam->die = cl.time;
+			return false;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	if( FBitSet( pbeam->flags, FBEAM_STARTENTITY ) && !FBitSet( pbeam->flags, FBEAM_STARTVISIBLE ))
+		return false;
+	return true;
+}
+
 
 /*
 ==============
@@ -1231,7 +1135,65 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	}
 
 	GL_Cull( GL_FRONT );
+	r_stats.c_view_beams_count++;
 }
+
+/*
+==============
+R_BeamSetAttributes
+
+set beam attributes
+==============
+*/
+static void R_BeamSetAttributes( BEAM *pbeam, float r, float g, float b, float framerate, int startFrame )
+{
+	pbeam->frame = (float)startFrame;
+	pbeam->frameRate = framerate;
+	pbeam->r = r;
+	pbeam->g = g;
+	pbeam->b = b;
+}
+
+/*
+==============
+R_BeamSetup
+
+generic function. all beams must be
+passed through this
+==============
+*/
+static void R_BeamSetup( BEAM *pbeam, vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude, float brightness, float speed )
+{
+	model_t	*sprite = CL_ModelHandle( modelIndex );
+
+	if( !sprite ) return;
+
+	pbeam->type = BEAM_POINTS;
+	pbeam->modelIndex = modelIndex;
+	pbeam->frame = 0;
+	pbeam->frameRate = 0;
+	pbeam->frameCount = sprite->numframes;
+
+	VectorCopy( start, pbeam->source );
+	VectorCopy( end, pbeam->target );
+	VectorSubtract( end, start, pbeam->delta );
+
+	pbeam->freq = speed * cl.time;
+	pbeam->die = life + cl.time;
+	pbeam->amplitude = amplitude;
+	pbeam->brightness = brightness;
+	pbeam->width = width;
+	pbeam->speed = speed;
+
+	if( amplitude >= 0.50f )
+		pbeam->segments = VectorLength( pbeam->delta ) * 0.25f + 3.0f;	// one per 4 pixels
+	else pbeam->segments = VectorLength( pbeam->delta ) * 0.075f + 3.0f;		// one per 16 pixels
+
+	pbeam->pFollowModel = NULL;
+	pbeam->flags = 0;
+}
+
+
 
 /*
 ==============
@@ -1303,175 +1265,6 @@ void R_BeamDrawCustomEntity( cl_entity_t *ent )
 	R_BeamDraw( &beam, tr.frametime );
 }
 
-/*
-==============================================================
-
-VIEWBEAMS MANAGEMENT
-
-==============================================================
-*/
-BEAM		*cl_active_beams;
-BEAM		*cl_free_beams;
-BEAM		*cl_viewbeams = NULL;		// beams pool
-
-/*
-================
-CL_InitViewBeams
-
-================
-*/
-void CL_InitViewBeams( void )
-{
-	cl_viewbeams = Mem_Calloc( cls.mempool, sizeof( BEAM ) * GI->max_beams );
-	CL_ClearViewBeams();
-}
-
-/*
-================
-CL_ClearViewBeams
-
-================
-*/
-void CL_ClearViewBeams( void )
-{
-	int	i;
-
-	if( !cl_viewbeams ) return;
-
-	// clear beams
-	cl_free_beams = cl_viewbeams;
-	cl_active_beams = NULL;
-
-	for( i = 0; i < GI->max_beams - 1; i++ )
-		cl_viewbeams[i].next = &cl_viewbeams[i+1];
-	cl_viewbeams[GI->max_beams - 1].next = NULL;
-}
-
-/*
-================
-CL_FreeViewBeams
-
-================
-*/
-void CL_FreeViewBeams( void )
-{
-	if( cl_viewbeams )
-		Mem_Free( cl_viewbeams );
-	cl_viewbeams = NULL;
-}
-
-/*
-================
-CL_AddCustomBeam
-
-Add the beam that encoded as custom entity
-================
-*/
-void CL_AddCustomBeam( cl_entity_t *pEnvBeam )
-{
-	if( tr.draw_list->num_beam_entities >= MAX_VISIBLE_PACKET )
-	{
-		Con_Printf( S_ERROR "Too many beams %d!\n", tr.draw_list->num_beam_entities );
-		return;
-	}
-
-	if( pEnvBeam )
-	{
-		tr.draw_list->beam_entities[tr.draw_list->num_beam_entities] = pEnvBeam;
-		tr.draw_list->num_beam_entities++;
-	}
-}
-
-
-/*
-==============
-CL_KillDeadBeams
-
-==============
-*/
-void CL_KillDeadBeams( cl_entity_t *pDeadEntity )
-{
-	BEAM		*pbeam;
-	BEAM		*pnewlist;
-	BEAM		*pnext;
-	particle_t	*pHead;	// build a new list to replace cl_active_beams.
-
-	pbeam = cl_active_beams;	// old list.
-	pnewlist = NULL;		// new list.
-
-	while( pbeam )
-	{
-		pnext = pbeam->next;
-
-		// link into new list.
-		if( R_BeamGetEntity( pbeam->startEntity ) != pDeadEntity )
-		{
-			pbeam->next = pnewlist;
-			pnewlist = pbeam;
-
-			pbeam = pnext;
-			continue;
-		}
-
-		pbeam->flags &= ~(FBEAM_STARTENTITY | FBEAM_ENDENTITY);
-
-		if( pbeam->type != TE_BEAMFOLLOW )
-		{
-			// remove beam
-			pbeam->die = cl.time - 0.1f;
-
-			// kill off particles
-			pHead = pbeam->particles;
-			while( pHead )
-			{
-				pHead->die = cl.time - 0.1f;
-				pHead = pHead->next;
-			}
-
-			// free the beam
-			R_BeamFree( pbeam );
-		}
-		else
-		{
-			// stay active
-			pbeam->next = pnewlist;
-			pnewlist = pbeam;
-		}
-
-		pbeam = pnext;
-	}
-
-	// We now have a new list with the bogus stuff released.
-	cl_active_beams = pnewlist;
-}
-
-/*
-==============
-CL_BeamAttemptToDie
-
-Check for expired beams
-==============
-*/
-qboolean CL_BeamAttemptToDie( BEAM *pBeam )
-{
-	Assert( pBeam != NULL );
-
-	// premanent beams never die automatically
-	if( FBitSet( pBeam->flags, FBEAM_FOREVER ))
-		return false;
-
-	if( pBeam->type == TE_BEAMFOLLOW && pBeam->particles )
-	{
-		// wait for all trails are dead
-		return false;
-	}
-
-	// other beams
-	if( pBeam->die > cl.time )
-		return false;
-
-	return true;
-}
 
 /*
 ==============
@@ -1480,7 +1273,7 @@ CL_DrawBeams
 draw beam loop
 ==============
 */
-void CL_DrawBeams( int fTrans )
+void CL_DrawBeams(int fTrans , BEAM *active_beams )
 {
 	BEAM	*pBeam, *pNext;
 	BEAM	*pPrev = NULL;
@@ -1512,508 +1305,17 @@ void CL_DrawBeams( int fTrans )
 	RI.currentbeam = NULL;
 
 	// draw temporary entity beams
-	for( pBeam = cl_active_beams; pBeam; pBeam = pNext )
+	for( pBeam = active_beams; pBeam; pBeam = pBeam->next )
 	{
-		// need to store the next one since we may delete this one
-		pNext = pBeam->next;
-
 		if( fTrans && FBitSet( pBeam->flags, FBEAM_SOLID ))
 			continue;
 
 		if( !fTrans && !FBitSet( pBeam->flags, FBEAM_SOLID ))
 			continue;
 
-		// retire old beams
-		if( CL_BeamAttemptToDie( pBeam ))
-		{
-			// reset links
-			if( pPrev ) pPrev->next = pNext;
-			else cl_active_beams = pNext;
-
-			// free the beam
-			R_BeamFree( pBeam );
-
-			pBeam = NULL;
-			continue;
-		}
-
 		R_BeamDraw( pBeam, cl.time - cl.oldtime );
-		r_stats.c_view_beams_count++;
-		pPrev = pBeam;
 	}
 
 	pglShadeModel( GL_FLAT );
 	pglDepthMask( GL_TRUE );
-}
-
-/*
-==============
-R_BeamKill
-
-Remove beam attached to specified entity
-and all particle trails (if this is a beamfollow)
-==============
-*/
-void R_BeamKill( int deadEntity )
-{
-	cl_entity_t	*pDeadEntity;
-
-	pDeadEntity = R_BeamGetEntity( deadEntity );
-	if( !pDeadEntity ) return;
-
-	CL_KillDeadBeams( pDeadEntity );
-}
-
-/*
-==============
-R_BeamEnts
-
-Create beam between two ents
-==============
-*/
-BEAM *R_BeamEnts( int startEnt, int endEnt, int modelIndex, float life, float width, float amplitude, float brightness,
-	float speed, int startFrame, float framerate, float r, float g, float b )
-{
-	cl_entity_t	*start, *end;
-	BEAM		*pbeam;
-	model_t		*mod;
-
-	mod = CL_ModelHandle( modelIndex );
-
-	// need a valid model.
-	if( !mod || mod->type != mod_sprite )
-		return NULL;
-
-	start = R_BeamGetEntity( startEnt );
-	end = R_BeamGetEntity( endEnt );
-
-	if( !start || !end )
-		return NULL;
-
-	// don't start temporary beams out of the PVS
-	if( life != 0 && ( !start->model || !end->model ))
-		return NULL;
-
-	pbeam = R_BeamLightning( vec3_origin, vec3_origin, modelIndex, life, width, amplitude, brightness, speed );
-	if( !pbeam ) return NULL;
-
-	pbeam->type = TE_BEAMPOINTS;
-	SetBits( pbeam->flags, FBEAM_STARTENTITY | FBEAM_ENDENTITY );
-	if( life == 0 ) SetBits( pbeam->flags, FBEAM_FOREVER );
-
-	pbeam->startEntity = startEnt;
-	pbeam->endEntity = endEnt;
-
-	R_BeamSetAttributes( pbeam, r, g, b, framerate, startFrame );
-
-	return pbeam;
-}
-
-/*
-==============
-R_BeamPoints
-
-Create beam between two points
-==============
-*/
-BEAM *R_BeamPoints( vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude,
-	float brightness, float speed, int startFrame, float framerate, float r, float g, float b )
-{
-	BEAM	*pbeam;
-
-	if( life != 0 && R_BeamCull( start, end, true ))
-		return NULL;
-
-	pbeam = R_BeamAlloc();
-	if( !pbeam ) return NULL;
-
-	pbeam->die = cl.time;
-
-	if( modelIndex < 0 )
-		return NULL;
-
-	R_BeamSetup( pbeam, start, end, modelIndex, life, width, amplitude, brightness, speed );
-	if( life == 0 ) SetBits( pbeam->flags, FBEAM_FOREVER );
-
-	R_BeamSetAttributes( pbeam, r, g, b, framerate, startFrame );
-
-	return pbeam;
-}
-
-/*
-==============
-R_BeamCirclePoints
-
-Create beam cicrle
-==============
-*/
-BEAM *R_BeamCirclePoints( int type, vec3_t start, vec3_t end, int modelIndex, float life, float width,
-	float amplitude, float brightness, float speed, int startFrame, float framerate, float r, float g, float b )
-{
-	BEAM	*pbeam = R_BeamLightning( start, end, modelIndex, life, width, amplitude, brightness, speed );
-
-	if( !pbeam ) return NULL;
-	pbeam->type = type;
-	if( life == 0 ) SetBits( pbeam->flags, FBEAM_FOREVER );
-	R_BeamSetAttributes( pbeam, r, g, b, framerate, startFrame );
-
-	return pbeam;
-}
-
-
-/*
-==============
-R_BeamEntPoint
-
-Create beam between entity and point
-==============
-*/
-BEAM *R_BeamEntPoint( int startEnt, vec3_t end, int modelIndex, float life, float width, float amplitude,
-	float brightness, float speed, int startFrame, float framerate, float r, float g, float b )
-{
-	BEAM		*pbeam;
-	cl_entity_t	*start;
-
-	start = R_BeamGetEntity( startEnt );
-
-	if( !start ) return NULL;
-
-	if( life == 0 && !start->model )
-		return NULL;
-
-	pbeam = R_BeamAlloc();
-	if ( !pbeam ) return NULL;
-
-	pbeam->die = cl.time;
-	if( modelIndex < 0 )
-		return NULL;
-
-	R_BeamSetup( pbeam, vec3_origin, end, modelIndex, life, width, amplitude, brightness, speed );
-
-	pbeam->type = TE_BEAMPOINTS;
-	SetBits( pbeam->flags, FBEAM_STARTENTITY );
-	if( life == 0 ) SetBits( pbeam->flags, FBEAM_FOREVER );
-	pbeam->startEntity = startEnt;
-	pbeam->endEntity = 0;
-
-	R_BeamSetAttributes( pbeam, r, g, b, framerate, startFrame );
-
-	return pbeam;
-}
-
-/*
-==============
-R_BeamRing
-
-Create beam between two ents
-==============
-*/
-BEAM *R_BeamRing( int startEnt, int endEnt, int modelIndex, float life, float width, float amplitude, float brightness,
-	float speed, int startFrame, float framerate, float r, float g, float b )
-{
-	BEAM		*pbeam;
-	cl_entity_t	*start, *end;
-
-	start = R_BeamGetEntity( startEnt );
-	end = R_BeamGetEntity( endEnt );
-
-	if( !start || !end )
-		return NULL;
-
-	if( life != 0 && ( !start->model || !end->model ))
-		return NULL;
-
-	pbeam = R_BeamLightning( vec3_origin, vec3_origin, modelIndex, life, width, amplitude, brightness, speed );
-	if( !pbeam ) return NULL;
-
-	pbeam->type = TE_BEAMRING;
-	SetBits( pbeam->flags, FBEAM_STARTENTITY | FBEAM_ENDENTITY );
-	if( life == 0 ) SetBits( pbeam->flags, FBEAM_FOREVER );
-	pbeam->startEntity = startEnt;
-	pbeam->endEntity = endEnt;
-
-	R_BeamSetAttributes( pbeam, r, g, b, framerate, startFrame );
-
-	return pbeam;
-}
-
-/*
-==============
-R_BeamFollow
-
-Create beam following with entity
-==============
-*/
-BEAM *R_BeamFollow( int startEnt, int modelIndex, float life, float width, float r, float g, float b, float brightness )
-{
-	BEAM	*pbeam = R_BeamAlloc();
-
-	if( !pbeam ) return NULL;
-	pbeam->die = cl.time;
-
-	if( modelIndex < 0 )
-		return NULL;
-
-	R_BeamSetup( pbeam, vec3_origin, vec3_origin, modelIndex, life, width, life, brightness, 1.0f );
-
-	pbeam->type = TE_BEAMFOLLOW;
-	SetBits( pbeam->flags, FBEAM_STARTENTITY );
-	pbeam->startEntity = startEnt;
-
-	R_BeamSetAttributes( pbeam, r, g, b, 1.0f, 0 );
-
-	return pbeam;
-}
-
-/*
-==============
-R_BeamSprite
-
-Create a beam with sprite at the end
-Valve legacy
-==============
-*/
-void R_BeamSprite( vec3_t start, vec3_t end, int beamIndex, int spriteIndex )
-{
-	R_BeamPoints( start, end, beamIndex, 0.01f, 0.4f, 0, COM_RandomFloat( 0.5f, 0.655f ), 5.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f );
-	R_TempSprite( end, vec3_origin, 0.1f, spriteIndex, kRenderTransAdd, kRenderFxNone, 0.35f, 0.01f, 0.0f );
-}
-
-/*
-==============
-CL_ParseViewBeam
-
-handle beam messages
-==============
-*/
-void CL_ParseViewBeam( sizebuf_t *msg, int beamType )
-{
-	vec3_t	start, end;
-	int	modelIndex, startFrame;
-	float	frameRate, life, width;
-	int	startEnt, endEnt;
-	float	noise, speed;
-	float	r, g, b, a;
-
-	switch( beamType )
-	{
-	case TE_BEAMPOINTS:
-		start[0] = MSG_ReadCoord( msg );
-		start[1] = MSG_ReadCoord( msg );
-		start[2] = MSG_ReadCoord( msg );
-		end[0] = MSG_ReadCoord( msg );
-		end[1] = MSG_ReadCoord( msg );
-		end[2] = MSG_ReadCoord( msg );
-		modelIndex = MSG_ReadShort( msg );
-		startFrame = MSG_ReadByte( msg );
-		frameRate = (float)MSG_ReadByte( msg );
-		life = (float)(MSG_ReadByte( msg ) * 0.1f);
-		width = (float)(MSG_ReadByte( msg ) * 0.1f);
-		noise = (float)(MSG_ReadByte( msg ) * 0.01f);
-		r = (float)MSG_ReadByte( msg ) / 255.0f;
-		g = (float)MSG_ReadByte( msg ) / 255.0f;
-		b = (float)MSG_ReadByte( msg ) / 255.0f;
-		a = (float)MSG_ReadByte( msg ) / 255.0f;
-		speed = (float)(MSG_ReadByte( msg ) * 0.1f);
-		R_BeamPoints( start, end, modelIndex, life, width, noise, a, speed, startFrame, frameRate, r, g, b );
-		break;
-	case TE_BEAMENTPOINT:
-		startEnt = MSG_ReadShort( msg );
-		end[0] = MSG_ReadCoord( msg );
-		end[1] = MSG_ReadCoord( msg );
-		end[2] = MSG_ReadCoord( msg );
-		modelIndex = MSG_ReadShort( msg );
-		startFrame = MSG_ReadByte( msg );
-		frameRate = (float)MSG_ReadByte( msg );
-		life = (float)(MSG_ReadByte( msg ) * 0.1f);
-		width = (float)(MSG_ReadByte( msg ) * 0.1f);
-		noise = (float)(MSG_ReadByte( msg ) * 0.01f);
-		r = (float)MSG_ReadByte( msg ) / 255.0f;
-		g = (float)MSG_ReadByte( msg ) / 255.0f;
-		b = (float)MSG_ReadByte( msg ) / 255.0f;
-		a = (float)MSG_ReadByte( msg ) / 255.0f;
-		speed = (float)(MSG_ReadByte( msg ) * 0.1f);
-		R_BeamEntPoint( startEnt, end, modelIndex, life, width, noise, a, speed, startFrame, frameRate, r, g, b );
-		break;
-	case TE_LIGHTNING:
-		start[0] = MSG_ReadCoord( msg );
-		start[1] = MSG_ReadCoord( msg );
-		start[2] = MSG_ReadCoord( msg );
-		end[0] = MSG_ReadCoord( msg );
-		end[1] = MSG_ReadCoord( msg );
-		end[2] = MSG_ReadCoord( msg );
-		life = (float)(MSG_ReadByte( msg ) * 0.1f);
-		width = (float)(MSG_ReadByte( msg ) * 0.1f);
-		noise = (float)(MSG_ReadByte( msg ) * 0.01f);
-		modelIndex = MSG_ReadShort( msg );
-		R_BeamLightning( start, end, modelIndex, life, width, noise, 0.6F, 3.5f );
-		break;
-	case TE_BEAMENTS:
-		startEnt = MSG_ReadShort( msg );
-		endEnt = MSG_ReadShort( msg );
-		modelIndex = MSG_ReadShort( msg );
-		startFrame = MSG_ReadByte( msg );
-		frameRate = (float)(MSG_ReadByte( msg ) * 0.1f);
-		life = (float)(MSG_ReadByte( msg ) * 0.1f);
-		width = (float)(MSG_ReadByte( msg ) * 0.1f);
-		noise = (float)(MSG_ReadByte( msg ) * 0.01f);
-		r = (float)MSG_ReadByte( msg ) / 255.0f;
-		g = (float)MSG_ReadByte( msg ) / 255.0f;
-		b = (float)MSG_ReadByte( msg ) / 255.0f;
-		a = (float)MSG_ReadByte( msg ) / 255.0f;
-		speed = (float)(MSG_ReadByte( msg ) * 0.1f);
-		R_BeamEnts( startEnt, endEnt, modelIndex, life, width, noise, a, speed, startFrame, frameRate, r, g, b );
-		break;
-	case TE_BEAM:
-		break;
-	case TE_BEAMSPRITE:
-		start[0] = MSG_ReadCoord( msg );
-		start[1] = MSG_ReadCoord( msg );
-		start[2] = MSG_ReadCoord( msg );
-		end[0] = MSG_ReadCoord( msg );
-		end[1] = MSG_ReadCoord( msg );
-		end[2] = MSG_ReadCoord( msg );
-		modelIndex = MSG_ReadShort( msg );	// beam model
-		startFrame = MSG_ReadShort( msg );	// sprite model
-		R_BeamSprite( start, end, modelIndex, startFrame );
-		break;
-	case TE_BEAMTORUS:
-	case TE_BEAMDISK:
-	case TE_BEAMCYLINDER:
-		start[0] = MSG_ReadCoord( msg );
-		start[1] = MSG_ReadCoord( msg );
-		start[2] = MSG_ReadCoord( msg );
-		end[0] = MSG_ReadCoord( msg );
-		end[1] = MSG_ReadCoord( msg );
-		end[2] = MSG_ReadCoord( msg );
-		modelIndex = MSG_ReadShort( msg );
-		startFrame = MSG_ReadByte( msg );
-		frameRate = (float)(MSG_ReadByte( msg ));
-		life = (float)(MSG_ReadByte( msg ) * 0.1f);
-		width = (float)(MSG_ReadByte( msg ));
-		noise = (float)(MSG_ReadByte( msg ) * 0.1f);
-		r = (float)MSG_ReadByte( msg ) / 255.0f;
-		g = (float)MSG_ReadByte( msg ) / 255.0f;
-		b = (float)MSG_ReadByte( msg ) / 255.0f;
-		a = (float)MSG_ReadByte( msg ) / 255.0f;
-		speed = (float)(MSG_ReadByte( msg ) / 0.1f);
-		R_BeamCirclePoints( beamType, start, end, modelIndex, life, width, noise, a, speed, startFrame, frameRate, r, g, b );
-		break;
-	case TE_BEAMFOLLOW:
-		startEnt = MSG_ReadShort( msg );
-		modelIndex = MSG_ReadShort( msg );
-		life = (float)(MSG_ReadByte( msg ) * 0.1f);
-		width = (float)MSG_ReadByte( msg );
-		r = (float)MSG_ReadByte( msg ) / 255.0f;
-		g = (float)MSG_ReadByte( msg ) / 255.0f;
-		b = (float)MSG_ReadByte( msg ) / 255.0f;
-		a = (float)MSG_ReadByte( msg ) / 255.0f;
-		R_BeamFollow( startEnt, modelIndex, life, width, r, g, b, a );
-		break;
-	case TE_BEAMRING:
-		startEnt = MSG_ReadShort( msg );
-		endEnt = MSG_ReadShort( msg );
-		modelIndex = MSG_ReadShort( msg );
-		startFrame = MSG_ReadByte( msg );
-		frameRate = (float)MSG_ReadByte( msg );
-		life = (float)(MSG_ReadByte( msg ) * 0.1f);
-		width = (float)(MSG_ReadByte( msg ) * 0.1f);
-		noise = (float)(MSG_ReadByte( msg ) * 0.01f);
-		r = (float)MSG_ReadByte( msg ) / 255.0f;
-		g = (float)MSG_ReadByte( msg ) / 255.0f;
-		b = (float)MSG_ReadByte( msg ) / 255.0f;
-		a = (float)MSG_ReadByte( msg ) / 255.0f;
-		speed = (float)(MSG_ReadByte( msg ) * 0.1f);
-		R_BeamRing( startEnt, endEnt, modelIndex, life, width, noise, a, speed, startFrame, frameRate, r, g, b );
-		break;
-	case TE_BEAMHOSE:
-		break;
-	case TE_KILLBEAM:
-		startEnt = MSG_ReadShort( msg );
-		R_BeamKill( startEnt );
-		break;
-	}
-}
-
-/*
-===============
-CL_ReadLineFile_f
-
-Optimized version of pointfile - use beams instead of particles
-===============
-*/
-void CL_ReadLineFile_f( void )
-{
-	char		*afile, *pfile;
-	vec3_t		p1, p2;
-	int		count, modelIndex;
-	char		filename[MAX_QPATH];
-	model_t		*model;
-	string		token;
-
-	Q_snprintf( filename, sizeof( filename ), "maps/%s.lin", clgame.mapname );
-	afile = FS_LoadFile( filename, NULL, false );
-
-	if( !afile )
-	{
-		Con_Printf( S_ERROR "couldn't open %s\n", filename );
-		return;
-	}
-
-	Con_Printf( "Reading %s...\n", filename );
-
-	count = 0;
-	pfile = afile;
-	model = CL_LoadModel( DEFAULT_LASERBEAM_PATH, &modelIndex );
-
-	while( 1 )
-	{
-		pfile = COM_ParseFile( pfile, token );
-		if( !pfile ) break;
-		p1[0] = Q_atof( token );
-
-		pfile = COM_ParseFile( pfile, token );
-		if( !pfile ) break;
-		p1[1] = Q_atof( token );
-
-		pfile = COM_ParseFile( pfile, token );
-		if( !pfile ) break;
-		p1[2] = Q_atof( token );
-
-		pfile = COM_ParseFile( pfile, token );
-		if( !pfile ) break;
-
-		if( token[0] != '-' )
-		{
-			Con_Printf( S_ERROR "%s is corrupted\n", filename );
-			break;
-		}
-
-		pfile = COM_ParseFile( pfile, token );
-		if( !pfile ) break;
-		p2[0] = Q_atof( token );
-
-		pfile = COM_ParseFile( pfile, token );
-		if( !pfile ) break;
-		p2[1] = Q_atof( token );
-
-		pfile = COM_ParseFile( pfile, token );
-		if( !pfile ) break;
-		p2[2] = Q_atof( token );
-
-		count++;
-
-		if( !R_BeamPoints( p1, p2, modelIndex, 0, 2, 0, 255, 0, 0, 0, 255.0f, 0.0f, 0.0f ))
-		{
-			if( !model || model->type != mod_sprite )
-				Con_Printf( S_ERROR "failed to load \"%s\"!\n", DEFAULT_LASERBEAM_PATH );
-			else Con_Printf( S_ERROR "not enough free beams!\n" );
-			break;
-		}
-	}
-
-	Mem_Free( afile );
-
-	if( count ) Con_Printf( "%i lines read\n", count );
-	else Con_Printf( "map %s has no leaks!\n", clgame.mapname );
 }
