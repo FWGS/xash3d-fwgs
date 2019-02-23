@@ -54,7 +54,7 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 
 * **Gentoo**: TODO
 * **Debian**: TODO
-* **ArchLinux**: TODO
+* **ArchLinux**: `<AUR Helper> -S xash3d-git`
 
 ### Building
 #### Windows(Visual Studio)
