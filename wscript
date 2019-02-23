@@ -45,7 +45,7 @@ def options(opt):
 	grp.add_option('--dedicated', action = 'store_true', dest = 'DEDICATED', default = False,
 		help = 'build Xash Dedicated Server(XashDS)')
 
-        grp.add_option(	'--single-binary', action = 'store_true', dest = 'SINGLE_BINARY', default = False,
+	grp.add_option(	'--single-binary', action = 'store_true', dest = 'SINGLE_BINARY', default = False,
 		help = 'build single "xash" binary instead of xash.dll/libxash.so (forced for dedicated)')
 
 	grp.add_option('--64bits', action = 'store_true', dest = 'ALLOW64', default = False,
