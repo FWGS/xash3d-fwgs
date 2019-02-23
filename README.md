@@ -50,7 +50,7 @@ If you're stuck somewhere and you need a clear example, open `.travis.yml`.
 #### Linux
 NOTE: Make sure you're OK with targetting 32-bit.
 
-Even if Xash3D FWGS does support targetting 64-bit, anything can happen, not to mention that you can't load games without recompiling them from source code!
+Even if Xash3D FWGS does support targetting 64-bit, you can't load games without recompiling them from source code!
 
 * **Gentoo**: TODO
 * **Debian**: TODO
