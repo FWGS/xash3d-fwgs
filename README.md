@@ -1,5 +1,5 @@
 # Xash3D FWGS Engine
-![](https://api.travis-ci.org/FWGS/xash3d-fwgs.svg?branch=master) ![](https://img.shields.io/discord/355697768582610945.svg)
+[![Build Status](https://api.travis-ci.org/FWGS/xash3d-fwgs.svg?branch=master)](https://travis-ci.org/FWGS/xash3d-fwgs) [![Discord Server](https://img.shields.io/discord/355697768582610945.svg)](https://discord.gg/TbnHcVb)
 
 Xash3D FWGS is a fork of Xash3D Engine by Unkle Mike with extended features and crossplatform.
 
@@ -35,7 +35,7 @@ Latest development build: https://github.com/FWGS/xash3d-deploy/tree/newengine-l
 ## Build instructions
 We are using Waf build system. If you have some Waf-related questions, I recommend you to read https://waf.io/book/
 
-If you're stuck somewhere and you need a clear example, open `.travis.yml`. 
+If you're stuck somewhere and you need a clear example, read `.travis.yml` and `scripts/build*.sh`.
 
 ### Prerequisites
 #### Windows(Visual Studio)
