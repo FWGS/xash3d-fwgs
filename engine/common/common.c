@@ -767,12 +767,14 @@ COM_CheckString
 
 =============
 */
+#if 0
 int COM_CheckString( const char *string )
 {
 	if( !string || !*string )
 		return 0;
 	return 1;
 }
+#endif
 
 /*
 =============

@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include "common.h"
 #include "gl_local.h"
 
 #define TEXTURES_HASH_SIZE	(MAX_TEXTURES >> 2)
@@ -877,7 +878,7 @@ byte *GL_ApplyFilter( const byte *source, int width, int height )
 	byte	*out = (byte *)source;
 	int	i;
 
-	if( Host_IsQuakeCompatible() || glConfig.max_multisamples > 1 )
+	if( gEngfuncs.Host_IsQuakeCompatible() || glConfig.max_multisamples > 1 )
 		return in;
 
 	for( i = 0; source && i < width * height; i++, in += 4 )

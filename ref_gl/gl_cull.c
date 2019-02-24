@@ -54,19 +54,19 @@ R_CullModel
 */
 int R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax )
 {
-	if( e == &clgame.viewent )
+	if( e == gEngfuncs.GetViewModel() )
 	{
-		if( CL_IsDevOverviewMode( ))
+		if( gEngfuncs.CL_IsDevOverviewMode( ))
 			return 1;
 
-		if( RP_NORMALPASS() && !cl.local.thirdperson && cl.viewentity == ( cl.playernum + 1 ))
+		if( RP_NORMALPASS() && !gEngfuncs.CL_IsThirdPersonMode() && CL_IsViewEntityLocalPlayer())
 			return 0;
 
 		return 1;
 	}
 
 	// local client can't view himself if camera or thirdperson is not active
-	if( RP_LOCALCLIENT( e ) && !cl.local.thirdperson && cl.viewentity == ( cl.playernum + 1 ))
+	if( RP_LOCALCLIENT( e ) && !gEngfuncs.CL_IsThirdPersonMode() && CL_IsViewEntityLocalPlayer())
 		return 1;
 
 	if( R_CullBox( absmin, absmax ))
@@ -93,7 +93,7 @@ int R_CullSurface( msurface_t *surf, gl_frustum_t *frustum, uint clipflags )
 		return CULL_VISIBLE;
 
 	// world surfaces can be culled by vis frame too
-	if( RI.currententity == clgame.entities && surf->visframe != tr.framecount )
+	if( RI.currententity == gEngfuncs.GetEntityByIndex( 0 ) && surf->visframe != tr.framecount )
 		return CULL_VISFRAME;
 
 	// only static ents can be culled by frustum
@@ -108,7 +108,7 @@ int R_CullSurface( msurface_t *surf, gl_frustum_t *frustum, uint clipflags )
 		{
 			vec3_t	orthonormal;
 
-			if( e == clgame.entities ) orthonormal[2] = surf->plane->normal[2];
+			if( e == gEngfuncs.GetEntityByIndex( 0 ) ) orthonormal[2] = surf->plane->normal[2];
 			else Matrix4x4_VectorRotate( RI.objectMatrix, surf->plane->normal, orthonormal );
 			dist = orthonormal[2];
 		}

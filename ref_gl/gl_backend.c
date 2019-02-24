@@ -105,7 +105,7 @@ void GL_BackendEndFrame( void )
 		break;
 	case 4:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i static entities\n%3i normal entities\n%3i server entities",
-		r_numStatics, r_numEntities - r_numStatics, pfnNumberOfEntities( ));
+		r_numStatics, r_numEntities - r_numStatics, gEngfuncs.pfnNumberOfEntities( ));
 		break;
 	case 5:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i tempents\n%3i viewbeams\n%3i particles",

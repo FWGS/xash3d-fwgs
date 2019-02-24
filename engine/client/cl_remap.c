@@ -110,7 +110,7 @@ void CL_DuplicateTexture( mstudiotexture_t *ptexture, int topcolor, int bottomco
 
 	// save off the real texture index
 	index = ptexture->index;
-	name = ref.dllFuncs.R_GetTextureName( index );
+	name = RefRenderAPI->GL_TextureName( index );
 	Q_snprintf( texname, sizeof( texname ), "#%i_%s", refState.currententity->curstate.number, name + 1 );
 
 	// search for pixels
@@ -153,7 +153,7 @@ void CL_UpdateStudioTexture( mstudiotexture_t *ptexture, int topcolor, int botto
 	byte		*raw, *pal;
 
 	// save off the real texture index
-	origtexname = ref.dllFuncs.R_GetTextureName( ptexture->index );
+	origtexname = RefRenderAPI->GL_TextureName( ptexture->index );
 
 	// build name of original texture
 	Q_strncpy( mdlname, refState.currentmodel->name, sizeof( mdlname ));

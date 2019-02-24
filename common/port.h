@@ -78,6 +78,7 @@ GNU General Public License for more details.
 	#define __stdcall
 
 	#define _inline	static inline
+	#define FORCEINLINE inline __attribute__((always_inline))
 	#define O_BINARY 0 // O_BINARY is Windows extension
 	#define O_TEXT 0 // O_TEXT is Windows extension
 
@@ -113,6 +114,9 @@ GNU General Public License for more details.
 #else // WIN32
 	#ifdef __MINGW32__
 		#define _inline static inline
+		#define FORCEINLINE inline __attribute__((always_inline))
+	#else
+		#define FORCEINLINE __forceinline
 	#endif
 
 	#define strcasecmp _stricmp

@@ -15,6 +15,8 @@ GNU General Public License for more details.
 #pragma once
 #ifndef REF_API
 #define REF_API
+
+#include <stdarg.h>
 #include "com_image.h"
 #include "vgui_api.h"
 #include "render_api.h"
@@ -24,6 +26,7 @@ GNU General Public License for more details.
 #include "com_model.h"
 #include "studio.h"
 #include "r_efx.h"
+#include "cvar.h"
 
 #define REF_API_VERSION 1
 
@@ -41,10 +44,27 @@ GNU General Public License for more details.
 #define VID_MAPSHOT		3	// special case for overview layer
 #define VID_SNAPSHOT	4	// save screenshot into root dir and no gamma correction
 
+// model flags (stored in model_t->flags)
+#define MODEL_CONVEYOR		BIT( 0 )
+#define MODEL_HAS_ORIGIN		BIT( 1 )
+#define MODEL_LIQUID		BIT( 2 )	// model has only point hull
+#define MODEL_TRANSPARENT		BIT( 3 )	// have transparent surfaces
+#define MODEL_COLORED_LIGHTING	BIT( 4 )	// lightmaps stored as RGB
+#define MODEL_WORLD			BIT( 29 )	// it's a worldmodel
+#define MODEL_CLIENT		BIT( 30 )	// client sprite
+
+// goes into world.flags
+#define FWORLD_SKYSPHERE		BIT( 0 )
+#define FWORLD_CUSTOM_SKYBOX		BIT( 1 )
+#define FWORLD_WATERALPHA		BIT( 2 )
+#define FWORLD_HAS_DELUXEMAP		BIT( 3 )
 
 typedef struct ref_globals_s
 {
 	qboolean developer;
+
+	float time;    // cl.time
+	float oldtime; // cl.oldtime
 
 	// viewport width and height
 	int      width;
@@ -87,10 +107,107 @@ enum ref_shared_texture_e
 	REF_ALPHASKY_TEXTURE,
 };
 
+struct con_nprint_s;
+
 typedef struct ref_api_s
 {
-	// TriApi helper
-	int (*TriGetRenderMode)( void );
+	qboolean (*CL_IsDevOverviewMode)( void );
+	qboolean (*CL_IsThirdPersonMode)( void );
+	qboolean (*Host_IsQuakeCompatible)( void );
+	int (*GetPlayerIndex)( void ); // cl.playernum + 1
+	int (*GetViewEntIndex)( void ); // cl.viewentity
+
+	// cvar handlers
+	convar_t   *(*pfnRegisterVariable)( const char *szName, const char *szValue, int flags, const char *description );
+	convar_t   *(*pfnGetCvarPointer)( const char *name );
+	float       (*pfnGetCvarFloat)( const char *szName );
+	const char *(*pfnGetCvarString)( const char *szName );
+
+	// command handlers
+	int         (*Cmd_AddCommand)( const char *cmd_name, void (*function)(void), const char *description );
+	int         (*Cmd_RemoveCommand)( const char *cmd_name );
+	int         (*Cmd_Argc)( void );
+	const char *(*Cmd_Argv)( int arg );
+
+	// cbuf
+	void (*Cbuf_AddText)( const char *commands );
+	void (*Cbuf_InsertText)( const char *commands );
+	void (*Cbuf_Execute)( void );
+
+	// logging
+	void	(*Con_VPrintf)( const char *fmt, va_list args );
+	void	(*Con_Printf)( const char *fmt, ... );
+	void	(*Con_DPrintf)( const char *fmt, ... );
+	void	(*Con_NPrintf)( int pos, const char *fmt, ... );
+	void	(*Con_NXPrintf)( struct con_nprint_s *info, const char *fmt, ... );
+
+	// entity management
+	struct cl_entity_s *(*GetLocalPlayer)( void );
+	struct cl_entity_s *(*GetViewModel)( void );
+	struct cl_entity_s *(*GetEntityByIndex)( int idx );
+	int (*pfnNumberOfEntities)( void );
+	struct cl_entity_s *(*R_BeamGetEntity)( int index );
+
+	// brushes
+	int (*Mod_SampleSizeForFace)( struct msurface_s *surf );
+	qboolean (*Mod_BoxVisible)( const vec3_t mins, const vec3_t maxs, const byte *visbits );
+	struct world_static_s *(*GetWorld)( void ); // returns &world
+
+	// studio models
+	void (*R_StudioSlerpBones)( int numbones, vec4_t q1[], float pos1[][3], vec4_t q2[], float pos2[][3], float s );
+	void (*R_StudioCalcBoneQuaternion)( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, float *adj, vec4_t q );
+	void (*R_StudioCalcBonePosition)( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, vec3_t adj, vec3_t pos );
+	void *(*R_StudioGetAnim)( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstudioseqdesc_t *pseqdesc );
+
+	// efx
+	void (*CL_DrawEFX)( float time, qboolean fTrans );
+	void (*R_FreeDeadParticles)( particle_t **ppparticles );
+
+	// model management
+	model_t *(*Mod_ForName)( const char *name, qboolean crash, qboolean trackCRC );
+	void *(*Mod_Extradata)( int type, model_t *model );
+	struct model_s *(*pfnGetModelByIndex)( int index ); // CL_ModelHandle
+
+	// trace
+	struct pmtrace_s *(*PM_TraceLine)( float *start, float *end, int flags, int usehull, int ignore_pe );
+	struct pmtrace_s *(*EV_VisTraceLine )( float *start, float *end, int flags );
+	struct pmtrace_t (*CL_TraceLine)( vec3_t start, vec3_t end, int flags );
+
+	struct movevars_s *(*pfnGetMoveVars)( void );
+
+	// utils
+	void  (*CL_ExtraUpdate)( void );
+	uint  (*COM_HashKey)( const char *strings, uint hashSize );
+	void  (*Host_Error)( const char *fmt, ... );
+	int   (*CL_FxBlend)( cl_entity_t *e );
+	float (*COM_RandomFloat)( float rmin, float rmax );
+	int   (*COM_RandomLong)( int rmin, int rmax );
+	struct screenfade_s *(*GetScreenFade)( void );
+	struct client_textmessage_s *(*pfnTextMessageGet)( const char *pName );
+	void (*GetPredictedOrigin)( vec3_t v );
+
+	// memory
+	byte *(*_Mem_AllocPool)( const char *name, const char *filename, int fileline );
+	void  (*_Mem_FreePool)( byte **poolptr, const char *filename, int fileline );
+	void *(*_Mem_Alloc)( byte *poolptr, size_t size, qboolean clear, const char *filename, int fileline );
+	void *(*_Mem_Realloc)( byte *poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline );
+	void  (*_Mem_Free)( void *data, const char *filename, int fileline );
+
+	// library management
+	void *(*COM_LoadLibrary)( const char *name );
+	void  (*COM_FreeLibrary)( void *handle );
+	void *(*COM_GetProcAddress)( void *handle, const char *name );
+
+	// filesystem
+	int (*FS_FileExists)( const char *filename, int gamedironly );
+
+	// GL
+	int   (*GL_SetAttribute)( int attr, int value );
+	int   (*GL_GetAttribute)( int attr );
+	int   (*GL_CreateContext)( void ); // TODO
+	void  (*GL_DestroyContext)( );
+	void *(*GL_GetProcAddress)( const char *name );
+
 } ref_api_t;
 
 struct mip_s;
@@ -134,9 +251,7 @@ typedef struct ref_interface_s
 	void (*R_IncrementSpeedsCounter)( int counterType );
 
 	// texture management
-	const byte *(*GL_TextureData)( unsigned int texnum );
-	const char *(*R_GetTextureName)( int idx );
-	const byte *(*R_GetTextureOriginalBuffer)( int idx ); // not always available
+	const byte *(*R_GetTextureOriginalBuffer)( unsigned int idx ); // not always available
 	int (*GL_LoadTextureFromBuffer)( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
 	int (*R_GetBuiltinTexture)( enum ref_shared_texture_e type );
 	void (*R_FreeSharedTexture)( enum ref_shared_texture_e type );
@@ -148,7 +263,7 @@ typedef struct ref_interface_s
 	void (*R_Set2DMode)( qboolean enable );
 	void (*R_DrawStretchRaw)( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty );
 	void (*R_DrawStretchPic)( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum );
-	void (*R_DrawTileClear)( int x, int y, int w, int h );
+	void (*R_DrawTileClear)( int texnum, int x, int y, int w, int h );
 	void (*FillRGBA)( float x, float y, float w, float h, int r, int g, int b, int a ); // in screen space
 	void (*FillRGBABlend)( float x, float y, float w, float h, int r, int g, int b, int a ); // in screen space
 

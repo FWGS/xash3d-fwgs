@@ -84,9 +84,6 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 
 #define HACKS_RELATED_HLMODS		// some HL-mods works differently under Xash and can't be fixed without some hacks at least at current time
 
-
-typedef void (*setpair_t)( const char *key, const char *value, void *buffer, void *numpairs );
-
 typedef struct
 {
 	int	numfilenames;
@@ -510,7 +507,7 @@ void COM_NormalizeAngles( vec3_t angles );
 int COM_FileSize( const char *filename );
 void COM_FixSlashes( char *pname );
 void COM_FreeFile( void *buffer );
-int COM_CheckString( const char *string );
+#define COM_CheckString( string ) ( ( !string || !*string ) ? 0 : 1 )
 int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare );
 search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly );
 file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly );

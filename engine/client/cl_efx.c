@@ -2070,7 +2070,6 @@ void CL_ReadPointFile_f( void )
 	else Con_Printf( "map %s has no leaks!\n", clgame.mapname );
 }
 
-
 void CL_FreeDeadBeams()
 {
 	BEAM *pBeam, *pNext, *pPrev = NULL;

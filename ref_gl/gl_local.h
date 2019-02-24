@@ -32,56 +32,28 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "com_strings.h"
 #include "pm_movevars.h"
-typedef cvar_t convar_t;
-#include <stdio.h>
-#define Con_Reportf printf
-#define Con_Printf printf
-#define Con_DPrintf printf
 
 void CL_DrawEFX(double, double);
 void *CL_ModelHandle(int);
 void *GL_GetProcAddress(char *);
 void GL_CheckForErrors();
 void CL_ExtraUpdate();
-void Cbuf_AddText(char*);
 void Cbuf_Execute();
-int COM_HashKey(char*,int);
 extern convar_t cvstub;
 #define Cvar_Get(...) &cvstub
-#define Cvar_FindVar(...) &cvstub
 #define Cvar_SetValue(...)
 #define Cmd_AddCommand(...)
 #define Cmd_RemoveCommand(...)
 #define FS_FreeImage(...)
 #define Host_Error(...)
-#define ASSERT(x)
-#define Q_strcpy(...)
-#define Q_strncpy(...)
-#define Q_strncat(...)
-#define Q_strnat(...)
-#define Q_snprintf(...)
-#define Q_strcmp(...) 1
-#define Q_stricmp(...) 1
-#define Q_strncmp(...) 1
-#define Q_strnicmp(...) 1
-#define Q_strlen(...) 1
-#define Assert(x)
-#define va(...) ((const char*)NULL)
-
-void *FS_LoadImage(char *, void *, int);
-void *FS_CopyImage(void *);
-void *Mem_Calloc(void*, int);
-void *Mem_Malloc(void*, int);
-
-void *Mem_Realloc(void*,void*, int);
-
 
 #define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc )	convar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
 #define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc )	convar_t cv = { #cv, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
 #define CVAR_TO_BOOL( x )		((x) && ((x)->value != 0.0f) ? true : false )
 
-#define WORLDMODEL ((model_t*)NULL)
-#define MOVEVARS ((movevars_t*)NULL)
+#define WORLD (gEngfuncs.GetWorld())
+#define WORLDMODEL (gEngfuncs.pfnGetModelByIndex( 1 ))
+#define MOVEVARS (gEngfuncs.pfnGetMoveVars())
 
 
 extern byte	*r_temppool;
@@ -110,8 +82,10 @@ extern byte	*r_temppool;
 #define RP_NONVIEWERREF	(RP_ENVVIEW)
 #define R_ModelOpaque( rm )	( rm == kRenderNormal )
 #define R_StaticEntity( ent )	( VectorIsNull( ent->origin ) && VectorIsNull( ent->angles ))
-#define RP_LOCALCLIENT( e )	((e) != NULL && (e)->index == ( cl.playernum + 1 ) && e->player )
+#define RP_LOCALCLIENT( e )	((e) != NULL && (e)->index == gEngfuncs.GetPlayerIndex() && e->player )
 #define RP_NORMALPASS()	( FBitSet( RI.params, RP_NONVIEWERREF ) == 0 )
+
+#define CL_IsViewEntityLocalPlayer() ( gEngfuncs.GetViewEntIndex() == gEngfuncs.GetPlayerIndex() )
 
 #define CULL_VISIBLE	0		// not culled
 #define CULL_BACKSIDE	1		// backside of transparent wall
@@ -352,7 +326,7 @@ void R_ClearDecals( void );
 // gl_draw.c
 //
 void R_Set2DMode( qboolean enable );
-void R_DrawTileClear( int x, int y, int w, int h );
+void R_DrawTileClear( int texnum, int x, int y, int w, int h );
 void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data );
 
 //
@@ -565,6 +539,30 @@ byte *Mod_GetCurrentVis( void );
 void Mod_SetOrthoBounds( float *mins, float *maxs );
 void R_NewMap( void );
 
+//
+// gl_opengl.c
+//
+#define GL_CheckForErrors() GL_CheckForErrors_( __FILE__, __LINE__ )
+void GL_CheckForErrors_( const char *filename, const int fileline );
+const char *GL_ErrorString( int err );
+void GL_UpdateSwapInterval( void );
+qboolean GL_Support( int r_ext );
+int GL_MaxTextureUnits( void );
+void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cvarname, int r_ext );
+void GL_SetExtension( int r_ext, int enable );
+
+//
+// gl_triapi.c
+//
+void TriBegin( int mode );
+void TriEnd( void );
+void TriTexCoord2f( float u, float v );
+void TriVertex3fv( const float *v );
+void TriVertex3f( float x, float y, float z );
+int TriWorldToScreen( float *world, float *screen );
+int TriSpriteTexture( model_t *pSpriteModel, int frame );
+
+
 /*
 =======================================================================
 
@@ -687,6 +685,8 @@ extern glconfig_t		glConfig;
 extern glstate_t		glState;
 // move to engine
 //extern glwstate_t		glw_state;
+extern ref_api_t      gEngfuncs;
+extern ref_globals_t *gpGlobals;
 
 //
 // renderer cvars
@@ -736,4 +736,55 @@ extern convar_t	*vid_brightness;
 extern convar_t	*vid_gamma;
 extern convar_t	*vid_highdpi;
 
-#endif//GL_LOCAL_H
+//
+// engine shared convars
+//
+extern convar_t *v_dark;
+
+//
+// engine callbacks
+//
+#include "crtlib.h"
+
+FORCEINLINE float COM_RandomFloat( float rmin, float rmax )
+{
+	return gEngfuncs.COM_RandomFloat( rmin, rmax );
+}
+
+FORCEINLINE int COM_RandomLong( int rmin, int rmax )
+{
+	return gEngfuncs.COM_RandomLong( rmin, rmax );
+}
+
+FORCEINLINE uint COM_HashKey( const char *str, uint hashSize )
+{
+	return gEngfuncs.COM_HashKey( str, hashSize );
+}
+
+FORCEINLINE byte *_Mem_AllocPool( const char *name, const char *filename, int fileline )
+{
+	return gEngfuncs._Mem_AllocPool( name, filename, fileline );
+}
+
+FORCEINLINE void _Mem_FreePool( byte **poolptr, const char *filename, int fileline )
+{
+	gEngfuncs._Mem_FreePool( poolptr, filename, fileline );
+}
+
+FORCEINLINE void *_Mem_Alloc( byte *poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+{
+	return gEngfuncs._Mem_Alloc( poolptr, size, clear, filename, fileline );
+}
+
+
+FORCEINLINE void *_Mem_Realloc( byte *poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
+{
+	return gEngfuncs._Mem_Realloc( poolptr, memptr, size, clear, filename, fileline );
+}
+
+FORCEINLINE void _Mem_Free( void *data, const char *filename, int fileline )
+{
+	gEngfuncs._Mem_Free( data, filename, fileline );
+}
+
+#endif // GL_LOCAL_H

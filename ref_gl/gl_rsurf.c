@@ -92,7 +92,7 @@ static void SubdividePolygon_r( msurface_t *warpface, int numverts, float *verts
 	if( numverts > ( SUBDIVIDE_SIZE - 4 ))
 		Host_Error( "Mod_SubdividePolygon: too many vertexes on face ( %i )\n", numverts );
 
-	sample_size = Mod_SampleSizeForFace( warpface );
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( warpface );
 	BoundPoly( numverts, verts, mins, maxs );
 
 	for( i = 0; i < 3; i++ )
@@ -293,7 +293,7 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 		glt->srcHeight = tex->height;
 	}
 
-	sample_size = Mod_SampleSizeForFace( fa );
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
 
 	// reconstruct the polygon
 	pedges = mod->edges;
@@ -425,7 +425,7 @@ texture_t *R_TextureAnim( texture_t *b )
 			speed = 10;
 		else speed = 20;
 
-		reletive = (int)(cl.time * speed) % base->anim_total;
+		reletive = (int)(gpGlobals->time * speed) % base->anim_total;
 	}
 
 
@@ -479,7 +479,7 @@ texture_t *R_TextureAnimation( msurface_t *s )
 			speed = 10;
 		else speed = 20;
 
-		reletive = (int)(cl.time * speed) % base->anim_total;
+		reletive = (int)(gpGlobals->time * speed) % base->anim_total;
 	}
 
 	count = 0;
@@ -516,7 +516,7 @@ void R_AddDynamicLights( msurface_t *surf )
 	// no dlighted surfaces here
 	if( !R_CountSurfaceDlights( surf )) return;
 
-	sample_size = Mod_SampleSizeForFace( surf );
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	smax = (info->lightextents[0] / sample_size) + 1;
 	tmax = (info->lightextents[1] / sample_size) + 1;
 	tex = surf->texinfo;
@@ -722,7 +722,7 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 	mextrasurf_t	*info = surf->info;
 	color24		*lm;
 
-	sample_size = Mod_SampleSizeForFace( surf );
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	smax = ( info->lightextents[0] / sample_size ) + 1;
 	tmax = ( info->lightextents[1] / sample_size ) + 1;
 	size = smax * tmax;
@@ -791,7 +791,7 @@ void DrawGLPoly( glpoly_t *p, float xScale, float yScale )
 		float		flRate, flAngle;
 		gl_texture_t	*texture;
 
-		if( Host_IsQuakeCompatible() && RI.currententity == clgame.entities )
+		if( gEngfuncs.Host_IsQuakeCompatible() && RI.currententity == gEngfuncs.GetEntityByIndex( 0 ) )
 		{
 			// same as doom speed
 			flConveyorSpeed = -35.0f;
@@ -807,8 +807,8 @@ void DrawGLPoly( glpoly_t *p, float xScale, float yScale )
 		flAngle = ( flConveyorSpeed >= 0 ) ? 180 : 0;
 
 		SinCos( flAngle * ( M_PI / 180.0f ), &sy, &cy );
-		sOffset = cl.time * cy * flRate;
-		tOffset = cl.time * sy * flRate;
+		sOffset = gpGlobals->time * cy * flRate;
+		tOffset = gpGlobals->time * sy * flRate;
 	
 		// make sure that we are positive
 		if( sOffset < 0.0f ) sOffset += 1.0f + -(int)sOffset;
@@ -955,7 +955,7 @@ void R_BlendLightmaps( void )
 			mextrasurf_t	*info = surf->info;
 			byte		*base;
 
-			sample_size = Mod_SampleSizeForFace( surf );
+			sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 			smax = ( info->lightextents[0] / sample_size ) + 1;
 			tmax = ( info->lightextents[1] / sample_size ) + 1;
 
@@ -1221,7 +1221,7 @@ dynamic:
 			int		sample_size;
 			int		smax, tmax;
 
-			sample_size = Mod_SampleSizeForFace( fa );
+			sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
 			smax = ( info->lightextents[0] / sample_size ) + 1;
 			tmax = ( info->lightextents[1] / sample_size ) + 1;
 
@@ -1267,7 +1267,7 @@ void R_DrawTextureChains( void )
 	GL_SetupFogColorForSurfaces();
 
 	// restore worldmodel
-	RI.currententity = clgame.entities;
+	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
 	if( FBitSet( WORLDMODEL->flags, FWORLD_SKYSPHERE ) && !FBitSet( WORLDMODEL->flags, FWORLD_CUSTOM_SKYBOX ))
@@ -1301,11 +1301,11 @@ void R_DrawTextureChains( void )
 		if(( s->flags & SURF_DRAWTURB ) && MOVEVARS->wateralpha < 1.0f )
 			continue;	// draw translucent water later
 
-		if( Host_IsQuakeCompatible() && FBitSet( s->flags, SURF_TRANSPARENT ))
+		if( gEngfuncs.Host_IsQuakeCompatible() && FBitSet( s->flags, SURF_TRANSPARENT ))
 		{
 			draw_alpha_surfaces = true;
 			continue;	// draw transparent surfaces later
-                    }
+		}
 
 		for( ; s != NULL; s = s->texturechain )
 			R_RenderBrushPoly( s, CULL_VISIBLE );
@@ -1341,7 +1341,7 @@ void R_DrawAlphaTextureChains( void )
 	GL_SetupFogColorForSurfaces();
 
 	// restore worldmodel
-	RI.currententity = clgame.entities;
+	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 	RI.currententity->curstate.rendermode = kRenderTransAlpha;
 	draw_alpha_surfaces = false;
@@ -1386,7 +1386,7 @@ void R_DrawWaterSurfaces( void )
 		return;
 
 	// restore worldmodel
-	RI.currententity = clgame.entities;
+	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
 	// go back to the world matrix
@@ -1481,7 +1481,7 @@ void R_SetRenderMode( cl_entity_t *e )
 	case kRenderTransAlpha:
 		pglEnable( GL_ALPHA_TEST );
 		pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		if( Host_IsQuakeCompatible( ))
+		if( gEngfuncs.Host_IsQuakeCompatible( ))
 		{
 			pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 			pglColor4f( 1.0f, 1.0f, 1.0f, tr.blend );
@@ -1556,7 +1556,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	if( rotated ) R_RotateForEntity( e );
 	else R_TranslateForEntity( e );
 
-	if( Host_IsQuakeCompatible() && FBitSet( clmodel->flags, MODEL_TRANSPARENT ))
+	if( gEngfuncs.Host_IsQuakeCompatible() && FBitSet( clmodel->flags, MODEL_TRANSPARENT ))
 		e->curstate.rendermode = kRenderTransAlpha;
 
 	e->visframe = tr.realframecount; // visible
@@ -1567,7 +1567,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	// calculate dynamic lighting for bmodel
 	for( k = 0, l = cl_dlights; k < MAX_DLIGHTS; k++, l++ )
 	{
-		if( l->die < cl.time || !l->radius )
+		if( l->die < gpGlobals->time || !l->radius )
 			continue;
 
 		VectorCopy( l->origin, oldorigin ); // save lightorigin
@@ -1589,7 +1589,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 
 	for( i = 0; i < clmodel->nummodelsurfaces; i++, psurf++ )
 	{
-		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !Host_IsQuakeCompatible( ))
+		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !gEngfuncs.Host_IsQuakeCompatible( ))
 		{
 			if( psurf->plane->type != PLANE_Z && !FBitSet( e->curstate.effects, EF_WATERSIDES ))
 				continue;
@@ -2312,7 +2312,7 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 			int sample_size;
 
 			info = surf->info;
-			sample_size = Mod_SampleSizeForFace( surf );
+			sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 			smax = ( info->lightextents[0] / sample_size ) + 1;
 			tmax = ( info->lightextents[1] / sample_size ) + 1;
 
@@ -2912,7 +2912,7 @@ static qboolean R_CheckLightMap( msurface_t *fa )
 		mextrasurf_t *info;
 
 		info = fa->info;
-		sample_size = Mod_SampleSizeForFace( fa );
+		sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
 		smax = ( info->lightextents[0] / sample_size ) + 1;
 		tmax = ( info->lightextents[1] / sample_size ) + 1;
 
@@ -3302,7 +3302,7 @@ void R_DrawWorld( void )
 
 	// paranoia issues: when gl_renderer is "0" we need have something valid for currententity
 	// to prevent crashing until HeadShield drawing.
-	RI.currententity = clgame.entities;
+	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
 	if( !RI.drawWorld || RI.onlyClientDraw )
@@ -3452,7 +3452,7 @@ void GL_CreateSurfaceLightmap( msurface_t *surf )
 	if( FBitSet( surf->flags, SURF_DRAWTILED ))
 		return;
 
-	sample_size = Mod_SampleSizeForFace( surf );
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	smax = ( info->lightextents[0] / sample_size ) + 1;
 	tmax = ( info->lightextents[1] / sample_size ) + 1;
 

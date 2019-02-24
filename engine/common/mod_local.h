@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "edict.h"
 #include "eiface.h"
+#include "ref_api.h"
 
 #define LM_SAMPLE_SIZE		16
 #define LM_SAMPLE_EXTRASIZE		8
@@ -34,22 +35,6 @@ GNU General Public License for more details.
 #define FATPHS_RADIUS		16.0f
 
 #define WORLD_INDEX			(1)	// world index is always 1
-
-// model flags (stored in model_t->flags)
-#define MODEL_CONVEYOR		BIT( 0 )
-#define MODEL_HAS_ORIGIN		BIT( 1 )
-#define MODEL_LIQUID		BIT( 2 )	// model has only point hull
-#define MODEL_TRANSPARENT		BIT( 3 )	// have transparent surfaces
-#define MODEL_COLORED_LIGHTING	BIT( 4 )	// lightmaps stored as RGB
-
-#define MODEL_WORLD			BIT( 29 )	// it's a worldmodel
-#define MODEL_CLIENT		BIT( 30 )	// client sprite
-
-// goes into world.flags
-#define FWORLD_SKYSPHERE		BIT( 0 )
-#define FWORLD_CUSTOM_SKYBOX		BIT( 1 )
-#define FWORLD_WATERALPHA		BIT( 2 )
-#define FWORLD_HAS_DELUXEMAP		BIT( 3 )
 
 typedef struct consistency_s
 {
@@ -103,7 +88,7 @@ typedef struct
 	int		cull;
 } sortedface_t;
 
-typedef struct
+typedef struct world_static_s
 {
 	qboolean		loading;		// true if worldmodel is loading
 	int		flags;		// misc flags
