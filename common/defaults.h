@@ -95,7 +95,11 @@ SETUP BACKENDS DEFINITIONS
 // fallback to NULL
 //
 #ifndef XASH_VIDEO
-	#define XASH_VIDEO VIDEO_NULL
+	#ifdef REF_DLL
+		#define XASH_VIDEO VIDEO_DONTCARE
+	#else
+		#define XASH_VIDEO VIDEO_NULL
+	#endif
 #endif
 
 #ifndef XASH_SOUND

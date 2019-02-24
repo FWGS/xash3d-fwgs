@@ -713,6 +713,8 @@ extern convar_t *m_ignore;
 void CL_SetLightstyle( int style, const char* s, float f );
 void CL_RunLightStyles( void );
 void CL_DecayLights( void );
+dlight_t *CL_GetDynamicLight( int number );
+dlight_t *CL_GetEntityLight( int number );
 
 //=================================================
 
@@ -974,7 +976,6 @@ void CL_WeaponAnim( int iAnim, int body );
 void CL_ClearEffects( void );
 void CL_ClearEfrags( void );
 void CL_TestLights( void );
-void CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean trans_pass, float frametime );
 void CL_FireCustomDecal( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags, float scale );
 void CL_DecalShoot( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags );
 void CL_PlayerDecal( int playerIndex, int textureIndex, int entityIndex, float *pos );

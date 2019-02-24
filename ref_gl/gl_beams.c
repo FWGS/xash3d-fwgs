@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include "common.h"
 #include "gl_local.h"
 #include "r_efx.h"
 #include "event_flags.h"
@@ -140,7 +141,7 @@ qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
 	}
 
 	// check bbox
-	if( Mod_BoxVisible( mins, maxs, Mod_GetCurrentVis( )))
+	if( gEngfuncs.Mod_BoxVisible( mins, maxs, Mod_GetCurrentVis( )))
 	{
 		if( pvsOnly || !R_CullBox( mins, maxs ))
 		{
@@ -583,7 +584,7 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 	vec3_t		last1, last2, tmp, screen;
 	vec3_t		delta, screenLast, normal;
 
-	R_FreeDeadParticles( &pbeam->particles );
+	gEngfuncs.R_FreeDeadParticles( &pbeam->particles );
 
 	particles = pbeam->particles;
 	pnew = NULL;
@@ -613,7 +614,7 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 	if( pnew )
 	{
 		VectorCopy( pbeam->source, pnew->org );
-		pnew->die = cl.time + pbeam->amplitude;
+		pnew->die = gpGlobals->time + pbeam->amplitude;
 		VectorClear( pnew->vel );
 
 		pnew->next = particles;
@@ -660,7 +661,7 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 	VectorMA( delta, -pbeam->width, normal, last2 );
 
 	div = 1.0 / pbeam->amplitude;
-	fraction = ( pbeam->die - cl.time ) * div;
+	fraction = ( pbeam->die - gpGlobals->time ) * div;
 
 	vLast = 0.0;
 	vStep = 1.0;
@@ -693,7 +694,7 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 
 		if( particles->next != NULL )
 		{
-			fraction = (particles->die - cl.time) * div;
+			fraction = (particles->die - gpGlobals->time) * div;
 		}
 		else
 		{
@@ -778,7 +779,7 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 		return;
 
 	// is that box in PVS && frustum?
-	if( !Mod_BoxVisible( screen, tmp, Mod_GetCurrentVis( )) || R_CullBox( screen, tmp ))
+	if( !gEngfuncs.Mod_BoxVisible( screen, tmp, Mod_GetCurrentVis( )) || R_CullBox( screen, tmp ))
 	{
 		return;
 	}
@@ -844,23 +845,6 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 	}
 }
 
-/// export from engine...
-/*
-==============
-R_BeamGetEntity
-
-extract entity number from index
-handle user entities
-==============
-*/
-static cl_entity_t *R_BeamGetEntity( int index )
-{
-	if( index < 0 )
-		return clgame.dllFuncs.pfnGetUserEntity( BEAMENT_ENTITY( -index ));
-	return CL_GetEntityByIndex( BEAMENT_ENTITY( index ));
-}
-
-
 /*
 ==============
 R_BeamComputePoint
@@ -873,7 +857,7 @@ static qboolean R_BeamComputePoint( int beamEnt, vec3_t pt )
 	cl_entity_t	*ent;
 	int		attach;
 
-	ent = R_BeamGetEntity( beamEnt );
+	ent = gEngfuncs.R_BeamGetEntity( beamEnt );
 
 	if( beamEnt < 0 )
 		attach = BEAMENT_ATTACHMENT( -beamEnt );
@@ -889,8 +873,12 @@ static qboolean R_BeamComputePoint( int beamEnt, vec3_t pt )
 	// get attachment
 	if( attach > 0 )
 		VectorCopy( ent->attachment[attach - 1], pt );
-	else if(( ent->index - 1 ) == cl.playernum )
-		VectorCopy( cl.simorg, pt );
+	else if( ent->index == gEngfuncs.GetPlayerIndex() )
+	{
+		vec3_t simorg;
+		gEngfuncs.GetPredictedOrigin( simorg );
+		VectorCopy( simorg, pt );
+	}
 	else VectorCopy( ent->origin, pt );
 
 	return true;
@@ -907,7 +895,7 @@ qboolean R_BeamRecomputeEndpoints( BEAM *pbeam )
 {
 	if( FBitSet( pbeam->flags, FBEAM_STARTENTITY ))
 	{
-		cl_entity_t *start = R_BeamGetEntity( pbeam->startEntity );
+		cl_entity_t *start = gEngfuncs.R_BeamGetEntity( pbeam->startEntity );
 
 		if( R_BeamComputePoint( pbeam->startEntity, pbeam->source ))
 		{
@@ -923,7 +911,7 @@ qboolean R_BeamRecomputeEndpoints( BEAM *pbeam )
 
 	if( FBitSet( pbeam->flags, FBEAM_ENDENTITY ))
 	{
-		cl_entity_t *end = R_BeamGetEntity( pbeam->endEntity );
+		cl_entity_t *end = gEngfuncs.R_BeamGetEntity( pbeam->endEntity );
 
 		if( R_BeamComputePoint( pbeam->endEntity, pbeam->target ))
 		{
@@ -934,7 +922,7 @@ qboolean R_BeamRecomputeEndpoints( BEAM *pbeam )
 		else if( !FBitSet( pbeam->flags, FBEAM_FOREVER ))
 		{
 			ClearBits( pbeam->flags, FBEAM_ENDENTITY );
-			pbeam->die = cl.time;
+			pbeam->die = gpGlobals->time;
 			return false;
 		}
 		else
@@ -967,7 +955,7 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	if( !model || model->type != mod_sprite )
 	{
 		pbeam->flags &= ~FBEAM_ISACTIVE; // force to ignore
-		pbeam->die = cl.time;
+		pbeam->die = gpGlobals->time;
 		return;
 	}
 
@@ -1025,7 +1013,7 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	if( pbeam->flags & ( FBEAM_FADEIN|FBEAM_FADEOUT ))
 	{
 		// update life cycle
-		pbeam->t = pbeam->freq + ( pbeam->die - cl.time );
+		pbeam->t = pbeam->freq + ( pbeam->die - gpGlobals->time );
 		if( pbeam->t != 0.0f ) pbeam->t = 1.0f - pbeam->freq / pbeam->t;
 	}
 
@@ -1073,7 +1061,7 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 
 	TriRenderMode( FBitSet( pbeam->flags, FBEAM_SOLID ) ? kRenderNormal : kRenderTransAdd );
 
-	if( !TriSpriteTexture( model, (int)(pbeam->frame + pbeam->frameRate * cl.time) % pbeam->frameCount ))
+	if( !TriSpriteTexture( model, (int)(pbeam->frame + pbeam->frameRate * gpGlobals->time) % pbeam->frameCount ))
 	{
 		ClearBits( pbeam->flags, FBEAM_ISACTIVE );
 		return;
@@ -1084,9 +1072,9 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 		cl_entity_t	*pStart;
 
 		// XASH SPECIFIC: get brightness from head entity
-		pStart = R_BeamGetEntity( pbeam->startEntity ); 
+		pStart = gEngfuncs.R_BeamGetEntity( pbeam->startEntity );
 		if( pStart && pStart->curstate.rendermode != kRenderNormal )
-			pbeam->brightness = CL_FxBlend( pStart ) / 255.0f;
+			pbeam->brightness = gEngfuncs.CL_FxBlend( pStart ) / 255.0f;
 	}
 
 	if( FBitSet( pbeam->flags, FBEAM_FADEIN ))
@@ -1178,8 +1166,8 @@ static void R_BeamSetup( BEAM *pbeam, vec3_t start, vec3_t end, int modelIndex, 
 	VectorCopy( end, pbeam->target );
 	VectorSubtract( end, start, pbeam->delta );
 
-	pbeam->freq = speed * cl.time;
-	pbeam->die = life + cl.time;
+	pbeam->freq = speed * gpGlobals->time;
+	pbeam->die = life + gpGlobals->time;
 	pbeam->amplitude = amplitude;
 	pbeam->brightness = brightness;
 	pbeam->width = width;
@@ -1206,7 +1194,7 @@ void R_BeamDrawCustomEntity( cl_entity_t *ent )
 {
 	BEAM	beam;
 	float	amp = ent->curstate.body / 100.0f;
-	float	blend = CL_FxBlend( ent ) / 255.0f;
+	float	blend = gEngfuncs.CL_FxBlend( ent ) / 255.0f;
 	float	r, g, b;
 	int	beamFlags;
 
@@ -1313,7 +1301,7 @@ void CL_DrawBeams(int fTrans , BEAM *active_beams )
 		if( !fTrans && !FBitSet( pBeam->flags, FBEAM_SOLID ))
 			continue;
 
-		R_BeamDraw( pBeam, cl.time - cl.oldtime );
+		R_BeamDraw( pBeam, gpGlobals->time -   gpGlobals->oldtime );
 	}
 
 	pglShadeModel( GL_FLAT );

@@ -79,7 +79,7 @@ static int CheckSkybox( const char *name )
 		{         
 			// build side name
 			sidename = va( "%s%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
-			if( FS_FileExists( sidename, false ))
+			if( gEngfuncs.FS_FileExists( sidename, false ))
 				num_checked_sides++;
 
 		}
@@ -91,7 +91,7 @@ static int CheckSkybox( const char *name )
 		{         
 			// build side name
 			sidename = va( "%s_%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
-			if( FS_FileExists( sidename, false ))
+			if( gEngfuncs.FS_FileExists( sidename, false ))
 				num_checked_sides++;
 		}
 
@@ -502,7 +502,7 @@ void R_CloudTexCoord( vec3_t v, float speed, float *s, float *t )
 	float	length, speedscale;
 	vec3_t	dir;
 
-	speedscale = cl.time * speed;
+	speedscale = gpGlobals->time * speed;
 	speedscale -= (int)speedscale & ~127;
 
 	VectorSubtract( v, RI.vieworg, dir );
@@ -787,8 +787,8 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 		{
 			if( waveHeight )
 			{
-				nv = r_turbsin[(int)(cl.time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
-				nv = (r_turbsin[(int)(v[0] * 5.0f + cl.time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
+				nv = r_turbsin[(int)(gpGlobals->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
+				nv = (r_turbsin[(int)(v[0] * 5.0f + gpGlobals->time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
 				nv = nv * waveHeight + v[2];
 			}
 			else nv = v[2];
@@ -796,10 +796,10 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 			os = v[3];
 			ot = v[4];
 
-			s = os + r_turbsin[(int)((ot * 0.125f + cl.time) * TURBSCALE) & 255];
+			s = os + r_turbsin[(int)((ot * 0.125f + gpGlobals->time) * TURBSCALE) & 255];
 			s *= ( 1.0f / SUBDIVIDE_SIZE );
 
-			t = ot + r_turbsin[(int)((os * 0.125f + cl.time) * TURBSCALE) & 255];
+			t = ot + r_turbsin[(int)((os * 0.125f + gpGlobals->time) * TURBSCALE) & 255];
 			t *= ( 1.0f / SUBDIVIDE_SIZE );
 
 			pglTexCoord2f( s, t );

@@ -35,7 +35,7 @@ void CL_RunLightStyles( void )
 {
 	int		i, k, flight, clight;
 	float		l, lerpfrac, backlerp;
-	float		frametime = (cl.time - cl.oldtime);
+	float		frametime = (gpGlobals->time -   gpGlobals->oldtime);
 	float		scale;
 	lightstyle_t	*ls;
 
@@ -151,12 +151,12 @@ void R_PushDlights( void )
 	tr.dlightframecount = tr.framecount;
 	l = cl_dlights;
 
-	RI.currententity = clgame.entities;
+	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
 	for( i = 0; i < MAX_DLIGHTS; i++, l++ )
 	{
-		if( l->die < cl.time || !l->radius )
+		if( l->die < gpGlobals->time || !l->radius )
 			continue;
 
 		if( GL_FrustumCullSphere( &RI.frustum, l->origin, l->radius, 15 ))
@@ -178,7 +178,7 @@ int R_CountDlights( void )
 
 	for( i = 0, l = cl_dlights; i < MAX_DLIGHTS; i++, l++ )
 	{
-		if( l->die < cl.time || !l->radius )
+		if( l->die < gpGlobals->time || !l->radius )
 			continue;
 
 		numDlights++;
@@ -297,7 +297,7 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 		if( !surf->samples )
 			return true;
 
-		sample_size = Mod_SampleSizeForFace( surf );
+		sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 		smax = (info->lightextents[0] / sample_size) + 1;
 		tmax = (info->lightextents[1] / sample_size) + 1;
 		ds /= sample_size;

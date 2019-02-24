@@ -2722,6 +2722,18 @@ void CL_DecayLights( void )
 	}
 }
 
+dlight_t *CL_GetDynamicLight( int number )
+{
+	Assert( number >= 0 && number < MAX_DLIGHTS );
+	return &cl_dlights[number];
+}
+
+dlight_t *CL_GetEntityLight( int number )
+{
+	Assert( number >= 0 && number < MAX_ELIGHTS );
+	return &cl_elights[number];
+}
+
 /*
 ================
 CL_UpdateFlashlight

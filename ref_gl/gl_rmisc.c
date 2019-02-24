@@ -16,6 +16,8 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "mod_local.h"
 #include "shake.h"
+#include "screenfade.h"
+#include "cdll_int.h"
 
 static void R_ParseDetailTextures( const char *filename )
 {
@@ -123,12 +125,12 @@ void R_NewMap( void )
 
 	if( CVAR_TO_BOOL( v_dark ))
 	{
-		screenfade_t		*sf = &clgame.fade;
+		screenfade_t		*sf = gEngfuncs.GetScreenFade();
 		float			fadetime = 5.0f;
 		client_textmessage_t	*title;
 
-		title = CL_TextMessageGet( "GAMETITLE" );
-		if( Host_IsQuakeCompatible( ))
+		title = gEngfuncs.pfnTextMessageGet( "GAMETITLE" );
+		if( gEngfuncs.Host_IsQuakeCompatible( ))
 			fadetime = 1.0f;
 
 		if( title )
@@ -143,7 +145,7 @@ void R_NewMap( void )
 		sf->fader = sf->fadeg = sf->fadeb = 0;
 		sf->fadealpha = 255;
 		sf->fadeSpeed = (float)sf->fadealpha / sf->fadeReset;
-		sf->fadeReset += cl.time;
+		sf->fadeReset += gpGlobals->time;
 		sf->fadeEnd += sf->fadeReset;
 
 		Cvar_SetValue( "v_dark", 0.0f );

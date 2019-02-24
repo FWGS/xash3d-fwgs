@@ -164,8 +164,8 @@ static void R_StudioSetupTimings( void )
 	if( RI.drawWorld )
 	{
 		// synchronize with server time
-		g_studio.time = cl.time;
-		g_studio.frametime = cl.time - cl.oldtime;
+		g_studio.time = gpGlobals->time;
+		g_studio.frametime = gpGlobals->time -   gpGlobals->oldtime;
 	}
 	else
 	{
@@ -186,7 +186,7 @@ static qboolean R_AllowFlipViewModel( cl_entity_t *e )
 {
 	if( cl_righthand && cl_righthand->value > 0 )
 	{
-		if( e == &clgame.viewent )
+		if( e == gEngfuncs.GetViewModel() )
 			return true;
 	}
 
@@ -379,7 +379,7 @@ pfnMod_ForName
 */
 static model_t *pfnMod_ForName( const char *model, int crash )
 {
-	return Mod_ForName( model, crash, false );
+	return gEngfuncs.Mod_ForName( model, crash, false );
 }
 
 /*
@@ -407,7 +407,7 @@ pfnGetViewEntity
 */
 static cl_entity_t *pfnGetViewEntity( void )
 {
-	return &clgame.viewent;
+	return gEngfuncs.GetViewModel();
 }
 
 /*
@@ -419,8 +419,8 @@ pfnGetEngineTimes
 static void pfnGetEngineTimes( int *framecount, double *current, double *old )
 {
 	if( framecount ) *framecount = tr.realframecount;
-	if( current ) *current = cl.time;
-	if( old ) *old = cl.oldtime;
+	if( current ) *current = gpGlobals->time;
+	if( old ) *old =   gpGlobals->oldtime;
 }
 
 /*
@@ -681,7 +681,7 @@ float CL_GetSequenceDuration( cl_entity_t *ent, int sequence )
 
 	if( ent->model != NULL && ent->model->type == mod_studio )
 	{
-		pstudiohdr = (studiohdr_t *)Mod_StudioExtradata( ent->model );
+		pstudiohdr = (studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, ent->model );
 
 		if( pstudiohdr )
 		{
@@ -844,8 +844,8 @@ void R_StudioCalcRotations( cl_entity_t *e, float pos[][3], vec4_t *q, mstudiose
 
 	for( i = 0; i < m_pStudioHeader->numbones; i++, pbone++, panim++ ) 
 	{
-		R_StudioCalcBoneQuaternion( frame, s, pbone, panim, adj, q[i] );
-		R_StudioCalcBonePosition( frame, s, pbone, panim, adj, pos[i] );
+		gEngfuncs.R_StudioCalcBoneQuaternion( frame, s, pbone, panim, adj, q[i] );
+		gEngfuncs.R_StudioCalcBonePosition( frame, s, pbone, panim, adj, pos[i] );
 	}
 
 	if( pseqdesc->motiontype & STUDIO_X ) pos[pseqdesc->motionbone][0] = 0.0f;
@@ -877,7 +877,7 @@ void R_StudioMergeBones( cl_entity_t *e, model_t *m_pSubModel )
 
 	f = R_StudioEstimateFrame( e, pseqdesc );
 
-	panim = R_StudioGetAnim( m_pStudioHeader, m_pSubModel, pseqdesc );
+	panim = gEngfuncs.R_StudioGetAnim( m_pStudioHeader, m_pSubModel, pseqdesc );
 	R_StudioCalcRotations( e, pos, q, pseqdesc, panim, f );
 	pbones = (mstudiobone_t *)((byte *)m_pStudioHeader + m_pStudioHeader->boneindex);
 
@@ -943,7 +943,7 @@ void R_StudioSetupBones( cl_entity_t *e )
 
 	f = R_StudioEstimateFrame( e, pseqdesc );
 
-	panim = R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
+	panim = gEngfuncs.R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
 	R_StudioCalcRotations( e, pos, q, pseqdesc, panim, f );
 
 	if( pseqdesc->numblends > 1 )
@@ -957,7 +957,7 @@ void R_StudioSetupBones( cl_entity_t *e )
 		dadt = R_StudioEstimateInterpolant( e );
 		s = (e->curstate.blending[0] * dadt + e->latched.prevblending[0] * (1.0f - dadt)) / 255.0f;
 
-		R_StudioSlerpBones( m_pStudioHeader->numbones, q, pos, q2, pos2, s );
+		gEngfuncs.R_StudioSlerpBones( m_pStudioHeader->numbones, q, pos, q2, pos2, s );
 
 		if( pseqdesc->numblends == 4 )
 		{
@@ -968,10 +968,10 @@ void R_StudioSetupBones( cl_entity_t *e )
 			R_StudioCalcRotations( e, pos4, q4, pseqdesc, panim, f );
 
 			s = (e->curstate.blending[0] * dadt + e->latched.prevblending[0] * (1.0f - dadt)) / 255.0f;
-			R_StudioSlerpBones( m_pStudioHeader->numbones, q3, pos3, q4, pos4, s );
+			gEngfuncs.R_StudioSlerpBones( m_pStudioHeader->numbones, q3, pos3, q4, pos4, s );
 
 			s = (e->curstate.blending[1] * dadt + e->latched.prevblending[1] * (1.0f - dadt)) / 255.0f;
-			R_StudioSlerpBones( m_pStudioHeader->numbones, q, pos, q3, pos3, s );
+			gEngfuncs.R_StudioSlerpBones( m_pStudioHeader->numbones, q, pos, q3, pos3, s );
 		}
 	}
 
@@ -983,7 +983,7 @@ void R_StudioSetupBones( cl_entity_t *e )
 		float		s;
 
 		pseqdesc = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex) + e->latched.prevsequence;
-		panim = R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
+		panim = gEngfuncs.R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
 
 		// clip prevframe
 		R_StudioCalcRotations( e, pos1b, q1b, pseqdesc, panim, e->latched.prevframe );
@@ -994,7 +994,7 @@ void R_StudioSetupBones( cl_entity_t *e )
 			R_StudioCalcRotations( e, pos2, q2, pseqdesc, panim, e->latched.prevframe );
 
 			s = (e->latched.prevseqblending[0]) / 255.0f;
-			R_StudioSlerpBones( m_pStudioHeader->numbones, q1b, pos1b, q2, pos2, s );
+			gEngfuncs.R_StudioSlerpBones( m_pStudioHeader->numbones, q1b, pos1b, q2, pos2, s );
 
 			if( pseqdesc->numblends == 4 )
 			{
@@ -1005,15 +1005,15 @@ void R_StudioSetupBones( cl_entity_t *e )
 				R_StudioCalcRotations( e, pos4, q4, pseqdesc, panim, e->latched.prevframe );
 
 				s = (e->latched.prevseqblending[0]) / 255.0f;
-				R_StudioSlerpBones( m_pStudioHeader->numbones, q3, pos3, q4, pos4, s );
+				gEngfuncs.R_StudioSlerpBones( m_pStudioHeader->numbones, q3, pos3, q4, pos4, s );
 
 				s = (e->latched.prevseqblending[1]) / 255.0f;
-				R_StudioSlerpBones( m_pStudioHeader->numbones, q1b, pos1b, q3, pos3, s );
+				gEngfuncs.R_StudioSlerpBones( m_pStudioHeader->numbones, q1b, pos1b, q3, pos3, s );
 			}
 		}
 
 		s = 1.0f - ( g_studio.time - e->latched.sequencetime ) / 0.2f;
-		R_StudioSlerpBones( m_pStudioHeader->numbones, q, pos, q1b, pos1b, s );
+		gEngfuncs.R_StudioSlerpBones( m_pStudioHeader->numbones, q, pos, q1b, pos1b, s );
 	}
 	else
 	{
@@ -1033,7 +1033,7 @@ void R_StudioSetupBones( cl_entity_t *e )
 
 		pseqdesc = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex) + m_pPlayerInfo->gaitsequence;
 
-		panim = R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
+		panim = gEngfuncs.R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
 		R_StudioCalcRotations( e, pos2, q2, pseqdesc, panim, m_pPlayerInfo->gaitframe );
 
 		for( i = 0; i < m_pStudioHeader->numbones; i++ )
@@ -1824,7 +1824,7 @@ void R_StudioSetRenderamt( int iRenderamt )
 	if( !RI.currententity ) return;
 
 	RI.currententity->curstate.renderamt = iRenderamt;
-	tr.blend = CL_FxBlend( RI.currententity ) / 255.0f;
+	tr.blend = gEngfuncs.CL_FxBlend( RI.currententity ) / 255.0f;
 }
 
 /*
@@ -2251,7 +2251,7 @@ static void R_StudioDrawAbsBBox( void )
 	int	i;
 
 	// looks ugly, skip
-	if( RI.currententity == &clgame.viewent )
+	if( RI.currententity == gEngfuncs.GetViewModel() )
 		return;
 
 	if( !R_StudioComputeBBox( p ))
@@ -2431,7 +2431,7 @@ static model_t *R_StudioSetupPlayerModel( int index )
 
 			Q_snprintf( state->modelname, sizeof( state->modelname ), "models/player/%s/%s.mdl", info->model, info->model );
 
-			if( FS_FileExists( state->modelname, false ))
+			if( gEngfuncs.FS_FileExists( state->modelname, false ))
 				state->model = Mod_ForName( state->modelname, false, true );
 			else state->model = NULL;
 
@@ -2531,7 +2531,7 @@ static void R_StudioClientEvents( void )
 
 		ClearBits( e->curstate.effects, EF_MUZZLEFLASH );
 		VectorCopy( e->attachment[0], el->origin );
-		el->die = cl.time + 0.05f;
+		el->die = gpGlobals->time + 0.05f;
 		el->color.r = 255;
 		el->color.g = 192;
 		el->color.b = 64;
@@ -3362,6 +3362,7 @@ R_RunViewmodelEvents
 void R_RunViewmodelEvents( void )
 {
 	int	i;
+	vec3_t simorg;
 
 	if( r_drawviewmodel->value == 0 )
 		return;
@@ -3370,18 +3371,19 @@ void R_RunViewmodelEvents( void )
 		return;
 
 	// ignore in thirdperson, camera view or client is died
-	if( !RP_NORMALPASS() || cl.local.health <= 0 || cl.viewentity != ( cl.playernum + 1 ))
+	if( !RP_NORMALPASS() || cl.local.health <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
 
-	RI.currententity = &clgame.viewent;
+	RI.currententity = gEngfuncs.GetViewModel();
 
 	if( !RI.currententity->model || RI.currententity->model->type != mod_studio )
 		return;
 
 	R_StudioSetupTimings();
 
+	gEngfuncs.GetPredictedOrigin( simorg );
 	for( i = 0; i < 4; i++ )
-		VectorCopy( cl.simorg, RI.currententity->attachment[i] );
+		VectorCopy( simorg, RI.currententity->attachment[i] );
 	RI.currentmodel = RI.currententity->model;
 
 	R_StudioDrawModelInternal( RI.currententity, STUDIO_EVENTS );
@@ -3394,7 +3396,7 @@ R_GatherPlayerLight
 */
 void R_GatherPlayerLight( void )
 {
-	cl_entity_t	*view = &clgame.viewent;
+	cl_entity_t	*view = gEngfuncs.GetViewModel();
 	colorVec		c;
 
 	tr.ignore_lightgamma = true;
@@ -3410,7 +3412,7 @@ R_DrawViewModel
 */
 void R_DrawViewModel( void )
 {
-	cl_entity_t	*view = &clgame.viewent;
+	cl_entity_t	*view = gEngfuncs.GetViewModel();
 
 	R_GatherPlayerLight();
 
@@ -3421,10 +3423,10 @@ void R_DrawViewModel( void )
 		return;
 
 	// ignore in thirdperson, camera view or client is died
-	if( !RP_NORMALPASS() || cl.local.health <= 0 || cl.viewentity != ( cl.playernum + 1 ))
+	if( !RP_NORMALPASS() || cl.local.health <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
 
-	tr.blend = CL_FxBlend( view ) / 255.0f;
+	tr.blend = gEngfuncs.CL_FxBlend( view ) / 255.0f;
 	if( !R_ModelOpaque( view->curstate.rendermode ) && tr.blend <= 0.0f )
 		return; // invisible ?
 

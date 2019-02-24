@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include "common.h"
 #include "gl_local.h"
 #include "pm_local.h"
 #include "sprite.h"
@@ -493,7 +494,7 @@ mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 	else if( frame >= psprite->numframes )
 	{
 		if( frame > psprite->numframes )
-			Con_Reportf( S_WARN "R_GetSpriteFrame: no such frame %d (%s)\n", frame, pModel->name );
+			Con_Printf( S_WARN "R_GetSpriteFrame: no such frame %d (%s)\n", frame, pModel->name );
 		frame = psprite->numframes - 1;
 	}
 
@@ -510,7 +511,7 @@ mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 
 		// when loading in Mod_LoadSpriteGroup, we guaranteed all interval values
 		// are positive, so we don't have to worry about division by zero
-		targettime = cl.time - ((int)( cl.time / fullinterval )) * fullinterval;
+		targettime = gpGlobals->time - ((int)( gpGlobals->time / fullinterval )) * fullinterval;
 
 		for( i = 0; i < (numframes - 1); i++ )
 		{
@@ -574,25 +575,25 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 				// this can be happens when rendering switched between single and angled frames
 				// or change model on replace delta-entity
 				ent->latched.prevblending[0] = ent->latched.prevblending[1] = frame;
-				ent->latched.sequencetime = cl.time;
+				ent->latched.sequencetime = gpGlobals->time;
 				lerpFrac = 1.0f;
 			}
                               
-			if( ent->latched.sequencetime < cl.time )
+			if( ent->latched.sequencetime < gpGlobals->time )
 			{
 				if( frame != ent->latched.prevblending[1] )
 				{
 					ent->latched.prevblending[0] = ent->latched.prevblending[1];
 					ent->latched.prevblending[1] = frame;
-					ent->latched.sequencetime = cl.time;
+					ent->latched.sequencetime = gpGlobals->time;
 					lerpFrac = 0.0f;
 				}
-				else lerpFrac = (cl.time - ent->latched.sequencetime) * 11.0f;
+				else lerpFrac = (gpGlobals->time - ent->latched.sequencetime) * 11.0f;
 			}
 			else
 			{
 				ent->latched.prevblending[0] = ent->latched.prevblending[1] = frame;
-				ent->latched.sequencetime = cl.time;
+				ent->latched.sequencetime = gpGlobals->time;
 				lerpFrac = 0.0f;
 			}
 		}
@@ -606,7 +607,7 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 		{
 			// reset interpolation on change model
 			ent->latched.prevblending[0] = ent->latched.prevblending[1] = frame;
-			ent->latched.sequencetime = cl.time;
+			ent->latched.sequencetime = gpGlobals->time;
 			lerpFrac = 0.0f;
 		}
 
@@ -621,7 +622,7 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 		numframes = pspritegroup->numframes;
 		fullinterval = pintervals[numframes-1];
 		jinterval = pintervals[1] - pintervals[0];
-		time = cl.time;
+		time = gpGlobals->time;
 		jtime = 0.0f;
 
 		// when loading in Mod_LoadSpriteGroup, we guaranteed all interval values
@@ -660,25 +661,25 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 				// this can be happens when rendering switched between single and angled frames
 				// or change model on replace delta-entity
 				ent->latched.prevblending[0] = ent->latched.prevblending[1] = frame;
-				ent->latched.sequencetime = cl.time;
+				ent->latched.sequencetime = gpGlobals->time;
 				lerpFrac = 1.0f;
 			}
 
-			if( ent->latched.sequencetime < cl.time )
+			if( ent->latched.sequencetime < gpGlobals->time )
 			{
 				if( frame != ent->latched.prevblending[1] )
 				{
 					ent->latched.prevblending[0] = ent->latched.prevblending[1];
 					ent->latched.prevblending[1] = frame;
-					ent->latched.sequencetime = cl.time;
+					ent->latched.sequencetime = gpGlobals->time;
 					lerpFrac = 0.0f;
 				}
-				else lerpFrac = (cl.time - ent->latched.sequencetime) * ent->curstate.framerate;
+				else lerpFrac = (gpGlobals->time - ent->latched.sequencetime) * ent->curstate.framerate;
 			}
 			else
 			{
 				ent->latched.prevblending[0] = ent->latched.prevblending[1] = frame;
-				ent->latched.sequencetime = cl.time;
+				ent->latched.sequencetime = gpGlobals->time;
 				lerpFrac = 0.0f;
 			}
 		}
@@ -746,7 +747,7 @@ static float R_SpriteGlowBlend( vec3_t origin, int rendermode, int renderfx, flo
 
 	if( RP_NORMALPASS( ))
 	{
-		tr = CL_VisTraceLine( RI.vieworg, origin, r_traceglow->value ? PM_GLASS_IGNORE : (PM_GLASS_IGNORE|PM_STUDIO_IGNORE));
+		tr = gEngfuncs.EV_VisTraceLine( RI.vieworg, origin, r_traceglow->value ? PM_GLASS_IGNORE : (PM_GLASS_IGNORE|PM_STUDIO_IGNORE));
 
 		if(( 1.0f - tr->fraction ) * dist > 8.0f )
 			return 0.0f;

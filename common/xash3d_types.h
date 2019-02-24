@@ -2,6 +2,12 @@
 #ifndef XASH_TYPES_H
 #define XASH_TYPES_H
 
+#ifdef _WIN32
+#include <stdio.h>
+#else // _WIN32
+#include <sys/types.h>
+#endif // _WIN32
+
 typedef unsigned char byte;
 typedef int		sound_t;
 typedef float		vec_t;
@@ -121,5 +127,6 @@ typedef struct dll_info_s
 	void		*link;	// hinstance of loading library
 } dll_info_t;
 
+typedef void (*setpair_t)( const char *key, const char *value, void *buffer, void *numpairs );
 
 #endif // XASH_TYPES_H

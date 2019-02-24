@@ -132,7 +132,7 @@ static qboolean R_LoadProgs( const char *name )
 		return false;
 	}
 
-	refState.developer = host.allow_console;
+	refState.developer = host_developer.value;
 
 	if( !ref.dllFuncs.R_Init( true ) )
 	{

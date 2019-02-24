@@ -89,16 +89,16 @@ This repeats a 64*64 tile graphic to fill the screen around a sized down
 refresh window.
 =============
 */
-void R_DrawTileClear( int x, int y, int w, int h )
+void R_DrawTileClear( int texnum, int x, int y, int w, int h )
 {
 	float		tw, th;
 	gl_texture_t	*glt;
 
 	GL_SetRenderMode( kRenderNormal );
 	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-	GL_Bind( XASH_TEXTURE0, cls.tileImage );
+	GL_Bind( XASH_TEXTURE0, texnum );
 
-	glt = R_GetTexture( cls.tileImage );
+	glt = R_GetTexture( texnum );
 	tw = glt->srcWidth;
 	th = glt->srcHeight;
 

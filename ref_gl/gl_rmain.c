@@ -241,7 +241,7 @@ qboolean R_AddEntity( struct cl_entity_s *clent, int type )
 	if( FBitSet( clent->curstate.effects, EF_NODRAW ))
 		return false; // done
 
-	if( !R_ModelOpaque( clent->curstate.rendermode ) && CL_FxBlend( clent ) <= 0 )
+	if( !R_ModelOpaque( clent->curstate.rendermode ) && gEngfuncs.CL_FxBlend( clent ) <= 0 )
 		return true; // invisible
 
 	if( type == ET_FRAGMENTED )
@@ -331,8 +331,8 @@ void R_SetupFrustum( void )
 
 	if( RP_NORMALPASS() && ( cl.local.waterlevel >= 3 ))
 	{
-		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97 + sin( cl.time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
-		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03 - sin( cl.time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
+		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97 + sin( gpGlobals->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
+		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03 - sin( gpGlobals->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
 	}
 
 	// build the transformation matrix for the given view angles
@@ -421,7 +421,7 @@ void R_RotateForEntity( cl_entity_t *e )
 {
 	float	scale = 1.0f;
 
-	if( e == clgame.entities )
+	if( e == gEngfuncs.GetEntityByIndex( 0 ) )
 	{
 		R_LoadIdentity();
 		return;
@@ -447,7 +447,7 @@ void R_TranslateForEntity( cl_entity_t *e )
 {
 	float	scale = 1.0f;
 
-	if( e == clgame.entities )
+	if( e == gEngfuncs.GetEntityByIndex( 0 ) )
 	{
 		R_LoadIdentity();
 		return;
@@ -656,7 +656,7 @@ static void R_CheckFog( void )
 	int		i, cnt, count;
 
 	// quake global fog
-	if( Host_IsQuakeCompatible( ))
+	if( gEngfuncs.Host_IsQuakeCompatible( ))
 	{
 		if( !MOVEVARS->fog_settings )
 		{
@@ -779,7 +779,7 @@ void R_DrawFog( void )
 	if( !RI.fogEnabled ) return;
 
 	pglEnable( GL_FOG );
-	if( Host_IsQuakeCompatible( ))
+	if( gEngfuncs.Host_IsQuakeCompatible( ))
 		pglFogi( GL_FOG_MODE, GL_EXP2 );
 	else pglFogi( GL_FOG_MODE, GL_EXP );
 	pglFogf( GL_FOG_DENSITY, RI.fogDensity );
@@ -851,7 +851,7 @@ void R_DrawEntitiesOnList( void )
 	GL_CheckForErrors();
 
 	if( !RI.onlyClientDraw )
-          {
+	{
 		CL_DrawEFX( tr.frametime, false );
 	}
 
@@ -870,7 +870,7 @@ void R_DrawEntitiesOnList( void )
 
 		// handle studiomodels with custom rendermodes on texture
 		if( RI.currententity->curstate.rendermode != kRenderNormal )
-			tr.blend = CL_FxBlend( RI.currententity ) / 255.0f;
+			tr.blend = gEngfuncs.CL_FxBlend( RI.currententity ) / 255.0f;
 		else tr.blend = 1.0f; // draw as solid but sorted by distance
 
 		if( tr.blend <= 0.0f ) continue;
@@ -939,7 +939,7 @@ void R_RenderScene( void )
 
 	// frametime is valid only for normal pass
 	if( RP_NORMALPASS( ))
-		tr.frametime = cl.time - cl.oldtime;
+		tr.frametime = gpGlobals->time -   gpGlobals->oldtime;
 	else tr.frametime = 0.0;
 
 	// begin a new frame
@@ -1261,7 +1261,7 @@ static int GL_RenderGetParm( int parm, int arg )
 		return (host.type == HOST_DEDICATED);
 	case PARM_SURF_SAMPLESIZE:
 		if( arg >= 0 && arg < WORLDMODEL->numsurfaces )
-			return Mod_SampleSizeForFace( &WORLDMODEL->surfaces[arg] );
+			return gEngfuncs.Mod_SampleSizeForFace( &WORLDMODEL->surfaces[arg] );
 		return LM_SAMPLE_SIZE;
 	case PARM_GL_CONTEXT_TYPE:
 		return glConfig.context;
@@ -1347,188 +1347,6 @@ static void R_SetCurrentModel( model_t *mod )
 {
 	RI.currentmodel = mod;
 }
-
-// to engine?
-#if 0
-
-static int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis )
-{
-	return Mod_FatPVS( org, radius, visbuffer, WORLDMODEL->visbytes, merge, fullvis );
-}
-
-static lightstyle_t *CL_GetLightStyle( int number )
-{
-	Assert( number >= 0 && number < MAX_LIGHTSTYLES );
-	return &cl.lightstyles[number];
-}
-
-static dlight_t *CL_GetDynamicLight( int number )
-{
-	Assert( number >= 0 && number < MAX_DLIGHTS );
-	return &cl_dlights[number];
-}
-
-static dlight_t *CL_GetEntityLight( int number )
-{
-	Assert( number >= 0 && number < MAX_ELIGHTS );
-	return &cl_elights[number];
-}
-
-static float R_GetFrameTime( void )
-{
-	return tr.frametime;
-}
-
-static const char *GL_TextureName( unsigned int texnum )
-{
-	return R_GetTexture( texnum )->name;	
-}
-
-const byte *GL_TextureData( unsigned int texnum )
-{
-	rgbdata_t *pic = R_GetTexture( texnum )->original;
-
-	if( pic != NULL )
-		return pic->buffer;
-	return NULL;
-}
-
-static const ref_overview_t *GL_GetOverviewParms( void )
-{
-	return &clgame.overView;
-}
-
-static void *R_Mem_Alloc( size_t cb, const char *filename, const int fileline )
-{
-	return _Mem_Alloc( cls.mempool, cb, true, filename, fileline );
-}
-
-static void R_Mem_Free( void *mem, const char *filename, const int fileline )
-{
-	if( !mem ) return;
-	_Mem_Free( mem, filename, fileline );
-}
-
-/*
-=========
-pfnGetFilesList
-
-=========
-*/
-static char **pfnGetFilesList( const char *pattern, int *numFiles, int gamedironly )
-{
-	static search_t	*t = NULL;
-
-	if( t ) Mem_Free( t ); // release prev search
-
-	t = FS_Search( pattern, true, gamedironly );
-
-	if( !t )
-	{
-		if( numFiles ) *numFiles = 0;
-		return NULL;
-	}
-
-	if( numFiles ) *numFiles = t->numfilenames;
-	return t->filenames;
-}
-
-static uint pfnFileBufferCRC32( const void *buffer, const int length )
-{
-	uint	modelCRC = 0;
-
-	if( !buffer || length <= 0 )
-		return modelCRC;
-
-	CRC32_Init( &modelCRC );
-	CRC32_ProcessBuffer( &modelCRC, buffer, length );
-	return CRC32_Final( modelCRC );
-}
-
-/*
-=============
-CL_GenericHandle
-
-=============
-*/
-const char *CL_GenericHandle( int fileindex )
-{
-	if( fileindex < 0 || fileindex >= MAX_CUSTOM )
-		return 0;
-	return cl.files_precache[fileindex];
-}
-#endif
-	
-static render_api_t gRenderAPI =
-{
-#if 0
-	GL_RenderGetParm,
-	R_GetDetailScaleForTexture,
-	R_GetExtraParmsForTexture,
-	CL_GetLightStyle,
-	CL_GetDynamicLight,
-	CL_GetEntityLight,
-	LightToTexGamma,
-	R_GetFrameTime,
-	R_SetCurrentEntity,
-	R_SetCurrentModel,
-	R_FatPVS,
-	R_StoreEfrags,
-	GL_FindTexture,
-	GL_TextureName,
-	GL_TextureData,
-	GL_LoadTexture,
-	GL_CreateTexture,
-	GL_LoadTextureArray,
-	GL_CreateTextureArray,
-	GL_FreeTexture,
-	DrawSingleDecal,
-	R_DecalSetupVerts,
-	R_EntityRemoveDecals,
-	(void*)AVI_LoadVideo,
-	(void*)AVI_GetVideoInfo,
-	(void*)AVI_GetVideoFrameNumber,
-	(void*)AVI_GetVideoFrame,
-	R_UploadStretchRaw,
-	(void*)AVI_FreeVideo,
-	(void*)AVI_IsActive,
-	S_StreamAviSamples,
-	NULL,
-	NULL,
-	GL_Bind,
-	GL_SelectTexture,
-	GL_LoadTexMatrixExt,
-	GL_LoadIdentityTexMatrix,
-	GL_CleanUpTextureUnits,
-	GL_TexGen,
-	GL_TextureTarget,
-	GL_SetTexCoordArrayMode,
-	GL_GetProcAddress,
-	GL_UpdateTexSize,
-	NULL,
-	NULL,
-	CL_DrawParticlesExternal,
-	R_EnvShot,
-	pfnSPR_LoadExt,
-	R_LightVec,
-	R_StudioGetTexture,
-	GL_GetOverviewParms,
-	CL_GenericHandle,
-	NULL,
-	NULL,
-	R_Mem_Alloc,
-	R_Mem_Free,
-	pfnGetFilesList,
-	pfnFileBufferCRC32,
-	COM_CompareFileTime,
-	Host_Error,
-	(void*)CL_ModelHandle,
-	pfnTime,
-	Cvar_Set,
-	S_FadeMusicVolume,
-	COM_SetRandomSeed,
-#endif
-};
 
 /*
 ===============

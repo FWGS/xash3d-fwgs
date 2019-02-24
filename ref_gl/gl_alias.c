@@ -484,7 +484,7 @@ void *Mod_LoadSingleSkin( daliasskintype_t *pskintype, int skinnum, int size )
 	Q_snprintf( name, sizeof( name ), "%s:frame%i", loadmodel->name, skinnum );
 	Q_snprintf( lumaname, sizeof( lumaname ), "%s:luma%i", loadmodel->name, skinnum );
 	Q_snprintf( checkname, sizeof( checkname ), "%s_%i.tga", loadmodel->name, skinnum );
-	if( !FS_FileExists( checkname, false ) || ( pic = FS_LoadImage( checkname, NULL, 0 )) == NULL )
+	if( !gEngfuncs.FS_FileExists( checkname, false ) || ( pic = FS_LoadImage( checkname, NULL, 0 )) == NULL )
 		pic = Mod_CreateSkinData( loadmodel, (byte *)(pskintype + 1), m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
 
 	m_pAliasHeader->gl_texturenum[skinnum][0] =
@@ -1270,7 +1270,7 @@ static void R_AliasDrawAbsBBox( cl_entity_t *e, const vec3_t absmin, const vec3_
 	int	i;
 
 	// looks ugly, skip
-	if( r_drawentities->value != 5 || e == &clgame.viewent )
+	if( r_drawentities->value != 5 || e == gEngfuncs.GetViewModel() )
 		return;
 
 	// compute a full bounding box
@@ -1346,7 +1346,7 @@ static void R_AliasSetupTimings( void )
 	if( RI.drawWorld )
 	{
 		// synchronize with server time
-		g_alias.time = cl.time;
+		g_alias.time = gpGlobals->time;
 	}
 	else
 	{

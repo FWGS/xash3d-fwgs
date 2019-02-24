@@ -115,42 +115,13 @@ void TriEnd( void )
 
 /*
 =============
-_TriColor4f
-
-=============
-*/
-void _TriColor4f( float r, float g, float b, float a )
-{
-	pglColor4f( r, g, b, a );
-}
-
-/*
-=============
-_TriColor4ub
-
-=============
-*/
-void _TriColor4ub( byte r, byte g, byte b, byte a )
-{
-	pglColor4ub( r, g, b, a );
-}
-
-/*
-=============
 TriColor4f
 
 =============
 */
 void TriColor4f( float r, float g, float b, float a )
 {
-	if( engine.TriGetRenderMode() == kRenderTransAlpha )
-		RefTriAPI->Color4ub( r * 255.9f, g * 255.9f, b * 255.9f, a * 255.0f );
-	else RefTriAPI->Color4f( r * a, g * a, b * a, 1.0 );
-
-	clgame.ds.triRGBA[0] = r;
-	clgame.ds.triRGBA[1] = g;
-	clgame.ds.triRGBA[2] = b;
-	clgame.ds.triRGBA[3] = a;
+	pglColor4f( r, g, b, a );
 }
 
 /*
@@ -161,12 +132,7 @@ TriColor4ub
 */
 void TriColor4ub( byte r, byte g, byte b, byte a )
 {
-	clgame.ds.triRGBA[0] = r * (1.0f / 255.0f);
-	clgame.ds.triRGBA[1] = g * (1.0f / 255.0f);
-	clgame.ds.triRGBA[2] = b * (1.0f / 255.0f);
-	clgame.ds.triRGBA[3] = a * (1.0f / 255.0f);
-
-	pglColor4f( clgame.ds.triRGBA[0], clgame.ds.triRGBA[1], clgame.ds.triRGBA[2], 1.0f );
+	pglColor4ub( r, g, b, a );
 }
 
 /*
@@ -317,7 +283,7 @@ TriCullFace
 
 =============
 */
-void _TriCullFace( TRICULLSTYLE mode )
+void TriCullFace( TRICULLSTYLE mode )
 {
 	int glMode;
 

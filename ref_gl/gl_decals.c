@@ -398,7 +398,7 @@ static void R_DecalVertsLight( float *v, msurface_t *surf, int vertCount )
 	float		sample_size;
 	int		j;
 
-	sample_size = Mod_SampleSizeForFace( surf );
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	tex = surf->texinfo;
 
 	for( j = 0; j < vertCount; j++, v += VERTEXSIZE )
