@@ -26,7 +26,6 @@ GNU General Public License for more details.
 #include "com_model.h"
 #include "studio.h"
 #include "r_efx.h"
-#include "cvar.h"
 
 #define REF_API_VERSION 1
 
@@ -59,6 +58,12 @@ GNU General Public License for more details.
 #define FWORLD_WATERALPHA		BIT( 2 )
 #define FWORLD_HAS_DELUXEMAP		BIT( 3 )
 
+typedef struct
+{
+	msurface_t	*surf;
+	int		cull;
+} sortedface_t;
+
 typedef struct ref_globals_s
 {
 	qboolean developer;
@@ -80,6 +85,14 @@ typedef struct ref_globals_s
 	model_t		*currentmodel;
 
 	float fov_x, fov_y;
+
+	// todo: fill this without engine help
+	// move to local
+
+	// translucent sorted array
+	sortedface_t	*draw_surfaces;	// used for sorting translucent surfaces
+	int		max_surfaces;	// max surfaces per submodel (for all models)
+	size_t		visbytes;		// cluster size
 } ref_globals_t;
 
 enum
@@ -118,8 +131,8 @@ typedef struct ref_api_s
 	int (*GetViewEntIndex)( void ); // cl.viewentity
 
 	// cvar handlers
-	convar_t   *(*pfnRegisterVariable)( const char *szName, const char *szValue, int flags, const char *description );
-	convar_t   *(*pfnGetCvarPointer)( const char *name );
+	cvar_t   *(*pfnRegisterVariable)( const char *szName, const char *szValue, int flags, const char *description );
+	cvar_t   *(*pfnGetCvarPointer)( const char *name );
 	float       (*pfnGetCvarFloat)( const char *szName );
 	const char *(*pfnGetCvarString)( const char *szName );
 
@@ -207,6 +220,39 @@ typedef struct ref_api_s
 	int   (*GL_CreateContext)( void ); // TODO
 	void  (*GL_DestroyContext)( );
 	void *(*GL_GetProcAddress)( const char *name );
+
+	// renderapi
+	lightstyle_t*	(*GetLightStyle)( int number );
+	dlight_t*		(*GetDynamicLight)( int number );
+	dlight_t*		(*GetEntityLight)( int number );
+	byte		(*LightToTexGamma)( byte color );	// software gamma support
+	int		(*R_FatPVS)( const float *org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis );
+	void		*(*AVI_LoadVideo)( const char *filename, qboolean load_audio );
+	int		(*AVI_GetVideoInfo)( void *Avi, long *xres, long *yres, float *duration );
+	long		(*AVI_GetVideoFrameNumber)( void *Avi, float time );
+	byte		*(*AVI_GetVideoFrame)( void *Avi, long frame );
+	void		(*AVI_FreeVideo)( void *Avi );
+	int		(*AVI_IsActive)( void *Avi );
+	void		(*AVI_StreamSound)( void *Avi, int entnum, float fvol, float attn, float synctime );
+	int		(*SPR_LoadExt)( const char *szPicName, unsigned int texFlags ); // extended version of SPR_Load
+	const struct ref_overview_s *( *GetOverviewParms )( void );
+	const char	*( *GetFileByIndex )( int fileindex );
+	void		*(*pfnMemAlloc)( size_t cb, const char *filename, const int fileline );
+	void		(*pfnMemFree)( void *mem, const char *filename, const int fileline );
+	char		**(*pfnGetFilesList)( const char *pattern, int *numFiles, int gamedironly );
+	unsigned int	(*pfnFileBufferCRC32)( const void *buffer, const int length );
+	int		(*COM_CompareFileTime)( const char *filename1, const char *filename2, int *iCompare );
+	void*		( *pfnGetModel )( int modelindex );
+	float		(*pfnTime)( void );				// Sys_DoubleTime
+	void		(*Cvar_Set)( const char *name, const char *value );
+	void		(*S_FadeMusicVolume)( float fadePercent );	// fade background track (0-100 percents)
+	void		(*SetRandomSeed)( long lSeed );		// set custom seed for RANDOM_FLOAT\RANDOM_LONG for predictable random
+
+	// client exports
+	void	(*pfnDrawNormalTriangles)( void );
+	void	(*pfnDrawTransparentTriangles)( void );
+	int	(*pfnGetRenderInterface)( int version, render_api_t *renderfuncs, render_interface_t *callback );
+	int		(*CL_GetRenderParm)( int parm, int arg );	// generic
 
 } ref_api_t;
 

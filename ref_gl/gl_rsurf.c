@@ -14,7 +14,6 @@ GNU General Public License for more details.
 */
 
 #include "gl_local.h"
-#include "mod_local.h"
 #include "mathlib.h"
 			
 typedef struct
@@ -45,16 +44,16 @@ static void R_DrawVBO( qboolean drawlightmaps, qboolean drawtextures );
 
 byte *Mod_GetCurrentVis( void )
 {
-	if( clgame.drawFuncs.Mod_GetCurrentVis && tr.fCustomRendering )
-		return clgame.drawFuncs.Mod_GetCurrentVis();
+	if( gRenderIface.Mod_GetCurrentVis && tr.fCustomRendering )
+		return gRenderIface.Mod_GetCurrentVis();
 	return RI.visbytes;
 }
 
 void Mod_SetOrthoBounds( float *mins, float *maxs )
 {
-	if( clgame.drawFuncs.GL_OrthoBounds )
+	if( gRenderIface.GL_OrthoBounds )
 	{
-		clgame.drawFuncs.GL_OrthoBounds( mins, maxs );
+		gRenderIface.GL_OrthoBounds( mins, maxs );
 	}
 
 	Vector2Average( maxs, mins, world_orthocenter );
@@ -1270,7 +1269,7 @@ void R_DrawTextureChains( void )
 	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
-	if( FBitSet( WORLDMODEL->flags, FWORLD_SKYSPHERE ) && !FBitSet( WORLDMODEL->flags, FWORLD_CUSTOM_SKYBOX ))
+	if( gEngfuncs.CL)
 	{
 		pglDisable( GL_TEXTURE_2D );
 		pglColor3f( 1.0f, 1.0f, 1.0f );
@@ -1280,7 +1279,7 @@ void R_DrawTextureChains( void )
 	for( s = skychain; s != NULL; s = s->texturechain )
 		R_AddSkyBoxSurface( s );
 
-	if( FBitSet( WORLDMODEL->flags, FWORLD_SKYSPHERE ) && !FBitSet( WORLDMODEL->flags, FWORLD_CUSTOM_SKYBOX ))
+	if( FBitSet( WORLDMODEL->flags, FWORLD_SKYSPHERE ) && !tr.fCustomSkybox )
 	{
 		pglEnable( GL_TEXTURE_2D );
 		if( skychain )
@@ -1608,22 +1607,22 @@ void R_DrawBrushModel( cl_entity_t *e )
 				continue;
 		}
 
-		if( num_sorted < WORLDMODEL->max_surfaces )
+		if( num_sorted < gpGlobals->max_surfaces )
 		{
-			WORLDMODEL->draw_surfaces[num_sorted].surf = psurf;
-			WORLDMODEL->draw_surfaces[num_sorted].cull = cull_type;
+			gpGlobals->draw_surfaces[num_sorted].surf = psurf;
+			gpGlobals->draw_surfaces[num_sorted].cull = cull_type;
 			num_sorted++;
 		}
 	}
 
 	// sort faces if needs
 	if( !FBitSet( clmodel->flags, MODEL_LIQUID ) && e->curstate.rendermode == kRenderTransTexture && !CVAR_TO_BOOL( gl_nosort ))
-		qsort( WORLDMODEL->draw_surfaces, num_sorted, sizeof( sortedface_t ), R_SurfaceCompare );
+		qsort( gpGlobals->draw_surfaces, num_sorted, sizeof( sortedface_t ), R_SurfaceCompare );
 
 	// draw sorted translucent surfaces
 	for( i = 0; i < num_sorted; i++ )
-		if( !allow_vbo || !R_AddSurfToVBO( WORLDMODEL->draw_surfaces[i].surf, true ) )
-			R_RenderBrushPoly( WORLDMODEL->draw_surfaces[i].surf, WORLDMODEL->draw_surfaces[i].cull );
+		if( !allow_vbo || !R_AddSurfToVBO( gpGlobals->draw_surfaces[i].surf, true ) )
+			R_RenderBrushPoly( gpGlobals->draw_surfaces[i].surf, gpGlobals->draw_surfaces[i].cull );
 	R_DrawVBO( R_HasLightmap(), true );
 
 	if( e->curstate.rendermode == kRenderTransColor )
@@ -3415,8 +3414,8 @@ void R_MarkLeaves( void )
 	if( r_novis->value || RI.drawOrtho || !RI.viewleaf || !WORLDMODEL->visdata )
 		novis = true;
 
-	Mod_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, WORLDMODEL->visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), novis );
-	if( force && !novis ) Mod_FatPVS( test, REFPVS_RADIUS, RI.visbytes, WORLDMODEL->visbytes, true, novis );
+	Mod_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, gpGlobals->visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), novis );
+	if( force && !novis ) Mod_FatPVS( test, REFPVS_RADIUS, RI.visbytes, gpGlobals->visbytes, true, novis );
 
 	for( i = 0; i < WORLDMODEL->numleafs; i++ )
 	{
@@ -3523,10 +3522,10 @@ void GL_RebuildLightmaps( void )
 	}
 	LM_UploadBlock( false );
 
-	if( clgame.drawFuncs.GL_BuildLightmaps )
+	if( gRenderIface.GL_BuildLightmaps )
 	{
 		// build lightmaps on the client-side
-		clgame.drawFuncs.GL_BuildLightmaps( );
+		gRenderIface.GL_BuildLightmaps( );
 	}
 }
 
@@ -3606,10 +3605,10 @@ void GL_BuildLightmaps( void )
 
 	LM_UploadBlock( false );
 
-	if( clgame.drawFuncs.GL_BuildLightmaps )
+	if( gRenderIface.GL_BuildLightmaps )
 	{
 		// build lightmaps on the client-side
-		clgame.drawFuncs.GL_BuildLightmaps( );
+		gRenderIface.GL_BuildLightmaps( );
 	}
 
 	// now gamma and brightness are valid

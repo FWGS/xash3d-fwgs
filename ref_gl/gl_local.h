@@ -32,7 +32,9 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "com_strings.h"
 #include "pm_movevars.h"
+#define offsetof(s,m)       (size_t)&(((s *)0)->m)
 
+typedef cvar_t convar_t;
 void CL_DrawEFX(double, double);
 void *CL_ModelHandle(int);
 void *GL_GetProcAddress(char *);
@@ -46,6 +48,11 @@ extern convar_t cvstub;
 #define Cmd_RemoveCommand(...)
 #define FS_FreeImage(...)
 #define Host_Error(...)
+#define ASSERT(x)
+#define Assert(x)
+
+#include <stdio.h>
+#define Con_Reportf gEngfuncs.Con_DPrintf
 
 #define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc )	convar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
 #define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc )	convar_t cv = { #cv, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
@@ -54,6 +61,10 @@ extern convar_t cvstub;
 #define WORLD (gEngfuncs.GetWorld())
 #define WORLDMODEL (gEngfuncs.pfnGetModelByIndex( 1 ))
 #define MOVEVARS (gEngfuncs.pfnGetMoveVars())
+extern render_interface_t gRenderIface;
+
+// make mod_ref.h?
+#define LM_SAMPLE_SIZE             16
 
 
 extern byte	*r_temppool;
@@ -245,6 +256,8 @@ typedef struct
 
 	// cull info
 	vec3_t		modelorg;		// relative to viewpoint
+
+	qboolean fCustomSkybox;
 } gl_globals_t;
 
 typedef struct

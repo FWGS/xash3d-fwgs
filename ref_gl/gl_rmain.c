@@ -327,7 +327,7 @@ R_SetupFrustum
 */
 void R_SetupFrustum( void )
 {
-	ref_overview_t	*ov = &clgame.overView;
+	ref_overview_t	*ov = gEngfuncs.GetOverviewParms();
 
 	if( RP_NORMALPASS() && ( cl.local.waterlevel >= 3 ))
 	{
@@ -362,7 +362,7 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 
 	if( RI.drawOrtho )
 	{
-		ref_overview_t *ov = &clgame.overView;
+		ref_overview_t *ov = gEngfuncs.GetOverviewParms();
 		Matrix4x4_CreateOrtho( m, ov->xLeft, ov->xRight, ov->yTop, ov->yBottom, ov->zNear, ov->zFar );
 		return;
 	}
@@ -518,10 +518,10 @@ void R_SetupGL( qboolean set_gl_state )
 		int	x, x2, y, y2;
 
 		// set up viewport (main, playersetup)
-		x = floor( RI.viewport[0] * glState.width / glState.width );
-		x2 = ceil(( RI.viewport[0] + RI.viewport[2] ) * glState.width / glState.width );
-		y = floor( glState.height - RI.viewport[1] * glState.height / glState.height );
-		y2 = ceil( glState.height - ( RI.viewport[1] + RI.viewport[3] ) * glState.height / glState.height );
+		x = floor( RI.viewport[0] * gpGlobals->width / gpGlobals->width );
+		x2 = ceil(( RI.viewport[0] + RI.viewport[2] ) * gpGlobals->width / gpGlobals->width );
+		y = floor( gpGlobals->height - RI.viewport[1] * gpGlobals->height / gpGlobals->height );
+		y2 = ceil( gpGlobals->height - ( RI.viewport[1] + RI.viewport[3] ) * gpGlobals->height / gpGlobals->height );
 
 		pglViewport( x, y2, x2 - x, y - y2 );
 	}
@@ -858,7 +858,7 @@ void R_DrawEntitiesOnList( void )
 	GL_CheckForErrors();
 
 	if( RI.drawWorld )
-		clgame.dllFuncs.pfnDrawNormalTriangles();
+		gEngfuncs.pfnDrawNormalTriangles();
 
 	GL_CheckForErrors();
 
@@ -902,7 +902,7 @@ void R_DrawEntitiesOnList( void )
 	if( RI.drawWorld )
 	{
 		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		clgame.dllFuncs.pfnDrawTransparentTriangles ();
+		gEngfuncs.pfnDrawTransparentTriangles ();
 	}
 
 	GL_CheckForErrors();
@@ -1109,11 +1109,11 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 	}
 
 	// completely override rendering
-	if( clgame.drawFuncs.GL_RenderFrame != NULL )
+	if( gRenderIface.GL_RenderFrame != NULL )
 	{
 		tr.fCustomRendering = true;
 
-		if( clgame.drawFuncs.GL_RenderFrame( rvp ))
+		if( gRenderIface.GL_RenderFrame( rvp ))
 		{
 			R_GatherPlayerLight();
 			tr.realframecount++;
@@ -1204,11 +1204,6 @@ static int GL_RenderGetParm( int parm, int arg )
 	case PARM_TEX_DEPTH:
 		glt = R_GetTexture( arg );
 		return glt->depth;
-	case PARM_BSP2_SUPPORTED:
-#ifdef SUPPORT_BSP2_FORMAT
-		return 1;
-#endif
-		return 0;
 	case PARM_TEX_SKYBOX:
 		Assert( arg >= 0 && arg < 6 );
 		return tr.skyboxTextures[arg];
@@ -1217,22 +1212,14 @@ static int GL_RenderGetParm( int parm, int arg )
 	case PARM_TEX_LIGHTMAP:
 		arg = bound( 0, arg, MAX_LIGHTMAPS - 1 );
 		return tr.lightmapTextures[arg];
-	case PARM_SKY_SPHERE:
-		return FBitSet( WORLDMODEL->flags, FWORLD_SKYSPHERE ) && !FBitSet( WORLDMODEL->flags, FWORLD_CUSTOM_SKYBOX );
-	case PARAM_GAMEPAUSED:
-		return cl.paused;
 	case PARM_WIDESCREEN:
-		return glState.wideScreen;
+		return gpGlobals->wideScreen;
 	case PARM_FULLSCREEN:
-		return glState.fullScreen;
+		return gpGlobals->fullScreen;
 	case PARM_SCREEN_WIDTH:
-		return glState.width;
+		return gpGlobals->width;
 	case PARM_SCREEN_HEIGHT:
-		return glState.height;
-	case PARM_CLIENT_INGAME:
-		return CL_IsInGame();
-	case PARM_MAX_ENTITIES:
-		return clgame.maxEntities;
+		return gpGlobals->height;
 	case PARM_TEX_TARGET:
 		glt = R_GetTexture( arg );
 		return glt->target;
@@ -1249,16 +1236,10 @@ static int GL_RenderGetParm( int parm, int arg )
 	case PARM_LIGHTSTYLEVALUE:
 		arg = bound( 0, arg, MAX_LIGHTSTYLES - 1 );
 		return tr.lightstylevalue[arg];
-	case PARM_MAP_HAS_DELUXE:
-		return FBitSet( WORLDMODEL->flags, FWORLD_HAS_DELUXEMAP );
 	case PARM_MAX_IMAGE_UNITS:
 		return GL_MaxTextureUnits();
-	case PARM_CLIENT_ACTIVE:
-		return (cls.state == ca_active);
 	case PARM_REBUILD_GAMMA:
 		return glConfig.softwareGammaUpdate;
-	case PARM_DEDICATED_SERVER:
-		return (host.type == HOST_DEDICATED);
 	case PARM_SURF_SAMPLESIZE:
 		if( arg >= 0 && arg < WORLDMODEL->numsurfaces )
 			return gEngfuncs.Mod_SampleSizeForFace( &WORLDMODEL->surfaces[arg] );
@@ -1269,8 +1250,10 @@ static int GL_RenderGetParm( int parm, int arg )
 		return glConfig.wrapper;
 	case PARM_STENCIL_ACTIVE:
 		return glState.stencilEnabled;
-	case PARM_WATER_ALPHA:
-		return FBitSet( WORLDMODEL->flags, FWORLD_WATERALPHA );
+	case PARM_SKY_SPHERE:
+		return gEngfuncs.CL_GetRenderParm( parm, arg ) && !tr.fCustomSkybox;
+	default:
+		return gEngfuncs.CL_GetRenderParm( parm, arg );
 	}
 	return 0;
 }
@@ -1358,22 +1341,16 @@ Initialize client external rendering
 qboolean R_InitRenderAPI( void )
 {
 	// make sure what render functions is cleared
-	memset( &clgame.drawFuncs, 0, sizeof( clgame.drawFuncs ));
+	memset( &gRenderIface, 0, sizeof( gRenderIface ));
 
-	if( clgame.dllFuncs.pfnGetRenderInterface )
+	if( gEngfuncs.pfnGetRenderInterface( CL_RENDER_INTERFACE_VERSION, &gRenderAPI, &gRenderIface ))
 	{
-		if( clgame.dllFuncs.pfnGetRenderInterface( CL_RENDER_INTERFACE_VERSION, &gRenderAPI, &clgame.drawFuncs ))
-		{
-			Con_Reportf( "CL_LoadProgs: ^2initailized extended RenderAPI ^7ver. %i\n", CL_RENDER_INTERFACE_VERSION );
-			return true;
-		}
-
-		// make sure what render functions is cleared
-		memset( &clgame.drawFuncs, 0, sizeof( clgame.drawFuncs ));
-
-		return false; // just tell user about problems
+		Con_Reportf( "CL_LoadProgs: ^2initailized extended RenderAPI ^7ver. %i\n", CL_RENDER_INTERFACE_VERSION );
+		return true;
 	}
 
-	// render interface is missed
-	return true;
+	// make sure what render functions is cleared
+	memset( &gRenderIface, 0, sizeof( gRenderIface ));
+
+	return false; // just tell user about problems
 }

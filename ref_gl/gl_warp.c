@@ -310,7 +310,7 @@ void R_AddSkyBoxSurface( msurface_t *fa )
 	float	*v;
 	int	i;
 
-	if( FBitSet( WORLDMODEL->flags, FWORLD_SKYSPHERE ) && fa->polys && !FBitSet( WORLDMODEL->flags, FWORLD_CUSTOM_SKYBOX ))
+	if( gEngfuncs.CL_GetRenderParm( PARM_SKY_SPHERE ) && fa->polys && !tr.fCustomSkybox )
 	{
 		glpoly_t	*p = fa->polys;
 
@@ -354,7 +354,7 @@ void R_UnloadSkybox( void )
 	tr.skyboxbasenum = 5800;	// set skybox base (to let some mods load hi-res skyboxes)
 
 	memset( tr.skyboxTextures, 0, sizeof( tr.skyboxTextures ));
-	ClearBits( WORLDMODEL->flags, FWORLD_CUSTOM_SKYBOX );
+	tr.fCustomSkybox = false;
 }
 
 /*
@@ -411,8 +411,8 @@ R_SetupSky
 */
 void R_SetupSky( const char *skyboxname )
 {
-	char	loadname[MAX_QPATH];
-	char	sidename[MAX_QPATH];
+	char	loadname[MAX_STRING];
+	char	sidename[MAX_STRING];
 	int	i, result;
 
 	if( !COM_CheckString( skyboxname ))
@@ -439,7 +439,7 @@ void R_SetupSky( const char *skyboxname )
 
 	// release old skybox
 	R_UnloadSkybox();
-	Con_DPrintf( "SKY:  " );
+	gEngfuncs.Con_DPrintf( "SKY:  " );
 
 	for( i = 0; i < 6; i++ )
 	{
@@ -449,17 +449,17 @@ void R_SetupSky( const char *skyboxname )
 
 		tr.skyboxTextures[i] = GL_LoadTexture( sidename, NULL, 0, TF_CLAMP|TF_SKY );
 		if( !tr.skyboxTextures[i] ) break;
-		Con_DPrintf( "%s%s%s", skyboxname, r_skyBoxSuffix[i], i != 5 ? ", " : ". " );
+		gEngfuncs.Con_DPrintf( "%s%s%s", skyboxname, r_skyBoxSuffix[i], i != 5 ? ", " : ". " );
 	}
 
 	if( i == 6 )
 	{
-		SetBits( WORLDMODEL->flags, FWORLD_CUSTOM_SKYBOX );
-		Con_DPrintf( "done\n" );
+		tr.fCustomSkybox = true;
+		gEngfuncs.Con_DPrintf( "done\n" );
 		return; // loaded
 	}
 
-	Con_DPrintf( "^2failed\n" );
+	gEngfuncs.Con_DPrintf( "^2failed\n" );
 	R_UnloadSkybox();
 }
 

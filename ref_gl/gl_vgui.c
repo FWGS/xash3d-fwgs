@@ -221,8 +221,8 @@ generic method to fill rectangle
 */
 void GAME_EXPORT VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr )
 {
-	float xscale = glState.width / (float)clgame.scrInfo.iWidth;
-	float yscale = glState.height / (float)clgame.scrInfo.iHeight;
+	float xscale = gpGlobals->width / (float)clgame.scrInfo.iWidth;
+	float yscale = gpGlobals->height / (float)clgame.scrInfo.iHeight;
 
 	ASSERT( ul != NULL && lr != NULL );
 
