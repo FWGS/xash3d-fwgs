@@ -13,7 +13,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
 #include "gl_local.h"
 #include "r_efx.h"
 #include "event_flags.h"
@@ -165,7 +164,7 @@ void CL_AddCustomBeam( cl_entity_t *pEnvBeam )
 {
 	if( tr.draw_list->num_beam_entities >= MAX_VISIBLE_PACKET )
 	{
-		Con_Printf( S_ERROR "Too many beams %d!\n", tr.draw_list->num_beam_entities );
+		gEngfuncs.Con_Printf( S_ERROR "Too many beams %d!\n", tr.draw_list->num_beam_entities );
 		return;
 	}
 
@@ -865,7 +864,7 @@ static qboolean R_BeamComputePoint( int beamEnt, vec3_t pt )
 
 	if( !ent )
 	{
-		Con_DPrintf( S_ERROR "R_BeamComputePoint: invalid entity %i\n", BEAMENT_ENTITY( beamEnt ));
+		gEngfuncs.Con_DPrintf( S_ERROR "R_BeamComputePoint: invalid entity %i\n", BEAMENT_ENTITY( beamEnt ));
 		VectorClear( pt );
 		return false;
 	}

@@ -82,11 +82,6 @@ typedef struct
 	uint		num_polys;
 } hull_model_t;
 
-typedef struct
-{
-	msurface_t	*surf;
-	int		cull;
-} sortedface_t;
 
 typedef struct world_static_s
 {
@@ -97,10 +92,6 @@ typedef struct world_static_s
 	char		message[2048];	// just for debug
 	char		compiler[256];	// map compiler
 	char		generator[256];	// map editor
-
-	// translucent sorted array
-	sortedface_t	*draw_surfaces;	// used for sorting translucent surfaces
-	int		max_surfaces;	// max surfaces per submodel (for all models)
 
 	hull_model_t	*hull_models;
 	int		num_hull_models;

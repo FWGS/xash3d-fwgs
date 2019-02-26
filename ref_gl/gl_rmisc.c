@@ -14,7 +14,6 @@ GNU General Public License for more details.
 */
 
 #include "gl_local.h"
-#include "mod_local.h"
 #include "shake.h"
 #include "screenfade.h"
 #include "cdll_int.h"

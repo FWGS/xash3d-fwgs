@@ -14,7 +14,6 @@ GNU General Public License for more details.
 */
 
 #include "gl_local.h"
-#include "mod_local.h"
 #include "entity_types.h"
 #include "studio.h"
 

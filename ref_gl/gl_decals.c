@@ -1193,9 +1193,9 @@ int R_CreateDecalList( decallist_t *pList )
 			total = DecalListAdd( pList, total );
 		}
 
-		if( clgame.drawFuncs.R_CreateStudioDecalList )
+		if( gRenderIface.R_CreateStudioDecalList )
 		{
-			total += clgame.drawFuncs.R_CreateStudioDecalList( pList, total );
+			total += gRenderIface.R_CreateStudioDecalList( pList, total );
 		}
 	}
 
@@ -1277,8 +1277,8 @@ void R_ClearAllDecals( void )
 		R_DecalUnlink( pdecal );
 	}
 
-	if( clgame.drawFuncs.R_ClearStudioDecals )
+	if( gRenderIface.R_ClearStudioDecals )
 	{
-		clgame.drawFuncs.R_ClearStudioDecals();
+		gRenderIface.R_ClearStudioDecals();
 	}
 }

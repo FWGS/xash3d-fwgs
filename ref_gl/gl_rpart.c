@@ -346,7 +346,7 @@ void CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean trans_pass, f
 	R_SetupGL( false );	// don't touch GL-states
 
 	// setup PVS for frame
-	memcpy( RI.visbytes, tr.visbytes, WORLDMODEL->visbytes );
+	memcpy( RI.visbytes, tr.visbytes, gpGlobals->visbytes );
 	tr.frametime = frametime;
 
 	CL_DrawEFX( frametime, trans_pass );

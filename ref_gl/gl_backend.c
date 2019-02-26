@@ -27,9 +27,9 @@ R_SpeedsMessage
 */
 qboolean R_SpeedsMessage( char *out, size_t size )
 {
-	if( clgame.drawFuncs.R_SpeedsMessage != NULL )
+	if( gRenderIface.R_SpeedsMessage != NULL )
 	{
-		if( clgame.drawFuncs.R_SpeedsMessage( out, size ))
+		if( gRenderIface.R_SpeedsMessage( out, size ))
 			return true;
 		// otherwise pass to default handler
 	}
@@ -461,7 +461,7 @@ Create overview script file
 */
 void VID_WriteOverviewScript( void )
 {
-	ref_overview_t	*ov = &clgame.overView;
+	ref_overview_t	*ov = &gEngfuncs.GetOverviewParms();
 	string		filename;
 	file_t		*f;
 
@@ -491,8 +491,8 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 	qboolean	result;
 
 	r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
-	r_shot->width = (glState.width + 3) & ~3;
-	r_shot->height = (glState.height + 3) & ~3;
+	r_shot->width = (gpGlobals->width + 3) & ~3;
+	r_shot->height = (gpGlobals->height + 3) & ~3;
 	r_shot->flags = IMAGE_HAS_COLOR;
 	r_shot->type = PF_RGB_24;
 	r_shot->size = r_shot->width * r_shot->height * PFDesc[r_shot->type].bpp;
@@ -566,7 +566,7 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 	while( i < size ) i<<=1;
 
 	if( i != size ) return false;
-	if( size > glState.width || size > glState.height )
+	if( size > gpGlobals->width || size > gpGlobals->height )
 		return false;
 
 	// setup refdef
@@ -675,8 +675,8 @@ rebuild_page:
 	end = total * gl_showtextures->value;
 	if( end > MAX_TEXTURES ) end = MAX_TEXTURES;
 
-	w = glState.width / base_w;
-	h = glState.height / base_h;
+	w = gpGlobals->width / base_w;
+	h = gpGlobals->height / base_h;
 
 	Con_DrawStringLen( NULL, NULL, &charHeight );
 
@@ -815,7 +815,7 @@ void R_ShowTree_r( mnode_t *node, float x, float y, float scale, int shownodes )
 
 void R_ShowTree( void )
 {
-	float	x = (float)((glState.width - (int)POINT_SIZE) >> 1);
+	float	x = (float)((gpGlobals->width - (int)POINT_SIZE) >> 1);
 	float	y = NODE_INTERVAL_Y(1.0);
 
 	if( !WORLDMODEL || !CVAR_TO_BOOL( r_showtree ))

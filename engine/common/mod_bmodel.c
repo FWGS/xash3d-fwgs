@@ -23,7 +23,7 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "client.h"
 #include "server.h"			// LUMP_ error codes
-
+#include "ref_common.h"
 typedef struct wadlist_s
 {
 	char			wadnames[MAX_MAP_WADS][32];
@@ -1472,8 +1472,8 @@ static void Mod_LoadSubmodels( dbspmodel_t *bmod )
 	in = bmod->submodels;
 
 	if( bmod->isworld )
-		world.max_surfaces = 0;
-	oldmaxfaces = world.max_surfaces;
+		refState.max_surfaces = 0;
+	oldmaxfaces = refState.max_surfaces;
 
 	for( i = 0; i < bmod->numsubmodels; i++, in++, out++ )
 	{
@@ -1504,10 +1504,10 @@ static void Mod_LoadSubmodels( dbspmodel_t *bmod )
 	}
 
 	// these array used to sort translucent faces in bmodels
-	if( oldmaxfaces > world.max_surfaces )
+	if( oldmaxfaces > refState.max_surfaces )
 	{
-		world.draw_surfaces = (sortedface_t *)Z_Realloc( world.draw_surfaces, oldmaxfaces * sizeof( sortedface_t ));
-		world.max_surfaces = oldmaxfaces;
+		refState.draw_surfaces = (sortedface_t *)Z_Realloc( refState.draw_surfaces, oldmaxfaces * sizeof( sortedface_t ));
+		refState.max_surfaces = oldmaxfaces;
 	}
 }
 
@@ -2352,6 +2352,7 @@ static void Mod_LoadLeafs( dbspmodel_t *bmod )
 		visclusters = loadmodel->submodels[0].visleafs;
 		world.visbytes = (visclusters + 7) >> 3;
 		world.fatbytes = (visclusters + 31) >> 3;
+		refState.visbytes = world.visbytes;
 	}
 
 	for( i = 0; i < bmod->numleafs; i++, out++ )
