@@ -178,7 +178,7 @@ def configure(conf):
 		if conf.env.SINGLE_BINARY and i.singlebin:
 			continue
 
-		if conf.env.DEDICATED and not i.dedicated:
+		if conf.env.DEDICATED and i.dedicated:
 			continue
 
 		if i.ignore:
@@ -197,7 +197,7 @@ def build(bld):
 		if bld.env.SINGLE_BINARY and i.singlebin:
 			continue
 
-		if bld.env.DEDICATED and not i.dedicated:
+		if bld.env.DEDICATED and i.dedicated:
 			continue
 
 		if i.ignore:
