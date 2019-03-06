@@ -668,19 +668,19 @@ void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 		int	size = (int)sizeof( mip_t ) + ((mt->width * mt->height * 85)>>6);
 
 		if( custom_palette ) size += sizeof( short ) + 768;
-		r_sky = FS_LoadImage( texname, (byte *)mt, size );
+		r_sky = gEngfuncs.FS_LoadImage( texname, (byte *)mt, size );
 	}
 	else
 	{
 		// okay, loading it from wad
-		r_sky = FS_LoadImage( texname, NULL, 0 );
+		r_sky = gEngfuncs.FS_LoadImage( texname, NULL, 0 );
 	}
 
 	// make sure what sky image is valid
 	if( !r_sky || !r_sky->palette || r_sky->type != PF_INDEXED_32 || r_sky->height == 0 )
 	{
 		gEngfuncs.Con_Reportf( S_ERROR "R_InitSky: unable to load sky texture %s\n", tx->name );
-		if( r_sky ) FS_FreeImage( r_sky );
+		if( r_sky ) gEngfuncs.FS_FreeImage( r_sky );
 		return;
 	}
 
@@ -744,7 +744,7 @@ void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 	tr.alphaskyTexture = GL_LoadTextureInternal( "alpha_sky", &r_temp, TF_NOMIPMAP );
 
 	// clean up
-	FS_FreeImage( r_sky );
+	gEngfuncs.FS_FreeImage( r_sky );
 	Mem_Free( trans );
 }
 

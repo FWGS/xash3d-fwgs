@@ -52,7 +52,9 @@ extern "C" {
 #include "const.h"
 #include "crtlib.h"
 
+#ifndef REF_DLL
 #define ASSERT( exp )	if(!( exp )) Sys_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
+#endif
 
 /*
 ========================================================================

@@ -278,7 +278,7 @@ void CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean trans_pass, f
 	memcpy( RI.visbytes, tr.visbytes, gpGlobals->visbytes );
 	tr.frametime = frametime;
 
-	CL_DrawEFX( frametime, trans_pass );
+	gEngfuncs.CL_DrawEFX( frametime, trans_pass );
 
 	// restore internal state
 	memcpy( &RI, &oldRI, sizeof( ref_instance_t ));

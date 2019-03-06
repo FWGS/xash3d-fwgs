@@ -33,43 +33,6 @@ enum
 	TIME_FILENAME,
 };
 
-#define CMD_SERVERDLL	BIT( 0 )		// added by server.dll
-#define CMD_CLIENTDLL	BIT( 1 )		// added by client.dll
-#define CMD_GAMEUIDLL	BIT( 2 )		// added by GameUI.dll
-#define CMD_LOCALONLY	BIT( 3 )		// restricted from server commands
-#define CMD_REFDLL	BIT( 4 )		// added by ref.dll
-
-typedef void (*xcommand_t)( void );
-
-//
-// cmd.c
-//
-void Cbuf_Init( void );
-void Cbuf_Clear( void );
-void Cbuf_AddText( const char *text );
-void Cbuf_InsertText( const char *text );
-void Cbuf_ExecStuffCmds( void );
-void Cbuf_Execute (void);
-int Cmd_Argc( void );
-const char *Cmd_Args( void );
-const char *Cmd_Argv( int arg );
-void Cmd_Init( void );
-void Cmd_Unlink( int group );
-void Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc );
-void Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc );
-void Cmd_AddServerCommand( const char *cmd_name, xcommand_t function );
-int Cmd_AddClientCommand( const char *cmd_name, xcommand_t function );
-int Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function );
-void Cmd_RemoveCommand( const char *cmd_name );
-qboolean Cmd_Exists( const char *cmd_name );
-void Cmd_LookupCmds( char *buffer, void *ptr, setpair_t callback );
-qboolean Cmd_GetMapList( const char *s, char *completedname, int length );
-qboolean Cmd_GetDemoList( const char *s, char *completedname, int length );
-qboolean Cmd_GetMovieList( const char *s, char *completedname, int length );
-void Cmd_TokenizeString( char *text );
-void Cmd_ExecuteString( char *text );
-void Cmd_ForwardToServer( void );
-
 //
 // crtlib.c
 //
@@ -118,31 +81,5 @@ void COM_ReplaceExtension( char *path, const char *extension );
 void COM_ExtractFilePath( const char *path, char *dest );
 const char *COM_FileWithoutPath( const char *in );
 void COM_StripExtension( char *path );
-
-
-//
-// zone.c
-//
-void Memory_Init( void );
-void *_Mem_Realloc( byte *poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline );
-void *_Mem_Alloc( byte *poolptr, size_t size, qboolean clear, const char *filename, int fileline );
-byte *_Mem_AllocPool( const char *name, const char *filename, int fileline );
-void _Mem_FreePool( byte **poolptr, const char *filename, int fileline );
-void _Mem_EmptyPool( byte *poolptr, const char *filename, int fileline );
-void _Mem_Free( void *data, const char *filename, int fileline );
-void _Mem_Check( const char *filename, int fileline );
-qboolean Mem_IsAllocatedExt( byte *poolptr, void *data );
-void Mem_PrintList( size_t minallocationsize );
-void Mem_PrintStats( void );
-
-#define Mem_Malloc( pool, size ) _Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
-#define Mem_Calloc( pool, size ) _Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
-#define Mem_Realloc( pool, ptr, size ) _Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
-#define Mem_Free( mem ) _Mem_Free( mem, __FILE__, __LINE__ )
-#define Mem_AllocPool( name ) _Mem_AllocPool( name, __FILE__, __LINE__ )
-#define Mem_FreePool( pool ) _Mem_FreePool( pool, __FILE__, __LINE__ )
-#define Mem_EmptyPool( pool ) _Mem_EmptyPool( pool, __FILE__, __LINE__ )
-#define Mem_IsAllocated( mem ) Mem_IsAllocatedExt( NULL, mem )
-#define Mem_Check() _Mem_Check( __FILE__, __LINE__ )
 	
 #endif//STDLIB_H

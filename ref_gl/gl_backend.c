@@ -477,7 +477,7 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 	case VID_SCREENSHOT:
 		break;
 	case VID_SNAPSHOT:
-		FS_AllowDirectPaths( true );
+		gEngfuncs.FS_AllowDirectPaths( true );
 		break;
 	case VID_LEVELSHOT:
 		flags |= IMAGE_RESAMPLE;
@@ -504,13 +504,13 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 		break;
 	}
 
-	Image_Process( &r_shot, width, height, flags, 0.0f );
+	gEngfuncs.Image_Process( &r_shot, width, height, flags, 0.0f );
 
 	// write image
-	result = FS_SaveImage( filename, r_shot );
-	host.write_to_clipboard = false;		// disable write to clipboard
-	FS_AllowDirectPaths( false );			// always reset after store screenshot
-	FS_FreeImage( r_shot );
+	result = gEngfuncs.FS_SaveImage( filename, r_shot );
+	// REFTODO: host.write_to_clipboard = false;		// disable write to clipboard
+	gEngfuncs.FS_AllowDirectPaths( false );			// always reset after store screenshot
+	gEngfuncs.FS_FreeImage( r_shot );
 
 	return result;
 }
@@ -573,7 +573,7 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 		r_side->size = r_side->width * r_side->height * 3;
 		r_side->buffer = temp;
 
-		if( flags ) Image_Process( &r_side, 0, 0, flags, 0.0f );
+		if( flags ) gEngfuncs.Image_Process( &r_side, 0, 0, flags, 0.0f );
 		memcpy( buffer + (size * size * 3 * i), r_side->buffer, size * size * 3 );
 	}
 
@@ -594,9 +594,9 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 	COM_DefaultExtension( basename, ".tga" );
 
 	// write image as 6 sides
-	result = FS_SaveImage( basename, r_shot );
-	FS_FreeImage( r_shot );
-	FS_FreeImage( r_side );
+	result = gEngfuncs.FS_SaveImage( basename, r_shot );
+	gEngfuncs.FS_FreeImage( r_shot );
+	gEngfuncs.FS_FreeImage( r_side );
 
 	return result;
 }
@@ -659,7 +659,7 @@ rebuild_page:
 	if( i == MAX_TEXTURES && gl_showtextures->value != 1 )
 	{
 		// bad case, rewind to one and try again
-		Cvar_SetValue( "r_showtextures", max( 1, gl_showtextures->value - 1 ));
+		gEngfuncs.Cvar_SetValue( "r_showtextures", max( 1, gl_showtextures->value - 1 ));
 		if( ++numTries < 2 ) goto rebuild_page;	// to prevent infinite loop
 	}
 
@@ -805,7 +805,7 @@ void R_ShowTree( void )
 
 	R_ShowTree_r( WORLDMODEL->nodes, x, y, tr.max_recursion * 3.5f, 1 );
 
-	Con_NPrintf( 0, "max recursion %d\n", tr.max_recursion );
+	gEngfuncs.Con_NPrintf( 0, "max recursion %d\n", tr.max_recursion );
 }
 
 /*
@@ -824,10 +824,10 @@ void SCR_TimeRefresh_f( void )
 	if( gEngfuncs.CL_GetConnState() != ref_ca_active )
 		return;
 
-	start = Sys_DoubleTime();
+	start = gEngfuncs.pfnTime();
 
 	// run without page flipping like GoldSrc
-	if( Cmd_Argc() == 1 )
+	if( gEngfuncs.Cmd_Argc() == 1 )
 	{
 		pglDrawBuffer( GL_FRONT );
 		for( i = 0; i < 128; i++ )
@@ -849,7 +849,7 @@ void SCR_TimeRefresh_f( void )
 		}
 	}
 
-	stop = Sys_DoubleTime ();
+	stop = gEngfuncs.pfnTime ();
 	time = (stop - start);
 	gEngfuncs.Con_Printf( "%f seconds (%f fps)\n", time, 128 / time );
 }

@@ -72,6 +72,8 @@ typedef struct ref_globals_s
 
 	float time;    // cl.time
 	float oldtime; // cl.oldtime
+	double realtime; // host.realtime
+	double frametime; // host.frametime
 
 	int parsecount; // cl.parsecount
 	int parsecountmod; // cl.parsecountmod
@@ -151,10 +153,11 @@ typedef struct ref_api_s
 	int	(*CL_GetRenderParm)( int parm, int arg );	// generic
 
 	// cvar handlers
-	convar_t   *(*pfnRegisterVariable)( const char *szName, const char *szValue, int flags, const char *description );
+	convar_t   *(*Cvar_Get)( const char *szName, const char *szValue, int flags, const char *description );
 	convar_t   *(*pfnGetCvarPointer)( const char *name );
 	float       (*pfnGetCvarFloat)( const char *szName );
 	const char *(*pfnGetCvarString)( const char *szName );
+	void        (*Cvar_SetValue)( const char *name, float value );
 
 	// command handlers
 	int         (*Cmd_AddCommand)( const char *cmd_name, void (*function)(void), const char *description );
@@ -207,6 +210,7 @@ typedef struct ref_api_s
 	void (*CL_DrawEFX)( float time, qboolean fTrans );
 	void (*CL_ThinkParticle)( double frametime, particle_t *p );
 	void (*R_FreeDeadParticles)( particle_t **ppparticles );
+	particle_t *(*CL_AllocParticleFast)( void ); // unconditionally give new particle pointer from cl_free_particles
 	efrag_t* (*GetEfragsFreeList)( void ); // clgame.free_efrags
 	void (*SetEfragsFreeList)( efrag_t* ); // clgame.free_efrags
 	color24 *(*GetTracerColors)( int num );
@@ -230,6 +234,7 @@ typedef struct ref_api_s
 	uint  (*COM_HashKey)( const char *strings, uint hashSize );
 	void  (*Host_Error)( const char *fmt, ... );
 	int   (*CL_FxBlend)( cl_entity_t *e );
+	void  (*COM_SetRandomSeed)( int lSeed );
 	float (*COM_RandomFloat)( float rmin, float rmax );
 	int   (*COM_RandomLong)( int rmin, int rmax );
 	struct screenfade_s *(*GetScreenFade)( void );
@@ -237,6 +242,7 @@ typedef struct ref_api_s
 	void (*GetPredictedOrigin)( vec3_t v );
 	byte *(*CL_GetPaletteColor)(int color); // clgame.palette[color]
 	void (*CL_GetScreenInfo)( int *width, int *height ); // clgame.scrInfo, ptrs may be NULL
+	void (*SetLocalLightLevel)( int level ); // cl.local.light_level
 
 	// studio interface
 	player_info_t *(*pfnPlayerInfo)( int index );
@@ -260,6 +266,7 @@ typedef struct ref_api_s
 	// use Mem_Free instead
 	// void	(*COM_FreeFile)( void *buffer );
 	int (*FS_FileExists)( const char *filename, int gamedironly );
+	void (*FS_AllowDirectPaths)( qboolean enable );
 
 	// GL
 	int   (*GL_SetAttribute)( int attr, int value );
@@ -308,6 +315,12 @@ typedef struct ref_api_s
 
 	// imagelib
 	void (*Image_AddCmdFlags)( uint flags ); // used to check if hardware dxt is supported
+	qboolean (*Image_CustomPalette)( void );
+	qboolean (*Image_Process)( rgbdata_t **pix, int width, int height, uint flags, float bumpscale );
+	rgbdata_t *(*FS_LoadImage)( const char *filename, const byte *buffer, size_t size );
+	qboolean (*FS_SaveImage)( const char *filename, rgbdata_t *pix );
+	rgbdata_t *(*FS_CopyImage)( rgbdata_t *in );
+	void (*FS_FreeImage)( rgbdata_t *pack );
 
 	// client exports
 	void	(*pfnDrawNormalTriangles)( void );

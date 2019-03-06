@@ -537,7 +537,7 @@ void R_AddDynamicLights( msurface_t *surf )
 		if( !FBitSet( surf->dlightbits, BIT( lnum )))
 			continue;	// not lit by this light
 
-		dl = &cl_dlights[lnum];
+		dl = gEngfuncs.GetDynamicLight( lnum );
 
 		// transform light origin to local bmodel space
 		if( !tr.modelviewIdentity )
@@ -581,9 +581,9 @@ void R_AddDynamicLights( msurface_t *surf )
 
 				if( dist < minlight )
 				{
-					bl[0] += ((int)((rad - dist) * 256) * LightToTexGamma( dl->color.r )) / 256;
-					bl[1] += ((int)((rad - dist) * 256) * LightToTexGamma( dl->color.g )) / 256;
-					bl[2] += ((int)((rad - dist) * 256) * LightToTexGamma( dl->color.b )) / 256;
+					bl[0] += ((int)((rad - dist) * 256) * gEngfuncs.LightToTexGamma( dl->color.r )) / 256;
+					bl[1] += ((int)((rad - dist) * 256) * gEngfuncs.LightToTexGamma( dl->color.g )) / 256;
+					bl[2] += ((int)((rad - dist) * 256) * gEngfuncs.LightToTexGamma( dl->color.b )) / 256;
 				}
 			}
 		}
@@ -740,9 +740,9 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 
 		for( i = 0, bl = r_blocklights; i < size; i++, bl += 3, lm++ )
 		{
-			bl[0] += LightToTexGamma( lm->r ) * scale;
-			bl[1] += LightToTexGamma( lm->g ) * scale;
-			bl[2] += LightToTexGamma( lm->b ) * scale;
+			bl[0] += gEngfuncs.LightToTexGamma( lm->r ) * scale;
+			bl[1] += gEngfuncs.LightToTexGamma( lm->g ) * scale;
+			bl[2] += gEngfuncs.LightToTexGamma( lm->b ) * scale;
 		}
 	}
 
@@ -1567,8 +1567,10 @@ void R_DrawBrushModel( cl_entity_t *e )
 	else VectorSubtract( RI.cullorigin, e->origin, tr.modelorg );
 
 	// calculate dynamic lighting for bmodel
-	for( k = 0, l = cl_dlights; k < MAX_DLIGHTS; k++, l++ )
+	for( k = 0; k < MAX_DLIGHTS; k++ )
 	{
+		l = gEngfuncs.GetDynamicLight( k );
+
 		if( l->die < gpGlobals->time || !l->radius )
 			continue;
 
@@ -3322,15 +3324,15 @@ void R_DrawWorld( void )
 
 	R_ClearSkyBox ();
 
-	start = Sys_DoubleTime();
+	start = gEngfuncs.pfnTime();
 	if( RI.drawOrtho )
 		R_DrawWorldTopView( WORLDMODEL->nodes, RI.frustum.clipFlags );
 	else R_RecursiveWorldNode( WORLDMODEL->nodes, RI.frustum.clipFlags );
-	end = Sys_DoubleTime();
+	end = gEngfuncs.pfnTime();
 
 	r_stats.t_world_node = end - start;
 
-	start = Sys_DoubleTime();
+	start = gEngfuncs.pfnTime();
 	R_DrawVBO( !CVAR_TO_BOOL(r_fullbright) && !!WORLDMODEL->lightdata, true );
 
 	R_DrawTextureChains();
@@ -3347,7 +3349,7 @@ void R_DrawWorld( void )
 			R_DrawSkyBox();
 	}
 
-	end = Sys_DoubleTime();
+	end = gEngfuncs.pfnTime();
 
 	r_stats.t_world_draw = end - start;
 	tr.num_draw_decals = 0;
@@ -3557,7 +3559,7 @@ void GL_BuildLightmaps( void )
 	memset( &RI, 0, sizeof( RI ));
 
 	// update the lightmap blocksize
-	if( FBitSet( host.features, ENGINE_LARGE_LIGHTMAPS ))
+	if( FBitSet( gEngfuncs.CL_GetRenderParm( PARM_FEATURES, 0 ), ENGINE_LARGE_LIGHTMAPS ))
 		tr.block_size = BLOCK_SIZE_MAX;
 	else tr.block_size = BLOCK_SIZE_DEFAULT;
 	
@@ -3625,15 +3627,15 @@ void GL_InitRandomTable( void )
 	int	tu, tv;
 
 	// make random predictable
-	COM_SetRandomSeed( 255 );
+	gEngfuncs.COM_SetRandomSeed( 255 );
 
 	for( tu = 0; tu < MOD_FRAMES; tu++ )
 	{
 		for( tv = 0; tv < MOD_FRAMES; tv++ )
 		{
-			rtable[tu][tv] = COM_RandomLong( 0, 0x7FFF );
+			rtable[tu][tv] = gEngfuncs.COM_RandomLong( 0, 0x7FFF );
 		}
 	}
 
-	COM_SetRandomSeed( 0 );
+	gEngfuncs.COM_SetRandomSeed( 0 );
 }

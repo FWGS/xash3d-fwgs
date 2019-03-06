@@ -13,7 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #pragma once
-#ifndef REF_COMMON_H
+#if !defined REF_COMMON_H && !defined REF_DLL
 #define REF_COMMON_H
 
 #include "ref_api.h"

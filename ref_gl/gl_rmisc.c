@@ -147,7 +147,7 @@ void R_NewMap( void )
 		sf->fadeReset += gpGlobals->time;
 		sf->fadeEnd += sf->fadeReset;
 
-		Cvar_SetValue( "v_dark", 0.0f );
+		gEngfuncs.Cvar_SetValue( "v_dark", 0.0f );
 	}
 
 	// clear out efrags in case the level hasn't been reloaded

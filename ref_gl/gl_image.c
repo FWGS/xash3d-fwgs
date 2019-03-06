@@ -298,17 +298,17 @@ void R_SetTextureParameters( void )
 	if( GL_Support( GL_ANISOTROPY_EXT ))
 	{
 		if( gl_texture_anisotropy->value > glConfig.max_texture_anisotropy )
-			Cvar_SetValue( "gl_anisotropy", glConfig.max_texture_anisotropy );
+			gEngfuncs.Cvar_SetValue( "gl_anisotropy", glConfig.max_texture_anisotropy );
 		else if( gl_texture_anisotropy->value < 1.0f )
-			Cvar_SetValue( "gl_anisotropy", 1.0f );
+			gEngfuncs.Cvar_SetValue( "gl_anisotropy", 1.0f );
 	}
 
 	if( GL_Support( GL_TEXTURE_LOD_BIAS ))
 	{
 		if( gl_texture_lodbias->value < -glConfig.max_texture_lod_bias )
-			Cvar_SetValue( "gl_texture_lodbias", -glConfig.max_texture_lod_bias );
+			gEngfuncs.Cvar_SetValue( "gl_texture_lodbias", -glConfig.max_texture_lod_bias );
 		else if( gl_texture_lodbias->value > glConfig.max_texture_lod_bias )
-			Cvar_SetValue( "gl_texture_lodbias", glConfig.max_texture_lod_bias );
+			gEngfuncs.Cvar_SetValue( "gl_texture_lodbias", glConfig.max_texture_lod_bias );
 	}
 
 	ClearBits( gl_texture_anisotropy->flags, FCVAR_CHANGED );
@@ -1248,14 +1248,14 @@ static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 		}
 
 		if( !FBitSet( tex->flags, TF_IMG_UPLOADED ) && FBitSet( tex->flags, TF_KEEP_SOURCE ))
-			tex->original = FS_CopyImage( pic ); // because current pic will be expanded to rgba
+			tex->original = gEngfuncs.FS_CopyImage( pic ); // because current pic will be expanded to rgba
 
 		// we need to expand image into RGBA buffer
 		if( pic->type == PF_INDEXED_24 || pic->type == PF_INDEXED_32 )
 			img_flags |= IMAGE_FORCE_RGBA;
 
 		// processing image before uploading (force to rgba, make luma etc)
-		if( pic->buffer ) Image_Process( &pic, 0, 0, img_flags, gl_emboss_scale->value );
+		if( pic->buffer ) gEngfuncs.Image_Process( &pic, 0, 0, img_flags, gl_emboss_scale->value );
 
 		if( FBitSet( tex->flags, TF_LUMINANCE ))
 			ClearBits( pic->flags, IMAGE_HAS_COLOR );
@@ -1382,7 +1382,7 @@ static void GL_DeleteTexture( gl_texture_t *tex )
 
 	// release source
 	if( tex->original )
-		FS_FreeImage( tex->original );
+		gEngfuncs.FS_FreeImage( tex->original );
 
 	pglDeleteTextures( 1, &tex->texnum );
 	memset( tex, 0, sizeof( *tex ));
@@ -1448,7 +1448,7 @@ int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	// set some image flags
 	Image_SetForceFlags( picFlags );
 
-	pic = FS_LoadImage( name, buf, size );
+	pic = gEngfuncs.FS_LoadImage( name, buf, size );
 	if( !pic ) return 0; // couldn't loading image
 
 	// allocate the new one
@@ -1458,12 +1458,12 @@ int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	if( !GL_UploadTexture( tex, pic ))
 	{
 		memset( tex, 0, sizeof( gl_texture_t ));
-		FS_FreeImage( pic ); // release source texture
+		gEngfuncs.FS_FreeImage( pic ); // release source texture
 		return 0;
 	}
 
 	GL_ApplyTextureParams( tex ); // update texture filter, wrap etc
-	FS_FreeImage( pic ); // release source texture
+	gEngfuncs.FS_FreeImage( pic ); // release source texture
 
 	// NOTE: always return texnum as index in array or engine will stop work !!!
 	return tex - gl_textures;
@@ -1516,7 +1516,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 	{
 		size_t	srcsize, dstsize, mipsize;
 
-		src = FS_LoadImage( names[i], NULL, 0 );
+		src = gEngfuncs.FS_LoadImage( names[i], NULL, 0 );
 		if( !src ) break; // coldn't find layer
 
 		if( pic )
@@ -1543,7 +1543,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 
 			// but allow to rescale raw images
 			if( ImageRAW( pic->type ) && ImageRAW( src->type ) && ( pic->width != src->width || pic->height != src->height ))
-				Image_Process( &src, pic->width, pic->height, IMAGE_RESAMPLE, 0.0f );
+				gEngfuncs.Image_Process( &src, pic->width, pic->height, IMAGE_RESAMPLE, 0.0f );
 
 			if( pic->size != src->size )
 			{
@@ -1574,7 +1574,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 			srcsize += mipsize;
 		}
 
-		FS_FreeImage( src );
+		gEngfuncs.FS_FreeImage( src );
 
 		// increase layers
 		pic->depth++;
@@ -1584,7 +1584,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 	if( !pic || ( pic->depth != numLayers ))
 	{
 		gEngfuncs.Con_Printf( S_ERROR "GL_LoadTextureArray: not all layers were loaded. Texture array is not created\n" );
-		if( pic ) FS_FreeImage( pic );
+		if( pic ) gEngfuncs.FS_FreeImage( pic );
 		return 0;
 	}	
 
@@ -1599,12 +1599,12 @@ int GL_LoadTextureArray( const char **names, int flags )
 	if( !GL_UploadTexture( tex, pic ))
 	{
 		memset( tex, 0, sizeof( gl_texture_t ));
-		FS_FreeImage( pic ); // release source texture
+		gEngfuncs.FS_FreeImage( pic ); // release source texture
 		return 0;
 	}
 
 	GL_ApplyTextureParams( tex ); // update texture filter, wrap etc
-	FS_FreeImage( pic ); // release source texture
+	gEngfuncs.FS_FreeImage( pic ); // release source texture
 
 	// NOTE: always return texnum as index in array or engine will stop work !!!
 	return tex - gl_textures;
@@ -1817,13 +1817,13 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 	}
 
 	// all the operations makes over the image copy not an original
-	pic = FS_CopyImage( image->original );
-	Image_Process( &pic, topColor, bottomColor, flags, 0.0f );
+	pic = gEngfuncs.FS_CopyImage( image->original );
+	gEngfuncs.Image_Process( &pic, topColor, bottomColor, flags, 0.0f );
 
 	GL_UploadTexture( image, pic );
 	GL_ApplyTextureParams( image ); // update texture filter, wrap etc
 
-	FS_FreeImage( pic );
+	gEngfuncs.FS_FreeImage( pic );
 }
 
 /*

@@ -41,8 +41,8 @@ R_SpriteInit
 */
 void R_SpriteInit( void )
 {
-	r_sprite_lerping = Cvar_Get( "r_sprite_lerping", "1", FCVAR_ARCHIVE, "enables sprite animation lerping" );
-	r_sprite_lighting = Cvar_Get( "r_sprite_lighting", "1", FCVAR_ARCHIVE, "enables sprite lighting (blood etc)" );
+	r_sprite_lerping = gEngfuncs.Cvar_Get( "r_sprite_lerping", "1", FCVAR_ARCHIVE, "enables sprite animation lerping" );
+	r_sprite_lighting = gEngfuncs.Cvar_Get( "r_sprite_lighting", "1", FCVAR_ARCHIVE, "enables sprite lighting (blood etc)" );
 }
 
 /*
@@ -162,9 +162,9 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	{
 		rgbdata_t	*pal;
 	
-		pal = FS_LoadImage( "#id.pal", (byte *)&i, 768 );
+		pal = gEngfuncs.FS_LoadImage( "#id.pal", (byte *)&i, 768 );
 		pframetype = (dframetype_t *)(buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
-		FS_FreeImage( pal ); // palette installed, no reason to keep this data
+		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
 	}
 	else if( *numi == 256 )
 	{	
@@ -175,18 +175,18 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		switch( psprite->texFormat )
 		{
 		case SPR_INDEXALPHA:
-			pal = FS_LoadImage( "#gradient.pal", src, 768 ); 
+			pal = gEngfuncs.FS_LoadImage( "#gradient.pal", src, 768 );
 			break;
 		case SPR_ALPHTEST:		
-			pal = FS_LoadImage( "#masked.pal", src, 768 );
+			pal = gEngfuncs.FS_LoadImage( "#masked.pal", src, 768 );
                               break;
 		default:
-			pal = FS_LoadImage( "#normal.pal", src, 768 );
+			pal = gEngfuncs.FS_LoadImage( "#normal.pal", src, 768 );
 			break;
 		}
 
 		pframetype = (dframetype_t *)(src + 768);
-		FS_FreeImage( pal ); // palette installed, no reason to keep this data
+		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
 	}
 	else 
 	{
@@ -245,7 +245,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 	if( loaded ) *loaded = false;
 	Q_snprintf( texname, sizeof( texname ), "#%s", mod->name );
 	Image_SetForceFlags( IL_OVERVIEW );
-	pix = FS_LoadImage( texname, buffer, size );
+	pix = gEngfuncs.FS_LoadImage( texname, buffer, size );
 	Image_ClearForceFlags();
 	if( !pix ) return;	// bad image or something else
 
@@ -264,7 +264,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 	if( h < MAPSPRITE_SIZE ) h = MAPSPRITE_SIZE;
 
 	// resample image if needed
-	Image_Process( &pix, w, h, IMAGE_FORCE_RGBA|IMAGE_RESAMPLE, 0.0f );
+	gEngfuncs.Image_Process( &pix, w, h, IMAGE_FORCE_RGBA|IMAGE_RESAMPLE, 0.0f );
 
 	w = h = MAPSPRITE_SIZE;
 
@@ -338,7 +338,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 		}
 	}
 
-	FS_FreeImage( pix );
+	gEngfuncs.FS_FreeImage( pix );
 	Mem_Free( temp.buffer );
 
 	if( loaded ) *loaded = true;
