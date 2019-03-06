@@ -196,6 +196,23 @@ qboolean Matrix4x4_Invert_Full( matrix4x4 out, const matrix4x4 in1 );
 float V_CalcFov( float *fov_x, float width, float height );
 void V_AdjustFov( float *fov_x, float *fov_y, float width, float height, qboolean lock_x );
 
+int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p );
+#define BOX_ON_PLANE_SIDE( emins, emaxs, p )			\
+	((( p )->type < 3 ) ?				\
+	(						\
+		((p)->dist <= (emins)[(p)->type]) ?		\
+			1				\
+		:					\
+		(					\
+			((p)->dist >= (emaxs)[(p)->type]) ?	\
+				2			\
+			:				\
+				3			\
+		)					\
+	)						\
+	:						\
+		BoxOnPlaneSide(( emins ), ( emaxs ), ( p )))
+
 extern vec3_t		vec3_origin;
 extern int		boxpnt[6][4];
 extern const matrix3x4	matrix3x4_identity;

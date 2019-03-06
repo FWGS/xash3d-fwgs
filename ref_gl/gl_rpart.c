@@ -22,6 +22,9 @@ GNU General Public License for more details.
 #include "cl_tent.h"
 #include "studio.h"
 
+#define PART_SIZE	Q_max( 0.5f, cl_draw_particles->value )
+static float gTracerSize[11] = { 1.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+
 /*
 ================
 CL_DrawParticles
@@ -32,11 +35,6 @@ update particle color, position, free expired and draw it
 void CL_DrawParticles( double frametime, particle_t *cl_active_particles )
 {
 	particle_t	*p;
-	float		time3 = 15.0f * frametime;
-	float		time2 = 10.0f * frametime;
-	float		time1 = 5.0f * frametime;
-	float		dvel = 4.0f * frametime;
-	float		grav = frametime * MOVEVARS->gravity * 0.05f;
 	vec3_t		right, up;
 	color24		*pColor;
 	int		alpha;
@@ -77,13 +75,15 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles )
 			VectorScale( RI.cull_vup, size, up );
 
 			p->color = bound( 0, p->color, 255 );
-			pColor = &clgame.palette[p->color];
+			pColor = gEngfuncs.CL_GetPaletteColor( p->color );
 
 			alpha = 255 * (p->die - gpGlobals->time) * 16.0f;
 			if( alpha > 255 || p->type == pt_static )
 				alpha = 255;
 
-			pglColor4ub( LightToTexGamma( pColor->r ), LightToTexGamma( pColor->g ), LightToTexGamma( pColor->b ), alpha );
+			pglColor4ub( gEngfuncs.LightToTexGamma( pColor->r ),
+				gEngfuncs.LightToTexGamma( pColor->g ),
+				gEngfuncs.LightToTexGamma( pColor->b ), alpha );
 
 			pglTexCoord2f( 0.0f, 1.0f );
 			pglVertex3f( p->org[0] - right[0] + up[0], p->org[1] - right[1] + up[1], p->org[2] - right[2] + up[2] );
@@ -96,79 +96,7 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles )
 			r_stats.c_particle_count++;
 		}
 
-		if( p->type != pt_clientcustom )
-		{
-			// update position.
-			VectorMA( p->org, frametime, p->vel, p->org );
-		}
-
-		switch( p->type )
-		{
-		case pt_static:
-			break;
-		case pt_fire:
-			p->ramp += time1;
-			if( p->ramp >= 6.0f ) p->die = -1.0f;
-			else p->color = ramp3[(int)p->ramp];
-			p->vel[2] += grav;
-			break;
-		case pt_explode:
-			p->ramp += time2;
-			if( p->ramp >= 8.0f ) p->die = -1.0f;
-			else p->color = ramp1[(int)p->ramp];
-			VectorMA( p->vel, dvel, p->vel, p->vel );
-			p->vel[2] -= grav;
-			break;
-		case pt_explode2:
-			p->ramp += time3;
-			if( p->ramp >= 8.0f ) p->die = -1.0f;
-			else p->color = ramp2[(int)p->ramp];
-			VectorMA( p->vel,-frametime, p->vel, p->vel );
-			p->vel[2] -= grav;
-			break;
-		case pt_blob:
-			if( p->packedColor == 255 )
-			{
-				// normal blob explosion
-				VectorMA( p->vel, dvel, p->vel, p->vel );
-				p->vel[2] -= grav;
-				break;
-			}
-		case pt_blob2:
-			if( p->packedColor == 255 )
-			{
-				// normal blob explosion
-				p->vel[0] -= p->vel[0] * dvel;
-				p->vel[1] -= p->vel[1] * dvel;
-				p->vel[2] -= grav;
-			}
-			else
-			{
-				p->ramp += time2;
-				if( p->ramp >= 9.0f ) p->ramp = 0.0f;
-				p->color = gSparkRamp[(int)p->ramp];
-				VectorMA( p->vel, -frametime * 0.5f, p->vel, p->vel );
-				p->type = COM_RandomLong( 0, 3 ) ? pt_blob : pt_blob2;
-				p->vel[2] -= grav * 5.0f;
-			}
-			break;
-		case pt_grav:
-			p->vel[2] -= grav * 20.0f;
-			break;
-		case pt_slowgrav:
-			p->vel[2] -= grav;
-			break;
-		case pt_vox_grav:
-			p->vel[2] -= grav * 8.0f;
-			break;
-		case pt_vox_slowgrav:
-			p->vel[2] -= grav * 4.0f;
-			break;
-		case pt_clientcustom:
-			if( p->callback )
-				p->callback( p, frametime );
-			break;
-		}
+		gEngfuncs.CL_ThinkParticle( frametime, p );
 	}
 
 	pglEnd();
@@ -232,9 +160,10 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 	// update tracer color if this is changed
 	if( FBitSet( tracerred->flags|tracergreen->flags|tracerblue->flags|traceralpha->flags, FCVAR_CHANGED ))
 	{
-		gTracerColors[4].r = (byte)(tracerred->value * traceralpha->value * 255);
-		gTracerColors[4].g = (byte)(tracergreen->value * traceralpha->value * 255);
-		gTracerColors[4].b = (byte)(tracerblue->value * traceralpha->value * 255);
+		color24 *customColors = gEngfuncs.GetTracerColors( 4 );
+		customColors->r = (byte)(tracerred->value * traceralpha->value * 255);
+		customColors->g = (byte)(tracergreen->value * traceralpha->value * 255);
+		customColors->b = (byte)(tracerblue->value * traceralpha->value * 255);
 		ClearBits( tracerred->flags, FCVAR_CHANGED );
 		ClearBits( tracergreen->flags, FCVAR_CHANGED );
 		ClearBits( tracerblue->flags, FCVAR_CHANGED );
@@ -293,7 +222,7 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 			VectorAdd( verts[0], delta, verts[2] ); 
 			VectorAdd( verts[1], delta, verts[3] ); 
 
-			pColor = &gTracerColors[p->color];
+			pColor = gEngfuncs.GetTracerColors( p->color );
 			pglColor4ub( pColor->r, pColor->g, pColor->b, p->packedColor );
 
 			pglBegin( GL_QUADS );

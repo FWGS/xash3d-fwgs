@@ -16,6 +16,12 @@ GNU General Public License for more details.
 
 #include "gl_local.h"
 
+#define VGUI_MAX_TEXTURES	( MAX_TEXTURES / 2 )	// a half of total textures count
+
+static int	g_textures[VGUI_MAX_TEXTURES];
+static int	g_textureId = 0;
+static int	g_iBoundTexture;
+
 /*
 ================
 VGUI_DrawInit
@@ -56,7 +62,7 @@ generate unique texture number
 int GAME_EXPORT VGUI_GenerateTexture( void )
 {
 	if( ++g_textureId >= VGUI_MAX_TEXTURES )
-		Sys_Error( "VGUI_GenerateTexture: VGUI_MAX_TEXTURES limit exceeded\n" );
+		gEngfuncs.Host_Error( "VGUI_GenerateTexture: VGUI_MAX_TEXTURES limit exceeded\n" );
 	return g_textureId;
 }
 
@@ -74,7 +80,7 @@ void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int width, int 
 
 	if( id <= 0 || id >= VGUI_MAX_TEXTURES )
 	{
-		Con_DPrintf( S_ERROR "VGUI_UploadTexture: bad texture %i. Ignored\n", id );
+		gEngfuncs.Con_DPrintf( S_ERROR "VGUI_UploadTexture: bad texture %i. Ignored\n", id );
 		return;
 	}
 
@@ -105,7 +111,7 @@ void GAME_EXPORT VGUI_CreateTexture( int id, int width, int height )
 
 	if( id <= 0 || id >= VGUI_MAX_TEXTURES )
 	{
-		Con_Reportf( S_ERROR  "VGUI_CreateTexture: bad texture %i. Ignored\n", id );
+		gEngfuncs.Con_Reportf( S_ERROR  "VGUI_CreateTexture: bad texture %i. Ignored\n", id );
 		return;
 	}
 
@@ -127,7 +133,7 @@ void GAME_EXPORT VGUI_UploadTextureBlock( int id, int drawX, int drawY, const by
 {
 	if( id <= 0 || id >= VGUI_MAX_TEXTURES || g_textures[id] == 0 || g_textures[id] == tr.whiteTexture )
 	{
-		Con_Reportf( S_ERROR  "VGUI_UploadTextureBlock: bad texture %i. Ignored\n", id );
+		gEngfuncs.Con_Reportf( S_ERROR  "VGUI_UploadTextureBlock: bad texture %i. Ignored\n", id );
 		return;
 	}
 
@@ -221,8 +227,13 @@ generic method to fill rectangle
 */
 void GAME_EXPORT VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr )
 {
-	float xscale = gpGlobals->width / (float)clgame.scrInfo.iWidth;
-	float yscale = gpGlobals->height / (float)clgame.scrInfo.iHeight;
+	int width, height;
+	float xscale, yscale;
+
+	gEngfuncs.CL_GetScreenInfo( &width, &height );
+
+	xscale = gpGlobals->width / (float)width;
+	yscale = gpGlobals->height / (float)height;
 
 	ASSERT( ul != NULL && lr != NULL );
 

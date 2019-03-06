@@ -32,27 +32,20 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "com_strings.h"
 #include "pm_movevars.h"
+#include "cvar.h"
 #define offsetof(s,m)       (size_t)&(((s *)0)->m)
 
-typedef cvar_t convar_t;
 void CL_DrawEFX(double, double);
-void *CL_ModelHandle(int);
 void *GL_GetProcAddress(char *);
 void GL_CheckForErrors();
 void CL_ExtraUpdate();
 void Cbuf_Execute();
-extern convar_t cvstub;
-#define Cvar_Get(...) &cvstub
 #define Cvar_SetValue(...)
-#define Cmd_AddCommand(...)
-#define Cmd_RemoveCommand(...)
 #define FS_FreeImage(...)
-#define Host_Error(...)
 #define ASSERT(x)
 #define Assert(x)
 
 #include <stdio.h>
-#define Con_Reportf gEngfuncs.Con_DPrintf
 
 #define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc )	convar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
 #define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc )	convar_t cv = { #cv, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
@@ -316,6 +309,7 @@ void GL_TextureTarget( uint target );
 void GL_Cull( GLenum cull );
 void R_ShowTextures( void );
 void R_ShowTree( void );
+void SCR_TimeRefresh_f( void );
 
 //
 // gl_cull.c
@@ -380,6 +374,7 @@ void R_StoreEfrags( efrag_t **ppefrag, int framecount );
 //
 // gl_rlight.c
 //
+void CL_RunLightStyles( void );
 void R_PushDlights( void );
 void R_AnimateLight( void );
 void R_GetLightSpot( vec3_t lightspot );
@@ -747,12 +742,24 @@ extern convar_t *r_vbo_dlightmode;
 
 extern convar_t	*vid_brightness;
 extern convar_t	*vid_gamma;
-extern convar_t	*vid_highdpi;
 
 //
 // engine shared convars
 //
 extern convar_t *v_dark;
+extern convar_t *cl_draw_beams;
+extern convar_t *cl_draw_particles;
+extern convar_t *cl_draw_tracers;
+extern convar_t *gl_showtextures;
+extern convar_t	*tracerred;
+extern convar_t	*tracergreen;
+extern convar_t	*tracerblue;
+extern convar_t	*traceralpha;
+extern convar_t	*tracerspeed;
+extern convar_t	*tracerlength;
+extern convar_t	*traceroffset;
+extern convar_t	*cl_lightstyle_lerping;
+
 
 //
 // engine callbacks
@@ -767,11 +774,6 @@ FORCEINLINE float COM_RandomFloat( float rmin, float rmax )
 FORCEINLINE int COM_RandomLong( int rmin, int rmax )
 {
 	return gEngfuncs.COM_RandomLong( rmin, rmax );
-}
-
-FORCEINLINE uint COM_HashKey( const char *str, uint hashSize )
-{
-	return gEngfuncs.COM_HashKey( str, hashSize );
 }
 
 FORCEINLINE byte *_Mem_AllocPool( const char *name, const char *filename, int fileline )

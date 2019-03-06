@@ -20,6 +20,9 @@ GNU General Public License for more details.
 #include "alias.h"
 #include "pm_local.h"
 #include "cl_tent.h"
+#include "common.h"
+#include "client.h"
+#include "pmtrace.h"
 
 extern cvar_t r_shadows;
 
@@ -418,6 +421,7 @@ rgbdata_t *Mod_CreateSkinData( model_t *mod, byte *data, int width, int height )
 	static rgbdata_t	skin;
 	char		name[MAX_QPATH];
 	int		i;
+	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	skin.width = width;
 	skin.height = height;
@@ -427,7 +431,7 @@ rgbdata_t *Mod_CreateSkinData( model_t *mod, byte *data, int width, int height )
 	skin.encode = DXT_ENCODE_DEFAULT;
 	skin.numMips = 1;
 	skin.buffer = data;
-	skin.palette = (byte *)&clgame.palette;
+	skin.palette = (byte *)gEngfuncs.CL_GetPaletteColor( 0 );
 	skin.size = width * height;
 
 	if( !Image_CustomPalette() )
@@ -480,6 +484,7 @@ void *Mod_LoadSingleSkin( daliasskintype_t *pskintype, int skinnum, int size )
 	string	name, lumaname;
 	string	checkname;
 	rgbdata_t	*pic;
+	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	Q_snprintf( name, sizeof( name ), "%s:frame%i", loadmodel->name, skinnum );
 	Q_snprintf( lumaname, sizeof( lumaname ), "%s:luma%i", loadmodel->name, skinnum );
@@ -557,7 +562,7 @@ void *Mod_LoadAllSkins( int numskins, daliasskintype_t *pskintype )
 	int	i, size;
 
 	if( numskins < 1 || numskins > MAX_SKINS )
-		Host_Error( "Mod_LoadAliasModel: Invalid # of skins: %d\n", numskins );
+		gEngfuncs.Host_Error( "Mod_LoadAliasModel: Invalid # of skins: %d\n", numskins );
 
 	size = m_pAliasHeader->skinwidth * m_pAliasHeader->skinheight;
 
@@ -631,7 +636,7 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 
 	if( i != ALIAS_VERSION )
 	{
-		Con_DPrintf( S_ERROR "%s has wrong version number (%i should be %i)\n", mod->name, i, ALIAS_VERSION );
+		gEngfuncs.Con_DPrintf( S_ERROR "%s has wrong version number (%i should be %i)\n", mod->name, i, ALIAS_VERSION );
 		return;
 	}
 
@@ -658,7 +663,7 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 
 	if( m_pAliasHeader->numverts > MAXALIASVERTS )
 	{
-		Con_DPrintf( S_ERROR "model %s has too many vertices\n", mod->name );
+		gEngfuncs.Con_DPrintf( S_ERROR "model %s has too many vertices\n", mod->name );
 		return;
 	}
 
@@ -776,7 +781,7 @@ similar to R_StudioDynamicLight
 */
 void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 {
-	movevars_t	*mv = &clgame.movevars;
+	movevars_t	*mv = gEngfuncs.pfnGetMoveVars();
 	vec3_t		lightDir, vecSrc, vecEnd;
 	vec3_t		origin, dist, finalLight;
 	float		add, radius, total;
@@ -825,9 +830,9 @@ void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 			vecEnd[2] = origin[2] - mv->skyvec_z * 8192.0f;
 		}
 
-		trace = CL_TraceLine( vecSrc, vecEnd, PM_STUDIO_IGNORE );
-		if( trace.ent > 0 ) psurf = PM_TraceSurface( &clgame.pmove->physents[trace.ent], vecSrc, vecEnd );
- 		else psurf = PM_TraceSurface( clgame.pmove->physents, vecSrc, vecEnd );
+		trace = gEngfuncs.CL_TraceLine( vecSrc, vecEnd, PM_STUDIO_IGNORE );
+		if( trace.ent > 0 ) psurf = gEngfuncs.EV_TraceSurface( trace.ent, vecSrc, vecEnd );
+		else psurf = gEngfuncs.EV_TraceSurface( 0, vecSrc, vecEnd );
  
 		if( psurf && FBitSet( psurf->flags, SURF_DRAWSKY ))
 		{
@@ -1013,11 +1018,11 @@ R_AliasSetRemapColors
 */
 void R_AliasSetRemapColors( int newTop, int newBottom )
 {
-	CL_AllocRemapInfo( newTop, newBottom );
+	gEngfuncs.CL_AllocRemapInfo( newTop, newBottom );
 
-	if( CL_GetRemapInfoForEntity( RI.currententity ))
+	if( gEngfuncs.CL_GetRemapInfoForEntity( RI.currententity ))
 	{
-		CL_UpdateRemapInfo( newTop, newBottom );
+		gEngfuncs.CL_UpdateRemapInfo( newTop, newBottom );
 		m_fDoRemap = true;
 	}
 }
@@ -1177,7 +1182,7 @@ void R_AliasLerpMovement( cl_entity_t *e )
 	if( g_alias.interpolate && ( g_alias.time < e->curstate.animtime + 1.0f ) && ( e->curstate.animtime != e->latched.prevanimtime ))
 		f = ( g_alias.time - e->curstate.animtime ) / ( e->curstate.animtime - e->latched.prevanimtime );
 
-	if( cls.demoplayback == DEMO_QUAKE1 )
+	if( gEngfuncs.IsDemoPlaying() == DEMO_QUAKE1 )
 		f = f + 1.0f;
 
 	g_alias.lerpfrac = bound( 0.0f, f, 1.0f );
@@ -1227,7 +1232,7 @@ void R_SetupAliasFrame( cl_entity_t *e, aliashdr_t *paliashdr )
 	else if( newframe >= paliashdr->numframes )
 	{
 		if( newframe > paliashdr->numframes )
-			Con_Reportf( S_WARN "R_GetAliasFrame: no such frame %d (%s)\n", newframe, e->model->name );
+			gEngfuncs.Con_Reportf( S_WARN "R_GetAliasFrame: no such frame %d (%s)\n", newframe, e->model->name );
 		newframe = paliashdr->numframes - 1;
 	}
 

@@ -245,24 +245,23 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 	switch( type )
 	{
 	case GL_DEBUG_TYPE_ERROR_ARB:
-		Con_Printf( S_OPENGL_ERROR "%s\n", message );
+		gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB:
-		Con_Printf( S_OPENGL_WARN "%s\n", message );
+		gEngfuncs.Con_Printf( S_OPENGL_WARN "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB:
-		Con_Printf( S_OPENGL_WARN "%s\n", message );
+		gEngfuncs.Con_Printf( S_OPENGL_WARN "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_PORTABILITY_ARB:
-		if( gpGlobals->developer < DEV_EXTENDED )
-			return;
-		Con_Printf( S_OPENGL_WARN "%s\n", message );
+		gEngfuncs.Con_Reportf( S_OPENGL_WARN "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_PERFORMANCE_ARB:
-		Con_Printf( S_OPENGL_NOTE "%s\n", message );
+		gEngfuncs.Con_Printf( S_OPENGL_NOTE "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_OTHER_ARB:
-	default:	Con_Printf( S_OPENGL_NOTE "%s\n", message );
+	default:
+		gEngfuncs.Con_Printf( S_OPENGL_NOTE "%s\n", message );
 		break;
 	}
 }
@@ -276,7 +275,7 @@ void GL_SetExtension( int r_ext, int enable )
 {
 	if( r_ext >= 0 && r_ext < GL_EXTCOUNT )
 		glConfig.extension[r_ext] = enable ? GL_TRUE : GL_FALSE;
-	else Con_Printf( S_ERROR "GL_SetExtension: invalid extension %d\n", r_ext );
+	else gEngfuncs.Con_Printf( S_ERROR "GL_SetExtension: invalid extension %d\n", r_ext );
 }
 
 /*
@@ -288,7 +287,7 @@ qboolean GL_Support( int r_ext )
 {
 	if( r_ext >= 0 && r_ext < GL_EXTCOUNT )
 		return glConfig.extension[r_ext] ? true : false;
-	Con_Printf( S_ERROR "GL_Support: invalid extension %d\n", r_ext );
+	gEngfuncs.Con_Printf( S_ERROR "GL_Support: invalid extension %d\n", r_ext );
 
 	return false;
 }
@@ -316,7 +315,7 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 	convar_t		*parm = NULL;
 	const char	*extensions_string;
 
-	Con_Reportf( "GL_CheckExtension: %s ", name );
+	gEngfuncs.Con_Reportf( "GL_CheckExtension: %s ", name );
 	GL_SetExtension( r_ext, true );
 
 	if( cvarname )
@@ -327,7 +326,7 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 
 	if(( parm && !CVAR_TO_BOOL( parm )) || ( !CVAR_TO_BOOL( gl_extensions ) && r_ext != GL_OPENGL_110 ))
 	{
-		Con_Reportf( "- disabled\n" );
+		gEngfuncs.Con_Reportf( "- disabled\n" );
 		GL_SetExtension( r_ext, false );
 		return; // nothing to process at
 	}
@@ -337,7 +336,7 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 	if(( name[2] == '_' || name[3] == '_' ) && !Q_strstr( extensions_string, name ))
 	{
 		GL_SetExtension( r_ext, false );	// update render info
-		Con_Reportf( "- ^1failed\n" );
+		gEngfuncs.Con_Reportf( "- ^1failed\n" );
 		return;
 	}
 
@@ -348,13 +347,13 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 	for( func = funcs; func && func->name != NULL; func++ )
 	{
 		// functions are cleared before all the extensions are evaluated
-		if((*func->func = (void *)GL_GetProcAddress( func->name )) == NULL )
+		if((*func->func = (void *)gEngfuncs.GL_GetProcAddress( func->name )) == NULL )
 			GL_SetExtension( r_ext, false ); // one or more functions are invalid, extension will be disabled
 	}
 
 	if( GL_Support( r_ext ))
-		Con_Reportf( "- ^2enabled\n" );
-	else Con_Reportf( "- ^1failed\n" );
+		gEngfuncs.Con_Reportf( "- ^2enabled\n" );
+	else gEngfuncs.Con_Reportf( "- ^1failed\n" );
 }
 
 /*
@@ -410,7 +409,7 @@ static void GL_SetDefaults( void )
 	pglDepthFunc( GL_LEQUAL );
 	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
 
-	if( vidState.stencilEnabled )
+	if( glState.stencilEnabled )
 	{
 		pglDisable( GL_STENCIL_TEST );
 		pglStencilMask( ( GLuint ) ~0 );
@@ -445,42 +444,39 @@ R_RenderInfo_f
 */
 void R_RenderInfo_f( void )
 {
-	Con_Printf( "\n" );
-	Con_Printf( "GL_VENDOR: %s\n", glConfig.vendor_string );
-	Con_Printf( "GL_RENDERER: %s\n", glConfig.renderer_string );
-	Con_Printf( "GL_VERSION: %s\n", glConfig.version_string );
+	gEngfuncs.Con_Printf( "\n" );
+	gEngfuncs.Con_Printf( "GL_VENDOR: %s\n", glConfig.vendor_string );
+	gEngfuncs.Con_Printf( "GL_RENDERER: %s\n", glConfig.renderer_string );
+	gEngfuncs.Con_Printf( "GL_VERSION: %s\n", glConfig.version_string );
 
 	// don't spam about extensions
-	if( host_developer.value >= DEV_EXTENDED )
-	{
-		Con_Printf( "GL_EXTENSIONS: %s\n", glConfig.extensions_string );
-	}
+	gEngfuncs.Con_Reportf( "GL_EXTENSIONS: %s\n", glConfig.extensions_string );
 
-	Con_Printf( "GL_MAX_TEXTURE_SIZE: %i\n", glConfig.max_2d_texture_size );
+	gEngfuncs.Con_Printf( "GL_MAX_TEXTURE_SIZE: %i\n", glConfig.max_2d_texture_size );
 
 	if( GL_Support( GL_ARB_MULTITEXTURE ))
-		Con_Printf( "GL_MAX_TEXTURE_UNITS_ARB: %i\n", glConfig.max_texture_units );
+		gEngfuncs.Con_Printf( "GL_MAX_TEXTURE_UNITS_ARB: %i\n", glConfig.max_texture_units );
 	if( GL_Support( GL_TEXTURE_CUBEMAP_EXT ))
-		Con_Printf( "GL_MAX_CUBE_MAP_TEXTURE_SIZE_ARB: %i\n", glConfig.max_cubemap_size );
+		gEngfuncs.Con_Printf( "GL_MAX_CUBE_MAP_TEXTURE_SIZE_ARB: %i\n", glConfig.max_cubemap_size );
 	if( GL_Support( GL_ANISOTROPY_EXT ))
-		Con_Printf( "GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT: %.1f\n", glConfig.max_texture_anisotropy );
+		gEngfuncs.Con_Printf( "GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT: %.1f\n", glConfig.max_texture_anisotropy );
 	if( GL_Support( GL_TEXTURE_2D_RECT_EXT ))
-		Con_Printf( "GL_MAX_RECTANGLE_TEXTURE_SIZE: %i\n", glConfig.max_2d_rectangle_size );
+		gEngfuncs.Con_Printf( "GL_MAX_RECTANGLE_TEXTURE_SIZE: %i\n", glConfig.max_2d_rectangle_size );
 	if( GL_Support( GL_TEXTURE_ARRAY_EXT ))
-		Con_Printf( "GL_MAX_ARRAY_TEXTURE_LAYERS_EXT: %i\n", glConfig.max_2d_texture_layers );
+		gEngfuncs.Con_Printf( "GL_MAX_ARRAY_TEXTURE_LAYERS_EXT: %i\n", glConfig.max_2d_texture_layers );
 	if( GL_Support( GL_SHADER_GLSL100_EXT ))
 	{
-		Con_Printf( "GL_MAX_TEXTURE_COORDS_ARB: %i\n", glConfig.max_texture_coords );
-		Con_Printf( "GL_MAX_TEXTURE_IMAGE_UNITS_ARB: %i\n", glConfig.max_teximage_units );
-		Con_Printf( "GL_MAX_VERTEX_UNIFORM_COMPONENTS_ARB: %i\n", glConfig.max_vertex_uniforms );
-		Con_Printf( "GL_MAX_VERTEX_ATTRIBS_ARB: %i\n", glConfig.max_vertex_attribs );
+		gEngfuncs.Con_Printf( "GL_MAX_TEXTURE_COORDS_ARB: %i\n", glConfig.max_texture_coords );
+		gEngfuncs.Con_Printf( "GL_MAX_TEXTURE_IMAGE_UNITS_ARB: %i\n", glConfig.max_teximage_units );
+		gEngfuncs.Con_Printf( "GL_MAX_VERTEX_UNIFORM_COMPONENTS_ARB: %i\n", glConfig.max_vertex_uniforms );
+		gEngfuncs.Con_Printf( "GL_MAX_VERTEX_ATTRIBS_ARB: %i\n", glConfig.max_vertex_attribs );
 	}
 
-	Con_Printf( "\n" );
-	Con_Printf( "MODE: %ix%i\n", vidState.width, vidState.height );
-	Con_Printf( "\n" );
-	Con_Printf( "VERTICAL SYNC: %s\n", gl_vsync->value ? "enabled" : "disabled" );
-	Con_Printf( "Color %d bits, Alpha %d bits, Depth %d bits, Stencil %d bits\n", glConfig.color_bits,
+	gEngfuncs.Con_Printf( "\n" );
+	gEngfuncs.Con_Printf( "MODE: %ix%i\n", vidState.width, vidState.height );
+	gEngfuncs.Con_Printf( "\n" );
+	gEngfuncs.Con_Printf( "VERTICAL SYNC: %s\n", gl_vsync->value ? "enabled" : "disabled" );
+	gEngfuncs.Con_Printf( "Color %d bits, Alpha %d bits, Depth %d bits, Stencil %d bits\n", glConfig.color_bits,
 		glConfig.alpha_bits, glConfig.depth_bits, glConfig.stencil_bits );
 }
 
@@ -591,7 +587,7 @@ void GL_InitExtensionsBigGL()
 		if( glConfig.max_3d_texture_size < 32 )
 		{
 			GL_SetExtension( GL_TEXTURE_3D_EXT, false );
-			Con_Printf( S_ERROR "GL_EXT_texture3D reported bogus GL_MAX_3D_TEXTURE_SIZE, disabled\n" );
+			gEngfuncs.Con_Printf( S_ERROR "GL_EXT_texture3D reported bogus GL_MAX_3D_TEXTURE_SIZE, disabled\n" );
 		}
 	}
 
@@ -677,9 +673,9 @@ void GL_InitExtensionsBigGL()
 	// enable gldebug if allowed
 	if( GL_Support( GL_DEBUG_OUTPUT ))
 	{
-		if( host_developer.value )
+		if( gpGlobals->developer )
 		{
-			Con_Reportf( "Installing GL_DebugOutput...\n");
+			gEngfuncs.Con_Reportf( "Installing GL_DebugOutput...\n");
 			pglDebugMessageCallbackARB( GL_DebugOutput, NULL );
 
 			// force everything to happen in the main thread instead of in a separate driver thread
@@ -703,7 +699,7 @@ void GL_InitExtensions( void )
 	glConfig.renderer_string = pglGetString( GL_RENDERER );
 	glConfig.version_string = pglGetString( GL_VERSION );
 	glConfig.extensions_string = pglGetString( GL_EXTENSIONS );
-	Con_Reportf( "^3Video^7: %s\n", glConfig.renderer_string );
+	gEngfuncs.Con_Reportf( "^3Video^7: %s\n", glConfig.renderer_string );
 
 #ifdef XASH_GLES
 	GL_InitExtensionsGLES();
@@ -718,7 +714,7 @@ void GL_InitExtensions( void )
 	Cvar_Set( "gl_anisotropy", va( "%f", bound( 0, gl_texture_anisotropy->value, glConfig.max_texture_anisotropy )));
 
 	if( GL_Support( GL_TEXTURE_COMPRESSION_EXT ))
-		Image_AddCmdFlags( IL_DDS_HARDWARE );
+		gEngfuncs.Image_AddCmdFlags( IL_DDS_HARDWARE );
 
 	// MCD has buffering issues
 #ifdef _WIN32
@@ -746,9 +742,6 @@ GL_InitCommands
 */
 void GL_InitCommands( void )
 {
-	// system screen width and height (don't suppose for change from console at all)
-	Cvar_Get( "width", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen width" );
-	Cvar_Get( "height", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen height" );
 	r_speeds = Cvar_Get( "r_speeds", "0", FCVAR_ARCHIVE, "shows renderer speeds" );
 	r_fullbright = Cvar_Get( "r_fullbright", "0", FCVAR_CHEAT, "disable lightmaps, get fullbright for entities" );
 	r_norefresh = Cvar_Get( "r_norefresh", "0", 0, "disable 3D rendering (use with caution)" );
@@ -765,21 +758,19 @@ void GL_InitCommands( void )
 	r_traceglow = Cvar_Get( "r_traceglow", "1", FCVAR_ARCHIVE, "cull flares behind models" );
 	r_lightmap = Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
 	r_drawentities = Cvar_Get( "r_drawentities", "1", FCVAR_CHEAT, "render entities" );
-	r_decals = engine.Cvar_Find( "r_decals" );
-	window_xpos = Cvar_Get( "_window_xpos", "130", FCVAR_RENDERINFO, "window position by horizontal" );
-	window_ypos = Cvar_Get( "_window_ypos", "48", FCVAR_RENDERINFO, "window position by vertical" );
+	r_decals = gEngfuncs.pfnGetCvarPointer( "r_decals" );
 
 	gl_extensions = Cvar_Get( "gl_allow_extensions", "1", FCVAR_GLCONFIG, "allow gl_extensions" );
 	gl_texture_nearest = Cvar_Get( "gl_texture_nearest", "0", FCVAR_ARCHIVE, "disable texture filter" );
 	gl_lightmap_nearest = Cvar_Get( "gl_lightmap_nearest", "0", FCVAR_ARCHIVE, "disable lightmap filter" );
 	gl_check_errors = Cvar_Get( "gl_check_errors", "1", FCVAR_ARCHIVE, "ignore video engine errors" );
-	gl_vsync = engine.Cvar_Find( "gl_vsync" );
+	gl_vsync = gEngfuncs.pfnGetCvarPointer( "gl_vsync" );
 	gl_detailscale = Cvar_Get( "gl_detailscale", "4.0", FCVAR_ARCHIVE, "default scale applies while auto-generate list of detail textures" );
 	gl_texture_anisotropy = Cvar_Get( "gl_anisotropy", "8", FCVAR_ARCHIVE, "textures anisotropic filter" );
 	gl_texture_lodbias =  Cvar_Get( "gl_texture_lodbias", "0.0", FCVAR_ARCHIVE, "LOD bias for mipmapped textures (perfomance|quality)" );
 	gl_keeptjunctions = Cvar_Get( "gl_keeptjunctions", "1", FCVAR_ARCHIVE, "removing tjuncs causes blinking pixels" );
 	gl_emboss_scale = Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
-	gl_showtextures = engine.Cvar_Find( "r_showtextures" );
+	gl_showtextures = gEngfuncs.pfnGetCvarPointer( "r_showtextures" );
 	gl_finish = Cvar_Get( "gl_finish", "0", FCVAR_ARCHIVE, "use glFinish instead of glFlush" );
 	gl_nosort = Cvar_Get( "gl_nosort", "0", FCVAR_ARCHIVE, "disable sorting of translucent surfaces" );
 	gl_clear = Cvar_Get( "gl_clear", "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
@@ -795,28 +786,21 @@ void GL_InitCommands( void )
 	// make sure gl_vsync is checked after vid_restart
 	SetBits( gl_vsync->flags, FCVAR_CHANGED );
 
-	vid_gamma = Cvar_Get( "gamma", "2.5", FCVAR_ARCHIVE, "gamma amount" );
-	vid_brightness = Cvar_Get( "brightness", "0.0", FCVAR_ARCHIVE, "brightness factor" );
-	vid_fullscreen = engine.Cvar_Find( "fullscreen" );
-	vid_displayfrequency = engine.Cvar_Find ( "vid_displayfrequency" );
-	vid_highdpi = Cvar_Get( "vid_highdpi", "1", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "enable High-DPI mode" );
+	vid_gamma = gEngfuncs.pfnGetCvarPointer( "gamma" );
+	vid_brightness = gEngfuncs.pfnGetCvarPointer( "brightness" );
 
-	Cmd_AddCommand( "r_info", R_RenderInfo_f, "display renderer info" );
-	Cmd_AddCommand( "timerefresh", SCR_TimeRefresh_f, "turn quickly and print rendering statistcs" );
-
-	// a1ba: planned to be named vid_mode for compability
-	// but supported mode list is filled by backends, so numbers are not portable any more
-	Cmd_AddCommand( "vid_setmode", VID_Mode_f, "display video mode" );
+	gEngfuncs.Cmd_AddCommand( "r_info", R_RenderInfo_f, "display renderer info" );
+	gEngfuncs.Cmd_AddCommand( "timerefresh", SCR_TimeRefresh_f, "turn quickly and print rendering statistcs" );
 
 	// give initial OpenGL configuration
-	host.apply_opengl_config = true;
-	Cbuf_AddText( "exec opengl.cfg\n" );
-	Cbuf_Execute();
-	host.apply_opengl_config = false;
+	gEngfuncs.Cbuf_SetOpenGLConfigHack( true );
+	gEngfuncs.Cbuf_AddText( "exec opengl.cfg\n" );
+	gEngfuncs.Cbuf_Execute();
+	gEngfuncs.Cbuf_SetOpenGLConfigHack( false );
 
 	// apply actual video mode to window
-	Cbuf_AddText( "exec video.cfg\n" );
-	Cbuf_Execute();
+	gEngfuncs.Cbuf_AddText( "exec video.cfg\n" );
+	gEngfuncs.Cbuf_Execute();
 }
 
 /*
@@ -863,7 +847,6 @@ static void R_CheckVBO( void )
 		r_vbo->flags |= FCVAR_ARCHIVE;
 }
 
-
 /*
 ===============
 R_Init
@@ -877,24 +860,21 @@ qboolean R_Init( void )
 	GL_InitCommands();
 	GL_InitRandomTable();
 
-	// Set screen resolution and fullscreen mode if passed in on command line.
-	// This is done after executing opengl.cfg, as the command line values should take priority.
-	SetWidthAndHeightFromCommandLine();
-	SetFullscreenModeFromCommandLine();
-
 	GL_SetDefaultState();
 
 	// create the window and set up the context
+#if 0 // REFTODO: just make it compile
 	if( !R_Init_Video( ))
 	{
 		GL_RemoveCommands();
 		R_Free_Video();
 
-		Sys_Error( "Can't initialize video subsystem\nProbably driver was not installed" );
+		gEngfuncs.Host_Error( "Can't initialize video subsystem\nProbably driver was not installed" );
 		return false;
 	}
 
 	host.renderinfo_changed = false;
+#endif
 	r_temppool = Mem_AllocPool( "Render Zone" );
 
 	GL_SetDefaults();
@@ -906,10 +886,17 @@ qboolean R_Init( void )
 	R_ClearDecals();
 	R_ClearScene();
 
-	// initialize screen
-	SCR_Init();
-
 	return true;
+}
+
+/*
+=================
+GL_RemoveCommands
+=================
+*/
+void GL_RemoveCommands( void )
+{
+	gEngfuncs.Cmd_RemoveCommand( "r_info" );
 }
 
 /*
@@ -919,27 +906,18 @@ R_Shutdown
 */
 void R_Shutdown( void )
 {
-	model_t	*mod;
-	int	i;
-
 	if( !glw_state.initialized )
 		return;
-
-	// release SpriteTextures
-	for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
-	{
-		if( !mod->name[0] ) continue;
-		Mod_UnloadSpriteModel( mod );
-	}
-	memset( clgame.sprites, 0, sizeof( clgame.sprites ));
 
 	GL_RemoveCommands();
 	R_ShutdownImages();
 
 	Mem_FreePool( &r_temppool );
 
+#if 0 // REFTODO: just make it compile
 	// shut down OS specific OpenGL stuff like contexts, etc.
 	R_Free_Video();
+#endif // 0
 }
 
 /*
@@ -985,6 +963,6 @@ void GL_CheckForErrors_( const char *filename, const int fileline )
 	if(( err = pglGetError( )) == GL_NO_ERROR )
 		return;
 
-	Con_Printf( S_OPENGL_ERROR "%s (called at %s:%i)\n", GL_ErrorString( err ), filename, fileline );
+	gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s (called at %s:%i)\n", GL_ErrorString( err ), filename, fileline );
 }
 

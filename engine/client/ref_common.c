@@ -184,11 +184,22 @@ static qboolean R_LoadProgs( const char *name )
 
 void R_Shutdown( void )
 {
+	int i;
+	model_t *mod;
+
+	// release SpriteTextures
+	for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
+	{
+		if( !mod->name[0] ) continue;
+		Mod_UnloadSpriteModel( mod );
+	}
+	memset( clgame.sprites, 0, sizeof( clgame.sprites ));
+
 	R_UnloadProgs();
 	ref.initialized = false;
 }
 
-void R_Init( void )
+qboolean R_Init( void )
 {
 	char refdll[64];
 
@@ -206,6 +217,10 @@ void R_Init( void )
 	{
 		R_Shutdown();
 		Host_Error( "Can't initialize %s renderer!\n", refdll );
-		return;
+		return false;
 	}
+
+	SCR_Init();
+
+	return true;
 }

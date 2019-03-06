@@ -29,9 +29,6 @@ static SDL_Cursor* s_pDefaultCursor[20];
 #endif
 #include "platform/platform.h"
 
-int	g_textures[VGUI_MAX_TEXTURES];
-int	g_textureId = 0;
-int	g_iBoundTexture;
 static enum VGUI_KeyCode s_pVirtualKeyTrans[256];
 static enum VGUI_DefaultCursor s_currentCursor;
 static HINSTANCE s_pVGuiSupport; // vgui_support library

@@ -182,4 +182,11 @@ void Mod_StudioComputeBounds( void *buffer, vec3_t mins, vec3_t maxs, qboolean i
 int Mod_HitgroupForStudioHull( int index );
 void Mod_ClearStudioCache( void );
 
+//
+// mod_sprite.c
+//
+void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags );
+void Mod_UnloadSpriteModel( model_t *mod );
+
+
 #endif//MOD_LOCAL_H

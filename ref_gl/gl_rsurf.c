@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "gl_local.h"
 #include "mathlib.h"
+#include "mod_local.h"
 			
 typedef struct
 {
@@ -87,9 +88,10 @@ static void SubdividePolygon_r( msurface_t *warpface, int numverts, float *verts
 	float		sample_size;
 	vec3_t		mins, maxs;
 	glpoly_t		*poly;
+	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	if( numverts > ( SUBDIVIDE_SIZE - 4 ))
-		Host_Error( "Mod_SubdividePolygon: too many vertexes on face ( %i )\n", numverts );
+		gEngfuncs.Host_Error( "Mod_SubdividePolygon: too many vertexes on face ( %i )\n", numverts );
 
 	sample_size = gEngfuncs.Mod_SampleSizeForFace( warpface );
 	BoundPoly( numverts, verts, mins, maxs );
@@ -242,6 +244,7 @@ void GL_SubdivideSurface( msurface_t *fa )
 	int	numverts;
 	int	i, lindex;
 	float	*vec;
+	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	// convert edges back to a normal polygon
 	numverts = 0;
@@ -700,7 +703,7 @@ static void LM_UploadBlock( qboolean dynamic )
 		tr.lightmapTextures[i] = GL_LoadTextureInternal( lmName, &r_lightmap, TF_FONT|TF_ATLAS_PAGE );
 
 		if( ++gl_lms.current_lightmap_texture == MAX_LIGHTMAPS )
-			Host_Error( "AllocBlock: full\n" );
+			gEngfuncs.Host_Error( "AllocBlock: full\n" );
 	}
 }
 
@@ -990,7 +993,7 @@ void R_BlendLightmaps( void )
 
 				// try uploading the block now
 				if( !LM_AllocBlock( smax, tmax, &surf->info->dlight_s, &surf->info->dlight_t ))
-					Host_Error( "AllocBlock: full\n" );
+					gEngfuncs.Host_Error( "AllocBlock: full\n" );
 
 				base = gl_lms.lightmap_buffer;
 				base += ( surf->info->dlight_t * BLOCK_SIZE + surf->info->dlight_s ) * 4;
@@ -1269,7 +1272,7 @@ void R_DrawTextureChains( void )
 	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
-	if( gEngfuncs.CL)
+	if( gEngfuncs.CL_GetRenderParm( PARM_SKY_SPHERE, 0 ) )
 	{
 		pglDisable( GL_TEXTURE_2D );
 		pglColor3f( 1.0f, 1.0f, 1.0f );
@@ -1279,7 +1282,7 @@ void R_DrawTextureChains( void )
 	for( s = skychain; s != NULL; s = s->texturechain )
 		R_AddSkyBoxSurface( s );
 
-	if( FBitSet( WORLDMODEL->flags, FWORLD_SKYSPHERE ) && !tr.fCustomSkybox )
+	if( gEngfuncs.CL_GetRenderParm( PARM_SKY_SPHERE, 0 ) )
 	{
 		pglEnable( GL_TEXTURE_2D );
 		if( skychain )
@@ -2429,7 +2432,7 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 
 				// try upload the block now
 				if( !LM_AllocBlock( smax, tmax, &info->dlight_s, &info->dlight_t ))
-					Host_Error( "AllocBlock: full\n" );
+					gEngfuncs.Host_Error( "AllocBlock: full\n" );
 
 				base = gl_lms.lightmap_buffer;
 				base += ( info->dlight_t * BLOCK_SIZE + info->dlight_s ) * 4;
@@ -3332,7 +3335,7 @@ void R_DrawWorld( void )
 
 	R_DrawTextureChains();
 
-	if( !CL_IsDevOverviewMode( ))
+	if( !gEngfuncs.CL_IsDevOverviewMode( ))
 	{
 		DrawDecalsBatch();
 		GL_ResetFogColor();
@@ -3389,12 +3392,12 @@ void R_MarkLeaves( void )
 		if( RI.viewleaf->contents == CONTENTS_EMPTY )
 		{
 			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] - 16.0f );
-			leaf = Mod_PointInLeaf( test, WORLDMODEL->nodes );
+			leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
 		}
 		else
 		{
 			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] + 16.0f );
-			leaf = Mod_PointInLeaf( test, WORLDMODEL->nodes );
+			leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
 		}
 
 		if(( leaf->contents != CONTENTS_SOLID ) && ( RI.viewleaf != leaf ))
@@ -3444,6 +3447,7 @@ void GL_CreateSurfaceLightmap( msurface_t *surf )
 	int		sample_size;
 	mextrasurf_t	*info = surf->info;
 	byte		*base;
+	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	if( !loadmodel->lightdata )
 		return;
@@ -3461,7 +3465,7 @@ void GL_CreateSurfaceLightmap( msurface_t *surf )
 		LM_InitBlock();
 
 		if( !LM_AllocBlock( smax, tmax, &surf->light_s, &surf->light_t ))
-			Host_Error( "AllocBlock: full\n" );
+			gEngfuncs.Host_Error( "AllocBlock: full\n" );
 	}
 
 	surf->lightmaptexturenum = gl_lms.current_lightmap_texture;
@@ -3486,7 +3490,7 @@ void GL_RebuildLightmaps( void )
 	int	i, j;
 	model_t	*m;
 
-	if( !cl.video_prepped )
+	if( !gpGlobals->video_prepped )
 		return; // wait for worldmodel
 
 	ClearBits( vid_brightness->flags, FCVAR_CHANGED );
@@ -3507,15 +3511,15 @@ void GL_RebuildLightmaps( void )
 
 	LM_InitBlock();	
 
-	for( i = 0; i < cl.nummodels; i++ )
+	for( i = 0; i < gEngfuncs.CL_NumModels(); i++ )
 	{
-		if(( m = CL_ModelHandle( i + 1 )) == NULL )
+		if(( m = gEngfuncs.pfnGetModelByIndex( i + 1 )) == NULL )
 			continue;
 
 		if( m->name[0] == '*' || m->type != mod_brush )
 			continue;
 
-		loadmodel = m;
+		gEngfuncs.Mod_SetCurrentLoadingModel( m );
 
 		for( j = 0; j < m->numsurfaces; j++ )
 			GL_CreateSurfaceLightmap( m->surfaces + j );
@@ -3573,9 +3577,9 @@ void GL_BuildLightmaps( void )
 
 	LM_InitBlock();	
 
-	for( i = 0; i < cl.nummodels; i++ )
+	for( i = 0; i < gEngfuncs.CL_NumModels(); i++ )
 	{
-		if(( m = CL_ModelHandle( i + 1 )) == NULL )
+		if(( m = gEngfuncs.pfnGetModelByIndex( i + 1 )) == NULL )
 			continue;
 
 		if( m->name[0] == '*' || m->type != mod_brush )
@@ -3586,7 +3590,7 @@ void GL_BuildLightmaps( void )
 			// clearing all decal chains
 			m->surfaces[j].pdecals = NULL;
 			m->surfaces[j].visframe = 0;
-			loadmodel = m;
+			gEngfuncs.Mod_SetCurrentLoadingModel( m );
 
 			GL_CreateSurfaceLightmap( m->surfaces + j );
 

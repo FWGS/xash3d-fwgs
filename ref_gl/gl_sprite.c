@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "entity_types.h"
 #include "cl_tent.h"
+#include "common.h"
 
 // it's a Valve default value for LoadMapSprite (probably must be power of two)
 #define MAPSPRITE_SIZE	128
@@ -152,81 +153,8 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	msprite_t		*psprite;
 	int		i, size;
 
-	if( loaded ) *loaded = false;
-	pin = (dsprite_t *)buffer;
-	mod->type = mod_sprite;
 	r_texFlags = texFlags;
-	i = pin->version;
-
-	if( pin->ident != IDSPRITEHEADER )
-	{
-		Con_DPrintf( S_ERROR "%s has wrong id (%x should be %x)\n", mod->name, pin->ident, IDSPRITEHEADER );
-		return;
-	}
-		
-	if( i != SPRITE_VERSION_Q1 && i != SPRITE_VERSION_HL && i != SPRITE_VERSION_32 )
-	{
-		Con_DPrintf( S_ERROR "%s has wrong version number (%i should be %i or %i)\n", mod->name, i, SPRITE_VERSION_Q1, SPRITE_VERSION_HL );
-		return;
-	}
-
-	mod->mempool = Mem_AllocPool( va( "^2%s^7", mod->name ));
-	sprite_version = i;
-
-	if( i == SPRITE_VERSION_Q1 || i == SPRITE_VERSION_32 )
-	{
-		pinq1 = (dsprite_q1_t *)buffer;
-		size = sizeof( msprite_t ) + ( pinq1->numframes - 1 ) * sizeof( psprite->frames );
-		psprite = Mem_Calloc( mod->mempool, size );
-		mod->cache.data = psprite;	// make link to extradata
-
-		psprite->type = pinq1->type;
-		psprite->texFormat = SPR_ADDITIVE;	//SPR_ALPHTEST;
-		psprite->numframes = mod->numframes = pinq1->numframes;
-		psprite->facecull = SPR_CULL_FRONT;
-		psprite->radius = pinq1->boundingradius;
-		psprite->synctype = pinq1->synctype;
-
-		// LordHavoc: hack to allow sprites to be non-fullbright
-		for( i = 0; i < MAX_QPATH && mod->name[i]; i++ )
-			if( mod->name[i] == '!' )
-				psprite->texFormat = SPR_ALPHTEST;
-
-		mod->mins[0] = mod->mins[1] = -pinq1->bounds[0] * 0.5f;
-		mod->maxs[0] = mod->maxs[1] = pinq1->bounds[0] * 0.5f;
-		mod->mins[2] = -pinq1->bounds[1] * 0.5f;
-		mod->maxs[2] = pinq1->bounds[1] * 0.5f;
-		numi = NULL;
-	}
-	else if( i == SPRITE_VERSION_HL )
-	{
-		pinhl = (dsprite_hl_t *)buffer;
-		size = sizeof( msprite_t ) + ( pinhl->numframes - 1 ) * sizeof( psprite->frames );
-		psprite = Mem_Calloc( mod->mempool, size );
-		mod->cache.data = psprite;	// make link to extradata
-
-		psprite->type = pinhl->type;
-		psprite->texFormat = pinhl->texFormat;
-		psprite->numframes = mod->numframes = pinhl->numframes;
-		psprite->facecull = pinhl->facetype;
-		psprite->radius = pinhl->boundingradius;
-		psprite->synctype = pinhl->synctype;
-
-		mod->mins[0] = mod->mins[1] = -pinhl->bounds[0] * 0.5f;
-		mod->maxs[0] = mod->maxs[1] = pinhl->bounds[0] * 0.5f;
-		mod->mins[2] = -pinhl->bounds[1] * 0.5f;
-		mod->maxs[2] = pinhl->bounds[1] * 0.5f;
-		numi = (short *)(pinhl + 1);
-	}
-
-	if( host.type == HOST_DEDICATED )
-	{
-		// skip frames loading
-		if( loaded ) *loaded = true;	// done
-		psprite->numframes = 0;
-		return;
-	}
-
+	sprite_version = pin->version;
 	Q_strncpy( sprite_name, mod->name, sizeof( sprite_name ));
 	COM_StripExtension( sprite_name );
 
@@ -235,7 +163,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		rgbdata_t	*pal;
 	
 		pal = FS_LoadImage( "#id.pal", (byte *)&i, 768 );
-		pframetype = (dframetype_t *)(pinq1 + 1);
+		pframetype = (dframetype_t *)(buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
 		FS_FreeImage( pal ); // palette installed, no reason to keep this data
 	}
 	else if( *numi == 256 )
@@ -262,7 +190,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	}
 	else 
 	{
-		Con_DPrintf( S_ERROR "%s has wrong number of palette colors %i (should be 256)\n", mod->name, *numi );
+		gEngfuncs.Con_DPrintf( S_ERROR "%s has wrong number of palette colors %i (should be 256)\n", mod->name, *numi );
 		return;
 	}
 
@@ -430,41 +358,30 @@ void Mod_UnloadSpriteModel( model_t *mod )
 	mspriteframe_t	*pspriteframe;
 	int		i, j;
 
-	Assert( mod != NULL );
+	psprite = mod->cache.data;
 
-	if( mod->type == mod_sprite )
+	if( psprite )
 	{
-		if( host.type != HOST_DEDICATED )
+		// release all textures
+		for( i = 0; i < psprite->numframes; i++ )
 		{
-			psprite = mod->cache.data;
-
-			if( psprite )
+			if( psprite->frames[i].type == SPR_SINGLE )
 			{
-				// release all textures
-				for( i = 0; i < psprite->numframes; i++ )
-				{
-					if( psprite->frames[i].type == SPR_SINGLE )
-					{
-						pspriteframe = psprite->frames[i].frameptr;
-						GL_FreeTexture( pspriteframe->gl_texturenum );
-					}
-					else
-					{
-						pspritegroup = (mspritegroup_t *)psprite->frames[i].frameptr;
+				pspriteframe = psprite->frames[i].frameptr;
+				GL_FreeTexture( pspriteframe->gl_texturenum );
+			}
+			else
+			{
+				pspritegroup = (mspritegroup_t *)psprite->frames[i].frameptr;
 
-						for( j = 0; j < pspritegroup->numframes; j++ )
-						{
-							pspriteframe = pspritegroup->frames[i];
-							GL_FreeTexture( pspriteframe->gl_texturenum );
-						}
-					}
+				for( j = 0; j < pspritegroup->numframes; j++ )
+				{
+					pspriteframe = pspritegroup->frames[i];
+					GL_FreeTexture( pspriteframe->gl_texturenum );
 				}
 			}
 		}
 	}
-
-	Mem_FreePool( &mod->mempool );
-	memset( mod, 0, sizeof( *mod ));
 }
 
 /*
@@ -493,7 +410,7 @@ mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 	else if( frame >= psprite->numframes )
 	{
 		if( frame > psprite->numframes )
-			Con_Printf( S_WARN "R_GetSpriteFrame: no such frame %d (%s)\n", frame, pModel->name );
+			gEngfuncs.Con_Printf( S_WARN "R_GetSpriteFrame: no such frame %d (%s)\n", frame, pModel->name );
 		frame = psprite->numframes - 1;
 	}
 
@@ -561,7 +478,7 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 	}          
 	else if( frame >= psprite->numframes )
 	{
-		Con_Reportf( S_WARN "R_GetSpriteFrameInterpolant: no such frame %d (%s)\n", frame, ent->model->name );
+		gEngfuncs.Con_Reportf( S_WARN "R_GetSpriteFrameInterpolant: no such frame %d (%s)\n", frame, ent->model->name );
 		frame = psprite->numframes - 1;
 	}
 
@@ -906,7 +823,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	{
 		cl_entity_t	*parent;
 	
-		parent = CL_GetEntityByIndex( e->curstate.aiment );
+		parent = gEngfuncs.GetEntityByIndex( e->curstate.aiment );
 
 		if( parent && parent->model )
 		{

@@ -13,10 +13,12 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "mathlib.h"
 #include "gl_local.h"
 #include "pm_local.h"
 #include "studio.h"
+#include "common.h"
+#include "mathlib.h"
+#include "ref_params.h"
 
 /*
 =============================================================================
@@ -45,15 +47,16 @@ void CL_RunLightStyles( void )
 
 	// light animations
 	// 'm' is normal light, 'a' is no light, 'z' is double bright
-	for( i = 0, ls = cl.lightstyles; i < MAX_LIGHTSTYLES; i++, ls++ )
+	for( i = 0; i < MAX_LIGHTSTYLES; i++ )
 	{
+		ls = gEngfuncs.GetLightStyle( i );
 		if( !WORLDMODEL->lightdata )
 		{
 			tr.lightstylevalue[i] = 256 * 256;
 			continue;
 		}
 
-		if( !cl.paused && frametime <= 0.1f )
+		if( !gEngfuncs.CL_GetRenderParm( PARAM_GAMEPAUSED, 0 ) && frametime <= 0.1f )
 			ls->time += frametime; // evaluate local time
 
 		flight = (int)Q_floor( ls->time * 10 );
@@ -393,15 +396,18 @@ colorVec R_LightVecInternal( const vec3_t start, const vec3_t end, vec3_t lspot,
 
 		// get light from bmodels too
 		if( CVAR_TO_BOOL( r_lighting_extended ))
-			maxEnts = clgame.pmove->numphysent;
+			maxEnts = MAX_PHYSENTS;
 
 		// check all the bsp-models
 		for( i = 0; i < maxEnts; i++ )
 		{
-			physent_t	*pe = &clgame.pmove->physents[i];
+			physent_t	*pe = gEngfuncs.EV_GetPhysent( i );
 			vec3_t	offset, start_l, end_l;
 			mnode_t	*pnodes;
 			matrix4x4	matrix;
+
+			if( !pe )
+				break;
 
 			if( !pe->model || pe->model->type != mod_brush )
 				continue; // skip non-bsp models
