@@ -35,13 +35,6 @@ GNU General Public License for more details.
 #include "cvar.h"
 #define offsetof(s,m)       (size_t)&(((s *)0)->m)
 
-void CL_DrawEFX(double, double);
-void *GL_GetProcAddress(char *);
-void GL_CheckForErrors();
-void CL_ExtraUpdate();
-void Cbuf_Execute();
-#define Cvar_SetValue(...)
-#define FS_FreeImage(...)
 #define ASSERT(x)
 #define Assert(x)
 
@@ -278,14 +271,8 @@ extern ref_instance_t	RI;
 extern gl_globals_t	tr;
 
 extern float		gldepthmin, gldepthmax;
-extern dlight_t		cl_dlights[MAX_DLIGHTS];
-extern dlight_t		cl_elights[MAX_ELIGHTS];
 #define r_numEntities	(tr.draw_list->num_solid_entities + tr.draw_list->num_trans_entities)
 #define r_numStatics	(r_stats.c_client_ents)
-
-extern struct beam_s	*cl_active_beams;
-extern struct beam_s	*cl_free_beams;
-extern struct particle_s	*cl_free_particles;
 
 //
 // gl_backend.c
@@ -755,9 +742,6 @@ extern convar_t	*tracerred;
 extern convar_t	*tracergreen;
 extern convar_t	*tracerblue;
 extern convar_t	*traceralpha;
-extern convar_t	*tracerspeed;
-extern convar_t	*tracerlength;
-extern convar_t	*traceroffset;
 extern convar_t	*cl_lightstyle_lerping;
 
 
@@ -766,40 +750,12 @@ extern convar_t	*cl_lightstyle_lerping;
 //
 #include "crtlib.h"
 
-FORCEINLINE float COM_RandomFloat( float rmin, float rmax )
-{
-	return gEngfuncs.COM_RandomFloat( rmin, rmax );
-}
-
-FORCEINLINE int COM_RandomLong( int rmin, int rmax )
-{
-	return gEngfuncs.COM_RandomLong( rmin, rmax );
-}
-
-FORCEINLINE byte *_Mem_AllocPool( const char *name, const char *filename, int fileline )
-{
-	return gEngfuncs._Mem_AllocPool( name, filename, fileline );
-}
-
-FORCEINLINE void _Mem_FreePool( byte **poolptr, const char *filename, int fileline )
-{
-	gEngfuncs._Mem_FreePool( poolptr, filename, fileline );
-}
-
-FORCEINLINE void *_Mem_Alloc( byte *poolptr, size_t size, qboolean clear, const char *filename, int fileline )
-{
-	return gEngfuncs._Mem_Alloc( poolptr, size, clear, filename, fileline );
-}
-
-
-FORCEINLINE void *_Mem_Realloc( byte *poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
-{
-	return gEngfuncs._Mem_Realloc( poolptr, memptr, size, clear, filename, fileline );
-}
-
-FORCEINLINE void _Mem_Free( void *data, const char *filename, int fileline )
-{
-	gEngfuncs._Mem_Free( data, filename, fileline );
-}
+#define Mem_Malloc( pool, size ) gEngfuncs._Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
+#define Mem_Calloc( pool, size ) gEngfuncs._Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
+#define Mem_Realloc( pool, ptr, size ) gEngfuncs._Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
+#define Mem_Free( mem ) gEngfuncs._Mem_Free( mem, __FILE__, __LINE__ )
+#define Mem_AllocPool( name ) gEngfuncs._Mem_AllocPool( name, __FILE__, __LINE__ )
+#define Mem_FreePool( pool ) gEngfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )
+#define Mem_EmptyPool( pool ) gEngfuncs._Mem_EmptyPool( pool, __FILE__, __LINE__ )
 
 #endif // GL_LOCAL_H

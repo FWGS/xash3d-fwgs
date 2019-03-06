@@ -852,7 +852,7 @@ void R_DrawEntitiesOnList( void )
 
 	if( !RI.onlyClientDraw )
 	{
-		CL_DrawEFX( tr.frametime, false );
+		gEngfuncs.CL_DrawEFX( tr.frametime, false );
 	}
 
 	GL_CheckForErrors();
@@ -910,7 +910,7 @@ void R_DrawEntitiesOnList( void )
 	if( !RI.onlyClientDraw )
 	{
 		R_AllowFog( false );
-		CL_DrawEFX( tr.frametime, true );
+		gEngfuncs.CL_DrawEFX( tr.frametime, true );
 		R_AllowFog( true );
 	}
 
@@ -920,7 +920,7 @@ void R_DrawEntitiesOnList( void )
 
 	if( !RI.onlyClientDraw )
 		R_DrawViewModel();
-	CL_ExtraUpdate();
+	gEngfuncs.CL_ExtraUpdate();
 
 	GL_CheckForErrors();
 }
@@ -959,7 +959,7 @@ void R_RenderScene( void )
 	R_DrawWorld();
 	R_CheckFog();
 
-	CL_ExtraUpdate ();	// don't let sound get messed up if going slow
+	gEngfuncs.CL_ExtraUpdate ();	// don't let sound get messed up if going slow
 
 	R_DrawEntitiesOnList();
 
@@ -1048,7 +1048,7 @@ void R_BeginFrame( qboolean clearScene )
 	// swapinterval stuff
 	GL_UpdateSwapInterval();
 
-	CL_ExtraUpdate ();
+	gEngfuncs.CL_ExtraUpdate ();
 }
 
 /*

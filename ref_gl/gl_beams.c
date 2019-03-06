@@ -52,7 +52,7 @@ static void FracNoise( float *noise, int divs )
 	if( divs < 2 ) return;
 
 	// noise is normalized to +/- scale
-	noise[div2] = ( noise[0] + noise[divs] ) * 0.5f + divs * COM_RandomFloat( -0.125f, 0.125f );
+	noise[div2] = ( noise[0] + noise[divs] ) * 0.5f + divs * gEngfuncs.COM_RandomFloat( -0.125f, 0.125f );
 
 	if( div2 > 1 )
 	{
@@ -596,17 +596,14 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 			VectorSubtract( particles->org, pbeam->source, delta );
 			div = VectorLength( delta );
 
-			if( div >= 32 && cl_free_particles )
+			if( div >= 32 )
 			{
-				pnew = cl_free_particles;
-				cl_free_particles = pnew->next;
+				pnew = gEngfuncs.CL_AllocParticleFast();
 			}
 		}
-		else if( cl_free_particles )
+		else
 		{
-			pnew = cl_free_particles;
-			cl_free_particles = pnew->next;
-			div = 0;
+			pnew = gEngfuncs.CL_AllocParticleFast();
 		}
 	}
 

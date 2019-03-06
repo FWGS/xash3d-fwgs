@@ -186,6 +186,26 @@ void CL_FreeParticle( particle_t *p )
 
 /*
 ================
+CL_AllocParticleFast
+
+unconditionally give new particle pointer from cl_free_particles
+================
+*/
+particle_t *CL_AllocParticleFast( void )
+{
+	particle_t *p = NULL;
+
+	if( cl_free_particles )
+	{
+		p = cl_free_particles;
+		cl_free_particles = p->next;
+	}
+
+	return p;
+}
+
+/*
+================
 R_AllocParticle
 
 can return NULL if particles is out

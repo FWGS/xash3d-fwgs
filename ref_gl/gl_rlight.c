@@ -152,13 +152,14 @@ void R_PushDlights( void )
 	int	i;
 
 	tr.dlightframecount = tr.framecount;
-	l = cl_dlights;
 
 	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
 	for( i = 0; i < MAX_DLIGHTS; i++, l++ )
 	{
+		l = gEngfuncs.GetDynamicLight( i );
+
 		if( l->die < gpGlobals->time || !l->radius )
 			continue;
 
@@ -179,8 +180,10 @@ int R_CountDlights( void )
 	dlight_t	*l;
 	int	i, numDlights = 0;
 
-	for( i = 0, l = cl_dlights; i < MAX_DLIGHTS; i++, l++ )
+	for( i = 0; i < MAX_DLIGHTS; i++ )
 	{
+		l = gEngfuncs.GetDynamicLight( i );
+
 		if( l->die < gpGlobals->time || !l->radius )
 			continue;
 
@@ -347,9 +350,9 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 			}
 			else
 			{
-				cv->r += LightToTexGamma( lm->r ) * scale;
-				cv->g += LightToTexGamma( lm->g ) * scale;
-				cv->b += LightToTexGamma( lm->b ) * scale;
+				cv->r += gEngfuncs.LightToTexGamma( lm->r ) * scale;
+				cv->g += gEngfuncs.LightToTexGamma( lm->g ) * scale;
+				cv->b += gEngfuncs.LightToTexGamma( lm->b ) * scale;
 			}
 			lm += size; // skip to next lightmap
 

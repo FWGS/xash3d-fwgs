@@ -139,9 +139,9 @@ R_StudioInit
 */
 void R_StudioInit( void )
 {
-	cl_himodels = Cvar_Get( "cl_himodels", "1", FCVAR_ARCHIVE, "draw high-resolution player models in multiplayer" );
-	r_studio_sort_textures = Cvar_Get( "r_studio_sort_textures", "0", FCVAR_ARCHIVE, "change draw order for additive meshes" );
-	r_drawviewmodel = Cvar_Get( "r_drawviewmodel", "1", 0, "draw firstperson weapon model" );
+	cl_himodels = gEngfuncs.Cvar_Get( "cl_himodels", "1", FCVAR_ARCHIVE, "draw high-resolution player models in multiplayer" );
+	r_studio_sort_textures = gEngfuncs.Cvar_Get( "r_studio_sort_textures", "0", FCVAR_ARCHIVE, "change draw order for additive meshes" );
+	r_drawviewmodel = gEngfuncs.Cvar_Get( "r_drawviewmodel", "1", 0, "draw firstperson weapon model" );
 
 	Matrix3x4_LoadIdentity( g_studio.rotationmatrix );
 	Cvar_RegisterVariable( &r_glowshellfreq );
@@ -172,8 +172,8 @@ static void R_StudioSetupTimings( void )
 	else
 	{
 		// menu stuff
-		g_studio.time = host.realtime;
-		g_studio.frametime = host.frametime;
+		g_studio.time = gpGlobals->realtime;
+		g_studio.frametime = gpGlobals->frametime;
 	}
 }
 
@@ -600,12 +600,12 @@ void R_StudioSetUpTransform( cl_entity_t *e )
 	VectorCopy( e->angles, angles );
 
 	// interpolate monsters position (moved into UpdateEntityFields by user request)
-	if( e->curstate.movetype == MOVETYPE_STEP && !FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP )) 
+	if( e->curstate.movetype == MOVETYPE_STEP && !FBitSet( gEngfuncs.CL_GetRenderParm( PARM_FEATURES, 0 ), ENGINE_COMPUTE_STUDIO_LERP ))
 	{
 		R_StudioLerpMovement( e, g_studio.time, origin, angles );
 	}
 
-	if( !FBitSet( host.features, ENGINE_COMPENSATE_QUAKE_BUG ))
+	if( !FBitSet( gEngfuncs.CL_GetRenderParm( PARM_FEATURES, 0 ), ENGINE_COMPENSATE_QUAKE_BUG ))
 		angles[PITCH] = -angles[PITCH]; // stupid quake bug
 
 	// don't rotate clients, only aim
@@ -718,21 +718,21 @@ void R_StudioFxTransform( cl_entity_t *ent, matrix3x4 transform )
 	{
 	case kRenderFxDistort:
 	case kRenderFxHologram:
-		if( !COM_RandomLong( 0, 49 ))
+		if( !gEngfuncs.COM_RandomLong( 0, 49 ))
 		{
-			int	axis = COM_RandomLong( 0, 1 );
+			int	axis = gEngfuncs.COM_RandomLong( 0, 1 );
 
 			if( axis == 1 ) axis = 2; // choose between x & z
-			VectorScale( transform[axis], COM_RandomFloat( 1.0f, 1.484f ), transform[axis] );
+			VectorScale( transform[axis], gEngfuncs.COM_RandomFloat( 1.0f, 1.484f ), transform[axis] );
 		}
-		else if( !COM_RandomLong( 0, 49 ))
+		else if( !gEngfuncs.COM_RandomLong( 0, 49 ))
 		{
 			float	offset;
-			int	axis = COM_RandomLong( 0, 1 );
+			int	axis = gEngfuncs.COM_RandomLong( 0, 1 );
 
 			if( axis == 1 ) axis = 2; // choose between x & z
-			offset = COM_RandomFloat( -10.0f, 10.0f );
-			transform[COM_RandomLong( 0, 2 )][3] += offset;
+			offset = gEngfuncs.COM_RandomFloat( -10.0f, 10.0f );
+			transform[gEngfuncs.COM_RandomLong( 0, 2 )][3] += offset;
 		}
 		break;
 	case kRenderFxExplode:
@@ -1400,7 +1400,7 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 		msurface_t	*psurf = NULL;
 		pmtrace_t		trace;
 
-		if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
+		if( FBitSet( gEngfuncs.CL_GetRenderParm( PARM_FEATURES, 0 ), ENGINE_WRITE_LARGE_COORD ))
 		{
 			vecEnd[0] = origin[0] - mv->skyvec_x * 65536.0f;
 			vecEnd[1] = origin[1] - mv->skyvec_y * 65536.0f;
@@ -1421,9 +1421,9 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 		{
 			VectorSet( lightDir, mv->skyvec_x, mv->skyvec_y, mv->skyvec_z );
 
-			light.r = LightToTexGamma( bound( 0, mv->skycolor_r, 255 ));
-			light.g = LightToTexGamma( bound( 0, mv->skycolor_g, 255 ));
-			light.b = LightToTexGamma( bound( 0, mv->skycolor_b, 255 ));
+			light.r = gEngfuncs.LightToTexGamma( bound( 0, mv->skycolor_r, 255 ));
+			light.g = gEngfuncs.LightToTexGamma( bound( 0, mv->skycolor_g, 255 ));
+			light.b = gEngfuncs.LightToTexGamma( bound( 0, mv->skycolor_b, 255 ));
 		}
 	}
 
@@ -1484,8 +1484,10 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 	// scale lightdir by light intentsity
 	VectorScale( lightDir, total, lightDir );
 
-	for( lnum = 0, dl = cl_dlights; lnum < MAX_DLIGHTS; lnum++, dl++ )
+	for( lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
 	{
+		dl = gEngfuncs.GetDynamicLight( lnum );
+
 		if( dl->die < g_studio.time || !r_dynamic->value )
 			continue;
 
@@ -1504,9 +1506,9 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 
 			VectorAdd( lightDir, dist, lightDir );
 
-			finalLight[0] += LightToTexGamma( dl->color.r ) * ( add / 256.0f ) * 2.0f;
-			finalLight[1] += LightToTexGamma( dl->color.g ) * ( add / 256.0f ) * 2.0f;
-			finalLight[2] += LightToTexGamma( dl->color.b ) * ( add / 256.0f ) * 2.0f;
+			finalLight[0] += gEngfuncs.LightToTexGamma( dl->color.r ) * ( add / 256.0f ) * 2.0f;
+			finalLight[1] += gEngfuncs.LightToTexGamma( dl->color.g ) * ( add / 256.0f ) * 2.0f;
+			finalLight[2] += gEngfuncs.LightToTexGamma( dl->color.b ) * ( add / 256.0f ) * 2.0f;
 		}
 	}
 
@@ -1565,8 +1567,10 @@ void R_StudioEntityLight( alight_t *lightinfo )
 	dist2 = 1000000.0f;
 	k = 0;
 
-	for( lnum = 0, el = cl_elights; lnum < MAX_ELIGHTS; lnum++, el++ )
+	for( lnum = 0; lnum < MAX_ELIGHTS; lnum++ )
 	{
+		el = gEngfuncs.GetEntityLight( lnum );
+
 		if( el->die < g_studio.time || el->radius <= 0.0f )
 			continue;
 
@@ -1604,9 +1608,9 @@ void R_StudioEntityLight( alight_t *lightinfo )
 
 			if( k != -1 )
 			{
-				g_studio.locallightcolor[k].r = LightToTexGamma( el->color.r );
-				g_studio.locallightcolor[k].g = LightToTexGamma( el->color.g );
-				g_studio.locallightcolor[k].b = LightToTexGamma( el->color.b );
+				g_studio.locallightcolor[k].r = gEngfuncs.LightToTexGamma( el->color.r );
+				g_studio.locallightcolor[k].g = gEngfuncs.LightToTexGamma( el->color.g );
+				g_studio.locallightcolor[k].b = gEngfuncs.LightToTexGamma( el->color.b );
 				g_studio.locallightR2[k] = r2;
 				g_studio.locallight[k] = el;
 				lstrength[k] = minstrength;
@@ -3401,7 +3405,7 @@ void R_GatherPlayerLight( void )
 	tr.ignore_lightgamma = true;
 	c = R_LightPoint( view->origin );
 	tr.ignore_lightgamma = false;
-	cl.local.light_level = (c.r + c.g + c.b) / 3;
+	gEngfuncs.SetLocalLightLevel( ( c.r + c.g + c.b ) / 3 );
 }
 
 /*
@@ -3543,7 +3547,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	Image_SetMDLPointer((byte *)phdr + ptexture->index);
 	size = sizeof( mstudiotexture_t ) + ptexture->width * ptexture->height + 768;
 
-	if( FBitSet( host.features, ENGINE_LOAD_DELUXEDATA ) && FBitSet( ptexture->flags, STUDIO_NF_MASKED ))
+	if( FBitSet( gEngfuncs.CL_GetRenderParm( PARM_FEATURES, 0 ), ENGINE_LOAD_DELUXEDATA ) && FBitSet( ptexture->flags, STUDIO_NF_MASKED ))
 		flags |= TF_KEEP_SOURCE; // Paranoia2 texture alpha-tracing
 
 	// build the texname
@@ -3613,13 +3617,18 @@ static model_t *pfnModelHandle( int modelindex )
 	return gEngfuncs.pfnGetModelByIndex( modelindex );
 }
 
+static void *pfnMod_StudioExtradata( mode_t *mod )
+{
+	return gEngfuncs.Mod_Extradata( mod_studio, mod );
+}
+
 static engine_studio_api_t gStudioAPI =
 {
 	Mod_Calloc,
 	Mod_CacheCheck,
 	Mod_LoadCacheFile,
 	pfnMod_ForName,
-	Mod_StudioExtradata,
+	pfnMod_StudioExtradata,
 	pfnModelHandle,
 	pfnGetCurrentEntity,
 	pfnPlayerInfo,
@@ -3685,7 +3694,7 @@ void CL_InitStudioAPI( void )
 	cl_righthand = Cvar_FindVar( "cl_righthand" );
 
 	if( cl_righthand == NULL )
-		cl_righthand = Cvar_Get( "cl_righthand", "0", FCVAR_ARCHIVE, "flip viewmodel (left to right)" );
+		cl_righthand = gEngfuncs.Cvar_Get( "cl_righthand", "0", FCVAR_ARCHIVE, "flip viewmodel (left to right)" );
 
 	// Xash will be used internal StudioModelRenderer
 	if( !clgame.dllFuncs.pfnGetStudioModelInterface )
