@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "com_model.h"
 #include "studio.h"
 #include "r_efx.h"
+#include "cvar.h"
 
 #define REF_API_VERSION 1
 
@@ -67,9 +68,13 @@ typedef struct
 typedef struct ref_globals_s
 {
 	qboolean developer;
+	qboolean video_prepped;
 
 	float time;    // cl.time
 	float oldtime; // cl.oldtime
+
+	int parsecount; // cl.parsecount
+	int parsecountmod; // cl.parsecountmod
 
 	// viewport width and height
 	int      width;
@@ -120,7 +125,18 @@ enum ref_shared_texture_e
 	REF_ALPHASKY_TEXTURE,
 };
 
+typedef enum ref_connstate_e
+{
+	ref_ca_disconnected = 0,// not talking to a server
+	ref_ca_connecting,	// sending request packets to the server
+	ref_ca_connected,	// netchan_t established, waiting for svc_serverdata
+	ref_ca_validate,	// download resources, validating, auth on server
+	ref_ca_active,	// game views should be displayed
+	ref_ca_cinematic,	// playing a cinematic, not connected to a server
+} ref_connstate_t;
+
 struct con_nprint_s;
+struct remap_info_s;
 
 typedef struct ref_api_s
 {
@@ -129,10 +145,14 @@ typedef struct ref_api_s
 	qboolean (*Host_IsQuakeCompatible)( void );
 	int (*GetPlayerIndex)( void ); // cl.playernum + 1
 	int (*GetViewEntIndex)( void ); // cl.viewentity
+	ref_connstate_t (*CL_GetConnState)( void ); // cls.state == ca_connected
+	int (*IsDemoPlaying)( void ); // cls.demoplayback
+	int (*GetWaterLevel)( void ); // cl.local.waterlevel
+	int	(*CL_GetRenderParm)( int parm, int arg );	// generic
 
 	// cvar handlers
-	cvar_t   *(*pfnRegisterVariable)( const char *szName, const char *szValue, int flags, const char *description );
-	cvar_t   *(*pfnGetCvarPointer)( const char *name );
+	convar_t   *(*pfnRegisterVariable)( const char *szName, const char *szValue, int flags, const char *description );
+	convar_t   *(*pfnGetCvarPointer)( const char *name );
 	float       (*pfnGetCvarFloat)( const char *szName );
 	const char *(*pfnGetCvarString)( const char *szName );
 
@@ -146,13 +166,21 @@ typedef struct ref_api_s
 	void (*Cbuf_AddText)( const char *commands );
 	void (*Cbuf_InsertText)( const char *commands );
 	void (*Cbuf_Execute)( void );
+	void (*Cbuf_SetOpenGLConfigHack)( qboolean set ); // host.apply_opengl_config
 
 	// logging
 	void	(*Con_VPrintf)( const char *fmt, va_list args );
-	void	(*Con_Printf)( const char *fmt, ... );
-	void	(*Con_DPrintf)( const char *fmt, ... );
+	void	(*Con_Printf)( const char *fmt, ... ); // typical console allowed messages
+	void	(*Con_DPrintf)( const char *fmt, ... ); // -dev 1
+	void	(*Con_Reportf)( const char *fmt, ... ); // -dev 2
+
+	// debug print
 	void	(*Con_NPrintf)( int pos, const char *fmt, ... );
 	void	(*Con_NXPrintf)( struct con_nprint_s *info, const char *fmt, ... );
+	void	(*CL_CenterPrint)( const char *fmt, ... );
+	void (*Con_DrawStringLen)( const char *pText, int *length, int *height );
+	int (*Con_DrawString)( int x, int y, const char *string, rgba_t setColor );
+	void	(*CL_DrawCenterPrint)();
 
 	// entity management
 	struct cl_entity_s *(*GetLocalPlayer)( void );
@@ -160,11 +188,14 @@ typedef struct ref_api_s
 	struct cl_entity_s *(*GetEntityByIndex)( int idx );
 	int (*pfnNumberOfEntities)( void );
 	struct cl_entity_s *(*R_BeamGetEntity)( int index );
+	struct cl_entity_s *(*CL_GetWaterEntity)( vec3_t p );
+	qboolean (*CL_AddVisibleEntity)( cl_entity_t *ent, int entityType );
 
 	// brushes
 	int (*Mod_SampleSizeForFace)( struct msurface_s *surf );
 	qboolean (*Mod_BoxVisible)( const vec3_t mins, const vec3_t maxs, const byte *visbits );
 	struct world_static_s *(*GetWorld)( void ); // returns &world
+	mleaf_t *(*Mod_PointInLeaf)( const vec3_t p, mnode_t *node );
 
 	// studio models
 	void (*R_StudioSlerpBones)( int numbones, vec4_t q1[], float pos1[][3], vec4_t q2[], float pos2[][3], float s );
@@ -174,19 +205,25 @@ typedef struct ref_api_s
 
 	// efx
 	void (*CL_DrawEFX)( float time, qboolean fTrans );
+	void (*CL_ThinkParticle)( double frametime, particle_t *p );
 	void (*R_FreeDeadParticles)( particle_t **ppparticles );
+	efrag_t* (*GetEfragsFreeList)( void ); // clgame.free_efrags
+	void (*SetEfragsFreeList)( efrag_t* ); // clgame.free_efrags
+	color24 *(*GetTracerColors)( int num );
 
 	// model management
 	model_t *(*Mod_ForName)( const char *name, qboolean crash, qboolean trackCRC );
 	void *(*Mod_Extradata)( int type, model_t *model );
 	struct model_s *(*pfnGetModelByIndex)( int index ); // CL_ModelHandle
+	struct model_s *(*Mod_GetCurrentLoadingModel)( void ); // loadmodel
+	void (*Mod_SetCurrentLoadingModel)( struct model_s* ); // loadmodel
+	int (*CL_NumModels)( void );
 
-	// trace
-	struct pmtrace_s *(*PM_TraceLine)( float *start, float *end, int flags, int usehull, int ignore_pe );
-	struct pmtrace_s *(*EV_VisTraceLine )( float *start, float *end, int flags );
-	struct pmtrace_t (*CL_TraceLine)( vec3_t start, vec3_t end, int flags );
-
-	struct movevars_s *(*pfnGetMoveVars)( void );
+	// remap
+	struct remap_info_s *(*CL_GetRemapInfoForEntity)( cl_entity_t *e );
+	void (*CL_AllocRemapInfo)( int topcolor, int bottomcolor );
+	void (*CL_FreeRemapInfo)( struct remap_info_s *info );
+	void (*CL_UpdateRemapInfo)( int topcolor, int bottomcolor );
 
 	// utils
 	void  (*CL_ExtraUpdate)( void );
@@ -198,6 +235,12 @@ typedef struct ref_api_s
 	struct screenfade_s *(*GetScreenFade)( void );
 	struct client_textmessage_s *(*pfnTextMessageGet)( const char *pName );
 	void (*GetPredictedOrigin)( vec3_t v );
+	byte *(*CL_GetPaletteColor)(int color); // clgame.palette[color]
+	void (*CL_GetScreenInfo)( int *width, int *height ); // clgame.scrInfo, ptrs may be NULL
+
+	// studio interface
+	player_info_t *(*pfnPlayerInfo)( int index );
+	entity_state_t *(*pfnGetPlayerState)( int index );
 
 	// memory
 	byte *(*_Mem_AllocPool)( const char *name, const char *filename, int fileline );
@@ -212,6 +255,10 @@ typedef struct ref_api_s
 	void *(*COM_GetProcAddress)( void *handle, const char *name );
 
 	// filesystem
+	byte*	(*COM_LoadFile)( const char *path, fs_offset_t *pLength, qboolean gamedironly );
+	char*	(*COM_ParseFile)( char *data, char *token );
+	// use Mem_Free instead
+	// void	(*COM_FreeFile)( void *buffer );
 	int (*FS_FileExists)( const char *filename, int gamedironly );
 
 	// GL
@@ -221,11 +268,14 @@ typedef struct ref_api_s
 	void  (*GL_DestroyContext)( );
 	void *(*GL_GetProcAddress)( const char *name );
 
+	// gamma
+	void (*BuildGammaTable)( float lightgamma, float brightness );
+	byte		(*LightToTexGamma)( byte color );	// software gamma support
+
 	// renderapi
 	lightstyle_t*	(*GetLightStyle)( int number );
-	dlight_t*		(*GetDynamicLight)( int number );
-	dlight_t*		(*GetEntityLight)( int number );
-	byte		(*LightToTexGamma)( byte color );	// software gamma support
+	dlight_t*	(*GetDynamicLight)( int number );
+	dlight_t*	(*GetEntityLight)( int number );
 	int		(*R_FatPVS)( const float *org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis );
 	void		*(*AVI_LoadVideo)( const char *filename, qboolean load_audio );
 	int		(*AVI_GetVideoInfo)( void *Avi, long *xres, long *yres, float *duration );
@@ -248,12 +298,21 @@ typedef struct ref_api_s
 	void		(*S_FadeMusicVolume)( float fadePercent );	// fade background track (0-100 percents)
 	void		(*SetRandomSeed)( long lSeed );		// set custom seed for RANDOM_FLOAT\RANDOM_LONG for predictable random
 
+	// event api
+	struct physent_s *(*EV_GetPhysent)( int idx );
+	struct msurface_s *( *EV_TraceSurface )( int ground, float *vstart, float *vend );
+	struct pmtrace_s *(*PM_TraceLine)( float *start, float *end, int flags, int usehull, int ignore_pe );
+	struct pmtrace_s *(*EV_VisTraceLine )( float *start, float *end, int flags );
+	struct pmtrace_s (*CL_TraceLine)( vec3_t start, vec3_t end, int flags );
+	struct movevars_s *(*pfnGetMoveVars)( void );
+
+	// imagelib
+	void (*Image_AddCmdFlags)( uint flags ); // used to check if hardware dxt is supported
+
 	// client exports
 	void	(*pfnDrawNormalTriangles)( void );
 	void	(*pfnDrawTransparentTriangles)( void );
 	int	(*pfnGetRenderInterface)( int version, render_api_t *renderfuncs, render_interface_t *callback );
-	int		(*CL_GetRenderParm)( int parm, int arg );	// generic
-
 } ref_api_t;
 
 struct mip_s;

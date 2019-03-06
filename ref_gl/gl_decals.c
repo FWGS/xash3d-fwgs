@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "gl_local.h"
 #include "cl_tent.h"
+#include "common.h"
 
 #define DECAL_OVERLAP_DISTANCE	2
 #define DECAL_DISTANCE		4	// too big values produce more clipped polygons
@@ -75,7 +76,7 @@ static void R_DecalUnlink( decal_t *pdecal )
 		else 
 		{
 			tmp = pdecal->psurface->pdecals;
-			if( !tmp ) Host_Error( "D_DecalUnlink: bad decal list\n" );
+			if( !tmp ) gEngfuncs.Host_Error( "D_DecalUnlink: bad decal list\n" );
 
 			while( tmp->pnext ) 
 			{
@@ -511,7 +512,7 @@ creates mesh for decal on first rendering
 glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t *surf )
 {
 	int		lnumverts;
-	glpoly_t		*poly;
+	glpoly_t	*poly;
 	float		*v;
 	int		i;
 
@@ -522,7 +523,8 @@ glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t
 	if( !lnumverts ) return NULL;	// probably this never happens
 
 	// allocate glpoly
-	poly = Mem_Calloc( com_studiocache, sizeof( glpoly_t ) + ( lnumverts - 4 ) * VERTEXSIZE * sizeof( float ));
+	// REFTODO: com_studiocache pool!
+	poly = Mem_Calloc( r_temppool, sizeof( glpoly_t ) + ( lnumverts - 4 ) * VERTEXSIZE * sizeof( float ));
 	poly->next = pdecal->polys;
 	poly->flags = surf->flags;
 	pdecal->polys = poly;
@@ -617,9 +619,10 @@ void R_DecalSurface( msurface_t *surf, decalinfo_t *decalinfo )
 	decal_t		*decal = surf->pdecals;
 	vec4_t		textureU, textureV;
 	float		s, t, w, h;
+	ref_connstate_t state = gEngfuncs.CL_GetConnState();
 
 	// we in restore mode
-	if( cls.state == ca_connected || cls.state == ca_validate )
+	if( state == ref_ca_connected || state == ref_ca_validate )
 	{
 		// NOTE: we may have the decal on this surface that come from another level.
 		// check duplicate with same position and texture
@@ -758,7 +761,7 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 
 	if( textureIndex <= 0 || textureIndex >= MAX_TEXTURES )
 	{
-		Con_Printf( S_ERROR "Decal has invalid texture!\n" );
+		gEngfuncs.Con_Printf( S_ERROR "Decal has invalid texture!\n" );
 		return;
 	}
 
@@ -766,19 +769,19 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 	{
 		ent = CL_GetEntityByIndex( entityIndex );
 
-		if( modelIndex > 0 ) model = CL_ModelHandle( modelIndex );
-		else if( ent != NULL ) model = CL_ModelHandle( ent->curstate.modelindex );
+		if( modelIndex > 0 ) model = gEngfuncs.pfnGetModelByIndex( modelIndex );
+		else if( ent != NULL ) model = gEngfuncs.pfnGetModelByIndex( ent->curstate.modelindex );
 		else return;
 	}
 	else if( modelIndex > 0 )
-		model = CL_ModelHandle( modelIndex );
+		model = gEngfuncs.pfnGetModelByIndex( modelIndex );
 	else model = WORLDMODEL;
 
 	if( !model ) return;
 	
 	if( model->type != mod_brush )
 	{
-		Con_Printf( S_ERROR "Decals must hit mod_brush!\n" );
+		gEngfuncs.Con_Printf( S_ERROR "Decals must hit mod_brush!\n" );
 		return;
 	}
 

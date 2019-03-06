@@ -16,6 +16,8 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "entity_types.h"
 #include "studio.h"
+#include "common.h"
+#include "world.h" // BOX_ON_PLANE_SIDE
 
 /*
 ===============================================================================
@@ -64,8 +66,8 @@ void R_RemoveEfrags( cl_entity_t *ent )
 		ef = ef->entnext;
 		
 		// put it on the free list
-		old->entnext = clgame.free_efrags;
-		clgame.free_efrags = old;
+		old->entnext = gEngfuncs.GetEfragsFreeList();
+		gEngfuncs.SetEfragsFreeList( old );
 	}
 	ent->efrag = NULL; 
 }
@@ -93,14 +95,14 @@ static void R_SplitEntityOnNode( mnode_t *node )
 		leaf = (mleaf_t *)node;
 
 		// grab an efrag off the free list
-		ef = clgame.free_efrags;
+		ef = gEngfuncs.GetEfragsFreeList();
 		if( !ef )
 		{
-			Con_Printf( S_ERROR "too many efrags!\n" );
+			gEngfuncs.Con_Printf( S_ERROR "too many efrags!\n" );
 			return; // no free fragments...
 		}
 
-		clgame.free_efrags = clgame.free_efrags->entnext;
+		gEngfuncs.SetEfragsFreeList( ef->entnext );
 		ef->entity = r_addent;
 		
 		// add the entity link	
@@ -189,10 +191,10 @@ void R_StoreEfrags( efrag_t **ppefrag, int framecount )
 
 			if( pent->visframe != framecount )
 			{
-				if( CL_AddVisibleEntity( pent, ET_FRAGMENTED ))
+				if( gEngfuncs.CL_AddVisibleEntity( pent, ET_FRAGMENTED ))
 				{
 					// mark that we've recorded this entity for this frame
-					pent->curstate.messagenum = cl.parsecount;
+					pent->curstate.messagenum = gpGlobals->parsecount;
 					pent->visframe = framecount;
 				}
 			}

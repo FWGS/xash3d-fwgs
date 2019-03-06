@@ -83,6 +83,45 @@ static uint pfnFileBufferCRC32( const void *buffer, const int length )
 }
 
 /*
+=================
+R_EnvShot
+
+=================
+*/
+static void R_EnvShot( const float *vieworg, const char *name, qboolean skyshot, int shotsize )
+{
+	static vec3_t viewPoint;
+
+	if( !COM_CheckString( name ))
+		return;
+
+	if( cls.scrshot_action != scrshot_inactive )
+	{
+		if( cls.scrshot_action != scrshot_skyshot && cls.scrshot_action != scrshot_envshot )
+			Con_Printf( S_ERROR "R_%sShot: subsystem is busy, try for next frame.\n", skyshot ? "Sky" : "Env" );
+		return;
+	}
+
+	cls.envshot_vieworg = NULL; // use client view
+	Q_strncpy( cls.shotname, name, sizeof( cls.shotname ));
+
+	if( vieworg )
+	{
+		// make sure what viewpoint don't temporare
+		VectorCopy( vieworg, viewPoint );
+		cls.envshot_vieworg = viewPoint;
+		cls.envshot_disable_vis = true;
+	}
+
+	// make request for envshot
+	if( skyshot ) cls.scrshot_action = scrshot_skyshot;
+	else cls.scrshot_action = scrshot_envshot;
+
+	// catch negative values
+	cls.envshot_viewsize = max( 0, shotsize );
+}
+
+/*
 =============
 CL_GenericHandle
 
@@ -143,7 +182,7 @@ static render_api_t gRenderAPI =
 	NULL,
 	NULL,
 	NULL, // CL_DrawParticlesExternal,
-	NULL, // R_EnvShot,
+	R_EnvShot,
 	pfnSPR_LoadExt,
 	NULL, // R_LightVec,
 	NULL, // R_StudioGetTexture,

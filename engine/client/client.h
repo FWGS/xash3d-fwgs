@@ -425,7 +425,7 @@ typedef struct
 	float		applied_angle;
 } screen_shake_t;
 
-typedef struct
+typedef struct remap_info_s
 {
 	unsigned short	textures[MAX_SKINS];// alias textures
 	struct mstudiotex_s	*ptexture;	// array of textures with local copy of remapped textures
@@ -731,7 +731,6 @@ void CL_SaveShot_f( void );
 void CL_LevelShot_f( void );
 void CL_SetSky_f( void );
 void SCR_Viewpos_f( void );
-void SCR_TimeRefresh_f( void );
 
 //
 // cl_custom.c
@@ -963,7 +962,6 @@ void CL_EmitEntities( void );
 remap_info_t *CL_GetRemapInfoForEntity( cl_entity_t *e );
 void CL_AllocRemapInfo( int topcolor, int bottomcolor );
 void CL_FreeRemapInfo( remap_info_t *info );
-void R_StudioSetRemapColors( int top, int bottom );
 void CL_UpdateRemapInfo( int topcolor, int bottomcolor );
 void CL_ClearAllRemaps( void );
 

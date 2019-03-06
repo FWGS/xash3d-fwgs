@@ -46,25 +46,7 @@ void ClearLink( link_t *l );
 void World_MoveBounds( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, vec3_t boxmins, vec3_t boxmaxs );
 void World_TransformAABB( matrix4x4 transform, const vec3_t mins, const vec3_t maxs, vec3_t outmins, vec3_t outmaxs );
 trace_t World_CombineTraces( trace_t *cliptrace, trace_t *trace, edict_t *touch );
-int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p );
 int RankForContents( int contents );
-
-#define BOX_ON_PLANE_SIDE( emins, emaxs, p )			\
-	((( p )->type < 3 ) ?				\
-	(						\
-		((p)->dist <= (emins)[(p)->type]) ?		\
-			1				\
-		:					\
-		(					\
-			((p)->dist >= (emaxs)[(p)->type]) ?	\
-				2			\
-			:				\
-				3			\
-		)					\
-	)						\
-	:						\
-		BoxOnPlaneSide(( emins ), ( emaxs ), ( p )))
-
 
 #define check_angles( x )	( (int)x == 90 || (int)x == 180 || (int)x == 270 || (int)x == -90 || (int)x == -180 || (int)x == -270 )
 

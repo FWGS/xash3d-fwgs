@@ -2930,7 +2930,7 @@ void CL_Init( void )
 
 	CL_InitLocal();
 
-	R_Init();	// init renderer
+	VID_Init();	// init video
 	S_Init();	// init sound
 
 	// unreliable buffer. unsed for unreliable commands and voice stream

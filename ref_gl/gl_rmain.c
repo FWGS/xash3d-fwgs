@@ -196,7 +196,7 @@ R_PushScene
 void R_PushScene( void )
 {
 	if( ++tr.draw_stack_pos >= MAX_DRAW_STACK )
-		Host_Error( "draw stack overflow\n" );
+		gEngfuncs.Host_Error( "draw stack overflow\n" );
 
 	tr.draw_list = &tr.draw_stack[tr.draw_stack_pos];
 }
@@ -209,7 +209,7 @@ R_PopScene
 void R_PopScene( void )
 {
 	if( --tr.draw_stack_pos < 0 )
-		Host_Error( "draw stack underflow\n" );
+		gEngfuncs.Host_Error( "draw stack underflow\n" );
 	tr.draw_list = &tr.draw_stack[tr.draw_stack_pos];
 }
 
@@ -278,7 +278,7 @@ static void R_Clear( int bitMask )
 {
 	int	bits;
 
-	if( CL_IsDevOverviewMode( ))
+	if( gEngfuncs.CL_IsDevOverviewMode( ))
 		pglClearColor( 0.0f, 1.0f, 0.0f, 1.0f ); // green background (Valve rules)
 	else pglClearColor( 0.5f, 0.5f, 0.5f, 1.0f );
 
@@ -329,7 +329,7 @@ void R_SetupFrustum( void )
 {
 	ref_overview_t	*ov = gEngfuncs.GetOverviewParms();
 
-	if( RP_NORMALPASS() && ( cl.local.waterlevel >= 3 ))
+	if( RP_NORMALPASS() && ( gEngfuncs.GetWaterLevel() >= 3 ))
 	{
 		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97 + sin( gpGlobals->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
 		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03 - sin( gpGlobals->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
@@ -472,7 +472,7 @@ R_FindViewLeaf
 void R_FindViewLeaf( void )
 {
 	RI.oldviewleaf = RI.viewleaf;
-	RI.viewleaf = Mod_PointInLeaf( RI.pvsorigin, WORLDMODEL->nodes );
+	RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.pvsorigin, WORLDMODEL->nodes );
 }
 
 /*
@@ -681,24 +681,24 @@ static void R_CheckFog( void )
 
 	RI.fogEnabled = false;
 
-	if( RI.onlyClientDraw || cl.local.waterlevel < 3 || !RI.drawWorld || !RI.viewleaf )
+	if( RI.onlyClientDraw || gEngfuncs.GetWaterLevel() < 3 || !RI.drawWorld || !RI.viewleaf )
 	{
 		if( RI.cached_waterlevel == 3 )
                     {
 			// in some cases waterlevel jumps from 3 to 1. Catch it
-			RI.cached_waterlevel = cl.local.waterlevel;
+			RI.cached_waterlevel = gEngfuncs.GetWaterLevel();
 			RI.cached_contents = CONTENTS_EMPTY;
 			if( !RI.fogCustom ) pglDisable( GL_FOG );
 		}
 		return;
 	}
 
-	ent = CL_GetWaterEntity( RI.vieworg );
+	ent = gEngfuncs.CL_GetWaterEntity( RI.vieworg );
 	if( ent && ent->model && ent->model->type == mod_brush && ent->curstate.skin < 0 )
 		cnt = ent->curstate.skin;
 	else cnt = RI.viewleaf->contents;
 
-	RI.cached_waterlevel = cl.local.waterlevel;
+	RI.cached_waterlevel = gEngfuncs.GetWaterLevel();
 
 	if( !IsLiquidContents( RI.cached_contents ) && IsLiquidContents( cnt ))
 	{
@@ -935,7 +935,7 @@ R_SetupRefParams must be called right before
 void R_RenderScene( void )
 {
 	if( !WORLDMODEL && RI.drawWorld )
-		Host_Error( "R_RenderView: NULL worldmodel\n" );
+		gEngfuncs.Host_Error( "R_RenderView: NULL worldmodel\n" );
 
 	// frametime is valid only for normal pass
 	if( RP_NORMALPASS( ))
@@ -1012,14 +1012,14 @@ void R_BeginFrame( qboolean clearScene )
 {
 	glConfig.softwareGammaUpdate = false;	// in case of possible fails
 
-	if(( gl_clear->value || CL_IsDevOverviewMode( )) && clearScene && cls.state != ca_cinematic )
+	if(( gl_clear->value || gEngfuncs.CL_IsDevOverviewMode( )) && clearScene && gEngfuncs.CL_GetConnState() != ref_ca_cinematic )
 	{
 		pglClear( GL_COLOR_BUFFER_BIT );
 	}
 
 	if( R_DoResetGamma( ))
 	{
-		BuildGammaTable( 1.8f, 0.0f );
+		gEngfuncs.BuildGammaTable( 1.8f, 0.0f );
 		glConfig.softwareGammaUpdate = true;
 		GL_RebuildLightmaps();
 		glConfig.softwareGammaUpdate = false;
@@ -1030,7 +1030,7 @@ void R_BeginFrame( qboolean clearScene )
 	}
 	else if( FBitSet( vid_gamma->flags, FCVAR_CHANGED ) || FBitSet( vid_brightness->flags, FCVAR_CHANGED ))
 	{
-		BuildGammaTable( vid_gamma->value, vid_brightness->value );
+		gEngfuncs.BuildGammaTable( vid_gamma->value, vid_brightness->value );
 		glConfig.softwareGammaUpdate = true;
 		GL_RebuildLightmaps();
 		glConfig.softwareGammaUpdate = false;
@@ -1229,8 +1229,6 @@ static int GL_RenderGetParm( int parm, int arg )
 	case PARM_TEX_FLAGS:
 		glt = R_GetTexture( arg );
 		return glt->flags;
-	case PARM_FEATURES:
-		return host.features;
 	case PARM_ACTIVE_TMU:
 		return glState.activeTMU;
 	case PARM_LIGHTSTYLEVALUE:
@@ -1276,44 +1274,6 @@ static void R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte
 	if( density ) *density = glt->fogParams[3];
 }
 
-/*
-=================
-R_EnvShot
-
-=================
-*/
-static void R_EnvShot( const float *vieworg, const char *name, qboolean skyshot, int shotsize )
-{
-	static vec3_t viewPoint;
-
-	if( !COM_CheckString( name ))
-		return; 
-
-	if( cls.scrshot_action != scrshot_inactive )
-	{
-		if( cls.scrshot_action != scrshot_skyshot && cls.scrshot_action != scrshot_envshot )
-			Con_Printf( S_ERROR "R_%sShot: subsystem is busy, try for next frame.\n", skyshot ? "Sky" : "Env" );
-		return;
-	}
-
-	cls.envshot_vieworg = NULL; // use client view
-	Q_strncpy( cls.shotname, name, sizeof( cls.shotname ));
-
-	if( vieworg )
-	{
-		// make sure what viewpoint don't temporare
-		VectorCopy( vieworg, viewPoint );
-		cls.envshot_vieworg = viewPoint;
-		cls.envshot_disable_vis = true;
-	}
-
-	// make request for envshot
-	if( skyshot ) cls.scrshot_action = scrshot_skyshot;
-	else cls.scrshot_action = scrshot_envshot;
-
-	// catch negative values
-	cls.envshot_viewsize = max( 0, shotsize );
-}
 
 static void R_SetCurrentEntity( cl_entity_t *ent )
 {
@@ -1329,28 +1289,4 @@ static void R_SetCurrentEntity( cl_entity_t *ent )
 static void R_SetCurrentModel( model_t *mod )
 {
 	RI.currentmodel = mod;
-}
-
-/*
-===============
-R_InitRenderAPI
-
-Initialize client external rendering
-===============
-*/
-qboolean R_InitRenderAPI( void )
-{
-	// make sure what render functions is cleared
-	memset( &gRenderIface, 0, sizeof( gRenderIface ));
-
-	if( gEngfuncs.pfnGetRenderInterface( CL_RENDER_INTERFACE_VERSION, &gRenderAPI, &gRenderIface ))
-	{
-		Con_Reportf( "CL_LoadProgs: ^2initailized extended RenderAPI ^7ver. %i\n", CL_RENDER_INTERFACE_VERSION );
-		return true;
-	}
-
-	// make sure what render functions is cleared
-	memset( &gRenderIface, 0, sizeof( gRenderIface ));
-
-	return false; // just tell user about problems
 }

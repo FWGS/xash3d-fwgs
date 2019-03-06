@@ -21,6 +21,8 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "pm_local.h"
 #include "cl_tent.h"
+#include "common.h"
+#include "client.h"
 
 #define EVENT_CLIENT	5000	// less than this value it's a server-side studio events
 #define MAX_LOCALLIGHTS	4
@@ -363,12 +365,16 @@ pfnPlayerInfo
 */
 player_info_t *pfnPlayerInfo( int index )
 {
+#if 0
 	if( !RI.drawWorld )
 		return &gameui.playerinfo;
 
 	if( index < 0 || index > cl.maxclients )
 		return NULL;
 	return &cl.players[index];
+#else
+	return gEngfuncs.pfnPlayerInfo( index );
+#endif
 }
 
 /*
@@ -392,11 +398,14 @@ entity_state_t *R_StudioGetPlayerState( int index )
 {
 	if( !RI.drawWorld )
 		return &RI.currententity->curstate;
-
+#if 0
 	if( index < 0 || index >= cl.maxclients )
 		return NULL;
 
 	return &cl.frames[cl.parsecountmod].playerstate[index];
+#else
+	return gEngfuncs.pfnGetPlayerState( index );
+#endif
 }
 
 /*
@@ -1355,7 +1364,7 @@ R_StudioDynamicLight
 */
 void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 {
-	movevars_t	*mv = &clgame.movevars;
+	movevars_t	*mv = gEngfuncs.pfnGetMoveVars();
 	vec3_t		lightDir, vecSrc, vecEnd;
 	vec3_t		origin, dist, finalLight;
 	float		add, radius, total;
@@ -1404,10 +1413,10 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 			vecEnd[2] = origin[2] - mv->skyvec_z * 8192.0f;
 		}
 
-		trace = CL_TraceLine( vecSrc, vecEnd, PM_WORLD_ONLY );
-		if( trace.ent > 0 ) psurf = PM_TraceSurface( &clgame.pmove->physents[trace.ent], vecSrc, vecEnd );
- 		else psurf = PM_TraceSurface( clgame.pmove->physents, vecSrc, vecEnd );
- 
+		trace = gEngfuncs.CL_TraceLine( vecSrc, vecEnd, PM_WORLD_ONLY );
+		if( trace.ent > 0 ) psurf = gEngfuncs.EV_TraceSurface( trace.ent, vecSrc, vecEnd );
+		else psurf = gEngfuncs.EV_TraceSurface( 0, vecSrc, vecEnd );
+
 		if( FBitSet( ent->model->flags, STUDIO_FORCE_SKYLIGHT ) || ( psurf && FBitSet( psurf->flags, SURF_DRAWSKY )))
 		{
 			VectorSet( lightDir, mv->skyvec_x, mv->skyvec_y, mv->skyvec_z );
@@ -1787,7 +1796,7 @@ static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 		return;
 
 	// NOTE: user may ignore to call StudioRemapColors and remap_info will be unavailable
-	if( m_fDoRemap ) ptexture = CL_GetRemapInfoForEntity( RI.currententity )->ptexture;
+	if( m_fDoRemap ) ptexture = gEngfuncs.CL_GetRemapInfoForEntity( RI.currententity )->ptexture;
 	if( !ptexture ) ptexture = (mstudiotexture_t *)((byte *)ptexturehdr + ptexturehdr->textureindex); // fallback
 
 	if( r_lightmap->value && !r_fullbright->value )
@@ -1807,11 +1816,11 @@ mstudiotexture_t *R_StudioGetTexture( cl_entity_t *e )
 	mstudiotexture_t	*ptexture;
 	studiohdr_t	*phdr, *thdr;
 
-	if(( phdr = Mod_StudioExtradata( e->model )) == NULL )
+	if(( phdr = gEngfuncs.Mod_Extradata( mod_studio, e->model )) == NULL )
 		return NULL;
 
 	thdr = m_pStudioHeader;
-	if( !thdr ) return NULL;	
+	if( !thdr ) return NULL;
 
 	if( m_fDoRemap ) ptexture = CL_GetRemapInfoForEntity( e )->ptexture;
 	else ptexture = (mstudiotexture_t *)((byte *)thdr + thdr->textureindex);
@@ -1851,7 +1860,7 @@ void R_StudioRenderShadow( int iSprite, float *p1, float *p2, float *p3, float *
 	if( !p1 || !p2 || !p3 || !p4 )
 		return;
 
-	if( TriSpriteTexture( CL_ModelHandle( iSprite ), 0 ))
+	if( TriSpriteTexture( gEngfuncs.pfnGetModelByIndex( iSprite ), 0 ))
 	{
 		TriRenderMode( kRenderTransAlpha );
 		TriColor4f( 0.0f, 0.0f, 0.0f, 1.0f );
@@ -2387,11 +2396,11 @@ R_StudioSetRemapColors
 */
 void R_StudioSetRemapColors( int newTop, int newBottom )
 {
-	CL_AllocRemapInfo( newTop, newBottom );
+	gEngfuncs.CL_AllocRemapInfo( newTop, newBottom );
 
-	if( CL_GetRemapInfoForEntity( RI.currententity ))
+	if( gEngfuncs.CL_GetRemapInfoForEntity( RI.currententity ))
 	{
-		CL_UpdateRemapInfo( newTop, newBottom );
+		gEngfuncs.CL_UpdateRemapInfo( newTop, newBottom );
 		m_fDoRemap = true;
 	}
 }
@@ -2404,22 +2413,12 @@ R_StudioSetupPlayerModel
 */
 static model_t *R_StudioSetupPlayerModel( int index )
 {
-	player_info_t	*info;
+	player_info_t	*info = gEngfuncs.pfnPlayerInfo( index );
 	player_model_t	*state;
 
-	if( !RI.drawWorld )
-	{
-		// we are in gameui.
-		info = &gameui.playerinfo;
-	}
-	else
-	{
-		if( index < 0 || index >= cl.maxclients )
-			return NULL; // bad client ?
-		info = &cl.players[index];
-	}
-
+#if 0
 	state = &cl.player_models[index];
+#endif
 
 	// g-cont: force for "dev-mode", non-local games and menu preview
 	if(( host_developer.value || !Host_IsLocalGame( ) || !RI.drawWorld ) && info->model[0] )
@@ -2432,7 +2431,7 @@ static model_t *R_StudioSetupPlayerModel( int index )
 			Q_snprintf( state->modelname, sizeof( state->modelname ), "models/player/%s/%s.mdl", info->model, info->model );
 
 			if( gEngfuncs.FS_FileExists( state->modelname, false ))
-				state->model = Mod_ForName( state->modelname, false, true );
+				state->model = gEngfuncs.Mod_ForName( state->modelname, false, true );
 			else state->model = NULL;
 
 			if( !state->model )
@@ -2473,7 +2472,7 @@ int R_GetEntityRenderMode( cl_entity_t *ent )
 
 	RI.currententity = oldent;
 
-	if(( phdr = Mod_StudioExtradata( model )) == NULL )
+	if(( phdr = gEngfuncs.Mod_Extradata( mod_studio, model )) == NULL )
 	{
 		if( R_ModelOpaque( ent->curstate.rendermode ))
 		{
@@ -3079,7 +3078,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 	if( RI.currentmodel == NULL )
 		return 0;
 
-	R_StudioSetHeader((studiohdr_t *)Mod_StudioExtradata( RI.currentmodel ));
+	R_StudioSetHeader((studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, RI.currentmodel ));
 
 	if( pplayer->gaitsequence )
 	{
@@ -3184,9 +3183,9 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 		if( pplayer->weaponmodel )
 		{
 			cl_entity_t	saveent = *RI.currententity;
-			model_t		*pweaponmodel = CL_ModelHandle( pplayer->weaponmodel );
+			model_t		*pweaponmodel = gEngfuncs.pfnGetModelByIndex( pplayer->weaponmodel );
 
-			m_pStudioHeader = (studiohdr_t *)Mod_StudioExtradata( pweaponmodel );
+			m_pStudioHeader = (studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, pweaponmodel );
 
 			R_StudioMergeBones( RI.currententity, pweaponmodel );
 			R_StudioSetupLighting( &lighting );
@@ -3238,7 +3237,7 @@ static int R_StudioDrawModel( int flags )
 		return result;
 	}
 
-	R_StudioSetHeader((studiohdr_t *)Mod_StudioExtradata( RI.currentmodel ));
+	R_StudioSetHeader((studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, RI.currentmodel ));
 
 	R_StudioSetUpTransform( RI.currententity );
 
@@ -3608,7 +3607,12 @@ void Mod_StudioUnloadTextures( void *data )
 		GL_FreeTexture( ptexture[i].index );
 	}
 }
-		
+
+static model_t *pfnModelHandle( int modelindex )
+{
+	return gEngfuncs.pfnGetModelByIndex( modelindex );
+}
+
 static engine_studio_api_t gStudioAPI =
 {
 	Mod_Calloc,
@@ -3616,7 +3620,7 @@ static engine_studio_api_t gStudioAPI =
 	Mod_LoadCacheFile,
 	pfnMod_ForName,
 	Mod_StudioExtradata,
-	CL_ModelHandle,
+	pfnModelHandle,
 	pfnGetCurrentEntity,
 	pfnPlayerInfo,
 	R_StudioGetPlayerState,

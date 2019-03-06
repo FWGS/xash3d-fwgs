@@ -948,7 +948,7 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	model_t	*model;
 	vec3_t	delta;
 
-	model = CL_ModelHandle( pbeam->modelIndex );
+	model = gEngfuncs.pfnGetModelByIndex( pbeam->modelIndex );
 	SetBits( pbeam->flags, FBEAM_ISACTIVE );
 
 	if( !model || model->type != mod_sprite )
@@ -1151,7 +1151,7 @@ passed through this
 */
 static void R_BeamSetup( BEAM *pbeam, vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude, float brightness, float speed )
 {
-	model_t	*sprite = CL_ModelHandle( modelIndex );
+	model_t	*sprite = gEngfuncs.pfnGetModelByIndex( modelIndex );
 
 	if( !sprite ) return;
 
@@ -1260,7 +1260,7 @@ CL_DrawBeams
 draw beam loop
 ==============
 */
-void CL_DrawBeams(int fTrans , BEAM *active_beams )
+void CL_DrawBeams( int fTrans, BEAM *active_beams )
 {
 	BEAM	*pBeam, *pNext;
 	BEAM	*pPrev = NULL;

@@ -349,8 +349,8 @@ static void CL_ParseQuakeClientData( sizebuf_t *msg )
 	// this is the frame update that this message corresponds to
 	i = cls.netchan.incoming_sequence;
 
-	cl.parsecount = i;					// ack'd incoming messages.  
-	cl.parsecountmod = cl.parsecount & CL_UPDATE_MASK;	// index into window.     
+	refState.parsecount = cl.parsecount = i;					// ack'd incoming messages.
+	refState.parsecountmod = cl.parsecountmod = cl.parsecount & CL_UPDATE_MASK;	// index into window.
 	frame = &cl.frames[cl.parsecountmod];			// frame at index.
 	frame->time = cl.mtime[0];				// mark network received time
 	frame->receivedtime = host.realtime;			// time now that we are parsing.  

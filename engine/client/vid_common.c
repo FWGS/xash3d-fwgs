@@ -163,17 +163,6 @@ static void VID_Mode_f( void )
 	R_ChangeDisplaySettings( w, h, Cvar_VariableInteger( "fullscreen" ) );
 }
 
-
-/*
-=================
-GL_RemoveCommands
-=================
-*/
-void GL_RemoveCommands( void )
-{
-	Cmd_RemoveCommand( "r_info");
-}
-
 static void SetWidthAndHeightFromCommandLine()
 {
 	int width, height;
@@ -206,6 +195,27 @@ static void SetFullscreenModeFromCommandLine( )
 
 void VID_Init()
 {
+	// system screen width and height (don't suppose for change from console at all)
+	Cvar_Get( "width", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen width" );
+	Cvar_Get( "height", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen height" );
+
+	window_xpos = Cvar_Get( "_window_xpos", "130", FCVAR_RENDERINFO, "window position by horizontal" );
+	window_ypos = Cvar_Get( "_window_ypos", "48", FCVAR_RENDERINFO, "window position by vertical" );
+
+	vid_gamma = Cvar_Get( "gamma", "2.5", FCVAR_ARCHIVE, "gamma amount" );
+	vid_brightness = Cvar_Get( "brightness", "0.0", FCVAR_ARCHIVE, "brightness factor" );
 	vid_displayfrequency = Cvar_Get ( "vid_displayfrequency", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "fullscreen refresh rate" );
 	vid_fullscreen = Cvar_Get( "fullscreen", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "enable fullscreen mode" );
+	vid_highdpi = Cvar_Get( "vid_highdpi", "1", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "enable High-DPI mode" );
+
+	// a1ba: planned to be named vid_mode for compability
+	// but supported mode list is filled by backends, so numbers are not portable any more
+	Cmd_AddCommand( "vid_setmode", VID_Mode_f, "display video mode" );
+
+	// Set screen resolution and fullscreen mode if passed in on command line.
+	// This is done after executing opengl.cfg, as the command line values should take priority.
+	SetWidthAndHeightFromCommandLine();
+	SetFullscreenModeFromCommandLine();
+
+	R_Init(); // init renderer
 }

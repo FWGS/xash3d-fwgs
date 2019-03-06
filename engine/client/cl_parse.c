@@ -1020,8 +1020,8 @@ void CL_ParseClientData( sizebuf_t *msg )
 		}
 	}
 
-	cl.parsecount = i;					// ack'd incoming messages.  
-	cl.parsecountmod = cl.parsecount & CL_UPDATE_MASK;	// index into window.     
+	refState.parsecount = cl.parsecount = i;					// ack'd incoming messages.
+	refState.parsecountmod = cl.parsecountmod = cl.parsecount & CL_UPDATE_MASK;	// index into window.
 	frame = &cl.frames[cl.parsecountmod];			// frame at index.
 
 	frame->time = cl.mtime[0];				// mark network received time

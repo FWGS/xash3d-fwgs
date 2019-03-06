@@ -19,7 +19,6 @@ PARTICLES MANAGEMENT
 static int ramp1[8] = { 0x6f, 0x6d, 0x6b, 0x69, 0x67, 0x65, 0x63, 0x61 };
 static int ramp2[8] = { 0x6f, 0x6e, 0x6d, 0x6c, 0x6b, 0x6a, 0x68, 0x66 };
 static int ramp3[6] = { 0x6d, 0x6b, 6, 5, 4, 3 };
-static float gTracerSize[11] = { 1.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 static int gSparkRamp[9] = { 0xfe, 0xfd, 0xfc, 0x6f, 0x6e, 0x6d, 0x6c, 0x67, 0x60 };
 
 static color24 gTracerColors[] =
@@ -2097,7 +2096,6 @@ void CL_FreeDeadBeams()
 	}
 }
 
-
 void CL_DrawEFX( float time, qboolean fTrans )
 {
 	CL_FreeDeadBeams();
@@ -2109,6 +2107,90 @@ void CL_DrawEFX( float time, qboolean fTrans )
 		ref.dllFuncs.CL_DrawParticles( time, cl_active_particles );
 		R_FreeDeadParticles( &cl_active_tracers );
 		ref.dllFuncs.CL_DrawTracers( time, cl_active_tracers );
+	}
+}
+
+void CL_ThinkParticle( double frametime, particle_t *p )
+{
+	float		time3 = 15.0f * frametime;
+	float		time2 = 10.0f * frametime;
+	float		time1 = 5.0f * frametime;
+	float		dvel = 4.0f * frametime;
+	float		grav = frametime * clgame.movevars.gravity * 0.05f;
+
+
+	if( p->type != pt_clientcustom )
+	{
+		// update position.
+		VectorMA( p->org, frametime, p->vel, p->org );
+	}
+
+	switch( p->type )
+	{
+	case pt_static:
+		break;
+	case pt_fire:
+		p->ramp += time1;
+		if( p->ramp >= 6.0f ) p->die = -1.0f;
+		else p->color = ramp3[(int)p->ramp];
+		p->vel[2] += grav;
+		break;
+	case pt_explode:
+		p->ramp += time2;
+		if( p->ramp >= 8.0f ) p->die = -1.0f;
+		else p->color = ramp1[(int)p->ramp];
+		VectorMA( p->vel, dvel, p->vel, p->vel );
+		p->vel[2] -= grav;
+		break;
+	case pt_explode2:
+		p->ramp += time3;
+		if( p->ramp >= 8.0f ) p->die = -1.0f;
+		else p->color = ramp2[(int)p->ramp];
+		VectorMA( p->vel,-frametime, p->vel, p->vel );
+		p->vel[2] -= grav;
+		break;
+	case pt_blob:
+		if( p->packedColor == 255 )
+		{
+			// normal blob explosion
+			VectorMA( p->vel, dvel, p->vel, p->vel );
+			p->vel[2] -= grav;
+			break;
+		}
+	case pt_blob2:
+		if( p->packedColor == 255 )
+		{
+			// normal blob explosion
+			p->vel[0] -= p->vel[0] * dvel;
+			p->vel[1] -= p->vel[1] * dvel;
+			p->vel[2] -= grav;
+		}
+		else
+		{
+			p->ramp += time2;
+			if( p->ramp >= 9.0f ) p->ramp = 0.0f;
+			p->color = gSparkRamp[(int)p->ramp];
+			VectorMA( p->vel, -frametime * 0.5f, p->vel, p->vel );
+			p->type = COM_RandomLong( 0, 3 ) ? pt_blob : pt_blob2;
+			p->vel[2] -= grav * 5.0f;
+		}
+		break;
+	case pt_grav:
+		p->vel[2] -= grav * 20.0f;
+		break;
+	case pt_slowgrav:
+		p->vel[2] -= grav;
+		break;
+	case pt_vox_grav:
+		p->vel[2] -= grav * 8.0f;
+		break;
+	case pt_vox_slowgrav:
+		p->vel[2] -= grav * 4.0f;
+		break;
+	case pt_clientcustom:
+		if( p->callback )
+			p->callback( p, frametime );
+		break;
 	}
 }
 

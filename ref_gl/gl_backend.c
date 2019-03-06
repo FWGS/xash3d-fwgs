@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 #include "gl_local.h"
 #include "mathlib.h"
+#include "common.h"
 
 char		r_speeds_msg[MAX_SYSPATH];
 ref_speeds_t	r_stats;	// r_speeds counters
@@ -184,7 +185,7 @@ void GL_SelectTexture( GLint tmu )
 
 	if( tmu >= GL_MaxTextureUnits( ))
 	{
-		Con_Reportf( S_ERROR "GL_SelectTexture: bad tmu state %i\n", tmu );
+		gEngfuncs.Con_Reportf( S_ERROR "GL_SelectTexture: bad tmu state %i\n", tmu );
 		return; 
 	}
 
@@ -277,7 +278,7 @@ void GL_TextureTarget( uint target )
 {
 	if( glState.activeTMU < 0 || glState.activeTMU >= GL_MaxTextureUnits( ))
 	{
-		Con_Reportf( S_ERROR "GL_TextureTarget: bad tmu state %i\n", glState.activeTMU );
+		gEngfuncs.Con_Reportf( S_ERROR "GL_TextureTarget: bad tmu state %i\n", glState.activeTMU );
 		return; 
 	}
 
@@ -452,37 +453,6 @@ const envmap_t r_envMapInfo[6] =
 {{ 90,   0,  90}, 0 }
 };
 
-/*
-===============
-VID_WriteOverviewScript
-
-Create overview script file
-===============
-*/
-void VID_WriteOverviewScript( void )
-{
-	ref_overview_t	*ov = &gEngfuncs.GetOverviewParms();
-	string		filename;
-	file_t		*f;
-
-	Q_snprintf( filename, sizeof( filename ), "overviews/%s.txt", clgame.mapname );
-
-	f = FS_Open( filename, "w", false );
-	if( !f ) return;
-
-	FS_Printf( f, "// overview description file for %s.bsp\n\n", clgame.mapname );
-	FS_Print( f, "global\n{\n" );
-	FS_Printf( f, "\tZOOM\t%.2f\n", ov->flZoom );
-	FS_Printf( f, "\tORIGIN\t%.2f\t%.2f\t%.2f\n", ov->origin[0], ov->origin[1], ov->origin[2] );
-	FS_Printf( f, "\tROTATED\t%i\n", ov->rotated ? 1 : 0 );
-	FS_Print( f, "}\n\nlayer\n{\n" );
-	FS_Printf( f, "\tIMAGE\t\"overviews/%s.bmp\"\n", clgame.mapname );
-	FS_Printf( f, "\tHEIGHT\t%.2f\n", ov->zFar );	// ???
-	FS_Print( f, "}\n" );
-
-	FS_Close( f );
-}
-
 qboolean VID_ScreenShot( const char *filename, int shot_type )
 {
 	rgbdata_t *r_shot;
@@ -511,7 +481,7 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 		break;
 	case VID_LEVELSHOT:
 		flags |= IMAGE_RESAMPLE;
-		if( glState.wideScreen )
+		if( gpGlobals->wideScreen )
 		{
 			height = 480;
 			width = 800;
@@ -528,7 +498,6 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 		width = 320;
 		break;
 	case VID_MAPSHOT:
-		VID_WriteOverviewScript();		// store overview script too
 		flags |= IMAGE_RESAMPLE|IMAGE_QUANTIZE;	// GoldSrc request overviews in 8-bit format
 		height = 768;
 		width = 1024;
@@ -658,7 +627,7 @@ void R_ShowTextures( void )
 
 	if( showHelp )
 	{
-		CL_CenterPrint( "use '<-' and '->' keys to change atlas page, ESC to quit", 0.25f );
+		gEngfuncs.CL_CenterPrint( "use '<-' and '->' keys to change atlas page, ESC to quit", 0.25f );
 		showHelp = false;
 	}
 
@@ -678,7 +647,7 @@ rebuild_page:
 	w = gpGlobals->width / base_w;
 	h = gpGlobals->height / base_h;
 
-	Con_DrawStringLen( NULL, NULL, &charHeight );
+	gEngfuncs.Con_DrawStringLen( NULL, NULL, &charHeight );
 
 	for( i = j = 0; i < MAX_TEXTURES; i++ )
 	{
@@ -739,11 +708,11 @@ rebuild_page:
 			shortname[17] = '.';
 			shortname[18] = '\0';
 		}
-		Con_DrawString( x + 1, y + h - charHeight, shortname, color );
+		gEngfuncs.Con_DrawString( x + 1, y + h - charHeight, shortname, color );
 		j++, k++;
 	}
 
-	CL_DrawCenterPrint ();
+	gEngfuncs.CL_DrawCenterPrint ();
 	pglFinish();
 }
 
@@ -852,7 +821,7 @@ void SCR_TimeRefresh_f( void )
 	double	start, stop;
 	double	time;
 
-	if( cls.state != ca_active )
+	if( gEngfuncs.CL_GetConnState() != ref_ca_active )
 		return;
 
 	start = Sys_DoubleTime();
@@ -863,7 +832,7 @@ void SCR_TimeRefresh_f( void )
 		pglDrawBuffer( GL_FRONT );
 		for( i = 0; i < 128; i++ )
 		{
-			refState.viewangles[1] = i / 128.0 * 360.0f;
+			gpGlobals->viewangles[1] = i / 128.0 * 360.0f;
 			R_RenderScene();
 		}
 		pglFinish();
@@ -874,7 +843,7 @@ void SCR_TimeRefresh_f( void )
 		for( i = 0; i < 128; i++ )
 		{
 			R_BeginFrame( true );
-			refState.viewangles[1] = i / 128.0 * 360.0f;
+			gpGlobals->viewangles[1] = i / 128.0 * 360.0f;
 			R_RenderScene();
 			R_EndFrame();
 		}
@@ -882,5 +851,5 @@ void SCR_TimeRefresh_f( void )
 
 	stop = Sys_DoubleTime ();
 	time = (stop - start);
-	Con_Printf( "%f seconds (%f fps)\n", time, 128 / time );
+	gEngfuncs.Con_Printf( "%f seconds (%f fps)\n", time, 128 / time );
 }

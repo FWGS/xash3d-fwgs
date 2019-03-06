@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 #include "gl_local.h"
 #include "wadfile.h"
+#include "common.h"
 
 #define SKYCLOUDS_QUALITY	12
 #define MAX_CLIP_VERTS	128 // skybox clip vertices
@@ -162,7 +163,7 @@ void ClipSkyPolygon( int nump, vec3_t vecs, int stage )
 	int		i, j;
 
 	if( nump > MAX_CLIP_VERTS )
-		Host_Error( "ClipSkyPolygon: MAX_CLIP_VERTS\n" );
+		gEngfuncs.Host_Error( "ClipSkyPolygon: MAX_CLIP_VERTS\n" );
 loc1:
 	if( stage == 6 )
 	{	
@@ -310,7 +311,7 @@ void R_AddSkyBoxSurface( msurface_t *fa )
 	float	*v;
 	int	i;
 
-	if( gEngfuncs.CL_GetRenderParm( PARM_SKY_SPHERE ) && fa->polys && !tr.fCustomSkybox )
+	if( gEngfuncs.CL_GetRenderParm( PARM_SKY_SPHERE, 0 ) && fa->polys && !tr.fCustomSkybox )
 	{
 		glpoly_t	*p = fa->polys;
 
@@ -432,7 +433,7 @@ void R_SetupSky( const char *skyboxname )
 	// to prevent infinite recursion if default skybox was missed
 	if( result == SKYBOX_MISSED && Q_stricmp( loadname, DEFAULT_SKYBOX_PATH ))
 	{
-		Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", skyboxname );
+		gEngfuncs.Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", skyboxname );
 		R_SetupSky( "desert" ); // force to default
 		return; 
 	}
@@ -678,7 +679,7 @@ void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 	// make sure what sky image is valid
 	if( !r_sky || !r_sky->palette || r_sky->type != PF_INDEXED_32 || r_sky->height == 0 )
 	{
-		Con_Reportf( S_ERROR "R_InitSky: unable to load sky texture %s\n", tx->name );
+		gEngfuncs.Con_Reportf( S_ERROR "R_InitSky: unable to load sky texture %s\n", tx->name );
 		if( r_sky ) FS_FreeImage( r_sky );
 		return;
 	}

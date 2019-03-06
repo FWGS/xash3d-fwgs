@@ -43,7 +43,7 @@ void R_GetTextureParms( int *w, int *h, int texnum );
 extern convar_t	*r_decals;
 extern convar_t	*r_adjust_fov;
 
-void R_Init( void );
+qboolean R_Init( void );
 void R_Shutdown( void );
 
 #endif // REF_COMMON_H

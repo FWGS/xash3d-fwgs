@@ -227,6 +227,37 @@ void SCR_MakeLevelShot( void )
 }
 
 /*
+===============
+VID_WriteOverviewScript
+
+Create overview script file
+===============
+*/
+void VID_WriteOverviewScript( void )
+{
+	ref_overview_t	*ov = &clgame.overView;
+	string		filename;
+	file_t		*f;
+
+	Q_snprintf( filename, sizeof( filename ), "overviews/%s.txt", clgame.mapname );
+
+	f = FS_Open( filename, "w", false );
+	if( !f ) return;
+
+	FS_Printf( f, "// overview description file for %s.bsp\n\n", clgame.mapname );
+	FS_Print( f, "global\n{\n" );
+	FS_Printf( f, "\tZOOM\t%.2f\n", ov->flZoom );
+	FS_Printf( f, "\tORIGIN\t%.2f\t%.2f\t%.2f\n", ov->origin[0], ov->origin[1], ov->origin[2] );
+	FS_Printf( f, "\tROTATED\t%i\n", ov->rotated ? 1 : 0 );
+	FS_Print( f, "}\n\nlayer\n{\n" );
+	FS_Printf( f, "\tIMAGE\t\"overviews/%s.bmp\"\n", clgame.mapname );
+	FS_Printf( f, "\tHEIGHT\t%.2f\n", ov->zFar );	// ???
+	FS_Print( f, "}\n" );
+
+	FS_Close( f );
+}
+
+/*
 ================
 SCR_MakeScreenShot
 
@@ -264,6 +295,8 @@ void SCR_MakeScreenShot( void )
 		break;
 	case scrshot_mapshot:
 		iRet = ref.dllFuncs.VID_ScreenShot( cls.shotname, VID_MAPSHOT );
+		if( iRet )
+			VID_WriteOverviewScript(); // store overview script too
 		break;
 	case scrshot_inactive:
 		return;
