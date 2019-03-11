@@ -17,6 +17,12 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "const.h"
 
+static struct
+{
+	int		renderMode;		// override kRenderMode from TriAPI
+	vec4_t		triRGBA;
+} ds;
+
 /*
 ===============================================================
 
@@ -33,6 +39,7 @@ set rendermode
 */
 void TriRenderMode( int mode )
 {
+	ds.renderMode = mode;
 	switch( mode )
 	{
 	case kRenderNormal:
@@ -115,11 +122,11 @@ void TriEnd( void )
 
 /*
 =============
-TriColor4f
+_TriColor4f
 
 =============
 */
-void TriColor4f( float r, float g, float b, float a )
+void _TriColor4f( float r, float g, float b, float a )
 {
 	pglColor4f( r, g, b, a );
 }
@@ -132,7 +139,29 @@ TriColor4ub
 */
 void TriColor4ub( byte r, byte g, byte b, byte a )
 {
-	pglColor4ub( r, g, b, a );
+	ds.triRGBA[0] = r * (1.0f / 255.0f);
+	ds.triRGBA[1] = g * (1.0f / 255.0f);
+	ds.triRGBA[2] = b * (1.0f / 255.0f);
+	ds.triRGBA[3] = a * (1.0f / 255.0f);
+
+	_TriColor4f( ds.triRGBA[0], ds.triRGBA[1], ds.triRGBA[2], 1.0f );
+}
+
+/*
+=================
+TriColor4f
+=================
+*/
+void TriColor4f( float r, float g, float b, float a )
+{
+	if( ds.renderMode == kRenderTransAlpha )
+		TriColor4ub( r * 255.9f, g * 255.9f, b * 255.9f, a * 255.0f );
+	else _TriColor4f( r * a, g * a, b * a, 1.0 );
+
+	ds.triRGBA[0] = r;
+	ds.triRGBA[1] = g;
+	ds.triRGBA[2] = b;
+	ds.triRGBA[3] = a;
 }
 
 /*
@@ -208,7 +237,7 @@ int TriSpriteTexture( model_t *pSpriteModel, int frame )
 
 	GL_Bind( XASH_TEXTURE0, gl_texturenum );
 
-	return gl_texturenum; // INCOMPATIBILITY
+	return 1;
 }
 
 /*
@@ -299,3 +328,20 @@ void TriCullFace( TRICULLSTYLE mode )
 
 	GL_Cull( mode );
 }
+
+/*
+=============
+TriBrightness
+=============
+*/
+void TriBrightness( float brightness )
+{
+	float	r, g, b;
+
+	r = ds.triRGBA[0] * ds.triRGBA[3] * brightness;
+	g = ds.triRGBA[1] * ds.triRGBA[3] * brightness;
+	b = ds.triRGBA[2] * ds.triRGBA[3] * brightness;
+
+	_TriColor4f( r, g, b, 1.0f );
+}
+

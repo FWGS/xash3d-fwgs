@@ -22,7 +22,6 @@ GNU General Public License for more details.
 #include "cl_tent.h"
 #include "studio.h"
 
-#define PART_SIZE	Q_max( 0.5f, cl_draw_particles->value )
 static float gTracerSize[11] = { 1.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 
 /*
@@ -32,16 +31,13 @@ CL_DrawParticles
 update particle color, position, free expired and draw it
 ================
 */
-void CL_DrawParticles( double frametime, particle_t *cl_active_particles )
+void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float partsize )
 {
 	particle_t	*p;
 	vec3_t		right, up;
 	color24		*pColor;
 	int		alpha;
 	float		size;
-
-	if( !cl_draw_particles->value )
-		return;
 
 	if( !cl_active_particles )
 		return;	// nothing to draw?
@@ -60,15 +56,15 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles )
 	{
 		if(( p->type != pt_blob ) || ( p->packedColor == 255 ))
 		{
-			size = PART_SIZE; // get initial size of particle
+			size = partsize; // get initial size of particle
 
 			// scale up to keep particles from disappearing
 			size += (p->org[0] - RI.vieworg[0]) * RI.cull_vforward[0];
 			size += (p->org[1] - RI.vieworg[1]) * RI.cull_vforward[1];
 			size += (p->org[2] - RI.vieworg[2]) * RI.cull_vforward[2];
 
-			if( size < 20.0f ) size = PART_SIZE;
-			else size = PART_SIZE + size * 0.002f;
+			if( size < 20.0f ) size = partsize;
+			else size = partsize + size * 0.002f;
 
 			// scale the axes by radius
 			VectorScale( RI.cull_vright, size, right );
@@ -154,9 +150,6 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 	vec3_t		start, end, delta;
 	particle_t	*p;
 
-	if( !cl_draw_tracers->value )
-		return;
-
 	// update tracer color if this is changed
 	if( FBitSet( tracerred->flags|tracergreen->flags|tracerblue->flags|traceralpha->flags, FCVAR_CHANGED ))
 	{
@@ -173,7 +166,7 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 	if( !cl_active_tracers )
 		return;	// nothing to draw?
 
-	if( !TriSpriteTexture( cl_sprite_dot, 0 ))
+	if( !TriSpriteTexture( gEngfuncs.GetDefaultSprite( REF_DOT_SPRITE ), 0 ))
 		return;
 
 	pglEnable( GL_BLEND );

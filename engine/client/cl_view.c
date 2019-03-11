@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "entity_types.h"
 #include "vgui_draw.h"
 #include "sound.h"
+#include "platform/platform.h" // GL_UpdateSwapInterval
 
 /*
 ===============
@@ -293,6 +294,8 @@ qboolean V_PreRender( void )
 	}
 	
 	ref.dllFuncs.R_BeginFrame( !cl.paused );
+
+	GL_UpdateSwapInterval( );
 
 	return true;
 }

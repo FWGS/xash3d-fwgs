@@ -25,6 +25,7 @@ GNU General Public License for more details.
 	     &pos->member != (head);				\
 	     pos = list_entry( pos->member.next, winding_t, member ))
 
+// REFTODO: rewrite in triapi
 void R_DrawWorldHull( void )
 {
 	hull_model_t	*hull = &WORLD->hull_models[0];
@@ -34,7 +35,7 @@ void R_DrawWorldHull( void )
 	if( FBitSet( r_showhull->flags, FCVAR_CHANGED ))
 	{
 		int val = bound( 0, (int)r_showhull->value, 3 );
-		if( val ) Mod_CreatePolygonsForHull( val );
+		if( val ) gEngfuncs.Mod_CreatePolygonsForHull( val );
 		ClearBits( r_showhull->flags, FCVAR_CHANGED );
 	}
 

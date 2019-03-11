@@ -89,6 +89,7 @@ rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen );
 int       R_MaxVideoModes();
 vidmode_t*R_GetVideoMode( int num );
 void*     GL_GetProcAddress( const char *name ); // RenderAPI requirement
+void      GL_UpdateSwapInterval( void );
 
 /*
 ==============================================================================

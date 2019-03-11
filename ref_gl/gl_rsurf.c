@@ -45,16 +45,16 @@ static void R_DrawVBO( qboolean drawlightmaps, qboolean drawtextures );
 
 byte *Mod_GetCurrentVis( void )
 {
-	if( gRenderIface.Mod_GetCurrentVis && tr.fCustomRendering )
-		return gRenderIface.Mod_GetCurrentVis();
+	if( gEngfuncs.drawFuncs.Mod_GetCurrentVis && tr.fCustomRendering )
+		return gEngfuncs.drawFuncs.Mod_GetCurrentVis();
 	return RI.visbytes;
 }
 
 void Mod_SetOrthoBounds( float *mins, float *maxs )
 {
-	if( gRenderIface.GL_OrthoBounds )
+	if( gEngfuncs.drawFuncs.GL_OrthoBounds )
 	{
-		gRenderIface.GL_OrthoBounds( mins, maxs );
+		gEngfuncs.drawFuncs.GL_OrthoBounds( mins, maxs );
 	}
 
 	Vector2Average( maxs, mins, world_orthocenter );
@@ -1788,7 +1788,7 @@ void R_GenerateVBO()
 	// we do not want to write vbo code that does not use multitexture
 	if( !GL_Support( GL_ARB_VERTEX_BUFFER_OBJECT_EXT ) || !GL_Support( GL_ARB_MULTITEXTURE ) || glConfig.max_texture_units < 2 )
 	{
-		Cvar_FullSet( "r_vbo", "0", FCVAR_READ_ONLY );
+		gEngfuncs.Cvar_FullSet( "r_vbo", "0", FCVAR_READ_ONLY );
 		return;
 	}
 
@@ -3419,8 +3419,8 @@ void R_MarkLeaves( void )
 	if( r_novis->value || RI.drawOrtho || !RI.viewleaf || !WORLDMODEL->visdata )
 		novis = true;
 
-	Mod_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, gpGlobals->visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), novis );
-	if( force && !novis ) Mod_FatPVS( test, REFPVS_RADIUS, RI.visbytes, gpGlobals->visbytes, true, novis );
+	gEngfuncs.R_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), novis );
+	if( force && !novis ) gEngfuncs.R_FatPVS( test, REFPVS_RADIUS, RI.visbytes, true, novis );
 
 	for( i = 0; i < WORLDMODEL->numleafs; i++ )
 	{
@@ -3528,10 +3528,10 @@ void GL_RebuildLightmaps( void )
 	}
 	LM_UploadBlock( false );
 
-	if( gRenderIface.GL_BuildLightmaps )
+	if( gEngfuncs.drawFuncs.GL_BuildLightmaps )
 	{
 		// build lightmaps on the client-side
-		gRenderIface.GL_BuildLightmaps( );
+		gEngfuncs.drawFuncs.GL_BuildLightmaps( );
 	}
 }
 
@@ -3611,10 +3611,10 @@ void GL_BuildLightmaps( void )
 
 	LM_UploadBlock( false );
 
-	if( gRenderIface.GL_BuildLightmaps )
+	if( gEngfuncs.drawFuncs.GL_BuildLightmaps )
 	{
 		// build lightmaps on the client-side
-		gRenderIface.GL_BuildLightmaps( );
+		gEngfuncs.drawFuncs.GL_BuildLightmaps( );
 	}
 
 	// now gamma and brightness are valid

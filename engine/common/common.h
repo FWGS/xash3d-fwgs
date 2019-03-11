@@ -772,6 +772,10 @@ void Con_Printf( const char *szFmt, ... ) _format( 1 );
 int pfnNumberOfEntities( void );
 int pfnIsInGame( void );
 float pfnTime( void );
+#define copystring( s ) _copystring( host.mempool, s, __FILE__, __LINE__ )
+#define SV_CopyString( s ) _copystring( svgame.stringspool, s, __FILE__, __LINE__ )
+#define freestring( s ) if( s != NULL ) { Mem_Free( s ); s = NULL; }
+char *_copystring( byte *mempool, const char *s, const char *filename, int fileline );
 
 // CS:CS engfuncs (stubs)
 void *pfnSequenceGet( const char *fileName, const char *entryName );

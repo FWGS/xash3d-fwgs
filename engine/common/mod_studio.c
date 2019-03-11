@@ -1048,65 +1048,68 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	phdr = R_StudioLoadHeader( mod, buffer );
 	if( !phdr ) return;	// bad model
 
-#ifndef XASH_DEDICATED
-	if( phdr->numtextures == 0 )
+	if( Host_IsDedicated() )
 	{
-		studiohdr_t	*thdr;
-		byte		*in, *out;
-		void		*buffer2 = NULL;
-		size_t		size1, size2;
-
-		buffer2 = FS_LoadFile( Mod_StudioTexName( mod->name ), NULL, false );
-		thdr = R_StudioLoadHeader( mod, buffer2 );
-
-		if( !thdr )
+		if( phdr->numtextures == 0 )
 		{
-			Con_Printf( S_WARN "Mod_LoadStudioModel: %s missing textures file\n", mod->name ); 
-			if( buffer2 ) Mem_Free( buffer2 );
+			studiohdr_t	*thdr;
+			byte		*in, *out;
+			void		*buffer2 = NULL;
+			size_t		size1, size2;
+
+			buffer2 = FS_LoadFile( Mod_StudioTexName( mod->name ), NULL, false );
+			thdr = R_StudioLoadHeader( mod, buffer2 );
+
+			if( !thdr )
+			{
+				Con_Printf( S_WARN "Mod_LoadStudioModel: %s missing textures file\n", mod->name );
+				if( buffer2 ) Mem_Free( buffer2 );
+			}
+			else
+			{
+				ref.dllFuncs.Mod_StudioLoadTextures( mod, thdr );
+
+				// give space for textures and skinrefs
+				size1 = thdr->numtextures * sizeof( mstudiotexture_t );
+				size2 = thdr->numskinfamilies * thdr->numskinref * sizeof( short );
+				mod->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length + size1 + size2 );
+				memcpy( loadmodel->cache.data, buffer, phdr->length ); // copy main mdl buffer
+				phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
+				phdr->numskinfamilies = thdr->numskinfamilies;
+				phdr->numtextures = thdr->numtextures;
+				phdr->numskinref = thdr->numskinref;
+				phdr->textureindex = phdr->length;
+				phdr->skinindex = phdr->textureindex + size1;
+
+				in = (byte *)thdr + thdr->textureindex;
+				out = (byte *)phdr + phdr->textureindex;
+				memcpy( out, in, size1 + size2 );	// copy textures + skinrefs
+				phdr->length += size1 + size2;
+				Mem_Free( buffer2 ); // release T.mdl
+			}
 		}
 		else
 		{
-			ref.dllFuncs.Mod_StudioLoadTextures( mod, thdr );
-
-			// give space for textures and skinrefs
-			size1 = thdr->numtextures * sizeof( mstudiotexture_t );
-			size2 = thdr->numskinfamilies * thdr->numskinref * sizeof( short );
-			mod->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length + size1 + size2 );
-			memcpy( loadmodel->cache.data, buffer, phdr->length ); // copy main mdl buffer
+			// NOTE: don't modify source buffer because it's used for CRC computing
+			loadmodel->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length );
+			memcpy( loadmodel->cache.data, buffer, phdr->length );
 			phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
-			phdr->numskinfamilies = thdr->numskinfamilies;
-			phdr->numtextures = thdr->numtextures;
-			phdr->numskinref = thdr->numskinref;
-			phdr->textureindex = phdr->length;
-			phdr->skinindex = phdr->textureindex + size1;
+			ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
 
-			in = (byte *)thdr + thdr->textureindex;
-			out = (byte *)phdr + phdr->textureindex;
-			memcpy( out, in, size1 + size2 );	// copy textures + skinrefs
-			phdr->length += size1 + size2;
-			Mem_Free( buffer2 ); // release T.mdl
+			// NOTE: we wan't keep raw textures in memory. just cutoff model pointer above texture base
+			loadmodel->cache.data = Mem_Realloc( loadmodel->mempool, loadmodel->cache.data, phdr->texturedataindex );
+			phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
+			phdr->length = phdr->texturedataindex;	// update model size
 		}
 	}
 	else
 	{
-		// NOTE: don't modify source buffer because it's used for CRC computing
+		// just copy model into memory
 		loadmodel->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length );
 		memcpy( loadmodel->cache.data, buffer, phdr->length );
-		phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
-		ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
 
-		// NOTE: we wan't keep raw textures in memory. just cutoff model pointer above texture base
-		loadmodel->cache.data = Mem_Realloc( loadmodel->mempool, loadmodel->cache.data, phdr->texturedataindex );
-		phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
-		phdr->length = phdr->texturedataindex;	// update model size
+		phdr = loadmodel->cache.data;
 	}
-#else
-	// just copy model into memory
-	loadmodel->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length );
-	memcpy( loadmodel->cache.data, buffer, phdr->length );
-
-	phdr = loadmodel->cache.data;
-#endif
 
 	// setup bounding box
 	if( !VectorCompare( vec3_origin, phdr->bbmin ))
@@ -1148,9 +1151,9 @@ void Mod_UnloadStudioModel( model_t *mod )
 	if( mod->type != mod_studio )
 		return; // not a studio
 
-#ifndef XASH_DEDICATED
-	ref.dllFuncs.Mod_StudioUnloadTextures( mod->cache.data );
-#endif
+	if( Host_IsDedicated() )
+		ref.dllFuncs.Mod_StudioUnloadTextures( mod->cache.data );
+
 	Mem_FreePool( &mod->mempool );
 	memset( mod, 0, sizeof( *mod ));
 }

@@ -47,7 +47,6 @@ GNU General Public License for more details.
 #define WORLD (gEngfuncs.GetWorld())
 #define WORLDMODEL (gEngfuncs.pfnGetModelByIndex( 1 ))
 #define MOVEVARS (gEngfuncs.pfnGetMoveVars())
-extern render_interface_t gRenderIface;
 
 // make mod_ref.h?
 #define LM_SAMPLE_SIZE             16
@@ -540,7 +539,6 @@ void R_NewMap( void );
 #define GL_CheckForErrors() GL_CheckForErrors_( __FILE__, __LINE__ )
 void GL_CheckForErrors_( const char *filename, const int fileline );
 const char *GL_ErrorString( int err );
-void GL_UpdateSwapInterval( void );
 qboolean GL_Support( int r_ext );
 int GL_MaxTextureUnits( void );
 void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cvarname, int r_ext );
@@ -733,10 +731,6 @@ extern convar_t	*vid_gamma;
 //
 // engine shared convars
 //
-extern convar_t *v_dark;
-extern convar_t *cl_draw_beams;
-extern convar_t *cl_draw_particles;
-extern convar_t *cl_draw_tracers;
 extern convar_t *gl_showtextures;
 extern convar_t	*tracerred;
 extern convar_t	*tracergreen;

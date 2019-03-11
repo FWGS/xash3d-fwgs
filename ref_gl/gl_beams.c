@@ -1259,12 +1259,8 @@ draw beam loop
 */
 void CL_DrawBeams( int fTrans, BEAM *active_beams )
 {
-	BEAM	*pBeam, *pNext;
-	BEAM	*pPrev = NULL;
+	BEAM	*pBeam;
 	int	i, flags;
-
-	if( !CVAR_TO_BOOL( cl_draw_beams ))
-		return;
 
 	pglShadeModel( GL_SMOOTH );
 	pglDepthMask( fTrans ? GL_FALSE : GL_TRUE );

@@ -122,7 +122,7 @@ void R_NewMap( void )
 		R_ParseDetailTextures( filepath );
 	}
 
-	if( CVAR_TO_BOOL( v_dark ))
+	if( gEngfuncs.pfnGetCvarFloat( "v_dark" ))
 	{
 		screenfade_t		*sf = gEngfuncs.GetScreenFade();
 		float			fadetime = 5.0f;

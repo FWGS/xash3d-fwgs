@@ -985,7 +985,7 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 {
 	GLuint	cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
 	qboolean	subImage = FBitSet( tex->flags, TF_IMG_UPLOADED );
-	GLenum	inFormat = PFDesc[type].glFormat;
+	GLenum	inFormat = gEngfuncs.Image_GetPFDesc(type)->glFormat;
 	GLint	dataType = GL_UNSIGNED_BYTE;
 
 	Assert( tex != NULL );
@@ -1446,7 +1446,7 @@ int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 		SetBits( picFlags, IL_KEEP_8BIT );	
 
 	// set some image flags
-	Image_SetForceFlags( picFlags );
+	gEngfuncs.Image_SetForceFlags( picFlags );
 
 	pic = gEngfuncs.FS_LoadImage( name, buf, size );
 	if( !pic ) return 0; // couldn't loading image
@@ -1554,11 +1554,11 @@ int GL_LoadTextureArray( const char **names, int flags )
 		else
 		{
 			// create new image
-			pic = Mem_Malloc( host.imagepool, sizeof( rgbdata_t ));
+			pic = Mem_Malloc( gEngfuncs.Image_GetPool(), sizeof( rgbdata_t ));
 			memcpy( pic, src, sizeof( rgbdata_t ));
 
 			// expand pic buffer for all layers
-			pic->buffer = Mem_Malloc( host.imagepool, pic->size * numLayers );
+			pic->buffer = Mem_Malloc( gEngfuncs.Image_GetPool(), pic->size * numLayers );
 			pic->depth = 0;
 		}
 

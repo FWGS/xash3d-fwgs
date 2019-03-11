@@ -2119,14 +2119,17 @@ void CL_FreeDeadBeams()
 void CL_DrawEFX( float time, qboolean fTrans )
 {
 	CL_FreeDeadBeams();
-	ref.dllFuncs.CL_DrawBeams( fTrans, cl_active_beams );
+	if( CVAR_TO_BOOL( cl_draw_beams ))
+		ref.dllFuncs.CL_DrawBeams( fTrans, cl_active_beams );
 
 	if( fTrans )
 	{
 		R_FreeDeadParticles( &cl_active_particles );
-		ref.dllFuncs.CL_DrawParticles( time, cl_active_particles );
+		if( CVAR_TO_BOOL( cl_draw_particles ))
+			ref.dllFuncs.CL_DrawParticles( time, cl_active_particles, PART_SIZE );
 		R_FreeDeadParticles( &cl_active_tracers );
-		ref.dllFuncs.CL_DrawTracers( time, cl_active_tracers );
+		if( CVAR_TO_BOOL( cl_draw_tracers ))
+			ref.dllFuncs.CL_DrawTracers( time, cl_active_tracers );
 	}
 }
 

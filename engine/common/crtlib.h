@@ -48,10 +48,6 @@ char Q_tolower( const char in );
 size_t Q_strncat( char *dst, const char *src, size_t siz );
 #define Q_strcpy( dst, src ) Q_strncpy( dst, src, 99999 )
 size_t Q_strncpy( char *dst, const char *src, size_t siz );
-#define copystring( s ) _copystring( host.mempool, s, __FILE__, __LINE__ )
-#define SV_CopyString( s ) _copystring( svgame.stringspool, s, __FILE__, __LINE__ )
-#define freestring( s ) if( s != NULL ) { Mem_Free( s ); s = NULL; }
-char *_copystring( byte *mempool, const char *s, const char *filename, int fileline );
 uint Q_hashkey( const char *string, uint hashSize, qboolean caseinsensitive );
 qboolean Q_isdigit( const char *str );
 int Q_atoi( const char *str );

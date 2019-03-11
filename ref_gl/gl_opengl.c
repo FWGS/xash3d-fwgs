@@ -42,10 +42,11 @@ convar_t	*gl_round_down;
 convar_t	*r_vbo;
 convar_t	*r_vbo_dlightmode;
 convar_t	*gl_showtextures;
+convar_t	*gl_wgl_msaa_samples;
+convar_t	*cl_lightstyle_lerping;
 
 convar_t	*vid_brightness;
 convar_t	*vid_gamma;
-convar_t	*cl_draw_particles;
 convar_t	*tracerred;
 convar_t	*tracergreen;
 convar_t	*tracerblue;
@@ -720,8 +721,8 @@ void GL_InitExtensions( void )
 	if( GL_Support( GL_TEXTURE_2D_RECT_EXT ))
 		pglGetIntegerv( GL_MAX_RECTANGLE_TEXTURE_SIZE_EXT, &glConfig.max_2d_rectangle_size );
 
-	Cvar_Get( "gl_max_size", va( "%i", glConfig.max_2d_texture_size ), 0, "opengl texture max dims" );
-	Cvar_Set( "gl_anisotropy", va( "%f", bound( 0, gl_texture_anisotropy->value, glConfig.max_texture_anisotropy )));
+	gEngfuncs.Cvar_Get( "gl_max_size", va( "%i", glConfig.max_2d_texture_size ), 0, "opengl texture max dims" );
+	gEngfuncs.Cvar_Set( "gl_anisotropy", va( "%f", bound( 0, gl_texture_anisotropy->value, glConfig.max_texture_anisotropy )));
 
 	if( GL_Support( GL_TEXTURE_COMPRESSION_EXT ))
 		gEngfuncs.Image_AddCmdFlags( IL_DDS_HARDWARE );
@@ -804,6 +805,8 @@ void GL_InitCommands( void )
 	tracergreen = gEngfuncs.pfnGetCvarPointer( "tracergreen" );
 	tracerblue = gEngfuncs.pfnGetCvarPointer( "tracerblue" );
 	traceralpha = gEngfuncs.pfnGetCvarPointer( "traceralpha" );
+
+	cl_lightstyle_lerping = gEngfuncs.pfnGetCvarPointer( "cl_lightstyle_lerping" );
 
 	gEngfuncs.Cmd_AddCommand( "r_info", R_RenderInfo_f, "display renderer info" );
 	gEngfuncs.Cmd_AddCommand( "timerefresh", SCR_TimeRefresh_f, "turn quickly and print rendering statistcs" );
