@@ -1450,7 +1450,7 @@ void R_DrawAliasModel( cl_entity_t *e )
 
 	anim = (int)(g_alias.time * 10) & 3;
 	skin = bound( 0, RI.currententity->curstate.skin, m_pAliasHeader->numskins - 1 );
-	if( m_fDoRemap ) pinfo = CL_GetRemapInfoForEntity( e );
+	if( m_fDoRemap ) pinfo = gEngfuncs.CL_GetRemapInfoForEntity( e );
 
 	if( r_lightmap->value && !r_fullbright->value )
 		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );

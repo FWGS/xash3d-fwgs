@@ -3242,14 +3242,6 @@ void TriColor4fRendermode( float r, float g, float b, float a, int rendermode )
 	else ref.dllFuncs.Color4f( r * a, g * a, b * a, 1.0f );
 }
 
-int TriSpriteTexture( model_t *pSpriteModel, int frame )
-{
-	if( ref.dllFuncs.SpriteTexture( pSpriteModel, frame ))
-		return 1;
-	return 0;
-}
-
-
 /*
 =================
 DemoApi implementation

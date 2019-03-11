@@ -178,19 +178,6 @@ size_t Q_strncpy( char *dst, const char *src, size_t size )
 	return ( s - src - 1 ); // count does not include NULL
 }
 
-char *_copystring( byte *mempool, const char *s, const char *filename, int fileline )
-{
-	char	*b;
-
-	if( !s ) return NULL;
-	if( !mempool ) mempool = host.mempool;
-
-	b = _Mem_Alloc( mempool, Q_strlen( s ) + 1, false, filename, fileline );
-	Q_strcpy( b, s );
-
-	return b;
-}
-
 int Q_atoi( const char *str )
 {
 	int       val = 0;

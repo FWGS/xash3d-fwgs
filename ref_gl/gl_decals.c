@@ -767,7 +767,7 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 
 	if( entityIndex > 0 )
 	{
-		ent = CL_GetEntityByIndex( entityIndex );
+		ent = gEngfuncs.GetEntityByIndex( entityIndex );
 
 		if( modelIndex > 0 ) model = gEngfuncs.pfnGetModelByIndex( modelIndex );
 		else if( ent != NULL ) model = gEngfuncs.pfnGetModelByIndex( ent->curstate.modelindex );
@@ -1196,9 +1196,9 @@ int R_CreateDecalList( decallist_t *pList )
 			total = DecalListAdd( pList, total );
 		}
 
-		if( gRenderIface.R_CreateStudioDecalList )
+		if( gEngfuncs.drawFuncs.R_CreateStudioDecalList )
 		{
-			total += gRenderIface.R_CreateStudioDecalList( pList, total );
+			total += gEngfuncs.drawFuncs.R_CreateStudioDecalList( pList, total );
 		}
 	}
 
@@ -1280,8 +1280,8 @@ void R_ClearAllDecals( void )
 		R_DecalUnlink( pdecal );
 	}
 
-	if( gRenderIface.R_ClearStudioDecals )
+	if( gEngfuncs.drawFuncs.R_ClearStudioDecals )
 	{
-		gRenderIface.R_ClearStudioDecals();
+		gEngfuncs.drawFuncs.R_ClearStudioDecals();
 	}
 }

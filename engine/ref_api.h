@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "r_efx.h"
 #include "cvar.h"
+#include "com_image.h"
 
 #define REF_API_VERSION 1
 
@@ -137,6 +138,12 @@ typedef enum ref_connstate_e
 	ref_ca_cinematic,	// playing a cinematic, not connected to a server
 } ref_connstate_t;
 
+enum ref_defaultsprite_e
+{
+	REF_DOT_SPRITE, // cl_sprite_dot
+	REF_CHROME_SPRITE // cl_sprite_shell
+};
+
 struct con_nprint_s;
 struct remap_info_s;
 
@@ -150,7 +157,10 @@ typedef struct ref_api_s
 	ref_connstate_t (*CL_GetConnState)( void ); // cls.state == ca_connected
 	int (*IsDemoPlaying)( void ); // cls.demoplayback
 	int (*GetWaterLevel)( void ); // cl.local.waterlevel
-	int	(*CL_GetRenderParm)( int parm, int arg );	// generic
+	int	(*CL_GetRenderParm)( int parm, int arg );	// generic	int	(*GetMaxClients)( void );
+	int	(*GetMaxClients)( void ); // cl.maxclients
+	int (*GetLocalHealth)( void ); // cl.local.health
+	qboolean (*Host_IsLocalGame)( void );
 
 	// cvar handlers
 	convar_t   *(*Cvar_Get)( const char *szName, const char *szValue, int flags, const char *description );
@@ -158,6 +168,8 @@ typedef struct ref_api_s
 	float       (*pfnGetCvarFloat)( const char *szName );
 	const char *(*pfnGetCvarString)( const char *szName );
 	void        (*Cvar_SetValue)( const char *name, float value );
+	void (*Cvar_RegisterVariable)( convar_t *var );
+	void (*Cvar_FullSet)( const char *var_name, const char *value, int flags );
 
 	// command handlers
 	int         (*Cmd_AddCommand)( const char *cmd_name, void (*function)(void), const char *description );
@@ -199,12 +211,14 @@ typedef struct ref_api_s
 	qboolean (*Mod_BoxVisible)( const vec3_t mins, const vec3_t maxs, const byte *visbits );
 	struct world_static_s *(*GetWorld)( void ); // returns &world
 	mleaf_t *(*Mod_PointInLeaf)( const vec3_t p, mnode_t *node );
+	void (*Mod_CreatePolygonsForHull)( int hullnum );
 
 	// studio models
 	void (*R_StudioSlerpBones)( int numbones, vec4_t q1[], float pos1[][3], vec4_t q2[], float pos2[][3], float s );
 	void (*R_StudioCalcBoneQuaternion)( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, float *adj, vec4_t q );
 	void (*R_StudioCalcBonePosition)( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, vec3_t adj, vec3_t pos );
 	void *(*R_StudioGetAnim)( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstudioseqdesc_t *pseqdesc );
+	void	(*pfnStudioEvent)( const struct mstudioevent_s *event, const cl_entity_t *entity );
 
 	// efx
 	void (*CL_DrawEFX)( float time, qboolean fTrans );
@@ -214,6 +228,8 @@ typedef struct ref_api_s
 	efrag_t* (*GetEfragsFreeList)( void ); // clgame.free_efrags
 	void (*SetEfragsFreeList)( efrag_t* ); // clgame.free_efrags
 	color24 *(*GetTracerColors)( int num );
+	struct dlight_s *(*CL_AllocElight)( int key );
+	struct model_s *(*GetDefaultSprite)( enum ref_defaultsprite_e spr );
 
 	// model management
 	model_t *(*Mod_ForName)( const char *name, qboolean crash, qboolean trackCRC );
@@ -247,6 +263,10 @@ typedef struct ref_api_s
 	// studio interface
 	player_info_t *(*pfnPlayerInfo)( int index );
 	entity_state_t *(*pfnGetPlayerState)( int index );
+	void *(*Mod_CacheCheck)( struct cache_user_s *c );
+	void (*Mod_LoadCacheFile)( const char *path, struct cache_user_s *cu );
+	void *(*Mod_Calloc)( int number, size_t size );
+	int	(*pfnGetStudioModelInterface)( int version, struct r_studio_interface_s **ppinterface, struct engine_studio_api_s *pstudio );
 
 	// memory
 	byte *(*_Mem_AllocPool)( const char *name, const char *filename, int fileline );
@@ -315,17 +335,22 @@ typedef struct ref_api_s
 
 	// imagelib
 	void (*Image_AddCmdFlags)( uint flags ); // used to check if hardware dxt is supported
+	void (*Image_SetForceFlags)( uint flags );
+	void (*Image_ClearForceFlags)( void );
 	qboolean (*Image_CustomPalette)( void );
 	qboolean (*Image_Process)( rgbdata_t **pix, int width, int height, uint flags, float bumpscale );
 	rgbdata_t *(*FS_LoadImage)( const char *filename, const byte *buffer, size_t size );
 	qboolean (*FS_SaveImage)( const char *filename, rgbdata_t *pix );
 	rgbdata_t *(*FS_CopyImage)( rgbdata_t *in );
 	void (*FS_FreeImage)( rgbdata_t *pack );
+	void (*Image_SetMDLPointer)( byte *p );
+	byte *(*Image_GetPool)( void );
+	struct bpc_desc_s *(*Image_GetPFDesc)( int idx );
 
 	// client exports
 	void	(*pfnDrawNormalTriangles)( void );
 	void	(*pfnDrawTransparentTriangles)( void );
-	int	(*pfnGetRenderInterface)( int version, render_api_t *renderfuncs, render_interface_t *callback );
+	render_interface_t	drawFuncs;
 } ref_api_t;
 
 struct mip_s;
@@ -427,7 +452,7 @@ typedef struct ref_interface_s
 	void (*CL_Particle)( const vec3_t origin, int color, float life, int zpos, int zvel ); // debug thing
 
 	// efx implementation
-	void (*CL_DrawParticles)( double frametime, particle_t *particles );
+	void (*CL_DrawParticles)( double frametime, particle_t *particles, float partsize );
 	void (*CL_DrawTracers)( double frametime, particle_t *tracers );
 	void (*CL_DrawBeams)( int fTrans , BEAM *beams );
 	qboolean (*R_BeamCull)( const vec3_t start, const vec3_t end, qboolean pvsOnly );

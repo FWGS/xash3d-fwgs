@@ -144,10 +144,10 @@ void R_StudioInit( void )
 	r_drawviewmodel = gEngfuncs.Cvar_Get( "r_drawviewmodel", "1", 0, "draw firstperson weapon model" );
 
 	Matrix3x4_LoadIdentity( g_studio.rotationmatrix );
-	Cvar_RegisterVariable( &r_glowshellfreq );
+	gEngfuncs.Cvar_RegisterVariable( &r_glowshellfreq );
 
 	// g-cont. cvar disabled by Valve
-//	Cvar_RegisterVariable( &r_shadows );
+//	gEngfuncs.Cvar_RegisterVariable( &r_shadows );
 
 	g_studio.interpolate = true;
 	g_studio.framecount = 0;
@@ -454,7 +454,7 @@ R_GetChromeSprite
 */
 static model_t *R_GetChromeSprite( void )
 {
-	return cl_sprite_shell;
+	return gEngfuncs.GetDefaultSprite( REF_CHROME_SPRITE );
 }
 
 /*
@@ -1826,7 +1826,7 @@ mstudiotexture_t *R_StudioGetTexture( cl_entity_t *e )
 	thdr = m_pStudioHeader;
 	if( !thdr ) return NULL;
 
-	if( m_fDoRemap ) ptexture = CL_GetRemapInfoForEntity( e )->ptexture;
+	if( m_fDoRemap ) ptexture = gEngfuncs.CL_GetRemapInfoForEntity( e )->ptexture;
 	else ptexture = (mstudiotexture_t *)((byte *)thdr + thdr->textureindex);
 
 	return ptexture;
@@ -2425,7 +2425,7 @@ static model_t *R_StudioSetupPlayerModel( int index )
 #endif
 
 	// g-cont: force for "dev-mode", non-local games and menu preview
-	if(( host_developer.value || !Host_IsLocalGame( ) || !RI.drawWorld ) && info->model[0] )
+	if(( gpGlobals->developer || !gEngfuncs.Host_IsLocalGame( ) || !RI.drawWorld ) && info->model[0] )
 	{
 		if( Q_strcmp( state->name, info->model ))
 		{
@@ -2530,7 +2530,7 @@ static void R_StudioClientEvents( void )
 
 	if( FBitSet( e->curstate.effects, EF_MUZZLEFLASH ))
 	{
-		dlight_t	*el = CL_AllocElight( 0 );
+		dlight_t	*el = gEngfuncs.CL_AllocElight( 0 );
 
 		ClearBits( e->curstate.effects, EF_MUZZLEFLASH );
 		VectorCopy( e->attachment[0], el->origin );
@@ -2550,7 +2550,7 @@ static void R_StudioClientEvents( void )
 		return;
 
 	end = R_StudioEstimateFrame( e, pseqdesc );
-	start = end - e->curstate.framerate * host.frametime * pseqdesc->fps;
+	start = end - e->curstate.framerate * gpGlobals->frametime * pseqdesc->fps;
 	pevent = (mstudioevent_t *)((byte *)m_pStudioHeader + pseqdesc->eventindex);
 
 	if( e->latched.sequencetime == e->curstate.animtime )
@@ -2566,7 +2566,7 @@ static void R_StudioClientEvents( void )
 			continue;
 
 		if( (float)pevent[i].frame > start && pevent[i].frame <= end )
-			clgame.dllFuncs.pfnStudioEvent( &pevent[i], e );
+			gEngfuncs.pfnStudioEvent( &pevent[i], e );
 	}
 }
 
@@ -3075,7 +3075,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 
 	m_nPlayerIndex = pplayer->number - 1;
 
-	if( m_nPlayerIndex < 0 || m_nPlayerIndex >= cl.maxclients )
+	if( m_nPlayerIndex < 0 || m_nPlayerIndex >= gEngfuncs.GetMaxClients() )
 		return 0;
 
 	RI.currentmodel = R_StudioSetupPlayerModel( m_nPlayerIndex );
@@ -3144,7 +3144,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 		// copy attachments into global entity array
 		if( RI.currententity->index > 0 )
 		{
-			cl_entity_t *ent = CL_GetEntityByIndex( RI.currententity->index );
+			cl_entity_t *ent = gEngfuncs.GetEntityByIndex( RI.currententity->index );
 			memcpy( ent->attachment, RI.currententity->attachment, sizeof( vec3_t ) * 4 );
 		}
 	}
@@ -3157,7 +3157,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 			RI.currententity->curstate.body = 255;
 		}
 
-		if( !( !host_developer.value && cl.maxclients == 1 ) && ( RI.currentmodel == RI.currententity->model ))
+		if( !( !gpGlobals->developer && gEngfuncs.GetMaxClients() == 1 ) && ( RI.currentmodel == RI.currententity->model ))
 			RI.currententity->curstate.body = 1; // force helmet
 
 		lighting.plightvec = dir;
@@ -3219,7 +3219,7 @@ static int R_StudioDrawModel( int flags )
 		entity_state_t	deadplayer;
 		int		result;
 
-		if( RI.currententity->curstate.renderamt <= 0 || RI.currententity->curstate.renderamt > cl.maxclients )
+		if( RI.currententity->curstate.renderamt <= 0 || RI.currententity->curstate.renderamt > gEngfuncs.GetMaxClients() )
 			return 0;
 
 		// get copy of player
@@ -3272,7 +3272,7 @@ static int R_StudioDrawModel( int flags )
 		// copy attachments into global entity array
 		if( RI.currententity->index > 0 )
 		{
-			cl_entity_t *ent = CL_GetEntityByIndex( RI.currententity->index );
+			cl_entity_t *ent = gEngfuncs.GetEntityByIndex( RI.currententity->index );
 			memcpy( ent->attachment, RI.currententity->attachment, sizeof( vec3_t ) * 4 );
 		}
 	}
@@ -3341,7 +3341,7 @@ void R_DrawStudioModel( cl_entity_t *e )
 	{
 		if( e->curstate.movetype == MOVETYPE_FOLLOW && e->curstate.aiment > 0 )
 		{
-			cl_entity_t *parent = CL_GetEntityByIndex( e->curstate.aiment );
+			cl_entity_t *parent = gEngfuncs.GetEntityByIndex( e->curstate.aiment );
 
 			if( parent && parent->model && parent->model->type == mod_studio )
 			{
@@ -3370,11 +3370,11 @@ void R_RunViewmodelEvents( void )
 	if( r_drawviewmodel->value == 0 )
 		return;
 
-	if( CL_IsThirdPerson( ))
+	if( gEngfuncs.CL_IsThirdPersonMode( ))
 		return;
 
 	// ignore in thirdperson, camera view or client is died
-	if( !RP_NORMALPASS() || cl.local.health <= 0 || !CL_IsViewEntityLocalPlayer())
+	if( !RP_NORMALPASS() || gEngfuncs.GetLocalHealth() <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
 
 	RI.currententity = gEngfuncs.GetViewModel();
@@ -3422,11 +3422,11 @@ void R_DrawViewModel( void )
 	if( r_drawviewmodel->value == 0 )
 		return;
 
-	if( CL_IsThirdPerson( ))
+	if( gEngfuncs.CL_IsThirdPersonMode( ))
 		return;
 
 	// ignore in thirdperson, camera view or client is died
-	if( !RP_NORMALPASS() || cl.local.health <= 0 || !CL_IsViewEntityLocalPlayer())
+	if( !RP_NORMALPASS() || gEngfuncs.GetLocalHealth() <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
 
 	tr.blend = gEngfuncs.CL_FxBlend( view ) / 255.0f;
@@ -3544,7 +3544,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 
 	// NOTE: replace index with pointer to start of imagebuffer, ImageLib expected it
 	//ptexture->index = (int)((byte *)phdr) + ptexture->index;
-	Image_SetMDLPointer((byte *)phdr + ptexture->index);
+	gEngfuncs.Image_SetMDLPointer((byte *)phdr + ptexture->index);
 	size = sizeof( mstudiotexture_t ) + ptexture->width * ptexture->height + 768;
 
 	if( FBitSet( gEngfuncs.CL_GetRenderParm( PARM_FEATURES, 0 ), ENGINE_LOAD_DELUXEDATA ) && FBitSet( ptexture->flags, STUDIO_NF_MASKED ))
@@ -3576,7 +3576,7 @@ void Mod_StudioLoadTextures( model_t *mod, void *data )
 	mstudiotexture_t	*ptexture;
 	int		i;
 
-	if( !phdr || host.type == HOST_DEDICATED )
+	if( !phdr )
 		return;
 
 	ptexture = (mstudiotexture_t *)(((byte *)phdr) + phdr->textureindex);
@@ -3598,7 +3598,7 @@ void Mod_StudioUnloadTextures( void *data )
 	mstudiotexture_t	*ptexture;
 	int		i;
 
-	if( !phdr || host.type == HOST_DEDICATED )
+	if( !phdr )
 		return;
 
 	ptexture = (mstudiotexture_t *)(((byte *)phdr) + phdr->textureindex);
@@ -3617,16 +3617,36 @@ static model_t *pfnModelHandle( int modelindex )
 	return gEngfuncs.pfnGetModelByIndex( modelindex );
 }
 
-static void *pfnMod_StudioExtradata( mode_t *mod )
+static void *pfnMod_CacheCheck( struct cache_user_s *c )
+{
+	return gEngfuncs.Mod_CacheCheck( c );
+}
+
+static void *pfnMod_StudioExtradata( model_t *mod )
 {
 	return gEngfuncs.Mod_Extradata( mod_studio, mod );
 }
 
+static void pfnMod_LoadCacheFile( const char *path, struct cache_user_s *cu )
+{
+	gEngfuncs.Mod_LoadCacheFile( path, cu );
+}
+
+static cvar_t *pfnGetCvarPointer( const char *name )
+{
+	return (cvar_t*)gEngfuncs.pfnGetCvarPointer( name );
+}
+
+static void *pfnMod_Calloc( int number, size_t size )
+{
+	return gEngfuncs.Mod_Calloc( number, size );
+}
+
 static engine_studio_api_t gStudioAPI =
 {
-	Mod_Calloc,
-	Mod_CacheCheck,
-	Mod_LoadCacheFile,
+	pfnMod_Calloc,
+	pfnMod_CacheCheck,
+	pfnMod_LoadCacheFile,
 	pfnMod_ForName,
 	pfnMod_StudioExtradata,
 	pfnModelHandle,
@@ -3635,7 +3655,7 @@ static engine_studio_api_t gStudioAPI =
 	R_StudioGetPlayerState,
 	pfnGetViewEntity,
 	pfnGetEngineTimes,
-	pfnCVarGetPointer,
+	pfnGetCvarPointer,
 	pfnGetViewInfo,
 	R_GetChromeSprite,
 	pfnGetModelCounters,
@@ -3691,16 +3711,13 @@ void CL_InitStudioAPI( void )
 	pStudioDraw = &gStudioDraw;
 
 	// trying to grab them from client.dll
-	cl_righthand = Cvar_FindVar( "cl_righthand" );
+	cl_righthand = gEngfuncs.pfnGetCvarPointer( "cl_righthand" );
 
 	if( cl_righthand == NULL )
 		cl_righthand = gEngfuncs.Cvar_Get( "cl_righthand", "0", FCVAR_ARCHIVE, "flip viewmodel (left to right)" );
 
 	// Xash will be used internal StudioModelRenderer
-	if( !clgame.dllFuncs.pfnGetStudioModelInterface )
-		return;
-
-	if( clgame.dllFuncs.pfnGetStudioModelInterface( STUDIO_INTERFACE_VERSION, &pStudioDraw, &gStudioAPI ))
+	if( gEngfuncs.pfnGetStudioModelInterface( STUDIO_INTERFACE_VERSION, &pStudioDraw, &gStudioAPI ))
 		return;
 
 	// NOTE: we always return true even if game interface was not correct

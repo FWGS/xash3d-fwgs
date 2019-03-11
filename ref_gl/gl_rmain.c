@@ -1045,9 +1045,6 @@ void R_BeginFrame( qboolean clearScene )
 	if( FBitSet( gl_texture_nearest->flags|gl_lightmap_nearest->flags|gl_texture_anisotropy->flags|gl_texture_lodbias->flags, FCVAR_CHANGED ))
 		R_SetTextureParameters();
 
-	// swapinterval stuff
-	GL_UpdateSwapInterval();
-
 	gEngfuncs.CL_ExtraUpdate ();
 }
 
@@ -1109,11 +1106,11 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 	}
 
 	// completely override rendering
-	if( gRenderIface.GL_RenderFrame != NULL )
+	if( gEngfuncs.drawFuncs.GL_RenderFrame != NULL )
 	{
 		tr.fCustomRendering = true;
 
-		if( gRenderIface.GL_RenderFrame( rvp ))
+		if( gEngfuncs.drawFuncs.GL_RenderFrame( rvp ))
 		{
 			R_GatherPlayerLight();
 			tr.realframecount++;

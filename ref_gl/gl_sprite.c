@@ -244,9 +244,9 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 
 	if( loaded ) *loaded = false;
 	Q_snprintf( texname, sizeof( texname ), "#%s", mod->name );
-	Image_SetForceFlags( IL_OVERVIEW );
+	gEngfuncs.Image_SetForceFlags( IL_OVERVIEW );
 	pix = gEngfuncs.FS_LoadImage( texname, buffer, size );
-	Image_ClearForceFlags();
+	gEngfuncs.Image_ClearForceFlags();
 	if( !pix ) return;	// bad image or something else
 
 	mod->type = mod_sprite;
@@ -294,7 +294,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 	temp.height = h;
 	temp.type = pix->type;
 	temp.flags = pix->flags;	
-	temp.size = w * h * PFDesc[temp.type].bpp;
+	temp.size = w * h * gEngfuncs.Image_GetPFDesc(temp.type)->bpp;
 	temp.buffer = Mem_Malloc( r_temppool, temp.size );
 	temp.palette = NULL;
 
