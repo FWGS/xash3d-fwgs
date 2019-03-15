@@ -1288,7 +1288,7 @@ void CL_EmitEntities( void )
 {
 	if( cl.paused ) return; // don't waste time
 
-	RefRenderIface->R_ClearScene ();
+	ref.dllFuncs.R_ClearScene ();
 
 	// not in server yet, no entities to redraw
 	if( cls.state != ca_active || !cl.validsequence )

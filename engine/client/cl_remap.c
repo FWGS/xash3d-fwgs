@@ -110,7 +110,7 @@ void CL_DuplicateTexture( mstudiotexture_t *ptexture, int topcolor, int bottomco
 
 	// save off the real texture index
 	index = ptexture->index;
-	name = RefRenderAPI->GL_TextureName( index );
+	name = ref.dllFuncs.GL_TextureName( index );
 	Q_snprintf( texname, sizeof( texname ), "#%i_%s", refState.currententity->curstate.number, name + 1 );
 
 	// search for pixels
@@ -128,7 +128,7 @@ void CL_DuplicateTexture( mstudiotexture_t *ptexture, int topcolor, int bottomco
 	memcpy( paletteBackup, pal, 768 );
 
 	raw = CL_CreateRawTextureFromPixels( tx, &size, topcolor, bottomcolor );
-	ptexture->index = RefRenderAPI->GL_LoadTexture( texname, raw, size, TF_FORCE_COLOR ); // do copy
+	ptexture->index = ref.dllFuncs.GL_LoadTexture( texname, raw, size, TF_FORCE_COLOR ); // do copy
 
 	// restore original palette
 	memcpy( pal, paletteBackup, 768 );
@@ -153,7 +153,7 @@ void CL_UpdateStudioTexture( mstudiotexture_t *ptexture, int topcolor, int botto
 	byte		*raw, *pal;
 
 	// save off the real texture index
-	origtexname = RefRenderAPI->GL_TextureName( ptexture->index );
+	origtexname = ref.dllFuncs.GL_TextureName( ptexture->index );
 
 	// build name of original texture
 	Q_strncpy( mdlname, refState.currentmodel->name, sizeof( mdlname ));
@@ -161,7 +161,7 @@ void CL_UpdateStudioTexture( mstudiotexture_t *ptexture, int topcolor, int botto
 	COM_StripExtension( mdlname );
 
 	Q_snprintf( texname, sizeof( texname ), "#%s/%s.mdl", mdlname, name );
-	index = RefRenderAPI->GL_FindTexture( texname );
+	index = ref.dllFuncs.GL_FindTexture( texname );
 	if( !index ) return; // couldn't find texture
 
 	// search for pixels
@@ -402,11 +402,11 @@ void CL_FreeRemapInfo( remap_info_t *info )
 		if( info->ptexture != NULL )
 		{
 			if( FBitSet( info->ptexture[i].flags, STUDIO_NF_COLORMAP ))
-				RefRenderAPI->GL_FreeTexture( info->ptexture[i].index );
+				ref.dllFuncs.GL_FreeTexture( info->ptexture[i].index );
 		}
 
 		if( info->textures[i] != 0 )
-			RefRenderAPI->GL_FreeTexture( info->textures[i] );
+			ref.dllFuncs.GL_FreeTexture( info->textures[i] );
 	}
 
 	Mem_Free( info ); // release struct	

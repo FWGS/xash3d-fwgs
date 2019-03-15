@@ -166,6 +166,8 @@ typedef struct studiohdr_s studiohdr_t;
 typedef struct mstudioseqdesc_s mstudioseqdesc_t;
 typedef struct mstudiobone_s mstudiobone_t;
 typedef struct mstudioanim_s mstudioanim_t;
+void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded );
+void Mod_UnloadStudioModel( model_t *mod );
 void Mod_InitStudioAPI( void );
 void Mod_InitStudioHull( void );
 void Mod_ResetStudioAPI( void );

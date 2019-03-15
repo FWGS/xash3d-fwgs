@@ -2005,7 +2005,7 @@ const char* pfnGetModelName( int modelindex )
 
 static const byte *GL_TextureData( unsigned int texnum )
 {
-	return RefRenderAPI->GL_TextureData( texnum );
+	return ref.dllFuncs.GL_TextureData( texnum );
 }
 
 static server_physics_api_t gPhysicsAPI =

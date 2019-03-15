@@ -751,6 +751,11 @@ void CL_WriteMessageHistory( void );
 const char *CL_MsgInfo( int cmd );
 
 //
+// cl_efx.c
+//
+void CL_Particle( const vec3_t org, int color, float life, int zpos, int zvel );
+
+//
 // cl_main.c
 //
 void CL_Init( void );
@@ -934,11 +939,6 @@ void CL_SetUpPlayerPrediction( int dopred, int bIncludeLocalClient );
 void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message );
 
 //
-// cl_studio.c
-//
-void CL_InitStudioAPI( void );
-
-//
 // cl_frame.c
 //
 struct channel_s;
@@ -964,6 +964,11 @@ void CL_AllocRemapInfo( int topcolor, int bottomcolor );
 void CL_FreeRemapInfo( remap_info_t *info );
 void CL_UpdateRemapInfo( int topcolor, int bottomcolor );
 void CL_ClearAllRemaps( void );
+
+//
+// cl_render.c
+//
+int CL_RenderGetParm( int parm, int arg, const qboolean checkRef );
 
 //
 // cl_tent.c

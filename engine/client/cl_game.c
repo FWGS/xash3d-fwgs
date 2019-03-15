@@ -3204,7 +3204,7 @@ check box in pvs (absmin, absmax)
 */
 int TriBoxInPVS( float *mins, float *maxs )
 {
-	return Mod_BoxVisible( mins, maxs, RefRenderIface->Mod_GetCurrentVis( ));
+	return Mod_BoxVisible( mins, maxs, ref.dllFuncs.Mod_GetCurrentVis( ));
 }
 
 /*
@@ -3606,7 +3606,6 @@ triangleapi_t gTriApi;
 
 static efx_api_t gEfxApi =
 {
-#if 1
 	R_AllocParticle,
 	R_BlobExplosion,
 	R_Blood,
@@ -3681,7 +3680,6 @@ static efx_api_t gEfxApi =
 	R_LookupColor,
 	CL_DecalRemoveAll,
 	CL_FireCustomDecal,
-#endif
 };
 
 static event_api_t gEventApi =

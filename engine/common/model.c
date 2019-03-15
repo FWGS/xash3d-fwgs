@@ -115,6 +115,24 @@ static void Mod_FreeModel( model_t *mod )
 	if( ref.dllFuncs.Mod_UnloadModel )
 		ref.dllFuncs.Mod_UnloadModel( mod );
 
+	switch( mod->type )
+	{
+	case mod_studio:
+		Mod_UnloadStudioModel( mod );
+		break;
+	case mod_alias:
+		// REFTODO:
+		// Mod_UnloadAliasModel( mod );
+		break;
+	case mod_sprite:
+		Mod_UnloadSpriteModel( mod );
+		break;
+	case mod_brush:
+		Mod_UnloadBrushModel( mod );
+		break;
+	}
+
+
 	memset( mod, 0, sizeof( *mod ));
 }
 
@@ -287,18 +305,20 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	switch( *(uint *)buf )
 	{
 	case IDSTUDIOHEADER:
-		ref.dllFuncs.Mod_LoadModel( mod_studio, mod, buf, &loaded, 0 );
+		Mod_LoadStudioModel( mod, buf, &loaded );
 		break;
 	case IDSPRITEHEADER:
-		ref.dllFuncs.Mod_LoadModel( mod_sprite, mod, buf, &loaded, 0 );
+		Mod_LoadSpriteModel( mod, buf, &loaded, 0 );
 		break;
 	case IDALIASHEADER:
+		// REFTODO: move alias loader to engine
 		ref.dllFuncs.Mod_LoadModel( mod_alias, mod, buf, &loaded, 0 );
 		break;
 	case Q1BSP_VERSION:
 	case HLBSP_VERSION:
 	case QBSP2_VERSION:
-		ref.dllFuncs.Mod_LoadModel( mod_brush, mod, buf, &loaded, 0 );
+		Mod_LoadBrushModel( mod, buf, &loaded );
+		// ref.dllFuncs.Mod_LoadModel( mod_brush, mod, buf, &loaded, 0 );
 		break;
 	default:
 		Mem_Free( buf );

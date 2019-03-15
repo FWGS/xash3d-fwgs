@@ -180,7 +180,7 @@ void SCR_RSpeeds( void )
 	if( !host.allow_console )
 		return;
 
-	if( RefRenderIface->R_SpeedsMessage( msg, sizeof( msg )))
+	if( ref.dllFuncs.R_SpeedsMessage( msg, sizeof( msg )))
 	{
 		int	x, y, height;
 		char	*p, *start, *end;
@@ -327,7 +327,7 @@ void SCR_DrawPlaque( void )
 {
 	if(( cl_allow_levelshots->value && !cls.changelevel ) || cl.background )
 	{
-		int levelshot = RefRenderAPI->GL_LoadTexture( cl_levelshot_name->string, NULL, 0, TF_IMAGE );
+		int levelshot = ref.dllFuncs.GL_LoadTexture( cl_levelshot_name->string, NULL, 0, TF_IMAGE );
 		ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
 		ref.dllFuncs.R_DrawStretchPic( 0, 0, refState.width, refState.height, 0, 0, 1, 1, levelshot );
 		if( !cl.background ) CL_DrawHUD( CL_LOADING );
@@ -527,7 +527,7 @@ qboolean SCR_LoadFixedWidthFont( const char *fontname )
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	cls.creditsFont.hFontTexture = RefRenderAPI->GL_LoadTexture( fontname, NULL, 0, TF_IMAGE|TF_KEEP_SOURCE );
+	cls.creditsFont.hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_IMAGE|TF_KEEP_SOURCE );
 	R_GetTextureParms( &fontWidth, NULL, cls.creditsFont.hFontTexture );
 	cls.creditsFont.charHeight = clgame.scrInfo.iCharHeight = fontWidth / 16;
 	cls.creditsFont.type = FONT_FIXED;
@@ -559,7 +559,7 @@ qboolean SCR_LoadVariableWidthFont( const char *fontname )
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	cls.creditsFont.hFontTexture = RefRenderAPI->GL_LoadTexture( fontname, NULL, 0, TF_IMAGE );
+	cls.creditsFont.hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_IMAGE );
 	R_GetTextureParms( &fontWidth, NULL, cls.creditsFont.hFontTexture );
 
 	// half-life font with variable chars witdh
@@ -668,24 +668,24 @@ void SCR_RegisterTextures( void )
 	// register gfx.wad images
 
 	if( FS_FileExists( "gfx/paused.lmp", false ))
-		cls.pauseIcon = RefRenderAPI->GL_LoadTexture( "gfx/paused.lmp", NULL, 0, TF_IMAGE );
+		cls.pauseIcon = ref.dllFuncs.GL_LoadTexture( "gfx/paused.lmp", NULL, 0, TF_IMAGE );
 	else if( FS_FileExists( "gfx/pause.lmp", false ))
-		cls.pauseIcon = RefRenderAPI->GL_LoadTexture( "gfx/pause.lmp", NULL, 0, TF_IMAGE );
+		cls.pauseIcon = ref.dllFuncs.GL_LoadTexture( "gfx/pause.lmp", NULL, 0, TF_IMAGE );
 
 	if( FS_FileExists( "gfx/lambda.lmp", false ))
 	{
 		if( cl_allow_levelshots->value )
-			cls.loadingBar = RefRenderAPI->GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE );
-		else cls.loadingBar = RefRenderAPI->GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE );
+			cls.loadingBar = ref.dllFuncs.GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE );
+		else cls.loadingBar = ref.dllFuncs.GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE );
 	}
 	else if( FS_FileExists( "gfx/loading.lmp", false ))
 	{
 		if( cl_allow_levelshots->value )
-			cls.loadingBar = RefRenderAPI->GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE );
-		else cls.loadingBar = RefRenderAPI->GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE );
+			cls.loadingBar = ref.dllFuncs.GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE );
+		else cls.loadingBar = ref.dllFuncs.GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE );
 	}
 	
-	cls.tileImage = RefRenderAPI->GL_LoadTexture( "gfx/backtile.lmp", NULL, 0, TF_NOMIPMAP );
+	cls.tileImage = ref.dllFuncs.GL_LoadTexture( "gfx/backtile.lmp", NULL, 0, TF_NOMIPMAP );
 }
 
 /*

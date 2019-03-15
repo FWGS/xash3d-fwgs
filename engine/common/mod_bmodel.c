@@ -1801,7 +1801,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 	{
 #ifndef XASH_DEDICATED
 		// release old sky layers first
-		ref.dllFuncs.R_FreeSharedTexture( REF_SOLIDSKY_TEXTURE );
+		ref.dllFuncs.R_FreeSharedTexture( REF_ALPHASKY_TEXTURE );
 		ref.dllFuncs.R_FreeSharedTexture( REF_SOLIDSKY_TEXTURE );
 #endif
 	}
@@ -1896,7 +1896,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 				if( FS_FileExists( texpath, false ))
 				{
-					tx->gl_texturenum = RefRenderAPI->GL_LoadTexture( texpath, NULL, 0, TF_ALLOW_EMBOSS );
+					tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, TF_ALLOW_EMBOSS );
 					bmod->wadlist.wadusage[j]++; // this wad are really used
 					break;
 				}
@@ -1912,7 +1912,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 			if( custom_palette ) size += sizeof( short ) + 768;
 			Q_snprintf( texname, sizeof( texname ), "#%s:%s.mip", loadstat.name, mt->name );
-			tx->gl_texturenum = RefRenderAPI->GL_LoadTexture( texname, (byte *)mt, size, TF_ALLOW_EMBOSS );
+			tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texname, (byte *)mt, size, TF_ALLOW_EMBOSS );
 		}
 
 		// if texture is completely missed
@@ -1935,7 +1935,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 				int	size = (int)sizeof( mip_t ) + ((mt->width * mt->height * 85)>>6);
 
 				if( custom_palette ) size += sizeof( short ) + 768;
-				tx->fb_texturenum = RefRenderAPI->GL_LoadTexture( texname, (byte *)mt, size, TF_MAKELUMA );
+				tx->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texname, (byte *)mt, size, TF_MAKELUMA );
 			}
 			else
 			{
@@ -1960,7 +1960,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 				}
 
 				// okay, loading it from wad or hi-res version
-				tx->fb_texturenum = RefRenderAPI->GL_LoadTexture( texname, src, srcSize, TF_MAKELUMA );
+				tx->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texname, src, srcSize, TF_MAKELUMA );
 				if( src ) Mem_Free( src );
 			}
 		}
@@ -2823,8 +2823,8 @@ void Mod_UnloadBrushModel( model_t *mod )
 			if( !tx || tx->gl_texturenum == ref.dllFuncs.R_GetBuiltinTexture( REF_DEFAULT_TEXTURE ) )
 				continue;	// free slot
 
-			RefRenderAPI->GL_FreeTexture( tx->gl_texturenum );	// main texture
-			RefRenderAPI->GL_FreeTexture( tx->fb_texturenum );	// luma texture
+			ref.dllFuncs.GL_FreeTexture( tx->gl_texturenum );	// main texture
+			ref.dllFuncs.GL_FreeTexture( tx->fb_texturenum );	// luma texture
 		}
 #endif
 		Mem_FreePool( &mod->mempool );

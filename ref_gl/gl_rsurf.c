@@ -50,7 +50,7 @@ byte *Mod_GetCurrentVis( void )
 	return RI.visbytes;
 }
 
-void Mod_SetOrthoBounds( float *mins, float *maxs )
+void Mod_SetOrthoBounds( const float *mins, const float *maxs )
 {
 	if( gEngfuncs.drawFuncs.GL_OrthoBounds )
 	{

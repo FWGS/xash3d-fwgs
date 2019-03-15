@@ -1130,7 +1130,15 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 	decalList = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
 
 	// initialize client header
-	header.decalCount = ref.dllFuncs.R_CreateDecalList( decalList );
+	if( ref.dllFuncs.R_CreateDecalList )
+	{
+		header.decalCount = ref.dllFuncs.R_CreateDecalList( decalList );
+	}
+	else
+	{
+		// we probably running a dedicated server
+		header.decalCount = 0;
+	}
 	header.entityCount = sv.num_static_entities;
 
 	if( !changelevel )

@@ -390,7 +390,7 @@ static HIMAGE pfnPIC_Load( const char *szPicName, const byte *image_buf, int ima
 	SetBits( flags, TF_IMAGE );
 
 	Image_SetForceFlags( IL_LOAD_DECAL ); // allow decal images for menu
-	tx = RefRenderAPI->GL_LoadTexture( szPicName, image_buf, image_size, flags );
+	tx = ref.dllFuncs.GL_LoadTexture( szPicName, image_buf, image_size, flags );
 	Image_ClearForceFlags();
 
 	return tx;
@@ -703,7 +703,7 @@ for drawing playermodel previews
 static void pfnClearScene( void )
 {
 	ref.dllFuncs.R_PushScene();
-	RefRenderIface->R_ClearScene();
+	ref.dllFuncs.R_ClearScene();
 }
 
 /*
@@ -727,7 +727,7 @@ static void pfnRenderScene( const ref_viewpass_t *rvp )
 	copy.flags = 0;
 
 	ref.dllFuncs.R_Set2DMode( false );
-	RefRenderIface->GL_RenderFrame( &copy );
+	ref.dllFuncs.GL_RenderFrame( &copy );
 	ref.dllFuncs.R_Set2DMode( true );
 	ref.dllFuncs.R_PopScene();
 }

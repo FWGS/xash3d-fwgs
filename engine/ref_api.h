@@ -359,8 +359,8 @@ struct mip_s;
 typedef struct ref_interface_s
 {
 	// construct, destruct
-	qboolean (*R_Init)( qboolean context ); // context is true if you need context management
-	const char *(*R_GetInitError)( void );
+	qboolean (*R_Init)( void ); // context is true if you need context management
+	// const char *(*R_GetInitError)( void );
 	void (*R_Shutdown)( void );
 
 	//
@@ -370,11 +370,9 @@ typedef struct ref_interface_s
 
 	void (*R_BeginFrame)( qboolean clearScene );
 	void (*R_RenderScene)( void );
-	// void (*R_RenderFrame)( struct ref_viewpass_s *rvp ); part of RenderInterface
 	void (*R_EndFrame)( void );
 	void (*R_PushScene)( void );
 	void (*R_PopScene)( void );
-	// void (*R_ClearScene)( void ); part of RenderInterface
 	void (*GL_BackendStartFrame)( void );
 	void (*GL_BackendEndFrame)( void );
 
@@ -382,7 +380,7 @@ typedef struct ref_interface_s
 	void (*R_AllowFog)( qboolean allow );
 	void (*GL_SetRenderMode)( int renderMode );
 
-	int (*R_AddEntity)( int entityType, cl_entity_t *ent );
+	qboolean (*R_AddEntity)( struct cl_entity_s *clent, int type );
 	void (*CL_AddCustomBeam)( cl_entity_t *pEnvBeam );
 
 	// view info
@@ -448,9 +446,6 @@ typedef struct ref_interface_s
 	void (*Mod_StudioLoadTextures)( model_t *mod, void *data );
 	void (*Mod_StudioUnloadTextures)( void *data );
 
-	// particle renderer
-	void (*CL_Particle)( const vec3_t origin, int color, float life, int zpos, int zvel ); // debug thing
-
 	// efx implementation
 	void (*CL_DrawParticles)( double frametime, particle_t *particles, float partsize );
 	void (*CL_DrawTracers)( double frametime, particle_t *tracers );
@@ -458,8 +453,67 @@ typedef struct ref_interface_s
 	qboolean (*R_BeamCull)( const vec3_t start, const vec3_t end, qboolean pvsOnly );
 
 	// Xash3D Render Interface
-	render_api_t *RenderAPI;         // partial RenderAPI implementation
-	render_interface_t *RenderIface; // compatible RenderInterface implementation: renderer should call client RenderInterface by itself
+	// Get renderer info (doesn't changes engine state at all)
+	int		(*RenderGetParm)( int parm, int arg );	// generic
+	void		(*GetDetailScaleForTexture)( int texture, float *xScale, float *yScale );
+	void		(*GetExtraParmsForTexture)( int texture, byte *red, byte *green, byte *blue, byte *alpha );
+	float		(*GetFrameTime)( void );
+
+	// Set renderer info (tell engine about changes)
+	void		(*R_SetCurrentEntity)( struct cl_entity_s *ent ); // tell engine about both currententity and currentmodel
+	void		(*R_SetCurrentModel)( struct model_s *mod );	// change currentmodel but leave currententity unchanged
+	void		(*R_StoreEfrags)( struct efrag_s **ppefrag, int framecount );// store efrags for static entities
+
+	// Texture tools
+	int		(*GL_FindTexture)( const char *name );
+	const char*	(*GL_TextureName)( unsigned int texnum );
+	const byte*	(*GL_TextureData)( unsigned int texnum ); // may be NULL
+	int		(*GL_LoadTexture)( const char *name, const byte *buf, size_t size, int flags );
+	int		(*GL_CreateTexture)( const char *name, int width, int height, const void *buffer, texFlags_t flags );
+	int		(*GL_LoadTextureArray)( const char **names, int flags );
+	int		(*GL_CreateTextureArray)( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
+	void		(*GL_FreeTexture)( unsigned int texnum );
+
+	// Decals manipulating (draw & remove)
+	void		(*DrawSingleDecal)( struct decal_s *pDecal, struct msurface_s *fa );
+	float		*(*R_DecalSetupVerts)( struct decal_s *pDecal, struct msurface_s *surf, int texture, int *outCount );
+	void		(*R_EntityRemoveDecals)( struct model_s *mod ); // remove all the decals from specified entity (BSP only)
+
+	// AVI
+	void		(*AVI_UploadRawFrame)( int texture, int cols, int rows, int width, int height, const byte *data );
+
+	// glState related calls (must use this instead of normal gl-calls to prevent de-synchornize local states between engine and the client)
+	void		(*GL_Bind)( int tmu, unsigned int texnum );
+	void		(*GL_SelectTexture)( int tmu );
+	void		(*GL_LoadTextureMatrix)( const float *glmatrix );
+	void		(*GL_TexMatrixIdentity)( void );
+	void		(*GL_CleanUpTextureUnits)( int last );	// pass 0 for clear all the texture units
+	void		(*GL_TexGen)( unsigned int coord, unsigned int mode );
+	void		(*GL_TextureTarget)( unsigned int target ); // change texture unit mode without bind texture
+	void		(*GL_TexCoordArrayMode)( unsigned int texmode );
+	void		(*GL_UpdateTexSize)( int texnum, int width, int height, int depth ); // recalc statistics
+	void		(*GL_Reserved0)( void );	// for potential interface expansion without broken compatibility
+	void		(*GL_Reserved1)( void );
+
+	// Misc renderer functions
+	void		(*GL_DrawParticles)( const struct ref_viewpass_s *rvp, qboolean trans_pass, float frametime );
+	colorVec		(*LightVec)( const float *start, const float *end, float *lightspot, float *lightvec );
+	struct mstudiotex_s *( *StudioGetTexture )( struct cl_entity_s *e );
+
+	// passed through R_RenderFrame (0 - use engine renderer, 1 - use custom client renderer)
+	int		(*GL_RenderFrame)( const struct ref_viewpass_s *rvp );
+	// build all the lightmaps on new level or when gamma is changed
+	void		(*GL_BuildLightmaps)( void );
+	// setup map bounds for ortho-projection when we in dev_overview mode
+	void		(*GL_OrthoBounds)( const float *mins, const float *maxs );
+	// grab r_speeds message
+	qboolean	(*R_SpeedsMessage)( char *out, size_t size );
+	// get visdata for current frame from custom renderer
+	byte*		(*Mod_GetCurrentVis)( void );
+	// tell the renderer what new map is started
+	void		(*R_NewMap)( void );
+	// clear the render entities before each frame
+	void		(*R_ClearScene)( void );
 
 	// TriAPI Interface
 	// NOTE: implementation isn't required to be compatible
@@ -480,10 +534,17 @@ typedef struct ref_interface_s
 	void    (*CullFace)( TRICULLSTYLE mode );
 
 	// vgui drawing implementation
-	vguiapi_t *VGuiAPI;
-
-	// efx api
-	efx_api_t *EfxAPI;
+	void	(*VGUI_DrawInit)( void );
+	void	(*VGUI_DrawShutdown)( void );
+	void	(*VGUI_SetupDrawingText)( int *pColor );
+	void	(*VGUI_SetupDrawingRect)( int *pColor );
+	void	(*VGUI_SetupDrawingImage)( int *pColor );
+	void	(*VGUI_BindTexture)( int id );
+	void	(*VGUI_EnableTexture)( qboolean enable );
+	void	(*VGUI_CreateTexture)( int id, int width, int height );
+	void	(*VGUI_UploadTexture)( int id, const char *buffer, int width, int height );
+	void	(*VGUI_UploadTextureBlock)( int id, int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight );
+	void	(*VGUI_DrawQuad)( const vpoint_t *ul, const vpoint_t *lr );
 } ref_interface_t;
 
 typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* engfuncs, ref_globals_t *pGlobals );
