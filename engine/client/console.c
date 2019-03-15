@@ -531,7 +531,7 @@ static qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font )
 		return false;
 
 	// keep source to print directly into conback image
-	font->hFontTexture = RefRenderAPI->GL_LoadTexture( fontname, NULL, 0, TF_FONT|TF_KEEP_SOURCE );
+	font->hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_FONT|TF_KEEP_SOURCE );
 	R_GetTextureParms( &fontWidth, NULL, font->hFontTexture );
 
 	if( font->hFontTexture && fontWidth != 0 )
@@ -567,7 +567,7 @@ static qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	font->hFontTexture = RefRenderAPI->GL_LoadTexture( fontname, NULL, 0, TF_FONT|TF_NEAREST );
+	font->hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_FONT|TF_NEAREST );
 	R_GetTextureParms( &fontWidth, NULL, font->hFontTexture );
 
 	// setup consolefont
@@ -2319,28 +2319,28 @@ void Con_VidInit( void )
 	{
 		// trying to load truecolor image first
 		if( FS_FileExists( "gfx/shell/conback.bmp", false ) || FS_FileExists( "gfx/shell/conback.tga", false ))
-			con.background = RefRenderAPI->GL_LoadTexture( "gfx/shell/conback", NULL, 0, TF_IMAGE );
+			con.background = ref.dllFuncs.GL_LoadTexture( "gfx/shell/conback", NULL, 0, TF_IMAGE );
 
 		if( !con.background )
 		{
 			if( FS_FileExists( "cached/conback640", false ))
-				con.background = RefRenderAPI->GL_LoadTexture( "cached/conback640", NULL, 0, TF_IMAGE );
+				con.background = ref.dllFuncs.GL_LoadTexture( "cached/conback640", NULL, 0, TF_IMAGE );
 			else if( FS_FileExists( "cached/conback", false ))
-				con.background = RefRenderAPI->GL_LoadTexture( "cached/conback", NULL, 0, TF_IMAGE );
+				con.background = ref.dllFuncs.GL_LoadTexture( "cached/conback", NULL, 0, TF_IMAGE );
 		}
 	}
 	else
 	{
 		// trying to load truecolor image first
 		if( FS_FileExists( "gfx/shell/loading.bmp", false ) || FS_FileExists( "gfx/shell/loading.tga", false ))
-			con.background = RefRenderAPI->GL_LoadTexture( "gfx/shell/loading", NULL, 0, TF_IMAGE );
+			con.background = ref.dllFuncs.GL_LoadTexture( "gfx/shell/loading", NULL, 0, TF_IMAGE );
 
 		if( !con.background )
 		{
 			if( FS_FileExists( "cached/loading640", false ))
-				con.background = RefRenderAPI->GL_LoadTexture( "cached/loading640", NULL, 0, TF_IMAGE );
+				con.background = ref.dllFuncs.GL_LoadTexture( "cached/loading640", NULL, 0, TF_IMAGE );
 			else if( FS_FileExists( "cached/loading", false ))
-				con.background = RefRenderAPI->GL_LoadTexture( "cached/loading", NULL, 0, TF_IMAGE );
+				con.background = ref.dllFuncs.GL_LoadTexture( "cached/loading", NULL, 0, TF_IMAGE );
 		}
 	}
 
@@ -2376,13 +2376,13 @@ void Con_VidInit( void )
 				y = Q_strlen( ver );
 				for( x = 0; x < y; x++ )
 					Con_DrawCharToConback( ver[x], buf, dest + (x << 3));
-				con.background = RefRenderAPI->GL_LoadTexture( "#gfx/conback.lmp", (byte *)cb, length, TF_IMAGE );
+				con.background = ref.dllFuncs.GL_LoadTexture( "#gfx/conback.lmp", (byte *)cb, length, TF_IMAGE );
 			}
 			if( cb ) Mem_Free( cb );
 		}
 
 		if( !con.background ) // trying the load unmodified conback
-			con.background = RefRenderAPI->GL_LoadTexture( "gfx/conback.lmp", NULL, 0, TF_IMAGE );
+			con.background = ref.dllFuncs.GL_LoadTexture( "gfx/conback.lmp", NULL, 0, TF_IMAGE );
 	}
 
 	// missed console image will be replaced as gray background like X-Ray or Crysis

@@ -16,7 +16,9 @@ GNU General Public License for more details.
 #include "common.h"
 #include "mathlib.h"
 #include "pm_local.h"
-#include "ref_common.h"
+#ifndef XASH_DEDICATED
+#include "client.h" // CL_Particle
+#endif
 
 // expand debugging BBOX particle hulls by this many units.
 #define BOX_GAP	0.0f    
@@ -42,7 +44,7 @@ void PM_ParticleLine( const vec3_t start, const vec3_t end, int pcolor, float li
 	while( curdist <= len )
 	{
 		VectorMA( start, curdist, diff, pos );
-		ref.dllFuncs.CL_Particle( pos, pcolor, life, 0, zvel );
+		CL_Particle( pos, pcolor, life, 0, zvel );
 		curdist += 2.0f;
 	}
 #endif // XASH_DEDICATED

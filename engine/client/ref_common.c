@@ -29,8 +29,8 @@ void GL_FreeImage( const char *name )
 {
 	int	texnum;
 
-	if(( texnum = RefRenderAPI->GL_FindTexture( name )) != 0 )
-		 RefRenderAPI->GL_FreeTexture( texnum );
+	if(( texnum = ref.dllFuncs.GL_FindTexture( name )) != 0 )
+		 ref.dllFuncs.GL_FreeTexture( texnum );
 }
 
 static int TriGetRenderMode( void )
@@ -38,9 +38,13 @@ static int TriGetRenderMode( void )
 	return clgame.ds.renderMode;
 }
 
+static int pfnRefRenderGetParm( int parm, int arg )
+{
+	return CL_RenderGetParm( parm, arg, false ); // prevent recursion
+}
+
 static ref_api_t gEngfuncs =
 {
-	TriGetRenderMode
 };
 
 static void R_UnloadProgs( void )
@@ -59,37 +63,6 @@ static void R_UnloadProgs( void )
 
 	Cvar_Unlink( FCVAR_RENDERINFO | FCVAR_GLCONFIG );
 	Cmd_Unlink( CMD_REFDLL );
-}
-
-static int CL_RenderGetParm( int parm, int arg )
-{
-	switch( parm )
-	{
-	case PARM_BSP2_SUPPORTED:
-#ifdef SUPPORT_BSP2_FORMAT
-		return 1;
-#endif
-		return 0;
-	case PARM_SKY_SPHERE:
-		return FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX );
-	case PARAM_GAMEPAUSED:
-		return cl.paused;
-	case PARM_CLIENT_INGAME:
-		return CL_IsInGame();
-	case PARM_MAX_ENTITIES:
-		return clgame.maxEntities;
-	case PARM_FEATURES:
-		return host.features;
-	case PARM_MAP_HAS_DELUXE:
-		return FBitSet( world.flags, FWORLD_HAS_DELUXEMAP );
-	case PARM_CLIENT_ACTIVE:
-		return (cls.state == ca_active);
-	case PARM_DEDICATED_SERVER:
-		return (host.type == HOST_DEDICATED);
-	case PARM_WATER_ALPHA:
-		return FBitSet( world.flags, FWORLD_WATERALPHA );
-	}
-	return 0;
 }
 
 static void CL_FillTriAPIFromRef( triangleapi_t *dst, const ref_interface_t *src )
@@ -165,10 +138,10 @@ static qboolean R_LoadProgs( const char *name )
 
 	refState.developer = host_developer.value;
 
-	if( !ref.dllFuncs.R_Init( true ) )
+	if( !ref.dllFuncs.R_Init( ) )
 	{
 		COM_FreeLibrary( ref.hInstance );
-		Con_Reportf( "R_LoadProgs: can't init renderer: %s\n", ref.dllFuncs.R_GetInitError() );
+		Con_Reportf( "R_LoadProgs: can't init renderer!\n" ); //, ref.dllFuncs.R_GetInitError() );
 		ref.hInstance = NULL;
 		return false;
 	}
@@ -203,9 +176,17 @@ qboolean R_Init( void )
 {
 	char refdll[64];
 
+	refdll[0] = 0;
+
 	if( !Sys_GetParmFromCmdLine( "-ref", refdll ) )
 	{
-		Q_strncpy( refdll, DEFAULT_RENDERER, sizeof( refdll ));
+		Q_snprintf( refdll, sizeof( refdll ), "%s%s.%s",
+#ifdef OS_LIB_PREFIX
+			OS_LIB_PREFIX,
+#else
+			"",
+#endif
+			DEFAULT_RENDERER, OS_LIB_EXT );
 	}
 
 	gl_vsync = Cvar_Get( "gl_vsync", "0", FCVAR_ARCHIVE,  "enable vertical syncronization" );

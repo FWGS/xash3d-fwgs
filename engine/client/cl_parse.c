@@ -1547,7 +1547,7 @@ void CL_RegisterResources( sizebuf_t *msg )
 			CL_ClearWorld ();
 
 			// tell rendering system we have a new set of models.
-			RefRenderIface->R_NewMap ();
+			ref.dllFuncs.R_NewMap ();
 
 			CL_SetupOverviewParams();
 
@@ -3131,7 +3131,7 @@ void CL_LegacyPrecache_f( void )
 		clgame.entities->model = cl.worldmodel;
 
 	// tell rendering system we have a new set of models.
-	RefRenderIface->R_NewMap ();
+	ref.dllFuncs.R_NewMap ();
 
 	CL_SetupOverviewParams();
 

@@ -298,6 +298,12 @@ void R_ShowTree( void );
 void SCR_TimeRefresh_f( void );
 
 //
+// gl_beams.c
+//
+void CL_DrawBeams( int fTrans, BEAM *active_beams );
+qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly );
+
+//
 // gl_cull.c
 //
 int R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax );
@@ -382,7 +388,7 @@ void R_TranslateForEntity( cl_entity_t *e );
 void R_RotateForEntity( cl_entity_t *e );
 void R_SetupGL( qboolean set_gl_state );
 qboolean R_InitRenderAPI( void );
-void R_AllowFog( int allowed );
+void R_AllowFog( qboolean allowed );
 void R_SetupFrustum( void );
 void R_FindViewLeaf( void );
 void R_PushScene( void );
@@ -408,7 +414,7 @@ void Matrix4x4_CreateOrtho(matrix4x4 m, float xLeft, float xRight, float yBottom
 void Matrix4x4_CreateModelview( matrix4x4 out );
 
 //
-// gl_rmisc.
+// gl_rmisc.c
 //
 void R_ClearStaticEntities( void );
 
@@ -434,6 +440,14 @@ void R_ClearVBO();
 void R_AddDecalVBO( decal_t *pdecal, msurface_t *surf );
 
 //
+// gl_rpart.c
+//
+void CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean trans_pass, float frametime );
+void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float partsize );
+void CL_DrawTracers( double frametime, particle_t *cl_active_tracers );
+
+
+//
 // gl_sprite.c
 //
 void R_SpriteInit( void );
@@ -454,6 +468,11 @@ int R_GetEntityRenderMode( cl_entity_t *ent );
 void R_DrawStudioModel( cl_entity_t *e );
 player_info_t *pfnPlayerInfo( int index );
 void R_GatherPlayerLight( void );
+float R_StudioEstimateFrame( cl_entity_t *e, mstudioseqdesc_t *pseqdesc );
+void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, vec3_t angles );
+void CL_InitStudioAPI( void );
+void Mod_StudioLoadTextures( model_t *mod, void *data );
+void Mod_StudioUnloadTextures( void *data );
 
 //
 // gl_alias.c
@@ -497,13 +516,15 @@ int VGUI_GenerateTexture( void );
 //
 qboolean R_Init( void );
 void R_Shutdown( void );
+void GL_InitExtensions( void );
+void GL_ClearExtensions( void );
 void VID_CheckChanges( void );
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
 void GL_FreeImage( const char *name );
 qboolean VID_ScreenShot( const char *filename, int shot_type );
 qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot );
 void R_BeginFrame( qboolean clearScene );
-void R_RenderFrame( const struct ref_viewpass_s *vp );
+int R_RenderFrame( const struct ref_viewpass_s *vp );
 void R_EndFrame( void );
 void R_ClearScene( void );
 void R_GetTextureParms( int *w, int *h, int texnum );
@@ -529,9 +550,12 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 void R_RemoveEfrags( struct cl_entity_s *ent );
 void R_AddEfrags( struct cl_entity_s *ent );
 void R_DecalRemoveAll( int texture );
+int R_CreateDecalList( decallist_t *pList );
+void R_ClearAllDecals( void );
 byte *Mod_GetCurrentVis( void );
-void Mod_SetOrthoBounds( float *mins, float *maxs );
+void Mod_SetOrthoBounds( const float *mins, const float *maxs );
 void R_NewMap( void );
+void CL_AddCustomBeam( cl_entity_t *pEnvBeam );
 
 //
 // gl_opengl.c
@@ -547,14 +571,20 @@ void GL_SetExtension( int r_ext, int enable );
 //
 // gl_triapi.c
 //
+void TriRenderMode( int mode );
 void TriBegin( int mode );
 void TriEnd( void );
 void TriTexCoord2f( float u, float v );
 void TriVertex3fv( const float *v );
 void TriVertex3f( float x, float y, float z );
+void _TriColor4f( float r, float g, float b, float a );
+void TriColor4ub( byte r, byte g, byte b, byte a );
 int TriWorldToScreen( float *world, float *screen );
 int TriSpriteTexture( model_t *pSpriteModel, int frame );
-
+void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn );
+void TriGetMatrix( const int pname, float *matrix );
+void TriFogParams( float flDensity, int iFogSkybox );
+void TriCullFace( TRICULLSTYLE mode );
 
 /*
 =======================================================================

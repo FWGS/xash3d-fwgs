@@ -989,7 +989,7 @@ void CL_InitClientMove( void )
 
 	// common utilities
 	clgame.pmove->PM_Info_ValueForKey = Info_ValueForKey;
-	clgame.pmove->PM_Particle = ref.dllFuncs.CL_Particle; // ref should be initialized here already
+	clgame.pmove->PM_Particle = CL_Particle; // ref should be initialized here already
 	clgame.pmove->PM_TestPlayerPosition = pfnTestPlayerPosition;
 	clgame.pmove->Con_NPrintf = Con_NPrintf;
 	clgame.pmove->Con_DPrintf = Con_DPrintf;

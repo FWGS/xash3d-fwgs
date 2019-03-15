@@ -216,7 +216,7 @@ void V_RefApplyOverview( ref_viewpass_t *rvp )
 
 	SetBits( rvp->flags, RF_DRAW_OVERVIEW );
 
-	RefRenderIface->GL_OrthoBounds( mins, maxs );
+	ref.dllFuncs.GL_OrthoBounds( mins, maxs );
 }
 
 /*
@@ -332,15 +332,10 @@ void V_RenderView( void )
 
 		if( viewnum == 0 && FBitSet( rvp.flags, RF_ONLY_CLIENTDRAW ))
 		{
-#if 0
-			pglClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
-			pglClear( GL_COLOR_BUFFER_BIT );
-#else
 			ref.dllFuncs.R_ClearScreen();
-#endif
 		}
 
-		RefRenderIface->GL_RenderFrame( &rvp );
+		ref.dllFuncs.GL_RenderFrame( &rvp );
 		S_UpdateFrame( &rvp );
 		viewnum++;
 

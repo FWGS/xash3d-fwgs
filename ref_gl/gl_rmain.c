@@ -39,7 +39,7 @@ static int R_RankForRenderMode( int rendermode )
 	return 0;
 }
 
-void R_AllowFog( int allowed )
+void R_AllowFog( qboolean allowed )
 {
 	static int	isFogEnabled;
 
@@ -1086,10 +1086,10 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 R_RenderFrame
 ===============
 */
-void R_RenderFrame( const ref_viewpass_t *rvp )
+int R_RenderFrame( const ref_viewpass_t *rvp )
 {
 	if( r_norefresh->value )
-		return;
+		return 1;
 
 	// setup the initial render params
 	R_SetupRefParams( rvp );
@@ -1115,7 +1115,7 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 			R_GatherPlayerLight();
 			tr.realframecount++;
 			tr.fResetVis = true;
-			return;
+			return 1;
 		}
 	}
 
@@ -1125,6 +1125,8 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 
 	tr.realframecount++; // right called after viewmodel events
 	R_RenderScene();
+
+	return 1;
 }
 
 /*
@@ -1169,121 +1171,4 @@ void R_DrawCubemapView( const vec3_t origin, const vec3_t angles, int size )
 	R_RenderFrame( &rvp );
 
 	RI.viewleaf = NULL;		// force markleafs next frame
-}
-
-static int GL_RenderGetParm( int parm, int arg )
-{
-	gl_texture_t *glt;
-
-	switch( parm )
-	{
-	case PARM_TEX_WIDTH:
-		glt = R_GetTexture( arg );
-		return glt->width;
-	case PARM_TEX_HEIGHT:
-		glt = R_GetTexture( arg );
-		return glt->height;
-	case PARM_TEX_SRC_WIDTH:
-		glt = R_GetTexture( arg );
-		return glt->srcWidth;
-	case PARM_TEX_SRC_HEIGHT:
-		glt = R_GetTexture( arg );
-		return glt->srcHeight;
-	case PARM_TEX_GLFORMAT:
-		glt = R_GetTexture( arg );
-		return glt->format;
-	case PARM_TEX_ENCODE:
-		glt = R_GetTexture( arg );
-		return glt->encode;
-	case PARM_TEX_MIPCOUNT:
-		glt = R_GetTexture( arg );
-		return glt->numMips;
-	case PARM_TEX_DEPTH:
-		glt = R_GetTexture( arg );
-		return glt->depth;
-	case PARM_TEX_SKYBOX:
-		Assert( arg >= 0 && arg < 6 );
-		return tr.skyboxTextures[arg];
-	case PARM_TEX_SKYTEXNUM:
-		return tr.skytexturenum;
-	case PARM_TEX_LIGHTMAP:
-		arg = bound( 0, arg, MAX_LIGHTMAPS - 1 );
-		return tr.lightmapTextures[arg];
-	case PARM_WIDESCREEN:
-		return gpGlobals->wideScreen;
-	case PARM_FULLSCREEN:
-		return gpGlobals->fullScreen;
-	case PARM_SCREEN_WIDTH:
-		return gpGlobals->width;
-	case PARM_SCREEN_HEIGHT:
-		return gpGlobals->height;
-	case PARM_TEX_TARGET:
-		glt = R_GetTexture( arg );
-		return glt->target;
-	case PARM_TEX_TEXNUM:
-		glt = R_GetTexture( arg );
-		return glt->texnum;
-	case PARM_TEX_FLAGS:
-		glt = R_GetTexture( arg );
-		return glt->flags;
-	case PARM_ACTIVE_TMU:
-		return glState.activeTMU;
-	case PARM_LIGHTSTYLEVALUE:
-		arg = bound( 0, arg, MAX_LIGHTSTYLES - 1 );
-		return tr.lightstylevalue[arg];
-	case PARM_MAX_IMAGE_UNITS:
-		return GL_MaxTextureUnits();
-	case PARM_REBUILD_GAMMA:
-		return glConfig.softwareGammaUpdate;
-	case PARM_SURF_SAMPLESIZE:
-		if( arg >= 0 && arg < WORLDMODEL->numsurfaces )
-			return gEngfuncs.Mod_SampleSizeForFace( &WORLDMODEL->surfaces[arg] );
-		return LM_SAMPLE_SIZE;
-	case PARM_GL_CONTEXT_TYPE:
-		return glConfig.context;
-	case PARM_GLES_WRAPPER:
-		return glConfig.wrapper;
-	case PARM_STENCIL_ACTIVE:
-		return glState.stencilEnabled;
-	case PARM_SKY_SPHERE:
-		return gEngfuncs.CL_GetRenderParm( parm, arg ) && !tr.fCustomSkybox;
-	default:
-		return gEngfuncs.CL_GetRenderParm( parm, arg );
-	}
-	return 0;
-}
-
-static void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScale )
-{
-	gl_texture_t *glt = R_GetTexture( texture );
-
-	if( xScale ) *xScale = glt->xscale;
-	if( yScale ) *yScale = glt->yscale;
-}
-
-static void R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
-{
-	gl_texture_t *glt = R_GetTexture( texture );
-
-	if( red ) *red = glt->fogParams[0];
-	if( green ) *green = glt->fogParams[1];
-	if( blue ) *blue = glt->fogParams[2];
-	if( density ) *density = glt->fogParams[3];
-}
-
-
-static void R_SetCurrentEntity( cl_entity_t *ent )
-{
-	RI.currententity = ent;
-
-	// set model also
-	if( RI.currententity != NULL )
-	{
-		RI.currentmodel = RI.currententity->model;
-	}
-}
-
-static void R_SetCurrentModel( model_t *mod )
-{
-	RI.currentmodel = mod;
 }

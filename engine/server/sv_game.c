@@ -617,10 +617,19 @@ void SV_RestartDecals( void )
 
 	// g-cont. add space for studiodecals if present
 	host.decalList = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
-	host.numdecals = ref.dllFuncs.R_CreateDecalList( host.decalList );
 
-	// remove decals from map
-	ref.dllFuncs.R_ClearAllDecals();
+	if( ref.dllFuncs.R_CreateDecalList )
+	{
+		host.numdecals = ref.dllFuncs.R_CreateDecalList( host.decalList );
+
+		// remove decals from map
+		ref.dllFuncs.R_ClearAllDecals();
+	}
+	else
+	{
+		// we probably running a dedicated server
+		host.numdecals = 0;
+	}
 
 	// write decals into reliable datagram
 	msg = SV_GetReliableDatagram();

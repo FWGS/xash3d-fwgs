@@ -134,9 +134,47 @@ const char *CL_GenericHandle( int fileindex )
 	return cl.files_precache[fileindex];
 }
 
+int CL_RenderGetParm( int parm, int arg, const qboolean checkRef )
+{
+	switch( parm )
+	{
+	case PARM_BSP2_SUPPORTED:
+#ifdef SUPPORT_BSP2_FORMAT
+		return 1;
+#endif
+		return 0;
+	case PARM_SKY_SPHERE:
+		return FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX );
+	case PARAM_GAMEPAUSED:
+		return cl.paused;
+	case PARM_CLIENT_INGAME:
+		return CL_IsInGame();
+	case PARM_MAX_ENTITIES:
+		return clgame.maxEntities;
+	case PARM_FEATURES:
+		return host.features;
+	case PARM_MAP_HAS_DELUXE:
+		return FBitSet( world.flags, FWORLD_HAS_DELUXEMAP );
+	case PARM_CLIENT_ACTIVE:
+		return (cls.state == ca_active);
+	case PARM_DEDICATED_SERVER:
+		return (host.type == HOST_DEDICATED);
+	case PARM_WATER_ALPHA:
+		return FBitSet( world.flags, FWORLD_WATERALPHA );
+	default:
+		if( checkRef ) return ref.dllFuncs.RenderGetParm( parm, arg );
+	}
+	return 0;
+}
+
+static int pfnRenderGetParm( int parm, int arg )
+{
+	return CL_RenderGetParm( parm, arg, true );
+}
+
 static render_api_t gRenderAPI =
 {
-	NULL, // GL_RenderGetParm,
+	pfnRenderGetParm, // GL_RenderGetParm,
 	NULL, // R_GetDetailScaleForTexture,
 	NULL, // R_GetExtraParmsForTexture,
 	CL_GetLightStyle,

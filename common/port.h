@@ -54,6 +54,8 @@ GNU General Public License for more details.
         #define OPEN_COMMAND "xdg-open"
 	#endif
 
+	#define OS_LIB_PREFIX "lib"
+
 	#if defined(__ANDROID__)
 		#if defined(LOAD_HARDFP)
 			#define POSTFIX "_hardfp"
