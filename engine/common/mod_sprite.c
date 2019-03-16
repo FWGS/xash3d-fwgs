@@ -34,7 +34,6 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	dsprite_q1_t	*pinq1;
 	dsprite_hl_t	*pinhl;
 	dsprite_t		*pin;
-	short		*numi = NULL;
 	msprite_t		*psprite;
 	int		i, size;
 
@@ -80,7 +79,6 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		mod->maxs[0] = mod->maxs[1] = pinq1->bounds[0] * 0.5f;
 		mod->mins[2] = -pinq1->bounds[1] * 0.5f;
 		mod->maxs[2] = pinq1->bounds[1] * 0.5f;
-		numi = NULL;
 	}
 	else if( i == SPRITE_VERSION_HL )
 	{
@@ -100,7 +98,6 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		mod->maxs[0] = mod->maxs[1] = pinhl->bounds[0] * 0.5f;
 		mod->mins[2] = -pinhl->bounds[1] * 0.5f;
 		mod->maxs[2] = pinhl->bounds[1] * 0.5f;
-		numi = (short *)(pinhl + 1);
 	}
 
 	if( Host_IsDedicated() )
