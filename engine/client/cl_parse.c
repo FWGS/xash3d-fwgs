@@ -208,6 +208,9 @@ void CL_ParseServerTime( sizebuf_t *msg )
 
 	if( cl.oldtime > cl.time )
 		cl.oldtime = cl.time;
+
+	refState.oldtime = cl.oldtime;
+	refState.time = cl.time;
 }
 
 /*
