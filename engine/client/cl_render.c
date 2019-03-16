@@ -19,18 +19,18 @@ GNU General Public License for more details.
 #include "client.h"
 #include "library.h"
 
-static int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis )
+int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis )
 {
 	return Mod_FatPVS( org, radius, visbuffer, world.visbytes, merge, fullvis );
 }
 
-static lightstyle_t *CL_GetLightStyle( int number )
+lightstyle_t *CL_GetLightStyle( int number )
 {
 	Assert( number >= 0 && number < MAX_LIGHTSTYLES );
 	return &cl.lightstyles[number];
 }
 
-static const ref_overview_t *GL_GetOverviewParms( void )
+const ref_overview_t *GL_GetOverviewParms( void )
 {
 	return &clgame.overView;
 }

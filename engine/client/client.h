@@ -848,6 +848,12 @@ void CL_PlayerTrace( float *start, float *end, int traceFlags, int ignore_pe, pm
 void CL_PlayerTraceExt( float *start, float *end, int traceFlags, int (*pfnIgnore)( physent_t *pe ), pmtrace_t *tr );
 void CL_SetTraceHull( int hull );
 void CL_GetMousePosition( int *mx, int *my ); // TODO: move to input
+int Demo_IsPlayingback( void );
+cl_entity_t* CL_GetViewModel( void );
+void pfnGetScreenFade( struct screenfade_s *fade );
+physent_t *pfnGetPhysent( int idx );
+struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend );
+movevars_t *pfnGetMoveVars( void );
 
 _inline cl_entity_t *CL_EDICT_NUM( int n )
 {
@@ -968,7 +974,11 @@ void CL_ClearAllRemaps( void );
 //
 // cl_render.c
 //
+qboolean R_InitRenderAPI( void );
 int CL_RenderGetParm( int parm, int arg, const qboolean checkRef );
+lightstyle_t *CL_GetLightStyle( int number );
+int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis );
+const ref_overview_t *GL_GetOverviewParms( void );
 
 //
 // cl_tent.c
@@ -996,10 +1006,13 @@ void CL_TempEntUpdate( void );
 void CL_InitViewBeams( void );
 void CL_ClearViewBeams( void );
 void CL_FreeViewBeams( void );
+cl_entity_t *R_BeamGetEntity( int index );
 void CL_KillDeadBeams( cl_entity_t *pDeadEntity );
 void CL_ParseViewBeam( sizebuf_t *msg, int beamType );
 void CL_LoadClientSprites( void );
 void CL_ReadPointFile_f( void );
+void CL_DrawEFX( float time, qboolean fTrans );
+void CL_ThinkParticle( double frametime, particle_t *p );
 void CL_ReadLineFile_f( void );
 void CL_RunLightStyles( void );
 

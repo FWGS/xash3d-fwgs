@@ -505,6 +505,7 @@ void Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t function, const 
 void Cmd_AddServerCommand( const char *cmd_name, xcommand_t function );
 int Cmd_AddClientCommand( const char *cmd_name, xcommand_t function );
 int Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function );
+int Cmd_AddRefCommand( const char *cmd_name, xcommand_t function, const char *description );
 void Cmd_RemoveCommand( const char *cmd_name );
 qboolean Cmd_Exists( const char *cmd_name );
 void Cmd_LookupCmds( char *buffer, void *ptr, setpair_t callback );

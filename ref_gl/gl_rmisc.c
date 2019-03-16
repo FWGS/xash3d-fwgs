@@ -110,6 +110,8 @@ void R_NewMap( void )
 
 	R_ClearDecals(); // clear all level decals
 
+	R_StudioResetPlayerModels();
+
 	// upload detailtextures
 	if( CVAR_TO_BOOL( r_detailtextures ))
 	{
