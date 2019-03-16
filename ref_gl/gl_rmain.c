@@ -1138,12 +1138,7 @@ void R_EndFrame( void )
 {
 	// flush any remaining 2D bits
 	R_Set2DMode( false );
-
-#ifdef XASH_SDL
-	SDL_GL_SwapWindow( host.hWnd );
-#elif defined __ANDROID__ // For direct android backend
-	Android_SwapBuffers();
-#endif
+	gEngfuncs.GL_SwapBuffers();
 }
 
 /*

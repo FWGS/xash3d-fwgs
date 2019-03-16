@@ -3,6 +3,7 @@
 #include "library.h"
 #include "cl_tent.h"
 #include "platform/platform.h"
+#include "vid_common.h"
 
 struct ref_state_s ref;
 ref_globals_t refState;
@@ -352,6 +353,7 @@ static ref_api_t gEngfuncs =
 	GL_SetAttribute,
 	GL_GetAttribute,
 	GL_GetProcAddress,
+	GL_SwapBuffers,
 
 	BuildGammaTable,
 	LightToTexGamma,

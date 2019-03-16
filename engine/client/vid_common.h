@@ -28,15 +28,6 @@ typedef struct
 
 } glwstate_t;
 
-typedef struct vidstate_s
-{
-	int		width, height;
-	int		prev_width, prev_height;
-	qboolean		fullScreen;
-	qboolean		wideScreen;
-} vidstate_t;
-
-extern vidstate_t vidState;
 extern glwstate_t glw_state;
 
 #define VID_MIN_HEIGHT 200
@@ -50,5 +41,6 @@ void R_SaveVideoMode( int w, int h );
 void VID_CheckChanges( void );
 const char *VID_GetModeString( int vid_mode );
 void VID_StartupGamma( void );
+void GL_SwapBuffers();
 
 #endif // VID_COMMON
