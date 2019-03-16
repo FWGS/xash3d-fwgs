@@ -34,8 +34,9 @@ typedef struct
 	model_t		*model;
 } player_model_t;
 
-CVAR_DEFINE_AUTO( r_glowshellfreq, "2.2", 0, "glowing shell frequency update" );
-CVAR_DEFINE_AUTO( r_shadows, "0", 0, "cast shadows from models" );
+cvar_t *r_glowshellfreq;
+
+cvar_t r_shadows = { "r_shadows", "0", 0 };
 
 static vec3_t hullcolor[8] = 
 {
@@ -115,10 +116,10 @@ typedef struct
 } studio_draw_state_t;
 
 // studio-related cvars 
-convar_t			*r_studio_sort_textures;
-convar_t			*r_drawviewmodel;
-convar_t			*cl_righthand = NULL;
-convar_t			*cl_himodels;
+cvar_t			*r_studio_sort_textures;
+cvar_t			*r_drawviewmodel;
+cvar_t			*cl_righthand = NULL;
+cvar_t			*cl_himodels;
 
 static r_studio_interface_t	*pStudioDraw;
 static studio_draw_state_t	g_studio;		// global studio state
@@ -147,7 +148,7 @@ void R_StudioInit( void )
 	r_drawviewmodel = gEngfuncs.Cvar_Get( "r_drawviewmodel", "1", 0, "draw firstperson weapon model" );
 
 	Matrix3x4_LoadIdentity( g_studio.rotationmatrix );
-	gEngfuncs.Cvar_RegisterVariable( &r_glowshellfreq );
+	r_glowshellfreq = gEngfuncs.Cvar_Get( "r_glowshellfreq", "2.2", 0, "glowing shell frequency update" );
 
 	// g-cont. cvar disabled by Valve
 //	gEngfuncs.Cvar_RegisterVariable( &r_shadows );
@@ -1133,9 +1134,9 @@ void R_StudioBuildNormalTable( void )
 		}
 	}
 
-	g_studio.chrome_origin[0] = cos( r_glowshellfreq.value * g_studio.time ) * 4000.0f;
-	g_studio.chrome_origin[1] = sin( r_glowshellfreq.value * g_studio.time ) * 4000.0f;
-	g_studio.chrome_origin[2] = cos( r_glowshellfreq.value * g_studio.time * 0.33f ) * 4000.0f;
+	g_studio.chrome_origin[0] = cos( r_glowshellfreq->value * g_studio.time ) * 4000.0f;
+	g_studio.chrome_origin[1] = sin( r_glowshellfreq->value * g_studio.time ) * 4000.0f;
+	g_studio.chrome_origin[2] = cos( r_glowshellfreq->value * g_studio.time * 0.33f ) * 4000.0f;
 
 	if( e->curstate.rendercolor.r || e->curstate.rendercolor.g || e->curstate.rendercolor.b )
 		TriColor4ub( e->curstate.rendercolor.r, e->curstate.rendercolor.g, e->curstate.rendercolor.b, 255 );

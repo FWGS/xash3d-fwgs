@@ -2,9 +2,6 @@
 #ifndef VID_COMMON
 #define VID_COMMON
 
-#define FCONTEXT_CORE_PROFILE		BIT( 0 )
-#define FCONTEXT_DEBUG_ARB		BIT( 1 )
-
 typedef struct vidmode_s
 {
 	const char	*desc;
