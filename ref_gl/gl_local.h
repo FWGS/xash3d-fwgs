@@ -516,6 +516,8 @@ int VGUI_GenerateTexture( void );
 //
 qboolean R_Init( void );
 void R_Shutdown( void );
+void GL_SetupAttributes( int safegl );
+void GL_OnContextCreated( void );
 void GL_InitExtensions( void );
 void GL_ClearExtensions( void );
 void VID_CheckChanges( void );
@@ -719,7 +721,6 @@ extern convar_t	*gl_extensions;
 extern convar_t	*gl_check_errors;
 extern convar_t	*gl_texture_lodbias;
 extern convar_t	*gl_texture_nearest;
-extern convar_t	*gl_wgl_msaa_samples;
 extern convar_t	*gl_lightmap_nearest;
 extern convar_t	*gl_keeptjunctions;
 extern convar_t	*gl_emboss_scale;

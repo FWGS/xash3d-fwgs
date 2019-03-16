@@ -144,6 +144,72 @@ enum ref_defaultsprite_e
 	REF_CHROME_SPRITE // cl_sprite_shell
 };
 
+enum ref_graphic_apis_e
+{
+	REF_SOFTWARE,	// hypothetical: just make a surface to draw on, in software
+	REF_GL,			// create GL context
+};
+
+typedef enum
+{
+	SAFE_NO = 0,
+	SAFE_NOMSAA,      // skip msaa
+	SAFE_NOACC,       // don't set acceleration flag
+	SAFE_NOSTENCIL,   // don't set stencil bits
+	SAFE_NOALPHA,     // don't set alpha bits
+	SAFE_NODEPTH,     // don't set depth bits
+	SAFE_NOCOLOR,     // don't set color bits
+	SAFE_DONTCARE     // ignore everything, let SDL/EGL decide
+} ref_safegl_context_t;
+
+// binary compatible with SDL2
+enum // OpenGL configuration attributes
+{
+	REF_GL_RED_SIZE,
+	REF_GL_GREEN_SIZE,
+	REF_GL_BLUE_SIZE,
+	REF_GL_ALPHA_SIZE,
+	REF_GL_BUFFER_SIZE,
+	REF_GL_DOUBLEBUFFER,
+	REF_GL_DEPTH_SIZE,
+	REF_GL_STENCIL_SIZE,
+	REF_GL_ACCUM_RED_SIZE,
+	REF_GL_ACCUM_GREEN_SIZE,
+	REF_GL_ACCUM_BLUE_SIZE,
+	REF_GL_ACCUM_ALPHA_SIZE,
+	REF_GL_STEREO,
+	REF_GL_MULTISAMPLEBUFFERS,
+	REF_GL_MULTISAMPLESAMPLES,
+	REF_GL_ACCELERATED_VISUAL,
+	REF_GL_RETAINED_BACKING,
+	REF_GL_CONTEXT_MAJOR_VERSION,
+	REF_GL_CONTEXT_MINOR_VERSION,
+	REF_GL_CONTEXT_EGL,
+	REF_GL_CONTEXT_FLAGS,
+	REF_GL_CONTEXT_PROFILE_MASK,
+	REF_GL_SHARE_WITH_CURRENT_CONTEXT,
+	REF_GL_FRAMEBUFFER_SRGB_CAPABLE,
+	REF_GL_CONTEXT_RELEASE_BEHAVIOR,
+	REF_GL_CONTEXT_RESET_NOTIFICATION,
+	REF_GL_CONTEXT_NO_ERROR
+};
+
+enum
+{
+	REF_GL_CONTEXT_PROFILE_CORE           = 0x0001,
+	REF_GL_CONTEXT_PROFILE_COMPATIBILITY  = 0x0002,
+	REF_GL_CONTEXT_PROFILE_ES             = 0x0004 /**< GLX_CONTEXT_ES2_PROFILE_BIT_EXT */
+};
+
+enum
+{
+	REF_GL_CONTEXT_DEBUG_FLAG              = 0x0001,
+	REF_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG = 0x0002,
+	REF_GL_CONTEXT_ROBUST_ACCESS_FLAG      = 0x0004,
+	REF_GL_CONTEXT_RESET_ISOLATION_FLAG    = 0x0008
+};
+
+
 struct con_nprint_s;
 struct remap_info_s;
 
@@ -260,6 +326,7 @@ typedef struct ref_api_s
 	byte *(*CL_GetPaletteColor)(int color); // clgame.palette[color]
 	void (*CL_GetScreenInfo)( int *width, int *height ); // clgame.scrInfo, ptrs may be NULL
 	void (*SetLocalLightLevel)( int level ); // cl.local.light_level
+	int (*Sys_CheckParm)( const char *flag );
 
 	// studio interface
 	player_info_t *(*pfnPlayerInfo)( int index );
@@ -289,11 +356,15 @@ typedef struct ref_api_s
 	int (*FS_FileExists)( const char *filename, int gamedironly );
 	void (*FS_AllowDirectPaths)( qboolean enable );
 
+	// video init
+	// try to create window
+	// will call GL_SetupAttributes in case of REF_GL
+	int	(*R_Init_Video)( int type );
+	void (*R_Free_Video)( void );
+
 	// GL
 	int   (*GL_SetAttribute)( int attr, int value );
-	int   (*GL_GetAttribute)( int attr );
-	int   (*GL_CreateContext)( void ); // TODO
-	void  (*GL_DestroyContext)( );
+	int   (*GL_GetAttribute)( int attr, int *value );
 	void *(*GL_GetProcAddress)( const char *name );
 
 	// gamma
@@ -347,6 +418,8 @@ typedef struct ref_interface_s
 	void (*R_Shutdown)( void );
 
 	//
+	void (*GL_SetupAttributes)( int safegl );
+	void (*GL_OnContextCreated)( void );
 	void (*GL_InitExtensions)( void );
 	void (*GL_ClearExtensions)( void );
 
@@ -528,6 +601,9 @@ typedef struct ref_interface_s
 	void	(*VGUI_UploadTexture)( int id, const char *buffer, int width, int height );
 	void	(*VGUI_UploadTextureBlock)( int id, int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight );
 	void	(*VGUI_DrawQuad)( const vpoint_t *ul, const vpoint_t *lr );
+	void	(*VGUI_GetTextureSizes)( int *width, int *height );
+	int		(*VGUI_GenerateTexture)( void );
+
 } ref_interface_t;
 
 typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* engfuncs, ref_globals_t *pGlobals );

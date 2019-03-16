@@ -90,6 +90,8 @@ int       R_MaxVideoModes();
 vidmode_t*R_GetVideoMode( int num );
 void*     GL_GetProcAddress( const char *name ); // RenderAPI requirement
 void      GL_UpdateSwapInterval( void );
+int GL_SetAttribute( int attr, int val );
+int GL_GetAttribute( int attr, int *val );
 
 /*
 ==============================================================================

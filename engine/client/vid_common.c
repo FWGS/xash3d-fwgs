@@ -29,7 +29,6 @@ convar_t	*vid_highdpi;
 
 vidstate_t vidState;
 glwstate_t	glw_state;
-glcontext_t glContext;
 
 convar_t	*window_xpos;
 convar_t	*window_ypos;

@@ -1236,7 +1236,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 
 	if( type == SPR_MAPSPRITE )
 		ref.dllFuncs.Mod_LoadMapSprite( m_pSprite, buf, size, &loaded );
-	else ref.dllFuncs.Mod_LoadModel( mod_sprite, m_pSprite, buf, &loaded, texFlags );
+	else Mod_LoadSpriteModel( m_pSprite, buf, &loaded, texFlags );
 
 	Mem_Free( buf );
 

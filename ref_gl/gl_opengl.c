@@ -42,7 +42,6 @@ convar_t	*gl_round_down;
 convar_t	*r_vbo;
 convar_t	*r_vbo_dlightmode;
 convar_t	*gl_showtextures;
-convar_t	*gl_wgl_msaa_samples;
 convar_t	*cl_lightstyle_lerping;
 
 convar_t	*vid_brightness;
@@ -788,7 +787,6 @@ void GL_InitCommands( void )
 	gl_clear = gEngfuncs.Cvar_Get( "gl_clear", "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
 	gl_test = gEngfuncs.Cvar_Get( "gl_test", "0", 0, "engine developer cvar for quick testing new features" );
 	gl_wireframe = gEngfuncs.Cvar_Get( "gl_wireframe", "0", FCVAR_ARCHIVE|FCVAR_SPONLY, "show wireframe overlay" );
-	gl_wgl_msaa_samples = gEngfuncs.Cvar_Get( "gl_wgl_msaa_samples", "0", FCVAR_GLCONFIG, "samples number for multisample anti-aliasing" );
 	gl_msaa = gEngfuncs.Cvar_Get( "gl_msaa", "1", FCVAR_ARCHIVE, "enable or disable multisample anti-aliasing" );
 	gl_stencilbits = gEngfuncs.Cvar_Get( "gl_stencilbits", "8", FCVAR_GLCONFIG, "pixelformat stencil bits (0 - auto)" );
 	gl_round_down = gEngfuncs.Cvar_Get( "gl_round_down", "2", FCVAR_RENDERINFO, "round texture sizes to nearest POT value" );
@@ -867,6 +865,16 @@ static void R_CheckVBO( void )
 }
 
 /*
+=================
+GL_RemoveCommands
+=================
+*/
+void GL_RemoveCommands( void )
+{
+	gEngfuncs.Cmd_RemoveCommand( "r_info" );
+}
+
+/*
 ===============
 R_Init
 ===============
@@ -882,18 +890,15 @@ qboolean R_Init( void )
 	GL_SetDefaultState();
 
 	// create the window and set up the context
-#if 0 // REFTODO: just make it compile
-	if( !R_Init_Video( ))
+	if( !gEngfuncs.R_Init_Video( REF_GL )) // request GL context
 	{
 		GL_RemoveCommands();
-		R_Free_Video();
+		gEngfuncs.R_Free_Video();
 
 		gEngfuncs.Host_Error( "Can't initialize video subsystem\nProbably driver was not installed" );
 		return false;
 	}
 
-	host.renderinfo_changed = false;
-#endif
 	r_temppool = Mem_AllocPool( "Render Zone" );
 
 	GL_SetDefaults();
@@ -906,16 +911,6 @@ qboolean R_Init( void )
 	R_ClearScene();
 
 	return true;
-}
-
-/*
-=================
-GL_RemoveCommands
-=================
-*/
-void GL_RemoveCommands( void )
-{
-	gEngfuncs.Cmd_RemoveCommand( "r_info" );
 }
 
 /*
@@ -933,10 +928,8 @@ void R_Shutdown( void )
 
 	Mem_FreePool( &r_temppool );
 
-#if 0 // REFTODO: just make it compile
 	// shut down OS specific OpenGL stuff like contexts, etc.
-	R_Free_Video();
-#endif // 0
+	gEngfuncs.R_Free_Video();
 }
 
 /*
@@ -983,5 +976,153 @@ void GL_CheckForErrors_( const char *filename, const int fileline )
 		return;
 
 	gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s (called at %s:%i)\n", GL_ErrorString( err ), filename, fileline );
+}
+
+void GL_SetupAttributes( int safegl )
+{
+	int context_flags = 0; // REFTODO!!!!!
+	int samples = 0;
+
+#ifdef XASH_GLES
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_ES );
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_EGL, 1 );
+#ifdef XASH_NANOGL
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MAJOR_VERSION, 1 );
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MINOR_VERSION, 1 );
+#elif defined( XASH_WES ) || defined( XASH_REGAL )
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MAJOR_VERSION, 2 );
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MINOR_VERSION, 0 );
+#endif
+#else // GL1.x
+#ifndef XASH_GL_STATIC
+	if( gEngfuncs.Sys_CheckParm( "-gldebug" ) )
+	{
+		gEngfuncs.Con_Reportf( "Creating an extended GL context for debug...\n" );
+		SetBits( context_flags, FCONTEXT_DEBUG_ARB );
+		gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_FLAGS, REF_GL_CONTEXT_DEBUG_FLAG );
+		glw_state.extended = true;
+	}
+#endif // XASH_GL_STATIC
+	if( gEngfuncs.Sys_CheckParm( "-glcore" ))
+	{
+		SetBits( context_flags, FCONTEXT_CORE_PROFILE );
+
+		gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_CORE );
+	}
+	else
+	{
+		gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_COMPATIBILITY );
+	}
+#endif // XASH_GLES
+
+	if( safegl > SAFE_DONTCARE )
+	{
+		safegl = -1; // can't retry anymore, can only shutdown engine
+		return;
+	}
+
+	gEngfuncs.Con_Printf( "Trying safe opengl mode %d\n", safegl );
+
+	if( safegl == SAFE_DONTCARE )
+		return;
+
+	gEngfuncs.GL_SetAttribute( REF_GL_DOUBLEBUFFER, 1 );
+
+	if( safegl < SAFE_NOACC )
+		gEngfuncs.GL_SetAttribute( REF_GL_ACCELERATED_VISUAL, 1 );
+
+	gEngfuncs.Con_Printf( "bpp %d\n", glw_state.desktopBitsPixel );
+
+	if( safegl < SAFE_NOSTENCIL )
+		gEngfuncs.GL_SetAttribute( REF_GL_STENCIL_SIZE, gl_stencilbits->value );
+
+	if( safegl < SAFE_NOALPHA )
+		gEngfuncs.GL_SetAttribute( REF_GL_ALPHA_SIZE, 8 );
+
+	if( safegl < SAFE_NODEPTH )
+		gEngfuncs.GL_SetAttribute( REF_GL_DEPTH_SIZE, 24 );
+	else
+		gEngfuncs.GL_SetAttribute( REF_GL_DEPTH_SIZE, 8 );
+
+	if( safegl < SAFE_NOCOLOR )
+	{
+		if( glw_state.desktopBitsPixel >= 24 )
+		{
+			gEngfuncs.GL_SetAttribute( REF_GL_RED_SIZE, 8 );
+			gEngfuncs.GL_SetAttribute( REF_GL_GREEN_SIZE, 8 );
+			gEngfuncs.GL_SetAttribute( REF_GL_BLUE_SIZE, 8 );
+		}
+		else if( glw_state.desktopBitsPixel >= 16 )
+		{
+			gEngfuncs.GL_SetAttribute( REF_GL_RED_SIZE, 5 );
+			gEngfuncs.GL_SetAttribute( REF_GL_GREEN_SIZE, 6 );
+			gEngfuncs.GL_SetAttribute( REF_GL_BLUE_SIZE, 5 );
+		}
+		else
+		{
+			gEngfuncs.GL_SetAttribute( REF_GL_RED_SIZE, 3 );
+			gEngfuncs.GL_SetAttribute( REF_GL_GREEN_SIZE, 3 );
+			gEngfuncs.GL_SetAttribute( REF_GL_BLUE_SIZE, 2 );
+		}
+	}
+
+	if( safegl < SAFE_NOMSAA )
+	{
+		switch( (int)gEngfuncs.pfnGetCvarFloat( "gl_wgl_msaa_samples" ))
+		{
+		case 2:
+		case 4:
+		case 8:
+		case 16:
+			samples = gEngfuncs.pfnGetCvarFloat( "gl_wgl_msaa_samples" );
+			break;
+		default:
+			samples = 0; // don't use, because invalid parameter is passed
+		}
+
+		if( samples )
+		{
+			gEngfuncs.GL_SetAttribute( REF_GL_MULTISAMPLEBUFFERS, 1 );
+			gEngfuncs.GL_SetAttribute( REF_GL_MULTISAMPLESAMPLES, samples );
+
+			glConfig.max_multisamples = samples;
+		}
+		else
+		{
+			gEngfuncs.GL_SetAttribute( REF_GL_MULTISAMPLEBUFFERS, 0 );
+			gEngfuncs.GL_SetAttribute( REF_GL_MULTISAMPLESAMPLES, 0 );
+
+			glConfig.max_multisamples = 0;
+		}
+	}
+	else
+	{
+		gEngfuncs.Cvar_Set( "gl_wgl_msaa_samples", "0" );
+	}
+}
+
+void GL_OnContextCreated( void )
+{
+	int colorBits[3];
+#ifdef XASH_NANOGL
+	nanoGL_Init();
+#endif
+
+	gEngfuncs.GL_GetAttribute( REF_GL_RED_SIZE, &colorBits[0] );
+	gEngfuncs.GL_GetAttribute( REF_GL_GREEN_SIZE, &colorBits[1] );
+	gEngfuncs.GL_GetAttribute( REF_GL_BLUE_SIZE, &colorBits[2] );
+	glConfig.color_bits = colorBits[0] + colorBits[1] + colorBits[2];
+
+	gEngfuncs.GL_GetAttribute( REF_GL_ALPHA_SIZE, &glConfig.alpha_bits );
+	gEngfuncs.GL_GetAttribute( REF_GL_DEPTH_SIZE, &glConfig.depth_bits );
+	gEngfuncs.GL_GetAttribute( REF_GL_STENCIL_SIZE, &glConfig.stencil_bits );
+	glState.stencilEnabled = glConfig.stencil_bits ? true : false;
+
+	gEngfuncs.GL_GetAttribute( REF_GL_MULTISAMPLESAMPLES, &glConfig.msaasamples );
+
+#ifdef XASH_WES
+	void wes_init();
+	wes_init();
+#endif
 }
 
