@@ -37,10 +37,6 @@ static color24 gTracerColors[] =
 { 255, 120, 70 },		// Darker red streaks (garg)
 };
 
-convar_t		*tracerred;
-convar_t		*tracergreen;
-convar_t		*tracerblue;
-convar_t		*traceralpha;
 convar_t		*tracerspeed;
 convar_t		*tracerlength;
 convar_t		*traceroffset;
@@ -128,10 +124,6 @@ void CL_InitParticles( void )
 		cl_avelocities[i][2] = COM_RandomFloat( 0.0f, 2.55f );
 	}
 
-	tracerred = Cvar_Get( "tracerred", "0.8", 0, "tracer red component weight ( 0 - 1.0 )" );
-	tracergreen = Cvar_Get( "tracergreen", "0.8", 0, "tracer green component weight ( 0 - 1.0 )" );
-	tracerblue = Cvar_Get( "tracerblue", "0.4", 0, "tracer blue component weight ( 0 - 1.0 )" );
-	traceralpha = Cvar_Get( "traceralpha", "0.5", 0, "tracer alpha amount ( 0 - 1.0 )" );
 	tracerspeed = Cvar_Get( "tracerspeed", "6000", 0, "tracer speed" );
 	tracerlength = Cvar_Get( "tracerlength", "0.8", 0, "tracer length factor" );
 	traceroffset = Cvar_Get( "traceroffset", "30", 0, "tracer starting offset" );
