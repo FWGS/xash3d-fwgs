@@ -35,8 +35,8 @@ GNU General Public License for more details.
 #include "cvar.h"
 #define offsetof(s,m)       (size_t)&(((s *)0)->m)
 
-#define ASSERT(x)
-#define Assert(x)
+#define ASSERT(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
+#define Assert(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
 
 #include <stdio.h>
 
