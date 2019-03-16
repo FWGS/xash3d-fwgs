@@ -1048,7 +1048,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	phdr = R_StudioLoadHeader( mod, buffer );
 	if( !phdr ) return;	// bad model
 
-	if( Host_IsDedicated() )
+	if( !Host_IsDedicated() )
 	{
 		if( phdr->numtextures == 0 )
 		{
