@@ -799,10 +799,10 @@ void GL_InitCommands( void )
 	vid_gamma = gEngfuncs.pfnGetCvarPointer( "gamma", 0 );
 	vid_brightness = gEngfuncs.pfnGetCvarPointer( "brightness", 0 );
 
-	tracerred = gEngfuncs.pfnGetCvarPointer( "tracerred", 0 );
-	tracergreen = gEngfuncs.pfnGetCvarPointer( "tracergreen", 0 );
-	tracerblue = gEngfuncs.pfnGetCvarPointer( "tracerblue", 0 );
-	traceralpha = gEngfuncs.pfnGetCvarPointer( "traceralpha", 0 );
+	tracerred = gEngfuncs.Cvar_Get( "tracerred", "0.8", 0, "tracer red component weight ( 0 - 1.0 )" );
+	tracergreen = gEngfuncs.Cvar_Get( "tracergreen", "0.8", 0, "tracer green component weight ( 0 - 1.0 )" );
+	tracerblue = gEngfuncs.Cvar_Get( "tracerblue", "0.4", 0, "tracer blue component weight ( 0 - 1.0 )" );
+	traceralpha = gEngfuncs.Cvar_Get( "traceralpha", "0.5", 0, "tracer alpha amount ( 0 - 1.0 )" );
 
 	cl_lightstyle_lerping = gEngfuncs.pfnGetCvarPointer( "cl_lightstyle_lerping", 0 );
 
