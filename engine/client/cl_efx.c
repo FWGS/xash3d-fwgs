@@ -87,6 +87,14 @@ short R_LookupColor( byte r, byte g, byte b )
 	return best;
 }
 
+color24 *R_GetTracerColor( uint idx )
+{
+	if( idx > ARRAYSIZE( gTracerColors ))
+		return NULL;
+
+	return &gTracerColors[idx];
+}
+
 /*
 ================
 R_GetPackedColor
@@ -432,7 +440,7 @@ extract entity number from index
 handle user entities
 ==============
 */
-static cl_entity_t *R_BeamGetEntity( int index )
+cl_entity_t *R_BeamGetEntity( int index )
 {
 	if( index < 0 )
 		return clgame.dllFuncs.pfnGetUserEntity( BEAMENT_ENTITY( -index ));

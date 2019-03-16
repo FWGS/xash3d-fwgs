@@ -109,6 +109,9 @@ typedef struct
 	vec4_t		lightpos[MAXSTUDIOVERTS][MAX_LOCALLIGHTS];
 	vec3_t		lightbonepos[MAXSTUDIOBONES][MAX_LOCALLIGHTS];
 	float		locallightR2[MAX_LOCALLIGHTS];
+
+	// playermodels
+	player_model_t  player_models[MAX_CLIENTS];
 } studio_draw_state_t;
 
 // studio-related cvars 
@@ -365,16 +368,10 @@ pfnPlayerInfo
 */
 player_info_t *pfnPlayerInfo( int index )
 {
-#if 0
 	if( !RI.drawWorld )
-		return &gameui.playerinfo;
+		index = -1;
 
-	if( index < 0 || index > cl.maxclients )
-		return NULL;
-	return &cl.players[index];
-#else
 	return gEngfuncs.pfnPlayerInfo( index );
-#endif
 }
 
 /*
@@ -398,14 +395,8 @@ entity_state_t *R_StudioGetPlayerState( int index )
 {
 	if( !RI.drawWorld )
 		return &RI.currententity->curstate;
-#if 0
-	if( index < 0 || index >= cl.maxclients )
-		return NULL;
 
-	return &cl.frames[cl.parsecountmod].playerstate[index];
-#else
 	return gEngfuncs.pfnGetPlayerState( index );
-#endif
 }
 
 /*
@@ -2398,7 +2389,7 @@ R_StudioSetRemapColors
 
 ===============
 */
-void R_StudioSetRemapColors( int newTop, int newBottom )
+static void R_StudioSetRemapColors( int newTop, int newBottom )
 {
 	gEngfuncs.CL_AllocRemapInfo( newTop, newBottom );
 
@@ -2407,6 +2398,11 @@ void R_StudioSetRemapColors( int newTop, int newBottom )
 		gEngfuncs.CL_UpdateRemapInfo( newTop, newBottom );
 		m_fDoRemap = true;
 	}
+}
+
+void R_StudioResetPlayerModels( void )
+{
+	memset( g_studio.player_models, 0, sizeof( g_studio.player_models ));
 }
 
 /*
@@ -2420,9 +2416,7 @@ static model_t *R_StudioSetupPlayerModel( int index )
 	player_info_t	*info = gEngfuncs.pfnPlayerInfo( index );
 	player_model_t	*state;
 
-#if 0
-	state = &cl.player_models[index];
-#endif
+	state = &g_studio.player_models[index];
 
 	// g-cont: force for "dev-mode", non-local games and menu preview
 	if(( gpGlobals->developer || !gEngfuncs.Host_IsLocalGame( ) || !RI.drawWorld ) && info->model[0] )
@@ -3634,7 +3628,7 @@ static void pfnMod_LoadCacheFile( const char *path, struct cache_user_s *cu )
 
 static cvar_t *pfnGetCvarPointer( const char *name )
 {
-	return (cvar_t*)gEngfuncs.pfnGetCvarPointer( name );
+	return (cvar_t*)gEngfuncs.pfnGetCvarPointer( name, 0 );
 }
 
 static void *pfnMod_Calloc( int number, size_t size )
@@ -3711,7 +3705,7 @@ void CL_InitStudioAPI( void )
 	pStudioDraw = &gStudioDraw;
 
 	// trying to grab them from client.dll
-	cl_righthand = gEngfuncs.pfnGetCvarPointer( "cl_righthand" );
+	cl_righthand = gEngfuncs.pfnGetCvarPointer( "cl_righthand", 0 );
 
 	if( cl_righthand == NULL )
 		cl_righthand = gEngfuncs.Cvar_Get( "cl_righthand", "0", FCVAR_ARCHIVE, "flip viewmodel (left to right)" );

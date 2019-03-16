@@ -2083,7 +2083,7 @@ pfnIsNoClipping
 
 =============
 */
-int pfnIsNoClipping( void )
+static int pfnIsNoClipping( void )
 {
 	return ( cl.frames[cl.parsecountmod].playerstate[cl.playernum].movetype == MOVETYPE_NOCLIP );
 }
@@ -2094,7 +2094,7 @@ pfnGetViewModel
 
 =============
 */
-static cl_entity_t* pfnGetViewModel( void )
+cl_entity_t* CL_GetViewModel( void )
 {
 	return &clgame.viewent;
 }
@@ -2533,7 +2533,7 @@ pfnTraceSurface
 
 =============
 */
-static struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend )
+struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend )
 {
 	physent_t *pe;
 
@@ -2550,7 +2550,7 @@ pfnGetMovevars
 
 =============
 */
-static movevars_t *pfnGetMoveVars( void )
+movevars_t *pfnGetMoveVars( void )
 {
 	return &clgame.movevars;
 }
@@ -2645,7 +2645,7 @@ pfnGetScreenFade
 
 =============
 */
-static void pfnGetScreenFade( struct screenfade_s *fade )
+void pfnGetScreenFade( struct screenfade_s *fade )
 {
 	if( fade ) *fade = clgame.fade;
 }
@@ -3265,7 +3265,7 @@ Demo_IsPlayingback
 
 =================
 */
-static int Demo_IsPlayingback( void )
+int Demo_IsPlayingback( void )
 {
 	return cls.demoplayback;
 }
@@ -4020,10 +4020,9 @@ qboolean CL_LoadProgs( const char *name )
 	CL_InitViewBeams ();
 	CL_InitTempEnts ();
 
-#if 0 // REFTODO:
 	if( !R_InitRenderAPI())	// Xash3D extension
 		Con_Reportf( S_WARN "CL_LoadProgs: couldn't get render API\n" );
-#endif
+
 	if( !Mobile_Init() ) // Xash3D FWGS extension: mobile interface
 		Con_Reportf( S_WARN "CL_LoadProgs: couldn't get mobility API\n" );
 

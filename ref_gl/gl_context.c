@@ -19,21 +19,6 @@ GNU General Public License for more details.
 ref_api_t      gEngfuncs;
 ref_globals_t *gpGlobals;
 
-/*
-============
-Con_Printf
-
-engine callback wrapper
-============
-*/
-void Con_Printf( const char *fmt, ... )
-{
-	va_list args;
-	va_start( args, fmt );
-	gEngfuncs.Con_VPrintf( fmt, args );
-	va_end( args );
-}
-
 static void R_ClearScreen( void )
 {
 	pglClearColor( 0.0f, 0.0f, 0.0f, 0.0f );

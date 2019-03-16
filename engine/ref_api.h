@@ -164,10 +164,11 @@ typedef struct ref_api_s
 
 	// cvar handlers
 	convar_t   *(*Cvar_Get)( const char *szName, const char *szValue, int flags, const char *description );
-	convar_t   *(*pfnGetCvarPointer)( const char *name );
+	convar_t   *(*pfnGetCvarPointer)( const char *name, int ignore_flags );
 	float       (*pfnGetCvarFloat)( const char *szName );
 	const char *(*pfnGetCvarString)( const char *szName );
 	void        (*Cvar_SetValue)( const char *name, float value );
+	void        (*Cvar_Set)( const char *name, const char *value );
 	void (*Cvar_RegisterVariable)( convar_t *var );
 	void (*Cvar_FullSet)( const char *var_name, const char *value, int flags );
 
@@ -176,6 +177,7 @@ typedef struct ref_api_s
 	int         (*Cmd_RemoveCommand)( const char *cmd_name );
 	int         (*Cmd_Argc)( void );
 	const char *(*Cmd_Argv)( int arg );
+	const char *(*Cmd_Args)( void );
 
 	// cbuf
 	void (*Cbuf_AddText)( const char *commands );
@@ -184,7 +186,6 @@ typedef struct ref_api_s
 	void (*Cbuf_SetOpenGLConfigHack)( qboolean set ); // host.apply_opengl_config
 
 	// logging
-	void	(*Con_VPrintf)( const char *fmt, va_list args );
 	void	(*Con_Printf)( const char *fmt, ... ); // typical console allowed messages
 	void	(*Con_DPrintf)( const char *fmt, ... ); // -dev 1
 	void	(*Con_Reportf)( const char *fmt, ... ); // -dev 2
@@ -227,7 +228,7 @@ typedef struct ref_api_s
 	particle_t *(*CL_AllocParticleFast)( void ); // unconditionally give new particle pointer from cl_free_particles
 	efrag_t* (*GetEfragsFreeList)( void ); // clgame.free_efrags
 	void (*SetEfragsFreeList)( efrag_t* ); // clgame.free_efrags
-	color24 *(*GetTracerColors)( int num );
+	color24 *(*GetTracerColors)( uint num );
 	struct dlight_s *(*CL_AllocElight)( int key );
 	struct model_s *(*GetDefaultSprite)( enum ref_defaultsprite_e spr );
 
@@ -237,7 +238,7 @@ typedef struct ref_api_s
 	struct model_s *(*pfnGetModelByIndex)( int index ); // CL_ModelHandle
 	struct model_s *(*Mod_GetCurrentLoadingModel)( void ); // loadmodel
 	void (*Mod_SetCurrentLoadingModel)( struct model_s* ); // loadmodel
-	int (*CL_NumModels)( void );
+	int (*CL_NumModels)( void ); // cl.nummodels
 
 	// remap
 	struct remap_info_s *(*CL_GetRemapInfoForEntity)( cl_entity_t *e );
@@ -276,7 +277,7 @@ typedef struct ref_api_s
 	void  (*_Mem_Free)( void *data, const char *filename, int fileline );
 
 	// library management
-	void *(*COM_LoadLibrary)( const char *name );
+	void *(*COM_LoadLibrary)( const char *name, int build_ordinals_table, qboolean directpath );
 	void  (*COM_FreeLibrary)( void *handle );
 	void *(*COM_GetProcAddress)( void *handle, const char *name );
 
@@ -304,26 +305,8 @@ typedef struct ref_api_s
 	dlight_t*	(*GetDynamicLight)( int number );
 	dlight_t*	(*GetEntityLight)( int number );
 	int		(*R_FatPVS)( const float *org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis );
-	void		*(*AVI_LoadVideo)( const char *filename, qboolean load_audio );
-	int		(*AVI_GetVideoInfo)( void *Avi, long *xres, long *yres, float *duration );
-	long		(*AVI_GetVideoFrameNumber)( void *Avi, float time );
-	byte		*(*AVI_GetVideoFrame)( void *Avi, long frame );
-	void		(*AVI_FreeVideo)( void *Avi );
-	int		(*AVI_IsActive)( void *Avi );
-	void		(*AVI_StreamSound)( void *Avi, int entnum, float fvol, float attn, float synctime );
-	int		(*SPR_LoadExt)( const char *szPicName, unsigned int texFlags ); // extended version of SPR_Load
 	const struct ref_overview_s *( *GetOverviewParms )( void );
-	const char	*( *GetFileByIndex )( int fileindex );
-	void		*(*pfnMemAlloc)( size_t cb, const char *filename, const int fileline );
-	void		(*pfnMemFree)( void *mem, const char *filename, const int fileline );
-	char		**(*pfnGetFilesList)( const char *pattern, int *numFiles, int gamedironly );
-	unsigned int	(*pfnFileBufferCRC32)( const void *buffer, const int length );
-	int		(*COM_CompareFileTime)( const char *filename1, const char *filename2, int *iCompare );
-	void*		( *pfnGetModel )( int modelindex );
-	float		(*pfnTime)( void );				// Sys_DoubleTime
-	void		(*Cvar_Set)( const char *name, const char *value );
-	void		(*S_FadeMusicVolume)( float fadePercent );	// fade background track (0-100 percents)
-	void		(*SetRandomSeed)( long lSeed );		// set custom seed for RANDOM_FLOAT\RANDOM_LONG for predictable random
+	double		(*pfnTime)( void );				// Sys_DoubleTime
 
 	// event api
 	struct physent_s *(*EV_GetPhysent)( int idx );
@@ -350,7 +333,7 @@ typedef struct ref_api_s
 	// client exports
 	void	(*pfnDrawNormalTriangles)( void );
 	void	(*pfnDrawTransparentTriangles)( void );
-	render_interface_t	drawFuncs;
+	render_interface_t	*drawFuncs;
 } ref_api_t;
 
 struct mip_s;

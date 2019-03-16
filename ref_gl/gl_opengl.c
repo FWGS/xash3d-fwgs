@@ -769,20 +769,20 @@ void GL_InitCommands( void )
 	r_traceglow = gEngfuncs.Cvar_Get( "r_traceglow", "1", FCVAR_ARCHIVE, "cull flares behind models" );
 	r_lightmap = gEngfuncs.Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
 	r_drawentities = gEngfuncs.Cvar_Get( "r_drawentities", "1", FCVAR_CHEAT, "render entities" );
-	r_decals = gEngfuncs.pfnGetCvarPointer( "r_decals" );
-	r_showhull = gEngfuncs.pfnGetCvarPointer( "r_showhull" );
+	r_decals = gEngfuncs.pfnGetCvarPointer( "r_decals", 0 );
+	r_showhull = gEngfuncs.pfnGetCvarPointer( "r_showhull", 0 );
 
 	gl_extensions = gEngfuncs.Cvar_Get( "gl_allow_extensions", "1", FCVAR_GLCONFIG, "allow gl_extensions" );
 	gl_texture_nearest = gEngfuncs.Cvar_Get( "gl_texture_nearest", "0", FCVAR_ARCHIVE, "disable texture filter" );
 	gl_lightmap_nearest = gEngfuncs.Cvar_Get( "gl_lightmap_nearest", "0", FCVAR_ARCHIVE, "disable lightmap filter" );
 	gl_check_errors = gEngfuncs.Cvar_Get( "gl_check_errors", "1", FCVAR_ARCHIVE, "ignore video engine errors" );
-	gl_vsync = gEngfuncs.pfnGetCvarPointer( "gl_vsync" );
+	gl_vsync = gEngfuncs.pfnGetCvarPointer( "gl_vsync", 0 );
 	gl_detailscale = gEngfuncs.Cvar_Get( "gl_detailscale", "4.0", FCVAR_ARCHIVE, "default scale applies while auto-generate list of detail textures" );
 	gl_texture_anisotropy = gEngfuncs.Cvar_Get( "gl_anisotropy", "8", FCVAR_ARCHIVE, "textures anisotropic filter" );
 	gl_texture_lodbias =  gEngfuncs.Cvar_Get( "gl_texture_lodbias", "0.0", FCVAR_ARCHIVE, "LOD bias for mipmapped textures (perfomance|quality)" );
 	gl_keeptjunctions = gEngfuncs.Cvar_Get( "gl_keeptjunctions", "1", FCVAR_ARCHIVE, "removing tjuncs causes blinking pixels" );
 	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
-	gl_showtextures = gEngfuncs.pfnGetCvarPointer( "r_showtextures" );
+	gl_showtextures = gEngfuncs.pfnGetCvarPointer( "r_showtextures", 0 );
 	gl_finish = gEngfuncs.Cvar_Get( "gl_finish", "0", FCVAR_ARCHIVE, "use glFinish instead of glFlush" );
 	gl_nosort = gEngfuncs.Cvar_Get( "gl_nosort", "0", FCVAR_ARCHIVE, "disable sorting of translucent surfaces" );
 	gl_clear = gEngfuncs.Cvar_Get( "gl_clear", "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
@@ -798,15 +798,15 @@ void GL_InitCommands( void )
 	// make sure gl_vsync is checked after vid_restart
 	SetBits( gl_vsync->flags, FCVAR_CHANGED );
 
-	vid_gamma = gEngfuncs.pfnGetCvarPointer( "gamma" );
-	vid_brightness = gEngfuncs.pfnGetCvarPointer( "brightness" );
+	vid_gamma = gEngfuncs.pfnGetCvarPointer( "gamma", 0 );
+	vid_brightness = gEngfuncs.pfnGetCvarPointer( "brightness", 0 );
 
-	tracerred = gEngfuncs.pfnGetCvarPointer( "tracerred" );
-	tracergreen = gEngfuncs.pfnGetCvarPointer( "tracergreen" );
-	tracerblue = gEngfuncs.pfnGetCvarPointer( "tracerblue" );
-	traceralpha = gEngfuncs.pfnGetCvarPointer( "traceralpha" );
+	tracerred = gEngfuncs.pfnGetCvarPointer( "tracerred", 0 );
+	tracergreen = gEngfuncs.pfnGetCvarPointer( "tracergreen", 0 );
+	tracerblue = gEngfuncs.pfnGetCvarPointer( "tracerblue", 0 );
+	traceralpha = gEngfuncs.pfnGetCvarPointer( "traceralpha", 0 );
 
-	cl_lightstyle_lerping = gEngfuncs.pfnGetCvarPointer( "cl_lightstyle_lerping" );
+	cl_lightstyle_lerping = gEngfuncs.pfnGetCvarPointer( "cl_lightstyle_lerping", 0 );
 
 	gEngfuncs.Cmd_AddCommand( "r_info", R_RenderInfo_f, "display renderer info" );
 	gEngfuncs.Cmd_AddCommand( "timerefresh", SCR_TimeRefresh_f, "turn quickly and print rendering statistcs" );
