@@ -1106,11 +1106,11 @@ int R_RenderFrame( const ref_viewpass_t *rvp )
 	}
 
 	// completely override rendering
-	if( gEngfuncs.drawFuncs.GL_RenderFrame != NULL )
+	if( gEngfuncs.drawFuncs->GL_RenderFrame != NULL )
 	{
 		tr.fCustomRendering = true;
 
-		if( gEngfuncs.drawFuncs.GL_RenderFrame( rvp ))
+		if( gEngfuncs.drawFuncs->GL_RenderFrame( rvp ))
 		{
 			R_GatherPlayerLight();
 			tr.realframecount++;

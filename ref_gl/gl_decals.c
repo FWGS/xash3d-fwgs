@@ -1196,9 +1196,9 @@ int R_CreateDecalList( decallist_t *pList )
 			total = DecalListAdd( pList, total );
 		}
 
-		if( gEngfuncs.drawFuncs.R_CreateStudioDecalList )
+		if( gEngfuncs.drawFuncs->R_CreateStudioDecalList )
 		{
-			total += gEngfuncs.drawFuncs.R_CreateStudioDecalList( pList, total );
+			total += gEngfuncs.drawFuncs->R_CreateStudioDecalList( pList, total );
 		}
 	}
 
@@ -1280,8 +1280,8 @@ void R_ClearAllDecals( void )
 		R_DecalUnlink( pdecal );
 	}
 
-	if( gEngfuncs.drawFuncs.R_ClearStudioDecals )
+	if( gEngfuncs.drawFuncs->R_ClearStudioDecals )
 	{
-		gEngfuncs.drawFuncs.R_ClearStudioDecals();
+		gEngfuncs.drawFuncs->R_ClearStudioDecals();
 	}
 }
