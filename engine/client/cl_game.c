@@ -3803,7 +3803,7 @@ static cl_enginefunc_t gEngfuncs =
 	Platform_GetMousePos,
 	pfnIsNoClipping,
 	CL_GetLocalPlayer,
-	pfnGetViewModel,
+	CL_GetViewModel,
 	CL_GetEntityByIndex,
 	pfnGetClientTime,
 	pfnCalcShake,

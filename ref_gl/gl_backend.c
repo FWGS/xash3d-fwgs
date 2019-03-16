@@ -28,9 +28,9 @@ R_SpeedsMessage
 */
 qboolean R_SpeedsMessage( char *out, size_t size )
 {
-	if( gEngfuncs.drawFuncs.R_SpeedsMessage != NULL )
+	if( gEngfuncs.drawFuncs->R_SpeedsMessage != NULL )
 	{
-		if( gEngfuncs.drawFuncs.R_SpeedsMessage( out, size ))
+		if( gEngfuncs.drawFuncs->R_SpeedsMessage( out, size ))
 			return true;
 		// otherwise pass to default handler
 	}

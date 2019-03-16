@@ -45,16 +45,16 @@ static void R_DrawVBO( qboolean drawlightmaps, qboolean drawtextures );
 
 byte *Mod_GetCurrentVis( void )
 {
-	if( gEngfuncs.drawFuncs.Mod_GetCurrentVis && tr.fCustomRendering )
-		return gEngfuncs.drawFuncs.Mod_GetCurrentVis();
+	if( gEngfuncs.drawFuncs->Mod_GetCurrentVis && tr.fCustomRendering )
+		return gEngfuncs.drawFuncs->Mod_GetCurrentVis();
 	return RI.visbytes;
 }
 
 void Mod_SetOrthoBounds( const float *mins, const float *maxs )
 {
-	if( gEngfuncs.drawFuncs.GL_OrthoBounds )
+	if( gEngfuncs.drawFuncs->GL_OrthoBounds )
 	{
-		gEngfuncs.drawFuncs.GL_OrthoBounds( mins, maxs );
+		gEngfuncs.drawFuncs->GL_OrthoBounds( mins, maxs );
 	}
 
 	Vector2Average( maxs, mins, world_orthocenter );
@@ -1840,7 +1840,7 @@ void R_GenerateVBO()
 				{
 					// generate new array and new vbotexture node
 					vbo->array = Mem_Calloc( vbos.mempool, sizeof( vbovertex_t ) * vbo->array_len );
-					Msg(  "R_GenerateVBOs: allocated array of %d verts, texture %d\n", vbo->array_len, j );
+					gEngfuncs.Con_Printf( "R_GenerateVBOs: allocated array of %d verts, texture %d\n", vbo->array_len, j );
 					vbo->next = Mem_Calloc( vbos.mempool, sizeof( vboarray_t ) );
 					vbo = vbo->next;
 					vbotex->next = Mem_Calloc( vbos.mempool, sizeof( vbotexture_t ) );
@@ -1868,7 +1868,7 @@ void R_GenerateVBO()
 
 	// allocate last array
 	vbo->array = Mem_Calloc( vbos.mempool, sizeof( vbovertex_t ) * vbo->array_len );
-	Msg( "R_GenerateVBOs: allocated array of %d verts\n", vbo->array_len );
+	gEngfuncs.Con_Printf( "R_GenerateVBOs: allocated array of %d verts\n", vbo->array_len );
 
 	// switch to list begin
 	vbo = vbos.arraylist;
@@ -3528,10 +3528,10 @@ void GL_RebuildLightmaps( void )
 	}
 	LM_UploadBlock( false );
 
-	if( gEngfuncs.drawFuncs.GL_BuildLightmaps )
+	if( gEngfuncs.drawFuncs->GL_BuildLightmaps )
 	{
 		// build lightmaps on the client-side
-		gEngfuncs.drawFuncs.GL_BuildLightmaps( );
+		gEngfuncs.drawFuncs->GL_BuildLightmaps( );
 	}
 }
 
@@ -3611,10 +3611,10 @@ void GL_BuildLightmaps( void )
 
 	LM_UploadBlock( false );
 
-	if( gEngfuncs.drawFuncs.GL_BuildLightmaps )
+	if( gEngfuncs.drawFuncs->GL_BuildLightmaps )
 	{
 		// build lightmaps on the client-side
-		gEngfuncs.drawFuncs.GL_BuildLightmaps( );
+		gEngfuncs.drawFuncs->GL_BuildLightmaps( );
 	}
 
 	// now gamma and brightness are valid

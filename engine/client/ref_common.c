@@ -104,7 +104,7 @@ static void pfnSetEfragsFreeList( efrag_t *list )
 	clgame.free_efrags = list;
 }
 
-static model_t *pfnGetDefaultSprite( ref_defaultsprite_e spr )
+static model_t *pfnGetDefaultSprite( enum ref_defaultsprite_e spr )
 {
 	switch( spr )
 	{
@@ -148,9 +148,9 @@ static void pfnGetPredictedOrigin( vec3_t v )
 	VectorCopy( cl.simorg, v );
 }
 
-static byte *pfnCL_GetPaletteColor(int color) // clgame.palette[color]
+static color24 *pfnCL_GetPaletteColor(int color) // clgame.palette[color]
 {
-	return clgame.palette[color];
+	return &clgame.palette[color];
 }
 
 static void pfnCL_GetScreenInfo( int *width, int *height ) // clgame.scrInfo, ptrs may be NULL

@@ -2117,7 +2117,7 @@ void R_TextureList_f( void )
 
 		if( image->flags & TF_NORMALMAP )
 			gEngfuncs.Con_Printf( "normal  " );
-		else Con_Printf( "diffuse " );
+		else gEngfuncs.Con_Printf( "diffuse " );
 
 		switch( image->encode )
 		{
@@ -2148,7 +2148,7 @@ void R_TextureList_f( void )
 			gEngfuncs.Con_Printf( "clamp  " );
 		else if( image->flags & TF_BORDER )
 			gEngfuncs.Con_Printf( "border " );
-		else Con_Printf( "repeat " );
+		else gEngfuncs.Con_Printf( "repeat " );
 		gEngfuncs.Con_Printf( "   %d  ", image->depth );
 		gEngfuncs.Con_Printf( "  %s\n", image->name );
 	}
