@@ -95,6 +95,11 @@ static void *pfnGetNativeObject( const char *obj )
 	return Platform_GetNativeObject( obj );
 }
 
+void IN_TouchHideButtons(const char *str, qboolean hide)
+{
+
+}
+
 static mobile_engfuncs_t gpMobileEngfuncs =
 {
 	MOBILITY_API_VERSION,
@@ -102,7 +107,7 @@ static mobile_engfuncs_t gpMobileEngfuncs =
 	pfnEnableTextInput,
 	NULL, // IN_TouchAddClientButton,
 	NULL, // IN_TouchAddDefaultButton,
-	NULL, // (void*)IN_TouchHideButtons,
+	IN_TouchHideButtons,
 	NULL, // IN_TouchRemoveButton,
 	NULL, // (void*)IN_TouchSetClientOnly,
 	NULL, // IN_TouchResetDefaultButtons,
