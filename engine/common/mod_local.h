@@ -106,6 +106,7 @@ typedef struct world_static_s
 	vec3_t		size;
 } world_static_t;
 
+#ifndef REF_DLL
 extern world_static_t	world;
 extern byte		*com_studiocache;
 extern model_t		*loadmodel;
@@ -189,6 +190,6 @@ void Mod_ClearStudioCache( void );
 //
 void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags );
 void Mod_UnloadSpriteModel( model_t *mod );
-
+#endif
 
 #endif//MOD_LOCAL_H

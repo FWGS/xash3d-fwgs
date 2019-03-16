@@ -32,7 +32,8 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "com_strings.h"
 #include "pm_movevars.h"
-#include "cvar.h"
+//#include "cvar.h"
+
 #define offsetof(s,m)       (size_t)&(((s *)0)->m)
 
 #define ASSERT(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
@@ -40,8 +41,8 @@ GNU General Public License for more details.
 
 #include <stdio.h>
 
-#define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc )	convar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
-#define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc )	convar_t cv = { #cv, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
+#define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc )	cvar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
+#define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc )	cvar_t cv = { #cv, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
 #define CVAR_TO_BOOL( x )		((x) && ((x)->value != 0.0f) ? true : false )
 
 #define WORLD (gEngfuncs.GetWorld())
@@ -509,7 +510,7 @@ void VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr );
 void VGUI_GetTextureSizes( int *width, int *height );
 int VGUI_GenerateTexture( void );
 
-#include "vid_common.h"
+//#include "vid_common.h"
 
 //
 // renderer exports
@@ -691,7 +692,7 @@ typedef struct
 	qboolean		in2DMode;
 } glstate_t;
 
-/*
+
 typedef struct
 {
 	void*	context; // handle to GL rendering context
@@ -704,71 +705,70 @@ typedef struct
 	qboolean		initialized;	// OpenGL subsystem started
 	qboolean		extended;		// extended context allows to GL_Debug
 } glwstate_t;
-*/
 
 extern glconfig_t		glConfig;
 extern glstate_t		glState;
 // move to engine
-//extern glwstate_t		glw_state;
+extern glwstate_t		glw_state;
 extern ref_api_t      gEngfuncs;
 extern ref_globals_t *gpGlobals;
 
 //
 // renderer cvars
 //
-extern convar_t	*gl_texture_anisotropy;
-extern convar_t	*gl_extensions;
-extern convar_t	*gl_check_errors;
-extern convar_t	*gl_texture_lodbias;
-extern convar_t	*gl_texture_nearest;
-extern convar_t	*gl_lightmap_nearest;
-extern convar_t	*gl_keeptjunctions;
-extern convar_t	*gl_emboss_scale;
-extern convar_t	*gl_round_down;
-extern convar_t	*gl_detailscale;
-extern convar_t	*gl_wireframe;
-extern convar_t	*gl_polyoffset;
-extern convar_t	*gl_finish;
-extern convar_t	*gl_nosort;
-extern convar_t	*gl_clear;
-extern convar_t	*gl_test;		// cvar to testify new effects
-extern convar_t	*gl_msaa;
-extern convar_t *gl_stencilbits;
+extern cvar_t	*gl_texture_anisotropy;
+extern cvar_t	*gl_extensions;
+extern cvar_t	*gl_check_errors;
+extern cvar_t	*gl_texture_lodbias;
+extern cvar_t	*gl_texture_nearest;
+extern cvar_t	*gl_lightmap_nearest;
+extern cvar_t	*gl_keeptjunctions;
+extern cvar_t	*gl_emboss_scale;
+extern cvar_t	*gl_round_down;
+extern cvar_t	*gl_detailscale;
+extern cvar_t	*gl_wireframe;
+extern cvar_t	*gl_polyoffset;
+extern cvar_t	*gl_finish;
+extern cvar_t	*gl_nosort;
+extern cvar_t	*gl_clear;
+extern cvar_t	*gl_test;		// cvar to testify new effects
+extern cvar_t	*gl_msaa;
+extern cvar_t *gl_stencilbits;
 
-extern convar_t	*r_speeds;
-extern convar_t	*r_fullbright;
-extern convar_t	*r_norefresh;
-extern convar_t	*r_showtree;	// build graph of visible hull
-extern convar_t	*r_lighting_extended;
-extern convar_t	*r_lighting_modulate;
-extern convar_t	*r_lighting_ambient;
-extern convar_t	*r_studio_lambert;
-extern convar_t	*r_detailtextures;
-extern convar_t	*r_drawentities;
-extern convar_t	*r_decals;
-extern convar_t	*r_novis;
-extern convar_t	*r_nocull;
-extern convar_t	*r_lockpvs;
-extern convar_t	*r_lockfrustum;
-extern convar_t	*r_traceglow;
-extern convar_t	*r_dynamic;
-extern convar_t	*r_lightmap;
-extern convar_t *r_vbo;
-extern convar_t *r_vbo_dlightmode;
+extern cvar_t	*r_speeds;
+extern cvar_t	*r_fullbright;
+extern cvar_t	*r_norefresh;
+extern cvar_t	*r_showtree;	// build graph of visible hull
+extern cvar_t	*r_lighting_extended;
+extern cvar_t	*r_lighting_modulate;
+extern cvar_t	*r_lighting_ambient;
+extern cvar_t	*r_studio_lambert;
+extern cvar_t	*r_detailtextures;
+extern cvar_t	*r_drawentities;
+extern cvar_t	*r_decals;
+extern cvar_t	*r_novis;
+extern cvar_t	*r_nocull;
+extern cvar_t	*r_lockpvs;
+extern cvar_t	*r_lockfrustum;
+extern cvar_t	*r_traceglow;
+extern cvar_t	*r_dynamic;
+extern cvar_t	*r_lightmap;
+extern cvar_t *r_vbo;
+extern cvar_t *r_vbo_dlightmode;
 
-extern convar_t	*vid_brightness;
-extern convar_t	*vid_gamma;
+extern cvar_t	*vid_brightness;
+extern cvar_t	*vid_gamma;
 
 //
 // engine shared convars
 //
-extern convar_t *gl_showtextures;
-extern convar_t	*tracerred;
-extern convar_t	*tracergreen;
-extern convar_t	*tracerblue;
-extern convar_t	*traceralpha;
-extern convar_t	*cl_lightstyle_lerping;
-
+extern cvar_t *gl_showtextures;
+extern cvar_t	*tracerred;
+extern cvar_t	*tracergreen;
+extern cvar_t	*tracerblue;
+extern cvar_t	*traceralpha;
+extern cvar_t	*cl_lightstyle_lerping;
+extern cvar_t	*r_showhull;
 
 //
 // engine callbacks

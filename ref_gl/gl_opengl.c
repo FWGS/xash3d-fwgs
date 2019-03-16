@@ -1,55 +1,55 @@
 
 #include "gl_local.h"
 
-convar_t	*gl_extensions;
-convar_t	*gl_texture_anisotropy;
-convar_t	*gl_texture_lodbias;
-convar_t	*gl_texture_nearest;
-convar_t	*gl_lightmap_nearest;
-convar_t	*gl_keeptjunctions;
-convar_t	*gl_emboss_scale;
-convar_t	*gl_detailscale;
-convar_t	*gl_check_errors;
-convar_t	*gl_polyoffset;
-convar_t	*gl_wireframe;
-convar_t	*gl_finish;
-convar_t	*gl_nosort;
-convar_t	*gl_vsync;
-convar_t	*gl_clear;
-convar_t	*gl_test;
-convar_t	*gl_msaa;
-convar_t	*gl_stencilbits;
-convar_t	*r_speeds;
-convar_t	*r_fullbright;
-convar_t	*r_norefresh;
-convar_t	*r_showtree;
-convar_t	*r_lighting_extended;
-convar_t	*r_lighting_modulate;
-convar_t	*r_lighting_ambient;
-convar_t	*r_detailtextures;
-convar_t	*r_drawentities;
-convar_t	*r_adjust_fov;
-convar_t	*r_decals;
-convar_t	*r_novis;
-convar_t	*r_nocull;
-convar_t	*r_lockpvs;
-convar_t	*r_lockfrustum;
-convar_t	*r_traceglow;
-convar_t	*r_dynamic;
-convar_t	*r_lightmap;
-convar_t	*r_showhull;
-convar_t	*gl_round_down;
-convar_t	*r_vbo;
-convar_t	*r_vbo_dlightmode;
-convar_t	*gl_showtextures;
-convar_t	*cl_lightstyle_lerping;
+cvar_t	*gl_extensions;
+cvar_t	*gl_texture_anisotropy;
+cvar_t	*gl_texture_lodbias;
+cvar_t	*gl_texture_nearest;
+cvar_t	*gl_lightmap_nearest;
+cvar_t	*gl_keeptjunctions;
+cvar_t	*gl_emboss_scale;
+cvar_t	*gl_detailscale;
+cvar_t	*gl_check_errors;
+cvar_t	*gl_polyoffset;
+cvar_t	*gl_wireframe;
+cvar_t	*gl_finish;
+cvar_t	*gl_nosort;
+cvar_t	*gl_vsync;
+cvar_t	*gl_clear;
+cvar_t	*gl_test;
+cvar_t	*gl_msaa;
+cvar_t	*gl_stencilbits;
+cvar_t	*r_speeds;
+cvar_t	*r_fullbright;
+cvar_t	*r_norefresh;
+cvar_t	*r_showtree;
+cvar_t	*r_lighting_extended;
+cvar_t	*r_lighting_modulate;
+cvar_t	*r_lighting_ambient;
+cvar_t	*r_detailtextures;
+cvar_t	*r_drawentities;
+cvar_t	*r_adjust_fov;
+cvar_t	*r_decals;
+cvar_t	*r_novis;
+cvar_t	*r_nocull;
+cvar_t	*r_lockpvs;
+cvar_t	*r_lockfrustum;
+cvar_t	*r_traceglow;
+cvar_t	*r_dynamic;
+cvar_t	*r_lightmap;
+cvar_t	*r_showhull;
+cvar_t	*gl_round_down;
+cvar_t	*r_vbo;
+cvar_t	*r_vbo_dlightmode;
+cvar_t	*gl_showtextures;
+cvar_t	*cl_lightstyle_lerping;
 
-convar_t	*vid_brightness;
-convar_t	*vid_gamma;
-convar_t	*tracerred;
-convar_t	*tracergreen;
-convar_t	*tracerblue;
-convar_t	*traceralpha;
+cvar_t	*vid_brightness;
+cvar_t	*vid_gamma;
+cvar_t	*tracerred;
+cvar_t	*tracergreen;
+cvar_t	*tracerblue;
+cvar_t	*traceralpha;
 
 byte		*r_temppool;
 
@@ -322,7 +322,7 @@ GL_CheckExtension
 void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cvarname, int r_ext )
 {
 	const dllfunc_t	*func;
-	convar_t		*parm = NULL;
+	cvar_t		*parm = NULL;
 	const char	*extensions_string;
 
 	gEngfuncs.Con_Reportf( "GL_CheckExtension: %s ", name );

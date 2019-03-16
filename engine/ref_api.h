@@ -26,7 +26,6 @@ GNU General Public License for more details.
 #include "com_model.h"
 #include "studio.h"
 #include "r_efx.h"
-#include "cvar.h"
 #include "com_image.h"
 
 #define REF_API_VERSION 1
@@ -37,6 +36,11 @@ GNU General Public License for more details.
 #define TF_IMAGE		(TF_NOMIPMAP|TF_CLAMP)
 #define TF_DECAL		(TF_CLAMP)
 
+#define FCONTEXT_CORE_PROFILE		BIT( 0 )
+#define FCONTEXT_DEBUG_ARB		BIT( 1 )
+
+#define FCVAR_RENDERINFO		(1<<16)	// save to a seperate config called video.cfg
+#define FCVAR_READ_ONLY		(1<<17)	// cannot be set by user at all, and can't be requested by CvarGetPointer from game dlls
 
 // screenshot types
 #define VID_SCREENSHOT	0
@@ -246,13 +250,13 @@ typedef struct ref_api_s
 	qboolean (*Host_IsLocalGame)( void );
 
 	// cvar handlers
-	convar_t   *(*Cvar_Get)( const char *szName, const char *szValue, int flags, const char *description );
-	convar_t   *(*pfnGetCvarPointer)( const char *name, int ignore_flags );
+	cvar_t   *(*Cvar_Get)( const char *szName, const char *szValue, int flags, const char *description );
+	cvar_t   *(*pfnGetCvarPointer)( const char *name, int ignore_flags );
 	float       (*pfnGetCvarFloat)( const char *szName );
 	const char *(*pfnGetCvarString)( const char *szName );
 	void        (*Cvar_SetValue)( const char *name, float value );
 	void        (*Cvar_Set)( const char *name, const char *value );
-	void (*Cvar_RegisterVariable)( convar_t *var );
+	void (*Cvar_RegisterVariable)( cvar_t *var );
 	void (*Cvar_FullSet)( const char *var_name, const char *value, int flags );
 
 	// command handlers
