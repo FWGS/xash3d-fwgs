@@ -60,6 +60,13 @@ GNU General Public License for more details.
 #define FWORLD_WATERALPHA		BIT( 2 )
 #define FWORLD_HAS_DELUXEMAP		BIT( 3 )
 
+typedef enum
+{
+	DEMO_INACTIVE = 0,
+	DEMO_XASH3D,
+	DEMO_QUAKE1
+} demo_mode;
+
 typedef struct
 {
 	msurface_t	*surf;
@@ -211,7 +218,17 @@ enum
 
 
 struct con_nprint_s;
-struct remap_info_s;
+struct engine_studio_api_s;
+typedef struct remap_info_s
+{
+	unsigned short	textures[MAX_SKINS];// alias textures
+	struct mstudiotex_s	*ptexture;	// array of textures with local copy of remapped textures
+	short		numtextures;	// textures count
+	short		topcolor;		// cached value
+	short		bottomcolor;	// cached value
+	model_t		*model;		// for catch model changes
+} remap_info_t;
+
 
 typedef struct ref_api_s
 {

@@ -12,11 +12,12 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
+#include "common.h"
+#include "client.h"
 #include "mod_local.h"
 #include "mathlib.h"
 #include "world.h"
-#include "client.h"
+
 
 #define MAX_CLIPNODE_DEPTH		256	// should never exceeds
 

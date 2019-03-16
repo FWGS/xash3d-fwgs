@@ -12,12 +12,15 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
+#include "port.h"
+#include "xash3d_types.h"
+#include "const.h"
 #include <math.h>
 #include <stdarg.h>
 #include <ctype.h>
-#include "common.h"
-
+#include <time.h>
+#include "stdio.h"
+#include "crtlib.h"
 void Q_strnupr( const char *in, char *out, size_t size_out )
 {
 	if( size_out == 0 ) return;

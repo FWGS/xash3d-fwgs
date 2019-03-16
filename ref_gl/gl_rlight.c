@@ -16,7 +16,6 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "pm_local.h"
 #include "studio.h"
-#include "common.h"
 #include "mathlib.h"
 #include "ref_params.h"
 

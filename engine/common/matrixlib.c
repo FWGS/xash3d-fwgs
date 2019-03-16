@@ -13,7 +13,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
+#include "port.h"
+#include "xash3d_types.h"
+#include "const.h"
+#include "com_model.h"
 #include "mathlib.h"
 
 const matrix3x4 matrix3x4_identity =

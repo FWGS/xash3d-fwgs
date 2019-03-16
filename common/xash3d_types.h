@@ -129,4 +129,12 @@ typedef struct dll_info_s
 
 typedef void (*setpair_t)( const char *key, const char *value, void *buffer, void *numpairs );
 
+// config strings are a general means of communication from
+// the server to all connected clients.
+// each config string can be at most CS_SIZE characters.
+#define MAX_QPATH		64	// max length of a game pathname
+#define MAX_OSPATH		260	// max length of a filesystem pathname
+#define CS_SIZE		64	// size of one config string
+#define CS_TIME		16	// size of time string
+
 #endif // XASH_TYPES_H

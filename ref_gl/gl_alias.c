@@ -20,8 +20,6 @@ GNU General Public License for more details.
 #include "alias.h"
 #include "pm_local.h"
 #include "cl_tent.h"
-#include "common.h"
-#include "client.h"
 #include "pmtrace.h"
 
 extern cvar_t r_shadows;

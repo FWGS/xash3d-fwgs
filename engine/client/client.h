@@ -40,13 +40,6 @@ GNU General Public License for more details.
 
 typedef int		sound_t;
 
-typedef enum
-{
-	DEMO_INACTIVE = 0,
-	DEMO_XASH3D,
-	DEMO_QUAKE1
-} demo_mode;
-
 //=============================================================================
 typedef struct netbandwithgraph_s
 {
@@ -424,16 +417,6 @@ typedef struct
 	vec3_t		applied_offset;
 	float		applied_angle;
 } screen_shake_t;
-
-typedef struct remap_info_s
-{
-	unsigned short	textures[MAX_SKINS];// alias textures
-	struct mstudiotex_s	*ptexture;	// array of textures with local copy of remapped textures
-	short		numtextures;	// textures count
-	short		topcolor;		// cached value
-	short		bottomcolor;	// cached value
-	model_t		*model;		// for catch model changes
-} remap_info_t;
 
 typedef enum
 {
