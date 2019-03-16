@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "gl_local.h"
-#include "common.h"
+
 
 #define TEXTURES_HASH_SIZE	(MAX_TEXTURES >> 2)
 

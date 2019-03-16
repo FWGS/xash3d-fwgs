@@ -12,9 +12,11 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
+#include "port.h"
+#include "xash3d_types.h"
+#include "const.h"
+#include "com_model.h"
 #include <math.h>
-#include "common.h"
 #include "mathlib.h"
 #include "eiface.h"
 

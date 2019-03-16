@@ -77,5 +77,6 @@ void COM_ReplaceExtension( char *path, const char *extension );
 void COM_ExtractFilePath( const char *path, char *dest );
 const char *COM_FileWithoutPath( const char *in );
 void COM_StripExtension( char *path );
-	
+#define COM_CheckString( string ) ( ( !string || !*string ) ? 0 : 1 )
+
 #endif//STDLIB_H

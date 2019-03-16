@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "entity_types.h"
 #include "cl_tent.h"
-#include "common.h"
 
 // it's a Valve default value for LoadMapSprite (probably must be power of two)
 #define MAPSPRITE_SIZE	128
@@ -179,7 +178,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 			break;
 		case SPR_ALPHTEST:		
 			pal = gEngfuncs.FS_LoadImage( "#masked.pal", src, 768 );
-                              break;
+			break;
 		default:
 			pal = gEngfuncs.FS_LoadImage( "#normal.pal", src, 768 );
 			break;

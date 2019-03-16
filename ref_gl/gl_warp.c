@@ -16,8 +16,6 @@ GNU General Public License for more details.
 
 #include "gl_local.h"
 #include "wadfile.h"
-#include "common.h"
-
 #define SKYCLOUDS_QUALITY	12
 #define MAX_CLIP_VERTS	128 // skybox clip vertices
 #define TURBSCALE		( 256.0f / ( M_PI2 ))

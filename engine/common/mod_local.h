@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #ifndef MOD_LOCAL_H
 #define MOD_LOCAL_H
 
-#include "common.h"
+//#include "common.h"
 #include "edict.h"
 #include "eiface.h"
 #include "ref_api.h"

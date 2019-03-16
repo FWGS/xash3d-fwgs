@@ -162,4 +162,8 @@ GNU General Public License for more details.
 #define USHRT_MAX 65535
 #endif
 
+#ifdef XASH_SDL
+#include <SDL.h>
+#endif
+
 #endif // PORT_H

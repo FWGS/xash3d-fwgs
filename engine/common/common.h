@@ -145,14 +145,6 @@ typedef enum
 #define CIN_MAIN		0
 #define CIN_LOGO		1
 
-// config strings are a general means of communication from
-// the server to all connected clients.
-// each config string can be at most CS_SIZE characters.
-#define MAX_QPATH		64	// max length of a game pathname
-#define MAX_OSPATH		260	// max length of a filesystem pathname
-#define CS_SIZE		64	// size of one config string
-#define CS_TIME		16	// size of time string
-
 #define MAX_DECALS		512	// touching TE_DECAL messages, etc
 #define MAX_STATIC_ENTITIES	3096	// static entities that moved on the client when level is spawn
 
@@ -566,7 +558,6 @@ void COM_NormalizeAngles( vec3_t angles );
 int COM_FileSize( const char *filename );
 void COM_FixSlashes( char *pname );
 void COM_FreeFile( void *buffer );
-#define COM_CheckString( string ) ( ( !string || !*string ) ? 0 : 1 )
 int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare );
 search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly );
 file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly );
@@ -1020,6 +1011,10 @@ sentenceEntry_s *Sequence_PickSentence( const char *groupName, int pickMethod, i
 void NET_InitMasters( void );
 void NET_SaveMasters( void );
 qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data );
+
+#ifdef REF_DLL
+#error "common.h in ref_dll"
+#endif
 
 #ifdef __cplusplus
 }

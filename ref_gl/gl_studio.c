@@ -21,8 +21,8 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "pm_local.h"
 #include "cl_tent.h"
-#include "common.h"
-#include "client.h"
+//#include "client.h"
+#include "pmtrace.h"
 
 #define EVENT_CLIENT	5000	// less than this value it's a server-side studio events
 #define MAX_LOCALLIGHTS	4
