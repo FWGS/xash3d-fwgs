@@ -24,6 +24,10 @@ GNU General Public License for more details.
 static vidmode_t *vidmodes = NULL;
 static int num_vidmodes = 0;
 static void GL_SetupAttributes( void );
+struct
+{
+	int prev_width, prev_height;
+} sdlState;
 
 int R_MaxVideoModes( void )
 {
@@ -470,9 +474,9 @@ void VID_DestroyWindow( void )
 		host.hWnd = NULL;
 	}
 
-	if( vidState.fullScreen )
+	if( refState.fullScreen )
 	{
-		vidState.fullScreen = false;
+		refState.fullScreen = false;
 	}
 }
 
@@ -487,6 +491,13 @@ static void GL_SetupAttributes( void )
 
 	ref.dllFuncs.GL_SetupAttributes( glw_state.safe );
 }
+
+
+void GL_SwapBuffers()
+{
+	SDL_GL_SwapWindow( host.hWnd );
+}
+
 
 int GL_SetAttribute( int attr, int val )
 {
@@ -568,7 +579,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 	glw_state.desktopWidth = displayMode.w;
 	glw_state.desktopHeight = displayMode.h;
 
-	vidState.fullScreen = fullscreen;
+	refState.fullScreen = fullscreen;
 
 	if( !host.hWnd )
 	{
@@ -640,8 +651,8 @@ qboolean VID_SetMode( void )
 
 	if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, fullscreen )) == rserr_ok )
 	{
-		vidState.prev_width = iScreenWidth;
-		vidState.prev_height = iScreenHeight;
+		sdlState.prev_width = iScreenWidth;
+		sdlState.prev_height = iScreenHeight;
 	}
 	else
 	{
@@ -660,7 +671,7 @@ qboolean VID_SetMode( void )
 		}
 
 		// try setting it back to something safe
-		if(( err = R_ChangeDisplaySettings( vidState.prev_width, vidState.prev_height, false )) != rserr_ok )
+		if(( err = R_ChangeDisplaySettings( sdlState.prev_width, sdlState.prev_height, false )) != rserr_ok )
 		{
 			Con_Reportf( S_ERROR  "VID_SetMode: could not revert to safe mode\n" );
 			Sys_Warn("could not revert to safe mode!");

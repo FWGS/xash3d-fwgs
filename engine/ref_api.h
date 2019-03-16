@@ -383,6 +383,7 @@ typedef struct ref_api_s
 	int   (*GL_SetAttribute)( int attr, int value );
 	int   (*GL_GetAttribute)( int attr, int *value );
 	void *(*GL_GetProcAddress)( const char *name );
+	void (*GL_SwapBuffers)();
 
 	// gamma
 	void (*BuildGammaTable)( float lightgamma, float brightness );

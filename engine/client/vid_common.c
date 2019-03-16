@@ -27,7 +27,6 @@ convar_t	*vid_brightness;
 convar_t	*vid_gamma;
 convar_t	*vid_highdpi;
 
-vidstate_t vidState;
 glwstate_t	glw_state;
 
 convar_t	*window_xpos;
@@ -54,8 +53,8 @@ void VID_InitDefaultResolution( void )
 {
 	// we need to have something valid here
 	// until video subsystem initialized
-	vidState.width = 640;
-	vidState.height = 480;
+	refState.width = 640;
+	refState.height = 480;
 }
 
 /*
@@ -65,8 +64,8 @@ R_SaveVideoMode
 */
 void R_SaveVideoMode( int w, int h )
 {
-	vidState.width = w;
-	vidState.height = h;
+	refState.width = w;
+	refState.height = h;
 
 	host.window_center_x = w / 2;
 	host.window_center_y = h / 2;
@@ -76,8 +75,8 @@ void R_SaveVideoMode( int w, int h )
 
 	// check for 4:3 or 5:4
 	if( w * 3 != h * 4 && w * 4 != h * 5 )
-		vidState.wideScreen = true;
-	else vidState.wideScreen = false;
+		refState.wideScreen = true;
+	else refState.wideScreen = false;
 }
 
 /*
