@@ -325,6 +325,8 @@ ref_interface_t gReffuncs =
 	R_Init,
 	R_Shutdown,
 
+	GL_SetupAttributes,
+	GL_OnContextCreated,
 	GL_InitExtensions,
 	GL_ClearExtensions,
 
@@ -471,7 +473,9 @@ ref_interface_t gReffuncs =
 	VGUI_CreateTexture,
 	VGUI_UploadTexture,
 	VGUI_UploadTextureBlock,
-	VGUI_DrawQuad
+	VGUI_DrawQuad,
+	VGUI_GetTextureSizes,
+	VGUI_GenerateTexture,
 };
 
 int GAME_EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals )

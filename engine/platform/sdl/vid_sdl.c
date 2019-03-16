@@ -23,7 +23,6 @@ GNU General Public License for more details.
 
 static vidmode_t *vidmodes = NULL;
 static int num_vidmodes = 0;
-static int context_flags = 0;
 static void GL_SetupAttributes( void );
 
 int R_MaxVideoModes( void )
@@ -231,34 +230,13 @@ GL_CreateContext
 */
 qboolean GL_CreateContext( void )
 {
-	int colorBits[3];
-#ifdef XASH_NANOGL
-	nanoGL_Init();
-#endif
-
 	if( ( glw_state.context = SDL_GL_CreateContext( host.hWnd ) ) == NULL)
 	{
 		Con_Reportf( S_ERROR "GL_CreateContext: %s\n", SDL_GetError());
 		return GL_DeleteContext();
 	}
 
-	SDL_GL_GetAttribute( SDL_GL_RED_SIZE, &colorBits[0] );
-	SDL_GL_GetAttribute( SDL_GL_GREEN_SIZE, &colorBits[1] );
-	SDL_GL_GetAttribute( SDL_GL_BLUE_SIZE, &colorBits[2] );
-	glContext.color_bits = colorBits[0] + colorBits[1] + colorBits[2];
-
-	SDL_GL_GetAttribute( SDL_GL_ALPHA_SIZE, &glContext.alpha_bits );
-	SDL_GL_GetAttribute( SDL_GL_DEPTH_SIZE, &glContext.depth_bits );
-	SDL_GL_GetAttribute( SDL_GL_STENCIL_SIZE, &glContext.stencil_bits );
-	/// move to ref
-	//vidState.stencilEnabled = glContext.stencil_bits ? true : false;
-
-	SDL_GL_GetAttribute( SDL_GL_MULTISAMPLESAMPLES, &glContext.msaasamples );
-
-#ifdef XASH_WES
-	void wes_init();
-	wes_init();
-#endif
+	ref.dllFuncs.GL_OnContextCreated();
 
 	return true;
 }
@@ -388,7 +366,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 			if( !gl_wgl_msaa_samples->value && glw_state.safe + 1 == SAFE_NOMSAA )
 				glw_state.safe += 2; // no need to skip msaa, if we already disabled it
 			else glw_state.safe++;
-			GL_SetupAttributes(); // re-choose attributes
+			GL_SetupAttributes( ); // re-choose attributes
 
 			// try again
 			return VID_CreateWindow( width, height, fullscreen );
@@ -505,132 +483,19 @@ GL_SetupAttributes
 */
 static void GL_SetupAttributes( void )
 {
-	int samples;
-
-#if !defined(_WIN32)
-	SDL_SetHint( "SDL_VIDEO_X11_XRANDR", "1" );
-	SDL_SetHint( "SDL_VIDEO_X11_XVIDMODE", "1" );
-#endif
-
 	SDL_GL_ResetAttributes();
 
-#ifdef XASH_GLES
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES );
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_EGL, 1 );
-#ifdef XASH_NANOGL
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 1 );
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 1 );
-#elif defined( XASH_WES ) || defined( XASH_REGAL )
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 2 );
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 0 );
-#endif
-#else // GL1.x
-#ifndef XASH_GL_STATIC
-	if( Sys_CheckParm( "-gldebug" ) )
-	{
-		Con_Reportf( "Creating an extended GL context for debug...\n" );
-		SetBits( context_flags, FCONTEXT_DEBUG_ARB );
-		SDL_GL_SetAttribute( SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG );
-		glw_state.extended = true;
-	}
-#endif // XASH_GL_STATIC
-	if( Sys_CheckParm( "-glcore" ))
-	{
-		SetBits( context_flags, FCONTEXT_CORE_PROFILE );
+	ref.dllFuncs.GL_SetupAttributes( glw_state.safe );
+}
 
-		SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
-	}
-	else
-	{
-		SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY );
-	}
-#endif // XASH_GLES
+int GL_SetAttribute( int attr, int val )
+{
+	return SDL_GL_SetAttribute( (SDL_GLattr)attr, val );
+}
 
-	if( glw_state.safe > SAFE_DONTCARE )
-	{
-		glw_state.safe = -1; // can't retry anymore, can only shutdown engine
-		return;
-	}
-
-	Msg( "Trying safe opengl mode %d\n", glw_state.safe );
-
-	if( glw_state.safe == SAFE_DONTCARE )
-		return;
-
-	SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
-
-	if( glw_state.safe < SAFE_NOACC )
-		SDL_GL_SetAttribute( SDL_GL_ACCELERATED_VISUAL, 1 );
-
-	Msg( "bpp %d\n", glw_state.desktopBitsPixel );
-
-	/// ref context attribs api
-//	if( glw_state.safe < SAFE_NOSTENCIL )
-//		SDL_GL_SetAttribute( SDL_GL_STENCIL_SIZE, gl_stencilbits->value );
-
-	if( glw_state.safe < SAFE_NOALPHA )
-		SDL_GL_SetAttribute( SDL_GL_ALPHA_SIZE, 8 );
-
-	if( glw_state.safe < SAFE_NODEPTH )
-		SDL_GL_SetAttribute( SDL_GL_DEPTH_SIZE, 24 );
-	else
-		SDL_GL_SetAttribute( SDL_GL_DEPTH_SIZE, 8 );
-
-	if( glw_state.safe < SAFE_NOCOLOR )
-	{
-		if( glw_state.desktopBitsPixel >= 24 )
-		{
-			SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 8 );
-			SDL_GL_SetAttribute( SDL_GL_GREEN_SIZE, 8 );
-			SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 8 );
-		}
-		else if( glw_state.desktopBitsPixel >= 16 )
-		{
-			SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 5 );
-			SDL_GL_SetAttribute( SDL_GL_GREEN_SIZE, 6 );
-			SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 5 );
-		}
-		else
-		{
-			SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 3 );
-			SDL_GL_SetAttribute( SDL_GL_GREEN_SIZE, 3 );
-			SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 2 );
-		}
-	}
-
-	if( glw_state.safe < SAFE_NOMSAA )
-	{
-		switch( (int)gl_wgl_msaa_samples->value )
-		{
-		case 2:
-		case 4:
-		case 8:
-		case 16:
-			samples = gl_wgl_msaa_samples->value;
-			break;
-		default:
-			samples = 0; // don't use, because invalid parameter is passed
-		}
-
-		if( samples )
-		{
-			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 1 );
-			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, samples );
-
-			glContext.max_multisamples = samples;
-		}
-		else
-		{
-			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 0 );
-			SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, 0 );
-
-			glContext.max_multisamples = 0;
-		}
-	}
-	else
-	{
-		Cvar_Set( "gl_wgl_msaa_samples", "0" );
-	}
+int GL_GetAttribute( int attr, int *val )
+{
+	return SDL_GL_GetAttribute( (SDL_GLattr)attr, val );
 }
 
 #ifndef EGL_LIB
@@ -656,7 +521,13 @@ qboolean R_Init_Video( void )
 	if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", safe ) )
 		glw_state.safe = bound( SAFE_NO, Q_atoi( safe ), SAFE_DONTCARE );
 
-	GL_SetupAttributes();
+#if !defined(_WIN32)
+	SDL_SetHint( "SDL_VIDEO_X11_XRANDR", "1" );
+	SDL_SetHint( "SDL_VIDEO_X11_XVIDMODE", "1" );
+#endif
+
+	// refdll can request some attributes
+	GL_SetupAttributes( );
 
 	if( SDL_GL_LoadLibrary( EGL_LIB ) )
 	{
@@ -676,7 +547,10 @@ qboolean R_Init_Video( void )
 		return retval;
 	}
 
+	// refdll also can check extensions
 	ref.dllFuncs.GL_InitExtensions();
+
+	host.renderinfo_changed = false;
 
 	return true;
 }

@@ -194,6 +194,23 @@ qboolean VGui_IsActive( void )
 	return vgui.initialized;
 }
 
+void VGui_FillAPIFromRef( vguiapi_t *to, const ref_interface_t *from )
+{
+	to->DrawInit = from->VGUI_DrawInit;
+	to->DrawShutdown = from->VGUI_DrawShutdown;
+	to->SetupDrawingText = from->VGUI_SetupDrawingText;
+	to->SetupDrawingRect = from->VGUI_SetupDrawingRect;
+	to->SetupDrawingImage = from->VGUI_SetupDrawingImage;
+	to->BindTexture = from->VGUI_BindTexture;
+	to->EnableTexture = from->VGUI_EnableTexture;
+	to->CreateTexture = from->VGUI_CreateTexture;
+	to->UploadTexture = from->VGUI_UploadTexture;
+	to->UploadTextureBlock = from->VGUI_UploadTextureBlock;
+	to->DrawQuad = from->VGUI_DrawQuad;
+	to->GetTextureSizes = from->VGUI_GetTextureSizes;
+	to->GenerateTexture = from->VGUI_GenerateTexture;
+}
+
 /*
 ================
 VGui_Startup
@@ -217,6 +234,8 @@ void VGui_Startup( int width, int height )
 	if( !vgui.initialized )
 	{
 		vgui_utf8 = Cvar_Get( "vgui_utf8", "0", FCVAR_ARCHIVE, "enable utf-8 support for vgui text" );
+
+		VGui_FillAPIFromRef( &vgui, &ref.dllFuncs );
 
 #ifdef XASH_INTERNAL_GAMELIBS
 		s_pVGuiSupport = COM_LoadLibrary( "client", false, false );

@@ -2,6 +2,7 @@
 #include "client.h"
 #include "library.h"
 #include "cl_tent.h"
+#include "platform/platform.h"
 
 struct ref_state_s ref;
 ref_globals_t refState;
@@ -321,6 +322,7 @@ static ref_api_t gEngfuncs =
 	pfnCL_GetPaletteColor,
 	pfnCL_GetScreenInfo,
 	pfnSetLocalLightLevel,
+	Sys_CheckParm,
 
 	pfnPlayerInfo,
 	R_StudioGetPlayerState,
@@ -344,11 +346,12 @@ static ref_api_t gEngfuncs =
 	FS_FileExists,
 	FS_AllowDirectPaths,
 
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
+	R_Init_Video,
+	R_Free_Video,
+
+	GL_SetAttribute,
+	GL_GetAttribute,
+	GL_GetProcAddress,
 
 	BuildGammaTable,
 	LightToTexGamma,
@@ -531,6 +534,7 @@ qboolean R_Init( void )
 	gl_showtextures = Cvar_Get( "gl_showtextures", "0", FCVAR_CHEAT, "show all uploaded textures" );
 	r_adjust_fov = Cvar_Get( "r_adjust_fov", "1", FCVAR_ARCHIVE, "making FOV adjustment for wide-screens" );
 	r_decals = Cvar_Get( "r_decals", "4096", FCVAR_ARCHIVE, "sets the maximum number of decals" );
+	gl_wgl_msaa_samples = Cvar_Get( "gl_wgl_msaa_samples", "0", FCVAR_GLCONFIG, "samples number for multisample anti-aliasing" );
 
 	if( !R_LoadProgs( refdll ))
 	{
