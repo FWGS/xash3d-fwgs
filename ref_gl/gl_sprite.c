@@ -144,13 +144,19 @@ load sprite model
 */
 void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags )
 {
-	dsprite_q1_t	*pinq1;
-	dsprite_hl_t	*pinhl;
 	dsprite_t		*pin;
 	short		*numi = NULL;
 	dframetype_t	*pframetype;
 	msprite_t		*psprite;
-	int		i, size;
+	int		i;
+
+	pin = buffer;
+	psprite = mod->cache.data;
+
+	if( pin->version == SPRITE_VERSION_Q1 || pin->version == SPRITE_VERSION_32 )
+		numi = NULL;
+	else if( pin->version == SPRITE_VERSION_HL )
+		numi = (short *)(buffer + sizeof( dsprite_hl_t ));
 
 	r_texFlags = texFlags;
 	sprite_version = pin->version;
