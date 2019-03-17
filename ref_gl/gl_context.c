@@ -377,6 +377,13 @@ void Mod_UnloadTextures( model_t *mod )
 
 void R_ProcessEntData( qboolean allocate )
 {
+	if( !allocate )
+	{
+		tr.draw_list->num_solid_entities = 0;
+		tr.draw_list->num_trans_entities = 0;
+		tr.draw_list->num_beam_entities = 0;
+	}
+
 	if( gEngfuncs.drawFuncs->R_ProcessEntData )
 		gEngfuncs.drawFuncs->R_ProcessEntData( allocate );
 }
