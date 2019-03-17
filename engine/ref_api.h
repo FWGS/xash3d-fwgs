@@ -507,6 +507,7 @@ typedef struct ref_interface_s
 
 	// sprites
 	void (*R_GetSpriteParms)( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite );
+	int (*R_GetSpriteTexture)( const model_t *m_pSpriteModel, int frame );
 
 	// model management
 	// flags ignored for everything except spritemodels
@@ -592,7 +593,6 @@ typedef struct ref_interface_s
 	void	(*TexCoord2f)( float u, float v );
 	void	(*Vertex3fv)( const float *worldPnt );
 	void	(*Vertex3f)( float x, float y, float z );
-	int	(*SpriteTexture)( struct model_s *pSpriteModel, int frame );
 	int	(*WorldToScreen)( const float *world, float *screen );  // Returns 1 if it's z clipped
 	void	(*Fog)( float flFogColor[3], float flStart, float flEnd, int bOn ); //Works just like GL_FOG, flFogColor is r/g/b.
 	void	(*ScreenToWorld)( const float *screen, float *world  );

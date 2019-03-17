@@ -519,7 +519,7 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 
 	// scale for screen sizes
 	SPR_AdjustSize( &x, &y, &width, &height );
-	texnum = ref.dllFuncs.SpriteTexture( clgame.ds.pSprite, frame );
+	texnum = ref.dllFuncs.R_GetSpriteTexture( clgame.ds.pSprite, frame );
 	ref.dllFuncs.Color4ub( clgame.ds.spriteColor[0], clgame.ds.spriteColor[1], clgame.ds.spriteColor[2], clgame.ds.spriteColor[3] );
 	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, texnum );
 }
@@ -3236,6 +3236,26 @@ void TriColor4fRendermode( float r, float g, float b, float a, int rendermode )
 		ref.dllFuncs.Color4f( r, g, b, a );
 	}
 	else ref.dllFuncs.Color4f( r * a, g * a, b * a, 1.0f );
+}
+
+
+/*
+=============
+TriSpriteTexture
+
+bind current texture
+=============
+*/
+int TriSpriteTexture( model_t *pSpriteModel, int frame )
+{
+	int	gl_texturenum;
+
+	if(( gl_texturenum = ref.dllFuncs.R_GetSpriteTexture( pSpriteModel, frame )) <= 0 )
+		return 0;
+
+	ref.dllFuncs.GL_Bind( XASH_TEXTURE0, gl_texturenum );
+
+	return 1;
 }
 
 /*

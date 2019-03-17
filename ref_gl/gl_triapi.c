@@ -237,7 +237,7 @@ int TriSpriteTexture( model_t *pSpriteModel, int frame )
 
 	GL_Bind( XASH_TEXTURE0, gl_texturenum );
 
-	return gl_texturenum;
+	return 1;
 }
 
 /*
