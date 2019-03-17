@@ -1139,25 +1139,6 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	if( loaded ) *loaded = true;
 }
 
-/*
-=================
-Mod_UnloadStudioModel
-=================
-*/
-void Mod_UnloadStudioModel( model_t *mod )
-{
-	Assert( mod != NULL );
-
-	if( mod->type != mod_studio )
-		return; // not a studio
-
-	if( Host_IsDedicated() )
-		ref.dllFuncs.Mod_StudioUnloadTextures( mod->cache.data );
-
-	Mem_FreePool( &mod->mempool );
-	memset( mod, 0, sizeof( *mod ));
-}
-
 static sv_blending_interface_t gBlendAPI =
 {
 	SV_BLENDING_INTERFACE_VERSION,

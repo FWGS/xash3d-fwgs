@@ -102,36 +102,20 @@ static void Mod_FreeUserData( model_t *mod )
 Mod_FreeModel
 ================
 */
-static void Mod_FreeModel( model_t *mod )
+void Mod_FreeModel( model_t *mod )
 {
 	// already freed?
 	if( !mod || !mod->name[0] )
 		return;
 
-	if( mod->name[0] != '*' )
-		Mod_FreeUserData( mod );
-
-	// notify renderer about unloading
-	if( ref.dllFuncs.Mod_UnloadModel )
-		ref.dllFuncs.Mod_UnloadModel( mod );
-
-	switch( mod->type )
+	if( mod->type != mod_brush || mod->name[0] != '*' )
 	{
-	case mod_studio:
-		Mod_UnloadStudioModel( mod );
-		break;
-	case mod_alias:
-		// REFTODO:
-		// Mod_UnloadAliasModel( mod );
-		break;
-	case mod_sprite:
-		Mod_UnloadSpriteModel( mod );
-		break;
-	case mod_brush:
-		Mod_UnloadBrushModel( mod );
-		break;
+		Mod_FreeUserData( mod );
+#ifndef XASH_DEDICATED
+		ref.dllFuncs.Mod_UnloadTextures( mod );
+#endif
+		Mem_FreePool( &mod->mempool );
 	}
-
 
 	memset( mod, 0, sizeof( *mod ));
 }

@@ -356,14 +356,14 @@ Mod_UnloadSpriteModel
 release sprite model and frames
 ====================
 */
-void Mod_UnloadSpriteModel( model_t *mod )
+void Mod_SpriteUnloadTextures( void *data )
 {
 	msprite_t		*psprite;
 	mspritegroup_t	*pspritegroup;	
 	mspriteframe_t	*pspriteframe;
 	int		i, j;
 
-	psprite = mod->cache.data;
+	psprite = data;
 
 	if( psprite )
 	{

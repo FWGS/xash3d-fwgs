@@ -729,22 +729,12 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 	if( loaded ) *loaded = true;	// done
 }
 
-/*
-=================
-Mod_UnloadAliasModel
-=================
-*/
-void Mod_UnloadAliasModel( model_t *mod )
+void Mod_AliasUnloadTextures( void *data )
 {
 	aliashdr_t	*palias;
 	int		i, j;
 
-	Assert( mod != NULL );
-
-	if( mod->type != mod_alias )
-		return; // not an alias
-
-	palias = mod->cache.data;
+	palias = data;
 	if( !palias ) return; // already freed
 
 	for( i = 0; i < MAX_SKINS; i++ )
@@ -758,9 +748,6 @@ void Mod_UnloadAliasModel( model_t *mod )
 			GL_FreeTexture( palias->fb_texturenum[i][j] );
 		}
 	}
-
-	Mem_FreePool( &mod->mempool );
-	memset( mod, 0, sizeof( *mod ));
 }
 
 /*

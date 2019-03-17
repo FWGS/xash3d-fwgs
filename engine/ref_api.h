@@ -520,9 +520,8 @@ typedef struct ref_interface_s
 	// flags ignored for everything except spritemodels
 	void (*Mod_LoadModel)( modtype_t desiredType, model_t *mod, const byte *buf, qboolean *loaded, int flags );
 	void (*Mod_LoadMapSprite)( struct model_s *mod, const void *buffer, size_t size, qboolean *loaded );
-	void (*Mod_UnloadModel)( model_t *mod );
+	void (*Mod_UnloadTextures)( model_t *mod );
 	void (*Mod_StudioLoadTextures)( model_t *mod, void *data );
-	void (*Mod_StudioUnloadTextures)( void *data );
 
 	// efx implementation
 	void (*CL_DrawParticles)( double frametime, particle_t *particles, float partsize );

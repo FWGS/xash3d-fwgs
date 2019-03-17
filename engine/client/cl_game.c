@@ -1226,7 +1226,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 		else
 		{
 			Con_Reportf( S_ERROR "Could not load HUD sprite %s\n", szSpriteName );
-			ref.dllFuncs.Mod_UnloadModel( m_pSprite );
+			Mod_FreeModel( m_pSprite );
 			return false;
 		}
 	}
@@ -1242,7 +1242,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 
 	if( !loaded )
 	{
-		ref.dllFuncs.Mod_UnloadModel( m_pSprite );
+		Mod_FreeModel( m_pSprite );
 		return false;
 	}
 

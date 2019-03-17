@@ -1561,7 +1561,7 @@ void CL_RegisterResources( sizebuf_t *msg )
 			for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
 			{
 				if( mod->needload == NL_UNREFERENCED && COM_CheckString( mod->name ))
-					ref.dllFuncs.Mod_UnloadModel( mod );
+					Mod_FreeModel( mod );
 			}
 
 			Mod_FreeUnused ();
@@ -3145,7 +3145,7 @@ void CL_LegacyPrecache_f( void )
 	for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
 	{
 		if( mod->needload == NL_UNREFERENCED && COM_CheckString( mod->name ))
-			ref.dllFuncs.Mod_UnloadModel( mod );
+			Mod_FreeModel( mod );
 	}
 
 //	Mod_FreeUnused ();
