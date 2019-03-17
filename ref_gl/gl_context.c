@@ -446,6 +446,7 @@ ref_interface_t gReffuncs =
 	CL_RunLightStyles,
 
 	R_GetSpriteParms,
+	R_GetSpriteTexture,
 
 	Mod_LoadMapSprite,
 	Mod_ProcessRenderData,
@@ -511,7 +512,6 @@ ref_interface_t gReffuncs =
 	TriTexCoord2f,
 	TriVertex3fv,
 	TriVertex3f,
-	TriSpriteTexture,
 	TriWorldToScreen,
 	TriFog,
 	R_ScreenToWorld,

@@ -420,7 +420,7 @@ static void CL_FillTriAPIFromRef( triangleapi_t *dst, const ref_interface_t *src
 	dst->Vertex3fv         = src->Vertex3fv;
 	dst->Brightness        = TriBrightness;
 	dst->CullFace          = TriCullFace;
-	dst->SpriteTexture     = src->SpriteTexture;
+	dst->SpriteTexture     = TriSpriteTexture;
 	dst->WorldToScreen     = TriWorldToScreen;
 	dst->Fog               = src->Fog;
 	dst->ScreenToWorld     = src->ScreenToWorld;
