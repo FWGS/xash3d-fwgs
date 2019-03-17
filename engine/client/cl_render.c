@@ -260,7 +260,7 @@ qboolean R_InitRenderAPI( void )
 	gRenderAPI.GetFrameTime = ref.dllFuncs.GetFrameTime;
 	gRenderAPI.R_SetCurrentEntity = ref.dllFuncs.R_SetCurrentEntity;
 	gRenderAPI.R_SetCurrentModel = ref.dllFuncs.R_SetCurrentModel;
-	gRenderAPI.R_StoreEfrags = ref.dllFuncs.R_StoreEfrags;
+	gRenderAPI.R_StoreEfrags = R_StoreEfrags;
 	gRenderAPI.GL_FindTexture = ref.dllFuncs.GL_FindTexture;
 	gRenderAPI.GL_TextureName = ref.dllFuncs.GL_TextureName;
 	gRenderAPI.GL_TextureData = ref.dllFuncs.GL_TextureData;

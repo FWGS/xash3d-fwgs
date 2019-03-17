@@ -3069,7 +3069,7 @@ loc0:
 
 		// deal with model fragments in this leaf
 		if( pleaf->efrags )
-			R_StoreEfrags( &pleaf->efrags, tr.realframecount );
+			gEngfuncs.R_StoreEfrags( &pleaf->efrags, tr.realframecount );
 
 		r_stats.c_world_leafs++;
 		return;
@@ -3163,7 +3163,7 @@ static void R_DrawTopViewLeaf( mleaf_t *pleaf, uint clipflags )
 
 	// deal with model fragments in this leaf
 	if( pleaf->efrags )
-		R_StoreEfrags( &pleaf->efrags, tr.realframecount );
+		gEngfuncs.R_StoreEfrags( &pleaf->efrags, tr.realframecount );
 
 	r_stats.c_world_leafs++;
 }
@@ -3492,7 +3492,7 @@ void GL_RebuildLightmaps( void )
 	int	i, j;
 	model_t	*m;
 
-	if( !gpGlobals->video_prepped )
+	if( !gEngfuncs.CL_GetRenderParm( PARM_CLIENT_ACTIVE, 0 ) )
 		return; // wait for worldmodel
 
 	ClearBits( vid_brightness->flags, FCVAR_CHANGED );

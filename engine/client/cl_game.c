@@ -1096,7 +1096,7 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 void CL_FreeEntity( cl_entity_t *pEdict )
 {
 	Assert( pEdict != NULL );
-	ref.dllFuncs.R_RemoveEfrags( pEdict );
+	R_RemoveEfrags( pEdict );
 	CL_KillDeadBeams( pEdict );
 }
 

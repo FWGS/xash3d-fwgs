@@ -352,7 +352,7 @@ void CL_ParseStaticEntity( sizebuf_t *msg )
 		}
 	}
 
-	ref.dllFuncs.R_AddEfrags( ent );	// add link
+	R_AddEfrags( ent );	// add link
 }
 
 
@@ -1023,8 +1023,8 @@ void CL_ParseClientData( sizebuf_t *msg )
 		}
 	}
 
-	refState.parsecount = cl.parsecount = i;					// ack'd incoming messages.
-	refState.parsecountmod = cl.parsecountmod = cl.parsecount & CL_UPDATE_MASK;	// index into window.
+	cl.parsecount = i;					// ack'd incoming messages.
+	cl.parsecountmod = cl.parsecount & CL_UPDATE_MASK;	// index into window.
 	frame = &cl.frames[cl.parsecountmod];			// frame at index.
 
 	frame->time = cl.mtime[0];				// mark network received time
@@ -2559,7 +2559,7 @@ void CL_LegacyParseStaticEntity( sizebuf_t *msg )
 		}
 	}
 
-	ref.dllFuncs.R_AddEfrags( ent );	// add link
+	R_AddEfrags( ent );	// add link
 }
 
 

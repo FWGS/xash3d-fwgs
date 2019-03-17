@@ -360,11 +360,6 @@ void R_InitImages( void );
 void R_ShutdownImages( void );
 
 //
-// gl_refrag.c
-//
-void R_StoreEfrags( efrag_t **ppefrag, int framecount );
-
-//
 // gl_rlight.c
 //
 void CL_RunLightStyles( void );
