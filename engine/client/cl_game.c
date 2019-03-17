@@ -1135,20 +1135,12 @@ void CL_InitEdicts( void )
 		clgame.remap_info = (remap_info_t **)Mem_Calloc( clgame.mempool, sizeof( remap_info_t* ) * clgame.maxRemapInfos );
 	}
 
-	if( clgame.drawFuncs.R_ProcessEntData != NULL )
-	{
-		// let the client.dll free custom data
-		clgame.drawFuncs.R_ProcessEntData( true );
-	}
+	ref.dllFuncs.R_ProcessEntData( true );
 }
 
 void CL_FreeEdicts( void )
 {
-	if( clgame.drawFuncs.R_ProcessEntData != NULL )
-	{
-		// let the client.dll free custom data
-		clgame.drawFuncs.R_ProcessEntData( false );
-	}
+	ref.dllFuncs.R_ProcessEntData( false );
 
 	if( clgame.entities )
 		Mem_Free( clgame.entities );
@@ -1236,7 +1228,11 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 
 	if( type == SPR_MAPSPRITE )
 		ref.dllFuncs.Mod_LoadMapSprite( m_pSprite, buf, size, &loaded );
-	else Mod_LoadSpriteModel( m_pSprite, buf, &loaded, texFlags );
+	else
+	{
+		Mod_LoadSpriteModel( m_pSprite, buf, &loaded, texFlags );
+		ref.dllFuncs.Mod_ProcessRenderData( m_pSprite, true, buf );
+	}
 
 	Mem_Free( buf );
 

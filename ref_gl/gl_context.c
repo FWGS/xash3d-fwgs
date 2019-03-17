@@ -164,6 +164,42 @@ static void Mod_LoadModel( modtype_t desiredType, model_t *mod, const byte *buf,
 	}
 }
 
+qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
+{
+	qboolean loaded = true;
+
+	if( create )
+	{
+
+
+		switch( mod->type )
+		{
+			case mod_studio:
+				// Mod_LoadStudioModel( mod, buf, loaded );
+				break;
+			case mod_sprite:
+				Mod_LoadSpriteModel( mod, buf, &loaded, mod->numtexinfo );
+				break;
+			case mod_alias:
+				Mod_LoadAliasModel( mod, buf, &loaded );
+				break;
+			case mod_brush:
+				// Mod_LoadBrushModel( mod, buf, loaded );
+				break;
+
+			default: gEngfuncs.Host_Error( "Mod_LoadModel: unsupported type %d\n", mod->type );
+		}
+	}
+
+	if( loaded && gEngfuncs.drawFuncs->Mod_ProcessUserData )
+		gEngfuncs.drawFuncs->Mod_ProcessUserData( mod, create, buf );
+
+	if( !create )
+		Mod_UnloadTextures( mod );
+
+	return loaded;
+}
+
 static int GL_RenderGetParm( int parm, int arg )
 {
 	gl_texture_t *glt;
@@ -339,6 +375,12 @@ void Mod_UnloadTextures( model_t *mod )
 	}
 }
 
+void R_ProcessEntData( qboolean allocate )
+{
+	if( gEngfuncs.drawFuncs->R_ProcessEntData )
+		gEngfuncs.drawFuncs->R_ProcessEntData( allocate );
+}
+
 ref_interface_t gReffuncs =
 {
 	R_Init,
@@ -363,6 +405,7 @@ ref_interface_t gReffuncs =
 
 	R_AddEntity,
 	CL_AddCustomBeam,
+	R_ProcessEntData,
 
 	IsNormalPass,
 
@@ -407,9 +450,8 @@ ref_interface_t gReffuncs =
 
 	R_GetSpriteParms,
 
-	Mod_LoadModel,
 	Mod_LoadMapSprite,
-	Mod_UnloadTextures,
+	Mod_ProcessRenderData,
 	Mod_StudioLoadTextures,
 
 	CL_DrawParticles,

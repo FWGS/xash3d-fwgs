@@ -1310,9 +1310,7 @@ void CL_EmitEntities( void )
 	// set client ideal pitch when mlook is disabled
 	CL_SetIdealPitch ();
 
-	// clear the scene befor start new frame
-	if( clgame.drawFuncs.R_ClearScene != NULL )
-		clgame.drawFuncs.R_ClearScene();
+	ref.dllFuncs.R_ClearScene ();
 
 	// link all the visible clients first
 	CL_LinkPlayers ( &cl.frames[cl.parsecountmod] );

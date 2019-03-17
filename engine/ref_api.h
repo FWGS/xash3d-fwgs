@@ -460,6 +460,7 @@ typedef struct ref_interface_s
 
 	qboolean (*R_AddEntity)( struct cl_entity_s *clent, int type );
 	void (*CL_AddCustomBeam)( cl_entity_t *pEnvBeam );
+	void		(*R_ProcessEntData)( qboolean allocate );
 
 	// view info
 	qboolean (*IsNormalPass)( void );
@@ -518,9 +519,8 @@ typedef struct ref_interface_s
 
 	// model management
 	// flags ignored for everything except spritemodels
-	void (*Mod_LoadModel)( modtype_t desiredType, model_t *mod, const byte *buf, qboolean *loaded, int flags );
 	void (*Mod_LoadMapSprite)( struct model_s *mod, const void *buffer, size_t size, qboolean *loaded );
-	void (*Mod_UnloadTextures)( model_t *mod );
+	qboolean (*Mod_ProcessRenderData)( model_t *mod, qboolean create, const byte *buffer );
 	void (*Mod_StudioLoadTextures)( model_t *mod, void *data );
 
 	// efx implementation
