@@ -4974,7 +4974,9 @@ void SV_UnloadProgs( void )
 
 	SV_DeactivateServer ();
 	Delta_Shutdown ();
-	Mod_ClearUserData ();
+	/// TODO: reenable this when
+	/// SV_UnloadProgs will be disabled
+	//Mod_ClearUserData ();
 
 	SV_FreeStringPool();
 
