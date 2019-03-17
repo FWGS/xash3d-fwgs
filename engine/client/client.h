@@ -964,6 +964,12 @@ int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, q
 const ref_overview_t *GL_GetOverviewParms( void );
 
 //
+// cl_efrag.c
+//
+void R_StoreEfrags( efrag_t **ppefrag, int framecount );
+void R_AddEfrags( cl_entity_t *ent );
+void R_RemoveEfrags( cl_entity_t *ent );
+//
 // cl_tent.c
 //
 struct particle_s;

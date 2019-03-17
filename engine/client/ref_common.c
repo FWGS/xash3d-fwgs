@@ -292,11 +292,9 @@ static ref_api_t gEngfuncs =
 	CL_ThinkParticle,
 	R_FreeDeadParticles,
 	CL_AllocParticleFast,
-	pfnGetEfragsFreeList,
-	pfnSetEfragsFreeList,
-	R_GetTracerColor,
 	CL_AllocElight,
 	pfnGetDefaultSprite,
+	R_StoreEfrags,
 
 	Mod_ForName,
 	pfnMod_Extradata,

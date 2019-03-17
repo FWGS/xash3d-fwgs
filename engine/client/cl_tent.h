@@ -91,7 +91,6 @@ int CL_DecalIndex( int id );
 
 // RefAPI
 struct particle_s *CL_AllocParticleFast( void );
-color24 *R_GetTracerColor( uint idx );
 
 // Beams
 struct beam_s *R_BeamLightning( vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude, float brightness, float speed );

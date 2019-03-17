@@ -23,6 +23,21 @@ GNU General Public License for more details.
 #include "studio.h"
 
 static float gTracerSize[11] = { 1.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+static color24 gTracerColors[] =
+{
+{ 255, 255, 255 },		// White
+{ 255, 0, 0 },		// Red
+{ 0, 255, 0 },		// Green
+{ 0, 0, 255 },		// Blue
+{ 0, 0, 0 },		// Tracer default, filled in from cvars, etc.
+{ 255, 167, 17 },		// Yellow-orange sparks
+{ 255, 130, 90 },		// Yellowish streaks (garg)
+{ 55, 60, 144 },		// Blue egon streak
+{ 255, 130, 90 },		// More Yellowish streaks (garg)
+{ 255, 140, 90 },		// More Yellowish streaks (garg)
+{ 200, 130, 90 },		// More red streaks (garg)
+{ 255, 120, 70 },		// Darker red streaks (garg)
+};
 
 /*
 ================
@@ -153,7 +168,7 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 	// update tracer color if this is changed
 	if( FBitSet( tracerred->flags|tracergreen->flags|tracerblue->flags|traceralpha->flags, FCVAR_CHANGED ))
 	{
-		color24 *customColors = gEngfuncs.GetTracerColors( 4 );
+		color24 *customColors = &gTracerColors[4];
 		customColors->r = (byte)(tracerred->value * traceralpha->value * 255);
 		customColors->g = (byte)(tracergreen->value * traceralpha->value * 255);
 		customColors->b = (byte)(tracerblue->value * traceralpha->value * 255);
@@ -215,7 +230,13 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 			VectorAdd( verts[0], delta, verts[2] ); 
 			VectorAdd( verts[1], delta, verts[3] ); 
 
-			pColor = gEngfuncs.GetTracerColors( p->color );
+			if( p->color > sizeof( gTracerColors ) / sizeof( color24 ) )
+			{
+				gEngfuncs.Con_Printf( S_ERROR "UserTracer with color > %d\n", sizeof( gTracerColors ) / sizeof( color24 ));
+				p->color = 0;
+			}
+
+			pColor = &gTracerColors[p->color];
 			pglColor4ub( pColor->r, pColor->g, pColor->b, p->packedColor );
 
 			pglBegin( GL_QUADS );

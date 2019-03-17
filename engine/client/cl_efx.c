@@ -21,22 +21,6 @@ static int ramp2[8] = { 0x6f, 0x6e, 0x6d, 0x6c, 0x6b, 0x6a, 0x68, 0x66 };
 static int ramp3[6] = { 0x6d, 0x6b, 6, 5, 4, 3 };
 static int gSparkRamp[9] = { 0xfe, 0xfd, 0xfc, 0x6f, 0x6e, 0x6d, 0x6c, 0x67, 0x60 };
 
-static color24 gTracerColors[] =
-{
-{ 255, 255, 255 },		// White
-{ 255, 0, 0 },		// Red
-{ 0, 255, 0 },		// Green
-{ 0, 0, 255 },		// Blue
-{ 0, 0, 0 },		// Tracer default, filled in from cvars, etc.
-{ 255, 167, 17 },		// Yellow-orange sparks
-{ 255, 130, 90 },		// Yellowish streaks (garg)
-{ 55, 60, 144 },		// Blue egon streak
-{ 255, 130, 90 },		// More Yellowish streaks (garg)
-{ 255, 140, 90 },		// More Yellowish streaks (garg)
-{ 200, 130, 90 },		// More red streaks (garg)
-{ 255, 120, 70 },		// Darker red streaks (garg)
-};
-
 convar_t		*tracerspeed;
 convar_t		*tracerlength;
 convar_t		*traceroffset;
@@ -81,14 +65,6 @@ short R_LookupColor( byte r, byte g, byte b )
 	}
 
 	return best;
-}
-
-color24 *R_GetTracerColor( uint idx )
-{
-	if( idx > ARRAYSIZE( gTracerColors ))
-		return NULL;
-
-	return &gTracerColors[idx];
 }
 
 /*
@@ -1878,12 +1854,6 @@ void R_UserTracerParticle( float *org, float *vel, float life, int colorIndex, f
 
 	if( colorIndex < 0 )
 		return;
-
-	if( colorIndex > ARRAYSIZE( gTracerColors ))
-	{
-		Con_Printf( S_ERROR "UserTracer with color > %d\n", ARRAYSIZE( gTracerColors ));
-		return;
-	}
 
 	if(( p = R_AllocTracer( org, vel, life )) != NULL )
 	{

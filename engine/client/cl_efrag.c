@@ -13,10 +13,12 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "gl_local.h"
+#include "common.h"
 #include "entity_types.h"
 #include "studio.h"
 #include "world.h" // BOX_ON_PLANE_SIDE
+#include "client.h"
+#include "mathlib.h"
 
 /*
 ===============================================================================
@@ -65,8 +67,8 @@ void R_RemoveEfrags( cl_entity_t *ent )
 		ef = ef->entnext;
 		
 		// put it on the free list
-		old->entnext = gEngfuncs.GetEfragsFreeList();
-		gEngfuncs.SetEfragsFreeList( old );
+		old->entnext = clgame.free_efrags;
+		clgame.free_efrags = old;
 	}
 	ent->efrag = NULL; 
 }
@@ -94,14 +96,14 @@ static void R_SplitEntityOnNode( mnode_t *node )
 		leaf = (mleaf_t *)node;
 
 		// grab an efrag off the free list
-		ef = gEngfuncs.GetEfragsFreeList();
+		ef = clgame.free_efrags;
 		if( !ef )
 		{
-			gEngfuncs.Con_Printf( S_ERROR "too many efrags!\n" );
+			Con_Printf( S_ERROR "too many efrags!\n" );
 			return; // no free fragments...
 		}
 
-		gEngfuncs.SetEfragsFreeList( ef->entnext );
+		clgame.free_efrags = ef->entnext;
 		ef->entity = r_addent;
 		
 		// add the entity link	
@@ -159,7 +161,7 @@ void R_AddEfrags( cl_entity_t *ent )
 		r_emaxs[i] = ent->origin[i] + outmaxs[i];
 	}
 
-	R_SplitEntityOnNode( WORLDMODEL->nodes );
+	R_SplitEntityOnNode( cl.worldmodel->nodes );
 	ent->topnode = r_pefragtopnode;
 }
 
@@ -190,10 +192,10 @@ void R_StoreEfrags( efrag_t **ppefrag, int framecount )
 
 			if( pent->visframe != framecount )
 			{
-				if( gEngfuncs.CL_AddVisibleEntity( pent, ET_FRAGMENTED ))
+				if( CL_AddVisibleEntity( pent, ET_FRAGMENTED ))
 				{
 					// mark that we've recorded this entity for this frame
-					pent->curstate.messagenum = gpGlobals->parsecount;
+					pent->curstate.messagenum = cl.parsecount;
 					pent->visframe = framecount;
 				}
 			}

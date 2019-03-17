@@ -432,9 +432,6 @@ ref_interface_t gReffuncs =
 
 	R_LightPoint,
 
-	R_AddEfrags,
-	R_RemoveEfrags,
-
 	R_DecalShoot,
 	R_DecalRemoveAll,
 	R_CreateDecalList,
@@ -466,7 +463,6 @@ ref_interface_t gReffuncs =
 
 	R_SetCurrentEntity,
 	R_SetCurrentModel,
-	R_StoreEfrags,
 
 	GL_FindTexture,
 	GL_TextureName,

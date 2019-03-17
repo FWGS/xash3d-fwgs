@@ -80,15 +80,11 @@ typedef struct
 typedef struct ref_globals_s
 {
 	qboolean developer;
-	qboolean video_prepped;
 
 	float time;    // cl.time
 	float oldtime; // cl.oldtime
 	double realtime; // host.realtime
 	double frametime; // host.frametime
-
-	int parsecount; // cl.parsecount
-	int parsecountmod; // cl.parsecountmod
 
 	// viewport width and height
 	int      width;
@@ -313,11 +309,9 @@ typedef struct ref_api_s
 	void (*CL_ThinkParticle)( double frametime, particle_t *p );
 	void (*R_FreeDeadParticles)( particle_t **ppparticles );
 	particle_t *(*CL_AllocParticleFast)( void ); // unconditionally give new particle pointer from cl_free_particles
-	efrag_t* (*GetEfragsFreeList)( void ); // clgame.free_efrags
-	void (*SetEfragsFreeList)( efrag_t* ); // clgame.free_efrags
-	color24 *(*GetTracerColors)( uint num );
 	struct dlight_s *(*CL_AllocElight)( int key );
 	struct model_s *(*GetDefaultSprite)( enum ref_defaultsprite_e spr );
+	void		(*R_StoreEfrags)( struct efrag_s **ppefrag, int framecount );// store efrags for static entities
 
 	// model management
 	model_t *(*Mod_ForName)( const char *name, qboolean crash, qboolean trackCRC );
@@ -494,9 +488,6 @@ typedef struct ref_interface_s
 	// light
 	colorVec (*R_LightPoint)( const float *p );
 
-	void (*R_AddEfrags)( struct cl_entity_s *ent );
-	void (*R_RemoveEfrags)( struct cl_entity_s *ent );
-
 	// decals
 	// Shoots a decal onto the surface of the BSP.  position is the center of the decal in world coords
 	void (*R_DecalShoot)( int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale );
@@ -539,7 +530,6 @@ typedef struct ref_interface_s
 	// Set renderer info (tell engine about changes)
 	void		(*R_SetCurrentEntity)( struct cl_entity_s *ent ); // tell engine about both currententity and currentmodel
 	void		(*R_SetCurrentModel)( struct model_s *mod );	// change currentmodel but leave currententity unchanged
-	void		(*R_StoreEfrags)( struct efrag_s **ppefrag, int framecount );// store efrags for static entities
 
 	// Texture tools
 	int		(*GL_FindTexture)( const char *name );
