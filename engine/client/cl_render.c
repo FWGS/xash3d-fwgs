@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "client.h"
 #include "library.h"
+#include "platform/platform.h"
 
 int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis )
 {
@@ -252,6 +253,40 @@ qboolean R_InitRenderAPI( void )
 {
 	// make sure what render functions is cleared
 	memset( &clgame.drawFuncs, 0, sizeof( clgame.drawFuncs ));
+
+	// fill missing functions from renderer
+	gRenderAPI.GetDetailScaleForTexture = ref.dllFuncs.GetDetailScaleForTexture;
+	gRenderAPI.GetExtraParmsForTexture = ref.dllFuncs.GetDetailScaleForTexture;
+	gRenderAPI.GetFrameTime = ref.dllFuncs.GetFrameTime;
+	gRenderAPI.R_SetCurrentEntity = ref.dllFuncs.R_SetCurrentEntity;
+	gRenderAPI.R_SetCurrentModel = ref.dllFuncs.R_SetCurrentModel;
+	gRenderAPI.R_StoreEfrags = ref.dllFuncs.R_StoreEfrags;
+	gRenderAPI.GL_FindTexture = ref.dllFuncs.GL_FindTexture;
+	gRenderAPI.GL_TextureName = ref.dllFuncs.GL_TextureName;
+	gRenderAPI.GL_TextureData = ref.dllFuncs.GL_TextureData;
+	gRenderAPI.GL_LoadTexture = ref.dllFuncs.GL_LoadTexture;
+	gRenderAPI.GL_CreateTexture = ref.dllFuncs.GL_CreateTexture;
+	gRenderAPI.GL_LoadTextureArray = ref.dllFuncs.GL_LoadTextureArray;
+	gRenderAPI.GL_CreateTextureArray = ref.dllFuncs.GL_CreateTextureArray;
+	gRenderAPI.GL_FreeTexture = ref.dllFuncs.GL_FreeTexture;
+	gRenderAPI.DrawSingleDecal = ref.dllFuncs.DrawSingleDecal;
+	gRenderAPI.R_DecalSetupVerts = ref.dllFuncs.R_DecalSetupVerts;
+	gRenderAPI.R_EntityRemoveDecals = ref.dllFuncs.R_EntityRemoveDecals;
+	gRenderAPI.AVI_UploadRawFrame = ref.dllFuncs.AVI_UploadRawFrame;
+	gRenderAPI.GL_Bind = ref.dllFuncs.GL_Bind;
+	gRenderAPI.GL_SelectTexture = ref.dllFuncs.GL_SelectTexture;
+	gRenderAPI.GL_LoadTextureMatrix = ref.dllFuncs.GL_LoadTextureMatrix;
+	gRenderAPI.GL_TexMatrixIdentity = ref.dllFuncs.GL_TexMatrixIdentity;
+	gRenderAPI.GL_CleanUpTextureUnits = ref.dllFuncs.GL_CleanUpTextureUnits;
+	gRenderAPI.GL_TexGen = ref.dllFuncs.GL_TexGen;
+	gRenderAPI.GL_TextureTarget = ref.dllFuncs.GL_TextureTarget;
+	gRenderAPI.GL_TexCoordArrayMode = ref.dllFuncs.GL_TexCoordArrayMode;
+	gRenderAPI.GL_GetProcAddress = GL_GetProcAddress;
+	gRenderAPI.GL_UpdateTexSize = ref.dllFuncs.GL_UpdateTexSize;
+	gRenderAPI.GL_DrawParticles = ref.dllFuncs.GL_DrawParticles;
+	gRenderAPI.LightVec = ref.dllFuncs.LightVec;
+	gRenderAPI.StudioGetTexture = ref.dllFuncs.StudioGetTexture;
+
 
 	if( clgame.dllFuncs.pfnGetRenderInterface )
 	{
