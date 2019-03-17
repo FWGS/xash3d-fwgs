@@ -113,29 +113,3 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	ref.dllFuncs.Mod_LoadModel( mod_sprite, mod, buffer, loaded, texFlags );
 #endif
 }
-
-/*
-====================
-Mod_UnloadSpriteModel
-
-release sprite model and frames
-====================
-*/
-void Mod_UnloadSpriteModel( model_t *mod )
-{
-	Assert( mod != NULL );
-
-	if( mod->type == mod_sprite )
-	{
-#ifndef XASH_DEDICATED
-		if( host.type != HOST_DEDICATED )
-		{
-			ref.dllFuncs.Mod_UnloadModel( mod );
-		}
-#endif
-
-		Mem_FreePool( &mod->mempool );
-		memset( mod, 0, sizeof( *mod ));
-	}
-
-}

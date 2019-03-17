@@ -3584,7 +3584,7 @@ void Mod_StudioLoadTextures( model_t *mod, void *data )
 
 /*
 =================
-Mod_StudioLoadTextures
+Mod_StudioUnloadTextures
 =================
 */
 void Mod_StudioUnloadTextures( void *data )

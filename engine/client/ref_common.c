@@ -403,6 +403,7 @@ static void R_UnloadProgs( void )
 	ref.hInstance = NULL;
 
 	memset( &refState, 0, sizeof( refState ));
+	memset( &ref.dllFuncs, 0, sizeof( ref.dllFuncs ));
 
 	Cvar_Unlink( FCVAR_RENDERINFO | FCVAR_GLCONFIG );
 	Cmd_Unlink( CMD_REFDLL );
@@ -507,10 +508,13 @@ void R_Shutdown( void )
 	for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
 	{
 		if( !mod->name[0] ) continue;
-		Mod_UnloadSpriteModel( mod );
+		Mod_FreeModel( mod );
 	}
 	memset( clgame.sprites, 0, sizeof( clgame.sprites ));
 
+	// correctly free all models before render unload
+	// change this if need add online render changing
+	Mod_FreeAll();
 	R_UnloadProgs();
 	ref.initialized = false;
 }

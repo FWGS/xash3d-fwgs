@@ -164,26 +164,6 @@ static void Mod_LoadModel( modtype_t desiredType, model_t *mod, const byte *buf,
 	}
 }
 
-static void Mod_UnloadModel( model_t *mod )
-{
-	switch( mod->type )
-	{
-	case mod_studio:
-		// Mod_UnloadStudioModel( mod );
-		break;
-	case mod_alias:
-		Mod_UnloadAliasModel( mod );
-		break;
-	case mod_brush:
-		// Mod_UnloadBrushModel( mod );
-		break;
-	case mod_sprite:
-		Mod_UnloadSpriteModel( mod );
-		break;
-	default: gEngfuncs.Host_Error( "Mod_UnloadModel: unsupported type %d\n", mod->type );
-	}
-}
-
 static int GL_RenderGetParm( int parm, int arg )
 {
 	gl_texture_t *glt;
@@ -320,6 +300,45 @@ const byte *GL_TextureData( unsigned int texnum )
 	return NULL;
 }
 
+void Mod_BrushUnloadTextures( model_t *mod )
+{
+	int i;
+
+	for( i = 0; i < mod->numtextures; i++ )
+	{
+		texture_t *tx = mod->textures[i];
+		if( !tx || tx->gl_texturenum == tr.defaultTexture )
+			continue;	// free slot
+
+		GL_FreeTexture( tx->gl_texturenum );	// main texture
+		GL_FreeTexture( tx->fb_texturenum );	// luma texture
+	}
+}
+
+void Mod_UnloadTextures( model_t *mod )
+{
+	int		i, j;
+
+	Assert( mod != NULL );
+
+	switch( mod->type )
+	{
+	case mod_studio:
+		Mod_StudioUnloadTextures( mod->cache.data );
+		break;
+	case mod_alias:
+		Mod_AliasUnloadTextures( mod->cache.data );
+		break;
+	case mod_brush:
+		Mod_BrushUnloadTextures( mod );
+		break;
+	case mod_sprite:
+		Mod_SpriteUnloadTextures( mod->cache.data );
+		break;
+	default: gEngfuncs.Host_Error( "Mod_UnloadModel: unsupported type %d\n", mod->type );
+	}
+}
+
 ref_interface_t gReffuncs =
 {
 	R_Init,
@@ -390,9 +409,8 @@ ref_interface_t gReffuncs =
 
 	Mod_LoadModel,
 	Mod_LoadMapSprite,
-	Mod_UnloadModel,
+	Mod_UnloadTextures,
 	Mod_StudioLoadTextures,
-	Mod_StudioUnloadTextures,
 
 	CL_DrawParticles,
 	CL_DrawTracers,

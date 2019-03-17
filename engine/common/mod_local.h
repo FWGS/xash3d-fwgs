@@ -118,6 +118,7 @@ extern convar_t		*r_showhull;
 // model.c
 //
 void Mod_Init( void );
+void Mod_FreeModel( model_t *mod );
 void Mod_FreeAll( void );
 void Mod_Shutdown( void );
 void Mod_ClearUserData( void );
@@ -189,7 +190,6 @@ void Mod_ClearStudioCache( void );
 // mod_sprite.c
 //
 void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags );
-void Mod_UnloadSpriteModel( model_t *mod );
 #endif
 
 #endif//MOD_LOCAL_H

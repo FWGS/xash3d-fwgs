@@ -2798,42 +2798,6 @@ void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded )
 }
 
 /*
-=================
-Mod_UnloadBrushModel
-
-Release all uploaded textures
-=================
-*/
-void Mod_UnloadBrushModel( model_t *mod )
-{
-	texture_t	*tx;
-	int	i;
-
-	Assert( mod != NULL );
-
-	if( mod->type != mod_brush )
-		return; // not a bmodel
-
-	if( mod->name[0] != '*' )
-	{
-#ifndef XASH_DEDICATED
-		for( i = 0; i < mod->numtextures; i++ )
-		{
-			tx = mod->textures[i];
-			if( !tx || tx->gl_texturenum == ref.dllFuncs.R_GetBuiltinTexture( REF_DEFAULT_TEXTURE ) )
-				continue;	// free slot
-
-			ref.dllFuncs.GL_FreeTexture( tx->gl_texturenum );	// main texture
-			ref.dllFuncs.GL_FreeTexture( tx->fb_texturenum );	// luma texture
-		}
-#endif
-		Mem_FreePool( &mod->mempool );
-	}
-
-	memset( mod, 0, sizeof( *mod ));
-}
-
-/*
 ==================
 Mod_CheckLump
 
