@@ -1554,9 +1554,6 @@ void CL_RegisterResources( sizebuf_t *msg )
 
 			CL_SetupOverviewParams();
 
-			if( clgame.drawFuncs.R_NewMap != NULL )
-				clgame.drawFuncs.R_NewMap();
-
 			// release unused SpriteTextures
 			for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
 			{
@@ -3137,9 +3134,6 @@ void CL_LegacyPrecache_f( void )
 	ref.dllFuncs.R_NewMap ();
 
 	CL_SetupOverviewParams();
-
-	if( clgame.drawFuncs.R_NewMap != NULL )
-		clgame.drawFuncs.R_NewMap();
 
 	// release unused SpriteTextures
 	for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )

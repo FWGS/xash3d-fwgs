@@ -99,17 +99,13 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		mod->mins[2] = -pinhl->bounds[1] * 0.5f;
 		mod->maxs[2] = pinhl->bounds[1] * 0.5f;
 	}
+	if( loaded ) *loaded = true;	// done
 
 	if( Host_IsDedicated() )
 	{
 		// skip frames loading
-		if( loaded ) *loaded = true;	// done
+
 		psprite->numframes = 0;
 		return;
 	}
-
-	// continue loading frames
-#ifndef XASH_DEDICATED
-	ref.dllFuncs.Mod_LoadModel( mod_sprite, mod, buffer, loaded, texFlags );
-#endif
 }

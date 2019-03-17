@@ -88,11 +88,7 @@ static void Mod_FreeUserData( model_t *mod )
 #ifndef XASH_DEDICATED
 	else
 	{
-		if( clgame.drawFuncs.Mod_ProcessUserData != NULL )
-		{
-			// let the client.dll free custom data
-			clgame.drawFuncs.Mod_ProcessUserData( mod, false, NULL );
-		}
+		ref.dllFuncs.Mod_ProcessRenderData( mod, false, NULL );
 	}
 #endif
 }
@@ -111,9 +107,6 @@ void Mod_FreeModel( model_t *mod )
 	if( mod->type != mod_brush || mod->name[0] != '*' )
 	{
 		Mod_FreeUserData( mod );
-#ifndef XASH_DEDICATED
-		ref.dllFuncs.Mod_UnloadTextures( mod );
-#endif
 		Mem_FreePool( &mod->mempool );
 	}
 
@@ -295,8 +288,8 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		Mod_LoadSpriteModel( mod, buf, &loaded, 0 );
 		break;
 	case IDALIASHEADER:
-		// REFTODO: move alias loader to engine
-		ref.dllFuncs.Mod_LoadModel( mod_alias, mod, buf, &loaded, 0 );
+		// REFTODO: move server-related code here
+		loaded = true;
 		break;
 	case Q1BSP_VERSION:
 	case HLBSP_VERSION:
@@ -310,18 +303,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		else Con_Printf( S_ERROR "%s has unknown format\n", tempname );
 		return NULL;
 	}
-
-	if( !loaded )
-	{
-		Mod_FreeModel( mod );
-		Mem_Free( buf );
-
-		if( crash ) Host_Error( "Could not load model %s\n", tempname );
-		else Con_Printf( S_ERROR "Could not load model %s\n", tempname );
-
-		return NULL;
-	}
-	else
+	if( loaded )
 	{
 		if( world.loading )
 			SetBits( mod->flags, MODEL_WORLD ); // mark worldmodel
@@ -337,13 +319,20 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 #ifndef XASH_DEDICATED
 		else
 		{
-			if( clgame.drawFuncs.Mod_ProcessUserData != NULL )
-			{
-				// let the client.dll load custom data
-				clgame.drawFuncs.Mod_ProcessUserData( mod, true, buf );
-			}
+			loaded = ref.dllFuncs.Mod_ProcessRenderData( mod, true, buf );
 		}
 #endif
+	}
+
+	if( !loaded )
+	{
+		Mod_FreeModel( mod );
+		Mem_Free( buf );
+
+		if( crash ) Host_Error( "Could not load model %s\n", tempname );
+		else Con_Printf( S_ERROR "Could not load model %s\n", tempname );
+
+		return NULL;
 	}
 
 	p = &mod_crcinfo[mod - mod_known];
