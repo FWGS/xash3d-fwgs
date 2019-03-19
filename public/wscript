@@ -13,37 +13,21 @@ def options(opt):
 	return
 
 def configure(conf):
-	# check for dedicated server build
-	if conf.options.DEDICATED:
-		return
-
-	if conf.options.SUPPORT_BSP2_FORMAT:
-		conf.env.append_unique('DEFINES', 'SUPPORT_BSP2_FORMAT')
-
-	conf.env.append_unique('DEFINES', 'REF_DLL')
+	# stub
+	return
 
 def build(bld):
-	if bld.env.DEDICATED:
-		return
-
 	bld.load_envs()
 	name = get_subproject_name(bld)
 	bld.env = bld.all_envs[name]
 
-	libs = [ 'M', 'public' ]
+	libs = [ 'M' ]
 
 	source = bld.path.ant_glob(['*.c'])
 
-	includes = ['.',
-		'../engine',
-		'../engine/common',
-		'../engine/server',
-		'../engine/client',
-		'../common',
-		'../public',
-		'../pm_shared' ]
+	includes = [ '.', '../common', '../engine' ]
 
-	bld.shlib(
+	bld.stlib(
 		source   = source,
 		target   = name,
 		features = 'c',

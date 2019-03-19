@@ -13,7 +13,7 @@ import fwgslib
 
 VERSION = '0.99'
 APPNAME = 'xash3d-fwgs'
-SUBDIRS = [ 'engine', 'game_launch', 'vgui_support', 'ref_gl' ]
+SUBDIRS = [ 'public', 'engine', 'game_launch', 'vgui_support', 'ref_gl' ]
 top = '.'
 
 def options(opt):
