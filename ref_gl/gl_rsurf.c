@@ -885,7 +885,7 @@ _inline qboolean R_HasLightmap( void )
 	if( RI.currententity )
 	{
 		if( RI.currententity->curstate.effects & EF_FULLBRIGHT )
-			return;	// disabled by user
+			return false;	// disabled by user
 
 		// check for rendermode
 		switch( RI.currententity->curstate.rendermode )
@@ -1586,7 +1586,13 @@ void R_DrawBrushModel( cl_entity_t *e )
 	GL_SetupFogColorForSurfaces ();
 
 	if( e->curstate.rendermode == kRenderTransAdd )
+	{
 		R_AllowFog( false );
+		allow_vbo = false;
+	}
+
+	if( e->curstate.rendermode == kRenderTransColor || e->curstate.rendermode == kRenderTransTexture )
+		allow_vbo = false;
 
 	psurf = &clmodel->surfaces[clmodel->firstmodelsurface];
 	num_sorted = 0;
@@ -1961,7 +1967,7 @@ void R_GenerateVBO()
 	// prepare decal array
 	pglGenBuffersARB( 1, &vbos.decaldata->decalvbo );
 	pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.decaldata->decalvbo );
-	pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbovertex_t ) * DECAL_VERTS_CUT * MAX_RENDER_DECALS, vbos.decaldata->decalarray, GL_STATIC_DRAW_ARB );
+	pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbovertex_t ) * DECAL_VERTS_CUT * MAX_RENDER_DECALS, vbos.decaldata->decalarray, GL_DYNAMIC_DRAW_ARB );
 
 	// preallocate dlight arrays
 	vbos.dlight_index = Mem_Calloc( vbos.mempool, maxindex * sizeof( unsigned short ) * 6 );
@@ -1973,10 +1979,10 @@ void R_GenerateVBO()
 	{
 		pglGenBuffersARB( 1, &vbos.dlight_vbo );
 		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
-		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t ) * (int)(vbos.arraylist->next?USHRT_MAX + 1:vbos.arraylist->array_len + 1) , vbos.dlight_tc, GL_DYNAMIC_DRAW_ARB );
+		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t ) * (int)(vbos.arraylist->next?USHRT_MAX + 1:vbos.arraylist->array_len + 1) , vbos.dlight_tc, GL_STREAM_DRAW_ARB );
 		pglGenBuffersARB( 1, &vbos.decal_dlight_vbo );
 		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.decal_dlight_vbo );
-		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbos.decal_dlight ), vbos.decal_dlight, GL_DYNAMIC_DRAW_ARB );
+		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbos.decal_dlight ), vbos.decal_dlight, GL_STREAM_DRAW_ARB );
 	}
 
 

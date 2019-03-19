@@ -111,7 +111,7 @@ class Android:
 
 def options(opt):
 	android = opt.add_option_group('Android options')
-	android.add_option('--android', action='store', type='string', dest='ANDROID_OPTS', default=None,
+	android.add_option('--android', action='store', dest='ANDROID_OPTS', default=None,
 		help='enable building for android, format: --android=<arch>,<toolchain>,<api>, example: --android=arm,4.9,26')
 
 def configure(conf):
