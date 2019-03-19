@@ -1,0 +1,283 @@
+/*
+gl_draw.c - orthogonal drawing stuff
+Copyright (C) 2010 Uncle Mike
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
+
+#include "r_local.h"
+
+/*
+=============
+R_GetImageParms
+=============
+*/
+void R_GetTextureParms( int *w, int *h, int texnum )
+{
+	image_t	*glt;
+
+	glt = R_GetTexture( texnum );
+	if( w ) *w = glt->srcWidth;
+	if( h ) *h = glt->srcHeight;
+}
+
+/*
+=============
+R_GetSpriteParms
+
+same as GetImageParms but used
+for sprite models
+=============
+*/
+void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite )
+{
+	mspriteframe_t	*pFrame;
+
+	if( !pSprite || pSprite->type != mod_sprite ) return; // bad model ?
+	//pFrame = R_GetSpriteFrame( pSprite, currentFrame, 0.0f );
+
+	//if( frameWidth ) *frameWidth = pFrame->width;
+//	if( frameHeight ) *frameHeight = pFrame->height;
+	//if( numFrames ) *numFrames = pSprite->numframes;
+}
+
+int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
+{
+	if( !m_pSpriteModel || m_pSpriteModel->type != mod_sprite || !m_pSpriteModel->cache.data )
+		return 0;
+
+	return 0;//R_GetSpriteFrame( m_pSpriteModel, frame, 0.0f )->gl_texturenum;
+}
+
+
+/*
+=============
+Draw_StretchPicImplementation
+=============
+*/
+void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1, int s2, int t2, image_t	*pic)
+{
+	pixel_t			*dest, *source;
+	unsigned int				v, u, sv;
+	unsigned int				height;
+	unsigned int				f, fstep;
+	int				skip;
+
+	if( x < 0 )
+	{
+		s1 += (-x)*(s2-s1) / w;
+		x = 0;
+	}
+	if( x + w > vid.width )
+	{
+		s2 -= (x + w - vid.width) * (s2 - s1)/ w ;
+		w = vid.width - x;
+	}
+	if( y + h > vid.height )
+	{
+		t2 -= (y + h - vid.height) * (t2 - t1) / h;
+		h = vid.height - y;
+	}
+
+	if( !pic->pixels[0] || s1 >= s2 || t1 >= t2 )
+		return;
+
+	//gEngfuncs.Con_Printf ("pixels is %p\n", pic->pixels[0] );
+
+	height = h;
+	if (y < 0)
+	{
+		skip = -y;
+		height += y;
+		y = 0;
+	}
+	else
+		skip = 0;
+
+	dest = vid.buffer + y * vid.rowbytes + x;
+
+	for (v=0 ; v<height ; v++, dest += vid.rowbytes)
+	{
+		sv = (skip + v)*(t2-t1)/h + t1;
+		source = pic->pixels[0] + sv*pic->width + s1;
+		if (w == s2 - s1)
+			memcpy (dest, source, w * 2);
+		else
+		{
+			f = 0;
+			fstep = s2*0x10000/w;
+			for (u=0 ; u<w ; u+=4)
+			{
+				dest[u] = source[f>>16];
+				f += fstep;
+				dest[u+1] = source[f>>16];
+				f += fstep;
+				dest[u+2] = source[f>>16];
+				f += fstep;
+				dest[u+3] = source[f>>16];
+				f += fstep;
+			}
+		}
+	}
+}
+
+
+/*
+=============
+R_DrawStretchPic
+=============
+*/
+void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
+{
+	image_t *pic = R_GetTexture(texnum);
+//	GL_Bind( XASH_TEXTURE0, texnum );
+	if( s2 > 1 || t2 > 2 )
+		return;
+	if( w <= 0 || h <= 0 )
+		return;
+	R_DrawStretchPicImplementation(x,y,w,h, pic->width * s1, pic->height * t1, pic->width * s2, pic->height * t2, pic);
+}
+
+/*
+=============
+Draw_TileClear
+
+This repeats a 64*64 tile graphic to fill the screen around a sized down
+refresh window.
+=============
+*/
+void R_DrawTileClear( int texnum, int x, int y, int w, int h )
+{
+	int		tw, th, x2, i, j;
+	image_t	*pic;
+	pixel_t *psrc, *pdest;
+
+	//GL_SetRenderMode( kRenderNormal );
+	_TriColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
+	GL_Bind( XASH_TEXTURE0, texnum );
+
+	pic = R_GetTexture( texnum );
+
+	tw = pic->width;
+	th = pic->height;
+	if (x < 0)
+	{
+		w += x;
+		x = 0;
+	}
+	if (y < 0)
+	{
+		h += y;
+		y = 0;
+	}
+	if (x + w > vid.width)
+		w = vid.width - x;
+	if (y + h > vid.height)
+		h = vid.height - y;
+	if (w <= 0 || h <= 0)
+		return;
+
+	x2 = x + w;
+	pdest = vid.buffer + y*vid.rowbytes;
+	for (i=0 ; i<h ; i++, pdest += vid.rowbytes)
+	{
+		psrc = pic->pixels[0] + tw * ((i+y)&63);
+		for (j=x ; j<x2 ; j++)
+			pdest[j] = psrc[j&63];
+	}
+}
+
+/*
+=============
+R_DrawStretchRaw
+=============
+*/
+void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
+{
+	byte		*raw = NULL;
+	image_t	*tex;
+
+	raw = (byte *)data;
+
+	//pglDisable( GL_BLEND );
+	//pglDisable( GL_ALPHA_TEST );
+	//pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
+
+	tex = R_GetTexture( tr.cinTexture );
+	GL_Bind( XASH_TEXTURE0, tr.cinTexture );
+}
+
+/*
+=============
+R_UploadStretchRaw
+=============
+*/
+void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data )
+{
+	byte		*raw = NULL;
+	image_t	*tex;
+	raw = (byte *)data;
+
+	tex = R_GetTexture( texture );
+	GL_Bind( GL_KEEP_UNIT, texture );
+	tex->width = cols;
+	tex->height = rows;
+}
+
+/*
+===============
+R_Set2DMode
+===============
+*/
+void R_Set2DMode( qboolean enable )
+{
+	if( enable )
+	{
+//		if( glState.in2DMode )
+	//		return;
+#if 0
+		// set 2D virtual screen size
+		pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
+		pglMatrixMode( GL_PROJECTION );
+		pglLoadIdentity();
+		pglOrtho( 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
+		pglMatrixMode( GL_MODELVIEW );
+		pglLoadIdentity();
+
+		GL_Cull( GL_NONE );
+
+		pglDepthMask( GL_FALSE );
+		pglDisable( GL_DEPTH_TEST );
+		pglEnable( GL_ALPHA_TEST );
+		pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
+#endif
+
+	//	glState.in2DMode = true;
+		RI.currententity = NULL;
+		RI.currentmodel = NULL;
+	}
+	else
+	{
+#if 0
+		pglDepthMask( GL_TRUE );
+		pglEnable( GL_DEPTH_TEST );
+		glState.in2DMode = false;
+
+		pglMatrixMode( GL_PROJECTION );
+		GL_LoadMatrix( RI.projectionMatrix );
+
+		pglMatrixMode( GL_MODELVIEW );
+		GL_LoadMatrix( RI.worldviewMatrix );
+
+		GL_Cull( GL_FRONT );
+#endif
+	}
+}
