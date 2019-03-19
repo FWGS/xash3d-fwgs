@@ -34,7 +34,9 @@ GNU General Public License for more details.
 #include "pm_movevars.h"
 //#include "cvar.h"
 
+#ifndef offsetof
 #define offsetof(s,m)       (size_t)&(((s *)0)->m)
+#endif // offsetof
 
 #define ASSERT(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
 #define Assert(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )

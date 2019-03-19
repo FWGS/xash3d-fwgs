@@ -144,9 +144,9 @@ load sprite model
 */
 void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags )
 {
-	dsprite_t		*pin;
-	short		*numi = NULL;
-	dframetype_t	*pframetype;
+	const dsprite_t		*pin;
+	const short		*numi = NULL;
+	const dframetype_t	*pframetype;
 	msprite_t		*psprite;
 	int		i;
 
@@ -156,7 +156,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	if( pin->version == SPRITE_VERSION_Q1 || pin->version == SPRITE_VERSION_32 )
 		numi = NULL;
 	else if( pin->version == SPRITE_VERSION_HL )
-		numi = (short *)(buffer + sizeof( dsprite_hl_t ));
+		numi = (const short *)((const byte*)buffer + sizeof( dsprite_hl_t ));
 
 	r_texFlags = texFlags;
 	sprite_version = pin->version;
@@ -168,21 +168,21 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		rgbdata_t	*pal;
 	
 		pal = gEngfuncs.FS_LoadImage( "#id.pal", (byte *)&i, 768 );
-		pframetype = (dframetype_t *)(buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
+		pframetype = (const dframetype_t *)((const byte*)buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
 		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
 	}
 	else if( *numi == 256 )
-	{	
-		byte	*src = (byte *)(numi+1);
+	{
+		const byte	*src = (const byte *)(numi+1);
 		rgbdata_t	*pal;
-	
+
 		// install palette
 		switch( psprite->texFormat )
 		{
 		case SPR_INDEXALPHA:
 			pal = gEngfuncs.FS_LoadImage( "#gradient.pal", src, 768 );
 			break;
-		case SPR_ALPHTEST:		
+		case SPR_ALPHTEST:
 			pal = gEngfuncs.FS_LoadImage( "#masked.pal", src, 768 );
 			break;
 		default:
@@ -190,7 +190,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 			break;
 		}
 
-		pframetype = (dframetype_t *)(src + 768);
+		pframetype = (const dframetype_t *)(src + 768);
 		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
 	}
 	else 
@@ -298,7 +298,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 	temp.width = w;
 	temp.height = h;
 	temp.type = pix->type;
-	temp.flags = pix->flags;	
+	temp.flags = pix->flags;
 	temp.size = w * h * gEngfuncs.Image_GetPFDesc(temp.type)->bpp;
 	temp.buffer = Mem_Malloc( r_temppool, temp.size );
 	temp.palette = NULL;

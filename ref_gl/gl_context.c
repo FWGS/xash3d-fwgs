@@ -164,6 +164,43 @@ static void Mod_LoadModel( modtype_t desiredType, model_t *mod, const byte *buf,
 	}
 }
 
+void Mod_BrushUnloadTextures( model_t *mod )
+{
+	int i;
+
+	for( i = 0; i < mod->numtextures; i++ )
+	{
+		texture_t *tx = mod->textures[i];
+		if( !tx || tx->gl_texturenum == tr.defaultTexture )
+			continue;       // free slot
+
+		GL_FreeTexture( tx->gl_texturenum );    // main texture
+		GL_FreeTexture( tx->fb_texturenum );    // luma texture
+        }
+}
+
+void Mod_UnloadTextures( model_t *mod )
+{
+	Assert( mod != NULL );
+
+	switch( mod->type )
+	{
+	case mod_studio:
+		Mod_StudioUnloadTextures( mod->cache.data );
+		break;
+	case mod_alias:
+		Mod_AliasUnloadTextures( mod->cache.data );
+		break;
+	case mod_brush:
+		Mod_BrushUnloadTextures( mod );
+		break;
+	case mod_sprite:
+		Mod_SpriteUnloadTextures( mod->cache.data );
+		break;
+	default: gEngfuncs.Host_Error( "Mod_UnloadModel: unsupported type %d\n", mod->type );
+	}
+}
+
 qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 {
 	qboolean loaded = true;
@@ -334,45 +371,6 @@ const byte *GL_TextureData( unsigned int texnum )
 	if( pic != NULL )
 		return pic->buffer;
 	return NULL;
-}
-
-void Mod_BrushUnloadTextures( model_t *mod )
-{
-	int i;
-
-	for( i = 0; i < mod->numtextures; i++ )
-	{
-		texture_t *tx = mod->textures[i];
-		if( !tx || tx->gl_texturenum == tr.defaultTexture )
-			continue;	// free slot
-
-		GL_FreeTexture( tx->gl_texturenum );	// main texture
-		GL_FreeTexture( tx->fb_texturenum );	// luma texture
-	}
-}
-
-void Mod_UnloadTextures( model_t *mod )
-{
-	int		i, j;
-
-	Assert( mod != NULL );
-
-	switch( mod->type )
-	{
-	case mod_studio:
-		Mod_StudioUnloadTextures( mod->cache.data );
-		break;
-	case mod_alias:
-		Mod_AliasUnloadTextures( mod->cache.data );
-		break;
-	case mod_brush:
-		Mod_BrushUnloadTextures( mod );
-		break;
-	case mod_sprite:
-		Mod_SpriteUnloadTextures( mod->cache.data );
-		break;
-	default: gEngfuncs.Host_Error( "Mod_UnloadModel: unsupported type %d\n", mod->type );
-	}
 }
 
 void R_ProcessEntData( qboolean allocate )
