@@ -56,7 +56,7 @@ def build(bld):
 	bld.load_envs()
 	bld.env = bld.all_envs[get_subproject_name(bld)]
 
-	libs = []
+	libs = [ 'public' ]
 	source = bld.path.ant_glob([
 	    'common/*.c',
 		'common/imagelib/*.c',
@@ -93,7 +93,7 @@ def build(bld):
 		if bld.env.DEST_OS == 'linux':
 			libs.append('RT')
 
-	includes = ['common', 'server', 'client', 'client/vgui', '.', '../common', '../pm_shared' ]
+	includes = ['common', 'server', 'client', 'client/vgui', '.', '../common', '../public', '../pm_shared' ]
 
 	if bld.env.SINGLE_BINARY:
 		bld(
