@@ -89,7 +89,8 @@ def build(bld):
 		if bld.env.DEST_OS == 'linux':
 			libs.append('RT')
 
-	includes = ['common', 'server', 'client', 'client/vgui', '.', '../common', '../public', '../pm_shared' ]
+	# HACK: public headers must be put before common, so we don't get wrong mathlib included
+	includes = ['common', 'server', 'client', 'client/vgui', '.', '../public', '../common', '../pm_shared' ]
 
 	if bld.env.SINGLE_BINARY:
 		bld(

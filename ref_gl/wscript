@@ -30,7 +30,7 @@ def build(bld):
 	name = get_subproject_name(bld)
 	bld.env = bld.all_envs[name]
 
-	libs = [ 'M', 'public' ]
+	libs = [ 'public', 'm' ]
 
 	source = bld.path.ant_glob(['*.c'])
 
@@ -39,8 +39,8 @@ def build(bld):
 		'../engine/common',
 		'../engine/server',
 		'../engine/client',
-		'../common',
 		'../public',
+		'../common',
 		'../pm_shared' ]
 
 	bld.shlib(
