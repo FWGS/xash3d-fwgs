@@ -3,10 +3,10 @@
 #define XASH_TYPES_H
 
 #ifdef _WIN32
-#include <stdio.h>
-#else // _WIN32
-#include <sys/types.h>
+#include <wchar.h> // off_t
 #endif // _WIN32
+
+#include <sys/types.h> // off_t
 
 typedef unsigned char byte;
 typedef int		sound_t;
