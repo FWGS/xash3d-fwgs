@@ -1875,7 +1875,7 @@ typedef struct httpserver_s
 {
 	char host[256];
 	int port;
-	char path[PATH_MAX];
+	char path[MAX_SYSPATH];
 	qboolean needfree;
 	struct httpserver_s *next;
 
@@ -1898,7 +1898,7 @@ typedef struct httpfile_s
 {
 	struct httpfile_s *next;
 	httpserver_t *server;
-	char path[PATH_MAX];
+	char path[MAX_SYSPATH];
 	file_t *file;
 	int socket;
 	int size;
@@ -2190,7 +2190,7 @@ void HTTP_Run( void )
 
 		if( curfile->state == HTTP_QUEUE )
 		{
-			char name[PATH_MAX];
+			char name[MAX_SYSPATH];
 
 			if( iActiveCount > http_maxconnections->value )
 				continue;
@@ -2203,7 +2203,7 @@ void HTTP_Run( void )
 			}
 
 			Con_Reportf( "HTTP: Starting download %s from %s\n", curfile->path, curfile->server->host );
-			Q_snprintf( name, PATH_MAX, "%s.incomplete", curfile->path );
+			Q_snprintf( name, sizeof( name ), "%s.incomplete", curfile->path );
 
 			curfile->file = FS_Open( name, "wb", true );
 
