@@ -14,13 +14,12 @@
 import os
 
 def options(opt):
-	opt.add_option(
-		'--sdl2', action='store', type='string', dest = 'SDL2_PATH', default = None,
-		help = 'SDL2 path to build(required for Windows)')
+	grp = opt.add_option_group('SDL2 options')
+	grp.add_option('--sdl2', action='store', dest = 'SDL2_PATH', default = None,
+		help = 'path to precompiled SDL2 library(required for Windows)')
 
-	opt.add_option(
-		'--skip-sdl2-sanity-check', action='store_false', default = True, dest='SDL2_SANITY_CHECK',
-		help = 'Skip checking SDL2 sanity')
+	grp.add_option('--skip-sdl2-sanity-check', action='store_false', default = True, dest='SDL2_SANITY_CHECK',
+		help = 'skip checking SDL2 sanity')
 
 def my_dirname(path):
 	# really dumb, will not work with /path/framework//, but still enough

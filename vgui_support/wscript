@@ -9,24 +9,20 @@ from fwgslib import get_subproject_name
 top = '.'
 
 def options(opt):
-	opt.add_option(
-		'--vgui', action = 'store', type='string', dest = 'VGUI_DEV',
+	grp = opt.add_option_group('VGUI options')
+	grp.add_option('--vgui', action = 'store', dest = 'VGUI_DEV',
 		help = 'path to vgui-dev repo', default='' )
 
-	opt.add_option(
-		'--disable-vgui', action = 'store_true', dest = 'NO_VGUI',
+	grp.add_option('--disable-vgui', action = 'store_true', dest = 'NO_VGUI',
 		help = 'disable vgui_support', default=False )
 
-	opt.add_option(
-		'--skip-vgui-sanity-check', action = 'store_false', dest = 'VGUI_SANITY_CHECK',
-		help = 'Skip checking VGUI sanity', default=True )
-
-	# stub
+	grp.add_option('--skip-vgui-sanity-check', action = 'store_false', dest = 'VGUI_SANITY_CHECK',
+		help = 'skip checking VGUI sanity', default=True )
 	return
 
 def configure(conf):
 	conf.env.NO_VGUI = conf.options.NO_VGUI
-	if conf.options.DEDICATED or conf.options.NO_VGUI:
+	if conf.options.NO_VGUI:
 		return
 
 	conf.start_msg('Configuring VGUI by provided path')
@@ -75,7 +71,7 @@ def build(bld):
 	bld.load_envs()
 	bld.env = bld.all_envs[get_subproject_name(bld)]
 
-	if bld.env.DEDICATED or bld.env.NO_VGUI:
+	if bld.env.NO_VGUI:
 		return
 
 	libs = []
