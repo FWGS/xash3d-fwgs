@@ -68,9 +68,19 @@ typedef integer64 longtime_t;
 #define IsColorString( p )	( p && *( p ) == '^' && *(( p ) + 1) && *(( p ) + 1) >= '0' && *(( p ) + 1 ) <= '9' )
 #define ColorIndex( c )	((( c ) - '0' ) & 7 )
 
-#if defined __i386__ &&  defined __GNUC__
-#define GAME_EXPORT __attribute__((force_align_arg_pointer))
+#if defined(__GNUC__)
+#ifdef __i386__
+#define EXPORT __attribute__ ((visibility ("default"),force_align_arg_pointer))
+#define GAME_EXPORT __attribute((force_align_arg_pointer))
 #else
+#define EXPORT __attribute__ ((visibility ("default")))
+#define GAME_EXPORT
+#endif
+#elif defined(_MSC_VER)
+#define EXPORT          __declspec( dllexport )
+#define GAME_EXPORT
+#else
+#define EXPORT
 #define GAME_EXPORT
 #endif
 

@@ -47,16 +47,8 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 
 #ifndef _WIN32
 #include <stddef.h> // size_t
-
-#ifdef __i386__
-#define EXPORT __attribute__ ((visibility ("default"),force_align_arg_pointer))
-#else
-#define EXPORT __attribute__ ((visibility ("default")))
-#endif
 #else
 #include <sys/types.h> // off_t
-
-#define EXPORT		__declspec( dllexport )
 #endif
 
 // configuration
