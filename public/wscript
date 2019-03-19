@@ -21,10 +21,8 @@ def build(bld):
 	name = get_subproject_name(bld)
 	bld.env = bld.all_envs[name]
 
-	libs = [ 'M' ]
-
 	source = bld.path.ant_glob(['*.c'])
-
+	libs = []
 	includes = [ '.', '../common', '../engine' ]
 
 	bld.stlib(
