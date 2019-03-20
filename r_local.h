@@ -124,13 +124,27 @@ typedef struct vrect_s
 	struct vrect_s  *pnext;
 } vrect_t;
 
+#define COLOR_WHITE 0xFFFF
+#define SEPARATE_BLIT
 typedef struct
 {
 	pixel_t                 *buffer;                // invisible buffer
 	pixel_t                 *colormap;              // 256 * VID_GRADES size
-	pixel_t                 *alphamap;              // 256 * 256 translucency map
+	//pixel_t                 *alphamap;              // 256 * 256 translucency map
+#ifdef SEPARATE_BLIT
 	pixel_t					screen_minor[256];
 	pixel_t					screen_major[256];
+#else
+	pixel_t					screen[256*256];
+#endif
+	byte					addmap[256*256];
+	byte					modmap[256*256];
+	pixel_t                 alphamap[8*256*256];
+	pixel_t					color;
+	byte alpha;
+
+	// maybe compute colormask for minor byte?
+	int						rendermode;
 	int                             rowbytes;               // may be > width if displayed in a window
 									// can be negative for stupid dibs
 	int						width;

@@ -108,12 +108,12 @@ void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1,
 	{
 		sv = (skip + v)*(t2-t1)/h + t1;
 		source = pic->pixels[0] + sv*pic->width + s1;
-		if (w == s2 - s1)
-			memcpy (dest, source, w * 2);
-		else
 		{
 			f = 0;
 			fstep = s2*0x10000/w;
+			if( w == s2 - s1 )
+				fstep = 0x10000;
+#if 0
 			for (u=0 ; u<w ; u+=4)
 			{
 				dest[u] = source[f>>16];
@@ -125,6 +125,37 @@ void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1,
 				dest[u+3] = source[f>>16];
 				f += fstep;
 			}
+#else
+			for (u=0 ; u<w ; u++)
+			{
+				pixel_t src = source[f>>16];
+				int alpha = vid.alpha;
+
+				if( pic->transparent )
+				{
+					alpha &= src >> 16 - 3;
+					src = src << 3;
+				}
+
+				if( vid.color != COLOR_WHITE )
+					src = vid.modmap[src & 0xff00|(vid.color>>8)] << 8 | (src & vid.color & 0xff) | ((src & 0xff) >> 1);
+
+				if( vid.rendermode == kRenderTransAdd)
+				{
+					pixel_t screen = dest[u];
+					dest[u] = vid.addmap[src & 0xff00|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 0);
+				}
+				else if( alpha < 7) // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
+				{
+					pixel_t screen = dest[u];
+					dest[u] = vid.alphamap[(vid.alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 1);
+
+				}
+				else
+					dest[u] = src;
+				f += fstep;
+			}
+#endif
 		}
 	}
 }
@@ -160,7 +191,7 @@ void R_DrawTileClear( int texnum, int x, int y, int w, int h )
 	image_t	*pic;
 	pixel_t *psrc, *pdest;
 
-	//GL_SetRenderMode( kRenderNormal );
+	GL_SetRenderMode( kRenderNormal );
 	_TriColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
 	GL_Bind( XASH_TEXTURE0, texnum );
 
@@ -239,6 +270,7 @@ R_Set2DMode
 */
 void R_Set2DMode( qboolean enable )
 {
+	vid.color = COLOR_WHITE;
 	if( enable )
 	{
 //		if( glState.in2DMode )
