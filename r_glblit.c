@@ -87,49 +87,46 @@ void R_BuildScreenMap()
 #endif
 }
 
+#define FOR_EACH_COLOR(x) 	for( r##x = 0; r##x < BIT(3); r##x++ ) for( g##x = 0; g##x < BIT(3); g##x++ ) for( b##x = 0; b##x < BIT(2); b##x++ )
+
 void R_BuildBlendMaps()
 {
 	unsigned int r1, g1, b1;
 	unsigned int r2, g2, b2;
 
-	for( r1 = 0; r1 < BIT(3); r1++ )
-		for( g1 = 0; g1 < BIT(3); g1++ )
-			for( b1 = 0; b1 < BIT(2); b1++ )
-				for( r2 = 0; r2 < BIT(3); r2++ )
-					for( g2 = 0; g2 < BIT(3); g2++ )
-						for( b2 = 0; b2 < BIT(2); b2++ )
-						{
-							unsigned int r, g, b;
-							unsigned short index1 = r1 << (2 + 3) | g1 << 2 | b1;
-							unsigned short index2 = (r2 << (2 + 3) | g2 << 2 | b2) << 8;
-							unsigned int a;
+	FOR_EACH_COLOR(1)FOR_EACH_COLOR(2)
+	{
+		unsigned int r, g, b;
+		unsigned short index1 = r1 << (2 + 3) | g1 << 2 | b1;
+		unsigned short index2 = (r2 << (2 + 3) | g2 << 2 | b2) << 8;
+		unsigned int a;
 
-							r = r1 + r2;
-							g = g1 + g2;
-							b = b1 + b2;
-							if( r > MASK(2) )
-								r = MASK(2);
-							if( g > MASK(2) )
-								g = MASK(2);
-							if( b > MASK(1) )
-								b = MASK(1);
-							ASSERT(!vid.addmap[index2|index1]);
+		r = r1 + r2;
+		g = g1 + g2;
+		b = b1 + b2;
+		if( r > MASK(2) )
+			r = MASK(2);
+		if( g > MASK(2) )
+			g = MASK(2);
+		if( b > MASK(1) )
+			b = MASK(1);
+		ASSERT(!vid.addmap[index2|index1]);
 
-							vid.addmap[index2|index1] =  r << (2 + 3) | g << 2 | b;
-							r = r1 * r2 / MASK(2);
-							g = g1 * g2 / MASK(2);
-							b = b1 * b2 / MASK(1);
-							vid.modmap[index2|index1] =  r << (2 + 3) | g << 2 | b;
+		vid.addmap[index2|index1] =  r << (2 + 3) | g << 2 | b;
+		r = r1 * r2 / MASK(2);
+		g = g1 * g2 / MASK(2);
+		b = b1 * b2 / MASK(1);
+		vid.modmap[index2|index1] =  r << (2 + 3) | g << 2 | b;
 
-							for( a = 0; a < 8; a++ )
-							{
-								r = r1 * a / 7 + r2 * (7 - a) / 7;
-								g = g1 * a / 7 + g2 * (7 - a) / 7;
-								b = b1 * a / 7 + b2 * (7 - a) / 7;
-								vid.alphamap[a << 16|index2|index1] =  r << (2 + 3) | g << 2 | b;
-							}
+		for( a = 0; a < 8; a++ )
+		{
+			r = r1 * a / 7 + r2 * (7 - a) / 7;
+			g = g1 * a / 7 + g2 * (7 - a) / 7;
+			b = b1 * a / 7 + b2 * (7 - a) / 7;
+			vid.alphamap[a << 16|index2|index1] =  r << (2 + 3) | g << 2 | b;
+		}
 
-						}
+	}
 }
 
 void R_InitBlit()
