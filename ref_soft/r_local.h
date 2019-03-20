@@ -88,6 +88,11 @@ extern byte	*r_temppool;
 #define CULL_VISFRAME	3		// culled by PVS
 #define CULL_OTHER		4		// culled by other reason
 
+// bit operation helpers
+#define MASK(x) (BIT(x+1)-1)
+#define GET_BIT(s,b) ((s & (1 << b)) >> b)
+#define MOVE_BIT(s, f, t) (GET_BIT(s,f) << t )
+
 
 /*
   skins will be outline flood filled and mip mapped
@@ -124,6 +129,8 @@ typedef struct
 	pixel_t                 *buffer;                // invisible buffer
 	pixel_t                 *colormap;              // 256 * VID_GRADES size
 	pixel_t                 *alphamap;              // 256 * 256 translucency map
+	pixel_t					screen_minor[256];
+	pixel_t					screen_major[256];
 	int                             rowbytes;               // may be > width if displayed in a window
 									// can be negative for stupid dibs
 	int						width;

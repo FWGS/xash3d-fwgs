@@ -35,10 +35,12 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 	}
 }
 int tex;
+unsigned short *buffer;
 
 #define LOAD(x) p##x = gEngfuncs.GL_GetProcAddress(#x)
 void R_InitBlit()
 {
+	int i;
 	LOAD(glBegin);
 	LOAD(glEnd);
 	LOAD(glTexCoord2f);
@@ -69,12 +71,39 @@ void R_InitBlit()
 	// enable all the low priority messages
 	pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
 	pglGenTextures( 1, &tex );
-}
+	buffer = Mem_Malloc( r_temppool, 1920*1080*2 );
 
+	for( i = 0; i < 256; i++ )
+	{
+		unsigned int r,g,b;
+
+		// 332 to 565
+		r = ((i >> (8 - 3) )<< 2 ) & MASK(5);
+		g = ((i >> (8 - 3 - 3)) << 3) & MASK(6);
+		b = ((i >> (8 - 3 - 3 - 2)) << 3) & MASK(5);
+		vid.screen_major[i] = r << (6 + 5) | (g << 5) | b;
+
+		// restore minor GBRGBRGB
+		r = MOVE_BIT(i, 5, 1) | MOVE_BIT(i, 2, 0);
+		g = MOVE_BIT(i, 7, 2) | MOVE_BIT(i, 4, 1) | MOVE_BIT(i, 1, 0);
+		b = MOVE_BIT(i, 6, 2) | MOVE_BIT(i, 3, 1) | MOVE_BIT(i, 0, 0);
+		vid.screen_minor[i] = r << (6 + 5) | (g << 5) | b;
+	}
+}
 
 void R_BlitScreen()
 {
 	//memset( vid.buffer, 10, vid.width * vid.height );
+	int i;
+	byte *buf = vid.buffer;
+
+	for( i = 0; i < vid.width * vid.height;i++)
+	{
+		byte major = buf[(i<<1)+1];
+		byte minor = buf[(i<<1)];
+
+		buffer[i] = vid.screen_major[major]|vid.screen_minor[minor];
+	}
 	pglBindTexture(GL_TEXTURE_2D, tex);
 	pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
 	pglMatrixMode( GL_PROJECTION );
@@ -90,7 +119,7 @@ void R_BlitScreen()
 	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	//gEngfuncs.Con_Printf("%d\n",pglGetError());
-	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, vid.buffer );
+	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, buffer );
 	//gEngfuncs.Con_Printf("%d\n",pglGetError());
 	pglBegin( GL_QUADS );
 		pglTexCoord2f( 0, 0 );

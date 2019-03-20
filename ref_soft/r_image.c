@@ -503,24 +503,34 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 	gEngfuncs.Con_Printf("%s %d %d\n", tex->name, tex->width, tex->height );
 
+	Assert( pic != NULL );
+	Assert( tex != NULL );
+
 	if( !pic->buffer )
 		return true;
 
 	tex->pixels[0] = Mem_Calloc( r_temppool, tex->width * tex->height * sizeof(pixel_t) + 64 );
+
 	for( i = 0; i < tex->width * tex->height; i++ )
 	{
-		unsigned int r, g, b;
+		unsigned int r, g, b, major, minor;
+
 		r = pic->buffer[i * 4 + 0] * BIT(5) / 256;
 		g = pic->buffer[i * 4 + 1] * BIT(6) / 256;
 		b = pic->buffer[i * 4 + 2] * BIT(5) / 256;
 
-		/// TODO: use internal rgb565-based palette for textures and screen
-		tex->pixels[0][i] = r << (6 + 5) | (g << 5) | b;
+		// 565 to 332
+		major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));
+
+		// save minor GBRGBRGB
+		minor = MOVE_BIT(r,1,5) | MOVE_BIT(r,0,2) | MOVE_BIT(g,2,7) | MOVE_BIT(g,1,4) | MOVE_BIT(g,0,1) | MOVE_BIT(b,2,6)| MOVE_BIT(b,1,3)|MOVE_BIT(b,0,0);
+
+		tex->pixels[0][i] = major << 8 | (minor & 0xFF);
 	}
 
+	/// TODO: generate mipmaps
 #if 0
-	Assert( pic != NULL );
-	Assert( tex != NULL );
+
 
 	GL_SetTextureTarget( tex, pic ); // must be first
 
