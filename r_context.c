@@ -623,6 +623,13 @@ qboolean R_Init()
 {
 	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
 	// create the window and set up the context
+	r_temppool = Mem_AllocPool( "ref_sw zone" );
+
+	vid.width = 1920;
+	vid.height = 1080;
+	vid.rowbytes = 1920; // rowpixels
+
+	vid.buffer = Mem_Malloc( r_temppool, 1920*1080*sizeof( pixel_t ) );
 	if( !gEngfuncs.R_Init_Video( REF_GL )) // request GL context
 	{
 		gEngfuncs.R_Free_Video();
@@ -630,12 +637,7 @@ qboolean R_Init()
 		gEngfuncs.Host_Error( "Can't initialize video subsystem\nProbably driver was not installed" );
 		return false;
 	}
-	r_temppool = Mem_AllocPool( "ref_sw zone" );
-	vid.width = 1920;
-	vid.height = 1080;
-	vid.rowbytes = 1920; // rowpixels
 
-	vid.buffer = Mem_Malloc( r_temppool, 1920*1080*sizeof( pixel_t ) );
 
 	R_InitImages();
 	return true;
