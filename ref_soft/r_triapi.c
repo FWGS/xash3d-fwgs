@@ -39,7 +39,7 @@ set rendermode
 */
 void TriRenderMode( int mode )
 {
-	ds.renderMode = mode;
+	ds.renderMode = vid.rendermode = mode;
 #if 0
 	switch( mode )
 	{
@@ -130,9 +130,29 @@ _TriColor4f
 
 =============
 */
-void _TriColor4f( float r, float g, float b, float a )
+void _TriColor4f( float rr, float gg, float bb, float aa )
 {
 	//pglColor4f( r, g, b, a );
+	unsigned short r,g,b;
+
+	if( rr == 1 && gg == 1 && bb == 1 )
+	{
+		vid.color = COLOR_WHITE;
+		return;
+	}
+
+	r = rr * 31, g = gg * 63, b = bb * 31;
+
+	vid.alpha = aa * 7;
+	if( vid.alpha > 7 )
+		vid.alpha = 7;
+
+	unsigned int major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));
+
+	// save minor GBRGBRGB
+	unsigned int minor = MOVE_BIT(r,1,5) | MOVE_BIT(r,0,2) | MOVE_BIT(g,2,7) | MOVE_BIT(g,1,4) | MOVE_BIT(g,0,1) | MOVE_BIT(b,2,6)| MOVE_BIT(b,1,3)|MOVE_BIT(b,0,0);
+
+	vid.color =  major << 8 | (minor & 0xFF);
 }
 
 /*
@@ -148,7 +168,7 @@ void TriColor4ub( byte r, byte g, byte b, byte a )
 	ds.triRGBA[2] = b * (1.0f / 255.0f);
 	ds.triRGBA[3] = a * (1.0f / 255.0f);
 
-	_TriColor4f( ds.triRGBA[0], ds.triRGBA[1], ds.triRGBA[2], 1.0f );
+	_TriColor4f( ds.triRGBA[0], ds.triRGBA[1], ds.triRGBA[2], ds.triRGBA[3] ); //1.0f );
 }
 
 /*

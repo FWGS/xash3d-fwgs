@@ -220,7 +220,7 @@ static void GL_SetTextureFormat( image_t *tex, pixformat_t format, int channelMa
 	qboolean	haveAlpha = ( channelMask & IMAGE_HAS_ALPHA );
 
 	Assert( tex != NULL );
-	tex->transparent = !!( channelMask & IMAGE_HAS_ALPHA );
+	//tex->transparent = !!( channelMask & IMAGE_HAS_ALPHA );
 }
 
 /*
@@ -509,16 +509,26 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	if( !pic->buffer )
 		return true;
 
+	/// TODO: generate mipmaps
+
+	if( tex->flags & TF_HAS_ALPHA )
+		tex->transparent = true;
+
 	tex->pixels[0] = Mem_Calloc( r_temppool, tex->width * tex->height * sizeof(pixel_t) + 64 );
 
 	for( i = 0; i < tex->width * tex->height; i++ )
 	{
 		unsigned int r, g, b, major, minor;
-
+#if 0
+		r = pic->buffer[i * 4 + 0] * MASK(5-1) / 255;
+		g = pic->buffer[i * 4 + 1] * MASK(6-1) / 255;
+		b = pic->buffer[i * 4 + 2] * MASK(5-1) / 255;
+#else
+		// seems to look better
 		r = pic->buffer[i * 4 + 0] * BIT(5) / 256;
 		g = pic->buffer[i * 4 + 1] * BIT(6) / 256;
 		b = pic->buffer[i * 4 + 2] * BIT(5) / 256;
-
+#endif
 		// 565 to 332
 		major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));
 
@@ -526,9 +536,14 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		minor = MOVE_BIT(r,1,5) | MOVE_BIT(r,0,2) | MOVE_BIT(g,2,7) | MOVE_BIT(g,1,4) | MOVE_BIT(g,0,1) | MOVE_BIT(b,2,6)| MOVE_BIT(b,1,3)|MOVE_BIT(b,0,0);
 
 		tex->pixels[0][i] = major << 8 | (minor & 0xFF);
+		if( tex->transparent )
+		{
+			unsigned int alpha = (pic->buffer[i * 4 + 3] * 8 / 256) << (16 - 3);
+			tex->pixels[0][i] = (tex->pixels[0][i] >> 3) | alpha;
+		}
 	}
 
-	/// TODO: generate mipmaps
+
 #if 0
 
 

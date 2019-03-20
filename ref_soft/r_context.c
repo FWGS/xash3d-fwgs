@@ -376,6 +376,7 @@ void R_AllowFog(qboolean allowed)
 
 void GL_SetRenderMode(int mode)
 {
+	vid.rendermode = mode;
 	/// TODO: table shading/blending???
 	/// maybe, setup block drawing function pointers here
 }
