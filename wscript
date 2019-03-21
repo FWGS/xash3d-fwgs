@@ -30,7 +30,7 @@ SUBDIRS = [
 	Subproject('public',      dedicated=False),
 	Subproject('engine',      dedicated=False),
 	Subproject('game_launch', singlebin=True),
-        Subproject('ref_gl'),
+	Subproject('ref_gl'),
 	Subproject('mainui'),
 	Subproject('vgui_support'),
 ]
@@ -170,8 +170,8 @@ def configure(conf):
 
 
 	# indicate if we are packaging for Linux/BSD
-	if(not conf.options.WIN_INSTALL and 
-		conf.env.DEST_OS != 'win32' and 
+	if(not conf.options.WIN_INSTALL and
+		conf.env.DEST_OS != 'win32' and
 		conf.env.DEST_OS != 'darwin'):
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 	else:
