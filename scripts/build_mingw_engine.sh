@@ -6,8 +6,8 @@
 cd $TRAVIS_BUILD_DIR
 export CC="ccache i686-w64-mingw32-gcc"
 export CXX="ccache i686-w64-mingw32-g++"
-export CFLAGS="-static-libgcc -no-pthread"
-export CXXFLAGS="-static-libgcc -static-libstdc++ -no-pthread"
+export CFLAGS="-static-libgcc -no-pthread -msse2" # add sse2 to workaround mingw multiple definition of MemoryBarrier bug
+export CXXFLAGS="-static-libgcc -static-libstdc++ -no-pthread -msse2"
 export LDFLAGS="-static-libgcc -static-libstdc++ -no-pthread"
 export LINKFLAGS="-static-libgcc -static-libstdc++ -no-pthread"
 export WINRC="i686-w64-mingw32-windres"
