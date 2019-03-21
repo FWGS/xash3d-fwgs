@@ -252,6 +252,7 @@ typedef struct sv_client_s
 
 	int		challenge;		// challenge of this user, randomly generated
 	int		userid;			// identifying number on server
+	int		extensions;
 } sv_client_t;
 
 /*

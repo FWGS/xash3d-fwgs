@@ -302,7 +302,7 @@ Netchan_Setup
 called to open a channel to a remote system
 ==============
 */
-void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, void *client, int (*pfnBlockSize)(void * ))
+void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, void *client, int (*pfnBlockSize)(void *, fragsize_t mode ))
 {
 	Netchan_Clear( chan );
 
@@ -710,7 +710,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 		return;
 
 	if( chan->pfnBlockSize != NULL )
-		chunksize = chan->pfnBlockSize( chan->client );
+		chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 	else chunksize = FRAGMENT_MAX_SIZE; // fallback
 
 	wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
@@ -871,7 +871,7 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 	if( !size ) return;
 
 	if( chan->pfnBlockSize != NULL )
-		chunksize = chan->pfnBlockSize( chan->client );
+		chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 	else chunksize = FRAGMENT_MAX_SIZE; // fallback
 
 	if( !LZSS_IsCompressed( pbuf ))
@@ -969,7 +969,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	}
 
 	if( chan->pfnBlockSize != NULL )
-		chunksize = chan->pfnBlockSize( chan->client );
+		chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 	else chunksize = FRAGMENT_MAX_SIZE; // fallback
 
 	Q_strncpy( compressedfilename, filename, sizeof( compressedfilename ));
@@ -1458,9 +1458,15 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 		if( send_from_regular && ( send_from_frag[FRAG_NORMAL_STREAM] ))
 		{	
 			send_from_regular = false;
+			int maxsize = MAX_RELIABLE_PAYLOAD;
+
+			if( chan->pfnBlockSize )
+				maxsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );
+			if( maxsize == 0 )
+				maxsize = MAX_RELIABLE_PAYLOAD;
 
 			// if the reliable buffer has gotten too big, queue it at the end of everything and clear out buffer
-			if( MSG_GetNumBytesWritten( &chan->message ) > MAX_RELIABLE_PAYLOAD )
+			if( MSG_GetNumBytesWritten( &chan->message ) + (((uint)length) >> 3) > maxsize )
 			{
 				Netchan_CreateFragments_( chan, &chan->message );
 				MSG_Clear( &chan->message );
@@ -1627,9 +1633,16 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 		chan->last_reliable_sequence = chan->outgoing_sequence - 1;
 	}
 
-	if( MSG_GetNumBitsLeft( &send ) >= length )
-		MSG_WriteBits( &send, data, length );
-	else Con_Printf( S_WARN "Netchan_Transmit: unreliable message overflow\n" );
+	if( length )
+	{
+		int maxsize = NET_MAX_MESSAGE;
+		if( chan->pfnBlockSize )
+			maxsize = chan->pfnBlockSize( chan->client, FRAGSIZE_UNRELIABLE );
+
+		if( MSG_GetNumBytesWritten( &send ) + length >> 3 <= maxsize )
+			MSG_WriteBits( &send, data, length );
+		else Con_Printf( S_WARN "Netchan_Transmit: unreliable message overflow: %d\n", MSG_GetNumBytesWritten( &send ) );
+	}
 
 	// deal with packets that are too small for some networks
 	if( MSG_GetNumBytesWritten( &send ) < 16 && !NET_IsLocalAddress( chan->remote_address )) // packet too small for some networks
@@ -1658,7 +1671,10 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 	// send the datagram
 	if( !CL_IsPlaybackDemo( ))
 	{
-		NET_SendPacket( chan->sock, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), chan->remote_address );
+		int splitsize = 0;
+		if( chan->pfnBlockSize )
+			splitsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );
+		NET_SendPacketEx( chan->sock, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), chan->remote_address, splitsize );
 	}
 
 	if( SV_Active() && sv_lan.value && sv_lan_rate.value > 1000.0 )

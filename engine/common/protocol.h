@@ -174,8 +174,8 @@ GNU General Public License for more details.
 
 #define MAX_RESOURCES		(MAX_MODELS+MAX_SOUNDS+MAX_CUSTOM+MAX_EVENTS)
 #define MAX_RESOURCE_BITS		13	// 13 bits 8192 resource (4096 models + 2048 sounds + 1024 events + 1024 files)
-
-#define FRAGMENT_MIN_SIZE		1200		// default MTU
+#define	FRAGMENT_MIN_SIZE			508		// RFC 791: 576(min ip packet) - 60 (ip header) - 8 (udp header)
+#define FRAGMENT_DEFAULT_SIZE		1200		// default MTU
 #define FRAGMENT_MAX_SIZE		64000		// maximal fragment size
 #define FRAGMENT_LOCAL_SIZE		FRAGMENT_MAX_SIZE	// local connection
 
@@ -242,6 +242,9 @@ GNU General Public License for more details.
 
 extern const char	*svc_strings[svc_lastmsg+1];
 extern const char	*clc_strings[clc_lastmsg+1];
+
+// FWGS extensions
+#define NET_EXT_SPLITSIZE (1U<<0) // set splitsize by cl_dlmax
 
 // legacy protocol definitons
 #define PROTOCOL_LEGACY_VERSION		48
