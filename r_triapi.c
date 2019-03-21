@@ -135,6 +135,12 @@ void _TriColor4f( float rr, float gg, float bb, float aa )
 	//pglColor4f( r, g, b, a );
 	unsigned short r,g,b;
 
+
+	vid.alpha = aa * 7;
+	if( vid.alpha > 7 )
+		vid.alpha = 7;
+	//gEngfuncs.Con_Printf("%d\n", vid.alpha);
+
 	if( rr == 1 && gg == 1 && bb == 1 )
 	{
 		vid.color = COLOR_WHITE;
@@ -143,9 +149,6 @@ void _TriColor4f( float rr, float gg, float bb, float aa )
 
 	r = rr * 31, g = gg * 63, b = bb * 31;
 
-	vid.alpha = aa * 7;
-	if( vid.alpha > 7 )
-		vid.alpha = 7;
 
 	unsigned int major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));
 

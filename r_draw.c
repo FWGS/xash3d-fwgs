@@ -130,6 +130,7 @@ void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1,
 			{
 				pixel_t src = source[f>>16];
 				int alpha = vid.alpha;
+				f += fstep;
 
 				if( pic->transparent )
 				{
@@ -137,8 +138,11 @@ void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1,
 					src = src << 3;
 				}
 
+				if( alpha == 0 )
+					continue;
+
 				if( vid.color != COLOR_WHITE )
-					src = vid.modmap[src & 0xff00|(vid.color>>8)] << 8 | (src & vid.color & 0xff) | ((src & 0xff) >> 1);
+					src = vid.modmap[src & 0xff00|(vid.color>>8)] << 8 | (src & vid.color & 0xff) | ((src & 0xff) >> 3);
 
 				if( vid.rendermode == kRenderTransAdd)
 				{
@@ -148,12 +152,12 @@ void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1,
 				else if( alpha < 7) // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
 				{
 					pixel_t screen = dest[u];
-					dest[u] = vid.alphamap[(vid.alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 1);
+					dest[u] = vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) >> 3 | ((src & 0xff) >> 3);
 
 				}
 				else
 					dest[u] = src;
-				f += fstep;
+
 			}
 #endif
 		}

@@ -125,7 +125,7 @@ typedef struct vrect_s
 } vrect_t;
 
 #define COLOR_WHITE 0xFFFF
-#define SEPARATE_BLIT
+//#define SEPARATE_BLIT
 typedef struct
 {
 	pixel_t                 *buffer;                // invisible buffer
@@ -139,7 +139,7 @@ typedef struct
 #endif
 	byte					addmap[256*256];
 	byte					modmap[256*256];
-	pixel_t                 alphamap[8*256*256];
+	byte                 alphamap[8*256*256];
 	pixel_t					color;
 	byte alpha;
 
