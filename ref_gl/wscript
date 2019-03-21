@@ -30,7 +30,7 @@ def build(bld):
 	name = get_subproject_name(bld)
 	bld.env = bld.all_envs[name]
 
-	libs = [ 'public', 'm' ]
+	libs = [ 'public', 'M' ]
 
 	source = bld.path.ant_glob(['*.c'])
 
