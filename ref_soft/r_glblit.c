@@ -34,7 +34,6 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		break;
 	}
 }
-int tex;
 unsigned short *buffer;
 
 #define LOAD(x) p##x = gEngfuncs.GL_GetProcAddress(#x)
@@ -76,9 +75,9 @@ void R_BuildScreenMap()
 		for( j = 0; j < 256; j++ )
 		{
 			// restore minor GBRGBRGB
-			r = MOVE_BIT(i, 5, 1) | MOVE_BIT(i, 2, 0);
-			g = MOVE_BIT(i, 7, 2) | MOVE_BIT(i, 4, 1) | MOVE_BIT(i, 1, 0);
-			b = MOVE_BIT(i, 6, 2) | MOVE_BIT(i, 3, 1) | MOVE_BIT(i, 0, 0);
+			r = MOVE_BIT(j, 5, 1) | MOVE_BIT(j, 2, 0);
+			g = MOVE_BIT(j, 7, 2) | MOVE_BIT(j, 4, 1) | MOVE_BIT(j, 1, 0);
+			b = MOVE_BIT(j, 6, 2) | MOVE_BIT(j, 3, 1) | MOVE_BIT(j, 0, 0);
 			vid.screen[(i<<8)|j] = r << (6 + 5) | (g << 5) | b | major;
 
 		}
@@ -116,13 +115,15 @@ void R_BuildBlendMaps()
 		r = r1 * r2 / MASK(2);
 		g = g1 * g2 / MASK(2);
 		b = b1 * b2 / MASK(1);
+
 		vid.modmap[index2|index1] =  r << (2 + 3) | g << 2 | b;
 
 		for( a = 0; a < 8; a++ )
 		{
-			r = r1 * a / 7 + r2 * (7 - a) / 7;
-			g = g1 * a / 7 + g2 * (7 - a) / 7;
-			b = b1 * a / 7 + b2 * (7 - a) / 7;
+			r = r1 * (7 - a) / 7 + r2 * a / 7;
+			g = g1 * (7 - a) / 7 + g2 * a / 7;
+			b = b1 * (7 - a) / 7 + b2 * a / 7;
+			//if( b == 1 ) b = 0;
 			vid.alphamap[a << 16|index2|index1] =  r << (2 + 3) | g << 2 | b;
 		}
 
@@ -162,8 +163,6 @@ void R_InitBlit()
 	// enable all the low priority messages
 	pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
 #endif
-	pglGenTextures( 1, &tex );
-
 
 	buffer = Mem_Malloc( r_temppool, 1920*1080*2 );
 
@@ -191,7 +190,6 @@ void R_BlitScreen()
 #endif
 	}
 
-	pglBindTexture(GL_TEXTURE_2D, tex);
 	pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
 	pglMatrixMode( GL_PROJECTION );
 	pglLoadIdentity();
@@ -200,12 +198,8 @@ void R_BlitScreen()
 	pglLoadIdentity();
 
 	pglEnable( GL_TEXTURE_2D );
-	pglBindTexture(GL_TEXTURE_2D, tex);
 	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	//gEngfuncs.Con_Printf("%d\n",pglGetError());
 
 	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, buffer );
 	//gEngfuncs.Con_Printf("%d\n",pglGetError());
