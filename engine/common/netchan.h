@@ -59,10 +59,10 @@ GNU General Public License for more details.
 // {
 //  byte (on/off)
 //  int (fragment id)
-//  short (startpos)
-//  short (length)
+//  int (startpos)
+//  int (length)
 // }
-#define HEADER_BYTES		( 8 + MAX_STREAMS * 9 )
+#define HEADER_BYTES		( 8 + MAX_STREAMS * 13 )
 
 // Pad this to next higher 16 byte boundary
 // This is the largest packet that can come in/out over the wire, before processing the header
@@ -84,7 +84,7 @@ GNU General Public License for more details.
 #define NUM_PACKET_ENTITIES		256	// 170 Mb for multiplayer with 32 players
 #define MAX_CUSTOM_BASELINES		64
 
-#define NET_EXT_SPLIT		(1U<<1)
+#define NET_LEGACY_EXT_SPLIT		(1U<<1)
 #define NETSPLIT_BACKUP 8
 #define NETSPLIT_BACKUP_MASK (NETSPLIT_BACKUP - 1)
 #define NETSPLIT_HEADER_SIZE 18
@@ -182,6 +182,13 @@ typedef struct fbufqueue_s
 	fragbuf_t		*fragbufs;	// the actual buffers
 } fragbufwaiting_t;
 
+typedef enum fragsize_e
+{
+	FRAGSIZE_FRAG,
+	FRAGSIZE_SPLIT,
+	FRAGSIZE_UNRELIABLE
+} fragsize_t;
+
 // Network Connection Channel
 typedef struct netchan_s
 {
@@ -205,7 +212,7 @@ typedef struct netchan_s
 
 	// callback to get actual framgment size
 	void		*client;
-	int (*pfnBlockSize)( void *cl );
+	int (*pfnBlockSize)( void *cl, fragsize_t mode );
 
 	// staging and holding areas
 	sizebuf_t		message;
@@ -261,7 +268,7 @@ extern int		net_drop;
 
 void Netchan_Init( void );
 void Netchan_Shutdown( void );
-void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, void *client, int (*pfnBlockSize)(void * ) );
+void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, void *client, int (*pfnBlockSize)(void *, fragsize_t mode ) );
 void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filename, byte *pbuf, int size );
 qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *length );
 qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg );

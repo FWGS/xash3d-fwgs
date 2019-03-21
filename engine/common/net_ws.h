@@ -61,10 +61,12 @@ qboolean NET_GetPacket( netsrc_t sock, netadr_t *from, byte *data, size_t *lengt
 qboolean NET_BufferToBufferCompress( char *dest, uint *destLen, char *source, uint sourceLen );
 qboolean NET_BufferToBufferDecompress( char *dest, uint *destLen, char *source, uint sourceLen );
 void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to );
+void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t to, size_t splitsize );
 void NET_ClearLagData( qboolean bClient, qboolean bServer );
 
 #ifndef XASH_DEDICATED
 qboolean CL_LegacyMode( void );
+int CL_GetSplitSize( void );
 #endif
 
 void HTTP_AddCustomServer( const char *url );

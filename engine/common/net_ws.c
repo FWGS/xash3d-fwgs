@@ -35,15 +35,16 @@ GNU General Public License for more details.
 #include "netchan.h"
 #include "mathlib.h"
 
-// #define NET_USE_FRAGMENTS
+#define NET_USE_FRAGMENTS
 
 #define PORT_ANY			-1
 #define MAX_LOOPBACK		4
 #define MASK_LOOPBACK		(MAX_LOOPBACK - 1)
 
 #define MAX_ROUTEABLE_PACKET		1400
-#define SPLIT_SIZE			( MAX_ROUTEABLE_PACKET - sizeof( SPLITPACKET ))
-#define NET_MAX_FRAGMENTS		( NET_MAX_FRAGMENT / SPLIT_SIZE )
+#define	SPLITPACKET_MIN_SIZE			508		// RFC 791: 576(min ip packet) - 60 (ip header) - 8 (udp header)
+#define SPLITPACKET_MAX_SIZE			64000
+#define NET_MAX_FRAGMENTS		( NET_MAX_FRAGMENT / (SPLITPACKET_MIN_SIZE - sizeof( SPLITPACKET )) )
 
 #ifndef _WIN32 // it seems we need to use WS2 to support it
 #define HAVE_GETADDRINFO
@@ -1105,13 +1106,17 @@ NET_GetLong
 receive long packet from network
 ==================
 */
-qboolean NET_GetLong( byte *pData, int size, int *outSize )
+qboolean NET_GetLong( byte *pData, int size, int *outSize, int splitsize )
 {
 	int		i, sequence_number, offset;
 	SPLITPACKET	*pHeader = (SPLITPACKET *)pData;
 	int		packet_number;
 	int		packet_count;
 	short		packet_id;
+	int body_size = splitsize - sizeof( SPLITPACKET );
+
+	if( body_size < 0 )
+		return false;
 
 	if( size < sizeof( SPLITPACKET ))
 	{
@@ -1149,7 +1154,7 @@ qboolean NET_GetLong( byte *pData, int size, int *outSize )
 	if( net.split_flags[packet_number] != sequence_number )
 	{
 		if( packet_number == ( packet_count - 1 ))
-			net.split.total_size = size + SPLIT_SIZE * ( packet_count - 1 );
+			net.split.total_size = size + body_size * ( packet_count - 1 );
 
 		net.split.split_count--;
 		net.split_flags[packet_number] = sequence_number;
@@ -1162,7 +1167,7 @@ qboolean NET_GetLong( byte *pData, int size, int *outSize )
 		Con_DPrintf( "NET_GetLong: Ignoring duplicated split packet %i of %i ( %i bytes )\n", packet_number + 1, packet_count, size );
 	}
 
-	offset = (packet_number * SPLIT_SIZE);
+	offset = (packet_number * body_size);
 	memcpy( net.split.buffer + offset, pData + sizeof( SPLITPACKET ), size );
 
 	// have we received all of the pieces to the packet?
@@ -1221,13 +1226,13 @@ qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *len
 #ifndef XASH_DEDICATED
 				if( CL_LegacyMode() )
 					return NET_LagPacket( true, sock, from, length, data );
-#endif
-				// check for split message
-				if( *(int *)data == NET_HEADER_SPLITPACKET )
-				{
-					return NET_GetLong( data, ret, length );
-				}
 
+				// check for split message
+				if( sock == NS_CLIENT && *(int *)data == NET_HEADER_SPLITPACKET )
+				{
+					return NET_GetLong( data, ret, length, CL_GetSplitSize() );
+				}
+#endif
 				// lag the packet, if needed
 				return NET_LagPacket( true, sock, from, length, data );
 			}
@@ -1288,15 +1293,16 @@ NET_SendLong
 Fragment long packets, send short directly
 ==================
 */
-int NET_SendLong( netsrc_t sock, int net_socket, const char *buf, int len, int flags, const struct sockaddr *to, int tolen )
+int NET_SendLong( netsrc_t sock, int net_socket, const char *buf, size_t len, int flags, const struct sockaddr *to, size_t tolen, size_t splitsize )
 {
 #ifdef NET_USE_FRAGMENTS
 	// do we need to break this packet up?
-	if( sock == NS_SERVER && len > MAX_ROUTEABLE_PACKET )
+	if( splitsize > sizeof( SPLITPACKET ) && sock == NS_SERVER && len > splitsize )
 	{
-		char		packet[MAX_ROUTEABLE_PACKET];
+		char		packet[SPLITPACKET_MAX_SIZE];
 		int		total_sent, size, packet_count;
 		int		ret, packet_number;
+		int body_size = splitsize - sizeof( SPLITPACKET );
 		SPLITPACKET	*pPacket;
 
 		net.sequence_number++;
@@ -1308,13 +1314,13 @@ int NET_SendLong( netsrc_t sock, int net_socket, const char *buf, int len, int f
 		pPacket->net_id = NET_HEADER_SPLITPACKET;
 		packet_number = 0;
 		total_sent = 0;
-		packet_count = (len + SPLIT_SIZE - 1) / SPLIT_SIZE;
+		packet_count = (len + body_size - 1) / body_size;
 
 		while( len > 0 )
 		{
-			size = Q_min( SPLIT_SIZE, len );
+			size = Q_min( body_size, len );
 			pPacket->packet_id = (packet_number << 8) + packet_count;
-			memcpy( packet + sizeof( SPLITPACKET ), buf + ( packet_number * SPLIT_SIZE ), size );
+			memcpy( packet + sizeof( SPLITPACKET ), buf + ( packet_number * body_size ), size );
 
 			if( net_showpackets && net_showpackets->value == 3.0f )
 			{
@@ -1349,10 +1355,10 @@ int NET_SendLong( netsrc_t sock, int net_socket, const char *buf, int len, int f
 
 /*
 ==================
-NET_SendPacket
+NET_SendPacketEx
 ==================
 */
-void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to )
+void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t to, size_t splitsize )
 {
 	int		ret;
 	struct sockaddr	addr;
@@ -1382,7 +1388,7 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 
 	NET_NetadrToSockadr( &to, &addr );
 
-	ret = NET_SendLong( sock, net_socket, data, length, 0, &addr, sizeof( addr ));
+	ret = NET_SendLong( sock, net_socket, data, length, 0, &addr, sizeof( addr ), splitsize );
 
 	if( NET_IsSocketError( ret ))
 	{
@@ -1410,6 +1416,16 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 		}
 	}
 
+}
+
+/*
+==================
+NET_SendPacket
+==================
+*/
+void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to )
+{
+	return NET_SendPacketEx( sock, length, data, to, 0 );
 }
 
 /*

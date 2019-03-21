@@ -87,7 +87,7 @@ void SV_GetChallenge( netadr_t from )
 	Netchan_OutOfBandPrint( NS_SERVER, svs.challenges[i].adr, "challenge %i", svs.challenges[i].challenge );
 }
 
-int SV_GetFragmentSize( void *pcl )
+int SV_GetFragmentSize( void *pcl, fragsize_t mode )
 {
 	sv_client_t *cl = (sv_client_t*)pcl;
 	int	cl_frag_size;
@@ -95,10 +95,39 @@ int SV_GetFragmentSize( void *pcl )
 	if( Netchan_IsLocal( &cl->netchan ))
 		return FRAGMENT_LOCAL_SIZE;
 
+	if( mode == FRAGSIZE_UNRELIABLE )
+	{
+		// allow setting unreliable limit with "setinfo cl_urmax"
+		cl_frag_size = Q_atoi( Info_ValueForKey( cl->userinfo, "cl_urmax" ));
+		if( cl_frag_size == 0 )
+			return NET_MAX_MESSAGE;
+		return bound( FRAGMENT_MAX_SIZE, cl_frag_size, NET_MAX_MESSAGE );
+	}
+
 	cl_frag_size = Q_atoi( Info_ValueForKey( cl->userinfo, "cl_dlmax" ));
 	cl_frag_size = bound( FRAGMENT_MIN_SIZE, cl_frag_size, FRAGMENT_MAX_SIZE );
 
-	return cl_frag_size;
+	if( mode != FRAGSIZE_FRAG )
+	{
+		if( cl->extensions & NET_EXT_SPLITSIZE )
+			return cl_frag_size;
+		else
+			return 0; // original engine behaviour
+	}
+
+	// get in-game fragmentation size
+	if( cl->state == cs_spawned )
+	{
+		// allow setting in-game fragsize with "setinfo cl_frmax"
+		int frmax = Q_atoi( Info_ValueForKey( cl->userinfo, "cl_frmax" ));
+
+		if( frmax < FRAGMENT_MIN_SIZE || frmax > FRAGMENT_MAX_SIZE )
+			cl_frag_size = frmax;
+		else
+			cl_frag_size /= 2;// add window for unreliable
+	}
+
+	return cl_frag_size - HEADER_BYTES;
 }
 
 /*
@@ -242,6 +271,7 @@ void SV_ConnectClient( netadr_t from )
 	int		i, count = 0;
 	int		challenge;
 	const char		*s;
+	int extensions;
 
 	if( Cmd_Argc() < 5 )
 	{
@@ -282,6 +312,9 @@ void SV_ConnectClient( netadr_t from )
 		SV_RejectConnection( from, "invalid authentication certificate length\n" );
 		return;
 	}
+
+	extensions = Q_atoi( Info_ValueForKey( protinfo, "ext" ) );
+
 
 	// LAN servers restrict to class b IP addresses
 	if( !SV_CheckIPRestrictions( from ))
@@ -346,6 +379,7 @@ void SV_ConnectClient( netadr_t from )
 	newcl->frames = (client_frame_t *)Z_Calloc( sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
 	newcl->userid = g_userid++;	// create unique userid
 	newcl->state = cs_connected;
+	newcl->extensions = extensions & (NET_EXT_SPLITSIZE);
 
 	// reset viewentities (from previous level)
 	memset( newcl->viewentity, 0, sizeof( newcl->viewentity ));
@@ -356,8 +390,15 @@ void SV_ConnectClient( netadr_t from )
 	Netchan_Setup( NS_SERVER, &newcl->netchan, from, qport, newcl, SV_GetFragmentSize );
 	MSG_Init( &newcl->datagram, "Datagram", newcl->datagram_buf, sizeof( newcl->datagram_buf )); // datagram buf
 
+	Q_strncpy( newcl->hashedcdkey, Info_ValueForKey( protinfo, "uuid" ), 32 );
+	newcl->hashedcdkey[32] = '\0';
+
+	// build protinfo answer
+	protinfo[0] = '\0';
+	Info_SetValueForKey( protinfo, "ext", va( "%d",newcl->extensions ), sizeof( protinfo ) );
+
 	// send the connect packet to the client
-	Netchan_OutOfBandPrint( NS_SERVER, from, "client_connect" );
+	Netchan_OutOfBandPrint( NS_SERVER, from, "client_connect %s", protinfo );
 
 	newcl->upstate = us_inactive;
 	newcl->connection_started = host.realtime;
@@ -365,8 +406,7 @@ void SV_ConnectClient( netadr_t from )
 	newcl->delta_sequence = -1;
 	newcl->flags = 0;
 
-	Q_strncpy( newcl->hashedcdkey, Info_ValueForKey( protinfo, "uuid" ), 32 );
-	newcl->hashedcdkey[32] = '\0';
+
 
 	// reset any remaining events
 	memset( &newcl->events, 0, sizeof( newcl->events ));

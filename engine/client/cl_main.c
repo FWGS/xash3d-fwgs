@@ -65,6 +65,8 @@ convar_t	*cl_showevents;
 convar_t	*cl_cmdrate;
 convar_t	*cl_interp;
 convar_t	*cl_dlmax;
+convar_t	*cl_upmax;
+
 convar_t	*cl_lw;
 convar_t	*cl_charset;
 convar_t	*cl_trace_messages;
@@ -197,12 +199,18 @@ void CL_CheckClientState( void )
 	}
 }
 
-int CL_GetFragmentSize( void *unused )
+int CL_GetFragmentSize( void *unused, fragsize_t mode )
 {
+	if( mode == FRAGSIZE_SPLIT )
+		return 0;
+
+	if( mode == FRAGSIZE_UNRELIABLE )
+		return NET_MAX_MESSAGE;
+
 	if( Netchan_IsLocal( &cls.netchan ))
 		return FRAGMENT_LOCAL_SIZE;
 
-	return FRAGMENT_MIN_SIZE;
+	return cl_upmax->value;
 }
 
 /*
@@ -1017,10 +1025,12 @@ void CL_SendConnectPacket( void )
 	{
 		// set related userinfo keys
 		if( cl_dlmax->value >= 40000 || cl_dlmax->value < 100 )
-			Cvar_FullSet( "cl_maxpacket", "1400", FCVAR_USERINFO );
+			Info_SetValueForKey( cls.userinfo, "cl_maxpacket", "1400", sizeof( cls.userinfo ) );
 		else
-			Cvar_FullSet( "cl_maxpacket", cl_dlmax->string, FCVAR_USERINFO );
-		Cvar_FullSet( "cl_maxpayload", "1000", FCVAR_USERINFO );
+			Info_SetValueForKey( cls.userinfo, "cl_maxpacket", cl_dlmax->string, sizeof( cls.userinfo ) );
+
+		if( !*Info_ValueForKey( cls.userinfo,"cl_maxpayload") )
+			Info_SetValueForKey( cls.userinfo, "cl_maxpayload", "1000", sizeof( cls.userinfo ) );
 
 		/// TODO: add input devices list
 		//Info_SetValueForKey( protinfo, "d", va( "%d", input_devices ), sizeof( protinfo ) );
@@ -1030,17 +1040,24 @@ void CL_SendConnectPacket( void )
 		Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
 		Info_SetValueForKey( protinfo, "i", ID_GetMD5(), sizeof( protinfo ) );
 
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\" 2 \"%s\"\n",
-			PROTOCOL_LEGACY_VERSION, Q_atoi( qport ), cls.challenge, cls.userinfo, protinfo );
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\" %d \"%s\"\n",
+			PROTOCOL_LEGACY_VERSION, Q_atoi( qport ), cls.challenge, cls.userinfo, NET_LEGACY_EXT_SPLIT, protinfo );
 		Con_Printf( "Trying to connect by legacy protocol\n" );
 	}
 	else
 	{
-		// remove useless userinfo keys
-		Cvar_FullSet( "cl_maxpacket", "0", 0 );
-		Cvar_FullSet( "cl_maxpayload", "1000", 0 );
+		int extensions = NET_EXT_SPLITSIZE;
+
+		if( cl_dlmax->value > FRAGMENT_MAX_SIZE  || cl_dlmax->value < FRAGMENT_MIN_SIZE )
+			Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
+
+		Info_RemoveKey( cls.userinfo,"cl_maxpacket" );
+		Info_RemoveKey( cls.userinfo, "cl_maxpayload" );
+
 		Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
 		Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
+		Info_SetValueForKey( protinfo, "ext", va("%d", extensions), sizeof( protinfo ));
+
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, cls.challenge, protinfo, cls.userinfo );
 		Con_Printf( "Trying to connect by modern protocol\n" );
 	}
@@ -1364,6 +1381,24 @@ void CL_SendDisconnectMessage( void )
 	Netchan_TransmitBits( &cls.netchan, MSG_GetNumBitsWritten( &buf ), MSG_GetData( &buf ));
 }
 
+int CL_GetSplitSize( void )
+{
+	int splitsize;
+
+	if( Host_IsDedicated() )
+		return 0;
+
+	if( !(cls.extensions & NET_EXT_SPLITSIZE) )
+		return 1400;
+
+	splitsize = cl_dlmax->value;
+
+	if( splitsize < FRAGMENT_MIN_SIZE || splitsize > FRAGMENT_MAX_SIZE )
+		Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
+
+	return cl_dlmax->value;
+}
+
 /*
 =====================
 CL_Reconnect
@@ -1381,11 +1416,20 @@ void CL_Reconnect( qboolean setup_netchan )
 		{
 			unsigned int extensions = Q_atoi( Cmd_Argv( 1 ) );
 
-			if( extensions & NET_EXT_SPLIT )
+			if( extensions & NET_LEGACY_EXT_SPLIT )
 			{
 				// only enable incoming split for legacy mode
 				cls.netchan.split = true;
 				Con_Reportf( "^2NET_EXT_SPLIT enabled^7 (packet sizes is %d/%d)\n", (int)cl_dlmax->value, 65536 );
+			}
+		}
+		else
+		{
+			cls.extensions = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "ext" ));
+
+			if( cls.extensions & NET_EXT_SPLITSIZE )
+			{
+				Con_Reportf( "^2NET_EXT_SPLITSIZE enabled^7 (packet size is %d)\n", (int)cl_dlmax->value );
 			}
 		}
 
@@ -1892,7 +1936,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 				// too many fails use default connection method
 				Con_Printf( "hi-speed connection is failed, use default method\n" );
 				Netchan_OutOfBandPrint( NS_CLIENT, from, "getchallenge\n" );
-				Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
+				Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
 				cls.connect_time = host.realtime;
 				return;
 			}
@@ -2698,7 +2742,8 @@ void CL_InitLocal( void )
 	name = Cvar_Get( "name", Sys_GetCurrentUser(), FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_PRINTABLEONLY, "player name" );
 	model = Cvar_Get( "model", "", FCVAR_USERINFO|FCVAR_ARCHIVE, "player model ('player' is a singleplayer model)" );
 	cl_updaterate = Cvar_Get( "cl_updaterate", "20", FCVAR_USERINFO|FCVAR_ARCHIVE, "refresh rate of server messages" );
-	cl_dlmax = Cvar_Get( "cl_dlmax", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "max allowed fragment size on download resources" );
+	cl_dlmax = Cvar_Get( "cl_dlmax", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "max allowed outcoming fragment size" );
+	cl_upmax = Cvar_Get( "cl_upmax", "1200", FCVAR_ARCHIVE, "max allowed incoming fragment size" );
 	rate = Cvar_Get( "rate", "3500", FCVAR_USERINFO|FCVAR_ARCHIVE, "player network rate" );
 	topcolor = Cvar_Get( "topcolor", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "player top color" );
 	bottomcolor = Cvar_Get( "bottomcolor", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "player bottom color" );
@@ -2707,10 +2752,6 @@ void CL_InitLocal( void )
 	Cvar_Get( "password", "", FCVAR_USERINFO, "server password" );
 	Cvar_Get( "team", "", FCVAR_USERINFO, "player team" );
 	Cvar_Get( "skin", "", FCVAR_USERINFO, "player skin" );
-
-	// legacy mode cvars (need this to add it to userinfo)
-	Cvar_Get( "cl_maxpacket", "0", 0, "legacy server compatibility" );
-	Cvar_Get( "cl_maxpayload", "1000", 0, "legacy server compatibility" );
 
 	cl_showfps = Cvar_Get( "cl_showfps", "1", FCVAR_ARCHIVE, "show client fps" );
 	cl_nosmooth = Cvar_Get( "cl_nosmooth", "0", FCVAR_ARCHIVE, "disable smooth up stair climbing and interpolate position in multiplayer" );
