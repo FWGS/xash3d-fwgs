@@ -23,7 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "r_local.h"
 
-unsigned char	*r_turb_pbase, *r_turb_pdest;
+pixel_t	*r_turb_pbase, *r_turb_pdest;
 fixed16_t		r_turb_s, r_turb_t, r_turb_sstep, r_turb_tstep;
 int				*r_turb_turb;
 int				r_turb_spancount;
@@ -143,7 +143,7 @@ void Turbulent8 (espan_t *pspan)
 
 	do
 	{
-		r_turb_pdest = (unsigned char *)((byte *)d_viewbuffer +
+		r_turb_pdest = (d_viewbuffer +
 				(r_screenwidth * pspan->v) + pspan->u);
 
 		count = pspan->count;
@@ -271,7 +271,7 @@ void NonTurbulent8 (espan_t *pspan)
 	r_turb_sstep = 0;	// keep compiler happy
 	r_turb_tstep = 0;	// ditto
 
-	r_turb_pbase = (unsigned char *)cacheblock;
+	r_turb_pbase = cacheblock;
 
 	sdivz16stepu = d_sdivzstepu * 16;
 	tdivz16stepu = d_tdivzstepu * 16;
@@ -279,7 +279,7 @@ void NonTurbulent8 (espan_t *pspan)
 
 	do
 	{
-		r_turb_pdest = (unsigned char *)((byte *)d_viewbuffer +
+		r_turb_pdest = (d_viewbuffer +
 				(r_screenwidth * pspan->v) + pspan->u);
 
 		count = pspan->count;
@@ -401,7 +401,7 @@ D_DrawSpans16
 void D_DrawSpans16 (espan_t *pspan)
 {
 	int				count, spancount;
-	unsigned char	*pbase, *pdest;
+	pixel_t	*pbase, *pdest;
 	fixed16_t		s, t, snext, tnext, sstep, tstep;
 	float			sdivz, tdivz, zi, z, du, dv, spancountminus1;
 	float			sdivz8stepu, tdivz8stepu, zi8stepu;
@@ -417,7 +417,7 @@ void D_DrawSpans16 (espan_t *pspan)
 
 	do
 	{
-		pdest = (unsigned char *)((byte *)d_viewbuffer +
+		pdest = (d_viewbuffer +
 				(r_screenwidth * pspan->v) + pspan->u);
 
 		count = pspan->count;

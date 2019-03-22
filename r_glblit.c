@@ -168,6 +168,9 @@ void R_InitBlit()
 
 	R_BuildScreenMap();
 	R_BuildBlendMaps();
+	d_pzbuffer = malloc(vid.width*vid.height*2);
+	R_InitCaches();
+
 }
 
 void R_BlitScreen()
