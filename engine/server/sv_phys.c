@@ -2006,7 +2006,7 @@ const char* pfnGetModelName( int modelindex )
 static const byte *GL_TextureData( unsigned int texnum )
 {
 #ifndef XASH_DEDICATED
-	return ref.dllFuncs.GL_TextureData ? ref.dllFuncs.GL_TextureData( texnum ) : NULL;
+	return Host_IsDedicated() ? NULL : ref.dllFuncs.GL_TextureData( texnum );
 #else // XASH_DEDICATED
 	return NULL;
 #endif // XASH_DEDICATED
