@@ -151,7 +151,7 @@ void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1,
 				}
 				else if( alpha < 7) // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
 				{
-					pixel_t screen = dest[u];
+					pixel_t screen = dest[u]; //  | 0xff & screen & src ;
 					dest[u] = vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) >> 3 | ((src & 0xff) >> 3);
 
 				}
@@ -179,6 +179,12 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 	if( w <= 0 || h <= 0 )
 		return;
 	R_DrawStretchPicImplementation(x,y,w,h, pic->width * s1, pic->height * t1, pic->width * s2, pic->height * t2, pic);
+}
+
+void Draw_Fill (int x, int y, int w, int h, int c)
+{
+	// todo: color
+	R_DrawStretchPicImplementation(x,y,w,h, 0, 0, 12, 1, tr.whiteTexture );
 }
 
 /*

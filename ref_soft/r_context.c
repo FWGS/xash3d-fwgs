@@ -22,6 +22,10 @@ gl_globals_t tr;
 ref_speeds_t r_stats;
 byte *r_temppool;
 cvar_t *gl_emboss_scale;
+cvar_t *r_drawentities;
+cvar_t *r_norefresh;
+cvar_t *vid_gamma;
+cvar_t	*vid_brightness;
 viddef_t vid;
 static void R_ClearScreen( void )
 {
@@ -319,7 +323,7 @@ void GL_SetTexCoordArrayMode()
 {
 
 }
-void R_InitBlit();
+
 void GL_OnContextCreated()
 {
 	R_InitBlit();
@@ -334,30 +338,6 @@ void GL_ClearExtensions()
 {
 
 }
-void R_BeginFrame(qboolean clearScene)
-{
-}
-
-void R_RenderScene()
-{
-
-}
-
-void R_EndFrame()
-{
-	// blit pixels with GL until engine supports REF_SOFT context
-	R_BlitScreen();
-}
-
-void R_PushScene()
-{
-
-}
-
-void R_PopScene()
-{
-
-}
 
 void GL_BackendStartFrame()
 {
@@ -369,22 +349,12 @@ void GL_BackendEndFrame()
 
 }
 
-void R_AllowFog(qboolean allowed)
-{
-
-}
 
 void GL_SetRenderMode(int mode)
 {
 	vid.rendermode = mode;
 	/// TODO: table shading/blending???
 	/// maybe, setup block drawing function pointers here
-}
-
-qboolean R_AddEntity(struct cl_entity_s *pRefEntity, int entityType)
-{
-	// no entities support until we draw world...
-	return false;
 }
 
 void CL_AddCustomBeam(cl_entity_t *pEnvBeam)
@@ -415,12 +385,6 @@ qboolean VID_ScreenShot(const char *filename, int shot_type)
 qboolean VID_CubemapShot(const char *base, uint size, const float *vieworg, qboolean skyshot)
 {
 	// cubemaps? in my softrender???
-}
-
-colorVec R_LightPoint(const vec3_t p0)
-{
-	colorVec c = {0};
-	return c;
 }
 
 void R_DecalShoot(int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale)
@@ -464,11 +428,6 @@ void R_InitSkyClouds(mip_t *mt, texture_t *tx, qboolean custom_palette)
 }
 
 void GL_SubdivideSurface(msurface_t *fa)
-{
-
-}
-
-void CL_RunLightStyles()
 {
 
 }
@@ -558,17 +517,6 @@ struct mstudiotex_s *R_StudioGetTexture(cl_entity_t *e)
 	return NULL;
 }
 
-colorVec R_LightVec(const vec3_t start, const vec3_t end, vec3_t lightspot, vec3_t lightvec)
-{
-	colorVec v = {0};
-	return v;
-}
-
-int R_RenderFrame(const struct ref_viewpass_s *vp)
-{
-
-}
-
 void GL_BuildLightmaps()
 {
 
@@ -589,16 +537,6 @@ byte *Mod_GetCurrentVis()
 	return NULL;
 }
 
-void R_ClearScene()
-{
-
-}
-
-void R_NewMap()
-{
-
-}
-
 void R_ScreenToWorld(const vec3_t screen, vec3_t point)
 {
 
@@ -615,39 +553,6 @@ void GL_SetupAttributes( int safegl )
 	gEngfuncs.GL_SetAttribute( REF_GL_RED_SIZE, 5 );
 	gEngfuncs.GL_SetAttribute( REF_GL_GREEN_SIZE, 6 );
 	gEngfuncs.GL_SetAttribute( REF_GL_BLUE_SIZE, 5 );
-}
-
-
-
-
-qboolean R_Init()
-{
-	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
-	// create the window and set up the context
-	r_temppool = Mem_AllocPool( "ref_sw zone" );
-
-	vid.width = 1920;
-	vid.height = 1080;
-	vid.rowbytes = 1920; // rowpixels
-
-	vid.buffer = Mem_Malloc( r_temppool, 1920*1080*sizeof( pixel_t ) );
-	if( !gEngfuncs.R_Init_Video( REF_GL )) // request GL context
-	{
-		gEngfuncs.R_Free_Video();
-
-		gEngfuncs.Host_Error( "Can't initialize video subsystem\nProbably driver was not installed" );
-		return false;
-	}
-
-
-	R_InitImages();
-	return true;
-}
-
-void R_Shutdown()
-{
-	R_ShutdownImages();
-	gEngfuncs.R_Free_Video();
 }
 
 ref_interface_t gReffuncs =
