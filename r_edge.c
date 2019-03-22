@@ -1011,7 +1011,7 @@ void D_SolidSurf (surf_t *s)
 
 	pface = s->msurf;
 #if 1
-	miplevel = 0; //D_MipLevelForScale(s->nearzi * scale_for_mip * pface->texinfo->mipadjust);
+	miplevel = D_MipLevelForScale(s->nearzi * scale_for_mip );
 #else
 	{
 		float dot;
