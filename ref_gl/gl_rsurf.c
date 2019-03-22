@@ -13,11 +13,9 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
 #include "gl_local.h"
-#include "mod_local.h"
 #include "mathlib.h"
+#include "mod_local.h"
 			
 typedef struct
 {
@@ -47,16 +45,16 @@ static void R_DrawVBO( qboolean drawlightmaps, qboolean drawtextures );
 
 byte *Mod_GetCurrentVis( void )
 {
-	if( clgame.drawFuncs.Mod_GetCurrentVis && tr.fCustomRendering )
-		return clgame.drawFuncs.Mod_GetCurrentVis();
+	if( gEngfuncs.drawFuncs->Mod_GetCurrentVis && tr.fCustomRendering )
+		return gEngfuncs.drawFuncs->Mod_GetCurrentVis();
 	return RI.visbytes;
 }
 
-void Mod_SetOrthoBounds( float *mins, float *maxs )
+void Mod_SetOrthoBounds( const float *mins, const float *maxs )
 {
-	if( clgame.drawFuncs.GL_OrthoBounds )
+	if( gEngfuncs.drawFuncs->GL_OrthoBounds )
 	{
-		clgame.drawFuncs.GL_OrthoBounds( mins, maxs );
+		gEngfuncs.drawFuncs->GL_OrthoBounds( mins, maxs );
 	}
 
 	Vector2Average( maxs, mins, world_orthocenter );
@@ -90,11 +88,12 @@ static void SubdividePolygon_r( msurface_t *warpface, int numverts, float *verts
 	float		sample_size;
 	vec3_t		mins, maxs;
 	glpoly_t		*poly;
+	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	if( numverts > ( SUBDIVIDE_SIZE - 4 ))
-		Host_Error( "Mod_SubdividePolygon: too many vertexes on face ( %i )\n", numverts );
+		gEngfuncs.Host_Error( "Mod_SubdividePolygon: too many vertexes on face ( %i )\n", numverts );
 
-	sample_size = Mod_SampleSizeForFace( warpface );
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( warpface );
 	BoundPoly( numverts, verts, mins, maxs );
 
 	for( i = 0; i < 3; i++ )
@@ -245,6 +244,7 @@ void GL_SubdivideSurface( msurface_t *fa )
 	int	numverts;
 	int	i, lindex;
 	float	*vec;
+	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	// convert edges back to a normal polygon
 	numverts = 0;
@@ -295,7 +295,7 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 		glt->srcHeight = tex->height;
 	}
 
-	sample_size = Mod_SampleSizeForFace( fa );
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
 
 	// reconstruct the polygon
 	pedges = mod->edges;
@@ -427,7 +427,7 @@ texture_t *R_TextureAnim( texture_t *b )
 			speed = 10;
 		else speed = 20;
 
-		reletive = (int)(cl.time * speed) % base->anim_total;
+		reletive = (int)(gpGlobals->time * speed) % base->anim_total;
 	}
 
 
@@ -481,7 +481,7 @@ texture_t *R_TextureAnimation( msurface_t *s )
 			speed = 10;
 		else speed = 20;
 
-		reletive = (int)(cl.time * speed) % base->anim_total;
+		reletive = (int)(gpGlobals->time * speed) % base->anim_total;
 	}
 
 	count = 0;
@@ -518,7 +518,7 @@ void R_AddDynamicLights( msurface_t *surf )
 	// no dlighted surfaces here
 	if( !R_CountSurfaceDlights( surf )) return;
 
-	sample_size = Mod_SampleSizeForFace( surf );
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	smax = (info->lightextents[0] / sample_size) + 1;
 	tmax = (info->lightextents[1] / sample_size) + 1;
 	tex = surf->texinfo;
@@ -537,7 +537,7 @@ void R_AddDynamicLights( msurface_t *surf )
 		if( !FBitSet( surf->dlightbits, BIT( lnum )))
 			continue;	// not lit by this light
 
-		dl = &cl_dlights[lnum];
+		dl = gEngfuncs.GetDynamicLight( lnum );
 
 		// transform light origin to local bmodel space
 		if( !tr.modelviewIdentity )
@@ -581,9 +581,9 @@ void R_AddDynamicLights( msurface_t *surf )
 
 				if( dist < minlight )
 				{
-					bl[0] += ((int)((rad - dist) * 256) * LightToTexGamma( dl->color.r )) / 256;
-					bl[1] += ((int)((rad - dist) * 256) * LightToTexGamma( dl->color.g )) / 256;
-					bl[2] += ((int)((rad - dist) * 256) * LightToTexGamma( dl->color.b )) / 256;
+					bl[0] += ((int)((rad - dist) * 256) * gEngfuncs.LightToTexGamma( dl->color.r )) / 256;
+					bl[1] += ((int)((rad - dist) * 256) * gEngfuncs.LightToTexGamma( dl->color.g )) / 256;
+					bl[2] += ((int)((rad - dist) * 256) * gEngfuncs.LightToTexGamma( dl->color.b )) / 256;
 				}
 			}
 		}
@@ -703,7 +703,7 @@ static void LM_UploadBlock( qboolean dynamic )
 		tr.lightmapTextures[i] = GL_LoadTextureInternal( lmName, &r_lightmap, TF_FONT|TF_ATLAS_PAGE );
 
 		if( ++gl_lms.current_lightmap_texture == MAX_LIGHTMAPS )
-			Host_Error( "AllocBlock: full\n" );
+			gEngfuncs.Host_Error( "AllocBlock: full\n" );
 	}
 }
 
@@ -724,7 +724,7 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 	mextrasurf_t	*info = surf->info;
 	color24		*lm;
 
-	sample_size = Mod_SampleSizeForFace( surf );
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	smax = ( info->lightextents[0] / sample_size ) + 1;
 	tmax = ( info->lightextents[1] / sample_size ) + 1;
 	size = smax * tmax;
@@ -740,9 +740,9 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 
 		for( i = 0, bl = r_blocklights; i < size; i++, bl += 3, lm++ )
 		{
-			bl[0] += LightToTexGamma( lm->r ) * scale;
-			bl[1] += LightToTexGamma( lm->g ) * scale;
-			bl[2] += LightToTexGamma( lm->b ) * scale;
+			bl[0] += gEngfuncs.LightToTexGamma( lm->r ) * scale;
+			bl[1] += gEngfuncs.LightToTexGamma( lm->g ) * scale;
+			bl[2] += gEngfuncs.LightToTexGamma( lm->b ) * scale;
 		}
 	}
 
@@ -793,7 +793,7 @@ void DrawGLPoly( glpoly_t *p, float xScale, float yScale )
 		float		flRate, flAngle;
 		gl_texture_t	*texture;
 
-		if( Host_IsQuakeCompatible() && RI.currententity == clgame.entities )
+		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && RI.currententity == gEngfuncs.GetEntityByIndex( 0 ) )
 		{
 			// same as doom speed
 			flConveyorSpeed = -35.0f;
@@ -809,8 +809,8 @@ void DrawGLPoly( glpoly_t *p, float xScale, float yScale )
 		flAngle = ( flConveyorSpeed >= 0 ) ? 180 : 0;
 
 		SinCos( flAngle * ( M_PI / 180.0f ), &sy, &cy );
-		sOffset = cl.time * cy * flRate;
-		tOffset = cl.time * sy * flRate;
+		sOffset = gpGlobals->time * cy * flRate;
+		tOffset = gpGlobals->time * sy * flRate;
 	
 		// make sure that we are positive
 		if( sOffset < 0.0f ) sOffset += 1.0f + -(int)sOffset;
@@ -879,7 +879,7 @@ void DrawGLPolyChain( glpoly_t *p, float soffset, float toffset )
 
 _inline qboolean R_HasLightmap( void )
 {
-	if( CVAR_TO_BOOL( r_fullbright ) || !cl.worldmodel->lightdata )
+	if( CVAR_TO_BOOL( r_fullbright ) || !WORLDMODEL->lightdata )
 		return false;
 
 	if( RI.currententity )
@@ -957,7 +957,7 @@ void R_BlendLightmaps( void )
 			mextrasurf_t	*info = surf->info;
 			byte		*base;
 
-			sample_size = Mod_SampleSizeForFace( surf );
+			sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 			smax = ( info->lightextents[0] / sample_size ) + 1;
 			tmax = ( info->lightextents[1] / sample_size ) + 1;
 
@@ -993,7 +993,7 @@ void R_BlendLightmaps( void )
 
 				// try uploading the block now
 				if( !LM_AllocBlock( smax, tmax, &surf->info->dlight_s, &surf->info->dlight_t ))
-					Host_Error( "AllocBlock: full\n" );
+					gEngfuncs.Host_Error( "AllocBlock: full\n" );
 
 				base = gl_lms.lightmap_buffer;
 				base += ( surf->info->dlight_t * BLOCK_SIZE + surf->info->dlight_s ) * 4;
@@ -1223,7 +1223,7 @@ dynamic:
 			int		sample_size;
 			int		smax, tmax;
 
-			sample_size = Mod_SampleSizeForFace( fa );
+			sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
 			smax = ( info->lightextents[0] / sample_size ) + 1;
 			tmax = ( info->lightextents[1] / sample_size ) + 1;
 
@@ -1269,10 +1269,10 @@ void R_DrawTextureChains( void )
 	GL_SetupFogColorForSurfaces();
 
 	// restore worldmodel
-	RI.currententity = clgame.entities;
+	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
-	if( FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX ))
+	if( ENGINE_GET_PARM( PARM_SKY_SPHERE ) )
 	{
 		pglDisable( GL_TEXTURE_2D );
 		pglColor3f( 1.0f, 1.0f, 1.0f );
@@ -1282,7 +1282,7 @@ void R_DrawTextureChains( void )
 	for( s = skychain; s != NULL; s = s->texturechain )
 		R_AddSkyBoxSurface( s );
 
-	if( FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX ))
+	if( ENGINE_GET_PARM( PARM_SKY_SPHERE ) )
 	{
 		pglEnable( GL_TEXTURE_2D );
 		if( skychain )
@@ -1290,9 +1290,9 @@ void R_DrawTextureChains( void )
 		skychain = NULL;
 	}
 
-	for( i = 0; i < cl.worldmodel->numtextures; i++ )
+	for( i = 0; i < WORLDMODEL->numtextures; i++ )
 	{
-		t = cl.worldmodel->textures[i];
+		t = WORLDMODEL->textures[i];
 		if( !t ) continue;
 
 		s = t->texturechain;
@@ -1300,14 +1300,14 @@ void R_DrawTextureChains( void )
 		if( !s || ( i == tr.skytexturenum ))
 			continue;
 
-		if(( s->flags & SURF_DRAWTURB ) && clgame.movevars.wateralpha < 1.0f )
+		if(( s->flags & SURF_DRAWTURB ) && MOVEVARS->wateralpha < 1.0f )
 			continue;	// draw translucent water later
 
-		if( Host_IsQuakeCompatible() && FBitSet( s->flags, SURF_TRANSPARENT ))
+		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && FBitSet( s->flags, SURF_TRANSPARENT ))
 		{
 			draw_alpha_surfaces = true;
 			continue;	// draw transparent surfaces later
-                    }
+		}
 
 		for( ; s != NULL; s = s->texturechain )
 			R_RenderBrushPoly( s, CULL_VISIBLE );
@@ -1343,14 +1343,14 @@ void R_DrawAlphaTextureChains( void )
 	GL_SetupFogColorForSurfaces();
 
 	// restore worldmodel
-	RI.currententity = clgame.entities;
+	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 	RI.currententity->curstate.rendermode = kRenderTransAlpha;
 	draw_alpha_surfaces = false;
 
-	for( i = 0; i < cl.worldmodel->numtextures; i++ )
+	for( i = 0; i < WORLDMODEL->numtextures; i++ )
 	{
-		t = cl.worldmodel->textures[i];
+		t = WORLDMODEL->textures[i];
 		if( !t ) continue;
 
 		s = t->texturechain;
@@ -1384,11 +1384,11 @@ void R_DrawWaterSurfaces( void )
 		return;
 
 	// non-transparent water is already drawed
-	if( clgame.movevars.wateralpha >= 1.0f )
+	if( MOVEVARS->wateralpha >= 1.0f )
 		return;
 
 	// restore worldmodel
-	RI.currententity = clgame.entities;
+	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
 	// go back to the world matrix
@@ -1399,11 +1399,11 @@ void R_DrawWaterSurfaces( void )
 	pglDisable( GL_ALPHA_TEST );
 	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-	pglColor4f( 1.0f, 1.0f, 1.0f, clgame.movevars.wateralpha );
+	pglColor4f( 1.0f, 1.0f, 1.0f, MOVEVARS->wateralpha );
 
-	for( i = 0; i < cl.worldmodel->numtextures; i++ )
+	for( i = 0; i < WORLDMODEL->numtextures; i++ )
 	{
-		t = cl.worldmodel->textures[i];
+		t = WORLDMODEL->textures[i];
 		if( !t ) continue;
 
 		s = t->texturechain;
@@ -1483,7 +1483,7 @@ void R_SetRenderMode( cl_entity_t *e )
 	case kRenderTransAlpha:
 		pglEnable( GL_ALPHA_TEST );
 		pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		if( Host_IsQuakeCompatible( ))
+		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 		{
 			pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 			pglColor4f( 1.0f, 1.0f, 1.0f, tr.blend );
@@ -1529,7 +1529,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	clmodel = e->model;
 
 	// external models not loaded to VBO
-	if( clmodel->surfaces != cl.worldmodel->surfaces )
+	if( clmodel->surfaces != WORLDMODEL->surfaces )
 		allow_vbo = false;
 
 	if( !VectorIsNull( e->angles ))
@@ -1558,7 +1558,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	if( rotated ) R_RotateForEntity( e );
 	else R_TranslateForEntity( e );
 
-	if( Host_IsQuakeCompatible() && FBitSet( clmodel->flags, MODEL_TRANSPARENT ))
+	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && FBitSet( clmodel->flags, MODEL_TRANSPARENT ))
 		e->curstate.rendermode = kRenderTransAlpha;
 
 	e->visframe = tr.realframecount; // visible
@@ -1567,9 +1567,11 @@ void R_DrawBrushModel( cl_entity_t *e )
 	else VectorSubtract( RI.cullorigin, e->origin, tr.modelorg );
 
 	// calculate dynamic lighting for bmodel
-	for( k = 0, l = cl_dlights; k < MAX_DLIGHTS; k++, l++ )
+	for( k = 0; k < MAX_DLIGHTS; k++ )
 	{
-		if( l->die < cl.time || !l->radius )
+		l = gEngfuncs.GetDynamicLight( k );
+
+		if( l->die < gpGlobals->time || !l->radius )
 			continue;
 
 		VectorCopy( l->origin, oldorigin ); // save lightorigin
@@ -1597,7 +1599,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 
 	for( i = 0; i < clmodel->nummodelsurfaces; i++, psurf++ )
 	{
-		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !Host_IsQuakeCompatible( ))
+		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 		{
 			if( psurf->plane->type != PLANE_Z && !FBitSet( e->curstate.effects, EF_WATERSIDES ))
 				continue;
@@ -1616,22 +1618,22 @@ void R_DrawBrushModel( cl_entity_t *e )
 				continue;
 		}
 
-		if( num_sorted < world.max_surfaces )
+		if( num_sorted < gpGlobals->max_surfaces )
 		{
-			world.draw_surfaces[num_sorted].surf = psurf;
-			world.draw_surfaces[num_sorted].cull = cull_type;
+			gpGlobals->draw_surfaces[num_sorted].surf = psurf;
+			gpGlobals->draw_surfaces[num_sorted].cull = cull_type;
 			num_sorted++;
 		}
 	}
 
 	// sort faces if needs
 	if( !FBitSet( clmodel->flags, MODEL_LIQUID ) && e->curstate.rendermode == kRenderTransTexture && !CVAR_TO_BOOL( gl_nosort ))
-		qsort( world.draw_surfaces, num_sorted, sizeof( sortedface_t ), R_SurfaceCompare );
+		qsort( gpGlobals->draw_surfaces, num_sorted, sizeof( sortedface_t ), R_SurfaceCompare );
 
 	// draw sorted translucent surfaces
 	for( i = 0; i < num_sorted; i++ )
-		if( !allow_vbo || !R_AddSurfToVBO( world.draw_surfaces[i].surf, true ) )
-			R_RenderBrushPoly( world.draw_surfaces[i].surf, world.draw_surfaces[i].cull );
+		if( !allow_vbo || !R_AddSurfToVBO( gpGlobals->draw_surfaces[i].surf, true ) )
+			R_RenderBrushPoly( gpGlobals->draw_surfaces[i].surf, gpGlobals->draw_surfaces[i].cull );
 	R_DrawVBO( R_HasLightmap(), true );
 
 	if( e->curstate.rendermode == kRenderTransColor )
@@ -1781,7 +1783,7 @@ Allocate memory for arrays, fill it with vertex attribs and upload to GPU
 */
 void R_GenerateVBO()
 {
-	int numtextures = cl.worldmodel->numtextures;
+	int numtextures = WORLDMODEL->numtextures;
 	int numlightmaps = gl_lms.current_lightmap_texture;
 	int k, len = 0;
 	vboarray_t *vbo;
@@ -1792,7 +1794,7 @@ void R_GenerateVBO()
 	// we do not want to write vbo code that does not use multitexture
 	if( !GL_Support( GL_ARB_VERTEX_BUFFER_OBJECT_EXT ) || !GL_Support( GL_ARB_MULTITEXTURE ) || glConfig.max_texture_units < 2 )
 	{
-		Cvar_FullSet( "r_vbo", "0", FCVAR_READ_ONLY );
+		gEngfuncs.Cvar_FullSet( "r_vbo", "0", FCVAR_READ_ONLY );
 		return;
 	}
 
@@ -1812,7 +1814,7 @@ void R_GenerateVBO()
 	vbos.maxtexture = 0;
 
 	vbos.textures = Mem_Calloc( vbos.mempool, numtextures * numlightmaps * sizeof( vbotexture_t ) );
-	vbos.surfdata = Mem_Calloc( vbos.mempool, cl.worldmodel->numsurfaces * sizeof( vbosurfdata_t ) );
+	vbos.surfdata = Mem_Calloc( vbos.mempool, WORLDMODEL->numsurfaces * sizeof( vbosurfdata_t ) );
 	vbos.arraylist = vbo = Mem_Calloc( vbos.mempool, sizeof( vboarray_t ) );
 	vbos.decaldata = Mem_Calloc( vbos.mempool, sizeof( vbodecaldata_t ) );
 	vbos.decaldata->lm = Mem_Calloc( vbos.mempool, sizeof( msurface_t* ) * numlightmaps );
@@ -1827,9 +1829,9 @@ void R_GenerateVBO()
 			int i;
 			vbotexture_t *vbotex = &vbos.textures[k * numtextures + j];
 
-			for( i = 0; i < cl.worldmodel->numsurfaces; i++ )
+			for( i = 0; i < WORLDMODEL->numsurfaces; i++ )
 			{
-				msurface_t *surf = &cl.worldmodel->surfaces[i];
+				msurface_t *surf = &WORLDMODEL->surfaces[i];
 
 				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
 					continue;
@@ -1837,14 +1839,14 @@ void R_GenerateVBO()
 				if( surf->lightmaptexturenum != k )
 					continue;
 
-				if( R_TextureAnimation( surf ) != cl.worldmodel->textures[j] )
+				if( R_TextureAnimation( surf ) != WORLDMODEL->textures[j] )
 					continue;
 
 				if( vbo->array_len + surf->polys->numverts > USHRT_MAX )
 				{
 					// generate new array and new vbotexture node
 					vbo->array = Mem_Calloc( vbos.mempool, sizeof( vbovertex_t ) * vbo->array_len );
-					Msg(  "R_GenerateVBOs: allocated array of %d verts, texture %d\n", vbo->array_len, j );
+					gEngfuncs.Con_Printf( "R_GenerateVBOs: allocated array of %d verts, texture %d\n", vbo->array_len, j );
 					vbo->next = Mem_Calloc( vbos.mempool, sizeof( vboarray_t ) );
 					vbo = vbo->next;
 					vbotex->next = Mem_Calloc( vbos.mempool, sizeof( vbotexture_t ) );
@@ -1872,7 +1874,7 @@ void R_GenerateVBO()
 
 	// allocate last array
 	vbo->array = Mem_Calloc( vbos.mempool, sizeof( vbovertex_t ) * vbo->array_len );
-	Msg( "R_GenerateVBOs: allocated array of %d verts\n", vbo->array_len );
+	gEngfuncs.Con_Printf( "R_GenerateVBOs: allocated array of %d verts\n", vbo->array_len );
 
 	// switch to list begin
 	vbo = vbos.arraylist;
@@ -1894,9 +1896,9 @@ void R_GenerateVBO()
 			if( maxindex < vbotex->len )
 				maxindex = vbotex->len;
 
-			for( i = 0; i < cl.worldmodel->numsurfaces; i++ )
+			for( i = 0; i < WORLDMODEL->numsurfaces; i++ )
 			{
-				msurface_t *surf = &cl.worldmodel->surfaces[i];
+				msurface_t *surf = &WORLDMODEL->surfaces[i];
 				int l;
 
 				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
@@ -1905,7 +1907,7 @@ void R_GenerateVBO()
 				if( surf->lightmaptexturenum != k )
 					continue;
 
-				if( R_TextureAnimation( surf ) != cl.worldmodel->textures[j] )
+				if( R_TextureAnimation( surf ) != WORLDMODEL->textures[j] )
 					continue;
 
 				// switch to next array
@@ -1941,9 +1943,9 @@ void R_GenerateVBO()
 					vbo->array[len + l].lm_tc[0] = v[5];
 					vbo->array[len + l].lm_tc[1] = v[6];
 #ifdef NO_TEXTURE_MATRIX
-					if( cl.worldmodel->textures[j]->dt_texturenum )
+					if( WORLDMODEL->textures[j]->dt_texturenum )
 					{
-						gl_texture_t *glt = R_GetTexture( cl.worldmodel->textures[j]->gl_texturenum );
+						gl_texture_t *glt = R_GetTexture( WORLDMODEL->textures[j]->gl_texturenum );
 						vbo->array[len + l].dt_tc[0] = v[3] * glt->xscale;
 						vbo->array[len + l].dt_tc[1] = v[4] * glt->yscale;
 					}
@@ -2168,7 +2170,7 @@ static texture_t *R_SetupVBOTexture( texture_t *tex, int number )
 		return tex;
 
 	if( !tex )
-		tex = R_TextureAnim( cl.worldmodel->textures[number] );
+		tex = R_TextureAnim( WORLDMODEL->textures[number] );
 
 	if( CVAR_TO_BOOL( r_detailtextures ) && tex->dt_texturenum && mtst.tmu_dt != -1 )
 	{
@@ -2313,14 +2315,14 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 		{
 			int	smax, tmax;
 			byte	*base;
-			uint indexbase = vbos.surfdata[((char*)surf - (char*)cl.worldmodel->surfaces) / sizeof( *surf )].startindex;
+			uint indexbase = vbos.surfdata[((char*)surf - (char*)WORLDMODEL->surfaces) / sizeof( *surf )].startindex;
 			uint index;
 			mextrasurf_t *info; // this stores current dlight offset
 			decal_t *pdecal;
 			int sample_size;
 
 			info = surf->info;
-			sample_size = Mod_SampleSizeForFace( surf );
+			sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 			smax = ( info->lightextents[0] / sample_size ) + 1;
 			tmax = ( info->lightextents[1] / sample_size ) + 1;
 
@@ -2438,7 +2440,7 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 
 				// try upload the block now
 				if( !LM_AllocBlock( smax, tmax, &info->dlight_s, &info->dlight_t ))
-					Host_Error( "AllocBlock: full\n" );
+					gEngfuncs.Host_Error( "AllocBlock: full\n" );
 
 				base = gl_lms.lightmap_buffer;
 				base += ( info->dlight_t * BLOCK_SIZE + info->dlight_s ) * 4;
@@ -2629,7 +2631,7 @@ Draw generated index arrays
 */
 void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 {
-	int numtextures = cl.worldmodel->numtextures;
+	int numtextures = WORLDMODEL->numtextures;
 	int numlightmaps =  gl_lms.current_lightmap_texture;
 	int k;
 	vboarray_t *vbo = vbos.arraylist;
@@ -2920,7 +2922,7 @@ static qboolean R_CheckLightMap( msurface_t *fa )
 		mextrasurf_t *info;
 
 		info = fa->info;
-		sample_size = Mod_SampleSizeForFace( fa );
+		sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
 		smax = ( info->lightextents[0] / sample_size ) + 1;
 		tmax = ( info->lightextents[1] / sample_size ) + 1;
 
@@ -2961,10 +2963,10 @@ static qboolean R_CheckLightMap( msurface_t *fa )
 
 qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 {
-	if( CVAR_TO_BOOL(r_vbo) && vbos.surfdata[surf - cl.worldmodel->surfaces].vbotexture )
+	if( CVAR_TO_BOOL(r_vbo) && vbos.surfdata[surf - WORLDMODEL->surfaces].vbotexture )
 	{
 		// find vbotexture_t assotiated with this surface
-		int idx = surf - cl.worldmodel->surfaces;
+		int idx = surf - WORLDMODEL->surfaces;
 		vbotexture_t *vbotex = vbos.surfdata[idx].vbotexture;
 		int texturenum = vbos.surfdata[idx].texturenum;
 
@@ -2980,7 +2982,7 @@ qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 		if( vbos.mintexture > texturenum )
 			vbos.mintexture = texturenum;
 
-		buildlightmap &= !CVAR_TO_BOOL( r_fullbright ) && !!cl.worldmodel->lightdata;
+		buildlightmap &= !CVAR_TO_BOOL( r_fullbright ) && !!WORLDMODEL->lightdata;
 
 		if( buildlightmap && R_CheckLightMap( surf ) )
 		{
@@ -3073,7 +3075,7 @@ loc0:
 
 		// deal with model fragments in this leaf
 		if( pleaf->efrags )
-			R_StoreEfrags( &pleaf->efrags, tr.realframecount );
+			gEngfuncs.R_StoreEfrags( &pleaf->efrags, tr.realframecount );
 
 		r_stats.c_world_leafs++;
 		return;
@@ -3089,7 +3091,7 @@ loc0:
 	R_RecursiveWorldNode( node->children[side], clipflags );
 
 	// draw stuff
-	for( c = node->numsurfaces, surf = cl.worldmodel->surfaces + node->firstsurface; c; c--, surf++ )
+	for( c = node->numsurfaces, surf = WORLDMODEL->surfaces + node->firstsurface; c; c--, surf++ )
 	{
 		if( R_CullSurface( surf, &RI.frustum, clipflags ))
 			continue;
@@ -3167,7 +3169,7 @@ static void R_DrawTopViewLeaf( mleaf_t *pleaf, uint clipflags )
 
 	// deal with model fragments in this leaf
 	if( pleaf->efrags )
-		R_StoreEfrags( &pleaf->efrags, tr.realframecount );
+		gEngfuncs.R_StoreEfrags( &pleaf->efrags, tr.realframecount );
 
 	r_stats.c_world_leafs++;
 }
@@ -3217,7 +3219,7 @@ void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 		}
 
 		// draw stuff
-		for( c = node->numsurfaces, surf = cl.worldmodel->surfaces + node->firstsurface; c; c--, surf++ )
+		for( c = node->numsurfaces, surf = WORLDMODEL->surfaces + node->firstsurface; c; c--, surf++ )
 		{
 			// don't process the same surface twice
 			if( surf->visframe == tr.framecount )
@@ -3310,7 +3312,7 @@ void R_DrawWorld( void )
 
 	// paranoia issues: when gl_renderer is "0" we need have something valid for currententity
 	// to prevent crashing until HeadShield drawing.
-	RI.currententity = clgame.entities;
+	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
 	if( !RI.drawWorld || RI.onlyClientDraw )
@@ -3328,20 +3330,20 @@ void R_DrawWorld( void )
 
 	R_ClearSkyBox ();
 
-	start = Sys_DoubleTime();
+	start = gEngfuncs.pfnTime();
 	if( RI.drawOrtho )
-		R_DrawWorldTopView( cl.worldmodel->nodes, RI.frustum.clipFlags );
-	else R_RecursiveWorldNode( cl.worldmodel->nodes, RI.frustum.clipFlags );
-	end = Sys_DoubleTime();
+		R_DrawWorldTopView( WORLDMODEL->nodes, RI.frustum.clipFlags );
+	else R_RecursiveWorldNode( WORLDMODEL->nodes, RI.frustum.clipFlags );
+	end = gEngfuncs.pfnTime();
 
 	r_stats.t_world_node = end - start;
 
-	start = Sys_DoubleTime();
-	R_DrawVBO( !CVAR_TO_BOOL(r_fullbright) && !!cl.worldmodel->lightdata, true );
+	start = gEngfuncs.pfnTime();
+	R_DrawVBO( !CVAR_TO_BOOL(r_fullbright) && !!WORLDMODEL->lightdata, true );
 
 	R_DrawTextureChains();
 
-	if( !CL_IsDevOverviewMode( ))
+	if( !ENGINE_GET_PARM( PARM_DEV_OVERVIEW ))
 	{
 		DrawDecalsBatch();
 		GL_ResetFogColor();
@@ -3353,7 +3355,7 @@ void R_DrawWorld( void )
 			R_DrawSkyBox();
 	}
 
-	end = Sys_DoubleTime();
+	end = gEngfuncs.pfnTime();
 
 	r_stats.t_world_draw = end - start;
 	tr.num_draw_decals = 0;
@@ -3398,12 +3400,12 @@ void R_MarkLeaves( void )
 		if( RI.viewleaf->contents == CONTENTS_EMPTY )
 		{
 			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] - 16.0f );
-			leaf = Mod_PointInLeaf( test, cl.worldmodel->nodes );
+			leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
 		}
 		else
 		{
 			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] + 16.0f );
-			leaf = Mod_PointInLeaf( test, cl.worldmodel->nodes );
+			leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
 		}
 
 		if(( leaf->contents != CONTENTS_SOLID ) && ( RI.viewleaf != leaf ))
@@ -3420,17 +3422,17 @@ void R_MarkLeaves( void )
 	RI.oldviewleaf = RI.viewleaf;
 	tr.visframecount++;
 
-	if( r_novis->value || RI.drawOrtho || !RI.viewleaf || !cl.worldmodel->visdata )
+	if( r_novis->value || RI.drawOrtho || !RI.viewleaf || !WORLDMODEL->visdata )
 		novis = true;
 
-	Mod_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, world.visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), novis );
-	if( force && !novis ) Mod_FatPVS( test, REFPVS_RADIUS, RI.visbytes, world.visbytes, true, novis );
+	gEngfuncs.R_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), novis );
+	if( force && !novis ) gEngfuncs.R_FatPVS( test, REFPVS_RADIUS, RI.visbytes, true, novis );
 
-	for( i = 0; i < cl.worldmodel->numleafs; i++ )
+	for( i = 0; i < WORLDMODEL->numleafs; i++ )
 	{
 		if( CHECKVISBIT( RI.visbytes, i ))
 		{
-			node = (mnode_t *)&cl.worldmodel->leafs[i+1];
+			node = (mnode_t *)&WORLDMODEL->leafs[i+1];
 			do
 			{
 				if( node->visframe == tr.visframecount )
@@ -3453,6 +3455,7 @@ void GL_CreateSurfaceLightmap( msurface_t *surf )
 	int		sample_size;
 	mextrasurf_t	*info = surf->info;
 	byte		*base;
+	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	if( !loadmodel->lightdata )
 		return;
@@ -3460,7 +3463,7 @@ void GL_CreateSurfaceLightmap( msurface_t *surf )
 	if( FBitSet( surf->flags, SURF_DRAWTILED ))
 		return;
 
-	sample_size = Mod_SampleSizeForFace( surf );
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	smax = ( info->lightextents[0] / sample_size ) + 1;
 	tmax = ( info->lightextents[1] / sample_size ) + 1;
 
@@ -3470,7 +3473,7 @@ void GL_CreateSurfaceLightmap( msurface_t *surf )
 		LM_InitBlock();
 
 		if( !LM_AllocBlock( smax, tmax, &surf->light_s, &surf->light_t ))
-			Host_Error( "AllocBlock: full\n" );
+			gEngfuncs.Host_Error( "AllocBlock: full\n" );
 	}
 
 	surf->lightmaptexturenum = gl_lms.current_lightmap_texture;
@@ -3495,7 +3498,7 @@ void GL_RebuildLightmaps( void )
 	int	i, j;
 	model_t	*m;
 
-	if( !cl.video_prepped )
+	if( !ENGINE_GET_PARM( PARM_CLIENT_ACTIVE ) )
 		return; // wait for worldmodel
 
 	ClearBits( vid_brightness->flags, FCVAR_CHANGED );
@@ -3516,25 +3519,25 @@ void GL_RebuildLightmaps( void )
 
 	LM_InitBlock();	
 
-	for( i = 0; i < cl.nummodels; i++ )
+	for( i = 0; i < ENGINE_GET_PARM( PARM_NUMMODELS ); i++ )
 	{
-		if(( m = CL_ModelHandle( i + 1 )) == NULL )
+		if(( m = gEngfuncs.pfnGetModelByIndex( i + 1 )) == NULL )
 			continue;
 
 		if( m->name[0] == '*' || m->type != mod_brush )
 			continue;
 
-		loadmodel = m;
+		gEngfuncs.Mod_SetCurrentLoadingModel( m );
 
 		for( j = 0; j < m->numsurfaces; j++ )
 			GL_CreateSurfaceLightmap( m->surfaces + j );
 	}
 	LM_UploadBlock( false );
 
-	if( clgame.drawFuncs.GL_BuildLightmaps )
+	if( gEngfuncs.drawFuncs->GL_BuildLightmaps )
 	{
 		// build lightmaps on the client-side
-		clgame.drawFuncs.GL_BuildLightmaps( );
+		gEngfuncs.drawFuncs->GL_BuildLightmaps( );
 	}
 }
 
@@ -3562,7 +3565,7 @@ void GL_BuildLightmaps( void )
 	memset( &RI, 0, sizeof( RI ));
 
 	// update the lightmap blocksize
-	if( FBitSet( host.features, ENGINE_LARGE_LIGHTMAPS ))
+	if( FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_LARGE_LIGHTMAPS ))
 		tr.block_size = BLOCK_SIZE_MAX;
 	else tr.block_size = BLOCK_SIZE_DEFAULT;
 	
@@ -3582,9 +3585,9 @@ void GL_BuildLightmaps( void )
 
 	LM_InitBlock();	
 
-	for( i = 0; i < cl.nummodels; i++ )
+	for( i = 0; i < ENGINE_GET_PARM( PARM_NUMMODELS ); i++ )
 	{
-		if(( m = CL_ModelHandle( i + 1 )) == NULL )
+		if(( m = gEngfuncs.pfnGetModelByIndex( i + 1 )) == NULL )
 			continue;
 
 		if( m->name[0] == '*' || m->type != mod_brush )
@@ -3595,7 +3598,7 @@ void GL_BuildLightmaps( void )
 			// clearing all decal chains
 			m->surfaces[j].pdecals = NULL;
 			m->surfaces[j].visframe = 0;
-			loadmodel = m;
+			gEngfuncs.Mod_SetCurrentLoadingModel( m );
 
 			GL_CreateSurfaceLightmap( m->surfaces + j );
 
@@ -3614,10 +3617,10 @@ void GL_BuildLightmaps( void )
 
 	LM_UploadBlock( false );
 
-	if( clgame.drawFuncs.GL_BuildLightmaps )
+	if( gEngfuncs.drawFuncs->GL_BuildLightmaps )
 	{
 		// build lightmaps on the client-side
-		clgame.drawFuncs.GL_BuildLightmaps( );
+		gEngfuncs.drawFuncs->GL_BuildLightmaps( );
 	}
 
 	// now gamma and brightness are valid
@@ -3630,15 +3633,15 @@ void GL_InitRandomTable( void )
 	int	tu, tv;
 
 	// make random predictable
-	COM_SetRandomSeed( 255 );
+	gEngfuncs.COM_SetRandomSeed( 255 );
 
 	for( tu = 0; tu < MOD_FRAMES; tu++ )
 	{
 		for( tv = 0; tv < MOD_FRAMES; tv++ )
 		{
-			rtable[tu][tv] = COM_RandomLong( 0, 0x7FFF );
+			rtable[tu][tv] = gEngfuncs.COM_RandomLong( 0, 0x7FFF );
 		}
 	}
 
-	COM_SetRandomSeed( 0 );
+	gEngfuncs.COM_SetRandomSeed( 0 );
 }

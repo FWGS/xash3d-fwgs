@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "custom.h"
+#include "ref_common.h"
 
 qboolean CustomDecal_Validate( void *raw, int nFileSize )
 {
@@ -48,7 +49,7 @@ void COM_ClearCustomizationList( customization_t *pHead, qboolean bCleanDecals )
 			if( pCurrent->resource.type == t_decal )
 			{
 				if( bCleanDecals && CL_Active( ))
-					R_DecalRemoveAll( pCurrent->nUserData1 );
+					ref.dllFuncs.R_DecalRemoveAll( pCurrent->nUserData1 );
 			}
 #endif
 

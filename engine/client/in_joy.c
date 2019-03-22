@@ -20,7 +20,6 @@ GNU General Public License for more details.
 #include "input.h"
 #include "keydefs.h"
 #include "client.h"
-#include "gl_local.h"
 #include "platform/platform.h"
 
 #ifndef SHRT_MAX

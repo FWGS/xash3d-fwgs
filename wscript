@@ -27,8 +27,10 @@ class Subproject:
 		self.singlebin = singlebin
 
 SUBDIRS = [
+	Subproject('public',      dedicated=False),
 	Subproject('engine',      dedicated=False),
 	Subproject('game_launch', singlebin=True),
+	Subproject('ref_gl'),
 	Subproject('mainui'),
 	Subproject('vgui_support'),
 ]
@@ -54,6 +56,9 @@ def options(opt):
 	grp.add_option('--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
 		help = 'install like Windows build, ignore prefix, useful for development')
 
+	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
+		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compability!)')
+
 	grp.add_option('--skip-subprojects', action='store', dest = 'SKIP_SUBDIRS', default=None,
 		help = 'don\'t recurse into specified subprojects. Current subdirs: ' + str(subdirs()))
 
@@ -64,7 +69,7 @@ def options(opt):
 			opt.add_option_group('Cannot find wscript in ' + i.name + '. You probably missed submodule update')
 		else: opt.recurse(i.name)
 
-	opt.load('xcompile compiler_cxx compiler_c')
+	opt.load('xcompile compiler_cxx compiler_c sdl2')
 	if sys.platform == 'win32':
 		opt.load('msvc msvs')
 
@@ -104,7 +109,7 @@ def configure(conf):
 
 	conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
 	conf.env.BIT32_ALLOW64 = conf.options.ALLOW64
-	conf.load('force_32bit')
+	conf.load('force_32bit sdl2')
 
 	if conf.env.DEST_SIZEOF_VOID_P == 4:
 		Logs.info('NOTE: will build engine for 32-bit target')
@@ -165,8 +170,8 @@ def configure(conf):
 
 
 	# indicate if we are packaging for Linux/BSD
-	if(not conf.options.WIN_INSTALL and 
-		conf.env.DEST_OS != 'win32' and 
+	if(not conf.options.WIN_INSTALL and
+		conf.env.DEST_OS != 'win32' and
 		conf.env.DEST_OS != 'darwin'):
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 	else:

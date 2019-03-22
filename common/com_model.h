@@ -495,4 +495,36 @@ typedef struct
 	maliasframedesc_t	frames[1];	// variable sized
 } aliashdr_t;
 
+
+
+// remapping info
+#define SUIT_HUE_START		192
+#define SUIT_HUE_END		223
+#define PLATE_HUE_START		160
+#define PLATE_HUE_END		191
+
+#define SHIRT_HUE_START		16
+#define SHIRT_HUE_END		32
+#define PANTS_HUE_START		96
+#define PANTS_HUE_END		112
+
+
+// 1/32 epsilon to keep floating point happy
+#define DIST_EPSILON		(1.0f / 32.0f)
+#define FRAC_EPSILON		(1.0f / 1024.0f)
+#define BACKFACE_EPSILON		0.01f
+#define MAX_BOX_LEAFS		256
+#define ANIM_CYCLE			2
+#define MOD_FRAMES			20
+
+
+
+#define MAX_DEMOS		32
+#define MAX_MOVIES		8
+#define MAX_CDTRACKS	32
+#define MAX_CLIENT_SPRITES	256	// SpriteTextures
+#define MAX_EFRAGS		8192	// Arcane Dimensions required
+#define MAX_REQUESTS	64
+
+
 #endif//COM_MODEL_H

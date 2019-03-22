@@ -713,6 +713,16 @@ int Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function )
 
 /*
 ============
+Cmd_AddRefCommand
+============
+*/
+int Cmd_AddRefCommand( const char *cmd_name, xcommand_t function, const char *description )
+{
+	return Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, description, CMD_REFDLL );
+}
+
+/*
+============
 Cmd_RemoveCommand
 ============
 */

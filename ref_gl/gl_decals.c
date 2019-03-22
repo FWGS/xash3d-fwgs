@@ -13,8 +13,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
 #include "gl_local.h"
 #include "cl_tent.h"
 
@@ -77,7 +75,7 @@ static void R_DecalUnlink( decal_t *pdecal )
 		else 
 		{
 			tmp = pdecal->psurface->pdecals;
-			if( !tmp ) Host_Error( "D_DecalUnlink: bad decal list\n" );
+			if( !tmp ) gEngfuncs.Host_Error( "D_DecalUnlink: bad decal list\n" );
 
 			while( tmp->pnext ) 
 			{
@@ -400,7 +398,7 @@ static void R_DecalVertsLight( float *v, msurface_t *surf, int vertCount )
 	float		sample_size;
 	int		j;
 
-	sample_size = Mod_SampleSizeForFace( surf );
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	tex = surf->texinfo;
 
 	for( j = 0; j < vertCount; j++, v += VERTEXSIZE )
@@ -513,7 +511,7 @@ creates mesh for decal on first rendering
 glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t *surf )
 {
 	int		lnumverts;
-	glpoly_t		*poly;
+	glpoly_t	*poly;
 	float		*v;
 	int		i;
 
@@ -524,7 +522,8 @@ glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t
 	if( !lnumverts ) return NULL;	// probably this never happens
 
 	// allocate glpoly
-	poly = Mem_Calloc( com_studiocache, sizeof( glpoly_t ) + ( lnumverts - 4 ) * VERTEXSIZE * sizeof( float ));
+	// REFTODO: com_studiocache pool!
+	poly = Mem_Calloc( r_temppool, sizeof( glpoly_t ) + ( lnumverts - 4 ) * VERTEXSIZE * sizeof( float ));
 	poly->next = pdecal->polys;
 	poly->flags = surf->flags;
 	pdecal->polys = poly;
@@ -619,9 +618,10 @@ void R_DecalSurface( msurface_t *surf, decalinfo_t *decalinfo )
 	decal_t		*decal = surf->pdecals;
 	vec4_t		textureU, textureV;
 	float		s, t, w, h;
+	connstate_t state = ENGINE_GET_PARM( PARM_CONNSTATE );
 
 	// we in restore mode
-	if( cls.state == ca_connected || cls.state == ca_validate )
+	if( state == ca_connected || state == ca_validate )
 	{
 		// NOTE: we may have the decal on this surface that come from another level.
 		// check duplicate with same position and texture
@@ -760,27 +760,27 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 
 	if( textureIndex <= 0 || textureIndex >= MAX_TEXTURES )
 	{
-		Con_Printf( S_ERROR "Decal has invalid texture!\n" );
+		gEngfuncs.Con_Printf( S_ERROR "Decal has invalid texture!\n" );
 		return;
 	}
 
 	if( entityIndex > 0 )
 	{
-		ent = CL_GetEntityByIndex( entityIndex );
+		ent = gEngfuncs.GetEntityByIndex( entityIndex );
 
-		if( modelIndex > 0 ) model = CL_ModelHandle( modelIndex );
-		else if( ent != NULL ) model = CL_ModelHandle( ent->curstate.modelindex );
+		if( modelIndex > 0 ) model = gEngfuncs.pfnGetModelByIndex( modelIndex );
+		else if( ent != NULL ) model = gEngfuncs.pfnGetModelByIndex( ent->curstate.modelindex );
 		else return;
 	}
 	else if( modelIndex > 0 )
-		model = CL_ModelHandle( modelIndex );
-	else model = cl.worldmodel;
+		model = gEngfuncs.pfnGetModelByIndex( modelIndex );
+	else model = WORLDMODEL;
 
 	if( !model ) return;
 	
 	if( model->type != mod_brush )
 	{
-		Con_Printf( S_ERROR "Decals must hit mod_brush!\n" );
+		gEngfuncs.Con_Printf( S_ERROR "Decals must hit mod_brush!\n" );
 		return;
 	}
 
@@ -1163,7 +1163,7 @@ int R_CreateDecalList( decallist_t *pList )
 	int	total = 0;
 	int	i, depth;
 
-	if( cl.worldmodel )
+	if( WORLDMODEL )
 	{
 		for( i = 0; i < MAX_RENDER_DECALS; i++ )
 		{
@@ -1195,9 +1195,9 @@ int R_CreateDecalList( decallist_t *pList )
 			total = DecalListAdd( pList, total );
 		}
 
-		if( clgame.drawFuncs.R_CreateStudioDecalList )
+		if( gEngfuncs.drawFuncs->R_CreateStudioDecalList )
 		{
-			total += clgame.drawFuncs.R_CreateStudioDecalList( pList, total );
+			total += gEngfuncs.drawFuncs->R_CreateStudioDecalList( pList, total );
 		}
 	}
 
@@ -1279,8 +1279,8 @@ void R_ClearAllDecals( void )
 		R_DecalUnlink( pdecal );
 	}
 
-	if( clgame.drawFuncs.R_ClearStudioDecals )
+	if( gEngfuncs.drawFuncs->R_ClearStudioDecals )
 	{
-		clgame.drawFuncs.R_ClearStudioDecals();
+		gEngfuncs.drawFuncs->R_ClearStudioDecals();
 	}
 }

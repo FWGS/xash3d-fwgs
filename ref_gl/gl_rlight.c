@@ -13,12 +13,11 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
-#include "mathlib.h"
 #include "gl_local.h"
 #include "pm_local.h"
 #include "studio.h"
+#include "mathlib.h"
+#include "ref_params.h"
 
 /*
 =============================================================================
@@ -37,25 +36,26 @@ void CL_RunLightStyles( void )
 {
 	int		i, k, flight, clight;
 	float		l, lerpfrac, backlerp;
-	float		frametime = (cl.time - cl.oldtime);
+	float		frametime = (gpGlobals->time -   gpGlobals->oldtime);
 	float		scale;
 	lightstyle_t	*ls;
 
-	if( !cl.worldmodel ) return;
+	if( !WORLDMODEL ) return;
 
 	scale = r_lighting_modulate->value;
 
 	// light animations
 	// 'm' is normal light, 'a' is no light, 'z' is double bright
-	for( i = 0, ls = cl.lightstyles; i < MAX_LIGHTSTYLES; i++, ls++ )
+	for( i = 0; i < MAX_LIGHTSTYLES; i++ )
 	{
-		if( !cl.worldmodel->lightdata )
+		ls = gEngfuncs.GetLightStyle( i );
+		if( !WORLDMODEL->lightdata )
 		{
 			tr.lightstylevalue[i] = 256 * 256;
 			continue;
 		}
 
-		if( !cl.paused && frametime <= 0.1f )
+		if( !ENGINE_GET_PARM( PARAM_GAMEPAUSED ) && frametime <= 0.1f )
 			ls->time += frametime; // evaluate local time
 
 		flight = (int)Q_floor( ls->time * 10 );
@@ -151,14 +151,15 @@ void R_PushDlights( void )
 	int	i;
 
 	tr.dlightframecount = tr.framecount;
-	l = cl_dlights;
 
-	RI.currententity = clgame.entities;
+	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
 	for( i = 0; i < MAX_DLIGHTS; i++, l++ )
 	{
-		if( l->die < cl.time || !l->radius )
+		l = gEngfuncs.GetDynamicLight( i );
+
+		if( l->die < gpGlobals->time || !l->radius )
 			continue;
 
 		if( GL_FrustumCullSphere( &RI.frustum, l->origin, l->radius, 15 ))
@@ -178,9 +179,11 @@ int R_CountDlights( void )
 	dlight_t	*l;
 	int	i, numDlights = 0;
 
-	for( i = 0, l = cl_dlights; i < MAX_DLIGHTS; i++, l++ )
+	for( i = 0; i < MAX_DLIGHTS; i++ )
 	{
-		if( l->die < cl.time || !l->radius )
+		l = gEngfuncs.GetDynamicLight( i );
+
+		if( l->die < gpGlobals->time || !l->radius )
 			continue;
 
 		numDlights++;
@@ -299,7 +302,7 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 		if( !surf->samples )
 			return true;
 
-		sample_size = Mod_SampleSizeForFace( surf );
+		sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 		smax = (info->lightextents[0] / sample_size) + 1;
 		tmax = (info->lightextents[1] / sample_size) + 1;
 		ds /= sample_size;
@@ -346,9 +349,9 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 			}
 			else
 			{
-				cv->r += LightToTexGamma( lm->r ) * scale;
-				cv->g += LightToTexGamma( lm->g ) * scale;
-				cv->b += LightToTexGamma( lm->b ) * scale;
+				cv->r += gEngfuncs.LightToTexGamma( lm->r ) * scale;
+				cv->g += gEngfuncs.LightToTexGamma( lm->g ) * scale;
+				cv->b += gEngfuncs.LightToTexGamma( lm->b ) * scale;
 			}
 			lm += size; // skip to next lightmap
 
@@ -388,22 +391,25 @@ colorVec R_LightVecInternal( const vec3_t start, const vec3_t end, vec3_t lspot,
 	if( lspot ) VectorClear( lspot );
 	if( lvec ) VectorClear( lvec );
 
-	if( cl.worldmodel && cl.worldmodel->lightdata )
+	if( WORLDMODEL && WORLDMODEL->lightdata )
 	{
 		light.r = light.g = light.b = light.a = 0;
 		last_fraction = 1.0f;
 
 		// get light from bmodels too
 		if( CVAR_TO_BOOL( r_lighting_extended ))
-			maxEnts = clgame.pmove->numphysent;
+			maxEnts = MAX_PHYSENTS;
 
 		// check all the bsp-models
 		for( i = 0; i < maxEnts; i++ )
 		{
-			physent_t	*pe = &clgame.pmove->physents[i];
+			physent_t	*pe = gEngfuncs.EV_GetPhysent( i );
 			vec3_t	offset, start_l, end_l;
 			mnode_t	*pnodes;
 			matrix4x4	matrix;
+
+			if( !pe )
+				break;
 
 			if( !pe->model || pe->model->type != mod_brush )
 				continue; // skip non-bsp models

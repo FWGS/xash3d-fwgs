@@ -31,20 +31,7 @@ GNU General Public License for more details.
 #include "netchan.h"
 #include "net_api.h"
 #include "world.h"
-
-#define MAX_DEMOS		32
-#define MAX_MOVIES		8
-#define MAX_CDTRACKS	32
-#define MAX_CLIENT_SPRITES	256	// SpriteTextures
-#define MAX_EFRAGS		8192	// Arcane Dimensions required
-#define MAX_REQUESTS	64
-
-// screenshot types
-#define VID_SCREENSHOT	0
-#define VID_LEVELSHOT	1
-#define VID_MINISHOT	2
-#define VID_MAPSHOT		3	// special case for overview layer
-#define VID_SNAPSHOT	4	// save screenshot into root dir and no gamma correction
+#include "ref_common.h"
 
 // client sprite types
 #define SPR_CLIENT		0	// client sprite for temp-entities or user-textures
@@ -52,13 +39,6 @@ GNU General Public License for more details.
 #define SPR_MAPSPRITE	2	// contain overview.bmp that diced into frames 128x128
 
 typedef int		sound_t;
-
-typedef enum
-{
-	DEMO_INACTIVE = 0,
-	DEMO_XASH3D,
-	DEMO_QUAKE1
-} demo_mode;
 
 //=============================================================================
 typedef struct netbandwithgraph_s
@@ -168,13 +148,6 @@ typedef struct
 
 typedef struct
 {
-	char		name[MAX_OSPATH];
-	char		modelname[MAX_OSPATH];
-	model_t		*model;
-} player_model_t;
-
-typedef struct
-{
 	qboolean		bUsed;
 	float		fTime;
 	int		nBytesRemaining;
@@ -237,7 +210,6 @@ typedef struct
 	float		timedelta;		// floating delta between two updates
 
 	char		serverinfo[MAX_SERVERINFO_STRING];
-	player_model_t	player_models[MAX_CLIENTS];	// cache of player models
 	player_info_t	players[MAX_CLIENTS];	// collected info about all other players include himself
 	double		lastresourcecheck;
 	string		downloadUrl;
@@ -305,16 +277,6 @@ of server connections
 */
 typedef enum
 {
-	ca_disconnected = 0,// not talking to a server
-	ca_connecting,	// sending request packets to the server
-	ca_connected,	// netchan_t established, waiting for svc_serverdata
-	ca_validate,	// download resources, validating, auth on server
-	ca_active,	// game views should be displayed
-	ca_cinematic,	// playing a cinematic, not connected to a server
-} connstate_t;
-
-typedef enum
-{
 	scrshot_inactive,
 	scrshot_normal,	// in-game screenshot
 	scrshot_snapshot,	// in-game snapshot
@@ -378,7 +340,7 @@ typedef struct
 	qboolean		adjust_size;		// allow to adjust scale for fonts
 
 	int		renderMode;		// override kRenderMode from TriAPI
-	int		cullMode;			// override CULL FACE from TriAPI
+	TRICULLSTYLE	cullMode;			// override CULL FACE from TriAPI
 
 	// holds text color
 	rgba_t		textColor;
@@ -445,16 +407,6 @@ typedef struct
 	vec3_t		applied_offset;
 	float		applied_angle;
 } screen_shake_t;
-
-typedef struct
-{
-	unsigned short	textures[MAX_SKINS];// alias textures
-	struct mstudiotex_s	*ptexture;	// array of textures with local copy of remapped textures
-	short		numtextures;	// textures count
-	short		topcolor;		// cached value
-	short		bottomcolor;	// cached value
-	model_t		*model;		// for catch model changes
-} remap_info_t;
 
 typedef enum
 {
@@ -735,6 +687,8 @@ extern convar_t *m_ignore;
 void CL_SetLightstyle( int style, const char* s, float f );
 void CL_RunLightStyles( void );
 void CL_DecayLights( void );
+dlight_t *CL_GetDynamicLight( int number );
+dlight_t *CL_GetEntityLight( int number );
 
 //=================================================
 
@@ -751,7 +705,6 @@ void CL_SaveShot_f( void );
 void CL_LevelShot_f( void );
 void CL_SetSky_f( void );
 void SCR_Viewpos_f( void );
-void SCR_TimeRefresh_f( void );
 
 //
 // cl_custom.c
@@ -770,6 +723,11 @@ void CL_Parse_RecordCommand( int cmd, int startoffset );
 void CL_ResetFrame( frame_t *frame );
 void CL_WriteMessageHistory( void );
 const char *CL_MsgInfo( int cmd );
+
+//
+// cl_efx.c
+//
+void CL_Particle( const vec3_t org, int color, float life, int zpos, int zvel );
 
 //
 // cl_main.c
@@ -864,6 +822,11 @@ void CL_PlayerTrace( float *start, float *end, int traceFlags, int ignore_pe, pm
 void CL_PlayerTraceExt( float *start, float *end, int traceFlags, int (*pfnIgnore)( physent_t *pe ), pmtrace_t *tr );
 void CL_SetTraceHull( int hull );
 void CL_GetMousePosition( int *mx, int *my ); // TODO: move to input
+cl_entity_t* CL_GetViewModel( void );
+void pfnGetScreenFade( struct screenfade_s *fade );
+physent_t *pfnGetPhysent( int idx );
+struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend );
+movevars_t *pfnGetMoveVars( void );
 
 _inline cl_entity_t *CL_EDICT_NUM( int n )
 {
@@ -955,11 +918,6 @@ void CL_SetUpPlayerPrediction( int dopred, int bIncludeLocalClient );
 void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message );
 
 //
-// cl_studio.c
-//
-void CL_InitStudioAPI( void );
-
-//
 // cl_frame.c
 //
 struct channel_s;
@@ -983,10 +941,24 @@ void CL_EmitEntities( void );
 remap_info_t *CL_GetRemapInfoForEntity( cl_entity_t *e );
 void CL_AllocRemapInfo( int topcolor, int bottomcolor );
 void CL_FreeRemapInfo( remap_info_t *info );
-void R_StudioSetRemapColors( int top, int bottom );
 void CL_UpdateRemapInfo( int topcolor, int bottomcolor );
 void CL_ClearAllRemaps( void );
 
+//
+// cl_render.c
+//
+qboolean R_InitRenderAPI( void );
+int CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef );
+lightstyle_t *CL_GetLightStyle( int number );
+int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis );
+const ref_overview_t *GL_GetOverviewParms( void );
+
+//
+// cl_efrag.c
+//
+void R_StoreEfrags( efrag_t **ppefrag, int framecount );
+void R_AddEfrags( cl_entity_t *ent );
+void R_RemoveEfrags( cl_entity_t *ent );
 //
 // cl_tent.c
 //
@@ -996,7 +968,6 @@ void CL_WeaponAnim( int iAnim, int body );
 void CL_ClearEffects( void );
 void CL_ClearEfrags( void );
 void CL_TestLights( void );
-void CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean trans_pass, float frametime );
 void CL_FireCustomDecal( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags, float scale );
 void CL_DecalShoot( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags );
 void CL_PlayerDecal( int playerIndex, int textureIndex, int entityIndex, float *pos );
@@ -1007,8 +978,6 @@ int CL_FxBlend( cl_entity_t *e );
 void CL_InitParticles( void );
 void CL_ClearParticles( void );
 void CL_FreeParticles( void );
-void CL_DrawParticles( double frametime );
-void CL_DrawTracers( double frametime );
 void CL_InitTempEnts( void );
 void CL_ClearTempEnts( void );
 void CL_FreeTempEnts( void );
@@ -1016,12 +985,13 @@ void CL_TempEntUpdate( void );
 void CL_InitViewBeams( void );
 void CL_ClearViewBeams( void );
 void CL_FreeViewBeams( void );
-void CL_DrawBeams( int fTrans );
-void CL_AddCustomBeam( cl_entity_t *pEnvBeam );
+cl_entity_t *R_BeamGetEntity( int index );
 void CL_KillDeadBeams( cl_entity_t *pDeadEntity );
 void CL_ParseViewBeam( sizebuf_t *msg, int beamType );
 void CL_LoadClientSprites( void );
 void CL_ReadPointFile_f( void );
+void CL_DrawEFX( float time, qboolean fTrans );
+void CL_ThinkParticle( double frametime, particle_t *p );
 void CL_ReadLineFile_f( void );
 void CL_RunLightStyles( void );
 

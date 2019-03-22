@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include "sound.h"
 #include "client.h"
 #include "con_nprint.h"
-#include "gl_local.h"
 #include "pm_local.h"
 #include "platform/platform.h"
 
@@ -926,7 +925,7 @@ void S_StartSound( const vec3_t pos, int ent, int chan, sound_t handle, float fv
 		// and we didn't find it (it's not playing), go ahead and start it up
 	}
 
-	if( !pos ) pos = RI.vieworg;
+	if( !pos ) pos = refState.vieworg;
 
 	if( chan == CHAN_STREAM )
 		SetBits( flags, SND_STOP_LOOPING );

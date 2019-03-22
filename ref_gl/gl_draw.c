@@ -13,8 +13,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
 #include "gl_local.h"
 
 /*
@@ -91,16 +89,16 @@ This repeats a 64*64 tile graphic to fill the screen around a sized down
 refresh window.
 =============
 */
-void R_DrawTileClear( int x, int y, int w, int h )
+void R_DrawTileClear( int texnum, int x, int y, int w, int h )
 {
 	float		tw, th;
 	gl_texture_t	*glt;
 
 	GL_SetRenderMode( kRenderNormal );
 	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-	GL_Bind( XASH_TEXTURE0, cls.tileImage );
+	GL_Bind( XASH_TEXTURE0, texnum );
 
-	glt = R_GetTexture( cls.tileImage );
+	glt = R_GetTexture( texnum );
 	tw = glt->srcWidth;
 	th = glt->srcHeight;
 
@@ -147,9 +145,9 @@ void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, c
 	}
 
 	if( cols > glConfig.max_2d_texture_size )
-		Host_Error( "R_DrawStretchRaw: size %i exceeds hardware limits\n", cols );
+		gEngfuncs.Host_Error( "R_DrawStretchRaw: size %i exceeds hardware limits\n", cols );
 	if( rows > glConfig.max_2d_texture_size )
-		Host_Error( "R_DrawStretchRaw: size %i exceeds hardware limits\n", rows );
+		gEngfuncs.Host_Error( "R_DrawStretchRaw: size %i exceeds hardware limits\n", rows );
 
 	pglDisable( GL_BLEND );
 	pglDisable( GL_ALPHA_TEST );
@@ -222,9 +220,9 @@ void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height,
 	}
 
 	if( cols > glConfig.max_2d_texture_size )
-		Host_Error( "R_UploadStretchRaw: size %i exceeds hardware limits\n", cols );
+		gEngfuncs.Host_Error( "R_UploadStretchRaw: size %i exceeds hardware limits\n", cols );
 	if( rows > glConfig.max_2d_texture_size )
-		Host_Error( "R_UploadStretchRaw: size %i exceeds hardware limits\n", rows );
+		gEngfuncs.Host_Error( "R_UploadStretchRaw: size %i exceeds hardware limits\n", rows );
 
 	tex = R_GetTexture( texture );
 	GL_Bind( GL_KEEP_UNIT, texture );
@@ -248,10 +246,10 @@ void R_Set2DMode( qboolean enable )
 			return;
 
 		// set 2D virtual screen size
-		pglViewport( 0, 0, glState.width, glState.height );
+		pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
 		pglMatrixMode( GL_PROJECTION );
 		pglLoadIdentity();
-		pglOrtho( 0, glState.width, glState.height, 0, -99999, 99999 );
+		pglOrtho( 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
 		pglMatrixMode( GL_MODELVIEW );
 		pglLoadIdentity();
 

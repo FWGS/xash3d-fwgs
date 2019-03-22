@@ -13,15 +13,12 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
 #include "gl_local.h"
 #include "mathlib.h"
 #include "library.h"
 #include "beamdef.h"
 #include "particledef.h"
 #include "entity_types.h"
-#include "platform/platform.h"
 
 #define IsLiquidContents( cnt )	( cnt == CONTENTS_WATER || cnt == CONTENTS_SLIME || cnt == CONTENTS_LAVA )
 
@@ -42,7 +39,7 @@ static int R_RankForRenderMode( int rendermode )
 	return 0;
 }
 
-void R_AllowFog( int allowed )
+void R_AllowFog( qboolean allowed )
 {
 	static int	isFogEnabled;
 
@@ -199,7 +196,7 @@ R_PushScene
 void R_PushScene( void )
 {
 	if( ++tr.draw_stack_pos >= MAX_DRAW_STACK )
-		Host_Error( "draw stack overflow\n" );
+		gEngfuncs.Host_Error( "draw stack overflow\n" );
 
 	tr.draw_list = &tr.draw_stack[tr.draw_stack_pos];
 }
@@ -212,7 +209,7 @@ R_PopScene
 void R_PopScene( void )
 {
 	if( --tr.draw_stack_pos < 0 )
-		Host_Error( "draw stack underflow\n" );
+		gEngfuncs.Host_Error( "draw stack underflow\n" );
 	tr.draw_list = &tr.draw_stack[tr.draw_stack_pos];
 }
 
@@ -226,6 +223,11 @@ void R_ClearScene( void )
 	tr.draw_list->num_solid_entities = 0;
 	tr.draw_list->num_trans_entities = 0;
 	tr.draw_list->num_beam_entities = 0;
+
+	// clear the scene befor start new frame
+	if( gEngfuncs.drawFuncs->R_ClearScene != NULL )
+		gEngfuncs.drawFuncs->R_ClearScene();
+
 }
 
 /*
@@ -244,7 +246,7 @@ qboolean R_AddEntity( struct cl_entity_s *clent, int type )
 	if( FBitSet( clent->curstate.effects, EF_NODRAW ))
 		return false; // done
 
-	if( !R_ModelOpaque( clent->curstate.rendermode ) && CL_FxBlend( clent ) <= 0 )
+	if( !R_ModelOpaque( clent->curstate.rendermode ) && gEngfuncs.CL_FxBlend( clent ) <= 0 )
 		return true; // invisible
 
 	if( type == ET_FRAGMENTED )
@@ -281,7 +283,7 @@ static void R_Clear( int bitMask )
 {
 	int	bits;
 
-	if( CL_IsDevOverviewMode( ))
+	if( ENGINE_GET_PARM( PARM_DEV_OVERVIEW ))
 		pglClearColor( 0.0f, 1.0f, 0.0f, 1.0f ); // green background (Valve rules)
 	else pglClearColor( 0.5f, 0.5f, 0.5f, 1.0f );
 
@@ -318,8 +320,8 @@ R_GetFarClip
 */
 static float R_GetFarClip( void )
 {
-	if( cl.worldmodel && RI.drawWorld )
-		return clgame.movevars.zmax * 1.73f;
+	if( WORLDMODEL && RI.drawWorld )
+		return MOVEVARS->zmax * 1.73f;
 	return 2048.0f;
 }
 
@@ -330,12 +332,12 @@ R_SetupFrustum
 */
 void R_SetupFrustum( void )
 {
-	ref_overview_t	*ov = &clgame.overView;
+	const ref_overview_t	*ov = gEngfuncs.GetOverviewParms();
 
-	if( RP_NORMALPASS() && ( cl.local.waterlevel >= 3 ))
+	if( RP_NORMALPASS() && ( ENGINE_GET_PARM( PARM_WATER_LEVEL ) >= 3 ))
 	{
-		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97 + sin( cl.time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
-		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03 - sin( cl.time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
+		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97 + sin( gpGlobals->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
+		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03 - sin( gpGlobals->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
 	}
 
 	// build the transformation matrix for the given view angles
@@ -365,7 +367,7 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 
 	if( RI.drawOrtho )
 	{
-		ref_overview_t *ov = &clgame.overView;
+		const ref_overview_t *ov = gEngfuncs.GetOverviewParms();
 		Matrix4x4_CreateOrtho( m, ov->xLeft, ov->xRight, ov->yTop, ov->yBottom, ov->zNear, ov->zFar );
 		return;
 	}
@@ -424,7 +426,7 @@ void R_RotateForEntity( cl_entity_t *e )
 {
 	float	scale = 1.0f;
 
-	if( e == clgame.entities )
+	if( e == gEngfuncs.GetEntityByIndex( 0 ) )
 	{
 		R_LoadIdentity();
 		return;
@@ -450,7 +452,7 @@ void R_TranslateForEntity( cl_entity_t *e )
 {
 	float	scale = 1.0f;
 
-	if( e == clgame.entities )
+	if( e == gEngfuncs.GetEntityByIndex( 0 ) )
 	{
 		R_LoadIdentity();
 		return;
@@ -475,7 +477,7 @@ R_FindViewLeaf
 void R_FindViewLeaf( void )
 {
 	RI.oldviewleaf = RI.viewleaf;
-	RI.viewleaf = Mod_PointInLeaf( RI.pvsorigin, cl.worldmodel->nodes );
+	RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.pvsorigin, WORLDMODEL->nodes );
 }
 
 /*
@@ -521,10 +523,10 @@ void R_SetupGL( qboolean set_gl_state )
 		int	x, x2, y, y2;
 
 		// set up viewport (main, playersetup)
-		x = floor( RI.viewport[0] * glState.width / glState.width );
-		x2 = ceil(( RI.viewport[0] + RI.viewport[2] ) * glState.width / glState.width );
-		y = floor( glState.height - RI.viewport[1] * glState.height / glState.height );
-		y2 = ceil( glState.height - ( RI.viewport[1] + RI.viewport[3] ) * glState.height / glState.height );
+		x = floor( RI.viewport[0] * gpGlobals->width / gpGlobals->width );
+		x2 = ceil(( RI.viewport[0] + RI.viewport[2] ) * gpGlobals->width / gpGlobals->width );
+		y = floor( gpGlobals->height - RI.viewport[1] * gpGlobals->height / gpGlobals->height );
+		y2 = ceil( gpGlobals->height - ( RI.viewport[1] + RI.viewport[3] ) * gpGlobals->height / gpGlobals->height );
 
 		pglViewport( x, y2, x2 - x, y - y2 );
 	}
@@ -659,9 +661,9 @@ static void R_CheckFog( void )
 	int		i, cnt, count;
 
 	// quake global fog
-	if( Host_IsQuakeCompatible( ))
+	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 	{
-		if( !clgame.movevars.fog_settings )
+		if( !MOVEVARS->fog_settings )
 		{
 			if( pglIsEnabled( GL_FOG ))
 				pglDisable( GL_FOG );
@@ -670,10 +672,10 @@ static void R_CheckFog( void )
 		}
 
 		// quake-style global fog
-		RI.fogColor[0] = ((clgame.movevars.fog_settings & 0xFF000000) >> 24) / 255.0f;
-		RI.fogColor[1] = ((clgame.movevars.fog_settings & 0xFF0000) >> 16) / 255.0f;
-		RI.fogColor[2] = ((clgame.movevars.fog_settings & 0xFF00) >> 8) / 255.0f;
-		RI.fogDensity = ((clgame.movevars.fog_settings & 0xFF) / 255.0f) * 0.01f;
+		RI.fogColor[0] = ((MOVEVARS->fog_settings & 0xFF000000) >> 24) / 255.0f;
+		RI.fogColor[1] = ((MOVEVARS->fog_settings & 0xFF0000) >> 16) / 255.0f;
+		RI.fogColor[2] = ((MOVEVARS->fog_settings & 0xFF00) >> 8) / 255.0f;
+		RI.fogDensity = ((MOVEVARS->fog_settings & 0xFF) / 255.0f) * 0.01f;
 		RI.fogStart = RI.fogEnd = 0.0f;
 		RI.fogColor[3] = 1.0f;
 		RI.fogCustom = false;
@@ -684,24 +686,24 @@ static void R_CheckFog( void )
 
 	RI.fogEnabled = false;
 
-	if( RI.onlyClientDraw || cl.local.waterlevel < 3 || !RI.drawWorld || !RI.viewleaf )
+	if( RI.onlyClientDraw || ENGINE_GET_PARM( PARM_WATER_LEVEL ) < 3 || !RI.drawWorld || !RI.viewleaf )
 	{
 		if( RI.cached_waterlevel == 3 )
-                    {
+		{
 			// in some cases waterlevel jumps from 3 to 1. Catch it
-			RI.cached_waterlevel = cl.local.waterlevel;
+			RI.cached_waterlevel = ENGINE_GET_PARM( PARM_WATER_LEVEL );
 			RI.cached_contents = CONTENTS_EMPTY;
 			if( !RI.fogCustom ) pglDisable( GL_FOG );
 		}
 		return;
 	}
 
-	ent = CL_GetWaterEntity( RI.vieworg );
+	ent = gEngfuncs.CL_GetWaterEntity( RI.vieworg );
 	if( ent && ent->model && ent->model->type == mod_brush && ent->curstate.skin < 0 )
 		cnt = ent->curstate.skin;
 	else cnt = RI.viewleaf->contents;
 
-	RI.cached_waterlevel = cl.local.waterlevel;
+	RI.cached_waterlevel = ENGINE_GET_PARM( PARM_WATER_LEVEL );
 
 	if( !IsLiquidContents( RI.cached_contents ) && IsLiquidContents( cnt ))
 	{
@@ -782,7 +784,7 @@ void R_DrawFog( void )
 	if( !RI.fogEnabled ) return;
 
 	pglEnable( GL_FOG );
-	if( Host_IsQuakeCompatible( ))
+	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 		pglFogi( GL_FOG_MODE, GL_EXP2 );
 	else pglFogi( GL_FOG_MODE, GL_EXP );
 	pglFogf( GL_FOG_DENSITY, RI.fogDensity );
@@ -854,14 +856,14 @@ void R_DrawEntitiesOnList( void )
 	GL_CheckForErrors();
 
 	if( !RI.onlyClientDraw )
-          {
-		CL_DrawBeams( false );
+	{
+		gEngfuncs.CL_DrawEFX( tr.frametime, false );
 	}
 
 	GL_CheckForErrors();
 
 	if( RI.drawWorld )
-		clgame.dllFuncs.pfnDrawNormalTriangles();
+		gEngfuncs.pfnDrawNormalTriangles();
 
 	GL_CheckForErrors();
 
@@ -873,7 +875,7 @@ void R_DrawEntitiesOnList( void )
 
 		// handle studiomodels with custom rendermodes on texture
 		if( RI.currententity->curstate.rendermode != kRenderNormal )
-			tr.blend = CL_FxBlend( RI.currententity ) / 255.0f;
+			tr.blend = gEngfuncs.CL_FxBlend( RI.currententity ) / 255.0f;
 		else tr.blend = 1.0f; // draw as solid but sorted by distance
 
 		if( tr.blend <= 0.0f ) continue;
@@ -905,7 +907,7 @@ void R_DrawEntitiesOnList( void )
 	if( RI.drawWorld )
 	{
 		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		clgame.dllFuncs.pfnDrawTransparentTriangles ();
+		gEngfuncs.pfnDrawTransparentTriangles ();
 	}
 
 	GL_CheckForErrors();
@@ -913,9 +915,7 @@ void R_DrawEntitiesOnList( void )
 	if( !RI.onlyClientDraw )
 	{
 		R_AllowFog( false );
-		CL_DrawBeams( true );
-		CL_DrawParticles( tr.frametime );
-		CL_DrawTracers( tr.frametime );
+		gEngfuncs.CL_DrawEFX( tr.frametime, true );
 		R_AllowFog( true );
 	}
 
@@ -925,7 +925,7 @@ void R_DrawEntitiesOnList( void )
 
 	if( !RI.onlyClientDraw )
 		R_DrawViewModel();
-	CL_ExtraUpdate();
+	gEngfuncs.CL_ExtraUpdate();
 
 	GL_CheckForErrors();
 }
@@ -939,12 +939,12 @@ R_SetupRefParams must be called right before
 */
 void R_RenderScene( void )
 {
-	if( !cl.worldmodel && RI.drawWorld )
-		Host_Error( "R_RenderView: NULL worldmodel\n" );
+	if( !WORLDMODEL && RI.drawWorld )
+		gEngfuncs.Host_Error( "R_RenderView: NULL worldmodel\n" );
 
 	// frametime is valid only for normal pass
 	if( RP_NORMALPASS( ))
-		tr.frametime = cl.time - cl.oldtime;
+		tr.frametime = gpGlobals->time -   gpGlobals->oldtime;
 	else tr.frametime = 0.0;
 
 	// begin a new frame
@@ -964,7 +964,7 @@ void R_RenderScene( void )
 	R_DrawWorld();
 	R_CheckFog();
 
-	CL_ExtraUpdate ();	// don't let sound get messed up if going slow
+	gEngfuncs.CL_ExtraUpdate ();	// don't let sound get messed up if going slow
 
 	R_DrawEntitiesOnList();
 
@@ -985,7 +985,7 @@ qboolean R_DoResetGamma( void )
 {
 	// FIXME: this looks ugly. apply the backward gamma changes to the output image
 	return false;
-
+#if 0
 	switch( cls.scrshot_action )
 	{
 	case scrshot_normal:
@@ -1005,6 +1005,7 @@ qboolean R_DoResetGamma( void )
 	default:
 		return false;
 	}
+#endif
 }
 
 /*
@@ -1016,14 +1017,15 @@ void R_BeginFrame( qboolean clearScene )
 {
 	glConfig.softwareGammaUpdate = false;	// in case of possible fails
 
-	if(( gl_clear->value || CL_IsDevOverviewMode( )) && clearScene && cls.state != ca_cinematic )
+	if(( gl_clear->value || ENGINE_GET_PARM( PARM_DEV_OVERVIEW )) &&
+		clearScene && ENGINE_GET_PARM( PARM_CONNSTATE ) != ca_cinematic )
 	{
 		pglClear( GL_COLOR_BUFFER_BIT );
 	}
 
 	if( R_DoResetGamma( ))
 	{
-		BuildGammaTable( 1.8f, 0.0f );
+		gEngfuncs.BuildGammaTable( 1.8f, 0.0f );
 		glConfig.softwareGammaUpdate = true;
 		GL_RebuildLightmaps();
 		glConfig.softwareGammaUpdate = false;
@@ -1034,7 +1036,7 @@ void R_BeginFrame( qboolean clearScene )
 	}
 	else if( FBitSet( vid_gamma->flags, FCVAR_CHANGED ) || FBitSet( vid_brightness->flags, FCVAR_CHANGED ))
 	{
-		BuildGammaTable( vid_gamma->value, vid_brightness->value );
+		gEngfuncs.BuildGammaTable( vid_gamma->value, vid_brightness->value );
 		glConfig.softwareGammaUpdate = true;
 		GL_RebuildLightmaps();
 		glConfig.softwareGammaUpdate = false;
@@ -1049,10 +1051,7 @@ void R_BeginFrame( qboolean clearScene )
 	if( FBitSet( gl_texture_nearest->flags|gl_lightmap_nearest->flags|gl_texture_anisotropy->flags|gl_texture_lodbias->flags, FCVAR_CHANGED ))
 		R_SetTextureParameters();
 
-	// swapinterval stuff
-	GL_UpdateSwapInterval();
-
-	CL_ExtraUpdate ();
+	gEngfuncs.CL_ExtraUpdate ();
 }
 
 /*
@@ -1093,10 +1092,10 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 R_RenderFrame
 ===============
 */
-void R_RenderFrame( const ref_viewpass_t *rvp )
+int R_RenderFrame( const ref_viewpass_t *rvp )
 {
 	if( r_norefresh->value )
-		return;
+		return 1;
 
 	// setup the initial render params
 	R_SetupRefParams( rvp );
@@ -1113,16 +1112,16 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 	}
 
 	// completely override rendering
-	if( clgame.drawFuncs.GL_RenderFrame != NULL )
+	if( gEngfuncs.drawFuncs->GL_RenderFrame != NULL )
 	{
 		tr.fCustomRendering = true;
 
-		if( clgame.drawFuncs.GL_RenderFrame( rvp ))
+		if( gEngfuncs.drawFuncs->GL_RenderFrame( rvp ))
 		{
 			R_GatherPlayerLight();
 			tr.realframecount++;
 			tr.fResetVis = true;
-			return;
+			return 1;
 		}
 	}
 
@@ -1132,6 +1131,8 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 
 	tr.realframecount++; // right called after viewmodel events
 	R_RenderScene();
+
+	return 1;
 }
 
 /*
@@ -1143,12 +1144,7 @@ void R_EndFrame( void )
 {
 	// flush any remaining 2D bits
 	R_Set2DMode( false );
-
-#ifdef XASH_SDL
-	SDL_GL_SwapWindow( host.hWnd );
-#elif defined __ANDROID__ // For direct android backend
-	Android_SwapBuffers();
-#endif
+	gEngfuncs.GL_SwapBuffers();
 }
 
 /*
@@ -1176,384 +1172,4 @@ void R_DrawCubemapView( const vec3_t origin, const vec3_t angles, int size )
 	R_RenderFrame( &rvp );
 
 	RI.viewleaf = NULL;		// force markleafs next frame
-}
-
-static int GL_RenderGetParm( int parm, int arg )
-{
-	gl_texture_t *glt;
-
-	switch( parm )
-	{
-	case PARM_TEX_WIDTH:
-		glt = R_GetTexture( arg );
-		return glt->width;
-	case PARM_TEX_HEIGHT:
-		glt = R_GetTexture( arg );
-		return glt->height;
-	case PARM_TEX_SRC_WIDTH:
-		glt = R_GetTexture( arg );
-		return glt->srcWidth;
-	case PARM_TEX_SRC_HEIGHT:
-		glt = R_GetTexture( arg );
-		return glt->srcHeight;
-	case PARM_TEX_GLFORMAT:
-		glt = R_GetTexture( arg );
-		return glt->format;
-	case PARM_TEX_ENCODE:
-		glt = R_GetTexture( arg );
-		return glt->encode;
-	case PARM_TEX_MIPCOUNT:
-		glt = R_GetTexture( arg );
-		return glt->numMips;
-	case PARM_TEX_DEPTH:
-		glt = R_GetTexture( arg );
-		return glt->depth;
-	case PARM_BSP2_SUPPORTED:
-#ifdef SUPPORT_BSP2_FORMAT
-		return 1;
-#endif
-		return 0;
-	case PARM_TEX_SKYBOX:
-		Assert( arg >= 0 && arg < 6 );
-		return tr.skyboxTextures[arg];
-	case PARM_TEX_SKYTEXNUM:
-		return tr.skytexturenum;
-	case PARM_TEX_LIGHTMAP:
-		arg = bound( 0, arg, MAX_LIGHTMAPS - 1 );
-		return tr.lightmapTextures[arg];
-	case PARM_SKY_SPHERE:
-		return FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX );
-	case PARAM_GAMEPAUSED:
-		return cl.paused;
-	case PARM_WIDESCREEN:
-		return glState.wideScreen;
-	case PARM_FULLSCREEN:
-		return glState.fullScreen;
-	case PARM_SCREEN_WIDTH:
-		return glState.width;
-	case PARM_SCREEN_HEIGHT:
-		return glState.height;
-	case PARM_CLIENT_INGAME:
-		return CL_IsInGame();
-	case PARM_MAX_ENTITIES:
-		return clgame.maxEntities;
-	case PARM_TEX_TARGET:
-		glt = R_GetTexture( arg );
-		return glt->target;
-	case PARM_TEX_TEXNUM:
-		glt = R_GetTexture( arg );
-		return glt->texnum;
-	case PARM_TEX_FLAGS:
-		glt = R_GetTexture( arg );
-		return glt->flags;
-	case PARM_FEATURES:
-		return host.features;
-	case PARM_ACTIVE_TMU:
-		return glState.activeTMU;
-	case PARM_LIGHTSTYLEVALUE:
-		arg = bound( 0, arg, MAX_LIGHTSTYLES - 1 );
-		return tr.lightstylevalue[arg];
-	case PARM_MAP_HAS_DELUXE:
-		return FBitSet( world.flags, FWORLD_HAS_DELUXEMAP );
-	case PARM_MAX_IMAGE_UNITS:
-		return GL_MaxTextureUnits();
-	case PARM_CLIENT_ACTIVE:
-		return (cls.state == ca_active);
-	case PARM_REBUILD_GAMMA:
-		return glConfig.softwareGammaUpdate;
-	case PARM_DEDICATED_SERVER:
-		return (host.type == HOST_DEDICATED);
-	case PARM_SURF_SAMPLESIZE:
-		if( arg >= 0 && arg < cl.worldmodel->numsurfaces )
-			return Mod_SampleSizeForFace( &cl.worldmodel->surfaces[arg] );
-		return LM_SAMPLE_SIZE;
-	case PARM_GL_CONTEXT_TYPE:
-		return glConfig.context;
-	case PARM_GLES_WRAPPER:
-		return glConfig.wrapper;
-	case PARM_STENCIL_ACTIVE:
-		return glState.stencilEnabled;
-	case PARM_WATER_ALPHA:
-		return FBitSet( world.flags, FWORLD_WATERALPHA );
-	}
-	return 0;
-}
-
-static void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScale )
-{
-	gl_texture_t *glt = R_GetTexture( texture );
-
-	if( xScale ) *xScale = glt->xscale;
-	if( yScale ) *yScale = glt->yscale;
-}
-
-static void R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
-{
-	gl_texture_t *glt = R_GetTexture( texture );
-
-	if( red ) *red = glt->fogParams[0];
-	if( green ) *green = glt->fogParams[1];
-	if( blue ) *blue = glt->fogParams[2];
-	if( density ) *density = glt->fogParams[3];
-}
-
-/*
-=================
-R_EnvShot
-
-=================
-*/
-static void R_EnvShot( const float *vieworg, const char *name, qboolean skyshot, int shotsize )
-{
-	static vec3_t viewPoint;
-
-	if( !COM_CheckString( name ))
-		return; 
-
-	if( cls.scrshot_action != scrshot_inactive )
-	{
-		if( cls.scrshot_action != scrshot_skyshot && cls.scrshot_action != scrshot_envshot )
-			Con_Printf( S_ERROR "R_%sShot: subsystem is busy, try for next frame.\n", skyshot ? "Sky" : "Env" );
-		return;
-	}
-
-	cls.envshot_vieworg = NULL; // use client view
-	Q_strncpy( cls.shotname, name, sizeof( cls.shotname ));
-
-	if( vieworg )
-	{
-		// make sure what viewpoint don't temporare
-		VectorCopy( vieworg, viewPoint );
-		cls.envshot_vieworg = viewPoint;
-		cls.envshot_disable_vis = true;
-	}
-
-	// make request for envshot
-	if( skyshot ) cls.scrshot_action = scrshot_skyshot;
-	else cls.scrshot_action = scrshot_envshot;
-
-	// catch negative values
-	cls.envshot_viewsize = max( 0, shotsize );
-}
-
-static void R_SetCurrentEntity( cl_entity_t *ent )
-{
-	RI.currententity = ent;
-
-	// set model also
-	if( RI.currententity != NULL )
-	{
-		RI.currentmodel = RI.currententity->model;
-	}
-}
-
-static void R_SetCurrentModel( model_t *mod )
-{
-	RI.currentmodel = mod;
-}
-
-static int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis )
-{
-	return Mod_FatPVS( org, radius, visbuffer, world.visbytes, merge, fullvis );
-}
-
-static lightstyle_t *CL_GetLightStyle( int number )
-{
-	Assert( number >= 0 && number < MAX_LIGHTSTYLES );
-	return &cl.lightstyles[number];
-}
-
-static dlight_t *CL_GetDynamicLight( int number )
-{
-	Assert( number >= 0 && number < MAX_DLIGHTS );
-	return &cl_dlights[number];
-}
-
-static dlight_t *CL_GetEntityLight( int number )
-{
-	Assert( number >= 0 && number < MAX_ELIGHTS );
-	return &cl_elights[number];
-}
-
-static float R_GetFrameTime( void )
-{
-	return tr.frametime;
-}
-
-static const char *GL_TextureName( unsigned int texnum )
-{
-	return R_GetTexture( texnum )->name;	
-}
-
-const byte *GL_TextureData( unsigned int texnum )
-{
-	rgbdata_t *pic = R_GetTexture( texnum )->original;
-
-	if( pic != NULL )
-		return pic->buffer;
-	return NULL;	
-}
-
-static const ref_overview_t *GL_GetOverviewParms( void )
-{
-	return &clgame.overView;
-}
-
-static void *R_Mem_Alloc( size_t cb, const char *filename, const int fileline )
-{
-	return _Mem_Alloc( cls.mempool, cb, true, filename, fileline );
-}
-
-static void R_Mem_Free( void *mem, const char *filename, const int fileline )
-{
-	if( !mem ) return;
-	_Mem_Free( mem, filename, fileline );
-}
-
-/*
-=========
-pfnGetFilesList
-
-=========
-*/
-static char **pfnGetFilesList( const char *pattern, int *numFiles, int gamedironly )
-{
-	static search_t	*t = NULL;
-
-	if( t ) Mem_Free( t ); // release prev search
-
-	t = FS_Search( pattern, true, gamedironly );
-
-	if( !t )
-	{
-		if( numFiles ) *numFiles = 0;
-		return NULL;
-	}
-
-	if( numFiles ) *numFiles = t->numfilenames;
-	return t->filenames;
-}
-
-static uint pfnFileBufferCRC32( const void *buffer, const int length )
-{
-	uint	modelCRC = 0;
-
-	if( !buffer || length <= 0 )
-		return modelCRC;
-
-	CRC32_Init( &modelCRC );
-	CRC32_ProcessBuffer( &modelCRC, buffer, length );
-	return CRC32_Final( modelCRC );
-}
-
-/*
-=============
-CL_GenericHandle
-
-=============
-*/
-const char *CL_GenericHandle( int fileindex )
-{
-	if( fileindex < 0 || fileindex >= MAX_CUSTOM )
-		return 0;
-	return cl.files_precache[fileindex];
-}
-	
-static render_api_t gRenderAPI =
-{
-	GL_RenderGetParm,
-	R_GetDetailScaleForTexture,
-	R_GetExtraParmsForTexture,
-	CL_GetLightStyle,
-	CL_GetDynamicLight,
-	CL_GetEntityLight,
-	LightToTexGamma,
-	R_GetFrameTime,
-	R_SetCurrentEntity,
-	R_SetCurrentModel,
-	R_FatPVS,
-	R_StoreEfrags,
-	GL_FindTexture,
-	GL_TextureName,
-	GL_TextureData,
-	GL_LoadTexture,
-	GL_CreateTexture,
-	GL_LoadTextureArray,
-	GL_CreateTextureArray,
-	GL_FreeTexture,
-	DrawSingleDecal,
-	R_DecalSetupVerts,
-	R_EntityRemoveDecals,
-	(void*)AVI_LoadVideo,
-	(void*)AVI_GetVideoInfo,
-	(void*)AVI_GetVideoFrameNumber,
-	(void*)AVI_GetVideoFrame,
-	R_UploadStretchRaw,
-	(void*)AVI_FreeVideo,
-	(void*)AVI_IsActive,
-	S_StreamAviSamples,
-	NULL,
-	NULL,
-	GL_Bind,
-	GL_SelectTexture,
-	GL_LoadTexMatrixExt,
-	GL_LoadIdentityTexMatrix,
-	GL_CleanUpTextureUnits,
-	GL_TexGen,
-	GL_TextureTarget,
-	GL_SetTexCoordArrayMode,
-	GL_GetProcAddress,
-	GL_UpdateTexSize,
-	NULL,
-	NULL,
-	CL_DrawParticlesExternal,
-	R_EnvShot,
-	pfnSPR_LoadExt,
-	R_LightVec,
-	R_StudioGetTexture,
-	GL_GetOverviewParms,
-	CL_GenericHandle,
-	NULL,
-	NULL,
-	R_Mem_Alloc,
-	R_Mem_Free,
-	pfnGetFilesList,
-	pfnFileBufferCRC32,
-	COM_CompareFileTime,
-	Host_Error,
-	(void*)CL_ModelHandle,
-	pfnTime,
-	Cvar_Set,
-	S_FadeMusicVolume,
-	COM_SetRandomSeed,
-};
-
-/*
-===============
-R_InitRenderAPI
-
-Initialize client external rendering
-===============
-*/
-qboolean R_InitRenderAPI( void )
-{
-	// make sure what render functions is cleared
-	memset( &clgame.drawFuncs, 0, sizeof( clgame.drawFuncs ));
-
-	if( clgame.dllFuncs.pfnGetRenderInterface )
-	{
-		if( clgame.dllFuncs.pfnGetRenderInterface( CL_RENDER_INTERFACE_VERSION, &gRenderAPI, &clgame.drawFuncs ))
-		{
-			Con_Reportf( "CL_LoadProgs: ^2initailized extended RenderAPI ^7ver. %i\n", CL_RENDER_INTERFACE_VERSION );
-			return true;
-		}
-
-		// make sure what render functions is cleared
-		memset( &clgame.drawFuncs, 0, sizeof( clgame.drawFuncs ));
-
-		return false; // just tell user about problems
-	}
-
-	// render interface is missed
-	return true;
 }

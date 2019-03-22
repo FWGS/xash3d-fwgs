@@ -47,16 +47,8 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 
 #ifndef _WIN32
 #include <stddef.h> // size_t
-
-#ifdef __i386__
-#define EXPORT __attribute__ ((visibility ("default"),force_align_arg_pointer))
-#else
-#define EXPORT __attribute__ ((visibility ("default")))
-#endif
 #else
 #include <sys/types.h> // off_t
-
-#define EXPORT		__declspec( dllexport )
 #endif
 
 // configuration
@@ -83,83 +75,6 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 #endif
 
 #define HACKS_RELATED_HLMODS		// some HL-mods works differently under Xash and can't be fixed without some hacks at least at current time
-
-#define MAX_STRING		256	// generic string
-#define MAX_INFO_STRING	256	// infostrings are transmitted across network
-#define MAX_SERVERINFO_STRING	512	// server handles too many settings. expand to 1024?
-#define MAX_LOCALINFO_STRING	32768	// localinfo used on server and not sended to the clients
-#define MAX_SYSPATH		1024	// system filepath
-#define MAX_PRINT_MSG	8192	// how many symbols can handle single call of Con_Printf or Con_DPrintf
-#define MAX_TOKEN		2048	// parse token length
-#define MAX_MODS		512	// environment games that engine can keep visible
-#define MAX_USERMSG_LENGTH	2048	// don't modify it's relies on a client-side definitions
-
-#define BIT( n )		( 1 << ( n ))
-#define GAMMA		( 2.2 )		// Valve Software gamma
-#define INVGAMMA		( 1.0 / 2.2 )	// back to 1.0
-#define TEXGAMMA		( 0.9 )		// compensate dim textures
-#define SetBits( iBitVector, bits )	((iBitVector) = (iBitVector) | (bits))
-#define ClearBits( iBitVector, bits )	((iBitVector) = (iBitVector) & ~(bits))
-#define FBitSet( iBitVector, bit )	((iBitVector) & (bit))
-
-#ifndef __cplusplus
-#ifdef NULL
-#undef NULL
-#endif
-
-#define NULL		((void *)0)
-#endif
-
-// color strings
-#define IsColorString( p )	( p && *( p ) == '^' && *(( p ) + 1) && *(( p ) + 1) >= '0' && *(( p ) + 1 ) <= '9' )
-#define ColorIndex( c )	((( c ) - '0' ) & 7 )
-
-#if defined __i386__ &&  defined __GNUC__
-#define GAME_EXPORT __attribute__((force_align_arg_pointer))
-#else
-#define GAME_EXPORT
-#endif
-
-
-#ifdef XASH_BIG_ENDIAN
-#define LittleLong(x) (((int)(((x)&255)<<24)) + ((int)((((x)>>8)&255)<<16)) + ((int)(((x)>>16)&255)<<8) + (((x) >> 24)&255))
-#define LittleLongSW(x) (x = LittleLong(x) )
-#define LittleShort(x) ((short)( (((short)(x) >> 8) & 255) + (((short)(x) & 255) << 8)))
-#define LittleShortSW(x) (x = LittleShort(x) )
-_inline float LittleFloat( float f )
-{
-	union
-	{
-		float f;
-		unsigned char b[4];
-	} dat1, dat2;
-
-	dat1.f = f;
-	dat2.b[0] = dat1.b[3];
-	dat2.b[1] = dat1.b[2];
-	dat2.b[2] = dat1.b[1];
-	dat2.b[3] = dat1.b[0];
-
-	return dat2.f;
-}
-#else
-#define LittleLong(x) (x)
-#define LittleLongSW(x)
-#define LittleShort(x) (x)
-#define LittleShortSW(x)
-#define LittleFloat(x) (x)
-#endif
-
-
-typedef unsigned int	dword;
-typedef unsigned int	uint;
-typedef char		string[MAX_STRING];
-typedef struct file_s	file_t;		// normal file
-typedef struct wfile_s	wfile_t;		// wad file
-typedef struct stream_s	stream_t;		// sound stream for background music playing
-typedef off_t fs_offset_t;
-
-typedef void (*setpair_t)( const char *key, const char *value, void *buffer, void *numpairs );
 
 typedef struct
 {
@@ -221,14 +136,6 @@ typedef enum
 
 #define CIN_MAIN		0
 #define CIN_LOGO		1
-
-// config strings are a general means of communication from
-// the server to all connected clients.
-// each config string can be at most CS_SIZE characters.
-#define MAX_QPATH		64	// max length of a game pathname
-#define MAX_OSPATH		260	// max length of a filesystem pathname
-#define CS_SIZE		64	// size of one config string
-#define CS_TIME		16	// size of time string
 
 #define MAX_DECALS		512	// touching TE_DECAL messages, etc
 #define MAX_STATIC_ENTITIES	3096	// static entities that moved on the client when level is spawn
@@ -555,6 +462,71 @@ typedef struct host_parm_s
 extern host_parm_t	host;
 extern sysinfo_t	SI;
 
+#define CMD_SERVERDLL	BIT( 0 )		// added by server.dll
+#define CMD_CLIENTDLL	BIT( 1 )		// added by client.dll
+#define CMD_GAMEUIDLL	BIT( 2 )		// added by GameUI.dll
+#define CMD_LOCALONLY	BIT( 3 )		// restricted from server commands
+#define CMD_REFDLL	BIT( 4 )		// added by ref.dll
+
+typedef void (*xcommand_t)( void );
+
+//
+// cmd.c
+//
+void Cbuf_Init( void );
+void Cbuf_Clear( void );
+void Cbuf_AddText( const char *text );
+void Cbuf_InsertText( const char *text );
+void Cbuf_ExecStuffCmds( void );
+void Cbuf_Execute (void);
+int Cmd_Argc( void );
+const char *Cmd_Args( void );
+const char *Cmd_Argv( int arg );
+void Cmd_Init( void );
+void Cmd_Unlink( int group );
+void Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc );
+void Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc );
+void Cmd_AddServerCommand( const char *cmd_name, xcommand_t function );
+int Cmd_AddClientCommand( const char *cmd_name, xcommand_t function );
+int Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function );
+int Cmd_AddRefCommand( const char *cmd_name, xcommand_t function, const char *description );
+void Cmd_RemoveCommand( const char *cmd_name );
+qboolean Cmd_Exists( const char *cmd_name );
+void Cmd_LookupCmds( char *buffer, void *ptr, setpair_t callback );
+qboolean Cmd_GetMapList( const char *s, char *completedname, int length );
+qboolean Cmd_GetDemoList( const char *s, char *completedname, int length );
+qboolean Cmd_GetMovieList( const char *s, char *completedname, int length );
+void Cmd_TokenizeString( char *text );
+void Cmd_ExecuteString( char *text );
+void Cmd_ForwardToServer( void );
+
+//
+// zone.c
+//
+void Memory_Init( void );
+void *_Mem_Realloc( byte *poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline );
+void *_Mem_Alloc( byte *poolptr, size_t size, qboolean clear, const char *filename, int fileline );
+byte *_Mem_AllocPool( const char *name, const char *filename, int fileline );
+void _Mem_FreePool( byte **poolptr, const char *filename, int fileline );
+void _Mem_EmptyPool( byte *poolptr, const char *filename, int fileline );
+void _Mem_Free( void *data, const char *filename, int fileline );
+void _Mem_Check( const char *filename, int fileline );
+qboolean Mem_IsAllocatedExt( byte *poolptr, void *data );
+void Mem_PrintList( size_t minallocationsize );
+void Mem_PrintStats( void );
+
+#ifndef REF_DLL
+#define Mem_Malloc( pool, size ) _Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
+#define Mem_Calloc( pool, size ) _Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
+#define Mem_Realloc( pool, ptr, size ) _Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
+#define Mem_Free( mem ) _Mem_Free( mem, __FILE__, __LINE__ )
+#define Mem_AllocPool( name ) _Mem_AllocPool( name, __FILE__, __LINE__ )
+#define Mem_FreePool( pool ) _Mem_FreePool( pool, __FILE__, __LINE__ )
+#define Mem_EmptyPool( pool ) _Mem_EmptyPool( pool, __FILE__, __LINE__ )
+#define Mem_IsAllocated( mem ) Mem_IsAllocatedExt( NULL, mem )
+#define Mem_Check() _Mem_Check( __FILE__, __LINE__ )
+#endif
+
 //
 // filesystem.c
 //
@@ -567,13 +539,7 @@ void FS_AllowDirectPaths( qboolean enable );
 void FS_AddGameDirectory( const char *dir, uint flags );
 void FS_AddGameHierarchy( const char *dir, uint flags );
 void FS_LoadGameInfo( const char *rootfolder );
-void COM_FileBase( const char *in, char *out );
-const char *COM_FileExtension( const char *in );
-void COM_DefaultExtension( char *path, const char *extension );
-void COM_ReplaceExtension( char *path, const char *extension );
-void COM_ExtractFilePath( const char *path, char *dest );
 const char *FS_GetDiskPath( const char *name, qboolean gamedironly );
-const char *COM_FileWithoutPath( const char *in );
 byte *W_LoadLump( wfile_t *wad, const char *lumpname, size_t *lumpsizeptr, const char type );
 void W_Close( wfile_t *wad );
 byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly );
@@ -584,7 +550,6 @@ void COM_NormalizeAngles( vec3_t angles );
 int COM_FileSize( const char *filename );
 void COM_FixSlashes( char *pname );
 void COM_FreeFile( void *buffer );
-int COM_CheckString( const char *string );
 int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare );
 search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly );
 file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly );
@@ -603,124 +568,17 @@ qboolean FS_SysFileExists( const char *path, qboolean casesensitive );
 qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize );
 qboolean FS_Delete( const char *path );
 int FS_UnGetc( file_t *file, byte c );
-void COM_StripExtension( char *path );
 fs_offset_t FS_Tell( file_t *file );
 qboolean FS_Eof( file_t *file );
 int FS_Close( file_t *file );
 int FS_Getc( file_t *file );
 fs_offset_t FS_FileLength( file_t *f );
 
-/*
-========================================================================
-
-internal image format
-
-typically expanded to rgba buffer
-NOTE: number at end of pixelformat name it's a total bitscount e.g. PF_RGB_24 == PF_RGB_888
-========================================================================
-*/
-#define ImageRAW( type )	(type == PF_RGBA_32 || type == PF_BGRA_32 || type == PF_RGB_24 || type == PF_BGR_24)
-#define ImageDXT( type )	(type == PF_DXT1 || type == PF_DXT3 || type == PF_DXT5 || type == PF_ATI2)
-
-typedef enum
-{
-	PF_UNKNOWN = 0,
-	PF_INDEXED_24,	// inflated palette (768 bytes)
-	PF_INDEXED_32,	// deflated palette (1024 bytes)
-	PF_RGBA_32,	// normal rgba buffer
-	PF_BGRA_32,	// big endian RGBA (MacOS)
-	PF_RGB_24,	// uncompressed dds or another 24-bit image 
-	PF_BGR_24,	// big-endian RGB (MacOS)
-	PF_DXT1,		// s3tc DXT1 format
-	PF_DXT3,		// s3tc DXT3 format
-	PF_DXT5,		// s3tc DXT5 format
-	PF_ATI2,		// latc ATI2N format
-	PF_TOTALCOUNT,	// must be last
-} pixformat_t;
-
-typedef struct bpc_desc_s
-{
-	int	format;	// pixelformat
-	char	name[16];	// used for debug
-	uint	glFormat;	// RGBA format
-	int	bpp;	// channels (e.g. rgb = 3, rgba = 4)
-} bpc_desc_t;
-
-// imagelib global settings
-typedef enum
-{
-	IL_USE_LERPING	= BIT(0),	// lerping images during resample
-	IL_KEEP_8BIT	= BIT(1),	// don't expand paletted images
-	IL_ALLOW_OVERWRITE	= BIT(2),	// allow to overwrite stored images
-	IL_DONTFLIP_TGA	= BIT(3),	// Steam background completely ignore tga attribute 0x20 (stupid lammers!)
-	IL_DDS_HARDWARE	= BIT(4),	// DXT compression is support
-	IL_LOAD_DECAL	= BIT(5),	// special mode for load gradient decals
-	IL_OVERVIEW	= BIT(6),	// overview required some unque operations
-} ilFlags_t;
-
-// goes into rgbdata_t->encode
-#define DXT_ENCODE_DEFAULT		0	// don't use custom encoders
-#define DXT_ENCODE_COLOR_YCoCg	0x1A01	// make sure that value dosn't collide with anything
-#define DXT_ENCODE_ALPHA_1BIT		0x1A02	// normal 1-bit alpha
-#define DXT_ENCODE_ALPHA_8BIT		0x1A03	// normal 8-bit alpha
-#define DXT_ENCODE_ALPHA_SDF		0x1A04	// signed distance field
-#define DXT_ENCODE_NORMAL_AG_ORTHO	0x1A05	// orthographic projection
-#define DXT_ENCODE_NORMAL_AG_STEREO	0x1A06	// stereographic projection
-#define DXT_ENCODE_NORMAL_AG_PARABOLOID	0x1A07	// paraboloid projection
-#define DXT_ENCODE_NORMAL_AG_QUARTIC	0x1A08	// newton method
-#define DXT_ENCODE_NORMAL_AG_AZIMUTHAL	0x1A09	// Lambert Azimuthal Equal-Area
-
-// rgbdata output flags
-typedef enum
-{
-	// rgbdata->flags
-	IMAGE_CUBEMAP	= BIT(0),		// it's 6-sides cubemap buffer
-	IMAGE_HAS_ALPHA	= BIT(1),		// image contain alpha-channel
-	IMAGE_HAS_COLOR	= BIT(2),		// image contain RGB-channel
-	IMAGE_COLORINDEX	= BIT(3),		// all colors in palette is gradients of last color (decals)
-	IMAGE_HAS_LUMA	= BIT(4),		// image has luma pixels (q1-style maps)
-	IMAGE_SKYBOX	= BIT(5),		// only used by FS_SaveImage - for write right suffixes
-	IMAGE_QUAKESKY	= BIT(6),		// it's a quake sky double layered clouds (so keep it as 8 bit)
-	IMAGE_DDS_FORMAT	= BIT(7),		// a hint for GL loader
-	IMAGE_MULTILAYER	= BIT(8),		// to differentiate from 3D texture
-	IMAGE_ONEBIT_ALPHA	= BIT(9),		// binary alpha
-	IMAGE_QUAKEPAL	= BIT(10),	// image has quake1 palette
-
-	// Image_Process manipulation flags
-	IMAGE_FLIP_X	= BIT(16),	// flip the image by width
-	IMAGE_FLIP_Y	= BIT(17),	// flip the image by height
-	IMAGE_ROT_90	= BIT(18),	// flip from upper left corner to down right corner
-	IMAGE_ROT180	= IMAGE_FLIP_X|IMAGE_FLIP_Y,
-	IMAGE_ROT270	= IMAGE_FLIP_X|IMAGE_FLIP_Y|IMAGE_ROT_90,	
-	IMAGE_EMBOSS	= BIT(19),	// apply emboss mapping
-	IMAGE_RESAMPLE	= BIT(20),	// resample image to specified dims
-// reserved
-// reserved
-	IMAGE_FORCE_RGBA	= BIT(23),	// force image to RGBA buffer
-	IMAGE_MAKE_LUMA	= BIT(24),	// create luma texture from indexed
-	IMAGE_QUANTIZE	= BIT(25),	// make indexed image from 24 or 32- bit image
-	IMAGE_LIGHTGAMMA	= BIT(26),	// apply gamma for image
-	IMAGE_REMAP	= BIT(27),	// interpret width and height as top and bottom color
-} imgFlags_t;
-
-typedef struct rgbdata_s
-{
-	word	width;		// image width
-	word	height;		// image height
-	word	depth;		// image depth
-	uint	type;		// compression type
-	uint	flags;		// misc image flags
-	word	encode;		// DXT may have custom encoder, that will be decoded in GLSL-side
-	byte	numMips;		// mipmap count
-	byte	*palette;		// palette if present
-	byte	*buffer;		// image buffer
-	rgba_t	fogParams;	// some water textures in hl1 has info about fog color and alpha
-	size_t	size;		// for bounds checking
-} rgbdata_t;
-
 //
 // imagelib
 //
+#include "com_image.h"
+
 void Image_Init( void );
 void Image_Shutdown( void );
 void Image_AddCmdFlags( uint flags );
@@ -738,7 +596,6 @@ qboolean Image_CustomPalette( void );
 void Image_ClearForceFlags( void );
 void Image_SetMDLPointer( byte *p );
 void Image_CheckPaletteQ1( void );
-
 /*
 ========================================================================
 
@@ -899,6 +756,10 @@ void Con_Printf( const char *szFmt, ... ) _format( 1 );
 int pfnNumberOfEntities( void );
 int pfnIsInGame( void );
 float pfnTime( void );
+#define copystring( s ) _copystring( host.mempool, s, __FILE__, __LINE__ )
+#define SV_CopyString( s ) _copystring( svgame.stringspool, s, __FILE__, __LINE__ )
+#define freestring( s ) if( s != NULL ) { Mem_Free( s ); s = NULL; }
+char *_copystring( byte *mempool, const char *s, const char *filename, int fileline );
 
 // CS:CS engfuncs (stubs)
 void *pfnSequenceGet( const char *fileName, const char *entryName );
@@ -1029,9 +890,8 @@ void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
 qboolean SV_RestoreCustomDecal( struct decallist_s *entry, edict_t *pEdict, qboolean adjacent );
 void SV_BroadcastPrintf( sv_client_t *ignore, char *fmt, ... ) _format( 2 );
 int R_CreateDecalList( struct decallist_s *pList );
-void R_DecalRemoveAll( int texture );
 void R_ClearAllDecals( void );
-void R_ClearStaticEntities( void );
+void CL_ClearStaticEntities( void );
 qboolean S_StreamGetCurrentState( char *currentTrack, char *loopTrack, int *position );
 struct cl_entity_s *CL_GetEntityByIndex( int index );
 struct player_info_s *CL_GetPlayerInfo( int playerIndex );
@@ -1058,7 +918,6 @@ int SV_GetSaveComment( const char *savename, char *comment );
 qboolean SV_NewGame( const char *mapName, qboolean loadGame );
 void SV_ClipPMoveToEntity( struct physent_s *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, struct pmtrace_s *tr );
 void CL_ClipPMoveToEntity( struct physent_s *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, struct pmtrace_s *tr );
-void CL_Particle( const vec3_t origin, int color, float life, int zpos, int zvel ); // debug thing
 void SV_SysError( const char *error_string );
 void SV_ShutdownGame( void );
 void SV_ExecLoadLevel( void );
@@ -1104,9 +963,9 @@ qboolean LZSS_IsCompressed( const byte *source );
 uint LZSS_GetActualSize( const byte *source );
 byte *LZSS_Compress( byte *pInput, int inputLength, uint *pOutputSize );
 uint LZSS_Decompress( const byte *pInput, byte *pOutput );
-const byte *GL_TextureData( unsigned int texnum );
 void GL_FreeImage( const char *name );
 void VID_InitDefaultResolution( void );
+void VID_Init( void );
 void UI_SetActiveMenu( qboolean fActive );
 void Cmd_Null_f( void );
 
@@ -1144,6 +1003,10 @@ sentenceEntry_s *Sequence_PickSentence( const char *groupName, int pickMethod, i
 void NET_InitMasters( void );
 void NET_SaveMasters( void );
 qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data );
+
+#ifdef REF_DLL
+#error "common.h in ref_dll"
+#endif
 
 #ifdef __cplusplus
 }

@@ -16,6 +16,9 @@ GNU General Public License for more details.
 #include "common.h"
 #include "mathlib.h"
 #include "pm_local.h"
+#ifndef XASH_DEDICATED
+#include "client.h" // CL_Particle
+#endif
 
 // expand debugging BBOX particle hulls by this many units.
 #define BOX_GAP	0.0f    

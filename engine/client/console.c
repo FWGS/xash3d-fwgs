@@ -18,7 +18,6 @@ GNU General Public License for more details.
 #include "keydefs.h"
 #include "protocol.h"		// get the protocol version
 #include "con_nprint.h"
-#include "gl_local.h"
 #include "qfont.h"
 #include "wadfile.h"
 
@@ -443,8 +442,8 @@ void Con_CheckResize( void )
 	if( con.curFont && con.curFont->hFontTexture )
 		charWidth = con.curFont->charWidths['O'] - 1;
 
-	width = ( glState.width / charWidth ) - 2;
-	if( !glw_state.initialized ) width = (640 / 5);
+	width = ( refState.width / charWidth ) - 2;
+	if( !ref.initialized ) width = (640 / 5);
 
 	if( width == con.linewidth )
 		return;
@@ -532,7 +531,7 @@ static qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font )
 		return false;
 
 	// keep source to print directly into conback image
-	font->hFontTexture = GL_LoadTexture( fontname, NULL, 0, TF_FONT|TF_KEEP_SOURCE );
+	font->hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_FONT|TF_KEEP_SOURCE );
 	R_GetTextureParms( &fontWidth, NULL, font->hFontTexture );
 
 	if( font->hFontTexture && fontWidth != 0 )
@@ -568,7 +567,7 @@ static qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	font->hFontTexture = GL_LoadTexture( fontname, NULL, 0, TF_FONT|TF_NEAREST );
+	font->hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_FONT|TF_NEAREST );
 	R_GetTextureParms( &fontWidth, NULL, font->hFontTexture );
 
 	// setup consolefont
@@ -651,9 +650,9 @@ static void Con_LoadConchars( void )
 		Con_LoadConsoleFont( i, con.chars + i );
 
 	// select properly fontsize
-	if( glState.width <= 640 )
+	if( refState.width <= 640 )
 		fontSize = 0;
-	else if( glState.width >= 1280 )
+	else if( refState.width >= 1280 )
 		fontSize = 2;
 	else fontSize = 1;
 
@@ -805,7 +804,7 @@ int Con_UtfMoveRight( char *str, int pos, int length )
 	return pos+1;
 }
 
-static void Con_DrawCharToConback( int num, byte *conchars, byte *dest )
+static void Con_DrawCharToConback( int num, const byte *conchars, byte *dest )
 {
 	int	row, col;
 	byte	*source;
@@ -843,8 +842,8 @@ static void Con_TextAdjustSize( int *x, int *y, int *w, int *h )
 	if( !x && !y && !w && !h ) return;
 
 	// scale for screen sizes
-	xscale = (float)glState.width / (float)clgame.scrInfo.iWidth;
-	yscale = (float)glState.height / (float)clgame.scrInfo.iHeight;
+	xscale = (float)refState.width / (float)clgame.scrInfo.iWidth;
+	yscale = (float)refState.height / (float)clgame.scrInfo.iHeight;
 
 	if( x ) *x *= xscale;
 	if( y ) *y *= yscale;
@@ -863,7 +862,6 @@ static int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
 {
 	int		width, height;
 	float		s1, t1, s2, t2;
-	gl_texture_t	*glt;
 	wrect_t		*rc;
 
 	number &= 255;
@@ -879,18 +877,15 @@ static int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
 		return 0;
 
 	rc = &con.curFont->fontRc[number];
-	glt = R_GetTexture( con.curFont->hFontTexture );
-	width = glt->srcWidth;
-	height = glt->srcHeight;
+	R_GetTextureParms( &width, &height, con.curFont->hFontTexture );
 
 	if( !width || !height )
 		return con.curFont->charWidths[number];
 
 	// don't apply color to fixed fonts it's already colored
-	if( con.curFont->type != FONT_FIXED || glt->format == GL_LUMINANCE8_ALPHA8 )
-		pglColor4ubv( color );
-	else pglColor4ub( 255, 255, 255, color[3] );
-	R_GetTextureParms( &width, &height, con.curFont->hFontTexture );
+	if( con.curFont->type != FONT_FIXED || REF_GET_PARM( PARM_TEX_GLFORMAT, 0x8045 ) ) // GL_LUMINANCE8_ALPHA8
+		ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
+	else ref.dllFuncs.Color4ub( 255, 255, 255, color[3] );
 
 	// calc rectangle
 	s1 = (float)rc->left / width;
@@ -902,8 +897,8 @@ static int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
 
 	if( clgame.ds.adjust_size )
 		Con_TextAdjustSize( &x, &y, &width, &height );
-	R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, con.curFont->hFontTexture );		
-	pglColor4ub( 255, 255, 255, 255 ); // don't forget reset color
+	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, con.curFont->hFontTexture );
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 ); // don't forget reset color
 
 	return con.curFont->charWidths[number];
 }
@@ -943,7 +938,7 @@ client version of routine
 */
 int Con_DrawCharacter( int x, int y, int number, rgba_t color )
 {
-	GL_SetRenderMode( kRenderTransTexture );
+	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 	return Con_DrawGenericChar( x, y, number, color );
 }
 
@@ -1064,7 +1059,7 @@ int Con_DrawGenericString( int x, int y, const char *string, rgba_t setColor, qb
 		s++;
 	}
           
-	pglColor4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 	return drawLen;
 }
 
@@ -1627,10 +1622,12 @@ void Field_DrawInputLine( int x, int y, field_t *edit )
 	if( host.key_overstrike && cursorChar )
 	{
 		// overstrike cursor
+#if 0
 		pglEnable( GL_BLEND );
 		pglDisable( GL_ALPHA_TEST );
 		pglBlendFunc( GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA );
 		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+#endif
 		Con_DrawGenericChar( x + curPos, y, cursorChar, colorDefault );
 	}
 	else
@@ -1854,7 +1851,7 @@ int Con_DrawDebugLines( void )
 	int	defaultX;
 	int	y = 20;
 
-	defaultX = glState.width / 4;
+	defaultX = refState.width / 4;
 	
 	for( i = 0; i < MAX_DBG_NOTIFY; i++ )
 	{
@@ -1864,10 +1861,10 @@ int Con_DrawDebugLines( void )
 			int	fontTall;
 
 			Con_DrawStringLen( con.notify[i].szNotify, &len, &fontTall );
-			x = glState.width - Q_max( defaultX, len ) - 10;
+			x = refState.width - Q_max( defaultX, len ) - 10;
 			fontTall += 1;
 
-			if( y + fontTall > glState.height - 20 )
+			if( y + fontTall > refState.height - 20 )
 				return count;
 
 			count++;
@@ -1896,7 +1893,7 @@ void Con_DrawDebug( void )
 	{
 		Q_snprintf( dlstring, sizeof( dlstring ), "Downloading [%d remaining]: ^2%s^7 %5.1f%% time %.f secs",
 		host.downloadcount, host.downloadfile, scr_download->value, Sys_DoubleTime() - timeStart ); 
-		x = glState.width - 500;
+		x = refState.width - 500;
 		y = con.curFont->charHeight * 1.05f;
 		Con_DrawString( x, y, dlstring, g_color_table[7] );
 	}
@@ -1962,7 +1959,7 @@ void Con_DrawNotify( void )
 		Field_DrawInputLine( x + len, y, &con.chat );
 	}
 
-	pglColor4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 }
 
 /*
@@ -2034,9 +2031,9 @@ void Con_DrawSolidConsole( int lines )
 	if( lines <= 0 ) return;
 
 	// draw the background
-	GL_SetRenderMode( kRenderNormal );
-	pglColor4ub( 255, 255, 255, 255 ); // to prevent grab color from screenfade
-	R_DrawStretchPic( 0, lines - glState.width * 3 / 4, glState.width, glState.width * 3 / 4, 0, 0, 1, 1, con.background );
+	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 ); // to prevent grab color from screenfade
+	ref.dllFuncs.R_DrawStretchPic( 0, lines - refState.width * 3 / 4, refState.width, refState.width * 3 / 4, 0, 0, 1, 1, con.background );
 
 	if( !con.curFont || !host.allow_console )
 		return; // nothing to draw
@@ -2054,10 +2051,10 @@ void Con_DrawSolidConsole( int lines )
 		Q_snprintf( curbuild, MAX_STRING, "%s %i/%s (%s-%s build %i)", XASH_ENGINE_NAME, PROTOCOL_VERSION, XASH_VERSION, Q_buildos(), Q_buildarch(), Q_buildnum( ));
 
 		Con_DrawStringLen( curbuild, &stringLen, &charH );
-		start = glState.width - stringLen;
+		start = refState.width - stringLen;
 		stringLen = Con_StringLength( curbuild );
 
-		fraction = lines / (float)glState.height;
+		fraction = lines / (float)refState.height;
 		color[3] = Q_min( fraction * 2.0f, 1.0f ) * 255; // fadeout version number
 
 		for( i = 0; i < stringLen; i++ )
@@ -2101,7 +2098,7 @@ void Con_DrawSolidConsole( int lines )
 	y = lines - ( con.curFont->charHeight * 1.2f );
 	SCR_DrawFPS( max( y, 4 )); // to avoid to hide fps counter
 
-	pglColor4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 }
 
 /*
@@ -2124,7 +2121,7 @@ void Con_DrawConsole( void )
 		{
 			if(( Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" )) && cls.key_dest != key_console )
 				con.vislines = con.showlines = 0;
-			else con.vislines = con.showlines = glState.height;
+			else con.vislines = con.showlines = refState.height;
 		}
 		else
 		{
@@ -2141,7 +2138,7 @@ void Con_DrawConsole( void )
 	case ca_disconnected:
 		if( cls.key_dest != key_menu )
 		{
-			Con_DrawSolidConsole( glState.height );
+			Con_DrawSolidConsole( refState.height );
 			Key_SetKeyDest( key_console );
 		}
 		break;
@@ -2156,7 +2153,7 @@ void Con_DrawConsole( void )
 		if( Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" ))
 		{
 			if( cls.key_dest == key_console ) 
-				Con_DrawSolidConsole( glState.height );
+				Con_DrawSolidConsole( refState.height );
 		}
 		else
 		{
@@ -2183,7 +2180,7 @@ void Con_DrawVersion( void )
 	// draws the current build
 	byte	*color = g_color_table[7];
 	int	i, stringLen, width = 0, charH;
-	int	start, height = glState.height;
+	int	start, height = refState.height;
 	qboolean	draw_version = false;
 	string	curbuild;
 
@@ -2209,7 +2206,7 @@ void Con_DrawVersion( void )
 	else Q_snprintf( curbuild, MAX_STRING, "v%i/%s (%s-%s build %i)", PROTOCOL_VERSION, XASH_VERSION, Q_buildos(), Q_buildarch(), Q_buildnum( ));
 
 	Con_DrawStringLen( curbuild, &stringLen, &charH );
-	start = glState.width - stringLen * 1.05f;
+	start = refState.width - stringLen * 1.05f;
 	stringLen = Con_StringLength( curbuild );
 	height -= charH * 1.05f;
 
@@ -2232,8 +2229,8 @@ void Con_RunConsole( void )
 	if( host.allow_console && cls.key_dest == key_console )
 	{
 		if( cls.state < ca_active || cl.first_frame )
-			con.showlines = glState.height;	// full screen
-		else con.showlines = (glState.height >> 1);	// half screen	
+			con.showlines = refState.height;	// full screen
+		else con.showlines = (refState.height >> 1);	// half screen
 	}
 	else con.showlines = 0; // none visible
 
@@ -2322,28 +2319,28 @@ void Con_VidInit( void )
 	{
 		// trying to load truecolor image first
 		if( FS_FileExists( "gfx/shell/conback.bmp", false ) || FS_FileExists( "gfx/shell/conback.tga", false ))
-			con.background = GL_LoadTexture( "gfx/shell/conback", NULL, 0, TF_IMAGE );
+			con.background = ref.dllFuncs.GL_LoadTexture( "gfx/shell/conback", NULL, 0, TF_IMAGE );
 
 		if( !con.background )
 		{
 			if( FS_FileExists( "cached/conback640", false ))
-				con.background = GL_LoadTexture( "cached/conback640", NULL, 0, TF_IMAGE );
+				con.background = ref.dllFuncs.GL_LoadTexture( "cached/conback640", NULL, 0, TF_IMAGE );
 			else if( FS_FileExists( "cached/conback", false ))
-				con.background = GL_LoadTexture( "cached/conback", NULL, 0, TF_IMAGE );
+				con.background = ref.dllFuncs.GL_LoadTexture( "cached/conback", NULL, 0, TF_IMAGE );
 		}
 	}
 	else
 	{
 		// trying to load truecolor image first
 		if( FS_FileExists( "gfx/shell/loading.bmp", false ) || FS_FileExists( "gfx/shell/loading.tga", false ))
-			con.background = GL_LoadTexture( "gfx/shell/loading", NULL, 0, TF_IMAGE );
+			con.background = ref.dllFuncs.GL_LoadTexture( "gfx/shell/loading", NULL, 0, TF_IMAGE );
 
 		if( !con.background )
 		{
 			if( FS_FileExists( "cached/loading640", false ))
-				con.background = GL_LoadTexture( "cached/loading640", NULL, 0, TF_IMAGE );
+				con.background = ref.dllFuncs.GL_LoadTexture( "cached/loading640", NULL, 0, TF_IMAGE );
 			else if( FS_FileExists( "cached/loading", false ))
-				con.background = GL_LoadTexture( "cached/loading", NULL, 0, TF_IMAGE );
+				con.background = ref.dllFuncs.GL_LoadTexture( "cached/loading", NULL, 0, TF_IMAGE );
 		}
 	}
 
@@ -2352,7 +2349,7 @@ void Con_VidInit( void )
 	{
 		qboolean		draw_to_console = false;
 		int		length = 0;
-		gl_texture_t	*chars;
+		byte *buf;
 
 		// NOTE: only these games want to draw build number into console background
 		if( !Q_stricmp( FS_Gamedir(), "id1" ))
@@ -2364,7 +2361,8 @@ void Con_VidInit( void )
 		if( !Q_stricmp( FS_Gamedir(), "rogue" ))
 			draw_to_console = true;
 
-		if( draw_to_console && con.curFont && ( chars = R_GetTexture( con.curFont->hFontTexture )) != NULL && chars->original )
+		if( draw_to_console && con.curFont &&
+			( buf = ref.dllFuncs.R_GetTextureOriginalBuffer( con.curFont->hFontTexture )) != NULL )
 		{
 			lmp_t	*cb = (lmp_t *)FS_LoadFile( "gfx/conback.lmp", &length, false );
 			char	ver[64];
@@ -2377,19 +2375,19 @@ void Con_VidInit( void )
 				dest = (byte *)(cb + 1) + 320 * 186 + 320 - 11 - 8 * Q_strlen( ver );
 				y = Q_strlen( ver );
 				for( x = 0; x < y; x++ )
-					Con_DrawCharToConback( ver[x], chars->original->buffer, dest + (x << 3));
-				con.background = GL_LoadTexture( "#gfx/conback.lmp", (byte *)cb, length, TF_IMAGE );
+					Con_DrawCharToConback( ver[x], buf, dest + (x << 3));
+				con.background = ref.dllFuncs.GL_LoadTexture( "#gfx/conback.lmp", (byte *)cb, length, TF_IMAGE );
 			}
 			if( cb ) Mem_Free( cb );
 		}
 
 		if( !con.background ) // trying the load unmodified conback
-			con.background = GL_LoadTexture( "gfx/conback.lmp", NULL, 0, TF_IMAGE );
+			con.background = ref.dllFuncs.GL_LoadTexture( "gfx/conback.lmp", NULL, 0, TF_IMAGE );
 	}
 
 	// missed console image will be replaced as gray background like X-Ray or Crysis
-	if( con.background == tr.defaultTexture || con.background == 0 )
-		con.background = tr.grayTexture;
+	if( con.background == ref.dllFuncs.R_GetBuiltinTexture( REF_DEFAULT_TEXTURE ) || con.background == 0 )
+		con.background = ref.dllFuncs.R_GetBuiltinTexture( REF_GRAY_TEXTURE );
 }
 
 /*

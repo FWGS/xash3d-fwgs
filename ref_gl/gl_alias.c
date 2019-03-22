@@ -12,17 +12,14 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
-#include "common.h"
-#include "client.h"
+#include "gl_local.h"
 #include "mathlib.h"
 #include "const.h"
 #include "r_studioint.h"
 #include "triangleapi.h"
 #include "alias.h"
 #include "pm_local.h"
-#include "gl_local.h"
-#include "cl_tent.h"
+#include "pmtrace.h"
 
 extern cvar_t r_shadows;
 
@@ -421,6 +418,7 @@ rgbdata_t *Mod_CreateSkinData( model_t *mod, byte *data, int width, int height )
 	static rgbdata_t	skin;
 	char		name[MAX_QPATH];
 	int		i;
+	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	skin.width = width;
 	skin.height = height;
@@ -430,10 +428,10 @@ rgbdata_t *Mod_CreateSkinData( model_t *mod, byte *data, int width, int height )
 	skin.encode = DXT_ENCODE_DEFAULT;
 	skin.numMips = 1;
 	skin.buffer = data;
-	skin.palette = (byte *)&clgame.palette;
+	skin.palette = (byte *)gEngfuncs.CL_GetPaletteColor( 0 );
 	skin.size = width * height;
 
-	if( !Image_CustomPalette() )
+	if( !gEngfuncs.Image_CustomPalette() )
 	{
 		for( i = 0; i < skin.width * skin.height; i++ )
 		{
@@ -475,7 +473,7 @@ rgbdata_t *Mod_CreateSkinData( model_t *mod, byte *data, int width, int height )
 	}
 
 	// make an copy
-	return FS_CopyImage( &skin );
+	return gEngfuncs.FS_CopyImage( &skin );
 }
 
 void *Mod_LoadSingleSkin( daliasskintype_t *pskintype, int skinnum, int size )
@@ -483,18 +481,19 @@ void *Mod_LoadSingleSkin( daliasskintype_t *pskintype, int skinnum, int size )
 	string	name, lumaname;
 	string	checkname;
 	rgbdata_t	*pic;
+	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	Q_snprintf( name, sizeof( name ), "%s:frame%i", loadmodel->name, skinnum );
 	Q_snprintf( lumaname, sizeof( lumaname ), "%s:luma%i", loadmodel->name, skinnum );
 	Q_snprintf( checkname, sizeof( checkname ), "%s_%i.tga", loadmodel->name, skinnum );
-	if( !FS_FileExists( checkname, false ) || ( pic = FS_LoadImage( checkname, NULL, 0 )) == NULL )
+	if( !gEngfuncs.FS_FileExists( checkname, false ) || ( pic = gEngfuncs.FS_LoadImage( checkname, NULL, 0 )) == NULL )
 		pic = Mod_CreateSkinData( loadmodel, (byte *)(pskintype + 1), m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
 
 	m_pAliasHeader->gl_texturenum[skinnum][0] =
 	m_pAliasHeader->gl_texturenum[skinnum][1] =
 	m_pAliasHeader->gl_texturenum[skinnum][2] =
 	m_pAliasHeader->gl_texturenum[skinnum][3] = GL_LoadTextureInternal( name, pic, 0 );
-	FS_FreeImage( pic );
+	gEngfuncs.FS_FreeImage( pic );
 
 	if( R_GetTexture( m_pAliasHeader->gl_texturenum[skinnum][0] )->flags & TF_HAS_LUMA )
 	{
@@ -503,7 +502,7 @@ void *Mod_LoadSingleSkin( daliasskintype_t *pskintype, int skinnum, int size )
 		m_pAliasHeader->fb_texturenum[skinnum][1] =
 		m_pAliasHeader->fb_texturenum[skinnum][2] =
 		m_pAliasHeader->fb_texturenum[skinnum][3] = GL_LoadTextureInternal( lumaname, pic, TF_MAKELUMA );
-		FS_FreeImage( pic );
+		gEngfuncs.FS_FreeImage( pic );
 	}
 
 	return ((byte *)(pskintype + 1) + size);
@@ -516,6 +515,7 @@ void *Mod_LoadGroupSkin( daliasskintype_t *pskintype, int skinnum, int size )
 	string			name, lumaname;
 	rgbdata_t			*pic;
 	int			i, j;
+	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	// animating skin group.  yuck.
 	pskintype++;
@@ -528,14 +528,14 @@ void *Mod_LoadGroupSkin( daliasskintype_t *pskintype, int skinnum, int size )
 		Q_snprintf( name, sizeof( name ), "%s_%i_%i", loadmodel->name, skinnum, i );
 		pic = Mod_CreateSkinData( loadmodel, (byte *)(pskintype), m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
 		m_pAliasHeader->gl_texturenum[skinnum][i & 3] = GL_LoadTextureInternal( name, pic, 0 );
-		FS_FreeImage( pic );
+		gEngfuncs.FS_FreeImage( pic );
 
 		if( R_GetTexture( m_pAliasHeader->gl_texturenum[skinnum][i & 3] )->flags & TF_HAS_LUMA )
 		{
 			Q_snprintf( lumaname, sizeof( lumaname ), "%s_%i_%i_luma", loadmodel->name, skinnum, i );
 			pic = Mod_CreateSkinData( NULL, (byte *)(pskintype), m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
 			m_pAliasHeader->fb_texturenum[skinnum][i & 3] = GL_LoadTextureInternal( lumaname, pic, TF_MAKELUMA );
-			FS_FreeImage( pic );
+			gEngfuncs.FS_FreeImage( pic );
 		}
 
 		pskintype = (daliasskintype_t *)((byte *)(pskintype) + size);
@@ -560,7 +560,7 @@ void *Mod_LoadAllSkins( int numskins, daliasskintype_t *pskintype )
 	int	i, size;
 
 	if( numskins < 1 || numskins > MAX_SKINS )
-		Host_Error( "Mod_LoadAliasModel: Invalid # of skins: %d\n", numskins );
+		gEngfuncs.Host_Error( "Mod_LoadAliasModel: Invalid # of skins: %d\n", numskins );
 
 	size = m_pAliasHeader->skinwidth * m_pAliasHeader->skinheight;
 
@@ -634,7 +634,7 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 
 	if( i != ALIAS_VERSION )
 	{
-		Con_DPrintf( S_ERROR "%s has wrong version number (%i should be %i)\n", mod->name, i, ALIAS_VERSION );
+		gEngfuncs.Con_DPrintf( S_ERROR "%s has wrong version number (%i should be %i)\n", mod->name, i, ALIAS_VERSION );
 		return;
 	}
 
@@ -661,7 +661,7 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 
 	if( m_pAliasHeader->numverts > MAXALIASVERTS )
 	{
-		Con_DPrintf( S_ERROR "model %s has too many vertices\n", mod->name );
+		gEngfuncs.Con_DPrintf( S_ERROR "model %s has too many vertices\n", mod->name );
 		return;
 	}
 
@@ -723,27 +723,17 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 	GL_MakeAliasModelDisplayLists( mod );
 
 	// move the complete, relocatable alias model to the cache
-	loadmodel->cache.data = m_pAliasHeader;
+	gEngfuncs.Mod_GetCurrentLoadingModel()->cache.data = m_pAliasHeader;
 
 	if( loaded ) *loaded = true;	// done
 }
 
-/*
-=================
-Mod_UnloadAliasModel
-=================
-*/
-void Mod_UnloadAliasModel( model_t *mod )
+void Mod_AliasUnloadTextures( void *data )
 {
 	aliashdr_t	*palias;
 	int		i, j;
 
-	Assert( mod != NULL );
-
-	if( mod->type != mod_alias )
-		return; // not an alias
-
-	palias = mod->cache.data;
+	palias = data;
 	if( !palias ) return; // already freed
 
 	for( i = 0; i < MAX_SKINS; i++ )
@@ -757,9 +747,6 @@ void Mod_UnloadAliasModel( model_t *mod )
 			GL_FreeTexture( palias->fb_texturenum[i][j] );
 		}
 	}
-
-	Mem_FreePool( &mod->mempool );
-	memset( mod, 0, sizeof( *mod ));
 }
 
 /*
@@ -779,7 +766,7 @@ similar to R_StudioDynamicLight
 */
 void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 {
-	movevars_t	*mv = &clgame.movevars;
+	movevars_t	*mv = gEngfuncs.pfnGetMoveVars();
 	vec3_t		lightDir, vecSrc, vecEnd;
 	vec3_t		origin, dist, finalLight;
 	float		add, radius, total;
@@ -815,7 +802,7 @@ void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 		msurface_t	*psurf = NULL;
 		pmtrace_t		trace;
 
-		if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
+		if( FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_WRITE_LARGE_COORD ))
 		{
 			vecEnd[0] = origin[0] - mv->skyvec_x * 65536.0f;
 			vecEnd[1] = origin[1] - mv->skyvec_y * 65536.0f;
@@ -828,17 +815,17 @@ void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 			vecEnd[2] = origin[2] - mv->skyvec_z * 8192.0f;
 		}
 
-		trace = CL_TraceLine( vecSrc, vecEnd, PM_STUDIO_IGNORE );
-		if( trace.ent > 0 ) psurf = PM_TraceSurface( &clgame.pmove->physents[trace.ent], vecSrc, vecEnd );
- 		else psurf = PM_TraceSurface( clgame.pmove->physents, vecSrc, vecEnd );
+		trace = gEngfuncs.CL_TraceLine( vecSrc, vecEnd, PM_STUDIO_IGNORE );
+		if( trace.ent > 0 ) psurf = gEngfuncs.EV_TraceSurface( trace.ent, vecSrc, vecEnd );
+		else psurf = gEngfuncs.EV_TraceSurface( 0, vecSrc, vecEnd );
  
 		if( psurf && FBitSet( psurf->flags, SURF_DRAWSKY ))
 		{
 			VectorSet( lightDir, mv->skyvec_x, mv->skyvec_y, mv->skyvec_z );
 
-			light.r = LightToTexGamma( bound( 0, mv->skycolor_r, 255 ));
-			light.g = LightToTexGamma( bound( 0, mv->skycolor_g, 255 ));
-			light.b = LightToTexGamma( bound( 0, mv->skycolor_b, 255 ));
+			light.r = gEngfuncs.LightToTexGamma( bound( 0, mv->skycolor_r, 255 ));
+			light.g = gEngfuncs.LightToTexGamma( bound( 0, mv->skycolor_g, 255 ));
+			light.b = gEngfuncs.LightToTexGamma( bound( 0, mv->skycolor_b, 255 ));
 		}
 	}
 
@@ -899,8 +886,10 @@ void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 	// scale lightdir by light intentsity
 	VectorScale( lightDir, total, lightDir );
 
-	for( lnum = 0, dl = cl_dlights; lnum < MAX_DLIGHTS; lnum++, dl++ )
+	for( lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
 	{
+		dl = gEngfuncs.GetDynamicLight( lnum );
+
 		if( dl->die < g_alias.time || !r_dynamic->value )
 			continue;
 
@@ -919,9 +908,9 @@ void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 
 			VectorAdd( lightDir, dist, lightDir );
 
-			finalLight[0] += LightToTexGamma( dl->color.r ) * ( add / 256.0f ) * 2.0f;
-			finalLight[1] += LightToTexGamma( dl->color.g ) * ( add / 256.0f ) * 2.0f;
-			finalLight[2] += LightToTexGamma( dl->color.b ) * ( add / 256.0f ) * 2.0f;
+			finalLight[0] += gEngfuncs.LightToTexGamma( dl->color.r ) * ( add / 256.0f ) * 2.0f;
+			finalLight[1] += gEngfuncs.LightToTexGamma( dl->color.g ) * ( add / 256.0f ) * 2.0f;
+			finalLight[2] += gEngfuncs.LightToTexGamma( dl->color.b ) * ( add / 256.0f ) * 2.0f;
 		}
 	}
 
@@ -1016,11 +1005,11 @@ R_AliasSetRemapColors
 */
 void R_AliasSetRemapColors( int newTop, int newBottom )
 {
-	CL_AllocRemapInfo( newTop, newBottom );
+	gEngfuncs.CL_AllocRemapInfo( newTop, newBottom );
 
-	if( CL_GetRemapInfoForEntity( RI.currententity ))
+	if( gEngfuncs.CL_GetRemapInfoForEntity( RI.currententity ))
 	{
-		CL_UpdateRemapInfo( newTop, newBottom );
+		gEngfuncs.CL_UpdateRemapInfo( newTop, newBottom );
 		m_fDoRemap = true;
 	}
 }
@@ -1180,7 +1169,7 @@ void R_AliasLerpMovement( cl_entity_t *e )
 	if( g_alias.interpolate && ( g_alias.time < e->curstate.animtime + 1.0f ) && ( e->curstate.animtime != e->latched.prevanimtime ))
 		f = ( g_alias.time - e->curstate.animtime ) / ( e->curstate.animtime - e->latched.prevanimtime );
 
-	if( cls.demoplayback == DEMO_QUAKE1 )
+	if( ENGINE_GET_PARM( PARM_PLAYING_DEMO ) == DEMO_QUAKE1 )
 		f = f + 1.0f;
 
 	g_alias.lerpfrac = bound( 0.0f, f, 1.0f );
@@ -1230,7 +1219,7 @@ void R_SetupAliasFrame( cl_entity_t *e, aliashdr_t *paliashdr )
 	else if( newframe >= paliashdr->numframes )
 	{
 		if( newframe > paliashdr->numframes )
-			Con_Reportf( S_WARN "R_GetAliasFrame: no such frame %d (%s)\n", newframe, e->model->name );
+			gEngfuncs.Con_Reportf( S_WARN "R_GetAliasFrame: no such frame %d (%s)\n", newframe, e->model->name );
 		newframe = paliashdr->numframes - 1;
 	}
 
@@ -1273,7 +1262,7 @@ static void R_AliasDrawAbsBBox( cl_entity_t *e, const vec3_t absmin, const vec3_
 	int	i;
 
 	// looks ugly, skip
-	if( r_drawentities->value != 5 || e == &clgame.viewent )
+	if( r_drawentities->value != 5 || e == gEngfuncs.GetViewModel() )
 		return;
 
 	// compute a full bounding box
@@ -1349,12 +1338,12 @@ static void R_AliasSetupTimings( void )
 	if( RI.drawWorld )
 	{
 		// synchronize with server time
-		g_alias.time = cl.time;
+		g_alias.time = gpGlobals->time;
 	}
 	else
 	{
 		// menu stuff
-		g_alias.time = host.realtime;
+		g_alias.time = gpGlobals->realtime;
 	}
 
 	m_fDoRemap = false;
@@ -1387,7 +1376,7 @@ void R_DrawAliasModel( cl_entity_t *e )
 	//
 	// locate the proper data
 	//
-	m_pAliasHeader = (aliashdr_t *)Mod_AliasExtradata( RI.currententity->model );
+	m_pAliasHeader = (aliashdr_t *)gEngfuncs.Mod_Extradata( mod_alias, RI.currententity->model );
 	if( !m_pAliasHeader ) return;
 
 	// init time
@@ -1398,7 +1387,7 @@ void R_DrawAliasModel( cl_entity_t *e )
 
 	R_AliasLerpMovement( e );
 
-	if( !FBitSet( host.features, ENGINE_COMPENSATE_QUAKE_BUG ))
+	if( !FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_COMPENSATE_QUAKE_BUG ))
 		e->angles[PITCH] = -e->angles[PITCH]; // stupid quake bug
 
 	// don't rotate clients, only aim
@@ -1445,7 +1434,7 @@ void R_DrawAliasModel( cl_entity_t *e )
 
 	anim = (int)(g_alias.time * 10) & 3;
 	skin = bound( 0, RI.currententity->curstate.skin, m_pAliasHeader->numskins - 1 );
-	if( m_fDoRemap ) pinfo = CL_GetRemapInfoForEntity( e );
+	if( m_fDoRemap ) pinfo = gEngfuncs.CL_GetRemapInfoForEntity( e );
 
 	if( r_lightmap->value && !r_fullbright->value )
 		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );

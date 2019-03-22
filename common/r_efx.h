@@ -85,6 +85,7 @@ color24 gTracerColors[] =
 #define FTENT_SCALE			0x00100000 // An experiment
 
 typedef struct tempent_s	TEMPENTITY;
+struct pmtrace_s;
 typedef struct tempent_s
 {
 	int		flags;

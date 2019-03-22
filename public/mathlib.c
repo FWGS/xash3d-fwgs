@@ -12,9 +12,11 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
+#include "port.h"
+#include "xash3d_types.h"
+#include "const.h"
+#include "com_model.h"
 #include <math.h>
-#include "common.h"
 #include "mathlib.h"
 #include "eiface.h"
 
@@ -761,4 +763,112 @@ void QuaternionSlerp( const vec4_t p, const vec4_t q, float t, vec4_t qt )
 	QuaternionAlign( p, q, q2 );
 
 	QuaternionSlerpNoAlign( p, q2, t, qt );
+}
+
+/*
+====================
+V_CalcFov
+====================
+*/
+float V_CalcFov( float *fov_x, float width, float height )
+{
+	float	x, half_fov_y;
+
+	if( *fov_x < 1.0f || *fov_x > 179.0f )
+		*fov_x = 90.0f; // default value
+
+	x = width / tan( DEG2RAD( *fov_x ) * 0.5f );
+	half_fov_y = atan( height / x );
+
+	return RAD2DEG( half_fov_y ) * 2;
+}
+
+/*
+====================
+V_AdjustFov
+====================
+*/
+void V_AdjustFov( float *fov_x, float *fov_y, float width, float height, qboolean lock_x )
+{
+	float x, y;
+
+	if( width * 3 == 4 * height || width * 4 == height * 5 )
+	{
+		// 4:3 or 5:4 ratio
+		return;
+	}
+
+	if( lock_x )
+	{
+		*fov_y = 2 * atan((width * 3) / (height * 4) * tan( *fov_y * M_PI / 360.0 * 0.5 )) * 360 / M_PI;
+		return;
+	}
+
+	y = V_CalcFov( fov_x, 640, 480 );
+	x = *fov_x;
+
+	*fov_x = V_CalcFov( &y, height, width );
+	if( *fov_x < x ) *fov_x = x;
+	else *fov_y = y;
+}
+
+/*
+==================
+BoxOnPlaneSide
+
+Returns 1, 2, or 1 + 2
+==================
+*/
+int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p )
+{
+	float	dist1, dist2;
+	int	sides = 0;
+
+	// general case
+	switch( p->signbits )
+	{
+	case 0:
+		dist1 = p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2];
+		dist2 = p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2];
+		break;
+	case 1:
+		dist1 = p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2];
+		dist2 = p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2];
+		break;
+	case 2:
+		dist1 = p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2];
+		dist2 = p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2];
+		break;
+	case 3:
+		dist1 = p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2];
+		dist2 = p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2];
+		break;
+	case 4:
+		dist1 = p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2];
+		dist2 = p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2];
+		break;
+	case 5:
+		dist1 = p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2];
+		dist2 = p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2];
+		break;
+	case 6:
+		dist1 = p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2];
+		dist2 = p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2];
+		break;
+	case 7:
+		dist1 = p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2];
+		dist2 = p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2];
+		break;
+	default:
+		// shut up compiler
+		dist1 = dist2 = 0;
+		break;
+	}
+
+	if( dist1 >= p->dist )
+		sides = 1;
+	if( dist2 < p->dist )
+		sides |= 2;
+
+	return sides;
 }

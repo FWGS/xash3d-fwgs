@@ -15,7 +15,6 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "client.h"
-#include "gl_local.h"
 #include "vgui_draw.h"
 #include "qfont.h"
 #include "input.h"
@@ -99,7 +98,7 @@ void SCR_DrawFPS( int height )
           }
 
 	Con_DrawStringLen( fpsstring, &offset, NULL );
-	Con_DrawString( glState.width - offset - 4, height, fpsstring, color );
+	Con_DrawString( refState.width - offset - 4, height, fpsstring, color );
 }
 
 /*
@@ -148,7 +147,7 @@ void SCR_NetSpeeds( void )
 	Q_snprintf( msg, sizeof( msg ), "sv fps: ^1%4i min, ^3%4i cur, ^2%4i max\ncl fps: ^1%4i min, ^3%4i cur, ^2%4i max\nGame Time: %02d:%02d\nTotal received from server: %s\nTotal sent to server: %s\n",
 	min_svfps, cur_svfps, max_svfps, min_clfps, cur_clfps, max_clfps, (int)(time / 60.0f ), (int)fmod( time, 60.0f ), Q_memprint( cls.netchan.total_received ), Q_memprint( cls.netchan.total_sended ));
 
-	x = glState.width - 320;
+	x = refState.width - 320;
 	y = 384;
 
 	Con_DrawStringLen( NULL, NULL, &height );
@@ -181,13 +180,13 @@ void SCR_RSpeeds( void )
 	if( !host.allow_console )
 		return;
 
-	if( R_SpeedsMessage( msg, sizeof( msg )))
+	if( ref.dllFuncs.R_SpeedsMessage( msg, sizeof( msg )))
 	{
 		int	x, y, height;
 		char	*p, *start, *end;
 		rgba_t	color;
 
-		x = glState.width - 340;
+		x = refState.width - 340;
 		y = 64;
 
 		Con_DrawStringLen( NULL, NULL, &height );
@@ -228,6 +227,37 @@ void SCR_MakeLevelShot( void )
 }
 
 /*
+===============
+VID_WriteOverviewScript
+
+Create overview script file
+===============
+*/
+void VID_WriteOverviewScript( void )
+{
+	ref_overview_t	*ov = &clgame.overView;
+	string		filename;
+	file_t		*f;
+
+	Q_snprintf( filename, sizeof( filename ), "overviews/%s.txt", clgame.mapname );
+
+	f = FS_Open( filename, "w", false );
+	if( !f ) return;
+
+	FS_Printf( f, "// overview description file for %s.bsp\n\n", clgame.mapname );
+	FS_Print( f, "global\n{\n" );
+	FS_Printf( f, "\tZOOM\t%.2f\n", ov->flZoom );
+	FS_Printf( f, "\tORIGIN\t%.2f\t%.2f\t%.2f\n", ov->origin[0], ov->origin[1], ov->origin[2] );
+	FS_Printf( f, "\tROTATED\t%i\n", ov->rotated ? 1 : 0 );
+	FS_Print( f, "}\n\nlayer\n{\n" );
+	FS_Printf( f, "\tIMAGE\t\"overviews/%s.bmp\"\n", clgame.mapname );
+	FS_Printf( f, "\tHEIGHT\t%.2f\n", ov->zFar );	// ???
+	FS_Print( f, "}\n" );
+
+	FS_Close( f );
+}
+
+/*
 ================
 SCR_MakeScreenShot
 
@@ -246,25 +276,27 @@ void SCR_MakeScreenShot( void )
 	switch( cls.scrshot_action )
 	{
 	case scrshot_normal:
-		iRet = VID_ScreenShot( cls.shotname, VID_SCREENSHOT );
+		iRet = ref.dllFuncs.VID_ScreenShot( cls.shotname, VID_SCREENSHOT );
 		break;
 	case scrshot_snapshot:
-		iRet = VID_ScreenShot( cls.shotname, VID_SNAPSHOT );
+		iRet = ref.dllFuncs.VID_ScreenShot( cls.shotname, VID_SNAPSHOT );
 		break;
 	case scrshot_plaque:
-		iRet = VID_ScreenShot( cls.shotname, VID_LEVELSHOT );
+		iRet = ref.dllFuncs.VID_ScreenShot( cls.shotname, VID_LEVELSHOT );
 		break;
 	case scrshot_savegame:
-		iRet = VID_ScreenShot( cls.shotname, VID_MINISHOT );
+		iRet = ref.dllFuncs.VID_ScreenShot( cls.shotname, VID_MINISHOT );
 		break;
 	case scrshot_envshot:
-		iRet = VID_CubemapShot( cls.shotname, viewsize, cls.envshot_vieworg, false );
+		iRet = ref.dllFuncs.VID_CubemapShot( cls.shotname, viewsize, cls.envshot_vieworg, false );
 		break;
 	case scrshot_skyshot:
-		iRet = VID_CubemapShot( cls.shotname, viewsize, cls.envshot_vieworg, true );
+		iRet = ref.dllFuncs.VID_CubemapShot( cls.shotname, viewsize, cls.envshot_vieworg, true );
 		break;
 	case scrshot_mapshot:
-		iRet = VID_ScreenShot( cls.shotname, VID_MAPSHOT );
+		iRet = ref.dllFuncs.VID_ScreenShot( cls.shotname, VID_MAPSHOT );
+		if( iRet )
+			VID_WriteOverviewScript(); // store overview script too
 		break;
 	case scrshot_inactive:
 		return;
@@ -295,9 +327,9 @@ void SCR_DrawPlaque( void )
 {
 	if(( cl_allow_levelshots->value && !cls.changelevel ) || cl.background )
 	{
-		int levelshot = GL_LoadTexture( cl_levelshot_name->string, NULL, 0, TF_IMAGE );
-		GL_SetRenderMode( kRenderNormal );
-		R_DrawStretchPic( 0, 0, glState.width, glState.height, 0, 0, 1, 1, levelshot );
+		int levelshot = ref.dllFuncs.GL_LoadTexture( cl_levelshot_name->string, NULL, 0, TF_IMAGE );
+		ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
+		ref.dllFuncs.R_DrawStretchPic( 0, 0, refState.width, refState.height, 0, 0, 1, 1, levelshot );
 		if( !cl.background ) CL_DrawHUD( CL_LOADING );
 	}
 }
@@ -367,7 +399,7 @@ SCR_DirtyScreen
 void SCR_DirtyScreen( void )
 {
 	SCR_AddDirtyPoint( 0, 0 );
-	SCR_AddDirtyPoint( glState.width - 1, glState.height - 1 );
+	SCR_AddDirtyPoint( refState.width - 1, refState.height - 1 );
 }
 
 /*
@@ -419,7 +451,7 @@ void SCR_TileClear( void )
 	{	
 		// clear above view screen
 		i = clear.y2 < top-1 ? clear.y2 : top - 1;
-		R_DrawTileClear( clear.x1, clear.y1, clear.x2 - clear.x1 + 1, i - clear.y1 + 1 );
+		ref.dllFuncs.R_DrawTileClear( cls.tileImage, clear.x1, clear.y1, clear.x2 - clear.x1 + 1, i - clear.y1 + 1 );
 		clear.y1 = top;
 	}
 
@@ -427,7 +459,7 @@ void SCR_TileClear( void )
 	{	
 		// clear below view screen
 		i = clear.y1 > bottom + 1 ? clear.y1 : bottom + 1;
-		R_DrawTileClear( clear.x1, i, clear.x2 - clear.x1 + 1, clear.y2 - i + 1 );
+		ref.dllFuncs.R_DrawTileClear( cls.tileImage, clear.x1, i, clear.x2 - clear.x1 + 1, clear.y2 - i + 1 );
 		clear.y2 = bottom;
 	}
 
@@ -435,7 +467,7 @@ void SCR_TileClear( void )
 	{
 		// clear left of view screen
 		i = clear.x2 < left - 1 ? clear.x2 : left - 1;
-		R_DrawTileClear( clear.x1, clear.y1, i - clear.x1 + 1, clear.y2 - clear.y1 + 1 );
+		ref.dllFuncs.R_DrawTileClear( cls.tileImage, clear.x1, clear.y1, i - clear.x1 + 1, clear.y2 - clear.y1 + 1 );
 		clear.x1 = left;
 	}
 
@@ -443,7 +475,7 @@ void SCR_TileClear( void )
 	{	
 		// clear left of view screen
 		i = clear.x1 > right + 1 ? clear.x1 : right + 1;
-		R_DrawTileClear( i, clear.y1, clear.x2 - i + 1, clear.y2 - clear.y1 + 1 );
+		ref.dllFuncs.R_DrawTileClear( cls.tileImage, i, clear.y1, clear.x2 - i + 1, clear.y2 - clear.y1 + 1 );
 		clear.x2 = right;
 	}
 }
@@ -495,7 +527,7 @@ qboolean SCR_LoadFixedWidthFont( const char *fontname )
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	cls.creditsFont.hFontTexture = GL_LoadTexture( fontname, NULL, 0, TF_IMAGE|TF_KEEP_SOURCE );
+	cls.creditsFont.hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_IMAGE|TF_KEEP_SOURCE );
 	R_GetTextureParms( &fontWidth, NULL, cls.creditsFont.hFontTexture );
 	cls.creditsFont.charHeight = clgame.scrInfo.iCharHeight = fontWidth / 16;
 	cls.creditsFont.type = FONT_FIXED;
@@ -527,7 +559,7 @@ qboolean SCR_LoadVariableWidthFont( const char *fontname )
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	cls.creditsFont.hFontTexture = GL_LoadTexture( fontname, NULL, 0, TF_IMAGE );
+	cls.creditsFont.hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_IMAGE );
 	R_GetTextureParms( &fontWidth, NULL, cls.creditsFont.hFontTexture );
 
 	// half-life font with variable chars witdh
@@ -636,24 +668,24 @@ void SCR_RegisterTextures( void )
 	// register gfx.wad images
 
 	if( FS_FileExists( "gfx/paused.lmp", false ))
-		cls.pauseIcon = GL_LoadTexture( "gfx/paused.lmp", NULL, 0, TF_IMAGE );
+		cls.pauseIcon = ref.dllFuncs.GL_LoadTexture( "gfx/paused.lmp", NULL, 0, TF_IMAGE );
 	else if( FS_FileExists( "gfx/pause.lmp", false ))
-		cls.pauseIcon = GL_LoadTexture( "gfx/pause.lmp", NULL, 0, TF_IMAGE );
+		cls.pauseIcon = ref.dllFuncs.GL_LoadTexture( "gfx/pause.lmp", NULL, 0, TF_IMAGE );
 
 	if( FS_FileExists( "gfx/lambda.lmp", false ))
 	{
 		if( cl_allow_levelshots->value )
-			cls.loadingBar = GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE );
-		else cls.loadingBar = GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE ); 
+			cls.loadingBar = ref.dllFuncs.GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE );
+		else cls.loadingBar = ref.dllFuncs.GL_LoadTexture( "gfx/lambda.lmp", NULL, 0, TF_IMAGE );
 	}
 	else if( FS_FileExists( "gfx/loading.lmp", false ))
 	{
 		if( cl_allow_levelshots->value )
-			cls.loadingBar = GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE );
-		else cls.loadingBar = GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE ); 
+			cls.loadingBar = ref.dllFuncs.GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE|TF_LUMINANCE );
+		else cls.loadingBar = ref.dllFuncs.GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE );
 	}
 	
-	cls.tileImage = GL_LoadTexture( "gfx/backtile.lmp", NULL, 0, TF_NOMIPMAP );
+	cls.tileImage = ref.dllFuncs.GL_LoadTexture( "gfx/backtile.lmp", NULL, 0, TF_NOMIPMAP );
 }
 
 /*
@@ -695,11 +727,11 @@ void SCR_VidInit( void )
 	// update screen sizes for menu
 	if( gameui.globals )
 	{
-		gameui.globals->scrWidth = glState.width;
-		gameui.globals->scrHeight = glState.height;
+		gameui.globals->scrWidth = refState.width;
+		gameui.globals->scrHeight = refState.height;
 	}
 
-	VGui_Startup( glState.width, glState.height );
+	VGui_Startup( refState.width, refState.height );
 
 	CL_ClearSpriteTextures(); // now all hud sprites are invalid
 	
@@ -731,7 +763,6 @@ void SCR_Init( void )
 	scr_viewsize = Cvar_Get( "viewsize", "120", FCVAR_ARCHIVE, "screen size" );
 	
 	// register our commands
-	Cmd_AddCommand( "timerefresh", SCR_TimeRefresh_f, "turn quickly and print rendering statistcs" );
 	Cmd_AddCommand( "skyname", CL_SetSky_f, "set new skybox by basename" );
 	Cmd_AddCommand( "loadsky", CL_SetSky_f, "set new skybox by basename" );
 	Cmd_AddCommand( "viewpos", SCR_Viewpos_f, "prints current player origin" );
