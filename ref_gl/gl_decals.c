@@ -618,10 +618,10 @@ void R_DecalSurface( msurface_t *surf, decalinfo_t *decalinfo )
 	decal_t		*decal = surf->pdecals;
 	vec4_t		textureU, textureV;
 	float		s, t, w, h;
-	ref_connstate_t state = gEngfuncs.CL_GetConnState();
+	connstate_t state = ENGINE_GET_PARM( PARM_CONNSTATE );
 
 	// we in restore mode
-	if( state == ref_ca_connected || state == ref_ca_validate )
+	if( state == ca_connected || state == ca_validate )
 	{
 		// NOTE: we may have the decal on this surface that come from another level.
 		// check duplicate with same position and texture

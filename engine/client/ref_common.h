@@ -33,7 +33,7 @@ extern ref_globals_t refState;
 
 // handy API wrappers
 void R_GetTextureParms( int *w, int *h, int texnum );
-#define RENDER_GET_PARM( parm, arg ) ref.dllFuncs.RenderGetParm( (parm), (arg) )
+#define REF_GET_PARM( parm, arg ) ref.dllFuncs.RefGetParm( (parm), (arg) )
 #define GL_LoadTextureInternal( name, pic, flags ) ref.dllFuncs.GL_LoadTextureFromBuffer( name, pic, flags, false )
 #define GL_UpdateTextureInternal( name, pic, flags ) ref.dllFuncs.GL_LoadTextureFromBuffer( name, pic, flags, true )
 

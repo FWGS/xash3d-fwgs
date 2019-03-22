@@ -95,7 +95,7 @@ static void *pfnGetNativeObject( const char *obj )
 	return Platform_GetNativeObject( obj );
 }
 
-void IN_TouchHideButtons(const char *str, qboolean hide)
+void IN_TouchHideButtons( const char *str, qboolean hide )
 {
 
 }

@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include "triangleapi.h"
 #include "alias.h"
 #include "pm_local.h"
-#include "cl_tent.h"
 #include "pmtrace.h"
 
 extern cvar_t r_shadows;
@@ -803,7 +802,7 @@ void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 		msurface_t	*psurf = NULL;
 		pmtrace_t		trace;
 
-		if( FBitSet( gEngfuncs.CL_GetRenderParm( PARM_FEATURES, 0 ), ENGINE_WRITE_LARGE_COORD ))
+		if( FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_WRITE_LARGE_COORD ))
 		{
 			vecEnd[0] = origin[0] - mv->skyvec_x * 65536.0f;
 			vecEnd[1] = origin[1] - mv->skyvec_y * 65536.0f;
@@ -1170,7 +1169,7 @@ void R_AliasLerpMovement( cl_entity_t *e )
 	if( g_alias.interpolate && ( g_alias.time < e->curstate.animtime + 1.0f ) && ( e->curstate.animtime != e->latched.prevanimtime ))
 		f = ( g_alias.time - e->curstate.animtime ) / ( e->curstate.animtime - e->latched.prevanimtime );
 
-	if( gEngfuncs.IsDemoPlaying() == DEMO_QUAKE1 )
+	if( ENGINE_GET_PARM( PARM_PLAYING_DEMO ) == DEMO_QUAKE1 )
 		f = f + 1.0f;
 
 	g_alias.lerpfrac = bound( 0.0f, f, 1.0f );
@@ -1388,7 +1387,7 @@ void R_DrawAliasModel( cl_entity_t *e )
 
 	R_AliasLerpMovement( e );
 
-	if( !FBitSet( gEngfuncs.CL_GetRenderParm( PARM_FEATURES, 0 ), ENGINE_COMPENSATE_QUAKE_BUG ))
+	if( !FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_COMPENSATE_QUAKE_BUG ))
 		e->angles[PITCH] = -e->angles[PITCH]; // stupid quake bug
 
 	// don't rotate clients, only aim

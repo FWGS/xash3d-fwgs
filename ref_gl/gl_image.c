@@ -878,7 +878,7 @@ byte *GL_ApplyFilter( const byte *source, int width, int height )
 	byte	*out = (byte *)source;
 	int	i;
 
-	if( gEngfuncs.Host_IsQuakeCompatible() || glConfig.max_multisamples > 1 )
+	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) || glConfig.max_multisamples > 1 )
 		return in;
 
 	for( i = 0; source && i < width * height; i++, in += 4 )

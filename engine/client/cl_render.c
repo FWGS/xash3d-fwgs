@@ -135,7 +135,7 @@ const char *CL_GenericHandle( int fileindex )
 	return cl.files_precache[fileindex];
 }
 
-int CL_RenderGetParm( int parm, int arg, const qboolean checkRef )
+int CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef )
 {
 	switch( parm )
 	{
@@ -163,7 +163,41 @@ int CL_RenderGetParm( int parm, int arg, const qboolean checkRef )
 	case PARM_WATER_ALPHA:
 		return FBitSet( world.flags, FWORLD_WATERALPHA );
 	default:
-		if( checkRef ) return ref.dllFuncs.RenderGetParm( parm, arg );
+		// indicates call from client.dll
+		if( checkRef )
+		{
+			return ref.dllFuncs.RefGetParm( parm, arg );
+		}
+		// call issued from ref_dll, check extensions here
+		else switch( parm )
+		{
+		case PARM_DEV_OVERVIEW:
+			return CL_IsDevOverviewMode();
+		case PARM_THIRDPERSON:
+			return CL_IsThirdPerson();
+		case PARM_QUAKE_COMPATIBLE:
+			return Host_IsQuakeCompatible();
+		case PARM_PLAYER_INDEX:
+			return cl.playernum + 1;
+		case PARM_VIEWENT_INDEX:
+			return cl.viewentity;
+		case PARM_CONNSTATE:
+			return (int)cls.state;
+		case PARM_PLAYING_DEMO:
+			return cls.demoplayback;
+		case PARM_WATER_LEVEL:
+			return cl.local.waterlevel;
+		case PARM_MAX_CLIENTS:
+			return cl.maxclients;
+		case PARM_LOCAL_HEALTH:
+			return cl.local.health;
+		case PARM_LOCAL_GAME:
+			return Host_IsLocalGame();
+		case PARM_NUMENTITIES:
+			return pfnNumberOfEntities();
+		case PARM_NUMMODELS:
+			return cl.nummodels;
+		}
 	}
 	return 0;
 }
@@ -186,7 +220,7 @@ static render_api_t gRenderAPI =
 	NULL, // R_SetCurrentEntity,
 	NULL, // R_SetCurrentModel,
 	R_FatPVS,
-	NULL, // R_StoreEfrags,
+	R_StoreEfrags,
 	NULL, // GL_FindTexture,
 	NULL, // GL_TextureName,
 	NULL, // GL_TextureData,
@@ -216,7 +250,7 @@ static render_api_t gRenderAPI =
 	NULL, // GL_TexGen,
 	NULL, // GL_TextureTarget,
 	NULL, // GL_SetTexCoordArrayMode,
-	NULL, // GL_GetProcAddress,
+	GL_GetProcAddress,
 	NULL, // GL_UpdateTexSize,
 	NULL,
 	NULL,
@@ -242,6 +276,39 @@ static render_api_t gRenderAPI =
 	COM_SetRandomSeed,
 };
 
+static void R_FillRenderAPIFromRef( render_api_t *to, const ref_interface_t *from )
+{
+	to->GetDetailScaleForTexture = from->GetDetailScaleForTexture;
+	to->GetExtraParmsForTexture  = from->GetExtraParmsForTexture;
+	to->GetFrameTime             = from->GetFrameTime;
+	to->R_SetCurrentEntity       = from->R_SetCurrentEntity;
+	to->R_SetCurrentModel        = from->R_SetCurrentModel;
+	to->GL_FindTexture           = from->GL_FindTexture;
+	to->GL_TextureName           = from->GL_TextureName;
+	to->GL_TextureData           = from->GL_TextureData;
+	to->GL_LoadTexture           = from->GL_LoadTexture;
+	to->GL_CreateTexture         = from->GL_CreateTexture;
+	to->GL_LoadTextureArray      = from->GL_LoadTextureArray;
+	to->GL_CreateTextureArray    = from->GL_CreateTextureArray;
+	to->GL_FreeTexture           = from->GL_FreeTexture;
+	to->DrawSingleDecal          = from->DrawSingleDecal;
+	to->R_DecalSetupVerts        = from->R_DecalSetupVerts;
+	to->R_EntityRemoveDecals     = from->R_EntityRemoveDecals;
+	to->AVI_UploadRawFrame       = from->AVI_UploadRawFrame;
+	to->GL_Bind                  = from->GL_Bind;
+	to->GL_SelectTexture         = from->GL_SelectTexture;
+	to->GL_LoadTextureMatrix     = from->GL_LoadTextureMatrix;
+	to->GL_TexMatrixIdentity     = from->GL_TexMatrixIdentity;
+	to->GL_CleanUpTextureUnits   = from->GL_CleanUpTextureUnits;
+	to->GL_TexGen                = from->GL_TexGen;
+	to->GL_TextureTarget         = from->GL_TextureTarget;
+	to->GL_TexCoordArrayMode     = from->GL_TexCoordArrayMode;
+	to->GL_UpdateTexSize         = from->GL_UpdateTexSize;
+	to->GL_DrawParticles         = from->GL_DrawParticles;
+	to->LightVec                 = from->LightVec;
+	to->StudioGetTexture         = from->StudioGetTexture;
+}
+
 /*
 ===============
 R_InitRenderAPI
@@ -255,38 +322,7 @@ qboolean R_InitRenderAPI( void )
 	memset( &clgame.drawFuncs, 0, sizeof( clgame.drawFuncs ));
 
 	// fill missing functions from renderer
-	gRenderAPI.GetDetailScaleForTexture = ref.dllFuncs.GetDetailScaleForTexture;
-	gRenderAPI.GetExtraParmsForTexture = ref.dllFuncs.GetDetailScaleForTexture;
-	gRenderAPI.GetFrameTime = ref.dllFuncs.GetFrameTime;
-	gRenderAPI.R_SetCurrentEntity = ref.dllFuncs.R_SetCurrentEntity;
-	gRenderAPI.R_SetCurrentModel = ref.dllFuncs.R_SetCurrentModel;
-	gRenderAPI.R_StoreEfrags = R_StoreEfrags;
-	gRenderAPI.GL_FindTexture = ref.dllFuncs.GL_FindTexture;
-	gRenderAPI.GL_TextureName = ref.dllFuncs.GL_TextureName;
-	gRenderAPI.GL_TextureData = ref.dllFuncs.GL_TextureData;
-	gRenderAPI.GL_LoadTexture = ref.dllFuncs.GL_LoadTexture;
-	gRenderAPI.GL_CreateTexture = ref.dllFuncs.GL_CreateTexture;
-	gRenderAPI.GL_LoadTextureArray = ref.dllFuncs.GL_LoadTextureArray;
-	gRenderAPI.GL_CreateTextureArray = ref.dllFuncs.GL_CreateTextureArray;
-	gRenderAPI.GL_FreeTexture = ref.dllFuncs.GL_FreeTexture;
-	gRenderAPI.DrawSingleDecal = ref.dllFuncs.DrawSingleDecal;
-	gRenderAPI.R_DecalSetupVerts = ref.dllFuncs.R_DecalSetupVerts;
-	gRenderAPI.R_EntityRemoveDecals = ref.dllFuncs.R_EntityRemoveDecals;
-	gRenderAPI.AVI_UploadRawFrame = ref.dllFuncs.AVI_UploadRawFrame;
-	gRenderAPI.GL_Bind = ref.dllFuncs.GL_Bind;
-	gRenderAPI.GL_SelectTexture = ref.dllFuncs.GL_SelectTexture;
-	gRenderAPI.GL_LoadTextureMatrix = ref.dllFuncs.GL_LoadTextureMatrix;
-	gRenderAPI.GL_TexMatrixIdentity = ref.dllFuncs.GL_TexMatrixIdentity;
-	gRenderAPI.GL_CleanUpTextureUnits = ref.dllFuncs.GL_CleanUpTextureUnits;
-	gRenderAPI.GL_TexGen = ref.dllFuncs.GL_TexGen;
-	gRenderAPI.GL_TextureTarget = ref.dllFuncs.GL_TextureTarget;
-	gRenderAPI.GL_TexCoordArrayMode = ref.dllFuncs.GL_TexCoordArrayMode;
-	gRenderAPI.GL_GetProcAddress = GL_GetProcAddress;
-	gRenderAPI.GL_UpdateTexSize = ref.dllFuncs.GL_UpdateTexSize;
-	gRenderAPI.GL_DrawParticles = ref.dllFuncs.GL_DrawParticles;
-	gRenderAPI.LightVec = ref.dllFuncs.LightVec;
-	gRenderAPI.StudioGetTexture = ref.dllFuncs.StudioGetTexture;
-
+	R_FillRenderAPIFromRef( &gRenderAPI, &ref.dllFuncs );
 
 	if( clgame.dllFuncs.pfnGetRenderInterface )
 	{

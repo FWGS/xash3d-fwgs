@@ -82,7 +82,7 @@ typedef enum
 typedef struct vidmode_s vidmode_t;
 
 // Window
-qboolean  R_Init_Video( void );
+qboolean  R_Init_Video( const int type );
 void      R_Free_Video( void );
 qboolean  VID_SetMode( void );
 rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen );

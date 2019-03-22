@@ -204,7 +204,7 @@ TriWorldToScreen
 convert world coordinates (x,y,z) into screen (x, y)
 =============
 */
-int TriWorldToScreen( float *world, float *screen )
+int TriWorldToScreen( const float *world, float *screen )
 {
 	int	retval;
 

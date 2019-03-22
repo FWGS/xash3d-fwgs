@@ -283,7 +283,7 @@ static void R_Clear( int bitMask )
 {
 	int	bits;
 
-	if( gEngfuncs.CL_IsDevOverviewMode( ))
+	if( ENGINE_GET_PARM( PARM_DEV_OVERVIEW ))
 		pglClearColor( 0.0f, 1.0f, 0.0f, 1.0f ); // green background (Valve rules)
 	else pglClearColor( 0.5f, 0.5f, 0.5f, 1.0f );
 
@@ -332,9 +332,9 @@ R_SetupFrustum
 */
 void R_SetupFrustum( void )
 {
-	ref_overview_t	*ov = gEngfuncs.GetOverviewParms();
+	const ref_overview_t	*ov = gEngfuncs.GetOverviewParms();
 
-	if( RP_NORMALPASS() && ( gEngfuncs.GetWaterLevel() >= 3 ))
+	if( RP_NORMALPASS() && ( ENGINE_GET_PARM( PARM_WATER_LEVEL ) >= 3 ))
 	{
 		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97 + sin( gpGlobals->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
 		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03 - sin( gpGlobals->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
@@ -367,7 +367,7 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 
 	if( RI.drawOrtho )
 	{
-		ref_overview_t *ov = gEngfuncs.GetOverviewParms();
+		const ref_overview_t *ov = gEngfuncs.GetOverviewParms();
 		Matrix4x4_CreateOrtho( m, ov->xLeft, ov->xRight, ov->yTop, ov->yBottom, ov->zNear, ov->zFar );
 		return;
 	}
@@ -661,7 +661,7 @@ static void R_CheckFog( void )
 	int		i, cnt, count;
 
 	// quake global fog
-	if( gEngfuncs.Host_IsQuakeCompatible( ))
+	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 	{
 		if( !MOVEVARS->fog_settings )
 		{
@@ -686,12 +686,12 @@ static void R_CheckFog( void )
 
 	RI.fogEnabled = false;
 
-	if( RI.onlyClientDraw || gEngfuncs.GetWaterLevel() < 3 || !RI.drawWorld || !RI.viewleaf )
+	if( RI.onlyClientDraw || ENGINE_GET_PARM( PARM_WATER_LEVEL ) < 3 || !RI.drawWorld || !RI.viewleaf )
 	{
 		if( RI.cached_waterlevel == 3 )
-                    {
+		{
 			// in some cases waterlevel jumps from 3 to 1. Catch it
-			RI.cached_waterlevel = gEngfuncs.GetWaterLevel();
+			RI.cached_waterlevel = ENGINE_GET_PARM( PARM_WATER_LEVEL );
 			RI.cached_contents = CONTENTS_EMPTY;
 			if( !RI.fogCustom ) pglDisable( GL_FOG );
 		}
@@ -703,7 +703,7 @@ static void R_CheckFog( void )
 		cnt = ent->curstate.skin;
 	else cnt = RI.viewleaf->contents;
 
-	RI.cached_waterlevel = gEngfuncs.GetWaterLevel();
+	RI.cached_waterlevel = ENGINE_GET_PARM( PARM_WATER_LEVEL );
 
 	if( !IsLiquidContents( RI.cached_contents ) && IsLiquidContents( cnt ))
 	{
@@ -784,7 +784,7 @@ void R_DrawFog( void )
 	if( !RI.fogEnabled ) return;
 
 	pglEnable( GL_FOG );
-	if( gEngfuncs.Host_IsQuakeCompatible( ))
+	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 		pglFogi( GL_FOG_MODE, GL_EXP2 );
 	else pglFogi( GL_FOG_MODE, GL_EXP );
 	pglFogf( GL_FOG_DENSITY, RI.fogDensity );
@@ -1017,7 +1017,8 @@ void R_BeginFrame( qboolean clearScene )
 {
 	glConfig.softwareGammaUpdate = false;	// in case of possible fails
 
-	if(( gl_clear->value || gEngfuncs.CL_IsDevOverviewMode( )) && clearScene && gEngfuncs.CL_GetConnState() != ref_ca_cinematic )
+	if(( gl_clear->value || ENGINE_GET_PARM( PARM_DEV_OVERVIEW )) &&
+		clearScene && ENGINE_GET_PARM( PARM_CONNSTATE ) != ca_cinematic )
 	{
 		pglClear( GL_COLOR_BUFFER_BIT );
 	}

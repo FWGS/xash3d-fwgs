@@ -105,7 +105,7 @@ void GL_BackendEndFrame( void )
 		break;
 	case 4:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i static entities\n%3i normal entities\n%3i server entities",
-		r_numStatics, r_numEntities - r_numStatics, gEngfuncs.pfnNumberOfEntities( ));
+		r_numStatics, r_numEntities - r_numStatics, ENGINE_GET_PARM( PARM_NUMENTITIES ));
 		break;
 	case 5:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i tempents\n%3i viewbeams\n%3i particles",
@@ -820,7 +820,7 @@ void SCR_TimeRefresh_f( void )
 	double	start, stop;
 	double	time;
 
-	if( gEngfuncs.CL_GetConnState() != ref_ca_active )
+	if( ENGINE_GET_PARM( PARM_CONNSTATE ) != ca_active )
 		return;
 
 	start = gEngfuncs.pfnTime();

@@ -309,7 +309,7 @@ void R_AddSkyBoxSurface( msurface_t *fa )
 	float	*v;
 	int	i;
 
-	if( gEngfuncs.CL_GetRenderParm( PARM_SKY_SPHERE, 0 ) && fa->polys && !tr.fCustomSkybox )
+	if( ENGINE_GET_PARM( PARM_SKY_SPHERE ) && fa->polys && !tr.fCustomSkybox )
 	{
 		glpoly_t	*p = fa->polys;
 

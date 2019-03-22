@@ -16,8 +16,8 @@ convar_t *gl_wgl_msaa_samples;
 
 void R_GetTextureParms( int *w, int *h, int texnum )
 {
-	if( w ) *w = RENDER_GET_PARM( PARM_TEX_WIDTH, texnum );
-	if( h ) *h = RENDER_GET_PARM( PARM_TEX_HEIGHT, texnum );
+	if( w ) *w = REF_GET_PARM( PARM_TEX_WIDTH, texnum );
+	if( h ) *h = REF_GET_PARM( PARM_TEX_HEIGHT, texnum );
 }
 
 /*
@@ -35,50 +35,9 @@ void GL_FreeImage( const char *name )
 		 ref.dllFuncs.GL_FreeTexture( texnum );
 }
 
-static int TriGetRenderMode( void )
-{
-	return clgame.ds.renderMode;
-}
-
-static int pfnRefRenderGetParm( int parm, int arg )
+static int pfnEngineGetParm( int parm, int arg )
 {
 	return CL_RenderGetParm( parm, arg, false ); // prevent recursion
-}
-
-static int pfnGetPlayerIndex( void )
-{
-	return cl.playernum + 1;
-}
-
-static int pfnGetViewEntIndex( void )
-{
-	return cl.viewentity;
-}
-
-static ref_connstate_t pfnCL_GetConnState( void )
-{
-	switch( cls.state )
-	{
-	case ca_disconnected: return ref_ca_disconnected;
-	case ca_connecting: return ref_ca_connecting;
-	case ca_connected: return ref_ca_connected;
-	case ca_validate: return ref_ca_validate;
-	case ca_active: return ref_ca_active;
-	case ca_cinematic: return ref_ca_cinematic;
-	default:
-		ASSERT( 0 );
-	}
-	return ref_ca_disconnected;
-}
-
-static int pfnGetWaterLevel( void )
-{
-	return cl.local.waterlevel;
-}
-
-static int pfnGetLocalHealth( void )
-{
-	return cl.local.health;
 }
 
 static void pfnCbuf_SetOpenGLConfigHack( qboolean set )
@@ -138,11 +97,6 @@ static model_t *pfnMod_GetCurrentLoadingModel( void )
 static void pfnMod_SetCurrentLoadingModel( model_t *m )
 {
 	loadmodel = m;
-}
-
-static int pfnCL_NumModels( void )
-{
-	return cl.nummodels;
 }
 
 static void pfnGetPredictedOrigin( vec3_t v )
@@ -207,7 +161,7 @@ static byte *pfnImage_GetPool( void )
 	return host.imagepool;
 }
 
-static struct bpc_desc_s *pfnImage_GetPFDesc( int idx )
+static const bpc_desc_t *pfnImage_GetPFDesc( int idx )
 {
 	return &PFDesc[idx];
 }
@@ -222,20 +176,14 @@ static void pfnDrawTransparentTriangles( void )
 	clgame.dllFuncs.pfnDrawTransparentTriangles();
 }
 
+static screenfade_t *pfnRefGetScreenFade( void )
+{
+	return &clgame.fade;
+}
+
 static ref_api_t gEngfuncs =
 {
-	CL_IsDevOverviewMode,
-	CL_IsThirdPerson,
-	Host_IsQuakeCompatible,
-	pfnGetPlayerIndex,
-	pfnGetViewEntIndex,
-	pfnCL_GetConnState,
-	Demo_IsPlayingback,
-	pfnGetWaterLevel,
-	pfnRefRenderGetParm,
-	CL_GetMaxClients,
-	pfnGetLocalHealth,
-	Host_IsLocalGame,
+	pfnEngineGetParm,
 
 	Cvar_Get,
 	Cvar_FindVarExt,
@@ -271,7 +219,6 @@ static ref_api_t gEngfuncs =
 	CL_GetLocalPlayer,
 	CL_GetViewModel,
 	CL_GetEntityByIndex,
-	pfnNumberOfEntities,
 	R_BeamGetEntity,
 	CL_GetWaterEntity,
 	CL_AddVisibleEntity,
@@ -301,7 +248,6 @@ static ref_api_t gEngfuncs =
 	CL_ModelHandle,
 	pfnMod_GetCurrentLoadingModel,
 	pfnMod_SetCurrentLoadingModel,
-	pfnCL_NumModels,
 
 	CL_GetRemapInfoForEntity,
 	CL_AllocRemapInfo,
@@ -315,7 +261,7 @@ static ref_api_t gEngfuncs =
 	COM_SetRandomSeed,
 	COM_RandomFloat,
 	COM_RandomLong,
-	pfnGetScreenFade,
+	pfnRefGetScreenFade,
 	CL_TextMessageGet,
 	pfnGetPredictedOrigin,
 	pfnCL_GetPaletteColor,

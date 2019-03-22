@@ -3177,7 +3177,7 @@ TriWorldToScreen
 convert world coordinates (x,y,z) into screen (x, y)
 =============
 */
-int TriWorldToScreen( float *world, float *screen )
+int TriWorldToScreen( const float *world, float *screen )
 {
 	int	retval;
 
@@ -3281,7 +3281,7 @@ Demo_IsPlayingback
 
 =================
 */
-int Demo_IsPlayingback( void )
+static int Demo_IsPlayingback( void )
 {
 	return cls.demoplayback;
 }

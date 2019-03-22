@@ -135,15 +135,15 @@ enum ref_shared_texture_e
 	REF_ALPHASKY_TEXTURE,
 };
 
-typedef enum ref_connstate_e
+typedef enum connstate_e
 {
-	ref_ca_disconnected = 0,// not talking to a server
-	ref_ca_connecting,	// sending request packets to the server
-	ref_ca_connected,	// netchan_t established, waiting for svc_serverdata
-	ref_ca_validate,	// download resources, validating, auth on server
-	ref_ca_active,	// game views should be displayed
-	ref_ca_cinematic,	// playing a cinematic, not connected to a server
-} ref_connstate_t;
+	ca_disconnected = 0,// not talking to a server
+	ca_connecting,	// sending request packets to the server
+	ca_connected,	// netchan_t established, waiting for svc_serverdata
+	ca_validate,	// download resources, validating, auth on server
+	ca_active,	// game views should be displayed
+	ca_cinematic,	// playing a cinematic, not connected to a server
+} connstate_t;
 
 enum ref_defaultsprite_e
 {
@@ -216,9 +216,6 @@ enum
 	REF_GL_CONTEXT_RESET_ISOLATION_FLAG    = 0x0008
 };
 
-
-struct con_nprint_s;
-struct engine_studio_api_s;
 typedef struct remap_info_s
 {
 	unsigned short	textures[MAX_SKINS];// alias textures
@@ -229,21 +226,30 @@ typedef struct remap_info_s
 	model_t		*model;		// for catch model changes
 } remap_info_t;
 
+struct con_nprint_s;
+struct engine_studio_api_s;
+struct r_studio_interface_s;
+
+typedef enum
+{
+	PARM_DEV_OVERVIEW      = -1,
+	PARM_THIRDPERSON       = -2,
+	PARM_QUAKE_COMPATIBLE  = -3,
+	PARM_PLAYER_INDEX      = -4, // cl.playernum + 1
+	PARM_VIEWENT_INDEX     = -5, // cl.viewentity
+	PARM_CONNSTATE         = -6, // cls.state
+	PARM_PLAYING_DEMO      = -7, // cls.demoplayback
+	PARM_WATER_LEVEL       = -8, // cl.local.water_level
+	PARM_MAX_CLIENTS       = -9, // cl.maxclients
+	PARM_LOCAL_HEALTH      = -10, // cl.local.health
+	PARM_LOCAL_GAME        = -11,
+	PARM_NUMENTITIES       = -12, // local game only
+	PARM_NUMMODELS         = -13, // cl.nummodels
+} ref_parm_e;
 
 typedef struct ref_api_s
 {
-	qboolean (*CL_IsDevOverviewMode)( void );
-	qboolean (*CL_IsThirdPersonMode)( void );
-	qboolean (*Host_IsQuakeCompatible)( void );
-	int (*GetPlayerIndex)( void ); // cl.playernum + 1
-	int (*GetViewEntIndex)( void ); // cl.viewentity
-	ref_connstate_t (*CL_GetConnState)( void ); // cls.state == ca_connected
-	int (*IsDemoPlaying)( void ); // cls.demoplayback
-	int (*GetWaterLevel)( void ); // cl.local.waterlevel
-	int	(*CL_GetRenderParm)( int parm, int arg );	// generic	int	(*GetMaxClients)( void );
-	int	(*GetMaxClients)( void ); // cl.maxclients
-	int (*GetLocalHealth)( void ); // cl.local.health
-	qboolean (*Host_IsLocalGame)( void );
+	int	(*EngineGetParm)( int parm, int arg );	// generic
 
 	// cvar handlers
 	cvar_t   *(*Cvar_Get)( const char *szName, const char *szValue, int flags, const char *description );
@@ -257,7 +263,7 @@ typedef struct ref_api_s
 
 	// command handlers
 	int         (*Cmd_AddCommand)( const char *cmd_name, void (*function)(void), const char *description );
-	int         (*Cmd_RemoveCommand)( const char *cmd_name );
+	void        (*Cmd_RemoveCommand)( const char *cmd_name );
 	int         (*Cmd_Argc)( void );
 	const char *(*Cmd_Argv)( int arg );
 	const char *(*Cmd_Args)( void );
@@ -276,7 +282,7 @@ typedef struct ref_api_s
 	// debug print
 	void	(*Con_NPrintf)( int pos, const char *fmt, ... );
 	void	(*Con_NXPrintf)( struct con_nprint_s *info, const char *fmt, ... );
-	void	(*CL_CenterPrint)( const char *fmt, ... );
+	void	(*CL_CenterPrint)( const char *s, float y );
 	void (*Con_DrawStringLen)( const char *pText, int *length, int *height );
 	int (*Con_DrawString)( int x, int y, const char *string, rgba_t setColor );
 	void	(*CL_DrawCenterPrint)();
@@ -285,7 +291,6 @@ typedef struct ref_api_s
 	struct cl_entity_s *(*GetLocalPlayer)( void );
 	struct cl_entity_s *(*GetViewModel)( void );
 	struct cl_entity_s *(*GetEntityByIndex)( int idx );
-	int (*pfnNumberOfEntities)( void );
 	struct cl_entity_s *(*R_BeamGetEntity)( int index );
 	struct cl_entity_s *(*CL_GetWaterEntity)( vec3_t p );
 	qboolean (*CL_AddVisibleEntity)( cl_entity_t *ent, int entityType );
@@ -319,7 +324,6 @@ typedef struct ref_api_s
 	struct model_s *(*pfnGetModelByIndex)( int index ); // CL_ModelHandle
 	struct model_s *(*Mod_GetCurrentLoadingModel)( void ); // loadmodel
 	void (*Mod_SetCurrentLoadingModel)( struct model_s* ); // loadmodel
-	int (*CL_NumModels)( void ); // cl.nummodels
 
 	// remap
 	struct remap_info_s *(*CL_GetRemapInfoForEntity)( cl_entity_t *e );
@@ -415,7 +419,7 @@ typedef struct ref_api_s
 	void (*FS_FreeImage)( rgbdata_t *pack );
 	void (*Image_SetMDLPointer)( byte *p );
 	byte *(*Image_GetPool)( void );
-	struct bpc_desc_s *(*Image_GetPFDesc)( int idx );
+	const struct bpc_desc_s *(*Image_GetPFDesc)( int idx );
 
 	// client exports
 	void	(*pfnDrawNormalTriangles)( void );
@@ -523,7 +527,7 @@ typedef struct ref_interface_s
 
 	// Xash3D Render Interface
 	// Get renderer info (doesn't changes engine state at all)
-	int		(*RenderGetParm)( int parm, int arg );	// generic
+	int			(*RefGetParm)( int parm, int arg );	// generic
 	void		(*GetDetailScaleForTexture)( int texture, float *xScale, float *yScale );
 	void		(*GetExtraParmsForTexture)( int texture, byte *red, byte *green, byte *blue, byte *alpha );
 	float		(*GetFrameTime)( void );
