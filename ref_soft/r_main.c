@@ -1216,6 +1216,7 @@ void R_EdgeDrawing (void)
 		surf_max = &surfaces[r_cnumsurfs];
 	// surface 0 doesn't really exist; it's just a dummy because index 0
 	// is used to indicate no edge attached to surface
+		memset(&surfaces[0], 0, sizeof(surf_t));
 		surfaces--;
 		R_SurfacePatch ();
 	}
@@ -1596,7 +1597,7 @@ void R_NewMap (void)
 
 		if (r_cnumsurfs > NUMSTACKSURFACES)
 		{
-				surfaces = malloc (r_cnumsurfs * sizeof(surf_t));
+				surfaces = Mem_Calloc (r_temppool, r_cnumsurfs * sizeof(surf_t));
 				surface_p = surfaces;
 				surf_max = &surfaces[r_cnumsurfs];
 				r_surfsonstack = false;
