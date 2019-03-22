@@ -619,7 +619,7 @@ void SV_RestartDecals( void )
 	host.decalList = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
 
 #ifndef XASH_DEDICATED
-	if( ref.dllFuncs.R_CreateDecalList )
+	if( !Host_IsDedicated() )
 	{
 		host.numdecals = ref.dllFuncs.R_CreateDecalList( host.decalList );
 

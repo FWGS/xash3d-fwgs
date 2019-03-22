@@ -1801,8 +1801,11 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 	{
 #ifndef XASH_DEDICATED
 		// release old sky layers first
-		ref.dllFuncs.R_FreeSharedTexture( REF_ALPHASKY_TEXTURE );
-		ref.dllFuncs.R_FreeSharedTexture( REF_SOLIDSKY_TEXTURE );
+		if( !Host_IsDedicated() )
+		{
+			ref.dllFuncs.R_FreeSharedTexture( REF_ALPHASKY_TEXTURE );
+			ref.dllFuncs.R_FreeSharedTexture( REF_SOLIDSKY_TEXTURE );
+		}
 #endif
 	}
 
@@ -1827,8 +1830,11 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 			Q_strncpy( tx->name, "*default", sizeof( tx->name ));
 #ifndef XASH_DEDICATED
-			tx->gl_texturenum = ref.dllFuncs.R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
-			tx->width = tx->height = 16;
+			if( !Host_IsDedicated() )
+			{
+				tx->gl_texturenum = ref.dllFuncs.R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
+				tx->width = tx->height = 16;
+			}
 #endif
 			continue; // missed
 		}
@@ -1869,99 +1875,102 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 		}
 
 #ifndef XASH_DEDICATED
-		// check for multi-layered sky texture (quake1 specific)
-		if( bmod->isworld && !Q_strncmp( mt->name, "sky", 3 ) && (( mt->width / mt->height ) == 2 ))
-		{	
-			ref.dllFuncs.R_InitSkyClouds( mt, tx, custom_palette ); // load quake sky
-
-			if( ref.dllFuncs.R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ) &&
-				ref.dllFuncs.R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ) )
-				SetBits( world.flags, FWORLD_SKYSPHERE );
-			continue;
-		}
-
-		// texture loading order:
-		// 1. from wad
-		// 2. internal from map
-
-		// trying wad texture (force while r_wadtextures is 1)
-		if(( r_wadtextures->value && bmod->wadlist.count > 0 ) || ( mt->offsets[0] <= 0 ))
+		if( !Host_IsDedicated() )
 		{
-			Q_snprintf( texname, sizeof( texname ), "%s.mip", mt->name );
-
-			// check wads in reverse order
-			for( j = bmod->wadlist.count - 1; j >= 0; j-- )
+			// check for multi-layered sky texture (quake1 specific)
+			if( bmod->isworld && !Q_strncmp( mt->name, "sky", 3 ) && (( mt->width / mt->height ) == 2 ) )
 			{
-				char	*texpath = va( "%s.wad/%s", bmod->wadlist.wadnames[j], texname );
+				ref.dllFuncs.R_InitSkyClouds( mt, tx, custom_palette ); // load quake sky
 
-				if( FS_FileExists( texpath, false ))
+				if( ref.dllFuncs.R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ) &&
+					ref.dllFuncs.R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ) )
+					SetBits( world.flags, FWORLD_SKYSPHERE );
+				continue;
+			}
+
+			// texture loading order:
+			// 1. from wad
+			// 2. internal from map
+
+			// trying wad texture (force while r_wadtextures is 1)
+			if(( r_wadtextures->value && bmod->wadlist.count > 0 ) || ( mt->offsets[0] <= 0 ))
+			{
+				Q_snprintf( texname, sizeof( texname ), "%s.mip", mt->name );
+
+				// check wads in reverse order
+				for( j = bmod->wadlist.count - 1; j >= 0; j-- )
 				{
-					tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, TF_ALLOW_EMBOSS );
-					bmod->wadlist.wadusage[j]++; // this wad are really used
-					break;
+					char	*texpath = va( "%s.wad/%s", bmod->wadlist.wadnames[j], texname );
+
+					if( FS_FileExists( texpath, false ))
+					{
+						tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, TF_ALLOW_EMBOSS );
+						bmod->wadlist.wadusage[j]++; // this wad are really used
+						break;
+					}
 				}
 			}
-		}
 
-		// wad failed, so use internal texture (if present)
-		if( mt->offsets[0] > 0 && !tx->gl_texturenum )
-		{
-			// NOTE: imagelib detect miptex version by size
-			// 770 additional bytes is indicated custom palette
-			int	size = (int)sizeof( mip_t ) + ((mt->width * mt->height * 85)>>6);
-
-			if( custom_palette ) size += sizeof( short ) + 768;
-			Q_snprintf( texname, sizeof( texname ), "#%s:%s.mip", loadstat.name, mt->name );
-			tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texname, (byte *)mt, size, TF_ALLOW_EMBOSS );
-		}
-
-		// if texture is completely missed
-		if( !tx->gl_texturenum )
-		{
-			if( host.type != HOST_DEDICATED )
-				Con_DPrintf( S_ERROR "unable to find %s.mip\n", mt->name );
-			tx->gl_texturenum = ref.dllFuncs.R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
-		}
-
-		// check for luma texture
-		if( FBitSet( REF_GET_PARM( PARM_TEX_FLAGS, tx->gl_texturenum ), TF_HAS_LUMA ))
-		{
-			Q_snprintf( texname, sizeof( texname ), "#%s:%s_luma.mip", loadstat.name, mt->name );
-
-			if( mt->offsets[0] > 0 )
+			// wad failed, so use internal texture (if present)
+			if( mt->offsets[0] > 0 && !tx->gl_texturenum )
 			{
 				// NOTE: imagelib detect miptex version by size
 				// 770 additional bytes is indicated custom palette
 				int	size = (int)sizeof( mip_t ) + ((mt->width * mt->height * 85)>>6);
 
 				if( custom_palette ) size += sizeof( short ) + 768;
-				tx->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texname, (byte *)mt, size, TF_MAKELUMA );
+				Q_snprintf( texname, sizeof( texname ), "#%s:%s.mip", loadstat.name, mt->name );
+				tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texname, (byte *)mt, size, TF_ALLOW_EMBOSS );
 			}
-			else
+
+			// if texture is completely missed
+			if( !tx->gl_texturenum )
 			{
-				size_t srcSize = 0;
-				byte *src = NULL;
+				if( host.type != HOST_DEDICATED )
+					Con_DPrintf( S_ERROR "unable to find %s.mip\n", mt->name );
+				tx->gl_texturenum = ref.dllFuncs.R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
+			}
 
-				// NOTE: we can't loading it from wad as normal because _luma texture doesn't exist
-				// and not be loaded. But original texture is already loaded and can't be modified
-				// So load original texture manually and convert it to luma
+			// check for luma texture
+			if( FBitSet( REF_GET_PARM( PARM_TEX_FLAGS, tx->gl_texturenum ), TF_HAS_LUMA ))
+			{
+				Q_snprintf( texname, sizeof( texname ), "#%s:%s_luma.mip", loadstat.name, mt->name );
 
-				// check wads in reverse order
-				for( j = bmod->wadlist.count - 1; j >= 0; j-- )
+				if( mt->offsets[0] > 0 )
 				{
-					char	*texpath = va( "%s.wad/%s.mip", bmod->wadlist.wadnames[j], tx->name );
+					// NOTE: imagelib detect miptex version by size
+					// 770 additional bytes is indicated custom palette
+					int	size = (int)sizeof( mip_t ) + ((mt->width * mt->height * 85)>>6);
 
-					if( FS_FileExists( texpath, false ))
-					{
-						src = FS_LoadFile( texpath, &srcSize, false );
-						bmod->wadlist.wadusage[j]++; // this wad are really used
-						break;
-					}
+					if( custom_palette ) size += sizeof( short ) + 768;
+					tx->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texname, (byte *)mt, size, TF_MAKELUMA );
 				}
+				else
+				{
+					size_t srcSize = 0;
+					byte *src = NULL;
 
-				// okay, loading it from wad or hi-res version
-				tx->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texname, src, srcSize, TF_MAKELUMA );
-				if( src ) Mem_Free( src );
+					// NOTE: we can't loading it from wad as normal because _luma texture doesn't exist
+					// and not be loaded. But original texture is already loaded and can't be modified
+					// So load original texture manually and convert it to luma
+
+					// check wads in reverse order
+					for( j = bmod->wadlist.count - 1; j >= 0; j-- )
+					{
+						char	*texpath = va( "%s.wad/%s.mip", bmod->wadlist.wadnames[j], tx->name );
+
+						if( FS_FileExists( texpath, false ))
+						{
+							src = FS_LoadFile( texpath, &srcSize, false );
+							bmod->wadlist.wadusage[j]++; // this wad are really used
+							break;
+						}
+					}
+
+					// okay, loading it from wad or hi-res version
+					tx->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texname, src, srcSize, TF_MAKELUMA );
+					if( src ) Mem_Free( src );
+				}
 			}
 		}
 #endif
@@ -2242,7 +2251,7 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 		}
 
 #ifndef XASH_DEDICATED // TODO: Do we need subdivide on server?
-		if( FBitSet( out->flags, SURF_DRAWTURB ))
+		if( FBitSet( out->flags, SURF_DRAWTURB ) && !Host_IsDedicated() )
 			ref.dllFuncs.GL_SubdivideSurface( out ); // cut up polygon for warps
 #endif
 	}
