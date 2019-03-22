@@ -218,5 +218,5 @@ void R_BlitScreen()
 	pglEnd();
 	pglDisable( GL_TEXTURE_2D );
 	gEngfuncs.GL_SwapBuffers();
-	memset( vid.buffer, 0, vid.width * vid.height * 2 );
+//	memset( vid.buffer, 0, vid.width * vid.height * 2 );
 }
