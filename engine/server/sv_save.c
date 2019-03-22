@@ -1130,11 +1130,13 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 	decalList = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
 
 	// initialize client header
+#ifndef XASH_DEDICATED
 	if( ref.dllFuncs.R_CreateDecalList )
 	{
 		header.decalCount = ref.dllFuncs.R_CreateDecalList( decalList );
 	}
 	else
+#endif // XASH_DEDICATED
 	{
 		// we probably running a dedicated server
 		header.decalCount = 0;

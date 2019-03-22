@@ -618,6 +618,7 @@ void SV_RestartDecals( void )
 	// g-cont. add space for studiodecals if present
 	host.decalList = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
 
+#ifndef XASH_DEDICATED
 	if( ref.dllFuncs.R_CreateDecalList )
 	{
 		host.numdecals = ref.dllFuncs.R_CreateDecalList( host.decalList );
@@ -626,6 +627,7 @@ void SV_RestartDecals( void )
 		ref.dllFuncs.R_ClearAllDecals();
 	}
 	else
+#endif // XASH_DEDICATED
 	{
 		// we probably running a dedicated server
 		host.numdecals = 0;

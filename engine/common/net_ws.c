@@ -2368,7 +2368,9 @@ void HTTP_Run( void )
 	}
 
 	// update progress
+#ifndef XASH_DEDICATED
 	Cvar_SetValue( "scr_download", flProgress/iProgressCount * 100 );
+#endif // XASH_DEDICATED
 
 	HTTP_AutoClean();
 }
