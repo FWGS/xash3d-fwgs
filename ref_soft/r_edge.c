@@ -69,6 +69,7 @@ static void (*pdrawfunc)(void);
 
 edge_t	edge_head;
 edge_t	edge_tail;
+
 edge_t	edge_aftertail;
 edge_t	edge_sentinel;
 
@@ -160,6 +161,15 @@ void R_InsertNewEdges (edge_t *edgestoadd, edge_t *edgelist)
 	{
 		next_edge = edgestoadd->next;
 edgesearch:
+		if( !edgelist )
+		{
+		//	gEngfuncs.Con_Printf("NULL edgelist!\n");
+			//return;
+		}
+		if (edgelist->u >= edgestoadd->u)
+			goto addedge;
+		edgelist=edgelist->next;
+#if 1
 		if (edgelist->u >= edgestoadd->u)
 			goto addedge;
 		edgelist=edgelist->next;
@@ -169,9 +179,7 @@ edgesearch:
 		if (edgelist->u >= edgestoadd->u)
 			goto addedge;
 		edgelist=edgelist->next;
-		if (edgelist->u >= edgestoadd->u)
-			goto addedge;
-		edgelist=edgelist->next;
+#endif
 		goto edgesearch;
 
 	// insert edgestoadd before edgelist
@@ -255,10 +263,14 @@ pushback:
 
 	// find out where the edge goes in the edge list
 		pwedge = pedge->prev->prev;
+	//	if( !pwedge )
+		//	return;
 
 		while (pwedge->u > pedge->u)
 		{
 			pwedge = pwedge->prev;
+			//if( !pwedge )
+				//return;
 		}
 
 	// put the edge back into the edge list
@@ -647,7 +659,7 @@ void R_ScanEdges (void)
 
 // clear active edges to just the background edges around the whole screen
 // FIXME: most of this only needs to be set up once
-	edge_head.u = 0; //r_refdef.vrect.x << 20;
+	edge_head.u = 1 << 20; //r_refdef.vrect.x << 20;
 	edge_head_u_shift20 = edge_head.u >> 20;
 	edge_head.u_step = 0;
 	edge_head.prev = NULL;
@@ -655,7 +667,7 @@ void R_ScanEdges (void)
 	edge_head.surfs[0] = 0;
 	edge_head.surfs[1] = 1;
 	
-	edge_tail.u = 0xFFFFF; // (r_refdef.vrectright << 20) + 0xFFFFF;
+	edge_tail.u =(gpGlobals->width << 20) + 0xFFFFF; // (r_refdef.vrectright << 20) + 0xFFFFF;
 	edge_tail_u_shift20 = edge_tail.u >> 20;
 	edge_tail.u_step = 0;
 	edge_tail.prev = &edge_head;
@@ -689,7 +701,7 @@ void R_ScanEdges (void)
 		{
 			R_InsertNewEdges (newedges[iv], edge_head.next);
 		}
-
+#if 1
 		(*pdrawfunc) ();
 
 	// flush the span list if we can't be sure we have enough spans left for
@@ -704,7 +716,7 @@ void R_ScanEdges (void)
 
 			span_p = basespan_p;
 		}
-
+#endif
 		if (removeedges[iv])
 			R_RemoveEdges (removeedges[iv]);
 
@@ -779,12 +791,12 @@ Simple single color fill with no texture mapping
 void D_FlatFillSurface (surf_t *surf, int color)
 {
 	espan_t	*span;
-	byte	*pdest;
+	pixel_t	*pdest;
 	int		u, u2;
 	
 	for (span=surf->spans ; span ; span=span->pnext)
 	{
-		pdest = (byte *)d_viewbuffer + r_screenwidth*span->v;
+		pdest = d_viewbuffer + r_screenwidth*span->v;
 		u = span->u;
 		u2 = span->u + span->count - 1;
 		for ( ; u <= u2 ; u++)
@@ -869,7 +881,7 @@ void D_BackgroundSurf (surf_t *s)
 	d_zistepv = 0;
 	d_ziorigin = -0.9;
 
-	D_FlatFillSurface (s, (int)sw_clearcolor->value & 0xFF);
+	D_FlatFillSurface (s, (int)sw_clearcolor->value & 0xFFFF);
 	D_DrawZSpans (s->spans);
 }
 
@@ -1027,6 +1039,8 @@ void D_SolidSurf (surf_t *s)
 	}
 #endif
 
+	if( !pface )
+		return;
 // FIXME: make this passed in to D_CacheSurface
 	pcurrentcache = D_CacheSurface (pface, miplevel);
 
@@ -1078,7 +1092,7 @@ void D_DrawflatSurfaces (void)
 
 		// make a stable color for each surface by taking the low
 		// bits of the msurface pointer
-		D_FlatFillSurface (s, (int)s->msurf & 0xFF);
+		D_FlatFillSurface (s, (int)s->msurf & 0xFFFF);
 		D_DrawZSpans (s->spans);
 	}
 }

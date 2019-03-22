@@ -254,55 +254,65 @@ void R_ViewChanged (vrect_t *vr)
 
 	xOrigin = r_refdef.xOrigin;
 	yOrigin = r_refdef.yOrigin;
-	
+	#endif
+
+	int fov_x = 2.0 * tan (RI.fov_x/360*M_PI);
+	int fov_y = 2.0 * tan (RI.fov_y/360*M_PI);
 // values for perspective projection
 // if math were exact, the values would range from 0.5 to to range+0.5
 // hopefully they wll be in the 0.000001 to range+.999999 and truncate
 // the polygon rasterization will never render in the first row or column
 // but will definately render in the [range] row and column, so adjust the
 // buffer origin to get an exact edge to edge fill
-	xcenter = ((float)r_refdef.vrect.width * XCENTERING) +
-			r_refdef.vrect.x - 0.5;
-	aliasxcenter = xcenter * r_aliasuvscale;
-	ycenter = ((float)r_refdef.vrect.height * YCENTERING) +
-			r_refdef.vrect.y - 0.5;
-	aliasycenter = ycenter * r_aliasuvscale;
+	xcenter = ((float)gpGlobals->width * XCENTERING) +
+			0 - 0.5;
+	//aliasxcenter = xcenter * r_aliasuvscale;
+	ycenter = ((float)gpGlobals->height * YCENTERING) +
+			0 - 0.5;
+	//aliasycenter = ycenter * r_aliasuvscale;
 
-	xscale = r_refdef.vrect.width / r_refdef.horizontalFieldOfView;
-	aliasxscale = xscale * r_aliasuvscale;
+	xscale = gpGlobals->width * 1.5 / fov_x;
+	//aliasxscale = xscale * r_aliasuvscale;
 	xscaleinv = 1.0 / xscale;
 
 	yscale = xscale;
-	aliasyscale = yscale * r_aliasuvscale;
+	//aliasyscale = yscale * r_aliasuvscale;
 	yscaleinv = 1.0 / yscale;
-	xscaleshrink = (r_refdef.vrect.width-6)/r_refdef.horizontalFieldOfView;
+	xscaleshrink = (gpGlobals->width-6)/fov_x;
 	yscaleshrink = xscaleshrink;
 
+	// ???
+#define       PLANE_ANYZ              5
+
+
+	int xOrigin = r_origin[0];
+	int yOrigin = r_origin[1];
+
 // left side clip
-	screenedge[0].normal[0] = -1.0 / (xOrigin*r_refdef.horizontalFieldOfView);
+	screenedge[0].normal[0] = -1.0 / (xOrigin*fov_x);
 	screenedge[0].normal[1] = 0;
 	screenedge[0].normal[2] = 1;
 	screenedge[0].type = PLANE_ANYZ;
 	
 // right side clip
 	screenedge[1].normal[0] =
-			1.0 / ((1.0-xOrigin)*r_refdef.horizontalFieldOfView);
+			1.0 / ((1.0-xOrigin)*fov_x);
 	screenedge[1].normal[1] = 0;
 	screenedge[1].normal[2] = 1;
 	screenedge[1].type = PLANE_ANYZ;
 	
 // top side clip
 	screenedge[2].normal[0] = 0;
-	screenedge[2].normal[1] = -1.0 / (yOrigin*verticalFieldOfView);
+	screenedge[2].normal[1] = -1.0 / (yOrigin*fov_y);
 	screenedge[2].normal[2] = 1;
 	screenedge[2].type = PLANE_ANYZ;
 	
 // bottom side clip
 	screenedge[3].normal[0] = 0;
-	screenedge[3].normal[1] = 1.0 / ((1.0-yOrigin)*verticalFieldOfView);
+	screenedge[3].normal[1] = 1.0 / ((1.0-yOrigin)*fov_y);
 	screenedge[3].normal[2] = 1;	
 	screenedge[3].type = PLANE_ANYZ;
-#endif
+
 	for (i=0 ; i<4 ; i++)
 		VectorNormalize (screenedge[i].normal);
 

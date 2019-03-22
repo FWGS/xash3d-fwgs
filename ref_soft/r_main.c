@@ -19,6 +19,7 @@ GNU General Public License for more details.
 //#include "beamdef.h"
 //#include "particledef.h"
 #include "entity_types.h"
+#include "mod_local.h"
 
 #define IsLiquidContents( cnt )	( cnt == CONTENTS_WATER || cnt == CONTENTS_SLIME || cnt == CONTENTS_LAVA )
 
@@ -1230,6 +1231,125 @@ void R_EdgeDrawing (void)
 	R_ScanEdges ();
 }
 
+#if 0
+/*
+===============
+R_MarkLeaves
+
+Mark the leaves and nodes that are in the PVS for the current leaf
+===============
+*/
+void R_MarkLeaves( void )
+{
+	qboolean	novis = false;
+	qboolean	force = false;
+	mleaf_t	*leaf = NULL;
+	mnode_t	*node;
+	vec3_t	test;
+	int	i;
+
+	if( !RI.drawWorld ) return;
+
+	/*if( FBitSet( r_novis->flags, FCVAR_CHANGED ) || tr.fResetVis )
+	{
+		// force recalc viewleaf
+		ClearBits( r_novis->flags, FCVAR_CHANGED );
+		tr.fResetVis = false;
+		RI.viewleaf = NULL;
+	}*/
+
+	VectorCopy( RI.pvsorigin, test );
+
+	if( RI.viewleaf != NULL )
+	{
+		// merge two leafs that can be a crossed-line contents
+		if( RI.viewleaf->contents == CONTENTS_EMPTY )
+		{
+			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] - 16.0f );
+			leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
+		}
+		else
+		{
+			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] + 16.0f );
+			leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
+		}
+
+		if(( leaf->contents != CONTENTS_SOLID ) && ( RI.viewleaf != leaf ))
+			force = true;
+	}
+
+	if( RI.viewleaf == RI.oldviewleaf && RI.viewleaf != NULL && !force )
+		return;
+
+	// development aid to let you run around
+	// and see exactly where the pvs ends
+	//if( sw_lockpvs->value ) return;
+
+	RI.oldviewleaf = RI.viewleaf;
+	tr.visframecount++;
+
+	if( RI.drawOrtho || !RI.viewleaf || !WORLDMODEL->visdata )
+		novis = true;
+
+	gEngfuncs.R_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), novis );
+	if( force && !novis ) gEngfuncs.R_FatPVS( test, REFPVS_RADIUS, RI.visbytes, true, novis );
+
+	for( i = 0; i < WORLDMODEL->numleafs; i++ )
+	{
+		if( CHECKVISBIT( RI.visbytes, i ))
+		{
+			node = (mnode_t *)&WORLDMODEL->leafs[i+1];
+			do
+			{
+				if( node->visframe == tr.visframecount )
+					break;
+				node->visframe = tr.visframecount;
+				node = node->parent;
+			} while( node );
+		}
+	}
+}
+#else
+/*
+===============
+R_MarkLeaves
+===============
+*/
+void R_MarkLeaves (void)
+{
+	byte	*vis;
+	mnode_t	*node;
+	int		i;
+
+	if (r_oldviewcluster == r_viewcluster && !r_novis->value && r_viewcluster != -1)
+		return;
+
+	r_visframecount++;
+	r_oldviewcluster = r_viewcluster;
+
+	gEngfuncs.R_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), false );
+	vis = RI.visbytes;
+
+	for (i = 0; i < WORLDMODEL->numleafs; i++)
+	{
+		if (vis[i>>3] & (1<<(i&7)))
+		{
+			node = (mnode_t *) &WORLDMODEL->leafs[i+1];
+			do
+			{
+				if (node->visframe == r_visframecount)
+					break;
+				node->visframe = r_visframecount;
+				node = node->parent;
+			} while (node);
+		}
+	}
+}
+
+
+
+#endif
+
 /*
 ================
 R_RenderScene
@@ -1257,7 +1377,7 @@ void R_RenderScene( void )
 //	R_SetupGL( true );
 	R_Clear( ~0 );
 
-	//R_MarkLeaves();
+	R_MarkLeaves();
 	R_DrawFog ();
 	// R_PushDlights (r_worldmodel); ??
 	R_CheckGLFog();	
@@ -1542,7 +1662,7 @@ qboolean R_Init()
 	//r_dspeeds = ri.Cvar_Get ("r_dspeeds", "0", 0);
 //	r_lightlevel = ri.Cvar_Get ("r_lightlevel", "0", 0);
 	//r_lerpmodels = ri.Cvar_Get( "r_lerpmodels", "1", 0 );
-	//r_novis = ri.Cvar_Get( "r_novis", "0", 0 );
+	r_novis = gEngfuncs.Cvar_Get( "r_novis", "0", 0, "" );
 
 	// create the window and set up the context
 	r_temppool = Mem_AllocPool( "ref_sw zone" );
