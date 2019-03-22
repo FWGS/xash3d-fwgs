@@ -109,7 +109,7 @@ void TriColor4f( float r, float g, float b, float a );
 void TriColor4ub( byte r, byte g, byte b, byte a );
 void TriBrightness( float brightness );
 void TriCullFace( TRICULLSTYLE mode );
-int TriWorldToScreen( float *world, float *screen );
+int TriWorldToScreen( const float *world, float *screen );
 int TriBoxInPVS( float *mins, float *maxs );
 void TriLightAtPoint( float *pos, float *value );
 void TriColor4fRendermode( float r, float g, float b, float a, int rendermode );

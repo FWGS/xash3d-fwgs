@@ -518,7 +518,7 @@ int GL_GetAttribute( int attr, int *val )
 R_Init_Video
 ==================
 */
-qboolean R_Init_Video( void )
+qboolean R_Init_Video( const int type )
 {
 	SDL_DisplayMode displayMode;
 	string safe;
@@ -528,6 +528,11 @@ qboolean R_Init_Video( void )
 	glw_state.desktopBitsPixel = SDL_BITSPERPIXEL(displayMode.format);
 	glw_state.desktopWidth = displayMode.w;
 	glw_state.desktopHeight = displayMode.h;
+
+	if( type != REF_GL )
+	{
+		Host_Error( "Can't initialize unknown context type %d!\n", type );
+	}
 
 	if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", safe ) )
 		glw_state.safe = bound( SAFE_NO, Q_atoi( safe ), SAFE_DONTCARE );

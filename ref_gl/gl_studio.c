@@ -602,12 +602,12 @@ void R_StudioSetUpTransform( cl_entity_t *e )
 	VectorCopy( e->angles, angles );
 
 	// interpolate monsters position (moved into UpdateEntityFields by user request)
-	if( e->curstate.movetype == MOVETYPE_STEP && !FBitSet( gEngfuncs.CL_GetRenderParm( PARM_FEATURES, 0 ), ENGINE_COMPUTE_STUDIO_LERP ))
+	if( e->curstate.movetype == MOVETYPE_STEP && !FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_COMPUTE_STUDIO_LERP ))
 	{
 		R_StudioLerpMovement( e, g_studio.time, origin, angles );
 	}
 
-	if( !FBitSet( gEngfuncs.CL_GetRenderParm( PARM_FEATURES, 0 ), ENGINE_COMPENSATE_QUAKE_BUG ))
+	if( !FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_COMPENSATE_QUAKE_BUG ))
 		angles[PITCH] = -angles[PITCH]; // stupid quake bug
 
 	// don't rotate clients, only aim
@@ -1402,7 +1402,7 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 		msurface_t	*psurf = NULL;
 		pmtrace_t		trace;
 
-		if( FBitSet( gEngfuncs.CL_GetRenderParm( PARM_FEATURES, 0 ), ENGINE_WRITE_LARGE_COORD ))
+		if( FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_WRITE_LARGE_COORD ))
 		{
 			vecEnd[0] = origin[0] - mv->skyvec_x * 65536.0f;
 			vecEnd[1] = origin[1] - mv->skyvec_y * 65536.0f;
@@ -2703,7 +2703,7 @@ static model_t *R_StudioSetupPlayerModel( int index )
 	state = &g_studio.player_models[index];
 
 	// g-cont: force for "dev-mode", non-local games and menu preview
-	if(( gpGlobals->developer || !gEngfuncs.Host_IsLocalGame( ) || !RI.drawWorld ) && info->model[0] )
+	if(( gpGlobals->developer || !ENGINE_GET_PARM( PARM_LOCAL_GAME ) || !RI.drawWorld ) && info->model[0] )
 	{
 		if( Q_strcmp( state->name, info->model ))
 		{
@@ -3353,7 +3353,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 
 	m_nPlayerIndex = pplayer->number - 1;
 
-	if( m_nPlayerIndex < 0 || m_nPlayerIndex >= gEngfuncs.GetMaxClients() )
+	if( m_nPlayerIndex < 0 || m_nPlayerIndex >= ENGINE_GET_PARM( PARM_MAX_CLIENTS ) )
 		return 0;
 
 	RI.currentmodel = R_StudioSetupPlayerModel( m_nPlayerIndex );
@@ -3435,7 +3435,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 			RI.currententity->curstate.body = 255;
 		}
 
-		if( !( !gpGlobals->developer && gEngfuncs.GetMaxClients() == 1 ) && ( RI.currentmodel == RI.currententity->model ))
+		if( !( !gpGlobals->developer && ENGINE_GET_PARM( PARM_MAX_CLIENTS ) == 1 ) && ( RI.currentmodel == RI.currententity->model ))
 			RI.currententity->curstate.body = 1; // force helmet
 
 		lighting.plightvec = dir;
@@ -3497,7 +3497,8 @@ static int R_StudioDrawModel( int flags )
 		entity_state_t	deadplayer;
 		int		result;
 
-		if( RI.currententity->curstate.renderamt <= 0 || RI.currententity->curstate.renderamt > gEngfuncs.GetMaxClients() )
+		if( RI.currententity->curstate.renderamt <= 0 ||
+			RI.currententity->curstate.renderamt > ENGINE_GET_PARM( PARM_MAX_CLIENTS ) )
 			return 0;
 
 		// get copy of player
@@ -3648,11 +3649,11 @@ void R_RunViewmodelEvents( void )
 	if( r_drawviewmodel->value == 0 )
 		return;
 
-	if( gEngfuncs.CL_IsThirdPersonMode( ))
+	if( ENGINE_GET_PARM( PARM_THIRDPERSON ))
 		return;
 
 	// ignore in thirdperson, camera view or client is died
-	if( !RP_NORMALPASS() || gEngfuncs.GetLocalHealth() <= 0 || !CL_IsViewEntityLocalPlayer())
+	if( !RP_NORMALPASS() || ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
 
 	RI.currententity = gEngfuncs.GetViewModel();
@@ -3700,11 +3701,11 @@ void R_DrawViewModel( void )
 	if( r_drawviewmodel->value == 0 )
 		return;
 
-	if( gEngfuncs.CL_IsThirdPersonMode( ))
+	if( ENGINE_GET_PARM( PARM_THIRDPERSON ))
 		return;
 
 	// ignore in thirdperson, camera view or client is died
-	if( !RP_NORMALPASS() || gEngfuncs.GetLocalHealth() <= 0 || !CL_IsViewEntityLocalPlayer())
+	if( !RP_NORMALPASS() || ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
 
 	tr.blend = gEngfuncs.CL_FxBlend( view ) / 255.0f;
@@ -3825,7 +3826,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	gEngfuncs.Image_SetMDLPointer((byte *)phdr + ptexture->index);
 	size = sizeof( mstudiotexture_t ) + ptexture->width * ptexture->height + 768;
 
-	if( FBitSet( gEngfuncs.CL_GetRenderParm( PARM_FEATURES, 0 ), ENGINE_LOAD_DELUXEDATA ) && FBitSet( ptexture->flags, STUDIO_NF_MASKED ))
+	if( FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_LOAD_DELUXEDATA ) && FBitSet( ptexture->flags, STUDIO_NF_MASKED ))
 		flags |= TF_KEEP_SOURCE; // Paranoia2 texture alpha-tracing
 
 	// build the texname

@@ -237,7 +237,7 @@ qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 	return loaded;
 }
 
-static int GL_RenderGetParm( int parm, int arg )
+static int GL_RefGetParm( int parm, int arg )
 {
 	gl_texture_t *glt;
 
@@ -312,9 +312,9 @@ static int GL_RenderGetParm( int parm, int arg )
 	case PARM_STENCIL_ACTIVE:
 		return glState.stencilEnabled;
 	case PARM_SKY_SPHERE:
-		return gEngfuncs.CL_GetRenderParm( parm, arg ) && !tr.fCustomSkybox;
+		return ENGINE_GET_PARM_( parm, arg ) && !tr.fCustomSkybox;
 	default:
-		return gEngfuncs.CL_GetRenderParm( parm, arg );
+		return ENGINE_GET_PARM_( parm, arg );
 	}
 	return 0;
 }
@@ -462,7 +462,7 @@ ref_interface_t gReffuncs =
 	CL_DrawBeams,
 	R_BeamCull,
 
-	GL_RenderGetParm,
+	GL_RefGetParm,
 	R_GetDetailScaleForTexture,
 	R_GetExtraParmsForTexture,
 	R_GetFrameTime,

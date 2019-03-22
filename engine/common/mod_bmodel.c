@@ -1924,7 +1924,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 		}
 
 		// check for luma texture
-		if( FBitSet( RENDER_GET_PARM( PARM_TEX_FLAGS, tx->gl_texturenum ), TF_HAS_LUMA ))
+		if( FBitSet( REF_GET_PARM( PARM_TEX_FLAGS, tx->gl_texturenum ), TF_HAS_LUMA ))
 		{
 			Q_snprintf( texname, sizeof( texname ), "#%s:%s_luma.mip", loadstat.name, mt->name );
 

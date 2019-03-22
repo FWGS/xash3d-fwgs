@@ -793,7 +793,7 @@ void DrawGLPoly( glpoly_t *p, float xScale, float yScale )
 		float		flRate, flAngle;
 		gl_texture_t	*texture;
 
-		if( gEngfuncs.Host_IsQuakeCompatible() && RI.currententity == gEngfuncs.GetEntityByIndex( 0 ) )
+		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && RI.currententity == gEngfuncs.GetEntityByIndex( 0 ) )
 		{
 			// same as doom speed
 			flConveyorSpeed = -35.0f;
@@ -1272,7 +1272,7 @@ void R_DrawTextureChains( void )
 	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
-	if( gEngfuncs.CL_GetRenderParm( PARM_SKY_SPHERE, 0 ) )
+	if( ENGINE_GET_PARM( PARM_SKY_SPHERE ) )
 	{
 		pglDisable( GL_TEXTURE_2D );
 		pglColor3f( 1.0f, 1.0f, 1.0f );
@@ -1282,7 +1282,7 @@ void R_DrawTextureChains( void )
 	for( s = skychain; s != NULL; s = s->texturechain )
 		R_AddSkyBoxSurface( s );
 
-	if( gEngfuncs.CL_GetRenderParm( PARM_SKY_SPHERE, 0 ) )
+	if( ENGINE_GET_PARM( PARM_SKY_SPHERE ) )
 	{
 		pglEnable( GL_TEXTURE_2D );
 		if( skychain )
@@ -1303,7 +1303,7 @@ void R_DrawTextureChains( void )
 		if(( s->flags & SURF_DRAWTURB ) && MOVEVARS->wateralpha < 1.0f )
 			continue;	// draw translucent water later
 
-		if( gEngfuncs.Host_IsQuakeCompatible() && FBitSet( s->flags, SURF_TRANSPARENT ))
+		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && FBitSet( s->flags, SURF_TRANSPARENT ))
 		{
 			draw_alpha_surfaces = true;
 			continue;	// draw transparent surfaces later
@@ -1483,7 +1483,7 @@ void R_SetRenderMode( cl_entity_t *e )
 	case kRenderTransAlpha:
 		pglEnable( GL_ALPHA_TEST );
 		pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		if( gEngfuncs.Host_IsQuakeCompatible( ))
+		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 		{
 			pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 			pglColor4f( 1.0f, 1.0f, 1.0f, tr.blend );
@@ -1558,7 +1558,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	if( rotated ) R_RotateForEntity( e );
 	else R_TranslateForEntity( e );
 
-	if( gEngfuncs.Host_IsQuakeCompatible() && FBitSet( clmodel->flags, MODEL_TRANSPARENT ))
+	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && FBitSet( clmodel->flags, MODEL_TRANSPARENT ))
 		e->curstate.rendermode = kRenderTransAlpha;
 
 	e->visframe = tr.realframecount; // visible
@@ -1599,7 +1599,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 
 	for( i = 0; i < clmodel->nummodelsurfaces; i++, psurf++ )
 	{
-		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !gEngfuncs.Host_IsQuakeCompatible( ))
+		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 		{
 			if( psurf->plane->type != PLANE_Z && !FBitSet( e->curstate.effects, EF_WATERSIDES ))
 				continue;
@@ -3343,7 +3343,7 @@ void R_DrawWorld( void )
 
 	R_DrawTextureChains();
 
-	if( !gEngfuncs.CL_IsDevOverviewMode( ))
+	if( !ENGINE_GET_PARM( PARM_DEV_OVERVIEW ))
 	{
 		DrawDecalsBatch();
 		GL_ResetFogColor();
@@ -3498,7 +3498,7 @@ void GL_RebuildLightmaps( void )
 	int	i, j;
 	model_t	*m;
 
-	if( !gEngfuncs.CL_GetRenderParm( PARM_CLIENT_ACTIVE, 0 ) )
+	if( !ENGINE_GET_PARM( PARM_CLIENT_ACTIVE ) )
 		return; // wait for worldmodel
 
 	ClearBits( vid_brightness->flags, FCVAR_CHANGED );
@@ -3519,7 +3519,7 @@ void GL_RebuildLightmaps( void )
 
 	LM_InitBlock();	
 
-	for( i = 0; i < gEngfuncs.CL_NumModels(); i++ )
+	for( i = 0; i < ENGINE_GET_PARM( PARM_NUMMODELS ); i++ )
 	{
 		if(( m = gEngfuncs.pfnGetModelByIndex( i + 1 )) == NULL )
 			continue;
@@ -3565,7 +3565,7 @@ void GL_BuildLightmaps( void )
 	memset( &RI, 0, sizeof( RI ));
 
 	// update the lightmap blocksize
-	if( FBitSet( gEngfuncs.CL_GetRenderParm( PARM_FEATURES, 0 ), ENGINE_LARGE_LIGHTMAPS ))
+	if( FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_LARGE_LIGHTMAPS ))
 		tr.block_size = BLOCK_SIZE_MAX;
 	else tr.block_size = BLOCK_SIZE_DEFAULT;
 	
@@ -3585,7 +3585,7 @@ void GL_BuildLightmaps( void )
 
 	LM_InitBlock();	
 
-	for( i = 0; i < gEngfuncs.CL_NumModels(); i++ )
+	for( i = 0; i < ENGINE_GET_PARM( PARM_NUMMODELS ); i++ )
 	{
 		if(( m = gEngfuncs.pfnGetModelByIndex( i + 1 )) == NULL )
 			continue;

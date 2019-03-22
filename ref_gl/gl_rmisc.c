@@ -131,7 +131,7 @@ void R_NewMap( void )
 		client_textmessage_t	*title;
 
 		title = gEngfuncs.pfnTextMessageGet( "GAMETITLE" );
-		if( gEngfuncs.Host_IsQuakeCompatible( ))
+		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 			fadetime = 1.0f;
 
 		if( title )

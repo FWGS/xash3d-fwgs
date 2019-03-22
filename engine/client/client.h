@@ -277,16 +277,6 @@ of server connections
 */
 typedef enum
 {
-	ca_disconnected = 0,// not talking to a server
-	ca_connecting,	// sending request packets to the server
-	ca_connected,	// netchan_t established, waiting for svc_serverdata
-	ca_validate,	// download resources, validating, auth on server
-	ca_active,	// game views should be displayed
-	ca_cinematic,	// playing a cinematic, not connected to a server
-} connstate_t;
-
-typedef enum
-{
 	scrshot_inactive,
 	scrshot_normal,	// in-game screenshot
 	scrshot_snapshot,	// in-game snapshot
@@ -831,7 +821,6 @@ void CL_PlayerTrace( float *start, float *end, int traceFlags, int ignore_pe, pm
 void CL_PlayerTraceExt( float *start, float *end, int traceFlags, int (*pfnIgnore)( physent_t *pe ), pmtrace_t *tr );
 void CL_SetTraceHull( int hull );
 void CL_GetMousePosition( int *mx, int *my ); // TODO: move to input
-int Demo_IsPlayingback( void );
 cl_entity_t* CL_GetViewModel( void );
 void pfnGetScreenFade( struct screenfade_s *fade );
 physent_t *pfnGetPhysent( int idx );
@@ -958,7 +947,7 @@ void CL_ClearAllRemaps( void );
 // cl_render.c
 //
 qboolean R_InitRenderAPI( void );
-int CL_RenderGetParm( int parm, int arg, const qboolean checkRef );
+int CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef );
 lightstyle_t *CL_GetLightStyle( int number );
 int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis );
 const ref_overview_t *GL_GetOverviewParms( void );

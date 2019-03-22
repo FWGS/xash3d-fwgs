@@ -56,17 +56,17 @@ int R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax )
 {
 	if( e == gEngfuncs.GetViewModel() )
 	{
-		if( gEngfuncs.CL_IsDevOverviewMode( ))
+		if( ENGINE_GET_PARM( PARM_DEV_OVERVIEW ))
 			return 1;
 
-		if( RP_NORMALPASS() && !gEngfuncs.CL_IsThirdPersonMode() && CL_IsViewEntityLocalPlayer())
+		if( RP_NORMALPASS() && !ENGINE_GET_PARM( PARM_THIRDPERSON ) && CL_IsViewEntityLocalPlayer())
 			return 0;
 
 		return 1;
 	}
 
 	// local client can't view himself if camera or thirdperson is not active
-	if( RP_LOCALCLIENT( e ) && !gEngfuncs.CL_IsThirdPersonMode() && CL_IsViewEntityLocalPlayer())
+	if( RP_LOCALCLIENT( e ) && !ENGINE_GET_PARM( PARM_THIRDPERSON ) && CL_IsViewEntityLocalPlayer())
 		return 1;
 
 	if( R_CullBox( absmin, absmax ))
