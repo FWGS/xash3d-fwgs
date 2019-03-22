@@ -1687,6 +1687,13 @@ qboolean R_Init()
 	// init draw stack
 	tr.draw_list = &tr.draw_stack[0];
 	tr.draw_stack_pos = 0;
+	RI.yOrigin = YCENTERING;
+	RI.xOrigin = XCENTERING;
+	view_clipplanes[0].leftedge = true;
+	view_clipplanes[1].rightedge = true;
+	view_clipplanes[1].leftedge = view_clipplanes[2].leftedge =view_clipplanes[3].leftedge = false;
+	view_clipplanes[0].rightedge = view_clipplanes[2].rightedge = view_clipplanes[3].rightedge = false;
+
 	return true;
 }
 

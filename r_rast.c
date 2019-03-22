@@ -226,8 +226,6 @@ void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 	int		v, v2, ceilv0;
 	float	scale, lzi0, u0, v0;
 	int		side;
-	if( isnan( pv0->position[1]) )
-		return;
 
 	if (r_lastvertvalid)
 	{
@@ -252,26 +250,19 @@ void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 	// FIXME: build x/yscale into transform?
 		scale = xscale * lzi0;
 		u0 = (xcenter + scale*transformed[0]);
-		if (u0 < 0)
-			u0 = 0;
-		if (u0 > gpGlobals->width)
-			u0 = gpGlobals->width;
+		if (u0 < RI.fvrectx_adj)
+			u0 = RI.fvrectx_adj;
+		if (u0 > RI.fvrectright_adj)
+			u0 = RI.fvrectright_adj;
 	
 		scale = yscale * lzi0;
 		v0 = (ycenter - scale*transformed[1]);
-		if (v0 < 0)
-			v0 = 0;
-		if (v0 > gpGlobals->height)
-			v0 = gpGlobals->height;
+		if (v0 < RI.fvrecty_adj)
+			v0 = RI.fvrecty_adj;
+		if (v0 > RI.fvrectbottom_adj)
+			v0 = RI.fvrectbottom_adj;
 	
 		ceilv0 = (int) ceil(v0);
-
-		if( ceilv0 < 0 )
-		{
-			printf("ceilv0 %d %f %f %f %f\n", ceilv0, v0, scale, transformed[1], ycenter );
-			printf("%f %f %f %f\n", world[1],modelorg[1], local[1], transformed[1] );
-
-		}
 	}
 
 	world = &pv1->position[0];
@@ -287,17 +278,17 @@ void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 
 	scale = xscale * r_lzi1;
 	r_u1 = (xcenter + scale*transformed[0]);
-	if (r_u1 < 0)
-		r_u1 = 0;
-	if (r_u1 > gpGlobals->width)
-		r_u1 = gpGlobals->width;
+	if (r_u1 < RI.fvrectx_adj)
+		r_u1 = RI.fvrectx_adj;
+	if (r_u1 > RI.fvrectright_adj)
+		r_u1 = RI.fvrectright_adj;
 
 	scale = yscale * r_lzi1;
 	r_v1 = (ycenter - scale*transformed[1]);
-	if (r_v1 < 0)
-		r_v1 = 0;
-	if (r_v1 > gpGlobals->height)
-		r_v1 = gpGlobals->height;
+	if (r_v1 < RI.fvrecty_adj)
+		r_v1 = RI.fvrecty_adj;
+	if (r_v1 > RI.fvrectbottom_adj)
+		r_v1 = RI.fvrectbottom_adj;
 
 	if (r_lzi1 > lzi0)
 		lzi0 = r_lzi1;
@@ -339,7 +330,6 @@ void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 	{
 	// trailing edge (go from p1 to p2)
 		v = ceilv0;
-		if( v < 0 )printf("v0 %d\n", v);
 		v2 = r_ceilv1 - 1;
 
 		edge->surfs[0] = surface_p - surfaces;
@@ -353,7 +343,6 @@ void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 	// leading edge (go from p2 to p1)
 		v2 = ceilv0 - 1;
 		v = r_ceilv1;
-		if( v < 0 )printf("v1 %d\n", v);
 
 		edge->surfs[0] = 0;
 		edge->surfs[1] = surface_p - surfaces;
@@ -370,12 +359,17 @@ void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 // it to incorrectly extend to the scan, and the extension of the line goes off
 // the edge of the screen
 // FIXME: is this actually needed?
-	int r = (gpGlobals->width<<20) + (1<<19) - 1;
+	/*int r = (gpGlobals->width<<20) + (1<<19) - 1;
 	int x = (1<<20) + (1<<19) - 1;
 	if (edge->u < x)
 		edge->u = x;
 	if (edge->u > r)
-		edge->u = r;
+		edge->u = r;*/
+	if (edge->u < RI.vrect_x_adj_shift20)
+		edge->u = RI.vrect_x_adj_shift20;
+	if (edge->u > RI.vrectright_adj_shift20)
+		edge->u = RI.vrectright_adj_shift20;
+
 
 //
 // sort the edge in normally
@@ -384,11 +378,6 @@ void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 	if (edge->surfs[0])
 		u_check++;	// sort trailers after leaders
 
-	if( v < 0 )
-	{
-		printf("v %d\n", v);
-		v = 0;
-	}
 	if (!newedges[v] || newedges[v]->u >= u_check)
 	{
 		edge->next = newedges[v];

@@ -214,6 +214,30 @@ typedef struct
 
 	float		viewplanedist;
 	mplane_t		clipPlane;
+
+	// q2 oldrefdef
+	vrect_t         vrect;                          // subwindow in video for refresh
+																	// FIXME: not need vrect next field here?
+	vrect_t         aliasvrect;                     // scaled Alias version
+	int                     vrectright, vrectbottom;        // right & bottom screen coords
+	int                     aliasvrectright, aliasvrectbottom;      // scaled Alias versions
+	float           vrectrightedge;                 // rightmost right edge we care about,
+																			//  for use in edge list
+	float           fvrectx, fvrecty;               // for floating-point compares
+	float           fvrectx_adj, fvrecty_adj; // left and top edges, for clamping
+	int                     vrect_x_adj_shift20;    // (vrect.x + 0.5 - epsilon) << 20
+	int                     vrectright_adj_shift20; // (vrectright + 0.5 - epsilon) << 20
+	float           fvrectright_adj, fvrectbottom_adj;
+																			// right and bottom edges, for clamping
+	float           fvrectright;                    // rightmost edge, for Alias clamping
+	float           fvrectbottom;                   // bottommost edge, for Alias clamping
+	float           horizontalFieldOfView;  // at Z = 1.0, this many X is visible
+																			// 2.0 = 90 degrees
+	float           xOrigin;                        // should probably always be 0.5
+	float           yOrigin;                        // between be around 0.3 to 0.5
+
+	int                     ambientlight;
+
 } ref_instance_t;
 
 typedef struct
@@ -748,7 +772,7 @@ extern cvar_t	*r_showhull;
 										//  polygon (while processing)
 // !!! if this is changed, it must be changed in d_ifacea.h too !!!
 #define MAXHEIGHT       1200
-#define MAXWIDTH        1600
+#define MAXWIDTH        1920
 
 #define INFINITE_DISTANCE       0x10000         // distance that's always guaranteed to
 										//  be farther away than anything in
