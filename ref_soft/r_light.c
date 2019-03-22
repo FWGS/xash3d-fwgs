@@ -58,7 +58,7 @@ void CL_RunLightStyles( void )
 			continue;
 		}
 
-		if( !gEngfuncs.CL_GetRenderParm( PARAM_GAMEPAUSED, 0 ) && frametime <= 0.1f )
+		if( !ENGINE_GET_PARM( PARAM_GAMEPAUSED ) && frametime <= 0.1f )
 			ls->time += frametime; // evaluate local time
 
 		flight = (int)Q_floor( ls->time * 10 );
