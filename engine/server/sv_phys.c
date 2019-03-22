@@ -2005,7 +2005,11 @@ const char* pfnGetModelName( int modelindex )
 
 static const byte *GL_TextureData( unsigned int texnum )
 {
-	return ref.dllFuncs.GL_TextureData( texnum );
+#ifndef XASH_DEDICATED
+	return ref.dllFuncs.GL_TextureData ? ref.dllFuncs.GL_TextureData( texnum ) : NULL;
+#else // XASH_DEDICATED
+	return NULL;
+#endif // XASH_DEDICATED
 }
 
 static server_physics_api_t gPhysicsAPI =
