@@ -779,11 +779,11 @@ extern cvar_t	*r_showhull;
 
 #define DS_SPAN_LIST_END        -128
 
-#define NUMSTACKEDGES           4000
+#define NUMSTACKEDGES           2000
 #define MINEDGES                        NUMSTACKEDGES
-#define NUMSTACKSURFACES        2000
+#define NUMSTACKSURFACES        1000
 #define MINSURFACES                     NUMSTACKSURFACES
-#define MAXSPANS                        6000
+#define MAXSPANS                        3000
 
 // flags in finalvert_t.flags
 #define ALIAS_LEFT_CLIP                         0x0001
@@ -1256,6 +1256,9 @@ void TransformVector (vec3_t in, vec3_t out);
 void R_RenderBmodelFace (bedge_t *pedges, msurface_t *psurf);
 void R_RenderFace (msurface_t *fa, int clipflags);
 
+#if id386
+#error aaa
+#endif
 
 //
 // engine callbacks
