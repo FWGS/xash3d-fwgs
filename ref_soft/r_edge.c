@@ -134,7 +134,7 @@ void R_BeginEdgeFrame (void)
 	}
 
 // FIXME: set with memset
-	for (v=0 ; v<gpGlobals->height ; v++)
+	for (v=RI.vrect.y ; v<RI.vrectbottom ; v++)
 	{
 		newedges[v] = removeedges[v] = NULL;
 	}
@@ -653,13 +653,13 @@ void R_ScanEdges (void)
 
 	basespan_p = (espan_t *)
 			((long)(basespans + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
-	max_span_p = &basespan_p[MAXSPANS - gpGlobals->width];
+	max_span_p = &basespan_p[MAXSPANS - RI.vrect.width];
 
 	span_p = basespan_p;
 
 // clear active edges to just the background edges around the whole screen
 // FIXME: most of this only needs to be set up once
-	edge_head.u = 1 << 20; //r_refdef.vrect.x << 20;
+	edge_head.u = RI.vrect.x << 20;
 	edge_head_u_shift20 = edge_head.u >> 20;
 	edge_head.u_step = 0;
 	edge_head.prev = NULL;
@@ -667,7 +667,7 @@ void R_ScanEdges (void)
 	edge_head.surfs[0] = 0;
 	edge_head.surfs[1] = 1;
 	
-	edge_tail.u =(gpGlobals->width << 20) + 0xFFFFF; // (r_refdef.vrectright << 20) + 0xFFFFF;
+	edge_tail.u =(RI.vrectright << 20) + 0xFFFFF; // (r_refdef.vrectright << 20) + 0xFFFFF;
 	edge_tail_u_shift20 = edge_tail.u >> 20;
 	edge_tail.u_step = 0;
 	edge_tail.prev = &edge_head;
@@ -687,7 +687,7 @@ void R_ScanEdges (void)
 //	
 // process all scan lines
 //
-	bottom = gpGlobals->height; //r_refdef.vrectbottom - 1;
+	bottom = RI.vrectbottom - 1;
 
 	for (iv=0 ; iv<bottom ; iv++)
 	{

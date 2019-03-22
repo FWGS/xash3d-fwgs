@@ -95,8 +95,8 @@ void D_ViewChanged (void)
 	if (d_pix_max < 1)
 		d_pix_max = 1;
 
-	d_vrectx = 0;//r_refdef.vrect.x;
-	d_vrecty = 0;//r_refdef.vrect.y;
+	d_vrectx = RI.vrect.x;
+	d_vrecty = RI.vrect.y;
 	d_vrectright_particle = gpGlobals->width - d_pix_max;
 	d_vrectbottom_particle =
 			gpGlobals->height - d_pix_max;
@@ -223,98 +223,89 @@ Guaranteed to be called before the first refresh
 void R_ViewChanged (vrect_t *vr)
 {
 	int		i;
-#if 0
-	r_refdef.vrect = *vr;
+	float verticalFieldOfView, xOrigin, yOrigin;
 
-	r_refdef.horizontalFieldOfView = 2*tan((float)r_newrefdef.fov_x/360*M_PI);;
-	verticalFieldOfView = 2*tan((float)r_newrefdef.fov_y/360*M_PI);
+	RI.vrect = *vr;
 
-	r_refdef.fvrectx = (float)r_refdef.vrect.x;
-	r_refdef.fvrectx_adj = (float)r_refdef.vrect.x - 0.5;
-	r_refdef.vrect_x_adj_shift20 = (r_refdef.vrect.x<<20) + (1<<19) - 1;
-	r_refdef.fvrecty = (float)r_refdef.vrect.y;
-	r_refdef.fvrecty_adj = (float)r_refdef.vrect.y - 0.5;
-	r_refdef.vrectright = r_refdef.vrect.x + r_refdef.vrect.width;
-	r_refdef.vrectright_adj_shift20 = (r_refdef.vrectright<<20) + (1<<19) - 1;
-	r_refdef.fvrectright = (float)r_refdef.vrectright;
-	r_refdef.fvrectright_adj = (float)r_refdef.vrectright - 0.5;
-	r_refdef.vrectrightedge = (float)r_refdef.vrectright - 0.99;
-	r_refdef.vrectbottom = r_refdef.vrect.y + r_refdef.vrect.height;
-	r_refdef.fvrectbottom = (float)r_refdef.vrectbottom;
-	r_refdef.fvrectbottom_adj = (float)r_refdef.vrectbottom - 0.5;
+	RI.horizontalFieldOfView = 2*tan((float)RI.fov_x/360*M_PI);
+	verticalFieldOfView = 2*tan((float)RI.fov_y/360*M_PI);
 
-	r_refdef.aliasvrect.x = (int)(r_refdef.vrect.x * r_aliasuvscale);
-	r_refdef.aliasvrect.y = (int)(r_refdef.vrect.y * r_aliasuvscale);
-	r_refdef.aliasvrect.width = (int)(r_refdef.vrect.width * r_aliasuvscale);
-	r_refdef.aliasvrect.height = (int)(r_refdef.vrect.height * r_aliasuvscale);
-	r_refdef.aliasvrectright = r_refdef.aliasvrect.x +
-			r_refdef.aliasvrect.width;
-	r_refdef.aliasvrectbottom = r_refdef.aliasvrect.y +
-			r_refdef.aliasvrect.height;
+	RI.fvrectx = (float)RI.vrect.x;
+	RI.fvrectx_adj = (float)RI.vrect.x - 0.5;
+	RI.vrect_x_adj_shift20 = (RI.vrect.x<<20) + (1<<19) - 1;
+	RI.fvrecty = (float)RI.vrect.y;
+	RI.fvrecty_adj = (float)RI.vrect.y - 0.5;
+	RI.vrectright = RI.vrect.x + RI.vrect.width;
+	RI.vrectright_adj_shift20 = (RI.vrectright<<20) + (1<<19) - 1;
+	RI.fvrectright = (float)RI.vrectright;
+	RI.fvrectright_adj = (float)RI.vrectright - 0.5;
+	RI.vrectrightedge = (float)RI.vrectright - 0.99;
+	RI.vrectbottom = RI.vrect.y + RI.vrect.height;
+	RI.fvrectbottom = (float)RI.vrectbottom;
+	RI.fvrectbottom_adj = (float)RI.vrectbottom - 0.5;
 
-	xOrigin = r_refdef.xOrigin;
-	yOrigin = r_refdef.yOrigin;
-	#endif
+	//RI.aliasvrect.x = (int)(RI.vrect.x * r_aliasuvscale);
+	//RI.aliasvrect.y = (int)(RI.vrect.y * r_aliasuvscale);
+	//RI.aliasvrect.width = (int)(RI.vrect.width * r_aliasuvscale);
+	//RI.aliasvrect.height = (int)(RI.vrect.height * r_aliasuvscale);
+	RI.aliasvrectright = RI.aliasvrect.x +
+			RI.aliasvrect.width;
+	RI.aliasvrectbottom = RI.aliasvrect.y +
+			RI.aliasvrect.height;
 
-	int fov_x = 2.0 * tan (RI.fov_x/360*M_PI);
-	int fov_y = 2.0 * tan (RI.fov_y/360*M_PI);
+	xOrigin = RI.xOrigin;// = r_origin[0];
+	yOrigin = RI.yOrigin;// = r_origin[1];
+#define PLANE_ANYZ 5
 // values for perspective projection
 // if math were exact, the values would range from 0.5 to to range+0.5
 // hopefully they wll be in the 0.000001 to range+.999999 and truncate
 // the polygon rasterization will never render in the first row or column
 // but will definately render in the [range] row and column, so adjust the
 // buffer origin to get an exact edge to edge fill
-	xcenter = ((float)gpGlobals->width * XCENTERING) +
-			0 - 0.5;
+	xcenter = ((float)RI.vrect.width * XCENTERING) +
+					RI.vrect.x - 0.5;
 	//aliasxcenter = xcenter * r_aliasuvscale;
-	ycenter = ((float)gpGlobals->height * YCENTERING) +
-			0 - 0.5;
-	//aliasycenter = ycenter * r_aliasuvscale;
+	ycenter = ((float)RI.vrect.height * YCENTERING) +
+					RI.vrect.y - 0.5;
+//	aliasycenter = ycenter * r_aliasuvscale;
 
-	xscale = gpGlobals->width * 1.5 / fov_x;
-	//aliasxscale = xscale * r_aliasuvscale;
+	xscale = RI.vrect.width / RI.horizontalFieldOfView;
+//	aliasxscale = xscale * r_aliasuvscale;
 	xscaleinv = 1.0 / xscale;
 
 	yscale = xscale;
-	//aliasyscale = yscale * r_aliasuvscale;
+//	aliasyscale = yscale * r_aliasuvscale;
 	yscaleinv = 1.0 / yscale;
-	xscaleshrink = (gpGlobals->width-6)/fov_x;
+	xscaleshrink = (RI.vrect.width-6)/RI.horizontalFieldOfView;
 	yscaleshrink = xscaleshrink;
 
-	// ???
-#define       PLANE_ANYZ              5
-
-
-	int xOrigin = r_origin[0];
-	int yOrigin = r_origin[1];
-
 // left side clip
-	screenedge[0].normal[0] = -1.0 / (xOrigin*fov_x);
+	screenedge[0].normal[0] = -1.0 / (xOrigin*RI.horizontalFieldOfView);
 	screenedge[0].normal[1] = 0;
 	screenedge[0].normal[2] = 1;
 	screenedge[0].type = PLANE_ANYZ;
-	
+
 // right side clip
 	screenedge[1].normal[0] =
-			1.0 / ((1.0-xOrigin)*fov_x);
+					1.0 / ((1.0-xOrigin)*RI.horizontalFieldOfView);
 	screenedge[1].normal[1] = 0;
 	screenedge[1].normal[2] = 1;
 	screenedge[1].type = PLANE_ANYZ;
-	
+
 // top side clip
 	screenedge[2].normal[0] = 0;
-	screenedge[2].normal[1] = -1.0 / (yOrigin*fov_y);
+	screenedge[2].normal[1] = -1.0 / (yOrigin*verticalFieldOfView);
 	screenedge[2].normal[2] = 1;
 	screenedge[2].type = PLANE_ANYZ;
-	
+
 // bottom side clip
 	screenedge[3].normal[0] = 0;
-	screenedge[3].normal[1] = 1.0 / ((1.0-yOrigin)*fov_y);
-	screenedge[3].normal[2] = 1;	
+	screenedge[3].normal[1] = 1.0 / ((1.0-yOrigin)*verticalFieldOfView);
+	screenedge[3].normal[2] = 1;
 	screenedge[3].type = PLANE_ANYZ;
 
 	for (i=0 ; i<4 ; i++)
-		VectorNormalize (screenedge[i].normal);
+			VectorNormalize (screenedge[i].normal);
 
 	D_ViewChanged ();
 }

@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -129,7 +129,7 @@ void Turbulent8 (espan_t *pspan)
 	fixed16_t		snext, tnext;
 	float			sdivz, tdivz, zi, z, du, dv, spancountminus1;
 	float			sdivz16stepu, tdivz16stepu, zi16stepu;
-	
+
 	r_turb_turb = sintable + ((int)(gpGlobals->time*SPEED)&(CYCLE-1));
 
 	r_turb_sstep = 0;	// keep compiler happy
@@ -264,7 +264,7 @@ void NonTurbulent8 (espan_t *pspan)
 	fixed16_t		snext, tnext;
 	float			sdivz, tdivz, zi, z, du, dv, spancountminus1;
 	float			sdivz16stepu, tdivz16stepu, zi16stepu;
-	
+
 //	r_turb_turb = sintable + ((int)(r_newrefdef.time*SPEED)&(CYCLE-1));
 	r_turb_turb = blanktable;
 
@@ -395,13 +395,13 @@ void NonTurbulent8 (espan_t *pspan)
 int kernel[2][2][2] =
 {
    {
-        {16384,0},
-        {49152,32768}
+		{16384,0},
+		{49152,32768}
    }
    ,
    {
-      {32768,49152},
-      {0,16384}
+	  {32768,49152},
+	  {0,16384}
    }
 };
 
@@ -525,7 +525,7 @@ void D_DrawSpans16 (espan_t *pspan)
 				}
 			  }
 
-            
+
 			// Drawing phrase
 				if (sw_texfilt->value == 0.0f)
 				{
@@ -539,7 +539,7 @@ void D_DrawSpans16 (espan_t *pspan)
 				else if (sw_texfilt->value == 1.0f)
 				{
 					do
-					{ 
+					{
 						int idiths = s;
 						int iditht = t;
 
@@ -552,18 +552,18 @@ void D_DrawSpans16 (espan_t *pspan)
 
 						idiths = idiths >> 16;
 						idiths = idiths ? idiths -1 : idiths;
-										
+
 
 						iditht = iditht >> 16;
 						iditht = iditht ? iditht -1 : iditht;
-										
+
 
 						*pdest++ = *(pbase + idiths + iditht * cachewidth);
 						s += sstep;
 						t += tstep;
 					} while (--spancount > 0);
 				}
- 
+
 
 		} while (count > 0);
 
