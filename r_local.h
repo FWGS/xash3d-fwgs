@@ -803,11 +803,11 @@ extern cvar_t	*r_showhull;
 
 #define DS_SPAN_LIST_END        -128
 
-#define NUMSTACKEDGES           2000
+#define NUMSTACKEDGES           4000
 #define MINEDGES                        NUMSTACKEDGES
-#define NUMSTACKSURFACES        1000
+#define NUMSTACKSURFACES        2000
 #define MINSURFACES                     NUMSTACKSURFACES
-#define MAXSPANS                        3000
+#define MAXSPANS                        6000
 
 // flags in finalvert_t.flags
 #define ALIAS_LEFT_CLIP                         0x0001
