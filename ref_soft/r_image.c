@@ -509,40 +509,67 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	if( !pic->buffer )
 		return true;
 
-	/// TODO: generate mipmaps
+	buf = pic->buffer;
 
-	if( tex->flags & TF_HAS_ALPHA )
-		tex->transparent = true;
+	int mipCount = 4;//GL_CalcMipmapCount( tex, ( buf != NULL ));
 
-	tex->pixels[0] = Mem_Calloc( r_temppool, tex->width * tex->height * sizeof(pixel_t) + 64 );
+	// NOTE: only single uncompressed textures can be resamples, no mips, no layers, no sides
+	if(( tex->depth == 1 ) && ( pic->width != tex->width ) || ( pic->height != tex->height ))
+		data = GL_ResampleTexture( buf, pic->width, pic->height, tex->width, tex->height, normalMap );
+	else data = buf;
 
-	for( i = 0; i < tex->width * tex->height; i++ )
+	//if( !ImageDXT( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
+	//	data = GL_ApplyFilter( data, tex->width, tex->height );
+
+	// mips will be auto-generated if desired
+	for( j = 0; j < mipCount; j++ )
 	{
-		unsigned int r, g, b, major, minor;
-#if 0
-		r = pic->buffer[i * 4 + 0] * MASK(5-1) / 255;
-		g = pic->buffer[i * 4 + 1] * MASK(6-1) / 255;
-		b = pic->buffer[i * 4 + 2] * MASK(5-1) / 255;
-#else
-		// seems to look better
-		r = pic->buffer[i * 4 + 0] * BIT(5) / 256;
-		g = pic->buffer[i * 4 + 1] * BIT(6) / 256;
-		b = pic->buffer[i * 4 + 2] * BIT(5) / 256;
-#endif
-		// 565 to 332
-		major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));
+		width = Q_max( 1, ( tex->width >> j ));
+		height = Q_max( 1, ( tex->height >> j ));
+		texsize = GL_CalcTextureSize( width, height, tex->depth );
+		size = GL_CalcImageSize( pic->type, width, height, tex->depth );
+		//GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, data );
+		tex->pixels[j] = Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) + 64 );
+		int x, y;
+		if( tex->flags & TF_HAS_ALPHA )
+			tex->transparent = true;
 
-		// save minor GBRGBRGB
-		minor = MOVE_BIT(r,1,5) | MOVE_BIT(r,0,2) | MOVE_BIT(g,2,7) | MOVE_BIT(g,1,4) | MOVE_BIT(g,0,1) | MOVE_BIT(b,2,6)| MOVE_BIT(b,1,3)|MOVE_BIT(b,0,0);
-
-		tex->pixels[0][i] = major << 8 | (minor & 0xFF);
-		if( tex->transparent )
+		for(i = 0; i < height * width; i++ )
 		{
-			unsigned int alpha = (pic->buffer[i * 4 + 3] * 8 / 256) << (16 - 3);
-			tex->pixels[0][i] = (tex->pixels[0][i] >> 3) | alpha;
-		}
-	}
+				unsigned int r, g, b, major, minor;
+		#if 0
+				r = data[i * 4 + 0] * MASK(5-1) / 255;
+				g = data[i * 4 + 1] * MASK(6-1) / 255;
+				b = data[i * 4 + 2] * MASK(5-1) / 255;
+		#else
+				// seems to look better
+				r = data[i * 4 + 0] * BIT(5) / 256;
+				g = data[i * 4 + 1] * BIT(6) / 256;
+				b = data[i * 4 + 2] * BIT(5) / 256;
+		#endif
+				// 565 to 332
+				major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));
 
+				// save minor GBRGBRGB
+				minor = MOVE_BIT(r,1,5) | MOVE_BIT(r,0,2) | MOVE_BIT(g,2,7) | MOVE_BIT(g,1,4) | MOVE_BIT(g,0,1) | MOVE_BIT(b,2,6)| MOVE_BIT(b,1,3)|MOVE_BIT(b,0,0);
+
+				tex->pixels[j][i] = major << 8 | (minor & 0xFF);
+				if( tex->transparent )
+				{
+					unsigned int alpha = (pic->buffer[i * 4 + 3] * 8 / 256) << (16 - 3);
+					tex->pixels[j][i] = (tex->pixels[j][i] >> 3) | alpha;
+				}
+
+		}
+
+		if( mipCount > 1 )
+			GL_BuildMipMap( data, width, height, tex->depth, tex->flags );
+
+		tex->size += texsize;
+		tex->numMips++;
+
+		//GL_CheckTexImageError( tex );
+	}
 
 #if 0
 
