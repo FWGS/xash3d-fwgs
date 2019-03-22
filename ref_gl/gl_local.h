@@ -15,13 +15,45 @@ GNU General Public License for more details.
 
 #ifndef GL_LOCAL_H
 #define GL_LOCAL_H
-
+#include "port.h"
+#include "xash3d_types.h"
+#include "cvardef.h"
+#include "const.h"
+#include "com_model.h"
 #include "gl_export.h"
 #include "cl_entity.h"
 #include "render_api.h"
 #include "protocol.h"
 #include "dlight.h"
 #include "gl_frustum.h"
+#include "ref_api.h"
+#include "mathlib.h"
+#include "ref_params.h"
+#include "enginefeatures.h"
+#include "com_strings.h"
+#include "pm_movevars.h"
+//#include "cvar.h"
+
+#ifndef offsetof
+#define offsetof(s,m)       (size_t)&(((s *)0)->m)
+#endif // offsetof
+
+#define ASSERT(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
+#define Assert(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
+
+#include <stdio.h>
+
+#define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc )	cvar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
+#define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc )	cvar_t cv = { #cv, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
+#define CVAR_TO_BOOL( x )		((x) && ((x)->value != 0.0f) ? true : false )
+
+#define WORLD (gEngfuncs.GetWorld())
+#define WORLDMODEL (gEngfuncs.pfnGetModelByIndex( 1 ))
+#define MOVEVARS (gEngfuncs.pfnGetMoveVars())
+
+// make mod_ref.h?
+#define LM_SAMPLE_SIZE             16
+
 
 extern byte	*r_temppool;
 
@@ -49,13 +81,10 @@ extern byte	*r_temppool;
 #define RP_NONVIEWERREF	(RP_ENVVIEW)
 #define R_ModelOpaque( rm )	( rm == kRenderNormal )
 #define R_StaticEntity( ent )	( VectorIsNull( ent->origin ) && VectorIsNull( ent->angles ))
-#define RP_LOCALCLIENT( e )	((e) != NULL && (e)->index == ( cl.playernum + 1 ) && e->player )
+#define RP_LOCALCLIENT( e )	((e) != NULL && (e)->index == ENGINE_GET_PARM( PARM_PLAYER_INDEX ) && e->player )
 #define RP_NORMALPASS()	( FBitSet( RI.params, RP_NONVIEWERREF ) == 0 )
 
-#define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP)
-#define TF_FONT		(TF_NOMIPMAP|TF_CLAMP)
-#define TF_IMAGE		(TF_NOMIPMAP|TF_CLAMP)
-#define TF_DECAL		(TF_CLAMP)
+#define CL_IsViewEntityLocalPlayer() ( ENGINE_GET_PARM( PARM_VIEWENT_INDEX ) == ENGINE_GET_PARM( PARM_PLAYER_INDEX ) )
 
 #define CULL_VISIBLE	0		// not culled
 #define CULL_BACKSIDE	1		// backside of transparent wall
@@ -215,7 +244,9 @@ typedef struct
 
 	// cull info
 	vec3_t		modelorg;		// relative to viewpoint
-} ref_globals_t;
+
+	qboolean fCustomSkybox;
+} gl_globals_t;
 
 typedef struct
 {
@@ -239,17 +270,11 @@ typedef struct
 
 extern ref_speeds_t		r_stats;
 extern ref_instance_t	RI;
-extern ref_globals_t	tr;
+extern gl_globals_t	tr;
 
 extern float		gldepthmin, gldepthmax;
-extern dlight_t		cl_dlights[MAX_DLIGHTS];
-extern dlight_t		cl_elights[MAX_ELIGHTS];
 #define r_numEntities	(tr.draw_list->num_solid_entities + tr.draw_list->num_trans_entities)
 #define r_numStatics	(r_stats.c_client_ents)
-
-extern struct beam_s	*cl_active_beams;
-extern struct beam_s	*cl_free_beams;
-extern struct particle_s	*cl_free_particles;
 
 //
 // gl_backend.c
@@ -273,6 +298,13 @@ void GL_TextureTarget( uint target );
 void GL_Cull( GLenum cull );
 void R_ShowTextures( void );
 void R_ShowTree( void );
+void SCR_TimeRefresh_f( void );
+
+//
+// gl_beams.c
+//
+void CL_DrawBeams( int fTrans, BEAM *active_beams );
+qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly );
 
 //
 // gl_cull.c
@@ -296,7 +328,7 @@ void R_ClearDecals( void );
 // gl_draw.c
 //
 void R_Set2DMode( qboolean enable );
-void R_DrawTileClear( int x, int y, int w, int h );
+void R_DrawTileClear( int texnum, int x, int y, int w, int h );
 void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data );
 
 //
@@ -323,7 +355,6 @@ void GL_UpdateTexSize( int texnum, int width, int height, int depth );
 void GL_ApplyTextureParams( gl_texture_t *tex );
 int GL_FindTexture( const char *name );
 void GL_FreeTexture( GLenum texnum );
-void GL_FreeImage( const char *name );
 const char *GL_Target( GLenum target );
 void R_InitDlightTexture( void );
 void R_TextureList_f( void );
@@ -331,13 +362,9 @@ void R_InitImages( void );
 void R_ShutdownImages( void );
 
 //
-// gl_refrag.c
-//
-void R_StoreEfrags( efrag_t **ppefrag, int framecount );
-
-//
 // gl_rlight.c
 //
+void CL_RunLightStyles( void );
 void R_PushDlights( void );
 void R_AnimateLight( void );
 void R_GetLightSpot( vec3_t lightspot );
@@ -358,8 +385,7 @@ void R_SetupRefParams( const struct ref_viewpass_s *rvp );
 void R_TranslateForEntity( cl_entity_t *e );
 void R_RotateForEntity( cl_entity_t *e );
 void R_SetupGL( qboolean set_gl_state );
-qboolean R_InitRenderAPI( void );
-void R_AllowFog( int allowed );
+void R_AllowFog( qboolean allowed );
 void R_SetupFrustum( void );
 void R_FindViewLeaf( void );
 void R_PushScene( void );
@@ -369,8 +395,6 @@ void R_DrawFog( void );
 //
 // gl_rmath.c
 //
-float V_CalcFov( float *fov_x, float width, float height );
-void V_AdjustFov( float *fov_x, float *fov_y, float width, float height, qboolean lock_x );
 void Matrix4x4_ToArrayFloatGL( const matrix4x4 in, float out[16] );
 void Matrix4x4_FromArrayFloatGL( matrix4x4 out, const float in[16] );
 void Matrix4x4_Concat( matrix4x4 out, const matrix4x4 in1, const matrix4x4 in2 );
@@ -387,7 +411,7 @@ void Matrix4x4_CreateOrtho(matrix4x4 m, float xLeft, float xRight, float yBottom
 void Matrix4x4_CreateModelview( matrix4x4 out );
 
 //
-// gl_rmisc.
+// gl_rmisc.c
 //
 void R_ClearStaticEntities( void );
 
@@ -413,6 +437,14 @@ void R_ClearVBO();
 void R_AddDecalVBO( decal_t *pdecal, msurface_t *surf );
 
 //
+// gl_rpart.c
+//
+void CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean trans_pass, float frametime );
+void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float partsize );
+void CL_DrawTracers( double frametime, particle_t *cl_active_tracers );
+
+
+//
 // gl_sprite.c
 //
 void R_SpriteInit( void );
@@ -433,6 +465,12 @@ int R_GetEntityRenderMode( cl_entity_t *ent );
 void R_DrawStudioModel( cl_entity_t *e );
 player_info_t *pfnPlayerInfo( int index );
 void R_GatherPlayerLight( void );
+float R_StudioEstimateFrame( cl_entity_t *e, mstudioseqdesc_t *pseqdesc );
+void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, vec3_t angles );
+void R_StudioResetPlayerModels( void );
+void CL_InitStudioAPI( void );
+void Mod_StudioLoadTextures( model_t *mod, void *data );
+void Mod_StudioUnloadTextures( void *data );
 
 //
 // gl_alias.c
@@ -452,20 +490,41 @@ void R_DrawSkyBox( void );
 void R_DrawClouds( void );
 void EmitWaterPolys( msurface_t *warp, qboolean reverse );
 
-#include "vid_common.h"
+//
+// gl_vgui.c
+//
+void VGUI_DrawInit( void );
+void VGUI_DrawShutdown( void );
+void VGUI_SetupDrawingText( int *pColor );
+void VGUI_SetupDrawingRect( int *pColor );
+void VGUI_SetupDrawingImage( int *pColor );
+void VGUI_BindTexture( int id );
+void VGUI_EnableTexture( qboolean enable );
+void VGUI_CreateTexture( int id, int width, int height );
+void VGUI_UploadTexture( int id, const char *buffer, int width, int height );
+void VGUI_UploadTextureBlock( int id, int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight );
+void VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr );
+void VGUI_GetTextureSizes( int *width, int *height );
+int VGUI_GenerateTexture( void );
+
+//#include "vid_common.h"
 
 //
 // renderer exports
 //
 qboolean R_Init( void );
 void R_Shutdown( void );
+void GL_SetupAttributes( int safegl );
+void GL_OnContextCreated( void );
+void GL_InitExtensions( void );
+void GL_ClearExtensions( void );
 void VID_CheckChanges( void );
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
 void GL_FreeImage( const char *name );
 qboolean VID_ScreenShot( const char *filename, int shot_type );
 qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot );
 void R_BeginFrame( qboolean clearScene );
-void R_RenderFrame( const struct ref_viewpass_s *vp );
+int R_RenderFrame( const struct ref_viewpass_s *vp );
 void R_EndFrame( void );
 void R_ClearScene( void );
 void R_GetTextureParms( int *w, int *h, int texnum );
@@ -479,10 +538,9 @@ int R_WorldToScreen( const vec3_t point, vec3_t screen );
 void R_ScreenToWorld( const vec3_t screen, vec3_t point );
 qboolean R_AddEntity( struct cl_entity_s *pRefEntity, int entityType );
 void Mod_LoadMapSprite( struct model_s *mod, const void *buffer, size_t size, qboolean *loaded );
-void Mod_UnloadSpriteModel( struct model_s *mod );
-void Mod_UnloadStudioModel( struct model_s *mod );
-void Mod_UnloadBrushModel( struct model_s *mod );
+void Mod_SpriteUnloadTextures( void *data );
 void Mod_UnloadAliasModel( struct model_s *mod );
+void Mod_AliasUnloadTextures( void *data );
 void GL_SetRenderMode( int mode );
 void R_RunViewmodelEvents( void );
 void R_DrawViewModel( void );
@@ -491,9 +549,43 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 void R_RemoveEfrags( struct cl_entity_s *ent );
 void R_AddEfrags( struct cl_entity_s *ent );
 void R_DecalRemoveAll( int texture );
+int R_CreateDecalList( decallist_t *pList );
+void R_ClearAllDecals( void );
 byte *Mod_GetCurrentVis( void );
-void Mod_SetOrthoBounds( float *mins, float *maxs );
+void Mod_SetOrthoBounds( const float *mins, const float *maxs );
 void R_NewMap( void );
+void CL_AddCustomBeam( cl_entity_t *pEnvBeam );
+
+//
+// gl_opengl.c
+//
+#define GL_CheckForErrors() GL_CheckForErrors_( __FILE__, __LINE__ )
+void GL_CheckForErrors_( const char *filename, const int fileline );
+const char *GL_ErrorString( int err );
+qboolean GL_Support( int r_ext );
+int GL_MaxTextureUnits( void );
+void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cvarname, int r_ext );
+void GL_SetExtension( int r_ext, int enable );
+
+//
+// gl_triapi.c
+//
+void TriRenderMode( int mode );
+void TriBegin( int mode );
+void TriEnd( void );
+void TriTexCoord2f( float u, float v );
+void TriVertex3fv( const float *v );
+void TriVertex3f( float x, float y, float z );
+void _TriColor4f( float r, float g, float b, float a );
+void TriColor4f( float r, float g, float b, float a );
+void TriColor4ub( byte r, byte g, byte b, byte a );
+void TriBrightness( float brightness );
+int TriWorldToScreen( const float *world, float *screen );
+int TriSpriteTexture( model_t *pSpriteModel, int frame );
+void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn );
+void TriGetMatrix( const int pname, float *matrix );
+void TriFogParams( float flDensity, int iFogSkybox );
+void TriCullFace( TRICULLSTYLE mode );
 
 /*
 =======================================================================
@@ -528,17 +620,6 @@ enum
 	GL_DEBUG_OUTPUT,
 	GL_ARB_VERTEX_BUFFER_OBJECT_EXT,
 	GL_EXTCOUNT,		// must be last
-};
-
-enum
-{
-	GL_KEEP_UNIT = -1,
-	XASH_TEXTURE0 = 0,
-	XASH_TEXTURE1,
-	XASH_TEXTURE2,
-	XASH_TEXTURE3,		// g-cont. 4 units should be enough
-	XASH_TEXTURE4,		// mittorn. bump+detail needs 5 for single-pass
-	MAX_TEXTURE_UNITS = 32	// can't access to all over units without GLSL or cg
 };
 
 typedef enum
@@ -594,10 +675,8 @@ typedef struct
 
 typedef struct
 {
-	int		width, height;
-	qboolean		fullScreen;
-	qboolean		wideScreen;
 
+	int width, height;
 	int		activeTMU;
 	GLint		currentTextures[MAX_TEXTURE_UNITS];
 	GLuint		currentTextureTargets[MAX_TEXTURE_UNITS];
@@ -611,17 +690,6 @@ typedef struct
 	qboolean		in2DMode;
 } glstate_t;
 
-typedef enum
-{
-	SAFE_NO = 0,
-	SAFE_NOMSAA,      // skip msaa
-	SAFE_NOACC,       // don't set acceleration flag
-	SAFE_NOSTENCIL,   // don't set stencil bits
-	SAFE_NOALPHA,     // don't set alpha bits
-	SAFE_NODEPTH,     // don't set depth bits
-	SAFE_NOCOLOR,     // don't set color bits
-	SAFE_DONTCARE     // ignore everything, let SDL/EGL decide
-} safe_context_t;
 
 typedef struct
 {
@@ -638,61 +706,82 @@ typedef struct
 
 extern glconfig_t		glConfig;
 extern glstate_t		glState;
+// move to engine
 extern glwstate_t		glw_state;
+extern ref_api_t      gEngfuncs;
+extern ref_globals_t *gpGlobals;
+
+#define ENGINE_GET_PARM_ (*gEngfuncs.EngineGetParm)
+#define ENGINE_GET_PARM( parm ) ENGINE_GET_PARM_( ( parm ), 0 )
 
 //
 // renderer cvars
 //
-extern convar_t	*gl_texture_anisotropy;
-extern convar_t	*gl_extensions;
-extern convar_t	*gl_check_errors;
-extern convar_t	*gl_texture_lodbias;
-extern convar_t	*gl_texture_nearest;
-extern convar_t	*gl_wgl_msaa_samples;
-extern convar_t	*gl_lightmap_nearest;
-extern convar_t	*gl_keeptjunctions;
-extern convar_t	*gl_emboss_scale;
-extern convar_t	*gl_round_down;
-extern convar_t	*gl_detailscale;
-extern convar_t	*gl_wireframe;
-extern convar_t	*gl_polyoffset;
-extern convar_t	*gl_finish;
-extern convar_t	*gl_nosort;
-extern convar_t	*gl_clear;
-extern convar_t	*gl_test;		// cvar to testify new effects
-extern convar_t	*gl_msaa;
-extern convar_t *gl_stencilbits;
+extern cvar_t	*gl_texture_anisotropy;
+extern cvar_t	*gl_extensions;
+extern cvar_t	*gl_check_errors;
+extern cvar_t	*gl_texture_lodbias;
+extern cvar_t	*gl_texture_nearest;
+extern cvar_t	*gl_lightmap_nearest;
+extern cvar_t	*gl_keeptjunctions;
+extern cvar_t	*gl_emboss_scale;
+extern cvar_t	*gl_round_down;
+extern cvar_t	*gl_detailscale;
+extern cvar_t	*gl_wireframe;
+extern cvar_t	*gl_polyoffset;
+extern cvar_t	*gl_finish;
+extern cvar_t	*gl_nosort;
+extern cvar_t	*gl_clear;
+extern cvar_t	*gl_test;		// cvar to testify new effects
+extern cvar_t	*gl_msaa;
+extern cvar_t *gl_stencilbits;
 
-extern convar_t	*r_speeds;
-extern convar_t	*r_fullbright;
-extern convar_t	*r_norefresh;
-extern convar_t	*r_showtree;	// build graph of visible hull
-extern convar_t	*r_lighting_extended;
-extern convar_t	*r_lighting_modulate;
-extern convar_t	*r_lighting_ambient;
-extern convar_t	*r_studio_lambert;
-extern convar_t	*r_detailtextures;
-extern convar_t	*r_drawentities;
-extern convar_t	*r_adjust_fov;
-extern convar_t	*r_decals;
-extern convar_t	*r_novis;
-extern convar_t	*r_nocull;
-extern convar_t	*r_lockpvs;
-extern convar_t	*r_lockfrustum;
-extern convar_t	*r_traceglow;
-extern convar_t	*r_dynamic;
-extern convar_t	*r_lightmap;
-extern convar_t *r_vbo;
-extern convar_t *r_vbo_dlightmode;
+extern cvar_t	*r_speeds;
+extern cvar_t	*r_fullbright;
+extern cvar_t	*r_norefresh;
+extern cvar_t	*r_showtree;	// build graph of visible hull
+extern cvar_t	*r_lighting_extended;
+extern cvar_t	*r_lighting_modulate;
+extern cvar_t	*r_lighting_ambient;
+extern cvar_t	*r_studio_lambert;
+extern cvar_t	*r_detailtextures;
+extern cvar_t	*r_drawentities;
+extern cvar_t	*r_decals;
+extern cvar_t	*r_novis;
+extern cvar_t	*r_nocull;
+extern cvar_t	*r_lockpvs;
+extern cvar_t	*r_lockfrustum;
+extern cvar_t	*r_traceglow;
+extern cvar_t	*r_dynamic;
+extern cvar_t	*r_lightmap;
+extern cvar_t *r_vbo;
+extern cvar_t *r_vbo_dlightmode;
 
-extern convar_t	*vid_displayfrequency;
-extern convar_t	*vid_fullscreen;
-extern convar_t	*vid_brightness;
-extern convar_t	*vid_gamma;
-extern convar_t	*vid_highdpi;
+extern cvar_t	*vid_brightness;
+extern cvar_t	*vid_gamma;
 
-extern convar_t	*window_xpos;
-extern convar_t	*window_ypos;
-extern convar_t *scr_height;
+//
+// engine shared convars
+//
+extern cvar_t *gl_showtextures;
+extern cvar_t	*tracerred;
+extern cvar_t	*tracergreen;
+extern cvar_t	*tracerblue;
+extern cvar_t	*traceralpha;
+extern cvar_t	*cl_lightstyle_lerping;
+extern cvar_t	*r_showhull;
 
-#endif//GL_LOCAL_H
+//
+// engine callbacks
+//
+#include "crtlib.h"
+
+#define Mem_Malloc( pool, size ) gEngfuncs._Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
+#define Mem_Calloc( pool, size ) gEngfuncs._Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
+#define Mem_Realloc( pool, ptr, size ) gEngfuncs._Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
+#define Mem_Free( mem ) gEngfuncs._Mem_Free( mem, __FILE__, __LINE__ )
+#define Mem_AllocPool( name ) gEngfuncs._Mem_AllocPool( name, __FILE__, __LINE__ )
+#define Mem_FreePool( pool ) gEngfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )
+#define Mem_EmptyPool( pool ) gEngfuncs._Mem_EmptyPool( pool, __FILE__, __LINE__ )
+
+#endif // GL_LOCAL_H

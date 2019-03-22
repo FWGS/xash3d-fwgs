@@ -18,7 +18,7 @@ GNU General Public License for more details.
 #include "const.h"
 #include "library.h"
 #include "triangleapi.h"
-#include "gl_export.h"
+#include "ref_common.h"
 
 typedef int (*PHYSICAPI)( int, server_physics_api_t*, physics_interface_t* );
 #ifndef XASH_DEDICATED
@@ -1884,17 +1884,19 @@ void SV_DrawDebugTriangles( void )
 
 	if( svgame.physFuncs.DrawDebugTriangles != NULL )
 	{
+#if 0
 		// debug draws only
 		pglDisable( GL_BLEND );
 		pglDepthMask( GL_FALSE );
 		pglDisable( GL_TEXTURE_2D );
-
+#endif
 		// draw wireframe overlay
 		svgame.physFuncs.DrawDebugTriangles ();
-
+#if 0
 		pglEnable( GL_TEXTURE_2D );
 		pglDepthMask( GL_TRUE );
 		pglEnable( GL_BLEND );
+#endif
 	}
 }
 
@@ -1999,6 +2001,15 @@ const char* pfnGetModelName( int modelindex )
 	if( modelindex < 0 || modelindex >= MAX_MODELS )
 		return NULL;
 	return sv.model_precache[modelindex];
+}
+
+static const byte *GL_TextureData( unsigned int texnum )
+{
+#ifndef XASH_DEDICATED
+	return ref.dllFuncs.GL_TextureData ? ref.dllFuncs.GL_TextureData( texnum ) : NULL;
+#else // XASH_DEDICATED
+	return NULL;
+#endif // XASH_DEDICATED
 }
 
 static server_physics_api_t gPhysicsAPI =

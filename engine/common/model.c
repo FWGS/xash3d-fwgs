@@ -12,7 +12,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
+#include "common.h"
 #include "mod_local.h"
 #include "sprite.h"
 #include "mathlib.h"
@@ -20,7 +20,6 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "wadfile.h"
 #include "world.h"
-#include "gl_local.h"
 #include "enginefeatures.h"
 #include "client.h"
 #include "server.h"
@@ -89,11 +88,7 @@ static void Mod_FreeUserData( model_t *mod )
 #ifndef XASH_DEDICATED
 	else
 	{
-		if( clgame.drawFuncs.Mod_ProcessUserData != NULL )
-		{
-			// let the client.dll free custom data
-			clgame.drawFuncs.Mod_ProcessUserData( mod, false, NULL );
-		}
+		ref.dllFuncs.Mod_ProcessRenderData( mod, false, NULL );
 	}
 #endif
 }
@@ -103,32 +98,16 @@ static void Mod_FreeUserData( model_t *mod )
 Mod_FreeModel
 ================
 */
-static void Mod_FreeModel( model_t *mod )
+void Mod_FreeModel( model_t *mod )
 {
 	// already freed?
 	if( !mod || !mod->name[0] )
 		return;
 
-	if( mod->name[0] != '*' )
-		Mod_FreeUserData( mod );
-
-	// select the properly unloader
-	switch( mod->type )
+	if( mod->type != mod_brush || mod->name[0] != '*' )
 	{
-	case mod_sprite:
-		Mod_UnloadSpriteModel( mod );
-		break;
-#ifndef XASH_DEDICATED
-	case mod_alias:
-		Mod_UnloadAliasModel( mod );
-		break;
-#endif
-	case mod_studio:
-		Mod_UnloadStudioModel( mod );
-		break;
-	case mod_brush:
-		Mod_UnloadBrushModel( mod );
-		break;
+		Mod_FreeUserData( mod );
+		Mem_FreePool( &mod->mempool );
 	}
 
 	memset( mod, 0, sizeof( *mod ));
@@ -308,16 +287,15 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	case IDSPRITEHEADER:
 		Mod_LoadSpriteModel( mod, buf, &loaded, 0 );
 		break;
-	// TODO: Load alias models on dedicated too?
-#ifndef XASH_DEDICATED
 	case IDALIASHEADER:
-		Mod_LoadAliasModel( mod, buf, &loaded );
+		// REFTODO: move server-related code here
+		loaded = true;
 		break;
-#endif
 	case Q1BSP_VERSION:
 	case HLBSP_VERSION:
 	case QBSP2_VERSION:
 		Mod_LoadBrushModel( mod, buf, &loaded );
+		// ref.dllFuncs.Mod_LoadModel( mod_brush, mod, buf, &loaded, 0 );
 		break;
 	default:
 		Mem_Free( buf );
@@ -325,18 +303,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		else Con_Printf( S_ERROR "%s has unknown format\n", tempname );
 		return NULL;
 	}
-
-	if( !loaded )
-	{
-		Mod_FreeModel( mod );
-		Mem_Free( buf );
-
-		if( crash ) Host_Error( "Could not load model %s\n", tempname );
-		else Con_Printf( S_ERROR "Could not load model %s\n", tempname );
-
-		return NULL;
-	}
-	else
+	if( loaded )
 	{
 		if( world.loading )
 			SetBits( mod->flags, MODEL_WORLD ); // mark worldmodel
@@ -352,13 +319,20 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 #ifndef XASH_DEDICATED
 		else
 		{
-			if( clgame.drawFuncs.Mod_ProcessUserData != NULL )
-			{
-				// let the client.dll load custom data
-				clgame.drawFuncs.Mod_ProcessUserData( mod, true, buf );
-			}
+			loaded = ref.dllFuncs.Mod_ProcessRenderData( mod, true, buf );
 		}
 #endif
+	}
+
+	if( !loaded )
+	{
+		Mod_FreeModel( mod );
+		Mem_Free( buf );
+
+		if( crash ) Host_Error( "Could not load model %s\n", tempname );
+		else Con_Printf( S_ERROR "Could not load model %s\n", tempname );
+
+		return NULL;
 	}
 
 	p = &mod_crcinfo[mod - mod_known];

@@ -2,9 +2,6 @@
 #ifndef VID_COMMON
 #define VID_COMMON
 
-#define FCONTEXT_CORE_PROFILE		BIT( 0 )
-#define FCONTEXT_DEBUG_ARB		BIT( 1 )
-
 typedef struct vidmode_s
 {
 	const char	*desc;
@@ -12,27 +9,35 @@ typedef struct vidmode_s
 	int			height;
 } vidmode_t;
 
-// minimal recommended resolution
-#define VID_MIN_WIDTH	640
-#define VID_MIN_HEIGHT	480
 
-//
-// vid_common.c
-//
-qboolean VID_SetMode( void );
-#define GL_CheckForErrors() GL_CheckForErrors_( __FILE__, __LINE__ )
-void GL_CheckForErrors_( const char *filename, const int fileline );
-const char *GL_ErrorString( int err );
-void GL_UpdateSwapInterval( void );
-qboolean GL_Support( int r_ext );
-void VID_CheckChanges( void );
-int GL_MaxTextureUnits( void );
-qboolean R_Init( void );
-void R_Shutdown( void );
-const char *VID_GetModeString( int vid_mode );
+typedef struct
+{
+	void*	context; // handle to GL rendering context
+	int		safe;
+
+	int		desktopBitsPixel;
+	int		desktopWidth;
+	int		desktopHeight;
+
+	qboolean		initialized;	// OpenGL subsystem started
+	qboolean		extended;		// extended context allows to GL_Debug
+
+
+} glwstate_t;
+
+extern glwstate_t glw_state;
+
+#define VID_MIN_HEIGHT 200
+#define VID_MIN_WIDTH 320
+
+extern convar_t	*vid_fullscreen;
+extern convar_t	*vid_displayfrequency;
+extern convar_t	*vid_highdpi;
+extern convar_t	*gl_wgl_msaa_samples;
 void R_SaveVideoMode( int w, int h );
+void VID_CheckChanges( void );
+const char *VID_GetModeString( int vid_mode );
 void VID_StartupGamma( void );
-void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cvarname, int r_ext );
-void GL_SetExtension( int r_ext, int enable );
+void GL_SwapBuffers();
 
 #endif // VID_COMMON

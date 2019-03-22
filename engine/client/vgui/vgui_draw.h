@@ -22,8 +22,6 @@ extern "C" {
 
 #include "port.h"
 
-#define VGUI_MAX_TEXTURES	2048	// a half of total textures count
-
 //
 // vgui_draw.c
 //

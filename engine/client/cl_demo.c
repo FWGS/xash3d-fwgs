@@ -15,7 +15,6 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "client.h"
-#include "gl_local.h"
 #include "net_encode.h"
 
 #define dem_unknown		0	// unknown command
@@ -500,7 +499,7 @@ void CL_DrawDemoRecording( void )
 		Q_memprint( pos ), (int)(cls.demotime / 60.0f ), (int)fmod( cls.demotime, 60.0f ));
 
 	Con_DrawStringLen( string, &len, NULL );
-	Con_DrawString(( glState.width - len ) >> 1, glState.height >> 4, string, color );
+	Con_DrawString(( refState.width - len ) >> 1, refState.height >> 4, string, color );
 }
 
 /*

@@ -13,11 +13,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
 #include "gl_local.h"
-#include "mod_local.h"
 #include "shake.h"
+#include "screenfade.h"
+#include "cdll_int.h"
 
 static void R_ParseDetailTextures( const char *filename )
 {
@@ -29,13 +28,13 @@ static void R_ParseDetailTextures( const char *filename )
 	texture_t	*tex;
 	int	i;
 
-	afile = FS_LoadFile( filename, NULL, false );
+	afile = gEngfuncs.COM_LoadFile( filename, NULL, false );
 	if( !afile ) return;
 
 	pfile = afile;
 
 	// format: 'texturename' 'detailtexture' 'xScale' 'yScale'
-	while(( pfile = COM_ParseFile( pfile, token )) != NULL )
+	while(( pfile = gEngfuncs.COM_ParseFile( pfile, token )) != NULL )
 	{
 		texname[0] = '\0';
 		detail_texname[0] = '\0';
@@ -45,26 +44,26 @@ static void R_ParseDetailTextures( const char *filename )
 		{
 			// NOTE: COM_ParseFile handled some symbols seperately
 			// this code will be fix it
-			pfile = COM_ParseFile( pfile, token );
+			pfile = gEngfuncs.COM_ParseFile( pfile, token );
 			Q_strncat( texname, "{", sizeof( texname ));
 			Q_strncat( texname, token, sizeof( texname ));
 		}
 		else Q_strncpy( texname, token, sizeof( texname ));
 
 		// read detailtexture name
-		pfile = COM_ParseFile( pfile, token );
+		pfile = gEngfuncs.COM_ParseFile( pfile, token );
 		Q_strncat( detail_texname, token, sizeof( detail_texname ));
 
 		// trying the scales or '{'
-		pfile = COM_ParseFile( pfile, token );
+		pfile = gEngfuncs.COM_ParseFile( pfile, token );
 
 		// read second part of detailtexture name
 		if( token[0] == '{' )
 		{
 			Q_strncat( detail_texname, token, sizeof( detail_texname ));
-			pfile = COM_ParseFile( pfile, token ); // read scales
+			pfile = gEngfuncs.COM_ParseFile( pfile, token ); // read scales
 			Q_strncat( detail_texname, token, sizeof( detail_texname ));
-			pfile = COM_ParseFile( pfile, token ); // parse scales
+			pfile = gEngfuncs.COM_ParseFile( pfile, token ); // parse scales
 		}
 
 		Q_snprintf( detail_path, sizeof( detail_path ), "gfx/%s", detail_texname );
@@ -72,16 +71,16 @@ static void R_ParseDetailTextures( const char *filename )
 		// read scales
 		xScale = Q_atof( token );		
 
-		pfile = COM_ParseFile( pfile, token );
+		pfile = gEngfuncs.COM_ParseFile( pfile, token );
 		yScale = Q_atof( token );
 
 		if( xScale <= 0.0f || yScale <= 0.0f )
 			continue;
 
 		// search for existing texture and uploading detail texture
-		for( i = 0; i < cl.worldmodel->numtextures; i++ )
+		for( i = 0; i < WORLDMODEL->numtextures; i++ )
 		{
-			tex = cl.worldmodel->textures[i];
+			tex = WORLDMODEL->textures[i];
 
 			if( Q_stricmp( tex->name, texname ))
 				continue;
@@ -104,29 +103,6 @@ static void R_ParseDetailTextures( const char *filename )
 	Mem_Free( afile );
 }
 
-/*
-=======================
-R_ClearStaticEntities
-
-e.g. by demo request
-=======================
-*/
-void R_ClearStaticEntities( void )
-{
-	int	i;
-
-	if( host.type == HOST_DEDICATED )
-		return;
-
-	// clear out efrags in case the level hasn't been reloaded
-	for( i = 0; i < cl.worldmodel->numleafs; i++ )
-		cl.worldmodel->leafs[i+1].efrags = NULL;
-
-	clgame.numStatics = 0;
-
-	CL_ClearEfrags ();
-}
-
 void R_NewMap( void )
 {
 	texture_t	*tx;
@@ -134,26 +110,28 @@ void R_NewMap( void )
 
 	R_ClearDecals(); // clear all level decals
 
+	R_StudioResetPlayerModels();
+
 	// upload detailtextures
 	if( CVAR_TO_BOOL( r_detailtextures ))
 	{
 		string	mapname, filepath;
 
-		Q_strncpy( mapname, cl.worldmodel->name, sizeof( mapname ));
+		Q_strncpy( mapname, WORLDMODEL->name, sizeof( mapname ));
 		COM_StripExtension( mapname );
 		Q_sprintf( filepath, "%s_detail.txt", mapname );
 
 		R_ParseDetailTextures( filepath );
 	}
 
-	if( CVAR_TO_BOOL( v_dark ))
+	if( gEngfuncs.pfnGetCvarFloat( "v_dark" ))
 	{
-		screenfade_t		*sf = &clgame.fade;
+		screenfade_t		*sf = gEngfuncs.GetScreenFade();
 		float			fadetime = 5.0f;
 		client_textmessage_t	*title;
 
-		title = CL_TextMessageGet( "GAMETITLE" );
-		if( Host_IsQuakeCompatible( ))
+		title = gEngfuncs.pfnTextMessageGet( "GAMETITLE" );
+		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 			fadetime = 1.0f;
 
 		if( title )
@@ -168,27 +146,27 @@ void R_NewMap( void )
 		sf->fader = sf->fadeg = sf->fadeb = 0;
 		sf->fadealpha = 255;
 		sf->fadeSpeed = (float)sf->fadealpha / sf->fadeReset;
-		sf->fadeReset += cl.time;
+		sf->fadeReset += gpGlobals->time;
 		sf->fadeEnd += sf->fadeReset;
 
-		Cvar_SetValue( "v_dark", 0.0f );
+		gEngfuncs.Cvar_SetValue( "v_dark", 0.0f );
 	}
 
 	// clear out efrags in case the level hasn't been reloaded
-	for( i = 0; i < cl.worldmodel->numleafs; i++ )
-		cl.worldmodel->leafs[i+1].efrags = NULL;
+	for( i = 0; i < WORLDMODEL->numleafs; i++ )
+		WORLDMODEL->leafs[i+1].efrags = NULL;
 
 	tr.skytexturenum = -1;
 	tr.max_recursion = 0;
 	pglDisable( GL_FOG );
 
 	// clearing texture chains
-	for( i = 0; i < cl.worldmodel->numtextures; i++ )
+	for( i = 0; i < WORLDMODEL->numtextures; i++ )
 	{
-		if( !cl.worldmodel->textures[i] )
+		if( !WORLDMODEL->textures[i] )
 			continue;
 
-		tx = cl.worldmodel->textures[i];
+		tx = WORLDMODEL->textures[i];
 
 		if( !Q_strncmp( tx->name, "sky", 3 ) && tx->width == ( tx->height * 2 ))
 			tr.skytexturenum = i;
@@ -196,8 +174,12 @@ void R_NewMap( void )
  		tx->texturechain = NULL;
 	}
 
-	R_SetupSky( clgame.movevars.skyName );
+	R_SetupSky( MOVEVARS->skyName );
 
 	GL_BuildLightmaps ();
 	R_GenerateVBO();
+
+	if( gEngfuncs.drawFuncs->R_NewMap != NULL )
+		gEngfuncs.drawFuncs->R_NewMap();
+
 }

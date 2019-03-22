@@ -95,7 +95,11 @@ SETUP BACKENDS DEFINITIONS
 // fallback to NULL
 //
 #ifndef XASH_VIDEO
-	#define XASH_VIDEO VIDEO_NULL
+	#ifdef REF_DLL
+		#define XASH_VIDEO VIDEO_DONTCARE
+	#else
+		#define XASH_VIDEO VIDEO_NULL
+	#endif
 #endif
 
 #ifndef XASH_SOUND
@@ -148,6 +152,10 @@ Default build-depended cvar and constant values
 
 #ifndef DEFAULT_FULLSCREEN
 	#define DEFAULT_FULLSCREEN 1
+#endif
+
+#ifndef DEFAULT_RENDERER
+	#define DEFAULT_RENDERER "ref_gl"
 #endif
 
 #if TARGET_OS_IPHONE

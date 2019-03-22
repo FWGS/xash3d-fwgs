@@ -816,7 +816,7 @@ static pmtrace_t pfnPlayerTrace( float *start, float *end, int traceFlags, int i
 	return PM_PlayerTraceExt( clgame.pmove, start, end, traceFlags, clgame.pmove->numphysent, clgame.pmove->physents, ignore_pe, NULL );
 }
 
-static pmtrace_t *pfnTraceLine( float *start, float *end, int flags, int usehull, int ignore_pe )
+pmtrace_t *PM_TraceLine( float *start, float *end, int flags, int usehull, int ignore_pe )
 {
 	static pmtrace_t	tr;
 	int		old_usehull;
@@ -948,17 +948,6 @@ static pmtrace_t *pfnTraceLineEx( float *start, float *end, int flags, int usehu
 	return &tr;
 }
 
-static struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend )
-{
-	physent_t *pe;
-
-	if( ground < 0 || ground >= clgame.pmove->numphysent )
-		return NULL; // bad ground
-
-	pe = &clgame.pmove->physents[ground];
-	return PM_TraceSurface( pe, vstart, vend );
-}
-
 /*
 ===============
 CL_InitClientMove
@@ -989,7 +978,7 @@ void CL_InitClientMove( void )
 
 	// common utilities
 	clgame.pmove->PM_Info_ValueForKey = Info_ValueForKey;
-	clgame.pmove->PM_Particle = CL_Particle;
+	clgame.pmove->PM_Particle = CL_Particle; // ref should be initialized here already
 	clgame.pmove->PM_TestPlayerPosition = pfnTestPlayerPosition;
 	clgame.pmove->Con_NPrintf = Con_NPrintf;
 	clgame.pmove->Con_DPrintf = Con_DPrintf;
@@ -1000,7 +989,7 @@ void CL_InitClientMove( void )
 	clgame.pmove->PM_TruePointContents = pfnTruePointContents;
 	clgame.pmove->PM_HullPointContents = pfnHullPointContents; 
 	clgame.pmove->PM_PlayerTrace = pfnPlayerTrace;
-	clgame.pmove->PM_TraceLine = pfnTraceLine;
+	clgame.pmove->PM_TraceLine = PM_TraceLine;
 	clgame.pmove->RandomLong = COM_RandomLong;
 	clgame.pmove->RandomFloat = COM_RandomFloat;
 	clgame.pmove->PM_GetModelType = pfnGetModelType;

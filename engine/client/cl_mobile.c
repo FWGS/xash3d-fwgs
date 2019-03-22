@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include "client.h"
 #include "mobility_int.h"
 #include "library.h"
-#include "gl_local.h"
 #include "input.h"
 #include "platform/platform.h"
 
@@ -96,17 +95,22 @@ static void *pfnGetNativeObject( const char *obj )
 	return Platform_GetNativeObject( obj );
 }
 
+void IN_TouchHideButtons( const char *str, qboolean hide )
+{
+
+}
+
 static mobile_engfuncs_t gpMobileEngfuncs =
 {
 	MOBILITY_API_VERSION,
 	pfnVibrate,
 	pfnEnableTextInput,
-	IN_TouchAddClientButton,
-	IN_TouchAddDefaultButton,
-	(void*)IN_TouchHideButtons,
-	IN_TouchRemoveButton,
-	(void*)IN_TouchSetClientOnly,
-	IN_TouchResetDefaultButtons,
+	NULL, // IN_TouchAddClientButton,
+	NULL, // IN_TouchAddDefaultButton,
+	IN_TouchHideButtons,
+	NULL, // IN_TouchRemoveButton,
+	NULL, // (void*)IN_TouchSetClientOnly,
+	NULL, // IN_TouchResetDefaultButtons,
 	pfnDrawScaledCharacter,
 	Sys_Warn,
 	pfnGetNativeObject,

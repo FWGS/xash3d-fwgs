@@ -1,29 +1,11 @@
-/*
-cl_part.c - particles and tracers
-Copyright (C) 2010 Uncle Mike
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-*/
 
 #include "common.h"
 #include "client.h"
-#include "gl_local.h"
+#include "customentity.h"
 #include "r_efx.h"
-#include "event_flags.h"
-#include "entity_types.h"
-#include "triangleapi.h"
-#include "pm_local.h"
 #include "cl_tent.h"
-#include "studio.h"
-
+#include "pm_local.h"
 #define PART_SIZE	Q_max( 0.5f, cl_draw_particles->value )
 
 /*
@@ -37,29 +19,8 @@ PARTICLES MANAGEMENT
 static int ramp1[8] = { 0x6f, 0x6d, 0x6b, 0x69, 0x67, 0x65, 0x63, 0x61 };
 static int ramp2[8] = { 0x6f, 0x6e, 0x6d, 0x6c, 0x6b, 0x6a, 0x68, 0x66 };
 static int ramp3[6] = { 0x6d, 0x6b, 6, 5, 4, 3 };
-static float gTracerSize[11] = { 1.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 static int gSparkRamp[9] = { 0xfe, 0xfd, 0xfc, 0x6f, 0x6e, 0x6d, 0x6c, 0x67, 0x60 };
 
-static color24 gTracerColors[] =
-{
-{ 255, 255, 255 },		// White
-{ 255, 0, 0 },		// Red
-{ 0, 255, 0 },		// Green
-{ 0, 0, 255 },		// Blue
-{ 0, 0, 0 },		// Tracer default, filled in from cvars, etc.
-{ 255, 167, 17 },		// Yellow-orange sparks
-{ 255, 130, 90 },		// Yellowish streaks (garg)
-{ 55, 60, 144 },		// Blue egon streak
-{ 255, 130, 90 },		// More Yellowish streaks (garg)
-{ 255, 140, 90 },		// More Yellowish streaks (garg)
-{ 200, 130, 90 },		// More red streaks (garg)
-{ 255, 120, 70 },		// Darker red streaks (garg)
-};
-
-convar_t		*tracerred;
-convar_t		*tracergreen;
-convar_t		*tracerblue;
-convar_t		*traceralpha;
 convar_t		*tracerspeed;
 convar_t		*tracerlength;
 convar_t		*traceroffset;
@@ -139,10 +100,6 @@ void CL_InitParticles( void )
 		cl_avelocities[i][2] = COM_RandomFloat( 0.0f, 2.55f );
 	}
 
-	tracerred = Cvar_Get( "tracerred", "0.8", 0, "tracer red component weight ( 0 - 1.0 )" );
-	tracergreen = Cvar_Get( "tracergreen", "0.8", 0, "tracer green component weight ( 0 - 1.0 )" );
-	tracerblue = Cvar_Get( "tracerblue", "0.4", 0, "tracer blue component weight ( 0 - 1.0 )" );
-	traceralpha = Cvar_Get( "traceralpha", "0.5", 0, "tracer alpha amount ( 0 - 1.0 )" );
 	tracerspeed = Cvar_Get( "tracerspeed", "6000", 0, "tracer speed" );
 	tracerlength = Cvar_Get( "tracerlength", "0.8", 0, "tracer length factor" );
 	traceroffset = Cvar_Get( "traceroffset", "30", 0, "tracer starting offset" );
@@ -205,6 +162,26 @@ void CL_FreeParticle( particle_t *p )
 
 /*
 ================
+CL_AllocParticleFast
+
+unconditionally give new particle pointer from cl_free_particles
+================
+*/
+particle_t *CL_AllocParticleFast( void )
+{
+	particle_t *p = NULL;
+
+	if( cl_free_particles )
+	{
+		p = cl_free_particles;
+		cl_free_particles = p->next;
+	}
+
+	return p;
+}
+
+/*
+================
 R_AllocParticle
 
 can return NULL if particles is out
@@ -218,7 +195,7 @@ particle_t *R_AllocParticle( void (*callback)( particle_t*, float ))
 		return NULL;
 
 	// never alloc particles when we not in game
-	if( tr.frametime == 0.0 ) return NULL;
+//	if( tr.frametime == 0.0 ) return NULL;
 
 	if( !cl_free_particles )
 	{
@@ -269,7 +246,7 @@ particle_t *R_AllocTracer( const vec3_t org, const vec3_t vel, float life )
 		return NULL;
 
 	// never alloc particles when we not in game
-	if( tr.frametime == 0.0 ) return NULL;
+	//if( tr.frametime == 0.0 ) return NULL;
 
 	if( !cl_free_particles )
 	{
@@ -298,401 +275,776 @@ particle_t *R_AllocTracer( const vec3_t org, const vec3_t vel, float life )
 
 	return p;
 }
+/*
+==============================================================
+
+VIEWBEAMS MANAGEMENT
+
+==============================================================
+*/
+BEAM		*cl_active_beams;
+BEAM		*cl_free_beams;
+BEAM		*cl_viewbeams = NULL;		// beams pool
+
+
+/*
+==============================================================
+
+BEAM ALLOCATE & PROCESSING
+
+==============================================================
+*/
+
 
 /*
 ==============
-R_FreeDeadParticles
+R_BeamSetAttributes
 
-Free particles that time has expired
+set beam attributes
 ==============
 */
-void R_FreeDeadParticles( particle_t **ppparticles )
+static void R_BeamSetAttributes( BEAM *pbeam, float r, float g, float b, float framerate, int startFrame )
 {
-	particle_t	*p, *kill;
+	pbeam->frame = (float)startFrame;
+	pbeam->frameRate = framerate;
+	pbeam->r = r;
+	pbeam->g = g;
+	pbeam->b = b;
+}
 
-	// kill all the ones hanging direcly off the base pointer
-	while( 1 ) 
-	{
-		kill = *ppparticles;
-		if( kill && kill->die < cl.time )
-		{
-			if( kill->deathfunc )
-				kill->deathfunc( kill );
-			kill->deathfunc = NULL;
-			*ppparticles = kill->next;
-			kill->next = cl_free_particles;
-			cl_free_particles = kill;
-			continue;
-		}
-		break;
-	}
 
-	// kill off all the others
-	for( p = *ppparticles; p; p = p->next )
-	{
-		while( 1 )
-		{
-			kill = p->next;
-			if( kill && kill->die < cl.time )
-			{
-				if( kill->deathfunc )
-					kill->deathfunc( kill );
-				kill->deathfunc = NULL;
-				p->next = kill->next;
-				kill->next = cl_free_particles;
-				cl_free_particles = kill;
-				continue;
-			}
-			break;
-		}
-	}
+
+/*
+==============
+R_BeamAlloc
+
+==============
+*/
+BEAM *R_BeamAlloc( void )
+{
+	BEAM	*pBeam;
+
+	if( !cl_free_beams )
+		return NULL;
+
+	pBeam = cl_free_beams;
+	cl_free_beams = pBeam->next;
+	memset( pBeam, 0, sizeof( *pBeam ));
+	pBeam->next = cl_active_beams;
+	cl_active_beams = pBeam;
+	pBeam->die = cl.time;
+
+	return pBeam;
+}
+
+/*
+==============
+R_BeamFree
+
+==============
+*/
+void R_BeamFree( BEAM *pBeam )
+{
+	// free particles that have died off.
+	R_FreeDeadParticles( &pBeam->particles );
+
+	// now link into free list;
+	pBeam->next = cl_free_beams;
+	cl_free_beams = pBeam;
+}
+
+
+/*
+================
+CL_InitViewBeams
+
+================
+*/
+void CL_InitViewBeams( void )
+{
+	cl_viewbeams = Mem_Calloc( cls.mempool, sizeof( BEAM ) * GI->max_beams );
+	CL_ClearViewBeams();
 }
 
 /*
 ================
-CL_DrawParticles
+CL_ClearViewBeams
 
-update particle color, position, free expired and draw it
 ================
 */
-void CL_DrawParticles( double frametime )
+void CL_ClearViewBeams( void )
 {
-	particle_t	*p;
-	float		time3 = 15.0f * frametime;
-	float		time2 = 10.0f * frametime;
-	float		time1 = 5.0f * frametime;
-	float		dvel = 4.0f * frametime;
-	float		grav = frametime * clgame.movevars.gravity * 0.05f;
-	vec3_t		right, up;
-	color24		*pColor;
-	int		alpha;
-	float		size;
-
-	if( !cl_draw_particles->value )
-		return;
-
-	R_FreeDeadParticles( &cl_active_particles );
-
-	if( !cl_active_particles )
-		return;	// nothing to draw?
-
-	pglEnable( GL_BLEND );
-	pglDisable( GL_ALPHA_TEST );
-	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-
-	GL_Bind( XASH_TEXTURE0, tr.particleTexture );
-	pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-	pglDepthMask( GL_FALSE );
-
-	pglBegin( GL_QUADS );
-
-	for( p = cl_active_particles; p; p = p->next )
-	{
-		if(( p->type != pt_blob ) || ( p->packedColor == 255 ))
-		{
-			size = PART_SIZE; // get initial size of particle
-
-			// scale up to keep particles from disappearing
-			size += (p->org[0] - RI.vieworg[0]) * RI.cull_vforward[0];
-			size += (p->org[1] - RI.vieworg[1]) * RI.cull_vforward[1];
-			size += (p->org[2] - RI.vieworg[2]) * RI.cull_vforward[2];
-
-			if( size < 20.0f ) size = PART_SIZE;
-			else size = PART_SIZE + size * 0.002f;
-
-			// scale the axes by radius
-			VectorScale( RI.cull_vright, size, right );
-			VectorScale( RI.cull_vup, size, up );
-
-			p->color = bound( 0, p->color, 255 );
-			pColor = &clgame.palette[p->color];
-
-			alpha = 255 * (p->die - cl.time) * 16.0f;
-			if( alpha > 255 || p->type == pt_static )
-				alpha = 255;
-
-			pglColor4ub( LightToTexGamma( pColor->r ), LightToTexGamma( pColor->g ), LightToTexGamma( pColor->b ), alpha );
-
-			pglTexCoord2f( 0.0f, 1.0f );
-			pglVertex3f( p->org[0] - right[0] + up[0], p->org[1] - right[1] + up[1], p->org[2] - right[2] + up[2] );
-			pglTexCoord2f( 0.0f, 0.0f );
-			pglVertex3f( p->org[0] + right[0] + up[0], p->org[1] + right[1] + up[1], p->org[2] + right[2] + up[2] );
-			pglTexCoord2f( 1.0f, 0.0f );
-			pglVertex3f( p->org[0] + right[0] - up[0], p->org[1] + right[1] - up[1], p->org[2] + right[2] - up[2] );
-			pglTexCoord2f( 1.0f, 1.0f );
-			pglVertex3f( p->org[0] - right[0] - up[0], p->org[1] - right[1] - up[1], p->org[2] - right[2] - up[2] );
-			r_stats.c_particle_count++;
-		}
-
-		if( p->type != pt_clientcustom )
-		{
-			// update position.
-			VectorMA( p->org, frametime, p->vel, p->org );
-		}
-
-		switch( p->type )
-		{
-		case pt_static:
-			break;
-		case pt_fire:
-			p->ramp += time1;
-			if( p->ramp >= 6.0f ) p->die = -1.0f;
-			else p->color = ramp3[(int)p->ramp];
-			p->vel[2] += grav;
-			break;
-		case pt_explode:
-			p->ramp += time2;
-			if( p->ramp >= 8.0f ) p->die = -1.0f;
-			else p->color = ramp1[(int)p->ramp];
-			VectorMA( p->vel, dvel, p->vel, p->vel );
-			p->vel[2] -= grav;
-			break;
-		case pt_explode2:
-			p->ramp += time3;
-			if( p->ramp >= 8.0f ) p->die = -1.0f;
-			else p->color = ramp2[(int)p->ramp];
-			VectorMA( p->vel,-frametime, p->vel, p->vel );
-			p->vel[2] -= grav;
-			break;
-		case pt_blob:
-			if( p->packedColor == 255 )
-			{
-				// normal blob explosion
-				VectorMA( p->vel, dvel, p->vel, p->vel );
-				p->vel[2] -= grav;
-				break;
-			}
-		case pt_blob2:
-			if( p->packedColor == 255 )
-			{
-				// normal blob explosion
-				p->vel[0] -= p->vel[0] * dvel;
-				p->vel[1] -= p->vel[1] * dvel;
-				p->vel[2] -= grav;
-			}
-			else
-			{
-				p->ramp += time2;
-				if( p->ramp >= 9.0f ) p->ramp = 0.0f;
-				p->color = gSparkRamp[(int)p->ramp];
-				VectorMA( p->vel, -frametime * 0.5f, p->vel, p->vel );
-				p->type = COM_RandomLong( 0, 3 ) ? pt_blob : pt_blob2;
-				p->vel[2] -= grav * 5.0f;
-			}
-			break;
-		case pt_grav:
-			p->vel[2] -= grav * 20.0f;
-			break;
-		case pt_slowgrav:
-			p->vel[2] -= grav;
-			break;
-		case pt_vox_grav:
-			p->vel[2] -= grav * 8.0f;
-			break;
-		case pt_vox_slowgrav:
-			p->vel[2] -= grav * 4.0f;
-			break;
-		case pt_clientcustom:
-			if( p->callback )
-				p->callback( p, frametime );
-			break;
-		}
-	}
-
-	pglEnd();
-	pglDepthMask( GL_TRUE );
-}
-
-/*
-================
-CL_CullTracer
-
-check tracer bbox
-================
-*/
-static qboolean CL_CullTracer( particle_t *p, const vec3_t start, const vec3_t end )
-{
-	vec3_t	mins, maxs;
 	int	i;
 
-	// compute the bounding box
-	for( i = 0; i < 3; i++ )
+	if( !cl_viewbeams ) return;
+
+	// clear beams
+	cl_free_beams = cl_viewbeams;
+	cl_active_beams = NULL;
+
+	for( i = 0; i < GI->max_beams - 1; i++ )
+		cl_viewbeams[i].next = &cl_viewbeams[i+1];
+	cl_viewbeams[GI->max_beams - 1].next = NULL;
+}
+
+/*
+================
+CL_FreeViewBeams
+
+================
+*/
+void CL_FreeViewBeams( void )
+{
+	if( cl_viewbeams )
+		Mem_Free( cl_viewbeams );
+	cl_viewbeams = NULL;
+}
+
+/*
+==============
+R_BeamGetEntity
+
+extract entity number from index
+handle user entities
+==============
+*/
+cl_entity_t *R_BeamGetEntity( int index )
+{
+	if( index < 0 )
+		return clgame.dllFuncs.pfnGetUserEntity( BEAMENT_ENTITY( -index ));
+	return CL_GetEntityByIndex( BEAMENT_ENTITY( index ));
+}
+
+/*
+==============
+CL_KillDeadBeams
+
+==============
+*/
+void CL_KillDeadBeams( cl_entity_t *pDeadEntity )
+{
+	BEAM		*pbeam;
+	BEAM		*pnewlist;
+	BEAM		*pnext;
+	particle_t	*pHead;	// build a new list to replace cl_active_beams.
+
+	pbeam = cl_active_beams;	// old list.
+	pnewlist = NULL;		// new list.
+
+	while( pbeam )
 	{
-		if( start[i] < end[i] )
+		cl_entity_t *beament;
+		pnext = pbeam->next;
+
+		// link into new list.
+		if( R_BeamGetEntity( pbeam->startEntity ) != pDeadEntity )
 		{
-			mins[i] = start[i];
-			maxs[i] = end[i];
+			pbeam->next = pnewlist;
+			pnewlist = pbeam;
+
+			pbeam = pnext;
+			continue;
+		}
+
+		pbeam->flags &= ~(FBEAM_STARTENTITY | FBEAM_ENDENTITY);
+
+		if( pbeam->type != TE_BEAMFOLLOW )
+		{
+			// remove beam
+			pbeam->die = cl.time - 0.1f;
+
+			// kill off particles
+			pHead = pbeam->particles;
+			while( pHead )
+			{
+				pHead->die = cl.time - 0.1f;
+				pHead = pHead->next;
+			}
+
+			// free the beam
+			R_BeamFree( pbeam );
 		}
 		else
 		{
-			mins[i] = end[i];
-			maxs[i] = start[i];
+			// stay active
+			pbeam->next = pnewlist;
+			pnewlist = pbeam;
 		}
-		
-		// don't let it be zero sized
-		if( mins[i] == maxs[i] )
-		{
-			maxs[i] += gTracerSize[p->type] * 2.0f;
-		}
+
+		pbeam = pnext;
 	}
 
-	// check bbox
-	return R_CullBox( mins, maxs );
+	// We now have a new list with the bogus stuff released.
+	cl_active_beams = pnewlist;
 }
 
-/*
-================
-CL_DrawTracers
-
-update tracer color, position, free expired and draw it
-================
-*/
-void CL_DrawTracers( double frametime )
-{
-	float		scale, atten, gravity;
-	vec3_t		screenLast, screen;
-	vec3_t		start, end, delta;
-	particle_t	*p;
-
-	if( !cl_draw_tracers->value )
-		return;
-
-	// update tracer color if this is changed
-	if( FBitSet( tracerred->flags|tracergreen->flags|tracerblue->flags|traceralpha->flags, FCVAR_CHANGED ))
-	{
-		gTracerColors[4].r = (byte)(tracerred->value * traceralpha->value * 255);
-		gTracerColors[4].g = (byte)(tracergreen->value * traceralpha->value * 255);
-		gTracerColors[4].b = (byte)(tracerblue->value * traceralpha->value * 255);
-		ClearBits( tracerred->flags, FCVAR_CHANGED );
-		ClearBits( tracergreen->flags, FCVAR_CHANGED );
-		ClearBits( tracerblue->flags, FCVAR_CHANGED );
-		ClearBits( traceralpha->flags, FCVAR_CHANGED );
-	}
-
-	R_FreeDeadParticles( &cl_active_tracers );
-
-	if( !cl_active_tracers )
-		return;	// nothing to draw?
-
-	if( !TriSpriteTexture( cl_sprite_dot, 0 ))
-		return;
-
-	pglEnable( GL_BLEND );
-	pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
-	pglDisable( GL_ALPHA_TEST );
-	pglDepthMask( GL_FALSE );
-
-	gravity = frametime * clgame.movevars.gravity;
-	scale = 1.0 - (frametime * 0.9);
-	if( scale < 0.0f ) scale = 0.0f;
-
-	for( p = cl_active_tracers; p; p = p->next )
-	{
-		atten = (p->die - cl.time);
-		if( atten > 0.1f ) atten = 0.1f;
-
-		VectorScale( p->vel, ( p->ramp * atten ), delta );
-		VectorAdd( p->org, delta, end );
-		VectorCopy( p->org, start );
-
-		if( !CL_CullTracer( p, start, end ))
-		{
-			vec3_t	verts[4], tmp2;
-			vec3_t	tmp, normal;
-			color24	*pColor;
-
-			// Transform point into screen space
-			TriWorldToScreen( start, screen );
-			TriWorldToScreen( end, screenLast );
-
-			// build world-space normal to screen-space direction vector
-			VectorSubtract( screen, screenLast, tmp );
-
-			// we don't need Z, we're in screen space
-			tmp[2] = 0;
-			VectorNormalize( tmp );
-
-			// build point along noraml line (normal is -y, x)
-			VectorScale( RI.cull_vup, tmp[0] * gTracerSize[p->type], normal );
-			VectorScale( RI.cull_vright, -tmp[1] * gTracerSize[p->type], tmp2 );
-			VectorSubtract( normal, tmp2, normal );
-
-			// compute four vertexes
-			VectorSubtract( start, normal, verts[0] ); 
-			VectorAdd( start, normal, verts[1] ); 
-			VectorAdd( verts[0], delta, verts[2] ); 
-			VectorAdd( verts[1], delta, verts[3] ); 
-
-			pColor = &gTracerColors[p->color];
-			pglColor4ub( pColor->r, pColor->g, pColor->b, p->packedColor );
-
-			pglBegin( GL_QUADS );
-				pglTexCoord2f( 0.0f, 0.8f );
-				pglVertex3fv( verts[2] );
-				pglTexCoord2f( 1.0f, 0.8f );
-				pglVertex3fv( verts[3] );
-				pglTexCoord2f( 1.0f, 0.0f );
-				pglVertex3fv( verts[1] );
-				pglTexCoord2f( 0.0f, 0.0f );
-				pglVertex3fv( verts[0] );
-			pglEnd();
-		}
-
-		// evaluate position
-		VectorMA( p->org, frametime, p->vel, p->org );
-
-		if( p->type == pt_grav )
-		{
-			p->vel[0] *= scale;
-			p->vel[1] *= scale;
-			p->vel[2] -= gravity;
-
-			p->packedColor = 255 * (p->die - cl.time) * 2;
-			if( p->packedColor > 255 ) p->packedColor = 255;
-		}
-		else if( p->type == pt_slowgrav )
-		{
-			p->vel[2] = gravity * 0.05;
-		}
-	}
-
-	pglDepthMask( GL_TRUE );
-}
 
 /*
 ===============
-CL_DrawParticlesExternal
+CL_ReadLineFile_f
 
-allow to draw effects from custom renderer
+Optimized version of pointfile - use beams instead of particles
 ===============
 */
-void CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean trans_pass, float frametime )
+void CL_ReadLineFile_f( void )
 {
-	ref_instance_t	oldRI = RI;
+	char		*afile, *pfile;
+	vec3_t		p1, p2;
+	int		count, modelIndex;
+	char		filename[MAX_QPATH];
+	model_t		*model;
+	string		token;
 
-	memcpy( &oldRI, &RI, sizeof( ref_instance_t ));
-	R_SetupRefParams( rvp );
-	R_SetupFrustum();
-	R_SetupGL( false );	// don't touch GL-states
+	Q_snprintf( filename, sizeof( filename ), "maps/%s.lin", clgame.mapname );
+	afile = FS_LoadFile( filename, NULL, false );
 
-	// setup PVS for frame
-	memcpy( RI.visbytes, tr.visbytes, world.visbytes );
-	tr.frametime = frametime;
-
-	if( trans_pass == false )
+	if( !afile )
 	{
-		CL_DrawBeams( false );
-	}
-	else
-	{
-		CL_DrawBeams( true );
-		CL_DrawParticles( tr.frametime );
-		CL_DrawTracers( tr.frametime );
+		Con_Printf( S_ERROR "couldn't open %s\n", filename );
+		return;
 	}
 
-	// restore internal state
-	memcpy( &RI, &oldRI, sizeof( ref_instance_t ));
+	Con_Printf( "Reading %s...\n", filename );
+
+	count = 0;
+	pfile = afile;
+	model = CL_LoadModel( DEFAULT_LASERBEAM_PATH, &modelIndex );
+
+	while( 1 )
+	{
+		pfile = COM_ParseFile( pfile, token );
+		if( !pfile ) break;
+		p1[0] = Q_atof( token );
+
+		pfile = COM_ParseFile( pfile, token );
+		if( !pfile ) break;
+		p1[1] = Q_atof( token );
+
+		pfile = COM_ParseFile( pfile, token );
+		if( !pfile ) break;
+		p1[2] = Q_atof( token );
+
+		pfile = COM_ParseFile( pfile, token );
+		if( !pfile ) break;
+
+		if( token[0] != '-' )
+		{
+			Con_Printf( S_ERROR "%s is corrupted\n", filename );
+			break;
+		}
+
+		pfile = COM_ParseFile( pfile, token );
+		if( !pfile ) break;
+		p2[0] = Q_atof( token );
+
+		pfile = COM_ParseFile( pfile, token );
+		if( !pfile ) break;
+		p2[1] = Q_atof( token );
+
+		pfile = COM_ParseFile( pfile, token );
+		if( !pfile ) break;
+		p2[2] = Q_atof( token );
+
+		count++;
+
+		if( !R_BeamPoints( p1, p2, modelIndex, 0, 2, 0, 255, 0, 0, 0, 255.0f, 0.0f, 0.0f ))
+		{
+			if( !model || model->type != mod_sprite )
+				Con_Printf( S_ERROR "failed to load \"%s\"!\n", DEFAULT_LASERBEAM_PATH );
+			else Con_Printf( S_ERROR "not enough free beams!\n" );
+			break;
+		}
+	}
+
+	Mem_Free( afile );
+
+	if( count ) Con_Printf( "%i lines read\n", count );
+	else Con_Printf( "map %s has no leaks!\n", clgame.mapname );
 }
+
+
+/*
+==============
+R_BeamSprite
+
+Create a beam with sprite at the end
+Valve legacy
+==============
+*/
+static void CL_BeamSprite( vec3_t start, vec3_t end, int beamIndex, int spriteIndex )
+{
+	R_BeamPoints( start, end, beamIndex, 0.01f, 0.4f, 0, COM_RandomFloat( 0.5f, 0.655f ), 5.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f );
+	R_TempSprite( end, vec3_origin, 0.1f, spriteIndex, kRenderTransAdd, kRenderFxNone, 0.35f, 0.01f, 0.0f );
+}
+
+
+/*
+==============
+R_BeamSetup
+
+generic function. all beams must be
+passed through this
+==============
+*/
+static void R_BeamSetup( BEAM *pbeam, vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude, float brightness, float speed )
+{
+	model_t	*sprite = CL_ModelHandle( modelIndex );
+
+	if( !sprite ) return;
+
+	pbeam->type = BEAM_POINTS;
+	pbeam->modelIndex = modelIndex;
+	pbeam->frame = 0;
+	pbeam->frameRate = 0;
+	pbeam->frameCount = sprite->numframes;
+
+	VectorCopy( start, pbeam->source );
+	VectorCopy( end, pbeam->target );
+	VectorSubtract( end, start, pbeam->delta );
+
+	pbeam->freq = speed * cl.time;
+	pbeam->die = life + cl.time;
+	pbeam->amplitude = amplitude;
+	pbeam->brightness = brightness;
+	pbeam->width = width;
+	pbeam->speed = speed;
+
+	if( amplitude >= 0.50f )
+		pbeam->segments = VectorLength( pbeam->delta ) * 0.25f + 3.0f;	// one per 4 pixels
+	else pbeam->segments = VectorLength( pbeam->delta ) * 0.075f + 3.0f;		// one per 16 pixels
+
+	pbeam->pFollowModel = NULL;
+	pbeam->flags = 0;
+}
+
+/*
+==============
+CL_BeamAttemptToDie
+
+Check for expired beams
+==============
+*/
+qboolean CL_BeamAttemptToDie( BEAM *pBeam )
+{
+	Assert( pBeam != NULL );
+
+	// premanent beams never die automatically
+	if( FBitSet( pBeam->flags, FBEAM_FOREVER ))
+		return false;
+
+	if( pBeam->type == TE_BEAMFOLLOW && pBeam->particles )
+	{
+		// wait for all trails are dead
+		return false;
+	}
+
+	// other beams
+	if( pBeam->die > cl.time )
+		return false;
+
+	return true;
+}
+
+/*
+==============
+R_BeamKill
+
+Remove beam attached to specified entity
+and all particle trails (if this is a beamfollow)
+==============
+*/
+void R_BeamKill( int deadEntity )
+{
+	cl_entity_t	*pDeadEntity;
+
+	pDeadEntity = R_BeamGetEntity( deadEntity );
+	if( !pDeadEntity ) return;
+
+	CL_KillDeadBeams( pDeadEntity );
+}
+
+/*
+==============
+CL_ParseViewBeam
+
+handle beam messages
+==============
+*/
+void CL_ParseViewBeam( sizebuf_t *msg, int beamType )
+{
+	vec3_t	start, end;
+	int	modelIndex, startFrame;
+	float	frameRate, life, width;
+	int	startEnt, endEnt;
+	float	noise, speed;
+	float	r, g, b, a;
+
+	switch( beamType )
+	{
+	case TE_BEAMPOINTS:
+		start[0] = MSG_ReadCoord( msg );
+		start[1] = MSG_ReadCoord( msg );
+		start[2] = MSG_ReadCoord( msg );
+		end[0] = MSG_ReadCoord( msg );
+		end[1] = MSG_ReadCoord( msg );
+		end[2] = MSG_ReadCoord( msg );
+		modelIndex = MSG_ReadShort( msg );
+		startFrame = MSG_ReadByte( msg );
+		frameRate = (float)MSG_ReadByte( msg );
+		life = (float)(MSG_ReadByte( msg ) * 0.1f);
+		width = (float)(MSG_ReadByte( msg ) * 0.1f);
+		noise = (float)(MSG_ReadByte( msg ) * 0.01f);
+		r = (float)MSG_ReadByte( msg ) / 255.0f;
+		g = (float)MSG_ReadByte( msg ) / 255.0f;
+		b = (float)MSG_ReadByte( msg ) / 255.0f;
+		a = (float)MSG_ReadByte( msg ) / 255.0f;
+		speed = (float)(MSG_ReadByte( msg ) * 0.1f);
+		R_BeamPoints( start, end, modelIndex, life, width, noise, a, speed, startFrame, frameRate, r, g, b );
+		break;
+	case TE_BEAMENTPOINT:
+		startEnt = MSG_ReadShort( msg );
+		end[0] = MSG_ReadCoord( msg );
+		end[1] = MSG_ReadCoord( msg );
+		end[2] = MSG_ReadCoord( msg );
+		modelIndex = MSG_ReadShort( msg );
+		startFrame = MSG_ReadByte( msg );
+		frameRate = (float)MSG_ReadByte( msg );
+		life = (float)(MSG_ReadByte( msg ) * 0.1f);
+		width = (float)(MSG_ReadByte( msg ) * 0.1f);
+		noise = (float)(MSG_ReadByte( msg ) * 0.01f);
+		r = (float)MSG_ReadByte( msg ) / 255.0f;
+		g = (float)MSG_ReadByte( msg ) / 255.0f;
+		b = (float)MSG_ReadByte( msg ) / 255.0f;
+		a = (float)MSG_ReadByte( msg ) / 255.0f;
+		speed = (float)(MSG_ReadByte( msg ) * 0.1f);
+		R_BeamEntPoint( startEnt, end, modelIndex, life, width, noise, a, speed, startFrame, frameRate, r, g, b );
+		break;
+	case TE_LIGHTNING:
+		start[0] = MSG_ReadCoord( msg );
+		start[1] = MSG_ReadCoord( msg );
+		start[2] = MSG_ReadCoord( msg );
+		end[0] = MSG_ReadCoord( msg );
+		end[1] = MSG_ReadCoord( msg );
+		end[2] = MSG_ReadCoord( msg );
+		life = (float)(MSG_ReadByte( msg ) * 0.1f);
+		width = (float)(MSG_ReadByte( msg ) * 0.1f);
+		noise = (float)(MSG_ReadByte( msg ) * 0.01f);
+		modelIndex = MSG_ReadShort( msg );
+		R_BeamLightning( start, end, modelIndex, life, width, noise, 0.6F, 3.5f );
+		break;
+	case TE_BEAMENTS:
+		startEnt = MSG_ReadShort( msg );
+		endEnt = MSG_ReadShort( msg );
+		modelIndex = MSG_ReadShort( msg );
+		startFrame = MSG_ReadByte( msg );
+		frameRate = (float)(MSG_ReadByte( msg ) * 0.1f);
+		life = (float)(MSG_ReadByte( msg ) * 0.1f);
+		width = (float)(MSG_ReadByte( msg ) * 0.1f);
+		noise = (float)(MSG_ReadByte( msg ) * 0.01f);
+		r = (float)MSG_ReadByte( msg ) / 255.0f;
+		g = (float)MSG_ReadByte( msg ) / 255.0f;
+		b = (float)MSG_ReadByte( msg ) / 255.0f;
+		a = (float)MSG_ReadByte( msg ) / 255.0f;
+		speed = (float)(MSG_ReadByte( msg ) * 0.1f);
+		R_BeamEnts( startEnt, endEnt, modelIndex, life, width, noise, a, speed, startFrame, frameRate, r, g, b );
+		break;
+	case TE_BEAM:
+		break;
+	case TE_BEAMSPRITE:
+		start[0] = MSG_ReadCoord( msg );
+		start[1] = MSG_ReadCoord( msg );
+		start[2] = MSG_ReadCoord( msg );
+		end[0] = MSG_ReadCoord( msg );
+		end[1] = MSG_ReadCoord( msg );
+		end[2] = MSG_ReadCoord( msg );
+		modelIndex = MSG_ReadShort( msg );	// beam model
+		startFrame = MSG_ReadShort( msg );	// sprite model
+		CL_BeamSprite( start, end, modelIndex, startFrame );
+		break;
+	case TE_BEAMTORUS:
+	case TE_BEAMDISK:
+	case TE_BEAMCYLINDER:
+		start[0] = MSG_ReadCoord( msg );
+		start[1] = MSG_ReadCoord( msg );
+		start[2] = MSG_ReadCoord( msg );
+		end[0] = MSG_ReadCoord( msg );
+		end[1] = MSG_ReadCoord( msg );
+		end[2] = MSG_ReadCoord( msg );
+		modelIndex = MSG_ReadShort( msg );
+		startFrame = MSG_ReadByte( msg );
+		frameRate = (float)(MSG_ReadByte( msg ));
+		life = (float)(MSG_ReadByte( msg ) * 0.1f);
+		width = (float)(MSG_ReadByte( msg ));
+		noise = (float)(MSG_ReadByte( msg ) * 0.1f);
+		r = (float)MSG_ReadByte( msg ) / 255.0f;
+		g = (float)MSG_ReadByte( msg ) / 255.0f;
+		b = (float)MSG_ReadByte( msg ) / 255.0f;
+		a = (float)MSG_ReadByte( msg ) / 255.0f;
+		speed = (float)(MSG_ReadByte( msg ) / 0.1f);
+		R_BeamCirclePoints( beamType, start, end, modelIndex, life, width, noise, a, speed, startFrame, frameRate, r, g, b );
+		break;
+	case TE_BEAMFOLLOW:
+		startEnt = MSG_ReadShort( msg );
+		modelIndex = MSG_ReadShort( msg );
+		life = (float)(MSG_ReadByte( msg ) * 0.1f);
+		width = (float)MSG_ReadByte( msg );
+		r = (float)MSG_ReadByte( msg ) / 255.0f;
+		g = (float)MSG_ReadByte( msg ) / 255.0f;
+		b = (float)MSG_ReadByte( msg ) / 255.0f;
+		a = (float)MSG_ReadByte( msg ) / 255.0f;
+		R_BeamFollow( startEnt, modelIndex, life, width, r, g, b, a );
+		break;
+	case TE_BEAMRING:
+		startEnt = MSG_ReadShort( msg );
+		endEnt = MSG_ReadShort( msg );
+		modelIndex = MSG_ReadShort( msg );
+		startFrame = MSG_ReadByte( msg );
+		frameRate = (float)MSG_ReadByte( msg );
+		life = (float)(MSG_ReadByte( msg ) * 0.1f);
+		width = (float)(MSG_ReadByte( msg ) * 0.1f);
+		noise = (float)(MSG_ReadByte( msg ) * 0.01f);
+		r = (float)MSG_ReadByte( msg ) / 255.0f;
+		g = (float)MSG_ReadByte( msg ) / 255.0f;
+		b = (float)MSG_ReadByte( msg ) / 255.0f;
+		a = (float)MSG_ReadByte( msg ) / 255.0f;
+		speed = (float)(MSG_ReadByte( msg ) * 0.1f);
+		R_BeamRing( startEnt, endEnt, modelIndex, life, width, noise, a, speed, startFrame, frameRate, r, g, b );
+		break;
+	case TE_BEAMHOSE:
+		break;
+	case TE_KILLBEAM:
+		startEnt = MSG_ReadShort( msg );
+		R_BeamKill( startEnt );
+		break;
+	}
+}
+
+
+/*
+==============
+R_BeamEnts
+
+Create beam between two ents
+==============
+*/
+BEAM *R_BeamEnts( int startEnt, int endEnt, int modelIndex, float life, float width, float amplitude, float brightness,
+	float speed, int startFrame, float framerate, float r, float g, float b )
+{
+	cl_entity_t	*start, *end;
+	BEAM		*pbeam;
+	model_t		*mod;
+
+	mod = CL_ModelHandle( modelIndex );
+
+	// need a valid model.
+	if( !mod || mod->type != mod_sprite )
+		return NULL;
+
+	start = R_BeamGetEntity( startEnt );
+	end = R_BeamGetEntity( endEnt );
+
+	if( !start || !end )
+		return NULL;
+
+	// don't start temporary beams out of the PVS
+	if( life != 0 && ( !start->model || !end->model ))
+		return NULL;
+
+	pbeam = R_BeamLightning( vec3_origin, vec3_origin, modelIndex, life, width, amplitude, brightness, speed );
+	if( !pbeam ) return NULL;
+
+	pbeam->type = TE_BEAMPOINTS;
+	SetBits( pbeam->flags, FBEAM_STARTENTITY | FBEAM_ENDENTITY );
+	if( life == 0 ) SetBits( pbeam->flags, FBEAM_FOREVER );
+
+	pbeam->startEntity = startEnt;
+	pbeam->endEntity = endEnt;
+
+	R_BeamSetAttributes( pbeam, r, g, b, framerate, startFrame );
+
+	return pbeam;
+}
+
+/*
+==============
+R_BeamPoints
+
+Create beam between two points
+==============
+*/
+BEAM *R_BeamPoints( vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude,
+	float brightness, float speed, int startFrame, float framerate, float r, float g, float b )
+{
+	BEAM	*pbeam;
+
+	if( life != 0 && ref.dllFuncs.R_BeamCull( start, end, true ))
+		return NULL;
+
+	pbeam = R_BeamAlloc();
+	if( !pbeam ) return NULL;
+
+	pbeam->die = cl.time;
+
+	if( modelIndex < 0 )
+		return NULL;
+
+	R_BeamSetup( pbeam, start, end, modelIndex, life, width, amplitude, brightness, speed );
+	if( life == 0 ) SetBits( pbeam->flags, FBEAM_FOREVER );
+
+	R_BeamSetAttributes( pbeam, r, g, b, framerate, startFrame );
+
+	return pbeam;
+}
+
+/*
+==============
+R_BeamCirclePoints
+
+Create beam cicrle
+==============
+*/
+BEAM *R_BeamCirclePoints( int type, vec3_t start, vec3_t end, int modelIndex, float life, float width,
+	float amplitude, float brightness, float speed, int startFrame, float framerate, float r, float g, float b )
+{
+	BEAM	*pbeam = R_BeamLightning( start, end, modelIndex, life, width, amplitude, brightness, speed );
+
+	if( !pbeam ) return NULL;
+	pbeam->type = type;
+	if( life == 0 ) SetBits( pbeam->flags, FBEAM_FOREVER );
+	R_BeamSetAttributes( pbeam, r, g, b, framerate, startFrame );
+
+	return pbeam;
+}
+
+
+/*
+==============
+R_BeamEntPoint
+
+Create beam between entity and point
+==============
+*/
+BEAM *R_BeamEntPoint( int startEnt, vec3_t end, int modelIndex, float life, float width, float amplitude,
+	float brightness, float speed, int startFrame, float framerate, float r, float g, float b )
+{
+	BEAM		*pbeam;
+	cl_entity_t	*start;
+
+	start = R_BeamGetEntity( startEnt );
+
+	if( !start ) return NULL;
+
+	if( life == 0 && !start->model )
+		return NULL;
+
+	pbeam = R_BeamAlloc();
+	if ( !pbeam ) return NULL;
+
+	pbeam->die = cl.time;
+	if( modelIndex < 0 )
+		return NULL;
+
+	R_BeamSetup( pbeam, vec3_origin, end, modelIndex, life, width, amplitude, brightness, speed );
+
+	pbeam->type = TE_BEAMPOINTS;
+	SetBits( pbeam->flags, FBEAM_STARTENTITY );
+	if( life == 0 ) SetBits( pbeam->flags, FBEAM_FOREVER );
+	pbeam->startEntity = startEnt;
+	pbeam->endEntity = 0;
+
+	R_BeamSetAttributes( pbeam, r, g, b, framerate, startFrame );
+
+	return pbeam;
+}
+
+/*
+==============
+R_BeamRing
+
+Create beam between two ents
+==============
+*/
+BEAM *R_BeamRing( int startEnt, int endEnt, int modelIndex, float life, float width, float amplitude, float brightness,
+	float speed, int startFrame, float framerate, float r, float g, float b )
+{
+	BEAM		*pbeam;
+	cl_entity_t	*start, *end;
+
+	start = R_BeamGetEntity( startEnt );
+	end = R_BeamGetEntity( endEnt );
+
+	if( !start || !end )
+		return NULL;
+
+	if( life != 0 && ( !start->model || !end->model ))
+		return NULL;
+
+	pbeam = R_BeamLightning( vec3_origin, vec3_origin, modelIndex, life, width, amplitude, brightness, speed );
+	if( !pbeam ) return NULL;
+
+	pbeam->type = TE_BEAMRING;
+	SetBits( pbeam->flags, FBEAM_STARTENTITY | FBEAM_ENDENTITY );
+	if( life == 0 ) SetBits( pbeam->flags, FBEAM_FOREVER );
+	pbeam->startEntity = startEnt;
+	pbeam->endEntity = endEnt;
+
+	R_BeamSetAttributes( pbeam, r, g, b, framerate, startFrame );
+
+	return pbeam;
+}
+
+/*
+==============
+R_BeamFollow
+
+Create beam following with entity
+==============
+*/
+BEAM *R_BeamFollow( int startEnt, int modelIndex, float life, float width, float r, float g, float b, float brightness )
+{
+	BEAM	*pbeam = R_BeamAlloc();
+
+	if( !pbeam ) return NULL;
+	pbeam->die = cl.time;
+
+	if( modelIndex < 0 )
+		return NULL;
+
+	R_BeamSetup( pbeam, vec3_origin, vec3_origin, modelIndex, life, width, life, brightness, 1.0f );
+
+	pbeam->type = TE_BEAMFOLLOW;
+	SetBits( pbeam->flags, FBEAM_STARTENTITY );
+	pbeam->startEntity = startEnt;
+
+	R_BeamSetAttributes( pbeam, r, g, b, 1.0f, 0 );
+
+	return pbeam;
+}
+
+
+/*
+==============
+R_BeamLightning
+
+template for new beams
+==============
+*/
+BEAM *R_BeamLightning( vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude, float brightness, float speed )
+{
+	BEAM	*pbeam = R_BeamAlloc();
+
+	if( !pbeam ) return NULL;
+	pbeam->die = cl.time;
+
+	if( modelIndex < 0 )
+		return NULL;
+
+	R_BeamSetup( pbeam, start, end, modelIndex, life, width, amplitude, brightness, speed );
+
+	return pbeam;
+}
+
+
 
 /*
 ===============
@@ -705,7 +1057,7 @@ void R_EntityParticles( cl_entity_t *ent )
 {
 	float		angle;
 	float		sr, sp, sy, cr, cp, cy;
-	vec3_t		forward;	
+	vec3_t		forward;
 	particle_t	*p;
 	int		i;
 
@@ -720,8 +1072,8 @@ void R_EntityParticles( cl_entity_t *ent )
 		SinCos( angle, &sp, &cp );
 		angle = cl.time * cl_avelocities[i][2];
 		SinCos( angle, &sr, &cr );
-	
-		VectorSet( forward, cp * cy, cp * sy, -sp ); 
+
+		VectorSet( forward, cp * cy, cp * sy, -sp );
 
 		p->die = cl.time + 0.001f;
 		p->color = 111; // yellow
@@ -849,7 +1201,7 @@ void R_RunParticleEffect( const vec3_t org, const vec3_t dir, int color, int cou
 		R_ParticleExplosion( org );
 		return;
 	}
-	
+
 	for( i = 0; i < count; i++ )
 	{
 		p = R_AllocParticle( NULL );
@@ -1003,7 +1355,7 @@ void R_LavaSplash( const vec3_t org )
 				p->die = cl.time + COM_RandomFloat( 2.0f, 2.62f );
 				p->color = COM_RandomLong( 224, 231 );
 				p->type = pt_slowgrav;
-				
+
 				dir[0] = j * 8.0f + COM_RandomFloat( 0.0f, 7.0f );
 				dir[1] = i * 8.0f + COM_RandomFloat( 0.0f, 7.0f );
 				dir[2] = 256.0f;
@@ -1121,19 +1473,19 @@ void R_TeleportSplash( const vec3_t org )
 			{
 				p = R_AllocParticle( NULL );
 				if( !p ) return;
-		
+
 				p->die = cl.time + COM_RandomFloat( 0.2f, 0.34f );
 				p->color = COM_RandomLong( 7, 14 );
 				p->type = pt_slowgrav;
-				
+
 				dir[0] = j * 8.0f;
 				dir[1] = i * 8.0f;
 				dir[2] = k * 8.0f;
-	
+
 				p->org[0] = org[0] + i + COM_RandomFloat( 0.0f, 3.0f );
 				p->org[1] = org[1] + j + COM_RandomFloat( 0.0f, 3.0f );
 				p->org[2] = org[2] + k + COM_RandomFloat( 0.0f, 3.0f );
-	
+
 				VectorNormalize( dir );
 				vel = COM_RandomFloat( 50.0f, 113.0f );
 				VectorScale( dir, vel, p->vel );
@@ -1182,7 +1534,7 @@ void R_RocketTrail( vec3_t start, vec3_t end, int type )
 
 		p = R_AllocParticle( NULL );
 		if( !p ) return;
-		
+
 		p->die = cl.time + 2.0f;
 
 		switch( type )
@@ -1312,7 +1664,7 @@ void R_ShowLine( const vec3_t start, const vec3_t end )
 	len = VectorNormalizeLength( dir );
 	VectorScale( dir, 5.0f, dir );
 	VectorCopy( start, org );
-	
+
 	while( len > 0 )
 	{
 		len -= 5.0f;
@@ -1341,8 +1693,8 @@ void R_BulletImpactParticles( const vec3_t pos )
 	float		dist;
 	vec3_t		dir;
 	particle_t	*p;
-	
-	VectorSubtract( pos, RI.vieworg, dir );
+
+	VectorSubtract( pos, refState.vieworg, dir );
 	dist = VectorLength( dir );
 	if( dist > 1000.0f ) dist = 1000.0f;
 
@@ -1407,7 +1759,7 @@ create a splash of streaks
 void R_StreakSplash( const vec3_t pos, const vec3_t dir, int color, int count, float speed, int velocityMin, int velocityMax )
 {
 	vec3_t		vel, vel2;
-	particle_t	*p;	
+	particle_t	*p;
 	int		i;
 
 	VectorScale( dir, speed, vel );
@@ -1503,12 +1855,6 @@ void R_UserTracerParticle( float *org, float *vel, float life, int colorIndex, f
 	if( colorIndex < 0 )
 		return;
 
-	if( colorIndex > ARRAYSIZE( gTracerColors ))
-	{
-		Con_Printf( S_ERROR "UserTracer with color > %d\n", ARRAYSIZE( gTracerColors ));
-		return;
-	}
-
 	if(( p = R_AllocTracer( org, vel, life )) != NULL )
 	{
 		p->context = deathcontext;
@@ -1542,7 +1888,7 @@ void R_SparkStreaks( const vec3_t pos, int count, int velocityMin, int velocityM
 	particle_t	*p;
 	vec3_t		vel;
 	int		i;
-	
+
 	for( i = 0; i<count; i++ )
 	{
 		vel[0] = COM_RandomFloat( velocityMin, velocityMax );
@@ -1591,6 +1937,56 @@ void R_Implosion( const vec3_t end, float radius, int count, float life )
 	}
 }
 
+
+/*
+==============
+R_FreeDeadParticles
+
+Free particles that time has expired
+==============
+*/
+void R_FreeDeadParticles( particle_t **ppparticles )
+{
+	particle_t	*p, *kill;
+
+	// kill all the ones hanging direcly off the base pointer
+	while( 1 )
+	{
+		kill = *ppparticles;
+		if( kill && kill->die < cl.time )
+		{
+			if( kill->deathfunc )
+				kill->deathfunc( kill );
+			kill->deathfunc = NULL;
+			*ppparticles = kill->next;
+			kill->next = cl_free_particles;
+			cl_free_particles = kill;
+			continue;
+		}
+		break;
+	}
+
+	// kill off all the others
+	for( p = *ppparticles; p; p = p->next )
+	{
+		while( 1 )
+		{
+			kill = p->next;
+			if( kill && kill->die < cl.time )
+			{
+				if( kill->deathfunc )
+					kill->deathfunc( kill );
+				kill->deathfunc = NULL;
+				p->next = kill->next;
+				kill->next = cl_free_particles;
+				cl_free_particles = kill;
+				continue;
+			}
+			break;
+		}
+	}
+}
+
 /*
 ===============
 CL_ReadPointFile_f
@@ -1605,7 +2001,7 @@ void CL_ReadPointFile_f( void )
 	particle_t	*p;
 	char		filename[64];
 	string		token;
-	
+
 	Q_snprintf( filename, sizeof( filename ), "maps/%s.pts", clgame.mapname );
 	afile = FS_LoadFile( filename, NULL, false );
 
@@ -1614,7 +2010,7 @@ void CL_ReadPointFile_f( void )
 		Con_Printf( S_ERROR "couldn't open %s\n", filename );
 		return;
 	}
-	
+
 	Con_Printf( "Reading %s...\n", filename );
 
 	count = 0;
@@ -1635,7 +2031,7 @@ void CL_ReadPointFile_f( void )
 		org[2] = Q_atof( token );
 
 		count++;
-		
+
 		if( !cl_free_particles )
 		{
 			Con_Printf( S_ERROR "not enough free particles!\n" );
@@ -1649,7 +2045,7 @@ void CL_ReadPointFile_f( void )
 		p->next = cl_active_particles;
 		cl_active_particles = p;
 
-		p->ramp = 0;		
+		p->ramp = 0;
 		p->type = pt_static;
 		p->die = cl.time + 99999;
 		p->color = (-count) & 15;
@@ -1662,3 +2058,132 @@ void CL_ReadPointFile_f( void )
 	if( count ) Con_Printf( "%i points read\n", count );
 	else Con_Printf( "map %s has no leaks!\n", clgame.mapname );
 }
+
+void CL_FreeDeadBeams()
+{
+	BEAM *pBeam, *pNext, *pPrev = NULL;
+	// draw temporary entity beams
+	for( pBeam = cl_active_beams; pBeam; pBeam = pNext )
+	{
+		// need to store the next one since we may delete this one
+		pNext = pBeam->next;
+
+		// retire old beams
+		if( CL_BeamAttemptToDie( pBeam ))
+		{
+			// reset links
+			if( pPrev ) pPrev->next = pNext;
+			else cl_active_beams = pNext;
+
+			// free the beam
+			R_BeamFree( pBeam );
+
+			pBeam = NULL;
+			continue;
+		}
+
+		pPrev = pBeam;
+	}
+}
+
+void CL_DrawEFX( float time, qboolean fTrans )
+{
+	CL_FreeDeadBeams();
+	if( CVAR_TO_BOOL( cl_draw_beams ))
+		ref.dllFuncs.CL_DrawBeams( fTrans, cl_active_beams );
+
+	if( fTrans )
+	{
+		R_FreeDeadParticles( &cl_active_particles );
+		if( CVAR_TO_BOOL( cl_draw_particles ))
+			ref.dllFuncs.CL_DrawParticles( time, cl_active_particles, PART_SIZE );
+		R_FreeDeadParticles( &cl_active_tracers );
+		if( CVAR_TO_BOOL( cl_draw_tracers ))
+			ref.dllFuncs.CL_DrawTracers( time, cl_active_tracers );
+	}
+}
+
+void CL_ThinkParticle( double frametime, particle_t *p )
+{
+	float		time3 = 15.0f * frametime;
+	float		time2 = 10.0f * frametime;
+	float		time1 = 5.0f * frametime;
+	float		dvel = 4.0f * frametime;
+	float		grav = frametime * clgame.movevars.gravity * 0.05f;
+
+
+	if( p->type != pt_clientcustom )
+	{
+		// update position.
+		VectorMA( p->org, frametime, p->vel, p->org );
+	}
+
+	switch( p->type )
+	{
+	case pt_static:
+		break;
+	case pt_fire:
+		p->ramp += time1;
+		if( p->ramp >= 6.0f ) p->die = -1.0f;
+		else p->color = ramp3[(int)p->ramp];
+		p->vel[2] += grav;
+		break;
+	case pt_explode:
+		p->ramp += time2;
+		if( p->ramp >= 8.0f ) p->die = -1.0f;
+		else p->color = ramp1[(int)p->ramp];
+		VectorMA( p->vel, dvel, p->vel, p->vel );
+		p->vel[2] -= grav;
+		break;
+	case pt_explode2:
+		p->ramp += time3;
+		if( p->ramp >= 8.0f ) p->die = -1.0f;
+		else p->color = ramp2[(int)p->ramp];
+		VectorMA( p->vel,-frametime, p->vel, p->vel );
+		p->vel[2] -= grav;
+		break;
+	case pt_blob:
+		if( p->packedColor == 255 )
+		{
+			// normal blob explosion
+			VectorMA( p->vel, dvel, p->vel, p->vel );
+			p->vel[2] -= grav;
+			break;
+		}
+	case pt_blob2:
+		if( p->packedColor == 255 )
+		{
+			// normal blob explosion
+			p->vel[0] -= p->vel[0] * dvel;
+			p->vel[1] -= p->vel[1] * dvel;
+			p->vel[2] -= grav;
+		}
+		else
+		{
+			p->ramp += time2;
+			if( p->ramp >= 9.0f ) p->ramp = 0.0f;
+			p->color = gSparkRamp[(int)p->ramp];
+			VectorMA( p->vel, -frametime * 0.5f, p->vel, p->vel );
+			p->type = COM_RandomLong( 0, 3 ) ? pt_blob : pt_blob2;
+			p->vel[2] -= grav * 5.0f;
+		}
+		break;
+	case pt_grav:
+		p->vel[2] -= grav * 20.0f;
+		break;
+	case pt_slowgrav:
+		p->vel[2] -= grav;
+		break;
+	case pt_vox_grav:
+		p->vel[2] -= grav * 8.0f;
+		break;
+	case pt_vox_slowgrav:
+		p->vel[2] -= grav * 4.0f;
+		break;
+	case pt_clientcustom:
+		if( p->callback )
+			p->callback( p, frametime );
+		break;
+	}
+}
+

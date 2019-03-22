@@ -17,9 +17,9 @@ GNU General Public License for more details.
 #include "client.h"
 #include "const.h"
 #include "entity_types.h"
-#include "gl_local.h"
 #include "vgui_draw.h"
 #include "sound.h"
+#include "platform/platform.h" // GL_UpdateSwapInterval
 
 /*
 ===============
@@ -59,17 +59,17 @@ void V_CalcViewRect( void )
 	}
 	size /= 100.0;
 
-	clgame.viewport[2] = glState.width * size;
-	clgame.viewport[3] = glState.height * size;
+	clgame.viewport[2] = refState.width * size;
+	clgame.viewport[3] = refState.height * size;
 
-	if( clgame.viewport[3] > glState.height - sb_lines )
-		clgame.viewport[3] = glState.height - sb_lines;
-	if( clgame.viewport[3] > glState.height )
-		clgame.viewport[3] = glState.height;
+	if( clgame.viewport[3] > refState.height - sb_lines )
+		clgame.viewport[3] = refState.height - sb_lines;
+	if( clgame.viewport[3] > refState.height )
+		clgame.viewport[3] = refState.height;
 
-	clgame.viewport[0] = ( glState.width - clgame.viewport[2] ) / 2;
+	clgame.viewport[0] = ( refState.width - clgame.viewport[2] ) / 2;
 	if( full ) clgame.viewport[1] = 0;
-	else clgame.viewport[1] = ( glState.height - sb_lines - clgame.viewport[3] ) / 2;
+	else clgame.viewport[1] = ( refState.height - sb_lines - clgame.viewport[3] ) / 2;
 
 }
 
@@ -113,8 +113,8 @@ void V_SetRefParams( ref_params_t *fd )
 	memset( fd, 0, sizeof( ref_params_t ));
 
 	// probably this is not needs
-	VectorCopy( RI.vieworg, fd->vieworg );
-	VectorCopy( RI.viewangles, fd->viewangles );
+	VectorCopy( refState.vieworg, fd->vieworg );
+	VectorCopy( refState.viewangles, fd->viewangles );
 
 	fd->frametime = host.frametime;
 	fd->time = cl.time;
@@ -183,7 +183,7 @@ void V_RefApplyOverview( ref_viewpass_t *rvp )
 		return;
 
 	// NOTE: Xash3D may use 16:9 or 16:10 aspects
-	aspect = (float)glState.width / (float)glState.height;
+	aspect = (float)refState.width / (float)refState.height;
 
 	size_x = fabs( 8192.0f / ov->flZoom );
 	size_y = fabs( 8192.0f / (ov->flZoom * aspect ));
@@ -216,7 +216,7 @@ void V_RefApplyOverview( ref_viewpass_t *rvp )
 
 	SetBits( rvp->flags, RF_DRAW_OVERVIEW );
 
-	Mod_SetOrthoBounds( mins, maxs );
+	ref.dllFuncs.GL_OrthoBounds( mins, maxs );
 }
 
 /*
@@ -254,7 +254,7 @@ void V_GetRefParams( ref_params_t *fd, ref_viewpass_t *rvp )
 	rvp->fov_y = V_CalcFov( &rvp->fov_x, clgame.viewport[2], clgame.viewport[3] );
 
 	// adjust FOV for widescreen
-	if( glState.wideScreen && r_adjust_fov->value )
+	if( refState.wideScreen && r_adjust_fov->value )
 		V_AdjustFov( &rvp->fov_x, &rvp->fov_y, clgame.viewport[2], clgame.viewport[3], false );
 
 	rvp->flags = 0;
@@ -273,7 +273,7 @@ V_PreRender
 qboolean V_PreRender( void )
 {
 	// too early
-	if( !glw_state.initialized )
+	if( !ref.initialized )
 		return false;
 
 	if( host.status == HOST_NOFOCUS )
@@ -293,7 +293,9 @@ qboolean V_PreRender( void )
 		return false;
 	}
 	
-	R_BeginFrame( !cl.paused );
+	ref.dllFuncs.R_BeginFrame( !cl.paused );
+
+	GL_UpdateSwapInterval( );
 
 	return true;
 }
@@ -318,9 +320,9 @@ void V_RenderView( void )
 	V_CalcViewRect ();	// compute viewport rectangle
 	V_SetRefParams( &rp );
 	V_SetupViewModel ();
-	R_Set2DMode( false );
+	ref.dllFuncs.R_Set2DMode( false );
 	SCR_DirtyScreen();
-	GL_BackendStartFrame ();
+	ref.dllFuncs.GL_BackendStartFrame ();
 
 	do
 	{
@@ -330,11 +332,10 @@ void V_RenderView( void )
 
 		if( viewnum == 0 && FBitSet( rvp.flags, RF_ONLY_CLIENTDRAW ))
 		{
-			pglClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
-			pglClear( GL_COLOR_BUFFER_BIT );
+			ref.dllFuncs.R_ClearScreen();
 		}
 
-		R_RenderFrame( &rvp );
+		ref.dllFuncs.GL_RenderFrame( &rvp );
 		S_UpdateFrame( &rvp );
 		viewnum++;
 
@@ -342,7 +343,7 @@ void V_RenderView( void )
 
 	// draw debug triangles on a server
 	SV_DrawDebugTriangles ();
-	GL_BackendEndFrame ();
+	ref.dllFuncs.GL_BackendEndFrame ();
 }
 
 /*
@@ -356,8 +357,8 @@ void V_PostRender( void )
 	static double	oldtime;
 	qboolean		draw_2d = false;
 
-	R_AllowFog( false );
-	R_Set2DMode( true );
+	ref.dllFuncs.R_AllowFog( false );
+	ref.dllFuncs.R_Set2DMode( true );
 
 	if( cls.state == ca_active && cls.signon == SIGNONS && cls.scrshot_action != scrshot_mapshot )
 	{
@@ -383,8 +384,8 @@ void V_PostRender( void )
 		SV_DrawOrthoTriangles();
 		CL_DrawDemoRecording();
 		CL_DrawHUD( CL_CHANGELEVEL );
-		R_ShowTextures();
-		R_ShowTree();
+		ref.dllFuncs.R_ShowTextures();
+		ref.dllFuncs.R_ShowTree();
 		Con_DrawConsole();
 		UI_UpdateMenu( host.realtime );
 		Con_DrawVersion();
@@ -394,6 +395,6 @@ void V_PostRender( void )
 	}
 
 	SCR_MakeScreenShot();
-	R_AllowFog( true );
-	R_EndFrame();
+	ref.dllFuncs.R_AllowFog( true );
+	ref.dllFuncs.R_EndFrame();
 }

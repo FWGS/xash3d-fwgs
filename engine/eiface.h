@@ -398,6 +398,7 @@ struct playermove_s;
 struct clientdata_s;
 struct usercmd_s;
 struct edict_s;
+struct netadr_s;
 
 typedef struct 
 {

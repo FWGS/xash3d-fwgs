@@ -14,11 +14,11 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
-#include "client.h"
-#include "gl_local.h"
-#include "mod_local.h"
 #include "entity_types.h"
 #include "studio.h"
+#include "world.h" // BOX_ON_PLANE_SIDE
+#include "client.h"
+#include "mathlib.h"
 
 /*
 ===============================================================================
@@ -103,7 +103,7 @@ static void R_SplitEntityOnNode( mnode_t *node )
 			return; // no free fragments...
 		}
 
-		clgame.free_efrags = clgame.free_efrags->entnext;
+		clgame.free_efrags = ef->entnext;
 		ef->entity = r_addent;
 		
 		// add the entity link	

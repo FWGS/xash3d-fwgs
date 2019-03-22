@@ -13,11 +13,9 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
+
 #include "gl_local.h"
 #include "wadfile.h"
-
 #define SKYCLOUDS_QUALITY	12
 #define MAX_CLIP_VERTS	128 // skybox clip vertices
 #define TURBSCALE		( 256.0f / ( M_PI2 ))
@@ -80,7 +78,7 @@ static int CheckSkybox( const char *name )
 		{         
 			// build side name
 			sidename = va( "%s%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
-			if( FS_FileExists( sidename, false ))
+			if( gEngfuncs.FS_FileExists( sidename, false ))
 				num_checked_sides++;
 
 		}
@@ -92,7 +90,7 @@ static int CheckSkybox( const char *name )
 		{         
 			// build side name
 			sidename = va( "%s_%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
-			if( FS_FileExists( sidename, false ))
+			if( gEngfuncs.FS_FileExists( sidename, false ))
 				num_checked_sides++;
 		}
 
@@ -163,7 +161,7 @@ void ClipSkyPolygon( int nump, vec3_t vecs, int stage )
 	int		i, j;
 
 	if( nump > MAX_CLIP_VERTS )
-		Host_Error( "ClipSkyPolygon: MAX_CLIP_VERTS\n" );
+		gEngfuncs.Host_Error( "ClipSkyPolygon: MAX_CLIP_VERTS\n" );
 loc1:
 	if( stage == 6 )
 	{	
@@ -311,7 +309,7 @@ void R_AddSkyBoxSurface( msurface_t *fa )
 	float	*v;
 	int	i;
 
-	if( FBitSet( world.flags, FWORLD_SKYSPHERE ) && fa->polys && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX ))
+	if( ENGINE_GET_PARM( PARM_SKY_SPHERE ) && fa->polys && !tr.fCustomSkybox )
 	{
 		glpoly_t	*p = fa->polys;
 
@@ -355,7 +353,7 @@ void R_UnloadSkybox( void )
 	tr.skyboxbasenum = 5800;	// set skybox base (to let some mods load hi-res skyboxes)
 
 	memset( tr.skyboxTextures, 0, sizeof( tr.skyboxTextures ));
-	ClearBits( world.flags, FWORLD_CUSTOM_SKYBOX );
+	tr.fCustomSkybox = false;
 }
 
 /*
@@ -412,8 +410,8 @@ R_SetupSky
 */
 void R_SetupSky( const char *skyboxname )
 {
-	char	loadname[MAX_QPATH];
-	char	sidename[MAX_QPATH];
+	char	loadname[MAX_STRING];
+	char	sidename[MAX_STRING];
 	int	i, result;
 
 	if( !COM_CheckString( skyboxname ))
@@ -433,14 +431,14 @@ void R_SetupSky( const char *skyboxname )
 	// to prevent infinite recursion if default skybox was missed
 	if( result == SKYBOX_MISSED && Q_stricmp( loadname, DEFAULT_SKYBOX_PATH ))
 	{
-		Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", skyboxname );
+		gEngfuncs.Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", skyboxname );
 		R_SetupSky( "desert" ); // force to default
 		return; 
 	}
 
 	// release old skybox
 	R_UnloadSkybox();
-	Con_DPrintf( "SKY:  " );
+	gEngfuncs.Con_DPrintf( "SKY:  " );
 
 	for( i = 0; i < 6; i++ )
 	{
@@ -450,17 +448,17 @@ void R_SetupSky( const char *skyboxname )
 
 		tr.skyboxTextures[i] = GL_LoadTexture( sidename, NULL, 0, TF_CLAMP|TF_SKY );
 		if( !tr.skyboxTextures[i] ) break;
-		Con_DPrintf( "%s%s%s", skyboxname, r_skyBoxSuffix[i], i != 5 ? ", " : ". " );
+		gEngfuncs.Con_DPrintf( "%s%s%s", skyboxname, r_skyBoxSuffix[i], i != 5 ? ", " : ". " );
 	}
 
 	if( i == 6 )
 	{
-		SetBits( world.flags, FWORLD_CUSTOM_SKYBOX );
-		Con_DPrintf( "done\n" );
+		tr.fCustomSkybox = true;
+		gEngfuncs.Con_DPrintf( "done\n" );
 		return; // loaded
 	}
 
-	Con_DPrintf( "^2failed\n" );
+	gEngfuncs.Con_DPrintf( "^2failed\n" );
 	R_UnloadSkybox();
 }
 
@@ -503,7 +501,7 @@ void R_CloudTexCoord( vec3_t v, float speed, float *s, float *t )
 	float	length, speedscale;
 	vec3_t	dir;
 
-	speedscale = cl.time * speed;
+	speedscale = gpGlobals->time * speed;
 	speedscale -= (int)speedscale & ~127;
 
 	VectorSubtract( v, RI.vieworg, dir );
@@ -668,19 +666,19 @@ void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 		int	size = (int)sizeof( mip_t ) + ((mt->width * mt->height * 85)>>6);
 
 		if( custom_palette ) size += sizeof( short ) + 768;
-		r_sky = FS_LoadImage( texname, (byte *)mt, size );
+		r_sky = gEngfuncs.FS_LoadImage( texname, (byte *)mt, size );
 	}
 	else
 	{
 		// okay, loading it from wad
-		r_sky = FS_LoadImage( texname, NULL, 0 );
+		r_sky = gEngfuncs.FS_LoadImage( texname, NULL, 0 );
 	}
 
 	// make sure what sky image is valid
 	if( !r_sky || !r_sky->palette || r_sky->type != PF_INDEXED_32 || r_sky->height == 0 )
 	{
-		Con_Reportf( S_ERROR "R_InitSky: unable to load sky texture %s\n", tx->name );
-		if( r_sky ) FS_FreeImage( r_sky );
+		gEngfuncs.Con_Reportf( S_ERROR "R_InitSky: unable to load sky texture %s\n", tx->name );
+		if( r_sky ) gEngfuncs.FS_FreeImage( r_sky );
 		return;
 	}
 
@@ -744,7 +742,7 @@ void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 	tr.alphaskyTexture = GL_LoadTextureInternal( "alpha_sky", &r_temp, TF_NOMIPMAP );
 
 	// clean up
-	FS_FreeImage( r_sky );
+	gEngfuncs.FS_FreeImage( r_sky );
 	Mem_Free( trans );
 }
 
@@ -788,8 +786,8 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 		{
 			if( waveHeight )
 			{
-				nv = r_turbsin[(int)(cl.time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
-				nv = (r_turbsin[(int)(v[0] * 5.0f + cl.time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
+				nv = r_turbsin[(int)(gpGlobals->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
+				nv = (r_turbsin[(int)(v[0] * 5.0f + gpGlobals->time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
 				nv = nv * waveHeight + v[2];
 			}
 			else nv = v[2];
@@ -797,10 +795,10 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 			os = v[3];
 			ot = v[4];
 
-			s = os + r_turbsin[(int)((ot * 0.125f + cl.time) * TURBSCALE) & 255];
+			s = os + r_turbsin[(int)((ot * 0.125f + gpGlobals->time) * TURBSCALE) & 255];
 			s *= ( 1.0f / SUBDIVIDE_SIZE );
 
-			t = ot + r_turbsin[(int)((os * 0.125f + cl.time) * TURBSCALE) & 255];
+			t = ot + r_turbsin[(int)((os * 0.125f + gpGlobals->time) * TURBSCALE) & 255];
 			t *= ( 1.0f / SUBDIVIDE_SIZE );
 
 			pglTexCoord2f( s, t );

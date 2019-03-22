@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "const.h"
 #include "render_api.h"	// decallist_t
 #include "sound.h"		// S_GetDynamicSounds
+#include "ref_common.h" // decals
 
 /*
 ==============================================================================
@@ -1129,7 +1130,17 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 	decalList = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
 
 	// initialize client header
-	header.decalCount = R_CreateDecalList( decalList );
+#ifndef XASH_DEDICATED
+	if( ref.dllFuncs.R_CreateDecalList )
+	{
+		header.decalCount = ref.dllFuncs.R_CreateDecalList( decalList );
+	}
+	else
+#endif // XASH_DEDICATED
+	{
+		// we probably running a dedicated server
+		header.decalCount = 0;
+	}
 	header.entityCount = sv.num_static_entities;
 
 	if( !changelevel )

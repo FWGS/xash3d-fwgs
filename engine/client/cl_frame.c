@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include "client.h"
 #include "net_encode.h"
 #include "entity_types.h"
-#include "gl_local.h"
 #include "pm_local.h"
 #include "cl_tent.h"
 #include "studio.h"
@@ -224,6 +223,33 @@ void CL_UpdateLatchedVars( cl_entity_t *ent )
 
 	memcpy( ent->latched.prevcontroller, ent->prevstate.controller, sizeof( ent->latched.prevcontroller ));
 	memcpy( ent->latched.prevblending, ent->prevstate.blending, sizeof( ent->latched.prevblending ));
+}
+
+/*
+====================
+CL_GetStudioEstimatedFrame
+
+====================
+*/
+float CL_GetStudioEstimatedFrame( cl_entity_t *ent )
+{
+	studiohdr_t	*pstudiohdr;
+	mstudioseqdesc_t	*pseqdesc;
+	int		sequence;
+
+	if( ent->model != NULL && ent->model->type == mod_studio )
+	{
+		pstudiohdr = (studiohdr_t *)Mod_StudioExtradata( ent->model );
+
+		if( pstudiohdr )
+		{
+			sequence = bound( 0, ent->curstate.sequence, pstudiohdr->numseq - 1 );
+			pseqdesc = (mstudioseqdesc_t *)((byte *)pstudiohdr + pstudiohdr->seqindex) + sequence;
+			return ref.dllFuncs.R_StudioEstimateFrame( ent, pseqdesc );
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -939,10 +965,10 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 
 	if( entityType == ET_BEAM )
 	{
-		CL_AddCustomBeam( ent );
+		ref.dllFuncs.CL_AddCustomBeam( ent );
 		return true;
 	}
-	else if( !R_AddEntity( ent, entityType ))
+	else if( !ref.dllFuncs.R_AddEntity( ent, entityType ))
 	{
 		return false;
 	}
@@ -1191,7 +1217,7 @@ void CL_LinkPacketEntities( frame_t *frame )
 			if( ent->model->type == mod_studio )
 			{
 				if( interpolate && FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP )) 
-					R_StudioLerpMovement( ent, cl.time, ent->origin, ent->angles );
+					ref.dllFuncs.R_StudioLerpMovement( ent, cl.time, ent->origin, ent->angles );
 			}
 		}
 
@@ -1262,8 +1288,6 @@ void CL_EmitEntities( void )
 {
 	if( cl.paused ) return; // don't waste time
 
-	R_ClearScene ();
-
 	// not in server yet, no entities to redraw
 	if( cls.state != ca_active || !cl.validsequence )
 		return;
@@ -1273,7 +1297,7 @@ void CL_EmitEntities( void )
 		return;
 
 	// animate lightestyles
-	CL_RunLightStyles ();
+	ref.dllFuncs.CL_RunLightStyles ();
 
 	// decay dynamic lights
 	CL_DecayLights ();
@@ -1284,9 +1308,7 @@ void CL_EmitEntities( void )
 	// set client ideal pitch when mlook is disabled
 	CL_SetIdealPitch ();
 
-	// clear the scene befor start new frame
-	if( clgame.drawFuncs.R_ClearScene != NULL )
-		clgame.drawFuncs.R_ClearScene();
+	ref.dllFuncs.R_ClearScene ();
 
 	// link all the visible clients first
 	CL_LinkPlayers ( &cl.frames[cl.parsecountmod] );
@@ -1330,7 +1352,7 @@ qboolean CL_GetEntitySpatialization( channel_t *ch )
 
 	if(( ch->entnum - 1 ) == cl.playernum )
 	{
-		VectorCopy( RI.vieworg, ch->origin );
+		VectorCopy( refState.vieworg, ch->origin );
 		return true;
 	}
 

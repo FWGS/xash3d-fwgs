@@ -15,7 +15,6 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "client.h"
-#include "gl_local.h"
 
 /*
 =================================================================
@@ -180,7 +179,7 @@ qboolean SCR_DrawCinematic( void )
 	qboolean		redraw = false;
 	byte		*frame = NULL;
 
-	if( !glw_state.initialized || cin_time <= 0.0f )
+	if( !ref.initialized || cin_time <= 0.0f )
 		return false;
 
 	if( cin_frame != last_frame )
@@ -190,7 +189,7 @@ qboolean SCR_DrawCinematic( void )
 		redraw = true;
 	}
 
-	R_DrawStretchRaw( 0, 0, glState.width, glState.height, xres, yres, frame, redraw );
+	ref.dllFuncs.R_DrawStretchRaw( 0, 0, refState.width, refState.height, xres, yres, frame, redraw );
 
 	return true;
 }

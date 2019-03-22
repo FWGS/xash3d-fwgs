@@ -13,8 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
+
 #include "gl_local.h"
 #include "mathlib.h"
 
@@ -28,9 +27,9 @@ R_SpeedsMessage
 */
 qboolean R_SpeedsMessage( char *out, size_t size )
 {
-	if( clgame.drawFuncs.R_SpeedsMessage != NULL )
+	if( gEngfuncs.drawFuncs->R_SpeedsMessage != NULL )
 	{
-		if( clgame.drawFuncs.R_SpeedsMessage( out, size ))
+		if( gEngfuncs.drawFuncs->R_SpeedsMessage( out, size ))
 			return true;
 		// otherwise pass to default handler
 	}
@@ -85,7 +84,7 @@ void GL_BackendEndFrame( void )
 		return;
 
 	if( !RI.viewleaf )
-		curleaf = cl.worldmodel->leafs;
+		curleaf = WORLDMODEL->leafs;
 	else curleaf = RI.viewleaf;
 
 	R_Speeds_Printf( "Renderer: ^1Engine^7\n\n" );
@@ -97,7 +96,7 @@ void GL_BackendEndFrame( void )
 		r_stats.c_world_polys, r_stats.c_alias_polys, r_stats.c_studio_polys, r_stats.c_sprite_polys );
 		break;		
 	case 2:
-		R_Speeds_Printf( "visible leafs:\n%3i leafs\ncurrent leaf %3i\n", r_stats.c_world_leafs, curleaf - cl.worldmodel->leafs );
+		R_Speeds_Printf( "visible leafs:\n%3i leafs\ncurrent leaf %3i\n", r_stats.c_world_leafs, curleaf - WORLDMODEL->leafs );
 		R_Speeds_Printf( "ReciusiveWorldNode: %3lf secs\nDrawTextureChains %lf\n", r_stats.t_world_node, r_stats.t_world_draw );
 		break;
 	case 3:
@@ -106,7 +105,7 @@ void GL_BackendEndFrame( void )
 		break;
 	case 4:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i static entities\n%3i normal entities\n%3i server entities",
-		r_numStatics, r_numEntities - r_numStatics, pfnNumberOfEntities( ));
+		r_numStatics, r_numEntities - r_numStatics, ENGINE_GET_PARM( PARM_NUMENTITIES ));
 		break;
 	case 5:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i tempents\n%3i viewbeams\n%3i particles",
@@ -185,7 +184,7 @@ void GL_SelectTexture( GLint tmu )
 
 	if( tmu >= GL_MaxTextureUnits( ))
 	{
-		Con_Reportf( S_ERROR "GL_SelectTexture: bad tmu state %i\n", tmu );
+		gEngfuncs.Con_Reportf( S_ERROR "GL_SelectTexture: bad tmu state %i\n", tmu );
 		return; 
 	}
 
@@ -278,7 +277,7 @@ void GL_TextureTarget( uint target )
 {
 	if( glState.activeTMU < 0 || glState.activeTMU >= GL_MaxTextureUnits( ))
 	{
-		Con_Reportf( S_ERROR "GL_TextureTarget: bad tmu state %i\n", glState.activeTMU );
+		gEngfuncs.Con_Reportf( S_ERROR "GL_TextureTarget: bad tmu state %i\n", glState.activeTMU );
 		return; 
 	}
 
@@ -453,37 +452,6 @@ const envmap_t r_envMapInfo[6] =
 {{ 90,   0,  90}, 0 }
 };
 
-/*
-===============
-VID_WriteOverviewScript
-
-Create overview script file
-===============
-*/
-void VID_WriteOverviewScript( void )
-{
-	ref_overview_t	*ov = &clgame.overView;
-	string		filename;
-	file_t		*f;
-
-	Q_snprintf( filename, sizeof( filename ), "overviews/%s.txt", clgame.mapname );
-
-	f = FS_Open( filename, "w", false );
-	if( !f ) return;
-
-	FS_Printf( f, "// overview description file for %s.bsp\n\n", clgame.mapname );
-	FS_Print( f, "global\n{\n" );
-	FS_Printf( f, "\tZOOM\t%.2f\n", ov->flZoom );
-	FS_Printf( f, "\tORIGIN\t%.2f\t%.2f\t%.2f\n", ov->origin[0], ov->origin[1], ov->origin[2] );
-	FS_Printf( f, "\tROTATED\t%i\n", ov->rotated ? 1 : 0 );
-	FS_Print( f, "}\n\nlayer\n{\n" );
-	FS_Printf( f, "\tIMAGE\t\"overviews/%s.bmp\"\n", clgame.mapname );
-	FS_Printf( f, "\tHEIGHT\t%.2f\n", ov->zFar );	// ???
-	FS_Print( f, "}\n" );
-
-	FS_Close( f );
-}
-
 qboolean VID_ScreenShot( const char *filename, int shot_type )
 {
 	rgbdata_t *r_shot;
@@ -492,11 +460,11 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 	qboolean	result;
 
 	r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
-	r_shot->width = (glState.width + 3) & ~3;
-	r_shot->height = (glState.height + 3) & ~3;
+	r_shot->width = (gpGlobals->width + 3) & ~3;
+	r_shot->height = (gpGlobals->height + 3) & ~3;
 	r_shot->flags = IMAGE_HAS_COLOR;
 	r_shot->type = PF_RGB_24;
-	r_shot->size = r_shot->width * r_shot->height * PFDesc[r_shot->type].bpp;
+	r_shot->size = r_shot->width * r_shot->height * gEngfuncs.Image_GetPFDesc( r_shot->type )->bpp;
 	r_shot->palette = NULL;
 	r_shot->buffer = Mem_Malloc( r_temppool, r_shot->size );
 
@@ -508,11 +476,11 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 	case VID_SCREENSHOT:
 		break;
 	case VID_SNAPSHOT:
-		FS_AllowDirectPaths( true );
+		gEngfuncs.FS_AllowDirectPaths( true );
 		break;
 	case VID_LEVELSHOT:
 		flags |= IMAGE_RESAMPLE;
-		if( glState.wideScreen )
+		if( gpGlobals->wideScreen )
 		{
 			height = 480;
 			width = 800;
@@ -529,20 +497,19 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 		width = 320;
 		break;
 	case VID_MAPSHOT:
-		VID_WriteOverviewScript();		// store overview script too
 		flags |= IMAGE_RESAMPLE|IMAGE_QUANTIZE;	// GoldSrc request overviews in 8-bit format
 		height = 768;
 		width = 1024;
 		break;
 	}
 
-	Image_Process( &r_shot, width, height, flags, 0.0f );
+	gEngfuncs.Image_Process( &r_shot, width, height, flags, 0.0f );
 
 	// write image
-	result = FS_SaveImage( filename, r_shot );
-	host.write_to_clipboard = false;		// disable write to clipboard
-	FS_AllowDirectPaths( false );			// always reset after store screenshot
-	FS_FreeImage( r_shot );
+	result = gEngfuncs.FS_SaveImage( filename, r_shot );
+	// REFTODO: host.write_to_clipboard = false;		// disable write to clipboard
+	gEngfuncs.FS_AllowDirectPaths( false );			// always reset after store screenshot
+	gEngfuncs.FS_FreeImage( r_shot );
 
 	return result;
 }
@@ -560,14 +527,14 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 	string		basename;
 	int		i = 1, flags, result;
 
-	if( !RI.drawWorld || !cl.worldmodel )
+	if( !RI.drawWorld || !WORLDMODEL )
 		return false;
 
 	// make sure the specified size is valid
 	while( i < size ) i<<=1;
 
 	if( i != size ) return false;
-	if( size > glState.width || size > glState.height )
+	if( size > gpGlobals->width || size > gpGlobals->height )
 		return false;
 
 	// setup refdef
@@ -605,7 +572,7 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 		r_side->size = r_side->width * r_side->height * 3;
 		r_side->buffer = temp;
 
-		if( flags ) Image_Process( &r_side, 0, 0, flags, 0.0f );
+		if( flags ) gEngfuncs.Image_Process( &r_side, 0, 0, flags, 0.0f );
 		memcpy( buffer + (size * size * 3 * i), r_side->buffer, size * size * 3 );
 	}
 
@@ -626,9 +593,9 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 	COM_DefaultExtension( basename, ".tga" );
 
 	// write image as 6 sides
-	result = FS_SaveImage( basename, r_shot );
-	FS_FreeImage( r_shot );
-	FS_FreeImage( r_side );
+	result = gEngfuncs.FS_SaveImage( basename, r_shot );
+	gEngfuncs.FS_FreeImage( r_shot );
+	gEngfuncs.FS_FreeImage( r_side );
 
 	return result;
 }
@@ -659,7 +626,7 @@ void R_ShowTextures( void )
 
 	if( showHelp )
 	{
-		CL_CenterPrint( "use '<-' and '->' keys to change atlas page, ESC to quit", 0.25f );
+		gEngfuncs.CL_CenterPrint( "use '<-' and '->' keys to change atlas page, ESC to quit", 0.25f );
 		showHelp = false;
 	}
 
@@ -676,10 +643,10 @@ rebuild_page:
 	end = total * gl_showtextures->value;
 	if( end > MAX_TEXTURES ) end = MAX_TEXTURES;
 
-	w = glState.width / base_w;
-	h = glState.height / base_h;
+	w = gpGlobals->width / base_w;
+	h = gpGlobals->height / base_h;
 
-	Con_DrawStringLen( NULL, NULL, &charHeight );
+	gEngfuncs.Con_DrawStringLen( NULL, NULL, &charHeight );
 
 	for( i = j = 0; i < MAX_TEXTURES; i++ )
 	{
@@ -691,7 +658,7 @@ rebuild_page:
 	if( i == MAX_TEXTURES && gl_showtextures->value != 1 )
 	{
 		// bad case, rewind to one and try again
-		Cvar_SetValue( "r_showtextures", max( 1, gl_showtextures->value - 1 ));
+		gEngfuncs.Cvar_SetValue( "r_showtextures", max( 1, gl_showtextures->value - 1 ));
 		if( ++numTries < 2 ) goto rebuild_page;	// to prevent infinite loop
 	}
 
@@ -740,11 +707,11 @@ rebuild_page:
 			shortname[17] = '.';
 			shortname[18] = '\0';
 		}
-		Con_DrawString( x + 1, y + h - charHeight, shortname, color );
+		gEngfuncs.Con_DrawString( x + 1, y + h - charHeight, shortname, color );
 		j++, k++;
 	}
 
-	CL_DrawCenterPrint ();
+	gEngfuncs.CL_DrawCenterPrint ();
 	pglFinish();
 }
 
@@ -786,7 +753,7 @@ void R_ShowTree_r( mnode_t *node, float x, float y, float scale, int shownodes )
 
 		if( shownodes == 1 )
 		{
-			if( cl.worldmodel->leafs == leaf )
+			if( WORLDMODEL->leafs == leaf )
 				pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
 			else if( RI.viewleaf && RI.viewleaf == leaf )
 				pglColor4f( 1.0f, 0.0f, 0.0f, 1.0f );
@@ -816,10 +783,10 @@ void R_ShowTree_r( mnode_t *node, float x, float y, float scale, int shownodes )
 
 void R_ShowTree( void )
 {
-	float	x = (float)((glState.width - (int)POINT_SIZE) >> 1);
+	float	x = (float)((gpGlobals->width - (int)POINT_SIZE) >> 1);
 	float	y = NODE_INTERVAL_Y(1.0);
 
-	if( !cl.worldmodel || !CVAR_TO_BOOL( r_showtree ))
+	if( !WORLDMODEL || !CVAR_TO_BOOL( r_showtree ))
 		return;
 
 	tr.recursion_level = 0;
@@ -831,11 +798,57 @@ void R_ShowTree( void )
 	pglLineWidth( 2.0f );
 	pglColor3f( 1, 0.7f, 0 );
 	pglDisable( GL_TEXTURE_2D );
-	R_ShowTree_r( cl.worldmodel->nodes, x, y, tr.max_recursion * 3.5f, 2 );
+	R_ShowTree_r( WORLDMODEL->nodes, x, y, tr.max_recursion * 3.5f, 2 );
 	pglEnable( GL_TEXTURE_2D );
 	pglLineWidth( 1.0f );
 
-	R_ShowTree_r( cl.worldmodel->nodes, x, y, tr.max_recursion * 3.5f, 1 );
+	R_ShowTree_r( WORLDMODEL->nodes, x, y, tr.max_recursion * 3.5f, 1 );
 
-	Con_NPrintf( 0, "max recursion %d\n", tr.max_recursion );
+	gEngfuncs.Con_NPrintf( 0, "max recursion %d\n", tr.max_recursion );
+}
+
+/*
+================
+SCR_TimeRefresh_f
+
+timerefresh [noflip]
+================
+*/
+void SCR_TimeRefresh_f( void )
+{
+	int	i;
+	double	start, stop;
+	double	time;
+
+	if( ENGINE_GET_PARM( PARM_CONNSTATE ) != ca_active )
+		return;
+
+	start = gEngfuncs.pfnTime();
+
+	// run without page flipping like GoldSrc
+	if( gEngfuncs.Cmd_Argc() == 1 )
+	{
+		pglDrawBuffer( GL_FRONT );
+		for( i = 0; i < 128; i++ )
+		{
+			gpGlobals->viewangles[1] = i / 128.0 * 360.0f;
+			R_RenderScene();
+		}
+		pglFinish();
+		R_EndFrame();
+	}
+	else
+	{
+		for( i = 0; i < 128; i++ )
+		{
+			R_BeginFrame( true );
+			gpGlobals->viewangles[1] = i / 128.0 * 360.0f;
+			R_RenderScene();
+			R_EndFrame();
+		}
+	}
+
+	stop = gEngfuncs.pfnTime ();
+	time = (stop - start);
+	gEngfuncs.Con_Printf( "%f seconds (%f fps)\n", time, 128 / time );
 }
