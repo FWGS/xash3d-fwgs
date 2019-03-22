@@ -212,9 +212,9 @@ static int GL_RenderGetParm( int parm, int arg )
 			return gEngfuncs.Mod_SampleSizeForFace( &WORLDMODEL->surfaces[arg] );
 		return LM_SAMPLE_SIZE;
 	case PARM_SKY_SPHERE:
-		return gEngfuncs.CL_GetRenderParm( parm, arg ) && !tr.fCustomSkybox;
+		return ENGINE_GET_PARM_( parm, arg ) && !tr.fCustomSkybox;
 	default:
-		return gEngfuncs.CL_GetRenderParm( parm, arg );
+		return ENGINE_GET_PARM_( parm, arg );
 	}
 	return 0;
 }

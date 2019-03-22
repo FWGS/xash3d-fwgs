@@ -562,7 +562,7 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 	// environment box surfaces to be emited
 /*	if ( fa->texinfo->flags & SURF_SKY )
 	{
-		R_EmitSkyBox ();	
+		R_EmitSkyBox ();
 		return;
 	}*/
 

@@ -658,12 +658,8 @@ void TriFogParams( float flDensity, int iFogSkybox );
 void TriCullFace( TRICULLSTYLE mode );
 
 
-//
-// r_blitscreen.c
-//
-void R_BlitScreen();
-void R_InitBlit();
-
+#define ENGINE_GET_PARM_ (*gEngfuncs.EngineGetParm)
+#define ENGINE_GET_PARM( parm ) ENGINE_GET_PARM_( (parm), 0 )
 
 extern ref_api_t      gEngfuncs;
 extern ref_globals_t *gpGlobals;
@@ -806,8 +802,6 @@ extern cvar_t	*r_showhull;
 #define YCENTERING      (1.0 / 2.0)
 
 #define CLIP_EPSILON            0.001
-
-#define BACKFACE_EPSILON        0.01
 
 // !!! if this is changed, it must be changed in asm_draw.h too !!!
 #define NEAR_CLIP       0.01
@@ -1218,6 +1212,49 @@ extern int                      r_maxvalidedgeoffset;
 extern int              r_currentkey;
 extern int              r_currentbkey;
 
+//
+// r_blitscreen.c
+//
+void R_InitCaches (void);
+void R_BlitScreen();
+void R_InitBlit();
+
+//
+// r_edge.c
+//
+void R_SurfacePatch (void);
+void R_BeginEdgeFrame (void);
+void R_RenderWorld (void);
+void R_ScanEdges (void);
+
+
+//
+// r_surf.c
+//
+void D_FlushCaches (void);
+
+//
+// r_draw.c
+//
+void Draw_Fill (int x, int y, int w, int h, int c);
+
+//
+// r_main.c
+//
+void R_ConcatRotations (float in1[3][3], float in2[3][3], float out[3][3]);
+
+//
+// r_misc.c
+//
+void R_SetupFrameQ (void);
+void R_TransformFrustum (void);
+void TransformVector (vec3_t in, vec3_t out);
+
+//
+// r_rast.c
+//
+void R_RenderBmodelFace (bedge_t *pedges, msurface_t *psurf);
+void R_RenderFace (msurface_t *fa, int clipflags);
 
 
 //

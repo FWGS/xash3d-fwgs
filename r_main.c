@@ -827,7 +827,7 @@ static void R_CheckFog( void )
 	int		i, cnt, count;
 
 	// quake global fog
-	if( gEngfuncs.Host_IsQuakeCompatible( ))
+	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 	{
 		if( !MOVEVARS->fog_settings )
 		{
@@ -852,12 +852,12 @@ static void R_CheckFog( void )
 
 	RI.fogEnabled = false;
 
-	if( RI.onlyClientDraw || gEngfuncs.GetWaterLevel() < 3 || !RI.drawWorld || !RI.viewleaf )
+	if( RI.onlyClientDraw || ENGINE_GET_PARM( PARM_WATER_LEVEL ) < 3 || !RI.drawWorld || !RI.viewleaf )
 	{
 		if( RI.cached_waterlevel == 3 )
                     {
 			// in some cases waterlevel jumps from 3 to 1. Catch it
-			RI.cached_waterlevel = gEngfuncs.GetWaterLevel();
+			RI.cached_waterlevel = ENGINE_GET_PARM( PARM_WATER_LEVEL );
 			RI.cached_contents = CONTENTS_EMPTY;
 			//if( !RI.fogCustom ) pglDisable( GL_FOG );
 		}
@@ -869,7 +869,7 @@ static void R_CheckFog( void )
 		cnt = ent->curstate.skin;
 	else cnt = RI.viewleaf->contents;
 
-	RI.cached_waterlevel = gEngfuncs.GetWaterLevel();
+	RI.cached_waterlevel = ENGINE_GET_PARM( PARM_WATER_LEVEL );
 
 	if( !IsLiquidContents( RI.cached_contents ) && IsLiquidContents( cnt ))
 	{

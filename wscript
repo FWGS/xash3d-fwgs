@@ -30,17 +30,16 @@ def build(bld):
 	name = get_subproject_name(bld)
 	bld.env = bld.all_envs[name]
 
-	libs = [ 'M' ]
+	libs = [ 'public', 'M' ]
 
 	source = bld.path.ant_glob(['*.c'])
-
-	source += [ '../engine/common/mathlib.c', '../engine/common/crtlib.c', '../engine/common/matrixlib.c' ]
 
 	includes = ['.',
 		'../engine',
 		'../engine/common',
 		'../engine/server',
 		'../engine/client',
+		'../public',
 		'../common',
 		'../pm_shared' ]
 
