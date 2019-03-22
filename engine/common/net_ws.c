@@ -2384,9 +2384,8 @@ void HTTP_Run( void )
 	}
 
 	// update progress
-#ifndef XASH_DEDICATED
-	Cvar_SetValue( "scr_download", flProgress/iProgressCount * 100 );
-#endif // XASH_DEDICATED
+	if( !Host_IsDedicated() )
+		Cvar_SetValue( "scr_download", flProgress/iProgressCount * 100 );
 
 	HTTP_AutoClean();
 }
