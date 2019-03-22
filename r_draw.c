@@ -65,7 +65,7 @@ Draw_StretchPicImplementation
 */
 void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1, int s2, int t2, image_t	*pic)
 {
-	pixel_t			*dest, *source;
+	pixel_t *source, *dest;
 	unsigned int				v, u, sv;
 	unsigned int				height;
 	unsigned int				f, fstep;
@@ -104,8 +104,13 @@ void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1,
 
 	dest = vid.buffer + y * vid.rowbytes + x;
 
-	for (v=0 ; v<height ; v++, dest += vid.rowbytes)
+
+	#pragma omp parallel for schedule(static)
+	for (v=0 ; v<height ; v++)
 	{
+#ifdef	_OPENMP
+		pixel_t			*dest = vid.buffer + (y + v) * vid.rowbytes + x;
+#endif
 		sv = (skip + v)*(t2-t1)/h + t1;
 		source = pic->pixels[0] + sv*pic->width + s1;
 		{
@@ -161,6 +166,7 @@ void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1,
 			}
 #endif
 		}
+		dest += vid.rowbytes;
 	}
 }
 

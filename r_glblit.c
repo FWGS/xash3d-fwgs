@@ -179,6 +179,7 @@ void R_BlitScreen()
 	int i;
 	byte *buf = vid.buffer;
 
+	#pragma omp parallel for schedule(static)
 	for( i = 0; i < vid.width * vid.height;i++)
 	{
 #ifdef SEPARATE_BLIT
