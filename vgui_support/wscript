@@ -25,15 +25,21 @@ def configure(conf):
 	if conf.options.NO_VGUI:
 		return
 
+	conf.start_msg('Does this architecture support VGUI?')
+
+	if conf.env.DEST_CPU != 'x86' and not (conf.env.DEST_CPU == 'x86_64' and not conf.options.ALLOW64):
+		conf.end_msg('no')
+		Logs.warn('vgui is not supported on this CPU: ' + str(conf.env.DEST_CPU))
+		conf.env.NO_VGUI = True
+		return
+	else:
+		conf.end_msg('yes')
+	
 	conf.start_msg('Configuring VGUI by provided path')
 
 	if not conf.options.VGUI_DEV:
 		conf.end_msg('no')
-		conf.fatal("Provide a path to vgui-dev repository using --vgui key")
-
-	if conf.env.DEST_CPU != 'x86' and not (conf.env.DEST_CPU == 'x86_64' and not conf.options.ALLOW64):
-		conf.end_msg('no')
-		conf.fatal('vgui is not supported on this CPU: ' + conf.env.DEST_CPU)
+ 		conf.fatal("Provide a path to vgui-dev repository using --vgui key")
 
 	if conf.env.DEST_OS == 'win32':
 		conf.env.LIB_VGUI = ['vgui']
