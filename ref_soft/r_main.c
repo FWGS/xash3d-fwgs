@@ -83,6 +83,7 @@ cvar_t	*sw_reportsurfout;
 cvar_t  *sw_stipplealpha;
 cvar_t	*sw_surfcacheoverride;
 cvar_t	*sw_waterwarp;
+cvar_t	*sw_texfilt;
 
 cvar_t	*r_drawworld;
 cvar_t	*r_drawentities;
@@ -1654,7 +1655,7 @@ qboolean R_Init()
 	sw_surfcacheoverride = gEngfuncs.Cvar_Get ("sw_surfcacheoverride", "0", 0, "");
 	sw_waterwarp = gEngfuncs.Cvar_Get ("sw_waterwarp", "1", 0, "");
 	sw_mode = gEngfuncs.Cvar_Get( "sw_mode", "0", FCVAR_ARCHIVE, "");
-
+	sw_texfilt = gEngfuncs.Cvar_Get ("sw_texfilt", "0", 0, "texture dither");
 	//r_lefthand = ri.Cvar_Get( "hand", "0", FCVAR_USERINFO | FCVAR_ARCHIVE );
 //	r_speeds = ri.Cvar_Get ("r_speeds", "0", 0);
 

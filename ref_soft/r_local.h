@@ -1195,6 +1195,7 @@ extern cvar_t   *sw_reportedgeout;
 extern cvar_t   *sw_stipplealpha;
 extern cvar_t   *sw_surfcacheoverride;
 extern cvar_t *sw_waterwarp;
+extern cvar_t   *sw_texfilt;
 
 extern vec3_t modelorg;
 extern vec3_t r_origin;
