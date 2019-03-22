@@ -551,20 +551,20 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 	clipplane_t	*pclip;
 
 	// translucent surfaces are not drawn by the edge renderer
-/*	if (fa->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
+	if (fa->flags & (SURF_DRAWTURB|SURF_TRANSPARENT))
 	{
-		fa->nextalphasurface = r_alpha_surfaces;
-		r_alpha_surfaces = fa;
+		//fa->nextalphasurface = r_alpha_surfaces;
+		//r_alpha_surfaces = fa;
 		return;
-	}*/
+	}
 
 	// sky surfaces encountered in the world will cause the
 	// environment box surfaces to be emited
-/*	if ( fa->texinfo->flags & SURF_SKY )
+	if ( fa->flags & SURF_DRAWSKY )
 	{
-		R_EmitSkyBox ();
+		//R_EmitSkyBox ();
 		return;
-	}*/
+	}
 
 // skip out if no more surfs
 	if ((surface_p) >= surf_max)
