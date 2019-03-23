@@ -358,8 +358,9 @@ typedef struct image_s
 	float		yscale;
 
 	imagetype_t     type;
-	qboolean transparent;
 	pixel_t		*pixels[4];				// mip levels
+	pixel_t		*alpha_pixels;				// mip levels
+
 
 	int		servercount;
 	uint		hashValue;

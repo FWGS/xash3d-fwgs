@@ -530,9 +530,9 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		size = GL_CalcImageSize( pic->type, width, height, tex->depth );
 		//GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, data );
 		tex->pixels[j] = Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) + 64 );
+		if( j == 0 &&  tex->flags & TF_HAS_ALPHA )
+			tex->alpha_pixels = Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) + 64 );
 		int x, y;
-		if( tex->flags & TF_HAS_ALPHA )
-			tex->transparent = true;
 
 		for(i = 0; i < height * width; i++ )
 		{
@@ -554,10 +554,10 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 				minor = MOVE_BIT(r,1,5) | MOVE_BIT(r,0,2) | MOVE_BIT(g,2,7) | MOVE_BIT(g,1,4) | MOVE_BIT(g,0,1) | MOVE_BIT(b,2,6)| MOVE_BIT(b,1,3)|MOVE_BIT(b,0,0);
 
 				tex->pixels[j][i] = major << 8 | (minor & 0xFF);
-				if( tex->transparent )
+				if( j == 0 && tex->alpha_pixels )
 				{
 					unsigned int alpha = (pic->buffer[i * 4 + 3] * 8 / 256) << (16 - 3);
-					tex->pixels[j][i] = (tex->pixels[j][i] >> 3) | alpha;
+					tex->alpha_pixels[i] = (tex->pixels[j][i] >> 3) | alpha;
 				}
 
 		}
