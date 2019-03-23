@@ -1242,7 +1242,11 @@ extern  vec3_t  r_entorigin;
 
 extern int r_leafkeys[MAX_MAP_LEAFS];
 #define LEAF_KEY(pleaf) r_leafkeys[(pleaf - WORLDMODEL->leafs)]
-
+//
+// r_bsp.c
+//
+void R_RotateBmodel (void);
+void R_DrawSolidClippedSubmodelPolygons (model_t *pmodel, mnode_t *topnode);
 //
 // r_blitscreen.c
 //
