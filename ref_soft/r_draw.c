@@ -70,6 +70,8 @@ void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1,
 	unsigned int				height;
 	unsigned int				f, fstep;
 	int				skip;
+	qboolean transparent = false;
+	pixel_t *buffer;
 
 	if( x < 0 )
 	{
@@ -104,6 +106,14 @@ void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1,
 
 	dest = vid.buffer + y * vid.rowbytes + x;
 
+	if( pic->alpha_pixels )
+	{
+		buffer = pic->alpha_pixels;
+		transparent = true;
+	}
+	else
+		buffer = pic->pixels[0];
+
 
 	#pragma omp parallel for schedule(static)
 	for (v=0 ; v<height ; v++)
@@ -112,7 +122,7 @@ void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1,
 		pixel_t			*dest = vid.buffer + (y + v) * vid.rowbytes + x;
 #endif
 		sv = (skip + v)*(t2-t1)/h + t1;
-		source = pic->pixels[0] + sv*pic->width + s1;
+		source = buffer + sv*pic->width + s1;
 		{
 			f = 0;
 			fstep = s2*0x10000/w;
@@ -137,7 +147,7 @@ void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1,
 				int alpha = vid.alpha;
 				f += fstep;
 
-				if( pic->transparent )
+				if( transparent )
 				{
 					alpha &= src >> 16 - 3;
 					src = src << 3;
