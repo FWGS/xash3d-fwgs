@@ -143,7 +143,7 @@ void R_RotateBmodel (void)
 
 	R_TransformFrustum ();
 }
-#if 1
+#if 0
 
 /*
 ================
@@ -472,7 +472,8 @@ void R_RecursiveClipBPoly (bedge_t *pedges, mnode_t *pnode, msurface_t *psurf)
 				{
 					if (pn->contents != CONTENTS_SOLID)
 					{
-						r_currentbkey = ((mleaf_t *)pn)->cluster;
+						//r_currentbkey = ((mleaf_t *)pn)->cluster;
+						r_currentbkey = LEAF_KEY (((mleaf_t *)pn));
 						R_RenderBmodelFace (psideedges[i], psurf);
 					}
 				}
@@ -718,7 +719,7 @@ void R_DrawSubmodelPolygons (model_t *pmodel, int clipflags, mnode_t *topnode)
 		if (((psurf->flags & SURF_PLANEBACK) && (dot < -BACKFACE_EPSILON)) ||
 			(!(psurf->flags & SURF_PLANEBACK) && (dot > BACKFACE_EPSILON)))
 		{
-			r_currentkey = ((mleaf_t *)topnode)->cluster;
+			r_currentkey = LEAF_KEY(((mleaf_t *)topnode));
 
 		// FIXME: use bounding-box-based frustum clipping info?
 			R_RenderFace (psurf, clipflags);
@@ -730,6 +731,7 @@ void R_DrawSubmodelPolygons (model_t *pmodel, int clipflags, mnode_t *topnode)
 
 
 int c_drawnode;
+int r_leafkeys[MAX_MAP_LEAFS];
 
 /*
 ================
@@ -812,7 +814,9 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 			gEngfuncs.R_StoreEfrags(&pleaf->efrags,tr.realframecount);
 		}
 
-		pleaf->cluster = r_currentkey;
+
+	//	pleaf->cluster
+		LEAF_KEY(pleaf) = r_currentkey;
 		r_currentkey++;		// all bmodels in a leaf share the same key
 	}
 	else

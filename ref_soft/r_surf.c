@@ -180,7 +180,7 @@ texture_t *R_TextureAnimation( msurface_t *s )
 	return base;
 }
 
-
+static char r_transtexture;
 /*
 ===============
 R_DrawSurface
@@ -200,6 +200,7 @@ void R_DrawSurface (void)
 	surfrowbytes = r_drawsurf.rowbytes;
 
 	mt = r_drawsurf.image;
+	r_transtexture = mt->transparent;
 	
 	r_source = mt->pixels[r_drawsurf.surfmip];
 	
@@ -276,6 +277,7 @@ void R_DrawSurfaceBlock8_mip0 (void)
 
 	psource = pbasesource;
 	prowdest = prowdestbase;
+	char transtexture = r_transtexture;
 
 	for (v=0 ; v<r_numvblocks ; v++)
 	{
@@ -297,6 +299,8 @@ void R_DrawSurfaceBlock8_mip0 (void)
 			for (b=15; b>=0; b--)
 			{
 				pix = psource[b];
+				if( transtexture )
+					pix = pix << 3;
 				prowdest[b] = pix;
 						//((unsigned char *)vid.colormap)
 						//[(light & 0xFF00) + pix];
@@ -324,6 +328,7 @@ void R_DrawSurfaceBlock8_mip1 (void)
 {
 	int				v, i, b, lightstep, lighttemp, light;
 	pixel_t	pix, *psource, *prowdest;
+	char transtexture = r_transtexture;
 
 	psource = pbasesource;
 	prowdest = prowdestbase;
@@ -348,6 +353,8 @@ void R_DrawSurfaceBlock8_mip1 (void)
 			for (b=7; b>=0; b--)
 			{
 				pix = psource[b];
+				if( transtexture )
+					pix = pix << 3;
 				prowdest[b] = pix;
 						//((unsigned char *)vid.colormap)
 						//[(light & 0xFF00) + pix];
@@ -375,6 +382,7 @@ void R_DrawSurfaceBlock8_mip2 (void)
 {
 	int				v, i, b, lightstep, lighttemp, light;
 	pixel_t	pix, *psource, *prowdest;
+	char transtexture = r_transtexture;
 
 	psource = pbasesource;
 	prowdest = prowdestbase;
@@ -399,6 +407,8 @@ void R_DrawSurfaceBlock8_mip2 (void)
 			for (b=3; b>=0; b--)
 			{
 				pix = psource[b];
+				if( transtexture )
+					pix = pix << 3;
 				prowdest[b] = pix;
 						//((unsigned char *)vid.colormap)
 						//[(light & 0xFF00) + pix];
@@ -426,6 +436,7 @@ void R_DrawSurfaceBlock8_mip3 (void)
 {
 	int				v, i, b, lightstep, lighttemp, light;
 	pixel_t	pix, *psource, *prowdest;
+	char transtexture = r_transtexture;
 
 	psource = pbasesource;
 	prowdest = prowdestbase;
@@ -450,6 +461,8 @@ void R_DrawSurfaceBlock8_mip3 (void)
 			for (b=1; b>=0; b--)
 			{
 				pix = psource[b];
+				if( transtexture )
+					pix = pix << 3;
 				prowdest[b] = pix;
 						//((unsigned char *)vid.colormap)
 						//[(light & 0xFF00) + pix];
