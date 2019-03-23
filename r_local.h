@@ -1239,6 +1239,9 @@ extern qboolean insubmodel;
 
 extern  vec3_t  r_entorigin;
 
+extern int r_leafkeys[MAX_MAP_LEAFS];
+#define LEAF_KEY(pleaf) r_leafkeys[(pleaf - WORLDMODEL->leafs)]
+
 //
 // r_blitscreen.c
 //

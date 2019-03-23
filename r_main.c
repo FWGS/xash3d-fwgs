@@ -398,7 +398,8 @@ qboolean R_AddEntity( struct cl_entity_s *clent, int type )
 	if( type == ET_FRAGMENTED )
 		r_stats.c_client_ents++;
 
-	if( R_OpaqueEntity( clent ))
+	// debug: mark all solid
+	if( true ) // R_OpaqueEntity( clent ))
 	{
 		// opaque
 		if( tr.draw_list->num_solid_entities >= MAX_VISIBLE_PACKET )
@@ -1261,9 +1262,6 @@ void R_DrawBEntitiesOnList (void)
 	float		minmaxs[6];
 	mnode_t		*topnode;
 
-	if (!r_drawentities->value)
-		return;
-
 	VectorCopy (modelorg, oldorigin);
 	insubmodel = true;
 	//r_dlightframecount = r_framecount;
@@ -1284,12 +1282,21 @@ void R_DrawBEntitiesOnList (void)
 	// trivial accept status
 		RotatedBBox (RI.currentmodel->mins, RI.currentmodel->maxs,
 			RI.currententity->angles, mins, maxs);
+#if 0
+		mins[0] = mins[0] - 100;
+		mins[1] = mins[1] - 100;
+		mins[2] = mins[2] - 100;
+		maxs[0] = maxs[0] + 100;
+		maxs[1] = maxs[1] + 100;
+		maxs[2] = maxs[2] + 100;
+#endif
 		VectorAdd (mins, RI.currententity->origin, minmaxs);
 		VectorAdd (maxs, RI.currententity->origin, (minmaxs+3));
 
 		clipflags = R_BmodelCheckBBox (minmaxs);
 		if (clipflags == BMODEL_FULLY_CLIPPED)
 			continue;	// off the edge of the screen
+		//clipflags = 0;
 
 		topnode = R_FindTopnode (minmaxs, minmaxs+3);
 		if (!topnode)
@@ -1319,13 +1326,13 @@ void R_DrawBEntitiesOnList (void)
 	//	RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currententity->topnode = topnode;
 //ASSERT( RI.currentmodel == tr.draw_list->solid_entities[i]->model );
-		if (topnode->contents >= 0)
+		//if (topnode->contents >= 0)
 		{
 		// not a leaf; has to be clipped to the world BSP
 			r_clipflags = clipflags;
 			R_DrawSolidClippedSubmodelPolygons (RI.currentmodel, topnode);
 		}
-		else
+		//else
 		{
 		// falls entirely in one leaf, so we just put all the
 		// edges in the edge list and let 1/z sorting handle
@@ -1333,7 +1340,7 @@ void R_DrawBEntitiesOnList (void)
 			//ASSERT( RI.currentmodel == tr.draw_list->solid_entities[i]->model );
 
 
-			R_DrawSubmodelPolygons (RI.currentmodel, clipflags, topnode);
+			//R_DrawSubmodelPolygons (RI.currentmodel, clipflags, topnode);
 		}
 		RI.currententity->topnode = NULL;
 
