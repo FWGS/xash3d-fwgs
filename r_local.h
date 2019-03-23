@@ -1235,6 +1235,9 @@ extern mvertex_t        *r_pcurrentvertbase;
 extern int                      r_maxvalidedgeoffset;
 extern int              r_currentkey;
 extern int              r_currentbkey;
+extern qboolean insubmodel;
+
+extern  vec3_t  r_entorigin;
 
 //
 // r_blitscreen.c
