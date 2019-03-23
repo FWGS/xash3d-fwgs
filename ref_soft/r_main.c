@@ -1097,7 +1097,156 @@ void R_DrawEntitiesOnList( void )
 	//GL_CheckForErrors();
 }
 
-#if 0
+#if 1
+qboolean insubmodel;
+
+
+/*
+=============
+R_BmodelCheckBBox
+=============
+*/
+int R_BmodelCheckBBox (float *minmaxs)
+{
+	int			i, *pindex, clipflags;
+	vec3_t		acceptpt, rejectpt;
+	float		d;
+
+	clipflags = 0;
+
+	for (i=0 ; i<4 ; i++)
+	{
+	// generate accept and reject points
+	// FIXME: do with fast look-ups or integer tests based on the sign bit
+	// of the floating point values
+
+		pindex = pfrustum_indexes[i];
+
+		rejectpt[0] = minmaxs[pindex[0]];
+		rejectpt[1] = minmaxs[pindex[1]];
+		rejectpt[2] = minmaxs[pindex[2]];
+
+		d = DotProduct (rejectpt, view_clipplanes[i].normal);
+		d -= view_clipplanes[i].dist;
+
+		if (d <= 0)
+			return BMODEL_FULLY_CLIPPED;
+
+		acceptpt[0] = minmaxs[pindex[3+0]];
+		acceptpt[1] = minmaxs[pindex[3+1]];
+		acceptpt[2] = minmaxs[pindex[3+2]];
+
+		d = DotProduct (acceptpt, view_clipplanes[i].normal);
+		d -= view_clipplanes[i].dist;
+
+		if (d <= 0)
+			clipflags |= (1<<i);
+	}
+
+	return clipflags;
+}
+
+/*
+===================
+R_FindTopNode
+===================
+*/
+mnode_t *R_FindTopnode (vec3_t mins, vec3_t maxs)
+{
+		mplane_t        *splitplane;
+		int                     sides;
+		mnode_t         *node;
+
+		node = WORLDMODEL->nodes;
+
+		while (1)
+		{
+				if (node->visframe != r_visframecount)
+						return NULL;            // not visible at all
+
+				if (node->contents < 0)
+				{
+						if (node->contents != CONTENTS_SOLID)
+								return node; // we've reached a non-solid leaf, so it's
+														//  visible and not BSP clipped
+						return NULL;    // in solid, so not visible
+				}
+
+				splitplane = node->plane;
+				sides = BOX_ON_PLANE_SIDE (mins, maxs, splitplane);
+
+				if (sides == 3)
+						return node;    // this is the splitter
+
+				// not split yet; recurse down the contacted side
+				if (sides & 1)
+						node = node->children[0];
+				else
+						node = node->children[1];
+		}
+}
+
+
+/*
+=============
+RotatedBBox
+
+Returns an axially aligned box that contains the input box at the given rotation
+=============
+*/
+void RotatedBBox (vec3_t mins, vec3_t maxs, vec3_t angles, vec3_t tmins, vec3_t tmaxs)
+{
+	vec3_t	tmp, v;
+	int		i, j;
+	vec3_t	forward, right, up;
+
+	if (!angles[0] && !angles[1] && !angles[2])
+	{
+		VectorCopy (mins, tmins);
+		VectorCopy (maxs, tmaxs);
+		return;
+	}
+
+	for (i=0 ; i<3 ; i++)
+	{
+		tmins[i] = 99999;
+		tmaxs[i] = -99999;
+	}
+
+	AngleVectors (angles, forward, right, up);
+
+	for ( i = 0; i < 8; i++ )
+	{
+		if ( i & 1 )
+			tmp[0] = mins[0];
+		else
+			tmp[0] = maxs[0];
+
+		if ( i & 2 )
+			tmp[1] = mins[1];
+		else
+			tmp[1] = maxs[1];
+
+		if ( i & 4 )
+			tmp[2] = mins[2];
+		else
+			tmp[2] = maxs[2];
+
+
+		VectorScale (forward, tmp[0], v);
+		VectorMA (v, -tmp[1], right, v);
+		VectorMA (v, tmp[2], up, v);
+
+		for (j=0 ; j<3 ; j++)
+		{
+			if (v[j] < tmins[j])
+				tmins[j] = v[j];
+			if (v[j] > tmaxs[j])
+				tmaxs[j] = v[j];
+		}
+	}
+}
+
 
 /*
 =============
@@ -1117,26 +1266,26 @@ void R_DrawBEntitiesOnList (void)
 
 	VectorCopy (modelorg, oldorigin);
 	insubmodel = true;
-	r_dlightframecount = r_framecount;
+	//r_dlightframecount = r_framecount;
 
-	for (i=0 ; i<r_newrefdef.num_entities ; i++)
+	for( i = 0; i < tr.draw_list->num_solid_entities && !RI.onlyClientDraw; i++ )
 	{
-		currententity = &r_newrefdef.entities[i];
-		currentmodel = currententity->model;
-		if (!currentmodel)
+		RI.currententity = tr.draw_list->solid_entities[i];
+		RI.currentmodel = RI.currententity->model;
+		if (!RI.currentmodel)
 			continue;
-		if (currentmodel->nummodelsurfaces == 0)
+		if (RI.currentmodel->nummodelsurfaces == 0)
 			continue;	// clip brush only
-		if ( currententity->flags & RF_BEAM )
-			continue;
-		if (currentmodel->type != mod_brush)
+		//if ( currententity->flags & RF_BEAM )
+			//continue;
+		if (RI.currentmodel->type != mod_brush)
 			continue;
 	// see if the bounding box lets us trivially reject, also sets
 	// trivial accept status
-		RotatedBBox (currentmodel->mins, currentmodel->maxs,
-			currententity->angles, mins, maxs);
-		VectorAdd (mins, currententity->origin, minmaxs);
-		VectorAdd (maxs, currententity->origin, (minmaxs+3));
+		RotatedBBox (RI.currentmodel->mins, RI.currentmodel->maxs,
+			RI.currententity->angles, mins, maxs);
+		VectorAdd (mins, RI.currententity->origin, minmaxs);
+		VectorAdd (maxs, RI.currententity->origin, (minmaxs+3));
 
 		clipflags = R_BmodelCheckBBox (minmaxs);
 		if (clipflags == BMODEL_FULLY_CLIPPED)
@@ -1146,30 +1295,47 @@ void R_DrawBEntitiesOnList (void)
 		if (!topnode)
 			continue;	// no part in a visible leaf
 
-		VectorCopy (currententity->origin, r_entorigin);
+		VectorCopy (RI.currententity->origin, r_entorigin);
 		VectorSubtract (r_origin, r_entorigin, modelorg);
-
-		r_pcurrentvertbase = currentmodel->vertexes;
+		//VectorSubtract (r_origin, RI.currententity->origin, modelorg);
+		r_pcurrentvertbase = RI.currentmodel->vertexes;
 
 	// FIXME: stop transforming twice
 		R_RotateBmodel ();
 
 	// calculate dynamic lighting for bmodel
-		R_PushDlights (currentmodel);
+		// this will reset RI.currententity, do we need this?
+		//R_PushDlights ();
+		/*if (clmodel->firstmodelsurface != 0)
+		{
+				for (k=0 ; k<r_refdef2.numDlights ; k++)
+				{
+						R_MarkLights (&r_refdef2.dlights[k], 1<<k,
+								clmodel->nodes + clmodel->firstnode);
+				}
+		}*/
 
-		if (topnode->contents == CONTENTS_NODE)
+	//	RI.currentmodel = tr.draw_list->solid_entities[i]->model;
+	//	RI.currententity = tr.draw_list->solid_entities[i];
+		RI.currententity->topnode = topnode;
+//ASSERT( RI.currentmodel == tr.draw_list->solid_entities[i]->model );
+		if (topnode->contents >= 0)
 		{
 		// not a leaf; has to be clipped to the world BSP
 			r_clipflags = clipflags;
-			R_DrawSolidClippedSubmodelPolygons (currentmodel, topnode);
+			R_DrawSolidClippedSubmodelPolygons (RI.currentmodel, topnode);
 		}
 		else
 		{
 		// falls entirely in one leaf, so we just put all the
 		// edges in the edge list and let 1/z sorting handle
 		// drawing order
-			R_DrawSubmodelPolygons (currentmodel, clipflags, topnode);
+			//ASSERT( RI.currentmodel == tr.draw_list->solid_entities[i]->model );
+
+
+			R_DrawSubmodelPolygons (RI.currentmodel, clipflags, topnode);
 		}
+		RI.currententity->topnode = NULL;
 
 	// put back world rotation and frustum clipping
 	// FIXME: R_RotateBmodel should just work off base_vxx
@@ -1227,7 +1393,7 @@ void R_EdgeDrawing (void)
 	R_RenderWorld ();
 
 	// move brushes to separate list to merge with edges?
-	//R_DrawBEntitiesOnList ();
+	R_DrawBEntitiesOnList ();
 
 	// display all edges
 	R_ScanEdges ();
@@ -1372,7 +1538,7 @@ void R_RenderScene( void )
 	// begin a new frame
 	tr.framecount++;
 
-//	R_PushDlights();
+	R_PushDlights();
 
 	R_SetupFrustum();
 	R_SetupFrame();
