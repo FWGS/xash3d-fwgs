@@ -198,6 +198,7 @@ def configure(conf):
 		conf.setenv('')
 
 def build(bld):
+	bld.load_envs()
 	for i in SUBDIRS:
 		if bld.env.SINGLE_BINARY and i.singlebin:
 			continue
@@ -208,4 +209,5 @@ def build(bld):
 		if i.ignore:
 			continue
 
+		bld.env = bld.all_envs[i.name]
 		bld.recurse(i.name)
