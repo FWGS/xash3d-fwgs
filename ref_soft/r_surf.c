@@ -256,6 +256,8 @@ void R_DrawSurface (void)
 
 		pcolumndest += horzblockstep;
 	}
+    // test what if we have very slow cache building
+    //usleep(10000);
 }
 
 
@@ -490,9 +492,9 @@ void R_InitCaches (void)
 	}
 	else
 	{
-		size = SURFCACHE_SIZE_AT_320X240;
+		size = SURFCACHE_SIZE_AT_320X240 * 2;
 
-		pix =1920 * 1080 * 16;
+		pix = vid.width * vid.height * 2;
 		if (pix > 64000)
 			size += (pix-64000)*3;
 	}		
@@ -503,7 +505,12 @@ void R_InitCaches (void)
 	gEngfuncs.Con_Printf ("%ik surface cache\n", size/1024);
 
 	sc_size = size;
-	sc_base = (surfcache_t *)malloc(size);
+	if( sc_base )
+	{
+		D_FlushCaches();
+		Mem_Free( sc_base );
+	}
+	sc_base = (surfcache_t *)Mem_Calloc(r_temppool,size);
 	sc_rover = sc_base;
 	
 	sc_base->next = NULL;

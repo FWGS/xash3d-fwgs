@@ -326,7 +326,7 @@ void GL_SetTexCoordArrayMode()
 
 void GL_OnContextCreated()
 {
-	R_InitBlit();
+	//R_InitBlit();
 
 }
 

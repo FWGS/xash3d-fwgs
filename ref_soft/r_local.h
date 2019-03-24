@@ -93,7 +93,7 @@ extern byte	*r_temppool;
 #define CULL_OTHER		4		// culled by other reason
 
 // bit operation helpers
-#define MASK(x) (BIT(x+1)-1)
+#define MASK(x) (BIT(x)-1)
 #define GET_BIT(s,b) ((s & (1 << b)) >> b)
 #define MOVE_BIT(s, f, t) (GET_BIT(s,f) << t )
 
@@ -140,6 +140,7 @@ typedef struct
 	pixel_t					screen_major[256];
 #else
 	pixel_t					screen[256*256];
+	unsigned int				screen32[256*256];
 #endif
 	byte					addmap[256*256];
 	byte					modmap[256*256];
@@ -832,7 +833,7 @@ extern cvar_t	*r_showhull;
 #define NEAR_CLIP       0.01
 
 
-#define MAXALIASVERTS           2000    // TODO: tune this
+//#define MAXALIASVERTS           2000    // TODO: tune this
 #define ALIAS_Z_CLIP_PLANE      4
 
 // turbulence stuff
