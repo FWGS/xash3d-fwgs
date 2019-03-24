@@ -39,7 +39,7 @@ def configure(conf):
 
 	if not conf.options.VGUI_DEV:
 		conf.end_msg('no')
- 		conf.fatal("Provide a path to vgui-dev repository using --vgui key")
+		conf.fatal("Provide a path to vgui-dev repository using --vgui key")
 
 	if conf.env.DEST_OS == 'win32':
 		conf.env.LIB_VGUI = ['vgui']
