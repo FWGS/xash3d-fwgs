@@ -92,6 +92,9 @@ void*     GL_GetProcAddress( const char *name ); // RenderAPI requirement
 void      GL_UpdateSwapInterval( void );
 int GL_SetAttribute( int attr, int val );
 int GL_GetAttribute( int attr, int *val );
+void *SW_LockBuffer();
+void SW_UnlockBuffer();
+qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
 
 /*
 ==============================================================================

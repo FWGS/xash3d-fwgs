@@ -29,6 +29,199 @@ struct
 	int prev_width, prev_height;
 } sdlState;
 
+struct
+{
+	SDL_Renderer *renderer;
+	SDL_Texture *tex;
+	int width, height;
+	SDL_Surface *surf;
+	SDL_Surface *win;
+} sw;
+
+qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
+{
+	sw.width = width;
+	sw.height = height;
+
+	if( sw.renderer )
+	{
+		unsigned int format = SDL_GetWindowPixelFormat( host.hWnd );
+		SDL_RenderSetLogicalSize(sw.renderer, refState.width, refState.height);
+
+		if( sw.tex )
+			SDL_DestroyTexture( sw.tex );
+
+		// guess
+		if( format == SDL_PIXELFORMAT_UNKNOWN )
+		{
+			if( glw_state.desktopBitsPixel == 16 )
+				format = SDL_PIXELFORMAT_RGB565;
+			else
+				format = SDL_PIXELFORMAT_RGBA8888;
+		}
+
+		// we can only copy fast 16 or 32 bits
+		// SDL_Renderer does not allow zero-copy, so 24 bits will be ineffective
+		if( !( SDL_BYTESPERPIXEL(format) == 2 || SDL_BYTESPERPIXEL(format) == 4 ) )
+			format = SDL_PIXELFORMAT_RGBA8888;
+
+		sw.tex = SDL_CreateTexture(sw.renderer, format,
+										SDL_TEXTUREACCESS_STREAMING,
+										width, height);
+
+		// fallback
+		if( !sw.tex )
+			sw.tex = SDL_CreateTexture(sw.renderer, format = SDL_PIXELFORMAT_RGBA8888,
+											SDL_TEXTUREACCESS_STREAMING,
+											width, height);
+
+		if( !sw.tex )
+		{
+			SDL_DestroyRenderer( sw.renderer );
+			sw.renderer = NULL;
+		}
+		else
+		{
+			void *pixels;
+			int pitch;
+
+			if( !SDL_LockTexture(sw.tex, NULL, &pixels, &pitch ) )
+			{
+				int bits, amask;
+				// lock successfull, release
+				SDL_UnlockTexture(sw.tex);
+
+				// enough for building blitter tables
+				SDL_PixelFormatEnumToMasks( format, &bits, r, g, b, &amask );
+				*bpp = SDL_BYTESPERPIXEL(format);
+				*stride = pitch / *bpp;
+
+				return true;
+			}
+
+			// fallback to surf
+			SDL_DestroyTexture(sw.tex);
+			sw.tex = NULL;
+			SDL_DestroyRenderer(sw.renderer);
+			sw.renderer = NULL;
+		}
+	}
+
+	if( !sw.renderer )
+	{
+		sw.win = SDL_GetWindowSurface( host.hWnd );
+
+		// sdl will create renderer if hw framebuffer unavailiable, so cannot fallback here
+		// if it is failed, it is not possible to draw with SDL in REF_SOFTWARE mode
+		if( !sw.win )
+		{
+			Sys_Warn("failed to initialize software output, try enable sw_glblit");
+			return false;
+		}
+
+		*bpp = sw.win->format->BytesPerPixel;
+		*r = sw.win->format->Rmask;
+		*g = sw.win->format->Gmask;
+		*b = sw.win->format->Bmask;
+		*stride = sw.win->pitch / sw.win->format->BytesPerPixel;
+
+		/// TODO: check somehow if ref_soft can handle native format
+#if 0
+		{
+			sw.surf = SDL_CreateRGBSurfaceWithFormat( 0, width, height, 16, SDL_PIXELFORMAT_RGB565 );
+			if( !sw.surf )
+				Sys_Error(SDL_GetError());
+		}
+#endif
+
+	}
+}
+
+void *SW_LockBuffer()
+{
+	if( sw.renderer )
+	{
+		void *pixels;
+		int stride;
+
+		if( SDL_LockTexture(sw.tex, NULL, &pixels, &stride ) )
+			Sys_Error(SDL_GetError());
+		return pixels;
+	}
+	else
+	{
+		// ensure it not changed (do we really need this?)
+		sw.win = SDL_GetWindowSurface( host.hWnd );
+
+		//if( !sw.win )
+			//SDL_GetWindowSurface( host.hWnd );
+
+		// prevent buffer overrun
+		if( !sw.win || sw.win->w < sw.width || sw.win->h < sw.height  )
+			return NULL;
+
+		if( sw.surf )
+		{
+			SDL_LockSurface( sw.surf );
+			return sw.surf->pixels;
+		}
+		else
+		{
+			// real window pixels (x11 shm region, dma buffer, etc)
+			// or SDL_Renderer texture if not supported
+			SDL_LockSurface( sw.win );
+			return sw.win->pixels;
+		}
+	}
+}
+
+void SW_UnlockBuffer()
+{
+
+	if( sw.renderer )
+	{
+		SDL_Rect src, dst;
+		src.x = 0;
+		src.y = 0;
+		src.w = sw.width;
+		src.h = sw.height;
+		dst.x = 0;
+		dst.y = 0;
+		dst.w = sw.width;
+		dst.h = sw.height;
+		SDL_UnlockTexture(sw.tex);
+
+		SDL_SetTextureBlendMode(sw.tex, SDL_BLENDMODE_NONE);
+
+
+		SDL_RenderCopy(sw.renderer, sw.tex, &src, &dst);
+		SDL_RenderPresent(sw.renderer);
+		//Con_Printf("%s\n", SDL_GetError());
+	}
+	else
+	{
+		// blit if blitting surface availiable
+		if( sw.surf )
+		{
+			SDL_Rect src, dst;
+			src.x = 0;
+			src.y = 0;
+			src.w = sw.width;
+			src.h = sw.height;
+			dst.x = 0;
+			dst.y = 0;
+			dst.w = sw.width;
+			dst.h = sw.height;
+			SDL_UnlockSurface( sw.surf );
+			SDL_BlitSurface( sw.surf, &src, sw.win, &dst );
+		}
+		else // already blitted
+			SDL_UnlockSurface( sw.win );
+
+		SDL_UpdateWindowSurface( host.hWnd );
+	}
+}
+
 int R_MaxVideoModes( void )
 {
 	return num_vidmodes;
@@ -343,6 +536,8 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 	if( vid_highdpi->value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
 	Q_strncpy( wndname, GI->title, sizeof( wndname ));
+	if( glw_state.software )
+		wndFlags &= ~SDL_WINDOW_OPENGL;
 
 	if( !fullscreen )
 	{
@@ -441,18 +636,43 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 #endif
 
 	SDL_ShowWindow( host.hWnd );
-	if( !glw_state.initialized )
+
+	if( glw_state.software )
 	{
-		if( !GL_CreateContext( ))
-			return false;
+		int sdl_renderer = -2;
+		char cmd[64];
 
-		VID_StartupGamma();
+		if( Sys_GetParmFromCmdLine("-sdl_renderer", cmd ) )
+			sdl_renderer = Q_atoi( cmd );
+
+		if( sdl_renderer >= -1 )
+		{
+			sw.renderer = SDL_CreateRenderer( host.hWnd, sdl_renderer, 0 );
+			if( !sw.renderer )
+				Con_Printf( S_ERROR "failed to create SDL renderer: %s\n", SDL_GetError() );
+			else
+			{
+				SDL_RendererInfo info;
+				SDL_GetRendererInfo( sw.renderer, &info );
+				Con_Printf( "SDL_Renderer %s initialized\n", info.name );
+			}
+		}
 	}
+	else
+	{
+		if( !glw_state.initialized )
+		{
+			if( !GL_CreateContext( ))
+				return false;
 
-	if( !GL_UpdateContext( ))
+			VID_StartupGamma();
+		}
+
+		if( !GL_UpdateContext( ))
 		return false;
 
-	SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
+		SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
+	}
 	R_SaveVideoMode( width, height );
 
 	return true;
@@ -539,6 +759,16 @@ qboolean R_Init_Video( const int type )
 	glw_state.desktopWidth = displayMode.w;
 	glw_state.desktopHeight = displayMode.h;
 
+	if( type == REF_SOFTWARE )
+	{
+		glw_state.software = true;
+		if( !(retval = VID_SetMode()) )
+		{
+			return retval;
+		}
+		return true;
+	}
+
 	if( type != REF_GL )
 	{
 		Host_Error( "Can't initialize unknown context type %d!\n", type );
@@ -617,7 +847,10 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 #endif
 		SDL_SetWindowBordered( host.hWnd, true );
 		SDL_SetWindowSize( host.hWnd, width, height );
-		SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
+		if( !glw_state.software )
+			SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
+		else
+			SDL_RenderSetLogicalSize(sw.renderer, width, height);
 		R_SaveVideoMode( width, height );
 	}
 
