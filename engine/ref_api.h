@@ -388,6 +388,11 @@ typedef struct ref_api_s
 	void *(*GL_GetProcAddress)( const char *name );
 	void (*GL_SwapBuffers)();
 
+	// SW
+	qboolean (*SW_CreateBuffer)( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
+	void *(*SW_LockBuffer)();
+	void (*SW_UnlockBuffer)();
+
 	// gamma
 	void (*BuildGammaTable)( float lightgamma, float brightness );
 	byte		(*LightToTexGamma)( byte color );	// software gamma support
