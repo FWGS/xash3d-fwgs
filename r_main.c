@@ -458,7 +458,7 @@ static void R_Clear( int bitMask )
 	pglDepthFunc( GL_LEQUAL );
 	pglDepthRange( gldepthmin, gldepthmax );
 #endif
-	memset( vid.buffer, 0, 1920*1080*2);
+	memset( vid.buffer, 0, vid.width * vid.height *2);
 }
 
 //=============================================================================
@@ -1686,6 +1686,10 @@ int R_RenderFrame( const ref_viewpass_t *rvp )
 	if( r_norefresh->value )
 		return 1;
 
+	// prevent cache overrun
+	if( gpGlobals->height > vid.height || gpGlobals->width > vid.width )
+		return 1;
+
 	// setup the initial render params
 	R_SetupRefParams( rvp );
 
@@ -1842,12 +1846,7 @@ qboolean R_Init()
 	// create the window and set up the context
 	r_temppool = Mem_AllocPool( "ref_sw zone" );
 
-	vid.width = 1920;
-	vid.height = 1080;
-	vid.rowbytes = 1920; // rowpixels
-
-	vid.buffer = Mem_Malloc( r_temppool, 1920*1080*sizeof( pixel_t ) );
-	if( !gEngfuncs.R_Init_Video( REF_GL )) // request GL context
+	if( !gEngfuncs.R_Init_Video( REF_SOFTWARE )) // request GL context
 	{
 		gEngfuncs.R_Free_Video();
 
@@ -1855,6 +1854,7 @@ qboolean R_Init()
 		return false;
 	}
 
+	R_InitBlit();
 
 	R_InitImages();
 	// init draw stack
