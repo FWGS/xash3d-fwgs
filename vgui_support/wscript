@@ -4,7 +4,6 @@
 
 from waflib import Logs
 import os
-from fwgslib import get_subproject_name
 
 top = '.'
 
@@ -74,9 +73,6 @@ def configure(conf):
 			conf.fatal("Can't compile simple program. Check your path to vgui-dev repository.")
 
 def build(bld):
-	bld.load_envs()
-	bld.env = bld.all_envs[get_subproject_name(bld)]
-
 	if bld.env.NO_VGUI:
 		return
 

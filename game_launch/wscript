@@ -5,7 +5,6 @@
 from waflib import Logs
 import os
 import sys
-from fwgslib import get_subproject_name
 
 top = '.'
 
@@ -17,9 +16,6 @@ def configure(conf):
 		conf.load('winres')
 
 def build(bld):
-	bld.load_envs()
-	bld.env = bld.all_envs[get_subproject_name(bld)]
-
 	source = ['game.cpp']
 	includes = '. ../common'
 	libs = []
