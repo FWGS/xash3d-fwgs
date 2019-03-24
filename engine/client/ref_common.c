@@ -299,6 +299,10 @@ static ref_api_t gEngfuncs =
 	GL_GetProcAddress,
 	GL_SwapBuffers,
 
+	SW_CreateBuffer,
+	SW_LockBuffer,
+	SW_UnlockBuffer,
+
 	BuildGammaTable,
 	LightToTexGamma,
 
