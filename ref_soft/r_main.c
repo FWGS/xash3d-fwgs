@@ -91,6 +91,8 @@ cvar_t	*r_dspeeds;
 cvar_t	*r_fullbright;
 cvar_t  *r_lerpmodels;
 cvar_t  *r_novis;
+cvar_t	*r_lightmap;
+cvar_t	*r_dynamic;
 
 cvar_t	*r_speeds;
 cvar_t	*r_lightlevel;	//FIXME HACK
@@ -207,7 +209,7 @@ static int R_RankForRenderMode( int rendermode )
 	}
 	return 0;
 }
-
+#if 0
 /*
 ================
 R_GetEntityRenderMode
@@ -227,7 +229,7 @@ int R_GetEntityRenderMode( cl_entity_t *ent )
 	RI.currententity = ent;
 	return ent->curstate.rendermode;
 }
-
+#endif
 
 void R_AllowFog( qboolean allowed )
 {
@@ -1002,15 +1004,23 @@ R_DrawEntitiesOnList
 void R_DrawEntitiesOnList( void )
 {
 	int	i;
-
+	extern int d_aflatcolor;
+	d_aflatcolor = 0;
 	tr.blend = 1.0f;
 //	GL_CheckForErrors();
-
+	// HACK: setup world transform
+	void R_AliasSetUpTransform (void);
+	RI.currententity = gEngfuncs.GetEntityByIndex(0);
+	R_AliasSetUpTransform();
+	extern void	(*d_pdrawspans)(void *);
+	extern void R_PolysetFillSpans8 ( void * );
+	d_pdrawspans = R_PolysetFillSpans8;
 	// first draw solid entities
 	for( i = 0; i < tr.draw_list->num_solid_entities && !RI.onlyClientDraw; i++ )
 	{
 		RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currentmodel = RI.currententity->model;
+		d_aflatcolor += 500;
 
 		Assert( RI.currententity != NULL );
 		Assert( RI.currentmodel != NULL );
@@ -1025,7 +1035,7 @@ void R_DrawEntitiesOnList( void )
 			break;
 		case mod_studio:
 			//R_DrawStudioModel( RI.currententity );
-		{finalvert_t fv[3];
+		/*{finalvert_t fv[3];
 			void R_AliasSetUpTransform (void);
 			extern void	(*d_pdrawspans)(void *);
 			extern void R_PolysetFillSpans8 ( void * );
@@ -1036,7 +1046,8 @@ void R_DrawEntitiesOnList( void )
 			R_SetupFinalVert( &fv[1], -10, 10, 10, 0, 0, 0);
 			R_SetupFinalVert( &fv[2], 10, 10, -10, 0, 0, 0);
 			R_RenderTriangle( &fv );
-		}
+		}*/
+			R_DrawStudioModel( RI.currententity );
 
 			break;
 		default:
@@ -1868,6 +1879,9 @@ qboolean R_Init()
 	r_fullbright = gEngfuncs.Cvar_Get( "r_fullbright", "0", FCVAR_CHEAT, "disable lightmaps, get fullbright for entities" );
 	sw_mipcap = gEngfuncs.Cvar_Get( "r_fullbright", "0", FCVAR_CHEAT, "disable lightmaps, get fullbright for entities" );
 
+	r_dynamic = gEngfuncs.Cvar_Get( "r_dynamic", "1", FCVAR_ARCHIVE, "allow dynamic lighting (dlights, lightstyles)" );
+	r_lightmap = gEngfuncs.Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
+
 //	sw_aliasstats = ri.Cvar_Get ("sw_polymodelstats", "0", 0);
 //	sw_allow_modex = ri.Cvar_Get( "sw_allow_modex", "1", CVAR_ARCHIVE );
 	sw_clearcolor = gEngfuncs.Cvar_Get ("sw_clearcolor", "2", 0, "screen clear color");
@@ -1915,6 +1929,7 @@ qboolean R_Init()
 	view_clipplanes[1].rightedge = true;
 	view_clipplanes[1].leftedge = view_clipplanes[2].leftedge =view_clipplanes[3].leftedge = false;
 	view_clipplanes[0].rightedge = view_clipplanes[2].rightedge = view_clipplanes[3].rightedge = false;
+	R_StudioInit();
 
 	return true;
 }

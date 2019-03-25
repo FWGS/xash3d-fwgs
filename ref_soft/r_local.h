@@ -84,7 +84,7 @@ extern byte	*r_temppool;
 #define RP_LOCALCLIENT( e )	((e) != NULL && (e)->index == gEngfuncs.GetPlayerIndex() && e->player )
 #define RP_NORMALPASS()	( FBitSet( RI.params, RP_NONVIEWERREF ) == 0 )
 
-#define CL_IsViewEntityLocalPlayer() ( gEngfuncs.GetViewEntIndex() == gEngfuncs.GetPlayerIndex() )
+#define CL_IsViewEntityLocalPlayer() ( ENGINE_GET_PARM( PARM_VIEWENT_INDEX ) == ENGINE_GET_PARM( PARM_PLAYER_INDEX ) )
 
 #define CULL_VISIBLE	0		// not culled
 #define CULL_BACKSIDE	1		// backside of transparent wall
@@ -547,7 +547,7 @@ void R_SpriteInit( void );
 void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags );
 mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw );
 void R_DrawSpriteModel( cl_entity_t *e );
-
+#endif
 //
 // gl_studio.c
 //
@@ -567,7 +567,7 @@ void R_StudioResetPlayerModels( void );
 void CL_InitStudioAPI( void );
 void Mod_StudioLoadTextures( model_t *mod, void *data );
 void Mod_StudioUnloadTextures( void *data );
-
+#if 0
 //
 // gl_alias.c
 //
@@ -682,7 +682,7 @@ void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn );
 void TriGetMatrix( const int pname, float *matrix );
 void TriFogParams( float flDensity, int iFogSkybox );
 void TriCullFace( TRICULLSTYLE mode );
-
+void TriBrightness( float brightness );
 
 #define ENGINE_GET_PARM_ (*gEngfuncs.EngineGetParm)
 #define ENGINE_GET_PARM( parm ) ENGINE_GET_PARM_( (parm), 0 )
@@ -694,6 +694,12 @@ extern cvar_t	*r_drawentities;
 extern cvar_t	*vid_brightness;
 extern cvar_t	*vid_gamma;
 extern cvar_t	*r_norefresh;
+extern cvar_t	*r_dynamic;
+extern cvar_t	*r_lightmap;
+
+// todo: gl_cull.c
+#define R_CullModel(...) 0
+
 #if 0
 //
 // renderer cvars

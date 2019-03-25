@@ -23,6 +23,10 @@ static struct
 	vec4_t		triRGBA;
 } ds;
 
+finalvert_t triv[3];
+int vertcount;
+int mode;
+
 /*
 ===============================================================
 
@@ -76,7 +80,7 @@ TriBegin
 begin triangle sequence
 =============
 */
-void TriBegin( int mode )
+void TriBegin( int mode1 )
 {
 #if 0
 	switch( mode )
@@ -110,6 +114,8 @@ void TriBegin( int mode )
 
 	pglBegin( mode );
 #endif
+	mode = mode1;
+	vertcount = 0;
 }
 
 /*
@@ -121,6 +127,8 @@ draw triangle sequence
 */
 void TriEnd( void )
 {
+	//if( vertcount == 3 )
+	R_RenderTriangle( triv );
 	//pglEnd( );
 }
 
@@ -212,6 +220,7 @@ TriVertex3fv
 void TriVertex3fv( const float *v )
 {
 	//pglVertex3fv( v );
+	TriVertex3f( v[0], v[1], v[2] );
 }
 
 /*
@@ -222,7 +231,37 @@ TriVertex3f
 */
 void TriVertex3f( float x, float y, float z )
 {
-	//pglVertex3f( x, y, z );
+	if( mode == TRI_TRIANGLE_FAN )
+	{
+		R_SetupFinalVert( &triv[vertcount], x, y, z, 0,0,0);
+		vertcount++;
+		if( vertcount >= 3 )
+		{
+			R_RenderTriangle( triv );
+			triv[1] = triv[2];
+			vertcount = 2;
+		}
+	}
+	if( mode == TRI_TRIANGLE_STRIP )
+	{
+		R_SetupFinalVert( &triv[vertcount], x, y, z, 0,0,0);
+		vertcount++;
+		if( vertcount == 3 )
+		{
+			R_RenderTriangle( triv );
+			finalvert_t fv = triv[0];
+
+			triv[0] = triv[2];
+			triv[2] = fv;
+			R_RenderTriangle( triv );
+			fv = triv[0];
+			triv[0] = triv[2];
+			triv[2] = fv;
+			triv[0] = triv[1];
+			triv[1] = triv[2];
+			vertcount = 2;
+		}
+	}
 }
 
 /*
