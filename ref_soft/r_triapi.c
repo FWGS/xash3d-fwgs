@@ -134,6 +134,7 @@ void _TriColor4f( float rr, float gg, float bb, float aa )
 {
 	//pglColor4f( r, g, b, a );
 	unsigned short r,g,b;
+	unsigned int major, minor;
 
 
 	vid.alpha = aa * 7;
@@ -150,10 +151,10 @@ void _TriColor4f( float rr, float gg, float bb, float aa )
 	r = rr * 31, g = gg * 63, b = bb * 31;
 
 
-	unsigned int major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));
+	major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));
 
 	// save minor GBRGBRGB
-	unsigned int minor = MOVE_BIT(r,1,5) | MOVE_BIT(r,0,2) | MOVE_BIT(g,2,7) | MOVE_BIT(g,1,4) | MOVE_BIT(g,0,1) | MOVE_BIT(b,2,6)| MOVE_BIT(b,1,3)|MOVE_BIT(b,0,0);
+	minor = MOVE_BIT(r,1,5) | MOVE_BIT(r,0,2) | MOVE_BIT(g,2,7) | MOVE_BIT(g,1,4) | MOVE_BIT(g,0,1) | MOVE_BIT(b,2,6)| MOVE_BIT(b,1,3)|MOVE_BIT(b,0,0);
 
 	vid.color =  major << 8 | (minor & 0xFF);
 }

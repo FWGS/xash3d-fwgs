@@ -493,6 +493,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	uint		offset = 0;
 	qboolean		normalMap;
 	const byte	*bufend;
+	int mipCount;
 
 	tex->fogParams[0] = pic->fogParams[0];
 	tex->fogParams[1] = pic->fogParams[1];
@@ -511,7 +512,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 	buf = pic->buffer;
 
-	int mipCount = 4;//GL_CalcMipmapCount( tex, ( buf != NULL ));
+	mipCount = 4;//GL_CalcMipmapCount( tex, ( buf != NULL ));
 
 	// NOTE: only single uncompressed textures can be resamples, no mips, no layers, no sides
 	if(( tex->depth == 1 ) && ( pic->width != tex->width ) || ( pic->height != tex->height ))
@@ -524,6 +525,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	// mips will be auto-generated if desired
 	for( j = 0; j < mipCount; j++ )
 	{
+	int x, y;
 		width = Q_max( 1, ( tex->width >> j ));
 		height = Q_max( 1, ( tex->height >> j ));
 		texsize = GL_CalcTextureSize( width, height, tex->depth );
@@ -532,7 +534,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		tex->pixels[j] = Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) + 64 );
 		if( j == 0 &&  tex->flags & TF_HAS_ALPHA )
 			tex->alpha_pixels = Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) + 64 );
-		int x, y;
+	
 
 		for(i = 0; i < height * width; i++ )
 		{

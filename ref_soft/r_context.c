@@ -708,7 +708,7 @@ ref_interface_t gReffuncs =
 	VGUI_GenerateTexture,
 };
 
-int GAME_EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals )
+int EXPORT GAME_EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals )
 {
 	if( version != REF_API_VERSION )
 		return 0;
