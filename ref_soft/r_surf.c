@@ -507,7 +507,7 @@ void R_InitCaches (void)
 	sc_size = size;
 	if( sc_base )
 	{
-		D_FlushCaches();
+		D_FlushCaches( false );
 		Mem_Free( sc_base );
 	}
 	sc_base = (surfcache_t *)Mem_Calloc(r_temppool,size);
@@ -524,17 +524,18 @@ void R_InitCaches (void)
 D_FlushCaches
 ==================
 */
-void D_FlushCaches (void)
+void D_FlushCaches( qboolean newmap )
 {
 	surfcache_t     *c;
 	
-	if (!sc_base)
-		return;
-
-	for (c = sc_base ; c ; c = c->next)
+	// if newmap, surfaces already freed
+	if( !newmap )
 	{
-		if (c->owner)
-			*c->owner = NULL;
+		for(c = sc_base ; c ; c = c->next )
+		{
+			if ( c->owner )
+				*c->owner = NULL;
+		}
 	}
 	
 	sc_rover = sc_base;

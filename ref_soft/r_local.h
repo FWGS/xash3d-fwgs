@@ -1269,7 +1269,7 @@ void R_ScanEdges (void);
 //
 // r_surf.c
 //
-void D_FlushCaches (void);
+void D_FlushCaches( qboolean newmap );
 
 //
 // r_draw.c

@@ -1767,6 +1767,8 @@ void R_NewMap (void)
 {
 		r_viewcluster = -1;
 
+		D_FlushCaches( true );
+
 		r_cnumsurfs = sw_maxsurfs->value;
 
 		if (r_cnumsurfs <= MINSURFACES)
