@@ -1091,9 +1091,10 @@ void Con_LoadHistory( void )
 		if( *pFile == '\n')
 		{
 				int len = pFile - pLine + 1;
+				field_t *f;
 				if( len > 255 ) len = 255;
 				Con_ClearField( &con.historyLines[con.nextHistoryLine] );
-				field_t *f = &con.historyLines[con.nextHistoryLine % CON_HISTORY];
+				f = &con.historyLines[con.nextHistoryLine % CON_HISTORY];
 				f->widthInChars = con.linewidth;
 				f->cursor = len - 1;
 				Q_strncpy( f->buffer, pLine, len);
