@@ -1243,6 +1243,29 @@ extern  vec3_t  r_entorigin;
 
 extern int r_leafkeys[MAX_MAP_LEAFS];
 #define LEAF_KEY(pleaf) r_leafkeys[(pleaf - WORLDMODEL->leafs)]
+
+extern int      ubasestep, errorterm, erroradjustup, erroradjustdown;
+
+
+extern mvertex_t        *r_pcurrentvertbase;
+extern int                      r_maxvalidedgeoffset;
+
+typedef struct
+{
+	finalvert_t *a, *b, *c;
+} aliastriangleparms_t;
+
+extern aliastriangleparms_t aliastriangleparms;
+
+
+extern	int	r_aliasblendcolor;
+
+extern float    aliasxscale, aliasyscale, aliasxcenter, aliasycenter;
+
+void R_DrawTriangle( void );
+//void R_DrawTriangle (finalvert_t *index0, finalvert_t *index1, finalvert_t *index2);
+void R_AliasClipTriangle (finalvert_t *index0, finalvert_t *index1, finalvert_t *index2);
+
 //
 // r_bsp.c
 //
@@ -1294,9 +1317,14 @@ void TransformVector (vec3_t in, vec3_t out);
 void R_RenderBmodelFace (bedge_t *pedges, msurface_t *psurf);
 void R_RenderFace (msurface_t *fa, int clipflags);
 
-#if id386
-#error aaa
-#endif
+//
+// r_main.c
+//
+void R_ConcatTransforms (float in1[3][4], float in2[3][4], float out[3][4]);
+
+
+void R_RenderTriangle( finalvert_t *pfv );
+void R_SetupFinalVert( finalvert_t *fv, float x, float y, float z, int light, int s, int t );
 
 //
 // engine callbacks

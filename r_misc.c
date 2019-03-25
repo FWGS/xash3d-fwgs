@@ -244,10 +244,10 @@ void R_ViewChanged (vrect_t *vr)
 	RI.fvrectbottom = (float)RI.vrectbottom;
 	RI.fvrectbottom_adj = (float)RI.vrectbottom - 0.5;
 
-	//RI.aliasvrect.x = (int)(RI.vrect.x * r_aliasuvscale);
-	//RI.aliasvrect.y = (int)(RI.vrect.y * r_aliasuvscale);
-	//RI.aliasvrect.width = (int)(RI.vrect.width * r_aliasuvscale);
-	//RI.aliasvrect.height = (int)(RI.vrect.height * r_aliasuvscale);
+	RI.aliasvrect.x = (int)(RI.vrect.x * r_aliasuvscale);
+	RI.aliasvrect.y = (int)(RI.vrect.y * r_aliasuvscale);
+	RI.aliasvrect.width = (int)(RI.vrect.width * r_aliasuvscale);
+	RI.aliasvrect.height = (int)(RI.vrect.height * r_aliasuvscale);
 	RI.aliasvrectright = RI.aliasvrect.x +
 			RI.aliasvrect.width;
 	RI.aliasvrectbottom = RI.aliasvrect.y +
@@ -264,17 +264,17 @@ void R_ViewChanged (vrect_t *vr)
 // buffer origin to get an exact edge to edge fill
 	xcenter = ((float)RI.vrect.width * XCENTERING) +
 					RI.vrect.x - 0.5;
-	//aliasxcenter = xcenter * r_aliasuvscale;
+	aliasxcenter = xcenter * r_aliasuvscale;
 	ycenter = ((float)RI.vrect.height * YCENTERING) +
 					RI.vrect.y - 0.5;
-//	aliasycenter = ycenter * r_aliasuvscale;
+	aliasycenter = ycenter * r_aliasuvscale;
 
 	xscale = RI.vrect.width / RI.horizontalFieldOfView;
-//	aliasxscale = xscale * r_aliasuvscale;
+	aliasxscale = xscale * r_aliasuvscale;
 	xscaleinv = 1.0 / xscale;
 
 	yscale = xscale;
-//	aliasyscale = yscale * r_aliasuvscale;
+	aliasyscale = yscale * r_aliasuvscale;
 	yscaleinv = 1.0 / yscale;
 	xscaleshrink = (RI.vrect.width-6)/RI.horizontalFieldOfView;
 	yscaleshrink = xscaleshrink;
