@@ -244,23 +244,14 @@ void TriVertex3f( float x, float y, float z )
 	}
 	if( mode == TRI_TRIANGLE_STRIP )
 	{
-		R_SetupFinalVert( &triv[vertcount], x, y, z, 0,0,0);
-		vertcount++;
-		if( vertcount == 3 )
+		if( vertcount > 2 )
 		{
+			R_SetupFinalVert( &triv[(vertcount + 1) & 1 + 1], x, y, z, 0,0,0);
 			R_RenderTriangle( triv );
-			finalvert_t fv = triv[0];
-
-			triv[0] = triv[2];
-			triv[2] = fv;
-			R_RenderTriangle( triv );
-			fv = triv[0];
-			triv[0] = triv[2];
-			triv[2] = fv;
-			triv[0] = triv[1];
-			triv[1] = triv[2];
-			vertcount = 2;
 		}
+		else
+			R_SetupFinalVert( &triv[vertcount], x, y, z, 0,0,0);
+		vertcount++;
 	}
 }
 
