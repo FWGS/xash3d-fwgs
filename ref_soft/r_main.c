@@ -130,6 +130,7 @@ int                     r_clipflags;
 byte            r_warpbuffer[WARP_WIDTH * WARP_HEIGHT];
 int                     r_numallocatededges;
 
+float           r_aliasuvscale = 1.0;
 
 /*
 ================
@@ -157,6 +158,39 @@ void R_ConcatRotations (float in1[3][3], float in2[3][3], float out[3][3])
 		out[2][2] = in1[2][0] * in2[0][2] + in1[2][1] * in2[1][2] +
 								in1[2][2] * in2[2][2];
 }
+/*
+================
+R_ConcatTransforms
+================
+*/
+void R_ConcatTransforms (float in1[3][4], float in2[3][4], float out[3][4])
+{
+		out[0][0] = in1[0][0] * in2[0][0] + in1[0][1] * in2[1][0] +
+								in1[0][2] * in2[2][0];
+		out[0][1] = in1[0][0] * in2[0][1] + in1[0][1] * in2[1][1] +
+								in1[0][2] * in2[2][1];
+		out[0][2] = in1[0][0] * in2[0][2] + in1[0][1] * in2[1][2] +
+								in1[0][2] * in2[2][2];
+		out[0][3] = in1[0][0] * in2[0][3] + in1[0][1] * in2[1][3] +
+								in1[0][2] * in2[2][3] + in1[0][3];
+		out[1][0] = in1[1][0] * in2[0][0] + in1[1][1] * in2[1][0] +
+								in1[1][2] * in2[2][0];
+		out[1][1] = in1[1][0] * in2[0][1] + in1[1][1] * in2[1][1] +
+								in1[1][2] * in2[2][1];
+		out[1][2] = in1[1][0] * in2[0][2] + in1[1][1] * in2[1][2] +
+								in1[1][2] * in2[2][2];
+		out[1][3] = in1[1][0] * in2[0][3] + in1[1][1] * in2[1][3] +
+								in1[1][2] * in2[2][3] + in1[1][3];
+		out[2][0] = in1[2][0] * in2[0][0] + in1[2][1] * in2[1][0] +
+								in1[2][2] * in2[2][0];
+		out[2][1] = in1[2][0] * in2[0][1] + in1[2][1] * in2[1][1] +
+								in1[2][2] * in2[2][1];
+		out[2][2] = in1[2][0] * in2[0][2] + in1[2][1] * in2[1][2] +
+								in1[2][2] * in2[2][2];
+		out[2][3] = in1[2][0] * in2[0][3] + in1[2][1] * in2[1][3] +
+								in1[2][2] * in2[2][3] + in1[2][3];
+}
+
 
 
 
@@ -991,6 +1025,19 @@ void R_DrawEntitiesOnList( void )
 			break;
 		case mod_studio:
 			//R_DrawStudioModel( RI.currententity );
+		{finalvert_t fv[3];
+			void R_AliasSetUpTransform (void);
+			extern void	(*d_pdrawspans)(void *);
+			extern void R_PolysetFillSpans8 ( void * );
+			d_pdrawspans = R_PolysetFillSpans8;
+			//RI.currententity = gEngfuncs.GetEntityByIndex(0);
+			R_AliasSetUpTransform();
+			R_SetupFinalVert( &fv[0], -10, -10, 5, 0, 0, 0);
+			R_SetupFinalVert( &fv[1], -10, 10, 10, 0, 0, 0);
+			R_SetupFinalVert( &fv[2], 10, 10, -10, 0, 0, 0);
+			R_RenderTriangle( &fv );
+		}
+
 			break;
 		default:
 			break;
