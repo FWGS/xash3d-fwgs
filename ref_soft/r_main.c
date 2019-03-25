@@ -1326,13 +1326,13 @@ void R_DrawBEntitiesOnList (void)
 	//	RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currententity->topnode = topnode;
 //ASSERT( RI.currentmodel == tr.draw_list->solid_entities[i]->model );
-		//if (topnode->contents >= 0)
+		if (topnode->contents >= 0)
 		{
 		// not a leaf; has to be clipped to the world BSP
 			r_clipflags = clipflags;
 			R_DrawSolidClippedSubmodelPolygons (RI.currentmodel, topnode);
 		}
-		//else
+		else
 		{
 		// falls entirely in one leaf, so we just put all the
 		// edges in the edge list and let 1/z sorting handle
@@ -1340,7 +1340,7 @@ void R_DrawBEntitiesOnList (void)
 			//ASSERT( RI.currentmodel == tr.draw_list->solid_entities[i]->model );
 
 
-			//R_DrawSubmodelPolygons (RI.currentmodel, clipflags, topnode);
+			R_DrawSubmodelPolygons (RI.currentmodel, clipflags, topnode);
 		}
 		RI.currententity->topnode = NULL;
 

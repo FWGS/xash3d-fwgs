@@ -1248,6 +1248,8 @@ extern int r_leafkeys[MAX_MAP_LEAFS];
 //
 void R_RotateBmodel (void);
 void R_DrawSolidClippedSubmodelPolygons (model_t *pmodel, mnode_t *topnode);
+void R_DrawSubmodelPolygons (model_t *pmodel, int clipflags, mnode_t *topnode);
+
 //
 // r_blitscreen.c
 //
