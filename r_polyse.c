@@ -1149,7 +1149,7 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 	int		lcount;
 // FIXME: do z buffering
 
-	color = d_aflatcolor+= 100;
+	color = d_aflatcolor++ * 10;
 
 	do
 	{

@@ -407,20 +407,6 @@ void R_ClearAllDecals()
 
 }
 
-float R_StudioEstimateFrame(cl_entity_t *e, mstudioseqdesc_t *pseqdesc)
-{
-	return 0;
-}
-
-void R_StudioLerpMovement(cl_entity_t *e, double time, vec3_t origin, vec3_t angles)
-{
-
-}
-
-void CL_InitStudioAPI()
-{
-
-}
 
 void R_InitSkyClouds(mip_t *mt, texture_t *tx, qboolean custom_palette)
 {
@@ -433,11 +419,6 @@ void GL_SubdivideSurface(msurface_t *fa)
 }
 
 void Mod_LoadMapSprite(model_t *mod, const void *buffer, size_t size, qboolean *loaded)
-{
-
-}
-
-void Mod_StudioLoadTextures(model_t *mod, void *data)
 {
 
 }
@@ -510,11 +491,6 @@ void GL_TextureTarget(uint target)
 void CL_DrawParticlesExternal(const ref_viewpass_t *rvp, qboolean trans_pass, float frametime)
 {
 	// no renderapi support
-}
-
-struct mstudiotex_s *R_StudioGetTexture(cl_entity_t *e)
-{
-	return NULL;
 }
 
 void GL_BuildLightmaps()
