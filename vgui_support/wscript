@@ -7,13 +7,15 @@ import os
 
 top = '.'
 
+VGUI_SUPPORTED_OS = ['win32', 'darwin', 'linux']
+
 def options(opt):
 	grp = opt.add_option_group('VGUI options')
 	grp.add_option('--vgui', action = 'store', dest = 'VGUI_DEV',
-		help = 'path to vgui-dev repo', default='' )
+		help = 'path to vgui-dev repo(default: "vgui-dev")', default='' )
 
 	grp.add_option('--disable-vgui', action = 'store_true', dest = 'NO_VGUI',
-		help = 'disable vgui_support', default=False )
+		help = 'disable vgui_support(default: enabled only on supported platforms)', default=False )
 
 	grp.add_option('--skip-vgui-sanity-check', action = 'store_false', dest = 'VGUI_SANITY_CHECK',
 		help = 'skip checking VGUI sanity', default=True )
@@ -33,18 +35,28 @@ def configure(conf):
 		return
 	else:
 		conf.end_msg('yes')
-	
-	conf.start_msg('Configuring VGUI by provided path')
 
-	if not conf.options.VGUI_DEV:
+	conf.start_msg('Does this OS support VGUI?')
+	if conf.env.DEST_OS not in VGUI_SUPPORTED_OS:
 		conf.end_msg('no')
-		conf.fatal("Provide a path to vgui-dev repository using --vgui key")
+		Logs.warn('vgui is not supported on this OS: ' + str(conf.env.DEST_OS))
+		conf.env.NO_VGUI = True
+		return
+	else:
+		conf.end_msg('yes')
+
+	if conf.options.VGUI_DEV:
+		conf.start_msg('Configuring VGUI by provided path')
+		conf.env.VGUI_DEV = conf.options.VGUI_DEV
+	else:
+		conf.start_msg('Configuring VGUI by default path')
+		conf.env.VGUI_DEV = 'vgui-dev'
 
 	if conf.env.DEST_OS == 'win32':
 		conf.env.LIB_VGUI = ['vgui']
-		conf.env.LIBPATH_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'lib/win32_vc6/'))]
+		conf.env.LIBPATH_VGUI = [os.path.abspath(os.path.join(conf.env.VGUI_DEV, 'lib/win32_vc6/'))]
 	else:
-		libpath = os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'lib'))
+		libpath = os.path.abspath(os.path.join(conf.env.VGUI_DEV, 'lib'))
 		if conf.env.DEST_OS == 'linux':
 			conf.env.LIB_VGUI = [':vgui.so']
 			conf.env.LIBPATH_VGUI = [libpath]
@@ -52,7 +64,7 @@ def configure(conf):
 			conf.env.LDFLAGS_VGUI = [os.path.join(libpath, 'vgui.dylib')]
 		else:
 			conf.fatal('vgui is not supported on this OS: ' + conf.env.DEST_OS)
-	conf.env.INCLUDES_VGUI = [os.path.abspath(os.path.join(conf.options.VGUI_DEV, 'include'))]
+	conf.env.INCLUDES_VGUI = [os.path.abspath(os.path.join(conf.env.VGUI_DEV, 'include'))]
 
 	conf.env.HAVE_VGUI = 1
 	conf.end_msg('yes: {0}, {1}, {2}'.format(conf.env.LIB_VGUI, conf.env.LIBPATH_VGUI, conf.env.INCLUDES_VGUI))
