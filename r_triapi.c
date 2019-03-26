@@ -24,8 +24,9 @@ static struct
 } ds;
 
 finalvert_t triv[3];
-int vertcount;
+int vertcount, n;
 int mode;
+short s,t;
 
 /*
 ===============================================================
@@ -115,7 +116,7 @@ void TriBegin( int mode1 )
 	pglBegin( mode );
 #endif
 	mode = mode1;
-	vertcount = 0;
+	vertcount = n = vertcount = 0;
 }
 
 /*
@@ -128,7 +129,6 @@ draw triangle sequence
 void TriEnd( void )
 {
 	//if( vertcount == 3 )
-	R_RenderTriangle( triv );
 	//pglEnd( );
 }
 
@@ -209,6 +209,8 @@ TriTexCoord2f
 void TriTexCoord2f( float u, float v )
 {
 	//pglTexCoord2f( u, v );
+	s = r_affinetridesc.skinwidth * u;
+	t = r_affinetridesc.skinheight * v;
 }
 
 /*
@@ -233,26 +235,53 @@ void TriVertex3f( float x, float y, float z )
 {
 	if( mode == TRI_TRIANGLE_FAN )
 	{
-		R_SetupFinalVert( &triv[vertcount], x, y, z, 0,0,0);
+		R_SetupFinalVert( &triv[vertcount], x, y, z, 0,s,t);
 		vertcount++;
 		if( vertcount >= 3 )
 		{
-			R_RenderTriangle( triv );
+			R_RenderTriangle( &triv[0], &triv[1], &triv[2] );
 			triv[1] = triv[2];
 			vertcount = 2;
 		}
 	}
 	if( mode == TRI_TRIANGLE_STRIP )
 	{
-		if( vertcount > 2 )
-		{
-			R_SetupFinalVert( &triv[(vertcount + 1) & 1 + 1], x, y, z, 0,0,0);
-			R_RenderTriangle( triv );
-		}
-		else
-			R_SetupFinalVert( &triv[vertcount], x, y, z, 0,0,0);
+		R_SetupFinalVert( &triv[n], x, y, z, 0,s,t);
+		n++;
 		vertcount++;
+		if( n == 3 )
+			n = 0;
+		if (vertcount >= 3)
+		{
+			if( vertcount & 1 )
+				R_RenderTriangle( &triv[0], &triv[1], &triv[2] );
+			else
+				R_RenderTriangle( &triv[2], &triv[1], &triv[0] );
+		}
 	}
+#if 0
+		if( mode == TRI_TRIANGLE_STRIP )
+		{
+			R_SetupFinalVert( &triv[vertcount], x, y, z, 0,s,t);
+			vertcount++;
+			if( vertcount == 3 )
+			{
+
+				R_RenderTriangle( triv );
+				finalvert_t fv = triv[0];
+
+				triv[0] = triv[2];
+				triv[2] = fv;
+				R_RenderTriangle( triv );
+				fv = triv[0];
+				triv[0] = triv[2];
+				triv[2] = fv;
+				triv[0] = triv[1];
+				triv[1] = triv[2];
+				vertcount = 2;
+			}
+		}
+#endif
 }
 
 /*

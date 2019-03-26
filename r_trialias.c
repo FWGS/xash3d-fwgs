@@ -205,23 +205,23 @@ void R_SetupFinalVert( finalvert_t *fv, float x, float y, float z, int light, in
 	fv->t = t << 16;
 }
 
-void R_RenderTriangle( finalvert_t *pfv )
+void R_RenderTriangle( finalvert_t *fv1, finalvert_t *fv2, finalvert_t *fv3  )
 {
 
-	if ( pfv[0].flags & pfv[1].flags & pfv[2].flags )
+	if ( fv1->flags & fv2->flags & fv3->flags )
 		return ;		// completely clipped
 
-	if ( ! (pfv[0].flags | pfv[1].flags | pfv[2].flags) )
+	if ( ! (fv1->flags | fv2->flags | fv3->flags) )
 	{	// totally unclipped
-		aliastriangleparms.a = &pfv[0];
-		aliastriangleparms.b = &pfv[1];
-		aliastriangleparms.c = &pfv[2];
+		aliastriangleparms.a = fv1;
+		aliastriangleparms.b = fv2;
+		aliastriangleparms.c = fv3;
 
 		R_DrawTriangle();
 	}
 	else
 	{	// partially clipped
-		R_AliasClipTriangle (&pfv[0], &pfv[1], &pfv[2]);
+		R_AliasClipTriangle (fv1, fv2, fv3);
 	}
 }
 
