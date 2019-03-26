@@ -640,8 +640,8 @@ void Mod_SpriteUnloadTextures( void *data );
 void Mod_UnloadAliasModel( struct model_s *mod );
 void Mod_AliasUnloadTextures( void *data );
 void GL_SetRenderMode( int mode );
-//void R_RunViewmodelEvents( void );
-//void R_DrawViewModel( void );
+void R_RunViewmodelEvents( void );
+void R_DrawViewModel( void );
 int R_GetSpriteTexture( const struct model_s *m_pSpriteModel, int frame );
 void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale );
 void R_RemoveEfrags( struct cl_entity_s *ent );
@@ -1267,6 +1267,7 @@ extern aliastriangleparms_t aliastriangleparms;
 extern	int	r_aliasblendcolor;
 
 extern float    aliasxscale, aliasyscale, aliasxcenter, aliasycenter;
+extern float	s_ziscale;
 
 void R_DrawTriangle( void );
 //void R_DrawTriangle (finalvert_t *index0, finalvert_t *index1, finalvert_t *index2);
