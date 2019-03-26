@@ -15,7 +15,7 @@ import os
 
 def options(opt):
 	grp = opt.add_option_group('SDL2 options')
-	grp.add_option('--sdl2', action='store', dest = 'SDL2_PATH', default = None,
+	grp.add_option('-s', '--sdl2', action='store', dest = 'SDL2_PATH', default = None,
 		help = 'path to precompiled SDL2 library(required for Windows)')
 
 	grp.add_option('--skip-sdl2-sanity-check', action='store_false', default = True, dest='SDL2_SANITY_CHECK',
