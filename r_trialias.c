@@ -19,7 +19,7 @@ float	aliastransform[3][4];
 float   aliasworldtransform[3][4];
 float   aliasoldworldtransform[3][4];
 
-static float	s_ziscale;
+float	s_ziscale;
 static vec3_t	s_alias_forward, s_alias_right, s_alias_up;
 
 

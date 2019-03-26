@@ -3477,7 +3477,7 @@ void R_DrawViewModel( void )
 
 	// adjust the depth range to prevent view model from poking into walls
 	//pglDepthRange( gldepthmin, gldepthmin + 0.3f * ( gldepthmax - gldepthmin ));
-	/// TODO: ziscale
+	s_ziscale = (float)0x8000 * (float)0x10000 * 3.0;
 	RI.currentmodel = RI.currententity->model;
 
 	// backface culling for left-handed weapons
@@ -3500,7 +3500,7 @@ void R_DrawViewModel( void )
 
 	// restore depth range
 	//pglDepthRange( gldepthmin, gldepthmax );
-	/// ziscale
+	s_ziscale = (float)0x8000 * (float)0x10000;
 
 	// backface culling for left-handed weapons
 	if( R_AllowFlipViewModel( RI.currententity ) || g_iBackFaceCull )

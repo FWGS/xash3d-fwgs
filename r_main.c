@@ -1149,8 +1149,8 @@ void R_DrawEntitiesOnList( void )
 
 //	pglDisable( GL_BLEND );	// Trinity Render issues
 
-	//if( !RI.onlyClientDraw )
-		//R_DrawViewModel();
+	if( !RI.onlyClientDraw )
+		R_DrawViewModel();
 	gEngfuncs.CL_ExtraUpdate();
 
 	//GL_CheckForErrors();
@@ -1766,8 +1766,8 @@ int R_RenderFrame( const ref_viewpass_t *rvp )
 	}
 
 	tr.fCustomRendering = false;
-//	if( !RI.onlyClientDraw )
-	//	R_RunViewmodelEvents();
+	if( !RI.onlyClientDraw )
+		R_RunViewmodelEvents();
 
 	tr.realframecount++; // right called after viewmodel events
 	R_RenderScene();
