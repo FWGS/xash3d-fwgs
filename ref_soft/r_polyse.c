@@ -1170,7 +1170,7 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 		{
 			int		lsfrac, ltfrac;
 			pixel_t	*lpdest;
-			byte	*lptex;
+			pixel_t	*lptex;
 			int		llight;
 			int		lzi;
 			short	*lpz;
@@ -1191,7 +1191,7 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 					/*if(r_newrefdef.rdflags & RDF_IRGOGGLES && RI.currententity->flags & RF_IR_VISIBLE)
 						*lpdest = ((byte *)vid.colormap)[irtable[*lptex]];
 					else*/
-					*lpdest = color; //((byte *)vid.colormap)[*lptex + (llight & 0xFF00)];
+					*lpdest = *lptex; //((byte *)vid.colormap)[*lptex + (llight & 0xFF00)];
 //PGM
 					*lpz = lzi >> 16;
 				}
@@ -1253,7 +1253,7 @@ void R_RasterizeAliasPolySmooth (void)
 	ystart = plefttop[1];
 	d_aspancount = plefttop[0] - prighttop[0];
 
-	d_ptex = (byte *)r_affinetridesc.pskin + (plefttop[2] >> 16) +
+	d_ptex = (pixel_t*)r_affinetridesc.pskin + (plefttop[2] >> 16) +
 			(plefttop[3] >> 16) * r_affinetridesc.skinwidth;
 //#if	id386ALIAS
 #if id386
@@ -1398,7 +1398,7 @@ void R_RasterizeAliasPolySmooth (void)
 
 		ystart = plefttop[1];
 		d_aspancount = plefttop[0] - prighttop[0];
-		d_ptex = (byte *)r_affinetridesc.pskin + (plefttop[2] >> 16) +
+		d_ptex = (pixel_t*)r_affinetridesc.pskin + (plefttop[2] >> 16) +
 				(plefttop[3] >> 16) * r_affinetridesc.skinwidth;
 		d_sfrac = 0;
 		d_tfrac = 0;

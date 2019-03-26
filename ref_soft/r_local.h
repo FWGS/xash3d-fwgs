@@ -1329,7 +1329,7 @@ void R_RenderFace (msurface_t *fa, int clipflags);
 void R_ConcatTransforms (float in1[3][4], float in2[3][4], float out[3][4]);
 
 
-void R_RenderTriangle( finalvert_t *pfv );
+void R_RenderTriangle( finalvert_t *fv1 , finalvert_t *fv2, finalvert_t *fv3 );
 void R_SetupFinalVert( finalvert_t *fv, float x, float y, float z, int light, int s, int t );
 
 //
