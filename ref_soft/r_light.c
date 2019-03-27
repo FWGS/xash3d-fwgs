@@ -20,7 +20,7 @@ GNU General Public License for more details.
 #include "ref_params.h"
 
 //unused, need refactor
-unsigned		blocklights[1024];
+unsigned		blocklights[10240];
 
 /*
 =============================================================================
