@@ -920,10 +920,10 @@ void D_TurbulentSurf (surf_t *s)
 //============
 //PGM
 	// textures that aren't warping are just flowing. Use NonTurbulent8 instead
-#if 1
-	NonTurbulent8 (s->spans);
+#if 0
+	Turbulent8 (s->spans);
 #else
-	if(!(pface->texinfo->flags & SURF_DRAWTURB))
+	if(!(pface->flags & SURF_DRAWTURB))
 		NonTurbulent8 (s->spans);
 	else
 		Turbulent8 (s->spans);
@@ -1123,7 +1123,12 @@ void D_DrawSurfaces (void)
 
 			r_drawnpolycount++;
 #if 1
-			D_SolidSurf (s);
+			if(s->flags & SURF_DRAWSKY)
+				D_BackgroundSurf (s);
+			else if (s->flags & SURF_DRAWTURB)
+				D_TurbulentSurf (s);
+			else
+				D_SolidSurf (s);
 #else
 			if (! (s->flags & (SURF_DRAWSKYBOX|SURF_DRAWBACKGROUND|SURF_DRAWTURB) ) )
 				D_SolidSurf (s);
