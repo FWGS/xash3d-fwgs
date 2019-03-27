@@ -406,18 +406,18 @@ int R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax );
 qboolean R_CullBox( const vec3_t mins, const vec3_t maxs );
 qboolean R_CullSphere( const vec3_t centre, const float radius );
 //int R_CullSurface( msurface_t *surf, gl_frustum_t *frustum, uint clipflags );
-
+#endif
 //
 // gl_decals.c
 //
 void DrawSurfaceDecals( msurface_t *fa, qboolean single, qboolean reverse );
 float *R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int texture, int *outCount );
-void DrawSingleDecal( decal_t *pDecal, msurface_t *fa );
+//void DrawSingleDecal( decal_t *pDecal, msurface_t *fa );
 void R_EntityRemoveDecals( model_t *mod );
-void DrawDecalsBatch( void );
+//void DrawDecalsBatch( void );
 void R_ClearDecals( void );
 
-
+#if 0
 
 //
 // gl_drawhulls.c
@@ -1223,6 +1223,8 @@ extern cvar_t   *sw_stipplealpha;
 extern cvar_t   *sw_surfcacheoverride;
 extern cvar_t *sw_waterwarp;
 extern cvar_t   *sw_texfilt;
+extern cvar_t	*r_decals;
+
 
 extern vec3_t modelorg;
 extern vec3_t r_origin;

@@ -147,9 +147,9 @@ void R_AddDynamicLights( msurface_t *surf )
 
 				if( dist < minlight )
 				{
-					printf("dlight %f\n", dist);
+					//printf("dlight %f\n", dist);
 					//*(void**)0 = 0;
-					bl[0] +=  ((int)((rad - dist) * 256) * 7.5) / 256;
+					bl[0] +=  ((int)((rad - dist) * 256) * 7.5);
 					//bl[1] += ((int)((rad - dist) * 256) * 2.5) / 256;
 					//bl[2] += ((int)((rad - dist) * 256) * 2.5) / 256;
 				}
@@ -237,7 +237,7 @@ static void R_BuildLightMap(  )
 				t = 0;
 			if( t > 65535 * 3 )
 				t = 65535 * 3;
-			t = t * 31 / 65535 / 3;//(255*256 - t) >> (8 - VID_CBITS);
+			t = t / 2048 / 3;//(255*256 - t) >> (8 - VID_CBITS);
 
 			//if (t < (1 << 6))
 				//t = (1 << 6);
@@ -961,6 +961,127 @@ int D_log2 (int num)
 }
 
 //=============================================================================
+void R_DecalComputeBasis( msurface_t *surf, int flags, vec3_t textureSpaceBasis[3] );
+void R_DrawSurfaceDecals()
+{
+	msurface_t *fa = r_drawsurf.surf;
+	decal_t *p;
+
+	for( p = fa->pdecals; p; p = p->pnext)
+	{
+			pixel_t	*dest, *source;
+			vec4_t		textureU, textureV;
+			image_t *tex = R_GetTexture( p->texture );
+			int s1 = 0,t1 = 0, s2 = tex->width, t2 = tex->height;
+			unsigned int				height;
+			unsigned int				f, fstep;
+			int				skip;
+			pixel_t *buffer;
+			qboolean transparent;
+			int x, y, u,v, sv, w, h;
+			vec3_t basis[3];
+
+			Vector4Copy( fa->texinfo->vecs[0], textureU );
+			Vector4Copy( fa->texinfo->vecs[1], textureV );
+
+			R_DecalComputeBasis( fa, 0, basis );
+
+			w = fabs( tex->width  * DotProduct( textureU, basis[0] )) +
+					fabs( tex->height * DotProduct( textureU, basis[1] ));
+			h = fabs( tex->width  * DotProduct( textureV, basis[0] )) +
+					fabs( tex->height * DotProduct( textureV, basis[1] ));
+
+			// project decal center into the texture space of the surface
+			x = DotProduct( p->position, textureU ) + textureU[3] - fa->texturemins[0] - w/2;
+			y = DotProduct( p->position, textureV ) + textureV[3] - fa->texturemins[1] - h/2;
+
+			x = x >> r_drawsurf.surfmip;
+			y = y >> r_drawsurf.surfmip;
+			w = w >> r_drawsurf.surfmip;
+			h = h >> r_drawsurf.surfmip;
+
+			if( x < 0 )
+			{
+				s1 += (-x)*(s2-s1) / w;
+				x = 0;
+			}
+			if( x + w > r_drawsurf.surfwidth )
+			{
+				s2 -= (x + w - r_drawsurf.surfwidth) * (s2 - s1)/ w ;
+				w = r_drawsurf.surfwidth - x;
+			}
+			if( y + h > r_drawsurf.surfheight )
+			{
+				t2 -= (y + h - r_drawsurf.surfheight) * (t2 - t1) / h;
+				h = r_drawsurf.surfheight - y;
+			}
+
+			if( !tex->pixels[0] || s1 >= s2 || t1 >= t2 )
+				continue;
+
+			if( tex->alpha_pixels )
+			{
+				buffer = tex->alpha_pixels;
+				transparent = true;
+			}
+			else
+				buffer = tex->pixels[0];
+
+			height = h;
+			if (y < 0)
+			{
+				skip = -y;
+				height += y;
+				y = 0;
+			}
+			else
+				skip = 0;
+
+			dest = ((pixel_t*)r_drawsurf.surfdat) + y * r_drawsurf.rowbytes + x;
+
+			for (v=0 ; v<height ; v++)
+			{
+				//int alpha1 = vid.alpha;
+				sv = (skip + v)*(t2-t1)/h + t1;
+				source = buffer + sv*tex->width + s1;
+
+				{
+					f = 0;
+					fstep = s2*0x10000/w;
+					if( w == s2 - s1 )
+						fstep = 0x10000;
+
+					for (u=0 ; u<w ; u++)
+					{
+						pixel_t src = source[f>>16];
+						int alpha = 7;
+						f += fstep;
+
+						if( transparent )
+						{
+							alpha &= src >> 16 - 3;
+							src = src << 3;
+						}
+
+						if( alpha <= 0 )
+							continue;
+
+						if( alpha < 7) // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
+						{
+							pixel_t screen = dest[u]; //  | 0xff & screen & src ;
+							dest[u] = vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 3);
+
+						}
+						else
+							dest[u] = src;
+
+					}
+				}
+				dest += r_drawsurf.rowbytes;
+			}
+	}
+
+}
 
 /*
 ================
@@ -1054,6 +1175,7 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 	
 	// rasterize the surface into the cache
 	R_DrawSurface ();
+	R_DrawSurfaceDecals();
 
 	return cache;
 }
