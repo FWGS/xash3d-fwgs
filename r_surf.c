@@ -59,7 +59,106 @@ surfcache_t	*sc_rover, *sc_base;
 
 static int		rtable[MOD_FRAMES][MOD_FRAMES];
 
-#if 0
+#if 1
+
+static void R_BuildLightMap(  );
+/*
+===============
+R_AddDynamicLights
+===============
+*/
+void R_AddDynamicLights( msurface_t *surf )
+{
+	float		dist, rad, minlight;
+	int		lnum, s, t, sd, td, smax, tmax;
+	float		sl, tl, sacc, tacc;
+	vec3_t		impact, origin_l;
+	mextrasurf_t	*info = surf->info;
+	int		sample_frac = 1.0;
+	float		sample_size;
+	mtexinfo_t	*tex;
+	dlight_t		*dl;
+	uint		*bl;
+
+	// no dlighted surfaces here
+	//if( !R_CountSurfaceDlights( surf )) return;
+
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
+	smax = (info->lightextents[0] / sample_size) + 1;
+	tmax = (info->lightextents[1] / sample_size) + 1;
+	tex = surf->texinfo;
+
+	if( FBitSet( tex->flags, TEX_WORLD_LUXELS ))
+	{
+		if( surf->texinfo->faceinfo )
+			sample_frac = surf->texinfo->faceinfo->texture_step;
+		//else if( FBitSet( surf->texinfo->flags, TEX_EXTRA_LIGHTMAP ))
+		//	sample_frac = LM_SAMPLE_EXTRASIZE;
+		else sample_frac = LM_SAMPLE_SIZE;
+	}
+
+	for( lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
+	{
+		if( !FBitSet( surf->dlightbits, BIT( lnum )))
+			continue;	// not lit by this light
+
+		dl = gEngfuncs.GetDynamicLight( lnum );
+
+		// transform light origin to local bmodel space
+		//if( !tr.modelviewIdentity )
+			//Matrix4x4_VectorITransform( RI.objectMatrix, dl->origin, origin_l );
+		//else
+		VectorCopy( dl->origin, origin_l );
+
+		rad = dl->radius;
+		dist = PlaneDiff( origin_l, surf->plane );
+		rad -= fabs( dist );
+
+		// rad is now the highest intensity on the plane
+		minlight = dl->minlight;
+		if( rad < minlight )
+			continue;
+
+		minlight = rad - minlight;
+
+		if( surf->plane->type < 3 )
+		{
+			VectorCopy( origin_l, impact );
+			impact[surf->plane->type] -= dist;
+		}
+		else VectorMA( origin_l, -dist, surf->plane->normal, impact );
+
+		sl = DotProduct( impact, info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
+		tl = DotProduct( impact, info->lmvecs[1] ) + info->lmvecs[1][3] - info->lightmapmins[1];
+		bl = blocklights;
+
+		for( t = 0, tacc = 0; t < tmax; t++, tacc += sample_size )
+		{
+			td = (tl - tacc) * sample_frac;
+			if( td < 0 ) td = -td;
+
+			for( s = 0, sacc = 0; s < smax; s++, sacc += sample_size, bl += 1 )
+			{
+				sd = (sl - sacc) * sample_frac;
+				if( sd < 0 ) sd = -sd;
+
+				if( sd > td ) dist = sd + (td >> 1);
+				else dist = td + (sd >> 1);
+
+				if( dist < minlight )
+				{
+					printf("dlight %f\n", dist);
+					//*(void**)0 = 0;
+					bl[0] +=  ((int)((rad - dist) * 256) * 7.5) / 256;
+					//bl[1] += ((int)((rad - dist) * 256) * 2.5) / 256;
+					//bl[2] += ((int)((rad - dist) * 256) * 2.5) / 256;
+				}
+			}
+		}
+	}
+}
+
+
 /*
 =================
 R_BuildLightmap
@@ -79,12 +178,12 @@ static void R_BuildLightMap(  )
 	color24		*lm;
 	qboolean dynamic = 0;
 
-	//sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
-	//smax = ( info->lightextents[0] / sample_size ) + 1;
-	//tmax = ( info->lightextents[1] / sample_size ) + 1;
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
+	smax = ( info->lightextents[0] / sample_size ) + 1;
+	tmax = ( info->lightextents[1] / sample_size ) + 1;
 
-	smax = (surf->extents[0]>>4)+1;
-	tmax = (surf->extents[1]>>4)+1;
+	//smax = (surf->extents[0]>>4)+1;
+	//tmax = (surf->extents[1]>>4)+1;
 
 	size = smax * tmax;
 
@@ -93,15 +192,15 @@ static void R_BuildLightMap(  )
 	memset( blocklights, 0, sizeof( uint ) * size );
 
 	// add all the lightmaps
-	for( map = 0; map < MAXLIGHTMAPS; map++ )
+	for( map = 0; map < MAXLIGHTMAPS && surf->styles[map] != 255; map++ )
 	{
 		scale = tr.lightstylevalue[surf->styles[map]];
 
 		for( i = 0, bl = blocklights; i < size; i++, bl += 1, lm++ )
 		{
-			bl[0] += lm->r;
-			bl[0] += lm->g;
-			bl[0] += lm->b;
+			bl[0] += lm->r * 2.5;
+			bl[0] += lm->g * 2.5;
+			bl[0] += lm->b * 2.5;
 
 			//printf("test\n");
 			//bl[1] += gEngfuncs.LightToTexGamma( lm->g ) * scale;
@@ -110,8 +209,8 @@ static void R_BuildLightMap(  )
 	}
 
 	// add all the dynamic lights
-	//if( surf->dlightframe == tr.framecount && dynamic )
-		//R_AddDynamicLights( surf );
+	if( surf->dlightframe == r_framecount )
+		R_AddDynamicLights( surf );
 
 	// Put into texture format
 	//stride -= (smax << 2);
