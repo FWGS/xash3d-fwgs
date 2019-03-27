@@ -1770,6 +1770,7 @@ static void R_StudioSetColorBegin(short *ptricmds, vec3_t *pstudionorms )
 			color[3] = tr.blend * 255;
 			VectorCopy( (byte*)&RI.currententity->curstate.rendercolor, color );
 			//pglColor4ubv( color );
+			TriColor4ub(color[0], color[1], color[2], color[3]);
 		}
 		else _TriColor4f( lv[0], lv[1], lv[2], tr.blend );
 	}

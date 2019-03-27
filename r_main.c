@@ -517,6 +517,7 @@ R_SetupFrustum
 */
 void R_SetupFrustum( void )
 {
+	AngleVectors( RI.viewangles, RI.vforward, RI.vright, RI.vup );
 #if 0
 	ref_overview_t	*ov = gEngfuncs.GetOverviewParms();
 
@@ -1034,20 +1035,27 @@ void R_DrawEntitiesOnList( void )
 			//R_DrawAliasModel( RI.currententity );
 			break;
 		case mod_studio:
-			//R_DrawStudioModel( RI.currententity );
-		/*{finalvert_t fv[3];
+			R_DrawStudioModel( RI.currententity );
+		#if 0
+			// gradient debug (for colormap testing)
+		{finalvert_t fv[3];
 			void R_AliasSetUpTransform (void);
 			extern void	(*d_pdrawspans)(void *);
 			extern void R_PolysetFillSpans8 ( void * );
 			d_pdrawspans = R_PolysetFillSpans8;
 			//RI.currententity = gEngfuncs.GetEntityByIndex(0);
 			R_AliasSetUpTransform();
-			R_SetupFinalVert( &fv[0], -10, -10, 5, 0, 0, 0);
-			R_SetupFinalVert( &fv[1], -10, 10, 10, 0, 0, 0);
-			R_SetupFinalVert( &fv[2], 10, 10, -10, 0, 0, 0);
-			R_RenderTriangle( &fv );
-		}*/
-			R_DrawStudioModel( RI.currententity );
+			image_t *image = R_GetTexture(GL_LoadTexture("gfx/env/desertbk", NULL, 0, 0));
+			r_affinetridesc.pskin = image->pixels[0];
+			r_affinetridesc.skinwidth = image->width;
+			r_affinetridesc.skinheight = image->height;
+			R_SetupFinalVert( &fv[0], 0, -50, 50, 31 << 8, 0, 0);
+			R_SetupFinalVert( &fv[1], 0, 50, 50, 0 << 8, image->width, 0);
+			R_SetupFinalVert( &fv[2], 0, 0, 0, 0 << 8, image->width/2, image->height);
+			R_RenderTriangle( &fv[0], &fv[1], &fv[2] );
+		}
+#endif
+
 
 			break;
 		default:
