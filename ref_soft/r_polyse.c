@@ -1145,11 +1145,11 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 #else
 void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 {
-	int				color;
+	//int				color;
 	int		lcount;
 // FIXME: do z buffering
 
-	color = d_aflatcolor++ * 10;
+	//color = d_aflatcolor++ * 10;
 
 	do
 	{
@@ -1191,8 +1191,15 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 					/*if(r_newrefdef.rdflags & RDF_IRGOGGLES && RI.currententity->flags & RF_IR_VISIBLE)
 						*lpdest = ((byte *)vid.colormap)[irtable[*lptex]];
 					else*/
-					*lpdest = *lptex; //((byte *)vid.colormap)[*lptex + (llight & 0xFF00)];
-//PGM
+					//*lpdest = *lptex; //((byte *)vid.colormap)[*lptex + (llight & 0xFF00)];
+					uint src = *lptex;
+					//*lpdest = //vid.colormap[src & 0xff00|(llight>>8)] << 8 | (src & llight & 0xff) | ((src & 0xff) >> 3);
+					// very dirty, maybe need dual colormap?
+					//*lpdest = (vid.colormap[src >> 8 | (llight & 0xFF00)] << 8) | src & 0xff;
+					// 13 bit lighting, 32 light levels
+					*lpdest = vid.colormap[(src >> 3) | ((llight & 0x1F00) << 5)] | src & 7;
+
+					//PGM
 					*lpz = lzi >> 16;
 				}
 				lpdest++;

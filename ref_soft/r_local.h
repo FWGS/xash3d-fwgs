@@ -133,7 +133,7 @@ typedef struct vrect_s
 typedef struct
 {
 	pixel_t                 *buffer;                // invisible buffer
-	pixel_t                 *colormap;              // 256 * VID_GRADES size
+	pixel_t                colormap[32*8192];              // 8192 * light levels
 	//pixel_t                 *alphamap;              // 256 * 256 translucency map
 #ifdef SEPARATE_BLIT
 	pixel_t					screen_minor[256];
@@ -146,6 +146,7 @@ typedef struct
 	byte					modmap[256*256];
 	byte                 alphamap[8*256*256];
 	pixel_t					color;
+	qboolean is2d;
 	byte alpha;
 
 	// maybe compute colormask for minor byte?

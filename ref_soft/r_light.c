@@ -472,6 +472,8 @@ colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t 
 {
 	colorVec	light = R_LightVecInternal( start, end, lspot, lvec );
 
+	light.r = light.g = light.b = 255;
+
 	if( lspot != NULL && lvec != NULL ) // CVAR_TO_BOOL( r_lighting_extended ) &&
 	{
 		// trying to get light from ceiling (but ignore gradient analyze)

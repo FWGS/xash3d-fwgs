@@ -27,6 +27,7 @@ finalvert_t triv[3];
 int vertcount, n;
 int mode;
 short s,t;
+uint light;
 
 /*
 ===============================================================
@@ -145,17 +146,25 @@ void _TriColor4f( float rr, float gg, float bb, float aa )
 	unsigned int major, minor;
 
 
+
+	//gEngfuncs.Con_Printf("%d\n", vid.alpha);
+
+	light = (rr + gg + bb) * 31 / 3;
+	if( light > 31 )
+		light = 31;
+
+	if( !vid.is2d )
+		return;
+
 	vid.alpha = aa * 7;
 	if( vid.alpha > 7 )
 		vid.alpha = 7;
-	//gEngfuncs.Con_Printf("%d\n", vid.alpha);
 
 	if( rr == 1 && gg == 1 && bb == 1 )
 	{
 		vid.color = COLOR_WHITE;
 		return;
 	}
-
 	r = rr * 31, g = gg * 63, b = bb * 31;
 
 
@@ -235,7 +244,7 @@ void TriVertex3f( float x, float y, float z )
 {
 	if( mode == TRI_TRIANGLE_FAN )
 	{
-		R_SetupFinalVert( &triv[vertcount], x, y, z, 0,s,t);
+		R_SetupFinalVert( &triv[vertcount], x, y, z, light << 8,s,t);
 		vertcount++;
 		if( vertcount >= 3 )
 		{
@@ -246,7 +255,7 @@ void TriVertex3f( float x, float y, float z )
 	}
 	if( mode == TRI_TRIANGLE_STRIP )
 	{
-		R_SetupFinalVert( &triv[n], x, y, z, 0,s,t);
+		R_SetupFinalVert( &triv[n], x, y, z, light << 8,s,t);
 		n++;
 		vertcount++;
 		if( n == 3 )

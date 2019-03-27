@@ -299,6 +299,9 @@ R_Set2DMode
 void R_Set2DMode( qboolean enable )
 {
 	vid.color = COLOR_WHITE;
+	vid.is2d = enable;
+	vid.alpha = 7;
+
 	if( enable )
 	{
 //		if( glState.in2DMode )
