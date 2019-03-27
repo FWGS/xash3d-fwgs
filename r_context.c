@@ -495,7 +495,7 @@ void CL_DrawParticlesExternal(const ref_viewpass_t *rvp, qboolean trans_pass, fl
 
 void GL_BuildLightmaps()
 {
-
+	CL_RunLightStyles();
 }
 
 void Mod_SetOrthoBounds(const float *mins, const float *maxs)
