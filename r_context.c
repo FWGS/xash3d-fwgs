@@ -387,27 +387,6 @@ qboolean VID_CubemapShot(const char *base, uint size, const float *vieworg, qboo
 	// cubemaps? in my softrender???
 }
 
-void R_DecalShoot(int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale)
-{
-
-}
-
-void R_DecalRemoveAll(int texture)
-{
-
-}
-
-int R_CreateDecalList(decallist_t *pList)
-{
-	return 0;
-}
-
-void R_ClearAllDecals()
-{
-
-}
-
-
 void R_InitSkyClouds(mip_t *mt, texture_t *tx, qboolean custom_palette)
 {
 
@@ -444,16 +423,6 @@ qboolean R_BeamCull(const vec3_t start, const vec3_t end, qboolean pvsOnly)
 }
 
 void DrawSingleDecal(decal_t *pDecal, msurface_t *fa)
-{
-
-}
-
-float *R_DecalSetupVerts(decal_t *pDecal, msurface_t *surf, int texture, int *outCount)
-{
-	return NULL;
-}
-
-void R_EntityRemoveDecals(model_t *mod)
 {
 
 }

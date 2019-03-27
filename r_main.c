@@ -104,6 +104,8 @@ cvar_t	*vid_gamma;
 cvar_t	*sw_lockpvs;
 //PGM
 
+cvar_t	*r_decals;
+
 
 mleaf_t		*r_viewleaf;
 int	r_viewcluster, r_oldviewcluster;
@@ -1925,7 +1927,7 @@ qboolean R_Init()
 	sw_texfilt = gEngfuncs.Cvar_Get ("sw_texfilt", "0", 0, "texture dither");
 	//r_lefthand = ri.Cvar_Get( "hand", "0", FCVAR_USERINFO | FCVAR_ARCHIVE );
 //	r_speeds = ri.Cvar_Get ("r_speeds", "0", 0);
-
+	r_decals = gEngfuncs.pfnGetCvarPointer( "r_decals", 0 );
 	//r_drawworld = ri.Cvar_Get ("r_drawworld", "1", 0);
 	//r_dspeeds = ri.Cvar_Get ("r_dspeeds", "0", 0);
 //	r_lightlevel = ri.Cvar_Get ("r_lightlevel", "0", 0);
