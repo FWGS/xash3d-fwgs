@@ -544,7 +544,7 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 	{
 		//fa->nextalphasurface = r_alpha_surfaces;
 		//r_alpha_surfaces = fa;
-		return;
+		//return;
 	}
 
 	// sky surfaces encountered in the world will cause the
@@ -552,7 +552,7 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 	if ( fa->flags & SURF_DRAWSKY )
 	{
 		//R_EmitSkyBox ();
-		return;
+	//	return;
 	}
 
 // skip out if no more surfs

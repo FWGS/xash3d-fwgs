@@ -1912,7 +1912,7 @@ qboolean R_Init()
 
 //	sw_aliasstats = ri.Cvar_Get ("sw_polymodelstats", "0", 0);
 //	sw_allow_modex = ri.Cvar_Get( "sw_allow_modex", "1", CVAR_ARCHIVE );
-	sw_clearcolor = gEngfuncs.Cvar_Get ("sw_clearcolor", "2", 0, "screen clear color");
+	sw_clearcolor = gEngfuncs.Cvar_Get ("sw_clearcolor", "48999", 0, "screen clear color");
 	sw_drawflat = gEngfuncs.Cvar_Get ("sw_drawflat", "0", 0, "");
 	sw_draworder = gEngfuncs.Cvar_Get ("sw_draworder", "0", 0, "");
 	sw_maxedges = gEngfuncs.Cvar_Get ("sw_maxedges", "32", 0, "");
