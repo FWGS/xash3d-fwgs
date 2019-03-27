@@ -1069,7 +1069,7 @@ void R_DrawSurfaceDecals()
 						if( alpha < 7) // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
 						{
 							pixel_t screen = dest[u]; //  | 0xff & screen & src ;
-							dest[u] = vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 3);
+							dest[u] = vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0x7f) >> 3 | ((src & 0xff));
 
 						}
 						else

@@ -1192,7 +1192,7 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 						*lpdest = ((byte *)vid.colormap)[irtable[*lptex]];
 					else*/
 					//*lpdest = *lptex; //((byte *)vid.colormap)[*lptex + (llight & 0xFF00)];
-					uint src = *lptex;
+					pixel_t src = *lptex;
 					//*lpdest = //vid.colormap[src & 0xff00|(llight>>8)] << 8 | (src & llight & 0xff) | ((src & 0xff) >> 3);
 					// very dirty, maybe need dual colormap?
 					//*lpdest = (vid.colormap[src >> 8 | (llight & 0xFF00)] << 8) | src & 0xff;

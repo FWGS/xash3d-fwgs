@@ -1817,7 +1817,13 @@ static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 	image_t *image;
 
 	if( FBitSet( g_nForceFaceFlags, STUDIO_NF_CHROME ))
+	{
+		image = R_GetTexture(tr.whiteTexture);
+		r_affinetridesc.pskin = image->pixels[0];
+		r_affinetridesc.skinwidth = image->width;
+		r_affinetridesc.skinheight = image->height;
 		return;
+	}
 
 	if( ptexturehdr == NULL )
 		return;
