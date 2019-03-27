@@ -344,11 +344,11 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 		{
 			uint	scale = tr.lightstylevalue[surf->styles[map]];
 
-			if( tr.ignore_lightgamma )
+			if( 1 ) //tr.ignore_lightgamma )
 			{
-				cv->r += lm->r * scale;
-				cv->g += lm->g * scale;
-				cv->b += lm->b * scale;
+				cv->r += lm->r * 255 * 2.5; // scale;
+				cv->g += lm->g * 255 * 2.5; // scale;
+				cv->b += lm->b * 255 * 2.5; // scale;
 			}
 			else
 			{
@@ -472,7 +472,7 @@ colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t 
 {
 	colorVec	light = R_LightVecInternal( start, end, lspot, lvec );
 
-	light.r = light.g = light.b = 255;
+	//light.r = light.g = light.b = 255;
 
 	if( lspot != NULL && lvec != NULL ) // CVAR_TO_BOOL( r_lighting_extended ) &&
 	{
