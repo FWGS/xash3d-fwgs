@@ -1611,10 +1611,11 @@ void R_RenderScene( void )
 	// begin a new frame
 	tr.framecount++;
 
-	R_PushDlights();
 
 	R_SetupFrustum();
 	R_SetupFrame();
+
+	R_PushDlights();
 //	R_SetupGL( true );
 	R_Clear( ~0 );
 
