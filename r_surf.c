@@ -48,8 +48,8 @@ static void	(*surfmiptable[4])(void) = {
 	R_DrawSurfaceBlock8_mip3
 };
 
-void R_BuildLightMap (void);
-extern	unsigned		blocklights[1024];	// allow some very large lightmaps
+//void R_BuildLightMap (void);
+extern	unsigned		blocklights[10240];	// allow some very large lightmaps
 
 float           surfscale;
 qboolean        r_cache_thrash;         // set if surface cache is thrashing
@@ -58,6 +58,188 @@ int         sc_size;
 surfcache_t	*sc_rover, *sc_base;
 
 static int		rtable[MOD_FRAMES][MOD_FRAMES];
+
+#if 0
+/*
+=================
+R_BuildLightmap
+
+Combine and scale multiple lightmaps into the floating
+format in r_blocklights
+=================
+*/
+static void R_BuildLightMap(  )
+{
+	int		smax, tmax;
+	uint		*bl, scale;
+	int		i, map, size, s, t;
+	int		sample_size;
+	msurface_t *surf = r_drawsurf.surf;
+	mextrasurf_t	*info = surf->info;
+	color24		*lm;
+	qboolean dynamic = 0;
+
+	//sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
+	//smax = ( info->lightextents[0] / sample_size ) + 1;
+	//tmax = ( info->lightextents[1] / sample_size ) + 1;
+
+	smax = (surf->extents[0]>>4)+1;
+	tmax = (surf->extents[1]>>4)+1;
+
+	size = smax * tmax;
+
+	lm = surf->samples;
+
+	memset( blocklights, 0, sizeof( uint ) * size );
+
+	// add all the lightmaps
+	for( map = 0; map < MAXLIGHTMAPS; map++ )
+	{
+		scale = tr.lightstylevalue[surf->styles[map]];
+
+		for( i = 0, bl = blocklights; i < size; i++, bl += 1, lm++ )
+		{
+			bl[0] += lm->r;
+			bl[0] += lm->g;
+			bl[0] += lm->b;
+
+			//printf("test\n");
+			//bl[1] += gEngfuncs.LightToTexGamma( lm->g ) * scale;
+			//bl[2] += gEngfuncs.LightToTexGamma( lm->b ) * scale;
+		}
+	}
+
+	// add all the dynamic lights
+	//if( surf->dlightframe == tr.framecount && dynamic )
+		//R_AddDynamicLights( surf );
+
+	// Put into texture format
+	//stride -= (smax << 2);
+	//bl = blocklights;
+
+	/*for( t = 0; t < tmax; t++, dest += stride )
+	{
+		for( s = 0; s < smax; s++ )
+		{
+			dest[0] = Q_min((bl[0] >> 7), 255 );
+			//dest[1] = Q_min((bl[1] >> 7), 255 );
+			//dest[2] = Q_min((bl[2] >> 7), 255 );
+			//dest[3] = 255;
+
+			bl += 3;
+			dest += 4;
+		}
+	}*/
+	// bound, invert, and shift
+		for (i=0 ; i<size ; i++)
+		{
+			t = (int)blocklights[i];
+			if (t < 0)
+				t = 0;
+			if( t > 767 )
+				t = 767;
+			t = t * 31 / 256 / 3;//(255*256 - t) >> (8 - VID_CBITS);
+
+			//if (t < (1 << 6))
+				//t = (1 << 6);
+			t = t << 8;
+
+			blocklights[i] = t;
+		}
+}
+#else
+
+/*
+===============
+R_BuildLightMap
+
+Combine and scale multiple lightmaps into the 8.8 format in blocklights
+===============
+*/
+void R_BuildLightMap (void)
+{
+	int			smax, tmax;
+	int			t;
+	int			i, size;
+	byte		*lightmap;
+	unsigned	scale;
+	int			maps;
+	msurface_t	*surf;
+
+	surf = r_drawsurf.surf;
+
+	//smax = (surf->extents[0]>>4)+1;
+	//tmax = (surf->extents[1]>>4)+1;
+	mextrasurf_t	*info = surf->info;
+	int sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
+	smax = ( info->lightextents[0] / sample_size ) + 1;
+	tmax = ( info->lightextents[1] / sample_size ) + 1;
+
+	size = smax*tmax;
+
+	if (r_fullbright->value )
+	{
+		for (i=0 ; i<size ; i++)
+			blocklights[i] = 0;
+		return;
+	}
+
+// clear to no light
+	for (i=0 ; i<size ; i++)
+		blocklights[i] = 0;
+
+
+// add all the lightmaps
+	lightmap = surf->samples;
+	if (lightmap)
+		for (maps = 0 ; maps < MAXLIGHTMAPS && surf->styles[maps] != 255 ;
+			 maps++)
+		{
+			scale = r_drawsurf.lightadj[maps];	// 8.8 fraction
+			for (i=0 ; i<size ; i++)
+			{
+				blocklights[i] += lightmap[i*3] * 2.5; // * scale;
+				blocklights[i] += lightmap[i*3+1] * 2.5; // * scale;
+				blocklights[i] += lightmap[i*3+2] * 2.5; // * scale;
+			}
+			lightmap += size;	// skip to next lightmap
+		}
+
+// add all the dynamic lights
+	//if (surf->dlightframe == r_framecount)
+		//R_AddDynamicLights ();
+
+// bound, invert, and shift
+	/*for (i=0 ; i<size ; i++)
+	{
+		t = (int)blocklights[i];
+		if (t < 0)
+			t = 0;
+		t = (255*256 - t) >> (8 - VID_CBITS);
+
+		if (t < (1 << 6))
+			t = (1 << 6);
+
+		blocklights[i] = t;
+	}*/
+	for (i=0 ; i<size ; i++)
+	{
+		t = (int)blocklights[i];
+		if (t < 0)
+			t = 0;
+		if( t > 767 )
+			t = 767;
+		t = t * 31 / 256/3;//(255*256 - t) >> (8 - VID_CBITS);
+
+		//if (t < (1 << 6))
+			//t = (1 << 6);
+		t = t << 8;
+
+		blocklights[i] = t;
+	}
+}
+
+#endif
 
 void R_InitRandomTable( void )
 {
@@ -211,7 +393,8 @@ void R_DrawSurface (void)
 	blockdivshift = 4 - r_drawsurf.surfmip;
 	blockdivmask = (1 << blockdivshift) - 1;
 	
-	r_lightwidth = (r_drawsurf.surf->extents[0]>>4)+1;
+	r_lightwidth = ( r_drawsurf.surf->info->lightextents[0] /  gEngfuncs.Mod_SampleSizeForFace( r_drawsurf.surf ) ) + 1;
+	//r_lightwidth = (r_drawsurf.surf->extents[0]>>4)+1;
 
 	r_numhblocks = r_drawsurf.surfwidth >> blockdivshift;
 	r_numvblocks = r_drawsurf.surfheight >> blockdivshift;
@@ -264,6 +447,7 @@ void R_DrawSurface (void)
 //=============================================================================
 
 #if	!id386
+#define BLEND_LM(pix, light) vid.colormap[(pix >> 3) | ((light & 0x1f00) << 5)] | pix & 7;
 
 /*
 ================
@@ -282,11 +466,11 @@ void R_DrawSurfaceBlock8_mip0 (void)
 	{
 	// FIXME: make these locals?
 	// FIXME: use delta rather than both right and left, like ASM?
-		//lightleft = r_lightptr[0];
-		//lightright = r_lightptr[1];
-		//r_lightptr += r_lightwidth;
-		//lightleftstep = (r_lightptr[0] - lightleft) >> 4;
-		//lightrightstep = (r_lightptr[1] - lightright) >> 4;
+		lightleft = r_lightptr[0];
+		lightright = r_lightptr[1];
+		r_lightptr += r_lightwidth;
+		lightleftstep = (r_lightptr[0] - lightleft) >> 4;
+		lightrightstep = (r_lightptr[1] - lightright) >> 4;
 
 		for (i=0 ; i<16 ; i++)
 		{
@@ -298,15 +482,17 @@ void R_DrawSurfaceBlock8_mip0 (void)
 			for (b=15; b>=0; b--)
 			{
 				pix = psource[b];
-				prowdest[b] = pix;
+				prowdest[b] = BLEND_LM(pix, light);
+
+						// pix;
 						//((unsigned char *)vid.colormap)
 						//[(light & 0xFF00) + pix];
 				light += lightstep;
 			}
 	
 			psource += sourcetstep;
-			//lightright += lightrightstep;
-			//lightleft += lightleftstep;
+			lightright += lightrightstep;
+			lightleft += lightleftstep;
 			prowdest += surfrowbytes;
 		}
 
@@ -333,11 +519,11 @@ void R_DrawSurfaceBlock8_mip1 (void)
 	{
 	// FIXME: make these locals?
 	// FIXME: use delta rather than both right and left, like ASM?
-		//lightleft = r_lightptr[0];
-		//lightright = r_lightptr[1];
-		//r_lightptr += r_lightwidth;
-		//lightleftstep = (r_lightptr[0] - lightleft) >> 3;
-		//lightrightstep = (r_lightptr[1] - lightright) >> 3;
+		lightleft = r_lightptr[0];
+		lightright = r_lightptr[1];
+		r_lightptr += r_lightwidth;
+		lightleftstep = (r_lightptr[0] - lightleft) >> 3;
+		lightrightstep = (r_lightptr[1] - lightright) >> 3;
 
 		for (i=0 ; i<8 ; i++)
 		{
@@ -349,15 +535,15 @@ void R_DrawSurfaceBlock8_mip1 (void)
 			for (b=7; b>=0; b--)
 			{
 				pix = psource[b];
-				prowdest[b] = pix;
+				prowdest[b] = BLEND_LM(pix, light);
 						//((unsigned char *)vid.colormap)
 						//[(light & 0xFF00) + pix];
 				light += lightstep;
 			}
 	
 			psource += sourcetstep;
-			//lightright += lightrightstep;
-			//lightleft += lightleftstep;
+			lightright += lightrightstep;
+			lightleft += lightleftstep;
 			prowdest += surfrowbytes;
 		}
 
@@ -384,11 +570,11 @@ void R_DrawSurfaceBlock8_mip2 (void)
 	{
 	// FIXME: make these locals?
 	// FIXME: use delta rather than both right and left, like ASM?
-		//lightleft = r_lightptr[0];
-		//lightright = r_lightptr[1];
-		//r_lightptr += r_lightwidth;
-		//lightleftstep = (r_lightptr[0] - lightleft) >> 2;
-		//lightrightstep = (r_lightptr[1] - lightright) >> 2;
+		lightleft = r_lightptr[0];
+		lightright = r_lightptr[1];
+		r_lightptr += r_lightwidth;
+		lightleftstep = (r_lightptr[0] - lightleft) >> 2;
+		lightrightstep = (r_lightptr[1] - lightright) >> 2;
 
 		for (i=0 ; i<4 ; i++)
 		{
@@ -400,15 +586,15 @@ void R_DrawSurfaceBlock8_mip2 (void)
 			for (b=3; b>=0; b--)
 			{
 				pix = psource[b];
-				prowdest[b] = pix;
+				prowdest[b] = BLEND_LM(pix, light);;
 						//((unsigned char *)vid.colormap)
 						//[(light & 0xFF00) + pix];
 				light += lightstep;
 			}
 	
 			psource += sourcetstep;
-			//lightright += lightrightstep;
-			//lightleft += lightleftstep;
+			lightright += lightrightstep;
+			lightleft += lightleftstep;
 			prowdest += surfrowbytes;
 		}
 
@@ -435,11 +621,11 @@ void R_DrawSurfaceBlock8_mip3 (void)
 	{
 	// FIXME: make these locals?
 	// FIXME: use delta rather than both right and left, like ASM?
-		//lightleft = r_lightptr[0];
-		//lightright = r_lightptr[1];
-		//r_lightptr += r_lightwidth;
-		//lightleftstep = (r_lightptr[0] - lightleft) >> 1;
-		//lightrightstep = (r_lightptr[1] - lightright) >> 1;
+		lightleft = r_lightptr[0];
+		lightright = r_lightptr[1];
+		r_lightptr += r_lightwidth;
+		lightleftstep = (r_lightptr[0] - lightleft) >> 1;
+		lightrightstep = (r_lightptr[1] - lightright) >> 1;
 
 		for (i=0 ; i<2 ; i++)
 		{
@@ -451,15 +637,15 @@ void R_DrawSurfaceBlock8_mip3 (void)
 			for (b=1; b>=0; b--)
 			{
 				pix = psource[b];
-				prowdest[b] = pix;
+				prowdest[b] = BLEND_LM(pix, light);;
 						//((unsigned char *)vid.colormap)
 						//[(light & 0xFF00) + pix];
 				light += lightstep;
 			}
 	
 			psource += sourcetstep;
-			//lightright += lightrightstep;
-			//lightleft += lightleftstep;
+			lightright += lightrightstep;
+			lightleft += lightleftstep;
 			prowdest += surfrowbytes;
 		}
 
@@ -752,7 +938,7 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 	c_surf++;
 
 	// calculate the lightings
-	//R_BuildLightMap ();
+	R_BuildLightMap ( );
 	
 	// rasterize the surface into the cache
 	R_DrawSurface ();
