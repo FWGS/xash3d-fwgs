@@ -1334,6 +1334,7 @@ void R_DrawBEntitiesOnList (void)
 
 	for( i = 0; i < tr.draw_list->num_solid_entities && !RI.onlyClientDraw; i++ )
 	{
+		int k;
 		RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currentmodel = RI.currententity->model;
 		if (!RI.currentmodel)
@@ -1387,6 +1388,22 @@ void R_DrawBEntitiesOnList (void)
 								clmodel->nodes + clmodel->firstnode);
 				}
 		}*/
+
+		// calculate dynamic lighting for bmodel
+		for( k = 0; k < MAX_DLIGHTS; k++ )
+		{
+			dlight_t *l = gEngfuncs.GetDynamicLight( k );
+
+			if( l->die < gpGlobals->time || !l->radius )
+				continue;
+
+			/*VectorCopy( l->origin, oldorigin ); // save lightorigin
+			Matrix4x4_VectorITransform( RI.objectMatrix, l->origin, origin_l );
+			VectorCopy( origin_l, l->origin ); // move light in bmodel space
+			R_MarkLights( l, 1<<k, clmodel->nodes + clmodel->hulls[0].firstclipnode );
+			VectorCopy( oldorigin, l->origin ); // restore lightorigin*/
+			R_MarkLights( l, 1<<k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode );
+		}
 
 	//	RI.currentmodel = tr.draw_list->solid_entities[i]->model;
 	//	RI.currententity = tr.draw_list->solid_entities[i];
