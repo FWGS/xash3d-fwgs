@@ -198,9 +198,9 @@ static void R_BuildLightMap(  )
 
 		for( i = 0, bl = blocklights; i < size; i++, bl += 1, lm++ )
 		{
-			bl[0] += lm->r * 2.5;
-			bl[0] += lm->g * 2.5;
-			bl[0] += lm->b * 2.5;
+			bl[0] += lm->r *  scale * 2.5;
+			bl[0] += lm->g *  scale * 2.5;
+			bl[0] += lm->b *  scale * 2.5;
 
 			//printf("test\n");
 			//bl[1] += gEngfuncs.LightToTexGamma( lm->g ) * scale;
@@ -235,9 +235,9 @@ static void R_BuildLightMap(  )
 			t = (int)blocklights[i];
 			if (t < 0)
 				t = 0;
-			if( t > 767 )
-				t = 767;
-			t = t * 31 / 256 / 3;//(255*256 - t) >> (8 - VID_CBITS);
+			if( t > 65535 * 3 )
+				t = 65535 * 3;
+			t = t * 31 / 65535 / 3;//(255*256 - t) >> (8 - VID_CBITS);
 
 			//if (t < (1 << 6))
 				//t = (1 << 6);
@@ -970,6 +970,7 @@ D_CacheSurface
 surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 {
 	surfcache_t     *cache;
+	int maps;
 //
 // if the surface is animating or flashing, flush the cache
 //
@@ -985,6 +986,15 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 // see if the cache holds apropriate data
 //
 	cache = CACHESPOT(surface)[miplevel];
+
+	// check for lightmap modification
+	for( maps = 0; maps < MAXLIGHTMAPS && surface->styles[maps] != 255; maps++ )
+	{
+		if( tr.lightstylevalue[surface->styles[maps]] != surface->cached_light[maps] )
+		{
+			surface->dlightframe = r_framecount;
+		}
+	}
 
 
 	if (cache && !cache->dlight && surface->dlightframe != r_framecount
@@ -1028,7 +1038,10 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 	cache->lightadj[1] = r_drawsurf.lightadj[1];
 	cache->lightadj[2] = r_drawsurf.lightadj[2];
 	cache->lightadj[3] = r_drawsurf.lightadj[3];
-
+	for( maps = 0; maps < MAXLIGHTMAPS && surface->styles[maps] != 255; maps++ )
+	{
+		surface->cached_light[maps] = tr.lightstylevalue[surface->styles[maps]];
+	}
 //
 // draw and light the surface texture
 //
