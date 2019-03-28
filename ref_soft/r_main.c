@@ -1903,6 +1903,22 @@ void R_NewMap (void)
 		}
 }
 
+/*
+================
+R_InitTurb
+================
+*/
+void R_InitTurb (void)
+{
+	int		i;
+
+	for (i=0 ; i<1280 ; i++)
+	{
+		sintable[i] = AMP + sin(i*3.14159*2/CYCLE)*AMP;
+		intsintable[i] = AMP2 + sin(i*3.14159*2/CYCLE)*AMP2;	// AMP2, not 20
+		blanktable[i] = 0;			//PGM
+	}
+}
 
 
 
@@ -1967,6 +1983,7 @@ qboolean R_Init()
 	view_clipplanes[1].leftedge = view_clipplanes[2].leftedge =view_clipplanes[3].leftedge = false;
 	view_clipplanes[0].rightedge = view_clipplanes[2].rightedge = view_clipplanes[3].rightedge = false;
 	R_StudioInit();
+	R_InitTurb();
 
 	return true;
 }
