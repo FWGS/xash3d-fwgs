@@ -244,9 +244,11 @@ typedef struct
 
 typedef struct
 {
+	cl_entity_t	*edge_entities[MAX_VISIBLE_PACKET];		// brush edge drawing
 	cl_entity_t	*solid_entities[MAX_VISIBLE_PACKET];	// opaque moving or alpha brushes
 	cl_entity_t	*trans_entities[MAX_VISIBLE_PACKET];	// translucent brushes
 	cl_entity_t	*beam_entities[MAX_VISIBLE_PACKET];
+	uint		num_edge_entities;
 	uint		num_solid_entities;
 	uint		num_trans_entities;
 	uint		num_beam_entities;
@@ -799,7 +801,7 @@ extern cvar_t	*r_showhull;
 #define PARTICLE_Z_CLIP 8.0
 
 // !!! must be kept the same as in quakeasm.h !!!
-#define TRANSPARENT_COLOR       0xFF
+#define TRANSPARENT_COLOR       0x0349 //0xFF
 
 
 // !!! if this is changed, it must be changed in d_ifacea.h too !!!
@@ -1027,7 +1029,7 @@ typedef struct
 {
 	int                     nump;
 	emitpoint_t     *pverts;
-	byte            *pixels;                        // image
+	pixel_t            *pixels;                        // image
 	int                     pixel_width;            // image width
 	int         pixel_height;       // image height
 	vec3_t          vup, vright, vpn;       // in worldspace, for plane eq
@@ -1282,6 +1284,7 @@ void R_AliasClipTriangle (finalvert_t *index0, finalvert_t *index1, finalvert_t 
 void R_RotateBmodel (void);
 void R_DrawSolidClippedSubmodelPolygons (model_t *pmodel, mnode_t *topnode);
 void R_DrawSubmodelPolygons (model_t *pmodel, int clipflags, mnode_t *topnode);
+void R_DrawBrushModel(cl_entity_t *pent);
 
 //
 // r_blitscreen.c
@@ -1335,6 +1338,17 @@ void R_ConcatTransforms (float in1[3][4], float in2[3][4], float out[3][4]);
 
 void R_RenderTriangle( finalvert_t *fv1 , finalvert_t *fv2, finalvert_t *fv3 );
 void R_SetupFinalVert( finalvert_t *fv, float x, float y, float z, int light, int s, int t );
+void RotatedBBox (vec3_t mins, vec3_t maxs, vec3_t angles, vec3_t tmins, vec3_t tmaxs);
+int R_BmodelCheckBBox (float *minmaxs);
+
+//
+// r_poly.c
+//
+void R_BuildPolygonFromSurface(msurface_t *fa);
+void R_ClipAndDrawPoly( float alpha, qboolean isturbulent, qboolean textured );
+
+void R_SetUpWorldTransform (void);
+
 
 //
 // engine callbacks

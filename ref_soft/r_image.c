@@ -535,7 +535,6 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		if( j == 0 &&  tex->flags & TF_HAS_ALPHA )
 			tex->alpha_pixels = Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) + 64 );
 	
-
 		for(i = 0; i < height * width; i++ )
 		{
 				unsigned int r, g, b, major, minor;
@@ -560,6 +559,8 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 				{
 					unsigned int alpha = (pic->buffer[i * 4 + 3] * 8 / 256) << (16 - 3);
 					tex->alpha_pixels[i] = (tex->pixels[j][i] >> 3) | alpha;
+					if( pic->buffer[i * 4 + 3] < 128 && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ) )
+						tex->pixels[j][i] = TRANSPARENT_COLOR; //0000 0011 0100 1001;
 				}
 
 		}
