@@ -1072,7 +1072,7 @@ void R_BuildPolygonFromSurface(msurface_t *fa)
 	}
 
 	// todo: water
-	if ( fa->texinfo->flags & SURF_DRAWTURB )
+	if ( fa->flags & SURF_DRAWTURB )
 	{
 		image_t *pic = R_GetTexture(fa->texinfo->texture->gl_texturenum);
 		r_polydesc.pixels       = pic->pixels[0];
