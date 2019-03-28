@@ -99,8 +99,6 @@ typedef struct ref_globals_s
 	cl_entity_t	*currententity;
 	model_t		*currentmodel;
 
-	float fov_x, fov_y;
-
 	// todo: fill this without engine help
 	// move to local
 
@@ -592,8 +590,8 @@ typedef struct ref_interface_s
 	void	(*TriRenderMode)( int mode );
 	void	(*Begin)( int primitiveCode );
 	void	(*End)( void );
-	void	(*Color4f)( float r, float g, float b, float a );
-	void	(*Color4ub)( unsigned char r, unsigned char g, unsigned char b, unsigned char a );
+	void	(*Color4f)( float r, float g, float b, float a ); // real glColor4f
+	void	(*Color4ub)( unsigned char r, unsigned char g, unsigned char b, unsigned char a ); // real glColor4ub
 	void	(*TexCoord2f)( float u, float v );
 	void	(*Vertex3fv)( const float *worldPnt );
 	void	(*Vertex3f)( float x, float y, float z );

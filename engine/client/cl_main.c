@@ -293,7 +293,6 @@ static float CL_LerpPoint( void )
 		frac = ( cl.time - cl.mtime[1] ) / f;
 	}
 #endif
-	refState.time = cl.time;
 	return frac;
 }
 
@@ -2868,8 +2867,6 @@ void CL_AdjustClock( void )
 		if( cl.oldtime > cl.time )
 			cl.oldtime = cl.time;
 	}
-	refState.oldtime = cl.oldtime;
-	refState.time = cl.time;
 }
 
 /*

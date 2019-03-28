@@ -335,7 +335,7 @@ void V_RenderView( void )
 			ref.dllFuncs.R_ClearScreen();
 		}
 
-		ref.dllFuncs.GL_RenderFrame( &rvp );
+		GL_RenderFrame( &rvp );
 		S_UpdateFrame( &rvp );
 		viewnum++;
 
