@@ -187,6 +187,14 @@ static void R_BuildLightMap(  )
 
 	size = smax * tmax;
 
+	if( surf->flags & SURF_CONVEYOR )
+	{
+		smax = ( info->lightextents[0] * 3 / sample_size ) + 1;
+		size = smax * tmax;
+		memset( blocklights, 0xff, sizeof( uint ) * size );
+		return;
+	}
+
 	lm = surf->samples;
 
 	memset( blocklights, 0, sizeof( uint ) * size );
@@ -1101,6 +1109,19 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 //
 	r_drawsurf.image = R_GetTexture(R_TextureAnimation (surface)->gl_texturenum);
 
+	if( surface->flags & SURF_CONVEYOR )
+	{
+		if( miplevel >= 1)
+		{
+			surface->extents[0] = surface->info->lightextents[0] * gEngfuncs.Mod_SampleSizeForFace( r_drawsurf.surf ) * 2 ;
+			surface->texturemins[0] = -surface->info->lightextents[0] * gEngfuncs.Mod_SampleSizeForFace( r_drawsurf.surf );
+		}
+		else
+		{
+			surface->extents[0] = surface->info->lightextents[0] * gEngfuncs.Mod_SampleSizeForFace( r_drawsurf.surf ) ;
+			surface->texturemins[0] = -surface->info->lightextents[0] * gEngfuncs.Mod_SampleSizeForFace( r_drawsurf.surf )/2;
+		}
+	}
 	/// todo: port this
 	//r_drawsurf.lightadj[0] = r_newrefdef.lightstyles[surface->styles[0]].white*128;
 	//r_drawsurf.lightadj[1] = r_newrefdef.lightstyles[surface->styles[1]].white*128;
@@ -1138,6 +1159,7 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 	r_drawsurf.surfwidth = surface->extents[0] >> miplevel;
 	r_drawsurf.rowbytes = r_drawsurf.surfwidth;
 	r_drawsurf.surfheight = surface->extents[1] >> miplevel;
+
 	
 //
 // allocate memory if needed
