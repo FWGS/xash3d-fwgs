@@ -847,14 +847,15 @@ void D_CalcGradients (msurface_t *pface)
 	tadjust = ((fixed16_t)(DotProduct (p_temp1, p_taxis) * 0x10000 + 0.5)) -
 			((pface->texturemins[1] << 16) >> miplevel)
 			+ pface->texinfo->vecs[1][3]*t;
-#if 0
+#if 1
 	// PGM - changing flow speed for non-warping textures.
-	if (pface->texinfo->flags & SURF_FLOWING)
+	if (pface->flags & SURF_CONVEYOR)
 	{
-		if(pface->texinfo->flags & SURF_WARP)
-			sadjust += 0x10000 * (-128 * ( (r_newrefdef.time * 0.25) - (int)(r_newrefdef.time * 0.25) ));
+
+		if(pface->flags & SURF_DRAWTURB)
+			sadjust += 0x10000 * (-128 * ( (gpGlobals->time * 0.25) - (int)(gpGlobals->time * 0.25) ));
 		else
-			sadjust += 0x10000 * (-128 * ( (r_newrefdef.time * 0.77) - (int)(r_newrefdef.time * 0.77) ));
+			sadjust += 0x10000 * (-128 * ( (gpGlobals->time * 0.77) - (int)(gpGlobals->time * 0.77) ));
 	}
 	// PGM
 #endif
@@ -1010,8 +1011,16 @@ void D_SolidSurf (surf_t *s)
 		RI.currententity = gEngfuncs.GetEntityByIndex(0); //r_worldentity;
 
 	pface = s->msurf;
+
+
+	if( !pface )
+		return;
 #if 1
-	miplevel = D_MipLevelForScale(s->nearzi * scale_for_mip );
+
+	if( pface->flags & SURF_CONVEYOR )
+		miplevel = 1;
+	else
+		miplevel = D_MipLevelForScale(s->nearzi * scale_for_mip );
 #else
 	{
 		float dot;
@@ -1039,8 +1048,6 @@ void D_SolidSurf (surf_t *s)
 	}
 #endif
 
-	if( !pface )
-		return;
 // FIXME: make this passed in to D_CacheSurface
 	pcurrentcache = D_CacheSurface (pface, miplevel);
 
@@ -1125,7 +1132,7 @@ void D_DrawSurfaces (void)
 #if 1
 			if(s->flags & SURF_DRAWSKY)
 				D_BackgroundSurf (s);
-			else if (s->flags & SURF_DRAWTURB)
+			else if (s->flags & SURF_DRAWTURB )
 				D_TurbulentSurf (s);
 			else
 				D_SolidSurf (s);

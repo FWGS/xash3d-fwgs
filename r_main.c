@@ -1945,7 +1945,7 @@ qboolean R_Init()
 	sw_mipscale = gEngfuncs.Cvar_Get ("sw_mipscale", "1", 0, "");
 	sw_reportedgeout = gEngfuncs.Cvar_Get ("sw_reportedgeout", "0", 0, "");
 	sw_reportsurfout = gEngfuncs.Cvar_Get ("sw_reportsurfout", "0", 0, "");
-	sw_stipplealpha = gEngfuncs.Cvar_Get( "sw_stipplealpha", "0", FCVAR_ARCHIVE, "" );
+	sw_stipplealpha = gEngfuncs.Cvar_Get( "sw_stipplealpha", "1", FCVAR_ARCHIVE, "" );
 	sw_surfcacheoverride = gEngfuncs.Cvar_Get ("sw_surfcacheoverride", "0", 0, "");
 	sw_waterwarp = gEngfuncs.Cvar_Get ("sw_waterwarp", "1", 0, "");
 	sw_mode = gEngfuncs.Cvar_Get( "sw_mode", "0", FCVAR_ARCHIVE, "");
