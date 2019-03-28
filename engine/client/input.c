@@ -550,15 +550,15 @@ void IN_EngineAppendMove( float frametime, usercmd_t *cmd, qboolean active )
 
 	if( active )
 	{
-		float sensitivity = ( (float)refState.fov_x / (float)90.0f );
+		float sensitivity = ( (float)cl.local.scr_fov / (float)90.0f );
 
 		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized, m_enginemouse->value );
 		
 		IN_JoyAppendMove( cmd, forward, side );
 
-		refState.viewangles[YAW]   += yaw * sensitivity;
-		refState.viewangles[PITCH] += pitch * sensitivity;
-		refState.viewangles[PITCH] = bound( -90, refState.viewangles[PITCH], 90 );
+		cmd->viewangles[YAW]   += yaw * sensitivity;
+		cmd->viewangles[PITCH] += pitch * sensitivity;
+		cmd->viewangles[PITCH] = bound( -90, cmd->viewangles[PITCH], 90 );
 	}
 }
 

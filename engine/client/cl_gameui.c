@@ -727,7 +727,7 @@ static void pfnRenderScene( const ref_viewpass_t *rvp )
 	copy.flags = 0;
 
 	ref.dllFuncs.R_Set2DMode( false );
-	ref.dllFuncs.GL_RenderFrame( &copy );
+	GL_RenderFrame( &copy );
 	ref.dllFuncs.R_Set2DMode( true );
 	ref.dllFuncs.R_PopScene();
 }

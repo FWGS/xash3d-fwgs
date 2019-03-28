@@ -35,6 +35,20 @@ void GL_FreeImage( const char *name )
 		 ref.dllFuncs.GL_FreeTexture( texnum );
 }
 
+int GL_RenderFrame( const ref_viewpass_t *rvp )
+{
+	refState.time      = cl.time;
+	refState.oldtime   = cl.oldtime;
+	refState.realtime  = host.realtime;
+	refState.frametime = host.frametime;
+
+	VectorCopy( rvp->vieworigin, refState.vieworg );
+	VectorCopy( rvp->viewangles, refState.viewangles );
+	AngleVectors( refState.viewangles, refState.vforward, refState.vright, refState.vup );
+
+	ref.dllFuncs.GL_RenderFrame( rvp );
+}
+
 static int pfnEngineGetParm( int parm, int arg )
 {
 	return CL_RenderGetParm( parm, arg, false ); // prevent recursion
