@@ -133,6 +133,18 @@ void _TriColor4f( float r, float g, float b, float a )
 
 /*
 =============
+_TriColor4f
+
+=============
+*/
+void _TriColor4ub( byte r, byte g, byte b, byte a )
+{
+	pglColor4ub( r, g, b, a );
+}
+
+
+/*
+=============
 TriColor4ub
 
 =============
