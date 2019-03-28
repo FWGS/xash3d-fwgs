@@ -80,6 +80,78 @@ void VectorInverse (vec3_t v)
 
 /*
 ================
+R_SetUpWorldTransform
+================
+*/
+void R_SetUpWorldTransform (void)
+{
+	int				i;
+	static float	viewmatrix[3][4];
+	vec3_t			angles;
+
+// TODO: should really be stored with the entity instead of being reconstructed
+// TODO: should use a look-up table
+// TODO: could cache lazily, stored in the entity
+//
+
+	s_ziscale = (float)0x8000 * (float)0x10000;
+	angles[ROLL] = 0;
+	angles[PITCH] = 0;
+	angles[YAW] = 0;
+	AngleVectors( angles, s_alias_forward, s_alias_right, s_alias_up );
+
+// TODO: can do this with simple matrix rearrangement
+
+	memset( aliasworldtransform, 0, sizeof( aliasworldtransform ) );
+	memset( aliasoldworldtransform, 0, sizeof( aliasworldtransform ) );
+
+	for (i=0 ; i<3 ; i++)
+	{
+		aliasoldworldtransform[i][0] = aliasworldtransform[i][0] =  s_alias_forward[i];
+		aliasoldworldtransform[i][0] = aliasworldtransform[i][1] = -s_alias_right[i];
+		aliasoldworldtransform[i][0] = aliasworldtransform[i][2] =  s_alias_up[i];
+	}
+
+	aliasworldtransform[0][3] = -r_origin[0];
+	aliasworldtransform[1][3] = -r_origin[1];
+	aliasworldtransform[2][3] = -r_origin[2];
+
+	//aliasoldworldtransform[0][3] = RI.currententity->oldorigin[0]-r_origin[0];
+	//aliasoldworldtransform[1][3] = RI.currententity->oldorigin[1]-r_origin[1];
+	//aliasoldworldtransform[2][3] = RI.currententity->oldorigin[2]-r_origin[2];
+
+// FIXME: can do more efficiently than full concatenation
+//	memcpy( rotationmatrix, t2matrix, sizeof( rotationmatrix ) );
+
+//	R_ConcatTransforms (t2matrix, tmatrix, rotationmatrix);
+
+// TODO: should be global, set when vright, etc., set
+	VectorCopy (vright, viewmatrix[0]);
+	VectorCopy (vup, viewmatrix[1]);
+	VectorInverse (viewmatrix[1]);
+	//VectorScale(viewmatrix[1], -1, viewmatrix[1]);
+	VectorCopy (vpn, viewmatrix[2]);
+
+	viewmatrix[0][3] = 0;
+	viewmatrix[1][3] = 0;
+	viewmatrix[2][3] = 0;
+
+//	memcpy( aliasworldtransform, rotationmatrix, sizeof( aliastransform ) );
+
+	R_ConcatTransforms (viewmatrix, aliasworldtransform, aliastransform);
+
+	aliasworldtransform[0][3] = 0;
+	aliasworldtransform[1][3] = 0;
+	aliasworldtransform[2][3] = 0;
+
+	//aliasoldworldtransform[0][3] = RI.currententity->oldorigin[0];
+	//aliasoldworldtransform[1][3] = RI.currententity->oldorigin[1];
+	//aliasoldworldtransform[2][3] = RI.currententity->oldorigin[2];
+}
+
+
+/*
+================
 R_AliasSetUpTransform
 ================
 */

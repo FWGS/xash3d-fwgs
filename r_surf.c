@@ -582,6 +582,8 @@ void R_DrawSurfaceBlock8_mip0 (void)
 			{
 				pix = psource[b];
 				prowdest[b] = BLEND_LM(pix, light);
+				if( pix == TRANSPARENT_COLOR )
+					prowdest[b] = TRANSPARENT_COLOR;
 
 						// pix;
 						//((unsigned char *)vid.colormap)
@@ -1069,6 +1071,8 @@ void R_DrawSurfaceDecals()
 						if( alpha < 7) // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
 						{
 							pixel_t screen = dest[u]; //  | 0xff & screen & src ;
+							if( screen == TRANSPARENT_COLOR )
+								continue;
 							dest[u] = vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0x7f) >> 3 | ((src & 0xff));
 
 						}

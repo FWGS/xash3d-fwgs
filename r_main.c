@@ -407,6 +407,7 @@ void R_ClearScene( void )
 	tr.draw_list->num_solid_entities = 0;
 	tr.draw_list->num_trans_entities = 0;
 	tr.draw_list->num_beam_entities = 0;
+	tr.draw_list->num_edge_entities = 0;
 
 	// clear the scene befor start new frame
 	if( gEngfuncs.drawFuncs->R_ClearScene != NULL )
@@ -436,9 +437,17 @@ qboolean R_AddEntity( struct cl_entity_s *clent, int type )
 	if( type == ET_FRAGMENTED )
 		r_stats.c_client_ents++;
 
-	// debug: mark all solid
-	if( true ) // R_OpaqueEntity( clent ))
+	if( R_OpaqueEntity( clent ))
 	{
+		if( clent->model->type == mod_brush )
+		{
+			if( tr.draw_list->num_edge_entities >= MAX_VISIBLE_PACKET )
+				return false;
+
+			tr.draw_list->edge_entities[tr.draw_list->num_edge_entities] = clent;
+			tr.draw_list->num_edge_entities++;
+			return true;
+		}
 		// opaque
 		if( tr.draw_list->num_solid_entities >= MAX_VISIBLE_PACKET )
 			return false;
@@ -1011,10 +1020,7 @@ void R_DrawEntitiesOnList( void )
 	d_aflatcolor = 0;
 	tr.blend = 1.0f;
 //	GL_CheckForErrors();
-	// HACK: setup world transform
-	void R_AliasSetUpTransform (void);
-	RI.currententity = gEngfuncs.GetEntityByIndex(0);
-	R_AliasSetUpTransform();
+	//RI.currententity = gEngfuncs.GetEntityByIndex(0);
 	extern void	(*d_pdrawspans)(void *);
 	extern void R_PolysetFillSpans8 ( void * );
 	d_pdrawspans = R_PolysetFillSpans8;
@@ -1031,12 +1037,13 @@ void R_DrawEntitiesOnList( void )
 		switch( RI.currentmodel->type )
 		{
 		case mod_brush:
-			//R_DrawBrushModel( RI.currententity );
+			R_DrawBrushModel( RI.currententity );
 			break;
 		case mod_alias:
 			//R_DrawAliasModel( RI.currententity );
 			break;
 		case mod_studio:
+			R_SetUpWorldTransform();
 			R_DrawStudioModel( RI.currententity );
 		#if 0
 			// gradient debug (for colormap testing)
@@ -1114,7 +1121,7 @@ void R_DrawEntitiesOnList( void )
 			tr.blend = gEngfuncs.CL_FxBlend( RI.currententity ) / 255.0f;
 		else tr.blend = 1.0f; // draw as solid but sorted by distance
 
-		if( tr.blend <= 0.0f ) continue;
+		//if( tr.blend <= 0.0f ) continue;
 	
 		Assert( RI.currententity != NULL );
 		Assert( RI.currentmodel != NULL );
@@ -1122,13 +1129,14 @@ void R_DrawEntitiesOnList( void )
 		switch( RI.currentmodel->type )
 		{
 		case mod_brush:
-		//	R_DrawBrushModel( RI.currententity );
+			R_DrawBrushModel( RI.currententity );
 			break;
 		case mod_alias:
 			//R_DrawAliasModel( RI.currententity );
 			break;
 		case mod_studio:
-		//	R_DrawStudioModel( RI.currententity );
+			R_SetUpWorldTransform();
+			R_DrawStudioModel( RI.currententity );
 			break;
 		case mod_sprite:
 		//	R_DrawSpriteModel( RI.currententity );
@@ -1159,6 +1167,7 @@ void R_DrawEntitiesOnList( void )
 
 //	pglDisable( GL_BLEND );	// Trinity Render issues
 
+	R_SetUpWorldTransform();
 	if( !RI.onlyClientDraw )
 		R_DrawViewModel();
 	gEngfuncs.CL_ExtraUpdate();
@@ -1334,10 +1343,10 @@ void R_DrawBEntitiesOnList (void)
 	insubmodel = true;
 	//r_dlightframecount = r_framecount;
 
-	for( i = 0; i < tr.draw_list->num_solid_entities && !RI.onlyClientDraw; i++ )
+	for( i = 0; i < tr.draw_list->num_edge_entities && !RI.onlyClientDraw; i++ )
 	{
 		int k;
-		RI.currententity = tr.draw_list->solid_entities[i];
+		RI.currententity = tr.draw_list->edge_entities[i];
 		RI.currentmodel = RI.currententity->model;
 		if (!RI.currentmodel)
 			continue;
