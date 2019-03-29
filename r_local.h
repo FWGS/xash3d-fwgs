@@ -1227,6 +1227,10 @@ extern cvar_t *sw_waterwarp;
 extern cvar_t   *sw_texfilt;
 extern cvar_t	*r_decals;
 
+extern cvar_t	*sw_notransbrushes;
+extern cvar_t	*sw_noalphabrushes;
+
+
 
 extern vec3_t modelorg;
 extern vec3_t r_origin;
