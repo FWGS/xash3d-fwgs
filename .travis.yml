@@ -23,6 +23,7 @@ addons:
 env:
   global:
     - SDL_VERSION=2.0.8
+    - DEPLOY_BRANCH=newengine
 git:
   depth: 50
   submodules: true
@@ -35,18 +36,40 @@ matrix:
     - os: osx
     - os: windows
       env: PYTHONENCODING=UTF-8
-before_script:
-  - sh scripts/travis_common_deps.sh
-  - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export ANDROID_HOME=$PWD/android-sdk-linux; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:$PWD/android-ndk; fi
-script:
-  - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
-# - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/build_android_engine.sh; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/build_mingw_engine.sh; fi
-after_script:
-  - cd ${TRAVIS_BUILD_DIR}
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ccache --show-stats; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/travis-deploy.sh newengine Xash3DFWGS-i386.AppImage xash3d-mingw.7z; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx"   ]]; then sh scripts/travis-deploy.sh newengine xash3d-osx.tar.bz2; fi
-  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then sh scripts/travis-deploy.sh newengine xash3d-vc.7z; fi
+
+jobs:
+  allow_failures:
+    - os: osx
+    - os: windows
+    - os: linux
+  include:
+    - stage: init
+      name: "Initialize webdav cache"
+      os: linux
+      cache: false
+      script:
+        - scripts/yadisk_clear.sh
+    - stage: build
+      name: "Build engine and upload to webdav cache"
+      before_script:
+        - sh scripts/travis_common_deps.sh
+        - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
+        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export ANDROID_HOME=$PWD/android-sdk-linux; fi
+        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:$PWD/android-ndk; fi
+      script:
+        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
+        # - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/build_android_engine.sh; fi
+        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/build_mingw_engine.sh; fi
+      after_script:
+        - cd ${TRAVIS_BUILD_DIR}
+        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ccache --show-stats; fi
+        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/yadisk_upload.sh Xash3DFWGS-i386.AppImage xash3d-mingw.7z; fi
+        - if [[ "$TRAVIS_OS_NAME" == "osx"   ]]; then sh scripts/yadisk_upload.sh xash3d-osx.tar.bz2; fi
+        - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then sh scripts/yadisk_upload.sh xash3d-vc.7z; fi
+    - stage: deploy
+      name: "Deploy to github"
+      os: linux
+      cache: false
+      script:
+        - sh scripts/travis-deploy.sh Xash3DFWGS-i386.AppImage xash3d-mingw.7z xash3d-osx.tar.bz2 xash3d-vc.7z
+        
