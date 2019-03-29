@@ -35,6 +35,16 @@ generate_readme()
 	echo $TRAVIS_COMMIT > commit.txt
 }
 
+yadisk_download()
+{
+	FOLDER_NAME=$DEPLOY_BRANCH-$TRAVIS_BRANCH
+	WEBDAV_SRV=https://$YANDEX_DISK_USER:$YANDEX_DISK_TOKEN@webdav.yandex.ru
+
+	for file in $*; do
+		curl -L $WEBDAV_SRV/$FOLDER_NAME/$file -o $file
+	done
+}
+
 PUSHED_COMMIT=$(curl --fail https://raw.githubusercontent.com/FWGS/xash3d-deploy/$DEPLOY_BRANCH-$TRAVIS_BRANCH/commit.txt)
 echo "Pushed commit: $PUSHED_COMMIT"
 if [ ! -z "$PUSHED_COMMIT" ]; then
@@ -54,7 +64,7 @@ cd xash3d-deploy
 git init
 git remote add travis-deploy-public https://FWGS-deployer:${GH_TOKEN}@github.com/FWGS/xash3d-deploy.git
 git checkout -b $DEPLOY_BRANCH-$TRAVIS_BRANCH
-sh yadisk_download.sh $DEPLOY_BRANCH $FILES
+yadisk_download $FILES
 generate_readme
 git add .
 git commit -m "Latest travis deploy $TRAVIS_COMMIT"
