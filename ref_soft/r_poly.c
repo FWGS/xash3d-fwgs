@@ -253,7 +253,7 @@ void R_DrawSpanletTurbulentBlended66( void )
 			pixel_t screen = *s_spanletvars.pdest;
 			pixel_t src = btemp;
 			byte alpha = 5;
-			*s_spanletvars.pdest = vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff));
+			*s_spanletvars.pdest = BLEND_ALPHA( alpha, src, screen);//vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff));
 		}
 
 		s_spanletvars.izi += s_spanletvars.izistep;
@@ -282,7 +282,7 @@ void R_DrawSpanletTurbulentBlended33( void )
 			pixel_t screen = *s_spanletvars.pdest;
 			pixel_t src = btemp;
 			byte alpha = 2;
-			*s_spanletvars.pdest = vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff)| ((src & 0xff));
+			*s_spanletvars.pdest = BLEND_ALPHA( alpha, src, screen);
 		}
 
 		s_spanletvars.izi += s_spanletvars.izistep;
@@ -317,7 +317,7 @@ void R_DrawSpanlet33( void )
 				pixel_t screen = *s_spanletvars.pdest;
 				pixel_t src = btemp;
 				byte alpha = 2;
-				*s_spanletvars.pdest = vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff)| ((src & 0xff));
+				*s_spanletvars.pdest = BLEND_ALPHA( alpha, src, screen);
 			}
 
 		}
@@ -336,7 +336,7 @@ void R_DrawSpanletConstant33( void )
 	{
 		if (*s_spanletvars.pz <= (s_spanletvars.izi >> 16))
 		{
-			*s_spanletvars.pdest = vid.alphamap[r_polyblendcolor+*s_spanletvars.pdest*256];
+			//*s_spanletvars.pdest = BLEND_ALPHA( alpha, src, screen);
 		}
 
 		s_spanletvars.izi += s_spanletvars.izistep;
@@ -368,7 +368,7 @@ void R_DrawSpanlet66( void )
 				pixel_t screen = *s_spanletvars.pdest;
 				pixel_t src = btemp;
 				byte alpha = 5;
-				*s_spanletvars.pdest = vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff)| ((src & 0xff));
+				*s_spanletvars.pdest = BLEND_ALPHA( alpha, src, screen);
 			}
 
 		}

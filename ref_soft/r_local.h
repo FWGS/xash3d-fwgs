@@ -144,7 +144,7 @@ typedef struct
 #endif
 	byte					addmap[256*256];
 	byte					modmap[256*256];
-	byte                 alphamap[8*256*256];
+	pixel_t                 alphamap[3*1024*256];
 	pixel_t					color;
 	qboolean is2d;
 	byte alpha;
@@ -1349,6 +1349,8 @@ void R_ClipAndDrawPoly( float alpha, qboolean isturbulent, qboolean textured );
 
 void R_SetUpWorldTransform (void);
 
+#define BLEND_ALPHA_LOW(alpha, src, screen) (vid.alphamap[(alpha << 18) |( (src & 0xff00) << 2) | (screen >> 6)] | screen & 0x3f)
+#define BLEND_ALPHA(alpha, src, dst) alpha > 3?BLEND_ALPHA_LOW(7 - 1 - alpha, dst,src):BLEND_ALPHA_LOW(alpha-1, src, dst)
 
 //
 // engine callbacks

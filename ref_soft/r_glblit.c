@@ -159,7 +159,7 @@ void R_BuildBlendMaps()
 		b = b1 * b2 / MASK(2);
 
 		vid.modmap[index2|index1] =  r << (2 + 3) | g << 2 | b;
-
+#if 0
 		for( a = 0; a < 8; a++ )
 		{
 			r = r1 * (7 - a) / 7 + r2 * a / 7;
@@ -168,7 +168,7 @@ void R_BuildBlendMaps()
 			//if( b == 1 ) b = 0;
 			vid.alphamap[a << 16|index2|index1] =  r << (2 + 3) | g << 2 | b;
 		}
-
+#endif
 	}
 	for( i = 0; i < 8192; i++ )
 	{
@@ -201,6 +201,50 @@ void R_BuildBlendMaps()
 			vid.colormap[index2|index1] =  major << 8 | (minor & 0xFF);
 		}
 	}
+#if 1
+	for( i = 0; i < 1024; i++ )
+	{
+		unsigned int r, g, b;
+		uint color = i << 6;
+		uint m = color >> 8;
+		uint j = color & 0xff;
+
+		r1 = ((m >> (8 - 3) )<< 2 ) & MASK(5);
+		g1 = ((m >> (8 - 3 - 3)) << 3) & MASK(6);
+		b1 = ((m >> (8 - 3 - 3 - 2)) << 3) & MASK(5);
+		r1 |= MOVE_BIT(j, 5, 1) | MOVE_BIT(j, 2, 0);
+		g1 |= MOVE_BIT(j, 7, 2) | MOVE_BIT(j, 4, 1) | MOVE_BIT(j, 1, 0);
+		b1 |= MOVE_BIT(j, 6, 2) | MOVE_BIT(j, 3, 1) | MOVE_BIT(j, 0, 0);
+
+
+		unsigned short index1 = i;
+		FOR_EACH_COLOR(2)
+		{
+			unsigned int index2 = (r2 << (2 + 3) | g2 << 2 | b2) << 10;
+			unsigned int k;
+			for( k = 0; k < 3; k++ )
+			{
+				unsigned int major, minor;
+				unsigned int a = k + 1;
+
+
+				r = r1 * (7 - a) / 7 + (r2 << 2) * a / 7;
+				g = g1 * (7 - a) / 7 + (g2 << 3) * a / 7;
+				b = b1 * (7 - a) / 7 + (b2 << 3) * a / 7;
+
+				ASSERT( b < 32 );
+				major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));
+
+				// save minor GBRGBRGB
+				minor = MOVE_BIT(r,1,5) | MOVE_BIT(r,0,2) | MOVE_BIT(g,2,7) | MOVE_BIT(g,1,4) | MOVE_BIT(g,0,1) | MOVE_BIT(b,2,6)| MOVE_BIT(b,1,3)|MOVE_BIT(b,0,0);
+				minor = minor & ~0x3f;
+
+
+				vid.alphamap[k << 18|index2|index1] =  major << 8 | (minor & 0xFF);
+			}
+		}
+	}
+#endif
 }
 
 void R_AllocScreen();
