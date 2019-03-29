@@ -61,7 +61,7 @@ jobs:
     - # ...
       name: "Build for OSX"
       cache: ccache
-      os: linux
+      os: osx
       before_script:
         - sh scripts/travis_common_deps.sh
         - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
@@ -73,7 +73,7 @@ jobs:
     - # ...
       name: "Build for Windows MSVC"
       cache: ccache
-      os: linux
+      os: windows
       before_script:
         - sh scripts/travis_common_deps.sh
         - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
