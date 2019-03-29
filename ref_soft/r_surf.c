@@ -1026,6 +1026,16 @@ void R_DrawSurfaceDecals()
 				h = r_drawsurf.surfheight - y;
 			}
 
+			if( s1 < 0 )
+				s1 = 0;
+			if( t1 < 0 )
+				t1 = 0;
+
+			if( s2 > tex->width )
+				s2 = tex->width;
+			if( t2 > tex->height )
+				t2 = tex->height;
+
 			if( !tex->pixels[0] || s1 >= s2 || t1 >= t2 )
 				continue;
 
@@ -1057,7 +1067,7 @@ void R_DrawSurfaceDecals()
 
 				{
 					f = 0;
-					fstep = s2*0x10000/w;
+					fstep = (s2-s1)*0x10000/w;
 					if( w == s2 - s1 )
 						fstep = 0x10000;
 

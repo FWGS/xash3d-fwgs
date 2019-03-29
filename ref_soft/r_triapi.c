@@ -218,8 +218,8 @@ TriTexCoord2f
 void TriTexCoord2f( float u, float v )
 {
 	//pglTexCoord2f( u, v );
-	s = r_affinetridesc.skinwidth * u;
-	t = r_affinetridesc.skinheight * v;
+	s = r_affinetridesc.skinwidth * bound(0,u,1);
+	t = r_affinetridesc.skinheight * bound(0,v,1);
 }
 
 /*

@@ -1218,7 +1218,6 @@ extern cvar_t   *sw_maxedges;
 extern cvar_t   *sw_maxsurfs;
 extern cvar_t   *sw_mipcap;
 extern cvar_t   *sw_mipscale;
-extern cvar_t   *sw_mode;
 extern cvar_t   *sw_reportsurfout;
 extern cvar_t   *sw_reportedgeout;
 extern cvar_t   *sw_stipplealpha;
@@ -1360,7 +1359,7 @@ void R_SetUpWorldTransform (void);
 // engine callbacks
 //
 #include "crtlib.h"
-
+#if 1
 #define Mem_Malloc( pool, size ) gEngfuncs._Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
 #define Mem_Calloc( pool, size ) gEngfuncs._Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
 #define Mem_Realloc( pool, ptr, size ) gEngfuncs._Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
@@ -1368,5 +1367,13 @@ void R_SetUpWorldTransform (void);
 #define Mem_AllocPool( name ) gEngfuncs._Mem_AllocPool( name, __FILE__, __LINE__ )
 #define Mem_FreePool( pool ) gEngfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )
 #define Mem_EmptyPool( pool ) gEngfuncs._Mem_EmptyPool( pool, __FILE__, __LINE__ )
-
+#else
+#define Mem_Malloc( pool, size ) malloc(size)
+#define Mem_Calloc( pool, size ) calloc(1,size)
+#define Mem_Realloc( pool, ptr, size ) realloc(ptr, size)
+#define Mem_Free( mem ) free(mem)
+#define Mem_AllocPool( name ) gEngfuncs._Mem_AllocPool( name, __FILE__, __LINE__ )
+#define Mem_FreePool( pool ) gEngfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )
+#define Mem_EmptyPool( pool ) gEngfuncs._Mem_EmptyPool( pool, __FILE__, __LINE__ )
+#endif
 #endif // GL_LOCAL_H

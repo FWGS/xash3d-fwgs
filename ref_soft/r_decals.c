@@ -1173,6 +1173,8 @@ int R_CreateDecalList( decallist_t *pList )
 	int	total = 0;
 	int	i, depth;
 
+	return 0; // crash on changelevel. API bug?
+
 	if( WORLDMODEL )
 	{
 		for( i = 0; i < MAX_RENDER_DECALS; i++ )
