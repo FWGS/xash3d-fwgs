@@ -5,7 +5,7 @@
 # Build engine
 cd $TRAVIS_BUILD_DIR
 ./waf configure --sdl2=$TRAVIS_BUILD_DIR/SDL2_VC --vgui=$TRAVIS_BUILD_DIR/vgui-dev --build-type=debug || die
-./waf build -j2 || die
+./waf build || die
 
 cp $TRAVIS_BUILD_DIR/SDL2_VC/lib/x86/SDL2.dll . # Install SDL2
 cp build/vgui_support/vgui_support.dll .
