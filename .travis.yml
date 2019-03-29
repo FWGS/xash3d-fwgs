@@ -33,6 +33,7 @@ matrix:
     - os: linux
       dist: xenial
     - os: osx
+    - os: windows
 before_script:
   - sh scripts/travis_common_deps.sh
   - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
@@ -44,5 +45,7 @@ script:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/build_mingw_engine.sh; fi
 after_script:
   - cd ${TRAVIS_BUILD_DIR}
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ccache --show-stats > ccache_stats.log; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/travis-deploy.sh newengine Xash3DFWGS-i386.AppImage xash3d-mingw.7z ccache_stats.log; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ccache --show-stats; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/travis-deploy.sh newengine Xash3DFWGS-i386.AppImage xash3d-mingw.7z; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx"   ]]; then sh scripts/travis-deploy.sh newengine xash3d-osx.7z; fi
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then sh scripts/travis-deploy.sh newengine xash3d-vc.7z; fi
