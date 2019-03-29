@@ -8,8 +8,7 @@ export CC="ccache i686-w64-mingw32-gcc"
 export CXX="ccache i686-w64-mingw32-g++"
 export CFLAGS="-static-libgcc -no-pthread -msse2" # add sse2 to workaround mingw multiple definition of MemoryBarrier bug
 export CXXFLAGS="-static-libgcc -static-libstdc++ -no-pthread -msse2"
-export LDFLAGS="-static-libgcc -static-libstdc++ -no-pthread"
-export LINKFLAGS="-static-libgcc -static-libstdc++ -no-pthread"
+export LDFLAGS="-static-libgcc -static-libstdc++ -no-pthread --allow-multiple-definition" # workaround some other mingw bugs
 export WINRC="i686-w64-mingw32-windres"
 rm -rf build # clean build directory
 ./waf configure --sdl2=$TRAVIS_BUILD_DIR/SDL2_mingw/i686-w64-mingw32/ --disable-vgui --build-type=debug --verbose || die # can't compile VGUI support on MinGW, due to differnet C++ ABI
