@@ -34,6 +34,7 @@ matrix:
       dist: xenial
     - os: osx
     - os: windows
+      python: "3.6"
 before_script:
   - sh scripts/travis_common_deps.sh
   - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
