@@ -136,7 +136,8 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 
 	if( oldstate == key_game )
 	{
-		clgame.dllFuncs.IN_DeactivateMouse();
+		if( cls.initialized )
+			clgame.dllFuncs.IN_DeactivateMouse();
 	}
 	else if( newstate == key_game )
 	{
