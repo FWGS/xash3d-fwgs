@@ -40,7 +40,7 @@ typedef struct {
 	void			*pdest;
 	short			*pz;
 	int				count;
-	byte			*ptex;
+	pixel_t			*ptex;
 	int				sfrac, tfrac, light, zi;
 } spanpackage_t;
 
@@ -279,6 +279,9 @@ void R_PolysetScanLeftEdge_C(int height)
 		d_pedgespanpackage->light = d_light;
 		d_pedgespanpackage->zi = d_zi;
 
+		if( d_pedgespanpackage->ptex - (pixel_t*)r_affinetridesc.pskin < 0 )
+			d_pedgespanpackage->ptex = r_affinetridesc.pskin;
+
 		d_pedgespanpackage++;
 
 		errorterm += erroradjustup;
@@ -290,6 +293,7 @@ void R_PolysetScanLeftEdge_C(int height)
 			d_ptex += d_ptexextrastep;
 			d_sfrac += d_sfracextrastep;
 			d_ptex += d_sfrac >> 16;
+
 
 			d_sfrac &= 0xFFFF;
 			d_tfrac += d_tfracextrastep;
@@ -856,6 +860,13 @@ void R_PolysetDrawSpans8_33( spanpackage_t *pspanpackage)
 			{
 				if ((lzi >> 16) >= *lpz)
 				{
+#if 0
+					if((int)(lptex - (pixel_t*)r_affinetridesc.pskin) > r_affinetridesc.skinwidth * r_affinetridesc.skinheight || (int)(lptex - (pixel_t*)r_affinetridesc.pskin) < 0 )
+					{
+						printf("%d %d %d %d\n",(int)(lptex - (pixel_t*)r_affinetridesc.pskin),  r_affinetridesc.skinwidth * r_affinetridesc.skinheight, lsfrac, a_ststepxwhole );
+						return;
+					}
+#endif
 					pixel_t temp = *lptex;//vid.colormap[*lptex + ( llight & 0xFF00 )];
 
 					int alpha = tr.blend * 7;
@@ -1196,6 +1207,13 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 						*lpdest = ((byte *)vid.colormap)[irtable[*lptex]];
 					else*/
 					//*lpdest = *lptex; //((byte *)vid.colormap)[*lptex + (llight & 0xFF00)];
+#if 0 // check for texture bounds to make asan happy
+					if((int)(lptex - (pixel_t*)r_affinetridesc.pskin) > r_affinetridesc.skinwidth * r_affinetridesc.skinheight || (int)(lptex - (pixel_t*)r_affinetridesc.pskin) < 0 )
+					{
+						printf("%d %d %d %d\n",(int)(lptex - (pixel_t*)r_affinetridesc.pskin),  r_affinetridesc.skinwidth * r_affinetridesc.skinheight, lsfrac, a_ststepxwhole );
+						return;
+					}
+#endif
 					pixel_t src = *lptex;
 					//*lpdest = //vid.colormap[src & 0xff00|(llight>>8)] << 8 | (src & llight & 0xff) | ((src & 0xff) >> 3);
 					// very dirty, maybe need dual colormap?
@@ -1301,6 +1319,8 @@ void R_RasterizeAliasPolySmooth (void)
 	// FIXME: need to clamp l, s, t, at both ends?
 		d_pedgespanpackage->light = d_light;
 		d_pedgespanpackage->zi = d_zi;
+		if( d_pedgespanpackage->ptex - (pixel_t*)r_affinetridesc.pskin < 0 )
+			d_pedgespanpackage->ptex = r_affinetridesc.pskin;
 
 		d_pedgespanpackage++;
 	}
@@ -1432,6 +1452,8 @@ void R_RasterizeAliasPolySmooth (void)
 		// FIXME: need to clamp l, s, t, at both ends?
 			d_pedgespanpackage->light = d_light;
 			d_pedgespanpackage->zi = d_zi;
+			if( d_pedgespanpackage->ptex - (pixel_t*)r_affinetridesc.pskin < 0 )
+				d_pedgespanpackage->ptex = r_affinetridesc.pskin;
 
 			d_pedgespanpackage++;
 		}
