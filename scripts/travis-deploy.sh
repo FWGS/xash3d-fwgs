@@ -50,7 +50,7 @@ init_repo_and_copy_files()
 push_until_success()
 {
 	git push travis-deploy-public $SOURCE_NAME-$TRAVIS_BRANCH
-	
+
 	# probably will never occur, just in case
 	count=0
 	while [ $? -ne 0 ] && [ $count -lt 5 ]
@@ -85,7 +85,8 @@ SOURCE_NAME=$1
 shift
 
 PUSHED_COMMIT=$(curl --fail https://raw.githubusercontent.com/FWGS/xash3d-deploy/$SOURCE_NAME-$TRAVIS_BRANCH/commit.txt)
-if [ $? -ne 0 ]; then
+echo "Pushed commit: $PUSHED_COMMIT"
+if [ ! -z "$PUSHED_COMMIT" ]; then
 	REV_RANGE="HEAD...$PUSHED_COMMIT"
 else
 	REV_RANGE="HEAD"
@@ -95,13 +96,13 @@ git config --global user.name FWGS-deployer
 git config --global user.email FWGS-deployer@users.noreply.github.com
 
 FILES=$*
-	
+
 if [ "$TRAVIS_COMMIT" != "$PUSHED_COMMIT" ]; then
 	# Create new repo with new files
 	init_repo_and_copy_files
 	generate_readme
 	commit_files
-	force_push	
+	force_push
 else
 	# download repo and commit new files
 	download_repo_and_copy_files

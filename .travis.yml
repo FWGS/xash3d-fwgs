@@ -34,7 +34,7 @@ matrix:
       dist: xenial
     - os: osx
     - os: windows
-      python: "3.6"
+      env: PYTHONENCODING=UTF-8
 before_script:
   - sh scripts/travis_common_deps.sh
   - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
@@ -48,5 +48,5 @@ after_script:
   - cd ${TRAVIS_BUILD_DIR}
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ccache --show-stats; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/travis-deploy.sh newengine Xash3DFWGS-i386.AppImage xash3d-mingw.7z; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx"   ]]; then sh scripts/travis-deploy.sh newengine xash3d-osx.7z; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx"   ]]; then sh scripts/travis-deploy.sh newengine xash3d-osx.tar.bz2; fi
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then sh scripts/travis-deploy.sh newengine xash3d-vc.7z; fi
