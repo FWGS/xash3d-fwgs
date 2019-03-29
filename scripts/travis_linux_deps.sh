@@ -2,10 +2,6 @@
 curl -s http://libsdl.org/release/SDL2-$SDL_VERSION.tar.gz | tar xzf -
 mv SDL2-$SDL_VERSION SDL2_src
 
-# SDL2 for MinGW prebuilt
-curl -s http://libsdl.org/release/SDL2-devel-$SDL_VERSION-mingw.tar.gz | tar xzf -
-mv SDL2-$SDL_VERSION SDL2_mingw
-
 # Android build deps
 # curl -s http://dl.google.com/android/android-sdk_r22.0.4-linux.tgz | tar xzf -
 # export ANDROID_HOME=$PWD/android-sdk-linux

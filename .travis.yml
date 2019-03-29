@@ -24,17 +24,13 @@ jobs:
       script:
         - sh scripts/yadisk_clear.sh
     - stage: build
-      name: "Build for Linux, MinGW & Android"
+      name: "Build for Linux & Android"
       cache: ccache
       os: linux
       dist: xenial
       addons:
         apt:
           packages:
-            - mingw-w64-i686-dev
-            - binutils-mingw-w64-i686
-            - gcc-mingw-w64-i686
-            - g++-mingw-w64-i686
             - p7zip-full
             - gcc-multilib
             - g++-multilib
@@ -53,11 +49,30 @@ jobs:
         - export PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:$PWD/android-ndk
       script:
         - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
+      after_script:
+        - ccache --show-stats
+        - sh scripts/yadisk_upload.sh Xash3DFWGS-i386.AppImage
+    - # ...
+      name: "Build for Windows MinGW"
+      cache: ccache
+      os: linux
+      dist: xenial
+      addons:
+        apt:
+          packages:
+            - mingw-w64-i686-dev
+            - binutils-mingw-w64-i686
+            - gcc-mingw-w64-i686
+            - g++-mingw-w64-i686
+            - p7zip-full
+      before_script:
+        - sh scripts/travis_common_deps.sh
+        - sh scripts/travis_mingw_deps.sh
+      script:
         - sh scripts/build_mingw_engine.sh
       after_script:
-        - cd ${TRAVIS_BUILD_DIR}
         - ccache --show-stats
-        - sh scripts/yadisk_upload.sh Xash3DFWGS-i386.AppImage xash3d-mingw.7z
+        - sh scripts/yadisk_upload.sh xash3d-mingw.7z
     - # ...
       name: "Build for OSX"
       cache: ccache
@@ -68,7 +83,6 @@ jobs:
       script:
         - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
       after_script:
-        - cd ${TRAVIS_BUILD_DIR}
         - sh scripts/yadisk_upload.sh xash3d-osx.tar.bz2
     - # ...
       name: "Build for Windows MSVC"
@@ -80,7 +94,6 @@ jobs:
       script:
         - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
       after_script:
-        - cd ${TRAVIS_BUILD_DIR}
         - sh scripts/yadisk_upload.sh xash3d-vc.7z
     - stage: deploy
       name: "Deploy to github"
