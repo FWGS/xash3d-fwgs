@@ -1023,6 +1023,8 @@ void R_DrawEntitiesOnList( void )
 	//RI.currententity = gEngfuncs.GetEntityByIndex(0);
 	extern void	(*d_pdrawspans)(void *);
 	extern void R_PolysetFillSpans8 ( void * );
+	extern void R_PolysetDrawSpansConstant8_33( void *pspanpackage);
+	extern void R_PolysetDrawSpans8_33( void *pspanpackage);
 	d_pdrawspans = R_PolysetFillSpans8;
 	// first draw solid entities
 	for( i = 0; i < tr.draw_list->num_solid_entities && !RI.onlyClientDraw; i++ )
@@ -1109,7 +1111,7 @@ void R_DrawEntitiesOnList( void )
 		gEngfuncs.pfnDrawNormalTriangles();
 
 //	GL_CheckForErrors();
-
+	d_pdrawspans = R_PolysetDrawSpans8_33;
 	// then draw translucent entities
 	for( i = 0; i < tr.draw_list->num_trans_entities && !RI.onlyClientDraw; i++ )
 	{
@@ -1166,6 +1168,7 @@ void R_DrawEntitiesOnList( void )
 	//GL_CheckForErrors();
 
 //	pglDisable( GL_BLEND );	// Trinity Render issues
+	d_pdrawspans = R_PolysetFillSpans8;
 
 	R_SetUpWorldTransform();
 	if( !RI.onlyClientDraw )

@@ -62,7 +62,7 @@ static void R_DrawPoly( qboolean iswater );
 */
 void R_DrawSpanletOpaque( void )
 {
-	unsigned btemp;
+	pixel_t btemp;
 
 	do
 	{
@@ -94,7 +94,7 @@ void R_DrawSpanletOpaque( void )
 */
 void R_DrawSpanletTurbulentStipple33( void )
 {
-	unsigned btemp;
+	pixel_t btemp;
 	int	     sturb, tturb;
 	pixel_t    *pdest = s_spanletvars.pdest;
 	short   *pz    = s_spanletvars.pz;
@@ -151,7 +151,7 @@ void R_DrawSpanletTurbulentStipple33( void )
 */
 void R_DrawSpanletTurbulentStipple66( void )
 {
-	unsigned btemp;
+	pixel_t btemp;
 	int	     sturb, tturb;
 	pixel_t    *pdest = s_spanletvars.pdest;
 	short   *pz    = s_spanletvars.pz;
@@ -238,7 +238,7 @@ void R_DrawSpanletTurbulentStipple66( void )
 */
 void R_DrawSpanletTurbulentBlended66( void )
 {
-	unsigned btemp;
+	pixel_t btemp;
 	int	     sturb, tturb;
 
 	do
@@ -267,7 +267,7 @@ void R_DrawSpanletTurbulentBlended66( void )
 
 void R_DrawSpanletTurbulentBlended33( void )
 {
-	unsigned btemp;
+	pixel_t btemp;
 	int	     sturb, tturb;
 
 	do
@@ -299,7 +299,7 @@ void R_DrawSpanletTurbulentBlended33( void )
 */
 void R_DrawSpanlet33( void )
 {
-	unsigned btemp;
+	pixel_t btemp;
 
 	do
 	{
@@ -310,7 +310,7 @@ void R_DrawSpanlet33( void )
 
 		btemp = *(s_spanletvars.pbase + (ts) + (tt) * cachewidth);
 
-		if ( btemp != 255 )
+		if ( btemp != TRANSPARENT_COLOR )
 		{
 			if (*s_spanletvars.pz <= (s_spanletvars.izi >> 16))
 			{
@@ -350,7 +350,7 @@ void R_DrawSpanletConstant33( void )
 */
 void R_DrawSpanlet66( void )
 {
-	unsigned btemp;
+	pixel_t btemp;
 
 	do
 	{
@@ -361,7 +361,7 @@ void R_DrawSpanlet66( void )
 
 		btemp = *(s_spanletvars.pbase + (ts) + (tt) * cachewidth);
 
-		if ( btemp != 255 )
+		if ( btemp != TRANSPARENT_COLOR )
 		{
 			if (*s_spanletvars.pz <= (s_spanletvars.izi >> 16))
 			{
@@ -386,7 +386,7 @@ void R_DrawSpanlet66( void )
 */
 void R_DrawSpanlet33Stipple( void )
 {
-	unsigned btemp;
+	pixel_t btemp;
 	pixel_t    *pdest = s_spanletvars.pdest;
 	short   *pz    = s_spanletvars.pz;
 	int      izi   = s_spanletvars.izi;
@@ -422,7 +422,7 @@ void R_DrawSpanlet33Stipple( void )
 
 			btemp = *( s_spanletvars.pbase + ( s ) + ( t * cachewidth ) );
 			
-			if ( btemp != 255 )
+			if ( btemp != TRANSPARENT_COLOR )
 			{
 				if ( *pz <= ( izi >> 16 ) )
 					*pdest = btemp;
@@ -445,7 +445,7 @@ void R_DrawSpanlet33Stipple( void )
 */
 void R_DrawSpanlet66Stipple( void )
 {
-	unsigned btemp;
+	pixel_t btemp;
 	pixel_t    *pdest = s_spanletvars.pdest;
 	short   *pz    = s_spanletvars.pz;
 	int      izi   = s_spanletvars.izi;
@@ -481,7 +481,7 @@ void R_DrawSpanlet66Stipple( void )
 			
 			btemp = *( s_spanletvars.pbase + ( s ) + ( t * cachewidth ) );
 
-			if ( btemp != 255 )
+			if ( btemp != TRANSPARENT_COLOR )
 			{
 				if ( *pz <= ( izi >> 16 ) )
 					*pdest = btemp;
@@ -506,7 +506,7 @@ void R_DrawSpanlet66Stipple( void )
 			
 			btemp = *( s_spanletvars.pbase + ( s ) + ( t * cachewidth ) );
 			
-			if ( btemp != 255 )
+			if ( btemp != TRANSPARENT_COLOR )
 			{
 				if ( *pz <= ( izi >> 16 ) )
 					*pdest = btemp;

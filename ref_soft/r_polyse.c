@@ -820,8 +820,8 @@ R_PolysetDrawSpans8
 void R_PolysetDrawSpans8_33( spanpackage_t *pspanpackage)
 {
 	int		lcount;
-	byte	*lpdest;
-	byte	*lptex;
+	pixel_t	*lpdest;
+	pixel_t	*lptex;
 	int		lsfrac, ltfrac;
 	int		llight;
 	int		lzi;
@@ -856,9 +856,13 @@ void R_PolysetDrawSpans8_33( spanpackage_t *pspanpackage)
 			{
 				if ((lzi >> 16) >= *lpz)
 				{
-					int temp = vid.colormap[*lptex + ( llight & 0xFF00 )];
+					pixel_t temp = *lptex;//vid.colormap[*lptex + ( llight & 0xFF00 )];
 
-					*lpdest = vid.alphamap[temp+ *lpdest*256];
+					int alpha = tr.blend * 7;
+					if( alpha == 7 )
+						*lpdest = temp;
+					else if(alpha)
+						*lpdest = BLEND_ALPHA(alpha,temp,*lpdest);//vid.alphamap[temp+ *lpdest*256];
 				}
 				lpdest++;
 				lzi += r_zistepx;
@@ -884,7 +888,7 @@ void R_PolysetDrawSpans8_33( spanpackage_t *pspanpackage)
 void R_PolysetDrawSpansConstant8_33( spanpackage_t *pspanpackage)
 {
 	int		lcount;
-	byte	*lpdest;
+	pixel_t	*lpdest;
 	int		lzi;
 	short	*lpz;
 
@@ -913,7 +917,7 @@ void R_PolysetDrawSpansConstant8_33( spanpackage_t *pspanpackage)
 			{
 				if ((lzi >> 16) >= *lpz)
 				{
-					*lpdest = vid.alphamap[r_aliasblendcolor + *lpdest*256];
+					*lpdest = BLEND_ALPHA(2,r_aliasblendcolor,*lpdest);//vid.alphamap[r_aliasblendcolor + *lpdest*256];
 				}
 				lpdest++;
 				lzi += r_zistepx;
@@ -928,8 +932,8 @@ void R_PolysetDrawSpansConstant8_33( spanpackage_t *pspanpackage)
 void R_PolysetDrawSpans8_66(spanpackage_t *pspanpackage)
 {
 	int		lcount;
-	byte	*lpdest;
-	byte	*lptex;
+	pixel_t	*lpdest;
+	pixel_t	*lptex;
 	int		lsfrac, ltfrac;
 	int		llight;
 	int		lzi;
@@ -966,7 +970,7 @@ void R_PolysetDrawSpans8_66(spanpackage_t *pspanpackage)
 				{
 					int temp = vid.colormap[*lptex + ( llight & 0xFF00 )];
 
-					*lpdest = vid.alphamap[temp*256 + *lpdest];
+					*lpdest = BLEND_ALPHA(5,temp,*lpdest);//vid.alphamap[temp*256 + *lpdest];
 					*lpz = lzi >> 16;
 				}
 				lpdest++;
@@ -993,7 +997,7 @@ void R_PolysetDrawSpans8_66(spanpackage_t *pspanpackage)
 void R_PolysetDrawSpansConstant8_66( spanpackage_t *pspanpackage)
 {
 	int		lcount;
-	byte	*lpdest;
+	pixel_t	*lpdest;
 	int		lzi;
 	short	*lpz;
 
@@ -1022,7 +1026,7 @@ void R_PolysetDrawSpansConstant8_66( spanpackage_t *pspanpackage)
 			{
 				if ((lzi >> 16) >= *lpz)
 				{
-					*lpdest = vid.alphamap[r_aliasblendcolor*256 + *lpdest];
+					*lpdest = BLEND_ALPHA(5,r_aliasblendcolor,*lpdest);//vid.alphamap[r_aliasblendcolor*256 + *lpdest];
 				}
 				lpdest++;
 				lzi += r_zistepx;
@@ -1219,7 +1223,7 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 			} while (--lcount);
 		}
 
-		pspanpackage++;
+		pspanpackage ++;
 	} while (pspanpackage->count != -999999);
 }
 #endif
