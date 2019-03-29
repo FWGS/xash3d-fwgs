@@ -77,13 +77,14 @@ cvar_t	*sw_drawflat;
 cvar_t	*sw_draworder;
 cvar_t	*sw_maxedges;
 cvar_t	*sw_maxsurfs;
-cvar_t  *sw_mode;
 cvar_t	*sw_reportedgeout;
 cvar_t	*sw_reportsurfout;
 cvar_t  *sw_stipplealpha;
 cvar_t	*sw_surfcacheoverride;
 cvar_t	*sw_waterwarp;
 cvar_t	*sw_texfilt;
+cvar_t	*sw_notransbrushes;
+cvar_t	*sw_noalphabrushes;
 
 cvar_t	*r_drawworld;
 cvar_t	*r_drawentities;
@@ -246,8 +247,17 @@ Opaque entity can be brush or studio model but sprite
 */
 static qboolean R_OpaqueEntity( cl_entity_t *ent )
 {
-	if( R_GetEntityRenderMode( ent ) == kRenderNormal )
+	int rendermode = R_GetEntityRenderMode( ent );
+
+	if( rendermode == kRenderNormal )
 		return true;
+
+	if( sw_notransbrushes->value && ent->model && ent->model->type == mod_brush && rendermode == kRenderTransTexture )
+		return true;
+
+	if( sw_noalphabrushes->value && ent->model && ent->model->type == mod_brush && rendermode == kRenderTransAlpha )
+		return true;
+
 	return false;
 }
 
@@ -1951,7 +1961,9 @@ qboolean R_Init()
 	sw_stipplealpha = gEngfuncs.Cvar_Get( "sw_stipplealpha", "1", FCVAR_ARCHIVE, "" );
 	sw_surfcacheoverride = gEngfuncs.Cvar_Get ("sw_surfcacheoverride", "0", 0, "");
 	sw_waterwarp = gEngfuncs.Cvar_Get ("sw_waterwarp", "1", 0, "");
-	sw_mode = gEngfuncs.Cvar_Get( "sw_mode", "0", FCVAR_ARCHIVE, "");
+	sw_notransbrushes = gEngfuncs.Cvar_Get( "sw_notransbrushes", "0", FCVAR_ARCHIVE, "do not apply transparency to water/glasses (faster)");
+	sw_noalphabrushes = gEngfuncs.Cvar_Get( "sw_noalphabrushes", "0", FCVAR_ARCHIVE, "do not draw brush holes (faster)");
+
 	sw_texfilt = gEngfuncs.Cvar_Get ("sw_texfilt", "0", 0, "texture dither");
 	//r_lefthand = ri.Cvar_Get( "hand", "0", FCVAR_USERINFO | FCVAR_ARCHIVE );
 //	r_speeds = ri.Cvar_Get ("r_speeds", "0", 0);
