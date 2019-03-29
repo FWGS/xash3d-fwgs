@@ -1081,7 +1081,7 @@ void R_DrawSurfaceDecals()
 							pixel_t screen = dest[u]; //  | 0xff & screen & src ;
 							if( screen == TRANSPARENT_COLOR )
 								continue;
-							dest[u] = vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0x7f) >> 3 | ((src & 0xff));
+							dest[u] = BLEND_ALPHA( alpha, src, screen);
 
 						}
 						else
