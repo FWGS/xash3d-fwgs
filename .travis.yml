@@ -57,7 +57,7 @@ jobs:
       after_script:
         - cd ${TRAVIS_BUILD_DIR}
         - ccache --show-stats
-        - sh scripts/yadisk_upload.sh xash3d-osx.tar.bz2
+        - sh scripts/yadisk_upload.sh Xash3DFWGS-i386.AppImage xash3d-mingw.7z
     - # ...
       name: "Build for OSX"
       cache: ccache
