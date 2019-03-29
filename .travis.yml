@@ -37,6 +37,27 @@ matrix:
     - os: windows
       env: PYTHONENCODING=UTF-8
 
+before_script:
+  - sh scripts/travis_common_deps.sh
+  - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export ANDROID_HOME=$PWD/android-sdk-linux; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:$PWD/android-ndk; fi
+script:
+  - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
+# - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/build_android_engine.sh; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/build_mingw_engine.sh; fi
+after_script:
+  - cd ${TRAVIS_BUILD_DIR}
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ccache --show-stats; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/yadisk_upload.sh Xash3DFWGS-i386.AppImage xash3d-mingw.7z; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx"   ]]; then sh scripts/yadisk_upload.sh xash3d-osx.tar.bz2; fi
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then sh scripts/yadisk_upload.sh xash3d-vc.7z; fi
+  
+stages:
+  - init
+  - test # default name
+  - deploy
+
 jobs:
   allow_failures:
     - os: osx
@@ -48,24 +69,7 @@ jobs:
       os: linux
       cache: false
       script:
-        - scripts/yadisk_clear.sh
-    - stage: build
-      name: "Build engine and upload to webdav cache"
-      before_script:
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
-        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export ANDROID_HOME=$PWD/android-sdk-linux; fi
-        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:$PWD/android-ndk; fi
-      script:
-        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
-        # - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/build_android_engine.sh; fi
-        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/build_mingw_engine.sh; fi
-      after_script:
-        - cd ${TRAVIS_BUILD_DIR}
-        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ccache --show-stats; fi
-        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sh scripts/yadisk_upload.sh Xash3DFWGS-i386.AppImage xash3d-mingw.7z; fi
-        - if [[ "$TRAVIS_OS_NAME" == "osx"   ]]; then sh scripts/yadisk_upload.sh xash3d-osx.tar.bz2; fi
-        - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then sh scripts/yadisk_upload.sh xash3d-vc.7z; fi
+        - sh scripts/yadisk_clear.sh
     - stage: deploy
       name: "Deploy to github"
       os: linux
