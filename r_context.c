@@ -132,10 +132,10 @@ qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 		switch( mod->type )
 		{
 			case mod_studio:
-				// Mod_LoadStudioModel( mod, buf, loaded );
+				 //Mod_LoadStudioModel( mod, buf, loaded );
 				break;
 			case mod_sprite:
-				//Mod_LoadSpriteModel( mod, buf, &loaded, mod->numtexinfo );
+				Mod_LoadSpriteModel( mod, buf, &loaded, mod->numtexinfo );
 				break;
 			case mod_alias:
 				//Mod_LoadAliasModel( mod, buf, &loaded );
@@ -306,7 +306,7 @@ void Mod_UnloadTextures( model_t *mod )
 		Mod_BrushUnloadTextures( mod );
 		break;
 	case mod_sprite:
-		//Mod_SpriteUnloadTextures( mod->cache.data );
+		Mod_SpriteUnloadTextures( mod->cache.data );
 		break;
 	default: gEngfuncs.Host_Error( "Mod_UnloadModel: unsupported type %d\n", mod->type );
 	}
@@ -357,11 +357,6 @@ void GL_SetRenderMode(int mode)
 	/// maybe, setup block drawing function pointers here
 }
 
-void CL_AddCustomBeam(cl_entity_t *pEnvBeam)
-{
-	// same for beams
-}
-
 void R_ShowTextures()
 {
 	// textures undone too
@@ -397,31 +392,6 @@ void GL_SubdivideSurface(msurface_t *fa)
 
 }
 
-void Mod_LoadMapSprite(model_t *mod, const void *buffer, size_t size, qboolean *loaded)
-{
-
-}
-
-void CL_DrawParticles(double frametime, particle_t *cl_active_particles, float partsize)
-{
-
-}
-
-void CL_DrawBeams(int fTrans, BEAM *active_beams)
-{
-
-}
-
-void CL_DrawTracers(double frametime, particle_t *cl_active_tracers)
-{
-
-}
-
-qboolean R_BeamCull(const vec3_t start, const vec3_t end, qboolean pvsOnly)
-{
-	return false;
-}
-
 void DrawSingleDecal(decal_t *pDecal, msurface_t *fa)
 {
 
@@ -455,11 +425,6 @@ void GL_TexGen(unsigned int coord, unsigned int mode)
 void GL_TextureTarget(uint target)
 {
 
-}
-
-void CL_DrawParticlesExternal(const ref_viewpass_t *rvp, qboolean trans_pass, float frametime)
-{
-	// no renderapi support
 }
 
 void GL_BuildLightmaps()

@@ -94,6 +94,12 @@ cvar_t  *r_lerpmodels;
 cvar_t  *r_novis;
 cvar_t	*r_lightmap;
 cvar_t	*r_dynamic;
+cvar_t	*r_traceglow;
+
+cvar_t	*tracerred;
+cvar_t	*tracergreen;
+cvar_t	*tracerblue;
+cvar_t	*traceralpha;
 
 cvar_t	*r_speeds;
 cvar_t	*r_lightlevel;	//FIXME HACK
@@ -1091,6 +1097,7 @@ void R_DrawEntitiesOnList( void )
 
 //	GL_CheckForErrors();
 
+	R_SetUpWorldTransform();
 	// draw sprites seperately, because of alpha blending
 	for( i = 0; i < tr.draw_list->num_solid_entities && !RI.onlyClientDraw; i++ )
 	{
@@ -1103,7 +1110,7 @@ void R_DrawEntitiesOnList( void )
 		switch( RI.currentmodel->type )
 		{
 		case mod_sprite:
-		//	R_DrawSpriteModel( RI.currententity );
+			R_DrawSpriteModel( RI.currententity );
 			break;
 		}
 	}
@@ -1133,7 +1140,7 @@ void R_DrawEntitiesOnList( void )
 			tr.blend = gEngfuncs.CL_FxBlend( RI.currententity ) / 255.0f;
 		else tr.blend = 1.0f; // draw as solid but sorted by distance
 
-		//if( tr.blend <= 0.0f ) continue;
+		if( tr.blend <= 0.0f ) continue;
 	
 		Assert( RI.currententity != NULL );
 		Assert( RI.currentmodel != NULL );
@@ -1151,7 +1158,8 @@ void R_DrawEntitiesOnList( void )
 			R_DrawStudioModel( RI.currententity );
 			break;
 		case mod_sprite:
-		//	R_DrawSpriteModel( RI.currententity );
+			R_SetUpWorldTransform();
+			R_DrawSpriteModel( RI.currententity );
 			break;
 		default:
 			break;
@@ -1963,6 +1971,7 @@ qboolean R_Init()
 	sw_waterwarp = gEngfuncs.Cvar_Get ("sw_waterwarp", "1", 0, "");
 	sw_notransbrushes = gEngfuncs.Cvar_Get( "sw_notransbrushes", "0", FCVAR_ARCHIVE, "do not apply transparency to water/glasses (faster)");
 	sw_noalphabrushes = gEngfuncs.Cvar_Get( "sw_noalphabrushes", "0", FCVAR_ARCHIVE, "do not draw brush holes (faster)");
+	r_traceglow = gEngfuncs.Cvar_Get( "r_traceglow", "1", FCVAR_ARCHIVE, "cull flares behind models" );
 
 	sw_texfilt = gEngfuncs.Cvar_Get ("sw_texfilt", "0", 0, "texture dither");
 	//r_lefthand = ri.Cvar_Get( "hand", "0", FCVAR_USERINFO | FCVAR_ARCHIVE );
@@ -1973,6 +1982,11 @@ qboolean R_Init()
 //	r_lightlevel = ri.Cvar_Get ("r_lightlevel", "0", 0);
 	//r_lerpmodels = ri.Cvar_Get( "r_lerpmodels", "1", 0 );
 	r_novis = gEngfuncs.Cvar_Get( "r_novis", "0", 0, "" );
+
+	tracerred = gEngfuncs.Cvar_Get( "tracerred", "0.8", 0, "tracer red component weight ( 0 - 1.0 )" );
+	tracergreen = gEngfuncs.Cvar_Get( "tracergreen", "0.8", 0, "tracer green component weight ( 0 - 1.0 )" );
+	tracerblue = gEngfuncs.Cvar_Get( "tracerblue", "0.4", 0, "tracer blue component weight ( 0 - 1.0 )" );
+	traceralpha = gEngfuncs.Cvar_Get( "traceralpha", "0.5", 0, "tracer alpha amount ( 0 - 1.0 )" );
 
 	// create the window and set up the context
 	r_temppool = Mem_AllocPool( "ref_sw zone" );
@@ -1998,6 +2012,7 @@ qboolean R_Init()
 	view_clipplanes[1].leftedge = view_clipplanes[2].leftedge =view_clipplanes[3].leftedge = false;
 	view_clipplanes[0].rightedge = view_clipplanes[2].rightedge = view_clipplanes[3].rightedge = false;
 	R_StudioInit();
+	R_SpriteInit();
 	R_InitTurb();
 
 	return true;

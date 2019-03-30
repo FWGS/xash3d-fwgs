@@ -502,7 +502,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	GL_SetTextureDimensions( tex, pic->width, pic->height, pic->depth );
 	GL_SetTextureFormat( tex, pic->type, pic->flags );
 
-	gEngfuncs.Con_Printf("%s %d %d\n", tex->name, tex->width, tex->height );
+	//gEngfuncs.Con_Printf("%s %d %d\n", tex->name, tex->width, tex->height );
 
 	Assert( pic != NULL );
 	Assert( tex != NULL );
@@ -533,7 +533,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		//GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, data );
 		// increase size to workaround triangle renderer bugs
 		// it seems to assume memory readable. maybe it was pointed to WAD?
-		tex->pixels[j] = (byte*)Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) + 256 ) + 128;
+		tex->pixels[j] = (byte*)Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) + 1024 ) + 512;
 		if( j == 0 &&  tex->flags & TF_HAS_ALPHA )
 			tex->alpha_pixels = (byte*)Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) + 256 ) + 128;
 	

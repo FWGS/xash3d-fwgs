@@ -116,6 +116,8 @@ void TriBegin( int mode1 )
 
 	pglBegin( mode );
 #endif
+	if( mode1 == TRI_QUADS )
+		mode1 = TRI_TRIANGLE_FAN;
 	mode = mode1;
 	vertcount = n = vertcount = 0;
 }
@@ -242,6 +244,17 @@ TriVertex3f
 */
 void TriVertex3f( float x, float y, float z )
 {
+	if( mode == TRI_TRIANGLES )
+	{
+		R_SetupFinalVert( &triv[vertcount], x, y, z, light << 8,s,t);
+		vertcount++;
+		if( vertcount == 3 )
+		{
+			R_RenderTriangle( &triv[0], &triv[1], &triv[2] );
+			R_RenderTriangle( &triv[2], &triv[1], &triv[0] );
+			vertcount = 0;
+		}
+	}
 	if( mode == TRI_TRIANGLE_FAN )
 	{
 		R_SetupFinalVert( &triv[vertcount], x, y, z, light << 8,s,t);
@@ -300,7 +313,7 @@ TriWorldToScreen
 convert world coordinates (x,y,z) into screen (x, y)
 =============
 */
-int TriWorldToScreen( float *world, float *screen )
+int TriWorldToScreen( const float *world, float *screen )
 {
 	int	retval;
 
