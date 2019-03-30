@@ -1161,6 +1161,16 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 			&& cache->lightadj[3] == r_drawsurf.lightadj[3] )
 		return cache;
 
+	if( surface->dlightframe == r_framecount )
+	{
+		int i;
+		// invalidate dlight cache
+		for( i = 0; i < 4; i++)
+		{
+			if( CACHESPOT(surface)[i] )
+				CACHESPOT(surface)[i]->image = NULL;
+		}
+	}
 //
 // determine shape of surface
 //
