@@ -1309,11 +1309,6 @@ void D_FlushCaches( qboolean newmap );
 void Draw_Fill (int x, int y, int w, int h, int c);
 
 //
-// r_main.c
-//
-void R_ConcatRotations (float in1[3][3], float in2[3][3], float out[3][3]);
-
-//
 // r_misc.c
 //
 void R_SetupFrameQ (void);
@@ -1329,8 +1324,6 @@ void R_RenderFace (msurface_t *fa, int clipflags);
 //
 // r_main.c
 //
-void R_ConcatTransforms (float in1[3][4], float in2[3][4], float out[3][4]);
-
 
 void R_RenderTriangle( finalvert_t *fv1 , finalvert_t *fv2, finalvert_t *fv3 );
 void R_SetupFinalVert( finalvert_t *fv, float x, float y, float z, int light, int s, int t );

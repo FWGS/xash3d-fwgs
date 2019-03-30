@@ -139,68 +139,6 @@ int                     r_numallocatededges;
 
 float           r_aliasuvscale = 1.0;
 
-/*
-================
-R_ConcatRotations
-================
-*/
-void R_ConcatRotations (float in1[3][3], float in2[3][3], float out[3][3])
-{
-		out[0][0] = in1[0][0] * in2[0][0] + in1[0][1] * in2[1][0] +
-								in1[0][2] * in2[2][0];
-		out[0][1] = in1[0][0] * in2[0][1] + in1[0][1] * in2[1][1] +
-								in1[0][2] * in2[2][1];
-		out[0][2] = in1[0][0] * in2[0][2] + in1[0][1] * in2[1][2] +
-								in1[0][2] * in2[2][2];
-		out[1][0] = in1[1][0] * in2[0][0] + in1[1][1] * in2[1][0] +
-								in1[1][2] * in2[2][0];
-		out[1][1] = in1[1][0] * in2[0][1] + in1[1][1] * in2[1][1] +
-								in1[1][2] * in2[2][1];
-		out[1][2] = in1[1][0] * in2[0][2] + in1[1][1] * in2[1][2] +
-								in1[1][2] * in2[2][2];
-		out[2][0] = in1[2][0] * in2[0][0] + in1[2][1] * in2[1][0] +
-								in1[2][2] * in2[2][0];
-		out[2][1] = in1[2][0] * in2[0][1] + in1[2][1] * in2[1][1] +
-								in1[2][2] * in2[2][1];
-		out[2][2] = in1[2][0] * in2[0][2] + in1[2][1] * in2[1][2] +
-								in1[2][2] * in2[2][2];
-}
-/*
-================
-R_ConcatTransforms
-================
-*/
-void R_ConcatTransforms (float in1[3][4], float in2[3][4], float out[3][4])
-{
-		out[0][0] = in1[0][0] * in2[0][0] + in1[0][1] * in2[1][0] +
-								in1[0][2] * in2[2][0];
-		out[0][1] = in1[0][0] * in2[0][1] + in1[0][1] * in2[1][1] +
-								in1[0][2] * in2[2][1];
-		out[0][2] = in1[0][0] * in2[0][2] + in1[0][1] * in2[1][2] +
-								in1[0][2] * in2[2][2];
-		out[0][3] = in1[0][0] * in2[0][3] + in1[0][1] * in2[1][3] +
-								in1[0][2] * in2[2][3] + in1[0][3];
-		out[1][0] = in1[1][0] * in2[0][0] + in1[1][1] * in2[1][0] +
-								in1[1][2] * in2[2][0];
-		out[1][1] = in1[1][0] * in2[0][1] + in1[1][1] * in2[1][1] +
-								in1[1][2] * in2[2][1];
-		out[1][2] = in1[1][0] * in2[0][2] + in1[1][1] * in2[1][2] +
-								in1[1][2] * in2[2][2];
-		out[1][3] = in1[1][0] * in2[0][3] + in1[1][1] * in2[1][3] +
-								in1[1][2] * in2[2][3] + in1[1][3];
-		out[2][0] = in1[2][0] * in2[0][0] + in1[2][1] * in2[1][0] +
-								in1[2][2] * in2[2][0];
-		out[2][1] = in1[2][0] * in2[0][1] + in1[2][1] * in2[1][1] +
-								in1[2][2] * in2[2][1];
-		out[2][2] = in1[2][0] * in2[0][2] + in1[2][1] * in2[1][2] +
-								in1[2][2] * in2[2][2];
-		out[2][3] = in1[2][0] * in2[0][3] + in1[2][1] * in2[1][3] +
-								in1[2][2] * in2[2][3] + in1[2][3];
-}
-
-
-
-
 static int R_RankForRenderMode( int rendermode )
 {
 	switch( rendermode )
@@ -1743,6 +1681,9 @@ void R_BeginFrame( qboolean clearScene )
 	//	GL_RebuildLightmaps();
 		D_FlushCaches( false );
 		//glConfig.softwareGammaUpdate = false;
+		// next frame will be restored gamma
+		ClearBits( vid_brightness->flags, FCVAR_CHANGED );
+		ClearBits( vid_gamma->flags, FCVAR_CHANGED );
 	}
 
 	R_Set2DMode( true );

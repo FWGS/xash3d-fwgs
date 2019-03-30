@@ -48,6 +48,35 @@ static mvertex_t	*pfrontenter, *pfrontexit;
 static qboolean		makeclippededge;
 
 
+
+/*
+================
+R_ConcatRotations
+================
+*/
+void R_ConcatRotations (float in1[3][3], float in2[3][3], float out[3][3])
+{
+		out[0][0] = in1[0][0] * in2[0][0] + in1[0][1] * in2[1][0] +
+								in1[0][2] * in2[2][0];
+		out[0][1] = in1[0][0] * in2[0][1] + in1[0][1] * in2[1][1] +
+								in1[0][2] * in2[2][1];
+		out[0][2] = in1[0][0] * in2[0][2] + in1[0][1] * in2[1][2] +
+								in1[0][2] * in2[2][2];
+		out[1][0] = in1[1][0] * in2[0][0] + in1[1][1] * in2[1][0] +
+								in1[1][2] * in2[2][0];
+		out[1][1] = in1[1][0] * in2[0][1] + in1[1][1] * in2[1][1] +
+								in1[1][2] * in2[2][1];
+		out[1][2] = in1[1][0] * in2[0][2] + in1[1][1] * in2[1][2] +
+								in1[1][2] * in2[2][2];
+		out[2][0] = in1[2][0] * in2[0][0] + in1[2][1] * in2[1][0] +
+								in1[2][2] * in2[2][0];
+		out[2][1] = in1[2][0] * in2[0][1] + in1[2][1] * in2[1][1] +
+								in1[2][2] * in2[2][1];
+		out[2][2] = in1[2][0] * in2[0][2] + in1[2][1] * in2[1][2] +
+								in1[2][2] * in2[2][2];
+}
+
+
 //===========================================================================
 
 /*
@@ -952,7 +981,7 @@ void R_DrawBrushModel(cl_entity_t *pent)
 
 	if (pmodel->nummodelsurfaces == 0)
 		return;	// clip brush only
-#if 0
+#if 1
 // FIXME: use bounding-box-based frustum clipping info?
 	RotatedBBox (pmodel->mins, pmodel->maxs,
 		RI.currententity->angles, mins, maxs);
@@ -969,6 +998,7 @@ void R_DrawBrushModel(cl_entity_t *pent)
 	VectorCopy (RI.currententity->origin, r_entorigin);
 	VectorSubtract (r_origin, r_entorigin, modelorg);
 	//VectorSubtract (r_origin, RI.currententity->origin, modelorg);
+
 	r_pcurrentvertbase = pmodel->vertexes;
 
 	// calculate dynamic lighting for bmodel
@@ -989,6 +1019,7 @@ void R_DrawBrushModel(cl_entity_t *pent)
 #endif
 	psurf = &pmodel->surfaces[pmodel->firstmodelsurface];
 	numsurfaces = pmodel->nummodelsurfaces;
+	//R_TransformFrustum ();
 
 	for (i=0 ; i<numsurfaces ; i++, psurf++)
 	{
