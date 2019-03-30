@@ -264,7 +264,9 @@ void GL_MultiTexCoord2f( GLenum texture, GLfloat s, GLfloat t )
 	if( !GL_Support( GL_ARB_MULTITEXTURE ))
 		return;
 
+#ifndef XASH_GL_STATIC
 	if( pglMultiTexCoord2f != NULL )
+#endif
 		pglMultiTexCoord2f( texture + GL_TEXTURE0_ARB, s, t );
 }
 
