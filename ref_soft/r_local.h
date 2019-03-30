@@ -394,13 +394,13 @@ void GL_Cull( unsigned int cull );
 void R_ShowTextures( void );
 void R_ShowTree( void );
 void SCR_TimeRefresh_f( void );
-
+#endif
 //
 // gl_beams.c
 //
 void CL_DrawBeams( int fTrans, BEAM *active_beams );
 qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly );
-
+#if 0
 //
 // gl_cull.c
 //
@@ -534,7 +534,7 @@ void GL_ResetFogColor( void );
 void R_GenerateVBO();
 void R_ClearVBO();
 void R_AddDecalVBO( decal_t *pdecal, msurface_t *surf );
-
+#endif
 //
 // gl_rpart.c
 //
@@ -550,7 +550,7 @@ void R_SpriteInit( void );
 void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags );
 mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw );
 void R_DrawSpriteModel( cl_entity_t *e );
-#endif
+
 //
 // gl_studio.c
 //
@@ -679,7 +679,7 @@ void TriVertex3fv( const float *v );
 void TriVertex3f( float x, float y, float z );
 void _TriColor4f( float r, float g, float b, float a );
 void TriColor4ub( byte r, byte g, byte b, byte a );
-int TriWorldToScreen( float *world, float *screen );
+int TriWorldToScreen( const float *world, float *screen );
 int TriSpriteTexture( model_t *pSpriteModel, int frame );
 void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn );
 void TriGetMatrix( const int pname, float *matrix );
@@ -1225,9 +1225,14 @@ extern cvar_t   *sw_surfcacheoverride;
 extern cvar_t *sw_waterwarp;
 extern cvar_t   *sw_texfilt;
 extern cvar_t	*r_decals;
-
+extern cvar_t	*r_traceglow;
 extern cvar_t	*sw_notransbrushes;
 extern cvar_t	*sw_noalphabrushes;
+
+extern cvar_t	*tracerred;
+extern cvar_t	*tracergreen;
+extern cvar_t	*tracerblue;
+extern cvar_t	*traceralpha;
 
 
 
