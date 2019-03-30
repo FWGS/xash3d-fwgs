@@ -149,7 +149,7 @@ void R_AddDynamicLights( msurface_t *surf )
 				{
 					//printf("dlight %f\n", dist);
 					//*(void**)0 = 0;
-					bl[0] +=  ((int)((rad - dist) * 256) * 7.5);
+					bl[0] +=  ((int)((rad - dist) * 256) * gEngfuncs.LightToTexGamma( (dl->color.r + dl->color.g + dl->color.b ) / 3) * 3) / 256;
 					//bl[1] += ((int)((rad - dist) * 256) * 2.5) / 256;
 					//bl[2] += ((int)((rad - dist) * 256) * 2.5) / 256;
 				}
@@ -206,9 +206,9 @@ static void R_BuildLightMap(  )
 
 		for( i = 0, bl = blocklights; i < size; i++, bl += 1, lm++ )
 		{
-			bl[0] += lm->r *  scale * 2.5;
-			bl[0] += lm->g *  scale * 2.5;
-			bl[0] += lm->b *  scale * 2.5;
+			bl[0] += gEngfuncs.LightToTexGamma( lm->r ) * scale;
+			bl[0] += gEngfuncs.LightToTexGamma( lm->g ) * scale;
+			bl[0] += gEngfuncs.LightToTexGamma( lm->b ) * scale;
 
 			//printf("test\n");
 			//bl[1] += gEngfuncs.LightToTexGamma( lm->g ) * scale;
