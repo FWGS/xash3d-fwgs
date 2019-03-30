@@ -1057,13 +1057,14 @@ void R_BuildPolygonFromSurface(msurface_t *fa)
 			vec = RI.currentmodel->vertexes[r_pedge->v[1]].position;
 		}
 
-		VectorCopy (vec, pverts[i] );
+		VectorAdd (vec, r_entorigin, pverts[i] );
+		//VectorCopy( vec, pverts[i] );
 	}
 
 	VectorCopy( fa->texinfo->vecs[0], r_polydesc.vright );
 	VectorCopy( fa->texinfo->vecs[1], r_polydesc.vup );
 	VectorCopy( fa->plane->normal, r_polydesc.vpn );
-	VectorCopy( r_origin, r_polydesc.viewer_position );
+	VectorCopy( modelorg, r_polydesc.viewer_position );
 
 
 	if ( fa->flags & SURF_PLANEBACK )

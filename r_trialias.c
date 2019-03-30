@@ -122,7 +122,8 @@ void R_SetUpWorldTransform (void)
 
 //	memcpy( aliasworldtransform, rotationmatrix, sizeof( aliastransform ) );
 
-	R_ConcatTransforms (viewmatrix, aliasworldtransform, aliastransform);
+	//R_ConcatTransforms (viewmatrix, aliasworldtransform, aliastransform);
+	Matrix3x4_ConcatTransforms(aliastransform, viewmatrix, aliasworldtransform );
 
 	aliasworldtransform[0][3] = 0;
 	aliasworldtransform[1][3] = 0;
@@ -194,7 +195,8 @@ void R_AliasSetUpTransform (void)
 
 //	memcpy( aliasworldtransform, rotationmatrix, sizeof( aliastransform ) );
 
-	R_ConcatTransforms (viewmatrix, aliasworldtransform, aliastransform);
+	//R_ConcatTransforms (viewmatrix, aliasworldtransform, aliastransform);
+	Matrix3x4_ConcatTransforms(aliastransform, viewmatrix, aliasworldtransform );
 
 	aliasworldtransform[0][3] = RI.currententity->origin[0];
 	aliasworldtransform[1][3] = RI.currententity->origin[1];
