@@ -346,9 +346,9 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 
 			if( 1 ) //tr.ignore_lightgamma )
 			{
-				cv->r += lm->r * 255 * 2.5; // scale;
-				cv->g += lm->g * 255 * 2.5; // scale;
-				cv->b += lm->b * 255 * 2.5; // scale;
+				cv->r += lm->r * scale * 2.5; // scale;
+				cv->g += lm->g * scale * 2.5; // scale;
+				cv->b += lm->b * scale * 2.5; // scale;
 			}
 			else
 			{
