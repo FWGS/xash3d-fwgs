@@ -1734,16 +1734,18 @@ void R_BeginFrame( qboolean clearScene )
 	//	glConfig.softwareGammaUpdate = true;
 	//	GL_RebuildLightmaps();
 	//	glConfig.softwareGammaUpdate = false;
+		D_FlushCaches( false );
 
 		// next frame will be restored gamma
-	//	SetBits( vid_brightness->flags, FCVAR_CHANGED );
-	//	SetBits( vid_gamma->flags, FCVAR_CHANGED );
+		SetBits( vid_brightness->flags, FCVAR_CHANGED );
+		SetBits( vid_gamma->flags, FCVAR_CHANGED );
 	}
 	else if( FBitSet( vid_gamma->flags, FCVAR_CHANGED ) || FBitSet( vid_brightness->flags, FCVAR_CHANGED ))
 	{
-	//	gEngfuncs.BuildGammaTable( vid_gamma->value, vid_brightness->value );
+		gEngfuncs.BuildGammaTable( vid_gamma->value, vid_brightness->value );
 		//glConfig.softwareGammaUpdate = true;
 	//	GL_RebuildLightmaps();
+		D_FlushCaches( false );
 		//glConfig.softwareGammaUpdate = false;
 	}
 
