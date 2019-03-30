@@ -2,17 +2,11 @@
 
 // not really draw alias models here, but use this to draw triangles
 
-int				r_amodels_drawn;
 
 affinetridesc_t	r_affinetridesc;
 
-vec3_t			r_plightvec;
-vec3_t          r_lerped[1024];
-vec3_t          r_lerp_frontv, r_lerp_backv, r_lerp_move;
 
-int				r_ambientlight;
 int				r_aliasblendcolor;
-float			r_shadelight;
 
 
 float	aliastransform[3][4];
@@ -42,16 +36,6 @@ void R_AliasTransformFinalVerts( int numpoints, finalvert_t *fv, dtrivertx_t *ol
 R_AliasCheckBBox
 ================
 */
-typedef struct {
-	int	index0;
-	int	index1;
-} aedge_t;
-
-static aedge_t	aedges[12] = {
-{0, 1}, {1, 2}, {2, 3}, {3, 0},
-{4, 5}, {5, 6}, {6, 7}, {7, 4},
-{0, 5}, {1, 4}, {2, 7}, {3, 6}
-};
 
 #define BBOX_TRIVIAL_ACCEPT 0
 #define BBOX_MUST_CLIP_XY   1
