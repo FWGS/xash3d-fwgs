@@ -58,7 +58,11 @@ glconfig_t	glConfig;
 glstate_t	glState;
 glwstate_t	glw_state;
 
+#ifdef XASH_GL_STATIC
+#define GL_CALL( x ) #x, NULL
+#else
 #define GL_CALL( x ) #x, (void**)&p##x
+#endif
 static dllfunc_t opengl_110funcs[] =
 {
 	{ GL_CALL( glClearColor ) },
@@ -188,6 +192,7 @@ static dllfunc_t opengl_110funcs[] =
 	{ NULL					, NULL }
 };
 
+#ifndef XASH_GL_STATIC
 static dllfunc_t debugoutputfuncs[] =
 {
 	{ GL_CALL( glDebugMessageControlARB ) },
@@ -196,6 +201,7 @@ static dllfunc_t debugoutputfuncs[] =
 	{ GL_CALL( glGetDebugMessageLogARB ) },
 	{ NULL					, NULL }
 };
+#endif
 
 static dllfunc_t multitexturefuncs[] =
 {
@@ -350,6 +356,7 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 		return;
 	}
 
+#ifndef XASH_GL_STATIC
 	// clear exports
 	for( func = funcs; func && func->name; func++ )
 		*func->func = NULL;
@@ -360,6 +367,7 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 		if((*func->func = (void *)gEngfuncs.GL_GetProcAddress( func->name )) == NULL )
 			GL_SetExtension( r_ext, false ); // one or more functions are invalid, extension will be disabled
 	}
+#endif
 
 	if( GL_Support( r_ext ))
 		gEngfuncs.Con_Reportf( "- ^2enabled\n" );
@@ -505,52 +513,24 @@ void GL_InitExtensionsGLES( void )
 	glConfig.hardware_type = GLHW_GENERIC;
 
 	// initalize until base opengl functions loaded
-	GL_SetExtension( GL_DRAW_RANGEELEMENTS_EXT, true );
 	GL_SetExtension( GL_ARB_MULTITEXTURE, true );
 	pglGetIntegerv( GL_MAX_TEXTURE_UNITS_ARB, &glConfig.max_texture_units );
 	glConfig.max_texture_coords = glConfig.max_texture_units = 4;
 
-	GL_SetExtension( GL_ENV_COMBINE_EXT, true );
-	GL_SetExtension( GL_DOT3_ARB_EXT, true );
 	GL_SetExtension( GL_TEXTURE_3D_EXT, false );
-	GL_SetExtension( GL_SGIS_MIPMAPS_EXT, true ); // gles specs
 	GL_SetExtension( GL_ARB_VERTEX_BUFFER_OBJECT_EXT, true ); // gles specs
-
-	// hardware cubemaps
-	GL_CheckExtension( "GL_OES_texture_cube_map", NULL, "gl_texture_cubemap", GL_TEXTURECUBEMAP_EXT );
-
-	if( GL_Support( GL_TEXTURECUBEMAP_EXT ))
-		pglGetIntegerv( GL_MAX_CUBE_MAP_TEXTURE_SIZE_ARB, &glConfig.max_cubemap_size );
 
 	GL_SetExtension( GL_ARB_SEAMLESS_CUBEMAP, false );
 
-	GL_SetExtension( GL_EXT_POINTPARAMETERS, false );
 	GL_CheckExtension( "GL_OES_texture_npot", NULL, "gl_texture_npot", GL_ARB_TEXTURE_NPOT_EXT );
 
 	GL_SetExtension( GL_TEXTURE_COMPRESSION_EXT, false );
-	GL_SetExtension( GL_CUSTOM_VERTEX_ARRAY_EXT, false );
 	GL_SetExtension( GL_CLAMPTOEDGE_EXT, true ); // by gles1 specs
 	GL_SetExtension( GL_ANISOTROPY_EXT, false );
-	GL_SetExtension( GL_TEXTURE_LODBIAS, false );
 	GL_SetExtension( GL_CLAMP_TEXBORDER_EXT, false );
-	GL_SetExtension( GL_BLEND_MINMAX_EXT, false );
-	GL_SetExtension( GL_BLEND_SUBTRACT_EXT, false );
-	GL_SetExtension( GL_SEPARATESTENCIL_EXT, false );
-	GL_SetExtension( GL_STENCILTWOSIDE_EXT, false );
-	GL_SetExtension( GL_TEXTURE_ENV_ADD_EXT,false  );
-	GL_SetExtension( GL_SHADER_OBJECTS_EXT, false );
 	GL_SetExtension( GL_SHADER_GLSL100_EXT, false );
-	GL_SetExtension( GL_VERTEX_SHADER_EXT,false );
-	GL_SetExtension( GL_FRAGMENT_SHADER_EXT, false );
-	GL_SetExtension( GL_SHADOW_EXT, false );
 	GL_SetExtension( GL_ARB_DEPTH_FLOAT_EXT, false );
-	GL_SetExtension( GL_OCCLUSION_QUERIES_EXT,false );
 	GL_CheckExtension( "GL_OES_depth_texture", NULL, "gl_depthtexture", GL_DEPTH_TEXTURE );
-
-	glConfig.texRectangle = glConfig.max_2d_rectangle_size = 0; // no rectangle
-
-	Cvar_FullSet( "gl_allow_mirrors", "0", CVAR_READ_ONLY); // No support for GLES
-
 }
 #else
 void GL_InitExtensionsBigGL()
@@ -650,8 +630,10 @@ void GL_InitExtensionsBigGL()
 	GL_CheckExtension( "GL_ARB_texture_rectangle", NULL, "gl_texture_rectangle", GL_TEXTURE_2D_RECT_EXT );
 
 	// this won't work without extended context
+#ifndef XASH_GL_STATIC
 	if( glw_state.extended )
 		GL_CheckExtension( "GL_ARB_debug_output", debugoutputfuncs, "gl_debug_output", GL_DEBUG_OUTPUT );
+#endif
 
 	if( GL_Support( GL_SHADER_GLSL100_EXT ))
 	{
@@ -1105,6 +1087,7 @@ void GL_OnContextCreated( void )
 {
 	int colorBits[3];
 #ifdef XASH_NANOGL
+	int nanoGL_Init( void );
 	nanoGL_Init();
 #endif
 
