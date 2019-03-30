@@ -21,14 +21,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // texture (used for Alias models)
 
 #include "r_local.h"
-/*
-int	rand1k[] = {
-#include "rand1k.h"
-};
-*/
-#define MASK_1K	0x3FF
-
-int		rand1k_index = 0;
 
 // TODO: put in span spilling to shrink list size
 // !!! if this is changed, it must be changed in d_polysa.s too !!!
@@ -60,9 +52,6 @@ aliastriangleparms_t aliastriangleparms;
 
 int	r_p0[6], r_p1[6], r_p2[6];
 
-byte		*d_pcolormap;
-
-int			d_aflatcolor;
 int			d_xdenom;
 
 edgetable	*pedgetable;
@@ -120,59 +109,12 @@ void R_PolysetDrawSpans8_33 (spanpackage_t *pspanpackage);
 void R_PolysetDrawSpans8_66 (spanpackage_t *pspanpackage);
 void R_PolysetDrawSpans8_Opaque (spanpackage_t *pspanpackage);
 
-void R_PolysetDrawThreshSpans8 (spanpackage_t *pspanpackage);
 void R_PolysetCalcGradients (int skinwidth);
 void R_DrawNonSubdiv (void);
 void R_PolysetSetEdgeTable (void);
 void R_RasterizeAliasPolySmooth (void);
 void R_PolysetScanLeftEdge(int height);
 void R_PolysetScanLeftEdge_C(int height);
-
-// ======================
-// PGM
-// 64 65 66 67 68 69 70 71   72 73 74 75 76 77 78 79
-byte iractive = 0;
-byte irtable[256] = { 79, 78, 77, 76, 75, 74, 73, 72,		// black/white
-					  71, 70, 69, 68, 67, 66, 65, 64,
-					  64, 65, 66, 67, 68, 69, 70, 71,		// dark taupe
-					  72, 73, 74, 75, 76, 77, 78, 79,
-
-					  64, 65, 66, 67, 68, 69, 70, 71,		// slate grey
-					  72, 73, 74, 75, 76, 77, 78, 79,
-					  208, 208, 208, 208, 208, 208, 208, 208,	// unused?'
-					  64, 66, 68, 70, 72, 74, 76, 78,		// dark yellow
-					  
-					  64, 65, 66, 67, 68, 69, 70, 71,		// dark red
-					  72, 73, 74, 75, 76, 77, 78, 79,
-					  64, 65, 66, 67, 68, 69, 70, 71,		// grey/tan
-					  72, 73, 74, 75, 76, 77, 78, 79,
-
-					  64, 66, 68, 70, 72, 74, 76, 78,		// chocolate
-					  68, 67, 66, 65, 64, 65, 66, 67,		// mauve / teal
-					  68, 69, 70, 71, 72, 73, 74, 75,
-					  76, 76, 77, 77, 78, 78, 79, 79,		
-
-					  64, 65, 66, 67, 68, 69, 70, 71,		// more mauve
-					  72, 73, 74, 75, 76, 77, 78, 79,
-					  64, 65, 66, 67, 68, 69, 70, 71,		// olive
-					  72, 73, 74, 75, 76, 77, 78, 79,
-
-					  64, 65, 66, 67, 68, 69, 70, 71,		// maroon
-					  72, 73, 74, 75, 76, 77, 78, 79,
-					  64, 65, 66, 67, 68, 69, 70, 71,		// sky blue
-					  72, 73, 74, 75, 76, 77, 78, 79,
-					  
-					  64, 65, 66, 67, 68, 69, 70, 71,		// olive again
-					  72, 73, 74, 75, 76, 77, 78, 79,
-					  64, 65, 66, 67, 68, 69, 70, 71,		// nuclear green
-					  64, 65, 66, 67, 68, 69, 70, 71,		// bright yellow
-
-					  64, 65, 66, 67, 68, 69, 70, 71,		// fire colors
-					  72, 73, 74, 75, 76, 77, 78, 79,
-					  208, 208, 64, 64, 70, 71, 72, 64,		// mishmash1
-					  66, 68, 70, 64, 65, 66, 67, 68};		// mishmash2
-// PGM
-// ======================
 
 /*
 ================
@@ -738,82 +680,6 @@ void R_PolysetCalcGradients (int skinwidth)
 	a_ststepxwhole = skinwidth * (r_tstepx >> 16) + (r_sstepx >> 16);
 }
 #endif
-
-/*
-================
-R_PolysetDrawThreshSpans8
-
-Random fizzle fade rasterizer
-================
-*/
-void R_PolysetDrawThreshSpans8 (spanpackage_t *pspanpackage)
-{
-	int		lcount;
-	byte	*lpdest;
-	byte	*lptex;
-	int		lsfrac, ltfrac;
-	int		llight;
-	int		lzi;
-	short	*lpz;
-
-	do
-	{
-		lcount = d_aspancount - pspanpackage->count;
-
-		errorterm += erroradjustup;
-		if (errorterm >= 0)
-		{
-			d_aspancount += d_countextrastep;
-			errorterm -= erroradjustdown;
-		}
-		else
-		{
-			d_aspancount += ubasestep;
-		}
-
-		if (lcount)
-		{
-			lpdest = pspanpackage->pdest;
-			lptex = pspanpackage->ptex;
-			lpz = pspanpackage->pz;
-			lsfrac = pspanpackage->sfrac;
-			ltfrac = pspanpackage->tfrac;
-			llight = pspanpackage->light;
-			lzi = pspanpackage->zi;
-
-			do
-			{
-				if ((lzi >> 16) >= *lpz)
-				{
-					rand1k_index = (rand1k_index + 1) & MASK_1K;
-
-					/*if (rand1k[rand1k_index] <= r_affinetridesc.vis_thresh)
-					{
-						*lpdest = ((byte *)vid.colormap)[*lptex + (llight & 0xFF00)];
-						*lpz = lzi >> 16;
-					}*/
-				}
-
-				lpdest++;
-				lzi += r_zistepx;
-				lpz++;
-				llight += r_lstepx;
-				lptex += a_ststepxwhole;
-				lsfrac += a_sstepxfrac;
-				lptex += lsfrac >> 16;
-				lsfrac &= 0xFFFF;
-				ltfrac += a_tstepxfrac;
-				if (ltfrac & 0x10000)
-				{
-					lptex += r_affinetridesc.skinwidth;
-					ltfrac &= 0xFFFF;
-				}
-			} while (--lcount);
-		}
-
-		pspanpackage++;
-	} while (pspanpackage->count != -999999);
-}
 
 
 /*

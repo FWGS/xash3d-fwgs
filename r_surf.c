@@ -1204,7 +1204,7 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 //
 	r_drawsurf.surf = surface;
 
-	c_surf++;
+	//c_surf++;
 
 	// calculate the lightings
 	R_BuildLightMap ( );

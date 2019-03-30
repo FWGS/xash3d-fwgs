@@ -33,11 +33,10 @@ float			d_scalemip[NUM_MIPS-1];
 
 static float	basemip[NUM_MIPS-1] = {1.0, 0.5*0.8, 0.25*0.8};
 
-extern int			d_aflatcolor;
 
-int	d_vrectx, d_vrecty, d_vrectright_particle, d_vrectbottom_particle;
+//int	d_vrectx, d_vrecty, d_vrectright_particle, d_vrectbottom_particle;
 
-int	d_pix_min, d_pix_max, d_pix_shift;
+//int	d_pix_min, d_pix_max, d_pix_shift;
 
 int		d_scantable[MAXHEIGHT];
 short	*zspantable[MAXHEIGHT]; 
@@ -73,7 +72,6 @@ void D_Patch (void)
 D_ViewChanged
 ================
 */
-unsigned char *alias_colormap;
 
 void D_ViewChanged (void)
 {
@@ -86,20 +84,20 @@ void D_ViewChanged (void)
 	d_zrowbytes = vid.width * 2;
 	d_zwidth = vid.width;
 
-	d_pix_min = gpGlobals->width / 320;
+	/*d_pix_min = gpGlobals->width / 320;
 	if (d_pix_min < 1)
 		d_pix_min = 1;
 
 	d_pix_max = (int)((float)gpGlobals->height / (320.0 / 4.0) + 0.5);
 	d_pix_shift = 8 - (int)((float)gpGlobals->height / 320.0 + 0.5);
 	if (d_pix_max < 1)
-		d_pix_max = 1;
+		d_pix_max = 1;*/
 
-	d_vrectx = RI.vrect.x;
-	d_vrecty = RI.vrect.y;
-	d_vrectright_particle = gpGlobals->width - d_pix_max;
-	d_vrectbottom_particle =
-			gpGlobals->height - d_pix_max;
+	//d_vrectx = RI.vrect.x;
+	//d_vrecty = RI.vrect.y;
+	//d_vrectright_particle = gpGlobals->width - d_pix_max;
+	//d_vrectbottom_particle =
+		//	gpGlobals->height - d_pix_max;
 
 	for (i=0 ; i<vid.height; i++)
 	{
@@ -116,8 +114,6 @@ void D_ViewChanged (void)
 		// newrefdef
 		Draw_Fill( 0, 0, gpGlobals->width, gpGlobals->height,( int ) sw_clearcolor->value & 0xff );
 	}
-
-	alias_colormap = vid.colormap;
 
 	D_Patch ();
 }
@@ -276,8 +272,8 @@ void R_ViewChanged (vrect_t *vr)
 	yscale = xscale;
 	aliasyscale = yscale * r_aliasuvscale;
 	yscaleinv = 1.0 / yscale;
-	xscaleshrink = (RI.vrect.width-6)/RI.horizontalFieldOfView;
-	yscaleshrink = xscaleshrink;
+	//xscaleshrink = (RI.vrect.width-6)/RI.horizontalFieldOfView;
+	//yscaleshrink = xscaleshrink;
 
 // left side clip
 	screenedge[0].normal[0] = -1.0 / (xOrigin*RI.horizontalFieldOfView);

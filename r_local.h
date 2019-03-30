@@ -333,7 +333,6 @@ extern ref_speeds_t		r_stats;
 extern ref_instance_t	RI;
 extern gl_globals_t	tr;
 
-extern float		gldepthmin, gldepthmax;
 #define r_numEntities	(tr.draw_list->num_solid_entities + tr.draw_list->num_trans_entities)
 #define r_numStatics	(r_stats.c_client_ents)
 
@@ -1082,7 +1081,7 @@ VARS
 ====================================================
 */
 
-extern int              d_spanpixcount;
+//extern int              d_spanpixcount;
 extern int              r_framecount;           // sequence # of current frame since Quake
 									//  started
 extern float    r_aliasuvscale;         // scale-up factor for screen u and v
@@ -1109,7 +1108,7 @@ extern drawsurf_t       r_drawsurf;
 
 void R_DrawSurface (void);
 
-extern int              c_surf;
+//extern int              c_surf;
 
 extern byte             r_warpbuffer[WARP_WIDTH * WARP_HEIGHT];
 
@@ -1137,9 +1136,6 @@ void NonTurbulent8 (espan_t *pspan);	//PGM
 
 surfcache_t     *D_CacheSurface (msurface_t *surface, int miplevel);
 
-extern int      d_vrectx, d_vrecty, d_vrectright_particle, d_vrectbottom_particle;
-
-extern int      d_pix_min, d_pix_max, d_pix_shift;
 
 extern pixel_t  *d_viewbuffer;
 extern short *d_pzbuffer;
@@ -1156,7 +1152,6 @@ extern int              cachewidth;
 extern pixel_t  *cacheblock;
 extern int              r_screenwidth;
 
-extern int              r_drawnpolycount;
 
 extern int      sintable[1280];
 extern int      intsintable[1280];
@@ -1176,13 +1171,13 @@ extern  surf_t  *surfaces, *surface_p, *surf_max;
 
 //===================================================================
 
-extern vec3_t   sxformaxis[4];  // s axis transformed into viewspace
-extern vec3_t   txformaxis[4];  // t axis transformed into viewspac
+//extern vec3_t   sxformaxis[4];  // s axis transformed into viewspace
+//extern vec3_t   txformaxis[4];  // t axis transformed into viewspac
 
 extern  float   xcenter, ycenter;
 extern  float   xscale, yscale;
 extern  float   xscaleinv, yscaleinv;
-extern float xscaleshrink, yscaleshrink;
+//extern float xscaleshrink, yscaleshrink;
 
 
 extern edge_t   *auxedges;
@@ -1199,7 +1194,6 @@ extern edge_t edge_aftertail;
 
 
 extern int              r_frustum_indexes[4*6];
-extern int              r_maxsurfsseen, r_maxedgesseen, r_cnumsurfs;
 extern qboolean r_surfsonstack;
 
 extern	mleaf_t		*r_viewleaf;
@@ -1207,7 +1201,7 @@ extern	int			r_viewcluster, r_oldviewcluster;
 
 extern int              r_clipflags;
 extern int              r_dlightframecount;
-extern qboolean r_fov_greater_than_90;
+//extern qboolean r_fov_greater_than_90;
 
 
 extern cvar_t   *sw_aliasstats;
@@ -1244,16 +1238,10 @@ extern mplane_t screenedge[4];
 extern  clipplane_t     view_clipplanes[4];
 extern int *pfrustum_indexes[4];
 
-extern  vec3_t  vup, base_vup;
-extern  vec3_t  vpn, base_vpn;
-extern  vec3_t  vright, base_vright;
-
 extern cvar_t *r_fullbright;
 
 #define CACHESPOT(surf) ((surfcache_t**)surf->info->reserved)
 extern  int             r_visframecount;
-extern mvertex_t        *r_pcurrentvertbase;
-extern int                      r_maxvalidedgeoffset;
 extern int              r_currentkey;
 extern int              r_currentbkey;
 extern qboolean insubmodel;
@@ -1267,7 +1255,7 @@ extern int      ubasestep, errorterm, erroradjustup, erroradjustdown;
 
 
 extern mvertex_t        *r_pcurrentvertbase;
-extern int                      r_maxvalidedgeoffset;
+//extern int                      r_maxvalidedgeoffset;
 
 typedef struct
 {

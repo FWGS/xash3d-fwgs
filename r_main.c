@@ -20,10 +20,9 @@ GNU General Public License for more details.
 //#include "particledef.h"
 #include "entity_types.h"
 #include "mod_local.h"
-
+int r_cnumsurfs;
 #define IsLiquidContents( cnt )	( cnt == CONTENTS_WATER || cnt == CONTENTS_SLIME || cnt == CONTENTS_LAVA )
 
-float		gldepthmin, gldepthmax;
 ref_instance_t	RI;
 
 
@@ -42,7 +41,7 @@ vec3_t	r_origin;
 float		xcenter, ycenter;
 float		xscale, yscale;
 float		xscaleinv, yscaleinv;
-float		xscaleshrink, yscaleshrink;
+//float		xscaleshrink, yscaleshrink;
 float		aliasxscale, aliasyscale, aliasxcenter, aliasycenter;
 
 int		r_screenwidth;
@@ -58,10 +57,10 @@ mplane_t	screenedge[4];
 //
 int             r_framecount = 1;       // so frame counts initialized to 0 don't match
 int             r_visframecount;
-int             d_spanpixcount;
-int             r_polycount;
-int             r_drawnpolycount;
-int             r_wholepolycount;
+//int             d_spanpixcount;
+//int             r_polycount;
+//int             r_drawnpolycount;
+//int             r_wholepolycount;
 
 int                     *pfrustum_indexes[4];
 int                     r_frustum_indexes[4*6];
@@ -113,8 +112,6 @@ cvar_t	*sw_lockpvs;
 
 cvar_t	*r_decals;
 
-
-mleaf_t		*r_viewleaf;
 int	r_viewcluster, r_oldviewcluster;
 
 float   d_sdivzstepu, d_tdivzstepu, d_zistepu;
@@ -134,8 +131,7 @@ qboolean        r_dowarp;
 
 mvertex_t       *r_pcurrentvertbase;
 
-int                     c_surf;
-int                     r_maxsurfsseen, r_maxedgesseen, r_cnumsurfs;
+//int                     c_surf;
 qboolean        r_surfsonstack;
 int                     r_clipflags;
 byte            r_warpbuffer[WARP_WIDTH * WARP_HEIGHT];
@@ -1032,8 +1028,8 @@ R_DrawEntitiesOnList
 void R_DrawEntitiesOnList( void )
 {
 	int	i;
-	extern int d_aflatcolor;
-	d_aflatcolor = 0;
+	//extern int d_aflatcolor;
+	//d_aflatcolor = 0;
 	tr.blend = 1.0f;
 //	GL_CheckForErrors();
 	//RI.currententity = gEngfuncs.GetEntityByIndex(0);
@@ -1047,7 +1043,7 @@ void R_DrawEntitiesOnList( void )
 	{
 		RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currentmodel = RI.currententity->model;
-		d_aflatcolor += 500;
+		//d_aflatcolor += 500;
 
 		Assert( RI.currententity != NULL );
 		Assert( RI.currentmodel != NULL );
@@ -1907,9 +1903,6 @@ void R_NewMap (void)
 		{
 				r_surfsonstack = true;
 		}
-
-		r_maxedgesseen = 0;
-		r_maxsurfsseen = 0;
 
 		r_numallocatededges = sw_maxedges->value;
 

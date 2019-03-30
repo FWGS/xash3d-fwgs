@@ -73,7 +73,7 @@ edge_t	edge_tail;
 edge_t	edge_aftertail;
 edge_t	edge_sentinel;
 
-float	fv;
+static float	fv;
 
 static int	miplevel;
 
@@ -1128,7 +1128,7 @@ void D_DrawSurfaces (void)
 			if (!s->spans)
 				continue;
 
-			r_drawnpolycount++;
+			//r_drawnpolycount++;
 #if 1
 			if(s->flags & SURF_DRAWSKY)
 				D_BackgroundSurf (s);

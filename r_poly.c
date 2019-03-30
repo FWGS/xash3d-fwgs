@@ -39,7 +39,7 @@ typedef struct
 
 spanletvars_t s_spanletvars;
 
-static int r_polyblendcolor;
+//static int r_polyblendcolor;
 
 static espan_t	*s_polygon_spans;
 
@@ -1268,7 +1268,7 @@ void R_IMFlatShadedQuad( vec3_t a, vec3_t b, vec3_t c, vec3_t d, int color, floa
 
 	r_polydesc.dist = DotProduct( r_polydesc.vpn, r_clip_verts[0][0] );
 
-	r_polyblendcolor = color;
+	//r_polyblendcolor = color;
 
 	R_ClipAndDrawPoly( alpha, false, false );
 }
