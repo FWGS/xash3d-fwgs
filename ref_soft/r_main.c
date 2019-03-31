@@ -478,20 +478,19 @@ R_SetupFrustum
 */
 void R_SetupFrustum( void )
 {
-	AngleVectors( RI.viewangles, RI.vforward, RI.vright, RI.vup );
-#if 0
+#if 1
 	ref_overview_t	*ov = gEngfuncs.GetOverviewParms();
 
-	if( RP_NORMALPASS() && ( gEngfuncs.GetWaterLevel() >= 3 ))
+	/*if( RP_NORMALPASS() && ( ENGINE_GET_PARM( PARM_WATER_LEVEL ) >= 3 ))
 	{
 		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97 + sin( gpGlobals->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
 		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03 - sin( gpGlobals->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
-	}
+	}*/
 
 	// build the transformation matrix for the given view angles
 	AngleVectors( RI.viewangles, RI.vforward, RI.vright, RI.vup );
 
-	if( !r_lockfrustum->value )
+	//if( !r_lockfrustum->value )
 	{
 		VectorCopy( RI.vieworg, RI.cullorigin );
 		VectorCopy( RI.vforward, RI.cull_vforward );
@@ -499,9 +498,9 @@ void R_SetupFrustum( void )
 		VectorCopy( RI.vup, RI.cull_vup );
 	}
 
-	if( RI.drawOrtho )
-		GL_FrustumInitOrtho( &RI.frustum, ov->xLeft, ov->xRight, ov->yTop, ov->yBottom, ov->zNear, ov->zFar );
-	else GL_FrustumInitProj( &RI.frustum, 0.0f, R_GetFarClip(), RI.fov_x, RI.fov_y ); // NOTE: we ignore nearplane here (mirrors only)
+//	if( RI.drawOrtho )
+//		GL_FrustumInitOrtho( &RI.frustum, ov->xLeft, ov->xRight, ov->yTop, ov->yBottom, ov->zNear, ov->zFar );
+//	else GL_FrustumInitProj( &RI.frustum, 0.0f, R_GetFarClip(), RI.fov_x, RI.fov_y ); // NOTE: we ignore nearplane here (mirrors only)
 #endif
 }
 
