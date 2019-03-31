@@ -66,8 +66,6 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 	//pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 	//pglDepthMask( GL_FALSE );
 
-	TriBegin( TRI_QUADS );
-
 	for( p = cl_active_particles; p; p = p->next )
 	{
 		if(( p->type != pt_blob ) || ( p->packedColor == 255 ))
@@ -93,10 +91,13 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 			if( alpha > 255 || p->type == pt_static )
 				alpha = 255;
 
-			TriColor4ub( gEngfuncs.LightToTexGamma( pColor->r ),
-				gEngfuncs.LightToTexGamma( pColor->g ),
-				gEngfuncs.LightToTexGamma( pColor->b ), alpha );
+			//TriColor4ub( gEngfuncs.LightToTexGamma( pColor->r ),
+			//	gEngfuncs.LightToTexGamma( pColor->g ),
+		//		gEngfuncs.LightToTexGamma( pColor->b ), alpha );
+			//TriBrightness( alpha / 255.0f );
+			_TriColor4f(1.0f*alpha/255/255*pColor->r,1.0f*alpha/255/255*pColor->g,1.0f*alpha/255/255* pColor->b,1.0f );
 
+			TriBegin( TRI_QUADS );
 			TriTexCoord2f( 0.0f, 1.0f );
 			TriVertex3f( p->org[0] - right[0] + up[0], p->org[1] - right[1] + up[1], p->org[2] - right[2] + up[2] );
 			TriTexCoord2f( 0.0f, 0.0f );
@@ -105,6 +106,7 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 			TriVertex3f( p->org[0] + right[0] - up[0], p->org[1] + right[1] - up[1], p->org[2] + right[2] - up[2] );
 			TriTexCoord2f( 1.0f, 1.0f );
 			TriVertex3f( p->org[0] - right[0] - up[0], p->org[1] - right[1] - up[1], p->org[2] - right[2] - up[2] );
+			TriEnd();
 			r_stats.c_particle_count++;
 		}
 
@@ -211,6 +213,7 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 			vec3_t	verts[4], tmp2;
 			vec3_t	tmp, normal;
 			color24	*pColor;
+			short alpha = p->packedColor;
 
 			// Transform point into screen space
 			TriWorldToScreen( start, screen );
@@ -241,7 +244,9 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 			}
 
 			pColor = &gTracerColors[p->color];
-			TriColor4ub( pColor->r, pColor->g, pColor->b, p->packedColor );
+			//TriColor4ub( pColor->r, pColor->g, pColor->b, p->packedColor );
+			_TriColor4f(1.0f*alpha/255/255*pColor->r,1.0f*alpha/255/255*pColor->g,1.0f*alpha/255/255* pColor->b,1.0f );
+
 
 			TriBegin( TRI_QUADS );
 				TriTexCoord2f( 0.0f, 0.8f );
