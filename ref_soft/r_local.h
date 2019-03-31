@@ -1340,6 +1340,8 @@ void R_SetUpWorldTransform (void);
 
 #define BLEND_ALPHA_LOW(alpha, src, screen) (vid.alphamap[(alpha << 18) |( (src & 0xff00) << 2) | (screen >> 6)] | screen & 0x3f)
 #define BLEND_ALPHA(alpha, src, dst) alpha > 3?BLEND_ALPHA_LOW(7 - 1 - alpha, dst,src):BLEND_ALPHA_LOW(alpha-1, src, dst)
+#define BLEND_ADD(src, screen) vid.addmap[ src& 0xff00|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 0);
+#define BLEND_COLOR(src, color) vid.modmap[src & 0xff00|(color>>8)] << 8 | (src & color & 0xff) | ((src & 0xff) >> 3);
 
 //
 // engine callbacks

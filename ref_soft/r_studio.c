@@ -1814,14 +1814,10 @@ R_StudioSetupSkin
 static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 {
 	mstudiotexture_t	*ptexture = NULL;
-	image_t *image;
 
 	if( FBitSet( g_nForceFaceFlags, STUDIO_NF_CHROME ))
 	{
-		image = R_GetTexture(tr.whiteTexture);
-		r_affinetridesc.pskin = image->pixels[0];
-		r_affinetridesc.skinwidth = image->width;
-		r_affinetridesc.skinheight = image->height;
+		GL_Bind( XASH_TEXTURE0, tr.whiteTexture);
 		return;
 	}
 
@@ -1835,10 +1831,6 @@ static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 	if( r_lightmap->value && !r_fullbright->value )
 		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
 	else GL_Bind( XASH_TEXTURE0, ptexture[index].index );
-	image = R_GetTexture(ptexture[index].index);
-	r_affinetridesc.pskin = image->pixels[0];
-	r_affinetridesc.skinwidth = image->width;
-	r_affinetridesc.skinheight = image->height;
 }
 
 /*

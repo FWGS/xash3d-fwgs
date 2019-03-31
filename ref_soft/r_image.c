@@ -42,9 +42,47 @@ GL_Bind
 */
 void GL_Bind( int tmu, unsigned int texnum )
 {
-	image_t	*texture;
+	image_t	*image;
 
-	texture = &r_images[texnum];
+	extern void	(*d_pdrawspans)(void *);
+	extern void R_PolysetFillSpans8 ( void * );
+	extern void R_PolysetDrawSpansConstant8_33( void *pspanpackage);
+	extern void R_PolysetDrawSpansTextureBlended( void *pspanpackage);
+	extern void R_PolysetDrawSpansBlended( void *pspanpackage);
+	extern void R_PolysetDrawSpansAdditive( void *pspanpackage);
+	extern void R_PolysetDrawSpansGlow( void *pspanpackage);
+
+	image = &r_images[texnum];
+	//vid.rendermode = kRenderNormal;
+
+	if( vid.rendermode == kRenderNormal )
+	{
+		r_affinetridesc.pskin = image->pixels[0];
+		d_pdrawspans = R_PolysetFillSpans8 ;
+	}
+	else if( vid.rendermode == kRenderTransAdd)
+	{
+		r_affinetridesc.pskin = image->pixels[0];
+		d_pdrawspans = R_PolysetDrawSpansAdditive;
+	}
+	else if( vid.rendermode == kRenderGlow )
+	{
+		r_affinetridesc.pskin = image->pixels[0];
+		d_pdrawspans = R_PolysetDrawSpansGlow;
+	}
+	else if( image->alpha_pixels )
+	{
+		r_affinetridesc.pskin = image->alpha_pixels;
+		d_pdrawspans = R_PolysetDrawSpansTextureBlended;
+	}
+	else
+	{
+		r_affinetridesc.pskin = image->pixels[0];
+		d_pdrawspans = R_PolysetDrawSpansBlended;
+	}
+
+	r_affinetridesc.skinwidth = image->width;
+	r_affinetridesc.skinheight = image->height;
 }
 
 /*
@@ -533,7 +571,10 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		//GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, data );
 		// increase size to workaround triangle renderer bugs
 		// it seems to assume memory readable. maybe it was pointed to WAD?
-		tex->pixels[j] = (byte*)Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) + 1024 ) + 512;
+		tex->pixels[j] = (byte*)Mem_Malloc( r_temppool, width * height * sizeof(pixel_t) + 1024 ) + 512;
+		memset( (byte*)tex->pixels[j] - 512, 0xFF, 512 );
+		memset( (byte*)tex->pixels[j] + width * height * sizeof(pixel_t), 0xFF, 512 );
+
 		if( j == 0 &&  tex->flags & TF_HAS_ALPHA )
 			tex->alpha_pixels = (byte*)Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) + 256 ) + 128;
 	

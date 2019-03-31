@@ -60,6 +60,7 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 	//pglEnable( GL_BLEND );
 	//pglDisable( GL_ALPHA_TEST );
 	//pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+	GL_SetRenderMode( kRenderTransAdd );
 
 	GL_Bind( XASH_TEXTURE0, tr.particleTexture );
 	//pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
@@ -181,6 +182,8 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 
 	if( !cl_active_tracers )
 		return;	// nothing to draw?
+
+	GL_SetRenderMode( kRenderTransAdd );
 
 	if( !TriSpriteTexture( gEngfuncs.GetDefaultSprite( REF_DOT_SPRITE ), 0 ))
 		return;
