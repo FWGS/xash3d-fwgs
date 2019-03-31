@@ -671,7 +671,9 @@ static float R_SpriteGlowBlend( vec3_t origin, int rendermode, int renderfx, flo
 		tr = gEngfuncs.EV_VisTraceLine( RI.vieworg, origin, r_traceglow->value ? PM_GLASS_IGNORE : (PM_GLASS_IGNORE|PM_STUDIO_IGNORE));
 
 		if(( 1.0f - tr->fraction ) * dist > 8.0f )
+		{
 			return 0.0f;
+		}
 	}
 
 	if( renderfx == kRenderFxNoDissipation )
@@ -731,10 +733,10 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 	image_t *image;
 
 	r_stats.c_sprite_polys++;
-	image = R_GetTexture(frame->gl_texturenum);
+	/*image = R_GetTexture(frame->gl_texturenum);
 	r_affinetridesc.pskin = image->pixels[0];
 	r_affinetridesc.skinwidth = image->width;
-	r_affinetridesc.skinheight = image->height;
+	r_affinetridesc.skinheight = image->height;*/
 
 	TriBegin( TRI_QUADS );
 		TriTexCoord2f( 0.0f, 1.0f );
@@ -920,6 +922,8 @@ void R_DrawSpriteModel( cl_entity_t *e )
 
 	if( e->curstate.rendermode == kRenderGlow || e->curstate.rendermode == kRenderTransAdd )
 		R_AllowFog( false );
+
+	GL_SetRenderMode( e->curstate.rendermode );
 #if 0
 	// select properly rendermode
 	switch( e->curstate.rendermode )

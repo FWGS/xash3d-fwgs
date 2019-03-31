@@ -976,6 +976,7 @@ void R_DrawEntitiesOnList( void )
 	extern void R_PolysetDrawSpansConstant8_33( void *pspanpackage);
 	extern void R_PolysetDrawSpans8_33( void *pspanpackage);
 	d_pdrawspans = R_PolysetFillSpans8;
+	GL_SetRenderMode(kRenderNormal);
 	// first draw solid entities
 	for( i = 0; i < tr.draw_list->num_solid_entities && !RI.onlyClientDraw; i++ )
 	{
@@ -1120,8 +1121,7 @@ void R_DrawEntitiesOnList( void )
 	//GL_CheckForErrors();
 
 //	pglDisable( GL_BLEND );	// Trinity Render issues
-	d_pdrawspans = R_PolysetFillSpans8;
-
+	GL_SetRenderMode(kRenderNormal);
 	R_SetUpWorldTransform();
 	if( !RI.onlyClientDraw )
 		R_DrawViewModel();

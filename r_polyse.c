@@ -687,6 +687,330 @@ void R_PolysetCalcGradients (int skinwidth)
 R_PolysetDrawSpans8
 ================
 */
+void R_PolysetDrawSpansBlended( spanpackage_t *pspanpackage)
+{
+	int		lcount;
+	pixel_t	*lpdest;
+	pixel_t	*lptex;
+	int		lsfrac, ltfrac;
+	int		llight;
+	int		lzi;
+	short	*lpz;
+
+	do
+	{
+		lcount = d_aspancount - pspanpackage->count;
+
+		errorterm += erroradjustup;
+		if (errorterm >= 0)
+		{
+			d_aspancount += d_countextrastep;
+			errorterm -= erroradjustdown;
+		}
+		else
+		{
+			d_aspancount += ubasestep;
+		}
+
+		if (lcount)
+		{
+			lpdest = pspanpackage->pdest;
+			lptex = pspanpackage->ptex;
+			lpz = pspanpackage->pz;
+			lsfrac = pspanpackage->sfrac;
+			ltfrac = pspanpackage->tfrac;
+			llight = pspanpackage->light;
+			lzi = pspanpackage->zi;
+
+			do
+			{
+				if ((lzi >> 16) >= *lpz)
+				{
+#if 0
+					if((int)(lptex - (pixel_t*)r_affinetridesc.pskin) > r_affinetridesc.skinwidth * r_affinetridesc.skinheight || (int)(lptex - (pixel_t*)r_affinetridesc.pskin) < 0 )
+					{
+						printf("%d %d %d %d\n",(int)(lptex - (pixel_t*)r_affinetridesc.pskin),  r_affinetridesc.skinwidth * r_affinetridesc.skinheight, lsfrac, a_ststepxwhole );
+						return;
+					}
+#endif
+					pixel_t temp = *lptex;//vid.colormap[*lptex + ( llight & 0xFF00 )];
+					temp = BLEND_COLOR(temp, vid.color);
+
+					int alpha = vid.alpha;
+					if( alpha == 7 )
+						*lpdest = temp;
+					else if(alpha)
+						*lpdest = BLEND_ALPHA(alpha,temp,*lpdest);//vid.alphamap[temp+ *lpdest*256];
+				}
+				lpdest++;
+				lzi += r_zistepx;
+				lpz++;
+				llight += r_lstepx;
+				lptex += a_ststepxwhole;
+				lsfrac += a_sstepxfrac;
+				lptex += lsfrac >> 16;
+				lsfrac &= 0xFFFF;
+				ltfrac += a_tstepxfrac;
+				if (ltfrac & 0x10000)
+				{
+					lptex += r_affinetridesc.skinwidth;
+					ltfrac &= 0xFFFF;
+				}
+			} while (--lcount);
+		}
+
+		pspanpackage++;
+	} while (pspanpackage->count != -999999);
+}
+
+
+/*
+================
+R_PolysetDrawSpans8
+================
+*/
+void R_PolysetDrawSpansAdditive( spanpackage_t *pspanpackage)
+{
+	int		lcount;
+	pixel_t	*lpdest;
+	pixel_t	*lptex;
+	int		lsfrac, ltfrac;
+	int		llight;
+	int		lzi;
+	short	*lpz;
+
+	do
+	{
+		lcount = d_aspancount - pspanpackage->count;
+
+		errorterm += erroradjustup;
+		if (errorterm >= 0)
+		{
+			d_aspancount += d_countextrastep;
+			errorterm -= erroradjustdown;
+		}
+		else
+		{
+			d_aspancount += ubasestep;
+		}
+
+		if (lcount)
+		{
+			lpdest = pspanpackage->pdest;
+			lptex = pspanpackage->ptex;
+			lpz = pspanpackage->pz;
+			lsfrac = pspanpackage->sfrac;
+			ltfrac = pspanpackage->tfrac;
+			llight = pspanpackage->light;
+			lzi = pspanpackage->zi;
+
+			do
+			{
+				if ((lzi >> 16) >= *lpz)
+				{
+#if 0
+					if((int)(lptex - (pixel_t*)r_affinetridesc.pskin) > r_affinetridesc.skinwidth * r_affinetridesc.skinheight || (int)(lptex - (pixel_t*)r_affinetridesc.pskin) < 0 )
+					{
+						printf("%d %d %d %d\n",(int)(lptex - (pixel_t*)r_affinetridesc.pskin),  r_affinetridesc.skinwidth * r_affinetridesc.skinheight, lsfrac, a_ststepxwhole );
+						return;
+					}
+#endif
+					pixel_t temp = *lptex;//vid.colormap[*lptex + ( llight & 0xFF00 )];
+					temp = BLEND_COLOR(temp, vid.color);
+
+					*lpdest = BLEND_ADD(temp,*lpdest);
+
+				}
+				lpdest++;
+				lzi += r_zistepx;
+				lpz++;
+				llight += r_lstepx;
+				lptex += a_ststepxwhole;
+				lsfrac += a_sstepxfrac;
+				lptex += lsfrac >> 16;
+				lsfrac &= 0xFFFF;
+				ltfrac += a_tstepxfrac;
+				if (ltfrac & 0x10000)
+				{
+					lptex += r_affinetridesc.skinwidth;
+					ltfrac &= 0xFFFF;
+				}
+			} while (--lcount);
+		}
+
+		pspanpackage++;
+	} while (pspanpackage->count != -999999);
+}
+
+
+/*
+================
+R_PolysetDrawSpans8
+================
+*/
+void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage)
+{
+	int		lcount;
+	pixel_t	*lpdest;
+	pixel_t	*lptex;
+	int		lsfrac, ltfrac;
+	int		llight;
+	int		lzi;
+	short	*lpz;
+
+	do
+	{
+		lcount = d_aspancount - pspanpackage->count;
+
+		errorterm += erroradjustup;
+		if (errorterm >= 0)
+		{
+			d_aspancount += d_countextrastep;
+			errorterm -= erroradjustdown;
+		}
+		else
+		{
+			d_aspancount += ubasestep;
+		}
+
+		if (lcount)
+		{
+			lpdest = pspanpackage->pdest;
+			lptex = pspanpackage->ptex;
+			lpz = pspanpackage->pz;
+			lsfrac = pspanpackage->sfrac;
+			ltfrac = pspanpackage->tfrac;
+			llight = pspanpackage->light;
+			lzi = pspanpackage->zi;
+
+			do
+			{
+				//if ((lzi >> 16) >= *lpz)
+				{
+#if 0
+					if((int)(lptex - (pixel_t*)r_affinetridesc.pskin) > r_affinetridesc.skinwidth * r_affinetridesc.skinheight || (int)(lptex - (pixel_t*)r_affinetridesc.pskin) < 0 )
+					{
+						printf("%d %d %d %d\n",(int)(lptex - (pixel_t*)r_affinetridesc.pskin),  r_affinetridesc.skinwidth * r_affinetridesc.skinheight, lsfrac, a_ststepxwhole );
+						return;
+					}
+#endif
+					pixel_t temp = *lptex;//vid.colormap[*lptex + ( llight & 0xFF00 )];
+					temp = BLEND_COLOR(temp, vid.color);
+
+					*lpdest = BLEND_ADD(temp,*lpdest);
+
+				}
+				lpdest++;
+				lzi += r_zistepx;
+				lpz++;
+				llight += r_lstepx;
+				lptex += a_ststepxwhole;
+				lsfrac += a_sstepxfrac;
+				lptex += lsfrac >> 16;
+				lsfrac &= 0xFFFF;
+				ltfrac += a_tstepxfrac;
+				if (ltfrac & 0x10000)
+				{
+					lptex += r_affinetridesc.skinwidth;
+					ltfrac &= 0xFFFF;
+				}
+			} while (--lcount);
+		}
+
+		pspanpackage++;
+	} while (pspanpackage->count != -999999);
+}
+
+
+/*
+================
+R_PolysetDrawSpans8
+================
+*/
+void R_PolysetDrawSpansTextureBlended( spanpackage_t *pspanpackage)
+{
+	int		lcount;
+	pixel_t	*lpdest;
+	pixel_t	*lptex;
+	int		lsfrac, ltfrac;
+	int		llight;
+	int		lzi;
+	short	*lpz;
+
+	do
+	{
+		lcount = d_aspancount - pspanpackage->count;
+
+		errorterm += erroradjustup;
+		if (errorterm >= 0)
+		{
+			d_aspancount += d_countextrastep;
+			errorterm -= erroradjustdown;
+		}
+		else
+		{
+			d_aspancount += ubasestep;
+		}
+
+		if (lcount)
+		{
+			lpdest = pspanpackage->pdest;
+			lptex = pspanpackage->ptex;
+			lpz = pspanpackage->pz;
+			lsfrac = pspanpackage->sfrac;
+			ltfrac = pspanpackage->tfrac;
+			llight = pspanpackage->light;
+			lzi = pspanpackage->zi;
+
+			do
+			{
+				if ((lzi >> 16) >= *lpz)
+				{
+#if 0
+					if((int)(lptex - (pixel_t*)r_affinetridesc.pskin) > r_affinetridesc.skinwidth * r_affinetridesc.skinheight || (int)(lptex - (pixel_t*)r_affinetridesc.pskin) < 0 )
+					{
+						printf("%d %d %d %d\n",(int)(lptex - (pixel_t*)r_affinetridesc.pskin),  r_affinetridesc.skinwidth * r_affinetridesc.skinheight, lsfrac, a_ststepxwhole );
+						return;
+					}
+#endif
+					pixel_t temp = *lptex;//vid.colormap[*lptex + ( llight & 0xFF00 )];
+
+					int alpha = temp >> 13;
+					temp = temp << 3;
+					temp = BLEND_COLOR(temp, vid.color);
+					if( alpha == 7 )
+						*lpdest = temp;
+					else if(alpha)
+						*lpdest = BLEND_ALPHA(alpha,temp,*lpdest);//vid.alphamap[temp+ *lpdest*256];
+				}
+				lpdest++;
+				lzi += r_zistepx;
+				lpz++;
+				llight += r_lstepx;
+				lptex += a_ststepxwhole;
+				lsfrac += a_sstepxfrac;
+				lptex += lsfrac >> 16;
+				lsfrac &= 0xFFFF;
+				ltfrac += a_tstepxfrac;
+				if (ltfrac & 0x10000)
+				{
+					lptex += r_affinetridesc.skinwidth;
+					ltfrac &= 0xFFFF;
+				}
+			} while (--lcount);
+		}
+
+		pspanpackage++;
+	} while (pspanpackage->count != -999999);
+}
+
+
+
+/*
+================
+R_PolysetDrawSpans8
+================
+*/
 void R_PolysetDrawSpans8_33( spanpackage_t *pspanpackage)
 {
 	int		lcount;

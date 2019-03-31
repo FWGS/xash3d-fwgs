@@ -155,7 +155,7 @@ void _TriColor4f( float rr, float gg, float bb, float aa )
 	if( light > 31 )
 		light = 31;
 
-	if( !vid.is2d )
+	if( !vid.is2d && vid.rendermode == kRenderNormal )
 		return;
 
 	vid.alpha = aa * 7;
@@ -168,6 +168,12 @@ void _TriColor4f( float rr, float gg, float bb, float aa )
 		return;
 	}
 	r = rr * 31, g = gg * 63, b = bb * 31;
+	if( r > 31 )
+		r = 31;
+	if( g > 63 )
+		g = 63;
+	if( b > 31 )
+		b = 31;
 
 
 	major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));
@@ -191,7 +197,7 @@ void TriColor4ub( byte r, byte g, byte b, byte a )
 	ds.triRGBA[2] = b * (1.0f / 255.0f);
 	ds.triRGBA[3] = a * (1.0f / 255.0f);
 
-	_TriColor4f( ds.triRGBA[0], ds.triRGBA[1], ds.triRGBA[2], ds.triRGBA[3] ); //1.0f );
+	_TriColor4f( ds.triRGBA[0], ds.triRGBA[1], ds.triRGBA[2], 1.0f );
 }
 
 /*
@@ -201,8 +207,10 @@ TriColor4f
 */
 void TriColor4f( float r, float g, float b, float a )
 {
+	//if( a < 0.5 )
+	//	a = 1;
 	if( ds.renderMode == kRenderTransAlpha )
-		TriColor4ub( r * 255.9f, g * 255.9f, b * 255.9f, a * 255.0f );
+		TriColor4ub( r * 255.0f, g * 255.0f, b * 255.0f, a * 255.0f );
 	else _TriColor4f( r * a, g * a, b * a, 1.0 );
 
 	ds.triRGBA[0] = r;
@@ -220,8 +228,17 @@ TriTexCoord2f
 void TriTexCoord2f( float u, float v )
 {
 	//pglTexCoord2f( u, v );
-	s = r_affinetridesc.skinwidth * bound(0,u,1);
-	t = r_affinetridesc.skinheight * bound(0,v,1);
+	while( u < 0 )
+		u = u + 1;
+	while( v < 0 )
+		v = v + 1;
+
+	while( u > 1 )
+		u = u - 1;
+	while( v > 1 )
+		v = v - 1;
+	s = r_affinetridesc.skinwidth * bound(0.01,u,0.99);
+	t = r_affinetridesc.skinheight * bound(0.01,v,0.99);
 }
 
 /*
@@ -251,7 +268,7 @@ void TriVertex3f( float x, float y, float z )
 		if( vertcount == 3 )
 		{
 			R_RenderTriangle( &triv[0], &triv[1], &triv[2] );
-			R_RenderTriangle( &triv[2], &triv[1], &triv[0] );
+			//R_RenderTriangle( &triv[2], &triv[1], &triv[0] );
 			vertcount = 0;
 		}
 	}
@@ -262,6 +279,7 @@ void TriVertex3f( float x, float y, float z )
 		if( vertcount >= 3 )
 		{
 			R_RenderTriangle( &triv[0], &triv[1], &triv[2] );
+			//R_RenderTriangle( &triv[2], &triv[1], &triv[0] );
 			triv[1] = triv[2];
 			vertcount = 2;
 		}
@@ -305,7 +323,7 @@ void TriVertex3f( float x, float y, float z )
 		}
 #endif
 }
-
+void R_AliasWorldToScreen( const float *v, float *out );
 /*
 =============
 TriWorldToScreen
@@ -317,7 +335,9 @@ int TriWorldToScreen( const float *world, float *screen )
 {
 	int	retval;
 
-//	retval = R_WorldToScreen( world, screen );
+	R_AliasWorldToScreen( world, screen );
+	retval = 0;
+
 
 	screen[0] =  0.5f * screen[0] * (float)RI.viewport[2];
 	screen[1] = -0.5f * screen[1] * (float)RI.viewport[3];
@@ -451,6 +471,9 @@ void TriBrightness( float brightness )
 {
 	float	r, g, b;
 
+	//if( brightness < 0.5 )
+//		brightness = 1; //0.5;
+//ds.triRGBA[3] = 1;
 	r = ds.triRGBA[0] * ds.triRGBA[3] * brightness;
 	g = ds.triRGBA[1] * ds.triRGBA[3] * brightness;
 	b = ds.triRGBA[2] * ds.triRGBA[3] * brightness;

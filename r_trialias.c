@@ -238,6 +238,13 @@ void R_AliasProjectAndClipTestFinalVert( finalvert_t *fv )
 		fv->flags |= ALIAS_BOTTOM_CLIP;
 }
 
+void R_AliasWorldToScreen( const float *v, float *out )
+{
+	out[0] = DotProduct(v, aliastransform[0]) + aliastransform[0][3];
+	out[1] = DotProduct(v, aliastransform[1]) + aliastransform[1][3];
+	out[2] = DotProduct(v, aliastransform[2]) + aliastransform[2][3];
+}
+
 void R_SetupFinalVert( finalvert_t *fv, float x, float y, float z, int light, int s, int t )
 {
 	vec3_t v = {x, y, z};
