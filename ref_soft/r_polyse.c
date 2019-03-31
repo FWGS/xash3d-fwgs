@@ -306,6 +306,17 @@ void FloorDivMod (float numer, float denom, int *quotient,
 			r = (int)denom - r;
 		}
 	}
+	if( q > INT_MAX / 2 || q < INT_MIN / 2 )
+	{
+		gEngfuncs.Con_Printf( S_ERROR"FloorDivMod: q overflow!\n" );
+		q = 1;
+	}
+
+	if( r > INT_MAX / 2 || r < INT_MIN / 2 )
+	{
+		gEngfuncs.Con_Printf( S_ERROR "FloorDivMod: r overflow!\n");
+		r = 1;
+	}
 
 	*quotient = q;
 	*rem = r;

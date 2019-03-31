@@ -225,28 +225,28 @@ TriTexCoord2f
 
 =============
 */
-void TriTexCoord2f( float u, float v )
+void TriTexCoord2f( volatile float u, volatile float v )
 {
-	//pglTexCoord2f( u, v );
-	u = fmod(u, 10);
-	v = fmod(v, 10);
-	if( isnan(u) )
-		u = 0;
-	if( isnan(v))
-		v = 0;
-	while( u < 0 )
-		u = u + 1;
-	while( v < 0 )
-		v = v + 1;
+	volatile double u1 = 0, v1 = 0;
+	u = fmodf(u, 10);
+	v = fmodf(v, 10);
+	if( u < 1000 && u > -1000 )
+		u1 = u;
+	if( v < 1000 && v > -1000 )
+		v1 = v;
+	while( u1 < 0 )
+		u1 = u1 + 1;
+	while( v1 < 0 )
+		v1 = v1 + 1;
 
-	while( u > 1 )
-		u = u - 1;
-	while( v > 1 )
-		v = v - 1;
+	while( u1 > 1 )
+		u1 = u1 - 1;
+	while( v1 > 1 )
+		v1 = v1 - 1;
 
 
-	s = r_affinetridesc.skinwidth * bound(0.01,u,0.99);
-	t = r_affinetridesc.skinheight * bound(0.01,v,0.99);
+	s = r_affinetridesc.skinwidth * bound(0,u1,1);
+	t = r_affinetridesc.skinheight * bound(0,v1,1);
 }
 
 /*
