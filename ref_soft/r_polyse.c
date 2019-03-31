@@ -105,6 +105,11 @@ byte	*skinstart;
 
 void	(*d_pdrawspans)(spanpackage_t *pspanpackage);
 
+void R_PolysetStub (spanpackage_t *pspanpackage)
+{
+
+}
+
 void R_PolysetDrawSpans8_33 (spanpackage_t *pspanpackage);
 void R_PolysetDrawSpans8_66 (spanpackage_t *pspanpackage);
 void R_PolysetDrawSpans8_Opaque (spanpackage_t *pspanpackage);
@@ -308,12 +313,16 @@ void FloorDivMod (float numer, float denom, int *quotient,
 	}
 	if( q > INT_MAX / 2 || q < INT_MIN / 2 )
 	{
-		gEngfuncs.Con_Printf( S_ERROR"FloorDivMod: q overflow!\n" );
+		int i;
+		d_pdrawspans = R_PolysetStub;
+		gEngfuncs.Con_Printf( S_ERROR "FloorDivMod: q overflow!\n" );
 		q = 1;
 	}
 
 	if( r > INT_MAX / 2 || r < INT_MIN / 2 )
 	{
+		int i;
+		d_pdrawspans = R_PolysetStub;
 		gEngfuncs.Con_Printf( S_ERROR "FloorDivMod: r overflow!\n");
 		r = 1;
 	}

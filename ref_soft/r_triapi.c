@@ -245,8 +245,8 @@ void TriTexCoord2f( volatile float u, volatile float v )
 		v1 = v1 - 1;
 
 
-	s = r_affinetridesc.skinwidth * bound(0,u1,1);
-	t = r_affinetridesc.skinheight * bound(0,v1,1);
+	s = r_affinetridesc.skinwidth * bound(0.01,u1,0.99);
+	t = r_affinetridesc.skinheight * bound(0.01,v1,0.99);
 }
 
 /*
