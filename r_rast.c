@@ -332,6 +332,12 @@ void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 		v = ceilv0;
 		v2 = r_ceilv1 - 1;
 
+		if( v < 0 || v > MAXHEIGHT )
+		{
+			gEngfuncs.Con_Printf( S_ERROR "trailing edge overflow : %d\n", v );
+			return;
+		}
+
 		edge->surfs[0] = surface_p - surfaces;
 		edge->surfs[1] = 0;
 
@@ -343,6 +349,12 @@ void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 	// leading edge (go from p2 to p1)
 		v2 = ceilv0 - 1;
 		v = r_ceilv1;
+
+		if( v < 0 || v > MAXHEIGHT )
+		{
+			gEngfuncs.Con_Printf( S_ERROR "leading edge overflow : %d\n", v );
+			return;
+		}
 
 		edge->surfs[0] = 0;
 		edge->surfs[1] = surface_p - surfaces;
