@@ -1412,7 +1412,7 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 		}
 		else
 		{
-			Host_Error( "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
+			Con_Printf( S_ERROR "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
 		}
 	}
 
