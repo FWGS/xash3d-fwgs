@@ -201,6 +201,20 @@ void TriColor4ub( byte r, byte g, byte b, byte a )
 }
 
 /*
+=============
+TriColor4ub
+
+=============
+*/
+void _TriColor4ub( byte r, byte g, byte b, byte a )
+{
+	_TriColor4f(	r * (1.0f / 255.0f),
+					g * (1.0f / 255.0f),
+					b * (1.0f / 255.0f),
+					a * (1.0f / 255.0f));
+}
+
+/*
 =================
 TriColor4f
 =================
