@@ -564,7 +564,6 @@ void NonTurbulent8 (espan_t *pspan)
 
 #if	!id386
 
-
 int kernel[2][2][2] =
 {
    {
@@ -577,7 +576,11 @@ int kernel[2][2][2] =
 	  {0,16384}
    }
 };
-
+#ifndef DISABLE_TEXFILTER
+#define SW_TEXFILT (sw_texfilt->value == 1.0f)
+#else
+#define SW_TEXFILT 0
+#endif
 /*
 =============
 D_DrawSpans16
@@ -700,7 +703,7 @@ void D_DrawSpans16 (espan_t *pspan)
 
 
 			// Drawing phrase
-				if (sw_texfilt->value == 0.0f)
+				if (!SW_TEXFILT)
 				{
 					do
 					{
@@ -709,7 +712,7 @@ void D_DrawSpans16 (espan_t *pspan)
 						t += tstep;
 					} while (--spancount > 0);
 				}
-				else if (sw_texfilt->value == 1.0f)
+				else
 				{
 					do
 					{
@@ -871,7 +874,7 @@ void D_AlphaSpans16 (espan_t *pspan)
 
 
 			// Drawing phrase
-				if (sw_texfilt->value == 0.0f)
+				if (!SW_TEXFILT)
 				{
 					do
 					{
@@ -893,7 +896,7 @@ void D_AlphaSpans16 (espan_t *pspan)
 						t += tstep;
 					} while (--spancount > 0);
 				}
-				else if (sw_texfilt->value == 1.0f)
+				else
 				{
 					do
 					{
@@ -1067,7 +1070,7 @@ void D_BlendSpans16 (espan_t *pspan, int alpha)
 
 
 			// Drawing phrase
-				if (sw_texfilt->value == 0.0f)
+				if (!SW_TEXFILT)
 				{
 					do
 					{
@@ -1089,7 +1092,7 @@ void D_BlendSpans16 (espan_t *pspan, int alpha)
 						t += tstep;
 					} while (--spancount > 0);
 				}
-				else if (sw_texfilt->value == 1.0f)
+				else
 				{
 					do
 					{
@@ -1263,7 +1266,7 @@ void D_AddSpans16 (espan_t *pspan)
 
 
 			// Drawing phrase
-				if (sw_texfilt->value == 0.0f)
+				if (!SW_TEXFILT)
 				{
 					do
 					{
@@ -1284,7 +1287,7 @@ void D_AddSpans16 (espan_t *pspan)
 						t += tstep;
 					} while (--spancount > 0);
 				}
-				else if (sw_texfilt->value == 1.0f)
+				else
 				{
 					do
 					{

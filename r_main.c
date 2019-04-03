@@ -2064,8 +2064,9 @@ qboolean R_Init()
 	sw_notransbrushes = gEngfuncs.Cvar_Get( "sw_notransbrushes", "0", FCVAR_ARCHIVE, "do not apply transparency to water/glasses (faster)");
 	sw_noalphabrushes = gEngfuncs.Cvar_Get( "sw_noalphabrushes", "0", FCVAR_ARCHIVE, "do not draw brush holes (faster)");
 	r_traceglow = gEngfuncs.Cvar_Get( "r_traceglow", "1", FCVAR_ARCHIVE, "cull flares behind models" );
-
+#ifndef DISABLE_TEXFILTER
 	sw_texfilt = gEngfuncs.Cvar_Get ("sw_texfilt", "0", 0, "texture dither");
+#endif
 	//r_lefthand = ri.Cvar_Get( "hand", "0", FCVAR_USERINFO | FCVAR_ARCHIVE );
 //	r_speeds = ri.Cvar_Get ("r_speeds", "0", 0);
 	r_decals = gEngfuncs.pfnGetCvarPointer( "r_decals", 0 );
