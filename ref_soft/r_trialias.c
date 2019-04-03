@@ -96,9 +96,9 @@ void R_SetUpWorldTransform (void)
 		aliasoldworldtransform[i][0] = aliasworldtransform[i][2] =  s_alias_up[i];
 	}
 
-	aliasworldtransform[0][3] = -r_origin[0];
-	aliasworldtransform[1][3] = -r_origin[1];
-	aliasworldtransform[2][3] = -r_origin[2];
+	aliasworldtransform[0][3] = -RI.vieworg[0];
+	aliasworldtransform[1][3] = -RI.vieworg[1];
+	aliasworldtransform[2][3] = -RI.vieworg[2];
 
 	//aliasoldworldtransform[0][3] = RI.currententity->oldorigin[0]-r_origin[0];
 	//aliasoldworldtransform[1][3] = RI.currententity->oldorigin[1]-r_origin[1];
@@ -110,11 +110,11 @@ void R_SetUpWorldTransform (void)
 //	R_ConcatTransforms (t2matrix, tmatrix, rotationmatrix);
 
 // TODO: should be global, set when vright, etc., set
-	VectorCopy (vright, viewmatrix[0]);
-	VectorCopy (vup, viewmatrix[1]);
+	VectorCopy (RI.vright, viewmatrix[0]);
+	VectorCopy (RI.vup, viewmatrix[1]);
 	VectorInverse (viewmatrix[1]);
 	//VectorScale(viewmatrix[1], -1, viewmatrix[1]);
-	VectorCopy (vpn, viewmatrix[2]);
+	VectorCopy (RI.vforward, viewmatrix[2]);
 
 	viewmatrix[0][3] = 0;
 	viewmatrix[1][3] = 0;
@@ -169,9 +169,9 @@ void R_AliasSetUpTransform (void)
 		aliasoldworldtransform[i][0] = aliasworldtransform[i][2] =  s_alias_up[i];
 	}
 
-	aliasworldtransform[0][3] = RI.currententity->origin[0]-r_origin[0];
-	aliasworldtransform[1][3] = RI.currententity->origin[1]-r_origin[1];
-	aliasworldtransform[2][3] = RI.currententity->origin[2]-r_origin[2];
+	aliasworldtransform[0][3] = RI.currententity->origin[0]-RI.vieworg[0];
+	aliasworldtransform[1][3] = RI.currententity->origin[1]-RI.vieworg[1];
+	aliasworldtransform[2][3] = RI.currententity->origin[2]-RI.vieworg[2];
 
 	//aliasoldworldtransform[0][3] = RI.currententity->oldorigin[0]-r_origin[0];
 	//aliasoldworldtransform[1][3] = RI.currententity->oldorigin[1]-r_origin[1];
@@ -183,11 +183,11 @@ void R_AliasSetUpTransform (void)
 //	R_ConcatTransforms (t2matrix, tmatrix, rotationmatrix);
 
 // TODO: should be global, set when vright, etc., set
-	VectorCopy (vright, viewmatrix[0]);
-	VectorCopy (vup, viewmatrix[1]);
+	VectorCopy (RI.vright, viewmatrix[0]);
+	VectorCopy (RI.vup, viewmatrix[1]);
 	VectorInverse (viewmatrix[1]);
 	//VectorScale(viewmatrix[1], -1, viewmatrix[1]);
-	VectorCopy (vpn, viewmatrix[2]);
+	VectorCopy (RI.vforward, viewmatrix[2]);
 
 	viewmatrix[0][3] = 0;
 	viewmatrix[1][3] = 0;

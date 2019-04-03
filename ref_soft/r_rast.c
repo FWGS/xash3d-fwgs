@@ -35,7 +35,6 @@ int			c_faceclip;					// number of faces clipped
 
 
 clipplane_t	*entity_clipplanes;
-clipplane_t	view_clipplanes[4];
 clipplane_t	world_clipplanes[16];
 
 medge_t			*r_pedge;
@@ -239,7 +238,7 @@ void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 		world = &pv0->position[0];
 	
 	// transform and project
-		VectorSubtract (world, modelorg, local);
+		VectorSubtract (world, tr.modelorg, local);
 		TransformVector (local, transformed);
 	
 		if (transformed[2] < NEAR_CLIP)
@@ -268,7 +267,7 @@ void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 	world = &pv1->position[0];
 
 // transform and project
-	VectorSubtract (world, modelorg, local);
+	VectorSubtract (world, tr.modelorg, local);
 	TransformVector (local, transformed);
 
 	if (transformed[2] < NEAR_CLIP)
@@ -312,7 +311,7 @@ void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 		if (cacheoffset != 0x7FFFFFFF)
 		{
 			cacheoffset = FULLY_CLIPPED_CACHED |
-					(r_framecount & FRAMECOUNT_MASK);
+					(tr.framecount & FRAMECOUNT_MASK);
 		}
 
 		return;		// horizontal edge
@@ -471,7 +470,7 @@ void R_ClipEdge (mvertex_t *pv0, mvertex_t *pv1, clipplane_t *clip)
 				// we do cache fully clipped edges
 					if (!r_leftclipped)
 						cacheoffset = FULLY_CLIPPED_CACHED |
-								(r_framecount & FRAMECOUNT_MASK);
+								(tr.framecount & FRAMECOUNT_MASK);
 					return;
 				}
 
@@ -590,8 +589,8 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 	{
 		if (clipflags & mask)
 		{
-			view_clipplanes[i].next = pclip;
-			pclip = &view_clipplanes[i];
+			qfrustum.view_clipplanes[i].next = pclip;
+			pclip = &qfrustum.view_clipplanes[i];
 		}
 	}
 
@@ -617,7 +616,7 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 				if (r_pedge->cachededgeoffset & FULLY_CLIPPED_CACHED)
 				{
 					if ((r_pedge->cachededgeoffset & FRAMECOUNT_MASK) ==
-						r_framecount)
+						tr.framecount)
 					{
 						r_lastvertvalid = false;
 						continue;
@@ -661,7 +660,7 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 				if (r_pedge->cachededgeoffset & FULLY_CLIPPED_CACHED)
 				{
 					if ((r_pedge->cachededgeoffset & FRAMECOUNT_MASK) ==
-						r_framecount)
+						tr.framecount)
 					{
 						r_lastvertvalid = false;
 						continue;
@@ -715,7 +714,7 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 		r_pedge = &tedge;
 		r_lastvertvalid = false;
 		r_nearzionly = true;
-		R_ClipEdge (&r_rightexit, &r_rightenter, view_clipplanes[1].next);
+		R_ClipEdge (&r_rightexit, &r_rightenter, qfrustum.view_clipplanes[1].next);
 	}
 
 // if no edges made it out, return without posting the surface
@@ -737,7 +736,7 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 // FIXME: cache this?
 	TransformVector (pplane->normal, p_normal);
 // FIXME: cache this?
-	distinv = 1.0 / (pplane->dist - DotProduct (modelorg, pplane->normal));
+	distinv = 1.0 / (pplane->dist - DotProduct (tr.modelorg, pplane->normal));
 
 	surface_p->d_zistepu = p_normal[0] * xscaleinv * distinv;
 	surface_p->d_zistepv = -p_normal[1] * yscaleinv * distinv;
@@ -797,8 +796,8 @@ void R_RenderBmodelFace (bedge_t *pedges, msurface_t *psurf)
 	{
 		if (r_clipflags & mask)
 		{
-			view_clipplanes[i].next = pclip;
-			pclip = &view_clipplanes[i];
+			qfrustum.view_clipplanes[i].next = pclip;
+			pclip = &qfrustum.view_clipplanes[i];
 		}
 	}
 
@@ -836,7 +835,7 @@ void R_RenderBmodelFace (bedge_t *pedges, msurface_t *psurf)
 	{
 		r_pedge = &tedge;
 		r_nearzionly = true;
-		R_ClipEdge (&r_rightexit, &r_rightenter, view_clipplanes[1].next);
+		R_ClipEdge (&r_rightexit, &r_rightenter, qfrustum.view_clipplanes[1].next);
 	}
 
 // if no edges made it out, return without posting the surface
@@ -858,7 +857,7 @@ void R_RenderBmodelFace (bedge_t *pedges, msurface_t *psurf)
 // FIXME: cache this?
 	TransformVector (pplane->normal, p_normal);
 // FIXME: cache this?
-	distinv = 1.0 / (pplane->dist - DotProduct (modelorg, pplane->normal));
+	distinv = 1.0 / (pplane->dist - DotProduct (tr.modelorg, pplane->normal));
 
 	surface_p->d_zistepu = p_normal[0] * xscaleinv * distinv;
 	surface_p->d_zistepv = -p_normal[1] * yscaleinv * distinv;

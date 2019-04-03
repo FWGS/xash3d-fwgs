@@ -186,6 +186,11 @@ typedef struct
 	vec3_t		vright;
 	vec3_t		vup;
 
+
+	vec3_t  base_vup;
+	vec3_t  base_vpn;
+	vec3_t  base_vright;
+
 	vec3_t		cullorigin;
 	vec3_t		cull_vforward;
 	vec3_t		cull_vright;
@@ -232,13 +237,8 @@ typedef struct
 	float           fvrectright_adj, fvrectbottom_adj;
 																			// right and bottom edges, for clamping
 	float           fvrectright;                    // rightmost edge, for Alias clamping
-	float           fvrectbottom;                   // bottommost edge, for Alias clamping
-	float           horizontalFieldOfView;  // at Z = 1.0, this many X is visible
-																			// 2.0 = 90 degrees
-	float           xOrigin;                        // should probably always be 0.5
-	float           yOrigin;                        // between be around 0.3 to 0.5
+	float           fvrectbottom;                   // bottommost edge, for Alias clampin
 
-	int                     ambientlight;
 
 } ref_instance_t;
 
@@ -1067,8 +1067,6 @@ VARS
 ====================================================
 */
 
-//extern int              d_spanpixcount;
-extern int              r_framecount;           // sequence # of current frame since Quake
 									//  started
 extern float    r_aliasuvscale;         // scale-up factor for screen u and v
 									//  on Alias vertices passed to driver
@@ -1143,10 +1141,6 @@ extern int      sintable[1280];
 extern int      intsintable[1280];
 extern int		blanktable[1280];		// PGM
 
-extern  vec3_t  vup, base_vup;
-extern  vec3_t  vpn, base_vpn;
-extern  vec3_t  vright, base_vright;
-
 extern  surf_t  *surfaces, *surface_p, *surf_max;
 
 // surfaces are generated in back to front order by the bsp, so if a surf
@@ -1178,15 +1172,11 @@ extern  edge_t  edge_head;
 extern  edge_t  edge_tail;
 extern edge_t edge_aftertail;
 
-
-extern int              r_frustum_indexes[4*6];
 extern qboolean r_surfsonstack;
 
-extern	mleaf_t		*r_viewleaf;
 extern	int			r_viewcluster, r_oldviewcluster;
 
 extern int              r_clipflags;
-extern int              r_dlightframecount;
 //extern qboolean r_fov_greater_than_90;
 
 
@@ -1215,19 +1205,16 @@ extern cvar_t	*tracerblue;
 extern cvar_t	*traceralpha;
 
 
-
-extern vec3_t modelorg;
-extern vec3_t r_origin;
-extern mplane_t screenedge[4];
-
-
-extern  clipplane_t     view_clipplanes[4];
-extern int *pfrustum_indexes[4];
+extern struct qfrustum_s {
+	mplane_t screenedge[4];
+	clipplane_t     view_clipplanes[4];
+	int frustum_indexes[4*6];
+	int *pfrustum_indexes[4];
+} qfrustum;
 
 extern cvar_t *r_fullbright;
 
 #define CACHESPOT(surf) ((surfcache_t**)surf->info->reserved)
-extern  int             r_visframecount;
 extern int              r_currentkey;
 extern int              r_currentbkey;
 extern qboolean insubmodel;
@@ -1237,7 +1224,6 @@ extern  vec3_t  r_entorigin;
 extern int r_leafkeys[MAX_MAP_LEAFS];
 #define LEAF_KEY(pleaf) r_leafkeys[(pleaf - WORLDMODEL->leafs)]
 
-extern int      ubasestep, errorterm, erroradjustup, erroradjustdown;
 
 
 extern mvertex_t        *r_pcurrentvertbase;

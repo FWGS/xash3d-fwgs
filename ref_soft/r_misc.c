@@ -40,7 +40,7 @@ static float	basemip[NUM_MIPS-1] = {1.0, 0.5*0.8, 0.25*0.8};
 
 int		d_scantable[MAXHEIGHT];
 short	*zspantable[MAXHEIGHT]; 
-
+struct qfrustum_s qfrustum;
 /*
 ================
 D_Patch
@@ -132,17 +132,17 @@ void R_TransformFrustum (void)
 	
 	for (i=0 ; i<4 ; i++)
 	{
-		v[0] = screenedge[i].normal[2];
-		v[1] = -screenedge[i].normal[0];
-		v[2] = screenedge[i].normal[1];
+		v[0] = qfrustum.screenedge[i].normal[2];
+		v[1] = -qfrustum.screenedge[i].normal[0];
+		v[2] = qfrustum.screenedge[i].normal[1];
 
-		v2[0] = v[1]*vright[0] + v[2]*vup[0] + v[0]*vpn[0];
-		v2[1] = v[1]*vright[1] + v[2]*vup[1] + v[0]*vpn[1];
-		v2[2] = v[1]*vright[2] + v[2]*vup[2] + v[0]*vpn[2];
+		v2[0] = v[1]*RI.vright[0] + v[2]*RI.vup[0] + v[0]*RI.vforward[0];
+		v2[1] = v[1]*RI.vright[1] + v[2]*RI.vup[1] + v[0]*RI.vforward[1];
+		v2[2] = v[1]*RI.vright[2] + v[2]*RI.vup[2] + v[0]*RI.vforward[2];
 
-		VectorCopy (v2, view_clipplanes[i].normal);
+		VectorCopy (v2, qfrustum.view_clipplanes[i].normal);
 
-		view_clipplanes[i].dist = DotProduct (modelorg, v2);
+		qfrustum.view_clipplanes[i].dist = DotProduct (tr.modelorg, v2);
 	}
 }
 
@@ -154,9 +154,9 @@ TransformVector
 */
 void TransformVector (vec3_t in, vec3_t out)
 {
-	out[0] = DotProduct(in,vright);
-	out[1] = DotProduct(in,vup);
-	out[2] = DotProduct(in,vpn);		
+	out[0] = DotProduct(in,RI.vright);
+	out[1] = DotProduct(in,RI.vup);
+	out[2] = DotProduct(in,RI.vforward);
 }
 
 /*
@@ -184,13 +184,13 @@ void R_SetUpFrustumIndexes (void)
 {
 	int		i, j, *pindex;
 
-	pindex = r_frustum_indexes;
+	pindex = qfrustum.frustum_indexes;
 
 	for (i=0 ; i<4 ; i++)
 	{
 		for (j=0 ; j<3 ; j++)
 		{
-			if (view_clipplanes[i].normal[j] < 0)
+			if (qfrustum.view_clipplanes[i].normal[j] < 0)
 			{
 				pindex[j] = j;
 				pindex[j+3] = j+3;
@@ -203,7 +203,7 @@ void R_SetUpFrustumIndexes (void)
 		}
 
 	// FIXME: do just once at start
-		pfrustum_indexes[i] = pindex;
+		qfrustum.pfrustum_indexes[i] = pindex;
 		pindex += 6;
 	}
 }
@@ -219,11 +219,11 @@ Guaranteed to be called before the first refresh
 void R_ViewChanged (vrect_t *vr)
 {
 	int		i;
-	float verticalFieldOfView, xOrigin, yOrigin;
+	float verticalFieldOfView, horizontalFieldOfView, xOrigin, yOrigin;
 
 	RI.vrect = *vr;
 
-	RI.horizontalFieldOfView = 2*tan((float)RI.fov_x/360*M_PI);
+	horizontalFieldOfView = 2*tan((float)RI.fov_x/360*M_PI);
 	verticalFieldOfView = 2*tan((float)RI.fov_y/360*M_PI);
 
 	RI.fvrectx = (float)RI.vrect.x;
@@ -249,8 +249,8 @@ void R_ViewChanged (vrect_t *vr)
 	RI.aliasvrectbottom = RI.aliasvrect.y +
 			RI.aliasvrect.height;
 
-	xOrigin = RI.xOrigin;// = r_origin[0];
-	yOrigin = RI.yOrigin;// = r_origin[1];
+	xOrigin = XCENTERING;
+	yOrigin = YCENTERING;
 #define PLANE_ANYZ 5
 // values for perspective projection
 // if math were exact, the values would range from 0.5 to to range+0.5
@@ -265,7 +265,7 @@ void R_ViewChanged (vrect_t *vr)
 					RI.vrect.y - 0.5;
 	aliasycenter = ycenter * r_aliasuvscale;
 
-	xscale = RI.vrect.width / RI.horizontalFieldOfView;
+	xscale = RI.vrect.width / horizontalFieldOfView;
 	aliasxscale = xscale * r_aliasuvscale;
 	xscaleinv = 1.0 / xscale;
 
@@ -276,32 +276,32 @@ void R_ViewChanged (vrect_t *vr)
 	//yscaleshrink = xscaleshrink;
 
 // left side clip
-	screenedge[0].normal[0] = -1.0 / (xOrigin*RI.horizontalFieldOfView);
-	screenedge[0].normal[1] = 0;
-	screenedge[0].normal[2] = 1;
-	screenedge[0].type = PLANE_ANYZ;
+	qfrustum.screenedge[0].normal[0] = -1.0 / (xOrigin*horizontalFieldOfView);
+	qfrustum.screenedge[0].normal[1] = 0;
+	qfrustum.screenedge[0].normal[2] = 1;
+	qfrustum.screenedge[0].type = PLANE_ANYZ;
 
 // right side clip
-	screenedge[1].normal[0] =
-					1.0 / ((1.0-xOrigin)*RI.horizontalFieldOfView);
-	screenedge[1].normal[1] = 0;
-	screenedge[1].normal[2] = 1;
-	screenedge[1].type = PLANE_ANYZ;
+	qfrustum.screenedge[1].normal[0] =
+					1.0 / ((1.0-xOrigin)*horizontalFieldOfView);
+	qfrustum.screenedge[1].normal[1] = 0;
+	qfrustum.screenedge[1].normal[2] = 1;
+	qfrustum.screenedge[1].type = PLANE_ANYZ;
 
 // top side clip
-	screenedge[2].normal[0] = 0;
-	screenedge[2].normal[1] = -1.0 / (yOrigin*verticalFieldOfView);
-	screenedge[2].normal[2] = 1;
-	screenedge[2].type = PLANE_ANYZ;
+	qfrustum.screenedge[2].normal[0] = 0;
+	qfrustum.screenedge[2].normal[1] = -1.0 / (yOrigin*verticalFieldOfView);
+	qfrustum.screenedge[2].normal[2] = 1;
+	qfrustum.screenedge[2].type = PLANE_ANYZ;
 
 // bottom side clip
-	screenedge[3].normal[0] = 0;
-	screenedge[3].normal[1] = 1.0 / ((1.0-yOrigin)*verticalFieldOfView);
-	screenedge[3].normal[2] = 1;
-	screenedge[3].type = PLANE_ANYZ;
+	qfrustum.screenedge[3].normal[0] = 0;
+	qfrustum.screenedge[3].normal[1] = 1.0 / ((1.0-yOrigin)*verticalFieldOfView);
+	qfrustum.screenedge[3].normal[2] = 1;
+	qfrustum.screenedge[3].type = PLANE_ANYZ;
 
 	for (i=0 ; i<4 ; i++)
-			VectorNormalize (screenedge[i].normal);
+			VectorNormalize (qfrustum.screenedge[i].normal);
 
 	D_ViewChanged ();
 }
@@ -323,20 +323,19 @@ void R_SetupFrameQ (void)
 		D_FlushCaches( false );	// so all lighting changes
 	}
 	
-	r_framecount++;
+	//tr.framecount++;
 
 
 // build the transformation matrix for the given view angles
-	VectorCopy (RI.vieworg, modelorg);
-	VectorCopy (RI.vieworg, r_origin);
+	VectorCopy (RI.vieworg, tr.modelorg);
 
-	AngleVectors (RI.viewangles, vpn, vright, vup);
+	//AngleVectors (RI.viewangles, RI.vforward, RI.vright, RI.vup);
 
 // current viewleaf
 	if ( RI.drawWorld )
 	{
-		r_viewleaf = gEngfuncs.Mod_PointInLeaf (r_origin, WORLDMODEL->nodes);
-		r_viewcluster = r_viewleaf->cluster;
+		RI.viewleaf = gEngfuncs.Mod_PointInLeaf (RI.vieworg, WORLDMODEL->nodes);
+		r_viewcluster = RI.viewleaf->cluster;
 	}
 
 //	if (sw_waterwarp->value && (r_newrefdef.rdflags & RDF_UNDERWATER) )
@@ -372,9 +371,9 @@ void R_SetupFrameQ (void)
 	R_SetUpFrustumIndexes ();
 
 // save base values
-	VectorCopy (vpn, base_vpn);
-	VectorCopy (vright, base_vright);
-	VectorCopy (vup, base_vup);
+	VectorCopy (RI.vforward, RI.base_vpn);
+	VectorCopy (RI.vright, RI.base_vright);
+	VectorCopy (RI.vup, RI.base_vup);
 
 // clear frame counts
 /*	c_faceclip = 0;
