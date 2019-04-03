@@ -592,7 +592,7 @@ ref_interface_t gReffuncs =
 	TriBegin,
 	TriEnd,
 	_TriColor4f,
-	TriColor4ub,
+	_TriColor4ub,
 	TriTexCoord2f,
 	TriVertex3fv,
 	TriVertex3f,

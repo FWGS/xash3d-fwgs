@@ -678,6 +678,7 @@ void TriVertex3fv( const float *v );
 void TriVertex3f( float x, float y, float z );
 void _TriColor4f( float r, float g, float b, float a );
 void TriColor4ub( byte r, byte g, byte b, byte a );
+void _TriColor4ub( byte r, byte g, byte b, byte a );
 int TriWorldToScreen( const float *world, float *screen );
 int TriSpriteTexture( model_t *pSpriteModel, int frame );
 void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn );
