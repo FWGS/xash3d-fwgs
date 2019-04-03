@@ -1024,21 +1024,6 @@ typedef struct espan_s
 	struct espan_s  *pnext;
 } espan_t;
 
-// used by the polygon drawer (R_POLY.C) and sprite setup code (R_SPRITE.C)
-typedef struct
-{
-	int                     nump;
-	emitpoint_t     *pverts;
-	pixel_t            *pixels;                        // image
-	int                     pixel_width;            // image width
-	int         pixel_height;       // image height
-	vec3_t          vup, vright, vpn;       // in worldspace, for plane eq
-	float       dist;
-	float       s_offset, t_offset;
-	float       viewer_position[3];
-	void       (*drawspanlet)( void );
-	int         stipple_parity;
-} polydesc_t;
 
 // FIXME: compress, make a union if that will help
 // insubmodel is only 1, flags is fewer than 32, spanstate could be a byte
@@ -1331,11 +1316,6 @@ void R_SetupFinalVert( finalvert_t *fv, float x, float y, float z, int light, in
 void RotatedBBox (vec3_t mins, vec3_t maxs, vec3_t angles, vec3_t tmins, vec3_t tmaxs);
 int R_BmodelCheckBBox (float *minmaxs);
 
-//
-// r_poly.c
-//
-void R_BuildPolygonFromSurface(msurface_t *fa);
-void R_ClipAndDrawPoly( float alpha, qboolean isturbulent, qboolean textured );
 
 void R_SetUpWorldTransform (void);
 
