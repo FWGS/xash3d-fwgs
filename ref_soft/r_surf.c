@@ -105,10 +105,10 @@ void R_AddDynamicLights( msurface_t *surf )
 		dl = gEngfuncs.GetDynamicLight( lnum );
 
 		// transform light origin to local bmodel space
-		//if( !tr.modelviewIdentity )
-			//Matrix4x4_VectorITransform( RI.objectMatrix, dl->origin, origin_l );
-		//else
-		VectorCopy( dl->origin, origin_l );
+		if( !tr.modelviewIdentity )
+			Matrix4x4_VectorITransform( RI.objectMatrix, dl->origin, origin_l );
+		else
+			VectorCopy( dl->origin, origin_l );
 
 		rad = dl->radius;
 		dist = PlaneDiff( origin_l, surf->plane );
