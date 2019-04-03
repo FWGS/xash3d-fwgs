@@ -240,7 +240,7 @@ static int R_TransEntityCompare( const cl_entity_t **a, const cl_entity_t **b )
 	return 0;
 }
 
-#if 0
+#if 1
 
 /*
 ===============
@@ -465,7 +465,7 @@ R_SetupFrustum
 void R_SetupFrustum( void )
 {
 #if 1
-	ref_overview_t	*ov = gEngfuncs.GetOverviewParms();
+	//ref_overview_t	*ov = gEngfuncs.GetOverviewParms();
 
 	/*if( RP_NORMALPASS() && ( ENGINE_GET_PARM( PARM_WATER_LEVEL ) >= 3 ))
 	{
@@ -497,8 +497,8 @@ R_SetupProjectionMatrix
 */
 static void R_SetupProjectionMatrix( matrix4x4 m )
 {
-#if 0
-	GLdouble	xMin, xMax, yMin, yMax, zNear, zFar;
+#if 1
+	double	xMin, xMax, yMin, yMax, zNear, zFar;
 
 	if( RI.drawOrtho )
 	{
@@ -529,7 +529,7 @@ R_SetupModelviewMatrix
 */
 static void R_SetupModelviewMatrix( matrix4x4 m )
 {
-#if 0
+#if 1
 	Matrix4x4_CreateModelview( m );
 	Matrix4x4_ConcatRotate( m, -RI.viewangles[2], 1, 0, 0 );
 	Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
@@ -1568,6 +1568,7 @@ void R_MarkLeaves (void)
 
 #endif
 
+
 /*
 ================
 R_RenderScene
@@ -1593,6 +1594,11 @@ void R_RenderScene( void )
 	R_SetupFrame();
 
 	R_PushDlights();
+	R_SetupModelviewMatrix( RI.worldviewMatrix );
+	R_SetupProjectionMatrix( RI.projectionMatrix );
+
+	Matrix4x4_Concat( RI.worldviewProjectionMatrix, RI.projectionMatrix, RI.worldviewMatrix );
+
 //	R_SetupGL( true );
 	//R_Clear( ~0 );
 

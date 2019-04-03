@@ -699,6 +699,7 @@ qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 	{
 		float	blend;
 		vec3_t	v;
+		//return false;
 
 		TriWorldToScreen( origin, v );
 

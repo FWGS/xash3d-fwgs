@@ -447,10 +447,6 @@ byte *Mod_GetCurrentVis()
 	return NULL;
 }
 
-void R_ScreenToWorld(const vec3_t screen, vec3_t point)
-{
-
-}
 void GL_SetupAttributes( int safegl )
 {
 	gEngfuncs.Con_Reportf( "Creating an extended GL context for debug...\n" );
