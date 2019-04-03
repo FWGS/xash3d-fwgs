@@ -617,6 +617,7 @@ typedef struct
 	netadr_t legacyserver;
 	netadr_t legacyservers[MAX_LEGACY_SERVERS];
 	int	legacyservercount;
+	int extensions;
 } client_static_t;
 
 #ifdef __cplusplus
@@ -736,7 +737,7 @@ void CL_SendCommand( void );
 void CL_Disconnect_f( void );
 void CL_ProcessFile( qboolean successfully_received, const char *filename );
 void CL_WriteUsercmd( sizebuf_t *msg, int from, int to );
-int CL_GetFragmentSize( void *unused );
+int CL_GetFragmentSize( void *unused , fragsize_t mode );
 qboolean CL_PrecacheResources( void );
 void CL_SetupOverviewParams( void );
 void CL_UpdateFrameLerp( void );

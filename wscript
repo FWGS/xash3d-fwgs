@@ -41,16 +41,16 @@ def subdirs():
 def options(opt):
 	grp = opt.add_option_group('Common options')
 
-	grp.add_option('--build-type', action='store', dest='BUILD_TYPE', default = None,
+	grp.add_option('-T', '--build-type', action='store', dest='BUILD_TYPE', default = None,
 		help = 'build type: debug, release or none(custom flags)')
 
-	grp.add_option('--dedicated', action = 'store_true', dest = 'DEDICATED', default = False,
+	grp.add_option('-d', '--dedicated', action = 'store_true', dest = 'DEDICATED', default = False,
 		help = 'build Xash Dedicated Server(XashDS)')
 
-	grp.add_option(	'--single-binary', action = 'store_true', dest = 'SINGLE_BINARY', default = False,
+	grp.add_option('--single-binary', action = 'store_true', dest = 'SINGLE_BINARY', default = False,
 		help = 'build single "xash" binary instead of xash.dll/libxash.so (forced for dedicated)')
 
-	grp.add_option('--64bits', action = 'store_true', dest = 'ALLOW64', default = False,
+	grp.add_option('-8', '--64bits', action = 'store_true', dest = 'ALLOW64', default = False,
 		help = 'allow targetting 64-bit engine')
 
 	grp.add_option('--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
@@ -59,7 +59,7 @@ def options(opt):
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
 		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compability!)')
 
-	grp.add_option('--skip-subprojects', action='store', dest = 'SKIP_SUBDIRS', default=None,
+	grp.add_option('-S', '--skip-subprojects', action='store', dest = 'SKIP_SUBDIRS', default=None,
 		help = 'don\'t recurse into specified subprojects. Current subdirs: ' + str(subdirs()))
 
 	for i in SUBDIRS:
@@ -85,7 +85,7 @@ def configure(conf):
 	conf.start_msg('Build type')
 	if conf.options.BUILD_TYPE == None:
 		conf.end_msg('not set', color='RED')
-		conf.fatal('Please set a build type, for example "--build-type=release"')
+		conf.fatal('Please set a build type, for example "-T release"')
 	elif not conf.options.BUILD_TYPE in ['release', 'debug', 'none']:
 		conf.end_msg(conf.options.BUILD_TYPE, color='RED')
 		conf.fatal('Invalid build type. Valid are "debug", "release" or "none"')
@@ -198,6 +198,7 @@ def configure(conf):
 		conf.setenv('')
 
 def build(bld):
+	bld.load_envs()
 	for i in SUBDIRS:
 		if bld.env.SINGLE_BINARY and i.singlebin:
 			continue
@@ -208,4 +209,5 @@ def build(bld):
 		if i.ignore:
 			continue
 
+		bld.env = bld.all_envs[i.name]
 		bld.recurse(i.name)

@@ -4,11 +4,21 @@
 
 from waflib import Logs
 import os
-from fwgslib import get_subproject_name
 
 top = '.'
 
 def options(opt):
+	grp = opt.add_option_group('ref_gl options')
+
+	grp.add_option('--enable-static-gl', action='store_true', dest='GL_STATIC',
+	    help = 'don\'t load opengl in runtime, instead link to libGL directly(default: False)')
+
+	grp.add_option('--enable-gles1', action='store_true', dest='NANOGL',
+	    help = 'enable gles1 renderer by linking nanogl statically(put source to ref_gl directory)')
+
+	grp.add_option('--enable-gles2', action='store_true', dest='GLWES',
+	    help = 'enable gles2 renderer by linking gl-wes-v2 statically(put source to ref_gl directory)')
+
 	# stub
 	return
 
@@ -20,16 +30,20 @@ def configure(conf):
 	if conf.options.SUPPORT_BSP2_FORMAT:
 		conf.env.append_unique('DEFINES', 'SUPPORT_BSP2_FORMAT')
 
+	conf.env.NANOGL = conf.options.NANOGL
+	conf.env.GLWES  = conf.options.GLWES
+
+	if conf.env.NANOGL: conf.recurse('nanogl')
+	if conf.env.GLWES:
+		conf.recurse('gl-wes-v2')
+
+	conf.env.GL_STATIC = conf.options.GL_STATIC
+	if conf.env.GL_STATIC:
+		conf.check( lib='GL' )
+
 	conf.env.append_unique('DEFINES', 'REF_DLL')
 
 def build(bld):
-	if bld.env.DEDICATED:
-		return
-
-	bld.load_envs()
-	name = get_subproject_name(bld)
-	bld.env = bld.all_envs[name]
-
 	libs = [ 'public', 'M' ]
 
 	source = bld.path.ant_glob(['*.c'])
@@ -43,12 +57,45 @@ def build(bld):
 		'../common',
 		'../pm_shared' ]
 
+	def link_gl( glstatic ):
+		if glstatic: return ['GL']
+		else: return []
+
+	def static_gl( glstatic ):
+		if glstatic: return ['XASH_GL_STATIC']
+		else: return []
+
 	bld.shlib(
 		source   = source,
-		target   = name,
+		target   = 'ref_gl',
 		features = 'c',
 		includes = includes,
-		use      = libs,
+		use      = libs + link_gl(bld.env.GL_STATIC),
+		defines  = static_gl(bld.env.GL_STATIC),
 		install_path = bld.env.LIBDIR,
 		subsystem = bld.env.MSVC_SUBSYSTEM
 	)
+
+	if bld.env.NANOGL:
+		bld.recurse('nanogl')
+		bld.shlib(
+		    source   = source,
+			target   = 'ref_gles1',
+			features = 'c',
+			includes = includes,
+			use      = libs + ['nanogl', 'DL' ],
+			defines  = ['XASH_GLES', 'XASH_NANOGL'],
+			install_path = bld.env.LIBDIR,
+			subsystem = bld.env.MSVC_SUBSYSTEM)
+
+	if bld.env.GLWES:
+		bld.recurse('gl-wes-v2')
+		bld.shlib(
+		    source   = source,
+			target   = 'ref_gles2',
+			features = 'c',
+			includes = includes,
+			use      = libs + ['gl-wes-v2', 'DL'],
+			defines  = ['XASH_GLES', 'XASH_WES'],
+			install_path = bld.env.LIBDIR,
+			subsystem = bld.env.MSVC_SUBSYSTEM)

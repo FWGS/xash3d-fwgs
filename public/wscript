@@ -17,17 +17,13 @@ def configure(conf):
 	return
 
 def build(bld):
-	bld.load_envs()
-	name = get_subproject_name(bld)
-	bld.env = bld.all_envs[name]
-
 	source = bld.path.ant_glob(['*.c'])
 	libs = []
 	includes = [ '.', '../common', '../engine' ]
 
 	bld.stlib(
 		source   = source,
-		target   = name,
+		target   = 'public',
 		features = 'c',
 		includes = includes,
 		use      = libs,

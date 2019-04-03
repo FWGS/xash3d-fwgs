@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #ifndef GL_LOCAL_H
 #define GL_LOCAL_H
 #include "port.h"
+#include "defaults.h"
 #include "xash3d_types.h"
 #include "cvardef.h"
 #include "const.h"
@@ -577,6 +578,7 @@ void TriTexCoord2f( float u, float v );
 void TriVertex3fv( const float *v );
 void TriVertex3f( float x, float y, float z );
 void _TriColor4f( float r, float g, float b, float a );
+void _TriColor4ub( byte r, byte g, byte b, byte a );
 void TriColor4f( float r, float g, float b, float a );
 void TriColor4ub( byte r, byte g, byte b, byte a );
 void TriBrightness( float brightness );

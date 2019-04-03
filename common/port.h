@@ -162,7 +162,7 @@ GNU General Public License for more details.
 #define USHRT_MAX 65535
 #endif
 
-#ifdef XASH_SDL
+#if defined XASH_SDL && !defined REF_DLL
 #include <SDL.h>
 #endif
 

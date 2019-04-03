@@ -111,6 +111,8 @@ const char *Q_buildarch( void )
 	archname = "mips";
 #elif defined __EMSCRIPTEN__
 	archname = "javascript";
+#elif defined __e2k__
+	archname = "elbrus";
 #else
 #error "Place your architecture name here! If this is a mistake, try to fix conditions above and report a bug"
 #endif

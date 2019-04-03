@@ -1027,6 +1027,7 @@ static void GL_TextureImageDXT( gl_texture_t *tex, GLint side, GLint level, GLin
 
 	Assert( tex != NULL );
 
+#ifndef XASH_GLES
 	if( tex->target == GL_TEXTURE_1D )
 	{
 		if( subImage ) pglCompressedTexSubImage1DARB( tex->target, level, 0, width, tex->format, size, data );
@@ -1047,6 +1048,7 @@ static void GL_TextureImageDXT( gl_texture_t *tex, GLint side, GLint level, GLin
 		if( subImage ) pglCompressedTexSubImage2DARB( tex->target, level, 0, 0, width, height, tex->format, size, data );
 		else pglCompressedTexImage2DARB( tex->target, level, tex->format, width, height, 0, size, data );
 	}
+#endif
 }
 
 /*

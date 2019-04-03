@@ -32,7 +32,7 @@ cd $TRAVIS_BUILD_DIR
 export CC="ccache gcc"
 export CXX="ccache g++"
 ./waf configure --sdl2=$TRAVIS_BUILD_DIR/SDL2_linux --vgui=$TRAVIS_BUILD_DIR/vgui-dev --build-type=debug --enable-stb || die
-./waf build -j2 || die
+./waf build || die
 
 # Build AppImage
 scripts/build_appimage.sh
