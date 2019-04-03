@@ -1822,44 +1822,51 @@ R_NewMap
 */
 void R_NewMap (void)
 {
-		r_viewcluster = -1;
+	int i;
+	r_viewcluster = -1;
+	R_ClearDecals(); // clear all level decals
+	R_StudioResetPlayerModels();
 
-		D_FlushCaches( true );
+	D_FlushCaches( true );
 
-		r_cnumsurfs = sw_maxsurfs->value;
+	r_cnumsurfs = sw_maxsurfs->value;
 
-		if (r_cnumsurfs <= MINSURFACES)
-				r_cnumsurfs = MINSURFACES;
+	if (r_cnumsurfs <= MINSURFACES)
+			r_cnumsurfs = MINSURFACES;
 
-		if (r_cnumsurfs > NUMSTACKSURFACES)
-		{
-				surfaces = Mem_Calloc (r_temppool, r_cnumsurfs * sizeof(surf_t));
-				surface_p = surfaces;
-				surf_max = &surfaces[r_cnumsurfs];
-				r_surfsonstack = false;
-		// surface 0 doesn't really exist; it's just a dummy because index 0
-		// is used to indicate no edge attached to surface
-				surfaces--;
-				R_SurfacePatch ();
-		}
-		else
-		{
-				r_surfsonstack = true;
-		}
+	if (r_cnumsurfs > NUMSTACKSURFACES)
+	{
+			surfaces = Mem_Calloc (r_temppool, r_cnumsurfs * sizeof(surf_t));
+			surface_p = surfaces;
+			surf_max = &surfaces[r_cnumsurfs];
+			r_surfsonstack = false;
+	// surface 0 doesn't really exist; it's just a dummy because index 0
+	// is used to indicate no edge attached to surface
+			surfaces--;
+			R_SurfacePatch ();
+	}
+	else
+	{
+			r_surfsonstack = true;
+	}
 
-		r_numallocatededges = sw_maxedges->value;
+	r_numallocatededges = sw_maxedges->value;
 
-		if (r_numallocatededges < MINEDGES)
-				r_numallocatededges = MINEDGES;
+	if (r_numallocatededges < MINEDGES)
+			r_numallocatededges = MINEDGES;
 
-		if (r_numallocatededges <= NUMSTACKEDGES)
-		{
-				auxedges = NULL;
-		}
-		else
-		{
-				auxedges = malloc (r_numallocatededges * sizeof(edge_t));
-		}
+	if (r_numallocatededges <= NUMSTACKEDGES)
+	{
+			auxedges = NULL;
+	}
+	else
+	{
+			auxedges = malloc (r_numallocatededges * sizeof(edge_t));
+	}
+
+	// clear out efrags in case the level hasn't been reloaded
+	for( i = 0; i < WORLDMODEL->numleafs; i++ )
+		WORLDMODEL->leafs[i+1].efrags = NULL;
 }
 
 /*
