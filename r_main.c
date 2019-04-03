@@ -115,8 +115,6 @@ short                   *d_pzbuffer;
 unsigned int    d_zrowbytes;
 unsigned int    d_zwidth;
 
-qboolean        r_dowarp;
-
 mvertex_t       *r_pcurrentvertbase;
 
 //int                     c_surf;
@@ -795,154 +793,6 @@ static image_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mnode_t 
 
 	// top-level node, bail out
 	return NULL;
-}
-
-/*
-=============
-R_CheckFog
-
-check for underwater fog
-Using backward recursion to find waterline leaf
-from underwater leaf (idea: XaeroX)
-=============
-*/
-static void R_CheckFog( void )
-{
-	cl_entity_t	*ent;
-	image_t	*tex;
-	int		i, cnt, count;
-
-	// quake global fog
-	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
-	{
-		if( !MOVEVARS->fog_settings )
-		{
-		//	if( pglIsEnabled( GL_FOG ))
-			//	pglDisable( GL_FOG );
-			RI.fogEnabled = false;
-			return;
-		}
-
-		// quake-style global fog
-		RI.fogColor[0] = ((MOVEVARS->fog_settings & 0xFF000000) >> 24) / 255.0f;
-		RI.fogColor[1] = ((MOVEVARS->fog_settings & 0xFF0000) >> 16) / 255.0f;
-		RI.fogColor[2] = ((MOVEVARS->fog_settings & 0xFF00) >> 8) / 255.0f;
-		RI.fogDensity = ((MOVEVARS->fog_settings & 0xFF) / 255.0f) * 0.01f;
-		RI.fogStart = RI.fogEnd = 0.0f;
-		RI.fogColor[3] = 1.0f;
-		RI.fogCustom = false;
-		RI.fogEnabled = true;
-		RI.fogSkybox = true;
-		return;
-	}
-
-	RI.fogEnabled = false;
-
-	if( RI.onlyClientDraw || ENGINE_GET_PARM( PARM_WATER_LEVEL ) < 3 || !RI.drawWorld || !RI.viewleaf )
-	{
-		if( RI.cached_waterlevel == 3 )
-                    {
-			// in some cases waterlevel jumps from 3 to 1. Catch it
-			RI.cached_waterlevel = ENGINE_GET_PARM( PARM_WATER_LEVEL );
-			RI.cached_contents = CONTENTS_EMPTY;
-			//if( !RI.fogCustom ) pglDisable( GL_FOG );
-		}
-		return;
-	}
-
-	ent = gEngfuncs.CL_GetWaterEntity( RI.vieworg );
-	if( ent && ent->model && ent->model->type == mod_brush && ent->curstate.skin < 0 )
-		cnt = ent->curstate.skin;
-	else cnt = RI.viewleaf->contents;
-
-	RI.cached_waterlevel = ENGINE_GET_PARM( PARM_WATER_LEVEL );
-
-	if( !IsLiquidContents( RI.cached_contents ) && IsLiquidContents( cnt ))
-	{
-		tex = NULL;
-
-		// check for water texture
-		if( ent && ent->model && ent->model->type == mod_brush )
-		{
-			msurface_t	*surf;
-	
-			count = ent->model->nummodelsurfaces;
-
-			for( i = 0, surf = &ent->model->surfaces[ent->model->firstmodelsurface]; i < count; i++, surf++ )
-			{
-				if( surf->flags & SURF_DRAWTURB && surf->texinfo && surf->texinfo->texture )
-				{
-					tex = R_GetTexture( surf->texinfo->texture->gl_texturenum );
-					RI.cached_contents = ent->curstate.skin;
-					break;
-				}
-			}
-		}
-		else
-		{
-			tex = R_RecursiveFindWaterTexture( RI.viewleaf->parent, NULL, false );
-			if( tex ) RI.cached_contents = RI.viewleaf->contents;
-		}
-
-		if( !tex ) return;	// no valid fogs
-
-		// copy fog params
-		RI.fogColor[0] = tex->fogParams[0] / 255.0f;
-		RI.fogColor[1] = tex->fogParams[1] / 255.0f;
-		RI.fogColor[2] = tex->fogParams[2] / 255.0f;
-		RI.fogDensity = tex->fogParams[3] * 0.000025f;
-		RI.fogStart = RI.fogEnd = 0.0f;
-		RI.fogColor[3] = 1.0f;
-		RI.fogCustom = false;
-		RI.fogEnabled = true;
-		RI.fogSkybox = true;
-	}
-	else
-	{
-		RI.fogCustom = false;
-		RI.fogEnabled = true;
-		RI.fogSkybox = true;
-	}
-}
-
-/*
-=============
-R_CheckGLFog
-
-special condition for Spirit 1.9
-that used direct calls of glFog-functions
-=============
-*/
-static void R_CheckGLFog( void )
-{
-#ifdef HACKS_RELATED_HLMODS
-	if(( !RI.fogEnabled && !RI.fogCustom ) && pglIsEnabled( GL_FOG ) && VectorIsNull( RI.fogColor ))
-	{
-		// fill the fog color from GL-state machine
-		pglGetFloatv( GL_FOG_COLOR, RI.fogColor );
-		RI.fogSkybox = true;
-	}
-#endif
-}
-
-/*
-=============
-R_DrawFog
-
-=============
-*/
-void R_DrawFog( void )
-{
-	if( !RI.fogEnabled ) return;
-#if 0
-	pglEnable( GL_FOG );
-	if( gEngfuncs.Host_IsQuakeCompatible( ))
-		pglFogi( GL_FOG_MODE, GL_EXP2 );
-	else pglFogi( GL_FOG_MODE, GL_EXP );
-	pglFogf( GL_FOG_DENSITY, RI.fogDensity );
-	pglFogfv( GL_FOG_COLOR, RI.fogColor );
-	pglHint( GL_FOG_HINT, GL_NICEST );
-#endif
 }
 
 /*
@@ -1744,15 +1594,12 @@ void R_RenderScene( void )
 
 	R_PushDlights();
 //	R_SetupGL( true );
-	R_Clear( ~0 );
+	//R_Clear( ~0 );
 
 	R_MarkLeaves();
-	R_DrawFog ();
 	// R_PushDlights (r_worldmodel); ??
-	R_CheckGLFog();	
 	//R_DrawWorld();
 	R_EdgeDrawing ();
-	R_CheckFog();
 
 	gEngfuncs.CL_ExtraUpdate ();	// don't let sound get messed up if going slow
 
@@ -1854,7 +1701,6 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 	RI.params = RP_NONE;
 	RI.drawWorld = FBitSet( rvp->flags, RF_DRAW_WORLD );
 	RI.onlyClientDraw = FBitSet( rvp->flags, RF_ONLY_CLIENTDRAW );
-	RI.farClip = 0;
 
 	if( !FBitSet( rvp->flags, RF_DRAW_CUBEMAP ))
 		RI.drawOrtho = FBitSet( rvp->flags, RF_DRAW_OVERVIEW );

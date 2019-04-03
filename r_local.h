@@ -185,8 +185,6 @@ typedef struct
 	vec3_t		vforward;
 	vec3_t		vright;
 	vec3_t		vup;
-
-
 	vec3_t  base_vup;
 	vec3_t  base_vpn;
 	vec3_t  base_vright;
@@ -196,15 +194,6 @@ typedef struct
 	vec3_t		cull_vright;
 	vec3_t		cull_vup;
 
-	float		farClip;
-
-	qboolean		fogCustom;
-	qboolean		fogEnabled;
-	qboolean		fogSkybox;
-	vec4_t		fogColor;
-	float		fogDensity;
-	float		fogStart;
-	float		fogEnd;
 	int		cached_contents;	// in water
 	int		cached_waterlevel;	// was in water
 
@@ -220,7 +209,6 @@ typedef struct
 	byte		visbytes[(MAX_MAP_LEAFS+7)/8];// actual PVS for current frame
 
 	float		viewplanedist;
-	mplane_t		clipPlane;
 
 	// q2 oldrefdef
 	vrect_t         vrect;                          // subwindow in video for refresh
@@ -267,9 +255,6 @@ typedef struct
 	int		dlightTexture;	// custom dlight texture
 	int		skyboxTextures[6];	// skybox sides
 	int		cinTexture;      	// cinematic texture
-
-	int		skytexturenum;	// this not a gl_texturenum!
-	int		skyboxbasenum;	// start with 5800
 
 	// entity lists
 	draw_list_t	draw_stack[MAX_DRAW_STACK];
@@ -1070,19 +1055,14 @@ VARS
 									//  started
 extern float    r_aliasuvscale;         // scale-up factor for screen u and v
 									//  on Alias vertices passed to driver
-extern qboolean r_dowarp;
 
 extern affinetridesc_t  r_affinetridesc;
-
-extern vec3_t   r_pright, r_pup, r_ppn;
 
 void D_DrawSurfaces (void);
 void R_DrawParticle( void );
 void D_ViewChanged (void);
 void D_WarpScreen (void);
 void R_PolysetUpdateTables (void);
-
-extern void *acolormap; // FIXME: should go away
 
 //=======================================================================//
 
@@ -1166,13 +1146,6 @@ extern edge_t   *r_edges, *edge_p, *edge_max;
 
 extern  edge_t  *newedges[MAXHEIGHT];
 extern  edge_t  *removeedges[MAXHEIGHT];
-
-// FIXME: make stack vars when debugging done
-extern  edge_t  edge_head;
-extern  edge_t  edge_tail;
-extern edge_t edge_aftertail;
-
-extern qboolean r_surfsonstack;
 
 extern	int			r_viewcluster, r_oldviewcluster;
 

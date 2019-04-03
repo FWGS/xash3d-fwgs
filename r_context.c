@@ -185,7 +185,7 @@ static int GL_RenderGetParm( int parm, int arg )
 		Assert( arg >= 0 && arg < 6 );
 		return tr.skyboxTextures[arg];
 	case PARM_TEX_SKYTEXNUM:
-		return tr.skytexturenum;
+		return 0;
 	case PARM_TEX_LIGHTMAP:
 		arg = bound( 0, arg, MAX_LIGHTMAPS - 1 );
 		return tr.lightmapTextures[arg];
