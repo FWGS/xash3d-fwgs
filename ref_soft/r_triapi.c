@@ -345,7 +345,7 @@ void TriVertex3f( float x, float y, float z )
 		}
 #endif
 }
-void R_AliasWorldToScreen( const float *v, float *out );
+
 /*
 =============
 TriWorldToScreen
@@ -357,14 +357,13 @@ int TriWorldToScreen( const float *world, float *screen )
 {
 	int	retval;
 
-	R_AliasWorldToScreen( world, screen );
-	retval = 0;
-
+	retval = R_WorldToScreen( world, screen );
 
 	screen[0] =  0.5f * screen[0] * (float)RI.viewport[2];
 	screen[1] = -0.5f * screen[1] * (float)RI.viewport[3];
 	screen[0] += 0.5f * (float)RI.viewport[2];
 	screen[1] += 0.5f * (float)RI.viewport[3];
+
 
 	return retval;
 }

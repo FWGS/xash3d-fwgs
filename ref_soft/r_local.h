@@ -196,6 +196,7 @@ typedef struct
 
 	int		cached_contents;	// in water
 	int		cached_waterlevel;	// was in water
+	float farClip;
 
 	float		skyMins[2][6];
 	float		skyMaxs[2][6];
@@ -474,7 +475,7 @@ void R_FindViewLeaf( void );
 void R_PushScene( void );
 void R_PopScene( void );
 void R_DrawFog( void );
-#if 0
+
 //
 // gl_rmath.c
 //
@@ -492,7 +493,7 @@ void Matrix4x4_CreateScale3( matrix4x4 out, float x, float y, float z );
 void Matrix4x4_CreateProjection(matrix4x4 out, float xMax, float xMin, float yMax, float yMin, float zNear, float zFar);
 void Matrix4x4_CreateOrtho(matrix4x4 m, float xLeft, float xRight, float yBottom, float yTop, float zNear, float zFar);
 void Matrix4x4_CreateModelview( matrix4x4 out );
-
+#if 0
 //
 // gl_rmisc.c
 //
