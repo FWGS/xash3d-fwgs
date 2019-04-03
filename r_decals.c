@@ -1173,7 +1173,7 @@ int R_CreateDecalList( decallist_t *pList )
 	int	total = 0;
 	int	i, depth;
 
-	return 0; // crash on changelevel. API bug?
+//	return 0; // crash on changelevel. API bug?
 
 	if( WORLDMODEL )
 	{
