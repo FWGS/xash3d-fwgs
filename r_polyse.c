@@ -90,6 +90,8 @@ int						d_sfracbasestep, d_tfracbasestep;
 int						d_ziextrastep, d_zibasestep;
 int						d_pzextrastep, d_pzbasestep;
 
+static int			ubasestep, errorterm, erroradjustup, erroradjustdown;
+
 typedef struct {
 	int		quotient;
 	int		remainder;

@@ -30,10 +30,6 @@ ref_instance_t	RI;
 
 // view origin
 //
-vec3_t	vup, base_vup;
-vec3_t	vpn, base_vpn;
-vec3_t	vright, base_vright;
-vec3_t	r_origin;
 
 //
 // screen size info
@@ -46,26 +42,18 @@ float		aliasxscale, aliasyscale, aliasxcenter, aliasycenter;
 
 int		r_screenwidth;
 
-float	verticalFieldOfView;
-float	xOrigin, yOrigin;
 
-mplane_t	screenedge[4];
 
 
 //
 // refresh flags
 //
-int             r_framecount = 1;       // so frame counts initialized to 0 don't match
-int             r_visframecount;
+
 //int             d_spanpixcount;
 //int             r_polycount;
 //int             r_drawnpolycount;
 //int             r_wholepolycount;
 
-int                     *pfrustum_indexes[4];
-int                     r_frustum_indexes[4*6];
-
-mleaf_t         *r_viewleaf;
 int                     r_viewcluster, r_oldviewcluster;
 
 cvar_t	*r_lefthand;
@@ -1152,14 +1140,14 @@ int R_BmodelCheckBBox (float *minmaxs)
 	// FIXME: do with fast look-ups or integer tests based on the sign bit
 	// of the floating point values
 
-		pindex = pfrustum_indexes[i];
+		pindex = qfrustum.pfrustum_indexes[i];
 
 		rejectpt[0] = minmaxs[pindex[0]];
 		rejectpt[1] = minmaxs[pindex[1]];
 		rejectpt[2] = minmaxs[pindex[2]];
 
-		d = DotProduct (rejectpt, view_clipplanes[i].normal);
-		d -= view_clipplanes[i].dist;
+		d = DotProduct (rejectpt, qfrustum.view_clipplanes[i].normal);
+		d -= qfrustum.view_clipplanes[i].dist;
 
 		if (d <= 0)
 			return BMODEL_FULLY_CLIPPED;
@@ -1168,8 +1156,8 @@ int R_BmodelCheckBBox (float *minmaxs)
 		acceptpt[1] = minmaxs[pindex[3+1]];
 		acceptpt[2] = minmaxs[pindex[3+2]];
 
-		d = DotProduct (acceptpt, view_clipplanes[i].normal);
-		d -= view_clipplanes[i].dist;
+		d = DotProduct (acceptpt, qfrustum.view_clipplanes[i].normal);
+		d -= qfrustum.view_clipplanes[i].dist;
 
 		if (d <= 0)
 			clipflags |= (1<<i);
@@ -1193,7 +1181,7 @@ mnode_t *R_FindTopnode (vec3_t mins, vec3_t maxs)
 
 		while (1)
 		{
-				if (node->visframe != r_visframecount)
+				if (node->visframe != tr.visframecount)
 						return NULL;            // not visible at all
 
 				if (node->contents < 0)
@@ -1293,7 +1281,7 @@ void R_DrawBEntitiesOnList (void)
 	float		minmaxs[6];
 	mnode_t		*topnode;
 
-	VectorCopy (modelorg, oldorigin);
+	VectorCopy (tr.modelorg, oldorigin);
 	insubmodel = true;
 	//r_dlightframecount = r_framecount;
 
@@ -1335,7 +1323,7 @@ void R_DrawBEntitiesOnList (void)
 			continue;	// no part in a visible leaf
 
 		VectorCopy (RI.currententity->origin, r_entorigin);
-		VectorSubtract (r_origin, r_entorigin, modelorg);
+		VectorSubtract (RI.vieworg, r_entorigin, tr.modelorg);
 		//VectorSubtract (r_origin, RI.currententity->origin, modelorg);
 		r_pcurrentvertbase = RI.currentmodel->vertexes;
 
@@ -1394,10 +1382,10 @@ void R_DrawBEntitiesOnList (void)
 
 	// put back world rotation and frustum clipping
 	// FIXME: R_RotateBmodel should just work off base_vxx
-		VectorCopy (base_vpn, vpn);
-		VectorCopy (base_vup, vup);
-		VectorCopy (base_vright, vright);
-		VectorCopy (oldorigin, modelorg);
+		VectorCopy (RI.base_vpn, RI.vforward);
+		VectorCopy (RI.base_vup, RI.vup);
+		VectorCopy (RI.base_vright, RI.vright);
+		VectorCopy (oldorigin, tr.modelorg);
 		R_TransformFrustum ();
 	}
 
@@ -1451,7 +1439,7 @@ void R_DrawBrushModel(cl_entity_t *pent)
 
 	R_BeginEdgeFrame();
 
-	VectorCopy (modelorg, oldorigin);
+	VectorCopy (tr.modelorg, oldorigin);
 	insubmodel = true;
 	//r_dlightframecount = r_framecount;
 
@@ -1489,7 +1477,7 @@ void R_DrawBrushModel(cl_entity_t *pent)
 
 			alphaspans = true;
 		VectorCopy (RI.currententity->origin, r_entorigin);
-		VectorSubtract (r_origin, r_entorigin, modelorg);
+		VectorSubtract (RI.vieworg, r_entorigin, tr.modelorg);
 		//VectorSubtract (r_origin, RI.currententity->origin, modelorg);
 		r_pcurrentvertbase = RI.currentmodel->vertexes;
 
@@ -1548,10 +1536,10 @@ void R_DrawBrushModel(cl_entity_t *pent)
 
 	// put back world rotation and frustum clipping
 	// FIXME: R_RotateBmodel should just work off base_vxx
-		VectorCopy (base_vpn, vpn);
-		VectorCopy (base_vup, vup);
-		VectorCopy (base_vright, vright);
-		VectorCopy (oldorigin, modelorg);
+		VectorCopy (RI.base_vpn, RI.vforward);
+		VectorCopy (RI.base_vup, RI.vup);
+		VectorCopy (RI.base_vright, RI.vright);
+		VectorCopy (oldorigin, tr.modelorg);
 		R_TransformFrustum ();
 
 
@@ -1704,7 +1692,7 @@ void R_MarkLeaves (void)
 	if (r_oldviewcluster == r_viewcluster && !r_novis->value && r_viewcluster != -1)
 		return;
 
-	r_visframecount++;
+	tr.visframecount++;
 	r_oldviewcluster = r_viewcluster;
 
 	gEngfuncs.R_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), false );
@@ -1717,9 +1705,9 @@ void R_MarkLeaves (void)
 			node = (mnode_t *) &WORLDMODEL->leafs[i+1];
 			do
 			{
-				if (node->visframe == r_visframecount)
+				if (node->visframe == tr.visframecount)
 					break;
-				node->visframe = r_visframecount;
+				node->visframe = tr.visframecount;
 				node = node->parent;
 			} while (node);
 		}
@@ -2098,12 +2086,10 @@ qboolean R_Init()
 	// init draw stack
 	tr.draw_list = &tr.draw_stack[0];
 	tr.draw_stack_pos = 0;
-	RI.yOrigin = YCENTERING;
-	RI.xOrigin = XCENTERING;
-	view_clipplanes[0].leftedge = true;
-	view_clipplanes[1].rightedge = true;
-	view_clipplanes[1].leftedge = view_clipplanes[2].leftedge =view_clipplanes[3].leftedge = false;
-	view_clipplanes[0].rightedge = view_clipplanes[2].rightedge = view_clipplanes[3].rightedge = false;
+	qfrustum.view_clipplanes[0].leftedge = true;
+	qfrustum.view_clipplanes[1].rightedge = true;
+	qfrustum.view_clipplanes[1].leftedge = qfrustum.view_clipplanes[2].leftedge =qfrustum.view_clipplanes[3].leftedge = false;
+	qfrustum.view_clipplanes[0].rightedge = qfrustum.view_clipplanes[2].rightedge = qfrustum.view_clipplanes[3].rightedge = false;
 	R_StudioInit();
 	R_SpriteInit();
 	R_InitTurb();

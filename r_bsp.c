@@ -25,7 +25,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // current entity info
 //
 qboolean		insubmodel;
-vec3_t			modelorg;		// modelorg is the viewpoint reletive to
 								// the currently rendering entity
 vec3_t			r_entorigin;	// the currently rendering entity in world
 								// coordinates
@@ -165,10 +164,10 @@ void R_RotateBmodel (void)
 //
 // rotate modelorg and the transformation matrix
 //
-	R_EntityRotate (modelorg);
-	R_EntityRotate (vpn);
-	R_EntityRotate (vright);
-	R_EntityRotate (vup);
+	R_EntityRotate (tr.modelorg);
+	R_EntityRotate (RI.vforward);
+	R_EntityRotate (RI.vright);
+	R_EntityRotate (RI.vup);
 
 	R_TransformFrustum ();
 }
@@ -495,7 +494,7 @@ void R_RecursiveClipBPoly (bedge_t *pedges, mnode_t *pnode, msurface_t *psurf)
 			pn = pnode->children[i];
 
 		// we're done with this branch if the node or leaf isn't in the PVS
-			if (pn->visframe == r_visframecount)
+			if (pn->visframe == tr.visframecount)
 			{
 				if (pn->contents < 0)
 				{
@@ -667,7 +666,7 @@ void R_DrawSolidClippedSubmodelPolygons (model_t *pmodel, mnode_t *topnode)
 	// find which side of the node we are on
 		pplane = psurf->plane;
 
-		dot = DotProduct (modelorg, pplane->normal) - pplane->dist;
+		dot = DotProduct (tr.modelorg, pplane->normal) - pplane->dist;
 
 	// draw the polygon
 		if (( !(psurf->flags & SURF_PLANEBACK) && (dot < -BACKFACE_EPSILON)) ||
@@ -742,7 +741,7 @@ void R_DrawSubmodelPolygons (model_t *pmodel, int clipflags, mnode_t *topnode)
 	// find which side of the node we are on
 		pplane = psurf->plane;
 
-		dot = DotProduct (modelorg, pplane->normal) - pplane->dist;
+		dot = DotProduct (tr.modelorg, pplane->normal) - pplane->dist;
 
 	// draw the polygon
 		if (((psurf->flags & SURF_PLANEBACK) && (dot < -BACKFACE_EPSILON)) ||
@@ -779,7 +778,7 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 	if (node->contents == CONTENTS_SOLID)
 		return;		// solid
 
-	if (node->visframe != r_visframecount)
+	if (node->visframe != tr.visframecount)
 		return;
 
 // cull the clipping planes if not trivial accept
@@ -796,14 +795,14 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 		// FIXME: do with fast look-ups or integer tests based on the sign bit
 		// of the floating point values
 
-			pindex = pfrustum_indexes[i];
+			pindex = qfrustum.pfrustum_indexes[i];
 
 			rejectpt[0] = (float)node->minmaxs[pindex[0]];
 			rejectpt[1] = (float)node->minmaxs[pindex[1]];
 			rejectpt[2] = (float)node->minmaxs[pindex[2]];
 
-			d = DotProduct (rejectpt, view_clipplanes[i].normal);
-			d -= view_clipplanes[i].dist;
+			d = DotProduct (rejectpt, qfrustum.view_clipplanes[i].normal);
+			d -= qfrustum.view_clipplanes[i].dist;
 
 			if (d <= 0)
 				return;
@@ -812,8 +811,8 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 			acceptpt[1] = (float)node->minmaxs[pindex[3+1]];
 			acceptpt[2] = (float)node->minmaxs[pindex[3+2]];
 
-			d = DotProduct (acceptpt, view_clipplanes[i].normal);
-			d -= view_clipplanes[i].dist;
+			d = DotProduct (acceptpt, qfrustum.view_clipplanes[i].normal);
+			d -= qfrustum.view_clipplanes[i].dist;
 
 			if (d >= 0)
 				clipflags &= ~(1<<i);	// node is entirely on screen
@@ -832,7 +831,7 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 		{
 			do
 			{
-				(*mark)->visframe = r_framecount;
+				(*mark)->visframe = tr.framecount;
 				mark++;
 			} while (--c);
 		}
@@ -858,16 +857,16 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 		switch (plane->type)
 		{
 		case PLANE_X:
-			dot = modelorg[0] - plane->dist;
+			dot = tr.modelorg[0] - plane->dist;
 			break;
 		case PLANE_Y:
-			dot = modelorg[1] - plane->dist;
+			dot = tr.modelorg[1] - plane->dist;
 			break;
 		case PLANE_Z:
-			dot = modelorg[2] - plane->dist;
+			dot = tr.modelorg[2] - plane->dist;
 			break;
 		default:
-			dot = DotProduct (modelorg, plane->normal) - plane->dist;
+			dot = DotProduct (tr.modelorg, plane->normal) - plane->dist;
 			break;
 		}
 
@@ -891,7 +890,7 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 				do
 				{
 					if ((surf->flags & SURF_PLANEBACK) &&
-						(surf->visframe == r_framecount))
+						(surf->visframe == tr.framecount))
 					{
 						R_RenderFace (surf, clipflags);
 					}
@@ -904,7 +903,7 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 				do
 				{
 					if (!(surf->flags & SURF_PLANEBACK) &&
-						(surf->visframe == r_framecount))
+						(surf->visframe == tr.framecount))
 					{
 						R_RenderFace (surf, clipflags);
 					}
@@ -941,7 +940,7 @@ void R_RenderWorld (void)
 	RI.currententity = gEngfuncs.GetEntityByIndex(0);
 	//RI.currententity->frame = (int)(gpGlobals->time*2);
 
-	VectorCopy (r_origin, modelorg);
+	VectorCopy (RI.vieworg, tr.modelorg);
 	RI.currentmodel = WORLDMODEL;
 	r_pcurrentvertbase = RI.currentmodel->vertexes;
 

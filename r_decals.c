@@ -566,7 +566,7 @@ static void R_AddDecalToSurface( decal_t *pdecal, msurface_t *surf, decalinfo_t 
 	}
 
 	// force surface cache rebuild
-	surf->dlightframe = r_framecount + 1;
+	surf->dlightframe = tr.framecount + 1;
 
 	// tag surface
 	pdecal->psurface = surf;

@@ -78,7 +78,6 @@ static float	fv;
 static int	miplevel;
 
 float		scale_for_mip;
-int			ubasestep, errorterm, erroradjustup, erroradjustdown;
 
 // FIXME: should go away
 extern void			R_RotateBmodel (void);
@@ -944,9 +943,9 @@ void D_TurbulentSurf (surf_t *s)
 		RI.currententity = NULL;	// &r_worldentity;
 		VectorCopy (world_transformed_modelorg,
 					transformed_modelorg);
-		VectorCopy (base_vpn, vpn);
-		VectorCopy (base_vup, vup);
-		VectorCopy (base_vright, vright);
+		VectorCopy (RI.base_vpn, RI.vforward);
+		VectorCopy (RI.base_vup, RI.vup);
+		VectorCopy (RI.base_vright, RI.vright);
 		R_TransformFrustum ();
 	}
 }
@@ -1081,9 +1080,9 @@ void D_AlphaSurf (surf_t *s)
 
 	VectorCopy (world_transformed_modelorg,
 				transformed_modelorg);
-	VectorCopy (base_vpn, vpn);
-	VectorCopy (base_vup, vup);
-	VectorCopy (base_vright, vright);
+	VectorCopy (RI.base_vpn, RI.vforward);
+	VectorCopy (RI.base_vup, RI.vup);
+	VectorCopy (RI.base_vright, RI.vright);
 	R_TransformFrustum ();
 }
 
@@ -1184,9 +1183,9 @@ void D_SolidSurf (surf_t *s)
 	//
 		VectorCopy (world_transformed_modelorg,
 					transformed_modelorg);
-		VectorCopy (base_vpn, vpn);
-		VectorCopy (base_vup, vup);
-		VectorCopy (base_vright, vright);
+		VectorCopy (RI.base_vpn, RI.vforward);
+		VectorCopy (RI.base_vup, RI.vup);
+		VectorCopy (RI.base_vright, RI.vright);
 		R_TransformFrustum ();
 		RI.currententity = NULL;	//&r_worldentity;
 	}
@@ -1232,8 +1231,8 @@ void D_DrawSurfaces (void)
 	surf_t			*s;
 
 //	currententity = NULL;	//&r_worldentity;
-	VectorSubtract (RI.vieworg, vec3_origin, modelorg);
-	TransformVector (modelorg, transformed_modelorg);
+	VectorSubtract (RI.vieworg, vec3_origin, tr.modelorg);
+	TransformVector (tr.modelorg, transformed_modelorg);
 	VectorCopy (transformed_modelorg, world_transformed_modelorg);
 
 	if (!sw_drawflat->value)
@@ -1269,7 +1268,7 @@ void D_DrawSurfaces (void)
 		D_DrawflatSurfaces ();
 
 	//RI.currententity = NULL;	//&r_worldentity;
-	VectorSubtract (RI.vieworg, vec3_origin, modelorg);
+	VectorSubtract (RI.vieworg, vec3_origin, tr.modelorg);
 	R_TransformFrustum ();
 }
 

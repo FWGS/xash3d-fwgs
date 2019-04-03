@@ -131,10 +131,10 @@ void R_MarkLights( dlight_t *light, int bit, mnode_t *node )
 		if( !BoundsAndSphereIntersect( surf->info->mins, surf->info->maxs, light->origin, light->radius ))
 			continue;	// no intersection
 
-		if( surf->dlightframe !=  r_framecount )//tr.dlightframecount )
+		if( surf->dlightframe !=  tr.framecount )//tr.dlightframecount )
 		{
 			surf->dlightbits = 0;
-			surf->dlightframe = r_framecount; //tr.dlightframecount;
+			surf->dlightframe = tr.framecount; //tr.dlightframecount;
 		}
 		surf->dlightbits |= bit;
 	}

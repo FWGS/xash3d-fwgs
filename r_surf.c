@@ -217,7 +217,7 @@ static void R_BuildLightMap(  )
 	}
 
 	// add all the dynamic lights
-	if( surf->dlightframe == r_framecount )
+	if( surf->dlightframe == tr.framecount )
 		R_AddDynamicLights( surf );
 
 	// Put into texture format
@@ -1148,12 +1148,12 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 	{
 		if( tr.lightstylevalue[surface->styles[maps]] != surface->cached_light[maps] )
 		{
-			surface->dlightframe = r_framecount;
+			surface->dlightframe = tr.framecount;
 		}
 	}
 
 
-	if (cache && !cache->dlight && surface->dlightframe != r_framecount
+	if (cache && !cache->dlight && surface->dlightframe != tr.framecount
 			&& cache->image == r_drawsurf.image
 			&& cache->lightadj[0] == r_drawsurf.lightadj[0]
 			&& cache->lightadj[1] == r_drawsurf.lightadj[1]
@@ -1161,7 +1161,7 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 			&& cache->lightadj[3] == r_drawsurf.lightadj[3] )
 		return cache;
 
-	if( surface->dlightframe == r_framecount )
+	if( surface->dlightframe == tr.framecount )
 	{
 		int i;
 		// invalidate dlight cache
@@ -1193,7 +1193,7 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 		cache->mipscale = surfscale;
 	}
 	
-	if (surface->dlightframe == r_framecount)
+	if (surface->dlightframe == tr.framecount)
 		cache->dlight = 1;
 	else
 		cache->dlight = 0;
