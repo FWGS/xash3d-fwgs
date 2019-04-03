@@ -985,6 +985,7 @@ qboolean alphaspans;
 
 
 void D_AlphaSpans16 (espan_t *pspan);
+void D_AddSpans16 (espan_t *pspan);
 void D_BlendSpans16 (espan_t *pspan, int alpha );
 void TurbulentZ8 (espan_t *pspan, int alpha );
 /*
@@ -1072,6 +1073,8 @@ void D_AlphaSurf (surf_t *s)
 
 		if( RI.currententity->curstate.rendermode == kRenderTransAlpha )
 			D_AlphaSpans16(s->spans);
+		else if( RI.currententity->curstate.rendermode == kRenderTransAdd )
+			D_AddSpans16(s->spans);
 		else
 			D_BlendSpans16(s->spans, RI.currententity->curstate.renderamt * 7 / 255 );
 	}
