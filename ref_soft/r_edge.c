@@ -981,6 +981,109 @@ void D_SkySurf (surf_t *s)
 
 	D_DrawZSpans (s->spans);
 }
+qboolean alphaspans;
+
+
+void D_AlphaSpans16 (espan_t *pspan);
+void D_BlendSpans16 (espan_t *pspan, int alpha );
+void TurbulentZ8 (espan_t *pspan, int alpha );
+/*
+==============
+D_SolidSurf
+
+Normal surface cached, texture mapped surface
+==============
+*/
+void D_AlphaSurf (surf_t *s)
+{
+	d_zistepu = s->d_zistepu;
+	d_zistepv = s->d_zistepv;
+	d_ziorigin = s->d_ziorigin;
+	if(s->flags & SURF_DRAWSKY)
+		return;
+	if (!s->insubmodel) // wtf? how it is possible?
+		return;
+
+// FIXME: we don't want to do all this for every polygon!
+// TODO: store once at start of frame
+	RI.currententity = s->entity;	//FIXME: make this passed in to
+								// R_RotateBmodel ()
+	VectorSubtract (RI.vieworg, RI.currententity->origin, local_modelorg);
+	TransformVector (local_modelorg, transformed_modelorg);
+
+	R_RotateBmodel ();	// FIXME: don't mess with the frustum,
+						// make entity passed in
+
+
+	pface = s->msurf;
+
+
+	if( !pface )
+		return;
+#if 1
+
+	if( pface->flags & SURF_CONVEYOR )
+		miplevel = 1;
+	else
+		miplevel = 0;
+#else
+	{
+		float dot;
+		float normal[3];
+
+		if ( s->insubmodel )
+		{
+			VectorCopy( pface->plane->normal, normal );
+//			TransformVector( pface->plane->normal, normal);
+			dot = DotProduct( normal, vpn );
+		}
+		else
+		{
+			VectorCopy( pface->plane->normal, normal );
+			dot = DotProduct( normal, vpn );
+		}
+
+		if ( pface->flags & SURF_PLANEBACK )
+			dot = -dot;
+
+		if ( dot > 0 )
+			printf( "blah" );
+
+		miplevel = D_MipLevelForScale(s->nearzi * scale_for_mip * pface->texinfo->mipadjust);
+	}
+#endif
+
+	if (s->flags & SURF_DRAWTURB )
+	{
+		cacheblock = R_GetTexture(pface->texinfo->texture->gl_texturenum)->pixels[0];
+		cachewidth = 64;
+		D_CalcGradients (pface);
+		TurbulentZ8( s->spans, RI.currententity->curstate.renderamt * 7 / 255 );
+	}
+	else
+	{
+		// FIXME: make this passed in to D_CacheSurface
+		pcurrentcache = D_CacheSurface (pface, miplevel);
+
+		cacheblock = (pixel_t *)pcurrentcache->data;
+		cachewidth = pcurrentcache->width;
+
+		D_CalcGradients (pface);
+
+		if( RI.currententity->curstate.rendermode == kRenderTransAlpha )
+			D_AlphaSpans16(s->spans);
+		else
+			D_BlendSpans16(s->spans, RI.currententity->curstate.renderamt * 7 / 255 );
+	}
+
+	VectorCopy (world_transformed_modelorg,
+				transformed_modelorg);
+	VectorCopy (base_vpn, vpn);
+	VectorCopy (base_vup, vup);
+	VectorCopy (base_vright, vright);
+	R_TransformFrustum ();
+}
+
 
 /*
 ==============
@@ -994,6 +1097,10 @@ void D_SolidSurf (surf_t *s)
 	d_zistepu = s->d_zistepu;
 	d_zistepv = s->d_zistepv;
 	d_ziorigin = s->d_ziorigin;
+	if(s->flags & SURF_DRAWSKY)
+		return;
+	if (s->flags & SURF_DRAWTURB )
+		return;
 
 	if (s->insubmodel)
 	{
@@ -1008,7 +1115,11 @@ void D_SolidSurf (surf_t *s)
 							// make entity passed in
 	}
 	else
+	{
+		if( alphaspans )
+			return;
 		RI.currententity = gEngfuncs.GetEntityByIndex(0); //r_worldentity;
+	}
 
 	pface = s->msurf;
 
@@ -1016,6 +1127,7 @@ void D_SolidSurf (surf_t *s)
 	if( !pface )
 		return;
 #if 1
+
 
 	if( pface->flags & SURF_CONVEYOR )
 		miplevel = 1;
@@ -1130,7 +1242,9 @@ void D_DrawSurfaces (void)
 
 			//r_drawnpolycount++;
 #if 1
-			if(s->flags & SURF_DRAWSKY)
+			if( alphaspans )
+				D_AlphaSurf (s);
+			else if(s->flags & SURF_DRAWSKY)
 				D_BackgroundSurf (s);
 			else if (s->flags & SURF_DRAWTURB )
 				D_TurbulentSurf (s);
@@ -1151,7 +1265,7 @@ void D_DrawSurfaces (void)
 	else
 		D_DrawflatSurfaces ();
 
-	RI.currententity = NULL;	//&r_worldentity;
+	//RI.currententity = NULL;	//&r_worldentity;
 	VectorSubtract (RI.vieworg, vec3_origin, modelorg);
 	R_TransformFrustum ();
 }
