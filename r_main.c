@@ -1196,16 +1196,18 @@ void R_DrawBEntitiesOnList (void)
 		for( k = 0; k < MAX_DLIGHTS; k++ )
 		{
 			dlight_t *l = gEngfuncs.GetDynamicLight( k );
+			vec3_t origin_l, oldorigin;
 
 			if( l->die < gpGlobals->time || !l->radius )
 				continue;
 
-			/*VectorCopy( l->origin, oldorigin ); // save lightorigin
+			VectorCopy( l->origin, oldorigin ); // save lightorigin
+			Matrix4x4_CreateFromEntity( RI.objectMatrix, RI.currententity->angles, RI.currententity->origin, 1 );
 			Matrix4x4_VectorITransform( RI.objectMatrix, l->origin, origin_l );
 			VectorCopy( origin_l, l->origin ); // move light in bmodel space
-			R_MarkLights( l, 1<<k, clmodel->nodes + clmodel->hulls[0].firstclipnode );
-			VectorCopy( oldorigin, l->origin ); // restore lightorigin*/
 			R_MarkLights( l, 1<<k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode );
+			VectorCopy( oldorigin, l->origin ); // restore lightorigin*/
+			//R_MarkLights( l, 1<<k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode );
 		}
 
 	//	RI.currentmodel = tr.draw_list->solid_entities[i]->model;
@@ -1350,16 +1352,19 @@ void R_DrawBrushModel(cl_entity_t *pent)
 		for( k = 0; k < MAX_DLIGHTS; k++ )
 		{
 			dlight_t *l = gEngfuncs.GetDynamicLight( k );
+			vec3_t origin_l, oldorigin;
 
 			if( l->die < gpGlobals->time || !l->radius )
 				continue;
 
-			/*VectorCopy( l->origin, oldorigin ); // save lightorigin
+			VectorCopy( l->origin, oldorigin ); // save lightorigin
+			Matrix4x4_CreateFromEntity( RI.objectMatrix, RI.currententity->angles, RI.currententity->origin, 1 );
 			Matrix4x4_VectorITransform( RI.objectMatrix, l->origin, origin_l );
+			tr.modelviewIdentity = false;
 			VectorCopy( origin_l, l->origin ); // move light in bmodel space
-			R_MarkLights( l, 1<<k, clmodel->nodes + clmodel->hulls[0].firstclipnode );
-			VectorCopy( oldorigin, l->origin ); // restore lightorigin*/
 			R_MarkLights( l, 1<<k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode );
+			VectorCopy( oldorigin, l->origin ); // restore lightorigin*/
+			//R_MarkLights( l, 1<<k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode );
 		}
 
 	//	RI.currentmodel = tr.draw_list->solid_entities[i]->model;
@@ -1598,6 +1603,7 @@ void R_RenderScene( void )
 	R_SetupProjectionMatrix( RI.projectionMatrix );
 
 	Matrix4x4_Concat( RI.worldviewProjectionMatrix, RI.projectionMatrix, RI.worldviewMatrix );
+	tr.modelviewIdentity = true;
 
 //	R_SetupGL( true );
 	//R_Clear( ~0 );

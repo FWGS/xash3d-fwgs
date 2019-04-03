@@ -1115,12 +1115,19 @@ void D_SolidSurf (surf_t *s)
 
 		R_RotateBmodel ();	// FIXME: don't mess with the frustum,
 							// make entity passed in
+		// setup dlight transform
+		if( s->msurf && s->msurf->dlightframe == tr.framecount )
+		{
+			Matrix4x4_CreateFromEntity( RI.objectMatrix, RI.currententity->angles, RI.currententity->origin, 1 );
+			tr.modelviewIdentity = false;
+		}
 	}
 	else
 	{
 		if( alphaspans )
 			return;
 		RI.currententity = gEngfuncs.GetEntityByIndex(0); //r_worldentity;
+		tr.modelviewIdentity = true;
 	}
 
 	pface = s->msurf;
