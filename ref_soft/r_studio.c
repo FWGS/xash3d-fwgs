@@ -2786,6 +2786,7 @@ set rendermode for studiomodel
 */
 void GL_StudioSetRenderMode( int rendermode )
 {
+	GL_SetRenderMode( rendermode );
 #if 0
 	switch( rendermode )
 	{
