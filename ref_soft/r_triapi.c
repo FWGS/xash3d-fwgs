@@ -455,8 +455,8 @@ TriForParams
 */
 void TriFogParams( float flDensity, int iFogSkybox )
 {
-	RI.fogDensity = flDensity;
-	RI.fogSkybox = iFogSkybox;
+	//RI.fogDensity = flDensity;
+	//RI.fogSkybox = iFogSkybox;
 }
 
 /*

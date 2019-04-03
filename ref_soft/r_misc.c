@@ -341,29 +341,15 @@ void R_SetupFrameQ (void)
 //	if (sw_waterwarp->value && (r_newrefdef.rdflags & RDF_UNDERWATER) )
 //		r_dowarp = true;
 //	else
-		r_dowarp = false;
 
-	if (r_dowarp)
-	{	// warp into off screen buffer
-		vrect.x = 0;
-		vrect.y = 0;
-		//vrect.width = r_newrefdef.width < WARP_WIDTH ? r_newrefdef.width : WARP_WIDTH;
-		//vrect.height = r_newrefdef.height < WARP_HEIGHT ? r_newrefdef.height : WARP_HEIGHT;
+	vrect.x = 0;//r_newrefdef.x;
+	vrect.y = 0;//r_newrefdef.y;
+	vrect.width = gpGlobals->width;
+	vrect.height = gpGlobals->height;
 
-		d_viewbuffer = r_warpbuffer;
-		r_screenwidth = WARP_WIDTH;
-	}
-	else
-	{
-		vrect.x = 0;//r_newrefdef.x;
-		vrect.y = 0;//r_newrefdef.y;
-		vrect.width = gpGlobals->width;
-		vrect.height = gpGlobals->height;
+	d_viewbuffer = (void *)vid.buffer;
+	r_screenwidth = vid.rowbytes;
 
-		d_viewbuffer = (void *)vid.buffer;
-		r_screenwidth = vid.rowbytes;
-	}
-	
 	R_ViewChanged (&vrect);
 
 // start off with just the four screen edge clip planes
