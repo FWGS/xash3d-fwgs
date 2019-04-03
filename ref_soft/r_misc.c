@@ -111,8 +111,6 @@ void D_ViewChanged (void)
 	if ( !RI.drawWorld )
 	{
 		memset( d_pzbuffer, 0xff, vid.width * vid.height * sizeof( d_pzbuffer[0] ) );
-		// newrefdef
-		Draw_Fill( 0, 0, gpGlobals->width, gpGlobals->height,( int ) sw_clearcolor->value & 0xff );
 	}
 
 	D_Patch ();

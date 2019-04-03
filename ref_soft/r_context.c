@@ -106,7 +106,9 @@ CL_FillRGBA
 */
 static void CL_FillRGBA( float _x, float _y, float _w, float _h, int r, int g, int b, int a )
 {
-
+	vid.rendermode = kRenderTransAdd;
+	_TriColor4ub(r,g,b,a);
+	Draw_Fill(_x,_y,_w,_h);
 }
 
 /*
@@ -117,7 +119,9 @@ pfnFillRGBABlend
 */
 static void GAME_EXPORT CL_FillRGBABlend( float _x, float _y, float _w, float _h, int r, int g, int b, int a )
 {
-
+	vid.rendermode = kRenderTransAlpha;
+	_TriColor4ub(r,g,b,a);
+	Draw_Fill(_x,_y,_w,_h);
 }
 
 

@@ -1252,7 +1252,7 @@ void D_FlushCaches( qboolean newmap );
 //
 // r_draw.c
 //
-void Draw_Fill (int x, int y, int w, int h, int c);
+void Draw_Fill (int x, int y, int w, int h);
 
 //
 // r_misc.c
