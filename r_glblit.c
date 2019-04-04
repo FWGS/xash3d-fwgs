@@ -231,6 +231,13 @@ void R_BuildBlendMaps()
 				r = r1 * (7 - a) / 7 + (r2 << 2 | BIT(2)) * a / 7;
 				g = g1 * (7 - a) / 7 + (g2 << 3 | MASK(2)) * a / 7;
 				b = b1 * (7 - a) / 7 + (b2 << 3 | MASK(2)) * a / 7;
+				if( r > MASK(5) )
+					r = MASK(5);
+				if( g > MASK(6) )
+					g = MASK(6);
+				if( b > MASK(5) )
+					b = MASK(5);
+
 
 				ASSERT( b < 32 );
 				major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));

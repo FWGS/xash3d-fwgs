@@ -996,6 +996,8 @@ Normal surface cached, texture mapped surface
 */
 void D_AlphaSurf (surf_t *s)
 {
+	int alpha;
+
 	d_zistepu = s->d_zistepu;
 	d_zistepv = s->d_zistepv;
 	d_ziorigin = s->d_ziorigin;
@@ -1052,13 +1054,16 @@ void D_AlphaSurf (surf_t *s)
 		miplevel = D_MipLevelForScale(s->nearzi * scale_for_mip * pface->texinfo->mipadjust);
 	}
 #endif
+	alpha = RI.currententity->curstate.renderamt * 7 / 255;
+	if( alpha <= 0 && RI.currententity->curstate.renderamt > 0 )
+		alpha = 1;
 
 	if (s->flags & SURF_DRAWTURB )
 	{
 		cacheblock = R_GetTexture(pface->texinfo->texture->gl_texturenum)->pixels[0];
 		cachewidth = 64;
 		D_CalcGradients (pface);
-		TurbulentZ8( s->spans, RI.currententity->curstate.renderamt * 7 / 255 );
+		TurbulentZ8( s->spans, alpha);
 	}
 	else
 	{
@@ -1070,12 +1075,14 @@ void D_AlphaSurf (surf_t *s)
 
 		D_CalcGradients (pface);
 
+
+
 		if( RI.currententity->curstate.rendermode == kRenderTransAlpha )
 			D_AlphaSpans16(s->spans);
 		else if( RI.currententity->curstate.rendermode == kRenderTransAdd )
 			D_AddSpans16(s->spans);
 		else
-			D_BlendSpans16(s->spans, RI.currententity->curstate.renderamt * 7 / 255 );
+			D_BlendSpans16(s->spans, alpha );
 	}
 
 	VectorCopy (world_transformed_modelorg,

@@ -297,6 +297,11 @@ void TurbulentZ8 (espan_t *pspan, int alpha1)
 	float			sdivz16stepu, tdivz16stepu, zi16stepu;
 	alpha = alpha1;
 
+	if( alpha > 7 )
+		alpha = 7;
+	if( alpha == 0 )
+		return;
+
 	r_turb_turb = sintable + ((int)(gpGlobals->time*SPEED)&(CYCLE-1));
 
 	r_turb_sstep = 0;	// keep compiler happy
@@ -959,6 +964,11 @@ void D_BlendSpans16 (espan_t *pspan, int alpha)
 	float			sdivz8stepu, tdivz8stepu, zi8stepu;
 	int izi, izistep;
 	short *pz;
+
+	if( alpha > 7 )
+		alpha = 7;
+	if( alpha == 0 )
+		return;
 
 	sstep = 0;	// keep compiler happy
 	tstep = 0;	// ditto
