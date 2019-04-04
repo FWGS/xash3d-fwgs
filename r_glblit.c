@@ -225,12 +225,12 @@ void R_BuildBlendMaps()
 			for( k = 0; k < 3; k++ )
 			{
 				unsigned int major, minor;
-				unsigned int a = k + 1;
+				unsigned int a = k + 2;
 
 
 				r = r1 * (7 - a) / 7 + (r2 << 2 | BIT(2)) * a / 7;
 				g = g1 * (7 - a) / 7 + (g2 << 3 | MASK(2)) * a / 7;
-				b = b1 * (7 - a) / 7 + (b2 << 3 | BIT(3)) * a / 7;
+				b = b1 * (7 - a) / 7 + (b2 << 3 | MASK(2)) * a / 7;
 
 				ASSERT( b < 32 );
 				major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));
