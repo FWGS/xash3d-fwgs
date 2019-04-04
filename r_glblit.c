@@ -205,7 +205,7 @@ void R_BuildBlendMaps()
 	for( i = 0; i < 1024; i++ )
 	{
 		unsigned int r, g, b;
-		uint color = i << 6;
+		uint color = i << 6 | BIT(5) | BIT(4) | BIT(3);
 		uint m = color >> 8;
 		uint j = color & 0xff;
 
@@ -228,9 +228,9 @@ void R_BuildBlendMaps()
 				unsigned int a = k + 1;
 
 
-				r = r1 * (7 - a) / 7 + (r2 << 2) * a / 7;
-				g = g1 * (7 - a) / 7 + (g2 << 3) * a / 7;
-				b = b1 * (7 - a) / 7 + (b2 << 3) * a / 7;
+				r = r1 * (7 - a) / 7 + (r2 << 2 | BIT(2)) * a / 7;
+				g = g1 * (7 - a) / 7 + (g2 << 3 | MASK(2)) * a / 7;
+				b = b1 * (7 - a) / 7 + (b2 << 3 | BIT(3)) * a / 7;
 
 				ASSERT( b < 32 );
 				major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));
