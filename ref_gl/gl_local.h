@@ -16,7 +16,6 @@ GNU General Public License for more details.
 #ifndef GL_LOCAL_H
 #define GL_LOCAL_H
 #include "port.h"
-#include "defaults.h"
 #include "xash3d_types.h"
 #include "cvardef.h"
 #include "const.h"
@@ -34,6 +33,11 @@ GNU General Public License for more details.
 #include "com_strings.h"
 #include "pm_movevars.h"
 //#include "cvar.h"
+
+#if defined XASH_NANOGL || defined XASH_WES || defined XASH_REGAL
+#define XASH_GLES
+#define XASH_GL_STATIC
+#endif
 
 #ifndef offsetof
 #define offsetof(s,m)       (size_t)&(((s *)0)->m)

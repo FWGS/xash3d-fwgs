@@ -79,23 +79,23 @@ def build(bld):
 	if bld.env.NANOGL:
 		bld.recurse('nanogl')
 		bld.shlib(
-		    source   = source,
+			source   = source,
 			target   = 'ref_gles1',
 			features = 'c',
 			includes = includes,
-			use      = libs + ['nanogl', 'DL' ],
-			defines  = ['XASH_GLES', 'XASH_NANOGL'],
+			use      = libs + ['DL', 'nanogl'],
+			defines  = ['XASH_NANOGL'],
 			install_path = bld.env.LIBDIR,
 			subsystem = bld.env.MSVC_SUBSYSTEM)
 
 	if bld.env.GLWES:
 		bld.recurse('gl-wes-v2')
 		bld.shlib(
-		    source   = source,
+			source   = source,
 			target   = 'ref_gles2',
 			features = 'c',
 			includes = includes,
-			use      = libs + ['gl-wes-v2', 'DL'],
-			defines  = ['XASH_GLES', 'XASH_WES'],
+			use      = libs + ['DL', 'gl-wes-v2'],
+			defines  = ['XASH_WES'],
 			install_path = bld.env.LIBDIR,
 			subsystem = bld.env.MSVC_SUBSYSTEM)
