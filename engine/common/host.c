@@ -819,9 +819,6 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		host.type = HOST_DEDICATED;
 	}
 	SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
-#if defined XASH_GLES && !defined __EMSCRIPTEN__ && !TARGET_OS_IOS
-	SDL_SetHint( SDL_HINT_OPENGL_ES_DRIVER, "1" );
-#endif
 
 	SDL_StopTextInput();
 #endif
