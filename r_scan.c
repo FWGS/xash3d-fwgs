@@ -1090,9 +1090,12 @@ void D_BlendSpans16 (espan_t *pspan, int alpha)
 
 							btemp = *(pbase + (s >> 16) + (t >> 16) * cachewidth);
 
-							if( alpha != 7 )
-								btemp = BLEND_ALPHA( alpha, btemp, *pdest);
-							*pdest = btemp;
+							if( btemp != TRANSPARENT_COLOR )
+							{
+								if( alpha != 7 )
+									btemp = BLEND_ALPHA( alpha, btemp, *pdest);
+								*pdest = btemp;
+							}
 							//*pz    = izi >> 16;
 						}
 						pdest++;
@@ -1128,9 +1131,12 @@ void D_BlendSpans16 (espan_t *pspan, int alpha)
 
 							btemp = *(pbase + idiths + iditht * cachewidth);
 
-							if( alpha != 7 )
-								btemp = BLEND_ALPHA( alpha, btemp, *pdest);
-							*pdest = btemp;
+							if( btemp != TRANSPARENT_COLOR )
+							{
+								if( alpha != 7 )
+									btemp = BLEND_ALPHA( alpha, btemp, *pdest);
+								*pdest = btemp;
+							}
 							//*pz    = izi >> 16;
 						}
 						pdest++;
@@ -1286,8 +1292,11 @@ void D_AddSpans16 (espan_t *pspan)
 
 							btemp = *(pbase + (s >> 16) + (t >> 16) * cachewidth);
 
-							btemp = BLEND_ADD( btemp, *pdest);
-							*pdest = btemp;
+							if( btemp != TRANSPARENT_COLOR )
+							{
+								btemp = BLEND_ADD( btemp, *pdest);
+								*pdest = btemp;
+							}
 							//*pz    = izi >> 16;
 						}
 						pdest++;
@@ -1323,8 +1332,11 @@ void D_AddSpans16 (espan_t *pspan)
 
 							btemp = *(pbase + idiths + iditht * cachewidth);
 
-							btemp = BLEND_ADD( btemp, *pdest);
-							*pdest = btemp;
+							if( btemp != TRANSPARENT_COLOR )
+							{
+								btemp = BLEND_ADD( btemp, *pdest);
+								*pdest = btemp;
+							}
 							//*pz    = izi >> 16;
 						}
 						pdest++;
