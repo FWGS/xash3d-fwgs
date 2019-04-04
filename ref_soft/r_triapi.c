@@ -147,7 +147,8 @@ void _TriColor4f( float rr, float gg, float bb, float aa )
 	unsigned short r,g,b;
 	unsigned int major, minor;
 
-
+	if( vid.rendermode == kRenderTransAdd || vid.rendermode == kRenderGlow )
+		rr *= aa, gg *= aa, bb *= aa;
 
 	//gEngfuncs.Con_Printf("%d\n", vid.alpha);
 
