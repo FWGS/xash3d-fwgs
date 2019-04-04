@@ -18,7 +18,6 @@ GNU General Public License for more details.
 #define BACKENDS_H
 
 // video backends (XASH_VIDEO)
-#define VIDEO_DONTCARE -1 // a special mode for ref_dll
 #define VIDEO_NULL 0
 #define VIDEO_SDL 1
 #define VIDEO_ANDROID 2

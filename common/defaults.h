@@ -95,11 +95,7 @@ SETUP BACKENDS DEFINITIONS
 // fallback to NULL
 //
 #ifndef XASH_VIDEO
-	#ifdef REF_DLL
-		#define XASH_VIDEO VIDEO_DONTCARE
-	#else
-		#define XASH_VIDEO VIDEO_NULL
-	#endif
+	#define XASH_VIDEO VIDEO_NULL
 #endif
 
 #ifndef XASH_SOUND
@@ -130,10 +126,6 @@ Default build-depended cvar and constant values
 #define XASH_INTERNAL_GAMELIBS
 // this means that libraries are provided with engine, but not in game data
 // You need add library loading code to library.c when adding new platform
-#endif
-
-#if defined XASH_NANOGL || defined XASH_WES || defined XASH_REGAL
-#define XASH_GL_STATIC
 #endif
 
 #define DEFAULT_SV_MASTER "ms.xash.su:27010"
