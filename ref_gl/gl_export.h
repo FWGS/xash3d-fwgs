@@ -19,6 +19,12 @@ GNU General Public License for more details.
 #define APIENTRY
 #endif
 
+#if defined XASH_NANOGL || defined XASH_WES || defined XASH_REGAL
+#define XASH_GLES
+#define XASH_GL_STATIC
+#define REF_GL_KEEP_MANGLED_FUNCTIONS
+#endif
+
 typedef uint GLenum;
 typedef byte GLboolean;
 typedef uint GLbitfield;
@@ -861,8 +867,10 @@ typedef float GLmatrix[16];
 #define WGL_SAMPLE_BUFFERS_ARB		0x2041
 #define WGL_SAMPLES_ARB			0x2042
 
-#ifdef XASH_GL_STATIC
+#if defined( XASH_GL_STATIC ) && !defined( REF_GL_KEEP_MANGLED_FUNCTIONS )
 #define GL_FUNCTION( name ) name
+#elif defined( XASH_GL_STATIC ) && defined( REF_GL_KEEP_MANGLED_FUNCTIONS )
+#define GL_FUNCTION( name ) APIENTRY p##name
 #else
 #define GL_FUNCTION( name ) (APIENTRY *p##name)
 #endif
@@ -1308,13 +1316,11 @@ void GL_FUNCTION( glEndQueryARB )(GLenum target);
 void GL_FUNCTION( glGetQueryivARB )(GLenum target, GLenum pname, GLint *params);
 void GL_FUNCTION( glGetQueryObjectivARB )(GLuint id, GLenum pname, GLint *params);
 void GL_FUNCTION( glGetQueryObjectuivARB )(GLuint id, GLenum pname, GLuint *params);
-#ifndef XASH_GL_STATIC // can't use gldebug in static
-typedef void GL_FUNCTION( glDebugProcARB )( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLcharARB* message, GLvoid* userParam );
+typedef void ( APIENTRY *GL_DEBUG_PROC_ARB )( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLcharARB* message, GLvoid* userParam );
 void GL_FUNCTION( glDebugMessageControlARB )( GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled );
 void GL_FUNCTION( glDebugMessageInsertARB )( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* buf );
-void GL_FUNCTION( glDebugMessageCallbackARB )( pglDebugProcARB callback, void* userParam );
+void GL_FUNCTION( glDebugMessageCallbackARB )( GL_DEBUG_PROC_ARB callback, void* userParam );
 GLuint GL_FUNCTION( glGetDebugMessageLogARB )( GLuint count, GLsizei bufsize, GLenum* sources, GLenum* types, GLuint* ids, GLuint* severities, GLsizei* lengths, char* messageLog );
-#endif
 GLboolean GL_FUNCTION( glIsRenderbuffer )(GLuint renderbuffer);
 void GL_FUNCTION( glBindRenderbuffer )(GLenum target, GLuint renderbuffer);
 void GL_FUNCTION( glDeleteRenderbuffers )(GLsizei n, const GLuint *renderbuffers);
@@ -1342,7 +1348,7 @@ void GL_FUNCTION( glGenVertexArrays )( GLsizei n, const GLuint *arrays );
 GLboolean GL_FUNCTION( glIsVertexArray )( GLuint array );
 void GL_FUNCTION( glSwapInterval ) ( int interval );
 
-#ifdef XASH_GL_STATIC
+#if defined( XASH_GL_STATIC ) && !defined( REF_GL_KEEP_MANGLED_FUNCTIONS )
 #define pglGetError glGetError
 #define pglGetString glGetString
 #define pglAccum glAccum
@@ -1781,6 +1787,10 @@ void GL_FUNCTION( glSwapInterval ) ( int interval );
 #define pglGetQueryivARB glGetQueryivARB
 #define pglGetQueryObjectivARB glGetQueryObjectivARB
 #define pglGetQueryObjectuivARB glGetQueryObjectuivARB
+#define pglDebugMessageControlARB glDebugMessageControlARB
+#define pglDebugMessageInsertARB glDebugMessageInsertARB
+#define pglDebugMessageCallbackARB glDebugMessageCallbackARB
+#define pglGetDebugMessageLogARB glGetDebugMessageLogARB
 #define pglIsRenderbuffer glIsRenderbuffer
 #define pglBindRenderbuffer glBindRenderbuffer
 #define pglDeleteRenderbuffers glDeleteRenderbuffers

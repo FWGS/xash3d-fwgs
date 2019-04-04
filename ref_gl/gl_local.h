@@ -20,7 +20,6 @@ GNU General Public License for more details.
 #include "cvardef.h"
 #include "const.h"
 #include "com_model.h"
-#include "gl_export.h"
 #include "cl_entity.h"
 #include "render_api.h"
 #include "protocol.h"
@@ -33,11 +32,7 @@ GNU General Public License for more details.
 #include "com_strings.h"
 #include "pm_movevars.h"
 //#include "cvar.h"
-
-#if defined XASH_NANOGL || defined XASH_WES || defined XASH_REGAL
-#define XASH_GLES
-#define XASH_GL_STATIC
-#endif
+#include "gl_export.h"
 
 #ifndef offsetof
 #define offsetof(s,m)       (size_t)&(((s *)0)->m)
