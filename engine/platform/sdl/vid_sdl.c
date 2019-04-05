@@ -501,6 +501,7 @@ void GL_SwapBuffers()
 
 int GL_SetAttribute( int attr, int val )
 {
+#ifdef SDL_HINT_OPENGL_ES_DRIVER
 	switch( attr )
 	{
 	case REF_GL_CONTEXT_PROFILE_MASK:
@@ -510,6 +511,7 @@ int GL_SetAttribute( int attr, int val )
 	default:
 		break;
 	}
+#endif
 
 	return SDL_GL_SetAttribute( (SDL_GLattr)attr, val );
 }

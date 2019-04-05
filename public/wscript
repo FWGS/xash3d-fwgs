@@ -18,13 +18,13 @@ def configure(conf):
 
 def build(bld):
 	source = bld.path.ant_glob(['*.c'])
-	libs = []
+	libs = [ 'M' ]
 	includes = [ '.', '../common', '../engine' ]
 
 	bld.stlib(
 		source   = source,
 		target   = 'public',
-		features = 'c',
+		features = 'c cshlib',
 		includes = includes,
 		use      = libs,
 		install_path = bld.env.LIBDIR,
