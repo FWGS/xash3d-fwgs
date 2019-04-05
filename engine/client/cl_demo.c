@@ -881,13 +881,13 @@ reads demo data and write it to client
 */
 qboolean CL_DemoReadMessage( byte *buffer, size_t *length )
 {
-	size_t		curpos = 0, lastpos = 0;
-	float		fElapsedTime = 0.0f;
+	size_t			curpos = 0, lastpos = 0;
+	float			fElapsedTime = 0.0f;
 	qboolean		swallowmessages = true;
-	static int	tdlastdemoframe = 0;
-	byte		*userbuf = NULL;
-	size_t		size;
-	byte		cmd;
+	static int		tdlastdemoframe = 0;
+	byte			*userbuf = NULL;
+	unsigned int	size;
+	byte			cmd;
 
 	if( !cls.demofile )
 	{
@@ -950,7 +950,7 @@ qboolean CL_DemoReadMessage( byte *buffer, size_t *length )
 			CL_DemoMoveToNextSection();
 			return false; // header is ended, skip frame
 		case dem_userdata:
-			FS_Read( cls.demofile, &size, sizeof( int ));
+			FS_Read( cls.demofile, &size, sizeof( unsigned int ));
 			userbuf = Mem_Malloc( cls.mempool, size );
 			FS_Read( cls.demofile, userbuf, size );
 
