@@ -208,7 +208,7 @@ static int R_TransEntityCompare( const cl_entity_t **a, const cl_entity_t **b )
 	rendermode2 = R_GetEntityRenderMode( ent2 );
 
 	// sort by distance
-	if( ent1->model->type != mod_brush || rendermode1 != kRenderTransAlpha )
+	if( ent1->model && ent1->model->type != mod_brush || rendermode1 != kRenderTransAlpha )
 	{
 		VectorAverage( ent1->model->mins, ent1->model->maxs, org );
 		VectorAdd( ent1->origin, org, org );
@@ -217,7 +217,7 @@ static int R_TransEntityCompare( const cl_entity_t **a, const cl_entity_t **b )
 	}
 	else dist1 = 1000000000;
 
-	if( ent2->model->type != mod_brush || rendermode2 != kRenderTransAlpha )
+	if(  ent1->model && ent2->model->type != mod_brush || rendermode2 != kRenderTransAlpha )
 	{
 		VectorAverage( ent2->model->mins, ent2->model->maxs, org );
 		VectorAdd( ent2->origin, org, org );
@@ -1824,6 +1824,12 @@ void R_NewMap (void)
 {
 	int i;
 	r_viewcluster = -1;
+
+	tr.draw_list->num_solid_entities = 0;
+	tr.draw_list->num_trans_entities = 0;
+	tr.draw_list->num_beam_entities = 0;
+	tr.draw_list->num_edge_entities = 0;
+
 	R_ClearDecals(); // clear all level decals
 	R_StudioResetPlayerModels();
 
