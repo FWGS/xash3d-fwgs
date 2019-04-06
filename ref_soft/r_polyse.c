@@ -206,44 +206,6 @@ void R_DrawTriangle( void )
 	}
 }
 
-/// TODO: fix this and do not check bounds in shader
-static inline qboolean R_CheckBounds( void)
-{
-	//pixel_t *skin = r_affinetridesc.pskin;
-
-#if 0 // does not help. Quake 2 Developers, PLEASE FIX UR F***NG CODE!!!
-
-	int lcount = errorterm >= 0?d_countextrastep:ubasestep;
-	pixel_t *lptex1, *lptex2, *lptex3, *lptex4;
-
-	lcount+=2;
-
-	if( lcount <= 0 )
-		lcount = 2;
-
-	 lptex1 = d_ptex + a_ststepxwhole * lcount  + ((a_sstepxfrac * lcount) >> 16) + ((a_tstepxfrac * lcount) >> 16)*r_affinetridesc.skinwidth;
-	 lptex2 = d_ptex + a_ststepxwhole * lcount  + ((a_sstepxfrac * lcount) >> 16);
-	 lptex3 = d_ptex + a_ststepxwhole * lcount + ((a_tstepxfrac * lcount) >> 16)*r_affinetridesc.skinwidth;
-	 lptex4 = d_ptex + a_ststepxwhole * lcount;
-
-
-
-
-	 //if( lptex1 < skin || lptex1 > skin + r_affinetridesc.skinwidth * r_affinetridesc.skinheight )
-		// return false;
-	// if( lptex2 < skin || lptex2 > skin + r_affinetridesc.skinwidth * r_affinetridesc.skinheight )
-		// return false;
-	 //if( lptex3 < skin || lptex3 > skin + r_affinetridesc.skinwidth * r_affinetridesc.skinheight )
-		// return false;
-	// if( lptex4 < skin || lptex4 > skin + r_affinetridesc.skinwidth * r_affinetridesc.skinheight )
-		// return false;
-
-#endif
-	//if( d_ptex - skin < 0 || d_ptex - ( skin + r_affinetridesc.skinwidth * r_affinetridesc.skinheight ) >= 0 )
-		//return false;
-
-	return true;
-}
 
 static pixel_t *skinend;
 
@@ -254,6 +216,111 @@ static inline qboolean R_DrawCheckBounds( pixel_t *lptex )
 		return false;
 	return true;
 }
+
+/// TODO: fix this and do not check bounds in shader
+static inline qboolean R_CheckBounds( void)
+{
+#if 0
+	spanpackage_t *pspanpackage = d_pedgespanpackage;
+	int lcount;
+	int aspancount = d_aspancount;
+
+	int lerrorterm = errorterm + erroradjustup;
+	if (lerrorterm >= 0)
+	{
+		aspancount += d_countextrastep;
+		lerrorterm -= erroradjustdown;
+	}
+	else
+	{
+		aspancount += ubasestep;
+	}
+
+
+	lcount = pspanpackage->count;//d_aspancount;//max(fabs(ubasestep),fabs(d_countextrastep));
+	printf("c %d %d\n", lcount, errorterm );
+	if( lcount == 0 )
+		lcount = max(fabs(ubasestep),fabs(d_countextrastep));
+	if( lcount < 0 )
+		return false;
+	if (lcount)
+	{
+		int		lsfrac, ltfrac;
+		byte	*lptex;
+
+		lptex = pspanpackage->ptex;
+		lsfrac = pspanpackage->sfrac;
+		ltfrac = pspanpackage->tfrac;
+
+		do
+		{
+			if( !R_DrawCheckBounds( lptex ) )
+				return false;
+
+			lptex += a_ststepxwhole;
+			lsfrac += a_sstepxfrac;
+			lptex += lsfrac >> 16;
+			lsfrac &= 0xFFFF;
+			ltfrac += a_tstepxfrac;
+			if (ltfrac & 0x10000)
+			{
+				lptex += r_affinetridesc.skinwidth;
+				ltfrac &= 0xFFFF;
+			}
+		} while (--lcount);
+	}
+	return true;
+#endif
+	return true;
+}
+
+
+/// TODO: fix this and do not check bounds in shader
+static inline qboolean R_CheckBounds2( spanpackage_t *pspanpackage, int lcount )
+{
+	int		lsfrac, ltfrac;
+	byte	*lptex;
+
+	lptex = pspanpackage->ptex;
+	lsfrac = pspanpackage->sfrac;
+	ltfrac = pspanpackage->tfrac;
+
+	do
+	{
+		if( !R_DrawCheckBounds( lptex ) )
+			return false;
+
+		lptex += a_ststepxwhole;
+		lsfrac += a_sstepxfrac;
+		lptex += lsfrac >> 16;
+		lsfrac &= 0xFFFF;
+		ltfrac += a_tstepxfrac;
+		if (ltfrac & 0x10000)
+		{
+			lptex += r_affinetridesc.skinwidth;
+			ltfrac &= 0xFFFF;
+		}
+	} while (--lcount);
+	// try cover all edge cases
+/*
+	if( !R_DrawCheckBounds(lptex) )
+		return false;
+	lcount--;
+	if( !R_DrawCheckBounds(lptex + a_ststepxwhole * lcount + ((lsfrac * lcount) >> 16)) )
+		return false;
+	if( !R_DrawCheckBounds(lptex + a_ststepxwhole * lcount + ((ltfrac * lcount) >> 16) * r_affinetridesc.skinwidth ) )
+		return false;
+
+	if( !R_DrawCheckBounds(lptex + ((ltfrac * lcount) >> 16) * r_affinetridesc.skinwidth ) )
+		return false;
+
+	if( !R_DrawCheckBounds(lptex + a_ststepxwhole * lcount + ((lsfrac * lcount) >> 16) + ((ltfrac * lcount) >> 16) * r_affinetridesc.skinwidth ) )
+		return false;
+*/
+
+	return true;
+}
+
 
 /*
 ===================
@@ -815,6 +882,10 @@ void R_PolysetDrawSpansBlended( spanpackage_t *pspanpackage)
 
 		if (lcount)
 		{
+#if BOUNDCHECK_MODE == 0
+			if( !R_CheckBounds2( pspanpackage, lcount ) )
+				return;
+#endif
 			lpdest = pspanpackage->pdest;
 			lptex = pspanpackage->ptex;
 			lpz = pspanpackage->pz;
@@ -834,8 +905,10 @@ void R_PolysetDrawSpansBlended( spanpackage_t *pspanpackage)
 						return;
 					}
 #endif
+#if BOUNDCHECK_MODE == 1
 					if( !R_DrawCheckBounds( lptex ) )
 						return;
+#endif
 
 					pixel_t temp = *lptex;//vid.colormap[*lptex + ( llight & 0xFF00 )];
 					temp = BLEND_COLOR(temp, vid.color);
@@ -907,13 +980,19 @@ void R_PolysetDrawSpansAdditive( spanpackage_t *pspanpackage)
 			ltfrac = pspanpackage->tfrac;
 			llight = pspanpackage->light;
 			lzi = pspanpackage->zi;
-
+#if BOUNDCHECK_MODE == 0
+			if( !R_CheckBounds2( pspanpackage, lcount ) )
+				return;
+#endif
 			do
 			{
+
 				if ((lzi >> 16) >= *lpz)
 				{
+#if BOUNDCHECK_MODE == 1
 					if( !R_DrawCheckBounds( lptex ) )
 						return;
+#endif
 #if 0
 					if((int)(lptex - (pixel_t*)r_affinetridesc.pskin) > r_affinetridesc.skinwidth * r_affinetridesc.skinheight || (int)(lptex - (pixel_t*)r_affinetridesc.pskin) < 0 )
 					{
@@ -981,6 +1060,10 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage)
 
 		if (lcount)
 		{
+#if BOUNDCHECK_MODE == 0
+			if( !R_CheckBounds2( pspanpackage, lcount ) )
+				return;
+#endif
 			lpdest = pspanpackage->pdest;
 			lptex = pspanpackage->ptex;
 			lpz = pspanpackage->pz;
@@ -993,8 +1076,10 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage)
 			{
 				//if ((lzi >> 16) >= *lpz)
 				{
+#if BOUNDCHECK_MODE == 1
 					if( !R_DrawCheckBounds( lptex ) )
 						return;
+#endif
 #if 0
 					if((int)(lptex - (pixel_t*)r_affinetridesc.pskin) > r_affinetridesc.skinwidth * r_affinetridesc.skinheight || (int)(lptex - (pixel_t*)r_affinetridesc.pskin) < 0 )
 					{
@@ -1062,6 +1147,10 @@ void R_PolysetDrawSpansTextureBlended( spanpackage_t *pspanpackage)
 
 		if (lcount)
 		{
+#if BOUNDCHECK_MODE == 0
+			if( !R_CheckBounds2( pspanpackage, lcount ) )
+				return;
+#endif
 			lpdest = pspanpackage->pdest;
 			lptex = pspanpackage->ptex;
 			lpz = pspanpackage->pz;
@@ -1074,8 +1163,10 @@ void R_PolysetDrawSpansTextureBlended( spanpackage_t *pspanpackage)
 			{
 				if ((lzi >> 16) >= *lpz)
 				{
+#if BOUNDCHECK_MODE == 1
 					if( !R_DrawCheckBounds( lptex ) )
 						return;
+#endif
 #if 0
 					if((int)(lptex - (pixel_t*)r_affinetridesc.pskin) > r_affinetridesc.skinwidth * r_affinetridesc.skinheight || (int)(lptex - (pixel_t*)r_affinetridesc.pskin) < 0 )
 					{
@@ -1469,6 +1560,7 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 	do
 	{
 		lcount = d_aspancount - pspanpackage->count;
+		d_ptex + a_ststepxwhole * lcount  + ((a_sstepxfrac * lcount) >> 16) + ((a_tstepxfrac * lcount) >> 16)*r_affinetridesc.skinwidth;
 
 		errorterm += erroradjustup;
 		if (errorterm >= 0)
@@ -1489,6 +1581,10 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 			int		llight;
 			int		lzi;
 			short	*lpz;
+#if BOUNDCHECK_MODE == 0
+			if( !R_CheckBounds2( pspanpackage, lcount ) )
+				return;
+#endif
 
 			lpdest = pspanpackage->pdest;
 			lptex = pspanpackage->ptex;
@@ -1502,8 +1598,10 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 			{
 				if ((lzi >> 16) >= *lpz)
 				{
+#if BOUNDCHECK_MODE == 1
 					if( !R_DrawCheckBounds( lptex ) )
 						return;
+#endif
 //PGM
 					/*if(r_newrefdef.rdflags & RDF_IRGOGGLES && RI.currententity->flags & RF_IR_VISIBLE)
 						*lpdest = ((byte *)vid.colormap)[irtable[*lptex]];
@@ -1540,7 +1638,7 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 					lptex += r_affinetridesc.skinwidth;
 					ltfrac &= 0xFFFF;
 				}
-			} while (lcount--);
+			} while (--lcount);
 		}
 
 		pspanpackage ++;
@@ -1612,8 +1710,7 @@ void R_RasterizeAliasPolySmooth (void)
 
 	if (initialleftheight == 1)
 	{
-		if( !R_CheckBounds() )
-			return;
+
 		d_pedgespanpackage->pdest = d_pdest;
 		d_pedgespanpackage->pz = d_pz;
 		d_pedgespanpackage->count = d_aspancount;
@@ -1625,7 +1722,8 @@ void R_RasterizeAliasPolySmooth (void)
 	// FIXME: need to clamp l, s, t, at both ends?
 		d_pedgespanpackage->light = d_light;
 		d_pedgespanpackage->zi = d_zi;
-
+		if( !R_CheckBounds() )
+			return;
 		d_pedgespanpackage++;
 	}
 	else
@@ -1745,8 +1843,6 @@ void R_RasterizeAliasPolySmooth (void)
 		d_pdest = (pixel_t *)d_viewbuffer + ystart * r_screenwidth + plefttop[0];
 		d_pz = d_pzbuffer + ystart * d_zwidth + plefttop[0];
 
-		if( !R_CheckBounds() )
-			return;
 
 
 		if (height == 1)
@@ -1763,6 +1859,8 @@ void R_RasterizeAliasPolySmooth (void)
 			d_pedgespanpackage->light = d_light;
 			d_pedgespanpackage->zi = d_zi;
 
+			if( !R_CheckBounds() )
+				return;
 			d_pedgespanpackage++;
 		}
 		else
