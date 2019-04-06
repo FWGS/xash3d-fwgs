@@ -23,9 +23,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 drawsurf_t	r_drawsurf;
 
-int				lightleft, sourcesstep, blocksize, sourcetstep;
-int				lightdelta, lightdeltastep;
-int				lightright, lightleftstep, lightrightstep, blockdivshift;
+uint				lightleft, sourcesstep, blocksize, sourcetstep;
+uint				lightdelta, lightdeltastep;
+uint				lightright, lightleftstep, lightrightstep, blockdivshift;
 unsigned		blockdivmask;
 void			*prowdestbase;
 pixel_t	*pbasesource;
@@ -563,7 +563,8 @@ R_DrawSurfaceBlock8_mip0
 */
 void R_DrawSurfaceBlock8_mip0 (void)
 {
-	int				v, i, b, lightstep, lighttemp, light;
+	int				v, i, b;
+	uint lightstep, lighttemp, light;
 	pixel_t	pix, *psource, *prowdest;
 
 	psource = pbasesource;
@@ -618,7 +619,8 @@ R_DrawSurfaceBlock8_mip1
 */
 void R_DrawSurfaceBlock8_mip1 (void)
 {
-	int				v, i, b, lightstep, lighttemp, light;
+	int				v, i, b;
+	uint lightstep, lighttemp, light;
 	pixel_t	pix, *psource, *prowdest;
 
 	psource = pbasesource;
@@ -669,7 +671,8 @@ R_DrawSurfaceBlock8_mip2
 */
 void R_DrawSurfaceBlock8_mip2 (void)
 {
-	int				v, i, b, lightstep, lighttemp, light;
+	int				v, i, b;
+	uint lightstep, lighttemp, light;
 	pixel_t	pix, *psource, *prowdest;
 
 	psource = pbasesource;
@@ -720,7 +723,8 @@ R_DrawSurfaceBlock8_mip3
 */
 void R_DrawSurfaceBlock8_mip3 (void)
 {
-	int				v, i, b, lightstep, lighttemp, light;
+	int				v, i, b;
+	uint lightstep, lighttemp, light;
 	pixel_t	pix, *psource, *prowdest;
 
 	psource = pbasesource;

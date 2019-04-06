@@ -116,12 +116,12 @@ void R_PolysetDrawSpans8_33 (spanpackage_t *pspanpackage);
 void R_PolysetDrawSpans8_66 (spanpackage_t *pspanpackage);
 void R_PolysetDrawSpans8_Opaque (spanpackage_t *pspanpackage);
 
-void R_PolysetCalcGradients (int skinwidth);
+qboolean R_PolysetCalcGradients(int skinwidth);
 void R_DrawNonSubdiv (void);
 void R_PolysetSetEdgeTable (void);
 void R_RasterizeAliasPolySmooth (void);
 void R_PolysetScanLeftEdge(int height);
-void R_PolysetScanLeftEdge_C(int height);
+qboolean R_PolysetScanLeftEdge_C(int height);
 
 /*
 ================
@@ -206,13 +206,61 @@ void R_DrawTriangle( void )
 	}
 }
 
+/// TODO: fix this and do not check bounds in shader
+static inline qboolean R_CheckBounds( void)
+{
+	//pixel_t *skin = r_affinetridesc.pskin;
+
+#if 0 // does not help. Quake 2 Developers, PLEASE FIX UR F***NG CODE!!!
+
+	int lcount = errorterm >= 0?d_countextrastep:ubasestep;
+	pixel_t *lptex1, *lptex2, *lptex3, *lptex4;
+
+	lcount+=2;
+
+	if( lcount <= 0 )
+		lcount = 2;
+
+	 lptex1 = d_ptex + a_ststepxwhole * lcount  + ((a_sstepxfrac * lcount) >> 16) + ((a_tstepxfrac * lcount) >> 16)*r_affinetridesc.skinwidth;
+	 lptex2 = d_ptex + a_ststepxwhole * lcount  + ((a_sstepxfrac * lcount) >> 16);
+	 lptex3 = d_ptex + a_ststepxwhole * lcount + ((a_tstepxfrac * lcount) >> 16)*r_affinetridesc.skinwidth;
+	 lptex4 = d_ptex + a_ststepxwhole * lcount;
+
+
+
+
+	 //if( lptex1 < skin || lptex1 > skin + r_affinetridesc.skinwidth * r_affinetridesc.skinheight )
+		// return false;
+	// if( lptex2 < skin || lptex2 > skin + r_affinetridesc.skinwidth * r_affinetridesc.skinheight )
+		// return false;
+	 //if( lptex3 < skin || lptex3 > skin + r_affinetridesc.skinwidth * r_affinetridesc.skinheight )
+		// return false;
+	// if( lptex4 < skin || lptex4 > skin + r_affinetridesc.skinwidth * r_affinetridesc.skinheight )
+		// return false;
+
+#endif
+	//if( d_ptex - skin < 0 || d_ptex - ( skin + r_affinetridesc.skinwidth * r_affinetridesc.skinheight ) >= 0 )
+		//return false;
+
+	return true;
+}
+
+static pixel_t *skinend;
+
+static inline qboolean R_DrawCheckBounds( pixel_t *lptex )
+{
+	pixel_t *skin = r_affinetridesc.pskin;
+	if( lptex - skin < 0 || lptex - skinend >= 0 )
+		return false;
+	return true;
+}
 
 /*
 ===================
 R_PolysetScanLeftEdge_C
 ====================
 */
-void R_PolysetScanLeftEdge_C(int height)
+qboolean R_PolysetScanLeftEdge_C(int height)
 {
 	do
 	{
@@ -228,8 +276,9 @@ void R_PolysetScanLeftEdge_C(int height)
 		d_pedgespanpackage->light = d_light;
 		d_pedgespanpackage->zi = d_zi;
 
-		if( d_pedgespanpackage->ptex - (pixel_t*)r_affinetridesc.pskin < 0 )
-			d_pedgespanpackage->ptex = r_affinetridesc.pskin;
+
+		if( !R_CheckBounds() )
+			return false;
 
 		d_pedgespanpackage++;
 
@@ -274,6 +323,7 @@ void R_PolysetScanLeftEdge_C(int height)
 			d_zi += d_zibasestep;
 		}
 	} while (--height);
+	return true;
 }
 
 /*
@@ -638,7 +688,7 @@ done_with_steps:
 	__asm mov a_ststepxwhole, eax
 }
 #else
-void R_PolysetCalcGradients (int skinwidth)
+qboolean R_PolysetCalcGradients (int skinwidth)
 {
 	float	xstepdenominv, ystepdenominv, t0, t1;
 	float	p01_minus_p21, p11_minus_p21, p00_minus_p20, p10_minus_p20;
@@ -648,6 +698,11 @@ void R_PolysetCalcGradients (int skinwidth)
 	p10_minus_p20 = r_p1[0] - r_p2[0];
 	p11_minus_p21 = r_p1[1] - r_p2[1];
 
+	/*printf("gradients for triangle\n");
+	printf("%d %d %d %d %d %d\n" ,  r_p0[0], r_p0[1], r_p0[2] >> 16, r_p0[3] >> 16, r_p0[4], r_p0[5]);
+	printf("%d %d %d %d %d %d\n" ,  r_p1[0], r_p1[1], r_p1[2] >> 16, r_p1[3] >> 16, r_p1[4], r_p1[5]);
+	printf("%d %d %d %d %d %d\n\n", r_p2[0], r_p2[1], r_p2[2] >> 16, r_p2[3] >> 16, r_p2[4], r_p2[5]);
+*/
 	xstepdenominv = 1.0 / (float)d_xdenom;
 
 	ystepdenominv = -xstepdenominv;
@@ -683,6 +738,16 @@ void R_PolysetCalcGradients (int skinwidth)
 	r_zistepy = (int)((t1 * p00_minus_p20 - t0 * p10_minus_p20) *
 			ystepdenominv);
 
+	if( r_zistepx > INT_MAX / 2 )
+		return false;
+	if( r_zistepx < INT_MIN / 2 )
+		return false;
+	if( r_zistepy > INT_MAX / 2 )
+		return false;
+	if( r_zistepy < INT_MIN / 2 )
+		return false;
+
+
 //#if	id386ALIAS
 #if id386
 	if ( d_pdrawspans == R_PolysetDrawSpans8_Opaque )
@@ -699,7 +764,21 @@ void R_PolysetCalcGradients (int skinwidth)
 	}
 //#endif
 
+	// do not allow big steps to make 512 byte extra bounds enough (still f**ng not)
+	if( r_sstepx <= -65535*8 )
+		return false;
+	if( r_tstepx <= -65535*8)
+		return false;
+	if( r_sstepx >= 65535*8 )
+		return false;
+	if( r_tstepx >= 65535*8 )
+		return false;
+
 	a_ststepxwhole = skinwidth * (r_tstepx >> 16) + (r_sstepx >> 16);
+
+//	printf("%d %d %d %d\n",a_ststepxwhole, r_sstepx, r_tstepx, skinwidth );
+	skinend = (pixel_t*)r_affinetridesc.pskin + r_affinetridesc.skinwidth * r_affinetridesc.skinheight;
+	return true;
 }
 #endif
 
@@ -755,6 +834,9 @@ void R_PolysetDrawSpansBlended( spanpackage_t *pspanpackage)
 						return;
 					}
 #endif
+					if( !R_DrawCheckBounds( lptex ) )
+						return;
+
 					pixel_t temp = *lptex;//vid.colormap[*lptex + ( llight & 0xFF00 )];
 					temp = BLEND_COLOR(temp, vid.color);
 
@@ -830,6 +912,8 @@ void R_PolysetDrawSpansAdditive( spanpackage_t *pspanpackage)
 			{
 				if ((lzi >> 16) >= *lpz)
 				{
+					if( !R_DrawCheckBounds( lptex ) )
+						return;
 #if 0
 					if((int)(lptex - (pixel_t*)r_affinetridesc.pskin) > r_affinetridesc.skinwidth * r_affinetridesc.skinheight || (int)(lptex - (pixel_t*)r_affinetridesc.pskin) < 0 )
 					{
@@ -909,6 +993,8 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage)
 			{
 				//if ((lzi >> 16) >= *lpz)
 				{
+					if( !R_DrawCheckBounds( lptex ) )
+						return;
 #if 0
 					if((int)(lptex - (pixel_t*)r_affinetridesc.pskin) > r_affinetridesc.skinwidth * r_affinetridesc.skinheight || (int)(lptex - (pixel_t*)r_affinetridesc.pskin) < 0 )
 					{
@@ -988,6 +1074,8 @@ void R_PolysetDrawSpansTextureBlended( spanpackage_t *pspanpackage)
 			{
 				if ((lzi >> 16) >= *lpz)
 				{
+					if( !R_DrawCheckBounds( lptex ) )
+						return;
 #if 0
 					if((int)(lptex - (pixel_t*)r_affinetridesc.pskin) > r_affinetridesc.skinwidth * r_affinetridesc.skinheight || (int)(lptex - (pixel_t*)r_affinetridesc.pskin) < 0 )
 					{
@@ -1414,6 +1502,8 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 			{
 				if ((lzi >> 16) >= *lpz)
 				{
+					if( !R_DrawCheckBounds( lptex ) )
+						return;
 //PGM
 					/*if(r_newrefdef.rdflags & RDF_IRGOGGLES && RI.currententity->flags & RF_IR_VISIBLE)
 						*lpdest = ((byte *)vid.colormap)[irtable[*lptex]];
@@ -1450,7 +1540,7 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 					lptex += r_affinetridesc.skinwidth;
 					ltfrac &= 0xFFFF;
 				}
-			} while (--lcount);
+			} while (lcount--);
 		}
 
 		pspanpackage ++;
@@ -1481,7 +1571,8 @@ void R_RasterizeAliasPolySmooth (void)
 // set the s, t, and light gradients, which are consistent across the triangle
 // because being a triangle, things are affine
 //
-	R_PolysetCalcGradients (r_affinetridesc.skinwidth);
+	if( !R_PolysetCalcGradients (r_affinetridesc.skinwidth) )
+		return;
 //
 // rasterize the polygon
 //
@@ -1496,6 +1587,7 @@ void R_RasterizeAliasPolySmooth (void)
 
 	d_ptex = (pixel_t*)r_affinetridesc.pskin + (plefttop[2] >> 16) +
 			(plefttop[3] >> 16) * r_affinetridesc.skinwidth;
+
 //#if	id386ALIAS
 #if id386
 	if ( d_pdrawspans == R_PolysetDrawSpans8_Opaque )
@@ -1520,6 +1612,8 @@ void R_RasterizeAliasPolySmooth (void)
 
 	if (initialleftheight == 1)
 	{
+		if( !R_CheckBounds() )
+			return;
 		d_pedgespanpackage->pdest = d_pdest;
 		d_pedgespanpackage->pz = d_pz;
 		d_pedgespanpackage->count = d_aspancount;
@@ -1531,8 +1625,6 @@ void R_RasterizeAliasPolySmooth (void)
 	// FIXME: need to clamp l, s, t, at both ends?
 		d_pedgespanpackage->light = d_light;
 		d_pedgespanpackage->zi = d_zi;
-		if( d_pedgespanpackage->ptex - (pixel_t*)r_affinetridesc.pskin < 0 )
-			d_pedgespanpackage->ptex = r_affinetridesc.pskin;
 
 		d_pedgespanpackage++;
 	}
@@ -1621,7 +1713,8 @@ void R_RasterizeAliasPolySmooth (void)
 		else
 #endif
 		{
-			R_PolysetScanLeftEdge_C(initialleftheight);
+			if(!R_PolysetScanLeftEdge_C(initialleftheight))
+				return;
 		}
 	}
 
@@ -1643,6 +1736,7 @@ void R_RasterizeAliasPolySmooth (void)
 		d_aspancount = plefttop[0] - prighttop[0];
 		d_ptex = (pixel_t*)r_affinetridesc.pskin + (plefttop[2] >> 16) +
 				(plefttop[3] >> 16) * r_affinetridesc.skinwidth;
+
 		d_sfrac = 0;
 		d_tfrac = 0;
 		d_light = plefttop[4];
@@ -1650,6 +1744,10 @@ void R_RasterizeAliasPolySmooth (void)
 
 		d_pdest = (pixel_t *)d_viewbuffer + ystart * r_screenwidth + plefttop[0];
 		d_pz = d_pzbuffer + ystart * d_zwidth + plefttop[0];
+
+		if( !R_CheckBounds() )
+			return;
+
 
 		if (height == 1)
 		{
@@ -1664,8 +1762,6 @@ void R_RasterizeAliasPolySmooth (void)
 		// FIXME: need to clamp l, s, t, at both ends?
 			d_pedgespanpackage->light = d_light;
 			d_pedgespanpackage->zi = d_zi;
-			if( d_pedgespanpackage->ptex - (pixel_t*)r_affinetridesc.pskin < 0 )
-				d_pedgespanpackage->ptex = r_affinetridesc.pskin;
 
 			d_pedgespanpackage++;
 		}
@@ -1749,7 +1845,8 @@ void R_RasterizeAliasPolySmooth (void)
 			else
 #endif
 			{
-				R_PolysetScanLeftEdge_C(height);
+				if(!R_PolysetScanLeftEdge_C(height))
+					return;
 			}
 		}
 	}
@@ -1764,6 +1861,11 @@ void R_RasterizeAliasPolySmooth (void)
 	d_countextrastep = ubasestep + 1;
 	originalcount = a_spans[initialrightheight].count;
 	a_spans[initialrightheight].count = -999999; // mark end of the spanpackages
+
+
+	if( !R_CheckBounds() )
+		return;
+
 	(*d_pdrawspans) (a_spans);
 
 // scan out the bottom part of the right edge, if it exists
@@ -1787,6 +1889,11 @@ void R_RasterizeAliasPolySmooth (void)
 
 		d_countextrastep = ubasestep + 1;
 		a_spans[initialrightheight + height].count = -999999;
+
+
+		if( !R_CheckBounds() )
+			return;
+
 											// mark end of the spanpackages
 		(*d_pdrawspans) (pstart);
 	}

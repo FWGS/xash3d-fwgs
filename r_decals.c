@@ -519,7 +519,7 @@ glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t
 	float		*v;
 	int		i;
 
-	return;
+	return NULL;
 	if( pdecal->polys )	// already created?
 		return pdecal->polys;
 
