@@ -216,78 +216,21 @@ static inline qboolean R_DrawCheckBounds( pixel_t *lptex )
 		return false;
 	return true;
 }
-
-/// TODO: fix this and do not check bounds in shader
-static inline qboolean R_CheckBounds( void)
-{
 #if 0
-	spanpackage_t *pspanpackage = d_pedgespanpackage;
-	int lcount;
-	int aspancount = d_aspancount;
-
-	int lerrorterm = errorterm + erroradjustup;
-	if (lerrorterm >= 0)
-	{
-		aspancount += d_countextrastep;
-		lerrorterm -= erroradjustdown;
-	}
-	else
-	{
-		aspancount += ubasestep;
-	}
-
-
-	lcount = pspanpackage->count;//d_aspancount;//max(fabs(ubasestep),fabs(d_countextrastep));
-	printf("c %d %d\n", lcount, errorterm );
-	if( lcount == 0 )
-		lcount = max(fabs(ubasestep),fabs(d_countextrastep));
-	if( lcount < 0 )
-		return false;
-	if (lcount)
-	{
-		int		lsfrac, ltfrac;
-		byte	*lptex;
-
-		lptex = pspanpackage->ptex;
-		lsfrac = pspanpackage->sfrac;
-		ltfrac = pspanpackage->tfrac;
-
-		do
-		{
-			if( !R_DrawCheckBounds( lptex ) )
-				return false;
-
-			lptex += a_ststepxwhole;
-			lsfrac += a_sstepxfrac;
-			lptex += lsfrac >> 16;
-			lsfrac &= 0xFFFF;
-			ltfrac += a_tstepxfrac;
-			if (ltfrac & 0x10000)
-			{
-				lptex += r_affinetridesc.skinwidth;
-				ltfrac &= 0xFFFF;
-			}
-		} while (--lcount);
-	}
-	return true;
-#endif
-	return true;
-}
-
-
-/// TODO: fix this and do not check bounds in shader
 static inline qboolean R_CheckBounds2( spanpackage_t *pspanpackage, int lcount )
 {
 	int		lsfrac, ltfrac;
-	byte	*lptex;
+	pixel_t	*lptex, *start, *end;
 
 	lptex = pspanpackage->ptex;
 	lsfrac = pspanpackage->sfrac;
 	ltfrac = pspanpackage->tfrac;
+	start = r_affinetridesc.pskin;
+	end = skinend;
 
 	do
 	{
-		if( !R_DrawCheckBounds( lptex ) )
+		if( lptex - start < 0 || lptex - end >= 0 )
 			return false;
 
 		lptex += a_ststepxwhole;
@@ -301,22 +244,43 @@ static inline qboolean R_CheckBounds2( spanpackage_t *pspanpackage, int lcount )
 			ltfrac &= 0xFFFF;
 		}
 	} while (--lcount);
-	// try cover all edge cases
-/*
-	if( !R_DrawCheckBounds(lptex) )
-		return false;
-	lcount--;
-	if( !R_DrawCheckBounds(lptex + a_ststepxwhole * lcount + ((lsfrac * lcount) >> 16)) )
-		return false;
-	if( !R_DrawCheckBounds(lptex + a_ststepxwhole * lcount + ((ltfrac * lcount) >> 16) * r_affinetridesc.skinwidth ) )
+
+	// span is linear, so only need to check first and last
+
+	if( lptex - start < 0 || lptex - end >= 0 )
 		return false;
 
-	if( !R_DrawCheckBounds(lptex + ((ltfrac * lcount) >> 16) * r_affinetridesc.skinwidth ) )
+	//if( !(--lcount) )
+		//return true;
+
+	lptex = lptex + a_ststepxwhole * lcount + ((lsfrac + ( a_sstepxfrac * lcount)) >> 16) + ((ltfrac + (a_tstepxfrac * lcount)) >> 16) * r_affinetridesc.skinwidth;
+
+	if( lptex - start < 0 || lptex - end >= 0 )
 		return false;
 
-	if( !R_DrawCheckBounds(lptex + a_ststepxwhole * lcount + ((lsfrac * lcount) >> 16) + ((ltfrac * lcount) >> 16) * r_affinetridesc.skinwidth ) )
+
+	return true;
+}
+#endif
+
+static inline qboolean R_PolysetCheckBounds( pixel_t *lptex, int lsfrac, int ltfrac, int lcount )
+{
+	pixel_t	*start, *end;
+	start = r_affinetridesc.pskin;
+	end = skinend;
+
+	// span is linear, so only need to check first and last
+	if( lptex - start < 0 || lptex - end >= 0 )
 		return false;
-*/
+
+	if( !(--lcount) )
+		return true;
+
+	lptex = lptex + a_ststepxwhole * lcount + ((lsfrac + ( a_sstepxfrac * lcount)) >> 16) + ((ltfrac + (a_tstepxfrac * lcount)) >> 16) * r_affinetridesc.skinwidth;
+
+	if( lptex - start < 0 || lptex - end >= 0 )
+		return false;
+
 
 	return true;
 }
@@ -342,10 +306,6 @@ qboolean R_PolysetScanLeftEdge_C(int height)
 	// FIXME: need to clamp l, s, t, at both ends?
 		d_pedgespanpackage->light = d_light;
 		d_pedgespanpackage->zi = d_zi;
-
-
-		if( !R_CheckBounds() )
-			return false;
 
 		d_pedgespanpackage++;
 
@@ -805,14 +765,14 @@ qboolean R_PolysetCalcGradients (int skinwidth)
 	r_zistepy = (int)((t1 * p00_minus_p20 - t0 * p10_minus_p20) *
 			ystepdenominv);
 
-	if( r_zistepx > INT_MAX / 2 )
+	/*if( r_zistepx > INT_MAX / 2 )
 		return false;
 	if( r_zistepx < INT_MIN / 2 )
 		return false;
 	if( r_zistepy > INT_MAX / 2 )
 		return false;
 	if( r_zistepy < INT_MIN / 2 )
-		return false;
+		return false;*/
 
 
 //#if	id386ALIAS
@@ -832,14 +792,14 @@ qboolean R_PolysetCalcGradients (int skinwidth)
 //#endif
 
 	// do not allow big steps to make 512 byte extra bounds enough (still f**ng not)
-	if( r_sstepx <= -65535*8 )
+	/*if( r_sstepx <= -65535*8 )
 		return false;
 	if( r_tstepx <= -65535*8)
 		return false;
 	if( r_sstepx >= 65535*8 )
 		return false;
 	if( r_tstepx >= 65535*8 )
-		return false;
+		return false;*/
 
 	a_ststepxwhole = skinwidth * (r_tstepx >> 16) + (r_sstepx >> 16);
 
@@ -882,10 +842,6 @@ void R_PolysetDrawSpansBlended( spanpackage_t *pspanpackage)
 
 		if (lcount)
 		{
-#if BOUNDCHECK_MODE == 0
-			if( !R_CheckBounds2( pspanpackage, lcount ) )
-				return;
-#endif
 			lpdest = pspanpackage->pdest;
 			lptex = pspanpackage->ptex;
 			lpz = pspanpackage->pz;
@@ -893,7 +849,11 @@ void R_PolysetDrawSpansBlended( spanpackage_t *pspanpackage)
 			ltfrac = pspanpackage->tfrac;
 			llight = pspanpackage->light;
 			lzi = pspanpackage->zi;
-
+			pspanpackage++;
+#if BOUNDCHECK_MODE == 0
+			if( !R_PolysetCheckBounds( lptex, lsfrac, ltfrac, lcount ) )
+				continue;
+#endif
 			do
 			{
 				if ((lzi >> 16) >= *lpz)
@@ -935,8 +895,7 @@ void R_PolysetDrawSpansBlended( spanpackage_t *pspanpackage)
 				}
 			} while (--lcount);
 		}
-
-		pspanpackage++;
+		else pspanpackage++;
 	} while (pspanpackage->count != -999999);
 }
 
@@ -980,9 +939,10 @@ void R_PolysetDrawSpansAdditive( spanpackage_t *pspanpackage)
 			ltfrac = pspanpackage->tfrac;
 			llight = pspanpackage->light;
 			lzi = pspanpackage->zi;
+			pspanpackage++;
 #if BOUNDCHECK_MODE == 0
-			if( !R_CheckBounds2( pspanpackage, lcount ) )
-				return;
+			if( !R_PolysetCheckBounds( lptex, lsfrac, ltfrac, lcount ) )
+				continue;
 #endif
 			do
 			{
@@ -1022,8 +982,7 @@ void R_PolysetDrawSpansAdditive( spanpackage_t *pspanpackage)
 				}
 			} while (--lcount);
 		}
-
-		pspanpackage++;
+		else pspanpackage++;
 	} while (pspanpackage->count != -999999);
 }
 
@@ -1060,10 +1019,6 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage)
 
 		if (lcount)
 		{
-#if BOUNDCHECK_MODE == 0
-			if( !R_CheckBounds2( pspanpackage, lcount ) )
-				return;
-#endif
 			lpdest = pspanpackage->pdest;
 			lptex = pspanpackage->ptex;
 			lpz = pspanpackage->pz;
@@ -1071,7 +1026,11 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage)
 			ltfrac = pspanpackage->tfrac;
 			llight = pspanpackage->light;
 			lzi = pspanpackage->zi;
-
+			pspanpackage++;
+#if BOUNDCHECK_MODE == 0
+			if( !R_PolysetCheckBounds( lptex, lsfrac, ltfrac, lcount ) )
+				continue;
+#endif
 			do
 			{
 				//if ((lzi >> 16) >= *lpz)
@@ -1109,8 +1068,8 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage)
 				}
 			} while (--lcount);
 		}
-
-		pspanpackage++;
+		else
+			pspanpackage++;
 	} while (pspanpackage->count != -999999);
 }
 
@@ -1147,10 +1106,7 @@ void R_PolysetDrawSpansTextureBlended( spanpackage_t *pspanpackage)
 
 		if (lcount)
 		{
-#if BOUNDCHECK_MODE == 0
-			if( !R_CheckBounds2( pspanpackage, lcount ) )
-				return;
-#endif
+
 			lpdest = pspanpackage->pdest;
 			lptex = pspanpackage->ptex;
 			lpz = pspanpackage->pz;
@@ -1158,7 +1114,11 @@ void R_PolysetDrawSpansTextureBlended( spanpackage_t *pspanpackage)
 			ltfrac = pspanpackage->tfrac;
 			llight = pspanpackage->light;
 			lzi = pspanpackage->zi;
-
+			pspanpackage++;
+#if BOUNDCHECK_MODE == 0
+			if( !R_PolysetCheckBounds( lptex, lsfrac, ltfrac, lcount ) )
+				continue;
+#endif
 			do
 			{
 				if ((lzi >> 16) >= *lpz)
@@ -1200,8 +1160,8 @@ void R_PolysetDrawSpansTextureBlended( spanpackage_t *pspanpackage)
 				}
 			} while (--lcount);
 		}
-
-		pspanpackage++;
+		else
+			pspanpackage++;
 	} while (pspanpackage->count != -999999);
 }
 
@@ -1581,10 +1541,7 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 			int		llight;
 			int		lzi;
 			short	*lpz;
-#if BOUNDCHECK_MODE == 0
-			if( !R_CheckBounds2( pspanpackage, lcount ) )
-				return;
-#endif
+
 
 			lpdest = pspanpackage->pdest;
 			lptex = pspanpackage->ptex;
@@ -1593,6 +1550,11 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 			ltfrac = pspanpackage->tfrac;
 			llight = pspanpackage->light;
 			lzi = pspanpackage->zi;
+			pspanpackage ++;
+#if BOUNDCHECK_MODE == 0
+			if( !R_PolysetCheckBounds( lptex, lsfrac, ltfrac, lcount ) )
+				continue;
+#endif
 
 			do
 			{
@@ -1640,8 +1602,7 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 				}
 			} while (--lcount);
 		}
-
-		pspanpackage ++;
+		else pspanpackage++;
 	} while (pspanpackage->count != -999999);
 }
 #endif
@@ -1722,8 +1683,6 @@ void R_RasterizeAliasPolySmooth (void)
 	// FIXME: need to clamp l, s, t, at both ends?
 		d_pedgespanpackage->light = d_light;
 		d_pedgespanpackage->zi = d_zi;
-		if( !R_CheckBounds() )
-			return;
 		d_pedgespanpackage++;
 	}
 	else
@@ -1858,9 +1817,6 @@ void R_RasterizeAliasPolySmooth (void)
 		// FIXME: need to clamp l, s, t, at both ends?
 			d_pedgespanpackage->light = d_light;
 			d_pedgespanpackage->zi = d_zi;
-
-			if( !R_CheckBounds() )
-				return;
 			d_pedgespanpackage++;
 		}
 		else
@@ -1960,10 +1916,6 @@ void R_RasterizeAliasPolySmooth (void)
 	originalcount = a_spans[initialrightheight].count;
 	a_spans[initialrightheight].count = -999999; // mark end of the spanpackages
 
-
-	if( !R_CheckBounds() )
-		return;
-
 	(*d_pdrawspans) (a_spans);
 
 // scan out the bottom part of the right edge, if it exists
@@ -1987,12 +1939,7 @@ void R_RasterizeAliasPolySmooth (void)
 
 		d_countextrastep = ubasestep + 1;
 		a_spans[initialrightheight + height].count = -999999;
-
-
-		if( !R_CheckBounds() )
-			return;
-
-											// mark end of the spanpackages
+		// mark end of the spanpackages
 		(*d_pdrawspans) (pstart);
 	}
 }
