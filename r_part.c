@@ -46,7 +46,7 @@ CL_DrawParticles
 update particle color, position, free expired and draw it
 ================
 */
-void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float partsize )
+void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_particles, float partsize )
 {
 	particle_t	*p;
 	vec3_t		right, up;
@@ -162,7 +162,7 @@ CL_DrawTracers
 update tracer color, position, free expired and draw it
 ================
 */
-void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
+void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 {
 	float		scale, atten, gravity;
 	vec3_t		screenLast, screen;
@@ -288,7 +288,7 @@ CL_DrawParticlesExternal
 allow to draw effects from custom renderer
 ===============
 */
-void CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean trans_pass, float frametime )
+void GAME_EXPORT CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean trans_pass, float frametime )
 {
 	ref_instance_t	oldRI = RI;
 

@@ -35,7 +35,7 @@ CL_RunLightStyles
 
 ==================
 */
-void CL_RunLightStyles( void )
+void GAME_EXPORT CL_RunLightStyles( void )
 {
 	int		i, k, flight, clight;
 	float		l, lerpfrac, backlerp;
@@ -468,7 +468,7 @@ R_LightVec
 check bspmodels to get light from
 =================
 */
-colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t lvec )
+colorVec GAME_EXPORT R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t lvec )
 {
 	colorVec	light = R_LightVecInternal( start, end, lspot, lvec );
 
@@ -491,7 +491,7 @@ R_LightPoint
 light from floor
 =================
 */
-colorVec R_LightPoint( const vec3_t p0 )
+colorVec GAME_EXPORT R_LightPoint( const vec3_t p0 )
 {
 	vec3_t	p1;
 

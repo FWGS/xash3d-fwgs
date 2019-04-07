@@ -576,7 +576,7 @@ void R_DrawClouds( void );
 void EmitWaterPolys( msurface_t *warp, qboolean reverse );
 #endif
 
-void R_InitSkyClouds( struct mip_s *mt, struct texture_s *tx, qboolean custom_palette );
+void GAME_EXPORT R_InitSkyClouds( struct mip_s *mt, struct texture_s *tx, qboolean custom_palette );
 //
 // gl_vgui.c
 //
