@@ -1,5 +1,7 @@
 @echo off
 
+rem try fix py2 build
+chcp 1252
 rem from issue #964
 
 Setlocal EnableDelayedExpansion
