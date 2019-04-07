@@ -318,7 +318,7 @@ void R_SetupFrameQ (void)
 	if (r_fullbright->flags & FCVAR_CHANGED)
 	{
 		r_fullbright->flags &= ~FCVAR_CHANGED;
-		D_FlushCaches( false );	// so all lighting changes
+		D_FlushCaches( );	// so all lighting changes
 	}
 	
 	//tr.framecount++;

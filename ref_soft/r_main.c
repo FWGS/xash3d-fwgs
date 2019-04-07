@@ -1671,7 +1671,7 @@ void R_BeginFrame( qboolean clearScene )
 	//	glConfig.softwareGammaUpdate = true;
 	//	GL_RebuildLightmaps();
 	//	glConfig.softwareGammaUpdate = false;
-		D_FlushCaches( false );
+		D_FlushCaches( );
 
 		// next frame will be restored gamma
 		SetBits( vid_brightness->flags, FCVAR_CHANGED );
@@ -1682,7 +1682,7 @@ void R_BeginFrame( qboolean clearScene )
 		gEngfuncs.BuildGammaTable( vid_gamma->value, vid_brightness->value );
 		//glConfig.softwareGammaUpdate = true;
 	//	GL_RebuildLightmaps();
-		D_FlushCaches( false );
+		D_FlushCaches( );
 		//glConfig.softwareGammaUpdate = false;
 		// next frame will be restored gamma
 		ClearBits( vid_brightness->flags, FCVAR_CHANGED );
@@ -1833,7 +1833,7 @@ void R_NewMap (void)
 	R_ClearDecals(); // clear all level decals
 	R_StudioResetPlayerModels();
 
-	D_FlushCaches( true );
+	D_FlushCaches();
 
 	r_cnumsurfs = sw_maxsurfs->value;
 
