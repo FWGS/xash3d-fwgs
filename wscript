@@ -119,7 +119,7 @@ def configure(conf):
 
 	linker_flags = {
 		'common': {
-			'msvc':    ['/DEBUG', '/FS'], # always create PDB, doesn't affect result binaries
+			'msvc':    ['/DEBUG'], # always create PDB, doesn't affect result binaries
 			'gcc': ['-Wl,--no-undefined']
 		}
 	}
@@ -134,7 +134,7 @@ def configure(conf):
 			'default': ['-O3']
 		},
 		'debug': {
-			'msvc':    ['/Zi', '/O2', '/FS'],
+			'msvc':    ['/Z7', '/O2'],
 			'clang':   ['-O0', '-gdwarf-2'],
 			'default': ['-Og']
 		}
