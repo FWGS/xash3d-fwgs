@@ -1675,7 +1675,7 @@ void FS_Init( void )
 	Con_Reportf( "FS_Init: done\n" );
 }
 
-void FS_AllowDirectPaths( qboolean enable )
+void GAME_EXPORT FS_AllowDirectPaths( qboolean enable )
 {
 	fs_ext_path = enable;
 }
@@ -2488,7 +2488,7 @@ Filename are relative to the xash directory.
 Always appends a 0 byte.
 ============
 */
-byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
+byte * GAME_EXPORT FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
 {
 	file_t	*file;
 	byte	*buf = NULL;
@@ -2589,7 +2589,7 @@ FS_FileExists
 Look for a file in the packages and in the filesystem
 ==================
 */
-int FS_FileExists( const char *filename, int gamedironly )
+int GAME_EXPORT FS_FileExists( const char *filename, int gamedironly )
 {
 	if( FS_FindFile( filename, NULL, gamedironly ))
 		return true;

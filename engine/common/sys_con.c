@@ -251,7 +251,7 @@ Con_Printf
 
 =============
 */
-void Con_Printf( const char *szFmt, ... )
+void GAME_EXPORT Con_Printf( const char *szFmt, ... )
 {
 	static char	buffer[MAX_PRINT_MSG];
 	va_list		args;
@@ -272,7 +272,7 @@ Con_DPrintf
 
 =============
 */
-void Con_DPrintf( const char *szFmt, ... )
+void GAME_EXPORT Con_DPrintf( const char *szFmt, ... )
 {
 	static char	buffer[MAX_PRINT_MSG];
 	va_list		args;
@@ -296,7 +296,7 @@ Con_Reportf
 
 =============
 */
-void Con_Reportf( const char *szFmt, ... )
+void GAME_EXPORT Con_Reportf( const char *szFmt, ... )
 {
 	static char	buffer[MAX_PRINT_MSG];
 	va_list		args;

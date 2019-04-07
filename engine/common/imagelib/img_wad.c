@@ -137,7 +137,7 @@ Transfer buffer pointer before Image_LoadMDL
 ======================
 */
 static void *g_mdltexdata;
-void Image_SetMDLPointer( byte *p )
+void GAME_EXPORT Image_SetMDLPointer( byte *p )
 {
 	g_mdltexdata = p;
 }

@@ -563,7 +563,7 @@ R_StudioLerpMovement
 
 ====================
 */
-void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, vec3_t angles )
+void GAME_EXPORT R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, vec3_t angles )
 {
 	float	f = 1.0f;
 
@@ -629,7 +629,7 @@ StudioEstimateFrame
 
 ====================
 */
-float R_StudioEstimateFrame( cl_entity_t *e, mstudioseqdesc_t *pseqdesc )
+float GAME_EXPORT R_StudioEstimateFrame( cl_entity_t *e, mstudioseqdesc_t *pseqdesc )
 {
 	double	dfdt, f;
 
@@ -3849,7 +3849,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 Mod_StudioLoadTextures
 =================
 */
-void Mod_StudioLoadTextures( model_t *mod, void *data )
+void GAME_EXPORT Mod_StudioLoadTextures( model_t *mod, void *data )
 {
 	studiohdr_t	*phdr = (studiohdr_t *)data;
 	mstudiotexture_t	*ptexture;
@@ -3985,7 +3985,7 @@ CL_InitStudioAPI
 Initialize client studio
 ===============
 */
-void CL_InitStudioAPI( void )
+void GAME_EXPORT CL_InitStudioAPI( void )
 {
 	pStudioDraw = &gStudioDraw;
 

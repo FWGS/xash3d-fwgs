@@ -675,7 +675,7 @@ void Mod_InitDebugHulls( void )
 	}
 }
 
-void Mod_CreatePolygonsForHull( int hullnum )
+void GAME_EXPORT Mod_CreatePolygonsForHull( int hullnum )
 {
 	model_t	*mod = cl.worldmodel;
 	double	start, end;

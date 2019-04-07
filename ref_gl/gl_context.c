@@ -19,18 +19,18 @@ GNU General Public License for more details.
 ref_api_t      gEngfuncs;
 ref_globals_t *gpGlobals;
 
-static void R_ClearScreen( void )
+static void GAME_EXPORT R_ClearScreen( void )
 {
 	pglClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
 	pglClear( GL_COLOR_BUFFER_BIT );
 }
 
-static qboolean IsNormalPass( void )
+static qboolean GAME_EXPORT IsNormalPass( void )
 {
 	return RP_NORMALPASS();
 }
 
-static void R_IncrementSpeedsCounter( int type )
+static void GAME_EXPORT R_IncrementSpeedsCounter( int type )
 {
 	switch( type )
 	{
@@ -42,7 +42,7 @@ static void R_IncrementSpeedsCounter( int type )
 	}
 }
 
-static const byte *R_GetTextureOriginalBuffer( unsigned int idx )
+static const byte * GAME_EXPORT R_GetTextureOriginalBuffer( unsigned int idx )
 {
 	gl_texture_t *glt = R_GetTexture( idx );
 
@@ -52,7 +52,7 @@ static const byte *R_GetTextureOriginalBuffer( unsigned int idx )
 	return glt->original->buffer;
 }
 
-static int R_GetBuiltinTexture( enum ref_shared_texture_e type )
+static int GAME_EXPORT R_GetBuiltinTexture( enum ref_shared_texture_e type )
 {
 	switch( type )
 	{
@@ -67,7 +67,7 @@ static int R_GetBuiltinTexture( enum ref_shared_texture_e type )
 	return 0;
 }
 
-static void R_FreeSharedTexture( enum ref_shared_texture_e type )
+static void GAME_EXPORT R_FreeSharedTexture( enum ref_shared_texture_e type )
 {
 	int num = 0;
 
@@ -97,7 +97,7 @@ CL_FillRGBA
 
 =============
 */
-static void CL_FillRGBA( float _x, float _y, float _w, float _h, int r, int g, int b, int a )
+static void GAME_EXPORT CL_FillRGBA( float _x, float _y, float _w, float _h, int r, int g, int b, int a )
 {
 	pglDisable( GL_TEXTURE_2D );
 	pglEnable( GL_BLEND );
@@ -201,7 +201,7 @@ void Mod_UnloadTextures( model_t *mod )
 	}
 }
 
-qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
+qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 {
 	qboolean loaded = true;
 
@@ -237,7 +237,7 @@ qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 	return loaded;
 }
 
-static int GL_RefGetParm( int parm, int arg )
+static int GAME_EXPORT GL_RefGetParm( int parm, int arg )
 {
 	gl_texture_t *glt;
 
@@ -319,7 +319,7 @@ static int GL_RefGetParm( int parm, int arg )
 	return 0;
 }
 
-static void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScale )
+static void GAME_EXPORT R_GetDetailScaleForTexture( int texture, float *xScale, float *yScale )
 {
 	gl_texture_t *glt = R_GetTexture( texture );
 
@@ -327,7 +327,7 @@ static void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScal
 	if( yScale ) *yScale = glt->yscale;
 }
 
-static void R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
+static void GAME_EXPORT R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
 {
 	gl_texture_t *glt = R_GetTexture( texture );
 
@@ -338,7 +338,7 @@ static void R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte
 }
 
 
-static void R_SetCurrentEntity( cl_entity_t *ent )
+static void GAME_EXPORT R_SetCurrentEntity( cl_entity_t *ent )
 {
 	RI.currententity = ent;
 
@@ -349,22 +349,22 @@ static void R_SetCurrentEntity( cl_entity_t *ent )
 	}
 }
 
-static void R_SetCurrentModel( model_t *mod )
+static void GAME_EXPORT R_SetCurrentModel( model_t *mod )
 {
 	RI.currentmodel = mod;
 }
 
-static float R_GetFrameTime( void )
+static float GAME_EXPORT R_GetFrameTime( void )
 {
 	return tr.frametime;
 }
 
-static const char *GL_TextureName( unsigned int texnum )
+static const char * GAME_EXPORT GL_TextureName( unsigned int texnum )
 {
 	return R_GetTexture( texnum )->name;
 }
 
-const byte *GL_TextureData( unsigned int texnum )
+const byte * GAME_EXPORT GL_TextureData( unsigned int texnum )
 {
 	rgbdata_t *pic = R_GetTexture( texnum )->original;
 
@@ -373,7 +373,7 @@ const byte *GL_TextureData( unsigned int texnum )
 	return NULL;
 }
 
-void R_ProcessEntData( qboolean allocate )
+void GAME_EXPORT R_ProcessEntData( qboolean allocate )
 {
 	if( !allocate )
 	{

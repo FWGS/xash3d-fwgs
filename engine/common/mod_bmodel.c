@@ -496,7 +496,7 @@ Mod_PointInLeaf
 
 ==================
 */
-mleaf_t *Mod_PointInLeaf( const vec3_t p, mnode_t *node )
+mleaf_t * GAME_EXPORT Mod_PointInLeaf( const vec3_t p, mnode_t *node )
 {
 	Assert( node != NULL );
 
@@ -697,7 +697,7 @@ Returns true if any leaf in boxspace
 is potentially visible
 =============
 */
-qboolean Mod_BoxVisible( const vec3_t mins, const vec3_t maxs, const byte *visbits )
+qboolean GAME_EXPORT Mod_BoxVisible( const vec3_t mins, const vec3_t maxs, const byte *visbits )
 {
 	short	leafList[MAX_BOX_LEAFS];
 	int	i, count;
@@ -866,7 +866,7 @@ Mod_SampleSizeForFace
 return the current lightmap resolution per face
 ==================
 */
-int Mod_SampleSizeForFace( msurface_t *surf )
+int GAME_EXPORT Mod_SampleSizeForFace( msurface_t *surf )
 {
 	if( !surf || !surf->texinfo )
 		return LM_SAMPLE_SIZE;

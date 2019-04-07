@@ -25,7 +25,7 @@ ref_speeds_t	r_stats;	// r_speeds counters
 R_SpeedsMessage
 ===============
 */
-qboolean R_SpeedsMessage( char *out, size_t size )
+qboolean GAME_EXPORT R_SpeedsMessage( char *out, size_t size )
 {
 	if( gEngfuncs.drawFuncs->R_SpeedsMessage != NULL )
 	{
@@ -66,7 +66,7 @@ void R_Speeds_Printf( const char *msg, ... )
 GL_BackendStartFrame
 ==============
 */
-void GL_BackendStartFrame( void )
+void GAME_EXPORT GL_BackendStartFrame( void )
 {
 	r_speeds_msg[0] = '\0';
 }
@@ -76,7 +76,7 @@ void GL_BackendStartFrame( void )
 GL_BackendEndFrame
 ==============
 */
-void GL_BackendEndFrame( void )
+void GAME_EXPORT GL_BackendEndFrame( void )
 {
 	mleaf_t	*curleaf;
 
@@ -133,7 +133,7 @@ void GL_LoadTexMatrix( const matrix4x4 m )
 GL_LoadTexMatrixExt
 =================
 */
-void GL_LoadTexMatrixExt( const float *glmatrix )
+void GAME_EXPORT GL_LoadTexMatrixExt( const float *glmatrix )
 {
 	Assert( glmatrix != NULL );
 	pglMatrixMode( GL_TEXTURE );
@@ -159,7 +159,7 @@ void GL_LoadMatrix( const matrix4x4 source )
 GL_LoadIdentityTexMatrix
 =================
 */
-void GL_LoadIdentityTexMatrix( void )
+void GAME_EXPORT GL_LoadIdentityTexMatrix( void )
 {
 	if( glState.texIdentityMatrix[glState.activeTMU] )
 		return;
@@ -174,7 +174,7 @@ void GL_LoadIdentityTexMatrix( void )
 GL_SelectTexture
 =================
 */
-void GL_SelectTexture( GLint tmu )
+void GAME_EXPORT GL_SelectTexture( GLint tmu )
 {
 	if( !GL_Support( GL_ARB_MULTITEXTURE ))
 		return;
@@ -220,7 +220,7 @@ void GL_DisableAllTexGens( void )
 GL_CleanUpTextureUnits
 ==============
 */
-void GL_CleanUpTextureUnits( int last )
+void GAME_EXPORT GL_CleanUpTextureUnits( int last )
 {
 	int	i;
 
@@ -275,7 +275,7 @@ void GL_MultiTexCoord2f( GLenum texture, GLfloat s, GLfloat t )
 GL_TextureTarget
 =================
 */
-void GL_TextureTarget( uint target )
+void GAME_EXPORT GL_TextureTarget( uint target )
 {
 	if( glState.activeTMU < 0 || glState.activeTMU >= GL_MaxTextureUnits( ))
 	{
@@ -298,7 +298,7 @@ void GL_TextureTarget( uint target )
 GL_TexGen
 =================
 */
-void GL_TexGen( GLenum coord, GLenum mode )
+void GAME_EXPORT GL_TexGen( GLenum coord, GLenum mode )
 {
 	int	tmu = min( glConfig.max_texture_coords, glState.activeTMU );
 	int	bit, gen;
@@ -348,7 +348,7 @@ void GL_TexGen( GLenum coord, GLenum mode )
 GL_SetTexCoordArrayMode
 =================
 */
-void GL_SetTexCoordArrayMode( GLenum mode )
+void GAME_EXPORT GL_SetTexCoordArrayMode( GLenum mode )
 {
 	int	tmu = min( glConfig.max_texture_coords, glState.activeTMU );
 	int	bit, cmode = glState.texCoordArrayMode[tmu];
@@ -390,7 +390,7 @@ void GL_Cull( GLenum cull )
 	glState.faceCull = cull;
 }
 
-void GL_SetRenderMode( int mode )
+void GAME_EXPORT GL_SetRenderMode( int mode )
 {
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
@@ -454,7 +454,7 @@ const envmap_t r_envMapInfo[6] =
 {{ 90,   0,  90}, 0 }
 };
 
-qboolean VID_ScreenShot( const char *filename, int shot_type )
+qboolean GAME_EXPORT VID_ScreenShot( const char *filename, int shot_type )
 {
 	rgbdata_t *r_shot;
 	uint	flags = IMAGE_FLIP_Y;
@@ -521,7 +521,7 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 VID_CubemapShot
 =================
 */
-qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot )
+qboolean GAME_EXPORT VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot )
 {
 	rgbdata_t		*r_shot, *r_side;
 	byte		*temp = NULL;
@@ -612,7 +612,7 @@ Draw all the images to the screen, on top of whatever
 was there.  This is used to test for texture thrashing.
 ===============
 */
-void R_ShowTextures( void )
+void GAME_EXPORT R_ShowTextures( void )
 {
 	gl_texture_t	*image;
 	float		x, y, w, h;
@@ -783,7 +783,7 @@ void R_ShowTree_r( mnode_t *node, float x, float y, float scale, int shownodes )
 	tr.recursion_level--;
 }
 
-void R_ShowTree( void )
+void GAME_EXPORT R_ShowTree( void )
 {
 	float	x = (float)((gpGlobals->width - (int)POINT_SIZE) >> 1);
 	float	y = NODE_INTERVAL_Y(1.0);

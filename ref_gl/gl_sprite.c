@@ -236,7 +236,7 @@ Loading a bitmap image as sprite with multiple frames
 as pieces of input image
 ====================
 */
-void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean *loaded )
+void GAME_EXPORT Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean *loaded )
 {
 	byte		*src, *dst;
 	rgbdata_t		*pix, temp;

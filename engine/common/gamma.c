@@ -24,7 +24,7 @@ static byte	lightgammatable[256];
 static int	lineargammatable[1024];
 static int	screengammatable[1024];
 
-void BuildGammaTable( float lightgamma, float brightness )
+void GAME_EXPORT BuildGammaTable( float lightgamma, float brightness )
 {
 	int	i, inf;
 	float	f, g, g1, g3;
@@ -76,7 +76,7 @@ void BuildGammaTable( float lightgamma, float brightness )
 	}
 }
 
-byte LightToTexGamma( byte b )
+byte GAME_EXPORT LightToTexGamma( byte b )
 {
 	return lightgammatable[b];
 }

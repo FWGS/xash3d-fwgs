@@ -181,7 +181,7 @@ byte *Image_Copy( size_t size )
 Image_CustomPalette
 =================
 */
-qboolean Image_CustomPalette( void )
+qboolean GAME_EXPORT Image_CustomPalette( void )
 {
 	return image.custom_palette;
 }
@@ -207,7 +207,7 @@ qboolean Image_CheckFlag( int bit )
 Image_SetForceFlags
 =================
 */
-void Image_SetForceFlags( uint flags )
+void GAME_EXPORT Image_SetForceFlags( uint flags )
 {
 	SetBits( image.force_flags, flags );
 }
@@ -217,7 +217,7 @@ void Image_SetForceFlags( uint flags )
 Image_ClearForceFlags
 =================
 */
-void Image_ClearForceFlags( void )
+void GAME_EXPORT Image_ClearForceFlags( void )
 {
 	image.force_flags = 0;
 }
@@ -227,7 +227,7 @@ void Image_ClearForceFlags( void )
 Image_AddCmdFlags
 =================
 */
-void Image_AddCmdFlags( uint flags )
+void GAME_EXPORT Image_AddCmdFlags( uint flags )
 {
 	SetBits( image.cmd_flags, flags );
 }
@@ -1453,7 +1453,7 @@ static void Image_ApplyFilter( rgbdata_t *pic, float factor )
 	memcpy( fin, fout, size );
 }
 
-qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, float bumpscale )
+qboolean GAME_EXPORT Image_Process( rgbdata_t **pix, int width, int height, uint flags, float bumpscale )
 {
 	rgbdata_t	*pic = *pix;
 	qboolean	result = true;

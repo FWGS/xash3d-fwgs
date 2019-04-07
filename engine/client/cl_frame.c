@@ -945,7 +945,7 @@ CL_AddVisibleEntity
 all the visible entities should pass this filter
 =============
 */
-qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
+qboolean GAME_EXPORT CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 {
 	if( !ent || !ent->model )
 		return false;
@@ -1408,7 +1408,7 @@ qboolean CL_GetMovieSpatialization( rawchan_t *ch )
 	return true;
 }
 
-void CL_ExtraUpdate( void )
+void GAME_EXPORT CL_ExtraUpdate( void )
 {
 	clgame.dllFuncs.IN_Accumulate();
 	S_ExtraUpdate();

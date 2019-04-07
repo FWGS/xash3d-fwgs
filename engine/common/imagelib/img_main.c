@@ -208,7 +208,7 @@ FS_LoadImage
 loading and unpack to rgba any known image
 ================
 */
-rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
+rgbdata_t * GAME_EXPORT FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 {
 	const char	*ext = COM_FileExtension( filename );
 	string		path, loadname, sidename;
@@ -350,7 +350,7 @@ Image_Save
 writes image as any known format
 ================
 */
-qboolean FS_SaveImage( const char *filename, rgbdata_t *pix )
+qboolean GAME_EXPORT FS_SaveImage( const char *filename, rgbdata_t *pix )
 {
 	const char	*ext = COM_FileExtension( filename );
 	qboolean		anyformat = !Q_stricmp( ext, "" ) ? true : false;
@@ -441,7 +441,7 @@ Image_FreeImage
 free RGBA buffer
 ================
 */
-void FS_FreeImage( rgbdata_t *pack )
+void GAME_EXPORT FS_FreeImage( rgbdata_t *pack )
 {
 	if( !pack ) return;
 	if( pack->buffer ) Mem_Free( pack->buffer );
@@ -456,7 +456,7 @@ FS_CopyImage
 make an image copy
 ================
 */
-rgbdata_t *FS_CopyImage( rgbdata_t *in )
+rgbdata_t * GAME_EXPORT FS_CopyImage( rgbdata_t *in )
 {
 	rgbdata_t	*out;
 	int	palSize = 0;

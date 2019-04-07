@@ -962,7 +962,7 @@ Con_DrawStringLen
 compute string width and height in screen pixels
 ====================
 */
-void Con_DrawStringLen( const char *pText, int *length, int *height )
+void GAME_EXPORT Con_DrawStringLen( const char *pText, int *length, int *height )
 {
 	int	curLength = 0;
 
@@ -1070,7 +1070,7 @@ Con_DrawString
 client version of routine
 ====================
 */
-int Con_DrawString( int x, int y, const char *string, rgba_t setColor )
+int GAME_EXPORT Con_DrawString( int x, int y, const char *string, rgba_t setColor )
 {
 	return Con_DrawGenericString( x, y, string, setColor, false, -1 );
 }
@@ -1279,7 +1279,7 @@ Con_NPrint
 Draw a single debug line with specified height
 ================
 */
-void Con_NPrintf( int idx, const char *fmt, ... )
+void GAME_EXPORT Con_NPrintf( int idx, const char *fmt, ... )
 {
 	va_list	args;
 
@@ -1306,7 +1306,7 @@ Con_NXPrint
 Draw a single debug line with specified height, color and time to live
 ================
 */
-void Con_NXPrintf( con_nprint_t *info, const char *fmt, ... )
+void GAME_EXPORT Con_NXPrintf( con_nprint_t *info, const char *fmt, ... )
 {
 	va_list	args;
 

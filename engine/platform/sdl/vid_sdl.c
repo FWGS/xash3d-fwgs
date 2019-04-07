@@ -38,7 +38,7 @@ struct
 	SDL_Surface *win;
 } sw;
 
-qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
+qboolean GAME_EXPORT SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
 {
 	sw.width = width;
 	sw.height = height;
@@ -137,7 +137,7 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	}
 }
 
-void *SW_LockBuffer()
+void * GAME_EXPORT SW_LockBuffer()
 {
 	if( sw.renderer )
 	{
@@ -175,7 +175,7 @@ void *SW_LockBuffer()
 	}
 }
 
-void SW_UnlockBuffer()
+void GAME_EXPORT SW_UnlockBuffer()
 {
 
 	if( sw.renderer )
@@ -364,7 +364,7 @@ static void WIN_SetDPIAwareness( void )
 GL_GetProcAddress
 =================
 */
-void *GL_GetProcAddress( const char *name )
+void *GAME_EXPORT GL_GetProcAddress( const char *name )
 {
 #if defined( XASH_NANOGL )
 	void *func = nanoGL_GetProcAddress(name);
@@ -713,18 +713,18 @@ static void GL_SetupAttributes( void )
 }
 
 
-void GL_SwapBuffers()
+void GAME_EXPORT GL_SwapBuffers()
 {
 	SDL_GL_SwapWindow( host.hWnd );
 }
 
 
-int GL_SetAttribute( int attr, int val )
+int GAME_EXPORT GL_SetAttribute( int attr, int val )
 {
 	return SDL_GL_SetAttribute( (SDL_GLattr)attr, val );
 }
 
-int GL_GetAttribute( int attr, int *val )
+int GAME_EXPORT GL_GetAttribute( int attr, int *val )
 {
 	return SDL_GL_GetAttribute( (SDL_GLattr)attr, val );
 }
@@ -738,7 +738,7 @@ int GL_GetAttribute( int attr, int *val )
 R_Init_Video
 ==================
 */
-qboolean R_Init_Video( const int type )
+qboolean GAME_EXPORT R_Init_Video( const int type )
 {
 	SDL_DisplayMode displayMode;
 	string safe;
@@ -924,7 +924,7 @@ qboolean VID_SetMode( void )
 R_Free_Video
 ==================
 */
-void R_Free_Video( void )
+void GAME_EXPORT R_Free_Video( void )
 {
 	GL_DeleteContext ();
 

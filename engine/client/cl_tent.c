@@ -201,7 +201,7 @@ void CL_AddClientResources( void )
 CL_FxBlend
 ===============
 */
-int CL_FxBlend( cl_entity_t *e )
+int GAME_EXPORT CL_FxBlend( cl_entity_t *e )
 {
 	int	blend = 0;
 	float	offset, dist;
@@ -586,7 +586,7 @@ CL_TempEntAlloc
 alloc normal\low priority tempentity
 ==============
 */
-TEMPENTITY *CL_TempEntAlloc( const vec3_t org, model_t *pmodel )
+TEMPENTITY * GAME_EXPORT CL_TempEntAlloc( const vec3_t org, model_t *pmodel )
 {
 	TEMPENTITY	*pTemp;
 
@@ -617,7 +617,7 @@ CL_TempEntAllocHigh
 alloc high priority tempentity
 ==============
 */
-TEMPENTITY *CL_TempEntAllocHigh( const vec3_t org, model_t *pmodel )
+TEMPENTITY * GAME_EXPORT CL_TempEntAllocHigh( const vec3_t org, model_t *pmodel )
 {
 	TEMPENTITY	*pTemp;
 
@@ -658,7 +658,7 @@ CL_TempEntAlloc
 alloc normal priority tempentity with no model
 ==============
 */
-TEMPENTITY *CL_TempEntAllocNoModel( const vec3_t org )
+TEMPENTITY * GAME_EXPORT CL_TempEntAllocNoModel( const vec3_t org )
 {
 	return CL_TempEntAlloc( org, NULL );
 }
@@ -670,7 +670,7 @@ CL_TempEntAlloc
 custom tempentity allocation
 ==============
 */                                                   
-TEMPENTITY *CL_TempEntAllocCustom( const vec3_t org, model_t *model, int high, void (*pfn)( TEMPENTITY*, float, float ))
+TEMPENTITY * GAME_EXPORT CL_TempEntAllocCustom( const vec3_t org, model_t *model, int high, void (*pfn)( TEMPENTITY*, float, float ))
 {
 	TEMPENTITY	*pTemp;
 
@@ -707,7 +707,7 @@ R_FizzEffect
 Create a fizz effect
 ==============
 */
-void R_FizzEffect( cl_entity_t *pent, int modelIndex, int density )
+void GAME_EXPORT R_FizzEffect( cl_entity_t *pent, int modelIndex, int density )
 {
 	TEMPENTITY	*pTemp;
 	int		i, width, depth, count;
@@ -770,7 +770,7 @@ R_Bubbles
 Create bubbles
 ==============
 */
-void R_Bubbles( const vec3_t mins, const vec3_t maxs, float height, int modelIndex, int count, float speed )
+void GAME_EXPORT R_Bubbles( const vec3_t mins, const vec3_t maxs, float height, int modelIndex, int count, float speed )
 {
 	TEMPENTITY	*pTemp;
 	float		sine, cosine;
@@ -816,7 +816,7 @@ R_BubbleTrail
 Create bubble trail
 ==============
 */
-void R_BubbleTrail( const vec3_t start, const vec3_t end, float height, int modelIndex, int count, float speed )
+void GAME_EXPORT R_BubbleTrail( const vec3_t start, const vec3_t end, float height, int modelIndex, int count, float speed )
 {
 	TEMPENTITY	*pTemp;
 	float		sine, cosine, zspeed;
@@ -861,7 +861,7 @@ R_AttachTentToPlayer
 Attaches entity to player
 ==============
 */
-void R_AttachTentToPlayer( int client, int modelIndex, float zoffset, float life )
+void GAME_EXPORT R_AttachTentToPlayer( int client, int modelIndex, float zoffset, float life )
 {
 	TEMPENTITY	*pTemp;
 	vec3_t		position;
@@ -917,7 +917,7 @@ R_KillAttachedTents
 Detach entity from player
 ==============
 */
-void R_KillAttachedTents( int client )
+void GAME_EXPORT R_KillAttachedTents( int client )
 {
 	int	i;
 
@@ -948,7 +948,7 @@ R_RicochetSprite
 Create ricochet sprite
 ==============
 */
-void R_RicochetSprite( const vec3_t pos, model_t *pmodel, float duration, float scale )
+void GAME_EXPORT R_RicochetSprite( const vec3_t pos, model_t *pmodel, float duration, float scale )
 {
 	TEMPENTITY	*pTemp;
 
@@ -974,7 +974,7 @@ R_RocketFlare
 Create rocket flare
 ==============
 */
-void R_RocketFlare( const vec3_t pos )
+void GAME_EXPORT R_RocketFlare( const vec3_t pos )
 {
 	TEMPENTITY	*pTemp;
 
@@ -1000,7 +1000,7 @@ R_MuzzleFlash
 Do muzzleflash
 ==============
 */
-void R_MuzzleFlash( const vec3_t pos, int type )
+void GAME_EXPORT R_MuzzleFlash( const vec3_t pos, int type )
 {
 	TEMPENTITY	*pTemp;
 	int		index;
@@ -1039,7 +1039,7 @@ Create a high priority blood sprite
 and some blood drops. This is high-priority tent
 ==============
 */
-void R_BloodSprite( const vec3_t org, int colorIndex, int modelIndex, int modelIndex2, float size )
+void GAME_EXPORT R_BloodSprite( const vec3_t org, int colorIndex, int modelIndex, int modelIndex2, float size )
 {
 	model_t		*pModel, *pModel2;
 	int		impactindex;
@@ -1125,7 +1125,7 @@ R_BreakModel
 Create a shards
 ==============
 */
-void R_BreakModel( const vec3_t pos, const vec3_t size, const vec3_t dir, float random, float life, int count, int modelIndex, char flags )
+void GAME_EXPORT R_BreakModel( const vec3_t pos, const vec3_t size, const vec3_t dir, float random, float life, int count, int modelIndex, char flags )
 {
 	TEMPENTITY	*pTemp;
 	model_t		*pmodel;
@@ -1213,7 +1213,7 @@ R_TempModel
 Create a temp model with gravity, sounds and fadeout
 ==============
 */
-TEMPENTITY *R_TempModel( const vec3_t pos, const vec3_t dir, const vec3_t angles, float life, int modelIndex, int soundtype )
+TEMPENTITY * GAME_EXPORT R_TempModel( const vec3_t pos, const vec3_t dir, const vec3_t angles, float life, int modelIndex, int soundtype )
 {
 	// alloc a new tempent
 	TEMPENTITY	*pTemp;
@@ -1264,7 +1264,7 @@ R_DefaultSprite
 Create an animated sprite
 ==============
 */
-TEMPENTITY *R_DefaultSprite( const vec3_t pos, int spriteIndex, float framerate )
+TEMPENTITY * GAME_EXPORT R_DefaultSprite( const vec3_t pos, int spriteIndex, float framerate )
 {
 	TEMPENTITY	*pTemp;
 	model_t		*psprite;
@@ -1300,7 +1300,7 @@ R_SparkShower
 Create an animated moving sprite 
 ===============
 */
-void R_SparkShower( const vec3_t pos )
+void GAME_EXPORT R_SparkShower( const vec3_t pos )
 {
 	TEMPENTITY	*pTemp;
 
@@ -1325,7 +1325,7 @@ R_TempSprite
 Create an animated moving sprite 
 ===============
 */
-TEMPENTITY *R_TempSprite( vec3_t pos, const vec3_t dir, float scale, int modelIndex, int rendermode, int renderfx, float a, float life, int flags )
+TEMPENTITY * GAME_EXPORT R_TempSprite( vec3_t pos, const vec3_t dir, float scale, int modelIndex, int rendermode, int renderfx, float a, float life, int flags )
 {
 	TEMPENTITY	*pTemp;
 	model_t		*pmodel;
@@ -1363,7 +1363,7 @@ R_Sprite_Explode
 apply params for exploding sprite
 ===============
 */
-void R_Sprite_Explode( TEMPENTITY *pTemp, float scale, int flags )
+void GAME_EXPORT R_Sprite_Explode( TEMPENTITY *pTemp, float scale, int flags )
 {
 	if( !pTemp ) return;
 
@@ -1405,7 +1405,7 @@ R_Sprite_Smoke
 apply params for smoke sprite
 ===============
 */
-void R_Sprite_Smoke( TEMPENTITY *pTemp, float scale )
+void GAME_EXPORT R_Sprite_Smoke( TEMPENTITY *pTemp, float scale )
 {
 	int	iColor;
 
@@ -1429,7 +1429,7 @@ R_Spray
 Throws a shower of sprites or models
 ===============
 */
-void R_Spray( const vec3_t pos, const vec3_t dir, int modelIndex, int count, int speed, int spread, int rendermode )
+void GAME_EXPORT R_Spray( const vec3_t pos, const vec3_t dir, int modelIndex, int count, int speed, int spread, int rendermode )
 {
 	TEMPENTITY	*pTemp;
 	float		noise;
@@ -1495,7 +1495,7 @@ R_Sprite_Spray
 Spray of alpha sprites
 ===============
 */
-void R_Sprite_Spray( const vec3_t pos, const vec3_t dir, int modelIndex, int count, int speed, int spread )
+void GAME_EXPORT R_Sprite_Spray( const vec3_t pos, const vec3_t dir, int modelIndex, int count, int speed, int spread )
 {
 	R_Spray( pos, dir, modelIndex, count, speed, spread, kRenderGlow );
 }
@@ -1508,7 +1508,7 @@ Line of moving glow sprites with gravity,
 fadeout, and collisions
 ===============
 */
-void R_Sprite_Trail( int type, vec3_t start, vec3_t end, int modelIndex, int count, float life, float size, float amp, int renderamt, float speed )
+void GAME_EXPORT R_Sprite_Trail( int type, vec3_t start, vec3_t end, int modelIndex, int count, float life, float size, float amp, int renderamt, float speed )
 {
 	TEMPENTITY	*pTemp;
 	vec3_t		delta, dir;
@@ -1560,7 +1560,7 @@ R_FunnelSprite
 Create a funnel effect with custom sprite
 ===============
 */
-void R_FunnelSprite( const vec3_t org, int modelIndex, int reverse )
+void GAME_EXPORT R_FunnelSprite( const vec3_t org, int modelIndex, int reverse )
 {
 	TEMPENTITY	*pTemp;
 	vec3_t		dir, dest;
@@ -1622,7 +1622,7 @@ R_SparkEffect
 Create a streaks + richochet sprite
 ===============
 */
-void R_SparkEffect( const vec3_t pos, int count, int velocityMin, int velocityMax )
+void GAME_EXPORT R_SparkEffect( const vec3_t pos, int count, int velocityMin, int velocityMax )
 {
 	R_RicochetSprite( pos, cl_sprite_ricochet, 0.1f, COM_RandomFloat( 0.5f, 1.0f ));
 	R_SparkStreaks( pos, count, velocityMin, velocityMax );
@@ -1635,7 +1635,7 @@ R_RicochetSound
 Make a random ricochet sound
 ==============
 */
-void R_RicochetSound( const vec3_t pos )
+void GAME_EXPORT R_RicochetSound( const vec3_t pos )
 {
 	int	iPitch = COM_RandomLong( 90, 105 );
 	float	fvol = COM_RandomFloat( 0.7f, 0.9f );
@@ -1655,7 +1655,7 @@ R_Projectile
 Create an projectile entity
 ==============
 */
-void R_Projectile( const vec3_t origin, const vec3_t velocity, int modelIndex, int life, int owner, void (*hitcallback)( TEMPENTITY*, pmtrace_t* ))
+void GAME_EXPORT R_Projectile( const vec3_t origin, const vec3_t velocity, int modelIndex, int life, int owner, void (*hitcallback)( TEMPENTITY*, pmtrace_t* ))
 {
 	TEMPENTITY	*pTemp;
 	model_t		*pmodel;
@@ -1704,7 +1704,7 @@ R_TempSphereModel
 Spherical shower of models, picks from set
 ==============
 */
-void R_TempSphereModel( const vec3_t pos, float speed, float life, int count, int modelIndex )
+void GAME_EXPORT R_TempSphereModel( const vec3_t pos, float speed, float life, int count, int modelIndex )
 {
 	TEMPENTITY	*pTemp;
 	int		i;
@@ -1752,7 +1752,7 @@ R_Explosion
 Create an explosion (scale is magnitude)
 ==============
 */
-void R_Explosion( vec3_t pos, int model, float scale, float framerate, int flags )
+void GAME_EXPORT R_Explosion( vec3_t pos, int model, float scale, float framerate, int flags )
 {
 	sound_t	hSound;
 
@@ -1804,7 +1804,7 @@ R_PlayerSprites
 Create a particle smoke around player
 ==============
 */
-void R_PlayerSprites( int client, int modelIndex, int count, int size )
+void GAME_EXPORT R_PlayerSprites( int client, int modelIndex, int count, int size )
 {
 	TEMPENTITY	*pTemp;
 	cl_entity_t	*pEnt;
@@ -1869,7 +1869,7 @@ R_FireField
 Makes a field of fire
 ==============
 */
-void R_FireField( float *org, int radius, int modelIndex, int count, int flags, float life )
+void GAME_EXPORT R_FireField( float *org, int radius, int modelIndex, int count, int flags, float life )
 {
 	TEMPENTITY	*pTemp;
 	model_t		*pmodel;
@@ -1944,7 +1944,7 @@ R_MultiGunshot
 Client version of shotgun shot
 ==============
 */
-void R_MultiGunshot( const vec3_t org, const vec3_t dir, const vec3_t noise, int count, int decalCount, int *decalIndices )
+void GAME_EXPORT R_MultiGunshot( const vec3_t org, const vec3_t dir, const vec3_t noise, int count, int decalCount, int *decalIndices )
 {
 	pmtrace_t	trace;
 	vec3_t	right, up;
@@ -2601,7 +2601,7 @@ CL_AllocDlight
 
 ===============
 */
-dlight_t *CL_AllocDlight( int key )
+dlight_t * GAME_EXPORT CL_AllocDlight( int key )
 {
 	dlight_t	*dl;
 	int	i;
@@ -2646,7 +2646,7 @@ CL_AllocElight
 
 ===============
 */
-dlight_t *CL_AllocElight( int key )
+dlight_t * GAME_EXPORT CL_AllocElight( int key )
 {
 	dlight_t	*dl;
 	int	i;
@@ -2722,13 +2722,13 @@ void CL_DecayLights( void )
 	}
 }
 
-dlight_t *CL_GetDynamicLight( int number )
+dlight_t * GAME_EXPORT CL_GetDynamicLight( int number )
 {
 	Assert( number >= 0 && number < MAX_DLIGHTS );
 	return &cl_dlights[number];
 }
 
-dlight_t *CL_GetEntityLight( int number )
+dlight_t * GAME_EXPORT CL_GetEntityLight( int number )
 {
 	Assert( number >= 0 && number < MAX_ELIGHTS );
 	return &cl_elights[number];
@@ -2996,7 +2996,7 @@ CL_FireCustomDecal
 custom temporary decal
 ===============
 */
-void CL_FireCustomDecal( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags, float scale )
+void GAME_EXPORT CL_FireCustomDecal( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags, float scale )
 {
 	ref.dllFuncs.R_DecalShoot( textureIndex, entityIndex, modelIndex, pos, flags, scale );
 }
@@ -3008,7 +3008,7 @@ CL_DecalShoot
 normal temporary decal
 ===============
 */
-void CL_DecalShoot( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags )
+void GAME_EXPORT CL_DecalShoot( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags )
 {
 	CL_FireCustomDecal( textureIndex, entityIndex, modelIndex, pos, flags, 1.0f );
 }
@@ -3051,7 +3051,7 @@ CL_DecalIndexFromName
 get decal global index from decalname
 ===============
 */
-int CL_DecalIndexFromName( const char *name )
+int GAME_EXPORT CL_DecalIndexFromName( const char *name )
 {
 	int	i;
 
@@ -3074,7 +3074,7 @@ CL_DecalIndex
 get texture index from decal global index
 ===============
 */
-int CL_DecalIndex( int id )
+int GAME_EXPORT CL_DecalIndex( int id )
 {
 	id = bound( 0, id, MAX_DECALS - 1 );
 
@@ -3095,7 +3095,7 @@ CL_DecalRemoveAll
 remove all decals with specified texture
 ===============
 */
-void CL_DecalRemoveAll( int textureIndex )
+void GAME_EXPORT CL_DecalRemoveAll( int textureIndex )
 {
 	int id = bound( 0, textureIndex, MAX_DECALS - 1 );	
 	ref.dllFuncs.R_DecalRemoveAll( cl.decal_index[id] );

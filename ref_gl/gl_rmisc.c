@@ -103,7 +103,7 @@ static void R_ParseDetailTextures( const char *filename )
 	Mem_Free( afile );
 }
 
-void R_NewMap( void )
+void GAME_EXPORT R_NewMap( void )
 {
 	texture_t	*tx;
 	int	i;

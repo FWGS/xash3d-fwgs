@@ -38,7 +38,7 @@ Cvar_FindVar
 find the specified variable by name
 ============
 */
-convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group )
+convar_t * GAME_EXPORT Cvar_FindVarExt( const char *var_name, int ignore_group )
 {
 	// TODO: ignore group for cvar
 #if defined(XASH_HASHED_VARS)
@@ -335,7 +335,7 @@ If the variable already exists, the value will not be set
 The flags will be or'ed in if the variable exists.
 ============
 */
-convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *var_desc )
+convar_t * GAME_EXPORT Cvar_Get( const char *name, const char *value, int flags, const char *var_desc )
 {
 	convar_t	*cur, *find, *var;
 	
@@ -426,7 +426,7 @@ Cvar_RegisterVariable
 Adds a freestanding variable to the variable list.
 ============
 */
-void Cvar_RegisterVariable( convar_t *var )
+void GAME_EXPORT Cvar_RegisterVariable( convar_t *var )
 {
 	convar_t	*cur, *find, *dup;
 
@@ -564,7 +564,7 @@ Cvar_FullSet
 can set any protected cvars
 ============
 */
-void Cvar_FullSet( const char *var_name, const char *value, int flags )
+void GAME_EXPORT Cvar_FullSet( const char *var_name, const char *value, int flags )
 {
 	convar_t	*var = Cvar_FindVar( var_name );
 
@@ -588,7 +588,7 @@ void Cvar_FullSet( const char *var_name, const char *value, int flags )
 Cvar_Set
 ============
 */
-void Cvar_Set( const char *var_name, const char *value )
+void GAME_EXPORT Cvar_Set( const char *var_name, const char *value )
 {
 	convar_t	*var = Cvar_FindVar( var_name );
 
@@ -607,7 +607,7 @@ void Cvar_Set( const char *var_name, const char *value )
 Cvar_SetValue
 ============
 */
-void Cvar_SetValue( const char *var_name, float value )
+void GAME_EXPORT Cvar_SetValue( const char *var_name, float value )
 {
 	char	val[32];
 	
@@ -633,7 +633,7 @@ void Cvar_Reset( const char *var_name )
 Cvar_VariableValue
 ============
 */
-float Cvar_VariableValue( const char *var_name )
+float GAME_EXPORT Cvar_VariableValue( const char *var_name )
 {
 	convar_t	*var;
 
@@ -663,7 +663,7 @@ int Cvar_VariableInteger( const char *var_name )
 Cvar_VariableString
 ============
 */
-const char *Cvar_VariableString( const char *var_name )
+const char * GAME_EXPORT Cvar_VariableString( const char *var_name )
 {
 	convar_t	*var;
 

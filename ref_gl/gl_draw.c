@@ -37,7 +37,7 @@ same as GetImageParms but used
 for sprite models
 =============
 */
-void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite )
+void GAME_EXPORT R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite )
 {
 	mspriteframe_t	*pFrame;
 
@@ -49,7 +49,7 @@ void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int cu
 	if( numFrames ) *numFrames = pSprite->numframes;
 }
 
-int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
+int GAME_EXPORT R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
 {
 	if( !m_pSpriteModel || m_pSpriteModel->type != mod_sprite || !m_pSpriteModel->cache.data )
 		return 0;
@@ -62,7 +62,7 @@ int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
 R_DrawStretchPic
 =============
 */
-void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
+void GAME_EXPORT R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
 	GL_Bind( XASH_TEXTURE0, texnum );
 
@@ -89,7 +89,7 @@ This repeats a 64*64 tile graphic to fill the screen around a sized down
 refresh window.
 =============
 */
-void R_DrawTileClear( int texnum, int x, int y, int w, int h )
+void GAME_EXPORT R_DrawTileClear( int texnum, int x, int y, int w, int h )
 {
 	float		tw, th;
 	gl_texture_t	*glt;
@@ -119,7 +119,7 @@ void R_DrawTileClear( int texnum, int x, int y, int w, int h )
 R_DrawStretchRaw
 =============
 */
-void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
+void GAME_EXPORT R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
 {
 	byte		*raw = NULL;
 	gl_texture_t	*tex;
@@ -191,7 +191,7 @@ void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, c
 R_UploadStretchRaw
 =============
 */
-void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data )
+void GAME_EXPORT R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data )
 {
 	byte		*raw = NULL;
 	gl_texture_t	*tex;
@@ -238,7 +238,7 @@ void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height,
 R_Set2DMode
 ===============
 */
-void R_Set2DMode( qboolean enable )
+void GAME_EXPORT R_Set2DMode( qboolean enable )
 {
 	if( enable )
 	{

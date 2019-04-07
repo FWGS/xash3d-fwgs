@@ -39,7 +39,7 @@ R_LookupColor
 find nearest color in particle palette
 ================
 */
-short R_LookupColor( byte r, byte g, byte b )
+short GAME_EXPORT R_LookupColor( byte r, byte g, byte b )
 {
 	int	i, best;
 	float	diff, bestdiff;
@@ -74,7 +74,7 @@ R_GetPackedColor
 in hardware mode does nothing
 ================
 */
-void R_GetPackedColor( short *packed, short color )
+void GAME_EXPORT R_GetPackedColor( short *packed, short color )
 {
 	if( packed ) *packed = 0;
 }
@@ -167,7 +167,7 @@ CL_AllocParticleFast
 unconditionally give new particle pointer from cl_free_particles
 ================
 */
-particle_t *CL_AllocParticleFast( void )
+particle_t * GAME_EXPORT CL_AllocParticleFast( void )
 {
 	particle_t *p = NULL;
 
@@ -187,7 +187,7 @@ R_AllocParticle
 can return NULL if particles is out
 ================
 */
-particle_t *R_AllocParticle( void (*callback)( particle_t*, float ))
+particle_t * GAME_EXPORT R_AllocParticle( void (*callback)( particle_t*, float ))
 {
 	particle_t	*p;
 
@@ -408,7 +408,7 @@ extract entity number from index
 handle user entities
 ==============
 */
-cl_entity_t *R_BeamGetEntity( int index )
+cl_entity_t * GAME_EXPORT R_BeamGetEntity( int index )
 {
 	if( index < 0 )
 		return clgame.dllFuncs.pfnGetUserEntity( BEAMENT_ENTITY( -index ));
@@ -653,7 +653,7 @@ Remove beam attached to specified entity
 and all particle trails (if this is a beamfollow)
 ==============
 */
-void R_BeamKill( int deadEntity )
+void GAME_EXPORT R_BeamKill( int deadEntity )
 {
 	cl_entity_t	*pDeadEntity;
 
@@ -827,7 +827,7 @@ R_BeamEnts
 Create beam between two ents
 ==============
 */
-BEAM *R_BeamEnts( int startEnt, int endEnt, int modelIndex, float life, float width, float amplitude, float brightness,
+BEAM * GAME_EXPORT R_BeamEnts( int startEnt, int endEnt, int modelIndex, float life, float width, float amplitude, float brightness,
 	float speed, int startFrame, float framerate, float r, float g, float b )
 {
 	cl_entity_t	*start, *end;
@@ -872,7 +872,7 @@ R_BeamPoints
 Create beam between two points
 ==============
 */
-BEAM *R_BeamPoints( vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude,
+BEAM * GAME_EXPORT R_BeamPoints( vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude,
 	float brightness, float speed, int startFrame, float framerate, float r, float g, float b )
 {
 	BEAM	*pbeam;
@@ -903,7 +903,7 @@ R_BeamCirclePoints
 Create beam cicrle
 ==============
 */
-BEAM *R_BeamCirclePoints( int type, vec3_t start, vec3_t end, int modelIndex, float life, float width,
+BEAM * GAME_EXPORT R_BeamCirclePoints( int type, vec3_t start, vec3_t end, int modelIndex, float life, float width,
 	float amplitude, float brightness, float speed, int startFrame, float framerate, float r, float g, float b )
 {
 	BEAM	*pbeam = R_BeamLightning( start, end, modelIndex, life, width, amplitude, brightness, speed );
@@ -924,7 +924,7 @@ R_BeamEntPoint
 Create beam between entity and point
 ==============
 */
-BEAM *R_BeamEntPoint( int startEnt, vec3_t end, int modelIndex, float life, float width, float amplitude,
+BEAM * GAME_EXPORT R_BeamEntPoint( int startEnt, vec3_t end, int modelIndex, float life, float width, float amplitude,
 	float brightness, float speed, int startFrame, float framerate, float r, float g, float b )
 {
 	BEAM		*pbeam;
@@ -964,7 +964,7 @@ R_BeamRing
 Create beam between two ents
 ==============
 */
-BEAM *R_BeamRing( int startEnt, int endEnt, int modelIndex, float life, float width, float amplitude, float brightness,
+BEAM * GAME_EXPORT R_BeamRing( int startEnt, int endEnt, int modelIndex, float life, float width, float amplitude, float brightness,
 	float speed, int startFrame, float framerate, float r, float g, float b )
 {
 	BEAM		*pbeam;
@@ -1000,7 +1000,7 @@ R_BeamFollow
 Create beam following with entity
 ==============
 */
-BEAM *R_BeamFollow( int startEnt, int modelIndex, float life, float width, float r, float g, float b, float brightness )
+BEAM * GAME_EXPORT R_BeamFollow( int startEnt, int modelIndex, float life, float width, float r, float g, float b, float brightness )
 {
 	BEAM	*pbeam = R_BeamAlloc();
 
@@ -1029,7 +1029,7 @@ R_BeamLightning
 template for new beams
 ==============
 */
-BEAM *R_BeamLightning( vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude, float brightness, float speed )
+BEAM * GAME_EXPORT R_BeamLightning( vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude, float brightness, float speed )
 {
 	BEAM	*pbeam = R_BeamAlloc();
 
@@ -1053,7 +1053,7 @@ R_EntityParticles
 set EF_BRIGHTFIELD effect
 ===============
 */
-void R_EntityParticles( cl_entity_t *ent )
+void GAME_EXPORT R_EntityParticles( cl_entity_t *ent )
 {
 	float		angle;
 	float		sr, sp, sy, cr, cp, cy;
@@ -1088,7 +1088,7 @@ R_ParticleExplosion
 
 ===============
 */
-void R_ParticleExplosion( const vec3_t org )
+void GAME_EXPORT R_ParticleExplosion( const vec3_t org )
 {
 	particle_t	*p;
 	int		i, j;
@@ -1119,7 +1119,7 @@ R_ParticleExplosion2
 
 ===============
 */
-void R_ParticleExplosion2( const vec3_t org, int colorStart, int colorLength )
+void GAME_EXPORT R_ParticleExplosion2( const vec3_t org, int colorStart, int colorLength )
 {
 	int		i, j;
 	int		colorMod = 0;
@@ -1151,7 +1151,7 @@ R_BlobExplosion
 
 ===============
 */
-void R_BlobExplosion( const vec3_t org )
+void GAME_EXPORT R_BlobExplosion( const vec3_t org )
 {
 	particle_t	*p;
 	int		i, j;
@@ -1190,7 +1190,7 @@ ParticleEffect
 PARTICLE_EFFECT on server
 ===============
 */
-void R_RunParticleEffect( const vec3_t org, const vec3_t dir, int color, int count )
+void GAME_EXPORT R_RunParticleEffect( const vec3_t org, const vec3_t dir, int color, int count )
 {
 	particle_t	*p;
 	int		i;
@@ -1223,7 +1223,7 @@ R_Blood
 particle spray
 ===============
 */
-void R_Blood( const vec3_t org, const vec3_t ndir, int pcolor, int speed )
+void GAME_EXPORT R_Blood( const vec3_t org, const vec3_t ndir, int pcolor, int speed )
 {
 	vec3_t		pos, dir, vec;
 	float		pspeed = speed * 3.0f;
@@ -1259,7 +1259,7 @@ R_BloodStream
 particle spray 2
 ===============
 */
-void R_BloodStream( const vec3_t org, const vec3_t dir, int pcolor, int speed )
+void GAME_EXPORT R_BloodStream( const vec3_t org, const vec3_t dir, int pcolor, int speed )
 {
 	particle_t	*p;
 	int		i, j;
@@ -1336,7 +1336,7 @@ R_LavaSplash
 
 ===============
 */
-void R_LavaSplash( const vec3_t org )
+void GAME_EXPORT R_LavaSplash( const vec3_t org )
 {
 	particle_t	*p;
 	float		vel;
@@ -1378,7 +1378,7 @@ R_ParticleBurst
 
 ===============
 */
-void R_ParticleBurst( const vec3_t org, int size, int color, float life )
+void GAME_EXPORT R_ParticleBurst( const vec3_t org, int size, int color, float life )
 {
 	particle_t	*p;
 	vec3_t		dir, dest;
@@ -1411,7 +1411,7 @@ R_LargeFunnel
 
 ===============
 */
-void R_LargeFunnel( const vec3_t org, int reverse )
+void GAME_EXPORT R_LargeFunnel( const vec3_t org, int reverse )
 {
 	particle_t	*p;
 	float		vel, dist;
@@ -1458,7 +1458,7 @@ R_TeleportSplash
 
 ===============
 */
-void R_TeleportSplash( const vec3_t org )
+void GAME_EXPORT R_TeleportSplash( const vec3_t org )
 {
 	particle_t	*p;
 	vec3_t		dir;
@@ -1500,7 +1500,7 @@ R_RocketTrail
 
 ===============
 */
-void R_RocketTrail( vec3_t start, vec3_t end, int type )
+void GAME_EXPORT R_RocketTrail( vec3_t start, vec3_t end, int type )
 {
 	vec3_t		vec, right, up;
 	static int	tracercount;
@@ -1619,7 +1619,7 @@ R_ParticleLine
 
 ================
 */
-void R_ParticleLine( const vec3_t start, const vec3_t end, byte r, byte g, byte b, float life )
+void GAME_EXPORT R_ParticleLine( const vec3_t start, const vec3_t end, byte r, byte g, byte b, float life )
 {
 	int	pcolor;
 
@@ -1633,7 +1633,7 @@ R_ParticleBox
 
 ================
 */
-void R_ParticleBox( const vec3_t absmin, const vec3_t absmax, byte r, byte g, byte b, float life )
+void GAME_EXPORT R_ParticleBox( const vec3_t absmin, const vec3_t absmax, byte r, byte g, byte b, float life )
 {
 	vec3_t	mins, maxs;
 	vec3_t	origin;
@@ -1654,7 +1654,7 @@ R_ShowLine
 
 ================
 */
-void R_ShowLine( const vec3_t start, const vec3_t end )
+void GAME_EXPORT R_ShowLine( const vec3_t start, const vec3_t end )
 {
 	vec3_t		dir, org;
 	float		len;
@@ -1686,7 +1686,7 @@ R_BulletImpactParticles
 
 ===============
 */
-void R_BulletImpactParticles( const vec3_t pos )
+void GAME_EXPORT R_BulletImpactParticles( const vec3_t pos )
 {
 	int		i, quantity;
 	int		color;
@@ -1728,7 +1728,7 @@ R_FlickerParticles
 
 ===============
 */
-void R_FlickerParticles( const vec3_t org )
+void GAME_EXPORT R_FlickerParticles( const vec3_t org )
 {
 	particle_t	*p;
 	int		i;
@@ -1756,7 +1756,7 @@ R_StreakSplash
 create a splash of streaks
 ===============
 */
-void R_StreakSplash( const vec3_t pos, const vec3_t dir, int color, int count, float speed, int velocityMin, int velocityMax )
+void GAME_EXPORT R_StreakSplash( const vec3_t pos, const vec3_t dir, int color, int count, float speed, int velocityMin, int velocityMax )
 {
 	vec3_t		vel, vel2;
 	particle_t	*p;
@@ -1783,7 +1783,7 @@ R_DebugParticle
 just for debug purposes
 ===============
 */
-void R_DebugParticle( const vec3_t pos, byte r, byte g, byte b )
+void GAME_EXPORT R_DebugParticle( const vec3_t pos, byte r, byte g, byte b )
 {
 	particle_t	*p;
 
@@ -1802,7 +1802,7 @@ CL_Particle
 pmove debugging particle
 ===============
 */
-void CL_Particle( const vec3_t org, int color, float life, int zpos, int zvel )
+void GAME_EXPORT CL_Particle( const vec3_t org, int color, float life, int zpos, int zvel )
 {
 	particle_t	*p;
 
@@ -1821,7 +1821,7 @@ R_TracerEffect
 
 ===============
 */
-void R_TracerEffect( const vec3_t start, const vec3_t end )
+void GAME_EXPORT R_TracerEffect( const vec3_t start, const vec3_t end )
 {
 	vec3_t	pos, vel, dir;
 	float	len, speed;
@@ -1848,7 +1848,7 @@ R_UserTracerParticle
 
 ===============
 */
-void R_UserTracerParticle( float *org, float *vel, float life, int colorIndex, float length, byte deathcontext, void (*deathfunc)( particle_t *p ))
+void GAME_EXPORT R_UserTracerParticle( float *org, float *vel, float life, int colorIndex, float length, byte deathcontext, void (*deathfunc)( particle_t *p ))
 {
 	particle_t	*p;
 
@@ -1871,7 +1871,7 @@ R_TracerParticles
 allow more customization
 ===============
 */
-particle_t *R_TracerParticles( float *org, float *vel, float life )
+particle_t * GAME_EXPORT R_TracerParticles( float *org, float *vel, float life )
 {
 	return R_AllocTracer( org, vel, life );
 }
@@ -1883,7 +1883,7 @@ R_SparkStreaks
 create a streak tracers
 ===============
 */
-void R_SparkStreaks( const vec3_t pos, int count, int velocityMin, int velocityMax )
+void GAME_EXPORT R_SparkStreaks( const vec3_t pos, int count, int velocityMin, int velocityMax )
 {
 	particle_t	*p;
 	vec3_t		vel;
@@ -1911,7 +1911,7 @@ R_Implosion
 make implosion tracers
 ===============
 */
-void R_Implosion( const vec3_t end, float radius, int count, float life )
+void GAME_EXPORT R_Implosion( const vec3_t end, float radius, int count, float life )
 {
 	float		dist = ( radius / 100.0f );
 	vec3_t		start, temp, vel;
@@ -2086,7 +2086,7 @@ void CL_FreeDeadBeams()
 	}
 }
 
-void CL_DrawEFX( float time, qboolean fTrans )
+void GAME_EXPORT CL_DrawEFX( float time, qboolean fTrans )
 {
 	CL_FreeDeadBeams();
 	if( CVAR_TO_BOOL( cl_draw_beams ))
@@ -2103,7 +2103,7 @@ void CL_DrawEFX( float time, qboolean fTrans )
 	}
 }
 
-void CL_ThinkParticle( double frametime, particle_t *p )
+void GAME_EXPORT CL_ThinkParticle( double frametime, particle_t *p )
 {
 	float		time3 = 15.0f * frametime;
 	float		time2 = 10.0f * frametime;

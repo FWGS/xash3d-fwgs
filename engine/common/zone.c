@@ -47,7 +47,7 @@ typedef struct mempool_s
 
 mempool_t *poolchain = NULL; // critical stuff
 
-void *_Mem_Alloc( byte *poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+void * GAME_EXPORT _Mem_Alloc( byte *poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
 	memheader_t	*mem;
 	mempool_t		*pool = (mempool_t *)poolptr;
@@ -131,13 +131,13 @@ static void Mem_FreeBlock( memheader_t *mem, const char *filename, int fileline 
 	free( mem );
 }
 
-void _Mem_Free( void *data, const char *filename, int fileline )
+void GAME_EXPORT _Mem_Free( void *data, const char *filename, int fileline )
 {
 	if( data == NULL ) Sys_Error( "Mem_Free: data == NULL (called at %s:%i)\n", filename, fileline );
 	Mem_FreeBlock((memheader_t *)((byte *)data - sizeof( memheader_t )), filename, fileline );
 }
 
-void *_Mem_Realloc( byte *poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
+void * GAME_EXPORT _Mem_Realloc( byte *poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
 	memheader_t	*memhdr = NULL;
 	char		*nb;
@@ -162,7 +162,7 @@ void *_Mem_Realloc( byte *poolptr, void *memptr, size_t size, qboolean clear, co
 	return (void *)nb;
 }
 
-byte *_Mem_AllocPool( const char *name, const char *filename, int fileline )
+byte * GAME_EXPORT _Mem_AllocPool( const char *name, const char *filename, int fileline )
 {
 	mempool_t *pool;
 
@@ -185,7 +185,7 @@ byte *_Mem_AllocPool( const char *name, const char *filename, int fileline )
 	return (byte *)pool;
 }
 
-void _Mem_FreePool( byte **poolptr, const char *filename, int fileline )
+void GAME_EXPORT _Mem_FreePool( byte **poolptr, const char *filename, int fileline )
 {
 	mempool_t	*pool = (mempool_t *)*poolptr;
 	mempool_t	**chainaddress;

@@ -24,7 +24,7 @@ CL_GetRemapInfoForEntity
 Returns remapinfo slot for specified entity
 ====================
 */
-remap_info_t *CL_GetRemapInfoForEntity( cl_entity_t *e )
+remap_info_t * GAME_EXPORT CL_GetRemapInfoForEntity( cl_entity_t *e )
 {
 	if( !e ) return NULL;
 
@@ -242,7 +242,7 @@ Allocate new remap info per entity
 and make copy of remap textures
 ====================
 */
-void CL_AllocRemapInfo( int topcolor, int bottomcolor )
+void GAME_EXPORT CL_AllocRemapInfo( int topcolor, int bottomcolor )
 {
 	remap_info_t	*info;
 	studiohdr_t	*phdr;
@@ -357,7 +357,7 @@ CL_UpdateRemapInfo
 Update all remaps per entity
 ====================
 */
-void CL_UpdateRemapInfo( int topcolor, int bottomcolor )
+void GAME_EXPORT CL_UpdateRemapInfo( int topcolor, int bottomcolor )
 {
 	remap_info_t	*info;
 	int		i;
@@ -390,7 +390,7 @@ CL_FreeRemapInfo
 Release remap info per entity
 ====================
 */
-void CL_FreeRemapInfo( remap_info_t *info )
+void GAME_EXPORT CL_FreeRemapInfo( remap_info_t *info )
 {
 	int	i;
 

@@ -116,7 +116,7 @@ R_BeamCull
 Cull the beam by bbox
 ==============
 */
-qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
+qboolean GAME_EXPORT R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
 {
 	vec3_t	mins, maxs;
 	int	i;
@@ -160,7 +160,7 @@ CL_AddCustomBeam
 Add the beam that encoded as custom entity
 ================
 */
-void CL_AddCustomBeam( cl_entity_t *pEnvBeam )
+void GAME_EXPORT CL_AddCustomBeam( cl_entity_t *pEnvBeam )
 {
 	if( tr.draw_list->num_beam_entities >= MAX_VISIBLE_PACKET )
 	{
@@ -1257,7 +1257,7 @@ CL_DrawBeams
 draw beam loop
 ==============
 */
-void CL_DrawBeams( int fTrans, BEAM *active_beams )
+void GAME_EXPORT CL_DrawBeams( int fTrans, BEAM *active_beams )
 {
 	BEAM	*pBeam;
 	int	i, flags;

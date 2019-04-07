@@ -681,7 +681,7 @@ void GL_InitExtensionsBigGL()
 }
 #endif
 
-void GL_InitExtensions( void )
+void GAME_EXPORT GL_InitExtensions( void )
 {
 	// initialize gl extensions
 	GL_CheckExtension( "OpenGL 1.1.0", opengl_110funcs, NULL, GL_OPENGL_110 );
@@ -718,7 +718,7 @@ void GL_InitExtensions( void )
 	glw_state.initialized = true;
 }
 
-void GL_ClearExtensions( void )
+void GAME_EXPORT GL_ClearExtensions( void )
 {
 	// now all extensions are disabled
 	memset( glConfig.extension, 0, sizeof( glConfig.extension ));
@@ -861,7 +861,7 @@ void GL_RemoveCommands( void )
 R_Init
 ===============
 */
-qboolean R_Init( void )
+qboolean GAME_EXPORT R_Init( void )
 {
 	if( glw_state.initialized )
 		return true;
@@ -900,7 +900,7 @@ qboolean R_Init( void )
 R_Shutdown
 ===============
 */
-void R_Shutdown( void )
+void GAME_EXPORT R_Shutdown( void )
 {
 	if( !glw_state.initialized )
 		return;
@@ -960,7 +960,7 @@ void GL_CheckForErrors_( const char *filename, const int fileline )
 	gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s (called at %s:%i)\n", GL_ErrorString( err ), filename, fileline );
 }
 
-void GL_SetupAttributes( int safegl )
+void GAME_EXPORT GL_SetupAttributes( int safegl )
 {
 	int context_flags = 0; // REFTODO!!!!!
 	int samples = 0;
@@ -1083,7 +1083,7 @@ void GL_SetupAttributes( int safegl )
 	}
 }
 
-void GL_OnContextCreated( void )
+void GAME_EXPORT GL_OnContextCreated( void )
 {
 	int colorBits[3];
 #ifdef XASH_NANOGL

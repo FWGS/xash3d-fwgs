@@ -46,7 +46,7 @@ CL_PushPMStates
 
 =============
 */
-void CL_PushPMStates( void )
+void GAME_EXPORT CL_PushPMStates( void )
 {
 	if( clgame.pushed ) return;
 	clgame.oldphyscount = clgame.pmove->numphysent;
@@ -60,7 +60,7 @@ CL_PopPMStates
 
 =============
 */
-void CL_PopPMStates( void )
+void GAME_EXPORT CL_PopPMStates( void )
 {
 	if( !clgame.pushed ) return;
 	clgame.pmove->numphysent = clgame.oldphyscount;
@@ -74,7 +74,7 @@ CL_PushTraceBounds
 
 =============
 */
-void CL_PushTraceBounds( int hullnum, const float *mins, const float *maxs )
+void GAME_EXPORT CL_PushTraceBounds( int hullnum, const float *mins, const float *maxs )
 {
 	hullnum = bound( 0, hullnum, 3 );
 	VectorCopy( mins, clgame.pmove->player_mins[hullnum] );
@@ -87,7 +87,7 @@ CL_PopTraceBounds
 
 =============
 */
-void CL_PopTraceBounds( void )
+void GAME_EXPORT CL_PopTraceBounds( void )
 {
 	memcpy( clgame.pmove->player_mins, host.player_mins, sizeof( host.player_mins ));
 	memcpy( clgame.pmove->player_maxs, host.player_maxs, sizeof( host.player_maxs ));
@@ -280,7 +280,7 @@ then with clipping against them.
 This sets up the first phase.
 =============
 */
-void CL_SetUpPlayerPrediction( int dopred, int bIncludeLocalClient )
+void GAME_EXPORT CL_SetUpPlayerPrediction( int dopred, int bIncludeLocalClient )
 {
 	entity_state_t	*state;
 	predicted_player_t	*player;
@@ -538,7 +538,7 @@ pmove must be setup with world and solid entity hulls before calling
 (via CL_PredictMove)
 ===============
 */
-void CL_SetSolidPlayers( int playernum )
+void GAME_EXPORT CL_SetSolidPlayers( int playernum )
 {
 	entity_state_t	*state;
 	predicted_player_t	*player;
@@ -710,7 +710,7 @@ CL_TraceLine
 a simple engine traceline
 =============
 */
-pmtrace_t CL_TraceLine( vec3_t start, vec3_t end, int flags )
+pmtrace_t GAME_EXPORT CL_TraceLine( vec3_t start, vec3_t end, int flags )
 {
 	int	old_usehull;
 	pmtrace_t	tr;
@@ -730,7 +730,7 @@ CL_VisTraceLine
 trace by visible objects (thats can be non-solid)
 =============
 */
-pmtrace_t *CL_VisTraceLine( vec3_t start, vec3_t end, int flags )
+pmtrace_t * GAME_EXPORT CL_VisTraceLine( vec3_t start, vec3_t end, int flags )
 {
 	int		old_usehull;
 	static pmtrace_t	tr;
@@ -750,7 +750,7 @@ CL_GetWaterEntity
 returns water brush where inside pos
 =============
 */
-cl_entity_t *CL_GetWaterEntity( const float *rgflPos )
+cl_entity_t * GAME_EXPORT CL_GetWaterEntity( const float *rgflPos )
 {
 	int	entnum;
 
@@ -760,7 +760,7 @@ cl_entity_t *CL_GetWaterEntity( const float *rgflPos )
 	return CL_GetEntityByIndex( entnum );
 }
 
-int CL_TestLine( const vec3_t start, const vec3_t end, int flags )
+int GAME_EXPORT CL_TestLine( const vec3_t start, const vec3_t end, int flags )
 {
 	return PM_TestLineExt( clgame.pmove, clgame.pmove->physents, clgame.pmove->numphysent, start, end, flags );
 }

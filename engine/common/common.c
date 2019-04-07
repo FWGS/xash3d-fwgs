@@ -100,7 +100,7 @@ static float fran1( void )
 	return temp;
 }
 
-void COM_SetRandomSeed( int lSeed )
+void GAME_EXPORT COM_SetRandomSeed( int lSeed )
 {
 	if( lSeed ) idum = lSeed;
 	else idum = -time( NULL );
@@ -111,7 +111,7 @@ void COM_SetRandomSeed( int lSeed )
 		idum -= 22261048;
 }
 
-float COM_RandomFloat( float flLow, float flHigh )
+float GAME_EXPORT COM_RandomFloat( float flLow, float flHigh )
 {
 	float	fl;
 
@@ -121,7 +121,7 @@ float COM_RandomFloat( float flLow, float flHigh )
 	return (fl * (flHigh - flLow)) + flLow; // float in [low, high)
 }
 
-int COM_RandomLong( int lLow, int lHigh )
+int GAME_EXPORT COM_RandomLong( int lLow, int lHigh )
 {
 	dword	maxAcceptable;
 	dword	n, x = lHigh - lLow + 1; 	
@@ -475,7 +475,7 @@ COM_ParseFile
 text parser
 ==============
 */
-char *COM_ParseFile( char *data, char *token )
+char * GAME_EXPORT COM_ParseFile( char *data, char *token )
 {
 	int	c, len;
 
@@ -1002,7 +1002,7 @@ pfnCvar_RegisterVariable
 
 =============
 */
-cvar_t *pfnCvar_RegisterClientVariable( const char *szName, const char *szValue, int flags )
+cvar_t * GAME_EXPORT pfnCvar_RegisterClientVariable( const char *szName, const char *szValue, int flags )
 {
 	if( FBitSet( flags, FCVAR_GLCONFIG ))
 		return (cvar_t *)Cvar_Get( szName, szValue, flags, va( CVAR_GLCONFIG_DESCRIPTION, szName ));
@@ -1015,7 +1015,7 @@ pfnCvar_RegisterVariable
 
 =============
 */
-cvar_t *pfnCvar_RegisterGameUIVariable( const char *szName, const char *szValue, int flags )
+cvar_t * GAME_EXPORT pfnCvar_RegisterGameUIVariable( const char *szName, const char *szValue, int flags )
 {
 	if( FBitSet( flags, FCVAR_GLCONFIG ))
 		return (cvar_t *)Cvar_Get( szName, szValue, flags, va( CVAR_GLCONFIG_DESCRIPTION, szName ));

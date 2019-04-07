@@ -403,7 +403,7 @@ StudioCalcBoneQuaternion
 
 ====================
 */
-void R_StudioCalcBoneQuaternion( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, float *adj, vec4_t q )
+void GAME_EXPORT R_StudioCalcBoneQuaternion( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, float *adj, vec4_t q )
 {
 	vec3_t	angles1;
 	vec3_t	angles2;
@@ -491,7 +491,7 @@ StudioCalcBonePosition
 
 ====================
 */
-void R_StudioCalcBonePosition( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, float *adj, vec3_t pos )
+void GAME_EXPORT R_StudioCalcBonePosition( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, float *adj, vec3_t pos )
 {
 	vec3_t	origin1;
 	vec3_t	origin2;
@@ -575,7 +575,7 @@ StudioSlerpBones
 
 ====================
 */
-void R_StudioSlerpBones( int numbones, vec4_t q1[], float pos1[][3], vec4_t q2[], float pos2[][3], float s )
+void GAME_EXPORT R_StudioSlerpBones( int numbones, vec4_t q1[], float pos1[][3], vec4_t q2[], float pos2[][3], float s )
 {
 	int	i;
 
@@ -594,7 +594,7 @@ StudioGetAnim
 
 ====================
 */
-void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstudioseqdesc_t *pseqdesc )
+void * GAME_EXPORT R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstudioseqdesc_t *pseqdesc )
 {
 	mstudioseqgroup_t	*pseqgroup;
 	cache_user_t	*paSequences;

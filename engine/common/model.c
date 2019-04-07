@@ -369,7 +369,7 @@ Mod_ForName
 Loads in a model for the given name
 ==================
 */
-model_t *Mod_ForName( const char *name, qboolean crash, qboolean trackCRC )
+model_t * GAME_EXPORT Mod_ForName( const char *name, qboolean crash, qboolean trackCRC )
 {
 	model_t	*mod;
 
@@ -476,7 +476,7 @@ Mod_Calloc
 
 ===============
 */
-void *Mod_Calloc( int number, size_t size )
+void * GAME_EXPORT Mod_Calloc( int number, size_t size )
 {
 	cache_user_t	*cu;
 
@@ -493,7 +493,7 @@ Mod_CacheCheck
 
 ===============
 */
-void *Mod_CacheCheck( cache_user_t *c )
+void * GAME_EXPORT Mod_CacheCheck( cache_user_t *c )
 {
 	return Cache_Check( com_studiocache, c );
 }
@@ -504,7 +504,7 @@ Mod_LoadCacheFile
 
 ===============
 */
-void Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
+void GAME_EXPORT Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
 {
 	char	modname[MAX_QPATH];
 	size_t	size;

@@ -20,18 +20,18 @@ GNU General Public License for more details.
 #include "library.h"
 #include "platform/platform.h"
 
-int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis )
+int GAME_EXPORT R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis )
 {
 	return Mod_FatPVS( org, radius, visbuffer, world.visbytes, merge, fullvis );
 }
 
-lightstyle_t *CL_GetLightStyle( int number )
+lightstyle_t * GAME_EXPORT CL_GetLightStyle( int number )
 {
 	Assert( number >= 0 && number < MAX_LIGHTSTYLES );
 	return &cl.lightstyles[number];
 }
 
-const ref_overview_t *GL_GetOverviewParms( void )
+const ref_overview_t * GAME_EXPORT GL_GetOverviewParms( void )
 {
 	return &clgame.overView;
 }

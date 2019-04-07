@@ -58,7 +58,7 @@ int dladdr( const void *addr, Dl_info *info )
 }
 #endif // XASH_NO_LIBDL
 
-void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath )
+void * GAME_EXPORT COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath )
 {
 	dll_user_t *hInst = NULL;
 	void *pHandle = NULL;
@@ -142,7 +142,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	return pHandle;
 }
 
-void COM_FreeLibrary( void *hInstance )
+void GAME_EXPORT COM_FreeLibrary( void *hInstance )
 {
 #ifdef DLL_LOADER
 	void *wm;
@@ -155,7 +155,7 @@ void COM_FreeLibrary( void *hInstance )
 #endif
 }
 
-void *COM_GetProcAddress( void *hInstance, const char *name )
+void * GAME_EXPORT COM_GetProcAddress( void *hInstance, const char *name )
 {
 #ifdef DLL_LOADER
 	void *wm;

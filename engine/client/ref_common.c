@@ -49,22 +49,22 @@ int GL_RenderFrame( const ref_viewpass_t *rvp )
 	ref.dllFuncs.GL_RenderFrame( rvp );
 }
 
-static int pfnEngineGetParm( int parm, int arg )
+static int GAME_EXPORT pfnEngineGetParm( int parm, int arg )
 {
 	return CL_RenderGetParm( parm, arg, false ); // prevent recursion
 }
 
-static void pfnCbuf_SetOpenGLConfigHack( qboolean set )
+static void GAME_EXPORT pfnCbuf_SetOpenGLConfigHack( qboolean set )
 {
 	host.apply_opengl_config = set;
 }
 
-static world_static_t *pfnGetWorld( void )
+static world_static_t * GAME_EXPORT pfnGetWorld( void )
 {
 	return &world;
 }
 
-static void pfnStudioEvent( const mstudioevent_t *event, const cl_entity_t *e )
+static void GAME_EXPORT pfnStudioEvent( const mstudioevent_t *event, const cl_entity_t *e )
 {
 	clgame.dllFuncs.pfnStudioEvent( event, e );
 }
@@ -79,7 +79,7 @@ static void pfnSetEfragsFreeList( efrag_t *list )
 	clgame.free_efrags = list;
 }
 
-static model_t *pfnGetDefaultSprite( enum ref_defaultsprite_e spr )
+static model_t * GAME_EXPORT pfnGetDefaultSprite( enum ref_defaultsprite_e spr )
 {
 	switch( spr )
 	{
@@ -90,7 +90,7 @@ static model_t *pfnGetDefaultSprite( enum ref_defaultsprite_e spr )
 	return NULL;
 }
 
-static void *pfnMod_Extradata( int type, model_t *m )
+static void * GAME_EXPORT pfnMod_Extradata( int type, model_t *m )
 {
 	switch( type )
 	{
@@ -103,33 +103,33 @@ static void *pfnMod_Extradata( int type, model_t *m )
 	return NULL;
 }
 
-static model_t *pfnMod_GetCurrentLoadingModel( void )
+static model_t * GAME_EXPORT pfnMod_GetCurrentLoadingModel( void )
 {
 	return loadmodel;
 }
 
-static void pfnMod_SetCurrentLoadingModel( model_t *m )
+static void GAME_EXPORT pfnMod_SetCurrentLoadingModel( model_t *m )
 {
 	loadmodel = m;
 }
 
-static void pfnGetPredictedOrigin( vec3_t v )
+static void GAME_EXPORT pfnGetPredictedOrigin( vec3_t v )
 {
 	VectorCopy( cl.simorg, v );
 }
 
-static color24 *pfnCL_GetPaletteColor(int color) // clgame.palette[color]
+static color24 * GAME_EXPORT pfnCL_GetPaletteColor(int color) // clgame.palette[color]
 {
 	return &clgame.palette[color];
 }
 
-static void pfnCL_GetScreenInfo( int *width, int *height ) // clgame.scrInfo, ptrs may be NULL
+static void GAME_EXPORT pfnCL_GetScreenInfo( int *width, int *height ) // clgame.scrInfo, ptrs may be NULL
 {
 	if( width ) *width = clgame.scrInfo.iWidth;
 	if( height ) *height = clgame.scrInfo.iHeight;
 }
 
-static void pfnSetLocalLightLevel( int level )
+static void GAME_EXPORT pfnSetLocalLightLevel( int level )
 {
 	cl.local.light_level = level;
 }
@@ -140,7 +140,7 @@ pfnPlayerInfo
 
 ===============
 */
-static player_info_t *pfnPlayerInfo( int index )
+static player_info_t * GAME_EXPORT pfnPlayerInfo( int index )
 {
 	if( index == -1 ) // special index for menu
 		return &gameui.playerinfo;
@@ -157,7 +157,7 @@ pfnGetPlayerState
 
 ===============
 */
-static entity_state_t *R_StudioGetPlayerState( int index )
+static entity_state_t * GAME_EXPORT R_StudioGetPlayerState( int index )
 {
 	if( index < 0 || index >= cl.maxclients )
 		return NULL;
@@ -165,32 +165,32 @@ static entity_state_t *R_StudioGetPlayerState( int index )
 	return &cl.frames[cl.parsecountmod].playerstate[index];
 }
 
-static int pfnGetStudioModelInterface( int version, struct r_studio_interface_s **ppinterface, struct engine_studio_api_s *pstudio )
+static int GAME_EXPORT pfnGetStudioModelInterface( int version, struct r_studio_interface_s **ppinterface, struct engine_studio_api_s *pstudio )
 {
 	return clgame.dllFuncs.pfnGetStudioModelInterface( version, ppinterface, pstudio );
 }
 
-static byte *pfnImage_GetPool( void )
+static byte * GAME_EXPORT pfnImage_GetPool( void )
 {
 	return host.imagepool;
 }
 
-static const bpc_desc_t *pfnImage_GetPFDesc( int idx )
+static const bpc_desc_t * GAME_EXPORT pfnImage_GetPFDesc( int idx )
 {
 	return &PFDesc[idx];
 }
 
-static void pfnDrawNormalTriangles( void )
+static void GAME_EXPORT pfnDrawNormalTriangles( void )
 {
 	clgame.dllFuncs.pfnDrawNormalTriangles();
 }
 
-static void pfnDrawTransparentTriangles( void )
+static void GAME_EXPORT pfnDrawTransparentTriangles( void )
 {
 	clgame.dllFuncs.pfnDrawTransparentTriangles();
 }
 
-static screenfade_t *pfnRefGetScreenFade( void )
+static screenfade_t * GAME_EXPORT pfnRefGetScreenFade( void )
 {
 	return &clgame.fade;
 }

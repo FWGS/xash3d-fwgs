@@ -750,7 +750,7 @@ static void R_DecalNode( model_t *model, mnode_t *node, decalinfo_t *decalinfo )
 }
 
 // Shoots a decal onto the surface of the BSP.  position is the center of the decal in world coords
-void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale )
+void GAME_EXPORT R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale )
 {
 	decalinfo_t	decalInfo;
 	cl_entity_t	*ent = NULL;
@@ -843,7 +843,7 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 // Build the vertex list for a decal on a surface and clip it to the surface.
 // This is a template so it can work on world surfaces and dynamic displacement 
 // triangles the same way.
-float *R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int texture, int *outCount )
+float *GAME_EXPORT R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int texture, int *outCount )
 {
 	glpoly_t	*p = pDecal->polys;
 	int	i, count;
@@ -880,7 +880,7 @@ float *R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int texture, int *o
 	return v;
 }
 
-void DrawSingleDecal( decal_t *pDecal, msurface_t *fa )
+void GAME_EXPORT DrawSingleDecal( decal_t *pDecal, msurface_t *fa )
 {
 	float	*v;
 	int	i, numVerts;
@@ -1158,7 +1158,7 @@ static int DecalDepthCompare( const void *a, const void *b )
 // Input  : *pList - 
 // Output : int
 //-----------------------------------------------------------------------------
-int R_CreateDecalList( decallist_t *pList )
+int GAME_EXPORT R_CreateDecalList( decallist_t *pList )
 {
 	int	total = 0;
 	int	i, depth;
@@ -1214,7 +1214,7 @@ R_DecalRemoveAll
 remove all decals with specified texture
 ===============
 */
-void R_DecalRemoveAll( int textureIndex )
+void GAME_EXPORT R_DecalRemoveAll( int textureIndex )
 {
 	decal_t	*pdecal;
 	int	i;
@@ -1242,7 +1242,7 @@ R_EntityRemoveDecals
 remove all decals from specified entity
 ===============
 */
-void R_EntityRemoveDecals( model_t *mod )
+void GAME_EXPORT R_EntityRemoveDecals( model_t *mod )
 {
 	msurface_t	*psurf;
 	decal_t		*p;
@@ -1267,7 +1267,7 @@ remove all decals from anything
 used for full decals restart 
 ===============
 */
-void R_ClearAllDecals( void )
+void GAME_EXPORT R_ClearAllDecals( void )
 {
 	decal_t	*pdecal;
 	int	i;

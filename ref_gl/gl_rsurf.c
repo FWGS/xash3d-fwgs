@@ -43,14 +43,14 @@ static void LM_UploadBlock( qboolean dynamic );
 static qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmaps );
 static void R_DrawVBO( qboolean drawlightmaps, qboolean drawtextures );
 
-byte *Mod_GetCurrentVis( void )
+byte * GAME_EXPORT Mod_GetCurrentVis( void )
 {
 	if( gEngfuncs.drawFuncs->Mod_GetCurrentVis && tr.fCustomRendering )
 		return gEngfuncs.drawFuncs->Mod_GetCurrentVis();
 	return RI.visbytes;
 }
 
-void Mod_SetOrthoBounds( const float *mins, const float *maxs )
+void GAME_EXPORT Mod_SetOrthoBounds( const float *mins, const float *maxs )
 {
 	if( gEngfuncs.drawFuncs->GL_OrthoBounds )
 	{
@@ -238,7 +238,7 @@ boundaries so that turbulent and sky warps
 can be done reasonably.
 ================
 */
-void GL_SubdivideSurface( msurface_t *fa )
+void GAME_EXPORT GL_SubdivideSurface( msurface_t *fa )
 {
 	vec3_t	verts[SUBDIVIDE_SIZE];
 	int	numverts;
@@ -3549,7 +3549,7 @@ Builds the lightmap texture
 with all the surfaces from all brush models
 ==================
 */
-void GL_BuildLightmaps( void )
+void GAME_EXPORT GL_BuildLightmaps( void )
 {
 	int	i, j;
 	model_t	*m;

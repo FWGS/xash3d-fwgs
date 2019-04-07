@@ -408,7 +408,7 @@ void R_DrawSkyBox( void )
 R_SetupSky
 ===============
 */
-void R_SetupSky( const char *skyboxname )
+void GAME_EXPORT R_SetupSky( const char *skyboxname )
 {
 	char	loadname[MAX_STRING];
 	char	sidename[MAX_STRING];
@@ -647,7 +647,7 @@ R_InitSkyClouds
 A sky texture is 256*128, with the right side being a masked overlay
 ==============
 */
-void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
+void GAME_EXPORT R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 {
 	rgbdata_t	r_temp, *r_sky;
 	uint	*trans, *rgba;

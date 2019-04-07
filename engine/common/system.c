@@ -284,7 +284,7 @@ Returns the position (1 to argc-1) in the program's argument list
 where the given parameter apears, or 0 if not present
 ================
 */
-int Sys_CheckParm( const char *parm )
+int GAME_EXPORT Sys_CheckParm( const char *parm )
 {
 	int	i;
 

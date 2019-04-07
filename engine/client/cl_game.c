@@ -103,7 +103,7 @@ CL_GetEntityByIndex
 Render callback for studio models
 ====================
 */
-cl_entity_t *CL_GetEntityByIndex( int index )
+cl_entity_t * GAME_EXPORT CL_GetEntityByIndex( int index )
 {
 	if( !clgame.entities ) // not in game yet
 		return NULL;
@@ -124,7 +124,7 @@ CL_ModelHandle
 get model handle by index
 ================
 */
-model_t *CL_ModelHandle( int modelindex )
+model_t * GAME_EXPORT CL_ModelHandle( int modelindex )
 {
 	if( modelindex < 0 || modelindex >= MAX_MODELS )
 		return NULL;
@@ -334,7 +334,7 @@ CL_CenterPrint
 print centerscreen message
 =============
 */
-void CL_CenterPrint( const char *text, float y )
+void GAME_EXPORT CL_CenterPrint( const char *text, float y )
 {
 	int	length = 0;
 	int	width = 0;
@@ -531,7 +531,7 @@ CL_DrawCenterPrint
 called each frame
 =============
 */
-void CL_DrawCenterPrint( void )
+void GAME_EXPORT CL_DrawCenterPrint( void )
 {
 	char	*pText;
 	int	i, j, x, y;
@@ -789,7 +789,7 @@ CL_GetLocalPlayer
 Render callback for studio models
 ====================
 */
-cl_entity_t *CL_GetLocalPlayer( void )
+cl_entity_t *GAME_EXPORT CL_GetLocalPlayer( void )
 {
 	cl_entity_t	*player;
 
@@ -818,7 +818,7 @@ CL_SoundFromIndex
 return soundname from index
 ====================
 */
-const char *CL_SoundFromIndex( int index )
+const char *GAME_EXPORT CL_SoundFromIndex( int index )
 {
 	sfx_t	*sfx = NULL;
 	int	hSound;
@@ -849,7 +849,7 @@ SPR_EnableScissor
 
 =========
 */
-static void SPR_EnableScissor( int x, int y, int width, int height )
+static void GAME_EXPORT SPR_EnableScissor( int x, int y, int width, int height )
 {
 	// check bounds
 	x = bound( 0, x, clgame.scrInfo.iWidth );
@@ -870,7 +870,7 @@ SPR_DisableScissor
 
 =========
 */
-static void SPR_DisableScissor( void )
+static void GAME_EXPORT SPR_DisableScissor( void )
 {
 	clgame.ds.scissor_x = 0;
 	clgame.ds.scissor_width = 0;
@@ -1343,7 +1343,7 @@ pfnSPR_Load
 
 =========
 */
-HSPRITE pfnSPR_Load( const char *szPicName )
+HSPRITE GAME_EXPORT pfnSPR_Load( const char *szPicName )
 {
 	model_t	*spr;
 
@@ -1390,7 +1390,7 @@ pfnSPR_Frames
 
 =========
 */
-static int pfnSPR_Frames( HSPRITE hPic )
+static int GAME_EXPORT pfnSPR_Frames( HSPRITE hPic )
 {
 	int	numFrames;
 
@@ -1405,7 +1405,7 @@ pfnSPR_Height
 
 =========
 */
-static int pfnSPR_Height( HSPRITE hPic, int frame )
+static int GAME_EXPORT pfnSPR_Height( HSPRITE hPic, int frame )
 {
 	int	sprHeight;
 
@@ -1420,7 +1420,7 @@ pfnSPR_Width
 
 =========
 */
-static int pfnSPR_Width( HSPRITE hPic, int frame )
+static int GAME_EXPORT pfnSPR_Width( HSPRITE hPic, int frame )
 {
 	int	sprWidth;
 
@@ -1435,7 +1435,7 @@ pfnSPR_Set
 
 =========
 */
-static void pfnSPR_Set( HSPRITE hPic, int r, int g, int b )
+static void GAME_EXPORT pfnSPR_Set( HSPRITE hPic, int r, int g, int b )
 {
 	clgame.ds.pSprite = CL_GetSpritePointer( hPic );
 	clgame.ds.spriteColor[0] = bound( 0, r, 255 );
@@ -1450,7 +1450,7 @@ pfnSPR_Draw
 
 =========
 */
-static void pfnSPR_Draw( int frame, int x, int y, const wrect_t *prc )
+static void GAME_EXPORT pfnSPR_Draw( int frame, int x, int y, const wrect_t *prc )
 {
 	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
 	SPR_DrawGeneric( frame, x, y, -1, -1, prc );
@@ -1462,7 +1462,7 @@ pfnSPR_DrawHoles
 
 =========
 */
-static void pfnSPR_DrawHoles( int frame, int x, int y, const wrect_t *prc )
+static void GAME_EXPORT pfnSPR_DrawHoles( int frame, int x, int y, const wrect_t *prc )
 {
 #if 1 // REFTODO
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransColor );
@@ -1487,7 +1487,7 @@ pfnSPR_DrawAdditive
 
 =========
 */
-static void pfnSPR_DrawAdditive( int frame, int x, int y, const wrect_t *prc )
+static void GAME_EXPORT pfnSPR_DrawAdditive( int frame, int x, int y, const wrect_t *prc )
 {
 #if 1 // REFTODO
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
@@ -1512,7 +1512,7 @@ pfnSPR_GetList
 for parsing half-life scripts - hud.txt etc
 =========
 */
-static client_sprite_t *pfnSPR_GetList( char *psz, int *piCount )
+static client_sprite_t * GAME_EXPORT pfnSPR_GetList( char *psz, int *piCount )
 {
 	cached_spritelist_t	*pEntry = &clgame.sprlist[0];
 	int		slot, index, numSprites = 0;
@@ -1601,7 +1601,7 @@ CL_FillRGBA
 
 =============
 */
-void CL_FillRGBA( int x, int y, int w, int h, int r, int g, int b, int a )
+void GAME_EXPORT CL_FillRGBA( int x, int y, int w, int h, int r, int g, int b, int a )
 {
 	float _x = x, _y = y, _w = w, _h = h;
 
@@ -1641,7 +1641,7 @@ pfnGetScreenInfo
 get actual screen info
 =============
 */
-int CL_GetScreenInfo( SCREENINFO *pscrinfo )
+int GAME_EXPORT CL_GetScreenInfo( SCREENINFO *pscrinfo )
 {
 	float scale_factor = hud_scale->value;
 
@@ -1680,7 +1680,7 @@ pfnSetCrosshair
 setup crosshair
 =============
 */
-static void pfnSetCrosshair( HSPRITE hspr, wrect_t rc, int r, int g, int b )
+static void GAME_EXPORT pfnSetCrosshair( HSPRITE hspr, wrect_t rc, int r, int g, int b )
 {
 	clgame.ds.rgbaCrosshair[0] = (byte)r;
 	clgame.ds.rgbaCrosshair[1] = (byte)g;
@@ -1696,7 +1696,7 @@ pfnHookUserMsg
 
 =============
 */
-static int pfnHookUserMsg( const char *pszName, pfnUserMsgHook pfn )
+static int GAME_EXPORT pfnHookUserMsg( const char *pszName, pfnUserMsgHook pfn )
 {
 	int	i;
 
@@ -1730,7 +1730,7 @@ pfnServerCmd
 
 =============
 */
-static int pfnServerCmd( const char *szCmdString )
+static int GAME_EXPORT pfnServerCmd( const char *szCmdString )
 {
 	string	buf;
 
@@ -1750,7 +1750,7 @@ pfnClientCmd
 
 =============
 */
-static int pfnClientCmd( const char *szCmdString )
+static int GAME_EXPORT pfnClientCmd( const char *szCmdString )
 {
 	if( !COM_CheckString( szCmdString ))
 		return 0;
@@ -1775,7 +1775,7 @@ pfnGetPlayerInfo
 
 =============
 */
-static void pfnGetPlayerInfo( int ent_num, hud_player_info_t *pinfo )
+static void GAME_EXPORT pfnGetPlayerInfo( int ent_num, hud_player_info_t *pinfo )
 {
 	player_info_t	*player;
 
@@ -1805,7 +1805,7 @@ pfnPlaySoundByName
 
 =============
 */
-static void pfnPlaySoundByName( const char *szSound, float volume )
+static void GAME_EXPORT pfnPlaySoundByName( const char *szSound, float volume )
 {
 	int hSound = S_RegisterSound( szSound );
 	S_StartSound( NULL, cl.viewentity, CHAN_ITEM, hSound, volume, ATTN_NORM, PITCH_NORM, SND_STOP_LOOPING );
@@ -1817,7 +1817,7 @@ pfnPlaySoundByIndex
 
 =============
 */
-static void pfnPlaySoundByIndex( int iSound, float volume )
+static void GAME_EXPORT pfnPlaySoundByIndex( int iSound, float volume )
 {
 	int hSound;
 
@@ -1836,7 +1836,7 @@ pfnTextMessageGet
 returns specified message from titles.txt
 =============
 */
-client_textmessage_t *CL_TextMessageGet( const char *pName )
+client_textmessage_t * GAME_EXPORT GAME_EXPORT CL_TextMessageGet( const char *pName )
 {
 	int	i;
 
@@ -1863,7 +1863,7 @@ pfnDrawCharacter
 returns drawed chachter width (in real screen pixels)
 =============
 */
-static int pfnDrawCharacter( int x, int y, int number, int r, int g, int b )
+static int GAME_EXPORT pfnDrawCharacter( int x, int y, int number, int r, int g, int b )
 {
 	if( !cls.creditsFont.valid )
 		return 0;
@@ -1892,7 +1892,7 @@ pfnDrawConsoleString
 drawing string like a console string 
 =============
 */
-int pfnDrawConsoleString( int x, int y, char *string )
+int GAME_EXPORT pfnDrawConsoleString( int x, int y, char *string )
 {
 	int	drawLen;
 
@@ -1917,7 +1917,7 @@ pfnDrawSetTextColor
 set color for anything
 =============
 */
-void pfnDrawSetTextColor( float r, float g, float b )
+void GAME_EXPORT pfnDrawSetTextColor( float r, float g, float b )
 {
 	// bound color and convert to byte
 	clgame.ds.textColor[0] = (byte)bound( 0, r * 255, 255 );
@@ -1933,7 +1933,7 @@ pfnDrawConsoleStringLen
 compute string length in screen pixels
 =============
 */
-void pfnDrawConsoleStringLen( const char *pText, int *length, int *height )
+void GAME_EXPORT pfnDrawConsoleStringLen( const char *pText, int *length, int *height )
 {
 	Con_SetFont( con_fontsize->value );
 	Con_DrawStringLen( pText, length, height );
@@ -1947,7 +1947,7 @@ pfnConsolePrint
 prints directly into console (can skip notify)
 =============
 */
-static void pfnConsolePrint( const char *string )
+static void GAME_EXPORT pfnConsolePrint( const char *string )
 {
 	Con_Printf( "%s", string );
 }
@@ -1960,7 +1960,7 @@ holds and fade message at center of screen
 like trigger_multiple message in q1
 =============
 */
-static void pfnCenterPrint( const char *string )
+static void GAME_EXPORT pfnCenterPrint( const char *string )
 {
 	CL_CenterPrint( string, 0.25f );
 }
@@ -1971,7 +1971,7 @@ GetWindowCenterX
 
 =========
 */
-static int pfnGetWindowCenterX( void )
+static int GAME_EXPORT pfnGetWindowCenterX( void )
 {
 	int x = 0;
 #ifdef _WIN32
@@ -1996,7 +1996,7 @@ GetWindowCenterY
 
 =========
 */
-static int pfnGetWindowCenterY( void )
+static int GAME_EXPORT pfnGetWindowCenterY( void )
 {
 	int y = 0;
 #ifdef _WIN32
@@ -2022,7 +2022,7 @@ pfnGetViewAngles
 return interpolated angles from previous frame
 =============
 */
-static void pfnGetViewAngles( float *angles )
+static void GAME_EXPORT pfnGetViewAngles( float *angles )
 {
 	if( angles ) VectorCopy( cl.viewangles, angles );
 }
@@ -2034,7 +2034,7 @@ pfnSetViewAngles
 return interpolated angles from previous frame
 =============
 */
-static void pfnSetViewAngles( float *angles )
+static void GAME_EXPORT pfnSetViewAngles( float *angles )
 {
 	if( angles ) VectorCopy( angles, cl.viewangles );
 }
@@ -2045,7 +2045,7 @@ pfnPhysInfo_ValueForKey
 
 =============
 */
-static const char* pfnPhysInfo_ValueForKey( const char *key )
+static const char* GAME_EXPORT pfnPhysInfo_ValueForKey( const char *key )
 {
 	return Info_ValueForKey( cls.physinfo, key );
 }
@@ -2056,7 +2056,7 @@ pfnServerInfo_ValueForKey
 
 =============
 */
-static const char* pfnServerInfo_ValueForKey( const char *key )
+static const char* GAME_EXPORT pfnServerInfo_ValueForKey( const char *key )
 {
 	return Info_ValueForKey( cl.serverinfo, key );
 }
@@ -2068,7 +2068,7 @@ pfnGetClientMaxspeed
 value that come from server
 =============
 */
-static float pfnGetClientMaxspeed( void )
+static float GAME_EXPORT pfnGetClientMaxspeed( void )
 {
 	return cl.local.maxspeed;
 }
@@ -2079,7 +2079,7 @@ pfnIsNoClipping
 
 =============
 */
-static int pfnIsNoClipping( void )
+static int GAME_EXPORT pfnIsNoClipping( void )
 {
 	return ( cl.frames[cl.parsecountmod].playerstate[cl.playernum].movetype == MOVETYPE_NOCLIP );
 }
@@ -2090,7 +2090,7 @@ pfnGetViewModel
 
 =============
 */
-cl_entity_t* CL_GetViewModel( void )
+cl_entity_t* GAME_EXPORT CL_GetViewModel( void )
 {
 	return &clgame.viewent;
 }
@@ -2101,7 +2101,7 @@ pfnGetClientTime
 
 =============
 */
-static float pfnGetClientTime( void )
+static float GAME_EXPORT pfnGetClientTime( void )
 {
 	return cl.time;
 }
@@ -2112,7 +2112,7 @@ pfnCalcShake
 
 =============
 */
-void pfnCalcShake( void )
+void GAME_EXPORT pfnCalcShake( void )
 {
 	int	i;
 	float	fraction, freq;
@@ -2174,7 +2174,7 @@ pfnApplyShake
 
 =============
 */
-void pfnApplyShake( float *origin, float *angles, float factor )
+void GAME_EXPORT pfnApplyShake( float *origin, float *angles, float factor )
 {
 	if( origin ) VectorMA( origin, factor, clgame.shake.applied_offset, origin );
 	if( angles ) angles[ROLL] += clgame.shake.applied_angle * factor;
@@ -2186,7 +2186,7 @@ pfnIsSpectateOnly
 
 =============
 */
-static int pfnIsSpectateOnly( void )
+static int GAME_EXPORT pfnIsSpectateOnly( void )
 {
 	return (cls.spectator != 0);
 }
@@ -2197,7 +2197,7 @@ pfnPointContents
 
 =============
 */
-static int pfnPointContents( const float *p, int *truecontents )
+static int GAME_EXPORT pfnPointContents( const float *p, int *truecontents )
 {
 	int	cont, truecont;
 
@@ -2215,7 +2215,7 @@ pfnTraceLine
 
 =============
 */
-static pmtrace_t *pfnTraceLine( float *start, float *end, int flags, int usehull, int ignore_pe )
+static pmtrace_t * GAME_EXPORT pfnTraceLine( float *start, float *end, int flags, int usehull, int ignore_pe )
 {
 	static pmtrace_t	tr;
 	int		old_usehull;
@@ -2238,7 +2238,7 @@ static pmtrace_t *pfnTraceLine( float *start, float *end, int flags, int usehull
 	return &tr;
 }
 
-static void pfnPlaySoundByNameAtLocation( char *szSound, float volume, float *origin )
+static void GAME_EXPORT pfnPlaySoundByNameAtLocation( char *szSound, float volume, float *origin )
 {
 	int hSound = S_RegisterSound( szSound );
 	S_StartSound( origin, 0, CHAN_AUTO, hSound, volume, ATTN_NORM, PITCH_NORM, 0 );
@@ -2250,7 +2250,7 @@ pfnPrecacheEvent
 
 =============
 */
-static word pfnPrecacheEvent( int type, const char* psz )
+static word GAME_EXPORT pfnPrecacheEvent( int type, const char* psz )
 {
 	return CL_EventIndex( psz );
 }
@@ -2261,7 +2261,7 @@ pfnHookEvent
 
 =============
 */
-static void pfnHookEvent( const char *filename, pfnEventHook pfn )
+static void GAME_EXPORT pfnHookEvent( const char *filename, pfnEventHook pfn )
 {
 	char		name[64];
 	cl_user_event_t	*ev;
@@ -2296,7 +2296,7 @@ pfnKillEvent
 
 =============
 */
-static void pfnKillEvents( int entnum, const char *eventname )
+static void GAME_EXPORT pfnKillEvents( int entnum, const char *eventname )
 {
 	int		i;
 	event_state_t	*es;
@@ -2330,7 +2330,7 @@ pfnPlaySound
 
 =============
 */
-void pfnPlaySound( int ent, float *org, int chan, const char *samp, float vol, float attn, int flags, int pitch )
+void GAME_EXPORT pfnPlaySound( int ent, float *org, int chan, const char *samp, float vol, float attn, int flags, int pitch )
 {
 	S_StartSound( org, ent, chan, S_RegisterSound( samp ), vol, attn, pitch, flags );
 }
@@ -2341,7 +2341,7 @@ CL_FindModelIndex
 
 =============
 */
-int CL_FindModelIndex( const char *m )
+int GAME_EXPORT CL_FindModelIndex( const char *m )
 {
 	char		filepath[MAX_QPATH];
 	static float	lasttimewarn;
@@ -2378,7 +2378,7 @@ pfnIsLocal
 
 =============
 */
-int pfnIsLocal( int playernum )
+int GAME_EXPORT pfnIsLocal( int playernum )
 {
 	if( playernum == cl.playernum )
 		return true;
@@ -2391,7 +2391,7 @@ pfnLocalPlayerDucking
 
 =============
 */
-int pfnLocalPlayerDucking( void )
+int GAME_EXPORT pfnLocalPlayerDucking( void )
 {
 	return (cl.local.usehull == 1) ? true : false;
 }
@@ -2402,7 +2402,7 @@ pfnLocalPlayerViewheight
 
 =============
 */
-void pfnLocalPlayerViewheight( float *view_ofs )
+void GAME_EXPORT pfnLocalPlayerViewheight( float *view_ofs )
 {
 	if( view_ofs ) VectorCopy( cl.viewheight, view_ofs );		
 }
@@ -2413,7 +2413,7 @@ pfnLocalPlayerBounds
 
 =============
 */
-void pfnLocalPlayerBounds( int hull, float *mins, float *maxs )
+void GAME_EXPORT pfnLocalPlayerBounds( int hull, float *mins, float *maxs )
 {
 	if( hull >= 0 && hull < 4 )
 	{
@@ -2428,7 +2428,7 @@ pfnIndexFromTrace
 
 =============
 */
-int pfnIndexFromTrace( struct pmtrace_s *pTrace )
+int GAME_EXPORT pfnIndexFromTrace( struct pmtrace_s *pTrace )
 {
 	if( pTrace->ent >= 0 && pTrace->ent < clgame.pmove->numphysent )
 	{
@@ -2444,7 +2444,7 @@ pfnGetPhysent
 
 =============
 */
-physent_t *pfnGetPhysent( int idx )
+physent_t * GAME_EXPORT pfnGetPhysent( int idx )
 {
 	if( idx >= 0 && idx < clgame.pmove->numphysent )
 	{
@@ -2460,7 +2460,7 @@ pfnGetVisent
 
 =============
 */
-physent_t *pfnGetVisent( int idx )
+physent_t * GAME_EXPORT pfnGetVisent( int idx )
 {
 	if( idx >= 0 && idx < clgame.pmove->numvisent )
 	{
@@ -2476,7 +2476,7 @@ pfnSetTraceHull
 
 =============
 */
-void CL_SetTraceHull( int hull )
+void GAME_EXPORT CL_SetTraceHull( int hull )
 {
 	clgame.pmove->usehull = bound( 0, hull, 3 );
 
@@ -2488,7 +2488,7 @@ pfnPlayerTrace
 
 =============
 */
-void CL_PlayerTrace( float *start, float *end, int traceFlags, int ignore_pe, pmtrace_t *tr )
+void GAME_EXPORT CL_PlayerTrace( float *start, float *end, int traceFlags, int ignore_pe, pmtrace_t *tr )
 {
 	if( !tr ) return;
 	*tr = PM_PlayerTraceExt( clgame.pmove, start, end, traceFlags, clgame.pmove->numphysent, clgame.pmove->physents, ignore_pe, NULL );
@@ -2500,7 +2500,7 @@ pfnPlayerTraceExt
 
 =============
 */
-void CL_PlayerTraceExt( float *start, float *end, int traceFlags, int (*pfnIgnore)( physent_t *pe ), pmtrace_t *tr )
+void GAME_EXPORT CL_PlayerTraceExt( float *start, float *end, int traceFlags, int (*pfnIgnore)( physent_t *pe ), pmtrace_t *tr )
 {
 	if( !tr ) return;
 	*tr = PM_PlayerTraceExt( clgame.pmove, start, end, traceFlags, clgame.pmove->numphysent, clgame.pmove->physents, -1, pfnIgnore );
@@ -2512,7 +2512,7 @@ pfnTraceTexture
 
 =============
 */
-static const char *pfnTraceTexture( int ground, float *vstart, float *vend )
+static const char * GAME_EXPORT pfnTraceTexture( int ground, float *vstart, float *vend )
 {
 	physent_t *pe;
 
@@ -2529,7 +2529,7 @@ pfnTraceSurface
 
 =============
 */
-struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend )
+struct msurface_s * GAME_EXPORT pfnTraceSurface( int ground, float *vstart, float *vend )
 {
 	physent_t *pe;
 
@@ -2546,7 +2546,7 @@ pfnGetMovevars
 
 =============
 */
-movevars_t *pfnGetMoveVars( void )
+movevars_t * GAME_EXPORT pfnGetMoveVars( void )
 {
 	return &clgame.movevars;
 }
@@ -2557,7 +2557,7 @@ pfnStopAllSounds
 
 =============
 */
-void pfnStopAllSounds( int ent, int entchannel )
+void GAME_EXPORT pfnStopAllSounds( int ent, int entchannel )
 {
 	S_StopSound( ent, entchannel, NULL );
 }
@@ -2568,7 +2568,7 @@ CL_LoadModel
 
 =============
 */
-model_t *CL_LoadModel( const char *modelname, int *index )
+model_t * GAME_EXPORT CL_LoadModel( const char *modelname, int *index )
 {
 	int	i;
 
@@ -2599,7 +2599,7 @@ pfnGetGameDirectory
 
 =============
 */
-const char *pfnGetGameDirectory( void )
+const char * GAME_EXPORT pfnGetGameDirectory( void )
 {
 	static char	szGetGameDir[MAX_SYSPATH];
 
@@ -2624,7 +2624,7 @@ pfnGetLevelName
 
 =============
 */
-static const char *pfnGetLevelName( void )
+static const char * GAME_EXPORT pfnGetLevelName( void )
 {
 	static char	mapname[64];
 
@@ -2641,7 +2641,7 @@ pfnGetScreenFade
 
 =============
 */
-void pfnGetScreenFade( struct screenfade_s *fade )
+void GAME_EXPORT pfnGetScreenFade( struct screenfade_s *fade )
 {
 	if( fade ) *fade = clgame.fade;
 }
@@ -2652,7 +2652,7 @@ pfnSetScreenFade
 
 =============
 */
-static void pfnSetScreenFade( struct screenfade_s *fade )
+static void GAME_EXPORT pfnSetScreenFade( struct screenfade_s *fade )
 {
 	if( fade ) clgame.fade = *fade;
 }
@@ -2663,7 +2663,7 @@ pfnLoadMapSprite
 
 =============
 */
-model_t *pfnLoadMapSprite( const char *filename )
+model_t * GAME_EXPORT pfnLoadMapSprite( const char *filename )
 {
 	return CL_LoadSpriteModel( filename, SPR_MAPSPRITE, 0 );
 }
@@ -2738,7 +2738,7 @@ pfnGetTrackerIDForPlayer
 obsolete, unused
 =============
 */
-int pfnGetTrackerIDForPlayer( int playerSlot )
+int GAME_EXPORT pfnGetTrackerIDForPlayer( int playerSlot )
 {
 	return 0;
 }
@@ -2750,7 +2750,7 @@ pfnGetPlayerForTrackerID
 obsolete, unused
 =============
 */
-int pfnGetPlayerForTrackerID( int trackerID )
+int GAME_EXPORT pfnGetPlayerForTrackerID( int trackerID )
 {
 	return 0;
 }
@@ -2761,7 +2761,7 @@ pfnServerCmdUnreliable
 
 =============
 */
-int pfnServerCmdUnreliable( char *szCmdString )
+int GAME_EXPORT pfnServerCmdUnreliable( char *szCmdString )
 {
 	if( !COM_CheckString( szCmdString ))
 		return 0;
@@ -2778,7 +2778,7 @@ pfnGetMousePos
 
 =============
 */
-void pfnGetMousePos( struct tagPOINT *ppt )
+void GAME_EXPORT pfnGetMousePos( struct tagPOINT *ppt )
 {
 	if( !ppt )
 		return;
@@ -2793,7 +2793,7 @@ pfnSetMouseEnable
 legacy of dinput code
 =============
 */
-void pfnSetMouseEnable( qboolean fEnable )
+void GAME_EXPORT pfnSetMouseEnable( qboolean fEnable )
 {
 }
 
@@ -3084,7 +3084,7 @@ pfnParseFile
 handle colon separately
 =============
 */
-char *pfnParseFile( char *data, char *token )
+char *GAME_EXPORT pfnParseFile( char *data, char *token )
 {
 	char	*out;
 
@@ -3106,7 +3106,7 @@ TriAPI implementation
 TriRenderMode
 =================
 */
-void TriRenderMode( int mode )
+void GAME_EXPORT TriRenderMode( int mode )
 {
 	clgame.ds.renderMode = mode;
 	ref.dllFuncs.TriRenderMode( mode );
@@ -3117,7 +3117,7 @@ void TriRenderMode( int mode )
 TriColor4f
 =================
 */
-void TriColor4f( float r, float g, float b, float a )
+void GAME_EXPORT TriColor4f( float r, float g, float b, float a )
 {
 	if( clgame.ds.renderMode == kRenderTransAlpha )
 		ref.dllFuncs.Color4ub( r * 255.9f, g * 255.9f, b * 255.9f, a * 255.0f );
@@ -3134,7 +3134,7 @@ void TriColor4f( float r, float g, float b, float a )
 TriColor4ub
 =============
 */
-void TriColor4ub( byte r, byte g, byte b, byte a )
+void GAME_EXPORT TriColor4ub( byte r, byte g, byte b, byte a )
 {
 	clgame.ds.triRGBA[0] = r * (1.0f / 255.0f);
 	clgame.ds.triRGBA[1] = g * (1.0f / 255.0f);
@@ -3149,7 +3149,7 @@ void TriColor4ub( byte r, byte g, byte b, byte a )
 TriBrightness
 =============
 */
-void TriBrightness( float brightness )
+void GAME_EXPORT TriBrightness( float brightness )
 {
 	float	r, g, b;
 
@@ -3165,7 +3165,7 @@ void TriBrightness( float brightness )
 TriCullFace
 =============
 */
-void TriCullFace( TRICULLSTYLE style )
+void GAME_EXPORT TriCullFace( TRICULLSTYLE style )
 {
 	clgame.ds.cullMode = style;
 	ref.dllFuncs.CullFace( style );
@@ -3177,7 +3177,7 @@ TriWorldToScreen
 convert world coordinates (x,y,z) into screen (x, y)
 =============
 */
-int TriWorldToScreen( const float *world, float *screen )
+int GAME_EXPORT TriWorldToScreen( const float *world, float *screen )
 {
 	int	retval;
 
@@ -3198,7 +3198,7 @@ TriBoxInPVS
 check box in pvs (absmin, absmax)
 =============
 */
-int TriBoxInPVS( float *mins, float *maxs )
+int GAME_EXPORT TriBoxInPVS( float *mins, float *maxs )
 {
 	return Mod_BoxVisible( mins, maxs, ref.dllFuncs.Mod_GetCurrentVis( ));
 }
@@ -3209,7 +3209,7 @@ TriLightAtPoint
 NOTE: dlights are ignored
 =============
 */
-void TriLightAtPoint( float *pos, float *value )
+void GAME_EXPORT TriLightAtPoint( float *pos, float *value )
 {
 	colorVec	vLightColor;
 
@@ -3228,7 +3228,7 @@ TriColor4fRendermode
 Heavy legacy of Quake...
 =============
 */
-void TriColor4fRendermode( float r, float g, float b, float a, int rendermode )
+void GAME_EXPORT TriColor4fRendermode( float r, float g, float b, float a, int rendermode )
 {
 	if( clgame.ds.renderMode == kRenderTransAlpha )
 	{
@@ -3246,7 +3246,7 @@ TriSpriteTexture
 bind current texture
 =============
 */
-int TriSpriteTexture( model_t *pSpriteModel, int frame )
+int GAME_EXPORT TriSpriteTexture( model_t *pSpriteModel, int frame )
 {
 	int	gl_texturenum;
 
@@ -3270,7 +3270,7 @@ Demo_IsRecording
 
 =================
 */
-static int Demo_IsRecording( void )
+static int GAME_EXPORT Demo_IsRecording( void )
 {
 	return cls.demorecording;
 }
@@ -3281,7 +3281,7 @@ Demo_IsPlayingback
 
 =================
 */
-static int Demo_IsPlayingback( void )
+static int GAME_EXPORT Demo_IsPlayingback( void )
 {
 	return cls.demoplayback;
 }
@@ -3292,7 +3292,7 @@ Demo_IsTimeDemo
 
 =================
 */
-static int Demo_IsTimeDemo( void )
+static int GAME_EXPORT Demo_IsTimeDemo( void )
 {
 	return cls.timedemo;
 }
@@ -3303,7 +3303,7 @@ Demo_WriteBuffer
 
 =================
 */
-static void Demo_WriteBuffer( int size, byte *buffer )
+static void GAME_EXPORT Demo_WriteBuffer( int size, byte *buffer )
 {
 	CL_WriteDemoUserMessage( buffer, size );
 }
@@ -3320,7 +3320,7 @@ NetAPI_InitNetworking
 
 =================
 */
-void NetAPI_InitNetworking( void )
+void GAME_EXPORT NetAPI_InitNetworking( void )
 {
 	NET_Config( true ); // allow remote
 }
@@ -3331,7 +3331,7 @@ NetAPI_InitNetworking
 
 =================
 */
-void NetAPI_Status( net_status_t *status )
+void GAME_EXPORT NetAPI_Status( net_status_t *status )
 {
 	qboolean	connected = false;
 	int	packet_loss = 0;
@@ -3359,7 +3359,7 @@ NetAPI_SendRequest
 
 =================
 */
-void NetAPI_SendRequest( int context, int request, int flags, double timeout, netadr_t *remote_address, net_api_response_func_t response )
+void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags, double timeout, netadr_t *remote_address, net_api_response_func_t response )
 {
 	net_request_t	*nr = NULL;
 	string		req;
@@ -3437,7 +3437,7 @@ NetAPI_CancelRequest
 
 =================
 */
-void NetAPI_CancelRequest( int context )
+void GAME_EXPORT NetAPI_CancelRequest( int context )
 {
 	net_request_t	*nr;
 	int		i;
@@ -3475,7 +3475,7 @@ NetAPI_CancelAllRequests
 
 =================
 */
-void NetAPI_CancelAllRequests( void )
+void GAME_EXPORT NetAPI_CancelAllRequests( void )
 {
 	net_request_t	*nr;
 	int		i;
@@ -3501,7 +3501,7 @@ NetAPI_AdrToString
 
 =================
 */
-char *NetAPI_AdrToString( netadr_t *a )
+char * GAME_EXPORT NetAPI_AdrToString( netadr_t *a )
 {
 	return NET_AdrToString( *a );
 }
@@ -3512,7 +3512,7 @@ NetAPI_CompareAdr
 
 =================
 */
-int NetAPI_CompareAdr( netadr_t *a, netadr_t *b )
+int GAME_EXPORT NetAPI_CompareAdr( netadr_t *a, netadr_t *b )
 {
 	return NET_CompareAdr( *a, *b );
 }
@@ -3523,7 +3523,7 @@ NetAPI_StringToAdr
 
 =================
 */
-int NetAPI_StringToAdr( char *s, netadr_t *a )
+int GAME_EXPORT NetAPI_StringToAdr( char *s, netadr_t *a )
 {
 	return NET_StringToAdr( s, a );
 }
@@ -3534,7 +3534,7 @@ NetAPI_ValueForKey
 
 =================
 */
-const char *NetAPI_ValueForKey( const char *s, const char *key )
+const char * GAME_EXPORT NetAPI_ValueForKey( const char *s, const char *key )
 {
 	return Info_ValueForKey( s, key );
 }
@@ -3545,7 +3545,7 @@ NetAPI_RemoveKey
 
 =================
 */
-void NetAPI_RemoveKey( char *s, const char *key )
+void GAME_EXPORT NetAPI_RemoveKey( char *s, const char *key )
 {
 	Info_RemoveKey( s, key );
 }
@@ -3556,7 +3556,7 @@ NetAPI_SetValueForKey
 
 =================
 */
-void NetAPI_SetValueForKey( char *s, const char *key, const char *value, int maxsize )
+void GAME_EXPORT NetAPI_SetValueForKey( char *s, const char *key, const char *value, int maxsize )
 {
 	if( key[0] == '*' ) return;
 	Info_SetValueForStarKey( s, key, value, maxsize );
@@ -3576,7 +3576,7 @@ Voice_StartVoiceTweakMode
 
 =================
 */
-int Voice_StartVoiceTweakMode( void )
+int GAME_EXPORT Voice_StartVoiceTweakMode( void )
 {
 	return 0;
 }
@@ -3587,7 +3587,7 @@ Voice_EndVoiceTweakMode
 
 =================
 */
-void Voice_EndVoiceTweakMode( void )
+void GAME_EXPORT Voice_EndVoiceTweakMode( void )
 {
 }
 
@@ -3597,7 +3597,7 @@ Voice_SetControlFloat
 
 =================
 */	
-void Voice_SetControlFloat( VoiceTweakControl iControl, float value )
+void GAME_EXPORT Voice_SetControlFloat( VoiceTweakControl iControl, float value )
 {
 }
 
@@ -3607,7 +3607,7 @@ Voice_GetControlFloat
 
 =================
 */
-float Voice_GetControlFloat( VoiceTweakControl iControl )
+float GAME_EXPORT Voice_GetControlFloat( VoiceTweakControl iControl )
 {
 	return 1.0f;
 }

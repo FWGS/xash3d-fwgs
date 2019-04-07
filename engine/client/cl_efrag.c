@@ -171,7 +171,7 @@ R_StoreEfrags
 
 ================
 */
-void R_StoreEfrags( efrag_t **ppefrag, int framecount )
+void GAME_EXPORT R_StoreEfrags( efrag_t **ppefrag, int framecount )
 {
 	cl_entity_t	*pent;
 	model_t		*clmodel;

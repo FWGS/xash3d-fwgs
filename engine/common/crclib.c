@@ -593,7 +593,7 @@ COM_HashKey
 returns hash key for string
 =================
 */
-uint COM_HashKey( const char *string, uint hashSize )
+uint GAME_EXPORT COM_HashKey( const char *string, uint hashSize )
 {
 	uint	i, hashKey = 0;
 
