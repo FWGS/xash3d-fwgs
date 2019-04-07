@@ -801,7 +801,7 @@ void R_InitCaches (void)
 	// round up to page size
 	size = (size + 8191) & ~8191;
 
-	gEngfuncs.Con_Printf ("%ik surface cache\n", size/1024);
+	gEngfuncs.Con_Printf ("%s surface cache\n", Q_memprint(size));
 
 	sc_size = size;
 	if( sc_base )
