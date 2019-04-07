@@ -46,6 +46,7 @@ def configure(conf):
 
 	if conf.env.DEST_OS == 'win32':
 		conf.env.append_unique('DEFINES', 'DBGHELP')
+		conf.env.append_unique('DEFINES', 'PSAPI_VERSION=1')
 
 def build(bld):
 	libs = [ 'public' ]
