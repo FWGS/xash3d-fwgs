@@ -18,4 +18,7 @@ cp vgui_support_bin/vgui_support.dll .
 cp build/engine/xash.dll .
 cp build/mainui/menu.dll .
 cp build/game_launch/xash3d.exe .
+cp build/ref_soft/ref_soft.dll .
+cp build/ref_gl/ref_gl.dll .
+
 7z a -t7z $TRAVIS_BUILD_DIR/xash3d-mingw.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on *.dll *.exe

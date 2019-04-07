@@ -12,6 +12,8 @@ python3 scripts/makepak.py xash-extras/ $APPDIR/extras.pak
 cp SDL2_linux/lib/libSDL2-2.0.so.0 $APPDIR/
 cp vgui-dev/lib/vgui.so $APPDIR/
 cp build/engine/libxash.so \
+	build/ref_gl/libref_gl.so \
+	build/ref_soft/libref_soft.so \
 	build/mainui/libmenu.so \
 	build/vgui_support/libvgui_support.so \
 	build/game_launch/xash3d $APPDIR
