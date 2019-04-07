@@ -806,7 +806,7 @@ void R_InitCaches (void)
 	sc_size = size;
 	if( sc_base )
 	{
-		D_FlushCaches( false );
+		D_FlushCaches(  );
 		Mem_Free( sc_base );
 	}
 	sc_base = (surfcache_t *)Mem_Calloc(r_temppool,size);
@@ -823,10 +823,12 @@ void R_InitCaches (void)
 D_FlushCaches
 ==================
 */
-void D_FlushCaches( qboolean newmap )
+void D_FlushCaches( void )
 {
 	surfcache_t     *c;
-	
+	model_t *world = WORLDMODEL;
+	qboolean newmap = !world || !Q_strcmp( tr.mapname, WORLDMODEL->name );
+
 	// if newmap, surfaces already freed
 	if( !newmap )
 	{
@@ -836,6 +838,8 @@ void D_FlushCaches( qboolean newmap )
 				*c->owner = NULL;
 		}
 	}
+	else
+		Q_strncpy( tr.mapname, WORLDMODEL->name, MAX_STRING );
 	
 	sc_rover = sc_base;
 	sc_base->next = NULL;
@@ -1040,7 +1044,7 @@ void R_DrawSurfaceDecals()
 			if( t2 > tex->height )
 				t2 = tex->height;
 
-			if( !tex->pixels[0] || s1 >= s2 || t1 >= t2 )
+			if( !tex->pixels[0] || s1 >= s2 || t1 >= t2 || !w )
 				continue;
 
 			if( tex->alpha_pixels )

@@ -293,6 +293,7 @@ typedef struct
 	vec3_t		modelorg;		// relative to viewpoint
 
 	qboolean fCustomSkybox;
+	char	mapname[MAX_STRING];
 } gl_globals_t;
 
 typedef struct
@@ -1247,7 +1248,7 @@ void R_ScanEdges (void);
 //
 // r_surf.c
 //
-void D_FlushCaches( qboolean newmap );
+void D_FlushCaches( void );
 
 //
 // r_draw.c
