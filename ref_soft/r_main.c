@@ -160,7 +160,7 @@ int R_GetEntityRenderMode( cl_entity_t *ent )
 }
 #endif
 
-void R_AllowFog( qboolean allowed )
+void GAME_EXPORT R_AllowFog( qboolean allowed )
 {
 }
 
@@ -289,7 +289,7 @@ R_ScreenToWorld
 Convert a given point from screen into world space
 ===============
 */
-void R_ScreenToWorld( const vec3_t screen, vec3_t point )
+void GAME_EXPORT R_ScreenToWorld( const vec3_t screen, vec3_t point )
 {
 	matrix4x4	screenToWorld;
 	float	w;
@@ -313,7 +313,7 @@ void R_ScreenToWorld( const vec3_t screen, vec3_t point )
 R_PushScene
 ===============
 */
-void R_PushScene( void )
+void GAME_EXPORT R_PushScene( void )
 {
 	if( ++tr.draw_stack_pos >= MAX_DRAW_STACK )
 		gEngfuncs.Host_Error( "draw stack overflow\n" );
@@ -326,7 +326,7 @@ void R_PushScene( void )
 R_PopScene
 ===============
 */
-void R_PopScene( void )
+void GAME_EXPORT R_PopScene( void )
 {
 	if( --tr.draw_stack_pos < 0 )
 		gEngfuncs.Host_Error( "draw stack underflow\n" );
@@ -338,7 +338,7 @@ void R_PopScene( void )
 R_ClearScene
 ===============
 */
-void R_ClearScene( void )
+void GAME_EXPORT R_ClearScene( void )
 {
 	tr.draw_list->num_solid_entities = 0;
 	tr.draw_list->num_trans_entities = 0;
@@ -356,7 +356,7 @@ void R_ClearScene( void )
 R_AddEntity
 ===============
 */
-qboolean R_AddEntity( struct cl_entity_s *clent, int type )
+qboolean GAME_EXPORT R_AddEntity( struct cl_entity_s *clent, int type )
 {
 	if( !r_drawentities->value )
 		return false; // not allow to drawing
@@ -1581,7 +1581,7 @@ R_RenderScene
 R_SetupRefParams must be called right before
 ================
 */
-void R_RenderScene( void )
+void GAME_EXPORT R_RenderScene( void )
 {
 	if( !WORLDMODEL && RI.drawWorld )
 		gEngfuncs.Host_Error( "R_RenderView: NULL worldmodel\n" );
@@ -1662,7 +1662,7 @@ qboolean R_DoResetGamma( void )
 R_BeginFrame
 ===============
 */
-void R_BeginFrame( qboolean clearScene )
+void GAME_EXPORT R_BeginFrame( qboolean clearScene )
 {
 
 	if( R_DoResetGamma( ))
@@ -1738,7 +1738,7 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 R_RenderFrame
 ===============
 */
-int R_RenderFrame( const ref_viewpass_t *rvp )
+int GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 {
 	if( r_norefresh->value )
 		return 1;
@@ -1779,7 +1779,7 @@ int R_RenderFrame( const ref_viewpass_t *rvp )
 R_EndFrame
 ===============
 */
-void R_EndFrame( void )
+void GAME_EXPORT R_EndFrame( void )
 {
 	// flush any remaining 2D bits
 	R_Set2DMode( false );
@@ -1820,7 +1820,7 @@ void R_DrawCubemapView( const vec3_t origin, const vec3_t angles, int size )
 R_NewMap
 ===============
 */
-void R_NewMap (void)
+void GAME_EXPORT R_NewMap (void)
 {
 	int i;
 	r_viewcluster = -1;
@@ -1894,7 +1894,7 @@ void R_InitTurb (void)
 
 
 
-qboolean R_Init()
+qboolean GAME_EXPORT R_Init()
 {
 	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
 	vid_gamma = gEngfuncs.pfnGetCvarPointer( "gamma", 0 );
@@ -1968,7 +1968,7 @@ qboolean R_Init()
 	return true;
 }
 
-void R_Shutdown()
+void GAME_EXPORT R_Shutdown()
 {
 	R_ShutdownImages();
 	gEngfuncs.R_Free_Video();

@@ -40,7 +40,7 @@ image_t *R_GetTexture( unsigned int texnum )
 GL_Bind
 =================
 */
-void GL_Bind( int tmu, unsigned int texnum )
+void GAME_EXPORT GL_Bind( int tmu, unsigned int texnum )
 {
 	image_t	*image;
 
@@ -929,7 +929,7 @@ GL_UpdateTexSize
 recalc image room
 ================
 */
-void GL_UpdateTexSize( int texnum, int width, int height, int depth )
+void GAME_EXPORT GL_UpdateTexSize( int texnum, int width, int height, int depth )
 {
 	int		i, j, texsize;
 	int		numSides;
@@ -960,7 +960,7 @@ void GL_UpdateTexSize( int texnum, int width, int height, int depth )
 GL_LoadTexture
 ================
 */
-int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
+int GAME_EXPORT GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 {
 	image_t	*tex;
 	rgbdata_t		*pic;
@@ -1008,7 +1008,7 @@ int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 GL_LoadTextureArray
 ================
 */
-int GL_LoadTextureArray( const char **names, int flags )
+int GAME_EXPORT GL_LoadTextureArray( const char **names, int flags )
 {
 	return 0;
 }
@@ -1018,7 +1018,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 GL_LoadTextureFromBuffer
 ================
 */
-int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update )
+int GAME_EXPORT GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update )
 {
 	image_t	*tex;
 
@@ -1062,7 +1062,7 @@ GL_CreateTexture
 creates texture from buffer
 ================
 */
-int GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags )
+int GAME_EXPORT GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags )
 {
 	int	datasize = 1;
 	rgbdata_t	r_empty;
@@ -1104,7 +1104,7 @@ GL_CreateTextureArray
 creates texture array from buffer
 ================
 */
-int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags )
+int GAME_EXPORT GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags )
 {
 	return 0;
 }
@@ -1114,7 +1114,7 @@ int GL_CreateTextureArray( const char *name, int width, int height, int depth, c
 GL_FindTexture
 ================
 */
-int GL_FindTexture( const char *name )
+int GAME_EXPORT GL_FindTexture( const char *name )
 {
 	image_t	*tex;
 
@@ -1133,7 +1133,7 @@ int GL_FindTexture( const char *name )
 GL_FreeTexture
 ================
 */
-void GL_FreeTexture( unsigned int texnum )
+void GAME_EXPORT GL_FreeTexture( unsigned int texnum )
 {
 	// number 0 it's already freed
 	if( texnum <= 0 )
@@ -1147,7 +1147,7 @@ void GL_FreeTexture( unsigned int texnum )
 GL_ProcessTexture
 ================
 */
-void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
+void GAME_EXPORT GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 {
 	image_t	*image;
 	rgbdata_t		*pic;

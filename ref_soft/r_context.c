@@ -27,17 +27,17 @@ cvar_t *r_norefresh;
 cvar_t *vid_gamma;
 cvar_t	*vid_brightness;
 viddef_t vid;
-static void R_ClearScreen( void )
+static void GAME_EXPORT R_ClearScreen( void )
 {
 
 }
 
-static qboolean IsNormalPass( void )
+static qboolean GAME_EXPORT IsNormalPass( void )
 {
 	return RP_NORMALPASS();
 }
 
-static void R_IncrementSpeedsCounter( int type )
+static void GAME_EXPORT R_IncrementSpeedsCounter( int type )
 {
 	switch( type )
 	{
@@ -49,7 +49,7 @@ static void R_IncrementSpeedsCounter( int type )
 	}
 }
 
-static const byte *R_GetTextureOriginalBuffer( unsigned int idx )
+static const byte * GAME_EXPORT R_GetTextureOriginalBuffer( unsigned int idx )
 {
 	/*gl_texture_t *glt = R_GetTexture( idx );
 
@@ -59,7 +59,7 @@ static const byte *R_GetTextureOriginalBuffer( unsigned int idx )
 	return NULL;
 }
 
-static int R_GetBuiltinTexture( enum ref_shared_texture_e type )
+static int GAME_EXPORT R_GetBuiltinTexture( enum ref_shared_texture_e type )
 {
 	switch( type )
 	{
@@ -74,7 +74,7 @@ static int R_GetBuiltinTexture( enum ref_shared_texture_e type )
 	return 0;
 }
 
-static void R_FreeSharedTexture( enum ref_shared_texture_e type )
+static void GAME_EXPORT R_FreeSharedTexture( enum ref_shared_texture_e type )
 {
 	int num = 0;
 
@@ -104,7 +104,7 @@ CL_FillRGBA
 
 =============
 */
-static void CL_FillRGBA( float _x, float _y, float _w, float _h, int r, int g, int b, int a )
+static void GAME_EXPORT CL_FillRGBA( float _x, float _y, float _w, float _h, int r, int g, int b, int a )
 {
 	vid.rendermode = kRenderTransAdd;
 	_TriColor4ub(r,g,b,a);
@@ -125,7 +125,7 @@ static void GAME_EXPORT CL_FillRGBABlend( float _x, float _y, float _w, float _h
 }
 
 
-qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
+qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 {
 	qboolean loaded = true;
 
@@ -161,7 +161,7 @@ qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 	return loaded;
 }
 
-static int GL_RenderGetParm( int parm, int arg )
+static int GAME_EXPORT GL_RenderGetParm( int parm, int arg )
 {
 	image_t *glt;
 
@@ -223,7 +223,7 @@ static int GL_RenderGetParm( int parm, int arg )
 	return 0;
 }
 
-static void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScale )
+static void GAME_EXPORT R_GetDetailScaleForTexture( int texture, float *xScale, float *yScale )
 {
 	image_t *glt = R_GetTexture( texture );
 
@@ -231,7 +231,7 @@ static void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScal
 	if( yScale ) *yScale = glt->yscale;
 }
 
-static void R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
+static void GAME_EXPORT R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
 {
 	image_t *glt = R_GetTexture( texture );
 
@@ -242,7 +242,7 @@ static void R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte
 }
 
 
-static void R_SetCurrentEntity( cl_entity_t *ent )
+static void GAME_EXPORT R_SetCurrentEntity( cl_entity_t *ent )
 {
 	RI.currententity = ent;
 
@@ -253,22 +253,22 @@ static void R_SetCurrentEntity( cl_entity_t *ent )
 	}
 }
 
-static void R_SetCurrentModel( model_t *mod )
+static void GAME_EXPORT R_SetCurrentModel( model_t *mod )
 {
 	RI.currentmodel = mod;
 }
 
-static float R_GetFrameTime( void )
+static float GAME_EXPORT R_GetFrameTime( void )
 {
 	return tr.frametime;
 }
 
-static const char *GL_TextureName( unsigned int texnum )
+static const char * GAME_EXPORT GL_TextureName( unsigned int texnum )
 {
 	return "";//return R_GetTexture( texnum )->name;
 }
 
-const byte *GL_TextureData( unsigned int texnum )
+const byte * GAME_EXPORT GL_TextureData( unsigned int texnum )
 {
 //	rgbdata_t *pic = R_GetTexture( texnum )->original;
 
@@ -316,72 +316,72 @@ void Mod_UnloadTextures( model_t *mod )
 	}
 }
 
-void R_ProcessEntData( qboolean allocate )
+void GAME_EXPORT R_ProcessEntData( qboolean allocate )
 {
 
 }
 
 // stubs
 
-void GL_SetTexCoordArrayMode()
+void GAME_EXPORT GL_SetTexCoordArrayMode()
 {
 
 }
 
-void GL_OnContextCreated()
+void GAME_EXPORT GL_OnContextCreated()
 {
 	//R_InitBlit();
 
 }
 
-void GL_InitExtensions()
+void GAME_EXPORT GL_InitExtensions()
 {
 
 }
-void GL_ClearExtensions()
-{
-
-}
-
-void GL_BackendStartFrame()
+void GAME_EXPORT GL_ClearExtensions()
 {
 
 }
 
-void GL_BackendEndFrame()
+void GAME_EXPORT GL_BackendStartFrame()
+{
+
+}
+
+void GAME_EXPORT GL_BackendEndFrame()
 {
 
 }
 
 
-void GL_SetRenderMode(int mode)
+void GAME_EXPORT GL_SetRenderMode(int mode)
 {
 	vid.rendermode = mode;
 	/// TODO: table shading/blending???
 	/// maybe, setup block drawing function pointers here
 }
 
-void R_ShowTextures()
+void GAME_EXPORT R_ShowTextures()
 {
 	// textures undone too
 }
 
-void R_ShowTree()
+void GAME_EXPORT R_ShowTree()
 {
 	// do we really need this here???
 }
 
-void R_SetupSky(const char *skyboxname)
+void GAME_EXPORT R_SetupSky(const char *skyboxname)
 {
 
 }
 
-qboolean VID_ScreenShot(const char *filename, int shot_type)
+qboolean GAME_EXPORT VID_ScreenShot(const char *filename, int shot_type)
 {
 
 }
 
-qboolean VID_CubemapShot(const char *base, uint size, const float *vieworg, qboolean skyshot)
+qboolean GAME_EXPORT VID_CubemapShot(const char *base, uint size, const float *vieworg, qboolean skyshot)
 {
 	// cubemaps? in my softrender???
 }
@@ -391,67 +391,67 @@ void R_InitSkyClouds(mip_t *mt, texture_t *tx, qboolean custom_palette)
 
 }
 
-void GL_SubdivideSurface(msurface_t *fa)
+void GAME_EXPORT GL_SubdivideSurface(msurface_t *fa)
 {
 
 }
 
-void DrawSingleDecal(decal_t *pDecal, msurface_t *fa)
+void GAME_EXPORT DrawSingleDecal(decal_t *pDecal, msurface_t *fa)
 {
 
 }
 
-void GL_SelectTexture(int texture)
+void GAME_EXPORT GL_SelectTexture(int texture)
 {
 
 }
 
-void GL_LoadTexMatrixExt(const float *glmatrix)
+void GAME_EXPORT GL_LoadTexMatrixExt(const float *glmatrix)
 {
 
 }
 
-void GL_LoadIdentityTexMatrix()
+void GAME_EXPORT GL_LoadIdentityTexMatrix()
 {
 
 }
 
-void GL_CleanUpTextureUnits(int last)
+void GAME_EXPORT GL_CleanUpTextureUnits(int last)
 {
 
 }
 
-void GL_TexGen(unsigned int coord, unsigned int mode)
+void GAME_EXPORT GL_TexGen(unsigned int coord, unsigned int mode)
 {
 
 }
 
-void GL_TextureTarget(uint target)
+void GAME_EXPORT GL_TextureTarget(uint target)
 {
 
 }
 
-void GL_BuildLightmaps()
+void GAME_EXPORT GL_BuildLightmaps()
 {
 	CL_RunLightStyles();
 }
 
-void Mod_SetOrthoBounds(const float *mins, const float *maxs)
+void GAME_EXPORT Mod_SetOrthoBounds(const float *mins, const float *maxs)
 {
 
 }
 
-qboolean R_SpeedsMessage(char *out, size_t size)
+qboolean GAME_EXPORT R_SpeedsMessage(char *out, size_t size)
 {
 	return false;
 }
 
-byte *Mod_GetCurrentVis()
+byte *GAME_EXPORT Mod_GetCurrentVis()
 {
 	return NULL;
 }
 
-void GL_SetupAttributes( int safegl )
+void GAME_EXPORT GL_SetupAttributes( int safegl )
 {
 	gEngfuncs.Con_Reportf( "Creating an extended GL context for debug...\n" );
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_FLAGS, REF_GL_CONTEXT_DEBUG_FLAG );

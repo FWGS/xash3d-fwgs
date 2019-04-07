@@ -43,7 +43,7 @@ TriRenderMode
 set rendermode
 =============
 */
-void TriRenderMode( int mode )
+void GAME_EXPORT TriRenderMode( int mode )
 {
 	ds.renderMode = vid.rendermode = mode;
 #if 0
@@ -82,7 +82,7 @@ TriBegin
 begin triangle sequence
 =============
 */
-void TriBegin( int mode1 )
+void GAME_EXPORT TriBegin( int mode1 )
 {
 #if 0
 	switch( mode )
@@ -129,7 +129,7 @@ TriEnd
 draw triangle sequence
 =============
 */
-void TriEnd( void )
+void GAME_EXPORT TriEnd( void )
 {
 	//if( vertcount == 3 )
 	//pglEnd( );
@@ -141,7 +141,7 @@ _TriColor4f
 
 =============
 */
-void _TriColor4f( float rr, float gg, float bb, float aa )
+void GAME_EXPORT _TriColor4f( float rr, float gg, float bb, float aa )
 {
 	//pglColor4f( r, g, b, a );
 	unsigned short r,g,b;
@@ -207,7 +207,7 @@ TriColor4ub
 
 =============
 */
-void _TriColor4ub( byte r, byte g, byte b, byte a )
+void GAME_EXPORT _TriColor4ub( byte r, byte g, byte b, byte a )
 {
 	_TriColor4f(	r * (1.0f / 255.0f),
 					g * (1.0f / 255.0f),
@@ -240,7 +240,7 @@ TriTexCoord2f
 
 =============
 */
-void TriTexCoord2f( volatile float u, volatile float v )
+void GAME_EXPORT TriTexCoord2f( volatile float u, volatile float v )
 {
 	volatile double u1 = 0, v1 = 0;
 	u = fmodf(u, 10);
@@ -270,7 +270,7 @@ TriVertex3fv
 
 =============
 */
-void TriVertex3fv( const float *v )
+void GAME_EXPORT TriVertex3fv( const float *v )
 {
 	//pglVertex3fv( v );
 	TriVertex3f( v[0], v[1], v[2] );
@@ -282,7 +282,7 @@ TriVertex3f
 
 =============
 */
-void TriVertex3f( float x, float y, float z )
+void GAME_EXPORT TriVertex3f( float x, float y, float z )
 {
 	if( mode == TRI_TRIANGLES )
 	{
@@ -354,7 +354,7 @@ TriWorldToScreen
 convert world coordinates (x,y,z) into screen (x, y)
 =============
 */
-int TriWorldToScreen( const float *world, float *screen )
+int GAME_EXPORT TriWorldToScreen( const float *world, float *screen )
 {
 	int	retval;
 
@@ -398,7 +398,7 @@ TriFog
 enables global fog on the level
 =============
 */
-void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
+void GAME_EXPORT TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 {
 #if 0
 	// overrided by internal fog
@@ -442,7 +442,7 @@ TriGetMatrix
 very strange export
 =============
 */
-void TriGetMatrix( const int pname, float *matrix )
+void GAME_EXPORT TriGetMatrix( const int pname, float *matrix )
 {
 	//pglGetFloatv( pname, matrix );
 }
@@ -453,7 +453,7 @@ TriForParams
 
 =============
 */
-void TriFogParams( float flDensity, int iFogSkybox )
+void GAME_EXPORT TriFogParams( float flDensity, int iFogSkybox )
 {
 	//RI.fogDensity = flDensity;
 	//RI.fogSkybox = iFogSkybox;
@@ -465,7 +465,7 @@ TriCullFace
 
 =============
 */
-void TriCullFace( TRICULLSTYLE mode )
+void GAME_EXPORT TriCullFace( TRICULLSTYLE mode )
 {
 #if 0
 	int glMode;
