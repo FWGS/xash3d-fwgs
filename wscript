@@ -125,15 +125,15 @@ def configure(conf):
 
 	compiler_c_cxx_flags = {
 		'common': {
-			'msvc':    ['/D_USING_V110_SDK71_'],
+			'msvc':    ['/D_USING_V110_SDK71_', '/Zi', '/O2'],
 			'default': ['-g', '-Werror=implicit-function-declaration']
 		},
 		'release': {
-			'msvc':    ['/Zi', '/O2'],
+			'msvc':    [],
 			'default': ['-O3']
 		},
 		'debug': {
-			'msvc':    ['/O2', '/Ox', '/Oy'],
+			'msvc':    ['/Ox', '/Oy'],
 			'clang':   ['-O0', '-gdwarf-2'],
 			'default': ['-O0']
 		}
