@@ -134,7 +134,7 @@ def configure(conf):
 			'default': ['-O3']
 		},
 		'debug': {
-			'msvc':    ['/O2', '/Ox', 'Oy'],
+			'msvc':    ['/O2', '/Ox', '/Oy'],
 			'clang':   ['-O0', '-gdwarf-2'],
 			'default': ['-Og']
 		}
