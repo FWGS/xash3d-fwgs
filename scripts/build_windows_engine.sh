@@ -21,7 +21,8 @@ echo "Generating VC2008 project"
 rm -rf vc2008/
 mkdir vc2008/
 ./waf.bat msdev
-find . -name "*.sln"    -exec cp --parents \{\} vc2008/ \;
+cp *.sln vc2008/
 find . -name "*.vcproj" -exec cp --parents \{\} vc2008/ \;
+rm -rf vc2008/vc2008 # HACKHACK
 
 7z a -t7z $TRAVIS_BUILD_DIR/xash3d-vc2008-sln.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on -r vc2008
