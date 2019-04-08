@@ -32,7 +32,6 @@ def configure(conf):
 		conf.end_msg('no')
 		Logs.warn('vgui is not supported on this CPU: ' + str(conf.env.DEST_CPU))
 		conf.env.NO_VGUI = True
-		return
 	else:
 		conf.end_msg('yes')
 
@@ -41,7 +40,6 @@ def configure(conf):
 		conf.end_msg('no')
 		Logs.warn('vgui is not supported on this OS: ' + str(conf.env.DEST_OS))
 		conf.env.NO_VGUI = True
-		return
 	else:
 		conf.end_msg('yes')
 
@@ -53,6 +51,9 @@ def configure(conf):
 		conf.env.NO_VGUI = True
 	else:
 		conf.end_msg('yes')
+
+	if conf.env.NO_VGUI:
+		return
 
 	if conf.options.VGUI_DEV:
 		conf.start_msg('Configuring VGUI by provided path')
