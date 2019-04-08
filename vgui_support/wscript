@@ -45,6 +45,15 @@ def configure(conf):
 	else:
 		conf.end_msg('yes')
 
+	conf.start_msg('Does this toolchain able to link to VGUI?')
+	if conf.env.DEST_OS == 'win32' and conf.env.COMPILER_CXX == 'g++':
+		conf.end_msg('no')
+		# we have ABI incompatibility ONLY on MinGW
+		Logs.warn('vgui_support can\'t be built with MinGW')
+		conf.env.NO_VGUI = True
+	else:
+		conf.end_msg('yes')
+
 	if conf.options.VGUI_DEV:
 		conf.start_msg('Configuring VGUI by provided path')
 		conf.env.VGUI_DEV = conf.options.VGUI_DEV
