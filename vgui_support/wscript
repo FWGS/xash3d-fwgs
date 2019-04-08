@@ -43,7 +43,7 @@ def configure(conf):
 	else:
 		conf.end_msg('yes')
 
-	conf.start_msg('Does this toolchain able to link to VGUI?')
+	conf.start_msg('Does this toolchain able to link VGUI?')
 	if conf.env.DEST_OS == 'win32' and conf.env.COMPILER_CXX == 'g++':
 		conf.end_msg('no')
 		# we have ABI incompatibility ONLY on MinGW

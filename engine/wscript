@@ -51,7 +51,7 @@ def configure(conf):
 def build(bld):
 	libs = [ 'public' ]
 	source = bld.path.ant_glob([
-	    'common/*.c',
+		'common/*.c',
 		'common/imagelib/*.c',
 		'common/soundlib/*.c',
 		'common/soundlib/libmpg/*.c',
