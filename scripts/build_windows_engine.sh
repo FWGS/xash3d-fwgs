@@ -8,7 +8,7 @@ cd $TRAVIS_BUILD_DIR
 # NOTE: to build with other version use --msvc_version during configuration
 # NOTE: sometimes you may need to add WinSDK to %PATH%
 ./waf.bat configure -s "$TRAVIS_BUILD_DIR/SDL2_VC" -T "debug" --prefix=`pwd`
-./waf.bat build -j1
+./waf.bat build
 echo After build
 
 cp $TRAVIS_BUILD_DIR/SDL2_VC/lib/x86/SDL2.dll . # Install SDL2
