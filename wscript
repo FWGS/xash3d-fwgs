@@ -71,7 +71,7 @@ def options(opt):
 
 	opt.load('xcompile compiler_cxx compiler_c sdl2')
 	if sys.platform == 'win32':
-		opt.load('msvc msvs')
+		opt.load('msvc msdev')
 
 def set_ignored_subdirs(subdirs):
 	for i in SUBDIRS:
@@ -102,7 +102,7 @@ def configure(conf):
 	conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
 	conf.env.MSVC_TARGETS = ['x86'] # explicitly request x86 target for MSVC
 	if sys.platform == 'win32':
-		conf.load('msvc msvs')
+		conf.load('msvc msdev')
 	conf.load('xcompile compiler_c compiler_cxx gitversion clang_compilation_database')
 
 	# print(conf.options.ALLOW64)
