@@ -31,7 +31,7 @@ make install DESTDIR=$TRAVIS_BUILD_DIR/SDL2_linux
 cd $TRAVIS_BUILD_DIR
 export CC="ccache gcc"
 export CXX="ccache g++"
-./waf configure --sdl2=$TRAVIS_BUILD_DIR/SDL2_linux --vgui=$TRAVIS_BUILD_DIR/vgui-dev --build-type=debug --enable-stb || die
+./waf configure -s SDL2_linux -T debug --enable-stb --prefix="appimage" --win-style-install || die
 ./waf build || die
 
 # Build AppImage

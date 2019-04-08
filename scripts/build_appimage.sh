@@ -9,12 +9,10 @@ mkdir -p $APPDIR
 python3 scripts/makepak.py xash-extras/ $APPDIR/extras.pak
 
 # Copy all needed files
+./waf install
+mv appimage $APPDIR
 cp SDL2_linux/lib/libSDL2-2.0.so.0 $APPDIR/
 cp vgui-dev/lib/vgui.so $APPDIR/
-cp build/engine/libxash.so \
-	build/mainui/libmenu.so \
-	build/vgui_support/libvgui_support.so \
-	build/game_launch/xash3d $APPDIR
 
 cat > $APPDIR/AppRun << 'EOF'
 #!/bin/sh
@@ -22,7 +20,7 @@ cat > $APPDIR/AppRun << 'EOF'
 echo "Xash3D FWGS installed as AppImage."
 
 ENGINEROOT=$(dirname -- "$(readlink -f -- "$0")")
-if [ -z "$XASH3D_BASEDIR" ]; then
+if [ "$XASH3D_BASEDIR" == "" ]; then
 	export XASH3D_BASEDIR=$PWD
 fi
 export XASH3D_EXTRAS_PAK1="${ENGINEROOT}"/extras.pak
