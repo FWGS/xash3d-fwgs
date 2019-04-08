@@ -125,7 +125,7 @@ def configure(conf):
 
 	compiler_c_cxx_flags = {
 		'common': {
-			'msvc':    ['/D_USING_V110_SDK71_', '/Zi', '/O2'],
+			'msvc':    ['/D_USING_V110_SDK71_', '/Zi', '/FS', '/O2'],
 			'default': ['-g', '-Werror=implicit-function-declaration']
 		},
 		'release': {
