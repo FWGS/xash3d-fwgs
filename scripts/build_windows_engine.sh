@@ -16,3 +16,12 @@ cp vgui-dev/lib/win32_vc6/vgui.dll .
 ./waf.bat install
 
 7z a -t7z $TRAVIS_BUILD_DIR/xash3d-vc.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on *.dll *.exe *.pdb
+
+echo "Generating VC2008 project"
+rm -rf vc2008/
+mkdir vc2008/
+./waf.bat msdev
+find . -name "*.sln"    -exec cp --parents \{\} vc2008/ \;
+find . -name "*.vcproj" -exec cp --parents \{\} vc2008/ \;
+
+7z a -t7z $TRAVIS_BUILD_DIR/xash3d-vc2008-sln.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on -r vc2008
