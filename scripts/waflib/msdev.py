@@ -598,9 +598,9 @@ class MsDevProject(MsDev):
 				Logs.pprint('YELLOW', 'root: ' + bld.root.abspath())
 				root = bld.root.abspath().replace('\\', '/')
 				pref = os.path.commonprefix([root, uselib_inc])
-				Logs.pprint('YELLOW', 'pref: ' + pref.abspath())
+				Logs.pprint('YELLOW', 'pref: '+ pref)
 				if pref == root:
-					node = bld.top_dir.find_dir(uselib_inc)
+					node = bld.root.find_dir(uselib_inc)
 					if node:
 						includes.append(node.path_from(gen.path).replace('/', '\\'))
 				includes.append(uselib_inc)
