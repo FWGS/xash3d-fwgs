@@ -650,7 +650,7 @@ class MsDevProject(MsDev):
 						node = bld.root.find_dir(uselib_path)
 						if node:
 							libpath = node.path_from(gen.path).replace('/', '\\')
-							includes.append(libpath)
+							dirs.append(libpath)
 							Logs.pprint('YELLOW', 'Added relative library path: %s' % libpath)
 					dirs.append(uselib_path)
 				pass
