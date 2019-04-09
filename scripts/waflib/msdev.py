@@ -779,16 +779,16 @@ MSDEV_PROJECT = \
 '''
 
 MSDEV_SOLUTION = [
-'Microsoft Visual Studio Solution File, Format Version 10.00',
-'# Visual Studio 2008',
-'Global',
-	'GlobalSection(SolutionConfigurationPlatforms) = preSolution',
-			'Debug|Win32 = Debug|Win32',
-	'EndGlobalSection',
-	'GlobalSection(ProjectConfigurationPlatforms) = postSolution',
-	'EndGlobalSection',
-	'GlobalSection(SolutionProperties) = preSolution',
-		'HideSolutionNode = FALSE',
-	'EndGlobalSection',
-'EndGlobal',
-'']
+'Microsoft Visual Studio Solution File, Format Version 10.00\n',
+'# Visual Studio 2008\n',
+'Global\n',
+	'GlobalSection(SolutionConfigurationPlatforms) = preSolution\n',
+			'Debug|Win32 = Debug|Win32\n',
+	'EndGlobalSection\n',
+	'GlobalSection(ProjectConfigurationPlatforms) = postSolution\n',
+	'EndGlobalSection\n',
+	'GlobalSection(SolutionProperties) = preSolution\n',
+		'HideSolutionNode = FALSE\n',
+	'EndGlobalSection\n',
+'EndGlobal\n',
+'\n']
