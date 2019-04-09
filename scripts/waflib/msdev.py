@@ -592,17 +592,14 @@ class MsDevProject(MsDev):
 		for dep in deps:
 			uselib_incs = bld.env['INCLUDES_%s' % dep]
 			for uselib_inc in uselib_incs:
-				Logs.pprint('YELLOW', 'include ' + uselib_inc)
-				Logs.pprint('YELLOW', 'top_dir: ' + bld.top_dir)
-				Logs.pprint('YELLOW', 'path: ' + bld.path.abspath())
-				Logs.pprint('YELLOW', 'root: ' + bld.root.abspath())
 				root = bld.root.abspath().replace('\\', '/')
 				pref = os.path.commonprefix([root, uselib_inc])
-				Logs.pprint('YELLOW', 'pref: '+ pref)
 				if pref == root:
 					node = bld.root.find_dir(uselib_inc)
 					if node:
-						includes.append(node.path_from(gen.path).replace('/', '\\'))
+						inc = node.path_from(gen.path).replace('/', '\\')
+						includes.append(inc)
+						Logs.pprint('YELLOW', 'Added relative include: %s' % inc)
 				includes.append(uselib_inc)
 		return includes
 		
@@ -647,6 +644,14 @@ class MsDevProject(MsDev):
 			except Errors.WafError:
 				uselib_paths = bld.env['LIBPATH_%s' % dep]
 				for uselib_path in uselib_paths:
+					root = bld.root.abspath().replace('\\', '/')
+					pref = os.path.commonprefix([root, uselib_path])
+					if pref == root:
+						node = bld.root.find_dir(uselib_path)
+						if node:
+							libpath = node.path_from(gen.path).replace('/', '\\')
+							includes.append(libpath)
+							Logs.pprint('YELLOW', 'Added relative library path: %s' % libpath)
 					dirs.append(uselib_path)
 				pass
 			else:
