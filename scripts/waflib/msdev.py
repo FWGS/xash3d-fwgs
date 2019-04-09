@@ -598,7 +598,7 @@ class MsDevProject(MsDev):
 					node = bld.root.find_dir(include)
 					if node:
 						includes.append(node.path_from(gen.path).replace('/', '\\'))
-				incluses.append(uselib_inc)
+				includes.append(uselib_inc)
 		return includes
 		
 	def get_compiler_defines(self, gen):
