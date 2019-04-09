@@ -593,7 +593,6 @@ class MsDevProject(MsDev):
 			uselib_incs = bld.env['INCLUDES_%s' % dep]
 			for uselib_inc in uselib_incs:
 				Logs.pprint('YELLOW', 'include ' + uselib_inc)
-				Logs.pprint('YELLOW', 'root: ' + bld.root)
 				Logs.pprint('YELLOW', 'top_dir: ' + bld.top_dir)
 				Logs.pprint('YELLOW', 'path: ' + bld.path)
 				root = bld.top_dir.abspath().replace('\\', '/')
