@@ -371,7 +371,7 @@ class MsDevSolution(MsDev):
 		'''Exports a **Visual Studio** solution.'''
 		dst = self.get_fname()
 		
-		s = MSDEV_SOLUTION.splitlines()
+		s = MSDEV_SOLUTION
 
 		with open(dst, 'w') as f:
 			for line in s[0:3]:
@@ -778,18 +778,17 @@ MSDEV_PROJECT = \
 </VisualStudioProject>
 '''
 
-MSDEV_SOLUTION = \
-'''
-Microsoft Visual Studio Solution File, Format Version 10.00\n
-# Visual Studio 2008\n
-Global\n
-	GlobalSection(SolutionConfigurationPlatforms) = preSolution\n
-			Debug|Win32 = Debug|Win32\n
-	EndGlobalSection\n
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution\n
-	EndGlobalSection\n
-	GlobalSection(SolutionProperties) = preSolution\n
-		HideSolutionNode = FALSE\n
-	EndGlobalSection\n
-EndGlobal\n
-'''
+MSDEV_SOLUTION = [
+'Microsoft Visual Studio Solution File, Format Version 10.00',
+'# Visual Studio 2008',
+'Global',
+	'GlobalSection(SolutionConfigurationPlatforms) = preSolution',
+			'Debug|Win32 = Debug|Win32',
+	'EndGlobalSection',
+	'GlobalSection(ProjectConfigurationPlatforms) = postSolution',
+	'EndGlobalSection',
+	'GlobalSection(SolutionProperties) = preSolution',
+		'HideSolutionNode = FALSE',
+	'EndGlobalSection',
+'EndGlobal',
+'']
