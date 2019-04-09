@@ -592,7 +592,13 @@ class MsDevProject(MsDev):
 		for dep in deps:
 			uselib_incs = bld.env['INCLUDES_%s' % dep]
 			for uselib_inc in uselib_incs:
-				includes.append(uselib_inc)
+				root = bld.path.abspath().replace('\\', '/')
+				pref = os.path.commonprefix([root, userlib_inc])
+				if pref == root:
+					node = bld.root.find_dir(include)
+					if node:
+						includes.append(node.path_from(gen.path).replace('/', '\\'))
+				incluses.append(userlib_inc)
 		return includes
 		
 	def get_compiler_defines(self, gen):
