@@ -369,14 +369,9 @@ class MsDevSolution(MsDev):
 
 	def export(self):
 		'''Exports a **Visual Studio** solution.'''
-		src = '%s/msdev.sln' % os.path.dirname(__file__)
-		if not os.path.exists(src):
-			self.bld.fatal("file not found: '%s'" % src)
 		dst = self.get_fname()
-		shutil.copyfile(src, dst)
-
-		with open(src, 'r') as f:
-			s = f.readlines()
+		
+		s = MSDEV_SOLUTION.splitlines()
 
 		with open(dst, 'w') as f:
 			for line in s[0:3]:
@@ -783,3 +778,18 @@ MSDEV_PROJECT = \
 </VisualStudioProject>
 '''
 
+MSDEV_SOLUTION = \
+'''
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+			Debug|Win32 = Debug|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
+'''
