@@ -31,14 +31,14 @@ def sdl2_configure_path(conf, path):
 	conf.env.HAVE_SDL2 = 1
 	if conf.env.DEST_OS == 'darwin':
 		conf.env.INCLUDES_SDL2 = [
-			os.path.abspath(os.path.join(path, 'Headers'))
+			os.path.join(path, 'Headers')
 		]
 		conf.env.FRAMEWORKPATH_SDL2 = [my_dirname(path)]
 		conf.env.FRAMEWORK_SDL2 = ['SDL2']
 	else:
 		conf.env.INCLUDES_SDL2 = [
-			os.path.abspath(os.path.join(path, 'include')),
-			os.path.abspath(os.path.join(path, 'include/SDL2'))
+			os.path.join(path, 'include'),
+			os.path.join(path, 'include/SDL2')
 		]
 		libpath = 'lib'
 		if conf.env.COMPILER_CC == 'msvc':
@@ -46,7 +46,7 @@ def sdl2_configure_path(conf, path):
 				libpath = 'lib/x64'
 			else:
 				libpath = 'lib/' + conf.env.DEST_CPU
-		conf.env.LIBPATH_SDL2 = [os.path.abspath(os.path.join(path, libpath))]
+		conf.env.LIBPATH_SDL2 = [os.path.join(path, libpath)]
 		conf.env.LIB_SDL2 = ['SDL2']
 
 def configure(conf):
