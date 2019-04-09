@@ -592,10 +592,15 @@ class MsDevProject(MsDev):
 		for dep in deps:
 			uselib_incs = bld.env['INCLUDES_%s' % dep]
 			for uselib_inc in uselib_incs:
-				root = bld.path.abspath().replace('\\', '/')
+				Logs.pprint('YELLOW', 'include ' + uselib_inc)
+				Logs.pprint('YELLOW', 'root: ' + bld.root)
+				Logs.pprint('YELLOW', 'top_dir: ' + bld.top_dir)
+				Logs.pprint('YELLOW', 'path: ' + bld.path)
+				root = bld.top_dir.abspath().replace('\\', '/')
 				pref = os.path.commonprefix([root, uselib_inc])
+				Logs.pprint('YELLOW', 'pref: ' + pref)
 				if pref == root:
-					node = bld.root.find_dir(include)
+					node = bld.top_dir.find_dir(uselib_inc)
 					if node:
 						includes.append(node.path_from(gen.path).replace('/', '\\'))
 				includes.append(uselib_inc)
