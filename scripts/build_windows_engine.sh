@@ -7,7 +7,7 @@ cd $TRAVIS_BUILD_DIR
 
 # NOTE: to build with other version use --msvc_version during configuration
 # NOTE: sometimes you may need to add WinSDK to %PATH%
-./waf.bat configure -s "$TRAVIS_BUILD_DIR/SDL2_VC" -T "debug" --prefix=`pwd`
+./waf.bat configure -s "SDL2_VC" -T "debug" --prefix=`pwd`
 ./waf.bat build
 echo After build
 
