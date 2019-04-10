@@ -110,12 +110,14 @@ def add_subproject(ctx, names):
 				ctx.msg(msg='--X %s' % depth(), result='ignored', color='YELLOW')
 				depth_pop()
 				return
-			ctx.setenv(name, ctx.env) # derive new env from 
+			saveenv = ctx.env
+			ctx.setenv(name, ctx.env) # derive new env from previous
 			ctx.env.ENVNAME = name
 			ctx.msg(msg='--> %s' % depth(), result='in progress', color='BLUE')
 			ctx.recurse(name)
 			ctx.msg(msg='<-- %s' % depth(), result='done', color='BLUE')
-			ctx.setenv('')
+			ctx.setenv('') # save env changes
+			ctx.env = saveenv # but use previous
 			depth_pop()
 	else:
 		if not ctx.all_envs:
