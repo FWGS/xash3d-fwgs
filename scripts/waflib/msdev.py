@@ -107,6 +107,7 @@ from waflib.Build import BuildContext
 # import waftools
 # from waftools import deps
 from deps import get_targets
+from subproject import get_subproject_env
 
 
 def options(opt):
@@ -161,27 +162,6 @@ class MsDevContext(BuildContext):
 			export(self)
 		self.timer = Utils.Timer()
 
-def get_subproject_env(bld, path):
-	# remove top dir path
-	path = str(path)
-	if path.startswith(bld.top_dir):
-		if bld.top_dir[-1] != os.pathsep:
-			path = path[len(bld.top_dir) + 1:]
-		else: path = path[len(bld.top_dir):]
-
-	# iterate through possible subprojects names
-	folders = os.path.normpath(path).split(os.sep)
-	# print(folders)
-	for i in range(1, len(folders)+1):
-		name = folders[-i]
-		# print(name)
-		if name in bld.all_envs:
-			Logs.pprint('YELLOW', 'env: changed to %s' % name)
-			return bld.all_envs[name]
-	Logs.pprint('YELLOW', 'env: changed to default env')
-	raise IndexError('top env')
-
-
 def export(bld):
 	'''Exports all C and C++ task generators as **Visual Studio** projects
 	and creates a **Visual Studio** solution containing references to 
@@ -206,7 +186,7 @@ Don't use it for release builds, as it doesn't enables WinXP compatibility for n
 		if getattr(tgen, 'msdev_skipme', False):
 			continue
 		try:
-			bld.env = get_subproject_env(bld, tgen.path)
+			bld.env = get_subproject_env(bld, tgen.path, True)
 		except IndexError:
 			bld.env = saveenv
 		if set(('c', 'cxx')) & set(getattr(tgen, 'features', [])):

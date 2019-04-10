@@ -33,9 +33,10 @@ def configure(conf):
 	conf.env.NANOGL = conf.options.NANOGL
 	conf.env.GLWES  = conf.options.GLWES
 
-	if conf.env.NANOGL: conf.recurse('nanogl')
+	if conf.env.NANOGL:
+		conf.add_subproject('nanogl')
 	if conf.env.GLWES:
-		conf.recurse('gl-wes-v2')
+		conf.add_subproject('gl-wes-v2')
 
 	conf.env.GL_STATIC = conf.options.GL_STATIC
 	if conf.env.GL_STATIC:
@@ -77,7 +78,7 @@ def build(bld):
 	)
 
 	if bld.env.NANOGL:
-		bld.recurse('nanogl')
+		bld.add_subproject('nanogl')
 		bld.shlib(
 			source   = source,
 			target   = 'ref_gles1',
@@ -89,7 +90,7 @@ def build(bld):
 			subsystem = bld.env.MSVC_SUBSYSTEM)
 
 	if bld.env.GLWES:
-		bld.recurse('gl-wes-v2')
+		bld.add_subproject('gl-wes-v2')
 		bld.shlib(
 			source   = source,
 			target   = 'ref_gles2',
