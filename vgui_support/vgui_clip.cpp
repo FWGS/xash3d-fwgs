@@ -43,8 +43,8 @@ void EnableScissor( qboolean enable )
 void SetScissorRect( int left, int top, int right, int bottom )
 {
 	// Check for a valid rectangle...
-	Assert( left <= right );
-	Assert( top <= bottom );
+	assert( left <= right );
+	assert( top <= bottom );
 
 	g_ScissorRect.left = left;
 	g_ScissorRect.top = top;

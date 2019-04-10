@@ -28,19 +28,12 @@ namespace vgui_support {
 
 vguiapi_t *g_api;
 
-FontCache *g_FontCache = 0;
-
 Panel	*rootpanel = NULL;
 CEngineSurface	*surface = NULL;
 CEngineApp          staticApp;
 
 void VGui_Startup( int width, int height )
 {
-	if( !g_FontCache )
-	{
-		g_FontCache = new FontCache();
-	}
-
 	if( rootpanel )
 	{
 		rootpanel->setSize( width, height );
