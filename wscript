@@ -58,28 +58,14 @@ def options(opt):
 
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
 		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compability!)')
+	
+	opt.load('subproject')
 
-	grp.add_option('-S', '--skip-subprojects', action='store', dest = 'SKIP_SUBDIRS', default=None,
-		help = 'don\'t recurse into specified subprojects. Current subdirs: ' + str(subdirs()))
-
-	for i in SUBDIRS:
-		if not os.path.isfile(os.path.join(i.name, 'wscript')):
-			# HACKHACK: this way we get warning message right in the help
-			# so this just becomes more noticeable
-			opt.add_option_group('Cannot find wscript in ' + i.name + '. You probably missed submodule update')
-		else: opt.recurse(i.name)
+	opt.add_subproject(subdirs())
 
 	opt.load('xcompile compiler_cxx compiler_c sdl2')
 	if sys.platform == 'win32':
 		opt.load('msvc msdev msvs')
-
-def set_ignored_subdirs(subdirs):
-	for i in SUBDIRS:
-		if i.ignore:
-			continue
-
-		if i.name in subdirs:
-			i.ignore = True
 
 def configure(conf):
 	conf.start_msg('Build type')
@@ -91,10 +77,7 @@ def configure(conf):
 		conf.fatal('Invalid build type. Valid are "debug", "release" or "none"')
 	conf.end_msg(conf.options.BUILD_TYPE)
 
-	# skip some subdirectories, if requested
-	if conf.options.SKIP_SUBDIRS:
-		skip_subdirs = conf.options.SKIP_SUBDIRS.split(',')
-		set_ignored_subdirs(skip_subdirs)
+	conf.load('subproject')
 
 	# Force XP compability, all build targets should add
 	# subsystem=bld.env.MSVC_SUBSYSTEM
@@ -186,19 +169,9 @@ def configure(conf):
 		if conf.env.DEDICATED and i.dedicated:
 			continue
 
-		if i.ignore:
-			continue
-
-		conf.setenv(i.name, conf.env) # derive new env from global one
-		conf.env.ENVNAME = i.name
-		conf.msg(msg='--> ' + i.name, result='in progress', color='BLUE')
-		# configure in standalone env
-		conf.recurse(i.name)
-		conf.msg(msg='<-- ' + i.name, result='done', color='BLUE')
-		conf.setenv('')
+		conf.add_subproject(i.name)
 
 def build(bld):
-	bld.load_envs()
 	for i in SUBDIRS:
 		if bld.env.SINGLE_BINARY and i.singlebin:
 			continue
@@ -206,8 +179,4 @@ def build(bld):
 		if bld.env.DEDICATED and i.dedicated:
 			continue
 
-		if i.ignore:
-			continue
-
-		bld.env = bld.all_envs[i.name]
-		bld.recurse(i.name)
+		bld.add_subproject(i.name)
