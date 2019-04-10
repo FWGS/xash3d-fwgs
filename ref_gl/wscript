@@ -35,6 +35,7 @@ def configure(conf):
 
 	conf.env.NANOGL = conf.options.NANOGL
 	conf.env.GLWES  = conf.options.GLWES
+	conf.env.GL     = conf.options.GL
 
 	if conf.env.NANOGL:
 		conf.add_subproject('nanogl')
