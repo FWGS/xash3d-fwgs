@@ -123,5 +123,7 @@ def add_subproject(ctx, names):
 		for name in names_lst:
 			if name in IGNORED_SUBDIRS:
 				return
+			saveenv = ctx.env
 			ctx.env = ctx.all_envs[name]
-			ctx.recurse(name)		
+			ctx.recurse(name)
+			ctx.env = saveenv
