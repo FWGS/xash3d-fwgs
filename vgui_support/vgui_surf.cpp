@@ -26,6 +26,28 @@ from your version.
 #include <ctype.h>
 #include "vgui_main.h"
 
+#define MAX_PAINT_STACK	16
+#define FONT_SIZE		512
+#define FONT_PAGES	8
+
+struct FontInfo
+{
+	int	id;
+	int	pageCount;
+	int	pageForChar[256];
+	int	bindIndex[FONT_PAGES];
+	float	texCoord[256][FONT_PAGES];
+	int	contextCount;
+};
+
+static int staticContextCount = 0;
+static char staticRGBA[FONT_SIZE * FONT_SIZE * 4];
+static Font* staticFont = NULL;
+static FontInfo* staticFontInfo;
+static Dar<FontInfo*> staticFontInfoDar;
+static PaintStack paintStack[MAX_PAINT_STACK];
+static int staticPaintStackPos = 0;
+
 #define ColorIndex( c )((( c ) - '0' ) & 7 )
 
 CEngineSurface :: CEngineSurface( Panel *embeddedPanel ):SurfaceBase( embeddedPanel )
@@ -39,8 +61,14 @@ CEngineSurface :: CEngineSurface( Panel *embeddedPanel ):SurfaceBase( embeddedPa
 	//_surfaceExtents[3] = menu.globals->scrHeight;
 	embeddedPanel->getSize(_surfaceExtents[2], _surfaceExtents[3]);
 	_drawTextPos[0] = _drawTextPos[1] = 0;
-	_hCurrentFont = null;
 	_hCurrentCursor = null;
+
+	staticFont = NULL;
+	staticFontInfo = NULL;
+	staticFontInfoDar.setCount( 0 );
+	staticPaintStackPos = 0;
+	staticContextCount++;
+
 	_translateX = _translateY = 0;
 }
 
@@ -67,12 +95,12 @@ void CEngineSurface :: setCursor( Cursor *cursor )
 	g_api->CursorSelect( (VGUI_DefaultCursor)cursor->getDefaultCursor() );
 }
 
-void CEngineSurface :: SetupPaintState( const paintState_t &paintState )
+void CEngineSurface :: SetupPaintState( const PaintStack *paintState )
 {
-	_translateX = paintState.iTranslateX;
-	_translateY = paintState.iTranslateY;
-	SetScissorRect( paintState.iScissorLeft, paintState.iScissorTop, 
-	paintState.iScissorRight, paintState.iScissorBottom );
+	_translateX = paintState->iTranslateX;
+	_translateY = paintState->iTranslateY;
+	SetScissorRect( paintState->iScissorLeft, paintState->iScissorTop,
+		paintState->iScissorRight, paintState->iScissorBottom );
 }
 
 void CEngineSurface :: InitVertex( vpoint_t &vertex, int x, int y, float u, float v )
@@ -136,7 +164,93 @@ void CEngineSurface :: drawOutlinedRect( int x0, int y0, int x1, int y1 )
 	
 void CEngineSurface :: drawSetTextFont( Font *font )
 {
-	_hCurrentFont = font;
+	staticFont = font;
+
+	if( font )
+	{
+		bool	buildFont = false;
+
+		staticFontInfo = NULL;
+
+		for( int i = 0; i < staticFontInfoDar.getCount(); i++ )
+		{
+			if( staticFontInfoDar[i]->id == font->getId( ))
+			{
+				staticFontInfo = staticFontInfoDar[i];
+				if( staticFontInfo->contextCount != staticContextCount )
+					buildFont = true;
+			}
+		}
+
+		if( !staticFontInfo || buildFont )
+		{
+			staticFontInfo = new FontInfo;
+			staticFontInfo->id = 0;
+			staticFontInfo->pageCount = 0;
+			staticFontInfo->bindIndex[0] = 0;
+			staticFontInfo->bindIndex[1] = 0;
+			staticFontInfo->bindIndex[2] = 0;
+			staticFontInfo->bindIndex[3] = 0;
+			memset( staticFontInfo->pageForChar, 0, sizeof( staticFontInfo->pageForChar ));
+			staticFontInfo->contextCount = -1;
+			staticFontInfo->id = staticFont->getId();
+			staticFontInfoDar.putElement( staticFontInfo );
+			staticFontInfo->contextCount = staticContextCount;
+
+			int currentPage = 0;
+			int x = 0, y = 0;
+
+			memset( staticRGBA, 0, sizeof( staticRGBA ));
+
+			for( int i = 0; i < 256; i++ )
+			{
+				int abcA, abcB, abcC;
+				staticFont->getCharABCwide( i, abcA, abcB, abcC );
+
+				int wide = abcB;
+
+				if( isspace( i )) continue;
+
+				int tall = staticFont->getTall();
+
+				if( x + wide + 1 > FONT_SIZE )
+				{
+					x = 0;
+					y += tall + 1;
+				}
+
+				if( y + tall + 1 > FONT_SIZE )
+				{
+					if( !staticFontInfo->bindIndex[currentPage] )
+						staticFontInfo->bindIndex[currentPage] = createNewTextureID();
+					drawSetTextureRGBA( staticFontInfo->bindIndex[currentPage], staticRGBA, FONT_SIZE, FONT_SIZE );
+					currentPage++;
+
+					if( currentPage == FONT_PAGES )
+						break;
+
+					memset( staticRGBA, 0, sizeof( staticRGBA ));
+					x = y = 0;
+				}
+
+				staticFont->getCharRGBA( i, x, y, FONT_SIZE, FONT_SIZE, (byte *)staticRGBA );
+				staticFontInfo->pageForChar[i] = currentPage;
+				staticFontInfo->texCoord[i][0] = (float)((double)x / (double)FONT_SIZE );
+				staticFontInfo->texCoord[i][1] = (float)((double)y / (double)FONT_SIZE );
+				staticFontInfo->texCoord[i][2] = (float)((double)(x + wide)/(double)FONT_SIZE );
+				staticFontInfo->texCoord[i][3] = (float)((double)(y + tall)/(double)FONT_SIZE );
+				x += wide + 1;
+			}
+
+			if( currentPage != FONT_PAGES )
+			{
+				if( !staticFontInfo->bindIndex[currentPage] )
+					staticFontInfo->bindIndex[currentPage] = createNewTextureID();
+				drawSetTextureRGBA( staticFontInfo->bindIndex[currentPage], staticRGBA, FONT_SIZE, FONT_SIZE );
+			}
+			staticFontInfo->pageCount = currentPage + 1;
+		}
+	}
 }
 
 void CEngineSurface :: drawSetTextPos( int x, int y )
@@ -145,19 +259,43 @@ void CEngineSurface :: drawSetTextPos( int x, int y )
 	_drawTextPos[1] = y;
 }
 
+void CEngineSurface :: drawPrintChar( int x, int y, int wide, int tall, float s0, float t0, float s1, float t1, int color[4] )
+{
+	vpoint_t	ul, lr;
+
+	ul.point[0] = x;
+	ul.point[1] = y;
+	lr.point[0] = x + wide;
+	lr.point[1] = y + tall;
+
+	// gets at the texture coords for this character in its texture page
+	ul.coord[0] = s0;
+	ul.coord[1] = t0;
+	lr.coord[0] = s1;
+	lr.coord[1] = t1;
+
+	vpoint_t clippedRect[2];
+
+	if( !ClipRect( ul, lr, &clippedRect[0], &clippedRect[1] ))
+		return;
+
+	g_api->SetupDrawingImage( color );
+	g_api->DrawQuad( &clippedRect[0], &clippedRect[1] ); // draw the letter
+}
+
 void CEngineSurface :: drawPrintText( const char* text, int textLen )
 {
 	//return;
 	static bool hasColor = 0;
 	static int numColor = 7;
 
-	if( !text || !_hCurrentFont || _drawTextColor[3] >= 255 )
+	if( !text || !staticFont || _drawTextColor[3] >= 255 )
 		return;
 
 	int x = _drawTextPos[0] + _translateX;
 	int y = _drawTextPos[1] + _translateY;
 
-	int iTall = _hCurrentFont->getTall();
+	int tall = staticFont->getTall();
 
 	int j, iTotalWidth = 0;
 	int curTextColor[4];
@@ -167,9 +305,9 @@ void CEngineSurface :: drawPrintText( const char* text, int textLen )
 	{
 		for( j = 0; j < 3; j++ ) // grab predefined color
 			curTextColor[j] = g_api->GetColor(numColor,j);
-    }
-    else
-    {
+	}
+	else
+	{
 		for( j = 0; j < 3; j++ ) // revert default color
 			curTextColor[j] = _drawTextColor[j];
 	}
@@ -192,55 +330,26 @@ void CEngineSurface :: drawPrintText( const char* text, int textLen )
 	}
 	for( int i = 0; i < textLen; i++ )
 	{
-		char ch = g_api->ProcessUtfChar( (unsigned char)text[i] );
-		if( !ch )
+		int curCh = g_api->ProcessUtfChar( (unsigned char)text[i] );
+		if( !curCh )
 		{
 			continue;
 		}
 
-		int abcA,abcB,abcC;
-		_hCurrentFont->getCharABCwide( ch, abcA, abcB, abcC );
+		int abcA, abcB, abcC;
+
+		staticFont->getCharABCwide( curCh, abcA, abcB, abcC );
+
+		float s0 = staticFontInfo->texCoord[curCh][0];
+		float t0 = staticFontInfo->texCoord[curCh][1];
+		float s1 = staticFontInfo->texCoord[curCh][2];
+		float t1 = staticFontInfo->texCoord[curCh][3];
+		int wide = abcB;
 
 		iTotalWidth += abcA;
-		int iWide = abcB;
-
-		//if( !iswspace( ch ))
-		{
-			// get the character texture from the cache
-			int iTexId = 0;
-			float *texCoords = NULL;
-
-			if( !g_FontCache->GetTextureForChar( _hCurrentFont, ch, &iTexId, &texCoords ))
-			{
-				continue;
-			}
-
-			Assert( texCoords != NULL );
-
-			vpoint_t ul, lr;
-
-			ul.point[0] = x + iTotalWidth;
-			ul.point[1] = y;
-			lr.point[0] = ul.point[0] + iWide;
-			lr.point[1] = ul.point[1] + iTall;
-
-			// gets at the texture coords for this character in its texture page
-			ul.coord[0] = texCoords[0];
-			ul.coord[1] = texCoords[1];
-			lr.coord[0] = texCoords[2];
-			lr.coord[1] = texCoords[3];
-
-			vpoint_t clippedRect[2];
-
-			if( !ClipRect( ul, lr, &clippedRect[0], &clippedRect[1] ))
-				continue;
-
-			drawSetTexture( iTexId );
-			g_api->SetupDrawingText( curTextColor );
-			g_api->DrawQuad(  &clippedRect[0], &clippedRect[1] ); // draw the letter
-		}
-
-		iTotalWidth += iWide + abcC;
+		drawSetTexture( staticFontInfo->bindIndex[staticFontInfo->pageForChar[curCh]] );
+		drawPrintChar( x + iTotalWidth, y, wide, tall, s0, t0, s1, t1, curTextColor );
+		iTotalWidth += wide + abcC;
 	}
 
 	_drawTextPos[0] += iTotalWidth;
@@ -274,48 +383,47 @@ void CEngineSurface :: drawTexturedRect( int x0, int y0, int x1, int y1 )
 	
 void CEngineSurface :: pushMakeCurrent( Panel* panel, bool useInsets )
 {
-	int inSets[4] = { 0, 0, 0, 0 };
+	int insets[4] = { 0, 0, 0, 0 };
 	int absExtents[4];
 	int clipRect[4];
 
 	if( useInsets )
-	{
-		panel->getInset( inSets[0], inSets[1], inSets[2], inSets[3] );
-	}
-
+		panel->getInset( insets[0], insets[1], insets[2], insets[3] );
 	panel->getAbsExtents( absExtents[0], absExtents[1], absExtents[2], absExtents[3] );
 	panel->getClipRect( clipRect[0], clipRect[1], clipRect[2], clipRect[3] );
 
-	int i = _paintStack.AddToTail();
-	paintState_t &paintState = _paintStack[i];
-	paintState.m_pPanel = panel;
+	PaintStack *paintState = &paintStack[staticPaintStackPos];
+
+	assert( staticPaintStackPos < MAX_PAINT_STACK );
+
+	paintState->m_pPanel = panel;
 
 	// determine corrected top left origin
-	paintState.iTranslateX = inSets[0] + absExtents[0] - _surfaceExtents[0];	
-	paintState.iTranslateY = inSets[1] + absExtents[1] - _surfaceExtents[1];
-
+	paintState->iTranslateX = insets[0] + absExtents[0];
+	paintState->iTranslateY = insets[1] + absExtents[1];
 	// setup clipping rectangle for scissoring
-	paintState.iScissorLeft = clipRect[0] - _surfaceExtents[0];
-	paintState.iScissorTop = clipRect[1] - _surfaceExtents[1];
-	paintState.iScissorRight = clipRect[2] - _surfaceExtents[0];
-	paintState.iScissorBottom = clipRect[3] - _surfaceExtents[1];
+	paintState->iScissorLeft = clipRect[0];
+	paintState->iScissorTop = clipRect[1];
+	paintState->iScissorRight = clipRect[2];
+	paintState->iScissorBottom = clipRect[3];
 
 	SetupPaintState( paintState );
+	staticPaintStackPos++;
 }
 	
 void CEngineSurface :: popMakeCurrent( Panel *panel )
 {
-	int top = _paintStack.Count() - 1;
+	int top = staticPaintStackPos - 1;
 
 	// more pops that pushes?
-	Assert( top >= 0 );
+	assert( top >= 0 );
 
 	// didn't pop in reverse order of push?
-	Assert( _paintStack[top].m_pPanel == panel );
+	assert( paintStack[top].m_pPanel == panel );
 
-	_paintStack.Remove( top );
-	
-	if( top > 0 ) SetupPaintState( _paintStack[top-1] );
+	staticPaintStackPos--;
+
+	if( top > 0 ) SetupPaintState( &paintStack[top-1] );
 }
 
 bool CEngineSurface :: setFullscreenMode( int wide, int tall, int bpp )
