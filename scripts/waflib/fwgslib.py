@@ -13,9 +13,6 @@
 
 import os
 
-def get_subproject_name(ctx):
-	return os.path.basename(os.path.realpath(str(ctx.path)))
-
 def get_flags_by_compiler(flags, compiler):
 	out = []
 	if compiler in flags:
