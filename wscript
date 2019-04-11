@@ -66,8 +66,11 @@ def options(opt):
 	opt.load('xcompile compiler_cxx compiler_c sdl2')
 	if sys.platform == 'win32':
 		opt.load('msvc msdev msvs')
+	opt.load('reconfigure')
+
 
 def configure(conf):
+	conf.load('reconfigure')
 	conf.start_msg('Build type')
 	if conf.options.BUILD_TYPE == None:
 		conf.end_msg('not set', color='RED')
