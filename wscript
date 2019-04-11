@@ -72,10 +72,14 @@ def configure(conf):
 	if conf.options.BUILD_TYPE == None:
 		conf.end_msg('not set', color='RED')
 		conf.fatal('Please set a build type, for example "-T release"')
-	elif not conf.options.BUILD_TYPE in ['release', 'debug', 'none']:
+	elif not conf.options.BUILD_TYPE in ['fast', 'release', 'debug', 'nooptimize', 'sanitize', 'none']:
 		conf.end_msg(conf.options.BUILD_TYPE, color='RED')
 		conf.fatal('Invalid build type. Valid are "debug", "release" or "none"')
 	conf.end_msg(conf.options.BUILD_TYPE)
+
+	# -march=native should not be used
+	if conf.options.BUILD_TYPE == 'fast':
+	    Logs.warn('WARNING: \'fast\' build type should not be used in release builds')
 
 	conf.load('subproject')
 
@@ -103,21 +107,39 @@ def configure(conf):
 		'common': {
 			'msvc':    ['/DEBUG'], # always create PDB, doesn't affect result binaries
 			'gcc': ['-Wl,--no-undefined']
+		},
+		'sanitize': {
+			'gcc':     ['-fsanitize=undefined', '-fsanitize=address'],
 		}
 	}
 
 	compiler_c_cxx_flags = {
 		'common': {
-			'msvc':    ['/D_USING_V110_SDK71_', '/Zi', '/FS', '/O2'],
-			'default': ['-g', '-Werror=implicit-function-declaration']
+			'msvc':    ['/D_USING_V110_SDK71_', '/Zi', '/FS'],
+			'clang':   ['-g', '-gdwarf-2'],
+			'gcc':     ['-g', '-Werror=implicit-function-declaration', '-fdiagnostics-color=always']
+		},
+		'fast': {
+			'msvc':    ['/O2', '/Oy'], #todo: check /GL /LTCG
+			'gcc':     ['-Ofast', '-march=native', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer'],
+			'default': ['-O3']
 		},
 		'release': {
-			'msvc':    [],
+			'msvc':    ['/O2'],
 			'default': ['-O3']
 		},
 		'debug': {
-			'msvc':    ['/Ox', '/Oy'],
-			'clang':   ['-O0', '-gdwarf-2'],
+			'msvc':    ['/O1'],
+			'gcc':     ['-Og'],
+			'default': ['-O1']
+		},
+		'sanitize': {
+			'msvc':    ['/Od', '/RTC1'],
+			'gcc':     ['-Og', '-fsanitize=undefined', '-fsanitize=address'],
+			'default': ['-O1']
+		},
+		'nooptimize': {
+			'msvc':    ['/Od'],
 			'default': ['-O0']
 		}
 	}
