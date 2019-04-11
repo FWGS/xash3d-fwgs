@@ -96,7 +96,7 @@ def configure(conf):
 	if conf.options.SKIP_SUBDIRS:
 		global IGNORED_SUBDIRS
 		IGNORED_SUBDIRS += conf.options.SKIP_SUBDIRS.split(',')
-		print IGNORED_SUBDIRS
+		print(IGNORED_SUBDIRS)
 
 @Configure.conf
 def add_subproject(ctx, names):
