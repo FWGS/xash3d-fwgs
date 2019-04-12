@@ -1456,9 +1456,10 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 
 		// stall reliable payloads if sending from frag buffer
 		if( send_from_regular && ( send_from_frag[FRAG_NORMAL_STREAM] ))
-		{	
-			send_from_regular = false;
+		{
 			int maxsize = MAX_RELIABLE_PAYLOAD;
+			send_from_regular = false;
+
 
 			if( chan->pfnBlockSize )
 				maxsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );

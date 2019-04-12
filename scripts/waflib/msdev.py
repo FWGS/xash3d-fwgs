@@ -664,7 +664,7 @@ MSDEV_PROJECT = \
 '''<?xml version="1.0" encoding="UTF-8"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="9,00"
+	Version="8,00"
 	Name=""
 	ProjectGUID=""
 	Keyword="Win32Proj"
@@ -759,8 +759,8 @@ MSDEV_PROJECT = \
 '''
 
 MSDEV_SOLUTION = [
-'Microsoft Visual Studio Solution File, Format Version 10.00\n',
-'# Visual Studio 2008\n',
+'Microsoft Visual Studio Solution File, Format Version 8.00\n',
+'# Visual Studio 2005\n',
 'Global\n',
 	'GlobalSection(SolutionConfigurationPlatforms) = preSolution\n',
 			'Debug|Win32 = Debug|Win32\n',
