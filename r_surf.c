@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_surf.c: surface-related refresh code
 
 #include "r_local.h"
+#include "mod_local.h"
 
 drawsurf_t	r_drawsurf;
 
@@ -41,6 +42,9 @@ void R_DrawSurfaceBlock8_mip1 (void);
 void R_DrawSurfaceBlock8_mip2 (void);
 void R_DrawSurfaceBlock8_mip3 (void);
 void R_DrawSurfaceBlock8_Generic (void);
+void R_DrawSurfaceBlock8_World (void);
+
+static float worldlux_s, worldlux_t;
 
 static void	(*surfmiptable[4])(void) = {
 	R_DrawSurfaceBlock8_mip0,
@@ -93,8 +97,8 @@ void R_AddDynamicLights( msurface_t *surf )
 	{
 		if( surf->texinfo->faceinfo )
 			sample_frac = surf->texinfo->faceinfo->texture_step;
-		//else if( FBitSet( surf->texinfo->flags, TEX_EXTRA_LIGHTMAP ))
-		//	sample_frac = LM_SAMPLE_EXTRASIZE;
+		else if( FBitSet( surf->texinfo->flags, TEX_EXTRA_LIGHTMAP ))
+			sample_frac = LM_SAMPLE_EXTRASIZE;
 		else sample_frac = LM_SAMPLE_SIZE;
 	}
 
@@ -504,7 +508,6 @@ void R_DrawSurface (void)
 		else
 			sample_pot = 1 << sample_bits;
 	}
-
 	mt = r_drawsurf.image;
 	
 	r_source = mt->pixels[r_drawsurf.surfmip];
@@ -526,6 +529,7 @@ void R_DrawSurface (void)
 	r_numhblocks = r_drawsurf.surfwidth >> blockdivshift;
 	r_numvblocks = r_drawsurf.surfheight >> blockdivshift;
 
+
 //==============================
 
 	if( sample_size == 16 )
@@ -544,8 +548,46 @@ void R_DrawSurface (void)
 
 	r_sourcemax = r_source + (tmax * smax);
 
-	//soffset = r_drawsurf.surf->texturemins[0];
-	//basetoffset = r_drawsurf.surf->texturemins[1];
+	// glitchy and slow way to draw some lightmap
+	if( r_drawsurf.surf->texinfo->flags & TEX_WORLD_LUXELS )
+	{
+		worldlux_s = r_drawsurf.surf->extents[0] / r_drawsurf.surf->info->lightextents[0];
+		worldlux_t = r_drawsurf.surf->extents[1] / r_drawsurf.surf->info->lightextents[1];
+		if( worldlux_s == 0 )
+			worldlux_s = 1;
+		if( worldlux_t == 0 )
+			worldlux_t = 1;
+
+		soffset = r_drawsurf.surf->texturemins[0];
+		basetoffset = r_drawsurf.surf->texturemins[1];
+		//soffset =  r_drawsurf.surf->info->lightmapmins[0] * worldlux_s;
+		//basetoffset = r_drawsurf.surf->info->lightmapmins[1] * worldlux_t;
+		// << 16 components are to guarantee positive values for %
+		soffset = ((soffset >> r_drawsurf.surfmip) + (smax << 16)) % smax;
+		basetptr = &r_source[((((basetoffset >> r_drawsurf.surfmip)
+			+ (tmax << 16)) % tmax) * twidth)];
+
+		pcolumndest = r_drawsurf.surfdat;
+
+		for (u=0 ; u<r_numhblocks; u++)
+		{
+			r_lightptr = blocklights + (int)(u/ (worldlux_s+0.5));
+
+			prowdestbase = pcolumndest;
+
+			pbasesource = basetptr + soffset;
+
+			R_DrawSurfaceBlock8_World();
+
+			soffset = soffset + horzblockstep;
+			if (soffset >= smax)
+				soffset = 0;
+
+			pcolumndest += horzblockstep;
+		}
+		return;
+	}
+
 	soffset =  r_drawsurf.surf->info->lightmapmins[0];
 	basetoffset = r_drawsurf.surf->info->lightmapmins[1];
 
@@ -566,7 +608,7 @@ void R_DrawSurface (void)
 
 		(*pblockdrawer)();
 
-		soffset = soffset + blocksize;
+		soffset = soffset + horzblockstep;
 		if (soffset >= smax)
 			soffset = 0;
 
@@ -581,6 +623,63 @@ void R_DrawSurface (void)
 
 #if	!id386
 #define BLEND_LM(pix, light) vid.colormap[(pix >> 3) | ((light & 0x1f00) << 5)] | pix & 7;
+
+/*
+================
+R_DrawSurfaceBlock8_World
+
+Does not draw lightmap correclty, but scale it correctly. Better than nothing
+================
+*/
+void R_DrawSurfaceBlock8_World (void)
+{
+	int				v, i, b;
+	uint lightstep, lighttemp, light;
+	pixel_t	pix, *psource, *prowdest;
+	int lightpos = 0;
+
+	psource = pbasesource;
+	prowdest = prowdestbase;
+
+	for (v=0 ; v<r_numvblocks ; v++)
+	{
+	// FIXME: make these locals?
+	// FIXME: use delta rather than both right and left, like ASM?
+		lightleft = r_lightptr[(lightpos/r_lightwidth) * r_lightwidth];
+		lightright = r_lightptr[(lightpos/r_lightwidth) * r_lightwidth+1];
+		lightpos += r_lightwidth / worldlux_s;
+		lightleftstep = (r_lightptr[(lightpos/r_lightwidth) * r_lightwidth] - lightleft) >> (4-r_drawsurf.surfmip);
+		lightrightstep =(r_lightptr[(lightpos/r_lightwidth) * r_lightwidth+1] - lightright) >> (4-r_drawsurf.surfmip);
+
+		for (i=0 ; i<blocksize ; i++)
+		{
+			lighttemp = lightleft - lightright;
+			lightstep = lighttemp >> (4-r_drawsurf.surfmip);
+
+			light = lightright;
+
+			for (b=blocksize-1; b>=0; b--)
+			{
+				//pix = psource[(uint)(b * worldlux_s)];
+				pix = psource[b];
+				prowdest[b] = BLEND_LM(pix, light);
+				if( pix == TRANSPARENT_COLOR )
+					prowdest[b] = TRANSPARENT_COLOR;
+						//((unsigned char *)vid.colormap)
+						//[(light & 0xFF00) + pix];
+				light += lightstep;
+			}
+
+			psource += sourcetstep;
+			lightright += lightrightstep;
+			lightleft += lightleftstep;
+			prowdest += surfrowbytes;
+		}
+
+		if (psource >= r_sourcemax)
+			psource -= r_stepback;
+	}
+}
 
 
 /*
@@ -1208,7 +1307,11 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 //
 	r_drawsurf.image = R_GetTexture(R_TextureAnimation (surface)->gl_texturenum);
 
-	if( surface->flags & SURF_CONVEYOR )
+	// does not support conveyors with world luxels now
+	if( surface->texinfo->flags & TEX_WORLD_LUXELS )
+		surface->flags &= ~SURF_CONVEYOR;
+
+	if( surface->flags & SURF_CONVEYOR)
 	{
 		if( miplevel >= 1)
 		{
@@ -1271,7 +1374,14 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 		r_drawsurf.surfwidth = surface->info->lightextents[0] >> miplevel;
 	r_drawsurf.rowbytes = r_drawsurf.surfwidth;
 	r_drawsurf.surfheight = surface->info->lightextents[1] >> miplevel;
-			//surface->extents[1] >> miplevel;
+
+	// use texture space if world luxels used
+	if( surface->texinfo->flags & TEX_WORLD_LUXELS )
+	{
+		r_drawsurf.surfwidth = surface->extents[0] >> miplevel;
+		r_drawsurf.rowbytes = r_drawsurf.surfwidth;
+		r_drawsurf.surfheight = surface->extents[1] >> miplevel;
+	}
 
 	
 //

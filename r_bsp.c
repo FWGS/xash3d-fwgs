@@ -35,8 +35,8 @@ int				r_currentbkey;
 
 typedef enum {touchessolid, drawnode, nodrawnode} solidstate_t;
 
-#define MAX_BMODEL_VERTS	500			// 6K
-#define MAX_BMODEL_EDGES	1000		// 12K
+#define MAX_BMODEL_VERTS	1000			// 12K
+#define MAX_BMODEL_EDGES	2000		// 24K
 
 static mvertex_t	*pbverts;
 static bedge_t		*pbedges;
@@ -421,7 +421,7 @@ void R_RecursiveClipBPoly (bedge_t *pedges, mnode_t *pnode, msurface_t *psurf)
 		// FIXME: share the clip edge by having a winding direction flag?
 			if (numbedges >= (MAX_BMODEL_EDGES - 1))
 			{
-				gEngfuncs.Con_Printf ("Out of edges for bmodel\n");
+				//gEngfuncs.Con_Printf ("Out of edges for bmodel\n");
 				return;
 			}
 
@@ -465,7 +465,7 @@ void R_RecursiveClipBPoly (bedge_t *pedges, mnode_t *pnode, msurface_t *psurf)
 	{
 		if (numbedges >= (MAX_BMODEL_EDGES - 2))
 		{
-			gEngfuncs.Con_Printf ("Out of edges for bmodel\n");
+			//gEngfuncs.Con_Printf ("Out of edges for bmodel\n");
 			return;
 		}
 

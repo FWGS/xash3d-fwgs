@@ -821,8 +821,17 @@ void D_CalcGradients (msurface_t *pface)
 
 	mipscale = 1.0 / (float)(1 << miplevel);
 
+
+	if( pface->texinfo->flags & TEX_WORLD_LUXELS )
+	{
+		TransformVector (pface->texinfo->vecs[0], p_saxis);
+		TransformVector (pface->texinfo->vecs[1], p_taxis);
+	}
+	else
+	{
 	TransformVector (pface->info->lmvecs[0], p_saxis);
 	TransformVector (pface->info->lmvecs[1], p_taxis);
+	}
 
 	t = xscaleinv * mipscale;
 	d_sdivzstepu = p_saxis[0] * t;
@@ -840,12 +849,24 @@ void D_CalcGradients (msurface_t *pface)
 	VectorScale (transformed_modelorg, mipscale, p_temp1);
 
 	t = 0x10000*mipscale;
+	if( pface->texinfo->flags & TEX_WORLD_LUXELS )
+	{
+		sadjust = ((fixed16_t)(DotProduct (p_temp1, p_saxis) * 0x10000 + 0.5)) -
+				((pface->texturemins[0] << 16) >> miplevel)
+				+ pface->texinfo->vecs[0][3]*t;
+		tadjust = ((fixed16_t)(DotProduct (p_temp1, p_taxis) * 0x10000 + 0.5)) -
+				((pface->texturemins[1] << 16) >> miplevel)
+				+ pface->texinfo->vecs[1][3]*t;
+	}
+	else
+	{
 	sadjust = ((fixed16_t)(DotProduct (p_temp1, p_saxis) * 0x10000 + 0.5)) -
 			((pface->info->lightmapmins[0] << 16) >> miplevel)
 			+ pface->info->lmvecs[0][3]*t;
 	tadjust = ((fixed16_t)(DotProduct (p_temp1, p_taxis) * 0x10000 + 0.5)) -
 			((pface->info->lightmapmins[1] << 16) >> miplevel)
 			+ pface->info->lmvecs[1][3]*t;
+	}
 	// PGM - changing flow speed for non-warping textures.
 	if (pface->flags & SURF_CONVEYOR)
 	{
@@ -859,6 +880,12 @@ void D_CalcGradients (msurface_t *pface)
 	else
 		bbextents = ((pface->info->lightextents[0] << 16) >> miplevel) - 1;
 	bbextentt = ((pface->info->lightextents[1] << 16) >> miplevel) - 1;
+
+	if( pface->texinfo->flags & TEX_WORLD_LUXELS )
+	{
+		bbextents = ((pface->extents[0] << 16) >> miplevel) - 1;
+		bbextentt = ((pface->extents[1] << 16) >> miplevel) - 1;
+	}
 }
 
 
@@ -1139,8 +1166,6 @@ void D_SolidSurf (surf_t *s)
 	if( !pface )
 		return;
 #if 1
-
-
 	if( pface->flags & SURF_CONVEYOR )
 		miplevel = 1;
 	else
