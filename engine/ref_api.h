@@ -443,12 +443,11 @@ typedef struct ref_interface_s
 	// const char *(*R_GetInitError)( void );
 	void (*R_Shutdown)( void );
 
-	//
+	// only called for GL contexts
 	void (*GL_SetupAttributes)( int safegl );
 	void (*GL_OnContextCreated)( void );
 	void (*GL_InitExtensions)( void );
 	void (*GL_ClearExtensions)( void );
-
 
 	void (*R_BeginFrame)( qboolean clearScene );
 	void (*R_RenderScene)( void );
