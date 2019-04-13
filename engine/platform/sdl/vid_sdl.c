@@ -759,37 +759,10 @@ qboolean R_Init_Video( const int type )
 	glw_state.desktopWidth = displayMode.w;
 	glw_state.desktopHeight = displayMode.h;
 
-	if( type == REF_SOFTWARE )
-	{
-		glw_state.software = true;
-		if( !(retval = VID_SetMode()) )
-		{
-			return retval;
-		}
-		return true;
-	}
-
-	if( type != REF_GL )
-	{
-		Host_Error( "Can't initialize unknown context type %d!\n", type );
-	}
-
-	if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", safe ) )
-		glw_state.safe = bound( SAFE_NO, Q_atoi( safe ), SAFE_DONTCARE );
-
 #if !defined(_WIN32)
 	SDL_SetHint( "SDL_VIDEO_X11_XRANDR", "1" );
 	SDL_SetHint( "SDL_VIDEO_X11_XVIDMODE", "1" );
 #endif
-
-	// refdll can request some attributes
-	GL_SetupAttributes( );
-
-	if( SDL_GL_LoadLibrary( EGL_LIB ) )
-	{
-		Con_Reportf( S_ERROR  "Couldn't initialize OpenGL: %s\n", SDL_GetError());
-		return false;
-	}
 
 	R_InitVideoModes();
 
@@ -798,13 +771,44 @@ qboolean R_Init_Video( const int type )
 	WIN_SetDPIAwareness();
 #endif
 
+	switch( type )
+	{
+	case REF_SOFTWARE:
+		glw_state.software = true;
+		break;
+	case REF_GL:
+		if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", safe ) )
+			glw_state.safe = bound( SAFE_NO, Q_atoi( safe ), SAFE_DONTCARE );
+
+		// refdll can request some attributes
+		GL_SetupAttributes( );
+
+		if( SDL_GL_LoadLibrary( EGL_LIB ) )
+		{
+			Con_Reportf( S_ERROR  "Couldn't initialize OpenGL: %s\n", SDL_GetError());
+			return false;
+		}
+		break;
+	default:
+		Host_Error( "Can't initialize unknown context type %d!\n", type );
+		break;
+	}
+
 	if( !(retval = VID_SetMode()) )
 	{
 		return retval;
 	}
 
-	// refdll also can check extensions
-	ref.dllFuncs.GL_InitExtensions();
+	switch( type )
+	{
+	case REF_GL:
+		// refdll also can check extensions
+		ref.dllFuncs.GL_InitExtensions();
+		break;
+	case REF_SOFTWARE:
+	default:
+		break;
+	}
 
 	host.renderinfo_changed = false;
 
