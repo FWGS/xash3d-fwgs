@@ -886,11 +886,12 @@ static void GL_DeleteTexture( image_t *tex )
 {
 	image_t	**prev;
 	image_t	*cur;
+	int  i;
 
 	ASSERT( tex != NULL );
 
 	// already freed?
-	if( !tex->pixels) return;
+	if( !tex->pixels[0]) return;
 
 	// debug
 	if( !tex->name[0] )
@@ -918,6 +919,10 @@ static void GL_DeleteTexture( image_t *tex )
 	// release source
 	if( tex->original )
 		gEngfuncs.FS_FreeImage( tex->original );
+
+	for( i = 0; i < 4; i++ )
+		if( tex->pixels[i]) Mem_Free(tex->pixels[i]);
+	if( tex->alpha_pixels ) Mem_Free(tex->alpha_pixels);
 
 	memset( tex, 0, sizeof( *tex ));
 }
