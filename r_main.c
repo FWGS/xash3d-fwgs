@@ -1594,6 +1594,12 @@ void GAME_EXPORT R_RenderScene( void )
 	// begin a new frame
 	tr.framecount++;
 
+	if( tr.map_unload )
+	{
+		D_FlushCaches();
+		tr.map_unload = false;
+	}
+
 
 	R_SetupFrustum();
 	R_SetupFrame();
@@ -1824,6 +1830,7 @@ void GAME_EXPORT R_NewMap (void)
 {
 	int i;
 	r_viewcluster = -1;
+	model_t *world = WORLDMODEL;
 
 	tr.draw_list->num_solid_entities = 0;
 	tr.draw_list->num_trans_entities = 0;
@@ -1871,8 +1878,33 @@ void GAME_EXPORT R_NewMap (void)
 	}
 
 	// clear out efrags in case the level hasn't been reloaded
-	for( i = 0; i < WORLDMODEL->numleafs; i++ )
-		WORLDMODEL->leafs[i+1].efrags = NULL;
+	for( i = 0; i < world->numleafs; i++ )
+		world->leafs[i+1].efrags = NULL;
+
+	tr.sample_size = gEngfuncs.Mod_SampleSizeForFace( &world->surfaces[0] );
+
+	for( i = 1; i < world->numsurfaces; i++ )
+	{
+		int sample_size = gEngfuncs.Mod_SampleSizeForFace( &world->surfaces[i] );
+		if( sample_size != tr.sample_size )
+		{
+			tr.sample_size = -1;
+			break;
+		}
+	}
+	tr.sample_bits = -1;
+
+	if( tr.sample_size != -1 )
+	{
+		uint sample_pot;
+
+		tr.sample_bits = 0;
+
+		for( sample_pot = 1; sample_pot < tr.sample_size; sample_pot <<= 1, tr.sample_bits++ );
+	}
+
+	gEngfuncs.Con_Printf("Map sample size is %d\n", tr.sample_size );
+
 }
 
 /*

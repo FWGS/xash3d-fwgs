@@ -294,6 +294,9 @@ typedef struct
 
 	qboolean fCustomSkybox;
 	char	mapname[MAX_STRING];
+	int sample_size;
+	uint sample_bits;
+	qboolean map_unload;
 } gl_globals_t;
 
 typedef struct
@@ -1284,6 +1287,10 @@ void R_SetUpWorldTransform (void);
 #define BLEND_ALPHA(alpha, src, dst) alpha > 3?BLEND_ALPHA_LOW(7 - 1 - alpha, dst,src):BLEND_ALPHA_LOW(alpha-1, src, dst)
 #define BLEND_ADD(src, screen) vid.addmap[ src& 0xff00|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 0);
 #define BLEND_COLOR(src, color) vid.modmap[src & 0xff00|(color>>8)] << 8 | (src & color & 0xff) | ((src & 0xff) >> 3);
+
+#define LM_SAMPLE_SIZE_AUTO(surf) (tr.sample_size == -1?gEngfuncs.Mod_SampleSizeForFace( surf ): tr.sample_size)
+
+
 
 //
 // engine callbacks

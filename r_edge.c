@@ -846,7 +846,6 @@ void D_CalcGradients (msurface_t *pface)
 	tadjust = ((fixed16_t)(DotProduct (p_temp1, p_taxis) * 0x10000 + 0.5)) -
 			((pface->info->lightmapmins[1] << 16) >> miplevel)
 			+ pface->info->lmvecs[1][3]*t;
-#if 1
 	// PGM - changing flow speed for non-warping textures.
 	if (pface->flags & SURF_CONVEYOR)
 	{
@@ -855,13 +854,10 @@ void D_CalcGradients (msurface_t *pface)
 			sadjust += 0x10000 * (-128 * ( (gpGlobals->time * 0.25) - (int)(gpGlobals->time * 0.25) ));
 		else
 			sadjust += 0x10000 * (-128 * ( (gpGlobals->time * 0.77) - (int)(gpGlobals->time * 0.77) ));
+		bbextents = ((pface->extents[0] << 16) >> miplevel) - 1;
 	}
-	// PGM
-#endif
-//
-// -1 (-epsilon) so we never wander off the edge of the texture
-//
-	bbextents = ((pface->info->lightextents[0] << 16) >> miplevel) - 1;
+	else
+		bbextents = ((pface->info->lightextents[0] << 16) >> miplevel) - 1;
 	bbextentt = ((pface->info->lightextents[1] << 16) >> miplevel) - 1;
 }
 

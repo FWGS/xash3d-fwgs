@@ -123,7 +123,7 @@ static void GAME_EXPORT CL_FillRGBABlend( float _x, float _y, float _w, float _h
 	_TriColor4ub(r,g,b,a);
 	Draw_Fill(_x,_y,_w,_h);
 }
-
+void Mod_UnloadTextures( model_t *mod );
 
 qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 {
@@ -155,8 +155,8 @@ qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create, const
 	if( loaded && gEngfuncs.drawFuncs->Mod_ProcessUserData )
 		gEngfuncs.drawFuncs->Mod_ProcessUserData( mod, create, buf );
 
-	//if( !create )
-		//Mod_UnloadTextures( mod );
+	if( !create )
+		Mod_UnloadTextures( mod );
 
 	return loaded;
 }
@@ -280,6 +280,10 @@ const byte * GAME_EXPORT GL_TextureData( unsigned int texnum )
 void Mod_BrushUnloadTextures( model_t *mod )
 {
 	int i;
+
+
+	gEngfuncs.Con_Printf("Unloading world\n");
+	tr.map_unload = true;
 
 	for( i = 0; i < mod->numtextures; i++ )
 	{
