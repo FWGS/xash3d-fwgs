@@ -4,7 +4,6 @@
 
 from waflib import Logs
 import os
-from fwgslib import get_subproject_name
 
 top = '.'
 
@@ -26,10 +25,6 @@ def build(bld):
 	if bld.env.DEDICATED:
 		return
 
-	bld.load_envs()
-	name = get_subproject_name(bld)
-	bld.env = bld.all_envs[name]
-
 	libs = [ 'public', 'M' ]
 
 	source = bld.path.ant_glob(['*.c'])
@@ -45,7 +40,7 @@ def build(bld):
 
 	bld.shlib(
 		source   = source,
-		target   = name,
+		target   = 'ref_soft',
 		features = 'c',
 		includes = includes,
 		use      = libs,
