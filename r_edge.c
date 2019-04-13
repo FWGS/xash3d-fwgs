@@ -821,8 +821,8 @@ void D_CalcGradients (msurface_t *pface)
 
 	mipscale = 1.0 / (float)(1 << miplevel);
 
-	TransformVector (pface->texinfo->vecs[0], p_saxis);
-	TransformVector (pface->texinfo->vecs[1], p_taxis);
+	TransformVector (pface->info->lmvecs[0], p_saxis);
+	TransformVector (pface->info->lmvecs[1], p_taxis);
 
 	t = xscaleinv * mipscale;
 	d_sdivzstepu = p_saxis[0] * t;
@@ -841,11 +841,11 @@ void D_CalcGradients (msurface_t *pface)
 
 	t = 0x10000*mipscale;
 	sadjust = ((fixed16_t)(DotProduct (p_temp1, p_saxis) * 0x10000 + 0.5)) -
-			((pface->texturemins[0] << 16) >> miplevel)
-			+ pface->texinfo->vecs[0][3]*t;
+			((pface->info->lightmapmins[0] << 16) >> miplevel)
+			+ pface->info->lmvecs[0][3]*t;
 	tadjust = ((fixed16_t)(DotProduct (p_temp1, p_taxis) * 0x10000 + 0.5)) -
-			((pface->texturemins[1] << 16) >> miplevel)
-			+ pface->texinfo->vecs[1][3]*t;
+			((pface->info->lightmapmins[1] << 16) >> miplevel)
+			+ pface->info->lmvecs[1][3]*t;
 #if 1
 	// PGM - changing flow speed for non-warping textures.
 	if (pface->flags & SURF_CONVEYOR)
@@ -861,8 +861,8 @@ void D_CalcGradients (msurface_t *pface)
 //
 // -1 (-epsilon) so we never wander off the edge of the texture
 //
-	bbextents = ((pface->extents[0] << 16) >> miplevel) - 1;
-	bbextentt = ((pface->extents[1] << 16) >> miplevel) - 1;
+	bbextents = ((pface->info->lightextents[0] << 16) >> miplevel) - 1;
+	bbextentt = ((pface->info->lightextents[1] << 16) >> miplevel) - 1;
 }
 
 
@@ -1149,6 +1149,8 @@ void D_SolidSurf (surf_t *s)
 		miplevel = 1;
 	else
 		miplevel = D_MipLevelForScale(s->nearzi * scale_for_mip );
+	while( 1 << miplevel > gEngfuncs.Mod_SampleSizeForFace(pface))
+		miplevel--;
 #else
 	{
 		float dot;

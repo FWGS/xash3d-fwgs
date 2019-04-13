@@ -484,8 +484,16 @@ void R_DrawSurface (void)
 	pixel_t	*pcolumndest;
 	void			(*pblockdrawer)(void);
 	image_t			*mt;
+	uint sample_size, sample_bits, sample_pot;
 
 	surfrowbytes = r_drawsurf.rowbytes;
+
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( r_drawsurf.surf );
+	sample_bits = 0;
+	for( sample_pot = 1; sample_pot < sample_size; sample_pot <<= 1, sample_bits++ );
+
+
+	//printf("%d\n", sample_size );
 
 	mt = r_drawsurf.image;
 	
@@ -496,8 +504,8 @@ void R_DrawSurface (void)
 	
 	texwidth = mt->width >> r_drawsurf.surfmip;
 
-	blocksize = 16 >> r_drawsurf.surfmip;
-	blockdivshift = 4 - r_drawsurf.surfmip;
+	blocksize = sample_pot >> r_drawsurf.surfmip;
+	blockdivshift = sample_bits - r_drawsurf.surfmip;
 	blockdivmask = (1 << blockdivshift) - 1;
 	
 	r_lightwidth = ( r_drawsurf.surf->info->lightextents[0] /  gEngfuncs.Mod_SampleSizeForFace( r_drawsurf.surf ) ) + 1;
@@ -520,8 +528,10 @@ void R_DrawSurface (void)
 
 	r_sourcemax = r_source + (tmax * smax);
 
-	soffset = r_drawsurf.surf->texturemins[0];
-	basetoffset = r_drawsurf.surf->texturemins[1];
+	//soffset = r_drawsurf.surf->texturemins[0];
+	//basetoffset = r_drawsurf.surf->texturemins[1];
+	soffset =  r_drawsurf.surf->info->lightmapmins[0];
+	basetoffset = r_drawsurf.surf->info->lightmapmins[1];
 
 // << 16 components are to guarantee positive values for %
 	soffset = ((soffset >> r_drawsurf.surfmip) + (smax << 16)) % smax;
@@ -580,14 +590,14 @@ void R_DrawSurfaceBlock8_mip0 (void)
 		lightleftstep = (r_lightptr[0] - lightleft) >> 4;
 		lightrightstep = (r_lightptr[1] - lightright) >> 4;
 
-		for (i=0 ; i<16 ; i++)
+		for (i=0 ; i<blocksize ; i++)
 		{
 			lighttemp = lightleft - lightright;
 			lightstep = lighttemp >> 4;
 
 			light = lightright;
 
-			for (b=15; b>=0; b--)
+			for (b=blocksize - 1; b>=0; b--)
 			{
 				pix = psource[b];
 				prowdest[b] = BLEND_LM(pix, light);
@@ -636,14 +646,14 @@ void R_DrawSurfaceBlock8_mip1 (void)
 		lightleftstep = (r_lightptr[0] - lightleft) >> 3;
 		lightrightstep = (r_lightptr[1] - lightright) >> 3;
 
-		for (i=0 ; i<8 ; i++)
+		for (i=0 ; i<blocksize ; i++)
 		{
 			lighttemp = lightleft - lightright;
 			lightstep = lighttemp >> 3;
 
 			light = lightright;
 
-			for (b=7; b>=0; b--)
+			for (b=blocksize-1; b>=0; b--)
 			{
 				pix = psource[b];
 				prowdest[b] = BLEND_LM(pix, light);
@@ -688,14 +698,14 @@ void R_DrawSurfaceBlock8_mip2 (void)
 		lightleftstep = (r_lightptr[0] - lightleft) >> 2;
 		lightrightstep = (r_lightptr[1] - lightright) >> 2;
 
-		for (i=0 ; i<4 ; i++)
+		for (i=0 ; i<blocksize ; i++)
 		{
 			lighttemp = lightleft - lightright;
 			lightstep = lighttemp >> 2;
 
 			light = lightright;
 
-			for (b=3; b>=0; b--)
+			for (b=blocksize-1; b>=0; b--)
 			{
 				pix = psource[b];
 				prowdest[b] = BLEND_LM(pix, light);;
@@ -740,14 +750,14 @@ void R_DrawSurfaceBlock8_mip3 (void)
 		lightleftstep = (r_lightptr[0] - lightleft) >> 1;
 		lightrightstep = (r_lightptr[1] - lightright) >> 1;
 
-		for (i=0 ; i<2 ; i++)
+		for (i=0 ; i<blocksize ; i++)
 		{
 			lighttemp = lightleft - lightright;
 			lightstep = lighttemp >> 1;
 
 			light = lightright;
 
-			for (b=1; b>=0; b--)
+			for (b=blocksize-1; b>=0; b--)
 			{
 				pix = psource[b];
 				prowdest[b] = BLEND_LM(pix, light);;
@@ -1184,9 +1194,11 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 //
 	surfscale = 1.0 / (1<<miplevel);
 	r_drawsurf.surfmip = miplevel;
-	r_drawsurf.surfwidth = surface->extents[0] >> miplevel;
+	r_drawsurf.surfwidth = surface->info->lightextents[0] >> miplevel;
+			//surface->extents[0] >> miplevel;
 	r_drawsurf.rowbytes = r_drawsurf.surfwidth;
-	r_drawsurf.surfheight = surface->extents[1] >> miplevel;
+	r_drawsurf.surfheight = surface->info->lightextents[1] >> miplevel;
+			//surface->extents[1] >> miplevel;
 
 	
 //
