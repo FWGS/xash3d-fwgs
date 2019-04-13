@@ -579,7 +579,7 @@ void R_DrawSurface (void)
 
 			R_DrawSurfaceBlock8_World();
 
-			soffset = soffset + horzblockstep;
+			soffset = soffset + blocksize;
 			if (soffset >= smax)
 				soffset = 0;
 
@@ -608,7 +608,7 @@ void R_DrawSurface (void)
 
 		(*pblockdrawer)();
 
-		soffset = soffset + horzblockstep;
+		soffset = soffset + blocksize;
 		if (soffset >= smax)
 			soffset = 0;
 
