@@ -27,7 +27,7 @@ static void GL_SetupAttributes( void );
 struct
 {
 	int prev_width, prev_height;
-} sdlState;
+} sdlState = { 640, 480 };
 
 struct
 {
@@ -145,7 +145,7 @@ void *SW_LockBuffer()
 		int stride;
 
 		if( SDL_LockTexture(sw.tex, NULL, &pixels, &stride ) )
-			Sys_Error(SDL_GetError());
+			Sys_Error("%s", SDL_GetError());
 		return pixels;
 	}
 	else
@@ -919,7 +919,7 @@ qboolean VID_SetMode( void )
 		else if( err == rserr_invalid_mode )
 		{
 			Con_Reportf( S_ERROR  "VID_SetMode: invalid mode\n" );
-			Sys_Warn( "invalid mode" );
+			Sys_Warn( "invalid mode, engine will run in %dx%d", sdlState.prev_width, sdlState.prev_height );
 		}
 
 		// try setting it back to something safe
