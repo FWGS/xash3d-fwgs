@@ -495,7 +495,6 @@ ref_interface_t gReffuncs =
 	R_StudioGetTexture,
 
 	R_RenderFrame,
-	GL_BuildLightmaps,
 	Mod_SetOrthoBounds,
 	R_SpeedsMessage,
 	Mod_GetCurrentVis,
