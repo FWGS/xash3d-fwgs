@@ -25,11 +25,6 @@ static void R_ClearScreen( void )
 	pglClear( GL_COLOR_BUFFER_BIT );
 }
 
-static qboolean IsNormalPass( void )
-{
-	return RP_NORMALPASS();
-}
-
 static void R_IncrementSpeedsCounter( int type )
 {
 	switch( type )
@@ -411,8 +406,6 @@ ref_interface_t gReffuncs =
 	R_AddEntity,
 	CL_AddCustomBeam,
 	R_ProcessEntData,
-
-	IsNormalPass,
 
 	R_ShowTextures,
 	R_ShowTree,
