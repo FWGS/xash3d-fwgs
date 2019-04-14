@@ -575,8 +575,6 @@ typedef struct ref_interface_s
 
 	// passed through R_RenderFrame (0 - use engine renderer, 1 - use custom client renderer)
 	int		(*GL_RenderFrame)( const struct ref_viewpass_s *rvp );
-	// build all the lightmaps on new level or when gamma is changed
-	void		(*GL_BuildLightmaps)( void );
 	// setup map bounds for ortho-projection when we in dev_overview mode
 	void		(*GL_OrthoBounds)( const float *mins, const float *maxs );
 	// grab r_speeds message
