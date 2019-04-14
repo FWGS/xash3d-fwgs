@@ -974,7 +974,6 @@ void CL_PlayerDecal( int playerIndex, int textureIndex, int entityIndex, float *
 void R_FreeDeadParticles( struct particle_s **ppparticles );
 void CL_AddClientResource( const char *filename, int type );
 void CL_AddClientResources( void );
-int CL_FxBlend( cl_entity_t *e );
 void CL_InitParticles( void );
 void CL_ClearParticles( void );
 void CL_FreeParticles( void );

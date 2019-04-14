@@ -391,6 +391,7 @@ void R_FindViewLeaf( void );
 void R_PushScene( void );
 void R_PopScene( void );
 void R_DrawFog( void );
+int CL_FxBlend( cl_entity_t *e );
 
 //
 // gl_rmath.c

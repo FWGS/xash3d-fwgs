@@ -1070,7 +1070,7 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 		// XASH SPECIFIC: get brightness from head entity
 		pStart = gEngfuncs.R_BeamGetEntity( pbeam->startEntity );
 		if( pStart && pStart->curstate.rendermode != kRenderNormal )
-			pbeam->brightness = gEngfuncs.CL_FxBlend( pStart ) / 255.0f;
+			pbeam->brightness = CL_FxBlend( pStart ) / 255.0f;
 	}
 
 	if( FBitSet( pbeam->flags, FBEAM_FADEIN ))
@@ -1190,7 +1190,7 @@ void R_BeamDrawCustomEntity( cl_entity_t *ent )
 {
 	BEAM	beam;
 	float	amp = ent->curstate.body / 100.0f;
-	float	blend = gEngfuncs.CL_FxBlend( ent ) / 255.0f;
+	float	blend = CL_FxBlend( ent ) / 255.0f;
 	float	r, g, b;
 	int	beamFlags;
 

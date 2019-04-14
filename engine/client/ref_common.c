@@ -271,7 +271,6 @@ static ref_api_t gEngfuncs =
 	CL_ExtraUpdate,
 	COM_HashKey,
 	Host_Error,
-	CL_FxBlend,
 	COM_SetRandomSeed,
 	COM_RandomFloat,
 	COM_RandomLong,

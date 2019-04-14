@@ -336,7 +336,6 @@ typedef struct ref_api_s
 	void  (*CL_ExtraUpdate)( void );
 	uint  (*COM_HashKey)( const char *strings, uint hashSize );
 	void  (*Host_Error)( const char *fmt, ... );
-	int   (*CL_FxBlend)( cl_entity_t *e );
 	void  (*COM_SetRandomSeed)( int lSeed );
 	float (*COM_RandomFloat)( float rmin, float rmax );
 	int   (*COM_RandomLong)( int rmin, int rmax );
@@ -464,9 +463,6 @@ typedef struct ref_interface_s
 	qboolean (*R_AddEntity)( struct cl_entity_s *clent, int type );
 	void (*CL_AddCustomBeam)( cl_entity_t *pEnvBeam );
 	void		(*R_ProcessEntData)( qboolean allocate );
-
-	// view info
-	qboolean (*IsNormalPass)( void );
 
 	// debug
 	void (*R_ShowTextures)( void );
