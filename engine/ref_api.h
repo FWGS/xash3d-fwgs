@@ -466,7 +466,6 @@ typedef struct ref_interface_s
 	// debug
 	void (*R_ShowTextures)( void );
 	void (*R_ShowTree)( void );
-	void (*R_IncrementSpeedsCounter)( int counterType );
 
 	// texture management
 	const byte *(*R_GetTextureOriginalBuffer)( unsigned int idx ); // not always available

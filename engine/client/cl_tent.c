@@ -401,8 +401,7 @@ int CL_TempEntAddEntity( cl_entity_t *pEntity )
 		VectorCopy( pEntity->origin, pEntity->latched.prevorigin );
 	
 		// add to list
-		if( CL_AddVisibleEntity( pEntity, ET_TEMPENTITY ))
-			ref.dllFuncs.R_IncrementSpeedsCounter( RS_ACTIVE_TENTS );
+		CL_AddVisibleEntity( pEntity, ET_TEMPENTITY );
 
 		return 1;
 	}
