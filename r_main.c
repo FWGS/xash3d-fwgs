@@ -1840,8 +1840,6 @@ void GAME_EXPORT R_NewMap (void)
 	R_ClearDecals(); // clear all level decals
 	R_StudioResetPlayerModels();
 
-	D_FlushCaches();
-
 	r_cnumsurfs = sw_maxsurfs->value;
 
 	if (r_cnumsurfs <= MINSURFACES)

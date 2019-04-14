@@ -1010,7 +1010,7 @@ void D_FlushCaches( void )
 	qboolean newmap = !world || !Q_strcmp( tr.mapname, WORLDMODEL->name );
 
 	// if newmap, surfaces already freed
-	if( !newmap && !tr.map_unload )
+	if( !tr.map_unload )
 	{
 		for(c = sc_base ; c ; c = c->next )
 		{
