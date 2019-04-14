@@ -716,7 +716,7 @@ void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 	r_temp.palette = NULL;
 
 	// load it in
-	tr.solidskyTexture = GL_LoadTextureInternal( "solid_sky", &r_temp, TF_NOMIPMAP );
+	tr.solidskyTexture = GL_LoadTextureInternal( REF_SOLIDSKY_TEXTURE, &r_temp, TF_NOMIPMAP );
 
 	for( i = 0; i < r_sky->width >> 1; i++ )
 	{
@@ -739,7 +739,7 @@ void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 	r_temp.flags = IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA;
 
 	// load it in
-	tr.alphaskyTexture = GL_LoadTextureInternal( "alpha_sky", &r_temp, TF_NOMIPMAP );
+	tr.alphaskyTexture = GL_LoadTextureInternal( REF_ALPHASKY_TEXTURE, &r_temp, TF_NOMIPMAP );
 
 	// clean up
 	gEngfuncs.FS_FreeImage( r_sky );

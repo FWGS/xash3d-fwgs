@@ -1803,8 +1803,8 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 		// release old sky layers first
 		if( !Host_IsDedicated() )
 		{
-			ref.dllFuncs.R_FreeSharedTexture( REF_ALPHASKY_TEXTURE );
-			ref.dllFuncs.R_FreeSharedTexture( REF_SOLIDSKY_TEXTURE );
+			ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ));
+			ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ));
 		}
 #endif
 	}
@@ -1832,7 +1832,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 #ifndef XASH_DEDICATED
 			if( !Host_IsDedicated() )
 			{
-				tx->gl_texturenum = ref.dllFuncs.R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
+				tx->gl_texturenum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
 				tx->width = tx->height = 16;
 			}
 #endif
@@ -1882,8 +1882,8 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 			{
 				ref.dllFuncs.R_InitSkyClouds( mt, tx, custom_palette ); // load quake sky
 
-				if( ref.dllFuncs.R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ) &&
-					ref.dllFuncs.R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ) )
+				if( R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ) &&
+					R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ) )
 					SetBits( world.flags, FWORLD_SKYSPHERE );
 				continue;
 			}
@@ -1928,7 +1928,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 			{
 				if( host.type != HOST_DEDICATED )
 					Con_DPrintf( S_ERROR "unable to find %s.mip\n", mt->name );
-				tx->gl_texturenum = ref.dllFuncs.R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
+				tx->gl_texturenum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
 			}
 
 			// check for luma texture
