@@ -25,18 +25,6 @@ static void R_ClearScreen( void )
 	pglClear( GL_COLOR_BUFFER_BIT );
 }
 
-static void R_IncrementSpeedsCounter( int type )
-{
-	switch( type )
-	{
-	case RS_ACTIVE_TENTS:
-		r_stats.c_active_tents_count++;
-		break;
-	default:
-		gEngfuncs.Host_Error( "R_IncrementSpeedsCounter: unsupported type %d\n", type );
-	}
-}
-
 static const byte *R_GetTextureOriginalBuffer( unsigned int idx )
 {
 	gl_texture_t *glt = R_GetTexture( idx );
@@ -370,7 +358,6 @@ ref_interface_t gReffuncs =
 
 	R_ShowTextures,
 	R_ShowTree,
-	R_IncrementSpeedsCounter,
 
 	R_GetTextureOriginalBuffer,
 	GL_LoadTextureFromBuffer,
