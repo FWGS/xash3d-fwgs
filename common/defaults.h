@@ -147,7 +147,7 @@ Default build-depended cvar and constant values
 #endif
 
 #ifndef DEFAULT_RENDERER
-	#define DEFAULT_RENDERER "ref_gl"
+	#define DEFAULT_RENDERER "gl"
 #endif
 
 #if TARGET_OS_IPHONE

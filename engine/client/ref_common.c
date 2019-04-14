@@ -481,21 +481,38 @@ void R_Shutdown( void )
 	ref.initialized = false;
 }
 
+void R_GetRendererName( char *dest, size_t size, const char *refdll )
+{
+	Q_snprintf( dest, size, "%sref_%s.%s",
+#ifdef OS_LIB_PREFIX
+		OS_LIB_PREFIX,
+#else
+		"",
+#endif
+		refdll, OS_LIB_EXT );
+}
+
 qboolean R_Init( void )
 {
-	char refdll[64];
+	string refopt, refdll;
 
-	refdll[0] = 0;
-
-	if( !Sys_GetParmFromCmdLine( "-ref", refdll ) )
+	if( !Sys_GetParmFromCmdLine( "-ref", refopt ) )
 	{
-		Q_snprintf( refdll, sizeof( refdll ), "%s%s.%s",
-#ifdef OS_LIB_PREFIX
-			OS_LIB_PREFIX,
-#else
-			"",
-#endif
-			DEFAULT_RENDERER, OS_LIB_EXT );
+		// compile-time defaults
+		R_GetRendererName( refdll, sizeof( refdll ), DEFAULT_RENDERER );
+		Con_Printf( "Loading default renderer: %s\n", refdll );
+	}
+	else if( !Q_strstr( refopt, va( ".%s", OS_LIB_EXT ) ) )
+	{
+		// shortened renderer name
+		R_GetRendererName( refdll, sizeof( refdll ), refopt );
+		Con_Printf( "Loading renderer by short name: %s\n", refdll );
+	}
+	else
+	{
+		// full path
+		Q_strcpy( refdll, refopt );
+		Con_Printf( "Loading renderer: %s\n", refdll );
 	}
 
 	gl_vsync = Cvar_Get( "gl_vsync", "0", FCVAR_ARCHIVE,  "enable vertical syncronization" );
