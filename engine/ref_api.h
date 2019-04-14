@@ -124,14 +124,13 @@ enum // r_speeds counters
 	RS_ACTIVE_TENTS = 0,
 };
 
-enum ref_shared_texture_e
-{
-	REF_DEFAULT_TEXTURE,
-	REF_GRAY_TEXTURE,
-	REF_WHITE_TEXTURE,
-	REF_SOLIDSKY_TEXTURE,
-	REF_ALPHASKY_TEXTURE,
-};
+// refdll must expose this default textures using this names
+#define REF_DEFAULT_TEXTURE  "*default"
+#define REF_GRAY_TEXTURE     "*gray"
+#define REF_WHITE_TEXTURE    "*white"
+#define REF_BLACK_TEXTURE    "*black"
+#define REF_SOLIDSKY_TEXTURE "solid_sky"
+#define REF_ALPHASKY_TEXTURE "alpha_sky"
 
 typedef enum connstate_e
 {
@@ -472,8 +471,6 @@ typedef struct ref_interface_s
 	// texture management
 	const byte *(*R_GetTextureOriginalBuffer)( unsigned int idx ); // not always available
 	int (*GL_LoadTextureFromBuffer)( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
-	int (*R_GetBuiltinTexture)( enum ref_shared_texture_e type );
-	void (*R_FreeSharedTexture)( enum ref_shared_texture_e type );
 	void (*GL_ProcessTexture)( int texnum, float gamma, int topColor, int bottomColor );
 	void (*R_SetupSky)( const char *skyname );
 
