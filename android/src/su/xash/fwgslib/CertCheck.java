@@ -18,7 +18,7 @@ import java.util.List;
 import java.security.MessageDigest;
 
 import in.celest.xash3d.XashConfig; // change pkgname if needed
-import in.celest.xash3d.hl.BuildConfig; // change pkgname if needed
+// import in.celest.xash3d.hl.BuildConfig; // change pkgname if needed
 
 public class CertCheck
 {
@@ -30,7 +30,7 @@ public class CertCheck
 
 	public static boolean dumbAntiPDALifeCheck( Context context )
 	{
-		if( !XashConfig.CHECK_SIGNATURES || BuildConfig.DEBUG )
+		if( !XashConfig.CHECK_SIGNATURES /* || BuildConfig.DEBUG */ )
 			return false; // disable checking for debug builds
 			
 		final String sig;
