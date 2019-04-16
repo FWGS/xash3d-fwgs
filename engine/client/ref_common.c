@@ -167,7 +167,9 @@ static entity_state_t *R_StudioGetPlayerState( int index )
 
 static int pfnGetStudioModelInterface( int version, struct r_studio_interface_s **ppinterface, struct engine_studio_api_s *pstudio )
 {
-	return clgame.dllFuncs.pfnGetStudioModelInterface( version, ppinterface, pstudio );
+	return clgame.dllFuncs.pfnGetStudioModelInterface ?
+		clgame.dllFuncs.pfnGetStudioModelInterface( version, ppinterface, pstudio ) :
+		0;
 }
 
 static byte *pfnImage_GetPool( void )
