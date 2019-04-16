@@ -3449,13 +3449,12 @@ void R_MarkLeaves( void )
 GL_CreateSurfaceLightmap
 ========================
 */
-void GL_CreateSurfaceLightmap( msurface_t *surf )
+void GL_CreateSurfaceLightmap( msurface_t *surf, model_t *loadmodel )
 {
 	int		smax, tmax;
 	int		sample_size;
 	mextrasurf_t	*info = surf->info;
 	byte		*base;
-	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	if( !loadmodel->lightdata )
 		return;
@@ -3527,10 +3526,8 @@ void GL_RebuildLightmaps( void )
 		if( m->name[0] == '*' || m->type != mod_brush )
 			continue;
 
-		gEngfuncs.Mod_SetCurrentLoadingModel( m );
-
 		for( j = 0; j < m->numsurfaces; j++ )
-			GL_CreateSurfaceLightmap( m->surfaces + j );
+			GL_CreateSurfaceLightmap( m->surfaces + j, m );
 	}
 	LM_UploadBlock( false );
 
@@ -3598,9 +3595,8 @@ void GL_BuildLightmaps( void )
 			// clearing all decal chains
 			m->surfaces[j].pdecals = NULL;
 			m->surfaces[j].visframe = 0;
-			gEngfuncs.Mod_SetCurrentLoadingModel( m );
 
-			GL_CreateSurfaceLightmap( m->surfaces + j );
+			GL_CreateSurfaceLightmap( m->surfaces + j, m );
 
 			if( m->surfaces[j].flags & SURF_DRAWTURB )
 				continue;
