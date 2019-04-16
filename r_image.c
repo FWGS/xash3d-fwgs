@@ -1281,7 +1281,7 @@ static void GL_CreateInternalTextures( void )
 		}
 	}
 
-	tr.defaultTexture = GL_LoadTextureInternal( "*default", pic, TF_COLORMAP );
+	tr.defaultTexture = GL_LoadTextureInternal( REF_DEFAULT_TEXTURE, pic, TF_COLORMAP );
 
 	// particle texture from quake1
 	pic = GL_FakeImage( 16, 16, 1, IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA );
@@ -1305,19 +1305,19 @@ static void GL_CreateInternalTextures( void )
 	pic = GL_FakeImage( 4, 4, 1, IMAGE_HAS_COLOR );
 	for( x = 0; x < 16; x++ )
 		((uint *)pic->buffer)[x] = 0xFFFFFFFF;
-	tr.whiteTexture = GL_LoadTextureInternal( "*white", pic, TF_COLORMAP );
+	tr.whiteTexture = GL_LoadTextureInternal( REF_WHITE_TEXTURE, pic, TF_COLORMAP );
 
 	// gray texture
 	pic = GL_FakeImage( 4, 4, 1, IMAGE_HAS_COLOR );
 	for( x = 0; x < 16; x++ )
 		((uint *)pic->buffer)[x] = 0xFF7F7F7F;
-	tr.grayTexture = GL_LoadTextureInternal( "*gray", pic, TF_COLORMAP );
+	tr.grayTexture = GL_LoadTextureInternal( REF_GRAY_TEXTURE, pic, TF_COLORMAP );
 
 	// black texture
 	pic = GL_FakeImage( 4, 4, 1, IMAGE_HAS_COLOR );
 	for( x = 0; x < 16; x++ )
 		((uint *)pic->buffer)[x] = 0xFF000000;
-	tr.blackTexture = GL_LoadTextureInternal( "*black", pic, TF_COLORMAP );
+	tr.blackTexture = GL_LoadTextureInternal( REF_BLACK_TEXTURE, pic, TF_COLORMAP );
 
 	// cinematic dummy
 	pic = GL_FakeImage( 640, 100, 1, IMAGE_HAS_COLOR );

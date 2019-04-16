@@ -1862,7 +1862,7 @@ void R_StudioSetRenderamt( int iRenderamt )
 	if( !RI.currententity ) return;
 
 	RI.currententity->curstate.renderamt = iRenderamt;
-	tr.blend = gEngfuncs.CL_FxBlend( RI.currententity ) / 255.0f;
+	tr.blend = CL_FxBlend( RI.currententity ) / 255.0f;
 }
 
 /*
@@ -3466,7 +3466,7 @@ void R_DrawViewModel( void )
 	if( !RP_NORMALPASS() || ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
 
-	tr.blend = gEngfuncs.CL_FxBlend( view ) / 255.0f;
+	tr.blend = CL_FxBlend( view ) / 255.0f;
 	if( !R_ModelOpaque( view->curstate.rendermode ) && tr.blend <= 0.0f )
 		return; // invisible ?
 

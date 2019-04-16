@@ -59,45 +59,6 @@ static const byte * GAME_EXPORT R_GetTextureOriginalBuffer( unsigned int idx )
 	return NULL;
 }
 
-static int GAME_EXPORT R_GetBuiltinTexture( enum ref_shared_texture_e type )
-{
-	switch( type )
-	{
-	case REF_DEFAULT_TEXTURE: return tr.defaultTexture;
-	case REF_GRAY_TEXTURE: return tr.grayTexture;
-	case REF_WHITE_TEXTURE: return tr.whiteTexture;
-	case REF_SOLIDSKY_TEXTURE: return tr.solidskyTexture;
-	case REF_ALPHASKY_TEXTURE: return tr.alphaskyTexture;
-	default: gEngfuncs.Host_Error( "R_GetBuiltinTexture: unsupported type %d\n", type );
-	}
-
-	return 0;
-}
-
-static void GAME_EXPORT R_FreeSharedTexture( enum ref_shared_texture_e type )
-{
-	int num = 0;
-
-	switch( type )
-	{
-	case REF_SOLIDSKY_TEXTURE:
-		num = tr.solidskyTexture;
-		tr.solidskyTexture = 0;
-		break;
-	case REF_ALPHASKY_TEXTURE:
-		num = tr.alphaskyTexture;
-		tr.alphaskyTexture = 0;
-		break;
-	case REF_DEFAULT_TEXTURE:
-	case REF_GRAY_TEXTURE:
-	case REF_WHITE_TEXTURE:
-		gEngfuncs.Host_Error( "R_FreeSharedTexture: invalid type %d\n", type );
-	default: gEngfuncs.Host_Error( "R_FreeSharedTexture: unsupported type %d\n", type );
-	}
-
-	GL_FreeTexture( num );
-}
-
 /*
 =============
 CL_FillRGBA
@@ -161,7 +122,8 @@ qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create, const
 	return loaded;
 }
 
-static int GAME_EXPORT GL_RenderGetParm( int parm, int arg )
+
+static int GL_RefGetParm( int parm, int arg )
 {
 	image_t *glt;
 
@@ -179,6 +141,12 @@ static int GAME_EXPORT GL_RenderGetParm( int parm, int arg )
 	case PARM_TEX_SRC_HEIGHT:
 		glt = R_GetTexture( arg );
 		return glt->srcHeight;
+	case PARM_TEX_GLFORMAT:
+		glt = R_GetTexture( arg );
+		return 0; //glt->format;
+	case PARM_TEX_ENCODE:
+		glt = R_GetTexture( arg );
+		return 0; //glt->encode;
 	case PARM_TEX_MIPCOUNT:
 		glt = R_GetTexture( arg );
 		return glt->numMips;
@@ -189,7 +157,7 @@ static int GAME_EXPORT GL_RenderGetParm( int parm, int arg )
 		Assert( arg >= 0 && arg < 6 );
 		return tr.skyboxTextures[arg];
 	case PARM_TEX_SKYTEXNUM:
-		return 0;
+		return 0; //tr.skytexturenum;
 	case PARM_TEX_LIGHTMAP:
 		arg = bound( 0, arg, MAX_LIGHTMAPS - 1 );
 		return tr.lightmapTextures[arg];
@@ -201,20 +169,34 @@ static int GAME_EXPORT GL_RenderGetParm( int parm, int arg )
 		return gpGlobals->width;
 	case PARM_SCREEN_HEIGHT:
 		return gpGlobals->height;
+	case PARM_TEX_TARGET:
+		glt = R_GetTexture( arg );
+		return 0; //glt->target;
+	case PARM_TEX_TEXNUM:
+		glt = R_GetTexture( arg );
+		return 0; //glt->texnum;
 	case PARM_TEX_FLAGS:
 		glt = R_GetTexture( arg );
 		return glt->flags;
+	case PARM_ACTIVE_TMU:
+		return  0; //glState.activeTMU;
 	case PARM_LIGHTSTYLEVALUE:
 		arg = bound( 0, arg, MAX_LIGHTSTYLES - 1 );
 		return tr.lightstylevalue[arg];
 	case PARM_MAX_IMAGE_UNITS:
-		return 1;
+		return 0; //GL_MaxTextureUnits();
 	case PARM_REBUILD_GAMMA:
-		return 0;//glConfig.softwareGammaUpdate;
+		return 0; //glConfig.softwareGammaUpdate;
 	case PARM_SURF_SAMPLESIZE:
 		if( arg >= 0 && arg < WORLDMODEL->numsurfaces )
 			return gEngfuncs.Mod_SampleSizeForFace( &WORLDMODEL->surfaces[arg] );
 		return LM_SAMPLE_SIZE;
+	case PARM_GL_CONTEXT_TYPE:
+		return 0; //glConfig.context;
+	case PARM_GLES_WRAPPER:
+		return 0; //glConfig.wrapper;
+	case PARM_STENCIL_ACTIVE:
+		return 0; //glState.stencilEnabled;
 	case PARM_SKY_SPHERE:
 		return ENGINE_GET_PARM_( parm, arg ) && !tr.fCustomSkybox;
 	default:
@@ -495,16 +477,11 @@ ref_interface_t gReffuncs =
 	CL_AddCustomBeam,
 	R_ProcessEntData,
 
-	IsNormalPass,
-
 	R_ShowTextures,
 	R_ShowTree,
-	R_IncrementSpeedsCounter,
 
 	R_GetTextureOriginalBuffer,
 	GL_LoadTextureFromBuffer,
-	R_GetBuiltinTexture,
-	R_FreeSharedTexture,
 	GL_ProcessTexture,
 	R_SetupSky,
 
@@ -545,7 +522,7 @@ ref_interface_t gReffuncs =
 	CL_DrawBeams,
 	R_BeamCull,
 
-	GL_RenderGetParm,
+	GL_RefGetParm,
 	R_GetDetailScaleForTexture,
 	R_GetExtraParmsForTexture,
 	R_GetFrameTime,
@@ -585,7 +562,6 @@ ref_interface_t gReffuncs =
 	R_StudioGetTexture,
 
 	R_RenderFrame,
-	GL_BuildLightmaps,
 	Mod_SetOrthoBounds,
 	R_SpeedsMessage,
 	Mod_GetCurrentVis,

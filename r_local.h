@@ -1279,6 +1279,7 @@ void R_RenderTriangle( finalvert_t *fv1 , finalvert_t *fv2, finalvert_t *fv3 );
 void R_SetupFinalVert( finalvert_t *fv, float x, float y, float z, int light, int s, int t );
 void RotatedBBox (vec3_t mins, vec3_t maxs, vec3_t angles, vec3_t tmins, vec3_t tmaxs);
 int R_BmodelCheckBBox (float *minmaxs);
+int CL_FxBlend( cl_entity_t *e );
 
 
 void R_SetUpWorldTransform (void);
