@@ -1198,6 +1198,9 @@ void R_DrawSurfaceDecals()
 			w = w >> r_drawsurf.surfmip;
 			h = h >> r_drawsurf.surfmip;
 
+			if( w < 1 || h < 1 )
+				continue;
+
 			if( x < 0 )
 			{
 				s1 += (-x)*(s2-s1) / w;
