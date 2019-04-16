@@ -1006,8 +1006,6 @@ D_FlushCaches
 void D_FlushCaches( void )
 {
 	surfcache_t     *c;
-	model_t *world = WORLDMODEL;
-	qboolean newmap = !world || !Q_strcmp( tr.mapname, WORLDMODEL->name );
 
 	// if newmap, surfaces already freed
 	if( !tr.map_unload )
@@ -1018,8 +1016,6 @@ void D_FlushCaches( void )
 				*c->owner = NULL;
 		}
 	}
-	else
-		Q_strncpy( tr.mapname, WORLDMODEL->name, MAX_STRING );
 	
 	sc_rover = sc_base;
 	sc_base->next = NULL;

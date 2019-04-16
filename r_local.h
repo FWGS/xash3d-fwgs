@@ -293,7 +293,6 @@ typedef struct
 	vec3_t		modelorg;		// relative to viewpoint
 
 	qboolean fCustomSkybox;
-	char	mapname[MAX_STRING];
 	int sample_size;
 	uint sample_bits;
 	qboolean map_unload;

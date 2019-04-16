@@ -186,7 +186,7 @@ static int GL_RefGetParm( int parm, int arg )
 	case PARM_MAX_IMAGE_UNITS:
 		return 0; //GL_MaxTextureUnits();
 	case PARM_REBUILD_GAMMA:
-		return 0; //glConfig.softwareGammaUpdate;
+		return 0;
 	case PARM_SURF_SAMPLESIZE:
 		if( arg >= 0 && arg < WORLDMODEL->numsurfaces )
 			return gEngfuncs.Mod_SampleSizeForFace( &WORLDMODEL->surfaces[arg] );
