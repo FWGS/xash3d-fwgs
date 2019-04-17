@@ -340,10 +340,14 @@ void R_SetupFrameQ (void)
 //		r_dowarp = true;
 //	else
 
-	vrect.x = 0;//r_newrefdef.x;
+	/*vrect.x = 0;//r_newrefdef.x;
 	vrect.y = 0;//r_newrefdef.y;
 	vrect.width = gpGlobals->width;
-	vrect.height = gpGlobals->height;
+	vrect.height = gpGlobals->height;*/
+	vrect.x = RI.viewport[0];
+	vrect.y = RI.viewport[1];
+	vrect.width = RI.viewport[2];
+	vrect.height = RI.viewport[3];
 
 	d_viewbuffer = (void *)vid.buffer;
 	r_screenwidth = vid.rowbytes;
