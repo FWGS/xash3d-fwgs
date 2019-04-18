@@ -25,23 +25,6 @@ static void R_ClearScreen( void )
 	pglClear( GL_COLOR_BUFFER_BIT );
 }
 
-static qboolean IsNormalPass( void )
-{
-	return RP_NORMALPASS();
-}
-
-static void R_IncrementSpeedsCounter( int type )
-{
-	switch( type )
-	{
-	case RS_ACTIVE_TENTS:
-		r_stats.c_active_tents_count++;
-		break;
-	default:
-		gEngfuncs.Host_Error( "R_IncrementSpeedsCounter: unsupported type %d\n", type );
-	}
-}
-
 static const byte *R_GetTextureOriginalBuffer( unsigned int idx )
 {
 	gl_texture_t *glt = R_GetTexture( idx );
@@ -50,45 +33,6 @@ static const byte *R_GetTextureOriginalBuffer( unsigned int idx )
 		return NULL;
 
 	return glt->original->buffer;
-}
-
-static int R_GetBuiltinTexture( enum ref_shared_texture_e type )
-{
-	switch( type )
-	{
-	case REF_DEFAULT_TEXTURE: return tr.defaultTexture;
-	case REF_GRAY_TEXTURE: return tr.grayTexture;
-	case REF_WHITE_TEXTURE: return tr.whiteTexture;
-	case REF_SOLIDSKY_TEXTURE: return tr.solidskyTexture;
-	case REF_ALPHASKY_TEXTURE: return tr.alphaskyTexture;
-	default: gEngfuncs.Host_Error( "R_GetBuiltinTexture: unsupported type %d\n", type );
-	}
-
-	return 0;
-}
-
-static void R_FreeSharedTexture( enum ref_shared_texture_e type )
-{
-	int num = 0;
-
-	switch( type )
-	{
-	case REF_SOLIDSKY_TEXTURE:
-		num = tr.solidskyTexture;
-		tr.solidskyTexture = 0;
-		break;
-	case REF_ALPHASKY_TEXTURE:
-		num = tr.alphaskyTexture;
-		tr.alphaskyTexture = 0;
-		break;
-	case REF_DEFAULT_TEXTURE:
-	case REF_GRAY_TEXTURE:
-	case REF_WHITE_TEXTURE:
-		gEngfuncs.Host_Error( "R_FreeSharedTexture: invalid type %d\n", type );
-	default: gEngfuncs.Host_Error( "R_FreeSharedTexture: unsupported type %d\n", type );
-	}
-
-	GL_FreeTexture( num );
 }
 
 /*
@@ -412,16 +356,11 @@ ref_interface_t gReffuncs =
 	CL_AddCustomBeam,
 	R_ProcessEntData,
 
-	IsNormalPass,
-
 	R_ShowTextures,
 	R_ShowTree,
-	R_IncrementSpeedsCounter,
 
 	R_GetTextureOriginalBuffer,
 	GL_LoadTextureFromBuffer,
-	R_GetBuiltinTexture,
-	R_FreeSharedTexture,
 	GL_ProcessTexture,
 	R_SetupSky,
 
@@ -502,7 +441,6 @@ ref_interface_t gReffuncs =
 	R_StudioGetTexture,
 
 	R_RenderFrame,
-	GL_BuildLightmaps,
 	Mod_SetOrthoBounds,
 	R_SpeedsMessage,
 	Mod_GetCurrentVis,

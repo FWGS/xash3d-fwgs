@@ -58,52 +58,42 @@ def options(opt):
 
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
 		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compability!)')
+	
+	opt.load('subproject')
 
-	grp.add_option('-S', '--skip-subprojects', action='store', dest = 'SKIP_SUBDIRS', default=None,
-		help = 'don\'t recurse into specified subprojects. Current subdirs: ' + str(subdirs()))
-
-	for i in SUBDIRS:
-		if not os.path.isfile(os.path.join(i.name, 'wscript')):
-			# HACKHACK: this way we get warning message right in the help
-			# so this just becomes more noticeable
-			opt.add_option_group('Cannot find wscript in ' + i.name + '. You probably missed submodule update')
-		else: opt.recurse(i.name)
+	opt.add_subproject(subdirs())
 
 	opt.load('xcompile compiler_cxx compiler_c sdl2')
 	if sys.platform == 'win32':
-		opt.load('msvc msvs')
+		opt.load('msvc msdev msvs')
+	opt.load('reconfigure')
 
-def set_ignored_subdirs(subdirs):
-	for i in SUBDIRS:
-		if i.ignore:
-			continue
-
-		if i.name in subdirs:
-			i.ignore = True
 
 def configure(conf):
+	conf.load('reconfigure')
 	conf.start_msg('Build type')
 	if conf.options.BUILD_TYPE == None:
 		conf.end_msg('not set', color='RED')
 		conf.fatal('Please set a build type, for example "-T release"')
-	elif not conf.options.BUILD_TYPE in ['release', 'debug', 'none']:
+	elif not conf.options.BUILD_TYPE in ['fast', 'release', 'debug', 'nooptimize', 'sanitize', 'none']:
 		conf.end_msg(conf.options.BUILD_TYPE, color='RED')
 		conf.fatal('Invalid build type. Valid are "debug", "release" or "none"')
 	conf.end_msg(conf.options.BUILD_TYPE)
 
-	# skip some subdirectories, if requested
-	if conf.options.SKIP_SUBDIRS:
-		skip_subdirs = conf.options.SKIP_SUBDIRS.split(',')
-		set_ignored_subdirs(skip_subdirs)
+	# -march=native should not be used
+	if conf.options.BUILD_TYPE == 'fast':
+	    Logs.warn('WARNING: \'fast\' build type should not be used in release builds')
+
+	conf.load('subproject')
 
 	# Force XP compability, all build targets should add
 	# subsystem=bld.env.MSVC_SUBSYSTEM
 	# TODO: wrapper around bld.stlib, bld.shlib and so on?
 	conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
 	conf.env.MSVC_TARGETS = ['x86'] # explicitly request x86 target for MSVC
-	conf.load('xcompile compiler_c compiler_cxx gitversion clang_compilation_database')
 	if sys.platform == 'win32':
-		conf.load('msvc msvs')
+		conf.load('msvc msdev msvs')
+	conf.load('xcompile compiler_c compiler_cxx gitversion clang_compilation_database')
 
 	# print(conf.options.ALLOW64)
 
@@ -120,21 +110,39 @@ def configure(conf):
 		'common': {
 			'msvc':    ['/DEBUG'], # always create PDB, doesn't affect result binaries
 			'gcc': ['-Wl,--no-undefined']
+		},
+		'sanitize': {
+			'gcc':     ['-fsanitize=undefined', '-fsanitize=address'],
 		}
 	}
 
 	compiler_c_cxx_flags = {
 		'common': {
-			'msvc':    ['/D_USING_V110_SDK71_'],
-			'default': ['-g', '-Werror=implicit-function-declaration']
+			'msvc':    ['/D_USING_V110_SDK71_', '/Zi', '/FS'],
+			'clang':   ['-g', '-gdwarf-2'],
+			'gcc':     ['-g', '-Werror=implicit-function-declaration', '-fdiagnostics-color=always']
+		},
+		'fast': {
+			'msvc':    ['/O2', '/Oy'], #todo: check /GL /LTCG
+			'gcc':     ['-Ofast', '-march=native', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer'],
+			'default': ['-O3']
 		},
 		'release': {
-			'msvc':    ['/Zi', '/O2'],
+			'msvc':    ['/O2'],
 			'default': ['-O3']
 		},
 		'debug': {
-			'msvc':    ['/Z7'],
-			'clang':   ['-O0', '-gdwarf-2'],
+			'msvc':    ['/O1'],
+			'gcc':     ['-Og'],
+			'default': ['-O1']
+		},
+		'sanitize': {
+			'msvc':    ['/Od', '/RTC1'],
+			'gcc':     ['-Og', '-fsanitize=undefined', '-fsanitize=address'],
+			'default': ['-O1']
+		},
+		'nooptimize': {
+			'msvc':    ['/Od'],
 			'default': ['-O0']
 		}
 	}
@@ -186,19 +194,9 @@ def configure(conf):
 		if conf.env.DEDICATED and i.dedicated:
 			continue
 
-		if i.ignore:
-			continue
-
-		conf.setenv(i.name, conf.env) # derive new env from global one
-		conf.env.ENVNAME = i.name
-		conf.msg(msg='--> ' + i.name, result='in progress', color='BLUE')
-		# configure in standalone env
-		conf.recurse(i.name)
-		conf.msg(msg='<-- ' + i.name, result='done', color='BLUE')
-		conf.setenv('')
+		conf.add_subproject(i.name)
 
 def build(bld):
-	bld.load_envs()
 	for i in SUBDIRS:
 		if bld.env.SINGLE_BINARY and i.singlebin:
 			continue
@@ -206,8 +204,4 @@ def build(bld):
 		if bld.env.DEDICATED and i.dedicated:
 			continue
 
-		if i.ignore:
-			continue
-
-		bld.env = bld.all_envs[i.name]
-		bld.recurse(i.name)
+		bld.add_subproject(i.name)

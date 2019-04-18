@@ -192,7 +192,6 @@ static dllfunc_t opengl_110funcs[] =
 	{ NULL					, NULL }
 };
 
-#ifndef XASH_GL_STATIC
 static dllfunc_t debugoutputfuncs[] =
 {
 	{ GL_CALL( glDebugMessageControlARB ) },
@@ -201,7 +200,6 @@ static dllfunc_t debugoutputfuncs[] =
 	{ GL_CALL( glGetDebugMessageLogARB ) },
 	{ NULL					, NULL }
 };
-#endif
 
 static dllfunc_t multitexturefuncs[] =
 {
@@ -501,6 +499,8 @@ void R_RenderInfo_f( void )
 #ifdef XASH_GLES
 void GL_InitExtensionsGLES( void )
 {
+	int extid;
+
 	// intialize wrapper type
 #ifdef XASH_NANOGL
 	glConfig.context = CONTEXT_TYPE_GLES_1_X;
@@ -512,25 +512,58 @@ void GL_InitExtensionsGLES( void )
 
 	glConfig.hardware_type = GLHW_GENERIC;
 
-	// initalize until base opengl functions loaded
-	GL_SetExtension( GL_ARB_MULTITEXTURE, true );
-	pglGetIntegerv( GL_MAX_TEXTURE_UNITS_ARB, &glConfig.max_texture_units );
-	glConfig.max_texture_coords = glConfig.max_texture_units = 4;
+	// skip GL_OPENGL_110
+	for( extid = 1; extid < GL_EXTCOUNT; extid++ )
+	{
+		switch( extid )
+		{
+		case GL_ARB_MULTITEXTURE:
+			GL_SetExtension( extid, true ); // required to be supported by wrapper
+			break;
+		case GL_TEXTURE_CUBEMAP_EXT:
+			GL_CheckExtension( "GL_OES_texture_cube_map", NULL, "gl_texture_cubemap", extid );
+			if( GL_Support( extid ))
+				pglGetIntegerv( GL_MAX_CUBE_MAP_TEXTURE_SIZE_ARB, &glConfig.max_cubemap_size );
+			break;
+		case GL_ANISOTROPY_EXT:
+			glConfig.max_texture_anisotropy = 0.0f;
+			GL_CheckExtension( "GL_EXT_texture_filter_anisotropic", NULL, "gl_ext_anisotropic_filter", extid );
+			if( GL_Support( extid ))
+				pglGetFloatv( GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &glConfig.max_texture_anisotropy );
+			break;
+		case GL_TEXTURE_LOD_BIAS:
+			GL_CheckExtension( "GL_EXT_texture_lod_bias", NULL, "gl_texture_mipmap_biasing", extid );
+			if( GL_Support( extid ))
+				pglGetFloatv( GL_MAX_TEXTURE_LOD_BIAS_EXT, &glConfig.max_texture_lod_bias );
+			break;
+		// case GL_TEXTURE_COMPRESSION_EXT: NOPE
+		// case GL_SHADER_GLSL100_EXT: NOPE
+		// case GL_TEXTURE_2D_RECT_EXT: NOPE
+		// case GL_TEXTURE_ARRAY_EXT: NOPE
+		// case GL_TEXTURE_3D_EXT: NOPE
+		// case GL_CLAMPTOEDGE_EXT: NOPE
+		case GL_ARB_TEXTURE_NPOT_EXT:
+			GL_CheckExtension( "GL_OES_texture_npot", NULL, "gl_texture_npot", extid );
+			break;
+		// case GL_CLAMP_TEXBORDER_EXT: NOPE
+		// case GL_ARB_TEXTURE_FLOAT_EXT: NOPE
+		// case GL_ARB_DEPTH_FLOAT_EXT: NOPE
+		// case GL_ARB_SEAMLESS_CUBEMAP: NOPE
+		// case GL_EXT_GPU_SHADER4: NOPE
+		// case GL_DEPTH_TEXTURE: NOPE
+		case GL_DEBUG_OUTPUT:
+			if( glw_state.extended )
+				GL_CheckExtension( "GL_KHR_debug", NULL, NULL, extid );
+			break;
+		// case GL_ARB_VERTEX_BUFFER_OBJECT_EXT: NOPE
+		default:
+			GL_SetExtension( extid, false );
+		}
+	}
 
-	GL_SetExtension( GL_TEXTURE_3D_EXT, false );
-	GL_SetExtension( GL_ARB_VERTEX_BUFFER_OBJECT_EXT, true ); // gles specs
-
-	GL_SetExtension( GL_ARB_SEAMLESS_CUBEMAP, false );
-
-	GL_CheckExtension( "GL_OES_texture_npot", NULL, "gl_texture_npot", GL_ARB_TEXTURE_NPOT_EXT );
-
-	GL_SetExtension( GL_TEXTURE_COMPRESSION_EXT, false );
-	GL_SetExtension( GL_CLAMPTOEDGE_EXT, true ); // by gles1 specs
-	GL_SetExtension( GL_ANISOTROPY_EXT, false );
-	GL_SetExtension( GL_CLAMP_TEXBORDER_EXT, false );
-	GL_SetExtension( GL_SHADER_GLSL100_EXT, false );
-	GL_SetExtension( GL_ARB_DEPTH_FLOAT_EXT, false );
-	GL_CheckExtension( "GL_OES_depth_texture", NULL, "gl_depthtexture", GL_DEPTH_TEXTURE );
+	glConfig.max_texture_units = glConfig.max_texture_coords = glConfig.max_teximage_units = 1;
+	pglGetIntegerv( GL_MAX_TEXTURE_SIZE, &glConfig.max_2d_texture_size );
+	if( glConfig.max_2d_texture_size <= 0 ) glConfig.max_2d_texture_size = 256;
 }
 #else
 void GL_InitExtensionsBigGL()
@@ -630,10 +663,8 @@ void GL_InitExtensionsBigGL()
 	GL_CheckExtension( "GL_ARB_texture_rectangle", NULL, "gl_texture_rectangle", GL_TEXTURE_2D_RECT_EXT );
 
 	// this won't work without extended context
-#ifndef XASH_GL_STATIC
 	if( glw_state.extended )
 		GL_CheckExtension( "GL_ARB_debug_output", debugoutputfuncs, "gl_debug_output", GL_DEBUG_OUTPUT );
-#endif
 
 	if( GL_Support( GL_SHADER_GLSL100_EXT ))
 	{
@@ -657,27 +688,6 @@ void GL_InitExtensionsBigGL()
 
 	pglGetIntegerv( GL_MAX_TEXTURE_SIZE, &glConfig.max_2d_texture_size );
 	if( glConfig.max_2d_texture_size <= 0 ) glConfig.max_2d_texture_size = 256;
-
-	if( GL_Support( GL_TEXTURE_2D_RECT_EXT ))
-		pglGetIntegerv( GL_MAX_RECTANGLE_TEXTURE_SIZE_EXT, &glConfig.max_2d_rectangle_size );
-
-#ifndef XASH_GL_STATIC
-	// enable gldebug if allowed
-	if( GL_Support( GL_DEBUG_OUTPUT ))
-	{
-		if( gpGlobals->developer )
-		{
-			gEngfuncs.Con_Reportf( "Installing GL_DebugOutput...\n");
-			pglDebugMessageCallbackARB( GL_DebugOutput, NULL );
-
-			// force everything to happen in the main thread instead of in a separate driver thread
-			pglEnable( GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB );
-		}
-
-		// enable all the low priority messages
-		pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
-	}
-#endif
 }
 #endif
 
@@ -698,6 +708,22 @@ void GL_InitExtensions( void )
 #else
 	GL_InitExtensionsBigGL();
 #endif
+
+	// enable gldebug if allowed
+	if( GL_Support( GL_DEBUG_OUTPUT ))
+	{
+		if( gpGlobals->developer )
+		{
+			gEngfuncs.Con_Reportf( "Installing GL_DebugOutput...\n");
+			pglDebugMessageCallbackARB( GL_DebugOutput, NULL );
+
+			// force everything to happen in the main thread instead of in a separate driver thread
+			pglEnable( GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB );
+		}
+
+		// enable all the low priority messages
+		pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
+	}
 
 	if( GL_Support( GL_TEXTURE_2D_RECT_EXT ))
 		pglGetIntegerv( GL_MAX_RECTANGLE_TEXTURE_SIZE_EXT, &glConfig.max_2d_rectangle_size );
@@ -957,7 +983,7 @@ void GL_CheckForErrors_( const char *filename, const int fileline )
 	if(( err = pglGetError( )) == GL_NO_ERROR )
 		return;
 
-	gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s (called at %s:%i)\n", GL_ErrorString( err ), filename, fileline );
+	// gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s (called at %s:%i)\n", GL_ErrorString( err ), filename, fileline );
 }
 
 void GL_SetupAttributes( int safegl )
@@ -976,15 +1002,6 @@ void GL_SetupAttributes( int safegl )
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MINOR_VERSION, 0 );
 #endif
 #else // GL1.x
-#ifndef XASH_GL_STATIC
-	if( gEngfuncs.Sys_CheckParm( "-gldebug" ) )
-	{
-		gEngfuncs.Con_Reportf( "Creating an extended GL context for debug...\n" );
-		SetBits( context_flags, FCONTEXT_DEBUG_ARB );
-		gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_FLAGS, REF_GL_CONTEXT_DEBUG_FLAG );
-		glw_state.extended = true;
-	}
-#endif // XASH_GL_STATIC
 	if( gEngfuncs.Sys_CheckParm( "-glcore" ))
 	{
 		SetBits( context_flags, FCONTEXT_CORE_PROFILE );
@@ -996,6 +1013,14 @@ void GL_SetupAttributes( int safegl )
 		gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_COMPATIBILITY );
 	}
 #endif // XASH_GLES
+
+	if( gEngfuncs.Sys_CheckParm( "-gldebug" ) )
+	{
+		gEngfuncs.Con_Reportf( "Creating an extended GL context for debug...\n" );
+		SetBits( context_flags, FCONTEXT_DEBUG_ARB );
+		gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_FLAGS, REF_GL_CONTEXT_DEBUG_FLAG );
+		glw_state.extended = true;
+	}
 
 	if( safegl > SAFE_DONTCARE )
 	{

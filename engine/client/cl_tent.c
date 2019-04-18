@@ -196,125 +196,6 @@ void CL_AddClientResources( void )
 #endif
 }
 
-/*
-===============
-CL_FxBlend
-===============
-*/
-int CL_FxBlend( cl_entity_t *e )
-{
-	int	blend = 0;
-	float	offset, dist;
-	vec3_t	tmp;
-
-	offset = ((int)e->index ) * 363.0f; // Use ent index to de-sync these fx
-
-	switch( e->curstate.renderfx ) 
-	{
-	case kRenderFxPulseSlowWide:
-		blend = e->curstate.renderamt + 0x40 * sin( cl.time * 2 + offset );	
-		break;
-	case kRenderFxPulseFastWide:
-		blend = e->curstate.renderamt + 0x40 * sin( cl.time * 8 + offset );
-		break;
-	case kRenderFxPulseSlow:
-		blend = e->curstate.renderamt + 0x10 * sin( cl.time * 2 + offset );
-		break;
-	case kRenderFxPulseFast:
-		blend = e->curstate.renderamt + 0x10 * sin( cl.time * 8 + offset );
-		break;
-	case kRenderFxFadeSlow:			
-		if( ref.dllFuncs.IsNormalPass( ))
-		{
-			if( e->curstate.renderamt > 0 ) 
-				e->curstate.renderamt -= 1;
-			else e->curstate.renderamt = 0;
-		}
-		blend = e->curstate.renderamt;
-		break;
-	case kRenderFxFadeFast:
-		if( ref.dllFuncs.IsNormalPass( ))
-		{
-			if( e->curstate.renderamt > 3 ) 
-				e->curstate.renderamt -= 4;
-			else e->curstate.renderamt = 0;
-		}
-		blend = e->curstate.renderamt;
-		break;
-	case kRenderFxSolidSlow:
-		if( ref.dllFuncs.IsNormalPass( ))
-		{
-			if( e->curstate.renderamt < 255 ) 
-				e->curstate.renderamt += 1;
-			else e->curstate.renderamt = 255;
-		}
-		blend = e->curstate.renderamt;
-		break;
-	case kRenderFxSolidFast:
-		if( ref.dllFuncs.IsNormalPass( ))
-		{
-			if( e->curstate.renderamt < 252 ) 
-				e->curstate.renderamt += 4;
-			else e->curstate.renderamt = 255;
-		}
-		blend = e->curstate.renderamt;
-		break;
-	case kRenderFxStrobeSlow:
-		blend = 20 * sin( cl.time * 4 + offset );
-		if( blend < 0 ) blend = 0;
-		else blend = e->curstate.renderamt;
-		break;
-	case kRenderFxStrobeFast:
-		blend = 20 * sin( cl.time * 16 + offset );
-		if( blend < 0 ) blend = 0;
-		else blend = e->curstate.renderamt;
-		break;
-	case kRenderFxStrobeFaster:
-		blend = 20 * sin( cl.time * 36 + offset );
-		if( blend < 0 ) blend = 0;
-		else blend = e->curstate.renderamt;
-		break;
-	case kRenderFxFlickerSlow:
-		blend = 20 * (sin( cl.time * 2 ) + sin( cl.time * 17 + offset ));
-		if( blend < 0 ) blend = 0;
-		else blend = e->curstate.renderamt;
-		break;
-	case kRenderFxFlickerFast:
-		blend = 20 * (sin( cl.time * 16 ) + sin( cl.time * 23 + offset ));
-		if( blend < 0 ) blend = 0;
-		else blend = e->curstate.renderamt;
-		break;
-	case kRenderFxHologram:
-	case kRenderFxDistort:
-		VectorCopy( e->origin, tmp );
-		VectorSubtract( tmp, refState.vieworg, tmp );
-		dist = DotProduct( tmp, refState.vforward );
-			
-		// turn off distance fade
-		if( e->curstate.renderfx == kRenderFxDistort )
-			dist = 1;
-
-		if( dist <= 0 )
-		{
-			blend = 0;
-		}
-		else 
-		{
-			e->curstate.renderamt = 180;
-			if( dist <= 100 ) blend = e->curstate.renderamt;
-			else blend = (int) ((1.0f - ( dist - 100 ) * ( 1.0f / 400.0f )) * e->curstate.renderamt );
-			blend += COM_RandomLong( -32, 31 );
-		}
-		break;
-	default:
-		blend = e->curstate.renderamt;
-		break;
-	}
-
-	blend = bound( 0, blend, 255 );
-
-	return blend;
-}
 
 /*
 ================
@@ -520,8 +401,7 @@ int CL_TempEntAddEntity( cl_entity_t *pEntity )
 		VectorCopy( pEntity->origin, pEntity->latched.prevorigin );
 	
 		// add to list
-		if( CL_AddVisibleEntity( pEntity, ET_TEMPENTITY ))
-			ref.dllFuncs.R_IncrementSpeedsCounter( RS_ACTIVE_TENTS );
+		CL_AddVisibleEntity( pEntity, ET_TEMPENTITY );
 
 		return 1;
 	}

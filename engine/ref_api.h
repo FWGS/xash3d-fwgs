@@ -124,14 +124,13 @@ enum // r_speeds counters
 	RS_ACTIVE_TENTS = 0,
 };
 
-enum ref_shared_texture_e
-{
-	REF_DEFAULT_TEXTURE,
-	REF_GRAY_TEXTURE,
-	REF_WHITE_TEXTURE,
-	REF_SOLIDSKY_TEXTURE,
-	REF_ALPHASKY_TEXTURE,
-};
+// refdll must expose this default textures using this names
+#define REF_DEFAULT_TEXTURE  "*default"
+#define REF_GRAY_TEXTURE     "*gray"
+#define REF_WHITE_TEXTURE    "*white"
+#define REF_BLACK_TEXTURE    "*black"
+#define REF_SOLIDSKY_TEXTURE "solid_sky"
+#define REF_ALPHASKY_TEXTURE "alpha_sky"
 
 typedef enum connstate_e
 {
@@ -336,7 +335,6 @@ typedef struct ref_api_s
 	void  (*CL_ExtraUpdate)( void );
 	uint  (*COM_HashKey)( const char *strings, uint hashSize );
 	void  (*Host_Error)( const char *fmt, ... );
-	int   (*CL_FxBlend)( cl_entity_t *e );
 	void  (*COM_SetRandomSeed)( int lSeed );
 	float (*COM_RandomFloat)( float rmin, float rmax );
 	int   (*COM_RandomLong)( int rmin, int rmax );
@@ -388,6 +386,11 @@ typedef struct ref_api_s
 	void *(*GL_GetProcAddress)( const char *name );
 	void (*GL_SwapBuffers)();
 
+	// SW
+	qboolean (*SW_CreateBuffer)( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
+	void *(*SW_LockBuffer)();
+	void (*SW_UnlockBuffer)();
+
 	// gamma
 	void (*BuildGammaTable)( float lightgamma, float brightness );
 	byte		(*LightToTexGamma)( byte color );	// software gamma support
@@ -438,12 +441,11 @@ typedef struct ref_interface_s
 	// const char *(*R_GetInitError)( void );
 	void (*R_Shutdown)( void );
 
-	//
+	// only called for GL contexts
 	void (*GL_SetupAttributes)( int safegl );
 	void (*GL_OnContextCreated)( void );
 	void (*GL_InitExtensions)( void );
 	void (*GL_ClearExtensions)( void );
-
 
 	void (*R_BeginFrame)( qboolean clearScene );
 	void (*R_RenderScene)( void );
@@ -461,19 +463,13 @@ typedef struct ref_interface_s
 	void (*CL_AddCustomBeam)( cl_entity_t *pEnvBeam );
 	void		(*R_ProcessEntData)( qboolean allocate );
 
-	// view info
-	qboolean (*IsNormalPass)( void );
-
 	// debug
 	void (*R_ShowTextures)( void );
 	void (*R_ShowTree)( void );
-	void (*R_IncrementSpeedsCounter)( int counterType );
 
 	// texture management
 	const byte *(*R_GetTextureOriginalBuffer)( unsigned int idx ); // not always available
 	int (*GL_LoadTextureFromBuffer)( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
-	int (*R_GetBuiltinTexture)( enum ref_shared_texture_e type );
-	void (*R_FreeSharedTexture)( enum ref_shared_texture_e type );
 	void (*GL_ProcessTexture)( int texnum, float gamma, int topColor, int bottomColor );
 	void (*R_SetupSky)( const char *skyname );
 
@@ -575,8 +571,6 @@ typedef struct ref_interface_s
 
 	// passed through R_RenderFrame (0 - use engine renderer, 1 - use custom client renderer)
 	int		(*GL_RenderFrame)( const struct ref_viewpass_s *rvp );
-	// build all the lightmaps on new level or when gamma is changed
-	void		(*GL_BuildLightmaps)( void );
 	// setup map bounds for ortho-projection when we in dev_overview mode
 	void		(*GL_OrthoBounds)( const float *mins, const float *maxs );
 	// grab r_speeds message

@@ -322,3 +322,8 @@ waf3-*/
 *.unsuccessfulbuild
 __pycache__
 *.pyc
+
+# MSVC projects
+*.vcproj
+*.sln
+*.vcxproj

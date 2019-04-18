@@ -167,7 +167,9 @@ static entity_state_t *R_StudioGetPlayerState( int index )
 
 static int pfnGetStudioModelInterface( int version, struct r_studio_interface_s **ppinterface, struct engine_studio_api_s *pstudio )
 {
-	return clgame.dllFuncs.pfnGetStudioModelInterface( version, ppinterface, pstudio );
+	return clgame.dllFuncs.pfnGetStudioModelInterface ?
+		clgame.dllFuncs.pfnGetStudioModelInterface( version, ppinterface, pstudio ) :
+		0;
 }
 
 static byte *pfnImage_GetPool( void )
@@ -271,7 +273,6 @@ static ref_api_t gEngfuncs =
 	CL_ExtraUpdate,
 	COM_HashKey,
 	Host_Error,
-	CL_FxBlend,
 	COM_SetRandomSeed,
 	COM_RandomFloat,
 	COM_RandomLong,
@@ -312,6 +313,10 @@ static ref_api_t gEngfuncs =
 	GL_GetAttribute,
 	GL_GetProcAddress,
 	GL_SwapBuffers,
+
+	SW_CreateBuffer,
+	SW_LockBuffer,
+	SW_UnlockBuffer,
 
 	BuildGammaTable,
 	LightToTexGamma,
@@ -477,21 +482,38 @@ void R_Shutdown( void )
 	ref.initialized = false;
 }
 
+void R_GetRendererName( char *dest, size_t size, const char *refdll )
+{
+	Q_snprintf( dest, size, "%sref_%s.%s",
+#ifdef OS_LIB_PREFIX
+		OS_LIB_PREFIX,
+#else
+		"",
+#endif
+		refdll, OS_LIB_EXT );
+}
+
 qboolean R_Init( void )
 {
-	char refdll[64];
+	string refopt, refdll;
 
-	refdll[0] = 0;
-
-	if( !Sys_GetParmFromCmdLine( "-ref", refdll ) )
+	if( !Sys_GetParmFromCmdLine( "-ref", refopt ) )
 	{
-		Q_snprintf( refdll, sizeof( refdll ), "%s%s.%s",
-#ifdef OS_LIB_PREFIX
-			OS_LIB_PREFIX,
-#else
-			"",
-#endif
-			DEFAULT_RENDERER, OS_LIB_EXT );
+		// compile-time defaults
+		R_GetRendererName( refdll, sizeof( refdll ), DEFAULT_RENDERER );
+		Con_Printf( "Loading default renderer: %s\n", refdll );
+	}
+	else if( !Q_strstr( refopt, va( ".%s", OS_LIB_EXT ) ) )
+	{
+		// shortened renderer name
+		R_GetRendererName( refdll, sizeof( refdll ), refopt );
+		Con_Printf( "Loading renderer by short name: %s\n", refdll );
+	}
+	else
+	{
+		// full path
+		Q_strcpy( refdll, refopt );
+		Con_Printf( "Loading renderer: %s\n", refdll );
 	}
 
 	gl_vsync = Cvar_Get( "gl_vsync", "0", FCVAR_ARCHIVE,  "enable vertical syncronization" );

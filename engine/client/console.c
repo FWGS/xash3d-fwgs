@@ -2387,8 +2387,8 @@ void Con_VidInit( void )
 	}
 
 	// missed console image will be replaced as gray background like X-Ray or Crysis
-	if( con.background == ref.dllFuncs.R_GetBuiltinTexture( REF_DEFAULT_TEXTURE ) || con.background == 0 )
-		con.background = ref.dllFuncs.R_GetBuiltinTexture( REF_GRAY_TEXTURE );
+	if( con.background == R_GetBuiltinTexture( REF_DEFAULT_TEXTURE ) || con.background == 0 )
+		con.background = R_GetBuiltinTexture( REF_GRAY_TEXTURE );
 }
 
 /*

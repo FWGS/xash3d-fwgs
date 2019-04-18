@@ -31,9 +31,9 @@ from your version.
 #include <string.h>
 #endif
 
+#include <assert.h>
+
 #include "vgui_api.h"
-#include "utlvector.h"
-#include "utlrbtree.h"
 
 #include<VGUI.h>
 #include<VGUI_App.h>
@@ -51,80 +51,20 @@ extern vguiapi_t *g_api;
 
 using namespace vgui;
 
-class FontCache
+struct PaintStack
 {
-public:
-	FontCache();
-	~FontCache() { }
-
-	// returns a texture ID and a pointer to an array of 4 texture coords for the given character & font
-	// uploads more texture if necessary
-	bool GetTextureForChar( Font *font, char ch, int *textureID, float **texCoords );
-private:
-	// NOTE: If you change this, change s_pFontPageSize
-	enum
-	{
-		FONT_PAGE_SIZE_16,
-		FONT_PAGE_SIZE_32,
-		FONT_PAGE_SIZE_64,
-		FONT_PAGE_SIZE_128,
-		FONT_PAGE_SIZE_COUNT
-	};
-
-	// a single character in the cache
-	typedef unsigned short HCacheEntry;
-	struct CacheEntry_t
-	{
-		Font		*font;
-		char		ch;
-		byte		page;
-		float		texCoords[4];
-
-		HCacheEntry	nextEntry;	// doubly-linked list for use in the LRU
-		HCacheEntry	prevEntry;
-	};
-	
-	// a single texture page
-	struct Page_t
-	{
-		short		textureID;
-		short		fontHeight;
-		short		wide, tall;	// total size of the page
-		short		nextX, nextY;	// position to draw any new character positions
-	};
-
-	// allocates a new page for a given character
-	bool AllocatePageForChar( int charWide, int charTall, int &pageIndex, int &drawX, int &drawY, int &twide, int &ttall );
-
-	// Computes the page size given a character height
-	int ComputePageType( int charTall ) const;
-
-	static bool CacheEntryLessFunc( const CacheEntry_t &lhs, const CacheEntry_t &rhs );
-
-	// cache
-	typedef CUtlVector<Page_t> FontPageList_t;
-
-	CUtlRBTree<CacheEntry_t, HCacheEntry> m_CharCache;
-	FontPageList_t m_PageList;
-	int m_pCurrPage[FONT_PAGE_SIZE_COUNT];
-	HCacheEntry m_LRUListHeadIndex;
-
-	static int s_pFontPageSize[FONT_PAGE_SIZE_COUNT];
+	Panel	*m_pPanel;
+	int	iTranslateX;
+	int	iTranslateY;
+	int	iScissorLeft;
+	int	iScissorRight;
+	int	iScissorTop;
+	int	iScissorBottom;
 };
 
 class CEngineSurface : public SurfaceBase
 {
 private:
-	struct paintState_t
-	{
-		Panel	*m_pPanel;
-		int	iTranslateX;
-		int	iTranslateY;
-		int	iScissorLeft;
-		int	iScissorRight;
-		int	iScissorTop;
-		int	iScissorBottom;
-	};
 
 	// point translation for current panel
 	int		_translateX;
@@ -133,9 +73,7 @@ private:
 	// the size of the window to draw into
 	int		_surfaceExtents[4];
 
-	CUtlVector <paintState_t> _paintStack;
-
-	void SetupPaintState( const paintState_t &paintState );
+	void SetupPaintState( const PaintStack *paintState );
 	void InitVertex( vpoint_t &vertex, int x, int y, float u, float v );
 public:
 	CEngineSurface( Panel *embeddedPanel );
@@ -151,7 +89,8 @@ public:
 	// now it's not abstract class, yay
 	virtual void GetMousePos(int &x, int &y) { 
 		g_api->GetCursorPos(&x, &y);
-		}
+	}
+	void drawPrintChar(int x, int y, int wide, int tall, float s0, float t0, float s1, float t1, int color[]);
 protected:
 	virtual int createNewTextureID( void );
 	virtual void drawSetColor( int r, int g, int b, int a );
@@ -177,7 +116,6 @@ protected:
 	virtual void applyChanges( void ) { }
 	virtual void swapBuffers( void ) { }
 protected:
-	Font* _hCurrentFont;
 	Cursor* _hCurrentCursor;
 	int _drawTextPos[2];
 	int _drawColor[4];
@@ -197,11 +135,7 @@ public:
 //
 // vgui_input.cpp
 //
-void VGUI_InitCursors( void );
-void VGUI_CursorSelect( Cursor *cursor );
-void VGUI_ActivateCurrentCursor( void );
 void *VGui_GetPanel( void );
-void VGui_RunFrame( void );
 void VGui_Paint( void );
 void VGUI_Mouse(VGUI_MouseAction action, int code);
 void VGUI_Key(VGUI_KeyAction action, VGUI_KeyCode code);
@@ -212,9 +146,6 @@ void VGUI_MouseMove(int x, int y);
 void EnableScissor( qboolean enable );
 void SetScissorRect( int left, int top, int right, int bottom );
 qboolean ClipRect( const vpoint_t &inUL, const vpoint_t &inLR, vpoint_t *pOutUL, vpoint_t *pOutLR );
-
-extern FontCache *g_FontCache;
-
 
 extern CEngineSurface	*surface;
 extern Panel *root;

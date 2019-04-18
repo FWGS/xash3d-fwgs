@@ -4,7 +4,6 @@
 
 from waflib import Logs
 import os
-from fwgslib import get_subproject_name
 
 top = '.'
 
@@ -13,8 +12,8 @@ def options(opt):
 	return
 
 def configure(conf):
-	# stub
-	return
+	# public is part of shared libraries
+	conf.env.CFLAGS += conf.env.CFLAGS_cshlib
 
 def build(bld):
 	source = bld.path.ant_glob(['*.c'])
