@@ -19,3 +19,5 @@ local.properties
 assets/extras.pak
 res/values/git-rev.xml
 src/in/celest/xash3d/XashConfig.java
+
+*.pyc
