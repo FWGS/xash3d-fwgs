@@ -9,7 +9,6 @@ import os
 
 sys.path.append(os.path.realpath('scripts/waflib'))
 # print(sys.path)
-import fwgslib
 
 VERSION = '0.99'
 APPNAME = 'xash3d-fwgs-android'
