@@ -23,47 +23,31 @@ def get_latest_build_tools(sdk):
 	dirs.sort(reverse=True)
 	return os.path.join(build_tools_path, dirs[0])
 
-#def find_aapt(conf):
-#	try:
-#		conf.find_program('aapt2', var='AAPT')
-#		have_aapt2 = True
-#	except conf.Errors.ConfigurationError:
-#		TODO: aapt legacy support
-#		have_aapt2 = False
-#		try:
-#			conf.find_program('aapt', var='AAPT')
-#		except conf.Errors.ConfigurationError:
-#		conf.fatal('Can\'t find AAPT program. Check that build-tools are installed correctly')
-
-def load_manifest(path):
-	# TODO:
-	return
-
 def configure(conf):
 	conf.load('java')
 	conf.start_msg('Checking environment variables')
 	
-	found = False
+	sdk = None
 	for i in android_sdk_home_env:
 		if i in os.environ:
-			found = True
-			conf.env.ANDROID_SDK_HOME_ENV = i
+			sdk = conf.env.ANDROID_SDK_HOME_ENV = os.environ[i]
 			break
 	
-	if not found:
+	if not sdk:
 		conf.fatal('Can\'t find path to SDK. Check if ANDROID_SDK_HOME environment variable is set')
 		return
 	
 	conf.end_msg('ok')
 	
-	sdk = os.environ[conf.env.ANDROID_SDK_HOME_ENV]
-	paths = [ os.path.join(sdk, 'tools'), get_latest_build_tools(sdk) ]
+	paths = [ os.path.join(conf.env.ANDROID_SDK_HOME_ENV, 'tools'), get_latest_build_tools(sdk) ]
 	paths += os.environ['PATH'].split(os.pathsep) # just in case we have installed tools
 	
 	for i in ['aapt2', 'd8', 'zipalign', 'apksigner']:
 		conf.find_program(i, path_list = paths)
 	conf.find_program('zip')
-	# find_aapt()
+	
+	# TODO: AAPT legacy support
+	# TODO: dx support
 
 class aapt2compile(javaw.JTask):
 	color = 'GREEN'
@@ -149,9 +133,7 @@ def javac(func):
 def custom_runnable_status(self):
 	if not self.inputs:
 		outrdir = self.srcdir[0].ctx.root.make_node(self.env.OUTRDIR)
-		#print(outrdir.abspath())
 		self.srcdir.append(outrdir)
-	#print(self.srcdir)
 	return self.old_runnable_status()
 
 class apkdex(Task.Task):
@@ -210,9 +192,8 @@ def apply_aapt(self):
 	outdir.mkdir()
 	self.outdir = outdir
 	
-	# TODO: assuming that we have old source hierarchy
 	srcdir = self.path.find_dir('.')
-	sdk = os.environ[self.env.ANDROID_SDK_HOME_ENV]
+	sdk = self.env.ANDROID_SDK_HOME_ENV
 	
 	self.env.RESDIR = os.path.join(srcdir.abspath(), getattr(self, 'resdir', 'res'))
 	self.env.ASSETSDIR = os.path.join(srcdir.abspath(), getattr(self, 'assetsdir', 'assets'))
@@ -223,7 +204,7 @@ def apply_aapt(self):
 	self.env.OUTRDIR = os.path.join(outdir.abspath(), getattr(self, 'gendir', 'gen')) # build/gen
 	self.env.RESOUTFILE = os.path.join(outdir.abspath(), 'compiled')
 	self.env.OUTDIR = outdir.abspath()
-	self.env.TARGET_API = getattr(self, 'target_api', 19) # Android 2.3
+	self.env.TARGET_API = getattr(self, 'target_api', 10) # Android 2.3.3 TODO: parse AndroidManifest.xml to get target API!
 	self.env.CLASSPATH_ANDROID = os.path.join(sdk, 'platforms', 'android-' + str(self.env.TARGET_API), 'android.jar')
 
 	self.aapt2compile_task = self.create_task('aapt2compile')
@@ -232,8 +213,6 @@ def apply_aapt(self):
 	self.aapt2link_task = self.create_task('aapt2link')
 	self.aapt2link_task.cwd = outdir
 	self.aapt2link_task.set_run_after(self.aapt2compile_task)
-	
-	#print(self.env)
 
 @TaskGen.feature('android')
 @TaskGen.after_method('apply_java')
