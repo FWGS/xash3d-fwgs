@@ -21,3 +21,6 @@ res/values/git-rev.xml
 src/in/celest/xash3d/XashConfig.java
 
 *.pyc
+.lock-*
+.waf*
+build/
