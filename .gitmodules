@@ -1,6 +1,3 @@
-[submodule "jni/src/NanoGL/nanogl"]
-	path = jni/src/NanoGL/nanogl
-	url = https://github.com/FWGS/nanogl
 [submodule "xash-extras"]
 	path = xash-extras
 	url = https://github.com/FWGS/xash-extras
