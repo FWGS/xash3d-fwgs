@@ -112,13 +112,17 @@ class Android:
 def options(opt):
 	android = opt.add_option_group('Android options')
 	android.add_option('--android', action='store', dest='ANDROID_OPTS', default=None,
-		help='enable building for android, format: --android=<arch>,<toolchain>,<api>, example: --android=arm,4.9,26')
+		help='enable building for android, format: --android=<arch>,<toolchain>,<api>, example: --android=armeabi-v7a-hard,4.9,9')
 
 def configure(conf):
 	if conf.options.ANDROID_OPTS:
-		android_ndk_path = os.getenv('ANDROID_NDK_HOME')
+		for i in ['ANDROID_NDK_HOME', 'ANDROID_NDK']:
+			android_ndk_path = os.getenv(i)
+			if android_ndk_path != None:
+				break
+		
 		if not android_ndk_path:
-			conf.fatal('Set ANDROID_NDK_HOME environment variable pointing to the root of Android NDK!')
+			conf.fatal('Set ANDROID_NDK_HOME environment variable pointing to the root of Android NDK!')		
 
 		values = conf.options.ANDROID_OPTS.split(',')
 		if len(values) != 3:
