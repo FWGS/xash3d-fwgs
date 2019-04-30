@@ -26,38 +26,79 @@ import sys
 #                 'android'   'linux'
 
 class Android:
-	arch = None
-	toolchain = None
-	api = None
+	arch           = None
+	toolchain      = None
+	api            = None
 	toolchain_path = None
-	ndk_home = None
+	ndk_home       = None
 
-	# TODO: Clang support?
 	# TODO: New Android NDK support?
 	# TODO: Crystax support?
 	# TODO: Support for everything else than linux-x86_64?
 	# TODO: Determine if I actually need to implement listed above
+
 	def is_arm(self):
+		'''
+		Checks if selected architecture is **32-bit** ARM
+		'''
 		return self.arch.startswith('armeabi')
 
+	def is_x86(self):
+		'''
+		Checks if selected architecture is **32-bit** or **64-bit** x86
+		'''
+		return self.arch.startswith('x86')
+
+	def is_arm64(self):
+		'''
+		Checks if selected architecture is AArch64
+		'''
+		return self.arch == 'aarch64'
+
+	def is_clang(self):
+		'''
+		Checks if selected toolchain is Clang (TODO)
+		'''
+		return self.toolchain.startswith('clang')
+
+	def is_hardfp(self):
+		return self.arch.endswith('-hard')
+
 	def gen_toolchain_path(self):
-		path = 'toolchains/'
-		if self.arch.startswith('x86'):
-			path += self.arch + '-' + self.toolchain
-		elif self.is_arm():
-			path += 'arm-linux-androideabi-' + self.toolchain
+		path = 'toolchains'
+		if self.is_clang():
+			raise Exception('Clang is not supported yet')
 		else:
-			path += self.arch + '-linux-android-' + self.toolchain
-		path += '/prebuilt/linux-x86_64/bin/'
+			if self.is_x86():
+				toolchain_folder = self.arch + '-' + self.toolchain
+			elif self.is_arm():
+				toolchain_folder = 'arm-linux-androideabi-' + self.toolchain
+			else:
+				toolchain_folder = self.arch + '-linux-android-' + self.toolchain
 
-		if self.arch == 'x86':
-			path += 'i686-linux-android-'
-		elif self.is_arm():
-			path += 'arm-linux-androideabi-'
-		else:
-			path += self.arch + '-linux-android-'
+			if sys.platform.startswith('linux'):
+				toolchain_host = 'linux'
+			elif sys.platform.startswith('darwin'):
+				toolchain_host = 'darwin'
+			elif sys.platform.startswith('win32') or sys.platform.startswith('cygwin'):
+				toolchain_host = 'windows'
+			else: raise Exception('Unsupported by NDK host platform')
 
-		return path
+			toolchain_host += '-'
+
+			# Assuming we are building on x86
+			if sys.maxsize > 2**32: 
+				toolchain_host += 'x86_64'
+			else: toolchain_host += 'x86'
+
+			if self.arch == 'x86':
+				triplet = 'i686-linux-android-'
+			elif self.is_arm():
+				triplet = 'arm-linux-androideabi-'
+			else:
+				triplet = self.arch + '-linux-android-'
+
+			return os.path.join(path, toolchain_folder, 'prebuilt', toolchain_host, 'bin', triplet)
 
 	def cc(self):
 		return os.path.abspath(os.path.join(self.ndk_home, self.toolchain_path + 'gcc'))
@@ -65,14 +106,11 @@ class Android:
 	def cxx(self):
 		return os.path.abspath(os.path.join(self.ndk_home, self.toolchain_path + 'g++'))
 
-	def link(self):
-		return os.path.abspath(os.path.join(self.ndk_home, self.toolchain_path + 'ld'))
-
 	def sysroot(self):
 		arch = self.arch
 		if self.is_arm():
 			arch = 'arm'
-		elif self.arch == 'aarch64':
+		elif self.is_arm64():
 			arch = 'arm64'
 		path = 'platforms/android-{0}/arch-{1}'.format(self.api, arch)
 
@@ -82,13 +120,17 @@ class Android:
 		cflags = ['--sysroot={0}'.format(self.sysroot()), '-DANDROID']
 		if self.is_arm():
 			if self.arch.startswith('armeabi-v7a'):
-				cflags += ['-march=armv7-a', '-mfpu=vfpv3-d16']
+				# ARMv7 support
+				cflags += ['-mthumb', '-mfpu=neon', '-mcpu=cortex-a9', '-mvectorize-with-neon-quad', '-DHAVE_EFFICIENT_UNALIGNED_ACCESS', '-DVECTORIZE_SINCOS']
 				if self.arch == 'armeabi-v7a-hard':
-					cflags += ['-mhard-float', '-D_NDK_MATH_NO_SOFTFP=1']
+					cflags += ['-D_NDK_MATH_NO_SOFTFP=1', '-mhard-float', '-mfloat-abi=hard', '-DLOAD_HARDFP', '-DSOFTFP_LINK']
 				else:
-					cflags += ['-mfloat-abi=softfp']
+					cflags += ['-mfloat-abi=softfp'] # Tegra 2 sucks
 			else:
+				# ARMv5 support
 				cflags += ['-march=armv5te', '-mtune=xscale', '-msoft-float']
+		elif self.is_x86():
+			cflags += ['-mtune=atom', '-march=atom', '-mssse3', '-mfpmath=sse', '-DVECTORIZE_SINCOS', '-DHAVE_EFFICIENT_UNALIGNED_ACCESS']
 		return cflags
 
 	def ldflags(self):
@@ -120,7 +162,7 @@ def configure(conf):
 			android_ndk_path = os.getenv(i)
 			if android_ndk_path != None:
 				break
-		
+
 		if not android_ndk_path:
 			conf.fatal('Set ANDROID_NDK_HOME environment variable pointing to the root of Android NDK!')		
 
@@ -128,15 +170,29 @@ def configure(conf):
 		if len(values) != 3:
 			conf.fatal('Invalid --android paramater value!')
 
+		valid_archs = ['x86', 'x86_64', 'armeabi', 'armeabi-v7a', 'armeabi-v7a-hard', 'aarch64', 'mipsel', 'mips64el']
+
+		if values[0] not in valid_archs:
+			conf.fatal('Unknown arch: {0}. Supported: {1}'.format(values[0], ', '.join(valid_archs)))
+
 		android = Android(android_ndk_path, values[0], values[1], values[2])
 		conf.options.ALLOW64 = True # skip pointer length check
 		conf.options.NO_VGUI = True # skip vgui
 		conf.environ['CC'] = android.cc()
 		conf.environ['CXX'] = android.cxx()
-		conf.environ['LD'] = android.link()
 		conf.env.CFLAGS += android.cflags()
 		conf.env.CXXFLAGS += android.cflags()
 		conf.env.LINKFLAGS += android.ldflags()
+
+		if android.is_hardfp():
+			conf.env.HAVE_M = True
+			conf.env.LIB_M = ['m_hard']
+
+		conf.msg('Selected Android NDK', android_ndk_path)
+		# no need to print C/C++ compiler, as it would be printed by compiler_c/cxx
+		conf.msg('... C/C++ flags', ' '.join(android.cflags()).replace(android_ndk_path, '$NDK'))
+		conf.msg('... linker flags', ' '.join(android.ldflags()).replace(android_ndk_path, '$NDK'))
+
 		# conf.env.ANDROID_OPTS = android
 		conf.env.DEST_OS2 = 'android'
 #	else:

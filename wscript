@@ -161,8 +161,8 @@ def configure(conf):
 		conf.check_cc( lib='dl' )
 
 	if conf.env.DEST_OS != 'win32':
-		conf.check_cc( lib='m' )
 		if conf.env.DEST_OS2 != 'android':
+			conf.check_cc( lib='m' ) # HACK: already added in xcompile!
 			conf.check_cc( lib='pthread' )
 	else:
 		# Common Win32 libraries
