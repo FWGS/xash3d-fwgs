@@ -117,7 +117,7 @@ class Android:
 		return os.path.abspath(os.path.join(self.ndk_home, path))
 
 	def cflags(self):
-		cflags = ['--sysroot={0}'.format(self.sysroot()), '-DANDROID']
+		cflags = ['--sysroot={0}'.format(self.sysroot()), '-DANDROID', '-D__ANDROID__']
 		if self.is_arm():
 			if self.arch.startswith('armeabi-v7a'):
 				# ARMv7 support
