@@ -47,4 +47,10 @@ qboolean Sys_DebuggerPresent( void )
 	return IsDebuggerPresent();
 }
 
+void Platform_ShellExecute( const char *path, const char *parms )
+{
+	if( !Q_strcmp( path, GENERIC_UPDATE_PAGE ) || !Q_strcmp( path, PLATFORM_UPDATE_PAGE ))
+		path = DEFAULT_UPDATE_PAGE;
 
+	ShellExecute( NULL, "open", path, parms, NULL, SW_SHOW );
+}

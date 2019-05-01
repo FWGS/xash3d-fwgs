@@ -47,11 +47,11 @@ GNU General Public License for more details.
 	#if defined(__APPLE__)
 		#include <sys/syslimits.h>
 		#define OS_LIB_EXT "dylib"
-        #define OPEN_COMMAND "open"
+		#define OPEN_COMMAND "open"
 		#include "TargetConditionals.h"
 	#else
 		#define OS_LIB_EXT "so"
-        #define OPEN_COMMAND "xdg-open"
+		#define OPEN_COMMAND "xdg-open"
 	#endif
 
 	#define OS_LIB_PREFIX "lib"

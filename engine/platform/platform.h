@@ -30,6 +30,7 @@ GNU General Public License for more details.
 */
 double Platform_DoubleTime( void );
 void Platform_Sleep( int msec );
+void Platform_ShellExecute( const char *path, const char *parms );
 // commented out, as this is an optional feature or maybe implemented in system API directly
 // see system.c
 // qboolean Sys_DebuggerPresent( void );
