@@ -16,11 +16,12 @@ local.properties
 *.bin 
 
 # Generated
-assets/extras.pak
-res/values/git-rev.xml
-src/in/celest/xash3d/XashConfig.java
+android/assets/extras.pak
+android/res/values/git-rev.xml
+android/src/in/celest/xash3d/XashConfig.java
+android/lib
 
 *.pyc
 .lock-*
 .waf*
-build/
+build*/
