@@ -88,3 +88,13 @@ void Platform_ShellExecute( const char *path, const char *parms )
 		Con_Reportf( S_WARN "Could not find "OPEN_COMMAND" utility\n" );
 	}
 }
+
+#ifdef XASH_DEDICATED
+void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
+{
+	fprintf( stderr,
+		 "======================================\n"
+		 "%s: %s\n"
+		 "======================================\n, title, message );
+}
+#endif
