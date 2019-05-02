@@ -52,7 +52,7 @@ struct ref_viewpass_s;
 typedef struct ui_enginefuncs_s
 {
 	// image handlers
-	HIMAGE	(*pfnPIC_Load)( const char *szPicName, const byte *ucRawImage, long ulRawImageSize, long flags );
+	HIMAGE	(*pfnPIC_Load)( const char *szPicName, const byte *ucRawImage, int ulRawImageSize, int flags );
 	void	(*pfnPIC_Free)( const char *szPicName );
 	int	(*pfnPIC_Width)( HIMAGE hPic );
 	int	(*pfnPIC_Height)( HIMAGE hPic );
@@ -168,7 +168,7 @@ typedef struct ui_enginefuncs_s
 	int	(*pfnCompareFileTime)( const char *filename1, const char *filename2, int *iCompare );
 
 	const char *(*pfnGetModeString)( int vid_mode );
-	int	(*COM_SaveFile)( const char *filename, const void *data, long len );
+	int	(*COM_SaveFile)( const char *filename, const void *data, int len );
 	int	(*COM_RemoveFile)( const char *filepath );
 } ui_enginefuncs_t;
 

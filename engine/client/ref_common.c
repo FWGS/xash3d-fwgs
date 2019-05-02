@@ -118,7 +118,7 @@ static void pfnGetPredictedOrigin( vec3_t v )
 	VectorCopy( cl.simorg, v );
 }
 
-static color24 *pfnCL_GetPaletteColor(int color) // clgame.palette[color]
+static color24 *pfnCL_GetPaletteColor( int color ) // clgame.palette[color]
 {
 	return &clgame.palette[color];
 }
@@ -201,13 +201,13 @@ static ref_api_t gEngfuncs =
 {
 	pfnEngineGetParm,
 
-	Cvar_Get,
-	Cvar_FindVarExt,
+	(void*)Cvar_Get,
+	(void*)Cvar_FindVarExt,
 	Cvar_VariableValue,
 	Cvar_VariableString,
 	Cvar_SetValue,
 	Cvar_Set,
-	Cvar_RegisterVariable,
+	(void*)Cvar_RegisterVariable,
 	Cvar_FullSet,
 
 	Cmd_AddRefCommand,

@@ -57,7 +57,7 @@ void IN_TouchDraw( void );
 void IN_TouchEditClear( void );
 void IN_TouchSetClientOnly( qboolean state );
 void IN_TouchRemoveButton( const char *name );
-void IN_TouchHideButtons( const char *name, qboolean hide );
+void IN_TouchHideButtons( const char *name, unsigned char hide );
 //void IN_TouchSetCommand( const char *name, const char *command );
 //void IN_TouchSetTexture( const char *name, const char *texture );
 //void IN_TouchSetColor( const char *name, byte *color );

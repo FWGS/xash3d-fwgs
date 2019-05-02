@@ -102,7 +102,7 @@ typedef struct server_physics_api_s
 	int		(*pfnSaveLump)( const char *filename, const int lump, void *lumpdata, int lumpsize );
 
 	// FS tools
-	int		(*pfnSaveFile)( const char *filename, const void *data, long len );
+	int		(*pfnSaveFile)( const char *filename, const void *data, int len );
 	const byte	*(*pfnLoadImagePixels)( const char *filename, int *width, int *height );
 
 	const char*	(*pfnGetModelName)( int modelindex );

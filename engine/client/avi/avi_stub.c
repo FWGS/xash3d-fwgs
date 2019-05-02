@@ -16,17 +16,17 @@ GNU General Public License for more details.
 #ifndef _WIN32
 #include "common.h"
 
-long AVI_GetVideoFrameNumber( movie_state_t *Avi, float time )
+int AVI_GetVideoFrameNumber( movie_state_t *Avi, float time )
 {
 	return 0;
 }
 
-byte *AVI_GetVideoFrame( movie_state_t *Avi, long frame )
+byte *AVI_GetVideoFrame( movie_state_t *Avi, int frame )
 {
 	return NULL;
 }
 
-qboolean AVI_GetVideoInfo( movie_state_t *Avi, long *xres, long *yres, float *duration )
+qboolean AVI_GetVideoInfo( movie_state_t *Avi, int *xres, int *yres, float *duration )
 {
 	return false;
 }
@@ -36,7 +36,7 @@ qboolean AVI_GetAudioInfo( movie_state_t *Avi, wavdata_t *snd_info )
 	return false;
 }
 
-long AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, long offset, long length )
+int AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, int offset, int length )
 {
 	return 0;
 }
@@ -51,12 +51,12 @@ movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio )
 	return NULL;
 }
 
-long AVI_TimeToSoundPosition( movie_state_t *Avi, long time )
+int AVI_TimeToSoundPosition( movie_state_t *Avi, int time )
 {
 	return 0;
 }
 
-long AVI_GetVideoFrameCount( movie_state_t *Avi )
+int AVI_GetVideoFrameCount( movie_state_t *Avi )
 {
 	return 0;
 }

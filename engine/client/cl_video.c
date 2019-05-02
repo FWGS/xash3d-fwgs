@@ -24,7 +24,7 @@ AVI PLAYING
 =================================================================
 */
 
-static long		xres, yres;
+static int		xres, yres;
 static float		video_duration;
 static float		cin_time;
 static int		cin_frame;

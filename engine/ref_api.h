@@ -292,7 +292,7 @@ typedef struct ref_api_s
 	struct cl_entity_s *(*GetViewModel)( void );
 	struct cl_entity_s *(*GetEntityByIndex)( int idx );
 	struct cl_entity_s *(*R_BeamGetEntity)( int index );
-	struct cl_entity_s *(*CL_GetWaterEntity)( vec3_t p );
+	struct cl_entity_s *(*CL_GetWaterEntity)( const vec3_t p );
 	qboolean (*CL_AddVisibleEntity)( cl_entity_t *ent, int entityType );
 
 	// brushes
@@ -341,7 +341,7 @@ typedef struct ref_api_s
 	struct screenfade_s *(*GetScreenFade)( void );
 	struct client_textmessage_s *(*pfnTextMessageGet)( const char *pName );
 	void (*GetPredictedOrigin)( vec3_t v );
-	byte *(*CL_GetPaletteColor)(int color); // clgame.palette[color]
+	color24 *(*CL_GetPaletteColor)(int color); // clgame.palette[color]
 	void (*CL_GetScreenInfo)( int *width, int *height ); // clgame.scrInfo, ptrs may be NULL
 	void (*SetLocalLightLevel)( int level ); // cl.local.light_level
 	int (*Sys_CheckParm)( const char *flag );
@@ -377,7 +377,7 @@ typedef struct ref_api_s
 	// video init
 	// try to create window
 	// will call GL_SetupAttributes in case of REF_GL
-	int	(*R_Init_Video)( int type );
+	qboolean  (*R_Init_Video)( int type );
 	void (*R_Free_Video)( void );
 
 	// GL

@@ -48,7 +48,7 @@ typedef integer64 longtime_t;
 #define MAX_MODS		512	// environment games that engine can keep visible
 #define MAX_USERMSG_LENGTH	2048	// don't modify it's relies on a client-side definitions
 
-#define BIT( n )		( 1 << ( n ))
+#define BIT( n )		( 1U << ( n ))
 #define GAMMA		( 2.2 )		// Valve Software gamma
 #define INVGAMMA		( 1.0 / 2.2 )	// back to 1.0
 #define TEXGAMMA		( 0.9 )		// compensate dim textures

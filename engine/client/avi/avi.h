@@ -19,15 +19,15 @@ GNU General Public License for more details.
 // avikit.c
 //
 typedef struct movie_state_s  movie_state_t;
-long AVI_GetVideoFrameNumber( movie_state_t *Avi, float time );
-byte *AVI_GetVideoFrame( movie_state_t *Avi, long frame );
-qboolean AVI_GetVideoInfo( movie_state_t *Avi, long *xres, long *yres, float *duration );
+int AVI_GetVideoFrameNumber( movie_state_t *Avi, float time );
+byte *AVI_GetVideoFrame( movie_state_t *Avi, int frame );
+qboolean AVI_GetVideoInfo( movie_state_t *Avi, int *xres, int *yres, float *duration );
 qboolean AVI_GetAudioInfo( movie_state_t *Avi, wavdata_t *snd_info );
-long AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, long offset, long length );
+int AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, int offset, int length );
 void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audio, int quiet );
 movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio );
-long AVI_TimeToSoundPosition( movie_state_t *Avi, long time );
-long AVI_GetVideoFrameCount( movie_state_t *Avi );
+int AVI_TimeToSoundPosition( movie_state_t *Avi, int time );
+int AVI_GetVideoFrameCount( movie_state_t *Avi );
 void AVI_CloseVideo( movie_state_t *Avi );
 qboolean AVI_IsActive( movie_state_t *Avi );
 void AVI_FreeVideo( movie_state_t *Avi );
