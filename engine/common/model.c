@@ -507,7 +507,7 @@ Mod_LoadCacheFile
 void Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
 {
 	char	modname[MAX_QPATH];
-	size_t	size;
+	fs_offset_t	size;
 	byte	*buf;
 
 	Assert( cu != NULL );

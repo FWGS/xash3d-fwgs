@@ -51,9 +51,9 @@ R_SpriteLoadFrame
 upload a single frame
 ====================
 */
-static dframetype_t *R_SpriteLoadFrame( model_t *mod, void *pin, mspriteframe_t **ppframe, int num )
+static const dframetype_t *R_SpriteLoadFrame( model_t *mod, const void *pin, mspriteframe_t **ppframe, int num )
 {
-	dspriteframe_t	*pinframe;
+	const dspriteframe_t	*pinframe;
 	mspriteframe_t	*pspriteframe;
 	int		gl_texturenum = 0;
 	char		texname[128];
@@ -96,16 +96,16 @@ R_SpriteLoadGroup
 upload a group frames
 ====================
 */
-static dframetype_t *R_SpriteLoadGroup( model_t *mod, void *pin, mspriteframe_t **ppframe, int framenum )
+static const dframetype_t *R_SpriteLoadGroup( model_t *mod, const void *pin, mspriteframe_t **ppframe, int framenum )
 {
-	dspritegroup_t	*pingroup;
+	const dspritegroup_t	*pingroup;
 	mspritegroup_t	*pspritegroup;
-	dspriteinterval_t	*pin_intervals;
+	const dspriteinterval_t	*pin_intervals;
 	float		*poutintervals;
 	int		i, groupsize, numframes;
-	void		*ptemp;
+	const void		*ptemp;
 
-	pingroup = (dspritegroup_t *)pin;
+	pingroup = (const dspritegroup_t *)pin;
 	numframes = pingroup->numframes;
 
 	groupsize = sizeof( mspritegroup_t ) + (numframes - 1) * sizeof( pspritegroup->frames[0] );
@@ -113,7 +113,7 @@ static dframetype_t *R_SpriteLoadGroup( model_t *mod, void *pin, mspriteframe_t 
 	pspritegroup->numframes = numframes;
 
 	*ppframe = (mspriteframe_t *)pspritegroup;
-	pin_intervals = (dspriteinterval_t *)(pingroup + 1);
+	pin_intervals = (const dspriteinterval_t *)(pingroup + 1);
 	poutintervals = Mem_Calloc( mod->mempool, numframes * sizeof( float ));
 	pspritegroup->intervals = poutintervals;
 
@@ -126,13 +126,13 @@ static dframetype_t *R_SpriteLoadGroup( model_t *mod, void *pin, mspriteframe_t 
 		pin_intervals++;
 	}
 
-	ptemp = (void *)pin_intervals;
+	ptemp = (const void *)pin_intervals;
 	for( i = 0; i < numframes; i++ )
 	{
 		ptemp = R_SpriteLoadFrame( mod, ptemp, &pspritegroup->frames[i], framenum * 10 + i );
 	}
 
-	return (dframetype_t *)ptemp;
+	return (const dframetype_t *)ptemp;
 }
 
 /*

@@ -1251,7 +1251,7 @@ static qboolean Mod_LoadColoredLighting( dbspmodel_t *bmod )
 	char	modelname[64];
 	char	path[64];
 	int	iCompare;
-	size_t	litdatasize;
+	fs_offset_t	litdatasize;
 	byte	*in;
 
 	COM_FileBase( loadmodel->name, modelname );
@@ -1279,7 +1279,7 @@ static qboolean Mod_LoadColoredLighting( dbspmodel_t *bmod )
 
 	if( litdatasize != ( bmod->lightdatasize * 3 ))
 	{
-		Con_Printf( S_ERROR "%s has mismatched size (%i should be %i)\n", path, litdatasize, bmod->lightdatasize * 3 );
+		Con_Printf( S_ERROR "%s has mismatched size (%li should be %i)\n", path, litdatasize, bmod->lightdatasize * 3 );
 		Mem_Free( in );
 		return false;
 	}
@@ -1301,7 +1301,7 @@ Mod_LoadDeluxemap
 static void Mod_LoadDeluxemap( dbspmodel_t *bmod )
 {
 	char	modelname[64];
-	size_t	deluxdatasize;
+	fs_offset_t	deluxdatasize;
 	char	path[64];
 	int	iCompare;
 	byte	*in;
@@ -1334,7 +1334,7 @@ static void Mod_LoadDeluxemap( dbspmodel_t *bmod )
 
 	if( deluxdatasize != bmod->lightdatasize )
 	{
-		Con_Reportf( S_ERROR "%s has mismatched size (%i should be %i)\n", path, deluxdatasize, bmod->lightdatasize );
+		Con_Reportf( S_ERROR "%s has mismatched size (%li should be %i)\n", path, deluxdatasize, bmod->lightdatasize );
 		Mem_Free( in );
 		return;
 	}
@@ -1527,7 +1527,7 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 	if( bmod->isworld )
 	{
 		char	entfilename[MAX_QPATH];
-		int	entpatchsize;
+		fs_offset_t	entpatchsize;
 		size_t	ft1, ft2;
 
 		// world is check for entfile too
@@ -1947,7 +1947,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 				}
 				else
 				{
-					size_t srcSize = 0;
+					fs_offset_t srcSize = 0;
 					byte *src = NULL;
 
 					// NOTE: we can't loading it from wad as normal because _luma texture doesn't exist
@@ -2086,7 +2086,7 @@ Mod_LoadTexInfo
 static void Mod_LoadTexInfo( dbspmodel_t *bmod )
 {
 	mfaceinfo_t	*fout, *faceinfo;
-	int		i, j, miptex;
+	int		i, j, k, miptex;
 	dfaceinfo_t	*fin;
 	mtexinfo_t	*out;
 	dtexinfo_t	*in;
@@ -2109,8 +2109,9 @@ static void Mod_LoadTexInfo( dbspmodel_t *bmod )
 
 	for( i = 0; i < bmod->numtexinfo; i++, in++, out++ )
 	{
-		for( j = 0; j < 8; j++ )
-			out->vecs[0][j] = in->vecs[0][j];
+		for( j = 0; j < 2; j++ )
+			for( k = 0; k < 4; k++ )
+				out->vecs[j][k] = in->vecs[j][k];
 
 		miptex = in->miptex;
 		if( miptex < 0 || miptex > loadmodel->numtextures )

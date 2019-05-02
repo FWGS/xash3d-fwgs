@@ -1702,7 +1702,7 @@ CL_ParseResLocation
 */
 void CL_ParseResLocation( sizebuf_t *msg )
 {
-	const char	*data = MSG_ReadString( msg );
+	char *data = MSG_ReadString( msg );
 	char token[256];
 
 	if( Q_strlen( data ) > 256 )

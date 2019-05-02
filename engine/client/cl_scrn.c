@@ -550,7 +550,7 @@ qboolean SCR_LoadVariableWidthFont( const char *fontname )
 {
 	int	i, fontWidth;
 	byte	*buffer;
-	size_t	length;
+	fs_offset_t	length;
 	qfont_t	*src;
 
 	if( cls.creditsFont.valid )

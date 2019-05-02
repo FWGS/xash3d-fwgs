@@ -33,7 +33,7 @@ typedef struct tagRGBQUAD {
 Image_LoadBMP
 =============
 */
-qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
+qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	byte	*buf_p, *pixbuf;
 	byte	palette[256][4];
@@ -83,7 +83,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize )
 	if( bhdr.fileSize != filesize )
 	{
 		// Sweet Half-Life issues. splash.bmp have bogus filesize
-		Con_Reportf( S_WARN "Image_LoadBMP: %s have incorrect file size %i should be %i\n", name, filesize, bhdr.fileSize );
+		Con_Reportf( S_WARN "Image_LoadBMP: %s have incorrect file size %li should be %i\n", name, filesize, bhdr.fileSize );
 	}
           
 	// bogus compression?  Only non-compressed supported.

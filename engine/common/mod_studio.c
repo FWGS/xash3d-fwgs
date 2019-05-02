@@ -598,8 +598,8 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 {
 	mstudioseqgroup_t	*pseqgroup;
 	cache_user_t	*paSequences;
-	size_t		filesize;
-		  byte		*buf;
+	fs_offset_t	filesize;
+	byte		*buf;
 
 	pseqgroup = (mstudioseqgroup_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqgroupindex) + pseqdesc->seqgroup;
 	if( pseqdesc->seqgroup == 0 )

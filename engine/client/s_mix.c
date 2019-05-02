@@ -450,7 +450,7 @@ int S_MixDataToDevice( channel_t *pChannel, int sampleCount, int outRate, int ou
 		int	availableSamples, outSampleCount;
 		wavdata_t	*pSource = pChannel->sfx->cache;
 		qboolean	use_loop = pChannel->use_loop;
-		char	*pData = NULL;
+		void	*pData = NULL;
 		double	sampleFrac;
 		int	i, j;
 

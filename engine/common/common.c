@@ -847,7 +847,7 @@ byte* COM_LoadFileForMe( const char *filename, int *pLength )
 {
 	string	name;
 	byte	*file, *pfile;
-	size_t	iLength;
+	fs_offset_t	iLength;
 
 	if( !COM_CheckString( filename ))
 	{

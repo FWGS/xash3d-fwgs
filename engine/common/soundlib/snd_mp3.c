@@ -52,7 +52,7 @@ const char *get_error( void *mpeg );
 
 =================================================================
 */
-qboolean Sound_LoadMPG( const char *name, const byte *buffer, size_t filesize )
+qboolean Sound_LoadMPG( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	void	*mpeg;
 	size_t	pos = 0;

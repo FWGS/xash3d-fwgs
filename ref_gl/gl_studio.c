@@ -1939,12 +1939,12 @@ R_StudioMeshCompare
 Sorting opaque entities by model type
 ===============
 */
-static int R_StudioMeshCompare( const sortedmesh_t *a, const sortedmesh_t *b )
+static int R_StudioMeshCompare( const void *a, const void *b )
 {
-	if( FBitSet( a->flags, STUDIO_NF_ADDITIVE ))
+	if( FBitSet( ((const sortedmesh_t*)a)->flags, STUDIO_NF_ADDITIVE ))
 		return 1;
 
-	if( FBitSet( a->flags, STUDIO_NF_MASKED ))
+	if( FBitSet( ((const sortedmesh_t*)a)->flags, STUDIO_NF_MASKED ))
 		return -1;
 
 	return 0;
@@ -3118,7 +3118,7 @@ void R_StudioRenderFinal( void )
 	{
 		for( i = 0; i < m_pStudioHeader->numbodyparts; i++ )
 		{
-			R_StudioSetupModel( i, &m_pBodyPart, &m_pSubModel );
+			R_StudioSetupModel( i, (void**)&m_pBodyPart, (void**)&m_pSubModel );
 
 			GL_StudioSetRenderMode( rendermode );
 			R_StudioDrawPoints();
