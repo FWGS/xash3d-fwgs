@@ -137,7 +137,7 @@ typedef struct dll_info_s
 	void		*link;	// hinstance of loading library
 } dll_info_t;
 
-typedef void (*setpair_t)( const char *key, const char *value, void *buffer, void *numpairs );
+typedef void (*setpair_t)( const char *key, const void *value, void *buffer, void *numpairs );
 
 // config strings are a general means of communication from
 // the server to all connected clients.

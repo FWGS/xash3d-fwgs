@@ -72,7 +72,7 @@ Platform_SetClipobardText
 
 =============
 */
-void Platform_SetClipboardText( char *buffer, size_t size )
+void Platform_SetClipboardText( const char *buffer, size_t size )
 {
 	SDL_SetClipboardText( buffer );
 }

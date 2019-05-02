@@ -93,7 +93,7 @@ write screenshot into clipboard
 */
 void Sys_SetClipboardData( const byte *buffer, size_t size )
 {
-	Platform_SetClipboardText( (char *)buffer, size );
+	Platform_SetClipboardText( buffer, size );
 }
 #endif // XASH_DEDICATED
 

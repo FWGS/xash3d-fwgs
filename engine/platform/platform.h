@@ -36,6 +36,12 @@ void Platform_MessageBox( const char *title, const char *message, qboolean paren
 // see system.c
 // qboolean Sys_DebuggerPresent( void );
 
+#ifdef __ANDROID__
+const char *Android_GetAndroidID( void );
+const char *Android_LoadID( void );
+void Android_SaveID( const char *id );
+#endif
+
 /* 
 ============================================================================== 
  
@@ -64,7 +70,12 @@ void Platform_GetMousePos( int *x, int *y );
 void Platform_SetMousePos( int x, int y );
 // Clipboard
 void Platform_GetClipboardText( char *buffer, size_t size );
-void Platform_SetClipboardText( char *buffer, size_t size );
+void Platform_SetClipboardText( const char *buffer, size_t size );
+
+#ifdef __ANDROID__
+void Android_ShowMouse( qboolean show );
+void Android_MouseMove( float *x, float *y );
+#endif
 
 /* 
 ============================================================================== 
@@ -94,6 +105,7 @@ void*     GL_GetProcAddress( const char *name ); // RenderAPI requirement
 void      GL_UpdateSwapInterval( void );
 int GL_SetAttribute( int attr, int val );
 int GL_GetAttribute( int attr, int *val );
+void GL_SwapBuffers();
 void *SW_LockBuffer();
 void SW_UnlockBuffer();
 qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
