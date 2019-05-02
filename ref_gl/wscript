@@ -47,6 +47,8 @@ def configure(conf):
 		conf.check( lib='GL' )
 
 	conf.env.append_unique('DEFINES', 'REF_DLL')
+	if conf.env.DEST_OS2 == 'android':
+		conf.check_cc(lib='log')
 
 def build(bld):
 	libs = [ 'public', 'M' ]

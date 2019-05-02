@@ -106,6 +106,10 @@ class Android:
 	def cxx(self):
 		return os.path.abspath(os.path.join(self.ndk_home, self.toolchain_path + 'g++'))
 
+	def system_stl(self):
+		# TODO: proper STL support
+		return os.path.abspath(os.path.join(self.ndk_home, 'sources', 'cxx-stl', 'system', 'include'))
+
 	def sysroot(self):
 		arch = self.arch
 		if self.is_arm():
@@ -118,6 +122,7 @@ class Android:
 
 	def cflags(self):
 		cflags = ['--sysroot={0}'.format(self.sysroot()), '-DANDROID', '-D__ANDROID__']
+		cflags += ['-I{0}'.format(self.system_stl())]
 		if self.is_arm():
 			if self.arch.startswith('armeabi-v7a'):
 				# ARMv7 support
@@ -178,15 +183,19 @@ def configure(conf):
 		android = Android(android_ndk_path, values[0], values[1], values[2])
 		conf.options.ALLOW64 = True # skip pointer length check
 		conf.options.NO_VGUI = True # skip vgui
+		conf.options.NANOGL = True
+		conf.options.GLWES  = True
+		conf.options.GL     = False
 		conf.environ['CC'] = android.cc()
 		conf.environ['CXX'] = android.cxx()
 		conf.env.CFLAGS += android.cflags()
 		conf.env.CXXFLAGS += android.cflags()
 		conf.env.LINKFLAGS += android.ldflags()
 
+		conf.env.HAVE_M = True
 		if android.is_hardfp():
-			conf.env.HAVE_M = True
 			conf.env.LIB_M = ['m_hard']
+		else: conf.env.LIB_M = ['m']
 
 		conf.msg('Selected Android NDK', android_ndk_path)
 		# no need to print C/C++ compiler, as it would be printed by compiler_c/cxx

@@ -19,7 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include "common.h"
-#include "platform.h"
+#include "platform/platform.h"
 #if XASH_SOUND == SOUND_OPENSLES
 #include <SLES/OpenSLES.h>
 #include "pthread.h"
@@ -194,7 +194,7 @@ static const char *SNDDMA_Android_Init( void )
 	snddma_android_pos = 0;
 	dma.initialized = true;
 
-	S_Activate( true );
+	SNDDMA_Activate( true );
 
 	return NULL;
 }

@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "platform/platform.h"
+#include "menu_int.h"
 
 static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size )
 {
@@ -65,6 +66,7 @@ static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size
 	return false;
 }
 
+#ifndef __ANDROID__
 void Platform_ShellExecute( const char *path, const char *parms )
 {
 	char xdgOpen[128];
@@ -88,6 +90,7 @@ void Platform_ShellExecute( const char *path, const char *parms )
 		Con_Reportf( S_WARN "Could not find "OPEN_COMMAND" utility\n" );
 	}
 }
+#endif // __ANDROID__
 
 #ifdef XASH_DEDICATED
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )

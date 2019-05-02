@@ -492,7 +492,7 @@ int Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function );
 int Cmd_AddRefCommand( const char *cmd_name, xcommand_t function, const char *description );
 void Cmd_RemoveCommand( const char *cmd_name );
 qboolean Cmd_Exists( const char *cmd_name );
-void Cmd_LookupCmds( char *buffer, void *ptr, setpair_t callback );
+void Cmd_LookupCmds( void *buffer, void *ptr, setpair_t callback );
 qboolean Cmd_GetMapList( const char *s, char *completedname, int length );
 qboolean Cmd_GetDemoList( const char *s, char *completedname, int length );
 qboolean Cmd_GetMovieList( const char *s, char *completedname, int length );

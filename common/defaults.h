@@ -147,11 +147,15 @@ Default build-depended cvar and constant values
 #endif
 
 #ifndef DEFAULT_RENDERER
-	#define DEFAULT_RENDERER "gl"
+	#ifdef __ANDROID__
+		#define DEFAULT_RENDERER "gles1"
+	#else
+		#define DEFAULT_RENDERER "gl"
+	#endif
 #endif
 
 #if TARGET_OS_IPHONE
-    #define DEFAULT_CON_MAXFRAC "0.5"
+	#define DEFAULT_CON_MAXFRAC "0.5"
 #else
 	#define DEFAULT_CON_MAXFRAC "1"
 #endif

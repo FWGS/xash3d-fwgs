@@ -39,6 +39,5 @@ void R_SaveVideoMode( int w, int h );
 void VID_CheckChanges( void );
 const char *VID_GetModeString( int vid_mode );
 void VID_StartupGamma( void );
-void GL_SwapBuffers();
 
 #endif // VID_COMMON
