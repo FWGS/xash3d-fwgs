@@ -47,7 +47,7 @@ typedef struct loadformat_s
 {
 	const char *formatstring;
 	const char *ext;
-	qboolean (*loadfunc)( const char *name, const byte *buffer, size_t filesize );
+	qboolean (*loadfunc)( const char *name, const byte *buffer, fs_offset_t filesize );
 	image_hint_t hint;
 } loadpixformat_t;
 
@@ -296,15 +296,15 @@ void Image_GetPaletteHL( void );
 //
 // formats load
 //
-qboolean Image_LoadMIP( const char *name, const byte *buffer, size_t filesize );
-qboolean Image_LoadMDL( const char *name, const byte *buffer, size_t filesize );
-qboolean Image_LoadSPR( const char *name, const byte *buffer, size_t filesize );
-qboolean Image_LoadTGA( const char *name, const byte *buffer, size_t filesize );
-qboolean Image_LoadBMP( const char *name, const byte *buffer, size_t filesize );
-qboolean Image_LoadDDS( const char *name, const byte *buffer, size_t filesize );
-qboolean Image_LoadFNT( const char *name, const byte *buffer, size_t filesize );
-qboolean Image_LoadLMP( const char *name, const byte *buffer, size_t filesize );
-qboolean Image_LoadPAL( const char *name, const byte *buffer, size_t filesize );
+qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadMDL( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadSPR( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadDDS( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadFNT( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesize );
 
 //
 // formats save

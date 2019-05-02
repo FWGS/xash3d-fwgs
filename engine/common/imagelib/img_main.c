@@ -214,7 +214,7 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 	string		path, loadname, sidename;
 	qboolean		anyformat = true;
 	int		i;
-	size_t filesize = 0;
+	fs_offset_t	filesize = 0;
 	const loadpixformat_t *format;
 	const cubepack_t	*cmap;
 	byte		*f;

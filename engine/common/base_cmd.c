@@ -278,7 +278,7 @@ void BaseCmd_Test_f( void )
 		}
 	}
 
-	Cvar_LookupVars( 0, NULL, &invalid, BaseCmd_CheckCvars );
+	Cvar_LookupVars( 0, NULL, &invalid, (setpair_t)BaseCmd_CheckCvars );
 
 	if( !invalid )
 	{

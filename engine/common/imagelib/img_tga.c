@@ -21,7 +21,7 @@ GNU General Public License for more details.
 Image_LoadTGA
 =============
 */
-qboolean Image_LoadTGA( const char *name, const byte *buffer, size_t filesize )
+qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	int	i, columns, rows, row_inc, row, col;
 	byte	*buf_p, *pixbuf, *targa_rgba;

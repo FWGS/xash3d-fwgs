@@ -953,7 +953,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	int		send, pos;
 	int		remaining;
 	int		bufferid = 1;
-	int		filesize = 0;
+	fs_offset_t	filesize = 0;
 	char		compressedfilename[MAX_OSPATH];
 	int		compressedFileTime;
 	int		fileTime;

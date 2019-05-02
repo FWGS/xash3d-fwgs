@@ -59,7 +59,7 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 	const char	*ext = COM_FileExtension( filename );
 	string		path, loadname;
 	qboolean		anyformat = true;
-	size_t		filesize = 0;
+	fs_offset_t		filesize = 0;
 	const loadwavfmt_t	*format;
 	byte		*f;
 

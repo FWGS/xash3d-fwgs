@@ -914,9 +914,9 @@ static void Con_AddCommandToList( const char *s, const char *unused1, const char
 Con_SortCmds
 =================
 */
-static int Con_SortCmds( const char **arg1, const char **arg2 )
+static int Con_SortCmds( const void *arg1, const void *arg2 )
 {
-	return Q_stricmp( *arg1, *arg2 );
+	return Q_stricmp( *(const char **)arg1, *(const char **)arg2 );
 }
 
 /*
@@ -1035,8 +1035,8 @@ void Con_CompleteCommand( field_t *field )
 	con.shortestMatch[0] = 0;
 
 	// find matching commands and variables
-	Cmd_LookupCmds( NULL, NULL, Con_AddCommandToList );
-	Cvar_LookupVars( 0, NULL, NULL, Con_AddCommandToList );
+	Cmd_LookupCmds( NULL, NULL, (setpair_t)Con_AddCommandToList );
+	Cvar_LookupVars( 0, NULL, NULL, (setpair_t)Con_AddCommandToList );
 
 	if( !con.matchCount ) return; // no matches
 
@@ -1100,8 +1100,8 @@ void Con_CompleteCommand( field_t *field )
 		Con_Printf( "]%s\n", con.completionField->buffer );
 
 		// run through again, printing matches
-		Cmd_LookupCmds( NULL, NULL, Con_PrintCmdMatches );
-		Cvar_LookupVars( 0, NULL, NULL, Con_PrintCvarMatches );
+		Cmd_LookupCmds( NULL, NULL, (setpair_t)Con_PrintCmdMatches );
+		Cvar_LookupVars( 0, NULL, NULL, (setpair_t)Con_PrintCvarMatches );
 	}
 }
 

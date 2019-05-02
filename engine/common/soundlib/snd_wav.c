@@ -139,7 +139,7 @@ qboolean StreamFindNextChunk( file_t *file, const char *name, int *last_chunk )
 Sound_LoadWAV
 =============
 */
-qboolean Sound_LoadWAV( const char *name, const byte *buffer, size_t filesize )
+qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	int	samples, fmt;
 	qboolean	mpeg_stream = false;

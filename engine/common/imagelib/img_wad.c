@@ -25,13 +25,13 @@ GNU General Public License for more details.
 Image_LoadPAL
 ============
 */
-qboolean Image_LoadPAL( const char *name, const byte *buffer, size_t filesize )
+qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	int	rendermode = LUMP_NORMAL; 
 
 	if( filesize != 768 )
 	{
-		Con_DPrintf( S_ERROR "Image_LoadPAL: (%s) have invalid size (%d should be %d)\n", name, filesize, 768 );
+		Con_DPrintf( S_ERROR "Image_LoadPAL: (%s) have invalid size (%ld should be %d)\n", name, filesize, 768 );
 		return false;
 	}
 
@@ -74,7 +74,7 @@ qboolean Image_LoadPAL( const char *name, const byte *buffer, size_t filesize )
 Image_LoadFNT
 ============
 */
-qboolean Image_LoadFNT( const char *name, const byte *buffer, size_t filesize )
+qboolean Image_LoadFNT( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	qfont_t		font;
 	const byte	*pal, *fin;
@@ -147,7 +147,7 @@ void Image_SetMDLPointer( byte *p )
 Image_LoadMDL
 ============
 */
-qboolean Image_LoadMDL( const char *name, const byte *buffer, size_t filesize )
+qboolean Image_LoadMDL( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	byte		*fin;
 	size_t		pixels;
@@ -197,7 +197,7 @@ qboolean Image_LoadMDL( const char *name, const byte *buffer, size_t filesize )
 Image_LoadSPR
 ============
 */
-qboolean Image_LoadSPR( const char *name, const byte *buffer, size_t filesize )
+qboolean Image_LoadSPR( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	dspriteframe_t	*pin;	// identical for q1\hl sprites
 	qboolean		truecolor = false;
@@ -261,7 +261,7 @@ qboolean Image_LoadSPR( const char *name, const byte *buffer, size_t filesize )
 Image_LoadLMP
 ============
 */
-qboolean Image_LoadLMP( const char *name, const byte *buffer, size_t filesize )
+qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	lmp_t	lmp;
 	byte	*fin, *pal;
@@ -346,7 +346,7 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, size_t filesize )
 Image_LoadMIP
 =============
 */
-qboolean Image_LoadMIP( const char *name, const byte *buffer, size_t filesize )
+qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	mip_t	mip;
 	qboolean	hl_texture;

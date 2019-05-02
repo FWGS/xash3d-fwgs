@@ -98,6 +98,6 @@ void Platform_MessageBox( const char *title, const char *message, qboolean paren
 	fprintf( stderr,
 		 "======================================\n"
 		 "%s: %s\n"
-		 "======================================\n, title, message );
+		 "======================================\n", title, message );
 }
 #endif

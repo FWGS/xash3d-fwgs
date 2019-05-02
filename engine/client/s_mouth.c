@@ -75,7 +75,7 @@ void SND_MoveMouth8( channel_t *ch, wavdata_t *pSource, int count )
 	}
 	else pos = ch->pMixer.sample;
 
-	count = S_GetOutputData( pSource, &pdata, pos, count, ch->use_loop );
+	count = S_GetOutputData( pSource, (void**)&pdata, pos, count, ch->use_loop );
 	if( pdata == NULL ) return;
 	
 	i = 0;
@@ -123,7 +123,7 @@ void SND_MoveMouth16( channel_t *ch, wavdata_t *pSource, int count )
 	}
 	else pos = ch->pMixer.sample;
 
-	count = S_GetOutputData( pSource, &pdata, pos, count, ch->use_loop );
+	count = S_GetOutputData( pSource, (void**)&pdata, pos, count, ch->use_loop );
 	if( pdata == NULL ) return;
 	
 	i = 0;

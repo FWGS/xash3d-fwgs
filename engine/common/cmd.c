@@ -765,7 +765,7 @@ void Cmd_RemoveCommand( const char *cmd_name )
 Cmd_LookupCmds
 ============
 */
-void Cmd_LookupCmds( char *buffer, void *ptr, setpair_t callback )
+void Cmd_LookupCmds( void *buffer, void *ptr, setpair_t callback )
 {
 	cmd_t	*cmd;
 	cmdalias_t	*alias;

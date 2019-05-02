@@ -239,7 +239,7 @@ void Image_DXTAdjustVolume( dds_t *hdr )
 Image_LoadDDS
 =============
 */
-qboolean Image_LoadDDS( const char *name, const byte *buffer, size_t filesize )
+qboolean Image_LoadDDS( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	dds_t	header;
 	byte	*fin;

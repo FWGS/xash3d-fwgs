@@ -149,7 +149,7 @@ void Log_PrintServerVars( void )
 		return;
 
 	Log_Printf( "Server cvars start\n" );
-	Cvar_LookupVars( FCVAR_SERVER, NULL, NULL, Log_PrintServerCvar );
+	Cvar_LookupVars( FCVAR_SERVER, NULL, NULL, (setpair_t)Log_PrintServerCvar );
 	Log_Printf( "Server cvars end\n" );
 }
 

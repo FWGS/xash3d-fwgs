@@ -78,7 +78,7 @@ R_TransEntityCompare
 Sorting translucent entities by rendermode then by distance
 ===============
 */
-static int R_TransEntityCompare( const cl_entity_t **a, const cl_entity_t **b )
+static int R_TransEntityCompare( const void *a, const void *b )
 {
 	cl_entity_t	*ent1, *ent2;
 	vec3_t		vecLen, org;
@@ -86,8 +86,8 @@ static int R_TransEntityCompare( const cl_entity_t **a, const cl_entity_t **b )
 	int		rendermode1;
 	int		rendermode2;
 
-	ent1 = (cl_entity_t *)*a;
-	ent2 = (cl_entity_t *)*b;
+	ent1 = *(cl_entity_t **)a;
+	ent2 = *(cl_entity_t **)b;
 	rendermode1 = R_GetEntityRenderMode( ent1 );
 	rendermode2 = R_GetEntityRenderMode( ent2 );
 

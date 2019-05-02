@@ -1435,14 +1435,14 @@ R_SurfaceCompare
 compare translucent surfaces
 =================
 */
-static int R_SurfaceCompare( const sortedface_t *a, const sortedface_t *b )
+static int R_SurfaceCompare( const void *a, const void *b )
 {
 	msurface_t	*surf1, *surf2;
 	vec3_t		org1, org2;
 	float		len1, len2;
 
-	surf1 = (msurface_t *)a->surf;
-	surf2 = (msurface_t *)b->surf;
+	surf1 = (msurface_t *)((sortedface_t *)a)->surf;
+	surf2 = (msurface_t *)((sortedface_t *)b)->surf;
 
 	VectorAdd( RI.currententity->origin, surf1->info->origin, org1 );
 	VectorAdd( RI.currententity->origin, surf2->info->origin, org2 );

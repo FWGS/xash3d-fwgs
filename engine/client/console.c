@@ -558,7 +558,7 @@ static qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font
 {
 	int	i, fontWidth;
 	byte	*buffer;
-	size_t	length;
+	fs_offset_t	length;
 	qfont_t	*src;
 
 	if( font->valid )
@@ -807,7 +807,7 @@ int Con_UtfMoveRight( char *str, int pos, int length )
 static void Con_DrawCharToConback( int num, const byte *conchars, byte *dest )
 {
 	int	row, col;
-	byte	*source;
+	const byte	*source;
 	int	drawline;
 	int	x;
 
@@ -2349,8 +2349,8 @@ void Con_VidInit( void )
 	if( !con.background ) // last chance - quake conback image
 	{
 		qboolean		draw_to_console = false;
-		int		length = 0;
-		byte *buf;
+		fs_offset_t		length = 0;
+		const byte *buf;
 
 		// NOTE: only these games want to draw build number into console background
 		if( !Q_stricmp( FS_Gamedir(), "id1" ))
