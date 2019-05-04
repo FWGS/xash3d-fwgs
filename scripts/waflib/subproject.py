@@ -18,7 +18,6 @@ Usage::
 from waflib import Configure, Logs, Options, Utils
 import os
 
-IGNORED_SUBDIRS = []
 DEPTH = ''
 
 def depth_push(path):
@@ -94,22 +93,19 @@ def get_subproject_env(ctx, path, log=False):
 
 def configure(conf):
 	if conf.options.SKIP_SUBDIRS:
-		global IGNORED_SUBDIRS
-		IGNORED_SUBDIRS += conf.options.SKIP_SUBDIRS.split(',')
-		print(IGNORED_SUBDIRS)
+		conf.env.IGNORED_SUBDIRS = conf.options.SKIP_SUBDIRS.split(',')
 
 @Configure.conf
 def add_subproject(ctx, names):
-	global IGNORED_SUBDIRS
 	names_lst = Utils.to_list(names)
-	
+
 	if isinstance(ctx, Configure.ConfigurationContext):
 		for name in names_lst:
 			depth_push(name)
-			if name in IGNORED_SUBDIRS:
+			if name in ctx.env.IGNORED_SUBDIRS:
 				ctx.msg(msg='--X %s' % depth(), result='ignored', color='YELLOW')
 				depth_pop()
-				return
+				continue
 			saveenv = ctx.env
 			ctx.setenv(name, ctx.env) # derive new env from previous
 			ctx.env.ENVNAME = name
@@ -123,8 +119,8 @@ def add_subproject(ctx, names):
 		if not ctx.all_envs:
 			ctx.load_envs()
 		for name in names_lst:
-			if name in IGNORED_SUBDIRS:
-				return
+			if name in ctx.env.IGNORED_SUBDIRS:
+				continue
 			saveenv = ctx.env
 			ctx.env = ctx.all_envs[name]
 			ctx.recurse(name)
