@@ -15,6 +15,9 @@ fi
 # Cleanup libraries
 rm -rf android/lib/
 
+# Generate extras.pak
+python xash3d-fwgs/scripts/makepak.py xash-extras android/assets/extras.pak
+
 # Generate configs
 android/gen-config.sh android/
 android/gen-version.sh android/
