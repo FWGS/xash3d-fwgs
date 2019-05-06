@@ -4,3 +4,9 @@
 [submodule "jni/src/xash3d-fwgs"]
 	path = xash3d-fwgs
 	url = https://github.com/FWGS/xash3d-fwgs
+[submodule "hlsdk-xash3d"]
+	path = hlsdk-xash3d
+	url = https://github.com/FWGS/hlsdk-xash3d
+[submodule "xash3d-fwgs"]
+	path = xash3d-fwgs
+	url = https://github.com/FWGS/xash3d-fwgs
