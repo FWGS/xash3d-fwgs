@@ -103,7 +103,6 @@ def configure(conf):
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
 		conf.options.GL     = False
-		conf.options.SINGLE_BINARY = True
 
 	# print(conf.options.ALLOW64)
 
@@ -201,6 +200,9 @@ def configure(conf):
 		if conf.env.SINGLE_BINARY and i.singlebin:
 			continue
 
+		if conf.env.DEST_OS2 == 'android' and i.singlebin:
+			continue
+
 		if conf.env.DEDICATED and i.dedicated:
 			continue
 
@@ -209,6 +211,9 @@ def configure(conf):
 def build(bld):
 	for i in SUBDIRS:
 		if bld.env.SINGLE_BINARY and i.singlebin:
+			continue
+
+		if conf.env.DEST_OS2 == 'android' and i.singlebin:
 			continue
 
 		if bld.env.DEDICATED and i.dedicated:
