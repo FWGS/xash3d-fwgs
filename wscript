@@ -213,7 +213,7 @@ def build(bld):
 		if bld.env.SINGLE_BINARY and i.singlebin:
 			continue
 
-		if conf.env.DEST_OS2 == 'android' and i.singlebin:
+		if bld.env.DEST_OS2 == 'android' and i.singlebin:
 			continue
 
 		if bld.env.DEDICATED and i.dedicated:
