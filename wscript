@@ -31,6 +31,7 @@ SUBDIRS = [
 	Subproject('engine',      dedicated=False),
 	Subproject('game_launch', singlebin=True),
 	Subproject('ref_gl'),
+#	Subproject('ref_soft'),
 	Subproject('mainui'),
 	Subproject('vgui_support'),
 ]
@@ -94,6 +95,15 @@ def configure(conf):
 	if sys.platform == 'win32':
 		conf.load('msvc msdev msvs')
 	conf.load('xcompile compiler_c compiler_cxx gitversion clang_compilation_database')
+
+	# modify options dictionary early
+	if conf.env.DEST_OS2 == 'android':
+		conf.options.ALLOW64 = True # skip pointer length check
+		conf.options.NO_VGUI = True # skip vgui
+		conf.options.NANOGL = True
+		conf.options.GLWES  = True
+		conf.options.GL     = False
+		conf.options.SINGLE_BINARY = True
 
 	# print(conf.options.ALLOW64)
 
@@ -179,8 +189,8 @@ def configure(conf):
 
 	# indicate if we are packaging for Linux/BSD
 	if(not conf.options.WIN_INSTALL and
-		conf.env.DEST_OS != 'win32' and
-		conf.env.DEST_OS != 'darwin'):
+		conf.env.DEST_OS not in ['win32', 'darwin'] and
+		conf.env.DEST_OS2 not in ['android']):
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 	else:
 		conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
