@@ -31,6 +31,7 @@ class Android:
 	api            = None
 	toolchain_path = None
 	ndk_home       = None
+	is_hardfloat   = False
 
 	# TODO: New Android NDK support?
 	# TODO: Crystax support?
@@ -62,7 +63,7 @@ class Android:
 		return self.toolchain.startswith('clang')
 
 	def is_hardfp(self):
-		return self.arch.endswith('-hard')
+		return self.is_hardfloat
 
 	def gen_toolchain_path(self):
 		path = 'toolchains'
@@ -124,10 +125,10 @@ class Android:
 		cflags = ['--sysroot={0}'.format(self.sysroot()), '-DANDROID', '-D__ANDROID__']
 		cflags += ['-I{0}'.format(self.system_stl())]
 		if self.is_arm():
-			if self.arch.startswith('armeabi-v7a'):
+			if self.arch == 'armeabi-v7a':
 				# ARMv7 support
 				cflags += ['-mthumb', '-mfpu=neon', '-mcpu=cortex-a9', '-mvectorize-with-neon-quad', '-DHAVE_EFFICIENT_UNALIGNED_ACCESS', '-DVECTORIZE_SINCOS']
-				if self.arch == 'armeabi-v7a-hard':
+				if self.is_hardfloat:
 					cflags += ['-D_NDK_MATH_NO_SOFTFP=1', '-mhard-float', '-mfloat-abi=hard', '-DLOAD_HARDFP', '-DSOFTFP_LINK']
 				else:
 					cflags += ['-mfloat-abi=softfp'] # Tegra 2 sucks
@@ -141,10 +142,10 @@ class Android:
 	def ldflags(self):
 		ldflags = ['--sysroot={0}'.format(self.sysroot())]
 		if self.is_arm():
-			if self.arch.startswith('armeabi-v7a'):
+			if self.arch == 'armeabi-v7a':
 				ldflags += ['-march=armv7-a', '-Wl,--fix-cortex-a8']
-				if self.arch == 'armeabi-v7a-hard':
-					ldflags += ['-Wl,--no-warn-mismatch', '-lm_hard']
+				if self.is_hardfloat:
+					ldflags += ['-Wl,--no-warn-mismatch']
 			else:
 				ldflags += ['-march=armv5te']
 		return ldflags
@@ -152,6 +153,9 @@ class Android:
 	def __init__(self, ndk_home, arch, toolchain, api):
 		self.ndk_home = ndk_home
 		self.arch = arch
+		if self.arch == 'armeabi-v7a-hard':
+			self.arch = 'armeabi-v7a' # Only armeabi-v7a have hard float ABI
+			self.is_hardfloat = True
 		self.toolchain = toolchain
 		self.api = api
 		self.toolchain_path = self.gen_toolchain_path()
@@ -181,11 +185,6 @@ def configure(conf):
 			conf.fatal('Unknown arch: {0}. Supported: {1}'.format(values[0], ', '.join(valid_archs)))
 
 		android = Android(android_ndk_path, values[0], values[1], values[2])
-		conf.options.ALLOW64 = True # skip pointer length check
-		conf.options.NO_VGUI = True # skip vgui
-		conf.options.NANOGL = True
-		conf.options.GLWES  = True
-		conf.options.GL     = False
 		conf.environ['CC'] = android.cc()
 		conf.environ['CXX'] = android.cxx()
 		conf.env.CFLAGS += android.cflags()
@@ -196,6 +195,8 @@ def configure(conf):
 		if android.is_hardfp():
 			conf.env.LIB_M = ['m_hard']
 		else: conf.env.LIB_M = ['m']
+
+		conf.env.PREFIX = '/lib/{0}'.format(android.arch)
 
 		conf.msg('Selected Android NDK', android_ndk_path)
 		# no need to print C/C++ compiler, as it would be printed by compiler_c/cxx
