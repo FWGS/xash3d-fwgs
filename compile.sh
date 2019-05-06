@@ -6,6 +6,11 @@ API=19
 ROOT="$PWD" # compile.sh must be run from root of android project sources
 SUBDIRS="xash3d-fwgs hlsdk-xash3d"
 SYMLINKS_APPEND=""
+if [ $# -ne 2 ]; then
+	BUILD_TYPE=debug
+else
+	BUILD_TYPE=$1
+fi
 
 # Cleanup libraries
 rm -rf android/lib/
@@ -13,6 +18,9 @@ rm -rf android/lib/
 # Generate configs
 android/gen-config.sh android/
 android/gen-version.sh android/
+
+# configure android project
+./waf configure -T $BUILD_TYPE
 
 build_native_project()
 {
@@ -22,8 +30,8 @@ build_native_project()
 	else
 		cd $1
 	fi
-	./waf -o $ROOT/build-$1/$2 configure -T release --android="$2,$3,$4" build || exit 1
-	./waf install --destdir=$ROOT/android/
+	./waf -o $ROOT/build-$1/$2 configure -T $BUILD_TYPE --android="$2,$3,$4" build || exit 1
+	./waf install --destdir=$ROOT/build/android/
 	cd $ROOT # obviously, we can't ../ from symlink directory, so change to our root directory
 }
 
@@ -34,5 +42,11 @@ for i in $ARCHS; do
 	done
 done
 
+find $ROOT/build/android/lib -name "*.a" -delete
+
 # Run waf
-./waf configure -T release build
+./waf build
+
+# sign
+cp build/android/xashdroid-src.apk xashdroid.apk
+apksigner sign --ks ../myks.keystore xashdroid.apk
