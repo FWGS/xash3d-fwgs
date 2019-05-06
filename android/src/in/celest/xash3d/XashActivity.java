@@ -98,7 +98,6 @@ public class XashActivity extends Activity {
 	// Load the .so
 	static 
 	{
-		System.loadLibrary( "gpgs_support" );
 		System.loadLibrary( "xash" );
 	}
 
