@@ -23,7 +23,7 @@ android/gen-config.sh android/
 android/gen-version.sh android/
 
 # configure android project
-./waf configure -T $BUILD_TYPE
+./waf configure -T $BUILD_TYPE || exit 1
 
 build_native_project()
 {
@@ -48,7 +48,7 @@ done
 find $ROOT/build/android/lib -name "*.a" -delete
 
 # Run waf
-./waf build
+./waf build || exit 1
 
 # sign
 cp build/android/xashdroid-src.apk xashdroid.apk
