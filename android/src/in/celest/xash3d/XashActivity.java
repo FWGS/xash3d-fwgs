@@ -555,6 +555,7 @@ public class XashActivity extends Activity {
 	public static native void nativeOnFocusChange();
 	public static native void nativeOnPause();
 	public static native void nativeUnPause();
+	public static native void nativeSetSurface( Surface surface );
 	public static native void nativeHat( int id, byte hat, byte keycode, boolean down ) ;
 	public static native void nativeAxis( int id, byte axis, short value );
 	public static native void nativeJoyButton( int id, byte button, boolean down );
@@ -569,30 +570,9 @@ public class XashActivity extends Activity {
 	// libjnisetenv
 	public static native int setenv( String key, String value, boolean overwrite );
 	
-	// Java functions called from C
-	public static boolean createGLContext( int stencilBits ) 
-	{
-		return mSurface.InitGL(stencilBits);
-	}
-	
-	public static int getGLAttribute( int attr )
-	{
-		return mSurface.getGLAttribute( attr );
-	}
-	
-	public static void swapBuffers() 
-	{
-		mSurface.SwapBuffers();
-	}
-	
 	public static void engineThreadNotify() 
 	{
 		mSurface.engineThreadNotify();
-	}
-	
-	public static Surface getNativeSurface() 
-	{
-		return XashActivity.mSurface.getNativeSurface();
 	}
 	
 	public static void vibrate( int time ) 
@@ -601,17 +581,6 @@ public class XashActivity extends Activity {
 		{
 			mVibrator.vibrate( time );
 		}
-	}
-	
-	public static void toggleEGL( int toggle )
-	{
-		mSurface.toggleEGL( toggle );
-	}
-	
-	public static boolean deleteGLContext() 
-	{
-		mSurface.ShutdownGL();
-		return true;
 	}
 
 	public static Context getContext() 
@@ -968,36 +937,24 @@ public class XashActivity extends Activity {
 		handler.showMouse( fMouseShown );
 	}
 	
-	public static void GenericUpdatePage()
-	{
-		mSingleton.startActivity( new Intent( Intent.ACTION_VIEW, Uri.parse("https://github.com/FWGS/xash3d/releases/latest" ) ) );
-	}
-	
-	public static void PlatformUpdatePage()
-	{
-		// open GP
-		try 
-		{
-			mSingleton.startActivity( new Intent( Intent.ACTION_VIEW, Uri.parse("market://details?id=in.celest.xash3d.hl") ) );
-		}
-		catch( android.content.ActivityNotFoundException e ) 
-		{
-			GenericUpdatePage();
-		}
-	}
-	
 	// Just opens browser or update page
 	public static void shellExecute( String path )
 	{
-		if( path.equals("PlatformUpdatePage"))
+		if( path.equals( "PlatformUpdatePage" ))
 		{
-			PlatformUpdatePage();
-			return;
+			try
+			{
+				mSingleton.startActivity( new Intent( Intent.ACTION_VIEW, Uri.parse("market://details?id=in.celest.xash3d.hl") ) );
+				return;
+			}
+			catch( android.content.ActivityNotFoundException e ) 
+			{
+				path = "https://github.com/FWGS/xash3d/releases/latest";
+			}
 		}
 		else if( path.equals( "GenericUpdatePage" ))
 		{
-			GenericUpdatePage();
-			return;
+			path = "https://github.com/FWGS/xash3d/releases/latest";
 		}
 	
 		final Intent intent = new Intent(Intent.ACTION_VIEW).setData(Uri.parse(path));
@@ -1031,14 +988,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 	private static Thread mEngThread = null;
 	private static Object mPauseLock = new Object(); 
 
-	// EGL private objects
-	private EGLContext  mEGLContext;
-	private EGLSurface  mEGLSurface;
-	private EGLDisplay  mEGLDisplay;
-	private EGL10 mEGL;
-	private EGLConfig mEGLConfig;
 	private boolean resizing = false;
-
 	// Sensors
 
 	// Startup
@@ -1061,24 +1011,15 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 	public void surfaceCreated( SurfaceHolder holder )
 	{
 		Log.v( TAG, "surfaceCreated()" );
-		
-		if( mEGL == null )
-			return;
-		
 		XashActivity.nativeSetPause( 0 );
 		XashActivity.mEnginePaused = false;
-		//holder.setFixedSize(640,480);
-		//SurfaceHolder.setFixedSize(640,480);
 	}
 
 	// Called when we lose the surface
 	public void surfaceDestroyed( SurfaceHolder holder )
 	{
 		Log.v( TAG, "surfaceDestroyed()" );
-		
-		if( mEGL == null )
-			return;
-		
+		XashActivity.nativeSetSurface(null);
 		XashActivity.nativeSetPause(1);
 	}
 
@@ -1111,6 +1052,9 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 		// Just don't notify engine in that case
 		if( width > height || mEngThread == null )
 			XashActivity.onNativeResize( width, height );
+		
+		XashActivity.nativeSetSurface( holder.getSurface() );
+		
 		// holder.setFixedSize( width / 2, height / 2 );
 		// Now start up the C app thread
 		if( mEngThread == null ) 
@@ -1167,237 +1111,6 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 	// unused
 	public void onDraw( Canvas canvas )
 	{
-	}
-	
-	// first, initialize native backend
-	public Surface getNativeSurface() 
-	{
-		return getHolder().getSurface();
-	}
-	
-	public int getGLAttribute( final int attr )
-	{
-		try
-		{
-			EGL10 egl = ( EGL10 )EGLContext.getEGL();
-			// check input for invalid attributes
-			if( attr == egl.EGL_ALPHA_SIZE ||
-				attr == egl.EGL_DEPTH_SIZE ||
-				attr == egl.EGL_RED_SIZE ||
-				attr == egl.EGL_GREEN_SIZE ||
-				attr == egl.EGL_BLUE_SIZE ||
-				attr == egl.EGL_STENCIL_SIZE )
-			{
-				int[] value = new int[1];
-				
-				boolean ret = egl.eglGetConfigAttrib(mEGLDisplay, mEGLConfig, attr, value);
-				
-				if( !ret )
-				{
-					Log.e(TAG, "getGLAttribute(): eglGetConfigAttrib error " + egl.eglGetError());
-					return 0;
-				}
-				
-				// Log.e(TAG, "getGLAttribute(): " + attr + " => " + value[0]);
-				
-				return value[0];
-			}
-			else
-			{
-				// engine don't cares about others
-				Log.e(TAG, "getGLAttribute(): Unknown attribute " + attr);
-				return 0;
-			}
-		}
-		catch( Exception e  )
-		{
-			Log.v( TAG, e + "" );
-			for( StackTraceElement s : e.getStackTrace() ) 
-			{
-				Log.v( TAG, s.toString() );
-			}
-		}
-		return 0;
-	}
-	
-	// EGL functions
-	public boolean InitGL( int stencilBits ) 
-	{
-		try
-		{
-			EGL10 egl = ( EGL10 )EGLContext.getEGL();
-			
-			if( egl == null )
-			{
-				Log.e( TAG, "Cannot get EGL from context" );
-				return false;
-			}
-
-			EGLDisplay dpy = egl.eglGetDisplay( EGL10.EGL_DEFAULT_DISPLAY );
-
-			if( dpy == null )
-			{
-				Log.e( TAG, "Cannot get display" );
-				return false;
-			}
-			
-			int[] version = new int[2];
-			if( !egl.eglInitialize( dpy, version ) )
-			{
-				Log.e( TAG, "No EGL config available" );
-				return false;
-			}
-			
-			// Make EGL_STENCIL_SIZE first argument, so it's easy to fall back to null stencil buffer, if we failed
-			int[][] configSpec = 
-			{
-				{
-					EGL10.EGL_STENCIL_SIZE, stencilBits,
-					EGL10.EGL_DEPTH_SIZE, 8,
-					EGL10.EGL_RED_SIZE,   8,
-					EGL10.EGL_GREEN_SIZE, 8,
-					EGL10.EGL_BLUE_SIZE,  8,
-					EGL10.EGL_ALPHA_SIZE, 8,
-					EGL10.EGL_NONE
-				}, 
-				{
-					EGL10.EGL_STENCIL_SIZE, stencilBits,
-					EGL10.EGL_DEPTH_SIZE, 8,
-					EGL10.EGL_RED_SIZE,   8,
-					EGL10.EGL_GREEN_SIZE, 8,
-					EGL10.EGL_BLUE_SIZE,  8,
-					EGL10.EGL_ALPHA_SIZE, 0,
-					EGL10.EGL_NONE
-				}, 
-				{
-					EGL10.EGL_STENCIL_SIZE, stencilBits,
-					EGL10.EGL_DEPTH_SIZE, 8,
-					EGL10.EGL_RED_SIZE,   5,
-					EGL10.EGL_GREEN_SIZE, 6,
-					EGL10.EGL_BLUE_SIZE,  5,
-					EGL10.EGL_ALPHA_SIZE, 0,
-					EGL10.EGL_NONE
-				}, 
-				{
-					EGL10.EGL_STENCIL_SIZE, stencilBits,
-					EGL10.EGL_DEPTH_SIZE, 8,
-					EGL10.EGL_RED_SIZE,   5,
-					EGL10.EGL_GREEN_SIZE, 5,
-					EGL10.EGL_BLUE_SIZE,  5,
-					EGL10.EGL_ALPHA_SIZE, 1,
-					EGL10.EGL_NONE
-				}, 
-				{
-					EGL10.EGL_STENCIL_SIZE, stencilBits,
-					EGL10.EGL_DEPTH_SIZE, 8,
-					EGL10.EGL_RED_SIZE,   4,
-					EGL10.EGL_GREEN_SIZE, 4,
-					EGL10.EGL_BLUE_SIZE,  4,
-					EGL10.EGL_ALPHA_SIZE, 4,
-					EGL10.EGL_NONE
-				}, 
-				{
-					EGL10.EGL_STENCIL_SIZE, stencilBits,
-					EGL10.EGL_DEPTH_SIZE, 8,
-					EGL10.EGL_RED_SIZE,   3,
-					EGL10.EGL_GREEN_SIZE, 3,
-					EGL10.EGL_BLUE_SIZE,  2,
-					EGL10.EGL_ALPHA_SIZE, 0,
-					EGL10.EGL_NONE
-				}
-			};
-			EGLConfig[] configs = new EGLConfig[1];
-			int[] num_config = new int[1];
-			if( !egl.eglChooseConfig( dpy, configSpec[XashActivity.mPixelFormat], configs, 1, num_config ) || num_config[0] == 0 )
-			{
-				Log.e( TAG, "Failed to choose config with " + stencilBits + " stencil size. Trying without..." );
-				configSpec[XashActivity.mPixelFormat][1] = 0; // disable stencil
-				if( !egl.eglChooseConfig( dpy, configSpec[XashActivity.mPixelFormat], configs, 1, num_config ) || num_config[0] == 0 )
-				{
-					Log.e( TAG, "No EGL config available" );
-					return false;
-				}
-			}
-			EGLConfig config = configs[0];
-
-			int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
-			int contextAttrs[] = new int[]
-			{
-				EGL_CONTEXT_CLIENT_VERSION, 1,
-				EGL10.EGL_NONE
-			};
-			EGLContext ctx = egl.eglCreateContext( dpy, config, EGL10.EGL_NO_CONTEXT, contextAttrs );
-			if( ctx == EGL10.EGL_NO_CONTEXT )
-			{
-				Log.e( TAG, "Couldn't create context" );
-				return false;
-			}
-
-			EGLSurface surface = egl.eglCreateWindowSurface( dpy, config, this, null );
-			if( surface == EGL10.EGL_NO_SURFACE )
-			{
-				Log.e( TAG, "Couldn't create surface" );
-				return false;
-			}
-
-			if( !egl.eglMakeCurrent( dpy, surface, surface, ctx ) )
-			{
-				Log.e( TAG, "Couldn't make context current" );
-				return false;
-			}
-			
-			mEGLContext = ctx;
-			mEGLDisplay = dpy;
-			mEGLSurface = surface;
-			mEGL = egl;
-			mEGLConfig = config;
-		} 
-		catch( Exception e ) 
-		{
-			Log.v( TAG, e + "" );
-			for( StackTraceElement s : e.getStackTrace() ) 
-			{
-				Log.v( TAG, s.toString() );
-			}
-		}
-		
-		return true;
-	}
-
-	// EGL buffer flip
-	public void SwapBuffers()
-	{
-		if( mEGLSurface == null )
-			return;
-		
-		mEGL.eglSwapBuffers( mEGLDisplay, mEGLSurface );
-	}
-	
-	public void toggleEGL( int toggle )
-	{
-	   if( toggle != 0 )
-	   {
-			mEGLSurface = mEGL.eglCreateWindowSurface( mEGLDisplay, mEGLConfig, this, null );
-			mEGL.eglMakeCurrent( mEGLDisplay, mEGLSurface, mEGLSurface, mEGLContext );
-	   }
-	   else
-	   {
-			mEGL.eglMakeCurrent( mEGLDisplay, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT );
-			mEGL.eglDestroySurface( mEGLDisplay, mEGLSurface );
-			mEGLSurface = null;
-	   }
-	}
-	
-	public void ShutdownGL()
-	{
-		mEGL.eglDestroyContext( mEGLDisplay, mEGLContext );
-		mEGLContext = null;
-		
-		mEGL.eglDestroySurface( mEGLDisplay, mEGLSurface );
-		mEGLSurface = null;
-		
-		mEGL.eglTerminate( mEGLDisplay );
-		mEGLDisplay = null;
 	}
 	
 	@Override

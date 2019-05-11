@@ -2,7 +2,7 @@
 
 ARCHS="armeabi-v7a-hard armeabi x86"
 TOOLCHAIN=4.9
-API=19
+API=9
 ROOT="$PWD" # compile.sh must be run from root of android project sources
 SUBDIRS="xash3d-fwgs hlsdk-xash3d"
 SYMLINKS_APPEND=""
