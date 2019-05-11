@@ -7,7 +7,9 @@ from waflib import *
 from waflib.Tools import javaw
 
 android_sdk_home_env = ['ANDROID_SDK_HOME', 'ANDROID_SDK']
-have_aapt2 = False
+
+# d8 started to roll out in 28
+D8_BUILD_TOOLS_MAJOR_VER = 28
 
 def options(opt):
 	#grp = opt.add_option_group('Android options')
@@ -56,9 +58,9 @@ def configure(conf):
 		conf.find_program(i, path_list = paths)
 
 	# optional
-	try:
+	if conf.env.BUILD_TOOLS_VERSION[0] >= D8_BUILD_TOOLS_MAJOR_VER:
 		conf.find_program('d8', path_list = paths)
-	except:
+	else:
 		conf.find_program('dx', path_list = paths)
 
 
