@@ -883,7 +883,7 @@ static int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
 		return con.curFont->charWidths[number];
 
 	// don't apply color to fixed fonts it's already colored
-	if( con.curFont->type != FONT_FIXED || REF_GET_PARM( PARM_TEX_GLFORMAT, 0x8045 ) ) // GL_LUMINANCE8_ALPHA8
+	if( con.curFont->type != FONT_FIXED || REF_GET_PARM( PARM_TEX_GLFORMAT, con.curFont->hFontTexture ) == 0x8045 ) // GL_LUMINANCE8_ALPHA8
 		ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
 	else ref.dllFuncs.Color4ub( 255, 255, 255, color[3] );
 
