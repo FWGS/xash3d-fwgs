@@ -218,7 +218,7 @@ VGui_Startup
 Load vgui_support library and call VGui_Startup
 ================
 */
-void VGui_Startup( int width, int height )
+void VGui_Startup( const char *clientlib, int width, int height )
 {
 	static qboolean failed = false;
 
@@ -238,7 +238,7 @@ void VGui_Startup( int width, int height )
 		VGui_FillAPIFromRef( &vgui, &ref.dllFuncs );
 
 #ifdef XASH_INTERNAL_GAMELIBS
-		s_pVGuiSupport = COM_LoadLibrary( "client", false, false );
+		s_pVGuiSupport = COM_LoadLibrary( clientlib, false, false );
 
 		if( s_pVGuiSupport )
 		{

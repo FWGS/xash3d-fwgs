@@ -1544,8 +1544,8 @@ void FS_LoadGameInfo( const char *rootfolder )
 	}
 	if( !Sys_GetParmFromCmdLine( "-clientlib", SI.clientlib ) )
 	{
-#ifdef __ANDROID__
-		Q_strncpy( SI.clientlib, CLIENTDLL, sizeof( SI.clientlib ) );
+#ifdef XASH_INTERNAL_GAMELIBS
+		Q_strncpy( SI.clientlib, "client", sizeof( SI.clientlib ) );
 #else
 		Q_strncpy( SI.clientlib, GI->client_lib, sizeof( SI.clientlib ) );
 #endif
