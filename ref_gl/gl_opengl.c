@@ -373,6 +373,18 @@ void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cv
 }
 
 /*
+==============
+GL_GetProcAddress
+
+defined just for nanogl/glwes, so it don't link to SDL2 directly, nor use dlsym
+==============
+*/
+void GAME_EXPORT *GL_GetProcAddress( const char *name )
+{
+	return gEngfuncs.GL_GetProcAddress( name );
+}
+
+/*
 ===============
 GL_SetDefaultTexState
 ===============
@@ -708,6 +720,8 @@ void GL_InitExtensions( void )
 #else
 	GL_InitExtensionsBigGL();
 #endif
+
+	R_RenderInfo_f();
 
 	// enable gldebug if allowed
 	if( GL_Support( GL_DEBUG_OUTPUT ))
