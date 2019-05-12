@@ -34,6 +34,9 @@ static Elf_Sym* soinfo_elf_lookup(soinfo* si, unsigned hash, const char* name) {
     Elf_Sym* symtab = si->symtab;
     const char* strtab = si->strtab;
 
+	if( si->nbucket == 0 )
+		return NULL;
+
     for (unsigned n = si->bucket[hash % si->nbucket]; n != 0; n = si->chain[n]) {
         Elf_Sym* s = symtab + n;
         if (strcmp(strtab + s->st_name, name)) continue;
