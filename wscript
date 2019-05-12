@@ -108,7 +108,9 @@ def configure(conf):
 
 	conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
 	conf.env.BIT32_ALLOW64 = conf.options.ALLOW64
-	conf.load('force_32bit sdl2')
+	conf.load('force_32bit')
+	if conf.env.DEST_OS2 != 'android':
+		conf.load('sdl2')
 
 	if conf.env.DEST_SIZEOF_VOID_P == 4:
 		Logs.info('NOTE: will build engine for 32-bit target')
@@ -129,7 +131,7 @@ def configure(conf):
 		'common': {
 			'msvc':    ['/D_USING_V110_SDK71_', '/Zi', '/FS'],
 			'clang':   ['-g', '-gdwarf-2'],
-			'gcc':     ['-g', '-Werror=implicit-function-declaration', '-fdiagnostics-color=always']
+			'gcc':     ['-g', '-Werror=implicit-function-declaration', '-fdiagnostics-color=always', '-Werror=return-type']
 		},
 		'fast': {
 			'msvc':    ['/O2', '/Oy'], #todo: check /GL /LTCG

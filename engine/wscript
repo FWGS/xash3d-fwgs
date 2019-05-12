@@ -26,6 +26,7 @@ def configure(conf):
 			conf.check_cc( lib='rt' )
 		conf.env.append_unique('DEFINES', 'XASH_DEDICATED')
 	elif conf.env.DEST_OS2 == 'android': # Android doesn't need SDL2
+		conf.check_cc(lib='android')
 		conf.check_cc(lib='log')
 		conf.check_cc(lib='EGL')
 	else:
@@ -74,8 +75,8 @@ def build(bld):
 		source += bld.path.ant_glob(['platform/sdl/*.c'])
 
 	if bld.env.DEST_OS2 == 'android':
-		libs += ['LOG', 'EGL']
-		source += bld.path.ant_glob(['platform/android/*.c*'])
+		libs += ['LOG', 'EGL', 'ANDROID']
+		source += bld.path.ant_glob(['platform/android/*.cpp', 'platform/android/*.c'])
 
 	# add client files
 	if not bld.env.DEDICATED:
