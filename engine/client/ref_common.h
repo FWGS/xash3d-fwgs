@@ -38,7 +38,7 @@ void R_GetTextureParms( int *w, int *h, int texnum );
 #define GL_UpdateTextureInternal( name, pic, flags ) ref.dllFuncs.GL_LoadTextureFromBuffer( (name), (pic), (flags), true )
 #define R_GetBuiltinTexture( name ) ref.dllFuncs.GL_LoadTexture( (name), 0, 0, 0 )
 
-int GL_RenderFrame( const struct ref_viewpass_s *rvp );
+void GL_RenderFrame( const struct ref_viewpass_s *rvp );
 
 // common engine and renderer cvars
 extern convar_t	*r_decals;

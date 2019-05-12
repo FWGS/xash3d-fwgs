@@ -35,7 +35,7 @@ void GL_FreeImage( const char *name )
 		 ref.dllFuncs.GL_FreeTexture( texnum );
 }
 
-int GL_RenderFrame( const ref_viewpass_t *rvp )
+void GL_RenderFrame( const ref_viewpass_t *rvp )
 {
 	refState.time      = cl.time;
 	refState.oldtime   = cl.oldtime;
@@ -528,6 +528,8 @@ qboolean R_Init( void )
 		Host_Error( "Can't initialize %s renderer!\n", refdll );
 		return false;
 	}
+
+	Con_Reportf( "Renderer %s initialized\n", refdll );
 
 	SCR_Init();
 
