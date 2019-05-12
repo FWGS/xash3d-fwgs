@@ -20,6 +20,8 @@ GNU General Public License for more details.
 #include "platform/android/android_priv.h"
 #include "errno.h"
 #include <pthread.h>
+#include <android/native_window.h>
+#include <android/native_window_jni.h>
 
 #ifndef JNICALL
 #define JNICALL // a1ba: workaround for my IDE, where Java files are not included
@@ -86,7 +88,8 @@ typedef enum event_type
 	event_onpause,
 	event_ondestroy,
 	event_onresume,
-	event_onfocuschange
+	event_onfocuschange,
+	event_setwindow,
 } eventtype_t;
 
 typedef struct touchevent_s
@@ -139,6 +142,7 @@ typedef struct event_s
 		joyaxis_t axis;
 		joybutton_t button;
 		keyevent_t key;
+		ANativeWindow *window;
 	};
 } event_t;
 
@@ -243,14 +247,9 @@ DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 
 	jni.env = env;
 	jni.actcls = (*env)->FindClass(env, "in/celest/xash3d/XashActivity");
-	jni.swapBuffers = (*env)->GetStaticMethodID(env, jni.actcls, "swapBuffers", "()V");
-	jni.toggleEGL = (*env)->GetStaticMethodID(env, jni.actcls, "toggleEGL", "(I)V");
 	jni.enableTextInput = (*env)->GetStaticMethodID(env, jni.actcls, "showKeyboard", "(I)V");
 	jni.vibrate = (*env)->GetStaticMethodID(env, jni.actcls, "vibrate", "(I)V" );
 	jni.messageBox = (*env)->GetStaticMethodID(env, jni.actcls, "messageBox", "(Ljava/lang/String;Ljava/lang/String;)V");
-	jni.createGLContext = (*env)->GetStaticMethodID(env, jni.actcls, "createGLContext", "(I)Z");
-	jni.getGLAttribute = (*env)->GetStaticMethodID(env, jni.actcls, "getGLAttribute", "(I)I");
-	jni.deleteGLContext = (*env)->GetStaticMethodID(env, jni.actcls, "deleteGLContext", "()Z");
 	jni.notify = (*env)->GetStaticMethodID(env, jni.actcls, "engineThreadNotify", "()V");
 	jni.setTitle = (*env)->GetStaticMethodID(env, jni.actcls, "setTitle", "(Ljava/lang/String;)V");
 	jni.setIcon = (*env)->GetStaticMethodID(env, jni.actcls, "setIcon", "(Ljava/lang/String;)V");
@@ -554,6 +553,24 @@ DECLARE_JNI_INTERFACE( int, nativeTestWritePermission, jstring jPath )
 	return ret;
 }
 
+DECLARE_JNI_INTERFACE( void, nativeSetSurface, jobject surface )
+{
+	Android_Lock();
+	if( surface )
+	{
+		negl.window = ANativeWindow_fromSurface( env, surface );
+	}
+	else
+	{
+		if( negl.window )
+		{
+			ANativeWindow_release( negl.window );
+			negl.window = NULL;
+		}
+	}
+	Android_Unlock();
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad( JavaVM *vm, void *reserved )
 {
 	return JNI_VERSION_1_6;
@@ -819,8 +836,8 @@ void Platform_RunEvents()
 			{
 				host.status = HOST_FRAME;
 				SNDDMA_Activate( true );
-				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
-				Android_UpdateSurface();
+				// (*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
+				// Android_UpdateSurface();
 				SetBits( gl_vsync->flags, FCVAR_CHANGED ); // set swap interval
 				host.force_draw_version = true;
 				host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
@@ -830,8 +847,8 @@ void Platform_RunEvents()
 			{
 				host.status = HOST_NOFOCUS;
 				SNDDMA_Activate( false );
-				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
-				negl.valid = false;
+				// (*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
+				// negl.valid = false;
 			}
 			break;
 
@@ -839,9 +856,9 @@ void Platform_RunEvents()
 			// reinitialize EGL and change engine screen size
 			if( host.status == HOST_NORMAL && ( refState.width != jni.width || refState.height != jni.height ) )
 			{
-				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
-				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
-				Android_UpdateSurface();
+				// (*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
+				// (*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
+				// Android_UpdateSurface();
 				SetBits( gl_vsync->flags, FCVAR_CHANGED ); // set swap interval
 				VID_SetMode();
 			}
@@ -910,6 +927,9 @@ void Platform_RunEvents()
 		case event_onfocuschange:
 			host.force_draw_version = true;
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
+			break;
+		case event_setwindow:
+			negl.window = events.queue[i].window;
 			break;
 		}
 	}
