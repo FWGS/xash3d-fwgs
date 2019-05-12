@@ -1741,14 +1741,14 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 R_RenderFrame
 ===============
 */
-int GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
+void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 {
 	if( r_norefresh->value )
-		return 1;
+		return;
 
 	// prevent cache overrun
 	if( gpGlobals->height > vid.height || gpGlobals->width > vid.width )
-		return 1;
+		return;
 
 	// setup the initial render params
 	R_SetupRefParams( rvp );
@@ -1763,7 +1763,7 @@ int GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 			//R_GatherPlayerLight();
 			tr.realframecount++;
 			tr.fResetVis = true;
-			return 1;
+			return;
 		}
 	}
 
@@ -1774,7 +1774,7 @@ int GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 	tr.realframecount++; // right called after viewmodel events
 	R_RenderScene();
 
-	return 1;
+	return;
 }
 
 /*

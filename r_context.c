@@ -314,12 +314,6 @@ void GAME_EXPORT GL_SetTexCoordArrayMode()
 
 }
 
-void GAME_EXPORT GL_OnContextCreated()
-{
-	//R_InitBlit();
-
-}
-
 void GAME_EXPORT GL_InitExtensions()
 {
 
@@ -364,12 +358,13 @@ void GAME_EXPORT R_SetupSky(const char *skyboxname)
 
 qboolean GAME_EXPORT VID_ScreenShot(const char *filename, int shot_type)
 {
-
+	return false;
 }
 
 qboolean GAME_EXPORT VID_CubemapShot(const char *base, uint size, const float *vieworg, qboolean skyshot)
 {
 	// cubemaps? in my softrender???
+	return false;
 }
 
 void R_InitSkyClouds(mip_t *mt, texture_t *tx, qboolean custom_palette)
@@ -457,7 +452,6 @@ ref_interface_t gReffuncs =
 	R_Shutdown,
 
 	GL_SetupAttributes,
-	GL_OnContextCreated,
 	GL_InitExtensions,
 	GL_ClearExtensions,
 
