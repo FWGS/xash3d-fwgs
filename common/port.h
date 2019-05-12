@@ -57,11 +57,11 @@ GNU General Public License for more details.
 	#define OS_LIB_PREFIX "lib"
 
 	#if defined(__ANDROID__)
-		#if defined(LOAD_HARDFP)
-			#define POSTFIX "_hardfp"
-		#else
+		//#if defined(LOAD_HARDFP)
+		//	#define POSTFIX "_hardfp"
+		//#else
 			#define POSTFIX
-		#endif
+		//#endif
 
 		// don't change these names
 		#define MENUDLL   "libmenu"   POSTFIX "." OS_LIB_EXT
