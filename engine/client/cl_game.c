@@ -3950,7 +3950,7 @@ qboolean CL_LoadProgs( const char *name )
 	// NOTE: important stuff!
 	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS
 	// during LoadLibrary
-	VGui_Startup( gameui.globals->scrWidth, gameui.globals->scrHeight );
+	VGui_Startup( name, gameui.globals->scrWidth, gameui.globals->scrHeight );
 
 	clgame.hInstance = COM_LoadLibrary( name, false, false );
 	if( !clgame.hInstance ) return false;
