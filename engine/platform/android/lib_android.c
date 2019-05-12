@@ -47,15 +47,17 @@ void *ANDROID_LoadLibrary( const char *dllname )
 		return pHandle;
 
 	COM_PushLibraryError( dlerror() );
+
+	return NULL;
 }
 
 void *ANDROID_GetProcAddress( void *hInstance, const char *name )
 {
-	void *p = dlsym_weak( hInstance, name );
+	void *p = dlsym( hInstance, name );
 	
 	if( p ) return p;
 	
-	return dlsym( hInstance, name );
+	return dlsym_weak( hInstance, name );
 }
 
 

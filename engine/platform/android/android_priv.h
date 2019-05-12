@@ -12,14 +12,9 @@ extern struct jnimethods_s
 	jclass actcls;
 	JavaVM *vm;
 	JNIEnv *env;
-	jmethodID swapBuffers;
-	jmethodID toggleEGL;
 	jmethodID enableTextInput;
 	jmethodID vibrate;
 	jmethodID messageBox;
-	jmethodID createGLContext;
-	jmethodID getGLAttribute;
-	jmethodID deleteGLContext;
 	jmethodID notify;
 	jmethodID setTitle;
 	jmethodID setIcon;
@@ -34,8 +29,14 @@ extern struct jnimethods_s
 extern struct nativeegl_s
 {
 	qboolean valid;
+	void *window;
 	EGLDisplay dpy;
 	EGLSurface surface;
+	EGLContext context;
+	EGLConfig cfg;
+	EGLint numCfg;
+
+	const char *extensions;
 } negl;
 
 extern struct jnimouse_s
