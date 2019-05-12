@@ -70,10 +70,13 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 										width, height);
 
 		// fallback
-		if( !sw.tex )
-			sw.tex = SDL_CreateTexture(sw.renderer, format = SDL_PIXELFORMAT_RGBA8888,
+		if( !sw.tex && format != SDL_PIXELFORMAT_RGBA8888 )
+		{
+			format = SDL_PIXELFORMAT_RGBA8888;
+			sw.tex = SDL_CreateTexture(sw.renderer, format,
 											SDL_TEXTUREACCESS_STREAMING,
 											width, height);
+		}
 
 		if( !sw.tex )
 		{
@@ -133,8 +136,10 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 				Sys_Error(SDL_GetError());
 		}
 #endif
-
 	}
+
+	// we can't create ref_soft buffer
+	return false;
 }
 
 void *SW_LockBuffer()
@@ -177,18 +182,13 @@ void *SW_LockBuffer()
 
 void SW_UnlockBuffer()
 {
-
 	if( sw.renderer )
 	{
 		SDL_Rect src, dst;
-		src.x = 0;
-		src.y = 0;
+		src.x = src.y = 0;
 		src.w = sw.width;
 		src.h = sw.height;
-		dst.x = 0;
-		dst.y = 0;
-		dst.w = sw.width;
-		dst.h = sw.height;
+		dst = src;
 		SDL_UnlockTexture(sw.tex);
 
 		SDL_SetTextureBlendMode(sw.tex, SDL_BLENDMODE_NONE);
@@ -204,14 +204,10 @@ void SW_UnlockBuffer()
 		if( sw.surf )
 		{
 			SDL_Rect src, dst;
-			src.x = 0;
-			src.y = 0;
+			src.x = src.y = 0;
 			src.w = sw.width;
 			src.h = sw.height;
-			dst.x = 0;
-			dst.y = 0;
-			dst.w = sw.width;
-			dst.h = sw.height;
+			dst = src;
 			SDL_UnlockSurface( sw.surf );
 			SDL_BlitSurface( sw.surf, &src, sw.win, &dst );
 		}
