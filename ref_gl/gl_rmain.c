@@ -1100,10 +1100,10 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 R_RenderFrame
 ===============
 */
-int R_RenderFrame( const ref_viewpass_t *rvp )
+void R_RenderFrame( const ref_viewpass_t *rvp )
 {
 	if( r_norefresh->value )
-		return 1;
+		return;
 
 	// setup the initial render params
 	R_SetupRefParams( rvp );
@@ -1129,7 +1129,7 @@ int R_RenderFrame( const ref_viewpass_t *rvp )
 			R_GatherPlayerLight();
 			tr.realframecount++;
 			tr.fResetVis = true;
-			return 1;
+			return;
 		}
 	}
 
@@ -1140,7 +1140,7 @@ int R_RenderFrame( const ref_viewpass_t *rvp )
 	tr.realframecount++; // right called after viewmodel events
 	R_RenderScene();
 
-	return 1;
+	return;
 }
 
 /*

@@ -336,7 +336,6 @@ ref_interface_t gReffuncs =
 	R_Shutdown,
 
 	GL_SetupAttributes,
-	GL_OnContextCreated,
 	GL_InitExtensions,
 	GL_ClearExtensions,
 

@@ -429,8 +429,6 @@ qboolean GL_CreateContext( void )
 		return GL_DeleteContext();
 	}
 
-	ref.dllFuncs.GL_OnContextCreated();
-
 	return true;
 }
 

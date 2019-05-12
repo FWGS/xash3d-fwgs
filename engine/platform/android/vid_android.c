@@ -315,8 +315,6 @@ qboolean VID_SetMode( void )
 
 	negl.valid = true;
 
-	ref.dllFuncs.GL_OnContextCreated();
-
 	return true;
 }
 

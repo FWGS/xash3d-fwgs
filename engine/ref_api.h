@@ -445,7 +445,6 @@ typedef struct ref_interface_s
 
 	// only called for GL contexts
 	void (*GL_SetupAttributes)( int safegl );
-	void (*GL_OnContextCreated)( void );
 	void (*GL_InitExtensions)( void );
 	void (*GL_ClearExtensions)( void );
 
@@ -572,7 +571,7 @@ typedef struct ref_interface_s
 	struct mstudiotex_s *( *StudioGetTexture )( struct cl_entity_s *e );
 
 	// passed through R_RenderFrame (0 - use engine renderer, 1 - use custom client renderer)
-	int		(*GL_RenderFrame)( const struct ref_viewpass_s *rvp );
+	void		(*GL_RenderFrame)( const struct ref_viewpass_s *rvp );
 	// setup map bounds for ortho-projection when we in dev_overview mode
 	void		(*GL_OrthoBounds)( const float *mins, const float *maxs );
 	// grab r_speeds message

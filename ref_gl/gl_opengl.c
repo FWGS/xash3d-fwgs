@@ -705,6 +705,8 @@ void GL_InitExtensionsBigGL()
 
 void GL_InitExtensions( void )
 {
+	GL_OnContextCreated();
+
 	// initialize gl extensions
 	GL_CheckExtension( "OpenGL 1.1.0", opengl_110funcs, NULL, GL_OPENGL_110 );
 
