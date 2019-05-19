@@ -50,8 +50,8 @@ def configure(conf):
 
 	paths = [os.path.join(sdk, 'tools'), get_build_tools(sdk, btv)]
 	paths += os.environ['PATH'].split(os.pathsep) # just in case we have installed tools
-
-	conf.env.BUILD_TOOLS_VERSION = map(int, btv.split('.'))
+	
+	conf.env.BUILD_TOOLS_VERSION = [int(x) for x in btv.split('.')]
 
 	# mandatory
 	for i in ['aapt2', 'zipalign', 'apksigner', 'zip']:
