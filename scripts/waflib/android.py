@@ -278,7 +278,7 @@ def apply_d8(self):
 
 	if getattr(self, 'debug', False):
 		self.env.D8_FLAGS = '--debug'
-	else: self.env.D8_FLAGS = '--release'
+	elif self.env.D8: self.env.D8_FLAGS = '--release'
 
 	
 	if self.env.D8:
