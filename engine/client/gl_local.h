@@ -206,7 +206,6 @@ typedef struct
 	int		recursion_level;
 	int		max_recursion;
 
-	byte		visbytes[(MAX_MAP_LEAFS+7)/8];	// member custom PVS
 	int		lightstylevalue[MAX_LIGHTSTYLES];	// value 0 - 65536
 	int		block_size;			// lightmap blocksize
 
@@ -331,6 +330,7 @@ void R_InitDlightTexture( void );
 void R_TextureList_f( void );
 void R_InitImages( void );
 void R_ShutdownImages( void );
+int GL_TexMemory( void );
 
 //
 // gl_refrag.c
@@ -612,6 +612,7 @@ typedef struct
 	GLboolean		texIdentityMatrix[MAX_TEXTURE_UNITS];
 	GLint		genSTEnabled[MAX_TEXTURE_UNITS];	// 0 - disabled, OR 1 - S, OR 2 - T, OR 4 - R
 	GLint		texCoordArrayMode[MAX_TEXTURE_UNITS];	// 0 - disabled, 1 - enabled, 2 - cubemap
+	GLint		isFogEnabled;
 
 	int		faceCull;
 

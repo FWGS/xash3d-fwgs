@@ -1492,7 +1492,7 @@ void CL_RegisterResources( sizebuf_t *msg )
 		ASSERT( clgame.entities != NULL );
 		clgame.entities->model = cl.worldmodel;
 
-		if( cls.state != ca_disconnected )
+		if( !cl.video_prepped && !cl.audio_prepped )
 		{
 			Con_Printf( "Setting up renderer...\n" );
 

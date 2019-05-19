@@ -43,18 +43,14 @@ static int R_RankForRenderMode( int rendermode )
 
 void R_AllowFog( int allowed )
 {
-	static int	isFogEnabled;
-
 	if( allowed )
 	{
-		if( isFogEnabled )
+		if( glState.isFogEnabled )
 			pglEnable( GL_FOG );
 	}
 	else
 	{
-		isFogEnabled = pglIsEnabled( GL_FOG );
-
-		if( isFogEnabled )
+		if( glState.isFogEnabled )
 			pglDisable( GL_FOG );
 	}
 }
@@ -487,6 +483,9 @@ static void R_SetupFrame( void )
 	// setup viewplane dist
 	RI.viewplanedist = DotProduct( RI.vieworg, RI.vforward );
 
+	// NOTE: this request is the fps-killer on some NVidia drivers
+	glState.isFogEnabled = pglIsEnabled( GL_FOG );
+
 	if( !gl_nosort->value )
 	{
 		// sort translucents entities by rendermode and distance
@@ -690,7 +689,11 @@ static void R_CheckFog( void )
 			// in some cases waterlevel jumps from 3 to 1. Catch it
 			RI.cached_waterlevel = cl.local.waterlevel;
 			RI.cached_contents = CONTENTS_EMPTY;
-			if( !RI.fogCustom ) pglDisable( GL_FOG );
+			if( !RI.fogCustom )
+			{
+				glState.isFogEnabled = false;
+				pglDisable( GL_FOG );
+			}
 		}
 		return;
 	}
@@ -1271,6 +1274,8 @@ static int GL_RenderGetParm( int parm, int arg )
 		return glState.stencilEnabled;
 	case PARM_WATER_ALPHA:
 		return FBitSet( world.flags, FWORLD_WATERALPHA );
+	case PARM_TEX_MEMORY:
+		return GL_TexMemory();
 	}
 	return 0;
 }

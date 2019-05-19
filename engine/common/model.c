@@ -137,6 +137,11 @@ static void Mod_FreeModel( model_t *mod )
 
 ===============================================================================
 */
+/*
+================
+Mod_Init
+================
+*/
 void Mod_Init( void )
 {
 	com_studiocache = Mem_AllocPool( "Studio Cache" );

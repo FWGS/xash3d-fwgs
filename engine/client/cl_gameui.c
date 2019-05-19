@@ -378,7 +378,7 @@ static HIMAGE pfnPIC_Load( const char *szPicName, const byte *image_buf, long im
 {
 	HIMAGE	tx;
 
-	if( !szPicName || !*szPicName )
+	if( !COM_CheckString( szPicName ))
 	{
 		Con_Reportf( S_ERROR "CL_LoadImage: bad name!\n" );
 		return 0;
@@ -902,7 +902,7 @@ pfnHostEndGame
 static void pfnHostEndGame( const char *szFinalMessage )
 {
 	if( !szFinalMessage ) szFinalMessage = "";
-	Host_EndGame( true, szFinalMessage );
+	Host_EndGame( false, szFinalMessage );
 }
 
 /*

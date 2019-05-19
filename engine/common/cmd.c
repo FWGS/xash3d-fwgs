@@ -976,9 +976,8 @@ void Cmd_ExecuteString( char *text )
 		{
 			Cmd_ForwardToServer();
 		}
-		else if( text[0] != '@' && Cvar_VariableInteger( "host_gameloaded" ))
+		else if( Cvar_VariableInteger( "host_gameloaded" ))
 		{
-			// commands with leading '@' are hidden system commands
 			Con_Printf( S_WARN "Unknown command \"%s\"\n", text );
 		}
 	}

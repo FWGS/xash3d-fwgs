@@ -254,7 +254,7 @@ Return contents for point
 */
 int CL_PointContents( const vec3_t p )
 {
-	int cont = CL_TruePointContents( p );
+	int cont = PM_PointContents( clgame.pmove, p );
 
 	if( cont <= CONTENTS_CURRENT_0 && cont >= CONTENTS_CURRENT_DOWN )
 		cont = CONTENTS_WATER;
@@ -2165,7 +2165,7 @@ static int pfnPointContents( const float *p, int *truecontents )
 {
 	int	cont, truecont;
 
-	truecont = cont = CL_TruePointContents( p );
+	truecont = cont = PM_PointContents( clgame.pmove, p );
 	if( truecontents ) *truecontents = truecont;
 
 	if( cont <= CONTENTS_CURRENT_0 && cont >= CONTENTS_CURRENT_DOWN )
@@ -3124,6 +3124,7 @@ void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 	// check for invalid parms
 	if( flEnd <= flStart )
 	{
+		glState.isFogEnabled = false;
 		RI.fogCustom = false;
 		pglDisable( GL_FOG );
 		return;

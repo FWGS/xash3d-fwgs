@@ -505,7 +505,7 @@ typically expanded to rgba buffer
 NOTE: number at end of pixelformat name it's a total bitscount e.g. PF_RGB_24 == PF_RGB_888
 ========================================================================
 */
-#define ImageRAW( type )	(type == PF_RGBA_32 || type == PF_BGRA_32 || type == PF_RGB_24 || type == PF_BGR_24)
+#define ImageRAW( type )	(type == PF_RGBA_32 || type == PF_BGRA_32 || type == PF_RGB_24 || type == PF_BGR_24 || type == PF_LUMINANCE)
 #define ImageDXT( type )	(type == PF_DXT1 || type == PF_DXT3 || type == PF_DXT5 || type == PF_ATI2)
 
 typedef enum
@@ -517,6 +517,7 @@ typedef enum
 	PF_BGRA_32,	// big endian RGBA (MacOS)
 	PF_RGB_24,	// uncompressed dds or another 24-bit image 
 	PF_BGR_24,	// big-endian RGB (MacOS)
+	PF_LUMINANCE,	// 8-bit single channel
 	PF_DXT1,		// s3tc DXT1 format
 	PF_DXT3,		// s3tc DXT3 format
 	PF_DXT5,		// s3tc DXT5 format
@@ -891,7 +892,6 @@ void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float
 void SV_StartMusic( const char *curtrack, const char *looptrack, long position );
 void SV_CreateDecal( struct sizebuf_s *msg, const float *origin, int decalIndex, int entityIndex, int modelIndex, int flags, float scale );
 void Log_Printf( const char *fmt, ... );
-struct sizebuf_s *SV_GetReliableDatagram( void );
 void SV_BroadcastCommand( const char *fmt, ... );
 qboolean SV_RestoreCustomDecal( struct decallist_s *entry, edict_t *pEdict, qboolean adjacent );
 void SV_BroadcastPrintf( struct sv_client_s *ignore, char *fmt, ... );

@@ -22,16 +22,16 @@ GNU General Public License for more details.
 
 const char *file_exts[10] =
 {
-	".cfg",
-	".lst",
-	".exe",
-	".vbs",
-	".com",
-	".bat",
-	".dll",
-	".ini",
-	".log",
-	".sys",
+	"cfg",
+	"lst",
+	"exe",
+	"vbs",
+	"com",
+	"bat",
+	"dll",
+	"ini",
+	"log",
+	"sys",
 };
 
 #ifdef _DEBUG

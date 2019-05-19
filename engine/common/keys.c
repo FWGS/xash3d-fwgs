@@ -333,6 +333,9 @@ void Key_Unbindall_f( void )
 		if( keys[i].binding )
 			Key_SetBinding( i, "" );
 	}
+
+	// set some defaults
+	Key_SetBinding( K_ESCAPE, "cancelselect" );
 }
 
 /*

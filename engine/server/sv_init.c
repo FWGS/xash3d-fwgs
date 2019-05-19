@@ -135,7 +135,6 @@ int SV_SoundIndex( const char *filename )
 	char	name[MAX_QPATH];
 	int	i;
 
-	// don't precache sentence names!
 	if( !COM_CheckString( filename ))
 		return 0;
 
@@ -263,7 +262,7 @@ int SV_GenericIndex( const char *filename )
 ================
 SV_ModelHandle
 
-register unique model for a server and client
+get model by handle
 ================
 */
 model_t *SV_ModelHandle( int modelindex )
@@ -273,6 +272,13 @@ model_t *SV_ModelHandle( int modelindex )
 	return sv.models[modelindex];
 }
 
+/*
+================
+SV_CreateGenericResources
+
+loads external resource list
+================
+*/
 void SV_CreateGenericResources( void )
 {
 	string	filename, token;
@@ -303,6 +309,13 @@ void SV_CreateGenericResources( void )
 	Mem_Free( afile );
 }
 
+/*
+================
+SV_CreateResourceList
+
+add resources to common list
+================
+*/
 void SV_CreateResourceList( void )
 {
 	qboolean	ffirstsent = false;
@@ -571,7 +584,7 @@ void SV_ActivateServer( int runPhysics )
 		Mod_FreeUnused ();
 
 	host.movevars_changed = true;
-	sv.state = ss_active;
+	Host_SetServerState( ss_active );
 
 	Con_DPrintf( "level loaded at %.2f sec\n", Sys_DoubleTime() - svs.timestart );
 
@@ -609,7 +622,7 @@ void SV_DeactivateServer( void )
 
 	svgame.globals->time = sv.time;
 	svgame.dllFuncs.pfnServerDeactivate();
-	sv.state = ss_dead;
+	Host_SetServerState( ss_dead );
 
 	SV_FreeEdicts ();
 
@@ -821,7 +834,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	COM_FileBase( mapname, sv.name );
 
 	// precache and static commands can be issued during map initialization
-	sv.state = ss_loading;
+	Host_SetServerState( ss_loading );
 
 	if( startspot )
 		Q_strncpy( sv.startspot, startspot, sizeof( sv.startspot ));

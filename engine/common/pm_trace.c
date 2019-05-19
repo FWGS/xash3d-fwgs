@@ -651,3 +651,81 @@ int PM_TestPlayerPosition( playermove_t *pmove, vec3_t pos, pmtrace_t *ptrace, p
 
 	return -1; // didn't hit anything
 }
+
+/*
+=============
+PM_TruePointContents
+
+=============
+*/
+int PM_TruePointContents( playermove_t *pmove, const vec3_t p )
+{
+	hull_t	*hull = &pmove->physents[0].model->hulls[0];
+
+	if( hull )
+	{
+		return PM_HullPointContents( hull, hull->firstclipnode, p );
+	}
+	else
+	{
+		return CONTENTS_EMPTY;
+	}
+}
+
+/*
+=============
+PM_PointContents
+
+=============
+*/
+int PM_PointContents( playermove_t *pmove, const vec3_t p )
+{
+	int	i, contents;
+	hull_t	*hull;
+	vec3_t	test;
+	physent_t	*pe;
+
+	// sanity check
+	if( !p || !pmove->physents[0].model )
+		return CONTENTS_NONE;
+
+	// get base contents from world
+	contents = PM_HullPointContents( &pmove->physents[0].model->hulls[0], 0, p );
+
+	for( i = 1; i < pmove->numphysent; i++ )
+	{
+		pe = &pmove->physents[i];
+
+		if( pe->solid != SOLID_NOT ) // disabled ?
+			continue;
+
+		// only brushes can have special contents
+		if( !pe->model ) continue;
+
+		// check water brushes accuracy
+		hull = &pe->model->hulls[0];
+
+		if( FBitSet( pe->model->flags, MODEL_HAS_ORIGIN ) && !VectorIsNull( pe->angles ))
+		{
+			matrix4x4	matrix;
+	
+			Matrix4x4_CreateFromEntity( matrix, pe->angles, pe->origin, 1.0f );
+			Matrix4x4_VectorITransform( matrix, p, test );
+		}
+		else
+		{
+			// offset the test point appropriately for this hull.
+			VectorSubtract( p, pe->origin, test );
+		}
+
+		// test hull for intersection with this model
+		if( PM_HullPointContents( hull, hull->firstclipnode, test ) == CONTENTS_EMPTY )
+			continue;
+
+		// compare contents ranking
+		if( RankForContents( pe->skin ) > RankForContents( contents ))
+			contents = pe->skin; // new content has more priority
+	}
+
+	return contents;
+}

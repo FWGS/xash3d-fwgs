@@ -154,7 +154,7 @@ void Con_SetColor_f( void )
 {
 	vec3_t	color;
 
-	switch( Cmd_Argc() )
+	switch( Cmd_Argc( ))
 	{
 	case 1:
 		Con_Printf( "\"con_color\" is %i %i %i\n", g_color_table[7][0], g_color_table[7][1], g_color_table[7][2] );

@@ -58,10 +58,10 @@ GNU General Public License for more details.
 // {
 //  byte (on/off)
 //  int (fragment id)
-//  short (startpos)
-//  short (length)
+//  int (startpos)
+//  int (length)
 // }
-#define HEADER_BYTES		( 8 + MAX_STREAMS * 9 )
+#define HEADER_BYTES		( 8 + MAX_STREAMS * 13 )
 
 // Pad this to next higher 16 byte boundary
 // This is the largest packet that can come in/out over the wire, before processing the header

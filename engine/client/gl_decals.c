@@ -77,7 +77,7 @@ static void R_DecalUnlink( decal_t *pdecal )
 		else 
 		{
 			tmp = pdecal->psurface->pdecals;
-			if( !tmp ) Host_Error( "D_DecalUnlink: bad decal list\n" );
+			if( !tmp ) Host_Error( "R_DecalUnlink: bad decal list\n" );
 
 			while( tmp->pnext ) 
 			{

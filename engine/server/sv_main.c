@@ -152,6 +152,9 @@ send updates to client if changed
 */
 void SV_UpdateMovevars( qboolean initialize )
 {
+	if( sv.state == ss_dead )
+		return;
+
 	if( !initialize && !host.movevars_changed )
 		return;
 
@@ -260,6 +263,13 @@ void SV_CheckCmdTimes( void )
 	}
 }
 
+/*
+=================
+SV_ProcessFile
+
+process incoming file (customization)
+=================
+*/
 void SV_ProcessFile( sv_client_t *cl, const char *filename )
 {
 	customization_t	*pList;
@@ -553,11 +563,6 @@ qboolean SV_IsSimulating( void )
 SV_RunGameFrame
 =================
 */
-/*
-=================
-SV_RunGameFrame
-=================
-*/
 qboolean SV_RunGameFrame( void )
 {
 	sv.simulating = SV_IsSimulating();
@@ -636,6 +641,17 @@ void Host_ServerFrame( void )
 
 	// send a heartbeat to the master if needed
 	Master_Heartbeat ();
+}
+
+/*
+==================
+Host_SetServerState
+==================
+*/
+void Host_SetServerState( int state )
+{
+	Cvar_FullSet( "host_serverstate", va( "%i", state ), FCVAR_READ_ONLY );
+	sv.state = state;
 }
 
 //============================================================================
@@ -874,7 +890,7 @@ to totally exit after returning from this function.
 */
 void SV_FinalMessage( const char *message, qboolean reconnect )
 {
-	byte		msg_buf[64];
+	byte		msg_buf[1024];
 	sv_client_t	*cl;
 	sizebuf_t		msg;
 	int		i;
@@ -980,6 +996,9 @@ void SV_Shutdown( const char *finalmsg )
 
 	SV_FreeClients();
 	svs.maxclients = 0;
+
+	// release all models
+	Mod_FreeAll();
 
 	HPAK_FlushHostQueue();
 	Log_Printf( "Server shutdown\n" );
