@@ -46,7 +46,12 @@ GNU General Public License for more details.
 
 	#if defined(__APPLE__)
 		#include <sys/syslimits.h>
-		#define OS_LIB_EXT "dylib"
+		#ifdef TARGET_OS_IPHONE
+			#define OS_LIB_EXT ""
+			#define NO_LIB_EXT
+		#else
+			#define OS_LIB_EXT "dylib"
+		#endif
 		#define OPEN_COMMAND "open"
 		#include "TargetConditionals.h"
 	#else
@@ -68,6 +73,10 @@ GNU General Public License for more details.
 		#define CLIENTDLL "libclient" POSTFIX "." OS_LIB_EXT
 		#define SERVERDLL "libserver" POSTFIX "." OS_LIB_EXT
 		#define GAMEPATH "/sdcard/xash"
+	#elif defined(TARGET_OS_IPHONE)
+		#define MENUDLL   "libmenu"
+		#define CLIENTDLL "client"
+		#define SERVERDLL "server"
 	#else
 	        #define MENUDLL "libmenu" ARCH_SUFFIX "." OS_LIB_EXT
 	        #define CLIENTDLL "client" ARCH_SUFFIX "." OS_LIB_EXT

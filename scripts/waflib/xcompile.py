@@ -14,6 +14,7 @@
 from fwgslib import get_flags_by_compiler
 import os
 import sys
+import subprocess
 
 # Output:
 #  CROSSCOMPILING -- set to true, if crosscompiling is enabled
@@ -162,11 +163,63 @@ class Android:
 
 def options(opt):
 	android = opt.add_option_group('Android options')
+	# ios = opt.add_option_group('iOS options')
 	android.add_option('--android', action='store', dest='ANDROID_OPTS', default=None,
 		help='enable building for android, format: --android=<arch>,<toolchain>,<api>, example: --android=armeabi-v7a-hard,4.9,9')
+	opt.add_option('--ios', action='store_true', dest='IOS_OPTS', default=None)
 
 def configure(conf):
-	if conf.options.ANDROID_OPTS:
+	if conf.options.IOS_OPTS:
+		environment = conf.env
+		
+		# Setup common defines for ios
+		environment['DEFINES'] += [ 'APPLE', 'IOS', 'MOBILE', 'APPLE_BUNDLE', 'TARGET_OS_IPHONE', 'TARGET_OS_IOS' ]
+		
+		# Set Minimum ios version and the path to the current sdk
+		conf.options.min_iphoneos_version = "12.2"
+		sdk_path = subprocess.check_output(["xcrun", "--sdk", "iphoneos", "--show-sdk-path"]).strip()
+		environment['CFLAGS'] += [ '-miphoneos-version-min=' + conf.options.min_iphoneos_version, '-isysroot' + sdk_path, '-Wno-shorten-64-to-32' ]
+		environment['CXXFLAGS'] += [ '-miphoneos-version-min=' + conf.options.min_iphoneos_version, '-isysroot' + sdk_path, '-Wno-shorten-64-to-32' ]
+		environment['MMFLAGS'] = environment['CXXFLAGS'] + ['-x', 'objective-c++']
+
+		environment['LINKFLAGS'] += [ '-Wl,-dead_strip', '-isysroot' + sdk_path, '-miphoneos-version-min='+conf.options.min_iphoneos_version]
+		environment['LIB'] += [ 'pthread' ]
+		
+		# For now, only support arm64
+		environment['ARCH'] = ['arm64']
+		
+		# Pattern to transform outputs
+		environment['cprogram_PATTERN']   = '%s'
+		environment['cxxprogram_PATTERN'] = '%s'
+		environment['cshlib_PATTERN']     = 'lib%s.dylib'
+		environment['cxxshlib_PATTERN']   = 'lib%s.dylib'
+		environment['cstlib_PATTERN']     = 'lib%s.a'
+		environment['cxxstlib_PATTERN']   = 'lib%s.a'
+		environment['macbundle_PATTERN']  = 'lib%s.dylib'
+		
+		# Specify how to translate some common operations for a specific compiler   
+		environment['FRAMEWORK_ST']     = ['-framework']
+		environment['FRAMEWORKPATH_ST'] = '-F%s'
+		
+		# Default frameworks to always link
+		environment['FRAMEWORK'] = [ 'Foundation', 'UIKit', 'QuartzCore', 'GameController', 'CoreMotion', 'SystemConfiguration', 'CoreFoundation', 'CFNetwork', 'AVFoundation' ]
+
+		# Setup compiler and linker settings for mac bundles
+		environment['CFLAGS_MACBUNDLE'] = environment['CXXFLAGS_MACBUNDLE'] = '-fpic'
+		environment['LINKFLAGS_MACBUNDLE'] = [
+			'-bundle', 
+			'-undefined', 
+			'dynamic_lookup'
+			]
+		
+		# Since we only support a single ios target (clang-64bit), we specify all tools directly here    
+		environment['AR'] = 'ar'
+		environment['CC'] = 'clang'
+		environment['CXX'] = 'clang++'
+		environment['LINK'] = environment['LINK_CC'] = environment['LINK_CXX'] = 'clang++'
+		environment.DEST_OS2 = 'ios'
+		conf.env = environment
+	elif conf.options.ANDROID_OPTS:
 		for i in ['ANDROID_NDK_HOME', 'ANDROID_NDK']:
 			android_ndk_path = os.getenv(i)
 			if android_ndk_path != None:
@@ -207,3 +260,4 @@ def configure(conf):
 		conf.env.DEST_OS2 = 'android'
 #	else:
 #		conf.load('compiler_c compiler_cxx') # Use host compiler :)
+

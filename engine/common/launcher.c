@@ -19,8 +19,10 @@ GNU General Public License for more details.
 #include <string.h>
 #ifdef XASH_SDLMAIN
 #include "SDL.h"
+#include <SDL_main.h>
 #endif
 
+#include <system.h>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>

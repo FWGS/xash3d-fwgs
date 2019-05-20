@@ -29,7 +29,7 @@ def my_dirname(path):
 
 def sdl2_configure_path(conf, path):
 	conf.env.HAVE_SDL2 = 1
-	if conf.env.DEST_OS == 'darwin':
+	if conf.env.DEST_OS == 'darwin' and conf.env.DEST_OS2 != 'ios':
 		conf.env.INCLUDES_SDL2 = [
 			os.path.abspath(os.path.join(path, 'Headers'))
 		]
@@ -48,6 +48,9 @@ def sdl2_configure_path(conf, path):
 				libpath = 'lib/' + conf.env.DEST_CPU
 		conf.env.LIBPATH_SDL2 = [os.path.abspath(os.path.join(path, libpath))]
 		conf.env.LIB_SDL2 = ['SDL2']
+		# Add frameworks
+		if conf.env.DEST_OS2 == 'ios':
+			conf.env.FRAMEWORK_SDL2 = ['OpenGLES', 'CoreAudio', 'AudioToolbox', 'AVFoundation', 'CoreMotion', 'CoreGraphics']
 
 def configure(conf):
 	if conf.options.SDL2_PATH:

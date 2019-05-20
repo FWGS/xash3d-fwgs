@@ -78,6 +78,9 @@ def build(bld):
 		libs += ['LOG', 'EGL', 'ANDROID']
 		source += bld.path.ant_glob(['platform/android/*.cpp', 'platform/android/*.c'])
 
+	if bld.env.DEST_OS2 == 'ios':
+		source += bld.path.ant_glob(['platform/ios/*.c', 'platform/ios/*.m'])
+
 	# add client files
 	if not bld.env.DEDICATED:
 		source += bld.path.ant_glob([
@@ -107,3 +110,9 @@ def build(bld):
 		install_path = install_path,
 		subsystem = bld.env.MSVC_SUBSYSTEM
 	)
+
+from waflib import TaskGen
+@TaskGen.extension('.m')
+def m_hook(self, node):
+    """Alias .m files to be compiled the same as .c files, gcc will do the right thing."""
+    return self.create_compiled_task('c', node)

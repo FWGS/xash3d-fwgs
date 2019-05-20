@@ -97,20 +97,24 @@ def configure(conf):
 	conf.load('xcompile compiler_c compiler_cxx gitversion clang_compilation_database')
 
 	# modify options dictionary early
-	if conf.env.DEST_OS2 == 'android':
+	if conf.env.DEST_OS2 in ['android', 'ios']:
 		conf.options.ALLOW64 = True # skip pointer length check
 		conf.options.NO_VGUI = True # skip vgui
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
 		conf.options.GL     = False
-
-	# print(conf.options.ALLOW64)
+		if conf.env.DEST_OS2 == 'ios': 
+			conf.options.SINGLE_BINARY = True
 
 	conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
 	conf.env.BIT32_ALLOW64 = conf.options.ALLOW64
 	conf.load('force_32bit')
 	if conf.env.DEST_OS2 != 'android':
 		conf.load('sdl2')
+
+	if conf.env.DEST_OS2 == 'ios':
+		conf.env.BIT32_ALLOW64 = True
+		conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
 
 	if conf.env.DEST_SIZEOF_VOID_P == 4:
 		Logs.info('NOTE: will build engine for 32-bit target')
