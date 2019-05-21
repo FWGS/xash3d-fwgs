@@ -532,7 +532,7 @@ qboolean R_Init( void )
 	r_decals = Cvar_Get( "r_decals", "4096", FCVAR_ARCHIVE, "sets the maximum number of decals" );
 	gl_wgl_msaa_samples = Cvar_Get( "gl_wgl_msaa_samples", "0", FCVAR_GLCONFIG, "samples number for multisample anti-aliasing" );
 
-	if( !R_LoadProgs( refdll )) //"libref_gles1" ))//
+	if( !R_LoadProgs( refdll ))
 	{
 		R_Shutdown();
 		Host_Error( "Can't initialize %s renderer!\n", refdll );
