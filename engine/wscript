@@ -111,8 +111,3 @@ def build(bld):
 		subsystem = bld.env.MSVC_SUBSYSTEM
 	)
 
-from waflib import TaskGen
-@TaskGen.extension('.m')
-def m_hook(self, node):
-    """Alias .m files to be compiled the same as .c files, gcc will do the right thing."""
-    return self.create_compiled_task('c', node)
