@@ -112,10 +112,6 @@ def configure(conf):
 	if conf.env.DEST_OS2 != 'android':
 		conf.load('sdl2')
 
-	# if conf.env.DEST_OS2 == 'ios':
-	# 	conf.env.BIT32_ALLOW64 = True
-	# 	conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
-
 	if conf.env.DEST_SIZEOF_VOID_P == 4:
 		Logs.info('NOTE: will build engine for 32-bit target')
 	else:

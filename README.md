@@ -71,6 +71,16 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 2) Compile: `./waf build`
 3) Install(optional): `./waf install`
 
+#### iOS
+0) Open command line
+1) Navigate to `xash3d-fwgs` directory.
+2) Navigate to `ref_gl` directory.
+3) Clone `nanogl` and `gl-wes-v2`: `git clone https://github.com/FWGS/gl-wes-v2 && git clone https://github.com/FWGS/nanogl`
+3) Carefully examine which build options are available: `waf --help`
+4) Configure build: `./waf configure -s /path/to/SDL2 --build-type=release --ios`
+5) Compile: `./waf build`
+This will leave the compiled binaries (and libraries!) inside the build directory.
+
 ## Running
 0) Copy libraries and main executable somewhere, if you're skipped installation stage.
 1) Copy game files to same directory
