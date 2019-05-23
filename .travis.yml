@@ -48,27 +48,27 @@ jobs:
       after_script:
         - ccache --show-stats
         - sh scripts/yadisk_upload.sh Xash3DFWGS-i386.AppImage
-    - # ...
-      name: "Build for Windows MinGW"
-      cache: ccache
-      os: linux
-      dist: xenial
-      addons:
-        apt:
-          packages:
-            - mingw-w64-i686-dev
-            - binutils-mingw-w64-i686
-            - gcc-mingw-w64-i686
-            - g++-mingw-w64-i686
-            - p7zip-full
-      before_script:
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_mingw_deps.sh
-      script:
-        - sh scripts/build_mingw_engine.sh
-      after_script:
-        - ccache --show-stats
-        - sh scripts/yadisk_upload.sh xash3d-mingw.7z
+#    - # ...
+#      name: "Build for Windows MinGW"
+#      cache: ccache
+#      os: linux
+#      dist: xenial
+#      addons:
+#        apt:
+#          packages:
+#            - mingw-w64-i686-dev
+#            - binutils-mingw-w64-i686
+#            - gcc-mingw-w64-i686
+#            - g++-mingw-w64-i686
+#            - p7zip-full
+#      before_script:
+#        - sh scripts/travis_common_deps.sh
+#        - sh scripts/travis_mingw_deps.sh
+#      script:
+#        - sh scripts/build_mingw_engine.sh
+#      after_script:
+#        - ccache --show-stats
+#        - sh scripts/yadisk_upload.sh xash3d-mingw.7z
     - # ...
       name: "Build for OSX"
       cache: ccache
@@ -96,5 +96,5 @@ jobs:
       os: linux
       cache: false
       script:
-        - sh scripts/travis-deploy.sh Xash3DFWGS-i386.AppImage xash3d-mingw.7z xash3d-osx.tar.bz2 xash3d-vc.7z xash3d-vc2008-sln.7z
+        - sh scripts/travis-deploy.sh Xash3DFWGS-i386.AppImage xash3d-osx.tar.bz2 xash3d-vc.7z xash3d-vc2008-sln.7z # xash3d-mingw.7z
         
