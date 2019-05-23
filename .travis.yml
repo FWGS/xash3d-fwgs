@@ -12,10 +12,6 @@ jdk:
   - oraclejdk8
   
 jobs:
-  allow_failures:
-    - os: osx
-    - os: windows
-    - os: linux
   include:
     - stage: init
       name: "Initialize webdav cache"
