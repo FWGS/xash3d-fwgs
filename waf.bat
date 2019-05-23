@@ -96,5 +96,6 @@ goto running
 
 @echo Using %PYTHON%
 
-"%PYTHON%" -x "%~dp0waf" %*  & Endlocal & exit /b %ERRORLEVEL%
-
+"%PYTHON%" -x "%~dp0waf" %* 
+Endlocal
+exit /b %ERRORLEVEL%
