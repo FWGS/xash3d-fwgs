@@ -60,6 +60,7 @@ GNU General Public License for more details.
 #define PARM_GLES_WRAPPER	35	//
 #define PARM_STENCIL_ACTIVE	36
 #define PARM_WATER_ALPHA	37
+#define PARM_TEX_MEMORY	38	// returns total memory of uploaded texture in bytes
 
 // skybox ordering
 enum
