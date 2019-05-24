@@ -540,6 +540,7 @@ void FS_AddGameDirectory( const char *dir, uint flags );
 void FS_AddGameHierarchy( const char *dir, uint flags );
 void FS_LoadGameInfo( const char *rootfolder );
 const char *FS_GetDiskPath( const char *name, qboolean gamedironly );
+void Zip_Close( zip_t *zip );
 byte *W_LoadLump( wfile_t *wad, const char *lumpname, size_t *lumpsizeptr, const char type );
 void W_Close( wfile_t *wad );
 byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly );

@@ -125,4 +125,83 @@ typedef struct
 	hpak_lump_t	*entries;		// variable sized.
 } hpak_info_t;
 
+#define ZIP_HEADER_LF (('K'<<8)+('P')+(0x03<<16)+(0x04<<24))
+#define ZIP_HEADER_SPANNED ((0x08<<24)+(0x07<<16)+('K'<<8)+'P')
+
+#define ZIP_HEADER_CDF ((0x02<<24)+(0x01<<16)+('K'<<8)+'P')
+#define ZIP_HEADER_EOCD ((0x06<<24)+(0x05<<16)+('K'<<8)+'P')
+
+#define ZIP_COMPRESSION_NO_COMPRESSION      0
+#define ZIP_COMPRESSION_DEFLATED            8
+
+#define ZIP_ZIP64 0xffffffff
+
+#pragma pack( 1 )
+typedef struct zip_header_s
+{
+  uint signature; // little endian ZIP_HEADER
+  u_int16_t version; // version of pkzip need to unpack
+  u_int16_t flags; // flags (16 bits == 16 flags)
+  u_int16_t compression_flags; // compression flags (bits)
+  uint dos_date; // file modification time and file modification date
+  uint crc32; //crc32
+  uint compressed_size;
+  uint uncompressed_size;
+  u_int16_t filename_len;
+  u_int16_t extrafield_len;
+} zip_header_t;
+
+#pragma pack( )
+
+/*
+  in zip64 comp and uncompr size == 0xffffffff remeber this
+  compressed and uncompress filesize stored in extra field
+*/
+
+#pragma pack( 1 )
+typedef struct zip_header_extra_s
+{
+  uint signature; // ZIP_HEADER_SPANNED
+  uint crc32;
+  uint compressed_size;
+  uint uncompressed_size;
+} zip_header_extra_t;
+#pragma pack(  )
+
+#pragma pack( 1 )
+typedef struct zip_cdf_header_s
+{
+  uint signature;
+  u_int16_t version;
+  u_int16_t version_need;
+  u_int16_t generalPurposeBitFlag;
+  u_int16_t flags;
+  u_int16_t modification_time;
+  u_int16_t modification_date;
+  uint crc32;
+  uint compressed_size;
+  uint uncompressed_size;
+  u_int16_t filename_len;
+  u_int16_t extrafield_len;
+  u_int16_t file_commentary_len;
+  u_int16_t disk_start;
+  u_int16_t internal_attr;
+  uint external_attr;
+  uint local_header_offset;
+} zip_cdf_header_t;
+#pragma pack (  )
+
+#pragma pack( 1 )
+typedef struct zip_header_eocd_s
+{
+  u_int16_t disk_number;
+  u_int16_t start_disk_number;
+  u_int16_t number_central_directory_record;
+  u_int16_t total_central_directory_record;
+  uint size_of_central_directory;
+  uint central_directory_offset;
+  u_int16_t commentary_len;
+} zip_header_eocd_t;
+#pragma pack( )
+
 #endif//FILESYSTEM_H
