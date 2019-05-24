@@ -1006,9 +1006,8 @@ void Cmd_ExecuteString( char *text )
 		}
 		else
 #endif // XASH_DEDICATED
-		if( text[0] != '@' && Cvar_VariableInteger( "host_gameloaded" ))
+		if( Cvar_VariableInteger( "host_gameloaded" ))
 		{
-			// commands with leading '@' are hidden system commands
 			Con_Printf( S_WARN "Unknown command \"%s\"\n", text );
 		}
 	}

@@ -155,7 +155,7 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 
 		if( fullvis ) continue; // portal ents will be added anyway, ignore recursion
 
-		// if its a portal entity, add everything visible from its camera position
+		// if it's a portal entity, add everything visible from its camera position
 		if( from_client && FBitSet( ent->v.effects, EF_MERGE_VISIBILITY ))
 		{
 			SetBits( sv.hostflags, SVF_MERGE_VISIBILITY );
@@ -658,7 +658,7 @@ void SV_WriteEntitiesToClient( sv_client_t *cl, sizebuf_t *msg )
 		if( c_notsend > 0 )
 			Con_Printf( S_ERROR "Too many entities in visible packet list. Ignored %d entities\n", c_notsend );
 		cl->ignored_ents = c_notsend;
-	}   
+	}
 
 	// if there were portals visible, there may be out of order entities
 	// in the list which will need to be resorted for the delta compression
@@ -809,33 +809,18 @@ void SV_UpdateToReliableMessages( void )
 			continue;	// reliables go to all connected or spawned
 
 		if( MSG_GetNumBytesWritten( &sv.reliable_datagram ) < MSG_GetNumBytesLeft( &cl->netchan.message ))
-		{
 			MSG_WriteBits( &cl->netchan.message, MSG_GetBuf( &sv.reliable_datagram ), MSG_GetNumBitsWritten( &sv.reliable_datagram ));
-		}
-		else
-		{
-			Netchan_CreateFragments( &cl->netchan, &sv.reliable_datagram );
-		}
+		else Netchan_CreateFragments( &cl->netchan, &sv.reliable_datagram );
 
 		if( MSG_GetNumBytesWritten( &sv.datagram ) < MSG_GetNumBytesLeft( &cl->datagram ))
-		{
 			MSG_WriteBits( &cl->datagram, MSG_GetBuf( &sv.datagram ), MSG_GetNumBitsWritten( &sv.datagram ));
-		}
-		else
-		{
-			Con_DPrintf( S_WARN "Ignoring unreliable datagram for %s, would overflow\n", cl->name );
-		}
+		else Con_DPrintf( S_WARN "Ignoring unreliable datagram for %s, would overflow\n", cl->name );
 
 		if( FBitSet( cl->flags, FCL_HLTV_PROXY ))
 		{
 			if( MSG_GetNumBytesWritten( &sv.spec_datagram ) < MSG_GetNumBytesLeft( &cl->datagram ))
-			{
 				MSG_WriteBits( &cl->datagram, MSG_GetBuf( &sv.spec_datagram ), MSG_GetNumBitsWritten( &sv.spec_datagram ));
-			}
-			else
-			{
-				Con_DPrintf( S_WARN "Ignoring spectator datagram for %s, would overflow\n", cl->name );
-			}
+			else Con_DPrintf( S_WARN "Ignoring spectator datagram for %s, would overflow\n", cl->name );
 		}
 	}
 

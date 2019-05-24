@@ -111,6 +111,9 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 {
 	vec4_t	border = { 0.0f, 0.0f, 0.0f, 1.0f };
 
+	if( !glw_state.initialized )
+		return;
+
 	Assert( tex != NULL );
 
 	// set texture filter
@@ -347,6 +350,9 @@ static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int d
 
 	switch( format )
 	{
+	case PF_LUMINANCE:
+		size = width * height * depth;
+		break;
 	case PF_RGB_24:
 	case PF_BGR_24:
 		size = width * height * depth * 3;
@@ -1086,6 +1092,10 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	qboolean		normalMap;
 	const byte	*bufend;
 
+	// dedicated server
+	if( !glw_state.initialized )
+		return true;
+
 	Assert( pic != NULL );
 	Assert( tex != NULL );
 
@@ -1211,6 +1221,7 @@ do specified actions on pixels
 */
 static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 {
+	float	emboss_scale = 0.0f;
 	uint	img_flags = 0; 
 
 	// force upload texture as RGB or RGBA (detail textures requires this)
@@ -1256,8 +1267,12 @@ static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 		if( pic->type == PF_INDEXED_24 || pic->type == PF_INDEXED_32 )
 			img_flags |= IMAGE_FORCE_RGBA;
 
+		// dedicated server doesn't register this variable
+		if( gl_emboss_scale != NULL )
+			emboss_scale = gl_emboss_scale->value;
+
 		// processing image before uploading (force to rgba, make luma etc)
-		if( pic->buffer ) gEngfuncs.Image_Process( &pic, 0, 0, img_flags, gl_emboss_scale->value );
+		if( pic->buffer ) gEngfuncs.Image_Process( &pic, 0, 0, img_flags, emboss_scale );
 
 		if( FBitSet( tex->flags, TF_LUMINANCE ))
 			ClearBits( pic->flags, IMAGE_HAS_COLOR );
@@ -1271,7 +1286,7 @@ GL_CheckTexName
 */
 qboolean GL_CheckTexName( const char *name )
 {
-	if( !COM_CheckString( name ) || !glw_state.initialized )
+	if( !COM_CheckString( name ))
 		return false;
 
 	// because multi-layered textures can exceed name string
@@ -1386,7 +1401,8 @@ static void GL_DeleteTexture( gl_texture_t *tex )
 	if( tex->original )
 		gEngfuncs.FS_FreeImage( tex->original );
 
-	pglDeleteTextures( 1, &tex->texnum );
+	if( glw_state.initialized )
+		pglDeleteTextures( 1, &tex->texnum );
 	memset( tex, 0, sizeof( *tex ));
 }
 
@@ -1644,6 +1660,7 @@ int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 	}
 
 	GL_ProcessImage( tex, pic );
+
 	if( !GL_UploadTexture( tex, pic ))
 	{
 		memset( tex, 0, sizeof( gl_texture_t ));
@@ -1770,8 +1787,7 @@ GL_FreeTexture
 void GL_FreeTexture( GLenum texnum )
 {
 	// number 0 it's already freed
-	if( texnum <= 0 || !glw_state.initialized )
-		return;
+	if( texnum <= 0 ) return;
 
 	GL_DeleteTexture( &gl_textures[texnum] );
 }
@@ -1826,6 +1842,23 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 	GL_ApplyTextureParams( image ); // update texture filter, wrap etc
 
 	gEngfuncs.FS_FreeImage( pic );
+}
+
+/*
+================
+GL_TexMemory
+
+return size of all uploaded textures
+================
+*/
+int GL_TexMemory( void )
+{
+	int	i, total = 0;
+
+	for( i = 0; i < gl_numTextures; i++ )
+		total += gl_textures[i].size;
+
+	return total;
 }
 
 /*

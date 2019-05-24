@@ -205,7 +205,7 @@ void GL_SetupFogColorForSurfaces( void )
 	vec3_t	fogColor;
 	float	factor, div;
 
-	if( !pglIsEnabled( GL_FOG ))
+	if( !glState.isFogEnabled)
 		return;
 
 	if( RI.currententity && RI.currententity->curstate.rendermode == kRenderTransTexture )
@@ -225,7 +225,7 @@ void GL_SetupFogColorForSurfaces( void )
 void GL_ResetFogColor( void )
 {
 	// restore fog here
-	if( pglIsEnabled( GL_FOG ))
+	if( glState.isFogEnabled )
 		pglFogfv( GL_FOG_COLOR, RI.fogColor );
 }
 
@@ -1155,7 +1155,7 @@ void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 
 	if( CVAR_TO_BOOL( r_detailtextures ))
 	{
-		if( pglIsEnabled( GL_FOG ))
+		if( glState.isFogEnabled )
 		{
 			// don't apply detail textures for windows in the fog
 			if( RI.currententity->curstate.rendermode != kRenderTransTexture )

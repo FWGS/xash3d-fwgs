@@ -156,6 +156,7 @@ void R_NewMap( void )
 	for( i = 0; i < WORLDMODEL->numleafs; i++ )
 		WORLDMODEL->leafs[i+1].efrags = NULL;
 
+	glState.isFogEnabled = false;
 	tr.skytexturenum = -1;
 	tr.max_recursion = 0;
 	pglDisable( GL_FOG );
