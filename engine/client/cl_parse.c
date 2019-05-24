@@ -551,23 +551,20 @@ int CL_EstimateNeededResources( void )
 {
 	resource_t	*p;
 	int		nTotalSize = 0;
-	int		nSize;
 
 	for( p = cl.resourcesneeded.pNext; p != &cl.resourcesneeded; p = p->pNext )
 	{
 		switch( p->type )
 		{
 		case t_sound:
-			nSize = FS_FileSize( va( "%s%s", DEFAULT_SOUNDPATH, p->szFileName ), false );
-			if( p->szFileName[0] != '*' && nSize == -1 )
+			if( p->szFileName[0] != '*' && !FS_FileExists( va( "%s%s", DEFAULT_SOUNDPATH, p->szFileName ), false ) )
 			{
 				SetBits( p->ucFlags, RES_WASMISSING );
 				nTotalSize += p->nDownloadSize;
 			}
 			break;
 		case t_model:
-			nSize = FS_FileSize( p->szFileName, false );
-			if( p->szFileName[0] != '*' && nSize == -1 )
+			if( p->szFileName[0] != '*' && !FS_FileExists( p->szFileName, false ) )
 			{
 				SetBits( p->ucFlags, RES_WASMISSING );
 				nTotalSize += p->nDownloadSize;
@@ -576,8 +573,7 @@ int CL_EstimateNeededResources( void )
 		case t_skin:
 		case t_generic:
 		case t_eventscript:
-			nSize = FS_FileSize( p->szFileName, false );
-			if( nSize == -1 )
+			if( !FS_FileExists( p->szFileName, false ) )
 			{
 				SetBits( p->ucFlags, RES_WASMISSING );
 				nTotalSize += p->nDownloadSize;

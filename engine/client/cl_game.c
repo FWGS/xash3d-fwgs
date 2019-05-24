@@ -1206,7 +1206,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 		SetBits( m_pSprite->flags, MODEL_CLIENT );
 	m_pSprite->numtexinfo = texFlags; // store texFlags into numtexinfo
 
-	if( FS_FileSize( szSpriteName, false ) == -1 )
+	if( !FS_FileExists( szSpriteName, false ) )
 	{
 		if( cls.state != ca_active && cl.maxclients > 1 )
 		{
