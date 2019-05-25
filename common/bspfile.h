@@ -134,6 +134,8 @@ BRUSH MODELS
 #define TEX_EXTRA_LIGHTMAP		BIT( 3 )	// bsp31 legacy - using 8 texels per luxel instead of 16 texels per luxel
 #define TEX_SCROLL			BIT( 6 )	// Doom special FX
 
+#define IsLiquidContents( cnt )	( cnt == CONTENTS_WATER || cnt == CONTENTS_SLIME || cnt == CONTENTS_LAVA )
+
 // ambient sound types
 enum
 {

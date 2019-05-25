@@ -49,6 +49,8 @@ sysinfo_t		SI;
 
 CVAR_DEFINE( host_developer, "developer", "0", 0, "engine is in development-mode" );
 CVAR_DEFINE_AUTO( sys_ticrate, "100", 0, "framerate in dedicated mode" );
+
+convar_t	*host_serverstate;
 convar_t	*host_gameloaded;
 convar_t	*host_clientloaded;
 convar_t	*host_limitlocal;
@@ -460,6 +462,7 @@ double Host_CalcFPS( void )
 	else
 	{
 		fps = host_maxfps->value;
+		if( fps == 0.0 ) fps = MAX_FPS;
 		fps = bound( MIN_FPS, fps, MAX_FPS );
 	}
 
@@ -943,6 +946,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Cmd_AddCommand ( "crash", Host_Crash_f, "a way to force a bus error for development reasons");
 	}
 
+	host_serverstate = Cvar_Get( "host_serverstate", "0", FCVAR_READ_ONLY, "displays current server state" );
 	host_maxfps = Cvar_Get( "fps_max", "72", FCVAR_ARCHIVE, "host fps upper limit" );
 	host_framerate = Cvar_Get( "host_framerate", "0", 0, "locks frame timing to this value in seconds" );  
 	host_sleeptime = Cvar_Get( "sleeptime", "1", FCVAR_ARCHIVE, "milliseconds to sleep for each frame. higher values reduce fps accuracy" );

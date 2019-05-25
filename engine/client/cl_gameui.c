@@ -380,7 +380,7 @@ static HIMAGE pfnPIC_Load( const char *szPicName, const byte *image_buf, int ima
 {
 	HIMAGE	tx;
 
-	if( !szPicName || !*szPicName )
+	if( !COM_CheckString( szPicName ))
 	{
 		Con_Reportf( S_ERROR "CL_LoadImage: refusing to load image with empty name\n" );
 		return 0;
@@ -932,7 +932,7 @@ pfnHostEndGame
 static void pfnHostEndGame( const char *szFinalMessage )
 {
 	if( !szFinalMessage ) szFinalMessage = "";
-	Host_EndGame( true, "%s", szFinalMessage );
+	Host_EndGame( false, "%s", szFinalMessage );
 }
 
 /*

@@ -16,6 +16,8 @@ GNU General Public License for more details.
 #include "common.h"
 #include "server.h"
 
+extern convar_t	*con_gamemaps;
+
 /*
 =================
 SV_ClientPrintf
@@ -282,7 +284,7 @@ void SV_NextMap_f( void )
 	int	i, next;
 	search_t	*t;
 
-	t = FS_Search( "maps/*.bsp", true, true ); // only in gamedir
+	t = FS_Search( "maps\\*.bsp", true, CVAR_TO_BOOL( con_gamemaps )); // only in gamedir
 	if( !t )
 	{
 		Con_Printf( "next map can't be found\n" );
@@ -869,6 +871,7 @@ void SV_EntityInfo_f( void )
 		Con_Printf( "\n" );
 	}
 }
+
 /*
 ==================
 SV_InitHostCommands

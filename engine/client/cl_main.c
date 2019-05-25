@@ -2224,6 +2224,7 @@ void CL_ReadPackets( void )
 			// check resource for downloading and precache
 			CL_EstimateNeededResources();
 			CL_BatchResourceRequest( false );
+			cls.dl.doneregistering = false;
 			cls.dl.custom = true;
 		}
 

@@ -405,7 +405,7 @@ int AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, int offset, int leng
 			for( i = 0; i < length; i++ )
 				audiodata[i] = 0;
 
-			return length;
+//			return length;
 		}
 	}
 
