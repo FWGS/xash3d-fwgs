@@ -128,8 +128,8 @@ static byte *W_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean ga
 static wfile_t *W_Open( const char *filename, int *errorcode );
 static qboolean FS_SysFolderExists( const char *path );
 static int FS_SysFileTime( const char *filename );
-static char W_TypeFromExt( const char *lumpname );
-static const char *W_ExtFromType( char lumptype );
+static signed char W_TypeFromExt( const char *lumpname );
+static const char *W_ExtFromType( signed char lumptype );
 static void FS_Purge( file_t* file );
 
 /*
@@ -3118,7 +3118,7 @@ W_TypeFromExt
 Extracts file type from extension
 ===========
 */
-static char W_TypeFromExt( const char *lumpname )
+static signed char W_TypeFromExt( const char *lumpname )
 {
 	const char	*ext = COM_FileExtension( lumpname );
 	const wadtype_t	*type;
@@ -3142,7 +3142,7 @@ W_ExtFromType
 Convert type to extension
 ===========
 */
-static const char *W_ExtFromType( char lumptype )
+static const char *W_ExtFromType( signed char lumptype )
 {
 	const wadtype_t	*type;
 
