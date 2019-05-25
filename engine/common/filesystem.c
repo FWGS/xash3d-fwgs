@@ -644,7 +644,6 @@ static zipfile_t *FS_AddFileToZip( const char *name, zip_t *zip, fs_offset_t off
 
 static zip_t *FS_LoadZip( const char *zipfile, int *error )
 {
-	zip_header_t	header;
 	int		numpackfiles = 0;
 	zip_cdf_header_t header_cdf;
 	zip_header_eocd_t header_eocd;
@@ -658,18 +657,18 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	zip->handle = FS_Open( zipfile, "rb", true );
 
 #ifndef _WIN32
-	if ( !zip->handle )
+	if( !zip->handle )
 	{
 		const char *fzipfile = FS_FixFileCase( zipfile );
-		if (fzipfile != zipfile)
+		if( fzipfile != zipfile )
 		zip->handle = FS_Open( fzipfile, "rb", true );
 	}
 #endif
 
-	if ( !zip->handle )
+	if( !zip->handle )
 	{
 		Con_Reportf( "%s couldn't open\n", zipfile );
-		if (error)
+		if( error )
 		*error = ZIP_LOAD_COULDNT_OPEN;
 		Zip_Close( zip );
 		return NULL;
@@ -678,7 +677,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	if( FS_FileLength( zip->handle ) > UINT_MAX )
 	{
 	      Con_Reportf( "%s bigger than 4GB.\n", zipfile );
-	      if (error)
+	      if( error )
 	      *error = ZIP_LOAD_COULDNT_OPEN;
 	      Zip_Close( zip );
 	      return NULL;
@@ -686,17 +685,17 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 	FS_Read( zip->handle, (void *)&signature, sizeof( uint ) );
 
-	if ( signature == ZIP_HEADER_EOCD )
+	if( signature == ZIP_HEADER_EOCD )
 	{
 		Con_Reportf( "%s has no files. Ignored.\n", zipfile );
-		if (error)
+		if(error)
 		*error = ZIP_LOAD_NO_FILES;
 		Zip_Close( zip );
 		return NULL;
 	}
-	if ( signature != ZIP_HEADER_LF ) {
+	if( signature != ZIP_HEADER_LF ) {
 		Con_Reportf( "%s is not a zip file. Ignored.\n", zipfile );
-		if (error)
+		if( error )
 		*error = ZIP_LOAD_BAD_HEADER;
 		Zip_Close( zip );
 		return NULL;
@@ -711,11 +710,11 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		FS_Seek( zip->handle, filepos, SEEK_SET );
 		FS_Read( zip->handle, (void *)&signature, sizeof( signature ) );
 
-		if (signature == ZIP_HEADER_EOCD) break;
+		if( signature == ZIP_HEADER_EOCD ) break;
 		filepos -= sizeof( char ); // step back one byte
 	}
 
-	if (ZIP_HEADER_EOCD != signature)
+	if( ZIP_HEADER_EOCD != signature )
 	{
 		Con_Reportf( "Cannot find EOCD in %s. Zip file corrupted.\n", zipfile );
 		Zip_Close( zip );
@@ -736,15 +735,15 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	{
 		FS_Read( zip->handle, (void *)&header_cdf, sizeof( header_cdf ) );
 
-		if (header_cdf.signature != ZIP_HEADER_CDF)
+		if( header_cdf.signature != ZIP_HEADER_CDF )
 		{
 			Con_Reportf( "CDF signature mismatch in %s. Zip file corrupted.\n", zipfile );
 			Zip_Close( zip );
 			return NULL;
 		}
 
-		if ( header_cdf.uncompressed_size && header_cdf.filename_len )
-		  {
+		if( header_cdf.uncompressed_size && header_cdf.filename_len )
+		{
 			char *filename = malloc( header_cdf.filename_len + 1 );
 			memset( filename, '\0', header_cdf.filename_len + 1 );
 
@@ -759,14 +758,14 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 			//Con_Reportf( "ZIP File name: %s .\n", info[numpackfiles].name );
 			numpackfiles++;
-		  }
+		}
 		else
 			FS_Seek( zip->handle, header_cdf.filename_len, SEEK_CUR );
 
-		if ( header_cdf.extrafield_len )
+		if( header_cdf.extrafield_len )
 			FS_Seek( zip->handle, header_cdf.extrafield_len, SEEK_CUR );
 
-		if ( header_cdf.file_commentary_len )
+		if( header_cdf.file_commentary_len )
 			FS_Seek( zip->handle, header_cdf.file_commentary_len, SEEK_CUR );
 	}
 
@@ -776,10 +775,10 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	zip->numfiles = 0;
 	zip->files = (zipfile_t *)Mem_Calloc( fs_mempool, sizeof( zipfile_t ) * numpackfiles );
 
-	for(int i = 0; i < numpackfiles; i++ )
+	for( int i = 0; i < numpackfiles; i++ )
 		FS_AddFileToZip( info[i].name, zip, info[i].offset, info[i].size, info[i].compressed_size );
 
-	if ( error ) *error = ZIP_LOAD_OK;
+	if( error ) *error = ZIP_LOAD_OK;
 	Mem_Free( info );
 
 	return zip;
@@ -787,7 +786,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 void Zip_Close( zip_t *zip )
 {
-	if ( !zip )
+	if( !zip )
 		return;
 
 	Mem_FreePool( &zip->mempool );
@@ -818,19 +817,19 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 
 		FS_Read( search->zip->handle, (void*)&header, sizeof( header ) );
 
-		if (header.signature != ZIP_HEADER_LF)
+		if(header.signature != ZIP_HEADER_LF)
 		{
 			Con_Reportf( S_ERROR "Zip_LoadFile: %s signature error\n", file->name );
 			return NULL;
 		}
 
-		if (header.compression_flags == ZIP_COMPRESSION_NO_COMPRESSION)
+		if(header.compression_flags == ZIP_COMPRESSION_NO_COMPRESSION)
 		{
 
 			if( header.filename_len )
 				FS_Seek( search->zip->handle, header.filename_len, SEEK_CUR );
 
-			if (header.extrafield_len)
+			if( header.extrafield_len )
 				FS_Seek( search->zip->handle, header.extrafield_len, SEEK_CUR );
 
 			byte *buffer = Mem_Malloc( search->zip->mempool, file->size + 1 );
@@ -855,12 +854,12 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 
 			//Con_Reportf( "ZIP %s load file %s with size %lu\n", search->zip->filename, file->name, file->size );
 
-			if (sizeptr) *sizeptr = file->size;
+			if( sizeptr ) *sizeptr = file->size;
 
 			return buffer;
 		}
 #ifdef XASH_ZLIB
-		if(header.compression_flags == ZIP_COMPRESSION_DEFLATED) {
+		if( header.compression_flags == ZIP_COMPRESSION_DEFLATED ) {
 
 		if( header.filename_len )
 			FS_Seek( search->zip->handle, header.filename_len, SEEK_CUR );
@@ -1059,7 +1058,7 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
   
 	if( already_loaded ) *already_loaded = false;
   
-	if( !Q_stricmp( ext, "zip" ))
+	if( !Q_stricmp( ext, "zip" ) || !Q_stricmp( ext, "pk3" ) )
 		zip = FS_LoadZip( zipfile, &errorcode );
   
 	if( zip )
@@ -1125,13 +1124,13 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 
 	// add any Zip package in the directory
 	for( i = 0; i < list.numstrings; i++ )
-	  {
-	    if( !Q_stricmp( COM_FileExtension( list.strings[i] ), "zip" ))
-	      {
-		Q_sprintf( fullpath, "%s%s", dir, list.strings[i] );
-		FS_AddZip_Fullpath( fullpath, NULL, flags );
-	      }
-	  }
+	{
+		if( !Q_stricmp( COM_FileExtension( list.strings[i] ), "zip" ) || !Q_stricmp( COM_FileExtension( list.strings[i] ), "pk3" ))
+		{
+			Q_sprintf( fullpath, "%s%s", dir, list.strings[i] );
+			FS_AddZip_Fullpath( fullpath, NULL, flags );
+		}
+	 }
 
 	stringlistfreecontents( &list );
 	FS_AllowDirectPaths( false );
@@ -1231,10 +1230,10 @@ void FS_ClearSearchPath( void )
 			W_Close( search->wad );
 		}
 
-		if (search->zip)
-		  {
-		    Zip_Close(search->zip);
-		  }
+		if(search->zip)
+		{
+			Zip_Close(search->zip);
+		}
 
 		Mem_Free( search );
 	}
@@ -2907,7 +2906,7 @@ byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamediro
 	{
 		buf = W_LoadFile( path, &filesize, gamedironly );
 
-		if (!buf)
+		if( !buf )
 		  buf = Zip_LoadFile(path, &filesize, gamedironly);
 	}
 
@@ -3177,7 +3176,7 @@ int FS_FileTime( const char *filename, qboolean gamedironly )
 		return search->pack->filetime;
 	else if( search->wad ) // grab wad filetime
 		return search->wad->filetime;
-	else if (search->zip)
+	else if( search->zip )
 		return search->zip->filetime;
 	else if( pack_ind < 0 )
 	{

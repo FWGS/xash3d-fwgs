@@ -139,16 +139,16 @@ typedef struct
 #pragma pack( 1 )
 typedef struct zip_header_s
 {
-  uint signature; // little endian ZIP_HEADER
-  u_int16_t version; // version of pkzip need to unpack
-  u_int16_t flags; // flags (16 bits == 16 flags)
-  u_int16_t compression_flags; // compression flags (bits)
-  uint dos_date; // file modification time and file modification date
-  uint crc32; //crc32
-  uint compressed_size;
-  uint uncompressed_size;
-  u_int16_t filename_len;
-  u_int16_t extrafield_len;
+	uint signature; // little endian ZIP_HEADER
+	u_int16_t version; // version of pkzip need to unpack
+        u_int16_t flags; // flags (16 bits == 16 flags)
+        u_int16_t compression_flags; // compression flags (bits)
+        uint dos_date; // file modification time and file modification date
+        uint crc32; //crc32
+	uint compressed_size;
+	uint uncompressed_size;
+	u_int16_t filename_len;
+	u_int16_t extrafield_len;
 } zip_header_t;
 
 #pragma pack( )
@@ -161,46 +161,46 @@ typedef struct zip_header_s
 #pragma pack( 1 )
 typedef struct zip_header_extra_s
 {
-  uint signature; // ZIP_HEADER_SPANNED
-  uint crc32;
-  uint compressed_size;
-  uint uncompressed_size;
+	uint signature; // ZIP_HEADER_SPANNED
+	uint crc32;
+	uint compressed_size;
+	uint uncompressed_size;
 } zip_header_extra_t;
 #pragma pack(  )
 
 #pragma pack( 1 )
 typedef struct zip_cdf_header_s
 {
-  uint signature;
-  u_int16_t version;
-  u_int16_t version_need;
-  u_int16_t generalPurposeBitFlag;
-  u_int16_t flags;
-  u_int16_t modification_time;
-  u_int16_t modification_date;
-  uint crc32;
-  uint compressed_size;
-  uint uncompressed_size;
-  u_int16_t filename_len;
-  u_int16_t extrafield_len;
-  u_int16_t file_commentary_len;
-  u_int16_t disk_start;
-  u_int16_t internal_attr;
-  uint external_attr;
-  uint local_header_offset;
+	uint signature;
+	u_int16_t version;
+	u_int16_t version_need;
+	u_int16_t generalPurposeBitFlag;
+	u_int16_t flags;
+	u_int16_t modification_time;
+	u_int16_t modification_date;
+	uint crc32;
+	uint compressed_size;
+	uint uncompressed_size;
+	u_int16_t filename_len;
+	u_int16_t extrafield_len;
+	u_int16_t file_commentary_len;
+	u_int16_t disk_start;
+	u_int16_t internal_attr;
+	uint external_attr;
+	uint local_header_offset;
 } zip_cdf_header_t;
 #pragma pack (  )
 
 #pragma pack( 1 )
 typedef struct zip_header_eocd_s
 {
-  u_int16_t disk_number;
-  u_int16_t start_disk_number;
-  u_int16_t number_central_directory_record;
-  u_int16_t total_central_directory_record;
-  uint size_of_central_directory;
-  uint central_directory_offset;
-  u_int16_t commentary_len;
+	u_int16_t disk_number;
+	u_int16_t start_disk_number;
+	u_int16_t number_central_directory_record;
+	u_int16_t total_central_directory_record;
+	uint size_of_central_directory;
+	uint central_directory_offset;
+        u_int16_t commentary_len;
 } zip_header_eocd_t;
 #pragma pack( )
 
