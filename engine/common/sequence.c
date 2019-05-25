@@ -89,8 +89,8 @@ void Sequence_ResetDefaults( sequenceCommandLine_s *destination, sequenceCommand
 		static client_textmessage_t defaultClientMessage =
 		{
 			0, // effect
-			-1, -1, -1, -1, // rgba1
-			-1, -1, -1, -1, // rgba2
+			255, 255, 255, 255, // rgba1
+			255, 255, 255, 255, // rgba2
 			0.5, 0.5, // xy
 			0.2, 0.2, // fade-in/out
 			1.6, // holdtime

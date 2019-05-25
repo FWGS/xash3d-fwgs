@@ -472,7 +472,7 @@ void CL_AddLinksToPmove( frame_t *frame )
 		if( VectorIsNull( state->mins ) && VectorIsNull( state->maxs ))
 			continue;
 
-		if( state->solid == SOLID_NOT && state->skin < CONTENTS_EMPTY )
+		if( state->solid == SOLID_NOT && state->skin == CONTENTS_LADDER )
 		{
 			if( clgame.pmove->nummoveent >= MAX_MOVEENTS )
 				continue;
@@ -590,67 +590,6 @@ void CL_SetSolidPlayers( int playernum )
 
 /*
 =============
-CL_TruePointContents
-
-=============
-*/
-int CL_TruePointContents( const vec3_t p )
-{
-	int	i, contents;
-	int	oldhull;
-	hull_t	*hull;
-	vec3_t	test, offset;
-	physent_t	*pe;
-
-	// sanity check
-	if( !p ) return CONTENTS_NONE;
-
-	oldhull = clgame.pmove->usehull;
-
-	// get base contents from world
-	contents = PM_HullPointContents( &cl.worldmodel->hulls[0], 0, p );
-
-	for( i = 0; i < clgame.pmove->nummoveent; i++ )
-	{
-		pe = &clgame.pmove->moveents[i];
-
-		if( pe->solid != SOLID_NOT ) // disabled ?
-			continue;
-
-		// only brushes can have special contents
-		if( !pe->model || pe->model->type != mod_brush )
-			continue;
-
-		// check water brushes accuracy
-		clgame.pmove->usehull = 2;
-		hull = PM_HullForBsp( pe, clgame.pmove, offset );
-		clgame.pmove->usehull = oldhull;
-
-		// offset the test point appropriately for this hull.
-		VectorSubtract( p, offset, test );
-
-		if( FBitSet( pe->model->flags, MODEL_HAS_ORIGIN ) && !VectorIsNull( pe->angles ))
-		{
-			matrix4x4	matrix;
-	
-			Matrix4x4_CreateFromEntity( matrix, pe->angles, offset, 1.0f );
-			Matrix4x4_VectorITransform( matrix, p, test );
-		}
-
-		// test hull for intersection with this model
-		if( PM_HullPointContents( hull, hull->firstclipnode, test ) == CONTENTS_EMPTY )
-			continue;
-
-		// compare contents ranking
-		if( RankForContents( pe->skin ) > RankForContents( contents ))
-			contents = pe->skin; // new content has more priority
-	}
-
-	return contents;
-}
-
-/*
-=============
 CL_WaterEntity
 
 =============
@@ -666,9 +605,9 @@ int CL_WaterEntity( const float *rgflPos )
 
 	oldhull = clgame.pmove->usehull;
 
-	for( i = 0; i < clgame.pmove->nummoveent; i++ )
+	for( i = 0; i < clgame.pmove->numphysent; i++ )
 	{
-		pe = &clgame.pmove->moveents[i];
+		pe = &clgame.pmove->physents[i];
 
 		if( pe->solid != SOLID_NOT ) // disabled ?
 			continue;
@@ -793,7 +732,7 @@ static int pfnPointContents( float *p, int *truecontents )
 {
 	int	cont, truecont;
 
-	truecont = cont = CL_TruePointContents( p );
+	truecont = cont = PM_PointContents( clgame.pmove, p );
 	if( truecontents ) *truecontents = truecont;
 
 	if( cont <= CONTENTS_CURRENT_0 && cont >= CONTENTS_CURRENT_DOWN )
@@ -803,7 +742,7 @@ static int pfnPointContents( float *p, int *truecontents )
 
 static int pfnTruePointContents( float *p )
 {
-	return CL_TruePointContents( p );
+	return PM_TruePointContents( clgame.pmove, p );
 }
 
 static int pfnHullPointContents( struct hull_s *hull, int num, float *p )

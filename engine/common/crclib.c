@@ -229,7 +229,7 @@ qboolean CRC32_File( dword *crcvalue, const char *filename )
 
 qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer )
 {
-	char	headbuf[256], buffer[1024];
+	char	headbuf[1024], buffer[1024];
 	int	i, num_bytes, lumplen;
 	int	version, hdr_size;
 	dheader_t	*header;

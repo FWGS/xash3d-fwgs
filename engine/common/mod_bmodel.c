@@ -36,7 +36,7 @@ typedef struct leaflist_s
 	int			count;
 	int			maxcount;
 	qboolean			overflowed;
-	short			*list;
+	int			*list;
 	vec3_t			mins, maxs;
 	int			topnode;		// for overflows where each leaf can't be stored individually
 } leaflist_t;
@@ -668,7 +668,7 @@ static void Mod_BoxLeafnums_r( leaflist_t *ll, mnode_t *node )
 Mod_BoxLeafnums
 ==================
 */
-static int Mod_BoxLeafnums( const vec3_t mins, const vec3_t maxs, short *list, int listsize, int *topnode )
+static int Mod_BoxLeafnums( const vec3_t mins, const vec3_t maxs, int *list, int listsize, int *topnode )
 {
 	leaflist_t	ll;
 
@@ -699,7 +699,7 @@ is potentially visible
 */
 qboolean Mod_BoxVisible( const vec3_t mins, const vec3_t maxs, const byte *visbits )
 {
-	short	leafList[MAX_BOX_LEAFS];
+	int	leafList[MAX_BOX_LEAFS];
 	int	i, count;
 
 	if( !visbits || !mins || !maxs )
@@ -886,6 +886,59 @@ int Mod_SampleSizeForFace( msurface_t *surf )
 
 /*
 ==================
+Mod_GetFaceContents
+
+determine face contents by name
+==================
+*/
+static int Mod_GetFaceContents( const char *name )
+{
+	if( !Q_strnicmp( name, "SKY", 3 ))
+		return CONTENTS_SKY;
+
+	if( name[0] == '!' || name[0] == '*' )
+	{
+		if( !Q_strnicmp( name + 1, "lava", 4 ))
+			return CONTENTS_LAVA;
+		else if( !Q_strnicmp( name + 1, "slime", 5 ))
+			return CONTENTS_SLIME;
+		return CONTENTS_WATER; // otherwise it's water
+	}
+
+	if( !Q_strnicmp( name, "water", 5 ))
+		return CONTENTS_WATER;
+
+	return CONTENTS_SOLID;
+}
+
+/*
+==================
+Mod_GetFaceContents
+
+determine face contents by name
+==================
+*/
+static mvertex_t *Mod_GetVertexByNumber( model_t *mod, int surfedge )
+{
+	int	lindex;
+	medge_t	*edge;
+
+	lindex = mod->surfedges[surfedge];
+
+	if( lindex > 0 )
+	{
+		edge = &mod->edges[lindex];
+		return &mod->vertexes[edge->v[0]];
+	}
+	else
+	{
+		edge = &mod->edges[-lindex];
+		return &mod->vertexes[edge->v[1]];
+	}
+}
+		
+/*
+==================
 Mod_MakeNormalAxial
 
 remove jitter from near-axial normals
@@ -1066,6 +1119,66 @@ static void Mod_CalcSurfaceBounds( msurface_t *surf )
 	}
 
 	VectorAverage( surf->info->mins, surf->info->maxs, surf->info->origin );
+}
+
+/*
+=================
+Mod_CreateFaceBevels
+=================
+*/
+static void Mod_CreateFaceBevels( msurface_t *surf )
+{
+	vec3_t		delta, edgevec;
+	byte		*facebevel;
+	vec3_t		faceNormal;
+	mvertex_t		*v0, *v1;
+	int		contents;
+	int		i, size;
+	vec_t		radius;
+	mfacebevel_t	*fb;
+
+	if( surf->texinfo && surf->texinfo->texture )
+		contents = Mod_GetFaceContents( surf->texinfo->texture->name );
+	else contents = CONTENTS_SOLID;
+
+	size = sizeof( mfacebevel_t ) + surf->numedges * sizeof( mplane_t );
+	facebevel = (byte *)Mem_Calloc( loadmodel->mempool, size );
+	fb = (mfacebevel_t *)facebevel;
+	facebevel += sizeof( mfacebevel_t );
+	fb->edges = (mplane_t *)facebevel;
+	fb->numedges = surf->numedges;
+	fb->contents = contents;
+	surf->info->bevel = fb;
+
+	if( FBitSet( surf->flags, SURF_PLANEBACK ))
+		VectorNegate( surf->plane->normal, faceNormal );
+	else VectorCopy( surf->plane->normal, faceNormal );
+
+	// compute face origin and plane edges
+	for( i = 0; i < surf->numedges; i++ )
+	{
+		mplane_t	*dest = &fb->edges[i];
+
+		v0 = Mod_GetVertexByNumber( loadmodel, surf->firstedge + i );
+		v1 = Mod_GetVertexByNumber( loadmodel, surf->firstedge + (i + 1) % surf->numedges );
+		VectorSubtract( v1->position, v0->position, edgevec );
+		CrossProduct( faceNormal, edgevec, dest->normal );
+		VectorNormalize( dest->normal );
+		dest->dist = DotProduct( dest->normal, v0->position );
+		dest->type = PlaneTypeForNormal( dest->normal );
+		VectorAdd( fb->origin, v0->position, fb->origin );
+	}
+
+	VectorScale( fb->origin, 1.0f / surf->numedges, fb->origin );
+
+	// compute face radius
+	for( i = 0; i < surf->numedges; i++ )
+	{
+		v0 = Mod_GetVertexByNumber( loadmodel, surf->firstedge + i );
+		VectorSubtract( v0->position, fb->origin, delta );
+		radius = DotProduct( delta, delta );
+		fb->radius = Q_max( radius, fb->radius );
+	}
 }
 
 /*
@@ -1520,7 +1633,7 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 {
 	byte	*entpatch = NULL;
 	char	token[MAX_TOKEN];
-	char	wadstring[2048];
+	char	wadstring[MAX_TOKEN];
 	string	keyname;
 	char	*pfile;
 
@@ -1822,6 +1935,8 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 	for( i = 0; i < loadmodel->numtextures; i++ )
 	{
+		int	txFlags = 0;
+
 		if( in->dataofs[i] == -1 )
 		{
 			// create default texture (some mods requires this)
@@ -1853,6 +1968,10 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 		tx->width = mt->width;
 		tx->height = mt->height;
+
+		if( FBitSet( host.features, ENGINE_IMPROVED_LINETRACE ) && mt->name[0] == '{' )
+			SetBits( txFlags, TF_KEEP_SOURCE ); // Paranoia2 texture alpha-tracing
+
 		if( mt->offsets[0] > 0 )
 		{
 			int	size = (int)sizeof( mip_t ) + ((mt->width * mt->height * 85)>>6);
@@ -1904,7 +2023,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 					if( FS_FileExists( texpath, false ))
 					{
-						tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, TF_ALLOW_EMBOSS );
+						tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, TF_ALLOW_EMBOSS|txFlags );
 						bmod->wadlist.wadusage[j]++; // this wad are really used
 						break;
 					}
@@ -1920,14 +2039,13 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 				if( custom_palette ) size += sizeof( short ) + 768;
 				Q_snprintf( texname, sizeof( texname ), "#%s:%s.mip", loadstat.name, mt->name );
-				tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texname, (byte *)mt, size, TF_ALLOW_EMBOSS );
+				tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texname, (byte *)mt, size, TF_ALLOW_EMBOSS|txFlags );
 			}
 
 			// if texture is completely missed
 			if( !tx->gl_texturenum )
 			{
-				if( host.type != HOST_DEDICATED )
-					Con_DPrintf( S_ERROR "unable to find %s.mip\n", mt->name );
+				Con_DPrintf( S_ERROR "unable to find %s.mip\n", mt->name );
 				tx->gl_texturenum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
 			}
 
@@ -2225,6 +2343,7 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 
 		Mod_CalcSurfaceBounds( out );
 		Mod_CalcSurfaceExtents( out );
+		Mod_CreateFaceBevels( out );
 
 		// grab the second sample to detect colored lighting
 		if( test_lightsize > 0 && lightofs != -1 )
@@ -2816,7 +2935,7 @@ check lump for existing
 */
 int Mod_CheckLump( const char *filename, const int lump, int *lumpsize )
 {
-	file_t		*f = FS_Open( filename, "rb", true );
+	file_t		*f = FS_Open( filename, "rb", false );
 	byte		buffer[sizeof( dheader_t ) + sizeof( dextrahdr_t )];
 	size_t		prefetch_size = sizeof( buffer );
 	dextrahdr_t	*extrahdr;
@@ -2875,7 +2994,7 @@ reading random lump by user request
 */
 int Mod_ReadLump( const char *filename, const int lump, void **lumpdata, int *lumpsize )
 {
-	file_t		*f = FS_Open( filename, "rb", true );
+	file_t		*f = FS_Open( filename, "rb", false );
 	byte		buffer[sizeof( dheader_t ) + sizeof( dextrahdr_t )];
 	size_t		prefetch_size = sizeof( buffer );
 	dextrahdr_t	*extrahdr;

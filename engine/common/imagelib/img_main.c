@@ -72,17 +72,18 @@ static const cubepack_t load_cubemap[] =
 // soul of ImageLib - table of image format constants 
 const bpc_desc_t PFDesc[] =
 {
-{PF_UNKNOWN,	"raw",	0x1908, 0 },
-{PF_INDEXED_24,	"pal 24",	0x1908, 1 },
-{PF_INDEXED_32,	"pal 32",	0x1908, 1 },
-{PF_RGBA_32,	"RGBA 32",0x1908, 4 },
-{PF_BGRA_32,	"BGRA 32",0x80E1, 4 },
-{PF_RGB_24,	"RGB 24",	0x1908, 3 },
-{PF_BGR_24,	"BGR 24",	0x80E0, 3 },
-{PF_DXT1,		"DXT 1",	0x83F1, 4 },
-{PF_DXT3,		"DXT 3",	0x83F2, 4 },
-{PF_DXT5,		"DXT 5",	0x83F3, 4 },
-{PF_ATI2,		"ATI 2",	0x8837, 4 },
+{ PF_UNKNOWN,	"raw",	0x1908, 0 },
+{ PF_INDEXED_24,	"pal 24",	0x1908, 1 },
+{ PF_INDEXED_32,	"pal 32",	0x1908, 1 },
+{ PF_RGBA_32,	"RGBA 32",0x1908, 4 },
+{ PF_BGRA_32,	"BGRA 32",0x80E1, 4 },
+{ PF_RGB_24,	"RGB 24",	0x1908, 3 },
+{ PF_BGR_24,	"BGR 24",	0x80E0, 3 },
+{ PF_LUMINANCE,	"LUM 8",	0x1909, 1 },
+{ PF_DXT1,	"DXT 1",	0x83F1, 4 },
+{ PF_DXT3,	"DXT 3",	0x83F2, 4 },
+{ PF_DXT5,	"DXT 5",	0x83F3, 4 },
+{ PF_ATI2,	"ATI 2",	0x8837, 4 },
 };
 
 void Image_Reset( void )
