@@ -625,6 +625,23 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 	return pack;
 }
 
+static zipfile_t *FS_AddFileToZip( const char *name, zip_t *zip, fs_offset_t offset, fs_offset_t size, fs_offset_t compressed_size)
+{
+	zipfile_t *zipfile = NULL;
+
+	zipfile = &zip->files[zip->numfiles];
+
+	Q_strncpy( zipfile->name, name, MAX_SYSPATH );
+
+	zipfile->size = size;
+	zipfile->offset = offset;
+	zipfile->compressed_size = compressed_size;
+
+	zip->numfiles++;
+
+	return zipfile;
+}
+
 static zip_t *FS_LoadZip( const char *zipfile, int *error )
 {
 	zip_header_t	header;
@@ -656,6 +673,15 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		*error = ZIP_LOAD_COULDNT_OPEN;
 		Zip_Close( zip );
 		return NULL;
+	}
+
+	if( FS_FileLength( zip->handle ) > UINT_MAX )
+	{
+	      Con_Reportf( "%s bigger than 4GB.\n", zipfile );
+	      if (error)
+	      *error = ZIP_LOAD_COULDNT_OPEN;
+	      Zip_Close( zip );
+	      return NULL;
 	}
 
 	FS_Read( zip->handle, (void *)&signature, sizeof( uint ) );
@@ -747,13 +773,14 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	Q_strncpy( zip->filename, zipfile, sizeof( zip->filename ) );
 	zip->mempool = Mem_AllocPool( zipfile );
 	zip->filetime = FS_SysFileTime( zipfile );
-	zip->numfiles = numpackfiles;
+	zip->numfiles = 0;
 	zip->files = (zipfile_t *)Mem_Calloc( fs_mempool, sizeof( zipfile_t ) * numpackfiles );
-	memcpy(zip->files, info, sizeof( zipfile_t ) * numpackfiles);
 
-	Mem_Free( info );
+	for(int i = 0; i < numpackfiles; i++ )
+		FS_AddFileToZip( info[i].name, zip, info[i].offset, info[i].size, info[i].compressed_size );
 
 	if ( error ) *error = ZIP_LOAD_OK;
+	Mem_Free( info );
 
 	return zip;
 }
