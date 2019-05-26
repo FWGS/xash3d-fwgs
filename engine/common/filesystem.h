@@ -200,7 +200,7 @@ typedef struct zip_header_eocd_s
 	u_int16_t total_central_directory_record;
 	uint size_of_central_directory;
 	uint central_directory_offset;
-        u_int16_t commentary_len;
+	u_int16_t commentary_len;
 } zip_header_eocd_t;
 #pragma pack( )
 
