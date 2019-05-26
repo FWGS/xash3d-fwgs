@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <zlib.h>
 #ifdef _WIN32
 #include <direct.h>
 #include <io.h>
@@ -32,10 +33,6 @@ GNU General Public License for more details.
 
 #define FILE_COPY_SIZE		(1024 * 1024)
 #define FILE_BUFF_SIZE		(2048)
-
-#ifdef XASH_ZLIB
-#include <zlib.h>
-#endif
 
 // PAK errors
 #define PAK_LOAD_OK			0
@@ -62,8 +59,6 @@ GNU General Public License for more details.
 #define ZIP_LOAD_BAD_FOLDERS		3
 #define ZIP_LOAD_NO_FILES		5
 #define ZIP_LOAD_CORRUPTED		6
-
-
 
 typedef struct stringlist_s
 {
@@ -693,7 +688,9 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		Zip_Close( zip );
 		return NULL;
 	}
-	if( signature != ZIP_HEADER_LF ) {
+
+	if( signature != ZIP_HEADER_LF )
+	{
 		Con_Reportf( "%s is not a zip file. Ignored.\n", zipfile );
 		if( error )
 		*error = ZIP_LOAD_BAD_HEADER;
@@ -804,7 +801,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 	zip_header_t header;
 	zipfile_t *file = NULL;
 
-	if(sizeptr) sizeptr == 0;
+	if( sizeptr ) sizeptr == 0;
 
 	search = FS_FindFile( path, &index, gamedironly );
 
@@ -823,7 +820,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 			return NULL;
 		}
 
-		if(header.compression_flags == ZIP_COMPRESSION_NO_COMPRESSION)
+		if( header.compression_flags == ZIP_COMPRESSION_NO_COMPRESSION )
 		{
 
 			if( header.filename_len )
@@ -858,8 +855,9 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 
 			return buffer;
 		}
-#ifdef XASH_ZLIB
-		if( header.compression_flags == ZIP_COMPRESSION_DEFLATED ) {
+
+		if( header.compression_flags == ZIP_COMPRESSION_DEFLATED )
+		{
 
 		if( header.filename_len )
 			FS_Seek( search->zip->handle, header.filename_len, SEEK_CUR );
@@ -892,35 +890,34 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 			CRC32_Init( &test_crc );
 			CRC32_ProcessBuffer( &test_crc, decompresed_buffer, file->size );
 
-			dword final_crc = CRC32_Final(test_crc);
+			dword final_crc = CRC32_Final( test_crc );
 
-			if(final_crc != header.crc32)
-			  {
-			    Con_Reportf( S_ERROR "Zip_LoadFile: %s file crc32 mismatch\n", file->name );
-			    Mem_Free( decompresed_buffer );
-			    return NULL;
-			  }
+			if( final_crc != header.crc32 )
+			{
+				Con_Reportf( S_ERROR "Zip_LoadFile: %s file crc32 mismatch\n", file->name );
+				Mem_Free( decompresed_buffer );
+				return NULL;
+			}
 
+			if( sizeptr ) *sizeptr = file->size;
 
-		} else if( zlib_result == Z_DATA_ERROR ){
-			Con_Reportf( S_ERROR "Zip_LoadFile: %s : compressed files data corrupted.\n", file->name );
+			return decompresed_buffer;
+
+		} else if( zlib_result == Z_DATA_ERROR )
+		{
+			Con_Reportf( S_ERROR "Zip_LoadFile: %s : compressed file data corrupted.\n", file->name );
 			Mem_Free( compresed_buffer );
 			Mem_Free( decompresed_buffer );
 			return NULL;
 		}
 
 
-		} else {
+		} else
+		{
 			Con_Reportf( S_ERROR "Zip_LoadFile: %s : file compressed with unknown algorithm.\n", file->name );
 			return NULL;
 
 		}
-#else
-		else {
-		    Con_Reportf( S_ERROR "Zip_LoadFile: %s : compressed files not supported.\n", file->name );
-		    return NULL;
-		  }
-#endif
 	}
 
 	return NULL;
