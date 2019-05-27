@@ -131,24 +131,24 @@ typedef struct
 #define ZIP_HEADER_CDF ((0x02<<24)+(0x01<<16)+('K'<<8)+'P')
 #define ZIP_HEADER_EOCD ((0x06<<24)+(0x05<<16)+('K'<<8)+'P')
 
-#define ZIP_COMPRESSION_NO_COMPRESSION      0
-#define ZIP_COMPRESSION_DEFLATED            8
+#define ZIP_COMPRESSION_NO_COMPRESSION	    0
+#define ZIP_COMPRESSION_DEFLATED	    8
 
 #define ZIP_ZIP64 0xffffffff
 
 #pragma pack( 1 )
 typedef struct zip_header_s
 {
-	unsigned int signature; // little endian ZIP_HEADER
-	unsigned short version; // version of pkzip need to unpack
-	unsigned short flags; // flags (16 bits == 16 flags)
-	unsigned short compression_flags; // compression flags (bits)
-        unsigned int dos_date; // file modification time and file modification date
-        unsigned int crc32; //crc32
-	unsigned int compressed_size;
-	unsigned int uncompressed_size;
-	unsigned short filename_len;
-	unsigned short extrafield_len;
+	unsigned int	signature; // little endian ZIP_HEADER
+	unsigned short	version; // version of pkzip need to unpack
+	unsigned short	flags; // flags (16 bits == 16 flags)
+	unsigned short	compression_flags; // compression flags (bits)
+	unsigned int	dos_date; // file modification time and file modification date
+	unsigned int	crc32; //crc32
+	unsigned int	compressed_size;
+	unsigned int	uncompressed_size;
+	unsigned short	filename_len;
+	unsigned short	extrafield_len;
 } zip_header_t;
 
 /*
@@ -158,42 +158,42 @@ typedef struct zip_header_s
 
 typedef struct zip_header_extra_s
 {
-	unsigned int signature; // ZIP_HEADER_SPANNED
-	unsigned int crc32;
-	unsigned int compressed_size;
-	unsigned int uncompressed_size;
+	unsigned int	signature; // ZIP_HEADER_SPANNED
+	unsigned int	crc32;
+	unsigned int	compressed_size;
+	unsigned int	uncompressed_size;
 } zip_header_extra_t;
 
 typedef struct zip_cdf_header_s
 {
-	unsigned int signature;
-	unsigned short version;
-	unsigned short version_need;
-	unsigned short generalPurposeBitFlag;
-	unsigned short flags;
-	unsigned short modification_time;
-	unsigned short modification_date;
-	unsigned int crc32;
-	unsigned int compressed_size;
-	unsigned int uncompressed_size;
-	unsigned short filename_len;
-	unsigned short extrafield_len;
-	unsigned short file_commentary_len;
-	unsigned short disk_start;
-	unsigned short internal_attr;
-	unsigned int external_attr;
-	unsigned int local_header_offset;
+	unsigned int	signature;
+	unsigned short	version;
+	unsigned short	version_need;
+	unsigned short	generalPurposeBitFlag;
+	unsigned short	flags;
+	unsigned short	modification_time;
+	unsigned short	modification_date;
+	unsigned int	crc32;
+	unsigned int	compressed_size;
+	unsigned int	uncompressed_size;
+	unsigned short	filename_len;
+	unsigned short	extrafield_len;
+	unsigned short	file_commentary_len;
+	unsigned short	disk_start;
+	unsigned short	internal_attr;
+	unsigned int	external_attr;
+	unsigned int	local_header_offset;
 } zip_cdf_header_t;
 
 typedef struct zip_header_eocd_s
 {
-	unsigned short disk_number;
-	unsigned short start_disk_number;
-	unsigned short number_central_directory_record;
-	unsigned short total_central_directory_record;
-	unsigned int size_of_central_directory;
-	unsigned int central_directory_offset;
-	unsigned short commentary_len;
+	unsigned short	disk_number;
+	unsigned short	start_disk_number;
+	unsigned short	number_central_directory_record;
+	unsigned short	total_central_directory_record;
+	unsigned int	size_of_central_directory;
+	unsigned int	central_directory_offset;
+	unsigned short	commentary_len;
 } zip_header_eocd_t;
 #pragma pack( )
 

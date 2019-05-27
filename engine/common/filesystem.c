@@ -112,7 +112,7 @@ typedef struct zipfile_s
 	char		name[MAX_SYSPATH];
 	fs_offset_t	offset; // offset of local file header
 	fs_offset_t	size; //original file size
-	fs_offset_t     compressed_size; // compressed file size
+	fs_offset_t	compressed_size; // compressed file size
 } zipfile_t;
 
 typedef struct zip_s
@@ -672,11 +672,11 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 	if( FS_FileLength( zip->handle ) > UINT_MAX )
 	{
-	      Con_Reportf( "%s bigger than 4GB.\n", zipfile );
-	      if( error )
-	      *error = ZIP_LOAD_COULDNT_OPEN;
-	      Zip_Close( zip );
-	      return NULL;
+		Con_Reportf( "%s bigger than 4GB.\n", zipfile );
+		if( error )
+		*error = ZIP_LOAD_COULDNT_OPEN;
+		Zip_Close( zip );
+		return NULL;
 	}
 
 	FS_Read( zip->handle, (void *)&signature, sizeof( uint ) );
@@ -824,7 +824,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 
 		FS_Read( search->zip->handle, (void*)&header, sizeof( header ) );
 
-		if(header.signature != ZIP_HEADER_LF)
+		if( header.signature != ZIP_HEADER_LF )
 		{
 			Con_Reportf( S_ERROR "Zip_LoadFile: %s signature error\n", file->name );
 			return NULL;
@@ -848,7 +848,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 			CRC32_Init( &test_crc );
 			CRC32_ProcessBuffer( &test_crc, decompressed_buffer, file->size );
 
-			final_crc = CRC32_Final(test_crc);
+			final_crc = CRC32_Final( test_crc );
 
 			if( final_crc != header.crc32 )
 			{
@@ -950,7 +950,7 @@ static qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loade
 			return true; // already loaded
 		}
 	}
-          
+
 	if( already_loaded )
 		*already_loaded = false;
 
