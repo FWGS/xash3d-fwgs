@@ -130,7 +130,7 @@ def configure(conf):
 	compiler_c_cxx_flags = {
 		'common': {
 			'msvc':    ['/D_USING_V110_SDK71_', '/Zi', '/FS'],
-			'clang':   ['-g', '-gdwarf-2'],
+			'clang':   ['-g', '-gdwarf-2', '-Werror=implicit-function-declaration', '-Werror=return-type'],
 			'gcc':     ['-g', '-Werror=implicit-function-declaration', '-fdiagnostics-color=always', '-Werror=return-type']
 		},
 		'fast': {
