@@ -131,7 +131,7 @@ class Android:
 				if self.is_hardfloat:
 					cflags += ['-D_NDK_MATH_NO_SOFTFP=1', '-mhard-float', '-mfloat-abi=hard', '-DLOAD_HARDFP', '-DSOFTFP_LINK']
 				else:
-					cflags += ['-mfloat-abi=softfp'] # Tegra 2 sucks
+					cflags += ['-mfloat-abi=softfp']
 			else:
 				# ARMv5 support
 				cflags += ['-march=armv5te', '-mtune=xscale', '-msoft-float']
@@ -139,13 +139,18 @@ class Android:
 			cflags += ['-mtune=atom', '-march=atom', '-mssse3', '-mfpmath=sse', '-DVECTORIZE_SINCOS', '-DHAVE_EFFICIENT_UNALIGNED_ACCESS']
 		return cflags
 
+	# they go before object list
+	def linkflags(self):
+		linkflags = ['--sysroot={0}'.format(self.sysroot())]
+		return linkflags
+
 	def ldflags(self):
-		ldflags = ['--sysroot={0}'.format(self.sysroot())]
+		ldflags = ['-lgcc', '-no-canonical-prefixes']
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
-				ldflags += ['-march=armv7-a', '-Wl,--fix-cortex-a8']
+				ldflags += ['-march=armv7-a', '-Wl,--fix-cortex-a8', '-mthumb']
 				if self.is_hardfloat:
-					ldflags += ['-Wl,--no-warn-mismatch']
+					ldflags += ['-Wl,--no-warn-mismatch', '-lm_hard']
 			else:
 				ldflags += ['-march=armv5te']
 		return ldflags
@@ -189,11 +194,12 @@ def configure(conf):
 		conf.environ['CXX'] = android.cxx()
 		conf.env.CFLAGS += android.cflags()
 		conf.env.CXXFLAGS += android.cflags()
-		conf.env.LINKFLAGS += android.ldflags()
+		conf.env.LINKFLAGS += android.linkflags()
+		conf.env.LDFLAGS += android.ldflags()
 
 		conf.env.HAVE_M = True
 		if android.is_hardfp():
-			conf.env.LIB_M = ['m_hard']
+			conf.env.LIB_M = [] # HACKHACK: libm_hard will be linked anyway, but it should go last
 		else: conf.env.LIB_M = ['m']
 
 		conf.env.PREFIX = '/lib/{0}'.format(android.arch)
