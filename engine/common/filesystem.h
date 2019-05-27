@@ -78,8 +78,8 @@ typedef struct
 	int		size;		// uncompressed
 	signed char	type;		// TYP_*
 	signed char	attribs;		// file attribs
-	char		pad0;
-	char		pad1;
+	signed char	pad0;
+	signed char	pad1;
 	char		name[WAD3_NAMELEN];	// must be null terminated
 } dlumpinfo_t;
 
