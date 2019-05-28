@@ -715,7 +715,9 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		FS_Seek( zip->handle, filepos, SEEK_SET );
 		FS_Read( zip->handle, (void *)&signature, sizeof( signature ) );
 
-		if( signature == ZIP_HEADER_EOCD ) break;
+		if( signature == ZIP_HEADER_EOCD )
+			break;
+
 		filepos -= sizeof( char ); // step back one byte
 	}
 
@@ -820,9 +822,9 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 	zip_header_t	header;
 	zipfile_t	*file = NULL;
 	byte		*compressed_buffer = NULL, *decompressed_buffer = NULL;
-	unsigned long	zlib_dest_size = 0;
 	int		zlib_result = 0;
 	dword		test_crc, final_crc;
+	z_stream	decompress_stream;
 
 	if( sizeptr ) *sizeptr == 0;
 
@@ -851,6 +853,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 				FS_Seek( search->zip->handle, header.extrafield_len, SEEK_CUR );
 
 			decompressed_buffer = Mem_Malloc( search->zip->mempool, file->size + 1 );
+			decompressed_buffer[file->size] = '\0';
 
 			FS_Read( search->zip->handle, decompressed_buffer, file->size );
 
@@ -881,18 +884,32 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 			if( header.extrafield_len )
 				FS_Seek( search->zip->handle, header.extrafield_len, SEEK_CUR );
 
-			compressed_buffer = Mem_Malloc( search->zip->mempool, file->compressed_size );
+			compressed_buffer = Mem_Malloc( search->zip->mempool, file->compressed_size + 1 );
 			decompressed_buffer = Mem_Malloc( search->zip->mempool, file->size + 1 );
+			decompressed_buffer[file->size] = '\0';
 
 			FS_Read( search->zip->handle, compressed_buffer, file->compressed_size );
 
-			zlib_dest_size = file->size;
+			memset( &decompress_stream, 0, sizeof(decompress_stream) );
 
-			zlib_result = uncompress( decompressed_buffer, &zlib_dest_size, compressed_buffer, file->compressed_size );
+			decompress_stream.total_in = decompress_stream.avail_in = file->compressed_size;
+			decompress_stream.next_in = (Bytef *)compressed_buffer;
+			decompress_stream.total_out = decompress_stream.avail_out = file->size;
+			decompress_stream.next_out = (Bytef *)decompressed_buffer;
 
-			ASSERT( file->size != zlib_dest_size );
+			decompress_stream.zalloc = Z_NULL;
+			decompress_stream.zfree = Z_NULL;
+			decompress_stream.opaque = Z_NULL;
 
-			if( zlib_result == Z_OK )
+			if( inflateInit2( &decompress_stream, -MAX_WBITS ) != Z_OK )
+			{
+				Con_Printf( S_ERROR "Zlib decompression failed\n" );
+			}
+
+			zlib_result = inflate( &decompress_stream, Z_NO_FLUSH );
+			inflateEnd( &decompress_stream );
+
+			if( zlib_result == Z_OK || zlib_result == Z_STREAM_END )
 			{
 				Mem_Free( compressed_buffer ); // finaly free compressed buffer
 
@@ -912,9 +929,9 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 
 				return decompressed_buffer;
 			}
-			else if( zlib_result == Z_DATA_ERROR )
+			else
 			{
-				Con_Reportf( S_ERROR "Zip_LoadFile: %s : compressed file data corrupted.\n", file->name );
+				Con_Reportf( S_ERROR "Zip_LoadFile: %s : error while file decompressing.\n", file->name );
 				Mem_Free( compressed_buffer );
 				Mem_Free( decompressed_buffer );
 				return NULL;
@@ -2917,6 +2934,7 @@ byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamediro
 
 		if( !buf )
 			buf = Zip_LoadFile( path, &filesize, gamedironly );
+
 	}
 
 	if( filesizeptr )
