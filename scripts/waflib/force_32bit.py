@@ -33,12 +33,11 @@ def check_32bit(ctx, msg):
 	return True
 
 def configure(conf):
-	if getattr(conf.env, 'BIT32_ALLOW64'):
-		conf.env.DEST_SIZEOF_VOID_P = 8
+	if check_32bit(conf, 'Checking if \'{0}\' can target 32-bit'.format(conf.env.COMPILER_CC)):
+		conf.env.DEST_SIZEOF_VOID_P = 4
 	else:
-		if check_32bit(conf, 'Checking if \'{0}\' can target 32-bit'.format(conf.env.COMPILER_CC)):
-			conf.env.DEST_SIZEOF_VOID_P = 4
-		else:
+		conf.env.DEST_SIZEOF_VOID_P = 8
+		if not conf.env.BIT32_ALLOW64:
 			flags = ['-m32']
 			# Think different.
 			if(conf.env.DEST_OS == 'darwin'):
@@ -51,6 +50,6 @@ def configure(conf):
 				conf.env.DEST_SIZEOF_VOID_P = 4
 			else:
 				conf.env.DEST_SIZEOF_VOID_P = 8
-				conf.env = env_stash
-		if getattr(conf.env, 'BIT32_MANDATORY') and conf.env.DEST_SIZEOF_VOID_P == 8:
-			conf.fatal('Compiler can\'t create 32-bit code!')
+			conf.env = env_stash
+			if conf.env.BIT32_MANDATORY and conf.env.DEST_SIZEOF_VOID_P == 8:
+				conf.fatal('Compiler can\'t create 32-bit code!')
