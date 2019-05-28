@@ -109,7 +109,7 @@ void CRC32_ProcessByte( dword *pulCRC, byte ch )
 
 void CRC32_ProcessBuffer( dword *pulCRC, const void *pBuffer, int nBuffer )
 {
-	dword	ulCrc = *pulCRC;
+	dword	ulCrc = *pulCRC, tmp;
 	byte	*pb = (byte *)pBuffer;
 	uint	nFront;
 	int	nMain;
@@ -120,7 +120,8 @@ JustAfew:
 	case 6: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8);
 	case 5: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8);
 	case 4:
-		ulCrc ^= *(dword *)pb;	// warning, this only works on little-endian.
+		memcpy( &tmp, pb, sizeof(dword));
+		ulCrc ^= tmp;	// warning, this only works on little-endian.
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
@@ -151,12 +152,14 @@ JustAfew:
 	nMain = nBuffer >> 3;
 	while( nMain-- )
 	{
-		ulCrc ^= *(dword *)pb;	// warning, this only works on little-endian.
+		memcpy( &tmp, pb, sizeof(dword));
+		ulCrc ^= tmp;	// warning, this only works on little-endian.
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		ulCrc ^= *(dword *)(pb + 4);// warning, this only works on little-endian.
+		memcpy( &tmp, pb + 4, sizeof(dword));
+		ulCrc ^= tmp; // warning, this only works on little-endian.
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
