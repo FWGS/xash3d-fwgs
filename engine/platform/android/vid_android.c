@@ -5,6 +5,8 @@
 #include "filesystem.h"
 #include "platform/android/android_priv.h"
 #include "vid_common.h"
+#include <android/native_window.h>
+#include <android/native_window_jni.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
