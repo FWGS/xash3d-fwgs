@@ -51,6 +51,7 @@ const char *demo_cmd[dem_lastcmd+1] =
 	"dem_stop",
 };
 
+#pragma pack( push, 1 )
 typedef struct
 {
 	int		id;		// should be IDEM
@@ -62,6 +63,7 @@ typedef struct
 	char		gamedir[64];	// name of game directory (FS_Gamedir())
 	int		directory_offset;	// offset of Entry Directory.
 } demoheader_t;
+#pragma pack( pop )
 
 typedef struct
 {
