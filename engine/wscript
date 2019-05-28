@@ -50,6 +50,9 @@ def configure(conf):
 		conf.env.append_unique('DEFINES', 'DBGHELP')
 		conf.env.append_unique('DEFINES', 'PSAPI_VERSION=1')
 
+	if conf.env.DEST_SIZEOF_VOID_P != 4:
+		conf.env.append_unique('DEFINES', 'XASH_64BIT')
+
 def build(bld):
 	libs = [ 'public' ]
 	source = bld.path.ant_glob([
