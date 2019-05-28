@@ -136,7 +136,7 @@ typedef struct
 
 #define ZIP_ZIP64 0xffffffff
 
-#pragma pack( 1 )
+#pragma pack( push, 1 )
 typedef struct zip_header_s
 {
 	unsigned int	signature; // little endian ZIP_HEADER
@@ -195,6 +195,6 @@ typedef struct zip_header_eocd_s
 	unsigned int	central_directory_offset;
 	unsigned short	commentary_len;
 } zip_header_eocd_t;
-#pragma pack( )
+#pragma pack( pop )
 
 #endif//FILESYSTEM_H

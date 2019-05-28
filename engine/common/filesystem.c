@@ -646,7 +646,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	uint		  signature;
 	fs_offset_t	  filepos = 0;
 	zipfile_t	  *info = NULL;
-
+	char		  filename_buffer[MAX_SYSPATH];
 	zip_t *zip = (zip_t *)Mem_Calloc( fs_mempool, sizeof( zip_t ) );
 
 	zip->handle = FS_Open( zipfile, "rb", true );
@@ -656,13 +656,13 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	{
 		const char *fzipfile = FS_FixFileCase( zipfile );
 		if( fzipfile != zipfile )
-		zip->handle = FS_Open( fzipfile, "rb", true );
+			zip->handle = FS_Open( fzipfile, "rb", true );
 	}
 #endif
 
 	if( !zip->handle )
 	{
-		Con_Reportf( "%s couldn't open\n", zipfile );
+		Con_Reportf( S_ERROR "%s couldn't open\n", zipfile );
 
 		if( error )
 			*error = ZIP_LOAD_COULDNT_OPEN;
@@ -673,7 +673,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 	if( FS_FileLength( zip->handle ) > UINT_MAX )
 	{
-		Con_Reportf( "%s bigger than 4GB.\n", zipfile );
+		Con_Reportf( S_ERROR "%s bigger than 4GB.\n", zipfile );
 
 		if( error )
 			*error = ZIP_LOAD_COULDNT_OPEN;
@@ -688,7 +688,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	{
 		Con_Reportf( "%s has no files. Ignored.\n", zipfile );
 
-		if(error)
+		if( error )
 			*error = ZIP_LOAD_NO_FILES;
 
 		Zip_Close( zip );
@@ -697,7 +697,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 	if( signature != ZIP_HEADER_LF )
 	{
-		Con_Reportf( "%s is not a zip file. Ignored.\n", zipfile );
+		Con_Reportf( S_ERROR "%s is not a zip file. Ignored.\n", zipfile );
 
 		if( error )
 			*error = ZIP_LOAD_BAD_HEADER;
@@ -721,9 +721,9 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 	if( ZIP_HEADER_EOCD != signature )
 	{
-		Con_Reportf( "Cannot find EOCD in %s. Zip file corrupted.\n", zipfile );
+		Con_Reportf( S_ERROR "Cannot find EOCD in %s. Zip file corrupted.\n", zipfile );
 
-		if(error)
+		if( error )
 			*error = ZIP_LOAD_BAD_HEADER;
 
 		Zip_Close( zip );
@@ -746,9 +746,9 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 		if( header_cdf.signature != ZIP_HEADER_CDF )
 		{
-			Con_Reportf( "CDF signature mismatch in %s. Zip file corrupted.\n", zipfile );
+			Con_Reportf( S_ERROR "CDF signature mismatch in %s. Zip file corrupted.\n", zipfile );
 
-			if(error)
+			if( error )
 				*error = ZIP_LOAD_BAD_HEADER;
 
 			Mem_Free( info );
@@ -758,19 +758,19 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 		if( header_cdf.uncompressed_size && header_cdf.filename_len )
 		{
-			char *filename = malloc( header_cdf.filename_len + 1 );
-			memset( filename, '\0', header_cdf.filename_len + 1 );
+			if(header_cdf.filename_len > MAX_SYSPATH) // ignore files with bigger than 1024 bytes
+			{
+				Con_Reportf( S_WARN "File name bigger than buffer. Ignored.\n" );
+				continue;
+			}
 
-			FS_Read( zip->handle, filename, header_cdf.filename_len );
-
-			Q_strncpy( info[numpackfiles].name, filename, MAX_SYSPATH );
-			free( filename );
+			memset( &filename_buffer, '\0', MAX_SYSPATH );
+			FS_Read( zip->handle, &filename_buffer, header_cdf.filename_len );
+			Q_strncpy( info[numpackfiles].name, filename_buffer, MAX_SYSPATH );
 
 			info[numpackfiles].size = header_cdf.uncompressed_size;
 			info[numpackfiles].compressed_size = header_cdf.compressed_size;
 			info[numpackfiles].offset = header_cdf.local_header_offset;
-
-			//Con_Reportf( "ZIP File name: %s .\n", info[numpackfiles].name );
 			numpackfiles++;
 		}
 		else
@@ -824,7 +824,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 	int		zlib_result = 0;
 	dword		test_crc, final_crc;
 
-	if( sizeptr ) sizeptr == 0;
+	if( sizeptr ) *sizeptr == 0;
 
 	search = FS_FindFile( path, &index, gamedironly );
 
@@ -834,7 +834,6 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 		file = &search->zip->files[index];
 
 		FS_Seek( search->zip->handle, file->offset, SEEK_SET );
-
 		FS_Read( search->zip->handle, (void*)&header, sizeof( header ) );
 
 		if( header.signature != ZIP_HEADER_LF )
@@ -845,7 +844,6 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 
 		if( header.compression_flags == ZIP_COMPRESSION_NO_COMPRESSION )
 		{
-
 			if( header.filename_len )
 				FS_Seek( search->zip->handle, header.filename_len, SEEK_CUR );
 
@@ -853,8 +851,6 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 				FS_Seek( search->zip->handle, header.extrafield_len, SEEK_CUR );
 
 			decompressed_buffer = Mem_Malloc( search->zip->mempool, file->size + 1 );
-
-			decompressed_buffer[file->size] = '\0';
 
 			FS_Read( search->zip->handle, decompressed_buffer, file->size );
 
@@ -876,8 +872,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 
 			return decompressed_buffer;
 		}
-
-		if( header.compression_flags == ZIP_COMPRESSION_DEFLATED )
+		else if( header.compression_flags == ZIP_COMPRESSION_DEFLATED )
 		{
 
 			if( header.filename_len )
@@ -886,13 +881,8 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 			if( header.extrafield_len )
 				FS_Seek( search->zip->handle, header.extrafield_len, SEEK_CUR );
 
-			compressed_buffer = Mem_Malloc( search->zip->mempool, file->compressed_size + 1 );
-
-			compressed_buffer[file->compressed_size] = '\0';
-
+			compressed_buffer = Mem_Malloc( search->zip->mempool, file->compressed_size );
 			decompressed_buffer = Mem_Malloc( search->zip->mempool, file->size + 1 );
-
-			compressed_buffer[file->size] = '\0';
 
 			FS_Read( search->zip->handle, compressed_buffer, file->compressed_size );
 
@@ -921,8 +911,8 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 				if( sizeptr ) *sizeptr = file->size;
 
 				return decompressed_buffer;
-
-			} else if( zlib_result == Z_DATA_ERROR )
+			}
+			else if( zlib_result == Z_DATA_ERROR )
 			{
 				Con_Reportf( S_ERROR "Zip_LoadFile: %s : compressed file data corrupted.\n", file->name );
 				Mem_Free( compressed_buffer );
@@ -930,13 +920,11 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 				return NULL;
 			}
 
-
 		}
 		else
 		{
 			Con_Reportf( S_ERROR "Zip_LoadFile: %s : file compressed with unknown algorithm.\n", file->name );
 			return NULL;
-
 		}
 	}
 
@@ -1249,7 +1237,7 @@ void FS_ClearSearchPath( void )
 			W_Close( search->wad );
 		}
 
-		if(search->zip)
+		if( search->zip )
 		{
 			Zip_Close(search->zip);
 		}
@@ -2413,7 +2401,8 @@ static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedir
 					return search;
 				}
 			}
-		} else
+		}
+		else
 		{
 			char	netpath[MAX_SYSPATH];
 
