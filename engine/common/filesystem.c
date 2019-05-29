@@ -830,32 +830,88 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 
 	search = FS_FindFile( path, &index, gamedironly );
 
-	if( search && search->zip )
+	if( !search || !search->zip )
+		return  NULL;
+
+	file = &search->zip->files[index];
+
+	FS_Seek( search->zip->handle, file->offset, SEEK_SET );
+	FS_Read( search->zip->handle, (void*)&header, sizeof( header ) );
+
+	if( header.signature != ZIP_HEADER_LF )
 	{
+		Con_Reportf( S_ERROR "Zip_LoadFile: %s signature error\n", file->name );
+		return NULL;
+	}
 
-		file = &search->zip->files[index];
+	if( header.compression_flags == ZIP_COMPRESSION_NO_COMPRESSION )
+	{
+		if( header.filename_len )
+			FS_Seek( search->zip->handle, header.filename_len, SEEK_CUR );
 
-		FS_Seek( search->zip->handle, file->offset, SEEK_SET );
-		FS_Read( search->zip->handle, (void*)&header, sizeof( header ) );
+		if( header.extrafield_len )
+			FS_Seek( search->zip->handle, header.extrafield_len, SEEK_CUR );
 
-		if( header.signature != ZIP_HEADER_LF )
+		decompressed_buffer = Mem_Malloc( search->zip->mempool, file->size + 1 );
+		decompressed_buffer[file->size] = '\0';
+
+		FS_Read( search->zip->handle, decompressed_buffer, file->size );
+
+		CRC32_Init( &test_crc );
+		CRC32_ProcessBuffer( &test_crc, decompressed_buffer, file->size );
+
+		final_crc = CRC32_Final( test_crc );
+
+		if( final_crc != header.crc32 )
 		{
-			Con_Reportf( S_ERROR "Zip_LoadFile: %s signature error\n", file->name );
+			Con_Reportf( S_ERROR "Zip_LoadFile: %s file crc32 mismatch\n", file->name );
+			Mem_Free( decompressed_buffer );
 			return NULL;
 		}
 
-		if( header.compression_flags == ZIP_COMPRESSION_NO_COMPRESSION )
+		if( sizeptr ) *sizeptr = file->size;
+
+		return decompressed_buffer;
+	}
+	else if( header.compression_flags == ZIP_COMPRESSION_DEFLATED )
+	{
+		if( header.filename_len )
+			FS_Seek( search->zip->handle, header.filename_len, SEEK_CUR );
+
+		if( header.extrafield_len )
+			FS_Seek( search->zip->handle, header.extrafield_len, SEEK_CUR );
+
+		compressed_buffer = Mem_Malloc( search->zip->mempool, file->compressed_size + 1 );
+		decompressed_buffer = Mem_Malloc( search->zip->mempool, file->size + 1 );
+		decompressed_buffer[file->size] = '\0';
+
+		FS_Read( search->zip->handle, compressed_buffer, file->compressed_size );
+
+		memset( &decompress_stream, 0, sizeof( decompress_stream ) );
+
+		decompress_stream.total_in = decompress_stream.avail_in = file->compressed_size;
+		decompress_stream.next_in = (Bytef *)compressed_buffer;
+		decompress_stream.total_out = decompress_stream.avail_out = file->size;
+		decompress_stream.next_out = (Bytef *)decompressed_buffer;
+
+		decompress_stream.zalloc = Z_NULL;
+		decompress_stream.zfree = Z_NULL;
+		decompress_stream.opaque = Z_NULL;
+
+		if( inflateInit2( &decompress_stream, -MAX_WBITS ) != Z_OK )
 		{
-			if( header.filename_len )
-				FS_Seek( search->zip->handle, header.filename_len, SEEK_CUR );
+			Con_Printf( S_ERROR "Zip_LoadFile: inflateInit2 failed\n" );
+			Mem_Free( compressed_buffer );
+			Mem_Free( decompressed_buffer );
+			return NULL;
+		}
 
-			if( header.extrafield_len )
-				FS_Seek( search->zip->handle, header.extrafield_len, SEEK_CUR );
+		zlib_result = inflate( &decompress_stream, Z_NO_FLUSH );
+		inflateEnd( &decompress_stream );
 
-			decompressed_buffer = Mem_Malloc( search->zip->mempool, file->size + 1 );
-			decompressed_buffer[file->size] = '\0';
-
-			FS_Read( search->zip->handle, decompressed_buffer, file->size );
+		if( zlib_result == Z_OK || zlib_result == Z_STREAM_END )
+		{
+			Mem_Free( compressed_buffer ); // finaly free compressed buffer
 
 			CRC32_Init( &test_crc );
 			CRC32_ProcessBuffer( &test_crc, decompressed_buffer, file->size );
@@ -873,76 +929,19 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 
 			return decompressed_buffer;
 		}
-		else if( header.compression_flags == ZIP_COMPRESSION_DEFLATED )
-		{
-			if( header.filename_len )
-				FS_Seek( search->zip->handle, header.filename_len, SEEK_CUR );
-
-			if( header.extrafield_len )
-				FS_Seek( search->zip->handle, header.extrafield_len, SEEK_CUR );
-
-			compressed_buffer = Mem_Malloc( search->zip->mempool, file->compressed_size + 1 );
-			decompressed_buffer = Mem_Malloc( search->zip->mempool, file->size + 1 );
-			decompressed_buffer[file->size] = '\0';
-
-			FS_Read( search->zip->handle, compressed_buffer, file->compressed_size );
-
-			memset( &decompress_stream, 0, sizeof( decompress_stream ) );
-
-			decompress_stream.total_in = decompress_stream.avail_in = file->compressed_size;
-			decompress_stream.next_in = (Bytef *)compressed_buffer;
-			decompress_stream.total_out = decompress_stream.avail_out = file->size;
-			decompress_stream.next_out = (Bytef *)decompressed_buffer;
-
-			decompress_stream.zalloc = Z_NULL;
-			decompress_stream.zfree = Z_NULL;
-			decompress_stream.opaque = Z_NULL;
-
-			if( inflateInit2( &decompress_stream, -MAX_WBITS ) != Z_OK )
-			{
-				Con_Printf( S_ERROR "Zip_LoadFile: inflateInit2 failed\n" );
-				Mem_Free( compressed_buffer );
-				Mem_Free( decompressed_buffer );
-				return NULL;
-			}
-
-			zlib_result = inflate( &decompress_stream, Z_NO_FLUSH );
-			inflateEnd( &decompress_stream );
-
-			if( zlib_result == Z_OK || zlib_result == Z_STREAM_END )
-			{
-				Mem_Free( compressed_buffer ); // finaly free compressed buffer
-
-				CRC32_Init( &test_crc );
-				CRC32_ProcessBuffer( &test_crc, decompressed_buffer, file->size );
-
-				final_crc = CRC32_Final( test_crc );
-
-				if( final_crc != header.crc32 )
-				{
-					Con_Reportf( S_ERROR "Zip_LoadFile: %s file crc32 mismatch\n", file->name );
-					Mem_Free( decompressed_buffer );
-					return NULL;
-				}
-
-				if( sizeptr ) *sizeptr = file->size;
-
-				return decompressed_buffer;
-			}
-			else
-			{
-				Con_Reportf( S_ERROR "Zip_LoadFile: %s : error while file decompressing. Zlib return code %d.\n", file->name, zlib_result );
-				Mem_Free( compressed_buffer );
-				Mem_Free( decompressed_buffer );
-				return NULL;
-			}
-
-		}
 		else
 		{
-			Con_Reportf( S_ERROR "Zip_LoadFile: %s : file compressed with unknown algorithm.\n", file->name );
+			Con_Reportf( S_ERROR "Zip_LoadFile: %s : error while file decompressing. Zlib return code %d.\n", file->name, zlib_result );
+			Mem_Free( compressed_buffer );
+			Mem_Free( decompressed_buffer );
 			return NULL;
 		}
+
+	}
+	else
+	{
+		Con_Reportf( S_ERROR "Zip_LoadFile: %s : file compressed with unknown algorithm.\n", file->name );
+		return NULL;
 	}
 
 	return NULL;
