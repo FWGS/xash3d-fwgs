@@ -718,8 +718,10 @@ int GL_SetAttribute( int attr, int val )
 	switch( attr )
 	{
 	case REF_GL_CONTEXT_PROFILE_MASK:
+#ifdef SDL_HINT_OPENGL_ES_DRIVER
 		if( val == REF_GL_CONTEXT_PROFILE_ES )
 			SDL_SetHint( SDL_HINT_OPENGL_ES_DRIVER, "1" );
+#endif // SDL_HINT_OPENGL_ES_DRIVER
 		break;
 	default:
 		break;
