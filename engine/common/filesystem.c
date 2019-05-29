@@ -826,7 +826,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 	dword		test_crc, final_crc;
 	z_stream	decompress_stream;
 
-	if( sizeptr ) *sizeptr == 0;
+	if( sizeptr ) *sizeptr = 0;
 
 	search = FS_FindFile( path, &index, gamedironly );
 
@@ -877,7 +877,6 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 		}
 		else if( header.compression_flags == ZIP_COMPRESSION_DEFLATED )
 		{
-
 			if( header.filename_len )
 				FS_Seek( search->zip->handle, header.filename_len, SEEK_CUR );
 
@@ -890,7 +889,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 
 			FS_Read( search->zip->handle, compressed_buffer, file->compressed_size );
 
-			memset( &decompress_stream, 0, sizeof(decompress_stream) );
+			memset( &decompress_stream, 0, sizeof( decompress_stream ) );
 
 			decompress_stream.total_in = decompress_stream.avail_in = file->compressed_size;
 			decompress_stream.next_in = (Bytef *)compressed_buffer;
@@ -903,7 +902,10 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 
 			if( inflateInit2( &decompress_stream, -MAX_WBITS ) != Z_OK )
 			{
-				Con_Printf( S_ERROR "Zlib decompression failed\n" );
+				Con_Printf( S_ERROR "Zip_LoadFile: inflateInit2 failed\n" );
+				Mem_Free( compressed_buffer );
+				Mem_Free( decompressed_buffer );
+				return NULL;
 			}
 
 			zlib_result = inflate( &decompress_stream, Z_NO_FLUSH );
@@ -931,7 +933,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 			}
 			else
 			{
-				Con_Reportf( S_ERROR "Zip_LoadFile: %s : error while file decompressing.\n", file->name );
+				Con_Reportf( S_ERROR "Zip_LoadFile: %s : error while file decompressing. Zlib return code %d\n.", file->name, zlib_result );
 				Mem_Free( compressed_buffer );
 				Mem_Free( decompressed_buffer );
 				return NULL;
