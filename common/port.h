@@ -21,11 +21,11 @@ GNU General Public License for more details.
   #define XASH_64BIT
 #endif
 
-#ifdef XASH_64BIT
-#define ARCH_SUFFIX "64"
-#else
+// #ifdef XASH_64BIT
+// #define ARCH_SUFFIX "64"
+// #else
 #define ARCH_SUFFIX
-#endif
+// #endif
 
 #if defined(__ANDROID__) || TARGET_OS_IOS
 #define XASH_MOBILE_PLATFORM
