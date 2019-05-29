@@ -686,7 +686,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 	if( signature == ZIP_HEADER_EOCD )
 	{
-		Con_Reportf( "%s has no files. Ignored.\n", zipfile );
+		Con_Reportf( S_WARN "%s has no files. Ignored.\n", zipfile );
 
 		if( error )
 			*error = ZIP_LOAD_NO_FILES;
@@ -1096,8 +1096,8 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 	}
 	else
 	{
-	if( errorcode != ZIP_LOAD_NO_FILES )
-		Con_Reportf( S_ERROR "FS_AddZip_Fullpath: unable to load zip \"%s\"\n", zipfile );
+		if( errorcode != ZIP_LOAD_NO_FILES )
+			Con_Reportf( S_ERROR "FS_AddZip_Fullpath: unable to load zip \"%s\"\n", zipfile );
 		return false;
 	}
 }
