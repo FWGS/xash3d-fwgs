@@ -869,8 +869,6 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 				return NULL;
 			}
 
-			//Con_Reportf( "ZIP %s load file %s with size %lu\n", search->zip->filename, file->name, file->size );
-
 			if( sizeptr ) *sizeptr = file->size;
 
 			return decompressed_buffer;
@@ -933,7 +931,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 			}
 			else
 			{
-				Con_Reportf( S_ERROR "Zip_LoadFile: %s : error while file decompressing. Zlib return code %d\n.", file->name, zlib_result );
+				Con_Reportf( S_ERROR "Zip_LoadFile: %s : error while file decompressing. Zlib return code %d.\n", file->name, zlib_result );
 				Mem_Free( compressed_buffer );
 				Mem_Free( decompressed_buffer );
 				return NULL;
