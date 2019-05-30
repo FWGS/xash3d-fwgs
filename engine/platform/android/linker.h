@@ -32,10 +32,27 @@
 
 #include <unistd.h>
 #include <sys/types.h>
-#include <elf.h>
-#include <sys/exec_elf.h>
+// #include <elf.h>
+#include <linux/elf.h>
+// #include <sys/exec_elf.h>
+// #include <link.h>
 
-#include <link.h>
+// a1ba: we don't really need custom linker on Android 64, because
+// it's only intended to workaround bug which persist on Android < 4.4
+#define Elf_Ehdr	Elf32_Ehdr
+#define Elf_Phdr	Elf32_Phdr
+#define Elf_Shdr	Elf32_Shdr
+#define Elf_Sym		Elf32_Sym
+#define Elf_Rel		Elf32_Rel
+#define Elf_RelA	Elf32_Rela
+#define Elf_Dyn		Elf32_Dyn
+#define Elf_Half	Elf32_Half
+#define Elf_Word	Elf32_Word
+#define Elf_Sword	Elf32_Sword
+#define Elf_Addr	Elf32_Addr
+#define Elf_Off		Elf32_Off
+#define Elf_Nhdr	Elf32_Nhdr
+#define Elf_Note	Elf32_Note
 
 // Returns the address of the page containing address 'x'.
 #define PAGE_START(x)  ((x) & PAGE_MASK)
@@ -179,24 +196,6 @@ struct soinfo {
   void CallArray(const char* array_name, linker_function_t* functions, size_t count, bool reverse);
   void CallFunction(const char* function_name, linker_function_t function);
 };
-
-extern soinfo libdl_info;
-
-void do_android_update_LD_LIBRARY_PATH(const char* ld_library_path);
-soinfo* do_dlopen(const char* name, int flags);
-int do_dlclose(soinfo* si);
-
-Elf_Sym* dlsym_linear_lookup(const char* name, soinfo** found, soinfo* start);
-soinfo* find_containing_library(const void* addr);
-
-Elf_Sym* dladdr_find_symbol(soinfo* si, const void* addr);
-Elf_Sym* dlsym_handle_lookup(soinfo* si, const char* name);
-
-void debuggerd_init();
-extern "C" void notify_gdb_of_libraries();
-
-char* linker_get_error_buffer();
-size_t linker_get_error_buffer_size();
 
 #endif
 #endif

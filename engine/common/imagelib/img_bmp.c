@@ -43,25 +43,11 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	qboolean	load_qfont = false;
 	bmp_t	bhdr;
 
-	if( filesize < sizeof( bhdr )) return false; 
+	if( filesize < sizeof( bhdr )) return false;
 
 	buf_p = (byte *)buffer;
-	bhdr.id[0] = *buf_p++;
-	bhdr.id[1] = *buf_p++;				// move pointer
-	bhdr.fileSize = *(int *)buf_p;	buf_p += 4;
-	bhdr.reserved0 = *(int *)buf_p;	buf_p += 4;
-	bhdr.bitmapDataOffset = *(int *)buf_p;	buf_p += 4;
-	bhdr.bitmapHeaderSize = *(int *)buf_p;	buf_p += 4;
-	bhdr.width = *(int *)buf_p;		buf_p += 4;
-	bhdr.height = *(int *)buf_p;		buf_p += 4;
-	bhdr.planes = *(short *)buf_p;	buf_p += 2;
-	bhdr.bitsPerPixel = *(short *)buf_p;	buf_p += 2;
-	bhdr.compression = *(int *)buf_p;	buf_p += 4;
-	bhdr.bitmapDataSize = *(int *)buf_p;	buf_p += 4;
-	bhdr.hRes = *(int *)buf_p;		buf_p += 4;
-	bhdr.vRes = *(int *)buf_p;		buf_p += 4;
-	bhdr.colors = *(int *)buf_p;		buf_p += 4;
-	bhdr.importantColors = *(int *)buf_p;	buf_p += 4;
+	memcpy( &bhdr, buf_p, sizeof( bmp_t ));
+	buf_p += sizeof( bmp_t );
 
 	// bogus file header check
 	if( bhdr.reserved0 != 0 ) return false;
