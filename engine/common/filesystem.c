@@ -71,7 +71,7 @@ typedef struct stringlist_s
 typedef struct wadtype_s
 {
 	char		*ext;
-	char		type;
+	signed char		type;
 } wadtype_t;
 
 typedef struct file_s
@@ -150,7 +150,7 @@ qboolean		fs_caseinsensitive = true; // try to search missing files
 
 static void FS_InitMemory( void );
 static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedironly );
-static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const char matchtype );
+static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const signed char matchtype );
 static dpackfile_t *FS_AddFileToPack( const char* name, pack_t *pack, fs_offset_t offset, fs_offset_t size );
 void Zip_Close( zip_t *zip );
 static byte *W_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly );
@@ -2367,7 +2367,7 @@ static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedir
 		else if( search->wad )
 		{
 			dlumpinfo_t	*lump;	
-			char		type = W_TypeFromExt( name );
+			signed char		type = W_TypeFromExt( name );
 			qboolean		anywadname = true;
 			string		wadname, wadfolder;
 			string		shortname;
@@ -3381,7 +3381,7 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 		else if( searchpath->wad )
 		{
 			string	wadpattern, wadname, temp2;
-			char	type = W_TypeFromExt( pattern );
+			signed char	type = W_TypeFromExt( pattern );
 			qboolean	anywadname = true;
 			string	wadfolder;
 
@@ -3594,7 +3594,7 @@ W_FindLump
 Serach for already existed lump
 ===========
 */
-static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const char matchtype )
+static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const signed char matchtype )
 {
 	int	left, right;
 
