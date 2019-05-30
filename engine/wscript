@@ -50,6 +50,9 @@ def configure(conf):
 		conf.env.append_unique('DEFINES', 'DBGHELP')
 		conf.env.append_unique('DEFINES', 'PSAPI_VERSION=1')
 
+	conf.check_cc(header_name='zlib.h', uselib_store='ZLIB')
+	conf.check_cc(lib='z', uselib_store='ZLIB')
+
 def build(bld):
 	libs = [ 'public' ]
 	source = bld.path.ant_glob([
@@ -77,6 +80,9 @@ def build(bld):
 	if bld.env.DEST_OS2 == 'android':
 		libs += ['LOG', 'EGL', 'ANDROID']
 		source += bld.path.ant_glob(['platform/android/*.cpp', 'platform/android/*.c'])
+
+	# Add zlib for all builds
+	libs += [ 'ZLIB' ]
 
 	# add client files
 	if not bld.env.DEDICATED:
