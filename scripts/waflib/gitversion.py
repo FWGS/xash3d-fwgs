@@ -22,8 +22,8 @@ def get_git_version():
 		except Exception as e:
 			pass
 
-	if(len(version) == 0):
-		version = None
+		if(len(version) == 0):
+			version = None
 
 	return version
 
