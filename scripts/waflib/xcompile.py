@@ -76,8 +76,8 @@ class Android:
 
 		self.toolchain = toolchain
 
-                if self.ndk_rev >= 19 or 'clang' in self.toolchain:
-                        self.clang = True
+		if self.ndk_rev >= 19 or 'clang' in self.toolchain:
+			self.clang = True
 
 		if self.is_arm64() or self.is_amd64() and self.api < 21:
 			Logs.warn('API level for 64-bit target automatically was set to 21')

@@ -109,18 +109,18 @@ def configure(conf):
 		conf.options.GLWES  = True
 		conf.options.GL     = False
 
-	# print(conf.options.ALLOW64)
-
-	conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
-	conf.env.BIT32_ALLOW64 = conf.options.ALLOW64
+	# We restrict 64-bit builds ONLY for Win/Linux/OSX running on Intel architecture
+	# Because compatibility with original GoldSrc
+	if conf.env.DEST_OS in ['win32', 'linux', 'darwin'] and conf.env.DEST_CPU in ['x86_64']:
+		conf.env.BIT32_ALLOW64 = conf.options.ALLOW64
+		if not conf.env.BIT32_ALLOW64:
+			Logs.info('WARNING: will build engine for 32-bit target')
+	else:
+		conf.env.BIT32_ALLOW64 = True
+	conf.env.BIT32_MANDATORY = not conf.env.BIT32_ALLOW64
 	conf.load('force_32bit')
 	if conf.env.DEST_OS2 != 'android':
 		conf.load('sdl2')
-
-	if conf.env.DEST_SIZEOF_VOID_P == 4:
-		Logs.info('NOTE: will build engine for 32-bit target')
-	else:
-		Logs.warn('WARNING: 64-bit engine may be unstable')
 
 	linker_flags = {
 		'common': {
