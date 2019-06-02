@@ -16,7 +16,6 @@ GNU General Public License for more details.
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <zlib.h>
 #ifdef _WIN32
 #include <direct.h>
 #include <io.h>
@@ -24,6 +23,7 @@ GNU General Public License for more details.
 #include <dirent.h>
 #include <errno.h>
 #endif
+#include "miniz.h" // header-only zlib replacement
 #include "common.h"
 #include "wadfile.h"
 #include "filesystem.h"
