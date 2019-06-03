@@ -21,12 +21,13 @@ Latest development build: https://github.com/FWGS/xash3d-deploy/tree/newengine-l
 * Mobility API: allows better game integration on mobile devices(vibration, touch controls)
 * Different input methods: touch, gamepad and classic mouse & keyboard.
 * TrueType font rendering, as a part of mainui_cpp.
+* Multiple renderers support(OpenGL, GLES, Software)
 * A set of small improvements, without broken compatibility.
 
 ## Planned fork features
-* Virtual Reality support and game API(in development!)
+* Virtual Reality support and game API
 * Voice support
-* Multiple renderers support(OpenGL, GLES, Vulkan, software)
+* Vulkan renderer
 
 ## Contributing
 * Before sending an issue, check if someone already reported your issue. Make sure you're following "How To Ask Questions The Smart Way" guide by Eric Steven Raymond. Read more: http://www.catb.org/~esr/faqs/smart-questions.html
