@@ -759,6 +759,83 @@ void SV_SetupClients( void )
 	ClearBits( sv_maxclients->flags, FCVAR_CHANGED );
 }
 
+static qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer )
+{
+	char	headbuf[1024], buffer[1024];
+	int	i, num_bytes, lumplen;
+	int	version, hdr_size;
+	dheader_t	*header;
+	file_t	*f;
+
+	if( !crcvalue ) return false;
+
+	// always calc same checksum for singleplayer
+	if( multiplayer == false )
+	{
+		*crcvalue = (('H'<<24)+('S'<<16)+('A'<<8)+'X');
+		return true;
+	}
+
+	f = FS_Open( filename, "rb", false );
+	if( !f ) return false;
+
+	// read version number
+	FS_Read( f, &version, sizeof( int ));
+	FS_Seek( f, 0, SEEK_SET );
+
+	hdr_size = sizeof( int ) + sizeof( dlump_t ) * HEADER_LUMPS;
+	num_bytes = FS_Read( f, headbuf, hdr_size );
+
+	// corrupted map ?
+	if( num_bytes != hdr_size )
+	{
+		FS_Close( f );
+		return false;
+	}
+
+	header = (dheader_t *)headbuf;
+
+	// invalid version ?
+	switch( header->version )
+	{
+	case Q1BSP_VERSION:
+	case HLBSP_VERSION:
+	case QBSP2_VERSION:
+		break;
+	default:
+		FS_Close( f );
+		return false;
+	}
+
+	CRC32_Init( crcvalue );
+
+	for( i = LUMP_PLANES; i < HEADER_LUMPS; i++ )
+	{
+		lumplen = header->lumps[i].filelen;
+		FS_Seek( f, header->lumps[i].fileofs, SEEK_SET );
+
+		while( lumplen > 0 )
+		{
+			if( lumplen >= sizeof( buffer ))
+				num_bytes = FS_Read( f, buffer, sizeof( buffer ));
+			else num_bytes = FS_Read( f, buffer, lumplen );
+
+			if( num_bytes > 0 )
+			{
+				lumplen -= num_bytes;
+				CRC32_ProcessBuffer( crcvalue, buffer, num_bytes );
+			}
+
+			// file unexpected end ?
+			if( FS_Eof( f )) break;
+		}
+	}
+
+	FS_Close( f );
+
+	return 1;
+}
+
 /*
 ================
 SV_SpawnServer

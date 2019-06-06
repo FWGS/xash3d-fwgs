@@ -117,6 +117,7 @@ typedef enum
 #include "crtlib.h"
 #include "cvar.h"
 #include "con_nprint.h"
+#include "crclib.h"
 
 #define XASH_VERSION	"0.99"		// engine current version
 
@@ -295,14 +296,6 @@ typedef enum
 	key_menu,
 	key_message
 } keydest_t;
-
-// MD5 Hash
-typedef struct
-{
-	uint	buf[4];
-	uint	bits[2];
-	byte	in[64];
-} MD5Context_t;
 
 typedef enum
 {
@@ -541,6 +534,8 @@ const char *FS_GetDiskPath( const char *name, qboolean gamedironly );
 byte *W_LoadLump( wfile_t *wad, const char *lumpname, size_t *lumpsizeptr, const char type );
 void W_Close( wfile_t *wad );
 byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly );
+qboolean CRC32_File( dword *crcvalue, const char *filename );
+qboolean MD5_HashFile( byte digest[16], const char *pszFileName, uint seed[4] );
 byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr );
 qboolean FS_WriteFile( const char *filename, const void *data, fs_offset_t len );
 qboolean COM_ParseVector( char **pfile, float *v, size_t size );
@@ -791,23 +786,6 @@ qboolean Cmd_AutocompleteName( const char *source, char *buffer, size_t bufsize 
 void Con_CompleteCommand( field_t *field );
 void Cmd_AutoComplete( char *complete_string );
 void Cmd_AutoCompleteClear( void );
-
-//
-// crclib.c
-//
-void CRC32_Init( dword *pulCRC );
-byte CRC32_BlockSequence( byte *base, int length, int sequence );
-void CRC32_ProcessBuffer( dword *pulCRC, const void *pBuffer, int nBuffer );
-void CRC32_ProcessByte( dword *pulCRC, byte ch );
-dword CRC32_Final( dword pulCRC );
-qboolean CRC32_File( dword *crcvalue, const char *filename );
-qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer );
-void MD5Init( MD5Context_t *ctx );
-void MD5Update( MD5Context_t *ctx, const byte *buf, uint len );
-void MD5Final( byte digest[16], MD5Context_t *ctx );
-qboolean MD5_HashFile( byte digest[16], const char *pszFileName, uint seed[4] );
-uint COM_HashKey( const char *string, uint hashSize );
-char *MD5_Print( byte hash[16] );
 
 //
 // custom.c
