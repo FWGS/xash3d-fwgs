@@ -335,7 +335,6 @@ typedef struct ref_api_s
 
 	// utils
 	void  (*CL_ExtraUpdate)( void );
-	uint  (*COM_HashKey)( const char *strings, uint hashSize );
 	void  (*Host_Error)( const char *fmt, ... );
 	void  (*COM_SetRandomSeed)( int lSeed );
 	float (*COM_RandomFloat)( float rmin, float rmax );
