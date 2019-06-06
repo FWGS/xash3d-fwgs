@@ -13,8 +13,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
-#include "client.h"
+#include "crclib.h"
+#include "crtlib.h"
+#include <string.h>
+#include <stdlib.h>
 
 #define NUM_BYTES		256
 #define CRC32_INIT_VALUE	0xFFFFFFFFUL
@@ -202,109 +204,6 @@ byte CRC32_BlockSequence( byte *base, int length, int sequence )
 	CRC = CRC32_Final( CRC );
 
 	return (byte)CRC;
-}
-
-qboolean CRC32_File( dword *crcvalue, const char *filename )
-{
-	char	buffer[1024];
-	int	num_bytes;
-	file_t	*f;
-
-	f = FS_Open( filename, "rb", false );
-	if( !f ) return false;
-
-	Assert( crcvalue != NULL );
-	CRC32_Init( crcvalue );
-
-	while( 1 )
-	{
-		num_bytes = FS_Read( f, buffer, sizeof( buffer ));
-
-		if( num_bytes > 0 )
-			CRC32_ProcessBuffer( crcvalue, buffer, num_bytes );
-
-		if( FS_Eof( f )) break;
-	}
-
-	FS_Close( f );
-	return true;
-}
-
-qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer )
-{
-	char	headbuf[1024], buffer[1024];
-	int	i, num_bytes, lumplen;
-	int	version, hdr_size;
-	dheader_t	*header;
-	file_t	*f;
-
-	if( !crcvalue ) return false;
-
-	// always calc same checksum for singleplayer
-	if( multiplayer == false )
-	{
-		*crcvalue = (('H'<<24)+('S'<<16)+('A'<<8)+'X');
-		return true;
-	}
-
-	f = FS_Open( filename, "rb", false );
-	if( !f ) return false;
-
-	// read version number
-	FS_Read( f, &version, sizeof( int ));
-	FS_Seek( f, 0, SEEK_SET );
-
-	hdr_size = sizeof( int ) + sizeof( dlump_t ) * HEADER_LUMPS;
-	num_bytes = FS_Read( f, headbuf, hdr_size );
-
-	// corrupted map ?
-	if( num_bytes != hdr_size )
-	{
-		FS_Close( f );
-		return false;
-	}
-
-	header = (dheader_t *)headbuf;
-
-	// invalid version ?
-	switch( header->version )
-	{
-	case Q1BSP_VERSION:
-	case HLBSP_VERSION:
-	case QBSP2_VERSION:
-		break;
-	default:
-		FS_Close( f );
-		return false;
-	}
-
-	CRC32_Init( crcvalue );
-
-	for( i = LUMP_PLANES; i < HEADER_LUMPS; i++ )
-	{
-		lumplen = header->lumps[i].filelen;
-		FS_Seek( f, header->lumps[i].fileofs, SEEK_SET );
-
-		while( lumplen > 0 )
-		{
-			if( lumplen >= sizeof( buffer ))
-				num_bytes = FS_Read( f, buffer, sizeof( buffer ));
-			else num_bytes = FS_Read( f, buffer, lumplen );
-
-			if( num_bytes > 0 )
-			{
-				lumplen -= num_bytes;
-				CRC32_ProcessBuffer( crcvalue, buffer, num_bytes );
-			}
-
-			// file unexpected end ?
-			if( FS_Eof( f )) break;
-		}
-	}
-
-	FS_Close( f );
-
-	return 1;
 }
 
 void MD5Transform( uint buf[4], const uint in[16] );
@@ -527,42 +426,6 @@ void MD5Transform( uint buf[4], const uint in[16] )
 	buf[1] += b;
 	buf[2] += c;
 	buf[3] += d;
-}
-
-qboolean MD5_HashFile( byte digest[16], const char *pszFileName, uint seed[4] )
-{
-	file_t		*file;
-	char		buffer[1024];
-	MD5Context_t	MD5_Hash;
-	int		bytes;
- 
-	if(( file = FS_Open( pszFileName, "rb", false )) == NULL )
-		return false;
-
-	memset( &MD5_Hash, 0, sizeof( MD5Context_t ));
-
-	MD5Init( &MD5_Hash );
-
-	if( seed )
-	{
-		MD5Update( &MD5_Hash, (const byte *)seed, 16 );
-	}
-
-	while( 1 )
-	{
-		bytes = FS_Read( file, buffer, sizeof( buffer ));
-
-		if( bytes > 0 )
-			MD5Update( &MD5_Hash, buffer, bytes );
-
-		if( FS_Eof( file ))
-			break;
-	}
-
-	FS_Close( file );
-	MD5Final( digest, &MD5_Hash );
-
-	return true;
 }
 
 /*
