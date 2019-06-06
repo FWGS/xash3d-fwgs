@@ -11,7 +11,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from fwgslib import get_flags_by_compiler
+try: from fwgslib import get_flags_by_compiler
+except: from waflib.extras.fwgslib import get_flags_by_compiler
 from waflib import Logs
 import os
 import sys
