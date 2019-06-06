@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "gl_local.h"
-
+#include "crclib.h"
 
 #define TEXTURES_HASH_SIZE	(MAX_TEXTURES >> 2)
 
@@ -1310,7 +1310,7 @@ static gl_texture_t *GL_TextureForName( const char *name )
 	uint		hash;
 
 	// find the texture in array
-	hash = gEngfuncs.COM_HashKey( name, TEXTURES_HASH_SIZE );
+	hash = COM_HashKey( name, TEXTURES_HASH_SIZE );
 
 	for( tex = gl_texturesHashTable[hash]; tex != NULL; tex = tex->nextHash )
 	{
@@ -1352,7 +1352,7 @@ static gl_texture_t *GL_AllocTexture( const char *name, texFlags_t flags )
 	tex->flags = flags;
 
 	// add to hash table
-	tex->hashValue = gEngfuncs.COM_HashKey( name, TEXTURES_HASH_SIZE );
+	tex->hashValue = COM_HashKey( name, TEXTURES_HASH_SIZE );
 	tex->nextHash = gl_texturesHashTable[tex->hashValue];
 	gl_texturesHashTable[tex->hashValue] = tex;
 
@@ -2207,7 +2207,7 @@ void R_InitImages( void )
 
 	// create unused 0-entry
 	Q_strncpy( gl_textures->name, "*unused*", sizeof( gl_textures->name ));
-	gl_textures->hashValue = gEngfuncs.COM_HashKey( gl_textures->name, TEXTURES_HASH_SIZE );
+	gl_textures->hashValue = COM_HashKey( gl_textures->name, TEXTURES_HASH_SIZE );
 	gl_textures->nextHash = gl_texturesHashTable[gl_textures->hashValue];
 	gl_texturesHashTable[gl_textures->hashValue] = gl_textures;
 	gl_numTextures = 1;
