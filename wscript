@@ -7,10 +7,6 @@ from waflib import Logs
 import sys
 import os
 
-sys.path.append(os.path.realpath('scripts/waflib'))
-# print(sys.path)
-import fwgslib
-
 VERSION = '0.99'
 APPNAME = 'xash3d-fwgs'
 top = '.'
@@ -71,7 +67,7 @@ def options(opt):
 
 
 def configure(conf):
-	conf.load('reconfigure')
+	conf.load('fwgslib reconfigure')
 	conf.start_msg('Build type')
 	if conf.options.BUILD_TYPE == None:
 		conf.end_msg('not set', color='RED')
@@ -163,11 +159,11 @@ def configure(conf):
 		}
 	}
 
-	conf.env.append_unique('CFLAGS', fwgslib.get_flags_by_type(
+	conf.env.append_unique('CFLAGS', conf.get_flags_by_type(
 	    compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC))
-	conf.env.append_unique('CXXFLAGS', fwgslib.get_flags_by_type(
+	conf.env.append_unique('CXXFLAGS', conf.get_flags_by_type(
 	    compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC))
-	conf.env.append_unique('LINKFLAGS', fwgslib.get_flags_by_type(
+	conf.env.append_unique('LINKFLAGS', conf.get_flags_by_type(
 	    linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC))
 
 	conf.env.DEDICATED     = conf.options.DEDICATED

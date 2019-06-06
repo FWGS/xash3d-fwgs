@@ -64,6 +64,11 @@ def configure(conf):
 				uselib_store='SDL2')
 		except conf.errors.ConfigurationError:
 			conf.env.HAVE_SDL2 = 0
+	
+	if not conf.env.HAVE_SDL2 and conf.env.CONAN:
+		conf.load('conan')
+		conf.add_conan_remote('bincrafters', 'https://api.bintray.com/conan/bincrafters/public-conan')
+		conf.add_dependency('sdl2/2.0.9@bincrafters/stable', options = { 'shared': 'True' } )
 
 	if conf.env.HAVE_SDL2 and conf.options.SDL2_SANITY_CHECK:
 		try:
