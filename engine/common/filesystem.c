@@ -2452,6 +2452,7 @@ static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedir
 			return search;
 		}
 
+#if 0
 		// search for environment path
 		while( ( pEnvPath = getenv( "Path" ) ) )
 		{
@@ -2469,6 +2470,7 @@ static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedir
 			}
 			pEnvPath += (end - pEnvPath) + 1; // move pointer
 		}
+#endif // 0
 	}
 
 	if( index != NULL )
