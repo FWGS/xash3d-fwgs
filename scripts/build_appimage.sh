@@ -20,7 +20,7 @@ cat > $APPDIR/AppRun << 'EOF'
 echo "Xash3D FWGS installed as AppImage."
 
 ENGINEROOT=$(dirname -- "$(readlink -f -- "$0")")
-if [ "$XASH3D_BASEDIR" == "" ]; then
+if [ "$XASH3D_BASEDIR" = "" ]; then
 	export XASH3D_BASEDIR=$PWD
 fi
 export XASH3D_EXTRAS_PAK1="${ENGINEROOT}"/extras.pak
