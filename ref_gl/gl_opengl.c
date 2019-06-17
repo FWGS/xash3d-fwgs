@@ -809,7 +809,7 @@ void GL_InitCommands( void )
 	gl_showtextures = gEngfuncs.pfnGetCvarPointer( "r_showtextures", 0 );
 	gl_finish = gEngfuncs.Cvar_Get( "gl_finish", "0", FCVAR_ARCHIVE, "use glFinish instead of glFlush" );
 	gl_nosort = gEngfuncs.Cvar_Get( "gl_nosort", "0", FCVAR_ARCHIVE, "disable sorting of translucent surfaces" );
-	gl_clear = gEngfuncs.Cvar_Get( "gl_clear", "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
+	gl_clear = gEngfuncs.pfnGetCvarPointer( "gl_clear", 0 );
 	gl_test = gEngfuncs.Cvar_Get( "gl_test", "0", 0, "engine developer cvar for quick testing new features" );
 	gl_wireframe = gEngfuncs.Cvar_Get( "gl_wireframe", "0", FCVAR_ARCHIVE|FCVAR_SPONLY, "show wireframe overlay" );
 	gl_msaa = gEngfuncs.Cvar_Get( "gl_msaa", "1", FCVAR_ARCHIVE, "enable or disable multisample anti-aliasing" );

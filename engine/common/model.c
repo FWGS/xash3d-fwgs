@@ -110,6 +110,12 @@ void Mod_FreeModel( model_t *mod )
 		Mem_FreePool( &mod->mempool );
 	}
 
+	if( mod->type == mod_brush && FBitSet( mod->flags, MODEL_WORLD ) )
+	{
+		world.shadowdata = NULL;
+		world.deluxedata = NULL;
+	}
+
 	memset( mod, 0, sizeof( *mod ));
 }
 

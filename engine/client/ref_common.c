@@ -13,6 +13,7 @@ convar_t *gl_showtextures;
 convar_t *r_decals;
 convar_t *r_adjust_fov;
 convar_t *gl_wgl_msaa_samples;
+convar_t *gl_clear;
 
 void R_GetTextureParms( int *w, int *h, int texnum )
 {
@@ -540,6 +541,7 @@ qboolean R_Init( void )
 	r_adjust_fov = Cvar_Get( "r_adjust_fov", "1", FCVAR_ARCHIVE, "making FOV adjustment for wide-screens" );
 	r_decals = Cvar_Get( "r_decals", "4096", FCVAR_ARCHIVE, "sets the maximum number of decals" );
 	gl_wgl_msaa_samples = Cvar_Get( "gl_wgl_msaa_samples", "0", FCVAR_GLCONFIG, "samples number for multisample anti-aliasing" );
+	gl_clear = Cvar_Get( "gl_clear", "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
 
 	if( !R_LoadProgs( refdll ))
 	{

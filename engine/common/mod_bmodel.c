@@ -2929,47 +2929,6 @@ void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded )
 }
 
 /*
-=================
-Mod_UnloadBrushModel
-
-Release all uploaded textures
-=================
-*/
-void Mod_UnloadBrushModel( model_t *mod )
-{
-	texture_t	*tx;
-	int	i;
-
-	Assert( mod != NULL );
-
-	if( mod->type != mod_brush )
-		return; // not a bmodel
-
-	// invalidate pointers
-	if( FBitSet( mod->flags, MODEL_WORLD ))
-	{
-		world.deluxedata = NULL;
-		world.shadowdata = NULL;
-	}
-
-	if( mod->name[0] != '*' )
-	{
-		for( i = 0; i < mod->numtextures; i++ )
-		{
-			tx = mod->textures[i];
-			if( !tx || tx->gl_texturenum == tr.defaultTexture )
-				continue;	// free slot
-
-			GL_FreeTexture( tx->gl_texturenum );	// main texture
-			GL_FreeTexture( tx->fb_texturenum );	// luma texture
-		}
-		Mem_FreePool( &mod->mempool );
-	}
-
-	memset( mod, 0, sizeof( *mod ));
-}
-
-/*
 ==================
 Mod_CheckLump
 
