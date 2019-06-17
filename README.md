@@ -15,7 +15,7 @@ Latest development build: https://github.com/FWGS/xash3d-deploy/tree/newengine-m
 
 ## Fork features
 * HLSDK 2.4 support.
-* Crossplatform: officially supported x86 and ARM on Windows/Linux/BSD/macOS/Android/iOS/Haiku.
+* Crossplatform: officially supported x86 and ARM on Windows/Linux/BSD/Android. (see Documentation/ports.md for more info)
 * Modern compilers support: say no more to MSVC6.
 * Better multiplayer support: multiple master servers, headless dedicated server.
 * Mobility API: allows better game integration on mobile devices(vibration, touch controls)
@@ -45,7 +45,6 @@ If you're stuck somewhere and you need a clear example, read `.travis.yml` and `
 * Install latest [Git](https://git-scm.com/download/win) **OR** run `cinst git.install` if you have Chocolatey.
 * Download [SDL2](https://libsdl.org/download-2.0.php) development package for Visual Studio.
 * Clone this repository: `git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
-* Clone `vgui-dev` repository: `git clone https://github.com/FWGS/vgui-dev`.
 * Make sure you have at least 12GB of free space to store all build-time dependencies: ~10GB for Visual Studio, 300 MB for Git, 100 MB for Python and other.
 
 #### Linux
@@ -53,8 +52,18 @@ NOTE: Make sure you're OK with targetting 32-bit.
 
 Even if Xash3D FWGS does support targetting 64-bit, you can't load games without recompiling them from source code!
 
+##### Debian/Ubuntu
+* Enable i386 on your system, if you're compiling 32-bit engine on amd64. If not, skip this
+`$ sudo dpkg --add-architecture i386`
+* Install development tools
+  * For 64-bit engine on amd64: 
+    `$ sudo apt install build-essential gcc-multilib g++-multilib python libsdl2-dev:i386 libfontconfig-dev:i386 libfreetype6-dev:i386`
+  * For everything else: 
+    `$ sudo apt install build-essential python libsdl2-dev libfontconfig-dev libfreetype6-dev`
+* Clone this repostory:
+`git clone --recursive https://github.com/FWGS/xash3d-fwgs`
+
 * **Gentoo**: TODO
-* **Debian**: TODO
 * **ArchLinux**: `<AUR Helper> -S xash3d-git`
 
 ### Building
@@ -62,13 +71,14 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 0) Open command line
 1) Navigate to `xash3d-fwgs` directory.
 2) Carefully examine which build options are available: `waf --help`
-3) Configure build: `waf configure --build-type=release --sdl2=c:/path/to/SDL2 --vgui=c:/path/to/vgui-dev --prefix=c:/path/to/any/output/directory`
+3) Configure build: `waf configure -T release --sdl2=c:/path/to/SDL2 --prefix=c:/path/to/any/output/directory`
 4) Compile: `waf build`
 5) Install: `waf install`
 
 #### Linux
 0) Examine which build options are available: `./waf --help`
-1) Configure build: `./waf configure --build-type=release --vgui=vgui-dev`
+1) Configure build: `./waf configure -T release --prefix=/path/to/any/output/directory`
+(To compile 64-bit engine, you need to pass `-8` also)
 2) Compile: `./waf build`
 3) Install(optional): `./waf install`
 
