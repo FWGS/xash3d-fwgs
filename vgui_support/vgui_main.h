@@ -87,7 +87,7 @@ public:
 	virtual bool isWithin( int x, int y ) { return true; }
 	virtual bool hasFocus( void );
 	// now it's not abstract class, yay
-	virtual void GetMousePos(int &x, int &y) { 
+	virtual void GetMousePos(int &x, int &y) {
 		g_api->GetCursorPos(&x, &y);
 	}
 	void drawPrintChar(int x, int y, int wide, int tall, float s0, float t0, float s1, float t1, int color[]);

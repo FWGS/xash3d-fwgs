@@ -292,8 +292,8 @@ qboolean V_PreRender( void )
 		}
 		return false;
 	}
-	
-	ref.dllFuncs.R_BeginFrame( !cl.paused );
+
+	ref.dllFuncs.R_BeginFrame( !cl.paused && ( cls.state == ca_active ));
 
 	GL_UpdateSwapInterval( );
 

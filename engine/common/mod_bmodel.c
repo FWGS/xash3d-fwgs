@@ -2822,6 +2822,8 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 		loadmodel = mod;		// restore pointer to world
 #ifndef XASH_DEDICATED
 		Mod_InitDebugHulls();	// FIXME: build hulls for separate bmodels (shells, medkits etc)
+		world.deluxedata = bmod->deluxedata_out;	// deluxemap data pointer
+		world.shadowdata = bmod->shadowdata_out;	// occlusion data pointer
 #endif // XASH_DEDICATED
 	}
 
@@ -2924,6 +2926,47 @@ void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded )
 	if( world.loading ) worldmodel = mod;
 
 	if( loaded ) *loaded = true;	// all done
+}
+
+/*
+=================
+Mod_UnloadBrushModel
+
+Release all uploaded textures
+=================
+*/
+void Mod_UnloadBrushModel( model_t *mod )
+{
+	texture_t	*tx;
+	int	i;
+
+	Assert( mod != NULL );
+
+	if( mod->type != mod_brush )
+		return; // not a bmodel
+
+	// invalidate pointers
+	if( FBitSet( mod->flags, MODEL_WORLD ))
+	{
+		world.deluxedata = NULL;
+		world.shadowdata = NULL;
+	}
+
+	if( mod->name[0] != '*' )
+	{
+		for( i = 0; i < mod->numtextures; i++ )
+		{
+			tx = mod->textures[i];
+			if( !tx || tx->gl_texturenum == tr.defaultTexture )
+				continue;	// free slot
+
+			GL_FreeTexture( tx->gl_texturenum );	// main texture
+			GL_FreeTexture( tx->fb_texturenum );	// luma texture
+		}
+		Mem_FreePool( &mod->mempool );
+	}
+
+	memset( mod, 0, sizeof( *mod ));
 }
 
 /*

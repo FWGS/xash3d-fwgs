@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include "con_nprint.h"
 #include "qfont.h"
 #include "wadfile.h"
+#include "input.h"
 
 convar_t	*con_notifytime;
 convar_t	*scr_conspeed;
@@ -117,6 +118,9 @@ typedef struct
 
 	notify_t		notify[MAX_DBG_NOTIFY]; // for Con_NXPrintf
 	qboolean		draw_notify;	// true if we have NXPrint message
+
+	// console update
+	double		lastupdate;
 } console_t;
 
 static console_t		con;
@@ -401,7 +405,7 @@ Con_AddLine
 Appends a given string as a new line to the console.
 ================
 */
-void Con_AddLine( const char *line, int length )
+void Con_AddLine( const char *line, int length, qboolean newline )
 {
 	byte		*putpos;
 	con_lineinfo_t	*p;
@@ -417,14 +421,27 @@ void Con_AddLine( const char *line, int length )
 	while( !( putpos = Con_BytesLeft( length )) || con.lines_count >= con.maxlines )
 		Con_DeleteLine();
 
-	memcpy( putpos, line, length );
-	putpos[length - 1] = '\0';
-	con.lines_count++;
+	if( newline )
+	{
+		memcpy( putpos, line, length );
+		putpos[length - 1] = '\0';
+		con.lines_count++;
 
-	p = &CON_LINES_LAST();
-	p->start = putpos;
-	p->length = length;
-	p->addtime = cl.time;
+		p = &CON_LINES_LAST();
+		p->start = putpos;
+		p->length = length;
+		p->addtime = cl.time;
+	}
+	else
+	{
+		p = &CON_LINES_LAST();
+		putpos = p->start + Q_strlen( p->start );
+		memcpy( putpos, line, length - 1 );
+		p->length = Q_strlen( p->start );
+		putpos[p->length] = '\0';
+		p->addtime = cl.time;
+		p->length++;
+	}
 }
 
 /*
@@ -1211,6 +1228,8 @@ void Con_Print( const char *txt )
 {
 	static int	cr_pending = 0;
 	static char	buf[MAX_PRINT_MSG];
+	qboolean		norefresh = false;
+	static int	lastlength = 0;
 	static qboolean	inupdate;
 	static int	bufpos = 0;
 	int		c, mask = 0;
@@ -1224,6 +1243,12 @@ void Con_Print( const char *txt )
 		// go to colored text
 		if( Con_FixedFont( ))
 			mask = 128;
+		txt++;
+	}
+
+	if( txt[0] == 3 )
+	{
+		norefresh = true;
 		txt++;
 	}
 
@@ -1242,27 +1267,47 @@ void Con_Print( const char *txt )
 		case '\0':
 			break;
 		case '\r':
-			Con_AddLine( buf, bufpos );
+			Con_AddLine( buf, bufpos, true );
+			lastlength = CON_LINES_LAST().length;
 			cr_pending = 1;
 			bufpos = 0;
 			break;
 		case '\n':
-			Con_AddLine( buf, bufpos );
+			Con_AddLine( buf, bufpos, true );
+			lastlength = CON_LINES_LAST().length;
 			bufpos = 0;
 			break;
 		default:
 			buf[bufpos++] = c | mask;
 			if(( bufpos >= sizeof( buf ) - 1 ) || bufpos >= ( con.linewidth - 1 ))
 			{
-				Con_AddLine( buf, bufpos );
+				Con_AddLine( buf, bufpos, true );
+				lastlength = CON_LINES_LAST().length;
 				bufpos = 0;
 			}
 			break;
 		}
 	}
 
-	if( cls.state != ca_disconnected && cls.state < ca_active && !cl.video_prepped && !cls.disable_screen )
+	if( norefresh ) return;
+
+	// custom renderer cause problems while updates screen on-loading
+	if( SV_Active() && cls.state < ca_active && !cl.video_prepped && !cls.disable_screen )
 	{
+		if( bufpos != 0 )
+		{
+			Con_AddLine( buf, bufpos, lastlength != 0 );
+			lastlength = 0;
+			bufpos = 0;
+		}
+
+		// pump messages to avoid window hanging
+		if( con.lastupdate < Sys_DoubleTime( ))
+		{
+			con.lastupdate = Sys_DoubleTime() + 1.0;
+			Host_InputFrame();
+		}
+
 		if( !inupdate )
 		{
 			inupdate = true;
@@ -1976,7 +2021,7 @@ int Con_DrawConsoleLine( int y, int lineno )
 {
 	con_lineinfo_t	*li = &CON_LINES( lineno );
 
-	if( *li->start == '\1' )
+	if( !li || !li->start || *li->start == '\1' )
 		return 0;	// this string will be shown only at notify
 
 	if( y >= con.curFont->charHeight )
