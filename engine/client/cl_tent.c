@@ -2835,15 +2835,17 @@ if cl_testlights is set, create 32 lights models
 */
 void CL_TestLights( void )
 {
-	int	i, j;
+	int	i, j, numLights;
+	vec3_t	forward, right;
 	float	f, r;
-	int	numLights;
 	dlight_t	*dl;
 
-	if( !cl_testlights->value ) return;
+	if( !CVAR_TO_BOOL( cl_testlights ))
+		return;
 
 	numLights = bound( 1, cl_testlights->value, MAX_DLIGHTS );
-	
+	AngleVectors( cl.viewangles, forward, right, NULL );
+
 	for( i = 0; i < numLights; i++ )
 	{
 		dl = &cl_dlights[i];
@@ -2851,8 +2853,8 @@ void CL_TestLights( void )
 		r = 64 * ((i % 4) - 1.5f );
 		f = 64 * ( i / 4) + 128;
 
-		VectorMAM( f, refState.vforward, r, refState.vright, dl->origin );
-		VectorAdd( dl->origin, refState.vieworg, dl->origin );
+		for( j = 0; j < 3; j++ )
+			dl->origin[j] = cl.simorg[j] + forward[j] * f + right[j] * r;
 
 		dl->color.r = ((((i % 6) + 1) & 1)>>0) * 255;
 		dl->color.g = ((((i % 6) + 1) & 2)>>1) * 255;

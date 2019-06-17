@@ -395,6 +395,7 @@ typedef struct ref_api_s
 	// gamma
 	void (*BuildGammaTable)( float lightgamma, float brightness );
 	byte		(*LightToTexGamma)( byte color );	// software gamma support
+	qboolean	(*R_DoResetGamma)( void );
 
 	// renderapi
 	lightstyle_t*	(*GetLightStyle)( int number );

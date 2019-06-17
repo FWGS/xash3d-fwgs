@@ -986,37 +986,27 @@ void R_RenderScene( void )
 
 /*
 ===============
-R_DoResetGamma
-
-gamma will be reset for
-some type of screenshots
+R_CheckGamma
 ===============
 */
-qboolean R_DoResetGamma( void )
+void R_CheckGamma( void )
 {
-	// FIXME: this looks ugly. apply the backward gamma changes to the output image
-	return false;
-#if 0
-	switch( cls.scrshot_action )
+	if( gEngfuncs.R_DoResetGamma( ))
 	{
-	case scrshot_normal:
-		if( CL_IsDevOverviewMode( ))
-			return true;
-		return false;
-	case scrshot_snapshot:
-		if( CL_IsDevOverviewMode( ))
-			return true;
-		return false;
-	case scrshot_plaque:
-	case scrshot_savegame:
-	case scrshot_envshot:
-	case scrshot_skyshot:
-	case scrshot_mapshot:
-		return true;
-	default:
-		return false;
+		// paranoia cubemaps uses this
+		BuildGammaTable( 1.8f, 0.0f );
+
+		// paranoia cubemap rendering
+		if( clgame.drawFuncs.GL_BuildLightmaps )
+			clgame.drawFuncs.GL_BuildLightmaps( );
 	}
-#endif
+	else if( FBitSet( vid_gamma->flags, FCVAR_CHANGED ) || FBitSet( vid_brightness->flags, FCVAR_CHANGED ))
+	{
+		BuildGammaTable( vid_gamma->value, vid_brightness->value );
+		glConfig.softwareGammaUpdate = true;
+		GL_RebuildLightmaps();
+		glConfig.softwareGammaUpdate = false;
+	}
 }
 
 /*
@@ -1034,24 +1024,7 @@ void R_BeginFrame( qboolean clearScene )
 		pglClear( GL_COLOR_BUFFER_BIT );
 	}
 
-	if( R_DoResetGamma( ))
-	{
-		gEngfuncs.BuildGammaTable( 1.8f, 0.0f );
-		glConfig.softwareGammaUpdate = true;
-		GL_RebuildLightmaps();
-		glConfig.softwareGammaUpdate = false;
-
-		// next frame will be restored gamma
-		SetBits( vid_brightness->flags, FCVAR_CHANGED );
-		SetBits( vid_gamma->flags, FCVAR_CHANGED );
-	}
-	else if( FBitSet( vid_gamma->flags, FCVAR_CHANGED ) || FBitSet( vid_brightness->flags, FCVAR_CHANGED ))
-	{
-		gEngfuncs.BuildGammaTable( vid_gamma->value, vid_brightness->value );
-		glConfig.softwareGammaUpdate = true;
-		GL_RebuildLightmaps();
-		glConfig.softwareGammaUpdate = false;
-	}
+	R_CheckGamma();
 
 	R_Set2DMode( true );
 

@@ -197,6 +197,25 @@ static screenfade_t *pfnRefGetScreenFade( void )
 	return &clgame.fade;
 }
 
+/*
+===============
+R_DoResetGamma
+gamma will be reset for
+some type of screenshots
+===============
+*/
+static qboolean R_DoResetGamma( void )
+{
+	switch( cls.scrshot_action )
+	{
+	case scrshot_envshot:
+	case scrshot_skyshot:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static ref_api_t gEngfuncs =
 {
 	pfnEngineGetParm,
@@ -319,6 +338,7 @@ static ref_api_t gEngfuncs =
 
 	BuildGammaTable,
 	LightToTexGamma,
+	R_DoResetGamma,
 
 	CL_GetLightStyle,
 	CL_GetDynamicLight,

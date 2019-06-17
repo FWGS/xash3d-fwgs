@@ -285,6 +285,8 @@ void SV_NextMap_f( void )
 	search_t	*t;
 
 	t = FS_Search( "maps\\*.bsp", true, CVAR_TO_BOOL( con_gamemaps )); // only in gamedir
+	if( !t ) t = FS_Search( "maps/*.bsp", true, CVAR_TO_BOOL( con_gamemaps )); // only in gamedir
+
 	if( !t )
 	{
 		Con_Printf( "next map can't be found\n" );

@@ -162,6 +162,10 @@ int CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef )
 		return (host.type == HOST_DEDICATED);
 	case PARM_WATER_ALPHA:
 		return FBitSet( world.flags, FWORLD_WATERALPHA );
+	case PARM_DELUXEDATA:
+		return *(int *)&world.deluxedata;
+	case PARM_SHADOWDATA:
+		return *(int *)&world.shadowdata;
 	default:
 		// indicates call from client.dll
 		if( checkRef )
@@ -261,7 +265,7 @@ static render_api_t gRenderAPI =
 	NULL, // R_StudioGetTexture,
 	GL_GetOverviewParms,
 	CL_GenericHandle,
-	NULL,
+	COM_SaveFile,
 	NULL,
 	R_Mem_Alloc,
 	R_Mem_Free,
