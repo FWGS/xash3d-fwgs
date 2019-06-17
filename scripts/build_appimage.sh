@@ -3,14 +3,14 @@
 APP=Xash3DFWGS
 ARCH=i686
 APPDIR=$APP-i386.AppDir
-mkdir -p $APPDIR
-
-# Generate extras.pak
-python3 scripts/makepak.py xash-extras/ $APPDIR/extras.pak
 
 # Copy all needed files
 ./waf install
 mv appimage $APPDIR
+
+# Generate extras.pak
+python3 scripts/makepak.py xash-extras/ $APPDIR/extras.pak
+
 cp SDL2_linux/lib/libSDL2-2.0.so.0 $APPDIR/
 cp vgui-dev/lib/vgui.so $APPDIR/
 
@@ -30,6 +30,9 @@ EOF
 
 chmod +x $APPDIR/xash3d # Engine launcher
 chmod +x $APPDIR/AppRun # Engine launcher script
+
+echo "Contents of AppImage: "
+ls $APPDIR
 
 wget "https://raw.githubusercontent.com/FWGS/fwgs-artwork/master/xash3d/icon_512.png" -O $APPDIR/$APP.png
 
