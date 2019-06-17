@@ -139,6 +139,10 @@ typedef struct
 	hull_model_t	*hull_models;
 	int		num_hull_models;
 
+	// out pointers to light data
+	color24		*deluxedata;	// deluxemap data pointer
+	byte		*shadowdata;	// occlusion data pointer
+
 	// visibility info
 	size_t		visbytes;		// cluster size
 	size_t		fatbytes;		// fatpvs size

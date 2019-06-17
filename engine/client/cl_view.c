@@ -293,7 +293,7 @@ qboolean V_PreRender( void )
 		return false;
 	}
 	
-	R_BeginFrame( !cl.paused );
+	R_BeginFrame( !cl.paused && ( cls.state == ca_active ));
 
 	return true;
 }

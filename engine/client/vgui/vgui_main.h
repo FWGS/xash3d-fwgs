@@ -58,6 +58,7 @@ public:
 	virtual void GetMousePos( int &x, int &y ) { }
 #endif
 	virtual bool hasFocus( void ) { return true; }
+	virtual void flushBuffer( void );
 protected:
 	virtual int createNewTextureID( void );
 	virtual void drawSetColor( int r, int g, int b, int a );
@@ -83,7 +84,6 @@ protected:
 	virtual void setAsTopMost( bool state ) { }
 	virtual void applyChanges( void ) { }
 	virtual void swapBuffers( void ) { }
-	virtual void flushBuffer( void );
 protected:
 	int _drawTextPos[2];
 	int _drawColor[4];

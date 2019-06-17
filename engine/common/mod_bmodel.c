@@ -2802,6 +2802,8 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	{
 		loadmodel = mod;		// restore pointer to world
 		Mod_InitDebugHulls();	// FIXME: build hulls for separate bmodels (shells, medkits etc)
+		world.deluxedata = bmod->deluxedata_out;	// deluxemap data pointer
+		world.shadowdata = bmod->shadowdata_out;	// occlusion data pointer
 	}
 
 	for( i = 0; i < bmod->wadlist.count; i++ )
@@ -2921,6 +2923,13 @@ void Mod_UnloadBrushModel( model_t *mod )
 
 	if( mod->type != mod_brush )
 		return; // not a bmodel
+
+	// invalidate pointers
+	if( FBitSet( mod->flags, MODEL_WORLD ))
+	{
+		world.deluxedata = NULL;
+		world.shadowdata = NULL;
+	}
 
 	if( mod->name[0] != '*' )
 	{

@@ -1380,6 +1380,9 @@ static void Image_ApplyFilter( rgbdata_t *pic, float factor )
 	uint	*fin, *fout; 
 	size_t	size;
 
+	// don't waste time
+	if( factor <= 0.0f ) return;
+
 	// first expand the image into 32-bit buffer
 	pic = Image_DecompressInternal( pic );
 	factor = bound( 0.0f, factor, 1.0f );

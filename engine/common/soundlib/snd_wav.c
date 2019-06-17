@@ -254,7 +254,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, size_t filesize )
 
 	if( sound.samples <= 0 )
 	{
-		Con_DPrintf( S_ERROR "Sound_LoadWAV: file with %i samples (%s)\n", sound.samples, name );
+		Con_Reportf( S_ERROR "Sound_LoadWAV: file with %i samples (%s)\n", sound.samples, name );
 		return false;
 	}
 

@@ -72,12 +72,13 @@ void GL_Bind( GLint tmu, GLenum texnum )
 	gl_texture_t	*texture;
 	GLuint		glTarget;
 
-	Assert( texnum >= 0 && texnum < MAX_TEXTURES );
-
 	// missed or invalid texture?
 	if( texnum <= 0 || texnum >= MAX_TEXTURES )
+	{
+		if( texnum != 0 )
+			Con_DPrintf( S_ERROR "GL_Bind: invalid texturenum %d\n", texnum );
 		texnum = tr.defaultTexture;
-
+	}
 	if( tmu != GL_KEEP_UNIT )
 		GL_SelectTexture( tmu );
 	else tmu = glState.activeTMU;
@@ -1679,6 +1680,7 @@ creates texture from buffer
 */
 int GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags )
 {
+	qboolean	update = FBitSet( flags, TF_UPDATE ) ? true : false;
 	int	datasize = 1;
 	rgbdata_t	r_empty;
 
@@ -1687,6 +1689,7 @@ int GL_CreateTexture( const char *name, int width, int height, const void *buffe
 	else if( FBitSet( flags, TF_ARB_FLOAT ))
 		datasize = 4;
 
+	ClearBits( flags, TF_UPDATE );
 	memset( &r_empty, 0, sizeof( r_empty ));
 	r_empty.width = width;
 	r_empty.height = height;
@@ -1712,7 +1715,7 @@ int GL_CreateTexture( const char *name, int width, int height, const void *buffe
 		r_empty.size *= 6;
 	}
 
-	return GL_LoadTextureInternal( name, &r_empty, flags );
+	return GL_LoadTextureFromBuffer( name, &r_empty, flags, update );
 }
 
 /*
