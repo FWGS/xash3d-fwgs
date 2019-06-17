@@ -994,15 +994,15 @@ void R_CheckGamma( void )
 	if( gEngfuncs.R_DoResetGamma( ))
 	{
 		// paranoia cubemaps uses this
-		BuildGammaTable( 1.8f, 0.0f );
+		gEngfuncs.BuildGammaTable( 1.8f, 0.0f );
 
 		// paranoia cubemap rendering
-		if( clgame.drawFuncs.GL_BuildLightmaps )
-			clgame.drawFuncs.GL_BuildLightmaps( );
+		if( gEngfuncs.drawFuncs->GL_BuildLightmaps )
+			gEngfuncs.drawFuncs->GL_BuildLightmaps( );
 	}
 	else if( FBitSet( vid_gamma->flags, FCVAR_CHANGED ) || FBitSet( vid_brightness->flags, FCVAR_CHANGED ))
 	{
-		BuildGammaTable( vid_gamma->value, vid_brightness->value );
+		gEngfuncs.BuildGammaTable( vid_gamma->value, vid_brightness->value );
 		glConfig.softwareGammaUpdate = true;
 		GL_RebuildLightmaps();
 		glConfig.softwareGammaUpdate = false;

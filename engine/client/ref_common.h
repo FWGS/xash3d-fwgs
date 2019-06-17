@@ -43,6 +43,7 @@ void GL_RenderFrame( const struct ref_viewpass_s *rvp );
 // common engine and renderer cvars
 extern convar_t	*r_decals;
 extern convar_t	*r_adjust_fov;
+extern convar_t *gl_clear;
 
 qboolean R_Init( void );
 void R_Shutdown( void );
