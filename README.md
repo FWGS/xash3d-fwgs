@@ -54,17 +54,20 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 
 ##### Debian/Ubuntu
 * Enable i386 on your system, if you're compiling 32-bit engine on amd64. If not, skip this
+
 `$ sudo dpkg --add-architecture i386`
 * Install development tools
   * For 64-bit engine on amd64: 
+		
     `$ sudo apt install build-essential gcc-multilib g++-multilib python libsdl2-dev:i386 libfontconfig-dev:i386 libfreetype6-dev:i386`
   * For everything else: 
+		
     `$ sudo apt install build-essential python libsdl2-dev libfontconfig-dev libfreetype6-dev`
 * Clone this repostory:
-`git clone --recursive https://github.com/FWGS/xash3d-fwgs`
+`$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`
 
-* **Gentoo**: TODO
-* **ArchLinux**: `<AUR Helper> -S xash3d-git`
+#### ArchLinux
+* ArchLinux users are lucky enough and there is a `xash3d-git` AUR package for them.
 
 ### Building
 #### Windows(Visual Studio)
