@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #define STDLIB_H
 
 #include <stdarg.h>
+#include "build.h"
 
 #ifdef __GNUC__
 #define _format(x) __attribute__((format(printf, x, x+1)))
