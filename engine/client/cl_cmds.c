@@ -163,7 +163,7 @@ qboolean CL_ScreenshotGetName( int lastnum, char *filename )
 	lastnum -= c * 10;
 	d = lastnum;
 
-	Q_sprintf( filename, "scrshots/%s_shot%i%i%i%i.bmp", clgame.mapname, a, b, c, d );
+	Q_sprintf( filename, "scrshots/%s_shot%i%i%i%i.png", clgame.mapname, a, b, c, d );
 
 	return true;
 }
@@ -192,7 +192,7 @@ qboolean CL_SnapshotGetName( int lastnum, char *filename )
 	lastnum -= c * 10;
 	d = lastnum;
 
-	Q_sprintf( filename, "../%s_%i%i%i%i.bmp", clgame.mapname, a, b, c, d );
+	Q_sprintf( filename, "../%s_%i%i%i%i.png", clgame.mapname, a, b, c, d );
 
 	return true;
 }
