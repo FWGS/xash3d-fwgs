@@ -63,23 +63,23 @@ const char *Q_buildos( void )
 {
 	const char *osname;
 
-#if defined(_WIN32) && defined(_MSC_VER)
-	osname = "Win32";
-#elif defined(_WIN32) && defined(__MINGW32__)
+#if XASH_MINGW
 	osname = "Win32-MinGW";
-#elif defined(__ANDROID__)
+#elif XASH_WIN32
+	osname = "Win32";
+#elif XASH_ANDROID
 	osname = "Android";
-#elif defined(__linux__)
+#elif XASH_LINUX
 	osname = "Linux";
-#elif defined(__APPLE__)
+#elif XASH_APPLE
 	osname = "Apple";
-#elif defined(__FreeBSD__)
+#elif XASH_FREEBSD
 	osname = "FreeBSD";
-#elif defined(__NetBSD__)
+#elif XASH_NETBSD
 	osname = "NetBSD";
-#elif defined(__OpenBSD__)
+#elif XASH_OPENBSD
 	osname = "OpenBSD";
-#elif defined __EMSCRIPTEN__
+#elif XASH_EMSCRIPTEN
 	osname = "Emscripten";
 #else
 #error "Place your operating system name here! If this is a mistake, try to fix conditions above and report a bug"
@@ -99,20 +99,37 @@ const char *Q_buildarch( void )
 {
 	const char *archname;
 
-#if defined( __x86_64__) || defined(_M_X64)
+#if XASH_AMD64
 	archname = "amd64";
-#elif defined(__i386__) || defined(_X86_) || defined(_M_IX86)
+#elif XASH_X86
 	archname = "i386";
-#elif defined __aarch64__
-	archname = "aarch64";
-#elif defined __arm__ || defined _M_ARM
-	archname = "arm";
-#elif defined __mips__
+#elif XASH_AARCH64
+	archname = "arm64";
+#elif XASH_ARM
+	archname = "armv"
+	#if XASH_ARM == 7
+		"7"
+	#elif XASH_ARM == 6
+		"6"
+	#elif XASH_ARM == 5
+		"5"
+	#elif XASH_ARM == 4
+		"4"
+	#endif
+	
+	#if XASH_ARM_HARDFP
+		"hf"
+	#else
+		"l";
+	#endif
+#elif XASH_MIPS && XASH_BIG_ENDIAN
 	archname = "mips";
-#elif defined __EMSCRIPTEN__
+#elif XASH_MIPS && XASH_LITTLE_ENDIAN
+	archname = "mipsel";
+#elif XASH_JS
 	archname = "javascript";
-#elif defined __e2k__
-	archname = "elbrus";
+#elif XASH_E2K
+	archname = "e2k";
 #else
 #error "Place your architecture name here! If this is a mistake, try to fix conditions above and report a bug"
 #endif
@@ -128,7 +145,7 @@ Returns a short hash of current commit in VCS as string.
 XASH_BUILD_COMMIT must be passed in quotes
 
 if XASH_BUILD_COMMIT is not defined,
-Q_buildcommit will identify this build as release or "notset"
+Q_buildcommit will identify this build as "notset"
 =============
 */
 const char *Q_buildcommit( void )
