@@ -89,7 +89,7 @@ def configure(conf):
 	conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
 	conf.env.MSVC_TARGETS = ['x86'] # explicitly request x86 target for MSVC
 	if sys.platform == 'win32':
-		conf.load('msvc msdev msvs')
+		conf.load('msvc msvcfix msdev msvs')
 	conf.load('xcompile compiler_c compiler_cxx gitversion clang_compilation_database')
 
 	# Every static library must have fPIC
