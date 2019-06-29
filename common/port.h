@@ -145,6 +145,7 @@ GNU General Public License for more details.
 		#include <windows.h>
 	#undef HSPRITE
 
+	#define OS_LIB_PREFIX ""
 	#define OS_LIB_EXT "dll"
 	#define MENUDLL "menu"ARCH_SUFFIX"." OS_LIB_EXT
 	#define CLIENTDLL "client"ARCH_SUFFIX"." OS_LIB_EXT
