@@ -3952,6 +3952,23 @@ qboolean CL_LoadProgs( const char *name )
 	// during LoadLibrary
 	VGui_Startup( name, gameui.globals->scrWidth, gameui.globals->scrHeight );
 
+	// a1ba: we need to check if client.dll has direct dependency on SDL2
+	// and if so, disable relative mouse mode
+#if XASH_WIN32
+	if( ( clgame.client_dll_uses_sdl = COM_CheckLibraryDirectDependency( name, OS_LIB_PREFIX "SDL2." OS_LIB_EXT, false ) ) )
+	{
+		Con_Printf( S_NOTE "client.dll uses SDL2 for mouse input\n" );
+	}
+	else
+	{
+		Con_Printf( S_NOTE "client.dll uses Windows API for mouse input\n" );
+	}
+#else
+	// this doesn't mean other platforms uses SDL2 in any case
+	// it just helps input code to stay platform-independent
+	clgame.client_dll_uses_sdl = true; 
+#endif
+
 	clgame.hInstance = COM_LoadLibrary( name, false, false );
 	if( !clgame.hInstance ) return false;
 
