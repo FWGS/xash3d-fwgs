@@ -388,7 +388,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 			if( !vid_fullscreen->value )
 			{
 				Cvar_SetValue( "_window_xpos", (float)event->window.data1 );
-				Cvar_SetValue( "_window_ypos", (float)event->window.data1 );
+				Cvar_SetValue( "_window_ypos", (float)event->window.data2 );
 			}
 			break;
 		case SDL_WINDOWEVENT_MINIMIZED:
