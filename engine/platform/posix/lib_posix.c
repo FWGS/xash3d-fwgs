@@ -58,6 +58,12 @@ int dladdr( const void *addr, Dl_info *info )
 }
 #endif // XASH_NO_LIBDL
 
+qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname, qboolean directpath )
+{
+	// TODO: implement
+	return true;
+}
+
 void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath )
 {
 	dll_user_t *hInst = NULL;
