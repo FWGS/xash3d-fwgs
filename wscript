@@ -188,6 +188,7 @@ def configure(conf):
 		conf.check_cc( lib='advapi32' )
 		conf.check_cc( lib='dbghelp' )
 		conf.check_cc( lib='psapi' )
+		conf.check_cc( lib='ws2_32' )
 
 
 	# indicate if we are packaging for Linux/BSD

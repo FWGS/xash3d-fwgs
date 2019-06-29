@@ -67,7 +67,7 @@ def build(bld):
 		libs += [ 'DL' , 'M', 'PTHREAD' ]
 		source += bld.path.ant_glob(['platform/posix/*.c'])
 	else:
-		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI']
+		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32' ]
 		source += bld.path.ant_glob(['platform/win32/*.c'])
 
 	if bld.env.DEST_OS == 'linux':
