@@ -15,9 +15,8 @@ GNU General Public License for more details.
 
 #ifdef _WIN32
 // Winsock
-#include <winsock.h>
-#include <wsipx.h>
-#define socklen_t int //#include <ws2tcpip.h>
+#include <winsock2.h>
+#include <WS2tcpip.h>
 #else
 // BSD sockets
 #include <sys/types.h>
@@ -50,106 +49,17 @@ GNU General Public License for more details.
 #define HAVE_GETADDRINFO
 #endif
 
-#ifdef _WIN32
-// wsock32.dll exports
-static int (_stdcall *pWSACleanup)( void );
-static word (_stdcall *pNtohs)( word netshort );
-static int (_stdcall *pWSAGetLastError)( void );
-static int (_stdcall *pCloseSocket)( SOCKET s );
-static word (_stdcall *pHtons)( word hostshort );
-static dword (_stdcall *pInet_Addr)( const char* cp );
-static char* (_stdcall *pInet_Ntoa)( struct in_addr in );
-static SOCKET (_stdcall *pSocket)( int af, int type, int protocol );
-static struct hostent *(_stdcall *pGetHostByName)( const char* name );
-static int (_stdcall *pIoctlSocket)( SOCKET s, long cmd, dword* argp );
-static int (_stdcall *pWSAStartup)( word wVersionRequired, LPWSADATA lpWSAData );
-static int (_stdcall *pBind)( SOCKET s, const struct sockaddr* addr, int namelen );
-static int (_stdcall *pSetSockopt)( SOCKET s, int level, int optname, const char* optval, int optlen );
-static int (_stdcall *pRecvFrom)( SOCKET s, char* buf, int len, int flags, struct sockaddr* from, int* fromlen );
-static int (_stdcall *pSendTo)( SOCKET s, const char* buf, int len, int flags, const struct sockaddr* to, int tolen );
-static int (_stdcall *pSelect)( int nfds, fd_set* readfds, fd_set* writefds, fd_set* exceptfds, const struct timeval* timeout );
-static int (_stdcall *pConnect)( SOCKET s, const struct sockaddr *name, int namelen );
-static int (_stdcall *pGetSockName)( SOCKET s, struct sockaddr *name, int *namelen );
-static int (_stdcall *pSend)( SOCKET s, const char *buf, int len, int flags );
-static int (_stdcall *pRecv)( SOCKET s, char *buf, int len, int flags );
-static int (_stdcall *pGetHostName)( char *name, int namelen );
-static dword (_stdcall *pNtohl)( dword netlong );
-
-static dllfunc_t winsock_funcs[] =
-{
-{ "bind", (void **) &pBind },
-{ "send", (void **) &pSend },
-{ "recv", (void **) &pRecv },
-{ "ntohs", (void **) &pNtohs },
-{ "htons", (void **) &pHtons },
-{ "ntohl", (void **) &pNtohl },
-{ "socket", (void **) &pSocket },
-{ "select", (void **) &pSelect },
-{ "sendto", (void **) &pSendTo },
-{ "connect", (void **) &pConnect },
-{ "recvfrom", (void **) &pRecvFrom },
-{ "inet_addr", (void **) &pInet_Addr },
-{ "inet_ntoa", (void **) &pInet_Ntoa },
-{ "WSAStartup", (void **) &pWSAStartup },
-{ "WSACleanup", (void **) &pWSACleanup },
-{ "setsockopt", (void **) &pSetSockopt },
-{ "ioctlsocket", (void **) &pIoctlSocket },
-{ "closesocket", (void **) &pCloseSocket },
-{ "gethostname", (void **) &pGetHostName },
-{ "getsockname", (void **) &pGetSockName },
-{ "gethostbyname", (void **) &pGetHostByName },
-{ "WSAGetLastError", (void **) &pWSAGetLastError },
-{ NULL, NULL }
-};
-
-dll_info_t winsock_dll = { "wsock32.dll", winsock_funcs, false };
-
-static void (_stdcall *pInitializeCriticalSection)( void* );
-static void (_stdcall *pEnterCriticalSection)( void* );
-static void (_stdcall *pLeaveCriticalSection)( void* );
-static void (_stdcall *pDeleteCriticalSection)( void* );
-
-static dllfunc_t kernel32_funcs[] =
-{
-	{ "InitializeCriticalSection", (void **) &pInitializeCriticalSection },
-	{ "EnterCriticalSection", (void **) &pEnterCriticalSection },
-	{ "LeaveCriticalSection", (void **) &pLeaveCriticalSection },
-	{ "DeleteCriticalSection", (void **) &pDeleteCriticalSection },
-	{ NULL, NULL }
-};
-
-dll_info_t kernel32_dll = { "kernel32.dll", kernel32_funcs, false };
-
-static void NET_InitializeCriticalSections( void );
-
-qboolean NET_OpenWinSock( void )
-{
-	if( Sys_LoadLibrary( &kernel32_dll ) )
-		NET_InitializeCriticalSections();
-
-	// initialize the Winsock function vectors (we do this instead of statically linking
-	// so we can run on Win 3.1, where there isn't necessarily Winsock)
-	return Sys_LoadLibrary( &winsock_dll );
-}
-
-void NET_FreeWinSock( void )
-{
-	Sys_FreeLibrary( &winsock_dll );
-}
-#else // _WIN32
 #define pHtons htons
 #define pConnect connect
 #define pInet_Addr inet_addr
 #define pRecvFrom recvfrom
 #define pSendTo sendto
 #define pSocket socket
-#define pIoctlSocket ioctl
 #define pCloseSocket close
 #define pSetSockopt setsockopt
 #define pBind bind
 #define pGetHostName gethostname
 #define pGetSockName getsockname
-#define pGetHs
 #define pRecv recv
 #define pSend send
 #define pInet_Ntoa inet_ntoa
@@ -159,6 +69,17 @@ void NET_FreeWinSock( void )
 #define pGetAddrInfo getaddrinfo
 #define pWSAGetLastError() errno
 
+#ifndef _WIN32
+#ifdef __EMSCRIPTEN__
+/* All socket operations are non-blocking already */
+static int ioctl_stub( int d, unsigned long r, ... )
+{
+	return 0;
+}
+#define pIoctlSocket ioctl_stub
+#else // __EMSCRIPTEN__
+#define pIoctlSocket ioctl
+#endif
 #define SOCKET int
 #define INVALID_SOCKET -1
 
@@ -198,17 +119,9 @@ void NET_FreeWinSock( void )
 #define WSAELOOP           ELOOP
 #define WSAENAMETOOLONG    ENAMETOOLONG
 #define WSAEHOSTDOWN       EHOSTDOWN
-
-#ifdef __EMSCRIPTEN__
-/* All socket operations are non-blocking already */
-static int ioctl_stub( int d, unsigned long r, ...)
-{
-	return 0;
-}
-#undef pIoctlSocket
-#define pIoctlSocket ioctl_stub
-#endif // __EMSCRIPTEN__
-#endif // !_WIN32
+#else // !_WIN32
+#define pIoctlSocket ioctlsocket
+#endif 
 
 typedef struct
 {
@@ -466,18 +379,11 @@ void *NET_ThreadStart( void *unused )
 	return NULL;
 }
 #else // WIN32
-typedef struct cs
-{
-	void* p1;
-	int   i1, i2;
-	void *p2, *p3;
-	uint  i4;
-} mutex_t;
-#define mutex_lock pEnterCriticalSection
-#define mutex_unlock pLeaveCriticalSection
+#define mutex_lock EnterCriticalSection
+#define mutex_unlock LeaveCriticalSection
 #define detach_thread( x ) CloseHandle(x)
 #define create_thread( pfn ) nsthread.thread = CreateThread( NULL, 0, pfn, NULL, 0, NULL )
-#define mutex_t  struct cs
+#define mutex_t  CRITICAL_SECTION
 #define thread_t HANDLE
 DWORD WINAPI NET_ThreadStart( LPVOID unused )
 {
@@ -1425,7 +1331,7 @@ NET_SendPacket
 */
 void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to )
 {
-	return NET_SendPacketEx( sock, length, data, to, 0 );
+	NET_SendPacketEx( sock, length, data, to, 0 );
 }
 
 /*
@@ -1819,16 +1725,9 @@ void NET_Init( void )
 	}
 
 #ifdef _WIN32
-	if( !NET_OpenWinSock( ))	// loading wsock32.dll
-	{
-		Con_DPrintf( S_ERROR "network failed to load wsock32.dll.\n" );
-		return;
-	}
-
-	if( pWSAStartup( MAKEWORD( 1, 1 ), &net.winsockdata ))
+	if( WSAStartup( MAKEWORD( 1, 1 ), &net.winsockdata ))
 	{
 		Con_DPrintf( S_ERROR "network initialization failed.\n" );
-		NET_FreeWinSock();
 		return;
 	}
 #else
@@ -1872,8 +1771,7 @@ void NET_Shutdown( void )
 
 	NET_Config( false );
 #ifdef _WIN32
-	pWSACleanup();
-	NET_FreeWinSock();
+	WSACleanup();
 #endif
 	net.initialized = false;
 }
