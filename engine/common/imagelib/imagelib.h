@@ -154,6 +154,62 @@ typedef struct tga_s
 /*
 ========================================================================
 
+.PNG image format	(Portable Network Graphics)
+
+========================================================================
+*/
+
+enum
+{
+	PNG_CT_GREY,
+	PNG_CT_PALLETE = BIT(0),
+	PNG_CT_RGB = BIT(1),
+	PNG_CT_ALPHA = BIT(2),
+	PNG_CT_RGBA = (PNG_CT_RGB|PNG_CT_ALPHA)
+} png_colortype;
+
+enum
+{
+	PNG_F_NONE,
+	PNG_F_SUB,
+	PNG_F_UP,
+	PNG_F_AVERAGE,
+	PNG_F_PAETH
+} png_filter;
+
+#pragma pack( push, 1 )
+typedef struct png_ihdr_s
+{
+	uint	width;
+	uint	height;
+	byte	bitdepth;
+	byte	colortype;
+	byte	compression;
+	byte	filter;
+	byte	interlace;	
+} png_ihdr_t;
+
+typedef struct png_s
+{
+	byte		sign[8];
+	uint		ihdr_len;
+	byte		ihdr_sign[4];
+	png_ihdr_t 	ihdr_chunk;
+	uint		ihdr_crc32;
+} png_t;
+#pragma pack( pop )
+
+typedef struct png_footer_s
+{
+	uint	idat_crc32;
+	uint	iend_len;
+	byte	iend_sign[4];
+	uint	iend_crc32;
+} png_footer_t;
+
+/*
+========================================================================
+
 .DDS image format
 
 ========================================================================
@@ -301,6 +357,7 @@ qboolean Image_LoadMDL( const char *name, const byte *buffer, fs_offset_t filesi
 qboolean Image_LoadSPR( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Image_LoadDDS( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Image_LoadFNT( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesize );
@@ -311,6 +368,7 @@ qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesi
 //
 qboolean Image_SaveTGA( const char *name, rgbdata_t *pix );
 qboolean Image_SaveBMP( const char *name, rgbdata_t *pix );
+qboolean Image_SavePNG( const char *name, rgbdata_t *pix );
 
 //
 // img_quant.c
