@@ -895,7 +895,6 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 		VID_RestoreScreenResolution();
 		if( SDL_SetWindowFullscreen( host.hWnd, 0 ) )
 			return rserr_invalid_fullscreen;
-		SDL_RestoreWindow( host.hWnd );
 #if SDL_VERSION_ATLEAST( 2, 0, 5 )
 		SDL_SetWindowResizable( host.hWnd, true );
 #endif
