@@ -79,7 +79,7 @@ jobs:
       script:
         - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
       after_script:
-        - sh scripts/yadisk_upload.sh xash3d-osx.tar.bz2
+        - sh scripts/continious_upload.sh xash3d-osx.tar.bz2
     - # ...
       name: "Build for Windows MSVC"
       cache: ccache
