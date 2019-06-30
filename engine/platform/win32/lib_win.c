@@ -953,7 +953,6 @@ table_error:
 
 qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname, qboolean directpath )
 {
-	MEMORYMODULE	*result = NULL;
 	PIMAGE_DOS_HEADER	dos_header;
 	PIMAGE_NT_HEADERS	old_header;
 	PIMAGE_DATA_DIRECTORY	directory;
@@ -972,7 +971,7 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 	if( !data )
 	{
 		Q_snprintf( errorstring, sizeof( errorstring ), "couldn't load %s", name );
-		return false;
+		goto libraryerror;
 	}
 
 	dos_header = ( PIMAGE_DOS_HEADER )data;
@@ -1013,7 +1012,7 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 
 libraryerror:
 	Con_Printf( errorstring );
-	Mem_Free( data ); // release memory
+	if( data ) Mem_Free( data ); // release memory
 	return false;
 }
 
