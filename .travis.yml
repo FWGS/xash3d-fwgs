@@ -10,7 +10,7 @@ git:
   submodules: true
 jdk:
   - oraclejdk8
-  
+
 jobs:
   include:
     - stage: init
@@ -47,7 +47,7 @@ jobs:
         - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
       after_script:
         - ccache --show-stats
-        - sh scripts/yadisk_upload.sh Xash3DFWGS-i386.AppImage
+        - sh scripts/continious_upload.sh Xash3DFWGS-i386.AppImage
 #    - # ...
 #      name: "Build for Windows MinGW"
 #      cache: ccache
@@ -68,7 +68,7 @@ jobs:
 #        - sh scripts/build_mingw_engine.sh
 #      after_script:
 #        - ccache --show-stats
-#        - sh scripts/yadisk_upload.sh xash3d-mingw.7z
+#        - sh scripts/continious_upload.sh xash3d-mingw.7z
     - # ...
       name: "Build for OSX"
       cache: ccache
@@ -90,11 +90,11 @@ jobs:
       script:
         - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
       after_script:
-        - sh scripts/yadisk_upload.sh xash3d-vc.7z xash3d-vc2008-sln.7z
+        - sh scripts/continious_upload.sh xash3d-vc.7z xash3d-vc2008-sln.7z
     - stage: deploy
-      name: "Deploy to github"
+      name: "Deploy to github repo"
       os: linux
       cache: false
       script:
         - sh scripts/travis-deploy.sh Xash3DFWGS-i386.AppImage xash3d-osx.tar.bz2 xash3d-vc.7z xash3d-vc2008-sln.7z # xash3d-mingw.7z
-        
+
