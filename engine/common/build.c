@@ -64,23 +64,23 @@ const char *Q_buildos( void )
 	const char *osname;
 
 #if XASH_MINGW
-	osname = "Win32-MinGW";
+	osname = "win32-mingw";
 #elif XASH_WIN32
-	osname = "Win32";
+	osname = "win32";
 #elif XASH_ANDROID
-	osname = "Android";
+	osname = "android";
 #elif XASH_LINUX
-	osname = "Linux";
+	osname = "linux";
 #elif XASH_APPLE
-	osname = "Apple";
+	osname = "apple";
 #elif XASH_FREEBSD
-	osname = "FreeBSD";
+	osname = "freebsd";
 #elif XASH_NETBSD
-	osname = "NetBSD";
+	osname = "netbsd";
 #elif XASH_OPENBSD
-	osname = "OpenBSD";
+	osname = "openbsd";
 #elif XASH_EMSCRIPTEN
-	osname = "Emscripten";
+	osname = "emscripten";
 #else
 #error "Place your operating system name here! If this is a mistake, try to fix conditions above and report a bug"
 #endif
