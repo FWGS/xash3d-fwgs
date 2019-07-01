@@ -48,4 +48,14 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 void COM_ResetLibraryError( void );
 void COM_PushLibraryError( const char *error );
 const char *COM_OffsetNameForFunction( void *function );
+
+typedef enum
+{
+	LIBRARY_CLIENT,
+	LIBRARY_SERVER,
+	LIBRARY_GAMEUI
+} ECommonLibraryType;
+
+void COM_GetCommonLibraryName( ECommonLibraryType eLibType, char *out, size_t size );
+
 #endif//LIBRARY_H
