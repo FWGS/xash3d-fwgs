@@ -234,7 +234,6 @@ typedef struct gameinfo_s
 
 	char		game_dll_linux[64];	// custom path for game.dll
 	char		game_dll_osx[64];	// custom path for game.dll
-	char		client_lib[64];	// custom name of client library
 
 	qboolean	added;
 } gameinfo_t;

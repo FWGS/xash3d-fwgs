@@ -266,7 +266,7 @@ void VGui_Startup( const char *clientlib, int width, int height )
 				Con_Reportf( S_WARN "VGUI preloading failed. Default library will be used! Reason: %s\n", COM_GetLibraryError());
 		}
 
-		if( Q_strstr( GI->client_lib, ".dll" ) )
+		if( Q_strstr( clientlib, ".dll" ) )
 			Q_strncpy( vguiloader, "vgui_support.dll", 256 );
 
 		if( !vguiloader[0] && !Sys_GetParmFromCmdLine( "-vguiloader", vguiloader ) )

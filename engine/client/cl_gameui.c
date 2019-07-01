@@ -888,6 +888,7 @@ pfnCheckGameDll
 */
 int pfnCheckGameDll( void )
 {
+	string dllpath;
 	void	*hInst;
 
 #if TARGET_OS_IPHONE
@@ -900,7 +901,9 @@ int pfnCheckGameDll( void )
 	if( svgame.hInstance )
 		return true;
 
-	if(( hInst = COM_LoadLibrary( SI.gamedll, true, false )) != NULL )
+	COM_GetCommonLibraryName( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
+
+	if(( hInst = COM_LoadLibrary( dllpath, true, false )) != NULL )
 	{
 		COM_FreeLibrary( hInst ); // don't increase linker's reference counter
 		return true;
@@ -1075,6 +1078,7 @@ qboolean UI_LoadProgs( void )
 	static ui_textfuncs_t	gpTextfuncs;
 	static ui_globalvars_t	gpGlobals;
 	UITEXTAPI GiveTextApi;
+	string dllpath;
 	int			i;
 
 	if( gameui.hInstance ) UI_UnloadProgs();
@@ -1082,23 +1086,23 @@ qboolean UI_LoadProgs( void )
 	// setup globals
 	gameui.globals = &gpGlobals;
 
-#ifdef XASH_INTERNAL_GAMELIBS
-	if(!( gameui.hInstance = COM_LoadLibrary( "menu", false, false )))
-		return false;
-#else
-	if(!( gameui.hInstance = COM_LoadLibrary( va( "%s/" MENUDLL, GI->dll_path ), false, false )))
+	COM_GetCommonLibraryName( LIBRARY_GAMEUI, dllpath, sizeof( dllpath ));
+
+	if(!( gameui.hInstance = COM_LoadLibrary( dllpath, false, false )))
 	{
 		FS_AllowDirectPaths( true );
 
-		if(!( gameui.hInstance = COM_LoadLibrary( "../" MENUDLL, false, false ))
-				&& !( gameui.hInstance = COM_LoadLibrary( MENUDLL, false, false )))
-
+		// no use to load it from engine directory, as library loader
+		// that implements internal gamelibs already knows how to load it
+#ifndef XASH_INTERNAL_GAMELIBS
+		if(!( gameui.hInstance = COM_LoadLibrary( OS_LIB_PREFIX "menu." OS_LIB_EXT, false, false )))
+#endif
 		{
 			FS_AllowDirectPaths( false );
 			return false;
 		}
 	}
-#endif
+
 	FS_AllowDirectPaths( false );
 
 	if(( GetMenuAPI = (MENUAPI)COM_GetProcAddress( gameui.hInstance, "GetMenuAPI" )) == NULL )
