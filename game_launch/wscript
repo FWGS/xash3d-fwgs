@@ -17,7 +17,7 @@ def configure(conf):
 
 def build(bld):
 	source = ['game.cpp']
-	includes = '. ../common'
+	includes = '. ../common ../public'
 	libs = []
 
 	if bld.env.DEST_OS != 'win32':

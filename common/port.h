@@ -17,26 +17,7 @@ GNU General Public License for more details.
 #ifndef PORT_H
 #define PORT_H
 
-// a1ba: disabled, set by waf
-// #if defined(__LP64__) || defined(__LLP64__) || defined(_WIN64) || (defined(__x86_64__) && !defined(__ILP32__) ) || defined(_M_X64) || defined(__ia64) || defined (_M_IA64) || defined(__aarch64__) || defined(__powerpc64__)
-//   #define XASH_64BIT
-// #endif
-
-// #ifdef XASH_64BIT
-// #define ARCH_SUFFIX "64"
-// #else
-#define ARCH_SUFFIX
-// #endif
-
-#if defined(__ANDROID__) || TARGET_OS_IOS
-#define XASH_MOBILE_PLATFORM
-#endif
-
-#ifdef _WIN32
-#define PATH_SPLITTER "\\"
-#else
-#define PATH_SPLITTER "/"
-#endif
+#include "build.h"
 
 #if !defined(_WIN32)
 	#include <limits.h>
@@ -45,11 +26,13 @@ GNU General Public License for more details.
 	#include <unistd.h>
 	#include <string.h>
 
+	#define PATH_SPLITTER "/"
+
 	#if defined(__APPLE__)
 		#include <sys/syslimits.h>
+		#include "TargetConditionals.h"
 		#define OS_LIB_EXT "dylib"
 		#define OPEN_COMMAND "open"
-		#include "TargetConditionals.h"
 	#else
 		#define OS_LIB_EXT "so"
 		#define OPEN_COMMAND "xdg-open"
@@ -63,15 +46,7 @@ GNU General Public License for more details.
 		//#else
 			#define POSTFIX
 		//#endif
-
-		// don't change these names
-		#define MENUDLL   "libmenu"   POSTFIX "." OS_LIB_EXT
-		#define CLIENTDLL "libclient" POSTFIX "." OS_LIB_EXT
-		#define SERVERDLL "libserver" POSTFIX "." OS_LIB_EXT
-		#define GAMEPATH "/sdcard/xash"
 	#else
-	        #define MENUDLL "libmenu" ARCH_SUFFIX "." OS_LIB_EXT
-	        #define CLIENTDLL "client" ARCH_SUFFIX "." OS_LIB_EXT
 	#endif
 
 	#define VGUI_SUPPORT_DLL "libvgui_support." OS_LIB_EXT
@@ -115,6 +90,7 @@ GNU General Public License for more details.
 		int x, y;
 	} POINT;
 #else // WIN32
+	#define PATH_SPLITTER "\\"
 	#ifdef __MINGW32__
 		#define _inline static inline
 		#define FORCEINLINE inline __attribute__((always_inline))
@@ -122,8 +98,6 @@ GNU General Public License for more details.
 		#define FORCEINLINE __forceinline
 	#endif
 
-	#define strcasecmp _stricmp
-	#define strncasecmp _strnicmp
 	#define open _open
 	#define read _read
 	#define alloca _alloca
@@ -147,8 +121,6 @@ GNU General Public License for more details.
 
 	#define OS_LIB_PREFIX ""
 	#define OS_LIB_EXT "dll"
-	#define MENUDLL "menu"ARCH_SUFFIX"." OS_LIB_EXT
-	#define CLIENTDLL "client"ARCH_SUFFIX"." OS_LIB_EXT
 	#define VGUI_SUPPORT_DLL "../vgui_support." OS_LIB_EXT
 #ifdef XASH_64BIT
 // windows NameForFunction not implemented yet
