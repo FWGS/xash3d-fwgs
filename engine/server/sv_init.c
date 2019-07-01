@@ -665,14 +665,19 @@ A brand new game has been started
 */
 qboolean SV_InitGame( void )
 {
+	string dllpath;
+
 	if( svs.initialized )
 		return true; // already initialized ?
 
 	// first initialize?
 	COM_ResetLibraryError();
-	if( !SV_LoadProgs( SI.gamedll ))
+
+	COM_GetCommonLibraryName( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
+
+	if( !SV_LoadProgs( dllpath ))
 	{
-		Con_Printf( S_ERROR "can't initialize %s: %s\n", SI.gamedll, COM_GetLibraryError() );
+		Con_Printf( S_ERROR "can't initialize %s: %s\n", dllpath, COM_GetLibraryError() );
 		return false; // failed to loading server.dll
 	}
 
@@ -991,10 +996,14 @@ int SV_GetMaxClients( void )
 
 void SV_InitGameProgs( void )
 {
+	string dllpath;
+
 	if( svgame.hInstance ) return; // already loaded
 
+	COM_GetCommonLibraryName( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
+
 	// just try to initialize
-	SV_LoadProgs( GI->game_dll );
+	SV_LoadProgs( dllpath );
 }
 
 void SV_FreeGameProgs( void )

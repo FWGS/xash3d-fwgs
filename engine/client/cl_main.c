@@ -2967,6 +2967,8 @@ CL_Init
 */
 void CL_Init( void )
 {
+	string libpath;
+
 	if( host.type == HOST_DEDICATED )
 		return; // nothing running on the client
 
@@ -2981,12 +2983,10 @@ void CL_Init( void )
 	// IN_TouchInit();
 	Con_LoadHistory();
 
-#ifdef XASH_INTERNAL_GAMELIBS
-	if( !CL_LoadProgs( "client" ) )
-#else
-	if( !CL_LoadProgs( va( "%s/%s", GI->dll_path, SI.clientlib)))
-#endif
-		Host_Error( "can't initialize %s: %s\n", SI.clientlib, COM_GetLibraryError() );
+	COM_GetCommonLibraryName( LIBRARY_CLIENT, libpath, sizeof( libpath ));
+
+	if( !CL_LoadProgs( libpath ) )
+		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError() );
 
 	cls.initialized = true;
 	cl.maxclients = 1; // allow to drawing player in menu
