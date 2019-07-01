@@ -430,15 +430,11 @@ static qboolean R_LoadProgs( const char *name )
 		return false;
 	}
 #else
+	FS_AllowDirectPaths( true );
 	if( !(ref.hInstance = COM_LoadLibrary( name, false, true ) ))
 	{
-		FS_AllowDirectPaths( true );
-		if( !(ref.hInstance = COM_LoadLibrary( name, false, true ) ))
-		{
-			FS_AllowDirectPaths( false );
-			return false;
-		}
-
+		FS_AllowDirectPaths( false );
+		return false;
 	}
 #endif
 
