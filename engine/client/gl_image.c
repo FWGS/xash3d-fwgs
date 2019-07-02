@@ -397,6 +397,8 @@ static size_t GL_CalcTextureSize( GLenum format, int width, int height, int dept
 	case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
 	case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
 	case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
+	case GL_COMPRESSED_LUMINANCE_ALPHA_ARB:
+	case GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI:
 		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 16) * depth;
 		break;
 	case GL_RGBA8:
@@ -452,10 +454,14 @@ static size_t GL_CalcTextureSize( GLenum format, int width, int height, int dept
 		size = width * height * depth * 8;
 		break;
 	case GL_RGB16F_ARB:
+		size = width * height * depth * 6;
+		break;
 	case GL_RGBA16F_ARB:
 		size = width * height * depth * 8;
 		break;
 	case GL_RGB32F_ARB:
+		size = width * height * depth * 12;
+		break;
 	case GL_RGBA32F_ARB:
 		size = width * height * depth * 16;
 		break;
@@ -662,7 +668,11 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 		case PF_DXT1: tex->format = GL_COMPRESSED_RGB_S3TC_DXT1_EXT; break;	// never use DXT1 with 1-bit alpha
 		case PF_DXT3: tex->format = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT; break;
 		case PF_DXT5: tex->format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT; break;
-		case PF_ATI2: tex->format = GL_COMPRESSED_RED_GREEN_RGTC2_EXT; break;
+		case PF_ATI2:
+			if( glConfig.hardware_type == GLHW_RADEON )
+				tex->format = GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI;
+			else tex->format = GL_COMPRESSED_RED_GREEN_RGTC2_EXT;
+			break;
 		}
 		return;
 	}
@@ -2060,6 +2070,7 @@ void R_TextureList_f( void )
 			Con_Printf( "DXT5  " );
 			break;
 		case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
+		case GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI:
 			Con_Printf( "ATI2  " );
 			break;
 		case GL_RGBA:
