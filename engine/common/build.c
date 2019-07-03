@@ -103,7 +103,7 @@ const char *Q_buildarch( void )
 	archname = "amd64";
 #elif XASH_X86
 	archname = "i386";
-#elif XASH_AARCH64
+#elif XASH_ARM64
 	archname = "arm64";
 #elif XASH_ARM
 	archname = "armv"
