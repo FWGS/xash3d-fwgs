@@ -47,9 +47,9 @@ If you're stuck somewhere and you need a clear example, read `.travis.yml` and `
 * Clone this repository: `git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
 * Make sure you have at least 12GB of free space to store all build-time dependencies: ~10GB for Visual Studio, 300 MB for Git, 100 MB for Python and other.
 
-#### Linux
-NOTE: Make sure you're OK with targetting 32-bit.
-
+#### GNU/Linux
+NOTE FOR USERS WITH X86 COMPATIBLE CPUs:
+We have forced build system to throw an error, if you're trying to build 64-bit engine. This done for keeping compatibility with Steam releases of Half-Life and based on it's engine games.
 Even if Xash3D FWGS does support targetting 64-bit, you can't load games without recompiling them from source code!
 
 ##### Debian/Ubuntu
@@ -57,7 +57,7 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 
 `$ sudo dpkg --add-architecture i386`
 * Install development tools
-  * For 64-bit engine on amd64: 
+  * For 32-bit engine on amd64: 
 		
     `$ sudo apt install build-essential gcc-multilib g++-multilib python libsdl2-dev:i386 libfontconfig-dev:i386 libfreetype6-dev:i386`
   * For everything else: 
@@ -81,7 +81,7 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 #### Linux
 0) Examine which build options are available: `./waf --help`
 1) Configure build: `./waf configure -T release --prefix=/path/to/any/output/directory`
-(To compile 64-bit engine, you need to pass `-8` also)
+(To compile 64-bit engine on 64-bit x86 processor, you need to pass `-8` also)
 2) Compile: `./waf build`
 3) Install(optional): `./waf install`
 
