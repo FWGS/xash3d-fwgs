@@ -2910,7 +2910,7 @@ static qboolean R_CheckLightMap( msurface_t *fa )
 	}
 
 	// already up to date
-	if( !is_dynamic && ( fa->dlightframe != tr.framecount || maps == MAX_LIGHTMAPS ) )
+	if( !is_dynamic && ( fa->dlightframe != tr.framecount || maps == MAXLIGHTMAPS ) )
 		return false;
 
 	// build lightmap
