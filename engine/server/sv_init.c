@@ -673,7 +673,7 @@ qboolean SV_InitGame( void )
 	// first initialize?
 	COM_ResetLibraryError();
 
-	COM_GetCommonLibraryName( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
+	COM_GetCommonLibraryPath( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
 
 	if( !SV_LoadProgs( dllpath ))
 	{
@@ -1000,7 +1000,7 @@ void SV_InitGameProgs( void )
 
 	if( svgame.hInstance ) return; // already loaded
 
-	COM_GetCommonLibraryName( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
+	COM_GetCommonLibraryPath( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
 
 	// just try to initialize
 	SV_LoadProgs( dllpath );

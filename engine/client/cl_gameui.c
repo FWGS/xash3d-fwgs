@@ -901,7 +901,7 @@ int pfnCheckGameDll( void )
 	if( svgame.hInstance )
 		return true;
 
-	COM_GetCommonLibraryName( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
+	COM_GetCommonLibraryPath( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
 
 	if(( hInst = COM_LoadLibrary( dllpath, true, false )) != NULL )
 	{
@@ -1086,16 +1086,18 @@ qboolean UI_LoadProgs( void )
 	// setup globals
 	gameui.globals = &gpGlobals;
 
-	COM_GetCommonLibraryName( LIBRARY_GAMEUI, dllpath, sizeof( dllpath ));
+	COM_GetCommonLibraryPath( LIBRARY_GAMEUI, dllpath, sizeof( dllpath ));
 
 	if(!( gameui.hInstance = COM_LoadLibrary( dllpath, false, false )))
 	{
+		string path = OS_LIB_PREFIX "menu." OS_LIB_EXT;
+
 		FS_AllowDirectPaths( true );
 
 		// no use to load it from engine directory, as library loader
 		// that implements internal gamelibs already knows how to load it
 #ifndef XASH_INTERNAL_GAMELIBS
-		if(!( gameui.hInstance = COM_LoadLibrary( OS_LIB_PREFIX "menu." OS_LIB_EXT, false, false )))
+		if(!( gameui.hInstance = COM_LoadLibrary( path, false, true )))
 #endif
 		{
 			FS_AllowDirectPaths( false );
