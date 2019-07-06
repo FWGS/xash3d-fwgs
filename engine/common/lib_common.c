@@ -61,56 +61,49 @@ const char *COM_OffsetNameForFunction( void *function )
 =============================================================================
 */
 
-/*
-==============
-COM_GenerateClientLibraryName
-
-Generates platform-unique and compatible name for client libraries
-==============
-*/
-static void COM_GenerateClientLibraryName( const char *name, char *out, size_t size )
+static void COM_GenerateCommonLibraryName( const char *name, const char *ext, char *out, size_t size )
 {
-#ifdef XASH_INTERNAL_GAMELIBS // assuming library loader knows where to get libraries
-
-	Q_strncpy( out, name, size );
-
-#elif ( XASH_WIN32 || XASH_LINUX || XASH_APPLE ) && XASH_X86
-
-	Q_snprintf( out, size, "%s/%s." OS_LIB_EXT,
-		GI->dll_path,
-		name );
-
+#if ( XASH_WIN32 || XASH_LINUX || XASH_APPLE ) && XASH_X86
+	Q_snprintf( out, size, "%s.%s", name, ext );
 #elif ( XASH_WIN32 || XASH_LINUX || XASH_APPLE )
-
-	Q_snprintf( out, size, "%s/%s_%s." OS_LIB_EXT,
-		GI->dll_path,
-		name,
-		Q_buildarch() );
-
+	Q_snprintf( out, size, "%s_%s.%s", name, Q_buildarch(), ext );
 #else
-
-	Q_snprintf( out, size, "%s/%s_%s_%s." OS_LIB_EXT,
-		GI->dll_path,
-		name,
-		Q_buildos(),
-		Q_buildarch() );
-
+	Q_snprintf( out, size, "%s_%s_%s.%s", name, Q_buildos(), Q_buildarch(), ext );
 #endif
 }
 
 /*
 ==============
-COM_GenerateClientLibraryName
+COM_GenerateClientLibraryPath
+
+Generates platform-unique and compatible name for client libraries
+==============
+*/
+static void COM_GenerateClientLibraryPath( const char *name, char *out, size_t size )
+{
+#ifdef XASH_INTERNAL_GAMELIBS // assuming library loader knows where to get libraries
+	Q_strncpy( out, name, size );
+#else
+	string dllpath;
+
+	// we don't have any library prefixes, so we can safely append dll_path here
+	Q_snprintf( dllpath, sizeof( dllpath ), "%s/%s", GI->dll_path, name );
+
+	COM_GenerateCommonLibraryName( dllpath, OS_LIB_EXT, out, size );
+#endif
+}
+
+/*
+==============
+COM_GenerateServerLibraryPath
 
 Generates platform-unique and compatible name for server library
 ==============
 */
-static void COM_GenerateServerLibraryName( char *out, size_t size )
+static void COM_GenerateServerLibraryPath( char *out, size_t size )
 {
 #ifdef XASH_INTERNAL_GAMELIBS // assuming library loader knows where to get libraries
-
 	Q_strncpy( out, "server", size );
-
 #elif ( XASH_WIN32 || XASH_LINUX || XASH_APPLE ) && XASH_X86
 
 #if XASH_WIN32
@@ -136,29 +129,24 @@ static void COM_GenerateServerLibraryName( char *out, size_t size )
 	ext = COM_FileExtension( dllpath );
 	COM_StripExtension( dllpath );
 
-#if ( XASH_WIN32 || XASH_LINUX || XASH_APPLE )
-	Q_snprintf( out, size, "%s_%s.%s", dllpath, Q_buildarch(), ext );
-#else
-	Q_snprintf( out, size, "%s_%s_%s.%s", dllpath, Q_buildos(), Q_buildarch(), ext );
-#endif
-
+	COM_GenerateCommonLibraryName( dllpath, ext, out, size );
 #endif
 }
 
 
 /*
 ==============
-COM_GetCommonLibraryName
+COM_GetCommonLibraryPath
 
 Generates platform-unique and compatible name for server library
 ==============
 */
-void COM_GetCommonLibraryName( ECommonLibraryType eLibType, char *out, size_t size )
+void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t size )
 {
 	switch( eLibType )
 	{
 	case LIBRARY_GAMEUI:
-		COM_GenerateClientLibraryName( "menu", out, size );
+		COM_GenerateClientLibraryPath( "menu", out, size );
 		break;
 	case LIBRARY_CLIENT:
 		if( SI.clientlib[0] )
@@ -167,7 +155,7 @@ void COM_GetCommonLibraryName( ECommonLibraryType eLibType, char *out, size_t si
 		}
 		else
 		{
-			COM_GenerateClientLibraryName( "client", out, size );
+			COM_GenerateClientLibraryPath( "client", out, size );
 		}
 		break;
 	case LIBRARY_SERVER:
@@ -177,7 +165,7 @@ void COM_GetCommonLibraryName( ECommonLibraryType eLibType, char *out, size_t si
 		}
 		else
 		{
-			COM_GenerateServerLibraryName( out, size );
+			COM_GenerateServerLibraryPath( out, size );
 		}
 		break;
 	default:

@@ -56,6 +56,6 @@ typedef enum
 	LIBRARY_GAMEUI
 } ECommonLibraryType;
 
-void COM_GetCommonLibraryName( ECommonLibraryType eLibType, char *out, size_t size );
+void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t size );
 
 #endif//LIBRARY_H

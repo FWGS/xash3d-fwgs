@@ -2983,7 +2983,7 @@ void CL_Init( void )
 	// IN_TouchInit();
 	Con_LoadHistory();
 
-	COM_GetCommonLibraryName( LIBRARY_CLIENT, libpath, sizeof( libpath ));
+	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
 
 	if( !CL_LoadProgs( libpath ) )
 		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError() );
