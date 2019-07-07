@@ -253,6 +253,7 @@ typedef struct sv_client_s
 	int		challenge;		// challenge of this user, randomly generated
 	int		userid;			// identifying number on server
 	int		extensions;
+	char		useragent[MAX_INFO_STRING];
 } sv_client_t;
 
 /*
@@ -457,6 +458,7 @@ void SV_ProcessFile( sv_client_t *cl, const char *filename );
 void SV_SendResource( resource_t *pResource, sizebuf_t *msg );
 void SV_SendResourceList( sv_client_t *cl );
 void SV_AddToMaster( netadr_t from, sizebuf_t *msg );
+qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent );
 void Host_SetServerState( int state );
 qboolean SV_IsSimulating( void );
 qboolean SV_InitGame( void );
@@ -515,6 +517,8 @@ void SV_DirectConnect( netadr_t from );
 void SV_TogglePause( const char *msg );
 qboolean SV_ShouldUpdatePing( sv_client_t *cl );
 const char *SV_GetClientIDString( sv_client_t *cl );
+sv_client_t *SV_ClientById( int id );
+sv_client_t *SV_ClientByName( const char *name );
 void SV_FullClientUpdate( sv_client_t *cl, sizebuf_t *msg );
 void SV_FullUpdateMovevars( sv_client_t *cl, sizebuf_t *msg );
 void SV_GetPlayerStats( sv_client_t *cl, int *ping, int *packet_loss );
@@ -553,6 +557,14 @@ void SV_SendResources( sv_client_t *cl, sizebuf_t *msg );
 void SV_ClearResourceLists( sv_client_t *cl );
 void SV_TransferConsistencyInfo( void );
 void SV_RequestMissingResources( void );
+
+//
+// sv_filter.c
+//
+void SV_InitFilter( void );
+void SV_ShutdownFilter( void );
+qboolean SV_CheckIP( netadr_t *adr );
+qboolean SV_CheckID( const char *id );
 
 //
 // sv_frame.c

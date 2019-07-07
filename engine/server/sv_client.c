@@ -287,6 +287,12 @@ void SV_ConnectClient( netadr_t from )
 		return;
 	}
 
+	if( !SV_ProcessUserAgent( from, Cmd_Argv( 6 ) ) )
+	{
+		Netchan_OutOfBandPrint( NS_SERVER, from, "disconnect\n" );
+		return;
+	}
+
 	challenge = Q_atoi( Cmd_Argv( 2 )); // get challenge
 
 	// see if the challenge is valid (local clients don't need to challenge)
@@ -372,6 +378,18 @@ void SV_ConnectClient( netadr_t from )
 
 	// build a new connection
 	// accept the new client
+	if( Q_strncpy( newcl->useragent, Cmd_Argv( 6 ), MAX_INFO_STRING ) )
+	{
+		const char *id = Info_ValueForKey( newcl->useragent, "i" );
+
+		if( *id )
+		{
+			//sscanf( id, "%llx", &newcl->WonID );
+		}
+
+		// Q_strncpy( cl->auth_id, id, sizeof( cl->auth_id ) );
+	}
+
 	sv.current_client = newcl;
 	newcl->edict = EDICT_NUM( (newcl - svs.clients) + 1 );
 	newcl->challenge = challenge; // save challenge for checksumming
@@ -660,6 +678,44 @@ const char *SV_GetClientIDString( sv_client_t *cl )
 	}
 
 	return result;
+}
+
+sv_client_t *SV_ClientById( int id )
+{
+	sv_client_t *cl;
+	int i;
+
+	ASSERT( id >= 0 );
+
+	for( i = 0, cl = svs.clients; i < svgame.globals->maxClients; i++, cl++ )
+	{
+		if( !cl->state )
+			continue;
+
+		if( cl->userid == id )
+			return cl;
+	}
+
+	return NULL;
+}
+
+sv_client_t *SV_ClientByName( const char *name )
+{
+	sv_client_t *cl;
+	int i;
+
+	ASSERT( name && *name );
+
+	for( i = 0, cl = svs.clients; i < svgame.globals->maxClients; i++, cl++ )
+	{
+		if( !cl->state )
+			continue;
+
+		if( !Q_strcmp( cl->name, name ) )
+			return cl;
+	}
+
+	return NULL;
 }
 
 /*
@@ -2145,6 +2201,10 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	const char	*pcmd;
 	char buf[MAX_SYSPATH];
 	int	len = sizeof( buf );
+
+	// prevent flooding from banned address
+	if( SV_CheckIP( &from ) )
+		return;
 
 	MSG_Clear( msg );
 	MSG_ReadLong( msg );// skip the -1 marker

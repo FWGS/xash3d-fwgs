@@ -117,6 +117,12 @@ convar_t	*sv_validate_changelevel;
 convar_t	*sv_sendvelocity;
 convar_t	*sv_hostmap;
 
+convar_t	*sv_allow_noinputdevices;
+convar_t	*sv_allow_touch;
+convar_t	*sv_allow_mouse;
+convar_t	*sv_allow_joystick;
+convar_t	*sv_allow_vr;
+
 void Master_Shutdown( void );
 
 //============================================================================
@@ -765,6 +771,64 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	NET_SendPacket( NS_SERVER, Q_strlen( s ), s, from );
 }
 
+/*
+====================
+SV_ProcessUserAgent
+
+send error message and return false on wrong input devices
+====================
+*/
+qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
+{
+	const char *input_devices_str = Info_ValueForKey( useragent, "d" );
+	const char *id = Info_ValueForKey( useragent, "i" );
+
+	if( !sv_allow_noinputdevices->value && ( !input_devices_str || !input_devices_str[0] ) )
+	{
+		Netchan_OutOfBandPrint( NS_SERVER, from, "print\nThis server does not allow\nconnect without input devices list.\nPlease update your engine.\n" );
+		return false;
+	}
+
+	if( input_devices_str )
+	{
+		int input_devices = Q_atoi( input_devices_str );
+
+		if( !sv_allow_touch->value && ( input_devices & INPUT_DEVICE_TOUCH ) )
+		{
+			Netchan_OutOfBandPrint( NS_SERVER, from, "errormsg\nThis server does not allow touch\nDisable it (touch_enable 0)\nto play on this server\n" );
+			return false;
+		}
+		if( !sv_allow_mouse->value && ( input_devices & INPUT_DEVICE_MOUSE) )
+		{
+			Netchan_OutOfBandPrint( NS_SERVER, from, "errormsg\nThis server does not allow mouse\nDisable it(m_ignore 1)\nto play on this server\n" );
+			return false;
+		}
+		if( !sv_allow_joystick->value && ( input_devices & INPUT_DEVICE_JOYSTICK) )
+		{
+			Netchan_OutOfBandPrint( NS_SERVER, from, "errormsg\nThis server does not allow joystick\nDisable it(joy_enable 0)\nto play on this server\n" );
+			return false;
+		}
+		if( !sv_allow_vr->value && ( input_devices & INPUT_DEVICE_VR) )
+		{
+			Netchan_OutOfBandPrint( NS_SERVER, from, "errormsg\nThis server does not allow VR\n" );
+			return false;
+		}
+	}
+
+	if( id )
+	{
+		qboolean banned = SV_CheckID( id );
+
+		if( banned )
+		{
+			Netchan_OutOfBandPrint( NS_SERVER, from, "errormsg\nYou are banned!\n" );
+			return false;
+		}
+	}
+
+	return true;
+}
+
 //============================================================================
 
 /*
@@ -868,6 +932,12 @@ void SV_Init( void )
 	Cvar_RegisterVariable (&mp_logfile);
 	Cvar_RegisterVariable (&sv_background_freeze);
 
+	sv_allow_joystick = Cvar_Get( "sv_allow_joystick", "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
+	sv_allow_mouse = Cvar_Get( "sv_allow_mouse", "1", FCVAR_ARCHIVE, "allow connect with mouse" );
+	sv_allow_touch = Cvar_Get( "sv_allow_touch", "1", FCVAR_ARCHIVE, "allow connect with touch controls" );
+	sv_allow_vr = Cvar_Get( "sv_allow_vr", "1", FCVAR_ARCHIVE, "allow connect from vr version" );
+	sv_allow_noinputdevices = Cvar_Get( "sv_allow_noinputdevices", "1", FCVAR_ARCHIVE, "allow connect from old versions without useragent" );
+
 	// when we in developer-mode automatically turn cheats on
 	if( host_developer.value ) Cvar_SetValue( "sv_cheats", 1.0f );
 
@@ -878,6 +948,7 @@ void SV_Init( void )
 
 	Cvar_FullSet( "sv_version", versionString, FCVAR_READ_ONLY );
 
+	SV_InitFilter();
 	SV_ClearGameState ();	// delete all temporary *.hl files
 }
 
