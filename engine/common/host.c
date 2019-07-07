@@ -1059,6 +1059,7 @@ void EXPORT Host_Shutdown( void )
 #endif
 
 	SV_Shutdown( "Server shutdown\n" );
+	SV_ShutdownFilter();
 	CL_Shutdown();
 
 	Mod_Shutdown();

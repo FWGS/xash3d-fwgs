@@ -709,6 +709,7 @@ int CL_Active( void );
 
 void SV_Init( void );
 void SV_Shutdown( const char *finalmsg );
+void SV_ShutdownFilter( void );
 void Host_ServerFrame( void );
 qboolean SV_Active( void );
 
@@ -830,6 +831,15 @@ void Key_SetKeyDest( int key_dest );
 void Key_EnableTextInput( qboolean enable, qboolean force );
 
 #include "avi/avi.h"
+
+//
+// input.c
+//
+
+#define INPUT_DEVICE_MOUSE (1<<0)
+#define INPUT_DEVICE_TOUCH (1<<1)
+#define INPUT_DEVICE_JOYSTICK (1<<2)
+#define INPUT_DEVICE_VR (1<<3)
 
 // shared calls
 struct physent_s;
