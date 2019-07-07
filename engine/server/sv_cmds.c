@@ -541,15 +541,25 @@ Kick a user off of the server
 void SV_Kick_f( void )
 {
 	sv_client_t	*cl;
+	const char *param, *clientId;
 
 	if( Cmd_Argc() != 2 )
 	{
-		Con_Printf( S_USAGE "kick <userid> | <name>\n" );
+		Con_Printf( S_USAGE "kick <#id|name> [reason]\n" );
 		return;
 	}
 
-	if(( cl = SV_SetPlayer( )) == NULL )
+	param = Cmd_Argv( 1 );
+
+	if( *param == '#' && Q_isdigit( param + 1 ) )
+		cl = SV_ClientById( Q_atoi( param + 1 ) );
+	else cl = SV_ClientByName( param );
+
+	if( !cl )
+	{
+		Con_Printf( "Client is not on the server\n" );
 		return;
+	}
 
 	if( NET_IsLocalAddress( cl->netchan.remote_address ))
 	{
@@ -557,9 +567,31 @@ void SV_Kick_f( void )
 		return;
 	}
 
-	Log_Printf( "Kick: \"%s<%i>\" was kicked\n", cl->name, cl->userid );
-	SV_BroadcastPrintf( cl, "%s was kicked\n", cl->name );
-	SV_ClientPrintf( cl, "You were kicked from the game\n" );
+	param = Cmd_Argv( 2 );
+
+	clientId = SV_GetClientIDString( cl );
+
+	if( *param )
+	{
+		Log_Printf( "Kick: \"%s<%i><%s><>\" was kicked by \"Console\" (message \"%s\")\n", cl->name, cl->userid, clientId, param );
+		SV_BroadcastPrintf( cl, "%s was kicked with message: \"%s\"\n", cl->name, param );
+		SV_ClientPrintf( cl, "You were kicked from the game with message: \"%s\"\n", param );
+	}
+	else
+	{
+		Log_Printf( "Kick: \"%s<%i><%s><>\" was kicked by \"Console\"\n", cl->name, cl->userid, clientId );
+		SV_BroadcastPrintf( cl, "%s was kicked\n", cl->name );
+		SV_ClientPrintf( cl, "You were kicked from the game\n" );
+	}
+
+	if( cl->useragent[0] )
+	{
+		if( *param )
+			Netchan_OutOfBandPrint( NS_SERVER, cl->netchan.remote_address, "errormsg\nKicked with message:\n%s\n", param );
+		else
+			Netchan_OutOfBandPrint( NS_SERVER, cl->netchan.remote_address, "errormsg\nYou were kicked from the game\n" );
+	}
+
 	SV_DropClient( cl, false );
 }
 
@@ -782,6 +814,31 @@ void SV_ClientInfo_f( void )
 }
 
 /*
+===========
+SV_ClientUserAgent_f
+
+Examine useragent strings
+===========
+*/
+void SV_ClientUserAgent_f( void )
+{
+	sv_client_t	*cl;
+
+	if( Cmd_Argc() != 2 )
+	{
+		Con_Printf( S_USAGE "clientuseragent <userid>\n" );
+		return;
+	}
+
+	if(( cl = SV_SetPlayer( )) == NULL )
+		return;
+
+	Con_Printf( "useragent\n" );
+	Con_Printf( "---------\n" );
+	Info_Print( cl->useragent );
+}
+
+/*
 ===============
 SV_KillServer_f
 
@@ -912,6 +969,7 @@ void SV_InitOperatorCommands( void )
 	Cmd_AddCommand( "localinfo", SV_LocalInfo_f, "examine or change the localinfo string" );
 	Cmd_AddCommand( "serverinfo", SV_ServerInfo_f, "examine or change the serverinfo string" );
 	Cmd_AddCommand( "clientinfo", SV_ClientInfo_f, "print user infostring (player num required)" );
+	Cmd_AddCommand( "clientuseragent", SV_ClientUserAgent_f, "print user agent (player num required)" );
 	Cmd_AddCommand( "playersonly", SV_PlayersOnly_f, "freezes time, except for players" );
 	Cmd_AddCommand( "restart", SV_Restart_f, "restarting current level" );
 	Cmd_AddCommand( "entpatch", SV_EntPatch_f, "write entity patch to allow external editing" );
