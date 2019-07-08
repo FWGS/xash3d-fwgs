@@ -7,7 +7,8 @@ die()
 }
 
 if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then
-	die "Travis should not deploy from pull requests"
+	echo "Travis should not deploy from pull requests"
+	exit 0
 fi
 
 append_readme()
@@ -18,8 +19,23 @@ append_readme()
 	done
 }
 
+generate_continious_tag()
+{
+	if [ $TRAVIS_BRANCH == "master" ]; then
+		echo "continuous"
+	else
+		echo "continuous-$TRAVIS_BRANCH"
+	fi
+}
+
 generate_readme()
 {
+	TAG=$(generate_continuous_tag)
+	echo \# Moved to GitHub Releases at [here]\(https://github.com/FWGS/xash3d-fwgs/releases/tag/$TAG\) >> README.md
+	echo >> README.md
+	echo >> README.md
+	echo >> README.md
+	echo >> README.md
 	echo \# $TRAVIS_BRANCH branch autobuilds from $DEPLOY_BRANCH >> README.md
 	echo >> README.md
 	echo Short changelog: >> README.md
