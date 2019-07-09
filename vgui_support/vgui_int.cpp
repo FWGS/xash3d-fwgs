@@ -24,6 +24,7 @@ from your version.
 */
 
 #include "vgui_main.h"
+#include "xash3d_types.h"
 namespace vgui_support {
 
 vguiapi_t *g_api;
@@ -108,11 +109,7 @@ void *VGui_GetPanel( void )
 #define InitAPI InitVGUISupportAPI
 #endif
 
-#ifdef _WIN32
-extern "C" void _declspec( dllexport ) InitAPI(vguiapi_t * api)
-#else
-extern "C" void InitAPI(vguiapi_t * api)
-#endif
+extern "C" EXPORT void InitAPI(vguiapi_t * api)
 {
 	g_api = api;
 	g_api->Startup = VGui_Startup;
