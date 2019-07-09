@@ -864,31 +864,31 @@ void Platform_RunEvents()
 			}
 			break;
 		case event_joyadd:
-			Joy_AddEvent( events.queue[i].arg );
+			Joy_AddEvent();
 			break;
 		case event_joyremove:
-			Joy_RemoveEvent( events.queue[i].arg );
+			Joy_RemoveEvent();
 			break;
 		case event_joyball:
 			if( !Joy_IsActive() )
-				Joy_AddEvent( 0 );
-			Joy_BallMotionEvent( events.queue[i].arg, events.queue[i].ball.ball,
-								 events.queue[i].ball.xrel, events.queue[i].ball.yrel );
+				Joy_AddEvent();
+			Joy_BallMotionEvent( events.queue[i].ball.ball,
+				events.queue[i].ball.xrel, events.queue[i].ball.yrel );
 			break;
 		case event_joyhat:
 			if( !Joy_IsActive() )
-				Joy_AddEvent( 0 );
-			Joy_HatMotionEvent( events.queue[i].arg, events.queue[i].hat.hat, events.queue[i].hat.key );
+				Joy_AddEvent();
+			Joy_HatMotionEvent( events.queue[i].hat.hat, events.queue[i].hat.key );
 			break;
 		case event_joyaxis:
 			if( !Joy_IsActive() )
-				Joy_AddEvent( 0 );
-			Joy_AxisMotionEvent( events.queue[i].arg, events.queue[i].axis.axis, events.queue[i].axis.val );
+				Joy_AddEvent();
+			Joy_AxisMotionEvent( events.queue[i].axis.axis, events.queue[i].axis.val );
 			break;
 		case event_joybutton:
 			if( !Joy_IsActive() )
-				Joy_AddEvent( 0 );
-			Joy_ButtonEvent( events.queue[i].arg, events.queue[i].button.button, (byte)events.queue[i].button.down );
+				Joy_AddEvent();
+			Joy_ButtonEvent( events.queue[i].button.button, (byte)events.queue[i].button.down );
 			break;
 		case event_ondestroy:
 			//host.skip_configs = true; // skip config save, because engine may be killed during config save
