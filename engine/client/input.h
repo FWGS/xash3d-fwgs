@@ -41,6 +41,9 @@ void IN_MouseRestorePos( void );
 void IN_ToggleClientMouse( int newstate, int oldstate );
 void IN_SetCursor( void *hCursor );
 
+uint IN_CollectInputDevices( void );
+void IN_LockInputDevices( qboolean lock );
+
 //
 // in_touch.c
 //
