@@ -168,55 +168,6 @@ FILEMATCH COMMON SYSTEM
 
 =============================================================================
 */
-static int matchpattern( const char *str, const char *cmp, qboolean caseinsensitive )
-{
-	int	c1, c2;
-
-	while( *cmp )
-	{
-		switch( *cmp )
-		{
-		case 0:   return 1; // end of pattern
-		case '?': // match any single character
-			if( *str == 0 || *str == '/' || *str == '\\' || *str == ':' )
-				return 0; // no match
-			str++;
-			cmp++;
-			break;
-		case '*': // match anything until following string
-			if( !*str ) return 1; // match
-			cmp++;
-			while( *str )
-			{
-				if( *str == '/' || *str == '\\' || *str == ':' )
-					break;
-				// see if pattern matches at this offset
-				if( matchpattern( str, cmp, caseinsensitive ))
-					return 1;
-				// nope, advance to next offset
-				str++;
-			}
-			break;
-		default:
-			if( *str != *cmp )
-			{
-				if( !caseinsensitive )
-					return 0; // no match
-				c1 = Q_tolower( *str );
-				c2 = Q_tolower( *cmp );
-				if( c1 != c2 ) return 0; // no match
-			}
-
-			str++;
-			cmp++;
-			break;
-		}
-	}
-
-	// reached end of pattern but not end of input?
-	return (*str) ? 0 : 1;
-}
-
 static void stringlistinit( stringlist_t *list )
 {
 	memset( list, 0, sizeof( *list ));
