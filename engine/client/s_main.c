@@ -34,9 +34,6 @@ listener_t	s_listener;
 int		total_channels;
 int		soundtime;	// sample PAIRS
 int   		paintedtime; 	// sample PAIRS
-static int	trace_count = 0;
-static int	last_trace_chan = 0;
-static byte	s_fatphs[MAX_MAP_LEAFS/8];		// PHS array for snd module
 
 convar_t		*s_volume;
 convar_t		*s_musicvolume;
