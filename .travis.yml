@@ -85,3 +85,8 @@ jobs:
         - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
       after_script:
         - sh scripts/continious_upload.sh xash3d-vc.7z xash3d-vc2008-sln.7z
+
+branches:
+  except:
+# Do not build tags that we create when we upload to GitHub Releases
+    - /^(?i:continuous)/
