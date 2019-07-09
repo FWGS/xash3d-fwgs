@@ -87,27 +87,6 @@ static void GAME_EXPORT CL_FillRGBABlend( float _x, float _y, float _w, float _h
 	pglDisable( GL_BLEND );
 }
 
-static void Mod_LoadModel( modtype_t desiredType, model_t *mod, const byte *buf, qboolean *loaded, int flags )
-{
-	switch( desiredType )
-	{
-	case mod_studio:
-		// Mod_LoadStudioModel( mod, buf, loaded );
-		break;
-	case mod_sprite:
-		Mod_LoadSpriteModel( mod, buf, loaded, flags );
-		break;
-	case mod_alias:
-		Mod_LoadAliasModel( mod, buf, loaded );
-		break;
-	case mod_brush:
-		// Mod_LoadBrushModel( mod, buf, loaded );
-		break;
-
-	default: gEngfuncs.Host_Error( "Mod_LoadModel: unsupported type %d\n", mod->type );
-	}
-}
-
 void Mod_BrushUnloadTextures( model_t *mod )
 {
 	int i;
