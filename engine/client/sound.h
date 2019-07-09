@@ -29,23 +29,6 @@ extern byte *sndpool;
 #define SOUND_44k			44100	// 44khz sample rate
 #define DMA_MSEC_PER_SAMPLE		((float)(1000.0 / SOUND_DMA_SPEED))
 
-#define SND_TRACE_UPDATE_MAX  	2	// max of N channels may be checked for obscured source per frame
-#define SND_RADIUS_MAX		240.0f	// max sound source radius
-#define SND_RADIUS_MIN		24.0f	// min sound source radius
-#define SND_OBSCURED_LOSS_DB		-2.70f	// dB loss due to obscured sound source
-
-// calculate gain based on atmospheric attenuation.
-// as gain excedes threshold, round off (compress) towards 1.0 using spline
-#define SND_GAIN_COMP_EXP_MAX		2.5f	// Increasing SND_GAIN_COMP_EXP_MAX fits compression curve
-					// more closely to original gain curve as it approaches 1.0.  
-#define SND_GAIN_FADE_TIME		0.25f	// xfade seconds between obscuring gain changes
-#define SND_GAIN_COMP_EXP_MIN		0.8f	
-#define SND_GAIN_COMP_THRESH		0.5f	// gain value above which gain curve is rounded to approach 1.0
-#define SND_DB_MAX			140.0f	// max db of any sound source
-#define SND_DB_MED			90.0f	// db at which compression curve changes
-#define SND_DB_MIN			60.0f	// min db of any sound source
-#define SND_GAIN_PLAYER_WEAPON_DB	2.0f	// increase player weapon gain by N dB
-
 // fixed point stuff for real-time resampling
 #define FIX_BITS			28
 #define FIX_SCALE			(1 << FIX_BITS)
@@ -56,17 +39,8 @@ extern byte *sndpool;
 #define FIX_FRACTION(a,b)		(FIX(a)/(b))
 #define FIX_FRACPART(a)		((a) & FIX_MASK)
 
-#define SNDLVL_TO_DIST_MULT( sndlvl ) \
-	( sndlvl ? ((pow( 10, s_refdb->value / 20 ) / pow( 10, (float)sndlvl / 20 )) / s_refdist->value ) : 0 )
-
-#define DIST_MULT_TO_SNDLVL( dist_mult ) \
-	(int)( dist_mult ? ( 20 * log10( pow( 10, s_refdb->value / 20 ) / (dist_mult * s_refdist->value ))) : 0 )
-
 // NOTE: clipped sound at 32760 to avoid overload
 #define CLIP( x )			(( x ) > 32760 ? 32760 : (( x ) < -32760 ? -32760 : ( x )))
-#define SWAP( a, b, t )		{(t) = (a); (a) = (b); (b) = (t);}
-#define AVG( a, b )			(((a) + (b)) >> 1 )
-#define AVG4( a, b, c, d )		(((a) + (b) + (c) + (d)) >> 2 )
 
 #define PAINTBUFFER_SIZE		1024	// 44k: was 512
 #define PAINTBUFFER			(g_curpaintbuffer)
@@ -193,16 +167,6 @@ typedef struct channel_s
 	qboolean		localsound;	// it's a local menu sound (not looped, not paused)
 	mixer_t		pMixer;
 
-	// sound culling
-	qboolean		bfirstpass;	// true if this is first time sound is spatialized
-	float		ob_gain;		// gain drop if sound source obscured from listener
-	float		ob_gain_target;	// target gain while crossfading between ob_gain & ob_gain_target
-	float		ob_gain_inc;	// crossfade increment
-	qboolean		bTraced;		// true if channel was already checked this frame for obscuring
-	float		radius;		// radius of this sound effect
-	vec3_t		absmin, absmax;	// filled in CL_GetEntitySpatialization
-	int		movetype;		// to determine point entities
-
 	// sentence mixer
 	int		wordIndex;
 	mixer_t		*currentWord;	// NULL if sentence is finished
@@ -225,8 +189,6 @@ typedef struct
 	qboolean		paused;
 	qboolean		streaming;	// playing AVI-file
 	qboolean		stream_paused;	// pause only background track
-
-	byte		pasbytes[(MAX_MAP_LEAFS+7)/8];// actual PHS for current frame
 } listener_t;
 
 typedef struct

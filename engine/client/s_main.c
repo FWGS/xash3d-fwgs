@@ -46,39 +46,9 @@ convar_t		*s_lerping;
 convar_t		*s_ambient_level;
 convar_t		*s_ambient_fade;
 convar_t		*s_combine_sounds;
-convar_t		*snd_foliage_db_loss; 
-convar_t		*snd_gain;
-convar_t		*snd_gain_max;
-convar_t		*snd_gain_min;
 convar_t		*snd_mute_losefocus;
-convar_t		*s_refdist;
-convar_t		*s_refdb;
-convar_t		*s_cull;		// cull sounds by geometry
 convar_t		*s_test;		// cvar for testing new effects
-convar_t		*s_phs;
 convar_t		*s_samplecount;
-
-/*
-=============================================================================
-
-		SOUND COMMON UTILITES
-
-=============================================================================
-*/
-// dB = 20 log (amplitude/32768)		0 to -90.3dB
-// amplitude = 32768 * 10 ^ (dB/20)		0 to +/- 32768
-// gain = amplitude/32768			0 to 1.0
-_inline float Gain_To_dB( float gain ) { return 20 * log( gain ); }
-_inline float dB_To_Gain ( float dB ) { return pow( 10, dB / 20.0f ); }
-_inline float Gain_To_Amplitude( float gain ) { return gain * 32768; }
-_inline float Amplitude_To_Gain( float amplitude ) { return amplitude / 32768; }
-
-// convert sound db level to approximate sound source radius,
-// used only for determining how much of sound is obscured by world
-_inline float dB_To_Radius( float db )
-{
-	return (SND_RADIUS_MIN + (SND_RADIUS_MAX - SND_RADIUS_MIN) * (db - SND_DB_MIN) / (SND_DB_MAX - SND_DB_MIN));
-}
 
 /*
 =============================================================================
@@ -205,74 +175,6 @@ void S_UpdateSoundFade( void )
 		S_StopBackgroundTrack();
 		snd_fade_sequence = false;
 	}
-}
-
-/*
-=================
-SND_ChannelOkToTrace
-
-All new sounds must traceline once,
-but cap the max number of tracelines performed per frame
-for longer or looping sounds to SND_TRACE_UPDATE_MAX.
-=================
-*/
-qboolean SND_ChannelOkToTrace( channel_t *ch )
-{
-	int 	i, j;
-
-	// always trace first time sound is spatialized
-	if( ch->bfirstpass ) return true;
-
-	// if already traced max channels, return
-	if( trace_count >= SND_TRACE_UPDATE_MAX )
-		return false;
-
-	// search through all channels starting at g_snd_last_trace_chan index
-	j = last_trace_chan;
-
- 	for( i = 0; i < total_channels; i++ )
-	{
-		if( &( channels[j] ) == ch )
-		{
-			ch->bTraced = true;
-			trace_count++;
-			return true;
-		}
-
-		// wrap channel index
-		if( ++j >= total_channels )
-			j = 0;
-	}
-	
-	// why didn't we find this channel?
-	return false;			
-}
-
-/*
-=================
-SND_ChannelTraceReset
-
-reset counters for traceline limiting per audio update
-=================
-*/
-void SND_ChannelTraceReset( void )
-{
-	int	i;
-
-	// reset search point - make sure we start counting from a new spot 
-	// in channel list each time
-	last_trace_chan += SND_TRACE_UPDATE_MAX;
-	
-	// wrap at total_channels
-	if( last_trace_chan >= total_channels )
-		last_trace_chan = last_trace_chan - total_channels;
-
-	// reset traceline counter
-	trace_count = 0;
-
-	// reset channel traceline flag
-	for( i = 0; i < total_channels; i++ )
-		channels[i].bTraced = false; 
 }
 
 /*
@@ -499,278 +401,6 @@ int S_AlterChannel( int entnum, int channel, sfx_t *sfx, int vol, int pitch, int
 
 /*
 =================
-SND_FadeToNewGain
-
-always ramp channel gain changes over time
-returns ramped gain, given new target gain
-=================
-*/
-float SND_FadeToNewGain( channel_t *ch, float gain_new )
-{
-	float	speed, frametime;
-
-	if( gain_new == -1.0 )
-	{
-		// if -1 passed in, just keep fading to existing target
-		gain_new = ch->ob_gain_target;
-	}
-
-	// if first time updating, store new gain into gain & target, return
-	// if gain_new is close to existing gain, store new gain into gain & target, return
-	if( ch->bfirstpass || ( fabs( gain_new - ch->ob_gain ) < 0.01f ))
-	{
-		ch->ob_gain = gain_new;
-		ch->ob_gain_target = gain_new;
-		ch->ob_gain_inc = 0.0f;
-		return gain_new;
-	}
-
-	// set up new increment to new target
-	frametime = s_listener.frametime;
-	speed = ( frametime / SND_GAIN_FADE_TIME ) * ( gain_new - ch->ob_gain );
-
-	ch->ob_gain_inc = fabs( speed );
-
-	// ch->ob_gain_inc = fabs( gain_new - ch->ob_gain ) / 10.0f;
-	ch->ob_gain_target = gain_new;
-
-	// if not hit target, keep approaching
-	if( fabs( ch->ob_gain - ch->ob_gain_target ) > 0.01f )
-	{
-		ch->ob_gain = ApproachVal( ch->ob_gain_target, ch->ob_gain, ch->ob_gain_inc );
-	}
-	else
-	{
-		// close enough, set gain = target
-		ch->ob_gain = ch->ob_gain_target;
-	}
-
-	return ch->ob_gain;
-}
-
-/*
-=================
-SND_GetGainObscured
-
-drop gain on channel if sound emitter obscured by
-world, unbroken windows, closed doors, large solid entities etc.
-=================
-*/
-float SND_GetGainObscured( channel_t *ch, qboolean fplayersound, qboolean flooping )
-{
-	float	gain = 1.0f;
-	vec3_t	endpoint;
-	int	count = 1;
-	pmtrace_t	tr;
-
-	if( fplayersound ) return gain; // unchanged
-
-	// during signon just apply regular state machine since world hasn't been
-	// created or settled yet...
-	if( !CL_Active( ))
-	{
-		gain = SND_FadeToNewGain( ch, -1.0f );
-		return gain;
-	}
-
-	// don't do gain obscuring more than once on short one-shot sounds
-	if( !ch->bfirstpass && !ch->isSentence && !flooping && ( ch->entchannel != CHAN_STREAM ))
-	{
-		gain = SND_FadeToNewGain( ch, -1.0f );
-		return gain;
-	}
-
-	// if long or looping sound, process N channels per frame - set 'processed' flag, clear by
-	// cycling through all channels - this maintains a cap on traces per frame
-	if( !SND_ChannelOkToTrace( ch ))
-	{
-		// just keep updating fade to existing target gain - no new trace checking
-		gain = SND_FadeToNewGain( ch, -1.0 );
-		return gain;
-	}
-
-	// set up traceline from player eyes to sound emitting entity origin
-	VectorCopy( ch->origin, endpoint );
-
-	tr = CL_TraceLine( s_listener.origin, endpoint, PM_STUDIO_IGNORE );
-
-	if(( tr.fraction < 1.0f || tr.allsolid || tr.startsolid ) && tr.fraction < 0.99f )
-	{
-		// can't see center of sound source:
-		// build extents based on dB sndlvl of source,
-		// test to see how many extents are visible,
-		// drop gain by g_snd_obscured_loss_db per extent hidden
-		vec3_t	endpoints[4];
-		int	i, sndlvl = DIST_MULT_TO_SNDLVL( ch->dist_mult );
-		vec3_t	vecl, vecr, vecl2, vecr2;
-		vec3_t	vsrc_forward;
-		vec3_t	vsrc_right;
-		vec3_t	vsrc_up;
-		float	radius;
-
-		// get radius
-		if( ch->radius > 0 ) radius = ch->radius;
-		else radius = dB_To_Radius( sndlvl ); // approximate radius from soundlevel
-		
-		// set up extent endpoints - on upward or downward diagonals, facing player
-		for( i = 0; i < 4; i++ ) VectorCopy( endpoint, endpoints[i] );
-
-		// vsrc_forward is normalized vector from sound source to listener
-		VectorSubtract( s_listener.origin, endpoint, vsrc_forward );
-		VectorNormalize( vsrc_forward );
-		VectorVectors( vsrc_forward, vsrc_right, vsrc_up );
-
-		VectorAdd( vsrc_up, vsrc_right, vecl );
-		
-		// if src above listener, force 'up' vector to point down - create diagonals up & down
-		if( endpoint[2] > s_listener.origin[2] + ( 10 * 12 ))
-			vsrc_up[2] = -vsrc_up[2];
-
-		VectorSubtract( vsrc_up, vsrc_right, vecr );
-		VectorNormalize( vecl );
-		VectorNormalize( vecr );
-
-		// get diagonal vectors from sound source 
-		VectorScale( vecl, radius, vecl2 );
-		VectorScale( vecr, radius, vecr2 );
-		VectorScale( vecl, (radius / 2.0f), vecl );
-		VectorScale( vecr, (radius / 2.0f), vecr );
-
-		// endpoints from diagonal vectors
-		VectorAdd( endpoints[0], vecl, endpoints[0] );
-		VectorAdd( endpoints[1], vecr, endpoints[1] );
-		VectorAdd( endpoints[2], vecl2, endpoints[2] );
-		VectorAdd( endpoints[3], vecr2, endpoints[3] );
-
-		// drop gain for each point on radius diagonal that is obscured
-		for( count = 0, i = 0; i < 4; i++ )
-		{
-			// UNDONE: some endpoints are in walls - in this case, trace from the wall hit location
-			tr = CL_TraceLine( s_listener.origin, endpoints[i], PM_STUDIO_IGNORE );
-
-			if(( tr.fraction < 1.0f || tr.allsolid || tr.startsolid ) && tr.fraction < 0.99f && !tr.startsolid )
-			{
-				// skip first obscured point: at least 2 points + center should be obscured to hear db loss
-				if( ++count > 1 ) gain = gain * dB_To_Gain( SND_OBSCURED_LOSS_DB );
-			}
-		}
-	}
-
-	// crossfade to new gain
-	gain = SND_FadeToNewGain( ch, gain );
-
-	return gain;
-}
-
-/*
-=================
-SND_GetGain
-
-The complete gain calculation, with SNDLVL given in dB is:
-GAIN = 1/dist * snd_refdist * 10 ^ (( SNDLVL - snd_refdb - (dist * snd_foliage_db_loss / 1200)) / 20 )
-for gain > SND_GAIN_THRESH, start curve smoothing with
-GAIN = 1 - 1 / (Y * GAIN ^ SND_GAIN_POWER)
-where Y = -1 / ( (SND_GAIN_THRESH ^ SND_GAIN_POWER) * ( SND_GAIN_THRESH - 1 ))
-gain curve construction
-=================
-*/
-float SND_GetGain( channel_t *ch, qboolean fplayersound, qboolean flooping, float dist )
-{
-	float	gain = snd_gain->value;
-
-	if( ch->dist_mult )
-	{
-		// test additional attenuation
-		// at 30c, 14.7psi, 60% humidity, 1000Hz == 0.22dB / 100ft.
-		// dense foliage is roughly 2dB / 100ft
-		float additional_dB_loss = snd_foliage_db_loss->value * (dist / 1200);
-		float additional_dist_mult = pow( 10, additional_dB_loss / 20 );
-		float relative_dist = dist * ch->dist_mult * additional_dist_mult;
-
-		// hard code clamp gain to 10x normal (assumes volume and external clipping)
-		if( relative_dist > 0.1f )
-			gain *= ( 1.0f / relative_dist );
-		else gain *= 10.0f;
-
-		// if gain passess threshold, compress gain curve such that gain smoothly approaches 1.0
-		if( gain > SND_GAIN_COMP_THRESH )
-		{
-			float	snd_gain_comp_power = SND_GAIN_COMP_EXP_MAX;
-			int	sndlvl = DIST_MULT_TO_SNDLVL( ch->dist_mult );
-			float	Y;
-			
-			// decrease compression curve fit for higher sndlvl values
-			if( sndlvl > SND_DB_MED )
-			{
-				// snd_gain_power varies from max to min as sndlvl varies from 90 to 140
-				snd_gain_comp_power = RemapVal((float)sndlvl, SND_DB_MED, SND_DB_MAX, SND_GAIN_COMP_EXP_MAX, SND_GAIN_COMP_EXP_MIN );
-			}
-
-			// calculate crossover point
-			Y = -1.0f / ( pow( SND_GAIN_COMP_THRESH, snd_gain_comp_power ) * ( SND_GAIN_COMP_THRESH - 1 ));
-			
-			// calculate compressed gain
-			gain = 1.0f - 1.0f / (Y * pow( gain, snd_gain_comp_power ));
-			gain = gain * snd_gain_max->value;
-		}
-
-		if( gain < snd_gain_min->value )
-		{
-			// sounds less than snd_gain_min fall off to 0 in distance it took them to fall to snd_gain_min
-			gain = snd_gain_min->value * ( 2.0f - relative_dist * snd_gain_min->value );
-			if( gain <= 0.0f ) gain = 0.001f; // don't propagate 0 gain
-		}
-	}
-
-	if( fplayersound )
-	{
-		// player weapon sounds get extra gain - this compensates
-		// for npc distance effect weapons which mix louder as L+R into L, R
-		if( ch->entchannel == CHAN_WEAPON )
-			gain = gain * dB_To_Gain( SND_GAIN_PLAYER_WEAPON_DB );
-	}
-
-	// modify gain if sound source not visible to player
-	gain = gain * SND_GetGainObscured( ch, fplayersound, flooping );
-
-	return gain; 
-}
-
-/*
-=================
-SND_CheckPHS
-
-using a 'fat' radius
-=================
-*/
-qboolean SND_CheckPHS( channel_t *ch )
-{
-	mleaf_t	*leaf;
-
-	if( !s_phs->value )
-		return true;
-
-	if( !ch->dist_mult && ch->entnum )
-		return true; // no attenuation 
-
-	if( ch->movetype == MOVETYPE_PUSH )
-	{
-		if( Mod_BoxVisible( ch->absmin, ch->absmax, s_listener.pasbytes ))
-			return true;
-	}
-	else
-	{
-		leaf = Mod_PointInLeaf( ch->origin, cl.worldmodel->nodes );
-
-		if( CHECKVISBIT( s_listener.pasbytes, leaf->cluster ))
-			return true;
-	}
-
-	return false;
-}
-
-/*
-=================
 S_SpatializeChannel
 =================
 */
@@ -782,12 +412,10 @@ void S_SpatializeChannel( int *left_vol, int *right_vol, int master_vol, float g
 	lscale = 1.0f - dot;
 
 	// add in distance effect
-	if( s_cull->value ) scale = gain * rscale / 2;
-	else scale = ( 1.0f - dist ) * rscale;
+	scale = ( 1.0f - dist ) * rscale;
 	*right_vol = (int)( master_vol * scale );
 
-	if( s_cull->value ) scale = gain * lscale / 2;
-	else scale = ( 1.0f - dist ) * lscale;
+	scale = ( 1.0f - dist ) * lscale;
 	*left_vol = (int)( master_vol * scale );
 
 	*right_vol = bound( 0, *right_vol, 255 );
@@ -803,22 +431,15 @@ void SND_Spatialize( channel_t *ch )
 {
 	vec3_t	source_vec;
 	float	dist, dot, gain = 1.0f;
-	qboolean	fplayersound = false;
 	qboolean	looping = false;
 	wavdata_t	*pSource;
 
 	// anything coming from the view entity will allways be full volume
 	if( S_IsClient( ch->entnum ))
 	{
-		if( !s_cull->value )
-		{
-			ch->leftvol = ch->master_vol;
-			ch->rightvol = ch->master_vol;
-			return;
-		}
-
-		// sounds coming from listener actually come from a short distance directly in front of listener
-		fplayersound = true;
+		ch->leftvol = ch->master_vol;
+		ch->rightvol = ch->master_vol;
+		return;
 	}
 
 	pSource = ch->sfx->cache;
@@ -828,48 +449,21 @@ void SND_Spatialize( channel_t *ch )
 
 	if( !ch->staticsound )
 	{
-		if( !CL_GetEntitySpatialization( ch ) || !SND_CheckPHS( ch ))
+		if( !CL_GetEntitySpatialization( ch ))
 		{
 			// origin is null and entity not exist on client
 			ch->leftvol = ch->rightvol = 0;
-			ch->bfirstpass = false;
 			return;
 		}
 	}
 
 	// source_vec is vector from listener to sound source
 	// player sounds come from 1' in front of player
-	if( fplayersound ) VectorScale( s_listener.forward, 12.0f, source_vec );
-	else VectorSubtract( ch->origin, s_listener.origin, source_vec );
+	VectorSubtract( ch->origin, s_listener.origin, source_vec );
 
 	// normalize source_vec and get distance from listener to source
 	dist = VectorNormalizeLength( source_vec );
 	dot = DotProduct( s_listener.right, source_vec );
-
-	// a1ba: disabled for better multiplayer
-#if 0
-	// for sounds with a radius, spatialize left/right evenly within the radius
-	if( ch->radius > 0 && dist < ch->radius )
-	{
-		float	interval = ch->radius * 0.5f;
-		float	blend = dist - interval;
-
-		if( blend < 0 ) blend = 0;
-		blend /= interval;
-
-		// blend is 0.0 - 1.0, from 50% radius -> 100% radius
-		// at radius * 0.5, dot is 0 (ie: sound centered left/right)
-		// at radius dot == dot
-		dot *= blend;
-	}
-#endif
-
-	if( s_cull->value )
-	{
-		// calculate gain based on distance, atmospheric attenuation, interposed objects
-		// perform compression as gain approaches 1.0
-		gain = SND_GetGain( ch, fplayersound, looping, dist );
-	}
 
 	// don't pan sounds with no attenuation
 	if( ch->dist_mult <= 0.0f ) dot = 0.0f;
@@ -879,9 +473,6 @@ void SND_Spatialize( channel_t *ch )
 
 	// if playing a word, set volume
 	VOX_SetChanVol( ch );
-
-	// end of first time spatializing sound
-	if( CL_Active( )) ch->bfirstpass = false;
 }
 
 /*
@@ -954,15 +545,7 @@ void S_StartSound( const vec3_t pos, int ent, int chan, sound_t handle, float fv
 	target_chan->entchannel = chan;
 	target_chan->basePitch = pitch;
 	target_chan->isSentence = false;
-	target_chan->radius = 0.0f;
 	target_chan->sfx = sfx;
-
-	// initialize gain due to obscured sound source
-	target_chan->bfirstpass = true;
-	target_chan->ob_gain = 0.0f;
-	target_chan->ob_gain_inc = 0.0f;
-	target_chan->ob_gain_target = 0.0f;
-	target_chan->bTraced = false;
 
 	pSource = NULL;
 
@@ -1074,15 +657,7 @@ void S_RestoreSound( const vec3_t pos, int ent, int chan, sound_t handle, float 
 	target_chan->entchannel = chan;
 	target_chan->basePitch = pitch;
 	target_chan->isSentence = false;
-	target_chan->radius = 0.0f;
 	target_chan->sfx = sfx;
-
-	// initialize gain due to obscured sound source
-	target_chan->bfirstpass = true;
-	target_chan->ob_gain = 0.0f;
-	target_chan->ob_gain_inc = 0.0f;
-	target_chan->ob_gain_target = 0.0f;
-	target_chan->bTraced = false;
 
 	pSource = NULL;
 
@@ -1162,7 +737,6 @@ void S_AmbientSound( const vec3_t pos, int ent, sound_t handle, float fvol, floa
 	wavdata_t	*pSource = NULL;
 	sfx_t	*sfx = NULL;
 	int	vol, fvox = 0;
-	float	radius = SND_RADIUS_MAX;
 
 	if( !dma.initialized ) return;
 	sfx = S_GetSfxByHandle( handle );
@@ -1224,14 +798,6 @@ void S_AmbientSound( const vec3_t pos, int ent, sound_t handle, float fvol, floa
 	ch->dist_mult = (attn / SND_CLIP_DISTANCE);
 	ch->entchannel = CHAN_STATIC;
 	ch->basePitch = pitch;
-	ch->radius = radius;
-
-	// initialize gain due to obscured sound source
-	ch->bfirstpass = true;
-	ch->ob_gain = 0.0;
-	ch->ob_gain_inc = 0.0;
-	ch->ob_gain_target = 0.0;
-	ch->bTraced = false;
 
 	SND_Spatialize( ch );
 }
@@ -1788,21 +1354,6 @@ static void S_SpatializeRawChannels( void )
 				dist = VectorNormalizeLength( source_vec );
 				dot = DotProduct( s_listener.right, source_vec );
 
-				// for sounds with a radius, spatialize left/right evenly within the radius
-				if( ch->radius > 0 && dist < ch->radius )
-				{
-					float	interval = ch->radius * 0.5f;
-					float	blend = dist - interval;
-
-					if( blend < 0 ) blend = 0;
-					blend /= interval;	
-
-					// blend is 0.0 - 1.0, from 50% radius -> 100% radius
-					// at radius * 0.5, dot is 0 (ie: sound centered left/right)
-					// at radius dot == dot
-					dot *= blend;
-				}
-
 				// don't pan sounds with no attenuation
 				if( ch->dist_mult <= 0.0f ) dot = 0.0f;
 
@@ -1997,9 +1548,6 @@ void SND_UpdateSound( void )
 	s_listener.inmenu = CL_IsInMenu();
 	s_listener.paused = cl.paused;
 
-	if( cl.worldmodel != NULL )
-		Mod_FatPVS( s_listener.origin, FATPHS_RADIUS, s_listener.pasbytes, world.visbytes, false, !s_phs->value );
-
 	// update general area ambient sound sources
 	S_UpdateAmbientSounds();
 
@@ -2075,14 +1623,7 @@ void SND_UpdateSound( void )
 			}
 		}
 
-		// to differentiate modes
-		if( s_cull->value && s_phs->value )
-			VectorSet( info.color, 0.0f, 1.0f, 0.0f );
-		else if( s_phs->value )
-			VectorSet( info.color, 1.0f, 1.0f, 0.0f );
-		else if( s_cull->value )
-			VectorSet( info.color, 1.0f, 0.0f, 0.0f );
-		else VectorSet( info.color, 1.0f, 1.0f, 1.0f );
+		VectorSet( info.color, 1.0f, 1.0f, 1.0f );
 		info.index = 0;
 
 		Con_NXPrintf( &info, "room_type: %i ----(%i)---- painted: %i\n", idsp_room, total - 1, paintedtime );
@@ -2285,16 +1826,8 @@ qboolean S_Init( void )
 	s_ambient_level = Cvar_Get( "ambient_level", "0.3", FCVAR_ARCHIVE, "volume of environment noises (water and wind)" );
 	s_ambient_fade = Cvar_Get( "ambient_fade", "1000", FCVAR_ARCHIVE, "rate of volume fading when client is moving" );
 	s_combine_sounds = Cvar_Get( "s_combine_channels", "0", FCVAR_ARCHIVE, "combine channels with same sounds" ); 
-	snd_foliage_db_loss = Cvar_Get( "snd_foliage_db_loss", "4", 0, "foliage loss factor" ); 
-	snd_gain_max = Cvar_Get( "snd_gain_max", "1", 0, "gain maximal threshold" );
-	snd_gain_min = Cvar_Get( "snd_gain_min", "0.01", 0, "gain minimal threshold" );
 	snd_mute_losefocus = Cvar_Get( "snd_mute_losefocus", "1", FCVAR_ARCHIVE, "silence the audio when game window loses focus" );
-	s_refdist = Cvar_Get( "s_refdist", "36", 0, "soundlevel reference distance" );
-	s_refdb = Cvar_Get( "s_refdb", "60", 0, "soundlevel refernce dB" );
-	snd_gain = Cvar_Get( "snd_gain", "1", 0, "sound default gain" );
-	s_cull = Cvar_Get( "s_cull", "0", FCVAR_ARCHIVE, "cull sounds by geometry" );
 	s_test = Cvar_Get( "s_test", "0", 0, "engine developer cvar for quick testing new features" );
-	s_phs = Cvar_Get( "s_phs", "0", FCVAR_ARCHIVE, "cull sounds by PHS" );
 	s_samplecount = Cvar_Get( "s_samplecount", "0", FCVAR_ARCHIVE, "sample count (0 for default value)" );
 
 	Cmd_AddCommand( "play", S_Play_f, "playing a specified sound file" );
