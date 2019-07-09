@@ -287,12 +287,6 @@ void SV_ConnectClient( netadr_t from )
 		return;
 	}
 
-	if( !SV_ProcessUserAgent( from, Cmd_Argv( 6 ) ) )
-	{
-		Netchan_OutOfBandPrint( NS_SERVER, from, "disconnect\n" );
-		return;
-	}
-
 	challenge = Q_atoi( Cmd_Argv( 2 )); // get challenge
 
 	// see if the challenge is valid (local clients don't need to challenge)
@@ -309,6 +303,12 @@ void SV_ConnectClient( netadr_t from )
 
 	Q_strncpy( protinfo, s, sizeof( protinfo ));
 
+	if( !SV_ProcessUserAgent( from, protinfo ) )
+	{
+		Netchan_OutOfBandPrint( NS_SERVER, from, "disconnect\n" );
+		return;
+	}
+
 	// extract qport from protocol info
 	qport = Q_atoi( Info_ValueForKey( protinfo, "qport" ));
 
@@ -320,7 +320,6 @@ void SV_ConnectClient( netadr_t from )
 	}
 
 	extensions = Q_atoi( Info_ValueForKey( protinfo, "ext" ) );
-
 
 	// LAN servers restrict to class b IP addresses
 	if( !SV_CheckIPRestrictions( from ))

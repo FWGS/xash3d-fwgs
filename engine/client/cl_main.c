@@ -1021,6 +1021,24 @@ void CL_SendConnectPacket( void )
 
 	memset( protinfo, 0, sizeof( protinfo ));
 
+	if( adr.type == NA_LOOPBACK )
+	{
+		IN_LockInputDevices( false );
+	}
+	else
+	{
+		int input_devices;
+
+		input_devices = IN_CollectInputDevices();
+		IN_LockInputDevices( true );
+
+		Info_SetValueForKey( protinfo, "d", va( "%d", input_devices ), sizeof( protinfo ) );
+		Info_SetValueForKey( protinfo, "v", XASH_VERSION, sizeof( protinfo ) );
+		Info_SetValueForKey( protinfo, "b", va( "%d", Q_buildnum() ), sizeof( protinfo ) );
+		Info_SetValueForKey( protinfo, "o", Q_buildos(), sizeof( protinfo ) );
+		Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
+	}
+
 	if( cls.legacymode )
 	{
 		// set related userinfo keys
@@ -1032,13 +1050,7 @@ void CL_SendConnectPacket( void )
 		if( !*Info_ValueForKey( cls.userinfo,"cl_maxpayload") )
 			Info_SetValueForKey( cls.userinfo, "cl_maxpayload", "1000", sizeof( cls.userinfo ) );
 
-		/// TODO: add input devices list
-		//Info_SetValueForKey( protinfo, "d", va( "%d", input_devices ), sizeof( protinfo ) );
-		Info_SetValueForKey( protinfo, "v", XASH_VERSION, sizeof( protinfo ) );
-		Info_SetValueForKey( protinfo, "b", va( "%d", Q_buildnum() ), sizeof( protinfo ) );
-		Info_SetValueForKey( protinfo, "o", Q_buildos(), sizeof( protinfo ) );
-		Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
-		Info_SetValueForKey( protinfo, "i", ID_GetMD5(), sizeof( protinfo ) );
+		Info_SetValueForKey( protinfo, "i", key, sizeof( protinfo ) );
 
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\" %d \"%s\"\n",
 			PROTOCOL_LEGACY_VERSION, Q_atoi( qport ), cls.challenge, cls.userinfo, NET_LEGACY_EXT_SPLIT, protinfo );
@@ -1051,7 +1063,7 @@ void CL_SendConnectPacket( void )
 		if( cl_dlmax->value > FRAGMENT_MAX_SIZE  || cl_dlmax->value < FRAGMENT_MIN_SIZE )
 			Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
 
-		Info_RemoveKey( cls.userinfo,"cl_maxpacket" );
+		Info_RemoveKey( cls.userinfo, "cl_maxpacket" );
 		Info_RemoveKey( cls.userinfo, "cl_maxpayload" );
 
 		Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
@@ -1061,7 +1073,6 @@ void CL_SendConnectPacket( void )
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, cls.challenge, protinfo, cls.userinfo );
 		Con_Printf( "Trying to connect by modern protocol\n" );
 	}
-
 
 	cls.timestart = Sys_DoubleTime();
 }
@@ -1486,6 +1497,8 @@ void CL_Disconnect( void )
 
 	// clear the network channel, too.
 	Netchan_Clear( &cls.netchan );
+
+	IN_LockInputDevices( false ); // unlock input devices
 
 	cls.state = ca_disconnected;
 	cls.set_lastdemo = false;
