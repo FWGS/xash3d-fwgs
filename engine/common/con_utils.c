@@ -599,6 +599,16 @@ static void Con_AddCommandToList( const char *s, const char *unused1, const char
 }
 
 /*
+=================
+Con_SortCmds
+=================
+*/
+static int Con_SortCmds( const void *arg1, const void *arg2 )
+{
+	return Q_stricmp( *(const char **)arg1, *(const char **)arg2 );
+}
+
+/*
 =====================================
 Cmd_GetCommandsList
 
@@ -631,6 +641,8 @@ qboolean Cmd_GetCommandsList( const char *s, char *completedname, int length )
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
 	if( list.matchCount == 1 ) return true;
+
+	qsort( list.cmds, list.matchCount, sizeof( char* ), Con_SortCmds );
 
 	for( i = 0; i < list.matchCount; i++ )
 	{
@@ -1024,16 +1036,6 @@ qboolean Cmd_AutocompleteName( const char *source, int arg, char *buffer, size_t
 	}
 
 	return false;
-}
-
-/*
-=================
-Con_SortCmds
-=================
-*/
-static int Con_SortCmds( const void *arg1, const void *arg2 )
-{
-	return Q_stricmp( *(const char **)arg1, *(const char **)arg2 );
 }
 
 /*
