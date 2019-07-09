@@ -981,6 +981,8 @@ autocomplete_list_t cmd_list[] =
 { "timedemo", 1, Cmd_GetDemoList, },
 { "playvol", 1, Cmd_GetSoundList },
 { "hpkval", 1, Cmd_GetCustomList },
+{ "hpklist", 1, Cmd_GetCustomList },
+{ "hpkextract", 1, Cmd_GetCustomList },
 { "entpatch", 1, Cmd_GetMapList },
 { "music", 1, Cmd_GetMusicList, },
 { "movie", 1, Cmd_GetMovieList },
