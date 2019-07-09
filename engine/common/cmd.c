@@ -1139,6 +1139,83 @@ void Cmd_Unlink( int group )
 	Con_Reportf( "unlink %i commands\n", count );
 }
 
+static void Cmd_Apropos_f( void )
+{
+	cmd_t *cmd;
+	convar_t *var;
+	cmdalias_t *alias;
+	const char *partial;
+	int count = 0;
+	qboolean ispattern;
+
+	if( Cmd_Argc() > 1 )
+	{
+		partial = Cmd_Args();
+	}
+	else
+	{
+		Msg( "apropos what?\n" );
+		return;
+	}
+
+	ispattern = partial && ( Q_strchr( partial, '*' ) || Q_strchr( partial, '?' ));
+	if( !ispattern )
+		partial = va( "*%s*", partial );
+
+	for( var = (convar_t*)Cvar_GetList(); var; var = var->next )
+	{
+		if( !matchpattern_with_separator( var->name, partial, true, "", false ) )
+		{
+			const char *desc;
+
+			if( var->flags & FCVAR_EXTENDED )
+				desc = var->desc;
+			else desc = "game cvar";
+
+			if( !desc )
+				desc = "user cvar";
+
+			if( !matchpattern_with_separator( desc, partial, true, "", false ))
+				continue;
+		}
+
+		// TODO: maybe add flags output like cvarlist, also
+		// fix inconsistencies in output from different commands
+		Msg( "cvar ^3%s^7 is \"%s\" [\"%s\"] %s\n",
+			var->name, var->string,
+		     ( var->flags & FCVAR_EXTENDED ) ? var->def_string : "",
+		     ( var->flags & FCVAR_EXTENDED ) ? var->desc : "game cvar");
+		count++;
+	}
+
+	for( cmd = Cmd_GetFirstFunctionHandle(); cmd; cmd = Cmd_GetNextFunctionHandle( cmd ) )
+	{
+		if( cmd->name[0] == '@' )
+			continue;	// never show system cmds
+
+		if( !matchpattern_with_separator( cmd->name, partial, true, "", false ) &&
+			!matchpattern_with_separator( cmd->desc, partial, true, "", false ))
+			continue;
+
+		Msg( "command ^2%s^7: %s\n", cmd->name, cmd->desc );
+		count++;
+	}
+
+	for( alias = Cmd_AliasGetList(); alias; alias = alias->next )
+	{
+		// proceed a bit differently here as an alias value always got a final \n
+		if( !matchpattern_with_separator( alias->name, partial, true, "", false ) &&
+			!matchpattern_with_separator( alias->value, partial, true, "\n", false )) // when \n is a separator, wildcards don't match it //-V666
+			continue;
+
+		Msg( "alias ^5%s^7: %s", alias->name, alias->value ); // do not print an extra \n
+		count++;
+	}
+
+	Msg( "\n%i result%s\n\n", count, (count > 1) ? "s" : "" );
+}
+
+
 /*
 ============
 Cmd_Null_f
@@ -1170,6 +1247,7 @@ void Cmd_Init( void )
 	Cmd_AddCommand( "wait", Cmd_Wait_f, "make script execution wait for some rendered frames" );
 	Cmd_AddCommand( "cmdlist", Cmd_List_f, "display all console commands beginning with the specified prefix" );
 	Cmd_AddCommand( "stuffcmds", Cmd_StuffCmds_f, "execute commandline parameters (must be present in .rc script)" );
+	Cmd_AddCommand( "apropos", Cmd_Apropos_f, "lists all console variables/commands/aliases containing the specified string in the name or description" );
 #ifndef XASH_DEDICATED
 	Cmd_AddCommand( "cmd", Cmd_ForwardToServer, "send a console commandline to the server" );
 #endif
