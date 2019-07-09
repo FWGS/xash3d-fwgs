@@ -52,6 +52,64 @@ convar_t *cl_backspeed;
 convar_t *look_filter;
 
 /*
+================
+IN_CollectInputDevices
+
+Returns a bit mask representing connected devices or, at least, enabled
+================
+*/
+uint IN_CollectInputDevices( void )
+{
+	uint ret = 0;
+
+	if( !m_ignore->value ) // no way to check is mouse connected, so use cvar only
+		ret |= INPUT_DEVICE_MOUSE;
+
+#if 0 // TOUCHTODO
+	if( touch_enable->value )
+		ret |= INPUT_DEVICE_TOUCH;
+#endif
+
+	if( Joy_IsActive() ) // connected or enabled
+		ret |= INPUT_DEVICE_JOYSTICK;
+
+	Con_Reportf( "Connected devices: %s%s%s%s\n",
+		FBitSet( ret, INPUT_DEVICE_MOUSE )    ? "mouse " : "",
+		FBitSet( ret, INPUT_DEVICE_TOUCH )    ? "touch " : "",
+		FBitSet( ret, INPUT_DEVICE_JOYSTICK ) ? "joy " : "",
+		FBitSet( ret, INPUT_DEVICE_VR )       ? "vr " : "");
+
+	return ret;
+}
+
+/*
+=================
+IN_LockInputDevices
+
+tries to lock any possibilty to connect another input device after
+player is connected to the server
+=================
+*/
+void IN_LockInputDevices( qboolean lock )
+{
+	extern convar_t *joy_enable; // private to input system
+
+	if( lock )
+	{
+		SetBits( m_ignore->flags, FCVAR_READ_ONLY );
+		SetBits( joy_enable->flags, FCVAR_READ_ONLY );
+		// TOUCHTODO
+	}
+	else
+	{
+		ClearBits( m_ignore->flags, FCVAR_READ_ONLY );
+		ClearBits( joy_enable->flags, FCVAR_READ_ONLY );
+		// TOUCHTODO
+	}
+}
+
+
+/*
 ===========
 IN_StartupMouse
 ===========
