@@ -13,12 +13,6 @@ jdk:
 
 jobs:
   include:
-    - stage: init
-      name: "Initialize webdav cache"
-      os: linux
-      cache: false
-      script:
-        - sh scripts/yadisk_clear.sh
     - stage: build
       name: "Build for Linux & Android"
       cache: ccache
@@ -91,10 +85,3 @@ jobs:
         - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
       after_script:
         - sh scripts/continious_upload.sh xash3d-vc.7z xash3d-vc2008-sln.7z
-    - stage: deploy
-      name: "Deploy to github repo"
-      os: linux
-      cache: false
-      script:
-        - sh scripts/travis-deploy.sh Xash3DFWGS-i386.AppImage xash3d-osx.tar.bz2 xash3d-vc.7z xash3d-vc2008-sln.7z # xash3d-mingw.7z
-
