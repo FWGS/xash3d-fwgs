@@ -25,6 +25,7 @@ extern convar_t	*con_gamemaps;
 typedef struct autocomplete_list_s
 {
 	const char *name;
+	int arg; // argument number to handle
 	qboolean (*func)( const char *s, char *name, int length );
 } autocomplete_list_t;
 
@@ -528,7 +529,137 @@ qboolean Cmd_GetItemsList( const char *s, char *completedname, int length )
 	}
 	return true;
 }
-#endif
+
+/*
+=====================================
+Cmd_GetKeysList
+
+Autocomplete for bind command
+=====================================
+*/
+qboolean Cmd_GetKeysList( const char *s, char *completedname, int length )
+{
+	size_t i, numkeys;
+	string keys[256];
+	string matchbuf;
+
+	// compare keys list with current keyword
+	for( i = 0, numkeys = 0; i < 255; i++ )
+	{
+		const char *keyname = Key_KeynumToString( i );
+
+		if(( *s == '*' ) || !Q_strnicmp( keyname, s, Q_strlen( s )))
+			Q_strcpy( keys[numkeys++], keyname );
+	}
+
+	if( !numkeys ) return false;
+	Q_strncpy( matchbuf, keys[0], sizeof( matchbuf ));
+	if( completedname && length )
+		Q_strncpy( completedname, matchbuf, length );
+	if( numkeys == 1 ) return true;
+
+	for( i = 0; i < numkeys; i++ )
+	{
+		Q_strncpy( matchbuf, keys[i], sizeof( matchbuf ));
+		Con_Printf( "%16s\n", matchbuf );
+	}
+
+	Con_Printf( "\n^3 %i keys found.\n", numkeys );
+
+	if( completedname && length )
+	{
+		for( i = 0; matchbuf[i]; i++ )
+		{
+			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
+				completedname[i] = 0;
+		}
+	}
+
+	return true;
+}
+#endif // XASH_DEDICATED
+
+/*
+===============
+Con_AddCommandToList
+
+===============
+*/
+static void Con_AddCommandToList( const char *s, const char *unused1, const char *unused2, void *_autocompleteList )
+{
+	con_autocomplete_t *list = (con_autocomplete_t*)_autocompleteList;
+
+	if( *s == '@' ) return; // never show system cvars or cmds
+	if( list->matchCount >= CON_MAXCMDS ) return; // list is full
+
+	if( Q_strnicmp( s, list->completionString, Q_strlen( list->completionString ) ) )
+		return; // no match
+
+	list->cmds[list->matchCount++] = copystring( s );
+}
+
+/*
+=====================================
+Cmd_GetCommandsList
+
+Autocomplete for bind command
+=====================================
+*/
+qboolean Cmd_GetCommandsList( const char *s, char *completedname, int length )
+{
+	size_t i;
+	string matchbuf;
+	con_autocomplete_t list; // local autocomplete list
+
+	memset( &list, 0, sizeof( list ));
+
+	list.completionString = s;
+
+	// skip backslash
+	while( *list.completionString && (*list.completionString == '\\' || *list.completionString == '/') )
+		list.completionString++;
+
+	if( !Q_strlen( list.completionString ) )
+		return false;
+
+	// find matching commands and variables
+	Cmd_LookupCmds( NULL, &list, (setpair_t)Con_AddCommandToList );
+	Cvar_LookupVars( 0, NULL, &list, (setpair_t)Con_AddCommandToList );
+
+	if( !list.matchCount ) return false;
+	Q_strncpy( matchbuf, list.cmds[0], sizeof( matchbuf ));
+	if( completedname && length )
+		Q_strncpy( completedname, matchbuf, length );
+	if( list.matchCount == 1 ) return true;
+
+	for( i = 0; i < list.matchCount; i++ )
+	{
+		Q_strncpy( matchbuf, list.cmds[i], sizeof( matchbuf ));
+		Con_Printf( "%16s\n", matchbuf );
+	}
+
+	Con_Printf( "\n^3 %i commands found.\n", list.matchCount );
+
+	if( completedname && length )
+	{
+		for( i = 0; matchbuf[i]; i++ )
+		{
+			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
+				completedname[i] = 0;
+		}
+	}
+
+	for( i = 0; i < list.matchCount; i++ )
+	{
+		if( list.cmds[i] != NULL )
+		{
+			Mem_Free( list.cmds[i] );
+		}
+	}
+
+	return true;
+}
+
 
 /*
 =====================================
@@ -831,27 +962,30 @@ int Cmd_CheckMapsList( int fRefresh )
 
 autocomplete_list_t cmd_list[] =
 {
-{ "map_background", Cmd_GetMapList },
-{ "changelevel2", Cmd_GetMapList },
-{ "changelevel", Cmd_GetMapList },
-{ "playdemo", Cmd_GetDemoList, },
-{ "timedemo", Cmd_GetDemoList, },
-{ "playvol", Cmd_GetSoundList },
-{ "hpkval", Cmd_GetCustomList },
-{ "entpatch", Cmd_GetMapList },
-{ "music", Cmd_GetMusicList, },
-{ "movie", Cmd_GetMovieList },
-{ "exec", Cmd_GetConfigList },
+{ "map_background", 1, Cmd_GetMapList },
+{ "changelevel2", 1, Cmd_GetMapList },
+{ "changelevel", 1, Cmd_GetMapList },
+{ "playdemo", 1, Cmd_GetDemoList, },
+{ "timedemo", 1, Cmd_GetDemoList, },
+{ "playvol", 1, Cmd_GetSoundList },
+{ "hpkval", 1, Cmd_GetCustomList },
+{ "entpatch", 1, Cmd_GetMapList },
+{ "music", 1, Cmd_GetMusicList, },
+{ "movie", 1, Cmd_GetMovieList },
+{ "exec", 1, Cmd_GetConfigList },
 #ifndef XASH_DEDICATED
-{ "give", Cmd_GetItemsList },
-{ "drop", Cmd_GetItemsList },
+{ "give", 1, Cmd_GetItemsList },
+{ "drop", 1, Cmd_GetItemsList },
+{ "bind", 1, Cmd_GetKeysList },
+{ "unbind", 1, Cmd_GetKeysList },
+{ "bind", 2, Cmd_GetCommandsList },
 #endif
-{ "game", Cmd_GetGamesList },
-{ "save", Cmd_GetSavesList },
-{ "load", Cmd_GetSavesList },
-{ "play", Cmd_GetSoundList },
-{ "map", Cmd_GetMapList },
-{ "cd", Cmd_GetCDList },
+{ "game", 1, Cmd_GetGamesList },
+{ "save", 1, Cmd_GetSavesList },
+{ "load", 1, Cmd_GetSavesList },
+{ "play", 1, Cmd_GetSoundList },
+{ "map", 1, Cmd_GetMapList },
+{ "cd", 1, Cmd_GetCDList },
 { NULL }, // termiantor
 };
 
@@ -879,34 +1013,17 @@ Autocomplete filename
 for various cmds
 ============
 */
-qboolean Cmd_AutocompleteName( const char *source, char *buffer, size_t bufsize )
+qboolean Cmd_AutocompleteName( const char *source, int arg, char *buffer, size_t bufsize )
 {
 	autocomplete_list_t	*list;
 
 	for( list = cmd_list; list->name; list++ )
 	{
-		if( Cmd_CheckName( list->name ))
+		if( list->arg == arg && Cmd_CheckName( list->name ))
 			return list->func( source, buffer, bufsize ); 
 	}
 
 	return false;
-}
-
-/*
-===============
-Con_AddCommandToList
-
-===============
-*/
-static void Con_AddCommandToList( const char *s, const char *unused1, const char *unused2, void *unused3 )
-{
-	if( *s == '@' ) return; // never show system cvars or cmds
-	if( con.matchCount >= CON_MAXCMDS ) return; // list is full
-
-	if( Q_strnicmp( s, con.completionString, Q_strlen( con.completionString ) ) )
-		return; // no match
-
-	con.cmds[con.matchCount++] = copystring( s );
 }
 
 /*
@@ -1008,15 +1125,10 @@ void Con_CompleteCommand( field_t *field )
 	nextcmd = (con.completionField->buffer[Q_strlen( con.completionField->buffer ) - 1] == ' ') ? true : false;
 
 	con.completionString = Cmd_Argv( 0 );
-	con.completionBuffer = Cmd_Argv( 1 );
 
 	// skip backslash
 	while( *con.completionString && (*con.completionString == '\\' || *con.completionString == '/') )
 		con.completionString++;
-
-	// skip backslash
-	while( *con.completionBuffer && (*con.completionBuffer == '\\' || *con.completionBuffer == '/') )
-		con.completionBuffer++;
 
 	if( !Q_strlen( con.completionString ) )
 		return;
@@ -1035,31 +1147,39 @@ void Con_CompleteCommand( field_t *field )
 	con.shortestMatch[0] = 0;
 
 	// find matching commands and variables
-	Cmd_LookupCmds( NULL, NULL, (setpair_t)Con_AddCommandToList );
-	Cvar_LookupVars( 0, NULL, NULL, (setpair_t)Con_AddCommandToList );
+	Cmd_LookupCmds( NULL, &con, (setpair_t)Con_AddCommandToList );
+	Cvar_LookupVars( 0, NULL, &con, (setpair_t)Con_AddCommandToList );
 
 	if( !con.matchCount ) return; // no matches
 
 	memcpy( &temp, con.completionField, sizeof( field_t ) );
 
 	// autocomplete second arg
-	if( (Cmd_Argc() == 2) || ((Cmd_Argc() == 1) && nextcmd) )
+	if( (Cmd_Argc() >= 2) || ((Cmd_Argc() == 1) && nextcmd) )
 	{
+		con.completionBuffer = Cmd_Argv( Cmd_Argc() - 1 );
+
+		// skip backslash
+		while( *con.completionBuffer && (*con.completionBuffer == '\\' || *con.completionBuffer == '/') )
+			con.completionBuffer++;
+
 		if( !Q_strlen( con.completionBuffer ) )
 			return;
 
-		if( Cmd_AutocompleteName( con.completionBuffer, filename, sizeof( filename ) ) )
+		if( Cmd_AutocompleteName( con.completionBuffer, Cmd_Argc() - 1, filename, sizeof( filename ) ) )
 		{
-			Q_sprintf( con.completionField->buffer, "%s %s", Cmd_Argv( 0 ), filename );
+			con.completionField->buffer[0] = 0;
+
+			for( i = 0; i < Cmd_Argc() - 1; i++ )
+			{
+				Q_strncat( con.completionField->buffer, Cmd_Argv( i ), sizeof( con.completionField->buffer ));
+				Q_strncat( con.completionField->buffer, " ", sizeof( con.completionField->buffer ));
+			}
+			Q_strncat( con.completionField->buffer, filename, sizeof( con.completionField->buffer ));
 			con.completionField->cursor = Q_strlen( con.completionField->buffer );
 		}
 
 		// don't adjusting cursor pos if we nothing found
-		return;
-	}
-	else if( Cmd_Argc() >= 3 )
-	{
-		// disable autocomplete for all next args
 		return;
 	}
 
