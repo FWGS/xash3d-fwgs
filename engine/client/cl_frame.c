@@ -1376,19 +1376,9 @@ qboolean CL_GetEntitySpatialization( channel_t *ch )
 	if( ent->curstate.messagenum != cl.parsecount )
 		return valid_origin;
 #endif
-	ch->movetype = ent->curstate.movetype;
-
 	// setup origin
 	VectorAverage( ent->curstate.mins, ent->curstate.maxs, ch->origin );
 	VectorAdd( ch->origin, ent->curstate.origin, ch->origin );
-
-	// setup mins\maxs
-	VectorAdd( ent->curstate.mins, ent->curstate.origin, ch->absmin );
-	VectorAdd( ent->curstate.maxs, ent->curstate.origin, ch->absmax );
-
-	// setup radius
-	if( ent->model != NULL && ent->model->radius ) ch->radius = ent->model->radius;
-	else ch->radius = RadiusFromBounds( ent->curstate.mins, ent->curstate.maxs );
 
 	return true;
 }

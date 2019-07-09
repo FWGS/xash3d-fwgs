@@ -855,18 +855,6 @@ void CheckNewDspPresets( void )
 	DLY_CheckNewStereoDelayVal();
 }
 
-/*
-===========
-DSP_GetGain
-
-(xash dsp interface)
-===========
-*/
-float DSP_GetGain( int idsp )
-{
-	return 1.0f;
-}
-
 void SX_Profiling_f( void )
 {
 	portable_samplepair_t	testbuffer[512];
