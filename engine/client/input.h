@@ -89,12 +89,12 @@ enum
 };
 
 qboolean Joy_IsActive( void );
-void Joy_HatMotionEvent( int id, byte hat, byte value );
-void Joy_AxisMotionEvent( int id, byte axis, short value );
-void Joy_BallMotionEvent( int id, byte ball, short xrel, short yrel );
-void Joy_ButtonEvent( int id, byte button, byte down );
-void Joy_AddEvent( int id );
-void Joy_RemoveEvent( int id );
+void Joy_HatMotionEvent( byte hat, byte value );
+void Joy_AxisMotionEvent( byte axis, short value );
+void Joy_BallMotionEvent( byte ball, short xrel, short yrel );
+void Joy_ButtonEvent( byte button, byte down );
+void Joy_AddEvent( void );
+void Joy_RemoveEvent( void );
 void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw );
 void Joy_Init( void );
 void Joy_Shutdown( void );

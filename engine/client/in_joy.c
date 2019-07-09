@@ -39,8 +39,6 @@ typedef enum engineAxis_e
 
 #define MAX_AXES JOY_AXIS_NULL
 
-#define JOY_SIMULATED_HAT_ID ( -1 )
-
 // index - axis num come from event
 // value - inner axis
 static engineAxis_t joyaxesmap[MAX_AXES] =
@@ -58,7 +56,6 @@ static struct joy_axis_s
 	short val;
 	short prevval;
 } joyaxis[MAX_AXES] = { 0 };
-static qboolean forcedisable = false;
 static byte currentbinding; // add posibility to remap keys, to place it in joykeys[]
 static convar_t *joy_enable;
 static convar_t *joy_pitch;
@@ -84,7 +81,7 @@ Joy_IsActive
 */
 qboolean Joy_IsActive( void )
 {
-	return !forcedisable && joy_found->value;
+	return joy_found->value && joy_enable->value;
 }
 
 /*
@@ -94,7 +91,7 @@ Joy_HatMotionEvent
 DPad events
 ============
 */
-void Joy_HatMotionEvent( int id, byte hat, byte value )
+void Joy_HatMotionEvent( byte hat, byte value )
 {
 	struct
 	{
@@ -132,7 +129,7 @@ void Joy_HatMotionEvent( int id, byte hat, byte value )
 Joy_ProcessTrigger
 =============
 */
-void Joy_ProcessTrigger( const engineAxis_t engineAxis, short value )
+static void Joy_ProcessTrigger( const engineAxis_t engineAxis, short value )
 {
 	int trigButton = 0, trigThreshold = 0;
 
@@ -167,7 +164,7 @@ void Joy_ProcessTrigger( const engineAxis_t engineAxis, short value )
 	}
 }
 
-int Joy_GetHatValueForAxis( const engineAxis_t engineAxis )
+static int Joy_GetHatValueForAxis( const engineAxis_t engineAxis )
 {
 	int threshold, negative, positive;
 
@@ -207,7 +204,7 @@ int Joy_GetHatValueForAxis( const engineAxis_t engineAxis )
 Joy_ProcessStick
 =============
 */
-void Joy_ProcessStick( const engineAxis_t engineAxis, short value )
+static void Joy_ProcessStick( const engineAxis_t engineAxis, short value )
 {
 	int deadzone = 0;
 
@@ -238,7 +235,7 @@ void Joy_ProcessStick( const engineAxis_t engineAxis, short value )
 		val |= Joy_GetHatValueForAxis( JOY_AXIS_SIDE );
 		val |= Joy_GetHatValueForAxis( JOY_AXIS_FWD );
 
-		Joy_HatMotionEvent( JOY_SIMULATED_HAT_ID, 0, val );
+		Joy_HatMotionEvent( 0, val );
 	}
 }
 
@@ -249,7 +246,7 @@ Joy_AxisMotionEvent
 Axis events
 =============
 */
-void Joy_AxisMotionEvent( int id, byte axis, short value )
+void Joy_AxisMotionEvent( byte axis, short value )
 {
 	byte engineAxis;
 
@@ -283,7 +280,7 @@ Joy_BallMotionEvent
 Trackball events. UNDONE
 =============
 */
-void Joy_BallMotionEvent( int id, byte ball, short xrel, short yrel )
+void Joy_BallMotionEvent( byte ball, short xrel, short yrel )
 {
 	//if( !joy_found->value )
 	//	return;
@@ -296,7 +293,7 @@ Joy_ButtonEvent
 Button events
 =============
 */
-void Joy_ButtonEvent( int id, byte button, byte down )
+void Joy_ButtonEvent( byte button, byte down )
 {
 	if( !joy_found->value )
 		return;
@@ -321,10 +318,10 @@ Joy_RemoveEvent
 Called when joystick is removed. For future expansion
 =============
 */
-void Joy_RemoveEvent( int id )
+void Joy_RemoveEvent( void )
 {
-	if( !forcedisable && joy_found->value )
-		Cvar_SetValue("joy_found", joy_found->value - 1.0f);
+	if( joy_found->value )
+		Cvar_FullSet( "joy_found", "0", FCVAR_READ_ONLY );
 }
 
 /*
@@ -334,12 +331,10 @@ Joy_RemoveEvent
 Called when joystick is removed. For future expansion
 =============
 */
-void Joy_AddEvent( int id )
+void Joy_AddEvent( void )
 {
-	if( forcedisable )
-		return;
-
-	Cvar_SetValue("joy_found", joy_found->value + 1.0f);
+	if( joy_enable->value && !joy_found->value )
+		Cvar_FullSet( "joy_found", "1", FCVAR_READ_ONLY );
 }
 
 /*
@@ -351,16 +346,15 @@ Append movement from axis. Called everyframe
 */
 void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 {
-	if( !joy_found->value || !joy_enable->value )
+	if( !Joy_IsActive() )
 		return;
 
 	if( FBitSet( joy_axis_binding->flags, FCVAR_CHANGED ) )
 	{
-		char bind[7] = { 0 }; // fill it with zeros
+		const char *bind = joy_axis_binding->string;
 		size_t i;
-		Q_strncpy( bind, joy_axis_binding->string, sizeof(bind) );
 
-		for( i = 0; i < sizeof(bind); i++ )
+		for( i = 0; bind[i]; i++ )
 		{
 			switch( bind[i] )
 			{
@@ -373,6 +367,7 @@ void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 			default : joyaxesmap[i] = JOY_AXIS_NULL; break;
 			}
 		}
+
 		ClearBits( joy_axis_binding->flags, FCVAR_CHANGED );
 	}
 
@@ -416,21 +411,21 @@ void Joy_Init( void )
 	joy_yaw_deadzone = Cvar_Get( "joy_yaw_deadzone", "0", FCVAR_ARCHIVE, "yaw axis deadzone. Value from 0 to 32767" );
 
 	joy_axis_binding = Cvar_Get( "joy_axis_binding", "sfpyrl", FCVAR_ARCHIVE, "axis hardware id to engine inner axis binding, "
-																			 "s - side, f - forward, y - yaw, p - pitch, r - left trigger, l - right trigger" );
-	joy_found   = Cvar_Get( "joy_found", "0", FCVAR_READ_ONLY, "total num of connected joysticks" );
+		"s - side, f - forward, y - yaw, p - pitch, r - left trigger, l - right trigger" );
+	joy_found   = Cvar_Get( "joy_found", "0", FCVAR_READ_ONLY, "is joystick is connected" );
 	// we doesn't loaded config.cfg yet, so this cvar is not archive.
 	// change by +set joy_index in cmdline
 	joy_index   = Cvar_Get( "joy_index", "0", FCVAR_READ_ONLY, "current active joystick" );
 
 	joy_enable = Cvar_Get( "joy_enable", "1", FCVAR_ARCHIVE, "enable joystick" );
 
-	if( Sys_CheckParm("-nojoy" ) )
+	if( Sys_CheckParm( "-nojoy" ))
 	{
-		forcedisable = true;
+		Cvar_FullSet( "joy_enable", "0", FCVAR_READ_ONLY );
 		return;
 	}
 
-	Cvar_SetValue( "joy_found", Platform_JoyInit( joy_index->value ) );
+	Cvar_FullSet( "joy_found", va( "%d", Platform_JoyInit( joy_index->value )), FCVAR_READ_ONLY );
 }
 
 /*
@@ -442,7 +437,7 @@ Shutdown joystick code
 */
 void Joy_Shutdown( void )
 {
-	Cvar_SetValue( "joy_found", 0 );
+	Cvar_FullSet( "joy_found", 0, FCVAR_READ_ONLY );
 }
 
 #endif // XASH_DEDICATED
