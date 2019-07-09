@@ -137,14 +137,16 @@ def configure(conf):
 				'-gdwarf-2',
 				'-Werror=implicit-function-declaration',
 				'-Werror=return-type',
-				'-Werror=int-conversion'
+				'-Werror=int-conversion',
+				'-fvisibility=hidden',
 			],
 			'gcc': [
 				'-g',
 				'-fdiagnostics-color=always',
 				'-Werror=implicit-function-declaration',
 				'-Werror=return-type',
-				'-Werror=int-conversion'
+				'-Werror=int-conversion',
+				'-fvisibility=hidden',
 			]
 		},
 		'fast': {
