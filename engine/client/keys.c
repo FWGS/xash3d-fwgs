@@ -374,7 +374,7 @@ void Key_Unbindall_f( void )
 	}
 
 	// set some defaults
-	Key_SetBinding( K_ESCAPE, "cancelselect" );
+	Key_SetBinding( K_ESCAPE, "escape" );
 }
 
 /*
