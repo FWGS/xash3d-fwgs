@@ -118,7 +118,7 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 ==============================================================================
 */
 // initializes cycling through a DMA buffer and returns information on it
-qboolean SNDDMA_Init( void *hInst );
+qboolean SNDDMA_Init( void );
 int  SNDDMA_GetSoundtime( void );
 void SNDDMA_Shutdown( void );
 void SNDDMA_BeginPainting( void );
