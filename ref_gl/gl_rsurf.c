@@ -1207,7 +1207,7 @@ void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 	}
 
 	// dynamic this frame or dynamic previously
-	if(( fa->dlightframe == tr.framecount ))
+	if( fa->dlightframe == tr.framecount )
 	{
 dynamic:
 		// NOTE: at this point we have only valid textures
