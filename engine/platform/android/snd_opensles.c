@@ -199,7 +199,7 @@ static const char *SNDDMA_Android_Init( void )
 	return NULL;
 }
 
-qboolean SNDDMA_Init( void *hwnd)
+qboolean SNDDMA_Init( void )
 {
 	const char *initError;
 

@@ -1840,7 +1840,7 @@ qboolean S_Init( void )
 	Cmd_AddCommand( "spk", S_SayReliable_f, "reliable play a specified sententce" );
 	Cmd_AddCommand( "speak", S_Say_f, "playing a specified sententce" );
 
-	if( !SNDDMA_Init( host.hWnd ))
+	if( !SNDDMA_Init( ) )
 	{
 		Con_Printf( "Audio: sound system can't be initialized\n" );
 		return false;
