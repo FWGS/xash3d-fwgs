@@ -124,6 +124,7 @@ def configure(conf):
 			'gcc': ['-Wl,--no-undefined']
 		},
 		'sanitize': {
+			'clang':   ['-fsanitize=undefined', '-fsanitize=address'],
 			'gcc':     ['-fsanitize=undefined', '-fsanitize=address'],
 		}
 	}
@@ -152,6 +153,7 @@ def configure(conf):
 		'fast': {
 			'msvc':    ['/O2', '/Oy'], #todo: check /GL /LTCG
 			'gcc':     ['-Ofast', '-march=native', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer'],
+			'clang':   ['-Ofast', '-march=native'],
 			'default': ['-O3']
 		},
 		'release': {
@@ -166,6 +168,7 @@ def configure(conf):
 		'sanitize': {
 			'msvc':    ['/Od', '/RTC1'],
 			'gcc':     ['-Og', '-fsanitize=undefined', '-fsanitize=address'],
+			'clang':   ['-O1', '-fsanitize=undefined', '-fsanitize=address'],
 			'default': ['-O1']
 		},
 		'nooptimize': {
