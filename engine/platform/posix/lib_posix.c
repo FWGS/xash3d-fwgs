@@ -82,7 +82,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 
 	// platforms where gameinfo mechanism is working goes here
 	// and use FS_FindLibrary
-	hInst = FS_FindLibrary( dllname, false );
+	hInst = FS_FindLibrary( dllname, directpath );
 	if( !hInst )
 	{
 		// HACKHACK: direct load dll
