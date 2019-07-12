@@ -21,8 +21,6 @@ GNU General Public License for more details.
 #include "server.h" // !!svgame.hInstance
 #include "vid_common.h"
 
-static MENUAPI	GetMenuAPI;
-static ADDTOUCHBUTTONTOLIST pfnAddTouchButtonToList;
 static void 	UI_UpdateUserinfo( void );
 
 gameui_static_t	gameui;
@@ -499,9 +497,25 @@ send button parameters to menu
 */
 void UI_AddTouchButtonToList( const char *name, const char *texture, const char *command, unsigned char *color, int flags )
 {
-	if( pfnAddTouchButtonToList )
+	if( gameui.dllFuncs2.pfnAddTouchButtonToList )
 	{
-		pfnAddTouchButtonToList( name, texture, command, color, flags );
+		gameui.dllFuncs2.pfnAddTouchButtonToList( name, texture, command, color, flags );
+	}
+}
+
+void UI_ResetPing( void )
+{
+	if( gameui.dllFuncs2.pfnResetPing )
+	{
+		gameui.dllFuncs2.pfnResetPing( );
+	}
+}
+
+void UI_ShowConnectionWarning( void )
+{
+	if( gameui.dllFuncs2.pfnShowConnectionWarning )
+	{
+		gameui.dllFuncs2.pfnShowConnectionWarning();
 	}
 }
 
@@ -1047,7 +1061,7 @@ static void pfnEnableTextInput( int enable )
 	Key_EnableTextInput( enable, false );
 }
 
-static ui_textfuncs_t gTextfuncs =
+static ui_extendedfuncs_t gExtendedfuncs =
 {
 	pfnEnableTextInput,
 	Con_UtfProcessChar,
@@ -1075,9 +1089,11 @@ void UI_UnloadProgs( void )
 qboolean UI_LoadProgs( void )
 {
 	static ui_enginefuncs_t	gpEngfuncs;
-	static ui_textfuncs_t	gpTextfuncs;
+	static ui_extendedfuncs_t gpExtendedfuncs;
 	static ui_globalvars_t	gpGlobals;
-	UITEXTAPI GiveTextApi;
+	UIEXTENEDEDAPI GetExtAPI;
+	UITEXTAPI	GiveTextApi;
+	MENUAPI	GetMenuAPI;
 	string dllpath;
 	int			i;
 
@@ -1132,19 +1148,39 @@ qboolean UI_LoadProgs( void )
 		return false;
 	}
 
-	if( ( GiveTextApi = (UITEXTAPI)COM_GetProcAddress( gameui.hInstance, "GiveTextAPI" ) ) )
-	{
-		Con_Reportf( "UI_LoadProgs: extended Text API initialized\n" );
-		// make local copy of engfuncs to prevent overwrite it with user dll
-		memcpy( &gpTextfuncs, &gTextfuncs, sizeof( gpTextfuncs ));
-		if( GiveTextApi( &gpTextfuncs ) )
-			gameui.use_text_api = true;
-	}
+	// make local copy of engfuncs to prevent overwrite it with user dll
+	memcpy( &gpExtendedfuncs, &gExtendedfuncs, sizeof( gExtendedfuncs ));
+	memset( &gameui.dllFuncs2, 0, sizeof( gameui.dllFuncs2 ));
 
-	pfnAddTouchButtonToList = (ADDTOUCHBUTTONTOLIST)COM_GetProcAddress( gameui.hInstance, "AddTouchButtonToList" );
-	if( pfnAddTouchButtonToList )
+	// try to initialize new extended API
+	if( ( GetExtAPI = (UIEXTENEDEDAPI)COM_GetProcAddress( gameui.hInstance, "GetExtAPI" ) ) )
 	{
-		Con_Reportf( "UI_LoadProgs: AddTouchButtonToList call found\n" );
+		Con_Reportf( "UI_LoadProgs: extended Menu API found\n" );
+		if( GetExtAPI( MENU_EXTENDED_API_VERSION, &gameui.dllFuncs2, &gpExtendedfuncs ) )
+		{
+			Con_Reportf( "UI_LoadProgs: extended Menu API initialized\n" );
+			gameui.use_text_api = true;
+		}
+	}
+	else // otherwise, fallback to old and deprecated extensions
+	{
+		if( ( GiveTextApi = (UITEXTAPI)COM_GetProcAddress( gameui.hInstance, "GiveTextAPI" ) ) )
+		{
+			Con_Reportf( "UI_LoadProgs: extended text API found\n" );
+			Con_Reportf( S_WARN "Text API is deprecated! If you are mod developer, consider moving to Extended Menu API!\n" );
+			if( GiveTextApi( &gpExtendedfuncs ) ) // they are binary compatible, so we can just pass extended funcs API to menu
+			{
+				Con_Reportf( "UI_LoadProgs: extended text API initialized\n" );
+				gameui.use_text_api = true;
+			}
+		}
+
+		gameui.dllFuncs2.pfnAddTouchButtonToList = (ADDTOUCHBUTTONTOLIST)COM_GetProcAddress( gameui.hInstance, "AddTouchButtonToList" );
+		if( gameui.dllFuncs2.pfnAddTouchButtonToList )
+		{
+			Con_Reportf( "UI_LoadProgs: AddTouchButtonToList call found\n" );
+			Con_Reportf( S_WARN "AddTouchButtonToList is deprecated! If you are mod developer, consider moving to Extended Menu API!\n" );
+		}
 	}
 
 	Cvar_FullSet( "host_gameuiloaded", "1", FCVAR_READ_ONLY );
