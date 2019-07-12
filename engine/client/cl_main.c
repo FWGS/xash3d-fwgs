@@ -2731,8 +2731,7 @@ void CL_WarnLostSplitPacket( void )
 	{
 		CL_Disconnect();
 		UI_ShowConnectionWarning();
-		MsgDev( D_WARN, "Too many lost packets! Showing Network options menu\n" );
-
+		Con_DPrintf( S_WARN "Too many lost packets! Showing Network options menu\n" );
 	}
 }
 
