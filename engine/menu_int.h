@@ -172,13 +172,6 @@ typedef struct ui_enginefuncs_s
 	int	(*COM_RemoveFile)( const char *filepath );
 } ui_enginefuncs_t;
 
-typedef struct ui_textfuncs_s {
-	void (*pfnEnableTextInput)( int enable );
-	int (*pfnUtfProcessChar) ( int ch );
-	int (*pfnUtfMoveLeft) ( char *str, int pos );
-	int (*pfnUtfMoveRight) ( char *str, int pos, int length );
-} ui_textfuncs_t;
-
 typedef struct
 {
 	int	(*pfnVidInit)( void );
@@ -199,11 +192,43 @@ typedef struct
 	void	(*pfnFinalCredits)( void );	// show credits + game end
 } UI_FUNCTIONS;
 
+#define MENU_EXTENDED_API_VERSION 1
+
+typedef struct ui_extendedfuncs_s {
+	// text functions, frozen
+	void (*pfnEnableTextInput)( int enable );
+	int (*pfnUtfProcessChar) ( int ch );
+	int (*pfnUtfMoveLeft) ( char *str, int pos );
+	int (*pfnUtfMoveRight) ( char *str, int pos, int length );
+
+	// new engine extended api start here
+} ui_extendedfuncs_t;
+
+// deprecated export from old engine
+typedef void (*ADDTOUCHBUTTONTOLIST)( const char *name, const char *texture, const char *command, unsigned char *color, int flags );
+
+typedef struct
+{
+	ADDTOUCHBUTTONTOLIST pfnAddTouchButtonToList;
+	void (*pfnResetPing)( void );
+	void (*pfnShowConnectionWarning)( void );
+	void (*pfnShowUpdateDialog)( int preferStore );
+	void (*pfnShowMessageBox)( const char *text );
+	void (*pfnConnectionProgress_Disconnect)( void );
+	void (*pfnConnectionProgress_Download)( const char *pszFileName, const char *pszServerName, int iCurrent, int iTotal, const char *comment );
+	void (*pfnConnectionProgress_DownloadEnd)( void );
+	void (*pfnConnectionProgress_Precache)( void );
+	void (*pfnConnectionProgress_Connect)( const char *server ); // NULL for local server
+	void (*pfnConnectionProgress_ChangeLevel)( void );
+	void (*pfnConnectionProgress_ParseServerInfo)( const char *server );
+} UI_EXTENDED_FUNCTIONS;
+
 typedef int (*MENUAPI)( UI_FUNCTIONS *pFunctionTable, ui_enginefuncs_t* engfuncs, ui_globalvars_t *pGlobals );
 
-typedef int (*UITEXTAPI)( ui_textfuncs_t* engfuncs );
+typedef int (*UIEXTENEDEDAPI)( int version, UI_EXTENDED_FUNCTIONS *pFunctionTable, ui_extendedfuncs_t *engfuncs );
 
-typedef void (*ADDTOUCHBUTTONTOLIST)( const char *name, const char *texture, const char *command, unsigned char *color, int flags );
+// deprecated interface from old engine
+typedef int (*UITEXTAPI)( ui_extendedfuncs_t* engfuncs );
 
 #define PLATFORM_UPDATE_PAGE "PlatformUpdatePage"
 #define GENERIC_UPDATE_PAGE "GenericUpdatePage"
