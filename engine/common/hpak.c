@@ -275,6 +275,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 		Con_DPrintf( S_ERROR "HPAK_AddLump: %s does not have a valid header.\n", srcname );
 		FS_Close( file_src );
 		FS_Close( file_dst );
+		return;
 	}
 
 	length = FS_FileLength( file_src );
@@ -295,12 +296,12 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	// load the data
 	srcpak.entries = Z_Malloc( sizeof( hpak_lump_t ) * srcpak.count );
 	FS_Read( file_src, srcpak.entries, sizeof( hpak_lump_t ) * srcpak.count );
-	FS_Close( file_src );
 
 	// check if already exists
 	if( HPAK_FindResource( &srcpak, pResource->rgucMD5_hash, NULL ))
 	{
 		Z_Free( srcpak.entries );
+		FS_Close( file_src );
 		FS_Close( file_dst );
 		FS_Delete( dstname );
 		return;
@@ -350,6 +351,8 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 
 	FS_Seek( file_dst, 0, SEEK_SET );
 	FS_Write( file_dst, &hash_pack_header, sizeof( hpak_header_t ));
+
+	FS_Close( file_src );
 	FS_Close( file_dst );
 
 	FS_Delete( srcname );
