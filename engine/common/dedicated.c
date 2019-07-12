@@ -327,4 +327,9 @@ void CL_ClearStaticEntities( void )
 
 }
 
+void CL_WarnLostSplitPacket( void )
+{
+
+}
+
 #endif // XASH_DEDICATED

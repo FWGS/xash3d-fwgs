@@ -265,6 +265,8 @@ typedef struct
 	short		decal_index[MAX_DECALS];
 
 	model_t		*worldmodel;			// pointer to world
+
+	int lostpackets;					// count lost packets and show dialog in menu
 } client_t;
 
 /*
@@ -490,6 +492,7 @@ typedef struct
 {
 	void		*hInstance;		// pointer to client.dll
 	UI_FUNCTIONS	dllFuncs;			// dll exported funcs
+	UI_EXTENDED_FUNCTIONS dllFuncs2;	// fwgs extension
 	byte		*mempool;			// client edicts pool
 
 	cl_entity_t	playermodel;		// uiPlayerSetup drawing model
@@ -1071,6 +1074,7 @@ qboolean UI_CreditsActive( void );
 void UI_CharEvent( int key );
 qboolean UI_MouseInRect( void );
 qboolean UI_IsVisible( void );
+void UI_ResetPing( void );
 void UI_AddTouchButtonToList( const char *name, const char *texture, const char *command, unsigned char *color, int flags );
 void pfnPIC_Set( HIMAGE hPic, int r, int g, int b, int a );
 void pfnPIC_Draw( int x, int y, int width, int height, const wrect_t *prc );

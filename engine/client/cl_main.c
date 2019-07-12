@@ -2088,7 +2088,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 
 		if( cls.internetservers_pending )
 		{
-			Cbuf_AddText( "menu_resetping\n" ); // TODO: New Menu API
+			UI_ResetPing();
 			cls.internetservers_pending = false;
 		}
 	}
@@ -2711,6 +2711,29 @@ void CL_Escape_f( void )
 	if( cls.state == ca_cinematic )
 		SCR_NextMovie(); // jump to next movie
 	else UI_SetActiveMenu( true );
+}
+
+/*
+=================
+CL_WarnLostSplitPacket
+
+=================
+*/
+void CL_WarnLostSplitPacket( void )
+{
+	if( cls.state != ca_connected )
+		return;
+
+	if( Host_IsLocalClient() )
+		return;
+
+	if( ++cl.lostpackets == 8 )
+	{
+		CL_Disconnect();
+		UI_ShowConnectionWarning();
+		MsgDev( D_WARN, "Too many lost packets! Showing Network options menu\n" );
+
+	}
 }
 
 /*

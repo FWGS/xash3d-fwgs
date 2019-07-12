@@ -851,6 +851,7 @@ qboolean CL_IsInConsole( void );
 qboolean CL_IsThirdPerson( void );
 qboolean CL_IsIntermission( void );
 qboolean CL_Initialized( void );
+void CL_WarnLostSplitPacket( void );
 char *CL_Userinfo( void );
 void CL_LegacyUpdateInfo( void );
 void CL_CharEvent( int key );
