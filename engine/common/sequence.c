@@ -1505,7 +1505,7 @@ Sequence_ParseBuffer
 
 ==============
 */
-void Sequence_ParseBuffer( byte *buffer, int bufferSize )
+static void Sequence_ParseBuffer( char *buffer, int bufferSize )
 {
 	char symbol;
 
@@ -1566,7 +1566,7 @@ void Sequence_ParseFile( const char *fileName, qboolean isGlobal )
 
 	Con_Reportf( "reading sequence file: %s\n", fileName );
 
-	Sequence_ParseBuffer( buffer, bufSize );
+	Sequence_ParseBuffer( (char *)buffer, bufSize );
 
 	Mem_Free( buffer );
 }

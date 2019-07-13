@@ -276,12 +276,13 @@ model_t *SV_ModelHandle( int modelindex )
 void SV_ReadResourceList( const char *filename )
 {
 	string	token;
-	char	*afile, *pfile;
+	byte *afile;
+	char *pfile;
 
 	afile = FS_LoadFile( filename, NULL, false );
 	if( !afile ) return;
 
-	pfile = afile;
+	pfile = (char *)afile;
 
 	Con_DPrintf( "Precaching from %s\n", filename );
 	Con_DPrintf( "----------------------------------\n" );

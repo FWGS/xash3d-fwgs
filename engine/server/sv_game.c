@@ -855,7 +855,7 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	if( ft2 != -1 && ft1 < ft2 )
 	{
 		// grab .ent files only from gamedir
-		ents = FS_LoadFile( entfilename, NULL, true ); 
+		ents = (char *)FS_LoadFile( entfilename, NULL, true );
 	}
 
 	// at least entities should contain "{ "classname" "worldspawn" }\0"
@@ -1271,7 +1271,7 @@ int pfnPrecacheModel( const char *s )
 	if( *s == '!' )
 	{
 		optional = true;
-		*s++;
+		s++;
 	}
 
 	if(( i = SV_ModelIndex( s )) == 0 )
@@ -1569,6 +1569,9 @@ edict_t *SV_FindEntityByString( edict_t *pStartEdict, const char *pszField, cons
 				if( !Q_strcmp( t, pszValue ))
 					return ed;
 			}
+			break;
+		default:
+			ASSERT( 0 );
 			break;
 		}
 	}

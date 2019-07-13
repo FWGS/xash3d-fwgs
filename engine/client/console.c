@@ -407,7 +407,7 @@ Appends a given string as a new line to the console.
 */
 void Con_AddLine( const char *line, int length, qboolean newline )
 {
-	byte		*putpos;
+	char		*putpos;
 	con_lineinfo_t	*p;
 
 	if( !con.initialized || !con.buffer )
@@ -1094,8 +1094,8 @@ int Con_DrawString( int x, int y, const char *string, rgba_t setColor )
 
 void Con_LoadHistory( void )
 {
-	const char *aFile = FS_LoadFile( "console_history.txt", NULL, true );
-	const char *pLine = aFile, *pFile = aFile;
+	const byte *aFile = FS_LoadFile( "console_history.txt", NULL, true );
+	const char *pLine = (char *)aFile, *pFile = (char *)aFile;
 	int i;
 
 	if( !aFile )

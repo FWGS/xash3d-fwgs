@@ -84,7 +84,8 @@ void SCR_CreateStartupVids( void )
 void SCR_CheckStartupVids( void )
 {
 	int	c = 0;
-	char	*afile, *pfile;
+	byte *afile;
+	char *pfile;
 	string	token;
 		
 	if( Sys_CheckParm( "-nointro" ) || host_developer.value || cls.demonum != -1 || GameState->nextstate != STATE_RUNFRAME )
@@ -101,7 +102,7 @@ void SCR_CheckStartupVids( void )
 	afile = FS_LoadFile( DEFAULT_VIDEOLIST_PATH, NULL, false );
 	if( !afile ) return; // something bad happens
 
-	pfile = afile;
+	pfile = (char *)afile;
 
 	while(( pfile = COM_ParseFile( pfile, token )) != NULL )
 	{

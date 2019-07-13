@@ -174,16 +174,19 @@ Load master server list from xashcomm.lst
 */
 static void NET_LoadMasters( void )
 {
-	byte *afile, *pfile;
+	byte *afile;
+	char *pfile;
 	char token[MAX_TOKEN];
 
-	pfile = afile = FS_LoadFile( "xashcomm.lst", NULL, true );
+	afile = FS_LoadFile( "xashcomm.lst", NULL, true );
 
 	if( !afile ) // file doesn't exist yet
 	{
 		Con_Reportf( "Cannot load xashcomm.lst\n" );
 		return;
 	}
+
+	pfile = (char*)afile;
 
 	// format: master <addr>\n
 	while( ( pfile = COM_ParseFile( pfile, token ) ) )

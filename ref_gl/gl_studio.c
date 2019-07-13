@@ -1132,7 +1132,7 @@ void R_StudioBuildNormalTable( void )
 		pmesh = (mstudiomesh_t *)((byte *)m_pStudioHeader + m_pSubModel->meshindex) + j;
 		ptricmds = (short *)((byte *)m_pStudioHeader + pmesh->triindex);
 
-		while( i = *( ptricmds++ ))
+		while(( i = *( ptricmds++ )))
 		{
 			if( i < 0 ) i = -i;
 
@@ -1180,7 +1180,7 @@ void R_StudioGenerateNormals( void )
 		pmesh = (mstudiomesh_t *)((byte *)m_pStudioHeader + m_pSubModel->meshindex) + j;
 		ptricmds = (short *)((byte *)m_pStudioHeader + pmesh->triindex);
 
-		while( i = *( ptricmds++ ))
+		while(( i = *( ptricmds++ )))
 		{
 			if( i < 0 )
 			{
@@ -1955,7 +1955,7 @@ _inline void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, floa
 	float	*lv;
 	int	i;
 
-	while( i = *( ptricmds++ ))
+	while(( i = *( ptricmds++ )))
 	{
 		if( i < 0 )
 		{
@@ -1988,7 +1988,7 @@ _inline void R_StudioDrawFloatMesh( short *ptricmds, vec3_t *pstudionorms )
 	float	*lv;
 	int	i;
 
-	while( i = *( ptricmds++ ))
+	while(( i = *( ptricmds++ )))
 	{
 		if( i < 0 )
 		{
@@ -2022,7 +2022,7 @@ _inline void R_StudioDrawChromeMesh( short *ptricmds, vec3_t *pstudionorms, floa
 	qboolean	glowShell = (scale > 0.0f) ? true : false;
 	vec3_t	vert;
 
-	while( i = *( ptricmds++ ))
+	while(( i = *( ptricmds++ )))
 	{
 		if( i < 0 )
 		{
@@ -2109,7 +2109,7 @@ _inline void R_StudioBuildArrayNormalMesh( short *ptricmds, vec3_t *pstudionorms
 	int	i;
 	float alpha = tr.blend;
 
-	while( i = *( ptricmds++ ))
+	while(( i = *( ptricmds++ )))
 	{
 		int vertexState = 0;
 		qboolean tri_strip = true;
@@ -2152,7 +2152,7 @@ _inline void R_StudioBuildArrayFloatMesh( short *ptricmds, vec3_t *pstudionorms 
 	int	i;
 	float alpha = tr.blend;
 
-	while( i = *( ptricmds++ ))
+	while(( i = *( ptricmds++ )))
 	{
 		int vertexState = 0;
 		qboolean tri_strip = true;
@@ -2197,7 +2197,7 @@ _inline void R_StudioBuildArrayChromeMesh( short *ptricmds, vec3_t *pstudionorms
 	vec3_t	vert;
 	float alpha = tr.blend;
 
-	while( i = *( ptricmds++ ))
+	while(( i = *( ptricmds++ )))
 	{
 		int vertexState = 0;
 		qboolean tri_strip = true;
@@ -2987,7 +2987,7 @@ static void R_StudioDrawPointsShadow( void )
 
 		r_stats.c_studio_polys += pmesh->numtris;
 
-		while( i = *( ptricmds++ ))
+		while(( i = *( ptricmds++ )))
 		{
 			if( i < 0 )
 			{

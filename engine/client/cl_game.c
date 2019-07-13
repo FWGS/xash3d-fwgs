@@ -217,7 +217,8 @@ Initialize CD playlist
 */
 void CL_InitCDAudio( const char *filename )
 {
-	char	*afile, *pfile;
+	byte *afile;
+	char *pfile;
 	string	token;
 	int	c = 0;
 
@@ -230,7 +231,7 @@ void CL_InitCDAudio( const char *filename )
 	afile = FS_LoadFile( filename, NULL, false );
 	if( !afile ) return;
 
-	pfile = afile;
+	pfile = (char *)afile;
 
 	// format: trackname\n [num]
 	while(( pfile = COM_ParseFile( pfile, token )) != NULL )
@@ -1516,7 +1517,8 @@ static client_sprite_t *pfnSPR_GetList( char *psz, int *piCount )
 {
 	cached_spritelist_t	*pEntry = &clgame.sprlist[0];
 	int		slot, index, numSprites = 0;
-	char		*afile, *pfile;
+	byte *afile;
+	char *pfile;
 	string		token;
 
 	if( piCount ) *piCount = 0;
@@ -1547,7 +1549,7 @@ static client_sprite_t *pfnSPR_GetList( char *psz, int *piCount )
 	afile = FS_LoadFile( psz, NULL, false );
 	if( !afile ) return NULL;
 
-	pfile = afile;
+	pfile = (char *)afile;
 	pfile = COM_ParseFile( pfile, token );          
 	numSprites = Q_atoi( token );
 

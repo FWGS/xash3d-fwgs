@@ -438,7 +438,7 @@ transform hash to hexadecimal printable symbols
 char *MD5_Print( byte hash[16] )
 {
 	static char	szReturn[64];
-	byte		szChunk[10];
+	char		szChunk[10];
 	int		i;
 
 	memset( szReturn, 0, 64 );

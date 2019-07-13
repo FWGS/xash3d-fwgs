@@ -256,7 +256,8 @@ Host_Exec_f
 void Host_Exec_f( void )
 {
 	string	cfgpath;
-	char	*f, *txt; 
+	byte *f;
+	char *txt;
 	fs_offset_t	len;
 
 	if( Cmd_Argc() != 2 )

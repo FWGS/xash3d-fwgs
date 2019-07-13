@@ -90,7 +90,8 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 
 			if( !SDL_LockTexture(sw.tex, NULL, &pixels, &pitch ) )
 			{
-				int bits, amask;
+				int bits;
+				uint amask;
 				// lock successfull, release
 				SDL_UnlockTexture(sw.tex);
 
@@ -896,9 +897,9 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 		if( SDL_SetWindowFullscreen( host.hWnd, 0 ) )
 			return rserr_invalid_fullscreen;
 #if SDL_VERSION_ATLEAST( 2, 0, 5 )
-		SDL_SetWindowResizable( host.hWnd, true );
+		SDL_SetWindowResizable( host.hWnd, SDL_TRUE );
 #endif
-		SDL_SetWindowBordered( host.hWnd, true );
+		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
 		SDL_SetWindowSize( host.hWnd, width, height );
 		if( !glw_state.software )
 			SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
