@@ -139,6 +139,7 @@ def configure(conf):
 				'-Werror=implicit-function-declaration',
 				'-Werror=return-type',
 				'-Werror=int-conversion',
+				'-Werror=parentheses',
 				'-fvisibility=hidden',
 			],
 			'gcc': [
@@ -147,6 +148,7 @@ def configure(conf):
 				'-Werror=implicit-function-declaration',
 				'-Werror=return-type',
 				'-Werror=int-conversion',
+				'-Werror=parentheses',
 				'-fvisibility=hidden',
 			]
 		},
