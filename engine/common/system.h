@@ -59,7 +59,7 @@ void Sys_ParseCommandLine( int argc, char **argv );
 void Sys_MergeCommandLine( void );
 void Sys_SetupCrashHandler( void );
 void Sys_RestoreCrashHandler( void );
-void Sys_SetClipboardData( const byte *buffer, size_t size );
+void Sys_SetClipboardData( const char *buffer, size_t size );
 #define Sys_GetParmFromCmdLine( parm, out ) _Sys_GetParmFromCmdLine( parm, out, sizeof( out ))
 qboolean _Sys_GetParmFromCmdLine( const char *parm, char *out, size_t size );
 qboolean Sys_GetIntFromCmdLine( const char *parm, int *out );
