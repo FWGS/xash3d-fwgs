@@ -137,7 +137,6 @@ SV_RejectConnection
 Rejects connection request and sends back a message
 ================
 */
-void SV_RejectConnection( netadr_t from, char *fmt, ... ) _format( 2 );
 void SV_RejectConnection( netadr_t from, char *fmt, ... )
 {
 	char	text[1024];
@@ -148,6 +147,7 @@ void SV_RejectConnection( netadr_t from, char *fmt, ... )
 	va_end( argptr );
 
 	Con_Reportf( "%s connection refused. Reason: %s\n", NET_AdrToString( from ), text );
+	Netchan_OutOfBandPrint( NS_SERVER, from, "errormsg\n^1Server was reject the connection:^7 %s", text );
 	Netchan_OutOfBandPrint( NS_SERVER, from, "print\n^1Server was reject the connection:^7 %s", text );
 	Netchan_OutOfBandPrint( NS_SERVER, from, "disconnect\n" );
 }
@@ -305,7 +305,6 @@ void SV_ConnectClient( netadr_t from )
 
 	if( !SV_ProcessUserAgent( from, protinfo ) )
 	{
-		Netchan_OutOfBandPrint( NS_SERVER, from, "disconnect\n" );
 		return;
 	}
 

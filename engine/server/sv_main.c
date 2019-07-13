@@ -785,7 +785,7 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 
 	if( !sv_allow_noinputdevices->value && ( !input_devices_str || !input_devices_str[0] ) )
 	{
-		Netchan_OutOfBandPrint( NS_SERVER, from, "print\nThis server does not allow\nconnect without input devices list.\nPlease update your engine.\n" );
+		SV_RejectConnection( from, "This server does not allow\nconnect without input devices list.\nPlease update your engine.\n" );
 		return false;
 	}
 
@@ -795,22 +795,22 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 
 		if( !sv_allow_touch->value && ( input_devices & INPUT_DEVICE_TOUCH ) )
 		{
-			Netchan_OutOfBandPrint( NS_SERVER, from, "errormsg\nThis server does not allow touch\nDisable it (touch_enable 0)\nto play on this server\n" );
+			SV_RejectConnection( from, "This server does not allow touch\nDisable it (touch_enable 0)\nto play on this server\n" );
 			return false;
 		}
 		if( !sv_allow_mouse->value && ( input_devices & INPUT_DEVICE_MOUSE) )
 		{
-			Netchan_OutOfBandPrint( NS_SERVER, from, "errormsg\nThis server does not allow mouse\nDisable it(m_ignore 1)\nto play on this server\n" );
+			SV_RejectConnection( from, "This server does not allow mouse\nDisable it(m_ignore 1)\nto play on this server\n" );
 			return false;
 		}
 		if( !sv_allow_joystick->value && ( input_devices & INPUT_DEVICE_JOYSTICK) )
 		{
-			Netchan_OutOfBandPrint( NS_SERVER, from, "errormsg\nThis server does not allow joystick\nDisable it(joy_enable 0)\nto play on this server\n" );
+			SV_RejectConnection( from, "This server does not allow joystick\nDisable it(joy_enable 0)\nto play on this server\n" );
 			return false;
 		}
 		if( !sv_allow_vr->value && ( input_devices & INPUT_DEVICE_VR) )
 		{
-			Netchan_OutOfBandPrint( NS_SERVER, from, "errormsg\nThis server does not allow VR\n" );
+			SV_RejectConnection( from, "This server does not allow VR\n" );
 			return false;
 		}
 	}
@@ -821,7 +821,7 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 
 		if( banned )
 		{
-			Netchan_OutOfBandPrint( NS_SERVER, from, "errormsg\nYou are banned!\n" );
+			SV_RejectConnection( from, "You are banned!\n" );
 			return false;
 		}
 	}
