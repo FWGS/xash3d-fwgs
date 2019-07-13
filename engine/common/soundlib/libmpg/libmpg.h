@@ -40,7 +40,7 @@ typedef long (*pfseek)( void *handle, long offset, int whence );
 
 extern void *create_decoder( int *error );
 extern int feed_mpeg_header( void *mpg, const byte *data, long bufsize, long streamsize, wavinfo_t *sc );
-extern int feed_mpeg_stream( void *mpg, const char *data, long bufsize, char *outbuf, size_t *outsize );
+extern int feed_mpeg_stream( void *mpg, const byte *data, long bufsize, byte *outbuf, size_t *outsize );
 extern int open_mpeg_stream( void *mpg, void *file, pfread f_read, pfseek f_seek, wavinfo_t *sc );
 extern int read_mpeg_stream(void *mpg, byte *outbuf, size_t *outsize  );
 extern int get_stream_pos( void *mpg );
