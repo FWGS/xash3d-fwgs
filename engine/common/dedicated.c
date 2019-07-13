@@ -327,7 +327,7 @@ void CL_ClearStaticEntities( void )
 
 }
 
-void CL_WarnLostSplitPacket( void )
+void UI_ShowConnectionWarning( void )
 {
 
 }

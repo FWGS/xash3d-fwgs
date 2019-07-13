@@ -851,7 +851,6 @@ qboolean CL_IsInConsole( void );
 qboolean CL_IsThirdPerson( void );
 qboolean CL_IsIntermission( void );
 qboolean CL_Initialized( void );
-void CL_WarnLostSplitPacket( void );
 char *CL_Userinfo( void );
 void CL_LegacyUpdateInfo( void );
 void CL_CharEvent( int key );
@@ -952,6 +951,7 @@ void GL_FreeImage( const char *name );
 void VID_InitDefaultResolution( void );
 void VID_Init( void );
 void UI_SetActiveMenu( qboolean fActive );
+void UI_ShowConnectionWarning( void );
 void Cmd_Null_f( void );
 
 // soundlib shared exports

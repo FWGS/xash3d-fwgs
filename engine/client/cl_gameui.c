@@ -503,6 +503,13 @@ void UI_AddTouchButtonToList( const char *name, const char *texture, const char 
 	}
 }
 
+/*
+=================
+UI_ResetPing
+
+notify gameui dll about latency reset
+=================
+*/
 void UI_ResetPing( void )
 {
 	if( gameui.dllFuncs2.pfnResetPing )
@@ -511,11 +518,62 @@ void UI_ResetPing( void )
 	}
 }
 
+/*
+=================
+UI_ShowConnectionWarning
+
+show connection warning dialog implemented by gameui dll
+=================
+*/
 void UI_ShowConnectionWarning( void )
 {
-	if( gameui.dllFuncs2.pfnShowConnectionWarning )
+	if( cls.state != ca_connected )
+		return;
+
+	if( Host_IsLocalClient() )
+		return;
+
+	if( ++cl.lostpackets == 8 )
 	{
-		gameui.dllFuncs2.pfnShowConnectionWarning();
+		CL_Disconnect();
+		if( gameui.dllFuncs2.pfnShowConnectionWarning )
+		{
+			gameui.dllFuncs2.pfnShowConnectionWarning();
+		}
+		Con_DPrintf( S_WARN "Too many lost packets! Showing Network options menu\n" );
+	}
+}
+
+
+/*
+=================
+UI_ShowConnectionWarning
+
+show update dialog
+=================
+*/
+void UI_ShowUpdateDialog( qboolean preferStore )
+{
+	if( gameui.dllFuncs2.pfnShowUpdateDialog )
+	{
+		gameui.dllFuncs2.pfnShowUpdateDialog( preferStore );
+	}
+
+	Con_Printf( S_WARN "This version is not supported anymore. To continue, install latest engine version\n" );
+}
+
+/*
+=================
+UI_ShowConnectionWarning
+
+show message box
+=================
+*/
+void UI_ShowMessageBox( const char *text )
+{
+	if( gameui.dllFuncs2.pfnShowMessageBox )
+	{
+		gameui.dllFuncs2.pfnShowMessageBox( text );
 	}
 }
 
