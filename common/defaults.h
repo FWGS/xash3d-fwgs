@@ -128,7 +128,6 @@ Default build-depended cvar and constant values
 // You need add library loading code to library.c when adding new platform
 #endif
 
-#define DEFAULT_SV_MASTER "ms.xash.su:27010"
 // Set ForceSimulating to 1 by default for dedicated, because AMXModX timers require this
 // TODO: enable simulating for any server?
 #ifdef XASH_DEDICATED
