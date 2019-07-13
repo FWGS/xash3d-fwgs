@@ -318,7 +318,7 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 	int		i, x, y;
 	bmp_t	hdr;
 
-	if( FS_FileExists( name, false ) && !Image_CheckFlag( IL_ALLOW_OVERWRITE ) && !host.write_to_clipboard )
+	if( FS_FileExists( name, false ) && !Image_CheckFlag( IL_ALLOW_OVERWRITE ) )
 		return false; // already existed
 
 	// bogus parameter check
@@ -342,11 +342,8 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 		return false;
 	}
 
-	if( !host.write_to_clipboard )
-	{
-		pfile = FS_Open( name, "wb", false );
-		if( !pfile ) return false;
-	}
+	pfile = FS_Open( name, "wb", false );
+	if( !pfile ) return false;
 
 	// NOTE: align transparency column will sucessfully removed
 	// after create sprite or lump image, it's just standard requiriments 
@@ -371,21 +368,7 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 	hdr.colors = ( pixel_size == 1 ) ? 256 : 0;
 	hdr.importantColors = 0;
 
-	if( host.write_to_clipboard )
-	{
-		// NOTE: the cbPalBytes may be 0
-		total_size = BI_SIZE + cbPalBytes + cbBmpBits;
-		clipbuf = Z_Malloc( total_size );
-		memcpy( clipbuf, (byte *)&hdr + ( sizeof( bmp_t ) - BI_SIZE ), BI_SIZE );
-		cur_size = BI_SIZE;
-	}
-	else
-	{
-		// Write header
-		bmp_t sw = hdr;
-
-		FS_Write( pfile, &sw, sizeof( bmp_t ));
-	}
+	FS_Write( pfile, &hdr, sizeof( bmp_t ));
 
 	pbBmpBits = Mem_Malloc( host.imagepool, cbBmpBits );
 
@@ -407,16 +390,8 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 			else rgrgbPalette[i].rgbReserved = 0;
 		}
 
-		if( host.write_to_clipboard )
-		{
-			memcpy( clipbuf + cur_size, rgrgbPalette, cbPalBytes );
-			cur_size += cbPalBytes;
-		}
-		else
-		{
-			// write palette
-			FS_Write( pfile, rgrgbPalette, cbPalBytes );
-		}
+		// write palette
+		FS_Write( pfile, rgrgbPalette, cbPalBytes );
 	}
 
 	pb = pix->buffer;
@@ -448,19 +423,9 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 		pb += pix->width * pixel_size;
 	}
 
-	if( host.write_to_clipboard )
-	{
-		memcpy( clipbuf + cur_size, pbBmpBits, cbBmpBits );
-		cur_size += cbBmpBits;
-		Sys_SetClipboardData( clipbuf, total_size );
-		Z_Free( clipbuf );
-	}
-	else
-	{
-		// write bitmap bits (remainder of file)
-		FS_Write( pfile, pbBmpBits, cbBmpBits );
-		FS_Close( pfile );
-	}
+	// write bitmap bits (remainder of file)
+	FS_Write( pfile, pbBmpBits, cbBmpBits );
+	FS_Close( pfile );
 
 	Mem_Free( pbBmpBits );
 
