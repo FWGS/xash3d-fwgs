@@ -1699,7 +1699,7 @@ static qboolean FS_ParseLiblistGam( const char *filename, const char *gamedir, g
 	char	*afile;
 
 	if( !GameInfo ) return false;	
-	afile = FS_LoadFile( filename, NULL, false );
+	afile = (char *)FS_LoadFile( filename, NULL, false );
 	if( !afile ) return false;
 
 	FS_InitGameInfo( GameInfo, gamedir );
@@ -1742,7 +1742,7 @@ static qboolean FS_ReadGameInfo( const char *filepath, const char *gamedir, game
 {
 	char	*afile;
 
-	afile = FS_LoadFile( filepath, NULL, false );
+	afile = (char *)FS_LoadFile( filepath, NULL, false );
 	if( !afile ) return false;
 
 	FS_InitGameInfo( GameInfo, gamedir );
@@ -1813,7 +1813,7 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 		}
 		else if( roGameInfoTime > rwGameInfoTime )
 		{
-			char *afile_ro = FS_LoadDirectFile( filepath_ro, NULL );
+			char *afile_ro = (char *)FS_LoadDirectFile( filepath_ro, NULL );
 
 			if( afile_ro )
 			{
@@ -2909,7 +2909,7 @@ qboolean CRC32_File( dword *crcvalue, const char *filename )
 qboolean MD5_HashFile( byte digest[16], const char *pszFileName, uint seed[4] )
 {
 	file_t		*file;
-	char		buffer[1024];
+	byte		buffer[1024];
 	MD5Context_t	MD5_Hash;
 	int		bytes;
 

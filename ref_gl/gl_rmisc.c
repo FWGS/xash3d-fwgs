@@ -20,7 +20,8 @@ GNU General Public License for more details.
 
 static void R_ParseDetailTextures( const char *filename )
 {
-	char	*afile, *pfile;
+	byte *afile;
+	char *pfile;
 	string	token, texname;
 	string	detail_texname;
 	string	detail_path;
@@ -31,7 +32,7 @@ static void R_ParseDetailTextures( const char *filename )
 	afile = gEngfuncs.COM_LoadFile( filename, NULL, false );
 	if( !afile ) return;
 
-	pfile = afile;
+	pfile = (char *)afile;
 
 	// format: 'texturename' 'detailtexture' 'xScale' 'yScale'
 	while(( pfile = gEngfuncs.COM_ParseFile( pfile, token )) != NULL )

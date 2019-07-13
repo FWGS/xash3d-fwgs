@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "ref_common.h"
 
+#undef FRAC_EPSILON
 #define FRAC_EPSILON	(1.0f / 32.0f)
 
 typedef struct

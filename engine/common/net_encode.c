@@ -515,6 +515,7 @@ void Delta_ParseTableField( sizebuf_t *msg )
 	float		mul = 1.0f, post_mul = 1.0f;
 	int		flags, bits;
 	const char	*pName;
+	qboolean ignore = false;
 	delta_info_t	*dt;
 
 	tableIndex = MSG_ReadUBitLong( msg, 4 );
@@ -523,18 +524,15 @@ void Delta_ParseTableField( sizebuf_t *msg )
 		Host_Error( "Delta_ParseTableField: not initialized" );
 
 	nameIndex = MSG_ReadUBitLong( msg, 8 );	// read field name index		
-	if( !( nameIndex >= 0 && nameIndex < dt->maxFields ) )
+	if( ( nameIndex >= 0 && nameIndex < dt->maxFields ) )
 	{
-		Con_Reportf( "Delta_ParseTableField: wrong nameIndex %d for table %s, ignoring\n", nameIndex,  dt->pName );
-		MSG_ReadUBitLong( msg, 10 );
-		MSG_ReadUBitLong( msg, 5 ) + 1;
-		if( MSG_ReadOneBit( msg ))
-			MSG_ReadFloat( msg );
-		if( MSG_ReadOneBit( msg ))
-			MSG_ReadFloat( msg );
-		return;
+		pName = dt->pInfo[nameIndex].name;
 	}
-	pName = dt->pInfo[nameIndex].name;
+	else
+	{
+		ignore = true;
+		Con_Reportf( "Delta_ParseTableField: wrong nameIndex %d for table %s, ignoring\n", nameIndex,  dt->pName );
+	}
 
 	flags = MSG_ReadUBitLong( msg, 10 );
 	bits = MSG_ReadUBitLong( msg, 5 ) + 1;
@@ -545,6 +543,9 @@ void Delta_ParseTableField( sizebuf_t *msg )
 
 	if( MSG_ReadOneBit( msg ))
 		post_mul = MSG_ReadFloat( msg );
+
+	if( ignore )
+		return;
 
 	// delta encoders it's already initialized on this machine (local game)
 	if( delta_init )
@@ -750,14 +751,15 @@ void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char *encode
 
 void Delta_InitFields( void )
 {
-	char		*afile, *pfile;
+	byte *afile;
+	char *pfile;
 	string		encodeDll, encodeFunc, token;	
 	delta_info_t	*dt;
 
 	afile = FS_LoadFile( DELTA_PATH, NULL, false );
 	if( !afile ) Sys_Error( "DELTA_Load: couldn't load file %s\n", DELTA_PATH );
 
-	pfile = afile;
+	pfile = (char *)afile;
 
 	while(( pfile = COM_ParseFile( pfile, token )) != NULL )
 	{
@@ -1083,7 +1085,7 @@ int Delta_TestBaseline( entity_state_t *from, entity_state_t *to, qboolean playe
 		{
 			// strings are handled difference
 			if( FBitSet( pField->flags, DT_STRING ))
-				countBits += Q_strlen(((byte *)to + pField->offset )) * 8;
+				countBits += Q_strlen((char *)((byte *)to + pField->offset )) * 8;
 			else countBits += pField->bits;
 		}
 	}

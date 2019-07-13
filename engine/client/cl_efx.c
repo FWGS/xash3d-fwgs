@@ -488,7 +488,8 @@ Optimized version of pointfile - use beams instead of particles
 */
 void CL_ReadLineFile_f( void )
 {
-	char		*afile, *pfile;
+	byte *afile;
+	char *pfile;
 	vec3_t		p1, p2;
 	int		count, modelIndex;
 	char		filename[MAX_QPATH];
@@ -507,7 +508,7 @@ void CL_ReadLineFile_f( void )
 	Con_Printf( "Reading %s...\n", filename );
 
 	count = 0;
-	pfile = afile;
+	pfile = (char *)afile;
 	model = CL_LoadModel( DEFAULT_LASERBEAM_PATH, &modelIndex );
 
 	while( 1 )
@@ -1995,7 +1996,8 @@ CL_ReadPointFile_f
 */
 void CL_ReadPointFile_f( void )
 {
-	char		*afile, *pfile;
+	byte *afile;
+	char *pfile;
 	vec3_t		org;
 	int		count;
 	particle_t	*p;
@@ -2014,7 +2016,7 @@ void CL_ReadPointFile_f( void )
 	Con_Printf( "Reading %s...\n", filename );
 
 	count = 0;
-	pfile = afile;
+	pfile = (char *)afile;
 
 	while( 1 )
 	{

@@ -86,8 +86,7 @@ void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *pData, f
 {
 	int		filelocation;
 	string		pakname;
-	char		md5[16];
-	char		*temp;
+	byte		md5[16];
 	file_t		*fout;
 	MD5Context_t	ctx;
 
@@ -115,6 +114,8 @@ void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *pData, f
 
 	if( pData == NULL )
 	{
+		byte *temp;
+
 		// there are better ways
 		filelocation = FS_Tell( fin );
 		temp = Z_Malloc( pResource->nDownloadSize );
@@ -196,8 +197,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	hpak_info_t	srcpak, dstpak;
 	file_t		*file_src;
 	file_t		*file_dst;
-	char		md5[16];
-	byte		*temp;
+	byte		md5[16];
 	MD5Context_t	ctx;
 
 	if( pData == NULL && pFile == NULL )
@@ -215,6 +215,8 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 
 	if( pData == NULL )
 	{
+		byte		*temp;
+
 		// there are better ways
 		position = FS_Tell( pFile );
 		temp = Z_Malloc( pResource->nDownloadSize );
@@ -369,7 +371,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 	MD5Context_t	MD5_Hash;
 	string		pakname;
 	resource_t	*pRes;
-	char		md5[16];
+	byte		md5[16];
 
 	if( quiet ) HPAK_FlushHostQueue();
 

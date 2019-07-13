@@ -39,7 +39,7 @@ void *create_decoder( int *error )
 	return mpg;
 }
 
-int feed_mpeg_header( void *mpg, const char *data, long bufsize, long streamsize, wavinfo_t *sc )
+int feed_mpeg_header( void *mpg, const byte *data, long bufsize, long streamsize, wavinfo_t *sc )
 {
 	mpg123_handle_t	*mh = (mpg123_handle_t *)mpg;
 	int		ret, no;
@@ -67,7 +67,7 @@ int feed_mpeg_header( void *mpg, const char *data, long bufsize, long streamsize
 	return 1;
 }
 
-int feed_mpeg_stream( void *mpg, const char *data, long bufsize, char *outbuf, size_t *outsize )
+int feed_mpeg_stream( void *mpg, const byte *data, long bufsize, byte *outbuf, size_t *outsize )
 {
 	switch( mpg123_decode( mpg, data, bufsize, outbuf, OUTBUF_SIZE, outsize ))
 	{
@@ -87,7 +87,7 @@ int open_mpeg_stream( void *mpg, void *file, pfread f_read, pfseek f_seek, wavin
 
 	if( !mh || !sc ) return 0;
 
-	ret = mpg123_replace_reader_handle( mh, f_read, f_seek, NULL );
+	ret = mpg123_replace_reader_handle( mh, (void *)f_read, (void *)f_seek, NULL );
 	if( ret != MPG123_OK )
 		return 0;
 
@@ -106,7 +106,7 @@ int open_mpeg_stream( void *mpg, void *file, pfread f_read, pfseek f_seek, wavin
 	return 1;
 }
 
-int read_mpeg_stream( void *mpg, char *outbuf, size_t *outsize  )
+int read_mpeg_stream( void *mpg, byte *outbuf, size_t *outsize  )
 {
 	switch( mpg123_read( mpg, outbuf, OUTBUF_SIZE, outsize ))
 	{

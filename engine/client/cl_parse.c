@@ -528,6 +528,9 @@ void CL_BatchResourceRequest( qboolean initialize )
 				break;
 			CL_MoveToOnHandList( p );
 			break;
+		case t_world:
+			ASSERT( 0 );
+			break;
 		}
 	}
 
@@ -586,7 +589,10 @@ int CL_EstimateNeededResources( void )
 				nTotalSize += p->nDownloadSize;
 			}
 			break;
-		}		
+		case t_world:
+			ASSERT( 0 );
+			break;
+		}
 	}
 
 	return nTotalSize;
@@ -1511,7 +1517,7 @@ void CL_RegisterResources( sizebuf_t *msg )
 	model_t	*mod;
 	int	i;
 
-	if( cls.dl.custom || cls.signon == SIGNONS && cls.state == ca_active )
+	if( cls.dl.custom || ( cls.signon == SIGNONS && cls.state == ca_active ) )
 	{
 		cls.dl.custom = false;
 		return;

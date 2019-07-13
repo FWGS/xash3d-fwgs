@@ -222,7 +222,7 @@ typedef struct render_api_s
 	struct mstudiotex_s *( *StudioGetTexture )( struct cl_entity_s *e );
 	const struct ref_overview_s *( *GetOverviewParms )( void );
 	const char	*( *GetFileByIndex )( int fileindex );
-	int		(*pfnSaveFile)( const char *filename, const void *data, long len );
+	int		(*pfnSaveFile)( const char *filename, const void *data, int len );
 	void		(*R_Reserved0)( void );
 
 	// static allocations

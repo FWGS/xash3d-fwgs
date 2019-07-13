@@ -60,10 +60,7 @@ qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	file_t		*f;
-	string		message;
-	string		compiler;
-	string		generator;
-	string		matchbuf;
+	string		message, compiler, generator, matchbuf;
 	byte		buf[MAX_SYSPATH]; // 1 kb
 	int		i, nummaps;
 
@@ -83,6 +80,8 @@ qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
 		char		*ents = NULL, *pfile;
 		qboolean		validmap = false;
 		int		version = 0;
+		char		*szBuf;
+		string	version_description;
 
 		if( Q_stricmp( ext, "bsp" )) continue;
 		Q_strncpy( message, "^1error^7", sizeof( message ));
@@ -114,7 +113,7 @@ qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
 			Q_strncpy( entfilename, t->filenames[i], sizeof( entfilename ));
 			COM_StripExtension( entfilename );
 			COM_DefaultExtension( entfilename, ".ent" );
-			ents = FS_LoadFile( entfilename, NULL, true );
+			ents = (char *)FS_LoadFile( entfilename, NULL, true );
 
 			if( !ents && lumplen >= 10 )
 			{
@@ -162,24 +161,24 @@ qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
 		switch( ver )
 		{
 		case Q1BSP_VERSION:
-			Q_strncpy( buf, "Quake", sizeof( buf ));
+			Q_strncpy( version_description, "Quake", sizeof( version_description ));
 			break;
 		case QBSP2_VERSION:
-			Q_strncpy( buf, "Darkplaces BSP2", sizeof( buf ));
+			Q_strncpy( version_description, "Darkplaces BSP2", sizeof( version_description ));
 			break;
 		case HLBSP_VERSION:
 			switch( version )
 			{
-			case 1: Q_strncpy( buf, "XashXT old format", sizeof( buf )); break;
-			case 2: Q_strncpy( buf, "Paranoia 2: Savior", sizeof( buf )); break;
-			case 4: Q_strncpy( buf, "Half-Life extended", sizeof( buf )); break;
-			default: Q_strncpy( buf, "Half-Life", sizeof( buf )); break;
+			case 1: Q_strncpy( version_description, "XashXT old format", sizeof( version_description )); break;
+			case 2: Q_strncpy( version_description, "Paranoia 2: Savior", sizeof( version_description )); break;
+			case 4: Q_strncpy( version_description, "Half-Life extended", sizeof( version_description )); break;
+			default: Q_strncpy( version_description, "Half-Life", sizeof( version_description )); break;
 			}
 			break;
-		default:	Q_strncpy( buf, "??", sizeof( buf )); break;
+		default:	Q_strncpy( version_description, "??", sizeof( version_description )); break;
 		}
 
-		Con_Printf( "%16s (%s) ^3%s^7 ^2%s %s^7\n", matchbuf, buf, message, compiler, generator );
+		Con_Printf( "%16s (%s) ^3%s^7 ^2%s %s^7\n", matchbuf, version_description, message, compiler, generator );
 		nummaps++;
 	}
 
@@ -896,7 +895,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 			Q_strncpy( entfilename, t->filenames[i], sizeof( entfilename ));
 			COM_StripExtension( entfilename );
 			COM_DefaultExtension( entfilename, ".ent" );
-			ents = FS_LoadFile( entfilename, NULL, true );
+			ents = (char *)FS_LoadFile( entfilename, NULL, true );
 
 			if( !ents && lumplen >= 10 )
 			{

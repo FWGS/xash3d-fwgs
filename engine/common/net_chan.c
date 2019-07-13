@@ -351,7 +351,7 @@ Returns true if the bandwidth choke isn't active
 qboolean Netchan_CanPacket( netchan_t *chan, qboolean choke )
 {
 	// never choke loopback packets.
-	if( !choke || !net_chokeloopback->value && NET_IsLocalAddress( chan->remote_address ))
+	if( !choke || ( !net_chokeloopback->value && NET_IsLocalAddress( chan->remote_address ) ))
 	{
 		chan->cleartime = host.realtime;
 		return true;
@@ -528,7 +528,7 @@ void Netchan_OutOfBandPrint( int net_socket, netadr_t adr, char *format, ... )
 	Q_vsnprintf( string, sizeof( string ) - 1, format, argptr );
 	va_end( argptr );
 
-	Netchan_OutOfBand( net_socket, adr, Q_strlen( string ), string );
+	Netchan_OutOfBand( net_socket, adr, Q_strlen( string ), (byte *)string );
 }
 
 /*
@@ -1640,7 +1640,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 		if( chan->pfnBlockSize )
 			maxsize = chan->pfnBlockSize( chan->client, FRAGSIZE_UNRELIABLE );
 
-		if( MSG_GetNumBytesWritten( &send ) + length >> 3 <= maxsize )
+		if( (( MSG_GetNumBytesWritten( &send ) + length ) >> 3) <= maxsize )
 			MSG_WriteBits( &send, data, length );
 		else Con_Printf( S_WARN "Netchan_Transmit: unreliable message overflow: %d\n", MSG_GetNumBytesWritten( &send ) );
 	}
