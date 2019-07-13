@@ -513,7 +513,6 @@ void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
 char *SV_StatusString( void );
 void SV_RefreshUserinfo( void );
 void SV_GetChallenge( netadr_t from );
-void SV_DirectConnect( netadr_t from );
 void SV_TogglePause( const char *msg );
 qboolean SV_ShouldUpdatePing( sv_client_t *cl );
 const char *SV_GetClientIDString( sv_client_t *cl );
@@ -535,6 +534,7 @@ int SV_CalcPing( sv_client_t *cl );
 void SV_InitClientMove( void );
 void SV_UpdateServerInfo( void );
 void SV_EndRedirect( void );
+void SV_RejectConnection( netadr_t from, char *fmt, ... ) _format( 2 );
 
 //
 // sv_cmds.c
