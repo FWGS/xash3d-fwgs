@@ -618,11 +618,15 @@ typedef struct
 	file_t		*demoheader;		// contain demo startup info in case we record a demo on this level
 	qboolean internetservers_wait;	// internetservers is waiting for dns request
 	qboolean internetservers_pending;	// internetservers is waiting for dns request
+
+	// legacy mode support
 	qboolean legacymode;				// one-way 48 protocol compatibility
 	netadr_t legacyserver;
 	netadr_t legacyservers[MAX_LEGACY_SERVERS];
 	int	legacyservercount;
 	int extensions;
+
+	netadr_t serveradr;
 } client_static_t;
 
 #ifdef __cplusplus
@@ -1075,7 +1079,8 @@ void UI_CharEvent( int key );
 qboolean UI_MouseInRect( void );
 qboolean UI_IsVisible( void );
 void UI_ResetPing( void );
-void UI_ShowConnectionWarning( void );
+void UI_ShowUpdateDialog( qboolean preferStore );
+void UI_ShowMessageBox( const char *text );
 void UI_AddTouchButtonToList( const char *name, const char *texture, const char *command, unsigned char *color, int flags );
 void pfnPIC_Set( HIMAGE hPic, int r, int g, int b, int a );
 void pfnPIC_Draw( int x, int y, int width, int height, const wrect_t *prc );
