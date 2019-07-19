@@ -1047,7 +1047,7 @@ void GL_DrawAliasFrame( aliashdr_t *paliashdr )
 		else
 		{
 			pglBegin( GL_TRIANGLE_STRIP );
-                    }
+		}
 
 		do
 		{

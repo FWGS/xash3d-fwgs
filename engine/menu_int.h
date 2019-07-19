@@ -78,7 +78,7 @@ typedef struct ui_enginefuncs_s
 	int	(*pfnAddCommand)( const char *cmd_name, void (*function)(void) );
 	void	(*pfnClientCmd)( int execute_now, const char *szCmdString );
 	void	(*pfnDelCommand)( const char *cmd_name );
-	int       (*pfnCmdArgc)( void );	
+	int (*pfnCmdArgc)( void );
 	const char*	(*pfnCmdArgv)( int argc );
 	const char*	(*pfnCmd_Args)( void );
 

@@ -334,7 +334,7 @@ static void FinalizeSections( MEMORYMODULE *module )
 		}
 
 		if( size > 0 )
-		{         
+		{
 			// change memory access flags
 			if( !VirtualProtect((LPVOID)section->Misc.PhysicalAddress, size, protect, &oldProtect ))
 				Sys_Error( "error protecting memory page\n" );

@@ -183,8 +183,8 @@ size_t Q_strncpy( char *dst, const char *src, size_t size )
 
 int Q_atoi( const char *str )
 {
-	int       val = 0;
-	int	c, sign;
+	int val = 0;
+	int c, sign;
 
 	if( !str ) return 0;
 
@@ -361,7 +361,7 @@ int Q_strnicmp( const char *s1, const char *s2, int n )
 	else if( s2 == NULL )
 	{
 		return 1;
-          }
+	}
 
 	do {
 		c1 = *s1++;

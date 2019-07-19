@@ -1187,7 +1187,7 @@ int CL_GetDemoComment( const char *demoname, char *comment )
 	{
 		Q_strncpy( comment, "", MAX_STRING );
 		return false;
-          }
+	}
 
 	// read in the m_DemoHeader
 	FS_Read( demfile, &demohdr, sizeof( demoheader_t ));

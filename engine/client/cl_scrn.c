@@ -95,7 +95,7 @@ void SCR_DrawFPS( int height )
 			Q_snprintf( fpsstring, sizeof( fpsstring ), "fps: ^1%4i min, ^3%4i cur, ^2%4i max", minfps, curfps, maxfps );
 		else Q_snprintf( fpsstring, sizeof( fpsstring ), "%4i fps", curfps );
 		MakeRGBA( color, 255, 255, 255, 255 );
-          }
+	}
 
 	Con_DrawStringLen( fpsstring, &offset, NULL );
 	Con_DrawString( refState.width - offset - 4, height, fpsstring, color );

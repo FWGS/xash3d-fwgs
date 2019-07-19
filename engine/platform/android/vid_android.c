@@ -402,7 +402,7 @@ void* GL_GetProcAddress( const char *name ) // RenderAPI requirement
 	return eglGetProcAddress( name );
 }
 
-void      GL_UpdateSwapInterval( void )
+void GL_UpdateSwapInterval( void )
 {
 	// disable VSync while level is loading
 	if( cls.state < ca_active )

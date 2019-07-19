@@ -549,7 +549,7 @@ CL_TempEntAlloc
 
 custom tempentity allocation
 ==============
-*/                                                   
+*/
 TEMPENTITY *CL_TempEntAllocCustom( const vec3_t org, model_t *model, int high, void (*pfn)( TEMPENTITY*, float, float ))
 {
 	TEMPENTITY	*pTemp;

@@ -202,11 +202,11 @@ typedef struct netchan_s
 	double		cleartime;	// if realtime > cleartime, free to send next packet
 
 	// Sequencing variables
-	int		incoming_sequence;			// increasing count of sequence numbers               
-	int		incoming_acknowledged;		// # of last outgoing message that has been ack'd.          
-	int		incoming_reliable_acknowledged;	// toggles T/F as reliable messages are received.	
-	int		incoming_reliable_sequence;		// single bit, maintained local	    
-	int		outgoing_sequence;			// message we are sending to remote              
+	int		incoming_sequence;			// increasing count of sequence numbers
+	int		incoming_acknowledged;		// # of last outgoing message that has been ack'd.
+	int		incoming_reliable_acknowledged;	// toggles T/F as reliable messages are received.
+	int		incoming_reliable_sequence;		// single bit, maintained local
+	int		outgoing_sequence;			// message we are sending to remote
 	int		reliable_sequence;			// whether the message contains reliable payload, single bit
 	int		last_reliable_sequence;		// outgoing sequence number of last send that had reliable data
 
@@ -227,7 +227,7 @@ typedef struct netchan_s
 	// Multiple outgoing buffers can be queued in succession
 	fragbufwaiting_t	*waitlist[MAX_STREAMS]; 
 
-	int		reliable_fragment[MAX_STREAMS];	// is reliable waiting buf a fragment?          
+	int		reliable_fragment[MAX_STREAMS];	// is reliable waiting buf a fragment?
 	uint		reliable_fragid[MAX_STREAMS];		// buffer id for each waiting fragment
 
 	fragbuf_t		*fragbufs[MAX_STREAMS];	// the current fragment being set

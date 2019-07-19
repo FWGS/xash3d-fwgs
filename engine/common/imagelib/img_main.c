@@ -177,7 +177,7 @@ qboolean FS_AddSideToPack( const char *name, int adjust_flags )
 
 	// keep constant size, render.dll expecting it
 	image.size = image.source_width * image.source_height * 4;
-          
+
 	// mixing dds format with any existing ?
 	if( image.type != image.source_type )
 		return false;
@@ -282,7 +282,7 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 					{
 						// this name will be used only for tell user about problems 
 						if( format->loadfunc( path, f, filesize ))
-						{         
+						{
 							Q_snprintf( sidename, sizeof( sidename ), "%s%s.%s", loadname, cmap->type[i].suf, format->ext );
 							if( FS_AddSideToPack( sidename, cmap->type[i].flags )) // process flags to flip some sides
 							{

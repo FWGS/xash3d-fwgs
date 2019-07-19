@@ -1075,7 +1075,7 @@ int Con_DrawGenericString( int x, int y, const char *string, rgba_t setColor, qb
 		numDraws++;
 		s++;
 	}
-          
+
 	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 	return drawLen;
 }

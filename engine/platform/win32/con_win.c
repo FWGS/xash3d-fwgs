@@ -345,7 +345,7 @@ void Wcon_CreateConsole( void )
 		s_wcd.hwndButtonSubmit = CreateWindow( "button", NULL, BS_PUSHBUTTON|WS_VISIBLE|WS_CHILD|BS_DEFPUSHBUTTON, 552, 367, 87, 25, s_wcd.hWnd, (HMENU)SUBMIT_ID, host.hInst, NULL );
 		SendMessage( s_wcd.hwndButtonSubmit, WM_SETTEXT, 0, ( LPARAM ) "submit" );
 	}
-          
+
 	// create the scrollbuffer
 	GetClientRect( s_wcd.hWnd, &rect );
 
@@ -360,7 +360,7 @@ void Wcon_CreateConsole( void )
 
 	// show console if needed
 	if( host.con_showalways )
-	{          
+	{
 		// make console visible
 		ShowWindow( s_wcd.hWnd, SW_SHOWDEFAULT );
 		UpdateWindow( s_wcd.hWnd );
@@ -404,7 +404,7 @@ void Wcon_DestroyConsole( void )
 	if( s_wcd.hWnd )
 	{
 		DeleteObject( s_wcd.hbrEditBackground );
-                    DeleteObject( s_wcd.hfBufferFont );
+		DeleteObject( s_wcd.hfBufferFont );
 
 		if( host.type == HOST_DEDICATED )
 		{

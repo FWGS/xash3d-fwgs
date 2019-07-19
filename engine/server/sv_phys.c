@@ -609,8 +609,8 @@ int SV_FlyMove( edict_t *ent, float time, trace_t *steptrace )
 		{
 			blocked |= 1; // floor
 
-         			if( trace.ent->v.solid == SOLID_BSP || trace.ent->v.solid == SOLID_SLIDEBOX ||
-			trace.ent->v.movetype == MOVETYPE_PUSHSTEP || (trace.ent->v.flags & FL_CLIENT))
+			if( trace.ent->v.solid == SOLID_BSP || trace.ent->v.solid == SOLID_SLIDEBOX ||
+				trace.ent->v.movetype == MOVETYPE_PUSHSTEP || (trace.ent->v.flags & FL_CLIENT))
 			{
 				SetBits( ent->v.flags, FL_ONGROUND );
 				ent->v.groundentity = trace.ent;
@@ -866,7 +866,7 @@ allow entity to block pusher?
 static qboolean SV_CanBlock( edict_t *ent )
 {
 	if( ent->v.mins[0] == ent->v.maxs[0] )
-      		return false;
+		return false;
 
 	if( ent->v.solid == SOLID_NOT || ent->v.solid == SOLID_TRIGGER )
 	{
@@ -874,7 +874,7 @@ static qboolean SV_CanBlock( edict_t *ent )
 		ent->v.mins[0] = ent->v.mins[1] = 0;
 		VectorCopy( ent->v.mins, ent->v.maxs );
 		return false;
-          }
+	}
 
 	return true;
 }
@@ -1098,7 +1098,7 @@ static edict_t *SV_PushRotate( edict_t *pusher, float movetime )
 			if( lmove[2] != 0.0f ) check->v.flags &= ~FL_ONGROUND;
 			if( lmove[2] < 0.0f && !pusher->v.dmg )
 				lmove[2] = 0.0f; // let's the free falling
-                    }
+		}
 
 		// try moving the contacted entity 
 		pusher->v.solid = SOLID_NOT;
@@ -1471,7 +1471,7 @@ void SV_Physics_Toss( edict_t *ent )
 	case MOVETYPE_TOSS:
 	case MOVETYPE_BOUNCE:
 		SV_AngularMove( ent, sv.frametime, ent->v.friction );
-		break;         
+		break;
 	default:
 		SV_AngularMove( ent, sv.frametime, 0.0f );
 		break;
@@ -1795,7 +1795,7 @@ void SV_Physics( void )
 			continue;
 
 		if( i > 0 && i <= svs.maxclients )
-                   		continue;
+			continue;
 
 		SV_Physics_Entity( ent );
 	}

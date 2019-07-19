@@ -1610,7 +1610,7 @@ void MSG_WriteWeaponData( sizebuf_t *msg, weapon_data_t *from, weapon_data_t *to
 
 	MSG_WriteOneBit( msg, 1 );
 	MSG_WriteUBitLong( msg, index, MAX_WEAPON_BITS );
-               
+
 	// process fields
 	for( i = 0; i < dt->numFields; i++, pField++ )
 	{
@@ -1765,7 +1765,7 @@ MSG_ReadDeltaEntity
 
 The entity number has already been read from the message, which
 is how the from state is identified.
-                             
+
 If the delta removes the entity, entity_state_t->number will be set to MAX_EDICTS
 Can go from either a baseline or a previous packet_entity
 ==================
@@ -1792,7 +1792,7 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 		{
 			// removed from delta-message
 			return false;
-                    }
+		}
 
 		if( fRemoveType & 2 )
 		{	

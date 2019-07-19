@@ -28,7 +28,7 @@ struct entity_state_s
 // Fields which are filled in by routines outside of delta compression
 	int		entityType;
 	// Index into cl_entities array for this entity.
-	int		number;      
+	int		number;
 	float		msg_time;
 
 	// Message number last time the player/entity state was updated.
@@ -71,7 +71,7 @@ struct entity_state_s
 	int		owner; 
 
 	// Friction, for prediction.
-	float		friction;       
+	float		friction;
 	// Gravity multiplier
 	float		gravity;				
 
@@ -87,7 +87,7 @@ struct entity_state_s
 	// Use the crouched hull, or the regular player hull.
 	int		usehull;		
 	// Latched buttons last time state updated.
-	int		oldbuttons;     
+	int		oldbuttons;
 	// -1 = in air, else pmove entity number
 	int		onground;		
 	int		iStepLeft;

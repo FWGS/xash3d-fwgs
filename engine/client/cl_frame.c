@@ -1364,7 +1364,7 @@ qboolean CL_GetEntitySpatialization( channel_t *ch )
 		return true;
 	}
 
-	valid_origin = VectorIsNull( ch->origin ) ? false : true;          
+	valid_origin = VectorIsNull( ch->origin ) ? false : true;
 	ent = CL_GetEntityByIndex( ch->entnum );
 
 	// entity is not present on the client but has valid origin
@@ -1388,7 +1388,7 @@ qboolean CL_GetMovieSpatialization( rawchan_t *ch )
 	cl_entity_t	*ent;
 	qboolean		valid_origin;
 
-	valid_origin = VectorIsNull( ch->origin ) ? false : true;          
+	valid_origin = VectorIsNull( ch->origin ) ? false : true;
 	ent = CL_GetEntityByIndex( ch->entnum );
 
 	// entity is not present on the client but has valid origin

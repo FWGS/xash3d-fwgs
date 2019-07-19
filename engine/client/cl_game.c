@@ -1541,7 +1541,7 @@ static client_sprite_t *pfnSPR_GetList( char *psz, int *piCount )
 	{
 		Con_Printf( S_ERROR "SPR_GetList: overflow cache!\n" );
 		return NULL;
-          }
+	}
 
 	if( !clgame.itemspath[0] )	// typically it's sprites\*.txt
 		COM_ExtractFilePath( psz, clgame.itemspath );
@@ -1550,7 +1550,7 @@ static client_sprite_t *pfnSPR_GetList( char *psz, int *piCount )
 	if( !afile ) return NULL;
 
 	pfile = (char *)afile;
-	pfile = COM_ParseFile( pfile, token );          
+	pfile = COM_ParseFile( pfile, token );
 	numSprites = Q_atoi( token );
 
 	Q_strncpy( pEntry->szListName, psz, sizeof( pEntry->szListName ));
@@ -3456,7 +3456,7 @@ void NetAPI_CancelRequest( int context )
 				SetBits( nr->resp.error, NET_ERROR_TIMEOUT );
 				nr->resp.ping = host.realtime - nr->timesend;
 				nr->pfnFunc( &nr->resp );
-                              }
+
 
 			if( clgame.net_requests[i].resp.type == NETAPI_REQUEST_SERVERLIST && &clgame.net_requests[i] == clgame.master_request )
 			{
@@ -4006,7 +4006,7 @@ qboolean CL_LoadProgs( const char *name )
 		// functions are cleared before all the extensions are evaluated
 		if(( *func->func = (void *)COM_GetProcAddress( clgame.hInstance, func->name )) == NULL )
 		{
-          		Con_Reportf( "CL_LoadProgs: failed to get address of %s proc\n", func->name );
+			Con_Reportf( "CL_LoadProgs: failed to get address of %s proc\n", func->name );
 
 			if( critical_exports )
 			{

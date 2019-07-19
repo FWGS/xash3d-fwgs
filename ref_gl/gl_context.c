@@ -95,11 +95,11 @@ void Mod_BrushUnloadTextures( model_t *mod )
 	{
 		texture_t *tx = mod->textures[i];
 		if( !tx || tx->gl_texturenum == tr.defaultTexture )
-			continue;       // free slot
+			continue; // free slot
 
 		GL_FreeTexture( tx->gl_texturenum );    // main texture
 		GL_FreeTexture( tx->fb_texturenum );    // luma texture
-        }
+	}
 }
 
 void Mod_UnloadTextures( model_t *mod )

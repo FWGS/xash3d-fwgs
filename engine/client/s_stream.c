@@ -45,7 +45,7 @@ S_FadeMusicVolume
 */
 void S_FadeMusicVolume( float fadePercent )
 {
-	musicfade.percent = bound( 0.0f, fadePercent, 100.0f );       
+	musicfade.percent = bound( 0.0f, fadePercent, 100.0f );
 }
 
 /*

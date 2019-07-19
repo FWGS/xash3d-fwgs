@@ -481,7 +481,7 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 	if( frame < 0 )
 	{
 		frame = 0;
-	}          
+	}
 	else if( frame >= psprite->numframes )
 	{
 		gEngfuncs.Con_Reportf( S_WARN "R_GetSpriteFrameInterpolant: no such frame %d (%s)\n", frame, ent->model->name );
@@ -500,7 +500,7 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 				ent->latched.sequencetime = gpGlobals->time;
 				lerpFrac = 1.0f;
 			}
-                              
+
 			if( ent->latched.sequencetime < gpGlobals->time )
 			{
 				if( frame != ent->latched.prevblending[1] )
@@ -745,7 +745,7 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 		VectorMA( org, frame->up * scale, v_up, point );
 		VectorMA( point, frame->right * scale, v_right, point );
 		pglVertex3fv( point );
- 	        	pglTexCoord2f( 1.0f, 1.0f );
+		pglTexCoord2f( 1.0f, 1.0f );
 		VectorMA( org, frame->down * scale, v_up, point );
 		VectorMA( point, frame->right * scale, v_right, point );
 		pglVertex3fv( point );
@@ -893,7 +893,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		color[1] = 1.0f;
 		color[2] = 1.0f;
 	}
-          
+
 	if( R_SpriteHasLightmap( e, psprite->texFormat ))
 	{
 		colorVec lightColor = R_LightPoint( origin );

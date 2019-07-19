@@ -561,7 +561,7 @@ typedef struct
 	double		packet_loss_recalc_time;
 	int		starting_count;		// message num readed bits
 
-	float		nextcmdtime;		// when can we send the next command packet?                
+	float		nextcmdtime;		// when can we send the next command packet?
 	int		lastoutgoingcommand;	// sequence number of last outgoing command
 	int		lastupdate_sequence;	// prediction stuff
 

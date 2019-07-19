@@ -214,8 +214,8 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	switch( png_hdr.ihdr_chunk.colortype )
 	{
 	case PNG_CT_RGB:
-                pixel_size = 3;
-                break;
+		pixel_size = 3;
+		break;
 	case PNG_CT_RGBA:
 		pixel_size = 4;
 		break;

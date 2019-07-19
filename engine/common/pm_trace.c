@@ -423,7 +423,7 @@ pmtrace_t PM_PlayerTraceExt( playermove_t *pmove, vec3_t start, vec3_t end, int 
 
 			Matrix4x4_VectorITransform( matrix, start, start_l );
 			Matrix4x4_VectorITransform( matrix, end, end_l );
-                              
+
 			if( transform_bbox )
 			{
 				World_TransformAABB( matrix, pmove->player_mins[pmove->usehull], pmove->player_maxs[pmove->usehull], mins, maxs );
@@ -591,14 +591,14 @@ int PM_TestPlayerPosition( playermove_t *pmove, vec3_t pos, pmtrace_t *ptrace, p
 			{
 				if(( check_angles( pe->angles[0] ) || check_angles( pe->angles[2] )) && pmove->usehull != 2 )
 					transform_bbox = true;
-                              }
+			}
 
 			if( transform_bbox )
 				Matrix4x4_CreateFromEntity( matrix, pe->angles, pe->origin, 1.0f );
 			else Matrix4x4_CreateFromEntity( matrix, pe->angles, offset, 1.0f );
 
 			Matrix4x4_VectorITransform( matrix, pos, pos_l );
-                              
+
 			if( transform_bbox )
 			{
 				World_TransformAABB( matrix, pmove->player_mins[pmove->usehull], pmove->player_maxs[pmove->usehull], mins, maxs );

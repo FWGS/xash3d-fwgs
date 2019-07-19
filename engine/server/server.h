@@ -209,7 +209,7 @@ typedef struct sv_client_s
 	char		physinfo[MAX_INFO_STRING];	// set on server (transmit to client)
 
 	netchan_t		netchan;
-	int		chokecount;         	// number of messages rate supressed
+	int		chokecount;			// number of messages rate supressed
 	int		delta_sequence;		// -1 = no compression.
 
 	double		next_messagetime;		// time when we should send next world state update  
