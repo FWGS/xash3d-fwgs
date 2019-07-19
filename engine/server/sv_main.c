@@ -479,7 +479,7 @@ void SV_CheckTimeouts( void )
 		{
 			if( cl->edict && !FBitSet( cl->edict->v.flags, FL_SPECTATOR|FL_FAKECLIENT ))
 				numclients++;
-                    }
+		}
 
 		// fake clients do not timeout
 		if( FBitSet( cl->flags, FCL_FAKECLIENT ))

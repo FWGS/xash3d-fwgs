@@ -302,7 +302,7 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesi
 		return false;
 
 	if( !Image_ValidSize( name ))
-		return false;         
+		return false;
 
 	if( image.hint != IL_HINT_Q1 && filesize > (int)sizeof(lmp) + pixels )
 	{
@@ -482,7 +482,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 
 	// check for half-life water texture
 	if( hl_texture && ( mip.name[0] == '!' || !Q_strnicmp( mip.name, "water", 5 )))
-          {
+	{
 		// grab the fog color
 		image.fogParams[0] = pal[3*3+0];
 		image.fogParams[1] = pal[3*3+1];
@@ -490,16 +490,16 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 
 		// grab the fog density
 		image.fogParams[3] = pal[4*3+0];
-          }
-          else if( hl_texture && ( rendermode == LUMP_GRADIENT ))
-          {
+	}
+	else if( hl_texture && ( rendermode == LUMP_GRADIENT ))
+	{
 		// grab the decal color
 		image.fogParams[0] = pal[255*3+0];
 		image.fogParams[1] = pal[255*3+1];
 		image.fogParams[2] = pal[255*3+2];
 
 		// calc the decal reflectivity
-		image.fogParams[3] = VectorAvg( image.fogParams );         
+		image.fogParams[3] = VectorAvg( image.fogParams );
 	}
 	else if( pal != NULL )
 	{

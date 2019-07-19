@@ -75,7 +75,7 @@ static int CheckSkybox( const char *name )
 	{	
 		num_checked_sides = 0;
 		for( j = 0; j < 6; j++ )
-		{         
+		{
 			// build side name
 			sidename = va( "%s%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
 			if( gEngfuncs.FS_FileExists( sidename, false ))
@@ -87,7 +87,7 @@ static int CheckSkybox( const char *name )
 			return SKYBOX_HLSTYLE; // image exists
 
 		for( j = 0; j < 6; j++ )
-		{         
+		{
 			// build side name
 			sidename = va( "%s_%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
 			if( gEngfuncs.FS_FileExists( sidename, false ))
@@ -729,7 +729,7 @@ void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 				trans[(i * r_sky->height) + j] = transpix;
 			}
 			else
-			{         
+			{
 				rgba = (uint *)r_sky->palette + p;
 				trans[(i * r_sky->height) + j] = *rgba;
 			}

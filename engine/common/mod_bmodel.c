@@ -2539,7 +2539,7 @@ static void Mod_LoadLeafs( dbspmodel_t *bmod )
 					out->compressed_vis = loadmodel->visdata + p;
 				else Con_Reportf( S_WARN "Mod_LoadLeafs: invalid visofs for leaf #%i\n", i );
 			}
-	          }
+		}
 		else out->cluster = -1; // no visclusters on bmodels
 
 		if( p == -1 ) out->compressed_vis = NULL;

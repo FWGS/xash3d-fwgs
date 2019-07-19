@@ -217,7 +217,7 @@ typedef struct
 
 	msurface_t	*draw_decals[MAX_DECAL_SURFS];
 	int		num_draw_decals;
-         
+
 	// OpenGL matrix states
 	qboolean		modelviewIdentity;
 

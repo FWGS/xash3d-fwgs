@@ -912,7 +912,7 @@ void SV_ClipMoveToEntity( edict_t *ent, const vec3_t start, vec3_t mins, vec3_t 
 
 		Matrix4x4_VectorITransform( matrix, start, start_l );
 		Matrix4x4_VectorITransform( matrix, end, end_l );
-                              
+
 		if( transform_bbox )
 		{
 			World_TransformAABB( matrix, mins, maxs, out_mins, out_maxs );

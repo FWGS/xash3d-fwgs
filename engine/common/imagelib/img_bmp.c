@@ -71,7 +71,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 		// Sweet Half-Life issues. splash.bmp have bogus filesize
 		Con_Reportf( S_WARN "Image_LoadBMP: %s have incorrect file size %li should be %i\n", name, filesize, bhdr.fileSize );
 	}
-          
+
 	// bogus compression?  Only non-compressed supported.
 	if( bhdr.compression != BI_RGB ) 
 	{
@@ -83,7 +83,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	image.height = rows = abs( bhdr.height );
 
 	if( !Image_ValidSize( name ))
-		return false;          
+		return false;
 
 	// special case for loading qfont (menu font)
 	if( !Q_strncmp( name, "#XASH_SYSTEMFONT_001", 20 ))

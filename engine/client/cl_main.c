@@ -642,7 +642,7 @@ void CL_CreateCmd( void )
 
 	if( !cls.demoplayback )
 	{
-		pcmd->senttime = host.realtime;      
+		pcmd->senttime = host.realtime;
 		memset( &pcmd->cmd, 0, sizeof( pcmd->cmd ));
 		pcmd->receivedtime = -1.0;
 		pcmd->heldback = false;
@@ -2319,7 +2319,7 @@ void CL_ReadPackets( void )
 
 	// if in the debugger last frame, don't timeout
 	if( host.frametime > 5.0f ) cls.netchan.last_received = Sys_DoubleTime();
-          
+
 	// check timeout
 	if( cls.state >= ca_connected && cls.state != ca_cinematic && !cls.demoplayback )
 	{

@@ -437,7 +437,7 @@ typedef struct
 	void	(*pfnParmsChangeLevel)( void );
 
 	 // Returns string describing current .dll.  E.g., TeamFotrress 2, Half-Life
-	const char     *(*pfnGetGameDescription)( void );     
+	const char     *(*pfnGetGameDescription)( void );
 
 	// Notify dll about a player customization.
 	void	(*pfnPlayerCustomization)( edict_t *pEntity, customization_t *pCustom );

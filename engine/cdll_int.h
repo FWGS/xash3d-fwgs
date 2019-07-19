@@ -172,7 +172,7 @@ typedef struct cl_enginefuncs_s
 	int	(*GetMaxClients)( void );
 	void	(*Cvar_SetValue)( const char *cvar, float value );
 
-	int       (*Cmd_Argc)( void );	
+	int   (*Cmd_Argc)( void );
 	const char	*(*Cmd_Argv)( int arg );
 	void	(*Con_Printf)( const char *fmt, ... );
 	void	(*Con_DPrintf)( const char *fmt, ... );

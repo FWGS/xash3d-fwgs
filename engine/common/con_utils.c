@@ -888,7 +888,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 				continue;
 			}
 
-			// after call Mod_TestBmodelLumps we gurantee what map is valid                              
+			// after call Mod_TestBmodelLumps we gurantee what map is valid
 			lumpofs = header->lumps[LUMP_ENTITIES].fileofs;
 			lumplen = header->lumps[LUMP_ENTITIES].filelen;
 
@@ -950,7 +950,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 
 	if( !size )
 	{
-          	if( buffer ) Mem_Free( buffer );
+		if( buffer ) Mem_Free( buffer );
 
 		if( onlyingamedir )
 			return Cmd_CheckMapsList_R( fRefresh, false );
@@ -960,7 +960,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 	// write generated maps.lst
 	if( FS_WriteFile( "maps.lst", buffer, Q_strlen( buffer )))
 	{
-          	if( buffer ) Mem_Free( buffer );
+		if( buffer ) Mem_Free( buffer );
 		return true;
 	}
 	return false;
@@ -1476,7 +1476,7 @@ void Host_WriteVideoConfig( void )
 		FS_Printf( f, "//=======================================================================\n" );
 		Cvar_WriteVariables( f, FCVAR_RENDERINFO );
 		CFG_END( f, "video.cfg" );
-	}                                                
+	}
 	else Con_DPrintf( S_ERROR "can't update video.cfg.\n" );
 }
 #endif // XASH_DEDICATED

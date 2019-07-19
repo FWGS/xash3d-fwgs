@@ -103,7 +103,7 @@ typedef struct
 	short	nChannels;	// 1,2 for stereo data is (l,r) pairs 
 	int	nSamplesPerSec;
 	int	nAvgBytesPerSec;
-	short	nBlockAlign;      
+	short	nBlockAlign;
 	short	nBitsPerSample;
 } wavehdr_t;
 

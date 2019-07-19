@@ -189,7 +189,7 @@ void _Mem_FreePool( byte **poolptr, const char *filename, int fileline )
 {
 	mempool_t	*pool = (mempool_t *)*poolptr;
 	mempool_t	**chainaddress;
-          
+
 	if( pool )
 	{
 		// unlink pool from chain

@@ -1183,8 +1183,8 @@ static void Cmd_Apropos_f( void )
 		// fix inconsistencies in output from different commands
 		Msg( "cvar ^3%s^7 is \"%s\" [\"%s\"] %s\n",
 			var->name, var->string,
-		     ( var->flags & FCVAR_EXTENDED ) ? var->def_string : "",
-		     ( var->flags & FCVAR_EXTENDED ) ? var->desc : "game cvar");
+			( var->flags & FCVAR_EXTENDED ) ? var->def_string : "",
+			( var->flags & FCVAR_EXTENDED ) ? var->desc : "game cvar");
 		count++;
 	}
 

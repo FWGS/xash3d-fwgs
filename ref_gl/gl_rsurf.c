@@ -1103,7 +1103,7 @@ void R_RenderDetails( void )
 			fa = p->surf;
 			glt = R_GetTexture( fa->texinfo->texture->gl_texturenum ); // get texture scale
 			DrawGLPoly( fa->polys, glt->xscale, glt->yscale );
-                    }
+		}
 
 		detail_surfaces[i] = NULL;
 		es->detailchain = NULL;		
@@ -1229,7 +1229,7 @@ dynamic:
 
 			R_BuildLightMap( fa, temp, smax * 4, true );
 			R_SetCacheState( fa );
-                              
+
 			GL_Bind( XASH_TEXTURE0, tr.lightmapTextures[fa->lightmaptexturenum] );
 
 			pglTexSubImage2D( GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax,

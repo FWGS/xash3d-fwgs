@@ -415,7 +415,7 @@ void DLY_DoStereoDelay( int count )
 		{
 			// clear delay line
 			dly->lpdelayline[dly->idelayinput] = 0;
-                    }
+		}
 
 		DLY_MovePointer( dly );
 	}
