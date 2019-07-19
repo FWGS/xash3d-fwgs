@@ -119,11 +119,11 @@ static void COM_GenerateServerLibraryPath( char *out, size_t size )
 	char *ext;
 
 #if XASH_WIN32
-	Q_strncpy( dllpath, GI->game_dll, sizeof( dllname ) );
+	Q_strncpy( dllpath, GI->game_dll, sizeof( dllpath ) );
 #elif XASH_APPLE
-	Q_strncpy( dllpath, GI->game_dll_osx, sizeof( dllname ) );
+	Q_strncpy( dllpath, GI->game_dll_osx, sizeof( dllpath ) );
 #else // XASH_APPLE
-	Q_strncpy( dllpath, GI->game_dll_linux, sizeof( dllname ) );
+	Q_strncpy( dllpath, GI->game_dll_linux, sizeof( dllpath ) );
 #endif
 
 	ext = COM_FileExtension( dllpath );
