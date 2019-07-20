@@ -14,14 +14,15 @@ jdk:
 jobs:
   include:
     - stage: build
-      name: "Build for Linux & Android"
+      name: "Build for Linux i686"
       cache: ccache
       os: linux
       dist: xenial
+      env:
+        - ARCH=i686
       addons:
         apt:
           packages:
-            - p7zip-full
             - gcc-multilib
             - g++-multilib
             - libx11-dev:i386
@@ -29,19 +30,56 @@ jobs:
             - x11-utils
             - libgl1-mesa-dev
             - libasound-dev
-            - zlib1g:i386
             - libstdc++6:i386
             - libfuse2:i386
       before_script:
         - sh scripts/travis_common_deps.sh
         - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
-        - export ANDROID_HOME=$PWD/android-sdk-linux
-        - export PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:$PWD/android-ndk
       script:
         - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
       after_script:
         - ccache --show-stats
-        - sh scripts/continious_upload.sh Xash3DFWGS-i386.AppImage
+        - sh scripts/continious_upload.sh Xash3DFWGS-${ARCH}.AppImage
+	- # ...
+	  name: "Build for Linux amd64"
+      cache: ccache
+      os: linux
+      dist: xenial
+      env:
+        - ARCH=amd64
+      addons:
+        apt:
+          packages:
+            - libx11-dev
+            - libxext-dev
+            - x11-utils
+            - libgl1-mesa-dev
+            - libasound-dev
+            - libstdc++6
+            - libfuse2
+      before_script:
+        - sh scripts/travis_common_deps.sh
+        - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
+      script:
+        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
+      after_script:
+        - ccache --show-stats
+        - sh scripts/continious_upload.sh Xash3DFWGS-${ARCH}.AppImage
+#    - # ...
+#      name: "Build for Android"
+#      cache: ccache
+#      os: linux
+#      dist: xenial
+#      before_script:
+#        - sh scripts/travis_common_deps.sh
+#        - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
+#        - export ANDROID_HOME=$PWD/android-sdk-linux
+#        - export PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:$PWD/android-ndk
+#      script:
+#        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
+#      after_script:
+#        - ccache --show-stats
+#        - sh scripts/continious_upload.sh xash3d-fwgs.apk
 #    - # ...
 #      name: "Build for Windows MinGW"
 #      cache: ccache
