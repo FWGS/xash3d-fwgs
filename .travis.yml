@@ -18,8 +18,6 @@ jobs:
       cache: ccache
       os: linux
       dist: xenial
-      env:
-        - ARCH=i686
       addons:
         apt:
           packages:
@@ -36,17 +34,15 @@ jobs:
         - sh scripts/travis_common_deps.sh
         - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
       script:
-        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
+        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh i686
       after_script:
         - ccache --show-stats
         - sh scripts/continious_upload.sh Xash3DFWGS-${ARCH}.AppImage
-	- # ...
-	  name: "Build for Linux amd64"
+    - # ...
+      name: "Build for Linux amd64"
       cache: ccache
       os: linux
       dist: xenial
-      env:
-        - ARCH=amd64
       addons:
         apt:
           packages:
@@ -61,7 +57,7 @@ jobs:
         - sh scripts/travis_common_deps.sh
         - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
       script:
-        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
+        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh amd64
       after_script:
         - ccache --show-stats
         - sh scripts/continious_upload.sh Xash3DFWGS-${ARCH}.AppImage
