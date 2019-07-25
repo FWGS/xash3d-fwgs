@@ -31,10 +31,11 @@ jobs:
             - libstdc++6:i386
             - libfuse2:i386
       before_script:
+        - export ARCH=i686
         - sh scripts/travis_common_deps.sh
         - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
       script:
-        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh i686
+        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
       after_script:
         - ccache --show-stats
         - sh scripts/continious_upload.sh Xash3DFWGS-${ARCH}.AppImage
@@ -54,10 +55,11 @@ jobs:
             - libstdc++6
             - libfuse2
       before_script:
+        - export ARCH=amd64
         - sh scripts/travis_common_deps.sh
         - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
       script:
-        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh amd64
+        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
       after_script:
         - ccache --show-stats
         - sh scripts/continious_upload.sh Xash3DFWGS-${ARCH}.AppImage

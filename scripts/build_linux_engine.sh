@@ -2,7 +2,9 @@
 
 . scripts/lib.sh
 
-ARCH=$1
+if [ ! $ARCH ]; then
+	ARCH=i686
+fi
 
 # set up ccache
 export CC="ccache gcc"
@@ -15,8 +17,9 @@ APPDIR=$APP-$ARCH.AppDir
 build_sdl2()
 {
 	cd $TRAVIS_BUILD_DIR/SDL2_src
-	if [ "$ARCH" == "i686" ]; then # yes, it isn't good to pass flags as CC, but I don't want to clear CFLAGS after building SDL2
+	if [ "$ARCH" = "i686" ]; then
 		export CFLAGS="-msse2 -march=i686 -m32 -ggdb -O2"
+		export LDFLAGS="-m32"
 	fi
 	./configure --disable-render --disable-haptic --disable-power --disable-filesystem \
 		--disable-file --disable-libudev --disable-dbus --disable-ibus \
@@ -28,6 +31,7 @@ build_sdl2()
 	mkdir -p $TRAVIS_BUILD_DIR/SDL2_linux
 	make install DESTDIR=$TRAVIS_BUILD_DIR/SDL2_linux || die
 	export CFLAGS=""
+	export LDFLAGS=""
 }
 
 build_engine()
@@ -35,8 +39,8 @@ build_engine()
 	# Build engine
 	cd $TRAVIS_BUILD_DIR
 
-	WAF_CONFIGURE_FLAGS="-s SDL2_linux -T release --enable-stb --prefix=$APPDIR --win-style-install"
-	if [ "$ARCH" == "amd64" ]; then # we need enabling 64-bit target only on Intel-compatible CPUs
+	WAF_CONFIGURE_FLAGS="--sdl2=$TRAVIS_BUILD_DIR/SDL2_linux -T release --enable-stb --prefix=$APPDIR --win-style-install"
+	if [ "$ARCH" = "amd64" ]; then # we need enabling 64-bit target only on Intel-compatible CPUs
 		WAF_CONFIGURE_FLAGS="$WAF_CONFIGURE_FLAGS -8"
 	fi
 	./waf configure $WAF_CONFIGURE_FLAGS || die
@@ -53,7 +57,7 @@ build_appimage()
 	python3 scripts/makepak.py xash-extras/ $APPDIR/extras.pak
 
 	cp SDL2_linux/lib/libSDL2-2.0.so.0 $APPDIR/
-	if [ "$ARCH" == "i686" ]; then
+	if [ "$ARCH" = "i686" ]; then
 		cp vgui-dev/lib/vgui.so $APPDIR/
 	fi
 
