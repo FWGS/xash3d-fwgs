@@ -56,7 +56,7 @@ jobs:
             - libstdc++6
             - libfuse2
       before_script:
-        - export ARCH=amd64
+        - export ARCH=x86_64
         - sh scripts/travis_common_deps.sh
         - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
       script:
