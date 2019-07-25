@@ -30,6 +30,7 @@ jobs:
             - libasound-dev
             - libstdc++6:i386
             - libfuse2:i386
+            - zlib1g:i386
       before_script:
         - export ARCH=i686
         - sh scripts/travis_common_deps.sh
