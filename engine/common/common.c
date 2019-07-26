@@ -510,8 +510,17 @@ skipwhite:
 		data++;
 		while( 1 )
 		{
-			c = (byte)*data++;
-			if( c == '\"' || !c )
+			c = (byte)*data;
+
+			// unexpected line end
+			if( !c )
+			{
+				token[len] = 0;
+				return data;
+			}
+			data++;
+
+			if( c == '\"' )
 			{
 				token[len] = 0;
 				return data;
