@@ -3903,6 +3903,10 @@ static cl_enginefunc_t gEngfuncs =
 	pfnGetAppID,
 	Cmd_AliasGetList,
 	pfnVguiWrap2_GetMouseDelta,
+
+	// HACKHACK: added it here so it wouldn't cause overflow or segfault
+	// TODO: itself client command filtering is not implemented yet
+	pfnClientCmd
 };
 
 void CL_UnloadProgs( void )
