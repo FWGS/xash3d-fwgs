@@ -40,7 +40,7 @@ build_engine()
 	cd $TRAVIS_BUILD_DIR
 
 	WAF_CONFIGURE_FLAGS="--sdl2=$TRAVIS_BUILD_DIR/SDL2_linux -T release --enable-stb --prefix=$APPDIR --win-style-install"
-	if [ "$ARCH" = "amd64" ]; then # we need enabling 64-bit target only on Intel-compatible CPUs
+	if [ "$ARCH" = "x86_64" ]; then # we need enabling 64-bit target only on Intel-compatible CPUs
 		WAF_CONFIGURE_FLAGS="$WAF_CONFIGURE_FLAGS -8"
 	fi
 	./waf configure $WAF_CONFIGURE_FLAGS || die
