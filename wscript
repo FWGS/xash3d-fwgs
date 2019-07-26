@@ -170,8 +170,8 @@ def configure(conf):
 		'sanitize': {
 			'msvc':    ['/Od', '/RTC1'],
 			'gcc':     ['-Og', '-fsanitize=undefined', '-fsanitize=address'],
-			'clang':   ['-O1', '-fsanitize=undefined', '-fsanitize=address'],
-			'default': ['-O1']
+			'clang':   ['-O0', '-fsanitize=undefined', '-fsanitize=address'],
+			'default': ['-O0']
 		},
 		'nooptimize': {
 			'msvc':    ['/Od'],
