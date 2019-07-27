@@ -13,6 +13,7 @@ export CXX="ccache g++"
 # AppImage settings
 APP=Xash3DFWGS
 APPDIR=$APP-$ARCH.AppDir
+APPIMAGE=$APP-$ARCH.AppImage
 
 build_sdl2()
 {
@@ -94,7 +95,7 @@ EOF
 
 	wget "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$ARCH.AppImage"
 	chmod +x appimagetool-$ARCH.AppImage
-	./appimagetool-$ARCH.AppImage $APPDIR
+	./appimagetool-$ARCH.AppImage $APPDIR $APPIMAGE
 }
 
 build_sdl2
