@@ -309,10 +309,16 @@ void R_ProcessEntData( qboolean allocate )
 		gEngfuncs.drawFuncs->R_ProcessEntData( allocate );
 }
 
+static const char *R_GetConfigName( void )
+{
+	return "opengl";
+}
+
 ref_interface_t gReffuncs =
 {
 	R_Init,
 	R_Shutdown,
+	R_GetConfigName,
 
 	GL_SetupAttributes,
 	GL_InitExtensions,
