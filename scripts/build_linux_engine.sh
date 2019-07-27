@@ -49,10 +49,10 @@ build_engine()
 	fi
 
 	if [ "$APP" = "xashds" ]; then
-		./waf configure -T release --single-binary -d -W "$AMD64" || die
+		./waf configure -T release --single-binary -d -W $AMD64 || die
 	elif [ "$APP" = "xash3d-fwgs" ]; then
 		APPDIR=$APPNAME.AppDir
-		./waf configure --sdl2=SDL2_linux -T release --enable-stb --prefix="$APPDIR" -W "$AMD64" || die
+		./waf configure --sdl2=SDL2_linux -T release --enable-stb --prefix="$APPDIR" -W $AMD64 || die
 	else
 		die
 	fi
