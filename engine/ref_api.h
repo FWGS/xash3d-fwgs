@@ -39,7 +39,6 @@ GNU General Public License for more details.
 #define FCONTEXT_CORE_PROFILE		BIT( 0 )
 #define FCONTEXT_DEBUG_ARB		BIT( 1 )
 
-#define FCVAR_RENDERINFO		(1<<16)	// save to a seperate config called video.cfg
 #define FCVAR_READ_ONLY		(1<<17)	// cannot be set by user at all, and can't be requested by CvarGetPointer from game dlls
 
 // screenshot types
@@ -267,7 +266,6 @@ typedef struct ref_api_s
 	void (*Cbuf_AddText)( const char *commands );
 	void (*Cbuf_InsertText)( const char *commands );
 	void (*Cbuf_Execute)( void );
-	void (*Cbuf_SetOpenGLConfigHack)( qboolean set ); // host.apply_opengl_config
 
 	// logging
 	void	(*Con_Printf)( const char *fmt, ... ); // typical console allowed messages
@@ -371,7 +369,7 @@ typedef struct ref_api_s
 	// video init
 	// try to create window
 	// will call GL_SetupAttributes in case of REF_GL
-	qboolean  (*R_Init_Video)( int type );
+	qboolean  (*R_Init_Video)( int type ); // will also load and execute renderer config(see R_GetConfigName)
 	void (*R_Free_Video)( void );
 
 	// GL
@@ -435,6 +433,7 @@ typedef struct ref_interface_s
 	qboolean (*R_Init)( void ); // context is true if you need context management
 	// const char *(*R_GetInitError)( void );
 	void (*R_Shutdown)( void );
+	const char *(*R_GetConfigName)( void ); // returns config name without extension
 
 	// only called for GL contexts
 	void (*GL_SetupAttributes)( int safegl );
@@ -606,7 +605,6 @@ typedef struct ref_interface_s
 	void	(*VGUI_DrawQuad)( const vpoint_t *ul, const vpoint_t *lr );
 	void	(*VGUI_GetTextureSizes)( int *width, int *height );
 	int		(*VGUI_GenerateTexture)( void );
-
 } ref_interface_t;
 
 typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* engfuncs, ref_globals_t *pGlobals );

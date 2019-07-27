@@ -28,7 +28,7 @@
 
 #define FCVAR_MOVEVARS		(1<<10)	// this cvar is a part of movevars_t struct that shared between client and server
 #define FCVAR_LATCH			(1<<11)	// notify client what this cvar will be applied only after server restart (but don't does more nothing)
-#define FCVAR_GLCONFIG		(1<<12)	// write it into opengl.cfg
+#define FCVAR_GLCONFIG		(1<<12)	// write it into <renderer>.cfg(see RefAPI)
 #define FCVAR_CHANGED		(1<<13)	// set each time the cvar is changed
 #define FCVAR_GAMEUIDLL		(1<<14)	// defined by the menu DLL
 #define FCVAR_CHEAT			(1<<15)	// can not be changed if cheats are disabled
