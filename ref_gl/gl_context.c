@@ -335,7 +335,6 @@ ref_interface_t gReffuncs =
 	R_ProcessEntData,
 
 	R_ShowTextures,
-	R_ShowTree,
 
 	R_GetTextureOriginalBuffer,
 	GL_LoadTextureFromBuffer,

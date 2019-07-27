@@ -129,6 +129,7 @@ enum // r_speeds counters
 #define REF_GRAY_TEXTURE     "*gray"
 #define REF_WHITE_TEXTURE    "*white"
 #define REF_BLACK_TEXTURE    "*black"
+#define REF_PARTICLE_TEXTURE "*particle"
 #define REF_SOLIDSKY_TEXTURE "solid_sky"
 #define REF_ALPHASKY_TEXTURE "alpha_sky"
 
@@ -458,7 +459,6 @@ typedef struct ref_interface_s
 
 	// debug
 	void (*R_ShowTextures)( void );
-	void (*R_ShowTree)( void );
 
 	// texture management
 	const byte *(*R_GetTextureOriginalBuffer)( unsigned int idx ); // not always available
