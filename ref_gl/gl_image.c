@@ -1974,7 +1974,7 @@ static void GL_CreateInternalTextures( void )
 		}
 	}
 
-	tr.particleTexture = GL_LoadTextureInternal( "*particle", pic, TF_CLAMP );
+	tr.particleTexture = GL_LoadTextureInternal( REF_PARTICLE_TEXTURE, pic, TF_CLAMP );
 
 	// white texture
 	pic = GL_FakeImage( 4, 4, 1, IMAGE_HAS_COLOR );

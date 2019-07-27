@@ -108,6 +108,10 @@ typedef struct world_static_s
 	vec3_t		mins;		// real accuracy world bounds
 	vec3_t		maxs;
 	vec3_t		size;
+
+	// tree visualization stuff
+	int		recursion_level;
+	int		max_recursion;
 } world_static_t;
 
 #ifndef REF_DLL

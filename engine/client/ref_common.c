@@ -12,6 +12,7 @@ convar_t *gl_vsync;
 convar_t *gl_showtextures;
 convar_t *r_decals;
 convar_t *r_adjust_fov;
+convar_t *r_showtree;
 convar_t *gl_wgl_msaa_samples;
 convar_t *gl_clear;
 
@@ -538,6 +539,7 @@ qboolean R_Init( void )
 	r_decals = Cvar_Get( "r_decals", "4096", FCVAR_ARCHIVE, "sets the maximum number of decals" );
 	gl_wgl_msaa_samples = Cvar_Get( "gl_wgl_msaa_samples", "0", FCVAR_GLCONFIG, "samples number for multisample anti-aliasing" );
 	gl_clear = Cvar_Get( "gl_clear", "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
+	r_showtree = Cvar_Get( "r_showtree", "0", FCVAR_ARCHIVE, "build the graph of visible BSP tree" );
 
 	if( !R_LoadProgs( refdll ))
 	{

@@ -346,6 +346,100 @@ void V_RenderView( void )
 	ref.dllFuncs.GL_BackendEndFrame ();
 }
 
+#define POINT_SIZE		16.0f
+#define NODE_INTERVAL_X(x)	(x * 16.0f)
+#define NODE_INTERVAL_Y(x)	(x * 16.0f)
+
+void R_DrawLeafNode( float x, float y, float scale )
+{
+	float downScale = scale * 0.25f;// * POINT_SIZE;
+
+	ref.dllFuncs.R_DrawStretchPic( x - downScale * 0.5f, y - downScale * 0.5f, downScale, downScale, 0, 0, 1, 1, R_GetBuiltinTexture( REF_PARTICLE_TEXTURE ) );
+}
+
+void R_DrawNodeConnection( float x, float y, float x2, float y2 )
+{
+	ref.dllFuncs.Begin( TRI_LINES );
+		ref.dllFuncs.Vertex3f( x, y, 0 );
+		ref.dllFuncs.Vertex3f( x2, y2, 0 );
+	ref.dllFuncs.End( );
+}
+
+void R_ShowTree_r( mnode_t *node, float x, float y, float scale, int shownodes, mleaf_t *viewleaf )
+{
+	float	downScale = scale * 0.8f;
+
+	downScale = Q_max( downScale, 1.0f );
+
+	if( !node ) return;
+
+	world.recursion_level++;
+
+	if( node->contents < 0 )
+	{
+		mleaf_t	*leaf = (mleaf_t *)node;
+
+		if( world.recursion_level > world.max_recursion )
+			world.max_recursion = world.recursion_level;
+
+		if( shownodes == 1 )
+		{
+			if( cl.worldmodel->leafs == leaf )
+				ref.dllFuncs.Color4f( 1.0f, 1.0f, 1.0f, 1.0f );
+			else if( viewleaf && viewleaf == leaf )
+				ref.dllFuncs.Color4f( 1.0f, 0.0f, 0.0f, 1.0f );
+			else ref.dllFuncs.Color4f( 0.0f, 1.0f, 0.0f, 1.0f );
+			R_DrawLeafNode( x, y, scale );
+		}
+		world.recursion_level--;
+		return;
+	}
+
+	if( shownodes == 1 )
+	{
+		ref.dllFuncs.Color4f( 0.0f, 0.0f, 1.0f, 1.0f );
+		R_DrawLeafNode( x, y, scale );
+	}
+	else if( shownodes == 2 )
+	{
+		R_DrawNodeConnection( x, y, x - scale, y + scale );
+		R_DrawNodeConnection( x, y, x + scale, y + scale );
+	}
+
+	R_ShowTree_r( node->children[1], x - scale, y + scale, downScale, shownodes, viewleaf );
+	R_ShowTree_r( node->children[0], x + scale, y + scale, downScale, shownodes, viewleaf );
+
+	world.recursion_level--;
+}
+
+void R_ShowTree( void )
+{
+	float	x = (float)((refState.width - (int)POINT_SIZE) >> 1);
+	float	y = NODE_INTERVAL_Y(1.0);
+	mleaf_t *viewleaf;
+
+	if( !cl.worldmodel || !CVAR_TO_BOOL( r_showtree ))
+		return;
+
+	world.recursion_level = 0;
+	viewleaf = Mod_PointInLeaf( refState.vieworg, cl.worldmodel->nodes );
+
+	//pglEnable( GL_BLEND );
+	//pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+	//pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+
+	//pglLineWidth( 2.0f );
+	ref.dllFuncs.Color4f( 1, 0.7f, 0, 1.0f );
+	//pglDisable( GL_TEXTURE_2D );
+	R_ShowTree_r( cl.worldmodel->nodes, x, y, world.max_recursion * 3.5f, 2, viewleaf );
+	//pglEnable( GL_TEXTURE_2D );
+	//pglLineWidth( 1.0f );
+
+	R_ShowTree_r( cl.worldmodel->nodes, x, y, world.max_recursion * 3.5f, 1, viewleaf );
+
+	Con_NPrintf( 0, "max recursion %d\n", world.max_recursion );
+}
+
 /*
 ==================
 V_PostRender
@@ -385,7 +479,7 @@ void V_PostRender( void )
 		CL_DrawDemoRecording();
 		CL_DrawHUD( CL_CHANGELEVEL );
 		ref.dllFuncs.R_ShowTextures();
-		ref.dllFuncs.R_ShowTree();
+		R_ShowTree();
 		Con_DrawConsole();
 		UI_UpdateMenu( host.realtime );
 		Con_DrawVersion();

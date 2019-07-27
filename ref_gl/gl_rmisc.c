@@ -159,7 +159,6 @@ void R_NewMap( void )
 
 	glState.isFogEnabled = false;
 	tr.skytexturenum = -1;
-	tr.max_recursion = 0;
 	pglDisable( GL_FOG );
 
 	// clearing texture chains
