@@ -812,7 +812,7 @@ void GL_InitCommands( void )
 	gl_wireframe = gEngfuncs.Cvar_Get( "gl_wireframe", "0", FCVAR_ARCHIVE|FCVAR_SPONLY, "show wireframe overlay" );
 	gl_msaa = gEngfuncs.Cvar_Get( "gl_msaa", "1", FCVAR_ARCHIVE, "enable or disable multisample anti-aliasing" );
 	gl_stencilbits = gEngfuncs.Cvar_Get( "gl_stencilbits", "8", FCVAR_GLCONFIG, "pixelformat stencil bits (0 - auto)" );
-	gl_round_down = gEngfuncs.Cvar_Get( "gl_round_down", "2", FCVAR_RENDERINFO, "round texture sizes to nearest POT value" );
+	gl_round_down = gEngfuncs.Cvar_Get( "gl_round_down", "2", FCVAR_GLCONFIG, "round texture sizes to nearest POT value" );
 	// these cvar not used by engine but some mods requires this
 	gl_polyoffset = gEngfuncs.Cvar_Get( "gl_polyoffset", "2.0", FCVAR_ARCHIVE, "polygon offset for decals" );
 
@@ -831,16 +831,6 @@ void GL_InitCommands( void )
 
 	gEngfuncs.Cmd_AddCommand( "r_info", R_RenderInfo_f, "display renderer info" );
 	gEngfuncs.Cmd_AddCommand( "timerefresh", SCR_TimeRefresh_f, "turn quickly and print rendering statistcs" );
-
-	// give initial OpenGL configuration
-	gEngfuncs.Cbuf_SetOpenGLConfigHack( true );
-	gEngfuncs.Cbuf_AddText( "exec opengl.cfg\n" );
-	gEngfuncs.Cbuf_Execute();
-	gEngfuncs.Cbuf_SetOpenGLConfigHack( false );
-
-	// apply actual video mode to window
-	gEngfuncs.Cbuf_AddText( "exec video.cfg\n" );
-	gEngfuncs.Cbuf_Execute();
 }
 
 /*
