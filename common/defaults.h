@@ -145,13 +145,17 @@ Default build-depended cvar and constant values
 	#define DEFAULT_FULLSCREEN 1
 #endif
 
-#ifndef DEFAULT_RENDERER
+#ifndef DEFAULT_ACCELERATED_RENDERER
 	#ifdef __ANDROID__
-		#define DEFAULT_RENDERER "gles1"
+		#define DEFAULT_ACCELERATED_RENDERER "gles1"
 	#else
-		#define DEFAULT_RENDERER "gl"
+		#define DEFAULT_ACCELERATED_RENDERER "gl"
 	#endif
-#endif
+#endif // DEFAULT_ACCELERATED_RENDERER
+
+#ifndef DEFAULT_SOFTWARE_RENDERER
+	#define DEFAULT_SOFTWARE_RENDERER "soft" // mittorn's ref_soft
+#endif // DEFAULT_SOFTWARE_RENDERER
 
 #if TARGET_OS_IPHONE
 	#define DEFAULT_CON_MAXFRAC "0.5"
