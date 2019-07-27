@@ -50,7 +50,7 @@ def options(opt):
 	grp.add_option('-8', '--64bits', action = 'store_true', dest = 'ALLOW64', default = False,
 		help = 'allow targetting 64-bit engine')
 
-	grp.add_option('--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
+	grp.add_option('-W', '--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
 		help = 'install like Windows build, ignore prefix, useful for development')
 
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
