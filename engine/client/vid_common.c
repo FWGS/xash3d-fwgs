@@ -161,36 +161,6 @@ static void VID_Mode_f( void )
 	R_ChangeDisplaySettings( w, h, Cvar_VariableInteger( "fullscreen" ) );
 }
 
-static void SetWidthAndHeightFromCommandLine()
-{
-	int width, height;
-
-	Sys_GetIntFromCmdLine( "-width", &width );
-	Sys_GetIntFromCmdLine( "-height", &height );
-
-	if( width < 1 || height < 1 )
-	{
-		// Not specified or invalid, so don't bother.
-		return;
-	}
-
-	R_SaveVideoMode( width, height );
-}
-
-static void SetFullscreenModeFromCommandLine( )
-{
-#ifndef __ANDROID__
-	if ( Sys_CheckParm("-fullscreen") )
-	{
-		Cvar_Set( "fullscreen", "1" );
-	}
-	else if ( Sys_CheckParm( "-windowed" ) )
-	{
-		Cvar_Set( "fullscreen", "0" );
-	}
-#endif
-}
-
 void VID_Init()
 {
 	// system screen width and height (don't suppose for change from console at all)
@@ -209,11 +179,6 @@ void VID_Init()
 	// a1ba: planned to be named vid_mode for compability
 	// but supported mode list is filled by backends, so numbers are not portable any more
 	Cmd_AddCommand( "vid_setmode", VID_Mode_f, "display video mode" );
-
-	// Set screen resolution and fullscreen mode if passed in on command line.
-	// This is done after executing opengl.cfg, as the command line values should take priority.
-	SetWidthAndHeightFromCommandLine();
-	SetFullscreenModeFromCommandLine();
 
 	R_Init(); // init renderer
 }

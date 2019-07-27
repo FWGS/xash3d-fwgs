@@ -15,6 +15,7 @@ convar_t *r_adjust_fov;
 convar_t *r_showtree;
 convar_t *gl_wgl_msaa_samples;
 convar_t *gl_clear;
+convar_t *r_refdll;
 
 void R_GetTextureParms( int *w, int *h, int texnum )
 {
@@ -54,11 +55,6 @@ void GL_RenderFrame( const ref_viewpass_t *rvp )
 static int pfnEngineGetParm( int parm, int arg )
 {
 	return CL_RenderGetParm( parm, arg, false ); // prevent recursion
-}
-
-static void pfnCbuf_SetOpenGLConfigHack( qboolean set )
-{
-	host.apply_opengl_config = set;
 }
 
 static world_static_t *pfnGetWorld( void )
@@ -218,6 +214,16 @@ static qboolean R_DoResetGamma( void )
 	}
 }
 
+static qboolean R_Init_Video_( const int type )
+{
+	host.apply_opengl_config = true;
+	Cbuf_AddText( va( "exec %s.cfg", ref.dllFuncs.R_GetConfigName()));
+	Cbuf_Execute();
+	host.apply_opengl_config = false;
+
+	return R_Init_Video( type );
+}
+
 static ref_api_t gEngfuncs =
 {
 	pfnEngineGetParm,
@@ -240,7 +246,6 @@ static ref_api_t gEngfuncs =
 	Cbuf_AddText,
 	Cbuf_InsertText,
 	Cbuf_Execute,
-	pfnCbuf_SetOpenGLConfigHack,
 
 	Con_Printf,
 	Con_DPrintf,
@@ -326,7 +331,7 @@ static ref_api_t gEngfuncs =
 	FS_FileExists,
 	FS_AllowDirectPaths,
 
-	R_Init_Video,
+	R_Init_Video_,
 	R_Free_Video,
 
 	GL_SetAttribute,
@@ -499,39 +504,81 @@ void R_Shutdown( void )
 	ref.initialized = false;
 }
 
-void R_GetRendererName( char *dest, size_t size, const char *refdll )
+static void R_GetRendererName( char *dest, size_t size, const char *opt )
 {
-	Q_snprintf( dest, size, "%sref_%s.%s",
-#ifdef OS_LIB_PREFIX
-		OS_LIB_PREFIX,
-#else
-		"",
-#endif
-		refdll, OS_LIB_EXT );
-}
-
-qboolean R_Init( void )
-{
-	string refopt, refdll;
-
-	if( !Sys_GetParmFromCmdLine( "-ref", refopt ) )
-	{
-		// compile-time defaults
-		R_GetRendererName( refdll, sizeof( refdll ), DEFAULT_RENDERER );
-		Con_Printf( "Loading default renderer: %s\n", refdll );
-	}
-	else if( !Q_strstr( refopt, va( ".%s", OS_LIB_EXT ) ) )
+	if( !Q_strstr( opt, va( ".%s", OS_LIB_EXT )))
 	{
 		// shortened renderer name
-		R_GetRendererName( refdll, sizeof( refdll ), refopt );
-		Con_Printf( "Loading renderer by short name: %s\n", refdll );
+		Q_snprintf( dest, size, "%sref_%s.%s",
+#ifdef OS_LIB_PREFIX
+			OS_LIB_PREFIX,
+#else
+			"",
+#endif
+			opt, OS_LIB_EXT );
+		Con_Printf( "Loading renderer by short name: %s\n", opt );
 	}
 	else
 	{
 		// full path
-		Q_strcpy( refdll, refopt );
-		Con_Printf( "Loading renderer: %s\n", refdll );
+		Q_strcpy( dest, opt );
+		Con_Printf( "Loading renderer: %s\n", opt );
 	}
+}
+
+static qboolean R_LoadRenderer( const char *refopt )
+{
+	string refdll;
+
+	R_GetRendererName( refdll, sizeof( refdll ), refopt );
+
+	if( !R_LoadProgs( refdll ))
+	{
+		R_Shutdown();
+		Sys_Warn( S_ERROR "Can't initialize %s renderer!\n", refdll );
+		return false;
+	}
+
+	Con_Reportf( "Renderer %s initialized\n", refdll );
+
+	return true;
+}
+
+static void SetWidthAndHeightFromCommandLine()
+{
+	int width, height;
+
+	Sys_GetIntFromCmdLine( "-width", &width );
+	Sys_GetIntFromCmdLine( "-height", &height );
+
+	if( width < 1 || height < 1 )
+	{
+		// Not specified or invalid, so don't bother.
+		return;
+	}
+
+	R_SaveVideoMode( width, height );
+}
+
+static void SetFullscreenModeFromCommandLine( )
+{
+#ifndef __ANDROID__
+	if ( Sys_CheckParm("-fullscreen") )
+	{
+		Cvar_Set( "fullscreen", "1" );
+	}
+	else if ( Sys_CheckParm( "-windowed" ) )
+	{
+		Cvar_Set( "fullscreen", "0" );
+	}
+#endif
+}
+
+qboolean R_Init( void )
+{
+	qboolean success = false;
+	int i;
+	string refopt;
 
 	gl_vsync = Cvar_Get( "gl_vsync", "0", FCVAR_ARCHIVE,  "enable vertical syncronization" );
 	gl_showtextures = Cvar_Get( "gl_showtextures", "0", FCVAR_CHEAT, "show all uploaded textures" );
@@ -540,15 +587,45 @@ qboolean R_Init( void )
 	gl_wgl_msaa_samples = Cvar_Get( "gl_wgl_msaa_samples", "0", FCVAR_GLCONFIG, "samples number for multisample anti-aliasing" );
 	gl_clear = Cvar_Get( "gl_clear", "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
 	r_showtree = Cvar_Get( "r_showtree", "0", FCVAR_ARCHIVE, "build the graph of visible BSP tree" );
+	r_refdll = Cvar_Get( "r_refdll", "", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "choose renderer implementation, if supported" );
 
-	if( !R_LoadProgs( refdll ))
+	// cvars are created, execute video config
+	Cbuf_AddText( "exec video.cfg" );
+	Cbuf_Execute();
+
+	// Set screen resolution and fullscreen mode if passed in on command line.
+	// this is done after executing video.cfg, as the command line values should take priority.
+	SetWidthAndHeightFromCommandLine();
+	SetFullscreenModeFromCommandLine();
+
+	// command line have priority
+	if( !Sys_GetParmFromCmdLine( "-ref", refopt ) )
 	{
-		R_Shutdown();
-		Host_Error( "Can't initialize %s renderer!\n", refdll );
-		return false;
+		// r_refdll is set to empty by default, so we can change hardcoded defaults just in case
+		Q_strncpy( refopt, COM_CheckString( r_refdll->string ) ?
+			r_refdll->string : DEFAULT_ACCELERATED_RENDERER, sizeof( refopt ) );
 	}
 
-	Con_Reportf( "Renderer %s initialized\n", refdll );
+	if( !(success = R_LoadRenderer( refopt )))
+	{
+		// check if we are tried to load default accelearated renderer already
+		// and if not, load it first
+		if( Q_strcmp( refopt, DEFAULT_ACCELERATED_RENDERER ) )
+		{
+			success = R_LoadRenderer( refopt );
+		}
+
+		// software renderer is the last chance...
+		if( !success )
+		{
+			success = R_LoadRenderer( DEFAULT_SOFTWARE_RENDERER );
+		}
+	}
+
+	if( !success )
+	{
+		Host_Error( "Can't initialize any renderer. Check your video drivers!" );
+	}
 
 	SCR_Init();
 
