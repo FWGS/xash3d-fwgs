@@ -55,7 +55,7 @@ def options(opt):
 
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
 		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compability!)')
-	
+
 	opt.load('subproject')
 
 	opt.add_subproject(subdirs())
@@ -115,7 +115,7 @@ def configure(conf):
 		conf.env.BIT32_ALLOW64 = True
 	conf.env.BIT32_MANDATORY = not conf.env.BIT32_ALLOW64
 	conf.load('force_32bit')
-	if conf.env.DEST_OS2 != 'android':
+	if conf.env.DEST_OS2 != 'android' and not conf.options.DEDICATED:
 		conf.load('sdl2')
 
 	linker_flags = {

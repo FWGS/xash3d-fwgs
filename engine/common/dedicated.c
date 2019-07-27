@@ -312,7 +312,7 @@ void SCR_CheckStartupVids()
 
 }
 
-void Sys_SetClipboardData( const byte *text, size_t size )
+void Sys_SetClipboardData( const char *text, size_t size )
 {
 
 }
