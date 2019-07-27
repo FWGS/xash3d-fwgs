@@ -1317,20 +1317,20 @@ void Cmd_WriteOpenGLVariables( file_t *f )
 #ifndef XASH_DEDICATED
 
 
-#define CFG_END(f,x) \
-	if( FS_Printf( f,"// end of " x "\n" ) >= (int)sizeof( "// end of " x "\n" ) - 2 )\
-	{ \
-		FS_Close( f );\
-		FS_Delete( x ".bak" ); \
-		FS_Rename( x, x ".bak" ); \
-		FS_Delete( x ); \
-		FS_Rename( x ".new", x );\
-	}\
-	else\
-	{\
-		FS_Close( f );\
-		Con_Reportf( S_ERROR  "could not update " x "\n" );\
-	}
+void Host_FinalizeConfig( file_t *f, const char *config )
+{
+	string backup, newcfg;
+
+	Q_snprintf( backup, sizeof( backup ), "%s.bak", config );
+	Q_snprintf( newcfg, sizeof( newcfg ), "%s.new", config );
+
+	FS_Printf( f, "// end of %s\n", config );
+	FS_Close( f );
+	FS_Delete( backup );
+	FS_Rename( config, backup );
+	FS_Delete( config );
+	FS_Rename( newcfg, config );
+}
 
 /*
 ===============
@@ -1353,7 +1353,7 @@ void Host_WriteConfig( void )
 	{
 		Con_Reportf( "Host_WriteConfig()\n" );
 		FS_Printf( f, "//=======================================================================\n");
-		FS_Printf( f, "//\t\t\tCopyright XashXT Group %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
+		FS_Printf( f, "//\t\t\tCopyright XashXT Group & Flying With Gauss %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\t\tconfig.cfg - archive of cvars\n" );
 		FS_Printf( f, "//=======================================================================\n" );
 		Key_WriteBindings( f );
@@ -1374,7 +1374,7 @@ void Host_WriteConfig( void )
 
 		FS_Printf( f, "exec userconfig.cfg\n" );
 
-		CFG_END( f, "config.cfg" );
+		Host_FinalizeConfig( f, "config.cfg" );
 	}
 	else Con_DPrintf( S_ERROR "Couldn't write config.cfg.\n" );
 
@@ -1391,9 +1391,8 @@ save serverinfo variables into server.cfg (using for dedicated server too)
 void Host_WriteServerConfig( const char *name )
 {
 	file_t	*f;
-	string oldconfigfile, newconfigfile;
+	string newconfigfile;
 
-	Q_snprintf( oldconfigfile, MAX_STRING, "%s.bak", name );
 	Q_snprintf( newconfigfile, MAX_STRING, "%s.new", name );
 
 	SV_InitGameProgs();	// collect user variables
@@ -1404,19 +1403,14 @@ void Host_WriteServerConfig( const char *name )
 	if(( f = FS_Open( newconfigfile, "w", false )) != NULL )
 	{
 		FS_Printf( f, "//=======================================================================\n" );
-		FS_Printf( f, "//\t\t\tCopyright XashXT Group %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
+		FS_Printf( f, "//\t\t\tCopyright XashXT Group & Flying With Gauss %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\tgame.cfg - multiplayer server temporare config\n" );
 		FS_Printf( f, "//=======================================================================\n" );
 
 		Cvar_WriteVariables( f, FCVAR_SERVER );
 		CSCR_WriteGameCVars( f, "settings.scr" );
 
-		FS_Close( f );
-
-		FS_Rename( name, oldconfigfile );
-		FS_Delete( name );
-		FS_Rename( newconfigfile, name );
-		FS_Delete( oldconfigfile );
+		Host_FinalizeConfig( f, name );
 	}
 	else Con_DPrintf( S_ERROR "Couldn't write %s.\n", name );
 
@@ -1432,24 +1426,29 @@ save opengl variables into opengl.cfg
 */
 void Host_WriteOpenGLConfig( void )
 {
+	string name;
 	file_t	*f;
 
 	if( Sys_CheckParm( "-nowriteconfig" ) )
 		return;
 
-	f = FS_Open( "opengl.cfg.new", "w", false );
+	Q_snprintf( name, sizeof( name ), "%s.cfg", ref.dllFuncs.R_GetConfigName() );
+
+
+	f = FS_Open( va( "%s.new", name ), "w", false );
 	if( f )
 	{
 		Con_Reportf( "Host_WriteGLConfig()\n" );
 		FS_Printf( f, "//=======================================================================\n" );
-		FS_Printf( f, "//\t\t\tCopyright XashXT Group %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
-		FS_Printf( f, "//\t\t    opengl.cfg - archive of opengl extension cvars\n");
+		FS_Printf( f, "//\t\t\tCopyright XashXT Group & Flying With Gauss %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
+		FS_Printf( f, "//\t\t    %s - archive of renderer implementation cvars\n", name );
 		FS_Printf( f, "//=======================================================================\n" );
 		FS_Printf( f, "\n" );
 		Cmd_WriteOpenGLVariables( f );
-		CFG_END( f, "opengl.cfg" );
+
+		Host_FinalizeConfig( f, name );
 	}
-	else Con_DPrintf( S_ERROR "can't update opengl.cfg.\n" );
+	else Con_DPrintf( S_ERROR "can't update %s.\n", name );
 }
 
 /*
@@ -1471,11 +1470,11 @@ void Host_WriteVideoConfig( void )
 	{
 		Con_Reportf( "Host_WriteVideoConfig()\n" );
 		FS_Printf( f, "//=======================================================================\n" );
-		FS_Printf( f, "//\t\t\tCopyright XashXT Group %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
+		FS_Printf( f, "//\t\t\tCopyright XashXT Group & Flying With Gauss %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\tvideo.cfg - archive of renderer variables\n");
 		FS_Printf( f, "//=======================================================================\n" );
 		Cvar_WriteVariables( f, FCVAR_RENDERINFO );
-		CFG_END( f, "video.cfg" );
+		Host_FinalizeConfig( f, "video.cfg" );
 	}
 	else Con_DPrintf( S_ERROR "can't update video.cfg.\n" );
 }
@@ -1497,7 +1496,7 @@ void Key_EnumCmds_f( void )
 	if( f )
 	{
 		FS_Printf( f, "//=======================================================================\n");
-		FS_Printf( f, "//\t\t\tCopyright XashXT Group %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
+		FS_Printf( f, "//\t\t\tCopyright XashXT Group & Flying With Gauss %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\thelp.txt - xash commands and console variables\n");
 		FS_Printf( f, "//=======================================================================\n");
 
