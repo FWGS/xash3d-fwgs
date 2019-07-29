@@ -64,7 +64,7 @@ class Android:
 		else:
 			self.ndk_rev = 10
 
-		if self.ndk_rev not in [10, 19]:
+		if self.ndk_rev not in [10, 19, 20]:
 			ctx.fatal('Unknown NDK revision: {}'.format(self.ndk_rev))
 
 		self.arch = arch
@@ -197,7 +197,10 @@ class Android:
 			return os.path.abspath(os.path.join(self.ndk_home, path))
 
 	def cflags(self):
-		cflags = ['--sysroot={0}'.format(self.sysroot()), '-DANDROID', '-D__ANDROID__']
+		cflags = []
+		if self.ndk_rev < 20:
+			cflags = ['--sysroot={0}'.format(self.sysroot())]
+		cflags += ['-DANDROID', '-D__ANDROID__']
 		cflags += ['-I{0}'.format(self.system_stl())]
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
@@ -218,7 +221,9 @@ class Android:
 
 	# they go before object list
 	def linkflags(self):
-		linkflags = ['--sysroot={0}'.format(self.sysroot())]
+		linkflags = []
+		if self.ndk_rev < 20:
+			linkflags = ['--sysroot={0}'.format(self.sysroot())]
 		return linkflags
 
 	def ldflags(self):
@@ -277,7 +282,7 @@ def configure(conf):
 
 def post_compiler_cxx_configure(conf):
 	if conf.options.ANDROID_OPTS:
-		if conf.android.ndk_rev >= 19:
+		if conf.android.ndk_rev == 19:
 			conf.env.CXXFLAGS_cxxshlib += ['-static-libstdc++']
 			conf.env.LDFLAGS_cxxshlib += ['-static-libstdc++']
 	return
