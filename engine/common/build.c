@@ -116,9 +116,9 @@ const char *Q_buildarch( void )
 	#elif XASH_ARM == 4
 		"4"
 	#endif
-	
+
 	#if XASH_ARM_HARDFP
-		"hf"
+		"hf";
 	#else
 		"l";
 	#endif
