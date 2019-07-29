@@ -15,8 +15,12 @@ fi
 # Cleanup libraries
 rm -rf android/lib/
 
-# Generate extras.pak
-python xash3d-fwgs/scripts/makepak.py xash-extras android/assets/extras.pak
+# Generate extras.pak(TODO: move this to waf somehow)
+if [ -L "xash3d-fwgs-sl" ]; then
+	python xash3d-fwgs-sl/scripts/makepak.py xash-extras android/assets/extras.pak
+else
+	python xash3d-fwgs/scripts/makepak.py    xash-extras android/assets/extras.pak
+fi
 
 # Generate configs
 android/gen-config.sh android/
