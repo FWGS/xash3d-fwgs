@@ -158,7 +158,7 @@ GNU General Public License for more details.
 		#error "No WinMobile port yet! Need to determine which ARM float ABI msvc uses if applicable"
 	#endif
 
-	#if defined __SOFTFP__
+	#if defined __SOFTFP__ || __ARM_PCS_VFP == 0
 		#define XASH_ARM_SOFTFP 1
 	#else // __SOFTFP__
 		#define XASH_ARM_HARDFP 1
