@@ -14,6 +14,7 @@ unzip sdk.zip > /dev/null 2>/dev/null || exit 1
 cd $TRAVIS_BUILD_DIR
 
 echo "Download all needed tools and NDK"
+yes | sdk/tools/bin/sdkmanager --licenses
 sdk/tools/bin/sdkmanager --install build-tools\;29.0.1 platform-tools platforms\;android-19 ndk-bundle
 
 echo "Download Xash3D FWGS Android source"

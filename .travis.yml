@@ -74,9 +74,10 @@ jobs:
       language: java # we want xenial, so just java, not android
       jdk: openjdk8
       before_script:
+        - export ANDROID_HOME=$TRAVIS_BUILD_DIR/sdk
         - sh scripts/travis_common_deps.sh
         - sh scripts/travis_android_deps.sh
-        - export ANDROID_SDK_HOME=$TRAVIS_BUILD_DIR/sdk
+        - export ANDROID_SDK_HOME=$ANDROID_HOME
         - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
       script:
         - cd android
