@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ARCHS="armeabi-v7a-hard armeabi x86"
+ARCHS="armeabi-v7a armeabi x86"
 TOOLCHAIN=4.9
 API=9
 ROOT="$PWD" # compile.sh must be run from root of android project sources
@@ -45,11 +45,13 @@ for i in $ARCHS; do
 	done
 done
 
-find $ROOT/build/android/lib -name "*.a" -delete
-
 # Run waf
 ./waf build || exit 1
 
 # sign
 cp build/android/xashdroid-src.apk xashdroid.apk
-apksigner sign --ks ../myks.keystore xashdroid.apk
+
+# :)
+if [ $USER = "a1ba" ]; then
+	apksigner sign --ks ../myks.keystore xashdroid.apk
+fi
