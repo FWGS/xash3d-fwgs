@@ -11,10 +11,10 @@ wget https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip -qO sd
 
 echo "Unpack Android SDK"
 unzip sdk.zip > /dev/null 2>/dev/null || exit 1
+cd $TRAVIS_BUILD_DIR
 
 echo "Download all needed tools and NDK"
-cd tools/bin || exit 1
-./sdkmanager --install build-tools\;29.0.1 platform-tools platforms\;android-19 ndk-bundle
+sdk/tools/bin/sdkmanager --install build-tools\;29.0.1 platform-tools platforms\;android-19 ndk-bundle
 
 echo "Download Xash3D FWGS Android source"
 git clone --depth 1 https://github.com/FWGS/xash3d-android-project -b waf android || exit 1
