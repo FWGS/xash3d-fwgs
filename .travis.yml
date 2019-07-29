@@ -66,20 +66,21 @@ jobs:
       after_script:
         - ccache --show-stats
         - sh scripts/continious_upload.sh xash3d-fwgs-${ARCH}.AppImage xashds-linux-${ARCH}
-#    - # ...
-#      name: "Build for Android"
-#      cache: ccache
-#      os: linux
-#      dist: xenial
-#      before_script:
-#        - sh scripts/travis_common_deps.sh
-#        - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
-#        - export ANDROID_HOME=$PWD/android-sdk-linux
-#        - export PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:$PWD/android-ndk
-#      script:
-#        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
-#      after_script:
-#        - ccache --show-stats
+    - # ...
+      name: "Build for Android"
+      cache: ccache
+      os: linux
+      dist: xenial
+      before_script:
+        - sh scripts/travis_common_deps.sh
+        - sh scripts/travis_android_deps.sh
+        - export ANDROID_SDK_HOME=$TRAVIS_BUILD_DIR/sdk
+        - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
+      script:
+        - cd android
+        - sh compile.sh
+      after_script:
+        - ccache --show-stats
 #        - sh scripts/continious_upload.sh xash3d-fwgs.apk
 #    - # ...
 #      name: "Build for Windows MinGW"
