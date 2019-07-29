@@ -71,6 +71,8 @@ jobs:
       cache: ccache
       os: linux
       dist: xenial
+      language: java # we want xenial, so just java, not android
+      jdk: openjdk8
       before_script:
         - sh scripts/travis_common_deps.sh
         - sh scripts/travis_android_deps.sh
