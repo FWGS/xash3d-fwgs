@@ -591,7 +591,7 @@ static zipfile_t *FS_AddFileToZip( const char *name, zip_t *zip, fs_offset_t off
 
 static zip_t *FS_LoadZip( const char *zipfile, int *error )
 {
-	int		  numpackfiles = 0;
+	int		  numpackfiles = 0, i;
 	zip_cdf_header_t  header_cdf;
 	zip_header_eocd_t header_eocd;
 	uint		  signature;
@@ -693,7 +693,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 	info = (zipfile_t *)Mem_Calloc( fs_mempool, sizeof( zipfile_t ) * header_eocd.total_central_directory_record );
 
-	for ( int i = 0; i < header_eocd.total_central_directory_record; i++ )
+	for( i = 0; i < header_eocd.total_central_directory_record; i++ )
 	{
 		FS_Read( zip->handle, (void *)&header_cdf, sizeof( header_cdf ) );
 
@@ -742,7 +742,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	zip->numfiles = 0;
 	zip->files = (zipfile_t *)Mem_Calloc( fs_mempool, sizeof( zipfile_t ) * numpackfiles );
 
-	for( int i = 0; i < numpackfiles; i++ )
+	for( i = 0; i < numpackfiles; i++ )
 		FS_AddFileToZip( info[i].name, zip, info[i].offset, info[i].size, info[i].compressed_size );
 
 	if( error )
@@ -2344,7 +2344,8 @@ static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedir
 		}
 		else if( search->zip )
 		{
-			for( int i = 0; search->zip->numfiles > i; i++)
+			int i;
+			for( i = 0; search->zip->numfiles > i; i++)
 			{
 				if( !Q_stricmp( search->zip->files[i].name, name ) )
 				{
