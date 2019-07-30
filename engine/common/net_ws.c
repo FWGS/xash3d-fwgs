@@ -94,6 +94,7 @@ static int ioctl_stub( int d, unsigned long r, ... )
 #else // __EMSCRIPTEN__
 #define ioctlsocket ioctl
 #endif // __EMSCRIPTEN__
+#define closesocket close
 #define SOCKET int
 #define INVALID_SOCKET -1
 typedef size_t WSAsize_t;
@@ -1396,7 +1397,7 @@ static int NET_Isocket( const char *net_interface, int port, qboolean multicast 
 	if( NET_IsSocketError( ioctlsocket( net_socket, FIONBIO, &_true ) ) )
 	{
 		Con_DPrintf( S_WARN "NET_UDsocket: port: %d ioctl FIONBIO: %s\n", port, NET_ErrorString( ));
-		close( net_socket );
+		closesocket( net_socket );
 		return INVALID_SOCKET;
 	}
 
@@ -1404,7 +1405,7 @@ static int NET_Isocket( const char *net_interface, int port, qboolean multicast 
 	if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_BROADCAST, (char *)&_true, sizeof( _true ) ) ) )
 	{
 		Con_DPrintf( S_WARN "NET_UDsocket: port: %d setsockopt SO_BROADCAST: %s\n", port, NET_ErrorString( ));
-		close( net_socket );
+		closesocket( net_socket );
 		return INVALID_SOCKET;
 	}
 
@@ -1413,7 +1414,7 @@ static int NET_Isocket( const char *net_interface, int port, qboolean multicast 
 		if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&optval, sizeof( optval )) ) )
 		{
 			Con_DPrintf( S_WARN "NET_UDsocket: port: %d setsockopt SO_REUSEADDR: %s\n", port, NET_ErrorString( ));
-			close( net_socket );
+			closesocket( net_socket );
 			return INVALID_SOCKET;
 		}
 	}
@@ -1428,7 +1429,7 @@ static int NET_Isocket( const char *net_interface, int port, qboolean multicast 
 			err = WSAGetLastError();
 			if( err != WSAENOPROTOOPT )
 				Con_Printf( S_WARN "NET_UDsocket: port: %d  setsockopt IP_TOS: %s\n", port, NET_ErrorString( ));
-			close( net_socket );
+			closesocket( net_socket );
 			return INVALID_SOCKET;
 		}
 	}
@@ -1445,7 +1446,7 @@ static int NET_Isocket( const char *net_interface, int port, qboolean multicast 
 	if( NET_IsSocketError( bind( net_socket, (void *)&addr, sizeof( addr )) ) )
 	{
 		Con_DPrintf( S_WARN "NET_UDsocket: port: %d bind: %s\n", port, NET_ErrorString( ));
-		close( net_socket );
+		closesocket( net_socket );
 		return INVALID_SOCKET;
 	}
 
@@ -1596,7 +1597,7 @@ void NET_Config( qboolean multiplayer )
 		{
 			if( net.ip_sockets[i] != INVALID_SOCKET )
 			{
-				close( net.ip_sockets[i] );
+				closesocket( net.ip_sockets[i] );
 				net.ip_sockets[i] = INVALID_SOCKET;
 			}
 		}
@@ -1856,7 +1857,7 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 	file->file = NULL;
 
 	if( file->socket != -1 )
-		close( file->socket );
+		closesocket( file->socket );
 
 	file->socket = -1;
 
