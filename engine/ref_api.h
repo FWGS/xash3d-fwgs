@@ -166,7 +166,8 @@ typedef enum
 	SAFE_NOALPHA,     // don't set alpha bits
 	SAFE_NODEPTH,     // don't set depth bits
 	SAFE_NOCOLOR,     // don't set color bits
-	SAFE_DONTCARE     // ignore everything, let SDL/EGL decide
+	SAFE_DONTCARE,    // ignore everything, let SDL/EGL decide
+	SAFE_LAST,        // must be last
 } ref_safegl_context_t;
 
 enum // OpenGL configuration attributes
