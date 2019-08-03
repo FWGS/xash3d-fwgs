@@ -548,23 +548,29 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		xpos = ypos = 0;
 	}
 
-	host.hWnd = SDL_CreateWindow( wndname, xpos, ypos, width, height, wndFlags );
-
-	if( !host.hWnd )
+	while( glw_state.safe >= SAFE_NO && glw_state.safe < SAFE_LAST )
 	{
-		Con_Reportf( S_ERROR "VID_CreateWindow: couldn't create '%s': %s\n", wndname, SDL_GetError());
+		host.hWnd = SDL_CreateWindow( wndname, xpos, ypos, width, height, wndFlags );
 
-		// skip some attribs in hope that context creating will not fail
-		if( glw_state.safe >= SAFE_NO )
-		{
-			if( !gl_wgl_msaa_samples->value && glw_state.safe + 1 == SAFE_NOMSAA )
-				glw_state.safe += 2; // no need to skip msaa, if we already disabled it
-			else glw_state.safe++;
-			GL_SetupAttributes( ); // re-choose attributes
+		// we have window, exit loop
+		if( host.hWnd )
+			break;
 
-			// try again
-			return VID_CreateWindow( width, height, fullscreen );
-		}
+		Con_Reportf( S_ERROR "VID_CreateWindow: couldn't create '%s' with safegl level %d: %s\n", wndname, glw_state.safe, SDL_GetError());
+
+		glw_state.safe++;
+
+		if( !gl_wgl_msaa_samples->value && glw_state.safe == SAFE_NOMSAA )
+			glw_state.safe++; // no need to skip msaa, if we already disabled it
+
+		GL_SetupAttributes(); // re-choose attributes
+
+		// try again create window
+	}
+
+	// window creation has failed...
+	if( glw_state.safe >= SAFE_LAST )
+	{
 		return false;
 	}
 
