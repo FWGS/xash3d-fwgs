@@ -13,15 +13,15 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#ifdef _WIN32
-#include <winsock.h>
-#else
-#include <netinet/in.h>
-#endif
 #define MINIZ_HEADER_FILE_ONLY
 #include "miniz.h"
 #include "imagelib.h"
 #include "mathlib.h"
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <netinet/in.h>
+#endif
 
 static const char png_sign[] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'};
 static const char ihdr_sign[] = {'I', 'H', 'D', 'R'};
