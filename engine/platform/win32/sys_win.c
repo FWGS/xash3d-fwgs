@@ -16,10 +16,6 @@ GNU General Public License for more details.
 #include "platform/platform.h"
 #include "menu_int.h"
 
-#ifdef _WIN32
-BOOL WINAPI IsDebuggerPresent(VOID);
-#endif // _WIN32
-
 #if XASH_TIMER == TIMER_WIN32
 double Platform_DoubleTime( void )
 {
