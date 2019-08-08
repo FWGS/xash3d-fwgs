@@ -13,6 +13,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include "common.h"
+#include "client.h" // ConnectionProgress
+#include "netchan.h"
+#include "mathlib.h"
 #ifdef _WIN32
 // Winsock
 #include <winsock2.h>
@@ -29,10 +33,6 @@ GNU General Public License for more details.
 #include <errno.h>
 #include <fcntl.h>
 #endif
-#include "common.h"
-#include "client.h" // ConnectionProgress utilities
-#include "netchan.h"
-#include "mathlib.h"
 
 #define NET_USE_FRAGMENTS
 
