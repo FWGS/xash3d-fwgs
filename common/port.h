@@ -20,11 +20,8 @@ GNU General Public License for more details.
 #include "build.h"
 
 #if !defined(_WIN32)
-	#include <limits.h>
 	#include <dlfcn.h>
-	#include <stdlib.h>
 	#include <unistd.h>
-	#include <string.h>
 
 	#define PATH_SPLITTER "/"
 
@@ -124,19 +121,15 @@ GNU General Public License for more details.
 	#define OS_LIB_PREFIX ""
 	#define OS_LIB_EXT "dll"
 	#define VGUI_SUPPORT_DLL "../vgui_support." OS_LIB_EXT
-#ifdef XASH_64BIT
-// windows NameForFunction not implemented yet
-#define XASH_ALLOW_SAVERESTORE_OFFSETS
-#endif
+	#ifdef XASH_64BIT
+		// windows NameForFunction not implemented yet
+		#define XASH_ALLOW_SAVERESTORE_OFFSETS
+	#endif
 #endif //WIN32
 
-#ifndef INT_MAX
-#define INT_MAX 2147483647
-#endif
-
-#ifndef USHRT_MAX
-#define USHRT_MAX 65535
-#endif
+#include <stdlib.h>
+#include <string.h>
+#include <limits.h>
 
 #if defined XASH_SDL && !defined REF_DLL
 #include <SDL.h>
