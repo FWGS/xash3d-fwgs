@@ -30,6 +30,7 @@ GNU General Public License for more details.
 #include <fcntl.h>
 #endif
 #include "common.h"
+#include "client.h" // ConnectionProgress utilities
 #include "netchan.h"
 #include "mathlib.h"
 
@@ -1812,6 +1813,8 @@ static struct http_static_s
 	// file and server lists
 	httpfile_t *first_file, *last_file;
 	httpserver_t *first_server, *last_server;
+
+	int fileCount;
 } http;
 
 
@@ -1849,6 +1852,8 @@ Skip to next server/file
 static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 {
 	char incname[256];
+
+	http.fileCount--;
 
 	// Allways close file and socket
 	if( file->file )
@@ -2005,6 +2010,9 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 					return false;
 				}
 
+				UI_ConnectionProgress_Download( curfile->path, curfile->server->host, curfile->server->path,
+					curfile->id, http.fileCount, va( "(file size is %d)", curfile->size ) );
+
 				curfile->state = HTTP_RESPONSE_RECEIVED; // got response, let's start download
 				begin += 4;
 
@@ -2045,9 +2053,14 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 			// as after it will run in same frame
 			if( curfile->checktime > 5 )
 			{
+				float speed = (float)curfile->lastchecksize / ( 5.0 * 1024 );
+
 				curfile->checktime = 0;
-				Con_Reportf( "download speed %f KB/s\n", (float)curfile->lastchecksize / ( 5.0 * 1024 ) );
+				Con_Reportf( "download speed %.2f KB/s\n", speed );
 				curfile->lastchecksize = 0;
+
+				UI_ConnectionProgress_Download( curfile->path, curfile->server->host, curfile->server->path,
+					curfile->id, http.fileCount, va( "(file size is %d, speed is %.2f KB/s)", curfile->size, speed ) );
 			}
 		}
 	}
@@ -2095,6 +2108,7 @@ void HTTP_Run( void )
 			}
 
 			Con_Reportf( "HTTP: Starting download %s from %s\n", curfile->path, curfile->server->host );
+			UI_ConnectionProgress_Download( curfile->path, curfile->server->host, curfile->server->path, curfile->id, http.fileCount, "(starting)");
 			Q_snprintf( name, sizeof( name ), "%s.incomplete", curfile->path );
 
 			curfile->file = FS_Open( name, "wb", true );
@@ -2190,6 +2204,8 @@ void HTTP_Run( void )
 		{
 			qboolean wait = false;
 
+			UI_ConnectionProgress_Download( curfile->path, curfile->server->host, curfile->server->path, curfile->id, http.fileCount, "(sending request)");
+
 			while( curfile->bytes_sent < curfile->query_length )
 			{
 				res = send( curfile->socket, curfile->buf + curfile->bytes_sent, curfile->query_length - curfile->bytes_sent, 0 );
@@ -2278,6 +2294,8 @@ void HTTP_AddDownload( const char *path, int size, qboolean process )
 	httpfile_t *httpfile = Z_Calloc( sizeof( httpfile_t ) );
 
 	Con_Reportf( "File %s queued to download\n", path );
+
+	http.fileCount++;
 
 	httpfile->size = size;
 	httpfile->downloaded = 0;
@@ -2422,6 +2440,7 @@ Clear all queue
 static void HTTP_Clear_f( void )
 {
 	http.last_file = NULL;
+	http.fileCount = 0;
 
 	while( http.first_file )
 	{
@@ -2522,6 +2541,7 @@ void HTTP_Init( void )
 	http.last_server = NULL;
 
 	http.first_file = http.last_file = NULL;
+	http.fileCount = 0;
 
 	Cmd_AddCommand("http_download", &HTTP_Download_f, "add file to download queue");
 	Cmd_AddCommand("http_skip", &HTTP_Skip_f, "skip current download server");
