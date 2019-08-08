@@ -116,6 +116,8 @@ GNU General Public License for more details.
 	#pragma warning(disable : 4310)	// cast truncates constant value
 
 	#define HSPRITE WINAPI_HSPRITE
+		#define WIN32_LEAN_AND_MEAN
+		#include <winsock2.h>
 		#include <windows.h>
 	#undef HSPRITE
 
