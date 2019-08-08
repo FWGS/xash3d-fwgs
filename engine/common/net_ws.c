@@ -2010,8 +2010,10 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 					return false;
 				}
 
+#ifndef XASH_DEDICATED
 				UI_ConnectionProgress_Download( curfile->path, curfile->server->host, curfile->server->path,
 					curfile->id, http.fileCount, va( "(file size is %d)", curfile->size ) );
+#endif // XASH_DEDICATED
 
 				curfile->state = HTTP_RESPONSE_RECEIVED; // got response, let's start download
 				begin += 4;
@@ -2059,8 +2061,10 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 				Con_Reportf( "download speed %.2f KB/s\n", speed );
 				curfile->lastchecksize = 0;
 
+#ifndef XASH_DEDICATED
 				UI_ConnectionProgress_Download( curfile->path, curfile->server->host, curfile->server->path,
 					curfile->id, http.fileCount, va( "(file size is %d, speed is %.2f KB/s)", curfile->size, speed ) );
+#endif // XASH_DEDICATED
 			}
 		}
 	}
@@ -2108,7 +2112,9 @@ void HTTP_Run( void )
 			}
 
 			Con_Reportf( "HTTP: Starting download %s from %s\n", curfile->path, curfile->server->host );
+#ifndef XASH_DEDICATED
 			UI_ConnectionProgress_Download( curfile->path, curfile->server->host, curfile->server->path, curfile->id, http.fileCount, "(starting)");
+#endif // XASH_DEDICATED
 			Q_snprintf( name, sizeof( name ), "%s.incomplete", curfile->path );
 
 			curfile->file = FS_Open( name, "wb", true );
@@ -2204,7 +2210,9 @@ void HTTP_Run( void )
 		{
 			qboolean wait = false;
 
+#ifndef XASH_DEDICATED
 			UI_ConnectionProgress_Download( curfile->path, curfile->server->host, curfile->server->path, curfile->id, http.fileCount, "(sending request)");
+#endif // XASH_DEDICATED
 
 			while( curfile->bytes_sent < curfile->query_length )
 			{
