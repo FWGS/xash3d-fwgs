@@ -22,10 +22,6 @@ GNU General Public License for more details.
 #include <SDL.h>
 #endif
 
-#ifdef _WIN32
-#include "windows.h"
-#endif
-
 #include "platform/platform.h"
 
 void*		in_mousecursor;

@@ -13,7 +13,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include <windows.h>
 #include "platform/platform.h"
 #include "menu_int.h"
 
