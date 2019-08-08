@@ -28,7 +28,7 @@ GNU General Public License for more details.
 	#endif
 	#define XASHLIB "xash.dll"
 	#define dlerror() GetStringLastError()
-	#include <windows.h>
+	#include <shellapi.h> // CommandLineToArgvW
 #endif
 
 #ifdef WIN32
