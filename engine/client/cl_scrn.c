@@ -350,7 +350,6 @@ void SCR_BeginLoadingPlaque( qboolean is_background )
 
 	if( CL_IsInMenu( ) && !cls.changedemo && !is_background )
 	{
-		UI_SetActiveMenu( false );
 		if( cls.state == ca_disconnected )
 			SCR_UpdateScreen();
 	}

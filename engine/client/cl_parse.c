@@ -904,7 +904,7 @@ void CL_ParseServerData( sizebuf_t *msg )
 
 	if( Con_FixedFont( ))
 	{
-		// seperate the printfs so the server message can have a color
+		// separate the printfs so the server message can have a color
 		Con_Print( "\n\35\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\37\n" );
 		Con_Print( va( "%c%s\n\n", 2, clgame.maptitle ));
 	}
@@ -920,6 +920,9 @@ void CL_ParseServerData( sizebuf_t *msg )
 
 		if( r_decals->value > mp_decals.value )
 			Cvar_SetValue( "r_decals", mp_decals.value );
+
+		if( !cls.demoplayback )
+			UI_ConnectionProgress_ParseServerInfo( "server" );
 	}
 	else Cvar_Reset( "r_decals" );
 
@@ -943,7 +946,9 @@ void CL_ParseServerData( sizebuf_t *msg )
 	}
 
 	if( !cls.changedemo )
-		UI_SetActiveMenu( cl.background );
+	{
+		// UI_SetActiveMenu( cl.background );
+	}
 	else if( !cls.demoplayback )
 		Key_SetKeyDest( key_menu );
 
@@ -2131,6 +2136,7 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 				else cls.state = ca_connecting;
 				cl.background = old_background;
 				cls.connect_time = MAX_HEARTBEAT;
+				UI_ConnectionProgress_ChangeLevel();
 			}
 			break;
 		case svc_setview:
@@ -2423,6 +2429,9 @@ void CL_ParseLegacyServerData( sizebuf_t *msg )
 
 		if( r_decals->value > mp_decals.value )
 			Cvar_SetValue( "r_decals", mp_decals.value );
+
+		if( !cls.demoplayback )
+			UI_ConnectionProgress_ParseServerInfo( "server" );
 	}
 	else Cvar_Reset( "r_decals" );
 
@@ -2446,7 +2455,9 @@ void CL_ParseLegacyServerData( sizebuf_t *msg )
 	}
 
 	if( !cls.changedemo )
-		UI_SetActiveMenu( cl.background );
+	{
+		// UI_SetActiveMenu( cl.background );
+	}
 	else if( !cls.demoplayback )
 		Key_SetKeyDest( key_menu );
 
@@ -2882,6 +2893,8 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 				else cls.state = ca_connecting;
 				cl.background = old_background;
 				cls.connect_time = MAX_HEARTBEAT;
+
+				UI_ConnectionProgress_ChangeLevel();
 			}
 			break;
 		case svc_setview:
@@ -3116,6 +3129,8 @@ void CL_LegacyPrecache_f( void )
 		return;
 
 	spawncount = Q_atoi( Cmd_Argv( 1 ));
+
+	UI_ConnectionProgress_Precache();
 
 	Con_Printf( "Setting up renderer...\n" );
 
