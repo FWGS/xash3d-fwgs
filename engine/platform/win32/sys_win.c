@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "platform/platform.h"
 #include "menu_int.h"
+#include <shellapi.h>
 
 #if XASH_TIMER == TIMER_WIN32
 double Platform_DoubleTime( void )
