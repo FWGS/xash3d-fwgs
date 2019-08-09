@@ -573,9 +573,8 @@ void R_CollectRendererNames( void )
 
 	ref.numRenderers = 0;
 
-	for( i = 0; i < ARRAYSIZE( ref.renderers ); i++ )
+	for( i = 0; i < DEFAULT_RENDERERS_LEN; i++ )
 	{
-		ref_renderer_t *refdll = ref.renderers + ref.numRenderers;
 		string temp;
 		void *dll, *pfn;
 
@@ -592,21 +591,21 @@ void R_CollectRendererNames( void )
 			continue;
 		}
 
-		Q_strncpy( refdll->shortenedName, renderers[i], sizeof( refdll->shortenedName ));
+		Q_strncpy( ref.shortNames[i], renderers[i], sizeof( ref.shortNames[i] ));
 
 		pfn = COM_GetProcAddress( dll, GET_REF_HUMANREADABLE_NAME );
 		if( !pfn ) // just in case
 		{
-			Q_strncpy( refdll->humanReadable, renderers[i], sizeof( refdll->humanReadable ));
+			Q_strncpy( ref.readableNames[i], renderers[i], sizeof( ref.readableNames[i] ));
 		}
 		else
 		{
 			REF_HUMANREADABLE_NAME GetHumanReadableName = (REF_HUMANREADABLE_NAME)pfn;
 
-			GetHumanReadableName( refdll->humanReadable, sizeof( refdll->humanReadable ));
+			GetHumanReadableName( ref.readableNames[i], sizeof( ref.readableNames[i] ));
 		}
 
-		Con_Printf( "Found renderer %s: %s\n", refdll->shortenedName, refdll->humanReadable );
+		Con_Printf( "Found renderer %s: %s\n", ref.shortNames[i], ref.readableNames[i] );
 
 		ref.numRenderers++;
 		COM_FreeLibrary( dll );

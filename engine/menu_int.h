@@ -202,6 +202,8 @@ typedef struct ui_extendedfuncs_s {
 	int (*pfnUtfMoveRight) ( char *str, int pos, int length );
 
 	// new engine extended api start here
+	// returns 1 if there are more in list, otherwise 0
+	int (*pfnGetRenderers)( unsigned int num, char *shortName, size_t size1, char *readableName, size_t size2 );
 } ui_extendedfuncs_t;
 
 // deprecated export from old engine
