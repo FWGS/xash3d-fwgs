@@ -609,5 +609,9 @@ typedef struct ref_interface_s
 } ref_interface_t;
 
 typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* engfuncs, ref_globals_t *pGlobals );
+#define GET_REF_API "GetRefAPI"
+
+typedef void (*REF_HUMANREADABLE_NAME)( char *out, size_t len );
+#define GET_REF_HUMANREADABLE_NAME "GetRefHumanReadableName"
 
 #endif // REF_API

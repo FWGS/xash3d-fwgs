@@ -120,7 +120,9 @@ void Mod_UnloadTextures( model_t *mod )
 	case mod_sprite:
 		Mod_SpriteUnloadTextures( mod->cache.data );
 		break;
-	default: gEngfuncs.Host_Error( "Mod_UnloadModel: unsupported type %d\n", mod->type );
+	default:
+		ASSERT( 0 );
+		break;
 	}
 }
 
@@ -130,8 +132,6 @@ qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 
 	if( create )
 	{
-
-
 		switch( mod->type )
 		{
 			case mod_studio:
@@ -146,7 +146,6 @@ qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 			case mod_brush:
 				// Mod_LoadBrushModel( mod, buf, loaded );
 				break;
-
 			default: gEngfuncs.Host_Error( "Mod_LoadModel: unsupported type %d\n", mod->type );
 		}
 	}
@@ -471,4 +470,15 @@ int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, 
 	gpGlobals = globals;
 
 	return REF_API_VERSION;
+}
+
+void EXPORT GetRefHumanReadableName( char *out, size_t size )
+{
+#if defined XASH_NANOGL
+	Q_strncpy( out, "OpenGLES 1(NanoGL)", size );
+#elif defined XASH_WES
+	Q_strncpy( out, "OpenGLES 2(gl-wes-v2)", size );
+#else
+	Q_strncpy( out, "OpenGL 1.x", size );
+#endif
 }
