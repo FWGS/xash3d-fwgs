@@ -20,12 +20,21 @@ GNU General Public License for more details.
 
 #define RP_LOCALCLIENT( e )	((e) != NULL && (e)->index == ( cl.playernum + 1 ) && e->player )
 
+typedef struct ref_renderer_s
+{
+	string shortenedName;
+	string humanReadable;
+} ref_renderer_t;
+
 struct ref_state_s
 {
 	qboolean initialized;
 
 	HINSTANCE hInstance;
 	ref_interface_t dllFuncs;
+
+	int numRenderers;
+	ref_renderer_t renderers[DEFAULT_RENDERERS_LEN];
 };
 
 extern struct ref_state_s ref;
