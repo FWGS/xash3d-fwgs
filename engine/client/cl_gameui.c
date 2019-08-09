@@ -1185,12 +1185,27 @@ static void pfnEnableTextInput( int enable )
 	Key_EnableTextInput( enable, false );
 }
 
+static int pfnGetRenderers( unsigned int num, char *shortName, size_t size1, char *readableName, size_t size2 )
+{
+	if( num >= ref.numRenderers )
+		return 0;
+
+	if( shortName && size1 )
+		Q_strncpy( shortName, ref.shortNames[num], size1 );
+
+	if( readableName && size2 )
+		Q_strncpy( readableName, ref.readableNames[num], size2 );
+
+	return 1;
+}
+
 static ui_extendedfuncs_t gExtendedfuncs =
 {
 	pfnEnableTextInput,
 	Con_UtfProcessChar,
 	Con_UtfMoveLeft,
-	Con_UtfMoveRight
+	Con_UtfMoveRight,
+	pfnGetRenderers
 };
 
 void UI_UnloadProgs( void )
