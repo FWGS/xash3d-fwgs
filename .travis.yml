@@ -106,17 +106,17 @@ jobs:
 #      after_script:
 #        - ccache --show-stats
 #        - sh scripts/continious_upload.sh xash3d-mingw.7z
-    - # ...
-      name: "Build for OSX"
-      cache: ccache
-      os: osx
-      before_script:
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
-      script:
-        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
-      after_script:
-        - sh scripts/continious_upload.sh xash3d-osx.tar.bz2
+#    - # ...
+#      name: "Build for OSX"
+#      cache: ccache
+#      os: osx
+#      before_script:
+#        - sh scripts/travis_common_deps.sh
+#        - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
+#      script:
+#        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
+#      after_script:
+#        - sh scripts/continious_upload.sh xash3d-osx.tar.bz2
     - # ...
       name: "Build for Windows MSVC"
       cache: ccache
