@@ -12,7 +12,10 @@ android_sdk_home_env = ['ANDROID_SDK_HOME', 'ANDROID_SDK']
 D8_BUILD_TOOLS_MAJOR_VER = 28
 
 def options(opt):
-	#grp = opt.add_option_group('Android options')
+	grp = opt.add_option_group('Android options')
+
+	grp.add_option('--termux', dest='termux', default=False, action='store_true',
+		help='configure to use tools included in termux')
 	return
 
 def add_paths_to_path(paths):
@@ -30,41 +33,53 @@ def get_build_tools(sdk, ver):
 
 def configure(conf):
 	conf.load('java')
-	conf.start_msg('Checking environment variables')
+	paths = []
+	if not conf.options.termux:
+		conf.start_msg('Checking environment variables')
 
-	sdk = None
-	for i in android_sdk_home_env:
-		if i in os.environ:
-			sdk = conf.env.ANDROID_SDK_HOME_ENV = os.environ[i]
-			break
+		sdk = None
+		for i in android_sdk_home_env:
+			if i in os.environ:
+				sdk = conf.env.ANDROID_SDK_HOME_ENV = os.environ[i]
+				break
 
-	if not sdk:
-		conf.fatal('Can\'t find path to SDK. Check if ANDROID_SDK_HOME environment variable is set')
-		return
+		if not sdk:
+			conf.fatal('Can\'t find path to SDK. Check if ANDROID_SDK_HOME environment variable is set')
+			return
 
-	conf.end_msg('ok')
+		conf.end_msg('ok')
 
-	btv = get_latest_build_tools_version(sdk)
+		btv = get_latest_build_tools_version(sdk)
 
-	conf.msg('Detected build-tools version', btv)
+		conf.msg('Detected build-tools version', btv)
 
-	paths = [os.path.join(sdk, 'tools'), get_build_tools(sdk, btv)]
+		paths += [os.path.join(sdk, 'tools'), get_build_tools(sdk, btv)]
+
+		conf.env.BUILD_TOOLS_VERSION = [int(x) for x in btv.split('.')]
+	else:
+		conf.env.BUILD_TOOLS_VERSION = [ 0, 0, 0 ]
+
 	paths += os.environ['PATH'].split(os.pathsep) # just in case we have installed tools
-	
-	conf.env.BUILD_TOOLS_VERSION = [int(x) for x in btv.split('.')]
+
+	conf.env.termux = conf.options.termux
 
 	# mandatory
-	for i in ['aapt2', 'zipalign', 'apksigner', 'zip']:
+	for i in ['zipalign', 'apksigner', 'zip']:
 		conf.find_program(i, path_list = paths)
 
 	# optional
-	if conf.env.BUILD_TOOLS_VERSION[0] >= D8_BUILD_TOOLS_MAJOR_VER:
+	try:
+		conf.find_program('aapt2', path_list = paths)
+	except Errors.ConfigurationError:
+		conf.find_program('aapt', path_list = paths)
+
+	# optional
+	# if conf.env.BUILD_TOOLS_VERSION[0] >= D8_BUILD_TOOLS_MAJOR_VER:
+	try:
 		conf.find_program('d8', path_list = paths)
-	else:
+	# else:
+	except Errors.ConfigurationError:
 		conf.find_program('dx', path_list = paths)
-
-
-	# TODO: AAPT legacy support
 
 class aapt2compile(javaw.JTask):
 	color = 'GREEN'
@@ -121,10 +136,30 @@ class aapt2link(javaw.JTask):
 
 		return super(aapt2link, self).runnable_status()
 
-class d8(javaw.JTask):
-	color = 'GREEN' # android green :)
-	run_str = '${D8} ${SRC} ${D8_FLAGS} --output ${OUTDIR} --lib ${CLASSPATH_ANDROID} ${D8_CLASSPATH}'
-	vars = ['D8', 'D8_FLAGS', 'OUTDIR', 'CLASSPATH_ANDROID', 'D8_CLASSPATH' ]
+class aaptpackage(javaw.JTask):
+	color = 'GREEN' # androis green :)
+	run_str = 'mkdir -p ${OUTRDIR} && ${AAPT} p -v -F ${OUTAPK_UNALIGNED_NOCLASSES_NOJNI} -J ${OUTRDIR} -A ${ASSETSDIR} -I ${CLASSPATH_ANDROID} -M ${MANIFEST} -S ${RESDIR}'
+	vars = ['AAPT', 'OUTAPK_UNALIGNED_NOCLASSES_NOJNI', 'OUTRDIR', 'ASSETSDIR', 'CLASSPATH_ANDROID', 'MANIFEST', 'RESDIR' ]
+
+	def runnable_status(self):
+		"""
+		Waits for dependent tasks to be complete, then read the file system to find the input nodes.
+		"""
+		for t in self.run_after:
+			if not t.hasrun:
+				return Task.ASK_LATER
+
+		if not self.inputs:
+			root   = self.generator.outdir.ctx.root
+			resdir = root.make_node(self.env.RESDIR)
+			self.inputs = resdir.ant_glob('**/*', quiet=True)
+
+		self.outputs = [ self.generator.outdir.make_node(self.env.OUTAPK_UNALIGNED_NOCLASSES_NOJNI) ]
+
+		return super(aaptpackage, self).runnable_status()
+
+class DexerTask(javaw.JTask): # base dexer
+	color = 'GREEN'
 
 	def runnable_status(self):
 		"""
@@ -138,23 +173,15 @@ class d8(javaw.JTask):
 			self.inputs = self.generator.outdir.ant_glob('**/*.class', quiet=True)
 
 		self.outputs = [ self.generator.outdir.make_node('classes.dex') ]
-		return super(d8, self).runnable_status()
+		return super(DexerTask, self).runnable_status()
 
-class dx(javaw.JTask):
-	color = 'GREEN' # Android green :)
+class d8(DexerTask):
+	run_str = '${D8} ${SRC} ${D8_FLAGS} --output ${OUTDIR} --lib ${CLASSPATH_ANDROID} ${D8_CLASSPATH}'
+	vars = ['D8', 'D8_FLAGS', 'OUTDIR', 'CLASSPATH_ANDROID', 'D8_CLASSPATH' ]
+
+class dx(DexerTask):
 	run_str = '${DX} --dex ${D8_FLAGS} --output=${OUTDIR}/classes.dex ${SRC} ${DX_CLASSPATH}'
 	vars = ['DX', 'D8_FLAGS', 'OUTDIR']
-
-	def runnable_status(self):
-		for t in self.run_after:
-			if not t.hasrun:
-				return Task.ASK_LATER
-
-		if not self.inputs:
-			self.inputs = self.generator.outdir.ant_glob('**/*.class', quiet=True)
-
-		self.outputs = [ self.generator.outdir.make_node('classes.dex') ]
-		return super(dx, self).runnable_status()
 
 def javac(func):
 	old_runnable_status = getattr(javaw.javac, 'runnable_status', None)
@@ -200,7 +227,7 @@ class apkdex(Task.Task):
 		for t in self.run_after:
 			if not t.hasrun:
 				return Task.ASK_LATER
-		
+
 		self.inputs = [self.generator.outdir.make_node('classes.dex'), self.generator.outdir.make_node(self.env.OUTAPK_UNALIGNED_NOCLASSES)]
 		self.outputs = [ self.generator.outdir.make_node(self.env.OUTAPK_UNALIGNED) ]
 		return super(apkdex, self).runnable_status()
@@ -248,28 +275,43 @@ def apply_aapt(self):
 	self.env.ASSETSDIR = os.path.join(srcdir.abspath(), getattr(self, 'assetsdir', 'assets'))
 	self.env.MANIFEST = os.path.join(srcdir.abspath(), getattr(self, 'manifest', 'AndroidManifest.xml'))
 
+	try:
+		self.env.JNIDIR = self.jni
+	except AttributeError:
+		pass
+
 	apkname = getattr(self, 'apkname', self.name)
-	self.env.OUTAPK_UNALIGNED_NOCLASSES_NOJNI = apkname + '.unaligned.noclasses.nojni.apk'
-	self.env.OUTAPK_UNALIGNED_NOCLASSES = apkname + '.unaligned.noclasses.apk'
-	self.env.OUTAPK_UNALIGNED = apkname + '.unaligned.apk'
 	self.env.OUTAPK = apkname + '.apk'
+	self.env.OUTAPK_UNALIGNED = apkname + '.unaligned.apk'
+	self.env.OUTAPK_UNALIGNED_NOCLASSES = apkname + '.unaligned.noclasses.apk'
+
+	if self.env.JNIDIR:
+		self.env.OUTAPK_UNALIGNED_NOCLASSES_NOJNI = apkname + '.unaligned.noclasses.nojni.apk'
+	else:
+		self.env.OUTAPK_UNALIGNED_NOCLASSES_NOJNI = self.env.OUTAPK_UNALIGNED_NOCLASSES
+
 	if self.env.BUILD_TOOLS_VERSION[0] > 27:
 		self.env.append_unique('AAPT2_LINKFLAGS', '--allow-reserved-package-id')
-	
+
 	self.env.OUTRDIR = os.path.join(outdir.abspath(), getattr(self, 'gendir', 'gen')) # build/gen
 	self.env.RESOUTFILE = os.path.join(outdir.abspath(), 'compiled')
 	self.env.OUTDIR = outdir.abspath()
 	self.env.TARGET_API = getattr(self, 'target_api', 10) # Android 2.3.3 TODO: parse AndroidManifest.xml to get target API!
-	self.env.CLASSPATH_ANDROID = os.path.join(sdk, 'platforms', 'android-' + str(self.env.TARGET_API), 'android.jar')
-	
-	self.env.JNIDIR = getattr(self, 'jni', 'lib')
+	if self.env.termux:
+		classpath = os.path.join(os.environ['PREFIX'], 'share', 'java', 'android.jar')
+	else: classpath = os.path.join(sdk, 'platforms', 'android-' + str(self.env.TARGET_API), 'android.jar')
+	self.env.CLASSPATH_ANDROID = classpath
 
-	self.aapt2compile_task = self.create_task('aapt2compile')
-	self.aapt2compile_task.cwd = outdir
+	if self.env.AAPT:
+		self.aapt2link_task = self.create_task('aaptpackage')
+	else:
+		self.aapt2compile_task = self.create_task('aapt2compile')
+		self.aapt2compile_task.cwd = outdir
 
-	self.aapt2link_task = self.create_task('aapt2link')
+		self.aapt2link_task = self.create_task('aapt2link')
+		self.aapt2link_task.set_run_after(self.aapt2compile_task)
+
 	self.aapt2link_task.cwd = outdir
-	self.aapt2link_task.set_run_after(self.aapt2compile_task)
 
 @TaskGen.feature('android')
 @TaskGen.after_method('apply_java')
@@ -280,7 +322,6 @@ def apply_d8(self):
 		self.env.D8_FLAGS = '--debug'
 	elif self.env.D8: self.env.D8_FLAGS = '--release'
 
-	
 	if self.env.D8:
 		self.d8_task = self.create_task('d8')
 	else:
@@ -289,13 +330,16 @@ def apply_d8(self):
 	self.d8_task.cwd = self.outdir
 	self.d8_task.set_run_after(self.javac_task)
 
-	self.apkjni_task = self.create_task('apkjni')
-	self.apkjni_task.cwd = self.outdir
-	self.apkjni_task.set_run_after(self.d8_task)
-	
+	if self.env.JNIDIR:
+		self.apkjni_task = self.create_task('apkjni')
+		self.apkjni_task.cwd = self.outdir
+		self.apkjni_task.set_run_after(self.d8_task)
+
 	self.apkdex_task = self.create_task('apkdex')
 	self.apkdex_task.cwd = self.outdir
-	self.apkdex_task.set_run_after(self.apkjni_task)
+	if self.env.JNIDIR:
+		self.apkdex_task.set_run_after(self.apkjni_task)
+	else: self.apkdex_task.set_run_after(self.d8_task)
 
 	self.apkalign_task = self.create_task('apkalign')
 	self.apkalign_task.cwd = self.outdir
