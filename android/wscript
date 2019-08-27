@@ -4,6 +4,7 @@
 
 def options(opt):
 	# opt.load('java')
+	opt.load('android')
 	return
 
 def configure(conf):
@@ -17,6 +18,7 @@ def build(bld):
 		srcdir = 'src',
 		compat = '1.6',
 		name = 'xashdroid-src',
+#		jni = 'lib',
 		debug = bld.env.D8_DEBUG,
 		target_api = 19)
 	return
