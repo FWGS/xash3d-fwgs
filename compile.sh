@@ -1,6 +1,17 @@
 #!/bin/sh
 
-ARCHS="armeabi-v7a armeabi x86"
+if echo "$HOME" | grep "com.termux"; then
+	echo "-- Configuring for termux"
+	export JAVAC=ecj
+	export JAVA=true # /bin/true does nothing but returns success
+	export JAR=true
+	export JAVADOC=true
+	# export AAPT2=aapt
+	TERMUX_ARG="--termux"
+else
+	echo "-- Configuring for Android SDK/NDK"
+	ARCHS="armeabi-v7a armeabi x86"
+fi
 TOOLCHAIN=4.9
 API=9
 ROOT="$PWD" # compile.sh must be run from root of android project sources
@@ -27,7 +38,7 @@ android/gen-config.sh android/
 android/gen-version.sh android/
 
 # configure android project
-./waf configure -T $BUILD_TYPE || exit 1
+./waf configure -T $BUILD_TYPE $TERMUX_ARG|| exit 1
 
 build_native_project()
 {
@@ -43,19 +54,19 @@ build_native_project()
 }
 
 # Do it inside waf?
-for i in $ARCHS; do
-	for j in $SUBDIRS; do
-		build_native_project "$j" "$i" "$TOOLCHAIN" "$API"
-	done
-done
+#for i in $ARCHS; do
+#	for j in $SUBDIRS; do
+#		build_native_project "$j" "$i" "$TOOLCHAIN" "$API"
+#	done
+#done
 
 # Run waf
-./waf build || exit 1
+./waf build -v|| exit 1
 
 # sign
 cp build/android/xashdroid-src.apk xashdroid.apk
 
 # :)
-if [ $USER = "a1ba" ]; then
+if [ "$USER" = "a1ba" ]; then
 	apksigner sign --ks ../myks.keystore xashdroid.apk
 fi
