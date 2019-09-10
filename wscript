@@ -60,7 +60,7 @@ def options(opt):
 
 	opt.add_subproject(subdirs())
 
-	opt.load('xcompile compiler_cxx compiler_c sdl2')
+	opt.load('xcompile compiler_cxx compiler_c sdl2 clang_compilation_database')
 	if sys.platform == 'win32':
 		opt.load('msvc msdev msvs')
 	opt.load('reconfigure')
