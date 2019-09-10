@@ -27,6 +27,7 @@
  */
 
 #if defined __ANDROID__ && !defined XASH_64BIT
+#include <string.h>
 #include <android/log.h>
 #include "linker.h"
 
