@@ -18,7 +18,7 @@ def build(bld):
 		srcdir = 'src',
 		compat = '1.6',
 		name = 'xashdroid-src',
-#		jni = 'lib',
+		jni = 'lib',
 		debug = bld.env.D8_DEBUG,
 		target_api = 19)
 	return
