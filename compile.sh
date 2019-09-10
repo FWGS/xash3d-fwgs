@@ -6,13 +6,13 @@ if echo "$HOME" | grep "com.termux"; then
 	export JAVA=true # /bin/true does nothing but returns success
 	export JAR=true
 	export JAVADOC=true
-	# export AAPT2=aapt
 	TERMUX_ARG="--termux"
+	TOOLCHAIN=host
 else
 	echo "-- Configuring for Android SDK/NDK"
-	ARCHS="armeabi-v7a armeabi x86"
+	TOOLCHAIN=4.9
 fi
-TOOLCHAIN=4.9
+ARCHS="armeabi-v7a armeabi x86"
 API=9
 ROOT="$PWD" # compile.sh must be run from root of android project sources
 SUBDIRS="xash3d-fwgs hlsdk-xash3d"
@@ -54,11 +54,11 @@ build_native_project()
 }
 
 # Do it inside waf?
-#for i in $ARCHS; do
-#	for j in $SUBDIRS; do
-#		build_native_project "$j" "$i" "$TOOLCHAIN" "$API"
-#	done
-#done
+for i in $ARCHS; do
+	for j in $SUBDIRS; do
+		build_native_project "$j" "$i" "$TOOLCHAIN" "$API"
+	done
+done
 
 # Run waf
 ./waf build -v|| exit 1
