@@ -38,16 +38,18 @@ class Android:
 	ndk_rev        = 0
 	is_hardfloat   = False
 	clang          = False
-	
+
 	def __init__(self, ctx, arch, toolchain, api):
 		self.ctx = ctx
+		self.api = api
+
 		for i in ['ANDROID_NDK_HOME', 'ANDROID_NDK']:
 			self.ndk_home = os.getenv(i)
 			if self.ndk_home != None:
 				break
 
 		if not self.ndk_home:
-			conf.fatal('Set ANDROID_NDK_HOME environment variable pointing to the root of Android NDK!')		
+			ctx.fatal('Set ANDROID_NDK_HOME environment variable pointing to the root of Android NDK!')		
 
 		# TODO: this were added at some point of NDK development
 		# but I don't know at which version
@@ -86,12 +88,17 @@ class Android:
 		elif self.ndk_rev >= 19 and self.api < 16:
 			Logs.warn('API level automatically was set to 16 due to NDK support')
 			self.api = 16
-		else: self.api = api
 		self.toolchain_path = self.gen_toolchain_path()
 
 	# TODO: Crystax support?
 	# TODO: Support for everything else than linux-x86_64?
 	# TODO: Determine if I actually need to implement listed above
+
+	def is_host(self):
+		'''
+		Checks if we using host compiler(implies clang)
+		'''
+		return self.toolchain == 'host'
 
 	def is_arm(self):
 		'''
@@ -126,7 +133,16 @@ class Android:
 	def is_hardfp(self):
 		return self.is_hardfloat
 
-	def gen_toolchain_path(self):
+	def ndk_triplet(self):
+		if self.is_x86():
+			triplet = 'i686-linux-android'
+		elif self.is_arm():
+			triplet = 'arm-linux-androideabi'
+		else:
+			triplet = self.arch + '-linux-android'
+		return triplet
+
+	def gen_gcc_toolchain_path(self):
 		path = 'toolchains'
 
 		if sys.platform.startswith('linux'):
@@ -149,13 +165,6 @@ class Android:
 				raise Exception('Clang is not supported for this NDK')
 
 			toolchain_folder = 'llvm'
-
-			if self.is_x86():
-				triplet = 'i686-linux-android{}-'.format(self.api)
-			elif self.is_arm():
-				triplet = 'armv7a-linux-androideabi{}-'.format(self.api)
-			else:
-				triplet = self.arch + '-linux-android{}-'.format(self.api)
 		else:
 			if self.is_x86() or self.is_amd64():
 				toolchain_folder = self.arch + '-' + self.toolchain
@@ -164,42 +173,70 @@ class Android:
 			else:
 				toolchain_folder = self.arch + '-linux-android-' + self.toolchain
 
-			if self.is_x86():
-				triplet = 'i686-linux-android-'
-			elif self.is_arm():
-				triplet = 'arm-linux-androideabi-'
-			else:
-				triplet = self.arch + '-linux-android-'
+		return os.path.abspath(os.path.join(self.ndk_home, path, toolchain_folder, 'prebuilt', toolchain_host))
 
-		return os.path.join(path, toolchain_folder, 'prebuilt', toolchain_host, 'bin', triplet)
+	def gen_toolchain_path(self):
+		if self.is_clang():
+			if self.is_x86():
+				triplet = 'i686-linux-android{}-'.format(self.api)
+			elif self.is_arm():
+				triplet = 'armv7a-linux-androideabi{}-'.format(self.api)
+			else:
+				triplet = self.arch + '-linux-android{}-'.format(self.api)
+		else:
+			triplet = self.ndk_triplet() + '-'
+		return os.path.join(self.gen_gcc_toolchain_path(), 'bin', triplet)
 
 	def cc(self):
-		return os.path.abspath(os.path.join(self.ndk_home, self.toolchain_path + ('clang' if self.is_clang() else 'gcc')))
+		if self.is_host():
+			return 'clang'
+		return self.toolchain_path + ('clang' if self.is_clang() else 'gcc')
 
 	def cxx(self):
-		return os.path.abspath(os.path.join(self.ndk_home, self.toolchain_path + ('clang++' if self.is_clang() else 'g++')))
+		if self.is_host():
+			return 'clang++'
+		return self.toolchain_path + ('clang++' if self.is_clang() else 'g++')
 
 	def system_stl(self):
 		# TODO: proper STL support
 		return os.path.abspath(os.path.join(self.ndk_home, 'sources', 'cxx-stl', 'system', 'include'))
 
+	def libsysroot(self):
+		arch = self.arch
+		if self.is_arm():
+			arch = 'arm'
+		elif self.is_arm64():
+			arch = 'arm64'
+		path = 'platforms/android-{}/arch-{}'.format(self.api, arch)
+
+		return os.path.abspath(os.path.join(self.ndk_home, path))
+
 	def sysroot(self):
-		if self.ndk_rev >= 19:
+		if self.ndk_rev >= 19 or self.is_host():
 			return os.path.abspath(os.path.join(self.ndk_home, 'sysroot'))
 		else:
-			arch = self.arch
-			if self.is_arm():
-				arch = 'arm'
-			elif self.is_arm64():
-				arch = 'arm64'
-			path = 'platforms/android-{}/arch-{}'.format(self.api, arch)
+			return self.libsysroot()
 
-			return os.path.abspath(os.path.join(self.ndk_home, path))
+	def clang_host_triplet(self):
+		triplet = ''
+		if self.is_arm():
+			triplet += 'arm'
+		elif self.is_x86():
+			triplet += 'i686'
+		else:
+			triplet += self.arch
+		triplet += '-linux-android'
+		return triplet
 
 	def cflags(self):
 		cflags = []
+		if self.is_host():
+			cflags += ['-nostdlib', '--target=%s' % self.clang_host_triplet()]
+
 		if self.ndk_rev < 20:
-			cflags = ['--sysroot={0}'.format(self.sysroot())]
+			cflags += ['--sysroot={0}'.format(self.sysroot())]
+		elif self.is_host():
+			cflags += ['-isysroot={0}'.format(self.sysroot())]
 		cflags += ['-DANDROID', '-D__ANDROID__']
 		cflags += ['-I{0}'.format(self.system_stl())]
 		if self.is_arm():
@@ -222,15 +259,26 @@ class Android:
 	# they go before object list
 	def linkflags(self):
 		linkflags = []
-		if self.ndk_rev < 20:
-			linkflags = ['--sysroot={0}'.format(self.sysroot())]
+		if self.is_host():
+			linkflags += ['-fuse-ld=lld', '-nostdlib', '--target=%s' % self.clang_host_triplet(),
+				'--gcc-toolchain=%s' % self.gen_gcc_toolchain_path()]
+
+		if self.ndk_rev < 20 or self.is_host():
+			linkflags += ['--sysroot={0}'.format(self.libsysroot())]
+
+		if self.is_host():
+			linkflags += ['-L{0}/usr/lib/{1}'.format(self.sysroot(), self.ndk_triplet()),
+				'-L{0}/sysroot/usr/lib/{1}/'.format(self.gen_gcc_toolchain_path(), self.ndk_triplet())]
 		return linkflags
 
 	def ldflags(self):
 		ldflags = ['-lgcc', '-no-canonical-prefixes']
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
-				ldflags += ['-march=armv7-a', '-Wl,--fix-cortex-a8', '-mthumb']
+				ldflags += ['-march=armv7-a']
+				if not self.is_host(): # lld only
+					ldflags += ['-Wl,--fix-cortex-a8']
+				ldflags += ['-mthumb']
 				if self.is_hardfloat:
 					ldflags += ['-Wl,--no-warn-mismatch', '-lm_hard']
 			else:
