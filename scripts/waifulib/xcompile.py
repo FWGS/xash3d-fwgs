@@ -156,7 +156,7 @@ class Android:
 		toolchain_host += '-'
 
 		# Assuming we are building on x86
-		if sys.maxsize > 2**32: 
+		if sys.maxsize > 2**32:
 			toolchain_host += 'x86_64'
 		else: toolchain_host += 'x86'
 
@@ -187,6 +187,9 @@ class Android:
 			triplet = self.ndk_triplet() + '-'
 		return os.path.join(self.gen_gcc_toolchain_path(), 'bin', triplet)
 
+	def gen_binutils_path(self):
+		return os.path.join(self.gen_gcc_toolchain_path(), self.ndk_triplet(), 'bin')
+
 	def cc(self):
 		if self.is_host():
 			return 'clang'
@@ -196,6 +199,11 @@ class Android:
 		if self.is_host():
 			return 'clang++'
 		return self.toolchain_path + ('clang++' if self.is_clang() else 'g++')
+
+	def strip(self):
+		if self.is_host():
+			return 'strip'
+		return os.path.join(self.gen_binutils_path(), 'strip')
 
 	def system_stl(self):
 		# TODO: proper STL support
@@ -305,6 +313,7 @@ def configure(conf):
 		setattr(conf, 'android', android)
 		conf.environ['CC'] = android.cc()
 		conf.environ['CXX'] = android.cxx()
+		conf.environ['STRIP'] = android.strip()
 		conf.env.CFLAGS += android.cflags()
 		conf.env.CXXFLAGS += android.cflags()
 		conf.env.LINKFLAGS += android.linkflags()

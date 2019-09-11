@@ -90,7 +90,7 @@ def configure(conf):
 	conf.env.MSVC_TARGETS = ['x86'] # explicitly request x86 target for MSVC
 	if sys.platform == 'win32':
 		conf.load('msvc msvcfix msdev msvs')
-	conf.load('xcompile compiler_c compiler_cxx gitversion clang_compilation_database')
+	conf.load('xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install')
 
 	# Every static library must have fPIC
 	if conf.env.DEST_OS != 'win32' and '-fPIC' in conf.env.CFLAGS_cshlib:
