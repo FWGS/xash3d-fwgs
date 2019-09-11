@@ -9,6 +9,11 @@ Strip executables upon installation
 import shutil, os
 from waflib import Build, Utils, Context, Errors, Logs
 
+def options(opt):
+	grp = opt.option_groups['install/uninstall options']
+	grp.add_option('--no-strip', dest='no_strip', action='store_true', default=False,
+		help='don\'t strip binaries. You must pass this flag to install command(default: False)')
+
 def configure(conf):
 	if conf.env.DEST_BINFMT in ['elf', 'mac-o']:
 		conf.find_program('strip')
@@ -18,8 +23,8 @@ def configure(conf):
 def copy_fun(self, src, tgt):
 	inst_copy_fun(self, src, tgt)
 
-	if self.env.KEEP_DEBUG_INFO:
-		return # don't strip debug information in debug mode
+	if self.generator.bld.options.no_strip:
+		return
 
 	if getattr(self.generator, 'link_task', None) and self.generator.link_task.outputs[0] in self.inputs:
 		cmd = self.env.STRIP + self.env.STRIPFLAGS + [tgt]
