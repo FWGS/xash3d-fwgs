@@ -26,7 +26,7 @@ def copy_fun(self, src, tgt):
 	if self.generator.bld.options.no_strip:
 		return
 
-	if conf.env.DEST_BINFMT not in ['elf', 'mac-o']: # don't strip unknown formats or PE
+	if self.env.DEST_BINFMT not in ['elf', 'mac-o']: # don't strip unknown formats or PE
 		return
 
 	if getattr(self.generator, 'link_task', None) and self.generator.link_task.outputs[0] in self.inputs:
