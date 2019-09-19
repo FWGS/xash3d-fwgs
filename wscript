@@ -98,7 +98,7 @@ def configure(conf):
 		conf.env.append_unique('CXXFLAGS_cxxstlib', '-fPIC')
 
 	# modify options dictionary early
-	if conf.env.DEST_OS2 == 'android':
+	if conf.env.DEST_OS == 'android':
 		conf.options.ALLOW64 = True # skip pointer length check
 		conf.options.NO_VGUI = True # skip vgui
 		conf.options.NANOGL = True
@@ -115,7 +115,7 @@ def configure(conf):
 		conf.env.BIT32_ALLOW64 = True
 	conf.env.BIT32_MANDATORY = not conf.env.BIT32_ALLOW64
 	conf.load('force_32bit')
-	if conf.env.DEST_OS2 != 'android' and not conf.options.DEDICATED:
+	if conf.env.DEST_OS != 'android' and not conf.options.DEDICATED:
 		conf.load('sdl2')
 
 	linker_flags = {
@@ -193,8 +193,10 @@ def configure(conf):
 		conf.check_cc( lib='dl' )
 
 	if conf.env.DEST_OS != 'win32':
-		if conf.env.DEST_OS2 != 'android':
-			conf.check_cc( lib='m' ) # HACK: already added in xcompile!
+		if not conf.env.LIB_M: # HACK: already added in xcompile!
+			conf.check_cc( lib='m' )
+
+		if conf.env.DEST_OS != 'android': # Android has pthread directly in libc
 			conf.check_cc( lib='pthread' )
 	else:
 		# Common Win32 libraries
@@ -212,8 +214,7 @@ def configure(conf):
 
 	# indicate if we are packaging for Linux/BSD
 	if(not conf.options.WIN_INSTALL and
-		conf.env.DEST_OS not in ['win32', 'darwin'] and
-		conf.env.DEST_OS2 not in ['android']):
+		conf.env.DEST_OS not in ['win32', 'darwin', 'android']):
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 	else:
 		conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
@@ -224,7 +225,7 @@ def configure(conf):
 		if conf.env.SINGLE_BINARY and i.singlebin:
 			continue
 
-		if conf.env.DEST_OS2 == 'android' and i.singlebin:
+		if conf.env.DEST_OS == 'android' and i.singlebin:
 			continue
 
 		if conf.env.DEDICATED and i.dedicated:
@@ -237,7 +238,7 @@ def build(bld):
 		if bld.env.SINGLE_BINARY and i.singlebin:
 			continue
 
-		if bld.env.DEST_OS2 == 'android' and i.singlebin:
+		if bld.env.DEST_OS == 'android' and i.singlebin:
 			continue
 
 		if bld.env.DEDICATED and i.dedicated:
