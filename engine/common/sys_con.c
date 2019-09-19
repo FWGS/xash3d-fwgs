@@ -162,7 +162,7 @@ void Sys_PrintLog( const char *pMsg )
 
 	time( &crt_time );
 	crt_tm = localtime( &crt_time );
-#ifdef __ANDROID__
+#if XASH_ANDROID && !XASH_DEDICATED
 	__android_log_print( ANDROID_LOG_DEBUG, "Xash", "%s", pMsg );
 #endif
 
