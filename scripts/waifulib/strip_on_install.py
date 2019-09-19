@@ -16,7 +16,7 @@ def options(opt):
 
 def configure(conf):
 	if conf.env.DEST_BINFMT in ['elf', 'mac-o']:
-		conf.find_program('strip')
+		conf.find_program('strip', var='STRIP')
 		if not conf.env.STRIPFLAGS:
 			conf.env.STRIPFLAGS = os.environ['STRIPFLAGS'] if 'STRIPFLAGS' in os.environ else []
 
@@ -32,12 +32,15 @@ def copy_fun(self, src, tgt):
 	if getattr(self.generator, 'link_task', None) and self.generator.link_task.outputs[0] in self.inputs:
 		cmd = self.env.STRIP + self.env.STRIPFLAGS + [tgt]
 		try:
+			self.generator.bld.cmd_and_log(cmd, output=Context.BOTH, quiet=Context.BOTH)
 			if not self.generator.bld.progress_bar:
 				c1 = Logs.colors.NORMAL
 				c2 = Logs.colors.CYAN
 
-				Logs.info('%s+ strip %s%s%s', c1, c2, tgt, c2)
-			self.generator.bld.cmd_and_log(cmd, output=Context.BOTH, quiet=Context.BOTH)
+				f1 = os.path.getsize(src)
+				f2 = os.path.getsize(tgt)
+
+				Logs.info('%s+ strip %s%s%s (%d bytes change)', c1, c2, tgt, c1, f2 - f1)
 		except Errors.WafError as e:
 			print(e.stdout, e.stderr)
 
