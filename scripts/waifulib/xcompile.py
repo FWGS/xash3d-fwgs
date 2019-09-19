@@ -14,20 +14,11 @@
 try: from fwgslib import get_flags_by_compiler
 except: from waflib.extras.fwgslib import get_flags_by_compiler
 from waflib import Logs
+from waflib.Tools import c_config
 import os
 import sys
 
-# Output:
-#  CROSSCOMPILING -- set to true, if crosscompiling is enabled
-#  DEST_OS2 -- as some operating systems is built on top of another, it's better to not change DEST_OS,
-#              instead of this DEST_OS2 is defined with target value
-#              For example: android is built on top of linux and have many things in common,
-#              but it can't be considered as default GNU/Linux.
-#              Possible values:
-#                 DEST_OS2    DEST_OS
-#                 'android'   'linux'
-
-# This class does support ONLY r10e and r19c NDK
+# This class does support ONLY r10e and r19c/r20 NDK
 class Android:
 	ctx            = None # waf context
 	arch           = None
@@ -309,8 +300,7 @@ def configure(conf):
 		if values[0] not in valid_archs:
 			conf.fatal('Unknown arch: {}. Supported: {}'.format(values[0], ', '.join(valid_archs)))
 
-		android = Android(conf, values[0], values[1], int(values[2]))
-		setattr(conf, 'android', android)
+		conf.android = android = Android(conf, values[0], values[1], int(values[2]))
 		conf.environ['CC'] = android.cc()
 		conf.environ['CXX'] = android.cxx()
 		conf.environ['STRIP'] = android.strip()
@@ -334,10 +324,18 @@ def configure(conf):
 
 		# conf.env.ANDROID_OPTS = android
 		conf.env.DEST_OS2 = 'android'
-#	else:
-#		conf.load('compiler_c compiler_cxx') # Use host compiler :)
+
+	MACRO_TO_DESTOS = {
+		'__ANDROID__' : 'android'
+	}
+	MACRO_TO_DESTOS.update(c_config.MACRO_TO_DESTOS) # ordering is important
+	c_config.MACRO_TO_DESTOS  = MACRO_TO_DESTOS
 
 def post_compiler_cxx_configure(conf):
+	conf.msg('Target OS', conf.env.DEST_OS)
+	conf.msg('Target CPU', conf.env.DEST_CPU)
+	conf.msg('Target binfmt', conf.env.DEST_BINFMT)
+
 	if conf.options.ANDROID_OPTS:
 		if conf.android.ndk_rev == 19:
 			conf.env.CXXFLAGS_cxxshlib += ['-static-libstdc++']
@@ -345,6 +343,10 @@ def post_compiler_cxx_configure(conf):
 	return
 
 def post_compiler_c_configure(conf):
+	conf.msg('Target OS', conf.env.DEST_OS)
+	conf.msg('Target CPU', conf.env.DEST_CPU)
+	conf.msg('Target binfmt', conf.env.DEST_BINFMT)
+
 	return
 
 from waflib.Tools import compiler_cxx, compiler_c
