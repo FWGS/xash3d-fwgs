@@ -1092,6 +1092,21 @@ static void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottom
 	ref.dllFuncs.GL_ProcessTexture( texnum, gamma, topColor, bottomColor );
 }
 
+
+/*
+=================
+UI_ShellExecute
+=================
+*/
+static void UI_ShellExecute( const char *path, const char *parms, int shouldExit )
+{
+	Platform_ShellExecute( path, parms );
+
+	if( shouldExit )
+		Sys_Quit();
+}
+
+
 // engine callbacks
 static ui_enginefuncs_t gEngfuncs = 
 {
@@ -1164,7 +1179,7 @@ static ui_enginefuncs_t gEngfuncs =
 	CL_GetDemoComment,
 	pfnCheckGameDll,
 	pfnGetClipboardData,
-	Sys_ShellExecute,
+	UI_ShellExecute,
 	Host_WriteServerConfig,
 	pfnChangeInstance,
 	pfnStartBackgroundTrack,

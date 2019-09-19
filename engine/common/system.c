@@ -139,19 +139,6 @@ char *Sys_GetCurrentUser( void )
 }
 
 /*
-=================
-Sys_ShellExecute
-=================
-*/
-void Sys_ShellExecute( const char *path, const char *parms, int shouldExit )
-{
-	Platform_ShellExecute( path, parms );
-
-	if( shouldExit )
-		Sys_Quit();
-}
-
-/*
 ==================
 Sys_ParseCommandLine
 

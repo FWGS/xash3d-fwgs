@@ -63,7 +63,6 @@ void Sys_SetClipboardData( const char *buffer, size_t size );
 #define Sys_GetParmFromCmdLine( parm, out ) _Sys_GetParmFromCmdLine( parm, out, sizeof( out ))
 qboolean _Sys_GetParmFromCmdLine( const char *parm, char *out, size_t size );
 qboolean Sys_GetIntFromCmdLine( const char *parm, int *out );
-void Sys_ShellExecute( const char *path, const char *parms, int exit );
 void Sys_SendKeyEvents( void );
 void Sys_Print( const char *pMsg );
 void Sys_PrintLog( const char *pMsg );
