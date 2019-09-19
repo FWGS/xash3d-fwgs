@@ -13,7 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #include "platform/platform.h"
-#if defined __ANDROID__ || 1
+#if !defined(XASH_DEDICATED)
 #include "input.h"
 #include "client.h"
 #include "sound.h"
@@ -973,4 +973,4 @@ void Platform_RunEvents()
 	pthread_mutex_lock( &events.framemutex );
 }
 
-#endif // __ANDROID__
+#endif // XASH_DEDICATED

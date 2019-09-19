@@ -1,5 +1,5 @@
 #include "platform/platform.h"
-#if defined XASH_VIDEO == VIDEO_ANDROID || 1
+#if defined XASH_VIDEO == VIDEO_ANDROID
 #include "input.h"
 #include "client.h"
 #include "filesystem.h"

@@ -12,8 +12,6 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#ifdef __ANDROID__
-
 #include "common.h"
 #include "library.h"
 #include "filesystem.h"
@@ -54,11 +52,12 @@ void *ANDROID_LoadLibrary( const char *dllname )
 void *ANDROID_GetProcAddress( void *hInstance, const char *name )
 {
 	void *p = dlsym( hInstance, name );
-	
+
+#ifndef XASH_64BIT
 	if( p ) return p;
-	
-	return dlsym_weak( hInstance, name );
+
+	p = dlsym_weak( hInstance, name );
+#endif // XASH_64BIT
+
+	return p;
 }
-
-
-#endif // __ANDROID__
