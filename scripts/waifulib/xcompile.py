@@ -183,17 +183,17 @@ class Android:
 
 	def cc(self):
 		if self.is_host():
-			return 'clang'
+			return 'clang --target=%s' % self.clang_host_triplet()
 		return self.toolchain_path + ('clang' if self.is_clang() else 'gcc')
 
 	def cxx(self):
 		if self.is_host():
-			return 'clang++'
+			return 'clang++ --target=%s' % self.clang_host_triplet()
 		return self.toolchain_path + ('clang++' if self.is_clang() else 'g++')
 
 	def strip(self):
 		if self.is_host():
-			return 'strip'
+			return 'llvm-strip'
 		return os.path.join(self.gen_binutils_path(), 'strip')
 
 	def system_stl(self):
@@ -230,7 +230,7 @@ class Android:
 	def cflags(self):
 		cflags = []
 		if self.is_host():
-			cflags += ['-nostdlib', '--target=%s' % self.clang_host_triplet()]
+			cflags += ['-nostdlib']
 
 		if self.ndk_rev < 20:
 			cflags += ['--sysroot={0}'.format(self.sysroot())]
