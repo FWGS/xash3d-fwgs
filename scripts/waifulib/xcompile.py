@@ -15,6 +15,7 @@ try: from fwgslib import get_flags_by_compiler
 except: from waflib.extras.fwgslib import get_flags_by_compiler
 from waflib import Logs
 from waflib.Tools import c_config
+from collections import OrderedDict
 import os
 import sys
 
@@ -271,7 +272,7 @@ class Android:
 		return linkflags
 
 	def ldflags(self):
-		ldflags = ['-lgcc', '-no-canonical-prefixes']
+		ldflags = ['-stdlib=libstdc++', '-lgcc', '-no-canonical-prefixes']
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
 				ldflags += ['-march=armv7-a']
@@ -325,10 +326,9 @@ def configure(conf):
 		# conf.env.ANDROID_OPTS = android
 		conf.env.DEST_OS2 = 'android'
 
-	MACRO_TO_DESTOS = {
-		'__ANDROID__' : 'android'
-	}
-	MACRO_TO_DESTOS.update(c_config.MACRO_TO_DESTOS) # ordering is important
+	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android' })
+	for k in c_config.MACRO_TO_DESTOS:
+		MACRO_TO_DESTOS[k] = c_config.MACRO_TO_DESTOS[k] # ordering is important
 	c_config.MACRO_TO_DESTOS  = MACRO_TO_DESTOS
 
 def post_compiler_cxx_configure(conf):
