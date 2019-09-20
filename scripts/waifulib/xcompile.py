@@ -34,6 +34,8 @@ class Android:
 	def __init__(self, ctx, arch, toolchain, api):
 		self.ctx = ctx
 		self.api = api
+		self.toolchain = toolchain
+		self.arch = arch
 
 		for i in ['ANDROID_NDK_HOME', 'ANDROID_NDK']:
 			self.ndk_home = os.getenv(i)
@@ -41,7 +43,7 @@ class Android:
 				break
 
 		if not self.ndk_home:
-			ctx.fatal('Set ANDROID_NDK_HOME environment variable pointing to the root of Android NDK!')		
+			ctx.fatal('Set ANDROID_NDK_HOME environment variable pointing to the root of Android NDK!')
 
 		# TODO: this were added at some point of NDK development
 		# but I don't know at which version
@@ -59,20 +61,20 @@ class Android:
 			self.ndk_rev = 10
 
 		if self.ndk_rev not in [10, 19, 20]:
-			ctx.fatal('Unknown NDK revision: {}'.format(self.ndk_rev))
+			ctx.fatal('Unknown NDK revision: %d' % (self.ndk_rev))
 
-		self.arch = arch
+		if self.is_host() and self.ndk_rev < 20:
+			ctx.fatal('Using host toolchain with this NDK revision is untested. You can comment this check, but you\'re on your own!')
+
+		if self.ndk_rev >= 19 or 'clang' in self.toolchain:
+			self.clang = True
+
 		if self.arch == 'armeabi-v7a-hard':
 			if self.ndk_rev <= 10:
 				self.arch = 'armeabi-v7a' # Only armeabi-v7a have hard float ABI
 				self.is_hardfloat = True
 			else:
-				raise Exception('NDK does not support hardfloat ABI')
-
-		self.toolchain = toolchain
-
-		if self.ndk_rev >= 19 or 'clang' in self.toolchain:
-			self.clang = True
+				ctx.fatal('NDK does not support hardfloat ABI')
 
 		if self.is_arm64() or self.is_amd64() and self.api < 21:
 			Logs.warn('API level for 64-bit target automatically was set to 21')
@@ -81,10 +83,6 @@ class Android:
 			Logs.warn('API level automatically was set to 16 due to NDK support')
 			self.api = 16
 		self.toolchain_path = self.gen_toolchain_path()
-
-	# TODO: Crystax support?
-	# TODO: Support for everything else than linux-x86_64?
-	# TODO: Determine if I actually need to implement listed above
 
 	def is_host(self):
 		'''
@@ -125,19 +123,26 @@ class Android:
 	def is_hardfp(self):
 		return self.is_hardfloat
 
-	def ndk_triplet(self):
+	def ndk_triplet(self, llvm_toolchain = False, toolchain_folder = False):
 		if self.is_x86():
-			triplet = 'i686-linux-android'
+			if toolchain_folder:
+				return 'x86'
+			else:
+				return 'i686-linux-android'
 		elif self.is_arm():
-			triplet = 'arm-linux-androideabi'
+			if llvm_toolchain:
+				return 'armv7a-linux-androideabi'
+			else:
+				return 'arm-linux-androideabi'
+		elif self.is_amd64() and toolchain_folder:
+			return 'x86_64'
 		else:
-			triplet = self.arch + '-linux-android'
-		return triplet
+			return self.arch + '-linux-android'
 
 	def gen_gcc_toolchain_path(self):
 		path = 'toolchains'
 
-		if sys.platform.startswith('linux'):
+		if sys.platform.startswith('linux') or self.is_host():
 			toolchain_host = 'linux'
 		elif sys.platform.startswith('darwin'):
 			toolchain_host = 'darwin'
@@ -158,23 +163,13 @@ class Android:
 
 			toolchain_folder = 'llvm'
 		else:
-			if self.is_x86() or self.is_amd64():
-				toolchain_folder = self.arch + '-' + self.toolchain
-			elif self.is_arm():
-				toolchain_folder = 'arm-linux-androideabi-' + self.toolchain
-			else:
-				toolchain_folder = self.arch + '-linux-android-' + self.toolchain
+			toolchain_folder = '%s-%s' % (self.ndk_triplet(toolchain_folder = True), self.toolchain)
 
 		return os.path.abspath(os.path.join(self.ndk_home, path, toolchain_folder, 'prebuilt', toolchain_host))
 
 	def gen_toolchain_path(self):
 		if self.is_clang():
-			if self.is_x86():
-				triplet = 'i686-linux-android{}-'.format(self.api)
-			elif self.is_arm():
-				triplet = 'armv7a-linux-androideabi{}-'.format(self.api)
-			else:
-				triplet = self.arch + '-linux-android{}-'.format(self.api)
+			triplet = '%s%d-' % (self.ndk_triplet(llvm_toolchain = True), self.api)
 		else:
 			triplet = self.ndk_triplet() + '-'
 		return os.path.join(self.gen_gcc_toolchain_path(), 'bin', triplet)
@@ -184,12 +179,12 @@ class Android:
 
 	def cc(self):
 		if self.is_host():
-			return 'clang --target=%s' % self.clang_host_triplet()
+			return 'clang --target=%s%d' % (self.ndk_triplet(), self.api)
 		return self.toolchain_path + ('clang' if self.is_clang() else 'gcc')
 
 	def cxx(self):
 		if self.is_host():
-			return 'clang++ --target=%s' % self.clang_host_triplet()
+			return 'clang++ --target=%s%d' % (self.ndk_triplet(), self.api)
 		return self.toolchain_path + ('clang++' if self.is_clang() else 'g++')
 
 	def strip(self):
@@ -207,7 +202,7 @@ class Android:
 			arch = 'arm'
 		elif self.is_arm64():
 			arch = 'arm64'
-		path = 'platforms/android-{}/arch-{}'.format(self.api, arch)
+		path = 'platforms/android-%s/arch-%s' % (self.api, arch)
 
 		return os.path.abspath(os.path.join(self.ndk_home, path))
 
@@ -217,34 +212,25 @@ class Android:
 		else:
 			return self.libsysroot()
 
-	def clang_host_triplet(self):
-		triplet = ''
-		if self.is_arm():
-			triplet += 'arm'
-		elif self.is_x86():
-			triplet += 'i686'
-		else:
-			triplet += self.arch
-		triplet += '-linux-android'
-		return triplet
-
 	def cflags(self):
 		cflags = []
 		if self.is_host():
-			cflags += ['-nostdlib']
+			cflags += [
+				'--sysroot=%s/sysroot' % (self.gen_gcc_toolchain_path()),
+				'-I%s/usr/include/' % (self.sysroot())
+			]
+		elif self.ndk_rev < 20:
+			cflags += ['--sysroot=%s' % (self.sysroot())]
 
-		if self.ndk_rev < 20:
-			cflags += ['--sysroot={0}'.format(self.sysroot())]
-		elif self.is_host():
-			cflags += ['-isysroot={0}'.format(self.sysroot())]
-		cflags += ['-DANDROID', '-D__ANDROID__']
-		cflags += ['-I{0}'.format(self.system_stl())]
+		cflags += ['-I%s' % (self.system_stl()), '-DANDROID', '-D__ANDROID__']
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
 				# ARMv7 support
 				cflags += ['-mthumb', '-mfpu=neon', '-mcpu=cortex-a9', '-DHAVE_EFFICIENT_UNALIGNED_ACCESS', '-DVECTORIZE_SINCOS']
+
 				if not self.is_clang():
 					cflags += [ '-mvectorize-with-neon-quad' ]
+
 				if self.is_hardfloat:
 					cflags += ['-D_NDK_MATH_NO_SOFTFP=1', '-mhard-float', '-mfloat-abi=hard', '-DLOAD_HARDFP', '-DSOFTFP_LINK']
 				else:
@@ -260,25 +246,22 @@ class Android:
 	def linkflags(self):
 		linkflags = []
 		if self.is_host():
-			linkflags += ['-fuse-ld=lld', '-nostdlib', '--target=%s' % self.clang_host_triplet(),
-				'--gcc-toolchain=%s' % self.gen_gcc_toolchain_path()]
+			linkflags += ['--gcc-toolchain=%s' % self.gen_gcc_toolchain_path()]
 
 		if self.ndk_rev < 20 or self.is_host():
-			linkflags += ['--sysroot={0}'.format(self.libsysroot())]
+			linkflags += ['--sysroot=%s/sysroot' % (self.gen_gcc_toolchain_path())]
 
-		if self.is_host():
-			linkflags += ['-L{0}/usr/lib/{1}'.format(self.sysroot(), self.ndk_triplet()),
-				'-L{0}/sysroot/usr/lib/{1}/'.format(self.gen_gcc_toolchain_path(), self.ndk_triplet())]
+		if self.is_clang():
+			linkflags += ['-fuse-ld=lld']
 		return linkflags
 
 	def ldflags(self):
 		ldflags = ['-stdlib=libstdc++', '-lgcc', '-no-canonical-prefixes']
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
-				ldflags += ['-march=armv7-a']
-				if not self.is_host(): # lld only
+				ldflags += ['-march=armv7-a', '-mthumb']
+				if not self.is_clang(): # lld only
 					ldflags += ['-Wl,--fix-cortex-a8']
-				ldflags += ['-mthumb']
 				if self.is_hardfloat:
 					ldflags += ['-Wl,--no-warn-mismatch', '-lm_hard']
 			else:
@@ -296,10 +279,10 @@ def configure(conf):
 		if len(values) != 3:
 			conf.fatal('Invalid --android paramater value!')
 
-		valid_archs = ['x86', 'x86_64', 'armeabi', 'armeabi-v7a', 'armeabi-v7a-hard', 'aarch64', 'mipsel', 'mips64el']
+		valid_archs = ['x86', 'x86_64', 'armeabi', 'armeabi-v7a', 'armeabi-v7a-hard', 'aarch64']
 
 		if values[0] not in valid_archs:
-			conf.fatal('Unknown arch: {}. Supported: {}'.format(values[0], ', '.join(valid_archs)))
+			conf.fatal('Unknown arch: %s. Supported: %r' % (values[0], ', '.join(valid_archs)))
 
 		conf.android = android = Android(conf, values[0], values[1], int(values[2]))
 		conf.environ['CC'] = android.cc()
@@ -315,9 +298,9 @@ def configure(conf):
 			conf.env.LIB_M = ['m_hard']
 		else: conf.env.LIB_M = ['m']
 
-		conf.env.PREFIX = '/lib/{}'.format(android.arch)
+		conf.env.PREFIX = '/lib/%s' % (android.arch)
 
-		conf.msg('Selected Android NDK', '{}, version: {}'.format(android.ndk_home, android.ndk_rev))
+		conf.msg('Selected Android NDK', '%s, version: %d' % (android.ndk_home, android.ndk_rev))
 		# no need to print C/C++ compiler, as it would be printed by compiler_c/cxx
 		conf.msg('... C/C++ flags', ' '.join(android.cflags()).replace(android.ndk_home, '$NDK'))
 		conf.msg('... link flags', ' '.join(android.linkflags()).replace(android.ndk_home, '$NDK'))
