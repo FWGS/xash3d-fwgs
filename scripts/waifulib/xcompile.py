@@ -13,7 +13,7 @@
 
 try: from fwgslib import get_flags_by_compiler
 except: from waflib.extras.fwgslib import get_flags_by_compiler
-from waflib import Logs
+from waflib import Logs, TaskGen
 from waflib.Tools import c_config
 from collections import OrderedDict
 import os
@@ -142,13 +142,14 @@ class Android:
 	def gen_gcc_toolchain_path(self):
 		path = 'toolchains'
 
-		if sys.platform.startswith('linux') or self.is_host():
-			toolchain_host = 'linux'
+		if sys.platform.startswith('win32') or sys.platform.startswith('cygwin'):
+			toolchain_host = 'windows'
 		elif sys.platform.startswith('darwin'):
 			toolchain_host = 'darwin'
-		elif sys.platform.startswith('win32') or sys.platform.startswith('cygwin'):
-			toolchain_host = 'windows'
-		else: raise Exception('Unsupported by NDK host platform')
+		elif sys.platform.startswith('linux') or self.is_host():
+			toolchain_host = 'linux'
+		else:
+			self.ctx.fatal('Unsupported by NDK host platform')
 
 		toolchain_host += '-'
 
@@ -159,11 +160,16 @@ class Android:
 
 		if self.is_clang():
 			if self.ndk_rev < 19:
-				raise Exception('Clang is not supported for this NDK')
+				raise self.ctx.fatal('Clang is not supported for this NDK')
 
 			toolchain_folder = 'llvm'
 		else:
-			toolchain_folder = '%s-%s' % (self.ndk_triplet(toolchain_folder = True), self.toolchain)
+			if self.is_host():
+				toolchain = '4.9'
+			else:
+				toolchain = self.toolchain
+
+			toolchain_folder = '%s-%s' % (self.ndk_triplet(toolchain_folder = True), toolchain)
 
 		return os.path.abspath(os.path.join(self.ndk_home, path, toolchain_folder, 'prebuilt', toolchain_host))
 
@@ -207,7 +213,7 @@ class Android:
 		return os.path.abspath(os.path.join(self.ndk_home, path))
 
 	def sysroot(self):
-		if self.ndk_rev >= 19 or self.is_host():
+		if self.ndk_rev >= 19:
 			return os.path.abspath(os.path.join(self.ndk_home, 'sysroot'))
 		else:
 			return self.libsysroot()
@@ -215,10 +221,12 @@ class Android:
 	def cflags(self):
 		cflags = []
 		if self.is_host():
-			cflags += [
-				'--sysroot=%s/sysroot' % (self.gen_gcc_toolchain_path()),
-				'-I%s/usr/include/' % (self.sysroot())
-			]
+			if self.ndk_rev >= 19:
+				cflags += [
+					'--sysroot=%s/sysroot' % (self.gen_gcc_toolchain_path()),
+					'-I%s/usr/include/' % (self.sysroot())
+				]
+			else: cflags += ['--sysroot=%s' % (self.sysroot())]
 		elif self.ndk_rev < 20:
 			cflags += ['--sysroot=%s' % (self.sysroot())]
 
@@ -228,7 +236,7 @@ class Android:
 				# ARMv7 support
 				cflags += ['-mthumb', '-mfpu=neon', '-mcpu=cortex-a9', '-DHAVE_EFFICIENT_UNALIGNED_ACCESS', '-DVECTORIZE_SINCOS']
 
-				if not self.is_clang():
+				if not self.is_clang() and not self.is_host():
 					cflags += [ '-mvectorize-with-neon-quad' ]
 
 				if self.is_hardfloat:
@@ -248,11 +256,15 @@ class Android:
 		if self.is_host():
 			linkflags += ['--gcc-toolchain=%s' % self.gen_gcc_toolchain_path()]
 
-		if self.ndk_rev < 20 or self.is_host():
+		if self.ndk_rev < 20:
+			linkflags += ['--sysroot=%s' % (self.sysroot())]
+		elif self.is_host():
 			linkflags += ['--sysroot=%s/sysroot' % (self.gen_gcc_toolchain_path())]
 
-		if self.is_clang():
+		if self.is_clang() or self.is_host():
 			linkflags += ['-fuse-ld=lld']
+
+		linkflags += ['-Wl,--hash-style=both']
 		return linkflags
 
 	def ldflags(self):
@@ -260,7 +272,7 @@ class Android:
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
 				ldflags += ['-march=armv7-a', '-mthumb']
-				if not self.is_clang(): # lld only
+				if not self.is_clang() and not self.is_host(): # lld only
 					ldflags += ['-Wl,--fix-cortex-a8']
 				if self.is_hardfloat:
 					ldflags += ['-Wl,--no-warn-mismatch', '-lm_hard']
@@ -347,3 +359,20 @@ def patch_compiler_c_configure(conf):
 
 setattr(compiler_cxx, 'configure', patch_compiler_cxx_configure)
 setattr(compiler_c, 'configure', patch_compiler_c_configure)
+
+@TaskGen.feature('cshlib', 'cxxshlib', 'dshlib', 'fcshlib', 'vnum')
+@TaskGen.after_method('apply_link', 'propagate_uselib_vars')
+@TaskGen.before_method('apply_vnum')
+def apply_android_soname(self):
+	"""
+	Enforce SONAME on Android
+	"""
+	if self.env.DEST_OS != 'android':
+		return
+
+	setattr(self, 'vnum', None) # remove vnum, so SONAME would not be overwritten
+	link = self.link_task
+	node = link.outputs[0]
+	libname = node.name
+	v = self.env.SONAME_ST % libname
+	self.env.append_value('LINKFLAGS', v.split())
