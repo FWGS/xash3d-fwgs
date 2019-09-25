@@ -57,7 +57,7 @@ void SND_CloseMouth( channel_t *ch )
 void SND_MoveMouth8( channel_t *ch, wavdata_t *pSource, int count )
 {
 	cl_entity_t	*clientEntity;
-	char		*pdata = NULL;
+	signed char		*pdata = NULL;
 	mouth_t		*pMouth = NULL;
 	int		scount, pos = 0;
 	int		savg, data;
@@ -77,7 +77,7 @@ void SND_MoveMouth8( channel_t *ch, wavdata_t *pSource, int count )
 
 	count = S_GetOutputData( pSource, (void**)&pdata, pos, count, ch->use_loop );
 	if( pdata == NULL ) return;
-	
+
 	i = 0;
 	scount = pMouth->sndcount;
 	savg = 0;
@@ -85,7 +85,7 @@ void SND_MoveMouth8( channel_t *ch, wavdata_t *pSource, int count )
 	while( i < count && scount < CAVGSAMPLES )
 	{
 		data = pdata[i];
-		savg += abs( data );	
+		savg += abs( data );
 
 		i += 80 + ((byte)data & 0x1F);
 		scount++;
@@ -94,7 +94,7 @@ void SND_MoveMouth8( channel_t *ch, wavdata_t *pSource, int count )
 	pMouth->sndavg += savg;
 	pMouth->sndcount = (byte)scount;
 
-	if( pMouth->sndcount >= CAVGSAMPLES ) 
+	if( pMouth->sndcount >= CAVGSAMPLES )
 	{
 		pMouth->mouthopen = pMouth->sndavg / CAVGSAMPLES;
 		pMouth->sndavg = 0;
@@ -125,7 +125,7 @@ void SND_MoveMouth16( channel_t *ch, wavdata_t *pSource, int count )
 
 	count = S_GetOutputData( pSource, (void**)&pdata, pos, count, ch->use_loop );
 	if( pdata == NULL ) return;
-	
+
 	i = 0;
 	scount = pMouth->sndcount;
 	savg = 0;
@@ -134,7 +134,7 @@ void SND_MoveMouth16( channel_t *ch, wavdata_t *pSource, int count )
 	{
 		data = pdata[i];
 		data = (bound( -32767, data, 0x7ffe ) >> 8);
-		savg += abs( data );	
+		savg += abs( data );
 
 		i += 80 + ((byte)data & 0x1F);
 		scount++;
@@ -143,7 +143,7 @@ void SND_MoveMouth16( channel_t *ch, wavdata_t *pSource, int count )
 	pMouth->sndavg += savg;
 	pMouth->sndcount = (byte)scount;
 
-	if( pMouth->sndcount >= CAVGSAMPLES ) 
+	if( pMouth->sndcount >= CAVGSAMPLES )
 	{
 		pMouth->mouthopen = pMouth->sndavg / CAVGSAMPLES;
 		pMouth->sndavg = 0;
