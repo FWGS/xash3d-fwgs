@@ -652,7 +652,9 @@ void CL_CreateCmd( void )
 	}
 
 	active = (( cls.signon == SIGNONS ) && !cl.paused && !cls.demoplayback );
+	Platform_PreCreateMove();
 	clgame.dllFuncs.CL_CreateMove( host.frametime, &pcmd->cmd, active );
+	IN_EngineAppendMove( host.frametime, &pcmd->cmd, active  );
 
 	CL_PopPMStates();
 
@@ -3103,6 +3105,7 @@ void CL_Shutdown( void )
 	{
 		Host_WriteOpenGLConfig ();
 		Host_WriteVideoConfig ();
+		Touch_WriteConfig();
 	}
 
 	// IN_TouchShutdown ();

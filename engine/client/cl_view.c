@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "entity_types.h"
 #include "vgui_draw.h"
 #include "sound.h"
+#include "input.h" // touch
 #include "platform/platform.h" // GL_UpdateSwapInterval
 
 /*
@@ -484,6 +485,7 @@ void V_PostRender( void )
 		UI_UpdateMenu( host.realtime );
 		Con_DrawVersion();
 		Con_DrawDebug(); // must be last
+		Touch_Draw();
 
 		S_ExtraUpdate();
 	}

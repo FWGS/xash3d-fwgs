@@ -61,10 +61,8 @@ uint IN_CollectInputDevices( void )
 	if( !m_ignore->value ) // no way to check is mouse connected, so use cvar only
 		ret |= INPUT_DEVICE_MOUSE;
 
-#if 0 // TOUCHTODO
-	if( touch_enable->value )
+	if( CVAR_TO_BOOL(touch_enable) )
 		ret |= INPUT_DEVICE_TOUCH;
-#endif
 
 	if( Joy_IsActive() ) // connected or enabled
 		ret |= INPUT_DEVICE_JOYSTICK;
@@ -94,13 +92,13 @@ void IN_LockInputDevices( qboolean lock )
 	{
 		SetBits( m_ignore->flags, FCVAR_READ_ONLY );
 		SetBits( joy_enable->flags, FCVAR_READ_ONLY );
-		// TOUCHTODO
+		SetBits( touch_enable->flags, FCVAR_READ_ONLY );
 	}
 	else
 	{
 		ClearBits( m_ignore->flags, FCVAR_READ_ONLY );
 		ClearBits( joy_enable->flags, FCVAR_READ_ONLY );
-		// TOUCHTODO
+		ClearBits( touch_enable->flags, FCVAR_READ_ONLY );
 	}
 }
 
@@ -197,7 +195,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 	{
 		// reset mouse pos, so cancel effect in game
 #ifdef XASH_SDL
-		if( 0 ) // touch_enable->value )
+		if( CVAR_TO_BOOL(touch_enable) )
 		{
 			SDL_SetRelativeMouseMode( SDL_FALSE );
 			SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
@@ -268,7 +266,9 @@ void IN_ActivateMouse( qboolean force )
 			if( in_mouse_suspended )
 			{
 #ifdef XASH_SDL
-				SDL_ShowCursor( false );
+				/// TODO: Platform_ShowCursor
+				if( !touch_emulate )
+					SDL_ShowCursor( SDL_FALSE );
 #endif
 				UI_ShowCursor( false );
 			}
@@ -360,8 +360,13 @@ void IN_MouseEvent( void )
 {
 	int	i;
 
+	// touch emu: handle motion
+	if( CVAR_TO_BOOL( touch_emulate ))
+		Touch_KeyEvent( K_MOUSE1, 2 );
+
 	if( !in_mouseinitialized || !in_mouseactive )
 		return;
+
 
 	if( m_ignore->value )
 		return;
@@ -374,7 +379,7 @@ void IN_MouseEvent( void )
 		Platform_GetMousePos(&x, &y);
 		if( host.mouse_visible )
 			SDL_ShowCursor( SDL_TRUE );
-		else
+		else if( !CVAR_TO_BOOL( touch_emulate ) )
 			SDL_ShowCursor( SDL_FALSE );
 
 		if( x < host.window_center_x / 2 ||
@@ -426,6 +431,8 @@ void IN_Shutdown( void )
 #ifdef XASH_USE_EVDEV
 	Evdev_Shutdown();
 #endif
+
+	Touch_Shutdown();
 }
 
 
@@ -445,6 +452,8 @@ void IN_Init( void )
 		IN_StartupMouse( );
 
 		Joy_Init(); // common joystick support init
+
+		Touch_Init();
 
 #ifdef XASH_USE_EVDEV
 		Evdev_Init();
@@ -469,7 +478,7 @@ Common function for engine joystick movement
 #define R (1U << 3)	// Right
 #define T (1U << 4)	// Forward stop
 #define S (1U << 5)	// Side stop
-void IN_JoyAppendMove( usercmd_t *cmd, float forwardmove, float sidemove )
+static void IN_JoyAppendMove( usercmd_t *cmd, float forwardmove, float sidemove )
 {
 	static uint moveflags = T | S;
 
@@ -545,7 +554,7 @@ void IN_JoyAppendMove( usercmd_t *cmd, float forwardmove, float sidemove )
 
 void IN_CollectInput( float *forward, float *side, float *pitch, float *yaw, qboolean includeMouse, qboolean includeSdlMouse )
 {
-	if( !m_ignore->value || includeMouse )
+	if( includeMouse )
 	{
 #if XASH_INPUT == INPUT_SDL
 		if( includeSdlMouse )
@@ -572,7 +581,7 @@ void IN_CollectInput( float *forward, float *side, float *pitch, float *yaw, qbo
 	}
 	
 	Joy_FinalizeMove( forward, side, yaw, pitch );
-	// IN_TouchMove( forward, side, yaw, pitch );
+	Touch_GetMove( forward, side, yaw, pitch );
 	
 	if( look_filter->value )
 	{
@@ -591,9 +600,10 @@ IN_EngineAppendMove
 Called from cl_main.c after generating command in client
 ================
 */
-void IN_EngineAppendMove( float frametime, usercmd_t *cmd, qboolean active )
+void IN_EngineAppendMove( float frametime, void *cmd1, qboolean active )
 {
 	float forward, side, pitch, yaw;
+	usercmd_t *cmd = cmd1;
 
 	if( clgame.dllFuncs.pfnLookEvent )
 		return;
@@ -605,15 +615,19 @@ void IN_EngineAppendMove( float frametime, usercmd_t *cmd, qboolean active )
 
 	if( active )
 	{
-		float sensitivity = ( (float)cl.local.scr_fov / (float)90.0f );
+		float sensitivity = 1;//( (float)cl.local.scr_fov / (float)90.0f );
 
-		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized, m_enginemouse->value );
+		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized && !CVAR_TO_BOOL( m_ignore ), m_enginemouse->value );
 		
 		IN_JoyAppendMove( cmd, forward, side );
 
-		cmd->viewangles[YAW]   += yaw * sensitivity;
-		cmd->viewangles[PITCH] += pitch * sensitivity;
-		cmd->viewangles[PITCH] = bound( -90, cmd->viewangles[PITCH], 90 );
+		if( pitch || yaw )
+		{
+			cmd->viewangles[YAW]   += yaw * sensitivity;
+			cmd->viewangles[PITCH] += pitch * sensitivity;
+			cmd->viewangles[PITCH] = bound( -90, cmd->viewangles[PITCH], 90 );
+			VectorCopy(cmd->viewangles, cl.viewangles);
+		}
 	}
 }
 
@@ -637,7 +651,7 @@ void Host_InputFrame( void )
 
 	if( clgame.dllFuncs.pfnLookEvent )
 	{
-		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized, true );
+		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized && !CVAR_TO_BOOL( m_ignore ), true );
 
 		if( cls.key_dest == key_game )
 		{
