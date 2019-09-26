@@ -84,7 +84,8 @@ jobs:
         - sh compile.sh
       after_script:
         - ccache --show-stats
-        - sh ../scripts/continious_upload.sh xash3d-fwgs.apk
+        - apksigner sign --ks debug.keystore xashdroid.apk
+        - sh ../scripts/continious_upload.sh xashdroid.apk
 
 #    - # ...
 #      name: "Build for Windows MinGW"
