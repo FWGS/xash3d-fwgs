@@ -1875,7 +1875,7 @@ void Touch_KeyEvent( int key, int down )
 	if( down == 1 )
 		Touch_ControlsEvent( event_down, key == K_MOUSE1?0:1, x, y, 0, 0 );
 	else
-		Touch_ControlsEvent( down? event_motion: event_up, key == K_MOUSE1?0:1, x, y, lx-x, ly-y );
+		Touch_ControlsEvent( down? event_motion: event_up, key == K_MOUSE1?0:1, x, y, x-lx, y-ly );
 	lx = x, ly = y;
 }
 
