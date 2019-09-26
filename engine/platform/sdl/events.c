@@ -157,7 +157,12 @@ SDLash_MouseEvent
 static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 {
 	int down = button.state != SDL_RELEASED;
-	if( in_mouseinitialized && !m_ignore->value && button.which != SDL_TOUCH_MOUSEID )
+
+	if( CVAR_TO_BOOL( touch_emulate ) )
+	{
+		Touch_KeyEvent( K_MOUSE1 - 1 + button.button, down );
+	}
+	else if( in_mouseinitialized && !m_ignore->value && button.which != SDL_TOUCH_MOUSEID )
 	{
 		Key_Event( K_MOUSE1 - 1 + button.button, down );
 	}
@@ -210,27 +215,12 @@ static void SDLash_EventFilter( SDL_Event *event )
 	case SDL_MOUSEMOTION:
 		if( !host.mouse_visible && event->motion.which != SDL_TOUCH_MOUSEID )
 			IN_MouseEvent();
-#ifdef TOUCHEMU
-		if( mdown )
-			IN_TouchEvent( event_motion, 0,
-						   event->motion.x/(float)refState.width,
-						   event->motion.y/(float)refState.height,
-						   event->motion.xrel/(float)refState.width,
-						   event->motion.yrel/(float)refState.height );
-		SDL_ShowCursor( true );
-#endif
 		break;
 
 	case SDL_MOUSEBUTTONUP:
 	case SDL_MOUSEBUTTONDOWN:
-#ifdef TOUCHEMU
-		mdown = event->button.state != SDL_RELEASED;
-		IN_TouchEvent( event_down, 0,
-					   event->button.x/(float)refState.width,
-					   event->button.y/(float)refState.height, 0, 0);
-#else
+
 		SDLash_MouseEvent( event->button );
-#endif
 		break;
 
 	case SDL_MOUSEWHEEL:
@@ -294,7 +284,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 			dy /= (float)refState.height;
 		}
 
-		// IN_TouchEvent( type, event->tfinger.fingerId, x, y, dx, dy );
+		IN_TouchEvent( type, event->tfinger.fingerId, x, y, dx, dy );
 		break;
 	}
 
@@ -467,6 +457,23 @@ void Platform_RunEvents( void )
 void* Platform_GetNativeObject( const char *name )
 {
 	return NULL; // SDL don't have it
+}
+
+/*
+========================
+Platform_PreCreateMove
+
+this should disable mouse look on client when m_ignore enabled
+TODO: kill mouse in win32 clients too
+========================
+*/
+void Platform_PreCreateMove( void )
+{
+	if( CVAR_TO_BOOL( m_ignore ) )
+	{
+		SDL_GetRelativeMouseState( NULL, NULL );
+		SDL_ShowCursor( SDL_TRUE );
+	}
 }
 
 #endif //  defined( XASH_SDL ) && !defined( XASH_DEDICATED )

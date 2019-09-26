@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "library.h"
 #include "keydefs.h"
 #include "ref_common.h"
+#include "input.h"
 #ifdef XASH_SDL
 #include <SDL_events.h>
 static SDL_Cursor* s_pDefaultCursor[20];
@@ -108,6 +109,10 @@ void GAME_EXPORT VGUI_CursorSelect(enum VGUI_DefaultCursor cursor )
 	}
 
 #ifdef XASH_SDL
+	/// TODO: platform cursors
+
+	if( CVAR_TO_BOOL( touch_emulate ) )
+		return;
 	if( host.mouse_visible )
 	{
 		SDL_SetRelativeMouseMode( SDL_FALSE );
