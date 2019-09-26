@@ -111,7 +111,7 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 	else if( targa_header.image_type == 3 || targa_header.image_type == 11 )
 	{
 		// uncompressed greyscale
-		if( targa_header.pixel_size != 8 )
+		if( targa_header.pixel_size != 8 && targa_header.pixel_size != 16 )
 		{
 			Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) Only 8 bit images supported for type 3 and 11\n", name );
 			return false;
@@ -160,11 +160,14 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 				case 9:
 					// colormapped image
 					blue = *buf_p++;
-					red = palette[blue][0];
-					green = palette[blue][1];
-					alpha = palette[blue][3];
-					blue = palette[blue][2];
-					if( alpha != 255 ) image.flags |= IMAGE_HAS_ALPHA;
+					if( blue < targa_header.colormap_length )
+					{
+						red = palette[blue][0];
+						green = palette[blue][1];
+						alpha = palette[blue][3];
+						blue = palette[blue][2];
+						if( alpha != 255 ) image.flags |= IMAGE_HAS_ALPHA;
+					}
 					break;
 				case 2:
 				case 10:
@@ -184,7 +187,14 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 				case 11:
 					// greyscale image
 					blue = green = red = *buf_p++;
-					alpha = 255;
+					if( targa_header.pixel_size == 16 )
+					{
+						alpha = *buf_p++;
+						if( alpha != 255 )
+							image.flags |= IMAGE_HAS_ALPHA;
+					}
+					else
+						alpha = 255;
 					break;
 				}
 			}
