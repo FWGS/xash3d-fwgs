@@ -68,16 +68,16 @@ def options(opt):
 
 def filter_cflags(conf, flags, required_flags, cxx):
 	supported_flags = []
-	required_flags += ['-Werror']
+	check_flags = required_flags + ['-Werror']
 	conf.msg('Detecting supported flags for %s' % ('C++' if cxx else 'C'),'...')
 	
 	for flag in flags:
 		conf.start_msg('Checking for %s' % flag)
 		try:
 			if cxx:
-				conf.check_cxx(cxxflags = [flag] + required_flags)
+				conf.check_cxx(cxxflags = [flag] + check_flags)
 			else:
-				conf.check_cc(cflags = [flag] + required_flags)
+				conf.check_cc(cflags = [flag] + check_flags)
 		except conf.errors.ConfigurationError:
 			conf.end_msg('no', color='YELLOW')
 		else:
