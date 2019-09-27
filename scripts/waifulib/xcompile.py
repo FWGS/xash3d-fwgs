@@ -218,7 +218,7 @@ class Android:
 		else:
 			return self.libsysroot()
 
-	def cflags(self):
+	def cflags(self, cxx = False):
 		cflags = []
 		if self.is_host():
 			if self.ndk_rev >= 19:
@@ -231,6 +231,8 @@ class Android:
 			cflags += ['--sysroot=%s' % (self.sysroot())]
 
 		cflags += ['-I%s' % (self.system_stl()), '-DANDROID', '-D__ANDROID__']
+		if cxx and not self.is_clang() and self.toolchain not in ['4.8','4.9']:
+			cflags += ['-fno-sized-deallocation']
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
 				# ARMv7 support
@@ -264,11 +266,13 @@ class Android:
 		if self.is_clang() or self.is_host():
 			linkflags += ['-fuse-ld=lld']
 
-		linkflags += ['-Wl,--hash-style=both']
+		linkflags += ['-Wl,--hash-style=both','-Wl,--no-undefined']
 		return linkflags
 
 	def ldflags(self):
-		ldflags = ['-stdlib=libstdc++', '-lgcc', '-no-canonical-prefixes']
+		ldflags = ['-lgcc', '-no-canonical-prefixes']
+		if self.is_clang():
+			ldflags += ['-stdlib=libstdc++']
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
 				ldflags += ['-march=armv7-a', '-mthumb']
@@ -301,7 +305,7 @@ def configure(conf):
 		conf.environ['CXX'] = android.cxx()
 		conf.environ['STRIP'] = android.strip()
 		conf.env.CFLAGS += android.cflags()
-		conf.env.CXXFLAGS += android.cflags()
+		conf.env.CXXFLAGS += android.cflags(True)
 		conf.env.LINKFLAGS += android.linkflags()
 		conf.env.LDFLAGS += android.ldflags()
 
@@ -314,9 +318,9 @@ def configure(conf):
 
 		conf.msg('Selected Android NDK', '%s, version: %d' % (android.ndk_home, android.ndk_rev))
 		# no need to print C/C++ compiler, as it would be printed by compiler_c/cxx
-		conf.msg('... C/C++ flags', ' '.join(android.cflags()).replace(android.ndk_home, '$NDK'))
-		conf.msg('... link flags', ' '.join(android.linkflags()).replace(android.ndk_home, '$NDK'))
-		conf.msg('... ld flags', ' '.join(android.ldflags()).replace(android.ndk_home, '$NDK'))
+		conf.msg('... C/C++ flags', ' '.join(android.cflags()).replace(android.ndk_home, '$NDK/'))
+		conf.msg('... link flags', ' '.join(android.linkflags()).replace(android.ndk_home, '$NDK/'))
+		conf.msg('... ld flags', ' '.join(android.ldflags()).replace(android.ndk_home, '$NDK/'))
 
 		# conf.env.ANDROID_OPTS = android
 		conf.env.DEST_OS2 = 'android'
