@@ -998,7 +998,7 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 
 	importDesc = (PIMAGE_IMPORT_DESCRIPTOR)CALCULATE_ADDRESS( data, directory->VirtualAddress );
 
-	for( ; importDesc->Name; importDesc++ )
+	for( ; !IsBadReadPtr( importDesc, sizeof( PIMAGE_IMPORT_DESCRIPTOR)) && importDesc->Name; importDesc++ )
 	{
 		const char *importName = ( const char* )CALCULATE_ADDRESS( data, importDesc->Name );
 		Con_Reportf( "library %s has direct dependency %s\n", name, importName );
