@@ -63,10 +63,14 @@ done
 # Run waf
 ./waf build -v|| exit 1
 
-# sign
-cp build/android/xashdroid-src.apk xashdroid.apk
+if [ "$BUILD_TYPE" != "debug" ]; then
+	# sign
+	cp build/android/xashdroid.apk xashdroid.apk
 
-# :)
-if [ "$USER" = "a1ba" ]; then
-	apksigner sign --ks ../myks.keystore xashdroid.apk
+	# :)
+	if [ "$USER" = "a1ba" ]; then
+		apksigner sign --ks ../myks.keystore xashdroid.apk
+	fi
+else
+	cp build/android/xashdroid-signed.apk xashdroid.apk
 fi
