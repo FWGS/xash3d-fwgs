@@ -192,11 +192,16 @@ def configure(conf):
 	]
 
 	cflags = conf.get_flags_by_type(compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC)
-	conf.check_cc(cflags=cflags, msg= 'Checking for required C flags')
-	conf.check_cxx(cxxflags=cflags, msg= 'Checking for required C++ flags')
+	if conf.env.COMPILER_CC == 'msvc':
+		conf.env.append_unique('CFLAGS', cflags)
+		conf.env.append_unique('CXXFLAGS', cflags)
+	else:
+		conf.check_cc(cflags=cflags, msg= 'Checking for required C flags')
+		conf.check_cxx(cxxflags=cflags, msg= 'Checking for required C++ flags')
 	
-	conf.env.append_unique('CFLAGS', cflags + filter_cflags(conf, compiler_optional_flags, cflags, False))
-	conf.env.append_unique('CXXFLAGS', cflags + filter_cflags(conf, compiler_optional_flags, cflags, True))
+		conf.env.append_unique('CFLAGS', cflags + filter_cflags(conf, compiler_optional_flags, cflags, False))
+		conf.env.append_unique('CXXFLAGS', cflags + filter_cflags(conf, compiler_optional_flags, cflags, True))
+
 	conf.env.append_unique('LINKFLAGS', conf.get_flags_by_type(
 		linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC))
 
