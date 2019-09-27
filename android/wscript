@@ -17,8 +17,9 @@ def build(bld):
 	bld(features = 'android javac',
 		srcdir = 'src',
 		compat = '1.6',
-		name = 'xashdroid-src',
+		name = 'xashdroid',
 		jni = 'lib',
+		keystore = bld.path.parent.find_node('debug.keystore'),
 		debug = bld.env.D8_DEBUG,
 		target_api = 19)
 	return
