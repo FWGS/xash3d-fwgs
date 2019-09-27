@@ -104,6 +104,7 @@ class aapt2compile(javaw.JTask):
 			root   = self.generator.outdir.ctx.root
 			resdir = root.make_node(self.env.RESDIR)
 			self.inputs = resdir.ant_glob('**/*', quiet=True)
+
 		return super(aapt2compile, self).runnable_status()
 
 	def post_run(self):
@@ -116,8 +117,8 @@ class aapt2compile(javaw.JTask):
 
 class aapt2link(javaw.JTask):
 	color = 'GREEN' # android green :)
-	run_str = '${AAPT2} link -v ${AAPT2_LINKFLAGS} -o ${OUTAPK_UNALIGNED_NOCLASSES_NOJNI} -A ${ASSETSDIR} --manifest ${MANIFEST} --java ${OUTRDIR} -I ${CLASSPATH_ANDROID} ${SRC}'
-	vars = ['AAPT2', 'OUTAPK_UNALIGNED_NOCLASSES_NOJNI', 'ASSETSDIR', 'MANIFEST', 'OUTRDIR', 'CLASSPATH_ANDROID']
+	run_str = '${AAPT2} link -v ${AAPT2_LINKFLAGS} -o ${TGT} -A ${ASSETSDIR} --manifest ${MANIFEST} --java ${OUTRDIR} -I ${CLASSPATH_ANDROID} ${SRC}'
+	vars = ['AAPT2', 'ASSETSDIR', 'MANIFEST', 'OUTRDIR', 'CLASSPATH_ANDROID']
 
 	def runnable_status(self):
 		"""
@@ -132,14 +133,12 @@ class aapt2link(javaw.JTask):
 			resdir = root.make_node(self.env.RESOUTFILE)
 			self.inputs = resdir.ant_glob('**/*.flat', quiet=True)
 
-		self.outputs = [ self.generator.outdir.make_node(self.env.OUTAPK_UNALIGNED_NOCLASSES_NOJNI) ]
-
 		return super(aapt2link, self).runnable_status()
 
 class aaptpackage(javaw.JTask):
 	color = 'GREEN' # androis green :)
-	run_str = 'mkdir -p ${OUTRDIR} && ${AAPT} p -v -F ${OUTAPK_UNALIGNED_NOCLASSES_NOJNI} -J ${OUTRDIR} -A ${ASSETSDIR} -I ${CLASSPATH_ANDROID} -M ${MANIFEST} -S ${RESDIR}'
-	vars = ['AAPT', 'OUTAPK_UNALIGNED_NOCLASSES_NOJNI', 'OUTRDIR', 'ASSETSDIR', 'CLASSPATH_ANDROID', 'MANIFEST', 'RESDIR' ]
+	run_str = 'mkdir -p ${OUTRDIR} && ${AAPT} p -v -F ${TGT} -J ${OUTRDIR} -A ${ASSETSDIR} -I ${CLASSPATH_ANDROID} -M ${MANIFEST} -S ${RESDIR}'
+	vars = ['AAPT', 'OUTRDIR', 'ASSETSDIR', 'CLASSPATH_ANDROID', 'MANIFEST', 'RESDIR' ]
 
 	def runnable_status(self):
 		"""
@@ -154,17 +153,12 @@ class aaptpackage(javaw.JTask):
 			resdir = root.make_node(self.env.RESDIR)
 			self.inputs = resdir.ant_glob('**/*', quiet=True)
 
-		self.outputs = [ self.generator.outdir.make_node(self.env.OUTAPK_UNALIGNED_NOCLASSES_NOJNI) ]
-
 		return super(aaptpackage, self).runnable_status()
 
 class DexerTask(javaw.JTask): # base dexer
 	color = 'GREEN'
 
 	def runnable_status(self):
-		"""
-		Waits for dependent tasks to be complete, then read the file system to find the input nodes.
-		"""
 		for t in self.run_after:
 			if not t.hasrun:
 				return Task.ASK_LATER
@@ -172,33 +166,29 @@ class DexerTask(javaw.JTask): # base dexer
 		if not self.inputs:
 			self.inputs = self.generator.outdir.ant_glob('**/*.class', quiet=True)
 
-		self.outputs = [ self.generator.outdir.make_node('classes.dex') ]
 		return super(DexerTask, self).runnable_status()
 
 class d8(DexerTask):
+	# can't use TGT instead of OUTDIR here, because Google code monkeys don't know what __output__ should mean
 	run_str = '${D8} ${SRC} ${D8_FLAGS} --output ${OUTDIR} --lib ${CLASSPATH_ANDROID} ${D8_CLASSPATH}'
 	vars = ['D8', 'D8_FLAGS', 'OUTDIR', 'CLASSPATH_ANDROID', 'D8_CLASSPATH' ]
 
 class dx(DexerTask):
-	run_str = '${DX} --dex ${D8_FLAGS} --output=${OUTDIR}/classes.dex ${SRC} ${DX_CLASSPATH}'
+	run_str = '${DX} --dex ${D8_FLAGS} --output=${TGT} ${SRC} ${DX_CLASSPATH}'
 	vars = ['DX', 'D8_FLAGS', 'OUTDIR']
 
-def javac(func):
-	old_runnable_status = getattr(javaw.javac, 'runnable_status', None)
-	setattr(javaw.javac, 'old_runnable_status', old_runnable_status)
-	setattr(javaw.javac, 'runnable_status', func)
-
-@javac
 def custom_runnable_status(self):
 	if not self.inputs:
 		outrdir = self.srcdir[0].ctx.root.make_node(self.env.OUTRDIR)
 		self.srcdir.append(outrdir)
 	return self.old_runnable_status()
+setattr(javaw.javac, 'old_runnable_status', getattr(javaw.javac, 'runnable_status', None))
+setattr(javaw.javac, 'runnable_status', custom_runnable_status)
 
 class apkjni(Task.Task):
 	color = 'BLUE'
-	run_str = '${ZIP} ${OUTAPK_UNALIGNED_NOCLASSES_NOJNI} --out ${OUTAPK_UNALIGNED_NOCLASSES} && ${ZIP} -ru ${OUTAPK_UNALIGNED_NOCLASSES} ${JNIDIR}'
-	vars = ['ZIP', 'JNIDIR', 'OUTAPK_UNALIGNED_NOCLASSES_NOJNI', 'OUTAPK_UNALIGNED_NOCLASSES']
+	run_str = '${ZIP} -ru ${OUTAPK_UNALIGNED_NOCLASSES_NOJNI} ${JNIDIR} --out ${TGT}'
+	vars = ['ZIP', 'JNIDIR', 'OUTAPK_UNALIGNED_NOCLASSES_NOJNI']
 
 	def runnable_status(self):
 		"""
@@ -209,51 +199,29 @@ class apkjni(Task.Task):
 				return Task.ASK_LATER
 
 		# I could use SRC here, but I need to track changes of OUTAPK_UNALIGNED_NOCLASSES_NOJNI also
-		self.inputs = self.generator.outdir.ant_glob('{0}/**/*'.format(self.env.JNIDIR), quiet=True)
-		self.inputs += self.generator.outdir.ant_glob(self.env.OUTAPK_UNALIGNED_NOCLASSES_NOJNI)
-		self.outputs = [self.generator.outdir.make_node(self.env.OUTAPK_UNALIGNED_NOCLASSES)]
+		self.inputs += self.generator.outdir.ant_glob('{0}/**/*'.format(self.env.JNIDIR), quiet=True)
 
 		return super(apkjni, self).runnable_status()
 
 class apkdex(Task.Task):
 	color = 'GREEN' # android green :)
-	run_str = '${ZIP} ${OUTAPK_UNALIGNED_NOCLASSES} --out ${OUTAPK_UNALIGNED} && ${ZIP} -uj ${OUTAPK_UNALIGNED} classes.dex'
-	vars = ['ZIP', 'OUTAPK_UNALIGNED_NOCLASSES', 'OUTAPK_UNALIGNED']
-
-	def runnable_status(self):
-		"""
-		Waits for dependent tasks to be complete, then read the file system to find the input nodes.
-		"""
-		for t in self.run_after:
-			if not t.hasrun:
-				return Task.ASK_LATER
-
-		self.inputs = [self.generator.outdir.make_node('classes.dex'), self.generator.outdir.make_node(self.env.OUTAPK_UNALIGNED_NOCLASSES)]
-		self.outputs = [ self.generator.outdir.make_node(self.env.OUTAPK_UNALIGNED) ]
-		return super(apkdex, self).runnable_status()
+	run_str = '${ZIP} -uj ${SRC} --out ${TGT}'
+	vars = ['ZIP']
 
 class apkalign(Task.Task):
 	color = 'GREEN' # android green :)
-	run_str = '${ZIPALIGN} -f -v 4 ${OUTAPK_UNALIGNED} ${OUTAPK}'
-	vars = ['ZIPALIGN', 'OUTAPK_UNALIGNED', 'OUTAPK']
+	run_str = '${ZIPALIGN} -f -v 4 ${SRC} ${TGT}'
+	vars = ['ZIPALIGN']
 
-	def runnable_status(self):
-		"""
-		Waits for dependent tasks to be complete, then read the file system to find the input nodes.
-		"""
-		for t in self.run_after:
-			if not t.hasrun:
-				return Task.ASK_LATER
+class SignerTask(Task.Task):
+	color = 'GREEN'
+	vars = ['APKSIGNER', 'KEYSTORE', 'KS_ALIAS', 'KS_PASS', 'KEY_PASS']
 
-		self.inputs = [ self.generator.outdir.make_node(self.env.OUTAPK_UNALIGNED) ]
-		self.outputs = [ self.generator.outdir.make_node(self.env.OUTAPK) ]
-		return super(apkalign, self).runnable_status()
+class apksigner(SignerTask):
+	run_str = '${APKSIGNER} sign --ks ${KEYSTORE} --ks-key-alias ${KS_ALIAS} --ks-pass ${KS_PASS} --key-pass ${KEY_PASS} --in ${SRC} --out ${TGT}'
 
-
-#class apksigner(Task.Task):
-#	color = 'GREEN' # android green :)
-#	run_str = '${APKSIGNER} sign --ks ${KEYSTORE} ${OUTAPK_ALIGNED}'
-#	vars = ['ZIPALIGN', 'OUTAPK', 'OUTAPK_ALIGNED']
+class apksigner_termux(SignerTask):
+	run_str = '${APKSIGNER} ${KEYSTORE} ${SRC} ${TGT}'
 
 @TaskGen.feature('android')
 @TaskGen.before_method('apply_java')
@@ -280,13 +248,13 @@ def apply_aapt(self):
 	except AttributeError:
 		pass
 
-	apkname = getattr(self, 'apkname', self.name)
-	self.env.OUTAPK = apkname + '.apk'
-	self.env.OUTAPK_UNALIGNED = apkname + '.unaligned.apk'
-	self.env.OUTAPK_UNALIGNED_NOCLASSES = apkname + '.unaligned.noclasses.apk'
+	self.env.OUTAPK_SIGNED = self.name + '-signed.apk'
+	self.env.OUTAPK = self.name + '.apk'
+	self.env.OUTAPK_UNALIGNED = self.name + '.unaligned.apk'
+	self.env.OUTAPK_UNALIGNED_NOCLASSES = self.name + '.unaligned.noclasses.apk'
 
 	if self.env.JNIDIR:
-		self.env.OUTAPK_UNALIGNED_NOCLASSES_NOJNI = apkname + '.unaligned.noclasses.nojni.apk'
+		self.env.OUTAPK_UNALIGNED_NOCLASSES_NOJNI = self.name + '.unaligned.noclasses.nojni.apk'
 	else:
 		self.env.OUTAPK_UNALIGNED_NOCLASSES_NOJNI = self.env.OUTAPK_UNALIGNED_NOCLASSES
 
@@ -302,48 +270,61 @@ def apply_aapt(self):
 	else: classpath = os.path.join(sdk, 'platforms', 'android-' + str(self.env.TARGET_API), 'android.jar')
 	self.env.CLASSPATH_ANDROID = classpath
 
+
+	tgt = self.outdir.make_node(self.env.OUTAPK_UNALIGNED_NOCLASSES_NOJNI)
 	if self.env.AAPT:
-		self.aapt2link_task = self.create_task('aaptpackage')
+		self.aapt2link_task = self.create_task('aaptpackage', tgt=tgt, cwd=outdir)
 	else:
-		self.aapt2compile_task = self.create_task('aapt2compile')
-		self.aapt2compile_task.cwd = outdir
-
-		self.aapt2link_task = self.create_task('aapt2link')
-		self.aapt2link_task.set_run_after(self.aapt2compile_task)
-
-	self.aapt2link_task.cwd = outdir
+		self.aapt2compile_task = self.create_task('aapt2compile', cwd=outdir)
+		self.aapt2link_task = self.create_task('aapt2link', tgt=tgt, cwd=outdir)
+		self.aapt2link_task.set_run_after(self.aapt2compile_task) # we don't know *.flat outputs from aapt2compile yet
 
 @TaskGen.feature('android')
 @TaskGen.after_method('apply_java')
 def apply_d8(self):
-	self.javac_task.set_run_after(self.aapt2link_task)
+	self.javac_task.set_run_after(self.aapt2link_task) # we don't know R.java yet
 
 	if getattr(self, 'debug', False):
 		self.env.D8_FLAGS = '--debug'
 	elif self.env.D8: self.env.D8_FLAGS = '--release'
 
-	if self.env.D8:
-		self.d8_task = self.create_task('d8')
-	else:
-		self.d8_task = self.create_task('dx')
-
-	self.d8_task.cwd = self.outdir
-	self.d8_task.set_run_after(self.javac_task)
+	self.d8_task = self.create_task('d8' if self.env.D8 else 'dx',
+		tgt=self.outdir.make_node('classes.dex'),
+		cwd=self.outdir)
+	self.d8_task.set_run_after(self.javac_task) # we don't know javac outputs
 
 	if self.env.JNIDIR:
-		self.apkjni_task = self.create_task('apkjni')
-		self.apkjni_task.cwd = self.outdir
-		self.apkjni_task.set_run_after(self.d8_task)
+		self.apkjni_task = self.create_task('apkjni',
+			src=self.outdir.make_node(self.env.OUTAPK_UNALIGNED_NOCLASSES_NOJNI),
+			tgt=self.outdir.make_node(self.env.OUTAPK_UNALIGNED_NOCLASSES),
+			cwd=self.outdir)
 
-	self.apkdex_task = self.create_task('apkdex')
-	self.apkdex_task.cwd = self.outdir
-	if self.env.JNIDIR:
-		self.apkdex_task.set_run_after(self.apkjni_task)
-	else: self.apkdex_task.set_run_after(self.d8_task)
+	self.apkdex_task = self.create_task('apkdex',
+		[self.outdir.make_node(self.env.OUTAPK_UNALIGNED_NOCLASSES), self.d8_task.outputs[0]],
+		self.outdir.make_node(self.env.OUTAPK_UNALIGNED),
+		cwd=self.outdir)
 
-	self.apkalign_task = self.create_task('apkalign')
-	self.apkalign_task.cwd = self.outdir
-	self.apkalign_task.set_run_after(self.apkdex_task)
+	self.apkalign_task = self.create_task('apkalign',
+		self.outdir.make_node(self.env.OUTAPK_UNALIGNED),
+		self.outdir.make_node(self.env.OUTAPK),
+		cwd=self.outdir)
+
+	# signing is optional
+	try:
+		self.env.KEYSTORE = self.keystore.abspath()
+		if 'debug' in self.env.KEYSTORE:
+			self.env.KS_ALIAS = 'androiddebugkey'
+			self.env.KS_PASS = self.env.KEY_PASS = 'pass:android'
+		else:
+			self.env.KS_ALIAS = self.ks_alias
+			self.env.KS_PASS  = self.ks_pass
+			self.env.KEY_PASS = self.key_pass
+
+		self.apksigner_task = self.create_task('apksigner' if not self.env.termux else 'apksigner_termux',
+			self.outdir.make_node(self.env.OUTAPK),
+			self.outdir.make_node(self.env.OUTAPK_SIGNED))
+	except AttributeError:
+		pass
 
 @TaskGen.feature('android')
 @TaskGen.after_method('set_classpath')
