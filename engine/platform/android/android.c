@@ -782,6 +782,11 @@ void Platform_SetClipboardText( const char *buffer, size_t size )
 	// stub
 }
 
+void Platform_PreCreateMove( void )
+{
+	// stub
+}
+
 /*
 ========================
 Android_RunEvents
