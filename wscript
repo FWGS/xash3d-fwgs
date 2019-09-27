@@ -66,6 +66,26 @@ def options(opt):
 	opt.load('reconfigure')
 
 
+def filter_cflags(conf, flags, required_flags, cxx):
+	supported_flags = []
+	required_flags += ['-Werror']
+	conf.msg('Detecting supported flags for %s' % ('C++' if cxx else 'C'),'...')
+	
+	for flag in flags:
+		conf.start_msg('Checking for %s' % flag)
+		try:
+			if cxx:
+				conf.check_cxx(cxxflags = [flag] + required_flags)
+			else:
+				conf.check_cc(cflags = [flag] + required_flags)
+		except conf.errors.ConfigurationError:
+			conf.end_msg('no', color='YELLOW')
+		else:
+			conf.end_msg('yes')
+			supported_flags.append(flag)
+
+	return supported_flags
+
 def configure(conf):
 	conf.load('fwgslib reconfigure')
 	conf.start_msg('Build type')
@@ -133,24 +153,8 @@ def configure(conf):
 		'common': {
 			# disable thread-safe local static initialization for C++11 code, as it cause crashes on Windows XP
 			'msvc':    ['/D_USING_V110_SDK71_', '/Zi', '/FS', '/Zc:threadSafeInit-', '/MT'],
-			'clang': [
-				'-g',
-				'-gdwarf-2',
-				'-Werror=implicit-function-declaration',
-				'-Werror=return-type',
-				'-Werror=int-conversion',
-				'-Werror=parentheses',
-				'-fvisibility=hidden',
-			],
-			'gcc': [
-				'-g',
-				'-fdiagnostics-color=always',
-				'-Werror=implicit-function-declaration',
-				'-Werror=return-type',
-				'-Werror=int-conversion',
-				'-Werror=parentheses',
-				'-fvisibility=hidden',
-			]
+			'clang': ['-g', '-gdwarf-2', '-fvisibility=hidden'],
+			'gcc': ['-g', '-fvisibility=hidden']
 		},
 		'fast': {
 			'msvc':    ['/O2', '/Oy'], #todo: check /GL /LTCG
@@ -179,10 +183,20 @@ def configure(conf):
 		}
 	}
 
-	conf.env.append_unique('CFLAGS', conf.get_flags_by_type(
-		compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC))
-	conf.env.append_unique('CXXFLAGS', conf.get_flags_by_type(
-		compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC))
+	compiler_optional_flags = [
+		'-fdiagnostics-color=always',
+		'-Werror=implicit-function-declaration',
+		'-Werror=int-conversion',
+		'-Werror=return-type',
+		'-Werror=parentheses',
+	]
+
+	cflags = conf.get_flags_by_type(compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC)
+	conf.check_cc(cflags=cflags, msg= 'Checking for required C flags')
+	conf.check_cxx(cxxflags=cflags, msg= 'Checking for required C++ flags')
+	
+	conf.env.append_unique('CFLAGS', cflags + filter_cflags(conf, compiler_optional_flags, cflags, False))
+	conf.env.append_unique('CXXFLAGS', cflags + filter_cflags(conf, compiler_optional_flags, cflags, True))
 	conf.env.append_unique('LINKFLAGS', conf.get_flags_by_type(
 		linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC))
 
