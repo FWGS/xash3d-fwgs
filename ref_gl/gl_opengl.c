@@ -541,8 +541,11 @@ void GL_InitExtensionsGLES( void )
 			GL_SetExtension( extid, true ); // required to be supported by wrapper
 
 			pglGetIntegerv( GL_MAX_TEXTURE_UNITS_ARB, &glConfig.max_texture_units );
-			if( glConfig.max_texture_units == 1 )
+			if( glConfig.max_texture_units <= 1 )
+			{
 				GL_SetExtension( extid, false );
+				glConfig.max_texture_units = 1;
+			}
 
 			glConfig.max_texture_coords = glConfig.max_teximage_units = glConfig.max_texture_units;
 			break;
