@@ -28,6 +28,7 @@ typedef enum
 	touch_joy,     // like a joystick stick, centered
 	touch_dpad,    // only two directions
 	touch_look,     // like a touchpad
+	touch_wheel		// scroll-like
 } touchButtonType;
 
 typedef enum
@@ -51,7 +52,7 @@ typedef struct touch_button_s
 	// Touch button type: tap, stick or slider
 	touchButtonType type;
 
-	// Field of button in pixels
+	// Field of button
 	float x1, y1, x2, y2;
 
 	// Button texture
@@ -98,11 +99,22 @@ struct touch_s
 	touchbuttonlist_t list_user, list_edit;
 	byte *mempool;
 	touchState state;
+
 	int look_finger;
 	int move_finger;
-	touch_button_t *move;
+	int wheel_finger;
+
+	touch_button_t *move_button;
 	float move_start_x;
 	float move_start_y;
+
+	float wheel_amount;
+	string wheel_up;
+	string wheel_down;
+	string wheel_end;
+	int wheel_count;
+	qboolean wheel_horizontal;
+
 	float forward;
 	float side;
 	float yaw;
@@ -538,12 +550,9 @@ void Touch_SetTexture( touchbuttonlist_t *list, const char *name, const char *te
 	Q_strncpy( button->texturefile, texture, sizeof( button->texturefile ) );
 }
 
-void Touch_SetCommand( touchbuttonlist_t *list, const char *name, const char *command )
+void Touch_SetCommand( touch_button_t *button, const char *command )
 {
-	touch_button_t *button = Touch_FindButton( list, name );
-	
-	if( !button )
-		return;
+	Q_strncpy( button->command, command, sizeof( button->command ) );
 
 	if( !Q_strcmp( command, "_look" ) )
 		button->type = touch_look;
@@ -553,8 +562,8 @@ void Touch_SetCommand( touchbuttonlist_t *list, const char *name, const char *co
 		button->type = touch_joy;
 	if( !Q_strcmp( command, "_dpad" ) )
 		button->type = touch_dpad;
-
-	Q_strncpy( button->command, command, sizeof( button->command ) );
+	if( Q_stricmpext( "_wheel *", command ) || Q_stricmpext( "_hwheel *", command ) )
+		button->type = touch_wheel;
 }
 
 void Touch_HideButtons( const char *name, byte hide )
@@ -652,10 +661,16 @@ void Touch_SetCommand_f( void )
 {
 	if( Cmd_Argc() == 3 )
 	{
-		Touch_SetCommand( &touch.list_user, Cmd_Argv( 1 ), Cmd_Argv( 2 ) );
+		touch_button_t *button = Touch_FindButton( &touch.list_user, Cmd_Argv(1) );
+
+		if( !button )
+			Con_Printf( S_ERROR "no such button" );
+		else
+			Touch_SetCommand( button, Cmd_Argv( 2 ) );
+
 		return;
 	}
-	Con_Printf( "Usage: touch_command <name> <command>\n" );
+	Con_Printf( "Usage: touch_setcommand <name> <command>\n" );
 }
 void Touch_ReloadConfig_f( void )
 {
@@ -665,7 +680,7 @@ void Touch_ReloadConfig_f( void )
 	if( touch.selection )
 		touch.selection->finger = -1;
 	touch.edit = touch.selection = NULL;
-	touch.resize_finger = touch.move_finger = touch.look_finger = -1;
+	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
 
 	Cbuf_AddText( va("exec %s\n", touch_config_file->string ) );
 }
@@ -686,17 +701,8 @@ touch_button_t *Touch_AddButton( touchbuttonlist_t *list, const char *name,  con
 	button->flags = 0;
 	button->fade = 1;
 
-	// check keywords
-	if( !Q_strcmp( command, "_look" ) )
-		button->type = touch_look;
-	if( !Q_strcmp( command, "_move" ) )
-		button->type = touch_move;
-	if( !Q_strcmp( command, "_joy" ) )
-		button->type = touch_joy;
-	if( !Q_strcmp( command, "_dpad" ) )
-		button->type = touch_dpad;
+	Touch_SetCommand( button, command );
 
-	Q_strncpy( button->command, command, sizeof( button->command ) );
 	button->finger = -1;
 	button->next = NULL;
 	button->prev = list->last;
@@ -833,8 +839,8 @@ void Touch_EnableEdit_f( void )
 {
 	if( touch.state == state_none )
 		touch.state = state_edit;
-	touch.resize_finger = touch.move_finger = touch.look_finger = -1;
-	touch.move = NULL;
+	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
+	touch.move_button = NULL;
 	touch.configchanged = true;
 }
 
@@ -846,7 +852,7 @@ void Touch_DisableEdit_f( void )
 	if( touch.selection )
 		touch.selection->finger = -1;
 	touch.edit = touch.selection = NULL;
-	touch.resize_finger = touch.move_finger = touch.look_finger = -1;
+	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
 
 	if( CVAR_TO_BOOL(touch_in_menu) )
 	{
@@ -892,8 +898,8 @@ void Touch_Init( void )
 		return;
 	touch.mempool = Mem_AllocPool( "Touch" );
 	//touch.first = touch.last = NULL;
-	Con_Printf( S_ERROR "IN_TouchInit()\n");
-	touch.move_finger = touch.resize_finger = touch.look_finger = -1;
+	Con_Printf( "IN_TouchInit()\n");
+	touch.move_finger = touch.resize_finger = touch.look_finger = touch.wheel_finger = -1;
 	touch.state = state_none;
 	touch.showeditbuttons = true;
 	touch.clientonly = false;
@@ -1317,7 +1323,7 @@ void Touch_Draw( void )
 
 	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 
-	if( ( touch.move_finger != -1 ) && touch.move && touch_move_indicator->value )
+	if( ( touch.move_finger != -1 ) && touch.move_button && touch_move_indicator->value )
 	{
 		float width;
 		float height;
@@ -1326,15 +1332,15 @@ void Touch_Draw( void )
 			ClearBits( touch_joy_texture->flags, FCVAR_CHANGED );
 			touch.joytexture = ref.dllFuncs.GL_LoadTexture( touch_joy_texture->string, NULL, 0, TF_NOMIPMAP );
 		}
-		if( touch.move->type == touch_move )
+		if( touch.move_button->type == touch_move )
 		{
 			width =  touch_sidezone->value;
 			height = touch_forwardzone->value;
 		}
 		else
 		{
-			width = (touch.move->x2 - touch.move->x1)/2;
-			height = (touch.move->y2 - touch.move->y1)/2;
+			width = (touch.move_button->x2 - touch.move_button->x1)/2;
+			height = (touch.move_button->y2 - touch.move_button->y1)/2;
 		}
 		ref.dllFuncs.Color4ub( 255, 255, 255, 128 );
 		ref.dllFuncs.R_DrawStretchPic( TO_SCRN_X( touch.move_start_x - GRID_X * touch_move_indicator->value ),
@@ -1428,6 +1434,26 @@ static void Touch_EditMove( touchEventType type, int fingerID, float x, float y,
 
 static void Touch_Motion( touchEventType type, int fingerID, float x, float y, float dx, float dy )
 {
+	// process wheel
+	if( fingerID == touch.wheel_finger )
+	{
+		touch.wheel_amount += touch.wheel_horizontal ? dx : dy;
+
+		if( touch.wheel_amount > 0.1 )
+		{
+			Cbuf_AddText( touch.wheel_down );
+			touch.wheel_count++;
+			touch.wheel_amount = 0;
+		}
+		if( touch.wheel_amount < -0.1 )
+		{
+			Cbuf_AddText( touch.wheel_up );
+			touch.wheel_count++;
+			touch.wheel_amount = 0;
+		}
+		return;
+	}
+
 	// walk
 	if( fingerID == touch.move_finger )
 	{
@@ -1437,23 +1463,23 @@ static void Touch_Motion( touchEventType type, int fingerID, float x, float y, f
 		if( touch_sidezone->value <= 0 )
 			Cvar_SetValue( "touch_sidezone", 0.3 );
 
-		if( !touch.move || touch.move->type == touch_move )
+		if( !touch.move_button || touch.move_button->type == touch_move )
 		{
 			// move relative to touch start
 			touch.forward = ( touch.move_start_y - y ) / touch_forwardzone->value;
 			touch.side = ( x - touch.move_start_x ) / touch_sidezone->value;
 		}
-		else if( touch.move->type == touch_joy )
+		else if( touch.move_button->type == touch_joy )
 		{
 			// move relative to joy center
-			touch.forward = ( ( touch.move->y2 + touch.move->y1 ) - y * 2 ) / ( touch.move->y2 - touch.move->y1 ) * touch_joy_radius->value;
-			touch.side = ( x * 2 - ( touch.move->x2 + touch.move->x1 ) ) / ( touch.move->x2 - touch.move->x1 ) * touch_joy_radius->value;
+			touch.forward = ( ( touch.move_button->y2 + touch.move_button->y1 ) - y * 2 ) / ( touch.move_button->y2 - touch.move_button->y1 ) * touch_joy_radius->value;
+			touch.side = ( x * 2 - ( touch.move_button->x2 + touch.move_button->x1 ) ) / ( touch.move_button->x2 - touch.move_button->x1 ) * touch_joy_radius->value;
 		}
-		else if( touch.move->type == touch_dpad )
+		else if( touch.move_button->type == touch_dpad )
 		{
 			// like joy, but without acceleration. useful for bhop
-			touch.forward = round( ( (touch.move->y2 + touch.move->y1) - y * 2 ) / ( touch.move->y2 - touch.move->y1 ) * touch_dpad_radius->value );
-			touch.side = round( ( x * 2 - (touch.move->x2 + touch.move->x1) ) / ( touch.move->x2 - touch.move->x1 ) * touch_dpad_radius->value );
+			touch.forward = round( ( (touch.move_button->y2 + touch.move_button->y1) - y * 2 ) / ( touch.move_button->y2 - touch.move_button->y1 ) * touch_dpad_radius->value );
+			touch.side = round( ( x * 2 - (touch.move_button->x2 + touch.move_button->x1) ) / ( touch.move_button->x2 - touch.move_button->x1 ) * touch_dpad_radius->value );
 		}
 
 		touch.forward = bound( -1, touch.forward, 1 );
@@ -1537,6 +1563,32 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 					result = true;
 				}
 
+				if( button->type == touch_wheel )
+				{
+					string command;
+					touch.wheel_finger = fingerID;
+					touch.wheel_amount = touch.wheel_count = 0;
+
+					Cmd_TokenizeString( button->command );
+
+					touch.wheel_horizontal = !Q_strcmp( Cmd_Argv( 0 ), "_hwheel" );
+
+					Q_snprintf( touch.wheel_up, sizeof( touch.wheel_up ), "%s\n", Cmd_Argv( 1 ) );
+					Q_snprintf( touch.wheel_down, sizeof( touch.wheel_down ), "%s\n", Cmd_Argv( 2 ) );
+					Q_snprintf( touch.wheel_end, sizeof( touch.wheel_end ), "%s\n", Cmd_Argv( 3 ) );
+					if( Q_snprintf( command, sizeof( command ), "%s\n", Cmd_Argv( 4 ) ) > 1)
+					{
+						Cbuf_AddText( command );
+						touch.wheel_count++;
+					}
+
+					// increase precision
+					if( B(flags) & TOUCH_FL_PRECISION )
+						touch.precision = true;
+
+					result = true;
+				}
+
 				// initialize motion when player touched motion zone
 				if( button->type == touch_move || button->type == touch_joy || button->type == touch_dpad  )
 				{
@@ -1568,33 +1620,33 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 
 					// initialize move mode
 					touch.move_finger = fingerID;
-					touch.move = button;
+					touch.move_button = button;
 
-					if( touch.move->type == touch_move )
+					if( touch.move_button->type == touch_move )
 					{
 						// initial position is first touch
 						touch.move_start_x = x;
 						touch.move_start_y = y;
 					}
-					else if( touch.move->type == touch_joy )
+					else if( touch.move_button->type == touch_joy )
 					{
 						// initial position is button center
-						touch.move_start_y = (touch.move->y2 + touch.move->y1) / 2;
-						touch.move_start_x = (touch.move->x2 + touch.move->x1) / 2;
+						touch.move_start_y = (touch.move_button->y2 + touch.move_button->y1) / 2;
+						touch.move_start_x = (touch.move_button->x2 + touch.move_button->x1) / 2;
 
 						// start move instanly
-						touch.forward = ((touch.move->y2 + touch.move->y1) - y * 2) / (touch.move->y2 - touch.move->y1);
-						touch.side = (x * 2 - (touch.move->x2 + touch.move->x1)) / (touch.move->x2 - touch.move->x1);
+						touch.forward = ((touch.move_button->y2 + touch.move_button->y1) - y * 2) / (touch.move_button->y2 - touch.move_button->y1);
+						touch.side = (x * 2 - (touch.move_button->x2 + touch.move_button->x1)) / (touch.move_button->x2 - touch.move_button->x1);
 					}
-					else if( touch.move->type == touch_dpad )
+					else if( touch.move_button->type == touch_dpad )
 					{
 						// dame as joy, but round
-						touch.move_start_y = (touch.move->y2 + touch.move->y1) / 2;
-						touch.move_start_x = (touch.move->x2 + touch.move->x1) / 2;
+						touch.move_start_y = (touch.move_button->y2 + touch.move_button->y1) / 2;
+						touch.move_start_x = (touch.move_button->x2 + touch.move_button->x1) / 2;
 
 						// start move instanly
-						touch.forward = round(((touch.move->y2 + touch.move->y1) - y * 2) / (touch.move->y2 - touch.move->y1));
-						touch.side = round((x * 2 - (touch.move->x2 + touch.move->x1)) / (touch.move->x2 - touch.move->x1));
+						touch.forward = round(((touch.move_button->y2 + touch.move_button->y1) - y * 2) / (touch.move_button->y2 - touch.move_button->y1));
+						touch.side = round((x * 2 - (touch.move_button->x2 + touch.move_button->x1)) / (touch.move_button->x2 - touch.move_button->x1));
 					}
 				}
 
@@ -1659,12 +1711,27 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 					result = true;
 				}
 
+				// handle wheel end
+				if( button->type == touch_wheel )
+				{
+					if( touch.wheel_count )
+						Cbuf_AddText( touch.wheel_end );
+
+					// disable precision mode
+					if( B(flags) & TOUCH_FL_PRECISION )
+						touch.precision = false;
+
+					touch.wheel_finger = -1;
+
+					result = true;
+				}
+
 				// release motion buttons
 				if( button->type == touch_move || button->type == touch_joy || button->type == touch_dpad )
 				{
 					touch.move_finger = -1;
 					touch.forward = touch.side = 0;
-					touch.move = NULL;
+					touch.move_button = NULL;
 				}
 
 				// release look buttons
