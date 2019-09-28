@@ -362,7 +362,12 @@ void IN_MouseEvent( void )
 
 	// touch emu: handle motion
 	if( CVAR_TO_BOOL( touch_emulate ))
-		Touch_KeyEvent( K_MOUSE1, 2 );
+	{
+		if( Key_IsDown( K_SHIFT ) )
+			Touch_KeyEvent( K_MOUSE2, 2 );
+		else
+			Touch_KeyEvent( K_MOUSE1, 2 );
+	}
 
 	if( !in_mouseinitialized || !in_mouseactive )
 		return;
