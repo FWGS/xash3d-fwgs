@@ -809,11 +809,9 @@ void Platform_RunEvents()
 		case event_touch_down:
 		case event_touch_up:
 		case event_touch_move:
-#if 0 // TOUCHTODO
 			IN_TouchEvent( events.queue[i].type, events.queue[i].arg,
 						   events.queue[i].touch.x, events.queue[i].touch.y,
 						   events.queue[i].touch.dx, events.queue[i].touch.dy );
-#endif
 			break;
 
 		case event_key_down:
