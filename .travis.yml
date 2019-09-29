@@ -13,6 +13,12 @@ jdk:
 
 jobs:
   include:
+    - stage: init
+      name: "Initialize webdav cache"
+      os: linux
+      cache: false
+      script:
+        - sh scripts/yadisk_clear.sh
     - stage: build
       name: "Build for Linux i686"
       cache: ccache
@@ -128,8 +134,17 @@ jobs:
         - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
       after_script:
         - sh scripts/continious_upload.sh xash3d-vc.7z xash3d-vc2008-sln.7z
-
-branches:
-  except:
-# Do not build tags that we create when we upload to GitHub Releases
-    - /^(?i:continuous)/
+    - stage: deploy
+      name: "Deploy to github repo"
+      os: linux
+      cache: false
+      script:
+        - |
+          sh scripts/travis-deploy.sh
+          xash3d-fwgs-i686.AppImage
+          xash3d-fwgs-x86_64.AppImage
+          xash3d-vc.7z
+          xash3d-vc2008-sln.7z
+          xashdroid.apk
+          xashds-linux-i686
+          xashds-linux-x86_64
