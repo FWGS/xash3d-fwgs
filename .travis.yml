@@ -4,7 +4,7 @@ sudo: false
 env:
   global:
     - SDL_VERSION=2.0.8
-    - DEPLOY_BRANCH=newengine
+    - DEPLOY_BRANCH=anewengine
 git:
   depth: 50
   submodules: true
