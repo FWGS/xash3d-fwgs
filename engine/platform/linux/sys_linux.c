@@ -45,12 +45,14 @@ void Platform_Sleep( int msec )
 qboolean Sys_DebuggerPresent( void )
 {
 	char buf[1024];
+	ssize_t num_read;
+	int status_fd;
 
-	int status_fd = open( "/proc/self/status", O_RDONLY );
+	status_fd = open( "/proc/self/status", O_RDONLY );
 	if ( status_fd == -1 )
 		return 0;
 
-	ssize_t num_read = read( status_fd, buf, sizeof( buf ) );
+	num_read = read( status_fd, buf, sizeof( buf ) );
 	close( status_fd );
 
 	if ( num_read > 0 )
