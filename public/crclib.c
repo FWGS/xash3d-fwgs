@@ -118,9 +118,9 @@ void CRC32_ProcessBuffer( dword *pulCRC, const void *pBuffer, int nBuffer )
 JustAfew:
 	switch( nBuffer )
 	{
-	case 7: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8);
-	case 6: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8);
-	case 5: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8);
+	case 7: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
+	case 6: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
+	case 5: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
 	case 4:
 		memcpy( &tmp, pb, sizeof(dword));
 		ulCrc ^= tmp;	// warning, this only works on little-endian.
@@ -130,9 +130,9 @@ JustAfew:
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		*pulCRC = ulCrc;
 		return;
-	case 3: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8);
-	case 2: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8);
-	case 1: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8);
+	case 3: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
+	case 2: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
+	case 1: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
 	case 0: *pulCRC = ulCrc;
 		return;
 	}
@@ -146,9 +146,9 @@ JustAfew:
 
 	switch( nFront )
 	{
-	case 3: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8);
-	case 2: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8);
-	case 1: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8);
+	case 3: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
+	case 2: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
+	case 1: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
 	}
 
 	nMain = nBuffer >> 3;
