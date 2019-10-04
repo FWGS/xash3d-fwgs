@@ -63,9 +63,6 @@ class Android:
 		if self.ndk_rev not in [10, 19, 20]:
 			ctx.fatal('Unknown NDK revision: %d' % (self.ndk_rev))
 
-		if self.is_host() and self.ndk_rev < 20:
-			ctx.fatal('Using host toolchain with this NDK revision is untested. You can comment this check, but you\'re on your own!')
-
 		if self.ndk_rev >= 19 or 'clang' in self.toolchain:
 			self.clang = True
 
@@ -220,15 +217,26 @@ class Android:
 
 	def cflags(self, cxx = False):
 		cflags = []
-		if self.is_host():
-			if self.ndk_rev >= 19:
+
+		if self.ndk_rev < 20:
+			cflags += ['--sysroot=%s' % (self.sysroot())]
+
+			if self.is_host():
+				# Clang builtin redefine w/ different calling convention bug
+				# NOTE: I did not added complex.h functions here, despite
+				# that NDK devs forgot to put __NDK_FPABI_MATH__ for complex
+				# math functions
+				# I personally don't need complex numbers support, but if you want it
+				# just run sed to patch header
+				funcs = [ 'strtod', 'strtof', 'strtold' ]
+				for f in funcs:
+					cflags += ['-fno-builtin-%s' % f]
+		else:
+			if self.is_host():
 				cflags += [
 					'--sysroot=%s/sysroot' % (self.gen_gcc_toolchain_path()),
 					'-I%s/usr/include/' % (self.sysroot())
 				]
-			else: cflags += ['--sysroot=%s' % (self.sysroot())]
-		elif self.ndk_rev < 20:
-			cflags += ['--sysroot=%s' % (self.sysroot())]
 
 		cflags += ['-I%s' % (self.system_stl()), '-DANDROID', '-D__ANDROID__']
 		if cxx and not self.is_clang() and self.toolchain not in ['4.8','4.9']:
@@ -242,7 +250,7 @@ class Android:
 					cflags += [ '-mvectorize-with-neon-quad' ]
 
 				if self.is_hardfloat:
-					cflags += ['-D_NDK_MATH_NO_SOFTFP=1', '-mhard-float', '-mfloat-abi=hard', '-DLOAD_HARDFP', '-DSOFTFP_LINK']
+					cflags += ['-D_NDK_MATH_NO_SOFTFP=1', '-mfloat-abi=hard', '-DLOAD_HARDFP', '-DSOFTFP_LINK']
 				else:
 					cflags += ['-mfloat-abi=softfp']
 			else:
