@@ -536,7 +536,7 @@ static qboolean R_LoadRenderer( const char *refopt )
 	return true;
 }
 
-static void SetWidthAndHeightFromCommandLine()
+static void SetWidthAndHeightFromCommandLine( void )
 {
 	int width, height;
 
@@ -552,7 +552,7 @@ static void SetWidthAndHeightFromCommandLine()
 	R_SaveVideoMode( width, height );
 }
 
-static void SetFullscreenModeFromCommandLine( )
+static void SetFullscreenModeFromCommandLine( void )
 {
 #ifndef __ANDROID__
 	if ( Sys_CheckParm("-fullscreen") )

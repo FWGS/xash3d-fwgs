@@ -213,14 +213,14 @@ typedef struct cl_enginefuncs_s
 	int	(*pfnRandomLong)( int lLow, int lHigh );
 	void	(*pfnHookEvent)( const char *name, void ( *pfnEvent )( struct event_args_s *args ));
 
-	int	(*Con_IsVisible) ();
+	int	(*Con_IsVisible) ( void );
 	const char *(*pfnGetGameDirectory)( void );
 	struct cvar_s *(*pfnGetCvarPointer)( const char *szName );
 	const char *(*Key_LookupBinding)( const char *pBinding );
 	const char *(*pfnGetLevelName)( void );
 	void	(*pfnGetScreenFade)( struct screenfade_s *fade );
 	void	(*pfnSetScreenFade)( struct screenfade_s *fade );
-	void*	(*VGui_GetPanel)( );
+	void*	(*VGui_GetPanel)( void );
 	void	(*VGui_ViewportPaintBackground)( int extents[4] );
 
 	byte*	(*COM_LoadFile)( const char *path, int usehunk, int *pLength );

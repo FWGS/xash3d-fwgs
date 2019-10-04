@@ -564,7 +564,7 @@ uint ID_CheckRawId( bloomfilter_t filter )
 #define SYSTEM_XOR_MASK 0x10331c2dce4c91db
 #define GAME_XOR_MASK 0x7ffc48fbac1711f1
 
-void ID_Check()
+void ID_Check( void )
 {
 	uint weight = BloomFilter_Weight( id );
 	uint mincount = weight >> 2;
@@ -588,7 +588,7 @@ void ID_Check()
 #endif
 }
 
-const char *ID_GetMD5()
+const char *ID_GetMD5( void )
 {
 	if( id_customid[0] )
 		return id_customid;

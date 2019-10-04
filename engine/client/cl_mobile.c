@@ -44,7 +44,7 @@ static void pfnVibrate( float life, char flags )
 	Platform_Vibrate( life * vibration_length->value, flags );
 }
 
-static void Vibrate_f()
+static void Vibrate_f( void )
 {
 	if( Cmd_Argc() != 2 )
 	{

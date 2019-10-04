@@ -161,7 +161,7 @@ static void VID_Mode_f( void )
 	R_ChangeDisplaySettings( w, h, Cvar_VariableInteger( "fullscreen" ) );
 }
 
-void VID_Init()
+void VID_Init( void )
 {
 	// system screen width and height (don't suppose for change from console at all)
 	Cvar_Get( "width", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen width" );

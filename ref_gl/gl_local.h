@@ -430,8 +430,8 @@ void GL_RebuildLightmaps( void );
 void GL_InitRandomTable( void );
 void GL_BuildLightmaps( void );
 void GL_ResetFogColor( void );
-void R_GenerateVBO();
-void R_ClearVBO();
+void R_GenerateVBO( void );
+void R_ClearVBO( void );
 void R_AddDecalVBO( decal_t *pdecal, msurface_t *surf );
 
 //

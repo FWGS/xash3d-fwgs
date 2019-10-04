@@ -653,7 +653,7 @@ static int LM_AllocBlock( int w, int h, int *x, int *y )
 	return true;
 }
 
-static void LM_UploadDynamicBlock()
+static void LM_UploadDynamicBlock( void )
 {
 	int	height = 0, i;
 
@@ -1781,7 +1781,7 @@ R_GenerateVBO
 Allocate memory for arrays, fill it with vertex attribs and upload to GPU
 ===================
 */
-void R_GenerateVBO()
+void R_GenerateVBO( void )
 {
 	int numtextures = WORLDMODEL->numtextures;
 	int numlightmaps = gl_lms.current_lightmap_texture;
@@ -2033,7 +2033,7 @@ R_ClearVBO
 free all vbo data
 =============
 */
-void R_ClearVBO()
+void R_ClearVBO( void )
 {
 	vboarray_t *vbo;
 
