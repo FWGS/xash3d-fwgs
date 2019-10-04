@@ -623,7 +623,7 @@ void Sequence_ReadCommandData( sequenceCommandEnum_e commandEnum, sequenceComman
 {
 	char temp[1024];
 
-	if( commandEnum >= SEQUENCE_MODIFIER_EFFECT || commandEnum <= SEQUENCE_MODIFIER_TEXTCHANNEL )
+	if( commandEnum >= SEQUENCE_MODIFIER_EFFECT && commandEnum <= SEQUENCE_MODIFIER_TEXTCHANNEL )
 		defaults->modifierBitField |= BIT( SEQUENCE_MODIFIER_EFFECT - SEQUENCE_COMMAND_NOOP );
 
 	switch( commandEnum )
