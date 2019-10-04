@@ -143,7 +143,7 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	return false;
 }
 
-void *SW_LockBuffer()
+void *SW_LockBuffer( void )
 {
 	if( sw.renderer )
 	{
@@ -181,7 +181,7 @@ void *SW_LockBuffer()
 	}
 }
 
-void SW_UnlockBuffer()
+void SW_UnlockBuffer( void )
 {
 	if( sw.renderer )
 	{
@@ -713,8 +713,7 @@ static void GL_SetupAttributes( void )
 	ref.dllFuncs.GL_SetupAttributes( glw_state.safe );
 }
 
-
-void GL_SwapBuffers()
+void GL_SwapBuffers( void )
 {
 	SDL_GL_SwapWindow( host.hWnd );
 }

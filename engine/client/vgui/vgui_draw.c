@@ -533,19 +533,19 @@ void VGui_MouseMove( int x, int y )
 		vgui.MouseMove( x / xscale, y / yscale );
 }
 
-void VGui_Paint()
+void VGui_Paint( void )
 {
 	if(vgui.initialized)
 		vgui.Paint();
 }
 
-void VGui_RunFrame()
+void VGui_RunFrame( void )
 {
 	//stub
 }
 
 
-void *GAME_EXPORT VGui_GetPanel()
+void *GAME_EXPORT VGui_GetPanel( void )
 {
 	if( vgui.initialized )
 		return vgui.GetPanel();

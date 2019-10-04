@@ -2061,7 +2061,7 @@ void CL_ReadPointFile_f( void )
 	else Con_Printf( "map %s has no leaks!\n", clgame.mapname );
 }
 
-void CL_FreeDeadBeams()
+void CL_FreeDeadBeams( void )
 {
 	BEAM *pBeam, *pNext, *pPrev = NULL;
 	// draw temporary entity beams

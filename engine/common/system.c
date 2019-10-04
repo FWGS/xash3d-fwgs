@@ -49,7 +49,7 @@ double GAME_EXPORT Sys_DoubleTime( void )
 
 #if defined __linux__ || ( defined _WIN32 && !defined XASH_64BIT )
 	#undef DEBUG_BREAK
-	qboolean Sys_DebuggerPresent(); // see sys_linux.c
+	qboolean Sys_DebuggerPresent( void ); // see sys_linux.c
 	#ifdef _MSC_VER
 		#define DEBUG_BREAK \
 			if( Sys_DebuggerPresent() ) \

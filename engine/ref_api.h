@@ -279,7 +279,7 @@ typedef struct ref_api_s
 	void	(*CL_CenterPrint)( const char *s, float y );
 	void (*Con_DrawStringLen)( const char *pText, int *length, int *height );
 	int (*Con_DrawString)( int x, int y, const char *string, rgba_t setColor );
-	void	(*CL_DrawCenterPrint)();
+	void	(*CL_DrawCenterPrint)( void );
 
 	// entity management
 	struct cl_entity_s *(*GetLocalPlayer)( void );
@@ -377,12 +377,12 @@ typedef struct ref_api_s
 	int   (*GL_SetAttribute)( int attr, int value );
 	int   (*GL_GetAttribute)( int attr, int *value );
 	void *(*GL_GetProcAddress)( const char *name );
-	void (*GL_SwapBuffers)();
+	void (*GL_SwapBuffers)( void );
 
 	// SW
 	qboolean (*SW_CreateBuffer)( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
-	void *(*SW_LockBuffer)();
-	void (*SW_UnlockBuffer)();
+	void *(*SW_LockBuffer)( void );
+	void (*SW_UnlockBuffer)( void );
 
 	// gamma
 	void (*BuildGammaTable)( float lightgamma, float brightness );

@@ -587,7 +587,7 @@ void GL_InitExtensionsGLES( void )
 	}
 }
 #else
-void GL_InitExtensionsBigGL()
+void GL_InitExtensionsBigGL( void )
 {
 	// intialize wrapper type
 	glConfig.context = CONTEXT_TYPE_GL;

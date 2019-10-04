@@ -20,12 +20,12 @@ GNU General Public License for more details.
 
 static char s_szLastError[1024] = "";
 
-const char *COM_GetLibraryError()
+const char *COM_GetLibraryError( void )
 {
 	return s_szLastError;
 }
 
-void COM_ResetLibraryError()
+void COM_ResetLibraryError( void )
 {
 	s_szLastError[0] = 0;
 }
