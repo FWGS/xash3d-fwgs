@@ -240,7 +240,7 @@ int CSCR_WriteGameCVars( file_t *cfg, const char *scriptfilename )
 			{
 				// cvars will be placed in game.cfg and restored on map start
 				if( var.flags & FCVAR_USERINFO )
-					FS_Printf( cfg, "%s \"%s\"\n", var.name, cvar->string );
+					FS_Printf( cfg, "setinfo %s \"%s\"\n", var.name, cvar->string );
 				else FS_Printf( cfg, "%s \"%s\"\n", var.name, cvar->string );
 			}
 			count++;
