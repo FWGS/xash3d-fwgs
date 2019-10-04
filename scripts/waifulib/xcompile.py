@@ -19,13 +19,21 @@ from collections import OrderedDict
 import os
 import sys
 
+ANDROID_NDK_ENVVARS = ['ANDROID_NDK_HOME', 'ANDROID_NDK']
+ANDROID_NDK_SUPPORTED = [10, 19, 20]
+ANDROID_NDK_HARDFP_MAX = 11 # latest version that supports hardfp
+ANDROID_NDK_GCC_MAX = 17 # latest NDK that ships with GCC
+ANDROID_NDK_UNIFIED_SYSROOT_MIN = 15
+ANDROID_NDK_SYSROOT_FLAG_MAX = 19 # latest NDK that need --sysroot flag
+ANDROID_NDK_API_MIN = { 10: 3, 19: 16, 20: 16 } # minimal API level ndk revision supports
+ANDROID_64BIT_API_MIN = 21 # minimal API level that supports 64-bit targets
+
 # This class does support ONLY r10e and r19c/r20 NDK
 class Android:
 	ctx            = None # waf context
 	arch           = None
 	toolchain      = None
 	api            = None
-	toolchain_path = None
 	ndk_home       = None
 	ndk_rev        = 0
 	is_hardfloat   = False
@@ -37,13 +45,13 @@ class Android:
 		self.toolchain = toolchain
 		self.arch = arch
 
-		for i in ['ANDROID_NDK_HOME', 'ANDROID_NDK']:
+		for i in ANDROID_NDK_ENVVARS:
 			self.ndk_home = os.getenv(i)
 			if self.ndk_home != None:
 				break
-
-		if not self.ndk_home:
-			ctx.fatal('Set ANDROID_NDK_HOME environment variable pointing to the root of Android NDK!')
+		else:
+			ctx.fatal('Set %s environment variable pointing to the root of Android NDK!' %
+				' or '.join(ANDROID_NDK_ENVVARS))
 
 		# TODO: this were added at some point of NDK development
 		# but I don't know at which version
@@ -57,29 +65,29 @@ class Android:
 
 					if 'Pkg.Revision' in trimed_tokens:
 						self.ndk_rev = int(trimed_tokens[1].split('.')[0])
+
+			if self.ndk_rev not in ANDROID_NDK_SUPPORTED:
+				ctx.fatal('Unknown NDK revision: %d' % (self.ndk_rev))
 		else:
-			self.ndk_rev = 10
+			self.ndk_rev = ANDROID_NDK_SUPPORTED[0]
 
-		if self.ndk_rev not in [10, 19, 20]:
-			ctx.fatal('Unknown NDK revision: %d' % (self.ndk_rev))
-
-		if self.ndk_rev >= 19 or 'clang' in self.toolchain:
+		if 'clang' in self.toolchain:
 			self.clang = True
 
 		if self.arch == 'armeabi-v7a-hard':
-			if self.ndk_rev <= 10:
+			if self.ndk_rev <= ANDROID_NDK_HARDFP_MAX:
 				self.arch = 'armeabi-v7a' # Only armeabi-v7a have hard float ABI
 				self.is_hardfloat = True
 			else:
 				ctx.fatal('NDK does not support hardfloat ABI')
 
-		if self.is_arm64() or self.is_amd64() and self.api < 21:
-			Logs.warn('API level for 64-bit target automatically was set to 21')
-			self.api = 21
-		elif self.ndk_rev >= 19 and self.api < 16:
-			Logs.warn('API level automatically was set to 16 due to NDK support')
-			self.api = 16
-		self.toolchain_path = self.gen_toolchain_path()
+		if self.api < ANDROID_NDK_API_MIN[self.ndk_rev]:
+			self.api = ANDROID_NDK_API_MIN[self.ndk_rev]
+			Logs.warn('API level automatically was set to %d due to NDK support' % self.api)
+
+		if self.is_arm64() or self.is_amd64() and self.api < ANDROID_64BIT_API_MIN:
+			self.api = ANDROID_64BIT_API_MIN
+			Logs.warn('API level for 64-bit target automatically was set to %d' % self.api)
 
 	def is_host(self):
 		'''
@@ -136,29 +144,32 @@ class Android:
 		else:
 			return self.arch + '-linux-android'
 
-	def gen_gcc_toolchain_path(self):
-		path = 'toolchains'
+	def gen_host_toolchain(self):
+		# With host toolchain we don't care about OS
+		# so just download NDK for Linux x86_64
+		if self.is_host():
+			return 'linux-x86_64'
 
 		if sys.platform.startswith('win32') or sys.platform.startswith('cygwin'):
-			toolchain_host = 'windows'
+			osname = 'windows'
 		elif sys.platform.startswith('darwin'):
-			toolchain_host = 'darwin'
-		elif sys.platform.startswith('linux') or self.is_host():
-			toolchain_host = 'linux'
+			osname = 'darwin'
+		elif sys.platform.startswith('linux'):
+			osname = 'linux'
 		else:
 			self.ctx.fatal('Unsupported by NDK host platform')
 
-		toolchain_host += '-'
-
-		# Assuming we are building on x86
 		if sys.maxsize > 2**32:
-			toolchain_host += 'x86_64'
-		else: toolchain_host += 'x86'
+			arch = 'x86_64'
+		else: arch = 'x86'
+
+		return '%s-%s' % (osname, arch)
+
+	def gen_gcc_toolchain_path(self):
+		path = 'toolchains'
+		toolchain_host = self.gen_host_toolchain()
 
 		if self.is_clang():
-			if self.ndk_rev < 19:
-				raise self.ctx.fatal('Clang is not supported for this NDK')
-
 			toolchain_folder = 'llvm'
 		else:
 			if self.is_host():
@@ -183,12 +194,12 @@ class Android:
 	def cc(self):
 		if self.is_host():
 			return 'clang --target=%s%d' % (self.ndk_triplet(), self.api)
-		return self.toolchain_path + ('clang' if self.is_clang() else 'gcc')
+		return self.gen_toolchain_path() + ('clang' if self.is_clang() else 'gcc')
 
 	def cxx(self):
 		if self.is_host():
 			return 'clang++ --target=%s%d' % (self.ndk_triplet(), self.api)
-		return self.toolchain_path + ('clang++' if self.is_clang() else 'g++')
+		return self.gen_toolchain_path() + ('clang++' if self.is_clang() else 'g++')
 
 	def strip(self):
 		if self.is_host():
@@ -210,7 +221,7 @@ class Android:
 		return os.path.abspath(os.path.join(self.ndk_home, path))
 
 	def sysroot(self):
-		if self.ndk_rev >= 19:
+		if self.ndk_rev >= ANDROID_NDK_UNIFIED_SYSROOT_MIN:
 			return os.path.abspath(os.path.join(self.ndk_home, 'sysroot'))
 		else:
 			return self.libsysroot()
@@ -218,19 +229,8 @@ class Android:
 	def cflags(self, cxx = False):
 		cflags = []
 
-		if self.ndk_rev < 20:
+		if self.ndk_rev <= ANDROID_NDK_SYSROOT_FLAG_MAX:
 			cflags += ['--sysroot=%s' % (self.sysroot())]
-
-			if self.is_host():
-				# Clang builtin redefine w/ different calling convention bug
-				# NOTE: I did not added complex.h functions here, despite
-				# that NDK devs forgot to put __NDK_FPABI_MATH__ for complex
-				# math functions
-				# I personally don't need complex numbers support, but if you want it
-				# just run sed to patch header
-				funcs = [ 'strtod', 'strtof', 'strtold' ]
-				for f in funcs:
-					cflags += ['-fno-builtin-%s' % f]
 		else:
 			if self.is_host():
 				cflags += [
@@ -239,8 +239,10 @@ class Android:
 				]
 
 		cflags += ['-I%s' % (self.system_stl()), '-DANDROID', '-D__ANDROID__']
+
 		if cxx and not self.is_clang() and self.toolchain not in ['4.8','4.9']:
 			cflags += ['-fno-sized-deallocation']
+
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
 				# ARMv7 support
@@ -249,8 +251,18 @@ class Android:
 				if not self.is_clang() and not self.is_host():
 					cflags += [ '-mvectorize-with-neon-quad' ]
 
-				if self.is_hardfloat:
+				if self.is_hardfp():
 					cflags += ['-D_NDK_MATH_NO_SOFTFP=1', '-mfloat-abi=hard', '-DLOAD_HARDFP', '-DSOFTFP_LINK']
+
+					if self.is_host():
+					# Clang builtin redefine w/ different calling convention bug
+					# NOTE: I did not added complex.h functions here, despite
+					# that NDK devs forgot to put __NDK_FPABI_MATH__ for complex
+					# math functions
+					# I personally don't need complex numbers support, but if you want it
+					# just run sed to patch header
+						for f in ['strtod', 'strtof', 'strtold']:
+							cflags += ['-fno-builtin-%s' % f]
 				else:
 					cflags += ['-mfloat-abi=softfp']
 			else:
@@ -266,7 +278,7 @@ class Android:
 		if self.is_host():
 			linkflags += ['--gcc-toolchain=%s' % self.gen_gcc_toolchain_path()]
 
-		if self.ndk_rev < 20:
+		if self.ndk_rev <= ANDROID_NDK_SYSROOT_FLAG_MAX:
 			linkflags += ['--sysroot=%s' % (self.sysroot())]
 		elif self.is_host():
 			linkflags += ['--sysroot=%s/sysroot' % (self.gen_gcc_toolchain_path())]
@@ -284,9 +296,11 @@ class Android:
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
 				ldflags += ['-march=armv7-a', '-mthumb']
+
 				if not self.is_clang() and not self.is_host(): # lld only
 					ldflags += ['-Wl,--fix-cortex-a8']
-				if self.is_hardfloat:
+
+				if self.is_hardfp():
 					ldflags += ['-Wl,--no-warn-mismatch', '-lm_hard']
 			else:
 				ldflags += ['-march=armv5te']
