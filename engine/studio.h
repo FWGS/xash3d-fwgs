@@ -361,7 +361,7 @@ typedef struct mstudiotex_s
 typedef struct
 {
 	byte		weight[4];
-	char		bone[4]; 
+	signed char		bone[4]; 
 } mstudioboneweight_t;
 
 // skin families
