@@ -71,7 +71,7 @@ class Android:
 		else:
 			self.ndk_rev = ANDROID_NDK_SUPPORTED[0]
 
-		if 'clang' in self.toolchain:
+		if 'clang' in self.toolchain or self.ndk_rev > ANDROID_NDK_GCC_MAX:
 			self.clang = True
 
 		if self.arch == 'armeabi-v7a-hard':
