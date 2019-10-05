@@ -662,7 +662,7 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 
 		// otherwise, create a format string for the decimals
 		Q_sprintf( fmt, "%%.%if%s", digitsafterdecimal, suffix );
-		Q_sprintf( val, fmt, value );
+		Q_sprintf( val, fmt, (double)value );
 	}
 
 	// copy from in to out

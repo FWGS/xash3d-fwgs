@@ -176,6 +176,7 @@ def configure(conf):
 		'-Werror=duplicated-branches', # BEWARE: buggy
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
+		'-Werror=double-promotion',
 		'-Wstrict-aliasing',
 	]
 
@@ -229,6 +230,13 @@ def configure(conf):
 	conf.env.append_unique('CFLAGS', cflags)
 	conf.env.append_unique('CXXFLAGS', cxxflags)
 	conf.env.append_unique('LINKFLAGS', linkflags)
+
+	try:
+		conf.check_cc(header_name='tgmath.h')
+	except:
+		pass
+	else:
+		conf.env.append_unique('DEFINES', 'HAVE_TGMATH_H')
 
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	# we don't need game launcher on dedicated
