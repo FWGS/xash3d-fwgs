@@ -220,7 +220,7 @@ DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 	/* Prepare the arguments. */
 
 	int len = (*env)->GetArrayLength(env, array);
-	char* argv[1 + len + 1];
+	char** argv = calloc( 1 + len + 1, sizeof( char ** ));
 	argc = 0;
 	argv[argc++] = strdup("app_process");
 	for (i = 0; i < len; ++i) {
@@ -267,6 +267,7 @@ DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 
 	for (i = 0; i < argc; ++i)
 		free(argv[i]);
+	free(argv);
 
 	return status;
 }
