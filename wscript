@@ -3,13 +3,15 @@
 # a1batross, mittorn, 2018
 
 from __future__ import print_function
-from waflib import Logs
+from waflib import Logs, Context, Configure
 import sys
 import os
 
 VERSION = '0.99'
 APPNAME = 'xash3d-fwgs'
 top = '.'
+
+Context.Context.line_just = 55 # should fit for everything on 80x26
 
 class Subproject:
 	name      = ''
@@ -65,12 +67,12 @@ def options(opt):
 		opt.load('msvc msdev msvs')
 	opt.load('reconfigure')
 
-
+@Configure.conf
 def filter_cflags(conf, flags, required_flags, cxx):
 	supported_flags = []
 	check_flags = required_flags + ['-Werror']
-	conf.msg('Detecting supported flags for %s' % ('C++' if cxx else 'C'),'...')
-	
+	conf.msg('Detecting supported flags for %s' % ('C++' if cxx else 'C'), '...')
+
 	for flag in flags:
 		conf.start_msg('Checking for %s' % flag)
 		try:
@@ -119,7 +121,6 @@ def configure(conf):
 
 	# modify options dictionary early
 	if conf.env.DEST_OS == 'android':
-		conf.options.ALLOW64 = True # skip pointer length check
 		conf.options.NO_VGUI = True # skip vgui
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
@@ -189,7 +190,23 @@ def configure(conf):
 		'-Werror=int-conversion',
 		'-Werror=return-type',
 		'-Werror=parentheses',
+		'-Werror=vla',
+		'-Werror=tautological-compare',
+		'-Werror=duplicated-cond',
+		'-Werror=duplicated-branches', # BEWARE: buggy
+		'-Werror=bool-compare',
+		'-Werror=bool-operation',
+		'-Wstrict-aliasing',
 	]
+
+	c_compiler_optional_flags = [
+		'-Werror=implicit-int',
+		'-Werror=strict-prototypes',
+		'-Werror=old-style-declaration',
+		'-Werror=old-style-definition',
+		'-Werror=declaration-after-statement'
+	]
+
 
 	conf.env.append_unique('LINKFLAGS', conf.get_flags_by_type(
 		linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC))
@@ -201,9 +218,9 @@ def configure(conf):
 	else:
 		conf.check_cc(cflags=cflags, msg= 'Checking for required C flags')
 		conf.check_cxx(cxxflags=cflags, msg= 'Checking for required C++ flags')
-	
-		conf.env.append_unique('CFLAGS', cflags + filter_cflags(conf, compiler_optional_flags, cflags, False))
-		conf.env.append_unique('CXXFLAGS', cflags + filter_cflags(conf, compiler_optional_flags, cflags, True))
+
+		conf.env.append_unique('CFLAGS', cflags + conf.filter_cflags(compiler_optional_flags + c_compiler_optional_flags, cflags, False))
+		conf.env.append_unique('CXXFLAGS', cflags + conf.filter_cflags(compiler_optional_flags, cflags, True))
 
 
 	conf.env.DEDICATED     = conf.options.DEDICATED
@@ -230,7 +247,6 @@ def configure(conf):
 		conf.check_cc( lib='dbghelp' )
 		conf.check_cc( lib='psapi' )
 		conf.check_cc( lib='ws2_32' )
-
 
 	# indicate if we are packaging for Linux/BSD
 	if(not conf.options.WIN_INSTALL and
