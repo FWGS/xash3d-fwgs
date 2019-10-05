@@ -200,7 +200,7 @@ void Host_ClientFrame( void )
 
 void Host_InputFrame( void )
 {
-	Cbuf_Execute( void );
+	Cbuf_Execute( );
 }
 
 void VID_InitDefaultResolution( void )
