@@ -148,27 +148,27 @@ qboolean CL_IsBackgroundMap( void )
 	return false;
 }
 
-void CL_Init()
+void CL_Init( void )
 {
 
 }
 
-void Key_Init()
+void Key_Init( void )
 {
 
 }
 
-void IN_Init()
+void IN_Init( void )
 {
 
 }
 
-void CL_Drop()
+void CL_Drop( void )
 {
 
 }
 
-void CL_ClearEdicts()
+void CL_ClearEdicts( void )
 {
 
 }
@@ -183,37 +183,37 @@ void UI_SetActiveMenu( qboolean fActive )
 
 }
 
-void CL_WriteMessageHistory()
+void CL_WriteMessageHistory( void )
 {
 
 }
 
-void Host_ClientBegin()
+void Host_ClientBegin( void )
 {
 
 }
 
-void Host_ClientFrame()
+void Host_ClientFrame( void )
 {
 
 }
 
-void Host_InputFrame()
+void Host_InputFrame( void )
 {
-	Cbuf_Execute();
+	Cbuf_Execute( void );
 }
 
-void VID_InitDefaultResolution()
-{
-	
-}
-
-void Con_Init()
+void VID_InitDefaultResolution( void )
 {
 	
 }
 
-void R_ClearAllDecals()
+void Con_Init( void )
+{
+	
+}
+
+void R_ClearAllDecals( void )
 {
 
 }
@@ -232,37 +232,37 @@ int S_GetCurrentStaticSounds( soundlist_t *pout, int size )
 	return 0;
 }
 
-int CL_GetMaxClients()
+int CL_GetMaxClients( void )
 {
 	return 0;
 }
 
-void IN_TouchInitConfig()
+void IN_TouchInitConfig( void )
 {
 
 }
 
-void CL_Disconnect()
+void CL_Disconnect( void )
 {
 
 }
 
-void CL_Shutdown()
+void CL_Shutdown( void )
 {
 
 }
 
-void R_ClearStaticEntities()
+void R_ClearStaticEntities( void )
 {
 
 }
 
-void Host_Credits()
+void Host_Credits( void )
 {
 
 }
 
-qboolean UI_CreditsActive()
+qboolean UI_CreditsActive( void )
 {
 	return false;
 }
@@ -272,7 +272,7 @@ void GL_FreeImage( const char *name )
 
 }
 
-void S_StopBackgroundTrack()
+void S_StopBackgroundTrack( void )
 {
 
 }
@@ -307,7 +307,7 @@ const byte *GL_TextureData( unsigned int texnum )
 	return NULL;
 }
 
-void SCR_CheckStartupVids()
+void SCR_CheckStartupVids( void )
 {
 
 }
