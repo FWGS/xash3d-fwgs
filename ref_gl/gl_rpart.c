@@ -265,7 +265,7 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 		}
 		else if( p->type == pt_slowgrav )
 		{
-			p->vel[2] = gravity * 0.05;
+			p->vel[2] = gravity * 0.05f;
 		}
 	}
 

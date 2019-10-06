@@ -24,6 +24,10 @@ GNU General Public License for more details.
 //#include "client.h"
 #include "pmtrace.h"
 
+#ifdef HAVE_TGMATH_H
+#include <tgmath.h>
+#endif
+
 #define EVENT_CLIENT	5000	// less than this value it's a server-side studio events
 #define MAX_LOCALLIGHTS	4
 
@@ -641,7 +645,7 @@ float R_StudioEstimateFrame( cl_entity_t *e, mstudioseqdesc_t *pseqdesc )
 	else dfdt = 0;
 
 	if( pseqdesc->numframes <= 1 ) f = 0.0;
-	else f = (e->curstate.frame * (pseqdesc->numframes - 1)) / 256.0;
+	else f = (e->curstate.frame * (pseqdesc->numframes - 1)) / 256.0f;
  
 	f += dfdt;
 
@@ -3068,7 +3072,7 @@ static void GL_StudioDrawShadow( void )
 
 	if( r_shadows.value && g_studio.rendermode != kRenderTransAdd && !FBitSet( RI.currentmodel->flags, STUDIO_AMBIENT_LIGHT ))
 	{
-		float	color = 1.0 - (tr.blend * 0.5);
+		float	color = 1.0f - (tr.blend * 0.5f);
 
 		pglDisable( GL_TEXTURE_2D );
 		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
@@ -3250,7 +3254,7 @@ void R_StudioEstimateGait( entity_state_t *pplayer )
 	}
 	else
 	{
-		m_pPlayerInfo->gaityaw = ( atan2( est_velocity[1], est_velocity[0] ) * 180 / M_PI );
+		m_pPlayerInfo->gaityaw = ( atan2( est_velocity[1], est_velocity[0] ) * 180 / M_PI_F );
 		if( m_pPlayerInfo->gaityaw > 180.0f ) m_pPlayerInfo->gaityaw = 180.0f;
 		if( m_pPlayerInfo->gaityaw < -180.0f ) m_pPlayerInfo->gaityaw = -180.0f;
 	}

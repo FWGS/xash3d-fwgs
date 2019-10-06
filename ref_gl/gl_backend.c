@@ -737,7 +737,7 @@ void SCR_TimeRefresh_f( void )
 		pglDrawBuffer( GL_FRONT );
 		for( i = 0; i < 128; i++ )
 		{
-			gpGlobals->viewangles[1] = i / 128.0 * 360.0f;
+			gpGlobals->viewangles[1] = i / 128.0f * 360.0f;
 			R_RenderScene();
 		}
 		pglFinish();
@@ -748,7 +748,7 @@ void SCR_TimeRefresh_f( void )
 		for( i = 0; i < 128; i++ )
 		{
 			R_BeginFrame( true );
-			gpGlobals->viewangles[1] = i / 128.0 * 360.0f;
+			gpGlobals->viewangles[1] = i / 128.0f * 360.0f;
 			R_RenderScene();
 			R_EndFrame();
 		}

@@ -169,7 +169,7 @@ void Matrix4x4_CreateRotate( matrix4x4 out, float angle, float x, float y, float
 	y *= len;
 	z *= len;
 
-	angle *= (-M_PI / 180.0f);
+	angle *= (-M_PI_F / 180.0f);
 	SinCos( angle, &s, &c );
 
 	out[0][0]=x * x + c * (1 - x * x);

@@ -19,6 +19,9 @@ GNU General Public License for more details.
 #include "beamdef.h"
 #include "particledef.h"
 #include "entity_types.h"
+#ifdef HAVE_TGMATH_H
+#include <tgmath.h>
+#endif
 
 #define IsLiquidContents( cnt )	( cnt == CONTENTS_WATER || cnt == CONTENTS_SLIME || cnt == CONTENTS_LAVA )
 
@@ -340,8 +343,8 @@ void R_SetupFrustum( void )
 
 	if( RP_NORMALPASS() && ( ENGINE_GET_PARM( PARM_WATER_LEVEL ) >= 3 ))
 	{
-		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97 + sin( gpGlobals->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
-		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03 - sin( gpGlobals->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
+		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97f + sin( gpGlobals->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
+		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03f - sin( gpGlobals->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
 	}
 
 	// build the transformation matrix for the given view angles
@@ -367,7 +370,7 @@ R_SetupProjectionMatrix
 */
 static void R_SetupProjectionMatrix( matrix4x4 m )
 {
-	GLdouble	xMin, xMax, yMin, yMax, zNear, zFar;
+	GLfloat	xMin, xMax, yMin, yMax, zNear, zFar;
 
 	if( RI.drawOrtho )
 	{
@@ -381,10 +384,10 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 	zNear = 4.0f;
 	zFar = max( 256.0f, RI.farClip );
 
-	yMax = zNear * tan( RI.fov_y * M_PI / 360.0 );
+	yMax = zNear * tan( RI.fov_y * M_PI_F / 360.0f );
 	yMin = -yMax;
 
-	xMax = zNear * tan( RI.fov_x * M_PI / 360.0 );
+	xMax = zNear * tan( RI.fov_x * M_PI_F / 360.0f );
 	xMin = -xMax;
 
 	Matrix4x4_CreateProjection( m, xMax, xMin, yMax, yMin, zNear, zFar );
