@@ -1111,11 +1111,13 @@ void GL_SetupAttributes( int safegl )
 	}
 }
 
+void wes_init( const char *gles2 );
+int nanoGL_Init( void );
+
 void GL_OnContextCreated( void )
 {
 	int colorBits[3];
 #ifdef XASH_NANOGL
-	int nanoGL_Init( void );
 	nanoGL_Init();
 #endif
 
@@ -1132,7 +1134,6 @@ void GL_OnContextCreated( void )
 	gEngfuncs.GL_GetAttribute( REF_GL_MULTISAMPLESAMPLES, &glConfig.msaasamples );
 
 #ifdef XASH_WES
-	void wes_init( const char *gles2 );
 	wes_init( "" );
 #endif
 }
