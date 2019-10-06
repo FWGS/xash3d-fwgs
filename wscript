@@ -58,6 +58,9 @@ def options(opt):
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
 		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compability!)')
 
+	grp.add_option('--enable-lto', action = 'store_true', dest = 'LTO', default = False,
+		help = 'enable Link Time Optimization')
+
 	opt.load('subproject')
 
 	opt.add_subproject(subdirs())
@@ -221,6 +224,14 @@ def configure(conf):
 
 		conf.env.append_unique('CFLAGS', cflags + conf.filter_cflags(compiler_optional_flags + c_compiler_optional_flags, cflags, False))
 		conf.env.append_unique('CXXFLAGS', cflags + conf.filter_cflags(compiler_optional_flags, cflags, True))
+
+		if conf.options.LTO:
+			if conf.env.COMPILER_CC == 'gcc' or conf.env.COMPILER_CC == 'clang':
+				conf.env.append_unique('CFLAGS', '-flto')
+				conf.env.append_unique('LINKFLAGS', '-flto')
+			elif conf.env.COMPILER_CC == 'msvc':
+				conf.env.append_unique('CFLAGS', '/GL')
+				conf.env.append_unique('LINKFLAGS', '/LTCG')
 
 
 	conf.env.DEDICATED     = conf.options.DEDICATED
