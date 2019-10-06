@@ -25,7 +25,7 @@ GNU General Public License for more details.
 
 #define UDP_HEADER_SIZE		28
 
-#define FLOW_AVG			( 2.0 / 3.0 )	// how fast to converge flow estimates
+#define FLOW_AVG			( 2.0f / 3.0f )	// how fast to converge flow estimates
 #define FLOW_INTERVAL		0.1		// don't compute more often than this    
 #define MAX_RELIABLE_PAYLOAD		1400		// biggest packet that has frag and or reliable data
 
@@ -1678,7 +1678,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 		NET_SendPacketEx( chan->sock, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), chan->remote_address, splitsize );
 	}
 
-	if( SV_Active() && sv_lan.value && sv_lan_rate.value > 1000.0 )
+	if( SV_Active() && sv_lan.value && sv_lan_rate.value > 1000.0f )
 		fRate = 1.0f / sv_lan_rate.value;
 	else fRate = 1.0f / chan->rate;
 

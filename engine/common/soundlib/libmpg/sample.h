@@ -35,7 +35,7 @@ static _inline int16_t ftoi16( float x )
 #define REAL_TO_SHORT_ACCURATE( x )	ftoi16(x)
 #else
 // the "proper" rounding, plain C, a bit slow.
-#define REAL_TO_SHORT_ACCURATE( x )	(short)((x) > 0.0 ? (x) + 0.5 : (x) - 0.5)
+#define REAL_TO_SHORT_ACCURATE( x )	(short)((x) > 0.0f ? (x) + 0.5f : (x) - 0.5f)
 #endif
 
 // now define the normal rounding.

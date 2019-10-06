@@ -1004,11 +1004,11 @@ static void Mod_LightMatrixFromTexMatrix( const mtexinfo_t *tx, float lmvecs[2][
 	}
 
 	// put the lighting origin at center the of poly
-	VectorScale( lmvecs[0], (1.0 / lmscale), lmvecs[0] );
-	VectorScale( lmvecs[1], -(1.0 / lmscale), lmvecs[1] );
+	VectorScale( lmvecs[0], (1.0f / lmscale), lmvecs[0] );
+	VectorScale( lmvecs[1], -(1.0f / lmscale), lmvecs[1] );
 
-	lmvecs[0][3] = lmscale * 0.5;
-	lmvecs[1][3] = -lmscale * 0.5;
+	lmvecs[0][3] = lmscale * 0.5f;
+	lmvecs[1][3] = -lmscale * 0.5f;
 }
 
 /*

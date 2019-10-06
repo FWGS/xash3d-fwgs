@@ -888,7 +888,7 @@ static void NET_AdjustLag( void )
 			converge = dt * 200.0f;
 			if( fabs( diff ) < converge )
 				converge = fabs( diff );
-			if( diff < 0.0 )
+			if( diff < 0.0f )
 				converge = -converge;
 			net.fakelag += converge;
 		}
@@ -959,7 +959,7 @@ static qboolean NET_LagPacket( qboolean newdata, netsrc_t sock, netadr_t *from, 
 
 	while( pPacket != &net.lagdata[sock] )
 	{
-		if( pPacket->receivedtime <= curtime - ( net.fakelag / 1000.0 ))
+		if( pPacket->receivedtime <= curtime - ( net.fakelag / 1000.0f ))
 			break;
 
 		pPacket = pPacket->next;
@@ -2054,8 +2054,10 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 			// as after it will run in same frame
 			if( curfile->checktime > 5 )
 			{
+				float speed = (float)curfile->lastchecksize / ( 5.0f * 1024 );
+
 				curfile->checktime = 0;
-				Con_Reportf( "download speed %f KB/s\n", (float)curfile->lastchecksize / ( 5.0 * 1024 ) );
+				Con_Reportf( "download speed %f KB/s\n", speed );
 				curfile->lastchecksize = 0;
 			}
 		}

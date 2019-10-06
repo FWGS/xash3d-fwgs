@@ -272,7 +272,7 @@ loc0:
 
 	side = (front < 0);
 	frac = front / (front - back);
-	frac = bound( 0.0, frac, 1.0 );
+	frac = bound( 0.0f, frac, 1.0f );
 
 	VectorLerp( start, frac, stop, mid );
 	midf = p1f + ( p2f - p1f ) * frac;
