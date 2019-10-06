@@ -272,13 +272,13 @@ static float CL_LerpPoint( void )
 
 	if( frac < 0.0f )
 	{
-		if( frac < -0.01 )
+		if( frac < -0.01f )
 			cl.time = cl.mtime[1];
 		frac = 0.0f;
 	}
 	else if( frac > 1.0f )
 	{
-		if( frac > 1.01 )
+		if( frac > 1.01f )
 			cl.time = cl.mtime[0];
 		frac = 1.0f;
 	}
@@ -2941,10 +2941,10 @@ void CL_AdjustClock( void )
 	{
 		double	msec, adjust, sign;
 
-		msec = ( cl.timedelta * 1000.0 );
-		sign = ( msec < 0 ) ? 1.0 : -1.0;
+		msec = ( cl.timedelta * 1000.0f );
+		sign = ( msec < 0 ) ? 1.0f : -1.0f;
 		msec = fabs( msec );
-		adjust = sign * ( cl_fixtimerate->value / 1000.0 );
+		adjust = sign * ( cl_fixtimerate->value / 1000.0f );
 
 		if( fabs( adjust ) < fabs( cl.timedelta ))
 		{

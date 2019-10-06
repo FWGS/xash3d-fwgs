@@ -101,7 +101,7 @@ qboolean CL_EntityTeleported( cl_entity_t *ent )
 	VectorSubtract( ent->curstate.origin, ent->prevstate.origin, delta );
 
 	// compute potential max movement in units per frame and compare with entity movement
-	maxlen = ( clgame.movevars.maxvelocity * ( 1.0 / GAME_FPS ));
+	maxlen = ( clgame.movevars.maxvelocity * ( 1.0f / GAME_FPS ));
 	len = VectorLength( delta );
 
 	return (len > maxlen);
@@ -356,7 +356,7 @@ qboolean CL_FindInterpolationUpdates( cl_entity_t *ent, float targettime, positi
 	for( i = 1; i < HISTORY_MAX - 1; i++ )
 	{
 		at = ent->ph[( imod - i ) & HISTORY_MASK].animtime;
-		if( at == 0.0 ) break;
+		if( at == 0.0f ) break;
 
 		if( targettime > at )
 		{

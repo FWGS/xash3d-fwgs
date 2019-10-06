@@ -321,13 +321,13 @@ static winding_t *winding_clip( winding_t *in, const mplane_t *split, qboolean k
 		for( j = 0; j < 3; j++ )
 		{
 			// avoid round off error when possible
-			if( in->plane->normal[j] == 1.0 )
+			if( in->plane->normal[j] == 1.0f )
 				mid[j] = in->plane->dist;
-			else if( in->plane->normal[j] == -1.0 )
+			else if( in->plane->normal[j] == -1.0f )
 				mid[j] = -in->plane->dist;
-			else if( split->normal[j] == 1.0 )
+			else if( split->normal[j] == 1.0f )
 				mid[j] = split->dist;
-			else if( split->normal[j] == -1.0 )
+			else if( split->normal[j] == -1.0f )
 				mid[j] = -split->dist;
 			else mid[j] = p1[j] + dot * (p2[j] - p1[j]);
 		}
@@ -438,13 +438,13 @@ static void winding_split( winding_t *in, const mplane_t *split, winding_t **pfr
 		for( j = 0; j < 3; j++ )
 		{
 			// avoid round off error when possible
-			if( in->plane->normal[j] == 1.0 )
+			if( in->plane->normal[j] == 1.0f )
 				mid[j] = in->plane->dist;
-			else if( in->plane->normal[j] == -1.0 )
+			else if( in->plane->normal[j] == -1.0f )
 				mid[j] = -in->plane->dist;
-			else if( split->normal[j] == 1.0 )
+			else if( split->normal[j] == 1.0f )
 				mid[j] = split->dist;
-			else if( split->normal[j] == -1.0 )
+			else if( split->normal[j] == -1.0f )
 				mid[j] = -split->dist;
 			else mid[j] = p1[j] + dot * (p2[j] - p1[j]);
 		}

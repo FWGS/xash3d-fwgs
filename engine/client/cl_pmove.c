@@ -216,7 +216,7 @@ qboolean CL_PlayerTeleported( local_state_t *from, local_state_t *to )
 	VectorSubtract( to->playerstate.origin, from->playerstate.origin, delta );
 
 	// compute potential max movement in units per frame and compare with entity movement
-	maxlen = ( clgame.movevars.maxvelocity * ( 1.0 / GAME_FPS ));
+	maxlen = ( clgame.movevars.maxvelocity * ( 1.0f / GAME_FPS ));
 	len = VectorLength( delta );
 
 	return (len > maxlen);
@@ -1326,14 +1326,14 @@ void CL_PredictMovement( qboolean repredicting )
 			cls.correction_time -= host.frametime;
 
 		// Make sure smoothtime is postive
-		if( cl_smoothtime->value <= 0.0 )
+		if( cl_smoothtime->value <= 0.0f )
 			Cvar_DirectSet( cl_smoothtime, "0.1" );
 
 		// Clamp from 0 to cl_smoothtime.value
 		cls.correction_time = bound( 0.0, cls.correction_time, cl_smoothtime->value );
 
 		// Compute backward interpolation fraction along full correction
-		frac = 1.0 - cls.correction_time / cl_smoothtime->value;
+		frac = 1.0f - cls.correction_time / cl_smoothtime->value;
 
 		// Determine how much error we still have to make up for
 		VectorSubtract( cl.simorg, cl.local.lastorigin, delta );

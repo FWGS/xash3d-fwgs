@@ -63,7 +63,7 @@ void CL_CalcPlayerVelocity( int idx, vec3_t velocity )
 		if( dt != 0.0 )
 		{
 			VectorSubtract( clgame.entities[idx].curstate.velocity, clgame.entities[idx].prevstate.velocity, delta );
-			VectorScale( delta, 1.0 / dt, velocity );
+			VectorScale( delta, 1.0f / dt, velocity );
 		}
 		else
 		{

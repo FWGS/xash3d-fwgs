@@ -512,45 +512,45 @@ static void IN_JoyAppendMove( usercmd_t *cmd, float forwardmove, float sidemove 
 		moveflags |= S;
 	}
 
-	if ( forwardmove > 0.7 && !( moveflags & F ))
+	if ( forwardmove > 0.7f && !( moveflags & F ))
 	{
 		moveflags |= F;
 		Cmd_ExecuteString( "+forward" );
 	}
-	else if ( forwardmove < 0.7 && ( moveflags & F ))
+	else if ( forwardmove < 0.7f && ( moveflags & F ))
 	{
 		moveflags &= ~F;
 		Cmd_ExecuteString( "-forward" );
 	}
 
-	if ( forwardmove < -0.7 && !( moveflags & B ))
+	if ( forwardmove < -0.7f && !( moveflags & B ))
 	{
 		moveflags |= B;
 		Cmd_ExecuteString( "+back" );
 	}
-	else if ( forwardmove > -0.7 && ( moveflags & B ))
+	else if ( forwardmove > -0.7f && ( moveflags & B ))
 	{
 		moveflags &= ~B;
 		Cmd_ExecuteString( "-back" );
 	}
 
-	if ( sidemove > 0.9 && !( moveflags & R ))
+	if ( sidemove > 0.9f && !( moveflags & R ))
 	{
 		moveflags |= R;
 		Cmd_ExecuteString( "+moveright" );
 	}
-	else if ( sidemove < 0.9 && ( moveflags & R ))
+	else if ( sidemove < 0.9f && ( moveflags & R ))
 	{
 		moveflags &= ~R;
 		Cmd_ExecuteString( "-moveright" );
 	}
 
-	if ( sidemove < -0.9 && !( moveflags & L ))
+	if ( sidemove < -0.9f && !( moveflags & L ))
 	{
 		moveflags |= L;
 		Cmd_ExecuteString( "+moveleft" );
 	}
-	else if ( sidemove > -0.9 && ( moveflags & L ))
+	else if ( sidemove > -0.9f && ( moveflags & L ))
 	{
 		moveflags &= ~L;
 		Cmd_ExecuteString( "-moveleft" );
