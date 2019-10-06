@@ -16,25 +16,14 @@
 ### Third-party libraries
 
 * Philosophy of any Xash Project by Uncle Mike: don't be bloated. We follow it too.
-* There is allowed only these libraries, if there is a REAL reason to use library and library is crossplatform. It's will be nice, if you will leave a possibility to remove new dependency at build-time.
+* Adding new library is allowed only if there is a REAL reason to use it. It's will be nice, if you will leave a possibility to remove new dependency at build-time.
 * Adding new dependencies for Waf Build System is not welcomed.
 
 ### Portability level
 
 * Xash3D have it's own crt library. It's recommended to use it. It most cases it's just a wrappers around standart C library.
 * If your feature need platform-specific code, move it to `engine/platform` and try to implement to every supported OS and every supported compiler or at least leave a stubs.
-* You must put it under appopriate macro. It's a rule: Xash3D FWGS must at least compile everywhere.
-
-| OS | Macro |
-| -- | ----- |
-| Linux | `defined(__linux__)` |
-| FreeBSD | `defined(__FreeBSD__)` |
-| NetBSD | `defined(__NetBSD__)` |
-| OpenBSD | `defined(__OpenBSD__)` |
-| OS X/iOS | `defined(__APPLE__)` and TargetConditionals macros |
-| Windows | `defined(_WIN32)` |
-| Android | `defined(__ANDROID__)` |
-| Emscripten | `defined(__EMSCRIPTEN__)` |
+* You must put it under appopriate macro. It's a rule: Xash3D FWGS must compile everywhere. For list of platforms we support, refer to public/build.h file.
 
 ### Code style
 
