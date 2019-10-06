@@ -167,7 +167,7 @@ convar_t *touch_joy_texture;
 convar_t *touch_emulate;
 
 // code looks smaller with it
-#define B(x) button->x
+#define B(x) (button->x)
 #define SCR_W ((float)refState.width)
 #define SCR_H ((float)refState.height)
 #define TO_SCRN_Y(x) (refState.height * (x))
@@ -1065,7 +1065,7 @@ void Touch_DrawTexture ( float x1, float y1, float x2, float y2, int texture, by
 
 #define GRID_COUNT_X ((int)touch_grid_count->value)
 #define GRID_COUNT_Y (((int)touch_grid_count->value) * SCR_H / SCR_W)
-#define GRID_X (1.0/GRID_COUNT_X)
+#define GRID_X (1.0f/GRID_COUNT_X)
 #define GRID_Y (SCR_W/SCR_H/GRID_COUNT_X)
 #define GRID_ROUND_X(x) ((float)round( x * GRID_COUNT_X ) / GRID_COUNT_X)
 #define GRID_ROUND_Y(x) ((float)round( x * GRID_COUNT_Y ) / GRID_COUNT_Y)
@@ -1846,14 +1846,14 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 			{
 				static float y1 = 0;
 				y1 += dy;
-				if( dy > 0.4 )
+				if( dy > 0.4f )
 					Con_Bottom();
-				if( y1 > 0.01 )
+				if( y1 > 0.01f )
 				{
 					Con_PageUp( 1 );
 					y1 = 0;
 				}
-				if( y1 < -0.01 )
+				if( y1 < -0.01f )
 				{
 					Con_PageDown( 1 );
 					y1 = 0;

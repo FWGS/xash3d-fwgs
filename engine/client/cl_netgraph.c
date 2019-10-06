@@ -18,10 +18,10 @@ GNU General Public License for more details.
 
 #define NET_TIMINGS			1024
 #define NET_TIMINGS_MASK		(NET_TIMINGS - 1)
-#define LATENCY_AVG_FRAC		0.5
-#define FRAMERATE_AVG_FRAC		0.5
-#define PACKETLOSS_AVG_FRAC		0.5
-#define PACKETCHOKE_AVG_FRAC		0.5
+#define LATENCY_AVG_FRAC		0.5f
+#define FRAMERATE_AVG_FRAC		0.5f
+#define PACKETLOSS_AVG_FRAC		0.5f
+#define PACKETCHOKE_AVG_FRAC		0.5f
 #define NETGRAPH_LERP_HEIGHT		24
 #define NETGRAPH_NET_COLORS		5
 #define NUM_LATENCY_SAMPLES		8
@@ -203,7 +203,7 @@ void NetGraph_GetFrameData( float *latency, int *latency_count )
 		else
 		{
 			int frame_latency = Q_min( 1.0f, f->latency );
-			p->latency = (( frame_latency + 0.1 ) / 1.1 ) * ( net_graphheight->value - NETGRAPH_LERP_HEIGHT - 2 );
+			p->latency = (( frame_latency + 0.1f ) / 1.1f ) * ( net_graphheight->value - NETGRAPH_LERP_HEIGHT - 2 );
 
 			if( i > cls.netchan.incoming_sequence - NUM_LATENCY_SAMPLES )
 			{
@@ -229,12 +229,12 @@ void NetGraph_GetFrameData( float *latency, int *latency_count )
 	}
 
 	// packet loss
-	loss = 100.0 * (float)loss_count / CL_UPDATE_BACKUP;
-	packet_loss = PACKETLOSS_AVG_FRAC * packet_loss + ( 1.0 - PACKETLOSS_AVG_FRAC ) * loss;
+	loss = 100.0f * (float)loss_count / CL_UPDATE_BACKUP;
+	packet_loss = PACKETLOSS_AVG_FRAC * packet_loss + ( 1.0f - PACKETLOSS_AVG_FRAC ) * loss;
 
 	// packet choke
-	choke = 100.0 * (float)choke_count / CL_UPDATE_BACKUP;
-	packet_choke = PACKETCHOKE_AVG_FRAC * packet_choke + ( 1.0 - PACKETCHOKE_AVG_FRAC ) * choke;
+	choke = 100.0f * (float)choke_count / CL_UPDATE_BACKUP;
+	packet_choke = PACKETCHOKE_AVG_FRAC * packet_choke + ( 1.0f - PACKETCHOKE_AVG_FRAC ) * choke;
 }
 
 /*
@@ -365,12 +365,12 @@ void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int count, floa
 			avg -= 1000.0f / cl_updaterate->value;
 
 		// can't be below zero
-		avg = Q_max( 0.0, avg );
+		avg = Q_max( 0.0f, avg );
 	}
 	else avg = 0.0;
 
 	// move rolling average
-	framerate = FRAMERATE_AVG_FRAC * host.frametime + ( 1.0 - FRAMERATE_AVG_FRAC ) * framerate;
+	framerate = FRAMERATE_AVG_FRAC * host.frametime + ( 1.0f - FRAMERATE_AVG_FRAC ) * framerate;
 	Con_SetFont( 0 );
 
 	if( framerate > 0.0f )
@@ -396,8 +396,8 @@ void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int count, floa
 
 		if( net_graph->value > 2 )
 		{
-			int	loss = (int)(( packet_loss + PACKETLOSS_AVG_FRAC ) - 0.01 );
-			int	choke = (int)(( packet_choke + PACKETCHOKE_AVG_FRAC ) - 0.01 );
+			int	loss = (int)(( packet_loss + PACKETLOSS_AVG_FRAC ) - 0.01f );
+			int	choke = (int)(( packet_choke + PACKETCHOKE_AVG_FRAC ) - 0.01f );
 
 			Con_DrawString( x, y, va( "loss: %i choke: %i", loss, choke ), colors );
 		}

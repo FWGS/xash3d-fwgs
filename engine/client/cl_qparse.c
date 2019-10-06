@@ -85,7 +85,7 @@ static qboolean CL_QuakeEntityTeleported( cl_entity_t *ent, entity_state_t *news
 	VectorSubtract( newstate->origin, ent->prevstate.origin, delta );
 
 	// compute potential max movement in units per frame and compare with entity movement
-	maxlen = ( clgame.movevars.maxvelocity * ( 1.0 / GAME_FPS ));
+	maxlen = ( clgame.movevars.maxvelocity * ( 1.0f / GAME_FPS ));
 	len = VectorLength( delta );
 
 	return (len > maxlen);
