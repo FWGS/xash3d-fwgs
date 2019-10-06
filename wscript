@@ -176,7 +176,7 @@ def configure(conf):
 		'-Werror=duplicated-branches', # BEWARE: buggy
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
-		'-Werror=double-promotion',
+		'-Wdouble-promotion',
 		'-Wstrict-aliasing',
 	]
 
@@ -231,11 +231,8 @@ def configure(conf):
 	conf.env.append_unique('CXXFLAGS', cxxflags)
 	conf.env.append_unique('LINKFLAGS', linkflags)
 
-	try:
-		conf.check_cc(header_name='tgmath.h')
-	except:
-		pass
-	else:
+	# check if we can use C99 tgmath
+	if conf.check_cc(header_name='tgmath.h', mandatory=False):
 		conf.env.append_unique('DEFINES', 'HAVE_TGMATH_H')
 
 	conf.env.DEDICATED     = conf.options.DEDICATED
