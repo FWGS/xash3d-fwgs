@@ -340,7 +340,7 @@ static void Mod_StudioCalcBoneAdj( float *adj, const byte *pcontroller )
 		case STUDIO_XR:
 		case STUDIO_YR:
 		case STUDIO_ZR:
-			adj[j] = value * (M_PI / 180.0f);
+			adj[j] = value * (M_PI_F / 180.0f);
 			break;
 		case STUDIO_X:
 		case STUDIO_Y:

@@ -14,7 +14,10 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
-#include <mathlib.h>
+#include "mathlib.h"
+#ifdef HAVE_TGMATH_H
+#include <tgmath.h>
+#endif
 
 //-----------------------------------------------------------------------------
 // Gamma conversion support
@@ -54,7 +57,7 @@ void BuildGammaTable( float lightgamma, float brightness )
 		else f = 0.125f + ((f - g3) / (1.0f - g3)) * 0.875f;
 
 		// convert linear space to desired gamma space
-		inf = (int)( 255.0 * pow( f, g ));
+		inf = (int)( 255.0f * pow( f, g ));
 
 		lightgammatable[i] = bound( 0, inf, 255 );
 	}
@@ -69,10 +72,10 @@ void BuildGammaTable( float lightgamma, float brightness )
 	for( i = 0; i < 1024; i++ )
 	{
 		// convert from screen gamma space to linear space
-		lineargammatable[i] = 1023 * pow( i / 1023.0, g1 );
+		lineargammatable[i] = 1023 * pow( i / 1023.0f, g1 );
 
 		// convert from linear gamma space to screen space
-		screengammatable[i] = 1023 * pow( i / 1023.0, 1.0 / g1 );
+		screengammatable[i] = 1023 * pow( i / 1023.0f, 1.0f / g1 );
 	}
 }
 

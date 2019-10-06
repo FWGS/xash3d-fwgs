@@ -20,8 +20,8 @@ GNU General Public License for more details.
 #define BLOCK	0x40	// one decoding block is 64 samples.
 
 #define WRITE_SHORT_SAMPLE( samples, sum, clip ) \
-	if(( sum ) > 32767.0 ) { *(samples) = 0x7fff; (clip)++; } \
-	else if(( sum ) < -32768.0 ) { *(samples) = -0x8000; (clip)++; } \
+	if(( sum ) > 32767.0f ) { *(samples) = 0x7fff; (clip)++; } \
+	else if(( sum ) < -32768.0f ) { *(samples) = -0x8000; (clip)++; } \
 	else { *(samples) = REAL_TO_SHORT( sum ); }
   
 // main synth function, uses the plain dct64

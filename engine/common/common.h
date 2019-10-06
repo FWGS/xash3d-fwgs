@@ -122,13 +122,13 @@ typedef enum
 #define XASH_VERSION	"0.99"		// engine current version
 
 // PERFORMANCE INFO
-#define MIN_FPS         	20.0		// host minimum fps value for maxfps.
-#define MAX_FPS         	200.0		// upper limit for maxfps.
-#define HOST_FPS		100.0		// multiplayer games typical fps
+#define MIN_FPS         20.0f		// host minimum fps value for maxfps.
+#define MAX_FPS         200.0f		// upper limit for maxfps.
+#define HOST_FPS		100.0f		// multiplayer games typical fps
 
-#define MAX_FRAMETIME	0.25
-#define MIN_FRAMETIME	0.0001
-#define GAME_FPS		20.0
+#define MAX_FRAMETIME	0.25f
+#define MIN_FRAMETIME	0.0001f
+#define GAME_FPS		20.0f
 
 #define MAX_CMD_TOKENS	80		// cmd tokens
 #define MAX_ENTNUMBER	99999		// for server and client parsing
