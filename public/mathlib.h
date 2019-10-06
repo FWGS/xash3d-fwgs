@@ -17,6 +17,9 @@ GNU General Public License for more details.
 #define MATHLIB_H
 
 #include <math.h>
+#ifdef HAVE_TGMATH_H
+#include <tgmath.h>
+#endif
 
 #pragma warning(disable : 4201)	// nonstandard extension used
 

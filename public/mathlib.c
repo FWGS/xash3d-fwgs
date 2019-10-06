@@ -16,12 +16,11 @@ GNU General Public License for more details.
 #include "xash3d_types.h"
 #include "const.h"
 #include "com_model.h"
-#include <math.h>
+#include "mathlib.h"
+#include "eiface.h"
 #ifdef HAVE_TGMATH_H
 #include <tgmath.h>
 #endif
-#include "mathlib.h"
-#include "eiface.h"
 
 #define NUM_HULL_ROUNDS	ARRAYSIZE( hull_table )
 #define HULL_PRECISION	4
