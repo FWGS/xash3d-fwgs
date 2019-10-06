@@ -225,14 +225,13 @@ def configure(conf):
 		conf.env.append_unique('CFLAGS', cflags + conf.filter_cflags(compiler_optional_flags + c_compiler_optional_flags, cflags, False))
 		conf.env.append_unique('CXXFLAGS', cflags + conf.filter_cflags(compiler_optional_flags, cflags, True))
 
-		if conf.options.LTO:
-			if conf.env.COMPILER_CC == 'gcc' or conf.env.COMPILER_CC == 'clang':
-				conf.env.append_unique('CFLAGS', '-flto')
-				conf.env.append_unique('LINKFLAGS', '-flto')
-			elif conf.env.COMPILER_CC == 'msvc':
-				conf.env.append_unique('CFLAGS', '/GL')
-				conf.env.append_unique('LINKFLAGS', '/LTCG')
-
+	if conf.options.LTO:
+		if conf.env.COMPILER_CC == 'gcc' or conf.env.COMPILER_CC == 'clang':
+			conf.env.append_unique('CFLAGS', '-flto')
+			conf.env.append_unique('LINKFLAGS', '-flto')
+		elif conf.env.COMPILER_CC == 'msvc':
+			conf.env.append_unique('CFLAGS', '/GL')
+			conf.env.append_unique('LINKFLAGS', '/LTCG')
 
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	# we don't need game launcher on dedicated
