@@ -49,9 +49,9 @@ typedef integer64 longtime_t;
 #define MAX_USERMSG_LENGTH	2048	// don't modify it's relies on a client-side definitions
 
 #define BIT( n )		( 1U << ( n ))
-#define GAMMA		( 2.2 )		// Valve Software gamma
-#define INVGAMMA		( 1.0 / 2.2 )	// back to 1.0
-#define TEXGAMMA		( 0.9 )		// compensate dim textures
+#define GAMMA		( 2.2f )		// Valve Software gamma
+#define INVGAMMA		( 1.0f / 2.2f )	// back to 1.0
+#define TEXGAMMA		( 0.9f )		// compensate dim textures
 #define SetBits( iBitVector, bits )	((iBitVector) = (iBitVector) | (bits))
 #define ClearBits( iBitVector, bits )	((iBitVector) = (iBitVector) & ~(bits))
 #define FBitSet( iBitVector, bit )	((iBitVector) & (bit))
