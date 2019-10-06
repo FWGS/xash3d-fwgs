@@ -373,7 +373,7 @@ float SV_RecursiveWaterLevel( vec3_t origin, float out, float in, int count )
 	vec3_t	point;
 	float	offset;
 
-	offset = ((out - in) * 0.5) + in;
+	offset = ((out - in) * 0.5f) + in;
 	if( ++count > 5 ) return offset;
 
 	VectorSet( point, origin[0], origin[1], origin[2] + offset );
@@ -1375,7 +1375,7 @@ void SV_CheckWaterTransition( edict_t *ent )
 		{	
 			// just crossed into water
 			SV_StartSound( ent, CHAN_AUTO, "player/pl_wade1.wav", 1.0f, ATTN_NORM, 0, 100 );
-			ent->v.velocity[2] *= 0.5;
+			ent->v.velocity[2] *= 0.5f;
 		}		
 
 		ent->v.watertype = cont;

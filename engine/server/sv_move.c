@@ -243,7 +243,7 @@ float SV_VecToYaw( const vec3_t src )
 	}
 	else
 	{
-		yaw = (int)( atan2( src[1], src[0] ) * 180.0f / M_PI );
+		yaw = (int)( atan2( src[1], src[0] ) * 180.0f / M_PI_F );
 		if( yaw < 0 ) yaw += 360.0f;
 	}
 	return yaw;
