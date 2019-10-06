@@ -87,7 +87,7 @@ jobs:
         - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
       script:
         - cd android
-        - sh compile.sh
+        - sh compile.sh release
       after_script:
         - ccache --show-stats
         - sh ../scripts/continious_upload.sh xashdroid.apk
