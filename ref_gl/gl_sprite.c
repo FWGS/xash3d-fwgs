@@ -53,7 +53,7 @@ upload a single frame
 */
 static const dframetype_t *R_SpriteLoadFrame( model_t *mod, const void *pin, mspriteframe_t **ppframe, int num )
 {
-	const dspriteframe_t	pinframe;
+	dspriteframe_t	pinframe;
 	mspriteframe_t	*pspriteframe;
 	int		gl_texturenum = 0;
 	char		texname[128];
@@ -87,7 +87,7 @@ static const dframetype_t *R_SpriteLoadFrame( model_t *mod, const void *pin, msp
 	pspriteframe->gl_texturenum = gl_texturenum;
 	*ppframe = pspriteframe;
 
-	return ( (const byte*)pin + sizeof(dspriteframe_t) + pinframe.width * pinframe.height * bytes );
+	return ( const dspriteframe_t* )(( const byte* )pin + sizeof( dspriteframe_t ) + pinframe.width * pinframe.height * bytes );
 }
 
 /*

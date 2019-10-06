@@ -406,12 +406,12 @@ static void R_DecalVertsLight( float *v, msurface_t *surf, int vertCount )
 		// lightmap texture coordinates
 		s = DotProduct( v, info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
 		s += surf->light_s * sample_size;
-		s += sample_size * 0.5;
+		s += sample_size * 0.5f;
 		s /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->width;
 
 		t = DotProduct( v, info->lmvecs[1] ) + info->lmvecs[1][3] - info->lightmapmins[1];
 		t += surf->light_t * sample_size;
-		t += sample_size * 0.5;
+		t += sample_size * 0.5f;
 		t /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->height;
 
 		v[5] = s;

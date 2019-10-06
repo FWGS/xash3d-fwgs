@@ -576,9 +576,9 @@ void R_CloudRenderSide( int axis )
 
 	p->numverts = 4;
 	di = SKYCLOUDS_QUALITY;
-	qi = 1.0 / di;
+	qi = 1.0f / di;
 	dj = (axis < 4) ? di * 2 : di; //subdivide vertically more than horizontally on skybox sides
-	qj = 1.0 / dj;
+	qj = 1.0f / dj;
 
 	for( i = 0; i < di; i++ )
 	{

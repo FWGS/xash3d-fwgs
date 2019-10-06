@@ -21,8 +21,10 @@ GNU General Public License for more details.
 #include "customentity.h"
 #include "cl_tent.h"
 #include "pm_local.h"
-
 #include "studio.h"
+#ifdef HAVE_TGMATH_H
+#include <tgmath.h>
+#endif
 
 #define NOISE_DIVISIONS	64	// don't touch - many tripmines cause the crash when it equal 128
 
@@ -64,7 +66,7 @@ static void FracNoise( float *noise, int divs )
 static void SineNoise( float *noise, int divs )
 {
 	float	freq = 0;
-	float	step = M_PI / (float)divs;
+	float	step = M_PI_F / (float)divs;
 	int	i;
 
 	for( i = 0; i < divs; i++ )
@@ -234,7 +236,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	}
 	else
 	{
-		scale *= length * 2.0;
+		scale *= length * 2.0f;
 	}
 
 	// Iterator to resample noise waveform (it needs to be generated in powers of 2)
@@ -272,7 +274,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			{
 				float	s, c;
 
-				SinCos( fraction * M_PI * length + freq, &s, &c );
+				SinCos( fraction * M_PI_F * length + freq, &s, &c );
 				VectorMA( nextSeg.pos, (factor * s), RI.vup, nextSeg.pos );
 
 				// rotate the noise along the perpendicluar axis a bit to keep the bolt from looking diagonal
@@ -384,8 +386,8 @@ void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float f
 	if( segments > NOISE_DIVISIONS )
 		segments = NOISE_DIVISIONS;
 
-	length = VectorLength( delta ) * 0.01;
-	if( length < 0.5 ) length = 0.5; // don't lose all of the noise/texture on short beams
+	length = VectorLength( delta ) * 0.01f;
+	if( length < 0.5f ) length = 0.5f; // don't lose all of the noise/texture on short beams
 
 	div = 1.0f / (segments - 1);
 
@@ -404,7 +406,7 @@ void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float f
 		float	s, c;
 
 		fraction = i * div;
-		SinCos( fraction * M_PI2, &s, &c );
+		SinCos( fraction * M_PI2_F, &s, &c );
 
 		point[0] = s * freq * delta[2] + source[0];
 		point[1] = c * freq * delta[2] + source[1];
@@ -419,7 +421,7 @@ void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float f
 				VectorMA( point, factor, RI.vup, point );
 
 				// rotate the noise along the perpendicluar axis a bit to keep the bolt from looking diagonal
-				factor = rgNoise[noiseIndex>>16] * scale * cos( fraction * M_PI * 3 + freq );
+				factor = rgNoise[noiseIndex>>16] * scale * cos( fraction * M_PI_F * 3 + freq );
 				VectorMA( point, factor, RI.vright, point );
 			}
 		}
@@ -499,7 +501,7 @@ void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, float fr
 		TriTexCoord2f( 1.0f, vLast );
 		TriVertex3fv( point );
 
-		SinCos( fraction * M_PI2, &s, &c );
+		SinCos( fraction * M_PI2_F, &s, &c );
 		point[0] = s * w + source[0];
 		point[1] = c * w + source[1];
 		point[2] = source[2];
@@ -547,7 +549,7 @@ void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scale, floa
 		float	s, c;
 
 		fraction = i * div;
-		SinCos( fraction * M_PI2, &s, &c );
+		SinCos( fraction * M_PI2_F, &s, &c );
 
 		point[0] = s * freq * delta[2] + source[0];
 		point[1] = c * freq * delta[2] + source[1];
@@ -656,11 +658,11 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 	VectorMA( delta, pbeam->width, normal, last1 );
 	VectorMA( delta, -pbeam->width, normal, last2 );
 
-	div = 1.0 / pbeam->amplitude;
+	div = 1.0f / pbeam->amplitude;
 	fraction = ( pbeam->die - gpGlobals->time ) * div;
 
-	vLast = 0.0;
-	vStep = 1.0;
+	vLast = 0.0f;
+	vStep = 1.0f;
 
 	while( particles )
 	{
@@ -738,12 +740,12 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 		return;
 
 	VectorClear( screenLast );
-	segments = segments * M_PI;
+	segments = segments * M_PI_F;
 	
 	if( segments > NOISE_DIVISIONS * 8 )
 		segments = NOISE_DIVISIONS * 8;
 
-	length = VectorLength( delta ) * 0.01f * M_PI;
+	length = VectorLength( delta ) * 0.01f * M_PI_F;
 	if( length < 0.5f ) length = 0.5f;		// Don't lose all of the noise/texture on short beams
 		
 	div = 1.0f / ( segments - 1 );
@@ -789,7 +791,7 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 	for( i = 0; i < segments + 1; i++ )
 	{
 		fraction = i * div;
-		SinCos( fraction * M_PI2, &x, &y );
+		SinCos( fraction * M_PI2_F, &x, &y );
 
 		VectorMAMAM( x, xaxis, y, yaxis, 1.0f, center, point ); 
 
@@ -799,7 +801,7 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 
 		// Rotate the noise along the perpendicluar axis a bit to keep the bolt from looking diagonal
 		factor = rgNoise[(noiseIndex >> 16) & (NOISE_DIVISIONS - 1)] * scale;
-		factor *= cos( fraction * M_PI * 24 + freq );
+		factor *= cos( fraction * M_PI_F * 24 + freq );
 		VectorMA( point, factor, RI.vright, point );
 		
 		// Transform point into screen space
