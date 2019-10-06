@@ -193,8 +193,6 @@ void CL_CheckClientState( void )
 		Cvar_SetValue( "scr_loading", 0.0f );	// reset progress bar	
 		Netchan_ReportFlow( &cls.netchan );
 
-		UI_SetActiveMenu( false );
-
 		Con_DPrintf( "client connected at %.2f sec\n", Sys_DoubleTime() - cls.timestart ); 
 		if(( cls.demoplayback || cls.disable_servercount != cl.servercount ) && cl.video_prepped )
 			SCR_EndLoadingPlaque(); // get rid of loading plaque
@@ -1145,12 +1143,6 @@ void CL_CheckForResend( void )
 
 	if( adr.port == 0 ) adr.port = MSG_BigShort( PORT_SERVER );
 
-	if( !cls.changelevel )
-	{
-		Cvar_SetValue( "scr_loading", scr_loading->value + 5.0f );
-		UI_ConnectionProgress_Connect( va( "#%d", cls.connect_retry ));
-	}
-
 	if( cls.connect_retry == CL_TEST_RETRIES_NORESPONCE )
 	{
 		// too many fails use default connection method
@@ -1258,6 +1250,10 @@ void CL_Connect_f( void )
 
 	Con_Printf( "server %s\n", server );
 	CL_Disconnect();
+
+	// TESTTEST: a see console during connection
+	UI_SetActiveMenu( false );
+	Key_SetKeyDest( key_console );
 
 	cls.state = ca_connecting;
 	cls.legacymode = legacyconnect;
@@ -1508,8 +1504,6 @@ void CL_Disconnect( void )
 	Netchan_Clear( &cls.netchan );
 
 	IN_LockInputDevices( false ); // unlock input devices
-
-	UI_ConnectionProgress_Disconnect();
 
 	cls.state = ca_disconnected;
 	memset( &cls.serveradr, 0, sizeof( cls.serveradr ) );
@@ -1922,6 +1916,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		}
 
 		CL_Reconnect( true );
+		UI_SetActiveMenu( cl.background );
 	}
 	else if( !Q_strcmp( c, "info" ))
 	{
@@ -2002,7 +1997,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		else
 		{
 			if( cls.connect_retry >= CL_TEST_RETRIES )
-			{	
+			{
 				// too many fails use default connection method
 				Con_Printf( "hi-speed connection is failed, use default method\n" );
 				Netchan_OutOfBandPrint( NS_CLIENT, from, "getchallenge\n" );
@@ -2415,7 +2410,6 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 	{
 		Con_Printf( S_ERROR "server failed to transmit file '%s'\n", CL_CleanFileName( filename ));
 	}
-
 	if( cls.legacymode )
 	{
 		if( host.downloadcount > 0 )
@@ -2614,8 +2608,6 @@ void CL_Physinfo_f( void )
 qboolean CL_PrecacheResources( void )
 {
 	resource_t	*pRes;
-
-	UI_ConnectionProgress_Precache();
 
 	// NOTE: world need to be loaded as first model
 	for( pRes = cl.resourcesonhand.pNext; pRes && pRes != &cl.resourcesonhand; pRes = pRes->pNext )
