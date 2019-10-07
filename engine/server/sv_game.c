@@ -4550,10 +4550,19 @@ pfnEngineStub
 extended iface stubs
 =============
 */
-static void pfnEngineStub( void )
+static int pfnGetFileSize( char *filename )
 {
+	return 0;
 }
-					
+static unsigned int pfnGetApproxWavePlayLen(const char *filepath)
+{
+	return 0;
+}
+static int pfnGetLocalizedStringLength(const char *label)
+{
+	return 0;
+}
+
 // engine callbacks
 static enginefuncs_t gEngfuncs = 
 {
@@ -4701,17 +4710,17 @@ static enginefuncs_t gEngfuncs =
 	pfnVoice_GetClientListening,
 	pfnVoice_SetClientListening,
 	pfnGetPlayerAuthId,
-	pfnEngineStub,
-	pfnEngineStub,
-	pfnEngineStub,
-	pfnEngineStub,
-	pfnEngineStub,
-	pfnEngineStub,
-	pfnEngineStub,
-	pfnEngineStub,
-	pfnEngineStub,
-	pfnEngineStub,
-	pfnEngineStub,
+	pfnSequenceGet,
+	pfnSequencePickSentence,
+	pfnGetFileSize,
+	pfnGetApproxWavePlayLen,
+	pfnIsCareerMatch,
+	pfnGetLocalizedStringLength,
+	pfnRegisterTutorMessageShown,
+	pfnGetTimesTutorMessageShown,
+	pfnProcessTutorMessageDecayBuffer,
+	pfnConstructTutorMessageDecayBuffer,
+	pfnResetTutorMessageDecayData,
 	pfnQueryClientCvarValue,
 	pfnQueryClientCvarValue2,
 	COM_CheckParm,
