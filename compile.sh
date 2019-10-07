@@ -17,7 +17,7 @@ API=9
 ROOT="$PWD" # compile.sh must be run from root of android project sources
 SUBDIRS="xash3d-fwgs hlsdk-xash3d"
 SYMLINKS_APPEND=""
-if [ $# -ne 2 ]; then
+if [ $1 == "" ]; then
 	BUILD_TYPE=debug
 else
 	BUILD_TYPE=$1
