@@ -2607,7 +2607,7 @@ const char *pfnGetGameDirectory( void )
 {
 	static char	szGetGameDir[MAX_SYSPATH];
 
-	Q_sprintf( szGetGameDir, "%s/%s", host.rootdir, GI->gamefolder );
+	Q_strcpy( szGetGameDir, GI->gamefolder );
 	return szGetGameDir;
 }
 
