@@ -262,17 +262,17 @@ typedef struct enginefuncs_s
 
 	const char *(*pfnGetPlayerAuthId)		( edict_t *e );
 
-	void	(*pfnUnused1)( void );
-	void	(*pfnUnused2)( void );
-	void	(*pfnUnused3)( void );
-	void	(*pfnUnused4)( void );
-	void	(*pfnUnused5)( void );
-	void	(*pfnUnused6)( void );
-	void	(*pfnUnused7)( void );
-	void	(*pfnUnused8)( void );
-	void	(*pfnUnused9)( void );
-	void	(*pfnUnused10)( void );
-	void	(*pfnUnused11)( void );
+	void*	(*pfnSequenceGet)				( const char* fileName, const char* entryName );
+	void*	(*pfnSequencePickSentence)		( const char* groupName, int pickMethod, int *picked );
+	int			(*pfnGetFileSize)						( char *filename );
+	unsigned int (*pfnGetApproxWavePlayLen)				(const char *filepath);
+	int			(*pfnIsCareerMatch)						( void );
+	int			(*pfnGetLocalizedStringLength)			(const char *label);
+	void		(*pfnRegisterTutorMessageShown)			(int mid);
+	int			(*pfnGetTimesTutorMessageShown)			(int mid);
+	void		(*pfnProcessTutorMessageDecayBuffer)	(int *buffer, int bufferLength);
+	void		(*pfnConstructTutorMessageDecayBuffer)	(int *buffer, int bufferLength);
+	void		(*pfnResetTutorMessageDecayData)		( void );
 
 	// three useable funcs
 	void	(*pfnQueryClientCvarValue)( const edict_t *player, const char *cvarName );
