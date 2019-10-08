@@ -10,7 +10,9 @@ if echo "$HOME" | grep "com.termux"; then
 	TOOLCHAIN=host
 else
 	echo "-- Configuring for Android SDK/NDK"
-	TOOLCHAIN=4.9
+	if [ "$TOOLCHAIN" = "" ]; then
+		TOOLCHAIN=4.9
+	fi
 fi
 
 if [ "$ARCHS" = "" ]; then
