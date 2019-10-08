@@ -45,6 +45,12 @@ android/gen-version.sh android/
 # configure android project
 ./waf configure -T $BUILD_TYPE $TERMUX_ARG|| exit 1
 
+die()
+{
+	cat $1/config.log
+	exit 1
+}
+
 build_native_project()
 {
 	mkdir -p $ROOT/build-$1/$2
@@ -53,7 +59,7 @@ build_native_project()
 	else
 		cd $1
 	fi
-	./waf -o $ROOT/build-$1/$2 configure -T $BUILD_TYPE --android="$2,$3,$4" build || exit 1
+	./waf -o "$ROOT/build-$1/$2" configure -T $BUILD_TYPE --android="$2,$3,$4" build || die "$ROOT/build-$1/$2"
 	./waf install --destdir=$ROOT/build/android/
 	cd $ROOT # obviously, we can't ../ from symlink directory, so change to our root directory
 }
