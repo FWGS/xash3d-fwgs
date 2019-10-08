@@ -12,7 +12,10 @@ else
 	echo "-- Configuring for Android SDK/NDK"
 	TOOLCHAIN=4.9
 fi
-ARCHS="armeabi-v7a armeabi x86"
+
+if [ "$ARCHS" = "" ]; then
+	ARCHS="armeabi-v7a armeabi x86"
+fi
 API=9
 ROOT="$PWD" # compile.sh must be run from root of android project sources
 SUBDIRS="xash3d-fwgs hlsdk-xash3d"
