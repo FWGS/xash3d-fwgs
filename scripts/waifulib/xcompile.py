@@ -144,6 +144,11 @@ class Android:
 		else:
 			return self.arch + '-linux-android'
 
+	def apk_arch(self):
+		if self.is_arm64():
+			return 'arm64-v8a'
+		return self.arch
+
 	def gen_host_toolchain(self):
 		# With host toolchain we don't care about OS
 		# so just download NDK for Linux x86_64
@@ -336,7 +341,7 @@ def configure(conf):
 			conf.env.LIB_M = ['m_hard']
 		else: conf.env.LIB_M = ['m']
 
-		conf.env.PREFIX = '/lib/%s' % (android.arch)
+		conf.env.PREFIX = '/lib/%s' % android.apk_arch()
 
 		conf.msg('Selected Android NDK', '%s, version: %d' % (android.ndk_home, android.ndk_rev))
 		# no need to print C/C++ compiler, as it would be printed by compiler_c/cxx
