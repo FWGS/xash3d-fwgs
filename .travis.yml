@@ -123,6 +123,7 @@ jobs:
         apt:
           packages:
             - clang-8
+            - p7zip
           sources:
             - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main'
               key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
