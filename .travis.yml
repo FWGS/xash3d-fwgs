@@ -106,7 +106,7 @@ jobs:
         - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
       script:
         - cd android
-        - export ARCH="aarch64 x86_64"
+        - export ARCHS="aarch64 x86_64"
         - sh compile.sh release
       after_script:
         - ccache --show-stats
