@@ -123,6 +123,7 @@ jobs:
         apt:
           packages:
             - clang-8
+            - lld-8
             - p7zip-full
           sources:
             - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main'
