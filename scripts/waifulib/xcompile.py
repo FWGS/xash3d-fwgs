@@ -291,7 +291,7 @@ class Android:
 
 	def ldflags(self):
 		ldflags = ['-lgcc', '-no-canonical-prefixes']
-		if self.is_clang():
+		if self.is_clang() or self.is_host():
 			ldflags += ['-stdlib=libstdc++']
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
