@@ -18,12 +18,13 @@ yes | sdk/tools/bin/sdkmanager --licenses > /dev/null 2>/dev/null # who even rea
 NDK_BUNDLE="ndk-bundle"
 if [ "$1" = "r10e" ]; then
 	NDK_BUNDLE=""
-	wget http://dl.google.com/android/ndk/android-ndk-r10e-linux-x86_64.bin >/dev/null 2>/dev/null
-	7z x ./android-ndk-r10e-linux-x86_64.bin
-	mv android-ndk-r10e ndk-bundle
 fi
 sdk/tools/bin/sdkmanager --install build-tools\;29.0.1 platform-tools platforms\;android-19 $NDK_BUNDLE > /dev/null 2>/dev/null
-
+if [ "$1" = "r10e" ]; then
+	wget http://dl.google.com/android/ndk/android-ndk-r10e-linux-x86_64.bin >/dev/null 2>/dev/null
+	7z x ./android-ndk-r10e-linux-x86_64.bin > /dev/null
+	mv android-ndk-r10e sdk/ndk-bundle
+fi
 echo "Download Xash3D FWGS Android source"
 git clone --depth 1 https://github.com/FWGS/xash3d-android-project -b waf android || exit 1
 cd android
