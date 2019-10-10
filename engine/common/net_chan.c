@@ -605,7 +605,7 @@ void Netchan_UpdateFlow( netchan_t *chan )
 		}
 
 		pflow->kbytespersec = (faccumulatedtime == 0.0f) ? 0.0f : bytes / faccumulatedtime / 1024.0f;
-		pflow->avgkbytespersec = pflow->avgkbytespersec * FLOW_AVG + pflow->kbytespersec * (1.0 - FLOW_AVG);
+		pflow->avgkbytespersec = pflow->avgkbytespersec * FLOW_AVG + pflow->kbytespersec * (1.0f - FLOW_AVG);
 	}
 }
 

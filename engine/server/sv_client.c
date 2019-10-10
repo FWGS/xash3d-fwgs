@@ -2527,7 +2527,7 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg )
 	if( frame->senttime == 0.0f ) frame->ping_time = 0.0f;
 
 	// don't skew ping based on signon stuff either
-	if(( host.realtime - cl->connection_started ) < 2.0f && ( frame->ping_time > 0.0 ))
+	if(( host.realtime - cl->connection_started ) < 2.0f && ( frame->ping_time > 0.0f ))
 		frame->ping_time = 0.0f;
 
 	cl->latency = SV_CalcClientTime( cl );

@@ -2939,7 +2939,8 @@ void CL_AdjustClock( void )
 
 	if( fabs( cl.timedelta ) >= 0.001f )
 	{
-		double	msec, adjust, sign;
+		double msec, adjust;
+		float sign;
 
 		msec = ( cl.timedelta * 1000.0f );
 		sign = ( msec < 0 ) ? 1.0f : -1.0f;

@@ -917,7 +917,7 @@ void SV_SetupMoveInterpolant( sv_client_t *cl )
 			break;
 	}
 
-	if( i == SV_UPDATE_BACKUP || finalpush - frame->senttime > 1.0 )
+	if( i == SV_UPDATE_BACKUP || finalpush - frame->senttime > 1.0f )
 	{
 		memset( svgame.interp, 0, sizeof( svgame.interp ));
 		has_update = false;

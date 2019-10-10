@@ -64,7 +64,7 @@ void BuildGammaTable( float lightgamma, float brightness )
 
 	for( i = 0; i < 256; i++ )
 	{
-		f = 255.0 * pow(( float )i / 255.0f, TEXGAMMA );
+		f = 255.0f * pow(( float )i / 255.0f, TEXGAMMA );
 		inf = (int)(f + 0.5f);
 		texgammatable[i] = bound( 0, inf, 255 );
 	}

@@ -21,6 +21,10 @@ GNU General Public License for more details.
 #include <time.h>
 #include "stdio.h"
 #include "crtlib.h"
+#ifdef HAVE_TGMATH_H
+#include <tgmath.h>
+#endif
+
 void Q_strnupr( const char *in, char *out, size_t size_out )
 {
 	if( size_out == 0 ) return;
@@ -652,7 +656,7 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 	digitsafterdecimal = max( digitsafterdecimal, 0 );
 
 	// if it's basically integral, don't do any decimals
-	if( fabs( value - (int)value ) < 0.00001 )
+	if( fabs( value - (int)value ) < 0.00001f )
 	{
 		Q_sprintf( val, "%i%s", (int)value, suffix );
 	}
