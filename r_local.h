@@ -419,7 +419,7 @@ void R_DrawModelHull( void );
 void GL_Bind( int tmu, unsigned int texnum );
 
 //
-// gl_draw.c
+// gl_draw.cM_PI
 //
 void R_Set2DMode( qboolean enable );
 void R_DrawTileClear( int texnum, int x, int y, int w, int h );
@@ -821,13 +821,13 @@ extern cvar_t	*r_showhull;
 #define BMODEL_FULLY_CLIPPED    0x10 // value returned by R_BmodelCheckBBox ()
 									 //  if bbox is trivially rejected
 
-#define XCENTERING      (1.0 / 2.0)
-#define YCENTERING      (1.0 / 2.0)
+#define XCENTERING      (1.0f / 2.0f)
+#define YCENTERING      (1.0f / 2.0f)
 
-#define CLIP_EPSILON            0.001
+#define CLIP_EPSILON            0.001f
 
 // !!! if this is changed, it must be changed in asm_draw.h too !!!
-#define NEAR_CLIP       0.01
+#define NEAR_CLIP       0.01f
 
 
 //#define MAXALIASVERTS           2000    // TODO: tune this

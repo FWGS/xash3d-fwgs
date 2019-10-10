@@ -70,23 +70,23 @@ void R_Alias_clip_left (finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out)
 	{
 		scale = (float)(RI.aliasvrect.x - pfv0->u) /
 				(pfv1->u - pfv0->u);
-		out->u  = pfv0->u  + ( pfv1->u  - pfv0->u ) * scale + 0.5;
-		out->v  = pfv0->v  + ( pfv1->v  - pfv0->v ) * scale + 0.5;
-		out->s  = pfv0->s  + ( pfv1->s  - pfv0->s ) * scale + 0.5;
-		out->t  = pfv0->t  + ( pfv1->t  - pfv0->t ) * scale + 0.5;
-		out->l  = pfv0->l  + ( pfv1->l  - pfv0->l ) * scale + 0.5;
-		out->zi = pfv0->zi + ( pfv1->zi - pfv0->zi) * scale + 0.5;
+		out->u  = pfv0->u  + ( pfv1->u  - pfv0->u ) * scale + 0.5f;
+		out->v  = pfv0->v  + ( pfv1->v  - pfv0->v ) * scale + 0.5f;
+		out->s  = pfv0->s  + ( pfv1->s  - pfv0->s ) * scale + 0.5f;
+		out->t  = pfv0->t  + ( pfv1->t  - pfv0->t ) * scale + 0.5f;
+		out->l  = pfv0->l  + ( pfv1->l  - pfv0->l ) * scale + 0.5f;
+		out->zi = pfv0->zi + ( pfv1->zi - pfv0->zi) * scale + 0.5f;
 	}
 	else
 	{
 		scale = (float)(RI.aliasvrect.x - pfv1->u) /
 				(pfv0->u - pfv1->u);
-		out->u  = pfv1->u  + ( pfv0->u  - pfv1->u ) * scale + 0.5;
-		out->v  = pfv1->v  + ( pfv0->v  - pfv1->v ) * scale + 0.5;
-		out->s  = pfv1->s  + ( pfv0->s  - pfv1->s ) * scale + 0.5;
-		out->t  = pfv1->t  + ( pfv0->t  - pfv1->t ) * scale + 0.5;
-		out->l  = pfv1->l  + ( pfv0->l  - pfv1->l ) * scale + 0.5;
-		out->zi = pfv1->zi + ( pfv0->zi - pfv1->zi) * scale + 0.5;
+		out->u  = pfv1->u  + ( pfv0->u  - pfv1->u ) * scale + 0.5f;
+		out->v  = pfv1->v  + ( pfv0->v  - pfv1->v ) * scale + 0.5f;
+		out->s  = pfv1->s  + ( pfv0->s  - pfv1->s ) * scale + 0.5f;
+		out->t  = pfv1->t  + ( pfv0->t  - pfv1->t ) * scale + 0.5f;
+		out->l  = pfv1->l  + ( pfv0->l  - pfv1->l ) * scale + 0.5f;
+		out->zi = pfv1->zi + ( pfv0->zi - pfv1->zi) * scale + 0.5f;
 	}
 }
 
@@ -99,23 +99,23 @@ void R_Alias_clip_right (finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out)
 	{
 		scale = (float)(RI.aliasvrectright - pfv0->u ) /
 				(pfv1->u - pfv0->u );
-		out->u  = pfv0->u  + ( pfv1->u  - pfv0->u ) * scale + 0.5;
-		out->v  = pfv0->v  + ( pfv1->v  - pfv0->v ) * scale + 0.5;
-		out->s  = pfv0->s  + ( pfv1->s  - pfv0->s ) * scale + 0.5;
-		out->t  = pfv0->t  + ( pfv1->t  - pfv0->t ) * scale + 0.5;
-		out->l  = pfv0->l  + ( pfv1->l  - pfv0->l ) * scale + 0.5;
-		out->zi = pfv0->zi + ( pfv1->zi - pfv0->zi) * scale + 0.5;
+		out->u  = pfv0->u  + ( pfv1->u  - pfv0->u ) * scale + 0.5f;
+		out->v  = pfv0->v  + ( pfv1->v  - pfv0->v ) * scale + 0.5f;
+		out->s  = pfv0->s  + ( pfv1->s  - pfv0->s ) * scale + 0.5f;
+		out->t  = pfv0->t  + ( pfv1->t  - pfv0->t ) * scale + 0.5f;
+		out->l  = pfv0->l  + ( pfv1->l  - pfv0->l ) * scale + 0.5f;
+		out->zi = pfv0->zi + ( pfv1->zi - pfv0->zi) * scale + 0.5f;
 	}
 	else
 	{
 		scale = (float)(RI.aliasvrectright - pfv1->u ) /
 				(pfv0->u - pfv1->u );
-		out->u  = pfv1->u  + ( pfv0->u  - pfv1->u ) * scale + 0.5;
-		out->v  = pfv1->v  + ( pfv0->v  - pfv1->v ) * scale + 0.5;
-		out->s  = pfv1->s  + ( pfv0->s  - pfv1->s ) * scale + 0.5;
-		out->t  = pfv1->t  + ( pfv0->t  - pfv1->t ) * scale + 0.5;
-		out->l  = pfv1->l  + ( pfv0->l  - pfv1->l ) * scale + 0.5;
-		out->zi = pfv1->zi + ( pfv0->zi - pfv1->zi) * scale + 0.5;
+		out->u  = pfv1->u  + ( pfv0->u  - pfv1->u ) * scale + 0.5f;
+		out->v  = pfv1->v  + ( pfv0->v  - pfv1->v ) * scale + 0.5f;
+		out->s  = pfv1->s  + ( pfv0->s  - pfv1->s ) * scale + 0.5f;
+		out->t  = pfv1->t  + ( pfv0->t  - pfv1->t ) * scale + 0.5f;
+		out->l  = pfv1->l  + ( pfv0->l  - pfv1->l ) * scale + 0.5f;
+		out->zi = pfv1->zi + ( pfv0->zi - pfv1->zi) * scale + 0.5f;
 	}
 }
 
@@ -128,23 +128,23 @@ void R_Alias_clip_top (finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out)
 	{
 		scale = (float)(RI.aliasvrect.y - pfv0->v) /
 				(pfv1->v - pfv0->v);
-		out->u  = pfv0->u  + ( pfv1->u  - pfv0->u ) * scale + 0.5;
-		out->v  = pfv0->v  + ( pfv1->v  - pfv0->v ) * scale + 0.5;
-		out->s  = pfv0->s  + ( pfv1->s  - pfv0->s ) * scale + 0.5;
-		out->t  = pfv0->t  + ( pfv1->t  - pfv0->t ) * scale + 0.5;
-		out->l  = pfv0->l  + ( pfv1->l  - pfv0->l ) * scale + 0.5;
-		out->zi = pfv0->zi + ( pfv1->zi - pfv0->zi) * scale + 0.5;
+		out->u  = pfv0->u  + ( pfv1->u  - pfv0->u ) * scale + 0.5f;
+		out->v  = pfv0->v  + ( pfv1->v  - pfv0->v ) * scale + 0.5f;
+		out->s  = pfv0->s  + ( pfv1->s  - pfv0->s ) * scale + 0.5f;
+		out->t  = pfv0->t  + ( pfv1->t  - pfv0->t ) * scale + 0.5f;
+		out->l  = pfv0->l  + ( pfv1->l  - pfv0->l ) * scale + 0.5f;
+		out->zi = pfv0->zi + ( pfv1->zi - pfv0->zi) * scale + 0.5f;
 	}
 	else
 	{
 		scale = (float)(RI.aliasvrect.y - pfv1->v) /
 				(pfv0->v - pfv1->v);
-		out->u  = pfv1->u  + ( pfv0->u  - pfv1->u ) * scale + 0.5;
-		out->v  = pfv1->v  + ( pfv0->v  - pfv1->v ) * scale + 0.5;
-		out->s  = pfv1->s  + ( pfv0->s  - pfv1->s ) * scale + 0.5;
-		out->t  = pfv1->t  + ( pfv0->t  - pfv1->t ) * scale + 0.5;
-		out->l  = pfv1->l  + ( pfv0->l  - pfv1->l ) * scale + 0.5;
-		out->zi = pfv1->zi + ( pfv0->zi - pfv1->zi) * scale + 0.5;
+		out->u  = pfv1->u  + ( pfv0->u  - pfv1->u ) * scale + 0.5f;
+		out->v  = pfv1->v  + ( pfv0->v  - pfv1->v ) * scale + 0.5f;
+		out->s  = pfv1->s  + ( pfv0->s  - pfv1->s ) * scale + 0.5f;
+		out->t  = pfv1->t  + ( pfv0->t  - pfv1->t ) * scale + 0.5f;
+		out->l  = pfv1->l  + ( pfv0->l  - pfv1->l ) * scale + 0.5f;
+		out->zi = pfv1->zi + ( pfv0->zi - pfv1->zi) * scale + 0.5f;
 	}
 }
 
@@ -159,24 +159,24 @@ void R_Alias_clip_bottom (finalvert_t *pfv0, finalvert_t *pfv1,
 		scale = (float)(RI.aliasvrectbottom - pfv0->v) /
 				(pfv1->v - pfv0->v);
 
-		out->u  = pfv0->u  + ( pfv1->u  - pfv0->u ) * scale + 0.5;
-		out->v  = pfv0->v  + ( pfv1->v  - pfv0->v ) * scale + 0.5;
-		out->s  = pfv0->s  + ( pfv1->s  - pfv0->s ) * scale + 0.5;
-		out->t  = pfv0->t  + ( pfv1->t  - pfv0->t ) * scale + 0.5;
-		out->l  = pfv0->l  + ( pfv1->l  - pfv0->l ) * scale + 0.5;
-		out->zi = pfv0->zi + ( pfv1->zi - pfv0->zi) * scale + 0.5;
+		out->u  = pfv0->u  + ( pfv1->u  - pfv0->u ) * scale + 0.5f;
+		out->v  = pfv0->v  + ( pfv1->v  - pfv0->v ) * scale + 0.5f;
+		out->s  = pfv0->s  + ( pfv1->s  - pfv0->s ) * scale + 0.5f;
+		out->t  = pfv0->t  + ( pfv1->t  - pfv0->t ) * scale + 0.5f;
+		out->l  = pfv0->l  + ( pfv1->l  - pfv0->l ) * scale + 0.5f;
+		out->zi = pfv0->zi + ( pfv1->zi - pfv0->zi) * scale + 0.5f;
 	}
 	else
 	{
 		scale = (float)(RI.aliasvrectbottom - pfv1->v) /
 				(pfv0->v - pfv1->v);
 
-		out->u  = pfv1->u  + ( pfv0->u  - pfv1->u ) * scale + 0.5;
-		out->v  = pfv1->v  + ( pfv0->v  - pfv1->v ) * scale + 0.5;
-		out->s  = pfv1->s  + ( pfv0->s  - pfv1->s ) * scale + 0.5;
-		out->t  = pfv1->t  + ( pfv0->t  - pfv1->t ) * scale + 0.5;
-		out->l  = pfv1->l  + ( pfv0->l  - pfv1->l ) * scale + 0.5;
-		out->zi = pfv1->zi + ( pfv0->zi - pfv1->zi) * scale + 0.5;
+		out->u  = pfv1->u  + ( pfv0->u  - pfv1->u ) * scale + 0.5f;
+		out->v  = pfv1->v  + ( pfv0->v  - pfv1->v ) * scale + 0.5f;
+		out->s  = pfv1->s  + ( pfv0->s  - pfv1->s ) * scale + 0.5f;
+		out->t  = pfv1->t  + ( pfv0->t  - pfv1->t ) * scale + 0.5f;
+		out->l  = pfv1->l  + ( pfv0->l  - pfv1->l ) * scale + 0.5f;
+		out->zi = pfv1->zi + ( pfv0->zi - pfv1->zi) * scale + 0.5f;
 	}
 }
 

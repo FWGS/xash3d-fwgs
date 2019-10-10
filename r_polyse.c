@@ -369,7 +369,7 @@ void FloorDivMod (float numer, float denom, int *quotient,
 	int		q, r;
 	float	x;
 
-	if (numer >= 0.0)
+	if (numer >= 0.0f)
 	{
 
 		x = floor(numer / denom);
@@ -730,7 +730,7 @@ qboolean R_PolysetCalcGradients (int skinwidth)
 	printf("%d %d %d %d %d %d\n" ,  r_p1[0], r_p1[1], r_p1[2] >> 16, r_p1[3] >> 16, r_p1[4], r_p1[5]);
 	printf("%d %d %d %d %d %d\n\n", r_p2[0], r_p2[1], r_p2[2] >> 16, r_p2[3] >> 16, r_p2[4], r_p2[5]);
 */
-	xstepdenominv = 1.0 / (float)d_xdenom;
+	xstepdenominv = 1.0f / (float)d_xdenom;
 
 	ystepdenominv = -xstepdenominv;
 

@@ -221,7 +221,7 @@ void R_AliasProjectAndClipTestFinalVert( finalvert_t *fv )
 	x = fv->xyz[0];
 	y = fv->xyz[1];
 	z = fv->xyz[2];
-	zi = 1.0 / z;
+	zi = 1.0f / z;
 
 	fv->zi = zi * s_ziscale;
 

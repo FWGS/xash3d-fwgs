@@ -221,22 +221,22 @@ void R_ViewChanged (vrect_t *vr)
 
 	RI.vrect = *vr;
 
-	horizontalFieldOfView = 2*tan((float)RI.fov_x/360*M_PI);
-	verticalFieldOfView = 2*tan((float)RI.fov_y/360*M_PI);
+	horizontalFieldOfView = 2*tan((float)RI.fov_x/360.0f * M_PI_F);
+	verticalFieldOfView = 2*tan((float)RI.fov_y/360.0f * M_PI_F);
 
 	RI.fvrectx = (float)RI.vrect.x;
-	RI.fvrectx_adj = (float)RI.vrect.x - 0.5;
+	RI.fvrectx_adj = (float)RI.vrect.x - 0.5f;
 	RI.vrect_x_adj_shift20 = (RI.vrect.x<<20) + (1<<19) - 1;
 	RI.fvrecty = (float)RI.vrect.y;
-	RI.fvrecty_adj = (float)RI.vrect.y - 0.5;
+	RI.fvrecty_adj = (float)RI.vrect.y - 0.5f;
 	RI.vrectright = RI.vrect.x + RI.vrect.width;
 	RI.vrectright_adj_shift20 = (RI.vrectright<<20) + (1<<19) - 1;
 	RI.fvrectright = (float)RI.vrectright;
-	RI.fvrectright_adj = (float)RI.vrectright - 0.5;
-	RI.vrectrightedge = (float)RI.vrectright - 0.99;
+	RI.fvrectright_adj = (float)RI.vrectright - 0.5f;
+	RI.vrectrightedge = (float)RI.vrectright - 0.99f;
 	RI.vrectbottom = RI.vrect.y + RI.vrect.height;
 	RI.fvrectbottom = (float)RI.vrectbottom;
-	RI.fvrectbottom_adj = (float)RI.vrectbottom - 0.5;
+	RI.fvrectbottom_adj = (float)RI.vrectbottom - 0.5f;
 
 	RI.aliasvrect.x = (int)(RI.vrect.x * r_aliasuvscale);
 	RI.aliasvrect.y = (int)(RI.vrect.y * r_aliasuvscale);
@@ -257,44 +257,44 @@ void R_ViewChanged (vrect_t *vr)
 // but will definately render in the [range] row and column, so adjust the
 // buffer origin to get an exact edge to edge fill
 	xcenter = ((float)RI.vrect.width * XCENTERING) +
-					RI.vrect.x - 0.5;
+					RI.vrect.x - 0.5f;
 	aliasxcenter = xcenter * r_aliasuvscale;
 	ycenter = ((float)RI.vrect.height * YCENTERING) +
-					RI.vrect.y - 0.5;
+					RI.vrect.y - 0.5f;
 	aliasycenter = ycenter * r_aliasuvscale;
 
 	xscale = RI.vrect.width / horizontalFieldOfView;
 	aliasxscale = xscale * r_aliasuvscale;
-	xscaleinv = 1.0 / xscale;
+	xscaleinv = 1.0f / xscale;
 
 	yscale = xscale;
 	aliasyscale = yscale * r_aliasuvscale;
-	yscaleinv = 1.0 / yscale;
+	yscaleinv = 1.0f / yscale;
 	//xscaleshrink = (RI.vrect.width-6)/RI.horizontalFieldOfView;
 	//yscaleshrink = xscaleshrink;
 
 // left side clip
-	qfrustum.screenedge[0].normal[0] = -1.0 / (xOrigin*horizontalFieldOfView);
+	qfrustum.screenedge[0].normal[0] = -1.0f / (xOrigin*horizontalFieldOfView);
 	qfrustum.screenedge[0].normal[1] = 0;
 	qfrustum.screenedge[0].normal[2] = 1;
 	qfrustum.screenedge[0].type = PLANE_ANYZ;
 
 // right side clip
 	qfrustum.screenedge[1].normal[0] =
-					1.0 / ((1.0-xOrigin)*horizontalFieldOfView);
+					1.0f / ((1.0f-xOrigin)*horizontalFieldOfView);
 	qfrustum.screenedge[1].normal[1] = 0;
 	qfrustum.screenedge[1].normal[2] = 1;
 	qfrustum.screenedge[1].type = PLANE_ANYZ;
 
 // top side clip
 	qfrustum.screenedge[2].normal[0] = 0;
-	qfrustum.screenedge[2].normal[1] = -1.0 / (yOrigin*verticalFieldOfView);
+	qfrustum.screenedge[2].normal[1] = -1.0f / (yOrigin*verticalFieldOfView);
 	qfrustum.screenedge[2].normal[2] = 1;
 	qfrustum.screenedge[2].type = PLANE_ANYZ;
 
 // bottom side clip
 	qfrustum.screenedge[3].normal[0] = 0;
-	qfrustum.screenedge[3].normal[1] = 1.0 / ((1.0-yOrigin)*verticalFieldOfView);
+	qfrustum.screenedge[3].normal[1] = 1.0f / ((1.0f-yOrigin)*verticalFieldOfView);
 	qfrustum.screenedge[3].normal[2] = 1;
 	qfrustum.screenedge[3].type = PLANE_ANYZ;
 

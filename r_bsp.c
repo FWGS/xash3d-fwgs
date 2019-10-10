@@ -110,7 +110,7 @@ void R_RotateBmodel (void)
 
 // yaw
 	angle = RI.currententity->angles[YAW];
-	angle = angle * M_PI*2 / 360;
+	angle = angle * M_PI_F * 2 / 360.0f;
 	s = sin(angle);
 	c = cos(angle);
 
@@ -127,7 +127,7 @@ void R_RotateBmodel (void)
 
 // pitch
 	angle = RI.currententity->angles[PITCH];
-	angle = angle * M_PI*2 / 360;
+	angle = angle * M_PI_F * 2 / 360.0f;
 	s = sin(angle);
 	c = cos(angle);
 
@@ -145,7 +145,7 @@ void R_RotateBmodel (void)
 
 // roll
 	angle = RI.currententity->angles[ROLL];
-	angle = angle * M_PI*2 / 360;
+	angle = angle * M_PI_F*2 / 360.0f;
 	s = sin(angle);
 	c = cos(angle);
 
@@ -667,7 +667,7 @@ void R_DrawSolidClippedSubmodelPolygons (model_t *pmodel, mnode_t *topnode)
 		{
 			if( psurf->plane->type != PLANE_Z && !FBitSet( RI.currententity->curstate.effects, EF_WATERSIDES ))
 				continue;
-			if( r_entorigin[2] + pmodel->mins[2] + 1.0 >= psurf->plane->dist )
+			if( r_entorigin[2] + pmodel->mins[2] + 1.0f >= psurf->plane->dist )
 				continue;
 		}
 	// find which side of the node we are on
@@ -749,7 +749,7 @@ void R_DrawSubmodelPolygons (model_t *pmodel, int clipflags, mnode_t *topnode)
 		{
 			if( psurf->plane->type != PLANE_Z && !FBitSet( RI.currententity->curstate.effects, EF_WATERSIDES ))
 				continue;
-			if( r_entorigin[2] + pmodel->mins[2] + 1.0 >= psurf->plane->dist )
+			if( r_entorigin[2] + pmodel->mins[2] + 1.0f >= psurf->plane->dist )
 				continue;
 		}
 	// find which side of the node we are on

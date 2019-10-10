@@ -571,7 +571,7 @@ void R_DrawSurface (void)
 
 		for (u=0 ; u<r_numhblocks; u++)
 		{
-			r_lightptr = blocklights + (int)(u/ (worldlux_s+0.5));
+			r_lightptr = blocklights + (int)(u/ (worldlux_s+0.5f));
 
 			prowdestbase = pcolumndest;
 

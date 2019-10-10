@@ -498,11 +498,11 @@ R_SetupProjectionMatrix
 static void R_SetupProjectionMatrix( matrix4x4 m )
 {
 #if 1
-	double	xMin, xMax, yMin, yMax, zNear, zFar;
+	float	xMin, xMax, yMin, yMax, zNear, zFar;
 
 	if( RI.drawOrtho )
 	{
-		ref_overview_t *ov = gEngfuncs.GetOverviewParms();
+		const ref_overview_t *ov = gEngfuncs.GetOverviewParms();
 		Matrix4x4_CreateOrtho( m, ov->xLeft, ov->xRight, ov->yTop, ov->yBottom, ov->zNear, ov->zFar );
 		return;
 	}
@@ -512,10 +512,10 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 	zNear = 4.0f;
 	zFar = max( 256.0f, RI.farClip );
 
-	yMax = zNear * tan( RI.fov_y * M_PI / 360.0 );
+	yMax = zNear * tan( RI.fov_y * M_PI_F / 360.0f );
 	yMin = -yMax;
 
-	xMax = zNear * tan( RI.fov_x * M_PI / 360.0 );
+	xMax = zNear * tan( RI.fov_x * M_PI_F / 360.0f );
 	xMin = -xMax;
 
 	Matrix4x4_CreateProjection( m, xMax, xMin, yMax, yMin, zNear, zFar );

@@ -871,7 +871,7 @@ void R_StudioMergeBones( cl_entity_t *e, model_t *m_pSubModel )
 	matrix3x4		bonematrix;
 	static vec4_t	q[MAXSTUDIOBONES];
 	static float	pos[MAXSTUDIOBONES][3];
-	double		f;
+	float		f;
 
 	if( e->curstate.sequence >=  m_pStudioHeader->numseq )
 		e->curstate.sequence = 0;
@@ -924,7 +924,7 @@ StudioSetupBones
 */
 void R_StudioSetupBones( cl_entity_t *e )
 {
-	double		f;
+	float		f;
 	mstudiobone_t	*pbones;
 	mstudioseqdesc_t	*pseqdesc;
 	mstudioanim_t	*panim;
@@ -3015,7 +3015,7 @@ void R_StudioEstimateGait( entity_state_t *pplayer )
 	}
 	else
 	{
-		m_pPlayerInfo->gaityaw = ( atan2( est_velocity[1], est_velocity[0] ) * 180 / M_PI );
+		m_pPlayerInfo->gaityaw = ( atan2( est_velocity[1], est_velocity[0] ) * 180 / M_PI_F );
 		if( m_pPlayerInfo->gaityaw > 180.0f ) m_pPlayerInfo->gaityaw = 180.0f;
 		if( m_pPlayerInfo->gaityaw < -180.0f ) m_pPlayerInfo->gaityaw = -180.0f;
 	}
@@ -3477,7 +3477,7 @@ void R_DrawViewModel( void )
 
 	// adjust the depth range to prevent view model from poking into walls
 	//pglDepthRange( gldepthmin, gldepthmin + 0.3f * ( gldepthmax - gldepthmin ));
-	s_ziscale = (float)0x8000 * (float)0x10000 * 3.0;
+	s_ziscale = (float)0x8000 * (float)0x10000 * 3.0f;
 	RI.currentmodel = RI.currententity->model;
 
 	// backface culling for left-handed weapons
