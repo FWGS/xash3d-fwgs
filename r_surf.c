@@ -66,7 +66,7 @@ static int		rtable[MOD_FRAMES][MOD_FRAMES];
 
 #if 1
 
-static void R_BuildLightMap(  );
+static void R_BuildLightMap( void );
 /*
 ===============
 R_AddDynamicLights
@@ -172,7 +172,7 @@ Combine and scale multiple lightmaps into the floating
 format in r_blocklights
 =================
 */
-static void R_BuildLightMap(  )
+static void R_BuildLightMap( void )
 {
 	int		smax, tmax;
 	uint		*bl, scale;
@@ -622,7 +622,7 @@ void R_DrawSurface (void)
 //=============================================================================
 
 #if	!id386
-#define BLEND_LM(pix, light) vid.colormap[(pix >> 3) | ((light & 0x1f00) << 5)] | pix & 7;
+#define BLEND_LM(pix, light) vid.colormap[(pix >> 3) | ((light & 0x1f00) << 5)] | ( pix & 7 );
 
 /*
 ================
@@ -1156,7 +1156,7 @@ int D_log2 (int num)
 
 //=============================================================================
 void R_DecalComputeBasis( msurface_t *surf, int flags, vec3_t textureSpaceBasis[3] );
-void R_DrawSurfaceDecals()
+void R_DrawSurfaceDecals( void )
 {
 	msurface_t *fa = r_drawsurf.surf;
 	decal_t *p;
@@ -1266,7 +1266,7 @@ void R_DrawSurfaceDecals()
 
 						if( transparent )
 						{
-							alpha &= src >> 16 - 3;
+							alpha &= src >> (16 - 3);
 							src = src << 3;
 						}
 

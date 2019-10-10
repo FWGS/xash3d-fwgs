@@ -604,7 +604,6 @@ int VGUI_GenerateTexture( void );
 qboolean R_Init( void );
 void R_Shutdown( void );
 void GL_SetupAttributes( int safegl );
-void GL_OnContextCreated( void );
 void GL_InitExtensions( void );
 void GL_ClearExtensions( void );
 void VID_CheckChanges( void );
@@ -1235,8 +1234,8 @@ void R_DrawBrushModel(cl_entity_t *pent);
 // r_blitscreen.c
 //
 void R_InitCaches (void);
-void R_BlitScreen();
-void R_InitBlit();
+void R_BlitScreen( void );
+void R_InitBlit( void );
 
 //
 // r_edge.c
@@ -1283,10 +1282,10 @@ int CL_FxBlend( cl_entity_t *e );
 
 void R_SetUpWorldTransform (void);
 
-#define BLEND_ALPHA_LOW(alpha, src, screen) (vid.alphamap[(alpha << 18) |( (src & 0xff00) << 2) | (screen >> 6)] | screen & 0x3f)
-#define BLEND_ALPHA(alpha, src, dst) alpha > 3?BLEND_ALPHA_LOW(7 - 1 - alpha, dst,src):BLEND_ALPHA_LOW(alpha-1, src, dst)
-#define BLEND_ADD(src, screen) vid.addmap[ src& 0xff00|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 0);
-#define BLEND_COLOR(src, color) vid.modmap[src & 0xff00|(color>>8)] << 8 | (src & color & 0xff) | ((src & 0xff) >> 3);
+#define BLEND_ALPHA_LOW(alpha, src, screen) (vid.alphamap[((alpha) << 18) | (((src) & 0xff00) << 2) | ((screen) >> 6)] | ((screen) & 0x3f))
+#define BLEND_ALPHA(alpha, src, dst) (alpha) > 3?BLEND_ALPHA_LOW(7 - 1 - (alpha), (dst), (src)) : BLEND_ALPHA_LOW((alpha)-1, (src), (dst))
+#define BLEND_ADD(src, screen) vid.addmap[((src)& 0xff00)|((screen)>>8)] << 8 | ((screen) & 0xff) | (((src) & 0xff) >> 0);
+#define BLEND_COLOR(src, color) vid.modmap[((src) & 0xff00)|((color)>>8)] << 8 | ((src) & (color) & 0xff) | (((src) & 0xff) >> 3);
 
 #define LM_SAMPLE_SIZE_AUTO(surf) (tr.sample_size == -1?gEngfuncs.Mod_SampleSizeForFace( surf ): tr.sample_size)
 
@@ -1296,6 +1295,7 @@ void R_SetUpWorldTransform (void);
 // engine callbacks
 //
 #include "crtlib.h"
+#include "crclib.h"
 #if 1
 #define Mem_Malloc( pool, size ) gEngfuncs._Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
 #define Mem_Calloc( pool, size ) gEngfuncs._Mem_Alloc( pool, size, true, __FILE__, __LINE__ )

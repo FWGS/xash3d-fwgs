@@ -871,9 +871,9 @@ void R_PolysetDrawSpansBlended( spanpackage_t *pspanpackage)
 #endif
 
 					pixel_t temp = *lptex;//vid.colormap[*lptex + ( llight & 0xFF00 )];
+					int alpha = vid.alpha;
 					temp = BLEND_COLOR(temp, vid.color);
 
-					int alpha = vid.alpha;
 					if( alpha == 7 )
 						*lpdest = temp;
 					else if(alpha)
@@ -1581,7 +1581,7 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 					// very dirty, maybe need dual colormap?
 					//*lpdest = (vid.colormap[src >> 8 | (llight & 0xFF00)] << 8) | src & 0xff;
 					// 13 bit lighting, 32 light levels
-					*lpdest = vid.colormap[(src >> 3) | ((llight & 0x1F00) << 5)] | src & 7;
+					*lpdest = vid.colormap[(src >> 3) | ((llight & 0x1F00) << 5)] | (src & 7);
 
 					//PGM
 					*lpz = lzi >> 16;

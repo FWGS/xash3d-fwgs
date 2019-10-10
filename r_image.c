@@ -553,7 +553,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	mipCount = 4;//GL_CalcMipmapCount( tex, ( buf != NULL ));
 
 	// NOTE: only single uncompressed textures can be resamples, no mips, no layers, no sides
-	if(( tex->depth == 1 ) && ( pic->width != tex->width ) || ( pic->height != tex->height ))
+	if(( tex->depth == 1 ) && (( pic->width != tex->width ) || ( pic->height != tex->height )))
 		data = GL_ResampleTexture( buf, pic->width, pic->height, tex->width, tex->height, normalMap );
 	else data = buf;
 
