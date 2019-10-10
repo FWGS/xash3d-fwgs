@@ -33,7 +33,7 @@ GNU General Public License for more details.
 #endif
 
 #ifndef M_PI2
-#define M_PI2		(float)6.28318530717958647692
+#define M_PI2		((float)(M_PI * 2))
 #endif
 
 #define M_PI_F		((float)(M_PI))
@@ -73,8 +73,13 @@ GNU General Public License for more details.
 #define Q_floor( a )	((float)(int)(a))
 #define Q_ceil( a )		((float)(int)((a) + 1))
 #define Q_round( x, y )	(floor( x / y + 0.5f ) * y )
-#define Q_rint(x)		((x) < 0 ? ((int)((x)-0.5f)) : ((int)((x)+0.5f)))
+#define Q_rint(x)		((x) < 0.0f ? ((int)((x)-0.5f)) : ((int)((x)+0.5f)))
+
+#ifdef isnan // check for C99 isnan
+#define IS_NAN isnan
+#else
 #define IS_NAN(x)		(((*(int *)&x) & (255<<23)) == (255<<23))
+#endif
 
 #define ALIGN( x, a )	((( x ) + (( size_t )( a ) - 1 )) & ~(( size_t )( a ) - 1 ))
 

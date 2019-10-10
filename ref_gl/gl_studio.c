@@ -883,7 +883,7 @@ void R_StudioMergeBones( cl_entity_t *e, model_t *m_pSubModel )
 	matrix3x4		bonematrix;
 	static vec4_t	q[MAXSTUDIOBONES];
 	static float	pos[MAXSTUDIOBONES][3];
-	double		f;
+	float		f;
 
 	if( e->curstate.sequence >=  m_pStudioHeader->numseq )
 		e->curstate.sequence = 0;
@@ -936,7 +936,7 @@ StudioSetupBones
 */
 void R_StudioSetupBones( cl_entity_t *e )
 {
-	double		f;
+	float		f;
 	mstudiobone_t	*pbones;
 	mstudioseqdesc_t	*pseqdesc;
 	mstudioanim_t	*panim;

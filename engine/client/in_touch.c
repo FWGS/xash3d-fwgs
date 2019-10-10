@@ -876,18 +876,18 @@ void Touch_DeleteProfile_f( void )
 
 void Touch_InitEditor( void )
 {
-	float x = 0.1 * (SCR_H/SCR_W);
-	float y = 0.05;
+	float x = 0.1f * (SCR_H/SCR_W);
+	float y = 0.05f;
 
 	Touch_ClearList( &touch.list_edit );
 
-	Touch_AddButton( &touch.list_edit, "close", "touch_default/edit_close.tga", "touch_disableedit", 0, y, x, y + 0.1, (byte*)"\xff\xff\xff\xff" )->flags |= TOUCH_FL_NOEDIT;
-	Touch_AddButton( &touch.list_edit, "close", "#Close and save", "", x, y, x + 0.2, y + 0.1, (byte*)"\xff\xff\xff\xff" )->flags |= TOUCH_FL_NOEDIT;
-	y += 0.2;
-	Touch_AddButton( &touch.list_edit, "cancel", "touch_default/edit_reset.tga", "touch_reloadconfig", 0, y, x, y + 0.1, (byte*)"\xff\xff\xff\xff" )->flags |= TOUCH_FL_NOEDIT;
-	Touch_AddButton( &touch.list_edit, "close", "#Cancel and reset", "", x, y, x + 0.2, y + 0.1, (byte*)"\xff\xff\xff\xff" )->flags |= TOUCH_FL_NOEDIT;
-	y += 0.2;
-	touch.hidebutton = Touch_AddButton( &touch.list_edit, "showhide", "touch_default/edit_hide.tga", "touch_toggleselection", 0, y, x, y + 0.1, (byte*)"\xff\xff\xff\xff" );
+	Touch_AddButton( &touch.list_edit, "close", "touch_default/edit_close.tga", "touch_disableedit", 0, y, x, y + 0.1f, (byte*)"\xff\xff\xff\xff" )->flags |= TOUCH_FL_NOEDIT;
+	Touch_AddButton( &touch.list_edit, "close", "#Close and save", "", x, y, x + 0.2f, y + 0.1f, (byte*)"\xff\xff\xff\xff" )->flags |= TOUCH_FL_NOEDIT;
+	y += 0.2f;
+	Touch_AddButton( &touch.list_edit, "cancel", "touch_default/edit_reset.tga", "touch_reloadconfig", 0, y, x, y + 0.1f, (byte*)"\xff\xff\xff\xff" )->flags |= TOUCH_FL_NOEDIT;
+	Touch_AddButton( &touch.list_edit, "close", "#Cancel and reset", "", x, y, x + 0.2f, y + 0.1f, (byte*)"\xff\xff\xff\xff" )->flags |= TOUCH_FL_NOEDIT;
+	y += 0.2f;
+	touch.hidebutton = Touch_AddButton( &touch.list_edit, "showhide", "touch_default/edit_hide.tga", "touch_toggleselection", 0, y, x, y + 0.1f, (byte*)"\xff\xff\xff\xff" );
 	touch.hidebutton->flags |= TOUCH_FL_HIDE | TOUCH_FL_NOEDIT;
 }
 
@@ -1439,13 +1439,13 @@ static void Touch_Motion( touchEventType type, int fingerID, float x, float y, f
 	{
 		touch.wheel_amount += touch.wheel_horizontal ? dx : dy;
 
-		if( touch.wheel_amount > 0.1 )
+		if( touch.wheel_amount > 0.1f )
 		{
 			Cbuf_AddText( touch.wheel_down );
 			touch.wheel_count++;
 			touch.wheel_amount = 0;
 		}
-		if( touch.wheel_amount < -0.1 )
+		if( touch.wheel_amount < -0.1f )
 		{
 			Cbuf_AddText( touch.wheel_up );
 			touch.wheel_count++;
@@ -1499,7 +1499,7 @@ static void Touch_Motion( touchEventType type, int fingerID, float x, float y, f
 			// save angle, modify only velocity
 			dabs = sqrt( dx * dx + dy * dy );
 
-			if( dabs < 0.000001 )
+			if( dabs < 0.000001f )
 				return; // no motion, avoid division by zero
 
 			dcos = dx / dabs;

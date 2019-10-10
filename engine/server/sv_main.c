@@ -579,7 +579,7 @@ qboolean SV_RunGameFrame( void )
 
 	if( sv_fps.value != 0.0f )
 	{
-		double		fps = (1.0 / (double)( sv_fps.value - 0.01 )); // FP issues
+		double		fps = (1.0 / (double)( sv_fps.value - 0.01f )); // FP issues
 		int		numFrames = 0;
 
 		while( sv.time_residual >= fps )
