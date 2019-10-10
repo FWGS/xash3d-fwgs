@@ -829,7 +829,7 @@ static image_t *GL_TextureForName( const char *name )
 	uint		hash;
 
 	// find the texture in array
-	hash = gEngfuncs.COM_HashKey( name, TEXTURES_HASH_SIZE );
+	hash = COM_HashKey( name, TEXTURES_HASH_SIZE );
 
 	for( tex = r_imagesHashTable[hash]; tex != NULL; tex = tex->nextHash )
 	{
@@ -870,7 +870,7 @@ static image_t *GL_AllocTexture( const char *name, texFlags_t flags )
 	tex->flags = flags;
 
 	// add to hash table
-	tex->hashValue = gEngfuncs.COM_HashKey( name, TEXTURES_HASH_SIZE );
+	tex->hashValue = COM_HashKey( name, TEXTURES_HASH_SIZE );
 	tex->nextHash = r_imagesHashTable[tex->hashValue];
 	r_imagesHashTable[tex->hashValue] = tex;
 
@@ -1380,7 +1380,7 @@ void R_InitImages( void )
 
 	// create unused 0-entry
 	Q_strncpy( r_images->name, "*unused*", sizeof( r_images->name ));
-	r_images->hashValue = gEngfuncs.COM_HashKey( r_images->name, TEXTURES_HASH_SIZE );
+	r_images->hashValue = COM_HashKey( r_images->name, TEXTURES_HASH_SIZE );
 	r_images->nextHash = r_imagesHashTable[r_images->hashValue];
 	r_imagesHashTable[r_images->hashValue] = r_images;
 	r_numImages = 1;

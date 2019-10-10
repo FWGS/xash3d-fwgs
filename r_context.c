@@ -446,10 +446,16 @@ void GAME_EXPORT GL_SetupAttributes( int safegl )
 	gEngfuncs.GL_SetAttribute( REF_GL_BLUE_SIZE, 5 );
 }
 
+const char *R_GetConfigName( void )
+{
+	return "ref_soft"; // software specific cvars will go to ref_soft.cfg
+}
+
 ref_interface_t gReffuncs =
 {
 	R_Init,
 	R_Shutdown,
+	R_GetConfigName,
 
 	GL_SetupAttributes,
 	GL_InitExtensions,
@@ -472,7 +478,6 @@ ref_interface_t gReffuncs =
 	R_ProcessEntData,
 
 	R_ShowTextures,
-	R_ShowTree,
 
 	R_GetTextureOriginalBuffer,
 	GL_LoadTextureFromBuffer,
@@ -603,4 +608,9 @@ int EXPORT GAME_EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t
 	gpGlobals = globals;
 
 	return REF_API_VERSION;
+}
+
+void EXPORT GetRefHumanReadableName( char *out, size_t size )
+{
+	Q_strncpy( out, "Software", size );
 }
