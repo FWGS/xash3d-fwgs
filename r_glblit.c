@@ -129,7 +129,7 @@ void R_BuildScreenMap( void )
 
 #define FOR_EACH_COLOR(x) 	for( r##x = 0; r##x < BIT(3); r##x++ ) for( g##x = 0; g##x < BIT(3); g##x++ ) for( b##x = 0; b##x < BIT(2); b##x++ )
 
-void R_BuildBlendMaps()
+void R_BuildBlendMaps( void )
 {
 	unsigned int r1, g1, b1;
 	unsigned int r2, g2, b2;
@@ -176,6 +176,7 @@ void R_BuildBlendMaps()
 		uint color = i << 3;
 		uint m = color >> 8;
 		uint j = color & 0xff;
+		unsigned short index1 = i;
 
 		r1 = ((m >> (8 - 3) )<< 2 ) & MASK(5);
 		g1 = ((m >> (8 - 3 - 3)) << 3) & MASK(6);
@@ -185,7 +186,6 @@ void R_BuildBlendMaps()
 		b1 |= MOVE_BIT(j, 6, 2) | MOVE_BIT(j, 3, 1) | MOVE_BIT(j, 0, 0);
 
 
-		unsigned short index1 = i;
 		for( j = 0; j < 32; j++)
 		{
 			unsigned int index2 = j << 13;
@@ -208,6 +208,7 @@ void R_BuildBlendMaps()
 		uint color = i << 6 | BIT(5) | BIT(4) | BIT(3);
 		uint m = color >> 8;
 		uint j = color & 0xff;
+		unsigned short index1 = i;
 
 		r1 = ((m >> (8 - 3) )<< 2 ) & MASK(5);
 		g1 = ((m >> (8 - 3 - 3)) << 3) & MASK(6);
@@ -217,7 +218,6 @@ void R_BuildBlendMaps()
 		b1 |= MOVE_BIT(j, 6, 2) | MOVE_BIT(j, 3, 1) | MOVE_BIT(j, 0, 0);
 
 
-		unsigned short index1 = i;
 		FOR_EACH_COLOR(2)
 		{
 			unsigned int index2 = (r2 << (2 + 3) | g2 << 2 | b2) << 10;
@@ -254,9 +254,9 @@ void R_BuildBlendMaps()
 #endif
 }
 
-void R_AllocScreen();
+void R_AllocScreen( void );
 
-void R_InitBlit()
+void R_InitBlit(void)
 {
 
 	/*LOAD(glBegin);
@@ -296,7 +296,7 @@ void R_InitBlit()
 	R_AllocScreen();
 }
 
-void R_AllocScreen()
+void R_AllocScreen( void )
 {
 	if( gpGlobals->width < 320 )
 		gpGlobals->width = 320;
@@ -319,7 +319,7 @@ void R_AllocScreen()
 	vid.buffer = Mem_Malloc( r_temppool, vid.width * vid.height*sizeof( pixel_t ) );
 }
 
-void R_BlitScreen()
+void R_BlitScreen( void )
 {
 	//memset( vid.buffer, 10, vid.width * vid.height );
 	int u, v;

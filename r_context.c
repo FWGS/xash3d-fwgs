@@ -309,26 +309,26 @@ void GAME_EXPORT R_ProcessEntData( qboolean allocate )
 
 // stubs
 
-void GAME_EXPORT GL_SetTexCoordArrayMode()
+void GAME_EXPORT GL_SetTexCoordArrayMode( void )
 {
 
 }
 
-void GAME_EXPORT GL_InitExtensions()
+void GAME_EXPORT GL_InitExtensions( void )
 {
 
 }
-void GAME_EXPORT GL_ClearExtensions()
-{
-
-}
-
-void GAME_EXPORT GL_BackendStartFrame()
+void GAME_EXPORT GL_ClearExtensions( void )
 {
 
 }
 
-void GAME_EXPORT GL_BackendEndFrame()
+void GAME_EXPORT GL_BackendStartFrame( void )
+{
+
+}
+
+void GAME_EXPORT GL_BackendEndFrame( void )
 {
 
 }
@@ -341,12 +341,12 @@ void GAME_EXPORT GL_SetRenderMode(int mode)
 	/// maybe, setup block drawing function pointers here
 }
 
-void GAME_EXPORT R_ShowTextures()
+void GAME_EXPORT R_ShowTextures( void )
 {
 	// textures undone too
 }
 
-void GAME_EXPORT R_ShowTree()
+void GAME_EXPORT R_ShowTree( void )
 {
 	// do we really need this here???
 }
@@ -392,7 +392,7 @@ void GAME_EXPORT GL_LoadTexMatrixExt(const float *glmatrix)
 
 }
 
-void GAME_EXPORT GL_LoadIdentityTexMatrix()
+void GAME_EXPORT GL_LoadIdentityTexMatrix( void )
 {
 
 }
@@ -412,7 +412,7 @@ void GAME_EXPORT GL_TextureTarget(uint target)
 
 }
 
-void GAME_EXPORT GL_BuildLightmaps()
+void GAME_EXPORT GL_BuildLightmaps( void )
 {
 	CL_RunLightStyles();
 }
@@ -427,7 +427,7 @@ qboolean GAME_EXPORT R_SpeedsMessage(char *out, size_t size)
 	return false;
 }
 
-byte *GAME_EXPORT Mod_GetCurrentVis()
+byte *GAME_EXPORT Mod_GetCurrentVis( void )
 {
 	return NULL;
 }

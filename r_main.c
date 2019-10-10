@@ -208,7 +208,7 @@ static int R_TransEntityCompare( const cl_entity_t **a, const cl_entity_t **b )
 	rendermode2 = R_GetEntityRenderMode( ent2 );
 
 	// sort by distance
-	if( ent1->model && ent1->model->type != mod_brush || rendermode1 != kRenderTransAlpha )
+	if( ( ent1->model && ent1->model->type != mod_brush ) || rendermode1 != kRenderTransAlpha )
 	{
 		VectorAverage( ent1->model->mins, ent1->model->maxs, org );
 		VectorAdd( ent1->origin, org, org );
@@ -217,7 +217,7 @@ static int R_TransEntityCompare( const cl_entity_t **a, const cl_entity_t **b )
 	}
 	else dist1 = 1000000000;
 
-	if(  ent1->model && ent2->model->type != mod_brush || rendermode2 != kRenderTransAlpha )
+	if( ( ent1->model && ent2->model->type != mod_brush ) || rendermode2 != kRenderTransAlpha )
 	{
 		VectorAverage( ent2->model->mins, ent2->model->maxs, org );
 		VectorAdd( ent2->origin, org, org );
@@ -795,6 +795,10 @@ static image_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mnode_t 
 	return NULL;
 }
 
+extern void R_PolysetFillSpans8 ( void * );
+extern void R_PolysetDrawSpansConstant8_33( void *pspanpackage);
+extern void R_PolysetDrawSpans8_33( void *pspanpackage);
+
 /*
 =============
 R_DrawEntitiesOnList
@@ -802,16 +806,13 @@ R_DrawEntitiesOnList
 */
 void R_DrawEntitiesOnList( void )
 {
+	extern void	(*d_pdrawspans)(void *);
 	int	i;
 	//extern int d_aflatcolor;
 	//d_aflatcolor = 0;
 	tr.blend = 1.0f;
 //	GL_CheckForErrors();
 	//RI.currententity = gEngfuncs.GetEntityByIndex(0);
-	extern void	(*d_pdrawspans)(void *);
-	extern void R_PolysetFillSpans8 ( void * );
-	extern void R_PolysetDrawSpansConstant8_33( void *pspanpackage);
-	extern void R_PolysetDrawSpans8_33( void *pspanpackage);
 	d_pdrawspans = R_PolysetFillSpans8;
 	GL_SetRenderMode(kRenderNormal);
 	// first draw solid entities
@@ -1826,8 +1827,9 @@ R_NewMap
 void GAME_EXPORT R_NewMap (void)
 {
 	int i;
-	r_viewcluster = -1;
 	model_t *world = WORLDMODEL;
+
+	r_viewcluster = -1;
 
 	tr.draw_list->num_solid_entities = 0;
 	tr.draw_list->num_trans_entities = 0;
@@ -1921,7 +1923,7 @@ void R_InitTurb (void)
 
 
 
-qboolean GAME_EXPORT R_Init()
+qboolean GAME_EXPORT R_Init( void )
 {
 	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
 	vid_gamma = gEngfuncs.pfnGetCvarPointer( "gamma", 0 );
@@ -1995,7 +1997,7 @@ qboolean GAME_EXPORT R_Init()
 	return true;
 }
 
-void GAME_EXPORT R_Shutdown()
+void GAME_EXPORT R_Shutdown( void )
 {
 	R_ShutdownImages();
 	gEngfuncs.R_Free_Video();
