@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #define XASH_COLORIZE_CONSOLE
 // use with caution, running engine in Qt Creator may cause a freeze in read() call
 // I was never encountered this bug anywhere else, so still enable by default
-#define XASH_USE_SELECT
+// #define XASH_USE_SELECT
 #endif
 
 #ifdef XASH_USE_SELECT

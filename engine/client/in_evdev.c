@@ -37,7 +37,7 @@ struct evdev_s
 
 int KeycodeFromEvdev(int keycode, int value);
 
-static void Evdev_CheckPermissions()
+static void Evdev_CheckPermissions( void )
 {
 #ifdef __ANDROID__
 	system( "su 0 chmod 664 /dev/input/event*" );
@@ -226,7 +226,7 @@ void Evdev_CloseDevice_f ( void )
 	}
 }
 
-void IN_EvdevFrame ()
+void IN_EvdevFrame ( void )
 {
 	int dx = 0, dy = 0, i;
 
