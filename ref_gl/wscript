@@ -69,7 +69,7 @@ def build(bld):
 			target   = 'ref_gl',
 			features = 'c',
 			includes = includes,
-			use      = libs + ['GL'] if bld.env.GL_STATIC else [],
+			use      = libs + (['GL'] if bld.env.GL_STATIC else []),
 			defines  = ['XASH_GL_STATIC'] if bld.env.GL_STATIC else [],
 			install_path = bld.env.LIBDIR,
 			subsystem = bld.env.MSVC_SUBSYSTEM
