@@ -617,7 +617,6 @@ void R_CollectRendererNames( void )
 
 		ref.numRenderers++;
 		COM_FreeLibrary( dll );
-		continue;
 	}
 }
 
@@ -673,6 +672,7 @@ qboolean R_Init( void )
 	if( !success )
 	{
 		Host_Error( "Can't initialize any renderer. Check your video drivers!" );
+		return false;
 	}
 
 	SCR_Init();
