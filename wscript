@@ -73,27 +73,6 @@ def options(opt):
 		opt.load('msvc msdev msvs')
 	opt.load('reconfigure')
 
-@Configure.conf
-def filter_cflags(conf, flags, required_flags, cxx):
-	supported_flags = []
-	check_flags = required_flags + ['-Werror']
-	conf.msg('Detecting supported flags for %s' % ('C++' if cxx else 'C'), '...')
-
-	for flag in flags:
-		conf.start_msg('Checking for %s' % flag)
-		try:
-			if cxx:
-				conf.check_cxx(cxxflags = [flag] + check_flags)
-			else:
-				conf.check_cc(cflags = [flag] + check_flags)
-		except conf.errors.ConfigurationError:
-			conf.end_msg('no', color='YELLOW')
-		else:
-			conf.end_msg('yes')
-			supported_flags.append(flag)
-
-	return supported_flags
-
 def configure(conf):
 	conf.load('fwgslib reconfigure')
 	conf.start_msg('Build type')
@@ -247,8 +226,8 @@ def configure(conf):
 		conf.check_cc(cflags=cflags, msg= 'Checking for required C flags')
 		conf.check_cxx(cxxflags=cflags, msg= 'Checking for required C++ flags')
 
-		cflags += conf.filter_cflags(compiler_optional_flags + c_compiler_optional_flags, cflags, False)
-		cxxflags += conf.filter_cflags(compiler_optional_flags, cflags, True)
+		cflags += conf.filter_cflags(compiler_optional_flags + c_compiler_optional_flags, cflags)
+		cxxflags += conf.filter_cxxflags(compiler_optional_flags, cflags)
 
 	conf.env.append_unique('CFLAGS', cflags)
 	conf.env.append_unique('CXXFLAGS', cxxflags)
