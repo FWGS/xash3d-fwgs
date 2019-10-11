@@ -71,6 +71,7 @@ convar_t	*cl_lw;
 convar_t	*cl_charset;
 convar_t	*cl_trace_messages;
 convar_t	*hud_utf8;
+convar_t	*ui_renderworld;
 
 //
 // userinfo
@@ -2856,6 +2857,7 @@ void CL_InitLocal( void )
 	Cvar_Get( "cl_background", "0", FCVAR_READ_ONLY, "indicate what background map is running" );
 	cl_showevents = Cvar_Get( "cl_showevents", "0", FCVAR_ARCHIVE, "show events playback" );
 	Cvar_Get( "lastdemo", "", FCVAR_ARCHIVE, "last played demo" );
+	ui_renderworld = Cvar_Get( "ui_renderworld", "0", FCVAR_ARCHIVE, "render world when UI is visible" );
 
 	// these two added to shut up CS 1.5 about 'unknown' commands
 	Cvar_Get( "lightgamma", "1", FCVAR_ARCHIVE, "ambient lighting level (legacy, unused)" );

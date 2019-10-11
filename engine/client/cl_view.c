@@ -315,7 +315,7 @@ void V_RenderView( void )
 	ref_viewpass_t	rvp;
 	int		viewnum = 0;
 
-	if( !cl.video_prepped || ( UI_IsVisible() && !cl.background ))
+	if( !cl.video_prepped || ( !ui_renderworld->value && UI_IsVisible() && !cl.background ))
 		return; // still loading
 
 	V_CalcViewRect ();	// compute viewport rectangle
