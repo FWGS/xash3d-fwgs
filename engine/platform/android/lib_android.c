@@ -40,9 +40,19 @@ void *ANDROID_LoadLibrary( const char *dllname )
 	}
 
 	// HACKHACK: keep old behaviour for compability
-	pHandle = dlopen( dllname, RTLD_LAZY );
-	if( pHandle )
-		return pHandle;
+	if( Q_strstr( dllname, "." OS_LIB_EXT ))
+	{
+		pHandle = dlopen( dllname, RTLD_LAZY );
+		if( pHandle )
+			return pHandle;
+	}
+	else
+	{
+		Q_snprintf( path, MAX_SYSPATH, "lib%s"POSTFIX"."OS_LIB_EXT, dllname );
+		pHandle = dlopen( path, RTLD_LAZY );
+		if( pHandle )
+			return pHandle;
+	}
 
 	COM_PushLibraryError( dlerror() );
 
