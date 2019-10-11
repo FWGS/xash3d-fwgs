@@ -508,13 +508,11 @@ static void R_GetRendererName( char *dest, size_t size, const char *opt )
 		Q_snprintf( dest, size, "%sref_%s.%s",
 			OS_LIB_PREFIX, opt, OS_LIB_EXT );
 #endif
-		Con_Printf( "Loading renderer by short name: %s\n", opt );
 	}
 	else
 	{
 		// full path
 		Q_strcpy( dest, opt );
-		Con_Printf( "Loading renderer: %s\n", opt );
 	}
 }
 
@@ -523,6 +521,8 @@ static qboolean R_LoadRenderer( const char *refopt )
 	string refdll;
 
 	R_GetRendererName( refdll, sizeof( refdll ), refopt );
+
+	Con_Printf( "Loading renderer: %s -> %s\n", refopt, refdll );
 
 	if( !R_LoadProgs( refdll ))
 	{
