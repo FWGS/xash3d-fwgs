@@ -233,7 +233,7 @@ def configure(conf):
 
 	# check if we can use C99 tgmath
 	if conf.check_cc(header_name='tgmath.h', mandatory=False):
-		conf.env.define('HAVE_TGMATH_H', 1)
+		conf.define('HAVE_TGMATH_H', 1)
 
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	# we don't need game launcher on dedicated
