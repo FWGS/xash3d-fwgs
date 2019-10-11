@@ -70,53 +70,6 @@ void GAME_EXPORT GL_SetupAttributes( int safegl )
 
 void GAME_EXPORT GL_InitExtensions( void )
 {
-
-}
-void GAME_EXPORT GL_ClearExtensions( void )
-{
-
-}
-
-static void *R_Lock_GL1( void )
-{
-	return glbuf;
-}
-
-static void R_Unlock_GL1( void )
-{
-	pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
-	pglMatrixMode( GL_PROJECTION );
-	pglLoadIdentity();
-	pglOrtho( 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
-	pglMatrixMode( GL_MODELVIEW );
-	pglLoadIdentity();
-
-	pglEnable( GL_TEXTURE_2D );
-	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, glbuf );
-	//gEngfuncs.Con_Printf("%d\n",pglGetError());
-	pglBegin( GL_QUADS );
-		pglTexCoord2f( 0, 0 );
-		pglVertex2f( 0, 0 );
-
-		pglTexCoord2f( 1, 0 );
-		pglVertex2f( vid.width, 0 );
-
-		pglTexCoord2f( 1, 1 );
-		pglVertex2f( vid.width, vid.height );
-
-		pglTexCoord2f( 0, 1 );
-		pglVertex2f( 0, vid.height );
-	pglEnd();
-	pglDisable( GL_TEXTURE_2D );
-	gEngfuncs.GL_SwapBuffers();
-}
-
-static void *R_CreateBuffer_GL1( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
-{
-
 	LOAD(glBegin);
 	LOAD(glEnd);
 	LOAD(glTexCoord2f);
@@ -147,6 +100,52 @@ static void *R_CreateBuffer_GL1( int width, int height, uint *stride, uint *bpp,
 	// enable all the low priority messages
 	pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
 #endif
+
+}
+void GAME_EXPORT GL_ClearExtensions( void )
+{
+
+}
+
+static void *R_Lock_GL1( void )
+{
+	return glbuf;
+}
+
+static void R_Unlock_GL1( void )
+{
+
+	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, glbuf );
+	//gEngfuncs.Con_Printf("%d\n",pglGetError());
+	pglBegin( GL_QUADS );
+		pglTexCoord2f( 0, 0 );
+		pglVertex2f( 0, 0 );
+
+		pglTexCoord2f( 1, 0 );
+		pglVertex2f( vid.width, 0 );
+
+		pglTexCoord2f( 1, 1 );
+		pglVertex2f( vid.width, vid.height );
+
+		pglTexCoord2f( 0, 1 );
+		pglVertex2f( 0, vid.height );
+	pglEnd();
+	gEngfuncs.GL_SwapBuffers();
+}
+
+static void *R_CreateBuffer_GL1( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
+{
+	pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
+	pglMatrixMode( GL_PROJECTION );
+	pglLoadIdentity();
+	pglOrtho( 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
+	pglMatrixMode( GL_MODELVIEW );
+	pglLoadIdentity();
+
+	pglEnable( GL_TEXTURE_2D );
+	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
 
 	if( glbuf )
 		Mem_Free(glbuf);
