@@ -61,6 +61,9 @@ def options(opt):
 	grp.add_option('--enable-lto', action = 'store_true', dest = 'LTO', default = False,
 		help = 'enable Link Time Optimization [default: %default]')
 
+	grp.add_option('--enable-poly-opt', action = 'store_true', dest = 'POLLY', default = False,
+		help = 'enable polyhedral optimization if possible [default: %default]')
+
 	opt.load('subproject')
 
 	opt.add_subproject(subdirs())
@@ -144,12 +147,12 @@ def configure(conf):
 
 	linker_flags = {
 		'common': {
-			'msvc':    ['/DEBUG'], # always create PDB, doesn't affect result binaries
-			'gcc': ['-Wl,--no-undefined']
+			'msvc':  ['/DEBUG'], # always create PDB, doesn't affect result binaries
+			'gcc':   ['-Wl,--no-undefined']
 		},
 		'sanitize': {
-			'clang':   ['-fsanitize=undefined', '-fsanitize=address'],
-			'gcc':     ['-fsanitize=undefined', '-fsanitize=address'],
+			'clang': ['-fsanitize=undefined', '-fsanitize=address'],
+			'gcc':   ['-fsanitize=undefined', '-fsanitize=address'],
 		}
 	}
 
@@ -157,8 +160,8 @@ def configure(conf):
 		'common': {
 			# disable thread-safe local static initialization for C++11 code, as it cause crashes on Windows XP
 			'msvc':    ['/D_USING_V110_SDK71_', '/Zi', '/FS', '/Zc:threadSafeInit-', '/MT'],
-			'clang': ['-g', '-gdwarf-2', '-fvisibility=hidden'],
-			'gcc': ['-g', '-fvisibility=hidden']
+			'clang':   ['-g', '-gdwarf-2', '-fvisibility=hidden'],
+			'gcc':     ['-g', '-fvisibility=hidden']
 		},
 		'fast': {
 			'msvc':    ['/O2', '/Oy'], #todo: check /GL /LTCG
@@ -210,28 +213,46 @@ def configure(conf):
 		'-Werror=declaration-after-statement'
 	]
 
+	linkflags = conf.get_flags_by_type(linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC)
+	cflags    = conf.get_flags_by_type(compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC)
 
-	conf.env.append_unique('LINKFLAGS', conf.get_flags_by_type(
-		linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC))
+	# Here we don't differentiate C or C++ flags
+	if conf.options.LTO:
+		lto_cflags = {
+			'msvc':  ['/GL'],
+			'gcc':   ['-flto'],
+			'clang': ['-flto']
+		}
 
-	cflags = conf.get_flags_by_type(compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC)
-	if conf.env.COMPILER_CC == 'msvc':
-		conf.env.append_unique('CFLAGS', cflags)
-		conf.env.append_unique('CXXFLAGS', cflags)
-	else:
+		lto_linkflags = {
+			'msvc':  ['/LTCG'],
+			'gcc':   ['-flto'],
+			'clang': ['-flto']
+		}
+		cflags    += conf.get_flags_by_compiler(lto_cflags, conf.env.COMPILER_CC)
+		linkflags += conf.get_flags_by_compiler(lto_linkflags, conf.env.COMPILER_CC)
+
+	if conf.options.POLLY:
+		polly_cflags = {
+			'gcc':   ['-fgraphite-identity'],
+			'clang': ['-mllvm', '-polly']
+			# msvc sosat :(
+		}
+
+		cflags   += conf.get_flags_by_compiler(polly_cflags, conf.env.COMPILER_CC)
+
+	# And here C++ flags starts to be treated separately
+	cxxflags = list(cflags)
+	if conf.env.COMPILER_CC != 'msvc':
 		conf.check_cc(cflags=cflags, msg= 'Checking for required C flags')
 		conf.check_cxx(cxxflags=cflags, msg= 'Checking for required C++ flags')
 
-		conf.env.append_unique('CFLAGS', cflags + conf.filter_cflags(compiler_optional_flags + c_compiler_optional_flags, cflags, False))
-		conf.env.append_unique('CXXFLAGS', cflags + conf.filter_cflags(compiler_optional_flags, cflags, True))
+		cflags += conf.filter_cflags(compiler_optional_flags + c_compiler_optional_flags, cflags, False)
+		cxxflags += conf.filter_cflags(compiler_optional_flags, cflags, True)
 
-	if conf.options.LTO:
-		if conf.env.COMPILER_CC == 'gcc' or conf.env.COMPILER_CC == 'clang':
-			conf.env.append_unique('CFLAGS', '-flto')
-			conf.env.append_unique('LINKFLAGS', '-flto')
-		elif conf.env.COMPILER_CC == 'msvc':
-			conf.env.append_unique('CFLAGS', '/GL')
-			conf.env.append_unique('LINKFLAGS', '/LTCG')
+	conf.env.append_unique('CFLAGS', cflags)
+	conf.env.append_unique('CXXFLAGS', cxxflags)
+	conf.env.append_unique('LINKFLAGS', linkflags)
 
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	# we don't need game launcher on dedicated
