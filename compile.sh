@@ -24,12 +24,12 @@ ROOT="$PWD" # compile.sh must be run from root of android project sources
 
 if [ -z "$1" ]; then
 	BUILD_TYPE=debug
-	ENGINE_FLAGS=""
-	SDK_FLAGS=""
 else
 	BUILD_TYPE=$1
-	ENGINE_FLAGS="--enable-poly-opt"
-	SDK_FLAGS="--enable-poly-opt"
+	if [ "$TOOLCHAIN" = "host" ]; then
+		ENGINE_FLAGS="--enable-poly-opt"
+		SDK_FLAGS="--enable-poly-opt"
+	fi
 fi
 
 # Cleanup libraries
