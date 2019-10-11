@@ -240,7 +240,7 @@ class Android:
 			if self.is_host():
 				cflags += [
 					'--sysroot=%s/sysroot' % (self.gen_gcc_toolchain_path()),
-					'-I%s/usr/include/' % (self.sysroot())
+					'-isystem', '%s/usr/include/' % (self.sysroot())
 				]
 
 		cflags += ['-I%s' % (self.system_stl()), '-DANDROID', '-D__ANDROID__']
