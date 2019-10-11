@@ -434,6 +434,7 @@ static qboolean R_LoadProgs( const char *name )
 	if( !(ref.hInstance = COM_LoadLibrary( name, false, true ) ))
 	{
 		FS_AllowDirectPaths( false );
+		Con_Reportf( "R_LoadProgs: can't load renderer library %s: %s\n", name, COM_GetLibraryError() );
 		return false;
 	}
 
@@ -442,7 +443,7 @@ static qboolean R_LoadProgs( const char *name )
 	if( !( GetRefAPI = (REFAPI)COM_GetProcAddress( ref.hInstance, GET_REF_API )) )
 	{
 		COM_FreeLibrary( ref.hInstance );
-		Con_Reportf( "R_LoadProgs: can't init renderer API\n" );
+		Con_Reportf( "R_LoadProgs: can't find GetRefAPI entry point in %s: %s\n", name );
 		ref.hInstance = NULL;
 		return false;
 	}
@@ -590,11 +591,15 @@ void R_CollectRendererNames( void )
 
 		dll = COM_LoadLibrary( temp, false, true );
 		if( !dll )
+		{
+			Con_Reportf( "R_CollectRendererNames: can't load library %s: %s\n", temp, COM_GetLibraryError() );
 			continue;
+		}
 
 		pfn = COM_GetProcAddress( dll, GET_REF_API );
 		if( !pfn )
 		{
+			Con_Reportf( "R_CollectRendererNames: can't find API entry point in %s\n", temp, COM_GetLibraryError() );
 			COM_FreeLibrary( dll );
 			continue;
 		}
@@ -604,6 +609,7 @@ void R_CollectRendererNames( void )
 		pfn = COM_GetProcAddress( dll, GET_REF_HUMANREADABLE_NAME );
 		if( !pfn ) // just in case
 		{
+			Con_Reportf( "R_CollectRendererNames: can't find GetHumanReadableName export in %s\n", temp, COM_GetLibraryError() );
 			Q_strncpy( ref.readableNames[i], renderers[i], sizeof( ref.readableNames[i] ));
 		}
 		else
