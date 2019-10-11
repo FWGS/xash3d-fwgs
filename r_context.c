@@ -314,15 +314,6 @@ void GAME_EXPORT GL_SetTexCoordArrayMode( void )
 
 }
 
-void GAME_EXPORT GL_InitExtensions( void )
-{
-
-}
-void GAME_EXPORT GL_ClearExtensions( void )
-{
-
-}
-
 void GAME_EXPORT GL_BackendStartFrame( void )
 {
 
@@ -430,20 +421,6 @@ qboolean GAME_EXPORT R_SpeedsMessage(char *out, size_t size)
 byte *GAME_EXPORT Mod_GetCurrentVis( void )
 {
 	return NULL;
-}
-
-void GAME_EXPORT GL_SetupAttributes( int safegl )
-{
-	gEngfuncs.Con_Reportf( "Creating an extended GL context for debug...\n" );
-	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_FLAGS, REF_GL_CONTEXT_DEBUG_FLAG );
-
-	// untill we have any blitter in ref api, setup GL
-	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_COMPATIBILITY );
-	gEngfuncs.GL_SetAttribute( REF_GL_DOUBLEBUFFER, 1 );
-
-	gEngfuncs.GL_SetAttribute( REF_GL_RED_SIZE, 5 );
-	gEngfuncs.GL_SetAttribute( REF_GL_GREEN_SIZE, 6 );
-	gEngfuncs.GL_SetAttribute( REF_GL_BLUE_SIZE, 5 );
 }
 
 const char *R_GetConfigName( void )

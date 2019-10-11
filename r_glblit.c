@@ -6,6 +6,10 @@ struct swblit_s
 	uint stride;
 	uint bpp;
 	uint rmask, gmask, bmask;
+	void *(*pLockBuffer)( void );
+	void (*pUnlockBuffer)( void );
+	void *(*pCreateBuffer)( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
+
 } swblit;
 
 
@@ -41,9 +45,121 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		break;
 	}
 }
-unsigned short *buffer;
+
+
+static unsigned short *glbuf;
+static int tex;
 
 #define LOAD(x) p##x = gEngfuncs.GL_GetProcAddress(#x)
+
+
+void GAME_EXPORT GL_SetupAttributes( int safegl )
+{
+	gEngfuncs.Con_Reportf( "Creating an extended GL context for debug...\n" );
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_FLAGS, REF_GL_CONTEXT_DEBUG_FLAG );
+
+	// untill we have any blitter in ref api, setup GL
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_COMPATIBILITY );
+	gEngfuncs.GL_SetAttribute( REF_GL_DOUBLEBUFFER, 1 );
+
+	gEngfuncs.GL_SetAttribute( REF_GL_RED_SIZE, 5 );
+	gEngfuncs.GL_SetAttribute( REF_GL_GREEN_SIZE, 6 );
+	gEngfuncs.GL_SetAttribute( REF_GL_BLUE_SIZE, 5 );
+}
+
+
+void GAME_EXPORT GL_InitExtensions( void )
+{
+
+}
+void GAME_EXPORT GL_ClearExtensions( void )
+{
+
+}
+
+static void *R_Lock_GL1( void )
+{
+	return glbuf;
+}
+
+static void R_Unlock_GL1( void )
+{
+	pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
+	pglMatrixMode( GL_PROJECTION );
+	pglLoadIdentity();
+	pglOrtho( 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
+	pglMatrixMode( GL_MODELVIEW );
+	pglLoadIdentity();
+
+	pglEnable( GL_TEXTURE_2D );
+	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, glbuf );
+	//gEngfuncs.Con_Printf("%d\n",pglGetError());
+	pglBegin( GL_QUADS );
+		pglTexCoord2f( 0, 0 );
+		pglVertex2f( 0, 0 );
+
+		pglTexCoord2f( 1, 0 );
+		pglVertex2f( vid.width, 0 );
+
+		pglTexCoord2f( 1, 1 );
+		pglVertex2f( vid.width, vid.height );
+
+		pglTexCoord2f( 0, 1 );
+		pglVertex2f( 0, vid.height );
+	pglEnd();
+	pglDisable( GL_TEXTURE_2D );
+	gEngfuncs.GL_SwapBuffers();
+}
+
+static void *R_CreateBuffer_GL1( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
+{
+
+	LOAD(glBegin);
+	LOAD(glEnd);
+	LOAD(glTexCoord2f);
+	LOAD(glVertex2f);
+	LOAD(glEnable);
+	LOAD(glDisable);
+	LOAD(glTexImage2D);
+	LOAD(glOrtho);
+	LOAD(glMatrixMode);
+	LOAD(glLoadIdentity);
+	LOAD(glViewport);
+	LOAD(glBindTexture);
+	LOAD(glDebugMessageCallbackARB);
+	LOAD(glDebugMessageControlARB);
+	LOAD(glGetError);
+	LOAD(glGenTextures);
+	LOAD(glTexParameteri);
+#ifdef GLDEBUG
+	if( gpGlobals->developer )
+	{
+		gEngfuncs.Con_Reportf( "Installing GL_DebugOutput...\n");
+		pglDebugMessageCallbackARB( GL_DebugOutput, NULL );
+
+		// force everything to happen in the main thread instead of in a separate driver thread
+		pglEnable( GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB );
+	}
+
+	// enable all the low priority messages
+	pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
+#endif
+
+	if( glbuf )
+		Mem_Free(glbuf);
+	glbuf = Mem_Malloc( r_temppool, width*height*2 );
+	*stride = width;
+	*bpp = 2;
+	*r = MASK(5) << 6 + 5;
+	*g = MASK(6) << 5;
+	*b = MASK(5);
+	return glbuf;
+}
+
+
 
 static int FIRST_BIT( uint mask )
 {
@@ -256,43 +372,22 @@ void R_BuildBlendMaps( void )
 
 void R_AllocScreen( void );
 
-void R_InitBlit(void)
+void R_InitBlit( qboolean glblit )
 {
-
-	/*LOAD(glBegin);
-	LOAD(glEnd);
-	LOAD(glTexCoord2f);
-	LOAD(glVertex2f);
-	LOAD(glEnable);
-	LOAD(glDisable);
-	LOAD(glTexImage2D);
-	LOAD(glOrtho);
-	LOAD(glMatrixMode);
-	LOAD(glLoadIdentity);
-	LOAD(glViewport);
-	LOAD(glBindTexture);
-	LOAD(glDebugMessageCallbackARB);
-	LOAD(glDebugMessageControlARB);
-	LOAD(glGetError);
-	LOAD(glGenTextures);
-	LOAD(glTexParameteri);*/
-#ifdef GLDEBUG
-	if( gpGlobals->developer )
-	{
-		gEngfuncs.Con_Reportf( "Installing GL_DebugOutput...\n");
-		pglDebugMessageCallbackARB( GL_DebugOutput, NULL );
-
-		// force everything to happen in the main thread instead of in a separate driver thread
-		pglEnable( GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB );
-	}
-
-	// enable all the low priority messages
-	pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
-#endif
-
-	//buffer = Mem_Malloc( r_temppool, 1920*1080*2 );
-
 	R_BuildBlendMaps();
+
+	if( glblit )
+	{
+		swblit.pLockBuffer = R_Lock_GL1;
+		swblit.pUnlockBuffer = R_Unlock_GL1;
+		swblit.pCreateBuffer = R_CreateBuffer_GL1;
+	}
+	else
+	{
+		swblit.pLockBuffer = gEngfuncs.SW_LockBuffer;
+		swblit.pUnlockBuffer = gEngfuncs.SW_UnlockBuffer;
+		swblit.pCreateBuffer = gEngfuncs.SW_CreateBuffer;
+	}
 	R_AllocScreen();
 }
 
@@ -304,7 +399,7 @@ void R_AllocScreen( void )
 		gpGlobals->height = 200;
 
 	R_InitCaches();
-	gEngfuncs.SW_CreateBuffer( gpGlobals->width, gpGlobals->height, &swblit.stride, &swblit.bpp,
+	swblit.pCreateBuffer( gpGlobals->width, gpGlobals->height, &swblit.stride, &swblit.bpp,
 							   &swblit.rmask, &swblit.gmask, &swblit.bmask);
 	R_BuildScreenMap();
 	vid.width = gpGlobals->width;
@@ -323,7 +418,7 @@ void R_BlitScreen( void )
 {
 	//memset( vid.buffer, 10, vid.width * vid.height );
 	int u, v;
-	void *buffer = gEngfuncs.SW_LockBuffer();
+	void *buffer = swblit.pLockBuffer();
 	if( !buffer || gpGlobals->width != vid.width || gpGlobals->height != vid.height )
 	{
 		R_AllocScreen();
@@ -383,37 +478,5 @@ void R_BlitScreen( void )
 		}
 	}
 
-#if 0
-	pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
-	pglMatrixMode( GL_PROJECTION );
-	pglLoadIdentity();
-	pglOrtho( 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
-	pglMatrixMode( GL_MODELVIEW );
-	pglLoadIdentity();
-
-	pglEnable( GL_TEXTURE_2D );
-	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, buffer );
-	//gEngfuncs.Con_Printf("%d\n",pglGetError());
-	pglBegin( GL_QUADS );
-		pglTexCoord2f( 0, 0 );
-		pglVertex2f( 0, 0 );
-
-		pglTexCoord2f( 1, 0 );
-		pglVertex2f( vid.width, 0 );
-
-		pglTexCoord2f( 1, 1 );
-		pglVertex2f( vid.width, vid.height );
-
-		pglTexCoord2f( 0, 1 );
-		pglVertex2f( 0, vid.height );
-	pglEnd();
-	pglDisable( GL_TEXTURE_2D );
-	gEngfuncs.GL_SwapBuffers();
-//	memset( vid.buffer, 0, vid.width * vid.height * 2 );
-#else
-	gEngfuncs.SW_UnlockBuffer();
-#endif
+	swblit.pUnlockBuffer();
 }

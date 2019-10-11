@@ -1788,7 +1788,7 @@ void GAME_EXPORT R_EndFrame( void )
 	// flush any remaining 2D bits
 	R_Set2DMode( false );
 
-	// blit pixels with GL until engine supports REF_SOFT context
+	// blit pixels
 	R_BlitScreen();
 }
 
@@ -1925,6 +1925,8 @@ void R_InitTurb (void)
 
 qboolean GAME_EXPORT R_Init( void )
 {
+	qboolean glblit = false;
+
 	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
 	vid_gamma = gEngfuncs.pfnGetCvarPointer( "gamma", 0 );
 	r_norefresh = gEngfuncs.Cvar_Get( "r_norefresh", "0", 0, "disable 3D rendering (use with caution)" );
@@ -1969,18 +1971,25 @@ qboolean GAME_EXPORT R_Init( void )
 	tracerblue = gEngfuncs.Cvar_Get( "tracerblue", "0.4", 0, "tracer blue component weight ( 0 - 1.0 )" );
 	traceralpha = gEngfuncs.Cvar_Get( "traceralpha", "0.5", 0, "tracer alpha amount ( 0 - 1.0 )" );
 
-	// create the window and set up the context
-	r_temppool = Mem_AllocPool( "ref_sw zone" );
+	r_temppool = Mem_AllocPool( "ref_soft zone" );
 
-	if( !gEngfuncs.R_Init_Video( REF_SOFTWARE )) // request GL context
+	glblit = !!gEngfuncs.Sys_CheckParm( "-glblit" );
+
+	// create the window and set up the context
+	if( !glblit && !gEngfuncs.R_Init_Video( REF_SOFTWARE )) // request software blitter
 	{
 		gEngfuncs.R_Free_Video();
+		gEngfuncs.Con_Printf("failed to initialize software blitter, fallback to glblit\n");
+		glblit = true;
+	}
 
-		gEngfuncs.Host_Error( "Can't initialize video subsystem\nProbably driver was not installed" );
+	if( glblit && !gEngfuncs.R_Init_Video( REF_GL )) // request GL context
+	{
+		gEngfuncs.R_Free_Video();
 		return false;
 	}
 
-	R_InitBlit();
+	R_InitBlit( glblit );
 
 	R_InitImages();
 	// init draw stack

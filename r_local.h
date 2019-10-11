@@ -1235,7 +1235,7 @@ void R_DrawBrushModel(cl_entity_t *pent);
 //
 void R_InitCaches (void);
 void R_BlitScreen( void );
-void R_InitBlit( void );
+void R_InitBlit( qboolean gl );
 
 //
 // r_edge.c
