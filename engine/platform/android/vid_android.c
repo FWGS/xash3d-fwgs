@@ -294,13 +294,13 @@ qboolean VID_SetMode( void )
 		return false;
 	}
 
-	if( !( negl.surface = eglCreateWindowSurface( negl.dpy, negl.cfg, negl.window, NULL )))
+	if(( negl.surface = eglCreateWindowSurface( negl.dpy, negl.cfg, negl.window, NULL )) == EGL_NO_SURFACE )
 	{
 		Con_Reportf( S_ERROR "eglCreateWindowSurface returned error: 0x%x\n", eglGetError() );
 		return false;
 	}
 
-	if( !( negl.context = eglCreateContext( negl.dpy, negl.cfg, NULL, contextAttribs )))
+	if(( negl.context = eglCreateContext( negl.dpy, negl.cfg, NULL, contextAttribs )) == EGL_NO_CONTEXT )
 	{
 		Con_Reportf( S_ERROR "eglCreateContext returned error: 0x%x\n", eglGetError() );
 		return false;
