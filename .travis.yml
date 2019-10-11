@@ -122,11 +122,11 @@ jobs:
       addons:
         apt:
           packages:
-            - clang-8
-            - lld-8
+            - clang-9
+            - lld-9
             - p7zip-full
           sources:
-            - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main'
+            - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
               key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
       before_script:
         - export ANDROID_HOME=$TRAVIS_BUILD_DIR/sdk
@@ -143,6 +143,37 @@ jobs:
         - ccache --show-stats
         - mv xashdroid.apk xashdroid-hardfp-test.apk
         - sh ../scripts/continious_upload.sh xashdroid-hardfp-test.apk
+    - # ...
+      name: "Build for Android arm softfp w/ polly"
+      cache: ccache
+      os: linux
+      dist: xenial
+      language: java # we want xenial, so just java, not android
+      jdk: openjdk8
+      addons:
+        apt:
+          packages:
+            - clang-9
+            - lld-9
+            - p7zip-full
+          sources:
+            - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
+              key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
+      before_script:
+        - export ANDROID_HOME=$TRAVIS_BUILD_DIR/sdk
+        - sh scripts/travis_common_deps.sh
+        - sh scripts/travis_android_deps.sh r10e
+        - export ANDROID_SDK_HOME=$ANDROID_HOME
+        - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
+      script:
+        - cd android
+        - export ARCHS="armeabi-v7a"
+        - export TOOLCHAIN="host"
+        - sh compile.sh release
+      after_script:
+        - ccache --show-stats
+        - mv xashdroid.apk xashdroid-softfp-test.apk
+        - sh ../scripts/continious_upload.sh xashdroid-softfp-test.apk
 #    - # ...
 #      name: "Build for Windows MinGW"
 #      cache: ccache
