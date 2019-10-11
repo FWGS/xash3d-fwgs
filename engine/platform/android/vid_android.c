@@ -96,7 +96,6 @@ qboolean  R_Init_Video( const int type )
 	{
 	case REF_SOFTWARE:
 		glw_state.software = true;
-		Host_Error( "software mode isn't supported on Android yet! :(\n", type );
 		break;
 	case REF_GL:
 		if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", safe ) )
@@ -108,6 +107,12 @@ qboolean  R_Init_Video( const int type )
 	default:
 		Host_Error( "Can't initialize unknown context type %d!\n", type );
 		break;
+	}
+
+	if( glw_state.software )
+	{
+		Con_Reportf( S_ERROR "Native software mode isn't supported on Android yet! :(\n" );
+		return false;
 	}
 
 	if( !(retval = VID_SetMode()) )
