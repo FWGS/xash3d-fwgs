@@ -501,13 +501,21 @@ static void R_GetRendererName( char *dest, size_t size, const char *opt )
 {
 	if( !Q_strstr( opt, va( ".%s", OS_LIB_EXT )))
 	{
-		// shortened renderer name
+		const char *format;
+
 #ifdef XASH_INTERNAL_GAMELIBS
-		Q_snprintf( dest, size, "ref_%s", opt );
+		if( !Q_strcmp( opt, "ref_" ))
+			format = "%s";
+		else
+			format = "ref_%s";
 #else
-		Q_snprintf( dest, size, "%sref_%s.%s",
-			OS_LIB_PREFIX, opt, OS_LIB_EXT );
+		if( !Q_strcmp( opt, "ref_" ))
+			format = OS_LIB_PREFIX "%s." OS_LIB_EXT;
+		else
+			format = OS_LIB_PREFIX "ref_%s." OS_LIB_EXT;
 #endif
+		Q_snprintf( dest, size, format, opt );
+
 	}
 	else
 	{
