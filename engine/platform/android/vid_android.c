@@ -63,7 +63,7 @@ Android_SwapBuffers
 Update screen. Use native EGL if possible
 ========================
 */
-void GL_SwapBuffers()
+void GL_SwapBuffers( void )
 {
 	eglSwapBuffers( negl.dpy, negl.surface );
 }
@@ -387,7 +387,7 @@ int GL_GetAttribute( int attr, int *val )
 	return 0;
 }
 
-int R_MaxVideoModes()
+int R_MaxVideoModes( void )
 {
 	return 0;
 }
@@ -417,12 +417,12 @@ void GL_UpdateSwapInterval( void )
 	}
 }
 
-void *SW_LockBuffer()
+void *SW_LockBuffer( void )
 {
 	return NULL;
 }
 
-void SW_UnlockBuffer()
+void SW_UnlockBuffer( void )
 {
 
 }
