@@ -9,11 +9,9 @@ top = '.'
 
 def options(opt):
 	grp = opt.add_option_group('Engine options')
-	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
-		help = 'build engine with BSP2 map support(recommended for Quake, breaks compatibility!)')
 
-	grp.add_option('--stdin-input', action = 'store_true', dest = 'USE_SELECT', default = None,
-		help = 'enable console input from stdin (default for dedicated)')
+	grp.add_option('--enable-stdin-input', action = 'store_true', dest = 'USE_SELECT', default = False,
+		help = 'enable console input from stdin (always enabled for dedicated) [default: %default]')
 
 	opt.load('sdl2')
 

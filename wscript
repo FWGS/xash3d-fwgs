@@ -44,22 +44,22 @@ def options(opt):
 		help = 'build type: debug, release or none(custom flags)')
 
 	grp.add_option('-d', '--dedicated', action = 'store_true', dest = 'DEDICATED', default = False,
-		help = 'build Xash Dedicated Server(XashDS)')
+		help = 'build Xash Dedicated Server [default: %default]')
 
 	grp.add_option('--single-binary', action = 'store_true', dest = 'SINGLE_BINARY', default = False,
-		help = 'build single "xash" binary instead of xash.dll/libxash.so (forced for dedicated)')
+		help = 'build single "xash" binary [default: %default]')
 
 	grp.add_option('-8', '--64bits', action = 'store_true', dest = 'ALLOW64', default = False,
-		help = 'allow targetting 64-bit engine')
+		help = 'allow targetting 64-bit engine(Linux/Windows/OSX x86 only) [default: %default]')
 
 	grp.add_option('-W', '--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
-		help = 'install like Windows build, ignore prefix, useful for development')
+		help = 'install like Windows build, ignore prefix, useful for development [default: %default]')
 
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
-		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compability!)')
+		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compatibility!) [default: %default]')
 
 	grp.add_option('--enable-lto', action = 'store_true', dest = 'LTO', default = False,
-		help = 'enable Link Time Optimization')
+		help = 'enable Link Time Optimization [default: %default]')
 
 	opt.load('subproject')
 

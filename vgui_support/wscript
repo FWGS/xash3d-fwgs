@@ -11,14 +11,14 @@ VGUI_SUPPORTED_OS = ['win32', 'darwin', 'linux']
 
 def options(opt):
 	grp = opt.add_option_group('VGUI options')
-	grp.add_option('--vgui', action = 'store', dest = 'VGUI_DEV',
-		help = 'path to vgui-dev repo(default: "vgui-dev")', default='' )
+	grp.add_option('--vgui', action = 'store', dest = 'VGUI_DEV', default='vgui-dev',
+		help = 'path to vgui-dev repo [default: %default]')
 
-	grp.add_option('--disable-vgui', action = 'store_true', dest = 'NO_VGUI',
-		help = 'disable vgui_support(default: enabled only on supported platforms)', default=False )
+	grp.add_option('--disable-vgui', action = 'store_true', dest = 'NO_VGUI', default = False,
+		help = 'disable vgui_support [default: %default]')
 
-	grp.add_option('--skip-vgui-sanity-check', action = 'store_false', dest = 'VGUI_SANITY_CHECK',
-		help = 'skip checking VGUI sanity', default=True )
+	grp.add_option('--skip-vgui-sanity-check', action = 'store_false', dest = 'VGUI_SANITY_CHECK', default=False,
+		help = 'skip checking VGUI sanity [default: %default]' )
 	return
 
 def configure(conf):

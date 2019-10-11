@@ -10,17 +10,17 @@ top = '.'
 def options(opt):
 	grp = opt.add_option_group('ref_gl options')
 
-	grp.add_option('--enable-static-gl', action='store_true', dest='GL_STATIC',
-	    help = 'don\'t load opengl in runtime, instead link to libGL directly(default: False)')
+	grp.add_option('--enable-static-gl', action='store_true', dest='GL_STATIC', default=False,
+		help = 'enable direct linking to opengl [default: %default]')
 
-	grp.add_option('--enable-gles1', action='store_true', dest='NANOGL',
-	    help = 'enable gles1 renderer by linking nanogl statically(put source to ref_gl directory)')
+	grp.add_option('--enable-gles1', action='store_true', dest='NANOGL', default=False,
+		help = 'enable gles1 renderer [default: %default]')
 
-	grp.add_option('--enable-gles2', action='store_true', dest='GLWES',
-	    help = 'enable gles2 renderer by linking gl-wes-v2 statically(put source to ref_gl directory)')
+	grp.add_option('--enable-gles2', action='store_true', dest='GLWES', default=False,
+		help = 'enable gles2 renderer [default: %default]')
 
 	grp.add_option('--disable-gl', action='store_false', dest='GL', default=True,
-		help = 'disable building OpenGL renderer(default: False)')
+		help = 'disable opengl [default: %default]')
 
 	# stub
 	return
