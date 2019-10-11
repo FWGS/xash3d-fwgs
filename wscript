@@ -265,7 +265,7 @@ def configure(conf):
 	else:
 		conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
-	conf.env.append_unique('DEFINES', 'XASH_BUILD_COMMIT="{0}"'.format(conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset'))
+	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
 
 	for i in SUBDIRS:
 		if conf.env.SINGLE_BINARY and i.singlebin:

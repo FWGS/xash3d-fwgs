@@ -22,7 +22,7 @@ def configure(conf):
 	if conf.options.DEDICATED:
 		if conf.env.DEST_OS == 'linux':
 			conf.check_cc( lib='rt' )
-		conf.env.append_unique('DEFINES', 'XASH_DEDICATED=1')
+		conf.define('XASH_DEDICATED', 1)
 	elif conf.env.DEST_OS == 'android': # Android doesn't need SDL2
 		for i in ['android', 'log', 'EGL']:
 			conf.check_cc(lib = i)
@@ -30,26 +30,17 @@ def configure(conf):
 		conf.load('sdl2')
 		if not conf.env.HAVE_SDL2:
 			conf.fatal('SDL2 not availiable! If you want to build dedicated server, specify --dedicated')
-		conf.env.append_unique('DEFINES', 'XASH_SDL')
-
-	if conf.env.SINGLE_BINARY:
-		conf.env.append_unique('DEFINES', 'SINGLE_BINARY')
+		conf.define('XASH_SDL', 1)
 
 	if conf.options.USE_SELECT == None:
 		conf.options.USE_SELECT = conf.options.DEDICATED
 
-	if conf.options.USE_SELECT:
-		conf.env.append_unique('DEFINES', 'XASH_USE_SELECT')
-
-	if conf.options.SUPPORT_BSP2_FORMAT:
-		conf.env.append_unique('DEFINES', 'SUPPORT_BSP2_FORMAT')
-
-	if conf.env.DEST_OS == 'win32':
-		conf.env.append_unique('DEFINES', 'DBGHELP')
-		conf.env.append_unique('DEFINES', 'PSAPI_VERSION=1')
-
-	if conf.env.DEST_SIZEOF_VOID_P != 4:
-		conf.env.append_unique('DEFINES', 'XASH_64BIT')
+	conf.define_cond('SINGLE_BINARY', conf.env.SINGLE_BINARY)
+	conf.define_cond('XASH_USE_SELECT', conf.options.USE_SELECT)
+	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
+	conf.define_cond('XASH_64BIT', conf.env.DEST_SIZEOF_VOID_P != 4)
+	conf.define_cond('DBGHELP', conf.env.DEST_OS == 'win32')
+	conf.define_cond('PSAPI_VERSION', conf.env.DEST_OS == 'win32') # will be defined as 1
 
 def build(bld):
 	libs = [ 'public' ]
