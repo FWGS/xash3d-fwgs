@@ -10,22 +10,26 @@ if echo "$HOME" | grep "com.termux"; then
 	TOOLCHAIN=host
 else
 	echo "-- Configuring for Android SDK/NDK"
-	if [ "$TOOLCHAIN" = "" ]; then
+	if [ -z "$TOOLCHAIN" ]; then
 		TOOLCHAIN=4.9
 	fi
 fi
 
-if [ "$ARCHS" = "" ]; then
+if [ -z "$ARCHS" ]; then
 	ARCHS="armeabi-v7a armeabi x86"
 fi
+
 API=9
 ROOT="$PWD" # compile.sh must be run from root of android project sources
-SUBDIRS="xash3d-fwgs hlsdk-xash3d"
-SYMLINKS_APPEND=""
-if [ $1 == "" ]; then
+
+if [ -z "$1" ]; then
 	BUILD_TYPE=debug
+	ENGINE_FLAGS=""
+	SDK_FLAGS=""
 else
 	BUILD_TYPE=$1
+	ENGINE_FLAGS="--enable-poly-opt"
+	SDK_FLAGS="--enable-poly-opt"
 fi
 
 # Cleanup libraries
@@ -53,22 +57,28 @@ die()
 
 build_native_project()
 {
-	mkdir -p $ROOT/build-$1/$2
-	if [ -L "$1-sl" ]; then
-		cd $1-sl # need to change directory, as waf doesn't work well with symlinks(used in development purposes)
+	prj=$1
+	shift
+	arch=$1
+	shift
+
+	out="$ROOT/build-$prj/$arch"
+
+	mkdir -p $out
+	if [ -L "$prj-sl" ]; then
+		cd $prj-sl # need to change directory, as waf doesn't work well with symlinks(used in development purposes)
 	else
-		cd $1
+		cd $prj
 	fi
-	./waf -o "$ROOT/build-$1/$2" configure -T $BUILD_TYPE --android="$2,$3,$4" build || die "$ROOT/build-$1/$2"
+	./waf -o "$out" configure -T $BUILD_TYPE --android="$arch,$TOOLCHAIN,$API" $* build || die "$out"
 	./waf install --destdir=$ROOT/build/android/
 	cd $ROOT # obviously, we can't ../ from symlink directory, so change to our root directory
 }
 
 # Do it inside waf?
 for i in $ARCHS; do
-	for j in $SUBDIRS; do
-		build_native_project "$j" "$i" "$TOOLCHAIN" "$API"
-	done
+	build_native_project "xash3d-fwgs" "$i" $ENGINE_FLAGS
+	build_native_project "hlsdk-xash3d" "$i" $SDK_FLAGS
 done
 
 # Run waf
