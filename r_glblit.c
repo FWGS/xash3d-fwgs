@@ -61,10 +61,10 @@ void GAME_EXPORT GL_SetupAttributes( int safegl )
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_FLAGS, REF_GL_CONTEXT_DEBUG_FLAG );
 #endif
 	// untill we have any blitter in ref api, setup GL
-	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_ES);
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_ES );
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_EGL, 1 );
-	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MAJOR_VERSION, 1 );
-	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MINOR_VERSION, 1 );
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MAJOR_VERSION, 3 );
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MINOR_VERSION, 0 );
 	gEngfuncs.GL_SetAttribute( REF_GL_DOUBLEBUFFER, 1 );
 
 	gEngfuncs.GL_SetAttribute( REF_GL_RED_SIZE, 5 );
@@ -78,6 +78,13 @@ void GL_FUNCTION( glBindBuffer)(GLenum target, GLuint buffer);
 void GL_FUNCTION( glBufferData )(GLenum target, GLsizeiptrARB size, const GLvoid *data, GLenum usage);
 void GL_FUNCTION( glGenBuffers )(GLsizei n, GLuint *buffers);
 void GL_FUNCTION( glDeleteBuffers )(GLsizei n, const GLuint *buffers);
+GLvoid* GL_FUNCTION( glMapBuffer )(GLenum target, GLenum access);
+GLboolean GL_FUNCTION( glUnmapBuffer )(GLenum target);
+#define GL_PIXEL_UNPACK_BUFFER 0x88EC
+#define GL_FRAMEBUFFER 0x8D40
+#define GL_COLOR_ATTACHMENT0 0x8CE0
+#define GL_READ_FRAMEBUFFER 0x8CA8
+#define GL_DRAW_FRAMEBUFFER 0x8CA9
 void GAME_EXPORT GL_InitExtensions( void )
 {
 	LOAD(glBegin);
@@ -112,6 +119,13 @@ void GAME_EXPORT GL_InitExtensions( void )
 	LOAD(glBufferData);
 	LOAD(glGenBuffers);
 	LOAD(glDeleteBuffers);
+	LOAD(glMapBuffer);
+	LOAD(glUnmapBuffer);
+	LOAD(glGenFramebuffers);
+	LOAD(glBindFramebuffer);
+	LOAD(glFramebufferTexture2D);
+	LOAD(glBlitFramebuffer);
+	LOAD(glGenTextures);
 	gEngfuncs.Con_Printf("version:%s\n",pglGetString(GL_VERSION));
 #if GLDEBUG
 	if( gpGlobals->developer )
@@ -238,6 +252,90 @@ static qboolean R_CreateBuffer_GLES1( int width, int height, uint *stride, uint 
 		Mem_Free( glbuf );
 
 	glbuf = Mem_Malloc( r_temppool, width*height*2 );
+
+	*stride = width;
+	*bpp = 2;
+	*r = MASK(5) << 6 + 5;
+	*g = MASK(6) << 5;
+	*b = MASK(5);
+
+	return true;
+}
+
+static void *R_Lock_GLES3( void )
+{
+	pglBufferData( GL_PIXEL_UNPACK_BUFFER, vid.width * vid.height * 2, 0, GL_STREAM_DRAW_ARB );
+	return pglMapBuffer( GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY_ARB );
+}
+
+
+static void R_Unlock_GLES3( void )
+{
+	gEngfuncs.GL_SwapBuffers();
+	pglUnmapBuffer( GL_PIXEL_UNPACK_BUFFER );
+	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, 0 );
+	//pglDrawArrays( GL_TRIANGLE_FAN, 0,4 );
+	pglBlitFramebuffer( 0, vid.height, vid.width, 0, 0, 0, vid.width, vid.height, GL_COLOR_BUFFER_BIT, GL_NEAREST );
+
+
+}
+
+static qboolean R_CreateBuffer_GLES3( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
+{
+	float data[] = {
+		// quad verts match texcoords
+		0, 0,
+		1, 0,
+		1, 1,
+		0, 1,
+	};
+	int vbo, pbo, fbo, to;
+
+	// shitty fbo does not work without texture objects :(
+	pglGenTextures( 1, &to );
+	pglBindTexture( GL_TEXTURE_2D, to );
+	pglViewport( 0, 0, width, height );
+	/*pglMatrixMode( GL_PROJECTION );
+	pglLoadIdentity();
+	// project 0..1 to screen size
+	pglOrtho( 0, 1, 1, 0, -99999, 99999 );
+	pglMatrixMode( GL_MODELVIEW );
+	pglLoadIdentity();
+
+	pglEnable( GL_TEXTURE_2D );
+	pglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+	pglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+
+	if( vbo )
+		pglDeleteBuffers( 1,&vbo );
+*/
+
+	if( pbo )
+		pglDeleteBuffers( 1,&pbo );
+
+	//pglGenBuffers( 1,&vbo );
+	pglGenBuffers( 1, &pbo );
+	//pglBindBuffer( GL_ARRAY_BUFFER_ARB, vbo );
+	//pglBufferData( GL_ARRAY_BUFFER_ARB, sizeof(data), data, GL_STATIC_DRAW_ARB );
+
+	//pglEnableClientState( GL_VERTEX_ARRAY );
+	//pglEnableClientState( GL_TEXTURE_COORD_ARRAY );
+
+	//pglVertexPointer( 2, GL_FLOAT, 8, 0 );
+	//pglTexCoordPointer( 2, GL_FLOAT, 8, 0 );
+	//pglBindBuffer( GL_ARRAY_BUFFER_ARB, 0 );
+
+	pglBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo );
+	pglBufferData( GL_PIXEL_UNPACK_BUFFER, width * height * 2, 0, GL_STREAM_DRAW_ARB );
+	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, 0 );
+
+	pglGenFramebuffers(1, &fbo);
+	pglBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+	pglFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, to, 0);
+	pglBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+	//pglColor4f( 1, 1, 1, 1 );
+
 
 	*stride = width;
 	*bpp = 2;
@@ -467,9 +565,9 @@ void R_InitBlit( qboolean glblit )
 
 	if( glblit )
 	{
-		swblit.pLockBuffer = R_Lock_GL1;
-		swblit.pUnlockBuffer = R_Unlock_GLES1;
-		swblit.pCreateBuffer = R_CreateBuffer_GLES1;
+		swblit.pLockBuffer = R_Lock_GLES3;
+		swblit.pUnlockBuffer = R_Unlock_GLES3;
+		swblit.pCreateBuffer = R_CreateBuffer_GLES3;
 	}
 	else
 	{
