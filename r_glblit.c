@@ -8,7 +8,7 @@ struct swblit_s
 	uint rmask, gmask, bmask;
 	void *(*pLockBuffer)( void );
 	void (*pUnlockBuffer)( void );
-	void *(*pCreateBuffer)( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
+	qboolean(*pCreateBuffer)( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
 
 } swblit;
 
@@ -50,16 +50,21 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 static unsigned short *glbuf;
 static int tex;
 
-#define LOAD(x) p##x = gEngfuncs.GL_GetProcAddress(#x)
+#define LOAD(x) p##x = gEngfuncs.GL_GetProcAddress(#x); \
+	gEngfuncs.Con_Printf(#x " : %p\n",p##x)
 
 
 void GAME_EXPORT GL_SetupAttributes( int safegl )
 {
+#if GLDEBUG
 	gEngfuncs.Con_Reportf( "Creating an extended GL context for debug...\n" );
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_FLAGS, REF_GL_CONTEXT_DEBUG_FLAG );
-
+#endif
 	// untill we have any blitter in ref api, setup GL
-	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_COMPATIBILITY );
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_ES);
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_EGL, 1 );
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MAJOR_VERSION, 1 );
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MINOR_VERSION, 1 );
 	gEngfuncs.GL_SetAttribute( REF_GL_DOUBLEBUFFER, 1 );
 
 	gEngfuncs.GL_SetAttribute( REF_GL_RED_SIZE, 5 );
@@ -67,7 +72,12 @@ void GAME_EXPORT GL_SetupAttributes( int safegl )
 	gEngfuncs.GL_SetAttribute( REF_GL_BLUE_SIZE, 5 );
 }
 
+void (*pglOrthof)(GLfloat left, GLfloat right, GLfloat bottom, GLfloat top, GLfloat zNear, GLfloat zFar);
+void GL_FUNCTION( glBindBuffer)(GLenum target, GLuint buffer);
 
+void GL_FUNCTION( glBufferData )(GLenum target, GLsizeiptrARB size, const GLvoid *data, GLenum usage);
+void GL_FUNCTION( glGenBuffers )(GLsizei n, GLuint *buffers);
+void GL_FUNCTION( glDeleteBuffers )(GLsizei n, const GLuint *buffers);
 void GAME_EXPORT GL_InitExtensions( void )
 {
 	LOAD(glBegin);
@@ -78,6 +88,7 @@ void GAME_EXPORT GL_InitExtensions( void )
 	LOAD(glDisable);
 	LOAD(glTexImage2D);
 	LOAD(glOrtho);
+	LOAD(glOrthof);
 	LOAD(glMatrixMode);
 	LOAD(glLoadIdentity);
 	LOAD(glViewport);
@@ -87,7 +98,22 @@ void GAME_EXPORT GL_InitExtensions( void )
 	LOAD(glGetError);
 	LOAD(glGenTextures);
 	LOAD(glTexParameteri);
-#ifdef GLDEBUG
+	LOAD(glEnableClientState);
+	LOAD(glDisableClientState);
+	LOAD(glVertexPointer);
+	LOAD(glTexCoordPointer);
+	LOAD(glDrawElements);
+	LOAD(glClear);
+	LOAD(glClearColor);
+	LOAD(glGetString);
+	LOAD(glColor4f);
+	LOAD(glDrawArrays);
+	LOAD(glBindBuffer);
+	LOAD(glBufferData);
+	LOAD(glGenBuffers);
+	LOAD(glDeleteBuffers);
+	gEngfuncs.Con_Printf("version:%s\n",pglGetString(GL_VERSION));
+#if GLDEBUG
 	if( gpGlobals->developer )
 	{
 		gEngfuncs.Con_Reportf( "Installing GL_DebugOutput...\n");
@@ -133,6 +159,20 @@ static void R_Unlock_GL1( void )
 	gEngfuncs.GL_SwapBuffers();
 }
 
+
+static void R_Unlock_GLES1( void )
+{
+
+	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, glbuf );
+
+	//gEngfuncs.Con_Printf("%d\n",pglGetError());
+
+	pglColor4f(1,1,1,1);
+	pglDrawArrays(GL_TRIANGLE_FAN, 0,4);
+	//gEngfuncs.Con_Printf("%d\n",pglGetError());
+	gEngfuncs.GL_SwapBuffers();
+}
+
 static void *R_CreateBuffer_GL1( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
 {
 	pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
@@ -146,7 +186,6 @@ static void *R_CreateBuffer_GL1( int width, int height, uint *stride, uint *bpp,
 	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-
 	if( glbuf )
 		Mem_Free(glbuf);
 	glbuf = Mem_Malloc( r_temppool, width*height*2 );
@@ -156,6 +195,56 @@ static void *R_CreateBuffer_GL1( int width, int height, uint *stride, uint *bpp,
 	*g = MASK(6) << 5;
 	*b = MASK(5);
 	return glbuf;
+}
+
+static qboolean R_CreateBuffer_GLES1( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
+{
+	float data[] = {
+			0, 0,
+			width,  0,
+			width,  height,
+			0, height,
+		0,0,
+		1,0,
+		1,1,
+		0,1
+	};
+	int vbo;
+	pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
+	pglMatrixMode( GL_PROJECTION );
+	pglLoadIdentity();
+	pglOrthof( 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
+	pglMatrixMode( GL_MODELVIEW );
+	pglLoadIdentity();
+
+	pglEnable( GL_TEXTURE_2D );
+	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+
+	if( vbo )
+		pglDeleteBuffers( 1,&vbo);
+	pglGenBuffers(1,&vbo);
+	pglBindBuffer(GL_ARRAY_BUFFER_ARB,vbo);
+	pglBufferData(GL_ARRAY_BUFFER_ARB,16*4,data, GL_STATIC_DRAW_ARB);
+
+	pglEnableClientState(GL_VERTEX_ARRAY);
+	pglEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+	pglVertexPointer(2,GL_FLOAT,8, 0);
+	pglTexCoordPointer(2,GL_FLOAT,8,(void*)32);
+	pglBindBuffer(GL_ARRAY_BUFFER_ARB,0);
+
+
+	if( glbuf )
+		Mem_Free(glbuf);
+	glbuf = Mem_Malloc( r_temppool, width*height*2 );
+	*stride = width;
+	*bpp = 2;
+	*r = MASK(5) << 6 + 5;
+	*g = MASK(6) << 5;
+	*b = MASK(5);
+	return true;
 }
 
 
@@ -378,8 +467,8 @@ void R_InitBlit( qboolean glblit )
 	if( glblit )
 	{
 		swblit.pLockBuffer = R_Lock_GL1;
-		swblit.pUnlockBuffer = R_Unlock_GL1;
-		swblit.pCreateBuffer = R_CreateBuffer_GL1;
+		swblit.pUnlockBuffer = R_Unlock_GLES1;
+		swblit.pCreateBuffer = R_CreateBuffer_GLES1;
 	}
 	else
 	{
