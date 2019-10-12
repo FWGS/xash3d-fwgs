@@ -148,13 +148,13 @@ static void R_Unlock_GL1( void )
 		pglVertex2f( 0, 0 );
 
 		pglTexCoord2f( 1, 0 );
-		pglVertex2f( vid.width, 0 );
+		pglVertex2f( 1, 0 );
 
 		pglTexCoord2f( 1, 1 );
-		pglVertex2f( vid.width, vid.height );
+		pglVertex2f( 1, 1 );
 
 		pglTexCoord2f( 0, 1 );
-		pglVertex2f( 0, vid.height );
+		pglVertex2f( 0, 1 );
 	pglEnd();
 	gEngfuncs.GL_SwapBuffers();
 }
@@ -162,23 +162,18 @@ static void R_Unlock_GL1( void )
 
 static void R_Unlock_GLES1( void )
 {
-
 	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, glbuf );
+	pglDrawArrays( GL_TRIANGLE_FAN, 0,4 );
 
-	//gEngfuncs.Con_Printf("%d\n",pglGetError());
-
-	pglColor4f(1,1,1,1);
-	pglDrawArrays(GL_TRIANGLE_FAN, 0,4);
-	//gEngfuncs.Con_Printf("%d\n",pglGetError());
 	gEngfuncs.GL_SwapBuffers();
 }
 
-static void *R_CreateBuffer_GL1( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
+static qboolean R_CreateBuffer_GL1( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
 {
-	pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
+	pglViewport( 0, 0, width, height );
 	pglMatrixMode( GL_PROJECTION );
 	pglLoadIdentity();
-	pglOrtho( 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
+	pglOrtho( 0, 1, 1, 0, -99999, 99999 );
 	pglMatrixMode( GL_MODELVIEW );
 	pglLoadIdentity();
 
@@ -188,62 +183,68 @@ static void *R_CreateBuffer_GL1( int width, int height, uint *stride, uint *bpp,
 
 	if( glbuf )
 		Mem_Free(glbuf);
+
 	glbuf = Mem_Malloc( r_temppool, width*height*2 );
+
 	*stride = width;
 	*bpp = 2;
 	*r = MASK(5) << 6 + 5;
 	*g = MASK(6) << 5;
 	*b = MASK(5);
-	return glbuf;
+
+	return true;
 }
 
 static qboolean R_CreateBuffer_GLES1( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
 {
 	float data[] = {
-			0, 0,
-			width,  0,
-			width,  height,
-			0, height,
-		0,0,
-		1,0,
-		1,1,
-		0,1
+		// quad verts match texcoords
+		0, 0,
+		1, 0,
+		1, 1,
+		0, 1,
 	};
 	int vbo;
-	pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
+
+	pglViewport( 0, 0, width, height );
 	pglMatrixMode( GL_PROJECTION );
 	pglLoadIdentity();
-	pglOrthof( 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
+	// project 0..1 to screen size
+	pglOrthof( 0, 1, 1, 0, -99999, 99999 );
 	pglMatrixMode( GL_MODELVIEW );
 	pglLoadIdentity();
 
 	pglEnable( GL_TEXTURE_2D );
-	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
+	pglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+	pglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 
 	if( vbo )
-		pglDeleteBuffers( 1,&vbo);
-	pglGenBuffers(1,&vbo);
-	pglBindBuffer(GL_ARRAY_BUFFER_ARB,vbo);
-	pglBufferData(GL_ARRAY_BUFFER_ARB,16*4,data, GL_STATIC_DRAW_ARB);
+		pglDeleteBuffers( 1,&vbo );
 
-	pglEnableClientState(GL_VERTEX_ARRAY);
-	pglEnableClientState(GL_TEXTURE_COORD_ARRAY);
+	pglGenBuffers( 1,&vbo );
+	pglBindBuffer( GL_ARRAY_BUFFER_ARB, vbo );
+	pglBufferData( GL_ARRAY_BUFFER_ARB, sizeof(data), data, GL_STATIC_DRAW_ARB );
 
-	pglVertexPointer(2,GL_FLOAT,8, 0);
-	pglTexCoordPointer(2,GL_FLOAT,8,(void*)32);
-	pglBindBuffer(GL_ARRAY_BUFFER_ARB,0);
+	pglEnableClientState( GL_VERTEX_ARRAY );
+	pglEnableClientState( GL_TEXTURE_COORD_ARRAY );
+
+	pglVertexPointer( 2, GL_FLOAT, 8, 0 );
+	pglTexCoordPointer( 2, GL_FLOAT, 8, 0 );
+	pglBindBuffer( GL_ARRAY_BUFFER_ARB, 0 ) ;
+	pglColor4f( 1, 1, 1, 1 );
 
 
 	if( glbuf )
-		Mem_Free(glbuf);
+		Mem_Free( glbuf );
+
 	glbuf = Mem_Malloc( r_temppool, width*height*2 );
+
 	*stride = width;
 	*bpp = 2;
 	*r = MASK(5) << 6 + 5;
 	*g = MASK(6) << 5;
 	*b = MASK(5);
+
 	return true;
 }
 
