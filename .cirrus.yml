@@ -3,6 +3,7 @@ task:
   freebsd_instance:
     image: freebsd-10-4-release-amd64
   setup_script:
+    - git submodule update --init --recursive
     - ./scripts/travis_linux_deps.sh
   test_script:
     - ./scripts/build_freebsd_engine.sh dedicated
@@ -13,6 +14,7 @@ task:
   freebsd_instance:
     image: freebsd-11-3-stable-amd64-v20190801
   setup_script:
+    - git submodule update --init --recursive
     - ./scripts/travis_linux_deps.sh
   test_script:
     - ./scripts/build_freebsd_engine.sh dedicated
@@ -23,6 +25,7 @@ task:
   freebsd_instance:
     image: freebsd-12-0-release-amd64
   setup_script:
+    - git submodule update --init --recursive
     - ./scripts/travis_linux_deps.sh
   test_script:
     - ./scripts/build_freebsd_engine.sh dedicated
