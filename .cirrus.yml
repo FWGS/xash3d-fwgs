@@ -1,7 +1,7 @@
 task:
   name: freebsd-10-amd64
   freebsd_instance:
-    image: freebsd-10-4
+    image: freebsd-10-4-release-amd64
   setup_script:
     - ./scripts/travis_linux_deps.sh
   test_script:
@@ -11,7 +11,7 @@ task:
 task:
   name: freebsd-11-amd64
   freebsd_instance:
-    image: freebsd-11-3
+    image: freebsd-11-3-stable-amd64-v20190801
   setup_script:
     - ./scripts/travis_linux_deps.sh
   test_script:
@@ -21,7 +21,7 @@ task:
 task:
   name: freebsd-12-amd64
   freebsd_instance:
-    image: freebsd-12-0
+    image: freebsd-12-0-release-amd64
   setup_script:
     - ./scripts/travis_linux_deps.sh
   test_script:
