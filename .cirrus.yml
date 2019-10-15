@@ -1,10 +1,10 @@
 task:
   name: freebsd-10-amd64
   freebsd_instance:
-    image: freebsd-10-4-release-amd64
+    image_family: freebsd-10-4
   setup_script:
+    - pkg install git sdl2 python
     - git submodule update --init --recursive
-    - ./scripts/travis_linux_deps.sh
   test_script:
     - ./scripts/build_freebsd_engine.sh dedicated
     - ./scripts/build_freebsd_engine.sh
@@ -12,10 +12,10 @@ task:
 task:
   name: freebsd-11-amd64
   freebsd_instance:
-    image: freebsd-11-3-stable-amd64-v20190801
+    image_family: freebsd-11-3
   setup_script:
+    - pkg install git sdl2 python
     - git submodule update --init --recursive
-    - ./scripts/travis_linux_deps.sh
   test_script:
     - ./scripts/build_freebsd_engine.sh dedicated
     - ./scripts/build_freebsd_engine.sh
@@ -23,10 +23,10 @@ task:
 task:
   name: freebsd-12-amd64
   freebsd_instance:
-    image: freebsd-12-0-release-amd64
+    image_family: freebsd-12-0
   setup_script:
+    - pkg install git sdl2 python
     - git submodule update --init --recursive
-    - ./scripts/travis_linux_deps.sh
   test_script:
     - ./scripts/build_freebsd_engine.sh dedicated
     - ./scripts/build_freebsd_engine.sh
