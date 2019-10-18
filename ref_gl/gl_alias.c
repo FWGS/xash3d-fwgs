@@ -55,7 +55,7 @@ static aliashdr_t	*m_pAliasHeader;
 static trivertex_t	*g_poseverts[MAXALIASFRAMES];
 static dtriangle_t	g_triangles[MAXALIASTRIS];
 static stvert_t	g_stverts[MAXALIASVERTS];
-static qboolean	g_used[8192];
+static int	g_used[8192];
 
 // a pose is a single set of vertexes. a frame may be
 // an animating sequence of poses
