@@ -1,25 +1,10 @@
-#!/bin/bash
-
+#!/bin/sh
 
 if [ "$1" = "dedicated" ]; then
 	APP=xashds
 else # elif [ "$1" = "full" ]; then
 	APP=xash3d-fwgs
 fi
-
-build_sdl2()
-{
-	cd "$CIRRUS_WORKING_DIR"/SDL2_src || die
-	./configure --disable-render --disable-haptic --disable-power --disable-filesystem \
-		--disable-file --disable-libudev --disable-dbus --disable-ibus \
-		--disable-ime --disable-fcitx \
-		--enable-alsa-shared --enable-pulseaudio-shared \
-		--enable-wayland-shared --enable-x11-shared \
-		--prefix / || die # get rid of /usr/local stuff
-	make -j2 || die
-	mkdir -p "$CIRRUS_WORKING_DIR"/SDL2_bsd
-	make install DESTDIR="$CIRRUS_WORKING_DIR"/SDL2_bsd || die
-}
 
 build_engine()
 {
@@ -39,7 +24,4 @@ build_engine()
 
 rm -rf build # clean-up build directory
 
-if [ $APP != "xashds" ]; then
-	build_sdl2
-fi
 build_engine
