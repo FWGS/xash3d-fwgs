@@ -63,7 +63,7 @@ jobs:
             - libasound-dev
             - libstdc++6
             - libfuse2
-            - unzip4
+            - unzip
       before_script:
         - export ARCH=x86_64
         - sh scripts/travis_common_deps.sh
