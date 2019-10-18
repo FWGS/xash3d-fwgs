@@ -6,7 +6,7 @@ task:
     - pkg install -y git sdl2 python
     - git submodule update --init --recursive
   test_script:
-    - ./scripts/build_freebsd_engine.sh dedicated
+    # - ./scripts/build_freebsd_engine.sh dedicated
     - ./scripts/build_freebsd_engine.sh
 
 task:
@@ -17,7 +17,7 @@ task:
     - pkg install -y git sdl2 python
     - git submodule update --init --recursive
   test_script:
-    - ./scripts/build_freebsd_engine.sh dedicated
+    # - ./scripts/build_freebsd_engine.sh dedicated
     - ./scripts/build_freebsd_engine.sh
 
 task:
@@ -28,5 +28,5 @@ task:
     - pkg install -y git sdl2 python
     - git submodule update --init --recursive
   test_script:
-    - ./scripts/build_freebsd_engine.sh dedicated
+    # - ./scripts/build_freebsd_engine.sh dedicated
     - ./scripts/build_freebsd_engine.sh
