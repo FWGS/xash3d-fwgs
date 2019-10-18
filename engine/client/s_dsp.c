@@ -61,7 +61,7 @@ typedef struct dly_s
 	size_t	idelayoutput;
 
 	// crossfade
-	size_t	idelayoutputxf;	// output pointer
+	int	idelayoutputxf;	// output pointer
 	int	xfade;		// value
 
 	int	delaysamples;	// delay setting
