@@ -12,9 +12,9 @@ build_engine()
 	cd "$CIRRUS_WORKING_DIR" || die
 
 	if [ "$APP" = "xashds" ]; then
-		./waf configure -T release --single-binary -d -W || die
+		./waf configure -T release -d -W || die
 	elif [ "$APP" = "xash3d-fwgs" ]; then
-		./waf configure --sdl2=SDL2_bsd -T release --enable-stb -W || die
+		./waf configure -T release --enable-stb -W || die
 	else
 		die
 	fi
