@@ -114,12 +114,11 @@ def configure(conf):
 	# We restrict 64-bit builds ONLY for Win/Linux/OSX running on Intel architecture
 	# Because compatibility with original GoldSrc
 	if conf.env.DEST_OS in ['win32', 'linux', 'darwin'] and conf.env.DEST_CPU in ['x86_64']:
-		conf.env.BIT32_ALLOW64 = conf.options.ALLOW64
-		if not conf.env.BIT32_ALLOW64:
+		conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
+		if not conf.env.BIT32_MANDATORY:
 			Logs.info('WARNING: will build engine for 32-bit target')
 	else:
-		conf.env.BIT32_ALLOW64 = True
-	conf.env.BIT32_MANDATORY = not conf.env.BIT32_ALLOW64
+		conf.env.BIT32_MANDATORY = False
 	conf.load('force_32bit')
 	if conf.env.DEST_OS != 'android' and not conf.options.DEDICATED:
 		conf.load('sdl2')
