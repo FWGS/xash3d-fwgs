@@ -252,7 +252,8 @@ def configure(conf):
 		a = map(lambda x: {
 			'features': 'c',
 			'message': '...' + x,
-			'lib': x
+			'lib': x,
+			'uselib_store': x.upper()
 		}, [
 			'user32',
 			'shell32',
