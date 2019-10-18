@@ -569,7 +569,7 @@ int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list ar
 	}
 #endif
 
-	if( result < 0 || result >= buffersize )
+	if( result >= buffersize )
 	{
 		buffer[buffersize - 1] = '\0';
 		return -1;
