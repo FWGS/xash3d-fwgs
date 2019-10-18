@@ -607,7 +607,7 @@ typedef struct
 
 	// demo recording info must be here, so it isn't clearing on level change
 	qboolean		demorecording;
-	qboolean		demoplayback;
+	int			demoplayback;
 	qboolean		demowaiting;		// don't record until a non-delta message is received
 	qboolean		timedemo;
 	string		demoname;			// for demo looping
