@@ -170,8 +170,6 @@ def configure(conf):
 
 	compiler_optional_flags = [
 		'-fdiagnostics-color=always',
-		'-Werror=implicit-function-declaration',
-		'-Werror=int-conversion',
 		'-Werror=return-type',
 		'-Werror=parentheses',
 		'-Werror=vla',
@@ -184,6 +182,8 @@ def configure(conf):
 	]
 
 	c_compiler_optional_flags = [
+		'-Werror=implicit-function-declaration',
+		'-Werror=int-conversion',
 		'-Werror=implicit-int',
 		'-Werror=strict-prototypes',
 		'-Werror=old-style-declaration',
@@ -225,8 +225,8 @@ def configure(conf):
 		conf.check_cc(cflags=cflags, msg= 'Checking for required C flags')
 		conf.check_cxx(cxxflags=cflags, msg= 'Checking for required C++ flags')
 
-		cflags += conf.filter_cflags(compiler_optional_flags + c_compiler_optional_flags, cflags)
 		cxxflags += conf.filter_cxxflags(compiler_optional_flags, cflags)
+		cflags += conf.filter_cflags(compiler_optional_flags + c_compiler_optional_flags, cflags)
 
 	conf.env.append_unique('CFLAGS', cflags)
 	conf.env.append_unique('CXXFLAGS', cxxflags)
@@ -253,7 +253,8 @@ def configure(conf):
 			'features': 'c',
 			'message': '...' + x,
 			'lib': x,
-			'uselib_store': x.upper()
+			'uselib_store': x.upper(),
+			'global_define': False,
 		}, [
 			'user32',
 			'shell32',
@@ -264,7 +265,7 @@ def configure(conf):
 			'ws2_32'
 		])
 
-		conf.multicheck(*a)
+		conf.multicheck(*a, run_all_tests = True, mandatory = True)
 
 	# indicate if we are packaging for Linux/BSD
 	if(not conf.options.WIN_INSTALL and
