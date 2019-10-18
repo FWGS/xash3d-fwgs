@@ -120,8 +120,6 @@ def configure(conf):
 	else:
 		conf.env.BIT32_MANDATORY = False
 	conf.load('force_32bit')
-	if conf.env.DEST_OS != 'android' and not conf.options.DEDICATED:
-		conf.load('sdl2')
 
 	linker_flags = {
 		'common': {
@@ -250,11 +248,11 @@ def configure(conf):
 		# Usually, they are always available
 		# but we need them in uselib
 		a = map(lambda x: {
-			'features': 'c',
-			'message': '...' + x,
+			# 'features': 'c',
+			# 'message': '...' + x,
 			'lib': x,
-			'uselib_store': x.upper(),
-			'global_define': False,
+			# 'uselib_store': x.upper(),
+			# 'global_define': False,
 		}, [
 			'user32',
 			'shell32',
@@ -265,7 +263,10 @@ def configure(conf):
 			'ws2_32'
 		])
 
-		conf.multicheck(*a, run_all_tests = True, mandatory = True)
+		for i in a:
+			conf.check_cc(**i)
+
+		# conf.multicheck(*a, run_all_tests = True, mandatory = True)
 
 	# indicate if we are packaging for Linux/BSD
 	if(not conf.options.WIN_INSTALL and
