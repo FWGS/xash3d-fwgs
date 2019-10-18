@@ -249,13 +249,21 @@ def configure(conf):
 		# Don't check them more than once, to save time
 		# Usually, they are always available
 		# but we need them in uselib
-		conf.check_cc( lib='user32' )
-		conf.check_cc( lib='shell32' )
-		conf.check_cc( lib='gdi32' )
-		conf.check_cc( lib='advapi32' )
-		conf.check_cc( lib='dbghelp' )
-		conf.check_cc( lib='psapi' )
-		conf.check_cc( lib='ws2_32' )
+		a = map(lambda x: {
+			'features': 'c',
+			'message': '...' + x,
+			'lib': x
+		}, [
+			'user32',
+			'shell32',
+			'gdi32',
+			'advapi32',
+			'dbghelp',
+			'psapi',
+			'ws2_32'
+		])
+
+		conf.multicheck(*a)
 
 	# indicate if we are packaging for Linux/BSD
 	if(not conf.options.WIN_INSTALL and
