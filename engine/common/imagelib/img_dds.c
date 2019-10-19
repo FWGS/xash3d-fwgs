@@ -225,7 +225,7 @@ uint Image_DXTCalcSize( const char *name, dds_t *hdr, size_t filesize )
 
 	if( filesize != buffsize ) // main check
 	{
-		Con_DPrintf( S_WARN "Image_LoadDDS: (%s) probably corrupted (%i should be %i)\n", name, buffsize, filesize );
+		Con_DPrintf( S_WARN "Image_LoadDDS: (%s) probably corrupted (%i should be %lu)\n", name, buffsize, filesize );
 		if( buffsize > filesize )
 			return false;
 	}
