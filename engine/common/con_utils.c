@@ -563,7 +563,7 @@ qboolean Cmd_GetKeysList( const char *s, char *completedname, int length )
 		Con_Printf( "%16s\n", matchbuf );
 	}
 
-	Con_Printf( "\n^3 %i keys found.\n", numkeys );
+	Con_Printf( "\n^3 %lu keys found.\n", numkeys );
 
 	if( completedname && length )
 	{

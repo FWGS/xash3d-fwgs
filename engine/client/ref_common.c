@@ -443,7 +443,7 @@ static qboolean R_LoadProgs( const char *name )
 	if( !( GetRefAPI = (REFAPI)COM_GetProcAddress( ref.hInstance, GET_REF_API )) )
 	{
 		COM_FreeLibrary( ref.hInstance );
-		Con_Reportf( "R_LoadProgs: can't find GetRefAPI entry point in %s: %s\n", name );
+		Con_Reportf( "R_LoadProgs: can't find GetRefAPI entry point in %s\n", name );
 		ref.hInstance = NULL;
 		return false;
 	}
@@ -599,7 +599,7 @@ void R_CollectRendererNames( void )
 		pfn = COM_GetProcAddress( dll, GET_REF_API );
 		if( !pfn )
 		{
-			Con_Reportf( "R_CollectRendererNames: can't find API entry point in %s\n", temp, COM_GetLibraryError() );
+			Con_Reportf( "R_CollectRendererNames: can't find API entry point in %s\n", temp );
 			COM_FreeLibrary( dll );
 			continue;
 		}
