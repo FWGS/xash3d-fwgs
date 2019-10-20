@@ -311,7 +311,6 @@ void CL_ParseStaticEntity( sizebuf_t *msg )
 	cl_entity_t	*ent;
 
 	memset( &from, 0, sizeof( from ));
-	newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
 	MSG_ReadDeltaEntity( msg, &from, &to, 0, DELTA_STATIC, cl.mtime[0] );
 
 	i = clgame.numStatics;
@@ -1367,7 +1366,6 @@ void CL_UpdateUserinfo( sizebuf_t *msg )
 	if( slot >= MAX_CLIENTS )
 		Host_Error( "CL_ParseServerMessage: svc_updateuserinfo >= MAX_CLIENTS\n" );
 
-	id = MSG_ReadLong( msg );	// unique user ID
 	player = &cl.players[slot];
 	active = MSG_ReadOneBit( msg ) ? true : false;
 

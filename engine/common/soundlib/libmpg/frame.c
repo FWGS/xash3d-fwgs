@@ -247,7 +247,6 @@ int frame_buffers( mpg123_handle_t *fr )
 		fr->layer3.hybrid_in = (float(*)[SBLIMIT][SSLIMIT])scratcher;
 		scratcher += 2 * SBLIMIT * SSLIMIT;
 		fr->layer3.hybrid_out = (float(*)[SSLIMIT][SBLIMIT])scratcher;
-		scratcher += 2 * SSLIMIT * SBLIMIT;
 
 		// note: These buffers don't need resetting here.
 	}

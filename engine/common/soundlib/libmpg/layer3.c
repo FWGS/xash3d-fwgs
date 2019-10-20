@@ -1147,8 +1147,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 
 	part2remain += num;
 	backbits( fr, num );
-	num = 0;
-
+	
 	while( xrpnt < &xr[SBLIMIT][0] ) 
 		*xrpnt++ = DOUBLE_TO_REAL( 0.0 );
 

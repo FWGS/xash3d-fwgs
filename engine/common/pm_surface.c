@@ -354,8 +354,6 @@ int PM_TestLineExt( playermove_t *pmove, physent_t *ents, int numents, const vec
 		if( FBitSet( flags, PM_GLASS_IGNORE ) && pe->rendermode != kRenderNormal )
 			continue;
 
-		hull = &pe->model->hulls[0];
-
 		hull = PM_HullForBsp( pe, pmove, offset );
 
 		if( pe->solid == SOLID_BSP && !VectorIsNull( pe->angles ))

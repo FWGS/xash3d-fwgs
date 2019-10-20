@@ -516,7 +516,6 @@ qboolean CL_ProcessShowTexturesCmds( usercmd_t *cmd )
 		return false;
 
 	changed = (oldbuttons ^ cmd->buttons);
-	pressed =  changed & cmd->buttons;
 	released = changed & (~cmd->buttons);
 
 	if( released & ( IN_RIGHT|IN_MOVERIGHT ))
@@ -785,11 +784,9 @@ void CL_WritePacket( void )
 
 		if( cls.lastoutgoingcommand == -1 )
 		{
-			outgoing_sequence = cls.netchan.outgoing_sequence;
 			cls.lastoutgoingcommand = cls.netchan.outgoing_sequence;
 		}
-		else outgoing_sequence = cls.lastoutgoingcommand + 1;
-
+		
 		// begin a client move command
 		MSG_BeginClientCmd( &buf, clc_move );
 
@@ -832,8 +829,7 @@ void CL_WritePacket( void )
 		buf.pData[key] = CRC32_BlockSequence( buf.pData + key + 1, size, cls.netchan.outgoing_sequence );
 
 		// message we are constructing.
-		i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;
-	
+			
 		// determine if we need to ask for a new set of delta's.
 		if( cl.validsequence && (cls.state == ca_active) && !( cls.demorecording && cls.demowaiting ))
 		{
@@ -1688,7 +1684,6 @@ void CL_FixupColorStringsForInfoString( const char *in, char *out )
 		{
 			*out++ = '^';
 			*out++ = '7';
-			count += 2;
 		}
 	}
 
@@ -2944,7 +2939,6 @@ void CL_AdjustClock( void )
 
 		msec = ( cl.timedelta * 1000.0f );
 		sign = ( msec < 0 ) ? 1.0f : -1.0f;
-		msec = fabs( msec );
 		adjust = sign * ( cl_fixtimerate->value / 1000.0f );
 
 		if( fabs( adjust ) < fabs( cl.timedelta ))

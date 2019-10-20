@@ -389,7 +389,7 @@ void CL_PureOrigin( cl_entity_t *ent, float t, vec3_t outorigin, vec3_t outangle
 	vec3_t		delta;
 
 	// NOTE: ph0 is next, ph1 is a prev
-	extrapolate = CL_FindInterpolationUpdates( ent, t, &ph0, &ph1 );
+	CL_FindInterpolationUpdates( ent, t, &ph0, &ph1 );
 
 	if ( !ph0 || !ph1 )
 		return;
@@ -802,7 +802,6 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 	{
 		// this is a full update that we can start delta compressing from now
 		oldframe = NULL;
-		oldpacket = -1;		// delta too old or is initial message
 		cl.send_reply = true;	// send reply
 		cls.demowaiting = false;	// we can start recording now
 	}

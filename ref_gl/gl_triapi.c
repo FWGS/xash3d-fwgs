@@ -331,10 +331,8 @@ void TriCullFace( TRICULLSTYLE mode )
 	switch( mode )
 	{
 	case TRI_FRONT:
-		glMode = GL_FRONT;
 		break;
 	default:
-		glMode = GL_NONE;
 		break;
 	}
 
