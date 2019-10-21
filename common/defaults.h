@@ -67,6 +67,25 @@ SETUP BACKENDS DEFINITIONS
 		#endif
 	#endif // android case
 
+	#ifdef XASH_FBDEV
+		#ifndef XASH_VIDEO
+			#define XASH_VIDEO VIDEO_FBDEV
+		#endif
+
+		#ifndef XASH_TIMER
+			#define XASH_TIMER TIMER_LINUX
+		#endif
+
+		#ifndef XASH_INPUT
+			#define XASH_INPUT INPUT_EVDEV
+		#endif
+
+		#ifndef XASH_SOUND
+			#define XASH_SOUND SOUND_NULL
+		#endif
+		#define XASH_USE_EVDEV
+	#endif // android case
+
 #endif // XASH_DEDICATED
 
 // select crashhandler based on defines

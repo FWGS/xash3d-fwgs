@@ -222,7 +222,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 #ifdef __ANDROID__
 		Android_ShowMouse( true );
 #endif
-#ifdef USE_EVDEV
+#ifdef XASH_USE_EVDEV
 		Evdev_SetGrab( false );
 #endif
 	}
@@ -231,7 +231,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 #ifdef __ANDROID__
 		Android_ShowMouse( false );
 #endif
-#ifdef USE_EVDEV
+#ifdef XASH_USE_EVDEV
 		Evdev_SetGrab( true );
 #endif
 	}
