@@ -12,6 +12,8 @@ def options(opt):
 
 	grp.add_option('--enable-stdin-input', action = 'store_true', dest = 'USE_SELECT', default = False,
 		help = 'enable console input from stdin (always enabled for dedicated) [default: %default]')
+	grp.add_option('--fbdev', action = 'store_true', dest = 'FBDEV_SW', default = False,
+		help = 'build fbdev-only software-only engine')
 
 	opt.load('sdl2')
 
@@ -24,6 +26,9 @@ def configure(conf):
 	elif conf.env.DEST_OS == 'android': # Android doesn't need SDL2
 		for i in ['android', 'log', 'EGL']:
 			conf.check_cc(lib = i)
+	elif conf.options.FBDEV_SW:
+		conf.define('XASH_FBDEV', 1)
+		conf.env.FBDEV
 	else:
 		conf.load('sdl2')
 		if not conf.env.HAVE_SDL2:
@@ -59,6 +64,8 @@ def build(bld):
 
 	if bld.env.DEST_OS == 'linux':
 		source += bld.path.ant_glob(['platform/linux/*.c'])
+
+	source += bld.path.ant_glob(['platform/stub/*.c'])
 
 	if bld.env.HAVE_SDL2:
 		libs.append('SDL2')

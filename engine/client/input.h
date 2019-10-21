@@ -45,6 +45,8 @@ uint IN_CollectInputDevices( void );
 void IN_LockInputDevices( qboolean lock );
 void IN_EngineAppendMove( float frametime, void *cmd, qboolean active );
 
+extern convar_t *m_yaw;
+extern convar_t *m_pitch;
 //
 // in_touch.c
 //
@@ -103,13 +105,5 @@ void Joy_Init( void );
 void Joy_Shutdown( void );
 void Joy_EnableTextInput(qboolean enable, qboolean force);
 
-//
-// in_evdev.c
-//
-#ifdef XASH_USE_EVDEV
-void Evdev_SetGrab( qboolean grab );
-void Evdev_Shutdown( void );
-void Evdev_Init( void );
-#endif // XASH_USE_EVDEV
 
 #endif//INPUT_H

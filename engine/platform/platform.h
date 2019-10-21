@@ -111,6 +111,17 @@ void *SW_LockBuffer( void );
 void SW_UnlockBuffer( void );
 qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
 
+
+//
+// in_evdev.c
+//
+#ifdef XASH_USE_EVDEV
+void Evdev_SetGrab( qboolean grab );
+void Evdev_Shutdown( void );
+void Evdev_Init( void );
+void IN_EvdevMove( float *yaw, float *pitch );
+void IN_EvdevFrame ( void );
+#endif // XASH_USE_EVDEV
 /*
 ==============================================================================
 

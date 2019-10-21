@@ -12,17 +12,17 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
+#include "platform/platform.h"
 #ifdef XASH_USE_EVDEV
 
+
+#include "common.h"
+#include "input.h"
+#include "client.h"
 #include <fcntl.h>
 #include <errno.h>
 #include <linux/input.h>
 #include <dirent.h>
-#include "common.h"
-#include "input.h"
-#include "client.h"
-#include "vgui_draw.h"
-
 #define MAX_EVDEV_DEVICES 5
 
 struct evdev_s
@@ -31,12 +31,100 @@ struct evdev_s
 	int fds[MAX_EVDEV_DEVICES];
 	string paths[MAX_EVDEV_DEVICES];
 	qboolean grab;
-	float grabtime;
+	double grabtime;
 	float x, y;
+	qboolean chars;
+	qboolean shift;
 } evdev;
 
-int KeycodeFromEvdev(int keycode, int value);
+static int KeycodeFromEvdev(int keycode, int value)
+{
+	switch (keycode) {
 
+	case KEY_0:          return '0';
+	case KEY_1:          return '1';
+	case KEY_2:          return '2';
+	case KEY_3:          return '3';
+	case KEY_4:          return '4';
+	case KEY_5:          return '5';
+	case KEY_6:          return '6';
+	case KEY_7:          return '7';
+	case KEY_8:          return '8';
+	case KEY_9:          return '9';
+	case KEY_BACKSPACE:  return K_BACKSPACE;
+	case KEY_ENTER:      return K_ENTER;
+	case KEY_ESC:        return K_ESCAPE;
+	case KEY_KP0:        return K_KP_INS;
+	case KEY_KP1:        return K_KP_END;
+	case KEY_KP2:        return K_KP_DOWNARROW;
+	case KEY_KP3:        return K_KP_PGDN;
+	case KEY_KP4:        return K_KP_LEFTARROW;
+	case KEY_KP5:        return K_KP_5;
+	case KEY_KP6:        return K_KP_RIGHTARROW;
+	case KEY_KP7:        return K_KP_HOME;
+	case KEY_KP8:        return K_KP_UPARROW;
+	case KEY_KP9:        return K_KP_PGUP;
+	case KEY_KPDOT:      return K_KP_DEL;
+	case KEY_KPENTER:    return K_KP_ENTER;
+	case KEY_Q: return 'q';
+	case KEY_W: return 'w';
+	case KEY_E: return 'e';
+	case KEY_R: return 'r';
+	case KEY_T: return 't';
+	case KEY_Y: return 'y';
+	case KEY_U: return 'u';
+	case KEY_I: return 'i';
+	case KEY_O: return 'o';
+	case KEY_P: return 'p';
+	case KEY_A: return 'a';
+	case KEY_S: return 's';
+	case KEY_D: return 'd';
+	case KEY_F: return 'f';
+	case KEY_G: return 'g';
+	case KEY_H: return 'h';
+	case KEY_J: return 'j';
+	case KEY_K: return 'k';
+	case KEY_L: return 'l';
+	case KEY_Z: return 'z';
+	case KEY_X: return 'x';
+	case KEY_C: return 'c';
+	case KEY_V: return 'v';
+	case KEY_B: return 'b';
+	case KEY_N: return 'n';
+	case KEY_M: return 'm';
+	case KEY_LEFTBRACE: return '[';
+	case KEY_RIGHTBRACE: return ']';
+	case KEY_MINUS: return '-';
+	case KEY_EQUAL: return '=';
+	case KEY_TAB: return K_TAB;
+	case KEY_SEMICOLON: return ';';
+	case KEY_APOSTROPHE: return '\'';
+	case KEY_GRAVE: return '`';
+	case KEY_BACKSLASH: return '\\';
+	case KEY_COMMA: return ',';
+	case KEY_DOT: return '.';
+	case KEY_SLASH: return '/';
+	case KEY_SPACE: return K_SPACE;
+	case KEY_KPASTERISK: return '*';
+	case KEY_RIGHTCTRL:
+	case KEY_LEFTCTRL:
+		return K_CTRL;
+	case KEY_RIGHTSHIFT:
+	case KEY_LEFTSHIFT:
+		return K_SHIFT;
+	case KEY_LEFT: return K_LEFTARROW;
+	case KEY_RIGHT: return K_RIGHTARROW;
+	case KEY_UP: return K_UPARROW;
+	case KEY_DOWN: return K_DOWNARROW;
+	case BTN_LEFT: return K_MOUSE1;
+	case BTN_RIGHT: return K_MOUSE2;
+	case BTN_MIDDLE: return K_MOUSE3;
+	default:
+		break;
+	}
+
+	return 0;	
+}
 static void Evdev_CheckPermissions( void )
 {
 #ifdef __ANDROID__
@@ -110,7 +198,7 @@ void Evdev_Autodetect_f( void )
 
 		if( EV_HASBIT( types, EV_REL ) )
 		{
-			Q_memset( codes, 0, sizeof( codes ) );
+			memset( codes, 0, sizeof( codes ) );
 			ioctl( fd, EVIOCGBIT( EV_REL, KEY_MAX ), codes );
 
 			if( !EV_HASBIT( codes, REL_X ) )
@@ -129,6 +217,10 @@ open:
 		Q_strncpy( evdev.paths[evdev.devices], path, MAX_STRING );
 		evdev.fds[evdev.devices++] = fd;
 		Msg( "Opened device %s\n", path );
+#if XASH_INPUT == INPUT_EVDEV
+		if( Sys_CheckParm( "-grab" ) )
+			ioctl( evdev.fds[i], EVIOCGRAB, (void*) 1 );
+#endif
 		goto next;
 close:
 		close( fd );
@@ -178,6 +270,11 @@ void Evdev_OpenDevice ( const char *path )
 	Msg( "Input device #%d: %s opened sucessfully\n", evdev.devices, path );
 	evdev.fds[evdev.devices] = ret;
 	Q_strncpy( evdev.paths[evdev.devices++], path, MAX_STRING );
+
+#if XASH_INPUT == INPUT_EVDEV
+		if( Sys_CheckParm( "-grab" ) )
+			ioctl( evdev.fds[i], EVIOCGRAB, (void*) 1 );
+#endif
 }
 
 void Evdev_OpenDevice_f( void )
@@ -196,7 +293,7 @@ Evdev_CloseDevice_f
 void Evdev_CloseDevice_f ( void )
 {
 	uint i;
-	char *arg;
+	const char *arg;
 
 	if( Cmd_Argc() < 2 )
 		return;
@@ -260,22 +357,28 @@ void IN_EvdevFrame ( void )
 					break;
 				}
 			}
-			else if ( ( ev.type == EV_KEY ) && cls.key_dest == key_game )
+			else if ( ( ev.type == EV_KEY ) && (cls.key_dest == key_game || XASH_INPUT == INPUT_EVDEV ) )
 			{
-				switch( ev.code )
+				int key = KeycodeFromEvdev( ev.code, ev.value );
+				Key_Event ( key , ev.value );
+
+				if( evdev.chars && ev.value )
 				{
-				case BTN_LEFT:
-					Key_Event( K_MOUSE1, ev.value );
-					break;
-				case BTN_MIDDLE:
-					Key_Event( K_MOUSE3, ev.value );
-					break;
-				case BTN_RIGHT:
-					Key_Event( K_MOUSE2, ev.value );
-					break;
-				default:
-					Key_Event ( KeycodeFromEvdev( ev.code, ev.value ) , ev.value);
+					if( key >= 32 && key < 127 )
+					{
+						if( evdev.shift )
+						{
+							key = Q_toupper( key );
+							if( key == '-' )
+								key = '_';
+							if( key == '=' )
+								key = '+';
+						}
+						CL_CharEvent( key );
+					}
 				}
+				if( key == K_SHIFT )
+					evdev.shift = ev.value;
 			}
 		}
 
@@ -285,7 +388,7 @@ void IN_EvdevFrame ( void )
 			Key_ClearStates();
 		}
 
-		if( m_ignore->integer )
+		if( CVAR_TO_BOOL(m_ignore) )
 			continue;
 		
 		evdev.x += -dx * m_yaw->value;
@@ -297,6 +400,8 @@ void IN_EvdevFrame ( void )
 
 void Evdev_SetGrab( qboolean grab )
 {
+	// grab only if evdev is secondary input source
+#if XASH_INPUT != INPUT_EVDEV
 	int i;
 
 	if( grab )
@@ -311,6 +416,7 @@ void Evdev_SetGrab( qboolean grab )
 			ioctl( evdev.fds[i], EVIOCGRAB, (void*) 0 );
 	}
 	evdev.grab = grab;
+#endif
 }
 
 void IN_EvdevMove( float *yaw, float *pitch )
@@ -320,18 +426,40 @@ void IN_EvdevMove( float *yaw, float *pitch )
 	evdev.x = evdev.y = 0.0f;
 }
 
+#if XASH_INPUT == INPUT_EVDEV
+
+void Platform_EnableTextInput( qboolean enable )
+{
+	evdev.chars = enable;
+	evdev.shift = false;
+}
+#endif
+
 void Evdev_Init( void )
 {
 	Cmd_AddCommand ("evdev_open", Evdev_OpenDevice_f, "Open event device");
 	Cmd_AddCommand ("evdev_close", Evdev_CloseDevice_f, "Close event device");
 	Cmd_AddCommand ("evdev_autodetect", Evdev_Autodetect_f, "Automaticly open mouses and keyboards");
+#if XASH_INPUT == INPUT_EVDEV
+	Evdev_Autodetect_f();
+#endif
 }
 
 void Evdev_Shutdown( void )
 {
+	int i;
+
 	Cmd_RemoveCommand( "evdev_open" );
 	Cmd_RemoveCommand( "evdev_close" );
 	Cmd_RemoveCommand( "evdev_autodetect" );
+
+	for( i = 0; i < evdev.devices; i++ )
+	{
+		ioctl( evdev.fds[i], EVIOCGRAB, (void*) 0 );
+		close( evdev.fds[i] );
+		evdev.fds[i] = -1;
+	}
+	evdev.devices = 0;
 }
 
 #endif // XASH_USE_EVDEV
