@@ -39,7 +39,8 @@ def configure(conf):
 		conf.options.USE_SELECT = conf.options.DEDICATED
 
 	conf.define_cond('SINGLE_BINARY', conf.env.SINGLE_BINARY)
-	conf.define_cond('XASH_USE_SELECT', conf.options.USE_SELECT)
+
+	conf.define_cond('XASH_USE_SELECT', conf.options.USE_SELECT or conf.options.DEDICATED)
 	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
 	conf.define_cond('XASH_64BIT', conf.env.DEST_SIZEOF_VOID_P != 4)
 	conf.define_cond('DBGHELP', conf.env.DEST_OS == 'win32')

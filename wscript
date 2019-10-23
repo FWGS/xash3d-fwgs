@@ -47,7 +47,7 @@ def options(opt):
 		help = 'build Xash Dedicated Server [default: %default]')
 
 	grp.add_option('--single-binary', action = 'store_true', dest = 'SINGLE_BINARY', default = False,
-		help = 'build single "xash" binary [default: %default]')
+		help = 'build single "xash" binary (always enabled for dedicated) [default: %default]')
 
 	grp.add_option('-8', '--64bits', action = 'store_true', dest = 'ALLOW64', default = False,
 		help = 'allow targetting 64-bit engine(Linux/Windows/OSX x86 only) [default: %default]')
