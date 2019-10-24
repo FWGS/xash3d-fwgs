@@ -27,16 +27,21 @@ SETUP BACKENDS DEFINITIONS
 */
 #ifndef XASH_DEDICATED
 
-	#ifdef XASH_SDL
+	#if XASH_SDL == 2
+		#ifndef XASH_TIMER
+			#define XASH_TIMER TIMER_SDL
+		#endif
+	#else
+		#ifndef XASH_TIMER
+			#define XASH_TIMER TIMER_LINUX
+		#endif
+	#endif
 
+	#ifdef XASH_SDL
 		// by default, use SDL subsystems
 		#ifndef XASH_VIDEO
 			#define XASH_VIDEO VIDEO_SDL
 		#endif // XASH_VIDEO
-
-		#ifndef XASH_TIMER
-			#define XASH_TIMER TIMER_SDL
-		#endif
 
 		#ifndef XASH_INPUT
 			#define XASH_INPUT INPUT_SDL
