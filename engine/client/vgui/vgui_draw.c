@@ -72,7 +72,7 @@ void GAME_EXPORT VGUI_GetMousePos( int *_x, int *_y )
 void VGUI_InitCursors( void )
 {
 	// load up all default cursors
-#ifdef XASH_SDL
+#if XASH_SDL == 2
 	s_pDefaultCursor[dc_none] = NULL;
 	s_pDefaultCursor[dc_arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
 	s_pDefaultCursor[dc_ibeam] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
@@ -108,7 +108,7 @@ void GAME_EXPORT VGUI_CursorSelect(enum VGUI_DefaultCursor cursor )
 		break;
 	}
 
-#ifdef XASH_SDL
+#if XASH_SDL == 2
 	/// TODO: platform cursors
 
 	if( CVAR_TO_BOOL( touch_emulate ) )

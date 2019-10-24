@@ -194,7 +194,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 	else if( newstate == key_game )
 	{
 		// reset mouse pos, so cancel effect in game
-#ifdef XASH_SDL
+#if XASH_SDL == 2
 		if( CVAR_TO_BOOL(touch_enable) )
 		{
 			SDL_SetRelativeMouseMode( SDL_FALSE );
@@ -214,7 +214,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 
 	if( ( newstate == key_menu  || newstate == key_console || newstate == key_message ) && ( !CL_IsBackgroundMap() || CL_IsBackgroundDemo( )))
 	{
-#ifdef XASH_SDL
+#if XASH_SDL == 2
 		SDL_SetWindowGrab(host.hWnd, SDL_FALSE);
 		if( clgame.dllFuncs.pfnLookEvent )
 			SDL_SetRelativeMouseMode( SDL_FALSE );
@@ -316,7 +316,7 @@ void IN_DeactivateMouse( void )
 	}
 
 	in_mouseactive = false;
-#ifdef XASH_SDL
+#if XASH_SDL == 2
 	SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
 #endif
 }
@@ -416,7 +416,7 @@ void IN_MouseEvent( void )
 	}
 	else
 	{
-#if defined(XASH_SDL) && !defined(_WIN32)
+#if XASH_SDL == 2 && !defined(_WIN32)
 		SDL_SetRelativeMouseMode( SDL_FALSE );
 		SDL_ShowCursor( SDL_TRUE );
 #endif

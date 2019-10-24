@@ -323,7 +323,7 @@ void Host_MemStats_f( void )
 
 void Host_Minimize_f( void )
 {
-#ifdef XASH_SDL
+#if XASH_SDL == 2
 	if( host.hWnd ) SDL_MinimizeWindow( host.hWnd );
 #endif
 }
@@ -733,7 +733,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #if TARGET_OS_IOS
 		const char *IOS_GetDocsDir();
 		Q_strncpy( host.rootdir, IOS_GetDocsDir(), sizeof(host.rootdir) );
-#elif defined(XASH_SDL)
+#elif XASH_SDL == 2
 		char *szBasePath;
 
 		if( !( szBasePath = SDL_GetBasePath() ) )
@@ -817,15 +817,21 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	// should work even if it failed
 	SDL_Init( SDL_INIT_TIMER );
 
+#ifndef SDL_INIT_EVENTS
+#define SDL_INIT_EVENTS 0
+#endif
+
 	if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS ) )
 	{
 		Sys_Warn( "SDL_Init failed: %s", SDL_GetError() );
 		host.type = HOST_DEDICATED;
 	}
-	SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
 
+#if XASH_SDL == 2
+	SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
 	SDL_StopTextInput();
-#endif
+#endif // XASH_SDL == 2
+#endif // XASH_SDL
 
 	if ( !host.rootdir[0] || SetCurrentDirectory( host.rootdir ) != 0)
 		Con_Reportf( "%s is working directory now\n", host.rootdir );
