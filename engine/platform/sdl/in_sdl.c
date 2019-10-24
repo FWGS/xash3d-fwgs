@@ -25,7 +25,9 @@ GNU General Public License for more details.
 #include "vid_common.h"
 
 static SDL_Joystick *joy;
+#if XASH_SDL == 2
 static SDL_GameController *gamecontroller;
+#endif // XASH_SDL == 2
 
 /*
 =============
@@ -46,7 +48,11 @@ Platform_SetMousePos
 */
 void Platform_SetMousePos( int x, int y )
 {
+#if XASH_SDL == 2
 	SDL_WarpMouseInWindow( host.hWnd, x, y );
+#else
+	SDL_WarpMouse( x, y );
+#endif
 }
 
 /*
@@ -57,6 +63,7 @@ Platform_GetClipobardText
 */
 void Platform_GetClipboardText( char *buffer, size_t size )
 {
+#if XASH_SDL == 2
 	char *sdlbuffer = SDL_GetClipboardText();
 
 	if( !sdlbuffer )
@@ -64,6 +71,9 @@ void Platform_GetClipboardText( char *buffer, size_t size )
 
 	Q_strncpy( buffer, sdlbuffer, size );
 	SDL_free( sdlbuffer );
+#else
+	buffer[0] = 0;
+#endif
 }
 
 /*
@@ -74,7 +84,9 @@ Platform_SetClipobardText
 */
 void Platform_SetClipboardText( const char *buffer, size_t size )
 {
+#if XASH_SDL == 2
 	SDL_SetClipboardText( buffer );
+#endif
 }
 
 /*
@@ -96,7 +108,9 @@ SDLash_EnableTextInput
 */
 void Platform_EnableTextInput( qboolean enable )
 {
+#if XASH_SDL == 2
 	enable ? SDL_StartTextInput() : SDL_StopTextInput();
+#endif
 }
 
 /*
@@ -134,8 +148,10 @@ static int SDLash_JoyInit_Old( int numjoy )
 		return 0;
 	}
 
+#if XASH_SDL == 2
 	for( i = 0; i < num; i++ )
 		Con_Reportf( "%i\t: %s\n", i, SDL_JoystickNameForIndex( i ) );
+#endif
 
 	Con_Reportf( "Pass +set joy_index N to command line, where N is number, to select active joystick\n" );
 
@@ -147,6 +163,7 @@ static int SDLash_JoyInit_Old( int numjoy )
 		return 0;
 	}
 
+#if XASH_SDL == 2
 	Con_Reportf( "Selected joystick: %s\n"
 		"\tAxes: %i\n"
 		"\tHats: %i\n"
@@ -156,11 +173,13 @@ static int SDLash_JoyInit_Old( int numjoy )
 		SDL_JoystickNumButtons( joy ), SDL_JoystickNumBalls( joy ) );
 
 	SDL_GameControllerEventState( SDL_DISABLE );
+#endif
 	SDL_JoystickEventState( SDL_ENABLE );
 
 	return num;
 }
 
+#if XASH_SDL == 2
 /*
 =============
 SDLash_JoyInit_New
@@ -231,6 +250,7 @@ static int SDLash_JoyInit_New( int numjoy )
 
 	return num;
 }
+#endif // XASH_SDL == 2
 
 /*
 =============
@@ -240,12 +260,13 @@ Platform_JoyInit
 */
 int Platform_JoyInit( int numjoy )
 {
+#if XASH_SDL == 2
 	// SDL_Joystick is now an old API
 	// SDL_GameController is preferred
-	if( Sys_CheckParm( "-sdl_joy_old_api" ) )
-		return SDLash_JoyInit_Old(numjoy);
-
-	return SDLash_JoyInit_New(numjoy);
+	if( !Sys_CheckParm( "-sdl_joy_old_api" ) )
+		return SDLash_JoyInit_New(numjoy);
+#endif // XASH_SDL == 2
+	return SDLash_JoyInit_Old(numjoy);
 }
 
 #endif // XASH_DEDICATED

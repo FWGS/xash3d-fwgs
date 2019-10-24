@@ -76,8 +76,10 @@ qboolean SNDDMA_Init( void )
 
 	// even if we don't have PA
 	// we still can safely set env variables
+#if XASH_SDL == 2
 	SDL_setenv( "PULSE_PROP_application.name", GI->title, 1 );
 	SDL_setenv( "PULSE_PROP_media.role", "game", 1 );
+#endif
 
 	memset( &desired, 0, sizeof( desired ) );
 	desired.freq     = SOUND_DMA_SPEED;
@@ -86,7 +88,10 @@ qboolean SNDDMA_Init( void )
 	desired.channels = 2;
 	desired.callback = SDL_SoundCallback;
 
+#if XASH_SDL == 2
 	sdl_dev = SDL_OpenAudioDevice( NULL, 0, &desired, &obtained, 0 );
+#endif
+	sdl_dev = SDL_OpenAudio( &desired, &obtained );
 
 	if( !sdl_dev )
 	{
@@ -116,9 +121,13 @@ qboolean SNDDMA_Init( void )
 	dma.buffer          = Z_Malloc( dma.samples * 2 );
 	dma.samplepos       = 0;
 
+#if XASH_SDL == 2
 	Con_Printf( "Using SDL audio driver: %s @ %d Hz\n", SDL_GetCurrentAudioDriver( ), obtained.freq );
+#else
+	Con_Printf( "Using SDL audio driver @ %d Hz\n", obtained.freq );
+#endif
 
-	SDL_PauseAudioDevice( sdl_dev, 0 );
+	SNDDMA_Activate( true );
 
 	dma.initialized = true;
 	return true;
@@ -218,9 +227,12 @@ void SNDDMA_Shutdown( void )
 
 	if( sdl_dev )
 	{
-		SDL_PauseAudioDevice( sdl_dev, 1 );
+		SNDDMA_Activate( false );
+
 #ifndef __EMSCRIPTEN__
+#if XASH_SDL == 2
 		SDL_CloseAudioDevice( sdl_dev );
+#endif
 		SDL_CloseAudio( );
 #endif
 	}
@@ -247,6 +259,10 @@ between a deactivate and an activate.
 */
 void SNDDMA_Activate( qboolean active )
 {
+#if XASH_SDL == 2
 	SDL_PauseAudioDevice( sdl_dev, !active );
+#else
+	SDL_PauseAudio( !active );
+#endif
 }
 #endif // XASH_SOUND == SOUND_SDL

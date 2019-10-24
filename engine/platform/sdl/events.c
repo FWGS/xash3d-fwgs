@@ -39,6 +39,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 	int keynum = key.keysym.scancode;
 	qboolean numLock = SDL_GetModState() & KMOD_NUM;
 
+#if XASH_SDL == 2
 	if( SDL_IsTextInputActive() && down )
 	{
 		if( SDL_GetModState() & KMOD_CTRL )
@@ -52,6 +53,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 			return;
 		}
 	}
+#endif
 
 #define DECLARE_KEY_RANGE( min, max, repl ) \
 	if( keynum >= (min) && keynum <= (max) ) \
@@ -59,10 +61,10 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		keynum = keynum - (min) + (repl); \
 	}
 
+#if XASH_SDL == 2
 	DECLARE_KEY_RANGE( SDL_SCANCODE_A, SDL_SCANCODE_Z, 'a' )
 	else DECLARE_KEY_RANGE( SDL_SCANCODE_1, SDL_SCANCODE_9, '1' )
 	else DECLARE_KEY_RANGE( SDL_SCANCODE_F1, SDL_SCANCODE_F12, K_F1 )
-#undef DECLARE_KEY_RANGE
 	else
 	{
 		switch( keynum )
@@ -144,6 +146,86 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 			return;
 		}
 	}
+#else
+	DECLARE_KEY_RANGE( SDLK_a, SDLK_z, 'a' )
+	else DECLARE_KEY_RANGE( SDLK_1, SDLK_9, '1' )
+	else DECLARE_KEY_RANGE( SDLK_F1, SDLK_F12, K_F1 )
+	else
+	{
+		switch( keynum )
+		{
+		case SDLK_BACKQUOTE: keynum = '`'; break;
+		case SDLK_0: keynum = '0'; break;
+		case SDLK_BACKSLASH: keynum = '\\'; break;
+		case SDLK_LEFTBRACKET: keynum = '['; break;
+		case SDLK_RIGHTBRACKET: keynum = ']'; break;
+		case SDLK_EQUALS: keynum = '='; break;
+		case SDLK_MINUS: keynum = '-'; break;
+		case SDLK_TAB: keynum = K_TAB; break;
+		case SDLK_RETURN: keynum = K_ENTER; break;
+		case SDLK_ESCAPE: keynum = K_ESCAPE; break;
+		case SDLK_SPACE: keynum = K_SPACE; break;
+		case SDLK_BACKSPACE: keynum = K_BACKSPACE; break;
+		case SDLK_UP: keynum = K_UPARROW; break;
+		case SDLK_LEFT: keynum = K_LEFTARROW; break;
+		case SDLK_DOWN: keynum = K_DOWNARROW; break;
+		case SDLK_RIGHT: keynum = K_RIGHTARROW; break;
+		case SDLK_LALT:
+		case SDLK_RALT: keynum = K_ALT; break;
+		case SDLK_LCTRL:
+		case SDLK_RCTRL: keynum = K_CTRL; break;
+		case SDLK_LSHIFT:
+		case SDLK_RSHIFT: keynum = K_SHIFT; break;
+		case SDLK_LMETA:
+		case SDLK_RMETA: keynum = K_WIN; break;
+		case SDLK_INSERT: keynum = K_INS; break;
+		case SDLK_DELETE: keynum = K_DEL; break;
+		case SDLK_PAGEDOWN: keynum = K_PGDN; break;
+		case SDLK_PAGEUP: keynum = K_PGUP; break;
+		case SDLK_HOME: keynum = K_HOME; break;
+		case SDLK_END: keynum = K_END; break;
+		case SDLK_KP1: keynum = numLock ? '1' : K_KP_END; break;
+		case SDLK_KP2: keynum = numLock ? '2' : K_KP_DOWNARROW; break;
+		case SDLK_KP3: keynum = numLock ? '3' : K_KP_PGDN; break;
+		case SDLK_KP4: keynum = numLock ? '4' : K_KP_LEFTARROW; break;
+		case SDLK_KP5: keynum = numLock ? '5' : K_KP_5; break;
+		case SDLK_KP6: keynum = numLock ? '6' : K_KP_RIGHTARROW; break;
+		case SDLK_KP7: keynum = numLock ? '7' : K_KP_HOME; break;
+		case SDLK_KP8: keynum = numLock ? '8' : K_KP_UPARROW; break;
+		case SDLK_KP9: keynum = numLock ? '9' : K_KP_PGUP; break;
+		case SDLK_KP0: keynum = numLock ? '0' : K_KP_INS; break;
+		case SDLK_KP_PERIOD: keynum = K_KP_DEL; break;
+		case SDLK_KP_ENTER: keynum = K_KP_ENTER; break;
+		case SDLK_KP_PLUS: keynum = K_KP_PLUS; break;
+		case SDLK_KP_MINUS: keynum = K_KP_MINUS; break;
+		case SDLK_KP_DIVIDE: keynum = K_KP_SLASH; break;
+		case SDLK_KP_MULTIPLY: keynum = '*'; break;
+		case SDLK_NUMLOCK: keynum = K_KP_NUMLOCK; break;
+		case SDLK_CAPSLOCK: keynum = K_CAPSLOCK; break;
+		case SDLK_SLASH: keynum = '/'; break;
+		case SDLK_PERIOD: keynum = '.'; break;
+		case SDLK_SEMICOLON: keynum = ';'; break;
+		case SDLK_QUOTE: keynum = '\''; break;
+		case SDLK_COMMA: keynum = ','; break;
+		case SDLK_PRINT:
+		{
+			host.force_draw_version = true;
+			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
+			break;
+		}
+		case SDLK_UNKNOWN:
+		{
+			if( down ) Con_Reportf( "SDLash_KeyEvent: Unknown scancode\n" );
+			return;
+		}
+		default:
+			if( down ) Con_Reportf( "SDLash_KeyEvent: Unknown key: %s = %i\n", SDL_GetScancodeName( keynum ), keynum );
+			return;
+		}
+	}
+#endif
+
+#undef DECLARE_KEY_RANGE
 
 	Key_Event( keynum, down );
 }
