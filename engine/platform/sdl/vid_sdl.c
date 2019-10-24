@@ -31,8 +31,10 @@ struct
 
 struct
 {
+#if XASH_SDL == 2
 	SDL_Renderer *renderer;
 	SDL_Texture *tex;
+#endif
 	int width, height;
 	SDL_Surface *surf;
 	SDL_Surface *win;
@@ -43,6 +45,7 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	sw.width = width;
 	sw.height = height;
 
+#if XASH_SDL == 2
 	if( sw.renderer )
 	{
 		unsigned int format = SDL_GetWindowPixelFormat( host.hWnd );
@@ -110,10 +113,16 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 			sw.renderer = NULL;
 		}
 	}
+#endif
 
+#if XASH_SDL == 2
 	if( !sw.renderer )
 	{
 		sw.win = SDL_GetWindowSurface( host.hWnd );
+#else
+	{
+		sw.win = SDL_GetVideoSurface();
+#endif
 
 		// sdl will create renderer if hw framebuffer unavailiable, so cannot fallback here
 		// if it is failed, it is not possible to draw with SDL in REF_SOFTWARE mode
@@ -145,6 +154,7 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 
 void *SW_LockBuffer( void )
 {
+#if XASH_SDL == 2
 	if( sw.renderer )
 	{
 		void *pixels;
@@ -154,35 +164,38 @@ void *SW_LockBuffer( void )
 			Sys_Error("%s", SDL_GetError());
 		return pixels;
 	}
-	else
+
+	// ensure it not changed (do we really need this?)
+	sw.win = SDL_GetWindowSurface( host.hWnd );
+	//if( !sw.win )
+		//SDL_GetWindowSurface( host.hWnd );
+#else
+	sw.win = SDL_GetVideoSurface();
+#endif
+
+	// prevent buffer overrun
+	if( !sw.win || sw.win->w < sw.width || sw.win->h < sw.height  )
+		return NULL;
+
+#if XASH_SDL == 2
+	if( sw.surf )
 	{
-		// ensure it not changed (do we really need this?)
-		sw.win = SDL_GetWindowSurface( host.hWnd );
-
-		//if( !sw.win )
-			//SDL_GetWindowSurface( host.hWnd );
-
-		// prevent buffer overrun
-		if( !sw.win || sw.win->w < sw.width || sw.win->h < sw.height  )
-			return NULL;
-
-		if( sw.surf )
-		{
-			SDL_LockSurface( sw.surf );
-			return sw.surf->pixels;
-		}
-		else
-		{
-			// real window pixels (x11 shm region, dma buffer, etc)
-			// or SDL_Renderer texture if not supported
-			SDL_LockSurface( sw.win );
-			return sw.win->pixels;
-		}
+		SDL_LockSurface( sw.surf );
+		return sw.surf->pixels;
+	}
+	else
+#endif
+	{
+		// real window pixels (x11 shm region, dma buffer, etc)
+		// or SDL_Renderer texture if not supported
+		SDL_LockSurface( sw.win );
+		return sw.win->pixels;
 	}
 }
 
 void SW_UnlockBuffer( void )
 {
+#if XASH_SDL == 2
 	if( sw.renderer )
 	{
 		SDL_Rect src, dst;
@@ -197,26 +210,31 @@ void SW_UnlockBuffer( void )
 
 		SDL_RenderCopy(sw.renderer, sw.tex, &src, &dst);
 		SDL_RenderPresent(sw.renderer);
+
+		return;
 		//Con_Printf("%s\n", SDL_GetError());
 	}
-	else
-	{
-		// blit if blitting surface availiable
-		if( sw.surf )
-		{
-			SDL_Rect src, dst;
-			src.x = src.y = 0;
-			src.w = sw.width;
-			src.h = sw.height;
-			dst = src;
-			SDL_UnlockSurface( sw.surf );
-			SDL_BlitSurface( sw.surf, &src, sw.win, &dst );
-		}
-		else // already blitted
-			SDL_UnlockSurface( sw.win );
 
-		SDL_UpdateWindowSurface( host.hWnd );
+	// blit if blitting surface availiable
+	if( sw.surf )
+	{
+		SDL_Rect src, dst;
+		src.x = src.y = 0;
+		src.w = sw.width;
+		src.h = sw.height;
+		dst = src;
+		SDL_UnlockSurface( sw.surf );
+		SDL_BlitSurface( sw.surf, &src, sw.win, &dst );
+		return;
 	}
+#endif
+
+	// already blitted
+	SDL_UnlockSurface( sw.win );
+
+#if XASH_SDL == 2
+	SDL_UpdateWindowSurface( host.hWnd );
+#endif
 }
 
 int R_MaxVideoModes( void )
@@ -236,6 +254,7 @@ vidmode_t *R_GetVideoMode( int num )
 
 static void R_InitVideoModes( void )
 {
+#if XASH_SDL == 2
 	int displayIndex = 0; // TODO: handle multiple displays somehow
 	int i, modes;
 
@@ -280,6 +299,8 @@ static void R_InitVideoModes( void )
 
 		num_vidmodes++;
 	}
+#else
+	int i;
 }
 
 static void R_FreeVideoModes( void )
