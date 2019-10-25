@@ -27,6 +27,70 @@ GNU General Public License for more details.
 
 static int wheelbutton;
 
+#if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
+#define SDL_SCANCODE_A SDLK_a
+#define SDL_SCANCODE_Z SDLK_z
+#define SDL_SCANCODE_1 SDLK_1
+#define SDL_SCANCODE_9 SDLK_9
+#define SDL_SCANCODE_F1 SDLK_F1
+#define SDL_SCANCODE_F12 SDLK_F12
+#define SDL_SCANCODE_GRAVE SDLK_BACKQUOTE
+#define SDL_SCANCODE_0 SDLK_0
+#define SDL_SCANCODE_BACKSLASH SDLK_BACKSLASH
+#define SDL_SCANCODE_LEFTBRACKET SDLK_LEFTBRACKET
+#define SDL_SCANCODE_RIGHTBRACKET SDLK_RIGHTBRACKET
+#define SDL_SCANCODE_EQUALS: keynum = '='; break;
+#define SDL_SCANCODE_MINUS: keynum = '-'; break;
+#define SDL_SCANCODE_TAB: keynum = K_TAB; break;
+#define SDL_SCANCODE_RETURN: keynum = K_ENTER; break;
+#define SDL_SCANCODE_ESCAPE: keynum = K_ESCAPE; break;
+#define SDL_SCANCODE_SPACE: keynum = K_SPACE; break;
+#define SDL_SCANCODE_BACKSPACE: keynum = K_BACKSPACE; break;
+#define SDL_SCANCODE_UP: keynum = K_UPARROW; break;
+#define SDL_SCANCODE_LEFT: keynum = K_LEFTARROW; break;
+#define SDL_SCANCODE_DOWN: keynum = K_DOWNARROW; break;
+#define SDL_SCANCODE_RIGHT: keynum = K_RIGHTARROW; break;
+#define SDL_SCANCODE_LALT:
+#define SDL_SCANCODE_RALT: keynum = K_ALT; break;
+#define SDL_SCANCODE_LCTRL:
+#define SDL_SCANCODE_RCTRL: keynum = K_CTRL; break;
+#define SDL_SCANCODE_LSHIFT:
+#define SDL_SCANCODE_RSHIFT: keynum = K_SHIFT; break;
+#define SDL_SCANCODE_LGUI:
+#define SDL_SCANCODE_RGUI: keynum = K_WIN; break;
+#define SDL_SCANCODE_INSERT: keynum = K_INS; break;
+#define SDL_SCANCODE_DELETE: keynum = K_DEL; break;
+#define SDL_SCANCODE_PAGEDOWN: keynum = K_PGDN; break;
+#define SDL_SCANCODE_PAGEUP: keynum = K_PGUP; break;
+#define SDL_SCANCODE_HOME: keynum = K_HOME; break;
+#define SDL_SCANCODE_END: keynum = K_END; break;
+#define SDL_SCANCODE_KP_1: keynum = numLock ? '1' : K_KP_END; break;
+#define SDL_SCANCODE_KP_2: keynum = numLock ? '2' : K_KP_DOWNARROW; break;
+#define SDL_SCANCODE_KP_3: keynum = numLock ? '3' : K_KP_PGDN; break;
+#define SDL_SCANCODE_KP_4: keynum = numLock ? '4' : K_KP_LEFTARROW; break;
+#define SDL_SCANCODE_KP_5: keynum = numLock ? '5' : K_KP_5; break;
+#define SDL_SCANCODE_KP_6: keynum = numLock ? '6' : K_KP_RIGHTARROW; break;
+#define SDL_SCANCODE_KP_7: keynum = numLock ? '7' : K_KP_HOME; break;
+#define SDL_SCANCODE_KP_8: keynum = numLock ? '8' : K_KP_UPARROW; break;
+#define SDL_SCANCODE_KP_9: keynum = numLock ? '9' : K_KP_PGUP; break;
+#define SDL_SCANCODE_KP_0: keynum = numLock ? '0' : K_KP_INS; break;
+#define SDL_SCANCODE_KP_PERIOD: keynum = K_KP_DEL; break;
+#define SDL_SCANCODE_KP_ENTER: keynum = K_KP_ENTER; break;
+#define SDL_SCANCODE_KP_PLUS: keynum = K_KP_PLUS; break;
+#define SDL_SCANCODE_KP_MINUS: keynum = K_KP_MINUS; break;
+#define SDL_SCANCODE_KP_DIVIDE: keynum = K_KP_SLASH; break;
+#define SDL_SCANCODE_KP_MULTIPLY: keynum = '*'; break;
+#define SDL_SCANCODE_NUMLOCKCLEAR: keynum = K_KP_NUMLOCK; break;
+#define SDL_SCANCODE_CAPSLOCK: keynum = K_CAPSLOCK; break;
+#define SDL_SCANCODE_APPLICATION: keynum = K_WIN; break; // (compose key) ???
+#define SDL_SCANCODE_SLASH: keynum = '/'; break;
+#define SDL_SCANCODE_PERIOD: keynum = '.'; break;
+#define SDL_SCANCODE_SEMICOLON: keynum = ';'; break;
+#define SDL_SCANCODE_APOSTROPHE: keynum = '\''; break;
+#define SDL_SCANCODE_COMMA: keynum = ','; break;
+#define SDL_SCANCODE_PRINTSCREEN:
+#endif
+
 /*
 =============
 SDLash_KeyEvent
@@ -39,7 +103,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 	int keynum = key.keysym.scancode;
 	qboolean numLock = SDL_GetModState() & KMOD_NUM;
 
-#if XASH_SDL == 2
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( SDL_IsTextInputActive() && down )
 	{
 		if( SDL_GetModState() & KMOD_CTRL )
@@ -53,7 +117,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 			return;
 		}
 	}
-#endif
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 #define DECLARE_KEY_RANGE( min, max, repl ) \
 	if( keynum >= (min) && keynum <= (max) ) \
@@ -61,7 +125,6 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		keynum = keynum - (min) + (repl); \
 	}
 
-#if XASH_SDL == 2
 	DECLARE_KEY_RANGE( SDL_SCANCODE_A, SDL_SCANCODE_Z, 'a' )
 	else DECLARE_KEY_RANGE( SDL_SCANCODE_1, SDL_SCANCODE_9, '1' )
 	else DECLARE_KEY_RANGE( SDL_SCANCODE_F1, SDL_SCANCODE_F12, K_F1 )
@@ -129,6 +192,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			break;
 		}
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		// don't console spam on known functional buttons, but not used in engine
 		case SDL_SCANCODE_MUTE:
 		case SDL_SCANCODE_VOLUMEUP:
@@ -136,6 +200,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		case SDL_SCANCODE_BRIGHTNESSDOWN:
 		case SDL_SCANCODE_BRIGHTNESSUP:
 			return;
+#endif
 		case SDL_SCANCODE_UNKNOWN:
 		{
 			if( down ) Con_Reportf( "SDLash_KeyEvent: Unknown scancode\n" );
