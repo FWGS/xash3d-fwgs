@@ -81,7 +81,7 @@ SETUP BACKENDS DEFINITIONS
 		#endif
 
 		#ifndef XASH_SOUND
-			#define XASH_SOUND SOUND_NULL
+			#define XASH_SOUND SOUND_ALSA
 		#endif
 		#define XASH_USE_EVDEV
 	#endif // android case

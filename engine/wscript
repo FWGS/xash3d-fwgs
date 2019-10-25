@@ -28,7 +28,7 @@ def configure(conf):
 			conf.check_cc(lib = i)
 	elif conf.options.FBDEV_SW:
 		conf.define('XASH_FBDEV', 1)
-		conf.env.FBDEV
+		conf.check_cc(lib = 'asound')
 	else:
 		conf.load('sdl2')
 		if not conf.env.HAVE_SDL2:
@@ -57,7 +57,7 @@ def build(bld):
 
 	# basic build: dedicated only, no dependencies
 	if bld.env.DEST_OS != 'win32':
-		libs += [ 'DL' , 'M', 'PTHREAD' ]
+		libs += [ 'DL' , 'M' , 'RT', 'PTHREAD']
 		source += bld.path.ant_glob(['platform/posix/*.c'])
 	else:
 		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32' ]
@@ -82,9 +82,12 @@ def build(bld):
 			'client/*.c',
 			'client/vgui/*.c',
 			'client/avi/*.c'])
-	else:
-		if bld.env.DEST_OS == 'linux':
-			libs.append('RT')
+
+	if bld.env.DEST_OS == 'linux' and not bld.env.HAVE_SDL2:
+		libs.append('RT')
+		if not bld.env.DEDICATED:
+			libs.append('ASOUND')
+	
 
 	# HACK: public headers must be put before common, so we don't get wrong mathlib included
 	includes = ['common', 'server', 'client', 'client/vgui', '.', '../public', '../common', '../pm_shared' ]
