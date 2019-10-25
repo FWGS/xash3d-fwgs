@@ -580,7 +580,7 @@ void IN_CollectInput( float *forward, float *side, float *pitch, float *yaw, qbo
 		}
 #endif // ANDROID
 
-#ifdef USE_EVDEV
+#ifdef XASH_USE_EVDEV
 		IN_EvdevMove( yaw, pitch );
 #endif
 	}
