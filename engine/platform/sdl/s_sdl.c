@@ -24,6 +24,15 @@ GNU General Public License for more details.
 #define SAMPLE_16BIT_SHIFT 1
 #define SECONDARY_BUFFER_SIZE 0x10000
 
+#if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
+#include <stdlib.h>
+#define SDL_setenv setenv 
+#define SDL_GetCurrentAudioDriver() "legacysdl"
+#define SDL_OpenAudioDevice( a, b, c, d, e ) SDL_OpenAudio( ( c ), ( d ) )
+#define SDL_CloseAudioDevice( a ) SDL_CloseAudio()
+#define SDL_PauseAudioDevice( a, b ) SDL_PauseAudio( ( b ) )
+#endif
+
 /*
 =======================================================================
 Global variables. Must be visible to window-procedure function
@@ -76,10 +85,8 @@ qboolean SNDDMA_Init( void )
 
 	// even if we don't have PA
 	// we still can safely set env variables
-#if XASH_SDL == 2
 	SDL_setenv( "PULSE_PROP_application.name", GI->title, 1 );
 	SDL_setenv( "PULSE_PROP_media.role", "game", 1 );
-#endif
 
 	memset( &desired, 0, sizeof( desired ) );
 	desired.freq     = SOUND_DMA_SPEED;
@@ -88,10 +95,7 @@ qboolean SNDDMA_Init( void )
 	desired.channels = 2;
 	desired.callback = SDL_SoundCallback;
 
-#if XASH_SDL == 2
 	sdl_dev = SDL_OpenAudioDevice( NULL, 0, &desired, &obtained, 0 );
-#endif
-	sdl_dev = SDL_OpenAudio( &desired, &obtained );
 
 	if( !sdl_dev )
 	{
@@ -121,11 +125,7 @@ qboolean SNDDMA_Init( void )
 	dma.buffer          = Z_Malloc( dma.samples * 2 );
 	dma.samplepos       = 0;
 
-#if XASH_SDL == 2
 	Con_Printf( "Using SDL audio driver: %s @ %d Hz\n", SDL_GetCurrentAudioDriver( ), obtained.freq );
-#else
-	Con_Printf( "Using SDL audio driver @ %d Hz\n", obtained.freq );
-#endif
 
 	SNDDMA_Activate( true );
 
@@ -230,10 +230,7 @@ void SNDDMA_Shutdown( void )
 		SNDDMA_Activate( false );
 
 #ifndef __EMSCRIPTEN__
-#if XASH_SDL == 2
 		SDL_CloseAudioDevice( sdl_dev );
-#endif
-		SDL_CloseAudio( );
 #endif
 	}
 
@@ -259,10 +256,6 @@ between a deactivate and an activate.
 */
 void SNDDMA_Activate( qboolean active )
 {
-#if XASH_SDL == 2
 	SDL_PauseAudioDevice( sdl_dev, !active );
-#else
-	SDL_PauseAudio( !active );
-#endif
 }
 #endif // XASH_SOUND == SOUND_SDL

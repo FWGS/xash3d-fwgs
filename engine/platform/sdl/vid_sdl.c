@@ -31,7 +31,7 @@ struct
 
 struct
 {
-#if XASH_SDL == 2
+#if SDL_VERSION_ATLEAST(2, 0, 0)
 	SDL_Renderer *renderer;
 	SDL_Texture *tex;
 #endif
@@ -45,7 +45,7 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	sw.width = width;
 	sw.height = height;
 
-#if XASH_SDL == 2
+#if SDL_VERSION_ATLEAST(2, 0, 0)
 	if( sw.renderer )
 	{
 		unsigned int format = SDL_GetWindowPixelFormat( host.hWnd );
@@ -115,11 +115,11 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	}
 #endif
 
-#if XASH_SDL == 2
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( !sw.renderer )
 	{
 		sw.win = SDL_GetWindowSurface( host.hWnd );
-#else
+#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	{
 		sw.win = SDL_GetVideoSurface();
 #endif
@@ -154,7 +154,7 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 
 void *SW_LockBuffer( void )
 {
-#if XASH_SDL == 2
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( sw.renderer )
 	{
 		void *pixels;
@@ -169,22 +169,22 @@ void *SW_LockBuffer( void )
 	sw.win = SDL_GetWindowSurface( host.hWnd );
 	//if( !sw.win )
 		//SDL_GetWindowSurface( host.hWnd );
-#else
+#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	sw.win = SDL_GetVideoSurface();
-#endif
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 	// prevent buffer overrun
 	if( !sw.win || sw.win->w < sw.width || sw.win->h < sw.height  )
 		return NULL;
 
-#if XASH_SDL == 2
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( sw.surf )
 	{
 		SDL_LockSurface( sw.surf );
 		return sw.surf->pixels;
 	}
 	else
-#endif
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	{
 		// real window pixels (x11 shm region, dma buffer, etc)
 		// or SDL_Renderer texture if not supported
@@ -195,7 +195,7 @@ void *SW_LockBuffer( void )
 
 void SW_UnlockBuffer( void )
 {
-#if XASH_SDL == 2
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( sw.renderer )
 	{
 		SDL_Rect src, dst;
@@ -227,14 +227,14 @@ void SW_UnlockBuffer( void )
 		SDL_BlitSurface( sw.surf, &src, sw.win, &dst );
 		return;
 	}
-#endif
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 	// already blitted
 	SDL_UnlockSurface( sw.win );
 
-#if XASH_SDL == 2
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_UpdateWindowSurface( host.hWnd );
-#endif
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 int R_MaxVideoModes( void )
@@ -254,7 +254,7 @@ vidmode_t *R_GetVideoMode( int num )
 
 static void R_InitVideoModes( void )
 {
-#if XASH_SDL == 2
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	int displayIndex = 0; // TODO: handle multiple displays somehow
 	int i, modes;
 
@@ -299,8 +299,11 @@ static void R_InitVideoModes( void )
 
 		num_vidmodes++;
 	}
-#else
-	int i;
+#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
+
+# error TODO 
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	
 }
 
 static void R_FreeVideoModes( void )
@@ -405,6 +408,7 @@ GL_UpdateSwapInterval
 */
 void GL_UpdateSwapInterval( void )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	// disable VSync while level is loading
 	if( cls.state < ca_active )
 	{
@@ -418,6 +422,7 @@ void GL_UpdateSwapInterval( void )
 		if( SDL_GL_SetSwapInterval( gl_vsync->value ) )
 			Con_Reportf( S_ERROR  "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ) );
 	}
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 /*
@@ -429,12 +434,13 @@ always return false
 */
 qboolean GL_DeleteContext( void )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( glw_state.context )
 	{
 		SDL_GL_DeleteContext(glw_state.context);
 		glw_state.context = NULL;
 	}
-
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	return false;
 }
 
@@ -445,12 +451,13 @@ GL_CreateContext
 */
 qboolean GL_CreateContext( void )
 {
+#if SDL_VERSION_ATLEAST(2, 0, 0)
 	if( ( glw_state.context = SDL_GL_CreateContext( host.hWnd ) ) == NULL)
 	{
 		Con_Reportf( S_ERROR "GL_CreateContext: %s\n", SDL_GetError());
 		return GL_DeleteContext();
 	}
-
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	return true;
 }
 
@@ -461,12 +468,13 @@ GL_UpdateContext
 */
 qboolean GL_UpdateContext( void )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( SDL_GL_MakeCurrent( host.hWnd, glw_state.context ))
 	{
 		Con_Reportf( S_ERROR "GL_UpdateContext: %s\n", SDL_GetError());
 		return GL_DeleteContext();
 	}
-
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	return true;
 }
 
