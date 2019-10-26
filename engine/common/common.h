@@ -829,7 +829,7 @@ void HPAK_FlushHostQueue( void );
 
 // shared calls
 struct physent_s;
-typedef struct sv_client_s sv_client_t;
+struct sv_client_s;
 typedef struct sizebuf_s sizebuf_t;
 qboolean CL_IsInGame( void );
 qboolean CL_IsInMenu( void );
@@ -858,7 +858,7 @@ void SV_CreateDecal( sizebuf_t *msg, const float *origin, int decalIndex, int en
 void Log_Printf( const char *fmt, ... ) _format( 1 );
 void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
 qboolean SV_RestoreCustomDecal( struct decallist_s *entry, edict_t *pEdict, qboolean adjacent );
-void SV_BroadcastPrintf( sv_client_t *ignore, char *fmt, ... ) _format( 2 );
+void SV_BroadcastPrintf( struct sv_client_s *ignore, char *fmt, ... ) _format( 2 );
 int R_CreateDecalList( struct decallist_s *pList );
 void R_ClearAllDecals( void );
 void CL_ClearStaticEntities( void );
@@ -959,14 +959,6 @@ byte TextureToGamma( byte b );
 void ID_Init( void );
 const char *ID_GetMD5( void );
 void GAME_EXPORT ID_SetCustomClientID( const char *id );
-
-//
-// sequence.c
-//
-typedef struct sequenceEntry_ sequenceEntry_s;
-typedef struct sentenceEntry_ sentenceEntry_s;
-sequenceEntry_s *Sequence_Get( const char *fileName, const char *entryName );
-sentenceEntry_s *Sequence_PickSentence( const char *groupName, int pickMethod, int *picked );
 
 //
 // masterlist.c

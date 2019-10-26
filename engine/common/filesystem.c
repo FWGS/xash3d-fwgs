@@ -74,7 +74,7 @@ typedef struct wadtype_s
 	signed char		type;
 } wadtype_t;
 
-typedef struct file_s
+struct file_s
 {
 	int		handle;			// file descriptor
 	fs_offset_t		real_length;		// uncompressed file size (for files opened in "read" mode)
@@ -85,9 +85,9 @@ typedef struct file_s
 						// contents buffer
 	fs_offset_t		buff_ind, buff_len;		// buffer current index and length
 	byte		buff[FILE_BUFF_SIZE];	// intermediate buffer
-} file_t;
+};
 
-typedef struct wfile_s
+struct wfile_s
 {
 	string		filename;
 	int		infotableofs;
@@ -96,7 +96,7 @@ typedef struct wfile_s
 	file_t		*handle;
 	dlumpinfo_t	*lumps;
 	time_t		filetime;
-} wfile_t;
+};
 
 typedef struct pack_s
 {

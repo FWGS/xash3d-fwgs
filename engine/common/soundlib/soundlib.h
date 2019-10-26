@@ -60,7 +60,7 @@ typedef struct sndlib_s
 	int		cmd_flags;
 } sndlib_t;
 
-typedef struct stream_s
+struct stream_s
 {
 	const streamfmt_t	*format;	// streamformat to operate
 
@@ -77,7 +77,7 @@ typedef struct stream_s
 	char		temp[OUTBUF_SIZE]; // mpeg decoder stuff
 	size_t		pos;	// actual track position (or actual buffer remains)
 	int		buffsize;	// cached buffer size
-} stream_t;
+};
 
 /*
 ========================================================================
