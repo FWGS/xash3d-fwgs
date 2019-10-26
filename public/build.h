@@ -56,7 +56,7 @@ GNU General Public License for more details.
 	#elif defined(_MSC_VER)
 		#define XASH_MSVC 1
 	#endif
-	
+
 	#if defined(_WIN64)
 		#define XASH_WIN64 1
 	#endif
@@ -142,13 +142,13 @@ GNU General Public License for more details.
 #elif defined __arm__ || defined _M_ARM
 	#if defined _M_ARM
 		#define XASH_ARM 7 // MSVC can only ARMv7
-	#elif __ARM_ARCH == 7
+	#elif __ARM_ARCH == 7 || __ARM_ARCH_7__
 		#define XASH_ARM 7
-	#elif __ARM_ARCH == 6
+	#elif __ARM_ARCH == 6 || __ARM_ARCH_6__
 		#define XASH_ARM 6
-	#elif __ARM_ARCH == 5
+	#elif __ARM_ARCH == 5 || __ARM_ARCH_5__
 		#define XASH_ARM 5
-	#elif __ARM_ARCH == 4
+	#elif __ARM_ARCH == 4 || __ARM_ARCH_4__
 		#define XASH_ARM 4
 	#else
 		#error "Unknown ARM"
