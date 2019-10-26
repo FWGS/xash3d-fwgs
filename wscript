@@ -64,6 +64,9 @@ def options(opt):
 	grp.add_option('--enable-poly-opt', action = 'store_true', dest = 'POLLY', default = False,
 		help = 'enable polyhedral optimization if possible [default: %default]')
 
+	grp.add_option('--low-memory', action = 'store', dest = 'LOW_MEMORY', default = 0,
+		help = 'enable low memory mode (only for devices have <128 ram)')
+
 	opt.load('subproject')
 
 	opt.add_subproject(subdirs())
@@ -250,8 +253,6 @@ def configure(conf):
 		if not conf.env.LIB_M: # HACK: already added in xcompile!
 			conf.check_cc( lib='m' )
 
-		if conf.env.DEST_OS != 'android': # Android has pthread directly in libc
-			conf.check_cc( lib='pthread' )
 	else:
 		# Common Win32 libraries
 		# Don't check them more than once, to save time
@@ -286,6 +287,9 @@ def configure(conf):
 		conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
+
+	if conf.options.LOW_MEMORY:
+		conf.define('XASH_LOW_MEMORY', int(conf.options.LOW_MEMORY))
 
 	for i in SUBDIRS:
 		if conf.env.SINGLE_BINARY and i.singlebin:
