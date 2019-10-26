@@ -25,7 +25,7 @@ GNU General Public License for more details.
 #include "ref_common.h"
 #include "input.h"
 #ifdef XASH_SDL
-#include <SDL_events.h>
+#include <SDL.h>
 static SDL_Cursor* s_pDefaultCursor[20];
 #endif
 #include "platform/platform.h"
@@ -72,7 +72,7 @@ void GAME_EXPORT VGUI_GetMousePos( int *_x, int *_y )
 void VGUI_InitCursors( void )
 {
 	// load up all default cursors
-#if XASH_SDL == 2
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	s_pDefaultCursor[dc_none] = NULL;
 	s_pDefaultCursor[dc_arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
 	s_pDefaultCursor[dc_ibeam] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
@@ -108,7 +108,7 @@ void GAME_EXPORT VGUI_CursorSelect(enum VGUI_DefaultCursor cursor )
 		break;
 	}
 
-#if XASH_SDL == 2
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	/// TODO: platform cursors
 
 	if( CVAR_TO_BOOL( touch_emulate ) )

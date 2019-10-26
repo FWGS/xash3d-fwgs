@@ -266,10 +266,6 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 }
 
 // unrelated stubs
-void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
-{
-
-}
 void Platform_GetClipboardText( char *buffer, size_t size )
 {
 

@@ -815,8 +815,7 @@ void Key_EnableTextInput( qboolean enable, qboolean force )
 	else if( !enable )
 		Platform_EnableTextInput( false );
 
-	if( !force )
-		host.textmode = enable;
+	host.textmode = enable;
 }
 
 /*
@@ -907,6 +906,23 @@ void CL_CharEvent( int key )
 	}
 }
 
+/*
+============
+Key_ToUpper
+
+A helper function if platform input doesn't support text mode properly
+============
+*/
+int Key_ToUpper( int keynum )
+{
+        keynum = Q_toupper( keynum );
+        if( keynum == '-' )
+                keynum = '_';
+        if( keynum == '=' )
+                keynum = '+';
+
+        return keynum;
+}
 
 /* On-screen keyboard:
  *

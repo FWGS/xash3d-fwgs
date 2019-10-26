@@ -1137,6 +1137,7 @@ int Key_GetKey( const char *binding );
 void Key_EnumCmds_f( void );
 void Key_SetKeyDest( int key_dest );
 void Key_EnableTextInput( qboolean enable, qboolean force );
+int Key_ToUpper( int key );
 void OSK_Draw( void );
 
 extern rgba_t g_color_table[8];
