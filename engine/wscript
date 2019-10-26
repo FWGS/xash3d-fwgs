@@ -41,6 +41,8 @@ def configure(conf):
 	elif conf.options.SDL12:
 		conf.define('XASH_SDL', 12)
 		conf.check_cfg(package='sdl', args='--cflags --libs', uselib_store='SDL2' )
+		if conf.env.DEST_OS == 'linux':
+			conf.check_cc( lib='rt' )
 		conf.env.HAVE_SDL2 = True
 	else:
 		conf.load('sdl2')
@@ -104,7 +106,6 @@ def build(bld):
 			'client/*.c',
 			'client/vgui/*.c',
 			'client/avi/*.c'])
-	
 
 	# HACK: public headers must be put before common, so we don't get wrong mathlib included
 	includes = ['common', 'server', 'client', 'client/vgui', '.', '../public', '../common', '../pm_shared' ]
