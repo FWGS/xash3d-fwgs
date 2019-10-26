@@ -687,25 +687,25 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 	{
 		if( haveColor && haveAlpha )
 		{
-			if( FBitSet( tex->flags, TF_ARB_16BIT ) || glw_state.desktopBitsPixel == 16 )
+			if( FBitSet( tex->flags, TF_ARB_16BIT ) || gpGlobals->desktopBitsPixel == 16 )
 				tex->format = GL_RGBA16F_ARB;
 			else tex->format = GL_RGBA32F_ARB;
 		}
 		else if( haveColor )
 		{
-			if( FBitSet( tex->flags, TF_ARB_16BIT ) || glw_state.desktopBitsPixel == 16 )
+			if( FBitSet( tex->flags, TF_ARB_16BIT ) || gpGlobals->desktopBitsPixel == 16 )
 				tex->format = GL_RGB16F_ARB;
 			else tex->format = GL_RGB32F_ARB;
 		}
 		else if( haveAlpha )
 		{
-			if( FBitSet( tex->flags, TF_ARB_16BIT ) || glw_state.desktopBitsPixel == 16 )
+			if( FBitSet( tex->flags, TF_ARB_16BIT ) || gpGlobals->desktopBitsPixel == 16 )
 				tex->format = GL_RG16F;
 			else tex->format = GL_RG32F;
 		}
 		else
 		{
-			if( FBitSet( tex->flags, TF_ARB_16BIT ) || glw_state.desktopBitsPixel == 16 )
+			if( FBitSet( tex->flags, TF_ARB_16BIT ) || gpGlobals->desktopBitsPixel == 16 )
 				tex->format = GL_LUMINANCE16F_ARB;
 			else tex->format = GL_LUMINANCE32F_ARB;
 		}
@@ -713,7 +713,7 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 	else
 	{
 		// NOTE: not all the types will be compressed
-		int	bits = glw_state.desktopBitsPixel;
+		int	bits = gpGlobals->desktopBitsPixel;
 
 		switch( GL_CalcTextureSamples( channelMask ))
 		{

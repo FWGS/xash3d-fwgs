@@ -1041,7 +1041,7 @@ void GL_SetupAttributes( int safegl )
 	if( safegl < SAFE_NOACC )
 		gEngfuncs.GL_SetAttribute( REF_GL_ACCELERATED_VISUAL, 1 );
 
-	gEngfuncs.Con_Printf( "bpp %d\n", glw_state.desktopBitsPixel );
+	gEngfuncs.Con_Printf( "bpp %d\n", gpGlobals->desktopBitsPixel );
 
 	if( safegl < SAFE_NOSTENCIL )
 		gEngfuncs.GL_SetAttribute( REF_GL_STENCIL_SIZE, gl_stencilbits->value );
@@ -1056,13 +1056,13 @@ void GL_SetupAttributes( int safegl )
 
 	if( safegl < SAFE_NOCOLOR )
 	{
-		if( glw_state.desktopBitsPixel >= 24 )
+		if( gpGlobals->desktopBitsPixel >= 24 )
 		{
 			gEngfuncs.GL_SetAttribute( REF_GL_RED_SIZE, 8 );
 			gEngfuncs.GL_SetAttribute( REF_GL_GREEN_SIZE, 8 );
 			gEngfuncs.GL_SetAttribute( REF_GL_BLUE_SIZE, 8 );
 		}
-		else if( glw_state.desktopBitsPixel >= 16 )
+		else if( gpGlobals->desktopBitsPixel >= 16 )
 		{
 			gEngfuncs.GL_SetAttribute( REF_GL_RED_SIZE, 5 );
 			gEngfuncs.GL_SetAttribute( REF_GL_GREEN_SIZE, 6 );
