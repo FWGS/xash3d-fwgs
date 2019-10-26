@@ -106,6 +106,8 @@ typedef struct ref_globals_s
 	sortedface_t	*draw_surfaces;	// used for sorting translucent surfaces
 	int		max_surfaces;	// max surfaces per submodel (for all models)
 	size_t		visbytes;		// cluster size
+
+	int desktopBitsPixel;
 } ref_globals_t;
 
 enum

@@ -691,13 +691,6 @@ typedef struct
 
 typedef struct
 {
-	void*	context; // handle to GL rendering context
-	int		safe;
-
-	int		desktopBitsPixel;
-	int		desktopWidth;
-	int		desktopHeight;
-
 	qboolean		initialized;	// OpenGL subsystem started
 	qboolean		extended;		// extended context allows to GL_Debug
 } glwstate_t;
