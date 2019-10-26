@@ -47,4 +47,10 @@ GNU General Public License for more details.
 #define TIMER_LINUX 2
 #define TIMER_WIN32 3
 
+// messageboxes (XASH_MESSAGEBOX)
+#define MSGBOX_STDERR 0
+#define MSGBOX_SDL 1
+#define MSGBOX_ANDROID 2
+#define MSGBOX_WIN32 3
+
 #endif /* BACKENDS_H */
