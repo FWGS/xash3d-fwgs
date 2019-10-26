@@ -37,14 +37,18 @@ static qboolean g_utf8 = false;
 #define COLOR_DEFAULT	'7'
 #define CON_HISTORY		64
 #define MAX_DBG_NOTIFY	128
+#if XASH_LOW_MEMORY
+#define CON_NUMFONTS	1		// do not load different font textures
+#define CON_TEXTSIZE	32768	// max scrollback buffer characters in console (32 kb)
+#define CON_MAXLINES	2048	// max scrollback buffer lines in console
+#else
 #define CON_NUMFONTS	3	// maxfonts
-
+#define CON_TEXTSIZE	1048576	// max scrollback buffer characters in console (1 Mb)
+#define CON_MAXLINES	16384	// max scrollback buffer lines in console
+#endif
 #define CON_LINES( i )	(con.lines[(con.lines_first + (i)) % con.maxlines])
 #define CON_LINES_COUNT	con.lines_count
 #define CON_LINES_LAST()	CON_LINES( CON_LINES_COUNT - 1 )
-
-#define CON_TEXTSIZE	1048576	// max scrollback buffer characters in console (1 Mb)
-#define CON_MAXLINES	16384	// max scrollback buffer lines in console
 
 // console color typeing
 rgba_t g_color_table[8] =
@@ -663,7 +667,7 @@ static void Con_LoadConchars( void )
 	int	i, fontSize;
 
 	// load all the console fonts
-	for( i = 0; i < 3; i++ )
+	for( i = 0; i < CON_NUMFONTS; i++ )
 		Con_LoadConsoleFont( i, con.chars + i );
 
 	// select properly fontsize
@@ -672,6 +676,9 @@ static void Con_LoadConchars( void )
 	else if( refState.width >= 1280 )
 		fontSize = 2;
 	else fontSize = 1;
+
+	if( fontSize > CON_NUMFONTS - 1 )
+		fontSize = CON_NUMFONTS - 1;
 
 	// sets the current font
 	con.lastUsedFont = con.curFont = &con.chars[fontSize];
@@ -929,7 +936,7 @@ choose font size
 */
 void Con_SetFont( int fontNum )
 {
-	fontNum = bound( 0, fontNum, 2 ); 
+	fontNum = bound( 0, fontNum, CON_NUMFONTS - 1 );
 	con.curFont = &con.chars[fontNum];
 }
 
@@ -2359,7 +2366,9 @@ void Con_VidInit( void )
 	Con_CheckResize();
 
 	Con_LoadConchars();
-
+#if XASH_LOW_MEMORY
+	con.background = R_GetBuiltinTexture( REF_BLACK_TEXTURE );
+#else
 	// loading console image
 	if( host.allow_console )
 	{
@@ -2434,6 +2443,7 @@ void Con_VidInit( void )
 	// missed console image will be replaced as gray background like X-Ray or Crysis
 	if( con.background == R_GetBuiltinTexture( REF_DEFAULT_TEXTURE ) || con.background == 0 )
 		con.background = R_GetBuiltinTexture( REF_GRAY_TEXTURE );
+#endif
 }
 
 /*

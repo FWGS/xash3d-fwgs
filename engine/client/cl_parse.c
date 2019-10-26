@@ -21,9 +21,9 @@ GNU General Public License for more details.
 #include "shake.h"
 #include "hltv.h"
 #include "input.h"
-
+#if XASH_LOW_MEMORY != 2
 int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
-
+#endif
 /*
 ===============
 CL_UserMsgStub
@@ -881,7 +881,7 @@ void CL_ParseServerData( sizebuf_t *msg )
 	cl.playernum = MSG_ReadByte( msg );
 	cl.maxclients = MSG_ReadByte( msg );
 	clgame.maxEntities = MSG_ReadWord( msg );
-	clgame.maxEntities = bound( 600, clgame.maxEntities, MAX_EDICTS );
+	clgame.maxEntities = bound( 30, clgame.maxEntities, MAX_EDICTS );
 	clgame.maxModels = MSG_ReadWord( msg );
 	Q_strncpy( clgame.mapname, MSG_ReadString( msg ), MAX_STRING );
 	Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), MAX_STRING );
@@ -2394,7 +2394,7 @@ void CL_ParseLegacyServerData( sizebuf_t *msg )
 	cl.playernum = MSG_ReadByte( msg );
 	cl.maxclients = MSG_ReadByte( msg );
 	clgame.maxEntities = MSG_ReadWord( msg );
-	clgame.maxEntities = bound( 600, clgame.maxEntities, 4096 );
+	clgame.maxEntities = bound( 30, clgame.maxEntities, 4096 );
 	clgame.maxModels = 512;
 	Q_strncpy( clgame.mapname, MSG_ReadString( msg ), MAX_STRING );
 	Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), MAX_STRING );

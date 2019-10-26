@@ -78,16 +78,23 @@ GNU General Public License for more details.
 #define PORT_SERVER			27015
 
 #define MULTIPLAYER_BACKUP		64	// how many data slots to use when in multiplayer (must be power of 2)
-#define SINGLEPLAYER_BACKUP		16	// same for single player  
+#define SINGLEPLAYER_BACKUP		16	// same for single player
 #define CMD_BACKUP			64	// allow a lot of command backups for very fast systems
 #define CMD_MASK			(CMD_BACKUP - 1)
 #define NUM_PACKET_ENTITIES		256	// 170 Mb for multiplayer with 32 players
 #define MAX_CUSTOM_BASELINES		64
-
 #define NET_LEGACY_EXT_SPLIT		(1U<<1)
 #define NETSPLIT_BACKUP 8
 #define NETSPLIT_BACKUP_MASK (NETSPLIT_BACKUP - 1)
 #define NETSPLIT_HEADER_SIZE 18
+
+#if XASH_LOW_MEMORY == 2
+	#define MULTIPLAYER_BACKUP		4	// how many data slots to use when in multiplayer (must be power of 2)
+	#define SINGLEPLAYER_BACKUP		4	// same for single player
+	#define NUM_PACKET_ENTITIES		32	// 170 Mb for multiplayer with 32 players
+	#define MAX_CUSTOM_BASELINES		8
+	#define NET_MAX_FRAGMENT		32768
+#endif
 
 typedef struct netsplit_chain_packet_s
 {

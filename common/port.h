@@ -126,6 +126,9 @@ GNU General Public License for more details.
 		#define XASH_ALLOW_SAVERESTORE_OFFSETS
 	#endif
 #endif //WIN32
+#ifndef XASH_LOW_MEMORY
+#define XASH_LOW_MEMORY 0
+#endif
 
 #include <stdlib.h>
 #include <string.h>
