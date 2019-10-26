@@ -53,9 +53,9 @@ void Platform_ShellExecute( const char *path, const char *parms )
 	ShellExecute( NULL, "open", path, parms, NULL, SW_SHOW );
 }
 
-#ifdef XASH_DEDICATED
+#if XASH_MESSAGEBOX == MSGBOX_WIN32
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
 {
 	MessageBox( parentMainWindow ? host.hWnd : NULL, message, title, MB_OK|MB_SETFOREGROUND|MB_ICONSTOP );
 }
-#endif
+#endif // XASH_MESSAGEBOX == MSGBOX_WIN32

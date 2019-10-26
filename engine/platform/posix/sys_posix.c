@@ -92,7 +92,7 @@ void Platform_ShellExecute( const char *path, const char *parms )
 }
 #endif // __ANDROID__
 
-#ifdef XASH_DEDICATED
+#if XASH_MESSAGEBOX == MSGBOX_STDERR
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
 {
 	fprintf( stderr,

@@ -645,10 +645,12 @@ Android_MessageBox
 Show messagebox and wait for OK button press
 ========================
 */
+#if XASH_MESSAGEBOX == MSGBOX_ANDROID
 void Platform_MessageBox( const char *title, const char *text, qboolean parentMainWindow )
 {
 	(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.messageBox, (*jni.env)->NewStringUTF( jni.env, title ), (*jni.env)->NewStringUTF( jni.env ,text ) );
 }
+#endif // XASH_MESSAGEBOX == MSGBOX_ANDROID
 
 /*
 ========================

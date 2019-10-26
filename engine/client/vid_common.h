@@ -16,7 +16,6 @@ typedef struct
 	int		safe;
 
 	int		desktopBitsPixel;
-	int		desktopWidth;
 	int		desktopHeight;
 
 	qboolean		initialized;	// OpenGL subsystem started
