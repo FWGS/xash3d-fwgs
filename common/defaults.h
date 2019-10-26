@@ -31,9 +31,17 @@ SETUP BACKENDS DEFINITIONS
 		#ifndef XASH_TIMER
 			#define XASH_TIMER TIMER_SDL
 		#endif
+
+		#ifndef XASH_MESSAGEBOX
+			#define XASH_MESSAGEBOX MSGBOX_SDL
+		#endif
 	#else
 		#ifndef XASH_TIMER
 			#define XASH_TIMER TIMER_LINUX
+		#endif
+
+		#ifndef XASH_MESSAGEBOX
+			#define XASH_MESSAGEBOX MSGBOX_STDERR
 		#endif
 	#endif
 
@@ -70,6 +78,10 @@ SETUP BACKENDS DEFINITIONS
 		#ifndef XASH_SOUND
 			#define XASH_SOUND SOUND_OPENSLES
 		#endif
+
+		#ifndef XASH_MESSAGEBOX
+			#define XASH_MESSAGEBOX MSGBOX_ANDROID
+		#endif
 	#endif // android case
 
 	#ifdef XASH_FBDEV
@@ -87,6 +99,10 @@ SETUP BACKENDS DEFINITIONS
 
 		#ifndef XASH_SOUND
 			#define XASH_SOUND SOUND_ALSA
+		#endif
+
+		#ifndef XASH_MESSAGEBOX
+			#define XASH_MESSAGEBOX MSGBOX_STDERR
 		#endif
 		#define XASH_USE_EVDEV
 	#endif // android case
@@ -128,6 +144,10 @@ SETUP BACKENDS DEFINITIONS
 
 #ifndef XASH_INPUT
 	#define XASH_INPUT INPUT_NULL
+#endif
+
+#ifndef XASH_MESSAGEBOX
+	#define XASH_MESSAGEBOX MSGBOX_STDERR
 #endif
 
 /*
