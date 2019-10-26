@@ -133,6 +133,31 @@ GNU General Public License for more details.
 #define MAX_LIGHTSTYLES		64		// original quake limit
 #define MAX_RENDER_DECALS		4096		// max rendering decals per a level
 
+#if XASH_LOW_MEMORY == 2
+// memory reduced protocol, not for use in multiplayer
+#define MAX_VISIBLE_PACKET_BITS	7	// 2048 visible entities per frame (hl1 has 256)
+#define MAX_VISIBLE_PACKET		(1<<MAX_VISIBLE_PACKET_BITS)
+#define MAX_VISIBLE_PACKET_VIS_BYTES	((MAX_VISIBLE_PACKET + 7) / 8)
+
+#define MAX_EVENT_BITS		7
+#define MAX_EVENTS			(1<<MAX_EVENT_BITS)	// 10 bits == 1024 events (the original Half-Life limit)
+
+#define MAX_MODEL_BITS		8		// 12 bits == 4096 models
+#define MAX_SUPPORTED_MODELS		(1<<MAX_MODEL_BITS)
+
+#define MAX_MODELS			256
+
+#define MAX_SOUND_BITS		8
+#define MAX_SOUNDS			(1<<MAX_SOUND_BITS)	// 11 bits == 2048 sounds
+
+#define MAX_CUSTOM_BITS		4
+#define MAX_CUSTOM			(1<<MAX_CUSTOM_BITS)// 10 bits == 1024 generic file
+
+#define MAX_DLIGHTS			16		// dynamic lights (rendered per one frame)
+#define MAX_ELIGHTS			32		// entity only point lights
+#define MAX_RENDER_DECALS		64		// max rendering decals per a level
+#endif
+
 // sound proto
 #define MAX_SND_FLAGS_BITS		14
 #define MAX_SND_CHAN_BITS		4

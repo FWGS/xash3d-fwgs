@@ -17,9 +17,9 @@ GNU General Public License for more details.
 #include "server.h"
 #include "net_encode.h"
 #include "library.h"
-
+#if XASH_LOW_MEMORY != 2
 int SV_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
-
+#endif
 server_t		sv;	// local server
 server_static_t	svs;	// persistant server info
 svgame_static_t	svgame;	// persistant game info
@@ -752,7 +752,9 @@ void SV_SetupClients( void )
 
 	// feedback for cvar
 	Cvar_FullSet( "maxplayers", va( "%d", svs.maxclients ), FCVAR_LATCH );
+#if XASH_LOW_MEMORY != 2
 	SV_UPDATE_BACKUP = ( svs.maxclients == 1 ) ? SINGLEPLAYER_BACKUP : MULTIPLAYER_BACKUP;
+#endif
 
 	svs.clients = Z_Realloc( svs.clients, sizeof( sv_client_t ) * svs.maxclients );
 	svs.num_client_entities = svs.maxclients * SV_UPDATE_BACKUP * NUM_PACKET_ENTITIES;

@@ -141,6 +141,11 @@ typedef enum
 #define MAX_DECALS		512	// touching TE_DECAL messages, etc
 #define MAX_STATIC_ENTITIES	3096	// static entities that moved on the client when level is spawn
 
+#if XASH_LOW_MEMORY == 2
+#define MAX_DECALS		32	// touching TE_DECAL messages, etc
+#define MAX_STATIC_ENTITIES	32	// static entities that moved on the client when level is spawn
+#endif
+
 // filesystem flags
 #define FS_STATIC_PATH  ( 1U << 0 )  // FS_ClearSearchPath will be ignore this path
 #define FS_NOWRITE_PATH ( 1U << 1 )  // default behavior - last added gamedir set as writedir. This flag disables it
