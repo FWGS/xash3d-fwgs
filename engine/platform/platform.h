@@ -103,15 +103,14 @@ typedef enum
 	rserr_unknown
 } rserr_t;
 
-typedef struct vidmode_s vidmode_t;
-
+struct vidmode_s;
 // Window
 qboolean  R_Init_Video( const int type );
 void      R_Free_Video( void );
 qboolean  VID_SetMode( void );
 rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen );
 int       R_MaxVideoModes( void );
-vidmode_t*R_GetVideoMode( int num );
+struct vidmode_s *R_GetVideoMode( int num );
 void*     GL_GetProcAddress( const char *name ); // RenderAPI requirement
 void      GL_UpdateSwapInterval( void );
 int GL_SetAttribute( int attr, int val );

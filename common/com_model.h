@@ -232,7 +232,7 @@ typedef struct mextrasurf_s
 	int		reserved[32];	// just for future expansions or mod-makers
 } mextrasurf_t;
 
-typedef struct msurface_s
+struct msurface_s
 {
 	int		visframe;		// should be drawn when node is crossed
 
@@ -264,7 +264,7 @@ typedef struct msurface_s
 
 	color24		*samples;		// note: this is the actual lightmap data for this surface
 	decal_t		*pdecals;
-} msurface_t;
+};
 
 typedef struct hull_s
 {

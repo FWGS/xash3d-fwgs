@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#include "xash3d_types.h"
 #include "mathlib.h"
 #include "cdll_int.h"
 #include "menu_int.h"
@@ -37,8 +38,6 @@ GNU General Public License for more details.
 #define SPR_CLIENT		0	// client sprite for temp-entities or user-textures
 #define SPR_HUDSPRITE	1	// hud sprite
 #define SPR_MAPSPRITE	2	// contain overview.bmp that diced into frames 128x128
-
-typedef int		sound_t;
 
 //=============================================================================
 typedef struct netbandwithgraph_s

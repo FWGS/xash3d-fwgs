@@ -16,6 +16,8 @@ GNU General Public License for more details.
 #ifndef NET_ENCODE_H
 #define NET_ENCODE_H
 
+#include "eiface.h"
+
 #define DT_BYTE		BIT( 0 )	// A byte
 #define DT_SHORT		BIT( 1 ) 	// 2 byte field
 #define DT_FLOAT		BIT( 2 )	// A floating point field
@@ -62,7 +64,7 @@ typedef struct
 } delta_field_t;
 
 // one field
-typedef struct delta_s
+struct delta_s
 {
 	const char	*name;
 	int		offset;		// in bytes
@@ -72,9 +74,9 @@ typedef struct delta_s
 	float		post_multiplier;	// for DEFINE_DELTA_POST
 	int		bits;		// how many bits we send\receive
 	qboolean		bInactive;	// unsetted by user request
-} delta_t;
+};
 
-typedef void (*pfnDeltaEncode)( delta_t *pFields, const byte *from, const byte *to );
+typedef void (*pfnDeltaEncode)( struct delta_s *pFields, const byte *from, const byte *to );
 
 typedef struct
 {
@@ -113,24 +115,24 @@ void Delta_ParseTableField( sizebuf_t *msg );
 
 
 // encode routines
-typedef struct entity_state_s entity_state_t;
-typedef struct usercmd_s usercmd_t;
-typedef struct event_args_s event_args_t;
-typedef struct movevars_s movevars_t;
-typedef struct clientdata_s clientdata_t;
-typedef struct weapon_data_s weapon_data_t;
-void MSG_WriteDeltaUsercmd( sizebuf_t *msg, usercmd_t *from, usercmd_t *to );
-void MSG_ReadDeltaUsercmd( sizebuf_t *msg, usercmd_t *from, usercmd_t *to );
-void MSG_WriteDeltaEvent( sizebuf_t *msg, event_args_t *from, event_args_t *to );
-void MSG_ReadDeltaEvent( sizebuf_t *msg, event_args_t *from, event_args_t *to );
-qboolean MSG_WriteDeltaMovevars( sizebuf_t *msg, movevars_t *from, movevars_t *to );
-void MSG_ReadDeltaMovevars( sizebuf_t *msg, movevars_t *from, movevars_t *to );
-void MSG_WriteClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, float timebase );
-void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, float timebase );
-void MSG_WriteWeaponData( sizebuf_t *msg, weapon_data_t *from, weapon_data_t *to, float timebase, int index );
-void MSG_ReadWeaponData( sizebuf_t *msg, weapon_data_t *from, weapon_data_t *to, float timebase );
-void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *msg, qboolean force, int type, float tbase, int ofs );
-qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state_t *to, int num, int type, float timebase );
-int Delta_TestBaseline( entity_state_t *from, entity_state_t *to, qboolean player, float timebase );
+struct entity_state_s;
+struct usercmd_s;
+struct event_args_s;
+struct movevars_s;
+struct clientdata_s;
+struct weapon_data_s;
+void MSG_WriteDeltaUsercmd( sizebuf_t *msg, struct usercmd_s *from, struct usercmd_s *to );
+void MSG_ReadDeltaUsercmd( sizebuf_t *msg, struct usercmd_s *from, struct usercmd_s *to );
+void MSG_WriteDeltaEvent( sizebuf_t *msg, struct event_args_s *from, struct event_args_s *to );
+void MSG_ReadDeltaEvent( sizebuf_t *msg, struct event_args_s *from, struct event_args_s *to );
+qboolean MSG_WriteDeltaMovevars( sizebuf_t *msg, struct movevars_s *from, struct movevars_s *to );
+void MSG_ReadDeltaMovevars( sizebuf_t *msg, struct movevars_s *from, struct movevars_s *to );
+void MSG_WriteClientData( sizebuf_t *msg, struct clientdata_s *from, struct clientdata_s *to, float timebase );
+void MSG_ReadClientData( sizebuf_t *msg, struct clientdata_s *from, struct clientdata_s *to, float timebase );
+void MSG_WriteWeaponData( sizebuf_t *msg, struct weapon_data_s *from, struct weapon_data_s *to, float timebase, int index );
+void MSG_ReadWeaponData( sizebuf_t *msg, struct weapon_data_s *from, struct weapon_data_s *to, float timebase );
+void MSG_WriteDeltaEntity( struct entity_state_s *from, struct entity_state_s *to, sizebuf_t *msg, qboolean force, int type, float tbase, int ofs );
+qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, struct entity_state_s *from, struct entity_state_s *to, int num, int type, float timebase );
+int Delta_TestBaseline( struct entity_state_s *from, struct entity_state_s *to, qboolean player, float timebase );
 
 #endif//NET_ENCODE_H
