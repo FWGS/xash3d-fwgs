@@ -92,7 +92,11 @@ static void Sys_LoadEngine( void )
 		Xash_Error("Unable to load the " XASHLIB ": %s", dlerror() );
 	}
 
-	if(( Xash_Main = (pfnInit)GetProcAddress( hEngine, "Host_Main" )) == NULL )
+	if(( Xash_Main = (pfnInit)GetProcAddress( hEngine, "Platform_Main" )) == NULL )
+	{
+		// silently ignore absence of platform-specific init
+	}
+	else if(( Xash_Main = (pfnInit)GetProcAddress( hEngine, "Host_Main" )) == NULL )
 	{
 		Xash_Error( XASHLIB " missed 'Host_Main' export: %s", dlerror() );
 	}
