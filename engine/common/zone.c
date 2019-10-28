@@ -83,7 +83,7 @@ void *_Mem_Alloc( byte *poolptr, size_t size, qboolean clear, const char *filena
 	mem->prev = NULL;
 	pool->chain = mem;
 	if( mem->next ) mem->next->prev = mem;
-	//if( clear )
+	if( clear )
 		memset((void *)((byte *)mem + sizeof( memheader_t )), 0, mem->size );
 
 	return (void *)((byte *)mem + sizeof( memheader_t ));
