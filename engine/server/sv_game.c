@@ -2042,10 +2042,10 @@ int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample
 	{
 		sound_idx = Q_atoi( sample + 1 );
 
-		if( sound_idx >= MAX_SOUNDS )
+		if( sound_idx >= MAX_SOUNDS_NONSENTENCE )
 		{
 			SetBits( flags, SND_SENTENCE|SND_SEQUENCE );
-			sound_idx -= MAX_SOUNDS;
+			sound_idx -= MAX_SOUNDS_NONSENTENCE;
 		}
 		else SetBits( flags, SND_SENTENCE );
 	}
