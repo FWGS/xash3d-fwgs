@@ -14,9 +14,9 @@ def options(opt):
 		help = 'enable console input from stdin (always enabled for dedicated) [default: %default]')
 	grp.add_option('--fbdev', action = 'store_true', dest = 'FBDEV_SW', default = False,
 		help = 'build fbdev-only software-only engine')
-	grp.add_option('--no-async-resolve', action = 'store_true', dest = 'NO_ASYNC_RESOLVE', default = False,
+	grp.add_option('--disable-async-resolve', action = 'store_true', dest = 'NO_ASYNC_RESOLVE', default = False,
 		help = 'disable asynchronous name resolution')
-	grp.add_option('--custom-swap-allocator', action = 'store_true', dest = 'CUSTOM_SWAP', default = False,
+	grp.add_option('--enable-custom-swap', action = 'store_true', dest = 'CUSTOM_SWAP', default = False,
 		help = 'enable custom swap allocator. For devices with no swap support')
 
 	opt.load('sdl2')
