@@ -1887,8 +1887,8 @@ void Con_DrawInput( int lines )
 		return;
 
 	y = lines - ( con.curFont->charHeight * 2 );
-	Con_DrawCharacter( 8, y, ']', g_color_table[7] );
-	Field_DrawInputLine( 16, y, &con.input );
+	Con_DrawCharacter( con.curFont->charWidths[' '], y, ']', g_color_table[7] );
+	Field_DrawInputLine(  con.curFont->charWidths[' ']*2, y, &con.input );
 }
 
 /*
@@ -2086,6 +2086,8 @@ void Con_DrawSolidConsole( int lines )
 	// draw the background
 	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
 	ref.dllFuncs.Color4ub( 255, 255, 255, 255 ); // to prevent grab color from screenfade
+	if( refState.width * 3 / 4 < refState.height && lines >= refState.height )
+		ref.dllFuncs.R_DrawStretchPic( 0, lines - refState.height, refState.width, refState.height - refState.width * 3 / 4, 0, 0, 1, 1, R_GetBuiltinTexture( REF_BLACK_TEXTURE) );
 	ref.dllFuncs.R_DrawStretchPic( 0, lines - refState.width * 3 / 4, refState.width, refState.width * 3 / 4, 0, 0, 1, 1, con.background );
 
 	if( !con.curFont || !host.allow_console )
@@ -2139,7 +2141,7 @@ void Con_DrawSolidConsole( int lines )
 			y -= Con_DrawConsoleLine( y, x );
 
 			// top of console buffer or console window
-			if( x == 0 || y < con.curFont->charHeight ) 
+			if( x == 0 || y < con.curFont->charHeight )
 				break;
 			x--;
 		}
@@ -2363,9 +2365,8 @@ INTERNAL RESOURCE
 */
 void Con_VidInit( void )
 {
-	Con_CheckResize();
-
 	Con_LoadConchars();
+	Con_CheckResize();
 #if XASH_LOW_MEMORY
 	con.background = R_GetBuiltinTexture( REF_BLACK_TEXTURE );
 #else
