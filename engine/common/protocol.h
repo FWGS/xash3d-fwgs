@@ -119,6 +119,7 @@ GNU General Public License for more details.
 
 #define MAX_SOUND_BITS		11
 #define MAX_SOUNDS			(1<<MAX_SOUND_BITS)	// 11 bits == 2048 sounds
+#define MAX_SOUNDS_NONSENTENCE MAX_SOUNDS
 
 #define MAX_ENTITY_BITS		13		// 13 bits = 8192 edicts
 #define MAX_EDICTS			(1<<MAX_ENTITY_BITS)
@@ -147,8 +148,9 @@ GNU General Public License for more details.
 
 #define MAX_MODELS			256
 
-#define MAX_SOUND_BITS		8
-#define MAX_SOUNDS			(1<<MAX_SOUND_BITS)	// 11 bits == 2048 sounds
+
+#define MAX_SOUNDS			512 // do not change MAX_SOUND_BITS
+#define MAX_SOUNDS_NONSENTENCE 2048
 
 #define MAX_CUSTOM_BITS		4
 #define MAX_CUSTOM			(1<<MAX_CUSTOM_BITS)// 10 bits == 1024 generic file
