@@ -1119,6 +1119,26 @@ void SCR_RunCinematic( void );
 void SCR_StopCinematic( void );
 void CL_PlayVideo_f( void );
 
+
+//
+// keys.c
+//
+int Key_IsDown( int keynum );
+const char *Key_IsBind( int keynum );
+void Key_Event( int key, int down );
+void Key_Init( void );
+void Key_WriteBindings( file_t *f );
+const char *Key_GetBinding( int keynum );
+void Key_SetBinding( int keynum, const char *binding );
+void Key_ClearStates( void );
+const char *Key_KeynumToString( int keynum );
+int Key_StringToKeynum( const char *str );
+int Key_GetKey( const char *binding );
+void Key_EnumCmds_f( void );
+void Key_SetKeyDest( int key_dest );
+void Key_EnableTextInput( qboolean enable, qboolean force );
+void OSK_Draw( void );
+
 extern rgba_t g_color_table[8];
 
 #endif//CLIENT_H

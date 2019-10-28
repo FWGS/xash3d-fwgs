@@ -486,6 +486,7 @@ void V_PostRender( void )
 		Con_DrawVersion();
 		Con_DrawDebug(); // must be last
 		Touch_Draw();
+		OSK_Draw();
 
 		S_ExtraUpdate();
 	}
