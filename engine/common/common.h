@@ -816,24 +816,6 @@ void HPAK_CheckIntegrity( const char *filename );
 void HPAK_CheckSize( const char *filename );
 void HPAK_FlushHostQueue( void );
 
-//
-// keys.c
-//
-int Key_IsDown( int keynum );
-const char *Key_IsBind( int keynum );
-void Key_Event( int key, int down );
-void Key_Init( void );
-void Key_WriteBindings( file_t *f );
-const char *Key_GetBinding( int keynum );
-void Key_SetBinding( int keynum, const char *binding );
-void Key_ClearStates( void );
-const char *Key_KeynumToString( int keynum );
-int Key_StringToKeynum( const char *str );
-int Key_GetKey( const char *binding );
-void Key_EnumCmds_f( void );
-void Key_SetKeyDest( int key_dest );
-void Key_EnableTextInput( qboolean enable, qboolean force );
-
 #include "avi/avi.h"
 
 //
