@@ -143,6 +143,7 @@ keyname_t keynames[] =
 static void OSK_EnableTextInput( qboolean enable, qboolean force );
 static qboolean OSK_KeyEvent( int key, int down );
 static convar_t *osk_enable;
+static convar_t *key_rotate;
 
 /*
 ===================
@@ -519,7 +520,9 @@ void Key_Init( void )
 	// setup default binding. "unbindall" from config.cfg will be reset it
 	for( kn = keynames; kn->name; kn++ ) Key_SetBinding( kn->keynum, kn->binding ); 
 
-	osk_enable = Cvar_Get( "osk_enable", "0", FCVAR_ARCHIVE, "enable build-in on-screen keyboard" );
+	osk_enable = Cvar_Get( "osk_enable", "0", FCVAR_ARCHIVE, "enable built-in on-screen keyboard" );
+	key_rotate = Cvar_Get( "key_rotate", "0", FCVAR_ARCHIVE, "rotate arrow keys (0-3)" );
+
 }
 
 /*
@@ -592,6 +595,48 @@ static qboolean Key_IsAllowedAutoRepeat( int key )
 	} 
 }
 
+static int Key_Rotate( int key )
+{
+	if( key_rotate->value == 1.0f ) // CW
+	{
+		if( key == K_UPARROW )
+				key = K_LEFTARROW;
+		else if( key == K_LEFTARROW )
+				key = K_DOWNARROW;
+		else if( key == K_RIGHTARROW )
+				key = K_UPARROW;
+		else if( key == K_DOWNARROW )
+				key = K_RIGHTARROW;
+	}
+
+	else if( key_rotate->value == 3.0f ) // CCW
+	{
+		if( key == K_UPARROW )
+				key = K_RIGHTARROW;
+		else if( key == K_LEFTARROW )
+				key = K_UPARROW;
+		else if( key == K_RIGHTARROW )
+				key = K_DOWNARROW;
+		else if( key == K_DOWNARROW )
+				key = K_LEFTARROW;
+	}
+
+	else if( key_rotate->value == 2.0f )
+	{
+		if( key == K_UPARROW )
+				key = K_DOWNARROW;
+		else if( key == K_LEFTARROW )
+				key = K_RIGHTARROW;
+		else if( key == K_RIGHTARROW )
+				key = K_LEFTARROW;
+		else if( key == K_DOWNARROW )
+				key = K_UPARROW;
+	}
+
+	return key;
+}
+
+
 /*
 ===================
 Key_Event
@@ -602,6 +647,8 @@ Called by the system for both key up and key down events
 void Key_Event( int key, int down )
 {
 	const char	*kb;
+
+	key = Key_Rotate( key );
 
 	if( OSK_KeyEvent( key, down ) )
 		return;
