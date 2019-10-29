@@ -2724,7 +2724,9 @@ void CL_LegacyUpdateUserinfo( sizebuf_t *msg )
 	}
 	else memset( player, 0, sizeof( *player ));
 }
-
+#if XASH_LOW_MEMORY == 2
+#define MAX_RESOURCES 64
+#endif
 /*
 ==============
 CL_ParseResourceList
@@ -2739,7 +2741,7 @@ void CL_LegacyParseResourceList( sizebuf_t *msg )
 	{
 		int  rescount;
 		int  restype[MAX_RESOURCES];
-		char resnames[MAX_RESOURCES][CS_SIZE];
+		char resnames[MAX_RESOURCES][MAX_QPATH];
 	} reslist;
 	memset( &reslist, 0, sizeof( reslist ));
 
@@ -2748,7 +2750,7 @@ void CL_LegacyParseResourceList( sizebuf_t *msg )
 	for( i = 0; i < reslist.rescount; i++ )
 	{
 		reslist.restype[i] = MSG_ReadWord( msg );
-		Q_strncpy( reslist.resnames[i], MSG_ReadString( msg ), CS_SIZE );
+		Q_strncpy( reslist.resnames[i], MSG_ReadString( msg ), MAX_QPATH );
 	}
 
 	if( CL_IsPlaybackDemo() )
