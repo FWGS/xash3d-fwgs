@@ -37,6 +37,8 @@ struct evdev_s
 	qboolean shift;
 } evdev;
 
+static convar_t *evdev_keydebug;
+
 static int KeycodeFromEvdev(int keycode, int value)
 {
 	switch (keycode) {
@@ -119,6 +121,10 @@ static int KeycodeFromEvdev(int keycode, int value)
 	case BTN_LEFT: return K_MOUSE1;
 	case BTN_RIGHT: return K_MOUSE2;
 	case BTN_MIDDLE: return K_MOUSE3;
+	case KEY_POWER:	return K_ESCAPE;
+	case KEY_VOLUMEDOWN: return K_PGDN;
+	case KEY_VOLUMEUP: return K_PGUP;
+	case KEY_PLAYPAUSE: return K_ENTER;
 	default:
 		break;
 	}
@@ -216,7 +222,7 @@ void Evdev_Autodetect_f( void )
 open:
 		Q_strncpy( evdev.paths[evdev.devices], path, MAX_STRING );
 		evdev.fds[evdev.devices++] = fd;
-		Msg( "Opened device %s\n", path );
+		Con_Printf( "Opened device %s\n", path );
 #if XASH_INPUT == INPUT_EVDEV
 		if( Sys_CheckParm( "-grab" ) )
 			ioctl( evdev.fds[i], EVIOCGRAB, (void*) 1 );
@@ -244,7 +250,7 @@ void Evdev_OpenDevice ( const char *path )
 
 	if ( evdev.devices >= MAX_EVDEV_DEVICES )
 	{
-		Msg( "Only %d devices supported!\n", MAX_EVDEV_DEVICES );
+		Con_Printf( "Only %d devices supported!\n", MAX_EVDEV_DEVICES );
 		return;
 	}
 
@@ -256,7 +262,7 @@ void Evdev_OpenDevice ( const char *path )
 	{
 		if( !Q_strncmp( evdev.paths[i], path, MAX_STRING ) )
 		{
-			Msg( "device %s already open!\n", path );
+			Con_Printf( "device %s already open!\n", path );
 			return;
 		}
 	}
@@ -267,7 +273,7 @@ void Evdev_OpenDevice ( const char *path )
 		Con_Reportf( S_ERROR  "Could not open input device %s: %s\n", path, strerror( errno ) );
 		return;
 	}
-	Msg( "Input device #%d: %s opened sucessfully\n", evdev.devices, path );
+	Con_Printf( "Input device #%d: %s opened sucessfully\n", evdev.devices, path );
 	evdev.fds[evdev.devices] = ret;
 	Q_strncpy( evdev.paths[evdev.devices++], path, MAX_STRING );
 
@@ -280,7 +286,7 @@ void Evdev_OpenDevice ( const char *path )
 void Evdev_OpenDevice_f( void )
 {
 	if( Cmd_Argc() < 2 )
-		Msg( S_USAGE "evdev_opendevice <path>\n" );
+		Con_Printf( S_USAGE "evdev_opendevice <path>\n" );
 
 	Evdev_OpenDevice( Cmd_Argv( 1 ) );
 }
@@ -308,13 +314,13 @@ void Evdev_CloseDevice_f ( void )
 
 	if( i >= evdev.devices )
 	{
-		Msg( "Device %s is not open\n", arg );
+		Con_Printf( "Device %s is not open\n", arg );
 		return;
 	}
 
 	close( evdev.fds[i] );
 	evdev.devices--;
-	Msg( "Device %s closed successfully\n", evdev.paths[i] );
+	Con_Printf( "Device %s closed successfully\n", evdev.paths[i] );
 
 	for( ; i < evdev.devices; i++ )
 	{
@@ -360,7 +366,11 @@ void IN_EvdevFrame ( void )
 			else if ( ( ev.type == EV_KEY ) && (cls.key_dest == key_game || XASH_INPUT == INPUT_EVDEV ) )
 			{
 				int key = KeycodeFromEvdev( ev.code, ev.value );
-				Key_Event ( key , ev.value );
+
+				if( CVAR_TO_BOOL(evdev_keydebug) )
+					Con_Printf( "key %d %d %d\n", ev.code, key, ev.value );
+
+				Key_Event( key , ev.value );
 
 				if( evdev.chars && ev.value )
 				{
@@ -452,6 +462,7 @@ void Evdev_Shutdown( void )
 	Cmd_RemoveCommand( "evdev_open" );
 	Cmd_RemoveCommand( "evdev_close" );
 	Cmd_RemoveCommand( "evdev_autodetect" );
+	evdev_keydebug = Cvar_Get( "evdev_keydebug", "0", 0, "print key events to console" );
 
 	for( i = 0; i < evdev.devices; i++ )
 	{
