@@ -35,7 +35,6 @@ typedef struct mip_s mip_t;
 
 typedef	int	fixed8_t;
 typedef	int	fixed16_t;
-
 #define offsetof(s,m)       (size_t)&(((s *)0)->m)
 
 #define ASSERT(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
@@ -62,10 +61,16 @@ extern byte	*r_temppool;
 #define BLOCK_SIZE_MAX	1024
 
 #define MAX_TEXTURES	4096
+#define MAX_DECAL_SURFS	4096
+
+#if XASH_LOW_MEMORY
+	#define MAX_TEXTURES 1024
+	#define MAX_DECAL_SURFS 256
+#endif
+
 #define MAX_DETAIL_TEXTURES	256
 #define MAX_LIGHTMAPS	256
 #define SUBDIVIDE_SIZE	64
-#define MAX_DECAL_SURFS	4096
 #define MAX_DRAW_STACK	2		// normal view and menu view
 
 #define SHADEDOT_QUANT 	16		// precalculated dot products for quantized angles
