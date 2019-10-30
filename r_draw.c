@@ -63,7 +63,7 @@ int GAME_EXPORT R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
 Draw_StretchPicImplementation
 =============
 */
-void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1, int s2, int t2, image_t	*pic)
+void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, int t1, int s2, int t2, image_t	*pic )
 {
 	pixel_t *source, *dest;
 	unsigned int				v, u, sv;
@@ -127,9 +127,8 @@ void R_DrawStretchPicImplementation (int x, int y, int w, int h, int s1, int t1,
 
 		{
 			f = 0;
-			fstep = s2*0x10000/w;
-			if( w == s2 - s1 )
-				fstep = 0x10000;
+			fstep = ((s2-s1) << 16)/w;
+
 #if 0
 			for (u=0 ; u<w ; u+=4)
 			{
@@ -191,12 +190,15 @@ R_DrawStretchPic
 void GAME_EXPORT R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
 	image_t *pic = R_GetTexture(texnum);
+	int width = pic->width, height = pic->height;
 //	GL_Bind( XASH_TEXTURE0, texnum );
-	if( s2 > 1 || t2 > 2 )
+	if( s2 > 1.0f || t2 > 1.0f )
 		return;
-	if( w <= 0 || h <= 0 )
+	if( s1 < 0.0f || t1 < 0.0f )
 		return;
-	R_DrawStretchPicImplementation(x,y,w,h, pic->width * s1, pic->height * t1, pic->width * s2, pic->height * t2, pic);
+	if( w < 1.0f || h < 1.0f )
+		return;
+	R_DrawStretchPicImplementation(x,y,w,h, width * s1, height * t1, width * s2, height * t2, pic);
 }
 
 void Draw_Fill (int x, int y, int w, int h)
