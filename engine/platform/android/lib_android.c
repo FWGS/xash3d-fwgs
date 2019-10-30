@@ -24,13 +24,16 @@ void *ANDROID_LoadLibrary( const char *dllname )
 	char path[MAX_SYSPATH];
 	const char *libdir[2];
 	int i;
-	void *pHandle;
+	void *pHandle = NULL;
 
 	libdir[0] = getenv("XASH3D_GAMELIBDIR");
 	libdir[1] = getenv("XASH3D_ENGLIBDIR");
 
 	for( i = 0; i < 2; i++ )
 	{
+		if( !libdir[i] )
+			continue;
+
 		Q_snprintf( path, MAX_SYSPATH, "%s/lib%s"POSTFIX"."OS_LIB_EXT, libdir[i], dllname );
 		pHandle = dlopen( path, RTLD_LAZY );
 		if( pHandle )
@@ -40,7 +43,7 @@ void *ANDROID_LoadLibrary( const char *dllname )
 	}
 
 	// HACKHACK: keep old behaviour for compability
-	if( Q_strstr( dllname, "." OS_LIB_EXT ))
+	if( Q_strstr( dllname, "." OS_LIB_EXT ) || Q_strstr( dllname, PATH_SPLITTER ))
 	{
 		pHandle = dlopen( dllname, RTLD_LAZY );
 		if( pHandle )
