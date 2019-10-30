@@ -433,6 +433,7 @@ ref_interface_t gReffuncs =
 	R_Init,
 	R_Shutdown,
 	R_GetConfigName,
+	R_SetDisplayTransform,
 
 	GL_SetupAttributes,
 	GL_InitExtensions,

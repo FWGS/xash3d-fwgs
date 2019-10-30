@@ -9,9 +9,37 @@ struct swblit_s
 	void *(*pLockBuffer)( void );
 	void (*pUnlockBuffer)( void );
 	qboolean(*pCreateBuffer)( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
-
+	uint rotate;
 } swblit;
 
+
+qboolean R_SetDisplayTransform( uint rotate, int offset_x, int offset_y, float scale_x, float scale_y )
+{
+	qboolean ret = true;
+	if( rotate > 1 )
+	{
+		gEngfuncs.Con_Printf("only 0-1 rotation supported\n");
+		ret = false;
+	}
+	else
+		swblit.rotate = rotate;
+
+	if( offset_x || offset_y )
+	{
+		// it is possible implement for offset > 0
+		gEngfuncs.Con_Printf("offset transform not supported\n");
+		ret = false;
+	}
+
+	if( scale_x != 1.0f || scale_y != 1.0f )
+	{
+		// maybe implement 2x2?
+		gEngfuncs.Con_Printf("scale transform not supported\n");
+		ret = false;
+	}
+
+	return ret;
+}
 
 /*
 ========================
@@ -202,7 +230,7 @@ static qboolean R_CreateBuffer_GL1( int width, int height, uint *stride, uint *b
 
 	*stride = width;
 	*bpp = 2;
-	*r = MASK(5) << 6 + 5;
+	*r = MASK(5) << (6 + 5);
 	*g = MASK(6) << 5;
 	*b = MASK(5);
 
@@ -255,7 +283,7 @@ static qboolean R_CreateBuffer_GLES1( int width, int height, uint *stride, uint 
 
 	*stride = width;
 	*bpp = 2;
-	*r = MASK(5) << 6 + 5;
+	*r = MASK(5) << (6 + 5);
 	*g = MASK(6) << 5;
 	*b = MASK(5);
 
@@ -339,7 +367,7 @@ static qboolean R_CreateBuffer_GLES3( int width, int height, uint *stride, uint 
 
 	*stride = width;
 	*bpp = 2;
-	*r = MASK(5) << 6 + 5;
+	*r = MASK(5) << (6 + 5);
 	*g = MASK(6) << 5;
 	*b = MASK(5);
 
@@ -580,90 +608,164 @@ void R_InitBlit( qboolean glblit )
 
 void R_AllocScreen( void )
 {
-	if( gpGlobals->width < 320 )
-		gpGlobals->width = 320;
-	if( gpGlobals->height < 200 )
-		gpGlobals->height = 200;
+	int w, h;
+
+	if( gpGlobals->width < 128 )
+		gpGlobals->width = 128;
+	if( gpGlobals->height < 128 )
+		gpGlobals->height = 128;
 
 	R_InitCaches();
-	swblit.pCreateBuffer( gpGlobals->width, gpGlobals->height, &swblit.stride, &swblit.bpp,
+
+	if( swblit.rotate )
+		w = gpGlobals->height, h = gpGlobals->width;
+	else
+		h = gpGlobals->height, w = gpGlobals->width;
+
+	swblit.pCreateBuffer( w, h, &swblit.stride, &swblit.bpp,
 							   &swblit.rmask, &swblit.gmask, &swblit.bmask);
 	R_BuildScreenMap();
 	vid.width = gpGlobals->width;
 	vid.height = gpGlobals->height;
 	vid.rowbytes = gpGlobals->width; // rowpixels
 	if( d_pzbuffer )
-		Mem_Free( d_pzbuffer );
-	d_pzbuffer = Mem_Calloc( r_temppool, vid.width*vid.height*2 + 64 );
+		free( d_pzbuffer );
+	d_pzbuffer = malloc( vid.width*vid.height*2 + 64 );
 	if( vid.buffer )
-		Mem_Free( vid.buffer );
+		free( vid.buffer );
 
-	vid.buffer = Mem_Malloc( r_temppool, vid.width * vid.height*sizeof( pixel_t ) );
+	vid.buffer = malloc( vid.width * vid.height*sizeof( pixel_t ) );
 }
 
 void R_BlitScreen( void )
 {
-	//memset( vid.buffer, 10, vid.width * vid.height );
 	int u, v;
 	void *buffer = swblit.pLockBuffer();
+//	gEngfuncs.Con_Printf("blit begin\n");
+	//memset( vid.buffer, 10, vid.width * vid.height );
+
 	if( !buffer || gpGlobals->width != vid.width || gpGlobals->height != vid.height )
 	{
+		gEngfuncs.Con_Printf("pre allocscrn\n");
 		R_AllocScreen();
+		gEngfuncs.Con_Printf("post allocscrn\n");
 		return;
 	}
+	//return;
 	//byte *buf = vid.buffer;
 
 	//#pragma omp parallel for schedule(static)
-	if( swblit.bpp == 2 )
+	//gEngfuncs.Con_Printf("swblit %d %d", swblit.bpp, vid.height );
+	if( swblit.rotate )
 	{
-		unsigned short *pbuf = buffer;
-		for( v = 0; v < vid.height;v++)
+		if( swblit.bpp == 2 )
 		{
-			uint start = vid.rowbytes * v;
-			uint dstart = swblit.stride * v;
-
-			for( u = 0; u < vid.width; u++ )
+			unsigned short *pbuf = buffer;
+			for( v = 0; v < 10;v++)
 			{
-				unsigned int s = vid.screen[vid.buffer[start + u]];
-				pbuf[dstart + u] = s;
+				uint start = vid.rowbytes * v;
+				uint d = swblit.stride - v - 1;
+
+				for( u = 0; u < vid.width; u++ )
+				{
+					unsigned int s = vid.screen[vid.buffer[start + u]];
+					pbuf[d] = s;
+					d += swblit.stride;
+				}
+			}
+		}
+		else if( swblit.bpp == 4 )
+		{
+			unsigned int *pbuf = buffer;
+
+			for( v = 0; v < vid.height;v++)
+			{
+				uint start = vid.rowbytes * v;
+				uint d = swblit.stride - v - 1;
+
+				for( u = 0; u < vid.width; u++ )
+				{
+					unsigned int s = vid.screen32[vid.buffer[start + u]];
+					pbuf[d] = s;
+					d += swblit.stride;
+				}
+			}
+		}
+		else if( swblit.bpp == 3 )
+		{
+			byte *pbuf = buffer;
+			for( v = 0; v < 10;v++)
+			{
+				uint start = vid.rowbytes * v;
+				uint d = swblit.stride - v - 1;
+
+				for( u = 0; u < vid.width; u++ )
+				{
+					unsigned int s = vid.screen32[vid.buffer[start + u]];
+					pbuf[(d)*3] = s;
+					s = s >> 8;
+					pbuf[(d)*3+1] = s;
+					s = s >> 8;
+					pbuf[(d)*3+2] = s;
+					d += swblit.stride;
+				}
 			}
 		}
 	}
-	else if( swblit.bpp == 4 )
+	else
 	{
-		unsigned int *pbuf = buffer;
-
-		for( v = 0; v < vid.height;v++)
+		if( swblit.bpp == 2 )
 		{
-			uint start = vid.rowbytes * v;
-			uint dstart = swblit.stride * v;
-
-			for( u = 0; u < vid.width; u++ )
+			unsigned short *pbuf = buffer;
+			for( v = 0; v < 10;v++)
 			{
-				unsigned int s = vid.screen32[vid.buffer[start + u]];
-				pbuf[dstart + u] = s;
+				uint start = vid.rowbytes * v;
+				uint dstart = swblit.stride * v;
+
+				for( u = 0; u < vid.width; u++ )
+				{
+					unsigned int s = vid.screen[vid.buffer[start + u]];
+					pbuf[dstart + u] = s;
+				}
 			}
 		}
-	}
-	else if( swblit.bpp == 3 )
-	{
-		byte *pbuf = buffer;
-		for( v = 0; v < vid.height;v++)
+		else if( swblit.bpp == 4 )
 		{
-			uint start = vid.rowbytes * v;
-			uint dstart = swblit.stride * v;
+			unsigned int *pbuf = buffer;
 
-			for( u = 0; u < vid.width; u++ )
+			for( v = 0; v < vid.height;v++)
 			{
-				unsigned int s = vid.screen32[vid.buffer[start + u]];
-				pbuf[(dstart+u)*3] = s;
-				s = s >> 8;
-				pbuf[(dstart+u)*3+1] = s;
-				s = s >> 8;
-				pbuf[(dstart+u)*3+2] = s;
+				uint start = vid.rowbytes * v;
+				uint dstart = swblit.stride * v;
+
+				for( u = 0; u < vid.width; u++ )
+				{
+					unsigned int s = vid.screen32[vid.buffer[start + u]];
+					pbuf[dstart + u] = s;
+				}
+			}
+		}
+		else if( swblit.bpp == 3 )
+		{
+			byte *pbuf = buffer;
+			for( v = 0; v < 10;v++)
+			{
+				uint start = vid.rowbytes * v;
+				uint dstart = swblit.stride * v;
+
+				for( u = 0; u < vid.width; u++ )
+				{
+					unsigned int s = vid.screen32[vid.buffer[start + u]];
+					pbuf[(dstart+u)*3] = s;
+					s = s >> 8;
+					pbuf[(dstart+u)*3+1] = s;
+					s = s >> 8;
+					pbuf[(dstart+u)*3+2] = s;
+				}
 			}
 		}
 	}
 
 	swblit.pUnlockBuffer();
+//	gEngfuncs.Con_Printf("blit end\n");
 }

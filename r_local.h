@@ -1241,6 +1241,7 @@ void R_DrawBrushModel(cl_entity_t *pent);
 void R_InitCaches (void);
 void R_BlitScreen( void );
 void R_InitBlit( qboolean gl );
+qboolean R_SetDisplayTransform( uint rotate, int offset_x, int offset_y, float scale_x, float scale_y );
 
 //
 // r_edge.c

@@ -1871,7 +1871,7 @@ void GAME_EXPORT R_NewMap (void)
 	}
 	else
 	{
-			auxedges = malloc (r_numallocatededges * sizeof(edge_t));
+			auxedges = Mem_Malloc (r_temppool, r_numallocatededges * sizeof(edge_t) );
 	}
 
 	// clear out efrags in case the level hasn't been reloaded
