@@ -88,6 +88,7 @@ typedef struct ref_globals_s
 	// viewport width and height
 	int      width;
 	int      height;
+
 	qboolean fullScreen;
 	qboolean wideScreen;
 
@@ -435,6 +436,7 @@ typedef struct ref_interface_s
 	// const char *(*R_GetInitError)( void );
 	void (*R_Shutdown)( void );
 	const char *(*R_GetConfigName)( void ); // returns config name without extension
+	qboolean (*R_SetDisplayTransform)( uint rotate, int x, int y, float scale_x, float scale_y );
 
 	// only called for GL contexts
 	void (*GL_SetupAttributes)( int safegl );

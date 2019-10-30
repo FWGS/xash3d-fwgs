@@ -28,7 +28,7 @@ void GL_InitExtensions( void );
 qboolean GL_CreateContext( void );
 qboolean GL_UpdateContext( void );
 qboolean GL_DeleteContext( void );
-
+void VID_SaveWindowSize( int width, int height );
 
 #endif // XASH_SDL
 #endif // KEYWRAPPER_H

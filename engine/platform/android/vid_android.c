@@ -327,14 +327,34 @@ qboolean VID_SetMode( void )
 
 rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 {
+	int render_w, render_h;
+	uint rotate = vid_rotate->value;
+
 	Android_GetScreenRes(&width, &height);
+
+	render_w = width, render_h = height;
 
 	Con_Reportf( "R_ChangeDisplaySettings: forced resolution to %dx%d)\n", width, height);
 
-	R_SaveVideoMode( width, height );
+	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, vid_scale->value, vid_scale->value ) )
+	{
+		if( rotate & 1 )
+		{
+			int swap = render_w;
 
-	host.window_center_x = width / 2;
-	host.window_center_y = height / 2;
+			render_w = render_h;
+			render_h = swap;
+		}
+
+		render_h /= vid_scale->value;
+		render_w /= vid_scale->value;
+	}
+	else
+	{
+		Con_Printf( S_WARN "failed to setup screen transform\n" );
+	}
+
+	R_SaveVideoMode( width, height, render_w, render_h );
 
 	refState.wideScreen = true; // V_AdjustFov will check for widescreen
 
