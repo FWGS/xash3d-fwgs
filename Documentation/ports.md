@@ -15,15 +15,20 @@ Table is sorted by status.
 
 | Platform        | Status                     | Maintainer           | Note
 | --------        | ------                     | ----------           | ----
-| Windows         | Supported                  | @a1batross |
+| Windows         | Supported                  | @a1batross           |
 | Linux(x86)      | Supported                  | @a1batross, @mittorn |
-| Linux(amd64)    | Supported                  | @mittorn |
+| Linux(amd64)    | Supported                  | @mittorn             |
 | *BSD            | Supported                  | @nekonomicon         |
-| Linux(arm)      | In progress                | @a1batross, @mittorn |
-| Android         | In progress                | @a1batross, @mittorn |
-| Haiku           | Incomplete                 | not maintained       | Port was for Old Engine
-| macOS           | Incomplete                 | not maintained       | Port was for Old Engine
-| Emscripten      | Incomplete                 | not maintained       | Port was for Old Engine
-| iOS             | Incomplete                 | not maintained       | Port was for Old Engine
-| PSVita          | Not merged                 | not maintained       | [GitHub Repository](https://github.com/fgsfdsfgs/vitaXash3D)
-| Switch          | Not merged                 | not maintained       | [GitHub Repository](https://github.com/switchports/xash3d-switch)
+| Linux(arm)      | Supported                  | @a1batross, @mittorn |
+| Android         | Supported                  | @a1batross, @mittorn |
+| Linux(elbrus)   | In progress                | @a1batross, @mittorn | Rare and eventual access to e2k machine
+| Android/Linux(aarch64) | In progress         | @a1batross           |
+| Linux(mipsel)   | In progress                | @mittorn             |
+| MotoMAGX        | In progress                | @a1batross           |
+| Haiku           | Incomplete, Old Engine     | not maintained       | 
+| Emscripten      | Incomplete, Old Engine     | not maintained       | 
+| PSVita          | Not merged, Old Engine     | not maintained       | [GitHub Repository](https://github.com/fgsfdsfgs/vitaXash3D)
+| Switch          | Not merged, Old Engine     | not maintained       | [GitHub Repository](https://github.com/switchports/xash3d-switch)
+| 3DS             | Not merged, Old Engine     | not maintained       | [GitHub Repository](https://github.com/masterfeizz/Xash3DS)
+| macOS           | Deprecated                 | not maintained       | See GitHub issue #61
+| iOS             | Deprecated                 | not maintained       | See GitHub issue #61
