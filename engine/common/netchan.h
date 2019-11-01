@@ -89,9 +89,9 @@ GNU General Public License for more details.
 #define NETSPLIT_HEADER_SIZE 18
 
 #if XASH_LOW_MEMORY == 2
-	#define MULTIPLAYER_BACKUP		4	// how many data slots to use when in multiplayer (must be power of 2)
-	#define SINGLEPLAYER_BACKUP		4	// same for single player
-	#define NUM_PACKET_ENTITIES		32	// 170 Mb for multiplayer with 32 players
+	#define MULTIPLAYER_BACKUP		4	// breaks protocol in legacy mode, new protocol status unknown
+	#define SINGLEPLAYER_BACKUP		4
+	#define NUM_PACKET_ENTITIES		32
 	#define MAX_CUSTOM_BASELINES		8
 	#define NET_MAX_FRAGMENT		32768
 #endif

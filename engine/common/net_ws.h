@@ -32,8 +32,6 @@ typedef enum
 #define MAX_INIT_MSG		0x20000	// max length of possible message
 #if XASH_LOW_MEMORY == 2
 #define MAX_INIT_MSG 0x8000
-#define MAX_DATAGRAM 1024
-#define MAX_MULTICAST 1024
 #endif
 // net packets type
 #define NET_HEADER_OUTOFBANDPACKET	-1
