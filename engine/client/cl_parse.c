@@ -1411,6 +1411,36 @@ void CL_ParseResource( sizebuf_t *msg )
 	if( MSG_ReadOneBit( msg ))
 		MSG_ReadBytes( msg, pResource->rguc_reserved, sizeof( pResource->rguc_reserved ));
 
+	if( pResource->type == t_sound && pResource->nIndex > MAX_SOUNDS )
+	{
+		Mem_Free( pResource );
+		Host_Error( "bad sound index\n" );
+	}
+
+	if( pResource->type == t_model && pResource->nIndex > MAX_MODELS )
+	{
+		Mem_Free( pResource );
+		Host_Error( "bad model index\n" );
+	}
+
+	if( pResource->type == t_eventscript && pResource->nIndex > MAX_EVENTS )
+	{
+		Mem_Free( pResource );
+		Host_Error( "bad event index\n" );
+	}
+
+	if( pResource->type == t_generic && pResource->nIndex > MAX_CUSTOM )
+	{
+		Mem_Free( pResource );
+		Host_Error( "bad file index\n" );
+	}
+
+	if( pResource->type == t_decal && pResource->nIndex > MAX_DECALS )
+	{
+		Mem_Free( pResource );
+		Host_Error( "bad decal index\n" );
+	}
+
 	CL_AddToResourceList( pResource, &cl.resourcesneeded );
 }
 
