@@ -113,64 +113,43 @@ void CRC32_ProcessBuffer( dword *pulCRC, const void *pBuffer, int nBuffer )
 {
 	dword	ulCrc = *pulCRC, tmp;
 	byte	*pb = (byte *)pBuffer;
-	uint	nFront;
-	int	nMain;
-JustAfew:
-	switch( nBuffer )
+
+	while( nBuffer >= sizeof(integer64) )
 	{
-	case 7: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 6: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 5: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 4:
-		memcpy( &tmp, pb, sizeof(dword));
-		ulCrc ^= tmp;	// warning, this only works on little-endian.
+		memcpy( &tmp, pb, sizeof(tmp) );
+		ulCrc ^= LittleLong(tmp);
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);	
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		memcpy( &tmp, pb + sizeof(tmp), sizeof(tmp) );
+		ulCrc ^= LittleLong(tmp);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		*pulCRC = ulCrc;
-		return;
-	case 3: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 2: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 1: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 0: *pulCRC = ulCrc;
-		return;
+		nBuffer -= sizeof(integer64);
+		pb += sizeof(integer64);
 	}
 
-	// We may need to do some alignment work up front, and at the end, so that
-	// the main loop is aligned and only has to worry about 8 byte at a time.
-	// The low-order two bits of pb and nBuffer in total control the
-	// upfront work.
-	nFront = ((uint)pb) & 3;
-	nBuffer -= nFront;
-
-	switch( nFront )
+	if( nBuffer & sizeof(int) )
 	{
-	case 3: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 2: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 1: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
+		memcpy( &tmp, pb, sizeof(tmp) );
+		ulCrc ^= LittleLong(tmp); 
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		nBuffer -= sizeof(int);
+		pb += sizeof(int);
 	}
 
-	nMain = nBuffer >> 3;
-	while( nMain-- )
+	while( nBuffer-- )
 	{
-		memcpy( &tmp, pb, sizeof(dword));
-		ulCrc ^= tmp;	// warning, this only works on little-endian.
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		memcpy( &tmp, pb + 4, sizeof(dword));
-		ulCrc ^= tmp; // warning, this only works on little-endian.
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		pb += 8;
+		ulCrc  = crc32table[((byte)ulCrc ^ *pb++)] ^ (ulCrc >> 8);
 	}
 
-	nBuffer &= 7;
-	goto JustAfew;
+	*pulCRC = ulCrc;
 }
 
 /*
