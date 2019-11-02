@@ -225,14 +225,14 @@ void Sys_PrintLog( const char *pMsg )
 #endif
 #endif
 
+	// save last char to detect when line was not ended
+	lastchar = pMsg[strlen(pMsg)-1];
+
 	if( !s_ld.logfile )
 		return;
 
 	if( !lastchar || lastchar == '\n')
 		strftime( logtime, sizeof( logtime ), "[%Y:%m:%d|%H:%M:%S]", crt_tm ); //full time
-
-	// save last char to detect when line was not ended
-	lastchar = pMsg[strlen(pMsg)-1];
 
 	fprintf( s_ld.logfile, "%s %s", logtime, pMsg );
 	fflush( s_ld.logfile );
