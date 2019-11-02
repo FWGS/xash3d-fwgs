@@ -773,8 +773,11 @@ void R_DrawSubmodelPolygons (model_t *pmodel, int clipflags, mnode_t *topnode)
 
 
 int c_drawnode;
+#if XASH_LOW_MEMORY
+unsigned short r_leafkeys[MAX_MAP_LEAFS];
+#else
 int r_leafkeys[MAX_MAP_LEAFS];
-
+#endif
 /*
 ================
 R_RecursiveWorldNode

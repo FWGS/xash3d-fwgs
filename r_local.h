@@ -1201,8 +1201,11 @@ extern int              r_currentbkey;
 extern qboolean insubmodel;
 
 extern  vec3_t  r_entorigin;
-
+#if XASH_LOW_MEMORY
+extern unsigned short r_leafkeys[MAX_MAP_LEAFS];
+#else
 extern int r_leafkeys[MAX_MAP_LEAFS];
+#endif
 #define LEAF_KEY(pleaf) r_leafkeys[(pleaf - WORLDMODEL->leafs)]
 
 
