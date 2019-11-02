@@ -568,14 +568,12 @@ static void SDLash_EventFilter( SDL_Event *event )
 			SDLash_ActiveEvent( false );
 			break;
 		case SDL_WINDOWEVENT_RESIZED:
-		case SDL_WINDOWEVENT_MAXIMIZED:
 		{
 			int w = VID_MIN_WIDTH, h = VID_MIN_HEIGHT;
 			if( vid_fullscreen->value )
 				break;
 
-			SDL_GL_GetDrawableSize( host.hWnd, &w, &h );
-			R_SaveVideoMode( w, h );
+			VID_SaveWindowSize( w, h );
 			SCR_VidInit(); // tell the client.dll that vid_mode has changed
 			break;
 		}
@@ -584,7 +582,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 		}
 #else
 	case SDL_VIDEORESIZE:
-		R_SaveVideoMode( event->resize.w, event->resize.h );
+		VID_SaveWindowSize( event->resize.w, event->resize.h );
 		SCR_VidInit();
 		break; // tell the client.dll that vid_mode has changed
 	case SDL_ACTIVEEVENT:

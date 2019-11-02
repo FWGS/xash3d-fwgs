@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "const.h"
 #include "client.h"
 #include "library.h"
+#include "sequence.h"
 
 static const char *file_exts[] =
 {
