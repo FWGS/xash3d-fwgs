@@ -144,7 +144,7 @@ GNU General Public License for more details.
 		#define XASH_ARM 7 // MSVC can only ARMv7
 	#elif __ARM_ARCH == 7 || __ARM_ARCH_7__
 		#define XASH_ARM 7
-	#elif __ARM_ARCH == 6 || __ARM_ARCH_6__
+	#elif __ARM_ARCH == 6 || __ARM_ARCH_6__ || __ARM_ARCH_6J__
 		#define XASH_ARM 6
 	#elif __ARM_ARCH == 5 || __ARM_ARCH_5__
 		#define XASH_ARM 5
