@@ -16,10 +16,8 @@ GNU General Public License for more details.
 #ifndef COM_MODEL_H
 #define COM_MODEL_H
 
+#include "xash3d_types.h"
 #include "bspfile.h"	// we need some declarations from it
-
-typedef vec_t		vec2_t[2];
-typedef vec_t		vec4_t[4];
 
 /*
 ==============================================================================
