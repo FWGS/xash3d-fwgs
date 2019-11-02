@@ -661,7 +661,7 @@ void R_BlitScreen( void )
 		if( swblit.bpp == 2 )
 		{
 			unsigned short *pbuf = buffer;
-			for( v = 0; v < 10;v++)
+			for( v = 0; v < vid.height;v++)
 			{
 				uint start = vid.rowbytes * v;
 				uint d = swblit.stride - v - 1;
@@ -694,7 +694,7 @@ void R_BlitScreen( void )
 		else if( swblit.bpp == 3 )
 		{
 			byte *pbuf = buffer;
-			for( v = 0; v < 10;v++)
+			for( v = 0; v < vid.height;v++)
 			{
 				uint start = vid.rowbytes * v;
 				uint d = swblit.stride - v - 1;
@@ -717,7 +717,7 @@ void R_BlitScreen( void )
 		if( swblit.bpp == 2 )
 		{
 			unsigned short *pbuf = buffer;
-			for( v = 0; v < 10;v++)
+			for( v = 0; v < vid.height;v++)
 			{
 				uint start = vid.rowbytes * v;
 				uint dstart = swblit.stride * v;
@@ -748,7 +748,7 @@ void R_BlitScreen( void )
 		else if( swblit.bpp == 3 )
 		{
 			byte *pbuf = buffer;
-			for( v = 0; v < 10;v++)
+			for( v = 0; v < vid.height;v++)
 			{
 				uint start = vid.rowbytes * v;
 				uint dstart = swblit.stride * v;
