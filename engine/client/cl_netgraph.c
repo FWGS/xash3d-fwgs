@@ -16,7 +16,11 @@ GNU General Public License for more details.
 #include "common.h"
 #include "client.h"
 
+#if XASH_LOW_MEMORY
 #define NET_TIMINGS			1024
+#else
+#define NET_TIMINGS			64
+#endif
 #define NET_TIMINGS_MASK		(NET_TIMINGS - 1)
 #define LATENCY_AVG_FRAC		0.5f
 #define FRAMERATE_AVG_FRAC		0.5f
