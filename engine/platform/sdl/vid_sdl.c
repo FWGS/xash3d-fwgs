@@ -300,8 +300,10 @@ static void R_InitVideoModes( void )
 		num_vidmodes++;
 	}
 #else // SDL_VERSION_ATLEAST( 2, 0, 0 )
-	SDL_Rect **modes = SDL_ListModes( NULL, SDL_FULLSCREEN );
+	SDL_Rect **modes;
 	int len = 0, i = 0, j;
+
+	modes = SDL_ListModes( NULL, SDL_FULLSCREEN );
 
 	if( !modes || modes == (void*)-1 )
 		return;
@@ -513,10 +515,12 @@ void VID_SaveWindowSize( int width, int height )
 	int render_w = width, render_h = height;
 	uint rotate = vid_rotate->value;
 
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( !glw_state.software )
 		SDL_GL_GetDrawableSize( host.hWnd, &render_w, &render_h );
 	else
 		SDL_RenderSetLogicalSize( sw.renderer, width, height );
+#endif
 
 	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, vid_scale->value, vid_scale->value ) )
 	{
@@ -570,7 +574,7 @@ static qboolean VID_SetScreenResolution( int width, int height )
 	SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
 	SDL_SetWindowSize( host.hWnd, got.w, got.h );
 
-	VID_SaveWindowSize( gow.w, got.h );
+	VID_SaveWindowSize( got.w, got.h );
 #else
 	VID_SaveWindowSize( width, height );
 #endif
@@ -774,7 +778,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 	if( fullscreen )
 	{
-		// flags |= SDL_FULLSCREEN;
+		flags |= SDL_FULLSCREEN|SDL_HWSURFACE;
 	}
 
 	if( glw_state.software )
@@ -788,7 +792,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 	while( glw_state.safe >= SAFE_NO && glw_state.safe < SAFE_LAST )
 	{
-		host.hWnd = sw.surf = SDL_SetVideoMode( width, height, 0, flags );
+		host.hWnd = sw.surf = SDL_SetVideoMode( width, height, 16, flags );
 
 		// we have window, exit loop
 		if( host.hWnd )
@@ -815,7 +819,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
-	VID_SaveVideoMode( width, height );
+	VID_SaveWindowSize( width, height );
 
 	return true;
 }
@@ -964,19 +968,13 @@ qboolean R_Init_Video( const int type )
 	SDL_GetCurrentDisplayMode(0, &displayMode);
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( displayMode.format );
 #else
-	refState.desktopBitsPixel = 32;
+	refState.desktopBitsPixel = 16;
 #endif
 
-#if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
-	SDL_VideoInit( "caca", 0 );
-#else
-#if !defined(_WIN32)
+#if SDL_VERSION_ATLEAST( 2, 0, 0 ) && !defined(_WIN32)
 	SDL_SetHint( "SDL_VIDEO_X11_XRANDR", "1" );
 	SDL_SetHint( "SDL_VIDEO_X11_XVIDMODE", "1" );
 #endif
-#endif
-
-	R_InitVideoModes();
 
 	// must be initialized before creating window
 #ifdef _WIN32
@@ -1022,6 +1020,8 @@ qboolean R_Init_Video( const int type )
 		break;
 	}
 
+	R_InitVideoModes();
+
 	host.renderinfo_changed = false;
 
 	return true;
@@ -1065,7 +1065,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 		SDL_SetWindowSize( host.hWnd, width, height );
 
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
-		VID_SaveVideoMode( width, height );
+		VID_SaveWindowSize( width, height );
 	}
 
 	return rserr_ok;
@@ -1087,10 +1087,10 @@ qboolean VID_SetMode( void )
 	iScreenWidth = Cvar_VariableInteger( "width" );
 	iScreenHeight = Cvar_VariableInteger( "height" );
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( iScreenWidth < VID_MIN_WIDTH ||
 		iScreenHeight < VID_MIN_HEIGHT )	// trying to get resolution automatically by default
 	{
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 #if !defined( DEFAULT_MODE_WIDTH ) || !defined( DEFAULT_MODE_HEIGHT )
 		SDL_DisplayMode mode;
 
@@ -1102,8 +1102,11 @@ qboolean VID_SetMode( void )
 		iScreenWidth = DEFAULT_MODE_WIDTH;
 		iScreenHeight = DEFAULT_MODE_HEIGHT;
 #endif
-	}
+#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
+		iScreenWidth = 320;
+		iScreenHeight = 240;
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	}
 
 	if( !FBitSet( vid_fullscreen->flags, FCVAR_CHANGED ) )
 		Cvar_SetValue( "fullscreen", DEFAULT_FULLSCREEN );

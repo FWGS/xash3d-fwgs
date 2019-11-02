@@ -323,7 +323,9 @@ void Host_MemStats_f( void )
 
 void Host_Minimize_f( void )
 {
+#ifdef XASH_SDL
 	if( host.hWnd ) SDL_MinimizeWindow( host.hWnd );
+#endif
 }
 
 /*
@@ -812,14 +814,11 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #endif
 
 #ifdef XASH_SDL
-	// should work even if it failed
-	SDL_Init( SDL_INIT_TIMER );
-
 #ifndef SDL_INIT_EVENTS
 #define SDL_INIT_EVENTS 0
 #endif
 
-	if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS ) )
+	if( SDL_Init( SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_EVENTS ) )
 	{
 		Sys_Warn( "SDL_Init failed: %s", SDL_GetError() );
 		host.type = HOST_DEDICATED;
