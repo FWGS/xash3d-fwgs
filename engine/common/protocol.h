@@ -126,6 +126,8 @@ GNU General Public License for more details.
 #define MAX_EDICTS_BYTES		((MAX_EDICTS + 7) / 8)
 #define LAST_EDICT			(MAX_EDICTS - 1)
 
+#define MIN_EDICTS			64
+
 #define MAX_CUSTOM_BITS		10
 #define MAX_CUSTOM			(1<<MAX_CUSTOM_BITS)// 10 bits == 1024 generic file
 #define MAX_USER_MESSAGES		197		// another 58 messages reserved for engine routines

@@ -881,7 +881,7 @@ void CL_ParseServerData( sizebuf_t *msg )
 	cl.playernum = MSG_ReadByte( msg );
 	cl.maxclients = MSG_ReadByte( msg );
 	clgame.maxEntities = MSG_ReadWord( msg );
-	clgame.maxEntities = bound( 30, clgame.maxEntities, MAX_EDICTS );
+	clgame.maxEntities = bound( MIN_EDICTS, clgame.maxEntities, MAX_EDICTS );
 	clgame.maxModels = MSG_ReadWord( msg );
 	Q_strncpy( clgame.mapname, MSG_ReadString( msg ), MAX_STRING );
 	Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), MAX_STRING );
