@@ -147,23 +147,13 @@ CL_ScreenshotGetName
 */  
 qboolean CL_ScreenshotGetName( int lastnum, char *filename )
 {
-	int	a, b, c, d;
-
 	if( lastnum < 0 || lastnum > 9999 )
 	{
 		Con_Printf( S_ERROR "unable to write screenshot\n" );
 		return false;
 	}
 
-	a = lastnum / 1000;
-	lastnum -= a * 1000;
-	b = lastnum / 100;
-	lastnum -= b * 100;
-	c = lastnum / 10;
-	lastnum -= c * 10;
-	d = lastnum;
-
-	Q_sprintf( filename, "scrshots/%s_shot%i%i%i%i.png", clgame.mapname, a, b, c, d );
+	Q_sprintf( filename, "scrshots/%s_shot%0004d.png", clgame.mapname, lastnum );
 
 	return true;
 }
@@ -175,8 +165,6 @@ CL_SnapshotGetName
 */  
 qboolean CL_SnapshotGetName( int lastnum, char *filename )
 {
-	int	a, b, c, d;
-
 	if( lastnum < 0 || lastnum > 9999 )
 	{
 		Con_Printf( S_ERROR "unable to write snapshot\n" );
@@ -184,15 +172,7 @@ qboolean CL_SnapshotGetName( int lastnum, char *filename )
 		return false;
 	}
 
-	a = lastnum / 1000;
-	lastnum -= a * 1000;
-	b = lastnum / 100;
-	lastnum -= b * 100;
-	c = lastnum / 10;
-	lastnum -= c * 10;
-	d = lastnum;
-
-	Q_sprintf( filename, "../%s_%i%i%i%i.png", clgame.mapname, a, b, c, d );
+	Q_sprintf( filename, "../%s_%0004d.png", clgame.mapname, lastnum );
 
 	return true;
 }
