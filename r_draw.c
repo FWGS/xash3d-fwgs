@@ -216,12 +216,20 @@ void Draw_Fill (int x, int y, int w, int h)
 	if( x + w > vid.width )
 		w = vid.width - x;
 
+	if( w <= 0 )
+		return;
+
 	if( y + h > vid.height )
 		h = vid.height - y;
 
+	if( h <= 0 )
+		return;
+
 	height = h;
-	if (y < 0)
+	if( y < 0 )
 	{
+		if( h <= -y )
+			return;
 		skip = -y;
 		height += y;
 		y = 0;
