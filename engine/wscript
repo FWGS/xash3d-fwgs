@@ -47,9 +47,10 @@ def configure(conf):
 		conf.options.USE_SELECT = conf.options.DEDICATED
 
 	if not conf.env.DEST_OS in ['win32', 'android'] and not conf.options.NO_ASYNC_RESOLVE:
-		conf.check_cc( lib='pthread' )
+		conf.load('pthreads')
+		conf.check_pthread_flag()
 
-	conf.define_conf('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
+	conf.define_cond('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
 	conf.define_cond('SINGLE_BINARY', conf.env.SINGLE_BINARY)
 	conf.define_cond('XASH_NO_ASYNC_NS_RESOLVE', conf.options.NO_ASYNC_RESOLVE)
 	conf.define_cond('XASH_USE_SELECT', conf.options.USE_SELECT or conf.options.DEDICATED)
