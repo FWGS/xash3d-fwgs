@@ -332,7 +332,8 @@ rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 
 	Android_GetScreenRes(&width, &height);
 
-	render_w = width, render_h = height;
+	render_w = width;
+	render_h = height;
 
 	Con_Reportf( "R_ChangeDisplaySettings: forced resolution to %dx%d)\n", width, height);
 

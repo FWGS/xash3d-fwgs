@@ -212,6 +212,14 @@ enum
 	REF_GL_CONTEXT_RESET_ISOLATION_FLAG    = 0x0008
 };
 
+typedef enum ref_screen_rotation_e
+{
+	REF_ROTATE_NONE = 0,
+	REF_ROTATE_CW = 1,
+	REF_ROTATE_UD = 2,
+	REF_ROTATE_CCW = 3,
+} ref_screen_rotation_t;
+
 typedef struct remap_info_s
 {
 	unsigned short	textures[MAX_SKINS];// alias textures
@@ -436,7 +444,7 @@ typedef struct ref_interface_s
 	// const char *(*R_GetInitError)( void );
 	void (*R_Shutdown)( void );
 	const char *(*R_GetConfigName)( void ); // returns config name without extension
-	qboolean (*R_SetDisplayTransform)( uint rotate, int x, int y, float scale_x, float scale_y );
+	qboolean (*R_SetDisplayTransform)( ref_screen_rotation_t rotate, int x, int y, float scale_x, float scale_y );
 
 	// only called for GL contexts
 	void (*GL_SetupAttributes)( int safegl );

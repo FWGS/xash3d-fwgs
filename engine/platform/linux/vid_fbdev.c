@@ -125,7 +125,9 @@ rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 	uint rotate = vid_rotate->value;
 
 	FB_GetScreenRes( &width, &height );
-	render_w = width, render_h = height;
+
+	render_w = width;
+	render_h = height;
 
 	Con_Reportf( "R_ChangeDisplaySettings: forced resolution to %dx%d)\n", width, height );
 
