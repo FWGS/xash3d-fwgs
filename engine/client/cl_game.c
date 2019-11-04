@@ -1123,8 +1123,9 @@ void CL_InitEdicts( void )
 	Assert( clgame.entities == NULL );
 
 	if( !clgame.mempool ) return; // Host_Error without client
-
-	CL_UPDATE_BACKUP = ( cl.maxclients == 1 ) ? SINGLEPLAYER_BACKUP : MULTIPLAYER_BACKUP;
+#if XASH_LOW_MEMORY != 2
+	CL_UPDATE_BACKUP = ( cl.maxclients <= 1 ) ? SINGLEPLAYER_BACKUP : MULTIPLAYER_BACKUP;
+#endif
 	cls.num_client_entities = CL_UPDATE_BACKUP * NUM_PACKET_ENTITIES;
 	cls.packet_entities = Mem_Realloc( clgame.mempool, cls.packet_entities, sizeof( entity_state_t ) * cls.num_client_entities );
 	clgame.entities = Mem_Calloc( clgame.mempool, sizeof( cl_entity_t ) * clgame.maxEntities );

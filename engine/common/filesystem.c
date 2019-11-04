@@ -1588,7 +1588,7 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 		else if( !Q_stricmp( token, isGameInfo ? "max_edicts" : "edicts" ))
 		{
 			pfile = COM_ParseFile( pfile, token );
-			GameInfo->max_edicts = bound( 600, Q_atoi( token ), MAX_EDICTS );
+			GameInfo->max_edicts = bound( MIN_EDICTS, Q_atoi( token ), MAX_EDICTS );
 		}
 		// only for gameinfo
 		else if( isGameInfo )

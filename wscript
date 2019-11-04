@@ -76,6 +76,9 @@ def options(opt):
 	grp.add_option('--enable-poly-opt', action = 'store_true', dest = 'POLLY', default = False,
 		help = 'enable polyhedral optimization if possible [default: %default]')
 
+	grp.add_option('--low-memory-mode', action = 'store', dest = 'LOW_MEMORY', default = 0,
+		help = 'enable low memory mode (only for devices have <128 ram)')
+
 	opt.load('subproject')
 
 	opt.add_subproject(subdirs())
@@ -108,7 +111,7 @@ def configure(conf):
 	conf.env.MSVC_TARGETS = ['x86'] # explicitly request x86 target for MSVC
 	if sys.platform == 'win32':
 		conf.load('msvc msvc_pdb msdev msvs')
-	conf.load('subproject xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install waf_unit_test pthreads')
+	conf.load('subproject xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install waf_unit_test')
 
 	# Every static library must have fPIC
 	if conf.env.DEST_OS != 'win32' and '-fPIC' in conf.env.CFLAGS_cshlib:
@@ -262,7 +265,6 @@ def configure(conf):
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
 
 	if conf.env.DEST_OS != 'win32':
-		conf.check_pthread_flag()
 		conf.check_cc(lib='dl', mandatory=False)
 
 		if not conf.env.LIB_M: # HACK: already added in xcompile!
@@ -300,6 +302,9 @@ def configure(conf):
 		conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
+
+	if conf.options.LOW_MEMORY:
+		conf.define('XASH_LOW_MEMORY', int(conf.options.LOW_MEMORY))
 
 	for i in SUBDIRS:
 		if not i.is_enabled(conf):

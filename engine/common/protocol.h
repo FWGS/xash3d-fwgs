@@ -119,11 +119,14 @@ GNU General Public License for more details.
 
 #define MAX_SOUND_BITS		11
 #define MAX_SOUNDS			(1<<MAX_SOUND_BITS)	// 11 bits == 2048 sounds
+#define MAX_SOUNDS_NONSENTENCE MAX_SOUNDS
 
 #define MAX_ENTITY_BITS		13		// 13 bits = 8192 edicts
 #define MAX_EDICTS			(1<<MAX_ENTITY_BITS)
 #define MAX_EDICTS_BYTES		((MAX_EDICTS + 7) / 8)
 #define LAST_EDICT			(MAX_EDICTS - 1)
+
+#define MIN_EDICTS			64
 
 #define MAX_CUSTOM_BITS		10
 #define MAX_CUSTOM			(1<<MAX_CUSTOM_BITS)// 10 bits == 1024 generic file
@@ -178,6 +181,59 @@ GNU General Public License for more details.
 #define FRAGMENT_DEFAULT_SIZE		1200		// default MTU
 #define FRAGMENT_MAX_SIZE		64000		// maximal fragment size
 #define FRAGMENT_LOCAL_SIZE		FRAGMENT_MAX_SIZE	// local connection
+
+#if XASH_LOW_MEMORY == 2
+#undef MAX_VISIBLE_PACKET
+#undef MAX_VISIBLE_PACKET_VIS_BYTES
+#undef MAX_EVENTS
+#undef MAX_SUPPORTED_MODELS
+#undef MAX_MODELS
+#undef MAX_SOUNDS
+#undef MAX_CUSTOM
+#undef MAX_DLIGHTS
+#undef MAX_ELIGHTS
+#undef MAX_RENDER_DECALS
+#undef MAX_RESOURCES
+// memory reduced protocol, not for use in multiplayer (but still compatible)
+#define MAX_VISIBLE_PACKET		128
+#define MAX_VISIBLE_PACKET_VIS_BYTES	((MAX_VISIBLE_PACKET + 7) / 8)
+
+#define MAX_EVENTS			128
+
+#define MAX_SUPPORTED_MODELS		512
+
+#define MAX_MODELS			512
+
+
+#define MAX_SOUNDS			512
+#define MAX_CUSTOM			32
+
+#define MAX_DLIGHTS			16		// dynamic lights (rendered per one frame)
+#define MAX_ELIGHTS			32		// entity only point lights
+#define MAX_RENDER_DECALS		64		// max rendering decals per a level
+#define MAX_RESOURCES		1024
+#elif XASH_LOW_MEMORY == 1
+#undef MAX_VISIBLE_PACKET
+#undef MAX_VISIBLE_PACKET_VIS_BYTES
+#undef MAX_EVENTS
+#undef MAX_SUPPORTED_MODELS
+#undef MAX_MODELS
+#undef MAX_CUSTOM
+#undef MAX_RENDER_DECALS
+#undef MAX_RESOURCES
+#define MAX_VISIBLE_PACKET		256
+#define MAX_VISIBLE_PACKET_VIS_BYTES	((MAX_VISIBLE_PACKET + 7) / 8)
+
+#define MAX_EVENTS			128
+
+#define MAX_SUPPORTED_MODELS		1024
+
+#define MAX_MODELS			1024
+
+#define MAX_CUSTOM			512
+#define MAX_RENDER_DECALS	128
+#define MAX_RESOURCES		1024
+#endif
 
 // Quake1 Protocol
 #define PROTOCOL_VERSION_QUAKE	15
