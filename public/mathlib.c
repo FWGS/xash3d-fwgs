@@ -18,7 +18,7 @@ GNU General Public License for more details.
 #include "com_model.h"
 #include "mathlib.h"
 #include "eiface.h"
-#ifdef HAVE_TGMATH_H
+#if HAVE_TGMATH_H
 #include <tgmath.h>
 #endif
 

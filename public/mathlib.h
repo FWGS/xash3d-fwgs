@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #define MATHLIB_H
 
 #include <math.h>
-#ifdef HAVE_TGMATH_H
+#if HAVE_TGMATH_H
 #include <tgmath.h>
 #endif
 
