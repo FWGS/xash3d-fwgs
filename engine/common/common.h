@@ -137,14 +137,15 @@ typedef enum
 
 #define CIN_MAIN		0
 #define CIN_LOGO		1
-
+#if XASH_LOW_MEMORY == 0
 #define MAX_DECALS		512	// touching TE_DECAL messages, etc
 #define MAX_STATIC_ENTITIES	3096	// static entities that moved on the client when level is spawn
 
-#if XASH_LOW_MEMORY == 2
+#elif XASH_LOW_MEMORY == 2
 #define MAX_DECALS		256	// touching TE_DECAL messages, etc
 #define MAX_STATIC_ENTITIES	32	// static entities that moved on the client when level is spawn
 #elif XASH_LOW_MEMORY == 1
+#define MAX_DECALS		512	// touching TE_DECAL messages, etc
 #define MAX_STATIC_ENTITIES	128	// static entities that moved on the client when level is spawn
 #endif
 

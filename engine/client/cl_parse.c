@@ -2754,8 +2754,9 @@ void CL_LegacyUpdateUserinfo( sizebuf_t *msg )
 	}
 	else memset( player, 0, sizeof( *player ));
 }
+#if XASH_LOW_MEMORY == 0
 #define MAX_LEGACY_RESOURCES 2048
-#if XASH_LOW_MEMORY == 2
+#elif XASH_LOW_MEMORY == 2
 #define MAX_LEGACY_RESOURCES 1
 #elif XASH_LOW_MEMORY == 1
 #define MAX_LEGACY_RESOURCES 512

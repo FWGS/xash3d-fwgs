@@ -142,9 +142,9 @@ typedef void (*setpair_t)( const char *key, const void *value, void *buffer, voi
 // config strings are a general means of communication from
 // the server to all connected clients.
 // each config string can be at most CS_SIZE characters.
-
+#if XASH_LOW_MEMORY == 0
 #define MAX_QPATH		64	// max length of a game pathname
-#if XASH_LOW_MEMORY == 2
+#elif XASH_LOW_MEMORY == 2
 #define MAX_QPATH		32 // should be enough for singleplayer
 #elif XASH_LOW_MEMORY == 1
 #define MAX_QPATH 48
