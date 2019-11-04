@@ -94,6 +94,11 @@ GNU General Public License for more details.
 	#define NUM_PACKET_ENTITIES		32
 	#define MAX_CUSTOM_BASELINES		8
 	#define NET_MAX_FRAGMENT		32768
+#elif XASH_LOW_MEMORY == 1
+#define SINGLEPLAYER_BACKUP		4
+#define NUM_PACKET_ENTITIES		64
+#define MAX_CUSTOM_BASELINES		8
+#define NET_MAX_FRAGMENT		32768
 #endif
 
 typedef struct netsplit_chain_packet_s

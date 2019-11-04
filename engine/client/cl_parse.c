@@ -2754,8 +2754,11 @@ void CL_LegacyUpdateUserinfo( sizebuf_t *msg )
 	}
 	else memset( player, 0, sizeof( *player ));
 }
+#define MAX_LEGACY_RESOURCES 2048
 #if XASH_LOW_MEMORY == 2
-#define MAX_RESOURCES 64
+#define MAX_LEGACY_RESOURCES 1
+#elif XASH_LOW_MEMORY == 1
+#define MAX_LEGACY_RESOURCES 512
 #endif
 /*
 ==============
@@ -2770,12 +2773,15 @@ void CL_LegacyParseResourceList( sizebuf_t *msg )
 	static struct
 	{
 		int  rescount;
-		int  restype[MAX_RESOURCES];
-		char resnames[MAX_RESOURCES][MAX_QPATH];
+		int  restype[MAX_LEGACY_RESOURCES];
+		char resnames[MAX_LEGACY_RESOURCES][MAX_QPATH];
 	} reslist;
 	memset( &reslist, 0, sizeof( reslist ));
 
 	reslist.rescount = MSG_ReadWord( msg ) - 1;
+
+	if( reslist.rescount > MAX_LEGACY_RESOURCES )
+		Host_Error("MAX_RESOURCES reached\n");
 
 	for( i = 0; i < reslist.rescount; i++ )
 	{
