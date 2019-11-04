@@ -30,7 +30,7 @@ typedef enum
 #define MAX_MULTICAST		8192	// some mods spamming for rain effect
 
 #define MAX_INIT_MSG		0x20000	// max length of possible message
-#if XASH_LOW_MEMORY == 2
+#if XASH_LOW_MEMORY
 #define MAX_INIT_MSG 0x8000
 #endif
 // net packets type
