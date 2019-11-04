@@ -21,7 +21,7 @@ GNU General Public License for more details.
 #include <time.h>
 #include "stdio.h"
 #include "crtlib.h"
-#ifdef HAVE_TGMATH_H
+#if HAVE_TGMATH_H
 #include <tgmath.h>
 #endif
 

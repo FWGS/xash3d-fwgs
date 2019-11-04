@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "mathlib.h"
-#ifdef HAVE_TGMATH_H
+#if HAVE_TGMATH_H
 #include <tgmath.h>
 #endif
 

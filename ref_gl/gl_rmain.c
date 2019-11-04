@@ -19,7 +19,7 @@ GNU General Public License for more details.
 #include "beamdef.h"
 #include "particledef.h"
 #include "entity_types.h"
-#ifdef HAVE_TGMATH_H
+#if HAVE_TGMATH_H
 #include <tgmath.h>
 #endif
 
