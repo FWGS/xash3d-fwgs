@@ -137,9 +137,17 @@ typedef enum
 
 #define CIN_MAIN		0
 #define CIN_LOGO		1
-
+#if XASH_LOW_MEMORY == 0
 #define MAX_DECALS		512	// touching TE_DECAL messages, etc
 #define MAX_STATIC_ENTITIES	3096	// static entities that moved on the client when level is spawn
+
+#elif XASH_LOW_MEMORY == 2
+#define MAX_DECALS		256	// touching TE_DECAL messages, etc
+#define MAX_STATIC_ENTITIES	32	// static entities that moved on the client when level is spawn
+#elif XASH_LOW_MEMORY == 1
+#define MAX_DECALS		512	// touching TE_DECAL messages, etc
+#define MAX_STATIC_ENTITIES	128	// static entities that moved on the client when level is spawn
+#endif
 
 // filesystem flags
 #define FS_STATIC_PATH  ( 1U << 0 )  // FS_ClearSearchPath will be ignore this path
@@ -810,24 +818,6 @@ void HPAK_RemoveLump( const char *name, resource_t *resource );
 void HPAK_CheckIntegrity( const char *filename );
 void HPAK_CheckSize( const char *filename );
 void HPAK_FlushHostQueue( void );
-
-//
-// keys.c
-//
-int Key_IsDown( int keynum );
-const char *Key_IsBind( int keynum );
-void Key_Event( int key, int down );
-void Key_Init( void );
-void Key_WriteBindings( file_t *f );
-const char *Key_GetBinding( int keynum );
-void Key_SetBinding( int keynum, const char *binding );
-void Key_ClearStates( void );
-const char *Key_KeynumToString( int keynum );
-int Key_StringToKeynum( const char *str );
-int Key_GetKey( const char *binding );
-void Key_EnumCmds_f( void );
-void Key_SetKeyDest( int key_dest );
-void Key_EnableTextInput( qboolean enable, qboolean force );
 
 #include "avi/avi.h"
 

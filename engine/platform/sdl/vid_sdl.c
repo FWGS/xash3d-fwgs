@@ -449,7 +449,38 @@ qboolean GL_UpdateContext( void )
 	return true;
 }
 
-qboolean VID_SetScreenResolution( int width, int height )
+void VID_SaveWindowSize( int width, int height )
+{
+	int render_w = width, render_h = height;
+	uint rotate = vid_rotate->value;
+
+	if( !glw_state.software )
+		SDL_GL_GetDrawableSize( host.hWnd, &render_w, &render_h );
+	else
+		SDL_RenderSetLogicalSize( sw.renderer, width, height );
+
+	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, vid_scale->value, vid_scale->value ) )
+	{
+		if( rotate & 1 )
+		{
+			int swap = render_w;
+
+			render_w = render_h;
+			render_h = swap;
+		}
+
+		render_h /= vid_scale->value;
+		render_w /= vid_scale->value;
+	}
+	else
+	{
+		Con_Printf( S_WARN "failed to setup screen transform\n" );
+	}
+
+	R_SaveVideoMode( width, height, render_w, render_h );
+}
+
+static qboolean VID_SetScreenResolution( int width, int height )
 {
 	SDL_DisplayMode want, got;
 	Uint32 wndFlags = 0;
@@ -479,9 +510,8 @@ qboolean VID_SetScreenResolution( int width, int height )
 	SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
 	SDL_SetWindowSize( host.hWnd, got.w, got.h );
 
-	SDL_GL_GetDrawableSize( host.hWnd, &got.w, &got.h );
+	VID_SaveWindowSize( got.w, got.h );
 
-	R_SaveVideoMode( got.w, got.h );
 	return true;
 }
 
@@ -672,9 +702,9 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		if( !GL_UpdateContext( ))
 		return false;
 
-		SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
 	}
-	R_SaveVideoMode( width, height );
+
+	VID_SaveWindowSize( width, height );
 
 	return true;
 }
@@ -906,11 +936,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 #endif
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
 		SDL_SetWindowSize( host.hWnd, width, height );
-		if( !glw_state.software )
-			SDL_GL_GetDrawableSize( host.hWnd, &width, &height );
-		else
-			SDL_RenderSetLogicalSize(sw.renderer, width, height);
-		R_SaveVideoMode( width, height );
+		VID_SaveWindowSize( width, height );
 	}
 
 	return rserr_ok;

@@ -308,6 +308,30 @@ void R_ProcessEntData( qboolean allocate )
 		gEngfuncs.drawFuncs->R_ProcessEntData( allocate );
 }
 
+qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y )
+{
+	qboolean ret = true;
+	if( rotate > 0 )
+	{
+		gEngfuncs.Con_Printf("rotation transform not supported\n");
+		ret = false;
+	}
+
+	if( offset_x || offset_y )
+	{
+		gEngfuncs.Con_Printf("offset transform not supported\n");
+		ret = false;
+	}
+
+	if( scale_x != 1.0f || scale_y != 1.0f )
+	{
+		gEngfuncs.Con_Printf("scale transform not supported\n");
+		ret = false;
+	}
+
+	return ret;
+}
+
 static const char *R_GetConfigName( void )
 {
 	return "opengl";
@@ -318,6 +342,7 @@ ref_interface_t gReffuncs =
 	R_Init,
 	R_Shutdown,
 	R_GetConfigName,
+	R_SetDisplayTransform,
 
 	GL_SetupAttributes,
 	GL_InitExtensions,
