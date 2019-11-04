@@ -308,7 +308,7 @@ void R_ProcessEntData( qboolean allocate )
 		gEngfuncs.drawFuncs->R_ProcessEntData( allocate );
 }
 
-qboolean R_SetDisplayTransform( uint rotate, int offset_x, int offset_y, float scale_x, float scale_y )
+qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y )
 {
 	qboolean ret = true;
 	if( rotate > 0 )
