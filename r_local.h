@@ -64,6 +64,8 @@ extern byte	*r_temppool;
 #define MAX_DECAL_SURFS	4096
 
 #if XASH_LOW_MEMORY
+	#undef MAX_TEXTURES
+	#undef MAX_DECAL_SURFS
 	#define MAX_TEXTURES 1024
 	#define MAX_DECAL_SURFS 256
 #endif

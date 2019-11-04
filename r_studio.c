@@ -57,6 +57,7 @@ typedef struct sortedmesh_s
 } sortedmesh_t;
 
 #if XASH_LOW_MEMORY
+	#undef MAXSTUDIOVERTS
 	#define MAXSTUDIOVERTS 1024
 #endif
 
@@ -3527,7 +3528,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	int		flags = 0;
 	char		texname[128], name[128], mdlname[128];
 	texture_t		*tx = NULL;
-	
+
 	if( ptexture->flags & STUDIO_NF_NORMALMAP )
 		flags |= (TF_NORMALMAP);
 
@@ -3551,17 +3552,17 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 			tx->anim_min = PLATE_HUE_START; // topcolor start
 			tx->anim_max = PLATE_HUE_END; // topcolor end
 			// bottomcolor start always equal is (topcolor end + 1)
-			tx->anim_total = SUIT_HUE_END;// bottomcolor end 
+			tx->anim_total = SUIT_HUE_END;// bottomcolor end
 		}
 		else
 		{
 			Q_strncpy( tx->name, "DM_User", sizeof( tx->name )); // custom remapped
-			Q_strncpy( val, ptexture->name + 7, 4 );  
+			Q_strncpy( val, ptexture->name + 7, 4 );
 			tx->anim_min = bound( 0, Q_atoi( val ), 255 ); // topcolor start
-			Q_strncpy( val, ptexture->name + 11, 4 ); 
+			Q_strncpy( val, ptexture->name + 11, 4 );
 			tx->anim_max = bound( 0, Q_atoi( val ), 255 ); // topcolor end
 			// bottomcolor start always equal is (topcolor end + 1)
-			Q_strncpy( val, ptexture->name + 15, 4 ); 
+			Q_strncpy( val, ptexture->name + 15, 4 );
 			tx->anim_total = bound( 0, Q_atoi( val ), 255 ); // bottomcolor end
 		}
 
@@ -3603,7 +3604,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	}
 	else if( tx )
 	{
-		// duplicate texnum for easy acess 
+		// duplicate texnum for easy acess
 		tx->gl_texturenum = ptexture->index;
 	}
 }
