@@ -529,7 +529,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	uint		width, height;
 	uint		i, j, numSides;
 	uint		offset = 0;
-	qboolean		normalMap;
+	qboolean		normalMap = false;
 	const byte	*bufend;
 	int mipCount;
 
@@ -553,7 +553,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	mipCount = 4;//GL_CalcMipmapCount( tex, ( buf != NULL ));
 
 	// NOTE: only single uncompressed textures can be resamples, no mips, no layers, no sides
-	if(( tex->depth == 1 ) && (( pic->width != tex->width ) || ( pic->height != tex->height )))
+	if((( pic->width != tex->width ) || ( pic->height != tex->height )))
 		data = GL_ResampleTexture( buf, pic->width, pic->height, tex->width, tex->height, normalMap );
 	else data = buf;
 
@@ -603,9 +603,9 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 				tex->pixels[j][i] = major << 8 | (minor & 0xFF);
 				if( j == 0 && tex->alpha_pixels )
 				{
-					unsigned int alpha = (pic->buffer[i * 4 + 3] * 8 / 256) << (16 - 3);
+					unsigned int alpha = (data[i * 4 + 3] * 8 / 256) << (16 - 3);
 					tex->alpha_pixels[i] = (tex->pixels[j][i] >> 3) | alpha;
-					if( !sw_noalphabrushes->value && pic->buffer[i * 4 + 3] < 128 && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ) )
+					if( !sw_noalphabrushes->value && data[i * 4 + 3] < 128 && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ) )
 						tex->pixels[j][i] = TRANSPARENT_COLOR; //0000 0011 0100 1001;
 				}
 
