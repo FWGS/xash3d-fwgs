@@ -24,6 +24,18 @@ class Subproject:
 		self.dedicated = dedicated
 		self.singlebin = singlebin
 
+	def is_enabled(self, ctx):
+		if ctx.env.SINGLE_BINARY and self.singlebin:
+			return False
+
+		if ctx.env.DEST_OS == 'android' and self.singlebin:
+			return False
+
+		if ctx.env.DEDICATED and self.dedicated:
+			return False
+
+		return True
+
 SUBDIRS = [
 	Subproject('public',      dedicated=False),
 	Subproject('game_launch', singlebin=True),
@@ -59,7 +71,7 @@ def options(opt):
 		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compatibility!) [default: %default]')
 
 	grp.add_option('--enable-lto', action = 'store_true', dest = 'LTO', default = False,
-		help = 'enable Link Time Optimization [default: %default]')
+		help = 'enable Link Time Optimization if possible [default: %default]')
 
 	grp.add_option('--enable-poly-opt', action = 'store_true', dest = 'POLLY', default = False,
 		help = 'enable polyhedral optimization if possible [default: %default]')
@@ -68,27 +80,26 @@ def options(opt):
 
 	opt.add_subproject(subdirs())
 
-	opt.load('xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install')
+	opt.load('xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test')
 	if sys.platform == 'win32':
 		opt.load('msvc msdev msvs')
 	opt.load('reconfigure')
 
 def configure(conf):
+	valid_build_types = ['fastnative', 'fast', 'release', 'debug', 'nooptimize', 'sanitize', 'none']
 	conf.load('fwgslib reconfigure')
 	conf.start_msg('Build type')
 	if conf.options.BUILD_TYPE == None:
 		conf.end_msg('not set', color='RED')
 		conf.fatal('Please set a build type, for example "-T release"')
-	elif not conf.options.BUILD_TYPE in ['fast', 'release', 'debug', 'nooptimize', 'sanitize', 'none']:
+	elif not conf.options.BUILD_TYPE in valid_build_types:
 		conf.end_msg(conf.options.BUILD_TYPE, color='RED')
-		conf.fatal('Invalid build type. Valid are "debug", "release" or "none"')
+		conf.fatal('Invalid build type. Valid are: %s' % valid_build_types.join(', '))
 	conf.end_msg(conf.options.BUILD_TYPE)
 
 	# -march=native should not be used
-	if conf.options.BUILD_TYPE == 'fast':
-		Logs.warn('WARNING: \'fast\' build type should not be used in release builds')
-
-	conf.load('subproject')
+	if conf.options.BUILD_TYPE.startswith('fast'):
+		Logs.warn('WARNING: \'%s\' build type should not be used in release builds', conf.options.BUILD_TYPE)
 
 	# Force XP compability, all build targets should add
 	# subsystem=bld.env.MSVC_SUBSYSTEM
@@ -96,8 +107,8 @@ def configure(conf):
 	conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
 	conf.env.MSVC_TARGETS = ['x86'] # explicitly request x86 target for MSVC
 	if sys.platform == 'win32':
-		conf.load('msvc msvcfix msdev msvs')
-	conf.load('xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install')
+		conf.load('msvc msvc_pdb msdev msvs')
+	conf.load('subproject xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install waf_unit_test pthreads')
 
 	# Every static library must have fPIC
 	if conf.env.DEST_OS != 'win32' and '-fPIC' in conf.env.CFLAGS_cshlib:
@@ -106,19 +117,20 @@ def configure(conf):
 
 	# modify options dictionary early
 	if conf.env.DEST_OS == 'android':
-		conf.options.NO_VGUI = True # skip vgui
+		conf.options.NO_VGUI= True # skip vgui
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
 		conf.options.GL     = False
 
 	# We restrict 64-bit builds ONLY for Win/Linux/OSX running on Intel architecture
 	# Because compatibility with original GoldSrc
-	if conf.env.DEST_OS in ['win32', 'linux', 'darwin'] and conf.env.DEST_CPU in ['x86_64']:
+	if conf.env.DEST_OS in ['win32', 'linux', 'darwin'] and conf.env.DEST_CPU == 'x86_64':
 		conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
 		if not conf.env.BIT32_MANDATORY:
 			Logs.info('WARNING: will build engine for 32-bit target')
 	else:
 		conf.env.BIT32_MANDATORY = False
+
 	conf.load('force_32bit')
 
 	linker_flags = {
@@ -140,7 +152,13 @@ def configure(conf):
 			'gcc':     ['-g', '-fvisibility=hidden']
 		},
 		'fast': {
-			'msvc':    ['/O2', '/Oy'], #todo: check /GL /LTCG
+			'msvc':    ['/O2', '/Oy'],
+			'gcc':     ['-Ofast', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer'],
+			'clang':   ['-Ofast'],
+			'default': ['-O3']
+		},
+		'fastnative': {
+			'msvc':    ['/O2', '/Oy'],
 			'gcc':     ['-Ofast', '-march=native', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer'],
 			'clang':   ['-Ofast', '-march=native'],
 			'default': ['-O3']
@@ -176,7 +194,7 @@ def configure(conf):
 		'-Werror=duplicated-branches', # BEWARE: buggy
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
-		'-Wdouble-promotion',
+#		'-Wdouble-promotion', # disable warning flood
 		'-Wstrict-aliasing',
 	]
 
@@ -241,17 +259,14 @@ def configure(conf):
 		conf.undefine('HAVE_TGMATH_H')
 
 	conf.env.DEDICATED     = conf.options.DEDICATED
-	# we don't need game launcher on dedicated
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
-	if conf.env.DEST_OS == 'linux':
-		conf.check_cc( lib='dl' )
 
 	if conf.env.DEST_OS != 'win32':
-		if not conf.env.LIB_M: # HACK: already added in xcompile!
-			conf.check_cc( lib='m' )
+		conf.check_pthread_flag()
+		conf.check_cc(lib='dl', mandatory=False)
 
-		if conf.env.DEST_OS != 'android': # Android has pthread directly in libc
-			conf.check_cc( lib='pthread' )
+		if not conf.env.LIB_M: # HACK: already added in xcompile!
+			conf.check_cc(lib='m')
 	else:
 		# Common Win32 libraries
 		# Don't check them more than once, to save time
@@ -279,8 +294,7 @@ def configure(conf):
 		# conf.multicheck(*a, run_all_tests = True, mandatory = True)
 
 	# indicate if we are packaging for Linux/BSD
-	if(not conf.options.WIN_INSTALL and
-		conf.env.DEST_OS not in ['win32', 'darwin', 'android']):
+	if not conf.options.WIN_INSTALL and conf.env.DEST_OS not in ['win32', 'darwin', 'android']:
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 	else:
 		conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
@@ -288,26 +302,14 @@ def configure(conf):
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
 
 	for i in SUBDIRS:
-		if conf.env.SINGLE_BINARY and i.singlebin:
-			continue
-
-		if conf.env.DEST_OS == 'android' and i.singlebin:
-			continue
-
-		if conf.env.DEDICATED and i.dedicated:
+		if not i.is_enabled(conf):
 			continue
 
 		conf.add_subproject(i.name)
 
 def build(bld):
 	for i in SUBDIRS:
-		if bld.env.SINGLE_BINARY and i.singlebin:
-			continue
-
-		if bld.env.DEST_OS == 'android' and i.singlebin:
-			continue
-
-		if bld.env.DEDICATED and i.dedicated:
+		if not i.is_enabled(bld):
 			continue
 
 		bld.add_subproject(i.name)

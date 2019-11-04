@@ -43,7 +43,7 @@ def configure(conf):
 
 	conf.env.GL_STATIC = conf.options.GL_STATIC
 	if conf.env.GL_STATIC:
-		conf.check( lib='GL' )
+		conf.check(lib='GL')
 
 	conf.define('REF_DLL', 1)
 	if conf.env.DEST_OS2 == 'android':
