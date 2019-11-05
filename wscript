@@ -254,6 +254,8 @@ def configure(conf):
 
 	# check if we can use C99 tgmath
 	if conf.check_cc(header_name='tgmath.h', mandatory=False):
+		if conf.env.COMPILER_CC == 'msvc':
+			conf.define('_CRT_SILENCE_NONCONFORMING_TGMATH_H', 1)
 		tgmath_usable = conf.check_cc(fragment='''#include<tgmath.h>
 			int main(void){ return (int)sin(2.0f); }''',
 			msg='Checking if tgmath.h is usable', mandatory=False)
