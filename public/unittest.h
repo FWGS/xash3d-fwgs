@@ -28,19 +28,19 @@ typedef struct unittest_s
 } unittest_t;
 
 #define TEST_FIRST_FUNC3(_name, _pfn, _readname) \
-	unittest_t _name = { 0, ( _readname ), ( _pfn ), NULL }
+	static unittest_t _name = { 0, ( _readname ), ( _pfn ), NULL }
 
 #define TEST_FIRST_FUNC2(_name, _pfn) \
 	TEST_FIRST_FUNC3(_name, _pfn, #_name)
 
 #define TEST_FUNC4(_name, _prevname, _pfn, _readname) \
-	unittest_t _name = { 0, ( _readname ), ( _pfn ), &( _prevname ) }
+	static unittest_t _name = { 0, ( _readname ), ( _pfn ), &( _prevname ) }
 
 #define TEST_FUNC3(_name, _prevname, _pfn) \
 	TEST_FUNC4(_name, _prevname, _pfn, #_name)
 
 #define DECLARE_TEST_FUNC(_name) \
-	void fn ## _name( struct unittest_s *_self )
+	static void fn ## _name( struct unittest_s *_self )
 
 #define TEST3(_name, _prevname, _readname) \
 	DECLARE_TEST_FUNC(_name); \
