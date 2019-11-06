@@ -209,6 +209,31 @@ jobs:
 #      after_script:
 #        - sh scripts/continious_upload.sh xash3d-osx.tar.bz2
     - # ...
+      name: "Build for Android arm softfp w/ polly"
+      sudo: true
+      cache: ccache
+      os: linux
+      dist: xenial
+      addons:
+        apt:
+          packages:
+            - libc6:i386
+            - libstdc++6:i386
+            - gcc-multilib
+            - g++-multilib
+            - p7zip-full
+          sources:
+            - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
+              key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
+      before_script:
+        - sh scripts/travis_common_deps.sh
+        - sh scripts/travis_motomagx_deps.sh
+      script:
+        - sh scripts/build_motomagx_engine.sh
+      after_script:
+        - ccache --show-stats
+        - sh ../scripts/continious_upload.sh xash3d-magx.7z
+    - # ...
       name: "Build for Windows MSVC"
       cache: ccache
       os: windows
@@ -224,4 +249,4 @@ jobs:
       os: linux
       cache: false
       script:
-        - sh scripts/travis-deploy.sh xash3d-fwgs-i686.AppImage xash3d-fwgs-x86_64.AppImage xash3d-vc.7z xash3d-vc2008-sln.7z xashdroid.apk xashdroid-64-test.apk xashdroid-hardfp-test.apk xashdroid-softfp-test.apk xashds-linux-i686 xashds-linux-x86_64
+        - sh scripts/travis-deploy.sh xash3d-fwgs-i686.AppImage xash3d-fwgs-x86_64.AppImage xash3d-vc.7z xash3d-vc2008-sln.7z xashdroid.apk xashdroid-64-test.apk xashdroid-hardfp-test.apk xashdroid-softfp-test.apk xashds-linux-i686 xashds-linux-x86_64 xash3d-magx.7z
