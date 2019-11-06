@@ -22,26 +22,12 @@ def options(opt):
 	grp.add_option('--enable-custom-swap', action = 'store_true', dest = 'CUSTOM_SWAP', default = False,
 		help = 'enable custom swap allocator. For devices with no swap support')
 
-	grp.add_option('--enable-magx', action = 'store_true', dest = 'MAGX', default = False,
-		help = 'enable targetting for MotoMAGX phones [default: %default]')
-
 	grp.add_option('--enable-legacy-sdl', action = 'store_true', dest = 'SDL12', default = False,
 		help = 'enable using SDL1.2 instead of SDL2(not recommended) [default: %default')
 
 	opt.load('sdl2')
 
 def configure(conf):
-	conf.env.MAGX = conf.options.MAGX
-	if conf.options.MAGX:
-		# useless to change toolchain path, as toolchain meant to be placed in this path
-		toolchain_path = '/opt/toolchains/motomagx/arm-eabi2/lib/'
-		conf.env.INCLUDES_MAGX = [toolchain_path + i for i in ['ezx-z6/include', 'qt-2.3.8/include']]
-		conf.env.LIBPATH_MAGX  = [toolchain_path + i for i in ['ezx-z6/lib', 'qt-2.3.8/lib']]
-		conf.env.LINKFLAGS_MAGX = ['-Wl,-rpath-link=' + i for i in conf.env.LIBPATH_MAGX]
-		for lib in ['qte-mt', 'ezxappbase', 'ezxpm', 'log_util']:
-			conf.check_cc(lib=lib, use='MAGX', uselib_store='MAGX')
-		conf.options.SDL12 = True
-
 	# check for dedicated server build
 	if conf.options.DEDICATED:
 		if conf.env.DEST_OS == 'linux':

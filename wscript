@@ -76,8 +76,11 @@ def options(opt):
 	grp.add_option('--enable-poly-opt', action = 'store_true', dest = 'POLLY', default = False,
 		help = 'enable polyhedral optimization if possible [default: %default]')
 
-	grp.add_option('--low-memory-mode', action = 'store', dest = 'LOW_MEMORY', default = 0,
+	grp.add_option('--low-memory-mode', action = 'store', dest = 'LOW_MEMORY', default = 0, type = 'int',
 		help = 'enable low memory mode (only for devices have <128 ram)')
+
+	grp.add_option('--enable-magx', action = 'store_true', dest = 'MAGX', default = False,
+		help = 'enable targetting for MotoMAGX phones [default: %default]')
 
 	opt.load('subproject')
 
@@ -89,6 +92,7 @@ def options(opt):
 	opt.load('reconfigure')
 
 def configure(conf):
+	enforce_pic = True # modern defaults
 	valid_build_types = ['fastnative', 'fast', 'release', 'debug', 'nooptimize', 'sanitize', 'none']
 	conf.load('fwgslib reconfigure')
 	conf.start_msg('Build type')
@@ -113,17 +117,39 @@ def configure(conf):
 		conf.load('msvc msvc_pdb msdev msvs')
 	conf.load('subproject xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install waf_unit_test')
 
-	# Every static library must have fPIC
-	if conf.env.DEST_OS != 'win32' and '-fPIC' in conf.env.CFLAGS_cshlib:
-		conf.env.append_unique('CFLAGS_cstlib', '-fPIC')
-		conf.env.append_unique('CXXFLAGS_cxxstlib', '-fPIC')
-
 	# modify options dictionary early
 	if conf.env.DEST_OS == 'android':
 		conf.options.NO_VGUI= True # skip vgui
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
 		conf.options.GL     = False
+
+	conf.env.MAGX = conf.options.MAGX
+	if conf.options.MAGX:
+		conf.options.SDL12 = True
+		conf.options.NO_VGUI = True
+		conf.options.GL = False
+		conf.options.LOW_MEMORY = 1
+		enforce_pic = False
+
+		# useless to change toolchain path, as toolchain meant to be placed in this path
+		toolchain_path = '/opt/toolchains/motomagx/arm-eabi2/lib/'
+		conf.env.INCLUDES_MAGX = [toolchain_path + i for i in ['ezx-z6/include', 'qt-2.3.8/include']]
+		conf.env.LIBPATH_MAGX  = [toolchain_path + i for i in ['ezx-z6/lib', 'qt-2.3.8/lib']]
+		conf.env.LINKFLAGS_MAGX = ['-Wl,-rpath-link=' + i for i in conf.env.LIBPATH_MAGX]
+		for lib in ['qte-mt', 'ezxappbase', 'ezxpm', 'log_util']:
+			conf.check_cc(lib=lib, use='MAGX', uselib_store='MAGX')
+
+	if enforce_pic:
+		# Every static library must have fPIC
+		if conf.env.DEST_OS != 'win32' and '-fPIC' in conf.env.CFLAGS_cshlib:
+			conf.env.append_unique('CFLAGS_cstlib', '-fPIC')
+			conf.env.append_unique('CXXFLAGS_cxxstlib', '-fPIC')
+	else:
+		conf.env.CFLAGS_cshlib.remove('-fPIC')
+		conf.env.CXXFLAGS_cxxshlib.remove('-fPIC')
+		conf.env.CFLAGS_MACBUNDLE.remove('-fPIC')
+		conf.env.CXXFLAGS_MACBUNDLE.remove('-fPIC')
 
 	# We restrict 64-bit builds ONLY for Win/Linux/OSX running on Intel architecture
 	# Because compatibility with original GoldSrc
@@ -306,7 +332,7 @@ def configure(conf):
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
 
 	if conf.options.LOW_MEMORY:
-		conf.define('XASH_LOW_MEMORY', int(conf.options.LOW_MEMORY))
+		conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
 
 	for i in SUBDIRS:
 		if not i.is_enabled(conf):
