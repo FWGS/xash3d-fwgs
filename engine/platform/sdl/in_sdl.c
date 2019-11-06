@@ -25,7 +25,13 @@ GNU General Public License for more details.
 #include "vid_common.h"
 
 static SDL_Joystick *joy;
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 static SDL_GameController *gamecontroller;
+#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
+
+#define SDL_WarpMouseInWindow( win, x, y ) SDL_WarpMouse( ( x ), ( y ) )
+
+#endif
 
 /*
 =============
@@ -57,6 +63,7 @@ Platform_GetClipobardText
 */
 void Platform_GetClipboardText( char *buffer, size_t size )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	char *sdlbuffer = SDL_GetClipboardText();
 
 	if( !sdlbuffer )
@@ -64,6 +71,9 @@ void Platform_GetClipboardText( char *buffer, size_t size )
 
 	Q_strncpy( buffer, sdlbuffer, size );
 	SDL_free( sdlbuffer );
+#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	buffer[0] = 0;
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 /*
@@ -74,7 +84,9 @@ Platform_SetClipobardText
 */
 void Platform_SetClipboardText( const char *buffer, size_t size )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_SetClipboardText( buffer );
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 /*
@@ -96,7 +108,9 @@ SDLash_EnableTextInput
 */
 void Platform_EnableTextInput( qboolean enable )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	enable ? SDL_StartTextInput() : SDL_StopTextInput();
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 /*
@@ -134,8 +148,10 @@ static int SDLash_JoyInit_Old( int numjoy )
 		return 0;
 	}
 
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	for( i = 0; i < num; i++ )
 		Con_Reportf( "%i\t: %s\n", i, SDL_JoystickNameForIndex( i ) );
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 	Con_Reportf( "Pass +set joy_index N to command line, where N is number, to select active joystick\n" );
 
@@ -147,6 +163,7 @@ static int SDLash_JoyInit_Old( int numjoy )
 		return 0;
 	}
 
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	Con_Reportf( "Selected joystick: %s\n"
 		"\tAxes: %i\n"
 		"\tHats: %i\n"
@@ -156,11 +173,13 @@ static int SDLash_JoyInit_Old( int numjoy )
 		SDL_JoystickNumButtons( joy ), SDL_JoystickNumBalls( joy ) );
 
 	SDL_GameControllerEventState( SDL_DISABLE );
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_JoystickEventState( SDL_ENABLE );
 
 	return num;
 }
 
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 /*
 =============
 SDLash_JoyInit_New
@@ -219,18 +238,19 @@ static int SDLash_JoyInit_New( int numjoy )
 		return 0;
 	}
 // was added in SDL2-2.0.6, allow build with earlier versions just in case
-#if SDL_MAJOR_VERSION > 2 || SDL_MINOR_VERSION > 0 || SDL_PATCHLEVEL >= 6
+#if SDL_VERSION_ATLEAST( 2, 0, 6 )
 	Con_Reportf( "Selected joystick: %s (%i:%i:%i)\n",
 		SDL_GameControllerName( gamecontroller ),
 		SDL_GameControllerGetVendor( gamecontroller ),
 		SDL_GameControllerGetProduct( gamecontroller ),
 		SDL_GameControllerGetProductVersion( gamecontroller ));
-#endif
+#endif // SDL_VERSION_ATLEAST( 2, 0, 6 )
 	SDL_GameControllerEventState( SDL_ENABLE );
 	SDL_JoystickEventState( SDL_DISABLE );
 
 	return num;
 }
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 /*
 =============
@@ -240,12 +260,13 @@ Platform_JoyInit
 */
 int Platform_JoyInit( int numjoy )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	// SDL_Joystick is now an old API
 	// SDL_GameController is preferred
-	if( Sys_CheckParm( "-sdl_joy_old_api" ) )
-		return SDLash_JoyInit_Old(numjoy);
-
-	return SDLash_JoyInit_New(numjoy);
+	if( !Sys_CheckParm( "-sdl_joy_old_api" ) )
+		return SDLash_JoyInit_New(numjoy);
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	return SDLash_JoyInit_Old(numjoy);
 }
 
 #endif // XASH_DEDICATED

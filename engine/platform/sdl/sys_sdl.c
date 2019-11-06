@@ -38,7 +38,9 @@ void Platform_Sleep( int msec )
 }
 #endif // XASH_TIMER == TIMER_SDL
 
+#if XASH_MESSAGEBOX == MSGBOX_SDL
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
 {
 	SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, title, message, parentMainWindow ? host.hWnd : NULL );
 }
+#endif // XASH_MESSAGEBOX == MSGBOX_SDL

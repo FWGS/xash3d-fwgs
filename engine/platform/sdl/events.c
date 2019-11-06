@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #if defined( XASH_SDL ) && !defined( XASH_DEDICATED )
 #include <SDL.h>
+#include <ctype.h>
 
 #include "common.h"
 #include "keydefs.h"
@@ -27,6 +28,71 @@ GNU General Public License for more details.
 
 static int wheelbutton;
 
+#if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
+#define SDL_SCANCODE_A SDLK_a
+#define SDL_SCANCODE_Z SDLK_z
+#define SDL_SCANCODE_1 SDLK_1
+#define SDL_SCANCODE_9 SDLK_9
+#define SDL_SCANCODE_F1 SDLK_F1
+#define SDL_SCANCODE_F12 SDLK_F12
+#define SDL_SCANCODE_GRAVE SDLK_BACKQUOTE
+#define SDL_SCANCODE_0 SDLK_0
+#define SDL_SCANCODE_BACKSLASH SDLK_BACKSLASH
+#define SDL_SCANCODE_LEFTBRACKET SDLK_LEFTBRACKET
+#define SDL_SCANCODE_RIGHTBRACKET SDLK_RIGHTBRACKET
+#define SDL_SCANCODE_EQUALS SDLK_EQUALS
+#define SDL_SCANCODE_MINUS SDLK_MINUS
+#define SDL_SCANCODE_TAB SDLK_TAB
+#define SDL_SCANCODE_RETURN SDLK_RETURN
+#define SDL_SCANCODE_ESCAPE SDLK_ESCAPE
+#define SDL_SCANCODE_SPACE SDLK_SPACE
+#define SDL_SCANCODE_BACKSPACE SDLK_BACKSPACE
+#define SDL_SCANCODE_UP SDLK_UP
+#define SDL_SCANCODE_LEFT SDLK_LEFT
+#define SDL_SCANCODE_DOWN SDLK_DOWN
+#define SDL_SCANCODE_RIGHT SDLK_RIGHT
+#define SDL_SCANCODE_LALT SDLK_LALT
+#define SDL_SCANCODE_RALT SDLK_RALT
+#define SDL_SCANCODE_LCTRL SDLK_LCTRL
+#define SDL_SCANCODE_RCTRL SDLK_RCTRL
+#define SDL_SCANCODE_LSHIFT SDLK_LSHIFT
+#define SDL_SCANCODE_RSHIFT SDLK_RSHIFT
+#define SDL_SCANCODE_LGUI SDLK_LMETA
+#define SDL_SCANCODE_RGUI SDLK_RMETA
+#define SDL_SCANCODE_INSERT SDLK_INSERT
+#define SDL_SCANCODE_DELETE SDLK_DELETE
+#define SDL_SCANCODE_PAGEDOWN SDLK_PAGEDOWN
+#define SDL_SCANCODE_PAGEUP SDLK_PAGEUP
+#define SDL_SCANCODE_HOME SDLK_HOME
+#define SDL_SCANCODE_END SDLK_END
+#define SDL_SCANCODE_KP_1 SDLK_KP1
+#define SDL_SCANCODE_KP_2 SDLK_KP2
+#define SDL_SCANCODE_KP_3 SDLK_KP3
+#define SDL_SCANCODE_KP_4 SDLK_KP4
+#define SDL_SCANCODE_KP_5 SDLK_KP5
+#define SDL_SCANCODE_KP_6 SDLK_KP6
+#define SDL_SCANCODE_KP_7 SDLK_KP7
+#define SDL_SCANCODE_KP_8 SDLK_KP8
+#define SDL_SCANCODE_KP_9 SDLK_KP9
+#define SDL_SCANCODE_KP_0 SDLK_KP0
+#define SDL_SCANCODE_KP_PERIOD SDLK_KP_PERIOD
+#define SDL_SCANCODE_KP_ENTER SDLK_KP_ENTER
+#define SDL_SCANCODE_KP_PLUS SDLK_KP_PLUS
+#define SDL_SCANCODE_KP_MINUS SDLK_KP_MINUS
+#define SDL_SCANCODE_KP_DIVIDE SDLK_KP_DIVIDE
+#define SDL_SCANCODE_KP_MULTIPLY SDLK_KP_MULTIPLY
+#define SDL_SCANCODE_NUMLOCKCLEAR SDLK_NUMLOCK
+#define SDL_SCANCODE_CAPSLOCK SDLK_CAPSLOCK
+#define SDL_SCANCODE_SLASH SDLK_SLASH
+#define SDL_SCANCODE_PERIOD SDLK_PERIOD
+#define SDL_SCANCODE_SEMICOLON SDLK_SEMICOLON
+#define SDL_SCANCODE_APOSTROPHE SDLK_QUOTE
+#define SDL_SCANCODE_COMMA SDLK_COMMA
+#define SDL_SCANCODE_PRINTSCREEN SDLK_PRINT
+#define SDL_SCANCODE_UNKNOWN SDLK_UNKNOWN
+#define SDL_GetScancodeName( x ) "unknown"
+#endif
+
 /*
 =============
 SDLash_KeyEvent
@@ -36,7 +102,11 @@ SDLash_KeyEvent
 static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 {
 	int down = key.state != SDL_RELEASED;
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	int keynum = key.keysym.scancode;
+#else
+	int keynum = key.keysym.sym;
+#endif
 	qboolean numLock = SDL_GetModState() & KMOD_NUM;
 
 	if( SDL_IsTextInputActive() && down )
@@ -51,6 +121,22 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 
 			return;
 		}
+
+#if !SDL_VERSION_ATLEAST( 2, 0, 0 )
+		if( keynum >= SDLK_KP0 && keynum <= SDLK_KP9 )
+			keynum -= SDLK_KP0 + '0';
+
+		if( isprint( keynum ) )
+		{
+			if( SDL_GetModState() & KMOD_SHIFT )
+			{
+				keynum = Key_ToUpper( keynum );
+			}
+
+			CL_CharEvent( keynum );
+			return;
+		}
+#endif
 	}
 
 #define DECLARE_KEY_RANGE( min, max, repl ) \
@@ -62,7 +148,6 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 	DECLARE_KEY_RANGE( SDL_SCANCODE_A, SDL_SCANCODE_Z, 'a' )
 	else DECLARE_KEY_RANGE( SDL_SCANCODE_1, SDL_SCANCODE_9, '1' )
 	else DECLARE_KEY_RANGE( SDL_SCANCODE_F1, SDL_SCANCODE_F12, K_F1 )
-#undef DECLARE_KEY_RANGE
 	else
 	{
 		switch( keynum )
@@ -115,7 +200,6 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		case SDL_SCANCODE_KP_MULTIPLY: keynum = '*'; break;
 		case SDL_SCANCODE_NUMLOCKCLEAR: keynum = K_KP_NUMLOCK; break;
 		case SDL_SCANCODE_CAPSLOCK: keynum = K_CAPSLOCK; break;
-		case SDL_SCANCODE_APPLICATION: keynum = K_WIN; break; // (compose key) ???
 		case SDL_SCANCODE_SLASH: keynum = '/'; break;
 		case SDL_SCANCODE_PERIOD: keynum = '.'; break;
 		case SDL_SCANCODE_SEMICOLON: keynum = ';'; break;
@@ -127,6 +211,8 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			break;
 		}
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+		case SDL_SCANCODE_APPLICATION: keynum = K_WIN; break; // (compose key) ???
 		// don't console spam on known functional buttons, but not used in engine
 		case SDL_SCANCODE_MUTE:
 		case SDL_SCANCODE_VOLUMEUP:
@@ -134,6 +220,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		case SDL_SCANCODE_BRIGHTNESSDOWN:
 		case SDL_SCANCODE_BRIGHTNESSUP:
 			return;
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 		case SDL_SCANCODE_UNKNOWN:
 		{
 			if( down ) Con_Reportf( "SDLash_KeyEvent: Unknown scancode\n" );
@@ -145,7 +232,21 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		}
 	}
 
+#undef DECLARE_KEY_RANGE
+
 	Key_Event( keynum, down );
+}
+
+static void SDLash_MouseKey( int key, int down, int istouch )
+{
+	if( CVAR_TO_BOOL( touch_emulate ) )
+	{
+		Touch_KeyEvent( key, down );
+	}
+	else if( in_mouseinitialized && !m_ignore->value && !istouch )
+	{
+		Key_Event( key, down );
+	}
 }
 
 /*
@@ -157,14 +258,41 @@ SDLash_MouseEvent
 static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 {
 	int down = button.state != SDL_RELEASED;
+	qboolean istouch;
 
-	if( CVAR_TO_BOOL( touch_emulate ) )
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	istouch = button.which == SDL_TOUCH_MOUSEID;
+#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	istouch = false;
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+
+	switch( button.button )
 	{
-		Touch_KeyEvent( K_MOUSE1 - 1 + button.button, down );
-	}
-	else if( in_mouseinitialized && !m_ignore->value && button.which != SDL_TOUCH_MOUSEID )
-	{
-		Key_Event( K_MOUSE1 - 1 + button.button, down );
+	case SDL_BUTTON_LEFT:
+		SDLash_MouseKey( K_MOUSE1, down, istouch );
+		break;
+	case SDL_BUTTON_RIGHT:
+		SDLash_MouseKey( K_MOUSE2, down, istouch );
+		break;
+	case SDL_BUTTON_MIDDLE:
+		SDLash_MouseKey( K_MOUSE3, down, istouch );
+		break;
+	case SDL_BUTTON_X1:
+		SDLash_MouseKey( K_MOUSE4, down, istouch );
+		break;
+	case SDL_BUTTON_X2:
+		SDLash_MouseKey( K_MOUSE5, down, istouch );
+		break;
+#if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
+	case SDL_BUTTON_WHEELUP:
+		Key_Event( K_MWHEELUP, down );
+		break;
+	case SDL_BUTTON_WHEELDOWN:
+		Key_Event( K_MWHEELDOWN, down );
+		break;
+#endif // ! SDL_VERSION_ATLEAST( 2, 0, 0 )
+	default:
+		Con_Printf( "Unknown mouse button ID: %d\n", button.button );
 	}
 }
 
@@ -174,6 +302,7 @@ SDLash_InputEvent
 
 =============
 */
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 static void SDLash_InputEvent( SDL_TextInputEvent input )
 {
 	char *text;
@@ -190,6 +319,43 @@ static void SDLash_InputEvent( SDL_TextInputEvent input )
 			continue;
 
 		CL_CharEvent( ch );
+	}
+}
+#endif // SDL_VERSION_AT_LEAST( 2, 0, 0 )
+
+static void SDLash_ActiveEvent( int gain )
+{
+	if( gain )
+	{
+		host.status = HOST_FRAME;
+		IN_ActivateMouse(true);
+		if( snd_mute_losefocus->value )
+		{
+			SNDDMA_Activate( true );
+		}
+		host.force_draw_version = true;
+		host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
+		if( vid_fullscreen->value )
+			VID_SetMode();
+	}
+	else
+	{
+#if TARGET_OS_IPHONE
+		{
+			// Keep running if ftp server enabled
+			void IOS_StartBackgroundTask( void );
+			IOS_StartBackgroundTask();
+		}
+#endif
+		host.status = HOST_NOFOCUS;
+		IN_DeactivateMouse();
+		if( snd_mute_losefocus->value )
+		{
+			SNDDMA_Activate( false );
+		}
+		host.force_draw_version = true;
+		host.force_draw_version_time = host.realtime + 2;
+		VID_RestoreScreenResolution();
 	}
 }
 
@@ -213,25 +379,51 @@ static void SDLash_EventFilter( SDL_Event *event )
 	{
 	/* Mouse events */
 	case SDL_MOUSEMOTION:
-		if( !host.mouse_visible && event->motion.which != SDL_TOUCH_MOUSEID )
+		if( !host.mouse_visible
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+		    && event->motion.which != SDL_TOUCH_MOUSEID )
+#else
+		    )
+#endif
 			IN_MouseEvent();
 		break;
 
 	case SDL_MOUSEBUTTONUP:
 	case SDL_MOUSEBUTTONDOWN:
-
 		SDLash_MouseEvent( event->button );
-		break;
-
-	case SDL_MOUSEWHEEL:
-		wheelbutton = event->wheel.y < 0 ? K_MWHEELDOWN : K_MWHEELUP;
-		Key_Event( wheelbutton, true );
 		break;
 
 	/* Keyboard events */
 	case SDL_KEYDOWN:
 	case SDL_KEYUP:
 		SDLash_KeyEvent( event->key );
+		break;
+
+	/* Joystick events */
+	case SDL_JOYAXISMOTION:
+		Joy_AxisMotionEvent( event->jaxis.axis, event->jaxis.value );
+		break;
+
+	case SDL_JOYBALLMOTION:
+		Joy_BallMotionEvent( event->jball.ball, event->jball.xrel, event->jball.yrel );
+		break;
+
+	case SDL_JOYHATMOTION:
+		Joy_HatMotionEvent( event->jhat.hat, event->jhat.value );
+		break;
+
+	case SDL_JOYBUTTONDOWN:
+	case SDL_JOYBUTTONUP:
+		Joy_ButtonEvent( event->jbutton.button, event->jbutton.state );
+		break;
+
+	case SDL_QUIT:
+		Sys_Quit();
+		break;
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	case SDL_MOUSEWHEEL:
+		wheelbutton = event->wheel.y < 0 ? K_MWHEELDOWN : K_MWHEELUP;
+		Key_Event( wheelbutton, true );
 		break;
 
 	/* Touch events */
@@ -247,7 +439,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 			type = event_down;
 		else if( event->type == SDL_FINGERUP )
 			type = event_up ;
-		else if(event->type == SDL_FINGERMOTION )
+		else if( event->type == SDL_FINGERMOTION )
 			type = event_motion;
 		else break;
 
@@ -288,28 +480,9 @@ static void SDLash_EventFilter( SDL_Event *event )
 		break;
 	}
 
-
 	/* IME */
 	case SDL_TEXTINPUT:
 		SDLash_InputEvent( event->text );
-		break;
-
-	/* Joystick events */
-	case SDL_JOYAXISMOTION:
-		Joy_AxisMotionEvent( event->jaxis.axis, event->jaxis.value );
-		break;
-
-	case SDL_JOYBALLMOTION:
-		Joy_BallMotionEvent( event->jball.ball, event->jball.xrel, event->jball.yrel );
-		break;
-
-	case SDL_JOYHATMOTION:
-		Joy_HatMotionEvent( event->jhat.hat, event->jhat.value );
-		break;
-
-	case SDL_JOYBUTTONDOWN:
-	case SDL_JOYBUTTONUP:
-		Joy_ButtonEvent( event->jbutton.button, event->jbutton.state );
 		break;
 
 	case SDL_JOYDEVICEADDED:
@@ -361,10 +534,6 @@ static void SDLash_EventFilter( SDL_Event *event )
 		Joy_RemoveEvent( );
 		break;
 
-	case SDL_QUIT:
-		Sys_Quit();
-		break;
-
 	case SDL_WINDOWEVENT:
 		if( event->window.windowID != SDL_GetWindowID( host.hWnd ) )
 			return;
@@ -393,47 +562,33 @@ static void SDLash_EventFilter( SDL_Event *event )
 				VID_SetMode();
 			break;
 		case SDL_WINDOWEVENT_FOCUS_GAINED:
-			host.status = HOST_FRAME;
-			IN_ActivateMouse(true);
-			if( snd_mute_losefocus->value )
-			{
-				SNDDMA_Activate( true );
-			}
-			host.force_draw_version = true;
-			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
-			if( vid_fullscreen->value )
-				VID_SetMode();
+			SDLash_ActiveEvent( true );
 			break;
 		case SDL_WINDOWEVENT_FOCUS_LOST:
-#if TARGET_OS_IPHONE
-			{
-				// Keep running if ftp server enabled
-				void IOS_StartBackgroundTask( void );
-				IOS_StartBackgroundTask();
-			}
-#endif
-			host.status = HOST_NOFOCUS;
-			IN_DeactivateMouse();
-			if( snd_mute_losefocus->value )
-			{
-				SNDDMA_Activate( false );
-			}
-			host.force_draw_version = true;
-			host.force_draw_version_time = host.realtime + 2;
-			VID_RestoreScreenResolution();
+			SDLash_ActiveEvent( false );
 			break;
 		case SDL_WINDOWEVENT_RESIZED:
 		{
+			int w = VID_MIN_WIDTH, h = VID_MIN_HEIGHT;
 			if( vid_fullscreen->value )
 				break;
 
-			VID_SaveWindowSize( event->window.data1, event->window.data2 );
-			SCR_VidInit(); // tell the client.dll what vid_mode has changed
+			VID_SaveWindowSize( w, h );
+			SCR_VidInit(); // tell the client.dll that vid_mode has changed
 			break;
 		}
 		default:
 			break;
 		}
+#else
+	case SDL_VIDEORESIZE:
+		VID_SaveWindowSize( event->resize.w, event->resize.h );
+		SCR_VidInit();
+		break; // tell the client.dll that vid_mode has changed
+	case SDL_ACTIVEEVENT:
+		SDLash_ActiveEvent( event->active.gain );
+		break;
+#endif
 	}
 }
 

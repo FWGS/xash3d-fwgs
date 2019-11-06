@@ -378,11 +378,7 @@ void IN_EvdevFrame ( void )
 					{
 						if( evdev.shift )
 						{
-							key = Q_toupper( key );
-							if( key == '-' )
-								key = '_';
-							if( key == '=' )
-								key = '+';
+							key = Key_ToUpper( key );
 						}
 						CL_CharEvent( key );
 					}
