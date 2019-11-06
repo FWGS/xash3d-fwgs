@@ -73,6 +73,16 @@ void Platform_PreCreateMove( void );
 void Platform_GetClipboardText( char *buffer, size_t size );
 void Platform_SetClipboardText( const char *buffer, size_t size );
 
+#if XASH_SDL == 12
+#define SDL_SetWindowGrab( wnd, state ) SDL_WM_GrabInput( (state) )
+#define SDL_MinimizeWindow( wnd ) SDL_WM_IconifyWindow()
+#define SDL_IsTextInputActive() host.textmode
+#endif
+
+#if !XASH_SDL
+#define SDL_VERSION_ATLEAST( x, y, z ) 0
+#endif
+
 #ifdef __ANDROID__
 void Android_ShowMouse( qboolean show );
 void Android_MouseMove( float *x, float *y );
@@ -93,15 +103,14 @@ typedef enum
 	rserr_unknown
 } rserr_t;
 
-typedef struct vidmode_s vidmode_t;
-
+struct vidmode_s;
 // Window
 qboolean  R_Init_Video( const int type );
 void      R_Free_Video( void );
 qboolean  VID_SetMode( void );
 rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen );
 int       R_MaxVideoModes( void );
-vidmode_t*R_GetVideoMode( int num );
+struct vidmode_s *R_GetVideoMode( int num );
 void*     GL_GetProcAddress( const char *name ); // RenderAPI requirement
 void      GL_UpdateSwapInterval( void );
 int GL_SetAttribute( int attr, int val );

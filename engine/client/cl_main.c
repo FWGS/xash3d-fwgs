@@ -1938,7 +1938,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			return;
 		}
 
-#ifdef XASH_SDL
+#if XASH_SDL == 2
 		SDL_ShowWindow( host.hWnd );
 #endif
 		args = MSG_ReadString( msg );

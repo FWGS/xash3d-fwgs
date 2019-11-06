@@ -35,7 +35,7 @@ _inline int BitByte( int bits )
 	return PAD_NUMBER( bits, 8 ) >> 3;
 }
 
-typedef struct sizebuf_s
+struct sizebuf_s
 {
 	qboolean		bOverflow;	// overflow reading or writing
 	const char	*pDebugName;	// buffer name (pointer to const name)
@@ -43,7 +43,7 @@ typedef struct sizebuf_s
 	byte		*pData;
 	int		iCurBit;
 	int		nDataBits;
-} sizebuf_t;
+};
 
 #define MSG_StartReading			MSG_StartWriting
 #define MSG_GetNumBytesRead			MSG_GetNumBytesWritten

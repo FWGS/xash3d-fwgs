@@ -84,7 +84,6 @@ color24 gTracerColors[] =
 #define FTENT_CLIENTCUSTOM		0x00080000 // Must specify callback.  Callback function is responsible for killing tempent and updating fields ( unless other flags specify how to do things )
 #define FTENT_SCALE			0x00100000 // An experiment
 
-typedef struct tempent_s	TEMPENTITY;
 struct pmtrace_s;
 typedef struct tempent_s
 {
@@ -99,7 +98,7 @@ typedef struct tempent_s
 	int		hitSound;
 	void		(*hitcallback)( struct tempent_s *ent, struct pmtrace_s *ptr );
 	void		(*callback)( struct tempent_s *ent, float frametime, float currenttime );
-	TEMPENTITY	*next;
+	struct tempent_s	*next;
 	int		priority;
 	short		clientIndex;	// if attached, this is the index of the client to stick to
 					// if COLLIDEALL, this is the index of the client to ignore

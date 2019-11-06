@@ -24,6 +24,18 @@ GNU General Public License for more details.
 #define SAMPLE_16BIT_SHIFT 1
 #define SECONDARY_BUFFER_SIZE 0x10000
 
+#if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
+#include <stdlib.h>
+#define SDL_setenv setenv 
+#define SDL_GetCurrentAudioDriver() "legacysdl"
+#define SDL_OpenAudioDevice( a, b, c, d, e ) SDL_OpenAudio( ( c ), ( d ) )
+#define SDL_CloseAudioDevice( a ) SDL_CloseAudio()
+#define SDL_PauseAudioDevice( a, b ) SDL_PauseAudio( ( b ) )
+#define SDLash_IsAudioError( x ) ( x ) != 0
+#else
+#define SDLash_IsAudioError( x ) ( x ) == 0
+#endif
+
 /*
 =======================================================================
 Global variables. Must be visible to window-procedure function
@@ -40,6 +52,11 @@ void SDL_SoundCallback( void *userdata, Uint8 *stream, int len )
 	int size    = dma.samples << 1;
 	int pos     = dma.samplepos << 1;
 	int wrapped = pos + len - size;
+
+#if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
+	if( !dma.buffer )
+		return;
+#endif
 
 	if( wrapped < 0 )
 	{
@@ -88,7 +105,7 @@ qboolean SNDDMA_Init( void )
 
 	sdl_dev = SDL_OpenAudioDevice( NULL, 0, &desired, &obtained, 0 );
 
-	if( !sdl_dev )
+	if( SDLash_IsAudioError( sdl_dev ))
 	{
 		Con_Printf( "Couldn't open SDL audio: %s\n", SDL_GetError( ) );
 		return false;
@@ -113,12 +130,12 @@ qboolean SNDDMA_Init( void )
 	if( !samplecount )
 		samplecount = 0x8000;
 	dma.samples         = samplecount * obtained.channels;
-	dma.buffer          = Z_Malloc( dma.samples * 2 );
+	dma.buffer          = Z_Calloc( dma.samples * 2 );
 	dma.samplepos       = 0;
 
 	Con_Printf( "Using SDL audio driver: %s @ %d Hz\n", SDL_GetCurrentAudioDriver( ), obtained.freq );
 
-	SDL_PauseAudioDevice( sdl_dev, 0 );
+	SNDDMA_Activate( true );
 
 	dma.initialized = true;
 	return true;
@@ -218,10 +235,10 @@ void SNDDMA_Shutdown( void )
 
 	if( sdl_dev )
 	{
-		SDL_PauseAudioDevice( sdl_dev, 1 );
+		SNDDMA_Activate( false );
+
 #ifndef __EMSCRIPTEN__
 		SDL_CloseAudioDevice( sdl_dev );
-		SDL_CloseAudio( );
 #endif
 	}
 

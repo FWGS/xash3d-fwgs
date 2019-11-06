@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include "pm_movevars.h"
 //#include "cvar.h"
 #include "gl_export.h"
+#include "wadfile.h"
 
 #ifndef offsetof
 #define offsetof(s,m)       (size_t)&(((s *)0)->m)
@@ -480,7 +481,6 @@ void R_AliasInit( void );
 //
 // gl_warp.c
 //
-typedef struct mip_s mip_t;
 void R_InitSkyClouds( mip_t *mt, struct texture_s *tx, qboolean custom_palette );
 void R_AddSkyBoxSurface( msurface_t *fa );
 void R_ClearSkyBox( void );
@@ -691,13 +691,6 @@ typedef struct
 
 typedef struct
 {
-	void*	context; // handle to GL rendering context
-	int		safe;
-
-	int		desktopBitsPixel;
-	int		desktopWidth;
-	int		desktopHeight;
-
 	qboolean		initialized;	// OpenGL subsystem started
 	qboolean		extended;		// extended context allows to GL_Debug
 } glwstate_t;
