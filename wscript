@@ -126,6 +126,7 @@ def configure(conf):
 
 	conf.env.MAGX = conf.options.MAGX
 	if conf.options.MAGX:
+		conf.options.USE_SELECT = True
 		conf.options.SDL12 = True
 		conf.options.NO_VGUI = True
 		conf.options.GL = False
@@ -182,7 +183,10 @@ def configure(conf):
 		},
 		'fast': {
 			'msvc':    ['/O2', '/Oy'],
-			'gcc':     ['-Ofast', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer'],
+			'gcc': {
+				'3':       ['-O3', '-Os', '-funsafe-math-optimizations', '-fomit-frame-pointer'],
+				'default': ['-Ofast', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer']
+			},
 			'clang':   ['-Ofast'],
 			'default': ['-O3']
 		},
@@ -237,8 +241,8 @@ def configure(conf):
 		'-Werror=declaration-after-statement'
 	]
 
-	linkflags = conf.get_flags_by_type(linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC)
-	cflags    = conf.get_flags_by_type(compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC)
+	linkflags = conf.get_flags_by_type(linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC, conf.env.CC_VERSION[0])
+	cflags    = conf.get_flags_by_type(compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC, conf.env.CC_VERSION[0])
 
 	# Here we don't differentiate C or C++ flags
 	if conf.options.LTO:
