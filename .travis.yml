@@ -202,8 +202,9 @@ jobs:
       script:
         - sh scripts/build_motomagx_engine.sh
       after_script:
+        - cd $TRAVIS_BUILD_DIR
         - ccache --show-stats
-        - sh ../scripts/continious_upload.sh xash3d-magx.7z
+        - sh scripts/continious_upload.sh xash3d-magx.7z
     - stage: deploy
       name: "Deploy to github repo"
       os: linux
