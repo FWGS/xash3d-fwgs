@@ -19,7 +19,9 @@ if [ -z "$ARCHS" ]; then
 	ARCHS="armeabi-v7a armeabi x86"
 fi
 
-API=9
+if [ -z "$API" ]; then
+	API=9
+fi
 ROOT="$PWD" # compile.sh must be run from root of android project sources
 
 if [ -z "$1" ]; then
