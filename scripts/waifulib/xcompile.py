@@ -248,6 +248,19 @@ class Android:
 		if cxx and not self.is_clang() and self.toolchain not in ['4.8','4.9']:
 			cflags += ['-fno-sized-deallocation']
 
+		def fixup_host_clang_with_old_ndk():
+			cflags = []
+			# Clang builtin redefine w/ different calling convention bug
+			# NOTE: I did not added complex.h functions here, despite
+			# that NDK devs forgot to put __NDK_FPABI_MATH__ for complex
+			# math functions
+			# I personally don't need complex numbers support, but if you want it
+			# just run sed to patch header
+			for f in ['strtod', 'strtof', 'strtold']:
+				cflags += ['-fno-builtin-%s' % f]
+			return cflags
+
+
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
 				# ARMv7 support
@@ -256,21 +269,17 @@ class Android:
 				if not self.is_clang() and not self.is_host():
 					cflags += [ '-mvectorize-with-neon-quad' ]
 
+				if self.is_host() and self.ndk_rev <= ANDROID_NDK_HARDFP_MAX:
+					cflags += fixup_host_clang_with_old_ndk()
+
 				if self.is_hardfp():
 					cflags += ['-D_NDK_MATH_NO_SOFTFP=1', '-mfloat-abi=hard', '-DLOAD_HARDFP', '-DSOFTFP_LINK']
-
-					if self.is_host():
-					# Clang builtin redefine w/ different calling convention bug
-					# NOTE: I did not added complex.h functions here, despite
-					# that NDK devs forgot to put __NDK_FPABI_MATH__ for complex
-					# math functions
-					# I personally don't need complex numbers support, but if you want it
-					# just run sed to patch header
-						for f in ['strtod', 'strtof', 'strtold']:
-							cflags += ['-fno-builtin-%s' % f]
 				else:
 					cflags += ['-mfloat-abi=softfp']
 			else:
+				if self.is_host() and self.ndk_rev <= ANDROID_NDK_HARDFP_MAX:
+					cflags += fixup_host_clang_with_old_ndk()
+
 				# ARMv5 support
 				cflags += ['-march=armv5te', '-mtune=xscale', '-msoft-float']
 		elif self.is_x86():
