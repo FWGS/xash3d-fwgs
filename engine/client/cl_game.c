@@ -890,6 +890,7 @@ Render crosshair
 void CL_DrawCrosshair( void )
 {
 	int	x, y, width, height;
+	float xscale, yscale;
 
 	if( !clgame.ds.pCrosshair || !cl_crosshair->value )
 		return;
@@ -902,7 +903,7 @@ void CL_DrawCrosshair( void )
 	width = clgame.ds.rcCrosshair.right - clgame.ds.rcCrosshair.left;
 	height = clgame.ds.rcCrosshair.bottom - clgame.ds.rcCrosshair.top;
 
-	x = clgame.viewport[0] + ( clgame.viewport[2] >> 1 ); 
+	x = clgame.viewport[0] + ( clgame.viewport[2] >> 1 );
 	y = clgame.viewport[1] + ( clgame.viewport[3] >> 1 );
 
 	// g-cont - cl.crosshairangle is the autoaim angle.
@@ -922,16 +923,21 @@ void CL_DrawCrosshair( void )
 		y += ( clgame.viewport[3] >> 1 ) * screen[1] + 0.5f;
 	}
 
+	// back to logical sizes
+	xscale = (float)clgame.scrInfo.iWidth / refState.width;
+	yscale = (float)clgame.scrInfo.iHeight / refState.height;
+
+	x *= xscale;
+	y *= yscale;
+
 	// move at center the screen
 	x -= 0.5f * width;
 	y -= 0.5f * height;
 
 	clgame.ds.pSprite = clgame.ds.pCrosshair;
-	*(int *)clgame.ds.spriteColor = *(int *)clgame.ds.rgbaCrosshair;
+	Vector4Copy( clgame.ds.rgbaCrosshair, clgame.ds.spriteColor );
 
-	SPR_EnableScissor( x, y, width, height );
 	pfnSPR_DrawHoles( 0, x, y, &clgame.ds.rcCrosshair );
-	SPR_DisableScissor();
 }
 
 /*
