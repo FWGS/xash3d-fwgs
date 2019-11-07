@@ -14,6 +14,22 @@ cp build/cl_dlls/client.so ../Xash/valve/cl_dlls/client_armv6l.so
 cp build/dlls/hl.so ../Xash/valve/cl_dlls/hl_armv6l.so
 cd ../
 
-./waf configure -T fast --enable-magx --win-style-install --prefix='' build install --destdir=Xash/ \
+./waf configure -T fast --enable-magx --win-style-install --prefix='' build install --destdir=Xash/
+
+cat > Xash/run.sh << 'EOF'
+mypath=${0%/*}
+LIBDIR1=/ezxlocal/download/mystuff/games/lib
+LIBDIR2=/mmc/mmca1/games/lib
+LIBDIR3=$mypath
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$LIBDIR1:$LIBDIR2:$LIBDIR3
+export HOME=$mypath
+export SDL_QT_INVERT_ROTATION=1
+export SWAP_PATH=$HOME/xash.swap
+cd $mypath
+sleep 1
+
+exec $mypath/xash3d -dev $@
+EOF
+
 
 7z a -t7z $TRAVIS_BUILD_DIR/xash3d-magx.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on -r Xash/
