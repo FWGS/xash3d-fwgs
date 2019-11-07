@@ -204,11 +204,13 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 #endif
 		{
 			Platform_SetMousePos( host.window_center_x, host.window_center_y );
+#if XASH_SDL
 			SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 			if( clgame.dllFuncs.pfnLookEvent )
 				SDL_SetRelativeMouseMode( SDL_TRUE );
 #endif
+#endif // XASH_SDL
 		}
 		if( cls.initialized )
 			clgame.dllFuncs.IN_ActivateMouse();
@@ -216,11 +218,13 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 
 	if( ( newstate == key_menu  || newstate == key_console || newstate == key_message ) && ( !CL_IsBackgroundMap() || CL_IsBackgroundDemo( )))
 	{
+#ifdef XASH_SDL
 		SDL_SetWindowGrab(host.hWnd, SDL_FALSE);
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		if( clgame.dllFuncs.pfnLookEvent )
 			SDL_SetRelativeMouseMode( SDL_FALSE );
 #endif
+#endif // XASH_SDL
 #ifdef __ANDROID__
 		Android_ShowMouse( true );
 #endif
@@ -318,7 +322,9 @@ void IN_DeactivateMouse( void )
 	}
 
 	in_mouseactive = false;
+#ifdef XASH_SDL
 	SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
+#endif // XASH_SDL
 }
 
 /*
