@@ -137,6 +137,7 @@ def configure(conf):
 		conf.options.GL = False
 		conf.options.LOW_MEMORY = 1
 		conf.options.SINGLE_BINARY = True
+		conf.options.NO_ASYNC_RESOLVE = True
 		conf.define('XASH_SDLMAIN', 1)
 		enforce_pic = False
 
@@ -191,7 +192,7 @@ def configure(conf):
 		'fast': {
 			'msvc':    ['/O2', '/Oy'],
 			'gcc': {
-				'3':       ['-O3', '-Os', '-funsafe-math-optimizations', '-fomit-frame-pointer'],
+				'3':       ['-O3', '-fomit-frame-pointer'],
 				'default': ['-Ofast', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer']
 			},
 			'clang':   ['-Ofast'],
