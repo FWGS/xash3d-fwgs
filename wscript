@@ -136,6 +136,8 @@ def configure(conf):
 		conf.options.NO_VGUI = True
 		conf.options.GL = False
 		conf.options.LOW_MEMORY = 1
+		conf.options.SINGLE_BINARY = True
+		conf.define('XASH_SDLMAIN', 1)
 		enforce_pic = False
 
 		# useless to change toolchain path, as toolchain meant to be placed in this path

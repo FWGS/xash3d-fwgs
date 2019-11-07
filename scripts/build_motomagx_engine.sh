@@ -28,7 +28,7 @@ export SWAP_PATH=$HOME/xash.swap
 cd $mypath
 sleep 1
 
-exec $mypath/xash3d -dev $@
+exec $mypath/xash -dev $@
 EOF
 
 
