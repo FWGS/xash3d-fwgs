@@ -267,11 +267,6 @@ qboolean UI_CreditsActive( void )
 	return false;
 }
 
-void GL_FreeImage( const char *name )
-{
-
-}
-
 void S_StopBackgroundTrack( void )
 {
 
