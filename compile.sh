@@ -73,7 +73,7 @@ build_native_project()
 		cd $prj
 	fi
 	./waf -o "$out" configure -T $BUILD_TYPE --android="$arch,$TOOLCHAIN,$API" $* build || die "$out"
-	./waf install --destdir=$ROOT/build/android/
+	./waf install --destdir=$ROOT/build/android/ --strip
 	cd $ROOT # obviously, we can't ../ from symlink directory, so change to our root directory
 }
 
