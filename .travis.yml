@@ -20,6 +20,17 @@ jobs:
       script:
         - sh scripts/yadisk_clear.sh
     - stage: build
+      name: "Build for Windows MSVC"
+      cache: ccache
+      os: windows
+      before_script:
+        - sh scripts/travis_common_deps.sh
+        - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
+      script:
+        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
+      after_script:
+        - sh scripts/continious_upload.sh xash3d-vc.7z xash3d-vc2008-sln.7z
+    - # ...
       name: "Build for Linux i686"
       cache: ccache
       os: linux
@@ -49,6 +60,49 @@ jobs:
         - ccache --show-stats
         - sh scripts/continious_upload.sh xash3d-fwgs-${ARCH}.AppImage xashds-linux-${ARCH}
     - # ...
+      name: "Build for Android"
+      cache: ccache
+      os: linux
+      dist: xenial
+      language: java # we want xenial, so just java, not android
+      jdk: openjdk8
+      before_script:
+        - export ANDROID_HOME=$TRAVIS_BUILD_DIR/sdk
+        - sh scripts/travis_common_deps.sh
+        - sh scripts/travis_android_deps.sh r10e
+        - export ANDROID_SDK_HOME=$ANDROID_HOME
+        - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
+      script:
+        - cd android
+        - export ARCHS="armeabi armeabi-v7a-hard x86"
+        - export TOOLCHAIN="host"
+        - sh compile.sh release
+      after_script:
+        - ccache --show-stats
+        - sh ../scripts/continious_upload.sh xashdroid.apk
+    - # ...
+      name: "Build for Android 64"
+      cache: ccache
+      os: linux
+      dist: xenial
+      language: java # we want xenial, so just java, not android
+      jdk: openjdk8
+      before_script:
+        - export ANDROID_HOME=$TRAVIS_BUILD_DIR/sdk
+        - sh scripts/travis_common_deps.sh
+        - sh scripts/travis_android_deps.sh r10e
+        - export ANDROID_SDK_HOME=$ANDROID_HOME
+        - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
+      script:
+        - cd android
+        - export ARCHS="aarch64 x86_64"
+        - export TOOLCHAIN="host"
+        - sh compile.sh release
+      after_script:
+        - ccache --show-stats
+        - mv xashdroid.apk xashdroid-64-test.apk
+        - sh ../scripts/continious_upload.sh xashdroid-64-test.apk
+    - # ...
       name: "Build for Linux amd64"
       cache: ccache
       os: linux
@@ -74,108 +128,6 @@ jobs:
       after_script:
         - ccache --show-stats
         - sh scripts/continious_upload.sh xash3d-fwgs-${ARCH}.AppImage xashds-linux-${ARCH}
-    - # ...
-      name: "Build for Android"
-      cache: ccache
-      os: linux
-      dist: xenial
-      language: java # we want xenial, so just java, not android
-      jdk: openjdk8
-      before_script:
-        - export ANDROID_HOME=$TRAVIS_BUILD_DIR/sdk
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_android_deps.sh
-        - export ANDROID_SDK_HOME=$ANDROID_HOME
-        - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
-      script:
-        - cd android
-        - sh compile.sh release
-      after_script:
-        - ccache --show-stats
-        - sh ../scripts/continious_upload.sh xashdroid.apk
-    - # ...
-      name: "Build for Android 64"
-      cache: ccache
-      os: linux
-      dist: xenial
-      language: java # we want xenial, so just java, not android
-      jdk: openjdk8
-      before_script:
-        - export ANDROID_HOME=$TRAVIS_BUILD_DIR/sdk
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_android_deps.sh
-        - export ANDROID_SDK_HOME=$ANDROID_HOME
-        - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
-      script:
-        - cd android
-        - export ARCHS="aarch64 x86_64"
-        - sh compile.sh release
-      after_script:
-        - ccache --show-stats
-        - mv xashdroid.apk xashdroid-64-test.apk
-        - sh ../scripts/continious_upload.sh xashdroid-64-test.apk
-    - # ...
-      name: "Build for Android arm hardfp"
-      cache: ccache
-      os: linux
-      dist: xenial
-      language: java # we want xenial, so just java, not android
-      jdk: openjdk8
-      addons:
-        apt:
-          packages:
-            - clang-9
-            - lld-9
-            - p7zip-full
-          sources:
-            - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
-              key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
-      before_script:
-        - export ANDROID_HOME=$TRAVIS_BUILD_DIR/sdk
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_android_deps.sh r10e
-        - export ANDROID_SDK_HOME=$ANDROID_HOME
-        - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
-      script:
-        - cd android
-        - export ARCHS="armeabi-v7a-hard"
-        - export TOOLCHAIN="host"
-        - sh compile.sh release
-      after_script:
-        - ccache --show-stats
-        - mv xashdroid.apk xashdroid-hardfp-test.apk
-        - sh ../scripts/continious_upload.sh xashdroid-hardfp-test.apk
-    - # ...
-      name: "Build for Android arm softfp w/ polly"
-      cache: ccache
-      os: linux
-      dist: xenial
-      language: java # we want xenial, so just java, not android
-      jdk: openjdk8
-      addons:
-        apt:
-          packages:
-            - clang-9
-            - lld-9
-            - p7zip-full
-          sources:
-            - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
-              key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
-      before_script:
-        - export ANDROID_HOME=$TRAVIS_BUILD_DIR/sdk
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_android_deps.sh
-        - export ANDROID_SDK_HOME=$ANDROID_HOME
-        - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
-      script:
-        - cd android
-        - export ARCHS="armeabi-v7a"
-        - export TOOLCHAIN="host"
-        - sh compile.sh release
-      after_script:
-        - ccache --show-stats
-        - mv xashdroid.apk xashdroid-softfp-test.apk
-        - sh ../scripts/continious_upload.sh xashdroid-softfp-test.apk
 #    - # ...
 #      name: "Build for Windows MinGW"
 #      cache: ccache
@@ -233,17 +185,6 @@ jobs:
       after_script:
         - ccache --show-stats
         - sh ../scripts/continious_upload.sh xash3d-magx.7z
-    - # ...
-      name: "Build for Windows MSVC"
-      cache: ccache
-      os: windows
-      before_script:
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
-      script:
-        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
-      after_script:
-        - sh scripts/continious_upload.sh xash3d-vc.7z xash3d-vc2008-sln.7z
     - stage: deploy
       name: "Deploy to github repo"
       os: linux
