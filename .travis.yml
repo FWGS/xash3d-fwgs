@@ -66,6 +66,15 @@ jobs:
       dist: xenial
       language: java # we want xenial, so just java, not android
       jdk: openjdk8
+      addons:
+        apt:
+          packages:
+            - clang-9
+            - lld-9
+            - p7zip-full
+          sources:
+            - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
+              key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
       before_script:
         - export ANDROID_HOME=$TRAVIS_BUILD_DIR/sdk
         - sh scripts/travis_common_deps.sh
@@ -87,6 +96,15 @@ jobs:
       dist: xenial
       language: java # we want xenial, so just java, not android
       jdk: openjdk8
+      addons:
+        apt:
+          packages:
+            - clang-9
+            - lld-9
+            - p7zip-full
+          sources:
+            - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
+              key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
       before_script:
         - export ANDROID_HOME=$TRAVIS_BUILD_DIR/sdk
         - sh scripts/travis_common_deps.sh
@@ -96,6 +114,7 @@ jobs:
       script:
         - cd android
         - export ARCHS="aarch64 x86_64"
+        - export API=21
         - export TOOLCHAIN="host"
         - sh compile.sh release
       after_script:
