@@ -117,6 +117,11 @@ def configure(conf):
 		conf.load('msvc msvc_pdb msdev msvs')
 	conf.load('subproject xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install waf_unit_test')
 
+	try:
+		conf.env.CC_VERSION[0]
+	except IndexError:
+		conf.env.CC_VERSION = (0,)
+
 	# modify options dictionary early
 	if conf.env.DEST_OS == 'android':
 		conf.options.NO_VGUI= True # skip vgui
