@@ -18,31 +18,44 @@ GNU General Public License for more details.
 
 // All XASH_* macros set by this header are guaranteed to have positive value otherwise not defined
 
+// Any new define must be undefined at first
+// You can generate #undef list below with this oneliner:
+//   $ cat build.h | sed 's/\t//g' | grep '^#define XASH' | awk '{ print $2 }' | sort | uniq | awk '{ print "#undef " $1 }'
+// 
+// So in various buildscripts you can grep for ^#undef XASH and select only second word
+// or in another oneliner:
+//   $ cat build.h | grep '^#undef XASH' | awk '{ print $2 }' 
+
 #undef XASH_64BIT
-#undef XASH_WIN32
-#undef XASH_MINGW
-#undef XASH_MSVC
-#undef XASH_LINUX
+#undef XASH_AMD64
 #undef XASH_ANDROID
 #undef XASH_APPLE
-#undef XASH_IOS
+#undef XASH_ARM
+#undef XASH_ARM64
+#undef XASH_ARM_HARDFP
+#undef XASH_ARM_SOFTFP
+#undef XASH_ARMv4
+#undef XASH_ARMv5
+#undef XASH_ARMv6
+#undef XASH_ARMv7
+#undef XASH_BIG_ENDIAN
 #undef XASH_BSD
+#undef XASH_E2K
+#undef XASH_EMSCRIPTEN
 #undef XASH_FREEBSD
+#undef XASH_IOS
+#undef XASH_JS
+#undef XASH_LINUX
+#undef XASH_LITTLE_ENDIAN
+#undef XASH_MINGW
+#undef XASH_MIPS
+#undef XASH_MOBILE_PLATFORM
+#undef XASH_MSVC
 #undef XASH_NETBSD
 #undef XASH_OPENBSD
-#undef XASH_EMSCRIPTEN
-#undef XASH_MOBILE_PLATFORM
-#undef XASH_LITTLE_ENDIAN
-#undef XASH_BIG_ENDIAN
-#undef XASH_AMD64
+#undef XASH_WIN32
+#undef XASH_WIN64
 #undef XASH_X86
-#undef XASH_ARM64
-#undef XASH_ARM
-#undef XASH_ARM_SOFTFP
-#undef XASH_ARM_HARDFP
-#undef XASH_MIPS
-#undef XASH_JS
-#undef XASH_E2K
 
 //================================================================
 //
@@ -141,7 +154,8 @@ GNU General Public License for more details.
 	#define XASH_ARM64 1
 #elif defined __arm__ || defined _M_ARM
 	#if defined _M_ARM
-		#define XASH_ARM 7 // MSVC can only ARMv7
+		// msvc can only armv7 ?
+		#define XASH_ARM 7
 	#elif __ARM_ARCH == 7 || __ARM_ARCH_7__
 		#define XASH_ARM 7
 	#elif __ARM_ARCH == 6 || __ARM_ARCH_6__ || __ARM_ARCH_6J__
@@ -176,6 +190,16 @@ GNU General Public License for more details.
 
 #if defined(XASH_WAF_DETECTED_64BIT) && !defined(XASH_64BIT)
 	#define XASH_64BIT 1
+#endif
+
+#if XASH_ARM == 7
+	#define XASH_ARMv7 1
+#elif XASH_ARM == 6
+	#define XASH_ARMv6 1
+#elif XASH_ARM == 5
+	#define XASH_ARMv5 1
+#elif XASH_ARM == 4
+	#define XASH_ARMv4 1
 #endif
 
 #endif // BUILD_H
