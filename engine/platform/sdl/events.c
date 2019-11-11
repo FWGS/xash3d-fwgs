@@ -569,11 +569,10 @@ static void SDLash_EventFilter( SDL_Event *event )
 			break;
 		case SDL_WINDOWEVENT_RESIZED:
 		{
-			int w = VID_MIN_WIDTH, h = VID_MIN_HEIGHT;
 			if( vid_fullscreen->value )
 				break;
 
-			VID_SaveWindowSize( w, h );
+			VID_SaveWindowSize( event->window.data1, event->window.data2 );
 			SCR_VidInit(); // tell the client.dll that vid_mode has changed
 			break;
 		}
