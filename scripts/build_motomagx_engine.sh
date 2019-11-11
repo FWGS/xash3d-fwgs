@@ -9,9 +9,7 @@ mkdir -p Xash/valve/cl_dlls
 mkdir -p Xash/valve/dlls
 
 cd hlsdk
-./waf configure -T fast --enable-magx build
-cp build/cl_dll/client.so ../Xash/valve/cl_dlls/client_armv6l.so
-cp build/dlls/hl.so ../Xash/valve/dlls/hl_armv6l.so
+./waf configure -T fast --enable-magx build install --destdir=../Xash
 cd ../
 
 ./waf configure -T fast --enable-magx --win-style-install --prefix='' build install --destdir=Xash/
