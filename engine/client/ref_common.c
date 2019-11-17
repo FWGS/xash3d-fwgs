@@ -34,6 +34,9 @@ void GL_FreeImage( const char *name )
 {
 	int	texnum;
 
+	if( !ref.initialized )
+		return;
+
 	if(( texnum = ref.dllFuncs.GL_FindTexture( name )) != 0 )
 		 ref.dllFuncs.GL_FreeTexture( texnum );
 }
