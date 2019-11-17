@@ -18,13 +18,22 @@ class Subproject:
 	dedicated = True  # if true will be ignored when building dedicated server
 	singlebin = False # if true will be ignored when singlebinary is set
 	ignore    = False # if true will be ignored, set by user request
+	mandatory  = False
 
-	def __init__(self, name, dedicated=True, singlebin=False):
+	def __init__(self, name, dedicated=True, singlebin=False, mandatory = False):
 		self.name = name
 		self.dedicated = dedicated
 		self.singlebin = singlebin
+		self.mandatory = mandatory
 
 	def is_enabled(self, ctx):
+		if not self.mandatory:
+			if self.name in ctx.env.IGNORE_PROJECTS:
+				self.ignore = True
+
+		if self.ignore:
+			return False
+
 		if ctx.env.SINGLE_BINARY and self.singlebin:
 			return False
 
@@ -37,13 +46,15 @@ class Subproject:
 		return True
 
 SUBDIRS = [
-	Subproject('public',      dedicated=False),
+	Subproject('public',      dedicated=False, mandatory = True),
 	Subproject('game_launch', singlebin=True),
-	Subproject('ref_gl'),
-#rsw	Subproject('ref_soft'),
+	Subproject('ref_gl',),
+	Subproject('ref_soft'),
 	Subproject('mainui'),
 	Subproject('vgui_support'),
-	Subproject('engine', dedicated=False),
+	Subproject('stub/server', dedicated=False),
+	Subproject('stub/client'),
+	Subproject('engine', dedicated=False, mandatory = False),
 ]
 
 def subdirs():
@@ -82,11 +93,20 @@ def options(opt):
 	grp.add_option('--enable-magx', action = 'store_true', dest = 'MAGX', default = False,
 		help = 'enable targetting for MotoMAGX phones [default: %default]')
 
+	grp.add_option('--ignore-projects', action = 'store', dest = 'IGNORE_PROJECTS', default = None,
+		help = 'disable selected projects from build [default: %default]')
+
 	opt.load('subproject')
 
-	opt.add_subproject(subdirs())
+	for i in SUBDIRS:
+		if not i.mandatory and not opt.path.find_node(i.name+'/wscript'):
+			i.ignore = True
+			continue
 
-	opt.load('xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test')
+		opt.add_subproject(i.name)
+
+
+	opt.load('xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test')
 	if sys.platform == 'win32':
 		opt.load('msvc msdev msvs')
 	opt.load('reconfigure')
@@ -95,6 +115,9 @@ def configure(conf):
 	enforce_pic = True # modern defaults
 	valid_build_types = ['fastnative', 'fast', 'release', 'debug', 'nooptimize', 'sanitize', 'none']
 	conf.load('fwgslib reconfigure')
+	if conf.options.IGNORE_PROJECTS:
+		conf.env.IGNORE_PROJECTS = conf.options.IGNORE_PROJECTS.split(',')
+
 	conf.start_msg('Build type')
 	if conf.options.BUILD_TYPE == None:
 		conf.end_msg('not set', color='RED')
@@ -115,7 +138,7 @@ def configure(conf):
 	conf.env.MSVC_TARGETS = ['x86'] # explicitly request x86 target for MSVC
 	if sys.platform == 'win32':
 		conf.load('msvc msvc_pdb msdev msvs')
-	conf.load('subproject xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install waf_unit_test')
+	conf.load('xshlib subproject xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install waf_unit_test')
 
 	try:
 		conf.env.CC_VERSION[0]
@@ -353,6 +376,7 @@ def configure(conf):
 		conf.add_subproject(i.name)
 
 def build(bld):
+	bld.load('xshlib')
 	for i in SUBDIRS:
 		if not i.is_enabled(bld):
 			continue

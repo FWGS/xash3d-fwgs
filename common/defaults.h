@@ -131,6 +131,15 @@ SETUP BACKENDS DEFINITIONS
 	#endif
 #endif
 
+#ifdef XASH_STATIC_LIBS
+#define XASH_LIB LIB_STATIC
+#define XASH_INTERNAL_GAMELIBS
+#elif defined _WIN32
+#define XASH_LIB LIB_WIN32
+#else
+#define XASH_LIB LIB_POSIX
+#endif
+
 //
 // fallback to NULL
 //
@@ -149,6 +158,7 @@ SETUP BACKENDS DEFINITIONS
 #ifndef XASH_MESSAGEBOX
 	#define XASH_MESSAGEBOX MSGBOX_STDERR
 #endif
+
 
 /*
 =========================================================================
