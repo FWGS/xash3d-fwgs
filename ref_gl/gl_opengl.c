@@ -243,7 +243,19 @@ static dllfunc_t vbofuncs[] =
 	{ GL_CALL( glUnmapBufferARB ) }, // ,
 	{ GL_CALL( glBufferDataARB ) },
 	{ GL_CALL( glBufferSubDataARB ) },
-	{ NULL, NULL}
+	{ NULL, NULL }
+};
+
+static dllfunc_t drawrangeelementsfuncs[] =
+{
+{ GL_CALL( glDrawRangeElements ) },
+{ NULL, NULL }
+};
+
+static dllfunc_t drawrangeelementsextfuncs[] =
+{
+{ GL_CALL( glDrawRangeElementsEXT ) },
+{ NULL, NULL }
 };
 
 /*
@@ -581,6 +593,7 @@ void GL_InitExtensionsGLES( void )
 		// case GL_ARB_SEAMLESS_CUBEMAP: NOPE
 		// case GL_EXT_GPU_SHADER4: NOPE
 		// case GL_DEPTH_TEXTURE: NOPE
+		// case GL_DRAWRANGEELEMENTS_EXT: NOPE
 		default:
 			GL_SetExtension( extid, false );
 		}
@@ -691,6 +704,15 @@ void GL_InitExtensionsBigGL( void )
 
 	// rectangle textures support
 	GL_CheckExtension( "GL_ARB_texture_rectangle", NULL, "gl_texture_rectangle", GL_TEXTURE_2D_RECT_EXT );
+
+	if( !GL_CheckExtension( "glDrawRangeElements", drawrangeelementsfuncs, "gl_drawrangeelements", GL_DRAW_RANGEELEMENTS_EXT ) )
+	{
+		if( GL_CheckExtension( "glDrawRangeElementsEXT", drawrangeelementsextfuncs,
+			"gl_drawrangelements", GL_DRAW_RANGEELEMENTS_EXT ) )
+		{
+			pglDrawRangeElements = pglDrawRangeElementsEXT;
+		}
+	}
 
 	// this won't work without extended context
 	if( glw_state.extended )
