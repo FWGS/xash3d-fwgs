@@ -12,8 +12,8 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
-#ifndef _WIN32 // see win_lib.c
+#include "platform/platform.h"
+#if XASH_LIB == LIB_POSIX
 #define _GNU_SOURCE
 
 #include "common.h"

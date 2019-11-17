@@ -23,7 +23,10 @@ def options(opt):
 		help = 'enable custom swap allocator. For devices with no swap support')
 
 	grp.add_option('--enable-legacy-sdl', action = 'store_true', dest = 'SDL12', default = False,
-		help = 'enable using SDL1.2 instead of SDL2(not recommended) [default: %default')
+		help = 'enable using SDL1.2 instead of SDL2(not recommended) [default: %default]')
+
+	grp.add_option('--enable-static-binary', action = 'store_true', dest = 'STATIC', default = False,
+		help = 'build static binary(not recommended, --single-binary required) [default: %default]')
 
 	opt.load('sdl2')
 
@@ -55,10 +58,15 @@ def configure(conf):
 	if conf.options.USE_SELECT == None:
 		conf.options.USE_SELECT = conf.options.DEDICATED
 
+	if conf.options.STATIC:
+		conf.env.STATIC = True
+		conf.define('XASH_NO_LIBDL',1)
+
 	if not conf.env.DEST_OS in ['win32', 'android'] and not conf.options.NO_ASYNC_RESOLVE:
 		conf.load('pthreads')
 		conf.check_pthread_flag()
 
+	conf.define_cond('XASH_STATIC_LIBS', conf.env.STATIC_LINKING)
 	conf.define_cond('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
 	conf.define_cond('SINGLE_BINARY', conf.env.SINGLE_BINARY)
 	conf.define_cond('XASH_NO_ASYNC_NS_RESOLVE', conf.options.NO_ASYNC_RESOLVE)
@@ -80,7 +88,9 @@ def build(bld):
 
 	# basic build: dedicated only, no dependencies
 	if bld.env.DEST_OS != 'win32':
-		libs += [ 'DL' , 'M' , 'RT', 'PTHREAD', 'ASOUND']
+		libs += [ 'M', 'RT', 'PTHREAD', 'ASOUND']
+		if not bld.env.STATIC:
+			libs += ['DL']
 		source += bld.path.ant_glob(['platform/posix/*.c'])
 	else:
 		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32' ]
@@ -90,7 +100,11 @@ def build(bld):
 		source += bld.path.ant_glob(['platform/linux/*.c'])
 
 	if bld.get_define('XASH_CUSTOM_SWAP'):
-		source += bld.path.ant_glob(['platform/swap/*.c'])
+		source += bld.path.ant_glob(['platform/misc/kmalloc.c', 'platform/misc/sbrk.c'])
+
+	if bld.env.STATIC_LINKING:
+		source += bld.path.ant_glob(['platform/misc/lib_static.c'])
+		is_cxx_link = True
 
 	if bld.env.HAVE_SDL2:
 		libs.append('SDL2')
@@ -117,7 +131,10 @@ def build(bld):
 
 	if bld.env.SINGLE_BINARY:
 		install_path = bld.env.BINDIR
-		features = ['c', 'cxxprogram' if is_cxx_link else 'cprogram']
+		program = 'cxxprogram' if is_cxx_link else 'cprogram'
+		if bld.env.STATIC:
+			program += '_static'
+		features = ['c', program]
 	else:
 		install_path = bld.env.LIBDIR
 		features = ['c', 'cxxshlib' if is_cxx_link else 'cshlib']

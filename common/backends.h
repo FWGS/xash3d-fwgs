@@ -53,4 +53,12 @@ GNU General Public License for more details.
 #define MSGBOX_ANDROID 2
 #define MSGBOX_WIN32 3
 
+
+// messageboxes (XASH_LIB)
+#define LIB_NULL 0
+#define LIB_POSIX 1
+#define LIB_WIN32 2
+#define LIB_STATIC 3
+
+
 #endif /* BACKENDS_H */
