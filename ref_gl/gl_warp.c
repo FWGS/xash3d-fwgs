@@ -759,6 +759,11 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 	float	s, t, os, ot;
 	glpoly_t	*p;
 	int	i;
+#ifndef XASH_GLES
+	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS );
+#else
+	const qboolean useQuads = false; // TODO: figure out why
+#endif
 
 	if( !warp->polys ) return;
 
@@ -770,7 +775,7 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 	// reset fog color for nonlightmapped water
 	GL_ResetFogColor();
 
-	if( FBitSet( warp->flags, SURF_DRAWTURB_QUADS ))
+	if( useQuads )
 		pglBegin( GL_QUADS );
 
 	for( p = warp->polys; p; p = p->next )
@@ -779,7 +784,7 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 			v = p->verts[0] + ( p->numverts - 1 ) * VERTEXSIZE;
 		else v = p->verts[0];
 
-		if( !FBitSet( warp->flags, SURF_DRAWTURB_QUADS ))
+		if( !useQuads )
 			pglBegin( GL_POLYGON );
 
 		for( i = 0; i < p->numverts; i++ )
@@ -809,11 +814,11 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 			else v += VERTEXSIZE;
 		}
 
-		if( !FBitSet( warp->flags, SURF_DRAWTURB_QUADS ))
+		if( !useQuads )
 			pglEnd();
 	}
 
-	if( FBitSet( warp->flags, SURF_DRAWTURB_QUADS ))
+	if( useQuads )
 		pglEnd();
 
 	GL_SetupFogColorForSurfaces();
