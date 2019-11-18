@@ -1,7 +1,21 @@
+/*
+lib_static.c - static linking support
+Copyright (C) 2018 Flying With Gauss
+
+This program is free software: you can redistribute it and/sor modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
+
 #include "platform/platform.h"
+
 #if XASH_LIB == LIB_STATIC
-
-
 #ifdef XASH_NO_LIBDL
 
 void *dlsym(void *handle, const char *symbol )
@@ -42,7 +56,6 @@ typedef struct table_s
 
 
 #include "generated_library_tables.h"
-
 
 static void *Lib_Find(table_t *tbl, const char *name )
 {

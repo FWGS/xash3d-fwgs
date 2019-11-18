@@ -54,7 +54,7 @@ GNU General Public License for more details.
 #define MSGBOX_WIN32 3
 
 
-// messageboxes (XASH_LIB)
+// library loading (XASH_LIB)
 #define LIB_NULL 0
 #define LIB_POSIX 1
 #define LIB_WIN32 2
