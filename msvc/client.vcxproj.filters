@@ -1,0 +1,334 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="cl_dll">
+      <UniqueIdentifier>{6a04b1fb-219b-49a8-b0d5-94548c117405}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="common">
+      <UniqueIdentifier>{067571d2-0b19-42dd-8fc5-600306baf56c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="pm_shared">
+      <UniqueIdentifier>{bf0db874-9883-43e7-8194-300d58086c08}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="dlls">
+      <UniqueIdentifier>{1ffbfb16-9fec-424f-88bc-f44c078d51f0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cl_dll\hl">
+      <UniqueIdentifier>{b8b94d63-2523-47fb-ada2-ada9e452bea9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\hlsdk\cl_dll\hl\hl_events.cpp">
+      <Filter>cl_dll\hl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\hl\hl_objects.cpp">
+      <Filter>cl_dll\hl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\hl\hl_weapons.cpp">
+      <Filter>cl_dll\hl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\hl\hl_baseentity.cpp">
+      <Filter>cl_dll\hl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\ammo.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\ammo_secondary.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\ammohistory.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\battery.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\cdll_int.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\com_weapons.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\death.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\demo.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\entity.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\ev_common.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\ev_hldm.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\events.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\flashlight.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\GameStudioModelRenderer.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\geiger.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\health.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\hud.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\hud_msg.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\hud_redraw.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\hud_spectator.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\hud_update.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\in_camera.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\input.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\input_goldsource.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\input_mouse.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\input_xash3d.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\menu.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\message.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\MOTD.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\overview.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\parsemsg.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\saytext.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\scoreboard.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\status_icons.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\statusbar.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\studio_util.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\StudioModelRenderer.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\text_message.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\train.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\tri.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\util.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\view.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\crossbow.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\crowbar.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\gauss.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\egon.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\handgrenade.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\hornetgun.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\mp5.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\rpg.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\satchel.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\python.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\glock.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\shotgun.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\squeakgrenade.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\tripmine.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\pm_shared\pm_math.c">
+      <Filter>pm_shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\pm_shared\pm_shared.c">
+      <Filter>pm_shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\pm_shared\pm_debug.c">
+      <Filter>pm_shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\CSMoE\msvc\placeholder.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\input_winrt.cpp">
+      <Filter>cl_dll</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\common\cvardef.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\con_nprint.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\event_api.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\cl_entity.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\com_model.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\mathlib.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\const.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\render_api.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\bspfile.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\ammo.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\ammohistory.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\camera.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\cl_dll.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\cl_util.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\com_weapons.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\demo.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\ev_hldm.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\eventscripts.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\GameStudioModelRenderer.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\health.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\hud.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\hud_iface.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\hud_spectator.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\in_defs.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\input_mouse.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\kbutton.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\overview.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\parsemsg.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\studio_util.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\StudioModelRenderer.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\tf_defs.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\util_vector.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\cl_dll\view.h">
+      <Filter>cl_dll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\pm_shared\pm_defs.h">
+      <Filter>pm_shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\pm_shared\pm_info.h">
+      <Filter>pm_shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\pm_shared\pm_materials.h">
+      <Filter>pm_shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\pm_shared\pm_movevars.h">
+      <Filter>pm_shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\pm_shared\pm_shared.h">
+      <Filter>pm_shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\pm_shared\pm_debug.h">
+      <Filter>pm_shared</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,573 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="engine">
+      <UniqueIdentifier>{c563082a-31b0-48f3-bb32-8efd83059b28}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\client">
+      <UniqueIdentifier>{20e01941-9db6-4ccd-8470-669084c56c22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\client\vgui">
+      <UniqueIdentifier>{0f52bee5-b04c-4d9e-be4a-baed8dddf2c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\client\avi">
+      <UniqueIdentifier>{f8a77935-4f59-4bdf-8b1b-d7a0d873e55c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\server">
+      <UniqueIdentifier>{ba8ec198-fd0c-478a-841e-02c2a1a039a2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\platform">
+      <UniqueIdentifier>{f13e3ee2-8b23-43f3-bca3-8a751540ce8d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\platform\win32">
+      <UniqueIdentifier>{63ba71a0-e952-43a4-a90a-31268656ee71}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\platform\sdl">
+      <UniqueIdentifier>{e1e4056c-fa78-4289-9042-877d1fe349a7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\platform\winrt">
+      <UniqueIdentifier>{c29f6150-d2f9-4a67-bf99-d9f1f4934f8a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\common">
+      <UniqueIdentifier>{27b2afd1-0a14-4466-aa48-31b66cace7a2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\common\imagelib">
+      <UniqueIdentifier>{21e6ea47-008b-490a-b44e-609df1198461}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\common\soundlib">
+      <UniqueIdentifier>{57208ac2-281d-40c0-8858-77e1caafbfa8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\common\soundlib\libmpg">
+      <UniqueIdentifier>{3928ed22-acb5-4636-8e95-a6af2bc23b42}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="public">
+      <UniqueIdentifier>{bd9ceac9-edeb-41f5-b314-cddc28bc6aff}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\engine\client\vgui\vgui_draw.h">
+      <Filter>engine\client\vgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\server\server.h">
+      <Filter>engine\server</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\base_cmd.h">
+      <Filter>engine\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\common.h">
+      <Filter>engine\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\filesystem.h">
+      <Filter>engine\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\library.h">
+      <Filter>engine\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\mod_local.h">
+      <Filter>engine\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\net_buffer.h">
+      <Filter>engine\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\net_encode.h">
+      <Filter>engine\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\netchan.h">
+      <Filter>engine\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\pm_local.h">
+      <Filter>engine\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\protocol.h">
+      <Filter>engine\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\system.h">
+      <Filter>engine\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\world.h">
+      <Filter>engine\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\imagelib\imagelib.h">
+      <Filter>engine\common\imagelib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\soundlib\soundlib.h">
+      <Filter>engine\common\soundlib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\soundlib\libmpg\frame.h">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\soundlib\libmpg\getbits.h">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\soundlib\libmpg\huffman.h">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\soundlib\libmpg\index.h">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\soundlib\libmpg\libmpg.h">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\soundlib\libmpg\mpeghead.h">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\soundlib\libmpg\mpg123.h">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\soundlib\libmpg\reader.h">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\soundlib\libmpg\sample.h">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\soundlib\libmpg\synth.h">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\soundlib\libmpg\fmt123.h">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\platform\sdl\events.h">
+      <Filter>engine\platform\sdl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\platform\winrt\winrt_interop.h">
+      <Filter>engine\platform\winrt</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\client\ref_common.h">
+      <Filter>engine\client</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\client\sound.h">
+      <Filter>engine\client</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\client\vid_common.h">
+      <Filter>engine\client</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\client\vox.h">
+      <Filter>engine\client</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\client\cl_tent.h">
+      <Filter>engine\client</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\client\client.h">
+      <Filter>engine\client</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\client\input.h">
+      <Filter>engine\client</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\client\avi\avi.h">
+      <Filter>engine\client\avi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\common\net_ws.h">
+      <Filter>engine\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\public\crclib.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\public\crtlib.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\public\mathlib.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\public\unittest.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\public\build.h">
+      <Filter>public</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\engine\client\vgui\vgui_draw.c">
+      <Filter>engine\client\vgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_custom.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_filter.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_frame.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_game.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_init.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_log.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_main.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_move.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_phys.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_pmove.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_save.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_world.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_client.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\server\sv_cmds.c">
+      <Filter>engine\server</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\platform\win32\con_win.c">
+      <Filter>engine\platform\win32</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\base_cmd.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\build.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\cfgscript.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\cmd.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\common.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\con_utils.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\crashhandler.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\cvar.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\dedicated.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\filesystem.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\host.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\hpak.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\identification.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\infostring.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\launcher.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\masterlist.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\mod_studio.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\model.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\net_buffer.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\net_chan.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\net_encode.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\pm_surface.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\pm_trace.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\Sequence.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\sys_con.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\system.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\world.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\zone.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\imagelib\img_dds.c">
+      <Filter>engine\common\imagelib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\imagelib\img_main.c">
+      <Filter>engine\common\imagelib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\imagelib\img_quant.c">
+      <Filter>engine\common\imagelib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\imagelib\img_tga.c">
+      <Filter>engine\common\imagelib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\imagelib\img_utils.c">
+      <Filter>engine\common\imagelib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\imagelib\img_wad.c">
+      <Filter>engine\common\imagelib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\imagelib\img_bmp.c">
+      <Filter>engine\common\imagelib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\snd_mp3.c">
+      <Filter>engine\common\soundlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\snd_utils.c">
+      <Filter>engine\common\soundlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\snd_wav.c">
+      <Filter>engine\common\soundlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\snd_main.c">
+      <Filter>engine\common\soundlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\libmpg\format.c">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\libmpg\frame.c">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\libmpg\index.c">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\libmpg\layer3.c">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\libmpg\libmpg.c">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\libmpg\mpg123.c">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\libmpg\parse.c">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\libmpg\reader.c">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\libmpg\synth.c">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\libmpg\tabinit.c">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\libmpg\dct36.c">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\soundlib\libmpg\dct64.c">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\platform\sdl\vid_sdl.c">
+      <Filter>engine\platform\sdl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\platform\sdl\events.c">
+      <Filter>engine\platform\sdl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\platform\winrt\winrt_interop.cpp">
+      <Filter>engine\platform\winrt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\mod_dbghulls.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\ref_common.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\s_dsp.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\s_load.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\s_main.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\s_mix.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\s_mouth.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\s_stream.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\s_utils.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\s_vox.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\titles.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\vid_common.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_cmds.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_custom.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_debug.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_demo.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_efrag.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_efx.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_events.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_frame.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_game.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_gameui.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_main.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_mobile.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_netgraph.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_parse.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_pmove.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_qparse.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_remap.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_render.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_scrn.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_tent.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_video.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\cl_view.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\console.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\in_joy.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\in_touch.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\input.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\keys.c">
+      <Filter>engine\client</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\avi\avi_stub.c">
+      <Filter>engine\client\avi</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\avi\avi_win.c">
+      <Filter>engine\client\avi</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\custom.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\gamma.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\lib_common.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\mod_bmodel.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\mod_sprite.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\net_ws.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\pm_debug.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\platform\sdl\in_sdl.c">
+      <Filter>engine\platform\sdl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\platform\sdl\s_sdl.c">
+      <Filter>engine\platform\sdl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\platform\sdl\sys_sdl.c">
+      <Filter>engine\platform\sdl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\platform\win32\lib_win.c">
+      <Filter>engine\platform\win32</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\platform\win32\sys_win.c">
+      <Filter>engine\platform\win32</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\CSMoE\msvc\placeholder.cpp" />
+    <ClCompile Include="..\public\crclib.c">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="..\public\crtlib.c">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="..\public\mathlib.c">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="..\public\matrixlib.c">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\imagelib\img_png.c">
+      <Filter>engine\common\imagelib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\host_state.c">
+      <Filter>engine\common</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\engine\common\soundlib\libmpg\libmpg.dsp">
+      <Filter>engine\common\soundlib\libmpg</Filter>
+    </None>
+  </ItemGroup>
+</Project>

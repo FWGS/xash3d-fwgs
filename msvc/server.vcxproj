@@ -1,0 +1,353 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\CSMoE\msvc\placeholder.cpp">
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</CompileAsWinRT>
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</CompileAsWinRT>
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</CompileAsWinRT>
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</CompileAsWinRT>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\aflock.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\agrunt.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\airtank.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\animating.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\animation.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\apache.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\barnacle.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\barney.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\bigmomma.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\bloater.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\bmodels.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\bullsquid.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\buttons.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\cbase.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\client.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\combat.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\controller.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\crossbow.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\crowbar.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\defaultai.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\doors.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\effects.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\egon.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\explode.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\flyingmonster.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\func_break.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\func_tank.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\game.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\gamerules.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\gargantua.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\gauss.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\genericmonster.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\ggrenade.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\globals.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\glock.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\gman.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\handgrenade.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\hassassin.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\headcrab.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\healthkit.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\hgrunt.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\hornet.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\hornetgun.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\houndeye.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\h_ai.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\h_battery.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\h_cine.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\h_cycler.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\h_export.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\ichthyosaur.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\islave.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\items.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\leech.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\lights.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\maprules.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\monstermaker.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\monsters.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\monsterstate.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\mortar.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\mp5.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\multiplay_gamerules.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\nihilanth.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\nodes.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\observer.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\osprey.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\pathcorner.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\plane.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\plats.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\player.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\playermonster.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\python.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\rat.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\roach.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\rpg.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\satchel.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\schedule.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\scientist.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\scripted.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\shotgun.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\singleplay_gamerules.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\skill.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\sound.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\soundent.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\spectator.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\squadmonster.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\squeakgrenade.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\stats.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\subs.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\talkmonster.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\teamplay_gamerules.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\tempmonster.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\tentacle.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\triggers.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\tripmine.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\turret.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\util.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\weapons.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\world.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\xen.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\zombie.cpp" />
+    <ClCompile Include="..\hlsdk\game_shared\voice_gamemgr.cpp" />
+    <ClCompile Include="..\hlsdk\pm_shared\pm_debug.c" />
+    <ClCompile Include="..\hlsdk\pm_shared\pm_math.c" />
+    <ClCompile Include="..\hlsdk\pm_shared\pm_shared.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\hlsdk\pm_shared\pm_debug.h" />
+    <ClInclude Include="..\hlsdk\pm_shared\pm_defs.h" />
+    <ClInclude Include="..\hlsdk\pm_shared\pm_info.h" />
+    <ClInclude Include="..\hlsdk\pm_shared\pm_materials.h" />
+    <ClInclude Include="..\hlsdk\pm_shared\pm_movevars.h" />
+    <ClInclude Include="..\hlsdk\pm_shared\pm_shared.h" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{70A2B904-B7DB-4C48-8DE0-AF567360D572}</ProjectGuid>
+    <RootNamespace>server</RootNamespace>
+    <ProjectName>server</ProjectName>
+    <AppContainerApplication>true</AppContainerApplication>
+    <ApplicationType>Windows Store</ApplicationType>
+    <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.10240.0</WindowsTargetPlatformMinVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <TargetName>server</TargetName>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules />
+    <CodeAnalysisRuleAssemblies />
+    <LinkIncremental />
+    <OutDir>$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <TargetName>server</TargetName>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules />
+    <CodeAnalysisRuleAssemblies />
+    <LinkIncremental />
+    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <TargetName>server</TargetName>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules />
+    <CodeAnalysisRuleAssemblies />
+    <OutDir>$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <TargetName>server</TargetName>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules />
+    <CodeAnalysisRuleAssemblies />
+    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <PreBuildEvent>
+      <Command>
+      </Command>
+      <Message>Setup version from Git revision</Message>
+    </PreBuildEvent>
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\hlsdk;..\hlsdk\common;..\hlsdk\dlls;..\hlsdk\engine;..\hlsdk\game_shared;..\hlsdk\public;..\hlsdk\pm_shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <Optimization>Full</Optimization>
+      <PreprocessorDefinitions>SERVER_DLL;CLIENT_WEAPONS;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <AdditionalOptions>/arch:IA32 %(AdditionalOptions)</AdditionalOptions>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <MinimalRebuild>false</MinimalRebuild>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+    </ClCompile>
+    <Link>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+      <Message>Automatic deployment script</Message>
+    </PostBuildEvent>
+    <CustomBuildStep />
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <PreBuildEvent>
+      <Command>
+      </Command>
+      <Message>Setup version from Git revision</Message>
+    </PreBuildEvent>
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\hlsdk;..\hlsdk\common;..\hlsdk\dlls;..\hlsdk\engine;..\hlsdk\game_shared;..\hlsdk\public;..\hlsdk\pm_shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Full</Optimization>
+      <PreprocessorDefinitions>SERVER_DLL;CLIENT_WEAPONS;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <MinimalRebuild>false</MinimalRebuild>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+    </ClCompile>
+    <Link>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+      <Message>Automatic deployment script</Message>
+    </PostBuildEvent>
+    <CustomBuildStep />
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <PreBuildEvent>
+      <Command>
+      </Command>
+      <Message>Setup version from Git revision</Message>
+    </PreBuildEvent>
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\hlsdk;..\hlsdk\common;..\hlsdk\dlls;..\hlsdk\engine;..\hlsdk\game_shared;..\hlsdk\public;..\hlsdk\pm_shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>SERVER_DLL;CLIENT_WEAPONS;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <AdditionalOptions>/arch:IA32 %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+      <Message>Automatic deployment script</Message>
+    </PostBuildEvent>
+    <CustomBuildStep />
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <PreBuildEvent>
+      <Command>
+      </Command>
+      <Message>Setup version from Git revision</Message>
+    </PreBuildEvent>
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\hlsdk;..\hlsdk\common;..\hlsdk\dlls;..\hlsdk\engine;..\hlsdk\game_shared;..\hlsdk\public;..\hlsdk\pm_shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>SERVER_DLL;CLIENT_WEAPONS;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+      <Message>Automatic deployment script</Message>
+    </PostBuildEvent>
+    <CustomBuildStep />
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

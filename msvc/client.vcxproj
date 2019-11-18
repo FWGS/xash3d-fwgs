@@ -1,0 +1,322 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\CSMoE\msvc\placeholder.cpp">
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</CompileAsWinRT>
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</CompileAsWinRT>
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</CompileAsWinRT>
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</CompileAsWinRT>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\cl_dll\ammo.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\ammohistory.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\ammo_secondary.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\battery.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\cdll_int.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\com_weapons.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\death.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\demo.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\entity.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\events.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\ev_common.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\ev_hldm.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\flashlight.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\GameStudioModelRenderer.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\geiger.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\health.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\hl\hl_baseentity.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\hl\hl_events.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\hl\hl_objects.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\hl\hl_weapons.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\hud.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\hud_msg.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\hud_redraw.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\hud_spectator.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\hud_update.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\input.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\input_goldsource.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\input_mouse.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\input_winrt.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\input_xash3d.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\in_camera.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\menu.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\message.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\MOTD.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\overview.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\parsemsg.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\saytext.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\scoreboard.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\statusbar.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\status_icons.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\StudioModelRenderer.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\studio_util.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\text_message.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\train.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\tri.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\util.cpp" />
+    <ClCompile Include="..\hlsdk\cl_dll\view.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\crossbow.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\crowbar.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\egon.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\gauss.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\glock.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\handgrenade.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\hornetgun.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\mp5.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\python.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\rpg.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\satchel.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\shotgun.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\squeakgrenade.cpp" />
+    <ClCompile Include="..\hlsdk\dlls\tripmine.cpp" />
+    <ClCompile Include="..\hlsdk\pm_shared\pm_debug.c" />
+    <ClCompile Include="..\hlsdk\pm_shared\pm_math.c" />
+    <ClCompile Include="..\hlsdk\pm_shared\pm_shared.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\common\bspfile.h" />
+    <ClInclude Include="..\common\cl_entity.h" />
+    <ClInclude Include="..\common\com_model.h" />
+    <ClInclude Include="..\common\const.h" />
+    <ClInclude Include="..\common\con_nprint.h" />
+    <ClInclude Include="..\common\cvardef.h" />
+    <ClInclude Include="..\common\event_api.h" />
+    <ClInclude Include="..\common\mathlib.h" />
+    <ClInclude Include="..\common\render_api.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\ammo.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\ammohistory.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\camera.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\cl_dll.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\cl_util.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\com_weapons.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\demo.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\eventscripts.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\ev_hldm.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\GameStudioModelRenderer.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\health.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\hud.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\hud_iface.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\hud_spectator.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\input_mouse.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\in_defs.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\kbutton.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\overview.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\parsemsg.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\StudioModelRenderer.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\studio_util.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\tf_defs.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\util_vector.h" />
+    <ClInclude Include="..\hlsdk\cl_dll\view.h" />
+    <ClInclude Include="..\hlsdk\pm_shared\pm_debug.h" />
+    <ClInclude Include="..\hlsdk\pm_shared\pm_defs.h" />
+    <ClInclude Include="..\hlsdk\pm_shared\pm_info.h" />
+    <ClInclude Include="..\hlsdk\pm_shared\pm_materials.h" />
+    <ClInclude Include="..\hlsdk\pm_shared\pm_movevars.h" />
+    <ClInclude Include="..\hlsdk\pm_shared\pm_shared.h" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{DC1DD765-CFEB-47DA-A2EA-9F1E20A24272}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>hl_cdll</RootNamespace>
+    <AppContainerApplication>true</AppContainerApplication>
+    <ApplicationType>Windows Store</ApplicationType>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
+    <WindowsTargetPlatformMinVersion>10.0.18362.0</WindowsTargetPlatformMinVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>NotSet</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>NotSet</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>NotSet</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>NotSet</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(Configuration)\</OutDir>
+    <TargetName>client</TargetName>
+    <IntDir>$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <TargetName>client</TargetName>
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(Configuration)\</OutDir>
+    <TargetName>client</TargetName>
+    <IntDir>$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <TargetName>client</TargetName>
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;CLIENT_DLL;CLIENT_WEAPONS;HL_DLL;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\hlsdk\dlls;..\hlsdk\cl_dll;..\hlsdk\common;..\hlsdk\pm_shared;..\hlsdk\engine;..\hlsdk\game_shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <DisableSpecificWarnings>4819</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <CompileAsWinRT>false</CompileAsWinRT>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <BaseAddress>
+      </BaseAddress>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+    <PostBuildEvent />
+    <PostBuildEvent>
+      <Message>
+      </Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;CLIENT_DLL;CLIENT_WEAPONS;HL_DLL;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\hlsdk\dlls;..\hlsdk\cl_dll;..\hlsdk\common;..\hlsdk\pm_shared;..\hlsdk\engine;..\hlsdk\game_shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <DisableSpecificWarnings>4819</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <CompileAsWinRT>false</CompileAsWinRT>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <BaseAddress>
+      </BaseAddress>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+    <PostBuildEvent />
+    <PostBuildEvent>
+      <Message>
+      </Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;CLIENT_DLL;CLIENT_WEAPONS;HL_DLL;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\hlsdk\dlls;..\hlsdk\cl_dll;..\hlsdk\common;..\hlsdk\pm_shared;..\hlsdk\engine;..\hlsdk\game_shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <DisableSpecificWarnings>4819</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <CompileAsWinRT>false</CompileAsWinRT>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <BaseAddress>
+      </BaseAddress>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+    <PostBuildEvent />
+    <PostBuildEvent>
+      <Message>
+      </Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;CLIENT_DLL;CLIENT_WEAPONS;HL_DLL;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\hlsdk\dlls;..\hlsdk\cl_dll;..\hlsdk\common;..\hlsdk\pm_shared;..\hlsdk\engine;..\hlsdk\game_shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <DisableSpecificWarnings>4819</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <CompileAsWinRT>false</CompileAsWinRT>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <BaseAddress>
+      </BaseAddress>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+    <PostBuildEvent />
+    <PostBuildEvent>
+      <Message>
+      </Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

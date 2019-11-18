@@ -1,0 +1,403 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="mainui">
+      <UniqueIdentifier>{9a12c3d2-f798-4a41-9cf0-2e45888a61e1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="mainui\miniutl">
+      <UniqueIdentifier>{28895f00-bee6-4194-bc04-a9c26bce09ff}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="mainui\font">
+      <UniqueIdentifier>{9655e1fc-e12d-4abf-b791-6c9dcde0c16d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="mainui\menus">
+      <UniqueIdentifier>{c3b5ae88-b49d-4aaa-8bbe-fdddef14924d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="mainui\menus\dynamic">
+      <UniqueIdentifier>{e7095df3-a1ea-4ed0-9b32-2c63905af416}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="mainui\controls">
+      <UniqueIdentifier>{f8570da3-2737-4b6d-8ae2-ff7c3fabe4b3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\mainui\miniutl\bitstring.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\fmtstr.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\generichash.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\ipv6text.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\minbase_endian.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\miniutl.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\strtools.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\utlbuffer.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\utlhashmap.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\utllinkedlist.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\utlmap.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\utlmemory.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\utlpriorityqueue.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\utlrbtree.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\utlstring.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\miniutl\utlvector.h">
+      <Filter>mainui\miniutl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\menus\PlayerIntroduceDialog.h">
+      <Filter>mainui\menus</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\font\BitmapFont.h">
+      <Filter>mainui\font</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\font\FontManager.h">
+      <Filter>mainui\font</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\font\FontRenderer.h">
+      <Filter>mainui\font</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\font\FreeTypeFont.h">
+      <Filter>mainui\font</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\font\stb_truetype.h">
+      <Filter>mainui\font</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\font\StbFont.h">
+      <Filter>mainui\font</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\font\BaseFontBackend.h">
+      <Filter>mainui\font</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\BaseClientWindow.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\BaseItem.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\BaseWindow.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\Bitmap.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\CheckBox.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\Editable.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\Field.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\Framework.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\ItemsHolder.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\MessageBox.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\PicButton.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\PlayerModelView.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\ProgressBar.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\ScrollView.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\Slider.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\SpinControl.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\Switch.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\Table.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\TabView.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\YesNoMessageBox.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\Action.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mainui\controls\BackgroundBitmap.h">
+      <Filter>mainui\controls</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\mainui\miniutl\strtools.cpp">
+      <Filter>mainui\miniutl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\miniutl\utlbuffer.cpp">
+      <Filter>mainui\miniutl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\miniutl\utlmemory.cpp">
+      <Filter>mainui\miniutl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\miniutl\utlstring.cpp">
+      <Filter>mainui\miniutl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\miniutl\bitstring.cpp">
+      <Filter>mainui\miniutl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\miniutl\generichash.cpp">
+      <Filter>mainui\miniutl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\PlayerIntroduceDialog.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\PlayerSetup.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\SaveLoad.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\ServerBrowser.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\Touch.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\TouchButtons.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\TouchEdit.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\TouchOptions.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\Video.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\VideoModes.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\VideoOptions.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\Zoo.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\AdvancedControls.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\Audio.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\Configuration.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\ConnectionProgress.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\ConnectionWarning.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\Controls.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\CreateGame.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\Credits.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\CustomGame.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\FileDialog.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\GameOptions.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\Gamepad.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\InputDevices.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\LoadGame.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\Main.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\Multiplayer.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\NewGame.cpp">
+      <Filter>mainui\menus</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\menus\dynamic\ScriptMenu.cpp">
+      <Filter>mainui\menus\dynamic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\font\FontManager.cpp">
+      <Filter>mainui\font</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\font\FreeTypeFont.cpp">
+      <Filter>mainui\font</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\font\StbFont.cpp">
+      <Filter>mainui\font</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\font\BaseFontBackend.cpp">
+      <Filter>mainui\font</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\font\BitmapFont.cpp">
+      <Filter>mainui\font</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\BaseClientWindow.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\BaseItem.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\BaseWindow.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\Bitmap.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\CheckBox.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\Editable.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\Field.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\Framework.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\ItemsHolder.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\MessageBox.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\PicButton.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\PlayerModelView.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\ProgressBar.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\ScrollView.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\Slider.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\SpinControl.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\Switch.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\Table.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\TabView.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\YesNoMessageBox.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\Action.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\controls\BackgroundBitmap.cpp">
+      <Filter>mainui\controls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\BaseMenu.cpp">
+      <Filter>mainui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\Btns.cpp">
+      <Filter>mainui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\CFGScript.cpp">
+      <Filter>mainui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\Color.cpp">
+      <Filter>mainui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\EngineCallback.cpp">
+      <Filter>mainui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\EventSystem.cpp">
+      <Filter>mainui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\MenuStrings.cpp">
+      <Filter>mainui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\Scissor.cpp">
+      <Filter>mainui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\udll_int.cpp">
+      <Filter>mainui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\unicode_strtools.cpp">
+      <Filter>mainui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\Utils.cpp">
+      <Filter>mainui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mainui\WindowSystem.cpp">
+      <Filter>mainui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\CSMoE\msvc\placeholder.cpp" />
+  </ItemGroup>
+</Project>

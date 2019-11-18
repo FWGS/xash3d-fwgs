@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest">
+      <SubType>Designer</SubType>
+    </AppxManifest>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="extras.pak">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\SDL2\src\main\winrt\SDL_winrt_main_NonXAML.cpp">
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</CompileAsWinRT>
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</CompileAsWinRT>
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</CompileAsWinRT>
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</CompileAsWinRT>
+    </ClCompile>
+    <ClCompile Include="xash_winrt.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <SDKReference Include="Microsoft.UniversalCRT.Debug, Version=10.0.18362.0" />
+    <SDKReference Include="Microsoft.VCLibs.Desktop, Version=14.0" />
+    <SDKReference Include="WindowsDesktop, Version=10.0.18362.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SDL2\VisualC-WinRT\UWP_VS2015\SDL-UWP.vcxproj">
+      <Project>{89e9b32e-a86a-47c3-a948-d2b1622925ce}</Project>
+    </ProjectReference>
+    <ProjectReference Include="client.vcxproj">
+      <Project>{dc1dd765-cfeb-47da-a2ea-9f1e20a24272}</Project>
+    </ProjectReference>
+    <ProjectReference Include="mainui.vcxproj">
+      <Project>{90f48f37-d9f8-4f36-b04f-1fc8cc834424}</Project>
+    </ProjectReference>
+    <ProjectReference Include="ref_gles2.vcxproj">
+      <Project>{7787c76b-64fd-4910-8494-8ff5b97789ae}</Project>
+    </ProjectReference>
+    <ProjectReference Include="server.vcxproj">
+      <Project>{70a2b904-b7db-4c48-8de0-af567360d572}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Images\BadgeLogo.scale-200.png" />
+    <Image Include="Images\LargeTile.scale-200.png" />
+    <Image Include="Images\SmallTile.scale-200.png" />
+    <Image Include="Images\SplashScreen.scale-200.png" />
+    <Image Include="Images\Square150x150Logo.scale-200.png" />
+    <Image Include="Images\Square44x44Logo.altform-lightunplated_targetsize-48.png" />
+    <Image Include="Images\Square44x44Logo.altform-unplated_targetsize-48.png" />
+    <Image Include="Images\Square44x44Logo.scale-200.png" />
+    <Image Include="Images\Square44x44Logo.targetsize-48.png" />
+    <Image Include="Images\StoreLogo.scale-200.png" />
+    <Image Include="Images\Wide310x150Logo.scale-200.png" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{54F94AA6-5732-43CC-9884-9FBC00B0F314}</ProjectGuid>
+    <Keyword>WindowsRuntimeComponent</Keyword>
+    <RootNamespace>game_launch</RootNamespace>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
+    <AppContainerApplication>true</AppContainerApplication>
+    <ApplicationType>Windows Store</ApplicationType>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
+    <WindowsTargetPlatformMinVersion>10.0.10240.0</WindowsTargetPlatformMinVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsDesktop, Version=10.0.18362.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsDesktop.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsDesktop, Version=10.0.18362.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsDesktop.props')" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsDesktop, Version=10.0.18362.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsDesktop.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsDesktop, Version=10.0.18362.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsDesktop.props')" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsDesktop, Version=10.0.18362.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsDesktop.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsDesktop, Version=10.0.18362.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsDesktop.props')" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsDesktop, Version=10.0.18362.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsDesktop.props" Condition="exists('$([Microsoft.Build.Utilities.ToolLocationHelper]::GetPlatformExtensionSDKLocation(`WindowsDesktop, Version=10.0.18362.0`, $(TargetPlatformIdentifier), $(TargetPlatformVersion),  $(SDKReferenceDirectoryRoot), $(SDKExtensionDirectoryRoot), $(SDKReferenceRegistryRoot)))\DesignTime\CommonConfiguration\Neutral\WindowsDesktop.props')" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros">
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+    <ReferencePath>$(OutDir);$(OutDir)SDL-UWP;$(VC_ReferencesPath_x86);</ReferencePath>
+    <LibraryPath>$(OutDir);$(OutDir)SDL-UWP;$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(NETFXKitsDir)Lib\um\x86</LibraryPath>
+    <LibraryWPath>$(OutDir);$(OutDir)SDL-UWP;$(WindowsSDK_MetadataPath);</LibraryWPath>
+    <TargetName>xash</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+    <ReferencePath>$(OutDir);$(OutDir)SDL-UWP;$(VC_ReferencesPath_x86);</ReferencePath>
+    <LibraryPath>$(OutDir);$(OutDir)SDL-UWP;$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(NETFXKitsDir)Lib\um\x86</LibraryPath>
+    <LibraryWPath>$(OutDir);$(OutDir)SDL-UWP;$(WindowsSDK_MetadataPath);</LibraryWPath>
+    <TargetName>xash</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <ReferencePath>$(OutDir);$(OutDir)SDL-UWP;$(VC_ReferencesPath_x64);</ReferencePath>
+    <LibraryPath>$(OutDir);$(OutDir)SDL-UWP;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
+    <LibraryWPath>$(OutDir);$(OutDir)SDL-UWP;$(WindowsSDK_MetadataPath);</LibraryWPath>
+    <TargetName>xash</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <ReferencePath>$(OutDir);$(OutDir)SDL-UWP;$(VC_ReferencesPath_x64);</ReferencePath>
+    <LibraryPath>$(OutDir);$(OutDir)SDL-UWP;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
+    <LibraryWPath>$(OutDir);$(OutDir)SDL-UWP;$(WindowsSDK_MetadataPath);</LibraryWPath>
+    <TargetName>xash</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <AdditionalUsingDirectories>$(WindowsSDK_WindowsMetadata);$(AdditionalUsingDirectories)</AdditionalUsingDirectories>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+      <DisableSpecificWarnings>28204</DisableSpecificWarnings>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>../SDL2/include;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>XASH_SDL;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <CompileAsWinRT>false</CompileAsWinRT>
+    </ClCompile>
+    <Link />
+    <Link />
+    <Link>
+      <AdditionalDependencies>engine.lib;ref_gles2.lib;SDL2.lib;ws2_32.lib;WindowsApp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <AdditionalUsingDirectories>$(WindowsSDK_WindowsMetadata);$(AdditionalUsingDirectories)</AdditionalUsingDirectories>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+      <DisableSpecificWarnings>28204</DisableSpecificWarnings>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>../SDL2/include;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>XASH_SDL;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <CompileAsWinRT>false</CompileAsWinRT>
+    </ClCompile>
+    <Link />
+    <Link>
+      <AdditionalDependencies>engine.lib;ref_gles2.lib;SDL2.lib;ws2_32.lib;WindowsApp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PreprocessorDefinitions>XASH_SDL;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
+      <AdditionalUsingDirectories>$(WindowsSDK_WindowsMetadata);$(AdditionalUsingDirectories)</AdditionalUsingDirectories>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+      <DisableSpecificWarnings>28204</DisableSpecificWarnings>
+      <AdditionalIncludeDirectories>../SDL2/include;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <CompileAsWinRT>false</CompileAsWinRT>
+    </ClCompile>
+    <Link />
+    <Link />
+    <Link>
+      <AdditionalDependencies>engine.lib;ref_gles2.lib;SDL2.lib;ws2_32.lib;WindowsApp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <PreprocessorDefinitions>XASH_SDL;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
+      <AdditionalUsingDirectories>$(WindowsSDK_WindowsMetadata);$(AdditionalUsingDirectories)</AdditionalUsingDirectories>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+      <DisableSpecificWarnings>28204</DisableSpecificWarnings>
+      <AdditionalIncludeDirectories>../SDL2/include;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+    </ClCompile>
+    <Link />
+    <Link>
+      <AdditionalDependencies>engine.lib;ref_gles2.lib;SDL2.lib;ws2_32.lib;WindowsApp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="packages\ANGLE.WindowsStore.2.1.13\build\native\ANGLE.WindowsStore.targets" Condition="Exists('packages\ANGLE.WindowsStore.2.1.13\build\native\ANGLE.WindowsStore.targets')" />
+  </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\ANGLE.WindowsStore.2.1.13\build\native\ANGLE.WindowsStore.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\ANGLE.WindowsStore.2.1.13\build\native\ANGLE.WindowsStore.targets'))" />
+  </Target>
+</Project>

@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\engine\client\avi\avi.h" />
+    <ClInclude Include="..\engine\client\client.h" />
+    <ClInclude Include="..\engine\client\cl_tent.h" />
+    <ClInclude Include="..\engine\client\input.h" />
+    <ClInclude Include="..\engine\client\ref_common.h" />
+    <ClInclude Include="..\engine\client\sound.h" />
+    <ClInclude Include="..\engine\client\vgui\vgui_draw.h" />
+    <ClInclude Include="..\engine\client\vid_common.h" />
+    <ClInclude Include="..\engine\client\vox.h" />
+    <ClInclude Include="..\engine\common\base_cmd.h" />
+    <ClInclude Include="..\engine\common\common.h" />
+    <ClInclude Include="..\engine\common\filesystem.h" />
+    <ClInclude Include="..\engine\common\imagelib\imagelib.h" />
+    <ClInclude Include="..\engine\common\library.h" />
+    <ClInclude Include="..\engine\common\mod_local.h" />
+    <ClInclude Include="..\engine\common\netchan.h" />
+    <ClInclude Include="..\engine\common\net_buffer.h" />
+    <ClInclude Include="..\engine\common\net_encode.h" />
+    <ClInclude Include="..\engine\common\net_ws.h" />
+    <ClInclude Include="..\engine\common\pm_local.h" />
+    <ClInclude Include="..\engine\common\protocol.h" />
+    <ClInclude Include="..\engine\common\soundlib\libmpg\fmt123.h" />
+    <ClInclude Include="..\engine\common\soundlib\libmpg\frame.h" />
+    <ClInclude Include="..\engine\common\soundlib\libmpg\getbits.h" />
+    <ClInclude Include="..\engine\common\soundlib\libmpg\huffman.h" />
+    <ClInclude Include="..\engine\common\soundlib\libmpg\index.h" />
+    <ClInclude Include="..\engine\common\soundlib\libmpg\libmpg.h" />
+    <ClInclude Include="..\engine\common\soundlib\libmpg\mpeghead.h" />
+    <ClInclude Include="..\engine\common\soundlib\libmpg\mpg123.h" />
+    <ClInclude Include="..\engine\common\soundlib\libmpg\reader.h" />
+    <ClInclude Include="..\engine\common\soundlib\libmpg\sample.h" />
+    <ClInclude Include="..\engine\common\soundlib\libmpg\synth.h" />
+    <ClInclude Include="..\engine\common\soundlib\soundlib.h" />
+    <ClInclude Include="..\engine\common\system.h" />
+    <ClInclude Include="..\engine\common\world.h" />
+    <ClInclude Include="..\engine\platform\sdl\events.h" />
+    <ClInclude Include="..\engine\platform\winrt\winrt_interop.h" />
+    <ClInclude Include="..\engine\server\server.h" />
+    <ClInclude Include="..\public\build.h" />
+    <ClInclude Include="..\public\crclib.h" />
+    <ClInclude Include="..\public\crtlib.h" />
+    <ClInclude Include="..\public\mathlib.h" />
+    <ClInclude Include="..\public\unittest.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\CSMoE\msvc\placeholder.cpp">
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</CompileAsWinRT>
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</CompileAsWinRT>
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</CompileAsWinRT>
+      <CompileAsWinRT Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</CompileAsWinRT>
+    </ClCompile>
+    <ClCompile Include="..\engine\client\avi\avi_stub.c" />
+    <ClCompile Include="..\engine\client\avi\avi_win.c" />
+    <ClCompile Include="..\engine\client\cl_cmds.c" />
+    <ClCompile Include="..\engine\client\cl_custom.c" />
+    <ClCompile Include="..\engine\client\cl_debug.c" />
+    <ClCompile Include="..\engine\client\cl_demo.c" />
+    <ClCompile Include="..\engine\client\cl_efrag.c" />
+    <ClCompile Include="..\engine\client\cl_efx.c" />
+    <ClCompile Include="..\engine\client\cl_events.c" />
+    <ClCompile Include="..\engine\client\cl_frame.c" />
+    <ClCompile Include="..\engine\client\cl_game.c" />
+    <ClCompile Include="..\engine\client\cl_gameui.c" />
+    <ClCompile Include="..\engine\client\cl_main.c" />
+    <ClCompile Include="..\engine\client\cl_mobile.c" />
+    <ClCompile Include="..\engine\client\cl_netgraph.c" />
+    <ClCompile Include="..\engine\client\cl_parse.c" />
+    <ClCompile Include="..\engine\client\cl_pmove.c" />
+    <ClCompile Include="..\engine\client\cl_qparse.c" />
+    <ClCompile Include="..\engine\client\cl_remap.c" />
+    <ClCompile Include="..\engine\client\cl_render.c" />
+    <ClCompile Include="..\engine\client\cl_scrn.c" />
+    <ClCompile Include="..\engine\client\cl_tent.c" />
+    <ClCompile Include="..\engine\client\cl_video.c" />
+    <ClCompile Include="..\engine\client\cl_view.c" />
+    <ClCompile Include="..\engine\client\console.c" />
+    <ClCompile Include="..\engine\client\input.c" />
+    <ClCompile Include="..\engine\client\in_joy.c" />
+    <ClCompile Include="..\engine\client\in_touch.c" />
+    <ClCompile Include="..\engine\client\keys.c" />
+    <ClCompile Include="..\engine\client\mod_dbghulls.c" />
+    <ClCompile Include="..\engine\client\ref_common.c" />
+    <ClCompile Include="..\engine\client\s_dsp.c" />
+    <ClCompile Include="..\engine\client\s_load.c" />
+    <ClCompile Include="..\engine\client\s_main.c" />
+    <ClCompile Include="..\engine\client\s_mix.c" />
+    <ClCompile Include="..\engine\client\s_mouth.c" />
+    <ClCompile Include="..\engine\client\s_stream.c" />
+    <ClCompile Include="..\engine\client\s_utils.c" />
+    <ClCompile Include="..\engine\client\s_vox.c" />
+    <ClCompile Include="..\engine\client\titles.c" />
+    <ClCompile Include="..\engine\client\vgui\vgui_draw.c" />
+    <ClCompile Include="..\engine\client\vid_common.c" />
+    <ClCompile Include="..\engine\common\base_cmd.c" />
+    <ClCompile Include="..\engine\common\build.c" />
+    <ClCompile Include="..\engine\common\cfgscript.c" />
+    <ClCompile Include="..\engine\common\cmd.c" />
+    <ClCompile Include="..\engine\common\common.c">
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)\host_common.obj</ObjectFileName>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(IntDir)\host_common.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\engine\common\con_utils.c" />
+    <ClCompile Include="..\engine\common\crashhandler.c" />
+    <ClCompile Include="..\engine\common\custom.c" />
+    <ClCompile Include="..\engine\common\cvar.c" />
+    <ClCompile Include="..\engine\common\dedicated.c" />
+    <ClCompile Include="..\engine\common\filesystem.c" />
+    <ClCompile Include="..\engine\common\gamma.c" />
+    <ClCompile Include="..\engine\common\host.c" />
+    <ClCompile Include="..\engine\common\host_state.c" />
+    <ClCompile Include="..\engine\common\hpak.c" />
+    <ClCompile Include="..\engine\common\identification.c" />
+    <ClCompile Include="..\engine\common\imagelib\img_bmp.c" />
+    <ClCompile Include="..\engine\common\imagelib\img_dds.c" />
+    <ClCompile Include="..\engine\common\imagelib\img_main.c" />
+    <ClCompile Include="..\engine\common\imagelib\img_png.c" />
+    <ClCompile Include="..\engine\common\imagelib\img_quant.c" />
+    <ClCompile Include="..\engine\common\imagelib\img_tga.c" />
+    <ClCompile Include="..\engine\common\imagelib\img_utils.c" />
+    <ClCompile Include="..\engine\common\imagelib\img_wad.c" />
+    <ClCompile Include="..\engine\common\infostring.c" />
+    <ClCompile Include="..\engine\common\launcher.c" />
+    <ClCompile Include="..\engine\common\lib_common.c" />
+    <ClCompile Include="..\engine\common\masterlist.c" />
+    <ClCompile Include="..\engine\common\model.c" />
+    <ClCompile Include="..\engine\common\mod_bmodel.c" />
+    <ClCompile Include="..\engine\common\mod_sprite.c" />
+    <ClCompile Include="..\engine\common\mod_studio.c" />
+    <ClCompile Include="..\engine\common\net_buffer.c" />
+    <ClCompile Include="..\engine\common\net_chan.c" />
+    <ClCompile Include="..\engine\common\net_encode.c" />
+    <ClCompile Include="..\engine\common\net_ws.c" />
+    <ClCompile Include="..\engine\common\pm_debug.c" />
+    <ClCompile Include="..\engine\common\pm_surface.c" />
+    <ClCompile Include="..\engine\common\pm_trace.c" />
+    <ClCompile Include="..\engine\common\Sequence.c" />
+    <ClCompile Include="..\engine\common\soundlib\libmpg\dct36.c" />
+    <ClCompile Include="..\engine\common\soundlib\libmpg\dct64.c" />
+    <ClCompile Include="..\engine\common\soundlib\libmpg\format.c" />
+    <ClCompile Include="..\engine\common\soundlib\libmpg\frame.c" />
+    <ClCompile Include="..\engine\common\soundlib\libmpg\index.c" />
+    <ClCompile Include="..\engine\common\soundlib\libmpg\layer3.c" />
+    <ClCompile Include="..\engine\common\soundlib\libmpg\libmpg.c" />
+    <ClCompile Include="..\engine\common\soundlib\libmpg\mpg123.c" />
+    <ClCompile Include="..\engine\common\soundlib\libmpg\parse.c" />
+    <ClCompile Include="..\engine\common\soundlib\libmpg\reader.c" />
+    <ClCompile Include="..\engine\common\soundlib\libmpg\synth.c" />
+    <ClCompile Include="..\engine\common\soundlib\libmpg\tabinit.c" />
+    <ClCompile Include="..\engine\common\soundlib\snd_main.c" />
+    <ClCompile Include="..\engine\common\soundlib\snd_mp3.c" />
+    <ClCompile Include="..\engine\common\soundlib\snd_utils.c" />
+    <ClCompile Include="..\engine\common\soundlib\snd_wav.c" />
+    <ClCompile Include="..\engine\common\system.c" />
+    <ClCompile Include="..\engine\common\sys_con.c" />
+    <ClCompile Include="..\engine\common\world.c" />
+    <ClCompile Include="..\engine\common\zone.c" />
+    <ClCompile Include="..\engine\platform\sdl\events.c" />
+    <ClCompile Include="..\engine\platform\sdl\in_sdl.c" />
+    <ClCompile Include="..\engine\platform\sdl\sys_sdl.c" />
+    <ClCompile Include="..\engine\platform\sdl\s_sdl.c" />
+    <ClCompile Include="..\engine\platform\sdl\vid_sdl.c" />
+    <ClCompile Include="..\engine\platform\win32\con_win.c" />
+    <ClCompile Include="..\engine\platform\win32\lib_win.c" />
+    <ClCompile Include="..\engine\platform\win32\sys_win.c" />
+    <ClCompile Include="..\engine\platform\winrt\winrt_interop.cpp" />
+    <ClCompile Include="..\engine\server\sv_client.c" />
+    <ClCompile Include="..\engine\server\sv_cmds.c" />
+    <ClCompile Include="..\engine\server\sv_custom.c" />
+    <ClCompile Include="..\engine\server\sv_filter.c" />
+    <ClCompile Include="..\engine\server\sv_frame.c" />
+    <ClCompile Include="..\engine\server\sv_game.c" />
+    <ClCompile Include="..\engine\server\sv_init.c" />
+    <ClCompile Include="..\engine\server\sv_log.c" />
+    <ClCompile Include="..\engine\server\sv_main.c" />
+    <ClCompile Include="..\engine\server\sv_move.c" />
+    <ClCompile Include="..\engine\server\sv_phys.c" />
+    <ClCompile Include="..\engine\server\sv_pmove.c" />
+    <ClCompile Include="..\engine\server\sv_save.c" />
+    <ClCompile Include="..\engine\server\sv_world.c" />
+    <ClCompile Include="..\public\crclib.c" />
+    <ClCompile Include="..\public\crtlib.c" />
+    <ClCompile Include="..\public\mathlib.c" />
+    <ClCompile Include="..\public\matrixlib.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\engine\common\soundlib\libmpg\libmpg.dsp" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectGuid>{968E2A53-1185-43C9-A6D9-1F5C8C8AAA23}</ProjectGuid>
+    <RootNamespace>xash</RootNamespace>
+    <AppContainerApplication>true</AppContainerApplication>
+    <ApplicationType>Windows Store</ApplicationType>
+    <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.10240.0</WindowsTargetPlatformMinVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <TargetName>engine</TargetName>
+    <LibraryPath>../SDL2/lib/x86;$(VC_LibraryPath_x86);$(WindowsSdk_71A_LibraryPath_x86);</LibraryPath>
+    <OutDir>$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <TargetName>engine</TargetName>
+    <LibraryPath>../SDL2/lib/x86;$(VC_LibraryPath_x86);$(WindowsSdk_71A_LibraryPath_x86);</LibraryPath>
+    <OutDir>$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <LibraryPath>../SDL2/lib/x64;$(VC_LibraryPath_x64);$(WindowsSdk_71A_LibraryPath_x64);</LibraryPath>
+    <TargetName>engine</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <LibraryPath>../SDL2/lib/x64;$(VC_LibraryPath_x64);$(WindowsSdk_71A_LibraryPath_x64);</LibraryPath>
+    <TargetName>engine</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>XASH_WES;XASH_GLES;XASH_BUILD_COMMIT="$(Configuration)";XASH_VGUI;XASH_SDL=2;XASH_FORCEINLINE;XASH_FASTSTR;_CRT_NONSTDC_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../engine;../engine/common;../engine/server;../engine/client;../engine/client/vgui;../public;../common;../pm_shared;../SDL2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <Link />
+    <Link>
+      <AdditionalDependencies>SDL2.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>../engine;../engine/common;../engine/server;../engine/client;../engine/client/vgui;../public;../common;../pm_shared;../SDL2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>XASH_WES;XASH_GLES;XASH_BUILD_COMMIT="$(Configuration)";XASH_VGUI;XASH_SDL=2;XASH_FORCEINLINE;XASH_FASTSTR;_CRT_NONSTDC_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>SDL2.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>XASH_WES;XASH_GLES;XASH_BUILD_COMMIT="$(Configuration)";XASH_VGUI;XASH_SDL=2;XASH_FORCEINLINE;XASH_FASTSTR;_CRT_NONSTDC_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;XASH_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../engine;../engine/common;../engine/server;../engine/client;../engine/client/vgui;../public;../common;../pm_shared;../SDL2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>SDL2.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>../engine;../engine/common;../engine/server;../engine/client;../engine/client/vgui;../public;../common;../pm_shared;../SDL2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>XASH_WES;XASH_GLES;XASH_BUILD_COMMIT="$(Configuration)";XASH_VGUI;XASH_SDL=2;XASH_FORCEINLINE;XASH_FASTSTR;_CRT_NONSTDC_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;XASH_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>SDL2.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

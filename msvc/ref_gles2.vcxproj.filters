@@ -1,0 +1,175 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="ref_gl">
+      <UniqueIdentifier>{21e04616-41c7-4a9a-8515-387db039f14d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ref_gl\gl-wes-v2">
+      <UniqueIdentifier>{503bafe8-d507-4a40-8483-153b925b2dfe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ref_gl\gl-wes-v2\src">
+      <UniqueIdentifier>{b5f011f4-76b8-49cf-9c13-99dcce4ad105}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="public">
+      <UniqueIdentifier>{34df778e-0a95-465a-8250-798577f4ba90}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\ref_gl\gl-wes-v2\src\wes_config.h">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl-wes-v2\src\wes_fragment.h">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl-wes-v2\src\wes_gl.h">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl-wes-v2\src\wes_gl_arb.h">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl-wes-v2\src\wes_gl_defines.h">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl-wes-v2\src\wes_glu.h">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl-wes-v2\src\wes_matrix.h">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl-wes-v2\src\wes_shader.h">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl-wes-v2\src\wes_state.h">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl-wes-v2\src\context.h">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl-wes-v2\src\wes.h">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl-wes-v2\src\wes_begin.h">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl_local.h">
+      <Filter>ref_gl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl_export.h">
+      <Filter>ref_gl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ref_gl\gl_frustum.h">
+      <Filter>ref_gl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\public\mathlib.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\public\crtlib.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\public\crclib.h">
+      <Filter>public</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\ref_gl\gl-wes-v2\src\wes_fragment.c">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl-wes-v2\src\wes_matrix.c">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl-wes-v2\src\wes_shader.c">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl-wes-v2\src\wes_state.c">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl-wes-v2\src\wes_texture.c">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl-wes-v2\src\wes.c">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl-wes-v2\src\wes_begin.c">
+      <Filter>ref_gl\gl-wes-v2\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_opengl.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_rlight.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_rmain.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_rmath.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_rmisc.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_rpart.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_rsurf.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_sprite.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_studio.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_triapi.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_vgui.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_warp.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_alias.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_backend.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_beams.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_context.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_cull.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_dbghulls.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_decals.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_draw.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_frustum.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ref_gl\gl_image.c">
+      <Filter>ref_gl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\CSMoE\msvc\placeholder.cpp" />
+    <ClCompile Include="..\public\matrixlib.c">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="..\public\mathlib.c">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="..\public\crtlib.c">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="..\public\crclib.c">
+      <Filter>public</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

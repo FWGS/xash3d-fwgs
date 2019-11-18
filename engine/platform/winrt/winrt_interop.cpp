@@ -1,9 +1,14 @@
 
 #include <wrl.h>
-#include <windows.ui.ViewManagement.h>
-#include <windows.applicationmodel.core.h>
-#include <windows.graphics.display.h>
-#include <windows.System.h>
+#include <Windows.UI.ViewManagement.h>
+#include <Windows.applicationmodel.Core.h>
+#include <Windows.ApplicationModel.UserDataAccounts.h>
+#include <Windows.ApplicationModel.UserDataAccounts.Provider.h>
+#include <Windows.ApplicationModel.UserDataAccounts.SystemAccess.h>
+#include <Windows.Graphics.Display.h>
+#include <Windows.System.h>
+
+#include <thread>
 
 #include "winrt_interop.h"
 extern "C" {
@@ -17,10 +22,13 @@ extern "C" {
 using namespace Microsoft::WRL;
 using namespace Microsoft::WRL::Wrappers;
 using namespace ABI::Windows::Foundation;
+using namespace ABI::Windows::Foundation::Collections;
 using namespace ABI::Windows::UI;
 using namespace ABI::Windows::UI::Core;
 using namespace ABI::Windows::UI::ViewManagement;
+using namespace ABI::Windows::ApplicationModel;
 using namespace ABI::Windows::ApplicationModel::Core;
+using namespace ABI::Windows::ApplicationModel::UserDataAccounts;
 using namespace ABI::Windows::Graphics::Display;
 
 class ColorReference : public RuntimeClass<RuntimeClassFlags<WinRt>, __FIReference_1_Windows__CUI__CColor>
@@ -183,4 +191,79 @@ float WinRT_GetDisplayDPI()
 	hr = displayInformation2->get_RawPixelsPerViewPixel(&rawPixelsPerViewPixel);
 
 	return static_cast<float>(rawPixelsPerViewPixel);
+}
+
+template<class T>
+AsyncStatus await_get_result(ComPtr<IAsyncOperation<T>> aso)
+{
+	HRESULT hr;
+	ComPtr<IAsyncInfo> pAsyncInfo;
+	hr = aso.As<IAsyncInfo>(&pAsyncInfo);
+
+	AsyncStatus asyncStatus;
+	
+	while (1)
+	{
+		hr = pAsyncInfo->get_Status(&asyncStatus);
+
+		if (SUCCEEDED(hr) && (asyncStatus != AsyncStatus::Started))
+			break;
+
+		SwitchToThread();
+	}
+
+	return asyncStatus;
+}
+
+// !!! requires Capability contacts, appointments
+char *WinRT_GetUserName()
+{
+	HRESULT hr;
+	static char buffer[1024] = "Player";
+
+	ComPtr<IUserDataAccountManagerStatics> userDataAccountManagerStatics;
+	hr = GetActivationFactory(HStringReference(RuntimeClass_Windows_ApplicationModel_UserDataAccounts_UserDataAccountManager).Get(), &userDataAccountManagerStatics);
+
+	ComPtr<IAsyncOperation<UserDataAccountStore*>> futureUserDataAccountStore;
+	hr = userDataAccountManagerStatics->RequestStoreAsync(UserDataAccounts::UserDataAccountStoreAccessType_AllAccountsReadOnly, &futureUserDataAccountStore);
+
+	if (await_get_result(futureUserDataAccountStore) != Completed)
+		return buffer;
+
+	ComPtr<IUserDataAccountStore> userDataAccountStore;
+	hr = futureUserDataAccountStore->GetResults(&userDataAccountStore);
+
+	ComPtr < IAsyncOperation<IVectorView<UserDataAccount*>*> > futurevecUserDataAccounts;
+	hr = userDataAccountStore->FindAccountsAsync(&futurevecUserDataAccounts);
+
+	if (await_get_result(futurevecUserDataAccounts) != Completed)
+		return buffer;
+	
+	ComPtr<IVectorView<UserDataAccount*>> vecUserDataAccounts;
+	hr = futurevecUserDataAccounts->GetResults(&vecUserDataAccounts);
+
+	{
+		unsigned int size = 0;
+		hr = vecUserDataAccounts->get_Size(&size);
+		for (unsigned int i = 0; i < size; ++i)
+		{
+			ComPtr<IUserDataAccount> item = nullptr;
+			hr = vecUserDataAccounts->GetAt(i, &item);
+
+			ComPtr<IUserDataAccount3> item3 = nullptr;
+			hr = item.As<IUserDataAccount3>(&item3);
+			
+			HSTRING husername = nullptr;
+			hr = item->get_UserDisplayName(&husername);
+			HString username;
+			username.Attach(husername);
+
+			unsigned len = 0;
+			const wchar_t* wstr = username.GetRawBuffer(&len);
+
+			WideCharToMultiByte(CP_ACP, 0, wstr, -1, buffer, 1024, NULL, FALSE);
+		}
+	}
+
+	return buffer;
 }

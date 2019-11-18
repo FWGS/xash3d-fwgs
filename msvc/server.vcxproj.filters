@@ -1,0 +1,353 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="dlls">
+      <UniqueIdentifier>{73fb61d4-c4ca-4159-8967-0e98666e1d4d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="game_shared">
+      <UniqueIdentifier>{1d2d9bb7-4ba0-4fe6-a0d9-6fae9f96ec3c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="pm_shared">
+      <UniqueIdentifier>{b9e4d175-16d0-4f51-8520-896826a345dc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\hlsdk\pm_shared\pm_math.c">
+      <Filter>pm_shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\pm_shared\pm_shared.c">
+      <Filter>pm_shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\pm_shared\pm_debug.c">
+      <Filter>pm_shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\game_shared\voice_gamemgr.cpp">
+      <Filter>game_shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\aflock.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\agrunt.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\airtank.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\animating.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\animation.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\apache.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\barnacle.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\barney.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\bigmomma.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\bloater.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\bmodels.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\bullsquid.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\buttons.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\cbase.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\client.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\combat.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\controller.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\crossbow.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\crowbar.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\defaultai.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\doors.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\effects.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\egon.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\explode.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\flyingmonster.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\func_break.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\func_tank.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\game.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\gamerules.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\gargantua.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\gauss.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\genericmonster.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\ggrenade.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\globals.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\glock.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\gman.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\h_ai.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\h_battery.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\h_cine.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\h_cycler.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\h_export.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\handgrenade.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\hassassin.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\headcrab.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\healthkit.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\hgrunt.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\hornet.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\hornetgun.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\houndeye.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\ichthyosaur.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\islave.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\items.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\leech.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\lights.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\maprules.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\monstermaker.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\monsters.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\monsterstate.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\mortar.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\mp5.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\multiplay_gamerules.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\nihilanth.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\nodes.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\observer.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\osprey.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\pathcorner.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\plane.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\plats.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\player.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\playermonster.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\python.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\rat.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\roach.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\rpg.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\satchel.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\schedule.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\scientist.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\scripted.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\shotgun.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\singleplay_gamerules.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\skill.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\sound.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\soundent.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\spectator.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\squadmonster.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\squeakgrenade.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\stats.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\subs.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\talkmonster.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\teamplay_gamerules.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\tempmonster.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\tentacle.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\triggers.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\tripmine.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\turret.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\util.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\weapons.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\world.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\xen.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hlsdk\dlls\zombie.cpp">
+      <Filter>dlls</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\CSMoE\msvc\placeholder.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\hlsdk\pm_shared\pm_debug.h">
+      <Filter>pm_shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\pm_shared\pm_defs.h">
+      <Filter>pm_shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\pm_shared\pm_info.h">
+      <Filter>pm_shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\pm_shared\pm_materials.h">
+      <Filter>pm_shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\pm_shared\pm_movevars.h">
+      <Filter>pm_shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hlsdk\pm_shared\pm_shared.h">
+      <Filter>pm_shared</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
