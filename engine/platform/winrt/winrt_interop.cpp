@@ -30,6 +30,7 @@ using namespace ABI::Windows::ApplicationModel;
 using namespace ABI::Windows::ApplicationModel::Core;
 using namespace ABI::Windows::ApplicationModel::UserDataAccounts;
 using namespace ABI::Windows::Graphics::Display;
+using namespace ABI::Windows::System;
 
 class ColorReference : public RuntimeClass<RuntimeClassFlags<WinRt>, __FIReference_1_Windows__CUI__CColor>
 {
@@ -266,4 +267,36 @@ char *WinRT_GetUserName()
 	}
 
 	return buffer;
+}
+
+void WinRT_ShellExecute(const char* path)
+{
+	wchar_t buffer[1024]{};
+	MultiByteToWideChar(CP_ACP, 0, path, -1, buffer, 1024);
+
+	HRESULT hr;
+	ComPtr<ILauncherOptions> launcherOptions;
+	hr = ActivateInstance(
+		HStringReference(RuntimeClass_Windows_System_LauncherOptions).Get(),
+		&launcherOptions);
+	//hr = launcherOptions->put_DisplayApplicationPicker(true);
+
+	ComPtr<ILauncherStatics> launcherStatics;
+	hr = GetActivationFactory(
+		HStringReference(RuntimeClass_Windows_System_Launcher).Get(),
+		&launcherStatics);
+
+	ComPtr<IUriRuntimeClassFactory> uriRuntimeClassFactory;
+	hr = GetActivationFactory(
+		HStringReference(RuntimeClass_Windows_Foundation_Uri).Get(),
+		&uriRuntimeClassFactory);
+	
+	ComPtr<IUriRuntimeClass> uri;
+	hr = uriRuntimeClassFactory->CreateUri(HStringReference(buffer).Get(), &uri);
+
+	ComPtr <IAsyncOperation<bool>> futureLaunchUriResult;
+	hr = launcherStatics->LaunchUriWithOptionsAsync(uri.Get(), launcherOptions.Get(), &futureLaunchUriResult);
+
+	AsyncStatus result = await_get_result(futureLaunchUriResult);
+	
 }

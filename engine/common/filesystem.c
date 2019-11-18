@@ -1298,7 +1298,7 @@ void FS_Rescan( void )
 		str = SDL_WinRTGetFSPathUTF8(SDL_WINRT_PATH_INSTALLED_LOCATION);
 		FS_AddPak_Fullpath( va( "%s/extras.pak", str), NULL, extrasFlags );
 		str = SDL_WinRTGetFSPathUTF8(SDL_WINRT_PATH_LOCAL_FOLDER);
-		FS_AddPak_Fullpath( va( "%s/extras.pak", str, GI->gamefolder ), NULL, extrasFlags );
+		FS_AddPak_Fullpath( va( "%s/%s/extras.pak", str, GI->gamefolder ), NULL, extrasFlags );
 	}
 #else
 	if( ( str = getenv( "XASH3D_EXTRAS_PAK1" ) ) )
