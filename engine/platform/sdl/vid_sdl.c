@@ -21,6 +21,9 @@ GNU General Public License for more details.
 #include "vid_common.h"
 #include "platform/sdl/events.h"
 
+// must be the last to prevent HSPRITE shits from Windows.h
+#include <SDL_syswm.h>
+
 static vidmode_t *vidmodes = NULL;
 static int num_vidmodes = 0;
 static void GL_SetupAttributes( void );
@@ -349,7 +352,7 @@ static void R_FreeVideoModes( void )
 	vidmodes = NULL;
 }
 
-#ifdef WIN32
+#if defined(WIN32) && !defined(XASH_WINRT)
 typedef enum _XASH_DPI_AWARENESS
 {
 	XASH_DPI_UNAWARE = 0,
@@ -541,6 +544,10 @@ void VID_SaveWindowSize( int width, int height )
 	}
 
 	R_SaveVideoMode( width, height, render_w, render_h );
+
+#ifdef XASH_WINRT
+	WinRT_SaveVideoMode(width, height);
+#endif
 }
 
 static qboolean VID_SetScreenResolution( int width, int height )
@@ -597,7 +604,7 @@ void VID_RestoreScreenResolution( void )
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
-#if defined(_WIN32) && !defined(XASH_64BIT) // ICO support only for Win32
+#if defined(_WIN32) && !defined(XASH_64BIT) && !defined( XASH_WINRT ) // ICO support only for Win32
 #include "SDL_syswm.h"
 static void WIN_SetWindowIcon( HICON ico )
 {
@@ -685,7 +692,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		VID_RestoreScreenResolution();
 	}
 
-#if defined(_WIN32) && !defined(XASH_64BIT) // ICO support only for Win32
+#if defined(_WIN32) && !defined(XASH_64BIT) && !defined( XASH_WINRT ) // ICO support only for Win32
 	if( FS_FileExists( GI->iconpath, true ) )
 	{
 		HICON ico;
@@ -727,7 +734,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		}
 	}
 
-#if defined(_WIN32) && !defined(XASH_64BIT) // ICO support only for Win32
+#if defined(_WIN32) && !defined(XASH_64BIT) && !defined( XASH_WINRT ) // ICO support only for Win32
 	if( !iconLoaded )
 	{
 		WIN_SetWindowIcon( LoadIcon( host.hInst, MAKEINTRESOURCE( 101 ) ) );
@@ -772,6 +779,18 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		return false;
 
 	}
+
+#if defined(XASH_WINRT)
+	{
+		SDL_SysWMinfo wminfo;
+		SDL_VERSION(&wminfo.version);
+		if (SDL_GetWindowWMInfo(host.hWnd, &wminfo))
+		{
+			WinRT_FullscreenMode_Install(fullscreen);
+		}
+		WinRT_BackButton_Install();
+	}
+#endif
 
 #else // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	Uint32 flags = 0;
@@ -977,7 +996,7 @@ qboolean R_Init_Video( const int type )
 #endif
 
 	// must be initialized before creating window
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 	WIN_SetDPIAwareness();
 #endif
 

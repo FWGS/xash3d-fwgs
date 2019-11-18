@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #ifndef CRCLIB_H
 #define CRCLIB_H
 
+#include "port.h"
 #include "xash3d_types.h"
 
 typedef struct

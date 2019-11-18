@@ -122,7 +122,10 @@ returns username for current profile
 */
 char *Sys_GetCurrentUser( void )
 {
-#if defined(_WIN32)
+#if defined( XASH_WINRT)
+	// TODO : Custom WINAPI...
+	return "Player";
+#elif defined(_WIN32)
 	static string	s_userName;
 	unsigned long size = sizeof( s_userName );
 
@@ -248,7 +251,7 @@ qboolean Sys_GetIntFromCmdLine( const char* argName, int *out )
 
 void Sys_SendKeyEvents( void )
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined( XASH_WINRT )
 	MSG	msg;
 
 	while( PeekMessage( &msg, NULL, 0, 0, PM_NOREMOVE ))
@@ -286,7 +289,13 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 			*func->func = NULL;
 	}
 
-	if( !dll->link ) dll->link = LoadLibrary ( dll->name ); // environment pathes
+#ifdef XASH_WINRT
+	wchar_t buffer[MAX_PATH];
+	MultiByteToWideChar(CP_ACP, 0, dll->name, -1, buffer, MAX_PATH);
+	if (!dll->link) dll->link = LoadPackagedLibrary(buffer, 0); // environment pathes
+#else
+	if (!dll->link) dll->link = LoadLibrary(dll->name); // environment pathes
+#endif
 
 	// no DLL found
 	if( !dll->link ) 
@@ -353,7 +362,7 @@ wait for 'Esc' key will be hit
 */
 void Sys_WaitForQuit( void )
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 	MSG	msg;
 
 	Wcon_RegisterHotkeys();		
@@ -433,7 +442,7 @@ void Sys_Error( const char *error, ... )
 
 	if( host_developer.value )
 	{
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 		Wcon_ShowConsole( true );
 		Wcon_DisableInput();	// disable input line for dedicated server
 #endif
@@ -442,7 +451,7 @@ void Sys_Error( const char *error, ... )
 	}
 	else
 	{
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 		Wcon_ShowConsole( false );
 #endif
 		MSGBOX( text );
@@ -493,7 +502,7 @@ void Sys_Print( const char *pMsg )
 	}
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 	{
 		const char	*msg;
 		static char	buffer[MAX_PRINT_MSG];

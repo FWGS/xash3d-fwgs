@@ -13,8 +13,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#ifndef _WIN32
 #include "common.h"
+#if !defined(_WIN32) || defined(XASH_WINRT)
 
 int AVI_GetVideoFrameNumber( movie_state_t *Avi, float time )
 {

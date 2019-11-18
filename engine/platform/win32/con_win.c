@@ -13,8 +13,9 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#ifdef _WIN32
+
 #include "common.h"
+#if defined(_WIN32) && !defined(XASH_WINRT)
 
 /*
 ===============================================================================

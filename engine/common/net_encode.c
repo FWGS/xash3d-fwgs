@@ -514,7 +514,7 @@ void Delta_ParseTableField( sizebuf_t *msg )
 	int		tableIndex, nameIndex;
 	float		mul = 1.0f, post_mul = 1.0f;
 	int		flags, bits;
-	const char	*pName;
+	const char	*pName = NULL;
 	qboolean ignore = false;
 	delta_info_t	*dt;
 

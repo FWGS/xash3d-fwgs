@@ -1960,7 +1960,7 @@ GetWindowCenterX
 static int pfnGetWindowCenterX( void )
 {
 	int x = 0;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined( XASH_WINRT )
 	if( m_ignore->value )
 	{
 		POINT pos;
@@ -1985,7 +1985,7 @@ GetWindowCenterY
 static int pfnGetWindowCenterY( void )
 {
 	int y = 0;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined( XASH_WINRT )
 	if( m_ignore->value )
 	{
 		POINT pos;
@@ -3944,7 +3944,7 @@ qboolean CL_LoadProgs( const char *name )
 
 	// a1ba: we need to check if client.dll has direct dependency on SDL2
 	// and if so, disable relative mouse mode
-#if XASH_WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 	if( ( clgame.client_dll_uses_sdl = COM_CheckLibraryDirectDependency( name, OS_LIB_PREFIX "SDL2." OS_LIB_EXT, false ) ) )
 	{
 		Con_Printf( S_NOTE "%s uses SDL2 for mouse input\n", name );

@@ -17,6 +17,8 @@ GNU General Public License for more details.
 #include <fcntl.h>
 #ifndef _WIN32
 #include <dirent.h>
+#elif defined(XASH_WINRT)
+#include <io.h>
 #endif
 static char id_md5[33];
 static char id_customid[MAX_STRING];
@@ -360,7 +362,7 @@ int ID_CheckFiles( bloomfilter_t value, const char *prefix, const char *postfix 
 	closedir( dir );
 	return count;
 }
-#else
+#elif !defined(XASH_WINRT)
 int ID_GetKeyData( HKEY hRootKey, char *subKey, char *value, LPBYTE data, DWORD cbData )
 {
 	HKEY hKey;
@@ -507,7 +509,7 @@ bloomfilter_t ID_GenerateRawId( void )
 	count += ID_ProcessFiles( &value, "/sys/block", "device/cid" );
 	count += ID_ProcessNetDevices( &value );
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 	count += ID_ProcessWMIC( &value, "wmic path win32_physicalmedia get SerialNumber " );
 	count += ID_ProcessWMIC( &value, "wmic bios get serialnumber " );
 #endif
@@ -543,7 +545,7 @@ uint ID_CheckRawId( bloomfilter_t filter )
 		count += (filter & value) == value;
 #endif
 	
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 	count += ID_CheckWMIC( filter, "wmic path win32_physicalmedia get SerialNumber" );
 	count += ID_CheckWMIC( filter, "wmic bios get serialnumber" );
 #endif
@@ -629,7 +631,7 @@ void ID_Init( void )
 		ID_Check();
 	}
 	
-#elif defined _WIN32
+#elif defined(_WIN32) && !defined(XASH_WINRT)
 	{
 		CHAR szBuf[MAX_PATH];
 		ID_GetKeyData( HKEY_CURRENT_USER, "Software\\Xash3D\\", "xash_id", szBuf, MAX_PATH );
@@ -682,7 +684,7 @@ void ID_Init( void )
 
 #if defined(__ANDROID__) && !defined(XASH_DEDICATED)
 	Android_SaveID( va("%016llX", id^SYSTEM_XOR_MASK ) );
-#elif defined _WIN32
+#elif defined(_WIN32) && !defined(XASH_WINRT)
 	{
 		CHAR Buf[MAX_PATH];
 		sprintf( Buf, "%016llX", id^SYSTEM_XOR_MASK );

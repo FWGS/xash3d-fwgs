@@ -55,6 +55,7 @@ GNU General Public License for more details.
 #undef XASH_OPENBSD
 #undef XASH_WIN32
 #undef XASH_WIN64
+#undef XASH_WINRT
 #undef XASH_X86
 
 //================================================================
@@ -72,6 +73,13 @@ GNU General Public License for more details.
 
 	#if defined(_WIN64)
 		#define XASH_WIN64 1
+	#endif
+
+	#ifdef WINAPI_FAMILY
+	#include <winapifamily.h>
+		#if !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP) && WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP)
+			#define XASH_WINRT
+		#endif
 	#endif
 #elif defined(__linux__)
 	#define XASH_LINUX 1

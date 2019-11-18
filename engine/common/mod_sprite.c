@@ -34,7 +34,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	dsprite_q1_t	*pinq1;
 	dsprite_hl_t	*pinhl;
 	dsprite_t		*pin;
-	msprite_t		*psprite;
+	msprite_t		*psprite = NULL;
 	int		i, size;
 
 	if( loaded ) *loaded = false;

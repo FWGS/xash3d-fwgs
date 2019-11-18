@@ -83,7 +83,7 @@ int Sys_LogFileNo( void );
 //
 // con_win.c
 //
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 void Wcon_InitConsoleCommands( void );
 void Wcon_ShowConsole( qboolean show );
 void Wcon_Init( void );

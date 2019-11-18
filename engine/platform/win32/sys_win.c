@@ -49,8 +49,11 @@ void Platform_ShellExecute( const char *path, const char *parms )
 {
 	if( !Q_strcmp( path, GENERIC_UPDATE_PAGE ) || !Q_strcmp( path, PLATFORM_UPDATE_PAGE ))
 		path = DEFAULT_UPDATE_PAGE;
-
+#ifdef XASH_WINRT
+	// TODO
+#else
 	ShellExecute( NULL, "open", path, parms, NULL, SW_SHOW );
+#endif
 }
 
 #if XASH_MESSAGEBOX == MSGBOX_WIN32

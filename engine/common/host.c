@@ -734,12 +734,19 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		const char *IOS_GetDocsDir();
 		Q_strncpy( host.rootdir, IOS_GetDocsDir(), sizeof(host.rootdir) );
 #elif XASH_SDL == 2
+# ifdef XASH_WINRT
+		if (!(baseDir = SDL_WinRTGetFSPathUTF8(SDL_WINRT_PATH_LOCAL_FOLDER)))
+			Sys_Error("couldn't determine current directory: %s", SDL_GetError());
+
+		Q_strncpy(host.rootdir, baseDir, strlen(baseDir));
+# else
 		char *szBasePath;
 
 		if( !( szBasePath = SDL_GetBasePath() ) )
 			Sys_Error( "couldn't determine current directory: %s", SDL_GetError() );
 		Q_strncpy( host.rootdir, szBasePath, sizeof( host.rootdir ) );
 		SDL_free( szBasePath );
+#endif
 #else
 		if( !getcwd( host.rootdir, sizeof(host.rootdir) ) )
 		{
@@ -830,10 +837,20 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #endif // XASH_SDL == 2
 #endif // XASH_SDL
 
+#ifdef XASH_WINRT
+	strcpy(host.rootdir, SDL_WinRTGetFSPathUTF8(SDL_WINRT_PATH_LOCAL_FOLDER));
+	strcpy(host.rodir, SDL_WinRTGetFSPathUTF8(SDL_WINRT_PATH_INSTALLED_LOCATION));
+
+	if (!host.rootdir[0] || SetCurrentDirectory(SDL_WinRTGetFSPathUNICODE(SDL_WINRT_PATH_LOCAL_FOLDER)) != 0)
+		Con_Reportf(D_INFO, "%s is working directory now\n", host.rootdir);
+	else
+		Sys_Error("Changing working directory to %s failed.\n", host.rootdir);
+#else
 	if ( !host.rootdir[0] || SetCurrentDirectory( host.rootdir ) != 0)
 		Con_Reportf( "%s is working directory now\n", host.rootdir );
 	else
 		Sys_Error( "Changing working directory to %s failed.\n", host.rootdir );
+#endif
 
 	Sys_InitLog();
 
@@ -860,7 +877,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	// member console allowing
 	host.allow_console_init = host.allow_console;
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 	Wcon_CreateConsole(); // system console used by dedicated server or show fatal errors
 #endif
 	// timeBeginPeriod( 1 ); // a1ba: Do we need this?
@@ -989,7 +1006,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	if( Host_IsDedicated() )
 	{
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 		Wcon_InitConsoleCommands ();
 #endif
 
@@ -1004,7 +1021,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	switch( host.type )
 	{
 	case HOST_NORMAL:
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 		Wcon_ShowConsole( false ); // hide console
 #endif
 		// execute startup config and cmdline
@@ -1070,7 +1087,7 @@ void EXPORT Host_Shutdown( void )
 	NET_Shutdown();
 	HTTP_Shutdown();
 	Host_FreeCommon();
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 	Wcon_DestroyConsole();
 #endif
 

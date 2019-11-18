@@ -121,10 +121,8 @@ GNU General Public License for more details.
 	#define OS_LIB_PREFIX ""
 	#define OS_LIB_EXT "dll"
 	#define VGUI_SUPPORT_DLL "../vgui_support." OS_LIB_EXT
-	#ifdef XASH_64BIT
-		// windows NameForFunction not implemented yet
-		#define XASH_ALLOW_SAVERESTORE_OFFSETS
-	#endif
+	#include <limits.h>
+
 #endif //WIN32
 #ifndef XASH_LOW_MEMORY
 #define XASH_LOW_MEMORY 0

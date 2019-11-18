@@ -42,6 +42,10 @@ const char *Android_LoadID( void );
 void Android_SaveID( const char *id );
 #endif
 
+#if defined(XASH_WINRT)
+#include "platform/winrt/winrt_interop.h"
+#endif
+
 /* 
 ============================================================================== 
  
@@ -148,5 +152,6 @@ void SNDDMA_Activate( qboolean active ); // pause audio
 // void SNDDMA_PrintDeviceName( void ); // unused
 // void SNDDMA_LockSound( void ); // unused
 // void SNDDMA_UnlockSound( void ); // unused
+
 
 #endif // PLATFORM_H

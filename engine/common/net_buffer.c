@@ -545,7 +545,7 @@ int MSG_ReadSBitLong( sizebuf_t *sb, int numbits )
 	// NOTE: it does this wierdness here so it's bit-compatible with regular integer data in the buffer.
 	// (Some old code writes direct integers right into the buffer).
 	sign = MSG_ReadOneBit( sb );
-	if( sign ) r = -( BIT( numbits - 1 ) - r );
+	if( sign ) r = -( signed )( BIT( numbits - 1 ) - r );
 
 	return r;
 }

@@ -68,7 +68,7 @@ char *Sys_Input( void )
 		}
 	}
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 	return Wcon_Input();
 #endif
 	return NULL;
@@ -78,7 +78,7 @@ void Sys_DestroyConsole( void )
 {
 	// last text message into console or log
 	Con_Reportf( "Sys_DestroyConsole: Exiting!\n" );
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(XASH_WINRT)
 	Wcon_DestroyConsole();
 #endif
 }

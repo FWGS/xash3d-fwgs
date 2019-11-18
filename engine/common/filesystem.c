@@ -250,8 +250,13 @@ static void listdirectory( stringlist_t *list, const char *path, qboolean lowerc
 	signed char *c;
 #ifdef _WIN32
 	char pattern[4096];
+#ifdef _WIN64
+	struct _finddatai64_t	n_file;
+	intptr_t		hFile;
+#else
 	struct _finddata_t	n_file;
 	int		hFile;
+#endif
 #else
 	DIR *dir;
 	struct dirent *entry;
@@ -261,13 +266,22 @@ static void listdirectory( stringlist_t *list, const char *path, qboolean lowerc
 	Q_snprintf( pattern, sizeof( pattern ), "%s*", path );
 
 	// ask for the directory listing handle
+#ifdef _WIN64
+	hFile = _findfirsti64( pattern, &n_file );
+	if (hFile < 0) return;
+#else
 	hFile = _findfirst( pattern, &n_file );
-	if( hFile == -1 ) return;
+	if (hFile == -1) return;
+#endif
 
 	// start a new chain with the the first name
 	stringlistappend( list, n_file.name );
 	// iterate through the directory
-	while( _findnext( hFile, &n_file ) == 0 )
+#ifdef _WIN64
+	while ( _findnexti64( hFile, &n_file ) == 0 )
+#else
+	while ( _findnext(hFile, &n_file) == 0)
+#endif
 		stringlistappend( list, n_file.name );
 	_findclose( hFile );
 #else
@@ -1279,6 +1293,13 @@ void FS_Rescan( void )
 		FS_AddPak_Fullpath( va( SHAREPATH"/extras.pak" ), NULL, extrasFlags );
 		FS_AddPak_Fullpath( va( SHAREPATH"/%s/extras.pak", GI->gamefolder ), NULL, extrasFlags );
 	}
+#elif defined(XASH_WINRT)
+	{
+		str = SDL_WinRTGetFSPathUTF8(SDL_WINRT_PATH_INSTALLED_LOCATION);
+		FS_AddPak_Fullpath( va( "%s/extras.pak", str), NULL, extrasFlags );
+		str = SDL_WinRTGetFSPathUTF8(SDL_WINRT_PATH_LOCAL_FOLDER);
+		FS_AddPak_Fullpath( va( "%s/extras.pak", str, GI->gamefolder ), NULL, extrasFlags );
+	}
 #else
 	if( ( str = getenv( "XASH3D_EXTRAS_PAK1" ) ) )
 		FS_AddPak_Fullpath( str, NULL, extrasFlags );
@@ -1884,7 +1905,7 @@ void FS_LoadGameInfo( const char *rootfolder )
 	}
 
 	if( i == SI.numgames )
-		Sys_Error( "Couldn't find game directory '%s'\n", fs_gamedir );
+		Sys_Error( "Couldn't find game directory '%s' at \n %s", fs_gamedir, host.rootdir);
 
 	SI.GameInfo = SI.games[i];
 
@@ -2224,7 +2245,15 @@ Look for a existing folder
 */
 qboolean FS_SysFolderExists( const char *path )
 {
-#ifdef _WIN32
+#ifdef XASH_WINRT
+	struct _finddata_t n_file;
+	// ask for the directory listing handle
+	const intptr_t hFile = _findfirst( path, &n_file );
+	if ( hFile == -1 )
+		return 0;
+	_findclose( hFile );
+	return 1;
+#elif defined( _WIN32 )
 	DWORD	dwFlags = GetFileAttributes( path );
 
 	return ( dwFlags != -1 ) && ( dwFlags & FILE_ATTRIBUTE_DIRECTORY );

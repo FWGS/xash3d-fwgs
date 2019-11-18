@@ -166,7 +166,7 @@ Default build-depended cvar and constant values
 	#define DEFAULT_M_IGNORE "0"
 #endif
 
-#if defined __ANDROID__ || TARGET_OS_IPHONE || defined __EMSCRIPTEN__
+#if defined __ANDROID__ || TARGET_OS_IPHONE || defined __EMSCRIPTEN__ || defined(XASH_WINRT)
 #define XASH_INTERNAL_GAMELIBS
 // this means that libraries are provided with engine, but not in game data
 // You need add library loading code to library.c when adding new platform
@@ -192,6 +192,8 @@ Default build-depended cvar and constant values
 #ifndef DEFAULT_ACCELERATED_RENDERER
 	#ifdef __ANDROID__
 		#define DEFAULT_ACCELERATED_RENDERER "gles1"
+	#elif defined(XASH_WINRT)
+		#define DEFAULT_ACCELERATED_RENDERER "gles2"
 	#else
 		#define DEFAULT_ACCELERATED_RENDERER "gl"
 	#endif

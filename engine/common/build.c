@@ -63,10 +63,12 @@ const char *Q_buildos( void )
 {
 	const char *osname;
 
-#if XASH_MINGW
-	osname = "win32-mingw";
-#elif XASH_WIN32
+#if defined(_WIN32) && defined(XASH_WINRT)
+	osname = "winrt";
+#elif defined(_WIN32) && defined(_MSC_VER)
 	osname = "win32";
+#elif defined(_WIN32) && defined(__MINGW32__)
+	osname = "win32-mingw";
 #elif XASH_ANDROID
 	osname = "android";
 #elif XASH_LINUX

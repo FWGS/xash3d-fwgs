@@ -22,7 +22,13 @@ GNU General Public License for more details.
 
 void *COM_LoadLibrary( const char *dllname, int build_ordinals_table )
 {
+#ifdef XASH_WINRT
+	wchar_t buffer[MAX_PATH];
+	MultiByteToWideChar(CP_ACP, 0, dllname, -1, buffer, MAX_PATH);
+	return LoadPackagedLibrary(buffer, 0);
+#else
 	return LoadLibraryA( dllname );
+#endif
 }
 
 void COM_FreeLibrary( void *hInstance )
