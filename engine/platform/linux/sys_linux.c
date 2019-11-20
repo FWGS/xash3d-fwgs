@@ -21,18 +21,10 @@ GNU General Public License for more details.
 #if XASH_TIMER == TIMER_LINUX
 double Platform_DoubleTime( void )
 {
-	static longtime_t g_PerformanceFrequency;
-	static longtime_t g_ClockStart;
-	longtime_t CurrentTime;
 	struct timespec ts;
 
-	if( !g_PerformanceFrequency )
-	{
-		struct timespec res;
-		if( !clock_getres(CLOCK_MONOTONIC, &res) )
-			g_PerformanceFrequency = 1000000000LL/res.tv_nsec;
-	}
 	clock_gettime(CLOCK_MONOTONIC, &ts);
+
 	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
 }
 
