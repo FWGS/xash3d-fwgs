@@ -1905,7 +1905,12 @@ void FS_LoadGameInfo( const char *rootfolder )
 	}
 
 	if( i == SI.numgames )
-		Sys_Error( "Couldn't find game directory '%s' at \n %s", fs_gamedir, host.rootdir);
+	{
+#ifdef XASH_WINRT
+		WinRT_OpenGameFolderWithExplorer();
+#endif
+		Sys_Error("Couldn't find game directory '%s' at \n %s", fs_gamedir, host.rootdir);
+	}
 
 	SI.GameInfo = SI.games[i];
 

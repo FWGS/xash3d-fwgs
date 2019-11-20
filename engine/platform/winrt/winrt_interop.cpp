@@ -359,7 +359,34 @@ void WinRT_ShellExecute(const char* path)
 	hr = launcherStatics->LaunchUriWithOptionsAsync(uri.Get(), launcherOptions.Get(), &futureLaunchUriResult);
 
 	WinRT_SDL_Await(futureLaunchUriResult);
-	
+}
+
+void WinRT_OpenGameFolderWithExplorer()
+{
+	HRESULT hr;
+	ComPtr<IApplicationDataStatics> applicationDataStatics;
+	hr = GetActivationFactory(
+		HStringReference(RuntimeClass_Windows_Storage_ApplicationData).Get(),
+		&applicationDataStatics);
+
+	ComPtr<IApplicationData> applicationData;
+	hr = applicationDataStatics->get_Current(&applicationData);
+
+	ComPtr<IStorageFolder> localFolder;
+	hr = applicationData->get_LocalFolder(&localFolder);
+
+	ComPtr<ILauncherStatics> launcherStatics;
+	hr = GetActivationFactory(
+		HStringReference(RuntimeClass_Windows_System_Launcher).Get(),
+		&launcherStatics);
+
+	ComPtr<ILauncherStatics3> launcherStatics3;
+	hr = launcherStatics.As<ILauncherStatics3>(&launcherStatics3);
+
+	ComPtr <IAsyncOperation<bool>> futureLaunchResult;
+	hr = launcherStatics3->LaunchFolderAsync(localFolder.Get(), &futureLaunchResult);
+
+	WinRT_SDL_Await(futureLaunchResult);
 }
 
 const char* WinRT_GetGameFolderAppData()
