@@ -27,14 +27,13 @@ Why ```gamedll_linux``` and not ```gamedll```? Because it looks more logic that 
 
 For any libraries distributed **with** engine, naming scheme should be used more convenient for OS port.
 
-Issue #0. Inconsistency between ABI and Q_buildarch.
+Issue #0. Inconsistency between ABI and Q_buildarch.\
 Resolution: Change Q_buildarch return value to use Debian-styled architectures list: https://www.debian.org/ports/, which includes a special naming for big/little-endian and hard/soft-float ARM.
 
-Issue #1: Build-system integration.
-Resolution: extend MACRO_TO_DEST_CPU and MACRO_TO_DESTOS from Waf: https://gitlab.com/ita1024/waf/blob/master/waflib/Tools/c_config.py#L1002, if needed.
+Issue #1: Build-system integration.\
+Resolution: implemented as [LibraryNaming.cmake](https://github.com/FWGS/hlsdk-xash3d/blob/master/cmake/LibraryNaming.cmake) and [library_naming.py](https://github.com/FWGS/hlsdk-xash3d/blob/master/scripts/waifulib/library_naming.py) extensions, see 
 
-Issue #2(related to #0):
-Which ARM flavours we actually need to handle?
+Issue #2(related to #0): Which ARM flavours we actually need to handle?\
 Resolution: Little-endian only, as there is no known big-endian ARM platforms in the wild.
 Architecture is coded this way:
 * ```armvxy```, where `x` is ARM instruction set level and `y` is hard-float ABI presence: `hf` where hard float ABI used, otherwise `l`.
