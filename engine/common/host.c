@@ -735,7 +735,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		Q_strncpy( host.rootdir, IOS_GetDocsDir(), sizeof(host.rootdir) );
 #elif XASH_SDL == 2
 # ifdef XASH_WINRT
-		if (!(baseDir = SDL_WinRTGetFSPathUTF8(SDL_WINRT_PATH_LOCAL_FOLDER)))
+		if (!(baseDir = WinRT_GetGameFolder()))
 			Sys_Error("couldn't determine current directory: %s", SDL_GetError());
 
 		Q_strncpy(host.rootdir, baseDir, strlen(baseDir));
@@ -838,7 +838,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #endif // XASH_SDL
 
 #ifdef XASH_WINRT
-	strcpy(host.rootdir, SDL_WinRTGetFSPathUTF8(SDL_WINRT_PATH_LOCAL_FOLDER));
+	strcpy(host.rootdir, WinRT_GetGameFolder());
 	strcpy(host.rodir, SDL_WinRTGetFSPathUTF8(SDL_WINRT_PATH_INSTALLED_LOCATION));
 
 	if (!host.rootdir[0] || SetCurrentDirectory(SDL_WinRTGetFSPathUNICODE(SDL_WINRT_PATH_LOCAL_FOLDER)) != 0)

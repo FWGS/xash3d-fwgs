@@ -76,9 +76,9 @@ GNU General Public License for more details.
 	#endif
 
 	#ifdef WINAPI_FAMILY
-	#include <winapifamily.h>
+		#include <winapifamily.h>
 		#if !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP) && WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP)
-			#define XASH_WINRT
+			#define XASH_WINRT 1
 		#endif
 	#endif
 #elif defined(__linux__)
@@ -107,7 +107,7 @@ GNU General Public License for more details.
 #error "Place your operating system name here! If this is a mistake, try to fix conditions above and report a bug"
 #endif
 
-#if defined XASH_ANDROID || defined XASH_IOS
+#if defined XASH_ANDROID || defined XASH_IOS || defined XASH_WINRT
 	#define XASH_MOBILE_PLATFORM 1
 #endif
 

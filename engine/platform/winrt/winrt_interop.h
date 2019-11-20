@@ -11,6 +11,7 @@ void WinRT_SaveVideoMode(int w, int h);
 float WinRT_GetDisplayDPI();
 char* WinRT_GetUserName();
 void WinRT_ShellExecute(const char* path);
+const char* WinRT_GetGameFolder();
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,6 @@
 
 #include <wrl.h>
+#include <wrl/async.h>
 #include <Windows.UI.ViewManagement.h>
 #include <Windows.applicationmodel.Core.h>
 #include <Windows.ApplicationModel.UserDataAccounts.h>
@@ -7,8 +8,11 @@
 #include <Windows.ApplicationModel.UserDataAccounts.SystemAccess.h>
 #include <Windows.Graphics.Display.h>
 #include <Windows.System.h>
+#include <windows.Storage.h>
+#include <windows.Storage.Pickers.h>
+#include <windows.Storage.AccessCache.h>
 
-#include <thread>
+#include <SDL_events.h>
 
 #include "winrt_interop.h"
 extern "C" {
@@ -31,7 +35,11 @@ using namespace ABI::Windows::ApplicationModel::Core;
 using namespace ABI::Windows::ApplicationModel::UserDataAccounts;
 using namespace ABI::Windows::Graphics::Display;
 using namespace ABI::Windows::System;
+using namespace ABI::Windows::Storage;
+using namespace ABI::Windows::Storage::Pickers;
+using namespace ABI::Windows::Storage::AccessCache;
 
+#if 0
 class ColorReference : public RuntimeClass<RuntimeClassFlags<WinRt>, __FIReference_1_Windows__CUI__CColor>
 {
 public:
@@ -40,6 +48,7 @@ public:
 private:
 	~ColorReference() {}
 };
+#endif
 
 void WinRT_FullscreenMode_Install(int fullscreen)
 {
@@ -194,15 +203,66 @@ float WinRT_GetDisplayDPI()
 	return static_cast<float>(rawPixelsPerViewPixel);
 }
 
+static SDL_bool relative_mode;
+static int show_cursor_prev;
+static bool mouse_captured;
+static SDL_Window* current_window;
+
+void WinRT_SDL_PushStatus()
+{
+	current_window = SDL_GetKeyboardFocus();
+	mouse_captured = current_window && ((SDL_GetWindowFlags(current_window) & SDL_WINDOW_MOUSE_CAPTURE) != 0);
+	relative_mode = SDL_GetRelativeMouseMode();
+	SDL_CaptureMouse(SDL_FALSE);
+	SDL_SetRelativeMouseMode(SDL_FALSE);
+	show_cursor_prev = SDL_ShowCursor(1);
+	//SDL_ResetKeyboard();
+}
+
+void WinRT_SDL_PopStatus()
+{
+	if (current_window) {
+		SDL_RaiseWindow(current_window);
+		if (mouse_captured) {
+			SDL_CaptureMouse(SDL_TRUE);
+		}
+	}
+
+	SDL_ShowCursor(show_cursor_prev);
+	SDL_SetRelativeMouseMode(relative_mode);
+}
+
+#if 0
 template<class T>
-AsyncStatus await_get_result(ComPtr<IAsyncOperation<T>> aso)
+void WinRT_SDL_Await(ComPtr<IAsyncOperation<T>> aso)
+{
+	HRESULT hr;
+	Event threadCompleted(CreateEventEx(nullptr, nullptr, CREATE_EVENT_MANUAL_RESET, WRITE_OWNER | EVENT_ALL_ACCESS));
+	hr = threadCompleted.IsValid() ? S_OK : HRESULT_FROM_WIN32(GetLastError());
+
+	auto cb = Callback<IAsyncOperationCompletedHandler<T>>([&threadCompleted](IAsyncOperation<T>* asyncInfo, AsyncStatus status) mutable
+		{
+			SetEvent(threadCompleted.Get());
+
+			return S_OK;
+		});
+	aso->put_Completed(cb.Get());
+	while(WaitForSingleObjectEx(threadCompleted.Get(), IGNORE, FALSE) == WAIT_TIMEOUT)
+	{
+		SDL_PumpEvents();
+	SwitchToThread();
+	}
+}
+#else
+template<class T>
+void WinRT_SDL_Await(ComPtr<IAsyncOperation<T>> aso)
 {
 	HRESULT hr;
 	ComPtr<IAsyncInfo> pAsyncInfo;
 	hr = aso.As<IAsyncInfo>(&pAsyncInfo);
 
 	AsyncStatus asyncStatus;
-	
+
 	while (1)
 	{
 		hr = pAsyncInfo->get_Status(&asyncStatus);
@@ -210,12 +270,11 @@ AsyncStatus await_get_result(ComPtr<IAsyncOperation<T>> aso)
 		if (SUCCEEDED(hr) && (asyncStatus != AsyncStatus::Started))
 			break;
 
+		SDL_PumpEvents();
 		SwitchToThread();
 	}
-
-	return asyncStatus;
 }
-
+#endif
 // !!! requires Capability contacts, appointments
 char *WinRT_GetUserName()
 {
@@ -228,17 +287,19 @@ char *WinRT_GetUserName()
 	ComPtr<IAsyncOperation<UserDataAccountStore*>> futureUserDataAccountStore;
 	hr = userDataAccountManagerStatics->RequestStoreAsync(UserDataAccounts::UserDataAccountStoreAccessType_AllAccountsReadOnly, &futureUserDataAccountStore);
 
-	if (await_get_result(futureUserDataAccountStore) != Completed)
-		return buffer;
+	WinRT_SDL_Await(futureUserDataAccountStore);
 
 	ComPtr<IUserDataAccountStore> userDataAccountStore;
 	hr = futureUserDataAccountStore->GetResults(&userDataAccountStore);
 
+	// Access denied
+	if (!userDataAccountStore)
+		return buffer;
+
 	ComPtr < IAsyncOperation<IVectorView<UserDataAccount*>*> > futurevecUserDataAccounts;
 	hr = userDataAccountStore->FindAccountsAsync(&futurevecUserDataAccounts);
 
-	if (await_get_result(futurevecUserDataAccounts) != Completed)
-		return buffer;
+	WinRT_SDL_Await(futurevecUserDataAccounts);
 	
 	ComPtr<IVectorView<UserDataAccount*>> vecUserDataAccounts;
 	hr = futurevecUserDataAccounts->GetResults(&vecUserDataAccounts);
@@ -297,6 +358,130 @@ void WinRT_ShellExecute(const char* path)
 	ComPtr <IAsyncOperation<bool>> futureLaunchUriResult;
 	hr = launcherStatics->LaunchUriWithOptionsAsync(uri.Get(), launcherOptions.Get(), &futureLaunchUriResult);
 
-	AsyncStatus result = await_get_result(futureLaunchUriResult);
+	WinRT_SDL_Await(futureLaunchUriResult);
 	
+}
+
+const char* WinRT_GetGameFolderAppData()
+{
+	return SDL_WinRTGetFSPathUTF8(SDL_WINRT_PATH_LOCAL_FOLDER);
+}
+#if 0
+// always denied... maybe requires "documentsLibrary"
+const char* WinRT_GetGameFolderDocument()
+{
+	static char s_szWinRTGameDIR[MAX_PATH];
+	if (s_szWinRTGameDIR[0])
+		return s_szWinRTGameDIR;
+	
+	HRESULT hr;
+	ComPtr<IKnownFoldersStatics> knownFoldersStatics;
+	hr = GetActivationFactory(
+		HStringReference(RuntimeClass_Windows_Storage_KnownFolders).Get(),
+		&knownFoldersStatics);
+
+	ComPtr<IStorageFolder> storageFolder;
+	hr = knownFoldersStatics->get_DocumentsLibrary(&storageFolder);
+
+	// Access deined
+	if (!storageFolder)
+		return WinRT_GetGameFolderAppData();
+
+	ComPtr<IStorageItem> storageFolderItem;
+	hr = storageFolder.As<IStorageItem>(&storageFolderItem);
+
+	HSTRING hSTRPath;
+	hr = storageFolderItem->get_Path(&hSTRPath);
+	HString hStrPath;
+	hStrPath.Attach(hSTRPath);
+
+	unsigned len = 0;
+	const wchar_t* wstr = hStrPath.GetRawBuffer(&len);
+
+	WideCharToMultiByte(CP_ACP, 0, wstr, -1, s_szWinRTGameDIR, 1024, NULL, FALSE);
+	
+	return s_szWinRTGameDIR;
+}
+
+const char *WinRT_GetGameFolderCustom()
+{
+	static char s_szWinRTGameDIR[MAX_PATH];
+	if (s_szWinRTGameDIR[0])
+		return s_szWinRTGameDIR;
+
+	HRESULT hr;
+
+	ComPtr<IStorageApplicationPermissionsStatics> storageApplicationPermissionsStatics;
+	hr = GetActivationFactory(
+		HStringReference(RuntimeClass_Windows_Storage_AccessCache_StorageApplicationPermissions).Get(),
+		&storageApplicationPermissionsStatics);
+
+	ComPtr<IStorageItemAccessList> storageItemAccessList;
+	hr = storageApplicationPermissionsStatics->get_FutureAccessList(&storageItemAccessList);
+
+	ComPtr<IStorageFolder> storageFolder;
+	HStringReference token(L"XASH3D_BASEDIR");
+	do
+	{
+		ComPtr<IAsyncOperation<StorageFolder*>> futureStorageFolder;
+		hr = storageItemAccessList->GetFolderAsync(token.Get(), &futureStorageFolder);
+		if (futureStorageFolder)
+		{
+			WinRT_SDL_Await(futureStorageFolder);
+			hr = futureStorageFolder->GetResults(&storageFolder);
+			break;
+		}
+
+		ComPtr<IFolderPicker> folderPicker;
+		hr = ActivateInstance(
+			HStringReference(RuntimeClass_Windows_Storage_Pickers_FolderPicker).Get(),
+			&folderPicker);
+
+		folderPicker->put_SuggestedStartLocation(PickerLocationId_Desktop);
+
+		ComPtr<IVector<HSTRING>> fileTypeFilterRef;
+		hr = folderPicker->get_FileTypeFilter(&fileTypeFilterRef);
+		HStringReference star(L"*");
+		hr = fileTypeFilterRef->Append(star.Get());
+
+		SDL_CaptureMouse(SDL_FALSE);
+		SDL_SetRelativeMouseMode(SDL_FALSE);
+
+		WinRT_SDL_PushStatus();
+		hr = folderPicker->PickSingleFolderAsync(&futureStorageFolder);
+		
+		if (futureStorageFolder)
+		{
+			WinRT_SDL_Await(futureStorageFolder);
+			hr = futureStorageFolder->GetResults(&storageFolder);
+			break;
+		}
+		WinRT_SDL_PopStatus();
+	} while (0);
+
+	if (!storageFolder)
+		return s_szWinRTGameDIR;
+
+	ComPtr<IStorageItem> storageFolderItem;
+	hr = storageFolder.As<IStorageItem>(&storageFolderItem);
+
+	storageItemAccessList->AddOrReplaceOverloadDefaultMetadata(token.Get(), storageFolderItem.Get());
+
+	HSTRING hSTRPath;
+	hr = storageFolderItem->get_Path(&hSTRPath);
+	HString hStrPath;
+	hStrPath.Attach(hSTRPath);
+
+	unsigned len = 0;
+	const wchar_t* wstr = hStrPath.GetRawBuffer(&len);
+
+	WideCharToMultiByte(CP_ACP, 0, wstr, -1, s_szWinRTGameDIR, 1024, NULL, FALSE);
+
+	return s_szWinRTGameDIR;
+}
+#endif
+
+const char* WinRT_GetGameFolder()
+{
+	return WinRT_GetGameFolderAppData();
 }

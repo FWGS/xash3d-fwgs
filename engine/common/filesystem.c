@@ -1297,7 +1297,7 @@ void FS_Rescan( void )
 	{
 		str = SDL_WinRTGetFSPathUTF8(SDL_WINRT_PATH_INSTALLED_LOCATION);
 		FS_AddPak_Fullpath( va( "%s/extras.pak", str), NULL, extrasFlags );
-		str = SDL_WinRTGetFSPathUTF8(SDL_WINRT_PATH_LOCAL_FOLDER);
+		str = WinRT_GetGameFolder();
 		FS_AddPak_Fullpath( va( "%s/%s/extras.pak", str, GI->gamefolder ), NULL, extrasFlags );
 	}
 #else
