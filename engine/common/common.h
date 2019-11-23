@@ -441,8 +441,8 @@ typedef struct host_parm_s
 	qboolean		movevars_changed;
 	qboolean		renderinfo_changed;
 
-	char		rootdir[256];	// member root directory
-	char		rodir[256];		// readonly root
+	char		rootdir[MAX_OSPATH];	// member root directory
+	char		rodir[MAX_OSPATH];		// readonly root
 	char		gamefolder[MAX_QPATH];	// it's a default gamefolder	
 	byte		*imagepool;	// imagelib mempool
 	byte		*soundpool;	// soundlib mempool
