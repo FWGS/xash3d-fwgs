@@ -14,9 +14,9 @@ It will not be a complete tutorial as covering everything in one article is prob
 
 0) Get to know your platform. Maybe I asked for this lately, but you MUST KNOW YOUR PLATFORM, i.e. what's this capable of.
 
-The one of unsupported configurations at this time is when platform can't load dynamic libraries(`*.so` or DLLs). We can't help you as supporting full-static ports are violating the GPL license in various ways. 
+The one of unsupported configurations at this time is when platform can't load dynamic libraries(`*.so` or DLLs). We can't help you as supporting full-static ports are violating the GPL license in various ways.
 
-The other yet unsupported configuration is the big endian. 
+The other yet unsupported configuration is the big endian.
 
 1) Setup toolchain. For dirty port, you can write Makefile for yourself, engine is written that way, so **it doesn't relies** on any generated data or any special processing. But I recommend you to use Waf anyway, it's better integrated to engine and self-documentable. Also, I will cover only our Waf build options.
 
@@ -30,21 +30,21 @@ In short, you need to call your platform in unique way. For engine side it's don
 
 You can use [predef project wiki](https://sourceforge.net/p/predef/wiki/Home/) for reference.
 
-2) Look at the `engine/platform` directory. We usually try to have all platform-specific stuff inside this folder. 
+2) Look at the `engine/platform` directory. We usually try to have all platform-specific stuff inside this folder.
 
 * Functions that must be available on your platform are declared in `platform.h` header. Most of them aren't used in headless dedicated build, but I will cover that later.
 
-* The POSIX-compliant(for *nix operating systems) goes into `posix` subdirectory. 
+* The POSIX-compliant(for *nix operating systems) goes into `posix` subdirectory.
 
 * The SDL-specific code goes into `sdl` subdirectory. Note that even I said before that platform-specific code is in `platform` directory, SDL obviously isn't a __platform__, so you can met checks for XASH_SDL inside whole engine, usually in input.
 
 * Custom SWAP implementation for *nix-based systems is in `swap` subdirectory. It's used when hardware may not have enough memory and you can't add swap memory. I will cover that later
 It relies on a fact that systems with paged memory will load pages into RAM and move unused to mmap()-ed by custom swap area.
-That allowed to run game engine on music player with MIPS CPU, Linux without SWAP support and 
+That allowed to run game engine on music player with MIPS CPU, Linux without SWAP support and
 
 * Other folders as `win32`, `android`, `linux` and so on are self-descriptive.
 
-3) As proof of concept, you can try to test that network features and dynamic library loading are implemented correctly. Build a dedicated server with XASH_DEDICATED or `--dedicated` passed  to `waf configure`. 
+3) As proof of concept, you can try to test that network features and dynamic library loading are implemented correctly. Build a dedicated server with XASH_DEDICATED or `--dedicated` passed  to `waf configure`.
 
 Start a server and try to connect to it from PC. If everything is fine, then you can move to next step.
 
@@ -54,6 +54,18 @@ If you got anything compiling, it's nice time to make a commit. Commit your chan
 
 4) Here is most interesting, building the client part.
 
-If you have SDL for your platform, you can use it and everything will be simple for you. If you don't have SDL 2.0, we have limited SDL1.2 support which is enabled with `--enable-legacy-sdl` passed to `waf configure`.
+There are three possible situations for you, by increasing difficulty.
 
-To be continued...
+1. Do you have SDL2 for your platform? If yes, go ahead and compile engine with client part enabled.
+
+2. Do you have SDL1.2 for your platform? If yes, try to compile it, but SDL1.2 support is very limited and not tested well.
+
+3. You don't have SDL and you can't port it for some reason by yourself or SDL port just don't stable for your platform? Then you need to implement an engine backend.
+
+How to implement engine backend? Well, we have a backends system that was introduced in Old Engine. It's simply two files: backends.h and defaults.h in `common` folder in repository root. You will need to add a macros for your backends in `backends.h` and define a logic in `defaults.h`. We have already have some, check them out, as they may be handy for you.
+
+Once you did it, go back to `platform` directory and open `platform.h` headers. Create new subdirectory in `platform` folder and start implementing missing platform-specific backends one by one. I can't explain this as for obvious reasons it's too specific. You can use macros you defined before in `build.h` to check that you're compiling for your platform and `backends.h` macros to check if platform-specific backend must be enabled.
+
+As you finished, compile engine, fix errors and commit your changes and push to repository.
+
+Remember, if something doesn't work and you can't figure out why, you can join our Discord server at discord.me/fwgs. Ping me (@a1batross) or other engine developer and attach link to your repository, so we can discuss and help you in porting.
