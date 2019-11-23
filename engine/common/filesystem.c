@@ -1971,13 +1971,9 @@ void FS_Init( void )
 
 		for( i = 0; i < dirs.numstrings; i++ )
 		{
-			if( !FS_SysFolderExists( dirs.strings[i] ) || ( !Q_stricmp( dirs.strings[i], ".." ) && !fs_ext_path ))
-				continue;
-
-			// magic here is that dirs.strings don't contain full path
-			// so code below checks and creates folders in current directory(host.rootdir)
-			if( !FS_SysFolderExists( dirs.strings[i] ) )
-				FS_CreatePath( dirs.strings[i] );
+			// no need to check folders here, FS_CreatePath will not fail if path exists
+			// and listdirectory returns only really existing directories
+			FS_CreatePath( va( "%s" PATH_SPLITTER "%s/", host.rootdir, dirs.strings[i] ));
 		}
 
 		stringlistfreecontents( &dirs );
