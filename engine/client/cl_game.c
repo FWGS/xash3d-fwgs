@@ -1960,7 +1960,7 @@ GetWindowCenterX
 static int pfnGetWindowCenterX( void )
 {
 	int x = 0;
-#ifdef _WIN32
+#if XASH_WIN32
 	if( m_ignore->value )
 	{
 		POINT pos;
@@ -1985,7 +1985,7 @@ GetWindowCenterY
 static int pfnGetWindowCenterY( void )
 {
 	int y = 0;
-#ifdef _WIN32
+#if XASH_WIN32
 	if( m_ignore->value )
 	{
 		POINT pos;

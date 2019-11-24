@@ -66,7 +66,7 @@ static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size
 	return false;
 }
 
-#ifndef __ANDROID__
+#if !XASH_ANDROID
 void Platform_ShellExecute( const char *path, const char *parms )
 {
 	char xdgOpen[128];
@@ -90,7 +90,7 @@ void Platform_ShellExecute( const char *path, const char *parms )
 		Con_Reportf( S_WARN "Could not find "OPEN_COMMAND" utility\n" );
 	}
 }
-#endif // __ANDROID__
+#endif // XASH_ANDROID
 
 #if XASH_MESSAGEBOX == MSGBOX_STDERR
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )

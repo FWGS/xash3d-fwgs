@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #include "client.h" // ConnectionProgress
 #include "netchan.h"
 #include "mathlib.h"
-#ifdef _WIN32
+#if XASH_WIN32
 // Winsock
 #include <WS2tcpip.h>
 #else
@@ -44,7 +44,7 @@ GNU General Public License for more details.
 #define SPLITPACKET_MAX_SIZE			64000
 #define NET_MAX_FRAGMENTS		( NET_MAX_FRAGMENT / (SPLITPACKET_MIN_SIZE - sizeof( SPLITPACKET )) )
 
-#ifndef _WIN32 // not available in XP
+#if !XASH_WIN32 // not available in XP
 #define HAVE_GETADDRINFO
 #define WSAGetLastError()  errno
 #define WSAEINTR           EINTR
@@ -84,16 +84,16 @@ GNU General Public License for more details.
 #define WSAENAMETOOLONG    ENAMETOOLONG
 #define WSAEHOSTDOWN       EHOSTDOWN
 
-#ifdef __EMSCRIPTEN__
+#if XASH_EMSCRIPTEN
 /* All socket operations are non-blocking already */
 static int ioctl_stub( int d, unsigned long r, ... )
 {
 	return 0;
 }
 #define ioctlsocket ioctl_stub
-#else // __EMSCRIPTEN__
+#else // XASH_EMSCRIPTEN
 #define ioctlsocket ioctl
-#endif // __EMSCRIPTEN__
+#endif // XASH_EMSCRIPTEN
 #define closesocket close
 #define SOCKET int
 #define INVALID_SOCKET -1
@@ -157,7 +157,7 @@ typedef struct
 	qboolean		threads_initialized;
 	qboolean		configured;
 	qboolean		allow_ip;
-#ifdef _WIN32
+#if XASH_WIN32
 	WSADATA		winsockdata;
 #endif
 } net_state_t;
@@ -181,7 +181,7 @@ NET_ErrorString
 */
 char *NET_ErrorString( void )
 {
-#ifdef _WIN32
+#if XASH_WIN32
 	int	err = WSANOTINITIALISED;
 
 	if( net.initialized )
@@ -242,7 +242,7 @@ char *NET_ErrorString( void )
 
 _inline qboolean NET_IsSocketError( int retval )
 {
-#ifdef _WIN32
+#if XASH_WIN32
 	return retval == SOCKET_ERROR ? true : false;
 #else
 	return retval < 0 ? true : false;
@@ -251,7 +251,7 @@ _inline qboolean NET_IsSocketError( int retval )
 
 _inline qboolean NET_IsSocketValid( int socket )
 {
-#ifdef _WIN32
+#if XASH_WIN32
 	return socket != INVALID_SOCKET;
 #else
 	return socket >= 0;
@@ -335,14 +335,14 @@ int NET_GetHostByName( const char *hostname )
 #endif
 }
 
-#if !defined XASH_NO_ASYNC_NS_RESOLVE && ( defined _WIN32 || !defined __EMSCRIPTEN__ )
+#if !defined XASH_NO_ASYNC_NS_RESOLVE && ( XASH_WIN32 || !XASH_EMSCRIPTEN )
 #define CAN_ASYNC_NS_RESOLVE
 #endif
 
 #ifdef CAN_ASYNC_NS_RESOLVE
 static void NET_ResolveThread( void );
 
-#if !defined _WIN32
+#if !XASH_WIN32
 #include <pthread.h>
 #define mutex_lock pthread_mutex_lock
 #define mutex_unlock pthread_mutex_unlock
@@ -386,12 +386,12 @@ static struct nsthread_s
 	string  hostname;
 	qboolean busy;
 } nsthread
-#ifndef _WIN32
+#if !XASH_WIN32
 = { PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER }
 #endif
 ;
 
-#ifdef _WIN32
+#if XASH_WIN32
 static void NET_InitializeCriticalSections( void )
 {
 	net.threads_initialized = true;
@@ -1107,7 +1107,7 @@ qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *len
 				// Transfer data
 				memcpy( data, buf, ret );
 				*length = ret;
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 				if( CL_LegacyMode() )
 					return NET_LagPacket( true, sock, from, length, data );
 
@@ -1702,7 +1702,7 @@ void NET_Init( void )
 		net.ip_sockets[i] = INVALID_SOCKET;
 	}
 
-#ifdef _WIN32
+#if XASH_WIN32
 	if( WSAStartup( MAKEWORD( 1, 1 ), &net.winsockdata ))
 	{
 		Con_DPrintf( S_ERROR "network initialization failed.\n" );
@@ -1748,7 +1748,7 @@ void NET_Shutdown( void )
 	NET_ClearLagData( true, true );
 
 	NET_Config( false );
-#ifdef _WIN32
+#if XASH_WIN32
 	WSACleanup();
 #endif
 	net.initialized = false;
@@ -2137,10 +2137,10 @@ void HTTP_Run( void )
 			// but download will lock engine, maybe you will need to add manual returns
 			mode = 1;
 			ioctlsocket( curfile->socket, FIONBIO, &mode );
-	#ifdef __linux__
+#if XASH_LINUX
 			// SOCK_NONBLOCK is not portable, so use fcntl
 			fcntl( curfile->socket, F_SETFL, fcntl( curfile->socket, F_GETFL, 0 ) | O_NONBLOCK );
-	#endif
+#endif
 			curfile->state = HTTP_SOCKET;
 		}
 

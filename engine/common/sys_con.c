@@ -14,11 +14,11 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
-#ifdef __ANDROID__
+#if XASH_ANDROID
 #include <android/log.h>
 #endif
 
-#if !defined( _WIN32 ) && !defined( XASH_MOBILE_PLATFORM )
+#if !XASH_WIN32 && !XASH_MOBILE_PLATFORM
 #define XASH_COLORIZE_CONSOLE
 // use with caution, running engine in Qt Creator may cause a freeze in read() call
 // I was never encountered this bug anywhere else, so still enable by default
@@ -68,7 +68,7 @@ char *Sys_Input( void )
 		}
 	}
 #endif
-#ifdef _WIN32
+#if XASH_WIN32
 	return Wcon_Input();
 #endif
 	return NULL;
@@ -78,7 +78,7 @@ void Sys_DestroyConsole( void )
 {
 	// last text message into console or log
 	Con_Reportf( "Sys_DestroyConsole: Exiting!\n" );
-#ifdef _WIN32
+#if XASH_WIN32
 	Wcon_DestroyConsole();
 #endif
 }
@@ -219,7 +219,7 @@ void Sys_PrintLog( const char *pMsg )
 
 	}
 #else
-#if !defined __ANDROID__ || defined XASH_DEDICATED
+#if !XASH_ANDROID || XASH_DEDICATED
 	printf( "%s %s", logtime, pMsg );
 	fflush( stdout );
 #endif

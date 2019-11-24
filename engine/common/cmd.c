@@ -999,7 +999,7 @@ void Cmd_ExecuteString( char *text )
 	// forward the command line to the server, so the entity DLL can parse it
 	if( host.type == HOST_NORMAL )
 	{
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 		if( cls.state >= ca_connected )
 		{
 			Cmd_ForwardToServer();
@@ -1022,7 +1022,7 @@ things like godmode, noclip, etc, are commands directed to the server,
 so when they are typed in at the console, they will need to be forwarded.
 ===================
 */
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 void Cmd_ForwardToServer( void )
 {
 	char	str[MAX_CMD_BUFFER];
@@ -1248,9 +1248,9 @@ void Cmd_Init( void )
 	Cmd_AddCommand( "cmdlist", Cmd_List_f, "display all console commands beginning with the specified prefix" );
 	Cmd_AddCommand( "stuffcmds", Cmd_StuffCmds_f, "execute commandline parameters (must be present in .rc script)" );
 	Cmd_AddCommand( "apropos", Cmd_Apropos_f, "lists all console variables/commands/aliases containing the specified string in the name or description" );
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	Cmd_AddCommand( "cmd", Cmd_ForwardToServer, "send a console commandline to the server" );
-#endif
+#endif // XASH_DEDICATED
 	Cmd_AddCommand( "alias", Cmd_Alias_f, "create a script function. Without arguments show the list of all alias" );
 	Cmd_AddCommand( "unalias", Cmd_UnAlias_f, "remove a script function" );
 	Cmd_AddCommand( "if", Cmd_If_f, "compare and set condition bits" );

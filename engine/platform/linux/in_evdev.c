@@ -133,7 +133,7 @@ static int KeycodeFromEvdev(int keycode, int value)
 }
 static void Evdev_CheckPermissions( void )
 {
-#ifdef __ANDROID__
+#if XASH_ANDROID
 	system( "su 0 chmod 664 /dev/input/event*" );
 #endif
 }
@@ -142,7 +142,7 @@ void Evdev_Setup( void )
 {
 	if( evdev.initialized )
 		return;
-#ifdef __ANDROID__
+#if XASH_ANDROID
 	system( "su 0 supolicy --live \"allow appdomain input_device dir { ioctl read getattr search open }\" \"allow appdomain input_device chr_file { ioctl read write getattr lock append open }\"" );
 	system( "su 0 setenforce permissive" );
 #endif

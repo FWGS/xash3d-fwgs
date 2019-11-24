@@ -21,7 +21,7 @@ GNU General Public License for more details.
 #include "ref_common.h"
 
 typedef int (*PHYSICAPI)( int, server_physics_api_t*, physics_interface_t* );
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 extern triangleapi_t gTriApi;
 #endif
 
@@ -2005,7 +2005,7 @@ const char* pfnGetModelName( int modelindex )
 
 static const byte *GL_TextureData( unsigned int texnum )
 {
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	return Host_IsDedicated() ? NULL : ref.dllFuncs.GL_TextureData( texnum );
 #else // XASH_DEDICATED
 	return NULL;
@@ -2021,7 +2021,7 @@ static server_physics_api_t gPhysicsAPI =
 	SV_GetHeadNode,
 	SV_ServerState,
 	Host_Error,
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	&gTriApi,	// ouch!
 	pfnDrawConsoleString,
 	pfnDrawSetTextColor,

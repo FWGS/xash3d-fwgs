@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include <fcntl.h>
-#ifndef _WIN32
+#if !XASH_WIN32
 #include <dirent.h>
 #endif
 static char id_md5[33];
@@ -161,8 +161,7 @@ void ID_VerifyHEX_f( void )
 		Msg( "Bad\n" );
 }
 
-#ifdef __linux__
-
+#if XASH_LINUX
 qboolean ID_ProcessCPUInfo( bloomfilter_t *value )
 {
 	int cpuinfofd = open( "/proc/cpuinfo", O_RDONLY );
@@ -317,7 +316,7 @@ qboolean ID_ProcessFile( bloomfilter_t *value, const char *path )
 	return true;
 }
 
-#ifndef _WIN32
+#if !XASH_WIN32
 int ID_ProcessFiles( bloomfilter_t *value, const char *prefix, const char *postfix )
 {
 	DIR *dir;
@@ -483,7 +482,7 @@ int ID_CheckWMIC( bloomfilter_t value, const char *cmdline )
 #endif
 
 
-#if TARGET_OS_IOS
+#if XASH_IOS
 char *IOS_GetUDID( void );
 #endif
 
@@ -492,8 +491,8 @@ bloomfilter_t ID_GenerateRawId( void )
 	bloomfilter_t value = 0;
 	int count = 0;
 
-#ifdef __linux__
-#if defined(__ANDROID__) && !defined(XASH_DEDICATED)
+#if XASH_LINUX
+#if XASH_ANDROID && !XASH_DEDICATED
 	{
 		const char *androidid = Android_GetAndroidID();
 		if( androidid && ID_VerifyHEX( androidid ) )
@@ -507,11 +506,11 @@ bloomfilter_t ID_GenerateRawId( void )
 	count += ID_ProcessFiles( &value, "/sys/block", "device/cid" );
 	count += ID_ProcessNetDevices( &value );
 #endif
-#ifdef _WIN32
+#if XASH_WIN32
 	count += ID_ProcessWMIC( &value, "wmic path win32_physicalmedia get SerialNumber " );
 	count += ID_ProcessWMIC( &value, "wmic bios get serialnumber " );
 #endif
-#if TARGET_OS_IOS
+#if XASH_IOS
 	{
 		value |= BloomFilter_ProcessStr(IOS_GetUDID());
 		count ++;
@@ -525,8 +524,8 @@ uint ID_CheckRawId( bloomfilter_t filter )
 	bloomfilter_t value = 0;
 	int count = 0;
 
-#ifdef __linux__
-#if defined(__ANDROID__) && !defined(XASH_DEDICATED)
+#if XASH_LINUX
+#if XASH_ANDROID && !XASH_DEDICATED
 	{
 		const char *androidid = Android_GetAndroidID();
 		if( androidid && ID_VerifyHEX( androidid ) )
@@ -543,12 +542,12 @@ uint ID_CheckRawId( bloomfilter_t filter )
 		count += (filter & value) == value;
 #endif
 	
-#ifdef _WIN32
+#if XASH_WIN32
 	count += ID_CheckWMIC( filter, "wmic path win32_physicalmedia get SerialNumber" );
 	count += ID_CheckWMIC( filter, "wmic bios get serialnumber" );
 #endif
 
-#if TARGET_OS_IOS
+#if XASH_IOS
 	{
 		value = BloomFilter_ProcessStr(IOS_GetUDID());
 		count += (filter & value) == value;
@@ -617,11 +616,11 @@ void ID_Init( void )
 
 	Cmd_AddCommand( "bloomfilter", ID_BloomFilter_f, "print bloomfilter raw value of arguments set");
 	Cmd_AddCommand( "verifyhex", ID_VerifyHEX_f, "check if id source seems to be fake" );
-#ifdef __linux__
+#if XASH_LINUX
 	Cmd_AddCommand( "testcpuinfo", ID_TestCPUInfo_f, "try read cpu serial" );
 #endif
 
-#if defined(__ANDROID__) && !defined(XASH_DEDICATED)
+#if XASH_ANDROID && !XASH_DEDICATED
 	sscanf( Android_LoadID(), "%016llX", &id );
 	if( id )
 	{
@@ -629,7 +628,7 @@ void ID_Init( void )
 		ID_Check();
 	}
 	
-#elif defined _WIN32
+#elif XASH_WIN32
 	{
 		CHAR szBuf[MAX_PATH];
 		ID_GetKeyData( HKEY_CURRENT_USER, "Software\\Xash3D\\", "xash_id", szBuf, MAX_PATH );
@@ -680,9 +679,9 @@ void ID_Init( void )
 	for( i = 0; i < 16; i++ )
 		Q_sprintf( &id_md5[i*2], "%02hhx", md5[i] );
 
-#if defined(__ANDROID__) && !defined(XASH_DEDICATED)
+#if XASH_ANDROID && !XASH_DEDICATED
 	Android_SaveID( va("%016llX", id^SYSTEM_XOR_MASK ) );
-#elif defined _WIN32
+#elif XASH_WIN32
 	{
 		CHAR Buf[MAX_PATH];
 		sprintf( Buf, "%016llX", id^SYSTEM_XOR_MASK );

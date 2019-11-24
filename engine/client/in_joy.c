@@ -14,8 +14,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#ifndef XASH_DEDICATED
-
 #include "common.h"
 #include "input.h"
 #include "keydefs.h"
@@ -439,5 +437,3 @@ void Joy_Shutdown( void )
 {
 	Cvar_FullSet( "joy_found", 0, FCVAR_READ_ONLY );
 }
-
-#endif // XASH_DEDICATED

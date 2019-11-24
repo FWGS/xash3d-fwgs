@@ -45,7 +45,7 @@ void COM_ClearCustomizationList( customization_t *pHead, qboolean bCleanDecals )
 
 		if( pCurrent->bInUse && pCurrent->pInfo )
 		{
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 			if( pCurrent->resource.type == t_decal )
 			{
 				if( bCleanDecals && CL_Active( ))

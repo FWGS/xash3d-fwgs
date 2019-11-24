@@ -666,7 +666,7 @@ void GL_InitExtensionsBigGL( void )
 	if( GL_CheckExtension( "GL_EXT_texture_filter_anisotropic", NULL, "gl_texture_anisotropic_filter", GL_ANISOTROPY_EXT ))
 		pglGetFloatv( GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &glConfig.max_texture_anisotropy );
 
-#ifdef _WIN32 // Win32 only drivers?
+#if XASH_WIN32 // Win32 only drivers?
 	// g-cont. because lodbias it too glitchy on Intel's cards
 	if( glConfig.hardware_type != GLHW_INTEL )
 #endif
@@ -691,7 +691,7 @@ void GL_InitExtensionsBigGL( void )
 		pglGetIntegerv( GL_MAX_VERTEX_UNIFORM_COMPONENTS_ARB, &glConfig.max_vertex_uniforms );
 		pglGetIntegerv( GL_MAX_VERTEX_ATTRIBS_ARB, &glConfig.max_vertex_attribs );
 
-#ifdef _WIN32 // Win32 only drivers?
+#if XASH_WIN32 // Win32 only drivers?
 		if( glConfig.hardware_type == GLHW_RADEON && glConfig.max_vertex_uniforms > 512 )
 			glConfig.max_vertex_uniforms /= 4; // radeon returns not correct info
 #endif
@@ -769,7 +769,7 @@ void GL_InitExtensions( void )
 		gEngfuncs.Image_AddCmdFlags( IL_DDS_HARDWARE );
 
 	// MCD has buffering issues
-#ifdef _WIN32
+#if XASH_WIN32
 	if( Q_strstr( glConfig.renderer_string, "gdi" ))
 		gEngfuncs.Cvar_SetValue( "gl_finish", 1 );
 #endif

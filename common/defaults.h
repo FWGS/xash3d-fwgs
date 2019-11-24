@@ -26,7 +26,7 @@ SETUP BACKENDS DEFINITIONS
 
 ===================================================================
 */
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	#if XASH_SDL
 		// we are building using libSDL
 		#ifndef XASH_VIDEO

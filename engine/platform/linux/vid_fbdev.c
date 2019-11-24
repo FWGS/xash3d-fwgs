@@ -10,7 +10,7 @@
 #include <linux/fb.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
-#ifdef __ANDROID__
+#if XASH_ANDROID
 #include <linux/kd.h>
 #else
 #include <sys/kd.h>

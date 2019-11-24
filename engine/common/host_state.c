@@ -136,7 +136,7 @@ void Host_ShutdownGame( void )
 void Host_RunFrame( float time )
 {
 	// at this time, we don't need to get events from OS on dedicated
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	Platform_RunEvents();
 #endif // XASH_DEDICATED
 

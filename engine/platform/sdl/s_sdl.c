@@ -237,12 +237,12 @@ void SNDDMA_Shutdown( void )
 	{
 		SNDDMA_Activate( false );
 
-#ifndef __EMSCRIPTEN__
+#if !XASH_EMSCRIPTEN
 		SDL_CloseAudioDevice( sdl_dev );
 #endif
 	}
 
-#ifndef __EMSCRIPTEN__
+#if !XASH_EMSCRIPTEN
 	if( SDL_WasInit( SDL_INIT_AUDIO ) )
 		SDL_QuitSubSystem( SDL_INIT_AUDIO );
 #endif

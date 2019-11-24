@@ -13,7 +13,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#ifdef _WIN32
+#include "build.h"
+#if XASH_WIN32
 #include "common.h"
 #include "client.h"
 #include <vfw.h> // video for windows

@@ -12,9 +12,6 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
-#ifndef XASH_DEDICATED
-
 #include <string.h>
 #include "common.h"
 #include "client.h"
@@ -551,4 +548,3 @@ void *GAME_EXPORT VGui_GetPanel( void )
 		return vgui.GetPanel();
 	return NULL;
 }
-#endif

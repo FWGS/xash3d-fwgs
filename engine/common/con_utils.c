@@ -481,7 +481,7 @@ qboolean Cmd_GetSoundList( const char *s, char *completedname, int length )
 	return true;
 }
 
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 /*
 =====================================
 Cmd_GetItemsList
@@ -986,7 +986,7 @@ autocomplete_list_t cmd_list[] =
 { "music", 1, Cmd_GetMusicList, },
 { "movie", 1, Cmd_GetMovieList },
 { "exec", 1, Cmd_GetConfigList },
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 { "give", 1, Cmd_GetItemsList },
 { "drop", 1, Cmd_GetItemsList },
 { "bind", 1, Cmd_GetKeysList },
@@ -1314,9 +1314,7 @@ void Cmd_WriteOpenGLVariables( file_t *f )
 	Cvar_LookupVars( FCVAR_GLCONFIG, NULL, f, (setpair_t)Cmd_WriteOpenGLCvar );
 }
 
-#ifndef XASH_DEDICATED
-
-
+#if !XASH_DEDICATED
 void Host_FinalizeConfig( file_t *f, const char *config )
 {
 	string backup, newcfg;

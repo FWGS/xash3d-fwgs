@@ -12,8 +12,6 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
-#ifndef XASH_DEDICATED
 #include "common.h"
 #include "input.h"
 #include "client.h"
@@ -1975,4 +1973,3 @@ void Touch_Shutdown( void )
 	touch.initialized = false;
 	Mem_FreePool( &touch.mempool );
 }
-#endif

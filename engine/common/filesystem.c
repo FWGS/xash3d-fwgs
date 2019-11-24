@@ -13,10 +13,11 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include "build.h"
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <time.h>
-#ifdef _WIN32
+#if XASH_WIN32
 #include <direct.h>
 #include <io.h>
 #else
@@ -143,7 +144,7 @@ char			fs_gamedir[MAX_SYSPATH];	// game current directory
 char			fs_writedir[MAX_SYSPATH];	// path that game allows to overwrite, delete and rename files (and create new of course)
 
 qboolean		fs_ext_path = false;	// attempt to read\write from ./ or ../ pathes
-#ifndef _WIN32
+#if !XASH_WIN32
 qboolean		fs_caseinsensitive = true; // try to search missing files
 #endif
 
@@ -248,7 +249,7 @@ static void listdirectory( stringlist_t *list, const char *path, qboolean lowerc
 {
 	int		i;
 	signed char *c;
-#ifdef _WIN32
+#if XASH_WIN32
 	char pattern[4096];
 	struct _finddata_t	n_file;
 	int		hFile;
@@ -257,7 +258,7 @@ static void listdirectory( stringlist_t *list, const char *path, qboolean lowerc
 	struct dirent *entry;
 #endif
 
-#ifdef _WIN32
+#if XASH_WIN32
 	Q_snprintf( pattern, sizeof( pattern ), "%s*", path );
 
 	// ask for the directory listing handle
@@ -304,7 +305,7 @@ emulate WIN32 FS behaviour when opening local file
 */
 static const char *FS_FixFileCase( const char *path )
 {
-#if !defined _WIN32 && !TARGET_OS_IPHONE // assume case insensitive
+#if !XASH_WIN32 && !XASH_IOS // assume case insensitive
 	DIR *dir; struct dirent *entry;
 	char path2[PATH_MAX], *fname;
 
@@ -491,7 +492,7 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 
 	packhandle = open( packfile, O_RDONLY|O_BINARY );
 
-#ifndef _WIN32
+#if !XASH_WIN32
 	if( packhandle < 0 )
 	{
 		const char *fpackfile = FS_FixFileCase( packfile );
@@ -602,7 +603,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 	zip->handle = FS_Open( zipfile, "rb", true );
 
-#ifndef _WIN32
+#if !XASH_WIN32
 	if( !zip->handle )
 	{
 		const char *fzipfile = FS_FixFileCase( zipfile );
@@ -1269,15 +1270,10 @@ void FS_Rescan( void )
 
 	FS_ClearSearchPath();
 
-#if TARGET_OS_IPHONE
+#if XASH_IOS
 	{
 		FS_AddPak_Fullpath( va( "%sextras.pak", SDL_GetBasePath() ), NULL, extrasFlags );
 		FS_AddPak_Fullpath( va( "%sextras_%s.pak", SDL_GetBasePath(), GI->gamefolder ), NULL, extrasFlags );
-	}
-#elif defined(__SAILFISH__)
-	{
-		FS_AddPak_Fullpath( va( SHAREPATH"/extras.pak" ), NULL, extrasFlags );
-		FS_AddPak_Fullpath( va( SHAREPATH"/%s/extras.pak", GI->gamefolder ), NULL, extrasFlags );
 	}
 #else
 	if( ( str = getenv( "XASH3D_EXTRAS_PAK1" ) ) )
@@ -1922,7 +1918,7 @@ void FS_Init( void )
 	Cmd_AddCommand( "fs_path", FS_Path_f, "show filesystem search pathes" );
 	Cmd_AddCommand( "fs_clearpaths", FS_ClearPaths_f, "clear filesystem search pathes" );
 
-#ifndef _WIN32
+#if !XASH_WIN32
 	if( Sys_CheckParm( "-casesensitive" ) )
 		fs_caseinsensitive = false;
 
@@ -2116,7 +2112,7 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 
 	file->handle = open( filepath, mod|opt, 0666 );
 
-#ifndef _WIN32
+#if !XASH_WIN32
 	if( file->handle < 0 )
 	{
 		const char *ffilepath = FS_FixFileCase( filepath );
@@ -2182,7 +2178,7 @@ Look for a file in the filesystem only
 */
 qboolean FS_SysFileExists( const char *path, qboolean caseinsensitive )
 {
-#ifdef _WIN32
+#if XASH_WIN32
 	int desc;
 
 	if(( desc = open( path, O_RDONLY|O_BINARY )) < 0 )
@@ -2220,7 +2216,7 @@ Look for a existing folder
 */
 qboolean FS_SysFolderExists( const char *path )
 {
-#ifdef _WIN32
+#if XASH_WIN32
 	DWORD	dwFlags = GetFileAttributes( path );
 
 	return ( dwFlags != -1 ) && ( dwFlags & FILE_ATTRIBUTE_DIRECTORY );

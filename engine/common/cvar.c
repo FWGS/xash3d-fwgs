@@ -113,7 +113,7 @@ static qboolean Cvar_UpdateInfo( convar_t *var, const char *value, qboolean noti
 			Info_SetValueForKey( SV_Serverinfo(), var->name, value, MAX_SERVERINFO_STRING ),
 			SV_BroadcastCommand( "fullserverinfo \"%s\"\n", SV_Serverinfo( ));
 		}
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 		else
 		{
 			if( !Info_SetValueForKey( CL_Userinfo(), var->name, value, MAX_INFO_STRING ))
