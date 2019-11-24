@@ -37,7 +37,8 @@ def configure(conf):
 		for i in ['android', 'log', 'EGL']:
 			conf.check_cc(lib = i)
 	elif conf.options.FBDEV_SW:
-		conf.define('XASH_FBDEV', 1)
+		# unused, XASH_LINUX without XASH_SDL gives fbdev & alsa support
+		# conf.define('XASH_FBDEV', 1)
 		conf.check_cc( lib = 'asound' )
 		conf.check_cc( lib = 'rt' )
 	elif conf.options.SDL12:
