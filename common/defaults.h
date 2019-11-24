@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #define DEFAULTS_H
 
 #include "backends.h"
+#include "build.h"
 
 /*
 ===================================================================
@@ -26,109 +27,100 @@ SETUP BACKENDS DEFINITIONS
 ===================================================================
 */
 #ifndef XASH_DEDICATED
-
-	#if XASH_SDL == 2
-		#ifndef XASH_TIMER
-			#define XASH_TIMER TIMER_SDL
-		#endif
-
-		#ifndef XASH_MESSAGEBOX
-			#define XASH_MESSAGEBOX MSGBOX_SDL
-		#endif
-	#else
-		#ifndef XASH_TIMER
-			#define XASH_TIMER TIMER_LINUX
-		#endif
-
-		#ifndef XASH_MESSAGEBOX
-			#define XASH_MESSAGEBOX MSGBOX_STDERR
-		#endif
-	#endif
-
-	#ifdef XASH_SDL
-		// by default, use SDL subsystems
+	#if XASH_SDL
+		// we are building using libSDL
 		#ifndef XASH_VIDEO
 			#define XASH_VIDEO VIDEO_SDL
 		#endif // XASH_VIDEO
 
 		#ifndef XASH_INPUT
 			#define XASH_INPUT INPUT_SDL
-		#endif
+		#endif // XASH_INPUT
 
 		#ifndef XASH_SOUND
 			#define XASH_SOUND SOUND_SDL
+		#endif // XASH_SOUND
+
+		#if XASH_SDL == 2
+			#ifndef XASH_TIMER
+				#define XASH_TIMER TIMER_SDL
+			#endif // XASH_TIMER
+
+			#ifndef XASH_MESSAGEBOX
+				#define XASH_MESSAGEBOX MSGBOX_SDL
+			#endif // XASH_MESSAGEBOX
 		#endif
-
-	#endif //XASH_SDL
-
-	#if defined __ANDROID__ && !defined XASH_SDL
-
+	#elif XASH_ANDROID
+		// we are building for Android platform, use Android APIs
 		#ifndef XASH_VIDEO
 			#define XASH_VIDEO VIDEO_ANDROID
-		#endif
-
-		#ifndef XASH_TIMER
-			#define XASH_TIMER TIMER_LINUX
-		#endif
+		#endif // XASH_VIDEO
 
 		#ifndef XASH_INPUT
 			#define XASH_INPUT INPUT_ANDROID
-		#endif
+		#endif // XASH_INPUT
 
 		#ifndef XASH_SOUND
 			#define XASH_SOUND SOUND_OPENSLES
-		#endif
+		#endif // XASH_SOUND
 
 		#ifndef XASH_MESSAGEBOX
 			#define XASH_MESSAGEBOX MSGBOX_ANDROID
-		#endif
-	#endif // android case
+		#endif // XASH_MESSAGEBOX
 
-	#ifdef XASH_FBDEV
+		#define XASH_USE_EVDEV
+	#elif XASH_LINUX
+		// we are building for Linux without SDL2, can draw only to framebuffer yet
 		#ifndef XASH_VIDEO
 			#define XASH_VIDEO VIDEO_FBDEV
-		#endif
-
-		#ifndef XASH_TIMER
-			#define XASH_TIMER TIMER_LINUX
-		#endif
+		#endif // XASH_VIDEO
 
 		#ifndef XASH_INPUT
 			#define XASH_INPUT INPUT_EVDEV
-		#endif
+		#endif // XASH_INPUT
 
 		#ifndef XASH_SOUND
 			#define XASH_SOUND SOUND_ALSA
-		#endif
+		#endif // XASH_SOUND
 
-		#ifndef XASH_MESSAGEBOX
-			#define XASH_MESSAGEBOX MSGBOX_STDERR
-		#endif
 		#define XASH_USE_EVDEV
-	#endif // android case
+	#endif // XASH_LINUX
 
 #endif // XASH_DEDICATED
 
+//
+// select messagebox implementation
+//
+#ifndef XASH_MESSAGEBOX
+	#if XASH_WIN32
+		#define XASH_MESSAGEBOX MSGBOX_WIN32
+	#else // !XASH_WIN32
+		#define XASH_MESSAGEBOX MSGBOX_STDERR
+	#endif // !XASH_WIN32
+#endif // XASH_MESSAGEBOX
+
+//
 // select crashhandler based on defines
+//
 #ifndef XASH_CRASHHANDLER
-	#ifdef _WIN32
-		#ifdef DBGHELP
-			#define XASH_CRASHHANDLER CRASHHANDLER_DBGHELP
-		#endif
-	#elif defined CRASHHANDLER
+	#if XASH_WIN32 && defined(DBGHELP)
+		#define XASH_CRASHHANDLER CRASHHANDLER_DBGHELP
+	#elif XASH_LINUX || XASH_BSD
 		#define XASH_CRASHHANDLER CRASHHANDLER_UCONTEXT
-	#else
+	#else // !(XASH_LINUX || XASH_BSD || XASH_WIN32)
 		#define XASH_CRASHHANDLER CRASHHANDLER_NULL
-	#endif
+	#endif // !(XASH_LINUX || XASH_BSD || XASH_WIN32)
 #endif
 
+//
 // no timer - no xash
+//
 #ifndef XASH_TIMER
-	#ifdef _WIN32
+	#if XASH_WIN32
 		#define XASH_TIMER TIMER_WIN32
-	#else
+	#else // !XASH_WIN32
 		#define XASH_TIMER TIMER_LINUX
-	#endif
+	#endif // !XASH_WIN32
 #endif
 
 //
@@ -136,19 +128,15 @@ SETUP BACKENDS DEFINITIONS
 //
 #ifndef XASH_VIDEO
 	#define XASH_VIDEO VIDEO_NULL
-#endif
+#endif // XASH_VIDEO
 
 #ifndef XASH_SOUND
 	#define XASH_SOUND SOUND_NULL
-#endif
+#endif // XASH_SOUND
 
 #ifndef XASH_INPUT
 	#define XASH_INPUT INPUT_NULL
-#endif
-
-#ifndef XASH_MESSAGEBOX
-	#define XASH_MESSAGEBOX MSGBOX_STDERR
-#endif
+#endif // XASH_INPUT
 
 /*
 =========================================================================
@@ -158,53 +146,39 @@ Default build-depended cvar and constant values
 =========================================================================
 */
 
-#if defined __ANDROID__ || TARGET_OS_IPHONE
+#if XASH_MOBILE_PLATFORM
 	#define DEFAULT_TOUCH_ENABLE "1"
 	#define DEFAULT_M_IGNORE "1"
-#else
+#else // !XASH_MOBILE_PLATFORM
 	#define DEFAULT_TOUCH_ENABLE "0"
 	#define DEFAULT_M_IGNORE "0"
-#endif
+#endif // !XASH_MOBILE_PLATFORM
 
-#if defined __ANDROID__ || TARGET_OS_IPHONE || defined __EMSCRIPTEN__
+#if XASH_ANDROID || XASH_IOS || XASH_EMSCRIPTEN
 #define XASH_INTERNAL_GAMELIBS
 // this means that libraries are provided with engine, but not in game data
 // You need add library loading code to library.c when adding new platform
-#endif
-
-// Set ForceSimulating to 1 by default for dedicated, because AMXModX timers require this
-// TODO: enable simulating for any server?
-#ifdef XASH_DEDICATED
-	#define DEFAULT_SV_FORCESIMULATING "1"
-#else
-	#define DEFAULT_SV_FORCESIMULATING "0"
-#endif
+#endif // XASH_ANDROID || XASH_IOS || XASH_EMSCRIPTEN
 
 // allow override for developer/debug builds
 #ifndef DEFAULT_DEV
 	#define DEFAULT_DEV 0
-#endif
+#endif // DEFAULT_DEV
 
 #ifndef DEFAULT_FULLSCREEN
 	#define DEFAULT_FULLSCREEN 1
-#endif
+#endif // DEFAULT_FULLSCREEN
 
 #ifndef DEFAULT_ACCELERATED_RENDERER
-	#ifdef __ANDROID__
+	#if XASH_MOBILE_PLATFORM
 		#define DEFAULT_ACCELERATED_RENDERER "gles1"
-	#else
+	#else // !XASH_MOBILE_PLATFORM
 		#define DEFAULT_ACCELERATED_RENDERER "gl"
-	#endif
+	#endif // !XASH_MOBILE_PLATFORM
 #endif // DEFAULT_ACCELERATED_RENDERER
 
 #ifndef DEFAULT_SOFTWARE_RENDERER
 	#define DEFAULT_SOFTWARE_RENDERER "soft" // mittorn's ref_soft
 #endif // DEFAULT_SOFTWARE_RENDERER
-
-#if TARGET_OS_IPHONE
-	#define DEFAULT_CON_MAXFRAC "0.5"
-#else
-	#define DEFAULT_CON_MAXFRAC "1"
-#endif
 
 #endif // DEFAULTS_H
