@@ -664,7 +664,7 @@ Host_InitCommon
 void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bChangeGame )
 {
 	char		dev_level[4];
-	int		developer = 0;
+	int		developer = DEFAULT_DEV;
 	const char *baseDir;
 	char ticrate[16];
 
