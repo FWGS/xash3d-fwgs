@@ -131,7 +131,7 @@ qboolean Info_IsValid( const char *s )
 	return true;
 }
 
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 /*
 ==============
 Info_WriteVars

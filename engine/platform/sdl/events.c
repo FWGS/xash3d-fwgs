@@ -12,8 +12,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
-#if defined( XASH_SDL ) && !defined( XASH_DEDICATED )
+#if defined( XASH_SDL ) && !XASH_DEDICATED
 #include <SDL.h>
 #include <ctype.h>
 
@@ -627,4 +626,4 @@ void Platform_PreCreateMove( void )
 	}
 }
 
-#endif //  defined( XASH_SDL ) && !defined( XASH_DEDICATED )
+#endif //  defined( XASH_SDL ) && !XASH_DEDICATED

@@ -13,7 +13,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#ifndef _WIN32 // see win_lib.c
+#include "build.h"
+#if !XASH_WIN32 // see win_lib.c
 #define _GNU_SOURCE
 
 #include "common.h"

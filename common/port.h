@@ -19,13 +19,13 @@ GNU General Public License for more details.
 
 #include "build.h"
 
-#if !defined(_WIN32)
+#if !XASH_WIN32
 	#include <dlfcn.h>
 	#include <unistd.h>
 
 	#define PATH_SPLITTER "/"
 
-	#if defined(__APPLE__)
+	#if XASH_APPLE
 		#include <sys/syslimits.h>
 		#include "TargetConditionals.h"
 		#define OS_LIB_EXT "dylib"
@@ -37,7 +37,7 @@ GNU General Public License for more details.
 
 	#define OS_LIB_PREFIX "lib"
 
-	#if defined(__ANDROID__)
+	#if XASH_ANDROID
 		//#if defined(LOAD_HARDFP)
 		//	#define POSTFIX "_hardfp"
 		//#else

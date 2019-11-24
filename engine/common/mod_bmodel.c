@@ -1085,7 +1085,7 @@ static void Mod_CalcSurfaceExtents( msurface_t *surf )
 			info->lightextents[i] = surf->extents[i];
 		}
 
-#if !defined XASH_DEDICATED && 0 // REFTODO:
+#if !XASH_DEDICATED && 0 // REFTODO:
 		if( !FBitSet( tex->flags, TEX_SPECIAL ) && ( surf->extents[i] > 16384 ) && ( tr.block_size == BLOCK_SIZE_DEFAULT ))
 			Con_Reportf( S_ERROR "Bad surface extents %i\n", surf->extents[i] );
 #endif // XASH_DEDICATED
@@ -1912,7 +1912,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 	if( bmod->isworld )
 	{
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 		// release old sky layers first
 		if( !Host_IsDedicated() )
 		{
@@ -1944,7 +1944,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 			loadmodel->textures[i] = tx;
 
 			Q_strncpy( tx->name, "*default", sizeof( tx->name ));
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 			if( !Host_IsDedicated() )
 			{
 				tx->gl_texturenum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
@@ -1993,7 +1993,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 			if( remaining >= 770 ) custom_palette = true;
 		}
 
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 		if( !Host_IsDedicated() )
 		{
 			// check for multi-layered sky texture (quake1 specific)
@@ -2370,7 +2370,7 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 			next_lightofs = 99999999;
 		}
 
-#ifndef XASH_DEDICATED // TODO: Do we need subdivide on server?
+#if !XASH_DEDICATED // TODO: Do we need subdivide on server?
 		if( FBitSet( out->flags, SURF_DRAWTURB ) && !Host_IsDedicated() )
 			ref.dllFuncs.GL_SubdivideSurface( out ); // cut up polygon for warps
 #endif
@@ -2820,7 +2820,7 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	if( isworld )
 	{
 		loadmodel = mod;		// restore pointer to world
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 		Mod_InitDebugHulls();	// FIXME: build hulls for separate bmodels (shells, medkits etc)
 		world.deluxedata = bmod->deluxedata_out;	// deluxemap data pointer
 		world.shadowdata = bmod->shadowdata_out;	// occlusion data pointer

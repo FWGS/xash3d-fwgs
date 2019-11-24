@@ -1558,7 +1558,7 @@ Read the clientdata
 */
 void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, float timebase )
 {
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	delta_t		*pField;
 	delta_info_t	*dt;
 	int		i;
@@ -1779,7 +1779,7 @@ Can go from either a baseline or a previous packet_entity
 */
 qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state_t *to, int number, int delta_type, float timebase )
 {
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	delta_info_t	*dt = NULL;
 	delta_t		*pField;
 	int		i, fRemoveType;

@@ -45,7 +45,7 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 #include <stdlib.h> // rand, adbs
 #include <stdarg.h> // va
 
-#ifndef _WIN32
+#if !XASH_WIN32
 #include <stddef.h> // size_t
 #else
 #include <sys/types.h> // off_t
@@ -60,7 +60,7 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 	#error "Please select timer backend"
 #endif
 
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	#if XASH_VIDEO == VIDEO_NULL
 		#error "Please select video backend"
 	#endif

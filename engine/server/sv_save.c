@@ -498,7 +498,7 @@ static void AgeSaveList( const char *pName, int count )
 	FS_Delete( newName );
 	FS_Delete( newShot );
 
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	// unloading the shot footprint
 	GL_FreeImage( newShot );
 #endif // XASH_DEDICATED
@@ -521,7 +521,7 @@ static void AgeSaveList( const char *pName, int count )
 		Q_snprintf( newName, sizeof( newName ), "%s%s%02d.sav", DEFAULT_SAVE_DIRECTORY, pName, count );
 		Q_snprintf( newShot, sizeof( newShot ), "%s%s%02d.bmp", DEFAULT_SAVE_DIRECTORY, pName, count );
 
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 		// unloading the oldshot footprint too
 		GL_FreeImage( oldShot );
 #endif // XASH_DEDICATED
@@ -1111,7 +1111,7 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 	decalList = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
 
 	// initialize client header
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	if( !Host_IsDedicated() )
 	{
 		header.decalCount = ref.dllFuncs.R_CreateDecalList( decalList );
@@ -1128,7 +1128,7 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 	{
 	 	// sounds won't going across transition
 		header.soundCount = S_GetCurrentDynamicSounds( soundInfo, MAX_CHANNELS );
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 		// music not reqiured to save position: it's just continue playing on a next level
 		S_StreamGetCurrentState( header.introTrack, header.mainTrack, &header.trackPosition );
 #endif
@@ -2104,7 +2104,7 @@ void SV_SaveGame( const char *pName )
 	}
 	else Q_strncpy( savename, pName, sizeof( savename ));
 
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	// unload previous image from memory (it's will be overwritten)
 	GL_FreeImage( va( "%s%s.bmp", DEFAULT_SAVE_DIRECTORY, savename ));
 #endif // XASH_DEDICATED
@@ -2112,7 +2112,7 @@ void SV_SaveGame( const char *pName )
 	SaveBuildComment( comment, sizeof( comment ));
 	result = SaveGameSlot( savename, comment );
 
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	if( result && !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
 		CL_HudMessage( "GAMESAVED" ); // defined in titles.txt
 #endif // XASH_DEDICATED

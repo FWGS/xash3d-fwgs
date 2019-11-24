@@ -13,19 +13,20 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include "build.h"
 #ifdef XASH_SDL
 #include <SDL.h>
 #endif // XASH_SDL
 #include <stdarg.h>  // va_args
 #include <errno.h> // errno
 #include <string.h> // strerror
-#ifndef _WIN32
+#if !XASH_WIN32
 #include <unistd.h> // fork
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #endif
-#ifdef __EMSCRIPTEN__
+#if XASH_EMSCRIPTEN
 #include <emscripten/emscripten.h>
 #endif
 #include <errno.h>
@@ -113,7 +114,7 @@ qboolean Host_IsQuakeCompatible( void )
 	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
 		return true;
 
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	// quake demo playing
 	if( cls.demoplayback == DEMO_QUAKE1 )
 		return true;
@@ -139,7 +140,7 @@ void Host_EndGame( qboolean abort, const char *message, ... )
 	Con_Printf( "Host_EndGame: %s\n", string );
 
 	SV_Shutdown( "\n" );	
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	CL_Disconnect();
 
 	// recreate world if needs
@@ -451,7 +452,7 @@ double Host_CalcFPS( void )
 	{
 		fps = sys_ticrate.value;
 	}
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	else if( CL_IsPlaybackDemo() || CL_IsRecordDemo( )) // NOTE: we should play demos with same fps as it was recorded
 	{
 		fps = CL_GetDemoFramerate();
@@ -800,7 +801,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	host.con_showalways = true;
 
-#ifdef XASH_DEDICATED
+#if XASH_DEDICATED
 	host.type = HOST_DEDICATED; // predict state
 #else
 	if( Sys_CheckParm("-dedicated") || progname[0] == '#' )
@@ -1057,7 +1058,7 @@ void EXPORT Host_Shutdown( void )
 	if( host.status != HOST_ERR_FATAL ) host.status = HOST_SHUTDOWN; // prepare host to normal shutdown
 	if( !host.change_game ) Q_strncpy( host.finalmsg, "Server shutdown", sizeof( host.finalmsg ));
 
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	if( host.type == HOST_NORMAL )
 		Host_WriteConfig();
 #endif

@@ -22,12 +22,12 @@ GNU General Public License for more details.
 #include <SDL.h>
 #endif
 
-#ifndef _WIN32
+#if !XASH_WIN32
 #include <unistd.h>
 #include <signal.h>
 #include <dlfcn.h>
 
-#ifndef __ANDROID__
+#if !XASH_ANDROID
 #include <pwd.h>
 #endif
 #endif
@@ -47,14 +47,14 @@ double GAME_EXPORT Sys_DoubleTime( void )
 	return Platform_DoubleTime();
 }
 
-#if defined __linux__ || ( defined _WIN32 && !defined XASH_64BIT )
+#if XASH_LINUX || ( XASH_WIN32 && !XASH_64BIT )
 	#undef DEBUG_BREAK
 	qboolean Sys_DebuggerPresent( void ); // see sys_linux.c
-	#ifdef _MSC_VER
+	#if XASH_MSVC
 		#define DEBUG_BREAK \
 			if( Sys_DebuggerPresent() ) \
 				_asm{ int 3 }
-	#elif __i386__
+	#elif XASH_X86
 		#define DEBUG_BREAK \
 			if( Sys_DebuggerPresent() ) \
 				asm volatile("int $3;")
@@ -65,7 +65,7 @@ double GAME_EXPORT Sys_DoubleTime( void )
 	#endif
 #endif
 
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 /*
 ================
 Sys_GetClipboardData
@@ -122,13 +122,13 @@ returns username for current profile
 */
 char *Sys_GetCurrentUser( void )
 {
-#if defined(_WIN32)
+#if XASH_WIN32
 	static string	s_userName;
 	unsigned long size = sizeof( s_userName );
 
 	if( GetUserName( s_userName, &size ))
 		return s_userName;
-#elif !defined(__ANDROID__)
+#elif !XASH_ANDROID
 	uid_t uid = geteuid();
 	struct passwd *pw = getpwuid( uid );
 
@@ -248,7 +248,7 @@ qboolean Sys_GetIntFromCmdLine( const char* argName, int *out )
 
 void Sys_SendKeyEvents( void )
 {
-#ifdef _WIN32
+#if XASH_WIN32
 	MSG	msg;
 
 	while( PeekMessage( &msg, NULL, 0, 0, PM_NOREMOVE ))
@@ -353,7 +353,7 @@ wait for 'Esc' key will be hit
 */
 void Sys_WaitForQuit( void )
 {
-#ifdef _WIN32
+#if XASH_WIN32
 	MSG	msg;
 
 	Wcon_RegisterHotkeys();		
@@ -433,7 +433,7 @@ void Sys_Error( const char *error, ... )
 
 	if( host_developer.value )
 	{
-#ifdef _WIN32
+#if XASH_WIN32
 		Wcon_ShowConsole( true );
 		Wcon_DisableInput();	// disable input line for dedicated server
 #endif
@@ -442,7 +442,7 @@ void Sys_Error( const char *error, ... )
 	}
 	else
 	{
-#ifdef _WIN32
+#if XASH_WIN32
 		Wcon_ShowConsole( false );
 #endif
 		MSGBOX( text );
@@ -451,7 +451,7 @@ void Sys_Error( const char *error, ... )
 	Sys_Quit();
 }
 
-#ifdef __EMSCRIPTEN__
+#if XASH_EMSCRIPTEN
 /* strange glitchy bug on emscripten
 _exit->_Exit->asm._exit->_exit
 As we do not need atexit(), just throw hidden exception
@@ -486,14 +486,14 @@ print into window console
 */
 void Sys_Print( const char *pMsg )
 {
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	if( !Host_IsDedicated() )
 	{
 		Con_Print( pMsg );
 	}
 #endif
 
-#ifdef _WIN32
+#if XASH_WIN32
 	{
 		const char	*msg;
 		static char	buffer[MAX_PRINT_MSG];

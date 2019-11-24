@@ -17,12 +17,12 @@ GNU General Public License for more details.
 
 #include <stdlib.h>
 #include <string.h>
+#include "build.h"
 #ifdef XASH_SDLMAIN
 #include "SDL.h"
 #endif
 
-
-#ifdef __EMSCRIPTEN__
+#if XASH_EMSCRIPTEN
 #include <emscripten.h>
 #endif
 typedef void (*pfnChangeGame)( const char *progname );
@@ -78,14 +78,14 @@ int main( int argc, char** argv )
 		gamedir = gamedir_buf;
 	}
 
-#ifdef __EMSCRIPTEN__
+#if XASH_EMSCRIPTEN
 #ifdef EMSCRIPTEN_LIB_FS
 	// For some unknown reason emscripten refusing to load libraries later
 	Com_LoadLibrary("menu", 0 );
 	Com_LoadLibrary("server", 0 );
 	Com_LoadLibrary("client", 0 );
 #endif
-#ifdef XASH_DEDICATED
+#if XASH_DEDICATED
 	// NodeJS support for debug
 	EM_ASM(try{
 		FS.mkdir('/xash');
@@ -97,7 +97,7 @@ int main( int argc, char** argv )
 
 	g_iArgc = argc;
 	g_pszArgv = argv;
-#if TARGET_OS_IPHONE
+#if XASH_IOS
 	{
 		void IOS_LaunchDialog( void );
 		IOS_LaunchDialog();

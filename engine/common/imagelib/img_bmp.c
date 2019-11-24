@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #include "mathlib.h"
 
 #define BI_SIZE	40 //size of bitmap info header.
-#ifndef _WIN32
+#if !XASH_WIN32
 #define BI_RGB 0
 
 typedef struct tagRGBQUAD {

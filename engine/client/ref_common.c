@@ -566,7 +566,7 @@ static void SetWidthAndHeightFromCommandLine( void )
 
 static void SetFullscreenModeFromCommandLine( void )
 {
-#ifndef __ANDROID__
+#if !XASH_MOBILE_PLATFORM
 	if ( Sys_CheckParm("-fullscreen") )
 	{
 		Cvar_Set( "fullscreen", "1" );

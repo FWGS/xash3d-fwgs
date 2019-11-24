@@ -36,7 +36,7 @@ void Platform_MessageBox( const char *title, const char *message, qboolean paren
 // see system.c
 // qboolean Sys_DebuggerPresent( void );
 
-#ifdef __ANDROID__
+#if XASH_ANDROID
 const char *Android_GetAndroidID( void );
 const char *Android_LoadID( void );
 void Android_SaveID( const char *id );
@@ -83,7 +83,7 @@ void Platform_SetClipboardText( const char *buffer, size_t size );
 #define SDL_VERSION_ATLEAST( x, y, z ) 0
 #endif
 
-#ifdef __ANDROID__
+#if XASH_ANDROID
 void Android_ShowMouse( qboolean show );
 void Android_MouseMove( float *x, float *y );
 #endif

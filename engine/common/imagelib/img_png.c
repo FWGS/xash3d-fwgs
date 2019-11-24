@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #include "miniz.h"
 #include "imagelib.h"
 #include "mathlib.h"
-#ifndef _WIN32
+#if !XASH_WIN32
 #include <netinet/in.h>
 #endif
 
