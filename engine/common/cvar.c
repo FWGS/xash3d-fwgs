@@ -590,7 +590,16 @@ Cvar_Set
 */
 void Cvar_Set( const char *var_name, const char *value )
 {
-	convar_t	*var = Cvar_FindVar( var_name );
+	convar_t	*var;
+
+	if( !var_name )
+	{
+		// there is an error in C code if this happens
+		Con_Printf( "Cvar_Set: passed NULL variable name\n", var_name );
+		return;
+	}
+
+	var = Cvar_FindVar( var_name );
 
 	if( !var )
 	{
@@ -637,6 +646,13 @@ float Cvar_VariableValue( const char *var_name )
 {
 	convar_t	*var;
 
+	if( !var_name )
+	{
+		// there is an error in C code if this happens
+		Con_Printf( "Cvar_VariableValue: passed NULL variable name\n", var_name );
+		return 0.0f;
+	}
+
 	var = Cvar_FindVar( var_name );
 	if( !var ) return 0.0f;
 
@@ -666,6 +682,13 @@ Cvar_VariableString
 const char *Cvar_VariableString( const char *var_name )
 {
 	convar_t	*var;
+
+	if( !var_name )
+	{
+		// there is an error in C code if this happens
+		Con_Printf( "Cvar_VariableString: passed NULL variable name\n", var_name );
+		return "";
+	}
 
 	var = Cvar_FindVar( var_name );
 	if( !var ) return "";
