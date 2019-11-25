@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "vgui_draw.h"
 #include "qfont.h"
 #include "input.h"
+#include "library.h"
 
 convar_t *scr_centertime;
 convar_t *scr_loading;
@@ -777,7 +778,7 @@ void SCR_Init( void )
 
 	if( !UI_LoadProgs( ))
 	{
-		Con_Printf( S_ERROR "can't initialize gameui.dll\n" ); // there is non fatal for us
+		Con_Printf( S_ERROR "can't initialize gameui DLL: %s\n", COM_GetLibraryError() ); // there is non fatal for us
 		host.allow_console = true; // we need console, because menu is missing
 	}
 
