@@ -572,7 +572,6 @@ static void SDLash_EventFilter( SDL_Event *event )
 				break;
 
 			VID_SaveWindowSize( event->window.data1, event->window.data2 );
-			SCR_VidInit(); // tell the client.dll that vid_mode has changed
 			break;
 		}
 		default:
@@ -581,8 +580,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 #else
 	case SDL_VIDEORESIZE:
 		VID_SaveWindowSize( event->resize.w, event->resize.h );
-		SCR_VidInit();
-		break; // tell the client.dll that vid_mode has changed
+		break;
 	case SDL_ACTIVEEVENT:
 		SDLash_ActiveEvent( event->active.gain );
 		break;
