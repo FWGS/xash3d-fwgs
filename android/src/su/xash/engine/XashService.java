@@ -1,4 +1,4 @@
-package in.celest.xash3d;
+package su.xash.engine;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
@@ -29,9 +29,9 @@ import java.lang.*;
 import java.util.List;
 import java.security.MessageDigest;
 
-import in.celest.xash3d.hl.R;
-import in.celest.xash3d.XashConfig;
-import in.celest.xash3d.JoystickHandler;
+import su.xash.engine.R;
+import su.xash.engine.XashConfig;
+import su.xash.engine.JoystickHandler;
 
 
 public class XashService extends Service 

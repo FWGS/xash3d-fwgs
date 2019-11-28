@@ -1,4 +1,4 @@
-package in.celest.xash3d;
+package su.xash.engine;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
@@ -30,9 +30,9 @@ import java.lang.reflect.*;
 import java.util.*;
 import java.security.MessageDigest;
 
-import in.celest.xash3d.hl.R;
-import in.celest.xash3d.XashConfig;
-import in.celest.xash3d.JoystickHandler;
+import su.xash.engine.R;
+import su.xash.engine.XashConfig;
+import su.xash.engine.JoystickHandler;
 import android.provider.Settings.Secure;
 
 import su.xash.fwgslib.*;
@@ -144,7 +144,7 @@ public class XashActivity extends Activity {
 		{
 			Log.v( TAG, "folderask == true. Opening FPicker..." );
 		
-			Intent intent = new Intent( this, in.celest.xash3d.FPicker.class );
+			Intent intent = new Intent( this, su.xash.engine.FPicker.class );
 			startActivityForResult( intent, FPICKER_RESULT );
 		}
 		else
@@ -944,7 +944,7 @@ public class XashActivity extends Activity {
 		{
 			try
 			{
-				mSingleton.startActivity( new Intent( Intent.ACTION_VIEW, Uri.parse("market://details?id=in.celest.xash3d.hl") ) );
+				mSingleton.startActivity( new Intent( Intent.ACTION_VIEW, Uri.parse("market://details?id=su.xash.engine.hl") ) );
 				return;
 			}
 			catch( android.content.ActivityNotFoundException e ) 

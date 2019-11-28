@@ -7,7 +7,7 @@ import android.net.*;
 import android.os.*;
 import android.util.*;
 import android.widget.*;
-import in.celest.xash3d.hl.*;
+import su.xash.engine.*;
 import java.io.*;
 import java.net.*;
 import org.json.*;

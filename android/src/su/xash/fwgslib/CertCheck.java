@@ -1,4 +1,4 @@
- package su.xash.fwgslib;
+package su.xash.fwgslib;
 
 import android.content.*;
 import android.view.*;
@@ -17,8 +17,7 @@ import java.lang.*;
 import java.util.List;
 import java.security.MessageDigest;
 
-import in.celest.xash3d.XashConfig; // change pkgname if needed
-// import in.celest.xash3d.hl.BuildConfig; // change pkgname if needed
+import su.xash.engine.XashConfig; // change pkgname if needed
 
 public class CertCheck
 {

@@ -1,4 +1,4 @@
-package in.celest.xash3d;
+package su.xash.engine;
 
 import android.app.Activity;
 import android.view.View;
@@ -6,7 +6,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.widget.Toast;
-import in.celest.xash3d.hl.R;
+import su.xash.engine.R;
 import android.widget.EditText;
 import android.widget.Button;
 import java.io.File;
@@ -58,7 +58,7 @@ public class ShortcutActivity extends Activity
 	public void saveShortcut(View view)
 	{
 		Intent intent = new Intent();
-		intent.setAction("in.celest.xash3d.START");
+		intent.setAction("su.xash.engine.START");
 		if(argv.length() != 0) intent.putExtra("argv",argv.getText().toString());
 		if(pkgname.length() != 0)
 		{
