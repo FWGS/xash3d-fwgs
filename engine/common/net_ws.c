@@ -97,7 +97,7 @@ static int ioctl_stub( int d, unsigned long r, ... )
 #define closesocket close
 #define SOCKET int
 #define INVALID_SOCKET -1
-typedef size_t WSAsize_t;
+typedef socklen_t WSAsize_t;
 #else // WIN32
 typedef int WSAsize_t; // for some reason, MS has signed size. We won't exceed 2^32, probably, so just typedef it
 #endif

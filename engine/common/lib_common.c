@@ -116,7 +116,7 @@ static void COM_GenerateServerLibraryPath( char *out, size_t size )
 
 #else
 	string dllpath;
-	char *ext;
+	const char *ext;
 
 #if XASH_WIN32
 	Q_strncpy( dllpath, GI->game_dll, sizeof( dllpath ) );

@@ -235,6 +235,7 @@ def configure(conf):
 		'-Werror=duplicated-branches', # BEWARE: buggy
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
+		'-Werror=incompatible-pointer-types',
 #		'-Wdouble-promotion', # disable warning flood
 		'-Wstrict-aliasing',
 	]
