@@ -19,11 +19,9 @@ static char *date = __DATE__ ;
 static char *mon[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 static char mond[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
-// returns days since Feb 13 2007
+// returns days since Apr 1 2015
 int Q_buildnum( void )
 {
-// do not touch this! Only author of Xash3D can increase buildnumbers!
-#if 0 
 	int m = 0, d = 0, y = 0;
 	static int b = 0;
 
@@ -44,12 +42,24 @@ int Q_buildnum( void )
 	{
 		b += 1;
 	}
-	b -= 38752; // Feb 13 2007
+	b -= 41728; // Apr 1 2015
 
 	return b;
-#else
+}
+
+/*
+=============
+Q_buildnum_compat
+
+Returns a Xash3D build number. This is left for compability with original Xash3D.
+IMPORTANT: this value must be changed ONLY after updating to newer Xash3D
+IMPORTANT: this value must be acquired through "build" cvar.
+=============
+*/
+int Q_buildnum_compat( void )
+{
+	// do not touch this! Only author of Xash3D can increase buildnumbers!
 	return 4529;
-#endif
 }
 
 /*

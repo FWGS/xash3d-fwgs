@@ -119,7 +119,8 @@ typedef enum
 #include "con_nprint.h"
 #include "crclib.h"
 
-#define XASH_VERSION	"0.99"		// engine current version
+#define XASH_VERSION        "0.20" // engine current version
+#define XASH_COMPAT_VERSION "0.99" // version we are based on
 
 // PERFORMANCE INFO
 #define MIN_FPS         20.0f		// host minimum fps value for maxfps.
@@ -664,6 +665,7 @@ uint Sound_GetApproxWavePlayLen( const char *filepath );
 // build.c
 //
 int Q_buildnum( void );
+int Q_buildnum_compat( void );
 const char *Q_buildos( void );
 const char *Q_buildarch( void );
 const char *Q_buildcommit( void );
