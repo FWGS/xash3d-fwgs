@@ -612,7 +612,7 @@ void R_CollectRendererNames( void )
 		pfn = COM_GetProcAddress( dll, GET_REF_HUMANREADABLE_NAME );
 		if( !pfn ) // just in case
 		{
-			Con_Reportf( "R_CollectRendererNames: can't find GetHumanReadableName export in %s\n", temp, COM_GetLibraryError() );
+			Con_Reportf( "R_CollectRendererNames: can't find GetHumanReadableName export in %s\n", temp );
 			Q_strncpy( ref.readableNames[i], renderers[i], sizeof( ref.readableNames[i] ));
 		}
 		else

@@ -65,14 +65,14 @@ typedef struct
 		dleaf_t		*leafs;
 		dleaf32_t		*leafs32;
 	};
-	int			numleafs;
+	size_t			numleafs;
 
 	union
 	{
 		dclipnode_t	*clipnodes;
 		dclipnode32_t	*clipnodes32;
 	};
-	int			numclipnodes;
+	size_t			numclipnodes;
 
 	dtexinfo_t		*texinfo;
 	size_t			numtexinfo;
