@@ -1,4 +1,4 @@
-package in.celest.xash3d;
+package su.xash.engine;
 
 import android.animation.*;
 import android.app.*;
@@ -9,7 +9,7 @@ import android.view.*;
 import android.view.View.*;
 import android.widget.*;
 import android.widget.TableRow.*;
-import in.celest.xash3d.hl.*;
+import su.xash.engine.*;
 import java.util.*;
 import su.xash.fwgslib.*;
 

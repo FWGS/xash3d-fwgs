@@ -71,7 +71,7 @@
 	
 	<!-- Write check  -->
 	<string name="write_failed">Тест чтения не удался</string>
-	<string name="ask_about_new_basedir_msg">Переместите файлы игры куда-нибудь ещё. Например, в Android/data/in.celest.xash3d.hl или во внутренюю память. На следующий запуск я снова спрошу местоположение файлов игры.</string>
+	<string name="ask_about_new_basedir_msg">Переместите файлы игры куда-нибудь ещё. Например, в Android/data/su.xash.engine/ или во внутренюю память. На следующий запуск я снова спрошу местоположение файлов игры.</string>
 	<string name="lollipop_request_permission_fail_msg">Тест записи не удался дважды. </string>
 	<string name="lollipop_write_fail_msg">Из-за политик записи в новых версиях Android, полноценно воспользоваться внешней памятью невозможно. </string>
 	<string name="kitkat_write_fail_msg">Из-за политик записи Android 4.4, вы не можете воспользоваться внешней памятью. </string>

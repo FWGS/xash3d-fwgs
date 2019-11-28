@@ -1,4 +1,4 @@
-package in.celest.xash3d;
+package su.xash.engine;
 //Created by Solexid
 import android.app.Activity;
 import android.app.ListActivity;
@@ -31,8 +31,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import su.xash.fwgslib.FWGSLib;
-
-import in.celest.xash3d.hl.R;
+import su.xash.engine.R;
 
 public class FPicker extends Activity {
     private File currentDir;

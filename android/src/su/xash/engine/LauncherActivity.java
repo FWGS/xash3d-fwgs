@@ -1,4 +1,4 @@
-package in.celest.xash3d;
+package su.xash.engine;
 
 import android.app.*;
 import android.content.*;
@@ -12,7 +12,7 @@ import android.text.style.*;
 import android.util.*;
 import android.view.*;
 import android.widget.*;
-import in.celest.xash3d.hl.*;
+import su.xash.engine.*;
 import java.io.*;
 import java.net.*;
 import org.json.*;
@@ -21,9 +21,9 @@ import su.xash.fwgslib.*;
 
 public class LauncherActivity extends Activity 
 {
-	// public final static String ARGV = "in.celest.xash3d.MESSAGE";
+	// public final static String ARGV = "su.xash.engine.MESSAGE";
 	public final static int sdk = FWGSLib.sdk;
-	public final static String UPDATE_LINK = "https://api.github.com/repos/FWGS/xash3d-android-project/releases"; // releases/latest doesn't return prerelease and drafts
+	public final static String UPDATE_LINK = "https://api.github.com/repos/FWGS/xash3d-fwgs/releases"; // releases/latest doesn't return prerelease and drafts
 	static SharedPreferences mPref;
 	
 	static EditText cmdArgs, resPath, writePath, resScale, resWidth, resHeight;
@@ -440,14 +440,14 @@ public class LauncherActivity extends Activity
 	int m_iFirstRunCounter = 0;
 	public void showFirstRun()
 	{
-		startActivity(new Intent(this, in.celest.xash3d.XashTutorialActivity.class));
+		startActivity(new Intent(this, su.xash.engine.XashTutorialActivity.class));
 	}
 
 	public static final int ID_SELECT_FOLDER = 42, ID_SELECT_RW_FOLDER = 43;
 
 	public void selectFolder(View view)
 	{
-		Intent intent = new Intent(this, in.celest.xash3d.FPicker.class);
+		Intent intent = new Intent(this, su.xash.engine.FPicker.class);
 		startActivityForResult(intent, ID_SELECT_FOLDER);
 		resPath.setEnabled(false);
 		XashActivity.setFolderAsk( this, false );
@@ -455,7 +455,7 @@ public class LauncherActivity extends Activity
 	
 	public void selectRwFolder(View view)
 	{
-		Intent intent = new Intent(this, in.celest.xash3d.FPicker.class);
+		Intent intent = new Intent(this, su.xash.engine.FPicker.class);
 		startActivityForResult(intent, ID_SELECT_RW_FOLDER);
 		writePath.setEnabled(false);
 		XashActivity.setFolderAsk( this, false );
@@ -511,7 +511,7 @@ public class LauncherActivity extends Activity
 	{
 		Intent intent = new Intent(this, ShortcutActivity.class);
 		intent.putExtra( "basedir", resPath.getText().toString() );
-		intent.putExtra( "name", "Xash3D" );
+		intent.putExtra( "name", "Xash3D FWGS" );
 		intent.putExtra( "argv", cmdArgs.getText().toString() );
 		startActivity(intent);
 	}

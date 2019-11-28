@@ -7,8 +7,7 @@
 	android:layout_height="match_parent"
 	android:orientation="vertical"
 	android:background="#252525"
-	android:weightSum="1"
-	tools:context="in.celest.xash3d.LauncherActivity" >
+	android:weightSum="1" >
 	<TextView
 		android:id="@+id/textView_tittle"
 		android:layout_width="fill_parent"

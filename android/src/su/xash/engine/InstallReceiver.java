@@ -1,4 +1,5 @@
-package in.celest.xash3d;
+package su.xash.engine;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;

@@ -7,8 +7,7 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-	android:background="#252525"
-    tools:context="in.celest.xash3dVR.FPicker"
+    android:background="#252525"
     android:orientation="vertical">
 
     <ListView
