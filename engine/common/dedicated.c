@@ -327,4 +327,8 @@ void UI_ShowConnectionWarning( void )
 
 }
 
+void CL_Crashed( void )
+{
+}
+
 #endif // XASH_DEDICATED
