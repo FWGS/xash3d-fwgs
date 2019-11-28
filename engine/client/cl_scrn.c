@@ -727,6 +727,9 @@ SCR_VidInit
 */
 void SCR_VidInit( void )
 {
+	if( !ref.initialized ) // don't call VidInit too soon
+		return;
+
 	memset( &clgame.ds, 0, sizeof( clgame.ds )); // reset a draw state
 	memset( &gameui.ds, 0, sizeof( gameui.ds )); // reset a draw state
 	memset( &clgame.centerPrint, 0, sizeof( clgame.centerPrint ));
