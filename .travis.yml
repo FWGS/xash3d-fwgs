@@ -83,7 +83,7 @@ jobs:
         - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
       script:
         - cd android
-        - export ARCHS="armeabi armeabi-v7a-hard x86"
+        - export ARCHS="armeabi armeabi-v7a x86"
         - export TOOLCHAIN="host"
         - sh compile.sh release
       after_script:
