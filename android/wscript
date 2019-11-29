@@ -21,5 +21,5 @@ def build(bld):
 		jni = 'lib',
 		keystore = bld.path.parent.find_node('debug.keystore'),
 		debug = bld.env.D8_DEBUG,
-		target_api = 19)
+		target_api = 28)
 	return

@@ -34,6 +34,7 @@ import su.xash.engine.R;
 import su.xash.engine.XashConfig;
 import su.xash.engine.JoystickHandler;
 import android.provider.Settings.Secure;
+import android.Manifest;
 
 import su.xash.fwgslib.*;
 import android.sax.*;
@@ -88,6 +89,8 @@ public class XashActivity extends Activity {
 	public final static byte JOY_AXIS_YAW   = 3;
 	public final static byte JOY_AXIS_RT    = 4;
 	public final static byte JOY_AXIS_LT    = 5;
+	
+	final static int REQUEST_PERMISSIONS = 42;
 
 	// Preferences
 	public static SharedPreferences mPref = null;
@@ -128,11 +131,13 @@ public class XashActivity extends Activity {
 		// landscapeSensor is not supported until API9
 		if( sdk < 9 )
 			setRequestedOrientation( 0 );
-			
+		
 		mPref = this.getSharedPreferences( "engine", 0 );
 		
 		mUseRoDir = mPref.getBoolean("use_rodir", false);
 		mWriteDir = mPref.getString("writedir", FWGSLib.getExternalFilesDir( this ));
+		
+		FWGSLib.applyPermissions( this, new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE }, REQUEST_PERMISSIONS );
 		
 		// just in case
 		if( mWriteDir.length() == 0 )
@@ -154,6 +159,23 @@ public class XashActivity extends Activity {
 			// check write permission and run engine, if possible
 			String basedir = FWGSLib.getStringExtraFromIntent( getIntent(), "basedir", mPref.getString( "basedir", "/sdcard/xash/" ) );
 			checkWritePermission( basedir );
+		}
+	}
+	
+	@Override
+	public void onRequestPermissionsResult( int requestCode,  String[] permissions,  int[] grantResults )
+	{
+		if( requestCode == REQUEST_PERMISSIONS ) 
+		{
+			if( grantResults[0] == PackageManager.PERMISSION_DENIED ) 
+			{
+				Toast.makeText( this, R.string.no_permissions, Toast.LENGTH_LONG ).show();
+				finish();
+			}
+			else
+			{
+				// open again?
+			}
 		}
 	}
 	

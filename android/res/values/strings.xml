@@ -14,6 +14,7 @@
 	<string name="finish">Finish</string>
 	<string name="exit">Exit</string>
 	<string name="text_res_path">Path to game resources</string>
+	<string name="no_permissions">No permissions, closing...</string>
 	<!-- Generic -->
 
 	<!-- Launcher(tabs) -->
