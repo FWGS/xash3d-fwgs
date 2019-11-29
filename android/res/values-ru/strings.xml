@@ -9,6 +9,7 @@
 	<string name="finish">Конец</string>
 	<string name="exit">Выход</string>
 	<string name="text_res_path">Путь к игровым ресурсам</string>
+	<string name="no_permissions">Нет разрешений, закрываюсь...</string>
 	<!-- Generic -->
 
 	<!-- Launcher(tabs) -->

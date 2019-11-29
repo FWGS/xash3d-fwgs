@@ -2,6 +2,7 @@ package su.xash.engine;
 
 import android.app.*;
 import android.content.*;
+import android.content.pm.*;
 import android.graphics.*;
 import android.graphics.drawable.*;
 import android.net.*;
@@ -18,6 +19,8 @@ import java.net.*;
 import org.json.*;
 import android.preference.*;
 import su.xash.fwgslib.*;
+import android.Manifest;
+
 
 public class LauncherActivity extends Activity 
 {
@@ -37,10 +40,11 @@ public class LauncherActivity extends Activity
 	static LinearLayout rodirSettings; // to easy show/hide
 	
 	static int mEngineWidth, mEngineHeight;
+	final static int REQUEST_PERMISSIONS = 42;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState)
-    {
+	@Override
+	protected void onCreate(Bundle savedInstanceState)
+	{
 		super.onCreate(savedInstanceState);
 		this.requestWindowFeature(Window.FEATURE_NO_TITLE);
 		//super.setTheme( 0x01030005 );
@@ -263,10 +267,28 @@ public class LauncherActivity extends Activity
 		hideRodirSettings( !useRoDir.isChecked() );
 		updateResolutionResult();
 		toggleResolutionFields();
+		FWGSLib.applyPermissions( this, new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE }, REQUEST_PERMISSIONS );
 		if( !mPref.getBoolean("successfulRun",false) )
 			showFirstRun();
 	}
-	
+
+	@Override
+	public void onRequestPermissionsResult( int requestCode,  String[] permissions,  int[] grantResults )
+	{
+		if( requestCode == REQUEST_PERMISSIONS ) 
+		{
+			if( grantResults[0] == PackageManager.PERMISSION_DENIED ) 
+			{
+				Toast.makeText( this, R.string.no_permissions, Toast.LENGTH_LONG ).show();
+				finish();
+			}
+			else
+			{
+				// open again?
+			}
+		}
+	}
+
 	@Override
 	public void onResume()
 	{

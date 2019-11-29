@@ -1,7 +1,9 @@
 package su.xash.fwgslib;
 
+import android.Manifest;
 import android.app.*;
 import android.content.*;
+import android.content.pm.*;
 import android.graphics.*;
 import android.graphics.drawable.*;
 import android.net.*;
@@ -14,6 +16,8 @@ import android.view.*;
 import android.widget.*;
 import java.io.*;
 import java.net.*;
+import java.lang.*;
+import java.util.*;
 import org.json.*;
 import android.preference.*;
 
@@ -222,10 +226,35 @@ public class FWGSLib
 			catch( Exception e )
 			{
 			}
-        }
-    }
+		}
+	}
+	
+	public static void applyPermissions( final Activity act, final String permissions[], final int code )
+	{
+		if( sdk >= 23 )
+		{
+			List<String> requestPermissions = new ArrayList<String>();
+		
+			for( int i = 0; i < permissions.length; i++ )
+			{
+				if( act.checkSelfPermission(permissions[i]) != PackageManager.PERMISSION_GRANTED )
+				{
+					requestPermissions.add(permissions[i]);
+				}
+			}
+			
 
-
+			if( !requestPermissions.isEmpty() )
+			{
+				String[] requestPermissionsArray = new String[requestPermissions.size()];
+				for( int i = 0; i < requestPermissions.size(); i++ )
+				{
+					requestPermissionsArray[i] = requestPermissions.get(i);
+				}
+				act.requestPermissions(requestPermissionsArray, code);
+			}
+		}
+	}
 	
 	public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
 }
