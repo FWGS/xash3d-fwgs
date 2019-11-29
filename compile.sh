@@ -11,12 +11,12 @@ if echo "$HOME" | grep "com.termux"; then
 else
 	echo "-- Configuring for Android SDK/NDK"
 	if [ -z "$TOOLCHAIN" ]; then
-		TOOLCHAIN=4.9
+		TOOLCHAIN=host
 	fi
 fi
 
 if [ -z "$ARCHS" ]; then
-	ARCHS="armeabi-v7a armeabi x86"
+	ARCHS="armeabi-v7a armeabi x86 aarch64"
 fi
 
 if [ -z "$API" ]; then
