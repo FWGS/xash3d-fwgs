@@ -3,6 +3,7 @@
 GIT_REV_XML=$1/res/values/git-rev.xml
 
 mkdir -p $(dirname $GIT_REV_XML)
+git update-index --assume-unchanged $GIT_REV_XML
 
 echo '<?xml version="1.0" encoding="utf-8"?>' > $GIT_REV_XML
 echo '<resources>' >> $GIT_REV_XML
