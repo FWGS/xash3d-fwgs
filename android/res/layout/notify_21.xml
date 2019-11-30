@@ -6,7 +6,7 @@
 	android:background="#FFFFFF">
 	<ImageView
 		android:id="@+id/status_image_21"
-		android:src="@drawable/ic_launcher"
+		android:src="@mipmap/ic_launcher"
 		android:layout_weight="0"
 		android:layout_gravity="center_vertical"
 		android:layout_width="48dp"

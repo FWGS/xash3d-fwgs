@@ -134,7 +134,6 @@ public class XashTutorialActivity extends Activity implements View.OnClickListen
         prev.setOnClickListener(this);
     }
 
-
     public void notifyIndicator() {
         if (indicatorLayout.getChildCount() > 0)
             indicatorLayout.removeAllViews();

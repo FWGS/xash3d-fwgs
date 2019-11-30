@@ -1072,7 +1072,7 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 
 		// Android may force only-landscape app to portait during lock
 		// Just don't notify engine in that case
-		if( width > height || mEngThread == null )
+		if( width > height )
 			XashActivity.onNativeResize( width, height );
 		
 		XashActivity.nativeSetSurface( holder.getSurface() );
