@@ -210,7 +210,7 @@ nativeSetPause
 */
 #define VA_ARGS(...) , ##__VA_ARGS__ // GCC extension
 #define DECLARE_JNI_INTERFACE( ret, name, ... ) \
-	JNIEXPORT ret JNICALL Java_in_celest_xash3d_XashActivity_##name( JNIEnv *env, jclass clazz VA_ARGS(__VA_ARGS__) )
+	JNIEXPORT ret JNICALL Java_su_xash_engine_XashActivity_##name( JNIEnv *env, jclass clazz VA_ARGS(__VA_ARGS__) )
 
 DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 {
