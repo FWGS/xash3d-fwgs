@@ -14,7 +14,7 @@
             android:layout_height="89dp"
             android:id="@+id/aboutIcon"
             android:layout_gravity="center_horizontal"
-            android:src="@drawable/ic_launcher" />
+            android:src="@mipmap/ic_launcher" />
 
         <TextView
             android:layout_width="wrap_content"

@@ -114,7 +114,7 @@ public class FPicker extends Activity {
 					}
 					
 					String num_item = getResources().getQuantityString(R.plurals.item_plurals, buf, buf);
-					dir.add(new Item(ff.getName(), num_item, date_modify, ff.getAbsolutePath(), isXashDir ? R.drawable.ic_launcher : R.drawable.folder ));
+					dir.add(new Item(ff.getName(), num_item, date_modify, ff.getAbsolutePath(), isXashDir ? R.mipmap.ic_launcher : R.drawable.folder ));
 				}
             }
             
