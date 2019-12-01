@@ -162,7 +162,7 @@ typedef struct
 
 typedef struct
 {
-	const int		lumpnumber;
+	int		lumpnumber;
 	const size_t	mincount;
 	const size_t	maxcount;
 	const int		entrysize;
@@ -2779,6 +2779,15 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	bmod->version = header->version;	// share up global
 	if( isworld ) world.flags = 0;	// clear world settings
 	bmod->isworld = isworld;
+
+	if( header->version == HLBSP_VERSION &&
+		header->lumps[LUMP_ENTITIES].fileofs <= 1024 &&
+		(header->lumps[LUMP_ENTITIES].filelen % sizeof( dplane_t )) == 0 )
+	{
+		// blue-shift swapped lumps
+		srclumps[0].lumpnumber = LUMP_PLANES;
+		srclumps[1].lumpnumber = LUMP_ENTITIES;
+	}
 
 	// loading base lumps
 	for( i = 0; i < ARRAYSIZE( srclumps ); i++ )
