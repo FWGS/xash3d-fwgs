@@ -23,6 +23,12 @@ extern struct jnimethods_s
 	jmethodID loadID;
 	jmethodID showMouse;
 	jmethodID shellExecute;
+	jmethodID swapBuffers;
+	jmethodID toggleEGL;
+	jmethodID createGLContext;
+	jmethodID getGLAttribute;
+	jmethodID deleteGLContext;
+	jmethodID getSelectedPixelFormat;
 	int width, height;
 } jni;
 

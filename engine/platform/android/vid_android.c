@@ -1,5 +1,4 @@
 #include "platform/platform.h"
-#if XASH_VIDEO == VIDEO_ANDROID
 #include "input.h"
 #include "client.h"
 #include "filesystem.h"
@@ -21,7 +20,8 @@ Android_SwapInterval
 */
 static void Android_SwapInterval( int interval )
 {
-	eglSwapInterval( negl.dpy, interval );
+	if( negl.valid )
+		eglSwapInterval( negl.dpy, interval );
 }
 
 /*
@@ -65,13 +65,87 @@ Update screen. Use native EGL if possible
 */
 void GL_SwapBuffers( void )
 {
-	eglSwapBuffers( negl.dpy, negl.surface );
+	if( negl.valid )
+	{
+		eglSwapBuffers( negl.dpy, negl.surface );
+	}
+	else
+	{
+		(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.swapBuffers );
+	}
+}
+
+/*
+========================
+Android_UpdateSurface
+
+Check if we may use native EGL without jni calls
+========================
+*/
+void Android_UpdateSurface( void )
+{
+	negl.valid = false;
+
+	if( !Sys_CheckParm("-nativeegl") )
+		return; // enabled by user
+
+	negl.dpy = eglGetCurrentDisplay();
+
+	if( negl.dpy == EGL_NO_DISPLAY )
+		return;
+
+	negl.surface = eglGetCurrentSurface(EGL_DRAW);
+
+	if( negl.surface == EGL_NO_SURFACE )
+		return;
+
+	// now check if swapBuffers does not give error
+	if( eglSwapBuffers( negl.dpy, negl.surface ) == EGL_FALSE )
+		return;
+
+	// double check
+	if( eglGetError() != EGL_SUCCESS )
+		return;
+
+	__android_log_print( ANDROID_LOG_VERBOSE, "Xash", "native EGL enabled" );
+
+	negl.valid = true;
+}
+
+/*
+========================
+Android_GetGLAttribute
+========================
+*/
+static int Android_GetGLAttribute( int eglAttr )
+{
+	int ret = (*jni.env)->CallStaticIntMethod( jni.env, jni.actcls, jni.getGLAttribute, eglAttr );
+	// Con_Reportf( "Android_GetGLAttribute( %i ) => %i\n", eglAttr, ret );
+	return ret;
+}
+
+int Android_GetSelectedPixelFormat( void )
+{
+	return (*jni.env)->CallStaticIntMethod( jni.env, jni.actcls, jni.getSelectedPixelFormat );
 }
 
 qboolean  R_Init_Video( const int type )
 {
 	string safe;
 	qboolean retval;
+
+	switch( Android_GetSelectedPixelFormat() )
+	{
+	case 1:
+		refState.desktopBitsPixel = 16;
+		break;
+	case 2:
+		refState.desktopBitsPixel = 8;
+		break;
+	default:
+		refState.desktopBitsPixel = 32;
+		break;
+	}
 
 	memset( gl_attribs, 0, sizeof( gl_attribs ));
 	memset( gl_attribs_set, 0, sizeof( gl_attribs_set ));
@@ -138,13 +212,7 @@ qboolean  R_Init_Video( const int type )
 
 void R_Free_Video( void )
 {
-	eglMakeCurrent(negl.dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-
-	eglDestroyContext(negl.dpy, negl.context);
-
-	eglDestroySurface(negl.dpy, negl.surface);
-
-	eglTerminate(negl.dpy);
+	// (*jni.env)->CallStaticBooleanMethod( jni.env, jni.actcls, jni.deleteGLContext );
 
 	// VID_DestroyWindow ();
 
@@ -160,12 +228,10 @@ void R_Free_Video( void )
 		attribs[i++] = gl_attribs[refattr]; \
 	}
 
-static const EGLint *VID_GenerateConfig( void )
+static size_t VID_GenerateConfig( EGLint *attribs, size_t size )
 {
-	int i = 0;
-	static EGLint attribs[32 + 1];
-
-	memset( attribs, 0, sizeof( attribs ));
+	size_t i = 0;
+	memset( attribs, 0, size * sizeof( EGLint ) );
 
 	COPY_ATTR_IF_SET( REF_GL_RED_SIZE, EGL_RED_SIZE );
 	COPY_ATTR_IF_SET( REF_GL_GREEN_SIZE, EGL_GREEN_SIZE );
@@ -202,19 +268,18 @@ static const EGLint *VID_GenerateConfig( void )
 		attribs[i++] = EGL_OPENGL_ES_BIT;
 	}
 
-	attribs[i] = EGL_NONE;
+	attribs[i++] = EGL_NONE;
 
-	return attribs;
+	return i;
 }
 
-static const EGLint *VID_GenerateContextConfig( void )
+static size_t VID_GenerateContextConfig( EGLint *attribs, size_t size )
 {
-	int i = 0;
-	static EGLint attribs[32 + 1];
+	size_t i = 0;
 
-	memset( attribs, 0, sizeof( attribs ));
+	memset( attribs, 0, size * sizeof( EGLint ));
 
-	if( Q_strcmp( negl.extensions, " EGL_KHR_create_context ") )
+	/*if( Q_strcmp( negl.extensions, " EGL_KHR_create_context ") )
 	{
 		if( gl_attribs_set[REF_GL_CONTEXT_FLAGS] )
 		{
@@ -236,93 +301,36 @@ static const EGLint *VID_GenerateContextConfig( void )
 		COPY_ATTR_IF_SET( REF_GL_CONTEXT_MAJOR_VERSION, EGL_CONTEXT_CLIENT_VERSION );
 		COPY_ATTR_IF_SET( REF_GL_CONTEXT_MINOR_VERSION, 0x30FB );
 	}
-	else
+	else*/
 	{
 		// without extension we can set only major version
 		COPY_ATTR_IF_SET( REF_GL_CONTEXT_MAJOR_VERSION, EGL_CONTEXT_CLIENT_VERSION );
 	}
 
+	attribs[i++] = EGL_NONE;
 
-	attribs[i] = EGL_NONE;
-
-	return attribs;
+	return i;
 }
 
 qboolean VID_SetMode( void )
 {
 	EGLint format;
-	const EGLint *attribs = VID_GenerateConfig();
-	const EGLint *contextAttribs = VID_GenerateContextConfig();
+	jintArray attribs, contextAttribs;
+	static EGLint nAttribs[32+1], nContextAttribs[32+1];
+	const size_t attribsSize = ARRAYSIZE( nAttribs );
+
+	size_t s1 = VID_GenerateConfig(nAttribs, attribsSize);
+	size_t s2 = VID_GenerateContextConfig(nContextAttribs, attribsSize);
+
+	attribs = (*jni.env)->NewIntArray( jni.env, s1 );
+	contextAttribs = (*jni.env)->NewIntArray( jni.env, s2 );
+
+	(*jni.env)->SetIntArrayRegion( jni.env, attribs, 0, s1, nAttribs );
+	(*jni.env)->SetIntArrayRegion( jni.env, contextAttribs, 0, s2, nContextAttribs );
 
 	R_ChangeDisplaySettings( 0, 0, false ); // width and height are ignored anyway
 
-	negl.valid = false;
-
-	if( ( negl.dpy = eglGetDisplay( EGL_DEFAULT_DISPLAY )) == EGL_NO_DISPLAY )
-	{
-		Con_Reportf( S_ERROR "eglGetDisplay returned error: 0x%x\n", eglGetError() );
-		return false;
-	}
-
-	if( !eglInitialize( negl.dpy, NULL, NULL ))
-	{
-		Con_Reportf( S_ERROR "eglInitialize returned error: 0x%x\n", eglGetError() );
-		return false;
-	}
-
-	if( !(negl.extensions = eglQueryString( negl.dpy, EGL_EXTENSIONS ) ) )
-	{
-		Con_Reportf( S_ERROR "eglQueryString(EGL_EXTENSIONS) returned error: 0x%x\n", eglGetError() );
-		return false;
-	}
-
-	if( !eglChooseConfig( negl.dpy, attribs, &negl.cfg, 1, &negl.numCfg ))
-	{
-		Con_Reportf( S_ERROR "eglChooseConfig returned error: 0x%x\n", eglGetError() );
-		return false;
-	}
-
-	if( !eglGetConfigAttrib( negl.dpy, negl.cfg, EGL_NATIVE_VISUAL_ID, &format) )
-	{
-		Con_Reportf( S_ERROR "eglGetConfigAttrib returned error: 0x%x\n", eglGetError() );
-		return false;
-	}
-
-	if( ANativeWindow_setBuffersGeometry( negl.window, 0, 0, format ) )
-	{
-		Con_Reportf( S_ERROR "ANativeWindow_setBuffersGeometry returned error\n" );
-		return false;
-	}
-
-	if(( negl.surface = eglCreateWindowSurface( negl.dpy, negl.cfg, negl.window, NULL )) == EGL_NO_SURFACE )
-	{
-		Con_Reportf( S_ERROR "eglCreateWindowSurface returned error: 0x%x\n", eglGetError() );
-		return false;
-	}
-
-	if(( negl.context = eglCreateContext( negl.dpy, negl.cfg, NULL, contextAttribs )) == EGL_NO_CONTEXT )
-	{
-		Con_Reportf( S_ERROR "eglCreateContext returned error: 0x%x\n", eglGetError() );
-		return false;
-	}
-
-	if( !eglMakeCurrent( negl.dpy, negl.surface, negl.surface, negl.context ))
-	{
-		Con_Reportf( S_ERROR "eglMakeCurrent returned error: 0x%x\n", eglGetError() );
-		return false;
-	}
-
-	if( !eglBindAPI( gl_api ))
-	{
-		Con_Reportf( S_ERROR "eglBindAPI returned error: 0x%x\n", eglGetError() );
-		return false;
-	}
-
-	__android_log_print( ANDROID_LOG_VERBOSE, "Xash", "native EGL enabled" );
-
-	negl.valid = true;
-
-	return true;
+	return (*jni.env)->CallStaticBooleanMethod( jni.env, jni.actcls, jni.createGLContext, attribs, contextAttribs );
 }
 
 rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
@@ -385,32 +393,29 @@ int GL_GetAttribute( int attr, int *val )
 	switch( attr )
 	{
 	case REF_GL_RED_SIZE:
-		ret = eglGetConfigAttrib( negl.dpy, negl.cfg, EGL_RED_SIZE, val );
-		break;
+		*val = Android_GetGLAttribute( EGL_RED_SIZE );
+		return 0;
 	case REF_GL_GREEN_SIZE:
-		ret = eglGetConfigAttrib( negl.dpy, negl.cfg, EGL_GREEN_SIZE, val );
-		break;
+		*val = Android_GetGLAttribute( EGL_GREEN_SIZE );
+		return 0;
 	case REF_GL_BLUE_SIZE:
-		ret = eglGetConfigAttrib( negl.dpy, negl.cfg, EGL_BLUE_SIZE, val );
-		break;
+		*val = Android_GetGLAttribute( EGL_BLUE_SIZE );
+		return 0;
 	case REF_GL_ALPHA_SIZE:
-		ret = eglGetConfigAttrib( negl.dpy, negl.cfg, EGL_ALPHA_SIZE, val );
-		break;
+		*val = Android_GetGLAttribute( EGL_ALPHA_SIZE );
+		return 0;
 	case REF_GL_DEPTH_SIZE:
-		ret = eglGetConfigAttrib( negl.dpy, negl.cfg, EGL_DEPTH_SIZE, val );
-		break;
+		*val = Android_GetGLAttribute( EGL_DEPTH_SIZE );
+		return 0;
 	case REF_GL_STENCIL_SIZE:
-		ret = eglGetConfigAttrib( negl.dpy, negl.cfg, EGL_STENCIL_SIZE, val );
-		break;
+		*val = Android_GetGLAttribute( EGL_STENCIL_SIZE );
+		return 0;
 	case REF_GL_MULTISAMPLESAMPLES:
-		ret = eglGetConfigAttrib( negl.dpy, negl.cfg, EGL_SAMPLES, val );
-		break;
+		*val = Android_GetGLAttribute( EGL_SAMPLES );
+		return 0;
 	}
 
-	if( !ret )
-		return -1;
-
-	return 0;
+	return -1;
 }
 
 int R_MaxVideoModes( void )
@@ -457,5 +462,3 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 {
 	return false;
 }
-
-#endif
