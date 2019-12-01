@@ -32,10 +32,12 @@ cd android
 echo "Fetching submodules"
 git submodule update --init xash-extras || exit 1
 
-ln -s $TRAVIS_BUILD_DIR xash3d-fwgs-sl
+mv xash3d-fwgs xash3d-fwgs-sub
+ln -s $TRAVIS_BUILD_DIR xash3d-fwgs
 echo "Installed Xash3D FWGS source symlink"
 
-ln -s $TRAVIS_BUILD_DIR/hlsdk hlsdk-xash3d-sl
+mv hlsdk-xash3d hlsdk-xash3d-sub
+ln -s $TRAVIS_BUILD_DIR/hlsdk hlsdk-xash3d
 echo "Install HLSDK source symlink"
 
 cd $TRAVIS_BUILD_DIR
