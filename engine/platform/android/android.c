@@ -246,7 +246,7 @@ DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 	/* Init callbacks. */
 
 	jni.env = env;
-	jni.actcls = (*env)->FindClass(env, "in/celest/xash3d/XashActivity");
+	jni.actcls = (*env)->FindClass(env, "su/xash/engine/XashActivity");
 	jni.enableTextInput = (*env)->GetStaticMethodID(env, jni.actcls, "showKeyboard", "(I)V");
 	jni.vibrate = (*env)->GetStaticMethodID(env, jni.actcls, "vibrate", "(I)V" );
 	jni.messageBox = (*env)->GetStaticMethodID(env, jni.actcls, "messageBox", "(Ljava/lang/String;Ljava/lang/String;)V");
@@ -258,6 +258,13 @@ DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 	jni.loadID = (*env)->GetStaticMethodID(env, jni.actcls, "loadID", "()Ljava/lang/String;");
 	jni.showMouse = (*env)->GetStaticMethodID(env, jni.actcls, "showMouse", "(I)V");
 	jni.shellExecute = (*env)->GetStaticMethodID(env, jni.actcls, "shellExecute", "(Ljava/lang/String;)V");
+
+	jni.swapBuffers = (*env)->GetStaticMethodID(env, jni.actcls, "swapBuffers", "()V");
+	jni.toggleEGL = (*env)->GetStaticMethodID(env, jni.actcls, "toggleEGL", "(I)V");
+	jni.createGLContext = (*env)->GetStaticMethodID(env, jni.actcls, "createGLContext", "([I[I)Z");
+	jni.getGLAttribute = (*env)->GetStaticMethodID(env, jni.actcls, "getGLAttribute", "(I)I");
+	jni.deleteGLContext = (*env)->GetStaticMethodID(env, jni.actcls, "deleteGLContext", "()Z");
+	jni.getSelectedPixelFormat = (*env)->GetStaticMethodID(env, jni.actcls, "getSelectedPixelFormat", "()I");
 
 	/* Run the application. */
 
@@ -844,8 +851,8 @@ void Platform_RunEvents( void )
 			{
 				host.status = HOST_FRAME;
 				SNDDMA_Activate( true );
-				// (*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
-				// Android_UpdateSurface();
+				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
+				Android_UpdateSurface();
 				SetBits( gl_vsync->flags, FCVAR_CHANGED ); // set swap interval
 				host.force_draw_version = true;
 				host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
@@ -855,18 +862,18 @@ void Platform_RunEvents( void )
 			{
 				host.status = HOST_NOFOCUS;
 				SNDDMA_Activate( false );
-				// (*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
-				// negl.valid = false;
+				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
+				negl.valid = false;
 			}
 			break;
 
 		case event_resize:
 			// reinitialize EGL and change engine screen size
-			if( host.status == HOST_NORMAL && ( refState.width != jni.width || refState.height != jni.height ) )
+			if( host.status == HOST_FRAME &&( refState.width != jni.width || refState.height != jni.height ) )
 			{
-				// (*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
-				// (*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
-				// Android_UpdateSurface();
+				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
+				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
+				Android_UpdateSurface();
 				SetBits( gl_vsync->flags, FCVAR_CHANGED ); // set swap interval
 				VID_SetMode();
 			}
