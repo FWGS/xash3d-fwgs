@@ -214,7 +214,7 @@ int CSCR_WriteGameCVars( file_t *cfg, const char *scriptfilename )
 	parserstate_t	state = { 0 };
 	qboolean		success = false;
 	int		count = 0;
-	long		length = 0;
+	fs_offset_t		length = 0;
 	char		*start;
 
 	state.filename = scriptfilename;
@@ -284,7 +284,7 @@ int CSCR_LoadDefaultCVars( const char *scriptfilename )
 	parserstate_t	state = { 0 };
 	qboolean		success = false;
 	int		count = 0;
-	long		length = 0;
+	fs_offset_t		length = 0;
 	char		*start;
 
 	state.filename = scriptfilename;
