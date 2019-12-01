@@ -654,7 +654,7 @@ Host_Crash_f
 */
 static void Host_Crash_f( void )
 {
-	*(int *)0 = 0xffffffff;
+	*(volatile int *)0 = 0xffffffff;
 }
 
 /*
