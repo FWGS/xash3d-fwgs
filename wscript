@@ -235,12 +235,12 @@ def configure(conf):
 		'-Werror=duplicated-branches', # BEWARE: buggy
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
-		'-Werror=incompatible-pointer-types',
 #		'-Wdouble-promotion', # disable warning flood
 		'-Wstrict-aliasing',
 	]
 
 	c_compiler_optional_flags = [
+		'-Werror=incompatible-pointer-types',
 		'-Werror=implicit-function-declaration',
 		'-Werror=int-conversion',
 		'-Werror=implicit-int',
