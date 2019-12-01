@@ -114,10 +114,7 @@ public class LauncherActivity extends Activity
 		
 		final String[] list = {
 			"32 bit (RGBA8888)",
-			"24 bit (RGB888)",
 			"16 bit (RGB565)",
-			"16 bit (RGBA5551)",
-			"16 bit (RGBA4444)",
 			"8 bit (RGB332)"
 		};
 		ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item, list);
