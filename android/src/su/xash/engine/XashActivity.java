@@ -577,7 +577,6 @@ public class XashActivity extends Activity {
 	public static native void nativeOnFocusChange();
 	public static native void nativeOnPause();
 	public static native void nativeUnPause();
-	public static native void nativeSetSurface( Surface surface );
 	public static native void nativeHat( int id, byte hat, byte keycode, boolean down ) ;
 	public static native void nativeAxis( int id, byte axis, short value );
 	public static native void nativeJoyButton( int id, byte button, boolean down );
@@ -592,9 +591,35 @@ public class XashActivity extends Activity {
 	// libjnisetenv
 	public static native int setenv( String key, String value, boolean overwrite );
 	
+	// Java functions called from C
+	public static boolean createGLContext( int[] attr, int[] contextAttr ) 
+	{
+		return mSurface.InitGL(attr, contextAttr);
+	}
+	
+	public static int getSelectedPixelFormat()
+	{
+		return mPixelFormat;
+	}
+	
+	public static int getGLAttribute( int attr )
+	{
+		return mSurface.getGLAttribute( attr );
+	}
+	
+	public static void swapBuffers() 
+	{
+		mSurface.SwapBuffers();
+	}
+	
 	public static void engineThreadNotify() 
 	{
 		mSurface.engineThreadNotify();
+	}
+	
+	public static Surface getNativeSurface() 
+	{
+		return XashActivity.mSurface.getNativeSurface();
 	}
 	
 	public static void vibrate( int time ) 
@@ -603,6 +628,17 @@ public class XashActivity extends Activity {
 		{
 			mVibrator.vibrate( time );
 		}
+	}
+	
+	public static void toggleEGL( int toggle )
+	{
+		mSurface.toggleEGL( toggle );
+	}
+	
+	public static boolean deleteGLContext() 
+	{
+		mSurface.ShutdownGL();
+		return true;
 	}
 
 	public static Context getContext() 
@@ -959,24 +995,36 @@ public class XashActivity extends Activity {
 		handler.showMouse( fMouseShown );
 	}
 	
+	public static void GenericUpdatePage()
+	{
+		mSingleton.startActivity( new Intent( Intent.ACTION_VIEW, Uri.parse("https://github.com/FWGS/xash3d/releases/latest" ) ) );
+	}
+	
+	public static void PlatformUpdatePage()
+	{
+		// open GP
+		try 
+		{
+			mSingleton.startActivity( new Intent( Intent.ACTION_VIEW, Uri.parse("market://details?id=in.celest.xash3d.hl") ) );
+		}
+		catch( android.content.ActivityNotFoundException e ) 
+		{
+			GenericUpdatePage();
+		}
+	}
+	
 	// Just opens browser or update page
 	public static void shellExecute( String path )
 	{
-		if( path.equals( "PlatformUpdatePage" ))
+		if( path.equals("PlatformUpdatePage"))
 		{
-			try
-			{
-				mSingleton.startActivity( new Intent( Intent.ACTION_VIEW, Uri.parse("market://details?id=su.xash.engine.hl") ) );
-				return;
-			}
-			catch( android.content.ActivityNotFoundException e ) 
-			{
-				path = "https://github.com/FWGS/xash3d/releases/latest";
-			}
+			PlatformUpdatePage();
+			return;
 		}
 		else if( path.equals( "GenericUpdatePage" ))
 		{
-			path = "https://github.com/FWGS/xash3d/releases/latest";
+			GenericUpdatePage();
+			return;
 		}
 	
 		final Intent intent = new Intent(Intent.ACTION_VIEW).setData(Uri.parse(path));
@@ -1010,7 +1058,14 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 	private static Thread mEngThread = null;
 	private static Object mPauseLock = new Object(); 
 
+	// EGL private objects
+	private EGLContext  mEGLContext;
+	private EGLSurface  mEGLSurface;
+	private EGLDisplay  mEGLDisplay;
+	private EGL10 mEGL;
+	private EGLConfig mEGLConfig;
 	private boolean resizing = false;
+
 	// Sensors
 
 	// Startup
@@ -1033,15 +1088,24 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 	public void surfaceCreated( SurfaceHolder holder )
 	{
 		Log.v( TAG, "surfaceCreated()" );
+		
+		if( mEGL == null )
+			return;
+		
 		XashActivity.nativeSetPause( 0 );
 		XashActivity.mEnginePaused = false;
+		//holder.setFixedSize(640,480);
+		//SurfaceHolder.setFixedSize(640,480);
 	}
 
 	// Called when we lose the surface
 	public void surfaceDestroyed( SurfaceHolder holder )
 	{
 		Log.v( TAG, "surfaceDestroyed()" );
-		XashActivity.nativeSetSurface(null);
+		
+		if( mEGL == null )
+			return;
+		
 		XashActivity.nativeSetPause(1);
 	}
 
@@ -1067,16 +1131,14 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 			XashActivity.mTouchScaleX = ( float )newWidth / getWidth();
 			XashActivity.mTouchScaleY = ( float )newHeight / getHeight();
 			
-			return;
+			width = newWidth;
+			height = newHeight;
 		}
 
 		// Android may force only-landscape app to portait during lock
 		// Just don't notify engine in that case
 		if( width > height )
 			XashActivity.onNativeResize( width, height );
-		
-		XashActivity.nativeSetSurface( holder.getSurface() );
-		
 		// holder.setFixedSize( width / 2, height / 2 );
 		// Now start up the C app thread
 		if( mEngThread == null ) 
@@ -1133,6 +1195,157 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 	// unused
 	public void onDraw( Canvas canvas )
 	{
+	}
+	
+	// first, initialize native backend
+	public Surface getNativeSurface() 
+	{
+		return getHolder().getSurface();
+	}
+	
+	public int getGLAttribute( final int attr )
+	{
+		EGL10 egl = ( EGL10 )EGLContext.getEGL();
+
+		try
+		{
+			int[] value = new int[1];
+			boolean ret = egl.eglGetConfigAttrib(mEGLDisplay, mEGLConfig, attr, value);
+				
+			if( !ret )
+			{
+				Log.e(TAG, "getGLAttribute(): eglGetConfigAttrib error " + egl.eglGetError());
+				return 0;
+			}
+				
+			// Log.e(TAG, "getGLAttribute(): " + attr + " => " + value[0]);
+				
+			return value[0];
+		}
+		catch( Exception e  )
+		{
+			Log.v( TAG, e + ": " + e.getMessage() + " " + egl.eglGetError() );
+			for( StackTraceElement s : e.getStackTrace() ) 
+			{
+				Log.v( TAG, s.toString() );
+			}
+		}
+		return 0;
+	}
+	
+	// EGL functions
+	public boolean InitGL( int[] attr, int[] contextAttrs ) 
+	{
+		Log.v( TAG, "attributes: " + Arrays.toString(attr));
+		Log.v( TAG, "contextAttrs: " + Arrays.toString(contextAttrs));
+		EGL10 egl = ( EGL10 )EGLContext.getEGL();
+		if( egl == null )
+		{
+			Log.e( TAG, "Cannot get EGL from context" );
+			return false;
+		}
+		
+		try
+		{
+			EGLDisplay dpy = egl.eglGetDisplay( EGL10.EGL_DEFAULT_DISPLAY );
+
+			if( dpy == null )
+			{
+				Log.e( TAG, "Cannot get display" );
+				return false;
+			}
+			
+			int[] version = new int[2];
+			if( !egl.eglInitialize( dpy, version ) )
+			{
+				Log.e( TAG, "No EGL config available" );
+				return false;
+			}
+			
+			
+			EGLConfig[] configs = new EGLConfig[1];
+			int[] num_config = new int[1];
+			if( !egl.eglChooseConfig( dpy, attr, configs, 1, num_config ) || num_config[0] == 0 )
+			{
+				Log.e( TAG, "No EGL config available" );
+				return false;
+			}
+			EGLConfig config = configs[0];
+
+			EGLContext ctx = egl.eglCreateContext( dpy, config, EGL10.EGL_NO_CONTEXT, contextAttrs );
+			if( ctx == EGL10.EGL_NO_CONTEXT )
+			{
+				Log.e( TAG, "Couldn't create context" );
+				return false;
+			}
+
+			EGLSurface surface = egl.eglCreateWindowSurface( dpy, config, this, null );
+			if( surface == EGL10.EGL_NO_SURFACE )
+			{
+				Log.e( TAG, "Couldn't create surface" );
+				return false;
+			}
+
+			if( !egl.eglMakeCurrent( dpy, surface, surface, ctx ) )
+			{
+				Log.e( TAG, "Couldn't make context current" );
+				return false;
+			}
+			
+			mEGLContext = ctx;
+			mEGLDisplay = dpy;
+			mEGLSurface = surface;
+			mEGL = egl;
+			mEGLConfig = config;
+		} 
+		catch( Exception e ) 
+		{
+			Log.v( TAG, e + ": " + e.getMessage() + " " + egl.eglGetError() );
+			for( StackTraceElement s : e.getStackTrace() ) 
+			{
+				Log.v( TAG, s.toString() );
+			}
+			
+			return false;
+		}
+		
+		return true;
+	}
+
+	// EGL buffer flip
+	public void SwapBuffers()
+	{
+		if( mEGLSurface == null )
+			return;
+		
+		mEGL.eglSwapBuffers( mEGLDisplay, mEGLSurface );
+	}
+	
+	public void toggleEGL( int toggle )
+	{
+	   if( toggle != 0 )
+	   {
+			mEGLSurface = mEGL.eglCreateWindowSurface( mEGLDisplay, mEGLConfig, this, null );
+			mEGL.eglMakeCurrent( mEGLDisplay, mEGLSurface, mEGLSurface, mEGLContext );
+	   }
+	   else
+	   {
+			mEGL.eglMakeCurrent( mEGLDisplay, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT );
+			mEGL.eglDestroySurface( mEGLDisplay, mEGLSurface );
+			mEGLSurface = null;
+	   }
+	}
+	
+	public void ShutdownGL()
+	{
+		mEGL.eglDestroyContext( mEGLDisplay, mEGLContext );
+		mEGLContext = null;
+		
+		mEGL.eglDestroySurface( mEGLDisplay, mEGLSurface );
+		mEGLSurface = null;
+		
+		mEGL.eglTerminate( mEGLDisplay );
+		mEGLDisplay = null;
 	}
 	
 	@Override
