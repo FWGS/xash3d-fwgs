@@ -1315,12 +1315,16 @@ void Con_Print( const char *txt )
 			Host_InputFrame();
 		}
 
+		// FIXME: disable updating screen, because when texture is bound any console print
+		// can re-bound it to console font texture
+#if 0
 		if( !inupdate )
 		{
 			inupdate = true;
 			SCR_UpdateScreen ();
 			inupdate = false;
 		}
+#endif
 	}
 }
 
