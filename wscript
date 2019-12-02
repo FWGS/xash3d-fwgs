@@ -226,6 +226,7 @@ def configure(conf):
 	}
 
 	compiler_optional_flags = [
+#		'-Wall', '-Wextra', '-Wpedantic',
 		'-fdiagnostics-color=always',
 		'-Werror=return-type',
 		'-Werror=parentheses',
@@ -281,8 +282,12 @@ def configure(conf):
 	# And here C++ flags starts to be treated separately
 	cxxflags = list(cflags)
 	if conf.env.COMPILER_CC != 'msvc':
-		conf.check_cc(cflags=cflags, msg= 'Checking for required C flags')
-		conf.check_cxx(cxxflags=cflags, msg= 'Checking for required C++ flags')
+		conf.check_cc(cflags=cflags, linkflags=linkflags, msg= 'Checking for required C flags')
+		conf.check_cxx(cxxflags=cflags, linkflags=linkflags, msg= 'Checking for required C++ flags')
+
+		conf.env.append_unique('CFLAGS', cflags)
+		conf.env.append_unique('CXXFLAGS', cxxflags)
+		conf.env.append_unique('LINKFLAGS', linkflags)
 
 		cxxflags += conf.filter_cxxflags(compiler_optional_flags, cflags)
 		cflags += conf.filter_cflags(compiler_optional_flags + c_compiler_optional_flags, cflags)
