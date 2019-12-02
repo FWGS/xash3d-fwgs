@@ -1977,7 +1977,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 			int	size = (int)sizeof( mip_t ) + ((mt->width * mt->height * 85)>>6);
 			int	next_dataofs, remaining;
 
-			// compute next dataofset to determine allocated miptex sapce
+			// compute next dataofset to determine allocated miptex space
 			for( j = i + 1; j < loadmodel->numtextures; j++ )
 			{
 				next_dataofs = in->dataofs[j];
@@ -2891,6 +2891,15 @@ qboolean Mod_TestBmodelLumps( const char *name, const byte *mod_base, qboolean s
 			Con_Printf( S_ERROR "%s has wrong version number (%i should be %i)\n", name, header->version, HLBSP_VERSION );
 		loadstat.numerrors++;
 		break;
+	}
+
+	if( header->version == HLBSP_VERSION &&
+		header->lumps[LUMP_ENTITIES].fileofs <= 1024 &&
+		(header->lumps[LUMP_ENTITIES].filelen % sizeof( dplane_t )) == 0 )
+	{
+		// blue-shift swapped lumps
+		srclumps[0].lumpnumber = LUMP_PLANES;
+		srclumps[1].lumpnumber = LUMP_ENTITIES;
 	}
 
 	// loading base lumps
