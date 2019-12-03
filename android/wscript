@@ -14,7 +14,7 @@ def configure(conf):
 	return
 
 def build(bld):
-	bld(features = 'android javac',
+	tsk = bld(features = 'android javac',
 		srcdir = 'src',
 		compat = '1.6',
 		name = 'xashdroid',
@@ -22,4 +22,6 @@ def build(bld):
 		keystore = bld.path.parent.find_node('debug.keystore'),
 		debug = bld.env.D8_DEBUG,
 		target_api = 28)
+	
+	tsk.env.append_unique('JAVACFLAGS', ['-target', '1.6'])
 	return
