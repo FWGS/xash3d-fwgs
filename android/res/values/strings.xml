@@ -3,7 +3,7 @@
 	<string name="app_name" translatable="false">Xash3D FWGS</string>
 	<string name="launcher_name" translatable="false">Xash3D FWGS</string>
 	<string name="launcher_name_test" translatable="false">Xash3D FWGS Test</string>
-	<string name="version_string" translatable="false">v0.19.3</string>
+	<string name="version_string" translatable="false">v0.20.1</string>
 	
 	<!-- Generic -->
 	<string name="cancel">Cancel</string>
