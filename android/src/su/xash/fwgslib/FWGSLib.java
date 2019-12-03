@@ -256,5 +256,15 @@ public class FWGSLib
 		}
 	}
 	
+	public static ApplicationInfo getApplicationInfo(Context ctx, String pkgName, int flags) throws PackageManager.NameNotFoundException
+	{
+		PackageManager pm = ctx.getPackageManager();
+		
+		if( pkgName == null )
+			pkgName = ctx.getPackageName();
+		
+		return pm.getApplicationInfo(pkgName, flags);		
+	}
+	
 	public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
 }
