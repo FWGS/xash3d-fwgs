@@ -8,19 +8,28 @@
 	android:orientation="vertical"
 	android:background="#252525"
 	android:weightSum="1" >
-	<TextView
-		android:id="@+id/textView_tittle"
-		android:layout_width="fill_parent"
-		android:layout_height="50dp"
-		android:layout_margin="5dp"
+	<LinearLayout
+		android:orientation="horizontal"
 		android:background="#555555"
-		android:text="@string/launcher_name"
-		android:textAppearance="?android:attr/textAppearanceMedium"
-		android:textSize="25sp"
-		android:drawableLeft="@mipmap/ic_launcher"
-		android:drawablePadding="10dp"
-		android:singleLine="true"
-		android:gravity="center_vertical" />
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_margin="5dp" >
+		<ImageView
+			android:layout_width="wrap_content"
+			android:layout_height="match_parent"
+			android:layout_margin="2dp"
+			android:src="@mipmap/ic_launcher" />
+		<TextView
+			android:id="@+id/textView_tittle"
+			android:layout_width="fill_parent"
+			android:layout_height="50dp"
+			android:background="#555555"
+			android:text="@string/launcher_name"
+			android:textAppearance="?android:attr/textAppearanceMedium"
+			android:textSize="25sp"
+			android:singleLine="true"
+			android:gravity="center_vertical" />
+	</LinearLayout>
 	<TabHost
 		android:id="@+id/tabhost"
 		android:layout_width="match_parent"
