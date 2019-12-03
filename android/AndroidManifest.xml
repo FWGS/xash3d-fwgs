@@ -4,16 +4,19 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 	package="su.xash.engine"
-	android:versionCode="1705"
-	android:versionName="0.20"
+	android:versionCode="1710"
+	android:versionName="0.20.1"
 	android:installLocation="auto">
 
 	<application android:label="@string/app_name"
 		android:icon="@mipmap/ic_launcher"
-		android:roundIcon="@mipmap/ic_launcher_round"
-		android:allowBackup="true"
+		android:roundIcon="@mipmap/ic_launcher"
+		android:allowBackup="false"
+		android:fullBackupOnly="false"
 		android:debuggable="false"
-		android:hardwareAccelerated="true">
+		android:hardwareAccelerated="true"
+		android:supportsRtl="false"
+		android:usesCleartextTraffic="true">
 		
 		<activity android:name="su.xash.engine.LauncherActivity"
 			android:label="@string/launcher_name"
@@ -66,7 +69,7 @@
 			</intent-filter>
 		</receiver>
 		<!--<service android:name="su.xash.engine.SteamService" />-->
-		<meta-data android:name="android.max_aspect" android:value="2.1" />
+		<meta-data android:name="android.max_aspect" android:value="10000" />
 	</application>
 
 	<!-- Some devices with Android 2.2 should support native activity, it was in unstable hidden API -->
@@ -80,5 +83,6 @@
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> 
 	<uses-permission android:name="android.permission.INTERNET" />
 	<uses-permission android:name="android.permission.VIBRATE" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 	<uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
 </manifest> 
