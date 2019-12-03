@@ -487,11 +487,24 @@ public class XashActivity extends Activity {
 		mEngineReady = true;
 	}
 	
+
 	private boolean setupEnvironment()
 	{
 		Intent intent = getIntent();
-		final String enginedir = getFilesDir().getParentFile().getPath() + "/lib";
-				
+		
+		String enginedir;
+		
+		try
+		{
+			ApplicationInfo ai = FWGSLib.getApplicationInfo(this, null, 0);
+			enginedir = ai.nativeLibraryDir;
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+			enginedir = getFilesDir().getParentFile().getPath() + "/lib";
+		}
+		
 		String argv       = FWGSLib.getStringExtraFromIntent( intent, "argv", mPref.getString( "argv", "-dev 3 -log" ) );
 		String gamelibdir = FWGSLib.getStringExtraFromIntent( intent, "gamelibdir", enginedir );
 		String gamedir    = FWGSLib.getStringExtraFromIntent( intent, "gamedir", "valve" );
@@ -519,10 +532,15 @@ public class XashActivity extends Activity {
 		{
 			fGDBSafe = true;
 			Log.e( TAG, "GDBSafe mode enabled!" );
-		}			
+		}
+		
+		Log.d( TAG, "argv = " + argv );
+		Log.d( TAG, "gamedir = " + gamedir );
+		Log.d( TAG, "basedir = " + basedir );
+		Log.d( TAG, "enginedir = " + enginedir );
+		Log.d( TAG, "gamelibdir = " + gamelibdir );
 		
 		mArgv = argv.split( " " );
-
 		
 		if( mUseRoDir )
 		{
@@ -541,10 +559,12 @@ public class XashActivity extends Activity {
 		setenv( "XASH3D_GAMELIBDIR", gamelibdir, true );
 		setenv( "XASH3D_GAMEDIR",    gamedir,    true );
 		setenv( "XASH3D_EXTRAS_PAK1", getFilesDir().getPath() + "/extras.pak", true );
+		Log.d( TAG, "enginepak = " + getFilesDir().getPath() + "/extras.pak" );
 		
 		String pakfile = intent.getStringExtra( "pakfile" );
 		if( pakfile != null && pakfile != "" )
 			setenv( "XASH3D_EXTRAS_PAK2", pakfile, true );
+		Log.d( TAG, "pakfile = " + ( pakfile != null ? pakfile : "null" ) );
 		
 		String[] env = intent.getStringArrayExtra( "env" );
 		if( env != null )
@@ -553,6 +573,7 @@ public class XashActivity extends Activity {
 			{
 				for( int i = 0; i + 1 < env.length; i += 2 )
 				{
+					Log.d(TAG, "extraEnv[" + env[i] + "] = " + env[i + 1]);
 					setenv( env[i], env[i + 1], true );
 				}
 			}
