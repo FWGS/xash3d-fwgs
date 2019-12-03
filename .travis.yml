@@ -210,4 +210,4 @@ jobs:
       os: linux
       cache: false
       script:
-        - sh scripts/travis-deploy.sh xash3d-fwgs-i686.AppImage xash3d-fwgs-x86_64.AppImage xash3d-vc.7z xash3d-vc2008-sln.7z xashdroid.apk xashdroid-64-test.apk xashdroid-hardfp-test.apk xashdroid-softfp-test.apk xashds-linux-i686 xashds-linux-x86_64 xash3d-magx.7z
+        - sh scripts/travis-deploy.sh xash3d-fwgs-i686.AppImage xash3d-fwgs-x86_64.AppImage xash3d-vc.7z xash3d-vc2008-sln.7z xashdroid.apk xashdroid-64-test.apk xashds-linux-i686 xashds-linux-x86_64 xash3d-magx.7z
