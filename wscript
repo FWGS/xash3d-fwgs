@@ -101,7 +101,7 @@ def configure(conf):
 		conf.fatal('Please set a build type, for example "-T release"')
 	elif not conf.options.BUILD_TYPE in valid_build_types:
 		conf.end_msg(conf.options.BUILD_TYPE, color='RED')
-		conf.fatal('Invalid build type. Valid are: %s' % valid_build_types.join(', '))
+		conf.fatal('Invalid build type. Valid are: %s' % ', '.join(valid_build_types))
 	conf.end_msg(conf.options.BUILD_TYPE)
 
 	# -march=native should not be used
