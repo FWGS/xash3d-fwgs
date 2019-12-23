@@ -72,9 +72,9 @@ static const int s_android_scantokey[] =
 
 typedef enum event_type
 {
-	event_touch_down,
+	event_touch_down = 0,
 	event_touch_up,
-	event_touch_move,
+	event_touch_move, // compatible with touchEventType
 	event_key_down,
 	event_key_up,
 	event_set_pause,
@@ -821,7 +821,7 @@ void Platform_RunEvents( void )
 		case event_touch_down:
 		case event_touch_up:
 		case event_touch_move:
-			IN_TouchEvent( events.queue[i].type, events.queue[i].arg,
+			IN_TouchEvent( (touchEventType)events.queue[i].type, events.queue[i].arg,
 						   events.queue[i].touch.x, events.queue[i].touch.y,
 						   events.queue[i].touch.dx, events.queue[i].touch.dy );
 			break;
