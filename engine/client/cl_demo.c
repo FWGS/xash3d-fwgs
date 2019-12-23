@@ -1311,7 +1311,7 @@ static void CL_DemoGetName( int lastnum, char *filename )
 		return;
 	}
 
-	Q_sprintf( filename, "demo%0004d", lastnum );
+	Q_sprintf( filename, "demo%04d", lastnum );
 }
 
 /*
