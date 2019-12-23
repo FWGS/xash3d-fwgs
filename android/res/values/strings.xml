@@ -126,4 +126,9 @@
         <item quantity="other">%d folders</item>
 	</plurals>
 	<!-- /FPicker -->
+	
+	<!-- Notifications -->
+	<string name="default_channel_name">Game engine</string>
+	<string name="default_channel_description">Game engine notifications</string>
+	<!-- /Notifications -->
 </resources>
