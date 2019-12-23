@@ -2090,7 +2090,7 @@ void SV_SaveGame( const char *pName )
 		// scan for a free filename
 		for( n = 0; n < 1000; n++ )
 		{
-			Q_snprintf( savename, sizeof( savename ), "save%003d", n );
+			Q_snprintf( savename, sizeof( savename ), "save%03d", n );
 
 			if( !FS_FileExists( va( "%s%s.sav", DEFAULT_SAVE_DIRECTORY, savename ), true ))
 				break;
