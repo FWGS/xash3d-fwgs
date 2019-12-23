@@ -481,7 +481,9 @@ public class XashActivity extends Activity {
 			}
 		}
 
-		if( sdk >= 5 )
+		if( sdk >= Build.VERSION_CODES.O )
+			startForegroundService( new Intent( getBaseContext(), XashService.class ) );
+		else if( sdk >= 5 )
 			startService( new Intent( getBaseContext(), XashService.class ) );
 
 		mEngineReady = true;
@@ -962,10 +964,7 @@ public class XashActivity extends Activity {
 			if( icon.getWidth() < 16 )
 				return;
 			
-			XashService.notification.contentView.setImageViewUri( XashService.status_image, Uri.parse( "file://" + path ) );
-			
-			NotificationManager nm = ( NotificationManager )mSingleton.getApplicationContext().getSystemService( Context.NOTIFICATION_SERVICE );
-			nm.notify( 100, XashService.notification );
+			XashService.not.setIcon(icon);
 		}
 		catch( Exception e )
 		{
@@ -982,9 +981,7 @@ public class XashActivity extends Activity {
 		if( sdk < 5 )
 			return;
 		
-		XashService.notification.contentView.setTextViewText( XashService.status_text, title );
-		NotificationManager nm = ( NotificationManager )mSingleton.getApplicationContext().getSystemService( Context.NOTIFICATION_SERVICE );
-		nm.notify( 100, XashService.notification );
+		XashService.not.setText(title);
 	}
 
 	public static String getAndroidID()
