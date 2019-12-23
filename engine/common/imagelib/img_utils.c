@@ -1246,7 +1246,7 @@ qboolean Image_Decompress( const byte *data )
 			else Image_GetPaletteLMP( image.palette, LUMP_MASKED ); 
 		}
 		else Image_GetPaletteLMP( image.palette, LUMP_NORMAL );
-		// intentional falltrough
+		// intentionally fallthrough
 	case PF_INDEXED_32:
 		if( !image.d_currentpal ) image.d_currentpal = (uint *)image.palette;
 		if( !Image_Copy8bitRGBA( fin, fout, image.width * image.height ))

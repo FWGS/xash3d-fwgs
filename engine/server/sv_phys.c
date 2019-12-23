@@ -409,7 +409,8 @@ float SV_Submerged( edict_t *ent )
 		svs.groupmask = ent->v.groupinfo;
 		if( SV_PointContents( point ) == CONTENTS_WATER )
 			return (ent->v.maxs[2] - ent->v.mins[2]);
-	case 2:	// intentionally fallthrough
+		// intentionally fallthrough
+	case 2:
 		bottom = SV_RecursiveWaterLevel( center, ent->v.absmax[2] - center[2], 0.0f, 0 );
 		return bottom - start;
 	}
