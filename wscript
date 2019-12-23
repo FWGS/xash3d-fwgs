@@ -236,6 +236,8 @@ def configure(conf):
 		'-Werror=duplicated-branches', # BEWARE: buggy
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
+		'-Werror=uninitialized',
+		'-Werror=implicit-fallthrough=2', # clang incompatible without "=2"
 #		'-Wdouble-promotion', # disable warning flood
 		'-Wstrict-aliasing',
 	]
@@ -248,7 +250,8 @@ def configure(conf):
 		'-Werror=strict-prototypes',
 		'-Werror=old-style-declaration',
 		'-Werror=old-style-definition',
-		'-Werror=declaration-after-statement'
+		'-Werror=declaration-after-statement',
+		'-Werror=enum-conversion'
 	]
 
 	linkflags = conf.get_flags_by_type(linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC, conf.env.CC_VERSION[0])

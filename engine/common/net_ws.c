@@ -1246,7 +1246,7 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 {
 	int		ret;
 	struct sockaddr	addr;
-	SOCKET		net_socket;
+	SOCKET		net_socket = 0;
 
 	if( !net.initialized || to.type == NA_LOOPBACK )
 	{

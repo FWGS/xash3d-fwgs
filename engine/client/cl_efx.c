@@ -2152,6 +2152,7 @@ void CL_ThinkParticle( double frametime, particle_t *p )
 			p->vel[2] -= grav;
 			break;
 		}
+		// intentionally fallthrough
 	case pt_blob2:
 		if( p->packedColor == 255 )
 		{
