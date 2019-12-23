@@ -352,7 +352,7 @@ void SCR_BeginLoadingPlaque( qboolean is_background )
 	if( CL_IsInMenu( ) && !cls.changedemo && !is_background )
 	{
 		UI_SetActiveMenu( false );
-		if( cls.state == ca_disconnected )
+		if( cls.state == ca_disconnected && !(GameState->curstate == STATE_RUNFRAME && GameState->nextstate != STATE_RUNFRAME) )
 			SCR_UpdateScreen();
 	}
 
