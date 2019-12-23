@@ -80,7 +80,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		mod->mins[2] = -pinq1->bounds[1] * 0.5f;
 		mod->maxs[2] = pinq1->bounds[1] * 0.5f;
 	}
-	else if( i == SPRITE_VERSION_HL )
+	else // if( i == SPRITE_VERSION_HL )
 	{
 		pinhl = (dsprite_hl_t *)buffer;
 		size = sizeof( msprite_t ) + ( pinhl->numframes - 1 ) * sizeof( psprite->frames );
@@ -104,7 +104,6 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	if( Host_IsDedicated() )
 	{
 		// skip frames loading
-
 		psprite->numframes = 0;
 		return;
 	}

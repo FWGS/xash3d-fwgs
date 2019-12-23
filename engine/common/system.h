@@ -68,7 +68,7 @@ void Sys_Print( const char *pMsg );
 void Sys_PrintLog( const char *pMsg );
 void Sys_InitLog( void );
 void Sys_CloseLog( void );
-void Sys_Quit( void );
+void Sys_Quit( void ) NORETURN;
 
 //
 // sys_con.c

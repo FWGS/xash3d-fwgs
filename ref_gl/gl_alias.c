@@ -227,7 +227,7 @@ for the model, which holds for all frames
 */
 void BuildTris( void )
 {
-	int	len, bestlen, besttype;
+	int	len, bestlen, besttype = 0;
 	int	bestverts[1024];
 	int	besttris[1024];
 	int	type, startv;

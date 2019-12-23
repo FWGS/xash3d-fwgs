@@ -1296,7 +1296,7 @@ void pfnSetModel( edict_t *e, const char *m )
 	char	name[MAX_QPATH];
 	qboolean	found = false;
 	model_t	*mod;
-	int	i;
+	int	i = 1;
 
 	if( !SV_IsValidEdict( e ))
 		return;
@@ -1308,7 +1308,7 @@ void pfnSetModel( edict_t *e, const char *m )
 	if( COM_CheckString( name ))
 	{
 		// check to see if model was properly precached
-		for( i = 1; i < MAX_MODELS && sv.model_precache[i][0]; i++ )
+		for( ; i < MAX_MODELS && sv.model_precache[i][0]; i++ )
 		{
 			if( !Q_stricmp( sv.model_precache[i], name ))
 			{

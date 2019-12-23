@@ -1975,7 +1975,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 		if( mt->offsets[0] > 0 )
 		{
 			int	size = (int)sizeof( mip_t ) + ((mt->width * mt->height * 85)>>6);
-			int	next_dataofs, remaining;
+			int	next_dataofs = 0, remaining;
 
 			// compute next dataofset to determine allocated miptex space
 			for( j = i + 1; j < loadmodel->numtextures; j++ )
