@@ -1082,6 +1082,9 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 	private EGLDisplay  mEGLDisplay;
 	private EGL10 mEGL;
 	private EGLConfig mEGLConfig;
+	private boolean resizing = false;
+
+	// Sensors
 
 	// Startup
 	public EngineSurface( Context context )
@@ -1123,48 +1126,45 @@ class EngineSurface extends SurfaceView implements SurfaceHolder.Callback, View.
 		
 		XashActivity.nativeSetPause(1);
 	}
-	
-	private boolean resizing = false;
 
 	// Called when the surface is resized
 	public void surfaceChanged( SurfaceHolder holder, int format, int width, int height )
 	{
 		Log.v( TAG, "surfaceChanged()" );
-		int newWidth = 0, newHeight = 0;
-		
-		if( XashActivity.mForceHeight != 0 && XashActivity.mForceWidth != 0 )
+		if( ( XashActivity.mForceHeight!= 0 && XashActivity.mForceWidth!= 0 || XashActivity.mScale != 0 ) && !resizing )
 		{
-			newWidth = XashActivity.mForceWidth;
-			newHeight = XashActivity.mForceHeight;
-			XashActivity.mTouchScaleX = (float)newWidth / width;
-			XashActivity.mTouchScaleY = (float)newHeight / height;
+			int newWidth, newHeight;
+			resizing = true;
+			if( XashActivity.mForceHeight != 0 && XashActivity.mForceWidth != 0 )
+			{
+				newWidth = XashActivity.mForceWidth;
+				newHeight = XashActivity.mForceHeight;
+			}
+			else
+			{
+				newWidth = ( int )( getWidth() / XashActivity.mScale );
+				newHeight = ( int )( getHeight() / XashActivity.mScale );
+			}
 			holder.setFixedSize( newWidth, newHeight );
+			XashActivity.mTouchScaleX = ( float )newWidth / getWidth();
+			XashActivity.mTouchScaleY = ( float )newHeight / getHeight();
+			
+			width = newWidth;
+			height = newHeight;
 		}
-		else if( XashActivity.mScale != 0 )
-		{
-			newWidth = ( int )( width / XashActivity.mScale );
-			newHeight = ( int )( height / XashActivity.mScale );
-			XashActivity.mTouchScaleX = XashActivity.mTouchScaleY = 1 / XashActivity.mScale;
-		}
-		else
-		{
-			newWidth = width;
-			newWidth = height;
-			XashActivity.mTouchScaleX = XashActivity.mTouchScaleY = 1.0f;
-		}
-		
+
 		// Android may force only-landscape app to portait during lock
 		// Just don't notify engine in that case
-		if( newWidth > newHeight )
-			XashActivity.onNativeResize( newWidth, newHeight );
+		if( width > height )
+			XashActivity.onNativeResize( width, height );
 		// holder.setFixedSize( width / 2, height / 2 );
-		
 		// Now start up the C app thread
 		if( mEngThread == null ) 
 		{
 			mEngThread = new Thread( new XashMain(), "EngineThread" );
 			mEngThread.start();
 		}
+		resizing = false;
 	}
 	
 	public void engineThreadJoin()
