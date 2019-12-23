@@ -320,19 +320,19 @@ static void Mod_StudioCalcBoneAdj( float *adj, const byte *pcontroller )
 		if( i == STUDIO_MOUTH )
 			continue; // ignore mouth
 
-		if( i <= MAXSTUDIOCONTROLLERS )
+		if( i >= MAXSTUDIOCONTROLLERS )
+			continue;
+
+		// check for 360% wrapping
+		if( pbonecontroller[j].type & STUDIO_RLOOP )
 		{
-			// check for 360% wrapping
-			if( pbonecontroller[j].type & STUDIO_RLOOP )
-			{
-				value = pcontroller[i] * (360.0f / 256.0f) + pbonecontroller[j].start;
-			}
-			else 
-			{
-				value = pcontroller[i] / 255.0f;
-				value = bound( 0.0f, value, 1.0f );
-				value = (1.0f - value) * pbonecontroller[j].start + value * pbonecontroller[j].end;
-			}
+			value = pcontroller[i] * (360.0f / 256.0f) + pbonecontroller[j].start;
+		}
+		else
+		{
+			value = pcontroller[i] / 255.0f;
+			value = bound( 0.0f, value, 1.0f );
+			value = (1.0f - value) * pbonecontroller[j].start + value * pbonecontroller[j].end;
 		}
 
 		switch( pbonecontroller[j].type & STUDIO_TYPES )

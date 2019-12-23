@@ -237,6 +237,7 @@ def configure(conf):
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
 		'-Werror=uninitialized',
+		'-Werror=init-self',
 		'-Werror=implicit-fallthrough=2', # clang incompatible without "=2"
 #		'-Wdouble-promotion', # disable warning flood
 		'-Wstrict-aliasing',

@@ -217,6 +217,10 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	case PNG_CT_RGBA:
 		pixel_size = 4;
 		break;
+	default:
+		pixel_size = 0; // make compiler happy
+		ASSERT( false );
+		break;
 	}
 
 	image.type = PF_RGBA_32; // always exctracted to 32-bit buffer
