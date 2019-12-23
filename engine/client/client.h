@@ -709,7 +709,7 @@ dlight_t *CL_GetEntityLight( int number );
 //
 // cl_cmds.c
 //
-void CL_Quit_f( void );
+void CL_Quit_f( void ) NORETURN;
 void CL_ScreenShot_f( void );
 void CL_SnapShot_f( void );
 void CL_PlayCDTrack_f( void );
