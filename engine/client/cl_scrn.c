@@ -342,12 +342,16 @@ SCR_BeginLoadingPlaque
 */
 void SCR_BeginLoadingPlaque( qboolean is_background )
 {
-	float	oldclear;
-
 	S_StopAllSounds( true );
 	cl.audio_prepped = false;			// don't play ambients
 	cl.video_prepped = false;
-	oldclear = gl_clear->value;
+
+#if !XASH_DEDICATED
+	float	oldclear;
+
+	if( !Host_IsDedicated() )
+		oldclear = gl_clear->value;
+#endif
 
 	if( CL_IsInMenu( ) && !cls.changedemo && !is_background )
 	{
@@ -362,14 +366,22 @@ void SCR_BeginLoadingPlaque( qboolean is_background )
 	if( cls.key_dest == key_console )
 		return;
 
-	gl_clear->value = 0.0f;
+#if !XASH_DEDICATED
+	if( !Host_IsDedicated() )
+		gl_clear->value = 0.0f;
+#endif
+
 	if( is_background ) IN_MouseSavePos( );
 	cls.draw_changelevel = !is_background;
 	SCR_UpdateScreen();
 	cls.disable_screen = host.realtime;
 	cls.disable_servercount = cl.servercount;
 	cl.background = is_background;		// set right state before svc_serverdata is came
-	gl_clear->value = oldclear;
+
+#if !XASH_DEDICATED
+	if( !Host_IsDedicated() )
+		gl_clear->value = oldclear;
+#endif
 //	SNDDMA_LockSound();
 }
 
