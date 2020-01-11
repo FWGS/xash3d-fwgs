@@ -342,13 +342,15 @@ SCR_BeginLoadingPlaque
 */
 void SCR_BeginLoadingPlaque( qboolean is_background )
 {
+#if !XASH_DEDICATED
+	float	oldclear;
+#endif
+
 	S_StopAllSounds( true );
 	cl.audio_prepped = false;			// don't play ambients
 	cl.video_prepped = false;
 
 #if !XASH_DEDICATED
-	float	oldclear;
-
 	if( !Host_IsDedicated() )
 		oldclear = gl_clear->value;
 #endif
