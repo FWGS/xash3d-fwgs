@@ -13,9 +13,9 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "build.h"
-#if !XASH_WIN32 // see win_lib.c
-#define _GNU_SOURCE
+#include "platform/platform.h"
+#if XASH_LIB == LIB_POSIX
+
 
 #include "common.h"
 #include "library.h"
