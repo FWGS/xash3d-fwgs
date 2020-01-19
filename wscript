@@ -54,7 +54,8 @@ SUBDIRS = [
 	Subproject('vgui_support'),
 	Subproject('stub/server', dedicated=False),
 	Subproject('stub/client'),
-	Subproject('engine', dedicated=False, mandatory = False),
+	Subproject('dllemu'),
+	Subproject('engine', dedicated=False),
 ]
 
 def subdirs():

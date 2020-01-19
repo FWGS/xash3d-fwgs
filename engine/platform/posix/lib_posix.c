@@ -12,7 +12,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
+#define _GNU_SOURCE
 #include "platform/platform.h"
 #if XASH_LIB == LIB_POSIX
 
@@ -24,6 +24,16 @@ GNU General Public License for more details.
 #include "platform/android/lib_android.h"
 #include "platform/emscripten/lib_em.h"
 #include "platform/apple/lib_ios.h"
+
+#ifdef XASH_DLL_LOADER // wine-based dll loader
+void * Loader_LoadLibrary (const char *name);
+void * Loader_GetProcAddress (void *hndl, const char *name);
+void Loader_FreeLibrary(void *hndl);
+void *Loader_GetDllHandle( void *hndl );
+const char * Loader_GetFuncName( void *hndl, void *func);
+const char * Loader_GetFuncName_int( void *wm , void *func);
+#endif
+
 
 #ifdef XASH_NO_LIBDL
 #ifndef XASH_DLL_LOADER
@@ -83,7 +93,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	if( !hInst )
 	{
 		// HACKHACK: direct load dll
-#ifdef DLL_LOADER
+#ifdef XASH_DLL_LOADER
 		if( host.enabledll && ( pHandle = Loader_LoadLibrary(dllname)) )
 		{
 			return pHandle;
@@ -110,8 +120,8 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 		return NULL;
 	}
 
-#ifdef DLL_LOADER
-	if( host.enabledll && ( !Q_stricmp( FS_FileExtension( hInst->shortPath ), "dll" ) ) )
+#ifdef XASH_DLL_LOADER
+	if( host.enabledll && ( !Q_stricmp( COM_FileExtension( hInst->shortPath ), "dll" ) ) )
 	{
 		if( hInst->encrypted )
 		{
@@ -147,7 +157,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 
 void COM_FreeLibrary( void *hInstance )
 {
-#ifdef DLL_LOADER
+#ifdef XASH_DLL_LOADER
 	void *wm;
 	if( host.enabledll && (wm = Loader_GetDllHandle( hInstance )) )
 		return Loader_FreeLibrary( hInstance );
@@ -164,7 +174,7 @@ void COM_FreeLibrary( void *hInstance )
 
 void *COM_GetProcAddress( void *hInstance, const char *name )
 {
-#ifdef DLL_LOADER
+#ifdef XASH_DLL_LOADER
 	void *wm;
 	if( host.enabledll && (wm = Loader_GetDllHandle( hInstance )) )
 		return Loader_GetProcAddress(hInstance, name);
@@ -206,7 +216,7 @@ int d_dladdr( void *sym, Dl_info *info )
 
 const char *COM_NameForFunction( void *hInstance, void *function )
 {
-#ifdef DLL_LOADER
+#ifdef XASH_DLL_LOADER
 	void *wm;
 	if( host.enabledll && (wm = Loader_GetDllHandle( hInstance )) )
 		return Loader_GetFuncName_int(wm, function);

@@ -318,7 +318,7 @@ void VGui_Startup( const char *clientlib, int width, int height )
 		width = 1280;
 	else if( width <= 1600 )
 		width = 1600;
-#ifdef DLL_LOADER
+#ifdef XASH_DLL_LOADER
 	else if ( Q_strstr( vguiloader, ".dll" ) )
 		width = 1600;
 #endif
