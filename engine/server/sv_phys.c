@@ -1967,7 +1967,7 @@ pfnPointContents
 
 =============
 */
-static int pfnPointContents( const float *pos, int groupmask )
+static int GAME_EXPORT pfnPointContents( const float *pos, int groupmask )
 {
 	int	oldmask, cont;
 

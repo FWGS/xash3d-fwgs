@@ -1409,7 +1409,7 @@ S_StopSound
 stop all sounds for entity on a channel.
 ==================
 */
-void S_StopSound( int entnum, int channel, const char *soundname )
+void GAME_EXPORT S_StopSound( int entnum, int channel, const char *soundname )
 {
 	sfx_t	*sfx;
 

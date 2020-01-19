@@ -89,7 +89,7 @@ clgame_static_t	clgame;
 void CL_InternetServers_f( void );
 
 //======================================================================
-int CL_Active( void )
+int GAME_EXPORT CL_Active( void )
 {
 	return ( cls.state == ca_active );
 }

@@ -3009,7 +3009,7 @@ FS_FileExists
 Look for a file in the packages and in the filesystem
 ==================
 */
-int FS_FileExists( const char *filename, int gamedironly )
+int GAME_EXPORT FS_FileExists( const char *filename, int gamedironly )
 {
 	if( FS_FindFile( filename, NULL, gamedironly ))
 		return true;
@@ -3242,7 +3242,7 @@ FS_Delete
 delete specified file from gamefolder
 ==================
 */
-qboolean FS_Delete( const char *path )
+qboolean GAME_EXPORT FS_Delete( const char *path )
 {
 	char	real_path[MAX_SYSPATH];
 	qboolean	iRet;

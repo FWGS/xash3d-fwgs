@@ -39,7 +39,7 @@ Platform_GetMousePos
 
 =============
 */
-void Platform_GetMousePos( int *x, int *y )
+void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 {
 	SDL_GetMouseState( x, y );
 }
@@ -50,7 +50,7 @@ Platform_SetMousePos
 
 ============
 */
-void Platform_SetMousePos( int x, int y )
+void GAME_EXPORT Platform_SetMousePos( int x, int y )
 {
 	SDL_WarpMouseInWindow( host.hWnd, x, y );
 }

@@ -92,7 +92,7 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 
 }
 
-int CL_Active( void )
+int GAME_EXPORT CL_Active( void )
 {
 	return false;
 }
@@ -173,7 +173,7 @@ void CL_ClearEdicts( void )
 
 }
 
-void Key_SetKeyDest(int key_dest)
+void GAME_EXPORT Key_SetKeyDest(int key_dest)
 {
 
 }
@@ -222,7 +222,7 @@ int R_CreateDecalList( struct decallist_s *pList )
 	return 0;
 }
 
-void S_StopSound(int entnum, int channel, const char *soundname)
+void GAME_EXPORT S_StopSound(int entnum, int channel, const char *soundname)
 {
 
 }
@@ -232,7 +232,7 @@ int S_GetCurrentStaticSounds( soundlist_t *pout, int size )
 	return 0;
 }
 
-int CL_GetMaxClients( void )
+int GAME_EXPORT CL_GetMaxClients( void )
 {
 	return 0;
 }
@@ -287,12 +287,12 @@ void S_StopAllSounds( qboolean ambient )
 
 }
 
-void Con_NPrintf( int idx, const char *fmt, ... )
+void GAME_EXPORT Con_NPrintf( int idx, const char *fmt, ... )
 {
 
 }
 
-void Con_NXPrintf( struct  con_nprint_s *info, const char *fmt, ... )
+void GAME_EXPORT Con_NXPrintf( struct  con_nprint_s *info, const char *fmt, ... )
 {
 
 }

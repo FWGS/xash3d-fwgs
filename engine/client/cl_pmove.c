@@ -46,7 +46,7 @@ CL_PushPMStates
 
 =============
 */
-void CL_PushPMStates( void )
+void GAME_EXPORT CL_PushPMStates( void )
 {
 	if( clgame.pushed ) return;
 	clgame.oldphyscount = clgame.pmove->numphysent;
@@ -60,7 +60,7 @@ CL_PopPMStates
 
 =============
 */
-void CL_PopPMStates( void )
+void GAME_EXPORT CL_PopPMStates( void )
 {
 	if( !clgame.pushed ) return;
 	clgame.pmove->numphysent = clgame.oldphyscount;
@@ -74,7 +74,7 @@ CL_PushTraceBounds
 
 =============
 */
-void CL_PushTraceBounds( int hullnum, const float *mins, const float *maxs )
+void GAME_EXPORT CL_PushTraceBounds( int hullnum, const float *mins, const float *maxs )
 {
 	hullnum = bound( 0, hullnum, 3 );
 	VectorCopy( mins, clgame.pmove->player_mins[hullnum] );
@@ -87,7 +87,7 @@ CL_PopTraceBounds
 
 =============
 */
-void CL_PopTraceBounds( void )
+void GAME_EXPORT CL_PopTraceBounds( void )
 {
 	memcpy( clgame.pmove->player_mins, host.player_mins, sizeof( host.player_mins ));
 	memcpy( clgame.pmove->player_maxs, host.player_maxs, sizeof( host.player_maxs ));
@@ -280,7 +280,7 @@ then with clipping against them.
 This sets up the first phase.
 =============
 */
-void CL_SetUpPlayerPrediction( int dopred, int bIncludeLocalClient )
+void GAME_EXPORT CL_SetUpPlayerPrediction( int dopred, int bIncludeLocalClient )
 {
 	entity_state_t	*state;
 	predicted_player_t	*player;
@@ -538,7 +538,7 @@ pmove must be setup with world and solid entity hulls before calling
 (via CL_PredictMove)
 ===============
 */
-void CL_SetSolidPlayers( int playernum )
+void GAME_EXPORT CL_SetSolidPlayers( int playernum )
 {
 	entity_state_t	*state;
 	predicted_player_t	*player;
@@ -594,7 +594,7 @@ CL_WaterEntity
 
 =============
 */
-int CL_WaterEntity( const float *rgflPos )
+int GAME_EXPORT CL_WaterEntity( const float *rgflPos )
 {
 	physent_t		*pe;
 	hull_t		*hull;
@@ -699,17 +699,17 @@ cl_entity_t *CL_GetWaterEntity( const float *rgflPos )
 	return CL_GetEntityByIndex( entnum );
 }
 
-int CL_TestLine( const vec3_t start, const vec3_t end, int flags )
+int GAME_EXPORT CL_TestLine( const vec3_t start, const vec3_t end, int flags )
 {
 	return PM_TestLineExt( clgame.pmove, clgame.pmove->physents, clgame.pmove->numphysent, start, end, flags );
 }
 
-static int pfnTestPlayerPosition( float *pos, pmtrace_t *ptrace )
+static int GAME_EXPORT pfnTestPlayerPosition( float *pos, pmtrace_t *ptrace )
 {
 	return PM_TestPlayerPosition( clgame.pmove, pos, ptrace, NULL );
 }
 
-static void pfnStuckTouch( int hitent, pmtrace_t *tr )
+static void GAME_EXPORT pfnStuckTouch( int hitent, pmtrace_t *tr )
 {
 	int	i;
 
@@ -728,7 +728,7 @@ static void pfnStuckTouch( int hitent, pmtrace_t *tr )
 	clgame.pmove->touchindex[clgame.pmove->numtouch++] = *tr;
 }
 
-static int pfnPointContents( float *p, int *truecontents )
+static int GAME_EXPORT pfnPointContents( float *p, int *truecontents )
 {
 	int	cont, truecont;
 
@@ -740,17 +740,17 @@ static int pfnPointContents( float *p, int *truecontents )
 	return cont;
 }
 
-static int pfnTruePointContents( float *p )
+static int GAME_EXPORT pfnTruePointContents( float *p )
 {
 	return PM_TruePointContents( clgame.pmove, p );
 }
 
-static int pfnHullPointContents( struct hull_s *hull, int num, float *p )
+static int GAME_EXPORT pfnHullPointContents( struct hull_s *hull, int num, float *p )
 {
 	return PM_HullPointContents( hull, num, p );
 }
 
-static pmtrace_t pfnPlayerTrace( float *start, float *end, int traceFlags, int ignore_pe )
+static pmtrace_t GAME_EXPORT pfnPlayerTrace( float *start, float *end, int traceFlags, int ignore_pe )
 {
 	return PM_PlayerTraceExt( clgame.pmove, start, end, traceFlags, clgame.pmove->numphysent, clgame.pmove->physents, ignore_pe, NULL );
 }
@@ -783,7 +783,7 @@ static hull_t *pfnHullForBsp( physent_t *pe, float *offset )
 	return PM_HullForBsp( pe, clgame.pmove, offset );
 }
 
-static float pfnTraceModel( physent_t *pe, float *start, float *end, trace_t *trace )
+static float GAME_EXPORT pfnTraceModel( physent_t *pe, float *start, float *end, trace_t *trace )
 {
 	int	old_usehull;
 	vec3_t	start_l, end_l;
@@ -840,7 +840,7 @@ static const char *pfnTraceTexture( int ground, float *vstart, float *vend )
 	return PM_TraceTexture( pe, vstart, vend );
 }			
 
-static void pfnPlaySound( int channel, const char *sample, float volume, float attenuation, int fFlags, int pitch )
+static void GAME_EXPORT pfnPlaySound( int channel, const char *sample, float volume, float attenuation, int fFlags, int pitch )
 {
 	if( !clgame.pmove->runfuncs )
 		return;
@@ -848,18 +848,18 @@ static void pfnPlaySound( int channel, const char *sample, float volume, float a
 	S_StartSound( NULL, clgame.pmove->player_index + 1, channel, S_RegisterSound( sample ), volume, attenuation, pitch, fFlags );
 }
 
-static void pfnPlaybackEventFull( int flags, int clientindex, word eventindex, float delay, float *origin,
+static void GAME_EXPORT pfnPlaybackEventFull( int flags, int clientindex, word eventindex, float delay, float *origin,
 	float *angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 )
 {
 	CL_PlaybackEvent( flags, NULL, eventindex, delay, origin, angles, fparam1, fparam2, iparam1, iparam2, bparam1, bparam2 );
 }
 
-static pmtrace_t pfnPlayerTraceEx( float *start, float *end, int traceFlags, pfnIgnore pmFilter )
+static pmtrace_t GAME_EXPORT pfnPlayerTraceEx( float *start, float *end, int traceFlags, pfnIgnore pmFilter )
 {
 	return PM_PlayerTraceExt( clgame.pmove, start, end, traceFlags, clgame.pmove->numphysent, clgame.pmove->physents, -1, pmFilter );
 }
 
-static int pfnTestPlayerPositionEx( float *pos, pmtrace_t *ptrace, pfnIgnore pmFilter )
+static int GAME_EXPORT pfnTestPlayerPositionEx( float *pos, pmtrace_t *ptrace, pfnIgnore pmFilter )
 {
 	return PM_TestPlayerPosition( clgame.pmove, pos, ptrace, pmFilter );
 }

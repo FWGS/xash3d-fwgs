@@ -524,7 +524,7 @@ void Con_Bottom( void )
 Con_Visible
 ================
 */
-int Con_Visible( void )
+int GAME_EXPORT Con_Visible( void )
 {
 	return (con.vislines > 0);
 }
@@ -986,7 +986,7 @@ Con_DrawStringLen
 compute string width and height in screen pixels
 ====================
 */
-void Con_DrawStringLen( const char *pText, int *length, int *height )
+void GAME_EXPORT Con_DrawStringLen( const char *pText, int *length, int *height )
 {
 	int	curLength = 0;
 
@@ -1335,7 +1335,7 @@ Con_NPrint
 Draw a single debug line with specified height
 ================
 */
-void Con_NPrintf( int idx, const char *fmt, ... )
+void GAME_EXPORT Con_NPrintf( int idx, const char *fmt, ... )
 {
 	va_list	args;
 
@@ -1362,7 +1362,7 @@ Con_NXPrint
 Draw a single debug line with specified height, color and time to live
 ================
 */
-void Con_NXPrintf( con_nprint_t *info, const char *fmt, ... )
+void GAME_EXPORT Con_NXPrintf( con_nprint_t *info, const char *fmt, ... )
 {
 	va_list	args;
 
@@ -1391,7 +1391,7 @@ UI_NPrint
 Draw a single debug line with specified height (menu version)
 ================
 */
-void UI_NPrintf( int idx, const char *fmt, ... )
+void GAME_EXPORT UI_NPrintf( int idx, const char *fmt, ... )
 {
 	va_list	args;
 
@@ -1418,7 +1418,7 @@ UI_NXPrint
 Draw a single debug line with specified height, color and time to live (menu version)
 ================
 */
-void UI_NXPrintf( con_nprint_t *info, const char *fmt, ... )
+void GAME_EXPORT UI_NXPrintf( con_nprint_t *info, const char *fmt, ... )
 {
 	va_list	args;
 
@@ -2485,7 +2485,7 @@ Con_DefaultColor
 called from MainUI
 =========
 */
-void Con_DefaultColor( int r, int g, int b )
+void GAME_EXPORT Con_DefaultColor( int r, int g, int b )
 {
 	r = bound( 0, r, 255 );
 	g = bound( 0, g, 255 );

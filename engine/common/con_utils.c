@@ -966,7 +966,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 	return false;
 }
 
-int Cmd_CheckMapsList( int fRefresh )
+int GAME_EXPORT Cmd_CheckMapsList( int fRefresh )
 {
 	return Cmd_CheckMapsList_R( fRefresh, true );
 }
@@ -1386,7 +1386,7 @@ Host_WriteServerConfig
 save serverinfo variables into server.cfg (using for dedicated server too)
 ===============
 */
-void Host_WriteServerConfig( const char *name )
+void GAME_EXPORT Host_WriteServerConfig( const char *name )
 {
 	file_t	*f;
 	string newconfigfile;

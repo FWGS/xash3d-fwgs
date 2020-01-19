@@ -131,7 +131,7 @@ SV_SoundIndex
 register unique sound for client
 ================
 */
-int SV_SoundIndex( const char *filename )
+int GAME_EXPORT SV_SoundIndex( const char *filename )
 {
 	char	name[MAX_QPATH];
 	int	i;
@@ -224,7 +224,7 @@ SV_GenericIndex
 register generic resourse for a server and client
 ================
 */
-int SV_GenericIndex( const char *filename )
+int GAME_EXPORT SV_GenericIndex( const char *filename )
 {
 	char	name[MAX_QPATH];
 	int	i;

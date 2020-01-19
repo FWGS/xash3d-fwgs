@@ -588,7 +588,7 @@ void Cvar_FullSet( const char *var_name, const char *value, int flags )
 Cvar_Set
 ============
 */
-void Cvar_Set( const char *var_name, const char *value )
+void GAME_EXPORT Cvar_Set( const char *var_name, const char *value )
 {
 	convar_t	*var;
 
@@ -616,7 +616,7 @@ void Cvar_Set( const char *var_name, const char *value )
 Cvar_SetValue
 ============
 */
-void Cvar_SetValue( const char *var_name, float value )
+void GAME_EXPORT Cvar_SetValue( const char *var_name, float value )
 {
 	char	val[32];
 	
@@ -642,7 +642,7 @@ void Cvar_Reset( const char *var_name )
 Cvar_VariableValue
 ============
 */
-float Cvar_VariableValue( const char *var_name )
+float GAME_EXPORT Cvar_VariableValue( const char *var_name )
 {
 	convar_t	*var;
 
