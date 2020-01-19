@@ -1062,7 +1062,7 @@ COM_CompareFileTime
 
 =============
 */
-int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare )
+int GAME_EXPORT COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare )
 {
 	int	bRet = 0;
 

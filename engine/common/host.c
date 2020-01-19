@@ -769,11 +769,6 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	host.enabledll = !Sys_CheckParm( "-nodll" );
 
-#ifdef DLL_LOADER
-	if( host.enabledll )
-		Setup_LDT_Keeper( ); // Must call before creating any thread
-#endif
-
 	host.change_game = bChangeGame;
 	host.config_executed = false;
 	host.status = HOST_INIT; // initialzation started

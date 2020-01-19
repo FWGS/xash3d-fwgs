@@ -1263,7 +1263,7 @@ pfnPrecacheModel
 
 =========
 */
-int pfnPrecacheModel( const char *s )
+int GAME_EXPORT pfnPrecacheModel( const char *s )
 {
 	qboolean	optional = false;
 	int	i;
@@ -1291,7 +1291,7 @@ pfnSetModel
 
 =================
 */
-void pfnSetModel( edict_t *e, const char *m )
+void GAME_EXPORT pfnSetModel( edict_t *e, const char *m )
 {
 	char	name[MAX_QPATH];
 	qboolean	found = false;
@@ -2418,7 +2418,7 @@ pfnServerExecute
 
 =========
 */
-void pfnServerExecute( void )
+void GAME_EXPORT pfnServerExecute( void )
 {
 	Cbuf_Execute();
 
@@ -2444,8 +2444,8 @@ pfnClientCommand
 
 =========
 */
-void pfnClientCommand( edict_t* pEdict, char* szFmt, ... ) _format( 2 );
-void pfnClientCommand( edict_t* pEdict, char* szFmt, ... )
+void GAME_EXPORT pfnClientCommand( edict_t* pEdict, char* szFmt, ... ) _format( 2 );
+void GAME_EXPORT pfnClientCommand( edict_t* pEdict, char* szFmt, ... )
 {
 	sv_client_t	*cl;
 	string		buffer;
@@ -2876,7 +2876,7 @@ pfnAlertMessage
 =============
 */
 static void pfnAlertMessage( ALERT_TYPE type, char *szFmt, ... ) _format( 2 );
-static void pfnAlertMessage( ALERT_TYPE type, char *szFmt, ... )
+static void GAME_EXPORT pfnAlertMessage( ALERT_TYPE type, char *szFmt, ... )
 {
 	char	buffer[2048];
 	va_list	args;
