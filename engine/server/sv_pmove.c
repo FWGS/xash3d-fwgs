@@ -341,7 +341,7 @@ void SV_AddLaddersToPmove( areanode_t *node, const vec3_t pmove_mins, const vec3
 		SV_AddLaddersToPmove( node->children[1], pmove_mins, pmove_maxs );
 }
 
-static void pfnParticle( const float *origin, int color, float life, int zpos, int zvel )
+static void GAME_EXPORT pfnParticle( const float *origin, int color, float life, int zpos, int zvel )
 {
 	int	v;
 
@@ -367,12 +367,12 @@ int SV_TestLine( const vec3_t start, const vec3_t end, int flags )
 	return PM_TestLineExt( svgame.pmove, svgame.pmove->physents, svgame.pmove->numphysent, start, end, flags );
 }
 
-static int pfnTestPlayerPosition( float *pos, pmtrace_t *ptrace )
+static int GAME_EXPORT pfnTestPlayerPosition( float *pos, pmtrace_t *ptrace )
 {
 	return PM_TestPlayerPosition( svgame.pmove, pos, ptrace, NULL );
 }
 
-static void pfnStuckTouch( int hitent, pmtrace_t *tr )
+static void GAME_EXPORT pfnStuckTouch( int hitent, pmtrace_t *tr )
 {
 	int	i;
 
@@ -391,7 +391,7 @@ static void pfnStuckTouch( int hitent, pmtrace_t *tr )
 	svgame.pmove->touchindex[svgame.pmove->numtouch++] = *tr;
 }
 
-static int pfnPointContents( float *p, int *truecontents )
+static int GAME_EXPORT pfnPointContents( float *p, int *truecontents )
 {
 	int	cont, truecont;
 
@@ -403,17 +403,17 @@ static int pfnPointContents( float *p, int *truecontents )
 	return cont;
 }
 
-static int pfnTruePointContents( float *p )
+static int GAME_EXPORT pfnTruePointContents( float *p )
 {
 	return PM_TruePointContents( svgame.pmove, p );
 }
 
-static int pfnHullPointContents( struct hull_s *hull, int num, float *p )
+static int GAME_EXPORT pfnHullPointContents( struct hull_s *hull, int num, float *p )
 {
 	return PM_HullPointContents( hull, num, p );
 }
 
-static pmtrace_t pfnPlayerTrace( float *start, float *end, int traceFlags, int ignore_pe )
+static pmtrace_t GAME_EXPORT pfnPlayerTrace( float *start, float *end, int traceFlags, int ignore_pe )
 {
 	return PM_PlayerTraceExt( svgame.pmove, start, end, traceFlags, svgame.pmove->numphysent, svgame.pmove->physents, ignore_pe, NULL );
 }
@@ -446,7 +446,7 @@ static hull_t *pfnHullForBsp( physent_t *pe, float *offset )
 	return PM_HullForBsp( pe, svgame.pmove, offset );
 }
 
-static float pfnTraceModel( physent_t *pe, float *start, float *end, trace_t *trace )
+static float GAME_EXPORT pfnTraceModel( physent_t *pe, float *start, float *end, trace_t *trace )
 {
 	int	old_usehull;
 	vec3_t	start_l, end_l;
@@ -503,7 +503,7 @@ static const char *pfnTraceTexture( int ground, float *vstart, float *vend )
 	return PM_TraceTexture( pe, vstart, vend );
 }			
 
-static void pfnPlaySound( int channel, const char *sample, float volume, float attenuation, int fFlags, int pitch )
+static void GAME_EXPORT pfnPlaySound( int channel, const char *sample, float volume, float attenuation, int fFlags, int pitch )
 {
 	edict_t	*ent;
 
@@ -513,7 +513,7 @@ static void pfnPlaySound( int channel, const char *sample, float volume, float a
 	SV_StartSound( ent, channel, sample, volume, attenuation, fFlags|SND_FILTER_CLIENT, pitch );
 }
 
-static void pfnPlaybackEventFull( int flags, int clientindex, word eventindex, float delay, float *origin,
+static void GAME_EXPORT pfnPlaybackEventFull( int flags, int clientindex, word eventindex, float delay, float *origin,
 	float *angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 )
 {
 	edict_t	*ent;
@@ -531,12 +531,12 @@ static void pfnPlaybackEventFull( int flags, int clientindex, word eventindex, f
 		bparam1, bparam2 );
 }
 
-static pmtrace_t pfnPlayerTraceEx( float *start, float *end, int traceFlags, pfnIgnore pmFilter )
+static pmtrace_t GAME_EXPORT pfnPlayerTraceEx( float *start, float *end, int traceFlags, pfnIgnore pmFilter )
 {
 	return PM_PlayerTraceExt( svgame.pmove, start, end, traceFlags, svgame.pmove->numphysent, svgame.pmove->physents, -1, pmFilter );
 }
 
-static int pfnTestPlayerPositionEx( float *pos, pmtrace_t *ptrace, pfnIgnore pmFilter )
+static int GAME_EXPORT pfnTestPlayerPositionEx( float *pos, pmtrace_t *ptrace, pfnIgnore pmFilter )
 {
 	return PM_TestPlayerPosition( svgame.pmove, pos, ptrace, pmFilter );
 }

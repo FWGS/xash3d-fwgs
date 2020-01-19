@@ -150,7 +150,7 @@ static convar_t *key_rotate;
 Key_IsDown
 ===================
 */
-int Key_IsDown( int keynum )
+int GAME_EXPORT Key_IsDown( int keynum )
 {
 	if( keynum == -1 )
 		return false;
@@ -279,7 +279,7 @@ const char *Key_KeynumToString( int keynum )
 Key_SetBinding
 ===================
 */
-void Key_SetBinding( int keynum, const char *binding )
+void GAME_EXPORT Key_SetBinding( int keynum, const char *binding )
 {
 	if( keynum == -1 ) return;
 
@@ -644,7 +644,7 @@ Key_Event
 Called by the system for both key up and key down events
 ===================
 */
-void Key_Event( int key, int down )
+void GAME_EXPORT Key_Event( int key, int down )
 {
 	const char	*kb;
 
@@ -823,7 +823,7 @@ void Key_EnableTextInput( qboolean enable, qboolean force )
 Key_SetKeyDest
 =========
 */
-void Key_SetKeyDest( int key_dest )
+void GAME_EXPORT Key_SetKeyDest( int key_dest )
 {
 	IN_ToggleClientMouse( key_dest, cls.key_dest );
 
@@ -856,7 +856,7 @@ void Key_SetKeyDest( int key_dest )
 Key_ClearStates
 ===================
 */
-void Key_ClearStates( void )
+void GAME_EXPORT Key_ClearStates( void )
 {
 	int	i;
 

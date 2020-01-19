@@ -557,7 +557,7 @@ void Host_Frame( float time )
 Host_Error
 =================
 */
-void Host_Error( const char *error, ... )
+void GAME_EXPORT Host_Error( const char *error, ... )
 {
 	static char	hosterror1[MAX_SYSPATH];
 	static char	hosterror2[MAX_SYSPATH];

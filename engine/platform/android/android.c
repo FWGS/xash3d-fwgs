@@ -734,12 +734,12 @@ void Android_AddMove( float x, float y )
 	jnimouse.y += y;
 }
 
-void Platform_GetMousePos( int *x, int *y )
+void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 {
 	// stub
 }
 
-void Platform_SetMousePos( int x, int y )
+void GAME_EXPORT Platform_SetMousePos( int x, int y )
 {
 	// stub
 }

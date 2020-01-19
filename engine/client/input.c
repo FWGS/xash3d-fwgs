@@ -135,7 +135,7 @@ static void IN_ActivateCursor( void )
 	}
 }
 
-void IN_SetCursor( void *hCursor )
+void GAME_EXPORT IN_SetCursor( void *hCursor )
 {
 	in_mousecursor = hCursor;
 

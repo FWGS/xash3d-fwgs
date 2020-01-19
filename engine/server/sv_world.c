@@ -801,7 +801,7 @@ SV_PointContents
 
 =============
 */
-int SV_PointContents( const vec3_t p )
+int GAME_EXPORT SV_PointContents( const vec3_t p )
 {
 	int cont = SV_TruePointContents( p );
 

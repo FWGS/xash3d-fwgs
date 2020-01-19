@@ -290,7 +290,7 @@ void UI_ConnectionProgress_ParseServerInfo( const char *server )
 	}
 }
 
-static void UI_DrawLogo( const char *filename, float x, float y, float width, float height )
+static void GAME_EXPORT UI_DrawLogo( const char *filename, float x, float y, float width, float height )
 {
 	static float	cin_time;
 	static int	last_frame = -1;
@@ -359,17 +359,17 @@ static void UI_DrawLogo( const char *filename, float x, float y, float width, fl
 	ref.dllFuncs.R_DrawStretchRaw( x, y, width, height, gameui.logo_xres, gameui.logo_yres, cin_data, redraw );
 }
 
-static int UI_GetLogoWidth( void )
+static int GAME_EXPORT UI_GetLogoWidth( void )
 {
 	return gameui.logo_xres;
 }
 
-static int UI_GetLogoHeight( void )
+static int GAME_EXPORT UI_GetLogoHeight( void )
 {
 	return gameui.logo_yres;
 }
 
-static float UI_GetLogoLength( void )
+static float GAME_EXPORT UI_GetLogoLength( void )
 {
 	return gameui.logo_length;
 }
@@ -529,7 +529,7 @@ pfnPIC_Load
 
 =========
 */
-static HIMAGE pfnPIC_Load( const char *szPicName, const byte *image_buf, int image_size, int flags )
+static HIMAGE GAME_EXPORT pfnPIC_Load( const char *szPicName, const byte *image_buf, int image_size, int flags )
 {
 	HIMAGE	tx;
 
@@ -555,7 +555,7 @@ pfnPIC_Width
 
 =========
 */
-static int pfnPIC_Width( HIMAGE hPic )
+static int GAME_EXPORT pfnPIC_Width( HIMAGE hPic )
 {
 	int	picWidth;
 
@@ -570,7 +570,7 @@ pfnPIC_Height
 
 =========
 */
-static int pfnPIC_Height( HIMAGE hPic )
+static int GAME_EXPORT pfnPIC_Height( HIMAGE hPic )
 {
 	int	picHeight;
 
@@ -585,7 +585,7 @@ pfnPIC_Set
 
 =========
 */
-void pfnPIC_Set( HIMAGE hPic, int r, int g, int b, int a )
+void GAME_EXPORT pfnPIC_Set( HIMAGE hPic, int r, int g, int b, int a )
 {
 	gameui.ds.gl_texturenum = hPic;
 	r = bound( 0, r, 255 );
@@ -601,7 +601,7 @@ pfnPIC_Draw
 
 =========
 */
-void pfnPIC_Draw( int x, int y, int width, int height, const wrect_t *prc )
+void GAME_EXPORT pfnPIC_Draw( int x, int y, int width, int height, const wrect_t *prc )
 {
 	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
 	PIC_DrawGeneric( x, y, width, height, prc );
@@ -613,7 +613,7 @@ pfnPIC_DrawTrans
 
 =========
 */
-void pfnPIC_DrawTrans( int x, int y, int width, int height, const wrect_t *prc )
+void GAME_EXPORT pfnPIC_DrawTrans( int x, int y, int width, int height, const wrect_t *prc )
 {
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 	PIC_DrawGeneric( x, y, width, height, prc );
@@ -625,7 +625,7 @@ pfnPIC_DrawHoles
 
 =========
 */
-void pfnPIC_DrawHoles( int x, int y, int width, int height, const wrect_t *prc )
+void GAME_EXPORT pfnPIC_DrawHoles( int x, int y, int width, int height, const wrect_t *prc )
 {
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransAlpha );
 	PIC_DrawGeneric( x, y, width, height, prc );
@@ -637,7 +637,7 @@ pfnPIC_DrawAdditive
 
 =========
 */
-void pfnPIC_DrawAdditive( int x, int y, int width, int height, const wrect_t *prc )
+void GAME_EXPORT pfnPIC_DrawAdditive( int x, int y, int width, int height, const wrect_t *prc )
 {
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
 	PIC_DrawGeneric( x, y, width, height, prc );
@@ -649,7 +649,7 @@ pfnPIC_EnableScissor
 
 =========
 */
-static void pfnPIC_EnableScissor( int x, int y, int width, int height )
+static void GAME_EXPORT pfnPIC_EnableScissor( int x, int y, int width, int height )
 {
 	// check bounds
 	x = bound( 0, x, gameui.globals->scrWidth );
@@ -670,7 +670,7 @@ pfnPIC_DisableScissor
 
 =========
 */
-static void pfnPIC_DisableScissor( void )
+static void GAME_EXPORT pfnPIC_DisableScissor( void )
 {
 	gameui.ds.scissor_x = 0;
 	gameui.ds.scissor_width = 0;
@@ -685,7 +685,7 @@ pfnFillRGBA
 
 =============
 */
-static void pfnFillRGBA( int x, int y, int width, int height, int r, int g, int b, int a )
+static void GAME_EXPORT pfnFillRGBA( int x, int y, int width, int height, int r, int g, int b, int a )
 {
 	r = bound( 0, r, 255 );
 	g = bound( 0, g, 255 );
@@ -703,7 +703,7 @@ pfnClientCmd
 
 =============
 */
-static void pfnClientCmd( int exec_now, const char *szCmdString )
+static void GAME_EXPORT pfnClientCmd( int exec_now, const char *szCmdString )
 {
 	if( !szCmdString || !szCmdString[0] )
 		return;
@@ -721,7 +721,7 @@ pfnPlaySound
 
 =============
 */
-static void pfnPlaySound( const char *szSound )
+static void GAME_EXPORT pfnPlaySound( const char *szSound )
 {
 	if( !COM_CheckString( szSound )) return;
 	S_StartLocalSound( szSound, VOL_NORM, false );
@@ -734,7 +734,7 @@ pfnDrawCharacter
 quakefont draw character
 =============
 */
-static void pfnDrawCharacter( int ix, int iy, int iwidth, int iheight, int ch, int ulRGBA, HIMAGE hFont )
+static void GAME_EXPORT pfnDrawCharacter( int ix, int iy, int iwidth, int iheight, int ch, int ulRGBA, HIMAGE hFont )
 {
 	rgba_t	color;
 	float	row, col, size;
@@ -779,7 +779,7 @@ UI_DrawConsoleString
 drawing string like a console string 
 =============
 */
-static int UI_DrawConsoleString( int x, int y, const char *string )
+static int GAME_EXPORT UI_DrawConsoleString( int x, int y, const char *string )
 {
 	int	drawLen;
 
@@ -797,7 +797,7 @@ pfnDrawSetTextColor
 set color for anything
 =============
 */
-static void UI_DrawSetTextColor( int r, int g, int b, int alpha )
+static void GAME_EXPORT UI_DrawSetTextColor( int r, int g, int b, int alpha )
 {
 	// bound color and convert to byte
 	gameui.ds.textColor[0] = r;
@@ -813,7 +813,7 @@ pfnGetPlayerModel
 for drawing playermodel previews
 ====================
 */
-static cl_entity_t* pfnGetPlayerModel( void )
+static cl_entity_t* GAME_EXPORT pfnGetPlayerModel( void )
 {
 	return &gameui.playermodel;
 }
@@ -825,7 +825,7 @@ pfnSetPlayerModel
 for drawing playermodel previews
 ====================
 */
-static void pfnSetPlayerModel( cl_entity_t *ent, const char *path )
+static void GAME_EXPORT pfnSetPlayerModel( cl_entity_t *ent, const char *path )
 {
 	ent->model = Mod_ForName( path, false, false );
 	ent->curstate.modelindex = MAX_MODELS; // unreachable index
@@ -838,7 +838,7 @@ pfnClearScene
 for drawing playermodel previews
 ====================
 */
-static void pfnClearScene( void )
+static void GAME_EXPORT pfnClearScene( void )
 {
 	ref.dllFuncs.R_PushScene();
 	ref.dllFuncs.R_ClearScene();
@@ -851,7 +851,7 @@ pfnRenderScene
 for drawing playermodel previews
 ====================
 */
-static void pfnRenderScene( const ref_viewpass_t *rvp )
+static void GAME_EXPORT pfnRenderScene( const ref_viewpass_t *rvp )
 {
 	ref_viewpass_t copy;
 
@@ -877,7 +877,7 @@ pfnAddEntity
 adding player model into visible list
 ====================
 */
-static int pfnAddEntity( int entityType, cl_entity_t *ent )
+static int GAME_EXPORT pfnAddEntity( int entityType, cl_entity_t *ent )
 {
 	if( !ref.dllFuncs.R_AddEntity( ent, entityType ))
 		return false;
@@ -891,7 +891,7 @@ pfnClientJoin
 send client connect
 ====================
 */
-static void pfnClientJoin( const netadr_t adr )
+static void GAME_EXPORT pfnClientJoin( const netadr_t adr )
 {
 	Cbuf_AddText( va( "connect %s\n", NET_AdrToString( adr )));
 }
@@ -903,7 +903,7 @@ pfnKeyGetOverstrikeMode
 get global key overstrike state
 ====================
 */
-static int pfnKeyGetOverstrikeMode( void )
+static int GAME_EXPORT pfnKeyGetOverstrikeMode( void )
 {
 	return host.key_overstrike;
 }
@@ -915,7 +915,7 @@ pfnKeySetOverstrikeMode
 set global key overstrike mode
 ====================
 */
-static void pfnKeySetOverstrikeMode( int fActive )
+static void GAME_EXPORT pfnKeySetOverstrikeMode( int fActive )
 {
 	host.key_overstrike = fActive;
 }
@@ -951,7 +951,7 @@ pfnMemFree
 
 =========
 */
-static void pfnMemFree( void *mem, const char *filename, const int fileline )
+static void GAME_EXPORT pfnMemFree( void *mem, const char *filename, const int fileline )
 {
 	_Mem_Free( mem, filename, fileline );
 }
@@ -962,7 +962,7 @@ pfnGetGameInfo
 
 =========
 */
-static int pfnGetGameInfo( GAMEINFO *pgameinfo )
+static int GAME_EXPORT pfnGetGameInfo( GAMEINFO *pgameinfo )
 {
 	if( !pgameinfo ) return 0;
 
@@ -976,7 +976,7 @@ pfnGetGamesList
 
 =========
 */
-static GAMEINFO **pfnGetGamesList( int *numGames )
+static GAMEINFO ** GAME_EXPORT pfnGetGamesList( int *numGames )
 {
 	if( numGames ) *numGames = SI.numgames;
 	return gameui.modsInfo;
@@ -989,7 +989,7 @@ pfnGetFilesList
 release prev search on a next call
 =========
 */
-static char **pfnGetFilesList( const char *pattern, int *numFiles, int gamedironly )
+static char ** GAME_EXPORT pfnGetFilesList( const char *pattern, int *numFiles, int gamedironly )
 {
 	static search_t	*t = NULL;
 
@@ -1024,7 +1024,7 @@ pfnCheckGameDll
 
 =========
 */
-int pfnCheckGameDll( void )
+int GAME_EXPORT pfnCheckGameDll( void )
 {
 	string dllpath;
 	void	*hInst;
@@ -1056,7 +1056,7 @@ pfnChangeInstance
 
 =========
 */
-static void pfnChangeInstance( const char *newInstance, const char *szFinalMessage )
+static void GAME_EXPORT pfnChangeInstance( const char *newInstance, const char *szFinalMessage )
 {
 	if( !szFinalMessage ) szFinalMessage = "";
 	if( !newInstance || !*newInstance ) return;
@@ -1070,7 +1070,7 @@ pfnHostEndGame
 
 =========
 */
-static void pfnHostEndGame( const char *szFinalMessage )
+static void GAME_EXPORT pfnHostEndGame( const char *szFinalMessage )
 {
 	if( !szFinalMessage ) szFinalMessage = "";
 	Host_EndGame( false, "%s", szFinalMessage );
@@ -1082,12 +1082,12 @@ pfnStartBackgroundTrack
 
 =========
 */
-static void pfnStartBackgroundTrack( const char *introTrack, const char *mainTrack )
+static void GAME_EXPORT pfnStartBackgroundTrack( const char *introTrack, const char *mainTrack )
 {
 	S_StartBackgroundTrack( introTrack, mainTrack, 0, false );
 }
 
-static void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
+static void GAME_EXPORT GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 {
 	ref.dllFuncs.GL_ProcessTexture( texnum, gamma, topColor, bottomColor );
 }
@@ -1098,7 +1098,7 @@ static void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottom
 UI_ShellExecute
 =================
 */
-static void UI_ShellExecute( const char *path, const char *parms, int shouldExit )
+static void GAME_EXPORT UI_ShellExecute( const char *path, const char *parms, int shouldExit )
 {
 	Platform_ShellExecute( path, parms );
 

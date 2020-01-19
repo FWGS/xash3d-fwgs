@@ -473,7 +473,7 @@ static cmd_t		*cmd_functions;			// possible commands to execute
 Cmd_Argc
 ============
 */
-int Cmd_Argc( void )
+int GAME_EXPORT Cmd_Argc( void )
 {
 	return cmd_argc;
 }
@@ -686,7 +686,7 @@ void Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t function, const 
 Cmd_AddServerCommand
 ============
 */
-void Cmd_AddServerCommand( const char *cmd_name, xcommand_t function )
+void GAME_EXPORT Cmd_AddServerCommand( const char *cmd_name, xcommand_t function )
 {
 	Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, "server command", CMD_SERVERDLL );
 }
@@ -696,7 +696,7 @@ void Cmd_AddServerCommand( const char *cmd_name, xcommand_t function )
 Cmd_AddClientCommand
 ============
 */
-int Cmd_AddClientCommand( const char *cmd_name, xcommand_t function )
+int GAME_EXPORT Cmd_AddClientCommand( const char *cmd_name, xcommand_t function )
 {
 	return Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, "client command", CMD_CLIENTDLL );
 }
@@ -706,7 +706,7 @@ int Cmd_AddClientCommand( const char *cmd_name, xcommand_t function )
 Cmd_AddGameUICommand
 ============
 */
-int Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function )
+int GAME_EXPORT Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function )
 {
 	return Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, "gameui command", CMD_GAMEUIDLL );
 }
@@ -726,7 +726,7 @@ int Cmd_AddRefCommand( const char *cmd_name, xcommand_t function, const char *de
 Cmd_RemoveCommand
 ============
 */
-void Cmd_RemoveCommand( const char *cmd_name )
+void GAME_EXPORT Cmd_RemoveCommand( const char *cmd_name )
 {
 	cmd_t	*cmd, **back;
 

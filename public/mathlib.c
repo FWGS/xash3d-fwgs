@@ -390,7 +390,7 @@ AngleVectors
 
 =================
 */
-void AngleVectors( const vec3_t angles, vec3_t forward, vec3_t right, vec3_t up )
+void GAME_EXPORT AngleVectors( const vec3_t angles, vec3_t forward, vec3_t right, vec3_t up )
 {
 	float	sr, sp, sy, cr, cp, cy;
 
@@ -426,7 +426,7 @@ VectorAngles
 
 =================
 */
-void VectorAngles( const float *forward, float *angles )
+void GAME_EXPORT VectorAngles( const float *forward, float *angles )
 {
 	float	tmp, yaw, pitch;
 

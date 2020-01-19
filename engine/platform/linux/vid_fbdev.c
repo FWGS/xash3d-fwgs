@@ -294,13 +294,13 @@ void *Platform_GetNativeObject( const char *name )
 	return NULL;
 }
 
-void Platform_GetMousePos( int *x, int *y )
+void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 {
 	*x = *y = 0;
 }
 
 
-void Platform_SetMousePos(int x, int y)
+void GAME_EXPORT Platform_SetMousePos(int x, int y)
 {
 
 }

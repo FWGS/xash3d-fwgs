@@ -30,7 +30,7 @@ GL_FreeImage
 Frees image by name
 ================
 */
-void GL_FreeImage( const char *name )
+void GAME_EXPORT GL_FreeImage( const char *name )
 {
 	int	texnum;
 
