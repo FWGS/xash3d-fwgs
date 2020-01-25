@@ -53,13 +53,14 @@ upload a single frame
 */
 static dframetype_t *R_SpriteLoadFrame( model_t *mod, void *pin, mspriteframe_t **ppframe, int num )
 {
-	dspriteframe_t	*pinframe;
+	dspriteframe_t	pinframe;
 	mspriteframe_t	*pspriteframe;
 	int		gl_texturenum = 0;
 	char		texname[128];
 	int		bytes = 1;
 
-	pinframe = (dspriteframe_t *)pin;
+	memcpy( &pinframe, pin, sizeof( dspriteframe_t ) );
+
 	if( sprite_version == SPRITE_VERSION_32 )
 		bytes = 4;
 
@@ -67,26 +68,26 @@ static dframetype_t *R_SpriteLoadFrame( model_t *mod, void *pin, mspriteframe_t 
 	if( FBitSet( mod->flags, MODEL_CLIENT )) // it's a HUD sprite
 	{
 		Q_snprintf( texname, sizeof( texname ), "#HUD/%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
-		gl_texturenum = GL_LoadTexture( texname, pin, pinframe->width * pinframe->height * bytes, r_texFlags );
+		gl_texturenum = GL_LoadTexture( texname, pin, pinframe.width * pinframe.height * bytes, r_texFlags );
 	}
 	else
 	{
 		Q_snprintf( texname, sizeof( texname ), "#%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
-		gl_texturenum = GL_LoadTexture( texname, pin, pinframe->width * pinframe->height * bytes, r_texFlags );
+		gl_texturenum = GL_LoadTexture( texname, pin, pinframe.width * pinframe.height * bytes, r_texFlags );
 	}	
 
 	// setup frame description
 	pspriteframe = Mem_Malloc( mod->mempool, sizeof( mspriteframe_t ));
-	pspriteframe->width = pinframe->width;
-	pspriteframe->height = pinframe->height;
-	pspriteframe->up = pinframe->origin[1];
-	pspriteframe->left = pinframe->origin[0];
-	pspriteframe->down = pinframe->origin[1] - pinframe->height;
-	pspriteframe->right = pinframe->width + pinframe->origin[0];
+	pspriteframe->width = pinframe.width;
+	pspriteframe->height = pinframe.height;
+	pspriteframe->up = pinframe.origin[1];
+	pspriteframe->left = pinframe.origin[0];
+	pspriteframe->down = pinframe.origin[1] - pinframe.height;
+	pspriteframe->right = pinframe.width + pinframe.origin[0];
 	pspriteframe->gl_texturenum = gl_texturenum;
 	*ppframe = pspriteframe;
 
-	return (dframetype_t *)((byte *)(pinframe + 1) + pinframe->width * pinframe->height * bytes );
+	return ( pin + sizeof(dspriteframe_t) + pinframe.width * pinframe.height * bytes );
 }
 
 /*
