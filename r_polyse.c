@@ -1423,8 +1423,8 @@ void R_PolysetDrawSpans8_Opaque (spanpackage_t *pspanpackage)
 		if (lcount)
 		{
 			int		lsfrac, ltfrac;
-			byte	*lpdest;
-			byte	*lptex;
+			pixel_t	*lpdest;
+			pixel_t	*lptex;
 			int		llight;
 			int		lzi;
 			short	*lpz;

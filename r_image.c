@@ -572,14 +572,14 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		// increase size to workaround triangle renderer bugs
 		// it seems to assume memory readable. maybe it was pointed to WAD?
 		//tex->pixels[j] = (byte*)Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) + 1024 ) + 512;
-		tex->pixels[j] = (byte*)Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) );
+		tex->pixels[j] = (pixel_t*)Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) );
 
 
 		//memset( (byte*)tex->pixels[j] - 512, 0xFF, 512 );
 		//memset( (byte*)tex->pixels[j] + width * height * sizeof(pixel_t), 0xFF, 512 );
 
 		if( j == 0 &&  tex->flags & TF_HAS_ALPHA )
-			tex->alpha_pixels = (byte*)Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) );
+			tex->alpha_pixels = (pixel_t*)Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) );
 	
 		for(i = 0; i < height * width; i++ )
 		{

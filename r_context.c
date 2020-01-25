@@ -309,7 +309,7 @@ void GAME_EXPORT R_ProcessEntData( qboolean allocate )
 
 // stubs
 
-void GAME_EXPORT GL_SetTexCoordArrayMode( void )
+void GAME_EXPORT GL_SetTexCoordArrayMode( uint mode )
 {
 
 }

@@ -363,7 +363,7 @@ typedef struct image_s
 
 	int		servercount;
 	uint		hashValue;
-	struct gltexture_s	*nextHash;
+	struct image_s	*nextHash;
 } image_t;
 
 #if 0
@@ -956,7 +956,7 @@ typedef struct
 
 typedef struct
 {
-	byte            *surfdat;       // destination for generated surface
+	pixel_t            *surfdat;       // destination for generated surface
 	int                     rowbytes;       // destination logical width in bytes
 	msurface_t      *surf;          // description for surface to generate
 	fixed8_t        lightadj[MAXLIGHTMAPS];

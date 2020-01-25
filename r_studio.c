@@ -2159,7 +2159,7 @@ static void R_StudioDrawPoints( void )
 	if( r_studio_sort_textures->value && need_sort )
 	{
 		// resort opaque and translucent meshes draw order
-		qsort( g_studio.meshes, m_pSubModel->nummesh, sizeof( sortedmesh_t ), R_StudioMeshCompare );
+		qsort( g_studio.meshes, m_pSubModel->nummesh, sizeof( sortedmesh_t ), (void*)R_StudioMeshCompare );
 	}
 
 	// NOTE: rewind normals at start
@@ -2880,7 +2880,7 @@ void R_StudioRenderFinal( void )
 	{
 		for( i = 0; i < m_pStudioHeader->numbodyparts; i++ )
 		{
-			R_StudioSetupModel( i, &m_pBodyPart, &m_pSubModel );
+			R_StudioSetupModel( i, (void*)&m_pBodyPart, (void*)&m_pSubModel );
 
 			GL_StudioSetRenderMode( rendermode );
 			R_StudioDrawPoints();
