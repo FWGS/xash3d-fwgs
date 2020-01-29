@@ -261,8 +261,8 @@ void R_Set2DMode( qboolean enable )
 		pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
 
 		glState.in2DMode = true;
-		RI.currententity = NULL;
-		RI.currentmodel = NULL;
+		gEngfuncs.R_SetCurrentEntity( NULL );
+		gEngfuncs.R_SetCurrentModel( NULL );
 	}
 	else
 	{

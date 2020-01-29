@@ -966,6 +966,8 @@ int CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef );
 lightstyle_t *CL_GetLightStyle( int number );
 int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis );
 const ref_overview_t *GL_GetOverviewParms( void );
+void R_SetCurrentEntity( cl_entity_t *ent );
+void R_SetCurrentModel( model_t *mod );
 
 //
 // cl_efrag.c

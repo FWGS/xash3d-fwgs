@@ -1269,8 +1269,7 @@ void R_DrawTextureChains( void )
 	GL_SetupFogColorForSurfaces();
 
 	// restore worldmodel
-	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
-	RI.currentmodel = RI.currententity->model;
+	gEngfuncs.R_SetCurrentEntity( gEngfuncs.GetEntityByIndex( 0 ) );
 
 	if( ENGINE_GET_PARM( PARM_SKY_SPHERE ) )
 	{
@@ -1343,8 +1342,7 @@ void R_DrawAlphaTextureChains( void )
 	GL_SetupFogColorForSurfaces();
 
 	// restore worldmodel
-	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
-	RI.currentmodel = RI.currententity->model;
+	gEngfuncs.R_SetCurrentEntity( gEngfuncs.GetEntityByIndex( 0 ) );
 	RI.currententity->curstate.rendermode = kRenderTransAlpha;
 	draw_alpha_surfaces = false;
 
@@ -1388,8 +1386,7 @@ void R_DrawWaterSurfaces( void )
 		return;
 
 	// restore worldmodel
-	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
-	RI.currentmodel = RI.currententity->model;
+	gEngfuncs.R_SetCurrentEntity( gEngfuncs.GetEntityByIndex( 0 ) );
 
 	// go back to the world matrix
 	R_LoadIdentity();
@@ -3312,8 +3309,7 @@ void R_DrawWorld( void )
 
 	// paranoia issues: when gl_renderer is "0" we need have something valid for currententity
 	// to prevent crashing until HeadShield drawing.
-	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
-	RI.currentmodel = RI.currententity->model;
+	gEngfuncs.R_SetCurrentEntity( gEngfuncs.GetEntityByIndex( 0 ) );
 
 	if( !RI.drawWorld || RI.onlyClientDraw )
 		return;

@@ -821,8 +821,7 @@ void R_DrawEntitiesOnList( void )
 	// first draw solid entities
 	for( i = 0; i < tr.draw_list->num_solid_entities && !RI.onlyClientDraw; i++ )
 	{
-		RI.currententity = tr.draw_list->solid_entities[i];
-		RI.currentmodel = RI.currententity->model;
+		gEngfuncs.R_SetCurrentEntity( tr.draw_list->solid_entities[i] );
 
 		Assert( RI.currententity != NULL );
 		Assert( RI.currentmodel != NULL );
@@ -853,8 +852,7 @@ void R_DrawEntitiesOnList( void )
 	// draw sprites seperately, because of alpha blending
 	for( i = 0; i < tr.draw_list->num_solid_entities && !RI.onlyClientDraw; i++ )
 	{
-		RI.currententity = tr.draw_list->solid_entities[i];
-		RI.currentmodel = RI.currententity->model;
+		gEngfuncs.R_SetCurrentEntity( tr.draw_list->solid_entities[i] );
 
 		Assert( RI.currententity != NULL );
 		Assert( RI.currentmodel != NULL );
@@ -884,8 +882,7 @@ void R_DrawEntitiesOnList( void )
 	// then draw translucent entities
 	for( i = 0; i < tr.draw_list->num_trans_entities && !RI.onlyClientDraw; i++ )
 	{
-		RI.currententity = tr.draw_list->trans_entities[i];
-		RI.currentmodel = RI.currententity->model;
+		gEngfuncs.R_SetCurrentEntity( tr.draw_list->trans_entities[i] );
 
 		// handle studiomodels with custom rendermodes on texture
 		if( RI.currententity->curstate.rendermode != kRenderNormal )

@@ -152,8 +152,7 @@ void R_PushDlights( void )
 
 	tr.dlightframecount = tr.framecount;
 
-	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
-	RI.currentmodel = RI.currententity->model;
+	gEngfuncs.R_SetCurrentEntity( gEngfuncs.GetEntityByIndex( 0 ) );
 
 	for( i = 0; i < MAX_DLIGHTS; i++, l++ )
 	{

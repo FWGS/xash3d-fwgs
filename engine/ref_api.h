@@ -330,6 +330,10 @@ typedef struct ref_api_s
 	struct model_s *(*Mod_GetCurrentLoadingModel)( void ); // loadmodel
 	void (*Mod_SetCurrentLoadingModel)( struct model_s* ); // loadmodel
 
+	// Set renderer info (tell engine about changes)
+	void (*R_SetCurrentEntity)( struct cl_entity_s *ent ); // tell engine about both currententity and currentmodel
+	void (*R_SetCurrentModel)( struct model_s *mod ); // change currentmodel but leave currententity unchanged
+
 	// remap
 	struct remap_info_s *(*CL_GetRemapInfoForEntity)( cl_entity_t *e );
 	void (*CL_AllocRemapInfo)( int topcolor, int bottomcolor );

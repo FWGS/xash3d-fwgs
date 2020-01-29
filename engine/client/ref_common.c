@@ -294,6 +294,9 @@ static ref_api_t gEngfuncs =
 	pfnMod_GetCurrentLoadingModel,
 	pfnMod_SetCurrentLoadingModel,
 
+	R_SetCurrentEntity,
+	R_SetCurrentModel,
+
 	CL_GetRemapInfoForEntity,
 	CL_AllocRemapInfo,
 	CL_FreeRemapInfo,

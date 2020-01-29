@@ -2743,13 +2743,13 @@ int R_GetEntityRenderMode( cl_entity_t *ent )
 	studiohdr_t	*phdr;
 
 	oldent = RI.currententity;
-	RI.currententity = ent;
+	gEngfuncs.R_SetCurrentEntity( ent );
 
 	if( ent->player ) // check it for real playermodel
 		model = R_StudioSetupPlayerModel( ent->curstate.number - 1 );
 	else model = ent->model;
 
-	RI.currententity = oldent;
+	gEngfuncs.R_SetCurrentEntity( oldent );
 
 	if(( phdr = gEngfuncs.Mod_Extradata( mod_studio, model )) == NULL )
 	{
@@ -2887,7 +2887,7 @@ R_StudioSetRenderModel
 */
 void R_StudioSetRenderModel( model_t *model )
 {
-	RI.currentmodel = model;
+	gEngfuncs.R_SetCurrentModel( model );
 }
 
 /*
@@ -3353,7 +3353,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 	if( m_nPlayerIndex < 0 || m_nPlayerIndex >= ENGINE_GET_PARM( PARM_MAX_CLIENTS ) )
 		return 0;
 
-	RI.currentmodel = R_StudioSetupPlayerModel( m_nPlayerIndex );
+	gEngfuncs.R_SetCurrentModel( R_StudioSetupPlayerModel( m_nPlayerIndex ) );
 	if( RI.currentmodel == NULL )
 		return 0;
 
@@ -3471,7 +3471,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 			R_StudioRenderModel( );
 			R_StudioCalcAttachments( );
 
-			*RI.currententity = saveent;
+			gEngfuncs.R_SetCurrentEntity( &saveent );
 		}
 	}
 
@@ -3621,11 +3621,11 @@ void R_DrawStudioModel( cl_entity_t *e )
 
 			if( parent && parent->model && parent->model->type == mod_studio )
 			{
-				RI.currententity = parent;
+				gEngfuncs.R_SetCurrentEntity( parent );
 				R_StudioDrawModelInternal( RI.currententity, 0 );
 				VectorCopy( parent->curstate.origin, e->curstate.origin );
 				VectorCopy( parent->origin, e->origin );
-				RI.currententity = e;
+				gEngfuncs.R_SetCurrentEntity( e );
 			}
 		}
 
@@ -3653,7 +3653,7 @@ void R_RunViewmodelEvents( void )
 	if( !RP_NORMALPASS() || ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
 
-	RI.currententity = gEngfuncs.GetViewModel();
+	gEngfuncs.R_SetCurrentEntity( gEngfuncs.GetViewModel() );
 
 	if( !RI.currententity->model || RI.currententity->model->type != mod_studio )
 		return;
@@ -3663,7 +3663,7 @@ void R_RunViewmodelEvents( void )
 	gEngfuncs.GetPredictedOrigin( simorg );
 	for( i = 0; i < 4; i++ )
 		VectorCopy( simorg, RI.currententity->attachment[i] );
-	RI.currentmodel = RI.currententity->model;
+	gEngfuncs.R_SetCurrentModel( RI.currententity->model );
 
 	R_StudioDrawModelInternal( RI.currententity, STUDIO_EVENTS );
 }
@@ -3709,14 +3709,14 @@ void R_DrawViewModel( void )
 	if( !R_ModelOpaque( view->curstate.rendermode ) && tr.blend <= 0.0f )
 		return; // invisible ?
 
-	RI.currententity = view;
+	gEngfuncs.R_SetCurrentEntity( view );
 
 	if( !RI.currententity->model )
 		return;
 
 	// adjust the depth range to prevent view model from poking into walls
 	pglDepthRange( gldepthmin, gldepthmin + 0.3f * ( gldepthmax - gldepthmin ));
-	RI.currentmodel = RI.currententity->model;
+	gEngfuncs.R_SetCurrentModel( RI.currententity->model );
 
 	// backface culling for left-handed weapons
 	if( R_AllowFlipViewModel( RI.currententity ) || g_iBackFaceCull )

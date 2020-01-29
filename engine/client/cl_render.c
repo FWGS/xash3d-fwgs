@@ -204,6 +204,26 @@ int CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef )
 	return 0;
 }
 
+void R_SetCurrentEntity( cl_entity_t *ent )
+{
+	refState.currententity = ent;
+
+	// set model also
+	if( refState.currententity != NULL )
+	{
+		refState.currentmodel = refState.currententity->model;
+	}
+
+	ref.dllFuncs.R_SetCurrentEntity( ent );
+}
+
+void R_SetCurrentModel( model_t *mod )
+{
+	refState.currentmodel = mod;
+
+	ref.dllFuncs.R_SetCurrentModel( mod );
+}
+
 static int pfnRenderGetParm( int parm, int arg )
 {
 	return CL_RenderGetParm( parm, arg, true );
@@ -219,8 +239,8 @@ static render_api_t gRenderAPI =
 	CL_GetEntityLight,
 	LightToTexGamma,
 	NULL, // R_GetFrameTime,
-	NULL, // R_SetCurrentEntity,
-	NULL, // R_SetCurrentModel,
+	R_SetCurrentEntity,
+	R_SetCurrentModel,
 	R_FatPVS,
 	R_StoreEfrags,
 	NULL, // GL_FindTexture,
@@ -283,8 +303,6 @@ static void R_FillRenderAPIFromRef( render_api_t *to, const ref_interface_t *fro
 	to->GetDetailScaleForTexture = from->GetDetailScaleForTexture;
 	to->GetExtraParmsForTexture  = from->GetExtraParmsForTexture;
 	to->GetFrameTime             = from->GetFrameTime;
-	to->R_SetCurrentEntity       = from->R_SetCurrentEntity;
-	to->R_SetCurrentModel        = from->R_SetCurrentModel;
 	to->GL_FindTexture           = from->GL_FindTexture;
 	to->GL_TextureName           = from->GL_TextureName;
 	to->GL_TextureData           = from->GL_TextureData;
