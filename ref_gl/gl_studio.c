@@ -2672,11 +2672,11 @@ R_StudioSetRemapColors
 */
 static void R_StudioSetRemapColors( int newTop, int newBottom )
 {
-	gEngfuncs.CL_AllocRemapInfo( newTop, newBottom );
+	gEngfuncs.CL_AllocRemapInfo( RI.currententity, newTop, newBottom );
 
 	if( gEngfuncs.CL_GetRemapInfoForEntity( RI.currententity ))
 	{
-		gEngfuncs.CL_UpdateRemapInfo( newTop, newBottom );
+		gEngfuncs.CL_UpdateRemapInfo( RI.currententity, newTop, newBottom );
 		m_fDoRemap = true;
 	}
 }
