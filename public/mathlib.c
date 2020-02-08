@@ -327,8 +327,8 @@ void SinCos( float radians, float *sine, float *cosine )
 		fstp dword ptr [eax]
 	}
 #else
-	*sine = sinf(radians);
-	*cosine = cosf(radians);
+	*sine = sin(radians);
+	*cosine = cos(radians);
 #endif
 }
 
