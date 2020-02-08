@@ -36,6 +36,11 @@ def configure(conf):
 		if conf.env.DEST_OS == 'linux':
 			conf.check_cc(lib='rt')
 		conf.define('XASH_DEDICATED', 1)
+	elif conf.env.DEST_OS == 'dos':
+		conf.options.STATIC = True
+		conf.options.NO_ASYNC_RESOLVE = True
+		if not conf.check_cc( fragment='int main(){ int i = socket();}', lib = 'wattcpwl', mandatory=False ):
+			conf.define('XASH_NO_NETWORK',1)
 	elif conf.env.DEST_OS == 'android': # Android doesn't need SDL2
 		for i in ['android', 'log', 'EGL']:
 			conf.check_cc(lib = i)
@@ -91,17 +96,22 @@ def build(bld):
 		'server/*.c'])
 
 	# basic build: dedicated only, no dependencies
-	if bld.env.DEST_OS != 'win32':
+	if bld.env.DEST_OS == 'win32':
+		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32' ]
+		source += bld.path.ant_glob(['platform/win32/*.c'])
+	elif bld.env.DEST_OS != 'dos': #posix
 		libs += [ 'M', 'RT', 'PTHREAD', 'ASOUND']
 		if not bld.env.STATIC:
 			libs += ['DL']
 		source += bld.path.ant_glob(['platform/posix/*.c'])
-	else:
-		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32' ]
-		source += bld.path.ant_glob(['platform/win32/*.c'])
 
 	if bld.env.DEST_OS == 'linux':
 		source += bld.path.ant_glob(['platform/linux/*.c'])
+
+	if bld.env.DEST_OS == 'dos':
+		source += bld.path.ant_glob(['platform/dos/*.c'])
+		source += bld.path.ant_glob(['platform/stub/s_stub.c'])
+
 
 	if bld.get_define('XASH_CUSTOM_SWAP'):
 		source += bld.path.ant_glob(['platform/misc/kmalloc.c', 'platform/misc/sbrk.c'])
