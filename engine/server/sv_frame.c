@@ -40,8 +40,9 @@ static int SV_EntityNumbers( const void *a, const void *b )
 	ent1 = ((entity_state_t *)a)->number;
 	ent2 = ((entity_state_t *)b)->number;
 
+	// watcom libc compares ents with itself
 	if( ent1 == ent2 )
-		Host_Error( "SV_SortEntities: duplicated entity\n" );
+		return 0;
 
 	if( ent1 < ent2 )
 		return -1;
