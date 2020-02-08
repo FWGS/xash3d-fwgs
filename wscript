@@ -211,7 +211,8 @@ def configure(conf):
 			# disable thread-safe local static initialization for C++11 code, as it cause crashes on Windows XP
 			'msvc':    ['/D_USING_V110_SDK71_', '/Zi', '/FS', '/Zc:threadSafeInit-', '/MT'],
 			'clang':   ['-g', '-gdwarf-2', '-fvisibility=hidden'],
-			'gcc':     ['-g', '-fvisibility=hidden']
+			'gcc':     ['-g', '-fvisibility=hidden'],
+			'owcc':	   ['-fno-short-enum', '-ffloat-store', '-g3']
 		},
 		'fast': {
 			'msvc':    ['/O2', '/Oy'],
@@ -230,11 +231,13 @@ def configure(conf):
 		},
 		'release': {
 			'msvc':    ['/O2'],
+			'owcc':    ['-O3', '-foptimize-sibling-calls', '-fomit-leaf-frame-pointer', '-fomit-frame-pointer', '-fschedule-insns', '-funsafe-math-optimizations', '-funroll-loops', '-frerun-optimizer', '-finline-functions', '-finline-limit=512', '-fguess-branch-probability', '-fno-strict-aliasing', '-floop-optimize'],
 			'default': ['-O3']
 		},
 		'debug': {
 			'msvc':    ['/O1'],
 			'gcc':     ['-Og'],
+			'owcc':    ['-O0', '-fno-omit-frame-pointer', '-funwind-tables', '-fno-omit-leaf-frame-pointer'],
 			'default': ['-O1']
 		},
 		'sanitize': {
@@ -276,7 +279,8 @@ def configure(conf):
 		'-Werror=old-style-declaration',
 		'-Werror=old-style-definition',
 		'-Werror=declaration-after-statement',
-		'-Werror=enum-conversion'
+		'-Werror=enum-conversion',
+		'-fnonconst-initializers' # owcc
 	]
 
 	linkflags = conf.get_flags_by_type(linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC, conf.env.CC_VERSION[0])
@@ -337,6 +341,8 @@ def configure(conf):
 
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
+	if conf.env.DEST_OS == 'dos':
+		conf.env.SINGLE_BINARY = True
 
 	if conf.env.DEST_OS != 'win32':
 		conf.check_cc(lib='dl', mandatory=False)
