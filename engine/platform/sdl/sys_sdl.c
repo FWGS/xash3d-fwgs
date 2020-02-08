@@ -49,6 +49,7 @@ void Platform_Init( void )
 {
 #ifndef SDL_INIT_EVENTS
 #define SDL_INIT_EVENTS 0
+#endif
 
 	if( SDL_Init( SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_EVENTS ) )
 	{
