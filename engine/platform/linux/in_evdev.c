@@ -439,6 +439,12 @@ void Platform_EnableTextInput( qboolean enable )
 	evdev.chars = enable;
 	evdev.shift = false;
 }
+
+void Platfrom_MouseMove( float *yaw, float *pitch )
+{
+	// already catched in IN_EvdevMove
+}
+
 #endif
 
 void Evdev_Init( void )

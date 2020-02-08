@@ -92,12 +92,63 @@ void Platform_ShellExecute( const char *path, const char *parms )
 }
 #endif // XASH_ANDROID
 
-#if XASH_MESSAGEBOX == MSGBOX_STDERR
-void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
+void Posix_Daemonize( void )
 {
-	fprintf( stderr,
-		 "======================================\n"
-		 "%s: %s\n"
-		 "======================================\n", title, message );
+	// to be accessed later
+	if( ( host.daemonized = Sys_CheckParm( "-daemonize" ) ) )
+	{
+#if XASH_POSIX && defined(_POSIX_VERSION) && !defined(XASH_MOBILE_PLATFORM)
+		pid_t daemon;
+
+		daemon = fork();
+
+		if( daemon < 0 )
+		{
+			Host_Error( "fork() failed: %s\n", strerror( errno ) );
+		}
+
+		if( daemon > 0 )
+		{
+			// parent
+			Con_Reportf( "Child pid: %i\n", daemon );
+			exit( 0 );
+		}
+		else
+		{
+			// don't be closed by parent
+			if( setsid() < 0 )
+			{
+				Host_Error( "setsid() failed: %s\n", strerror( errno ) );
+			}
+
+			// set permissions
+			umask( 0 );
+
+			// engine will still use stdin/stdout,
+			// so just redirect them to /dev/null
+			close( STDIN_FILENO );
+			close( STDOUT_FILENO );
+			close( STDERR_FILENO );
+			open("/dev/null", O_RDONLY); // becomes stdin
+			open("/dev/null", O_RDWR); // stdout
+			open("/dev/null", O_RDWR); // stderr
+
+			// fallthrough
+		}
+#elif defined(XASH_MOBILE_PLATFORM)
+		Sys_Error( "Can't run in background on mobile platforms!" );
+#else
+		Sys_Error( "Daemonize not supported on this platform!" );
+#endif
+	}
+
 }
+
+#if !XASH_SDL && !XASH_ANDROID
+
+void Platform_Init( void )
+{
+	Posix_Daemonize();
+}
+void Platform_Shutdown( void ) {}
 #endif
