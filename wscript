@@ -153,6 +153,9 @@ def configure(conf):
 		conf.options.GLWES  = True
 		conf.options.GL     = False
 
+	if conf.env.STATIC_LINKING:
+		enforce_pic = False # PIC may break static linking
+
 	conf.env.MAGX = conf.options.MAGX
 	if conf.options.MAGX:
 		conf.options.USE_SELECT = True
