@@ -42,7 +42,7 @@ GNU General Public License for more details.
 #define NET_MAX_PAYLOAD		MAX_INIT_MSG
 
 // Theoretically maximum size of UDP-packet without header and hardware-specific data
-#define NET_MAX_FRAGMENT		65536
+#define NET_MAX_FRAGMENT		65535
 
 // because encoded as highpart of uint32
 #define NET_MAX_BUFFER_ID		32767
