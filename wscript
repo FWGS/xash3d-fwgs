@@ -182,10 +182,14 @@ def configure(conf):
 			conf.env.append_unique('CFLAGS_cstlib', '-fPIC')
 			conf.env.append_unique('CXXFLAGS_cxxstlib', '-fPIC')
 	else:
-		conf.env.CFLAGS_cshlib.remove('-fPIC')
-		conf.env.CXXFLAGS_cxxshlib.remove('-fPIC')
-		conf.env.CFLAGS_MACBUNDLE.remove('-fPIC')
-		conf.env.CXXFLAGS_MACBUNDLE.remove('-fPIC')
+		if '-fPIC' in conf.env.CFLAGS_cshlib:
+			conf.env.CFLAGS_cshlib.remove('-fPIC')
+		if '-fPIC' in conf.env.CXXFLAGS_cshlib:
+			conf.env.CXXFLAGS_cxxshlib.remove('-fPIC')
+		if '-fPIC' in conf.env.CFLAGS_MACBUNDLE:
+			conf.env.CFLAGS_MACBUNDLE.remove('-fPIC')
+		if '-fPIC' in conf.env.CXXFLAGS_MACBUNDLE:
+			conf.env.CXXFLAGS_MACBUNDLE.remove('-fPIC')
 
 	# We restrict 64-bit builds ONLY for Win/Linux/OSX running on Intel architecture
 	# Because compatibility with original GoldSrc
