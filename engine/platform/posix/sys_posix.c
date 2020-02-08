@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <errno.h>
 #include "platform/platform.h"
 #include "menu_int.h"
 
