@@ -1209,7 +1209,8 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 	}
 
 	buf = FS_LoadFile( szSpriteName, &size, false );
-	ASSERT( buf != NULL );
+	if( buf == NULL )
+		return false;
 
 	if( type == SPR_MAPSPRITE )
 		ref.dllFuncs.Mod_LoadMapSprite( m_pSprite, buf, size, &loaded );
