@@ -65,3 +65,7 @@ void Platform_Init( void )
 	Posix_Daemonize();
 #endif
 }
+
+void Platform_Shutdown( void )
+{
+}
