@@ -38,7 +38,7 @@ GNU General Public License for more details.
 #undef XASH_ARMv5
 #undef XASH_ARMv6
 #undef XASH_ARMv7
-#undef XASH_BIG_ENDIAN
+//#undef XASH_BIG_ENDIAN
 #undef XASH_BSD
 #undef XASH_E2K
 #undef XASH_EMSCRIPTEN
@@ -46,7 +46,7 @@ GNU General Public License for more details.
 #undef XASH_IOS
 #undef XASH_JS
 #undef XASH_LINUX
-#undef XASH_LITTLE_ENDIAN
+//#undef XASH_LITTLE_ENDIAN
 #undef XASH_MINGW
 #undef XASH_MIPS
 #undef XASH_MOBILE_PLATFORM
@@ -78,12 +78,14 @@ GNU General Public License for more details.
 	#if defined(__ANDROID__)
 		#define XASH_ANDROID 1
 	#endif // defined(__ANDROID__)
+	#define XASH_POSIX 1
 #elif defined(__APPLE__)
 	#include <TargetConditionals.h>
 	#define XASH_APPLE 1
 	#if TARGET_OS_IOS
 		#define XASH_IOS 1
 	#endif // TARGET_OS_IOS
+	#define XASH_POSIX 1
 #elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
 	#define XASH_BSD 1
 	#if defined(__FreeBSD__)
@@ -93,6 +95,7 @@ GNU General Public License for more details.
 	#elif defined(__OpenBSD__)
 		#define XASH_OPENBSD 1
 	#endif
+	#define XASH_POSIX 1
 #elif defined __EMSCRIPTEN__
 	#define XASH_EMSCRIPTEN 1
 #else
@@ -113,7 +116,7 @@ GNU General Public License for more details.
 	#error "Both XASH_LITTLE_ENDIAN and XASH_BIG_ENDIAN are defined"
 #endif
 
-#if !defined(XASH_LITTLE_ENDIAN) || !defined(XASH_BIG_ENDIAN)
+#if !defined(XASH_LITTLE_ENDIAN) && !defined(XASH_BIG_ENDIAN)
 	#if defined XASH_MSVC || __LITTLE_ENDIAN__
 		//!!! Probably all WinNT installations runs in little endian
 		#define XASH_LITTLE_ENDIAN 1

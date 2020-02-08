@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #include <SDL.h>
 #endif
 
-#if !XASH_WIN32
+#if XASH_POSIX
 #include <unistd.h>
 #include <signal.h>
 #include <dlfcn.h>
@@ -46,7 +46,6 @@ double GAME_EXPORT Sys_DoubleTime( void )
 {
 	return Platform_DoubleTime();
 }
-
 #if XASH_LINUX || ( XASH_WIN32 && !XASH_64BIT )
 	#undef DEBUG_BREAK
 	qboolean Sys_DebuggerPresent( void ); // see sys_linux.c
@@ -64,7 +63,6 @@ double GAME_EXPORT Sys_DoubleTime( void )
 				raise( SIGINT )
 	#endif
 #endif
-
 #if !XASH_DEDICATED
 /*
 ================
@@ -128,7 +126,7 @@ char *Sys_GetCurrentUser( void )
 
 	if( GetUserName( s_userName, &size ))
 		return s_userName;
-#elif !XASH_ANDROID
+#elif XASH_POSIX && !XASH_ANDROID
 	uid_t uid = geteuid();
 	struct passwd *pw = getpwuid( uid );
 
