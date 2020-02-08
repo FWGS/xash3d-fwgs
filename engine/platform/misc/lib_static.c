@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "platform/platform.h"
-
+#include "library.h"
 #if XASH_LIB == LIB_STATIC
 #ifdef XASH_NO_LIBDL
 
@@ -71,7 +71,7 @@ static void *Lib_Find(table_t *tbl, const char *name )
 
 void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath )
 {
-	return Lib_Find(libs, dllname);
+	return Lib_Find((table_t*)libs, dllname);
 }
 
 void COM_FreeLibrary( void *hInstance )
