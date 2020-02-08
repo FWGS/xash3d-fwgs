@@ -84,7 +84,17 @@ SETUP BACKENDS DEFINITIONS
 		#endif // XASH_SOUND
 
 		#define XASH_USE_EVDEV
-	#endif // XASH_LINUX
+	#elif XASH_DOS4GW
+		#ifndef XASH_VIDEO
+			#define XASH_VIDEO VIDEO_DOS
+		#endif
+		#ifndef XASH_TIMER
+			#define XASH_TIMER TIMER_DOS
+		#endif
+
+		// usually only 10-20 fds availiable
+		#define XASH_REDUCE_FD
+	#endif
 
 #endif // XASH_DEDICATED
 
@@ -126,9 +136,10 @@ SETUP BACKENDS DEFINITIONS
 #ifdef XASH_STATIC_LIBS
 #define XASH_LIB LIB_STATIC
 #define XASH_INTERNAL_GAMELIBS
+#define XASH_ALLOW_SAVERESTORE_OFFSETS
 #elif defined _WIN32
 #define XASH_LIB LIB_WIN32
-#else
+#elif XASH_POSIX
 #define XASH_LIB LIB_POSIX
 #endif
 

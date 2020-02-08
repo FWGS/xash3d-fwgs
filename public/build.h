@@ -98,6 +98,9 @@ GNU General Public License for more details.
 	#define XASH_POSIX 1
 #elif defined __EMSCRIPTEN__
 	#define XASH_EMSCRIPTEN 1
+#elif defined __WATCOMC__ && defined __DOS__
+	#define XASH_DOS4GW 1
+	#define XASH_LITTLE_ENDIAN
 #else
 #error "Place your operating system name here! If this is a mistake, try to fix conditions above and report a bug"
 #endif
