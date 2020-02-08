@@ -20,6 +20,8 @@ GNU General Public License for more details.
 #if XASH_WIN32
 // Winsock
 #include <WS2tcpip.h>
+typedef int WSAsize_t;
+
 #elif !defined XASH_NO_NETWORK
 // BSD sockets
 #include <sys/types.h>
