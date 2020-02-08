@@ -915,13 +915,17 @@ A helper function if platform input doesn't support text mode properly
 */
 int Key_ToUpper( int keynum )
 {
-        keynum = Q_toupper( keynum );
-        if( keynum == '-' )
-                keynum = '_';
-        if( keynum == '=' )
-                keynum = '+';
+	keynum = Q_toupper( keynum );
+	if( keynum == '-' )
+		keynum = '_';
+	if( keynum == '=' )
+		keynum = '+';
+	if( keynum == ';' )
+		keynum = ':';
+	if( keynum == '\'' )
+		keynum = '"';
 
-        return keynum;
+	return keynum;
 }
 
 /* On-screen keyboard:
