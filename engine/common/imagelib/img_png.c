@@ -17,8 +17,11 @@ GNU General Public License for more details.
 #include "miniz.h"
 #include "imagelib.h"
 #include "mathlib.h"
-#if !XASH_WIN32
-#include <netinet/in.h>
+
+#if defined(XASH_NO_NETWORK)
+	#include "platform/stub/net_stub.h"
+#elif !XASH_WIN32
+	#include <netinet/in.h>
 #endif
 
 static const char png_sign[] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'};
