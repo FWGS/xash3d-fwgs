@@ -205,7 +205,7 @@ static void FS_BackupFileName( file_t *file, const char *path, uint options )
 	if( path == NULL )
 	{
 		if( file->backup_path )
-			Mem_Free( file->backup_path );
+			Mem_Free( (void*)file->backup_path );
 		if( file == fs_last_readfile )
 			FS_EnsureOpenFile( NULL );
 	}
