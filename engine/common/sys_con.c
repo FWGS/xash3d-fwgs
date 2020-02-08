@@ -310,3 +310,15 @@ void Con_Reportf( const char *szFmt, ... )
 
 	Sys_Print( buffer );
 }
+
+
+#if XASH_MESSAGEBOX == MSGBOX_STDERR
+void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
+{
+	fprintf( stderr,
+		 "======================================\n"
+		 "%s: %s\n"
+		 "======================================\n", title, message );
+}
+#endif
+

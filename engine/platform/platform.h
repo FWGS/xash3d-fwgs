@@ -28,6 +28,9 @@ GNU General Public License for more details.
 
 ==============================================================================
 */
+
+void Platform_Init( void );
+void Platform_Shutdown( void );
 double Platform_DoubleTime( void );
 void Platform_Sleep( int msec );
 void Platform_ShellExecute( const char *path, const char *parms );
@@ -69,6 +72,7 @@ void Platform_RunEvents( void );
 void Platform_GetMousePos( int *x, int *y );
 void Platform_SetMousePos( int x, int y );
 void Platform_PreCreateMove( void );
+void Platform_MouseMove( float *x, float *y );
 // Clipboard
 void Platform_GetClipboardText( char *buffer, size_t size );
 void Platform_SetClipboardText( const char *buffer, size_t size );

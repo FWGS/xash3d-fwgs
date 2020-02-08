@@ -586,14 +586,19 @@ JNIEXPORT jint JNICALL JNI_OnLoad( JavaVM *vm, void *reserved )
 
 /*
 ========================
-Android_Init
+Platform_Init
 
 Initialize android-related cvars
 ========================
 */
-void Android_Init( void )
+void Platform_Init( void )
 {
 	android_sleep = Cvar_Get( "android_sleep", "1", FCVAR_ARCHIVE, "Enable sleep in background" );
+}
+
+void Platform_Shutdown( void )
+{
+
 }
 
 /*
@@ -714,7 +719,7 @@ void Android_SaveID( const char *id )
 Android_MouseMove
 ========================
 */
-void Android_MouseMove( float *x, float *y )
+void Platform_MouseMove( float *x, float *y )
 {
 	*x = jnimouse.x;
 	*y = jnimouse.y;

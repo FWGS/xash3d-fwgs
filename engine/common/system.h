@@ -86,7 +86,6 @@ int Sys_LogFileNo( void );
 #if XASH_WIN32
 void Wcon_InitConsoleCommands( void );
 void Wcon_ShowConsole( qboolean show );
-void Wcon_Init( void );
 void Wcon_CreateConsole( void );
 void Wcon_DestroyConsole( void );
 void Wcon_DisableInput( void );

@@ -570,6 +570,7 @@ void IN_CollectInput( float *forward, float *side, float *pitch, float *yaw, qbo
 	if( includeMouse )
 	{
 #if XASH_INPUT == INPUT_SDL
+		/// TODO: check if we may move this to platform
 		if( includeSdlMouse )
 		{
 			int x, y;
@@ -577,16 +578,12 @@ void IN_CollectInput( float *forward, float *side, float *pitch, float *yaw, qbo
 			*pitch += y * m_pitch->value;
 			*yaw   -= x * m_yaw->value;
 		}
-#endif // INPUT_SDL
-
-#if XASH_INPUT == INPUT_ANDROID
-		{
-			float x, y;
-			Android_MouseMove( &x, &y );
-			*pitch += y * m_pitch->value;
-			*yaw   -= x * m_yaw->value;
-		}
-#endif // ANDROID
+#else
+		float x, y;
+		Platform_MouseMove( &x, &y );
+		*pitch += y * m_pitch->value;
+		*yaw   -= x * m_yaw->value;
+#endif // SDL
 
 #ifdef XASH_USE_EVDEV
 		IN_EvdevMove( yaw, pitch );
