@@ -93,7 +93,7 @@ struct file_s
 	byte		buff[FILE_BUFF_SIZE];	// intermediate buffer
 #ifdef XASH_REDUCE_FD
 	const char *backup_path;
-	fs_offset_t *backup_position;
+	fs_offset_t backup_position;
 	uint backup_options;
 #endif
 };
@@ -2266,7 +2266,7 @@ static int FS_DuplicateHandle( const char *filename, int handle, fs_offset_t pos
 }
 */
 
-static int FS_OpenHandle( const char *syspath, int handle, fs_offset_t offset, fs_offset_t len )
+static file_t *FS_OpenHandle( const char *syspath, int handle, fs_offset_t offset, fs_offset_t len )
 {
 	file_t *file = (file_t *)Mem_Calloc( fs_mempool, sizeof( file_t ));
 #ifndef XASH_REDUCE_FD
