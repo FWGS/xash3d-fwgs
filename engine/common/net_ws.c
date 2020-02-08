@@ -20,7 +20,7 @@ GNU General Public License for more details.
 #if XASH_WIN32
 // Winsock
 #include <WS2tcpip.h>
-#else
+#elif !defined XASH_NO_NETWORK
 // BSD sockets
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -31,21 +31,7 @@ GNU General Public License for more details.
 #include <netdb.h>
 #include <errno.h>
 #include <fcntl.h>
-#endif
 
-#define NET_USE_FRAGMENTS
-
-#define PORT_ANY			-1
-#define MAX_LOOPBACK		4
-#define MASK_LOOPBACK		(MAX_LOOPBACK - 1)
-
-#define MAX_ROUTEABLE_PACKET		1400
-#define SPLITPACKET_MIN_SIZE			508		// RFC 791: 576(min ip packet) - 60 (ip header) - 8 (udp header)
-#define SPLITPACKET_MAX_SIZE			64000
-#define NET_MAX_FRAGMENTS		( NET_MAX_FRAGMENT / (SPLITPACKET_MIN_SIZE - sizeof( SPLITPACKET )) )
-
-#if !XASH_WIN32 // not available in XP
-#define HAVE_GETADDRINFO
 #define WSAGetLastError()  errno
 #define WSAEINTR           EINTR
 #define WSAEBADF           EBADF
@@ -84,6 +70,12 @@ GNU General Public License for more details.
 #define WSAENAMETOOLONG    ENAMETOOLONG
 #define WSAEHOSTDOWN       EHOSTDOWN
 
+
+#ifndef XASH_DOS4GW
+#define HAVE_GETADDRINFO
+#define INVALID_SOCKET -1
+#define SOCKET_ERROR -1
+
 #if XASH_EMSCRIPTEN
 /* All socket operations are non-blocking already */
 static int ioctl_stub( int d, unsigned long r, ... )
@@ -95,12 +87,23 @@ static int ioctl_stub( int d, unsigned long r, ... )
 #define ioctlsocket ioctl
 #endif // XASH_EMSCRIPTEN
 #define closesocket close
-#define SOCKET int
-#define INVALID_SOCKET -1
-typedef socklen_t WSAsize_t;
-#else // WIN32
-typedef int WSAsize_t; // for some reason, MS has signed size. We won't exceed 2^32, probably, so just typedef it
 #endif
+#define SOCKET int
+typedef int WSAsize_t;
+#else
+#include "platform/stub/net_stub.h"
+#endif
+
+#define NET_USE_FRAGMENTS
+
+#define PORT_ANY			-1
+#define MAX_LOOPBACK		4
+#define MASK_LOOPBACK		(MAX_LOOPBACK - 1)
+
+#define MAX_ROUTEABLE_PACKET		1400
+#define SPLITPACKET_MIN_SIZE			508		// RFC 791: 576(min ip packet) - 60 (ip header) - 8 (udp header)
+#define SPLITPACKET_MAX_SIZE			64000
+#define NET_MAX_FRAGMENTS		( NET_MAX_FRAGMENT / (SPLITPACKET_MIN_SIZE - sizeof( SPLITPACKET )) )
 
 typedef struct
 {
@@ -242,7 +245,7 @@ char *NET_ErrorString( void )
 
 _inline qboolean NET_IsSocketError( int retval )
 {
-#if XASH_WIN32
+#if XASH_WIN32 || XASH_DOS4GW
 	return retval == SOCKET_ERROR ? true : false;
 #else
 	return retval < 0 ? true : false;
@@ -251,7 +254,7 @@ _inline qboolean NET_IsSocketError( int retval )
 
 _inline qboolean NET_IsSocketValid( int socket )
 {
-#if XASH_WIN32
+#if XASH_WIN32 || XASH_DOS4GW
 	return socket != INVALID_SOCKET;
 #else
 	return socket >= 0;
@@ -335,7 +338,7 @@ int NET_GetHostByName( const char *hostname )
 #endif
 }
 
-#if !defined XASH_NO_ASYNC_NS_RESOLVE && ( XASH_WIN32 || !XASH_EMSCRIPTEN )
+#if !defined XASH_NO_ASYNC_NS_RESOLVE && ( XASH_WIN32 || !(XASH_EMSCRIPTEN || XASH_DOS4GW) )
 #define CAN_ASYNC_NS_RESOLVE
 #endif
 
@@ -1135,6 +1138,7 @@ qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *len
 			case WSAECONNRESET:
 			case WSAECONNREFUSED:
 			case WSAEMSGSIZE:
+			case WSAETIMEDOUT:
 				break;
 			default:	// let's continue even after errors
 				Con_DPrintf( S_ERROR "NET_QueuePacket: %s from %s\n", NET_ErrorString(), NET_AdrToString( *from ));
@@ -1394,19 +1398,20 @@ static int NET_Isocket( const char *net_interface, int port, qboolean multicast 
 		return INVALID_SOCKET;
 	}
 
-	if( NET_IsSocketError( ioctlsocket( net_socket, FIONBIO, &_true ) ) )
+	if( NET_IsSocketError( ioctlsocket( net_socket, FIONBIO, (void*)&_true ) ) )
 	{
+		struct timeval timeout;
+
 		Con_DPrintf( S_WARN "NET_UDsocket: port: %d ioctl FIONBIO: %s\n", port, NET_ErrorString( ));
-		closesocket( net_socket );
-		return INVALID_SOCKET;
+		// try timeout instead of NBIO
+		timeout.tv_sec = timeout.tv_usec = 0;
+		setsockopt( net_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
 	}
 
 	// make it broadcast capable
 	if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_BROADCAST, (char *)&_true, sizeof( _true ) ) ) )
 	{
 		Con_DPrintf( S_WARN "NET_UDsocket: port: %d setsockopt SO_BROADCAST: %s\n", port, NET_ErrorString( ));
-		closesocket( net_socket );
-		return INVALID_SOCKET;
 	}
 
 	if( Sys_CheckParm( "-reuse" ) || multicast )
@@ -1639,6 +1644,7 @@ sleeps msec or until net socket is ready
 */
 void NET_Sleep( int msec )
 {
+#ifndef XASH_NO_NETWORK
 	struct timeval	timeout;
 	fd_set		fdset;
 	int		i = 0;
@@ -1657,6 +1663,7 @@ void NET_Sleep( int msec )
 	timeout.tv_sec = msec / 1000;
 	timeout.tv_usec = (msec % 1000) * 1000;
 	select( i+1, &fdset, NULL, NULL, &timeout );
+#endif
 }
 
 /*
@@ -1703,7 +1710,7 @@ void NET_Init( void )
 	}
 
 #if XASH_WIN32
-	if( WSAStartup( MAKEWORD( 1, 1 ), &net.winsockdata ))
+	if( WSAStartup( MAKEWORD( 1, 1 ), &net.winsockdata ) )
 	{
 		Con_DPrintf( S_ERROR "network initialization failed.\n" );
 		return;
@@ -2136,7 +2143,7 @@ void HTTP_Run( void )
 			// You may skip this if not supported by system,
 			// but download will lock engine, maybe you will need to add manual returns
 			mode = 1;
-			ioctlsocket( curfile->socket, FIONBIO, &mode );
+			ioctlsocket( curfile->socket, FIONBIO, (void*)&mode );
 #if XASH_LINUX
 			// SOCK_NONBLOCK is not portable, so use fcntl
 			fcntl( curfile->socket, F_SETFL, fcntl( curfile->socket, F_GETFL, 0 ) | O_NONBLOCK );
@@ -2444,7 +2451,7 @@ static void HTTP_Clear_f( void )
 			FS_Close( file->file );
 
 		if( file->socket != -1 )
-			close ( file->socket );
+			closesocket( file->socket );
 
 		Mem_Free( file );
 	}
