@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #define CLIENT_H
 
 #include "xash3d_types.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #include "cdll_int.h"
 #include "menu_int.h"
 #include "cl_entity.h"

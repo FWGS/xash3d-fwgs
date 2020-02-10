@@ -13,7 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #include "gl_local.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #include "const.h"
 #include "r_studioint.h"
 #include "triangleapi.h"

@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "protocol.h"
 #include "net_buffer.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 
 //#define DEBUG_NET_MESSAGES_SEND
 //#define DEBUG_NET_MESSAGES_READ

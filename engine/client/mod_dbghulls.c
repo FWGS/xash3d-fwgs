@@ -15,7 +15,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "client.h"
 #include "mod_local.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #include "world.h"
 
 
