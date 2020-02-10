@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "imagelib.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 
 #define BI_SIZE	40 //size of bitmap info header.
 #if !XASH_WIN32

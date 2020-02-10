@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "netchan.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #include "net_encode.h"
 #include "event_api.h"
 #include "usercmd.h"

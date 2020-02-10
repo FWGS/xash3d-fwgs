@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */ 
 #if XASH_DEDICATED
 #include "common.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #include "ref_api.h"
 
 ref_globals_t refState;

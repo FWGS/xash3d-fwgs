@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "gl_local.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #include "mod_local.h"
 			
 typedef struct

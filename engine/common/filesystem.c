@@ -32,7 +32,7 @@ GNU General Public License for more details.
 #include "wadfile.h"
 #include "filesystem.h"
 #include "library.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #include "protocol.h"
 
 #define FILE_COPY_SIZE		(1024 * 1024)

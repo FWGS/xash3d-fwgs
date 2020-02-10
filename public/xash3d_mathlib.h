@@ -1,5 +1,5 @@
 /*
-mathlib.h - base math functions
+xash3d_mathlib.h - base math functions
 Copyright (C) 2007 Uncle Mike
 
 This program is free software: you can redistribute it and/or modify
@@ -13,8 +13,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#ifndef MATHLIB_H
-#define MATHLIB_H
+#ifndef XASH3D_MATHLIB_H
+#define XASH3D_MATHLIB_H
 
 #include <math.h>
 #if HAVE_TGMATH_H
@@ -227,4 +227,5 @@ extern const matrix3x4	matrix3x4_identity;
 extern const matrix4x4	matrix4x4_identity;
 extern const float		m_bytenormals[NUMVERTEXNORMALS][3];
 
-#endif//MATHLIB_H
+#endif // XASH3D_MATHLIB_H
+

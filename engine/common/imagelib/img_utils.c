@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "imagelib.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #include "mod_local.h"
 
 #define LERPBYTE( i )	r = resamplerow1[i]; out[i] = (byte)(((( resamplerow2[i] - r ) * lerp)>>16 ) + r )

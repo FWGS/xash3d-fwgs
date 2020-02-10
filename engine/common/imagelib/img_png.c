@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #define MINIZ_HEADER_FILE_ONLY
 #include "miniz.h"
 #include "imagelib.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 
 #if defined(XASH_NO_NETWORK)
 	#include "platform/stub/net_stub.h"

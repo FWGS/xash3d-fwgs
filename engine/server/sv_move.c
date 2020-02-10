@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #include "server.h"
 #include "const.h"
 #include "pm_defs.h"
