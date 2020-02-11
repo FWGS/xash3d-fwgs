@@ -241,9 +241,22 @@ qboolean Image_SaveTGA( const char *name, rgbdata_t *pix )
 	if( FS_FileExists( name, false ) && !Image_CheckFlag( IL_ALLOW_OVERWRITE ))
 		return false; // already existed
 
-	if( pix->flags & IMAGE_HAS_ALPHA )
-		outsize = pix->width * pix->height * 4 + 18 + Q_strlen( comment );
-	else outsize = pix->width * pix->height * 3 + 18 + Q_strlen( comment );
+	// bogus parameter check
+	if( !pix->buffer )
+		return false;
+
+	// get image description
+	switch( pix->type )
+	{
+	case PF_RGB_24:
+	case PF_BGR_24: pixel_size = 3; break;
+	case PF_RGBA_32:
+	case PF_BGRA_32: pixel_size = 4; break;
+	default:
+		return false;
+	}
+
+	outsize = pix->width * pix->height * pixel_size + 18 + Q_strlen( comment );
 
 	buffer = (byte *)Mem_Calloc( host.imagepool, outsize );
 
@@ -258,18 +271,6 @@ qboolean Image_SaveTGA( const char *name, rgbdata_t *pix )
 	buffer[17] = ( pix->flags & IMAGE_HAS_ALPHA ) ? 8 : 0; // 8 bits of alpha
 	Q_strncpy( buffer + 18, comment, Q_strlen( comment )); 
 	out = buffer + 18 + Q_strlen( comment );
-
-	// get image description
-	switch( pix->type )
-	{
-	case PF_RGB_24:
-	case PF_BGR_24: pixel_size = 3; break;
-	case PF_RGBA_32:
-	case PF_BGRA_32: pixel_size = 4; break;	
-	default:
-		Mem_Free( buffer );
-		return false;
-	}
 
 	switch( pix->type )
 	{
