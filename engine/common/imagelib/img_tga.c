@@ -25,7 +25,8 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 {
 	int	i, columns, rows, row_inc, row, col;
 	byte	*buf_p, *pixbuf, *targa_rgba;
-	byte	palette[256][4], red = 0, green = 0, blue = 0, alpha = 0;
+	rgba_t	palette[256];
+	byte	red = 0, green = 0, blue = 0, alpha = 0;
 	int	readpixelcount, pixelcount;
 	int	reflectivity[3] = { 0, 0, 0 };
 	qboolean	compressed;
