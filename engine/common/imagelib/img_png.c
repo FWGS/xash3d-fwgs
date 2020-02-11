@@ -204,6 +204,7 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	{
 		Con_DPrintf( S_ERROR "Image_LoadPNG: IEND chunk has wrong size (%s)\n", name );
 		Mem_Free( idat_buf );
+		return false;
 	}
 
 	if( oldsize == 0 )
@@ -414,9 +415,11 @@ qboolean Image_SavePNG( const char *name, rgbdata_t *pix )
 	if( FS_FileExists( name, false ) && !Image_CheckFlag( IL_ALLOW_OVERWRITE ))
 		return false; // already existed
 
+	// bogus parameter check
 	if( !pix->buffer )
 		return false;
 
+	// get image description
 	switch( pix->type )
 	{
 	case PF_RGB_24:
