@@ -105,6 +105,12 @@ typedef struct imglib_s
 
 ========================================================================
 */
+
+#define BI_SIZE 40 // size of bitmap info header.
+#if !defined(BI_RGB)
+#define BI_RGB 0 // uncompressed RGB bitmap(defined in wingdi.h)
+#endif
+
 #pragma pack( 1 )
 typedef struct
 {
