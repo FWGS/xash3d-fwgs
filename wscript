@@ -205,7 +205,8 @@ def configure(conf):
 	linker_flags = {
 		'common': {
 			'msvc':  ['/DEBUG'], # always create PDB, doesn't affect result binaries
-			'gcc':   ['-Wl,--no-undefined']
+			'gcc':   ['-Wl,--no-undefined'],
+			'owcc':  ['-Wl,option stack=512k']
 		},
 		'sanitize': {
 			'clang': ['-fsanitize=undefined', '-fsanitize=address'],
