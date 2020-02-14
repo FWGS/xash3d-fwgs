@@ -64,8 +64,6 @@ GNU General Public License for more details.
 #define ZIP_LOAD_NO_FILES		5
 #define ZIP_LOAD_CORRUPTED		6
 
-#define XASH_REDUCE_FD
-
 typedef struct stringlist_s
 {
 	// maxstrings changes as needed, causing reallocation of strings[] array
@@ -168,7 +166,7 @@ static void FS_EnsureOpenFile( file_t *file )
 	if( fs_last_readfile == file )
 		return;
 
-	if( !file->backup_path )
+	if( file && !file->backup_path )
 		return;
 
 	if( fs_last_readfile && (fs_last_readfile->handle != -1) )
