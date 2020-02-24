@@ -1,7 +1,6 @@
 # Xash3D FWGS Engine
-[![Build Status](https://api.travis-ci.org/FWGS/xash3d-fwgs.svg?branch=master)](https://travis-ci.org/FWGS/xash3d-fwgs) [![FreeBSD Build Status](https://img.shields.io/cirrus/github/FWGS/xash3d-fwgs?label=FreeBSD%20builds)](https://cirrus-ci.com/github/FWGS/xash3d-fwgs) [![Discord Server](https://img.shields.io/discord/355697768582610945.svg)](https://discord.gg/TbnHcVb)
-
-[![Download Stable](https://img.shields.io/badge/Download-Stable-yellow)](https://github.com/FWGS/xash3d-fwgs/releases/latest) [![Download Testing](https://img.shields.io/badge/Downloads-Testing-orange)](https://github.com/FWGS/xash3d-deploy/tree/anewengine-master)
+[![Build Status](https://api.travis-ci.org/FWGS/xash3d-fwgs.svg?branch=master)](https://travis-ci.org/FWGS/xash3d-fwgs) [![FreeBSD Build Status](https://img.shields.io/cirrus/github/FWGS/xash3d-fwgs?label=freebsd%20build)](https://cirrus-ci.com/github/FWGS/xash3d-fwgs) [![Discord Server](https://img.shields.io/discord/355697768582610945.svg)](https://discord.gg/TbnHcVb) \
+[![Download Stable](https://img.shields.io/badge/download-stable-yellow)](https://github.com/FWGS/xash3d-fwgs/releases/latest) [![Download Testing](https://img.shields.io/badge/downloads-testing-orange)](https://github.com/FWGS/xash3d-deploy/tree/anewengine-master)
 
 Xash3D FWGS is a fork of Xash3D Engine by Unkle Mike with extended features and crossplatform.
 
@@ -13,13 +12,13 @@ Read more about Xash3D on ModDB: https://www.moddb.com/engines/xash3d-engine
 
 ## Fork features
 * HLSDK 2.4 support.
-* Crossplatform: officially supported x86 and ARM on Windows/Linux/BSD/Android. (see Documentation/ports.md for more info)
+* Crossplatform: supported x86 and ARM on Windows/Linux/BSD/Android. ([see docs for more info](Documentation/ports.md))
 * Modern compilers support: say no more to MSVC6.
 * Better multiplayer support: multiple master servers, headless dedicated server.
 * Mobility API: allows better game integration on mobile devices(vibration, touch controls)
 * Different input methods: touch, gamepad and classic mouse & keyboard.
 * TrueType font rendering, as a part of mainui_cpp.
-* Multiple renderers support(OpenGL, GLES, Software)
+* Multiple renderers support: OpenGL, GLESv1, GLESv2, Software
 * A set of small improvements, without broken compatibility.
 
 ## Planned fork features
@@ -55,11 +54,9 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 
 `$ sudo dpkg --add-architecture i386`
 * Install development tools
-  * For 32-bit engine on amd64: 
-		
+  * For 32-bit engine on amd64: \
     `$ sudo apt install build-essential gcc-multilib g++-multilib python libsdl2-dev:i386 libfontconfig-dev:i386 libfreetype6-dev:i386`
-  * For everything else: 
-		
+  * For everything else: \
     `$ sudo apt install build-essential python libsdl2-dev libfontconfig-dev libfreetype6-dev`
 * Clone this repostory:
 `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`
