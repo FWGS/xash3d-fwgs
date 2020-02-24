@@ -1,5 +1,5 @@
 # Xash3D FWGS Engine
-[![Build Status](https://api.travis-ci.org/FWGS/xash3d-fwgs.svg?branch=master)](https://travis-ci.org/FWGS/xash3d-fwgs) [![Discord Server](https://img.shields.io/discord/355697768582610945.svg)](https://discord.gg/TbnHcVb)
+[![Build Status](https://api.travis-ci.org/FWGS/xash3d-fwgs.svg?branch=master)](https://travis-ci.org/FWGS/xash3d-fwgs) [![FreeBSD Build Status](https://img.shields.io/cirrus/github/FWGS/xash3d-fwgs?label=FreeBSD%20builds)](https://cirrus-ci.com/github/FWGS/xash3d-fwgs) [![Discord Server](https://img.shields.io/discord/355697768582610945.svg)](https://discord.gg/TbnHcVb)
 
 Xash3D FWGS is a fork of Xash3D Engine by Unkle Mike with extended features and crossplatform.
 
