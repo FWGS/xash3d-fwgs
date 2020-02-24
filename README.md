@@ -1,6 +1,8 @@
 # Xash3D FWGS Engine
 [![Build Status](https://api.travis-ci.org/FWGS/xash3d-fwgs.svg?branch=master)](https://travis-ci.org/FWGS/xash3d-fwgs) [![FreeBSD Build Status](https://img.shields.io/cirrus/github/FWGS/xash3d-fwgs?label=FreeBSD%20builds)](https://cirrus-ci.com/github/FWGS/xash3d-fwgs) [![Discord Server](https://img.shields.io/discord/355697768582610945.svg)](https://discord.gg/TbnHcVb)
 
+[![Download Stable](https://img.shields.io/badge/Download-Stable-yellow)](https://github.com/FWGS/xash3d-fwgs/releases/latest) [![Download Testing](https://img.shields.io/badge/Downloads-Testing-orange)](https://github.com/FWGS/xash3d-deploy/tree/anewengine-master)
+
 Xash3D FWGS is a fork of Xash3D Engine by Unkle Mike with extended features and crossplatform.
 
 ```
@@ -8,10 +10,6 @@ Xash3D is a game engine, aimed to provide compatibility with Half-Life Engine,
 as well as to give game developers well known workflow and extend it.
 Read more about Xash3D on ModDB: https://www.moddb.com/engines/xash3d-engine
 ```
-
-Latest release build: https://github.com/FWGS/xash3d-fwgs/releases/latest
-
-Latest development build: https://github.com/FWGS/xash3d-deploy/tree/newengine-master
 
 ## Fork features
 * HLSDK 2.4 support.
