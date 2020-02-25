@@ -338,7 +338,7 @@ static void* GAME_EXPORT R_GetProcAddress( const char *name )
 	extern void *gl4es_GetProcAddress( const char *name );
 	return gl4es_GetProcAddress( name );
 #else // TODO: other wrappers
-	return gEngFuncs.GL_GetProcAddress( name );
+	return gEngfuncs.GL_GetProcAddress( name );
 #endif
 }
 
