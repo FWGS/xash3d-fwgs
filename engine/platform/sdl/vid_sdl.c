@@ -896,7 +896,10 @@ int GL_SetAttribute( int attr, int val )
 	case REF_GL_CONTEXT_PROFILE_MASK:
 #ifdef SDL_HINT_OPENGL_ES_DRIVER
 		if( val == REF_GL_CONTEXT_PROFILE_ES )
+		{
 			SDL_SetHint(SDL_HINT_OPENGL_ES_DRIVER, "1");
+			SDL_SetHint( "SDL_VIDEO_X11_FORCE_EGL", "1" );
+		}
 #endif // SDL_HINT_OPENGL_ES_DRIVER
 		return SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, val );
 #endif
@@ -974,6 +977,8 @@ qboolean R_Init_Video( const int type )
 #if SDL_VERSION_ATLEAST( 2, 0, 0 ) && !XASH_WIN32
 	SDL_SetHint( "SDL_VIDEO_X11_XRANDR", "1" );
 	SDL_SetHint( "SDL_VIDEO_X11_XVIDMODE", "1" );
+	if( Sys_CheckParm( "-egl" ) )
+		SDL_SetHint( "SDL_VIDEO_X11_FORCE_EGL", "1" );
 #endif
 
 	// must be initialized before creating window
