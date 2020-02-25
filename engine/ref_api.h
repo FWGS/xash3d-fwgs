@@ -583,6 +583,8 @@ typedef struct ref_interface_s
 	void		(*R_NewMap)( void );
 	// clear the render entities before each frame
 	void		(*R_ClearScene)( void );
+	// GL_GetProcAddress for client renderer
+	void*		(*R_GetProcAddress)( const char *name );
 
 	// TriAPI Interface
 	// NOTE: implementation isn't required to be compatible
