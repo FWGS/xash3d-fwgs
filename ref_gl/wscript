@@ -19,6 +19,9 @@ def options(opt):
 	grp.add_option('--enable-gles2', action='store_true', dest='GLWES', default=False,
 		help = 'enable gles2 renderer [default: %default]')
 
+	grp.add_option('--enable-gl4es', action='store_true', dest='GL4ES', default=False,
+		help = 'enable gles2 renderer [default: %default]')
+
 	grp.add_option('--disable-gl', action='store_false', dest='GL', default=True,
 		help = 'disable opengl [default: %default]')
 
@@ -34,6 +37,7 @@ def configure(conf):
 
 	conf.env.NANOGL = conf.options.NANOGL
 	conf.env.GLWES  = conf.options.GLWES
+	conf.env.GL4ES     = conf.options.GL4ES
 	conf.env.GL     = conf.options.GL
 
 	if conf.env.NANOGL:
@@ -96,5 +100,28 @@ def build(bld):
 			includes = includes,
 			use      = libs + ['DL', 'gl-wes-v2'],
 			defines  = ['XASH_WES'],
+			install_path = bld.env.LIBDIR,
+			subsystem = bld.env.MSVC_SUBSYSTEM)
+
+	if bld.env.GL4ES:
+		gl4es_srcdir = bld.path.find_node('gl4es/src')
+
+		bld.stlib(
+			source   = gl4es_srcdir.ant_glob(['gl/*.c', 'gl/*/*.c', 'glx/hardext.c']),
+			target   = 'gl4es',
+			features = 'c',
+			includes = ['gl4es/src', 'gl4es/src/gl', 'gl4es/src/glx', 'gl4es/include'],
+			defines = ['NOX11', 'NO_GBM', 'NO_INIT_CONSTRUCTOR', 'DEFAULT_ES=2', 'NOEGL', 'EXTERNAL_GETPROCADDRESS=GL4ES_GetProcAddress', 'NO_LOADER', 'STATICLIB'],
+			cflags = ['-w', '-fvisibility=hidden', '-std=c99'],
+			use      = libs,
+			subsystem = bld.env.MSVC_SUBSYSTEM)
+
+		bld.shlib(
+			source   = source,
+			target   = 'ref_gles2_gl4es',
+			features = 'c',
+			includes = includes,
+			use      = libs + ['DL', 'gl4es'],
+			defines  = ['XASH_GL4ES', 'XASH_GL_STATIC'],
 			install_path = bld.env.LIBDIR,
 			subsystem = bld.env.MSVC_SUBSYSTEM)
