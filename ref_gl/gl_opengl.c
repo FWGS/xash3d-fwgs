@@ -496,6 +496,25 @@ void R_RenderInfo_f( void )
 	// don't spam about extensions
 	gEngfuncs.Con_Reportf( "GL_EXTENSIONS: %s\n", glConfig.extensions_string );
 
+	if( glConfig.wrapper == GLES_WRAPPER_GL4ES )
+	{
+		const char *vendor = pglGetString( GL_VENDOR | 0x10000 );
+		const char *renderer = pglGetString( GL_RENDERER | 0x10000 );
+		const char *version = pglGetString( GL_VERSION | 0x10000 );
+		const char *extensions = pglGetString( GL_EXTENSIONS | 0x10000 );
+
+		if( vendor )
+			gEngfuncs.Con_Printf( "GL4ES_VENDOR: %s\n", vendor );
+		if( renderer )
+			gEngfuncs.Con_Printf( "GL4ES_RENDERER: %s\n", renderer );
+		if( version )
+			gEngfuncs.Con_Printf( "GL4ES_VERSION: %s\n", version );
+		if( extensions )
+			gEngfuncs.Con_Reportf( "GL4ES_EXTENSIONS: %s\n", extensions );
+
+	}
+
+
 	gEngfuncs.Con_Printf( "GL_MAX_TEXTURE_SIZE: %i\n", glConfig.max_2d_texture_size );
 
 	if( GL_Support( GL_ARB_MULTITEXTURE ))
@@ -622,6 +641,17 @@ void GL_InitExtensionsBigGL( void )
 		glConfig.hardware_type = GLHW_INTEL;
 	else glConfig.hardware_type = GLHW_GENERIC;
 
+	// gl4es may be used system-wide
+	if( Q_stristr( glConfig.renderer_string, "gl4es" ))
+	{
+		const char *vendor = pglGetString( GL_VENDOR | 0x10000 );
+		const char *renderer = pglGetString( GL_RENDERER | 0x10000 );
+		const char *version = pglGetString( GL_VERSION | 0x10000 );
+		const char *extensions = pglGetString( GL_EXTENSIONS | 0x10000 );
+		glConfig.wrapper = GLES_WRAPPER_GL4ES;
+		
+	}
+
 	// multitexture
 	glConfig.max_texture_units = glConfig.max_texture_coords = glConfig.max_teximage_units = 1;
 	if( GL_CheckExtension( "GL_ARB_multitexture", multitexturefuncs, "gl_arb_multitexture", GL_ARB_MULTITEXTURE ))
@@ -710,7 +740,9 @@ void GL_InitExtensionsBigGL( void )
 		if( GL_CheckExtension( "glDrawRangeElementsEXT", drawrangeelementsextfuncs,
 			"gl_drawrangelements", GL_DRAW_RANGEELEMENTS_EXT ) )
 		{
+#ifndef XASH_GL_STATIC
 			pglDrawRangeElements = pglDrawRangeElementsEXT;
+#endif
 		}
 	}
 
@@ -742,7 +774,7 @@ void GL_InitExtensions( void )
 
 	pglGetIntegerv( GL_MAX_TEXTURE_SIZE, &glConfig.max_2d_texture_size );
 	if( glConfig.max_2d_texture_size <= 0 ) glConfig.max_2d_texture_size = 256;
-
+#ifndef XASH_GL4ES
 	// enable gldebug if allowed
 	if( GL_Support( GL_DEBUG_OUTPUT ))
 	{
@@ -758,7 +790,7 @@ void GL_InitExtensions( void )
 		// enable all the low priority messages
 		pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
 	}
-
+#endif
 	if( GL_Support( GL_TEXTURE_2D_RECT_EXT ))
 		pglGetIntegerv( GL_MAX_RECTANGLE_TEXTURE_SIZE_EXT, &glConfig.max_2d_rectangle_size );
 
@@ -1026,6 +1058,11 @@ void GL_SetupAttributes( int safegl )
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MAJOR_VERSION, 2 );
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MINOR_VERSION, 0 );
 #endif
+#elif defined XASH_GL4ES
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_ES );
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_EGL, 1 );
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MAJOR_VERSION, 2 );
+	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MINOR_VERSION, 0 );
 #else // GL1.x
 	if( gEngfuncs.Sys_CheckParm( "-glcore" ))
 	{
@@ -1135,6 +1172,23 @@ void GL_SetupAttributes( int safegl )
 
 void wes_init( const char *gles2 );
 int nanoGL_Init( void );
+#ifdef XASH_GL4ES
+#include "gl4es/include/gl4esinit.h"
+#include "gl4es/include/gl4eshint.h"
+void GL4ES_GetMainFBSize( int *width, int *height )
+{
+	*width = gpGlobals->width;
+	*height = gpGlobals->height;
+}
+void *GL4ES_GetProcAddress( const char *name )
+{
+	if( !Q_strcmp(name, "glShadeModel") )
+		// combined gles/gles2/gl implementation exports this, but it is invalid
+		return NULL;
+	return gEngfuncs.GL_GetProcAddress( name );
+}
+
+#endif
 
 void GL_OnContextCreated( void )
 {
@@ -1158,5 +1212,15 @@ void GL_OnContextCreated( void )
 #ifdef XASH_WES
 	wes_init( "" );
 #endif
-}
+#ifdef XASH_GL4ES
+	set_getprocaddress( GL4ES_GetProcAddress );
+	set_getmainfbsize( GL4ES_GetMainFBSize );
+	initialize_gl4es();
 
+	// merge glBegin/glEnd in beams and console
+	pglHint( GL_BEGINEND_HINT_GL4ES, 1 );
+	// dxt unpacked to 16-bit looks ugly
+	pglHint( GL_AVOID16BITS_HINT_GL4ES, 1 );
+#endif
+
+}
