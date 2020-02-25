@@ -80,10 +80,10 @@ def apply_static(main, *reloc):
 		out_node.write('%s\nstruct {const char *name;void *func;} libs[] = {\n%s\n{0,0}\n};\n' % (externs, table ))
 
 
-	def write_export_list(name,in_node, out_node):
+	def write_export_list(name, in_node, out_node):
 		"generate exports list for library"
 
-		exports = in_node.read().split('\n')
+		exports = in_node.read().splitlines()
 		externs = '\n'.join(['extern void %s(void);' % e for e in exports])
 		table = '\n'.join(['{ "%s", &%s },' % (e, e) for e in exports])
 		out_node.write('%s\nstruct {const char *name;void *func;} lib_%s_exports[] = {\n%s\n{0,0}\n};\n' % (externs, name, table ))
