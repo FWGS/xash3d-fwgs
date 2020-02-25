@@ -111,16 +111,18 @@ typedef enum
 
 typedef enum
 {
-	CONTEXT_TYPE_GL = 0,
+	CONTEXT_TYPE_GL = 0, // compatibility profile
 	CONTEXT_TYPE_GLES_1_X,
-	CONTEXT_TYPE_GLES_2_X
+	CONTEXT_TYPE_GLES_2_X,
+	CONTEXT_TYPE_GL_CORE
 } gl_context_type_t;
 
 typedef enum
 {
-	GLES_WRAPPER_NONE = 0,		// native GLES
+	GLES_WRAPPER_NONE = 0,		// native GL
 	GLES_WRAPPER_NANOGL,		// used on GLES platforms
 	GLES_WRAPPER_WES,		// used on GLES platforms
+	GLES_WRAPPER_GL4ES,		// used on GLES platforms
 } gles_wrapper_t;
 
 // 30 bytes here
