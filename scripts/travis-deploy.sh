@@ -31,11 +31,11 @@ generate_continious_tag()
 generate_readme()
 {
 	TAG=$(generate_continuous_tag)
-	echo \# Moved to GitHub Releases at [here]\(https://github.com/FWGS/xash3d-fwgs/releases/tag/$TAG\) >> README.md
-	echo >> README.md
-	echo >> README.md
-	echo >> README.md
-	echo >> README.md
+#	echo \# Moved to GitHub Releases at [here]\(https://github.com/FWGS/xash3d-fwgs/releases/tag/$TAG\) >> README.md
+#	echo >> README.md
+#	echo >> README.md
+#	echo >> README.md
+#	echo >> README.md
 	echo \# $TRAVIS_BRANCH branch autobuilds from $DEPLOY_BRANCH >> README.md
 	echo >> README.md
 	echo Short changelog: >> README.md
