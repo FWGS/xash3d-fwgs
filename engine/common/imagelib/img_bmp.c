@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "imagelib.h"
 #include "mathlib.h"
+#include "img_bmp.h"
 
 /*
 =============
