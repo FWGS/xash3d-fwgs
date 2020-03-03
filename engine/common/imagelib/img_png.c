@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "miniz.h"
 #include "imagelib.h"
 #include "mathlib.h"
+#include "img_png.h"
 
 #if defined(XASH_NO_NETWORK)
 	#include "platform/stub/net_stub.h"
