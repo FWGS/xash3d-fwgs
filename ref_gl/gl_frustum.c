@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "gl_local.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 
 void GL_FrustumEnablePlane( gl_frustum_t *out, int side )
 {

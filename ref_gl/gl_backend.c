@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 
 #include "gl_local.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 
 char		r_speeds_msg[MAX_SYSPATH];
 ref_speeds_t	r_stats;	// r_speeds counters

@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #ifndef SERVER_H
 #define SERVER_H
 
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #include "edict.h"
 #include "eiface.h"
 #include "physint.h"	// physics interface
