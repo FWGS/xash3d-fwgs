@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "client.h" // ConnectionProgress
 #include "netchan.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #if XASH_WIN32
 // Winsock
 #include <WS2tcpip.h>

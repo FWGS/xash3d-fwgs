@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "imagelib.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #include "wadfile.h"
 #include "studio.h"
 #include "sprite.h"

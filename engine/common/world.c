@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #include "world.h"
 #include "pm_defs.h"
 #include "mod_local.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #include "studio.h"
 
 // just for debug
