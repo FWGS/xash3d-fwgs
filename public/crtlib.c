@@ -890,6 +890,37 @@ void COM_ReplaceExtension( char *path, const char *extension )
 	COM_DefaultExtension( path, extension );
 }
 
+/*
+============
+COM_RemoveLineFeed
+============
+*/
+void COM_RemoveLineFeed( char *str )
+{
+	while( *str != '\0' )
+	{
+		if( *str == '\r' || *str == '\n' )
+			*str = '\0';
+
+		++str;
+	}
+}
+
+/*
+============
+COM_PathSlashFix
+============
+*/
+void COM_PathSlashFix( char *path )
+{
+	size_t	len;
+
+	len = Q_strlen( path );
+
+	if( path[len - 1] != '\\' || path[len - 1] != '/' )
+		Q_strcpy( &path[len], "/" );
+}
+
 int matchpattern( const char *in, const char *pattern, qboolean caseinsensitive )
 {
 	return matchpattern_with_separator( in, pattern, caseinsensitive, "/\\:", false );
