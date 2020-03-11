@@ -1830,9 +1830,6 @@ static qboolean SV_Godmode_f( sv_client_t *cl )
 		return true;
 
 	pEntity->v.flags = pEntity->v.flags ^ FL_GODMODE;
-	if( pEntity->v.takedamage == DAMAGE_AIM )
-		pEntity->v.takedamage = DAMAGE_NO;
-	else pEntity->v.takedamage = DAMAGE_AIM;
 
 	if( !FBitSet( pEntity->v.flags, FL_GODMODE ))
 		SV_ClientPrintf( cl, "godmode OFF\n" );
