@@ -1933,7 +1933,6 @@ qboolean GAME_EXPORT R_Init( void )
 	r_drawentities = gEngfuncs.Cvar_Get( "r_drawentities", "1", FCVAR_CHEAT, "render entities" );
 	vid_brightness = gEngfuncs.pfnGetCvarPointer( "brightness", 0 );
 	r_fullbright = gEngfuncs.Cvar_Get( "r_fullbright", "0", FCVAR_CHEAT, "disable lightmaps, get fullbright for entities" );
-	sw_mipcap = gEngfuncs.Cvar_Get( "r_fullbright", "0", FCVAR_CHEAT, "disable lightmaps, get fullbright for entities" );
 
 	r_dynamic = gEngfuncs.Cvar_Get( "r_dynamic", "1", FCVAR_ARCHIVE, "allow dynamic lighting (dlights, lightstyles)" );
 	r_lightmap = gEngfuncs.Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
@@ -1945,17 +1944,18 @@ qboolean GAME_EXPORT R_Init( void )
 	sw_draworder = gEngfuncs.Cvar_Get ("sw_draworder", "0", 0, "");
 	sw_maxedges = gEngfuncs.Cvar_Get ("sw_maxedges", "32", 0, "");
 	sw_maxsurfs = gEngfuncs.Cvar_Get ("sw_maxsurfs", "0", 0, "");
-	sw_mipscale = gEngfuncs.Cvar_Get ("sw_mipscale", "1", 0, "");
+	sw_mipscale = gEngfuncs.Cvar_Get ("sw_mipscale", "1", FCVAR_GLCONFIG, "nothing");
+	sw_mipcap = gEngfuncs.Cvar_Get( "sw_mipcap", "0", FCVAR_GLCONFIG, "nothing" );
 	sw_reportedgeout = gEngfuncs.Cvar_Get ("sw_reportedgeout", "0", 0, "");
 	sw_reportsurfout = gEngfuncs.Cvar_Get ("sw_reportsurfout", "0", 0, "");
-	sw_stipplealpha = gEngfuncs.Cvar_Get( "sw_stipplealpha", "1", FCVAR_ARCHIVE, "" );
+	sw_stipplealpha = gEngfuncs.Cvar_Get( "sw_stipplealpha", "1", FCVAR_GLCONFIG, "nothing" );
 	sw_surfcacheoverride = gEngfuncs.Cvar_Get ("sw_surfcacheoverride", "0", 0, "");
-	sw_waterwarp = gEngfuncs.Cvar_Get ("sw_waterwarp", "1", 0, "");
-	sw_notransbrushes = gEngfuncs.Cvar_Get( "sw_notransbrushes", "0", FCVAR_ARCHIVE, "do not apply transparency to water/glasses (faster)");
-	sw_noalphabrushes = gEngfuncs.Cvar_Get( "sw_noalphabrushes", "0", FCVAR_ARCHIVE, "do not draw brush holes (faster)");
+	sw_waterwarp = gEngfuncs.Cvar_Get ("sw_waterwarp", "1", FCVAR_GLCONFIG, "nothing");
+	sw_notransbrushes = gEngfuncs.Cvar_Get( "sw_notransbrushes", "0", FCVAR_GLCONFIG, "do not apply transparency to water/glasses (faster)");
+	sw_noalphabrushes = gEngfuncs.Cvar_Get( "sw_noalphabrushes", "0", FCVAR_GLCONFIG, "do not draw brush holes (faster)");
 	r_traceglow = gEngfuncs.Cvar_Get( "r_traceglow", "1", FCVAR_ARCHIVE, "cull flares behind models" );
 #ifndef DISABLE_TEXFILTER
-	sw_texfilt = gEngfuncs.Cvar_Get ("sw_texfilt", "0", 0, "texture dither");
+	sw_texfilt = gEngfuncs.Cvar_Get ("sw_texfilt", "0", FCVAR_GLCONFIG, "texture dither");
 #endif
 	//r_lefthand = ri.Cvar_Get( "hand", "0", FCVAR_USERINFO | FCVAR_ARCHIVE );
 //	r_speeds = ri.Cvar_Get ("r_speeds", "0", 0);

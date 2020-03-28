@@ -2880,7 +2880,7 @@ void R_StudioRenderFinal( void )
 	{
 		for( i = 0; i < m_pStudioHeader->numbodyparts; i++ )
 		{
-			R_StudioSetupModel( i, (void*)&m_pBodyPart, (void*)&m_pSubModel );
+			R_StudioSetupModel( i, (void**)&m_pBodyPart, (void**)&m_pSubModel );
 
 			GL_StudioSetRenderMode( rendermode );
 			R_StudioDrawPoints();
