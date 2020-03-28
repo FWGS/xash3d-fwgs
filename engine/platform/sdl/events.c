@@ -25,8 +25,6 @@ GNU General Public License for more details.
 #include "sound.h"
 #include "vid_common.h"
 
-static int wheelbutton;
-
 #if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
 #define SDL_SCANCODE_A SDLK_a
 #define SDL_SCANCODE_Z SDLK_z
@@ -366,14 +364,6 @@ SDLash_EventFilter
 */
 static void SDLash_EventFilter( SDL_Event *event )
 {
-	static int mdown;
-
-	if( wheelbutton )
-	{
-		Key_Event( wheelbutton, false );
-		wheelbutton = 0;
-	}
-
 	switch ( event->type )
 	{
 	/* Mouse events */
@@ -421,9 +411,12 @@ static void SDLash_EventFilter( SDL_Event *event )
 		break;
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	case SDL_MOUSEWHEEL:
-		wheelbutton = event->wheel.y < 0 ? K_MWHEELDOWN : K_MWHEELUP;
+	{
+		int wheelbutton = event->wheel.y < 0 ? K_MWHEELDOWN : K_MWHEELUP;
 		Key_Event( wheelbutton, true );
+		Key_Event( wheelbutton, false );
 		break;
+	}
 
 	/* Touch events */
 	case SDL_FINGERDOWN:
