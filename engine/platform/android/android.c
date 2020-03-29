@@ -337,7 +337,16 @@ DECLARE_JNI_INTERFACE( void, nativeKey, jint down, jint code )
 	else
 	{
 		if( code >= ( sizeof( s_android_scantokey ) / sizeof( s_android_scantokey[0] ) ) )
+		{
+			Con_DPrintf( "nativeKey: unknown Android key %d\n", code );
 			return;
+		}
+
+		if( !s_android_scantokey[code] )
+		{
+			Con_DPrintf( "nativeKey: unmapped Android key %d\n", code );
+			return;
+		}
 
 		event = Android_AllocEvent();
 		event->type = down?event_key_down:event_key_up;
