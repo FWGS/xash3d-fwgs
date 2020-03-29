@@ -170,9 +170,10 @@ void frame_init_par( mpg123_handle_t *fr, mpg123_parm_t *mp )
 	frame_index_setup( fr );	// apply the size setting.
 }
 
-static void frame_decode_buffers_reset(mpg123_handle_t *fr)
+static void frame_decode_buffers_reset( mpg123_handle_t *fr )
 {
-	memset(fr->rawbuffs, 0, fr->rawbuffss);
+	if( fr->rawbuffs ) /* memset(NULL, 0, 0) not desired */
+		memset( fr->rawbuffs, 0, fr->rawbuffss );
 }
 
 int frame_buffers( mpg123_handle_t *fr )

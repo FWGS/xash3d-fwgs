@@ -42,14 +42,6 @@ GNU General Public License for more details.
 	fr->uctmp = *fr->wordpointer << fr->bitindex, fr->bitindex++, \
 	fr->wordpointer += (fr->bitindex >> 3), fr->bitindex &= 7, fr->uctmp >> 7 )
 
-// 24 is enough because tab13 has max. a 19 bit huffvector
-#define BITSHIFT	((sizeof(long) - 1) * 8)
-
-#define REFRESH_MASK \
-	while( num < BITSHIFT ) { \
-		mask |= ((ulong)getbyte( fr )) << (BITSHIFT - num); \
-		num += 8; \
-		part2remain -= 8; }
 
 static uint getbits( mpg123_handle_t *fr, int number_of_bits )
 {
