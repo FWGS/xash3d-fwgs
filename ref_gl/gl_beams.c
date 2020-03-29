@@ -22,9 +22,6 @@ GNU General Public License for more details.
 #include "cl_tent.h"
 #include "pm_local.h"
 #include "studio.h"
-#if HAVE_TGMATH_H
-#include <tgmath.h>
-#endif
 
 #define NOISE_DIVISIONS	64	// don't touch - many tripmines cause the crash when it equal 128
 
