@@ -347,6 +347,14 @@ def configure(conf):
 	else:
 		conf.undefine('HAVE_TGMATH_H')
 
+	# check if we can use C99 stdint
+	if conf.check_cc(header_name='stdint.h', mandatory=False):
+		# use system
+		conf.define('STDINT_H', 'stdint.h')
+	else:
+		# include portable stdint by Paul Hsich
+		conf.define('STDINT_H', 'pstdint.h')
+
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
 	if conf.env.DEST_OS == 'dos':
