@@ -24,10 +24,6 @@ GNU General Public License for more details.
 //#include "client.h"
 #include "pmtrace.h"
 
-#if HAVE_TGMATH_H
-#include <tgmath.h>
-#endif
-
 #define EVENT_CLIENT	5000	// less than this value it's a server-side studio events
 #define MAX_LOCALLIGHTS	4
 

@@ -21,9 +21,6 @@ GNU General Public License for more details.
 #include <time.h>
 #include "stdio.h"
 #include "crtlib.h"
-#if HAVE_TGMATH_H
-#include <tgmath.h>
-#endif
 
 void Q_strnupr( const char *in, char *out, size_t size_out )
 {
