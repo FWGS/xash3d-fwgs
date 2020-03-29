@@ -51,7 +51,7 @@ R_SpriteLoadFrame
 upload a single frame
 ====================
 */
-static dframetype_t *R_SpriteLoadFrame( model_t *mod, void *pin, mspriteframe_t **ppframe, int num )
+static const dframetype_t *R_SpriteLoadFrame( model_t *mod, const void *pin, mspriteframe_t **ppframe, int num )
 {
 	dspriteframe_t	pinframe;
 	mspriteframe_t	*pspriteframe;
@@ -59,7 +59,7 @@ static dframetype_t *R_SpriteLoadFrame( model_t *mod, void *pin, mspriteframe_t 
 	char		texname[128];
 	int		bytes = 1;
 
-	memcpy( &pinframe, pin, sizeof( dspriteframe_t ) );
+	memcpy( &pinframe, pin, sizeof(dspriteframe_t));
 
 	if( sprite_version == SPRITE_VERSION_32 )
 		bytes = 4;
@@ -74,7 +74,7 @@ static dframetype_t *R_SpriteLoadFrame( model_t *mod, void *pin, mspriteframe_t 
 	{
 		Q_snprintf( texname, sizeof( texname ), "#%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
 		gl_texturenum = GL_LoadTexture( texname, pin, pinframe.width * pinframe.height * bytes, r_texFlags );
-	}	
+	}
 
 	// setup frame description
 	pspriteframe = Mem_Malloc( mod->mempool, sizeof( mspriteframe_t ));
@@ -87,7 +87,7 @@ static dframetype_t *R_SpriteLoadFrame( model_t *mod, void *pin, mspriteframe_t 
 	pspriteframe->gl_texturenum = gl_texturenum;
 	*ppframe = pspriteframe;
 
-	return ( pin + sizeof(dspriteframe_t) + pinframe.width * pinframe.height * bytes );
+	return ( const dframetype_t* )(( const byte* )pin + sizeof( dspriteframe_t ) + pinframe.width * pinframe.height * bytes );
 }
 
 /*
@@ -97,16 +97,16 @@ R_SpriteLoadGroup
 upload a group frames
 ====================
 */
-static dframetype_t *R_SpriteLoadGroup( model_t *mod, void *pin, mspriteframe_t **ppframe, int framenum )
+static const dframetype_t *R_SpriteLoadGroup( model_t *mod, const void *pin, mspriteframe_t **ppframe, int framenum )
 {
-	dspritegroup_t	*pingroup;
+	const dspritegroup_t	*pingroup;
 	mspritegroup_t	*pspritegroup;
-	dspriteinterval_t	*pin_intervals;
+	const dspriteinterval_t	*pin_intervals;
 	float		*poutintervals;
 	int		i, groupsize, numframes;
-	void		*ptemp;
+	const void		*ptemp;
 
-	pingroup = (dspritegroup_t *)pin;
+	pingroup = (const dspritegroup_t *)pin;
 	numframes = pingroup->numframes;
 
 	groupsize = sizeof( mspritegroup_t ) + (numframes - 1) * sizeof( pspritegroup->frames[0] );
@@ -114,7 +114,7 @@ static dframetype_t *R_SpriteLoadGroup( model_t *mod, void *pin, mspriteframe_t 
 	pspritegroup->numframes = numframes;
 
 	*ppframe = (mspriteframe_t *)pspritegroup;
-	pin_intervals = (dspriteinterval_t *)(pingroup + 1);
+	pin_intervals = (const dspriteinterval_t *)(pingroup + 1);
 	poutintervals = Mem_Calloc( mod->mempool, numframes * sizeof( float ));
 	pspritegroup->intervals = poutintervals;
 
@@ -127,13 +127,13 @@ static dframetype_t *R_SpriteLoadGroup( model_t *mod, void *pin, mspriteframe_t 
 		pin_intervals++;
 	}
 
-	ptemp = (void *)pin_intervals;
+	ptemp = (const void *)pin_intervals;
 	for( i = 0; i < numframes; i++ )
 	{
 		ptemp = R_SpriteLoadFrame( mod, ptemp, &pspritegroup->frames[i], framenum * 10 + i );
 	}
 
-	return (dframetype_t *)ptemp;
+	return (const dframetype_t *)ptemp;
 }
 
 /*
@@ -167,7 +167,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	if( numi == NULL )
 	{
 		rgbdata_t	*pal;
-	
+
 		pal = gEngfuncs.FS_LoadImage( "#id.pal", (byte *)&i, 768 );
 		pframetype = (const dframetype_t *)((const byte*)buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
 		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
@@ -194,7 +194,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		pframetype = (const dframetype_t *)(src + 768);
 		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
 	}
-	else 
+	else
 	{
 		gEngfuncs.Con_DPrintf( S_ERROR "%s has wrong number of palette colors %i (should be 256)\n", mod->name, *numi );
 		return;
@@ -206,7 +206,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	for( i = 0; i < mod->numframes; i++ )
 	{
 		frametype_t frametype = pframetype->type;
-		psprite->frames[i].type = frametype;
+		psprite->frames[i].type = (spriteframetype_t)frametype;
 
 		switch( frametype )
 		{
@@ -237,7 +237,7 @@ Loading a bitmap image as sprite with multiple frames
 as pieces of input image
 ====================
 */
-void GAME_EXPORT Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean *loaded )
+void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean *loaded )
 {
 	byte		*src, *dst;
 	rgbdata_t		*pix, temp;
@@ -360,7 +360,7 @@ release sprite model and frames
 void Mod_SpriteUnloadTextures( void *data )
 {
 	msprite_t		*psprite;
-	mspritegroup_t	*pspritegroup;	
+	mspritegroup_t	*pspritegroup;
 	mspriteframe_t	*pspriteframe;
 	int		i, j;
 
@@ -424,7 +424,7 @@ mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 	{
 		pspriteframe = psprite->frames[frame].frameptr;
 	}
-	else if( psprite->frames[frame].type == SPR_GROUP ) 
+	else if( psprite->frames[frame].type == SPR_GROUP )
 	{
 		pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
 		pintervals = pspritegroup->intervals;
@@ -481,7 +481,7 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 	if( frame < 0 )
 	{
 		frame = 0;
-	}          
+	}
 	else if( frame >= psprite->numframes )
 	{
 		gEngfuncs.Con_Reportf( S_WARN "R_GetSpriteFrameInterpolant: no such frame %d (%s)\n", frame, ent->model->name );
@@ -500,7 +500,7 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 				ent->latched.sequencetime = gpGlobals->time;
 				lerpFrac = 1.0f;
 			}
-                              
+
 			if( ent->latched.sequencetime < gpGlobals->time )
 			{
 				if( frame != ent->latched.prevblending[1] )
@@ -537,7 +537,7 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 		if( oldframe ) *oldframe = psprite->frames[ent->latched.prevblending[0]].frameptr;
 		if( curframe ) *curframe = psprite->frames[frame].frameptr;
 	}
-	else if( psprite->frames[frame].type == FRAME_GROUP ) 
+	else if( psprite->frames[frame].type == FRAME_GROUP )
 	{
 		pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
 		pintervals = pspritegroup->intervals;
@@ -672,9 +672,7 @@ static float R_SpriteGlowBlend( vec3_t origin, int rendermode, int renderfx, flo
 		tr = gEngfuncs.EV_VisTraceLine( RI.vieworg, origin, r_traceglow->value ? PM_GLASS_IGNORE : (PM_GLASS_IGNORE|PM_STUDIO_IGNORE));
 
 		if(( 1.0f - tr->fraction ) * dist > 8.0f )
-		{
 			return 0.0f;
-		}
 	}
 
 	if( renderfx == kRenderFxNoDissipation )
@@ -700,7 +698,6 @@ qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 	{
 		float	blend;
 		vec3_t	v;
-		//return false;
 
 		TriWorldToScreen( origin, v );
 
@@ -721,7 +718,7 @@ qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 			return true;
 	}
 
-	return false;	
+	return false;
 }
 
 /*
@@ -828,7 +825,7 @@ static qboolean R_SpriteHasLightmap( cl_entity_t *e, int texFormat )
 {
 	if( !r_sprite_lighting->value )
 		return false;
-	
+
 	if( texFormat != SPR_ALPHTEST )
 		return false;
 
@@ -900,7 +897,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	if( e->curstate.aiment > 0 && e->curstate.movetype == MOVETYPE_FOLLOW )
 	{
 		cl_entity_t	*parent;
-	
+
 		parent = gEngfuncs.GetEntityByIndex( e->curstate.aiment );
 
 		if( parent && parent->model )
@@ -967,7 +964,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		color[1] = 1.0f;
 		color[2] = 1.0f;
 	}
-          
+
 	if( R_SpriteHasLightmap( e, psprite->texFormat ))
 	{
 		colorVec lightColor = R_LightPoint( origin );
@@ -1020,14 +1017,14 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		break;
 	case SPR_FWD_PARALLEL: // normal sprite
 	default:
-		VectorCopy( RI.vright, v_right ); 
+		VectorCopy( RI.vright, v_right );
 		VectorCopy( RI.vup, v_up );
 		break;
 	}
 
 	//if( psprite->facecull == SPR_CULL_NONE )
 		//GL_Cull( GL_NONE );
-		
+
 	if( oldframe == frame )
 	{
 		// draw the single non-lerped frame
