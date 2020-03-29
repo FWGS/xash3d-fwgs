@@ -50,21 +50,21 @@ Studio models are position independent, so the cache manager can move them.
 #define MAXSTUDIOATTACHMENTS		4	// max attachments per model
 
 // client-side model flags
-#define STUDIO_ROCKET		(1<<0)	// leave a trail
-#define STUDIO_GRENADE		(1<<1)	// leave a trail
-#define STUDIO_GIB			(1<<2)	// leave a trail
-#define STUDIO_ROTATE		(1<<3)	// rotate (bonus items)
-#define STUDIO_TRACER		(1<<4)	// green split trail
-#define STUDIO_ZOMGIB		(1<<5)	// small blood trail
-#define STUDIO_TRACER2		(1<<6)	// orange split trail + rotate
-#define STUDIO_TRACER3		(1<<7)	// purple trail
-#define STUDIO_AMBIENT_LIGHT		(1<<8)	// force to use ambient shading 
-#define STUDIO_TRACE_HITBOX		(1<<9)	// always use hitbox trace instead of bbox
-#define STUDIO_FORCE_SKYLIGHT		(1<<10)	// always grab lightvalues from the sky settings (even if sky is invisible)
+#define STUDIO_ROCKET		(1U<<0)	// leave a trail
+#define STUDIO_GRENADE		(1U<<1)	// leave a trail
+#define STUDIO_GIB		(1U<<2)	// leave a trail
+#define STUDIO_ROTATE		(1U<<3)	// rotate (bonus items)
+#define STUDIO_TRACER		(1U<<4)	// green split trail
+#define STUDIO_ZOMGIB		(1U<<5)	// small blood trail
+#define STUDIO_TRACER2		(1U<<6)	// orange split trail + rotate
+#define STUDIO_TRACER3		(1U<<7)	// purple trail
+#define STUDIO_AMBIENT_LIGHT		(1U<<8)	// force to use ambient shading
+#define STUDIO_TRACE_HITBOX		(1U<<9)	// always use hitbox trace instead of bbox
+#define STUDIO_FORCE_SKYLIGHT		(1U<<10)	// always grab lightvalues from the sky settings (even if sky is invisible)
 
-#define STUDIO_STATIC_PROP		(1<<29)	// hint for engine
-#define STUDIO_HAS_BONEINFO		(1<<30)	// extra info about bones (pose matrix, procedural index etc)
-#define STUDIO_HAS_BONEWEIGHTS	(1<<31)	// yes we got support of bone weighting
+#define STUDIO_STATIC_PROP		(1U<<29)	// hint for engine
+#define STUDIO_HAS_BONEINFO		(1U<<30)	// extra info about bones (pose matrix, procedural index etc)
+#define STUDIO_HAS_BONEWEIGHTS	(1U<<31)	// yes we got support of bone weighting
 
 // lighting & rendermode options
 #define STUDIO_NF_FLATSHADE		0x0001
