@@ -428,6 +428,11 @@ const char *R_GetConfigName( void )
 	return "ref_soft"; // software specific cvars will go to ref_soft.cfg
 }
 
+static void* GAME_EXPORT R_GetProcAddress( const char *name )
+{
+	return gEngfuncs.GL_GetProcAddress( name );
+}
+
 ref_interface_t gReffuncs =
 {
 	R_Init,
@@ -544,6 +549,7 @@ ref_interface_t gReffuncs =
 	Mod_GetCurrentVis,
 	R_NewMap,
 	R_ClearScene,
+	R_GetProcAddress,
 
 	TriRenderMode,
 	TriBegin,
