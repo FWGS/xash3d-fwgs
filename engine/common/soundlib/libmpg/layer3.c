@@ -711,6 +711,34 @@ static int III_get_scale_factors_2( mpg123_handle_t *fr, int *scf, gr_info_t *gr
 	return numbits;
 }
 
+/* 24 is enough because tab13 has max. a 19 bit huffvector */
+/* The old code played games with shifting signed integers around in not quite */
+/* legal ways. Also, it used long where just 32 bits are required. This could */
+/* be good or bad on 64 bit architectures ... anyway, making clear that */
+/* 32 bits suffice is a benefit. */
+#if 0
+/* To reconstruct old code, use this: */
+#define MASK_STYPE long
+#define MASK_UTYPE unsigned long
+#define MASK_TYPE MASK_STYPE
+#define MSB_MASK (mask < 0)
+#else
+/* This should be more proper: */
+#define MASK_STYPE int32_t
+#define MASK_UTYPE uint32_t
+#define MASK_TYPE  MASK_UTYPE
+#define MSB_MASK ((MASK_UTYPE)mask & (MASK_UTYPE)1<<(sizeof(MASK_TYPE)*8-1))
+#endif
+
+// 24 is enough because tab13 has max. a 19 bit huffvector
+#define BITSHIFT	((sizeof(MASK_TYPE) - 1) * 8)
+
+#define REFRESH_MASK \
+	while( num < BITSHIFT ) { \
+		mask |= ((MASK_UTYPE)getbyte( fr )) << (BITSHIFT - num); \
+		num += 8; \
+		part2remain -= 8; }
+
 static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT], int *scf, gr_info_t *gr_info, int sfreq, int part2bits )
 {
 	int	shift = 1 + gr_info->scalefac_scale;
@@ -721,11 +749,11 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 	int	num = getbitoffset( fr );
 	float	*xrpnt = (float *)xr;
 	int	l[3], l3;
-	long	mask;
+	MASK_TYPE mask;
 	int	*me;
 
 	// we must split this, because for num == 0 the shift is undefined if you do it in one step.
-	mask  = ((ulong)getbits( fr, num )) << BITSHIFT;
+	mask  = ((MASK_UTYPE)getbits( fr, num )) << BITSHIFT;
 	mask <<= 8 - num;
 	part2remain -= num;
 
@@ -789,7 +817,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 
 			for( ; lp; lp--, mc-- )
 			{
-				register long	x, y;
+				register MASK_STYPE x, y;
 
 				if( (!mc) )
 				{
@@ -815,7 +843,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 
 					while(( y = *val++ ) < 0 )
 					{
-						if( mask < 0 )
+						if( MSB_MASK )
 							val -= y;
 
 						num--;
@@ -830,11 +858,11 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 					max[lwin] = cb;
 					REFRESH_MASK;
 
-					x += ((ulong)mask) >> (BITSHIFT + 8 - h->linbits);
+					x += ((MASK_UTYPE)mask) >> (BITSHIFT + 8 - h->linbits);
 					num -= h->linbits + 1;
 					mask <<= h->linbits;
 
-					if( mask < 0 ) *xrpnt = REAL_MUL_SCALE_LAYER3( -ispow[x], v );
+					if( MSB_MASK ) *xrpnt = REAL_MUL_SCALE_LAYER3( -ispow[x], v );
 					else *xrpnt = REAL_MUL_SCALE_LAYER3( ispow[x], v );
 
 					mask <<= 1;
@@ -843,7 +871,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 				{
 					max[lwin] = cb;
 
-					if( mask < 0 ) *xrpnt = REAL_MUL_SCALE_LAYER3( -ispow[x], v );
+					if( MSB_MASK ) *xrpnt = REAL_MUL_SCALE_LAYER3( -ispow[x], v );
 					else *xrpnt = REAL_MUL_SCALE_LAYER3( ispow[x], v );
 
 					num--;
@@ -858,11 +886,11 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 					max[lwin] = cb;
 					REFRESH_MASK;
 
-					y += ((ulong) mask) >> (BITSHIFT + 8 - h->linbits);
+					y += ((MASK_UTYPE) mask) >> (BITSHIFT + 8 - h->linbits);
 					num -= h->linbits + 1;
 					mask <<= h->linbits;
 
-					if( mask < 0 ) *xrpnt = REAL_MUL_SCALE_LAYER3( -ispow[y], v );
+					if( MSB_MASK ) *xrpnt = REAL_MUL_SCALE_LAYER3( -ispow[y], v );
 					else *xrpnt = REAL_MUL_SCALE_LAYER3( ispow[y], v );
 
 					mask <<= 1;
@@ -871,7 +899,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 				{
 					max[lwin] = cb;
 
-					if( mask < 0 ) *xrpnt = REAL_MUL_SCALE_LAYER3( -ispow[y], v );
+					if( MSB_MASK ) *xrpnt = REAL_MUL_SCALE_LAYER3( -ispow[y], v );
 					else *xrpnt = REAL_MUL_SCALE_LAYER3( ispow[y], v );
 
 					num--;
@@ -904,7 +932,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 
 			while(( a = *val++ ) < 0 )
 			{
-				if( mask < 0 )
+				if( MSB_MASK )
 					val -= a;
 
 				num--;
@@ -949,7 +977,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 					if( part2remain + num <= 0 )
 						break;
 
-					if( mask < 0 ) *xrpnt = -REAL_SCALE_LAYER3( v );
+					if( MSB_MASK ) *xrpnt = -REAL_SCALE_LAYER3( v );
 					else *xrpnt =  REAL_SCALE_LAYER3( v );
 
 					num--;
@@ -1011,7 +1039,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 
 			for( ; lp; lp--, mc-- )
 			{
-				long	x, y;
+				MASK_STYPE	x, y;
 
 				if( !mc )
 				{
@@ -1025,7 +1053,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 
 					while(( y = *val++ ) < 0 )
 					{
-						if( mask < 0 )
+						if( MSB_MASK )
 							val -= y;
 
 						num--;
@@ -1041,11 +1069,11 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 					max = cb;
 					REFRESH_MASK;
 
-					x += ((ulong)mask) >> (BITSHIFT + 8 - h->linbits);
+					x += ((MASK_UTYPE)mask) >> (BITSHIFT + 8 - h->linbits);
 					num -= h->linbits+1;
 					mask <<= h->linbits;
 
-					if( mask < 0 ) *xrpnt++ = REAL_MUL_SCALE_LAYER3(-ispow[x], v );
+					if( MSB_MASK ) *xrpnt++ = REAL_MUL_SCALE_LAYER3(-ispow[x], v );
 					else *xrpnt++ = REAL_MUL_SCALE_LAYER3( ispow[x], v );
 
 					mask <<= 1;
@@ -1054,7 +1082,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 				{
 					max = cb;
 
-					if( mask < 0 ) *xrpnt++ = REAL_MUL_SCALE_LAYER3( -ispow[x], v );
+					if( MSB_MASK ) *xrpnt++ = REAL_MUL_SCALE_LAYER3( -ispow[x], v );
 					else *xrpnt++ = REAL_MUL_SCALE_LAYER3( ispow[x], v );
 					num--;
 
@@ -1066,11 +1094,11 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 				{
 					max = cb;
 					REFRESH_MASK;
-					y += ((ulong)mask) >> (BITSHIFT + 8 - h->linbits);
+					y += ((MASK_UTYPE)mask) >> (BITSHIFT + 8 - h->linbits);
 					num -= h->linbits+1;
 					mask <<= h->linbits;
 
-					if( mask < 0 ) *xrpnt++ = REAL_MUL_SCALE_LAYER3( -ispow[y], v );
+					if( MSB_MASK ) *xrpnt++ = REAL_MUL_SCALE_LAYER3( -ispow[y], v );
 					else *xrpnt++ = REAL_MUL_SCALE_LAYER3( ispow[y], v );
 
 					mask <<= 1;
@@ -1078,7 +1106,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 				else if( y )
 				{
 					max = cb;
-					if( mask < 0 ) *xrpnt++ = REAL_MUL_SCALE_LAYER3( -ispow[y], v );
+					if( MSB_MASK ) *xrpnt++ = REAL_MUL_SCALE_LAYER3( -ispow[y], v );
 					else *xrpnt++ = REAL_MUL_SCALE_LAYER3( ispow[y], v );
 
 					num--;
@@ -1098,7 +1126,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 			REFRESH_MASK;
 			while(( a = *val++ ) < 0 )
 			{
-				if( mask < 0 )
+				if( MSB_MASK )
 					val -= a;
 
 				num--;
@@ -1131,7 +1159,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 					if( part2remain + num <= 0 )
 						break;
 
-					if( mask < 0 ) *xrpnt++ = -REAL_SCALE_LAYER3( v );
+					if( MSB_MASK ) *xrpnt++ = -REAL_SCALE_LAYER3( v );
 					else *xrpnt++ = REAL_SCALE_LAYER3( v );
 
 					num--;
