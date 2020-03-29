@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "r_local.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 #include "const.h"
 #include "r_studioint.h"
 #include "triangleapi.h"
@@ -2432,11 +2432,11 @@ R_StudioSetRemapColors
 */
 static void R_StudioSetRemapColors( int newTop, int newBottom )
 {
-	gEngfuncs.CL_AllocRemapInfo( newTop, newBottom );
+	gEngfuncs.CL_AllocRemapInfo( RI.currententity, newTop, newBottom );
 
 	if( gEngfuncs.CL_GetRemapInfoForEntity( RI.currententity ))
 	{
-		gEngfuncs.CL_UpdateRemapInfo( newTop, newBottom );
+		gEngfuncs.CL_UpdateRemapInfo( RI.currententity, newTop, newBottom );
 		m_fDoRemap = true;
 	}
 }

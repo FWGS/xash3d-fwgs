@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "r_local.h"
-#include "mathlib.h"
+#include "xash3d_mathlib.h"
 
 /*
 ========================================================================
