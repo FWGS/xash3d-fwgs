@@ -754,6 +754,27 @@ static void Host_Crash_f( void )
 
 /*
 =================
+Host_Userconfigd_f
+=================
+*/
+void Host_Userconfigd_f( void )
+{
+	search_t *t;
+	int i;
+
+	t = FS_Search( "userconfig.d/*.cfg", true, false );
+	if( !t ) return;
+
+	for( i = 0; i < t->numfilenames; i++ )
+	{
+		Cbuf_AddText( va("exec %s\n", t->filenames[i] ) );
+	}
+
+	Mem_Free( t );
+}
+
+/*
+=================
 Host_InitCommon
 =================
 */
@@ -929,6 +950,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	Cmd_AddCommand( "exec", Host_Exec_f, "execute a script file" );
 	Cmd_AddCommand( "memlist", Host_MemStats_f, "prints memory pool information" );
+	Cmd_AddCommand( "userconfigd", Host_Userconfigd_f, "execute all scripts from userconfig.d" );
 
 	FS_Init();
 	Image_Init();
@@ -1047,6 +1069,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 			Cbuf_AddText( "exec config.cfg\n" );
 			Cbuf_Execute();
 		}
+		// exec all files from userconfig.d 
+		Host_Userconfigd_f();
 		break;
 	case HOST_DEDICATED:
 		// allways parse commandline in dedicated-mode
