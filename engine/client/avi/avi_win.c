@@ -59,14 +59,14 @@ dll_info_t msacm_dll = { "msacm32.dll", msacm_funcs, false };
 static int (_stdcall *pAVIStreamInfo)( PAVISTREAM pavi, AVISTREAMINFO *psi, LONG lSize );
 static int (_stdcall *pAVIStreamRead)( PAVISTREAM pavi, LONG lStart, LONG lSamples, void *lpBuffer, LONG cbBuffer, LONG *plBytes, LONG *plSamples );
 static PGETFRAME (_stdcall *pAVIStreamGetFrameOpen)( PAVISTREAM pavi, LPBITMAPINFOHEADER lpbiWanted );
-static long (_stdcall *pAVIStreamTimeToSample)( PAVISTREAM pavi, LONG lTime );
+static int (_stdcall *pAVIStreamTimeToSample)( PAVISTREAM pavi, LONG lTime );
 static void* (_stdcall *pAVIStreamGetFrame)( PGETFRAME pg, LONG lPos );
 static int (_stdcall *pAVIStreamGetFrameClose)( PGETFRAME pg );
 static dword (_stdcall *pAVIStreamRelease)( PAVISTREAM pavi );
 static int (_stdcall *pAVIFileOpen)( PAVIFILE *ppfile, LPCSTR szFile, UINT uMode, LPCLSID lpHandler );
 static int (_stdcall *pAVIFileGetStream)( PAVIFILE pfile, PAVISTREAM *ppavi, DWORD fccType, LONG lParam );
 static int (_stdcall *pAVIStreamReadFormat)( PAVISTREAM pavi, LONG lPos,LPVOID lpFormat, LONG *lpcbFormat );
-static long (_stdcall *pAVIStreamStart)( PAVISTREAM pavi );
+static int (_stdcall *pAVIStreamStart)( PAVISTREAM pavi );
 static dword (_stdcall *pAVIFileRelease)( PAVIFILE pfile );
 static void (_stdcall *pAVIFileInit)( void );
 static void (_stdcall *pAVIFileExit)( void );
@@ -100,17 +100,17 @@ typedef struct movie_state_s
 	PAVIFILE		pfile;		// avi file pointer
 	PAVISTREAM	video_stream;	// video stream pointer
 	PGETFRAME		video_getframe;	// pointer to getframe object for video stream
-	long		video_frames;	// total frames
-	long		video_xres;	// video stream resolution
-	long		video_yres;
+	int		video_frames;	// total frames
+	int		video_xres;	// video stream resolution
+	int		video_yres;
 	float		video_fps;	// video stream fps
 
 	PAVISTREAM	audio_stream;	// audio stream pointer
 	WAVEFORMAT	*audio_header;	// audio stream header
-	long		audio_header_size;	// WAVEFORMAT is returned for PCM data; WAVEFORMATEX for others
-	long		audio_codec;	// WAVE_FORMAT_PCM is oldstyle: anything else needs conversion
-	long		audio_length;	// in converted samples
-	long		audio_bytes_per_sample; // guess.
+	int		audio_header_size;	// WAVEFORMAT is returned for PCM data; WAVEFORMATEX for others
+	int		audio_codec;	// WAVE_FORMAT_PCM is oldstyle: anything else needs conversion
+	int		audio_length;	// in converted samples
+	int		audio_bytes_per_sample; // guess.
 
 	// compressed audio specific data
 	dword		cpa_blockalign;	// block size to read
@@ -296,7 +296,7 @@ int AVI_TimeToSoundPosition( movie_state_t *Avi, int time )
 }
 
 // gets the raw frame data
-byte *AVI_GetVideoFrame( movie_state_t *Avi, long frame )
+byte *AVI_GetVideoFrame( movie_state_t *Avi, int frame )
 {
 	LPBITMAPINFOHEADER	frame_info;
 	byte		*frame_raw;
@@ -385,7 +385,7 @@ qboolean AVI_SeekPosition( movie_state_t *Avi, dword offset )
 // get a chunk of audio from the stream (in bytes)
 int AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, int offset, int length )
 {
-	long	result = 0;
+	int	result = 0;
 	int	i;
 
 	// zero data past the end of the file
@@ -393,7 +393,7 @@ int AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, int offset, int leng
 	{
 		if( offset <= Avi->audio_length )
 		{
-			long	remaining_length = Avi->audio_length - offset;
+			int	remaining_length = Avi->audio_length - offset;
 
 			AVI_GetAudioChunk( Avi, audiodata, offset, remaining_length );
 
@@ -428,7 +428,7 @@ int AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, int offset, int leng
 
 		while( length > 0 )
 		{
-			long	blockread = Avi->cpa_conversion_header.cbDstLengthUsed - Avi->cpa_blockpos;
+			int	blockread = Avi->cpa_conversion_header.cbDstLengthUsed - Avi->cpa_blockpos;
 
 			if( blockread <= 0 ) // read next
 			{
@@ -491,7 +491,7 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 {
 	BITMAPINFOHEADER	bmih;
 	AVISTREAMINFO	stream_info;
-	long		opened_streams = 0;
+	int		opened_streams = 0;
 	LONG		hr;
 
 	// default state: non-working.
@@ -558,7 +558,7 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 		}
 		else if( stream_info.fccType == streamtypeAUDIO && Avi->audio_stream == NULL && load_audio )
 		{
-			long	size;
+			int	size;
 
 			Avi->audio_stream = stream;
 
@@ -571,7 +571,7 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 			Avi->audio_codec = Avi->audio_header->wFormatTag;
 
 			// length of converted audio in samples
-			Avi->audio_length = (long)((float)stream_info.dwLength / Avi->audio_header->nAvgBytesPerSec );
+			Avi->audio_length = (int)((float)stream_info.dwLength / Avi->audio_header->nAvgBytesPerSec );
 			Avi->audio_length *= Avi->audio_header->nSamplesPerSec;
 
 			if( Avi->audio_codec != WAVE_FORMAT_PCM )
