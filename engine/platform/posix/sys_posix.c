@@ -33,7 +33,7 @@ static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size
 		return false;
 
 	envPath = getenv( "PATH" );
-	if( !envPath )
+	if( !COM_CheckString( envPath ) )
 		return false;
 
 	baseNameLength = Q_strlen( baseName );

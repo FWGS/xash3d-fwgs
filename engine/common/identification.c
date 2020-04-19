@@ -640,7 +640,7 @@ void ID_Init( void )
 #else
 	{
 		const char *home = getenv( "HOME" );
-		if( home )
+		if( COM_CheckString( home ) )
 		{
 			FILE *cfg = fopen( va( "%s/.config/.xash_id", home ), "r" );
 			if( !cfg )
@@ -690,7 +690,7 @@ void ID_Init( void )
 #else
 	{
 		const char *home = getenv( "HOME" );
-		if( home )
+		if( COM_CheckString( home ) )
 		{
 			FILE *cfg = fopen( va( "%s/.config/.xash_id", home ), "w" );
 			if( !cfg )
