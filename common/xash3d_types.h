@@ -7,6 +7,7 @@
 #endif // _WIN32
 
 #include <sys/types.h> // off_t
+#include STDINT_H
 
 typedef unsigned char byte;
 typedef int		sound_t;
@@ -29,14 +30,7 @@ typedef enum { false, true }	qboolean;
 typedef int qboolean;
 #endif
 
-#if _MSC_VER == 1200
-typedef __int64 integer64; //msvc6
-#elif defined (XASH_SDL) && !defined(REF_DLL)
-typedef Uint64 integer64;
-#else
-typedef unsigned long long integer64;
-#endif
-typedef integer64 longtime_t;
+typedef uint64_t longtime_t;
 
 #define MAX_STRING		256	// generic string
 #define MAX_INFO_STRING	256	// infostrings are transmitted across network
