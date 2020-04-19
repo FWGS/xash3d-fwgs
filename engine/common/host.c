@@ -899,7 +899,9 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	Platform_Init();
 
-	if( ( baseDir = getenv( "XASH3D_BASEDIR" ) ) )
+	baseDir = getenv( "XASH3D_BASEDIR" );
+
+	if( COM_CheckString( baseDir ) )
 	{
 		Q_strncpy( host.rootdir, baseDir, sizeof(host.rootdir) );
 	}
@@ -932,9 +934,9 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	host.rodir[0] = 0;
 	if( !Sys_GetParmFromCmdLine( "-rodir", host.rodir ))
 	{
-		char *roDir;
+		char *roDir = getenv( "XASH3D_RODIR" );
 
-		if(( roDir = getenv( "XASH3D_RODIR" )))
+		if( COM_CheckString( roDir ))
 			Q_strncpy( host.rodir, roDir, sizeof( host.rodir ));
 	}
 

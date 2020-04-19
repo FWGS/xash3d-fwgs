@@ -1383,9 +1383,11 @@ void FS_Rescan( void )
 		FS_AddPak_Fullpath( va( "%sextras_%s.pak", SDL_GetBasePath(), GI->gamefolder ), NULL, extrasFlags );
 	}
 #else
-	if( ( str = getenv( "XASH3D_EXTRAS_PAK1" ) ) )
+	str = getenv( "XASH3D_EXTRAS_PAK1" );
+	if( COM_CheckString( str ) )
 		FS_AddPak_Fullpath( str, NULL, extrasFlags );
-	if( ( str = getenv( "XASH3D_EXTRAS_PAK2" ) ) )
+	str = getenv( "XASH3D_EXTRAS_PAK2" );
+	if( COM_CheckString( str ) )
 		FS_AddPak_Fullpath( str, NULL, extrasFlags );
 #endif
 

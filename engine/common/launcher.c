@@ -68,7 +68,7 @@ int main( int argc, char** argv )
 	char gamedir_buf[32] = "";
 	const char *gamedir = getenv( "XASH3D_GAMEDIR" );
 
-	if( !gamedir )
+	if( !COM_CheckString( gamedir ) )
 	{
 		gamedir = "valve";
 	}
