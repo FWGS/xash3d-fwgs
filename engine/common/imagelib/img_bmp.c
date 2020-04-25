@@ -344,6 +344,7 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 	hdr.id[0] = 'B';
 	hdr.id[1] = 'M';
 	hdr.fileSize =  sizeof( hdr ) + cbBmpBits + cbPalBytes;
+	hdr.reserved0 = 0;
 	hdr.bitmapDataOffset = sizeof( hdr ) + cbPalBytes;
 	hdr.bitmapHeaderSize = BI_SIZE;
 	hdr.width = biTrueWidth;
