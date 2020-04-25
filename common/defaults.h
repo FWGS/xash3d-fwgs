@@ -137,7 +137,7 @@ SETUP BACKENDS DEFINITIONS
 #define XASH_LIB LIB_STATIC
 #define XASH_INTERNAL_GAMELIBS
 #define XASH_ALLOW_SAVERESTORE_OFFSETS
-#elif defined _WIN32
+#elif XASH_WIN32
 #define XASH_LIB LIB_WIN32
 #elif XASH_POSIX
 #define XASH_LIB LIB_POSIX
@@ -157,7 +157,6 @@ SETUP BACKENDS DEFINITIONS
 #ifndef XASH_INPUT
 	#define XASH_INPUT INPUT_NULL
 #endif // XASH_INPUT
-
 
 /*
 =========================================================================
