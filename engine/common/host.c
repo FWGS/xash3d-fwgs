@@ -42,8 +42,6 @@ GNU General Public License for more details.
 #include "render_api.h"	// decallist_t
 
 
-typedef void (*pfnChangeGame)( const char *progname );
-
 pfnChangeGame	pChangeGame = NULL;
 host_parm_t		host;	// host parms
 sysinfo_t		SI;

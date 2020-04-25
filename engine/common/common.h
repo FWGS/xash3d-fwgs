@@ -674,8 +674,11 @@ const char *Q_buildcommit( void );
 //
 // host.c
 //
+typedef void( *pfnChangeGame )( const char *progname );
+
 qboolean Host_IsQuakeCompatible( void );
 void EXPORT Host_Shutdown( void );
+int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func );
 int Host_CompareFileTime( int ft1, int ft2 );
 void Host_NewInstance( const char *name, const char *finalmsg );
 void Host_EndGame( qboolean abort, const char *message, ... ) _format( 2 );

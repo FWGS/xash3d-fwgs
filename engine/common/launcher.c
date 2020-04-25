@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include <stdlib.h>
 #include <string.h>
 #include "build.h"
+#include "common.h"
 #ifdef XASH_SDLMAIN
 #include "SDL.h"
 #endif
@@ -25,17 +26,12 @@ GNU General Public License for more details.
 #if XASH_EMSCRIPTEN
 #include <emscripten.h>
 #endif
-typedef void (*pfnChangeGame)( const char *progname );
 
-char szGameDir[128]; // safe place to keep gamedir
-int g_iArgc;
+#define XASH_NOCONHOST 1
 
-void Host_Shutdown( void );
-void Launcher_ChangeGame( const char *progname );
-void *Com_LoadLibrary( char *, int );
-int Host_Main( int szArgc, char **szArgv, const char *szGameDir, int chg, pfnChangeGame callback );
-
-char **g_pszArgv;
+static char szGameDir[128]; // safe place to keep gamedir
+static int g_iArgc;
+static char **g_pszArgv;
 
 void Launcher_ChangeGame( const char *progname )
 {
@@ -44,23 +40,32 @@ void Launcher_ChangeGame( const char *progname )
 	exit( Host_Main( g_iArgc, g_pszArgv, szGameDir, 1, &Launcher_ChangeGame ) );
 }
 
-#ifdef XASH_NOCONHOST
+#if XASH_NOCONHOST
 #include <windows.h>
+#include <shellapi.h> // CommandLineToArgvW
 int __stdcall WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR cmdLine, int nShow)
 {
 	int szArgc;
 	char **szArgv;
 	LPWSTR* lpArgv = CommandLineToArgvW(GetCommandLineW(), &szArgc);
-	int size, i = 0;
+	int i = 0;
+
 	szArgv = (char**)malloc(szArgc*sizeof(char*));
 	for (; i < szArgc; ++i)
 	{
-		size = wcslen(lpArgv[i]) + 1;
+		size_t size = wcslen(lpArgv[i]) + 1;
 		szArgv[i] = (char*)malloc(size);
 		wcstombs(szArgv[i], lpArgv[i], size);
 	}
+	szArgv[i] = NULL;
+
 	LocalFree(lpArgv);
+
 	main( szArgc, szArgv );
+
+	for( i = 0; i < szArgc; ++i )
+		free( szArgv[i] );
+	free( szArgv );
 }
 #endif
 int main( int argc, char** argv )
@@ -81,9 +86,9 @@ int main( int argc, char** argv )
 #if XASH_EMSCRIPTEN
 #ifdef EMSCRIPTEN_LIB_FS
 	// For some unknown reason emscripten refusing to load libraries later
-	Com_LoadLibrary("menu", 0 );
-	Com_LoadLibrary("server", 0 );
-	Com_LoadLibrary("client", 0 );
+	COM_LoadLibrary("menu", 0 );
+	COM_LoadLibrary("server", 0 );
+	COM_LoadLibrary("client", 0 );
 #endif
 #if XASH_DEDICATED
 	// NodeJS support for debug
