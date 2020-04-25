@@ -140,7 +140,6 @@ def build(bld):
 			'client/vgui/*.c',
 			'client/avi/*.c'])
 
-	# HACK: public headers must be put before SDK common, so we don't get wrong mathlib included
 	includes = ['common', 'server', 'client', 'client/vgui', '.', '../public', '../common', '../pm_shared' ]
 
 	if bld.env.SINGLE_BINARY:
