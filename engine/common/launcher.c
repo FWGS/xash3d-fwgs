@@ -27,7 +27,9 @@ GNU General Public License for more details.
 #include <emscripten.h>
 #endif
 
+#if XASH_WIN32
 #define XASH_NOCONHOST 1
+#endif
 
 static char szGameDir[128]; // safe place to keep gamedir
 static int g_iArgc;
