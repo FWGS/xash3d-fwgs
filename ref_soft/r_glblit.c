@@ -260,8 +260,8 @@ static qboolean R_CreateBuffer_GLES1( int width, int height, uint *stride, uint 
 	pglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 	pglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 
-	if( vbo )
-		pglDeleteBuffers( 1,&vbo );
+	//if( vbo )
+	//	pglDeleteBuffers( 1,&vbo );
 
 	pglGenBuffers( 1,&vbo );
 	pglBindBuffer( GL_ARRAY_BUFFER_ARB, vbo );
@@ -304,8 +304,6 @@ static void R_Unlock_GLES3( void )
 	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, 0 );
 	//pglDrawArrays( GL_TRIANGLE_FAN, 0,4 );
 	pglBlitFramebuffer( 0, vid.height, vid.width, 0, 0, 0, vid.width, vid.height, GL_COLOR_BUFFER_BIT, GL_NEAREST );
-
-
 }
 
 static qboolean R_CreateBuffer_GLES3( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
@@ -323,7 +321,8 @@ static qboolean R_CreateBuffer_GLES3( int width, int height, uint *stride, uint 
 	pglGenTextures( 1, &to );
 	pglBindTexture( GL_TEXTURE_2D, to );
 	pglViewport( 0, 0, width, height );
-	/*pglMatrixMode( GL_PROJECTION );
+	/*
+	pglMatrixMode( GL_PROJECTION );
 	pglLoadIdentity();
 	// project 0..1 to screen size
 	pglOrtho( 0, 1, 1, 0, -99999, 99999 );
@@ -336,10 +335,10 @@ static qboolean R_CreateBuffer_GLES3( int width, int height, uint *stride, uint 
 
 	if( vbo )
 		pglDeleteBuffers( 1,&vbo );
-*/
 
 	if( pbo )
 		pglDeleteBuffers( 1,&pbo );
+	*/
 
 	//pglGenBuffers( 1,&vbo );
 	pglGenBuffers( 1, &pbo );
