@@ -13,6 +13,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+// GL API function pointers, if any, reside in this translation unit
+#define APIENTRY_LINKAGE
 #include "gl_local.h"
 #include "gl_export.h"
 
