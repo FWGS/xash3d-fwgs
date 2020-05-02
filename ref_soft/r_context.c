@@ -17,14 +17,11 @@ GNU General Public License for more details.
 
 ref_api_t      gEngfuncs;
 ref_globals_t *gpGlobals;
-ref_instance_t RI;
 gl_globals_t tr;
 ref_speeds_t r_stats;
 byte *r_temppool;
 cvar_t *gl_emboss_scale;
-cvar_t *r_drawentities;
 cvar_t *r_norefresh;
-cvar_t *vid_gamma;
 cvar_t	*vid_brightness;
 viddef_t vid;
 static void GAME_EXPORT R_ClearScreen( void )
