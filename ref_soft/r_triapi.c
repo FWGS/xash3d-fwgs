@@ -240,9 +240,9 @@ TriTexCoord2f
 
 =============
 */
-void GAME_EXPORT TriTexCoord2f( volatile float u, volatile float v )
+void GAME_EXPORT TriTexCoord2f( float u, float v )
 {
-	volatile double u1 = 0, v1 = 0;
+	double u1 = 0, v1 = 0;
 	u = fmodf(u, 10);
 	v = fmodf(v, 10);
 	if( u < 1000 && u > -1000 )
