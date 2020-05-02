@@ -20,7 +20,7 @@ GNU General Public License for more details.
 #endif
 
 #ifndef APIENTRY_LINKAGE
-#define APIENTRY_LINKAGE
+#define APIENTRY_LINKAGE extern
 #endif
 
 #if defined XASH_NANOGL || defined XASH_WES || defined XASH_REGAL
