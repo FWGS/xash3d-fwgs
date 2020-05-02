@@ -1520,7 +1520,7 @@ void R_PolysetFillSpans8 (spanpackage_t *pspanpackage)
 	do
 	{
 		lcount = d_aspancount - pspanpackage->count;
-		d_ptex + a_ststepxwhole * lcount  + ((a_sstepxfrac * lcount) >> 16) + ((a_tstepxfrac * lcount) >> 16)*r_affinetridesc.skinwidth;
+		// d_ptex + a_ststepxwhole * lcount  + ((a_sstepxfrac * lcount) >> 16) + ((a_tstepxfrac * lcount) >> 16)*r_affinetridesc.skinwidth;
 
 		errorterm += erroradjustup;
 		if (errorterm >= 0)
