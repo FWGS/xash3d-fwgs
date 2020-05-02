@@ -271,7 +271,7 @@ def configure(conf):
 		'-Werror=duplicated-branches', # BEWARE: buggy
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
-		'-Wuninitialized',
+		'-Werror=uninitialized',
 		'-Winit-self',
 		'-Werror=implicit-fallthrough=2', # clang incompatible without "=2"
 #		'-Wdouble-promotion', # disable warning flood
