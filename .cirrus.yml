@@ -3,6 +3,7 @@ task:
   freebsd_instance:
     image_family: freebsd-11-3-snap
   setup_script:
+    - pkg update
     - pkg install -y git sdl2 python
     - git submodule update --init --recursive
   test_script:
@@ -14,6 +15,7 @@ task:
   freebsd_instance:
     image_family: freebsd-12-1
   setup_script:
+    - pkg update
     - pkg install -y git sdl2 python
     - git submodule update --init --recursive
   test_script:
@@ -25,6 +27,7 @@ task:
   freebsd_instance:
     image_family: freebsd-13-0-snap
   setup_script:
+    - pkg update
     - pkg install -y git sdl2 python
     - git submodule update --init --recursive
   test_script:
