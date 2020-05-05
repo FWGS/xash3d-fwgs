@@ -39,7 +39,7 @@
     <string name="resize_on">Keyboard resizes screen</string>
     <string name="update_button">Check updates on start</string>
     <!--<string name="update_to_beta">Update to unstable version if available</string>-->
-    <string name="immersive_mode">Enable Immersive Mode(fullscreen, KitKat or higher)</string>
+    <string name="immersive_mode">Enable Immersive Mode(fullscreen, Android 4.4 or higher)</string>
     <string name="resolution">Fixed screen resolution (experimental)</string>
     <string name="resolution_scale">Scale screen keeping aspect ratio</string>
     <string name="resolution_custom">Specify screen width and height</string>
