@@ -34,7 +34,7 @@
     <string name="resize_on">Клавиатура меняет размер экрана игры</string>
     <string name="update_button">Проверять обновления при запуске</string>
     <!--<string name="update_to_beta">Обновлять до нестабильной версии, если доступно</string>-->
-    <string name="immersive_mode">Включить Immersive Mode(Полноэкранный режим, для KitKat и старше)</string>
+    <string name="immersive_mode">Включить Immersive Mode(Полноэкранный режим, для Android 4.4 и старше)</string>
     <string name="resolution">Установка разрешения игры</string>
     <string name="resolution_scale">Масштабировать сохраняя соотношение сторон</string>
     <string name="resolution_custom">Указать точный размер экрана</string>
