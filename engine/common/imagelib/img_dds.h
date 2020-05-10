@@ -77,40 +77,40 @@ GNU General Public License for more details.
 
 typedef struct dds_pf_s
 {
-	uint	dwSize;
-	uint	dwFlags;
-	uint	dwFourCC;
-	uint	dwRGBBitCount;
-	uint	dwRBitMask;
-	uint	dwGBitMask;
-	uint	dwBBitMask;
-	uint	dwABitMask;
+	uint32_t    dwSize;
+	uint32_t    dwFlags;
+	uint32_t    dwFourCC;
+	uint32_t    dwRGBBitCount;
+	uint32_t    dwRBitMask;
+	uint32_t    dwGBitMask;
+	uint32_t    dwBBitMask;
+	uint32_t    dwABitMask;
 } dds_pixf_t;
 
 //  DDCAPS2
 typedef struct dds_caps_s
 {
-	uint	dwCaps1;
-	uint	dwCaps2;
-	uint	dwCaps3;			// currently unused
-	uint	dwCaps4;			// currently unused
+	uint32_t    dwCaps1;
+	uint32_t    dwCaps2;
+	uint32_t    dwCaps3;			// currently unused
+	uint32_t    dwCaps4;			// currently unused
 } dds_caps_t;
 
 typedef struct dds_s
 {
-	uint		dwIdent;		// must matched with DDSHEADER
-	uint		dwSize;
-	uint		dwFlags;		// determines what fields are valid
-	uint		dwHeight;
-	uint		dwWidth;
-	uint		dwLinearSize;	// Formless late-allocated optimized surface size
-	uint		dwDepth;		// depth if a volume texture
-	uint		dwMipMapCount;	// number of mip-map levels requested
-	uint		dwAlphaBitDepth;	// depth of alpha buffer requested
-	uint		dwReserved1[10];	// reserved for future expansions
-	dds_pixf_t	dsPixelFormat;
-	dds_caps_t	dsCaps;
-	uint		dwTextureStage;
+	uint32_t    dwIdent;		// must matched with DDSHEADER
+	uint32_t    dwSize;
+	uint32_t    dwFlags;		// determines what fields are valid
+	uint32_t    dwHeight;
+	uint32_t    dwWidth;
+	uint32_t    dwLinearSize;	// Formless late-allocated optimized surface size
+	uint32_t    dwDepth;		// depth if a volume texture
+	uint32_t    dwMipMapCount;	// number of mip-map levels requested
+	uint32_t    dwAlphaBitDepth;	// depth of alpha buffer requested
+	uint32_t    dwReserved1[10];	// reserved for future expansions
+	dds_pixf_t  dsPixelFormat;
+	dds_caps_t  dsCaps;
+	uint32_t    dwTextureStage;
 } dds_t;
 #endif // IMG_DDS_H
 
