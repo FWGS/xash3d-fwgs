@@ -31,8 +31,13 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	int	reflectivity[3] = { 0, 0, 0 };
 	qboolean	load_qfont = false;
 	bmp_t	bhdr;
+	fs_offset_t estimatedSize;
 
-	if( filesize < sizeof( bhdr )) return false;
+	if( filesize < sizeof( bhdr ))
+	{
+		Con_Reportf( S_ERROR "Image_LoadBMP: %s have incorrect file size %li should be greater than %li (header)\n", name, filesize, sizeof( bhdr ) );
+		return false;
+	}
 
 	buf_p = (byte *)buffer;
 	memcpy( &bhdr, buf_p, sizeof( bmp_t ));
@@ -97,6 +102,13 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 		else cbPalBytes = bhdr.colors * sizeof( rgba_t );
 	}
 
+	estimatedSize = ( buf_p - buffer ) + cbPalBytes;
+	if( filesize < estimatedSize )
+	{
+		Con_Reportf( S_ERROR "Image_LoadBMP: %s have incorrect file size %li should be greater than %li (palette)\n", name, filesize, estimatedSize );
+		return false;
+	}
+
 	memcpy( palette, buf_p, cbPalBytes );
 
 	// setup gradient alpha for player decal
@@ -143,8 +155,6 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	buf_p += cbPalBytes;
-	image.size = image.width * image.height * bpp;
-	image.rgba = Mem_Malloc( host.imagepool, image.size );
 	bps = image.width * (bhdr.bitsPerPixel >> 3);
 
 	switch( bhdr.bitsPerPixel )
@@ -163,6 +173,22 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 		padSize = ( 4 - ( bps % 4 )) % 4;
 		break;
 	}
+
+	estimatedSize = ( buf_p - buffer ) + ( image.width + padSize ) * image.height * ( bhdr.bitsPerPixel >> 3 );
+	if( filesize < estimatedSize )
+	{
+		if( image.palette )
+		{
+			Mem_Free( image.palette );
+			image.palette = NULL;
+		}
+
+		Con_Reportf( S_ERROR "Image_LoadBMP: %s have incorrect file size %li should be greater than %li (pixels)\n", name, filesize, estimatedSize );
+		return false;
+	}
+
+	image.size = image.width * image.height * bpp;
+	image.rgba = Mem_Malloc( host.imagepool, image.size );
 
 	for( row = rows - 1; row >= 0; row-- )
 	{
