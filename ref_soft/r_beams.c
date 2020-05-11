@@ -198,7 +198,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	int	i, total_segs, segs_drawn;
 	float	div, length, fraction, factor;
 	float	flMaxWidth, vLast, vStep, brightness;
-	vec3_t	perp1, vLastNormal;
+	vec3_t	perp1, vLastNormal = { 0.0f };
 	beamseg_t	curSeg;
 	
 	if( segments < 2 ) return;

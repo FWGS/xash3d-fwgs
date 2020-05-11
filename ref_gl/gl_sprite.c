@@ -74,7 +74,7 @@ static const dframetype_t *R_SpriteLoadFrame( model_t *mod, const void *pin, msp
 	{
 		Q_snprintf( texname, sizeof( texname ), "#%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
 		gl_texturenum = GL_LoadTexture( texname, pin, pinframe.width * pinframe.height * bytes, r_texFlags );
-	}	
+	}
 
 	// setup frame description
 	pspriteframe = Mem_Malloc( mod->mempool, sizeof( mspriteframe_t ));
@@ -167,7 +167,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	if( numi == NULL )
 	{
 		rgbdata_t	*pal;
-	
+
 		pal = gEngfuncs.FS_LoadImage( "#id.pal", (byte *)&i, 768 );
 		pframetype = (const dframetype_t *)((const byte*)buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
 		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
@@ -194,7 +194,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		pframetype = (const dframetype_t *)(src + 768);
 		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
 	}
-	else 
+	else
 	{
 		gEngfuncs.Con_DPrintf( S_ERROR "%s has wrong number of palette colors %i (should be 256)\n", mod->name, *numi );
 		return;
@@ -360,7 +360,7 @@ release sprite model and frames
 void Mod_SpriteUnloadTextures( void *data )
 {
 	msprite_t		*psprite;
-	mspritegroup_t	*pspritegroup;	
+	mspritegroup_t	*pspritegroup;
 	mspriteframe_t	*pspriteframe;
 	int		i, j;
 
@@ -424,7 +424,7 @@ mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 	{
 		pspriteframe = psprite->frames[frame].frameptr;
 	}
-	else if( psprite->frames[frame].type == SPR_GROUP ) 
+	else if( psprite->frames[frame].type == SPR_GROUP )
 	{
 		pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
 		pintervals = pspritegroup->intervals;
@@ -537,7 +537,7 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 		if( oldframe ) *oldframe = psprite->frames[ent->latched.prevblending[0]].frameptr;
 		if( curframe ) *curframe = psprite->frames[frame].frameptr;
 	}
-	else if( psprite->frames[frame].type == FRAME_GROUP ) 
+	else if( psprite->frames[frame].type == FRAME_GROUP )
 	{
 		pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
 		pintervals = pspritegroup->intervals;
@@ -718,7 +718,7 @@ qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 			return true;
 	}
 
-	return false;	
+	return false;
 }
 
 /*
@@ -756,7 +756,7 @@ static qboolean R_SpriteHasLightmap( cl_entity_t *e, int texFormat )
 {
 	if( !r_sprite_lighting->value )
 		return false;
-	
+
 	if( texFormat != SPR_ALPHTEST )
 		return false;
 
@@ -815,7 +815,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	float		angle, dot, sr, cr;
 	float		lerp = 1.0f, ilerp, scale;
 	vec3_t		v_forward, v_right, v_up;
-	vec3_t		origin, color, color2;
+	vec3_t		origin, color, color2 = { 0.0f };
 
 	if( RI.params & RP_ENVVIEW )
 		return;
@@ -828,7 +828,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	if( e->curstate.aiment > 0 && e->curstate.movetype == MOVETYPE_FOLLOW )
 	{
 		cl_entity_t	*parent;
-	
+
 		parent = gEngfuncs.GetEntityByIndex( e->curstate.aiment );
 
 		if( parent && parent->model )
@@ -948,14 +948,14 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		break;
 	case SPR_FWD_PARALLEL: // normal sprite
 	default:
-		VectorCopy( RI.vright, v_right ); 
+		VectorCopy( RI.vright, v_right );
 		VectorCopy( RI.vup, v_up );
 		break;
 	}
 
 	if( psprite->facecull == SPR_CULL_NONE )
 		GL_Cull( GL_NONE );
-		
+
 	if( oldframe == frame )
 	{
 		// draw the single non-lerped frame
