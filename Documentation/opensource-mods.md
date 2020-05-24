@@ -262,7 +262,7 @@ Branch **dmc** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/dmc
 ## Half-Life: Echoes
 Branch **echoes** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/echoes
 
-## Half-Life: Induction
+## Half-Life: Invasion
 Port to HLSDK 2.4 by malortie - https://github.com/malortie/halflife/tree/mod-hl-invasion
 
 Port to Linux by fmoraw - https://github.com/fmoraw/hlinvasion
