@@ -35,6 +35,8 @@ We are using Waf build system. If you have some Waf-related questions, I recomme
 
 If you're stuck somewhere and you need a clear example, read `.travis.yml` and `scripts/build*.sh`.
 
+NOTE: NEVER USE GitHub's ZIP ARCHIVES. They are broken and don't contain external dependencies sources we're using.
+
 ### Prerequisites
 #### Windows(Visual Studio)
 * Install Visual Studio.
