@@ -40,7 +40,7 @@
     <string name="rodir_warning">"Зверніть увагу, що ваші налаштування і збереження гри будуть зберігатися в  %s"</string>
     <string name="firstrun">Відкрити інструкцію з встановлення</string>
     <string name="immersive_mode">Ввімкнути Режим Занурення (повноекранний, Android 4.4 або вище)</string>
-    <string name="folder">Встановити поточну папку</string>
+    <string name="folder">Вибрати поточну директорію</string>
     <string name="parent_directory">Батьківський каталог</string>
     <string name="resolution">Повноекранне розширення (експериментально)</string>
     <string name="resolution_custom">Задати ширину та висоту екрану</string>
