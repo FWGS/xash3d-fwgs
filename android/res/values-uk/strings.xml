@@ -41,10 +41,10 @@
     <string name="firstrun">Відкрити інструкцію з встановлення</string>
     <string name="immersive_mode">Ввімкнути Режим Занурення (повноекранний, Android 4.4 або вище)</string>
     <string name="folder">Обрати поточну директорію</string>
-    <string name="parent_directory">Батьківський каталог</string>
+    <string name="parent_directory">Попередня директорія</string>
     <string name="resolution">Повноекранне розширення (експериментально)</string>
     <string name="resolution_custom">Задати ширину та висоту екрану</string>
-    <string name="current_dir">Поточний каталог:</string>
+    <string name="current_dir">Поточна директорія:</string>
     <string name="select_folder">Виберіть місце розташування ігрових даних</string>
     <string name="about_button">Про програму</string>
     <string name="cancel">Скасувати</string>
@@ -55,15 +55,15 @@
     <string name="cmd_args_text">Аргументи командного рядка (лише для досвідчених користувачів)</string>
     <string name="text_tab1">Звичайні</string>
     <string name="text_res_rw_path">Шлях зберігання даних для запису (конфіги, збереження гри тощо)</string>
-    <string name="default_channel_description">Сповіщення про ігровий рушій</string>
+    <string name="default_channel_description">Оповіщення ігрового рушія</string>
     <string name="use_rodir_auto">Використовувати папку додатку</string>
     <string name="resolution_scale">Масштабувати екран зі збереженням співвідношення сторін</string>
     <string name="ask_about_new_basedir_msg">Перемістіть свої файли в інше місце, наприклад в Android/data/su.xash.engine або внутрішню память. При наступному запуску вас запитають про директорію знову.</string>
     <plurals name="item_plurals">
-        <item quantity="one">Один</item>
-        <item quantity="few">Декілька</item>
-        <item quantity="many">Інший</item>
-        <item quantity="other">Інший</item>
+        <item quantity="one">Немає директорій</item>
+        <item quantity="few">%d директорія</item>
+        <item quantity="many">%d директорій</item>
+        <item quantity="other">%d директорій</item>
     </plurals>
     <string name="resolution_mod_warn">Використвуйте обачно! Деякі ігри не підтримують занадто низьке розширення, при наявності багів варто збільшити розширення до 640x480 або вищого. Розширення нижчі ніж 320x240 ігноруються.</string>
 </resources>
