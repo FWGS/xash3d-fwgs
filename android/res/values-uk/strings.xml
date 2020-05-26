@@ -24,8 +24,8 @@
     <string name="kitkat_write_fail_msg">Через політику запису Android 4.4, ви не можете використовувати це сховище.</string>
     <string name="text_shortcut_test">Ярлик Xash3D FWGS Test</string>
     <string name="resolution_result">Розширення:</string>
-    <string name="gamedir">Директорія мода</string>
-    <string name="pkgname">Назва пакету мода (тільки для експертів)</string>
+    <string name="gamedir">Директорія модифікації</string>
+    <string name="pkgname">Назва пакету модифікації (тільки для досвідчених користувачів)</string>
     <string name="update_message">%s доступний! Завантажте зараз!</string>
     <string name="update">Оновити</string>
     <string name="no_updates">Оновлень не знайдено</string>
@@ -34,7 +34,7 @@
     <string name="lollipop_write_fail_msg">Через політику запису нових версій Android, ви не можете використовувати це сховище.</string>
     <string name="no_rodir">Класичне розміщення ігрових даних</string>
     <string name="readonly_fs_fail_msg">Здається ви маєте файлову систему лише для читання.</string>
-    <string name="resize_on">Клавіатура може змінювати розмір екрана</string>
+    <string name="resize_on">Клавіатура змінює розмір екрану</string>
     <string name="resize_off">Клавіатура не змінює розмір екрану</string>
     <string name="update_button">Перевіряти наявність оновлень при запуску</string>
     <string name="rodir_warning">Зауважте, що ваші налаштування та збереження будуть зберігатися в %s</string>
