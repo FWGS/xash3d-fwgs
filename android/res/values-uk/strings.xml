@@ -33,11 +33,11 @@
     <string name="write_failed">Тест на запис провалено</string>
     <string name="lollipop_write_fail_msg">Згідно політики запису нових версій Android, ви не можете використовувати це сховище.</string>
     <string name="no_rodir">Класичне розміщення ігрових даних</string>
-    <string name="readonly_fs_fail_msg">Здається ви маєте файлову систему лише для читання.</string>
+    <string name="readonly_fs_fail_msg">Здається ваша файлова система тільки для читання.</string>
     <string name="resize_on">Клавіатура змінює розмір екрану</string>
     <string name="resize_off">Клавіатура не змінює розмір екрану</string>
     <string name="update_button">Перевіряти наявність оновлень при запуску</string>
-    <string name="rodir_warning">Зауважте, що ваші налаштування та збереження будуть зберігатися в %s</string>
+    <string name="rodir_warning">"Зверніть увагу, що ваші налаштування і збереження будуть зберігатися в  %s"</string>
     <string name="firstrun">Відкрийте інструкцію з установки</string>
     <string name="immersive_mode">Ввімкнути Режим Занурення (повноекранний, Android 4.4 або вище)</string>
     <string name="folder">Встановити поточну папку</string>
