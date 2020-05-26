@@ -21,7 +21,7 @@
     <string name="convert_to_rodir">Конвертувати в RoDir</string>
     <string name="chosen_path">Обраний шлях:</string>
     <string name="default_channel_name">Ігровий рушій</string>
-    <string name="kitkat_write_fail_msg">Через політику запису Android 4.4, ви не можете використовувати це сховище.</string>
+    <string name="kitkat_write_fail_msg">Зігдно політики запису Android 4.4, ви не можете використовувати це сховище.</string>
     <string name="text_shortcut_test">Ярлик Xash3D FWGS Test</string>
     <string name="resolution_result">Розширення:</string>
     <string name="gamedir">Директорія модифікації</string>
@@ -31,7 +31,7 @@
     <string name="no_updates">Оновлень не знайдено</string>
     <string name="checking_updates">Працюю...</string>
     <string name="write_failed">Тест на запис провалено</string>
-    <string name="lollipop_write_fail_msg">Через політику запису нових версій Android, ви не можете використовувати це сховище.</string>
+    <string name="lollipop_write_fail_msg">Згідно політики запису нових версій Android, ви не можете використовувати це сховище.</string>
     <string name="no_rodir">Класичне розміщення ігрових даних</string>
     <string name="readonly_fs_fail_msg">Здається ви маєте файлову систему лише для читання.</string>
     <string name="resize_on">Клавіатура змінює розмір екрану</string>
