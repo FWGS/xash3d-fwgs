@@ -38,7 +38,7 @@
     <string name="resize_off">Клавіатура не змінює розмір екрану</string>
     <string name="update_button">Перевіряти наявність оновлень при запуску</string>
     <string name="rodir_warning">"Зверніть увагу, що ваші налаштування і збереження гри будуть зберігатися в  %s"</string>
-    <string name="firstrun">Відкрити інструкцію по встановленню</string>
+    <string name="firstrun">Відкрити інструкцію з встановлення</string>
     <string name="immersive_mode">Ввімкнути Режим Занурення (повноекранний, Android 4.4 або вище)</string>
     <string name="folder">Встановити поточну папку</string>
     <string name="parent_directory">Батьківський каталог</string>
