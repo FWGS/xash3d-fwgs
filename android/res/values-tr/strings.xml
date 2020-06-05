@@ -15,12 +15,12 @@
     <string name="no_volume">Oyunda kullan</string>
     <string name="select_folder">Oyun dizinini seç</string>
     <string name="create_shortcut_button">Mod kısayolu oluştur</string>
-    <string name="cmd_args_text">Komut Argümanları (sadece uzmanlar)</string>
+    <string name="cmd_args_text">Komut Argümanları (sadece uzmanlar için)</string>
     <string name="no_rodir">Klasik oyun veri yerleşimi</string>
     <string name="text_res_rw_path">Yazılabilir verileri saklama yolu (yapılandırmalar,kayıtlar vb.)</string>
     <string name="use_rodir_auto">Uygulama klasörünü kullan</string>
     <string name="resize_off">Klavye ekranı yeniden boyutlandırmasın</string>
-    <string name="resize_on">Klavye ekranı yeniden boyutlandırılsın</string>
+    <string name="resize_on">Klavye ekranı yeniden boyutlandırsın</string>
     <string name="update_button">Başlatınca güncellemeleri denetle</string>
     <string name="resolution">Ekran çözünürlüğünü düzelt (deneysel)</string>
     <string name="resolution_scale">Ekran tutma en boy oranını ölçeklendirme</string>
@@ -52,7 +52,7 @@
     <string name="about_copyright">Flying With Gauss (FWGS) Valve veya ortaklarından hiçbiriyle bağlantılı değildir. Tüm telif hakları ilgili sahiplerine aittir.</string>
     <string name="update">Güncelle</string>
     <string name="no_updates">Güncelleme bulunamadı</string>
-    <string name="checking_updates">Çalışma…</string>
+    <string name="checking_updates">Çalışıyor…</string>
     <string name="write_failed">Yazma testi başarısız oldu</string>
     <string name="ask_about_new_basedir_msg">Oyun dosyalarınızı Android / data / su.xash.engine veya dahili bellek gibi başka bir yere taşıyın.Bir sonraki çalıştırmada size klasör hakkında tekrar sorulacak.</string>
     <string name="lollipop_request_permission_fail_msg">Yazma testi iki kez başarısız oldu.</string>
