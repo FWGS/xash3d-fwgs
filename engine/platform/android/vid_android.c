@@ -12,7 +12,8 @@
 static int gl_attribs[REF_GL_ATTRIBUTES_COUNT] = { 0 };
 static qboolean gl_attribs_set[REF_GL_ATTRIBUTES_COUNT] = { 0 };
 static EGLint gl_api = EGL_OPENGL_ES_API;
-
+static void *libgles1, *libgles2;
+static qboolean gles1;
 /*
 ========================
 Android_SwapInterval
@@ -172,6 +173,7 @@ qboolean  R_Init_Video( const int type )
 		glw_state.software = true;
 		break;
 	case REF_GL:
+		glw_state.software = false;
 		if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", safe ) )
 			glw_state.safe = bound( SAFE_NO, Q_atoi( safe ), SAFE_DONTCARE );
 
@@ -189,9 +191,11 @@ qboolean  R_Init_Video( const int type )
 		return false;
 	}
 
-	if( !(retval = VID_SetMode()) )
+	while( !(retval = VID_SetMode()) )
 	{
-		return retval;
+		glw_state.safe++;
+		if( glw_state.safe > SAFE_LAST )
+			return false;
 	}
 
 	switch( type )
@@ -231,7 +235,9 @@ void R_Free_Video( void )
 static size_t VID_GenerateConfig( EGLint *attribs, size_t size )
 {
 	size_t i = 0;
+
 	memset( attribs, 0, size * sizeof( EGLint ) );
+	gles1 = false;
 
 	COPY_ATTR_IF_SET( REF_GL_RED_SIZE, EGL_RED_SIZE );
 	COPY_ATTR_IF_SET( REF_GL_GREEN_SIZE, EGL_GREEN_SIZE );
@@ -266,6 +272,7 @@ static size_t VID_GenerateConfig( EGLint *attribs, size_t size )
 	else
 	{
 		attribs[i++] = EGL_OPENGL_ES_BIT;
+		gles1 = true;
 	}
 
 	attribs[i++] = EGL_NONE;
@@ -330,7 +337,12 @@ qboolean VID_SetMode( void )
 
 	R_ChangeDisplaySettings( 0, 0, false ); // width and height are ignored anyway
 
-	return (*jni.env)->CallStaticBooleanMethod( jni.env, jni.actcls, jni.createGLContext, attribs, contextAttribs );
+	if( (*jni.env)->CallStaticBooleanMethod( jni.env, jni.actcls, jni.createGLContext, attribs, contextAttribs ) )
+	{
+		return true;
+	}
+
+	return false;
 }
 
 rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
@@ -430,6 +442,25 @@ vidmode_t* R_GetVideoMode( int num )
 
 void* GL_GetProcAddress( const char *name ) // RenderAPI requirement
 {
+	void *gles;
+	void *addr;
+
+	if( gles1 )
+	{
+		if( !libgles1 )
+			libgles1 = dlopen("libGLESv1_CM.so", RTLD_NOW);
+		gles = libgles1;
+	}
+	else
+	{
+		if( !libgles2 )
+			libgles2 = dlopen("libGLESv2.so", RTLD_NOW);
+		gles = libgles2;
+	}
+
+	if( gles && ( addr = dlsym(gles, name ) ) )
+		return addr;
+
 	return eglGetProcAddress( name );
 }
 
