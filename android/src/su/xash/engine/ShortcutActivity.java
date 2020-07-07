@@ -108,7 +108,7 @@ public class ShortcutActivity extends Activity
 		catch(Exception e)
 		{
 			// Android may not support ico loading, so fallback if something going wrong
-			icon = BitmapFactory.decodeResource(getResources(), R.mipmap.ic_launcher);
+			icon = BitmapFactory.decodeResource(getResources(), R.drawable.ic_launcher);
 		}
 		wrapIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON, icon);
 		if(getIntent().getAction() == "android.intent.action.CREATE_SHORTCUT" ) // Called from launcher

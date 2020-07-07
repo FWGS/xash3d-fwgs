@@ -9,7 +9,7 @@
 	android:installLocation="auto">
 
 	<application android:label="@string/app_name"
-		android:icon="@mipmap/ic_launcher"
+		android:icon="@drawable/ic_launcher"
 		android:roundIcon="@mipmap/ic_launcher"
 		android:allowBackup="false"
 		android:fullBackupOnly="false"
@@ -20,6 +20,7 @@
 		
 		<activity android:name="su.xash.engine.LauncherActivity"
 			android:label="@string/launcher_name"
+			android:icon="@mipmap/ic_launcher"
 			android:windowSoftInputMode="adjustResize"
 			android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize">
 			<intent-filter>
