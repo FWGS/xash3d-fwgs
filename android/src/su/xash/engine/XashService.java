@@ -148,8 +148,8 @@ public class XashService extends Service
 		{
 			if( XashActivity.sdk >= 26 )
 				return new XashNotification_v26();
-//			else  if( XashActivity.sdk >= 21 )
-//				return new XashNotification_v21();
+			else  if( XashActivity.sdk >= 21 )
+				return new XashNotification_v21();
 			else
 				return new XashNotification();
 		}
