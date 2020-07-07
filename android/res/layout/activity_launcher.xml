@@ -18,7 +18,8 @@
 			android:layout_width="wrap_content"
 			android:layout_height="match_parent"
 			android:layout_margin="2dp"
-			android:src="@mipmap/ic_launcher" />
+			android:src="@drawable/ic_launcher"
+			android:id="@+id/launcherIcon" />
 		<TextView
 			android:id="@+id/textView_tittle"
 			android:layout_width="fill_parent"
