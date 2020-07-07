@@ -69,9 +69,9 @@ def configure(conf):
 
 	# optional
 	try:
-		conf.find_program('aapt2', path_list = paths)
-	except Errors.ConfigurationError:
 		conf.find_program('aapt', path_list = paths)
+	except Errors.ConfigurationError:
+		conf.find_program('aapt2', path_list = paths)
 
 	# optional
 	# if conf.env.BUILD_TOOLS_VERSION[0] >= D8_BUILD_TOOLS_MAJOR_VER:
@@ -137,7 +137,7 @@ class aapt2link(javaw.JTask):
 
 class aaptpackage(javaw.JTask):
 	color = 'GREEN' # androis green :)
-	run_str = 'mkdir -p ${OUTRDIR} && ${AAPT} p -v -F ${TGT} -J ${OUTRDIR} -A ${ASSETSDIR} -I ${CLASSPATH_ANDROID} -M ${MANIFEST} -S ${RESDIR}'
+	run_str = 'mkdir -p ${OUTRDIR} && ${AAPT} p -v -F ${TGT} -J ${OUTRDIR} -A ${ASSETSDIR} -I ${CLASSPATH_ANDROID} -M ${MANIFEST} -S ${RESDIR} -f'
 	vars = ['AAPT', 'OUTRDIR', 'ASSETSDIR', 'CLASSPATH_ANDROID', 'MANIFEST', 'RESDIR' ]
 
 	def runnable_status(self):
@@ -151,7 +151,7 @@ class aaptpackage(javaw.JTask):
 		if not self.inputs:
 			root   = self.generator.outdir.ctx.root
 			resdir = root.make_node(self.env.RESDIR)
-			self.inputs = resdir.ant_glob('**/*', quiet=True)
+			self.inputs = resdir.ant_glob('**/*', quiet=True) + [root.make_node(self.env.MANIFEST)]
 
 		return super(aaptpackage, self).runnable_status()
 
