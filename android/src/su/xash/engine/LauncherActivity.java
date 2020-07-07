@@ -60,12 +60,12 @@ public class LauncherActivity extends Activity
 		
 		setContentView(R.layout.activity_launcher);
 		
-		if( sdk > 17 )
+/*		if( sdk > 17 )
 		{
 			ImageView icon = (ImageView) findViewById(R.id.launcherIcon);
 			icon.setImageDrawable(getResources().getDrawable(R.mipmap.ic_launcher));
 		}
-
+*/
 		TabHost tabHost = (TabHost) findViewById(R.id.tabhost);
 
 		tabHost.setup();
@@ -439,12 +439,12 @@ public class LauncherActivity extends Activity
 				dialog.setContentView(R.layout.about);
 				dialog.setCancelable(true);
 				dialog.show();
-				if( sdk > 17 )
+/*				if( sdk > 17 )
 				{
 					ImageView icon = (ImageView) dialog.findViewById(R.id.aboutIcon);
 					icon.setImageDrawable(getResources().getDrawable(R.mipmap.ic_launcher));
 				}
-
+*/
 				TextView tView6 = (TextView) dialog.findViewById(R.id.textView6);
 				tView6.setMovementMethod(LinkMovementMethod.getInstance());
 				((Button)dialog.findViewById( R.id.button_about_ok )).setOnClickListener(new View.OnClickListener(){
