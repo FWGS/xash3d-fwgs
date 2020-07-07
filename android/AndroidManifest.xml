@@ -57,7 +57,7 @@
 		</activity>
 
 		<service android:name="su.xash.engine.XashService" android:stopWithTask="false" />
-		<receiver android:name="su.xash.engine.XashService$exitButtonListener" />
+		<receiver android:name="su.xash.engine.XashService$ExitButtonListener" />
 		<receiver android:name="su.xash.engine.InstallReceiver">
 			<intent-filter android:priority="100">
 				<category android:name="android.intent.category.DEFAULT" />
