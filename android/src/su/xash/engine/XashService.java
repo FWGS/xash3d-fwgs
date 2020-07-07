@@ -148,15 +148,15 @@ public class XashService extends Service
 		{
 			if( XashActivity.sdk >= 26 )
 				return new XashNotification_v26();
-			else  if( XashActivity.sdk >= 21 )
-				return new XashNotification_v21();
+			else  if( XashActivity.sdk >= 23 )
+				return new XashNotification_v23();
 			else
 				return new XashNotification();
 		}
 
 	}
 	
-	private static class XashNotification_v21 extends XashNotification
+	private static class XashNotification_v23 extends XashNotification
 	{
 		protected Notification.Builder builder;
 		
@@ -203,7 +203,7 @@ public class XashService extends Service
 	}
 
 
-	private static class XashNotification_v26 extends XashNotification_v21
+	private static class XashNotification_v26 extends XashNotification_v23
 	{
 		private static final String CHANNEL_ID = "XashServiceChannel";
 	
@@ -211,24 +211,21 @@ public class XashService extends Service
 		{
 			// Create the NotificationChannel, but only on API 26+ because
 			// the NotificationChannel class is new and not in the support library
-			if (XashActivity.sdk >= 26)
-			{
-				final NotificationManager nm = ctx.getSystemService(NotificationManager.class);
-				
-				if(nm.getNotificationChannel(CHANNEL_ID) == null)
-				{
-					CharSequence name = ctx.getString(R.string.default_channel_name);
-					String description = ctx.getString(R.string.default_channel_description);
-					int importance = NotificationManager.IMPORTANCE_LOW;
-				 
-					NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
-					channel.setDescription(description);
+			final NotificationManager nm = ctx.getSystemService(NotificationManager.class);
 			
-					// Register the channel with the system; you can't change the importance
-					// or other notification behaviors after this
-				
-					nm.createNotificationChannel(channel);
-				}
+			if(nm.getNotificationChannel(CHANNEL_ID) == null)
+			{
+				CharSequence name = ctx.getString(R.string.default_channel_name);
+				String description = ctx.getString(R.string.default_channel_description);
+				int importance = NotificationManager.IMPORTANCE_LOW;
+			 
+				NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+				channel.setDescription(description);
+			
+				// Register the channel with the system; you can't change the importance
+				// or other notification behaviors after this
+			
+				nm.createNotificationChannel(channel);
 			}
 		}
 		
