@@ -9,12 +9,17 @@
         android:id="@+id/main_layout"
         android:weightSum="1">
 
-        <ImageView
+        <!--<ImageView
             android:layout_width="89dp"
             android:layout_height="89dp"
             android:id="@+id/aboutIcon"
             android:layout_gravity="center_horizontal"
-            android:src="@drawable/ic_launcher" />
+            android:src="@drawable/ic_launcher" />-->
+        <include
+            android:layout_width="89dp"
+            android:layout_height="89dp"
+            android:layout_gravity="center_horizontal"
+            layout="@layout/logo" />
 
         <TextView
             android:layout_width="wrap_content"
