@@ -21,7 +21,7 @@ def build(bld):
 		jni = 'lib',
 		keystore = bld.path.parent.find_node('debug.keystore'),
 		debug = bld.env.D8_DEBUG,
-		target_api = 28)
+		target_api = 26)
 	
 	tsk.env.append_unique('JAVACFLAGS', ['-target', '1.6'])
 	return
