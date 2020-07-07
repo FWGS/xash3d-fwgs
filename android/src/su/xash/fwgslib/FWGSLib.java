@@ -229,9 +229,58 @@ public class FWGSLib
 		}
 	}
 	
-	public static void applyPermissions( final Activity act, final String permissions[], final int code )
+	public static class Compat
 	{
-		if( sdk >= 23 )
+		public void applyPermissions( final Activity act, final String permissions[], final int code ) {}
+		public void applyImmersiveMode( boolean keyboardVisible, View decorView ) {}
+		public void startForegroundService( Context ctx, Intent intent ) {}
+		public String getNativeLibDir(Context ctx)
+		{
+			return ctx.getFilesDir().getParentFile().getPath() + "/lib";
+		}
+	}
+	
+	static class Compat_9 extends Compat
+	{
+		public String getNativeLibDir(Context ctx)
+		{
+			try {
+				ApplicationInfo ai = getApplicationInfo(ctx, null, 0);
+				return ai.nativeLibraryDir;
+			}
+			catch(Exception e) {
+				return super.getNativeLibDir(ctx);
+			}
+		}
+		public void startForegroundService( Context ctx,  Intent intent ) {
+			ctx.startService( intent );
+		}
+
+	}
+
+	static class Compat_19 extends Compat_9
+	{
+		public void applyImmersiveMode(boolean keyboardVisible, View decorView)
+		{
+			//if( !XashActivity.mPref.getBoolean( "immersive_mode", false ) )
+			//	return;
+			if( keyboardVisible )
+				decorView.setSystemUiVisibility(
+					0x00000100   // View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+					| 0x00000200 // View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+					| 0x00000400 // View.SYSTEM_UI_FLAG_LAYOUT_FULSCREEN
+					| 0x00000002 // View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
+					| 0x00000004 // View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
+					| 0x00001000 // View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+					);
+			else
+				decorView.setSystemUiVisibility( 0 );
+		}
+	}
+
+	static class Compat_23 extends Compat_19
+	{
+		public void applyPermissions( final Activity act, final String permissions[], final int code )
 		{
 			List<String> requestPermissions = new ArrayList<String>();
 		
@@ -256,6 +305,25 @@ public class FWGSLib
 		}
 	}
 	
+	static class Compat_26 extends Compat_23
+	{
+		public void startForegroundService(Context ctx, Intent intent){
+			ctx.startForegroundService(intent);
+		}
+	}
+
+	public static Compat cmp;
+	static {
+		int sdk1 = Integer.valueOf(Build.VERSION.SDK);
+		if(  sdk1 >= 26 )
+			cmp = new Compat_26();
+		if(  sdk1 >= 23 )
+			cmp = new Compat_23();
+		else if( sdk1 >= 9 )
+			cmp = new Compat_9();
+		else cmp = new Compat();
+	}
+
 	public static ApplicationInfo getApplicationInfo(Context ctx, String pkgName, int flags) throws PackageManager.NameNotFoundException
 	{
 		PackageManager pm = ctx.getPackageManager();
@@ -268,3 +336,4 @@ public class FWGSLib
 	
 	public static final int sdk = Integer.valueOf(Build.VERSION.SDK);
 }
+

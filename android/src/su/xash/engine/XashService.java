@@ -32,7 +32,6 @@ import java.security.MessageDigest;
 
 import su.xash.engine.R;
 import su.xash.engine.XashConfig;
-import su.xash.engine.JoystickHandler;
 
 
 public class XashService extends Service 
@@ -64,9 +63,9 @@ public class XashService extends Service
 	{
 		Log.d("XashService", "Service Started");
 		
-		not = XashNotification.getXashNotification(this);
+		not = XashNotification.getXashNotification();
 		
-		startForeground(not.getId(), not.createNotification());
+		startForeground(not.getId(), not.createNotification(this));
 		
 		return START_NOT_STICKY;
 	}
@@ -98,20 +97,16 @@ public class XashService extends Service
 		}
 		stopSelf();
 	}
-	
+
 	public static class XashNotification
 	{
 		public Notification notification;
 		public final int notificationId = 100;
-		public Context ctx;
-		
-		public XashNotification(Context ctx)
-		{
-			this.ctx = ctx;
-		}
+		protected Context ctx;
 	
-		public Notification createNotification()
+		public Notification createNotification(Context context)
 		{
+			ctx = context;
 			Intent engineIntent = new Intent(ctx, XashActivity.class);
 			engineIntent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
 
@@ -133,14 +128,14 @@ public class XashService extends Service
 		public void setIcon(Bitmap bmp)
 		{
 			notification.contentView.setImageViewBitmap( R.id.status_image, bmp );
-			NotificationManager nm = ctx.getSystemService(NotificationManager.class);
+			NotificationManager nm = (NotificationManager)ctx.getSystemService(Context.NOTIFICATION_SERVICE);
 			nm.notify( notificationId, notification );
 		}
 		
 		public void setText(String title)
 		{
 			notification.contentView.setTextViewText( R.id.status_text, title );
-			NotificationManager nm = ctx.getSystemService(NotificationManager.class);
+			NotificationManager nm = (NotificationManager)ctx.getSystemService(Context.NOTIFICATION_SERVICE);
 			nm.notify( notificationId, notification );
 		}
 		
@@ -149,28 +144,26 @@ public class XashService extends Service
 			return notificationId;
 		}
 		
-		public static XashNotification getXashNotification(Context ctx)
+		public static XashNotification getXashNotification()
 		{
-			if( XashActivity.sdk >= Build.VERSION_CODES.O )
-				return new XashNotification_O(ctx);
-			else if( XashActivity.sdk >= 21 )
-				return new XashNotification_v21(ctx);
-			return new XashNotification(ctx);
+			if( XashActivity.sdk >= 26 )
+				return new XashNotification_v26();
+//			else  if( XashActivity.sdk >= 21 )
+//				return new XashNotification_v21();
+			else
+				return new XashNotification();
 		}
+
 	}
 	
 	private static class XashNotification_v21 extends XashNotification
 	{
 		protected Notification.Builder builder;
 		
-		public XashNotification_v21(Context ctx)
-		{
-			super(ctx);
-		}
-		
 		@Override
-		public Notification createNotification()
+		public Notification createNotification(Context context)
 		{
+			ctx = context;
 			Intent engineIntent = new Intent(ctx, XashActivity.class);
 			engineIntent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
 
@@ -196,7 +189,7 @@ public class XashService extends Service
 		public void setIcon(Bitmap bmp)
 		{
 			notification = builder.setLargeIcon(bmp).build();		
-			NotificationManager nm = ctx.getSystemService(NotificationManager.class);
+			NotificationManager nm = (NotificationManager)ctx.getSystemService(Context.NOTIFICATION_SERVICE);
 			nm.notify( notificationId, notification );
 		}
 		
@@ -204,25 +197,21 @@ public class XashService extends Service
 		public void setText(String str)
 		{
 			notification = builder.setContentText(str).build();
-			NotificationManager nm = ctx.getSystemService(NotificationManager.class);
+			NotificationManager nm = (NotificationManager)ctx.getSystemService(Context.NOTIFICATION_SERVICE);
 			nm.notify( notificationId, notification );
 		}
 	}
-	
-	private static class XashNotification_O extends XashNotification_v21
+
+
+	private static class XashNotification_v26 extends XashNotification_v21
 	{
 		private static final String CHANNEL_ID = "XashServiceChannel";
-		
-		public XashNotification_O(Context ctx)
-		{
-			super(ctx);
-		}
 	
 		private void createNotificationChannel()
 		{
 			// Create the NotificationChannel, but only on API 26+ because
 			// the NotificationChannel class is new and not in the support library
-			if (XashActivity.sdk >= Build.VERSION_CODES.O)
+			if (XashActivity.sdk >= 26)
 			{
 				final NotificationManager nm = ctx.getSystemService(NotificationManager.class);
 				
@@ -244,14 +233,14 @@ public class XashService extends Service
 		}
 		
 		@Override
-		public Notification createNotification()
+		public Notification createNotification(Context ctx)
 		{
 			createNotificationChannel();
 		
 			builder = new Notification.Builder(ctx);
 			builder.setChannelId(CHANNEL_ID);
 			
-			return super.createNotification();
+			return super.createNotification(ctx);
 		}
 	}
 };
