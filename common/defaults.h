@@ -69,6 +69,7 @@ SETUP BACKENDS DEFINITIONS
 		#endif // XASH_MESSAGEBOX
 
 		#define XASH_USE_EVDEV
+		#define XASH_DYNAMIC_DLADDR
 	#elif XASH_LINUX
 		// we are building for Linux without SDL2, can draw only to framebuffer yet
 		#ifndef XASH_VIDEO
