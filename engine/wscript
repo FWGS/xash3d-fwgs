@@ -42,7 +42,7 @@ def configure(conf):
 		if not conf.check_cc( fragment='int main(){ int i = socket();}', lib = 'wattcpwl', mandatory=False ):
 			conf.define('XASH_NO_NETWORK',1)
 	elif conf.env.DEST_OS == 'android': # Android doesn't need SDL2
-		for i in ['android', 'log', 'EGL']:
+		for i in ['log']:
 			conf.check_cc(lib = i)
 	elif conf.options.FBDEV_SW:
 		# unused, XASH_LINUX without XASH_SDL gives fbdev & alsa support
@@ -130,7 +130,7 @@ def build(bld):
 		is_cxx_link = True
 
 	if bld.env.DEST_OS == 'android':
-		libs += ['LOG', 'EGL', 'ANDROID']
+		libs += ['LOG']
 		source += bld.path.ant_glob(['platform/android/*.cpp', 'platform/android/*.c', 'platform/linux/*.c'])
 
 	# add client files
