@@ -959,8 +959,8 @@ qboolean R_Init( void )
 	{
 		GL_RemoveCommands();
 		gEngfuncs.R_Free_Video();
-
-		gEngfuncs.Host_Error( "Can't initialize video subsystem\nProbably driver was not installed" );
+// Why? Host_Error again???
+//		gEngfuncs.Host_Error( "Can't initialize video subsystem\nProbably driver was not installed" );
 		return false;
 	}
 
