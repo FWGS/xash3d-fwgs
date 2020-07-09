@@ -260,10 +260,10 @@ public class FWGSLib
 
 	static class Compat_19 extends Compat_9
 	{
-		public void applyImmersiveMode(boolean keyboardVisible, View decorView)
+		public void applyImmersiveMode( boolean keyboardVisible, View decorView )
 		{
-			//if( !XashActivity.mPref.getBoolean( "immersive_mode", false ) )
-			//	return;
+			if( decorView == null )
+				return;
 			if( keyboardVisible )
 				decorView.setSystemUiVisibility(
 					0x00000100   // View.SYSTEM_UI_FLAG_LAYOUT_STABLE
