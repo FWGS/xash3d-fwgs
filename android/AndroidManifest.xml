@@ -46,7 +46,8 @@
 			android:screenOrientation="sensorLandscape"
 			android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
 			android:label="@string/app_name"
-			android:launchMode="singleTask">
+			android:launchMode="singleTask"
+			android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
 			<intent-filter>
 				<action android:name="su.xash.engine.START" />
 				<category android:name="android.intent.category.DEFAULT" />
