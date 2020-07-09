@@ -102,6 +102,28 @@ public class XashActivity extends Activity {
 	{
 		System.loadLibrary( "xash" );
 	}
+	public void enableNavbarMenu()
+	{
+		if( sdk < 21 )
+			return;
+		Window w = getWindow();
+		for (Class clazz = w.getClass(); clazz != null; clazz = clazz.getSuperclass()) {
+			try {
+				Method method = clazz.getDeclaredMethod("setNeedsMenuKey", int.class);
+				method.setAccessible(true);
+				try {
+					method.invoke(w, 1);  // 1 == WindowManager.LayoutParams.NEEDS_MENU_SET_TRUE
+					break;
+				} catch (IllegalAccessException e) {
+					Log.d(TAG, "IllegalAccessException on window.setNeedsMenuKey");
+				} catch (java.lang.reflect.InvocationTargetException e) {
+					Log.d(TAG, "InvocationTargetException on window.setNeedsMenuKey");
+				}
+			} catch (NoSuchMethodException e) {
+				// Log.d(TAG, "NoSuchMethodException");
+			}
+		}
+	}
 
 	// Setup
 	@Override
@@ -123,11 +145,13 @@ public class XashActivity extends Activity {
 
 		// fullscreen
 		requestWindowFeature( Window.FEATURE_NO_TITLE );
+		final int FLAG_NEEDS_MENU_KEY = 0x08000000;
 		
 		int flags = WindowManager.LayoutParams.FLAG_FULLSCREEN | 
-			WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON;
+			WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON | FLAG_NEEDS_MENU_KEY;
 		getWindow().setFlags( flags, flags );
 
+		enableNavbarMenu();
 		// landscapeSensor is not supported until API9
 		if( sdk < 9 )
 			setRequestedOrientation( 0 );
@@ -1389,6 +1413,7 @@ class AndroidBug5497Workaround
 			FWGSLib.cmp.applyImmersiveMode( XashActivity.keyboardVisible, XashActivity.mDecorView );
 			
 			mChildOfContent.requestLayout();
+			XashActivity.mSingleton.enableNavbarMenu();
 			usableHeightPrevious = usableHeightNow;
 		}
 	}
