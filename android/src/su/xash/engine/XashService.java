@@ -230,8 +230,9 @@ public class XashService extends Service
 		}
 		
 		@Override
-		public Notification createNotification(Context ctx)
+		public Notification createNotification(Context context)
 		{
+			ctx = context;
 			createNotificationChannel();
 		
 			builder = new Notification.Builder(ctx);
