@@ -638,16 +638,29 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 
 	if( ( lock = nw.lock( vid_android.window, &buffer, NULL ) ) )
 	{
-		Con_Printf("SW_CreateBuffer: lock %d\n", lock );
+		Con_Printf( "SW_CreateBuffer: lock %d\n", lock );
 		return false;
 	}
 	nw.unlockAndPost( vid_android.window );
-	Con_Printf("SW_CreateBuffer: buffer %d %d %x %d\n", buffer.width, buffer.height, buffer.format, buffer.stride );
+	Con_Printf( "SW_CreateBuffer: buffer %d %d %x %d %p\n", buffer.width, buffer.height, buffer.format, buffer.stride, buffer.bits );
 	if( width > buffer.width || height > buffer.height )
+	{
+		Con_Printf( "SW_CreateBuffer: buffer too small %d %d\n", width, height );
+		// resize event missed?
+		if( jni.width < buffer.width )
+			jni.width = buffer.width;
+		if( jni.height < buffer.height )
+			jni.width = buffer.height;
+		VID_SetMode();
+		Android_UpdateSurface( 1 );
 		return false;
+	}
 	if( buffer.format != WINDOW_FORMAT_RGB_565 )
+	{
+		Con_Printf( "SW_CreateBuffer: wrong format %d\n", buffer.format );
 		return false;
-	Con_Printf("SW_CreateBuffer: ok\n");
+	}
+	Con_Printf( "SW_CreateBuffer: ok\n" );
 	*stride = buffer.stride;
 
 	*bpp = 2;
