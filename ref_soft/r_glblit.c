@@ -118,8 +118,8 @@ void GL_FUNCTION( glBindBuffer)(GLenum target, GLuint buffer);
 void GL_FUNCTION( glBufferData )(GLenum target, GLsizeiptrARB size, const GLvoid *data, GLenum usage);
 void GL_FUNCTION( glGenBuffers )(GLsizei n, GLuint *buffers);
 void GL_FUNCTION( glDeleteBuffers )(GLsizei n, const GLuint *buffers);
-GLvoid* GL_FUNCTION( glMapBuffer )(GLenum target, GLenum access);
-GLboolean GL_FUNCTION( glUnmapBuffer )(GLenum target);
+GLvoid* GL_FUNCTION( glMapBufferOES )(GLenum target, GLenum access);
+GLboolean GL_FUNCTION( glUnmapBufferOES )(GLenum target);
 #define GL_PIXEL_UNPACK_BUFFER 0x88EC
 #define GL_FRAMEBUFFER 0x8D40
 #define GL_COLOR_ATTACHMENT0 0x8CE0
@@ -159,8 +159,12 @@ void GAME_EXPORT GL_InitExtensions( void )
 	LOAD(glBufferData);
 	LOAD(glGenBuffers);
 	LOAD(glDeleteBuffers);
-	LOAD(glMapBuffer);
-	LOAD(glUnmapBuffer);
+	LOAD(glMapBufferOES);
+	if( !pglMapBufferOES )
+		pglMapBufferOES = gEngfuncs.GL_GetProcAddress("glMapBuffer");
+	LOAD(glUnmapBufferOES);
+	if( !pglUnmapBufferOES )
+		pglUnmapBufferOES = gEngfuncs.GL_GetProcAddress("glUnmapBuffer");
 	LOAD(glGenFramebuffers);
 	LOAD(glBindFramebuffer);
 	LOAD(glFramebufferTexture2D);
@@ -304,7 +308,7 @@ static qboolean R_CreateBuffer_GLES1( int width, int height, uint *stride, uint 
 
 static void *R_Lock_GLES3( void )
 {
-	void *buf;
+	void *buf = NULL;
 
 	if( !vid.width || !vid.height )
 		return NULL;
@@ -313,10 +317,12 @@ static void *R_Lock_GLES3( void )
 		return glbuf;
 
 	pglBufferData( GL_PIXEL_UNPACK_BUFFER, vid.width * vid.height * 2, 0, GL_STREAM_DRAW_ARB );
-	buf = pglMapBuffer( GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY_ARB );
+	if( pglMapBufferOES )
+		buf = pglMapBufferOES( GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY_ARB );
 	if( !buf )
 	{
-		pglUnmapBuffer( GL_PIXEL_UNPACK_BUFFER );
+		if( pglUnmapBufferOES )
+			pglUnmapBufferOES( GL_PIXEL_UNPACK_BUFFER );
 		pglBindBuffer( GL_PIXEL_UNPACK_BUFFER, 0 );
 		glbuf = Mem_Malloc( r_temppool, vid.width*vid.height*2 );
 		pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, glbuf );
@@ -334,7 +340,8 @@ static void R_Unlock_GLES3( void )
 		pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, glbuf );
 	else
 	{
-		pglUnmapBuffer( GL_PIXEL_UNPACK_BUFFER );
+		if( pglUnmapBufferOES )
+			pglUnmapBufferOES( GL_PIXEL_UNPACK_BUFFER );
 		pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, 0 );
 	}
 	//pglDrawArrays( GL_TRIANGLE_FAN, 0,4 );
