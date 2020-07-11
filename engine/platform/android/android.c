@@ -853,9 +853,9 @@ void Platform_RunEvents( void )
 
 			if( events.queue[i].arg )
 			{
-				host.status = HOST_NOFOCUS;
 				SNDDMA_Activate( false );
 				Android_UpdateSurface( false );
+				host.status = HOST_NOFOCUS;
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
 			}
 			break;
@@ -920,14 +920,14 @@ void Platform_RunEvents( void )
 #endif
 			// disable sound during call/screen-off
 			SNDDMA_Activate( false );
-			host.status = HOST_NOFOCUS;
+//			host.status = HOST_NOFOCUS;
 			// stop blocking UI thread
 			(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.notify );
 
 			break;
 		case event_onresume:
 			// re-enable sound after onPause
-			host.status = HOST_FRAME;
+//			host.status = HOST_FRAME;
 			SNDDMA_Activate( true );
 			host.force_draw_version = true;
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
