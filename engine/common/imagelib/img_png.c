@@ -232,7 +232,11 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	image.width = png_hdr.ihdr_chunk.width;
 	image.height = png_hdr.ihdr_chunk.height;
 	image.size = image.height * image.width * 4;
-	image.flags |= IMAGE_HAS_ALPHA | IMAGE_HAS_COLOR;
+	image.flags |= IMAGE_HAS_COLOR;
+
+	if( png_hdr.ihdr_chunk.colortype == PNG_CT_RGBA )
+		image.flags |= IMAGE_HAS_ALPHA;
+
 	image.depth = 1;
 
 	rowsize = pixel_size * image.width;
