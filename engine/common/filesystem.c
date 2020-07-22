@@ -1124,7 +1124,7 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
   
 	if( already_loaded ) *already_loaded = false;
   
-	if( !Q_stricmp( ext, "zip" ) || !Q_stricmp( ext, "pk3" ) )
+	if( !Q_stricmp( ext, "pk3" ) )
 		zip = FS_LoadZip( zipfile, &errorcode );
   
 	if( zip )
