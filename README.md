@@ -63,9 +63,6 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 * Clone this repostory:
 `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`
 
-#### ArchLinux
-* ArchLinux users are lucky enough and there is a `xash3d-git` AUR package for them.
-
 ### Building
 #### Windows(Visual Studio)
 0) Open command line
