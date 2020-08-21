@@ -567,23 +567,16 @@ static void IN_JoyAppendMove( usercmd_t *cmd, float forwardmove, float sidemove 
 
 void IN_CollectInput( float *forward, float *side, float *pitch, float *yaw, qboolean includeMouse, qboolean includeSdlMouse )
 {
-	if( includeMouse )
+	if( includeMouse
+#if XASH_SDL
+		&& includeSdlMouse
+#endif
+		)
 	{
-#if XASH_INPUT == INPUT_SDL
-		/// TODO: check if we may move this to platform
-		if( includeSdlMouse )
-		{
-			int x, y;
-			SDL_GetRelativeMouseState( &x, &y );
-			*pitch += y * m_pitch->value;
-			*yaw   -= x * m_yaw->value;
-		}
-#else
 		float x, y;
 		Platform_MouseMove( &x, &y );
 		*pitch += y * m_pitch->value;
 		*yaw   -= x * m_yaw->value;
-#endif // SDL
 
 #ifdef XASH_USE_EVDEV
 		IN_EvdevMove( yaw, pitch );

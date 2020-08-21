@@ -56,6 +56,21 @@ void GAME_EXPORT Platform_SetMousePos( int x, int y )
 }
 
 /*
+========================
+Platform_MouseMove
+
+========================
+*/
+void Platform_MouseMove( float *x, float *y )
+{
+	int m_x, m_y;
+	SDL_GetMouseState( &m_x, &m_y );
+	*x = (float)m_x;
+	*y = (float)m_y;
+
+}
+
+/*
 =============
 Platform_GetClipobardText
 
