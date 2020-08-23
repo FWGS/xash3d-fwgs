@@ -21,7 +21,11 @@ GNU General Public License for more details.
 #include <tgmath.h>
 #endif
 
+#include "build.h"
+
+#ifdef XASH_MSVC
 #pragma warning(disable : 4201)	// nonstandard extension used
+#endif
 
 // euler angle order
 #define PITCH		0
