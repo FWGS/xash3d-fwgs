@@ -72,6 +72,7 @@
 		</receiver>
 		<!--<service android:name="su.xash.engine.SteamService" />-->
 		<meta-data android:name="android.max_aspect" android:value="10000" />
+		<meta-data android:name="android.allow_multiple_resumed_activities" android:value="true" /> <!-- don't pause engine on foldables -->
 	</application>
 
 	<!-- Some devices with Android 2.2 should support native activity, it was in unstable hidden API -->
