@@ -289,7 +289,7 @@ struct sigaction oldFilter;
 
 static void Sys_Crash( int signal, siginfo_t *si, void *context)
 {
-	void *pc, **bp, **sp; // this must be set for every OS!
+	void *pc = NULL, **bp = NULL, **sp = NULL; // this must be set for every OS!
 	char message[8192];
 	int len, logfd, i = 0;
 	size_t pagesize;
@@ -344,8 +344,6 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context)
 	pc = (void*)ucontext->uc_mcontext.arm_pc;
 	bp = (void*)ucontext->uc_mcontext.arm_fp;
 	sp = (void*)ucontext->uc_mcontext.arm_sp;
-#else
-	#error "Unknown arch!!!"
 #endif
 
 	// safe actions first, stack and memory may be corrupted
@@ -368,54 +366,56 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context)
 	logfd = Sys_LogFileNo();
 	write( logfd, message, len );
 
-	// try to print backtrace
-	write( 2, STACK_BACKTRACE_STR, STACK_BACKTRACE_STR_LEN );
-	write( logfd, STACK_BACKTRACE_STR, STACK_BACKTRACE_STR_LEN );
-	strncpy( message + len, STACK_BACKTRACE_STR, sizeof( message ) - len );
-	len += STACK_BACKTRACE_STR_LEN;
-
-	pagesize = sysconf( _SC_PAGESIZE );
-
-	do
+	if( pc && bp && sp )
 	{
-		int line = printframe( message + len, sizeof( message ) - len, ++i, pc);
-		write( 2, message + len, line );
-		write( logfd, message + len, line );
-		len += line;
-		//if( !dladdr(bp,0) ) break; // only when bp is in module
-		if( ( mprotect( (char *)ALIGN( bp, pagesize ), pagesize, PROT_READ | PROT_WRITE | PROT_EXEC ) == -1) &&
-			( mprotect( (char *)ALIGN( bp, pagesize ), pagesize, PROT_READ | PROT_EXEC ) == -1) &&
-			( mprotect( (char *)ALIGN( bp, pagesize ), pagesize, PROT_READ | PROT_WRITE ) == -1) &&
-			( mprotect( (char *)ALIGN( bp, pagesize ), pagesize, PROT_READ ) == -1) )
-			break;
-		if( ( mprotect( (char *)ALIGN( bp[0], pagesize ), pagesize, PROT_READ | PROT_WRITE | PROT_EXEC ) == -1) &&
-			( mprotect( (char *)ALIGN( bp[0], pagesize ), pagesize, PROT_READ | PROT_EXEC ) == -1) &&
-			( mprotect( (char *)ALIGN( bp[0], pagesize ), pagesize, PROT_READ | PROT_WRITE ) == -1) &&
-			( mprotect( (char *)ALIGN( bp[0], pagesize ), pagesize, PROT_READ ) == -1) )
-			break;
-		pc = bp[1];
-		bp = (void**)bp[0];
-	}
-	while( bp && i < 128 );
+		size_t pagesize = sysconf( _SC_PAGESIZE );
+		// try to print backtrace
+		write( 2, STACK_BACKTRACE_STR, STACK_BACKTRACE_STR_LEN );
+		write( logfd, STACK_BACKTRACE_STR, STACK_BACKTRACE_STR_LEN );
+		strncpy( message + len, STACK_BACKTRACE_STR, sizeof( message ) - len );
+		len += STACK_BACKTRACE_STR_LEN;
 
-	// try to print stack
-	write( 2, STACK_DUMP_STR, STACK_DUMP_STR_LEN );
-	write( logfd, STACK_DUMP_STR, STACK_DUMP_STR_LEN );
-	strncpy( message + len, STACK_DUMP_STR, sizeof( message ) - len );
-	len += STACK_DUMP_STR_LEN;
+// false on success, true on failure
+#define try_allow_read(pointer, pagesize) \
+	( mprotect( (char *)ALIGN( (pointer), (pagesize) ), (pagesize), PROT_READ | PROT_WRITE | PROT_EXEC ) == -1 && \
+	( mprotect( (char *)ALIGN( (pointer), (pagesize) ), (pagesize), PROT_READ | PROT_EXEC ) == -1) && \
+	( mprotect( (char *)ALIGN( (pointer), (pagesize) ), (pagesize), PROT_READ | PROT_WRITE ) == -1) && \
+	( mprotect( (char *)ALIGN( (pointer), (pagesize) ), (pagesize), PROT_READ ) == -1)
 
-	if( ( mprotect((char *)ALIGN( sp, pagesize ), pagesize, PROT_READ | PROT_WRITE | PROT_EXEC ) != -1) ||
-		( mprotect((char *)ALIGN( sp, pagesize ), pagesize, PROT_READ | PROT_EXEC ) != -1) ||
-		( mprotect((char *)ALIGN( sp, pagesize ), pagesize, PROT_READ | PROT_WRITE ) != -1) ||
-		( mprotect((char *)ALIGN( sp, pagesize ), pagesize, PROT_READ ) != -1) )
-	{
-		for( i = 0; i < 32; i++ )
+		do
 		{
-			int line = printframe( message + len, sizeof( message ) - len, i, sp[i] );
+			int line = printframe( message + len, sizeof( message ) - len, ++i, pc);
 			write( 2, message + len, line );
 			write( logfd, message + len, line );
 			len += line;
+			//if( !dladdr(bp,0) ) break; // only when bp is in module
+			if( try_allow_read( bp, pagesize ) )
+				break;
+			if( try_allow_read( bp[0], pagesize ) )
+				break;
+			pc = bp[1];
+			bp = (void**)bp[0];
 		}
+		while( bp && i < 128 );
+
+		// try to print stack
+		write( 2, STACK_DUMP_STR, STACK_DUMP_STR_LEN );
+		write( logfd, STACK_DUMP_STR, STACK_DUMP_STR_LEN );
+		strncpy( message + len, STACK_DUMP_STR, sizeof( message ) - len );
+		len += STACK_DUMP_STR_LEN;
+
+		if( !try_allow_read( sp, pagesize ) )
+		{
+			for( i = 0; i < 32; i++ )
+			{
+				int line = printframe( message + len, sizeof( message ) - len, i, sp[i] );
+				write( 2, message + len, line );
+				write( logfd, message + len, line );
+				len += line;
+			}
+		}
+
+#undef try_allow_read
 	}
 
 	// put MessageBox as Sys_Error
