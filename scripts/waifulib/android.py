@@ -151,7 +151,7 @@ class aaptpackage(javaw.JTask):
 		if not self.inputs:
 			root   = self.generator.outdir.ctx.root
 			resdir = root.make_node(self.env.RESDIR)
-			self.inputs = resdir.ant_glob('**/*', quiet=True) + [root.make_node(self.env.MANIFEST)] + [self.generator.outdir.make_node('classes.dex')]
+			self.inputs = resdir.ant_glob('**/*', quiet=True) + [root.make_node(self.env.MANIFEST)]
 
 		return super(aaptpackage, self).runnable_status()
 
