@@ -73,6 +73,7 @@ int PM_SampleMiptex( const msurface_t *surf, const vec3_t point )
 
 	// TODO: this won't work under dedicated
 	// should we bring up imagelib and keep original buffers?
+#if !XASH_DEDICATED
 	if( !Host_IsDedicated() )
 	{
 		const byte		*data;
@@ -94,6 +95,7 @@ int PM_SampleMiptex( const msurface_t *surf, const vec3_t point )
 			return CONTENTS_EMPTY;
 		return CONTENTS_SOLID;
 	}
+#endif // !XASH_DEDICATED
 
 	return contents;
 }
