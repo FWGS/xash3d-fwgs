@@ -46,10 +46,7 @@ convar_t *cl_forwardspeed;
 convar_t *cl_sidespeed;
 convar_t *cl_backspeed;
 convar_t *look_filter;
-
-#if XASH_WIN32
 convar_t *m_rawinput;
-#endif
 
 /*
 ================
@@ -121,10 +118,7 @@ void IN_StartupMouse( void )
 	m_pitch = Cvar_Get( "m_pitch", "0.022", FCVAR_ARCHIVE, "mouse pitch value" );
 	m_yaw = Cvar_Get( "m_yaw", "0.022", FCVAR_ARCHIVE, "mouse yaw value" );
 	look_filter = Cvar_Get( "look_filter", "0", FCVAR_ARCHIVE, "filter look events making it smoother" );
-
-#if XASH_WIN32
 	m_rawinput = Cvar_Get( "m_rawinput", "1", FCVAR_ARCHIVE, "enable mouse raw input" );
-#endif
 
 	// You can use -nomouse argument to prevent using mouse from client
 	// -noenginemouse will disable all mouse input
@@ -215,11 +209,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 #if XASH_SDL
 			SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-#if XASH_WIN32
 			if ( clgame.dllFuncs.pfnLookEvent || ( clgame.client_dll_uses_sdl && CVAR_TO_BOOL( m_rawinput ) ) )
-#else
-			if ( clgame.dllFuncs.pfnLookEvent )
-#endif // XASH_WIN32
 			{
 				SDL_SetRelativeMouseMode( SDL_TRUE );
 			}
@@ -235,11 +225,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 #ifdef XASH_SDL
 		SDL_SetWindowGrab(host.hWnd, SDL_FALSE);
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-#if XASH_WIN32
 		if ( clgame.dllFuncs.pfnLookEvent || ( clgame.client_dll_uses_sdl && CVAR_TO_BOOL( m_rawinput ) ) )
-#else
-		if ( clgame.dllFuncs.pfnLookEvent )
-#endif // XASH_WIN32
 		{
 			SDL_SetRelativeMouseMode( SDL_FALSE );
 		}
