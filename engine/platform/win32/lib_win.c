@@ -239,7 +239,7 @@ static int ProtectionFlags[2][2][2] =
 typedef BOOL (WINAPI *DllEntryProc)( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved );
 
 #define GET_HEADER_DICTIONARY( module, idx )	&(module)->headers->OptionalHeader.DataDirectory[idx]
-#define CALCULATE_ADDRESS( base, offset )	(((DWORD)(base)) + (offset))
+#define CALCULATE_ADDRESS( base, offset )	((DWORD)(base) + (DWORD)(offset))
 
 static void CopySections( const byte *data, PIMAGE_NT_HEADERS old_headers, PMEMORYMODULE module )
 {
@@ -957,7 +957,7 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 	PIMAGE_NT_HEADERS	old_header;
 	PIMAGE_DATA_DIRECTORY	directory;
 	PIMAGE_IMPORT_DESCRIPTOR importDesc;
-	string errorstring;
+	string errorstring = "";
 	void		*data = NULL;
 	dll_user_t *hInst;
 
@@ -992,7 +992,7 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 	
 	if( directory->Size <= 0 )
 	{
-		Q_snprintf( errorstring, sizeof( errorstring ), "%s has no dependencies. Is this dll valid?\n" );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s has no dependencies. Is this dll valid?\n", name );
 		goto libraryerror;
 	}
 
@@ -1011,7 +1011,7 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 	}
 
 libraryerror:
-	Con_Printf( errorstring );
+	if( errorstring[0] ) Con_Printf( errorstring );
 	if( data ) Mem_Free( data ); // release memory
 	return false;
 }
