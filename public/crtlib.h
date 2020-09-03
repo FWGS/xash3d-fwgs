@@ -84,6 +84,8 @@ const char *COM_FileWithoutPath( const char *in );
 void COM_StripExtension( char *path );
 void COM_RemoveLineFeed( char *str );
 void COM_PathSlashFix( char *path );
+char COM_Hex2Char( uint8_t hex );
+void COM_Hex2String( uint8_t hex, char *str );
 #define COM_CheckString( string ) ( ( !string || !*string ) ? 0 : 1 )
 int matchpattern( const char *in, const char *pattern, qboolean caseinsensitive );
 int matchpattern_with_separator( const char *in, const char *pattern, qboolean caseinsensitive, const char *separators, qboolean wildcard_least_one );

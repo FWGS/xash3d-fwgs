@@ -918,6 +918,33 @@ void COM_PathSlashFix( char *path )
 		Q_strcpy( &path[len], "/" );
 }
 
+/*
+============
+COM_Hex2Char
+============
+*/
+char COM_Hex2Char( uint8_t hex )
+{
+	if( hex >= 0x0 && hex <= 0x9 )
+		hex += '0';
+	else if( hex >= 0xA && hex <= 0xF )
+		hex += '7';
+
+	return (char)hex;
+}
+
+/*
+============
+COM_Hex2String
+============
+*/
+void COM_Hex2String( uint8_t hex, char *str )
+{
+	*str++ = COM_Hex2Char( hex >> 4 );
+	*str++ = COM_Hex2Char( hex & 0x0F );
+	*str = '\0';
+}
+
 int matchpattern( const char *in, const char *pattern, qboolean caseinsensitive )
 {
 	return matchpattern_with_separator( in, pattern, caseinsensitive, "/\\:", false );
@@ -983,3 +1010,4 @@ int matchpattern_with_separator( const char *in, const char *pattern, qboolean c
 		return 0; // reached end of pattern but not end of input
 	return 1; // success
 }
+
