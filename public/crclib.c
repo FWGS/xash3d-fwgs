@@ -438,16 +438,12 @@ transform hash to hexadecimal printable symbols
 char *MD5_Print( byte hash[16] )
 {
 	static char	szReturn[64];
-	char		szChunk[10];
 	int		i;
 
 	memset( szReturn, 0, 64 );
 
 	for( i = 0; i < 16; i++ )
-	{
-		Q_snprintf( szChunk, sizeof( szChunk ), "%02X", hash[i] );
-		Q_strncat( szReturn, szChunk, sizeof( szReturn ));
-	}
+		COM_Hex2String( hash[i], &szReturn[i * 2] );
 
 	return szReturn;
 }
