@@ -12,7 +12,7 @@
 *   without written permission from Valve LLC.
 *
 ****/
-
+#pragma once
 #ifndef STUDIO_H
 #define STUDIO_H
 
@@ -31,7 +31,6 @@ Studio models are position independent, so the cache manager can move them.
 #define IDSEQGRPHEADER	(('Q'<<24)+('S'<<16)+('D'<<8)+'I') // little-endian "IDSQ"
 
 // studio limits
-#define MAXSTUDIOTRIANGLES		65536	// max triangles per model
 #define MAXSTUDIOVERTS		16384	// max vertices per submodel
 #define MAXSTUDIOSEQUENCES		256	// total animation sequences
 #define MAXSTUDIOSKINS		256	// total textures
@@ -40,14 +39,13 @@ Studio models are position independent, so the cache manager can move them.
 #define MAXSTUDIOMODELS		32	// sub-models per model
 #define MAXSTUDIOBODYPARTS		32	// body parts per submodel
 #define MAXSTUDIOGROUPS		16	// sequence groups (e.g. barney01.mdl, barney02.mdl, e.t.c)
-#define MAXSTUDIOANIMATIONS		512	// max frames per sequence
 #define MAXSTUDIOMESHES		256	// max textures per model
-#define MAXSTUDIOEVENTS		1024	// events per model
-#define MAXSTUDIOPIVOTS		256	// pivot points
-#define MAXSTUDIOBLENDS		16	// max anim blends
+#define MAXSTUDIOCONTROLLERS		32	// max controllers per model
+#define MAXSTUDIOATTACHMENTS		64	// max attachments per model
 #define MAXSTUDIOBONEWEIGHTS		4	// absolute hardware limit!
-#define MAXSTUDIOCONTROLLERS		8	// max controllers per model
-#define MAXSTUDIOATTACHMENTS		4	// max attachments per model
+#define MAXSTUDIONAME		32	// a part of specs
+#define MAXSTUDIOPOSEPARAM		24
+#define MAX_STUDIO_LIGHTMAP_SIZE	256	// must match with engine const!!!
 
 // client-side model flags
 #define STUDIO_ROCKET		(1U<<0)	// leave a trail
@@ -62,6 +60,7 @@ Studio models are position independent, so the cache manager can move them.
 #define STUDIO_TRACE_HITBOX		(1U<<9)	// always use hitbox trace instead of bbox
 #define STUDIO_FORCE_SKYLIGHT		(1U<<10)	// always grab lightvalues from the sky settings (even if sky is invisible)
 
+#define STUDIO_HAS_BUMP			(1U<<16)	// loadtime set
 #define STUDIO_STATIC_PROP		(1U<<29)	// hint for engine
 #define STUDIO_HAS_BONEINFO		(1U<<30)	// extra info about bones (pose matrix, procedural index etc)
 #define STUDIO_HAS_BONEWEIGHTS	(1U<<31)	// yes we got support of bone weighting
@@ -71,14 +70,24 @@ Studio models are position independent, so the cache manager can move them.
 #define STUDIO_NF_CHROME		0x0002
 #define STUDIO_NF_FULLBRIGHT		0x0004
 #define STUDIO_NF_NOMIPS		0x0008	// ignore mip-maps
-#define STUDIO_NF_NOSMOOTH		0x0010	// don't smooth tangent space
+#define STUDIO_NF_SMOOTH		0x0010	// smooth tangent space
 #define STUDIO_NF_ADDITIVE		0x0020	// rendering with additive mode
 #define STUDIO_NF_MASKED		0x0040	// use texture with alpha channel
 #define STUDIO_NF_NORMALMAP		0x0080	// indexed normalmap
 
-#define STUDIO_NF_SOLID			0x0800
+#define STUDIO_NF_GLOSSMAP		0x0100	// glossmap
+#define STUDIO_NF_GLOSSPOWER		0x0200
+#define STUDIO_NF_LUMA			0x0400	// self-illuminate parts
+#define STUDIO_NF_ALPHASOLID		0x0800	// use with STUDIO_NF_MASKED to have solid alphatest surfaces for env_static
 #define STUDIO_NF_TWOSIDE		0x1000	// render mesh as twosided
+#define STUDIO_NF_HEIGHTMAP		0x2000
 
+#define STUDIO_NF_NODRAW		(1<<16)	// failed to create shader for this mesh
+#define STUDIO_NF_NODLIGHT		(1<<17)	// failed to create dlight shader for this mesh
+#define STUDIO_NF_NOSUNLIGHT		(1<<18)	// failed to create sun light shader for this mesh
+
+#define STUDIO_NF_HAS_ALPHA		(1<<20)	// external texture has alpha-channel
+#define STUDIO_NF_HAS_DETAIL		(1<<21)	// studiomodels has detail textures
 #define STUDIO_NF_COLORMAP		(1<<30)	// internal system flag
 #define STUDIO_NF_UV_COORDS		(1<<31)	// using half-float coords instead of ST
 
@@ -92,26 +101,44 @@ Studio models are position independent, so the cache manager can move them.
 #define STUDIO_LX			0x0040
 #define STUDIO_LY			0x0080
 #define STUDIO_LZ			0x0100
-#define STUDIO_AX			0x0200
-#define STUDIO_AY			0x0400
-#define STUDIO_AZ			0x0800
-#define STUDIO_AXR			0x1000
-#define STUDIO_AYR			0x2000
-#define STUDIO_AZR			0x4000
-#define STUDIO_TYPES		0x7FFF
-#define STUDIO_RLOOP		0x8000	// controller that wraps shortest distance
+#define STUDIO_LXR			0x0200
+#define STUDIO_LYR			0x0400
+#define STUDIO_LZR			0x0800
+#define STUDIO_LINEAR			0x1000
+#define STUDIO_QUADRATIC_MOTION		0x2000
+#define STUDIO_RESERVED			0x4000	// g-cont. reserved one bit for me
+#define STUDIO_TYPES			0x7FFF
+#define STUDIO_RLOOP			0x8000	// controller that wraps shortest distance
 
 // bonecontroller types
 #define STUDIO_MOUTH		4	// hardcoded
 
 // sequence flags
-#define STUDIO_LOOPING		0x0001
+#define STUDIO_LOOPING		0x0001	// ending frame should be the same as the starting frame
+#define STUDIO_SNAP			0x0002	// do not interpolate between previous animation and this one
+#define STUDIO_DELTA		0x0004	// this sequence "adds" to the base sequences, not slerp blends
+#define STUDIO_AUTOPLAY		0x0008	// temporary flag that forces the sequence to always play
+#define STUDIO_POST			0x0010	// 
+#define STUDIO_ALLZEROS		0x0020	// this animation/sequence has no real animation data
+#define STUDIO_BLENDPOSE		0x0040   	// to differentiate GoldSrc style blending from Source style blending (with pose parameters)
+#define STUDIO_CYCLEPOSE		0x0080	// cycle index is taken from a pose parameter index
+#define STUDIO_REALTIME		0x0100	// cycle index is taken from a real-time clock, not the animations cycle index
+#define STUDIO_LOCAL		0x0200	// sequence has a local context sequence
+#define STUDIO_HIDDEN		0x0400	// don't show in default selection views
+#define STUDIO_IKRULES		0x0800	// sequence has IK-rules
+#define STUDIO_ACTIVITY		0x1000	// Has been updated at runtime to activity index
+#define STUDIO_EVENT		0x2000	// Has been updated at runtime to event index
+#define STUDIO_WORLD		0x4000	// sequence blends in worldspace
+#define STUDIO_LIGHT_FROM_ROOT	0x8000	// get lighting point from root bonepos not from entity origin
 
-// bone flags
-#define STUDIO_HAS_NORMALS		0x0001
-#define STUDIO_HAS_VERTICES		0x0002
-#define STUDIO_HAS_BBOX		0x0004
-#define STUDIO_HAS_CHROME		0x0008	// if any of the textures have chrome on them
+// autolayer flags
+#define STUDIO_AL_POST		0x0001	// 
+#define STUDIO_AL_SPLINE	0x0002	// convert layer ramp in/out curve is a spline instead of linear
+#define STUDIO_AL_XFADE		0x0004	// pre-bias the ramp curve to compense for a non-1 weight,
+					// assuming a second layer is also going to accumulate
+#define STUDIO_AL_NOBLEND	0x0008	// animation always blends at 1.0 (ignores weight)
+#define STUDIO_AL_LOCAL		0x0010	// layer is a local context sequence
+#define STUDIO_AL_POSE		0x0020	// layer blends using a pose parameter instead of parent cycle
 
 typedef struct studiohdr_s
 {
@@ -160,10 +187,10 @@ typedef struct studiohdr_s
 	int		attachmentindex;
 
 	int		studiohdr2index;
-	int		soundindex;
+	int		soundindex;	// UNUSED
 
-	int		soundgroups;
-	int		soundgroupindex;
+	int		soundgroups;	// UNUSED
+	int		soundgroupindex;	// UNUSED
 
 	int		numtransitions;	// animation node to animation node transition graph
 	int		transitionindex;
@@ -200,16 +227,59 @@ typedef struct
 	int		length;
 } studioseqhdr_t;
 
+// bone flags
+#define BONE_ALWAYS_PROCEDURAL	0x0001	// bone is always procedurally animated
+#define BONE_SCREEN_ALIGN_SPHERE	0x0002	// bone aligns to the screen, not constrained in motion.
+#define BONE_SCREEN_ALIGN_CYLINDER	0x0004	// bone aligns to the screen, constrained by it's own axis.
+#define BONE_JIGGLE_PROCEDURAL	0x0008
+#define BONE_FIXED_ALIGNMENT		0x0010	// bone can't spin 360 degrees, all interpolation is normalized around a fixed orientation
+
+#define BONE_USED_MASK		(BONE_USED_BY_HITBOX|BONE_USED_BY_ATTACHMENT|BONE_USED_BY_VERTEX|BONE_USED_BY_BONE_MERGE)
+#define BONE_USED_BY_ANYTHING		BONE_USED_MASK
+#define BONE_USED_BY_HITBOX		0x00000100// bone (or child) is used by a hit box
+#define BONE_USED_BY_ATTACHMENT	0x00000200// bone (or child) is used by an attachment point
+#define BONE_USED_BY_VERTEX		0x00000400// bone (or child) is used by the toplevel model via skinned vertex
+#define BONE_USED_BY_BONE_MERGE	0x00000800
+
 // bones
 typedef struct mstudiobone_s
 {
-	char		name[32];		// bone name for symbolic links
+	char		name[MAXSTUDIONAME];		// bone name for symbolic links
 	int		parent;		// parent bone
-	int		flags;		// ??
+	int		flags;		// bone flags
 	int		bonecontroller[6];	// bone controller index, -1 == none
 	float		value[6];		// default DoF values
 	float		scale[6];		// scale for delta DoF values
 } mstudiobone_t;
+
+#define STUDIO_PROC_AXISINTERP	1
+#define STUDIO_PROC_QUATINTERP	2
+#define STUDIO_PROC_AIMATBONE	3
+#define STUDIO_PROC_AIMATATTACH	4
+#define STUDIO_PROC_JIGGLE	5
+
+typedef struct
+{
+	int		control;	// local transformation of this bone used to calc 3 point blend
+	int		axis;		// axis to check
+	vec3_t		pos[6];		// X+, X-, Y+, Y-, Z+, Z-
+	vec4_t		quat[6];	// X+, X-, Y+, Y-, Z+, Z-
+} mstudioaxisinterpbone_t;
+
+typedef struct
+{
+	float		inv_tolerance;	// 1.0f / radian angle of trigger influence
+	vec4_t		trigger;		// angle to match
+	vec3_t		pos;		// new position
+	vec4_t		quat;		// new angle
+} mstudioquatinterpinfo_t;
+
+typedef struct
+{
+	int		control;		// local transformation to check
+	int		numtriggers;
+	int		triggerindex;
+} mstudioquatinterpbone_t;
 
 // extra info for bones
 typedef struct
@@ -221,6 +291,78 @@ typedef struct
 	vec4_t		quat;		// aligned bone rotation
 	int		reserved[10];	// for future expansions
 } mstudioboneinfo_t;
+
+// JIGGLEBONES
+#define JIGGLE_IS_FLEXIBLE		0x01
+#define JIGGLE_IS_RIGID			0x02
+#define JIGGLE_HAS_YAW_CONSTRAINT	0x04
+#define JIGGLE_HAS_PITCH_CONSTRAINT	0x08
+#define JIGGLE_HAS_ANGLE_CONSTRAINT	0x10
+#define JIGGLE_HAS_LENGTH_CONSTRAINT	0x20
+#define JIGGLE_HAS_BASE_SPRING		0x40
+#define JIGGLE_IS_BOING			0x80	// simple squash and stretch sinusoid "boing"
+
+typedef struct
+{
+	int		flags;
+
+	// general params
+	float		length;		// how from from bone base, along bone, is tip
+	float		tipMass;
+
+	// flexible params
+	float		yawStiffness;
+	float		yawDamping;
+	float		pitchStiffness;
+	float		pitchDamping;
+	float		alongStiffness;
+	float		alongDamping;
+
+	// angle constraint
+	float		angleLimit;	// maximum deflection of tip in radians
+
+	// yaw constraint
+	float		minYaw;		// in radians
+	float		maxYaw;		// in radians
+	float		yawFriction;
+	float		yawBounce;
+
+	// pitch constraint
+	float		minPitch;		// in radians
+	float		maxPitch;		// in radians
+	float		pitchFriction;
+	float		pitchBounce;
+
+	// base spring
+	float		baseMass;
+	float		baseStiffness;
+	float		baseDamping;
+	float		baseMinLeft;
+	float		baseMaxLeft;
+	float		baseLeftFriction;
+	float		baseMinUp;
+	float		baseMaxUp;
+	float		baseUpFriction;
+	float		baseMinForward;
+	float		baseMaxForward;
+	float		baseForwardFriction;
+
+	// boing
+	float		boingImpactSpeed;
+	float		boingImpactAngle;
+	float		boingDampingRate;
+	float		boingFrequency;
+	float		boingAmplitude;
+} mstudiojigglebone_t;
+
+typedef struct
+{
+	int		parent;
+	int		aim;		// might be bone or attach
+	vec3_t		aimvector;
+	vec3_t		upvector;
+	vec3_t		basepos;
+} mstudioaimatbone_t;
 
 // bone controllers
 typedef struct 
@@ -242,6 +384,13 @@ typedef struct
 	vec3_t		bbmax;		
 } mstudiobbox_t;
 
+typedef struct
+{
+	char		name[MAXSTUDIONAME];
+	int		numhitboxes;
+	int		hitboxindex;
+} mstudiohitboxset_t;
+
 #ifndef CACHE_USER
 #define CACHE_USER
 typedef struct cache_user_s
@@ -253,16 +402,126 @@ typedef struct cache_user_s
 // demand loaded sequence groups
 typedef struct
 {
-	char		label[32];	// textual name
+	char		label[MAXSTUDIONAME];	// textual name
 	char		name[64];		// file name
 	cache_user_t	cache;		// cache index pointer
 	int		data;		// hack for group 0
 } mstudioseqgroup_t;
 
+// events
+#include "studio_event.h"
+
+#define STUDIO_ATTACHMENT_LOCAL	(1<<0)	// vectors are filled
+
+// attachment
+typedef struct
+{
+	char		name[MAXSTUDIONAME];
+	int		flags;
+	int		bone;
+	vec3_t		org;		// attachment position
+	vec3_t		vectors[3];	// attachment vectors
+} mstudioattachment_t;
+
+#define IK_SELF		1
+#define IK_WORLD		2
+#define IK_GROUND		3
+#define IK_RELEASE		4
+#define IK_ATTACHMENT	5
+#define IK_UNLATCH		6
+
+typedef struct
+{
+	float		scale[6];
+	unsigned short	offset[6];
+} mstudioikerror_t;
+
+typedef struct
+{
+	int		index;
+
+	int		type;
+	int		chain;
+
+	int		bone;
+	int		attachment;	// attachment index
+
+	int		slot;		// iktarget slot.  Usually same as chain.
+	float		height;
+	float		radius;
+	float		floor;
+	vec3_t		pos;
+	vec4_t		quat;
+
+	int		ikerrorindex;	// compressed IK error
+
+	int		iStart;
+	float		start;		// beginning of influence
+	float		peak;		// start of full influence
+	float		tail;		// end of full influence
+	float		end;		// end of all influence
+	float		contact;		// frame footstep makes ground concact
+	float		drop;		// how far down the foot should drop when reaching for IK
+	float		top;		// top of the foot box
+
+	int		unused[4];	// for future expansions
+} mstudioikrule_t;
+
+typedef struct
+{
+	int		chain;
+	float		flPosWeight;
+	float		flLocalQWeight;
+	int		flags;
+
+	int		unused[4];	// for future expansions
+} mstudioiklock_t;
+
+typedef struct
+{
+	int		endframe;
+	int		motionflags;
+	float		v0;		// velocity at start of block
+	float		v1;		// velocity at end of block
+	float		angle;		// YAW rotation at end of this blocks movement
+	vec3_t		vector;		// movement vector relative to this blocks initial angle
+	vec3_t		position;		// relative to start of animation???
+} mstudiomovement_t;
+
+// additional info for each animation in sequence blend group or single sequence
+typedef struct
+{
+	char		label[MAXSTUDIONAME];	// animation label (may be matched with sequence label)
+	float		fps;		// frames per second (match with sequence fps or be different)
+	int		flags;		// looping/non-looping flags
+	int		numframes;	// frames per animation
+
+	// piecewise movement
+	int		nummovements;	// piecewise movement
+	int		movementindex;
+
+	int		numikrules;
+	int		ikruleindex;	// non-zero when IK data is stored in the mdl
+
+	int		unused[8];	// for future expansions
+} mstudioanimdesc_t;
+
+// autoplaying sequences
+typedef struct
+{
+	short		iSequence;
+	short		iPose;
+	int		flags;
+	float		start;		// beginning of influence
+	float		peak;		// start of full influence
+	float		tail;		// end of full influence
+	float		end;		// end of all influence
+} mstudioautolayer_t;
+
 // sequence descriptions
 typedef struct mstudioseqdesc_s
 {
-	char		label[32];	// sequence label
+	char		label[MAXSTUDIONAME];	// sequence label
 
 	float		fps;		// frames per second	
 	int		flags;		// looping/non-looping flags
@@ -275,14 +534,14 @@ typedef struct mstudioseqdesc_s
 
 	int		numframes;	// number of frames per sequence
 
-	int		numpivots;	// number of foot pivots
-	int		pivotindex;
+	int		weightlistindex;	// weightlists
+	int		iklockindex;		// IK locks
 
-	int		motiontype;	
-	int		motionbone;
+	int		motiontype;
+	int		motionbone;	// index of pose parameter
 	vec3_t		linearmovement;
-	int		automoveposindex;
-	int		automoveangleindex;
+	int		autolayerindex;	// autolayer descriptions
+	int		keyvalueindex;	// local key-values
 
 	vec3_t		bbmin;		// per sequence bounding box
 	vec3_t		bbmax;		
@@ -291,40 +550,33 @@ typedef struct mstudioseqdesc_s
 	int		animindex;	// mstudioanim_t pointer relative to start of sequence group data
 					// [blend][bone][X, Y, Z, XR, YR, ZR]
 
-	int		blendtype[2];	// X, Y, Z, XR, YR, ZR
-	float		blendstart[2];	// starting value
-	float		blendend[2];	// ending value
-	int		blendparent;
+	int		blendtype[2];	// X, Y, Z, XR, YR, ZR (same as paramindex)
+	float		blendstart[2];	// starting value (same as paramstart)
+	float		blendend[2];	// ending value (same as paramend)
+	byte		groupsize[2];	// 255 x 255 blends should be enough
+	byte		numautolayers;	// count of autoplaying layers
+	byte		numiklocks;	// IK-locks per sequence
 
 	int		seqgroup;		// sequence group for demand loading
 
 	int		entrynode;	// transition node at entry
 	int		exitnode;		// transition node at exit
-	int		nodeflags;	// transition rules
+	byte		nodeflags;	// transition rules (really this is bool)
+	byte		cycleposeindex;	// index of pose parameter to use as cycle index
+	byte		fadeintime;	// ideal cross fade in time (0.2 secs default) time = (fadeintime / 100)
+	byte		fadeouttime;	// ideal cross fade out time (0.2 msecs default)  time = (fadeouttime / 100)
 	
-	int		nextseq;		// auto advancing sequences
+	int		animdescindex;	// mstudioanimdesc_t [blend]
 } mstudioseqdesc_t;
 
-// events
-#include "studio_event.h"
-
-// pivots
-typedef struct 
+typedef struct
 {
-	vec3_t		org;		// pivot point
-	int		start;
-	int		end;
-} mstudiopivot_t;
-
-// attachment
-typedef struct 
-{
-	char		name[32];
-	int		type;
-	int		bone;
-	vec3_t		org;		// attachment point
-	vec3_t		vectors[3];
-} mstudioattachment_t;
+	char		name[MAXSTUDIONAME];
+	int		flags;		// ????
+	float		start;		// starting value
+	float		end;		// ending value
+	float		loop;		// looping range, 0 for no looping, 360 for rotations, etc.
+} mstudioposeparamdesc_t;
 
 typedef struct mstudioanim_s
 {
@@ -361,6 +613,22 @@ typedef struct mstudiotex_s
 	int		index;
 } mstudiotexture_t;
 
+// ikinfo
+typedef struct
+{
+	int		bone;
+	vec3_t		kneeDir;		// ideal bending direction (per link, if applicable)
+	vec3_t		unused0;		// unused
+} mstudioiklink_t;
+
+typedef struct
+{
+	char		name[MAXSTUDIONAME];
+	int		linktype;
+	int		numlinks;
+	int		linkindex;
+} mstudioikchain_t;
+
 typedef struct
 {
 	byte		weight[4];
@@ -375,8 +643,8 @@ typedef struct
 {
 	char		name[64];
 
-	int		type;
-	float		boundingradius;
+	int		type;	// UNUSED
+	float		boundingradius;	// UNUSED
 
 	int		nummesh;
 	int		meshindex;
@@ -401,7 +669,7 @@ typedef struct
 	int		triindex;
 	int		skinref;
 	int		numnorms;		// per mesh normals
-	int		normindex;	// normal vec3_t
+	int		normindex;	// UNUSED!
 } mstudiomesh_t;
 
 // triangles
