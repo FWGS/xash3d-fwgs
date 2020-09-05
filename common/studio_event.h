@@ -12,16 +12,18 @@
 *   without written permission from Valve LLC.
 *
 ****/
-
+#pragma once
 #ifndef STUDIO_EVENT_H
 #define STUDIO_EVENT_H
+
+#define MAXEVENTSTRING		64
 
 typedef struct mstudioevent_s
 {
 	int 		frame;
 	int		event;
 	int		type;
-	char		options[64];
+	char		options[MAXEVENTSTRING];
 } mstudioevent_t;
 
-#endif//STUDIO_EVENT_H
+#endif // STUDIO_EVENT_H

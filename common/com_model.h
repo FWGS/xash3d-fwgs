@@ -32,7 +32,8 @@ GNU General Public License for more details.
 
 #define MIPLEVELS		4
 #define VERTEXSIZE		7
-#define MAXLIGHTMAPS	4
+#define MAXLIGHTMAPS	4	// max light styles per face
+#define MAXDYNLIGHTS	8	// maximum dynamic lights per one pixel
 #define NUM_AMBIENTS	4		// automatic ambient sounds
 
 // model types
