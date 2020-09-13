@@ -1578,6 +1578,12 @@ void CL_RegisterResources( sizebuf_t *msg )
 
 			CL_ClearWorld ();
 
+			// update the ref state.
+			refState.time      = cl.time;
+			refState.oldtime   = cl.oldtime;
+			refState.realtime  = host.realtime;
+			refState.frametime = host.frametime;
+
 			// tell rendering system we have a new set of models.
 			ref.dllFuncs.R_NewMap ();
 
@@ -3167,6 +3173,12 @@ void CL_LegacyPrecache_f( void )
 	cl.audio_prepped = true;
 	if( clgame.entities )
 		clgame.entities->model = cl.worldmodel;
+
+	// update the ref state.
+	refState.time      = cl.time;
+	refState.oldtime   = cl.oldtime;
+	refState.realtime  = host.realtime;
+	refState.frametime = host.frametime;
 
 	// tell rendering system we have a new set of models.
 	ref.dllFuncs.R_NewMap ();
