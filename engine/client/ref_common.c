@@ -41,12 +41,17 @@ void GAME_EXPORT GL_FreeImage( const char *name )
 		 ref.dllFuncs.GL_FreeTexture( texnum );
 }
 
-void GL_RenderFrame( const ref_viewpass_t *rvp )
+void R_UpdateRefState( void )
 {
 	refState.time      = cl.time;
 	refState.oldtime   = cl.oldtime;
 	refState.realtime  = host.realtime;
 	refState.frametime = host.frametime;
+}
+
+void GL_RenderFrame( const ref_viewpass_t *rvp )
+{
+	R_UpdateRefState();
 
 	VectorCopy( rvp->vieworigin, refState.vieworg );
 	VectorCopy( rvp->viewangles, refState.viewangles );
