@@ -142,11 +142,11 @@ Studio models are position independent, so the cache manager can move them.
 
 typedef struct studiohdr_s
 {
-	int		ident;
-	int		version;
+	int32_t		ident;
+	int32_t		version;
 
 	char		name[64];
-	int		length;
+	int32_t		length;
 
 	vec3_t		eyeposition;	// ideal eye position
 	vec3_t		min;		// ideal movement hull size
@@ -155,76 +155,76 @@ typedef struct studiohdr_s
 	vec3_t		bbmin;		// clipping bounding box
 	vec3_t		bbmax;		
 
-	int		flags;
+	int32_t		flags;
 
-	int		numbones;		// bones
-	int		boneindex;
+	int32_t		numbones;		// bones
+	int32_t		boneindex;
 
-	int		numbonecontrollers;	// bone controllers
-	int		bonecontrollerindex;
+	int32_t		numbonecontrollers;	// bone controllers
+	int32_t		bonecontrollerindex;
 
-	int		numhitboxes;	// complex bounding boxes
-	int		hitboxindex;			
+	int32_t		numhitboxes;	// complex bounding boxes
+	int32_t		hitboxindex;
 	
-	int		numseq;		// animation sequences
-	int		seqindex;
+	int32_t		numseq;		// animation sequences
+	int32_t		seqindex;
 
-	int		numseqgroups;	// demand loaded sequences
-	int		seqgroupindex;
+	int32_t		numseqgroups;	// demand loaded sequences
+	int32_t		seqgroupindex;
 
-	int		numtextures;	// raw textures
-	int		textureindex;
-	int		texturedataindex;
+	int32_t		numtextures;	// raw textures
+	int32_t		textureindex;
+	int32_t		texturedataindex;
 
-	int		numskinref;	// replaceable textures
-	int		numskinfamilies;
-	int		skinindex;
+	int32_t		numskinref;	// replaceable textures
+	int32_t		numskinfamilies;
+	int32_t		skinindex;
 
-	int		numbodyparts;		
-	int		bodypartindex;
+	int32_t		numbodyparts;		
+	int32_t		bodypartindex;
 
-	int		numattachments;	// queryable attachable points
-	int		attachmentindex;
+	int32_t		numattachments;	// queryable attachable points
+	int32_t		attachmentindex;
 
-	int		studiohdr2index;
-	int		soundindex;	// UNUSED
+	int32_t		studiohdr2index;
+	int32_t		soundindex;	// UNUSED
 
-	int		soundgroups;	// UNUSED
-	int		soundgroupindex;	// UNUSED
+	int32_t		soundgroups;	// UNUSED
+	int32_t		soundgroupindex;	// UNUSED
 
-	int		numtransitions;	// animation node to animation node transition graph
-	int		transitionindex;
+	int32_t		numtransitions;	// animation node to animation node transition graph
+	int32_t		transitionindex;
 } studiohdr_t;
 
 // extra header to hold more offsets
 typedef struct
 {
-	int		numposeparameters;
-	int		poseparamindex;
+	int32_t		numposeparameters;
+	int32_t		poseparamindex;
 
-	int		numikautoplaylocks;
-	int		ikautoplaylockindex;
+	int32_t		numikautoplaylocks;
+	int32_t		ikautoplaylockindex;
 
-	int		numikchains;
-	int		ikchainindex;
+	int32_t		numikchains;
+	int32_t		ikchainindex;
 
-	int		keyvalueindex;
-	int		keyvaluesize;
+	int32_t		keyvalueindex;
+	int32_t		keyvaluesize;
 
-	int		numhitboxsets;
-	int		hitboxsetindex;
+	int32_t		numhitboxsets;
+	int32_t		hitboxsetindex;
 
-	int		unused[6];	// for future expansions
+	int32_t		unused[6];	// for future expansions
 } studiohdr2_t;
 
 // header for demand loaded sequence group data
 typedef struct 
 {
-	int		id;
-	int		version;
+	int32_t		id;
+	int32_t		version;
 
 	char		name[64];
-	int		length;
+	int32_t		length;
 } studioseqhdr_t;
 
 // bone flags
@@ -245,9 +245,9 @@ typedef struct
 typedef struct mstudiobone_s
 {
 	char		name[MAXSTUDIONAME];		// bone name for symbolic links
-	int		parent;		// parent bone
-	int		flags;		// bone flags
-	int		bonecontroller[6];	// bone controller index, -1 == none
+	int32_t		parent;		// parent bone
+	int32_t		flags;		// bone flags
+	int32_t		bonecontroller[6];	// bone controller index, -1 == none
 	float		value[6];		// default DoF values
 	float		scale[6];		// scale for delta DoF values
 } mstudiobone_t;
@@ -260,8 +260,8 @@ typedef struct mstudiobone_s
 
 typedef struct
 {
-	int		control;	// local transformation of this bone used to calc 3 point blend
-	int		axis;		// axis to check
+	int32_t		control;	// local transformation of this bone used to calc 3 point blend
+	int32_t		axis;		// axis to check
 	vec3_t		pos[6];		// X+, X-, Y+, Y-, Z+, Z-
 	vec4_t		quat[6];	// X+, X-, Y+, Y-, Z+, Z-
 } mstudioaxisinterpbone_t;
@@ -276,9 +276,9 @@ typedef struct
 
 typedef struct
 {
-	int		control;		// local transformation to check
-	int		numtriggers;
-	int		triggerindex;
+	int32_t		control;		// local transformation to check
+	int32_t		numtriggers;
+	int32_t		triggerindex;
 } mstudioquatinterpbone_t;
 
 // extra info for bones
@@ -286,10 +286,10 @@ typedef struct
 {
 	float		poseToBone[3][4];	// boneweighting reqiures
 	vec4_t		qAlignment;
-	int		proctype;
-	int		procindex;	// procedural rule
+	int32_t		proctype;
+	int32_t		procindex;	// procedural rule
 	vec4_t		quat;		// aligned bone rotation
-	int		reserved[10];	// for future expansions
+	int32_t		reserved[10];	// for future expansions
 } mstudioboneinfo_t;
 
 // JIGGLEBONES
@@ -304,7 +304,7 @@ typedef struct
 
 typedef struct
 {
-	int		flags;
+	int32_t		flags;
 
 	// general params
 	float		length;		// how from from bone base, along bone, is tip
@@ -357,8 +357,8 @@ typedef struct
 
 typedef struct
 {
-	int		parent;
-	int		aim;		// might be bone or attach
+	int32_t		parent;
+	int32_t		aim;		// might be bone or attach
 	vec3_t		aimvector;
 	vec3_t		upvector;
 	vec3_t		basepos;
@@ -367,19 +367,19 @@ typedef struct
 // bone controllers
 typedef struct 
 {
-	int		bone;		// -1 == 0
-	int		type;		// X, Y, Z, XR, YR, ZR, M
+	int32_t		bone;		// -1 == 0
+	int32_t		type;		// X, Y, Z, XR, YR, ZR, M
 	float		start;
 	float		end;
-	int		rest;		// byte index value at rest
-	int		index;		// 0-3 user set controller, 4 mouth
+	int32_t		rest;		// byte index value at rest
+	int32_t		index;		// 0-3 user set controller, 4 mouth
 } mstudiobonecontroller_t;
 
 // intersection boxes
 typedef struct
 {
-	int		bone;
-	int		group;		// intersection group
+	int32_t		bone;
+	int32_t		group;		// intersection group
 	vec3_t		bbmin;		// bounding box
 	vec3_t		bbmax;		
 } mstudiobbox_t;
@@ -387,25 +387,17 @@ typedef struct
 typedef struct
 {
 	char		name[MAXSTUDIONAME];
-	int		numhitboxes;
-	int		hitboxindex;
+	int32_t		numhitboxes;
+	int32_t		hitboxindex;
 } mstudiohitboxset_t;
-
-#ifndef CACHE_USER
-#define CACHE_USER
-typedef struct cache_user_s
-{
-	void		*data;		// extradata
-} cache_user_t;
-#endif
 
 // demand loaded sequence groups
 typedef struct
 {
 	char		label[MAXSTUDIONAME];	// textual name
 	char		name[64];		// file name
-	cache_user_t	cache;		// cache index pointer
-	int		data;		// hack for group 0
+	int32_t		cache;		// cache index pointer
+	int32_t		data;		// hack for group 0
 } mstudioseqgroup_t;
 
 // events
@@ -417,8 +409,8 @@ typedef struct
 typedef struct
 {
 	char		name[MAXSTUDIONAME];
-	int		flags;
-	int		bone;
+	int32_t		flags;
+	int32_t		bone;
 	vec3_t		org;		// attachment position
 	vec3_t		vectors[3];	// attachment vectors
 } mstudioattachment_t;
@@ -433,29 +425,29 @@ typedef struct
 typedef struct
 {
 	float		scale[6];
-	unsigned short	offset[6];
+	uint16_t	offset[6];
 } mstudioikerror_t;
 
 typedef struct
 {
-	int		index;
+	int32_t		index;
 
-	int		type;
-	int		chain;
+	int32_t		type;
+	int32_t		chain;
 
-	int		bone;
-	int		attachment;	// attachment index
+	int32_t		bone;
+	int32_t		attachment;	// attachment index
 
-	int		slot;		// iktarget slot.  Usually same as chain.
+	int32_t		slot;		// iktarget slot.  Usually same as chain.
 	float		height;
 	float		radius;
 	float		floor;
 	vec3_t		pos;
 	vec4_t		quat;
 
-	int		ikerrorindex;	// compressed IK error
+	int32_t		ikerrorindex;	// compressed IK error
 
-	int		iStart;
+	int32_t		iStart;
 	float		start;		// beginning of influence
 	float		peak;		// start of full influence
 	float		tail;		// end of full influence
@@ -464,23 +456,23 @@ typedef struct
 	float		drop;		// how far down the foot should drop when reaching for IK
 	float		top;		// top of the foot box
 
-	int		unused[4];	// for future expansions
+	int32_t		unused[4];	// for future expansions
 } mstudioikrule_t;
 
 typedef struct
 {
-	int		chain;
+	int32_t		chain;
 	float		flPosWeight;
 	float		flLocalQWeight;
-	int		flags;
+	int32_t		flags;
 
-	int		unused[4];	// for future expansions
+	int32_t		unused[4];	// for future expansions
 } mstudioiklock_t;
 
 typedef struct
 {
-	int		endframe;
-	int		motionflags;
+	int32_t		endframe;
+	int32_t		motionflags;
 	float		v0;		// velocity at start of block
 	float		v1;		// velocity at end of block
 	float		angle;		// YAW rotation at end of this blocks movement
@@ -493,25 +485,25 @@ typedef struct
 {
 	char		label[MAXSTUDIONAME];	// animation label (may be matched with sequence label)
 	float		fps;		// frames per second (match with sequence fps or be different)
-	int		flags;		// looping/non-looping flags
-	int		numframes;	// frames per animation
+	int32_t		flags;		// looping/non-looping flags
+	int32_t		numframes;	// frames per animation
 
 	// piecewise movement
-	int		nummovements;	// piecewise movement
-	int		movementindex;
+	int32_t		nummovements;	// piecewise movement
+	int32_t		movementindex;
 
-	int		numikrules;
-	int		ikruleindex;	// non-zero when IK data is stored in the mdl
+	int32_t		numikrules;
+	int32_t		ikruleindex;	// non-zero when IK data is stored in the mdl
 
-	int		unused[8];	// for future expansions
+	int32_t		unused[8];	// for future expansions
 } mstudioanimdesc_t;
 
 // autoplaying sequences
 typedef struct
 {
-	short		iSequence;
-	short		iPose;
-	int		flags;
+	int16_t		iSequence;
+	int16_t		iPose;
+	int32_t		flags;
 	float		start;		// beginning of influence
 	float		peak;		// start of full influence
 	float		tail;		// end of full influence
@@ -524,55 +516,55 @@ typedef struct mstudioseqdesc_s
 	char		label[MAXSTUDIONAME];	// sequence label
 
 	float		fps;		// frames per second	
-	int		flags;		// looping/non-looping flags
+	int32_t		flags;		// looping/non-looping flags
 
-	int		activity;
-	int		actweight;
+	int32_t		activity;
+	int32_t		actweight;
 
-	int		numevents;
-	int		eventindex;
+	int32_t		numevents;
+	int32_t		eventindex;
 
-	int		numframes;	// number of frames per sequence
+	int32_t		numframes;	// number of frames per sequence
 
-	int		weightlistindex;	// weightlists
-	int		iklockindex;		// IK locks
+	int32_t		weightlistindex;	// weightlists
+	int32_t		iklockindex;		// IK locks
 
-	int		motiontype;
-	int		motionbone;	// index of pose parameter
+	int32_t		motiontype;
+	int32_t		motionbone;	// index of pose parameter
 	vec3_t		linearmovement;
-	int		autolayerindex;	// autolayer descriptions
-	int		keyvalueindex;	// local key-values
+	int32_t		autolayerindex;	// autolayer descriptions
+	int32_t		keyvalueindex;	// local key-values
 
 	vec3_t		bbmin;		// per sequence bounding box
 	vec3_t		bbmax;		
 
-	int		numblends;
-	int		animindex;	// mstudioanim_t pointer relative to start of sequence group data
+	int32_t		numblends;
+	int32_t		animindex;	// mstudioanim_t pointer relative to start of sequence group data
 					// [blend][bone][X, Y, Z, XR, YR, ZR]
 
-	int		blendtype[2];	// X, Y, Z, XR, YR, ZR (same as paramindex)
+	int32_t		blendtype[2];	// X, Y, Z, XR, YR, ZR (same as paramindex)
 	float		blendstart[2];	// starting value (same as paramstart)
 	float		blendend[2];	// ending value (same as paramend)
-	byte		groupsize[2];	// 255 x 255 blends should be enough
-	byte		numautolayers;	// count of autoplaying layers
-	byte		numiklocks;	// IK-locks per sequence
+	uint8_t		groupsize[2];	// 255 x 255 blends should be enough
+	uint8_t		numautolayers;	// count of autoplaying layers
+	uint8_t		numiklocks;	// IK-locks per sequence
 
-	int		seqgroup;		// sequence group for demand loading
+	int32_t		seqgroup;		// sequence group for demand loading
 
-	int		entrynode;	// transition node at entry
-	int		exitnode;		// transition node at exit
-	byte		nodeflags;	// transition rules (really this is bool)
-	byte		cycleposeindex;	// index of pose parameter to use as cycle index
-	byte		fadeintime;	// ideal cross fade in time (0.2 secs default) time = (fadeintime / 100)
-	byte		fadeouttime;	// ideal cross fade out time (0.2 msecs default)  time = (fadeouttime / 100)
+	int32_t		entrynode;	// transition node at entry
+	int32_t		exitnode;		// transition node at exit
+	uint8_t		nodeflags;	// transition rules (really this is bool)
+	uint8_t		cycleposeindex;	// index of pose parameter to use as cycle index
+	uint8_t		fadeintime;	// ideal cross fade in time (0.2 secs default) time = (fadeintime / 100)
+	uint8_t		fadeouttime;	// ideal cross fade out time (0.2 msecs default)  time = (fadeouttime / 100)
 	
-	int		animdescindex;	// mstudioanimdesc_t [blend]
+	int32_t		animdescindex;	// mstudioanimdesc_t [blend]
 } mstudioseqdesc_t;
 
 typedef struct
 {
 	char		name[MAXSTUDIONAME];
-	int		flags;		// ????
+	int32_t		flags;		// ????
 	float		start;		// starting value
 	float		end;		// ending value
 	float		loop;		// looping range, 0 for no looping, 360 for rotations, etc.
@@ -580,7 +572,7 @@ typedef struct
 
 typedef struct mstudioanim_s
 {
-	unsigned short	offset[6];
+	uint16_t	offset[6];
 } mstudioanim_t;
 
 // animation frames
@@ -588,35 +580,35 @@ typedef union
 {
 	struct
 	{
-		byte	valid;
-		byte	total;
+		uint8_t	valid;
+		uint8_t	total;
 	} num;
-	short		value;
+	int16_t		value;
 } mstudioanimvalue_t;
 
 // body part index
 typedef struct
 {
 	char		name[64];
-	int		nummodels;
-	int		base;
-	int		modelindex;	// index into models array
+	int32_t		nummodels;
+	int32_t		base;
+	int32_t		modelindex;	// index into models array
 } mstudiobodyparts_t;
 
 // skin info
 typedef struct mstudiotex_s
 {
 	char		name[64];
-	unsigned int	flags;
-	int		width;
-	int		height;
-	int		index;
+	uint32_t	flags;
+	int32_t		width;
+	int32_t		height;
+	int32_t		index;
 } mstudiotexture_t;
 
 // ikinfo
 typedef struct
 {
-	int		bone;
+	int32_t		bone;
 	vec3_t		kneeDir;		// ideal bending direction (per link, if applicable)
 	vec3_t		unused0;		// unused
 } mstudioiklink_t;
@@ -624,15 +616,15 @@ typedef struct
 typedef struct
 {
 	char		name[MAXSTUDIONAME];
-	int		linktype;
-	int		numlinks;
-	int		linkindex;
+	int32_t		linktype;
+	int32_t		numlinks;
+	int32_t		linkindex;
 } mstudioikchain_t;
 
 typedef struct
 {
-	byte		weight[4];
-	signed char		bone[4]; 
+	uint8_t		weight[4];
+	int8_t		bone[4]; 
 } mstudioboneweight_t;
 
 // skin families
@@ -643,21 +635,21 @@ typedef struct
 {
 	char		name[64];
 
-	int		type;	// UNUSED
+	int32_t		type;	// UNUSED
 	float		boundingradius;	// UNUSED
 
-	int		nummesh;
-	int		meshindex;
+	int32_t		nummesh;
+	int32_t		meshindex;
 
-	int		numverts;		// number of unique vertices
-	int		vertinfoindex;	// vertex bone info
-	int		vertindex;	// vertex vec3_t
-	int		numnorms;		// number of unique surface normals
-	int		norminfoindex;	// normal bone info
-	int		normindex;	// normal vec3_t
+	int32_t		numverts;		// number of unique vertices
+	int32_t		vertinfoindex;	// vertex bone info
+	int32_t		vertindex;	// vertex vec3_t
+	int32_t		numnorms;		// number of unique surface normals
+	int32_t		norminfoindex;	// normal bone info
+	int32_t		normindex;	// normal vec3_t
 
-	int		blendvertinfoindex;	// boneweighted vertex info
-	int		blendnorminfoindex;	// boneweighted normal info
+	int32_t		blendvertinfoindex;	// boneweighted vertex info
+	int32_t		blendnorminfoindex;	// boneweighted normal info
 } mstudiomodel_t;
 
 // vec3_t	boundingbox[model][bone][2];		// complex intersection info
@@ -665,19 +657,19 @@ typedef struct
 // meshes
 typedef struct 
 {
-	int		numtris;
-	int		triindex;
-	int		skinref;
-	int		numnorms;		// per mesh normals
-	int		normindex;	// UNUSED!
+	int32_t		numtris;
+	int32_t		triindex;
+	int32_t		skinref;
+	int32_t		numnorms;		// per mesh normals
+	int32_t		normindex;	// UNUSED!
 } mstudiomesh_t;
 
 // triangles
 typedef struct 
 {
-	short		vertindex;	// index into vertex array
-	short		normindex;	// index into normal array
-	short		s,t;		// s,t position on skin
+	int16_t		vertindex;	// index into vertex array
+	int16_t		normindex;	// index into normal array
+	int16_t		s,t;		// s,t position on skin
 } mstudiotrivert_t;
 
 #endif//STUDIO_H

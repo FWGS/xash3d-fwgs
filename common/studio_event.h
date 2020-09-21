@@ -20,9 +20,9 @@
 
 typedef struct mstudioevent_s
 {
-	int 		frame;
-	int		event;
-	int		type;
+	int32_t 	frame;
+	int32_t		event;
+	int32_t		type;
 	char		options[MAXEVENTSTRING];
 } mstudioevent_t;
 
