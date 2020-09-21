@@ -248,8 +248,8 @@ typedef struct mstudiobone_s
 	int32_t		parent;		// parent bone
 	int32_t		flags;		// bone flags
 	int32_t		bonecontroller[6];	// bone controller index, -1 == none
-	float		value[6];		// default DoF values
-	float		scale[6];		// scale for delta DoF values
+	vec_t		value[6];		// default DoF values
+	vec_t		scale[6];		// scale for delta DoF values
 } mstudiobone_t;
 
 #define STUDIO_PROC_AXISINTERP	1
@@ -268,7 +268,7 @@ typedef struct
 
 typedef struct
 {
-	float		inv_tolerance;	// 1.0f / radian angle of trigger influence
+	vec_t		inv_tolerance;	// 1.0f / radian angle of trigger influence
 	vec4_t		trigger;		// angle to match
 	vec3_t		pos;		// new position
 	vec4_t		quat;		// new angle
@@ -284,7 +284,7 @@ typedef struct
 // extra info for bones
 typedef struct
 {
-	float		poseToBone[3][4];	// boneweighting reqiures
+	vec_t		poseToBone[3][4];	// boneweighting reqiures
 	vec4_t		qAlignment;
 	int32_t		proctype;
 	int32_t		procindex;	// procedural rule
@@ -307,52 +307,52 @@ typedef struct
 	int32_t		flags;
 
 	// general params
-	float		length;		// how from from bone base, along bone, is tip
-	float		tipMass;
+	vec_t		length;		// how from from bone base, along bone, is tip
+	vec_t		tipMass;
 
 	// flexible params
-	float		yawStiffness;
-	float		yawDamping;
-	float		pitchStiffness;
-	float		pitchDamping;
-	float		alongStiffness;
-	float		alongDamping;
+	vec_t		yawStiffness;
+	vec_t		yawDamping;
+	vec_t		pitchStiffness;
+	vec_t		pitchDamping;
+	vec_t		alongStiffness;
+	vec_t		alongDamping;
 
 	// angle constraint
-	float		angleLimit;	// maximum deflection of tip in radians
+	vec_t		angleLimit;	// maximum deflection of tip in radians
 
 	// yaw constraint
-	float		minYaw;		// in radians
-	float		maxYaw;		// in radians
-	float		yawFriction;
-	float		yawBounce;
+	vec_t		minYaw;		// in radians
+	vec_t		maxYaw;		// in radians
+	vec_t		yawFriction;
+	vec_t		yawBounce;
 
 	// pitch constraint
-	float		minPitch;		// in radians
-	float		maxPitch;		// in radians
-	float		pitchFriction;
-	float		pitchBounce;
+	vec_t		minPitch;		// in radians
+	vec_t		maxPitch;		// in radians
+	vec_t		pitchFriction;
+	vec_t		pitchBounce;
 
 	// base spring
-	float		baseMass;
-	float		baseStiffness;
-	float		baseDamping;
-	float		baseMinLeft;
-	float		baseMaxLeft;
-	float		baseLeftFriction;
-	float		baseMinUp;
-	float		baseMaxUp;
-	float		baseUpFriction;
-	float		baseMinForward;
-	float		baseMaxForward;
-	float		baseForwardFriction;
+	vec_t		baseMass;
+	vec_t		baseStiffness;
+	vec_t		baseDamping;
+	vec_t		baseMinLeft;
+	vec_t		baseMaxLeft;
+	vec_t		baseLeftFriction;
+	vec_t		baseMinUp;
+	vec_t		baseMaxUp;
+	vec_t		baseUpFriction;
+	vec_t		baseMinForward;
+	vec_t		baseMaxForward;
+	vec_t		baseForwardFriction;
 
 	// boing
-	float		boingImpactSpeed;
-	float		boingImpactAngle;
-	float		boingDampingRate;
-	float		boingFrequency;
-	float		boingAmplitude;
+	vec_t		boingImpactSpeed;
+	vec_t		boingImpactAngle;
+	vec_t		boingDampingRate;
+	vec_t		boingFrequency;
+	vec_t		boingAmplitude;
 } mstudiojigglebone_t;
 
 typedef struct
@@ -369,8 +369,8 @@ typedef struct
 {
 	int32_t		bone;		// -1 == 0
 	int32_t		type;		// X, Y, Z, XR, YR, ZR, M
-	float		start;
-	float		end;
+	vec_t		start;
+	vec_t		end;
 	int32_t		rest;		// byte index value at rest
 	int32_t		index;		// 0-3 user set controller, 4 mouth
 } mstudiobonecontroller_t;
@@ -424,7 +424,7 @@ typedef struct
 
 typedef struct
 {
-	float		scale[6];
+	vec_t		scale[6];
 	uint16_t	offset[6];
 } mstudioikerror_t;
 
@@ -439,22 +439,22 @@ typedef struct
 	int32_t		attachment;	// attachment index
 
 	int32_t		slot;		// iktarget slot.  Usually same as chain.
-	float		height;
-	float		radius;
-	float		floor;
+	vec_t		height;
+	vec_t		radius;
+	vec_t		floor;
 	vec3_t		pos;
 	vec4_t		quat;
 
 	int32_t		ikerrorindex;	// compressed IK error
 
 	int32_t		iStart;
-	float		start;		// beginning of influence
-	float		peak;		// start of full influence
-	float		tail;		// end of full influence
-	float		end;		// end of all influence
-	float		contact;		// frame footstep makes ground concact
-	float		drop;		// how far down the foot should drop when reaching for IK
-	float		top;		// top of the foot box
+	vec_t		start;		// beginning of influence
+	vec_t		peak;		// start of full influence
+	vec_t		tail;		// end of full influence
+	vec_t		end;		// end of all influence
+	vec_t		contact;		// frame footstep makes ground concact
+	vec_t		drop;		// how far down the foot should drop when reaching for IK
+	vec_t		top;		// top of the foot box
 
 	int32_t		unused[4];	// for future expansions
 } mstudioikrule_t;
@@ -462,8 +462,8 @@ typedef struct
 typedef struct
 {
 	int32_t		chain;
-	float		flPosWeight;
-	float		flLocalQWeight;
+	vec_t		flPosWeight;
+	vec_t		flLocalQWeight;
 	int32_t		flags;
 
 	int32_t		unused[4];	// for future expansions
@@ -473,9 +473,9 @@ typedef struct
 {
 	int32_t		endframe;
 	int32_t		motionflags;
-	float		v0;		// velocity at start of block
-	float		v1;		// velocity at end of block
-	float		angle;		// YAW rotation at end of this blocks movement
+	vec_t		v0;		// velocity at start of block
+	vec_t		v1;		// velocity at end of block
+	vec_t		angle;		// YAW rotation at end of this blocks movement
 	vec3_t		vector;		// movement vector relative to this blocks initial angle
 	vec3_t		position;		// relative to start of animation???
 } mstudiomovement_t;
@@ -484,7 +484,7 @@ typedef struct
 typedef struct
 {
 	char		label[MAXSTUDIONAME];	// animation label (may be matched with sequence label)
-	float		fps;		// frames per second (match with sequence fps or be different)
+	vec_t		fps;		// frames per second (match with sequence fps or be different)
 	int32_t		flags;		// looping/non-looping flags
 	int32_t		numframes;	// frames per animation
 
@@ -504,10 +504,10 @@ typedef struct
 	int16_t		iSequence;
 	int16_t		iPose;
 	int32_t		flags;
-	float		start;		// beginning of influence
-	float		peak;		// start of full influence
-	float		tail;		// end of full influence
-	float		end;		// end of all influence
+	vec_t		start;		// beginning of influence
+	vec_t		peak;		// start of full influence
+	vec_t		tail;		// end of full influence
+	vec_t		end;		// end of all influence
 } mstudioautolayer_t;
 
 // sequence descriptions
@@ -515,7 +515,7 @@ typedef struct mstudioseqdesc_s
 {
 	char		label[MAXSTUDIONAME];	// sequence label
 
-	float		fps;		// frames per second	
+	vec_t		fps;		// frames per second
 	int32_t		flags;		// looping/non-looping flags
 
 	int32_t		activity;
@@ -543,8 +543,8 @@ typedef struct mstudioseqdesc_s
 					// [blend][bone][X, Y, Z, XR, YR, ZR]
 
 	int32_t		blendtype[2];	// X, Y, Z, XR, YR, ZR (same as paramindex)
-	float		blendstart[2];	// starting value (same as paramstart)
-	float		blendend[2];	// ending value (same as paramend)
+	vec_t		blendstart[2];	// starting value (same as paramstart)
+	vec_t		blendend[2];	// ending value (same as paramend)
 	uint8_t		groupsize[2];	// 255 x 255 blends should be enough
 	uint8_t		numautolayers;	// count of autoplaying layers
 	uint8_t		numiklocks;	// IK-locks per sequence
@@ -565,9 +565,9 @@ typedef struct
 {
 	char		name[MAXSTUDIONAME];
 	int32_t		flags;		// ????
-	float		start;		// starting value
-	float		end;		// ending value
-	float		loop;		// looping range, 0 for no looping, 360 for rotations, etc.
+	vec_t		start;		// starting value
+	vec_t		end;		// ending value
+	vec_t		loop;		// looping range, 0 for no looping, 360 for rotations, etc.
 } mstudioposeparamdesc_t;
 
 typedef struct mstudioanim_s
@@ -636,7 +636,7 @@ typedef struct
 	char		name[64];
 
 	int32_t		type;	// UNUSED
-	float		boundingradius;	// UNUSED
+	vec_t		boundingradius;	// UNUSED
 
 	int32_t		nummesh;
 	int32_t		meshindex;
