@@ -20,9 +20,17 @@
 
 typedef struct mstudioevent_s
 {
+	// the frame at which this animation event occurs
 	int32_t 	frame;
+
+	// the script event type
 	int32_t		event;
-	int32_t		type;
+
+	// was "type"
+	int32_t		unused;
+
+	// options
+	// could be path to sound WAVE files
 	char		options[MAXEVENTSTRING];
 } mstudioevent_t;
 

@@ -142,114 +142,213 @@ Studio models are position independent, so the cache manager can move them.
 
 typedef struct studiohdr_s
 {
+	// the model signature
 	int32_t		ident;
+
+	// studio model format version
 	int32_t		version;
 
+	// the model name
 	char		name[64];
+
+	// the total file size in bytes
 	int32_t		length;
 
-	vec3_t		eyeposition;	// ideal eye position
-	vec3_t		min;		// ideal movement hull size
-	vec3_t		max;			
+	// ideal eye position
+	vec3_t		eyeposition;
 
-	vec3_t		bbmin;		// clipping bounding box
-	vec3_t		bbmax;		
+	// ideal movement hull size
+	vec3_t		min;
+	vec3_t		max;
 
+	// clipping bounding box
+	vec3_t		bbmin;
+	vec3_t		bbmax;
+
+	// undocumented quake features flags
 	int32_t		flags;
 
-	int32_t		numbones;		// bones
+	// the number of bones
+	int32_t		numbones;
+
+	// offset to the first bone chunk
 	int32_t		boneindex;
 
-	int32_t		numbonecontrollers;	// bone controllers
+	// the number of bone controllers
+	int32_t		numbonecontrollers;
+
+	// offset to the first bone controller chunk
 	int32_t		bonecontrollerindex;
 
-	int32_t		numhitboxes;	// complex bounding boxes
+	// the number of hitboxes
+	int32_t		numhitboxes;
+
+	// offset to the first hitbox chunk
 	int32_t		hitboxindex;
 	
-	int32_t		numseq;		// animation sequences
+	// the number of sequences
+	int32_t		numseq;
+
+	// offset to the first sequence description chunk
 	int32_t		seqindex;
 
-	int32_t		numseqgroups;	// demand loaded sequences
+	// the number of sequence groups
+	int32_t		numseqgroups;
+
+	// offset to the first sequence group chunk
 	int32_t		seqgroupindex;
 
-	int32_t		numtextures;	// raw textures
+	// the number of textures
+	int32_t		numtextures;
+
+	// offset to the first texture chunk
 	int32_t		textureindex;
+
+	// offset to the first texture's image data
 	int32_t		texturedataindex;
 
-	int32_t		numskinref;	// replaceable textures
+	// the number of replaceable textures
+	int32_t		numskinref;
+
+	// the number of skin families
 	int32_t		numskinfamilies;
+
+	// offset to the first replaceable texture
 	int32_t		skinindex;
 
+	// the number of bodyparts
 	int32_t		numbodyparts;		
+
+	// offset to the first bodypart
 	int32_t		bodypartindex;
 
-	int32_t		numattachments;	// queryable attachable points
+	// the number of attachments
+	int32_t		numattachments;
+
+	// offset to the first attachment chunk
 	int32_t		attachmentindex;
 
+	// offset to the second studio model header
 	int32_t		studiohdr2index;
-	int32_t		soundindex;	// UNUSED
 
-	int32_t		soundgroups;	// UNUSED
-	int32_t		soundgroupindex;	// UNUSED
+	// was "soundindex"
+	int32_t		unused;
 
-	int32_t		numtransitions;	// animation node to animation node transition graph
+	// was "soundgroups"
+	int32_t		unused2;
+
+	// was "soundgroupindex"
+	int32_t		unused3;
+
+	// the number of nodes in the sequence transition graph
+	int32_t		numtransitions;
+
+	// offset to the first sequence transition
 	int32_t		transitionindex;
 } studiohdr_t;
 
 // extra header to hold more offsets
 typedef struct
 {
+	// number of pose parameters
 	int32_t		numposeparameters;
+
+	// offset to the first pose parameter
 	int32_t		poseparamindex;
 
+	// number of IK-autoplaying locks
 	int32_t		numikautoplaylocks;
+
+	// offset to the first IK-autoplaying lock
 	int32_t		ikautoplaylockindex;
 
+	// number of IK-chains
 	int32_t		numikchains;
+
+	// offset to the first IK-chain
 	int32_t		ikchainindex;
 
+	// offset to the first key-value
 	int32_t		keyvalueindex;
+
+	// size of key-values
 	int32_t		keyvaluesize;
 
+	// number of hitbox sets
 	int32_t		numhitboxsets;
+
+	// offset to the first hitbox set
 	int32_t		hitboxsetindex;
 
-	int32_t		unused[6];	// for future expansions
+	// for future expansions
+	int32_t		unused[6];
 } studiohdr2_t;
 
 // header for demand loaded sequence group data
 typedef struct 
 {
+	// the model signature
 	int32_t		id;
+
+	// studio model format version
 	int32_t		version;
 
+	// the sequence group file name
 	char		name[64];
+
+	// the total file size in bytes
 	int32_t		length;
 } studioseqhdr_t;
 
 // bone flags
-#define BONE_ALWAYS_PROCEDURAL	0x0001	// bone is always procedurally animated
+#define BONE_ALWAYS_PROCEDURAL		0x0001	// bone is always procedurally animated
 #define BONE_SCREEN_ALIGN_SPHERE	0x0002	// bone aligns to the screen, not constrained in motion.
 #define BONE_SCREEN_ALIGN_CYLINDER	0x0004	// bone aligns to the screen, constrained by it's own axis.
-#define BONE_JIGGLE_PROCEDURAL	0x0008
+#define BONE_JIGGLE_PROCEDURAL		0x0008
 #define BONE_FIXED_ALIGNMENT		0x0010	// bone can't spin 360 degrees, all interpolation is normalized around a fixed orientation
 
 #define BONE_USED_MASK		(BONE_USED_BY_HITBOX|BONE_USED_BY_ATTACHMENT|BONE_USED_BY_VERTEX|BONE_USED_BY_BONE_MERGE)
 #define BONE_USED_BY_ANYTHING		BONE_USED_MASK
-#define BONE_USED_BY_HITBOX		0x00000100// bone (or child) is used by a hit box
-#define BONE_USED_BY_ATTACHMENT	0x00000200// bone (or child) is used by an attachment point
-#define BONE_USED_BY_VERTEX		0x00000400// bone (or child) is used by the toplevel model via skinned vertex
-#define BONE_USED_BY_BONE_MERGE	0x00000800
+#define BONE_USED_BY_HITBOX		0x00000100	// bone (or child) is used by a hit box
+#define BONE_USED_BY_ATTACHMENT		0x00000200	// bone (or child) is used by an attachment point
+#define BONE_USED_BY_VERTEX		0x00000400	// bone (or child) is used by the toplevel model via skinned vertex
+#define BONE_USED_BY_BONE_MERGE		0x00000800
 
 // bones
 typedef struct mstudiobone_s
 {
-	char		name[MAXSTUDIONAME];		// bone name for symbolic links
-	int32_t		parent;		// parent bone
-	int32_t		flags;		// bone flags
-	int32_t		bonecontroller[6];	// bone controller index, -1 == none
-	vec_t		value[6];		// default DoF values
-	vec_t		scale[6];		// scale for delta DoF values
+	// the bone name
+	char		name[MAXSTUDIONAME];
+
+	// the parent bone index. (-1) If it has no parent
+	int32_t		parent;
+
+	// was "flags"
+	int32_t		unused;
+
+	// 1vailable bone controller per motion type.
+	// (-1) if no controller is available.
+	int32_t		bonecontroller[6];
+
+	/* default position and rotation values where
+	 * scale[0] = position.X
+	 * scale[1] = position.Y
+	 * scale[2] = position.Z
+	 * scale[3] = rotation.X
+	 * scale[4] = rotation.Y
+	 * scale[5] = rotation.Z
+	 */
+	vec_t		value[6];
+
+	/* compressed scale values where
+	 * scale[0] = position.X scale
+	 * scale[1] = position.Y scale
+	 * scale[2] = position.Z scale
+	 * scale[3] = rotation.X scale
+	 * scale[4] = rotation.Y scale
+	 * scale[5] = rotation.Z scale
+	 */
+	vec_t		scale[6];
 } mstudiobone_t;
 
 #define STUDIO_PROC_AXISINTERP	1
@@ -260,23 +359,38 @@ typedef struct mstudiobone_s
 
 typedef struct
 {
-	int32_t		control;	// local transformation of this bone used to calc 3 point blend
-	int32_t		axis;		// axis to check
-	vec3_t		pos[6];		// X+, X-, Y+, Y-, Z+, Z-
-	vec4_t		quat[6];	// X+, X-, Y+, Y-, Z+, Z-
+	// local transformation of this bone used to calc 3 point blend
+	int32_t		control;
+
+	// axis to check
+	int32_t		axis;
+
+	// X+, X-, Y+, Y-, Z+, Z-
+	vec3_t		pos[6];
+
+	// X+, X-, Y+, Y-, Z+, Z-
+	vec4_t		quat[6];
 } mstudioaxisinterpbone_t;
 
 typedef struct
 {
-	vec_t		inv_tolerance;	// 1.0f / radian angle of trigger influence
-	vec4_t		trigger;		// angle to match
-	vec3_t		pos;		// new position
-	vec4_t		quat;		// new angle
+	// 1.0f / radian angle of trigger influence
+	vec_t		inv_tolerance;
+
+	// angle to match
+	vec4_t		trigger;
+
+	// new position
+	vec3_t		pos;
+
+	// new angle
+	vec4_t		quat;
 } mstudioquatinterpinfo_t;
 
 typedef struct
 {
-	int32_t		control;		// local transformation to check
+	// local transformation to check
+	int32_t		control;
 	int32_t		numtriggers;
 	int32_t		triggerindex;
 } mstudioquatinterpbone_t;
@@ -284,12 +398,21 @@ typedef struct
 // extra info for bones
 typedef struct
 {
-	vec_t		poseToBone[3][4];	// boneweighting reqiures
+	// boneweighting reqiures
+	vec_t		poseToBone[3][4];
+
 	vec4_t		qAlignment;
+
 	int32_t		proctype;
-	int32_t		procindex;	// procedural rule
-	vec4_t		quat;		// aligned bone rotation
-	int32_t		reserved[10];	// for future expansions
+
+	// procedural rule
+	int32_t		procindex;
+
+	// aligned bone rotation
+	vec4_t		quat;
+
+	// for future expansions
+	int32_t		reserved[10];
 } mstudioboneinfo_t;
 
 // JIGGLEBONES
@@ -358,7 +481,10 @@ typedef struct
 typedef struct
 {
 	int32_t		parent;
-	int32_t		aim;		// might be bone or attach
+
+	// might be bone or attach
+	int32_t		aim;
+
 	vec3_t		aimvector;
 	vec3_t		upvector;
 	vec3_t		basepos;
@@ -367,20 +493,34 @@ typedef struct
 // bone controllers
 typedef struct 
 {
-	int32_t		bone;		// -1 == 0
-	int32_t		type;		// X, Y, Z, XR, YR, ZR, M
+	// bone affected by this controller
+	int32_t		bone;
+
+	// the motion type
+	int32_t		type;
+
+	// the minimum and maximum values
 	vec_t		start;
 	vec_t		end;
-	int32_t		rest;		// byte index value at rest
-	int32_t		index;		// 0-3 user set controller, 4 mouth
+
+	// was "rest"
+	int32_t		unused;
+
+	// the bone controller channel
+	int32_t		index;
 } mstudiobonecontroller_t;
 
 // intersection boxes
 typedef struct
 {
+	// the bone this hitbox follows
 	int32_t		bone;
-	int32_t		group;		// intersection group
-	vec3_t		bbmin;		// bounding box
+
+	// the hit group
+	int32_t		group;
+
+	// the hitbox minimum and maximum extents
+	vec3_t		bbmin;
 	vec3_t		bbmax;		
 } mstudiobbox_t;
 
@@ -394,10 +534,17 @@ typedef struct
 // demand loaded sequence groups
 typedef struct
 {
-	char		label[MAXSTUDIONAME];	// textual name
-	char		name[64];		// file name
-	int32_t		cache;		// cache index pointer
-	int32_t		data;		// hack for group 0
+	// a textual name for this sequence group
+	char		label[MAXSTUDIONAME];
+
+	// the file name
+	char		name[64];
+
+	// was "cache"
+	int32_t		unused;
+
+	// was "data"
+	int32_t		unused2;
 } mstudioseqgroup_t;
 
 // events
@@ -408,11 +555,19 @@ typedef struct
 // attachment
 typedef struct
 {
-	char		name[MAXSTUDIONAME];
+	// was "name"
+	char		unused[MAXSTUDIONAME];
+
 	int32_t		flags;
+
+	// the bone this attachment follows
 	int32_t		bone;
-	vec3_t		org;		// attachment position
-	vec3_t		vectors[3];	// attachment vectors
+
+	// the attachment origin
+	vec3_t		org;
+
+	// the attachment vectors
+	vec3_t		vectors[3];
 } mstudioattachment_t;
 
 #define IK_SELF		1
@@ -436,27 +591,48 @@ typedef struct
 	int32_t		chain;
 
 	int32_t		bone;
-	int32_t		attachment;	// attachment index
 
-	int32_t		slot;		// iktarget slot.  Usually same as chain.
+	// offset to the attachment
+	int32_t		attachment;
+
+	// iktarget slot
+	// usually same as chain
+	int32_t		slot;
+
 	vec_t		height;
 	vec_t		radius;
 	vec_t		floor;
 	vec3_t		pos;
 	vec4_t		quat;
 
-	int32_t		ikerrorindex;	// compressed IK error
+	// offset to the compressed IK error
+	int32_t		ikerrorindex;
 
 	int32_t		iStart;
-	vec_t		start;		// beginning of influence
-	vec_t		peak;		// start of full influence
-	vec_t		tail;		// end of full influence
-	vec_t		end;		// end of all influence
-	vec_t		contact;		// frame footstep makes ground concact
-	vec_t		drop;		// how far down the foot should drop when reaching for IK
-	vec_t		top;		// top of the foot box
 
-	int32_t		unused[4];	// for future expansions
+	// beginning of influence
+	vec_t		start;
+
+	// start of full influence
+	vec_t		peak;
+
+	// end of full influence
+	vec_t		tail;
+
+	// end of all influence
+	vec_t		end;
+
+	// frame footstep makes ground concact
+	vec_t		contact;
+
+	// how far down the foot should drop when reaching for IK
+	vec_t		drop;
+
+	// top of the foot box
+	vec_t		top;
+
+	// for future expansions
+	int32_t		unused[4];
 } mstudioikrule_t;
 
 typedef struct
@@ -466,36 +642,61 @@ typedef struct
 	vec_t		flLocalQWeight;
 	int32_t		flags;
 
-	int32_t		unused[4];	// for future expansions
+	// for future expansions
+	int32_t		unused[4];
 } mstudioiklock_t;
 
 typedef struct
 {
 	int32_t		endframe;
+
 	int32_t		motionflags;
-	vec_t		v0;		// velocity at start of block
-	vec_t		v1;		// velocity at end of block
-	vec_t		angle;		// YAW rotation at end of this blocks movement
-	vec3_t		vector;		// movement vector relative to this blocks initial angle
-	vec3_t		position;		// relative to start of animation???
+
+	// velocity at start of block
+	vec_t		v0;
+
+	// velocity at end of block
+	vec_t		v1;
+
+	// YAW rotation at end of this blocks movement
+	vec_t		angle;
+
+	// movement vector relative to this blocks initial angle
+	vec3_t		vector;
+
+	// relative to start of animation???
+	vec3_t		position;
 } mstudiomovement_t;
 
 // additional info for each animation in sequence blend group or single sequence
 typedef struct
 {
-	char		label[MAXSTUDIONAME];	// animation label (may be matched with sequence label)
-	vec_t		fps;		// frames per second (match with sequence fps or be different)
-	int32_t		flags;		// looping/non-looping flags
-	int32_t		numframes;	// frames per animation
+	// animation label (may be matched with sequence label)
+	char		label[MAXSTUDIONAME];
 
-	// piecewise movement
-	int32_t		nummovements;	// piecewise movement
+	// frames per second (match with sequence fps or be different)
+	vec_t		fps;
+
+	// looping/non-looping flags
+	int32_t		flags;
+
+	// number of frames per animation
+	int32_t		numframes;
+
+	// number of piecewise movements
+	int32_t		nummovements;
+
+	// offset to the first piecewise movement
 	int32_t		movementindex;
 
+	// number of IK-rules
 	int32_t		numikrules;
-	int32_t		ikruleindex;	// non-zero when IK data is stored in the mdl
 
-	int32_t		unused[8];	// for future expansions
+	// offset to the first IK-rule
+	int32_t		ikruleindex;
+
+	// for future expansions
+	int32_t		unused[8];
 } mstudioanimdesc_t;
 
 // autoplaying sequences
@@ -504,72 +705,142 @@ typedef struct
 	int16_t		iSequence;
 	int16_t		iPose;
 	int32_t		flags;
-	vec_t		start;		// beginning of influence
-	vec_t		peak;		// start of full influence
-	vec_t		tail;		// end of full influence
-	vec_t		end;		// end of all influence
+
+	// beginning of influence
+	vec_t		start;
+
+	// start of full influence
+	vec_t		peak;
+
+	// end of full influence
+	vec_t		tail;
+
+	// end of all influence
+	vec_t		end;
 } mstudioautolayer_t;
 
 // sequence descriptions
 typedef struct mstudioseqdesc_s
 {
-	char		label[MAXSTUDIONAME];	// sequence label
+	// the sequence name
+	char		label[MAXSTUDIONAME];
 
-	vec_t		fps;		// frames per second
-	int32_t		flags;		// looping/non-looping flags
+	// frames per second
+	vec_t		fps;
 
+	// looping/non-looping flags
+	int32_t		flags;
+
+	// the sequence activity
 	int32_t		activity;
+
+	// the sequence activity weight
 	int32_t		actweight;
 
+	// the number of animation events
 	int32_t		numevents;
+
+	// offset to the first animation event chunk
 	int32_t		eventindex;
 
-	int32_t		numframes;	// number of frames per sequence
+	// the number of frames in the sequence
+	int32_t		numframes;
 
-	int32_t		weightlistindex;	// weightlists
-	int32_t		iklockindex;		// IK locks
+	// offset to the first weight list
+	int32_t		weightlistindex;
 
+	// offset to the first IK lock
+	int32_t		iklockindex;
+
+	// linear motion type
 	int32_t		motiontype;
-	int32_t		motionbone;	// index of pose parameter
+
+	// offset to the first pose parameter
+	int32_t		motionbone;
+
+	// linear motion
 	vec3_t		linearmovement;
-	int32_t		autolayerindex;	// autolayer descriptions
-	int32_t		keyvalueindex;	// local key-values
 
-	vec3_t		bbmin;		// per sequence bounding box
-	vec3_t		bbmax;		
+	// offset to the first autolayer description
+	int32_t		autolayerindex;
 
+	// offset to the first local key-value
+	int32_t		keyvalueindex;
+
+	// the sequence minimum and maximum extents
+	vec3_t		bbmin;
+	vec3_t		bbmax;
+
+	// The number of blend animations
 	int32_t		numblends;
-	int32_t		animindex;	// mstudioanim_t pointer relative to start of sequence group data
-					// [blend][bone][X, Y, Z, XR, YR, ZR]
 
-	int32_t		blendtype[2];	// X, Y, Z, XR, YR, ZR (same as paramindex)
-	vec_t		blendstart[2];	// starting value (same as paramstart)
-	vec_t		blendend[2];	// ending value (same as paramend)
-	uint8_t		groupsize[2];	// 255 x 255 blends should be enough
-	uint8_t		numautolayers;	// count of autoplaying layers
-	uint8_t		numiklocks;	// IK-locks per sequence
+	// offset to thefirst mstudioanim_t chunk.
+	// this offset is relative to the studioseqhdr_t of the file
+	// that contains the animation data.
+	int32_t		animindex;
 
-	int32_t		seqgroup;		// sequence group for demand loading
+	// the motion type of each blend controller
+	int32_t		blendtype[2];
 
-	int32_t		entrynode;	// transition node at entry
-	int32_t		exitnode;		// transition node at exit
-	uint8_t		nodeflags;	// transition rules (really this is bool)
-	uint8_t		cycleposeindex;	// index of pose parameter to use as cycle index
-	uint8_t		fadeintime;	// ideal cross fade in time (0.2 secs default) time = (fadeintime / 100)
-	uint8_t		fadeouttime;	// ideal cross fade out time (0.2 msecs default)  time = (fadeouttime / 100)
-	
-	int32_t		animdescindex;	// mstudioanimdesc_t [blend]
+	// the starting value of each blend controller
+	vec_t		blendstart[2];
+
+	// the ending value of each blend controller
+	vec_t		blendend[2];
+
+	// 255 x 255 blends should be enough
+	uint8_t		groupsize[2];
+
+	// number of autoplaying layers
+	uint8_t		numautolayers;
+
+	// number of IK-locks per sequence
+	uint8_t		numiklocks;
+
+	// the sequence group
+	int32_t		seqgroup;
+
+	// the node at entry in the sequence transition graph
+	int32_t		entrynode;
+
+	// the node at exit in the sequence transition graph
+	int32_t		exitnode;
+
+	// transition rules
+	uint8_t		nodeflags;
+
+	// index of pose parameter to use as cycle index
+	uint8_t		cycleposeindex;
+
+	// ideal cross fade in time (0.2 secs default) time = (fadeintime / 100)
+	uint8_t		fadeintime;
+
+	// ideal cross fade out time (0.2 msecs default)  time = (fadeouttime / 100)
+	uint8_t		fadeouttime;
+
+	// mstudioanimdesc_t [blend]
+	int32_t		animdescindex;
 } mstudioseqdesc_t;
 
 typedef struct
 {
+	// pose parameter name
 	char		name[MAXSTUDIONAME];
-	int32_t		flags;		// ????
-	vec_t		start;		// starting value
-	vec_t		end;		// ending value
-	vec_t		loop;		// looping range, 0 for no looping, 360 for rotations, etc.
+
+	// ????
+	int32_t		flags;
+
+	// starting value
+	vec_t		start;
+
+	// ending value
+	vec_t		end;
+
+	// looping range, 0 for no looping, 360 for rotations, etc
+	vec_t		loop;
 } mstudioposeparamdesc_t;
 
+// offsets to the animation frames
 typedef struct mstudioanim_s
 {
 	uint16_t	offset[6];
@@ -589,19 +860,37 @@ typedef union
 // body part index
 typedef struct
 {
+	// the bodypart name
 	char		name[64];
+
+	// the number of available models for this bodypart
 	int32_t		nummodels;
+
+	// used to convert from a global model index
+	// to a local bodypart model index
 	int32_t		base;
+
+	// the offset to the first model chunk
 	int32_t		modelindex;	// index into models array
 } mstudiobodyparts_t;
 
 // skin info
 typedef struct mstudiotex_s
 {
+	// texture file name
 	char		name[64];
+
+	// texture flags
 	uint32_t	flags;
+
+	// texture width in pixels
 	int32_t		width;
+
+	// texture height in pixels
 	int32_t		height;
+
+	// offset to the image data
+	// this offset is relative to the texture file header
 	int32_t		index;
 } mstudiotexture_t;
 
@@ -609,8 +898,12 @@ typedef struct mstudiotex_s
 typedef struct
 {
 	int32_t		bone;
-	vec3_t		kneeDir;		// ideal bending direction (per link, if applicable)
-	vec3_t		unused0;		// unused
+
+	// ideal bending direction (per link, if applicable)
+	vec3_t		kneeDir;
+
+	// unused
+	vec3_t		unused0;
 } mstudioiklink_t;
 
 typedef struct
@@ -633,23 +926,44 @@ typedef struct
 // studio models
 typedef struct
 {
+	// model name
 	char		name[64];
 
-	int32_t		type;	// UNUSED
-	vec_t		boundingradius;	// UNUSED
+	// was "type"
+	int32_t		unused;
 
+	// was "boundingradius"
+	vec_t		unused2;
+
+	// the number of meshes in the model
 	int32_t		nummesh;
+
+	// offset to the first mesh chunk
 	int32_t		meshindex;
 
-	int32_t		numverts;		// number of unique vertices
-	int32_t		vertinfoindex;	// vertex bone info
-	int32_t		vertindex;	// vertex vec3_t
-	int32_t		numnorms;		// number of unique surface normals
-	int32_t		norminfoindex;	// normal bone info
-	int32_t		normindex;	// normal vec3_t
+	// the number of unique vertices
+	int32_t		numverts;
 
-	int32_t		blendvertinfoindex;	// boneweighted vertex info
-	int32_t		blendnorminfoindex;	// boneweighted normal info
+	// offset to the vertex bone array
+	int32_t		vertinfoindex;
+
+	// offset to the vertex array
+	int32_t		vertindex;
+
+	// the number of unique normals
+	int32_t		numnorms;
+
+	// offset to the normal bone array
+	int32_t		norminfoindex;
+
+	// offset to the normal array
+	int32_t		normindex;
+
+	// offset to the boneweighted vertex info
+	int32_t		blendvertinfoindex;
+
+	// offset to the boneweighted normal info
+	int32_t		blendnorminfoindex;
 } mstudiomodel_t;
 
 // vec3_t	boundingbox[model][bone][2];		// complex intersection info
@@ -657,19 +971,33 @@ typedef struct
 // meshes
 typedef struct 
 {
+	// can be interpreted as the number of triangles in the mesh
 	int32_t		numtris;
+
+	// offset to the start of the tris sequence
 	int32_t		triindex;
+
+	// the skin index
 	int32_t		skinref;
-	int32_t		numnorms;		// per mesh normals
-	int32_t		normindex;	// UNUSED!
+
+	// the number of normals in the mesh
+	int32_t		numnorms;
+
+	// was "normindex"
+	int32_t		unused;
 } mstudiomesh_t;
 
 // triangles
 typedef struct 
 {
-	int16_t		vertindex;	// index into vertex array
-	int16_t		normindex;	// index into normal array
-	int16_t		s,t;		// s,t position on skin
+	// index into vertex array
+	int16_t		vertindex;
+
+	// index into normal array
+	int16_t		normindex;
+
+	// texture coordinates in absolute space (unnormalized)
+	int16_t		s,t;
 } mstudiotrivert_t;
 
 #endif//STUDIO_H
