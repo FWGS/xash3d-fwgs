@@ -115,11 +115,13 @@ const char *Q_buildarch( void )
 	archname = "amd64";
 #elif XASH_X86
 	archname = "i386";
-#elif XASH_ARM64
+#elif XASH_ARM && XASH_64BIT
 	archname = "arm64";
 #elif XASH_ARM
 	archname = "armv"
-	#if XASH_ARM == 7
+	#if XASH_ARM == 8
+		"8_32" // for those who (mis)using 32-bit OS on 64-bit CPU
+	#elif XASH_ARM == 7
 		"7"
 	#elif XASH_ARM == 6
 		"6"

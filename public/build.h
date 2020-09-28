@@ -45,13 +45,13 @@ For more information, please refer to <http://unlicense.org/>
 #undef XASH_ANDROID
 #undef XASH_APPLE
 #undef XASH_ARM
-#undef XASH_ARM64
 #undef XASH_ARM_HARDFP
 #undef XASH_ARM_SOFTFP
 #undef XASH_ARMv4
 #undef XASH_ARMv5
 #undef XASH_ARMv6
 #undef XASH_ARMv7
+#undef XASH_ARMv8
 //#undef XASH_BIG_ENDIAN
 #undef XASH_BSD
 #undef XASH_E2K
@@ -169,14 +169,13 @@ For more information, please refer to <http://unlicense.org/>
 	#define XASH_AMD64 1
 #elif defined(__i386__) || defined(_X86_) || defined(_M_IX86)
 	#define XASH_X86 1
-#elif defined __aarch64__
+#elif defined __aarch64__ || defined _M_ARM64
 	#define XASH_64BIT 1
-	#define XASH_ARM64 1
+	#define XASH_ARM 8
 #elif defined __arm__ || defined _M_ARM
-	#if defined _M_ARM
-		// msvc can only armv7 ?
-		#define XASH_ARM 7
-	#elif __ARM_ARCH == 7 || __ARM_ARCH_7__
+	#if __ARM_ARCH == 8 || __ARM_ARCH_8__
+		#define XASH_ARM 8
+	#elif __ARM_ARCH == 7 || __ARM_ARCH_7__ || defined _M_ARM // msvc can only armv7 in 32 bit
 		#define XASH_ARM 7
 	#elif __ARM_ARCH == 6 || __ARM_ARCH_6__ || __ARM_ARCH_6J__
 		#define XASH_ARM 6
@@ -212,7 +211,9 @@ For more information, please refer to <http://unlicense.org/>
 	#define XASH_64BIT 1
 #endif
 
-#if XASH_ARM == 7
+#if XASH_ARM == 8
+	#define XASH_ARMv8 1
+#elif XASH_ARM == 7
 	#define XASH_ARMv7 1
 #elif XASH_ARM == 6
 	#define XASH_ARMv6 1

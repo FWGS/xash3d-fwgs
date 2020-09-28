@@ -336,7 +336,7 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context)
 		bp = (void**)ucontext->uc_mcontext.gregs[REG_EBP];
 		sp = (void**)ucontext->uc_mcontext.gregs[REG_ESP];
 	#endif
-#elif XASH_ARM64
+#elif XASH_ARM && XASH_64BIT
 	pc = (void*)ucontext->uc_mcontext.pc;
 	bp = (void*)ucontext->uc_mcontext.regs[29];
 	sp = (void*)ucontext->uc_mcontext.sp;
