@@ -271,6 +271,10 @@ def configure(conf):
 		'-Werror=duplicated-branches', # BEWARE: buggy
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
+		'-Werror=cast-align',
+		'-Werror=cast-align=strict', # =strict is for GCC >=8
+		'-Werror=packed',
+		'-Werror=packed-not-aligned',
 		'-Wuninitialized', # older GCC versions have -Wmaybe-uninitialized enabled by this switch, which is not accurate
                                    # so just warn, not error
 		'-Winit-self',
