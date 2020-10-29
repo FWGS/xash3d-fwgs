@@ -6,8 +6,8 @@
 	package="su.xash.engine"
 	android:versionCode="1710"
 	android:versionName="0.20.1"
-	android:installLocation="auto">
-	android:allowAudioPlaybackCapture="true"
+	android:installLocation="auto"
+	android:allowAudioPlaybackCapture="true">
 
 	<application android:label="@string/app_name"
 		android:icon="@drawable/ic_launcher"
@@ -72,7 +72,7 @@
 			</intent-filter>
 		</receiver>
 		<!--<service android:name="su.xash.engine.SteamService" />-->
-		<meta-data android:name="android.max_aspect" android:value="10000" />
+		<meta-data android:name="android.max_aspect" android:value="10000.0" />
 		<meta-data android:name="android.allow_multiple_resumed_activities" android:value="true" /> <!-- don't pause engine on foldables -->
 	</application>
 
