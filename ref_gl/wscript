@@ -112,7 +112,7 @@ def build(bld):
 			features = 'c',
 			includes = ['gl4es/src', 'gl4es/src/gl', 'gl4es/src/glx', 'gl4es/include'],
 			defines = ['NOX11', 'NO_GBM', 'NO_INIT_CONSTRUCTOR', 'DEFAULT_ES=2', 'NOEGL', 'EXTERNAL_GETPROCADDRESS=GL4ES_GetProcAddress', 'NO_LOADER', 'STATICLIB'],
-			cflags = ['-w', '-fvisibility=hidden', '-std=c99'],
+			cflags = ['-w', '-fvisibility=hidden', '-std=gnu99'],
 			use      = libs,
 			subsystem = bld.env.MSVC_SUBSYSTEM)
 
@@ -121,7 +121,7 @@ def build(bld):
 			target   = 'ref_gles2_gl4es',
 			features = 'c',
 			includes = includes,
-			use      = libs + ['DL', 'gl4es'],
+			use      = libs + ['DL', 'gl4es', 'LOG'],
 			defines  = ['XASH_GL4ES', 'XASH_GL_STATIC'],
 			install_path = bld.env.LIBDIR,
 			subsystem = bld.env.MSVC_SUBSYSTEM)
