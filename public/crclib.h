@@ -23,7 +23,7 @@ typedef struct
 {
 	uint	buf[4];
 	uint	bits[2];
-	byte	in[64];
+	uint	in[16];
 } MD5Context_t;
 
 
