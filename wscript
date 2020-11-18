@@ -271,7 +271,7 @@ def configure(conf):
 		'-Werror=duplicated-branches', # BEWARE: buggy
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
-		'-Werror=cast-align',
+		'-Wcast-align',
 		'-Werror=cast-align=strict', # =strict is for GCC >=8
 		'-Werror=packed',
 		'-Werror=packed-not-aligned',

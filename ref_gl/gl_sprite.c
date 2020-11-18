@@ -87,7 +87,7 @@ static const dframetype_t *R_SpriteLoadFrame( model_t *mod, const void *pin, msp
 	pspriteframe->gl_texturenum = gl_texturenum;
 	*ppframe = pspriteframe;
 
-	return ( const dframetype_t* )(( const byte* )pin + sizeof( dspriteframe_t ) + pinframe.width * pinframe.height * bytes );
+	return ( const dframetype_t* )(( const void* )pin + sizeof( dspriteframe_t ) + pinframe.width * pinframe.height * bytes );
 }
 
 /*
@@ -157,7 +157,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	if( pin->version == SPRITE_VERSION_Q1 || pin->version == SPRITE_VERSION_32 )
 		numi = NULL;
 	else if( pin->version == SPRITE_VERSION_HL )
-		numi = (const short *)((const byte*)buffer + sizeof( dsprite_hl_t ));
+		numi = (const short *)(void *)((const byte*)buffer + sizeof( dsprite_hl_t ));
 
 	r_texFlags = texFlags;
 	sprite_version = pin->version;
@@ -169,7 +169,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		rgbdata_t	*pal;
 
 		pal = gEngfuncs.FS_LoadImage( "#id.pal", (byte *)&i, 768 );
-		pframetype = (const dframetype_t *)((const byte*)buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
+		pframetype = (const dframetype_t *)(void *)((const byte*)buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
 		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
 	}
 	else if( *numi == 256 )
@@ -191,7 +191,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 			break;
 		}
 
-		pframetype = (const dframetype_t *)(src + 768);
+		pframetype = (const dframetype_t *)(void *)(src + 768);
 		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
 	}
 	else
