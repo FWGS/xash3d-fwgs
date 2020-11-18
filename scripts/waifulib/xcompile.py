@@ -152,6 +152,8 @@ class Android:
 	def gen_host_toolchain(self):
 		# With host toolchain we don't care about OS
 		# so just download NDK for Linux x86_64
+		if 'HOST_TOOLCHAIN' in self.ctx.environ:
+			return self.ctx.environ['HOST_TOOLCHAIN']
 		if self.is_host():
 			return 'linux-x86_64'
 
