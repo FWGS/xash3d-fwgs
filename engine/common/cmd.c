@@ -1158,7 +1158,7 @@ static void Cmd_Apropos_f( void )
 		return;
 	}
 
-	ispattern = partial && ( Q_strchr( partial, '*' ) || Q_strchr( partial, '?' ));
+	ispattern = partial && Q_strpbrk( partial, "*?" );
 	if( !ispattern )
 		partial = va( "*%s*", partial );
 

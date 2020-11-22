@@ -85,8 +85,9 @@ qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
 
 		if( Q_stricmp( ext, "bsp" )) continue;
 		Q_strncpy( message, "^1error^7", sizeof( message ));
-		Q_strncpy( compiler, "", sizeof( compiler ));
-		Q_strncpy( generator, "", sizeof( generator ));
+		compiler[0] = '\0';
+		generator[0] = '\0';
+
 		f = FS_Open( t->filenames[i], "rb", con_gamemaps->value );
 	
 		if( f )
@@ -446,7 +447,7 @@ qboolean Cmd_GetSoundList( const char *s, char *completedname, int length )
 	t = FS_Search( va( "%s%s*.*", DEFAULT_SOUNDPATH, s ), true, false );
 	if( !t ) return false;
 
-	Q_strncpy( matchbuf, t->filenames[0] + Q_strlen( DEFAULT_SOUNDPATH ), MAX_STRING ); 
+	Q_strncpy( matchbuf, t->filenames[0] + sizeof( DEFAULT_SOUNDPATH ) - 1, MAX_STRING ); 
 	COM_StripExtension( matchbuf ); 
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
@@ -459,7 +460,7 @@ qboolean Cmd_GetSoundList( const char *s, char *completedname, int length )
 		if( Q_stricmp( ext, "wav" ) && Q_stricmp( ext, "mp3" ))
 			continue;
 
-		Q_strncpy( matchbuf, t->filenames[i] + Q_strlen( DEFAULT_SOUNDPATH ), MAX_STRING ); 
+		Q_strncpy( matchbuf, t->filenames[i] + sizeof( DEFAULT_SOUNDPATH ) - 1, MAX_STRING ); 
 		COM_StripExtension( matchbuf );
 		Con_Printf( "%16s\n", matchbuf );
 		numsounds++;
@@ -541,13 +542,16 @@ qboolean Cmd_GetKeysList( const char *s, char *completedname, int length )
 	size_t i, numkeys;
 	string keys[256];
 	string matchbuf;
+	int len;
 
 	// compare keys list with current keyword
+	len = Q_strlen( s );
+
 	for( i = 0, numkeys = 0; i < 255; i++ )
 	{
 		const char *keyname = Key_KeynumToString( i );
 
-		if(( *s == '*' ) || !Q_strnicmp( keyname, s, Q_strlen( s )))
+		if(( *s == '*' ) || !Q_strnicmp( keyname, s, len))
 			Q_strcpy( keys[numkeys++], keyname );
 	}
 
@@ -628,7 +632,7 @@ qboolean Cmd_GetCommandsList( const char *s, char *completedname, int length )
 	while( *list.completionString && (*list.completionString == '\\' || *list.completionString == '/') )
 		list.completionString++;
 
-	if( !Q_strlen( list.completionString ) )
+	if( !COM_CheckStringEmpty( list.completionString ) )
 		return false;
 
 	// find matching commands and variables
@@ -730,15 +734,18 @@ qboolean Cmd_GetGamesList( const char *s, char *completedname, int length )
 	int	i, numgamedirs;
 	string	gamedirs[MAX_MODS];
 	string	matchbuf;
+	int	len;
 
 	// stand-alone games doesn't have cmd "game"
 	if( !Cmd_Exists( "game" ))
 		return false;
 
 	// compare gamelist with current keyword
+	len = Q_strlen( s );
+
 	for( i = 0, numgamedirs = 0; i < SI.numgames; i++ )
 	{
-		if(( *s == '*' ) || !Q_strnicmp( SI.games[i]->gamefolder, s, Q_strlen( s )))
+		if(( *s == '*' ) || !Q_strnicmp( SI.games[i]->gamefolder, s, len))
 			Q_strcpy( gamedirs[numgamedirs++], SI.games[i]->gamefolder ); 
 	}
 
@@ -780,6 +787,7 @@ qboolean Cmd_GetCDList( const char *s, char *completedname, int length )
 	int i, numcdcommands;
 	string	cdcommands[8];
 	string	matchbuf;
+	int	len;
 
 	const char *cd_command[] =
 	{
@@ -794,9 +802,11 @@ qboolean Cmd_GetCDList( const char *s, char *completedname, int length )
 	};
 
 	// compare CD command list with current keyword
+	len = Q_strlen( s );
+
 	for( i = 0, numcdcommands = 0; i < 8; i++ )
 	{
-		if(( *s == '*' ) || !Q_strnicmp( cd_command[i], s, Q_strlen( s )))
+		if(( *s == '*' ) || !Q_strnicmp( cd_command[i], s, len))
 			Q_strcpy( cdcommands[numcdcommands++], cd_command[i] );
 	}
 
@@ -841,7 +851,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		return true; // exist 
 
 	// setup mpfilter
-	Q_snprintf( mpfilter, sizeof( mpfilter ), "maps/%s", GI->mp_filter );
+	size = Q_snprintf( mpfilter, sizeof( mpfilter ), "maps/%s", GI->mp_filter );
 	t = FS_Search( "maps/*.bsp", false, onlyingamedir );
 
 	if( !t )
@@ -855,7 +865,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 	}
 
 	buffer = Mem_Calloc( host.mempool, t->numfilenames * 2 * sizeof( result ));
-	use_filter = Q_strlen( GI->mp_filter ) ? true : false;
+	use_filter = COM_CheckStringEmpty( GI->mp_filter ) ? true : false;
 
 	for( i = 0; i < t->numfilenames; i++ )
 	{
@@ -866,7 +876,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "bsp" ))
 			continue;
 
-		if( use_filter && !Q_strnicmp( t->filenames[i], mpfilter, Q_strlen( mpfilter )))
+		if( use_filter && !Q_strnicmp( t->filenames[i], mpfilter, size))
 			continue;
 
 		f = FS_Open( t->filenames[i], "rb", onlyingamedir );
@@ -958,7 +968,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 	}
 
 	// write generated maps.lst
-	if( FS_WriteFile( "maps.lst", buffer, Q_strlen( buffer )))
+	if( FS_WriteFile( "maps.lst", buffer, size))
 	{
 		if( buffer ) Mem_Free( buffer );
 		return true;
@@ -1133,7 +1143,7 @@ void Con_CompleteCommand( field_t *field )
 	while( *con.completionString && (*con.completionString == '\\' || *con.completionString == '/') )
 		con.completionString++;
 
-	if( !Q_strlen( con.completionString ) )
+	if( !COM_CheckStringEmpty( con.completionString ) )
 		return;
 
 	// free the old autocomplete list
@@ -1166,7 +1176,7 @@ void Con_CompleteCommand( field_t *field )
 		while( *con.completionBuffer && (*con.completionBuffer == '\\' || *con.completionBuffer == '/') )
 			con.completionBuffer++;
 
-		if( !Q_strlen( con.completionBuffer ) )
+		if( !COM_CheckStringEmpty( con.completionBuffer ) )
 			return;
 
 		if( Cmd_AutocompleteName( con.completionBuffer, Cmd_Argc() - 1, filename, sizeof( filename ) ) )

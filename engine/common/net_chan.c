@@ -1371,7 +1371,7 @@ void Netchan_UpdateProgress( netchan_t *chan )
 				}
 				*out = '\0';
 
-				if( Q_strlen( sz ) > 0 && sz[0] != '!' )
+				if( COM_CheckStringEmpty( sz ) && sz[0] != '!' )
 					Q_strncpy( host.downloadfile, sz, sizeof( host.downloadfile ));
 			}
 		}

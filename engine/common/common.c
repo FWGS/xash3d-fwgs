@@ -1142,7 +1142,7 @@ qboolean COM_IsSafeFileToDownload( const char *filename )
 
 	Q_strnlwr( filename, lwrfilename, sizeof( lwrfilename ));
 
-	if( Q_strstr( lwrfilename, "\\" ) || Q_strstr( lwrfilename, ":" ) || Q_strstr( lwrfilename, ".." ) || Q_strstr( lwrfilename, "~" ))
+	if( Q_strpbrk( lwrfilename, "\\:~" ) || Q_strstr( lwrfilename, ".." ) )
 		return false;
 
 	if( lwrfilename[0] == '/' )
