@@ -376,7 +376,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 	if( quiet ) HPAK_FlushHostQueue();
 
 	// not an error - just flush queue
-	if( !filename || !*filename )
+	if( !COM_CheckString( filename ) )
 		return true;
 
 	Q_strncpy( pakname, filename, sizeof( pakname ));
@@ -476,7 +476,7 @@ void HPAK_CheckIntegrity( const char *filename )
 {
 	string	pakname;
 
-	if( !filename || !filename[0] )
+	if( !COM_CheckString( filename ) )
 		return;
 
 	Q_strncpy( pakname, filename, sizeof( pakname ));
@@ -493,7 +493,7 @@ void HPAK_CheckSize( const char *filename )
 	maxsize = hpk_maxsize->value;
 	if( maxsize <= 0 ) return;
 
-	if( !filename || !filename[0] )
+	if( !COM_CheckString( filename ) )
 		return;
 
 	Q_strncpy( pakname, filename, sizeof( pakname ));
@@ -574,7 +574,7 @@ static qboolean HPAK_ResourceForIndex( const char *filename, int index, resource
 	string		pakname;
 	file_t		*f;
 
-	if( !filename || !filename[0] )
+	if( !COM_CheckString( filename ) )
 		return false;
 
 	Q_strncpy( pakname, filename, sizeof( pakname ));

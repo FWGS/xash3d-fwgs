@@ -184,7 +184,7 @@ const char *Cvar_ValidateString( convar_t *var, const char *value )
 		pszValue = szNew;
 
 		// g-cont. is this even need?
-		if( !Q_strlen( szNew )) Q_strncpy( szNew, "empty", sizeof( szNew ));
+		if( !COM_CheckStringEmpty( szNew ) ) Q_strncpy( szNew, "empty", sizeof( szNew ));
 	}
 
 	if( FBitSet( var->flags, FCVAR_NOEXTRAWHITEPACE ))

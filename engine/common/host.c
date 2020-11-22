@@ -782,6 +782,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	int		developer = DEFAULT_DEV;
 	const char *baseDir;
 	char ticrate[16];
+	int len;
 
 	// some commands may turn engine into infinite loop,
 	// e.g. xash.exe +game xash -game xash
@@ -924,12 +925,14 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #endif
 	}
 
-	if( host.rootdir[Q_strlen( host.rootdir ) - 1] == '/' )
-		host.rootdir[Q_strlen( host.rootdir ) - 1] = 0;
+	len = Q_strlen( host.rootdir );
+
+	if( host.rootdir[len - 1] == '/' )
+		host.rootdir[len - 1] = 0;
 
 	// get readonly root. The order is: check for arg, then env.
 	// if still not got it, rodir is disabled.
-	host.rodir[0] = 0;
+	host.rodir[0] = '\0';
 	if( !Sys_GetParmFromCmdLine( "-rodir", host.rodir ))
 	{
 		char *roDir = getenv( "XASH3D_RODIR" );
@@ -938,10 +941,12 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 			Q_strncpy( host.rodir, roDir, sizeof( host.rodir ));
 	}
 
-	if( host.rodir[0] && host.rodir[Q_strlen( host.rodir ) - 1] == '/' )
-		host.rodir[Q_strlen( host.rodir ) - 1] = 0;
+	len = Q_strlen( host.rodir );
 
-	if ( !host.rootdir[0] || SetCurrentDirectory( host.rootdir ) != 0)
+	if( len && host.rodir[len - 1] == '/' )
+		host.rodir[len - 1] = 0;
+
+	if( !COM_CheckStringEmpty( host.rootdir ) || SetCurrentDirectory( host.rootdir ) != 0 )
 		Con_Reportf( "%s is working directory now\n", host.rootdir );
 	else
 		Sys_Error( "Changing working directory to %s failed.\n", host.rootdir );
