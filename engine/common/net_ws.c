@@ -1441,7 +1441,7 @@ static int NET_Isocket( const char *net_interface, int port, qboolean multicast 
 		}
 	}
 
-	if( !net_interface[0] || !Q_stricmp( net_interface, "localhost" ))
+	if( !COM_CheckStringEmpty( net_interface ) || !Q_stricmp( net_interface, "localhost" ))
 		addr.sin_addr.s_addr = INADDR_ANY;
 	else NET_StringToSockaddr( net_interface, (struct sockaddr *)&addr, false );
 

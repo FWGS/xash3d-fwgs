@@ -55,7 +55,7 @@ static void Mod_Modellist_f( void )
 
 	for( i = nummodels = 0, mod = mod_known; i < mod_numknown; i++, mod++ )
 	{
-		if( !mod->name[0] )
+		if( !COM_CheckStringEmpty( mod->name ) )
 			continue; // free slot
 		Con_Printf( "%s\n", mod->name );
 		nummodels++;
@@ -74,7 +74,7 @@ Mod_FreeUserData
 static void Mod_FreeUserData( model_t *mod )
 {
 	// ignore submodels and freed models
-	if( !mod->name[0] || mod->name[0] == '*' )
+	if( !COM_CheckStringEmpty( mod->name ) || mod->name[0] == '*' )
 		return;
 
 	if( Host_IsDedicated() )
@@ -101,7 +101,7 @@ Mod_FreeModel
 void Mod_FreeModel( model_t *mod )
 {
 	// already freed?
-	if( !mod || !mod->name[0] )
+	if( !mod || !COM_CheckStringEmpty( mod->name ) )
 		return;
 
 	if( mod->type != mod_brush || mod->name[0] != '*' )
@@ -223,7 +223,7 @@ model_t *Mod_FindName( const char *filename, qboolean trackCRC )
 
 	// find a free model slot spot
 	for( i = 0, mod = mod_known; i < mod_numknown; i++, mod++ )
-		if( !mod->name[0] ) break; // this is a valid spot
+		if( !COM_CheckStringEmpty( mod->name ) ) break; // this is a valid spot
 
 	if( i == mod_numknown )
 	{

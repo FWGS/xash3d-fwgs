@@ -122,7 +122,7 @@ qboolean Info_IsValid( const char *s )
 		}
 		*o = 0;
 
-		if( !Q_strlen( value ))
+		if( !COM_CheckStringEmpty( value ) )
 			return false;
 
 		if( *s ) s++;
@@ -245,7 +245,7 @@ qboolean GAME_EXPORT Info_RemoveKey( char *s, const char *key )
 	if( cmpsize > ( MAX_KV_SIZE - 1 ))
 		cmpsize = MAX_KV_SIZE - 1;
 
-	if( Q_strstr( key, "\\" ))
+	if( Q_strchr( key, '\\' ))
 		return false;
 
 	while( 1 )
@@ -417,7 +417,7 @@ qboolean Info_SetValueForStarKey( char *s, const char *key, const char *value, i
 	char	new[1024], *v;
 	int	c, team;
 
-	if( Q_strstr( key, "\\" ) || Q_strstr( value, "\\" ))
+	if( Q_strchr( key, '\\' ) || Q_strchr( value, '\\' ))
 	{
 		Con_Printf( S_ERROR "SetValueForKey: can't use keys or values with a \\\n" );
 		return false;
@@ -426,7 +426,7 @@ qboolean Info_SetValueForStarKey( char *s, const char *key, const char *value, i
 	if( Q_strstr( key, ".." ) || Q_strstr( value, ".." ))
 		return false;
 
-	if( Q_strstr( key, "\"" ) || Q_strstr( value, "\"" ))
+	if( Q_strchr( key, '\"' ) || Q_strchr( value, '\"' ))
 	{
 		Con_Printf( S_ERROR "SetValueForKey: can't use keys or values with a \"\n" );
 		return false;
@@ -437,7 +437,7 @@ qboolean Info_SetValueForStarKey( char *s, const char *key, const char *value, i
 
 	Info_RemoveKey( s, key );
 
-	if( !value || !Q_strlen( value ))
+	if( !COM_CheckString( value ) )
 		return true; // just clear variable
 
 	Q_snprintf( new, sizeof( new ), "\\%s\\%s", key, value );

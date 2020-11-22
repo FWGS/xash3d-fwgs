@@ -344,7 +344,7 @@ delta_info_t *Delta_FindStructByEncoder( const char *encoderName )
 {
 	int	i;
 
-	if( !encoderName || !encoderName[0] )
+	if( !COM_CheckString( encoderName ) )
 		return NULL;
 
 	for( i = 0; i < NUM_FIELDS( dt_info ); i++ )

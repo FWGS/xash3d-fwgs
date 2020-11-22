@@ -72,6 +72,7 @@ char *Q_strstr( const char *string, const char *string2 );
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args );
 int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) _format( 3 );
 int Q_sprintf( char *buffer, const char *format, ... ) _format( 2 );
+char *Q_strpbrk(const char *s, const char *accept);
 #define Q_memprint( val ) Q_pretifymem( val, 2 )
 char *Q_pretifymem( float value, int digitsafterdecimal );
 char *va( const char *format, ... ) _format( 1 );
@@ -87,6 +88,7 @@ void COM_PathSlashFix( char *path );
 char COM_Hex2Char( uint8_t hex );
 void COM_Hex2String( uint8_t hex, char *str );
 #define COM_CheckString( string ) ( ( !string || !*string ) ? 0 : 1 )
+#define COM_CheckStringEmpty( string ) ( ( !*string ) ? 0 : 1 )
 int matchpattern( const char *in, const char *pattern, qboolean caseinsensitive );
 int matchpattern_with_separator( const char *in, const char *pattern, qboolean caseinsensitive, const char *separators, qboolean wildcard_least_one );
 
