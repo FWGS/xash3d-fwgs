@@ -295,7 +295,7 @@ void MD5Final( byte digest[16], MD5Context_t *ctx )
 
 	// set the first char of padding to 0x80.
 	// this is safe since there is always at least one byte free
-	p = ctx->in + count;
+	p = (byte*)ctx->in + count;
 	*p++ = 0x80;
 
 	// bytes of padding needed to make 64 bytes
