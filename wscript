@@ -55,6 +55,7 @@ SUBDIRS = [
 	Subproject('stub/server', dedicated=False),
 	Subproject('stub/client'),
 	Subproject('dllemu'),
+	Subproject('tests', dedicated=False),
 	Subproject('engine', dedicated=False),
 ]
 
@@ -219,7 +220,7 @@ def configure(conf):
 			# disable thread-safe local static initialization for C++11 code, as it cause crashes on Windows XP
 			'msvc':    ['/D_USING_V110_SDK71_', '/Zi', '/FS', '/Zc:threadSafeInit-', '/MT'],
 			'clang':   ['-g', '-gdwarf-2', '-fvisibility=hidden'],
-			'gcc':     ['-g', '-fvisibility=hidden'],
+			'gcc':     ['-g'],
 			'owcc':	   ['-fno-short-enum', '-ffloat-store', '-g3']
 		},
 		'fast': {
@@ -361,7 +362,7 @@ def configure(conf):
 		conf.define('STDINT_H', 'pstdint.h')
 
 	conf.env.DEDICATED     = conf.options.DEDICATED
-	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
+	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY # or conf.env.DEDICATED
 	if conf.env.DEST_OS == 'dos':
 		conf.env.SINGLE_BINARY = True
 

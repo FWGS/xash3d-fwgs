@@ -998,6 +998,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	Host_InitCommon( argc, argv, progname, bChangeGame );
 
+	Host_InitDecals ();   // reload decals, was in filesystem init
+
 	// init commands and vars
 	if( host_developer.value >= DEV_EXTENDED )
 	{

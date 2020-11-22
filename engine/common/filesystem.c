@@ -2006,7 +2006,6 @@ void FS_LoadGameInfo( const char *rootfolder )
 	FS_Rescan(); // create new filesystem
 
 	Image_CheckPaletteQ1 ();
-	Host_InitDecals ();	// reload decals
 }
 
 /*

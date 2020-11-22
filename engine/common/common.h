@@ -580,6 +580,7 @@ fs_offset_t FS_FileLength( file_t *f );
 #include "com_image.h"
 
 void Image_Init( void );
+void Image_Setup( void ); // for unittesting
 void Image_Shutdown( void );
 void Image_AddCmdFlags( uint flags );
 rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size );
@@ -679,6 +680,7 @@ typedef void( *pfnChangeGame )( const char *progname );
 qboolean Host_IsQuakeCompatible( void );
 void EXPORT Host_Shutdown( void );
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func );
+void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bChangeGame );
 int Host_CompareFileTime( int ft1, int ft2 );
 void Host_NewInstance( const char *name, const char *finalmsg );
 void Host_EndGame( qboolean abort, const char *message, ... ) _format( 2 );

@@ -1,0 +1,41 @@
+#! /usr/bin/env python
+# encoding: utf-8
+# mittorn, 2018
+
+from waflib import Logs
+import os
+
+top = '.'
+
+def options(opt):
+	opt.load('waf_unit_test')
+	# stub
+	return
+
+def configure(conf):
+	conf.load('waf_unit_test')
+	if conf.options.SUPPORT_BSP2_FORMAT:
+		conf.env.append_unique('DEFINES', 'SUPPORT_BSP2_FORMAT')
+
+	conf.env.append_unique('DEFINES', 'UNITTEST')
+
+def build(bld):
+	libs = [ 'public', 'xash', 'M' ]
+
+	includes = ['.',
+		'../engine',
+		'../engine/common',
+		'../engine/common/imagelib',
+		'../engine/common/soundlib',
+		'../engine/server',
+		'../engine/client',
+		'../public',
+		'../common',
+		'../pm_shared' ]
+
+	bld.program(features='c',
+		includes = includes,
+		use = libs,
+		subsystem = bld.env.MSVC_SUBSYSTEM,
+		source = 'test_imagelib.c',
+		target = 'test_imagelib')
