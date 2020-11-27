@@ -55,6 +55,7 @@ jobs:
     # 📚 https://git.io/JvXDl
 
     - run: |
+       sudo apt update
        sudo apt install build-essential python libsdl2-dev libfontconfig-dev libfreetype6-dev
        ./waf configure -T release -8
        ./waf build
