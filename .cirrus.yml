@@ -1,7 +1,7 @@
 task:
   name: freebsd-11-amd64
   freebsd_instance:
-    image_family: freebsd-11-3-snap
+    image_family: freebsd-11-4
   setup_script:
     - pkg update
     - pkg install -y git sdl2 python
