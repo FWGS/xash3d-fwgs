@@ -16,7 +16,7 @@ NDK_BUNDLE="ndk-bundle"
 if [ "$1" = "r10e" ]; then
 	NDK_BUNDLE=""
 fi
-sdk/tools/bin/sdkmanager --install build-tools\;29.0.1 platform-tools platforms\;android-26 $NDK_BUNDLE > /dev/null 2>/dev/null
+sdk/tools/bin/sdkmanager --install build-tools\;29.0.1 platform-tools platforms\;android-29 $NDK_BUNDLE > /dev/null 2>/dev/null
 if [ "$1" = "r10e" ]; then
 	(wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip /dev/null 2>/dev/null | busybox unzip -x -) || exit 1
 	mv android-ndk-r10e sdk/ndk-bundle
