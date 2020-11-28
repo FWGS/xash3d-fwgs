@@ -275,7 +275,7 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 				// Save name/text on heap
 				textMessages[messageCount] = gMessageParms;
 				textMessages[messageCount].pName = nameHeap + lastNamePos;
-				lastNamePos += Q_strlen( currentName ) + 1;
+				lastNamePos += length + 1;
 				textMessages[messageCount].pMessage = pCurrentText;
 				messageCount++;
 

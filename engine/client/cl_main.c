@@ -2397,7 +2397,7 @@ A file has been received via the fragmentation/reassembly layer, put it in the r
 */
 void CL_ProcessFile( qboolean successfully_received, const char *filename )
 {
-	int		sound_len = Q_strlen( DEFAULT_SOUNDPATH );
+	int		sound_len = sizeof( DEFAULT_SOUNDPATH ) - 1;
 	byte		rgucMD5_hash[16];
 	const char	*pfilename;
 	resource_t	*p;
@@ -2666,7 +2666,7 @@ qboolean CL_PrecacheResources( void )
 			{
 				if( FBitSet( pRes->ucFlags, RES_WASMISSING ))
 				{
-					Con_Printf( S_ERROR "Could not load sound %s%s\n", DEFAULT_SOUNDPATH, pRes->szFileName );
+					Con_Printf( S_ERROR "Could not load sound " DEFAULT_SOUNDPATH "%s\n", pRes->szFileName );
 					cl.sound_precache[pRes->nIndex][0] = 0;
 					cl.sound_index[pRes->nIndex] = 0;
 				}

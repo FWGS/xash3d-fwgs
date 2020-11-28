@@ -56,7 +56,7 @@ void S_SoundList_f( void )
 			else Con_Printf( " " );
 			if( sfx->name[0] == '*' )
 				Con_Printf( " (%2db) %s : %s\n", sc->width * 8, Q_memprint( sc->size ), sfx->name );
-			else Con_Printf( " (%2db) %s : %s%s\n", sc->width * 8, Q_memprint( sc->size ), DEFAULT_SOUNDPATH, sfx->name );
+			else Con_Printf( " (%2db) %s : " DEFAULT_SOUNDPATH "%s\n", sc->width * 8, Q_memprint( sc->size ), sfx->name );
 			totalSfx++;
 		}
 	}
