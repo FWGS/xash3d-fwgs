@@ -145,23 +145,20 @@ static void GetMotionTypeString( int type, char *str, qboolean is_composite )
 		if( type & STUDIO_LZ )
 			Q_strcat( str, " LZ" );
 
-		if( type & STUDIO_AX )
-			Q_strcat( str, " AX" );
+		if( type & STUDIO_LXR )
+			Q_strcat( str, " LXR" );
 
-		if( type & STUDIO_AY )
-			Q_strcat( str, " AY" );
+		if( type & STUDIO_LYR )
+			Q_strcat( str, " LYR" );
 
-		if( type & STUDIO_AZ )
-			Q_strcat( str, " AZ" );
+		if( type & STUDIO_LZR )
+			Q_strcat( str, " LZR" );
 
-		if( type & STUDIO_AXR )
-			Q_strcat( str, " AXR" );
+		if( type & STUDIO_LINEAR )
+			Q_strcat( str, " LM" );
 
-		if( type & STUDIO_AYR )
-			Q_strcat( str, " AYR" );
-
-		if( type & STUDIO_AZR )
-			Q_strcat( str, " AZR" );
+		if( type & STUDIO_QUADRATIC_MOTION )
+			Q_strcat( str, " LQ" );
 
 		return;
 	}
@@ -170,21 +167,20 @@ static void GetMotionTypeString( int type, char *str, qboolean is_composite )
 
 	switch( type )
 	{
-	case STUDIO_X:   p = "X";   break;
-	case STUDIO_Y:   p = "Y";   break;
-	case STUDIO_Z:   p = "Z";   break;
-	case STUDIO_XR:  p = "XR";  break;
-	case STUDIO_YR:  p = "YR";  break;
-	case STUDIO_ZR:  p = "ZR";  break;
-	case STUDIO_LX:  p = "LX";  break;
-	case STUDIO_LY:  p = "LY";  break;
-	case STUDIO_LZ:  p = "LZ";  break;
-	case STUDIO_AX:  p = "AX";  break;
-	case STUDIO_AY:  p = "AY";  break;
-	case STUDIO_AZ:  p = "AZ";  break;
-	case STUDIO_AXR: p = "AXR"; break;
-	case STUDIO_AYR: p = "AYR"; break;
-	case STUDIO_AZR: p = "AZR"; break;
+	case STUDIO_X:    p = "X";    break;
+	case STUDIO_Y:    p = "Y";    break;
+	case STUDIO_Z:    p = "Z";    break;
+	case STUDIO_XR:   p = "XR";   break;
+	case STUDIO_YR:   p = "YR";   break;
+	case STUDIO_ZR:   p = "ZR";   break;
+	case STUDIO_LX:   p = "LX";   break;
+	case STUDIO_LY:   p = "LY";   break;
+	case STUDIO_LZ:   p = "LZ";   break;
+	case STUDIO_LXR:  p = "LXR";  break;
+	case STUDIO_LYR:  p = "LYR";  break;
+	case STUDIO_LZR:  p = "LZR";  break;
+	case STUDIO_LINEAR: p = "LM"; break;
+	case STUDIO_QUADRATIC_MOTION: p = "LQ"; break;
 	default: break;
 	}
 
@@ -218,7 +214,7 @@ static void WriteTextureRenderMode( FILE *fp )
 		if( texture->flags & STUDIO_NF_NOMIPS )
 			fprintf( fp, "$texrendermode \"%s\" \"nomips\" \n", texture->name ); // sven-coop extension
 
-		if( texture->flags & STUDIO_NF_NOSMOOTH )
+		if( texture->flags & STUDIO_NF_SMOOTH )
 		{
 			fprintf( fp, "$texrendermode \"%s\" \"alpha\" \n", texture->name ); // sven-coop extension
 			fprintf( fp, "$texrendermode \"%s\" \"nosmooth\" \n", texture->name ); // xash3d extension
@@ -230,7 +226,7 @@ static void WriteTextureRenderMode( FILE *fp )
 		if( texture->flags & STUDIO_NF_MASKED )
 			fprintf( fp, "$texrendermode \"%s\" \"masked\" \n", texture->name );
 
-		if( texture->flags & ( STUDIO_NF_MASKED | STUDIO_NF_SOLID ) )
+		if( texture->flags & ( STUDIO_NF_MASKED | STUDIO_NF_ALPHASOLID ) )
 			fprintf( fp, "$texrendermode \"%s\" \"masked_solid\" \n", texture->name ); // xash3d extension
 
 		if( texture->flags & STUDIO_NF_TWOSIDE )
@@ -557,10 +553,6 @@ static void WriteSequenceInfo( FILE *fp )
 
 		if( seqdesc->numblends > 2 )
 			fputs( "}\n", fp );
-
-		if( seqdesc->numpivots )
-			printf( "WARNING: Sequence %s uses %i foot pivots, feature not supported.\n",
-			    seqdesc->label, seqdesc->numpivots );
 	}
 }
 
@@ -573,11 +565,11 @@ void WriteQCScript( void )
 {
 	FILE	*fp;
 	char	 filename[MAX_SYSPATH];
-	size_t	 len;
+	int	 len;
 
 	len = Q_snprintf( filename, MAX_SYSPATH, "%s%s.qc", destdir, modelfile );
 
-	if( len >= MAX_SYSPATH )
+	if( len == -1 )
 	{
 		fprintf( stderr, "ERROR: Destination path is too long. Can't write %s.qc\n", modelfile );
 		return;

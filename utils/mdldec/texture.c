@@ -30,19 +30,19 @@ WriteBMP
 */
 static void WriteBMP( mstudiotexture_t *texture )
 {
-	int		 i;
+	int		 i, len;
 	FILE		*fp;
 	const byte	*p;
 	byte		*palette, *pic, *buf;
 	char		 filename[MAX_SYSPATH], texturename[64];
 	rgba_t		 rgba_palette[256];
 	bmp_t		 bmp_hdr = {0,};
-	size_t		 texture_size, len;
+	size_t		 texture_size;
 
 	COM_FileBase( texture->name, texturename );
 	len = Q_snprintf( filename, MAX_SYSPATH, "%s%s.bmp", destdir, texturename );
 
-	if( len >= MAX_SYSPATH )
+	if( len == -1 )
 	{
 		fprintf( stderr, "ERROR: Destination path is too long. Can't write %s.bmp\n", texturename );
 		return;
