@@ -508,7 +508,7 @@ void R_Shutdown( void )
 
 static void R_GetRendererName( char *dest, size_t size, const char *opt )
 {
-	if( !Q_strstr( opt, va( ".%s", OS_LIB_EXT )))
+	if( !Q_strstr( opt, "." OS_LIB_EXT ))
 	{
 		const char *format;
 

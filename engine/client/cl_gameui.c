@@ -403,7 +403,7 @@ static void UI_ConvertGameInfo( GAMEINFO *out, gameinfo_t *in )
 	Q_strncpy( out->startmap, in->startmap, sizeof( out->startmap ));
 	Q_strncpy( out->trainmap, in->trainmap, sizeof( out->trainmap ));
 	Q_strncpy( out->title, in->title, sizeof( out->title ));
-	Q_strncpy( out->version, va( "%g", in->version ), sizeof( out->version ));
+	Q_snprintf( out->version, sizeof( out->version ), "%g", in->version );
 
 	Q_strncpy( out->game_url, in->game_url, sizeof( out->game_url ));
 	Q_strncpy( out->update_url, in->update_url, sizeof( out->update_url ));

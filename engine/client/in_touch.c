@@ -447,7 +447,7 @@ touch_button_t *Touch_FindFirst( touchbuttonlist_t *list, const char *name )
 	touch_button_t *button;
 
 	for ( button = list->first; button; button = button->next )
-		if( ( Q_strstr( name, "*" ) && Q_stricmpext( name, button->name ) ) || !Q_strncmp( name, button->name, 32 ) )
+		if( ( Q_strchr( name, '*' ) && Q_stricmpext( name, button->name ) ) || !Q_strncmp( name, button->name, 32 ) )
 			return button;
 	return NULL;
 }
@@ -534,7 +534,7 @@ void Touch_SetColor( touchbuttonlist_t *list, const char *name, byte *color )
 	touch_button_t *button;
 	for( button = list->first; button; button = button->next )
 	{
-		if( ( Q_strstr( name, "*" ) && Q_stricmpext( name, button->name ) ) || !Q_strncmp( name, button->name, 32 ) )
+		if( ( Q_strchr( name, '*' ) && Q_stricmpext( name, button->name ) ) || !Q_strncmp( name, button->name, 32 ) )
 			MakeRGBA( button->color, color[0], color[1], color[2], color[3] );
 	}
 }
@@ -570,7 +570,7 @@ void Touch_HideButtons( const char *name, byte hide )
 
 	for( button = touch.list_user.first; button; button = button->next)
 	{
-		if( ( Q_strstr( name, "*" ) && Q_stricmpext( name, button->name ) ) || !Q_strncmp( name, button->name, 32 ) )
+		if( ( Q_strchr( name, '*' ) && Q_stricmpext( name, button->name ) ) || !Q_strncmp( name, button->name, 32 ) )
 		{
 			if( hide )
 				button->flags |= TOUCH_FL_HIDE;
@@ -602,7 +602,7 @@ void Touch_FadeButtons( touchbuttonlist_t *list, const char *name, float speed, 
 	touch_button_t *button;
 	for( button = list->first; button; button = button->next)
 	{
-		if( ( Q_strstr( name, "*" ) && Q_stricmpext( name, button->name ) ) || !Q_strncmp( name, button->name, 32 ) )
+		if( ( Q_strchr( name, '*' ) && Q_stricmpext( name, button->name ) ) || !Q_strncmp( name, button->name, 32 ) )
 		{
 			if( start >= 0 )
 				button->fade = start;
