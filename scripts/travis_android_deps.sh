@@ -7,7 +7,7 @@ git clone --depth 1 --recursive https://github.com/FWGS/hlsdk-xash3d hlsdk || ex
 
 echo "Download and unpack Android SDK"
 mkdir -p sdk && cd sdk
-(wget https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip -qO - > /dev/null 2>/dev/null | busybox unzip -x -) || exit 1
+(wget https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip -qO - | busybox unzip -x -) || exit 1
 cd $TRAVIS_BUILD_DIR
 
 echo "Download all needed tools and NDK"
@@ -18,7 +18,7 @@ if [ "$1" = "r10e" ]; then
 fi
 sdk/tools/bin/sdkmanager --install build-tools\;29.0.1 platform-tools platforms\;android-29 $NDK_BUNDLE > /dev/null 2>/dev/null
 if [ "$1" = "r10e" ]; then
-	(wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip /dev/null 2>/dev/null | busybox unzip -x -) || exit 1
+	(wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip | busybox unzip -x -) || exit 1
 	mv android-ndk-r10e sdk/ndk-bundle
 fi
 echo "Download Xash3D FWGS Android source"
