@@ -163,7 +163,7 @@ void CL_AddClientResources( void )
 	// then check sounds
 	for( i = 0; i < ARRAYSIZE( cl_player_shell_sounds ); i++ )
 	{
-		Q_snprintf( filepath, sizeof( filepath ), "%s%s", DEFAULT_SOUNDPATH, cl_player_shell_sounds[i] );
+		Q_snprintf( filepath, sizeof( filepath ), DEFAULT_SOUNDPATH "%s", cl_player_shell_sounds[i] );
 
 		if( !FS_FileExists( filepath, false ))
 			CL_AddClientResource( cl_player_shell_sounds[i], t_sound );
@@ -171,7 +171,7 @@ void CL_AddClientResources( void )
 
 	for( i = 0; i < ARRAYSIZE( cl_weapon_shell_sounds ); i++ )
 	{
-		Q_snprintf( filepath, sizeof( filepath ), "%s%s", DEFAULT_SOUNDPATH, cl_weapon_shell_sounds[i] );
+		Q_snprintf( filepath, sizeof( filepath ), DEFAULT_SOUNDPATH "%s", cl_weapon_shell_sounds[i] );
 
 		if( !FS_FileExists( filepath, false ))
 			CL_AddClientResource( cl_weapon_shell_sounds[i], t_sound );
@@ -179,7 +179,7 @@ void CL_AddClientResources( void )
 
 	for( i = 0; i < ARRAYSIZE( cl_explode_sounds ); i++ )
 	{
-		Q_snprintf( filepath, sizeof( filepath ), "%s%s", DEFAULT_SOUNDPATH, cl_explode_sounds[i] );
+		Q_snprintf( filepath, sizeof( filepath ), DEFAULT_SOUNDPATH "%s", cl_explode_sounds[i] );
 
 		if( !FS_FileExists( filepath, false ))
 			CL_AddClientResource( cl_explode_sounds[i], t_sound );
@@ -188,7 +188,7 @@ void CL_AddClientResources( void )
 #if 0	// ric sounds was precached by server-side
 	for( i = 0; i < ARRAYSIZE( cl_ricochet_sounds ); i++ )
 	{
-		Q_snprintf( filepath, sizeof( filepath ), "%s%s", DEFAULT_SOUNDPATH, cl_ricochet_sounds[i] );
+		Q_snprintf( filepath, sizeof( filepath ), DEFAULT_SOUNDPATH "%s", cl_ricochet_sounds[i] );
 
 		if( !FS_FileExists( filepath, false ))
 			CL_AddClientResource( cl_ricochet_sounds[i], t_sound );
@@ -322,15 +322,15 @@ void CL_TempEntPlaySound( TEMPENTITY *pTemp, float damp )
 		Q_snprintf( soundname, sizeof( soundname ), "debris/wood%i.wav", COM_RandomLong( 1, 4 ));
 		break;
 	case BOUNCE_SHRAP:
-		Q_snprintf( soundname, sizeof( soundname ), "%s", cl_ricochet_sounds[COM_RandomLong( 0, 4 )] );
+		Q_strncpy( soundname, cl_ricochet_sounds[COM_RandomLong( 0, 4 )], sizeof( soundname ) );
 		break;
 	case BOUNCE_SHOTSHELL:
-		Q_snprintf( soundname, sizeof( soundname ), "%s", cl_weapon_shell_sounds[COM_RandomLong( 0, 2 )] );
+		Q_strncpy( soundname, cl_weapon_shell_sounds[COM_RandomLong( 0, 2 )], sizeof( soundname ) );
 		isshellcasing = true; // shell casings have different playback parameters
 		fvol = 0.5f;
 		break;
 	case BOUNCE_SHELL:
-		Q_snprintf( soundname, sizeof( soundname ), "%s", cl_player_shell_sounds[COM_RandomLong( 0, 2 )] );
+		Q_strncpy( soundname, cl_player_shell_sounds[COM_RandomLong( 0, 2 )], sizeof( soundname ) );
 		isshellcasing = true; // shell casings have different playback parameters
 		break;
 	case BOUNCE_CONCRETE:
@@ -1522,7 +1522,7 @@ void GAME_EXPORT R_RicochetSound( const vec3_t pos )
 	char	soundpath[32];
 	sound_t	handle;
 
-	Q_snprintf( soundpath, sizeof( soundpath ), "%s", cl_ricochet_sounds[COM_RandomLong( 0, 4 )] );
+	Q_strncpy( soundpath, cl_ricochet_sounds[COM_RandomLong( 0, 4 )], sizeof( soundpath ) );
 	handle = S_RegisterSound( soundpath );
 
 	S_StartSound( pos, 0, CHAN_AUTO, handle, fvol, ATTN_NORM, iPitch, 0 );
@@ -1672,7 +1672,7 @@ void GAME_EXPORT R_Explosion( vec3_t pos, int model, float scale, float framerat
 
 	if( !FBitSet( flags, TE_EXPLFLAG_NOSOUND ))
 	{
-		hSound = S_RegisterSound( va( "%s", cl_explode_sounds[COM_RandomLong( 0, 2 )] ));
+		hSound = S_RegisterSound( cl_explode_sounds[COM_RandomLong( 0, 2 )] );
 		S_StartSound( pos, 0, CHAN_STATIC, hSound, VOL_NORM, 0.3f, PITCH_NORM, 0 );
 	}
 }

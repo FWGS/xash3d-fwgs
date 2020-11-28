@@ -1185,7 +1185,7 @@ int GAME_EXPORT CL_GetDemoComment( const char *demoname, char *comment )
 	demfile = FS_Open( demoname, "rb", false );
 	if( !demfile )
 	{
-		Q_strncpy( comment, "", MAX_STRING );
+		comment[0] = '\0';
 		return false;
 	}
 
@@ -1226,7 +1226,7 @@ int GAME_EXPORT CL_GetDemoComment( const char *demoname, char *comment )
 	// split comment to sections
 	Q_strncpy( comment, demohdr.mapname, CS_SIZE );
 	Q_strncpy( comment + CS_SIZE, demohdr.comment, CS_SIZE );
-	Q_strncpy( comment + CS_SIZE * 2, va( "%g sec", playtime ), CS_TIME );
+	Q_snprintf( comment + CS_SIZE * 2, CS_TIME, "%g sec", playtime );
 
 	// all done
 	FS_Close( demfile );

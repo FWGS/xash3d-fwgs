@@ -126,7 +126,7 @@ void CL_PlayCDTrack_f( void )
 		int	i, maxTrack;
 
 		for( maxTrack = i = 0; i < MAX_CDTRACKS; i++ )
-			if( Q_strlen( clgame.cdtracks[i] )) maxTrack++;
+			if( COM_CheckStringEmpty( clgame.cdtracks[i] ) ) maxTrack++;
 			
 		Con_Printf( "%u tracks\n", maxTrack );
 		if( track )
@@ -360,7 +360,7 @@ void CL_SaveShot_f( void )
 		return;
 	}
 
-	Q_sprintf( cls.shotname, "%s%s.bmp", DEFAULT_SAVE_DIRECTORY, Cmd_Argv( 1 ));
+	Q_sprintf( cls.shotname, DEFAULT_SAVE_DIRECTORY "%s.bmp", Cmd_Argv( 1 ));
 	cls.scrshot_action = scrshot_savegame;	// build new frame for saveshot
 }
 

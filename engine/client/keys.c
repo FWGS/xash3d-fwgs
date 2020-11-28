@@ -313,25 +313,25 @@ Key_GetKey
 */
 int Key_GetKey( const char *pBinding )
 {
-	int	i;
+	int		 i, len;
+	const char	*p;
 
 	if( !pBinding ) return -1;
+
+	len = Q_strlen( pBinding );
 
 	for( i = 0; i < 256; i++ )
 	{
 		if( !keys[i].binding )
 			continue;
 
-		if( *keys[i].binding == '+' )
-		{
-			if( !Q_strnicmp( keys[i].binding + 1, pBinding, Q_strlen( pBinding )))
-				return i;
-		}
-		else
-		{
-			if( !Q_strnicmp( keys[i].binding, pBinding, Q_strlen( pBinding )))
-				return i;
-		}
+		p = keys[i].binding;
+
+		if( *p == '+' )
+			p++;
+
+		if( !Q_strnicmp( p, pBinding, len ) )
+			return i;
 	}
 
 	return -1;

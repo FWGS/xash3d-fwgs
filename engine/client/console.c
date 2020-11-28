@@ -2427,13 +2427,13 @@ void Con_VidInit( void )
 			lmp_t	*cb = (lmp_t *)FS_LoadFile( "gfx/conback.lmp", &length, false );
 			char	ver[64];
 			byte	*dest;
-			int	x, y;
+			int	x, y, len;
 
 			if( cb && cb->width == 320 && cb->height == 200 )
 			{
-				Q_snprintf( ver, 64, "%i", Q_buildnum( )); // can store only buildnum
-				dest = (byte *)(cb + 1) + 320 * 186 + 320 - 11 - 8 * Q_strlen( ver );
-				y = Q_strlen( ver );
+				len = Q_snprintf( ver, 64, "%i", Q_buildnum( )); // can store only buildnum
+				dest = (byte *)(cb + 1) + 320 * 186 + 320 - 11 - 8 * len;
+				y = len;
 				for( x = 0; x < y; x++ )
 					Con_DrawCharToConback( ver[x], buf, dest + (x << 3));
 				con.background = ref.dllFuncs.GL_LoadTexture( "#gfx/conback.lmp", (byte *)cb, length, TF_IMAGE );
