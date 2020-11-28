@@ -4,7 +4,7 @@
 MODULE = mdldec
 
 CC	?= gcc
-CFLAGS	?= -O3 -pipe -DHAVE_TGMATH_H
+CFLAGS	?= -O3 -pipe -DHAVE_TGMATH_H -DSTDINT_H=\<stdint.h\>
 LDFLAGS	?= -Wl,--no-undefined
 
 SYS = $(shell $(CC) -dumpmachine)
