@@ -1299,13 +1299,17 @@ GL_CheckTexName
 */
 qboolean GL_CheckTexName( const char *name )
 {
+	int len;
+
 	if( !COM_CheckString( name ))
 		return false;
 
+	len = Q_strlen( name );
+
 	// because multi-layered textures can exceed name string
-	if( Q_strlen( name ) >= sizeof( gl_textures->name ))
+	if( len >= sizeof( gl_textures->name ))
 	{
-		gEngfuncs.Con_Printf( S_ERROR "LoadTexture: too long name %s (%d)\n", name, Q_strlen( name ));
+		gEngfuncs.Con_Printf( S_ERROR "LoadTexture: too long name %s (%d)\n", name, len );
 		return false;
 	}
 
@@ -1529,7 +1533,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 	for( i = 0; i < numLayers; i++ )
 	{
 		COM_FileBase( names[i], basename );
-		Q_strncat( name, va( "%s", basename ), sizeof( name ));
+		Q_strncat( name, basename, sizeof( name ) );
 		if( i != ( numLayers - 1 )) Q_strncat( name, "|", sizeof( name ));
 	}
 

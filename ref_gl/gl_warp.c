@@ -412,7 +412,7 @@ void R_SetupSky( const char *skyboxname )
 {
 	char	loadname[MAX_STRING];
 	char	sidename[MAX_STRING];
-	int	i, result;
+	int	i, result, len;
 
 	if( !COM_CheckString( skyboxname ))
 	{
@@ -424,8 +424,10 @@ void R_SetupSky( const char *skyboxname )
 	COM_StripExtension( loadname );
 
 	// kill the underline suffix to find them manually later
-	if( loadname[Q_strlen( loadname ) - 1] == '_' )
-		loadname[Q_strlen( loadname ) - 1] = '\0';
+	len = Q_strlen( loadname );
+
+	if( loadname[len - 1] == '_' )
+		loadname[len - 1] = '\0';
 	result = CheckSkybox( loadname );
 
 	// to prevent infinite recursion if default skybox was missed
