@@ -805,13 +805,17 @@ GL_CheckTexName
 */
 qboolean GL_CheckTexName( const char *name )
 {
+	int len;
+
 	if( !COM_CheckString( name ) )
 		return false;
 
+	len = Q_strlen( name );
+
 	// because multi-layered textures can exceed name string
-	if( Q_strlen( name ) >= sizeof( r_images->name ))
+	if( len >= sizeof( r_images->name ))
 	{
-		gEngfuncs.Con_Printf( S_ERROR "LoadTexture: too long name %s (%d)\n", name, Q_strlen( name ));
+		gEngfuncs.Con_Printf( S_ERROR "LoadTexture: too long name %s (%d)\n", name, len);
 		return false;
 	}
 
