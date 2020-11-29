@@ -772,7 +772,8 @@ void SV_WriteEntityPatch( const char *filename )
 	dheader_t		*header;
 	file_t		*f;
 
-	Q_strncpy( bspfilename, va( "maps/%s.bsp", filename ), sizeof( bspfilename ));
+	Q_snprintf( bspfilename, sizeof( bspfilename ), "maps/%s.bsp", filename );
+
 	f = FS_Open( bspfilename, "rb", false );
 	if( !f ) return;
 
@@ -824,7 +825,8 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 
 	*flags = 0;
 
-	Q_strncpy( bspfilename, va( "maps/%s.bsp", filename ), sizeof( bspfilename ));			
+	Q_snprintf( bspfilename, sizeof( bspfilename ), "maps/%s.bsp", filename );
+
 	f = FS_Open( bspfilename, "rb", false );
 	if( !f ) return NULL;
 
@@ -846,7 +848,7 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	lumplen = header->lumps[LUMP_ENTITIES].filelen;
 
 	// check for entfile too
-	Q_strncpy( entfilename, va( "maps/%s.ent", filename ), sizeof( entfilename ));
+	Q_snprintf( entfilename, sizeof( entfilename ), "maps/%s.ent", filename );
 
 	// make sure what entity patch is newer than bsp
 	ft1 = FS_FileTime( bspfilename, false );
@@ -888,9 +890,11 @@ int SV_MapIsValid( const char *filename, const char *spawn_entity, const char *l
 
 	if( ents )
 	{
-		qboolean	need_landmark = Q_strlen( landmark_name ) > 0 ? true : false;
+		qboolean	need_landmark;
 		char	token[MAX_TOKEN];
 		string	check_name;
+
+		need_landmark = COM_CheckString( landmark_name );
 
 		// g-cont. in-dev mode we can entering on map even without "info_player_start"
 		if( !need_landmark && host_developer.value )

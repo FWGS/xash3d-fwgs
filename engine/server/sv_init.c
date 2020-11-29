@@ -67,7 +67,7 @@ void SV_SendSingleResource( const char *name, resourcetype_t type, int index, by
 		nSize = ( name[0] != '*' ) ? FS_FileSize( name, false ) : 0;
 		break;
 	case t_sound:
-		nSize = FS_FileSize( va( "%s%s", DEFAULT_SOUNDPATH, name ), false );
+		nSize = FS_FileSize( va( DEFAULT_SOUNDPATH "%s", name ), false );
 		break;
 	default:
 		nSize = FS_FileSize( name, false );
@@ -358,7 +358,7 @@ void SV_CreateResourceList( void )
 		}
 		else
 		{
-			nSize = FS_FileSize( va( "%s%s", DEFAULT_SOUNDPATH, s ), false );
+			nSize = FS_FileSize( va( DEFAULT_SOUNDPATH "%s", s ), false );
 			SV_AddResource( t_sound, s, nSize, 0, i );
 		}
 	}
