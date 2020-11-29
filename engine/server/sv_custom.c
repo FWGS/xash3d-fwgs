@@ -212,7 +212,7 @@ void SV_TransferConsistencyInfo( void )
 		SetBits( pResource->ucFlags, RES_CHECKFILE );
 
 		if( pResource->type == t_sound )
-			Q_snprintf( filepath, sizeof( filepath ), "%s%s", DEFAULT_SOUNDPATH, pResource->szFileName );
+			Q_snprintf( filepath, sizeof( filepath ), DEFAULT_SOUNDPATH "%s", pResource->szFileName );
 		else Q_strncpy( filepath, pResource->szFileName, sizeof( filepath ));
 
 		MD5_HashFile( pResource->rgucMD5_hash, filepath, NULL );

@@ -42,7 +42,7 @@ void Log_Open( void )
 	today = localtime( &ltime );
 	temp = Cvar_VariableString( "logsdir" );
 
-	if( temp && Q_strlen( temp ) > 0 && !Q_strstr( temp, ":" ) && !Q_strstr( temp, ".." ))
+	if( COM_CheckString( temp ) && !Q_strchr( temp, ':' ) && !Q_strstr( temp, ".." ))
 		Q_snprintf( szFileBase, sizeof( szFileBase ), "%s/L%02i%02i", temp, today->tm_mon + 1, today->tm_mday );
 	else Q_snprintf( szFileBase, sizeof( szFileBase ), "logs/L%02i%02i", today->tm_mon + 1, today->tm_mday );
 
@@ -100,7 +100,8 @@ void Log_Printf( const char *fmt, ... )
 	static char	string[1024];
 	char		*p;
 	time_t		ltime;
-	struct tm		*today;
+	struct tm	*today;
+	int		len;
 
 	if( !svs.log.active )
 		return;
@@ -108,13 +109,13 @@ void Log_Printf( const char *fmt, ... )
 	time( &ltime );
 	today = localtime( &ltime );
 
-	Q_snprintf( string, sizeof( string ), "%02i/%02i/%04i - %02i:%02i:%02i: ",
+	len = Q_snprintf( string, sizeof( string ), "%02i/%02i/%04i - %02i:%02i:%02i: ",
 		today->tm_mon+1, today->tm_mday, 1900 + today->tm_year, today->tm_hour, today->tm_min, today->tm_sec );
 
-	p = string + Q_strlen( string );
+	p = string + len;
 
 	va_start( argptr, fmt );
-	Q_vsnprintf( p, sizeof( string ) - Q_strlen( string ), fmt, argptr );
+	Q_vsnprintf( p, sizeof( string ) - len, fmt, argptr );
 	va_end( argptr );
 
 	if( svs.log.net_log )
