@@ -379,7 +379,7 @@ void SV_Load_f( void )
 		return;
 	}
 
-	Q_snprintf( path, sizeof( path ), "%s%s.sav", DEFAULT_SAVE_DIRECTORY, Cmd_Argv( 1 ));
+	Q_snprintf( path, sizeof( path ), DEFAULT_SAVE_DIRECTORY "%s.sav", Cmd_Argv( 1 ));
 	SV_LoadGame( path );
 }
 
@@ -442,8 +442,8 @@ void SV_DeleteSave_f( void )
 	}
 
 	// delete save and saveshot
-	FS_Delete( va( "%s%s.sav", DEFAULT_SAVE_DIRECTORY, Cmd_Argv( 1 )));
-	FS_Delete( va( "%s%s.bmp", DEFAULT_SAVE_DIRECTORY, Cmd_Argv( 1 )));
+	FS_Delete( va( DEFAULT_SAVE_DIRECTORY "%s.sav", Cmd_Argv( 1 )));
+	FS_Delete( va( DEFAULT_SAVE_DIRECTORY "%s.bmp", Cmd_Argv( 1 )));
 }
 
 /*
