@@ -679,6 +679,21 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 	return pack;
 }
 
+/*
+============
+FS_SortZip
+============
+*/
+static int FS_SortZip( const void *a, const void *b )
+{
+	return Q_stricmp( ( ( zipfile_t* )a )->name, ( ( zipfile_t* )b )->name );
+}
+
+/*
+============
+FS_LoadZip
+============
+*/
 static zip_t *FS_LoadZip( const char *zipfile, int *error )
 {
 	int		  numpackfiles = 0, i;
@@ -837,6 +852,8 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	zip->filetime = FS_SysFileTime( zipfile );
 	zip->numfiles = numpackfiles;
 	zip->files = info;
+
+	qsort( zip->files, zip->numfiles, sizeof( zipfile_t ), FS_SortZip );
 
 #ifdef XASH_REDUCE_FD
 	// will reopen when needed
@@ -2499,15 +2516,33 @@ static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedir
 		}
 		else if( search->zip )
 		{
-			int i;
-			for( i = 0; search->zip->numfiles > i; i++)
+			int     left, right, middle;
+			zip_t  *zip;
+
+			zip = search->zip;
+
+			// look for the file (binary search)
+			left = 0;
+			right = zip->numfiles - 1;
+
+			while( left <= right )
 			{
-				if( !Q_stricmp( search->zip->files[i].name, name ) )
+				int     diff;
+
+				middle = (left + right) / 2;
+				diff = Q_stricmp( zip->files[middle].name, name );
+
+				// Found it
+				if( !diff )
 				{
-					if( index )
-						*index = i;
+					if( index ) *index = middle;
 					return search;
 				}
+
+				// if we're too far in the list
+				if( diff > 0 )
+					right = middle - 1;
+				else left = middle + 1;
 			}
 		}
 		else
