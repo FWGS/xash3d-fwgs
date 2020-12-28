@@ -390,20 +390,24 @@ static void SDLash_EventFilter( SDL_Event *event )
 
 	/* Joystick events */
 	case SDL_JOYAXISMOTION:
-		Joy_AxisMotionEvent( event->jaxis.axis, event->jaxis.value );
+		if ( SDL_GameControllerFromInstanceID( event->jaxis.which ) == NULL )
+			Joy_AxisMotionEvent( event->jaxis.axis, event->jaxis.value );
 		break;
 
 	case SDL_JOYBALLMOTION:
-		Joy_BallMotionEvent( event->jball.ball, event->jball.xrel, event->jball.yrel );
+		if ( SDL_GameControllerFromInstanceID( event->jball.which ) == NULL )
+			Joy_BallMotionEvent( event->jball.ball, event->jball.xrel, event->jball.yrel );
 		break;
 
 	case SDL_JOYHATMOTION:
-		Joy_HatMotionEvent( event->jhat.hat, event->jhat.value );
+		if ( SDL_GameControllerFromInstanceID( event->jhat.which ) == NULL )
+			Joy_HatMotionEvent( event->jhat.hat, event->jhat.value );
 		break;
 
 	case SDL_JOYBUTTONDOWN:
 	case SDL_JOYBUTTONUP:
-		Joy_ButtonEvent( event->jbutton.button, event->jbutton.state );
+		if ( SDL_GameControllerFromInstanceID( event->jbutton.which ) == NULL )
+			Joy_ButtonEvent( event->jbutton.button, event->jbutton.state );
 		break;
 
 	case SDL_QUIT:
@@ -514,7 +518,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 
 		// TODO: Use joyinput funcs, for future multiple gamepads support
 		if( Joy_IsActive() )
-			Key_Event( sdlControllerButtonToEngine[event->cbutton.button], event->cbutton.state );
+			Key_Event( sdlControllerButtonToEngine[event->cbutton.button + 1], event->cbutton.state );
 		break;
 	}
 
