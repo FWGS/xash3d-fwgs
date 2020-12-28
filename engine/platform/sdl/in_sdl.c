@@ -260,7 +260,6 @@ static int SDLash_JoyInit_New( int numjoy )
 		SDL_GameControllerGetProductVersion( gamecontroller ));
 #endif // SDL_VERSION_ATLEAST( 2, 0, 6 )
 	SDL_GameControllerEventState( SDL_ENABLE );
-	SDL_JoystickEventState( SDL_DISABLE );
 
 	return num;
 }
