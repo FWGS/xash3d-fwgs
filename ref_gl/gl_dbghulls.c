@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #include "mod_local.h"
 
 #define list_entry( ptr, type, member ) \
-	((type *)((void *)(ptr) - (size_t)(&((type *)0)->member)))
+	((type *)((char *)(ptr) - (size_t)(&((type *)0)->member)))
 
 // iterate over each entry in the list
 #define list_for_each_entry( pos, head, member )			\
