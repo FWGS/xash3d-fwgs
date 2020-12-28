@@ -75,6 +75,16 @@ def configure(conf):
 	if hasattr(conf.options, 'DLLEMU'):
 		conf.define_cond('XASH_DLL_LOADER', conf.options.DLLEMU)
 
+	# Set the default accelerated renderer based on ref_gl options.
+	if conf.options.GL:
+		conf.define('DEFAULT_ACCELERATED_RENDERER', 'gl')
+	elif conf.options.NANOGL:
+		conf.define('DEFAULT_ACCELERATED_RENDERER', 'gles1')
+	elif conf.options.GLWES:
+		conf.define('DEFAULT_ACCELERATED_RENDERER', 'gles2')
+	elif conf.options.GL4ES:
+		conf.define('DEFAULT_ACCELERATED_RENDERER', 'gl4es')
+
 	conf.define_cond('XASH_STATIC_LIBS', conf.env.STATIC_LINKING)
 	conf.define_cond('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
 	conf.define_cond('SINGLE_BINARY', conf.env.SINGLE_BINARY)

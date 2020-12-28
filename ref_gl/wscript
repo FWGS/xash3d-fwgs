@@ -37,7 +37,7 @@ def configure(conf):
 
 	conf.env.NANOGL = conf.options.NANOGL
 	conf.env.GLWES  = conf.options.GLWES
-	conf.env.GL4ES     = conf.options.GL4ES
+	conf.env.GL4ES  = conf.options.GL4ES
 	conf.env.GL     = conf.options.GL
 
 	if conf.env.NANOGL:
