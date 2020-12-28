@@ -65,7 +65,7 @@ GNU General Public License for more details.
 
 #define XASH_ENGINE_NAME "Xash3D FWGS"
 
-#define DEFAULT_RENDERERS { "gl", "gles1", "gles2", "soft" }
-#define DEFAULT_RENDERERS_LEN 4
+#define DEFAULT_RENDERERS { "gl", "gles1", "gles2", "gl4es", "soft" }
+#define DEFAULT_RENDERERS_LEN 5
 
 #endif//COM_STRINGS_H

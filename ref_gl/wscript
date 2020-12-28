@@ -118,7 +118,7 @@ def build(bld):
 
 		bld.shlib(
 			source   = source,
-			target   = 'ref_gles2_gl4es',
+			target   = 'ref_gl4es',
 			features = 'c',
 			includes = includes,
 			use      = libs + ['DL', 'gl4es', 'LOG'],
