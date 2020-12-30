@@ -27,10 +27,10 @@ GNU General Public License for more details.
 #include "net_buffer.h"
 
 // 0 == regular, 1 == file stream
-#define MAX_STREAMS			2    
+#define MAX_STREAMS			2
 
 // flow control bytes per second limits
-#define MAX_RATE			100000.0f				
+#define MAX_RATE			100000.0f
 #define MIN_RATE			1000.0f
 
 // default data rate
@@ -191,7 +191,7 @@ typedef struct fragbuf_s
 	qboolean		isbuffer;				// is this file buffer from memory ( custom decal, etc. ).
 	qboolean		iscompressed;			// is compressed file, we should using filename.ztmp
 	char		filename[MAX_OSPATH];		// name of the file to save out on remote host
-	int		foffset;				// offset in file from which to read data  
+	int		foffset;				// offset in file from which to read data
 	int		size;				// size of data to read at that offset
 } fragbuf_t;
 
@@ -214,7 +214,7 @@ typedef enum fragsize_e
 typedef struct netchan_s
 {
 	netsrc_t		sock;		// NS_SERVER or NS_CLIENT, depending on channel.
-	netadr_t		remote_address;	// address this channel is talking to.  
+	netadr_t		remote_address;	// address this channel is talking to.
 	int		qport;		// qport value to write when transmitting
 
 	double		last_received;	// for timeouts
@@ -223,13 +223,13 @@ typedef struct netchan_s
 	double		cleartime;	// if realtime > cleartime, free to send next packet
 
 	// Sequencing variables
-	int		incoming_sequence;			// increasing count of sequence numbers
-	int		incoming_acknowledged;		// # of last outgoing message that has been ack'd.
-	int		incoming_reliable_acknowledged;	// toggles T/F as reliable messages are received.
-	int		incoming_reliable_sequence;		// single bit, maintained local
-	int		outgoing_sequence;			// message we are sending to remote
-	int		reliable_sequence;			// whether the message contains reliable payload, single bit
-	int		last_reliable_sequence;		// outgoing sequence number of last send that had reliable data
+	unsigned int		incoming_sequence;			// increasing count of sequence numbers
+	unsigned int		incoming_acknowledged;		// # of last outgoing message that has been ack'd.
+	unsigned int		incoming_reliable_acknowledged;	// toggles T/F as reliable messages are received.
+	unsigned int		incoming_reliable_sequence;		// single bit, maintained local
+	unsigned int		outgoing_sequence;			// message we are sending to remote
+	unsigned int		reliable_sequence;			// whether the message contains reliable payload, single bit
+	unsigned int		last_reliable_sequence;		// outgoing sequence number of last send that had reliable data
 
 	// callback to get actual framgment size
 	void		*client;
@@ -246,7 +246,7 @@ typedef struct netchan_s
 
 	// Waiting list of buffered fragments to go onto queue.
 	// Multiple outgoing buffers can be queued in succession
-	fragbufwaiting_t	*waitlist[MAX_STREAMS]; 
+	fragbufwaiting_t	*waitlist[MAX_STREAMS];
 
 	int		reliable_fragment[MAX_STREAMS];	// is reliable waiting buf a fragment?
 	uint		reliable_fragid[MAX_STREAMS];		// buffer id for each waiting fragment
@@ -267,7 +267,7 @@ typedef struct netchan_s
 	int		tempbuffersize;		// current size
 
 	// incoming and outgoing flow metrics
-	flow_t		flow[MAX_FLOWS];  
+	flow_t		flow[MAX_FLOWS];
 
 	// added for net_speeds
 	size_t		total_sended;

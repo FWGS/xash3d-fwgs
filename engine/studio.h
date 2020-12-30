@@ -1,9 +1,9 @@
 /***
 *
 *	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*	
-*	This product contains software technology licensed from Id 
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc. 
+*
+*	This product contains software technology licensed from Id
+*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
 *	All Rights Reserved.
 *
 *   Use, distribution, and modification of this source code and/or resulting
@@ -89,11 +89,11 @@ Studio models are position independent, so the cache manager can move them.
 #define STUDIO_NF_HAS_ALPHA		(1<<20)	// external texture has alpha-channel
 #define STUDIO_NF_HAS_DETAIL		(1<<21)	// studiomodels has detail textures
 #define STUDIO_NF_COLORMAP		(1<<30)	// internal system flag
-#define STUDIO_NF_UV_COORDS		(1<<31)	// using half-float coords instead of ST
+#define STUDIO_NF_UV_COORDS		(1U<<31)	// using half-float coords instead of ST
 
 // motion flags
 #define STUDIO_X			0x0001
-#define STUDIO_Y			0x0002	
+#define STUDIO_Y			0x0002
 #define STUDIO_Z			0x0004
 #define STUDIO_XR			0x0008
 #define STUDIO_YR			0x0010
@@ -118,7 +118,7 @@ Studio models are position independent, so the cache manager can move them.
 #define STUDIO_SNAP			0x0002	// do not interpolate between previous animation and this one
 #define STUDIO_DELTA		0x0004	// this sequence "adds" to the base sequences, not slerp blends
 #define STUDIO_AUTOPLAY		0x0008	// temporary flag that forces the sequence to always play
-#define STUDIO_POST			0x0010	// 
+#define STUDIO_POST			0x0010	//
 #define STUDIO_ALLZEROS		0x0020	// this animation/sequence has no real animation data
 #define STUDIO_BLENDPOSE		0x0040   	// to differentiate GoldSrc style blending from Source style blending (with pose parameters)
 #define STUDIO_CYCLEPOSE		0x0080	// cycle index is taken from a pose parameter index
@@ -132,7 +132,7 @@ Studio models are position independent, so the cache manager can move them.
 #define STUDIO_LIGHT_FROM_ROOT	0x8000	// get lighting point from root bonepos not from entity origin
 
 // autolayer flags
-#define STUDIO_AL_POST		0x0001	// 
+#define STUDIO_AL_POST		0x0001	//
 #define STUDIO_AL_SPLINE	0x0002	// convert layer ramp in/out curve is a spline instead of linear
 #define STUDIO_AL_XFADE		0x0004	// pre-bias the ramp curve to compense for a non-1 weight,
 					// assuming a second layer is also going to accumulate
@@ -185,7 +185,7 @@ typedef struct studiohdr_s
 
 	// offset to the first hitbox chunk
 	int32_t		hitboxindex;
-	
+
 	// the number of sequences
 	int32_t		numseq;
 
@@ -217,7 +217,7 @@ typedef struct studiohdr_s
 	int32_t		skinindex;
 
 	// the number of bodyparts
-	int32_t		numbodyparts;		
+	int32_t		numbodyparts;
 
 	// offset to the first bodypart
 	int32_t		bodypartindex;
@@ -285,7 +285,7 @@ typedef struct
 } studiohdr2_t;
 
 // header for demand loaded sequence group data
-typedef struct 
+typedef struct
 {
 	// the model signature
 	int32_t		id;
@@ -491,7 +491,7 @@ typedef struct
 } mstudioaimatbone_t;
 
 // bone controllers
-typedef struct 
+typedef struct
 {
 	// bone affected by this controller
 	int32_t		bone;
@@ -521,7 +521,7 @@ typedef struct
 
 	// the hitbox minimum and maximum extents
 	vec3_t		bbmin;
-	vec3_t		bbmax;		
+	vec3_t		bbmax;
 } mstudiobbox_t;
 
 typedef struct
@@ -847,7 +847,7 @@ typedef struct mstudioanim_s
 } mstudioanim_t;
 
 // animation frames
-typedef union 
+typedef union
 {
 	struct
 	{
@@ -917,7 +917,7 @@ typedef struct
 typedef struct
 {
 	uint8_t		weight[4];
-	int8_t		bone[4]; 
+	int8_t		bone[4];
 } mstudioboneweight_t;
 
 // skin families
@@ -969,7 +969,7 @@ typedef struct
 // vec3_t	boundingbox[model][bone][2];		// complex intersection info
 
 // meshes
-typedef struct 
+typedef struct
 {
 	// can be interpreted as the number of triangles in the mesh
 	int32_t		numtris;
@@ -988,7 +988,7 @@ typedef struct
 } mstudiomesh_t;
 
 // triangles
-typedef struct 
+typedef struct
 {
 	// index into vertex array
 	int16_t		vertindex;
