@@ -24,7 +24,7 @@ for root, subFolders, files in os.walk(rootdir):
 		entry = FileEntry()
 		impfilename = os.path.join(root,file)
 		entry.filename = os.path.relpath(impfilename,rootdir).replace("\\","/")
-		if(entry.filename.startswith(".git")):continue
+		if(entry.filename.startswith(".")):continue
 		print("pak: "+entry.filename)
 		with open(impfilename, "rb") as importfile:
 			pakfile.write(importfile.read())
