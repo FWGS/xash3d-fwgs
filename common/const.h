@@ -20,45 +20,45 @@
 // Most came from server.h
 
 // edict->flags
-#define FL_FLY		(1<<0)	// Changes the SV_Movestep() behavior to not need to be on ground
-#define FL_SWIM		(1<<1)	// Changes the SV_Movestep() behavior to not need to be on ground (but stay in water)
-#define FL_CONVEYOR		(1<<2)
-#define FL_CLIENT		(1<<3)
-#define FL_INWATER		(1<<4)
-#define FL_MONSTER		(1<<5)
-#define FL_GODMODE		(1<<6)
-#define FL_NOTARGET		(1<<7)
-#define FL_SKIPLOCALHOST	(1<<8)	// Don't send entity to local host, it's predicting this entity itself
-#define FL_ONGROUND		(1<<9)	// At rest / on the ground
-#define FL_PARTIALGROUND	(1<<10)	// not all corners are valid
-#define FL_WATERJUMP	(1<<11)	// player jumping out of water
-#define FL_FROZEN		(1<<12)	// Player is frozen for 3rd person camera
-#define FL_FAKECLIENT	(1<<13)	// JAC: fake client, simulated server side; don't send network messages to them
-#define FL_DUCKING		(1<<14)	// Player flag -- Player is fully crouched
-#define FL_FLOAT		(1<<15)	// Apply floating force to this entity when in water
-#define FL_GRAPHED		(1<<16)	// worldgraph has this ent listed as something that blocks a connection
+#define FL_FLY		(1U<<0)	// Changes the SV_Movestep() behavior to not need to be on ground
+#define FL_SWIM		(1U<<1)	// Changes the SV_Movestep() behavior to not need to be on ground (but stay in water)
+#define FL_CONVEYOR		(1U<<2)
+#define FL_CLIENT		(1U<<3)
+#define FL_INWATER		(1U<<4)
+#define FL_MONSTER		(1U<<5)
+#define FL_GODMODE		(1U<<6)
+#define FL_NOTARGET		(1U<<7)
+#define FL_SKIPLOCALHOST	(1U<<8)	// Don't send entity to local host, it's predicting this entity itself
+#define FL_ONGROUND		(1U<<9)	// At rest / on the ground
+#define FL_PARTIALGROUND	(1U<<10)	// not all corners are valid
+#define FL_WATERJUMP	(1U<<11)	// player jumping out of water
+#define FL_FROZEN		(1U<<12)	// Player is frozen for 3rd person camera
+#define FL_FAKECLIENT	(1U<<13)	// JAC: fake client, simulated server side; don't send network messages to them
+#define FL_DUCKING		(1U<<14)	// Player flag -- Player is fully crouched
+#define FL_FLOAT		(1U<<15)	// Apply floating force to this entity when in water
+#define FL_GRAPHED		(1U<<16)	// worldgraph has this ent listed as something that blocks a connection
 
 // UNDONE: Do we need these?
-#define FL_IMMUNE_WATER	(1<<17)
-#define FL_IMMUNE_SLIME	(1<<18)
-#define FL_IMMUNE_LAVA	(1<<19)
+#define FL_IMMUNE_WATER	(1U<<17)
+#define FL_IMMUNE_SLIME	(1U<<18)
+#define FL_IMMUNE_LAVA	(1U<<19)
 
-#define FL_PROXY		(1<<20)	// This is a spectator proxy
-#define FL_ALWAYSTHINK	(1<<21)	// Brush model flag -- call think every frame regardless of nextthink - ltime (for constantly changing velocity/path)
-#define FL_BASEVELOCITY	(1<<22)	// Base velocity has been applied this frame (used to convert base velocity into momentum)
-#define FL_MONSTERCLIP	(1<<23)	// Only collide in with monsters who have FL_MONSTERCLIP set
-#define FL_ONTRAIN		(1<<24)	// Player is _controlling_ a train, so movement commands should be ignored on client during prediction.
-#define FL_WORLDBRUSH	(1<<25)	// Not moveable/removeable brush entity (really part of the world, but represented as an entity for transparency or something)
-#define FL_SPECTATOR	(1<<26)	// This client is a spectator, don't run touch functions, etc.
-#define FL_LASERDOT		(1<<27)	// Predicted laser spot from rocket launcher
+#define FL_PROXY		(1U<<20)	// This is a spectator proxy
+#define FL_ALWAYSTHINK	(1U<<21)	// Brush model flag -- call think every frame regardless of nextthink - ltime (for constantly changing velocity/path)
+#define FL_BASEVELOCITY	(1U<<22)	// Base velocity has been applied this frame (used to convert base velocity into momentum)
+#define FL_MONSTERCLIP	(1U<<23)	// Only collide in with monsters who have FL_MONSTERCLIP set
+#define FL_ONTRAIN		(1U<<24)	// Player is _controlling_ a train, so movement commands should be ignored on client during prediction.
+#define FL_WORLDBRUSH	(1U<<25)	// Not moveable/removeable brush entity (really part of the world, but represented as an entity for transparency or something)
+#define FL_SPECTATOR	(1U<<26)	// This client is a spectator, don't run touch functions, etc.
+#define FL_LASERDOT		(1U<<27)	// Predicted laser spot from rocket launcher
 
-#define FL_CUSTOMENTITY	(1<<29)	// This is a custom entity
-#define FL_KILLME		(1<<30)	// This entity is marked for death -- This allows the engine to kill ents at the appropriate time
-#define FL_DORMANT		(1<<31)	// Entity is dormant, no updates to client
+#define FL_CUSTOMENTITY	(1U<<29)	// This is a custom entity
+#define FL_KILLME		(1U<<30)	// This entity is marked for death -- This allows the engine to kill ents at the appropriate time
+#define FL_DORMANT		(1U<<31)	// Entity is dormant, no updates to client
 
 // Goes into globalvars_t.trace_flags
-#define FTRACE_SIMPLEBOX		(1<<0)	// Traceline with a simple box
-#define FTRACE_IGNORE_GLASS		(1<<1)	// traceline will be ignored entities with rendermode != kRenderNormal
+#define FTRACE_SIMPLEBOX		(1U<<0)	// Traceline with a simple box
+#define FTRACE_IGNORE_GLASS		(1U<<1)	// traceline will be ignored entities with rendermode != kRenderNormal
 
 // walkmove modes
 #define WALKMOVE_NORMAL		0	// normal walkmove
@@ -114,11 +114,11 @@
 #define EF_LIGHT			64	// rocket flare glow sprite
 #define EF_NODRAW			128	// don't draw entity
 
-#define EF_WATERSIDES		(1<<26)	// Do not remove sides for func_water entity
-#define EF_FULLBRIGHT		(1<<27)	// Just get fullbright
-#define EF_NOSHADOW			(1<<28)	// ignore shadow for this entity
-#define EF_MERGE_VISIBILITY		(1<<29)	// this entity allowed to merge vis (e.g. env_sky or portal camera)
-#define EF_REQUEST_PHS		(1<<30)	// This entity requested phs bitvector instead of pvsbitvector in AddToFullPack calls
+#define EF_WATERSIDES		(1U<<26)	// Do not remove sides for func_water entity
+#define EF_FULLBRIGHT		(1U<<27)	// Just get fullbright
+#define EF_NOSHADOW			(1U<<28)	// ignore shadow for this entity
+#define EF_MERGE_VISIBILITY		(1U<<29)	// this entity allowed to merge vis (e.g. env_sky or portal camera)
+#define EF_REQUEST_PHS		(1U<<30)	// This entity requested phs bitvector instead of pvsbitvector in AddToFullPack calls
 // g-cont. one reserved bit here for me
 
 // entity flags
@@ -647,22 +647,22 @@
 #define SF_TRAIN_PASSABLE		8	// Train is not solid -- used to make water trains
 
 // buttons
-#define IN_ATTACK			(1<<0)
-#define IN_JUMP			(1<<1)
-#define IN_DUCK			(1<<2)
-#define IN_FORWARD			(1<<3)
-#define IN_BACK			(1<<4)
-#define IN_USE			(1<<5)
-#define IN_CANCEL			(1<<6)
-#define IN_LEFT			(1<<7)
-#define IN_RIGHT			(1<<8)
-#define IN_MOVELEFT			(1<<9)
-#define IN_MOVERIGHT		(1<<10)
-#define IN_ATTACK2			(1<<11)
-#define IN_RUN			(1<<12)
-#define IN_RELOAD			(1<<13)
-#define IN_ALT1			(1<<14)
-#define IN_SCORE			(1<<15)   // Used by client.dll for when scoreboard is held down
+#define IN_ATTACK			(1U<<0)
+#define IN_JUMP			(1U<<1)
+#define IN_DUCK			(1U<<2)
+#define IN_FORWARD			(1U<<3)
+#define IN_BACK			(1U<<4)
+#define IN_USE			(1U<<5)
+#define IN_CANCEL			(1U<<6)
+#define IN_LEFT			(1U<<7)
+#define IN_RIGHT			(1U<<8)
+#define IN_MOVELEFT			(1U<<9)
+#define IN_MOVERIGHT		(1U<<10)
+#define IN_ATTACK2			(1U<<11)
+#define IN_RUN			(1U<<12)
+#define IN_RELOAD			(1U<<13)
+#define IN_ALT1			(1U<<14)
+#define IN_SCORE			(1U<<15)   // Used by client.dll for when scoreboard is held down
 
 // Break Model Defines
 #define BREAK_TYPEMASK		0x4F

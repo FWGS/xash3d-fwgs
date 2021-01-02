@@ -223,13 +223,13 @@ typedef struct netchan_s
 	double		cleartime;	// if realtime > cleartime, free to send next packet
 
 	// Sequencing variables
-	int		incoming_sequence;			// increasing count of sequence numbers
-	int		incoming_acknowledged;		// # of last outgoing message that has been ack'd.
-	int		incoming_reliable_acknowledged;	// toggles T/F as reliable messages are received.
-	int		incoming_reliable_sequence;		// single bit, maintained local
-	int		outgoing_sequence;			// message we are sending to remote
-	int		reliable_sequence;			// whether the message contains reliable payload, single bit
-	int		last_reliable_sequence;		// outgoing sequence number of last send that had reliable data
+	unsigned int		incoming_sequence;			// increasing count of sequence numbers
+	unsigned int		incoming_acknowledged;		// # of last outgoing message that has been ack'd.
+	unsigned int		incoming_reliable_acknowledged;	// toggles T/F as reliable messages are received.
+	unsigned int		incoming_reliable_sequence;		// single bit, maintained local
+	unsigned int		outgoing_sequence;			// message we are sending to remote
+	unsigned int		reliable_sequence;			// whether the message contains reliable payload, single bit
+	unsigned int		last_reliable_sequence;		// outgoing sequence number of last send that had reliable data
 
 	// callback to get actual framgment size
 	void		*client;
