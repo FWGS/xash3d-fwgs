@@ -20,7 +20,7 @@ AllowShortLoopsOnASingleLine: false
 NamespaceIndentation: Inner
 
 SpaceAfterCStyleCast: false
-SpaceBeforeParens: true
+SpaceBeforeParens: Never
 SpaceInEmptyParentheses: true
 SpacesInAngles: true
 SpacesInParentheses: true
