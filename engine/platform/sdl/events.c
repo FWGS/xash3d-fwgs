@@ -356,6 +356,48 @@ static void SDLash_ActiveEvent( int gain )
 	}
 }
 
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+static size_t num_open_game_controllers = 0;
+
+static void SDLash_GameController_Add( int index )
+{
+	extern convar_t *joy_enable; // private to input system
+	SDL_GameController *controller;
+	if( !joy_enable->value )
+		return;
+	controller = SDL_GameControllerOpen( index );
+	if( !controller )
+	{
+		Con_Reportf( "Failed to open SDL GameController %d: %s\n", index, SDL_GetError( ) );
+		SDL_ClearError( );
+		return;
+	}
+#if SDL_VERSION_ATLEAST( 2, 0, 6 )
+	Con_Reportf( "Added controller: %s (%i:%i:%i)\n",
+		SDL_GameControllerName( controller ),
+		SDL_GameControllerGetVendor( controller ),
+		SDL_GameControllerGetProduct( controller ),
+		SDL_GameControllerGetProductVersion( controller ));
+#endif // SDL_VERSION_ATLEAST( 2, 0, 6 )
+
+	++num_open_game_controllers;
+	if( num_open_game_controllers == 1 )
+		Joy_AddEvent( );
+}
+
+
+static void SDLash_GameController_Remove( SDL_JoystickID joystick_id )
+{
+	Con_Reportf( "Removed controller %i\n", joystick_id );
+
+	// `Joy_RemoveEvent` sets `joy_found` to `0`.
+	// We only want to do this when all the game controllers have been removed.
+	--num_open_game_controllers;
+	if( num_open_game_controllers == 0 )
+		Joy_RemoveEvent( );
+}
+#endif
+
 /*
 =============
 SDLash_EventFilter
@@ -523,11 +565,11 @@ static void SDLash_EventFilter( SDL_Event *event )
 	}
 
 	case SDL_CONTROLLERDEVICEADDED:
-		Joy_AddEvent( );
+		SDLash_GameController_Add( event->cdevice.which );
 		break;
 
 	case SDL_CONTROLLERDEVICEREMOVED:
-		Joy_RemoveEvent( );
+		SDLash_GameController_Remove( event->cdevice.which );
 		break;
 
 	case SDL_WINDOWEVENT:
