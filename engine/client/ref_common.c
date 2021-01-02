@@ -669,17 +669,20 @@ qboolean R_Init( void )
 
 	if( !(success = R_LoadRenderer( refopt )))
 	{
-		// check if we are tried to load default accelearated renderer already
-		// and if not, load it first
-		if( Q_strcmp( refopt, DEFAULT_ACCELERATED_RENDERER ) )
-		{
-			success = R_LoadRenderer( refopt );
-		}
+		int i;
 
-		// software renderer is the last chance...
-		if( !success )
+		// cycle through renderers that we collected in CollectRendererNames
+		for( i = 0; i < ref.numRenderers; i++ )
 		{
-			success = R_LoadRenderer( DEFAULT_SOFTWARE_RENDERER );
+			// skip renderer that was requested but failed to load
+			if( Q_strcmp( refopt, ref.shortNames[i] ))
+				continue;
+
+			success = R_LoadRenderer( ref.shortNames[i] );
+
+			// yay, found working one
+			if( success )
+				break;
 		}
 	}
 
