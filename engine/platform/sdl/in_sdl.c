@@ -25,12 +25,8 @@ GNU General Public License for more details.
 #include "vid_common.h"
 
 static SDL_Joystick *joy;
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
-static SDL_GameController *gamecontroller;
-#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
-
+#if !SDL_VERSION_ATLEAST( 2, 0, 0 )
 #define SDL_WarpMouseInWindow( win, x, y ) SDL_WarpMouse( ( x ), ( y ) )
-
 #endif
 
 /*
@@ -202,11 +198,9 @@ SDLash_JoyInit_New
 */
 static int SDLash_JoyInit_New( int numjoy )
 {
-	int temp, num;
-	int i;
+	int count, numJoysticks, i;
 
 	Con_Reportf( "Joystick: SDL GameController API\n" );
-
 	if( SDL_WasInit( SDL_INIT_GAMECONTROLLER ) != SDL_INIT_GAMECONTROLLER &&
 		SDL_InitSubSystem( SDL_INIT_GAMECONTROLLER ) )
 	{
@@ -214,54 +208,15 @@ static int SDLash_JoyInit_New( int numjoy )
 		return 0;
 	}
 
-	// chance to add mappings from file
 	SDL_GameControllerAddMappingsFromFile( "controllermappings.txt" );
 
-	if( gamecontroller )
-	{
-		SDL_GameControllerClose( gamecontroller );
-	}
+	count = 0;
+	numJoysticks = SDL_NumJoysticks();
+	for ( i = 0; i < numJoysticks; i++ )
+		if( SDL_IsGameController( i ) )
+			++count;
 
-	temp = SDL_NumJoysticks();
-	num = 0;
-
-	for( i = 0; i < temp; i++ )
-	{
-		if( SDL_IsGameController( i ))
-			num++;
-	}
-
-	if( num > 0 )
-		Con_Reportf( "%i joysticks found:\n", num );
-	else
-	{
-		Con_Reportf( "No joystick found.\n" );
-		return 0;
-	}
-
-	for( i = 0; i < num; i++ )
-		Con_Reportf( "%i\t: %s\n", i, SDL_GameControllerNameForIndex( i ) );
-
-	Con_Reportf( "Pass +set joy_index N to command line, where N is number, to select active joystick\n" );
-
-	gamecontroller = SDL_GameControllerOpen( numjoy );
-
-	if( !gamecontroller )
-	{
-		Con_Reportf( "Failed to select joystick: %s\n", SDL_GetError( ) );
-		return 0;
-	}
-// was added in SDL2-2.0.6, allow build with earlier versions just in case
-#if SDL_VERSION_ATLEAST( 2, 0, 6 )
-	Con_Reportf( "Selected joystick: %s (%i:%i:%i)\n",
-		SDL_GameControllerName( gamecontroller ),
-		SDL_GameControllerGetVendor( gamecontroller ),
-		SDL_GameControllerGetProduct( gamecontroller ),
-		SDL_GameControllerGetProductVersion( gamecontroller ));
-#endif // SDL_VERSION_ATLEAST( 2, 0, 6 )
-	SDL_GameControllerEventState( SDL_ENABLE );
-
-	return num;
+	return count;
 }
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
