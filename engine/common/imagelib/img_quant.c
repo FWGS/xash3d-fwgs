@@ -253,7 +253,7 @@ int contest( int r, int g, int b )
 	// finds best neuron (min dist-bias) and returns position
 	// for frequently chosen neurons, freq[i] is high and bias[i] is negative
 	// bias[i] = gamma * ((1 / netsize) - freq[i])
-	bestd = ~(1<<31);
+	bestd = INT_MAX;
 	bestbiasd = bestd;
 	bestpos = -1;
 	bestbiaspos = bestpos;

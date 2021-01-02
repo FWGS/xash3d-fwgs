@@ -82,14 +82,14 @@ Studio models are position independent, so the cache manager can move them.
 #define STUDIO_NF_TWOSIDE		0x1000	// render mesh as twosided
 #define STUDIO_NF_HEIGHTMAP		0x2000
 
-#define STUDIO_NF_NODRAW		(1<<16)	// failed to create shader for this mesh
-#define STUDIO_NF_NODLIGHT		(1<<17)	// failed to create dlight shader for this mesh
-#define STUDIO_NF_NOSUNLIGHT		(1<<18)	// failed to create sun light shader for this mesh
+#define STUDIO_NF_NODRAW		(1U<<16)	// failed to create shader for this mesh
+#define STUDIO_NF_NODLIGHT		(1U<<17)	// failed to create dlight shader for this mesh
+#define STUDIO_NF_NOSUNLIGHT		(1U<<18)	// failed to create sun light shader for this mesh
 
-#define STUDIO_NF_HAS_ALPHA		(1<<20)	// external texture has alpha-channel
-#define STUDIO_NF_HAS_DETAIL		(1<<21)	// studiomodels has detail textures
-#define STUDIO_NF_COLORMAP		(1<<30)	// internal system flag
-#define STUDIO_NF_UV_COORDS		(1<<31)	// using half-float coords instead of ST
+#define STUDIO_NF_HAS_ALPHA		(1U<<20)	// external texture has alpha-channel
+#define STUDIO_NF_HAS_DETAIL		(1U<<21)	// studiomodels has detail textures
+#define STUDIO_NF_COLORMAP		(1U<<30)	// internal system flag
+#define STUDIO_NF_UV_COORDS		(1U<<31)	// using half-float coords instead of ST
 
 // motion flags
 #define STUDIO_X			0x0001
