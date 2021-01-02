@@ -312,7 +312,7 @@ void Touch_ExportConfig_f( void )
 		FS_Printf( f, "touch_pow_mult \"%f\"\n", touch_pow_mult->value );
 		FS_Printf( f, "touch_exp_mult \"%f\"\n", touch_exp_mult->value );
 		FS_Printf( f, "\n// grid settings\n" );
-		FS_Printf( f, "touch_grid_count \"%d\"\n", (int)touch_grid_count );
+		FS_Printf( f, "touch_grid_count \"%d\"\n", (int)touch_grid_count->value );
 		FS_Printf( f, "touch_grid_enable \"%d\"\n", CVAR_TO_BOOL(touch_grid_enable) );
 		FS_Printf( f, "\n// global overstroke (width, r, g, b, a)\n" );
 		FS_Printf( f, "touch_set_stroke %d %d %d %d %d\n", touch.swidth, touch.scolor[0], touch.scolor[1], touch.scolor[2], touch.scolor[3] );
