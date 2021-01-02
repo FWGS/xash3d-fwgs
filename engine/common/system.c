@@ -381,12 +381,12 @@ Just messagebox
 void Sys_Warn( const char *format, ... )
 {
 	va_list	argptr;
-	char	text[MAX_SYSPATH];
+	char	text[MAX_PRINT_MSG];
 
 	DEBUG_BREAK;
 
 	va_start( argptr, format );
-	Q_vsnprintf( text, MAX_SYSPATH, format, argptr );
+	Q_vsnprintf( text, MAX_PRINT_MSG, format, argptr );
 	va_end( argptr );
 	Msg( "Sys_Warn: %s\n", text );
 	if( !Host_IsDedicated() ) // dedicated server should not hang on messagebox
@@ -404,7 +404,7 @@ before call this
 void Sys_Error( const char *error, ... )
 {
 	va_list	argptr;
-	char	text[MAX_SYSPATH];
+	char	text[MAX_PRINT_MSG];
 
 	DEBUG_BREAK;
 
@@ -417,7 +417,7 @@ void Sys_Error( const char *error, ... )
 	error_on_exit = true;
 	host.status = HOST_ERR_FATAL;	
 	va_start( argptr, error );
-	Q_vsprintf( text, error, argptr );
+	Q_vsnprintf( text, MAX_PRINT_MSG, error, argptr );
 	va_end( argptr );
 
 	SV_SysError( text );
