@@ -637,7 +637,7 @@ void R_CollectRendererNames( void )
 qboolean R_Init( void )
 {
 	qboolean success = false;
-	string refopt;
+	string requested;
 
 	gl_vsync = Cvar_Get( "gl_vsync", "0", FCVAR_ARCHIVE,  "enable vertical syncronization" );
 	gl_showtextures = Cvar_Get( "r_showtextures", "0", FCVAR_CHEAT, "show all uploaded textures" );
@@ -659,15 +659,19 @@ qboolean R_Init( void )
 
 	R_CollectRendererNames();
 
-	// command line have priority
-	if( !Sys_GetParmFromCmdLine( "-ref", refopt ) )
-	{
+	// Priority:
+	// 1. Command line `-ref` argument.
+	// 2. `ref_dll` cvar.
+	// 3. Detected renderers in `DEFAULT_RENDERERS` order.
+	requested[0] = '\0';
+	if( !Sys_GetParmFromCmdLine( "-ref", requested ) && COM_CheckString( r_refdll->string ) )
 		// r_refdll is set to empty by default, so we can change hardcoded defaults just in case
-		Q_strncpy( refopt, COM_CheckString( r_refdll->string ) ?
-			r_refdll->string : DEFAULT_ACCELERATED_RENDERER, sizeof( refopt ) );
-	}
+		Q_strncpy( requested, r_refdll->string, sizeof( requested ) );
 
-	if( !(success = R_LoadRenderer( refopt )))
+	if ( requested[0] )
+		success = R_LoadRenderer( requested );
+
+	if( !success )
 	{
 		int i;
 
@@ -675,7 +679,7 @@ qboolean R_Init( void )
 		for( i = 0; i < ref.numRenderers; i++ )
 		{
 			// skip renderer that was requested but failed to load
-			if( Q_strcmp( refopt, ref.shortNames[i] ))
+			if( !Q_strcmp( requested, ref.shortNames[i] ) )
 				continue;
 
 			success = R_LoadRenderer( ref.shortNames[i] );
