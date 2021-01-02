@@ -36,7 +36,7 @@ void Platform_Sleep( int msec )
 
 qboolean Sys_DebuggerPresent( void )
 {
-	char buf[1024];
+	char buf[4096];
 	ssize_t num_read;
 	int status_fd;
 
