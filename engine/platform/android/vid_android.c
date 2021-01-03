@@ -272,13 +272,12 @@ qboolean  R_Init_Video( const int type )
 
 	VID_StartupGamma();
 
+	glw_state.context_type = type;
 	switch( type )
 	{
 	case REF_SOFTWARE:
-		glw_state.software = true;
 		break;
 	case REF_GL:
-		glw_state.software = false;
 		Sys_LoadLibrary( &egl_info );
 
 		if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", safe ) )
@@ -290,7 +289,7 @@ qboolean  R_Init_Video( const int type )
 		break;
 	}
 
-	if( glw_state.software )
+	if( glw_state.context_type = REF_SOFTWARE )
 	{
 		uint arg;
 //		Con_Reportf( S_ERROR "Native software mode isn't supported on Android yet! :(\n" );
@@ -461,7 +460,7 @@ qboolean VID_SetMode( void )
 
 	R_ChangeDisplaySettings( 0, 0, false ); // width and height are ignored anyway
 
-	if( glw_state.software )
+	if( glw_state.context_type = REF_SOFTWARE )
 		return true;
 
 	if( (*jni.env)->CallStaticBooleanMethod( jni.env, jni.actcls, jni.createGLContext, attribs, contextAttribs ) )

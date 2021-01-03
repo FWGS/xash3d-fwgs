@@ -50,6 +50,7 @@ SUBDIRS = [
 	Subproject('game_launch', singlebin=True),
 	Subproject('ref_gl',),
 	Subproject('ref_soft'),
+	Subproject('ref_vk',),
 	Subproject('mainui'),
 	Subproject('vgui_support'),
 	Subproject('stub/server', dedicated=False),
