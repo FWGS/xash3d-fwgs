@@ -93,9 +93,21 @@ enum
 	JOY_HAT_LEFTDOWN  = JOY_HAT_LEFT  | JOY_HAT_DOWN
 };
 
+typedef enum engineAxis_e
+{
+	JOY_AXIS_SIDE = 0,
+	JOY_AXIS_FWD,
+	JOY_AXIS_PITCH,
+	JOY_AXIS_YAW,
+	JOY_AXIS_RT,
+	JOY_AXIS_LT,
+	JOY_AXIS_NULL
+} engineAxis_t;
+
 qboolean Joy_IsActive( void );
 void Joy_HatMotionEvent( byte hat, byte value );
 void Joy_AxisMotionEvent( byte axis, short value );
+void Joy_KnownAxisMotionEvent( engineAxis_t engineAxis, short value );
 void Joy_BallMotionEvent( byte ball, short xrel, short yrel );
 void Joy_ButtonEvent( byte button, byte down );
 void Joy_AddEvent( void );
