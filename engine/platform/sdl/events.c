@@ -550,17 +550,16 @@ static void SDLash_EventFilter( SDL_Event *event )
 	{
 		static int sdlControllerButtonToEngine[] =
 		{
-			K_AUX16, // invalid
 			K_A_BUTTON, K_B_BUTTON, K_X_BUTTON,	K_Y_BUTTON,
 			K_BACK_BUTTON, K_MODE_BUTTON, K_START_BUTTON,
 			K_LSTICK, K_RSTICK,
 			K_L1_BUTTON, K_R1_BUTTON,
-			K_UPARROW, K_DOWNARROW, K_LEFTARROW, K_RIGHTARROW
+			K_DPAD_UP, K_DPAD_DOWN, K_DPAD_LEFT, K_DPAD_RIGHT
 		};
 
 		// TODO: Use joyinput funcs, for future multiple gamepads support
-		if( Joy_IsActive() )
-			Key_Event( sdlControllerButtonToEngine[event->cbutton.button + 1], event->cbutton.state );
+		if( Joy_IsActive() && event->cbutton.button != SDL_CONTROLLER_BUTTON_INVALID )
+			Key_Event( sdlControllerButtonToEngine[event->cbutton.button], event->cbutton.state );
 		break;
 	}
 
