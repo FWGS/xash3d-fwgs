@@ -22,7 +22,7 @@ GNU General Public License for more details.
 void *EMSCRIPTEN_LoadLibrary( const char *dllname )
 {
 	void *pHandle = NULL;
-	
+
 #ifdef EMSCRIPTEN_LIB_FS
 	char path[MAX_SYSPATH];
 	string prefix;

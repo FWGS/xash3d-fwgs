@@ -57,7 +57,7 @@ static void WriteBMP( mstudiotexture_t *texture )
 	}
 
 	texture_size = texture->height * texture->width;
-	pic = (byte *)texture_hdr + texture->index;	
+	pic = (byte *)texture_hdr + texture->index;
 	palette = pic + texture_size;
 
 	bmp_hdr.id[0] = 'B';

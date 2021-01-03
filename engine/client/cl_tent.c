@@ -265,7 +265,7 @@ void CL_PrepareTEnt( TEMPENTITY *pTemp, model_t *pmodel )
 
 	// use these to set per-frame and termination conditions / actions
 	pTemp->entity.trivial_accept = modelHandle; // keep unchanged
-	pTemp->flags = FTENT_NONE;		
+	pTemp->flags = FTENT_NONE;
 	pTemp->die = cl.time + 0.75f;
 
 	if( pmodel ) frameCount = pmodel->numframes;
@@ -341,17 +341,17 @@ void CL_TempEntPlaySound( TEMPENTITY *pTemp, float damp )
 	}
 
 	zvel = abs( pTemp->entity.baseline.origin[2] );
-		
+
 	// only play one out of every n
 	if( isshellcasing )
-	{	
-		// play first bounce, then 1 out of 3		
+	{
+		// play first bounce, then 1 out of 3
 		if( zvel < 200 && COM_RandomLong( 0, 3 ))
 			return;
 	}
 	else
 	{
-		if( COM_RandomLong( 0, 5 )) 
+		if( COM_RandomLong( 0, 5 ))
 			return;
 	}
 
@@ -359,11 +359,11 @@ void CL_TempEntPlaySound( TEMPENTITY *pTemp, float damp )
 	{
 		int	pitch;
 		sound_t	handle;
-		
+
 		if( isshellcasing )
-			fvol *= min ( 1.0f, ((float)zvel) / 350.0f ); 
-		else fvol *= min ( 1.0f, ((float)zvel) / 450.0f ); 
-		
+			fvol *= min ( 1.0f, ((float)zvel) / 350.0f );
+		else fvol *= min ( 1.0f, ((float)zvel) / 450.0f );
+
 		if( !COM_RandomLong( 0, 3 ) && !isshellcasing )
 			pitch = COM_RandomLong( 95, 105 );
 		else pitch = PITCH_NORM;
@@ -399,7 +399,7 @@ int CL_TempEntAddEntity( cl_entity_t *pEntity )
 		VectorCopy( pEntity->origin, pEntity->curstate.origin );
 		VectorCopy( pEntity->angles, pEntity->latched.prevangles );
 		VectorCopy( pEntity->origin, pEntity->latched.prevorigin );
-	
+
 		// add to list
 		CL_AddVisibleEntity( pEntity, ET_TEMPENTITY );
 
@@ -503,7 +503,7 @@ TEMPENTITY *CL_TempEntAllocHigh( const vec3_t org, model_t *pmodel )
 
 	if( !cl_free_tents )
 	{
-		// no temporary ents free, so find the first active low-priority temp ent 
+		// no temporary ents free, so find the first active low-priority temp ent
 		// and overwrite it.
 		CL_FreeLowPriorityTempEnt();
 	}
@@ -511,7 +511,7 @@ TEMPENTITY *CL_TempEntAllocHigh( const vec3_t org, model_t *pmodel )
 	if( !cl_free_tents )
 	{
 		// didn't find anything? The tent list is either full of high-priority tents
-		// or all tents in the list are still due to live for > 10 seconds. 
+		// or all tents in the list are still due to live for > 10 seconds.
 		Con_DPrintf( "Couldn't alloc a high priority TENT!\n" );
 		return NULL;
 	}
@@ -676,12 +676,12 @@ void GAME_EXPORT R_Bubbles( const vec3_t mins, const vec3_t maxs, float height, 
 		pTemp->y = origin[1];
 		angle = COM_RandomFloat( -M_PI, M_PI );
 		SinCos( angle, &sine, &cosine );
-		
+
 		zspeed = COM_RandomLong( 80, 140 );
 		VectorSet( pTemp->entity.baseline.origin, speed * cosine, speed * sine, zspeed );
 		pTemp->die = cl.time + ((height - (origin[2] - mins[2])) / zspeed) - 0.1f;
 		pTemp->entity.curstate.frame = COM_RandomLong( 0, pTemp->frameMax );
-		
+
 		// Set sprite scale
 		pTemp->entity.curstate.scale = 1.0f / COM_RandomFloat( 2.0f, 5.0f );
 		pTemp->entity.curstate.rendermode = kRenderTransAlpha;
@@ -767,7 +767,7 @@ void GAME_EXPORT R_AttachTentToPlayer( int client, int modelIndex, float zoffset
 
 	pTemp->entity.curstate.renderfx = kRenderFxNoDissipation;
 	pTemp->entity.curstate.framerate = 1;
-	
+
 	pTemp->clientIndex = client;
 	pTemp->tentOffset[0] = 0;
 	pTemp->tentOffset[1] = 0;
@@ -815,7 +815,7 @@ void GAME_EXPORT R_KillAttachedTents( int client )
 		// if it is attached to this client, set it to die instantly.
 		if( pTemp->clientIndex == client )
 		{
-			// good enough, it will die on next tent update. 
+			// good enough, it will die on next tent update.
 			pTemp->die = cl.time;
 		}
 	}
@@ -1026,7 +1026,7 @@ void GAME_EXPORT R_BreakModel( const vec3_t pos, const vec3_t size, const vec3_t
 	// limit to 100 pieces
 	if( count > 100 ) count = 100;
 
-	for( i = 0; i < count; i++ ) 
+	for( i = 0; i < count; i++ )
 	{
 		vec3_t	vecSpot;
 
@@ -1048,7 +1048,7 @@ void GAME_EXPORT R_BreakModel( const vec3_t pos, const vec3_t size, const vec3_t
 
 		// keep track of break_type, so we know how to play sound on collision
 		pTemp->hitSound = type;
-		
+
 		if( pmodel->type == mod_sprite )
 			pTemp->entity.curstate.frame = COM_RandomLong( 0, pTemp->frameMax );
 		else if( pmodel->type == mod_studio )
@@ -1056,7 +1056,7 @@ void GAME_EXPORT R_BreakModel( const vec3_t pos, const vec3_t size, const vec3_t
 
 		pTemp->flags |= FTENT_COLLIDEWORLD | FTENT_FADEOUT | FTENT_SLOWGRAVITY;
 
-		if( COM_RandomLong( 0, 255 ) < 200 ) 
+		if( COM_RandomLong( 0, 255 ) < 200 )
 		{
 			pTemp->flags |= FTENT_ROTATE;
 			pTemp->entity.baseline.angles[0] = COM_RandomFloat( -256, 255 );
@@ -1177,7 +1177,7 @@ TEMPENTITY *R_DefaultSprite( const vec3_t pos, int spriteIndex, float framerate 
 ===============
 R_SparkShower
 
-Create an animated moving sprite 
+Create an animated moving sprite
 ===============
 */
 void GAME_EXPORT R_SparkShower( const vec3_t pos )
@@ -1202,7 +1202,7 @@ void GAME_EXPORT R_SparkShower( const vec3_t pos )
 ===============
 R_TempSprite
 
-Create an animated moving sprite 
+Create an animated moving sprite
 ===============
 */
 TEMPENTITY *R_TempSprite( vec3_t pos, const vec3_t dir, float scale, int modelIndex, int rendermode, int renderfx, float a, float life, int flags )
@@ -1251,7 +1251,7 @@ void GAME_EXPORT R_Sprite_Explode( TEMPENTITY *pTemp, float scale, int flags )
 	{
 		// solid sprite
 		pTemp->entity.curstate.rendermode = kRenderNormal;
-		pTemp->entity.curstate.renderamt = 255; 
+		pTemp->entity.curstate.renderamt = 255;
 	}
 	else if( FBitSet( flags, TE_EXPLFLAG_DRAWALPHA ))
 	{
@@ -2405,7 +2405,7 @@ LIGHT STYLE MANAGEMENT
 ==============================================================
 */
 #define STYLE_LERPING_THRESHOLD	3.0f // because we wan't interpolate fast sequences (like on\off)
-		
+
 /*
 ================
 CL_ClearLightStyles
@@ -2576,7 +2576,7 @@ void CL_DecayLights( void )
 	dlight_t	*dl;
 	float	time;
 	int	i;
-	
+
 	time = cl.time - cl.oldtime;
 
 	for( i = 0, dl = cl_dlights; i < MAX_DLIGHTS; i++, dl++ )
@@ -2586,7 +2586,7 @@ void CL_DecayLights( void )
 		dl->radius -= time * dl->decay;
 		if( dl->radius < 0 ) dl->radius = 0;
 
-		if( dl->die < cl.time || !dl->radius ) 
+		if( dl->die < cl.time || !dl->radius )
 			memset( dl, 0, sizeof( *dl ));
 	}
 
@@ -2597,7 +2597,7 @@ void CL_DecayLights( void )
 		dl->radius -= time * dl->decay;
 		if( dl->radius < 0 ) dl->radius = 0;
 
-		if( dl->die < cl.time || !dl->radius ) 
+		if( dl->die < cl.time || !dl->radius )
 			memset( dl, 0, sizeof( *dl ));
 	}
 }
@@ -2675,7 +2675,7 @@ void CL_UpdateFlashlight( cl_entity_t *ent )
 	else falloff = 500.0f / falloff;
 	falloff *= falloff;
 
-	// apply brigthness to dlight			
+	// apply brigthness to dlight
 	dl->color.r = bound( 0, falloff * 255, 255 );
 	dl->color.g = bound( 0, falloff * 255, 255 );
 	dl->color.b = bound( 0, falloff * 255, 255 );
@@ -2710,10 +2710,10 @@ void CL_AddEntityEffects( cl_entity_t *ent )
 			VectorCopy( ent->origin, dl->origin );
 			dl->die = cl.time + 0.001;
 		}
-	}	
+	}
 
 	if( FBitSet( ent->curstate.effects, EF_BRIGHTLIGHT ))
-	{			
+	{
 		dlight_t	*dl = CL_AllocDlight( ent->index );
 		dl->color.r = dl->color.g = dl->color.b = 250;
 		if( ent->player ) dl->radius = 400; // don't flickering
@@ -2979,7 +2979,7 @@ remove all decals with specified texture
 */
 void GAME_EXPORT CL_DecalRemoveAll( int textureIndex )
 {
-	int id = bound( 0, textureIndex, MAX_DECALS - 1 );	
+	int id = bound( 0, textureIndex, MAX_DECALS - 1 );
 	ref.dllFuncs.R_DecalRemoveAll( cl.decal_index[id] );
 }
 
@@ -3032,7 +3032,7 @@ void CL_ClearStaticEntities( void )
 
 	CL_ClearEfrags ();
 }
-	
+
 /*
 ==============
 CL_ClearEffects

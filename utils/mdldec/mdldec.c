@@ -161,7 +161,7 @@ static qboolean LoadMDL( const char *modelname )
 		fprintf( stderr, "ERROR: %s is not a main HL model file.\n", modelname );
 		return false;
 	}
-                        
+
 	if( destdir[0] != '\0' )
 	{
 		if( !IsFileExists( destdir ) )

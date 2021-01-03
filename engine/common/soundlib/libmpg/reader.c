@@ -80,7 +80,7 @@ static buffy_t* bc_alloc( bufferchain_t *bc, size_t size )
 		buffy_t *buf = bc->pool;
 
 		bc->pool = buf->next;
-		buf->next = NULL; // that shall be set to a sensible value later. 
+		buf->next = NULL; // that shall be set to a sensible value later.
 		buf->size = 0;
 		bc->pool_fill--;
 
@@ -749,7 +749,7 @@ static int bad_back_bytes( mpg123_handle_t *mh, mpg_off_t bytes ) { mh->err = MP
 static int bad_seek_frame( mpg123_handle_t *mh, mpg_off_t num ) { mh->err = MPG123_NO_READER; return MPG123_ERR; }
 static mpg_off_t bad_tell( mpg123_handle_t *mh ) { mh->err = MPG123_NO_READER; return MPG123_ERR; }
 static void bad_rewind( mpg123_handle_t *mh ) { }
-static void bad_close( mpg123_handle_t *mh ) { } 
+static void bad_close( mpg123_handle_t *mh ) { }
 
 static reader_t bad_reader =
 {

@@ -284,7 +284,7 @@ void SV_AddLinksToPmove( areanode_t *node, const vec3_t pmove_mins, const vec3_t
 				svgame.pmove->numphysent++;
 		}
 	}
-	
+
 	// recurse down both sides
 	if( node->axis == -1 ) return;
 
@@ -305,7 +305,7 @@ void SV_AddLaddersToPmove( areanode_t *node, const vec3_t pmove_mins, const vec3
 	edict_t	*check;
 	model_t	*mod;
 	physent_t	*pe;
-	
+
 	// get ladder edicts
 	for( l = node->solid_edicts.next; l != &node->solid_edicts; l = next )
 	{
@@ -331,10 +331,10 @@ void SV_AddLaddersToPmove( areanode_t *node, const vec3_t pmove_mins, const vec3
 		if( SV_CopyEdictToPhysEnt( pe, check ))
 			svgame.pmove->nummoveent++;
 	}
-	
+
 	// recurse down both sides
 	if( node->axis == -1 ) return;
-	
+
 	if( pmove_maxs[node->axis] > node->dist )
 		SV_AddLaddersToPmove( node->children[0], pmove_mins, pmove_maxs );
 	if( pmove_mins[node->axis] < node->dist )
@@ -424,7 +424,7 @@ static pmtrace_t *pfnTraceLine( float *start, float *end, int flags, int usehull
 	int		old_usehull;
 
 	old_usehull = svgame.pmove->usehull;
-	svgame.pmove->usehull = usehull;	
+	svgame.pmove->usehull = usehull;
 
 	switch( flags )
 	{
@@ -501,7 +501,7 @@ static const char *pfnTraceTexture( int ground, float *vstart, float *vend )
 
 	pe = &svgame.pmove->physents[ground];
 	return PM_TraceTexture( pe, vstart, vend );
-}			
+}
 
 static void GAME_EXPORT pfnPlaySound( int channel, const char *sample, float volume, float attenuation, int fFlags, int pitch )
 {
@@ -547,7 +547,7 @@ static pmtrace_t *pfnTraceLineEx( float *start, float *end, int flags, int usehu
 	int		old_usehull;
 
 	old_usehull = svgame.pmove->usehull;
-	svgame.pmove->usehull = usehull;	
+	svgame.pmove->usehull = usehull;
 
 	switch( flags )
 	{
@@ -614,13 +614,13 @@ void SV_InitClientMove( void )
 	svgame.pmove->PM_StuckTouch = pfnStuckTouch;
 	svgame.pmove->PM_PointContents = pfnPointContents;
 	svgame.pmove->PM_TruePointContents = pfnTruePointContents;
-	svgame.pmove->PM_HullPointContents = pfnHullPointContents; 
+	svgame.pmove->PM_HullPointContents = pfnHullPointContents;
 	svgame.pmove->PM_PlayerTrace = pfnPlayerTrace;
 	svgame.pmove->PM_TraceLine = pfnTraceLine;
 	svgame.pmove->RandomLong = COM_RandomLong;
 	svgame.pmove->RandomFloat = COM_RandomFloat;
 	svgame.pmove->PM_GetModelType = pfnGetModelType;
-	svgame.pmove->PM_GetModelBounds = pfnGetModelBounds;	
+	svgame.pmove->PM_GetModelBounds = pfnGetModelBounds;
 	svgame.pmove->PM_HullForBsp = (void*)pfnHullForBsp;
 	svgame.pmove->PM_TraceModel = pfnTraceModel;
 	svgame.pmove->COM_FileSize = COM_FileSize;
@@ -715,9 +715,9 @@ static void SV_SetupPMove( playermove_t *pmove, sv_client_t *cl, usercmd_t *ucmd
 	VectorCopy( clent->v.vuser2, pmove->vuser2 );
 	VectorCopy( clent->v.vuser3, pmove->vuser3 );
 	VectorCopy( clent->v.vuser4, pmove->vuser4 );
-	pmove->cmd = *ucmd;	// setup current cmds	
+	pmove->cmd = *ucmd;	// setup current cmds
 	pmove->runfuncs = true;
-	
+
 	Q_strncpy( pmove->physinfo, physinfo, MAX_INFO_STRING );
 
 	// setup physents
@@ -792,7 +792,7 @@ static void SV_FinishPMove( playermove_t *pmove, sv_client_t *cl )
 	}
 
 	// angles
-	// show 1/3 the pitch angle and all the roll angle	
+	// show 1/3 the pitch angle and all the roll angle
 	if( !clent->v.fixangle )
 	{
 		VectorCopy( pmove->angles, clent->v.v_angle );
@@ -810,7 +810,7 @@ static void SV_FinishPMove( playermove_t *pmove, sv_client_t *cl )
 entity_state_t *SV_FindEntInPack( int index, client_frame_t *frame )
 {
 	entity_state_t	*state;
-	int		i;	
+	int		i;
 
 	for( i = 0; i < frame->num_entities; i++ )
 	{
@@ -1034,7 +1034,7 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 	trace_t	trace;
 	vec3_t	oldvel;
 	usercmd_t cmd;
-   
+
 	clent = cl->edict;
 	cmd = *ucmd;
 

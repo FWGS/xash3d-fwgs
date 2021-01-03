@@ -50,7 +50,7 @@ static void frame_default_parm( mpg123_parm_t *mp )
 
 	// default of keeping some 4K buffers at hand, should cover the "usual" use case
 	// (using 16K pipe buffers as role model).
-	mp->feedpool = 5; 
+	mp->feedpool = 5;
 	mp->feedbuffer = 4096;
 }
 
@@ -75,7 +75,7 @@ static void frame_fixed_reset( mpg123_handle_t *fr )
 	fr->abr_rate = 0;
 	fr->track_frames = 0;
 	fr->track_samples = -1;
-	fr->framesize=0; 
+	fr->framesize=0;
 	fr->mean_frames = 0;
 	fr->mean_framesize = 0;
 	fr->freesize = 0;
@@ -447,7 +447,7 @@ static mpg_off_t frame_fuzzy_find( mpg123_handle_t *fr, mpg_off_t want_frame, mp
 		ret = (mpg_off_t)((double)fr->xing_toc[toc_entry] / 256.0 * fr->rdat.filelen);
 	}
 	else if( fr->mean_framesize > 0 )
-	{	
+	{
 		// just guess with mean framesize (may be exact with CBR files).
 		// query filelen here or not?
 		fr->state_flags &= ~FRAME_ACCURATE; // fuzzy!
@@ -513,7 +513,7 @@ mpg_off_t frame_index_find( mpg123_handle_t *fr, mpg_off_t want_frame, mpg_off_t
 }
 
 mpg_off_t frame_ins2outs( mpg123_handle_t *fr, mpg_off_t ins )
-{	
+{
 	mpg_off_t	outs = 0;
 
 	switch( fr->down_sample )

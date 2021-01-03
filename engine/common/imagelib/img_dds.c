@@ -20,8 +20,8 @@ GNU General Public License for more details.
 qboolean Image_CheckDXT3Alpha( dds_t *hdr, byte *fin )
 {
 	word	sAlpha;
-	byte	*alpha; 
-	int	x, y, i, j; 
+	byte	*alpha;
+	int	x, y, i, j;
 
 	for( y = 0; y < hdr->dwHeight; y += 4 )
 	{
@@ -53,8 +53,8 @@ qboolean Image_CheckDXT3Alpha( dds_t *hdr, byte *fin )
 qboolean Image_CheckDXT5Alpha( dds_t *hdr, byte *fin )
 {
 	uint	bits, bitmask;
-	byte	*alphamask; 
-	int	x, y, i, j; 
+	byte	*alphamask;
+	int	x, y, i, j;
 
 	for( y = 0; y < hdr->dwHeight; y += 4 )
 	{
@@ -90,7 +90,7 @@ qboolean Image_CheckDXT5Alpha( dds_t *hdr, byte *fin )
 
 	return false;
 }
-		
+
 void Image_DXTGetPixelFormat( dds_t *hdr )
 {
 	uint bits = hdr->dsPixelFormat.dwRGBBitCount;
@@ -102,7 +102,7 @@ void Image_DXTGetPixelFormat( dds_t *hdr )
 	{
 		switch( hdr->dsPixelFormat.dwFourCC )
 		{
-		case TYPE_DXT1: 
+		case TYPE_DXT1:
 			image.type = PF_DXT1;
 			break;
 		case TYPE_DXT2:
@@ -136,7 +136,7 @@ void Image_DXTGetPixelFormat( dds_t *hdr )
 		{
 			image.type = PF_UNKNOWN; // assume error
 		}
-		else 
+		else
 		{
 			switch( bits )
 			{
@@ -177,16 +177,16 @@ size_t Image_DXTGetLinearSize( int type, int width, int height, int depth )
 	case PF_RGB_24: return (width * height * depth * 3);
 	case PF_BGRA_32:
 	case PF_RGBA_32: return (width * height * depth * 4);
-	}	
+	}
 
 	return 0;
 }
 
-size_t Image_DXTCalcMipmapSize( dds_t *hdr ) 
+size_t Image_DXTCalcMipmapSize( dds_t *hdr )
 {
 	size_t	buffsize = 0;
 	int	i, width, height;
-		
+
 	// now correct buffer size
 	for( i = 0; i < Q_max( 1, ( hdr->dwMipMapCount )); i++ )
 	{
@@ -198,14 +198,14 @@ size_t Image_DXTCalcMipmapSize( dds_t *hdr )
 	return buffsize;
 }
 
-uint Image_DXTCalcSize( const char *name, dds_t *hdr, size_t filesize ) 
+uint Image_DXTCalcSize( const char *name, dds_t *hdr, size_t filesize )
 {
 	size_t buffsize = 0;
 	int w = image.width;
 	int h = image.height;
 	int d = image.depth;
 
-	if( hdr->dsCaps.dwCaps2 & DDS_CUBEMAP ) 
+	if( hdr->dsCaps.dwCaps2 & DDS_CUBEMAP )
 	{
 		// cubemap w*h always match for all sides
 		buffsize = Image_DXTCalcMipmapSize( hdr ) * 6;
@@ -220,7 +220,7 @@ uint Image_DXTCalcSize( const char *name, dds_t *hdr, size_t filesize )
 		// just in case (no need, really)
 		buffsize = hdr->dwLinearSize;
 	}
-	else 
+	else
 	{
 		// pretty solution for microsoft bug
 		buffsize = Image_DXTCalcMipmapSize( hdr );
@@ -290,13 +290,13 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, fs_offset_t filesi
 	if( !Image_CheckFlag( IL_DDS_HARDWARE ) && ImageDXT( image.type ))
 		return false; // silently rejected
 
-	if( image.type == PF_UNKNOWN ) 
+	if( image.type == PF_UNKNOWN )
 	{
 		Con_DPrintf( S_ERROR "Image_LoadDDS: (%s) has unrecognized type\n", name );
 		return false;
 	}
 
-	image.size = Image_DXTCalcSize( name, &header, filesize - 128 ); 
+	image.size = Image_DXTCalcSize( name, &header, filesize - 128 );
 	if( image.size == 0 ) return false; // just in case
 	fin = (byte *)(buffer + sizeof( dds_t ));
 
@@ -338,7 +338,7 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	// dds files will be uncompressed on a render. requires minimal of info for set this
-	image.rgba = Mem_Malloc( host.imagepool, image.size ); 
+	image.rgba = Mem_Malloc( host.imagepool, image.size );
 	memcpy( image.rgba, fin, image.size );
 	SetBits( image.flags, IMAGE_DDS_FORMAT );
 

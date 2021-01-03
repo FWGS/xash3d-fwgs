@@ -35,7 +35,7 @@ void V_CalcViewRect( void )
 	int	sb_lines;
 	float	size;
 
-	// intermission is always full screen	
+	// intermission is always full screen
 	if( cl.intermission ) size = 120.0f;
 	else size = scr_viewsize->value;
 

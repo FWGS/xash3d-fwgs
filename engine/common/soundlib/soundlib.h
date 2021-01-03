@@ -94,13 +94,13 @@ struct stream_s
 
 typedef struct
 {
-	int	riff_id;		// 'RIFF' 
+	int	riff_id;		// 'RIFF'
 	int	rLen;
-	int	wave_id;		// 'WAVE' 
-	int	fmt_id;		// 'fmt ' 
+	int	wave_id;		// 'WAVE'
+	int	fmt_id;		// 'fmt '
 	int	pcm_header_len;	// varies...
 	short	wFormatTag;
-	short	nChannels;	// 1,2 for stereo data is (l,r) pairs 
+	short	nChannels;	// 1,2 for stereo data is (l,r) pairs
 	int	nSamplesPerSec;
 	int	nAvgBytesPerSec;
 	short	nBlockAlign;
@@ -109,7 +109,7 @@ typedef struct
 
 typedef struct
 {
-	int	data_id;		// 'data' or 'fact' 
+	int	data_id;		// 'data' or 'fact'
 	int	dLen;
 } chunkhdr_t;
 

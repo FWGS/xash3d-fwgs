@@ -60,7 +60,7 @@ GNU General Public License for more details.
 #define svc_addangle		38	// [angle] add angles when client turn on mover
 #define svc_usermessage		39	// [byte][byte][string] REG_USER_MSG stuff
 #define svc_packetentities		40	// [short][...]
-#define svc_deltapacketentities	41	// [short][byte][...] 
+#define svc_deltapacketentities	41	// [short][byte][...]
 #define svc_choke			42	// just event
 #define svc_resourcelist		43	// [short][...]
 #define svc_deltamovevars		44	// [movevars_t]
@@ -73,7 +73,7 @@ GNU General Public License for more details.
 #define svc_director		51	// <variable sized>
 #define svc_voiceinit		52	// <see code>
 #define svc_voicedata		53	// [byte][short][...]
-#define svc_deltapacketbones		54	// [short][byte][...] 
+#define svc_deltapacketbones		54	// [short][byte][...]
 // reserved
 #define svc_resourcelocation		56	// [string]
 #define svc_querycvarvalue		57	// [string]
@@ -82,7 +82,7 @@ GNU General Public License for more details.
 
 // client to server
 #define clc_bad			0	// immediately drop client when received
-#define clc_nop			1 		
+#define clc_nop			1
 #define clc_move			2	// [[usercmd_t]
 #define clc_stringcmd		3	// [string] message
 #define clc_delta			4	// [byte] sequence number, requests delta compression of message

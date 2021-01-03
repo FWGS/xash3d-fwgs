@@ -93,7 +93,7 @@ void GAME_EXPORT VGUI_CursorSelect(enum VGUI_DefaultCursor cursor )
 	qboolean visible;
 	if( cls.key_dest != key_game || cl.paused )
 		return;
-	
+
 	switch( cursor )
 	{
 		case dc_user:

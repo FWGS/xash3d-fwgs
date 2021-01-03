@@ -48,7 +48,7 @@ BRUSH MODELS
 
 #define SURF_PLANEBACK		BIT( 1 )		// plane should be negated
 #define SURF_DRAWSKY		BIT( 2 )		// sky surface
-#define SURF_DRAWTURB_QUADS		BIT( 3 )		// all subidivided polygons are quads 
+#define SURF_DRAWTURB_QUADS		BIT( 3 )		// all subidivided polygons are quads
 #define SURF_DRAWTURB		BIT( 4 )		// warp surface
 #define SURF_DRAWTILED		BIT( 5 )		// face without lighmap
 #define SURF_CONVEYOR		BIT( 6 )		// scrolled texture (was SURF_DRAWBACKGROUND)
@@ -166,7 +166,7 @@ typedef struct
 {
 	int	id;			// must be little endian XASH
 	int	version;
-	dlump_t	lumps[EXTRA_LUMPS];	
+	dlump_t	lumps[EXTRA_LUMPS];
 } dextrahdr_t;
 
 typedef struct

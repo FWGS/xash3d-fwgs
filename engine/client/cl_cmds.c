@@ -127,7 +127,7 @@ void CL_PlayCDTrack_f( void )
 
 		for( maxTrack = i = 0; i < MAX_CDTRACKS; i++ )
 			if( COM_CheckStringEmpty( clgame.cdtracks[i] ) ) maxTrack++;
-			
+
 		Con_Printf( "%u tracks\n", maxTrack );
 		if( track )
 		{
@@ -140,11 +140,11 @@ void CL_PlayCDTrack_f( void )
 	else Con_Printf( "%s: unknown command %s\n", Cmd_Argv( 0 ), command );
 }
 
-/* 
-================== 
+/*
+==================
 CL_ScreenshotGetName
-================== 
-*/  
+==================
+*/
 qboolean CL_ScreenshotGetName( int lastnum, char *filename )
 {
 	if( lastnum < 0 || lastnum > 9999 )
@@ -158,11 +158,11 @@ qboolean CL_ScreenshotGetName( int lastnum, char *filename )
 	return true;
 }
 
-/* 
-================== 
+/*
+==================
 CL_SnapshotGetName
-================== 
-*/  
+==================
+*/
 qboolean CL_SnapshotGetName( int lastnum, char *filename )
 {
 	if( lastnum < 0 || lastnum > 9999 )
@@ -177,21 +177,21 @@ qboolean CL_SnapshotGetName( int lastnum, char *filename )
 	return true;
 }
 
-/* 
-============================================================================== 
- 
-			SCREEN SHOTS 
- 
-============================================================================== 
+/*
+==============================================================================
+
+			SCREEN SHOTS
+
+==============================================================================
 */
-/* 
-================== 
+/*
+==================
 CL_ScreenShot_f
 
 normal screenshot
-================== 
+==================
 */
-void CL_ScreenShot_f( void ) 
+void CL_ScreenShot_f( void )
 {
 	int	i;
 	string	checkname;
@@ -222,14 +222,14 @@ void CL_ScreenShot_f( void )
 	cls.envshot_viewsize = 0;
 }
 
-/* 
-================== 
+/*
+==================
 CL_SnapShot_f
 
 save screenshots into root dir
-================== 
+==================
 */
-void CL_SnapShot_f( void ) 
+void CL_SnapShot_f( void )
 {
 	int	i;
 	string	checkname;
@@ -263,12 +263,12 @@ void CL_SnapShot_f( void )
 	cls.envshot_viewsize = 0;
 }
 
-/* 
-================== 
+/*
+==================
 CL_EnvShot_f
 
 cubemap view
-================== 
+==================
 */
 void CL_EnvShot_f( void )
 {
@@ -284,12 +284,12 @@ void CL_EnvShot_f( void )
 	cls.envshot_viewsize = 0;
 }
 
-/* 
-================== 
+/*
+==================
 CL_SkyShot_f
 
 skybox view
-================== 
+==================
 */
 void CL_SkyShot_f( void )
 {
@@ -305,13 +305,13 @@ void CL_SkyShot_f( void )
 	cls.envshot_viewsize = 0;
 }
 
-/* 
-================== 
+/*
+==================
 CL_LevelShot_f
 
 splash logo while map is loading
-================== 
-*/ 
+==================
+*/
 void CL_LevelShot_f( void )
 {
 	size_t	ft1, ft2;
@@ -345,13 +345,13 @@ void CL_LevelShot_f( void )
 	else cls.scrshot_action = scrshot_inactive;	// disable - not needs
 }
 
-/* 
-================== 
+/*
+==================
 CL_SaveShot_f
 
 mini-pic in loadgame menu
-================== 
-*/ 
+==================
+*/
 void CL_SaveShot_f( void )
 {
 	if( Cmd_Argc() < 2 )
