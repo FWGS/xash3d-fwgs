@@ -131,5 +131,5 @@ void MSG_ReadVec3Coord( sizebuf_t *sb, vec3_t fa );
 void MSG_ReadVec3Angles( sizebuf_t *sb, vec3_t fa );
 qboolean MSG_ReadBytes( sizebuf_t *sb, void *pOut, int nBytes );
 char *MSG_ReadStringExt( sizebuf_t *sb, qboolean bLine );
-					
+
 #endif//NET_BUFFER_H

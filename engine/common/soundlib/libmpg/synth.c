@@ -23,14 +23,14 @@ GNU General Public License for more details.
 	if(( sum ) > 32767.0f ) { *(samples) = 0x7fff; (clip)++; } \
 	else if(( sum ) < -32768.0f ) { *(samples) = -0x8000; (clip)++; } \
 	else { *(samples) = REAL_TO_SHORT( sum ); }
-  
+
 // main synth function, uses the plain dct64
 int synth_1to1( float *bandPtr, int channel, mpg123_handle_t *fr, int final )
 {
 	static const int	step = 2;
 	short		*samples = (short *) (fr->buffer.data + fr->buffer.fill);
 	float		*b0, **buf; // (*buf)[0x110];
-	int		clip = 0; 
+	int		clip = 0;
 	int		bo1;
 
 	if( !channel )

@@ -405,7 +405,7 @@ void SV_ReadPackets( void )
 				cl->netchan.remote_address.port = net_from.port;
 
 			if( Netchan_Process( &cl->netchan, &net_message ))
-			{	
+			{
 				if(( svs.maxclients == 1 && !host_limitlocal->value ) || ( cl->state != cs_spawned ))
 					SetBits( cl->flags, FCL_SEND_NET_MESSAGE ); // reply at end of frame
 
@@ -497,7 +497,7 @@ void SV_CheckTimeouts( void )
 			if( !NET_IsLocalAddress( cl->netchan.remote_address ))
 			{
 				SV_BroadcastPrintf( NULL, "%s timed out\n", cl->name );
-				SV_DropClient( cl, false ); 
+				SV_DropClient( cl, false );
 				cl->state = cs_free; // don't bother with zombie state
 			}
 		}
@@ -638,7 +638,7 @@ void Host_ServerFrame( void )
 
 	// let everything in the world think and move
 	if( !SV_RunGameFrame ()) return;
-		
+
 	// send messages back to the clients that had packets read this frame
 	SV_SendClientMessages ();
 
@@ -967,7 +967,7 @@ void SV_FinalMessage( const char *message, qboolean reconnect )
 	sv_client_t	*cl;
 	sizebuf_t		msg;
 	int		i;
-	
+
 	MSG_Init( &msg, "FinalMessage", msg_buf, sizeof( msg_buf ));
 
 	if( COM_CheckString( message ))
@@ -983,7 +983,7 @@ void SV_FinalMessage( const char *message, qboolean reconnect )
 			MSG_BeginServerCmd( &msg, svc_changing );
 			MSG_WriteOneBit( &msg, GameState->loadGame );
 		}
-		else SV_BuildReconnect( &msg ); 
+		else SV_BuildReconnect( &msg );
 	}
 	else
 	{

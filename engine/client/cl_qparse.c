@@ -224,7 +224,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	}
 
 	// multiplayer game?
-	if( cl.maxclients > 1 )	
+	if( cl.maxclients > 1 )
 	{
 		// allow console in multiplayer games
 		host.allow_console = true;
@@ -308,7 +308,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 
 	if(( cl_allow_levelshots->value && !cls.changelevel ) || cl.background )
 	{
-		if( !FS_FileExists( va( "%s.bmp", cl_levelshot_name->string ), true )) 
+		if( !FS_FileExists( va( "%s.bmp", cl_levelshot_name->string ), true ))
 			Cvar_Set( "cl_levelshot_name", "*black" ); // render a black screen
 		cls.scrshot_request = scrshot_plaque; // request levelshot even if exist (check filetime)
 	}
@@ -353,7 +353,7 @@ static void CL_ParseQuakeClientData( sizebuf_t *msg )
 	cl.parsecountmod = cl.parsecount & CL_UPDATE_MASK;	// index into window.
 	frame = &cl.frames[cl.parsecountmod];			// frame at index.
 	frame->time = cl.mtime[0];				// mark network received time
-	frame->receivedtime = host.realtime;			// time now that we are parsing.  
+	frame->receivedtime = host.realtime;			// time now that we are parsing.
 	memset( &frame->graphdata, 0, sizeof( netbandwidthgraph_t ));
 	memset( frame->flags, 0, sizeof( frame->flags ));
 	frame->first_entity = cls.next_client_entities;
@@ -448,7 +448,7 @@ void CL_ParseQuakeEntityData( sizebuf_t *msg, int bits )
 		SetBits( bits, i << 8 );
 	}
 
-	if( FBitSet( bits, U_LONGENTITY ))	
+	if( FBitSet( bits, U_LONGENTITY ))
 		newnum = MSG_ReadWord( msg );
 	else newnum = MSG_ReadByte( msg );
 
@@ -465,7 +465,7 @@ void CL_ParseQuakeEntityData( sizebuf_t *msg, int bits )
 	if( ent->curstate.msg_time != cl.mtime[1] )
 		forcelink = true;	// no previous frame to lerp from
 	else forcelink = false;
-	
+
 	if( FBitSet( bits, U_MODEL ))
 		state->modelindex = MSG_ReadByte( msg );
 	else state->modelindex = ent->baseline.modelindex;
@@ -573,8 +573,8 @@ void CL_ParseQuakeParticle( sizebuf_t *msg )
 {
 	int	count, color;
 	vec3_t	org, dir;
-	
-	MSG_ReadVec3Coord( msg, org );	
+
+	MSG_ReadVec3Coord( msg, org );
 	dir[0] = MSG_ReadChar( msg ) * 0.0625f;
 	dir[1] = MSG_ReadChar( msg ) * 0.0625f;
 	dir[2] = MSG_ReadChar( msg ) * 0.0625f;
@@ -597,12 +597,12 @@ void CL_ParseQuakeStaticSound( sizebuf_t *msg )
 	float 	vol, attn;
 	vec3_t	org;
 
-	MSG_ReadVec3Coord( msg, org );	
+	MSG_ReadVec3Coord( msg, org );
 	sound_num = MSG_ReadByte( msg );
 	vol = (float)MSG_ReadByte( msg ) / 255.0f;
 	attn = (float)MSG_ReadByte( msg ) / 64.0f;
 
-	S_StartSound( org, 0, CHAN_STATIC, cl.sound_index[sound_num], vol, attn, PITCH_NORM, 0 );	
+	S_StartSound( org, 0, CHAN_STATIC, cl.sound_index[sound_num], vol, attn, PITCH_NORM, 0 );
 }
 
 /*
@@ -908,7 +908,7 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
 		// assume no entity/player update this packet
 		if( cls.state == ca_active )
 		{
-			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].valid = false;   
+			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].valid = false;
 			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].choked = false;
 		}
 		else
@@ -931,7 +931,7 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
 
 		// end of message (align bits)
 		if( MSG_GetNumBitsLeft( msg ) < 8 )
-			break;		
+			break;
 
 		cmd = MSG_ReadServerCmd( msg );
 

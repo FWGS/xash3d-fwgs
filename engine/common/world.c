@@ -85,7 +85,7 @@ World_MoveBounds
 void World_MoveBounds( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, vec3_t boxmins, vec3_t boxmaxs )
 {
 	int	i;
-	
+
 	for( i = 0; i < 3; i++ )
 	{
 		if( end[i] > start[i] )
@@ -106,7 +106,7 @@ trace_t World_CombineTraces( trace_t *cliptrace, trace_t *trace, edict_t *touch 
 	if( trace->allsolid || trace->startsolid || trace->fraction < cliptrace->fraction )
 	{
 		trace->ent = touch;
-		
+
 		if( cliptrace->startsolid )
 		{
 			*cliptrace = *trace;

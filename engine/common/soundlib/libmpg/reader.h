@@ -91,7 +91,7 @@ typedef struct reader_data_s
 
 	// buffered readers want that abstracted, set internally.
 	mpg_ssize_t (*fullread)( mpg123_handle_t*, byte*, mpg_ssize_t );
-	
+
 	bufferchain_t	buffer;		// not dynamically allocated, these few struct bytes aren't worth the trouble.
 } reader_data_t;
 

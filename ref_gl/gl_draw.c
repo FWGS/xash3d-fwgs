@@ -127,7 +127,7 @@ void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, c
 	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ))
 	{
 		int	width = 1, height = 1;
-	
+
 		// check the dimensions
 		width = NearestPOW( cols, true );
 		height = NearestPOW( rows, false );

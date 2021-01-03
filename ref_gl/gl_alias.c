@@ -543,8 +543,8 @@ void *Mod_LoadGroupSkin( daliasskintype_t *pskintype, int skinnum, int size )
 
 	for( j = i; i < 4; i++ )
 	{
-		m_pAliasHeader->gl_texturenum[skinnum][i & 3] = m_pAliasHeader->gl_texturenum[skinnum][i - j]; 
-		m_pAliasHeader->fb_texturenum[skinnum][i & 3] = m_pAliasHeader->fb_texturenum[skinnum][i - j]; 
+		m_pAliasHeader->gl_texturenum[skinnum][i & 3] = m_pAliasHeader->gl_texturenum[skinnum][i - j];
+		m_pAliasHeader->fb_texturenum[skinnum][i & 3] = m_pAliasHeader->fb_texturenum[skinnum][i - j];
 	}
 
 	return pskintype;
@@ -818,7 +818,7 @@ void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 		trace = gEngfuncs.CL_TraceLine( vecSrc, vecEnd, PM_STUDIO_IGNORE );
 		if( trace.ent > 0 ) psurf = gEngfuncs.EV_TraceSurface( trace.ent, vecSrc, vecEnd );
 		else psurf = gEngfuncs.EV_TraceSurface( 0, vecSrc, vecEnd );
- 
+
 		if( psurf && FBitSet( psurf->flags, SURF_DRAWSKY ))
 		{
 			VectorSet( lightDir, mv->skyvec_x, mv->skyvec_y, mv->skyvec_z );
@@ -982,14 +982,14 @@ void R_AliasLighting( float *lv, const vec3_t normal )
 	{
 		r += 1.0f;
 		lightcos = (( r - 1.0f ) - lightcos) / r;
-		if( lightcos > 0.0f ) 
-			illum += g_alias.shadelight * lightcos; 
+		if( lightcos > 0.0f )
+			illum += g_alias.shadelight * lightcos;
 	}
 	else
 	{
 		lightcos = (lightcos + ( r - 1.0f )) / r;
 		if( lightcos > 0.0f )
-			illum -= g_alias.shadelight * lightcos; 
+			illum -= g_alias.shadelight * lightcos;
 	}
 
 	illum = Q_max( illum, 0.0f );
@@ -1147,7 +1147,7 @@ void GL_DrawAliasShadow( aliashdr_t *paliashdr )
 		} while( --count );
 
 		pglEnd();
-	}	
+	}
 
 	if( glState.stencilEnabled )
 		pglDisable( GL_STENCIL_TEST );

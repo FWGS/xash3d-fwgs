@@ -174,7 +174,7 @@ int mpg123_param( mpg123_handle_t *mh, enum mpg123_parms key, long val )
 	{
 		// special treatment for some settings.
 		if( key == MPG123_INDEX_SIZE )
-		{ 
+		{
 			// apply frame index size and grow property on the fly.
 			r = frame_index_setup( mh );
 			if( r != MPG123_OK )

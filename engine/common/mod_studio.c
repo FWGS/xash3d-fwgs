@@ -267,7 +267,7 @@ hull_t *Mod_HullForStudio( model_t *model, float frame, int sequence, vec3_t ang
 
 	if( SV_IsValidEdict( pEdict ) && pEdict->v.gamestate == 1 )
 		bSkipShield = 1;
-	
+
 	for( i = j = 0; i < mod_studiohdr->numhitboxes; i++, j += 6 )
 	{
 		if( bSkipShield && i == 21 )
@@ -310,7 +310,7 @@ static void Mod_StudioCalcBoneAdj( float *adj, const byte *pcontroller )
 	int			i, j;
 	float			value;
 	mstudiobonecontroller_t	*pbonecontroller;
-	
+
 	pbonecontroller = (mstudiobonecontroller_t *)((byte *)mod_studiohdr + mod_studiohdr->bonecontrollerindex);
 
 	for( j = 0; j < mod_studiohdr->numbonecontrollers; j++ )
@@ -420,12 +420,12 @@ void R_StudioCalcBoneQuaternion( int frame, float s, mstudiobone_t *pbone, mstud
 			mstudioanimvalue_t *panimvalue = (mstudioanimvalue_t *)((byte *)panim + panim->offset[j+3]);
 
 			k = frame;
-			
+
 			// debug
 			if( panimvalue->num.total < panimvalue->num.valid )
 				k = 0;
 
-			// find span of values that includes the frame we want			
+			// find span of values that includes the frame we want
 			while( panimvalue->num.total <= k )
 			{
 				k -= panimvalue->num.total;
@@ -734,7 +734,7 @@ static void SV_StudioSetupBones( model_t *pModel,	float frame, int sequence, con
 		i = boneused[j];
 
 		Matrix3x4_FromOriginQuat( bonematrix, q[i], pos[i] );
-		if( pbones[i].parent == -1 ) 
+		if( pbones[i].parent == -1 )
 			Matrix3x4_ConcatTransforms( studio_bones[i], studio_transform, bonematrix );
 		else Matrix3x4_ConcatTransforms( studio_bones[i], studio_bones[pbones[i].parent], bonematrix );
 	}
@@ -1025,7 +1025,7 @@ studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 	{
 		Con_Printf( S_ERROR "%s has wrong version number (%i should be %i)\n", mod->name, i, STUDIO_VERSION );
 		return NULL;
-	}	
+	}
 
 	return (studiohdr_t *)buffer;
 }
@@ -1154,7 +1154,7 @@ static server_studio_api_t gStudioAPI =
 	Mod_LoadCacheFile,
 	Mod_StudioExtradata,
 };
-   
+
 /*
 ===============
 Mod_InitStudioAPI

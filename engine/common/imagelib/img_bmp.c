@@ -51,7 +51,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	{
 		Con_DPrintf( S_ERROR "Image_LoadBMP: only Windows-style BMP files supported (%s)\n", name );
 		return false;
-	} 
+	}
 
 	if( bhdr.bitmapHeaderSize != 0x28 )
 	{
@@ -67,7 +67,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	// bogus compression?  Only non-compressed supported.
-	if( bhdr.compression != BI_RGB ) 
+	if( bhdr.compression != BI_RGB )
 	{
 		Con_DPrintf( S_ERROR "Image_LoadBMP: only uncompressed BMP files supported (%s)\n", name );
 		return false;
@@ -352,7 +352,7 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 		break;
 	case PF_RGBA_32:
 		pixel_size = 4;
-		break;	
+		break;
 	default:
 		return false;
 	}
@@ -361,7 +361,7 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 	if( !pfile ) return false;
 
 	// NOTE: align transparency column will sucessfully removed
-	// after create sprite or lump image, it's just standard requiriments 
+	// after create sprite or lump image, it's just standard requiriments
 	biTrueWidth = ((pix->width + 3) & ~3);
 	cbBmpBits = biTrueWidth * pix->height * pixel_size;
 	cbPalBytes = ( pixel_size == 1 ) ? 256 * sizeof( rgba_t ) : 0;

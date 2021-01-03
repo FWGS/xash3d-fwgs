@@ -43,9 +43,9 @@ Call when removing an object from the world or moving it to another position
 void R_RemoveEfrags( cl_entity_t *ent )
 {
 	efrag_t	*ef, *old, *walk, **prev;
-	
+
 	ef = ent->efrag;
-	
+
 	while( ef )
 	{
 		prev = &ef->leaf->efrags;
@@ -55,22 +55,22 @@ void R_RemoveEfrags( cl_entity_t *ent )
 			if( !walk ) break;
 
 			if( walk == ef )
-			{	
+			{
 				// remove this fragment
 				*prev = ef->leafnext;
 				break;
 			}
 			else prev = &walk->leafnext;
 		}
-				
+
 		old = ef;
 		ef = ef->entnext;
-		
+
 		// put it on the free list
 		old->entnext = clgame.free_efrags;
 		clgame.free_efrags = old;
 	}
-	ent->efrag = NULL; 
+	ent->efrag = NULL;
 }
 
 /*
@@ -83,10 +83,10 @@ static void R_SplitEntityOnNode( mnode_t *node )
 	efrag_t	*ef;
 	mleaf_t	*leaf;
 	int	sides;
-	
+
 	if( node->contents == CONTENTS_SOLID )
 		return;
-	
+
 	// add an efrag if the node is a leaf
 	if( node->contents < 0 )
 	{
@@ -105,29 +105,29 @@ static void R_SplitEntityOnNode( mnode_t *node )
 
 		clgame.free_efrags = ef->entnext;
 		ef->entity = r_addent;
-		
-		// add the entity link	
+
+		// add the entity link
 		*lastlink = ef;
 		lastlink = &ef->entnext;
 		ef->entnext = NULL;
-		
+
 		// set the leaf links
 		ef->leaf = leaf;
 		ef->leafnext = leaf->efrags;
 		leaf->efrags = ef;
 		return;
 	}
-	
+
 	// NODE_MIXED
 	sides = BOX_ON_PLANE_SIDE( r_emins, r_emaxs, node->plane );
-	
+
 	if( sides == 3 )
 	{
 		// split on this plane
 		// if this is the first splitter of this bmodel, remember it
 		if( !r_pefragtopnode ) r_pefragtopnode = node;
 	}
-	
+
 	// recurse down the contacted sides
 	if( sides & 1 ) R_SplitEntityOnNode( node->children[0] );
 	if( sides & 2 ) R_SplitEntityOnNode( node->children[1] );
@@ -143,7 +143,7 @@ void R_AddEfrags( cl_entity_t *ent )
 	matrix3x4	transform;
 	vec3_t	outmins, outmaxs;
 	int	i;
-		
+
 	if( !ent->model )
 		return;
 
@@ -202,7 +202,7 @@ void R_StoreEfrags( efrag_t **ppefrag, int framecount )
 
 			ppefrag = &pefrag->leafnext;
 			break;
-		default:	
+		default:
 			break;
 		}
 	}

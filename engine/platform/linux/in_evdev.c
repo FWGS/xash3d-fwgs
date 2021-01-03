@@ -129,7 +129,7 @@ static int KeycodeFromEvdev(int keycode, int value)
 		break;
 	}
 
-	return 0;	
+	return 0;
 }
 static void Evdev_CheckPermissions( void )
 {
@@ -396,7 +396,7 @@ void IN_EvdevFrame ( void )
 
 		if( CVAR_TO_BOOL(m_ignore) )
 			continue;
-		
+
 		evdev.x += -dx * m_yaw->value;
 		evdev.y += dy * m_pitch->value;
 	}

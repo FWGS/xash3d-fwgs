@@ -42,7 +42,7 @@ GNU General Public License for more details.
 #define radiusbiasshift	6			// at 32.0 biased by 6 bits
 #define radiusbias		(1<<radiusbiasshift)
 #define initradius		(initrad * radiusbias)	// and decreases by a
-#define radiusdec		30			// factor of 1/30 each cycle 
+#define radiusdec		30			// factor of 1/30 each cycle
 
 // defs for decreasing alpha factor
 #define alphabiasshift	10			// alpha starts at 1.0
@@ -65,14 +65,14 @@ static int		bias[netsize];		// bias and freq arrays for learning
 static int		freq[netsize];
 static int		radpower[initrad];		// radpower for precomputation
 
-void initnet( byte *thepic, int len, int sample )	
+void initnet( byte *thepic, int len, int sample )
 {
 	register int	i, *p;
-	
+
 	thepicture = thepic;
 	lengthcount = len;
 	samplefac = sample;
-	
+
 	for( i = 0; i < netsize; i++ )
 	{
 		p = network[i];
@@ -81,7 +81,7 @@ void initnet( byte *thepic, int len, int sample )
 		bias[i] = 0;
 	}
 }
-	
+
 // Unbias network to give byte values 0..255 and record position i to prepare for sort
 void unbiasnet( void )
 {
@@ -369,12 +369,12 @@ void learn( void )
 	delta = samplepixels / ncycles;
 	alpha = initalpha;
 	radius = initradius;
-	
+
 	rad = radius >> radiusbiasshift;
 	if( rad <= 1 ) rad = 0;
 
-	for( i = 0; i < rad; i++ ) 
-		radpower[i] = alpha * ((( rad * rad - i * i ) * radbias ) / ( rad * rad ));	
+	for( i = 0; i < rad; i++ )
+		radpower[i] = alpha * ((( rad * rad - i * i ) * radbias ) / ( rad * rad ));
 
 	if( delta <= 0 ) return;
 
@@ -394,7 +394,7 @@ void learn( void )
 	{
 		step = prime4 * image.bpp;
 	}
-	
+
 	i = 0;
 
 	while( i < samplepixels )
@@ -409,17 +409,17 @@ void learn( void )
 
 		p += step;
 		if( p >= lim ) p -= lengthcount;
-	
+
 		i++;
 
 		if( i % delta == 0 )
-		{	
+		{
 			alpha -= alpha / alphadec;
 			radius -= radius / radiusdec;
 			rad = radius >> radiusbiasshift;
 			if( rad <= 1 ) rad = 0;
 
-			for( j = 0; j < rad; j++ ) 
+			for( j = 0; j < rad; j++ )
 				radpower[j] = alpha * ((( rad * rad - j * j ) * radbias ) / ( rad * rad ));
 		}
 	}
@@ -452,7 +452,7 @@ rgbdata_t *Image_Quantize( rgbdata_t *pic )
 	{
 		pic->palette[i*3+0] = network[i][0];	// red
 		pic->palette[i*3+1] = network[i][1];	// green
-		pic->palette[i*3+2] = network[i][2];	// blue 
+		pic->palette[i*3+2] = network[i][2];	// blue
 	}
 
 	inxbuild();

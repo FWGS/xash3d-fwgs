@@ -22,9 +22,9 @@ enum mpg123_channelcount
 };
 
 // only the standard rates
-static const long my_rates[MPG123_RATES] = 
+static const long my_rates[MPG123_RATES] =
 {
-	 8000, 11025, 12000, 
+	 8000, 11025, 12000,
 	16000, 22050, 24000,
 	32000, 44100, 48000,
 };
@@ -180,7 +180,7 @@ int frame_output_format( mpg123_handle_t *fr )
 
 	fr->err = MPG123_BAD_OUTFORMAT;
 	return -1;
-end:	
+end:
 	// here is the _good_ end.
 	// we had a successful match, now see if there's a change
 	if( nf.rate == fr->af.rate && nf.channels == fr->af.channels && nf.encoding == fr->af.encoding )

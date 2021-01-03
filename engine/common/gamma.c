@@ -39,7 +39,7 @@ void BuildGammaTable( float lightgamma, float brightness )
 	else g3 = 0.125f - (brightness * brightness) * 0.075f;
 
 	g = 1.0f / lightgamma;
-	g1 = GAMMA * g; 
+	g1 = GAMMA * g;
 
 	for( i = 0; i < 256; i++ )
 	{

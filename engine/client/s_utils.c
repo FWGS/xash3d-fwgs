@@ -36,10 +36,10 @@ int S_ZeroCrossingBefore( wavdata_t *pWaveData, int sample )
 
 		sampleSize = pWaveData->width * pWaveData->channels;
 
-		// this can never be zero -- other functions divide by this. 
+		// this can never be zero -- other functions divide by this.
 		// This should never happen, but avoid crashing
 		if( sampleSize <= 0 ) sampleSize = 1;
-			
+
 		if( pWaveData->width == 1 )
 		{
 			signed char	*pData = (signed char *)(pWaveData->buffer + sample * sampleSize);
@@ -133,7 +133,7 @@ int S_ZeroCrossingAfter( wavdata_t *pWaveData, int sample )
 
 		sampleSize = pWaveData->width * pWaveData->channels;
 
-		// this can never be zero -- other functions divide by this. 
+		// this can never be zero -- other functions divide by this.
 		// This should never happen, but avoid crashing
 		if( sampleSize <= 0 ) sampleSize = 1;
 
@@ -232,7 +232,7 @@ int S_ConvertLoopedPosition( wavdata_t *pSource, int samplePosition, qboolean us
 
 		// subtract off starting bit of the wave
 		samplePosition -= pSource->loopStart;
-		
+
 		if( loopSize )
 		{
 			// "real" position in memory (mod off extra loops)
@@ -264,7 +264,7 @@ int S_GetOutputData( wavdata_t *pSource, void **pData, int samplePosition, int s
 
 	sampleSize = pSource->width * pSource->channels;
 
-	// this can never be zero -- other functions divide by this. 
+	// this can never be zero -- other functions divide by this.
 	// This should never happen, but avoid crashing
 	if( sampleSize <= 0 ) sampleSize = 1;
 

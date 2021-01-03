@@ -326,7 +326,7 @@ qboolean Image_SaveTGA( const char *name, rgbdata_t *pix )
 			}
 		}
 		break;
-	}	
+	}
 
 	FS_WriteFile( name, buffer, outsize );
 

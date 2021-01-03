@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "xash3d_mathlib.h"
 #include "mod_local.h"
-			
+
 typedef struct
 {
 	int		allocated[BLOCK_SIZE_MAX];
@@ -149,7 +149,7 @@ static void SubdividePolygon_r( msurface_t *warpface, int numverts, float *verts
 	}
 
 	if( numverts != 4 )
-		ClearBits( warpface->flags, SURF_DRAWTURB_QUADS ); 
+		ClearBits( warpface->flags, SURF_DRAWTURB_QUADS );
 
 	// add a point in the center to help keep warp valid
 	poly = Mem_Calloc( loadmodel->mempool, sizeof( glpoly_t ) + (numverts - 4) * VERTEXSIZE * sizeof( float ));
@@ -171,8 +171,8 @@ static void SubdividePolygon_r( msurface_t *warpface, int numverts, float *verts
 		{
 			s = DotProduct( verts, warpface->texinfo->vecs[0] ) + warpface->texinfo->vecs[0][3];
 			t = DotProduct( verts, warpface->texinfo->vecs[1] ) + warpface->texinfo->vecs[1][3];
-			s /= warpface->texinfo->texture->width; 
-			t /= warpface->texinfo->texture->height; 
+			s /= warpface->texinfo->texture->width;
+			t /= warpface->texinfo->texture->height;
 		}
 
 		poly->verts[i][3] = s;
@@ -461,7 +461,7 @@ texture_t *R_TextureAnimation( msurface_t *s )
 		if( base->alternate_anims )
 			base = base->alternate_anims;
 	}
-	
+
 	if( !base->anim_total )
 		return base;
 
@@ -637,7 +637,7 @@ static int LM_AllocBlock( int w, int h, int *x, int *y )
 		}
 
 		if( j == w )
-		{	
+		{
 			// this is a valid spot
 			*x = i;
 			*y = best = best2;
@@ -811,7 +811,7 @@ void DrawGLPoly( glpoly_t *p, float xScale, float yScale )
 		SinCos( flAngle * ( M_PI_F / 180.0f ), &sy, &cy );
 		sOffset = gpGlobals->time * cy * flRate;
 		tOffset = gpGlobals->time * sy * flRate;
-	
+
 		// make sure that we are positive
 		if( sOffset < 0.0f ) sOffset += 1.0f + -(int)sOffset;
 		if( tOffset < 0.0f ) tOffset += 1.0f + -(int)tOffset;
@@ -981,7 +981,7 @@ void R_BlendLightmaps( void )
 					if( drawsurf->polys )
 					{
 						DrawGLPolyChain( drawsurf->polys,
-						( drawsurf->light_s - drawsurf->info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE ), 
+						( drawsurf->light_s - drawsurf->info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE ),
 						( drawsurf->light_t - drawsurf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ));
 					}
 				}
@@ -1106,7 +1106,7 @@ void R_RenderDetails( void )
 		}
 
 		detail_surfaces[i] = NULL;
-		es->detailchain = NULL;		
+		es->detailchain = NULL;
 	}
 
 	pglDisable( GL_BLEND );
@@ -1140,7 +1140,7 @@ void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 	GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
 
 	if( FBitSet( fa->flags, SURF_DRAWTURB ))
-	{	
+	{
 		// warp texture, no lightmaps
 		EmitWaterPolys( fa, (cull_type == CULL_BACKSIDE));
 		return;
@@ -1417,7 +1417,7 @@ void R_DrawWaterSurfaces( void )
 
 		for( ; s; s = s->texturechain )
 			EmitWaterPolys( s, false );
-			
+
 		t->texturechain = NULL;
 	}
 
@@ -3103,7 +3103,7 @@ loc0:
 			skychain = surf;
 		}
 		else if( !R_AddSurfToVBO( surf, true ) )
-		{ 
+		{
 			surf->texturechain = surf->texinfo->texture->texturechain;
 			surf->texinfo->texture->texturechain = surf;
 		}
@@ -3161,7 +3161,7 @@ static void R_DrawTopViewLeaf( mleaf_t *pleaf, uint clipflags )
 			continue;
 
 		if(!( surf->flags & SURF_DRAWSKY ))
-		{ 
+		{
 			surf->texturechain = surf->texinfo->texture->texturechain;
 			surf->texinfo->texture->texturechain = surf;
 		}
@@ -3231,7 +3231,7 @@ void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 				continue;
 
 			if(!( surf->flags & SURF_DRAWSKY ))
-			{ 
+			{
 				surf->texturechain = surf->texinfo->texture->texturechain;
 				surf->texinfo->texture->texturechain = surf;
 			}
@@ -3255,7 +3255,7 @@ void R_DrawTriangleOutlines( void )
 	msurface_t	*surf;
 	glpoly_t		*p;
 	float		*v;
-		
+
 	if( !gl_wireframe->value )
 		return;
 
@@ -3516,7 +3516,7 @@ void GL_RebuildLightmaps( void )
 	// setup all the lightstyles
 	CL_RunLightStyles();
 
-	LM_InitBlock();	
+	LM_InitBlock();
 
 	for( i = 0; i < ENGINE_GET_PARM( PARM_NUMMODELS ); i++ )
 	{
@@ -3565,7 +3565,7 @@ void GL_BuildLightmaps( void )
 	if( FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_LARGE_LIGHTMAPS ))
 		tr.block_size = BLOCK_SIZE_MAX;
 	else tr.block_size = BLOCK_SIZE_DEFAULT;
-	
+
 	skychain = NULL;
 
 	tr.framecount = tr.visframecount = 1;	// no dlight cache
@@ -3580,7 +3580,7 @@ void GL_BuildLightmaps( void )
 	// setup all the lightstyles
 	CL_RunLightStyles();
 
-	LM_InitBlock();	
+	LM_InitBlock();
 
 	for( i = 0; i < ENGINE_GET_PARM( PARM_NUMMODELS ); i++ )
 	{
