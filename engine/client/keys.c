@@ -98,26 +98,32 @@ keyname_t keynames[] =
 {"KP_PLUS",	K_KP_PLUS,	""		},
 {"PAUSE",		K_PAUSE,		"pause"		},
 
-{"A_BUTTON", K_A_BUTTON, ""}, // they match xbox controller
-{"B_BUTTON", K_B_BUTTON, ""},
-{"X_BUTTON", K_X_BUTTON, ""},
-{"Y_BUTTON", K_Y_BUTTON, ""},
-{"L1_BUTTON",  K_L1_BUTTON, ""},
-{"R1_BUTTON",  K_R1_BUTTON, ""},
-{"BACK",   K_BACK_BUTTON, ""},
+// Gamepad
+// A/B X/Y names match the Xbox controller layout
+{"A_BUTTON", K_A_BUTTON, "+jump"},
+{"B_BUTTON", K_B_BUTTON, "+use"},
+{"X_BUTTON", K_X_BUTTON, "+reload"}, // Flashlight
+{"Y_BUTTON", K_Y_BUTTON, "impulse 100"},
+{"BACK",   K_BACK_BUTTON, "cancelselect"}, // Menu
 {"MODE",   K_MODE_BUTTON, ""},
-{"START",  K_START_BUTTON, ""},
-{"STICK1", K_LSTICK, ""},
-{"STICK2", K_RSTICK, ""},
-{"L2_BUTTON", K_L2_BUTTON, ""}, // in case...
-{"R2_BUTTON", K_R2_BUTTON, ""},
+{"START",  K_START_BUTTON, "pause"},
+{"STICK1", K_LSTICK, "+speed"},
+{"STICK2", K_RSTICK, "+duck"},
+{"L1_BUTTON",  K_L1_BUTTON, "+duck"},
+{"R1_BUTTON",  K_R1_BUTTON, "+attack"},
+{"DPAD_UP",	K_DPAD_UP,	"impulse 201"}, // Spray
+{"DPAD_DOWN",	K_DPAD_DOWN,	"lastinv"},
+{"DPAD_LEFT",	K_DPAD_LEFT,	"invprev"},
+{"DPAD_RIGHT",	K_DPAD_RIGHT,	"invnext"},
+{"L2_BUTTON", K_L2_BUTTON, "+speed"},
+{"R2_BUTTON", K_R2_BUTTON, "+attack2"},
+{"LTRIGGER" , K_JOY1 , "+speed"}, // L2 in SDL2
+{"RTRIGGER" , K_JOY2 , "+attack2"}, // R2 in SDL2
+{"JOY3" , K_JOY3 , ""},
+{"JOY4" , K_JOY4 , ""},
 {"C_BUTTON", K_C_BUTTON, ""},
 {"Z_BUTTON", K_Z_BUTTON, ""},
-{"AUX16", K_AUX16, ""}, // generic
-{"AUX17", K_AUX17, ""},
-{"AUX18", K_AUX18, ""},
-{"AUX19", K_AUX19, ""},
-{"AUX20", K_AUX20, ""},
+{"AUX20", K_AUX20, ""}, // generic
 {"AUX21", K_AUX21, ""},
 {"AUX22", K_AUX22, ""},
 {"AUX23", K_AUX23, ""},
@@ -130,10 +136,6 @@ keyname_t keynames[] =
 {"AUX30", K_AUX30, ""},
 {"AUX31", K_AUX31, ""},
 {"AUX32", K_AUX32, ""},
-{"LTRIGGER" , K_JOY1 , ""},
-{"RTRIGGER" , K_JOY2 , ""},
-{"JOY3" , K_JOY3 , ""},
-{"JOY4" , K_JOY4 , ""},
 
 // raw semicolon seperates commands
 {"SEMICOLON",	';',		""		},
