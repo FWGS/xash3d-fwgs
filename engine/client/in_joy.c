@@ -385,8 +385,8 @@ void Joy_Init( void )
 	joy_side    = Cvar_Get( "joy_side",    "1.0", FCVAR_ARCHIVE, "joystick side sensitivity. Values from -1.0 to 1.0" );
 	joy_forward = Cvar_Get( "joy_forward", "1.0", FCVAR_ARCHIVE, "joystick forward sensitivity. Values from -1.0 to 1.0" );
 
-	joy_lt_threshold = Cvar_Get( "joy_lt_threshold", "-16384", FCVAR_ARCHIVE, "left trigger threshold. Value from -32768 to 32767");
-	joy_rt_threshold = Cvar_Get( "joy_rt_threshold", "-16384", FCVAR_ARCHIVE, "right trigger threshold. Value from -32768 to 32767" );
+	joy_lt_threshold = Cvar_Get( "joy_lt_threshold", "16384", FCVAR_ARCHIVE, "left trigger threshold. Value from 0 to 32767");
+	joy_rt_threshold = Cvar_Get( "joy_rt_threshold", "16384", FCVAR_ARCHIVE, "right trigger threshold. Value from 0 to 32767" );
 
 	// emit a key event at 75% axis move
 	joy_side_key_threshold = Cvar_Get( "joy_side_key_threshold", "24576", FCVAR_ARCHIVE, "side axis key event emit threshold. Value from 0 to 32767" );
