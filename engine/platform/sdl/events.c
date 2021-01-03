@@ -532,18 +532,21 @@ static void SDLash_EventFilter( SDL_Event *event )
 
 	/* GameController API */
 	case SDL_CONTROLLERAXISMOTION:
-		if( event->caxis.axis == (Uint8)SDL_CONTROLLER_AXIS_INVALID )
-			break;
-
+	{
 		// Swap axis to follow default axis binding:
 		// LeftX, LeftY, RightX, RightY, TriggerRight, TriggerLeft
-		if( event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT )
-			event->caxis.axis = SDL_CONTROLLER_AXIS_TRIGGERRIGHT;
-		else if( event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT )
-			event->caxis.axis = SDL_CONTROLLER_AXIS_TRIGGERLEFT;
-
-		Joy_AxisMotionEvent( event->caxis.axis, event->caxis.value );
+		static int sdlControllerAxisToEngine[] = {
+			JOY_AXIS_SIDE, // SDL_CONTROLLER_AXIS_LEFTX,
+			JOY_AXIS_FWD, // SDL_CONTROLLER_AXIS_LEFTY,
+			JOY_AXIS_PITCH, // SDL_CONTROLLER_AXIS_RIGHTX,
+			JOY_AXIS_YAW, // SDL_CONTROLLER_AXIS_RIGHTY,
+			JOY_AXIS_LT, // SDL_CONTROLLER_AXIS_TRIGGERLEFT,
+			JOY_AXIS_RT, // SDL_CONTROLLER_AXIS_TRIGGERRIGHT,
+		};
+		if( Joy_IsActive() && event->caxis.axis != (Uint8)SDL_CONTROLLER_AXIS_INVALID )
+			Joy_KnownAxisMotionEvent( sdlControllerAxisToEngine[event->caxis.axis], event->caxis.value );
 		break;
+	}
 
 	case SDL_CONTROLLERBUTTONDOWN:
 	case SDL_CONTROLLERBUTTONUP:
@@ -558,7 +561,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 		};
 
 		// TODO: Use joyinput funcs, for future multiple gamepads support
-		if( Joy_IsActive() && event->cbutton.button != SDL_CONTROLLER_BUTTON_INVALID )
+		if( Joy_IsActive() && event->cbutton.button != (Uint8)SDL_CONTROLLER_BUTTON_INVALID )
 			Key_Event( sdlControllerButtonToEngine[event->cbutton.button], event->cbutton.state );
 		break;
 	}

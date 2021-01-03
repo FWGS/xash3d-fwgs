@@ -24,17 +24,6 @@ GNU General Public License for more details.
 #define SHRT_MAX 0x7FFF
 #endif
 
-typedef enum engineAxis_e
-{
-	JOY_AXIS_SIDE = 0,
-	JOY_AXIS_FWD,
-	JOY_AXIS_PITCH,
-	JOY_AXIS_YAW,
-	JOY_AXIS_RT,
-	JOY_AXIS_LT,
-	JOY_AXIS_NULL
-} engineAxis_t;
-
 #define MAX_AXES JOY_AXIS_NULL
 
 // index - axis num come from event
@@ -246,8 +235,6 @@ Axis events
 */
 void Joy_AxisMotionEvent( byte axis, short value )
 {
-	byte engineAxis;
-
 	if( !joy_found->value )
 		return;
 
@@ -257,8 +244,11 @@ void Joy_AxisMotionEvent( byte axis, short value )
 		return;
 	}
 
-	engineAxis = joyaxesmap[axis]; // convert to engine inner axis control
+	return Joy_KnownAxisMotionEvent( joyaxesmap[axis], value );
+}
 
+void Joy_KnownAxisMotionEvent( engineAxis_t engineAxis, short value )
+{
 	if( engineAxis == JOY_AXIS_NULL )
 		return;
 
