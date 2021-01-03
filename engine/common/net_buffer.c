@@ -51,7 +51,7 @@ void MSG_InitMasks( void )
 	for( maskBit = 0; maskBit < 32; maskBit++ )
 		ExtraMasks[maskBit] = (uint)BIT( maskBit ) - 1;
 }
- 
+
 void MSG_InitExt( sizebuf_t *sb, const char *pDebugName, void *pData, int nBytes, int nMaxBits )
 {
 	MSG_StartWriting( sb, pData, nBytes, 0, nMaxBits );
@@ -119,7 +119,7 @@ int MSG_SeekToBit( sizebuf_t *sb, int bitPos, int whence )
 	case SEEK_END:
 		bitPos += sb->nDataBits;
 		break;
-	default: 
+	default:
 		return -1;
 	}
 
@@ -252,7 +252,7 @@ qboolean MSG_WriteBits( sizebuf_t *sb, const void *pData, int nBits )
 		nBitsLeft -= 8;
 		++pOut;
 	}
-	
+
 	// Read the remaining bits.
 	if( nBitsLeft )
 	{
@@ -391,7 +391,7 @@ qboolean MSG_WriteString( sizebuf_t *sb, const char *pStr )
 		} while( *( pStr - 1 ));
 	}
 	else MSG_WriteChar( sb, 0 );
-	
+
 	return !sb->bOverflow;
 }
 
@@ -446,7 +446,7 @@ uint MSG_ReadUBitLong( sizebuf_t *sb, int numbits )
 	{
 		int	nExtraBits = sb->iCurBit & 31;
 		uint	dword2 = ((uint *)sb->pData)[idword1+1] & ExtraMasks[nExtraBits];
-		
+
 		// no need to mask since we hit the end of the dword.
 		// shift the second dword's part into the high bits.
 		ret |= (dword2 << ( numbits - nExtraBits ));
@@ -484,7 +484,7 @@ qboolean MSG_ReadBits( sizebuf_t *sb, void *pOutData, int nBits )
 {
 	byte	*pOut = (byte *)pOutData;
 	int	nBitsLeft = nBits;
-	
+
 	// get output dword-aligned.
 	while((( dword )pOut & 3) != 0 && nBitsLeft >= 8 )
 	{
@@ -508,7 +508,7 @@ qboolean MSG_ReadBits( sizebuf_t *sb, void *pOutData, int nBits )
 		++pOut;
 		nBitsLeft -= 8;
 	}
-	
+
 	// read the remaining bits.
 	if( nBitsLeft )
 	{
@@ -529,7 +529,7 @@ float MSG_ReadBitAngle( sizebuf_t *sb, int numbits )
 	fReturn = (float)i * ( 360.0f / shift );
 
 	// clamp the finale angle
-	if( fReturn < -180.0f ) fReturn += 360.0f; 
+	if( fReturn < -180.0f ) fReturn += 360.0f;
 	else if( fReturn > 180.0f ) fReturn -= 360.0f;
 
 	return fReturn;
@@ -646,7 +646,7 @@ char *MSG_ReadStringExt( sizebuf_t *sb, qboolean bLine )
 {
 	static char	string[4096];
 	int		l = 0, c;
-	
+
 	do
 	{
 		// use MSG_ReadByte so -1 is out of bounds

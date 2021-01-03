@@ -41,7 +41,7 @@ qboolean IsFileExists( const char *filename )
 
 /*
 ============
-GetFileSize     
+GetFileSize
 ============
 */
 off_t GetFileSize( FILE *fp )
@@ -70,7 +70,7 @@ byte *LoadFile( const char *filename )
 
 	if( !fp )
 		return NULL;
- 
+
 	size = GetFileSize( fp );
 
 	buf = malloc( size );

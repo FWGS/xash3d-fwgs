@@ -172,7 +172,7 @@ enum mpg123_parms
 	MPG123_RVA,		/**< one of the RVA choices above (integer) */
 	MPG123_DOWNSPEED,		/**< play a frame N times (integer) */
 	MPG123_UPSPEED,		/**< play every Nth frame (integer) */
-	MPG123_START_FRAME,		/**< start with this frame (skip frames before that, integer) */ 
+	MPG123_START_FRAME,		/**< start with this frame (skip frames before that, integer) */
 	MPG123_DECODE_FRAMES,	/**< decode only this number of frames (integer) */
 	MPG123_OUTSCALE,		/**< the scale for output samples (amplitude - integer according to mpg123 output format) */
 	MPG123_TIMEOUT,		/**< timeout for reading from a stream (not supported on win32, integer) */
@@ -258,7 +258,7 @@ struct mpg123_handle_s
 	int		rawbuffss;
 	int		bo;		// just have it always here.
 	byte		*rawdecwin;	// the block with all decwins
-	
+
 	int		rawdecwins;	// size of rawdecwin memory
 	float		*decwin;		// _the_ decode table
 

@@ -25,7 +25,7 @@ static void *IOS_LoadLibraryInternal( const char *dllname )
 	void *pHandle;
 	string errorstring = "";
 	char path[MAX_SYSPATH];
-	
+
 	// load frameworks from Documents directory
 	// frameworks should be signed with same key with application
 	// Useful for debug to prevent rebuilding app on every library update
@@ -36,7 +36,7 @@ static void *IOS_LoadLibraryInternal( const char *dllname )
 		return pHandle;
 	Q_snprintf( errorstring, MAX_STRING, dlerror() );
 #endif
-	
+
 #ifdef DLOPEN_FRAMEWORKS
 	// load frameworks as it should be located in Xcode builds
 	Q_snprintf( path, MAX_SYSPATH, "%s%s.framework/lib", SDL_GetBasePath(), dllname );

@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // TODO: put in span spilling to shrink list size
 // !!! if this is changed, it must be changed in d_polysa.s too !!!
-#define DPS_MAXSPANS			MAXHEIGHT+1	
+#define DPS_MAXSPANS			MAXHEIGHT+1
 									// 1 extra for spanpackage that marks end
 
 // !!! if this is changed, it must be changed in asm_draw.h too !!!
@@ -132,7 +132,7 @@ void R_PolysetUpdateTables (void)
 {
 	int		i;
 	byte	*s;
-	
+
 	if (r_affinetridesc.skinwidth != skinwidth ||
 		r_affinetridesc.pskin != skinstart)
 	{
@@ -508,7 +508,7 @@ void R_PolysetCalcGradients( int skinwidth )
 
 	__asm fild  dword ptr d_xdenom    ; d_xdenom
 	__asm fdivr one                   ; 1 / d_xdenom
-	__asm fst   xstepdenominv         ; 
+	__asm fst   xstepdenominv         ;
 	__asm fmul  negative_one          ; -( 1 / d_xdenom )
 
 // ceil () for light so positive steps are exaggerated, negative steps

@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
-// 
+//
 //		S c r i p t e d   S e q u e n c e s
-// 
+//
 //---------------------------------------------------------------------------
 #ifndef _INCLUDE_SEQUENCE_H_
 #define _INCLUDE_SEQUENCE_H_
@@ -34,7 +34,7 @@ typedef struct client_textmessage_s
 
 //---------------------------------------------------------------------------
 // sequenceCommandEnum_e
-// 
+//
 // Enumerated sequence command types.
 //---------------------------------------------------------------------------
 enum sequenceCommandEnum_
@@ -92,7 +92,7 @@ typedef enum sequenceModifierBits sequenceModifierBits_e ;
 
 //---------------------------------------------------------------------------
 // sequenceCommandType_e
-// 
+//
 // Typeerated sequence command types.
 //---------------------------------------------------------------------------
 enum sequenceCommandType_
@@ -105,7 +105,7 @@ typedef enum sequenceCommandType_ sequenceCommandType_e;
 
 //---------------------------------------------------------------------------
 // sequenceCommandMapping_s
-// 
+//
 // A mapping of a command enumerated-value to its name.
 //---------------------------------------------------------------------------
 typedef struct sequenceCommandMapping_ sequenceCommandMapping_s;
@@ -119,7 +119,7 @@ struct sequenceCommandMapping_
 
 //---------------------------------------------------------------------------
 // sequenceCommandLine_s
-// 
+//
 // Structure representing a single command (usually 1 line) from a
 //	.SEQ file entry.
 //---------------------------------------------------------------------------
@@ -144,7 +144,7 @@ struct sequenceCommandLine_
 
 //---------------------------------------------------------------------------
 // sequenceEntry_s
-// 
+//
 // Structure representing a single command (usually 1 line) from a
 //	.SEQ file entry.
 //---------------------------------------------------------------------------

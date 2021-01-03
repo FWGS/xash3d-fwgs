@@ -635,7 +635,7 @@ qboolean Matrix4x4_Invert_Full( matrix4x4 out, const matrix4x4 in1 )
 	r[3][4] =	0.0f;
 	r[3][5] = 0.0f;
 	r[3][6] = 0.0f;
-	r[3][7] = 1.0f;	
+	r[3][7] = 1.0f;
 
 	if( fabs( r[3][0] ) > fabs( r[2][0] ))
 	{

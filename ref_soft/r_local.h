@@ -176,7 +176,7 @@ typedef struct
 	qboolean		drawWorld;	// ignore world for drawing PlayerModel
 	qboolean		isSkyVisible;	// sky is visible
 	qboolean		onlyClientDraw;	// disabled by client request
-	qboolean		drawOrtho;	// draw world as orthogonal projection	
+	qboolean		drawOrtho;	// draw world as orthogonal projection
 
 	float		fov_x, fov_y;	// current view fov
 
@@ -274,7 +274,7 @@ typedef struct
 
 	msurface_t	*draw_decals[MAX_DECAL_SURFS];
 	int		num_draw_decals;
-         
+
 	// OpenGL matrix states
 	qboolean		modelviewIdentity;
 

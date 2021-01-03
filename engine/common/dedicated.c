@@ -11,7 +11,7 @@ This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
-*/ 
+*/
 #if XASH_DEDICATED
 #include "common.h"
 #include "xash3d_mathlib.h"
@@ -205,12 +205,12 @@ void Host_InputFrame( void )
 
 void VID_InitDefaultResolution( void )
 {
-	
+
 }
 
 void Con_Init( void )
 {
-	
+
 }
 
 void R_ClearAllDecals( void )

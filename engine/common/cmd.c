@@ -75,7 +75,7 @@ Cbuf_GetSpace
 void *Cbuf_GetSpace( cmdbuf_t *buf, int length )
 {
 	void    *data;
-	
+
 	if(( buf->cursize + length ) > buf->maxsize )
 	{
 		buf->cursize = 0;
@@ -84,7 +84,7 @@ void *Cbuf_GetSpace( cmdbuf_t *buf, int length )
 
 	data = buf->data + buf->cursize;
 	buf->cursize += length;
-	
+
 	return data;
 }
 
@@ -249,13 +249,13 @@ void Cbuf_ExecStuffCmds( void )
 				if( l + Q_strlen( host.argv[i] ) + 4 > sizeof( build ) - 1 )
 					break;
 				build[l++] = ' ';
-	
+
 				if( Q_strchr( host.argv[i], ' ' ))
 					build[l++] = '\"';
-	
+
 				for( j = 0; host.argv[i][j]; j++ )
 					build[l++] = host.argv[i][j];
-	
+
 				if( Q_strchr( host.argv[i], ' ' ))
 					build[l++] = '\"';
 			}
@@ -321,7 +321,7 @@ Just prints the rest of the line to the console
 void Cmd_Echo_f( void )
 {
 	int	i;
-	
+
 	for( i = 1; i < Cmd_Argc(); i++ )
 		Con_Printf( "%s", Cmd_Argv( i ));
 	Con_Printf( "\n" );
@@ -487,7 +487,7 @@ const char *Cmd_Argv( int arg )
 {
 	if((uint)arg >= cmd_argc )
 		return "";
-	return cmd_argv[arg];	
+	return cmd_argv[arg];
 }
 
 /*
@@ -772,7 +772,7 @@ void Cmd_LookupCmds( void *buffer, void *ptr, setpair_t callback )
 
 	// nothing to process ?
 	if( !callback ) return;
-	
+
 	for( cmd = cmd_functions; cmd; cmd = cmd->next )
 	{
 		if( !buffer ) callback( cmd->name, (char *)cmd->function, cmd->desc, ptr );
@@ -860,7 +860,7 @@ void Cmd_If_f( void )
 
 		if(( cmd_argv[2][0] == '>' ) && ( f1 > f2 )) // >, >=
 			cmd_condition |= BIT( cmd_condlevel );
-		
+
 		if(( cmd_argv[2][0] == '<' ) && ( f1 < f2 )) // <, <=
 			cmd_condition |= BIT( cmd_condlevel );
 	}
@@ -886,7 +886,7 @@ A complete command line has been parsed, so try to execute it
 ============
 */
 void Cmd_ExecuteString( char *text )
-{	
+{
 	cmd_t	*cmd = NULL;
 	cmdalias_t	*a = NULL;
 	convar_t *cvar = NULL;
@@ -940,7 +940,7 @@ void Cmd_ExecuteString( char *text )
 	}
 
 	// execute the command line
-	Cmd_TokenizeString( text );		
+	Cmd_TokenizeString( text );
 
 	if( !Cmd_Argc( )) return; // no tokens
 
@@ -1026,7 +1026,7 @@ so when they are typed in at the console, they will need to be forwarded.
 void Cmd_ForwardToServer( void )
 {
 	char	str[MAX_CMD_BUFFER];
-	
+
 	if( cls.demoplayback )
 	{
 		if( !Q_stricmp( Cmd_Argv( 0 ), "pause" ))
@@ -1049,7 +1049,7 @@ void Cmd_ForwardToServer( void )
 		Q_strcat( str, Cmd_Argv( 0 ));
 		Q_strcat( str, " " );
 	}
-	
+
 	if( Cmd_Argc() > 1 )
 		Q_strcat( str, Cmd_Args( ));
 	else Q_strcat( str, "\n" );

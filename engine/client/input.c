@@ -260,12 +260,12 @@ void IN_ActivateMouse( qboolean force )
 {
 	int		width, height;
 	static int	oldstate;
-			
+
 	if( !in_mouseinitialized )
 		return;
 
 	if( CL_Active() && host.mouse_visible && !force )
-		return;	// VGUI controls  
+		return;	// VGUI controls
 
 	if( cls.key_dest == key_menu && !Cvar_VariableInteger( "fullscreen" ))
 	{
@@ -341,7 +341,7 @@ IN_MouseMove
 void IN_MouseMove( void )
 {
 	POINT	current_pos;
-	
+
 	if( !in_mouseinitialized || !in_mouseactive || !UI_IsVisible( ))
 		return;
 
@@ -588,10 +588,10 @@ void IN_CollectInput( float *forward, float *side, float *pitch, float *yaw, qbo
 		IN_EvdevMove( yaw, pitch );
 #endif
 	}
-	
+
 	Joy_FinalizeMove( forward, side, yaw, pitch );
 	Touch_GetMove( forward, side, yaw, pitch );
-	
+
 	if( look_filter->value )
 	{
 		*pitch = ( inputstate.lastpitch + *pitch ) / 2;
@@ -627,7 +627,7 @@ void IN_EngineAppendMove( float frametime, void *cmd1, qboolean active )
 		float sensitivity = 1;//( (float)cl.local.scr_fov / (float)90.0f );
 
 		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized && !CVAR_TO_BOOL( m_ignore ), m_enginemouse->value );
-		
+
 		IN_JoyAppendMove( cmd, forward, side );
 
 		if( pitch || yaw )
@@ -683,7 +683,7 @@ void Host_InputFrame( void )
 	// release mouse during pause or console typeing
 	if( cl.paused && cls.key_dest == key_game )
 		shutdownMouse = true;
-	
+
 	if( shutdownMouse && !Cvar_VariableInteger( "fullscreen" ))
 	{
 		IN_DeactivateMouse();

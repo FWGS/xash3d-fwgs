@@ -26,7 +26,7 @@ typedef struct frame_index_s
 	size_t	grow_size;// if > 0: index allowed to grow on need with these steps, instead of lowering resolution
 } frame_index_t;
 
-// the condition for a framenum to be appended to the index. 
+// the condition for a framenum to be appended to the index.
 #define FI_NEXT( fi, framenum )	((fi).size && framenum == (fi).next)
 
 // initialize stuff, set things to zero and NULL...

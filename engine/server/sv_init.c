@@ -115,7 +115,7 @@ int SV_ModelIndex( const char *filename )
 	Q_strncpy( sv.model_precache[i], name, sizeof( sv.model_precache[i] ));
 
 	if( sv.state != ss_loading )
-	{	
+	{
 		// send the update to everyone
 		SV_SendSingleResource( name, t_model, i, sv.model_precache_flags[i] );
 		Con_Printf( S_WARN "late precache of %s\n", name );
@@ -166,7 +166,7 @@ int GAME_EXPORT SV_SoundIndex( const char *filename )
 	Q_strncpy( sv.sound_precache[i], name, sizeof( sv.sound_precache[i] ));
 
 	if( sv.state != ss_loading )
-	{	
+	{
 		// send the update to everyone
 		SV_SendSingleResource( name, t_sound, i, 0 );
 		Con_Printf( S_WARN "late precache of %s\n", name );
@@ -494,7 +494,7 @@ void SV_FreeOldEntities( void )
 	edict_t	*ent;
 	int	i;
 
-	// at end of frame kill all entities which supposed to it 
+	// at end of frame kill all entities which supposed to it
 	for( i = svs.maxclients + 1; i < svgame.numEntities; i++ )
 	{
 		ent = EDICT_NUM( i );
@@ -885,7 +885,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	memset( &sv, 0, sizeof( sv ));	// wipe the entire per-level structure
 	sv.time = svgame.globals->time = 1.0f;	// server spawn time it's always 1.0 second
 	sv.background = background;
-	
+
 	// initialize buffers
 	MSG_Init( &sv.signon, "Signon", sv.signon_buf, sizeof( sv.signon_buf ));
 	MSG_Init( &sv.multicast, "Multicast", sv.multicast_buf, sizeof( sv.multicast_buf ));

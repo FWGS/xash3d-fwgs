@@ -1,9 +1,9 @@
 /***
 *
 *	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*	
-*	This product contains software technology licensed from Id 
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc. 
+*
+*	This product contains software technology licensed from Id
+*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
 *	All Rights Reserved.
 *
 *   Use, distribution, and modification of this source code and/or resulting
@@ -64,7 +64,7 @@ typedef struct net_response_s
 typedef struct net_status_s
 {
 	// Connected to remote server?  1 == yes, 0 otherwise
-	int		connected; 
+	int		connected;
 	// Client's IP address
 	netadr_t		local_address;
 	// Address of remote server

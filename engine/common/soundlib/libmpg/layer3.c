@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #include "huffman.h"
 #include "getbits.h"
 #include <math.h>
- 
+
 // static one-time calculated tables... or so
 float		COS6_1;		// dct12 wants to use that
 float		COS6_2;		// dct12 wants to use that
@@ -72,7 +72,7 @@ typedef struct gr_info_s
 	float	*pow2gain;
 } gr_info_t;
 
-typedef struct 
+typedef struct
 {
 	uint	main_data_begin;
 	uint	private_bits;
@@ -84,7 +84,7 @@ typedef struct
 	} ch[2];
 } III_sideinfo;
 
-typedef struct 
+typedef struct
 {
 	word	longIdx[23];
 	byte	longDiff[22];
@@ -495,7 +495,7 @@ static int III_get_side_info( mpg123_handle_t *fr, III_sideinfo *si, int stereo,
 				else
 				{
 					if( fr->mpeg25 )
-					{ 
+					{
 						int	r0c, r1c;
 
 						if(( gr_info->block_type == 2 ) && ( !gr_info->mixed_block_flag ))
@@ -505,13 +505,13 @@ static int III_get_side_info( mpg123_handle_t *fr, III_sideinfo *si, int stereo,
 						// r0c + 1 + r1c + 1 == 22, always.
 						r1c = 20 - r0c;
 						gr_info->region1start = bandInfo[sfreq].longIdx[r0c+1] >> 1 ;
-						gr_info->region2start = bandInfo[sfreq].longIdx[r0c+1+r1c+1] >> 1; 
+						gr_info->region2start = bandInfo[sfreq].longIdx[r0c+1+r1c+1] >> 1;
 					}
 					else
 					{
 						gr_info->region1start = 54 >> 1;
-						gr_info->region2start = 576 >> 1; 
-					} 
+						gr_info->region2start = 576 >> 1;
+					}
 				}
 			}
 			else
@@ -609,7 +609,7 @@ static int III_get_scale_factors_1( mpg123_handle_t *fr, int *scf, gr_info_t *gr
 
 				numbits += num0 * 6;
 			}
-			else scf += 6; 
+			else scf += 6;
 
 			if(!( scfsi & 0x4 ))
 			{
@@ -667,7 +667,7 @@ static int III_get_scale_factors_2( mpg123_handle_t *fr, int *scf, gr_info_t *gr
 	{ 6, 9, 9,9 } , { 6, 9,12,6 } , { 15,18,0,0},
 	{ 6,15,12,0 } , { 6,12, 9,6 } , {  6,18,9,0}
 	}
-	}; 
+	};
 
 	// i_stereo AND second channel -> do_layer3() checks this
 	if( i_stereo ) slen = i_slen2[gr_info->scalefac_compress>>1];
@@ -675,7 +675,7 @@ static int III_get_scale_factors_2( mpg123_handle_t *fr, int *scf, gr_info_t *gr
 
 	gr_info->preflag = (slen >> 15) & 0x1;
 	n = 0;
-  
+
 	if( gr_info->block_type == 2 )
 	{
 		if( gr_info->mixed_block_flag )
@@ -702,7 +702,7 @@ static int III_get_scale_factors_2( mpg123_handle_t *fr, int *scf, gr_info_t *gr
 				*scf++ = 0;
 		}
 	}
-  
+
 	n = (n << 1) + 1;
 
 	for( i = 0; i < n; i++ )
@@ -757,7 +757,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 	mask <<= 8 - num;
 	part2remain -= num;
 
-	l3 = ((576>>1)-bv)>>1;   
+	l3 = ((576>>1)-bv)>>1;
 
 	// we may lose the 'odd' bit here !! check this later again
 	if( bv <= region1 )
@@ -781,7 +781,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 			l[2] = bv - region2;
 		}
 	}
- 
+
 	if( gr_info->block_type == 2 )
 	{
 		int		i, max[4];
@@ -1177,7 +1177,7 @@ static int III_dequantize_sample( mpg123_handle_t *fr, float xr[SBLIMIT][SSLIMIT
 	backbits( fr, num );
 	num = 0;
 
-	while( xrpnt < &xr[SBLIMIT][0] ) 
+	while( xrpnt < &xr[SBLIMIT][0] )
 		*xrpnt++ = DOUBLE_TO_REAL( 0.0 );
 
 	while( part2remain > 16 )
@@ -1206,10 +1206,10 @@ static void III_i_stereo( float xr_buf[2][SBLIMIT][SSLIMIT], int *scalefac, gr_i
 	const bandInfoStruct *bi = &bandInfo[sfreq];
 	const float *tab1, *tab2;
 	int tab;
-	
+
 	// TODO: optimize as static
 	const float *tabs[3][2][2] =
-	{ 
+	{
 	{ { tan1_1,tan2_1 }       , { tan1_2,tan2_2 } },
 	{ { pow1_1[0],pow2_1[0] } , { pow1_2[0],pow2_2[0] } },
 	{ { pow1_1[1],pow2_1[1] } , { pow1_2[1],pow2_2[1] } }
@@ -1257,7 +1257,7 @@ static void III_i_stereo( float xr_buf[2][SBLIMIT][SSLIMIT], int *scalefac, gr_i
 				}
 			}
 
-			// in the original: copy 10 to 11 , here: copy 11 to 12 
+			// in the original: copy 10 to 11 , here: copy 11 to 12
 			// maybe still wrong??? (copy 12 to 13?)
 			is_p = scalefac[11 * 3 + lwin - gr_info->mixed_block_flag]; // scale: 0-15
 			sb = bi->shortDiff[12];
@@ -1271,7 +1271,7 @@ static void III_i_stereo( float xr_buf[2][SBLIMIT][SSLIMIT], int *scalefac, gr_i
 				t2 = tab2[is_p];
 
 				for( ; sb > 0; sb--, idx += 3 )
-				{  
+				{
 					float v = xr[0][idx];
 					xr[0][idx] = REAL_MUL_15( v, t1 );
 					xr[1][idx] = REAL_MUL_15( v, t2 );
@@ -1309,8 +1309,8 @@ static void III_i_stereo( float xr_buf[2][SBLIMIT][SSLIMIT], int *scalefac, gr_i
 				}
 				else idx += sb;
 			}
-		}     
-	} 
+		}
+	}
 	else
 	{
 		int	sfb = gr_info->maxbandl;
@@ -1351,7 +1351,7 @@ static void III_i_stereo( float xr_buf[2][SBLIMIT][SSLIMIT], int *scalefac, gr_i
 			int	sb;
 
 			t1 = tab1[is_p],
-			t2 = tab2[is_p]; 
+			t2 = tab2[is_p];
 
 			// copy l-band 20 to l-band 21
 			for( sb = bi->longDiff[21]; sb > 0; sb--, idx++ )
@@ -1373,7 +1373,7 @@ static void III_antialias( float xr[SBLIMIT][SSLIMIT], gr_info_t *gr_info )
 	{
 		if( !gr_info->mixed_block_flag )
 			return;
-		sblim = 1; 
+		sblim = 1;
 	}
 	else
 	{
@@ -1417,7 +1417,7 @@ static void III_hybrid( float fsIn[SBLIMIT][SSLIMIT], float tsOut[SSLIMIT][SBLIM
 	b=-b + 1;
 	rawout2 = block[b][ch];
 	blc[ch] = b;
-  
+
 	if( gr_info->mixed_block_flag )
 	{
 		sb = 2;
@@ -1425,7 +1425,7 @@ static void III_hybrid( float fsIn[SBLIMIT][SSLIMIT], float tsOut[SSLIMIT][SBLIM
 		dct36( fsIn[1], rawout1+18, rawout2+18, win1[0], tspnt + 1 );
 		rawout1 += 36; rawout2 += 36; tspnt += 2;
 	}
- 
+
 	bt = gr_info->block_type;
 
 	if( bt == 2 )
@@ -1550,7 +1550,7 @@ int do_layer3( mpg123_handle_t *fr )
 
 			if( ms_stereo || i_stereo || ( single == SINGLE_MIX ))
 			{
-				if( gr_info->maxb > sideinfo.ch[0].gr[gr].maxb ) 
+				if( gr_info->maxb > sideinfo.ch[0].gr[gr].maxb )
 					sideinfo.ch[0].gr[gr].maxb = gr_info->maxb;
 				else gr_info->maxb = sideinfo.ch[0].gr[gr].maxb;
 			}
@@ -1589,6 +1589,6 @@ int do_layer3( mpg123_handle_t *fr )
 
 		}
 	}
-  
+
 	return clip;
 }

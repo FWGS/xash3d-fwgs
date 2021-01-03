@@ -159,7 +159,7 @@ void CL_SetIdealPitch( void )
 		top[0] = cl.simorg[0] + cosval * (i + 3.0f) * 12.0f;
 		top[1] = cl.simorg[1] + sinval * (i + 3.0f) * 12.0f;
 		top[2] = cl.simorg[2] + cl.viewheight[2];
-		
+
 		bottom[0] = top[0];
 		bottom[1] = top[1];
 		bottom[2] = top[2] - 160.0f;
@@ -170,10 +170,10 @@ void CL_SetIdealPitch( void )
 
 		if( tr.fraction == 1.0f )
 			return;	// near a dropoff
-		
+
 		z[i] = top[2] + tr.fraction * (bottom[2] - top[2]);
 	}
-	
+
 	dir = 0;
 	steps = 0;
 
@@ -186,16 +186,16 @@ void CL_SetIdealPitch( void )
 		if( dir && ( step-dir > ON_EPSILON || step-dir < -ON_EPSILON ))
 			return; // mixed changes
 
-		steps++;	
+		steps++;
 		dir = step;
 	}
-	
+
 	if( !dir )
 	{
 		cl.local.idealpitch = 0.0f;
 		return;
 	}
-	
+
 	if( steps < 2 ) return;
 	cl.local.idealpitch = -dir * cl_idealpitchscale->value;
 }
@@ -627,7 +627,7 @@ int GAME_EXPORT CL_WaterEntity( const float *rgflPos )
 		if( FBitSet( pe->model->flags, MODEL_HAS_ORIGIN ) && !VectorIsNull( pe->angles ))
 		{
 			matrix4x4	matrix;
-	
+
 			Matrix4x4_CreateFromEntity( matrix, pe->angles, offset, 1.0f );
 			Matrix4x4_VectorITransform( matrix, rgflPos, test );
 		}
@@ -655,7 +655,7 @@ pmtrace_t CL_TraceLine( vec3_t start, vec3_t end, int flags )
 	pmtrace_t	tr;
 
 	old_usehull = clgame.pmove->usehull;
-	clgame.pmove->usehull = 2;	
+	clgame.pmove->usehull = 2;
 	tr = PM_PlayerTraceExt( clgame.pmove, start, end, flags, clgame.pmove->numphysent, clgame.pmove->physents, -1, NULL );
 	clgame.pmove->usehull = old_usehull;
 
@@ -675,7 +675,7 @@ pmtrace_t *CL_VisTraceLine( vec3_t start, vec3_t end, int flags )
 	static pmtrace_t	tr;
 
 	old_usehull = clgame.pmove->usehull;
-	clgame.pmove->usehull = 2;	
+	clgame.pmove->usehull = 2;
 	tr = PM_PlayerTraceExt( clgame.pmove, start, end, flags, clgame.pmove->numvisent, clgame.pmove->visents, -1, NULL );
 	clgame.pmove->usehull = old_usehull;
 
@@ -761,7 +761,7 @@ pmtrace_t *PM_TraceLine( float *start, float *end, int flags, int usehull, int i
 	int		old_usehull;
 
 	old_usehull = clgame.pmove->usehull;
-	clgame.pmove->usehull = usehull;	
+	clgame.pmove->usehull = usehull;
 
 	switch( flags )
 	{
@@ -838,7 +838,7 @@ static const char *pfnTraceTexture( int ground, float *vstart, float *vend )
 
 	pe = &clgame.pmove->physents[ground];
 	return PM_TraceTexture( pe, vstart, vend );
-}			
+}
 
 static void GAME_EXPORT pfnPlaySound( int channel, const char *sample, float volume, float attenuation, int fFlags, int pitch )
 {
@@ -870,7 +870,7 @@ static pmtrace_t *pfnTraceLineEx( float *start, float *end, int flags, int usehu
 	int		old_usehull;
 
 	old_usehull = clgame.pmove->usehull;
-	clgame.pmove->usehull = usehull;	
+	clgame.pmove->usehull = usehull;
 
 	switch( flags )
 	{
@@ -926,13 +926,13 @@ void CL_InitClientMove( void )
 	clgame.pmove->PM_StuckTouch = pfnStuckTouch;
 	clgame.pmove->PM_PointContents = pfnPointContents;
 	clgame.pmove->PM_TruePointContents = pfnTruePointContents;
-	clgame.pmove->PM_HullPointContents = pfnHullPointContents; 
+	clgame.pmove->PM_HullPointContents = pfnHullPointContents;
 	clgame.pmove->PM_PlayerTrace = pfnPlayerTrace;
 	clgame.pmove->PM_TraceLine = PM_TraceLine;
 	clgame.pmove->RandomLong = COM_RandomLong;
 	clgame.pmove->RandomFloat = COM_RandomFloat;
 	clgame.pmove->PM_GetModelType = pfnGetModelType;
-	clgame.pmove->PM_GetModelBounds = pfnGetModelBounds;	
+	clgame.pmove->PM_GetModelBounds = pfnGetModelBounds;
 	clgame.pmove->PM_HullForBsp = (void*)pfnHullForBsp;
 	clgame.pmove->PM_TraceModel = pfnTraceModel;
 	clgame.pmove->COM_FileSize = COM_FileSize;
@@ -1019,7 +1019,7 @@ void CL_SetupPMove( playermove_t *pmove, local_state_t *from, usercmd_t *ucmd, q
 	VectorCopy( cd->vuser2, pmove->vuser2 );
 	VectorCopy( cd->vuser3, pmove->vuser3 );
 	VectorCopy( cd->vuser4, pmove->vuser4 );
-	pmove->cmd = *ucmd;	// copy current cmds	
+	pmove->cmd = *ucmd;	// copy current cmds
 
 	Q_strncpy( pmove->physinfo, cls.physinfo, MAX_INFO_STRING );
 }

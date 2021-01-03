@@ -522,7 +522,7 @@ edict_t *SV_FakeConnect( const char *netname )
 
 	if( count == 1 || count == svs.maxclients )
 		svs.last_heartbeat = MAX_HEARTBEAT;
-	
+
 	return cl->edict;
 }
 
@@ -538,7 +538,7 @@ or crashing.
 void SV_DropClient( sv_client_t *cl, qboolean crash )
 {
 	int	i;
-	
+
 	if( cl->state == cs_zombie )
 		return;	// already dropped
 
@@ -882,7 +882,7 @@ void SV_BuildNetAnswer( netadr_t from )
 			{
 				edict_t *ed = svs.clients[i].edict;
 				float time = host.realtime - svs.clients[i].connection_started;
-				Q_strncat( string, va( "%c\\%s\\%i\\%f\\", count, svs.clients[i].name, (int)ed->v.frags, time ), sizeof( string )); 
+				Q_strncat( string, va( "%c\\%s\\%i\\%f\\", count, svs.clients[i].name, (int)ed->v.frags, time ), sizeof( string ));
 				count++;
 			}
 		}
@@ -1024,7 +1024,7 @@ int SV_CalcPing( sv_client_t *cl )
 ===================
 SV_EstablishTimeBase
 
-Finangles latency and the like. 
+Finangles latency and the like.
 ===================
 */
 void SV_EstablishTimeBase( sv_client_t *cl, usercmd_t *cmds, int dropped, int numbackup, int numcmds )
@@ -1045,7 +1045,7 @@ void SV_EstablishTimeBase( sv_client_t *cl, usercmd_t *cmds, int dropped, int nu
 			cmdnum = dropped + numcmds - 1;
 			runcmd_time += (double)cmds[cmdnum].msec / 1000.0;
 			dropped--;
-		}		
+		}
 	}
 
 	for( i = numcmds - 1; i >= 0; i-- )
@@ -1092,7 +1092,7 @@ float SV_CalcClientTime( sv_client_t *cl )
 	minping =  9999.0f;
 	maxping = -9999.0f;
 	ping /= count;
-	
+
 	for( i = 0; i < ( SV_UPDATE_BACKUP <= 4 ? SV_UPDATE_BACKUP : 4 ); i++ )
 	{
 		client_frame_t	*frame = &cl->frames[SV_UPDATE_MASK & (cl->netchan.incoming_acknowledged - i)];
@@ -1124,7 +1124,7 @@ void SV_FullClientUpdate( sv_client_t *cl, sizebuf_t *msg )
 	char		info[MAX_INFO_STRING];
 	char		digest[16];
 	MD5Context_t	ctx;
-	int		i;	
+	int		i;
 
 	// process userinfo before updating
 	SV_UserinfoChanged( cl );
@@ -1309,7 +1309,7 @@ void SV_PutClientInServer( sv_client_t *cl )
 		sv.paused = false;
 	}
 	else
-	{	
+	{
 		if( Q_atoi( Info_ValueForKey( cl->userinfo, "hltv" )))
 			SetBits( cl->flags, FCL_HLTV_PROXY );
 
@@ -1603,7 +1603,7 @@ The client is going to disconnect, so remove the connection immediately
 */
 static qboolean SV_Disconnect_f( sv_client_t *cl )
 {
-	SV_DropClient( cl, false );	
+	SV_DropClient( cl, false );
 	return true;
 }
 
@@ -1664,7 +1664,7 @@ void SV_UserinfoChanged( sv_client_t *cl )
 {
 	int		i, dupc = 1;
 	edict_t		*ent = cl->edict;
-	string		name1, name2;	
+	string		name1, name2;
 	sv_client_t	*current;
 	const char		*val;
 
@@ -1728,7 +1728,7 @@ void SV_UserinfoChanged( sv_client_t *cl )
 		cl->netchan.rate = bound( MIN_RATE, Q_atoi( val ), MAX_RATE );
 	else cl->netchan.rate = DEFAULT_RATE;
 
-	// movement prediction	
+	// movement prediction
 	if( Q_atoi( Info_ValueForKey( cl->userinfo, "cl_nopred" )))
 		ClearBits( cl->flags, FCL_PREDICT_MOVEMENT );
 	else SetBits( cl->flags, FCL_PREDICT_MOVEMENT );
@@ -2241,7 +2241,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 ==================
 SV_ParseClientMove
 
-The message usually contains all the movement commands 
+The message usually contains all the movement commands
 that were in the last three packets, so that the information
 in dropped packets can be recovered.
 
@@ -2467,7 +2467,7 @@ void SV_ParseResourceList( sv_client_t *cl, sizebuf_t *msg )
 ===================
 SV_ParseCvarValue
 
-Parse a requested value from client cvar 
+Parse a requested value from client cvar
 ===================
 */
 void SV_ParseCvarValue( sv_client_t *cl, sizebuf_t *msg )
@@ -2483,7 +2483,7 @@ void SV_ParseCvarValue( sv_client_t *cl, sizebuf_t *msg )
 ===================
 SV_ParseCvarValue2
 
-Parse a requested value from client cvar 
+Parse a requested value from client cvar
 ===================
 */
 void SV_ParseCvarValue2( sv_client_t *cl, sizebuf_t *msg )
@@ -2529,7 +2529,7 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg )
 
 	cl->latency = SV_CalcClientTime( cl );
 	cl->delta_sequence = -1; // no delta unless requested
-				
+
 	// read optional clientCommand strings
 	while( cl->state != cs_zombie )
 	{
@@ -2558,7 +2558,7 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg )
 			move_issued = true;
 			SV_ParseClientMove( cl, msg );
 			break;
-		case clc_stringcmd:	
+		case clc_stringcmd:
 			SV_ExecuteClientCommand( cl, MSG_ReadString( msg ));
 			if( cl->state == cs_zombie )
 				return; // disconnect command

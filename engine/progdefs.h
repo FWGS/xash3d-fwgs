@@ -1,9 +1,9 @@
 /***
 *
 *	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*	
-*	This product contains software technology licensed from Id 
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc. 
+*
+*	This product contains software technology licensed from Id
+*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
 *	All Rights Reserved.
 *
 *   Use, distribution, and modification of this source code and/or resulting
@@ -17,7 +17,7 @@
 #define PROGDEFS_H
 
 typedef struct
-{	
+{
 	float		time;
 	float		frametime;
 	float		force_retouch;
@@ -56,12 +56,12 @@ typedef struct entvars_s
 {
 	string_t		classname;
 	string_t		globalname;
-	
+
 	vec3_t		origin;
 	vec3_t		oldorigin;
 	vec3_t		velocity;
 	vec3_t		basevelocity;
-	vec3_t		clbasevelocity;	// Base velocity that was passed in to server physics so 
+	vec3_t		clbasevelocity;	// Base velocity that was passed in to server physics so
 					// client can predict conveyors correctly. Server zeroes it, so we need to store here, too.
 	vec3_t		movedir;
 
@@ -142,7 +142,7 @@ typedef struct entvars_s
 
 	int		spawnflags;
 	int		flags;
-	
+
 	int		colormap;		// lowbyte topcolor, highbyte bottomcolor
 	int		team;
 

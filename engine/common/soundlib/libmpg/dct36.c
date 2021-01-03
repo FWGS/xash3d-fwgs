@@ -1,4 +1,4 @@
-/* 
+/*
 	This is an optimized DCT from Jeff Tsay's maplay 1.2+ package.
 	Saved one multiplication by doing the 'twiddle factor' stuff
 	together with the window mul. (MH)
@@ -221,7 +221,7 @@ void dct12( float *in, float *rawout1, float *rawout2, register float *wi, regis
 		register float *out1 = rawout1;
 		ts[SBLIMIT*0] = out1[0]; ts[SBLIMIT*1] = out1[1]; ts[SBLIMIT*2] = out1[2];
 		ts[SBLIMIT*3] = out1[3]; ts[SBLIMIT*4] = out1[4]; ts[SBLIMIT*5] = out1[5];
- 
+
 		DCT12_PART1
 
 		{
@@ -255,7 +255,7 @@ void dct12( float *in, float *rawout1, float *rawout2, register float *wi, regis
 	{
 		float in0,in1,in2,in3,in4,in5;
 		register float *out2 = rawout2;
- 
+
 		DCT12_PART1
 
 		{
@@ -284,7 +284,7 @@ void dct12( float *in, float *rawout1, float *rawout2, register float *wi, regis
 		ts[(17-2)*SBLIMIT] += REAL_MUL(in4, wi[5-2]);
 	}
 
-	in++; 
+	in++;
 
 	{
 		float in0,in1,in2,in3,in4,in5;

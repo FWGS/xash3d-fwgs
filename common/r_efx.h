@@ -1,9 +1,9 @@
 /***
 *
 *	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*	
-*	This product contains software technology licensed from Id 
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc. 
+*
+*	This product contains software technology licensed from Id
+*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
 *	All Rights Reserved.
 *
 *   Use, distribution, and modification of this source code and/or resulting
@@ -17,7 +17,7 @@
 #define R_EFX_H
 
 // particle_t
-#if !defined( PARTICLEDEFH )  
+#if !defined( PARTICLEDEFH )
 #include "particledef.h"
 #endif
 
@@ -75,7 +75,7 @@ color24 gTracerColors[] =
 #define FTENT_SPIRAL		0x00000400
 #define FTENT_SPRCYCLE		0x00000800
 #define FTENT_COLLIDEALL		0x00001000 // will collide with world and slideboxes
-#define FTENT_PERSIST		0x00002000 // tent is not removed when unable to draw 
+#define FTENT_PERSIST		0x00002000 // tent is not removed when unable to draw
 #define FTENT_COLLIDEKILL		0x00004000 // tent is removed upon collision with anything
 #define FTENT_PLYRATTACHMENT		0x00008000 // tent is attached to a player (owner)
 #define FTENT_SPRANIMATELOOP		0x00010000 // animating sprite doesn't die when last frame is displayed
@@ -102,7 +102,7 @@ typedef struct tempent_s
 	int		priority;
 	short		clientIndex;	// if attached, this is the index of the client to stick to
 					// if COLLIDEALL, this is the index of the client to ignore
-					// TENTS with FTENT_PLYRATTACHMENT MUST set the clientindex! 
+					// TENTS with FTENT_PLYRATTACHMENT MUST set the clientindex!
 
 	vec3_t		tentOffset;	// if attached, client origin + tentOffset = tent origin.
 	cl_entity_t	entity;

@@ -99,7 +99,7 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 					Mem_Free(f); // release buffer
 					return SoundPack(); // loaded
 				}
-				else Mem_Free(f); // release buffer 
+				else Mem_Free(f); // release buffer
 			}
 		}
 	}
@@ -141,7 +141,7 @@ void FS_FreeSound( wavdata_t *pack )
 ================
 FS_OpenStream
 
-open and reading basic info from sound stream 
+open and reading basic info from sound stream
 ================
 */
 stream_t *FS_OpenStream( const char *filename )
@@ -207,7 +207,7 @@ wavdata_t *FS_StreamInfo( stream_t *stream )
 	info.rate = stream->rate;
 	info.width = stream->width;
 	info.channels = stream->channels;
-	info.flags = SOUND_STREAM; 
+	info.flags = SOUND_STREAM;
 	info.size = stream->size;
 	info.buffer = NULL;
 	info.samples = 0;	// not actual for streams

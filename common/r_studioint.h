@@ -1,9 +1,9 @@
 /***
 *
 *	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*	
-*	This product contains software technology licensed from Id 
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc. 
+*
+*	This product contains software technology licensed from Id
+*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
 *	All Rights Reserved.
 *
 *   Use, distribution, and modification of this source code and/or resulting
@@ -103,7 +103,7 @@ typedef struct engine_studio_api_s
 
 	// True if using D3D/OpenGL
 	int		( *IsHardware )( void );
-	
+
 	// Only called by hardware interface
 	void		( *GL_StudioDrawShadow )( void );
 	void		( *GL_SetRenderMode )( int mode );
@@ -140,7 +140,7 @@ typedef struct sv_blending_interface_s
 {
 	int	version;
 
-	void	( *SV_StudioSetupBones )( struct model_s *pModel, 
+	void	( *SV_StudioSetupBones )( struct model_s *pModel,
 					float frame,
 					int sequence,
 					const vec3_t angles,

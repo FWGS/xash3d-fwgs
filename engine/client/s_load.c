@@ -211,7 +211,7 @@ sfx_t *S_FindName( const char *pname, int *pfInCache )
 			return NULL;
 		s_numSfx++;
 	}
-	
+
 	sfx = &s_knownSfx[i];
 	memset( sfx, 0, sizeof( *sfx ));
 	if( pfInCache ) *pfInCache = false;
@@ -222,7 +222,7 @@ sfx_t *S_FindName( const char *pname, int *pfInCache )
 	// link it in
 	sfx->hashNext = s_sfxHashList[sfx->hashValue];
 	s_sfxHashList[sfx->hashValue] = sfx;
-		
+
 	return sfx;
 }
 
@@ -299,7 +299,7 @@ void S_EndRegistration( void )
 
 	if( !s_registering || !dma.initialized )
 		return;
-	
+
 	// free any sounds not from this registration sequence
 	for( i = 0, sfx = s_knownSfx; i < s_numSfx; i++, sfx++ )
 	{

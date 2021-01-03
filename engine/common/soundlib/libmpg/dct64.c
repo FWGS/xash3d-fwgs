@@ -31,7 +31,7 @@ void dct64( float *out0, float *out1, float *samples )
 		b2 = b1 + 32;
 
 		for( i = 15; i >= 0; i-- )
-			*bs++ = (*b1++ + *--b2); 
+			*bs++ = (*b1++ + *--b2);
 
 		for( i = 15; i >= 0; i-- )
 			*bs++ = REAL_MUL((*--b2 - *b1++), *--costab);
@@ -42,7 +42,7 @@ void dct64( float *out0, float *out1, float *samples )
 
 		{
 			for( i = 7; i >= 0; i-- )
-				*bs++ = (*b1++ + *--b2); 
+				*bs++ = (*b1++ + *--b2);
 
 			for( i = 7; i >= 0; i-- )
 				*bs++ = REAL_MUL((*--b2 - *b1++), *--costab);
@@ -50,7 +50,7 @@ void dct64( float *out0, float *out1, float *samples )
 			costab += 8;
 
 			for( i = 7; i >= 0; i-- )
-				*bs++ = (*b1++ + *--b2); 
+				*bs++ = (*b1++ + *--b2);
 			for( i = 7; i >= 0; i-- )
 				*bs++ = REAL_MUL((*b1++ - *--b2), *--costab);
 			b2 += 32;
@@ -63,13 +63,13 @@ void dct64( float *out0, float *out1, float *samples )
 		for( j = 2; j; j-- )
 		{
 			for( i = 3; i >= 0; i-- )
-				*bs++ = (*b1++ + *--b2); 
+				*bs++ = (*b1++ + *--b2);
 			for( i = 3;i >= 0; i-- )
 				*bs++ = REAL_MUL((*--b2 - *b1++), costab[i]);
 			b2 += 16;
 
 			for( i = 3; i >= 0; i-- )
-				*bs++ = (*b1++ + *--b2); 
+				*bs++ = (*b1++ + *--b2);
 			for( i = 3;i >= 0; i-- )
 				*bs++ = REAL_MUL((*b1++ - *--b2), costab[i]);
 			b2 += 16;
@@ -81,13 +81,13 @@ void dct64( float *out0, float *out1, float *samples )
 
 		for( j = 4; j; j-- )
 		{
-			*bs++ = (*b1++ + *--b2); 
+			*bs++ = (*b1++ + *--b2);
 			*bs++ = (*b1++ + *--b2);
 			*bs++ = REAL_MUL((*--b2 - *b1++), costab[1]);
 			*bs++ = REAL_MUL((*--b2 - *b1++), costab[0]);
 			b2 += 8;
 
-			*bs++ = (*b1++ + *--b2); 
+			*bs++ = (*b1++ + *--b2);
 			*bs++ = (*b1++ + *--b2);
 			*bs++ = REAL_MUL((*b1++ - *--b2), costab[1]);
 			*bs++ = REAL_MUL((*b1++ - *--b2), costab[0]);

@@ -323,7 +323,7 @@ void CL_ProcessEntityUpdate( cl_entity_t *ent )
 	}
 
 	// g-cont. it should be done for all the players?
-	if( ent->player && !FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP )) 
+	if( ent->player && !FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP ))
 		ent->curstate.angles[PITCH] /= -3.0f;
 
 	VectorCopy( ent->curstate.origin, ent->origin );
@@ -782,7 +782,7 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 		}
 
 		if( subtracted >= CL_UPDATE_MASK )
-		{	
+		{
 			// we can't use this, it is too old
 			Con_NPrintf( 2, "^3Warning:^1 delta frame is too old^7\n" );
 			CL_FlushEntityPacket( msg );
@@ -850,7 +850,7 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 		player = CL_IsPlayerIndex( newnum );
 
 		while( oldnum < newnum )
-		{	
+		{
 			// one or more entities from the old packet are unchanged
 			CL_DeltaEntity( msg, newframe, oldnum, oldent, false );
 			oldindex++;
@@ -867,7 +867,7 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 		}
 
 		if( oldnum == newnum )
-		{	
+		{
 			// delta from previous state
 			bufStart = MSG_GetNumBytesRead( msg );
 			CL_DeltaEntity( msg, newframe, newnum, oldent, true );
@@ -887,7 +887,7 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 		}
 
 		if( oldnum > newnum )
-		{	
+		{
 			// delta from baseline ?
 			bufStart = MSG_GetNumBytesRead( msg );
 			CL_DeltaEntity( msg, newframe, newnum, NULL, true );
@@ -898,7 +898,7 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 
 	// any remaining entities in the old frame are copied over
 	while( oldnum != MAX_ENTNUMBER )
-	{	
+	{
 		// one or more entities from the old packet are unchanged
 		CL_DeltaEntity( msg, newframe, oldnum, oldent, false );
 		oldindex++;
@@ -928,10 +928,10 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 
 	// first update is the final signon stage where we actually receive an entity (i.e., the world at least)
 	if( cls.signon == ( SIGNONS - 1 ))
-	{	
+	{
 		// we are done with signon sequence.
 		cls.signon = SIGNONS;
-		
+
 		// Clear loading plaque.
 		CL_SignonReply ();
 	}
@@ -1224,7 +1224,7 @@ void CL_LinkPacketEntities( frame_t *frame )
 
 			if( ent->model->type == mod_studio )
 			{
-				if( interpolate && FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP )) 
+				if( interpolate && FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP ))
 					ref.dllFuncs.R_StudioLerpMovement( ent, cl.time, ent->origin, ent->angles );
 			}
 		}

@@ -196,7 +196,7 @@ const char *Info_ValueForKey( const char *s, const char *key )
 	static	int valueindex;
 	int	count;
 	char	*o;
-	
+
 	valueindex = (valueindex + 1) % 4;
 	if( *s == '\\' ) s++;
 

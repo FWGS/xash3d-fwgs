@@ -32,7 +32,7 @@ static int IsComment( const char *pText )
 
 		if( length >= 2 && pText[0] == '/' && pText[1] == '/' )
 			return 1;
-		
+
 		// no text?
 		if( length > 0 )
 			return 0;
@@ -213,7 +213,7 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 	char			buf[512], trim[512], currentName[512];
 	char			*pCurrentText = NULL, *pNameHeap;
 	char			nameHeap[32768]; // g-cont. i will scale up heap to handle all TFC messages
-	int			mode = MSGFILE_NAME; // searching for a message name	
+	int			mode = MSGFILE_NAME; // searching for a message name
 	int			lineNumber, filePos, lastLinePos;
 	client_textmessage_t	textMessages[MAX_MESSAGES];
 	int			i, nameHeapSize, textHeapSize, messageSize, nameOffset;
@@ -318,10 +318,10 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 
 	// must malloc because we need to be able to clear it after initialization
 	clgame.titles = (client_textmessage_t *)Mem_Calloc( cls.mempool, textHeapSize + nameHeapSize + messageSize );
-	
+
 	// copy table over
 	memcpy( clgame.titles, textMessages, messageSize );
-	
+
 	// copy Name heap
 	pNameHeap = ((char *)clgame.titles) + messageSize;
 	memcpy( pNameHeap, nameHeap, nameHeapSize );

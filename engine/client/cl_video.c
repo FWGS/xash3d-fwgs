@@ -87,7 +87,7 @@ void SCR_CheckStartupVids( void )
 	byte *afile;
 	char *pfile;
 	string	token;
-		
+
 	if( Sys_CheckParm( "-nointro" ) || host_developer.value || cls.demonum != -1 || GameState->nextstate != STATE_RUNFRAME )
 	{
 		// don't run movies where we in developer-mode
@@ -122,7 +122,7 @@ void SCR_CheckStartupVids( void )
 	SCR_NextMovie ();
 	Cbuf_Execute();
 }
-		
+
 /*
 ==================
 SCR_RunCinematic
@@ -152,7 +152,7 @@ void SCR_RunCinematic( void )
 		return;
 	}
 
-	// advances cinematic time (ignores maxfps and host_framerate settings)	
+	// advances cinematic time (ignores maxfps and host_framerate settings)
 	cin_time += host.realframetime;
 
 	// stop the video after it finishes
@@ -194,7 +194,7 @@ qboolean SCR_DrawCinematic( void )
 
 	return true;
 }
-  
+
 /*
 ==================
 SCR_PlayCinematic
@@ -238,7 +238,7 @@ qboolean SCR_PlayCinematic( const char *arg )
 	Con_FastClose();
 	cin_time = 0.0f;
 	cls.signon = 0;
-	
+
 	return true;
 }
 
@@ -258,7 +258,7 @@ wavdata_t *SCR_GetMovieInfo( void )
 		return &cin_audio;
 	return NULL;
 }
-	
+
 /*
 ==================
 SCR_StopCinematic

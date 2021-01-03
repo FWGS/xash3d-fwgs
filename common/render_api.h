@@ -132,7 +132,7 @@ typedef struct modelstate_s
 	short		frame;		// 10 bits multiple by 4, should be enough
 	byte		blending[2];
 	byte		controller[4];
-	byte		poseparam[16];		
+	byte		poseparam[16];
 	byte		body;
 	byte		skin;
 	short		scale;		// model scale (multiplied by 16)
@@ -163,7 +163,7 @@ typedef struct render_api_s
 	int		(*RenderGetParm)( int parm, int arg );	// generic
 	void		(*GetDetailScaleForTexture)( int texture, float *xScale, float *yScale );
 	void		(*GetExtraParmsForTexture)( int texture, byte *red, byte *green, byte *blue, byte *alpha );
-	lightstyle_t*	(*GetLightStyle)( int number ); 
+	lightstyle_t*	(*GetLightStyle)( int number );
 	dlight_t*		(*GetDynamicLight)( int number );
 	dlight_t*		(*GetEntityLight)( int number );
 	byte		(*LightToTexGamma)( byte color );	// software gamma support

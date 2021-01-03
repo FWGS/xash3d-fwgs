@@ -103,7 +103,7 @@ void R_MarkLights( dlight_t *light, int bit, mnode_t *node )
 	float		dist;
 	msurface_t	*surf;
 	int		i;
-	
+
 	if( !node || node->contents < 0 )
 		return;
 
@@ -119,7 +119,7 @@ void R_MarkLights( dlight_t *light, int bit, mnode_t *node )
 		R_MarkLights( light, bit, node->children[1] );
 		return;
 	}
-		
+
 	// mark the polygons
 	surf = RI.currentmodel->surfaces + node->firstsurface;
 
@@ -261,7 +261,7 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 	VectorLerp( start, frac, end, mid );
 	midf = p1f + ( p2f - p1f ) * frac;
 
-	// co down front side	
+	// co down front side
 	if( R_RecursiveLightPoint( model, node->children[side], p1f, midf, cv, start, mid ))
 		return true; // hit something
 
@@ -293,7 +293,7 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 
 		ds = s - info->lightmapmins[0];
 		dt = t - info->lightmapmins[1];
-		
+
 		if ( ds > info->lightextents[0] || dt > info->lightextents[1] )
 			continue;
 

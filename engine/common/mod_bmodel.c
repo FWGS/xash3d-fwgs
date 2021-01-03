@@ -459,7 +459,7 @@ byte *Mod_DecompressPVS( const byte *in, int visbytes )
 	out = g_visdata;
 
 	if( !in )
-	{	
+	{
 		// no vis info, so make all visible
 		while( visbytes )
 		{
@@ -641,7 +641,7 @@ static void Mod_BoxLeafnums_r( leaflist_t *ll, mnode_t *node )
 			ll->list[ll->count++] = leaf->cluster;
 			return;
 		}
-	
+
 		sides = BOX_ON_PLANE_SIDE( ll->mins, ll->maxs, node->plane );
 
 		if( sides == 1 )
@@ -756,7 +756,7 @@ void Mod_AmbientLevels( const vec3_t p, byte *pvolumes )
 	mleaf_t	*leaf;
 
 	if( !worldmodel || !p || !pvolumes )
-		return;	
+		return;
 
 	leaf = Mod_PointInLeaf( p, worldmodel->nodes );
 	*(int *)pvolumes = *(int *)leaf->ambient_sound_level;
@@ -802,8 +802,8 @@ static void Mod_FindModelOrigin( const char *entities, const char *modelname, ve
 
 			Q_strncpy( keyname, token, sizeof( keyname ));
 
-			// parse value	
-			if(( pfile = COM_ParseFile( pfile, token )) == NULL ) 
+			// parse value
+			if(( pfile = COM_ParseFile( pfile, token )) == NULL )
 				Host_Error( "Mod_FindModelOrigin: EOF without closing brace\n" );
 
 			if( token[0] == '}' )
@@ -820,7 +820,7 @@ static void Mod_FindModelOrigin( const char *entities, const char *modelname, ve
 		}
 
 		if( model_found ) break;
-	}	
+	}
 }
 
 /*
@@ -936,7 +936,7 @@ static mvertex_t *Mod_GetVertexByNumber( model_t *mod, int surfedge )
 		return &mod->vertexes[edge->v[1]];
 	}
 }
-		
+
 /*
 ==================
 Mod_MakeNormalAxial
@@ -1032,7 +1032,7 @@ static void Mod_CalcSurfaceExtents( msurface_t *surf )
 	sample_size = Mod_SampleSizeForFace( surf );
 	tex = surf->texinfo;
 
-	Mod_LightMatrixFromTexMatrix( tex, info->lmvecs ); 
+	Mod_LightMatrixFromTexMatrix( tex, info->lmvecs );
 
 	mins[0] = lmmins[0] = mins[1] = lmmins[1] = 999999;
 	maxs[0] = lmmaxs[0] = maxs[1] = lmmaxs[1] =-999999;
@@ -1276,9 +1276,9 @@ static void Mod_MakeHull0( void )
 	mclipnode_t	*out;
 	hull_t		*hull;
 	int		i, j;
-	
-	hull = &loadmodel->hulls[0];	
-	hull->clipnodes = out = Mem_Malloc( loadmodel->mempool, loadmodel->numnodes * sizeof( *out ));	
+
+	hull = &loadmodel->hulls[0];
+	hull->clipnodes = out = Mem_Malloc( loadmodel->mempool, loadmodel->numnodes * sizeof( *out ));
 	in = loadmodel->nodes;
 
 	hull->firstclipnode = 0;
@@ -1502,7 +1502,7 @@ static void Mod_SetupSubmodels( dbspmodel_t *bmod )
 		mod->firstmodelsurface = bm->firstface;
 		mod->nummodelsurfaces = bm->numfaces;
 
-		VectorCopy( bm->mins, mod->mins );		
+		VectorCopy( bm->mins, mod->mins );
 		VectorCopy( bm->maxs, mod->maxs );
 
 		mod->radius = RadiusFromBounds( mod->mins, mod->maxs );
@@ -1596,7 +1596,7 @@ static void Mod_LoadSubmodels( dbspmodel_t *bmod )
 			if( in->mins[j] == 999999.0f )
 				in->mins[j] = 0.0f;
 			if( in->maxs[j] == -999999.0f)
-				in->maxs[j] = 0.0f; 
+				in->maxs[j] = 0.0f;
 
 			// spread the mins / maxs by a unit
 			out->mins[j] = in->mins[j] - 1.0f;
@@ -1613,7 +1613,7 @@ static void Mod_LoadSubmodels( dbspmodel_t *bmod )
 
 		if( i == 0 && bmod->isworld )
 			continue; // skip the world to save mem
-		oldmaxfaces = Q_max( oldmaxfaces, out->numfaces ); 
+		oldmaxfaces = Q_max( oldmaxfaces, out->numfaces );
 	}
 
 	// these array used to sort translucent faces in bmodels
@@ -1693,8 +1693,8 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 
 			Q_strncpy( keyname, token, sizeof( keyname ));
 
-			// parse value	
-			if(( pfile = COM_ParseFile( pfile, token )) == NULL ) 
+			// parse value
+			if(( pfile = COM_ParseFile( pfile, token )) == NULL )
 				Host_Error( "Mod_LoadEntities: EOF without closing brace\n" );
 
 			if( token[0] == '}' )
@@ -1908,7 +1908,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 	qboolean		custom_palette;
 	char		texname[64];
 	mip_t		*mt;
-	int 		i, j; 
+	int 		i, j;
 
 	if( bmod->isworld )
 	{
@@ -2574,7 +2574,7 @@ static void Mod_LoadClipnodes( dbspmodel_t *bmod )
 	dclipnode32_t	*out;
 	int		i;
 
-	bmod->clipnodes_out = out = (dclipnode32_t *)Mem_Malloc( loadmodel->mempool, bmod->numclipnodes * sizeof( *out ));	
+	bmod->clipnodes_out = out = (dclipnode32_t *)Mem_Malloc( loadmodel->mempool, bmod->numclipnodes * sizeof( *out ));
 
 	if(( bmod->version == QBSP2_VERSION ) || ( bmod->version == HLBSP_VERSION && bmod->numclipnodes >= MAX_MAP_CLIPNODES ))
 	{
@@ -2801,7 +2801,7 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	{
 		Con_DPrintf( "Mod_Load%s: %i error(s), %i warning(s)\n", isworld ? "World" : "Brush", loadstat.numerrors, loadstat.numwarnings );
 		return false; // there were errors, we can't load this map
-	}	
+	}
 	else if( !bmod->isworld && loadstat.numwarnings )
 		Con_DPrintf( "Mod_Load%s: %i warning(s)\n", isworld ? "World" : "Brush", loadstat.numwarnings );
 
@@ -2915,7 +2915,7 @@ qboolean Mod_TestBmodelLumps( const char *name, const byte *mod_base, qboolean s
 		if( !FBitSet( flags, LUMP_SILENT ))
 			Con_Printf( "Mod_LoadWorld: %i error(s), %i warning(s)\n", loadstat.numerrors, loadstat.numwarnings );
 		return false; // there were errors, we can't load this map
-	}	
+	}
 	else if( loadstat.numwarnings )
 	{
 		if( !FBitSet( flags, LUMP_SILENT ))
@@ -2932,7 +2932,7 @@ Mod_LoadBrushModel
 */
 void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded )
 {
-	if( loaded ) *loaded = false;	
+	if( loaded ) *loaded = false;
 
 	loadmodel->mempool = Mem_AllocPool( va( "^2%s^7", loadmodel->name ));
 	loadmodel->type = mod_brush;

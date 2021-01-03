@@ -34,7 +34,7 @@ int boxpnt[6][4] =
 { 7, 5, 1, 3 }, // -X
 { 7, 3, 2, 6 }, // -Y
 { 7, 6, 4, 5 }, // -Z
-};	
+};
 
 // pre-quantized table normals from Quake1
 const float m_bytenormals[NUMVERTEXNORMALS][3] =
@@ -128,7 +128,7 @@ round the hullsize to nearest 'right' value
 void RoundUpHullSize( vec3_t size )
 {
 	int	i, j;
-	
+
 	for( i = 0; i < 3; i++)
 	{
 		qboolean	negative = false;
@@ -149,7 +149,7 @@ void RoundUpHullSize( vec3_t size )
 			{
 				result = ( value - hull_table[j] );
 				if( result <= HULL_PRECISION )
-				{ 
+				{
 					result = -hull_table[j];
 					break;
 				}
@@ -158,7 +158,7 @@ void RoundUpHullSize( vec3_t size )
 			{
 				result = ( value - hull_table[j] );
 				if( result <= HULL_PRECISION )
-				{ 
+				{
 					result = hull_table[j];
 					break;
 				}
@@ -451,7 +451,7 @@ void GAME_EXPORT VectorAngles( const float *forward, float *angles )
 		if( pitch < 0 ) pitch += 360;
 	}
 
-	VectorSet( angles, pitch, yaw, 0 ); 
+	VectorSet( angles, pitch, yaw, 0 );
 }
 
 /*
@@ -679,20 +679,20 @@ void QuaternionAlign( const vec4_t p, const vec4_t q, vec4_t qt )
 	float	b = 0.0f;
 	int	i;
 
-	for( i = 0; i < 4; i++ ) 
+	for( i = 0; i < 4; i++ )
 	{
 		a += (p[i] - q[i]) * (p[i] - q[i]);
 		b += (p[i] + q[i]) * (p[i] + q[i]);
 	}
 
-	if( a > b ) 
+	if( a > b )
 	{
-		for( i = 0; i < 4; i++ ) 
+		for( i = 0; i < 4; i++ )
 			qt[i] = -q[i];
 	}
 	else
 	{
-		for( i = 0; i < 4; i++ ) 
+		for( i = 0; i < 4; i++ )
 			qt[i] = q[i];
 	}
 }

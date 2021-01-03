@@ -1,9 +1,9 @@
 /***
 *
 *	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*	
-*	This product contains software technology licensed from Id 
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc. 
+*
+*	This product contains software technology licensed from Id
+*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
 *	All Rights Reserved.
 *
 *   Use, distribution, and modification of this source code and/or resulting
@@ -25,7 +25,7 @@ typedef struct ref_params_s
 	vec3_t		forward;
 	vec3_t		right;
 	vec3_t		up;
-	
+
 	// Client frametime;
 	float		frametime;
 	// Client time
@@ -54,7 +54,7 @@ typedef struct ref_params_s
 	int		viewentity;
 	int		playernum;
 	int		max_entities;
-	int		demoplayback;	
+	int		demoplayback;
 	int		hardware;
 	int		smoothing;
 

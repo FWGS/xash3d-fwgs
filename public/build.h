@@ -35,10 +35,10 @@ For more information, please refer to <http://unlicense.org/>
 // Any new define must be undefined at first
 // You can generate #undef list below with this oneliner:
 //   $ cat build.h | sed 's/\t//g' | grep '^#define XASH' | awk '{ print $2 }' | sort | uniq | awk '{ print "#undef " $1 }'
-// 
+//
 // So in various buildscripts you can grep for ^#undef XASH and select only second word
 // or in another oneliner:
-//   $ cat build.h | grep '^#undef XASH' | awk '{ print $2 }' 
+//   $ cat build.h | grep '^#undef XASH' | awk '{ print $2 }'
 
 #undef XASH_64BIT
 #undef XASH_AMD64

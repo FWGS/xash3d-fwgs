@@ -44,7 +44,7 @@ const char *HPAK_TypeFromIndex( int type )
 	case t_decal: return "decal";
 	case t_generic: return "generic";
 	case t_eventscript: return "event";
-	case t_world: return "map";	
+	case t_world: return "map";
 	}
 	return "?";
 }
@@ -439,7 +439,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 		pRes = &dataDir[i].resource;
 
 		Con_Printf( "%i:      %s %s %s:   ", i, HPAK_TypeFromIndex( pRes->type ),
-		Q_pretifymem( pRes->nDownloadSize, 2 ), pRes->szFileName );  
+		Q_pretifymem( pRes->nDownloadSize, 2 ), pRes->szFileName );
 
 		if( memcmp( md5, pRes->rgucMD5_hash, 0x10 ))
 		{
@@ -518,7 +518,7 @@ qboolean HPAK_ResourceForHash( const char *filename, byte *hash, resource_t *pRe
 
 	if( !COM_CheckString( filename ))
 		return false;
-	
+
 	for( p = gp_hpak_queue; p != NULL; p = p->next )
 	{
 		if( !Q_stricmp( p->name, filename ) && !memcmp( p->resource.rgucMD5_hash, hash, 16 ))

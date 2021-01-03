@@ -185,7 +185,7 @@ static int GL_CalcMipmapCount( image_t *tex, qboolean haveBuffer )
 	// generate mip-levels by user request
 	if( FBitSet( tex->flags, TF_NOMIPMAP ))
 		return 1;
-		
+
 	// mip-maps can't exceeds 4
 	for( mipcount = 0; mipcount < 4; mipcount++ )
 	{
@@ -580,7 +580,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 		if( j == 0 &&  tex->flags & TF_HAS_ALPHA )
 			tex->alpha_pixels = (pixel_t*)Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) );
-	
+
 		for(i = 0; i < height * width; i++ )
 		{
 				unsigned int r, g, b, major, minor;
@@ -747,7 +747,7 @@ do specified actions on pixels
 */
 static void GL_ProcessImage( image_t *tex, rgbdata_t *pic )
 {
-	uint	img_flags = 0; 
+	uint	img_flags = 0;
 
 	// force upload texture as RGB or RGBA (detail textures requires this)
 	if( tex->flags & TF_FORCE_COLOR ) pic->flags |= IMAGE_HAS_COLOR;
@@ -986,7 +986,7 @@ int GAME_EXPORT GL_LoadTexture( const char *name, const byte *buf, size_t size, 
 		SetBits( picFlags, IL_DONTFLIP_TGA );
 
 	if( FBitSet( flags, TF_KEEP_SOURCE ) && !FBitSet( flags, TF_EXPAND_SOURCE ))
-		SetBits( picFlags, IL_KEEP_8BIT );	
+		SetBits( picFlags, IL_KEEP_8BIT );
 
 	// set some image flags
 	gEngfuncs.Image_SetForceFlags( picFlags );
@@ -1252,7 +1252,7 @@ void R_InitDlightTexture( void )
 		return; // already initialized
 
 	memset( &r_image, 0, sizeof( r_image ));
-	r_image.width = BLOCK_SIZE; 
+	r_image.width = BLOCK_SIZE;
 	r_image.height = BLOCK_SIZE;
 	r_image.flags = IMAGE_HAS_COLOR;
 	r_image.type = PF_RGBA_32;

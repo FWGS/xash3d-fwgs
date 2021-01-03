@@ -62,7 +62,7 @@ int PM_SampleMiptex( const msurface_t *surf, const vec3_t point )
 	if( fb ) contents = fb->contents;
 	else contents = CONTENTS_SOLID;
 
-	if( !surf->texinfo || !surf->texinfo->texture ) 
+	if( !surf->texinfo || !surf->texinfo->texture )
 		return contents;
 
 	tx = surf->texinfo;

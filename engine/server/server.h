@@ -131,7 +131,7 @@ typedef struct server_s
 
 	int		hostflags;	// misc server flags: predicting etc
 	CRC32_t		worldmapCRC;	// check crc for catch cheater maps
-	int		progsCRC;		// this is used with feature ENGINE_QUAKE_COMPATIBLE 
+	int		progsCRC;		// this is used with feature ENGINE_QUAKE_COMPATIBLE
 
 	char		name[MAX_QPATH];	// map name
 	char		startspot[MAX_QPATH];
@@ -216,7 +216,7 @@ typedef struct sv_client_s
 	int		chokecount;			// number of messages rate supressed
 	int		delta_sequence;		// -1 = no compression.
 
-	double		next_messagetime;		// time when we should send next world state update  
+	double		next_messagetime;		// time when we should send next world state update
 	double		next_checkpingtime;		// time to send all players pings to client
 	double		next_sendinfotime;		// time to send info about all players
 	double		cl_updaterate;		// client requested updaterate

@@ -79,5 +79,5 @@ typedef struct event_state_s
 {
 	event_info_t	ei[MAX_EVENT_QUEUE];
 } event_state_t;
-	
+
 #endif//WORLD_H

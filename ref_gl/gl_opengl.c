@@ -649,7 +649,7 @@ void GL_InitExtensionsBigGL( void )
 		const char *version = pglGetString( GL_VERSION | 0x10000 );
 		const char *extensions = pglGetString( GL_EXTENSIONS | 0x10000 );
 		glConfig.wrapper = GLES_WRAPPER_GL4ES;
-		
+
 	}
 
 	// multitexture

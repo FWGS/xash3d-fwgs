@@ -77,7 +77,7 @@ private:
 	void InitVertex( vpoint_t &vertex, int x, int y, float u, float v );
 public:
 	CEngineSurface( Panel *embeddedPanel );
-	~CEngineSurface();	
+	~CEngineSurface();
 public:
 	virtual Panel *getEmbeddedPanel( void );
 	virtual bool setFullscreenMode( int wide, int tall, int bpp );

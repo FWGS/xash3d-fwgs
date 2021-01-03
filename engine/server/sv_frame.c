@@ -21,7 +21,7 @@ GNU General Public License for more details.
 typedef struct
 {
 	int		num_entities;
-	entity_state_t	entities[MAX_VISIBLE_PACKET];	
+	entity_state_t	entities[MAX_VISIBLE_PACKET];
 	byte		sended[MAX_EDICTS_BYTES];
 } sv_ents_t;
 
@@ -143,7 +143,7 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 			{
 				ents->num_entities++;	// entity accepted
 				c_fullsend++;		// debug counter
-				
+
 			}
 			else
 			{
@@ -328,7 +328,7 @@ static void SV_EmitPacketEntities( sv_client_t *cl, client_frame_t *to, sizebuf_
 		}
 
 		if( newnum == oldnum )
-		{	
+		{
 			// delta update from old position
 			// because the force parm is false, this will not result
 			// in any bytes being emited if the entity has not changed at all
@@ -339,7 +339,7 @@ static void SV_EmitPacketEntities( sv_client_t *cl, client_frame_t *to, sizebuf_
 		}
 
 		if( newnum < oldnum )
-		{	
+		{
 			entity_state_t	*baseline = &svs.baselines[newnum];
 			const char	*classname = SV_ClassName( EDICT_NUM( newnum ));
 			int		offset = 0;
@@ -369,7 +369,7 @@ static void SV_EmitPacketEntities( sv_client_t *cl, client_frame_t *to, sizebuf_
 		}
 
 		if( newnum > oldnum )
-		{	
+		{
 			edict_t	*ed = EDICT_NUM( oldent->number );
 			qboolean	force = false;
 
@@ -736,7 +736,7 @@ void SV_SendClientDatagram( sv_client_t *cl )
 	MSG_Clear( &cl->datagram );
 
 	if( MSG_CheckOverflow( &msg ))
-	{	
+	{
 		// must have room left for the packet header
 		Con_Printf( S_ERROR "%s overflowed for %s\n", MSG_GetName( &msg ), cl->name );
 		MSG_Clear( &msg );
@@ -934,7 +934,7 @@ void SV_SendMessagesToAll( void )
 	{
 		if( cl->state >= cs_connected )
 			SetBits( cl->flags, FCL_SEND_NET_MESSAGE );
-	}	
+	}
 
 	SV_SendClientMessages();
 }
@@ -983,7 +983,7 @@ void SV_InactivateClients( void )
 	{
 		if( !cl->state || !cl->edict )
 			continue;
-			
+
 		if( !cl->edict  )
 			continue;
 

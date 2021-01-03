@@ -338,7 +338,7 @@ The flags will be or'ed in if the variable exists.
 convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *var_desc )
 {
 	convar_t	*cur, *find, *var;
-	
+
 	ASSERT( name && *name );
 
 	// check for command coexisting
@@ -463,13 +463,13 @@ void Cvar_RegisterVariable( convar_t *var )
 	if( FBitSet( var->flags, FCVAR_EXTENDED ))
 		var->def_string = var->string; // just swap pointers
 
-	var->string = copystring( var->string );	
+	var->string = copystring( var->string );
 	var->value = Q_atof( var->string );
 
 	// find the supposed position in chain (alphanumerical order)
 	for( cur = NULL, find = cvar_vars; find && Q_strcmp( find->name, var->name ) < 0; cur = find, find = find->next );
 
-	// now link variable	
+	// now link variable
 	if( cur ) cur->next = var;
 	else cvar_vars = var;
 	var->next = find;
@@ -496,7 +496,7 @@ way to change value for many cvars
 void Cvar_DirectSet( convar_t *var, const char *value )
 {
 	const char	*pszValue;
-	
+
 	if( !var ) return;	// ???
 
 	// lookup for registration
@@ -515,7 +515,7 @@ void Cvar_DirectSet( convar_t *var, const char *value )
 		Con_Printf( "%s is read-only.\n", var->name );
 		return;
 	}
-	
+
 	if( FBitSet( var->flags, FCVAR_CHEAT ) && !host.allow_cheats )
 	{
 		Con_Printf( "%s is cheat protected.\n", var->name );
@@ -619,7 +619,7 @@ Cvar_SetValue
 void GAME_EXPORT Cvar_SetValue( const char *var_name, float value )
 {
 	char	val[32];
-	
+
 	if( fabs( value - (int)value ) < 0.000001 )
 		Q_snprintf( val, sizeof( val ), "%d", (int)value );
 	else Q_snprintf( val, sizeof( val ), "%f", value );
@@ -816,7 +816,7 @@ with the specified flag set to true.
 void Cvar_WriteVariables( file_t *f, int group )
 {
 	convar_t	*var;
-	
+
 	for( var = cvar_vars; var; var = var->next )
 	{
 		if( FBitSet( var->flags, group ))
@@ -954,7 +954,7 @@ void Cvar_Init( void )
 {
 	cvar_vars = NULL;
 	cmd_scripting = Cvar_Get( "cmd_scripting", "0", FCVAR_ARCHIVE, "enable simple condition checking and variable operations" );
-	Cvar_RegisterVariable (&host_developer); // early registering for dev 
+	Cvar_RegisterVariable (&host_developer); // early registering for dev
 
 	Cmd_AddCommand( "setgl", Cvar_SetGL_f, "change the value of a opengl variable" );	// OBSOLETE
 	Cmd_AddCommand( "toggle", Cvar_Toggle_f, "toggles a console variable's values (use for more info)" );

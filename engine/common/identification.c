@@ -366,7 +366,7 @@ int ID_GetKeyData( HKEY hRootKey, char *subKey, char *value, LPBYTE data, DWORD 
 
 	if( RegOpenKeyEx( hRootKey, subKey, 0, KEY_QUERY_VALUE, &hKey ) != ERROR_SUCCESS )
 		return 0;
-	
+
 	if( RegQueryValueEx( hKey, value, NULL, NULL, data, &cbData ) != ERROR_SUCCESS )
 	{
 		RegCloseKey( hKey );
@@ -381,13 +381,13 @@ int ID_SetKeyData( HKEY hRootKey, char *subKey, DWORD dwType, char *value, LPBYT
 	HKEY hKey;
 	if( RegCreateKey( hRootKey, subKey, &hKey ) != ERROR_SUCCESS )
 		return 0;
-	
+
 	if( RegSetValueEx( hKey, value, 0, dwType, data, cbData ) != ERROR_SUCCESS )
 	{
 		RegCloseKey( hKey );
 		return 0;
 	}
-	
+
 	RegCloseKey( hKey );
 	return 1;
 }
@@ -403,18 +403,18 @@ int ID_RunWMIC(char *buffer, const char *cmdline)
 	DWORD dwRead;
 	BOOL bSuccess = FALSE;
 	SECURITY_ATTRIBUTES saAttr;
-	
+
 	STARTUPINFO si = {0};
-	
+
 	PROCESS_INFORMATION pi = {0};
 	saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
 	saAttr.bInheritHandle = TRUE;
 	saAttr.lpSecurityDescriptor = NULL;
-	
+
 	CreatePipe( &g_IN_Rd, &g_IN_Wr, &saAttr, 0 );
 	CreatePipe( &g_OUT_Rd, &g_OUT_Wr, &saAttr, 0 );
 	SetHandleInformation( g_IN_Wr, HANDLE_FLAG_INHERIT, 0 );
-	
+
 	si.cb = sizeof(STARTUPINFO);
 	si.dwFlags = STARTF_USESTDHANDLES;
 	si.hStdInput = g_IN_Rd;
@@ -424,12 +424,12 @@ int ID_RunWMIC(char *buffer, const char *cmdline)
 	si.dwFlags |= STARTF_USESTDHANDLES;
 
 	CreateProcess( NULL, (char*)cmdline, NULL, NULL, true, CREATE_NO_WINDOW , NULL, NULL, &si, &pi );
-	
+
 	CloseHandle( g_OUT_Wr );
 	CloseHandle( g_IN_Wr );
-	
+
 	WaitForSingleObject( pi.hProcess, 500 );
-	
+
 	bSuccess = ReadFile( g_OUT_Rd, buffer, BUFSIZE, &dwRead, NULL );
 	buffer[BUFSIZE-1] = 0;
 	CloseHandle( g_IN_Rd );
@@ -541,7 +541,7 @@ uint ID_CheckRawId( bloomfilter_t filter )
 	if( ID_ProcessCPUInfo( &value ) )
 		count += (filter & value) == value;
 #endif
-	
+
 #if XASH_WIN32
 	count += ID_CheckWMIC( filter, "wmic path win32_physicalmedia get SerialNumber" );
 	count += ID_CheckWMIC( filter, "wmic bios get serialnumber" );
@@ -627,12 +627,12 @@ void ID_Init( void )
 		id ^= SYSTEM_XOR_MASK;
 		ID_Check();
 	}
-	
+
 #elif XASH_WIN32
 	{
 		CHAR szBuf[MAX_PATH];
 		ID_GetKeyData( HKEY_CURRENT_USER, "Software\\Xash3D\\", "xash_id", szBuf, MAX_PATH );
-		
+
 		sscanf(szBuf, "%016llX", &id);
 		id ^= SYSTEM_XOR_MASK;
 		ID_Check();

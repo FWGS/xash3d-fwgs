@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -39,7 +39,7 @@ static float	basemip[NUM_MIPS-1] = {1.0, 0.5*0.8, 0.25*0.8};
 //int	d_pix_min, d_pix_max, d_pix_shift;
 
 int		d_scantable[MAXHEIGHT];
-short	*zspantable[MAXHEIGHT]; 
+short	*zspantable[MAXHEIGHT];
 struct qfrustum_s qfrustum;
 /*
 ================
@@ -127,7 +127,7 @@ void R_TransformFrustum (void)
 {
 	int		i;
 	vec3_t	v, v2;
-	
+
 	for (i=0 ; i<4 ; i++)
 	{
 		v[0] = qfrustum.screenedge[i].normal[2];
@@ -165,7 +165,7 @@ R_TransformPlane
 void R_TransformPlane (mplane_t *p, float *normal, float *dist)
 {
 	float	d;
-	
+
 	d = DotProduct (RI.vieworg, p->normal);
 	*dist = p->dist - d;
 // TODO: when we have rotating entities, this will need to use the view matrix
@@ -320,7 +320,7 @@ void R_SetupFrameQ (void)
 		r_fullbright->flags &= ~FCVAR_CHANGED;
 		D_FlushCaches( );	// so all lighting changes
 	}
-	
+
 	//tr.framecount++;
 
 

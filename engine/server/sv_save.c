@@ -108,7 +108,7 @@ static TYPEDESCRIPTION gSaveHeader[] =
 	DEFINE_FIELD( SAVE_HEADER, skyVec_y, FIELD_FLOAT ),
 	DEFINE_FIELD( SAVE_HEADER, skyVec_z, FIELD_FLOAT ),
 };
-	
+
 static TYPEDESCRIPTION gAdjacency[] =
 {
 	DEFINE_ARRAY( LEVELLIST, mapName, FIELD_CHARACTER, 32 ),
@@ -212,7 +212,7 @@ static TYPEDESCRIPTION gSoundEntry[] =
 	DEFINE_ARRAY( soundlist_t, forcedEnd, FIELD_CHARACTER, sizeof( double )),
 };
 
-static TYPEDESCRIPTION gTempEntvars[] = 
+static TYPEDESCRIPTION gTempEntvars[] =
 {
 	DEFINE_ENTITY_FIELD( classname, FIELD_STRING ),
 	DEFINE_ENTITY_GLOBAL_FIELD( globalname, FIELD_STRING ),
@@ -456,13 +456,13 @@ static int IsValidSave( void )
 	if( svs.clients && svs.clients[0].state == cs_spawned )
 	{
 		edict_t	*pl = svs.clients[0].edict;
-		
+
 		if( !pl )
 		{
 			Con_Printf( "Can't savegame without a player!\n" );
 			return 0;
 		}
-			
+
 		if( pl->v.deadflag || pl->v.health <= 0.0f )
 		{
 			Con_Printf( "Can't savegame with a dead player\n" );
@@ -506,13 +506,13 @@ static void AgeSaveList( const char *pName, int count )
 	while( count > 0 )
 	{
 		if( count == 1 )
-		{	
+		{
 			// quick.sav
 			Q_snprintf( oldName, sizeof( oldName ), DEFAULT_SAVE_DIRECTORY "%s.sav", pName );
 			Q_snprintf( oldShot, sizeof( oldShot ), DEFAULT_SAVE_DIRECTORY "%s.bmp", pName );
 		}
 		else
-		{	
+		{
 			// quick04.sav, etc.
 			Q_snprintf( oldName, sizeof( oldName ), DEFAULT_SAVE_DIRECTORY "%s%02d.sav", pName, count - 1 );
 			Q_snprintf( oldShot, sizeof( oldShot ), DEFAULT_SAVE_DIRECTORY "%s%02d.bmp", pName, count - 1 );
@@ -556,7 +556,7 @@ static void DirectoryCopy( const char *pPath, file_t *pFile )
 		fileSize = FS_FileLength( pCopy );
 
 		memset( szName, 0, sizeof( szName )); // clearing the string to prevent garbage in output file
-		Q_strncpy( szName, COM_FileWithoutPath( t->filenames[i] ), MAX_OSPATH );		
+		Q_strncpy( szName, COM_FileWithoutPath( t->filenames[i] ), MAX_OSPATH );
 		FS_Write( pFile, szName, MAX_OSPATH );
 		FS_Write( pFile, &fileSize, sizeof( int ));
 		FS_FileCopy( pFile, pCopy, fileSize );
@@ -614,7 +614,7 @@ static SAVERESTOREDATA *SaveInit( int size, int tokenCount )
 
 	pSaveData->time = svgame.globals->time;	// Use DLL time
 
-	// shared with dlls	
+	// shared with dlls
 	svgame.globals->pSaveData = pSaveData;
 
 	return pSaveData;
@@ -637,7 +637,7 @@ static void SaveClear( SAVERESTOREDATA *pSaveData )
 	pSaveData->tokenSize = 0;	// reset the hashtable
 	pSaveData->size = 0;	// reset the pointer
 
-	// shared with dlls	
+	// shared with dlls
 	svgame.globals->pSaveData = pSaveData;
 }
 
@@ -784,7 +784,7 @@ static int GetClientDataSize( const char *level )
 		FS_Close( pFile );
 		return 0;
 	}
-		
+
 	FS_Read( pFile, &version, sizeof( version ));
 	if( version != CLIENT_SAVEGAME_VERSION )
 	{
@@ -818,7 +818,7 @@ static SAVERESTOREDATA *LoadSaveData( const char *level )
 	SAVERESTOREDATA	*pSaveData;
 	int		totalSize;
 	file_t		*pFile;
-	
+
 	Q_snprintf( name, sizeof( name ), DEFAULT_SAVE_DIRECTORY "%s.HL1", level );
 	Con_Printf( "Loading game from %s...\n", name );
 
@@ -1216,7 +1216,7 @@ static void LoadClientState( SAVERESTOREDATA *pSaveData, const char *level, qboo
 		FS_Close( pFile );
 		return;
 	}
-		
+
 	FS_Read( pFile, &version, sizeof( version ));
 	if( version != CLIENT_SAVEGAME_VERSION )
 	{
@@ -1260,7 +1260,7 @@ static void LoadClientState( SAVERESTOREDATA *pSaveData, const char *level, qboo
 	if( !adjacent )
 	{
 		memset( svs.static_entities, 0, sizeof( entity_state_t ) * MAX_STATIC_ENTITIES );
-		sv.num_static_entities = 0;		
+		sv.num_static_entities = 0;
 	}
 
 	// restore client entities
@@ -1477,7 +1477,7 @@ static SAVERESTOREDATA *SaveGameState( int changelevel )
 		svgame.dllFuncs.pfnSaveWriteFields( pSaveData, "ETABLE", &pSaveData->pTable[i], gEntityTable, ARRAYSIZE( gEntityTable ));
 
 	tableSize = pSaveData->size - dataSize;
-	
+
 	// Write entity string token table
 	pTokenData = StoreHashTable( pSaveData );
 
@@ -1585,7 +1585,7 @@ static int LoadGameState( char const *level, qboolean changelevel )
 
 	// restore server time
 	sv.time = header.time;
-	
+
 	return 1;
 }
 
@@ -1684,7 +1684,7 @@ static int SaveReadHeader( file_t *pFile, GAME_HEADER *pHeader )
 		FS_Close( pFile );
 		return 0;
 	}
-		
+
 	FS_Read( pFile, &version, sizeof( version ));
 	if( version != SAVEGAME_VERSION )
 	{
@@ -1709,7 +1709,7 @@ static int SaveReadHeader( file_t *pFile, GAME_HEADER *pHeader )
 
 	FS_Read( pFile, pSaveData->pBaseData, size );
 
-	svgame.dllFuncs.pfnSaveReadFields( pSaveData, "GameHeader", pHeader, gGameHeader, ARRAYSIZE( gGameHeader ));	
+	svgame.dllFuncs.pfnSaveReadFields( pSaveData, "GameHeader", pHeader, gGameHeader, ARRAYSIZE( gGameHeader ));
 
 	svgame.dllFuncs.pfnRestoreGlobalState( pSaveData );
 
@@ -1779,7 +1779,7 @@ static int CreateEntityTransitionList( SAVERESTOREDATA *pSaveData, int levelMask
 					SetBits( pent->v.flags, FL_KILLME );
 				}
 			}
-			else 
+			else
 			{
 				Con_Reportf( "Transferring %s (%d)\n", STRING( pTable->classname ), NUM_FOR_EDICT( pent ));
 
@@ -1827,7 +1827,7 @@ static void LoadAdjacentEnts( const char *pOldLevel, const char *pLandmarkName )
 	int		i, test, flags, index, movedCount = 0;
 	qboolean		foundprevious = false;
 	vec3_t		landmarkOrigin;
-	
+
 	memset( &currentLevelData, 0, sizeof( SAVERESTOREDATA ));
 	svgame.globals->pSaveData = &currentLevelData;
 	sv.loadgame = sv.paused = true;
@@ -1936,7 +1936,7 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 	char		_startspot[MAX_QPATH];
 	char		*startspot = NULL;
 	SAVERESTOREDATA	*pSaveData = NULL;
-	
+
 	if( sv.state != ss_active )
 	{
 		Con_Printf( S_ERROR "server not running\n");
@@ -2042,7 +2042,7 @@ qboolean SV_LoadGame( const char *pPath )
 				Con_Printf( S_ERROR "map %s is invalid or not supported\n", gameHeader.mapName );
 				validload = false;
 			}
-	
+
 			if( !FBitSet( flags, MAP_IS_EXIST ))
 			{
 				Con_Printf( S_ERROR "map %s doesn't exist\n", gameHeader.mapName );
@@ -2067,10 +2067,10 @@ qboolean SV_LoadGame( const char *pPath )
 }
 
 /*
-================== 
+==================
 SV_SaveGame
-================== 
-*/  
+==================
+*/
 void SV_SaveGame( const char *pName )
 {
 	char   comment[80];
@@ -2118,12 +2118,12 @@ void SV_SaveGame( const char *pName )
 #endif // XASH_DEDICATED
 }
 
-/* 
-================== 
+/*
+==================
 SV_GetLatestSave
 
 used for reload game after player death
-================== 
+==================
 */
 const char *SV_GetLatestSave( void )
 {
@@ -2138,7 +2138,7 @@ const char *SV_GetLatestSave( void )
 	for( i = 0; i < t->numfilenames; i++ )
 	{
 		ft = FS_FileTime( t->filenames[i], true );
-		
+
 		// found a match?
 		if( ft > 0 )
 		{
@@ -2156,15 +2156,15 @@ const char *SV_GetLatestSave( void )
 
 	if( found )
 		return savename;
-	return NULL; 
+	return NULL;
 }
 
-/* 
-================== 
+/*
+==================
 SV_GetSaveComment
 
 check savegame for valid
-================== 
+==================
 */
 int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 {
@@ -2188,7 +2188,7 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 		FS_Close( f );
 		return 0;
 	}
-		
+
 	FS_Read( f, &tag, sizeof( int ));
 
 	if( tag == 0x0065 )
@@ -2302,7 +2302,7 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 	// delete the string table we allocated
 	if( pTokenList ) Mem_Free( pTokenList );
 	if( pSaveData ) Mem_Free( pSaveData );
-	FS_Close( f );	
+	FS_Close( f );
 
 	// at least mapname should be filled
 	if( COM_CheckStringEmpty( mapName ) )
@@ -2320,13 +2320,13 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 			Q_strncpy( comment, va( "<map %s has invalid format>", mapName ), MAX_STRING );
 			return 0;
 		}
-	
+
 		if( !FBitSet( flags, MAP_IS_EXIST ))
 		{
 			Q_strncpy( comment, va( "<map %s is missed>", mapName ), MAX_STRING );
 			return 0;
 		}
-	
+
 		fileTime = FS_FileTime( savename, true );
 		file_tm = localtime( &fileTime );
 
@@ -2343,7 +2343,7 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 		Q_strncpy( comment + CS_SIZE + (CS_TIME * 2), description + CS_SIZE, CS_SIZE );
 
 		return 1;
-	}	
+	}
 
 	Q_strncpy( comment, "<unknown version>", MAX_STRING );
 

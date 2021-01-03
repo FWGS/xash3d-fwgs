@@ -45,9 +45,9 @@ static char *rcsid = "$NetBSD: malloc.c,v 1.8 1997/04/07 03:12:14 christos Exp $
  * malloc.c (Caltech) 2/21/82
  * Chris Kingsley, kingsley@cit-20.
  *
- * This is a very fast storage allocator.  It allocates blocks of a small 
+ * This is a very fast storage allocator.  It allocates blocks of a small
  * number of different sizes, and keeps free lists of each size.  Blocks that
- * don't exactly fit are passed up to the next larger size.  In this 
+ * don't exactly fit are passed up to the next larger size.  In this
  * implementation, the available sizes are 2^n-4 (or 2^n-10) bytes long.
  * This is designed for use in a virtual memory environment.
  */
@@ -291,7 +291,7 @@ morecore(int bucket)
 /* free */
 void SWAP_Free(	void *cp)
 
-{   
+{
   	register long size;
 	register union overhead *op;
 
@@ -363,7 +363,7 @@ void *
 SWAP_Realloc(	void *cp,
 size_t nbytes)
 
-{   
+{
   	register u_long onb;
 	register long i;
 	union overhead *op;
@@ -456,7 +456,7 @@ int srchlen)
 #ifdef MSTATS
 /*
  * mstats - print out statistics about malloc
- * 
+ *
  * Prints two lines of numbers, one showing the length of the free list
  * for each size category, the second showing the number of mallocs -
  * frees for each size category.

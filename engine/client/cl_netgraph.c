@@ -116,33 +116,33 @@ void NetGraph_InitColors( void )
 	byte	mincolor[2][3];
 	byte	maxcolor[2][3];
 	float	dc[2][3];
-	int	i, hfrac;	
+	int	i, hfrac;
 	float	f;
- 
+
 	mincolor[0][0] = 63;
 	mincolor[0][1] = 0;
 	mincolor[0][2] = 100;
- 
+
 	maxcolor[0][0] = 0;
 	maxcolor[0][1] = 63;
 	maxcolor[0][2] = 255;
- 
+
 	mincolor[1][0] = 255;
 	mincolor[1][1] = 127;
 	mincolor[1][2] = 0;
- 
+
 	maxcolor[1][0] = 250;
 	maxcolor[1][1] = 0;
 	maxcolor[1][2] = 0;
- 
+
 	for( i = 0; i < 3; i++ )
 	{
 		dc[0][i] = (float)(maxcolor[0][i] - mincolor[0][i]);
 		dc[1][i] = (float)(maxcolor[1][i] - mincolor[1][i]);
 	}
- 
+
 	hfrac = NETGRAPH_LERP_HEIGHT / 3;
- 
+
 	for( i = 0; i < NETGRAPH_LERP_HEIGHT; i++ )
 	{
 		if( i < hfrac )

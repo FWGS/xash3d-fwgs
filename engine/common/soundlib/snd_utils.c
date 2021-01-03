@@ -67,7 +67,7 @@ void Sound_Init( void )
 	{
 	case HOST_NORMAL:
 		sound.loadformats = load_game;
-		sound.streamformat = stream_game;		
+		sound.streamformat = stream_game;
 		break;
 	default:	// all other instances not using soundlib or will be reinstalling later
 		sound.loadformats = load_null;
@@ -90,7 +90,7 @@ byte *Sound_Copy( size_t size )
 	out = Mem_Malloc( host.soundpool, size );
 	memcpy( out, sound.tempbuffer, size );
 
-	return out; 
+	return out;
 }
 
 uint GAME_EXPORT Sound_GetApproxWavePlayLen( const char *filepath )
@@ -256,7 +256,7 @@ qboolean Sound_Process( wavdata_t **wav, int rate, int width, uint flags )
 {
 	wavdata_t	*snd = *wav;
 	qboolean	result = true;
-				
+
 	// check for buffers
 	if( !snd || !snd->buffer )
 		return false;

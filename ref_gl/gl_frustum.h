@@ -48,5 +48,5 @@ qboolean GL_FrustumCullSphere( gl_frustum_t *out, const vec3_t centre, float rad
 // plane manipulating
 void GL_FrustumEnablePlane( gl_frustum_t *out, int side );
 void GL_FrustumDisablePlane( gl_frustum_t *out, int side );
-	
+
 #endif//GL_FRUSTUM_H

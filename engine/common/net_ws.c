@@ -452,7 +452,7 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr *sadr, qboolean 
 
 	if( !net.initialized )
 		return false;
-	
+
 	memset( sadr, 0, sizeof( *sadr ));
 
 	((struct sockaddr_in *)sadr)->sin_family = AF_INET;
@@ -1584,7 +1584,7 @@ void NET_Config( qboolean multiplayer )
 	old_config = multiplayer;
 
 	if( multiplayer )
-	{	
+	{
 		// open sockets
 		if( net.allow_ip ) NET_OpenIP();
 
@@ -1596,7 +1596,7 @@ void NET_Config( qboolean multiplayer )
 		}
 	}
 	else
-	{	
+	{
 		int	i;
 
 		// shut down any existing sockets

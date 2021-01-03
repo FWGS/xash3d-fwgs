@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #define FEATURES_H
 
 // list of engine features that can be enabled through callback SV_CheckFeatures
-#define ENGINE_WRITE_LARGE_COORD	(1<<0)	// replace standard message WRITE_COORD with big message for support more than 8192 units in world	
+#define ENGINE_WRITE_LARGE_COORD	(1<<0)	// replace standard message WRITE_COORD with big message for support more than 8192 units in world
 #define ENGINE_QUAKE_COMPATIBLE	(1<<1)	// make engine compatible with quake (flags and effects)
 #define ENGINE_LOAD_DELUXEDATA	(1<<2)	// loading deluxemap for map (if present)
 #define ENGINE_PHYSICS_PUSHER_EXT	(1<<3)	// enable sets of improvements for MOVETYPE_PUSH physics

@@ -71,17 +71,17 @@ void GL_FrustumInitProj( gl_frustum_t *out, float flZNear, float flZFar, float f
 {
 	float	xs, xc;
 	vec3_t	farpoint, nearpoint;
-	vec3_t	normal, iforward;	
+	vec3_t	normal, iforward;
 
 	// horizontal fov used for left and right planes
 	SinCos( DEG2RAD( flFovX ) * 0.5f, &xs, &xc );
 
 	// setup left plane
-	VectorMAM( xs, RI.cull_vforward, -xc, RI.cull_vright, normal ); 
+	VectorMAM( xs, RI.cull_vforward, -xc, RI.cull_vright, normal );
 	GL_FrustumSetPlane( out, FRUSTUM_LEFT, normal, DotProduct( RI.cullorigin, normal ));
 
 	// setup right plane
-	VectorMAM( xs, RI.cull_vforward, xc, RI.cull_vright, normal ); 
+	VectorMAM( xs, RI.cull_vforward, xc, RI.cull_vright, normal );
 	GL_FrustumSetPlane( out, FRUSTUM_RIGHT, normal, DotProduct( RI.cullorigin, normal ));
 
 	// vertical fov used for top and bottom planes
@@ -89,11 +89,11 @@ void GL_FrustumInitProj( gl_frustum_t *out, float flZNear, float flZFar, float f
 	VectorNegate( RI.cull_vforward, iforward );
 
 	// setup bottom plane
-	VectorMAM( xs, RI.cull_vforward, -xc, RI.cull_vup, normal ); 
+	VectorMAM( xs, RI.cull_vforward, -xc, RI.cull_vup, normal );
 	GL_FrustumSetPlane( out, FRUSTUM_BOTTOM, normal, DotProduct( RI.cullorigin, normal ));
 
 	// setup top plane
-	VectorMAM( xs, RI.cull_vforward, xc, RI.cull_vup, normal ); 
+	VectorMAM( xs, RI.cull_vforward, xc, RI.cull_vup, normal );
 	GL_FrustumSetPlane( out, FRUSTUM_TOP, normal, DotProduct( RI.cullorigin, normal ));
 
 	// setup far plane

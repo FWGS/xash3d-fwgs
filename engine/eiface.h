@@ -1,9 +1,9 @@
 /***
 *
 *	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*	
-*	This product contains software technology licensed from Id 
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc. 
+*
+*	This product contains software technology licensed from Id
+*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
 *	All Rights Reserved.
 *
 *   Use, distribution, and modification of this source code and/or resulting
@@ -82,7 +82,7 @@ typedef struct
 } TraceResult;
 
 // CD audio status
-typedef struct 
+typedef struct
 {
 	int	fPlaying;// is sound playing right now?
 	int	fWasPlaying;// if not, CD is paused if WasPlaying is true.
@@ -93,7 +93,7 @@ typedef struct
 	int	fCDRom;
 	int	fPlayTrack;
 } CDStatus;
-		
+
 typedef unsigned int	CRC32_t;
 
 typedef struct delta_s delta_t;
@@ -184,8 +184,8 @@ typedef struct enginefuncs_s
 	const char *(*pfnNameForFunction)( unsigned long function );
 	void	(*pfnClientPrintf)( edict_t* pEdict, PRINT_TYPE ptype, const char *szMsg ); // JOHN: engine callbacks so game DLL can print messages to individual clients
 	void	(*pfnServerPrint)( const char *szMsg );
-	const char *(*pfnCmd_Args)( void );		// these 3 added 
-	const char *(*pfnCmd_Argv)( int argc );		// so game DLL can easily 
+	const char *(*pfnCmd_Args)( void );		// these 3 added
+	const char *(*pfnCmd_Argv)( int argc );		// so game DLL can easily
 	int	(*pfnCmd_Argc)( void );		// access client 'cmd' strings
 	void	(*pfnGetAttachment)( const edict_t *pEdict, int iAttachment, float *rgflOrigin, float *rgflAngles );
 	void	(*pfnCRC32_Init)( CRC32_t *pulCRC );
@@ -228,7 +228,7 @@ typedef struct enginefuncs_s
 	const char *(*pfnGetPhysicsInfoString)( const edict_t *pClient );
 	unsigned short (*pfnPrecacheEvent)( int type, const char*psz );
 	void	(*pfnPlaybackEvent)( int flags, const edict_t *pInvoker, unsigned short eventindex, float delay, float *origin, float *angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 );
-	
+
 	unsigned char *(*pfnSetFatPVS)( const float *org );
 	unsigned char *(*pfnSetFatPAS)( const float *org );
 
@@ -280,7 +280,7 @@ typedef struct enginefuncs_s
 	int	(*pfnCheckParm)( char *parm, char **ppnext );
 } enginefuncs_t;
 // ONLY ADD NEW FUNCTIONS TO THE END OF THIS STRUCT.  INTERFACE VERSION IS FROZEN AT 138
-	
+
 // Passed to pfnKeyValue
 typedef struct KeyValueData_s
 {
@@ -299,7 +299,7 @@ typedef struct
 	vec3_t	vecLandmarkOrigin;
 } LEVELLIST;
 
-typedef struct 
+typedef struct
 {
 	int	id;		// Ordinal ID of this entity (used for entity <--> pointer conversions)
 	edict_t	*pent;		// Pointer to the in-game entity
@@ -381,7 +381,7 @@ typedef enum _fieldtypes
 #define FTYPEDESC_KEY		0x0004		// This field can be requested and written to by string name at load time
 #define FTYPEDESC_FUNCTIONTABLE	0x0008		// This is a table entry for a member function pointer
 
-typedef struct 
+typedef struct
 {
 	FIELDTYPE		fieldType;
 	char		*fieldName;
@@ -400,10 +400,10 @@ struct usercmd_s;
 struct edict_s;
 struct netadr_s;
 
-typedef struct 
+typedef struct
 {
 	// Initialize/shutdown the game (one-time call after loading of game .dll )
-	void	(*pfnGameInit)( void );				
+	void	(*pfnGameInit)( void );
 	int	(*pfnSpawn)( edict_t *pent );
 	void	(*pfnThink)( edict_t *pent );
 	void	(*pfnUse)( edict_t *pentUsed, edict_t *pentOther );
@@ -421,7 +421,7 @@ typedef struct
 	void	(*pfnResetGlobalState)( void );
 
 	qboolean	(*pfnClientConnect)( edict_t *pEntity, const char *pszName, const char *pszAddress, char szRejectReason[128] );
-	
+
 	void	(*pfnClientDisconnect)( edict_t *pEntity );
 	void	(*pfnClientKill)( edict_t *pEntity );
 	void	(*pfnClientPutInServer)( edict_t *pEntity );
@@ -491,12 +491,12 @@ extern DLL_FUNCTIONS		gEntityInterface;
 
 typedef struct
 {
-	// Called right before the object's memory is freed. 
+	// Called right before the object's memory is freed.
 	// Calls its destructor.
 	void	(*pfnOnFreeEntPrivateData)( edict_t *pEnt );
 	void	(*pfnGameShutdown)(void);
 	int	(*pfnShouldCollide)( edict_t *pentTouched, edict_t *pentOther );
-	void	(*pfnCvarValue)( const edict_t *pEnt, const char *value ); 
+	void	(*pfnCvarValue)( const edict_t *pEnt, const char *value );
 	void	(*pfnCvarValue2)( const edict_t *pEnt, int requestID, const char *cvarName, const char *value );
 } NEW_DLL_FUNCTIONS;
 typedef int	(*NEW_DLL_FUNCTIONS_FN)( NEW_DLL_FUNCTIONS *pFunctionTable, int *interfaceVersion );

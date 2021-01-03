@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -509,18 +509,18 @@ void R_DrawSurface (void)
 			sample_pot = 1 << sample_bits;
 	}
 	mt = r_drawsurf.image;
-	
+
 	r_source = mt->pixels[r_drawsurf.surfmip];
-	
+
 // the fractional light values should range from 0 to (VID_GRADES - 1) << 16
 // from a source range of 0 - 255
-	
+
 	texwidth = mt->width >> r_drawsurf.surfmip;
 
 	blocksize = sample_pot >> r_drawsurf.surfmip;
 	blockdivshift = sample_bits - r_drawsurf.surfmip;
 	blockdivmask = (1 << blockdivshift) - 1;
-	
+
 	if( sample_size == 16 )
 		r_lightwidth = ( r_drawsurf.surf->info->lightextents[0]>>4)+1;
 	else
@@ -593,7 +593,7 @@ void R_DrawSurface (void)
 
 // << 16 components are to guarantee positive values for %
 	soffset = ((soffset >> r_drawsurf.surfmip) + (smax << 16)) % smax;
-	basetptr = &r_source[((((basetoffset >> r_drawsurf.surfmip) 
+	basetptr = &r_source[((((basetoffset >> r_drawsurf.surfmip)
 		+ (tmax << 16)) % tmax) * twidth)];
 
 	pcolumndest = r_drawsurf.surfdat;
@@ -779,7 +779,7 @@ void R_DrawSurfaceBlock8_mip0 (void)
 						//[(light & 0xFF00) + pix];
 				light += lightstep;
 			}
-	
+
 			psource += sourcetstep;
 			lightright += lightrightstep;
 			lightleft += lightleftstep;
@@ -831,7 +831,7 @@ void R_DrawSurfaceBlock8_mip1 (void)
 						//[(light & 0xFF00) + pix];
 				light += lightstep;
 			}
-	
+
 			psource += sourcetstep;
 			lightright += lightrightstep;
 			lightleft += lightleftstep;
@@ -883,7 +883,7 @@ void R_DrawSurfaceBlock8_mip2 (void)
 						//[(light & 0xFF00) + pix];
 				light += lightstep;
 			}
-	
+
 			psource += sourcetstep;
 			lightright += lightrightstep;
 			lightleft += lightleftstep;
@@ -935,7 +935,7 @@ void R_DrawSurfaceBlock8_mip3 (void)
 						//[(light & 0xFF00) + pix];
 				light += lightstep;
 			}
-	
+
 			psource += sourcetstep;
 			lightright += lightrightstep;
 			lightleft += lightleftstep;
@@ -976,7 +976,7 @@ void R_InitCaches (void)
 		pix = vid.width * vid.height * 2;
 		if (pix > 64000)
 			size += (pix-64000)*3;
-	}		
+	}
 
 	// round up to page size
 	size = (size + 8191) & ~8191;
@@ -991,7 +991,7 @@ void R_InitCaches (void)
 	}
 	sc_base = (surfcache_t *)Mem_Calloc(r_temppool,size);
 	sc_rover = sc_base;
-	
+
 	sc_base->next = NULL;
 	sc_base->owner = NULL;
 	sc_base->size = sc_size;
@@ -1016,7 +1016,7 @@ void D_FlushCaches( void )
 				*c->owner = NULL;
 		}
 	}
-	
+
 	sc_rover = sc_base;
 	sc_base->next = NULL;
 	sc_base->owner = NULL;
@@ -1038,7 +1038,7 @@ surfcache_t     *D_SCAlloc (int width, int size)
 
 	if ((size <= 0) || (size > 0x10000000))
 		gEngfuncs.Host_Error ("D_SCAlloc: bad cache size %d\n", size);
-	
+
 	size = (int)&((surfcache_t *)0)->data[size];
 	size = (size + 3) & ~3;
 	if (size > sc_size)
@@ -1055,12 +1055,12 @@ surfcache_t     *D_SCAlloc (int width, int size)
 		}
 		sc_rover = sc_base;
 	}
-		
+
 // colect and free surfcache_t blocks until the rover block is large enough
 	new = sc_rover;
 	if (sc_rover->owner)
 		*sc_rover->owner = NULL;
-	
+
 	while (new->size < size)
 	{
 	// free another
@@ -1069,7 +1069,7 @@ surfcache_t     *D_SCAlloc (int width, int size)
 			gEngfuncs.Host_Error ("D_SCAlloc: hit the end of memory");
 		if (sc_rover->owner)
 			*sc_rover->owner = NULL;
-			
+
 		new->size += sc_rover->size;
 		new->next = sc_rover->next;
 	}
@@ -1087,7 +1087,7 @@ surfcache_t     *D_SCAlloc (int width, int size)
 	}
 	else
 		sc_rover = new->next;
-	
+
 	new->width = width;
 // DEBUG
 	if (width > 0)
@@ -1101,7 +1101,7 @@ surfcache_t     *D_SCAlloc (int width, int size)
 			r_cache_thrash = true;
 	}
 	else if (wrapped_this_time)
-	{       
+	{
 		d_roverwrapped = true;
 	}
 
@@ -1146,9 +1146,9 @@ int     MaskForNum (int num)
 int D_log2 (int num)
 {
 	int     c;
-	
+
 	c = 0;
-	
+
 	while (num>>=1)
 		c++;
 	return c;
@@ -1328,7 +1328,7 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 	//r_drawsurf.lightadj[1] = r_newrefdef.lightstyles[surface->styles[1]].white*128;
 	//r_drawsurf.lightadj[2] = r_newrefdef.lightstyles[surface->styles[2]].white*128;
 	//r_drawsurf.lightadj[3] = r_newrefdef.lightstyles[surface->styles[3]].white*128;
-	
+
 //
 // see if the cache holds apropriate data
 //
@@ -1382,7 +1382,7 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 		r_drawsurf.surfheight = surface->extents[1] >> miplevel;
 	}
 
-	
+
 //
 // allocate memory if needed
 //
@@ -1394,14 +1394,14 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 		cache->owner = &CACHESPOT(surface)[miplevel];
 		cache->mipscale = surfscale;
 	}
-	
+
 	if (surface->dlightframe == tr.framecount)
 		cache->dlight = 1;
 	else
 		cache->dlight = 0;
 
 	r_drawsurf.surfdat = (pixel_t *)cache->data;
-	
+
 	cache->image = r_drawsurf.image;
 	cache->lightadj[0] = r_drawsurf.lightadj[0];
 	cache->lightadj[1] = r_drawsurf.lightadj[1];
@@ -1420,7 +1420,7 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 
 	// calculate the lightings
 	R_BuildLightMap ( );
-	
+
 	// rasterize the surface into the cache
 	R_DrawSurface ();
 	R_DrawSurfaceDecals();

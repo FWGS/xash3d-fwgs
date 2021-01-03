@@ -155,7 +155,7 @@ typedef struct channel_s
 	int		rightvol;		// 0-255 right volume
 
 	int		entnum;		// entity soundsource
-	int		entchannel;	// sound channel (CHAN_STREAM, CHAN_VOICE, etc.)	
+	int		entchannel;	// sound channel (CHAN_STREAM, CHAN_VOICE, etc.)
 	vec3_t		origin;		// only use if fixed_origin is set
 	float		dist_mult;	// distance multiplier (attenuation/clipK)
 	int		master_vol;	// 0-255 master volume

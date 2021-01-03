@@ -64,5 +64,5 @@ static uint getbits( mpg123_handle_t *fr, int number_of_bits )
 
 	return rval;
 }
-  
+
 #endif//GETBITS_H

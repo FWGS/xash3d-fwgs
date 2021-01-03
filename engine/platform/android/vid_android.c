@@ -167,7 +167,7 @@ void Android_UpdateSurface( qboolean active )
 			nw.release( vid_android.window );
 			vid_android.window = NULL;
 		}
-	
+
 		if( active )
 		{
 			jobject surf;

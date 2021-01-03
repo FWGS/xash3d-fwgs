@@ -156,7 +156,7 @@ CL_GetDemoRecordClock
 write time while demo is recording
 ====================
 */
-float CL_GetDemoRecordClock( void ) 
+float CL_GetDemoRecordClock( void )
 {
 	return cl.mtime[0];
 }
@@ -168,7 +168,7 @@ CL_GetDemoPlaybackClock
 overwrite host.realtime
 ====================
 */
-float CL_GetDemoPlaybackClock( void ) 
+float CL_GetDemoPlaybackClock( void )
 {
 	return host.realtime + host.frametime;
 }
@@ -353,7 +353,7 @@ void CL_WriteDemoHeader( const char *name )
 	int	copysize;
 	int	savepos;
 	int	curpos;
-	
+
 	Con_Printf( "recording to %s.\n", name );
 	cls.demofile = FS_Open( name, "wb", false );
 	cls.demotime = 0.0;
@@ -467,7 +467,7 @@ void CL_StopRecord( void )
 	demo.header.directory_offset = curpos;
 	FS_Seek( cls.demofile, 0, SEEK_SET );
 	FS_Write( cls.demofile, &demo.header, sizeof( demo.header ));
-	
+
 	FS_Close( cls.demofile );
 	cls.demofile = NULL;
 	cls.demorecording = false;
@@ -726,9 +726,9 @@ qboolean CL_DemoMoveToNextSection( void )
 
 	// switch to next section, we got a dem_stop
 	demo.entry = &demo.directory.entries[demo.entryIndex];
-	
+
 	// ready to continue reading, reset clock.
-	FS_Seek( cls.demofile, demo.entry->offset, SEEK_SET ); 
+	FS_Seek( cls.demofile, demo.entry->offset, SEEK_SET );
 
 	// time is now relative to this chunk's clock.
 	demo.starttime = CL_GetDemoPlaybackClock();
@@ -739,7 +739,7 @@ qboolean CL_DemoMoveToNextSection( void )
 
 qboolean CL_ReadRawNetworkData( byte *buffer, size_t *length )
 {
-	int	msglen = 0;	
+	int	msglen = 0;
 
 	Assert( buffer != NULL );
 	Assert( length != NULL );
@@ -795,8 +795,8 @@ qboolean CL_DemoReadMessageQuake( byte *buffer, size_t *length )
 	demoangle_t	*a;
 
 	*length = 0; // assume we fail
-	
-	// decide if it is time to grab the next message		
+
+	// decide if it is time to grab the next message
 	if( cls.signon == SIGNONS )	// allways grab until fully connected
 	{
 		if( cls.timedemo )
@@ -971,7 +971,7 @@ qboolean CL_DemoReadMessage( byte *buffer, size_t *length )
 		}
 	} while( swallowmessages );
 
-	// If we are playing back a timedemo, and we've already passed on a 
+	// If we are playing back a timedemo, and we've already passed on a
 	//  frame update for this host_frame tag, then we'll just skip this message.
 	if( cls.timedemo && ( tdlastdemoframe == host.framecount ))
 	{
@@ -993,7 +993,7 @@ qboolean CL_DemoReadMessage( byte *buffer, size_t *length )
 		{
 			// cheat by moving the relative start time forward.
 			demo.starttime = CL_GetDemoPlaybackClock();
-		}	
+		}
 	}
 
 	demo.framecount++;
@@ -1101,9 +1101,9 @@ void CL_FinishTimeDemo( void )
 {
 	int	frames;
 	double	time;
-	
+
 	cls.timedemo = false;
-	
+
 	// the first frame didn't count
 	frames = (host.framecount - cls.td_startframe) - 1;
 	time = host.realtime - cls.td_starttime;
@@ -1151,7 +1151,7 @@ void CL_StopPlayback( void )
 	}
 	else
 	{
-		// let game known about demo state	
+		// let game known about demo state
 		Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
 		cls.state = ca_disconnected;
 		memset( &cls.serveradr, 0, sizeof( cls.serveradr ) );
@@ -1166,11 +1166,11 @@ void CL_StopPlayback( void )
 	}
 }
 
-/* 
-================== 
+/*
+==================
 CL_GetDemoComment
-================== 
-*/  
+==================
+*/
 int GAME_EXPORT CL_GetDemoComment( const char *demoname, char *comment )
 {
 	file_t		*demfile;
@@ -1179,7 +1179,7 @@ int GAME_EXPORT CL_GetDemoComment( const char *demoname, char *comment )
 	demoentry_t	entry;
 	float		playtime = 0.0f;
 	int		i;
-	
+
 	if( !comment ) return false;
 
 	demfile = FS_Open( demoname, "rb", false );
@@ -1230,7 +1230,7 @@ int GAME_EXPORT CL_GetDemoComment( const char *demoname, char *comment )
 
 	// all done
 	FS_Close( demfile );
-		
+
 	return true;
 }
 
@@ -1267,12 +1267,12 @@ qboolean CL_NextDemo( void )
 	return true;
 }
 
-/* 
-================== 
+/*
+==================
 CL_CheckStartupDemos
 
 queue demos loop after movie playing
-================== 
+==================
 */
 void CL_CheckStartupDemos( void )
 {
@@ -1297,11 +1297,11 @@ void CL_CheckStartupDemos( void )
 	CL_NextDemo ();
 }
 
-/* 
-================== 
+/*
+==================
 CL_DemoGetName
-================== 
-*/  
+==================
+*/
 static void CL_DemoGetName( int lastnum, char *filename )
 {
 	if( lastnum < 0 || lastnum > 9999 )
@@ -1387,7 +1387,7 @@ void CL_Record_f( void )
 
 	Q_strncpy( cls.demoname, demoname, sizeof( cls.demoname ));
 	Q_strncpy( gameui.globals->demoname, demoname, sizeof( gameui.globals->demoname ));
-	
+
 	CL_WriteDemoHeader( demopath );
 }
 

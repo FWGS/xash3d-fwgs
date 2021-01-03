@@ -185,7 +185,7 @@ to be configured even if they don't have defined names.
 int Key_StringToKeynum( const char *str )
 {
 	keyname_t		*kn;
-	
+
 	if( !str || !str[0] ) return -1;
 	if( !str[1] ) return str[0];
 
@@ -193,7 +193,7 @@ int Key_StringToKeynum( const char *str )
 	if( str[0] == '0' && str[1] == 'x' && Q_strlen( str ) == 4 )
 	{
 		int	n1, n2;
-		
+
 		n1 = str[2];
 		if( n1 >= '0' && n1 <= '9' )
 		{
@@ -239,7 +239,7 @@ given keynum.
 */
 const char *Key_KeynumToString( int keynum )
 {
-	keyname_t		*kn;	
+	keyname_t		*kn;
 	static char	tinystr[5];
 	int		i, j;
 
@@ -289,7 +289,7 @@ void GAME_EXPORT Key_SetBinding( int keynum, const char *binding )
 		Mem_Free((char *)keys[keynum].binding );
 		keys[keynum].binding = NULL;
 	}
-		
+
 	// allocate memory for new binding
 	keys[keynum].binding = copystring( binding );
 }
@@ -306,7 +306,7 @@ const char *Key_GetBinding( int keynum )
 	return keys[keynum].binding;
 }
 
-/* 
+/*
 ===================
 Key_GetKey
 ===================
@@ -351,7 +351,7 @@ void Key_Unbind_f( void )
 		Con_Printf( S_USAGE "unbind <key> : remove commands from a key\n" );
 		return;
 	}
-	
+
 	b = Key_StringToKeynum( Cmd_Argv( 1 ));
 
 	if( b == -1 )
@@ -371,7 +371,7 @@ Key_Unbindall_f
 void Key_Unbindall_f( void )
 {
 	int	i;
-	
+
 	for( i = 0; i < 256; i++ )
 	{
 		if( keys[i].binding )
@@ -392,7 +392,7 @@ void Key_Reset_f( void )
 	keyname_t	*kn;
 	int	i;
 
-	// clear all keys first	
+	// clear all keys first
 	for( i = 0; i < 256; i++ )
 	{
 		if( keys[i].binding )
@@ -401,7 +401,7 @@ void Key_Reset_f( void )
 
 	// apply default values
 	for( kn = keynames; kn->name; kn++ )
-		Key_SetBinding( kn->keynum, kn->binding ); 
+		Key_SetBinding( kn->keynum, kn->binding );
 }
 
 /*
@@ -413,7 +413,7 @@ void Key_Bind_f( void )
 {
 	char	cmd[1024];
 	int	i, c, b;
-	
+
 	c = Cmd_Argc();
 
 	if( c < 2 )
@@ -437,7 +437,7 @@ void Key_Bind_f( void )
 		else Con_Printf( "\"%s\" is not bound\n", Cmd_Argv( 1 ));
 		return;
 	}
-	
+
 	// copy the rest of the command line
 	cmd[0] = 0; // start out with a null string
 
@@ -515,10 +515,10 @@ void Key_Init( void )
 	Cmd_AddCommand( "unbindall", Key_Unbindall_f, "removes all commands from all keys in bindmap" );
 	Cmd_AddCommand( "resetkeys", Key_Reset_f, "reset all keys to their default values" );
 	Cmd_AddCommand( "bindlist", Key_Bindlist_f, "display current key bindings" );
-	Cmd_AddCommand( "makehelp", Key_EnumCmds_f, "write help.txt that contains all console cvars and cmds" ); 
+	Cmd_AddCommand( "makehelp", Key_EnumCmds_f, "write help.txt that contains all console cvars and cmds" );
 
 	// setup default binding. "unbindall" from config.cfg will be reset it
-	for( kn = keynames; kn->name; kn++ ) Key_SetBinding( kn->keynum, kn->binding ); 
+	for( kn = keynames; kn->name; kn++ ) Key_SetBinding( kn->keynum, kn->binding );
 
 	osk_enable = Cvar_Get( "osk_enable", "0", FCVAR_ARCHIVE, "enable built-in on-screen keyboard" );
 	key_rotate = Cvar_Get( "key_rotate", "0", FCVAR_ARCHIVE, "rotate arrow keys (0-3)" );
@@ -592,7 +592,7 @@ static qboolean Key_IsAllowedAutoRepeat( int key )
 		return true;
 	default:
 		return false;
-	} 
+	}
 }
 
 static int Key_Rotate( int key )
@@ -774,7 +774,7 @@ void GAME_EXPORT Key_Event( int key, int down )
 
 	// key up events only perform actions if the game key binding is
 	// a button command (leading + sign).  These will be processed even in
-	// console mode and menu mode, to keep the character from continuing 
+	// console mode and menu mode, to keep the character from continuing
 	// an action started before a mode switch.
 	if( !down )
 	{
@@ -892,7 +892,7 @@ void CL_CharEvent( int key )
 	if( cls.key_dest == key_console && !Con_Visible( ))
 	{
 		if((char)key == '`' || (char)key == '?' )
-			return; // don't pass '`' when we open the console 
+			return; // don't pass '`' when we open the console
 	}
 
 	// distribute the key down event to the apropriate handler
