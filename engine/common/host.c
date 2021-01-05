@@ -93,6 +93,7 @@ void Sys_PrintUsage( void )
 	O("-width <n>       ","set window width")
 	O("-height <n>      ","set window height")
 	O("-oldfont         ","enable unused Quake font in Half-Life")
+	O("-disable_menu_changegame","disable changing the game from the menu")
 
 	#if !XASH_MOBILE_PLATFORM
 	O("-fullscreen      ","run engine in fullscreen mode")
@@ -1033,7 +1034,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	if( pChangeGame != NULL )
 	{
 		Cmd_AddCommand( "game", Host_ChangeGame_f, "change game" );
-		Cvar_Get( "host_allow_changegame", "1", FCVAR_READ_ONLY, "allows to change games" );
+		Cvar_Get( "host_allow_changegame", Sys_CheckParm( "-disable_menu_changegame" ) ? "0" : "1", FCVAR_READ_ONLY, "allows to change games" );
 	}
 	else
 	{
