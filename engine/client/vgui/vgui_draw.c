@@ -285,7 +285,7 @@ void VGui_Startup( const char *clientlib, int width, int height )
 		if( !s_pVGuiSupport )
 		{
 			if( FS_FileExists( vguiloader, false ) )
-				Con_Reportf( S_ERROR  "Failed to load vgui_support library: %s", COM_GetLibraryError() );
+				Con_Reportf( S_ERROR  "Failed to load vgui_support library: %s\n", COM_GetLibraryError() );
 			else
 				Con_Reportf( "vgui_support: not found\n" );
 		}
