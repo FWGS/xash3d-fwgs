@@ -314,8 +314,8 @@ build-*
 
 # Waf
 build_current
-\.?waf-*/
-\.?waf3-*/
+*waf-*/
+*waf3-*/
 .lock-waf*
 *.lastbuildstate
 *.unsuccessfulbuild
