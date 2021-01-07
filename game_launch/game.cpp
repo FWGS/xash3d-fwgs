@@ -129,9 +129,16 @@ static void Sys_ChangeGame( const char *progname )
 _inline int Sys_Start( void )
 {
 	int ret;
+	pfnChangeGame changeGame = NULL;
 
 	Sys_LoadEngine();
-	ret = Xash_Main( szArgc, szArgv, GAME_PATH, 0, Xash_Shutdown ? Sys_ChangeGame : NULL );
+
+#ifndef XASH_DISABLE_MENU_CHANGEGAME
+	if( Xash_Shutdown )
+		changeGame = Sys_ChangeGame;
+#endif
+
+	ret = Xash_Main( szArgc, szArgv, GAME_PATH, 0, changeGame );
 	Sys_UnloadEngine();
 
 	return ret;
