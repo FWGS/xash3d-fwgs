@@ -1046,7 +1046,7 @@ int GAME_EXPORT pfnCheckGameDll( void )
 		COM_FreeLibrary( hInst ); // don't increase linker's reference counter
 		return true;
 	}
-	Con_Reportf( S_WARN "Could not load server library:\n%s", COM_GetLibraryError() );
+	Con_Reportf( S_WARN "Could not load server library: %s\n", COM_GetLibraryError() );
 	return false;
 }
 

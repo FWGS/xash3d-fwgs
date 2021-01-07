@@ -32,8 +32,9 @@ void COM_ResetLibraryError( void )
 
 void COM_PushLibraryError( const char *error )
 {
+	if( s_szLastError[0] )
+		Q_strncat( s_szLastError, "\n", sizeof( s_szLastError ) );
 	Q_strncat( s_szLastError, error, sizeof( s_szLastError ) );
-	Q_strncat( s_szLastError, "\n", sizeof( s_szLastError ) );
 }
 
 void *COM_FunctionFromName_SR( void *hInstance, const char *pName )
