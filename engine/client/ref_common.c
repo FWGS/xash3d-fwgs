@@ -586,10 +586,9 @@ static void SetFullscreenModeFromCommandLine( void )
 void R_CollectRendererNames( void )
 {
 	const char *renderers[] = DEFAULT_RENDERERS;
-	int i;
+	int i, cur;
 
-	ref.numRenderers = 0;
-
+	cur = 0;
 	for( i = 0; i < DEFAULT_RENDERERS_LEN; i++ )
 	{
 		string temp;
@@ -612,26 +611,27 @@ void R_CollectRendererNames( void )
 			continue;
 		}
 
-		Q_strncpy( ref.shortNames[i], renderers[i], sizeof( ref.shortNames[i] ));
+		Q_strncpy( ref.shortNames[cur], renderers[i], sizeof( ref.shortNames[cur] ));
 
 		pfn = COM_GetProcAddress( dll, GET_REF_HUMANREADABLE_NAME );
 		if( !pfn ) // just in case
 		{
 			Con_Reportf( "R_CollectRendererNames: can't find GetHumanReadableName export in %s\n", temp );
-			Q_strncpy( ref.readableNames[i], renderers[i], sizeof( ref.readableNames[i] ));
+			Q_strncpy( ref.readableNames[cur], renderers[i], sizeof( ref.readableNames[cur] ));
 		}
 		else
 		{
 			REF_HUMANREADABLE_NAME GetHumanReadableName = (REF_HUMANREADABLE_NAME)pfn;
 
-			GetHumanReadableName( ref.readableNames[i], sizeof( ref.readableNames[i] ));
+			GetHumanReadableName( ref.readableNames[cur], sizeof( ref.readableNames[cur] ));
 		}
 
-		Con_Printf( "Found renderer %s: %s\n", ref.shortNames[i], ref.readableNames[i] );
+		Con_Printf( "Found renderer %s: %s\n", ref.shortNames[cur], ref.readableNames[cur] );
 
-		ref.numRenderers++;
+		cur++;
 		COM_FreeLibrary( dll );
 	}
+	ref.numRenderers = cur;
 }
 
 qboolean R_Init( void )
