@@ -1,4 +1,7 @@
+#include "vk_core.h"
+#include "vk_common.h"
 #include "vk_textures.h"
+#include "vk_renderstate.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -8,39 +11,12 @@
 #include "com_strings.h"
 
 #include <memory.h>
-#include <stdio.h>
 
 ref_api_t gEngine = {0};
 ref_globals_t *gpGlobals = NULL;
 
-qboolean R_VkInit( void )
-{
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
-
-	// TODO VkInstance create ...
-
-	if( !gEngine.R_Init_Video( REF_VULKAN )) // request Vulkan surface
-	{
-		// ...
-		return false;
-	}
-
-	initTextures();
-
-	return true;
-}
-
-void R_VkShutdown( void )
-{
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
-
-	// TODO destroy everything
-}
-
 const char *R_GetConfigName( void )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
-
 	return "vk";
 }
 
@@ -63,7 +39,7 @@ void GL_ClearExtensions( void )
 
 void R_BeginFrame( qboolean clearScene )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	gEngine.Con_Printf(S_WARN "VK FIXME: %s(%d)\n", __FUNCTION__, clearScene);
 }
 void R_RenderScene( void )
 {
@@ -91,14 +67,6 @@ void GL_BackendEndFrame( void )
 }
 
 void R_ClearScreen( void )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-void R_AllowFog( qboolean allow )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-void GL_SetRenderMode( int renderMode )
 {
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
@@ -146,17 +114,14 @@ void R_SetupSky( const char *skyname )
 	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
 }
 
-void R_Set2DMode( qboolean enable )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
 void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
 {
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
 void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	gEngine.Con_Printf(S_WARN "VK FIXME: %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__,
+		x, y, w, h, s1, t1, s2, t2, texnum, findTexture(texnum)->name);
 }
 void R_DrawTileClear( int texnum, int x, int y, int w, int h )
 {
@@ -260,8 +225,8 @@ void Mod_LoadMapSprite( struct model_s *mod, const void *buffer, size_t size, qb
 }
 qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buffer )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
-	return false;
+	gEngine.Con_Printf("VK FIXME: %s(%p(%s), %d, %p)\n", __FUNCTION__, mod, mod->name, create, buffer);
+	return true;//false;
 }
 void Mod_StudioLoadTextures( model_t *mod, void *data )
 {
@@ -304,7 +269,6 @@ static const char *getParmName(int parm)
 	case PARM_TEX_TEXNUM: return "PARM_TEX_TEXNUM";
 	case PARM_TEX_FLAGS: return "PARM_TEX_FLAGS";
 	case PARM_TEX_DEPTH: return "PARM_TEX_DEPTH";
-//reserved
 	case PARM_TEX_GLFORMAT: return "PARM_TEX_GLFORMAT";
 	case PARM_TEX_ENCODE: return "PARM_TEX_ENCODE";
 	case PARM_TEX_MIPCOUNT: return "PARM_TEX_MIPCOUNT";
@@ -512,10 +476,6 @@ void	TriEnd( void )
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
 void	TriColor4f( float r, float g, float b, float a )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-void	TriColor4ub( unsigned char r, unsigned char g, unsigned char b, unsigned char a )
 {
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }

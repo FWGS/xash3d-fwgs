@@ -234,8 +234,6 @@ int		VK_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	rgbdata_t		*pic;
 	uint		picFlags = 0;
 
-	gEngine.Con_Printf("VK FIXME: %s(\"%s\", %p, %zu, %x)\n", __FUNCTION__, name, buf, size, flags);
-
 	if( !Common_CheckTexName( name ))
 		return 0;
 
@@ -304,8 +302,6 @@ void		VK_FreeTexture( unsigned int texnum ) {}
 int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update )
 {
 	vk_texture_t	*tex;
-
-	gEngine.Con_Printf("VK FIXME: %s(\"%s\", %p, %x, %d)\n", __FUNCTION__, name, pic, flags, update);
 
 	if( !Common_CheckTexName( name ))
 		return 0;

@@ -124,6 +124,13 @@ void *SW_LockBuffer( void );
 void SW_UnlockBuffer( void );
 qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
 
+//
+// Vulkan
+//
+
+int VK_GetInstanceExtensions( const char ***pNames );
+void *VK_GetVkGetInstanceProcAddr( void );
+void *VK_CreateSurface( void *vkInstance );
 
 //
 // in_evdev.c

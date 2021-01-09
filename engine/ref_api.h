@@ -432,6 +432,11 @@ typedef struct ref_api_s
 	void	(*pfnDrawNormalTriangles)( void );
 	void	(*pfnDrawTransparentTriangles)( void );
 	render_interface_t	*drawFuncs;
+
+	// Vulkan
+	int (*VK_GetInstanceExtensions)( const char ***pNames );
+	void *(*VK_GetVkGetInstanceProcAddr)( void );
+	void *(*VK_CreateSurface)( void *vkInstance );
 } ref_api_t;
 
 struct mip_s;
