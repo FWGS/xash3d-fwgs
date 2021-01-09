@@ -989,17 +989,17 @@ void *VK_GetVkGetInstanceProcAddr( void )
 	return SDL_Vulkan_GetVkGetInstanceProcAddr();
 }
 
-void *VK_CreateSurface( void *vkInstance )
+vulkan_non_dispatchable_handle_t VK_CreateSurface( vulkan_handle_t vkInstance )
 {
 	VkSurfaceKHR surface;
 
 	if (!SDL_Vulkan_CreateSurface(host.hWnd, vkInstance, &surface))
 	{
 		Con_Reportf( S_ERROR  "Couldn't create Vulkan surface: %s\n", SDL_GetError());
-		return NULL;
+		return 0;
 	}
 
-	return (void*)surface;
+	return surface;
 }
 
 /*
