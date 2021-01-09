@@ -2697,7 +2697,9 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 			if( !vbotex->vboarray )
 				continue;
 
-			ASSERT( vbotex->vboarray == vbo );
+			// ASSERT( vbotex->vboarray == vbo );
+			if( vbotex->vboarray != vbo )
+				continue;
 
 			if( vbotex->curindex || vbotex->dlightchain )
 			{
@@ -2855,7 +2857,7 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 		if( !drawtextures || !drawlightmap )
 			vbos.decaldata->lm[k] = NULL;
 	}
-	ASSERT( !vbo->next );
+	// ASSERT( !vbo->next );
 
 	// restore states
 	R_DisableDetail();
