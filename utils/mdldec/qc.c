@@ -217,7 +217,7 @@ static void WriteTextureRenderMode( FILE *fp )
 		if( texture->flags & STUDIO_NF_SMOOTH )
 		{
 			fprintf( fp, "$texrendermode \"%s\" \"alpha\" \n", texture->name ); // sven-coop extension
-			fprintf( fp, "$texrendermode \"%s\" \"nosmooth\" \n", texture->name ); // xash3d extension
+			fprintf( fp, "$texrendermode \"%s\" \"smooth\" \n", texture->name ); // xash3d extension
 		}
 
 		if( texture->flags & STUDIO_NF_ADDITIVE )
