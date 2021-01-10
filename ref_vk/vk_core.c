@@ -12,24 +12,10 @@
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 
-typedef struct vulkan_core_s {
-	PFN_vkGetInstanceProcAddr get_proc_addr;
-	uint32_t vulkan_version;
-	VkInstance instance;
-	VkDebugUtilsMessengerEXT debug_messenger;
-
-	byte *pool;
-} vulkan_core_t;
-
-vulkan_core_t vk_core = {0};
-
 #define XVK_PARSE_VERSION(v) \
 	VK_VERSION_MAJOR(v), \
 	VK_VERSION_MINOR(v), \
 	VK_VERSION_PATCH(v)
-
-#define XVK_INSTANCE_FUNC(f) \
-	((PFN_ ##f)vk_core.get_proc_addr(vk_core.instance, #f))
 
 #define NULLINST_FUNCS(X) \
 	X(vkEnumerateInstanceVersion) \
@@ -44,15 +30,23 @@ vulkan_core_t vk_core = {0};
 	X(vkGetPhysicalDeviceSurfaceSupportKHR) \
 	X(vkGetPhysicalDeviceMemoryProperties) \
 	X(vkCreateDevice) \
+	X(vkGetDeviceProcAddr) \
+	X(vkGetPhysicalDeviceProperties) \
 
 #define INSTANCE_DEBUG_FUNCS(X) \
 	X(vkCreateDebugUtilsMessengerEXT) \
 	X(vkDestroyDebugUtilsMessengerEXT) \
 
+#define DEVICE_FUNCS(X) \
+	X(vkGetDeviceQueue) \
+
+static PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
+
 #define X(f) PFN_##f f = NULL;
 	NULLINST_FUNCS(X)
 	INSTANCE_FUNCS(X)
 	INSTANCE_DEBUG_FUNCS(X)
+	DEVICE_FUNCS(X)
 #undef X
 
 static dllfunc_t nullinst_funcs[] = {
@@ -70,6 +64,12 @@ static dllfunc_t instance_funcs[] = {
 static dllfunc_t instance_debug_funcs[] = {
 #define X(f) {#f, (void**)&f},
 	INSTANCE_DEBUG_FUNCS(X)
+#undef X
+};
+
+static dllfunc_t device_funcs[] = {
+#define X(f) {#f, (void**)&f},
+	DEVICE_FUNCS(X)
 #undef X
 };
 
@@ -130,18 +130,6 @@ static const char *validation_layers[] = {
 	"VK_LAYER_KHRONOS_validation",
 };
 
-static void loadInstanceFunctions(dllfunc_t *funcs, int count)
-{
-	for (int i = 0; i < count; ++i)
-	{
-		*funcs[i].func = vk_core.get_proc_addr(vk_core.instance, funcs[i].name);
-		if (!*funcs[i].func)
-		{
-			gEngine.Con_Printf( S_WARN "Function %s was not loaded\n", funcs[i].name);
-		}
-	}
-}
-
 VkBool32 debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT                  messageTypes,
@@ -165,20 +153,249 @@ VkBool32 debugCallback(
 	return VK_FALSE;
 }
 
-qboolean R_VkInit( void )
-{
-	const qboolean debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
+typedef struct physical_device_s {
+	VkPhysicalDevice device;
+	VkPhysicalDeviceMemoryProperties memory_properties;
+	VkPhysicalDeviceProperties properties;
+} physical_device_t;
 
-	if( !gEngine.R_Init_Video( REF_VULKAN )) // request Vulkan surface
+typedef struct vulkan_core_s {
+	uint32_t vulkan_version;
+	VkInstance instance;
+	VkDebugUtilsMessengerEXT debug_messenger;
+
+	byte *pool;
+
+	qboolean debug;
+
+	VkSurfaceKHR surface;
+
+	physical_device_t physical_device;
+	VkDevice device;
+	VkQueue queue;
+} vulkan_core_t;
+
+vulkan_core_t vk_core = {0};
+
+static void loadInstanceFunctions(dllfunc_t *funcs, int count)
+{
+	for (int i = 0; i < count; ++i)
 	{
-		gEngine.Con_Printf( S_ERROR "Cannot initialize Vulkan video" );
+		*funcs[i].func = vkGetInstanceProcAddr(vk_core.instance, funcs[i].name);
+		if (!*funcs[i].func)
+		{
+			gEngine.Con_Printf( S_WARN "Function %s was not loaded\n", funcs[i].name);
+		}
+	}
+}
+
+static void loadDeviceFunctions(dllfunc_t *funcs, int count)
+{
+	for (int i = 0; i < count; ++i)
+	{
+		*funcs[i].func = vkGetDeviceProcAddr(vk_core.device, funcs[i].name);
+		if (!*funcs[i].func)
+		{
+			gEngine.Con_Printf( S_WARN "Function %s was not loaded\n", funcs[i].name);
+		}
+	}
+}
+
+static qboolean createInstance( void )
+{
+	const char **instance_extensions = NULL;
+	unsigned int num_instance_extensions = vk_core.debug ? 1 : 0;
+	VkApplicationInfo app_info = {
+		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+		.apiVersion = VK_API_VERSION_1_0,
+		.applicationVersion = VK_MAKE_VERSION(0, 0, 0), // TODO
+		.engineVersion = VK_MAKE_VERSION(0, 0, 0),
+		.pApplicationName = "",
+		.pEngineName = "xash3d-fwgs",
+	};
+	VkInstanceCreateInfo create_info = {
+		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+		.pApplicationInfo = &app_info,
+	};
+
+	int vid_extensions = gEngine.VK_GetInstanceExtensions(0, NULL);
+	if (vid_extensions < 0)
+	{
+		gEngine.Con_Printf( S_ERROR "Cannot get Vulkan instance extensions\n" );
 		return false;
 	}
 
-	vk_core.get_proc_addr = gEngine.VK_GetVkGetInstanceProcAddr();
-	if (!vk_core.get_proc_addr)
+	num_instance_extensions += vid_extensions;
+
+	instance_extensions = Mem_Malloc(vk_core.pool, sizeof(const char*) * num_instance_extensions);
+	vid_extensions = gEngine.VK_GetInstanceExtensions(vid_extensions, instance_extensions);
+	if (vid_extensions < 0)
 	{
-		gEngine.Con_Printf( S_ERROR "Cannot get vkGetInstanceProcAddr address" );
+		gEngine.Con_Printf( S_ERROR "Cannot get Vulkan instance extensions\n" );
+		Mem_Free(instance_extensions);
+		return false;
+	}
+
+	if (vk_core.debug)
+	{
+		instance_extensions[vid_extensions] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+	}
+
+	gEngine.Con_Reportf("Requesting instance extensions: %d\n", num_instance_extensions);
+	for (int i = 0; i < num_instance_extensions; ++i)
+	{
+		gEngine.Con_Reportf("\t%d: %s\n", i, instance_extensions[i]);
+	}
+
+	create_info.enabledExtensionCount = num_instance_extensions;
+	create_info.ppEnabledExtensionNames = instance_extensions;
+
+	if (vk_core.debug)
+	{
+		create_info.enabledLayerCount = ARRAYSIZE(validation_layers);
+		create_info.ppEnabledLayerNames = validation_layers;
+
+		gEngine.Con_Printf(S_WARN "Using Vulkan validation layers, expect severely degraded performance\n");
+	}
+
+	// TODO handle errors gracefully -- let it try next renderer
+	XVK_CHECK(vkCreateInstance(&create_info, NULL, &vk_core.instance));
+
+	loadInstanceFunctions(instance_funcs, ARRAYSIZE(instance_funcs));
+
+	if (vk_core.debug)
+	{
+		loadInstanceFunctions(instance_debug_funcs, ARRAYSIZE(instance_debug_funcs));
+
+		if (vkCreateDebugUtilsMessengerEXT)
+		{
+			VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
+				.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+				.messageSeverity = 0x1111, //:vovka: VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
+				.messageType = 0x07,
+				.pfnUserCallback = debugCallback,
+			};
+			XVK_CHECK(vkCreateDebugUtilsMessengerEXT(vk_core.instance, &debug_create_info, NULL, &vk_core.debug_messenger));
+		} else
+		{
+			gEngine.Con_Printf(S_WARN "Vulkan debug utils messenger is not available\n");
+		}
+	}
+
+	Mem_Free(instance_extensions);
+	return true;
+}
+
+qboolean createDevice( void )
+{
+	VkPhysicalDevice *physical_devices = NULL;
+	uint32_t num_physical_devices = 0;
+	uint32_t best_device_index = UINT32_MAX;
+	uint32_t queue_index = UINT32_MAX;
+
+	XVK_CHECK(vkEnumeratePhysicalDevices(vk_core.instance, &num_physical_devices, physical_devices));
+
+	physical_devices = Mem_Malloc(vk_core.pool, sizeof(VkPhysicalDevice) * num_physical_devices);
+	XVK_CHECK(vkEnumeratePhysicalDevices(vk_core.instance, &num_physical_devices, physical_devices));
+
+	gEngine.Con_Reportf("Have %u devices:\n", num_physical_devices);
+	for (uint32_t i = 0; i < num_physical_devices; ++i)
+	{
+		VkQueueFamilyProperties *queue_family_props = NULL;
+		uint32_t num_queue_family_properties = 0;
+		VkPhysicalDeviceProperties props;
+
+		vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &num_queue_family_properties, queue_family_props);
+		queue_family_props = Mem_Malloc(vk_core.pool, sizeof(VkQueueFamilyProperties) * num_queue_family_properties);
+		vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &num_queue_family_properties, queue_family_props);
+
+		vkGetPhysicalDeviceProperties(physical_devices[i], &props);
+		gEngine.Con_Reportf("\t%u: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
+			i, props.vendorID, props.deviceID, props.deviceType, props.deviceName,
+			XVK_PARSE_VERSION(props.driverVersion), XVK_PARSE_VERSION(props.apiVersion));
+
+		for (uint32_t j = 0; j < num_queue_family_properties; ++j)
+		{
+			VkBool32 present = 0;
+			if (!(queue_family_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT))
+				continue;
+
+			vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices[i], j, vk_core.surface, &present);
+
+			if (!present)
+				continue;
+
+			queue_index = i;
+			break;
+		}
+
+		Mem_Free(queue_family_props);
+
+		// TODO pick the best device
+		// For now we'll pick the first one that has graphics and can present to the surface
+		if (queue_index < num_queue_family_properties)
+		{
+			best_device_index = i;
+			break;
+		}
+	}
+
+	if (best_device_index < num_physical_devices)
+	{
+		float prio = 1.f;
+		VkDeviceQueueCreateInfo queue_info = {
+			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+			.flags = 0,
+			.queueFamilyIndex = queue_index,
+			.queueCount = 1,
+			.pQueuePriorities = &prio,
+		};
+		const char *device_extensions[] = {
+			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		};
+		VkDeviceCreateInfo create_info = {
+			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+			.flags = 0,
+			.queueCreateInfoCount = 1,
+			.pQueueCreateInfos = &queue_info,
+			.enabledExtensionCount = ARRAYSIZE(device_extensions),
+			.ppEnabledExtensionNames = device_extensions,
+		};
+
+		vk_core.physical_device.device = physical_devices[best_device_index];
+		vkGetPhysicalDeviceMemoryProperties(vk_core.physical_device.device, &vk_core.physical_device.memory_properties);
+
+		vkGetPhysicalDeviceProperties(vk_core.physical_device.device, &vk_core.physical_device.properties);
+		gEngine.Con_Printf("Picked device #%u: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
+			best_device_index, vk_core.physical_device.properties.vendorID, vk_core.physical_device.properties.deviceID, vk_core.physical_device.properties.deviceType, vk_core.physical_device.properties.deviceName,
+			XVK_PARSE_VERSION(vk_core.physical_device.properties.driverVersion), XVK_PARSE_VERSION(vk_core.physical_device.properties.apiVersion));
+
+		// TODO allow it to fail gracefully
+		XVK_CHECK(vkCreateDevice(vk_core.physical_device.device, &create_info, NULL, &vk_core.device));
+
+		loadDeviceFunctions(device_funcs, ARRAYSIZE(device_funcs));
+
+		vkGetDeviceQueue(vk_core.device, 0, 0, &vk_core.queue);
+	}
+
+	Mem_Free(physical_devices);
+	return true;
+}
+
+qboolean R_VkInit( void )
+{
+	vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
+
+	if( !gEngine.R_Init_Video( REF_VULKAN )) // request Vulkan surface
+	{
+		gEngine.Con_Printf( S_ERROR "Cannot initialize Vulkan video\n" );
+		return false;
+	}
+
+	vkGetInstanceProcAddr = gEngine.VK_GetVkGetInstanceProcAddr();
+	if (!vkGetInstanceProcAddr)
+	{
+		gEngine.Con_Printf( S_ERROR "Cannot get vkGetInstanceProcAddr address\n" );
 		return false;
 	}
 
@@ -197,88 +414,19 @@ qboolean R_VkInit( void )
 
 	gEngine.Con_Printf( "Vulkan version %u.%u.%u\n", XVK_PARSE_VERSION(vk_core.vulkan_version));
 
+	if (!createInstance())
+		return false;
+
+	vk_core.surface = gEngine.VK_CreateSurface(vk_core.instance);
+	if (!vk_core.surface)
 	{
-		const char **instance_extensions = NULL;
-		unsigned int num_instance_extensions = debug ? 1 : 0;
-		VkApplicationInfo app_info = {
-			.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-			.apiVersion = VK_API_VERSION_1_0,
-			.applicationVersion = VK_MAKE_VERSION(0, 0, 0), // TODO
-			.engineVersion = VK_MAKE_VERSION(0, 0, 0),
-			.pApplicationName = "",
-			.pEngineName = "xash3d-fwgs",
-		};
-		VkInstanceCreateInfo create_info = {
-			.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-			.pApplicationInfo = &app_info,
-		};
-
-		int vid_extensions = gEngine.VK_GetInstanceExtensions(0, NULL);
-		if (vid_extensions < 0)
-		{
-			gEngine.Con_Printf( S_ERROR "Cannot get Vulkan instance extensions\n" );
-			return false;
-		}
-
-		num_instance_extensions += vid_extensions;
-
-		instance_extensions = Mem_Malloc(vk_core.pool, sizeof(const char*) * num_instance_extensions);
-		vid_extensions = gEngine.VK_GetInstanceExtensions(vid_extensions, instance_extensions);
-		if (vid_extensions < 0)
-		{
-			gEngine.Con_Printf( S_ERROR "Cannot get Vulkan instance extensions\n" );
-			Mem_Free(instance_extensions);
-			return false;
-		}
-
-		if (debug)
-		{
-			instance_extensions[vid_extensions] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
-		}
-
-		gEngine.Con_Reportf("Requesting instance extensions: %d\n", num_instance_extensions);
-		for (int i = 0; i < num_instance_extensions; ++i)
-		{
-			gEngine.Con_Reportf("\t%d: %s\n", i, instance_extensions[i]);
-		}
-
-		create_info.enabledExtensionCount = num_instance_extensions;
-		create_info.ppEnabledExtensionNames = instance_extensions;
-
-		if (debug)
-		{
-			create_info.enabledLayerCount = ARRAYSIZE(validation_layers);
-			create_info.ppEnabledLayerNames = validation_layers;
-
-			gEngine.Con_Printf(S_WARN "Using Vulkan validation layers, expect severely degraded performance\n");
-		}
-
-		// TODO handle errors gracefully -- let it try next renderer
-		XVK_CHECK(vkCreateInstance(&create_info, NULL, &vk_core.instance));
-
-		loadInstanceFunctions(instance_funcs, ARRAYSIZE(instance_funcs));
-
-		if (debug)
-		{
-			loadInstanceFunctions(instance_debug_funcs, ARRAYSIZE(instance_debug_funcs));
-
-			if (vkCreateDebugUtilsMessengerEXT)
-			{
-				VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
-					.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-					.messageSeverity = 0x1111, //:vovka: VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
-					.messageType = 0x07,
-					.pfnUserCallback = debugCallback,
-				};
-				XVK_CHECK(vkCreateDebugUtilsMessengerEXT(vk_core.instance, &debug_create_info, NULL, &vk_core.debug_messenger));
-			} else
-			{
-				gEngine.Con_Printf(S_WARN "Vulkan debug utils messenger is not available\n");
-			}
-		}
-
-		Mem_Free(instance_extensions);
+		gEngine.Con_Printf( S_ERROR "Cannot create Vulkan surface\n" );
+		// FIXME destroy surface
+		return false;
 	}
+
+	if (!createDevice())
+		return false;
 
 	initTextures();
 
@@ -293,5 +441,7 @@ void R_VkShutdown( void )
 	}
 
 	vkDestroyInstance(vk_core.instance, NULL);
+
+	Mem_FreePool(&vk_core.pool);
 }
 
