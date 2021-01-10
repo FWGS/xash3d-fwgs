@@ -142,7 +142,7 @@ typedef uint64_t vulkan_non_dispatchable_handle_t;
 typedef void* vulkan_handle_t;
 // FIXME END MAXIMUM DUMB
 
-int VK_GetInstanceExtensions( const char ***pNames );
+int VK_GetInstanceExtensions( unsigned int count, const char **pNames );
 void *VK_GetVkGetInstanceProcAddr( void );
 vulkan_non_dispatchable_handle_t VK_CreateSurface( vulkan_handle_t vkInstance );
 

@@ -442,7 +442,7 @@ typedef struct ref_api_s
 	render_interface_t	*drawFuncs;
 
 	// Vulkan
-	int (*VK_GetInstanceExtensions)( const char ***pNames );
+	int (*VK_GetInstanceExtensions)( unsigned int count, const char **pNames );
 	void *(*VK_GetVkGetInstanceProcAddr)( void );
 	vulkan_non_dispatchable_handle_t (*VK_CreateSurface)( vulkan_handle_t vkInstance );
 } ref_api_t;

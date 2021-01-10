@@ -965,23 +965,15 @@ int GL_GetAttribute( int attr, int *val )
 #define EGL_LIB NULL
 #endif
 
-int VK_GetInstanceExtensions( const char ***pNames )
+int VK_GetInstanceExtensions( unsigned int count, const char **pNames )
 {
-	int pCount = 0;
-	if (!SDL_Vulkan_GetInstanceExtensions(host.hWnd, (unsigned int*)&pCount, NULL))
+	if (!SDL_Vulkan_GetInstanceExtensions(host.hWnd, &count, pNames))
 	{
 		Con_Reportf( S_ERROR  "Couldn't get Vulkan extensions: %s\n", SDL_GetError());
 		return -1;
 	}
 
-	*pNames = Mem_Malloc(host.mempool, pCount * sizeof(const char*));
-	if (!SDL_Vulkan_GetInstanceExtensions(host.hWnd, (unsigned int*)&pCount, *pNames))
-	{
-		Con_Reportf( S_ERROR  "Couldn't get Vulkan extensions: %s\n", SDL_GetError());
-		return -1;
-	}
-
-	return pCount;
+	return (int)count;
 }
 
 void *VK_GetVkGetInstanceProcAddr( void )
