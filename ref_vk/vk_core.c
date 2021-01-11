@@ -24,14 +24,18 @@
 #define INSTANCE_FUNCS(X) \
 	X(vkDestroyInstance) \
 	X(vkEnumeratePhysicalDevices) \
+	X(vkGetPhysicalDeviceProperties) \
 	X(vkGetPhysicalDeviceProperties2) \
 	X(vkGetPhysicalDeviceFeatures2) \
 	X(vkGetPhysicalDeviceQueueFamilyProperties) \
 	X(vkGetPhysicalDeviceSurfaceSupportKHR) \
 	X(vkGetPhysicalDeviceMemoryProperties) \
+	X(vkGetPhysicalDeviceSurfacePresentModesKHR) \
+	X(vkGetPhysicalDeviceSurfaceFormatsKHR) \
+	X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR) \
 	X(vkCreateDevice) \
 	X(vkGetDeviceProcAddr) \
-	X(vkGetPhysicalDeviceProperties) \
+	X(vkDestroyDevice) \
 
 #define INSTANCE_DEBUG_FUNCS(X) \
 	X(vkCreateDebugUtilsMessengerEXT) \
@@ -39,6 +43,9 @@
 
 #define DEVICE_FUNCS(X) \
 	X(vkGetDeviceQueue) \
+	X(vkCreateSwapchainKHR) \
+	X(vkGetSwapchainImagesKHR) \
+	X(vkDestroySwapchainKHR) \
 
 static PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
 
@@ -118,6 +125,7 @@ static const char *resultName(VkResult result) {
 	}
 }
 
+// TODO make this not fatal: devise proper error handling strategies
 #define XVK_CHECK(f) do { \
 		const VkResult result = f; \
 		if (result != VK_SUCCESS) { \
@@ -173,6 +181,14 @@ typedef struct vulkan_core_s {
 	physical_device_t physical_device;
 	VkDevice device;
 	VkQueue queue;
+
+	struct {
+		VkSurfaceCapabilitiesKHR surface_caps;
+		VkSwapchainCreateInfoKHR create_info;
+		VkSwapchainKHR swapchain;
+		uint32_t num_images;
+		VkImage *images;
+	} swapchain;
 } vulkan_core_t;
 
 vulkan_core_t vk_core = {0};
@@ -382,6 +398,95 @@ qboolean createDevice( void )
 	return true;
 }
 
+const char *presentModeName(VkPresentModeKHR present_mode)
+{
+	switch (present_mode)
+	{
+		case VK_PRESENT_MODE_IMMEDIATE_KHR: return "VK_PRESENT_MODE_IMMEDIATE_KHR";
+		case VK_PRESENT_MODE_MAILBOX_KHR: return "VK_PRESENT_MODE_MAILBOX_KHR";
+		case VK_PRESENT_MODE_FIFO_KHR: return "VK_PRESENT_MODE_FIFO_KHR";
+		case VK_PRESENT_MODE_FIFO_RELAXED_KHR: return "VK_PRESENT_MODE_FIFO_RELAXED_KHR";
+		case VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR: return "VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR";
+		case VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR: return "VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR";
+		default: return "UNKNOWN";
+	}
+}
+
+qboolean createSwapchain( void )
+{
+	VkSwapchainCreateInfoKHR *create_info = &vk_core.swapchain.create_info;
+
+	uint32_t num_surface_formats = 0;
+	VkSurfaceFormatKHR *surface_formats = NULL;
+
+	uint32_t num_present_modes = 0;
+	VkPresentModeKHR *present_modes = NULL;
+
+	const uint32_t prev_num_images = vk_core.swapchain.num_images;
+
+	XVK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_core.physical_device.device, vk_core.surface, &num_present_modes, present_modes));
+	present_modes = Mem_Malloc(vk_core.pool, sizeof(*present_modes) * num_present_modes);
+	XVK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_core.physical_device.device, vk_core.surface, &num_present_modes, present_modes));
+
+	gEngine.Con_Reportf("Supported surface present modes: %u\n", num_present_modes);
+	for (uint32_t i = 0; i < num_present_modes; ++i)
+	{
+		gEngine.Con_Reportf("\t%u: %s (%u)\n", i, presentModeName(present_modes[i]), present_modes[i]);
+	}
+
+	XVK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_core.physical_device.device, vk_core.surface, &num_surface_formats, surface_formats));
+	surface_formats = Mem_Malloc(vk_core.pool, sizeof(*surface_formats) * num_surface_formats);
+	XVK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_core.physical_device.device, vk_core.surface, &num_surface_formats, surface_formats));
+
+	gEngine.Con_Reportf("Supported surface formats: %u\n", num_surface_formats);
+	for (uint32_t i = 0; i < num_surface_formats; ++i)
+	{
+		// TODO symbolicate
+		gEngine.Con_Reportf("\t%u: %u %u\n", surface_formats[i].format, surface_formats[i].colorSpace);
+	}
+
+	XVK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_core.physical_device.device, vk_core.surface, &vk_core.swapchain.surface_caps));
+
+	create_info->sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	create_info->pNext = NULL;
+	create_info->surface = vk_core.surface;
+	create_info->imageFormat = VK_FORMAT_B8G8R8A8_SRGB; // TODO get from surface_formats
+	create_info->imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR; // TODO get from surface_formats
+	create_info->imageExtent.width = vk_core.swapchain.surface_caps.currentExtent.width;
+	create_info->imageExtent.height = vk_core.swapchain.surface_caps.currentExtent.height;
+	create_info->imageArrayLayers = 1;
+	create_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	create_info->imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	create_info->preTransform = vk_core.swapchain.surface_caps.currentTransform;
+	create_info->compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	create_info->presentMode = VK_PRESENT_MODE_FIFO_KHR; // TODO caps, MAILBOX is better
+	//create_info->presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR; // TODO caps, MAILBOX is better
+	create_info->clipped = VK_TRUE;
+	create_info->oldSwapchain = vk_core.swapchain.swapchain;
+
+	create_info->minImageCount = vk_core.swapchain.surface_caps.minImageCount + 3;
+	if (vk_core.swapchain.surface_caps.maxImageCount && create_info->minImageCount > vk_core.swapchain.surface_caps.maxImageCount)
+		create_info->minImageCount = vk_core.swapchain.surface_caps.maxImageCount;
+
+	XVK_CHECK(vkCreateSwapchainKHR(vk_core.device, create_info, NULL, &vk_core.swapchain.swapchain));
+
+	Mem_Free(present_modes);
+	Mem_Free(surface_formats);
+
+	vk_core.swapchain.num_images = 0;
+	XVK_CHECK(vkGetSwapchainImagesKHR(vk_core.device, vk_core.swapchain.swapchain, &vk_core.swapchain.num_images, NULL));
+	if (prev_num_images != vk_core.swapchain.num_images)
+	{
+		if (vk_core.swapchain.images)
+			Mem_Free(vk_core.swapchain.images);
+
+		vk_core.swapchain.images = Mem_Malloc(vk_core.pool, sizeof(*vk_core.swapchain.images) * vk_core.swapchain.num_images);
+	}
+	XVK_CHECK(vkGetSwapchainImagesKHR(vk_core.device, vk_core.swapchain.swapchain, &vk_core.swapchain.num_images, vk_core.swapchain.images));
+
+	return true;
+}
+
 qboolean R_VkInit( void )
 {
 	vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
@@ -428,6 +533,9 @@ qboolean R_VkInit( void )
 	if (!createDevice())
 		return false;
 
+	if (!createSwapchain())
+		return false;
+
 	initTextures();
 
 	return true;
@@ -435,10 +543,16 @@ qboolean R_VkInit( void )
 
 void R_VkShutdown( void )
 {
+	vkDestroySwapchainKHR(vk_core.device, vk_core.swapchain.swapchain, NULL);
+
+	vkDestroyDevice(vk_core.device, NULL);
+
 	if (vk_core.debug_messenger)
 	{
 		vkDestroyDebugUtilsMessengerEXT(vk_core.instance, vk_core.debug_messenger, NULL);
 	}
+
+	// TODO destroy surface
 
 	vkDestroyInstance(vk_core.instance, NULL);
 
