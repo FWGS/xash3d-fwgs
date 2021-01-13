@@ -46,6 +46,9 @@
 	X(vkCreateSwapchainKHR) \
 	X(vkGetSwapchainImagesKHR) \
 	X(vkDestroySwapchainKHR) \
+	X(vkCreateImageView) \
+	X(vkCreateFramebuffer) \
+	X(vkCreateRenderPass) \
 
 static PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
 
@@ -182,12 +185,16 @@ typedef struct vulkan_core_s {
 	VkDevice device;
 	VkQueue queue;
 
+	VkRenderPass render_pass;
+
 	struct {
 		VkSurfaceCapabilitiesKHR surface_caps;
 		VkSwapchainCreateInfoKHR create_info;
 		VkSwapchainKHR swapchain;
 		uint32_t num_images;
 		VkImage *images;
+		VkImageView *image_views;
+		VkFramebuffer *framebuffers;
 	} swapchain;
 } vulkan_core_t;
 
@@ -412,7 +419,65 @@ const char *presentModeName(VkPresentModeKHR present_mode)
 	}
 }
 
-qboolean createSwapchain( void )
+static qboolean createRenderPass( void ) {
+	VkAttachmentDescription attachments[] = {{
+		.format = VK_FORMAT_B8G8R8A8_SRGB,// FIXME too early swapchain.create_info.imageFormat;
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		//.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		//attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+	/*}, {
+		// Depth
+		.format = g.depth_format,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		//attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+		.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		//attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+		*/
+	}};
+
+	VkAttachmentReference color_attachment = {
+		.attachment = 0,
+		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+	};
+
+	/*
+	VkAttachmentReference depth_attachment = {0};
+	depth_attachment.attachment = 1;
+	depth_attachment.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	*/
+
+	VkSubpassDescription subdesc = {
+		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+		.colorAttachmentCount = 1,
+		.pColorAttachments = &color_attachment,
+		//.pDepthStencilAttachment = &depth_attachment,
+	};
+
+	VkRenderPassCreateInfo rpci = {
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+		.attachmentCount = ARRAYSIZE(attachments),
+		.pAttachments = attachments,
+		.subpassCount = 1,
+		.pSubpasses = &subdesc,
+	};
+
+	XVK_CHECK(vkCreateRenderPass(vk_core.device, &rpci, NULL, &vk_core.render_pass));
+
+	return true;
+}
+
+static qboolean createSwapchain( void )
 {
 	VkSwapchainCreateInfoKHR *create_info = &vk_core.swapchain.create_info;
 
@@ -478,11 +543,49 @@ qboolean createSwapchain( void )
 	if (prev_num_images != vk_core.swapchain.num_images)
 	{
 		if (vk_core.swapchain.images)
+		{
 			Mem_Free(vk_core.swapchain.images);
+			Mem_Free(vk_core.swapchain.image_views);
+			Mem_Free(vk_core.swapchain.framebuffers);
+		}
 
 		vk_core.swapchain.images = Mem_Malloc(vk_core.pool, sizeof(*vk_core.swapchain.images) * vk_core.swapchain.num_images);
+		vk_core.swapchain.image_views = Mem_Malloc(vk_core.pool, sizeof(*vk_core.swapchain.image_views) * vk_core.swapchain.num_images);
+		vk_core.swapchain.framebuffers = Mem_Malloc(vk_core.pool, sizeof(*vk_core.swapchain.framebuffers) * vk_core.swapchain.num_images);
 	}
+
 	XVK_CHECK(vkGetSwapchainImagesKHR(vk_core.device, vk_core.swapchain.swapchain, &vk_core.swapchain.num_images, vk_core.swapchain.images));
+
+	for (uint32_t i = 0; i < vk_core.swapchain.num_images; ++i) {
+		VkImageViewCreateInfo ivci = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.viewType = VK_IMAGE_VIEW_TYPE_2D,
+			.format = vk_core.swapchain.create_info.imageFormat,
+			.image = vk_core.swapchain.images[i],
+			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.subresourceRange.levelCount = 1,
+			.subresourceRange.layerCount = 1,
+		};
+
+		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, vk_core.swapchain.image_views + i));
+
+		{
+			const VkImageView attachments[] = {
+				vk_core.swapchain.image_views[i],
+				//g.depth_image_view
+			};
+			VkFramebufferCreateInfo fbci = {
+				.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+				.renderPass = vk_core.render_pass,
+				.attachmentCount = ARRAYSIZE(attachments),
+				.pAttachments = attachments,
+				.width = vk_core.swapchain.create_info.imageExtent.width,
+				.height = vk_core.swapchain.create_info.imageExtent.height,
+				.layers = 1,
+			};
+			XVK_CHECK(vkCreateFramebuffer(vk_core.device, &fbci, NULL, vk_core.swapchain.framebuffers + i));
+		}
+	}
 
 	return true;
 }
@@ -531,6 +634,9 @@ qboolean R_VkInit( void )
 	}
 
 	if (!createDevice())
+		return false;
+
+	if (!createRenderPass())
 		return false;
 
 	if (!createSwapchain())
