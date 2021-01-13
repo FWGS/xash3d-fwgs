@@ -41,6 +41,9 @@ typedef struct vulkan_core_s {
 		VkImageView *image_views;
 		VkFramebuffer *framebuffers;
 	} swapchain;
+
+	VkCommandPool command_pool;
+	VkCommandBuffer cb;
 } vulkan_core_t;
 
 extern vulkan_core_t vk_core;
@@ -68,6 +71,8 @@ const char *resultName(VkResult result);
 	X(vkCreatePipelineLayout) \
 	X(vkCreateGraphicsPipelines) \
 	X(vkCreateShaderModule) \
+	X(vkCreateCommandPool) \
+	X(vkAllocateCommandBuffers) \
 
 #define X(f) extern PFN_##f f;
 	DEVICE_FUNCS(X)

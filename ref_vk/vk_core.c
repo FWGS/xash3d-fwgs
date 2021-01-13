@@ -540,6 +540,26 @@ static qboolean createSwapchain( void )
 	return true;
 }
 
+static qboolean createCommandPool( void ) {
+	VkCommandPoolCreateInfo cpci = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		.queueFamilyIndex = 0,
+		.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+	};
+
+	VkCommandBufferAllocateInfo cbai = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.commandBufferCount = 1,
+		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+	};
+
+	XVK_CHECK(vkCreateCommandPool(vk_core.device, &cpci, NULL, &vk_core.command_pool));
+	cbai.commandPool = vk_core.command_pool;
+	XVK_CHECK(vkAllocateCommandBuffers(vk_core.device, &cbai, &vk_core.cb));
+
+	return true;
+}
+
 qboolean R_VkInit( void )
 {
 	vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
@@ -590,6 +610,9 @@ qboolean R_VkInit( void )
 		return false;
 
 	if (!createSwapchain())
+		return false;
+
+	if (!createCommandPool())
 		return false;
 
 	// TODO initAllocator()
