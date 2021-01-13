@@ -1,5 +1,7 @@
+#include "vk_core.h"
 #include "vk_common.h"
 #include "vk_textures.h"
+#include "vk_2d.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -9,8 +11,8 @@
 #include "com_strings.h"
 #include "eiface.h"
 
-#define VK_NO_PROTOTYPES
-#include <vulkan/vulkan.h>
+#include <string.h>
+#include <errno.h>
 
 #define XVK_PARSE_VERSION(v) \
 	VK_VERSION_MAJOR(v), \
@@ -40,15 +42,6 @@
 #define INSTANCE_DEBUG_FUNCS(X) \
 	X(vkCreateDebugUtilsMessengerEXT) \
 	X(vkDestroyDebugUtilsMessengerEXT) \
-
-#define DEVICE_FUNCS(X) \
-	X(vkGetDeviceQueue) \
-	X(vkCreateSwapchainKHR) \
-	X(vkGetSwapchainImagesKHR) \
-	X(vkDestroySwapchainKHR) \
-	X(vkCreateImageView) \
-	X(vkCreateFramebuffer) \
-	X(vkCreateRenderPass) \
 
 static PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
 
@@ -83,7 +76,7 @@ static dllfunc_t device_funcs[] = {
 #undef X
 };
 
-static const char *resultName(VkResult result) {
+const char *resultName(VkResult result) {
 	switch (result) {
 	case VK_SUCCESS: return "VK_SUCCESS";
 	case VK_NOT_READY: return "VK_NOT_READY";
@@ -128,15 +121,6 @@ static const char *resultName(VkResult result) {
 	}
 }
 
-// TODO make this not fatal: devise proper error handling strategies
-#define XVK_CHECK(f) do { \
-		const VkResult result = f; \
-		if (result != VK_SUCCESS) { \
-			gEngine.Host_Error( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
-				__FILE__, __LINE__, result, resultName(result)); \
-		} \
-	} while(0)
-
 static const char *validation_layers[] = {
 	"VK_LAYER_KHRONOS_validation",
 };
@@ -163,40 +147,6 @@ VkBool32 debugCallback(
 	}
 	return VK_FALSE;
 }
-
-typedef struct physical_device_s {
-	VkPhysicalDevice device;
-	VkPhysicalDeviceMemoryProperties memory_properties;
-	VkPhysicalDeviceProperties properties;
-} physical_device_t;
-
-typedef struct vulkan_core_s {
-	uint32_t vulkan_version;
-	VkInstance instance;
-	VkDebugUtilsMessengerEXT debug_messenger;
-
-	byte *pool;
-
-	qboolean debug;
-
-	VkSurfaceKHR surface;
-
-	physical_device_t physical_device;
-	VkDevice device;
-	VkQueue queue;
-
-	VkRenderPass render_pass;
-
-	struct {
-		VkSurfaceCapabilitiesKHR surface_caps;
-		VkSwapchainCreateInfoKHR create_info;
-		VkSwapchainKHR swapchain;
-		uint32_t num_images;
-		VkImage *images;
-		VkImageView *image_views;
-		VkFramebuffer *framebuffers;
-	} swapchain;
-} vulkan_core_t;
 
 vulkan_core_t vk_core = {0};
 
@@ -642,6 +592,12 @@ qboolean R_VkInit( void )
 	if (!createSwapchain())
 		return false;
 
+	// TODO initAllocator()
+	// TODO initPipelines()
+
+	if (!initVk2d())
+		return false;
+
 	initTextures();
 
 	return true;
@@ -649,6 +605,8 @@ qboolean R_VkInit( void )
 
 void R_VkShutdown( void )
 {
+	deinitVk2d();
+
 	vkDestroySwapchainKHR(vk_core.device, vk_core.swapchain.swapchain, NULL);
 
 	vkDestroyDevice(vk_core.device, NULL);
@@ -665,3 +623,28 @@ void R_VkShutdown( void )
 	Mem_FreePool(&vk_core.pool);
 }
 
+VkShaderModule loadShader(const char *filename) {
+	fs_offset_t size = 0;
+	VkShaderModuleCreateInfo smci = {
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+	};
+	VkShaderModule shader;
+	byte* buf = gEngine.COM_LoadFile( filename, &size, false);
+
+	if (!buf)
+	{
+		gEngine.Host_Error( S_ERROR "Cannot open shader file \"%s\"\n", filename);
+	}
+
+	if ((size % 4 != 0) || (((uintptr_t)buf & 3) != 0)) {
+		gEngine.Host_Error( S_ERROR "size %zu or buf %p is not aligned to 4 bytes as required by SPIR-V/Vulkan spec", size, buf);
+	}
+
+	smci.codeSize = size;
+	//smci.pCode = (const uint32_t*)buf;
+	memcpy(&smci.pCode, &buf, sizeof(void*));
+
+	XVK_CHECK(vkCreateShaderModule(vk_core.device, &smci, NULL, &shader));
+	Mem_Free(buf);
+	return shader;
+}

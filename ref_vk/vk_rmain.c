@@ -2,6 +2,7 @@
 #include "vk_common.h"
 #include "vk_textures.h"
 #include "vk_renderstate.h"
+#include "vk_2d.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -112,28 +113,6 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 void R_SetupSky( const char *skyname )
 {
 	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
-}
-
-void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__,
-		x, y, w, h, s1, t1, s2, t2, texnum, findTexture(texnum)->name);
-}
-void R_DrawTileClear( int texnum, int x, int y, int w, int h )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-void CL_FillRGBA( float x, float y, float w, float h, int r, int g, int b, int a )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-void CL_FillRGBABlend( float x, float y, float w, float h, int r, int g, int b, int a )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
 
 // screenshot, cubemapshot
