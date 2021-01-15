@@ -64,8 +64,14 @@ void Platform_Init( void )
 #if XASH_POSIX
 	Posix_Daemonize();
 #endif
+#ifdef XASH_WIN32
+	Wcon_CreateConsole(); // system console used by dedicated server or show fatal errors
+#endif
 }
 
 void Platform_Shutdown( void )
 {
+#ifdef XASH_WIN32
+	Wcon_DestroyConsole();
+#endif
 }
