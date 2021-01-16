@@ -39,6 +39,7 @@
 	X(vkCreateDevice) \
 	X(vkGetDeviceProcAddr) \
 	X(vkDestroyDevice) \
+	X(vkDestroySurfaceKHR) \
 
 #define INSTANCE_DEBUG_FUNCS(X) \
 	X(vkCreateDebugUtilsMessengerEXT) \
@@ -374,8 +375,8 @@ static qboolean createRenderPass( void ) {
 	VkAttachmentDescription attachments[] = {{
 		.format = VK_FORMAT_B8G8R8A8_SRGB,// FIXME too early swapchain.create_info.imageFormat;
 		.samples = VK_SAMPLE_COUNT_1_BIT,
-		//.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+		.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		//.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -633,11 +634,18 @@ qboolean R_VkInit( void )
 void R_VkShutdown( void )
 {
 	renderstateDestroy();
-
 	deinitVk2d();
 
-	vkDestroySwapchainKHR(vk_core.device, vk_core.swapchain.swapchain, NULL);
+	vkDestroyCommandPool(vk_core.device, vk_core.command_pool, NULL);
 
+	for (uint32_t i = 0; i < vk_core.swapchain.num_images; ++i)
+	{
+		vkDestroyImageView(vk_core.device, vk_core.swapchain.image_views[i], NULL);
+		vkDestroyFramebuffer(vk_core.device, vk_core.swapchain.framebuffers[i], NULL);
+	}
+
+	vkDestroySwapchainKHR(vk_core.device, vk_core.swapchain.swapchain, NULL);
+	vkDestroyRenderPass(vk_core.device, vk_core.render_pass, NULL);
 	vkDestroyDevice(vk_core.device, NULL);
 
 	if (vk_core.debug_messenger)
@@ -645,10 +653,8 @@ void R_VkShutdown( void )
 		vkDestroyDebugUtilsMessengerEXT(vk_core.instance, vk_core.debug_messenger, NULL);
 	}
 
-	// TODO destroy surface
-
+	vkDestroySurfaceKHR(vk_core.instance, vk_core.surface, NULL);
 	vkDestroyInstance(vk_core.instance, NULL);
-
 	Mem_FreePool(&vk_core.pool);
 }
 

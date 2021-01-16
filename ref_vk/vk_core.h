@@ -106,6 +106,13 @@ const char *resultName(VkResult result);
 	X(vkCmdBindPipeline) \
 	X(vkCmdBindVertexBuffers) \
 	X(vkCmdDraw) \
+	X(vkDestroyCommandPool) \
+	X(vkDestroyImageView) \
+	X(vkDestroyFramebuffer) \
+	X(vkDestroyRenderPass) \
+	X(vkDestroyShaderModule) \
+	X(vkDestroyPipeline) \
+	X(vkDestroyPipelineLayout) \
 
 #define X(f) extern PFN_##f f;
 	DEVICE_FUNCS(X)

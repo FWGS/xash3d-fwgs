@@ -158,4 +158,7 @@ qboolean renderstateInit( void )
 
 void renderstateDestroy( void )
 {
+	destroyFence(grs.fence);
+	destroySemaphore(grs.done);
+	destroySemaphore(grs.image_available);
 }

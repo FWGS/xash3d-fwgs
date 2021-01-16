@@ -30,7 +30,7 @@ typedef struct vertex_2d_s {
 	float u, v;
 } vertex_2d_t;
 
-#define MAX_PICS 1024
+#define MAX_PICS 4096
 
 static struct {
 	VkPipeline pipeline;
@@ -207,6 +207,11 @@ static VkPipeline createPipeline( void )
 
 	XVK_CHECK(vkCreateGraphicsPipelines(vk_core.device, VK_NULL_HANDLE, 1, &gpci, NULL, &pipeline));
 
+	vkDestroyPipelineLayout(vk_core.device, gpci.layout, NULL);
+
+	for (int i = 0; i < (int)ARRAYSIZE(shader_stages); ++i)
+		vkDestroyShaderModule(vk_core.device, shader_stages[i].module, NULL);
+
 	return pipeline;
 }
 
@@ -241,5 +246,6 @@ qboolean initVk2d( void )
 
 void deinitVk2d( void )
 {
-	// FIXME deinit stuff
+	destroyBuffer(&g2d.pics_buffer);
+	vkDestroyPipeline(vk_core.device, g2d.pipeline, NULL);
 }
