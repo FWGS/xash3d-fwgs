@@ -332,3 +332,5 @@ __pycache__
 .cache
 compile_commands.json
 cscope.out
+
+core

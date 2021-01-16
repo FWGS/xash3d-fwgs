@@ -2,6 +2,7 @@
 #include "vk_common.h"
 #include "vk_textures.h"
 #include "vk_2d.h"
+#include "vk_renderstate.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -373,8 +374,8 @@ static qboolean createRenderPass( void ) {
 	VkAttachmentDescription attachments[] = {{
 		.format = VK_FORMAT_B8G8R8A8_SRGB,// FIXME too early swapchain.create_info.imageFormat;
 		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		//.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+		//.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -621,6 +622,9 @@ qboolean R_VkInit( void )
 	if (!initVk2d())
 		return false;
 
+	if (!renderstateInit())
+		return false;
+
 	initTextures();
 
 	return true;
@@ -628,6 +632,8 @@ qboolean R_VkInit( void )
 
 void R_VkShutdown( void )
 {
+	renderstateDestroy();
+
 	deinitVk2d();
 
 	vkDestroySwapchainKHR(vk_core.device, vk_core.swapchain.swapchain, NULL);
@@ -670,4 +676,32 @@ VkShaderModule loadShader(const char *filename) {
 	XVK_CHECK(vkCreateShaderModule(vk_core.device, &smci, NULL, &shader));
 	Mem_Free(buf);
 	return shader;
+}
+
+VkSemaphore createSemaphore( void ) {
+	VkSemaphore sema;
+	VkSemaphoreCreateInfo sci = {
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		.flags = 0,
+	};
+	XVK_CHECK(vkCreateSemaphore(vk_core.device, &sci, NULL, &sema));
+	return sema;
+}
+
+void destroySemaphore(VkSemaphore sema) {
+	vkDestroySemaphore(vk_core.device, sema, NULL);
+}
+
+VkFence createFence( void ) {
+	VkFence fence;
+	VkFenceCreateInfo fci = {
+		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+		.flags = 0,
+	};
+	XVK_CHECK(vkCreateFence(vk_core.device, &fci, NULL, &fence));
+	return fence;
+}
+
+void destroyFence(VkFence fence) {
+	vkDestroyFence(vk_core.device, fence, NULL);
 }

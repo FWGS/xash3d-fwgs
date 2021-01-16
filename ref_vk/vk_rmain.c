@@ -38,18 +38,6 @@ void GL_ClearExtensions( void )
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
 
-void R_BeginFrame( qboolean clearScene )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s(%d)\n", __FUNCTION__, clearScene);
-}
-void R_RenderScene( void )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-void R_EndFrame( void )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
 void R_PushScene( void )
 {
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);

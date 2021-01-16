@@ -1,4 +1,8 @@
+#pragma once
+#include "vk_common.h"
+
 #include "xash3d_types.h"
+#include "com_strings.h" // S_ERROR
 
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
@@ -8,6 +12,10 @@ void R_VkShutdown( void );
 
 // FIXME load from embedded static structs
 VkShaderModule loadShader(const char *filename);
+VkSemaphore createSemaphore( void );
+void destroySemaphore(VkSemaphore sema);
+VkFence createFence( void );
+void destroyFence(VkFence fence);
 
 typedef struct physical_device_s {
 	VkPhysicalDevice device;
@@ -73,6 +81,31 @@ const char *resultName(VkResult result);
 	X(vkCreateShaderModule) \
 	X(vkCreateCommandPool) \
 	X(vkAllocateCommandBuffers) \
+	X(vkCreateBuffer) \
+	X(vkGetBufferMemoryRequirements) \
+	X(vkAllocateMemory) \
+	X(vkBindBufferMemory) \
+	X(vkMapMemory) \
+	X(vkUnmapMemory) \
+	X(vkDestroyBuffer) \
+	X(vkFreeMemory) \
+	X(vkAcquireNextImageKHR) \
+	X(vkCmdBeginRenderPass) \
+	X(vkCmdExecuteCommands) \
+	X(vkCmdEndRenderPass) \
+	X(vkEndCommandBuffer) \
+	X(vkQueueSubmit) \
+	X(vkQueuePresentKHR) \
+	X(vkWaitForFences) \
+	X(vkResetFences) \
+	X(vkCreateSemaphore) \
+	X(vkDestroySemaphore) \
+	X(vkCreateFence) \
+	X(vkDestroyFence) \
+	X(vkBeginCommandBuffer) \
+	X(vkCmdBindPipeline) \
+	X(vkCmdBindVertexBuffers) \
+	X(vkCmdDraw) \
 
 #define X(f) extern PFN_##f f;
 	DEVICE_FUNCS(X)

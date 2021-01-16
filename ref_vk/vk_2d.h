@@ -10,3 +10,5 @@ void CL_FillRGBABlend( float x, float y, float w, float h, int r, int g, int b, 
 
 qboolean initVk2d( void );
 void deinitVk2d( void );
+void vk2dBegin( void );
+void vk2dEnd( void );

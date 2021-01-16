@@ -1,5 +1,6 @@
 #include "vk_2d.h"
 
+#include "vk_buffer.h"
 #include "vk_core.h"
 #include "vk_common.h"
 #include "vk_textures.h"
@@ -10,11 +11,6 @@
 void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
 {
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__,
-		x, y, w, h, s1, t1, s2, t2, texnum, findTexture(texnum)->name);
 }
 void R_DrawTileClear( int texnum, int x, int y, int w, int h )
 {
@@ -33,6 +29,52 @@ typedef struct vertex_2d_s {
 	float x, y;
 	float u, v;
 } vertex_2d_t;
+
+#define MAX_PICS 1024
+
+static struct {
+	VkPipeline pipeline;
+
+	uint32_t max_pics, num_pics;
+	vk_buffer_t pics_buffer;
+
+	// TODO texture bindings?
+} g2d;
+
+void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
+{
+	/* gEngine.Con_Printf(S_WARN "VK FIXME: %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__, */
+	/* 	x, y, w, h, s1, t1, s2, t2, texnum, findTexture(texnum)->name); */
+
+	if (g2d.num_pics + 6 > g2d.max_pics)
+	{
+		//drawAccumulated();
+		gEngine.Con_Printf(S_WARN "VK FIXME RAN OUT OF BUFFER: %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__,
+			x, y, w, h, s1, t1, s2, t2, texnum, findTexture(texnum)->name);
+		return;
+	}
+
+	{
+		vertex_2d_t *p = ((vertex_2d_t*)(g2d.pics_buffer.mapped)) + g2d.num_pics;
+
+		const float vw = vk_core.swapchain.create_info.imageExtent.width;
+		const float vh = vk_core.swapchain.create_info.imageExtent.height;
+		const float x1 = (x / vw)*2.f - 1.f;
+		const float y1 = (y / vh)*2.f - 1.f;
+		const float x2 = ((x + w) / vw)*2.f - 1.f;
+		const float y2 = ((y + h) / vh)*2.f - 1.f;
+
+		g2d.num_pics += 6;
+		p[0] = (vertex_2d_t){x1, y1, s1, t1};
+		p[1] = (vertex_2d_t){x1, y2, s1, t2};
+		p[2] = (vertex_2d_t){x2, y1, s2, t1};
+		p[3] = (vertex_2d_t){x2, y1, s2, t1};
+		p[4] = (vertex_2d_t){x1, y2, s1, t2};
+		p[5] = (vertex_2d_t){x2, y2, s2, t2};
+
+		// TODO store texture
+	}
+}
 
 static VkPipeline createPipeline( void )
 {
@@ -168,13 +210,36 @@ static VkPipeline createPipeline( void )
 	return pipeline;
 }
 
+void vk2dBegin( void )
+{
+	g2d.num_pics = 0;
+}
+
+void vk2dEnd( void )
+{
+	const VkDeviceSize offset = 0;
+	if (!g2d.num_pics)
+		return;
+
+	vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g2d.pipeline);
+	vkCmdBindVertexBuffers(vk_core.cb, 0, 1, &g2d.pics_buffer.buffer, &offset);
+	vkCmdDraw(vk_core.cb, g2d.num_pics, 1, 0, 0);
+}
+
 qboolean initVk2d( void )
 {
-	VkPipeline pipeline = createPipeline();
+	g2d.pipeline = createPipeline();
+
+	if (!createBuffer(&g2d.pics_buffer, sizeof(vertex_2d_t) * (MAX_PICS * 6),
+				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ))
+		return false;
+
+	g2d.max_pics = MAX_PICS * 6;
 
 	return true;
 }
 
 void deinitVk2d( void )
 {
+	// FIXME deinit stuff
 }
