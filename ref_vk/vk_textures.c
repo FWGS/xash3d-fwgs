@@ -1,5 +1,7 @@
 #include "vk_textures.h"
+
 #include "vk_common.h"
+#include "vk_core.h"
 
 #include "xash3d_mathlib.h"
 #include "crtlib.h"
@@ -42,6 +44,17 @@ void initTextures( void )
 	/* FIXME
 	gEngine.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );
 	*/
+}
+
+void destroyTextures( void )
+{
+	for( unsigned int i = 0; i < vk_numTextures; i++ )
+		VK_FreeTexture( i );
+
+	//memset( tr.lightmapTextures, 0, sizeof( tr.lightmapTextures ));
+	memset( vk_texturesHashTable, 0, sizeof( vk_texturesHashTable ));
+	memset( vk_textures, 0, sizeof( vk_textures ));
+	vk_numTextures = 0;
 }
 
 vk_texture_t *findTexture(int index)
@@ -144,6 +157,77 @@ static rgbdata_t *Common_FakeImage( int width, int height, int depth, int flags 
 	return &r_image;
 }
 
+/*
+===============
+GL_ProcessImage
+
+do specified actions on pixels
+===============
+*/
+static void VK_ProcessImage( vk_texture_t *tex, rgbdata_t *pic )
+{
+	float	emboss_scale = 0.0f;
+	uint	img_flags = 0;
+
+	// force upload texture as RGB or RGBA (detail textures requires this)
+	if( tex->flags & TF_FORCE_COLOR ) pic->flags |= IMAGE_HAS_COLOR;
+	if( pic->flags & IMAGE_HAS_ALPHA ) tex->flags |= TF_HAS_ALPHA;
+
+	//FIXME provod: ??? tex->encode = pic->encode; // share encode method
+
+	if( ImageDXT( pic->type ))
+	{
+		if( !pic->numMips )
+			tex->flags |= TF_NOMIPMAP; // disable mipmapping by user request
+
+		// clear all the unsupported flags
+		tex->flags &= ~TF_KEEP_SOURCE;
+	}
+	else
+	{
+		// copy flag about luma pixels
+		if( pic->flags & IMAGE_HAS_LUMA )
+			tex->flags |= TF_HAS_LUMA;
+
+		if( pic->flags & IMAGE_QUAKEPAL )
+			tex->flags |= TF_QUAKEPAL;
+
+		// create luma texture from quake texture
+		if( tex->flags & TF_MAKELUMA )
+		{
+			img_flags |= IMAGE_MAKE_LUMA;
+			tex->flags &= ~TF_MAKELUMA;
+		}
+
+		if( tex->flags & TF_ALLOW_EMBOSS )
+		{
+			img_flags |= IMAGE_EMBOSS;
+			tex->flags &= ~TF_ALLOW_EMBOSS;
+		}
+
+		/* FIXME provod: ???
+		if( !FBitSet( tex->flags, TF_IMG_UPLOADED ) && FBitSet( tex->flags, TF_KEEP_SOURCE ))
+			tex->original = gEngfuncs.FS_CopyImage( pic ); // because current pic will be expanded to rgba
+		*/
+
+		// we need to expand image into RGBA buffer
+		if( pic->type == PF_INDEXED_24 || pic->type == PF_INDEXED_32 )
+			img_flags |= IMAGE_FORCE_RGBA;
+
+		/* FIXME provod: ???
+		// dedicated server doesn't register this variable
+		if( gl_emboss_scale != NULL )
+			emboss_scale = gl_emboss_scale->value;
+		*/
+
+		// processing image before uploading (force to rgba, make luma etc)
+		if( pic->buffer ) gEngine.Image_Process( &pic, 0, 0, img_flags, emboss_scale );
+
+		if( FBitSet( tex->flags, TF_LUMINANCE ))
+			ClearBits( pic->flags, IMAGE_HAS_COLOR );
+	}
+}
+
 #define VK_LoadTextureInternal( name, pic, flags ) VK_LoadTextureFromBuffer( name, pic, flags, false )
 
 static void VK_CreateInternalTextures( void )
@@ -208,6 +292,186 @@ static void VK_CreateInternalTextures( void )
 	tglob.cinTexture = VK_LoadTextureInternal( "*cintexture", pic, TF_NOMIPMAP|TF_CLAMP );
 }
 
+static VkFormat VK_GetFormat(pixformat_t format)
+{
+	switch(format)
+	{
+		case PF_RGBA_32: return VK_FORMAT_R8G8B8A8_UNORM;
+		default:
+			gEngine.Con_Printf(S_WARN "FIXME unsupported pixformat_t %d\n", format);
+			return VK_FORMAT_UNDEFINED;
+	}
+}
+
+static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
+{
+	const VkFormat format = VK_GetFormat(pic->type);
+	const VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
+	const VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+	if (!pic->buffer)
+		return false;
+
+	// 1. Create VkImage w/ usage = DST|SAMPLED, layout=UNDEFINED
+	{
+		VkImageCreateInfo image_create_info = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+			.imageType = VK_IMAGE_TYPE_2D,
+			.extent.width = pic->width,
+			.extent.height = pic->height,
+			.extent.depth = 1,
+			.format = format,
+			.mipLevels = 1, // TODO pic->numMips,
+			.arrayLayers = 1,
+			.tiling = tiling,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.usage = usage,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		};
+		XVK_CHECK(vkCreateImage(vk_core.device, &image_create_info, NULL, &tex->vk.image));
+	}
+
+	// 2. Alloc mem for VkImage and bind it (DEV_LOCAL)
+	{
+		VkMemoryRequirements memreq;
+		vkGetImageMemoryRequirements(vk_core.device, tex->vk.image, &memreq);
+		tex->vk.device_memory = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		XVK_CHECK(vkBindImageMemory(vk_core.device, tex->vk.image, tex->vk.device_memory.device_memory, tex->vk.device_memory.offset));
+	}
+
+	{
+		const size_t staging_offset = 0; // TODO multiple staging buffer users params.staging->ptr
+		// 5. Create/get cmdbuf for transitions
+		VkCommandBufferBeginInfo beginfo = {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		};
+
+		// 	5.1 upload buf -> image:layout:DST
+		// 		5.1.1 transitionToLayout(UNDEFINED -> DST)
+		VkImageMemoryBarrier image_barrier = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = tex->vk.image,
+			.srcAccessMask = 0,
+			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			.subresourceRange = (VkImageSubresourceRange) {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1, // TODO
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			}};
+
+		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
+		vkCmdPipelineBarrier(vk_core.cb,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, 0, NULL, 0, NULL, 1, &image_barrier);
+
+		// 		5.1.2 copyBufferToImage for all mip levels
+		//for (int i = 0; i < 1/* TODO params.mipmaps_count*/; ++i)
+		{
+			VkBufferImageCopy region = {0};
+			region.bufferOffset = /*TODO mip->offset +*/ staging_offset;
+			region.bufferRowLength = 0;
+			region.bufferImageHeight = 0;
+			region.imageSubresource = (VkImageSubresourceLayers){
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.mipLevel = 0, // TODO mip->mip_level,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			};
+			region.imageExtent = (VkExtent3D){
+				.width = pic->width, // TODO mip->width,
+				.height = pic->height, // TODO mip->height,
+				.depth = 1,
+			};
+			memcpy(((uint8_t*)vk_core.staging.mapped) + staging_offset, pic->buffer, pic->size);
+			vkCmdCopyBufferToImage(vk_core.cb, vk_core.staging.buffer, tex->vk.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+		}
+
+		// 	5.2 image:layout:DST -> image:layout:SAMPLED
+		// 		5.2.1 transitionToLayout(DST -> SHADER_READ_ONLY)
+		image_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		image_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		image_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		image_barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		image_barrier.subresourceRange = (VkImageSubresourceRange){
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1, // FIXME params.mipmaps_count,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+		};
+		vkCmdPipelineBarrier(vk_core.cb,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				0, 0, NULL, 0, NULL, 1, &image_barrier);
+
+		XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
+	}
+
+	{
+		VkSubmitInfo subinfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
+		subinfo.commandBufferCount = 1;
+		subinfo.pCommandBuffers = &vk_core.cb;
+		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
+		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
+	}
+
+	{
+		VkImageViewCreateInfo ivci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+		ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		ivci.format = format;
+		ivci.image = tex->vk.image;
+		ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		ivci.subresourceRange.baseMipLevel = 0;
+		ivci.subresourceRange.levelCount = 1; // FIXME params.mipmaps_count;
+		ivci.subresourceRange.baseArrayLayer = 0;
+		ivci.subresourceRange.layerCount = 1;
+		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, &tex->vk.image_view));
+	}
+
+	/*
+	VkDescriptorSet set = NULL;
+	{
+			struct DescriptorKasha* descriptors = NULL;
+			uint32_t binding;
+			switch (params.kind) {
+			case RTexKind_Lightmap:
+					descriptors = g.descriptors[Descriptors_Lightmaps];
+					binding = DescriptorBinding_Lightmap; break;
+			case RTexKind_Material0:
+					descriptors = g.descriptors[Descriptors_Textures];
+					binding = DescriptorBinding_BaseMaterialTexture; break;
+			default:
+					ATTO_ASSERT(!"Unexpected texture kind");
+			}
+			ATTO_ASSERT(descriptors->count > descriptors->next_free);
+			set = descriptors->descriptors[descriptors->next_free++];
+			VkDescriptorImageInfo dii_tex = {
+				.imageView = imview,
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			};
+			VkWriteDescriptorSet wds[] = { {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = set,
+				.dstBinding = binding,
+				.dstArrayElement = 0,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				.pImageInfo = &dii_tex,
+			}};
+			vkUpdateDescriptorSets(vk_core.device, COUNTOF(wds), wds, 0, NULL);
+	}
+	*/
+
+	return true;
+}
+
 ///////////// Render API funcs /////////////
 
 // Texture tools
@@ -256,17 +520,17 @@ int		VK_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	// allocate the new one
 	tex = Common_AllocTexture( name, flags );
 
-	/*
-	// FIXME upload texture
+	// upload texture
 	VK_ProcessImage( tex, pic );
 
 	if( !VK_UploadTexture( tex, pic ))
 	{
 		memset( tex, 0, sizeof( vk_texture_t ));
-		gEngfuncs.FS_FreeImage( pic ); // release source texture
+		gEngine.FS_FreeImage( pic ); // release source texture
 		return 0;
 	}
 
+	/* FIXME
 	VK_ApplyTextureParams( tex ); // update texture filter, wrap etc
 	*/
 
@@ -279,25 +543,71 @@ int		VK_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	return tex - vk_textures;
 }
 
-int		VK_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags )
+int	VK_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags )
 {
 	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
 	return 0;
 }
 
-int		VK_LoadTextureArray( const char **names, int flags )
+int	VK_LoadTextureArray( const char **names, int flags )
 {
 	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
 	return 0;
 }
 
-int		VK_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags )
+int	VK_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags )
 {
 	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
 	return 0;
 }
 
-void		VK_FreeTexture( unsigned int texnum ) {}
+void VK_FreeTexture( unsigned int texnum ) {
+	vk_texture_t *tex;
+	vk_texture_t **prev;
+	vk_texture_t *cur;
+	if( texnum <= 0 ) return;
+
+	tex = vk_textures + texnum;
+
+	ASSERT( tex != NULL );
+
+	// already freed?
+	if( !tex->vk.image ) return;
+
+	// debug
+	if( !tex->name[0] )
+	{
+		gEngine.Con_Printf( S_ERROR "GL_DeleteTexture: trying to free unnamed texture with index %u\n", texnum );
+		return;
+	}
+
+	// remove from hash table
+	prev = &vk_texturesHashTable[tex->hashValue];
+
+	while( 1 )
+	{
+		cur = *prev;
+		if( !cur ) break;
+
+		if( cur == tex )
+		{
+			*prev = cur->nextHash;
+			break;
+		}
+		prev = &cur->nextHash;
+	}
+
+	/*
+	// release source
+	if( tex->original )
+		gEngfuncs.FS_FreeImage( tex->original );
+	*/
+
+	vkDestroyImageView(vk_core.device, tex->vk.image_view, NULL);
+	vkDestroyImage(vk_core.device, tex->vk.image, NULL);
+	freeDeviceMemory(&tex->vk.device_memory);
+	memset(tex, 0, sizeof(*tex));
+}
 
 int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update )
 {
@@ -325,8 +635,6 @@ int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 		tex = Common_AllocTexture( name, flags );
 	}
 
-
-	/* FIXME
 	VK_ProcessImage( tex, pic );
 
 	if( !VK_UploadTexture( tex, pic ))
@@ -335,6 +643,7 @@ int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 		return 0;
 	}
 
+	/* FIXME
 	VK_ApplyTextureParams( tex ); // update texture filter, wrap etc
 	*/
 

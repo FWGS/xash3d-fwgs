@@ -3,6 +3,7 @@
 #include "vk_textures.h"
 #include "vk_2d.h"
 #include "vk_renderstate.h"
+#include "vk_buffer.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -617,6 +618,9 @@ qboolean R_VkInit( void )
 	if (!createCommandPool())
 		return false;
 
+	if (!createBuffer(&vk_core.staging, 16 * 1024 * 1024, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+		return false;
+
 	// TODO initAllocator()
 	// TODO initPipelines()
 
@@ -633,8 +637,11 @@ qboolean R_VkInit( void )
 
 void R_VkShutdown( void )
 {
+	destroyTextures();
+
 	renderstateDestroy();
 	deinitVk2d();
+	destroyBuffer(&vk_core.staging);
 
 	vkDestroyCommandPool(vk_core.device, vk_core.command_pool, NULL);
 
@@ -710,4 +717,33 @@ VkFence createFence( void ) {
 
 void destroyFence(VkFence fence) {
 	vkDestroyFence(vk_core.device, fence, NULL);
+}
+
+static uint32_t findMemoryWithType(uint32_t type_index_bits, VkMemoryPropertyFlags flags) {
+	for (uint32_t i = 0; i < vk_core.physical_device.memory_properties.memoryTypeCount; ++i) {
+		if (!(type_index_bits & (1 << i)))
+			continue;
+
+		if ((vk_core.physical_device.memory_properties.memoryTypes[i].propertyFlags & flags) == flags)
+			return i;
+	}
+
+	return UINT32_MAX;
+}
+
+device_memory_t allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags props) {
+	// TODO coalesce allocations, ...
+	device_memory_t ret = {0};
+	VkMemoryAllocateInfo mai = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.allocationSize = req.size,
+		.memoryTypeIndex = findMemoryWithType(req.memoryTypeBits, props),
+	};
+	XVK_CHECK(vkAllocateMemory(vk_core.device, &mai, NULL, &ret.device_memory));
+	return ret;
+}
+
+void freeDeviceMemory(device_memory_t *mem)
+{
+	vkFreeMemory(vk_core.device, mem->device_memory, NULL);
 }

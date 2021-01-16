@@ -1,3 +1,6 @@
+#pragma once
+#include "vk_core.h"
+
 #include "xash3d_types.h"
 #include "const.h"
 #include "render_api.h"
@@ -9,6 +12,13 @@ typedef struct vk_texture_s
 	int width, height;
 	texFlags_t flags;
 	uint texnum;
+
+	struct {
+		VkImage image;
+		VkImageView image_view;
+		device_memory_t device_memory;
+		VkDescriptorSet descriptor;
+	} vk;
 
 	uint hashValue;
 	struct vk_texture_s	*nextHash;
@@ -36,6 +46,7 @@ typedef struct vk_textures_global_s
 
 // Helper functions
 void initTextures( void );
+void destroyTextures( void );
 vk_texture_t *findTexture(int index);
 
 // Public API functions

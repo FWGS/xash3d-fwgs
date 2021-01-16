@@ -17,6 +17,25 @@ void destroySemaphore(VkSemaphore sema);
 VkFence createFence( void );
 void destroyFence(VkFence fence);
 
+// FIXME arena allocation, ...
+typedef struct device_memory_s
+{
+	VkDeviceMemory device_memory;
+	uint32_t offset;
+} device_memory_t;
+
+device_memory_t allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags props);
+void freeDeviceMemory(device_memory_t *mem);
+
+typedef struct vk_buffer_s
+{
+	device_memory_t device_memory;
+	VkBuffer buffer;
+
+	void *mapped;
+	uint32_t size;
+} vk_buffer_t;
+
 typedef struct physical_device_s {
 	VkPhysicalDevice device;
 	VkPhysicalDeviceMemoryProperties memory_properties;
@@ -31,7 +50,6 @@ typedef struct vulkan_core_s {
 	byte *pool;
 
 	qboolean debug;
-
 	VkSurfaceKHR surface;
 
 	physical_device_t physical_device;
@@ -52,6 +70,8 @@ typedef struct vulkan_core_s {
 
 	VkCommandPool command_pool;
 	VkCommandBuffer cb;
+
+	vk_buffer_t staging;
 } vulkan_core_t;
 
 extern vulkan_core_t vk_core;
@@ -113,6 +133,14 @@ const char *resultName(VkResult result);
 	X(vkDestroyShaderModule) \
 	X(vkDestroyPipeline) \
 	X(vkDestroyPipelineLayout) \
+	X(vkCreateImage) \
+	X(vkGetImageMemoryRequirements) \
+	X(vkBindImageMemory) \
+	X(vkCmdPipelineBarrier) \
+	X(vkCmdCopyBufferToImage) \
+	X(vkUpdateDescriptorSets) \
+	X(vkQueueWaitIdle) \
+	X(vkDestroyImage) \
 
 #define X(f) extern PFN_##f f;
 	DEVICE_FUNCS(X)
