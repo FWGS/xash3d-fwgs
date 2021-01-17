@@ -563,6 +563,72 @@ static qboolean createCommandPool( void ) {
 	return true;
 }
 
+// ... FIXME actual numbers
+#define MAX_TEXTURES 4096
+
+static qboolean initDescriptorPool( void )
+{
+	VkDescriptorPoolSize dps[] = {
+		{
+			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.descriptorCount = MAX_TEXTURES,
+		/*
+		}, {
+			.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = 1,
+		}, {
+			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+#if RTX
+		}, {
+			.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+			.descriptorCount = 1,
+#endif
+		*/
+		},
+	};
+	VkDescriptorPoolCreateInfo dpci = {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		.pPoolSizes = dps,
+		.poolSizeCount = ARRAYSIZE(dps),
+		.maxSets = MAX_TEXTURES,
+	};
+
+	XVK_CHECK(vkCreateDescriptorPool(vk_core.device, &dpci, NULL, &vk_core.descriptor_pool.pool));
+
+	{
+		// ... TODO find better place for this; this should be per-pipeline/shader
+		VkDescriptorSetLayoutBinding bindings[] = { {
+				.binding = 0,
+				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				.descriptorCount = 1,
+				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+				.pImmutableSamplers = &vk_core.default_sampler,
+		}};
+		VkDescriptorSetLayoutCreateInfo dslci = {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+			.bindingCount = ARRAYSIZE(bindings),
+			.pBindings = bindings,
+		};
+		VkDescriptorSetLayout* tmp_layouts = Mem_Malloc(vk_core.pool, sizeof(VkDescriptorSetLayout) * MAX_DESC_SETS);
+		VkDescriptorSetAllocateInfo dsai = {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+			.descriptorPool = vk_core.descriptor_pool.pool,
+			.descriptorSetCount = MAX_DESC_SETS,
+			.pSetLayouts = tmp_layouts,
+		};
+		XVK_CHECK(vkCreateDescriptorSetLayout(vk_core.device, &dslci, NULL, &vk_core.descriptor_pool.one_texture_layout));
+		for (int i = 0; i < (int)MAX_DESC_SETS; ++i)
+				tmp_layouts[i] = vk_core.descriptor_pool.one_texture_layout;
+
+		XVK_CHECK(vkAllocateDescriptorSets(vk_core.device, &dsai, vk_core.descriptor_pool.sets));
+
+		Mem_Free(tmp_layouts);
+	}
+
+	return true;
+}
+
 qboolean R_VkInit( void )
 {
 	vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
@@ -622,15 +688,35 @@ qboolean R_VkInit( void )
 		return false;
 
 	// TODO initAllocator()
-	// TODO initPipelines()
+
+	{
+		VkSamplerCreateInfo sci = {
+			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+			.magFilter = VK_FILTER_LINEAR,
+			.minFilter = VK_FILTER_LINEAR,
+			.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			.anisotropyEnable = VK_FALSE,
+			.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+			.unnormalizedCoordinates = VK_FALSE,
+			.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+			.minLod = 0.f,
+			.maxLod = 16.,
+		};
+		XVK_CHECK(vkCreateSampler(vk_core.device, &sci, NULL, &vk_core.default_sampler));
+	}
+
+	if (!initDescriptorPool())
+		return false;
+
+	initTextures();
 
 	if (!initVk2d())
 		return false;
 
 	if (!renderstateInit())
 		return false;
-
-	initTextures();
 
 	return true;
 }
@@ -641,6 +727,8 @@ void R_VkShutdown( void )
 
 	renderstateDestroy();
 	deinitVk2d();
+	vkDestroyDescriptorPool(vk_core.device, vk_core.descriptor_pool.pool, NULL);
+	vkDestroySampler(vk_core.device, vk_core.default_sampler, NULL);
 	destroyBuffer(&vk_core.staging);
 
 	vkDestroyCommandPool(vk_core.device, vk_core.command_pool, NULL);

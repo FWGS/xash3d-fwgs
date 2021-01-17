@@ -42,6 +42,18 @@ typedef struct physical_device_s {
 	VkPhysicalDeviceProperties properties;
 } physical_device_t;
 
+// FIXME dynamic; better estimate
+#define MAX_DESC_SETS 4096
+
+typedef struct descriptor_pool_s
+{
+	VkDescriptorPool pool;
+	int next_free;
+	//uint32_t *free_set;
+	VkDescriptorSet sets[MAX_DESC_SETS];
+	VkDescriptorSetLayout one_texture_layout;
+} descriptor_pool_t;
+
 typedef struct vulkan_core_s {
 	uint32_t vulkan_version;
 	VkInstance instance;
@@ -72,6 +84,9 @@ typedef struct vulkan_core_s {
 	VkCommandBuffer cb;
 
 	vk_buffer_t staging;
+
+	VkSampler default_sampler;
+	descriptor_pool_t descriptor_pool;
 } vulkan_core_t;
 
 extern vulkan_core_t vk_core;
@@ -138,9 +153,16 @@ const char *resultName(VkResult result);
 	X(vkBindImageMemory) \
 	X(vkCmdPipelineBarrier) \
 	X(vkCmdCopyBufferToImage) \
-	X(vkUpdateDescriptorSets) \
 	X(vkQueueWaitIdle) \
 	X(vkDestroyImage) \
+	X(vkCmdBindDescriptorSets) \
+	X(vkCreateSampler) \
+	X(vkDestroySampler) \
+	X(vkCreateDescriptorPool) \
+	X(vkDestroyDescriptorPool) \
+	X(vkCreateDescriptorSetLayout) \
+	X(vkAllocateDescriptorSets) \
+	X(vkUpdateDescriptorSets) \
 
 #define X(f) extern PFN_##f f;
 	DEVICE_FUNCS(X)

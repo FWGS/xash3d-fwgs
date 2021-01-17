@@ -7,6 +7,7 @@
 #include "crtlib.h"
 #include "crclib.h"
 #include "com_strings.h"
+#include "eiface.h"
 
 #include <memory.h>
 #include <math.h>
@@ -435,39 +436,30 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, &tex->vk.image_view));
 	}
 
-	/*
-	VkDescriptorSet set = NULL;
+	// TODO how should we approach this:
+	// - per-texture desc sets can be inconvenient if texture is used in different incompatible contexts
+	// - update descriptor sets in batch?
+	if (vk_core.descriptor_pool.next_free != MAX_DESC_SETS)
 	{
-			struct DescriptorKasha* descriptors = NULL;
-			uint32_t binding;
-			switch (params.kind) {
-			case RTexKind_Lightmap:
-					descriptors = g.descriptors[Descriptors_Lightmaps];
-					binding = DescriptorBinding_Lightmap; break;
-			case RTexKind_Material0:
-					descriptors = g.descriptors[Descriptors_Textures];
-					binding = DescriptorBinding_BaseMaterialTexture; break;
-			default:
-					ATTO_ASSERT(!"Unexpected texture kind");
-			}
-			ATTO_ASSERT(descriptors->count > descriptors->next_free);
-			set = descriptors->descriptors[descriptors->next_free++];
-			VkDescriptorImageInfo dii_tex = {
-				.imageView = imview,
-				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			};
-			VkWriteDescriptorSet wds[] = { {
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.dstSet = set,
-				.dstBinding = binding,
-				.dstArrayElement = 0,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				.pImageInfo = &dii_tex,
-			}};
-			vkUpdateDescriptorSets(vk_core.device, COUNTOF(wds), wds, 0, NULL);
+		VkDescriptorImageInfo dii_tex = {
+			.imageView = tex->vk.image_view,
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		};
+		VkWriteDescriptorSet wds[] = { {
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.dstBinding = 0,
+			.dstArrayElement = 0,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.pImageInfo = &dii_tex,
+		}};
+		wds[0].dstSet = tex->vk.descriptor = vk_core.descriptor_pool.sets[vk_core.descriptor_pool.next_free++];
+		vkUpdateDescriptorSets(vk_core.device, ARRAYSIZE(wds), wds, 0, NULL);
 	}
-	*/
+	else
+	{
+		tex->vk.descriptor = VK_NULL_HANDLE;
+	}
 
 	return true;
 }
