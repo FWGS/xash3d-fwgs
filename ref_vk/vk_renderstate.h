@@ -9,6 +9,3 @@ void R_Set2DMode( qboolean enable );
 void R_BeginFrame( qboolean clearScene );
 void R_RenderScene( void );
 void R_EndFrame( void );
-
-qboolean renderstateInit( void );
-void renderstateDestroy( void );

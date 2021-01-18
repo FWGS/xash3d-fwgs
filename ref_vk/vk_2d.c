@@ -4,6 +4,7 @@
 #include "vk_core.h"
 #include "vk_common.h"
 #include "vk_textures.h"
+#include "vk_framectl.h"
 
 #include "com_strings.h"
 #include "eiface.h"
@@ -71,6 +72,7 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 
 		g2d.batch[g2d.current_batch].texture = texnum;
 		g2d.batch[g2d.current_batch].vertex_offset = g2d.num_pics;
+		g2d.batch[g2d.current_batch].vertex_count = 0;
 	}
 
 	if (g2d.num_pics + 6 > g2d.max_pics)
@@ -83,8 +85,8 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 	{
 		vertex_2d_t *p = ((vertex_2d_t*)(g2d.pics_buffer.mapped)) + g2d.num_pics;
 
-		const float vw = vk_core.swapchain.create_info.imageExtent.width;
-		const float vh = vk_core.swapchain.create_info.imageExtent.height;
+		const float vw = vk_frame.create_info.imageExtent.width;
+		const float vh = vk_frame.create_info.imageExtent.height;
 		const float x1 = (x / vw)*2.f - 1.f;
 		const float y1 = (y / vh)*2.f - 1.f;
 		const float x2 = ((x + w) / vw)*2.f - 1.f;
@@ -142,13 +144,13 @@ static VkPipeline createPipeline( void )
 
 	VkViewport viewport = {
 		.x = 0, .y = 0,
-		.width = (float)vk_core.swapchain.create_info.imageExtent.width,
-		.height = (float)vk_core.swapchain.create_info.imageExtent.height,
+		.width = (float)vk_frame.create_info.imageExtent.width,
+		.height = (float)vk_frame.create_info.imageExtent.height,
 		.minDepth = 0.f, .maxDepth = 1.f,
 	};
 	VkRect2D scissor = {
 		.offset = {0},
-		.extent = vk_core.swapchain.create_info.imageExtent,
+		.extent = vk_frame.create_info.imageExtent,
 	};
 	VkPipelineViewportStateCreateInfo viewport_state = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
@@ -201,7 +203,7 @@ static VkPipeline createPipeline( void )
 		.pColorBlendState = &color_blend,
 		.pDepthStencilState = &depth,
 		//.layout = material->pipeline_layout,
-		.renderPass = vk_core.render_pass,
+		.renderPass = vk_frame.render_pass,
 		.subpass = 0,
 	};
 
@@ -244,6 +246,7 @@ void vk2dBegin( void )
 {
 	g2d.num_pics = 0;
 	g2d.current_batch = 0;
+	g2d.batch[0].vertex_count = 0;
 }
 
 void vk2dEnd( void )

@@ -62,23 +62,18 @@ typedef struct vulkan_core_s {
 	byte *pool;
 
 	qboolean debug;
-	VkSurfaceKHR surface;
+	struct {
+		VkSurfaceKHR surface;
+		uint32_t num_surface_formats;
+		VkSurfaceFormatKHR *surface_formats;
+
+		uint32_t num_present_modes;
+		VkPresentModeKHR *present_modes;
+	} surface;
 
 	physical_device_t physical_device;
 	VkDevice device;
 	VkQueue queue;
-
-	VkRenderPass render_pass;
-
-	struct {
-		VkSurfaceCapabilitiesKHR surface_caps;
-		VkSwapchainCreateInfoKHR create_info;
-		VkSwapchainKHR swapchain;
-		uint32_t num_images;
-		VkImage *images;
-		VkImageView *image_views;
-		VkFramebuffer *framebuffers;
-	} swapchain;
 
 	VkCommandPool command_pool;
 	VkCommandBuffer cb;
@@ -102,6 +97,23 @@ const char *resultName(VkResult result);
 				__FILE__, __LINE__, result, resultName(result)); \
 		} \
 	} while(0)
+
+#define INSTANCE_FUNCS(X) \
+	X(vkDestroyInstance) \
+	X(vkEnumeratePhysicalDevices) \
+	X(vkGetPhysicalDeviceProperties) \
+	X(vkGetPhysicalDeviceProperties2) \
+	X(vkGetPhysicalDeviceFeatures2) \
+	X(vkGetPhysicalDeviceQueueFamilyProperties) \
+	X(vkGetPhysicalDeviceSurfaceSupportKHR) \
+	X(vkGetPhysicalDeviceMemoryProperties) \
+	X(vkGetPhysicalDeviceSurfacePresentModesKHR) \
+	X(vkGetPhysicalDeviceSurfaceFormatsKHR) \
+	X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR) \
+	X(vkCreateDevice) \
+	X(vkGetDeviceProcAddr) \
+	X(vkDestroyDevice) \
+	X(vkDestroySurfaceKHR) \
 
 #define DEVICE_FUNCS(X) \
 	X(vkGetDeviceQueue) \
@@ -163,7 +175,9 @@ const char *resultName(VkResult result);
 	X(vkCreateDescriptorSetLayout) \
 	X(vkAllocateDescriptorSets) \
 	X(vkUpdateDescriptorSets) \
+	X(vkDestroyDescriptorSetLayout) \
 
 #define X(f) extern PFN_##f f;
 	DEVICE_FUNCS(X)
+	INSTANCE_FUNCS(X)
 #undef X

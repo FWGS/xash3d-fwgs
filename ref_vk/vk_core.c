@@ -4,6 +4,7 @@
 #include "vk_2d.h"
 #include "vk_renderstate.h"
 #include "vk_buffer.h"
+#include "vk_framectl.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -24,23 +25,6 @@
 #define NULLINST_FUNCS(X) \
 	X(vkEnumerateInstanceVersion) \
 	X(vkCreateInstance) \
-
-#define INSTANCE_FUNCS(X) \
-	X(vkDestroyInstance) \
-	X(vkEnumeratePhysicalDevices) \
-	X(vkGetPhysicalDeviceProperties) \
-	X(vkGetPhysicalDeviceProperties2) \
-	X(vkGetPhysicalDeviceFeatures2) \
-	X(vkGetPhysicalDeviceQueueFamilyProperties) \
-	X(vkGetPhysicalDeviceSurfaceSupportKHR) \
-	X(vkGetPhysicalDeviceMemoryProperties) \
-	X(vkGetPhysicalDeviceSurfacePresentModesKHR) \
-	X(vkGetPhysicalDeviceSurfaceFormatsKHR) \
-	X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR) \
-	X(vkCreateDevice) \
-	X(vkGetDeviceProcAddr) \
-	X(vkDestroyDevice) \
-	X(vkDestroySurfaceKHR) \
 
 #define INSTANCE_DEBUG_FUNCS(X) \
 	X(vkCreateDebugUtilsMessengerEXT) \
@@ -140,12 +124,10 @@ VkBool32 debugCallback(
 	// TODO better messages, not only errors, what are other arguments for, ...
 	if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
 		gEngine.Con_Printf(S_ERROR "Validation: %s\n", pCallbackData->pMessage);
-#ifdef DEBUG
 #ifdef _MSC_VER
 		__debugbreak();
 #else
 		__builtin_trap();
-#endif
 #endif
 	}
 	return VK_FALSE;
@@ -262,7 +244,7 @@ static qboolean createInstance( void )
 	return true;
 }
 
-qboolean createDevice( void )
+qboolean pickAndCreateDevice( void )
 {
 	VkPhysicalDevice *physical_devices = NULL;
 	uint32_t num_physical_devices = 0;
@@ -296,7 +278,7 @@ qboolean createDevice( void )
 			if (!(queue_family_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT))
 				continue;
 
-			vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices[i], j, vk_core.surface, &present);
+			vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices[i], j, vk_core.surface.surface, &present);
 
 			if (!present)
 				continue;
@@ -358,7 +340,7 @@ qboolean createDevice( void )
 	return true;
 }
 
-const char *presentModeName(VkPresentModeKHR present_mode)
+static const char *presentModeName(VkPresentModeKHR present_mode)
 {
 	switch (present_mode)
 	{
@@ -372,172 +354,27 @@ const char *presentModeName(VkPresentModeKHR present_mode)
 	}
 }
 
-static qboolean createRenderPass( void ) {
-	VkAttachmentDescription attachments[] = {{
-		.format = VK_FORMAT_B8G8R8A8_SRGB,// FIXME too early swapchain.create_info.imageFormat;
-		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		//.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		//attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-	/*}, {
-		// Depth
-		.format = g.depth_format,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
-		//attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-		.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		//attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-		*/
-	}};
-
-	VkAttachmentReference color_attachment = {
-		.attachment = 0,
-		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-	};
-
-	/*
-	VkAttachmentReference depth_attachment = {0};
-	depth_attachment.attachment = 1;
-	depth_attachment.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	*/
-
-	VkSubpassDescription subdesc = {
-		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-		.colorAttachmentCount = 1,
-		.pColorAttachments = &color_attachment,
-		//.pDepthStencilAttachment = &depth_attachment,
-	};
-
-	VkRenderPassCreateInfo rpci = {
-		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-		.attachmentCount = ARRAYSIZE(attachments),
-		.pAttachments = attachments,
-		.subpassCount = 1,
-		.pSubpasses = &subdesc,
-	};
-
-	XVK_CHECK(vkCreateRenderPass(vk_core.device, &rpci, NULL, &vk_core.render_pass));
-
-	return true;
-}
-
-static qboolean createSwapchain( void )
+static qboolean initSurface( void )
 {
-	VkSwapchainCreateInfoKHR *create_info = &vk_core.swapchain.create_info;
+	XVK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_core.physical_device.device, vk_core.surface.surface, &vk_core.surface.num_present_modes, vk_core.surface.present_modes));
+	vk_core.surface.present_modes = Mem_Malloc(vk_core.pool, sizeof(*vk_core.surface.present_modes) * vk_core.surface.num_present_modes);
+	XVK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_core.physical_device.device, vk_core.surface.surface, &vk_core.surface.num_present_modes, vk_core.surface.present_modes));
 
-	uint32_t num_surface_formats = 0;
-	VkSurfaceFormatKHR *surface_formats = NULL;
-
-	uint32_t num_present_modes = 0;
-	VkPresentModeKHR *present_modes = NULL;
-
-	const uint32_t prev_num_images = vk_core.swapchain.num_images;
-
-	XVK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_core.physical_device.device, vk_core.surface, &num_present_modes, present_modes));
-	present_modes = Mem_Malloc(vk_core.pool, sizeof(*present_modes) * num_present_modes);
-	XVK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_core.physical_device.device, vk_core.surface, &num_present_modes, present_modes));
-
-	gEngine.Con_Reportf("Supported surface present modes: %u\n", num_present_modes);
-	for (uint32_t i = 0; i < num_present_modes; ++i)
+	gEngine.Con_Printf("Supported surface present modes: %u\n", vk_core.surface.num_present_modes);
+	for (uint32_t i = 0; i < vk_core.surface.num_present_modes; ++i)
 	{
-		gEngine.Con_Reportf("\t%u: %s (%u)\n", i, presentModeName(present_modes[i]), present_modes[i]);
+		gEngine.Con_Reportf("\t%u: %s (%u)\n", i, presentModeName(vk_core.surface.present_modes[i]), vk_core.surface.present_modes[i]);
 	}
 
-	XVK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_core.physical_device.device, vk_core.surface, &num_surface_formats, surface_formats));
-	surface_formats = Mem_Malloc(vk_core.pool, sizeof(*surface_formats) * num_surface_formats);
-	XVK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_core.physical_device.device, vk_core.surface, &num_surface_formats, surface_formats));
+	XVK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_core.physical_device.device, vk_core.surface.surface, &vk_core.surface.num_surface_formats, vk_core.surface.surface_formats));
+	vk_core.surface.surface_formats = Mem_Malloc(vk_core.pool, sizeof(*vk_core.surface.surface_formats) * vk_core.surface.num_surface_formats);
+	XVK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_core.physical_device.device, vk_core.surface.surface, &vk_core.surface.num_surface_formats, vk_core.surface.surface_formats));
 
-	gEngine.Con_Reportf("Supported surface formats: %u\n", num_surface_formats);
-	for (uint32_t i = 0; i < num_surface_formats; ++i)
+	gEngine.Con_Reportf("Supported surface formats: %u\n", vk_core.surface.num_surface_formats);
+	for (uint32_t i = 0; i < vk_core.surface.num_surface_formats; ++i)
 	{
 		// TODO symbolicate
-		gEngine.Con_Reportf("\t%u: %u %u\n", surface_formats[i].format, surface_formats[i].colorSpace);
-	}
-
-	XVK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_core.physical_device.device, vk_core.surface, &vk_core.swapchain.surface_caps));
-
-	create_info->sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	create_info->pNext = NULL;
-	create_info->surface = vk_core.surface;
-	create_info->imageFormat = VK_FORMAT_B8G8R8A8_SRGB; // TODO get from surface_formats
-	create_info->imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR; // TODO get from surface_formats
-	create_info->imageExtent.width = vk_core.swapchain.surface_caps.currentExtent.width;
-	create_info->imageExtent.height = vk_core.swapchain.surface_caps.currentExtent.height;
-	create_info->imageArrayLayers = 1;
-	create_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	create_info->imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	create_info->preTransform = vk_core.swapchain.surface_caps.currentTransform;
-	create_info->compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	create_info->presentMode = VK_PRESENT_MODE_FIFO_KHR; // TODO caps, MAILBOX is better
-	//create_info->presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR; // TODO caps, MAILBOX is better
-	create_info->clipped = VK_TRUE;
-	create_info->oldSwapchain = vk_core.swapchain.swapchain;
-
-	create_info->minImageCount = vk_core.swapchain.surface_caps.minImageCount + 3;
-	if (vk_core.swapchain.surface_caps.maxImageCount && create_info->minImageCount > vk_core.swapchain.surface_caps.maxImageCount)
-		create_info->minImageCount = vk_core.swapchain.surface_caps.maxImageCount;
-
-	XVK_CHECK(vkCreateSwapchainKHR(vk_core.device, create_info, NULL, &vk_core.swapchain.swapchain));
-
-	Mem_Free(present_modes);
-	Mem_Free(surface_formats);
-
-	vk_core.swapchain.num_images = 0;
-	XVK_CHECK(vkGetSwapchainImagesKHR(vk_core.device, vk_core.swapchain.swapchain, &vk_core.swapchain.num_images, NULL));
-	if (prev_num_images != vk_core.swapchain.num_images)
-	{
-		if (vk_core.swapchain.images)
-		{
-			Mem_Free(vk_core.swapchain.images);
-			Mem_Free(vk_core.swapchain.image_views);
-			Mem_Free(vk_core.swapchain.framebuffers);
-		}
-
-		vk_core.swapchain.images = Mem_Malloc(vk_core.pool, sizeof(*vk_core.swapchain.images) * vk_core.swapchain.num_images);
-		vk_core.swapchain.image_views = Mem_Malloc(vk_core.pool, sizeof(*vk_core.swapchain.image_views) * vk_core.swapchain.num_images);
-		vk_core.swapchain.framebuffers = Mem_Malloc(vk_core.pool, sizeof(*vk_core.swapchain.framebuffers) * vk_core.swapchain.num_images);
-	}
-
-	XVK_CHECK(vkGetSwapchainImagesKHR(vk_core.device, vk_core.swapchain.swapchain, &vk_core.swapchain.num_images, vk_core.swapchain.images));
-
-	for (uint32_t i = 0; i < vk_core.swapchain.num_images; ++i) {
-		VkImageViewCreateInfo ivci = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-			.viewType = VK_IMAGE_VIEW_TYPE_2D,
-			.format = vk_core.swapchain.create_info.imageFormat,
-			.image = vk_core.swapchain.images[i],
-			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.subresourceRange.levelCount = 1,
-			.subresourceRange.layerCount = 1,
-		};
-
-		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, vk_core.swapchain.image_views + i));
-
-		{
-			const VkImageView attachments[] = {
-				vk_core.swapchain.image_views[i],
-				//g.depth_image_view
-			};
-			VkFramebufferCreateInfo fbci = {
-				.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-				.renderPass = vk_core.render_pass,
-				.attachmentCount = ARRAYSIZE(attachments),
-				.pAttachments = attachments,
-				.width = vk_core.swapchain.create_info.imageExtent.width,
-				.height = vk_core.swapchain.create_info.imageExtent.height,
-				.layers = 1,
-			};
-			XVK_CHECK(vkCreateFramebuffer(vk_core.device, &fbci, NULL, vk_core.swapchain.framebuffers + i));
-		}
+		gEngine.Con_Reportf("\t%u: %u %u\n", i, vk_core.surface.surface_formats[i].format, vk_core.surface.surface_formats[i].colorSpace);
 	}
 
 	return true;
@@ -631,6 +468,8 @@ static qboolean initDescriptorPool( void )
 
 qboolean R_VkInit( void )
 {
+	// FIXME !!!! handle initialization errors properly: destroy what has already been created
+
 	vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
 
 	if( !gEngine.R_Init_Video( REF_VULKAN )) // request Vulkan surface
@@ -664,21 +503,17 @@ qboolean R_VkInit( void )
 	if (!createInstance())
 		return false;
 
-	vk_core.surface = gEngine.VK_CreateSurface(vk_core.instance);
-	if (!vk_core.surface)
+	vk_core.surface.surface = gEngine.VK_CreateSurface(vk_core.instance);
+	if (!vk_core.surface.surface)
 	{
 		gEngine.Con_Printf( S_ERROR "Cannot create Vulkan surface\n" );
-		// FIXME destroy surface
 		return false;
 	}
 
-	if (!createDevice())
+	if (!pickAndCreateDevice())
 		return false;
 
-	if (!createRenderPass())
-		return false;
-
-	if (!createSwapchain())
+	if (!initSurface())
 		return false;
 
 	if (!createCommandPool())
@@ -686,8 +521,6 @@ qboolean R_VkInit( void )
 
 	if (!createBuffer(&vk_core.staging, 16 * 1024 * 1024, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
-
-	// TODO initAllocator()
 
 	{
 		VkSamplerCreateInfo sci = {
@@ -707,15 +540,18 @@ qboolean R_VkInit( void )
 		XVK_CHECK(vkCreateSampler(vk_core.device, &sci, NULL, &vk_core.default_sampler));
 	}
 
+	// TODO ...
 	if (!initDescriptorPool())
 		return false;
 
 	initTextures();
 
-	if (!initVk2d())
+	if (!VK_FrameCtlInit())
 		return false;
 
-	if (!renderstateInit())
+	// All below need render_pass
+
+	if (!initVk2d())
 		return false;
 
 	return true;
@@ -723,24 +559,19 @@ qboolean R_VkInit( void )
 
 void R_VkShutdown( void )
 {
+	deinitVk2d();
+
+	VK_FrameCtlShutdown();
+
 	destroyTextures();
 
-	renderstateDestroy();
-	deinitVk2d();
 	vkDestroyDescriptorPool(vk_core.device, vk_core.descriptor_pool.pool, NULL);
+	vkDestroyDescriptorSetLayout(vk_core.device, vk_core.descriptor_pool.one_texture_layout, NULL);
 	vkDestroySampler(vk_core.device, vk_core.default_sampler, NULL);
 	destroyBuffer(&vk_core.staging);
 
 	vkDestroyCommandPool(vk_core.device, vk_core.command_pool, NULL);
 
-	for (uint32_t i = 0; i < vk_core.swapchain.num_images; ++i)
-	{
-		vkDestroyImageView(vk_core.device, vk_core.swapchain.image_views[i], NULL);
-		vkDestroyFramebuffer(vk_core.device, vk_core.swapchain.framebuffers[i], NULL);
-	}
-
-	vkDestroySwapchainKHR(vk_core.device, vk_core.swapchain.swapchain, NULL);
-	vkDestroyRenderPass(vk_core.device, vk_core.render_pass, NULL);
 	vkDestroyDevice(vk_core.device, NULL);
 
 	if (vk_core.debug_messenger)
@@ -748,7 +579,9 @@ void R_VkShutdown( void )
 		vkDestroyDebugUtilsMessengerEXT(vk_core.instance, vk_core.debug_messenger, NULL);
 	}
 
-	vkDestroySurfaceKHR(vk_core.instance, vk_core.surface, NULL);
+	Mem_Free(vk_core.surface.present_modes);
+	Mem_Free(vk_core.surface.surface_formats);
+	vkDestroySurfaceKHR(vk_core.instance, vk_core.surface.surface, NULL);
 	vkDestroyInstance(vk_core.instance, NULL);
 	Mem_FreePool(&vk_core.pool);
 }
