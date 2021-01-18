@@ -71,6 +71,17 @@ static qboolean createRenderPass( void ) {
 	return true;
 }
 
+static void destroySwapchain( VkSwapchainKHR swapchain )
+{
+	for (uint32_t i = 0; i < vk_frame.num_images; ++i)
+	{
+		vkDestroyImageView(vk_core.device, vk_frame.image_views[i], NULL);
+		vkDestroyFramebuffer(vk_core.device, vk_frame.framebuffers[i], NULL);
+	}
+
+	vkDestroySwapchainKHR(vk_core.device, swapchain, NULL);
+}
+
 static qboolean createSwapchain( void )
 {
 	VkSwapchainCreateInfoKHR *create_info = &vk_frame.create_info;
@@ -100,6 +111,10 @@ static qboolean createSwapchain( void )
 		create_info->minImageCount = vk_frame.surface_caps.maxImageCount;
 
 	XVK_CHECK(vkCreateSwapchainKHR(vk_core.device, create_info, NULL, &vk_frame.swapchain));
+	if (create_info->oldSwapchain)
+	{
+		destroySwapchain( create_info->oldSwapchain );
+	}
 
 	vk_frame.num_images = 0;
 	XVK_CHECK(vkGetSwapchainImagesKHR(vk_core.device, vk_frame.swapchain, &vk_frame.num_images, NULL));
@@ -155,7 +170,21 @@ static qboolean createSwapchain( void )
 
 void R_BeginFrame( qboolean clearScene )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s(%d)\n", __FUNCTION__, clearScene);
+	//gEngine.Con_Printf(S_WARN "VK FIXME: %s(%d)\n", __FUNCTION__, clearScene);
+
+	// Check that swapchain has the same size
+	{
+		VkSurfaceCapabilitiesKHR surface_caps;
+		XVK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_core.physical_device.device, vk_core.surface.surface, &surface_caps));
+
+		if (surface_caps.currentExtent.width != vk_frame.surface_caps.currentExtent.width
+			|| surface_caps.currentExtent.height != vk_frame.surface_caps.currentExtent.height)
+		{
+			createSwapchain();
+		}
+	}
+
+
 	vk2dBegin();
 }
 
@@ -251,12 +280,7 @@ void VK_FrameCtlShutdown( void )
 	destroySemaphore(g_frame.done);
 	destroySemaphore(g_frame.image_available);
 
-	for (uint32_t i = 0; i < vk_frame.num_images; ++i)
-	{
-		vkDestroyImageView(vk_core.device, vk_frame.image_views[i], NULL);
-		vkDestroyFramebuffer(vk_core.device, vk_frame.framebuffers[i], NULL);
-	}
+	destroySwapchain( vk_frame.swapchain );
 
-	vkDestroySwapchainKHR(vk_core.device, vk_frame.swapchain, NULL);
 	vkDestroyRenderPass(vk_core.device, vk_frame.render_pass, NULL);
 }

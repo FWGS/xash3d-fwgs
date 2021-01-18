@@ -176,6 +176,8 @@ const char *resultName(VkResult result);
 	X(vkAllocateDescriptorSets) \
 	X(vkUpdateDescriptorSets) \
 	X(vkDestroyDescriptorSetLayout) \
+	X(vkCmdSetViewport) \
+	X(vkCmdSetScissor) \
 
 #define X(f) extern PFN_##f f;
 	DEVICE_FUNCS(X)

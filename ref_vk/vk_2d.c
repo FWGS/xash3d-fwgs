@@ -191,6 +191,17 @@ static VkPipeline createPipeline( void )
 		.depthCompareOp = VK_COMPARE_OP_LESS,
 	};
 
+	VkDynamicState dynamic_states[] = {
+		VK_DYNAMIC_STATE_VIEWPORT,
+		VK_DYNAMIC_STATE_SCISSOR,
+	};
+
+	VkPipelineDynamicStateCreateInfo dynamic_state_create_info = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+		.dynamicStateCount = ARRAYSIZE(dynamic_states),
+		.pDynamicStates = dynamic_states,
+	};
+
 	VkGraphicsPipelineCreateInfo gpci = {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.stageCount = ARRAYSIZE(shader_stages),
@@ -204,6 +215,7 @@ static VkPipeline createPipeline( void )
 		.pDepthStencilState = &depth,
 		//.layout = material->pipeline_layout,
 		.renderPass = vk_frame.render_pass,
+		.pDynamicState = &dynamic_state_create_info,
 		.subpass = 0,
 	};
 
@@ -252,10 +264,20 @@ void vk2dBegin( void )
 void vk2dEnd( void )
 {
 	const VkDeviceSize offset = 0;
+	const VkViewport viewport[] = {
+		{0.f, 0.f, (float)vk_frame.surface_caps.currentExtent.width, (float)vk_frame.surface_caps.currentExtent.height, 0.f, 1.f},
+	};
+	const VkRect2D scissor[] = {{
+		{0, 0},
+		vk_frame.surface_caps.currentExtent,
+	}};
+
 	if (!g2d.num_pics)
 		return;
 
 	vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g2d.pipeline);
+	vkCmdSetViewport(vk_core.cb, 0, ARRAYSIZE(viewport), viewport);
+	vkCmdSetScissor(vk_core.cb, 0, ARRAYSIZE(scissor), scissor);
 	vkCmdBindVertexBuffers(vk_core.cb, 0, 1, &g2d.pics_buffer.buffer, &offset);
 
 	for (int i = 0; i <= g2d.current_batch; ++i)
