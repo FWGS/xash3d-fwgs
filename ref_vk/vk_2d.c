@@ -5,6 +5,7 @@
 #include "vk_common.h"
 #include "vk_textures.h"
 #include "vk_framectl.h"
+#include "vk_renderstate.h"
 
 #include "com_strings.h"
 #include "eiface.h"
@@ -29,15 +30,20 @@ void CL_FillRGBABlend( float x, float y, float w, float h, int r, int g, int b, 
 typedef struct vertex_2d_s {
 	float x, y;
 	float u, v;
+	color_rgba8_t color;
 } vertex_2d_t;
 
 // TODO should these be dynamic?
 #define MAX_PICS 4096
 #define MAX_BATCHES 64
 
-static struct {
+typedef struct vk_2d_pipeline_s {
 	VkPipelineLayout pipeline_layout;
 	VkPipeline pipeline;
+} vk_2d_pipeline_t;
+
+static struct {
+	vk_2d_pipeline_t pipelines[kRenderTransAdd + 1];
 
 	uint32_t max_pics, num_pics;
 	vk_buffer_t pics_buffer;
@@ -45,6 +51,7 @@ static struct {
 	struct {
 		uint32_t vertex_offset, vertex_count;
 		int texture;
+		int blending_mode;
 	} batch[MAX_BATCHES];
 	uint32_t current_batch;
 
@@ -53,16 +60,13 @@ static struct {
 
 void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
-	/* gEngine.Con_Printf(S_WARN "VK FIXME: %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__, */
-	/* 	x, y, w, h, s1, t1, s2, t2, texnum, findTexture(texnum)->name); */
-
-	if (g2d.batch[g2d.current_batch].texture != texnum)
+	if (g2d.batch[g2d.current_batch].texture != texnum || g2d.batch[g2d.current_batch].blending_mode != vk_renderstate.blending_mode)
 	{
 		if (g2d.batch[g2d.current_batch].vertex_count != 0)
 		{
 			if (g2d.current_batch == MAX_BATCHES - 1)
 			{
-				gEngine.Con_Printf(S_WARN "VK FIXME RAN OUT OF BATCHES: %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__,
+				gEngine.Con_Printf(S_ERROR "VK FIXME RAN OUT OF BATCHES: %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__,
 					x, y, w, h, s1, t1, s2, t2, texnum, findTexture(texnum)->name);
 				return;
 			}
@@ -71,13 +75,14 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 		}
 
 		g2d.batch[g2d.current_batch].texture = texnum;
+		g2d.batch[g2d.current_batch].blending_mode = vk_renderstate.blending_mode;
 		g2d.batch[g2d.current_batch].vertex_offset = g2d.num_pics;
 		g2d.batch[g2d.current_batch].vertex_count = 0;
 	}
 
 	if (g2d.num_pics + 6 > g2d.max_pics)
 	{
-		gEngine.Con_Printf(S_WARN "VK FIXME RAN OUT OF BUFFER: %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__,
+		gEngine.Con_Printf(S_ERROR "VK FIXME RAN OUT OF BUFFER: %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__,
 			x, y, w, h, s1, t1, s2, t2, texnum, findTexture(texnum)->name);
 		return;
 	}
@@ -91,23 +96,25 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 		const float y1 = (y / vh)*2.f - 1.f;
 		const float x2 = ((x + w) / vw)*2.f - 1.f;
 		const float y2 = ((y + h) / vh)*2.f - 1.f;
+		const color_rgba8_t color = vk_renderstate.tri_color;
 
 		g2d.num_pics += 6;
 		g2d.batch[g2d.current_batch].vertex_count += 6; // ....
-		p[0] = (vertex_2d_t){x1, y1, s1, t1};
-		p[1] = (vertex_2d_t){x1, y2, s1, t2};
-		p[2] = (vertex_2d_t){x2, y1, s2, t1};
-		p[3] = (vertex_2d_t){x2, y1, s2, t1};
-		p[4] = (vertex_2d_t){x1, y2, s1, t2};
-		p[5] = (vertex_2d_t){x2, y2, s2, t2};
+		p[0] = (vertex_2d_t){x1, y1, s1, t1, color};
+		p[1] = (vertex_2d_t){x1, y2, s1, t2, color};
+		p[2] = (vertex_2d_t){x2, y1, s2, t1, color};
+		p[3] = (vertex_2d_t){x2, y1, s2, t1, color};
+		p[4] = (vertex_2d_t){x1, y2, s1, t2, color};
+		p[5] = (vertex_2d_t){x2, y2, s2, t2, color};
 	}
 }
 
-static VkPipeline createPipeline( void )
+static qboolean createPipeline(vk_2d_pipeline_t *pipeline, int blending_mode)
 {
 	VkVertexInputAttributeDescription attribs[] = {
 		{.binding = 0, .location = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vertex_2d_t, x)},
 		{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vertex_2d_t, u)},
+		{.binding = 0, .location = 2, .format = VK_FORMAT_R8G8B8A8_UNORM, .offset = offsetof(vertex_2d_t, color)},
 	};
 
 	VkPipelineShaderStageCreateInfo shader_stages[] = {
@@ -240,18 +247,44 @@ static VkPipeline createPipeline( void )
 		/* .pPushConstantRanges = &push_const, */
 	};
 
-	VkPipeline pipeline;
+	switch (blending_mode)
+	{
+		case kRenderNormal:
+			blend_attachment.blendEnable = VK_FALSE;
+			break;
+
+		case kRenderTransColor:
+		case kRenderTransTexture:
+			blend_attachment.blendEnable = VK_TRUE;
+			blend_attachment.colorBlendOp = VK_BLEND_OP_ADD;
+			blend_attachment.srcAlphaBlendFactor = blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+			blend_attachment.dstAlphaBlendFactor = blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			break;
+
+		case kRenderTransAlpha:
+			blend_attachment.blendEnable = VK_FALSE;
+			// FIXME pglEnable( GL_ALPHA_TEST );
+			break;
+
+		case kRenderGlow:
+		case kRenderTransAdd:
+			blend_attachment.blendEnable = VK_TRUE;
+			blend_attachment.colorBlendOp = VK_BLEND_OP_ADD;
+			blend_attachment.srcAlphaBlendFactor = blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+			blend_attachment.dstAlphaBlendFactor = blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+			break;
+	}
 
 	// FIXME store layout separately
-	XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &g2d.pipeline_layout));
-	gpci.layout = g2d.pipeline_layout;
+	XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &pipeline->pipeline_layout));
+	gpci.layout = pipeline->pipeline_layout;
 
-	XVK_CHECK(vkCreateGraphicsPipelines(vk_core.device, VK_NULL_HANDLE, 1, &gpci, NULL, &pipeline));
+	XVK_CHECK(vkCreateGraphicsPipelines(vk_core.device, VK_NULL_HANDLE, 1, &gpci, NULL, &pipeline->pipeline));
 
 	for (int i = 0; i < (int)ARRAYSIZE(shader_stages); ++i)
 		vkDestroyShaderModule(vk_core.device, shader_stages[i].module, NULL);
 
-	return pipeline;
+	return true;
 }
 
 void vk2dBegin( void )
@@ -275,7 +308,6 @@ void vk2dEnd( void )
 	if (!g2d.num_pics)
 		return;
 
-	vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g2d.pipeline);
 	vkCmdSetViewport(vk_core.cb, 0, ARRAYSIZE(viewport), viewport);
 	vkCmdSetScissor(vk_core.cb, 0, ARRAYSIZE(scissor), scissor);
 	vkCmdBindVertexBuffers(vk_core.cb, 0, 1, &g2d.pics_buffer.buffer, &offset);
@@ -283,19 +315,28 @@ void vk2dEnd( void )
 	for (int i = 0; i <= g2d.current_batch; ++i)
 	{
 		vk_texture_t *texture = findTexture(g2d.batch[i].texture);
+		const vk_2d_pipeline_t *pipeline = g2d.pipelines + g2d.batch[i].blending_mode;
 		if (texture->vk.descriptor)
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g2d.pipeline_layout, 0, 1, &texture->vk.descriptor, 0, NULL);
-		// FIXME else  what?
-		vkCmdDraw(vk_core.cb, g2d.batch[i].vertex_count, 1, g2d.batch[i].vertex_offset, 0);
+		{
+			vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 0, 1, &texture->vk.descriptor, 0, NULL);
+			vkCmdDraw(vk_core.cb, g2d.batch[i].vertex_count, 1, g2d.batch[i].vertex_offset, 0);
+		} // FIXME else what?
 	}
 }
 
 qboolean initVk2d( void )
 {
-	g2d.pipeline = createPipeline();
+	for (int i = 0; i < ARRAYSIZE(g2d.pipelines); ++i)
+		if (!createPipeline(g2d.pipelines + i, i))
+		{
+			// TODO complain
+			return false;
+		}
 
 	if (!createBuffer(&g2d.pics_buffer, sizeof(vertex_2d_t) * (MAX_PICS * 6),
 				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ))
+		// FIXME cleanup
 		return false;
 
 	g2d.max_pics = MAX_PICS * 6;
@@ -306,6 +347,8 @@ qboolean initVk2d( void )
 void deinitVk2d( void )
 {
 	destroyBuffer(&g2d.pics_buffer);
-	vkDestroyPipeline(vk_core.device, g2d.pipeline, NULL);
-	vkDestroyPipelineLayout(vk_core.device, g2d.pipeline_layout, NULL);
+	for (int i = 0; i < ARRAYSIZE(g2d.pipelines); ++i) {
+		vkDestroyPipeline(vk_core.device, g2d.pipelines[i].pipeline, NULL);
+		vkDestroyPipelineLayout(vk_core.device, g2d.pipelines[i].pipeline_layout, NULL);
+	}
 }

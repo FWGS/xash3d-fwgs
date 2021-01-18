@@ -15,7 +15,7 @@ static struct
 
 static qboolean createRenderPass( void ) {
 	VkAttachmentDescription attachments[] = {{
-		.format = VK_FORMAT_B8G8R8A8_SRGB,// FIXME too early swapchain.create_info.imageFormat;
+		.format = VK_FORMAT_B8G8R8A8_UNORM, //SRGB,// FIXME too early swapchain.create_info.imageFormat;
 		.samples = VK_SAMPLE_COUNT_1_BIT,
 		.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		//.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -92,7 +92,7 @@ static qboolean createSwapchain( void )
 	create_info->sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	create_info->pNext = NULL;
 	create_info->surface = vk_core.surface.surface;
-	create_info->imageFormat = VK_FORMAT_B8G8R8A8_SRGB; // TODO get from surface_formats
+	create_info->imageFormat = VK_FORMAT_B8G8R8A8_UNORM;//SRGB; // TODO get from surface_formats
 	create_info->imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR; // TODO get from surface_formats
 	create_info->imageExtent.width = vk_frame.surface_caps.currentExtent.width;
 	create_info->imageExtent.height = vk_frame.surface_caps.currentExtent.height;

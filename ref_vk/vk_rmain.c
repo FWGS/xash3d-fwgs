@@ -77,7 +77,7 @@ void R_ProcessEntData( qboolean allocate )
 // debug
 void R_ShowTextures( void )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	//gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
 
 // texture management
@@ -402,7 +402,7 @@ void		GL_OrthoBounds( const float *mins, const float *maxs )
 // grab r_speeds message
 qboolean	R_SpeedsMessage( char *out, size_t size )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	//gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
 	return false;
 }
 // get visdata for current frame from custom renderer

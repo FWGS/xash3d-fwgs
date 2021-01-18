@@ -433,6 +433,7 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 		ivci.subresourceRange.levelCount = 1; // FIXME params.mipmaps_count;
 		ivci.subresourceRange.baseArrayLayer = 0;
 		ivci.subresourceRange.layerCount = 1;
+		ivci.components = (VkComponentMapping){0, 0, 0, (pic->flags & IMAGE_HAS_ALPHA) ? 0 : VK_COMPONENT_SWIZZLE_ONE};
 		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, &tex->vk.image_view));
 	}
 
@@ -467,24 +468,34 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 ///////////// Render API funcs /////////////
 
 // Texture tools
-int		VK_FindTexture( const char *name )
+int	VK_FindTexture( const char *name )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	vk_texture_t *tex;
+
+	if( !Common_CheckTexName( name ))
+		return 0;
+
+	// see if already loaded
+	if(( tex = Common_TextureForName( name )))
+		return (tex - vk_textures);
+
 	return 0;
 }
 const char*	VK_TextureName( unsigned int texnum )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
-	return "UNKNOWN";
+	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
+	return vk_textures[texnum].name;
 }
 
 const byte*	VK_TextureData( unsigned int texnum )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	// We don't store original texture data
+	// TODO do we need to?
 	return NULL;
 }
 
-int		VK_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
+int	VK_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 {
 	vk_texture_t	*tex;
 	rgbdata_t		*pic;
