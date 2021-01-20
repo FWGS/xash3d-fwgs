@@ -170,7 +170,7 @@ static qboolean createSwapchain( void )
 
 void R_BeginFrame( qboolean clearScene )
 {
-	//gEngine.Con_Printf(S_WARN "VK FIXME: %s(%d)\n", __FUNCTION__, clearScene);
+	gEngine.Con_Reportf("%s(clearScene=%d)\n", __FUNCTION__, clearScene);
 
 	// Check that swapchain has the same size
 	{
@@ -184,7 +184,6 @@ void R_BeginFrame( qboolean clearScene )
 		}
 	}
 
-
 	vk2dBegin();
 }
 
@@ -195,8 +194,6 @@ void R_RenderScene( void )
 
 void R_EndFrame( void )
 {
-	//gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-
 	uint32_t swapchain_image_index;
 	VkClearValue clear_value[] = {
 		{.color = {{1., 0., 0., 0.}}},
@@ -230,6 +227,8 @@ void R_EndFrame( void )
 		.pWaitSemaphores = &g_frame.done,
 		.waitSemaphoreCount = 1,
 	};
+
+	gEngine.Con_Reportf("%s\n", __FUNCTION__);
 
 	XVK_CHECK(vkAcquireNextImageKHR(vk_core.device, vk_frame.swapchain, UINT64_MAX, g_frame.image_available,
 		VK_NULL_HANDLE, &swapchain_image_index));
