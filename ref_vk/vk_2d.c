@@ -193,9 +193,9 @@ static qboolean createPipeline(vk_2d_pipeline_t *pipeline, int blending_mode)
 
 	VkPipelineDepthStencilStateCreateInfo depth = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-		.depthTestEnable = VK_TRUE,
-		.depthWriteEnable = VK_TRUE,
-		.depthCompareOp = VK_COMPARE_OP_LESS,
+		.depthTestEnable = VK_FALSE,
+		.depthWriteEnable = VK_FALSE,
+		.depthCompareOp = VK_COMPARE_OP_ALWAYS,
 	};
 
 	VkDynamicState dynamic_states[] = {

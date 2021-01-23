@@ -27,8 +27,19 @@ qboolean createBuffer(vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage,
 
 void destroyBuffer(vk_buffer_t *buf) {
 	// FIXME when there are many allocation per VkDeviceMemory, fix this
-	vkUnmapMemory(vk_core.device, buf->device_memory.device_memory);
-	vkDestroyBuffer(vk_core.device, buf->buffer, NULL);
-	freeDeviceMemory(&buf->device_memory);
-	memset(buf, 0, sizeof(*buf));
+	if (buf->buffer)
+	{
+		vkDestroyBuffer(vk_core.device, buf->buffer, NULL);
+		buf->buffer = VK_NULL_HANDLE;
+	}
+
+	if (buf->device_memory.device_memory)
+	{
+		vkUnmapMemory(vk_core.device, buf->device_memory.device_memory);
+		freeDeviceMemory(&buf->device_memory);
+		buf->device_memory.device_memory = VK_NULL_HANDLE;
+		buf->device_memory.offset = 0;
+		buf->mapped = 0;
+		buf->size = 0;
+	}
 }

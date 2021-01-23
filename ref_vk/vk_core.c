@@ -5,6 +5,7 @@
 #include "vk_renderstate.h"
 #include "vk_buffer.h"
 #include "vk_framectl.h"
+#include "vk_map.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -554,11 +555,15 @@ qboolean R_VkInit( void )
 	if (!initVk2d())
 		return false;
 
+	if (!VK_MapInit())
+		return false;
+
 	return true;
 }
 
 void R_VkShutdown( void )
 {
+	VK_MapShutdown();
 	deinitVk2d();
 
 	VK_FrameCtlShutdown();

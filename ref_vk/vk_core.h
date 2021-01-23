@@ -110,6 +110,7 @@ const char *resultName(VkResult result);
 	X(vkGetPhysicalDeviceSurfacePresentModesKHR) \
 	X(vkGetPhysicalDeviceSurfaceFormatsKHR) \
 	X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR) \
+	X(vkGetPhysicalDeviceFormatProperties) \
 	X(vkCreateDevice) \
 	X(vkGetDeviceProcAddr) \
 	X(vkDestroyDevice) \

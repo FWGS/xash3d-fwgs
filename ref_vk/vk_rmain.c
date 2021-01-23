@@ -3,6 +3,8 @@
 #include "vk_textures.h"
 #include "vk_renderstate.h"
 #include "vk_2d.h"
+#include "vk_map.h"
+#include "vk_framectl.h"
 
 #include "xash3d_types.h"
 #include "com_strings.h"
@@ -428,11 +430,6 @@ static struct mstudiotex_s *R_StudioGetTexture( struct cl_entity_s *e )
 	return NULL;
 }
 
-// passed through R_RenderFrame (0 - use engine renderer, 1 - use custom client renderer)
-static void		GL_RenderFrame( const struct ref_viewpass_s *rvp )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
 // setup map bounds for ortho-projection when we in dev_overview mode
 static void		GL_OrthoBounds( const float *mins, const float *maxs )
 {
@@ -449,11 +446,6 @@ static byte*		Mod_GetCurrentVis( void )
 {
 	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
 	return NULL;
-}
-// tell the renderer what new map is started
-static void		R_NewMap( void )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
 // clear the render entities before each frame
 static void		R_ClearScene( void )

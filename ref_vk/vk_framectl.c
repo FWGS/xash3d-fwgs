@@ -13,6 +13,88 @@ static struct
 	VkFence fence;
 } g_frame;
 
+static VkFormat findSupportedImageFormat(const VkFormat *candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+	for (int i = 0; candidates[i] != VK_FORMAT_UNDEFINED; ++i) {
+		VkFormatProperties props;
+		VkFormatFeatureFlags props_format;
+		vkGetPhysicalDeviceFormatProperties(vk_core.physical_device.device, candidates[i], &props);
+		switch (tiling) {
+			case VK_IMAGE_TILING_OPTIMAL:
+				props_format = props.optimalTilingFeatures; break;
+			case VK_IMAGE_TILING_LINEAR:
+				props_format = props.linearTilingFeatures; break;
+			default:
+				return VK_FORMAT_UNDEFINED;
+		}
+		if ((props_format & features) == features)
+			return candidates[i];
+	}
+
+	return VK_FORMAT_UNDEFINED;
+}
+
+static VkImage createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage) {
+	VkImage image;
+	VkImageCreateInfo ici = {.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+	ici.imageType = VK_IMAGE_TYPE_2D;
+	ici.extent.width = width;
+	ici.extent.height = height;
+	ici.extent.depth = 1;
+	ici.mipLevels = 1;
+	ici.arrayLayers = 1;
+	ici.format = format;
+	ici.tiling = tiling;
+	ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	ici.usage = usage;
+	ici.samples = VK_SAMPLE_COUNT_1_BIT;
+	ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	XVK_CHECK(vkCreateImage(vk_core.device, &ici, NULL, &image));
+
+	return image;
+}
+
+// TODO sort these based on ???
+static const VkFormat depth_formats[] = {
+	VK_FORMAT_D32_SFLOAT,
+	VK_FORMAT_D24_UNORM_S8_UINT,
+	VK_FORMAT_X8_D24_UNORM_PACK32,
+	VK_FORMAT_D16_UNORM,
+	VK_FORMAT_D32_SFLOAT_S8_UINT,
+	VK_FORMAT_D16_UNORM_S8_UINT,
+	VK_FORMAT_UNDEFINED
+};
+
+static void createDepthImage(int w, int h) {
+	const VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
+	const VkFormatFeatureFlags feature = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	const VkImageUsageFlags usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	VkMemoryRequirements memreq;
+
+	vk_frame.depth.image = createImage(w, h, vk_frame.depth.format, tiling, usage);
+
+	vkGetImageMemoryRequirements(vk_core.device, vk_frame.depth.image, &memreq);
+	vk_frame.depth.device_memory = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	XVK_CHECK(vkBindImageMemory(vk_core.device, vk_frame.depth.image, vk_frame.depth.device_memory.device_memory, 0));
+
+	{
+		VkImageViewCreateInfo ivci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+		ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		ivci.format = vk_frame.depth.format;
+		ivci.image = vk_frame.depth.image;
+		ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		ivci.subresourceRange.levelCount = 1;
+		ivci.subresourceRange.layerCount = 1;
+		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, &vk_frame.depth.image_view));
+	}
+}
+
+static void destroyDepthImage( void ) {
+	vkDestroyImageView(vk_core.device, vk_frame.depth.image_view, NULL);
+	vkDestroyImage(vk_core.device, vk_frame.depth.image, NULL);
+	freeDeviceMemory(&vk_frame.depth.device_memory);
+}
+
 static qboolean createRenderPass( void ) {
 	VkAttachmentDescription attachments[] = {{
 		.format = VK_FORMAT_B8G8R8A8_UNORM, //SRGB,// FIXME too early swapchain.create_info.imageFormat;
@@ -23,21 +105,17 @@ static qboolean createRenderPass( void ) {
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		//attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-	/*}, {
+	}, {
 		// Depth
-		.format = g.depth_format,
+		.format = vk_frame.depth.format = findSupportedImageFormat(depth_formats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT),
 		.samples = VK_SAMPLE_COUNT_1_BIT,
-		//attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 		.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		//attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-		*/
 	}};
 
 	VkAttachmentReference color_attachment = {
@@ -45,17 +123,16 @@ static qboolean createRenderPass( void ) {
 		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 	};
 
-	/*
-	VkAttachmentReference depth_attachment = {0};
-	depth_attachment.attachment = 1;
-	depth_attachment.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	*/
+	VkAttachmentReference depth_attachment = {
+		.attachment = 1,
+		.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+	};
 
 	VkSubpassDescription subdesc = {
 		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
 		.colorAttachmentCount = 1,
 		.pColorAttachments = &color_attachment,
-		//.pDepthStencilAttachment = &depth_attachment,
+		.pDepthStencilAttachment = &depth_attachment,
 	};
 
 	VkRenderPassCreateInfo rpci = {
@@ -80,6 +157,8 @@ static void destroySwapchain( VkSwapchainKHR swapchain )
 	}
 
 	vkDestroySwapchainKHR(vk_core.device, swapchain, NULL);
+
+	destroyDepthImage();
 }
 
 static qboolean createSwapchain( void )
@@ -88,6 +167,8 @@ static qboolean createSwapchain( void )
 	const uint32_t prev_num_images = vk_frame.num_images;
 
 	XVK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_core.physical_device.device, vk_core.surface.surface, &vk_frame.surface_caps));
+
+	createDepthImage(vk_frame.surface_caps.currentExtent.width, vk_frame.surface_caps.currentExtent.height);
 
 	create_info->sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	create_info->pNext = NULL;
@@ -150,7 +231,7 @@ static qboolean createSwapchain( void )
 		{
 			const VkImageView attachments[] = {
 				vk_frame.image_views[i],
-				//g.depth_image_view
+				vk_frame.depth.image_view
 			};
 			VkFramebufferCreateInfo fbci = {
 				.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
@@ -180,6 +261,7 @@ void R_BeginFrame( qboolean clearScene )
 		if (surface_caps.currentExtent.width != vk_frame.surface_caps.currentExtent.width
 			|| surface_caps.currentExtent.height != vk_frame.surface_caps.currentExtent.height)
 		{
+			destroyDepthImage();
 			createSwapchain();
 		}
 	}
@@ -187,7 +269,7 @@ void R_BeginFrame( qboolean clearScene )
 	vk2dBegin();
 }
 
-void R_RenderScene( void )
+void GL_RenderFrame( const struct ref_viewpass_s *rvp )
 {
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
@@ -197,7 +279,7 @@ void R_EndFrame( void )
 	uint32_t swapchain_image_index;
 	VkClearValue clear_value[] = {
 		{.color = {{1., 0., 0., 0.}}},
-		//{.depthStencil = {1., 0.}}
+		{.depthStencil = {1., 0.}} // TODO reverse-z
 	};
 	VkRenderPassBeginInfo rpbi = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,

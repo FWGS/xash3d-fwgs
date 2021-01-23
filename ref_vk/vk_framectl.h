@@ -4,6 +4,12 @@
 #include "xash3d_types.h"
 
 typedef struct vk_framectl_s {
+	struct {
+		VkFormat format;
+		device_memory_t device_memory;
+		VkImage image;
+		VkImageView image_view;
+	} depth;
 	VkRenderPass render_pass;
 
 	VkSurfaceCapabilitiesKHR surface_caps;
@@ -21,5 +27,5 @@ qboolean VK_FrameCtlInit( void );
 void VK_FrameCtlShutdown( void );
 
 void R_BeginFrame( qboolean clearScene );
-void R_RenderScene( void );
+void GL_RenderFrame( const struct ref_viewpass_s *rvp );
 void R_EndFrame( void );
