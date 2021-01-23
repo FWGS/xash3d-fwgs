@@ -1,6 +1,7 @@
 #include "vk_framectl.h"
 
 #include "vk_2d.h"
+#include "vk_map.h"
 
 #include "eiface.h"
 
@@ -331,7 +332,19 @@ void R_EndFrame( void )
 	XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
 
 	XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, g_frame.fence));
-	XVK_CHECK(vkQueuePresentKHR(vk_core.queue, &presinfo));
+
+	{
+		const VkResult present_result = vkQueuePresentKHR(vk_core.queue, &presinfo);
+		switch (present_result)
+		{
+			case VK_ERROR_OUT_OF_DATE_KHR:
+			case VK_ERROR_SURFACE_LOST_KHR:
+				gEngine.Con_Printf(S_WARN "vkQueuePresentKHR returned %s, frame will be lost\n", resultName(present_result));
+				break;
+			default:
+				XVK_CHECK(present_result);
+		}
+	}
 
 	// TODO bad sync
 	XVK_CHECK(vkWaitForFences(vk_core.device, 1, &g_frame.fence, VK_TRUE, INT64_MAX));

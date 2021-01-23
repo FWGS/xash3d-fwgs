@@ -6,6 +6,7 @@
 #include "vk_textures.h"
 #include "vk_framectl.h"
 #include "vk_renderstate.h"
+#include "vk_pipeline.h"
 
 #include "com_strings.h"
 #include "eiface.h"
@@ -37,13 +38,9 @@ typedef struct vertex_2d_s {
 #define MAX_PICS 4096
 #define MAX_BATCHES 128
 
-typedef struct vk_2d_pipeline_s {
-	VkPipelineLayout pipeline_layout;
-	VkPipeline pipeline;
-} vk_2d_pipeline_t;
-
 static struct {
-	vk_2d_pipeline_t pipelines[kRenderTransAdd + 1];
+	VkPipelineLayout pipeline_layout;
+	VkPipeline pipelines[kRenderTransAdd + 1];
 
 	uint32_t max_pics, num_pics;
 	vk_buffer_t pics_buffer;
@@ -109,184 +106,6 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 	}
 }
 
-static qboolean createPipeline(vk_2d_pipeline_t *pipeline, int blending_mode)
-{
-	VkVertexInputAttributeDescription attribs[] = {
-		{.binding = 0, .location = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vertex_2d_t, x)},
-		{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vertex_2d_t, u)},
-		{.binding = 0, .location = 2, .format = VK_FORMAT_R8G8B8A8_UNORM, .offset = offsetof(vertex_2d_t, color)},
-	};
-
-	VkPipelineShaderStageCreateInfo shader_stages[] = {
-	{
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_VERTEX_BIT,
-		.module = loadShader("2d.vert.spv"),
-		.pName = "main",
-	}, {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-		.module = loadShader("2d.frag.spv"),
-		.pName = "main",
-	}};
-
-	VkVertexInputBindingDescription vibd = {
-		.binding = 0,
-		.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
-		.stride = sizeof(vertex_2d_t),
-	};
-
-	VkPipelineVertexInputStateCreateInfo vertex_input = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = 1,
-		.pVertexBindingDescriptions = &vibd,
-		.vertexAttributeDescriptionCount = ARRAYSIZE(attribs),
-		.pVertexAttributeDescriptions = attribs,
-	};
-
-	VkPipelineInputAssemblyStateCreateInfo input_assembly = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-	};
-
-	VkViewport viewport = {
-		.x = 0, .y = 0,
-		.width = (float)vk_frame.create_info.imageExtent.width,
-		.height = (float)vk_frame.create_info.imageExtent.height,
-		.minDepth = 0.f, .maxDepth = 1.f,
-	};
-	VkRect2D scissor = {
-		.offset = {0},
-		.extent = vk_frame.create_info.imageExtent,
-	};
-	VkPipelineViewportStateCreateInfo viewport_state = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		.viewportCount = 1,
-		.scissorCount = 1,
-		.pViewports = &viewport,
-		.pScissors = &scissor,
-	};
-
-	VkPipelineRasterizationStateCreateInfo raster_state = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-		.polygonMode = VK_POLYGON_MODE_FILL,
-		.cullMode = VK_CULL_MODE_BACK_BIT,
-		.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-		.lineWidth = 1.f,
-	};
-
-	VkPipelineMultisampleStateCreateInfo multi_state = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-	};
-
-	VkPipelineColorBlendAttachmentState blend_attachment = {
-		.blendEnable = VK_FALSE,
-		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-	};
-
-	VkPipelineColorBlendStateCreateInfo color_blend = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-		.attachmentCount = 1,
-		.pAttachments = &blend_attachment,
-	};
-
-	VkPipelineDepthStencilStateCreateInfo depth = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-		.depthTestEnable = VK_FALSE,
-		.depthWriteEnable = VK_FALSE,
-		.depthCompareOp = VK_COMPARE_OP_ALWAYS,
-	};
-
-	VkDynamicState dynamic_states[] = {
-		VK_DYNAMIC_STATE_VIEWPORT,
-		VK_DYNAMIC_STATE_SCISSOR,
-	};
-
-	VkPipelineDynamicStateCreateInfo dynamic_state_create_info = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-		.dynamicStateCount = ARRAYSIZE(dynamic_states),
-		.pDynamicStates = dynamic_states,
-	};
-
-	VkGraphicsPipelineCreateInfo gpci = {
-		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-		.stageCount = ARRAYSIZE(shader_stages),
-		.pStages = shader_stages,
-		.pVertexInputState = &vertex_input,
-		.pInputAssemblyState = &input_assembly,
-		.pViewportState = &viewport_state,
-		.pRasterizationState = &raster_state,
-		.pMultisampleState = &multi_state,
-		.pColorBlendState = &color_blend,
-		.pDepthStencilState = &depth,
-		//.layout = material->pipeline_layout,
-		.renderPass = vk_frame.render_pass,
-		.pDynamicState = &dynamic_state_create_info,
-		.subpass = 0,
-	};
-
-	/* VkPushConstantRange push_const = { */
-	/* 	.offset = 0, */
-	/* 	.size = sizeof(AVec3f), */
-	/* 	.stageFlags = VK_SHADER_STAGE_VERTEX_BIT, */
-	/* }; */
-
-	VkDescriptorSetLayout descriptor_layouts[] = {
-		vk_core.descriptor_pool.one_texture_layout,
-	/* 		g.descriptors[Descriptors_Global]->layout, */
-	/* 		g.descriptors[Descriptors_Lightmaps]->layout, */
-	/* 		g.descriptors[Descriptors_Textures]->layout, */
-	};
-
-	VkPipelineLayoutCreateInfo plci = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = ARRAYSIZE(descriptor_layouts),
-		.pSetLayouts = descriptor_layouts,
-		/* .pushConstantRangeCount = 1, */
-		/* .pPushConstantRanges = &push_const, */
-	};
-
-	switch (blending_mode)
-	{
-		case kRenderNormal:
-			blend_attachment.blendEnable = VK_FALSE;
-			break;
-
-		case kRenderTransColor:
-		case kRenderTransTexture:
-			blend_attachment.blendEnable = VK_TRUE;
-			blend_attachment.colorBlendOp = VK_BLEND_OP_ADD;
-			blend_attachment.srcAlphaBlendFactor = blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-			blend_attachment.dstAlphaBlendFactor = blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-			break;
-
-		case kRenderTransAlpha:
-			blend_attachment.blendEnable = VK_FALSE;
-			// FIXME pglEnable( GL_ALPHA_TEST );
-			break;
-
-		case kRenderGlow:
-		case kRenderTransAdd:
-			blend_attachment.blendEnable = VK_TRUE;
-			blend_attachment.colorBlendOp = VK_BLEND_OP_ADD;
-			blend_attachment.srcAlphaBlendFactor = blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-			blend_attachment.dstAlphaBlendFactor = blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-			break;
-	}
-
-	// FIXME store layout separately
-	XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &pipeline->pipeline_layout));
-	gpci.layout = pipeline->pipeline_layout;
-
-	XVK_CHECK(vkCreateGraphicsPipelines(vk_core.device, VK_NULL_HANDLE, 1, &gpci, NULL, &pipeline->pipeline));
-
-	for (int i = 0; i < (int)ARRAYSIZE(shader_stages); ++i)
-		vkDestroyShaderModule(vk_core.device, shader_stages[i].module, NULL);
-
-	return true;
-}
-
 void vk2dBegin( void )
 {
 	g2d.num_pics = 0;
@@ -315,24 +134,125 @@ void vk2dEnd( void )
 	for (int i = 0; i <= g2d.current_batch; ++i)
 	{
 		vk_texture_t *texture = findTexture(g2d.batch[i].texture);
-		const vk_2d_pipeline_t *pipeline = g2d.pipelines + g2d.batch[i].blending_mode;
+		const VkPipeline pipeline = g2d.pipelines[g2d.batch[i].blending_mode];
 		if (texture->vk.descriptor)
 		{
-			vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline_layout, 0, 1, &texture->vk.descriptor, 0, NULL);
+			vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g2d.pipeline_layout, 0, 1, &texture->vk.descriptor, 0, NULL);
 			vkCmdDraw(vk_core.cb, g2d.batch[i].vertex_count, 1, g2d.batch[i].vertex_offset, 0);
 		} // FIXME else what?
 	}
 }
 
+static qboolean createPipelines( void )
+{
+	{
+		/* VkPushConstantRange push_const = { */
+		/* 	.offset = 0, */
+		/* 	.size = sizeof(AVec3f), */
+		/* 	.stageFlags = VK_SHADER_STAGE_VERTEX_BIT, */
+		/* }; */
+
+		VkDescriptorSetLayout descriptor_layouts[] = {
+			vk_core.descriptor_pool.one_texture_layout,
+		/* 		g.descriptors[Descriptors_Global]->layout, */
+		/* 		g.descriptors[Descriptors_Lightmaps]->layout, */
+		/* 		g.descriptors[Descriptors_Textures]->layout, */
+		};
+
+		VkPipelineLayoutCreateInfo plci = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			.setLayoutCount = ARRAYSIZE(descriptor_layouts),
+			.pSetLayouts = descriptor_layouts,
+			/* .pushConstantRangeCount = 1, */
+			/* .pPushConstantRanges = &push_const, */
+		};
+
+		XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &g2d.pipeline_layout));
+	}
+
+	{
+		VkVertexInputAttributeDescription attribs[] = {
+			{.binding = 0, .location = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vertex_2d_t, x)},
+			{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vertex_2d_t, u)},
+			{.binding = 0, .location = 2, .format = VK_FORMAT_R8G8B8A8_UNORM, .offset = offsetof(vertex_2d_t, color)},
+		};
+
+		VkPipelineShaderStageCreateInfo shader_stages[] = {
+		{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_VERTEX_BIT,
+			.module = loadShader("2d.vert.spv"),
+			.pName = "main",
+		}, {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.module = loadShader("2d.frag.spv"),
+			.pName = "main",
+		}};
+
+		vk_pipeline_create_info_t pci = {
+			.layout = g2d.pipeline_layout,
+			.attribs = attribs,
+			.num_attribs = ARRAYSIZE(attribs),
+			.stages = shader_stages,
+			.num_stages = ARRAYSIZE(shader_stages),
+			.vertex_stride = sizeof(vertex_2d_t),
+			.depthTestEnable = VK_FALSE,
+			.depthWriteEnable = VK_FALSE,
+			.depthCompareOp = VK_COMPARE_OP_ALWAYS,
+		};
+
+		for (int i = 0; i < ARRAYSIZE(g2d.pipelines); ++i)
+		{
+			switch (i)
+			{
+				case kRenderNormal:
+					pci.blendEnable = VK_FALSE;
+					break;
+
+				case kRenderTransColor:
+				case kRenderTransTexture:
+					pci.blendEnable = VK_TRUE;
+					pci.colorBlendOp = VK_BLEND_OP_ADD;
+					pci.srcAlphaBlendFactor = pci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+					pci.dstAlphaBlendFactor = pci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+					break;
+
+				case kRenderTransAlpha:
+					pci.blendEnable = VK_FALSE;
+					// FIXME pglEnable( GL_ALPHA_TEST );
+					break;
+
+				case kRenderGlow:
+				case kRenderTransAdd:
+					pci.blendEnable = VK_TRUE;
+					pci.colorBlendOp = VK_BLEND_OP_ADD;
+					pci.srcAlphaBlendFactor = pci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+					pci.dstAlphaBlendFactor = pci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+					break;
+			}
+
+			g2d.pipelines[i] = createPipeline(&pci);
+
+			if (!g2d.pipelines[i])
+			{
+				// TODO complain
+				return false;
+			}
+		}
+
+	for (int i = 0; i < (int)ARRAYSIZE(shader_stages); ++i)
+		vkDestroyShaderModule(vk_core.device, shader_stages[i].module, NULL);
+	}
+
+	return true;
+}
+
 qboolean initVk2d( void )
 {
-	for (int i = 0; i < ARRAYSIZE(g2d.pipelines); ++i)
-		if (!createPipeline(g2d.pipelines + i, i))
-		{
-			// TODO complain
-			return false;
-		}
+	if (!createPipelines())
+		return false;
 
 	if (!createBuffer(&g2d.pics_buffer, sizeof(vertex_2d_t) * (MAX_PICS * 6),
 				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ))
@@ -347,8 +267,8 @@ qboolean initVk2d( void )
 void deinitVk2d( void )
 {
 	destroyBuffer(&g2d.pics_buffer);
-	for (int i = 0; i < ARRAYSIZE(g2d.pipelines); ++i) {
-		vkDestroyPipeline(vk_core.device, g2d.pipelines[i].pipeline, NULL);
-		vkDestroyPipelineLayout(vk_core.device, g2d.pipelines[i].pipeline_layout, NULL);
-	}
+	for (int i = 0; i < ARRAYSIZE(g2d.pipelines); ++i)
+		vkDestroyPipeline(vk_core.device, g2d.pipelines[i], NULL);
+
+	vkDestroyPipelineLayout(vk_core.device, g2d.pipeline_layout, NULL);
 }
