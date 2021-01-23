@@ -67,7 +67,6 @@ static const VkFormat depth_formats[] = {
 
 static void createDepthImage(int w, int h) {
 	const VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
-	const VkFormatFeatureFlags feature = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	const VkImageUsageFlags usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	VkMemoryRequirements memreq;
 
@@ -168,8 +167,6 @@ static qboolean createSwapchain( void )
 
 	XVK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_core.physical_device.device, vk_core.surface.surface, &vk_frame.surface_caps));
 
-	createDepthImage(vk_frame.surface_caps.currentExtent.width, vk_frame.surface_caps.currentExtent.height);
-
 	create_info->sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	create_info->pNext = NULL;
 	create_info->surface = vk_core.surface.surface;
@@ -196,6 +193,8 @@ static qboolean createSwapchain( void )
 	{
 		destroySwapchain( create_info->oldSwapchain );
 	}
+
+	createDepthImage(vk_frame.surface_caps.currentExtent.width, vk_frame.surface_caps.currentExtent.height);
 
 	vk_frame.num_images = 0;
 	XVK_CHECK(vkGetSwapchainImagesKHR(vk_core.device, vk_frame.swapchain, &vk_frame.num_images, NULL));
@@ -261,7 +260,6 @@ void R_BeginFrame( qboolean clearScene )
 		if (surface_caps.currentExtent.width != vk_frame.surface_caps.currentExtent.width
 			|| surface_caps.currentExtent.height != vk_frame.surface_caps.currentExtent.height)
 		{
-			destroyDepthImage();
 			createSwapchain();
 		}
 	}
