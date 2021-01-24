@@ -99,8 +99,8 @@ static qboolean createRenderPass( void ) {
 	VkAttachmentDescription attachments[] = {{
 		.format = VK_FORMAT_B8G8R8A8_UNORM, //SRGB,// FIXME too early swapchain.create_info.imageFormat;
 		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		//.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+		//.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -271,6 +271,7 @@ void R_BeginFrame( qboolean clearScene )
 void GL_RenderFrame( const struct ref_viewpass_s *rvp )
 {
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	FIXME_VK_MapSetViewPass(rvp);
 }
 
 void R_EndFrame( void )
@@ -325,6 +326,21 @@ void R_EndFrame( void )
 	}
 
 	vkCmdBeginRenderPass(vk_core.cb, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
+
+	{
+		const VkViewport viewport[] = {
+			{0.f, 0.f, (float)vk_frame.surface_caps.currentExtent.width, (float)vk_frame.surface_caps.currentExtent.height, 0.f, 1.f},
+		};
+		const VkRect2D scissor[] = {{
+			{0, 0},
+			vk_frame.surface_caps.currentExtent,
+		}};
+
+		vkCmdSetViewport(vk_core.cb, 0, ARRAYSIZE(viewport), viewport);
+		vkCmdSetScissor(vk_core.cb, 0, ARRAYSIZE(scissor), scissor);
+	}
+
+	VK_MapRender();
 
 	vk2dEnd();
 

@@ -50,8 +50,13 @@ typedef struct descriptor_pool_s
 	VkDescriptorPool pool;
 	int next_free;
 	//uint32_t *free_set;
+
 	VkDescriptorSet sets[MAX_DESC_SETS];
 	VkDescriptorSetLayout one_texture_layout;
+
+	// FIXME HOW THE F
+	VkDescriptorSet ubo_sets[1];
+	VkDescriptorSetLayout one_uniform_buffer_layout;
 } descriptor_pool_t;
 
 typedef struct vulkan_core_s {
@@ -179,6 +184,9 @@ const char *resultName(VkResult result);
 	X(vkDestroyDescriptorSetLayout) \
 	X(vkCmdSetViewport) \
 	X(vkCmdSetScissor) \
+	X(vkCmdUpdateBuffer) \
+	X(vkCmdBindIndexBuffer) \
+	X(vkCmdDrawIndexed) \
 
 #define X(f) extern PFN_##f f;
 	DEVICE_FUNCS(X)

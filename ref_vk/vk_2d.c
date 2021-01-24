@@ -116,19 +116,10 @@ void vk2dBegin( void )
 void vk2dEnd( void )
 {
 	const VkDeviceSize offset = 0;
-	const VkViewport viewport[] = {
-		{0.f, 0.f, (float)vk_frame.surface_caps.currentExtent.width, (float)vk_frame.surface_caps.currentExtent.height, 0.f, 1.f},
-	};
-	const VkRect2D scissor[] = {{
-		{0, 0},
-		vk_frame.surface_caps.currentExtent,
-	}};
 
 	if (!g2d.num_pics)
 		return;
 
-	vkCmdSetViewport(vk_core.cb, 0, ARRAYSIZE(viewport), viewport);
-	vkCmdSetScissor(vk_core.cb, 0, ARRAYSIZE(scissor), scissor);
 	vkCmdBindVertexBuffers(vk_core.cb, 0, 1, &g2d.pics_buffer.buffer, &offset);
 
 	for (int i = 0; i <= g2d.current_batch; ++i)
@@ -155,9 +146,6 @@ static qboolean createPipelines( void )
 
 		VkDescriptorSetLayout descriptor_layouts[] = {
 			vk_core.descriptor_pool.one_texture_layout,
-		/* 		g.descriptors[Descriptors_Global]->layout, */
-		/* 		g.descriptors[Descriptors_Lightmaps]->layout, */
-		/* 		g.descriptors[Descriptors_Textures]->layout, */
 		};
 
 		VkPipelineLayoutCreateInfo plci = {

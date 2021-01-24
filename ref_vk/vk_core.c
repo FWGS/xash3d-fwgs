@@ -410,10 +410,10 @@ static qboolean initDescriptorPool( void )
 		{
 			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			.descriptorCount = MAX_TEXTURES,
-		/*
 		}, {
 			.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			.descriptorCount = 1,
+		/*
 		}, {
 			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			.descriptorCount = 1,
@@ -429,7 +429,7 @@ static qboolean initDescriptorPool( void )
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 		.pPoolSizes = dps,
 		.poolSizeCount = ARRAYSIZE(dps),
-		.maxSets = MAX_TEXTURES,
+		.maxSets = MAX_TEXTURES + 1,
 	};
 
 	XVK_CHECK(vkCreateDescriptorPool(vk_core.device, &dpci, NULL, &vk_core.descriptor_pool.pool));
@@ -460,6 +460,36 @@ static qboolean initDescriptorPool( void )
 				tmp_layouts[i] = vk_core.descriptor_pool.one_texture_layout;
 
 		XVK_CHECK(vkAllocateDescriptorSets(vk_core.device, &dsai, vk_core.descriptor_pool.sets));
+
+		Mem_Free(tmp_layouts);
+	}
+
+	{
+		const int num_sets = ARRAYSIZE(vk_core.descriptor_pool.ubo_sets);
+		// ... TODO find better place for this; this should be per-pipeline/shader
+		VkDescriptorSetLayoutBinding bindings[] = { {
+				.binding = 0,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				.descriptorCount = 1,
+				.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+		}};
+		VkDescriptorSetLayoutCreateInfo dslci = {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+			.bindingCount = ARRAYSIZE(bindings),
+			.pBindings = bindings,
+		};
+		VkDescriptorSetLayout* tmp_layouts = Mem_Malloc(vk_core.pool, sizeof(VkDescriptorSetLayout) * num_sets);
+		VkDescriptorSetAllocateInfo dsai = {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+			.descriptorPool = vk_core.descriptor_pool.pool,
+			.descriptorSetCount = num_sets,
+			.pSetLayouts = tmp_layouts,
+		};
+		XVK_CHECK(vkCreateDescriptorSetLayout(vk_core.device, &dslci, NULL, &vk_core.descriptor_pool.one_uniform_buffer_layout));
+		for (int i = 0; i < num_sets; ++i)
+				tmp_layouts[i] = vk_core.descriptor_pool.one_uniform_buffer_layout;
+
+		XVK_CHECK(vkAllocateDescriptorSets(vk_core.device, &dsai, vk_core.descriptor_pool.ubo_sets));
 
 		Mem_Free(tmp_layouts);
 	}
@@ -572,6 +602,7 @@ void R_VkShutdown( void )
 
 	vkDestroyDescriptorPool(vk_core.device, vk_core.descriptor_pool.pool, NULL);
 	vkDestroyDescriptorSetLayout(vk_core.device, vk_core.descriptor_pool.one_texture_layout, NULL);
+	vkDestroyDescriptorSetLayout(vk_core.device, vk_core.descriptor_pool.one_uniform_buffer_layout, NULL);
 	vkDestroySampler(vk_core.device, vk_core.default_sampler, NULL);
 	destroyBuffer(&vk_core.staging);
 
