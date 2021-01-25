@@ -34,9 +34,6 @@ static struct {
 } gmap;
 
 typedef struct {
-	matrix4x4 worldview;
-	matrix4x4 projection;
-	matrix4x4 vkfixup;
 	matrix4x4 mvp;
 } uniform_data_t;
 
@@ -275,8 +272,7 @@ void VK_MapRender( void )
 {
 	{
 		uniform_data_t *ubo = gmap.uniform_buffer.mapped;
-		matrix4x4 worldview={0}, projection={0}, mvp={0}, tmp={0};
-		//uniform_data_t uniform_data = {0};
+		matrix4x4 worldview={0}, projection={0}, mvp={0}, viewproj={0};
 
 		// Vulkan has Y pointing down, and z should end up in (0, 1)
 		const matrix4x4 vk_proj_fixup = {
@@ -288,18 +284,10 @@ void VK_MapRender( void )
 
 		R_SetupModelviewMatrix( worldview );
 		R_SetupProjectionMatrix( projection );
-		memcpy(&ubo->worldview, worldview, sizeof(matrix4x4));
-		memcpy(&ubo->projection, projection, sizeof(matrix4x4));
-		Matrix4x4_Concat( mvp, projection, worldview);
-		memcpy(&ubo->mvp, mvp, sizeof(matrix4x4));
-		memcpy(&ubo->vkfixup, vk_proj_fixup, sizeof(matrix4x4));
 
-		//Matrix4x4_Concat( mvp, projection, worldview);
-		//Matrix4x4_Concat( mvp, tmp, worldview );
-		//Matrix4x4_Concat( tmp, vk_proj_fixup, mvp);
-		//memcpy(gmap.uniform_buffer.mapped, tmp, sizeof(tmp));
-		//memcpy(gmap.uniform_buffer.mapped, mvp, sizeof(tmp));
-		//memcpy(gmap.uniform_buffer.mapped, tmp, sizeof(tmp));
+		Matrix4x4_Concat( viewproj, projection, worldview);
+		Matrix4x4_Concat( mvp, vk_proj_fixup, viewproj );
+		Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp );
 
 		/*
 		vkCmdUpdateBuffer(vk_core.cb, gmap.uniform_buffer.buffer, 0, sizeof(uniform_data), &uniform_data);
