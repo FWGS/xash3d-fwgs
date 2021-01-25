@@ -165,16 +165,33 @@ void R_NewMap( void )
 	map_vertex_t *bvert = gmap.vertex_buffer.mapped;
 	uint16_t *bind = gmap.index_buffer.mapped;
 
+	const int num_models = gEngine.EngineGetParm( PARM_NUMMODELS, 0 );
+	gEngine.Con_Reportf( "Num models: %d:\n", num_models );
+	for( int i = 0; i < num_models; i++ )
+	{
+		model_t	*m;
+		if(( m = gEngine.pfnGetModelByIndex( i + 1 )) == NULL )
+			continue;
+
+		if( m->name[0] == '*' || m->type != mod_brush )
+			continue;
+
+		gEngine.Con_Reportf( "  %d: name=%s, submodels=%d, nodes=%d, surfaces=%d, nummodelsurfaces=%d\n", i, m->name, m->numsubmodels, m->numnodes, m->numsurfaces, m->nummodelsurfaces);
+	}
+
 	// Free previous map data
 	gmap.num_vertices = 0;
 	gmap.num_indices = 0;
 
-	for( int i = 0; i < world->numsurfaces; ++i)
+	for( int i = 0; i < world->nummodelsurfaces; ++i)
 	{
 		const uint16_t first_vertex_index = gmap.num_vertices;
-		const msurface_t *surf = world->surfaces + i;
+		const msurface_t *surf = world->surfaces + world->firstmodelsurface + i;
 
 		if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
+			continue;
+
+		if( FBitSet( surf->flags, SURF_DRAWTILED ))
 			continue;
 
 		//gEngine.Con_Reportf( "surface %d: numverts=%d numedges=%d\n", i, surf->polys ? surf->polys->numverts : -1, surf->numedges );
@@ -209,7 +226,7 @@ void R_NewMap( void )
 		}
 	}
 
-	gEngine.Con_Reportf("Loaded surfaces: %d, vertices: %u\n, indices: %u", world->numsurfaces, gmap.num_vertices, gmap.num_indices);
+	gEngine.Con_Reportf("Loaded surfaces: %d, vertices: %u, indices: %u\n", world->numsurfaces, gmap.num_vertices, gmap.num_indices);
 }
 
 // FIXME this is a total garbage. pls avoid adding even more weird local static state
