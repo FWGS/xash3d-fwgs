@@ -411,7 +411,7 @@ static qboolean initDescriptorPool( void )
 			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			.descriptorCount = MAX_TEXTURES,
 		}, {
-			.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
 			.descriptorCount = 1,
 		/*
 		}, {
@@ -469,7 +469,7 @@ static qboolean initDescriptorPool( void )
 		// ... TODO find better place for this; this should be per-pipeline/shader
 		VkDescriptorSetLayoutBinding bindings[] = { {
 				.binding = 0,
-				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
 				.descriptorCount = 1,
 				.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
 		}};

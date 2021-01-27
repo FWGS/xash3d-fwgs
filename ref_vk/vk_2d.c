@@ -35,7 +35,7 @@ typedef struct vertex_2d_s {
 } vertex_2d_t;
 
 // TODO should these be dynamic?
-#define MAX_PICS 4096
+#define MAX_PICS 8192
 #define MAX_BATCHES 128
 
 static struct {

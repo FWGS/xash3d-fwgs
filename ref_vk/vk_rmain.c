@@ -36,14 +36,6 @@ static void GL_ClearExtensions( void )
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
 
-static void R_PushScene( void )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-static void R_PopScene( void )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
 static void GL_BackendStartFrame( void )
 {
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
@@ -53,21 +45,7 @@ static void GL_BackendEndFrame( void )
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
 
-static void R_ClearScreen( void )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-
-static qboolean R_AddEntity( struct cl_entity_s *clent, int type )
-{
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
-	return false;
-}
 static void CL_AddCustomBeam( cl_entity_t *pEnvBeam )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-static void R_ProcessEntData( qboolean allocate )
 {
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
@@ -204,6 +182,10 @@ static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte
 {
 	qboolean loaded = true;
 
+	// TODO does this ever happen?
+	if (!create && mod->type == mod_brush)
+		gEngine.Con_Printf( S_WARN "VK FIXME Trying to unload brush model %s\n", mod->name);
+
 	if( create )
 	{
 		switch( mod->type )
@@ -218,7 +200,8 @@ static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte
 				Mod_LoadAliasModel( mod, buffer, &loaded );
 				break;
 			case mod_brush:
-				// Mod_LoadBrushModel( mod, buf, loaded );
+				// FIXME this happens before we get R_NewMap, which frees all current buffers
+				// loaded = VK_LoadBrushModel( mod, buffer );
 				break;
 			default: gEngine.Host_Error( "Mod_LoadModel: unsupported type %d\n", mod->type );
 		}
@@ -231,7 +214,6 @@ static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte
 		Mod_UnloadTextures( mod );
 
 	return loaded;
-	return true;//false;
 }
 static void Mod_StudioLoadTextures( model_t *mod, void *data )
 {
