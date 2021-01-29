@@ -327,6 +327,10 @@ def options(opt):
 	android.add_option('--android', action='store', dest='ANDROID_OPTS', default=None,
 		help='enable building for android, format: --android=<arch>,<toolchain>,<api>, example: --android=armeabi-v7a-hard,4.9,9')
 
+	magx = opt.add_option_group('MotoMAGX options')
+	magx.add_option('--enable-magx', action = 'store_true', dest = 'MAGX', default = False,
+		help = 'enable targetting for MotoMAGX phones [default: %default]')
+
 def configure(conf):
 	if conf.options.ANDROID_OPTS:
 		values = conf.options.ANDROID_OPTS.split(',')
@@ -362,7 +366,16 @@ def configure(conf):
 
 		# conf.env.ANDROID_OPTS = android
 		conf.env.DEST_OS2 = 'android'
+	elif conf.options.MAGX:
+		# useless to change toolchain path, as toolchain meant to be placed in this path
+		toolchain_path = '/opt/toolchains/motomagx/arm-eabi2/lib/'
+		conf.env.INCLUDES_MAGX = [toolchain_path + i for i in ['ezx-z6/include', 'qt-2.3.8/include']]
+		conf.env.LIBPATH_MAGX  = [toolchain_path + i for i in ['ezx-z6/lib', 'qt-2.3.8/lib']]
+		conf.env.LINKFLAGS_MAGX = ['-Wl,-rpath-link=' + i for i in conf.env.LIBPATH_MAGX]
+		for lib in ['qte-mt', 'ezxappbase', 'ezxpm', 'log_util']:
+			conf.check_cc(lib=lib, use='MAGX', uselib_store='MAGX')
 
+	conf.env.MAGX = conf.options.MAGX
 	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android' })
 	for k in c_config.MACRO_TO_DESTOS:
 		MACRO_TO_DESTOS[k] = c_config.MACRO_TO_DESTOS[k] # ordering is important
