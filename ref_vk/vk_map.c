@@ -5,6 +5,7 @@
 #include "vk_pipeline.h"
 #include "vk_framectl.h"
 #include "vk_math.h"
+#include "vk_textures.h"
 
 #include "ref_params.h"
 #include "eiface.h"
@@ -19,19 +20,26 @@
 typedef struct map_vertex_s
 {
 	vec3_t pos;
-	/* vec2_t gl_tc; */
+	vec2_t gl_tc;
 	/* vec2_t lm_tc; */
 } map_vertex_t;
 
-typedef struct vk_brush_model_s {
-	model_t *model;
-
-	// Offset into gmap.vertex_buffer in vertices
-	uint32_t vertex_offset;
+typedef struct vk_brush_model_surface_s {
+	int texture_num;
 
 	// Offset into gmap.index_buffer in vertices
 	uint32_t index_offset;
 	uint16_t index_count;
+} vk_brush_model_surface_t;
+
+typedef struct vk_brush_model_s {
+	//model_t *model;
+
+	// Offset into gmap.vertex_buffer in vertices
+	uint32_t vertex_offset;
+
+	int num_surfaces;
+	vk_brush_model_surface_t surfaces[];
 } vk_brush_model_t;
 
 static struct {
@@ -71,6 +79,14 @@ typedef struct {
 	matrix4x4 mvp[MAX_DRAW_ENTITIES + 1];
 } uniform_data_t;
 
+/* static map_vertex_t *allocVertices(int num_vertices) { */
+/* 		if (num_vertices + gmap.num_vertices > MAX_BUFFER_VERTICES) */
+/* 		{ */
+/* 			gEngine.Con_Printf(S_ERROR "Ran out of buffer vertex space\n"); */
+/* 			return NULL; */
+/* 		} */
+/* } */
+
 static qboolean createPipelines( void )
 {
 	/* VkPushConstantRange push_const = { */
@@ -81,6 +97,7 @@ static qboolean createPipelines( void )
 
 	VkDescriptorSetLayout descriptor_layouts[] = {
 		vk_core.descriptor_pool.one_uniform_buffer_layout,
+		vk_core.descriptor_pool.one_texture_layout,
 	};
 
 	VkPipelineLayoutCreateInfo plci = {
@@ -97,6 +114,7 @@ static qboolean createPipelines( void )
 	{
 		VkVertexInputAttributeDescription attribs[] = {
 			{.binding = 0, .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(map_vertex_t, pos)},
+			{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(map_vertex_t, gl_tc)},
 		};
 
 		VkPipelineShaderStageCreateInfo shader_stages[] = {
@@ -287,7 +305,18 @@ static void drawBrushModel( const model_t *mod )
 	if (!bmodel) // TODO complain
 		return;
 
-	vkCmdDrawIndexed(vk_core.cb, bmodel->index_count, 1, bmodel->index_offset, bmodel->vertex_offset, 0);
+	for (int i = 0; i < bmodel->num_surfaces; ++i) {
+		const vk_brush_model_surface_t *bsurf = bmodel->surfaces + i;
+		if (bsurf->texture_num < 0)
+			continue;
+
+		{
+			vk_texture_t *texture = findTexture(bsurf->texture_num);
+			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, gmap.pipeline_layout, 1, 1, &texture->vk.descriptor, 0, NULL);
+		}
+
+		vkCmdDrawIndexed(vk_core.cb, bsurf->index_count, 1, bsurf->index_offset, bmodel->vertex_offset, 0);
+	}
 }
 
 void R_RotateForEntity( matrix4x4 out, const cl_entity_t *e )
@@ -413,11 +442,84 @@ void R_RenderScene( void )
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
 
-qboolean VK_LoadBrushModel( model_t *mod, const byte *buffer )
-{
+static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_surfaces) {
 	map_vertex_t *bvert = gmap.vertex_buffer.mapped;
 	uint16_t *bind = gmap.index_buffer.mapped;
 	uint32_t vertex_offset = 0;
+	int num_surfaces = 0;
+
+	for( int i = 0; i < mod->nummodelsurfaces; ++i)
+	{
+		const msurface_t *surf = mod->surfaces + mod->firstmodelsurface + i;
+		vk_brush_model_surface_t *bsurf = out_surfaces + num_surfaces;
+
+		if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
+			continue;
+
+		if( FBitSet( surf->flags, SURF_DRAWTILED ))
+			continue;
+
+		++num_surfaces;
+
+		//gEngine.Con_Reportf( "surface %d: numverts=%d numedges=%d\n", i, surf->polys ? surf->polys->numverts : -1, surf->numedges );
+
+		if (surf->numedges + gmap.num_vertices > MAX_BUFFER_VERTICES)
+		{
+			gEngine.Con_Printf(S_ERROR "Ran out of buffer vertex space\n");
+			return -1;
+		}
+
+		if ((surf->numedges-1) * 3 + gmap.num_indices > MAX_BUFFER_INDICES)
+		{
+			gEngine.Con_Printf(S_ERROR "Ran out of buffer index space\n");
+			return -1;
+		}
+
+		if (vertex_offset + surf->numedges >= UINT16_MAX)
+		{
+			gEngine.Con_Printf(S_ERROR "Model %s indices don't fit into 16 bits\n", mod->name);
+			return -1;
+		}
+
+		bsurf->texture_num = surf->texinfo->texture->gl_texturenum;
+		bsurf->index_offset = gmap.num_indices;
+		bsurf->index_count = 0;
+
+		for( int k = 0; k < surf->numedges; k++ )
+		{
+			const int iedge = mod->surfedges[surf->firstedge + k];
+			const medge_t *edge = mod->edges + (iedge >= 0 ? iedge : -iedge);
+			const mvertex_t *vertex = mod->vertexes + (iedge >= 0 ? edge->v[0] : edge->v[1]);
+			float s = DotProduct( vertex->position, surf->texinfo->vecs[0] ) + surf->texinfo->vecs[0][3];
+			float t = DotProduct( vertex->position, surf->texinfo->vecs[1] ) + surf->texinfo->vecs[1][3];
+
+			s /= surf->texinfo->texture->width;
+			t /= surf->texinfo->texture->height;
+
+			//gEngine.Con_Printf("VERT %u %f %f %f\n", gmap.num_vertices, vertex->position[0], vertex->position[1], vertex->position[2]);
+
+			bvert[gmap.num_vertices++] = (map_vertex_t){
+				{vertex->position[0], vertex->position[1], vertex->position[2]},
+				{s, t},
+			};
+
+			// TODO contemplate triangle_strip (or fan?) + primitive restart
+			if (k > 1) {
+				bind[gmap.num_indices++] = (uint16_t)(vertex_offset + 0);
+				bind[gmap.num_indices++] = (uint16_t)(vertex_offset + k - 1);
+				bind[gmap.num_indices++] = (uint16_t)(vertex_offset + k);
+				bsurf->index_count += 3;
+			}
+		}
+
+		vertex_offset += surf->numedges;
+	}
+
+	return num_surfaces;
+}
+
+qboolean VK_LoadBrushModel( model_t *mod, const byte *buffer )
+{
 	vk_brush_model_t *bmodel;
 
 	if (mod->cache.data)
@@ -426,70 +528,23 @@ qboolean VK_LoadBrushModel( model_t *mod, const byte *buffer )
 		return true;
 	}
 
-	bmodel = Mem_Malloc(vk_core.pool, sizeof(vk_brush_model_t));
-	bmodel->model = mod;
-	bmodel->index_count = 0;
-	bmodel->index_offset = gmap.num_indices;
-	bmodel->vertex_offset = gmap.num_vertices;
-	mod->cache.data = bmodel;
-
 	gEngine.Con_Reportf("%s: %s flags=%08x\n", __FUNCTION__, mod->name, mod->flags);
 
-	for( int i = 0; i < mod->nummodelsurfaces; ++i)
-	{
-		const msurface_t *surf = mod->surfaces + mod->firstmodelsurface + i;
+	bmodel = Mem_Malloc(vk_core.pool, sizeof(vk_brush_model_t) + sizeof(vk_brush_model_surface_t) * mod->nummodelsurfaces);
+	mod->cache.data = bmodel;
 
-		if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
-			continue;
-
-		if( FBitSet( surf->flags, SURF_DRAWTILED ))
-			continue;
-
-		//gEngine.Con_Reportf( "surface %d: numverts=%d numedges=%d\n", i, surf->polys ? surf->polys->numverts : -1, surf->numedges );
-
-		if (surf->numedges + gmap.num_vertices > MAX_BUFFER_VERTICES)
-		{
-			gEngine.Con_Printf(S_ERROR "Ran out of buffer vertex space\n");
-			return false;
-		}
-
-		if ((surf->numedges-1) * 3 + gmap.num_indices > MAX_BUFFER_INDICES)
-		{
-			gEngine.Con_Printf(S_ERROR "Ran out of buffer index space\n");
-			return false;
-		}
-
-		if (vertex_offset + surf->numedges >= UINT16_MAX)
-		{
-			gEngine.Con_Printf(S_ERROR "Model %s indices don't fit into 16 bits\n", mod->name);
-			return false;
-		}
-
-		for( int k = 0; k < surf->numedges; k++ )
-		{
-			const int iedge = mod->surfedges[surf->firstedge + k];
-			const medge_t *edge = mod->edges + (iedge >= 0 ? iedge : -iedge);
-			const mvertex_t *vertex = mod->vertexes + (iedge >= 0 ? edge->v[0] : edge->v[1]);
-
-			//gEngine.Con_Printf("VERT %u %f %f %f\n", gmap.num_vertices, vertex->position[0], vertex->position[1], vertex->position[2]);
-
-			bvert[gmap.num_vertices++] = (map_vertex_t){
-				{vertex->position[0], vertex->position[1], vertex->position[2]}
-			};
-
-			// TODO contemplate triangle_strip (or fan?) + primitive restart
-			if (k > 1) {
-				bind[gmap.num_indices++] = (uint16_t)(vertex_offset + 0);
-				bind[gmap.num_indices++] = (uint16_t)(vertex_offset + k - 1);
-				bind[gmap.num_indices++] = (uint16_t)(vertex_offset + k);
-				bmodel->index_count += 3;
-			}
-		}
-
-		vertex_offset += surf->numedges;
+	bmodel->vertex_offset = gmap.num_vertices;
+	bmodel->num_surfaces = loadBrushSurfaces( mod, bmodel->surfaces );
+	if (bmodel->num_surfaces < 0) {
+		gEngine.Con_Reportf( S_ERROR "Model %s was not loaded\n", mod->name );
+		return false;
 	}
 
-	gEngine.Con_Reportf("Model %s loaded surfaces: %d, vertices: %d, indices: %d; total vertices: %u, total indices: %u\n", mod->name, mod->numsurfaces, vertex_offset, bmodel->index_count, gmap.num_vertices, gmap.num_indices);
+	gEngine.Con_Reportf("Model %s, vertex_offset = %d, first surface index_offset=%d\n",
+			mod->name,
+			bmodel->vertex_offset, bmodel->surfaces[0].index_offset);
+
+	gEngine.Con_Reportf("Model %s loaded surfaces: %d (of %d); total vertices: %u, total indices: %u\n", mod->name, bmodel->num_surfaces, mod->nummodelsurfaces, gmap.num_vertices, gmap.num_indices);
 	return true;
 }
 

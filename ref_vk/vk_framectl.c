@@ -312,6 +312,7 @@ void R_EndFrame( void )
 
 	gEngine.Con_Reportf("%s\n", __FUNCTION__);
 
+	// FIXME this can get out of date too
 	XVK_CHECK(vkAcquireNextImageKHR(vk_core.device, vk_frame.swapchain, UINT64_MAX, g_frame.image_available,
 		VK_NULL_HANDLE, &swapchain_image_index));
 	rpbi.framebuffer = vk_frame.framebuffers[swapchain_image_index];
