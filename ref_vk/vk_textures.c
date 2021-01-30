@@ -18,7 +18,7 @@
 static vk_texture_t vk_textures[MAX_TEXTURES];
 static vk_texture_t* vk_texturesHashTable[TEXTURES_HASH_SIZE];
 static uint	vk_numTextures;
-static vk_textures_global_t tglob;
+vk_textures_global_t tglob;
 
 static void VK_CreateInternalTextures(void);
 
@@ -228,8 +228,6 @@ static void VK_ProcessImage( vk_texture_t *tex, rgbdata_t *pic )
 			ClearBits( pic->flags, IMAGE_HAS_COLOR );
 	}
 }
-
-#define VK_LoadTextureInternal( name, pic, flags ) VK_LoadTextureFromBuffer( name, pic, flags, false )
 
 static void VK_CreateInternalTextures( void )
 {

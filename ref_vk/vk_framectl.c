@@ -265,6 +265,26 @@ void R_BeginFrame( qboolean clearScene )
 		}
 	}
 
+	// FIXME when
+	{
+		cvar_t* vid_gamma = gEngine.pfnGetCvarPointer( "gamma", 0 );
+		cvar_t* vid_brightness = gEngine.pfnGetCvarPointer( "brightness", 0 );
+		if( gEngine.R_DoResetGamma( ))
+		{
+			// paranoia cubemaps uses this
+			gEngine.BuildGammaTable( 1.8f, 0.0f );
+
+			// paranoia cubemap rendering
+			if( gEngine.drawFuncs->GL_BuildLightmaps )
+				gEngine.drawFuncs->GL_BuildLightmaps( );
+		}
+		else if( FBitSet( vid_gamma->flags, FCVAR_CHANGED ) || FBitSet( vid_brightness->flags, FCVAR_CHANGED ))
+		{
+			gEngine.BuildGammaTable( vid_gamma->value, vid_brightness->value );
+			// FIXME rebuild lightmaps
+		}
+	}
+
 	vk2dBegin();
 }
 

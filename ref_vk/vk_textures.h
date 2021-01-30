@@ -44,6 +44,8 @@ typedef struct vk_textures_global_s
 	int		skyboxbasenum;	// start with 5800
 } vk_textures_global_t;
 
+extern vk_textures_global_t tglob;
+
 // Helper functions
 void initTextures( void );
 void destroyTextures( void );
@@ -59,3 +61,6 @@ int		VK_LoadTextureArray( const char **names, int flags );
 int		VK_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 void		VK_FreeTexture( unsigned int texnum );
 int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
+
+#define VK_LoadTextureInternal( name, pic, flags ) VK_LoadTextureFromBuffer( name, pic, flags, false )
+
