@@ -429,11 +429,7 @@ static byte*		Mod_GetCurrentVis( void )
 	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
 	return NULL;
 }
-// clear the render entities before each frame
-static void		R_ClearScene( void )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
+
 // GL_GetProcAddress for client renderer
 static void*		R_GetProcAddress( const char *name )
 {

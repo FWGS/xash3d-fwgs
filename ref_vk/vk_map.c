@@ -753,3 +753,11 @@ void R_PopScene( void )
 		gEngine.Host_Error( "draw stack underflow\n" );
 	g_lists.draw_list = &g_lists.draw_stack[g_lists.draw_stack_pos];
 }
+
+// clear the render entities before each frame
+void R_ClearScene( void )
+{
+	g_lists.draw_list->num_solid_entities = 0;
+	/* g_lists.draw_list->num_trans_entities = 0; */
+	/* g_lists.draw_list->num_beam_entities = 0; */
+}
