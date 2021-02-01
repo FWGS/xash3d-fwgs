@@ -313,8 +313,18 @@ static void drawBrushModel( const model_t *mod )
 	int index_count = 0;
 	int index_offset = -1;
 
-	if (!bmodel) // TODO complain
+	if (!bmodel) {
+		gEngine.Con_Printf( S_ERROR "Model %s wasn't loaded\n", mod->name);
 		return;
+	}
+
+	if (vk_core.debug) {
+		VkDebugUtilsLabelEXT label = {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+			.pLabelName = mod->name,
+		};
+		vkCmdBeginDebugUtilsLabelEXT(vk_core.cb, &label);
+	}
 
 	for (int i = 0; i < bmodel->num_surfaces; ++i) {
 		const vk_brush_model_surface_t *bsurf = bmodel->surfaces + i;
@@ -343,6 +353,9 @@ static void drawBrushModel( const model_t *mod )
 
 	if (index_count)
 		vkCmdDrawIndexed(vk_core.cb, index_count, 1, index_offset, bmodel->vertex_offset, 0);
+
+	if (vk_core.debug)
+		vkCmdEndDebugUtilsLabelEXT(vk_core.cb);
 }
 
 void R_RotateForEntity( matrix4x4 out, const cl_entity_t *e )

@@ -27,10 +27,6 @@
 	X(vkEnumerateInstanceVersion) \
 	X(vkCreateInstance) \
 
-#define INSTANCE_DEBUG_FUNCS(X) \
-	X(vkCreateDebugUtilsMessengerEXT) \
-	X(vkDestroyDebugUtilsMessengerEXT) \
-
 static PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
 
 #define X(f) PFN_##f f = NULL;

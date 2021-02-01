@@ -329,6 +329,16 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		};
 		XVK_CHECK(vkCreateImage(vk_core.device, &image_create_info, NULL, &tex->vk.image));
+
+		if (vk_core.debug) {
+			VkDebugUtilsObjectNameInfoEXT debug_name = {
+				.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+				.objectHandle = (uint64_t)tex->vk.image,
+				.objectType = VK_OBJECT_TYPE_IMAGE,
+				.pObjectName = tex->name,
+			};
+			XVK_CHECK(vkSetDebugUtilsObjectNameEXT(vk_core.device, &debug_name));
+		}
 	}
 
 	// 2. Alloc mem for VkImage and bind it (DEV_LOCAL)
@@ -434,6 +444,15 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 		ivci.components = (VkComponentMapping){0, 0, 0, (pic->flags & IMAGE_HAS_ALPHA) ? 0 : VK_COMPONENT_SWIZZLE_ONE};
 		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, &tex->vk.image_view));
 	}
+		if (vk_core.debug) {
+			VkDebugUtilsObjectNameInfoEXT debug_name = {
+				.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+				.objectHandle = (uint64_t)tex->vk.image_view,
+				.objectType = VK_OBJECT_TYPE_IMAGE_VIEW,
+				.pObjectName = tex->name,
+			};
+			XVK_CHECK(vkSetDebugUtilsObjectNameEXT(vk_core.device, &debug_name));
+		}
 
 	// TODO how should we approach this:
 	// - per-texture desc sets can be inconvenient if texture is used in different incompatible contexts

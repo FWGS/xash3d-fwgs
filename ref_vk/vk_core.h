@@ -121,6 +121,14 @@ const char *resultName(VkResult result);
 	X(vkDestroyDevice) \
 	X(vkDestroySurfaceKHR) \
 
+#define INSTANCE_DEBUG_FUNCS(X) \
+	X(vkCreateDebugUtilsMessengerEXT) \
+	X(vkDestroyDebugUtilsMessengerEXT) \
+	X(vkCmdBeginDebugUtilsLabelEXT) \
+	X(vkCmdEndDebugUtilsLabelEXT) \
+	X(vkCmdInsertDebugUtilsLabelEXT) \
+	X(vkSetDebugUtilsObjectNameEXT) \
+
 #define DEVICE_FUNCS(X) \
 	X(vkGetDeviceQueue) \
 	X(vkCreateSwapchainKHR) \
@@ -191,4 +199,5 @@ const char *resultName(VkResult result);
 #define X(f) extern PFN_##f f;
 	DEVICE_FUNCS(X)
 	INSTANCE_FUNCS(X)
+	INSTANCE_DEBUG_FUNCS(X)
 #undef X
