@@ -5,7 +5,8 @@
 #include "vk_renderstate.h"
 #include "vk_buffer.h"
 #include "vk_framectl.h"
-#include "vk_map.h"
+#include "vk_brush.h"
+#include "vk_scene.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -571,6 +572,8 @@ qboolean R_VkInit( void )
 	if (!initDescriptorPool())
 		return false;
 
+	VK_SceneInit();
+
 	initTextures();
 
 	if (!VK_FrameCtlInit())
@@ -581,7 +584,7 @@ qboolean R_VkInit( void )
 	if (!initVk2d())
 		return false;
 
-	if (!VK_MapInit())
+	if (!VK_BrushInit())
 		return false;
 
 	return true;
@@ -589,7 +592,7 @@ qboolean R_VkInit( void )
 
 void R_VkShutdown( void )
 {
-	VK_MapShutdown();
+	VK_BrushShutdown();
 	deinitVk2d();
 
 	VK_FrameCtlShutdown();

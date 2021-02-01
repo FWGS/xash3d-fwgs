@@ -3,7 +3,7 @@
 #include "vk_textures.h"
 #include "vk_renderstate.h"
 #include "vk_2d.h"
-#include "vk_map.h"
+#include "vk_scene.h"
 #include "vk_framectl.h"
 
 #include "xash3d_types.h"

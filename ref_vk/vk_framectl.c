@@ -1,7 +1,7 @@
 #include "vk_framectl.h"
 
 #include "vk_2d.h"
-#include "vk_map.h"
+#include "vk_scene.h"
 
 #include "eiface.h"
 
@@ -291,7 +291,7 @@ void R_BeginFrame( qboolean clearScene )
 void GL_RenderFrame( const struct ref_viewpass_s *rvp )
 {
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-	FIXME_VK_MapSetViewPass(rvp);
+	FIXME_VK_SceneSetViewPass(rvp);
 }
 
 void R_EndFrame( void )
@@ -361,7 +361,7 @@ void R_EndFrame( void )
 		vkCmdSetScissor(vk_core.cb, 0, ARRAYSIZE(scissor), scissor);
 	}
 
-	VK_MapRender();
+	VK_SceneRender();
 
 	vk2dEnd();
 

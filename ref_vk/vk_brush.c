@@ -1,12 +1,14 @@
-#include "vk_map.h"
+#include "vk_brush.h"
 
 #include "vk_core.h"
+#include "vk_const.h"
 #include "vk_buffer.h"
 #include "vk_pipeline.h"
 #include "vk_framectl.h"
 #include "vk_math.h"
 #include "vk_textures.h"
 #include "vk_lightmap.h"
+#include "vk_scene.h"
 
 #include "ref_params.h"
 #include "eiface.h"
@@ -18,12 +20,12 @@
 #define MAX_BUFFER_VERTICES (1 * 1024 * 1024)
 #define MAX_BUFFER_INDICES (MAX_BUFFER_VERTICES * 3)
 
-typedef struct map_vertex_s
+typedef struct brush_vertex_s
 {
 	vec3_t pos;
 	vec2_t gl_tc;
 	vec2_t lm_tc;
-} map_vertex_t;
+} brush_vertex_t;
 
 typedef struct vk_brush_model_surface_s {
 	int texture_num;
@@ -57,30 +59,11 @@ static struct {
 	VkPipeline pipeline;
 } gmap;
 
-#define MAX_DRAW_STACK 2
-#define MAX_DRAW_ENTITIES 2048
-
-typedef struct
-{
-	cl_entity_t	*solid_entities[MAX_DRAW_ENTITIES];	// opaque moving or alpha brushes
-	//cl_entity_t	*trans_entities[MAX_DRAW_ENTITIES];	// translucent brushes
-	//cl_entity_t	*beam_entities[MAX_DRAW_ENTITIES];
-	uint		num_solid_entities;
-	//uint		num_trans_entities;
-	//uint		num_beam_entities;
-} draw_list_t;
-
-static struct {
-	draw_list_t	draw_stack[MAX_DRAW_STACK];
-	int		draw_stack_pos;
-	draw_list_t	*draw_list;
-} g_lists;
-
 typedef struct {
-	matrix4x4 mvp[MAX_DRAW_ENTITIES + 1];
+	matrix4x4 mvp[MAX_SCENE_ENTITIES + 1];
 } uniform_data_t;
 
-/* static map_vertex_t *allocVertices(int num_vertices) { */
+/* static brush_vertex_t *allocVertices(int num_vertices) { */
 /* 		if (num_vertices + gmap.num_vertices > MAX_BUFFER_VERTICES) */
 /* 		{ */
 /* 			gEngine.Con_Printf(S_ERROR "Ran out of buffer vertex space\n"); */
@@ -115,9 +98,9 @@ static qboolean createPipelines( void )
 
 	{
 		VkVertexInputAttributeDescription attribs[] = {
-			{.binding = 0, .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(map_vertex_t, pos)},
-			{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(map_vertex_t, gl_tc)},
-			{.binding = 0, .location = 2, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(map_vertex_t, lm_tc)},
+			{.binding = 0, .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(brush_vertex_t, pos)},
+			{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(brush_vertex_t, gl_tc)},
+			{.binding = 0, .location = 2, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(brush_vertex_t, lm_tc)},
 		};
 
 		VkPipelineShaderStageCreateInfo shader_stages[] = {
@@ -141,7 +124,7 @@ static qboolean createPipelines( void )
 			.stages = shader_stages,
 			.num_stages = ARRAYSIZE(shader_stages),
 
-			.vertex_stride = sizeof(map_vertex_t),
+			.vertex_stride = sizeof(brush_vertex_t),
 
 			.depthTestEnable = VK_TRUE,
 			.depthWriteEnable = VK_TRUE,
@@ -161,9 +144,9 @@ static qboolean createPipelines( void )
 	return true;
 }
 
-qboolean VK_MapInit( void )
+qboolean VK_BrushInit( void )
 {
-	const uint32_t vertex_buffer_size = MAX_BUFFER_VERTICES * sizeof(map_vertex_t);
+	const uint32_t vertex_buffer_size = MAX_BUFFER_VERTICES * sizeof(brush_vertex_t);
 	const uint32_t index_buffer_size = MAX_BUFFER_INDICES * sizeof(uint16_t);
 
 	// TODO device memory and friends (e.g. handle mobile memory ...)
@@ -198,13 +181,10 @@ qboolean VK_MapInit( void )
 		vkUpdateDescriptorSets(vk_core.device, ARRAYSIZE(wds), wds, 0, NULL);
 	}
 
-	g_lists.draw_list = g_lists.draw_stack;
-	g_lists.draw_stack_pos = 0;
-
 	return true;
 }
 
-void VK_MapShutdown( void )
+void VK_BrushShutdown( void )
 {
 	vkDestroyPipeline( vk_core.device, gmap.pipeline, NULL );
 	vkDestroyPipelineLayout( vk_core.device, gmap.pipeline_layout, NULL );
@@ -212,49 +192,6 @@ void VK_MapShutdown( void )
 	destroyBuffer( &gmap.vertex_buffer );
 	destroyBuffer( &gmap.index_buffer );
 	destroyBuffer( &gmap.uniform_buffer );
-}
-
-// tell the renderer what new map is started
-void R_NewMap( void )
-{
-	const int num_models = gEngine.EngineGetParm( PARM_NUMMODELS, 0 );
-
-	gEngine.Con_Reportf( "R_NewMap\n" );
-
-	VK_ClearLightmap();
-
-	// Free previous map data
-	gmap.num_vertices = 0;
-	gmap.num_indices = 0;
-
-	// Load all models at once
-	gEngine.Con_Reportf( "Num models: %d:\n", num_models );
-	for( int i = 0; i < num_models; i++ )
-	{
-		model_t	*m;
-		if(( m = gEngine.pfnGetModelByIndex( i + 1 )) == NULL )
-			continue;
-
-		gEngine.Con_Reportf( "  %d: name=%s, type=%d, submodels=%d, nodes=%d, surfaces=%d, nummodelsurfaces=%d\n", i, m->name, m->type, m->numsubmodels, m->numnodes, m->numsurfaces, m->nummodelsurfaces);
-
-		if( m->type != mod_brush )
-			continue;
-
-		if (!VK_LoadBrushModel( m, NULL ))
-		{
-			gEngine.Con_Printf( S_ERROR "Couldn't load model %s\n", m->name );
-		}
-	}
-
-	VK_UploadLightmap();
-}
-
-// FIXME this is a total garbage. pls avoid adding even more weird local static state
-static ref_viewpass_t fixme_rvp;
-
-void FIXME_VK_MapSetViewPass( const struct ref_viewpass_s *rvp )
-{
-	fixme_rvp = *rvp;
 }
 
 static float R_GetFarClip( void )
@@ -269,7 +206,7 @@ static float R_GetFarClip( void )
 #define max( a, b )                 (((a) > (b)) ? (a) : (b))
 #define min( a, b )                 (((a) < (b)) ? (a) : (b))
 
-static void R_SetupProjectionMatrix( matrix4x4 m )
+static void R_SetupProjectionMatrix( const ref_viewpass_t *rvp, matrix4x4 m )
 {
 	float xMin, xMax, yMin, yMax, zNear, zFar;
 
@@ -287,22 +224,22 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 	zNear = 4.0f;
 	zFar = max( 256.0f, farClip );
 
-	yMax = zNear * tan( fixme_rvp.fov_y * M_PI_F / 360.0f );
+	yMax = zNear * tan( rvp->fov_y * M_PI_F / 360.0f );
 	yMin = -yMax;
 
-	xMax = zNear * tan( fixme_rvp.fov_x * M_PI_F / 360.0f );
+	xMax = zNear * tan( rvp->fov_x * M_PI_F / 360.0f );
 	xMin = -xMax;
 
 	Matrix4x4_CreateProjection( m, xMax, xMin, yMax, yMin, zNear, zFar );
 }
 
-static void R_SetupModelviewMatrix( matrix4x4 m )
+static void R_SetupModelviewMatrix( const ref_viewpass_t* rvp, matrix4x4 m )
 {
 	Matrix4x4_CreateModelview( m );
-	Matrix4x4_ConcatRotate( m, -fixme_rvp.viewangles[2], 1, 0, 0 );
-	Matrix4x4_ConcatRotate( m, -fixme_rvp.viewangles[0], 0, 1, 0 );
-	Matrix4x4_ConcatRotate( m, -fixme_rvp.viewangles[1], 0, 0, 1 );
-	Matrix4x4_ConcatTranslate( m, -fixme_rvp.vieworigin[0], -fixme_rvp.vieworigin[1], -fixme_rvp.vieworigin[2] );
+	Matrix4x4_ConcatRotate( m, -rvp->viewangles[2], 1, 0, 0 );
+	Matrix4x4_ConcatRotate( m, -rvp->viewangles[0], 0, 1, 0 );
+	Matrix4x4_ConcatRotate( m, -rvp->viewangles[1], 0, 0, 1 );
+	Matrix4x4_ConcatTranslate( m, -rvp->vieworigin[0], -rvp->vieworigin[1], -rvp->vieworigin[2] );
 }
 
 static void drawBrushModel( const model_t *mod )
@@ -374,7 +311,7 @@ void R_RotateForEntity( matrix4x4 out, const cl_entity_t *e )
 	Matrix4x4_CreateFromEntity( out, e->angles, e->origin, scale );
 }
 
-void VK_MapRender( void )
+void VK_BrushRender( const ref_viewpass_t *rvp, const draw_list_t *draw_list)
 {
 	matrix4x4 worldview={0}, projection={0}, mvp={0};
 	uniform_data_t *ubo = gmap.uniform_buffer.mapped;
@@ -388,11 +325,11 @@ void VK_MapRender( void )
 			{0, 0, .5, 0},
 			{0, 0, .5, 1}
 		};
-		R_SetupProjectionMatrix( tmp );
+		R_SetupProjectionMatrix( rvp, tmp );
 		Matrix4x4_Concat( projection, vk_proj_fixup, tmp );
 	}
 
-	R_SetupModelviewMatrix( worldview );
+	R_SetupModelviewMatrix( rvp, worldview );
 	Matrix4x4_Concat( mvp, projection, worldview);
 	Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp+0 );
 
@@ -461,9 +398,9 @@ void VK_MapRender( void )
 		}
 	}
 
-	for (int i = 0; i < g_lists.draw_list->num_solid_entities; ++i)
+	for (int i = 0; i < draw_list->num_solid_entities; ++i)
 	{
-		const cl_entity_t *ent = g_lists.draw_list->solid_entities[i];
+		const cl_entity_t *ent = draw_list->solid_entities[i];
 		const model_t *mod = ent->model;
 		matrix4x4 model, ent_mvp;
 		if (!mod)
@@ -484,14 +421,8 @@ void VK_MapRender( void )
 	}
 }
 
-void R_RenderScene( void )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-
-
 static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_surfaces) {
-	map_vertex_t *bvert = gmap.vertex_buffer.mapped;
+	brush_vertex_t *bvert = gmap.vertex_buffer.mapped;
 	uint16_t *bind = gmap.index_buffer.mapped;
 	uint32_t vertex_offset = 0;
 	int num_surfaces = 0;
@@ -570,7 +501,7 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 				const int iedge = mod->surfedges[surf->firstedge + k];
 				const medge_t *edge = mod->edges + (iedge >= 0 ? iedge : -iedge);
 				const mvertex_t *in_vertex = mod->vertexes + (iedge >= 0 ? edge->v[0] : edge->v[1]);
-				map_vertex_t vertex = {
+				brush_vertex_t vertex = {
 					{in_vertex->position[0], in_vertex->position[1], in_vertex->position[2]},
 				};
 
@@ -654,110 +585,9 @@ qboolean VK_LoadBrushModel( model_t *mod, const byte *buffer )
 	return true;
 }
 
-qboolean R_AddEntity( struct cl_entity_s *clent, int type )
+void VK_BrushClear( void )
 {
-	/* if( !r_drawentities->value ) */
-	/* 	return false; // not allow to drawing */
-
-	if( !clent || !clent->model )
-		return false; // if set to invisible, skip
-
-	if( FBitSet( clent->curstate.effects, EF_NODRAW ))
-		return false; // done
-
-	/* TODO
-#define R_ModelOpaque( rm )	( rm == kRenderNormal )
-	if( !R_ModelOpaque( clent->curstate.rendermode ) && CL_FxBlend( clent ) <= 0 )
-		return true; // invisible
-
-	switch( type )
-	{
-	case ET_FRAGMENTED:
-		r_stats.c_client_ents++;
-		break;
-	case ET_TEMPENTITY:
-		r_stats.c_active_tents_count++;
-		break;
-	default: break;
-	}
-	*/
-
-	/* FIXME
-#define R_OpaqueEntity(ent) (R_GetEntityRenderMode( ent ) == kRenderNormal)
-	if( R_OpaqueEntity( clent ))
-	{
-		// opaque
-		if( tr.draw_list->num_solid_entities >= MAX_VISIBLE_PACKET )
-			return false;
-
-		tr.draw_list->solid_entities[tr.draw_list->num_solid_entities] = clent;
-		tr.draw_list->num_solid_entities++;
-	}
-	else
-	{
-		// translucent
-		if( tr.draw_list->num_trans_entities >= MAX_VISIBLE_PACKET )
-			return false;
-
-		tr.draw_list->trans_entities[tr.draw_list->num_trans_entities] = clent;
-		tr.draw_list->num_trans_entities++;
-	}
-	*/
-
-	// FIXME for now consider all of them opaque
-	if( g_lists.draw_list->num_solid_entities >= ARRAYSIZE(g_lists.draw_list->solid_entities) )
-		return false;
-
-	g_lists.draw_list->solid_entities[g_lists.draw_list->num_solid_entities] = clent;
-	g_lists.draw_list->num_solid_entities++;
-
-	return true;
-}
-
-void R_ProcessEntData( qboolean allocate )
-{
-	if( !allocate )
-	{
-		g_lists.draw_list->num_solid_entities = 0;
-		/* g_lists.draw_list->num_trans_entities = 0; */
-		/* g_lists.draw_list->num_beam_entities = 0; */
-	}
-
-	if( gEngine.drawFuncs->R_ProcessEntData )
-		gEngine.drawFuncs->R_ProcessEntData( allocate );
-}
-
-void R_ClearScreen( void )
-{
-	g_lists.draw_list->num_solid_entities = 0;
-	/* g_lists.draw_list->num_trans_entities = 0; */
-	/* g_lists.draw_list->num_beam_entities = 0; */
-
-	// clear the scene befor start new frame
-	if( gEngine.drawFuncs->R_ClearScene != NULL )
-		gEngine.drawFuncs->R_ClearScene();
-
-}
-
-void R_PushScene( void )
-{
-	if( ++g_lists.draw_stack_pos >= MAX_DRAW_STACK )
-		gEngine.Host_Error( "draw stack overflow\n" );
-
-	g_lists.draw_list = &g_lists.draw_stack[g_lists.draw_stack_pos];
-}
-
-void R_PopScene( void )
-{
-	if( --g_lists.draw_stack_pos < 0 )
-		gEngine.Host_Error( "draw stack underflow\n" );
-	g_lists.draw_list = &g_lists.draw_stack[g_lists.draw_stack_pos];
-}
-
-// clear the render entities before each frame
-void R_ClearScene( void )
-{
-	g_lists.draw_list->num_solid_entities = 0;
-	/* g_lists.draw_list->num_trans_entities = 0; */
-	/* g_lists.draw_list->num_beam_entities = 0; */
+	// Free previous map data
+	gmap.num_vertices = 0;
+	gmap.num_indices = 0;
 }
