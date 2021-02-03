@@ -15,6 +15,7 @@
 
 #include <math.h>
 #include <memory.h>
+#include <stdlib.h> // qsort
 
 // TODO count these properly
 #define MAX_BUFFER_VERTICES (1 * 1024 * 1024)
@@ -56,11 +57,12 @@ static struct {
 	vk_buffer_t uniform_buffer;
 
 	VkPipelineLayout pipeline_layout;
-	VkPipeline pipeline;
+	VkPipeline pipelines[kRenderTransAdd + 1];
 } gmap;
 
 typedef struct {
-	matrix4x4 mvp[MAX_SCENE_ENTITIES + 1];
+	matrix4x4 mvp;
+	vec4_t color;
 } uniform_data_t;
 
 /* static brush_vertex_t *allocVertices(int num_vertices) { */
@@ -133,9 +135,60 @@ static qboolean createPipelines( void )
 			.blendEnable = VK_FALSE,
 		};
 
-		gmap.pipeline = createPipeline(&ci);
-		if (!gmap.pipeline)
-			return false;
+		for (int i = 0; i < ARRAYSIZE(gmap.pipelines); ++i)
+		{
+			const char *name;
+			switch (i)
+			{
+				case kRenderNormal:
+					ci.blendEnable = VK_FALSE;
+					name = "brush kRenderNormal";
+					break;
+
+				case kRenderTransColor:
+				case kRenderTransTexture:
+					ci.blendEnable = VK_TRUE;
+					ci.colorBlendOp = VK_BLEND_OP_ADD;
+					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+					name = "brush kRenderTransColor/Texture";
+					break;
+
+				case kRenderTransAlpha:
+					ci.blendEnable = VK_FALSE;
+					// FIXME pglEnable( GL_ALPHA_TEST );
+					name = "brush kRenderTransAlpha(test)";
+					break;
+
+				case kRenderGlow:
+				case kRenderTransAdd:
+					ci.blendEnable = VK_TRUE;
+					ci.colorBlendOp = VK_BLEND_OP_ADD;
+					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+					name = "brush kRenderGlow/TransAdd";
+					break;
+			}
+
+			gmap.pipelines[i] = createPipeline(&ci);
+
+			if (!gmap.pipelines[i])
+			{
+				// TODO complain
+				return false;
+			}
+
+			if (vk_core.debug)
+			{
+				VkDebugUtilsObjectNameInfoEXT debug_name = {
+					.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+					.objectHandle = (uint64_t)gmap.pipelines[i],
+					.objectType = VK_OBJECT_TYPE_PIPELINE,
+					.pObjectName = name,
+				};
+				XVK_CHECK(vkSetDebugUtilsObjectNameEXT(vk_core.device, &debug_name));
+			}
+		}
 
 		for (int i = 0; i < (int)ARRAYSIZE(shader_stages); ++i)
 			vkDestroyShaderModule(vk_core.device, shader_stages[i].module, NULL);
@@ -157,7 +210,7 @@ qboolean VK_BrushInit( void )
 	if (!createBuffer(&gmap.index_buffer, index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
-	if (!createBuffer(&gmap.uniform_buffer, sizeof(uniform_data_t), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	if (!createBuffer(&gmap.uniform_buffer, sizeof(uniform_data_t) * (MAX_SCENE_ENTITIES * 2 /* solid + trans */ + 1), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
 	if (!createPipelines())
@@ -167,7 +220,7 @@ qboolean VK_BrushInit( void )
 		VkDescriptorBufferInfo dbi = {
 			.buffer = gmap.uniform_buffer.buffer,
 			.offset = 0,
-			.range = sizeof(matrix4x4),//VK_WHOLE_SIZE,
+			.range = sizeof(uniform_data_t),
 		};
 		VkWriteDescriptorSet wds[] = { {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -186,7 +239,8 @@ qboolean VK_BrushInit( void )
 
 void VK_BrushShutdown( void )
 {
-	vkDestroyPipeline( vk_core.device, gmap.pipeline, NULL );
+	for (int i = 0; i < ARRAYSIZE(gmap.pipelines); ++i)
+		vkDestroyPipeline(vk_core.device, gmap.pipelines[i], NULL);
 	vkDestroyPipelineLayout( vk_core.device, gmap.pipeline_layout, NULL );
 
 	destroyBuffer( &gmap.vertex_buffer );
@@ -311,10 +365,207 @@ void R_RotateForEntity( matrix4x4 out, const cl_entity_t *e )
 	Matrix4x4_CreateFromEntity( out, e->angles, e->origin, scale );
 }
 
-void VK_BrushRender( const ref_viewpass_t *rvp, const draw_list_t *draw_list)
+// FIXME find a better place for this function
+static int R_RankForRenderMode( int rendermode )
+{
+	switch( rendermode )
+	{
+	case kRenderTransTexture:
+		return 1;	// draw second
+	case kRenderTransAdd:
+		return 2;	// draw third
+	case kRenderGlow:
+		return 3;	// must be last!
+	}
+	return 0;
+}
+
+/*
+===============
+R_TransEntityCompare
+
+Sorting translucent entities by rendermode then by distance
+
+FIXME find a better place for this function
+===============
+*/
+static vec3_t R_TransEntityCompare_vieworg; // F
+static int R_TransEntityCompare( const void *a, const void *b)
+{
+	vk_trans_entity_t *tent1, *tent2;
+	cl_entity_t	*ent1, *ent2;
+	vec3_t		vecLen, org;
+	float		dist1, dist2;
+	int		rendermode1;
+	int		rendermode2;
+
+	tent1 = (vk_trans_entity_t*)a;
+	tent2 = (vk_trans_entity_t*)b;
+
+	ent1 = tent1->entity;
+	ent2 = tent2->entity;
+
+	rendermode1 = tent1->render_mode;
+	rendermode2 = tent2->render_mode;
+
+	// sort by distance
+	if( ent1->model->type != mod_brush || rendermode1 != kRenderTransAlpha )
+	{
+		VectorAverage( ent1->model->mins, ent1->model->maxs, org );
+		VectorAdd( ent1->origin, org, org );
+		VectorSubtract( R_TransEntityCompare_vieworg, org, vecLen );
+		dist1 = DotProduct( vecLen, vecLen );
+	}
+	else dist1 = 1000000000;
+
+	if( ent2->model->type != mod_brush || rendermode2 != kRenderTransAlpha )
+	{
+		VectorAverage( ent2->model->mins, ent2->model->maxs, org );
+		VectorAdd( ent2->origin, org, org );
+		VectorSubtract( R_TransEntityCompare_vieworg, org, vecLen );
+		dist2 = DotProduct( vecLen, vecLen );
+	}
+	else dist2 = 1000000000;
+
+	if( dist1 > dist2 )
+		return -1;
+	if( dist1 < dist2 )
+		return 1;
+
+	// then sort by rendermode
+	if( R_RankForRenderMode( rendermode1 ) > R_RankForRenderMode( rendermode2 ))
+		return 1;
+	if( R_RankForRenderMode( rendermode1 ) < R_RankForRenderMode( rendermode2 ))
+		return -1;
+
+	return 0;
+}
+
+// FIXME where should this function be
+#define RP_NORMALPASS() true // FIXME ???
+static int CL_FxBlend( cl_entity_t *e, const vec3_t vieworg ) // FIXME do R_SetupFrustum: , vec3_t vforward )
+{
+	int	blend = 0;
+	float	offset, dist;
+	vec3_t	tmp;
+
+	offset = ((int)e->index ) * 363.0f; // Use ent index to de-sync these fx
+
+	switch( e->curstate.renderfx )
+	{
+	case kRenderFxPulseSlowWide:
+		blend = e->curstate.renderamt + 0x40 * sin( gpGlobals->time * 2 + offset );
+		break;
+	case kRenderFxPulseFastWide:
+		blend = e->curstate.renderamt + 0x40 * sin( gpGlobals->time * 8 + offset );
+		break;
+	case kRenderFxPulseSlow:
+		blend = e->curstate.renderamt + 0x10 * sin( gpGlobals->time * 2 + offset );
+		break;
+	case kRenderFxPulseFast:
+		blend = e->curstate.renderamt + 0x10 * sin( gpGlobals->time * 8 + offset );
+		break;
+	case kRenderFxFadeSlow:
+		if( RP_NORMALPASS( ))
+		{
+			if( e->curstate.renderamt > 0 )
+				e->curstate.renderamt -= 1;
+			else e->curstate.renderamt = 0;
+		}
+		blend = e->curstate.renderamt;
+		break;
+	case kRenderFxFadeFast:
+		if( RP_NORMALPASS( ))
+		{
+			if( e->curstate.renderamt > 3 )
+				e->curstate.renderamt -= 4;
+			else e->curstate.renderamt = 0;
+		}
+		blend = e->curstate.renderamt;
+		break;
+	case kRenderFxSolidSlow:
+		if( RP_NORMALPASS( ))
+		{
+			if( e->curstate.renderamt < 255 )
+				e->curstate.renderamt += 1;
+			else e->curstate.renderamt = 255;
+		}
+		blend = e->curstate.renderamt;
+		break;
+	case kRenderFxSolidFast:
+		if( RP_NORMALPASS( ))
+		{
+			if( e->curstate.renderamt < 252 )
+				e->curstate.renderamt += 4;
+			else e->curstate.renderamt = 255;
+		}
+		blend = e->curstate.renderamt;
+		break;
+	case kRenderFxStrobeSlow:
+		blend = 20 * sin( gpGlobals->time * 4 + offset );
+		if( blend < 0 ) blend = 0;
+		else blend = e->curstate.renderamt;
+		break;
+	case kRenderFxStrobeFast:
+		blend = 20 * sin( gpGlobals->time * 16 + offset );
+		if( blend < 0 ) blend = 0;
+		else blend = e->curstate.renderamt;
+		break;
+	case kRenderFxStrobeFaster:
+		blend = 20 * sin( gpGlobals->time * 36 + offset );
+		if( blend < 0 ) blend = 0;
+		else blend = e->curstate.renderamt;
+		break;
+	case kRenderFxFlickerSlow:
+		blend = 20 * (sin( gpGlobals->time * 2 ) + sin( gpGlobals->time * 17 + offset ));
+		if( blend < 0 ) blend = 0;
+		else blend = e->curstate.renderamt;
+		break;
+	case kRenderFxFlickerFast:
+		blend = 20 * (sin( gpGlobals->time * 16 ) + sin( gpGlobals->time * 23 + offset ));
+		if( blend < 0 ) blend = 0;
+		else blend = e->curstate.renderamt;
+		break;
+	/* FIXME
+	case kRenderFxHologram:
+	case kRenderFxDistort:
+		VectorCopy( e->origin, tmp );
+		VectorSubtract( tmp, vieworg, tmp );
+		dist = DotProduct( tmp, vforward );
+
+		// turn off distance fade
+		if( e->curstate.renderfx == kRenderFxDistort )
+			dist = 1;
+
+		if( dist <= 0 )
+		{
+			blend = 0;
+		}
+		else
+		{
+			e->curstate.renderamt = 180;
+			if( dist <= 100 ) blend = e->curstate.renderamt;
+			else blend = (int) ((1.0f - ( dist - 100 ) * ( 1.0f / 400.0f )) * e->curstate.renderamt );
+			blend += gEngine.COM_RandomLong( -32, 31 );
+		}
+		break;
+	*/
+	default:
+		blend = e->curstate.renderamt;
+		break;
+	}
+
+	blend = bound( 0, blend, 255 );
+
+	return blend;
+}
+
+void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 {
 	matrix4x4 worldview={0}, projection={0}, mvp={0};
 	uniform_data_t *ubo = gmap.uniform_buffer.mapped;
+	int current_pipeline_index = kRenderNormal;
+	int uniform_buffer_offset = 1; // skip world model
 
 	{
 		matrix4x4 tmp;
@@ -331,7 +582,8 @@ void VK_BrushRender( const ref_viewpass_t *rvp, const draw_list_t *draw_list)
 
 	R_SetupModelviewMatrix( rvp, worldview );
 	Matrix4x4_Concat( mvp, projection, worldview);
-	Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp+0 );
+	Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo[0].mvp );
+	Vector4Set(ubo[0].color, 1.f, 1.f, 1.f, 1.f);
 
 		/*
 		vkCmdUpdateBuffer(vk_core.cb, gmap.uniform_buffer.buffer, 0, sizeof(uniform_data), &uniform_data);
@@ -367,14 +619,10 @@ void VK_BrushRender( const ref_viewpass_t *rvp, const draw_list_t *draw_list)
 
 	// ...
 
-	/*
-		// TODO sort translucents entities by rendermode and distance
-		qsort( tr.draw_list->trans_entities, tr.draw_list->num_trans_entities, sizeof( cl_entity_t* ), R_TransEntityCompare );
-	*/
 
 	{
 		const VkDeviceSize offset = 0;
-		vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, gmap.pipeline);
+		vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, gmap.pipelines[kRenderNormal]);
 		vkCmdBindVertexBuffers(vk_core.cb, 0, 1, &gmap.vertex_buffer.buffer, &offset);
 		vkCmdBindIndexBuffer(vk_core.cb, gmap.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT16);
 	}
@@ -403,6 +651,9 @@ void VK_BrushRender( const ref_viewpass_t *rvp, const draw_list_t *draw_list)
 		const cl_entity_t *ent = draw_list->solid_entities[i];
 		const model_t *mod = ent->model;
 		matrix4x4 model, ent_mvp;
+		const int ubo_offset = uniform_buffer_offset++;
+		uniform_data_t *e_ubo = ubo + ubo_offset;
+
 		if (!mod)
 			continue;
 
@@ -411,14 +662,91 @@ void VK_BrushRender( const ref_viewpass_t *rvp, const draw_list_t *draw_list)
 
 		R_RotateForEntity( model, ent );
 		Matrix4x4_Concat( ent_mvp, mvp, model );
-		Matrix4x4_ToArrayFloatGL( ent_mvp, (float*)(ubo->mvp+1+i) );
+		Matrix4x4_ToArrayFloatGL( ent_mvp, (float*)(e_ubo->mvp));
+		Vector4Set(e_ubo->color, 1.f, 1.f, 1.f, 1.f);
 
 		{
-			const uint32_t dynamic_offset[] = { sizeof(matrix4x4) * (1+i) };
+			const uint32_t dynamic_offset[] = { sizeof(uniform_data_t) * ubo_offset };
 			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, gmap.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
 		}
 		drawBrushModel( mod );
 	}
+
+	// sort translucents entities by rendermode and distance
+	VectorCopy( rvp->vieworigin, R_TransEntityCompare_vieworg );
+	qsort( draw_list->trans_entities, draw_list->num_trans_entities, sizeof( vk_trans_entity_t ), R_TransEntityCompare );
+
+	if (vk_core.debug) {
+		VkDebugUtilsLabelEXT label = {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+			.pLabelName = "transparent",
+		};
+		vkCmdBeginDebugUtilsLabelEXT(vk_core.cb, &label);
+	}
+
+	for (int i = 0; i < draw_list->num_trans_entities; ++i)
+	{
+		const vk_trans_entity_t *ent = draw_list->trans_entities + i;
+		const model_t *mod = ent->entity->model;
+		matrix4x4 model, ent_mvp;
+		const int ubo_offset = uniform_buffer_offset++;
+		uniform_data_t *e_ubo = ubo + ubo_offset;
+		float alpha = 0;
+
+		if (!mod)
+			continue;
+
+		if (mod->type != mod_brush )
+			continue;
+
+		ASSERT(ent->render_mode >= 0);
+		ASSERT(ent->render_mode < ARRAYSIZE(gmap.pipelines));
+
+		R_RotateForEntity( model, ent->entity );
+		Matrix4x4_Concat( ent_mvp, mvp, model );
+		Matrix4x4_ToArrayFloatGL( ent_mvp, (float*)(e_ubo->mvp) );
+
+		// handle studiomodels with custom rendermodes on texture
+		alpha = CL_FxBlend( ent->entity, rvp->vieworigin ) / 255.0f;
+
+		if( alpha <= 0.0f ) continue;
+
+		switch (ent->render_mode) {
+			case kRenderTransColor:
+				// FIXME also zero out texture? use white texture
+				Vector4Set(e_ubo->color,
+						ent->entity->curstate.rendercolor.r / 255.f,
+						ent->entity->curstate.rendercolor.g / 255.f,
+						ent->entity->curstate.rendercolor.b / 255.f,
+						ent->entity->curstate.renderamt / 255.f);
+				break;
+			case kRenderTransAdd:
+				Vector4Set(e_ubo->color, alpha, alpha, alpha, 1.f);
+				break;
+			case kRenderTransAlpha:
+				Vector4Set(e_ubo->color, 1.f, 1.f, 1.f, 1.f);
+				// TODO Q1compat Vector4Set(e_ubo->color, 1.f, 1.f, 1.f, alpha);
+				break;
+			default:
+				Vector4Set(e_ubo->color, 1.f, 1.f, 1.f, alpha);
+		}
+
+		{
+			const uint32_t dynamic_offset[] = { sizeof(uniform_data_t) * ubo_offset };
+			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, gmap.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
+		}
+
+		if (ent->render_mode != current_pipeline_index)
+		{
+			current_pipeline_index = ent->render_mode;
+			vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, gmap.pipelines[current_pipeline_index]);
+		}
+
+		drawBrushModel( mod );
+	}
+
+	if (vk_core.debug)
+		vkCmdEndDebugUtilsLabelEXT(vk_core.cb);
 }
 
 static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_surfaces) {

@@ -20,6 +20,43 @@ void VK_SceneInit( void )
 	g_lists.draw_stack_pos = 0;
 }
 
+#define R_ModelOpaque( rm )	( rm == kRenderNormal )
+int R_FIXME_GetEntityRenderMode( cl_entity_t *ent )
+{
+	//int		i, opaque, trans;
+	//mstudiotexture_t	*ptexture;
+	model_t		*model;
+	//studiohdr_t	*phdr;
+
+	/* TODO
+	if( ent->player ) // check it for real playermodel
+		model = R_StudioSetupPlayerModel( ent->curstate.number - 1 );
+	else */ model = ent->model;
+
+	if( R_ModelOpaque( ent->curstate.rendermode ))
+	{
+		if(( model && model->type == mod_brush ) && FBitSet( model->flags, MODEL_TRANSPARENT ))
+			return kRenderTransAlpha;
+	}
+
+	/* TODO studio models hack
+	ptexture = (mstudiotexture_t *)((byte *)phdr + phdr->textureindex);
+
+	for( opaque = trans = i = 0; i < phdr->numtextures; i++, ptexture++ )
+	{
+		// ignore chrome & additive it's just a specular-like effect
+		if( FBitSet( ptexture->flags, STUDIO_NF_ADDITIVE ) && !FBitSet( ptexture->flags, STUDIO_NF_CHROME ))
+			trans++;
+		else opaque++;
+	}
+
+	// if model is more additive than opaque
+	if( trans > opaque )
+		return kRenderTransAdd;
+	*/
+	return ent->curstate.rendermode;
+}
+
 // tell the renderer what new map is started
 void R_NewMap( void )
 {
@@ -62,6 +99,7 @@ qboolean R_AddEntity( struct cl_entity_s *clent, int type )
 {
 	/* if( !r_drawentities->value ) */
 	/* 	return false; // not allow to drawing */
+	int render_mode;
 
 	if( !clent || !clent->model )
 		return false; // if set to invisible, skip
@@ -69,8 +107,9 @@ qboolean R_AddEntity( struct cl_entity_s *clent, int type )
 	if( FBitSet( clent->curstate.effects, EF_NODRAW ))
 		return false; // done
 
+	render_mode = R_FIXME_GetEntityRenderMode( clent );
+
 	/* TODO
-#define R_ModelOpaque( rm )	( rm == kRenderNormal )
 	if( !R_ModelOpaque( clent->curstate.rendermode ) && CL_FxBlend( clent ) <= 0 )
 		return true; // invisible
 
@@ -86,34 +125,22 @@ qboolean R_AddEntity( struct cl_entity_s *clent, int type )
 	}
 	*/
 
-	/* FIXME
-#define R_OpaqueEntity(ent) (R_GetEntityRenderMode( ent ) == kRenderNormal)
-	if( R_OpaqueEntity( clent ))
+	if( render_mode == kRenderNormal )
 	{
-		// opaque
-		if( tr.draw_list->num_solid_entities >= MAX_VISIBLE_PACKET )
+		if( g_lists.draw_list->num_solid_entities >= ARRAYSIZE(g_lists.draw_list->solid_entities) )
 			return false;
 
-		tr.draw_list->solid_entities[tr.draw_list->num_solid_entities] = clent;
-		tr.draw_list->num_solid_entities++;
+		g_lists.draw_list->solid_entities[g_lists.draw_list->num_solid_entities] = clent;
+		g_lists.draw_list->num_solid_entities++;
 	}
 	else
 	{
-		// translucent
-		if( tr.draw_list->num_trans_entities >= MAX_VISIBLE_PACKET )
+		if( g_lists.draw_list->num_trans_entities >= ARRAYSIZE(g_lists.draw_list->trans_entities) )
 			return false;
 
-		tr.draw_list->trans_entities[tr.draw_list->num_trans_entities] = clent;
-		tr.draw_list->num_trans_entities++;
+		g_lists.draw_list->trans_entities[g_lists.draw_list->num_trans_entities] = (vk_trans_entity_t){ clent, render_mode };
+		g_lists.draw_list->num_trans_entities++;
 	}
-	*/
-
-	// FIXME for now consider all of them opaque
-	if( g_lists.draw_list->num_solid_entities >= ARRAYSIZE(g_lists.draw_list->solid_entities) )
-		return false;
-
-	g_lists.draw_list->solid_entities[g_lists.draw_list->num_solid_entities] = clent;
-	g_lists.draw_list->num_solid_entities++;
 
 	return true;
 }
@@ -123,7 +150,7 @@ void R_ProcessEntData( qboolean allocate )
 	if( !allocate )
 	{
 		g_lists.draw_list->num_solid_entities = 0;
-		/* g_lists.draw_list->num_trans_entities = 0; */
+		g_lists.draw_list->num_trans_entities = 0;
 		/* g_lists.draw_list->num_beam_entities = 0; */
 	}
 
@@ -134,7 +161,7 @@ void R_ProcessEntData( qboolean allocate )
 void R_ClearScreen( void )
 {
 	g_lists.draw_list->num_solid_entities = 0;
-	/* g_lists.draw_list->num_trans_entities = 0; */
+	g_lists.draw_list->num_trans_entities = 0;
 	/* g_lists.draw_list->num_beam_entities = 0; */
 
 	// clear the scene befor start new frame
@@ -147,7 +174,6 @@ void R_PushScene( void )
 {
 	if( ++g_lists.draw_stack_pos >= MAX_SCENE_STACK )
 		gEngine.Host_Error( "draw stack overflow\n" );
-
 	g_lists.draw_list = &g_lists.draw_stack[g_lists.draw_stack_pos];
 }
 
@@ -162,7 +188,7 @@ void R_PopScene( void )
 void R_ClearScene( void )
 {
 	g_lists.draw_list->num_solid_entities = 0;
-	/* g_lists.draw_list->num_trans_entities = 0; */
+	g_lists.draw_list->num_trans_entities = 0;
 	/* g_lists.draw_list->num_beam_entities = 0; */
 }
 

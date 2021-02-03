@@ -9,12 +9,17 @@
 struct ref_viewpass_s;
 struct cl_entity_s;
 
+typedef struct vk_trans_entity_s {
+	struct cl_entity_s *entity;
+	int render_mode;
+} vk_trans_entity_t;
+
 typedef struct draw_list_s {
 	struct cl_entity_s	*solid_entities[MAX_SCENE_ENTITIES];	// opaque moving or alpha brushes
-	//cl_entity_t	*trans_entities[MAX_DRAW_ENTITIES];	// translucent brushes
+	vk_trans_entity_t trans_entities[MAX_SCENE_ENTITIES];	// translucent brushes or studio models kek
 	//cl_entity_t	*beam_entities[MAX_DRAW_ENTITIES];
 	uint		num_solid_entities;
-	//uint		num_trans_entities;
+	uint		num_trans_entities;
 	//uint		num_beam_entities;
 } draw_list_t;
 
