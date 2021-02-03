@@ -1,9 +1,11 @@
 #include "vk_lightmap.h"
 #include "vk_common.h"
 #include "vk_textures.h"
+#include "vk_cvar.h"
 
 #include "com_strings.h"
 #include "xash3d_mathlib.h"
+#include "protocol.h"
 
 #include <memory.h>
 
@@ -14,6 +16,8 @@ typedef struct
 	//msurface_t	*dynamic_surfaces;
 	//msurface_t	*lightmap_surfaces[MAX_LIGHTMAPS];
 	byte		lightmap_buffer[BLOCK_SIZE_MAX*BLOCK_SIZE_MAX*4];
+
+	int		lightstylevalue[MAX_LIGHTSTYLES];	// value 0 - 65536
 } gllightmapstate_t;
 
 static gllightmapstate_t gl_lms;
@@ -89,7 +93,7 @@ static void LM_UploadBlock( qboolean dynamic )
 		}
 
 		gEngine.Con_Printf(S_ERROR "VK NOT IMPLEMENTED %s dynamic \n", __FUNCTION__);
-		/* GL_Bind( XASH_TEXTURE0, tr.dlightTexture ); */
+		/* GL_Bind( XASH_TEXTURE0, gl_lms.dlightTexture ); */
 		/* pglTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, BLOCK_SIZE, height, GL_RGBA, GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer ); */
 	}
 	else
@@ -127,7 +131,7 @@ format in r_blocklights
 static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean dynamic )
 {
 	int		smax, tmax;
-	uint		*bl, scale;
+	uint		*bl;
 	int		i, map, size, s, t;
 	int		sample_size;
 	mextrasurf_t	*info = surf->info;
@@ -144,9 +148,7 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 	// add all the lightmaps
 	for( map = 0; map < MAXLIGHTMAPS && surf->styles[map] != 255 && lm; map++ )
 	{
-		// FIXME we need to CL_RunLightStyles first to do this scale = tr.lightstylevalue[surf->styles[map]];
-		const int scale = 256;
-
+		const uint scale = gl_lms.lightstylevalue[surf->styles[map]];
 		for( i = 0, bl = r_blocklights; i < size; i++, bl += 3, lm++ )
 		{
 			bl[0] += gEngine.LightToTexGamma( lm->r ) * scale;
@@ -157,7 +159,7 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 
 	/* TODO
 	// add all the dynamic lights
-	if( surf->dlightframe == tr.framecount && dynamic )
+	if( surf->dlightframe == gl_lms.framecount && dynamic )
 		R_AddDynamicLights( surf );
 	*/
 
@@ -225,4 +227,66 @@ void VK_ClearLightmap( void )
 	for (int i = 0; i < gl_lms.current_lightmap_texture; ++i)
 		VK_FreeTexture(tglob.lightmapTextures[i]);
 	gl_lms.current_lightmap_texture = 0;
+}
+
+void VK_RunLightStyles( void )
+{
+	int		i, k, flight, clight;
+	float		l, lerpfrac, backlerp;
+	float		frametime = (gpGlobals->time -   gpGlobals->oldtime);
+	float		scale;
+	lightstyle_t	*ls;
+	const model_t *world = gEngine.pfnGetModelByIndex( 1 );
+
+	if( !world ) return;
+
+	scale = r_lighting_modulate->value;
+
+	// light animations
+	// 'm' is normal light, 'a' is no light, 'z' is double bright
+	for( i = 0; i < MAX_LIGHTSTYLES; i++ )
+	{
+		ls = gEngine.GetLightStyle( i );
+		if( !world->lightdata )
+		{
+			gl_lms.lightstylevalue[i] = 256 * 256;
+			continue;
+		}
+
+		if( !gEngine.EngineGetParm( PARAM_GAMEPAUSED, 0 ) && frametime <= 0.1f )
+			ls->time += frametime; // evaluate local time
+
+		flight = (int)Q_floor( ls->time * 10 );
+		clight = (int)Q_ceil( ls->time * 10 );
+		lerpfrac = ( ls->time * 10 ) - flight;
+		backlerp = 1.0f - lerpfrac;
+
+		if( !ls->length )
+		{
+			gl_lms.lightstylevalue[i] = 256 * scale;
+			continue;
+		}
+		else if( ls->length == 1 )
+		{
+			// single length style so don't bother interpolating
+			gl_lms.lightstylevalue[i] = ls->map[0] * 22 * scale;
+			continue;
+		}
+		else if( !ls->interp || !CVAR_TO_BOOL( cl_lightstyle_lerping ))
+		{
+			gl_lms.lightstylevalue[i] = ls->map[flight%ls->length] * 22 * scale;
+			continue;
+		}
+
+		// interpolate animating light
+		// frame just gone
+		k = ls->map[flight % ls->length];
+		l = (float)( k * 22.0f ) * backlerp;
+
+		// upcoming frame
+		k = ls->map[clight % ls->length];
+		l += (float)( k * 22.0f ) * lerpfrac;
+
+		gl_lms.lightstylevalue[i] = (int)l * scale;
+	}
 }

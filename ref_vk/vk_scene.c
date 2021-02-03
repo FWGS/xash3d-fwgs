@@ -29,6 +29,9 @@ void R_NewMap( void )
 
 	VK_ClearLightmap();
 
+	// This is to ensure that we have computed lightstyles properly
+	VK_RunLightStyles();
+
 	// TODO should we do something like VK_BrushBeginLoad?
 	VK_BrushClear();
 

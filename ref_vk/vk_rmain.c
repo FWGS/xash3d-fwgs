@@ -5,6 +5,7 @@
 #include "vk_2d.h"
 #include "vk_scene.h"
 #include "vk_framectl.h"
+#include "vk_lightmap.h"
 
 #include "xash3d_types.h"
 #include "com_strings.h"
@@ -136,11 +137,6 @@ static void R_InitSkyClouds( struct mip_s *mt, struct texture_s *tx, qboolean cu
 }
 
 extern void GL_SubdivideSurface( msurface_t *fa );
-
-static void CL_RunLightStyles( void )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
 
 // sprites
 static void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite )
@@ -605,7 +601,7 @@ ref_interface_t gReffuncs =
 
 	R_InitSkyClouds,
 	GL_SubdivideSurface,
-	CL_RunLightStyles,
+	VK_RunLightStyles,
 
 	R_GetSpriteParms,
 	R_GetSpriteTexture,

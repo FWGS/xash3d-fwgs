@@ -7,6 +7,7 @@
 #include "vk_framectl.h"
 #include "vk_brush.h"
 #include "vk_scene.h"
+#include "vk_cvar.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -571,6 +572,8 @@ qboolean R_VkInit( void )
 	// TODO ...
 	if (!initDescriptorPool())
 		return false;
+
+	VK_LoadCvars();
 
 	VK_SceneInit();
 

@@ -9,3 +9,4 @@
 void VK_ClearLightmap( void );
 void VK_CreateSurfaceLightmap( msurface_t *surf, const model_t *loadmodel );
 void VK_UploadLightmap( void );
+void VK_RunLightStyles( void );
