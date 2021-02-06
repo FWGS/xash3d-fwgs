@@ -251,7 +251,7 @@ static qboolean createSwapchain( void )
 
 void R_BeginFrame( qboolean clearScene )
 {
-	gEngine.Con_Reportf("%s(clearScene=%d)\n", __FUNCTION__, clearScene);
+	// gEngine.Con_Reportf("%s(clearScene=%d)\n", __FUNCTION__, clearScene);
 
 	// Check that swapchain has the same size
 	{
@@ -290,7 +290,7 @@ void R_BeginFrame( qboolean clearScene )
 
 void GL_RenderFrame( const struct ref_viewpass_s *rvp )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	// gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 	FIXME_VK_SceneSetViewPass(rvp);
 }
 
@@ -322,7 +322,7 @@ void R_EndFrame( void )
 		.waitSemaphoreCount = 1,
 	};
 
-	gEngine.Con_Reportf("%s\n", __FUNCTION__);
+	// gEngine.Con_Reportf("%s\n", __FUNCTION__);
 
 	for (int i = 0;; ++i)
 	{

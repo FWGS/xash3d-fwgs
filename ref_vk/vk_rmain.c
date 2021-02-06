@@ -16,6 +16,20 @@
 ref_api_t gEngine = {0};
 ref_globals_t *gpGlobals = NULL;
 
+#define PRINT_NOT_IMPLEMENTED_ARGS(msg, ...) do { \
+		static int called = 0; \
+		gEngine.Con_Printf( S_ERROR "VK NOT_IMPLEMENTED(x%d): %s" msg "\n", called, __FUNCTION__, __VA_ARGS__ ); \
+		++called; \
+	} while(0)
+
+#define PRINT_NOT_IMPLEMENTED() do { \
+		static int called = 0; \
+		if ((called&1023) == 0) { \
+			gEngine.Con_Printf( S_ERROR "VK NOT_IMPLEMENTED(x%d): %s\n", called, __FUNCTION__ ); \
+		} \
+		++called; \
+	} while(0)
+
 static const char *R_GetConfigName( void )
 {
 	return "vk";
@@ -23,7 +37,7 @@ static const char *R_GetConfigName( void )
 
 static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int x, int y, float scale_x, float scale_y )
 {
-	gEngine.Con_Printf("VK FIXME: %s(%d, %d, %d, %f, %f)\n", __FUNCTION__, rotate, x, y, scale_x, scale_y);
+	PRINT_NOT_IMPLEMENTED_ARGS("(%d, %d, %d, %f, %f)", rotate, x, y, scale_x, scale_y);
 
 	return true;
 }
@@ -31,67 +45,67 @@ static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int x, int 
 // only called for GL contexts
 static void GL_SetupAttributes( int safegl )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void GL_ClearExtensions( void )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
-
 static void GL_BackendStartFrame( void )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void GL_BackendEndFrame( void )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 
 static void CL_AddCustomBeam( cl_entity_t *pEnvBeam )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 
 // debug
 static void R_ShowTextures( void )
 {
-	//gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
+	//PRINT_NOT_IMPLEMENTED();
 }
 
 // texture management
 static const byte *R_GetTextureOriginalBuffer( unsigned int idx )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return NULL;
 }
 
 static void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 
 static void R_SetupSky( const char *skyname )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 
 // screenshot, cubemapshot
 static qboolean VID_ScreenShot( const char *filename, int shot_type )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return false;
 }
 
 static qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return false;
 }
 
 // light
 static colorVec R_LightPoint( const float *p )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return (colorVec){0};
 }
 
@@ -99,42 +113,42 @@ static colorVec R_LightPoint( const float *p )
 // Shoots a decal onto the surface of the BSP.  position is the center of the decal in world coords
 static void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void R_DecalRemoveAll( int texture )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static int R_CreateDecalList( struct decallist_s *pList )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return 0;
 }
 static void R_ClearAllDecals( void )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 
 // studio interface
 static float R_StudioEstimateFrame( cl_entity_t *e, mstudioseqdesc_t *pseqdesc )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return 1.f;
 }
 
 static void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, vec3_t angles )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void CL_InitStudioAPI( void )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 
 // bmodel
 static void R_InitSkyClouds( struct mip_s *mt, struct texture_s *tx, qboolean custom_palette )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 
 extern void GL_SubdivideSurface( msurface_t *fa );
@@ -142,14 +156,12 @@ extern void GL_SubdivideSurface( msurface_t *fa );
 
 static void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 {
-	gEngine.Con_Printf(S_ERROR "VK FIXME %s(%p, %s), %p, %d\n",
-		__FUNCTION__, mod, mod->name, buffer, *loaded);
+	PRINT_NOT_IMPLEMENTED_ARGS("(%p, %s), %p, %d", mod, mod->name, buffer, *loaded);
 }
 
 static void Mod_UnloadTextures( model_t *mod )
 {
-	gEngine.Con_Printf(S_ERROR "VK FIXME %s(%p, %s)\n",
-		__FUNCTION__, mod, mod->name);
+	PRINT_NOT_IMPLEMENTED_ARGS("(%p, %s)", mod, mod->name);
 }
 
 static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buffer )
@@ -191,25 +203,25 @@ static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte
 }
 static void Mod_StudioLoadTextures( model_t *mod, void *data )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 
 // efx implementation
 static void CL_DrawParticles( double frametime, particle_t *particles, float partsize )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void CL_DrawTracers( double frametime, particle_t *tracers )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void CL_DrawBeams( int fTrans , BEAM *beams )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return false;
 }
 
@@ -280,134 +292,134 @@ static int VK_RefGetParm( int parm, int arg )
 		return tex->flags;
 	}
 
-	gEngine.Con_Printf("VK FIXME: %s(%s(%d), %d)\n", __FUNCTION__, getParmName(parm), parm, arg);
+	PRINT_NOT_IMPLEMENTED_ARGS("(%s(%d), %d)", getParmName(parm), parm, arg);
 
 	return 0;
 }
 static void		GetDetailScaleForTexture( int texture, float *xScale, float *yScale )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void		GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *alpha )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static float		GetFrameTime( void )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return 1.f;
 }
 
 // Set renderer info (tell engine about changes)
 static void		R_SetCurrentEntity( struct cl_entity_s *ent )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void		R_SetCurrentModel( struct model_s *mod )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 
 
 // Decals manipulating (draw & remove)
 static void		DrawSingleDecal( struct decal_s *pDecal, struct msurface_s *fa )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static float		*R_DecalSetupVerts( struct decal_s *pDecal, struct msurface_s *surf, int texture, int *outCount )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return NULL;
 }
 
 static void		R_EntityRemoveDecals( struct model_s *mod )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 
 // AVI
 static void		AVI_UploadRawFrame( int texture, int cols, int rows, int width, int height, const byte *data )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 
 // glState related calls (must use this instead of normal gl-calls to prevent de-synchornize local states between engine and the client)
 static void		GL_Bind( int tmu, unsigned int texnum )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void		GL_SelectTexture( int tmu )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void		GL_LoadTextureMatrix( const float *glmatrix )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void		GL_TexMatrixIdentity( void )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void		GL_CleanUpTextureUnits( int last )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void		GL_TexGen( unsigned int coord, unsigned int mode )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void		GL_TextureTarget( unsigned int target )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void		GL_TexCoordArrayMode( unsigned int texmode )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void		GL_UpdateTexSize( int texnum, int width, int height, int depth )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 
 // Misc renderer functions
 static void		GL_DrawParticles( const struct ref_viewpass_s *rvp, qboolean trans_pass, float frametime )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static colorVec		R_LightVec( const float *start, const float *end, float *lightspot, float *lightvec )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return (colorVec){0};
 }
 
 static struct mstudiotex_s *R_StudioGetTexture( struct cl_entity_s *e )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return NULL;
 }
 
 // setup map bounds for ortho-projection when we in dev_overview mode
 static void		GL_OrthoBounds( const float *mins, const float *maxs )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 // grab r_speeds message
 static qboolean	R_SpeedsMessage( char *out, size_t size )
 {
-	//gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return false;
 }
 // get visdata for current frame from custom renderer
 static byte*		Mod_GetCurrentVis( void )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return NULL;
 }
 
 // GL_GetProcAddress for client renderer
 static void*		R_GetProcAddress( const char *name )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return NULL;
 }
 
@@ -415,110 +427,110 @@ static void*		R_GetProcAddress( const char *name )
 // NOTE: implementation isn't required to be compatible
 static void	TriRenderMode( int mode )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	TriBegin( int primitiveCode )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	TriEnd( void )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	TriColor4f( float r, float g, float b, float a )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	TriTexCoord2f( float u, float v )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	TriVertex3fv( const float *worldPnt )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	TriVertex3f( float x, float y, float z )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static int	TriWorldToScreen( const float *world, float *screen )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return 0;
 }
 static void	TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	R_ScreenToWorld( const float *screen, float *world  )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	TriGetMatrix( const int pname, float *matrix )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	TriFogParams( float flDensity, int iFogSkybox )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	TriCullFace( TRICULLSTYLE mode )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 
 // vgui drawing implementation
 static void	VGUI_DrawInit( void )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	VGUI_DrawShutdown( void )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	VGUI_SetupDrawingText( int *pColor )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	VGUI_SetupDrawingRect( int *pColor )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	VGUI_SetupDrawingImage( int *pColor )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	VGUI_BindTexture( int id )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	VGUI_EnableTexture( qboolean enable )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	VGUI_CreateTexture( int id, int width, int height )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	VGUI_UploadTexture( int id, const char *buffer, int width, int height )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	VGUI_UploadTextureBlock( int id, int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static void	VGUI_GetTextureSizes( int *width, int *height )
 {
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 }
 static int		VGUI_GenerateTexture( void )
 {
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+	PRINT_NOT_IMPLEMENTED();
 	return 0;
 }
 
