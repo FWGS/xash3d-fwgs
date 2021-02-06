@@ -4,15 +4,23 @@
 	- [x] raster state
 	- [x] color constants
 - [x] culling
-- [ ] shaders s/map/brush/
+- [x] shaders s/map/brush/
 - [ ] pipeline cache
+- [ ] swapchain getting stale
 
 # Next
+- [ ] sprites
+- [ ] studio models
 
 # Planned
-- [ ] transparent brushes are too transparent (train ride)
-- [ ] lightmap sometimes gets corrupted on map load
+- [ ] issue: transparent brushes are too transparent (train ride)
+- [ ] issue: lightmap sometimes gets corrupted on map load
 - [ ] render skybox
 - [ ] mipmaps
+- [ ] animated textures
+- [ ] lightmap dynamic styles
+- [ ] flashlight
 
 # Someday
+- [ ] waf shader build step -- get from upstream
+- [ ] embed shaders into binary

@@ -31,7 +31,7 @@ typedef struct brush_vertex_s
 typedef struct vk_brush_model_surface_s {
 	int texture_num;
 
-	// Offset into gmap.index_buffer in vertices
+	// Offset into g_brush.index_buffer in vertices
 	uint32_t index_offset;
 	uint16_t index_count;
 } vk_brush_model_surface_t;
@@ -39,7 +39,7 @@ typedef struct vk_brush_model_surface_s {
 typedef struct vk_brush_model_s {
 	//model_t *model;
 
-	// Offset into gmap.vertex_buffer in vertices
+	// Offset into g_brush.vertex_buffer in vertices
 	uint32_t vertex_offset;
 
 	int num_surfaces;
@@ -58,7 +58,7 @@ static struct {
 
 	VkPipelineLayout pipeline_layout;
 	VkPipeline pipelines[kRenderTransAdd + 1];
-} gmap;
+} g_brush;
 
 typedef struct {
 	matrix4x4 mvp;
@@ -66,7 +66,7 @@ typedef struct {
 } uniform_data_t;
 
 /* static brush_vertex_t *allocVertices(int num_vertices) { */
-/* 		if (num_vertices + gmap.num_vertices > MAX_BUFFER_VERTICES) */
+/* 		if (num_vertices + g_brush.num_vertices > MAX_BUFFER_VERTICES) */
 /* 		{ */
 /* 			gEngine.Con_Printf(S_ERROR "Ran out of buffer vertex space\n"); */
 /* 			return NULL; */
@@ -96,7 +96,7 @@ static qboolean createPipelines( void )
 	};
 
 	// FIXME store layout separately
-	XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &gmap.pipeline_layout));
+	XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &g_brush.pipeline_layout));
 
 	{
 		struct ShaderSpec {
@@ -123,17 +123,17 @@ static qboolean createPipelines( void )
 		{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_VERTEX_BIT,
-			.module = loadShader("map.vert.spv"),
+			.module = loadShader("brush.vert.spv"),
 			.pName = "main",
 		}, {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.module = loadShader("map.frag.spv"),
+			.module = loadShader("brush.frag.spv"),
 			.pName = "main",
 		}};
 
 		vk_pipeline_create_info_t ci = {
-			.layout = gmap.pipeline_layout,
+			.layout = g_brush.pipeline_layout,
 			.attribs = attribs,
 			.num_attribs = ARRAYSIZE(attribs),
 
@@ -151,9 +151,9 @@ static qboolean createPipelines( void )
 			.cullMode = VK_CULL_MODE_FRONT_BIT,
 		};
 
-		for (int i = 0; i < ARRAYSIZE(gmap.pipelines); ++i)
+		for (int i = 0; i < ARRAYSIZE(g_brush.pipelines); ++i)
 		{
-			const char *name;
+			const char *name = "UNDEFINED";
 			switch (i)
 			{
 				case kRenderNormal:
@@ -201,12 +201,13 @@ static qboolean createPipelines( void )
 					name = "brush kRenderTransTexture/Glow";
 					break;
 
-					break;
+				default:
+					ASSERT(!"Unreachable");
 			}
 
-			gmap.pipelines[i] = createPipeline(&ci);
+			g_brush.pipelines[i] = createPipeline(&ci);
 
-			if (!gmap.pipelines[i])
+			if (!g_brush.pipelines[i])
 			{
 				// TODO complain
 				return false;
@@ -216,7 +217,7 @@ static qboolean createPipelines( void )
 			{
 				VkDebugUtilsObjectNameInfoEXT debug_name = {
 					.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-					.objectHandle = (uint64_t)gmap.pipelines[i],
+					.objectHandle = (uint64_t)g_brush.pipelines[i],
 					.objectType = VK_OBJECT_TYPE_PIPELINE,
 					.pObjectName = name,
 				};
@@ -238,13 +239,13 @@ qboolean VK_BrushInit( void )
 
 	// TODO device memory and friends (e.g. handle mobile memory ...)
 
-	if (!createBuffer(&gmap.vertex_buffer, vertex_buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	if (!createBuffer(&g_brush.vertex_buffer, vertex_buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
-	if (!createBuffer(&gmap.index_buffer, index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	if (!createBuffer(&g_brush.index_buffer, index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
-	if (!createBuffer(&gmap.uniform_buffer, sizeof(uniform_data_t) * (MAX_SCENE_ENTITIES * 2 /* solid + trans */ + 1), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	if (!createBuffer(&g_brush.uniform_buffer, sizeof(uniform_data_t) * (MAX_SCENE_ENTITIES * 2 /* solid + trans */ + 1), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
 	if (!createPipelines())
@@ -252,7 +253,7 @@ qboolean VK_BrushInit( void )
 
 	{
 		VkDescriptorBufferInfo dbi = {
-			.buffer = gmap.uniform_buffer.buffer,
+			.buffer = g_brush.uniform_buffer.buffer,
 			.offset = 0,
 			.range = sizeof(uniform_data_t),
 		};
@@ -273,13 +274,13 @@ qboolean VK_BrushInit( void )
 
 void VK_BrushShutdown( void )
 {
-	for (int i = 0; i < ARRAYSIZE(gmap.pipelines); ++i)
-		vkDestroyPipeline(vk_core.device, gmap.pipelines[i], NULL);
-	vkDestroyPipelineLayout( vk_core.device, gmap.pipeline_layout, NULL );
+	for (int i = 0; i < ARRAYSIZE(g_brush.pipelines); ++i)
+		vkDestroyPipeline(vk_core.device, g_brush.pipelines[i], NULL);
+	vkDestroyPipelineLayout( vk_core.device, g_brush.pipeline_layout, NULL );
 
-	destroyBuffer( &gmap.vertex_buffer );
-	destroyBuffer( &gmap.index_buffer );
-	destroyBuffer( &gmap.uniform_buffer );
+	destroyBuffer( &g_brush.vertex_buffer );
+	destroyBuffer( &g_brush.index_buffer );
+	destroyBuffer( &g_brush.uniform_buffer );
 }
 
 static float R_GetFarClip( void )
@@ -362,7 +363,7 @@ static void drawBrushModel( const model_t *mod )
 			if (index_count)
 				vkCmdDrawIndexed(vk_core.cb, index_count, 1, index_offset, bmodel->vertex_offset, 0);
 
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, gmap.pipeline_layout, 1, 1, &texture->vk.descriptor, 0, NULL);
+			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipeline_layout, 1, 1, &texture->vk.descriptor, 0, NULL);
 
 			current_texture = bsurf->texture_num;
 			index_count = 0;
@@ -597,7 +598,7 @@ static int CL_FxBlend( cl_entity_t *e, const vec3_t vieworg ) // FIXME do R_Setu
 void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 {
 	matrix4x4 worldview={0}, projection={0}, mvp={0};
-	uniform_data_t *ubo = gmap.uniform_buffer.mapped;
+	uniform_data_t *ubo = g_brush.uniform_buffer.mapped;
 	int current_pipeline_index = kRenderNormal;
 	int uniform_buffer_offset = 1; // skip world model
 
@@ -620,7 +621,7 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 	Vector4Set(ubo[0].color, 1.f, 1.f, 1.f, 1.f);
 
 		/*
-		vkCmdUpdateBuffer(vk_core.cb, gmap.uniform_buffer.buffer, 0, sizeof(uniform_data), &uniform_data);
+		vkCmdUpdateBuffer(vk_core.cb, g_brush.uniform_buffer.buffer, 0, sizeof(uniform_data), &uniform_data);
 
 		VkMemoryBarrier mem_barrier = {
 				.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
@@ -656,9 +657,9 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 
 	{
 		const VkDeviceSize offset = 0;
-		vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, gmap.pipelines[kRenderNormal]);
-		vkCmdBindVertexBuffers(vk_core.cb, 0, 1, &gmap.vertex_buffer.buffer, &offset);
-		vkCmdBindIndexBuffer(vk_core.cb, gmap.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT16);
+		vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipelines[kRenderNormal]);
+		vkCmdBindVertexBuffers(vk_core.cb, 0, 1, &g_brush.vertex_buffer.buffer, &offset);
+		vkCmdBindIndexBuffer(vk_core.cb, g_brush.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT16);
 	}
 
 	if (!tglob.lightmapTextures[0])
@@ -667,7 +668,7 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 		return;
 	}
 
-	vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, gmap.pipeline_layout, 2, 1, &findTexture(tglob.lightmapTextures[0])->vk.descriptor, 0, NULL);
+	vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipeline_layout, 2, 1, &findTexture(tglob.lightmapTextures[0])->vk.descriptor, 0, NULL);
 
 	// Draw world
 	{
@@ -675,7 +676,7 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 		if (world)
 		{
 			const uint32_t dynamic_offset[] = { sizeof(matrix4x4) * (0) };
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, gmap.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
+			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
 			drawBrushModel( world );
 		}
 	}
@@ -701,7 +702,7 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 
 		{
 			const uint32_t dynamic_offset[] = { sizeof(uniform_data_t) * ubo_offset };
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, gmap.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
+			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
 		}
 		drawBrushModel( mod );
 	}
@@ -734,7 +735,7 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 			continue;
 
 		ASSERT(ent->render_mode >= 0);
-		ASSERT(ent->render_mode < ARRAYSIZE(gmap.pipelines));
+		ASSERT(ent->render_mode < ARRAYSIZE(g_brush.pipelines));
 
 		R_RotateForEntity( model, ent->entity );
 		Matrix4x4_Concat( ent_mvp, mvp, model );
@@ -774,13 +775,13 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 
 		{
 			const uint32_t dynamic_offset[] = { sizeof(uniform_data_t) * ubo_offset };
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, gmap.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
+			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
 		}
 
 		if (ent->render_mode != current_pipeline_index)
 		{
 			current_pipeline_index = ent->render_mode;
-			vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, gmap.pipelines[current_pipeline_index]);
+			vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipelines[current_pipeline_index]);
 		}
 
 		drawBrushModel( mod );
@@ -791,8 +792,8 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 }
 
 static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_surfaces) {
-	brush_vertex_t *bvert = gmap.vertex_buffer.mapped;
-	uint16_t *bind = gmap.index_buffer.mapped;
+	brush_vertex_t *bvert = g_brush.vertex_buffer.mapped;
+	uint16_t *bind = g_brush.index_buffer.mapped;
 	uint32_t vertex_offset = 0;
 	int num_surfaces = 0;
 
@@ -841,13 +842,13 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 
 			//gEngine.Con_Reportf( "surface %d: numverts=%d numedges=%d\n", i, surf->polys ? surf->polys->numverts : -1, surf->numedges );
 
-			if (surf->numedges + gmap.num_vertices > MAX_BUFFER_VERTICES)
+			if (surf->numedges + g_brush.num_vertices > MAX_BUFFER_VERTICES)
 			{
 				gEngine.Con_Printf(S_ERROR "Ran out of buffer vertex space\n");
 				return -1;
 			}
 
-			if ((surf->numedges-1) * 3 + gmap.num_indices > MAX_BUFFER_INDICES)
+			if ((surf->numedges-1) * 3 + g_brush.num_indices > MAX_BUFFER_INDICES)
 			{
 				gEngine.Con_Printf(S_ERROR "Ran out of buffer index space\n");
 				return -1;
@@ -860,7 +861,7 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 			}
 
 			bsurf->texture_num = surf->texinfo->texture->gl_texturenum;
-			bsurf->index_offset = gmap.num_indices;
+			bsurf->index_offset = g_brush.num_indices;
 			bsurf->index_count = 0;
 
 			VK_CreateSurfaceLightmap( surf, mod );
@@ -899,15 +900,15 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 				vertex.lm_tc[0] = s;
 				vertex.lm_tc[1] = t;
 
-				//gEngine.Con_Printf("VERT %u %f %f %f\n", gmap.num_vertices, in_vertex->position[0], in_vertex->position[1], in_vertex->position[2]);
+				//gEngine.Con_Printf("VERT %u %f %f %f\n", g_brush.num_vertices, in_vertex->position[0], in_vertex->position[1], in_vertex->position[2]);
 
-				bvert[gmap.num_vertices++] = vertex;
+				bvert[g_brush.num_vertices++] = vertex;
 
 				// TODO contemplate triangle_strip (or fan?) + primitive restart
 				if (k > 1) {
-					bind[gmap.num_indices++] = (uint16_t)(vertex_offset + 0);
-					bind[gmap.num_indices++] = (uint16_t)(vertex_offset + k - 1);
-					bind[gmap.num_indices++] = (uint16_t)(vertex_offset + k);
+					bind[g_brush.num_indices++] = (uint16_t)(vertex_offset + 0);
+					bind[g_brush.num_indices++] = (uint16_t)(vertex_offset + k - 1);
+					bind[g_brush.num_indices++] = (uint16_t)(vertex_offset + k);
 					bsurf->index_count += 3;
 				}
 			}
@@ -934,7 +935,7 @@ qboolean VK_LoadBrushModel( model_t *mod, const byte *buffer )
 	bmodel = Mem_Malloc(vk_core.pool, sizeof(vk_brush_model_t) + sizeof(vk_brush_model_surface_t) * mod->nummodelsurfaces);
 	mod->cache.data = bmodel;
 
-	bmodel->vertex_offset = gmap.num_vertices;
+	bmodel->vertex_offset = g_brush.num_vertices;
 	bmodel->num_surfaces = loadBrushSurfaces( mod, bmodel->surfaces );
 	if (bmodel->num_surfaces < 0) {
 		gEngine.Con_Reportf( S_ERROR "Model %s was not loaded\n", mod->name );
@@ -950,13 +951,13 @@ qboolean VK_LoadBrushModel( model_t *mod, const byte *buffer )
 	/* 			bmodel->surfaces[i].index_offset, */
 	/* 			bmodel->surfaces[i].index_count); */
 
-	gEngine.Con_Reportf("Model %s loaded surfaces: %d (of %d); total vertices: %u, total indices: %u\n", mod->name, bmodel->num_surfaces, mod->nummodelsurfaces, gmap.num_vertices, gmap.num_indices);
+	gEngine.Con_Reportf("Model %s loaded surfaces: %d (of %d); total vertices: %u, total indices: %u\n", mod->name, bmodel->num_surfaces, mod->nummodelsurfaces, g_brush.num_vertices, g_brush.num_indices);
 	return true;
 }
 
 void VK_BrushClear( void )
 {
 	// Free previous map data
-	gmap.num_vertices = 0;
-	gmap.num_indices = 0;
+	g_brush.num_vertices = 0;
+	g_brush.num_indices = 0;
 }
