@@ -6,6 +6,7 @@
 #include "vk_scene.h"
 #include "vk_framectl.h"
 #include "vk_lightmap.h"
+#include "vk_sprite.h"
 
 #include "xash3d_types.h"
 #include "com_strings.h"
@@ -138,29 +139,6 @@ static void R_InitSkyClouds( struct mip_s *mt, struct texture_s *tx, qboolean cu
 
 extern void GL_SubdivideSurface( msurface_t *fa );
 
-// sprites
-static void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-static int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
-{
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
-	return 0;
-}
-
-// model management
-// flags ignored for everything except spritemodels
-static void Mod_LoadMapSprite( struct model_s *mod, const void *buffer, size_t size, qboolean *loaded )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-
-static void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags )
-{
-	gEngine.Con_Printf(S_ERROR "VK FIXME %s(%p, %s), %p, %d, %08x\n",
-		__FUNCTION__, mod, mod->name, buffer, *loaded, texFlags);
-}
 
 static void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 {

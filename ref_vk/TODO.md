@@ -7,20 +7,31 @@
 - [x] shaders s/map/brush/
 - [x] pipeline cache
 - [x] swapchain getting stale
+- [ ] sprites
+	- [x] HUD sprites
 
 # Next
-- [ ] sprites
 - [ ] studio models
 
 # Planned
-- [ ] issue: transparent brushes are too transparent (train ride)
 - [ ] issue: lightmap sometimes gets corrupted on map load
+- [ ] what is GL_Backend*/GL_RenderFrame ???
+- [ ] beams
+- [ ] particles
+- [ ] decals
+- [ ] issue: transparent brushes are too transparent (train ride)
 - [ ] render skybox
 - [ ] mipmaps
 - [ ] animated textures
 - [ ] lightmap dynamic styles
 - [ ] flashlight
+- [ ] screenshot
+- [ ] RTX
 
 # Someday
 - [ ] waf shader build step -- get from upstream
 - [ ] embed shaders into binary
+- [ ] verify resources lifetime: make sure we don't leak and delete all textures, brushes, models, etc between maps
+- [ ] custom allocator for vulkan
+- [ ] stats
+- [ ] better 2d renderer: fill DRAWQUAD(texture, color, ...) command into storage buffer instead of 4 vertices

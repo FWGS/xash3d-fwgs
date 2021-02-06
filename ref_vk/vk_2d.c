@@ -19,14 +19,6 @@ void R_DrawTileClear( int texnum, int x, int y, int w, int h )
 {
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
-void CL_FillRGBA( float x, float y, float w, float h, int r, int g, int b, int a )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-void CL_FillRGBABlend( float x, float y, float w, float h, int r, int g, int b, int a )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
 
 typedef struct vertex_2d_s {
 	float x, y;
@@ -55,17 +47,17 @@ static struct {
 	// TODO texture bindings?
 } g2d;
 
-void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
+static vertex_2d_t* allocQuadVerts(int blending_mode, int texnum)
 {
-	if (g2d.batch[g2d.current_batch].texture != texnum || g2d.batch[g2d.current_batch].blending_mode != vk_renderstate.blending_mode)
+	vertex_2d_t* const ptr = ((vertex_2d_t*)(g2d.pics_buffer.mapped)) + g2d.num_pics;
+	if (g2d.batch[g2d.current_batch].texture != texnum || g2d.batch[g2d.current_batch].blending_mode != blending_mode)
 	{
 		if (g2d.batch[g2d.current_batch].vertex_count != 0)
 		{
 			if (g2d.current_batch == MAX_BATCHES - 1)
 			{
-				gEngine.Con_Printf(S_ERROR "VK FIXME RAN OUT OF BATCHES: %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__,
-					x, y, w, h, s1, t1, s2, t2, texnum, findTexture(texnum)->name);
-				return;
+				gEngine.Con_Printf(S_ERROR "VK FIXME RAN OUT OF BATCHES");
+				return NULL;
 			}
 
 			++g2d.current_batch;
@@ -79,14 +71,27 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 
 	if (g2d.num_pics + 6 > g2d.max_pics)
 	{
-		gEngine.Con_Printf(S_ERROR "VK FIXME RAN OUT OF BUFFER: %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__,
+		gEngine.Con_Printf(S_ERROR "VK FIXME RAN OUT OF BUFFER");
+		return NULL;
+	}
+
+	g2d.num_pics += 6;
+	g2d.batch[g2d.current_batch].vertex_count += 6;
+	return ptr;
+}
+
+void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
+{
+	vertex_2d_t *p = allocQuadVerts(vk_renderstate.blending_mode, texnum);
+
+	if (!p) {
+		gEngine.Con_Printf(S_ERROR "VK FIXME %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__,
 			x, y, w, h, s1, t1, s2, t2, texnum, findTexture(texnum)->name);
+
 		return;
 	}
 
 	{
-		vertex_2d_t *p = ((vertex_2d_t*)(g2d.pics_buffer.mapped)) + g2d.num_pics;
-
 		const float vw = vk_frame.create_info.imageExtent.width;
 		const float vh = vk_frame.create_info.imageExtent.height;
 		const float x1 = (x / vw)*2.f - 1.f;
@@ -95,8 +100,6 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 		const float y2 = ((y + h) / vh)*2.f - 1.f;
 		const color_rgba8_t color = vk_renderstate.tri_color;
 
-		g2d.num_pics += 6;
-		g2d.batch[g2d.current_batch].vertex_count += 6; // ....
 		p[0] = (vertex_2d_t){x1, y1, s1, t1, color};
 		p[1] = (vertex_2d_t){x1, y2, s1, t2, color};
 		p[2] = (vertex_2d_t){x2, y1, s2, t1, color};
@@ -104,6 +107,27 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 		p[4] = (vertex_2d_t){x1, y2, s1, t2, color};
 		p[5] = (vertex_2d_t){x2, y2, s2, t2, color};
 	}
+}
+
+static void drawFill( float x, float y, float w, float h, int r, int g, int b, int a, int blending_mode )
+{
+	const color_rgba8_t prev_color = vk_renderstate.tri_color;
+	const int prev_blending = vk_renderstate.blending_mode;
+	vk_renderstate.blending_mode = blending_mode;
+	vk_renderstate.tri_color = (color_rgba8_t){r, g, b, a};
+	R_DrawStretchPic(x, y, w, h, 0, 0, 1, 1, VK_FindTexture(REF_WHITE_TEXTURE));
+	vk_renderstate.tri_color = prev_color;
+	vk_renderstate.blending_mode = prev_blending;
+}
+
+void CL_FillRGBA( float x, float y, float w, float h, int r, int g, int b, int a )
+{
+	drawFill(x, y, w, h, r, g, b, a, kRenderTransAdd);
+}
+
+void CL_FillRGBABlend( float x, float y, float w, float h, int r, int g, int b, int a )
+{
+	drawFill(x, y, w, h, r, g, b, a, kRenderTransColor);
 }
 
 void vk2dBegin( void )
