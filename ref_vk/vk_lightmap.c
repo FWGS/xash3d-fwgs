@@ -21,6 +21,8 @@ typedef struct
 } gllightmapstate_t;
 
 static gllightmapstate_t gl_lms;
+
+// TODO this doesn't really need to be this huge
 static uint		r_blocklights[BLOCK_SIZE_MAX*BLOCK_SIZE_MAX*3]; // This is just a temp HDR-ish buffer for lightmap generation
 
 static void LM_InitBlock( void )
@@ -227,6 +229,8 @@ void VK_ClearLightmap( void )
 	for (int i = 0; i < gl_lms.current_lightmap_texture; ++i)
 		VK_FreeTexture(tglob.lightmapTextures[i]);
 	gl_lms.current_lightmap_texture = 0;
+
+	LM_InitBlock();
 }
 
 void VK_RunLightStyles( void )

@@ -7,14 +7,14 @@
 - [x] shaders s/map/brush/
 - [x] pipeline cache
 - [x] swapchain getting stale
-- [ ] sprites
-	- [x] HUD sprites
+- [x] HUD sprites
+- [x] issue: lightmap sometimes gets corrupted on map load
 
 # Next
 - [ ] studio models
 
 # Planned
-- [ ] issue: lightmap sometimes gets corrupted on map load
+- [ ] sprites
 - [ ] what is GL_Backend*/GL_RenderFrame ???
 - [ ] beams
 - [ ] particles
