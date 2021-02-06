@@ -16,10 +16,13 @@ typedef struct {
 
   VkBool32                 blendEnable;
   VkBlendFactor            srcColorBlendFactor;
-  VkBlendFactor            dstColorBlendFactor; VkBlendOp                colorBlendOp;
+  VkBlendFactor            dstColorBlendFactor;
+	VkBlendOp                colorBlendOp;
   VkBlendFactor            srcAlphaBlendFactor;
   VkBlendFactor            dstAlphaBlendFactor;
   VkBlendOp                alphaBlendOp;
+
+  VkCullModeFlags cullMode;
 } vk_pipeline_create_info_t;
 
 VkPipeline createPipeline(const vk_pipeline_create_info_t *ci);

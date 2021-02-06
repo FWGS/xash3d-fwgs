@@ -189,6 +189,7 @@ static qboolean createPipelines( void )
 			.depthTestEnable = VK_FALSE,
 			.depthWriteEnable = VK_FALSE,
 			.depthCompareOp = VK_COMPARE_OP_ALWAYS,
+			.cullMode = VK_CULL_MODE_NONE,
 		};
 
 		for (int i = 0; i < ARRAYSIZE(g2d.pipelines); ++i)

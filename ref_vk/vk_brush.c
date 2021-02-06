@@ -99,6 +99,20 @@ static qboolean createPipelines( void )
 	XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &gmap.pipeline_layout));
 
 	{
+		struct ShaderSpec {
+			float alpha_test_threshold;
+		} spec_data = { .25f };
+		const VkSpecializationMapEntry spec_map[] = {
+			{.constantID = 0, .offset = offsetof(struct ShaderSpec, alpha_test_threshold), .size = sizeof(float) },
+		};
+
+		VkSpecializationInfo alpha_test_spec = {
+			.mapEntryCount = ARRAYSIZE(spec_map),
+			.pMapEntries = spec_map,
+			.dataSize = sizeof(struct ShaderSpec),
+			.pData = &spec_data
+		};
+
 		VkVertexInputAttributeDescription attribs[] = {
 			{.binding = 0, .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(brush_vertex_t, pos)},
 			{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(brush_vertex_t, gl_tc)},
@@ -133,6 +147,8 @@ static qboolean createPipelines( void )
 			.depthCompareOp = VK_COMPARE_OP_LESS,
 
 			.blendEnable = VK_FALSE,
+
+			.cullMode = VK_CULL_MODE_FRONT_BIT,
 		};
 
 		for (int i = 0; i < ARRAYSIZE(gmap.pipelines); ++i)
@@ -141,32 +157,50 @@ static qboolean createPipelines( void )
 			switch (i)
 			{
 				case kRenderNormal:
+					ci.stages[1].pSpecializationInfo = NULL;
 					ci.blendEnable = VK_FALSE;
+					ci.depthWriteEnable = VK_TRUE;
 					name = "brush kRenderNormal";
 					break;
 
 				case kRenderTransColor:
-				case kRenderTransTexture:
+					ci.stages[1].pSpecializationInfo = NULL;
+					ci.depthWriteEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
-					ci.colorBlendOp = VK_BLEND_OP_ADD;
+					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
 					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-					name = "brush kRenderTransColor/Texture";
+					name = "brush kRenderTransColor";
+					break;
+
+				case kRenderTransAdd:
+					ci.stages[1].pSpecializationInfo = NULL;
+					ci.depthWriteEnable = VK_FALSE;
+					ci.blendEnable = VK_TRUE;
+					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
+					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+					name = "brush kRenderTransAdd";
 					break;
 
 				case kRenderTransAlpha:
+					ci.stages[1].pSpecializationInfo = &alpha_test_spec;
+					ci.depthWriteEnable = VK_TRUE;
 					ci.blendEnable = VK_FALSE;
-					// FIXME pglEnable( GL_ALPHA_TEST );
 					name = "brush kRenderTransAlpha(test)";
 					break;
 
 				case kRenderGlow:
-				case kRenderTransAdd:
+				case kRenderTransTexture:
+					ci.stages[1].pSpecializationInfo = NULL;
+					ci.depthWriteEnable = VK_FALSE;
 					ci.blendEnable = VK_TRUE;
-					ci.colorBlendOp = VK_BLEND_OP_ADD;
+					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
 					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-					name = "brush kRenderGlow/TransAdd";
+					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+					name = "brush kRenderTransTexture/Glow";
+					break;
+
 					break;
 			}
 
@@ -712,6 +746,10 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 		if( alpha <= 0.0f ) continue;
 
 		switch (ent->render_mode) {
+			case kRenderNormal:
+				Vector4Set(e_ubo->color, 1.f, 1.f, 1.f, 1.f);
+				break;
+
 			case kRenderTransColor:
 				// FIXME also zero out texture? use white texture
 				Vector4Set(e_ubo->color,
@@ -720,13 +758,16 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 						ent->entity->curstate.rendercolor.b / 255.f,
 						ent->entity->curstate.renderamt / 255.f);
 				break;
+
 			case kRenderTransAdd:
 				Vector4Set(e_ubo->color, alpha, alpha, alpha, 1.f);
 				break;
+
 			case kRenderTransAlpha:
 				Vector4Set(e_ubo->color, 1.f, 1.f, 1.f, 1.f);
 				// TODO Q1compat Vector4Set(e_ubo->color, 1.f, 1.f, 1.f, alpha);
 				break;
+
 			default:
 				Vector4Set(e_ubo->color, 1.f, 1.f, 1.f, alpha);
 		}
