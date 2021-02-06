@@ -8,6 +8,7 @@
 #include "vk_brush.h"
 #include "vk_scene.h"
 #include "vk_cvar.h"
+#include "vk_pipeline.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -569,6 +570,9 @@ qboolean R_VkInit( void )
 		XVK_CHECK(vkCreateSampler(vk_core.device, &sci, NULL, &vk_core.default_sampler));
 	}
 
+	if (!VK_PipelineInit())
+		return false;
+
 	// TODO ...
 	if (!initDescriptorPool())
 		return false;
@@ -601,6 +605,8 @@ void R_VkShutdown( void )
 	VK_FrameCtlShutdown();
 
 	destroyTextures();
+
+	VK_PipelineShutdown();
 
 	vkDestroyDescriptorPool(vk_core.device, vk_core.descriptor_pool.pool, NULL);
 	vkDestroyDescriptorSetLayout(vk_core.device, vk_core.descriptor_pool.one_texture_layout, NULL);

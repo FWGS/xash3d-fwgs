@@ -137,6 +137,8 @@ const char *resultName(VkResult result);
 	X(vkCreateImageView) \
 	X(vkCreateFramebuffer) \
 	X(vkCreateRenderPass) \
+	X(vkCreatePipelineCache) \
+	X(vkDestroyPipelineCache) \
 	X(vkCreatePipelineLayout) \
 	X(vkCreateGraphicsPipelines) \
 	X(vkCreateShaderModule) \

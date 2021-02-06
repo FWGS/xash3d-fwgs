@@ -4,6 +4,27 @@
 
 #include "eiface.h"
 
+static struct {
+	VkPipelineCache cache;
+} g_pipeline;
+
+qboolean VK_PipelineInit( void )
+{
+	VkPipelineCacheCreateInfo pcci = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+    .initialDataSize = 0,
+    .pInitialData = NULL,
+	};
+
+	XVK_CHECK(vkCreatePipelineCache(vk_core.device, &pcci, NULL, &g_pipeline.cache));
+	return true;
+}
+
+void VK_PipelineShutdown( void )
+{
+	vkDestroyPipelineCache(vk_core.device, g_pipeline.cache, NULL);
+}
+
 VkPipeline createPipeline(const vk_pipeline_create_info_t *ci)
 {
 	VkVertexInputBindingDescription vibd = {
@@ -97,7 +118,7 @@ VkPipeline createPipeline(const vk_pipeline_create_info_t *ci)
 	};
 
 	VkPipeline pipeline;
-	XVK_CHECK(vkCreateGraphicsPipelines(vk_core.device, VK_NULL_HANDLE, 1, &gpci, NULL, &pipeline));
+	XVK_CHECK(vkCreateGraphicsPipelines(vk_core.device, g_pipeline.cache, 1, &gpci, NULL, &pipeline));
 
 	return pipeline;
 }

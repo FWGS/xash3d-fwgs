@@ -26,3 +26,6 @@ typedef struct {
 } vk_pipeline_create_info_t;
 
 VkPipeline createPipeline(const vk_pipeline_create_info_t *ci);
+
+qboolean VK_PipelineInit( void );
+void VK_PipelineShutdown( void );
