@@ -5,8 +5,8 @@
 	- [x] color constants
 - [x] culling
 - [x] shaders s/map/brush/
-- [ ] pipeline cache
-- [ ] swapchain getting stale
+- [x] pipeline cache
+- [x] swapchain getting stale
 
 # Next
 - [ ] sprites

@@ -301,14 +301,6 @@ void R_EndFrame( void )
 		{.color = {{1., 0., 0., 0.}}},
 		{.depthStencil = {1., 0.}} // TODO reverse-z
 	};
-	VkRenderPassBeginInfo rpbi = {
-		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-		.renderPass = vk_frame.render_pass,
-		.renderArea.extent.width = vk_frame.create_info.imageExtent.width,
-		.renderArea.extent.height = vk_frame.create_info.imageExtent.height,
-		.clearValueCount = ARRAYSIZE(clear_value),
-		.pClearValues = clear_value,
-	};
 	VkPipelineStageFlags stageflags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	VkSubmitInfo subinfo = {
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -332,11 +324,27 @@ void R_EndFrame( void )
 
 	gEngine.Con_Reportf("%s\n", __FUNCTION__);
 
-	// FIXME this can get out of date too
-	XVK_CHECK(vkAcquireNextImageKHR(vk_core.device, vk_frame.swapchain, UINT64_MAX, g_frame.image_available,
-		VK_NULL_HANDLE, &swapchain_image_index));
-	rpbi.framebuffer = vk_frame.framebuffers[swapchain_image_index];
+	for (int i = 0;; ++i)
+	{
+		const VkResult acquire_result = vkAcquireNextImageKHR(vk_core.device, vk_frame.swapchain, UINT64_MAX, g_frame.image_available,
+			VK_NULL_HANDLE, &swapchain_image_index);
+		switch (acquire_result)
+		{
+			case VK_ERROR_OUT_OF_DATE_KHR:
+			case VK_ERROR_SURFACE_LOST_KHR:
+				if (i == 0) {
+					createSwapchain();
+					continue;
+				}
+				gEngine.Con_Printf(S_WARN "vkAcquireNextImageKHR returned %s, frame will be lost\n", resultName(acquire_result));
+				return;
 
+			default:
+				XVK_CHECK(acquire_result);
+		}
+
+		break;
+	}
 
 	{
 		VkCommandBufferBeginInfo beginfo = {
@@ -346,7 +354,18 @@ void R_EndFrame( void )
 		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
 	}
 
-	vkCmdBeginRenderPass(vk_core.cb, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
+	{
+		VkRenderPassBeginInfo rpbi = {
+			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+			.renderPass = vk_frame.render_pass,
+			.renderArea.extent.width = vk_frame.create_info.imageExtent.width,
+			.renderArea.extent.height = vk_frame.create_info.imageExtent.height,
+			.clearValueCount = ARRAYSIZE(clear_value),
+			.pClearValues = clear_value,
+			.framebuffer = vk_frame.framebuffers[swapchain_image_index],
+		};
+		vkCmdBeginRenderPass(vk_core.cb, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
+	}
 
 	{
 		const VkViewport viewport[] = {
