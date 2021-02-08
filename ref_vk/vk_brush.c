@@ -55,6 +55,7 @@ static struct {
 	uint32_t num_indices;
 
 	vk_buffer_t uniform_buffer;
+	uint32_t uniform_unit_size;
 
 	VkPipelineLayout pipeline_layout;
 	VkPipeline pipelines[kRenderTransAdd + 1];
@@ -64,6 +65,15 @@ typedef struct {
 	matrix4x4 mvp;
 	vec4_t color;
 } uniform_data_t;
+
+#define MAX_UNIFORM_SLOTS (MAX_SCENE_ENTITIES * 2 /* solid + trans */ + 1)
+
+static uniform_data_t *getUniformSlot(int index)
+{
+	ASSERT(index >= 0);
+	ASSERT(index < MAX_UNIFORM_SLOTS);
+	return (uniform_data_t*)(((uint8_t*)g_brush.uniform_buffer.mapped) + (g_brush.uniform_unit_size * index));
+}
 
 /* static brush_vertex_t *allocVertices(int num_vertices) { */
 /* 		if (num_vertices + g_brush.num_vertices > MAX_BUFFER_VERTICES) */
@@ -236,6 +246,9 @@ qboolean VK_BrushInit( void )
 {
 	const uint32_t vertex_buffer_size = MAX_BUFFER_VERTICES * sizeof(brush_vertex_t);
 	const uint32_t index_buffer_size = MAX_BUFFER_INDICES * sizeof(uint16_t);
+	const uint32_t ubo_align = Q_max(4, vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
+
+	g_brush.uniform_unit_size = ((sizeof(uniform_data_t) + ubo_align - 1) / ubo_align) * ubo_align;
 
 	// TODO device memory and friends (e.g. handle mobile memory ...)
 
@@ -245,7 +258,7 @@ qboolean VK_BrushInit( void )
 	if (!createBuffer(&g_brush.index_buffer, index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
-	if (!createBuffer(&g_brush.uniform_buffer, sizeof(uniform_data_t) * (MAX_SCENE_ENTITIES * 2 /* solid + trans */ + 1), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	if (!createBuffer(&g_brush.uniform_buffer, g_brush.uniform_unit_size * MAX_UNIFORM_SLOTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
 	if (!createPipelines())
@@ -598,7 +611,7 @@ static int CL_FxBlend( cl_entity_t *e, const vec3_t vieworg ) // FIXME do R_Setu
 void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 {
 	matrix4x4 worldview={0}, projection={0}, mvp={0};
-	uniform_data_t *ubo = g_brush.uniform_buffer.mapped;
+	uniform_data_t *ubo = getUniformSlot(0);
 	int current_pipeline_index = kRenderNormal;
 	int uniform_buffer_offset = 1; // skip world model
 
@@ -675,19 +688,20 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 		const model_t *world = gEngine.pfnGetModelByIndex( 1 );
 		if (world)
 		{
-			const uint32_t dynamic_offset[] = { sizeof(matrix4x4) * (0) };
+			const uint32_t dynamic_offset[] = { g_brush.uniform_unit_size * 0 };
 			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
 			drawBrushModel( world );
 		}
 	}
 
+	// FIXME DRY for trans entities
 	for (int i = 0; i < draw_list->num_solid_entities; ++i)
 	{
 		const cl_entity_t *ent = draw_list->solid_entities[i];
 		const model_t *mod = ent->model;
 		matrix4x4 model, ent_mvp;
 		const int ubo_offset = uniform_buffer_offset++;
-		uniform_data_t *e_ubo = ubo + ubo_offset;
+		uniform_data_t *e_ubo = getUniformSlot(ubo_offset);
 
 		if (!mod)
 			continue;
@@ -701,7 +715,7 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 		Vector4Set(e_ubo->color, 1.f, 1.f, 1.f, 1.f);
 
 		{
-			const uint32_t dynamic_offset[] = { sizeof(uniform_data_t) * ubo_offset };
+			const uint32_t dynamic_offset[] = { g_brush.uniform_unit_size * ubo_offset };
 			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
 		}
 		drawBrushModel( mod );
@@ -725,7 +739,7 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 		const model_t *mod = ent->entity->model;
 		matrix4x4 model, ent_mvp;
 		const int ubo_offset = uniform_buffer_offset++;
-		uniform_data_t *e_ubo = ubo + ubo_offset;
+		uniform_data_t *e_ubo = getUniformSlot(ubo_offset);
 		float alpha = 0;
 
 		if (!mod)
@@ -774,7 +788,7 @@ void VK_BrushRender( const ref_viewpass_t *rvp, draw_list_t *draw_list)
 		}
 
 		{
-			const uint32_t dynamic_offset[] = { sizeof(uniform_data_t) * ubo_offset };
+			const uint32_t dynamic_offset[] = { g_brush.uniform_unit_size * ubo_offset };
 			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
 		}
 
