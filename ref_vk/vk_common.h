@@ -3,6 +3,7 @@
 #include "cvardef.h"
 #include "com_model.h"
 #include "ref_api.h"
+#include "com_strings.h"
 #include "crtlib.h"
 
 #define ASSERT(x) if(!( x )) gEngine.Host_Error( "assert " #x " failed at %s:%i\n", __FILE__, __LINE__ )
@@ -14,6 +15,20 @@
 #define Mem_AllocPool( name ) gEngine._Mem_AllocPool( name, __FILE__, __LINE__ )
 #define Mem_FreePool( pool ) gEngine._Mem_FreePool( pool, __FILE__, __LINE__ )
 #define Mem_EmptyPool( pool ) gEngine._Mem_EmptyPool( pool, __FILE__, __LINE__ )
+
+#define PRINT_NOT_IMPLEMENTED_ARGS(msg, ...) do { \
+		static int called = 0; \
+		gEngine.Con_Printf( S_ERROR "VK NOT_IMPLEMENTED(x%d): %s" msg "\n", called, __FUNCTION__, __VA_ARGS__ ); \
+		++called; \
+	} while(0)
+
+#define PRINT_NOT_IMPLEMENTED() do { \
+		static int called = 0; \
+		if ((called&1023) == 0) { \
+			gEngine.Con_Printf( S_ERROR "VK NOT_IMPLEMENTED(x%d): %s\n", called, __FUNCTION__ ); \
+		} \
+		++called; \
+	} while(0)
 
 extern ref_api_t gEngine;
 extern ref_globals_t *gpGlobals;

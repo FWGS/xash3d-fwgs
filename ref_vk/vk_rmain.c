@@ -7,6 +7,7 @@
 #include "vk_framectl.h"
 #include "vk_lightmap.h"
 #include "vk_sprite.h"
+#include "vk_studio.h"
 
 #include "xash3d_types.h"
 #include "com_strings.h"
@@ -15,20 +16,6 @@
 
 ref_api_t gEngine = {0};
 ref_globals_t *gpGlobals = NULL;
-
-#define PRINT_NOT_IMPLEMENTED_ARGS(msg, ...) do { \
-		static int called = 0; \
-		gEngine.Con_Printf( S_ERROR "VK NOT_IMPLEMENTED(x%d): %s" msg "\n", called, __FUNCTION__, __VA_ARGS__ ); \
-		++called; \
-	} while(0)
-
-#define PRINT_NOT_IMPLEMENTED() do { \
-		static int called = 0; \
-		if ((called&1023) == 0) { \
-			gEngine.Con_Printf( S_ERROR "VK NOT_IMPLEMENTED(x%d): %s\n", called, __FUNCTION__ ); \
-		} \
-		++called; \
-	} while(0)
 
 static const char *R_GetConfigName( void )
 {
@@ -177,7 +164,7 @@ static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte
 		switch( mod->type )
 		{
 			case mod_studio:
-				// Mod_LoadStudioModel( mod, buf, loaded );
+				Mod_LoadStudioModel( mod, buffer, &loaded );
 				break;
 			case mod_sprite:
 				Mod_LoadSpriteModel( mod, buffer, &loaded, mod->numtexinfo );
@@ -200,10 +187,6 @@ static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte
 		Mod_UnloadTextures( mod );
 
 	return loaded;
-}
-static void Mod_StudioLoadTextures( model_t *mod, void *data )
-{
-	PRINT_NOT_IMPLEMENTED();
 }
 
 // efx implementation
