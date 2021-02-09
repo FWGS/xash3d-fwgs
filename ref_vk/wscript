@@ -51,6 +51,6 @@ def build(bld):
 		features = 'glsl',
 		# includes = 'shaders/', # write your includes here
 		# defines = 'TEST', # write your C preprocessor defines here
-		install_path = '${PREFIX}/lib/xash3d/valve' # TEMPORARY!!!!
+		install_path = '${LIBDIR}/valve' # TEMPORARY!!!!
 	)
 
