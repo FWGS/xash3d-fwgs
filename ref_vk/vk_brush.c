@@ -26,6 +26,7 @@ typedef struct brush_vertex_s
 
 typedef struct vk_brush_model_surface_s {
 	int texture_num;
+	msurface_t *surf;
 
 	// Offset into g_brush.index_buffer in vertices
 	uint32_t index_offset;
@@ -48,6 +49,8 @@ static struct {
 	} stat;
 	VkPipelineLayout pipeline_layout;
 	VkPipeline pipelines[kRenderTransAdd + 1];
+
+	int rtable[MOD_FRAMES][MOD_FRAMES];
 } g_brush;
 
 
@@ -210,8 +213,28 @@ static qboolean createPipelines( void )
 	return true;
 }
 
+void VK_InitRandomTable( void )
+{
+	int	tu, tv;
+
+	// make random predictable
+	gEngine.COM_SetRandomSeed( 255 );
+
+	for( tu = 0; tu < MOD_FRAMES; tu++ )
+	{
+		for( tv = 0; tv < MOD_FRAMES; tv++ )
+		{
+			g_brush.rtable[tu][tv] = gEngine.COM_RandomLong( 0, 0x7FFF );
+		}
+	}
+
+	gEngine.COM_SetRandomSeed( 0 );
+}
+
 qboolean VK_BrushInit( void )
 {
+	VK_InitRandomTable ();
+
 	if (!createPipelines())
 		return false;
 
@@ -227,9 +250,63 @@ void VK_BrushShutdown( void )
 	vkDestroyPipelineLayout( vk_core.device, g_brush.pipeline_layout, NULL );
 }
 
-void VK_BrushDrawModel( const model_t *mod, int render_mode, int ubo_index )
+/*
+===============
+R_TextureAnimation
+
+Returns the proper texture for a given time and surface
+===============
+*/
+texture_t *R_TextureAnimation( const cl_entity_t *ent, msurface_t *s )
+{
+	texture_t	*base = s->texinfo->texture;
+	int	count, reletive;
+
+	if( ent && ent->curstate.frame )
+	{
+		if( base->alternate_anims )
+			base = base->alternate_anims;
+	}
+
+	if( !base->anim_total )
+		return base;
+
+	if( base->name[0] == '-' )
+	{
+		int	tx = (int)((s->texturemins[0] + (base->width << 16)) / base->width) % MOD_FRAMES;
+		int	ty = (int)((s->texturemins[1] + (base->height << 16)) / base->height) % MOD_FRAMES;
+
+		reletive = g_brush.rtable[tx][ty] % base->anim_total;
+	}
+	else
+	{
+		int	speed;
+
+		// Quake1 textures uses 10 frames per second
+		if( FBitSet( findTexture( base->gl_texturenum )->flags, TF_QUAKEPAL ))
+			speed = 10;
+		else speed = 20;
+
+		reletive = (int)(gpGlobals->time * speed) % base->anim_total;
+	}
+
+	count = 0;
+
+	while( base->anim_min > reletive || base->anim_max <= reletive )
+	{
+		base = base->anim_next;
+
+		if( !base || ++count > MOD_FRAMES )
+			return s->texinfo->texture;
+	}
+
+	return base;
+}
+
+void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode, int ubo_index )
 {
 	// Expect all buffers to be bound
+	const model_t *mod = ent->model;
 	const vk_brush_model_t *bmodel = mod->cache.data;
 	int current_texture = -1;
 	int index_count = 0;
@@ -261,18 +338,20 @@ void VK_BrushDrawModel( const model_t *mod, int render_mode, int ubo_index )
 
 	for (int i = 0; i < bmodel->num_surfaces; ++i) {
 		const vk_brush_model_surface_t *bsurf = bmodel->surfaces + i;
-		if (bsurf->texture_num < 0)
+		texture_t *t = R_TextureAnimation(ent, bsurf->surf);
+
+		if (t->gl_texturenum < 0)
 			continue;
 
-		if (current_texture != bsurf->texture_num)
+		if (current_texture != t->gl_texturenum)
 		{
-			vk_texture_t *texture = findTexture(bsurf->texture_num);
+			vk_texture_t *texture = findTexture(t->gl_texturenum);
 			if (index_count)
 				vkCmdDrawIndexed(vk_core.cb, index_count, 1, index_offset, bmodel->vertex_offset, 0);
 
 			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipeline_layout, 1, 1, &texture->vk.descriptor, 0, NULL);
 
-			current_texture = bsurf->texture_num;
+			current_texture = t->gl_texturenum;
 			index_count = 0;
 			index_offset = -1;
 		}
@@ -389,6 +468,7 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 				return -1;
 			}
 
+			bsurf->surf = surf;
 			bsurf->texture_num = surf->texinfo->texture->gl_texturenum;
 			bsurf->index_offset = index_offset;
 			bsurf->index_count = 0;
