@@ -539,7 +539,7 @@ static int drawEntity( cl_entity_t *ent, int render_mode, int ubo_index, const m
 	Matrix4x4_Concat( ent_mvp, mvp, model );
 	Matrix4x4_ToArrayFloatGL( ent_mvp, (float*)ubo->mvp);
 
-	VK_BrushDrawModel( mod, render_mode, ubo_index );
+	VK_BrushDrawModel( ent, render_mode, ubo_index );
 	return 1;
 }
 
@@ -554,8 +554,8 @@ void VK_SceneRender( void )
 
 	prepareMatrix( &fixme_rvp, worldview, projection, mvp );
 	{
-		const model_t *world = gEngine.pfnGetModelByIndex( 1 );
-		if (world)
+		cl_entity_t *world = gEngine.GetEntityByIndex( 0 );
+		if( world && world->model )
 		{
 			uniform_data_t *ubo = getUniformSlot(ubo_index);
 			Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp );
