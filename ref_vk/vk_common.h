@@ -30,5 +30,7 @@
 		++called; \
 	} while(0)
 
+#define ALIGN_UP(ptr, align) ((((ptr) + (align) - 1) / (align)) * (align))
+
 extern ref_api_t gEngine;
 extern ref_globals_t *gpGlobals;

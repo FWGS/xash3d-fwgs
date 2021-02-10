@@ -78,6 +78,7 @@ void R_NewMap( void )
 
 	// TODO should we do something like VK_BrushBeginLoad?
 	VK_BrushClear();
+	VK_RenderBufferClearAll();
 
 	// Load all models at once
 	gEngine.Con_Reportf( "Num models: %d:\n", num_models );
@@ -100,6 +101,8 @@ void R_NewMap( void )
 
 	// TODO should we do something like VK_BrushEndLoad?
 	VK_UploadLightmap();
+
+	VK_RenderBufferPrintStats();
 }
 
 qboolean R_AddEntity( struct cl_entity_s *clent, int type )
@@ -490,7 +493,7 @@ static int drawEntity( cl_entity_t *ent, int render_mode, int ubo_index, const m
 {
 	const model_t *mod = ent->model;
 	matrix4x4 model, ent_mvp;
-	uniform_data_t *ubo = getUniformSlot(ubo_index);
+	uniform_data_t *ubo = VK_RenderGetUniformSlot(ubo_index);
 	float alpha;
 
 	if (!mod)
@@ -557,7 +560,7 @@ void VK_SceneRender( void )
 		const model_t *world = gEngine.pfnGetModelByIndex( 1 );
 		if (world)
 		{
-			uniform_data_t *ubo = getUniformSlot(ubo_index);
+			uniform_data_t *ubo = VK_RenderGetUniformSlot(ubo_index);
 			Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp );
 			Vector4Set(ubo->color, 1.f, 1.f, 1.f, 1.f);
 			VK_BrushDrawModel( world, kRenderNormal, ubo_index );

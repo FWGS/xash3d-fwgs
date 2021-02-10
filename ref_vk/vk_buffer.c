@@ -22,6 +22,8 @@ qboolean createBuffer(vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage,
 	// FIXME when there are many allocation per VkDeviceMemory, fix this
 	XVK_CHECK(vkMapMemory(vk_core.device, buf->device_memory.device_memory, 0, bci.size, 0, &buf->mapped));
 
+	buf->size = size;
+
 	return true;
 }
 

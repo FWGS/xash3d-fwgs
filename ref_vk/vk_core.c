@@ -9,6 +9,7 @@
 #include "vk_scene.h"
 #include "vk_cvar.h"
 #include "vk_pipeline.h"
+#include "vk_render.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -579,6 +580,9 @@ qboolean R_VkInit( void )
 
 	VK_LoadCvars();
 
+	if (!VK_RenderInit())
+		return false;
+
 	VK_SceneInit();
 
 	initTextures();
@@ -605,6 +609,8 @@ void R_VkShutdown( void )
 	VK_FrameCtlShutdown();
 
 	destroyTextures();
+
+	VK_RenderShutdown();
 
 	VK_PipelineShutdown();
 

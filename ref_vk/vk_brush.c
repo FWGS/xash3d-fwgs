@@ -17,10 +17,6 @@
 #include <math.h>
 #include <memory.h>
 
-// TODO count these properly
-#define MAX_BUFFER_VERTICES (1 * 1024 * 1024)
-#define MAX_BUFFER_INDICES (MAX_BUFFER_VERTICES * 3)
-
 typedef struct brush_vertex_s
 {
 	vec3_t pos;
@@ -47,34 +43,13 @@ typedef struct vk_brush_model_s {
 } vk_brush_model_t;
 
 static struct {
-	// TODO merge these into a single buffer
-	vk_buffer_t vertex_buffer;
-	uint32_t num_vertices;
-
-	vk_buffer_t index_buffer;
-	uint32_t num_indices;
-
-	vk_buffer_t uniform_buffer;
-	uint32_t uniform_unit_size;
-
+	struct {
+		int num_vertices, num_indices;
+	} stat;
 	VkPipelineLayout pipeline_layout;
 	VkPipeline pipelines[kRenderTransAdd + 1];
 } g_brush;
 
-/* static brush_vertex_t *allocVertices(int num_vertices) { */
-/* 		if (num_vertices + g_brush.num_vertices > MAX_BUFFER_VERTICES) */
-/* 		{ */
-/* 			gEngine.Con_Printf(S_ERROR "Ran out of buffer vertex space\n"); */
-/* 			return NULL; */
-/* 		} */
-/* } */
-
-uniform_data_t *getUniformSlot(int index)
-{
-	ASSERT(index >= 0);
-	ASSERT(index < MAX_UNIFORM_SLOTS);
-	return (uniform_data_t*)(((uint8_t*)g_brush.uniform_buffer.mapped) + (g_brush.uniform_unit_size * index));
-}
 
 static qboolean createPipelines( void )
 {
@@ -237,43 +212,8 @@ static qboolean createPipelines( void )
 
 qboolean VK_BrushInit( void )
 {
-	const uint32_t vertex_buffer_size = MAX_BUFFER_VERTICES * sizeof(brush_vertex_t);
-	const uint32_t index_buffer_size = MAX_BUFFER_INDICES * sizeof(uint16_t);
-	const uint32_t ubo_align = Q_max(4, vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
-
-	g_brush.uniform_unit_size = ((sizeof(uniform_data_t) + ubo_align - 1) / ubo_align) * ubo_align;
-
-	// TODO device memory and friends (e.g. handle mobile memory ...)
-
-	if (!createBuffer(&g_brush.vertex_buffer, vertex_buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
-		return false;
-
-	if (!createBuffer(&g_brush.index_buffer, index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
-		return false;
-
-	if (!createBuffer(&g_brush.uniform_buffer, g_brush.uniform_unit_size * MAX_UNIFORM_SLOTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
-		return false;
-
 	if (!createPipelines())
 		return false;
-
-	{
-		VkDescriptorBufferInfo dbi = {
-			.buffer = g_brush.uniform_buffer.buffer,
-			.offset = 0,
-			.range = sizeof(uniform_data_t),
-		};
-		VkWriteDescriptorSet wds[] = { {
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstBinding = 0,
-			.dstArrayElement = 0,
-			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-			.pBufferInfo = &dbi,
-			.dstSet = vk_core.descriptor_pool.ubo_sets[0], // FIXME
-		}};
-		vkUpdateDescriptorSets(vk_core.device, ARRAYSIZE(wds), wds, 0, NULL);
-	}
 
 	return true;
 }
@@ -285,17 +225,12 @@ void VK_BrushShutdown( void )
 	for (int i = 0; i < ARRAYSIZE(g_brush.pipelines); ++i)
 		vkDestroyPipeline(vk_core.device, g_brush.pipelines[i], NULL);
 	vkDestroyPipelineLayout( vk_core.device, g_brush.pipeline_layout, NULL );
-
-	destroyBuffer( &g_brush.vertex_buffer );
-	destroyBuffer( &g_brush.index_buffer );
-	destroyBuffer( &g_brush.uniform_buffer );
 }
 
 void VK_BrushDrawModel( const model_t *mod, int render_mode, int ubo_index )
 {
 	// Expect all buffers to be bound
 	const vk_brush_model_t *bmodel = mod->cache.data;
-	const uint32_t dynamic_offset[] = { g_brush.uniform_unit_size * ubo_index };
 	int current_texture = -1;
 	int index_count = 0;
 	int index_offset = -1;
@@ -322,7 +257,7 @@ void VK_BrushDrawModel( const model_t *mod, int render_mode, int ubo_index )
 		vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipelines[fixme_current_pipeline_index]);
 	}
 
-	vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
+	VK_RenderBindUniformBufferWithIndex( g_brush.pipeline_layout, ubo_index);
 
 	for (int i = 0; i < bmodel->num_surfaces; ++i) {
 		const vk_brush_model_surface_t *bsurf = bmodel->surfaces + i;
@@ -358,10 +293,7 @@ void VK_BrushDrawModel( const model_t *mod, int render_mode, int ubo_index )
 
 qboolean VK_BrushRenderBegin( void )
 {
-	const VkDeviceSize offset = 0;
-	vkCmdBindVertexBuffers(vk_core.cb, 0, 1, &g_brush.vertex_buffer.buffer, &offset);
-	vkCmdBindIndexBuffer(vk_core.cb, g_brush.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT16);
-
+	VK_RenderBindBuffers(); // TODO in scene?
 	if (!tglob.lightmapTextures[0])
 	{
 		gEngine.Con_Printf( S_ERROR "Don't have a lightmap texture\n");
@@ -376,10 +308,13 @@ qboolean VK_BrushRenderBegin( void )
 }
 
 static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_surfaces) {
-	brush_vertex_t *bvert = g_brush.vertex_buffer.mapped;
-	uint16_t *bind = g_brush.index_buffer.mapped;
+	vk_brush_model_t *bmodel = mod->cache.data;
 	uint32_t vertex_offset = 0;
 	int num_surfaces = 0;
+	vk_buffer_alloc_t vertex_alloc, index_alloc;
+	brush_vertex_t *bvert = NULL;
+	uint16_t *bind = NULL;
+	uint32_t index_offset = 0;
 
 	int num_indices = 0, num_vertices = 0, max_texture_id = 0;
 	for( int i = 0; i < mod->nummodelsurfaces; ++i)
@@ -402,6 +337,27 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 		if (surf->texinfo->texture->gl_texturenum > max_texture_id)
 			max_texture_id = surf->texinfo->texture->gl_texturenum;
 	}
+
+	vertex_alloc = VK_RenderBufferAlloc( sizeof(brush_vertex_t), num_vertices );
+	bvert = vertex_alloc.ptr;
+	bmodel->vertex_offset = vertex_alloc.buffer_offset_in_units;
+	if (!bvert)
+	{
+		gEngine.Con_Printf(S_ERROR "Ran out of buffer vertex space\n");
+		return -1;
+	}
+
+	index_alloc = VK_RenderBufferAlloc( sizeof(uint16_t), num_indices );
+	bind = index_alloc.ptr;
+	index_offset = index_alloc.buffer_offset_in_units;
+	if (!bind)
+	{
+		gEngine.Con_Printf(S_ERROR "Ran out of buffer index space\n");
+		return -1;
+	}
+
+	g_brush.stat.num_indices += num_indices;
+	g_brush.stat.num_vertices += num_vertices;
 
 	// Load sorted by gl_texturenum
 	for (int t = 0; t <= max_texture_id; ++t)
@@ -426,17 +382,6 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 
 			//gEngine.Con_Reportf( "surface %d: numverts=%d numedges=%d\n", i, surf->polys ? surf->polys->numverts : -1, surf->numedges );
 
-			if (surf->numedges + g_brush.num_vertices > MAX_BUFFER_VERTICES)
-			{
-				gEngine.Con_Printf(S_ERROR "Ran out of buffer vertex space\n");
-				return -1;
-			}
-
-			if ((surf->numedges-1) * 3 + g_brush.num_indices > MAX_BUFFER_INDICES)
-			{
-				gEngine.Con_Printf(S_ERROR "Ran out of buffer index space\n");
-				return -1;
-			}
 
 			if (vertex_offset + surf->numedges >= UINT16_MAX)
 			{
@@ -445,7 +390,7 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 			}
 
 			bsurf->texture_num = surf->texinfo->texture->gl_texturenum;
-			bsurf->index_offset = g_brush.num_indices;
+			bsurf->index_offset = index_offset;
 			bsurf->index_count = 0;
 
 			VK_CreateSurfaceLightmap( surf, mod );
@@ -486,14 +431,15 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 
 				//gEngine.Con_Printf("VERT %u %f %f %f\n", g_brush.num_vertices, in_vertex->position[0], in_vertex->position[1], in_vertex->position[2]);
 
-				bvert[g_brush.num_vertices++] = vertex;
+				*(bvert++) = vertex;
 
 				// TODO contemplate triangle_strip (or fan?) + primitive restart
 				if (k > 1) {
-					bind[g_brush.num_indices++] = (uint16_t)(vertex_offset + 0);
-					bind[g_brush.num_indices++] = (uint16_t)(vertex_offset + k - 1);
-					bind[g_brush.num_indices++] = (uint16_t)(vertex_offset + k);
+					*(bind++) = (uint16_t)(vertex_offset + 0);
+					*(bind++) = (uint16_t)(vertex_offset + k - 1);
+					*(bind++) = (uint16_t)(vertex_offset + k);
 					bsurf->index_count += 3;
+					index_offset += 3;
 				}
 			}
 
@@ -519,7 +465,6 @@ qboolean VK_LoadBrushModel( model_t *mod, const byte *buffer )
 	bmodel = Mem_Malloc(vk_core.pool, sizeof(vk_brush_model_t) + sizeof(vk_brush_model_surface_t) * mod->nummodelsurfaces);
 	mod->cache.data = bmodel;
 
-	bmodel->vertex_offset = g_brush.num_vertices;
 	bmodel->num_surfaces = loadBrushSurfaces( mod, bmodel->surfaces );
 	if (bmodel->num_surfaces < 0) {
 		gEngine.Con_Reportf( S_ERROR "Model %s was not loaded\n", mod->name );
@@ -535,13 +480,13 @@ qboolean VK_LoadBrushModel( model_t *mod, const byte *buffer )
 	/* 			bmodel->surfaces[i].index_offset, */
 	/* 			bmodel->surfaces[i].index_count); */
 
-	gEngine.Con_Reportf("Model %s loaded surfaces: %d (of %d); total vertices: %u, total indices: %u\n", mod->name, bmodel->num_surfaces, mod->nummodelsurfaces, g_brush.num_vertices, g_brush.num_indices);
+	gEngine.Con_Reportf("Model %s loaded surfaces: %d (of %d); total vertices: %u, total indices: %u\n", mod->name, bmodel->num_surfaces, mod->nummodelsurfaces, g_brush.stat.num_vertices, g_brush.stat.num_indices);
 	return true;
 }
 
 void VK_BrushClear( void )
 {
 	// Free previous map data
-	g_brush.num_vertices = 0;
-	g_brush.num_indices = 0;
+	g_brush.stat.num_vertices = 0;
+	g_brush.stat.num_indices = 0;
 }

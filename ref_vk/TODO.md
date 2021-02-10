@@ -1,10 +1,10 @@
-## 2021-02-08
-- [ ] move entity rendering-enumeration into vk_scene
-- [ ] refactor brush into brushes and separate rendering/buffer management
+## 2021-02-10
+- [x] refactor brush into brushes and separate rendering/buffer management
 
 # Next
 - [ ] draw studio models as bounding boxes
 - [ ] studio models
+- [ ] animated textures (accept PR)
 
 # Planned
 - [ ] move all consts to vk_const
@@ -16,11 +16,12 @@
 - [ ] issue: transparent brushes are too transparent (train ride)
 - [ ] render skybox
 - [ ] mipmaps
-- [ ] animated textures
 - [ ] lightmap dynamic styles
 - [ ] flashlight
 - [ ] screenshot
+- [ ] fog
 - [ ] RTX
+- [ ] studio models survive NewMap; need to compactify buffers after removing all brushes
 
 # Someday
 - [ ] (helps with RTX?) unified rendering (brush/studio models/...), each model is instance, instance data is read from storage buffers, gives info about vertex format, texture bindings, etc; which are read from another set of storage buffers, ..
@@ -42,3 +43,6 @@
 - [x] swapchain getting stale
 - [x] HUD sprites
 - [x] issue: lightmap sometimes gets corrupted on map load
+
+## 2021-02-08
+- [x] move entity rendering-enumeration into vk_scene
