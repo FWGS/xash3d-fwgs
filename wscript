@@ -143,7 +143,7 @@ def configure(conf):
 	# Because compatibility with original GoldSrc
 	if conf.env.DEST_OS in ['win32', 'linux', 'darwin'] and conf.env.DEST_CPU == 'x86_64':
 		conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
-		if not conf.env.BIT32_MANDATORY:
+		if conf.env.BIT32_MANDATORY:
 			Logs.info('WARNING: will build engine for 32-bit target')
 	else:
 		conf.env.BIT32_MANDATORY = False
