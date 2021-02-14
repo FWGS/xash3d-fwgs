@@ -44,6 +44,7 @@ typedef struct vk_textures_global_s
 	int		skyboxbasenum;	// start with 5800
 } vk_textures_global_t;
 
+// TODO rename this consistently
 extern vk_textures_global_t tglob;
 
 // Helper functions

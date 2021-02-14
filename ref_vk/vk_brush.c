@@ -17,13 +17,6 @@
 #include <math.h>
 #include <memory.h>
 
-typedef struct brush_vertex_s
-{
-	vec3_t pos;
-	vec2_t gl_tc;
-	vec2_t lm_tc;
-} brush_vertex_t;
-
 typedef struct vk_brush_model_surface_s {
 	int texture_num;
 	msurface_t *surf;
@@ -47,171 +40,9 @@ static struct {
 	struct {
 		int num_vertices, num_indices;
 	} stat;
-	VkPipelineLayout pipeline_layout;
-	VkPipeline pipelines[kRenderTransAdd + 1];
 
 	int rtable[MOD_FRAMES][MOD_FRAMES];
 } g_brush;
-
-
-static qboolean createPipelines( void )
-{
-	/* VkPushConstantRange push_const = { */
-	/* 	.offset = 0, */
-	/* 	.size = sizeof(AVec3f), */
-	/* 	.stageFlags = VK_SHADER_STAGE_VERTEX_BIT, */
-	/* }; */
-
-	VkDescriptorSetLayout descriptor_layouts[] = {
-		vk_core.descriptor_pool.one_uniform_buffer_layout,
-		vk_core.descriptor_pool.one_texture_layout,
-		vk_core.descriptor_pool.one_texture_layout,
-	};
-
-	VkPipelineLayoutCreateInfo plci = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = ARRAYSIZE(descriptor_layouts),
-		.pSetLayouts = descriptor_layouts,
-		/* .pushConstantRangeCount = 1, */
-		/* .pPushConstantRanges = &push_const, */
-	};
-
-	// FIXME store layout separately
-	XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &g_brush.pipeline_layout));
-
-	{
-		struct ShaderSpec {
-			float alpha_test_threshold;
-		} spec_data = { .25f };
-		const VkSpecializationMapEntry spec_map[] = {
-			{.constantID = 0, .offset = offsetof(struct ShaderSpec, alpha_test_threshold), .size = sizeof(float) },
-		};
-
-		VkSpecializationInfo alpha_test_spec = {
-			.mapEntryCount = ARRAYSIZE(spec_map),
-			.pMapEntries = spec_map,
-			.dataSize = sizeof(struct ShaderSpec),
-			.pData = &spec_data
-		};
-
-		VkVertexInputAttributeDescription attribs[] = {
-			{.binding = 0, .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(brush_vertex_t, pos)},
-			{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(brush_vertex_t, gl_tc)},
-			{.binding = 0, .location = 2, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(brush_vertex_t, lm_tc)},
-		};
-
-		VkPipelineShaderStageCreateInfo shader_stages[] = {
-		{
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage = VK_SHADER_STAGE_VERTEX_BIT,
-			.module = loadShader("brush.vert.spv"),
-			.pName = "main",
-		}, {
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.module = loadShader("brush.frag.spv"),
-			.pName = "main",
-		}};
-
-		vk_pipeline_create_info_t ci = {
-			.layout = g_brush.pipeline_layout,
-			.attribs = attribs,
-			.num_attribs = ARRAYSIZE(attribs),
-
-			.stages = shader_stages,
-			.num_stages = ARRAYSIZE(shader_stages),
-
-			.vertex_stride = sizeof(brush_vertex_t),
-
-			.depthTestEnable = VK_TRUE,
-			.depthWriteEnable = VK_TRUE,
-			.depthCompareOp = VK_COMPARE_OP_LESS,
-
-			.blendEnable = VK_FALSE,
-
-			.cullMode = VK_CULL_MODE_FRONT_BIT,
-		};
-
-		for (int i = 0; i < ARRAYSIZE(g_brush.pipelines); ++i)
-		{
-			const char *name = "UNDEFINED";
-			switch (i)
-			{
-				case kRenderNormal:
-					ci.stages[1].pSpecializationInfo = NULL;
-					ci.blendEnable = VK_FALSE;
-					ci.depthWriteEnable = VK_TRUE;
-					name = "brush kRenderNormal";
-					break;
-
-				case kRenderTransColor:
-					ci.stages[1].pSpecializationInfo = NULL;
-					ci.depthWriteEnable = VK_TRUE;
-					ci.blendEnable = VK_TRUE;
-					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
-					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-					name = "brush kRenderTransColor";
-					break;
-
-				case kRenderTransAdd:
-					ci.stages[1].pSpecializationInfo = NULL;
-					ci.depthWriteEnable = VK_FALSE;
-					ci.blendEnable = VK_TRUE;
-					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
-					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-					name = "brush kRenderTransAdd";
-					break;
-
-				case kRenderTransAlpha:
-					ci.stages[1].pSpecializationInfo = &alpha_test_spec;
-					ci.depthWriteEnable = VK_TRUE;
-					ci.blendEnable = VK_FALSE;
-					name = "brush kRenderTransAlpha(test)";
-					break;
-
-				case kRenderGlow:
-				case kRenderTransTexture:
-					ci.stages[1].pSpecializationInfo = NULL;
-					ci.depthWriteEnable = VK_FALSE;
-					ci.blendEnable = VK_TRUE;
-					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
-					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-					name = "brush kRenderTransTexture/Glow";
-					break;
-
-				default:
-					ASSERT(!"Unreachable");
-			}
-
-			g_brush.pipelines[i] = createPipeline(&ci);
-
-			if (!g_brush.pipelines[i])
-			{
-				// TODO complain
-				return false;
-			}
-
-			if (vk_core.debug)
-			{
-				VkDebugUtilsObjectNameInfoEXT debug_name = {
-					.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-					.objectHandle = (uint64_t)g_brush.pipelines[i],
-					.objectType = VK_OBJECT_TYPE_PIPELINE,
-					.pObjectName = name,
-				};
-				XVK_CHECK(vkSetDebugUtilsObjectNameEXT(vk_core.device, &debug_name));
-			}
-		}
-
-		for (int i = 0; i < (int)ARRAYSIZE(shader_stages); ++i)
-			vkDestroyShaderModule(vk_core.device, shader_stages[i].module, NULL);
-	}
-
-	return true;
-}
 
 void VK_InitRandomTable( void )
 {
@@ -235,19 +66,11 @@ qboolean VK_BrushInit( void )
 {
 	VK_InitRandomTable ();
 
-	if (!createPipelines())
-		return false;
-
 	return true;
 }
 
-static int fixme_current_pipeline_index = -1;
-
 void VK_BrushShutdown( void )
 {
-	for (int i = 0; i < ARRAYSIZE(g_brush.pipelines); ++i)
-		vkDestroyPipeline(vk_core.device, g_brush.pipelines[i], NULL);
-	vkDestroyPipelineLayout( vk_core.device, g_brush.pipeline_layout, NULL );
 }
 
 /*
@@ -325,17 +148,6 @@ void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode, int ubo_index )
 		vkCmdBeginDebugUtilsLabelEXT(vk_core.cb, &label);
 	}
 
-	ASSERT(render_mode >= 0);
-	ASSERT(render_mode < ARRAYSIZE(g_brush.pipelines));
-
-	if (render_mode != fixme_current_pipeline_index)
-	{
-		fixme_current_pipeline_index = render_mode;
-		vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipelines[fixme_current_pipeline_index]);
-	}
-
-	VK_RenderBindUniformBufferWithIndex( g_brush.pipeline_layout, ubo_index);
-
 	for (int i = 0; i < bmodel->num_surfaces; ++i) {
 		const vk_brush_model_surface_t *bsurf = bmodel->surfaces + i;
 		texture_t *t = R_TextureAnimation(ent, bsurf->surf);
@@ -345,11 +157,19 @@ void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode, int ubo_index )
 
 		if (current_texture != t->gl_texturenum)
 		{
-			vk_texture_t *texture = findTexture(t->gl_texturenum);
-			if (index_count)
-				vkCmdDrawIndexed(vk_core.cb, index_count, 1, index_offset, bmodel->vertex_offset, 0);
+			if (index_count) {
+				const render_draw_t draw = {
+					.ubo_index = ubo_index,
+					.lightmap = tglob.lightmapTextures[0],
+					.texture = current_texture,
+					.render_mode = render_mode,
+					.element_count = index_count,
+					.vertex_offset = bmodel->vertex_offset,
+					.index_offset = index_offset,
+				};
 
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipeline_layout, 1, 1, &texture->vk.descriptor, 0, NULL);
+				VK_RenderDraw( &draw );
+			}
 
 			current_texture = t->gl_texturenum;
 			index_count = 0;
@@ -363,8 +183,19 @@ void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode, int ubo_index )
 		index_count += bsurf->index_count;
 	}
 
-	if (index_count)
-		vkCmdDrawIndexed(vk_core.cb, index_count, 1, index_offset, bmodel->vertex_offset, 0);
+	if (index_count) {
+		const render_draw_t draw = {
+			.ubo_index = ubo_index,
+			.lightmap = tglob.lightmapTextures[0],
+			.texture = current_texture,
+			.render_mode = render_mode,
+			.element_count = index_count,
+			.vertex_offset = bmodel->vertex_offset,
+			.index_offset = index_offset,
+		};
+
+		VK_RenderDraw( &draw );
+	}
 
 	if (vk_core.debug)
 		vkCmdEndDebugUtilsLabelEXT(vk_core.cb);
@@ -372,16 +203,11 @@ void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode, int ubo_index )
 
 qboolean VK_BrushRenderBegin( void )
 {
-	VK_RenderBindBuffers(); // TODO in scene?
 	if (!tglob.lightmapTextures[0])
 	{
 		gEngine.Con_Printf( S_ERROR "Don't have a lightmap texture\n");
 		return false;
 	}
-
-	vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_brush.pipeline_layout, 2, 1, &findTexture(tglob.lightmapTextures[0])->vk.descriptor, 0, NULL);
-
-	fixme_current_pipeline_index = -1;
 
 	return true;
 }

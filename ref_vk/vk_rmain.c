@@ -369,10 +369,11 @@ static void		GL_DrawParticles( const struct ref_viewpass_s *rvp, qboolean trans_
 {
 	PRINT_NOT_IMPLEMENTED();
 }
-static colorVec		R_LightVec( const float *start, const float *end, float *lightspot, float *lightvec )
+
+colorVec		R_LightVec( const float *start, const float *end, float *lightspot, float *lightvec )
 {
 	PRINT_NOT_IMPLEMENTED();
-	return (colorVec){0};
+	return (colorVec){255};
 }
 
 static struct mstudiotex_s *R_StudioGetTexture( struct cl_entity_s *e )

@@ -506,11 +506,6 @@ static int drawEntity( cl_entity_t *ent, int render_mode, int ubo_index, const m
 	if( alpha <= 0.0f )
 		return 0;
 
-	// TODO sort by entity type?
-	// TODO other entity types
-	if (mod->type != mod_brush )
-		return 0;
-
 	switch (render_mode) {
 		case kRenderNormal:
 			Vector4Set(ubo->color, 1.f, 1.f, 1.f, 1.f);
@@ -538,11 +533,28 @@ static int drawEntity( cl_entity_t *ent, int render_mode, int ubo_index, const m
 			Vector4Set(ubo->color, 1.f, 1.f, 1.f, alpha);
 	}
 
+	// TODO sort by entity type?
+	// TODO other entity types
+	switch (mod->type)
+	{
+		case mod_brush:
+
 	R_RotateForEntity( model, ent );
 	Matrix4x4_Concat( ent_mvp, mvp, model );
 	Matrix4x4_ToArrayFloatGL( ent_mvp, (float*)ubo->mvp);
+			VK_BrushDrawModel( ent, render_mode, ubo_index );
+			break;
+		case mod_studio:
 
-	VK_BrushDrawModel( ent, render_mode, ubo_index );
+	/* R_RotateForEntity( model, ent ); */
+	/* Matrix4x4_Concat( ent_mvp, mvp, model ); */
+	Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp);
+			VK_StudioDrawModel( ent, render_mode, ubo_index );
+			break;
+		default:
+			return 0;
+	}
+
 	return 1;
 }
 
@@ -555,7 +567,13 @@ void VK_SceneRender( void )
 	if (!VK_BrushRenderBegin())
 		return;
 
+	VK_RenderTempBufferBegin();
+
+	VK_RenderBegin();
+
 	prepareMatrix( &fixme_rvp, worldview, projection, mvp );
+
+	// Draw world brush
 	{
 		cl_entity_t *world = gEngine.GetEntityByIndex( 0 );
 		if( world && world->model )
@@ -598,4 +616,8 @@ void VK_SceneRender( void )
 		if (vk_core.debug)
 			vkCmdEndDebugUtilsLabelEXT(vk_core.cb);
 	}
+
+	VK_RenderEnd();
+
+	VK_RenderTempBufferEnd();
 }

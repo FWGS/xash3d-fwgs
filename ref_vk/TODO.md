@@ -1,10 +1,5 @@
-## 2021-02-10
-- [x] refactor brush into brushes and separate rendering/buffer management
-
 # Next
-- [ ] draw studio models as bounding boxes
-- [ ] studio models
-- [ ] animated textures (accept PR)
+- [ ] studio models fixes
 
 # Planned
 - [ ] move all consts to vk_const
@@ -46,3 +41,14 @@
 
 ## 2021-02-08
 - [x] move entity rendering-enumeration into vk_scene
+
+## 2021-02-10
+- [x] refactor brush into brushes and separate rendering/buffer management
+- [x] animated textures (accept PR)
+
+## 2021-02-13
+- [x] move pipelines from brush to render
+- [x] render temp buffer api
+- [x] draw studio models somehow
+- [x] studio models vk debug markers
+- [x] studio models white texture as lightmap

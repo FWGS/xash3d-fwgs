@@ -10,6 +10,7 @@
 #include "vk_cvar.h"
 #include "vk_pipeline.h"
 #include "vk_render.h"
+#include "vk_studio.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -580,15 +581,17 @@ qboolean R_VkInit( void )
 
 	VK_LoadCvars();
 
+	if (!VK_FrameCtlInit())
+		return false;
+
 	if (!VK_RenderInit())
 		return false;
+
+	VK_StudioInit();
 
 	VK_SceneInit();
 
 	initTextures();
-
-	if (!VK_FrameCtlInit())
-		return false;
 
 	// All below need render_pass
 
@@ -604,13 +607,14 @@ qboolean R_VkInit( void )
 void R_VkShutdown( void )
 {
 	VK_BrushShutdown();
+	VK_StudioShutdown();
 	deinitVk2d();
+
+	VK_RenderShutdown();
 
 	VK_FrameCtlShutdown();
 
 	destroyTextures();
-
-	VK_RenderShutdown();
 
 	VK_PipelineShutdown();
 
