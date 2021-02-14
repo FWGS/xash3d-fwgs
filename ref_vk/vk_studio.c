@@ -1966,10 +1966,11 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 {
 	float	*lv;
 	int	i;
-	vk_buffer_alloc_t buf;
-	int num_vertices = 0;
-	brush_vertex_t *pvtx;
-	uint32_t vertex_offset;
+	int num_vertices = 0, num_indices = 0;
+	vk_buffer_alloc_t buf_vertex, buf_index;
+	brush_vertex_t *dst_vtx;
+	uint16_t *dst_idx;
+	uint32_t vertex_offset, index_offset;
 	short* const ptricmds_initial = ptricmds;
 
 	if (g_studio.vk_ubo_index < 0) {
@@ -1977,82 +1978,83 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 		return;
 	}
 
+	// Compute counts of vertices and indices
 	while(( i = *( ptricmds++ )))
 	{
-		const int vertices = abs(i);
+		enum { FAN, STRIP } mode = i < 0 ? FAN : STRIP;
+		const int vertices = mode == FAN ? -i : i;
 		ASSERT(vertices > 2);
-		num_vertices += (vertices-2) * 3;
+		num_vertices += vertices;
+		num_indices += (vertices-2) * 3;
 		ptricmds += 4 * vertices;
 	}
 	
 	ASSERT(num_vertices > 0);
+	ASSERT(num_indices > 0);
 
-	ptricmds = ptricmds_initial;
 
 	// Get buffer region for vertices and indices
-	buf = VK_RenderTempBufferAlloc( sizeof(brush_vertex_t), num_vertices );
-	if (!buf.ptr)
+	buf_vertex = VK_RenderTempBufferAlloc( sizeof(brush_vertex_t), num_vertices );
+	if (!buf_vertex.ptr)
 	{
 		gEngine.Con_Printf(S_ERROR "Cannot render mesh\n"); // TODO mesh signature?
 		return;
 	}
-	pvtx = buf.ptr;
-	vertex_offset = buf.buffer_offset_in_units;
+	dst_vtx = buf_vertex.ptr;
+	vertex_offset = buf_vertex.buffer_offset_in_units;
 
-	// TODO use index buffer to coalesce draw calls
-	// Upload vertices
+	buf_index = VK_RenderTempBufferAlloc( sizeof(uint16_t), num_indices );
+	if (!buf_index.ptr)
+	{
+		gEngine.Con_Printf(S_ERROR "Cannot render mesh\n"); // TODO mesh signature?
+		return;
+	}
+	dst_idx  = buf_index.ptr;
+	index_offset = buf_index.buffer_offset_in_units;
+
+	// Restore ptricmds and upload vertices
+	ptricmds = ptricmds_initial;
 	while(( i = *( ptricmds++ )))
 	{
-		brush_vertex_t pv[2];
 		enum { FAN, STRIP } mode = i < 0 ? FAN : STRIP;
 		const int vertices = mode == FAN ? -i : i;
 		uint32_t elements = 0;
 
-		for(int j = 0; j < vertices ; ++j, ptricmds += 4 )
+		for(int j = 0; j < vertices ; ++j, ++dst_vtx, ptricmds += 4 )
 		{
-			brush_vertex_t vtx = {0};
-			VectorCopy(g_studio.verts[ptricmds[0]], vtx.pos);
+			ASSERT((((brush_vertex_t*)buf_vertex.ptr) + num_vertices) > dst_vtx);
 
-			vtx.lm_tc[0] = vtx.lm_tc[1] = mode == FAN ? .5f : 0.f;
-
+			VectorCopy(g_studio.verts[ptricmds[0]], dst_vtx->pos);
+			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = mode == FAN ? .5f : 0.f;
 			// FIXME VK R_StudioSetColorBegin( ptricmds, pstudionorms );
+			dst_vtx->gl_tc[0] = ptricmds[2] * s;
+			dst_vtx->gl_tc[1] = ptricmds[3] * t;
 
-			vtx.gl_tc[0] = ptricmds[2] * s;
-			vtx.gl_tc[1] = ptricmds[3] * t;
-
-			ASSERT((((brush_vertex_t*)buf.ptr) + num_vertices) > pvtx);
-			switch (mode) {
-				case FAN:
-					if (j == 0) {
-						pv[0] = vtx;
-					} else {
-						if (j > 1) {
-							memcpy(pvtx, pv, sizeof(pv));
-							pvtx[2] = vtx;
-							pvtx += 3;
-							elements += 3;
+			if (j > 1) {
+				switch (mode) {
+					case FAN:
+						dst_idx[elements++] = 0;
+						dst_idx[elements++] = j - 1;
+						dst_idx[elements++] = j;
+						break;
+					case STRIP:
+						// flip triangles between clockwise and counter clockwise
+						if( j & 1 )
+						{
+							// draw triangle [n-1 n-2 n]
+							dst_idx[elements++] = j - 1;
+							dst_idx[elements++] = j - 2;
+							dst_idx[elements++] = j;
 						}
-						pv[1] = vtx;
-					}
-					break;
-				case STRIP:
-					if (j < 2) {
-						pv[j] = vtx;
-					} else {
-						memcpy(pvtx, pv, sizeof(pv));
-						pvtx[2] = vtx;
-						pvtx += 3;
-						elements += 3;
-
-						// FIXME strip flip
-						if (j&1) {
-							pv[0] = pv[1];
-							pv[1] = vtx;
-						} else {
-							pv[0] = vtx;
+						else
+						{
+							// draw triangle [n-2 n-1 n]
+							dst_idx[elements++] = j - 2;
+							dst_idx[elements++] = j - 1;
+							dst_idx[elements++] = j;
 						}
-					}
-					break;
+						break;
+				}
 			}
 		}
 
@@ -2067,16 +2069,19 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 				.render_mode = render_mode,
 				.element_count = elements,
 				.vertex_offset = vertex_offset,
-				.index_offset = UINT32_MAX,
+				.index_offset = index_offset,
 			};
 
 			VK_RenderDraw( &draw );
 		}
 
-		vertex_offset += elements;
+		index_offset += elements;
+		vertex_offset += vertices;
+		dst_idx += elements;
 	}
 
-	ASSERT((((brush_vertex_t*)buf.ptr) + num_vertices) == pvtx);
+	ASSERT(index_offset - buf_index.buffer_offset_in_units == num_indices);
+	ASSERT(vertex_offset - buf_vertex.buffer_offset_in_units == num_vertices);
 }
 
 /* FIXME VK
@@ -3604,6 +3609,7 @@ void VK_StudioDrawModel( cl_entity_t *ent, int render_mode, int ubo_index )
 {
 	RI.currententity = ent;
 	RI.currentmodel = ent->model;
+	RI.drawWorld = true;
 
 	g_studio.vk_ubo_index = ubo_index;
 	R_DrawStudioModel( ent );
