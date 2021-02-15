@@ -573,6 +573,15 @@ void VK_SceneRender( void )
 
 	prepareMatrix( &fixme_rvp, worldview, projection, mvp );
 
+	// Draw view model
+	{
+		uniform_data_t *ubo = VK_RenderGetUniformSlot(ubo_index);
+		Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp );
+		Vector4Set(ubo->color, 1.f, 1.f, 1.f, 1.f);
+		R_RunViewmodelEvents();
+		R_DrawViewModel( ubo_index++ );
+	}
+
 	// Draw world brush
 	{
 		cl_entity_t *world = gEngine.GetEntityByIndex( 0 );

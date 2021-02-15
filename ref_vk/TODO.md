@@ -1,9 +1,14 @@
+## 2021-02-15
+- [x] weapon models -- viewmodel
+
 # Next
-- [ ] studio models fixes
+- [ ] sprites
+- [ ] coalesce studio model draw calls
 
 # Planned
+- [ ] loading to the same map breaks geometry
+- [ ] studio model lighting
 - [ ] move all consts to vk_const
-- [ ] sprites
 - [ ] what is GL_Backend*/GL_RenderFrame ???
 - [ ] beams
 - [ ] particles
@@ -17,6 +22,7 @@
 - [ ] fog
 - [ ] RTX
 - [ ] studio models survive NewMap; need to compactify buffers after removing all brushes
+- [ ] sometimes it gets very slow (1fps) when ran under lldb (only on stream?)
 
 # Someday
 - [ ] (helps with RTX?) unified rendering (brush/studio models/...), each model is instance, instance data is read from storage buffers, gives info about vertex format, texture bindings, etc; which are read from another set of storage buffers, ..
@@ -26,6 +32,7 @@
 - [ ] custom allocator for vulkan
 - [ ] stats
 - [ ] better 2d renderer: fill DRAWQUAD(texture, color, ...) command into storage buffer instead of 4 vertices
+- [ ] auto-atlas lots of smol textures: most of model texture are tiny (64x64 or less), can we not rebind them all the time? alt: bindless texture array
 
 ## 2021-02-06
 - [x] alpha test
@@ -52,3 +59,4 @@
 - [x] draw studio models somehow
 - [x] studio models vk debug markers
 - [x] studio models white texture as lightmap
+- [x] studio models fixes

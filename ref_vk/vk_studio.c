@@ -3271,7 +3271,7 @@ void R_GatherPlayerLight( void )
 	*/
 }
 
-void R_DrawViewModel( void )
+void R_DrawViewModel( int ubo_index )
 {
 	cl_entity_t	*view = gEngine.GetViewModel();
 
@@ -3298,10 +3298,11 @@ void R_DrawViewModel( void )
 	if( !RI.currententity->model )
 		return;
 
+	RI.currentmodel = RI.currententity->model;
+
 	/* FIXME VK
 	// adjust the depth range to prevent view model from poking into walls
 	pglDepthRange( gldepthmin, gldepthmin + 0.3f * ( gldepthmax - gldepthmin ));
-	RI.currentmodel = RI.currententity->model;
 
 	// backface culling for left-handed weapons
 	if( R_AllowFlipViewModel( RI.currententity ) || g_iBackFaceCull )
@@ -3311,6 +3312,7 @@ void R_DrawViewModel( void )
 	}
 	*/
 
+	g_studio.vk_ubo_index = ubo_index;
 	switch( RI.currententity->model->type )
 	{
 		/* FIXME VK
@@ -3323,6 +3325,10 @@ void R_DrawViewModel( void )
 		R_StudioDrawModelInternal( RI.currententity, STUDIO_RENDER );
 		break;
 	}
+
+	g_studio.vk_ubo_index = -1;
+	RI.currententity = NULL;
+	RI.currentmodel = NULL;
 
 	/* FIXME VK
 	// restore depth range
