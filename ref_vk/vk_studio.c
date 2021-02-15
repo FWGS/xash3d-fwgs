@@ -1992,7 +1992,6 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	ASSERT(num_vertices > 0);
 	ASSERT(num_indices > 0);
 
-
 	// Get buffer region for vertices and indices
 	buf_vertex = VK_RenderTempBufferAlloc( sizeof(brush_vertex_t), num_vertices );
 	if (!buf_vertex.ptr)
@@ -2001,7 +2000,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 		return;
 	}
 	dst_vtx = buf_vertex.ptr;
-	vertex_offset = buf_vertex.buffer_offset_in_units;
+	vertex_offset = 0;
 
 	buf_index = VK_RenderTempBufferAlloc( sizeof(uint16_t), num_indices );
 	if (!buf_index.ptr)
@@ -2033,25 +2032,25 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			if (j > 1) {
 				switch (mode) {
 					case FAN:
-						dst_idx[elements++] = 0;
-						dst_idx[elements++] = j - 1;
-						dst_idx[elements++] = j;
+						dst_idx[elements++] = vertex_offset + 0;
+						dst_idx[elements++] = vertex_offset + j - 1;
+						dst_idx[elements++] = vertex_offset + j;
 						break;
 					case STRIP:
 						// flip triangles between clockwise and counter clockwise
 						if( j & 1 )
 						{
 							// draw triangle [n-1 n-2 n]
-							dst_idx[elements++] = j - 1;
-							dst_idx[elements++] = j - 2;
-							dst_idx[elements++] = j;
+							dst_idx[elements++] = vertex_offset + j - 1;
+							dst_idx[elements++] = vertex_offset + j - 2;
+							dst_idx[elements++] = vertex_offset + j;
 						}
 						else
 						{
 							// draw triangle [n-2 n-1 n]
-							dst_idx[elements++] = j - 2;
-							dst_idx[elements++] = j - 1;
-							dst_idx[elements++] = j;
+							dst_idx[elements++] = vertex_offset + j - 2;
+							dst_idx[elements++] = vertex_offset + j - 1;
+							dst_idx[elements++] = vertex_offset + j;
 						}
 						break;
 				}
@@ -2059,29 +2058,29 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 		}
 
 		ASSERT(elements == (vertices-2)*3);
-
-		// Render
-		{
-			const render_draw_t draw = {
-				.ubo_index = g_studio.vk_ubo_index,
-				.lightmap = tglob.whiteTexture,
-				.texture = texture,
-				.render_mode = render_mode,
-				.element_count = elements,
-				.vertex_offset = vertex_offset,
-				.index_offset = index_offset,
-			};
-
-			VK_RenderDraw( &draw );
-		}
-
 		index_offset += elements;
 		vertex_offset += vertices;
 		dst_idx += elements;
 	}
 
+	ASSERT(vertex_offset < UINT16_MAX);
 	ASSERT(index_offset - buf_index.buffer_offset_in_units == num_indices);
-	ASSERT(vertex_offset - buf_vertex.buffer_offset_in_units == num_vertices);
+	ASSERT(vertex_offset == num_vertices);
+
+	// Render
+	{
+		const render_draw_t draw = {
+			.ubo_index = g_studio.vk_ubo_index,
+			.lightmap = tglob.whiteTexture,
+			.texture = texture,
+			.render_mode = render_mode,
+			.element_count = num_indices,
+			.vertex_offset = buf_vertex.buffer_offset_in_units,
+			.index_offset = buf_index.buffer_offset_in_units,
+		};
+
+		VK_RenderDraw( &draw );
+	}
 }
 
 /* FIXME VK

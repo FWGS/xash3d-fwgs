@@ -1,9 +1,9 @@
 ## 2021-02-15
 - [x] weapon models -- viewmodel
+- [x] coalesce studio model draw calls
 
 # Next
 - [ ] sprites
-- [ ] coalesce studio model draw calls
 
 # Planned
 - [ ] loading to the same map breaks geometry
