@@ -1,11 +1,13 @@
 ## 2021-02-15
 - [x] weapon models -- viewmodel
 - [x] coalesce studio model draw calls
+- [x] initual sprite support
 
 # Next
-- [ ] sprites
+- [ ] fix sprite blending
 
 # Planned
+- [ ] improve g_camera handling; trace SetViewPass vs RenderScene ...
 - [ ] loading to the same map breaks geometry
 - [ ] studio model lighting
 - [ ] move all consts to vk_const
@@ -25,6 +27,7 @@
 - [ ] sometimes it gets very slow (1fps) when ran under lldb (only on stream?)
 
 # Someday
+- [ ] cleanup unused stuff in vk_studio.c
 - [ ] (helps with RTX?) unified rendering (brush/studio models/...), each model is instance, instance data is read from storage buffers, gives info about vertex format, texture bindings, etc; which are read from another set of storage buffers, ..
 - [ ] waf shader build step -- get from upstream
 - [ ] embed shaders into binary
@@ -33,6 +36,7 @@
 - [ ] stats
 - [ ] better 2d renderer: fill DRAWQUAD(texture, color, ...) command into storage buffer instead of 4 vertices
 - [ ] auto-atlas lots of smol textures: most of model texture are tiny (64x64 or less), can we not rebind them all the time? alt: bindless texture array
+- [ ] can we also try to coalesce sprite draw calls?
 
 ## 2021-02-06
 - [x] alpha test

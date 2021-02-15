@@ -7,6 +7,8 @@
 #include "vk_math.h"
 #include "vk_common.h"
 #include "vk_core.h"
+#include "vk_sprite.h"
+#include "vk_global.h"
 
 #include "com_strings.h"
 #include "ref_params.h"
@@ -20,6 +22,8 @@ static struct {
 	int		draw_stack_pos;
 	draw_list_t	*draw_list;
 } g_lists;
+
+vk_global_camera_t g_camera;
 
 void VK_SceneInit( void )
 {
@@ -202,13 +206,6 @@ void R_ClearScene( void )
 	/* g_lists.draw_list->num_beam_entities = 0; */
 }
 
-// FIXME this is a total garbage. pls avoid adding even more weird local static state
-static ref_viewpass_t fixme_rvp;
-
-void FIXME_VK_SceneSetViewPass( const struct ref_viewpass_s *rvp )
-{
-	fixme_rvp = *rvp;
-}
 
 void R_RenderScene( void )
 {
@@ -258,6 +255,46 @@ static void R_SetupModelviewMatrix( const ref_viewpass_t* rvp, matrix4x4 m )
 	Matrix4x4_ConcatRotate( m, -rvp->viewangles[0], 0, 1, 0 );
 	Matrix4x4_ConcatRotate( m, -rvp->viewangles[1], 0, 0, 1 );
 	Matrix4x4_ConcatTranslate( m, -rvp->vieworigin[0], -rvp->vieworigin[1], -rvp->vieworigin[2] );
+}
+
+// FIXME this is a total garbage. pls avoid adding even more weird local static state
+static ref_viewpass_t fixme_rvp;
+
+void FIXME_VK_SceneSetViewPass( const struct ref_viewpass_s *rvp )
+{
+	fixme_rvp = *rvp;
+
+	R_SetupModelviewMatrix( rvp, g_camera.worldviewMatrix );
+	R_SetupProjectionMatrix( rvp, g_camera.projectionMatrix );
+
+	Matrix4x4_Concat( g_camera.worldviewProjectionMatrix, g_camera.projectionMatrix, g_camera.worldviewMatrix );
+
+	/*
+	RI.params = RP_NONE;
+	RI.drawWorld = FBitSet( rvp->flags, RF_DRAW_WORLD );
+	RI.onlyClientDraw = FBitSet( rvp->flags, RF_ONLY_CLIENTDRAW );
+	RI.farClip = 0;
+
+	if( !FBitSet( rvp->flags, RF_DRAW_CUBEMAP ))
+		RI.drawOrtho = FBitSet( rvp->flags, RF_DRAW_OVERVIEW );
+	else RI.drawOrtho = false;
+	*/
+
+	// setup viewport
+	g_camera.viewport[0] = rvp->viewport[0];
+	g_camera.viewport[1] = rvp->viewport[1];
+	g_camera.viewport[2] = rvp->viewport[2];
+	g_camera.viewport[3] = rvp->viewport[3];
+
+	// calc FOV
+	g_camera.fov_x = rvp->fov_x;
+	g_camera.fov_y = rvp->fov_y;
+
+	VectorCopy( rvp->vieworigin, g_camera.vieworg );
+	VectorCopy( rvp->viewangles, g_camera.viewangles );
+	//VectorCopy( rvp->vieworigin, g_camera.pvsorigin );
+
+	AngleVectors( g_camera.viewangles, g_camera.vforward, g_camera.vright, g_camera.vup );
 }
 
 static void R_RotateForEntity( matrix4x4 out, const cl_entity_t *e )
@@ -538,19 +575,24 @@ static int drawEntity( cl_entity_t *ent, int render_mode, int ubo_index, const m
 	switch (mod->type)
 	{
 		case mod_brush:
-
-	R_RotateForEntity( model, ent );
-	Matrix4x4_Concat( ent_mvp, mvp, model );
-	Matrix4x4_ToArrayFloatGL( ent_mvp, (float*)ubo->mvp);
+			R_RotateForEntity( model, ent );
+			Matrix4x4_Concat( ent_mvp, mvp, model );
+			Matrix4x4_ToArrayFloatGL( ent_mvp, (float*)ubo->mvp);
 			VK_BrushDrawModel( ent, render_mode, ubo_index );
 			break;
-		case mod_studio:
 
-	/* R_RotateForEntity( model, ent ); */
-	/* Matrix4x4_Concat( ent_mvp, mvp, model ); */
-	Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp);
+		case mod_studio:
+			/* R_RotateForEntity( model, ent ); */
+			/* Matrix4x4_Concat( ent_mvp, mvp, model ); */
+			Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp);
 			VK_StudioDrawModel( ent, render_mode, ubo_index );
 			break;
+
+		case mod_sprite:
+			Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp);
+			VK_SpriteDrawModel( ent, ubo_index );
+			break;
+
 		default:
 			return 0;
 	}
@@ -629,4 +671,51 @@ void VK_SceneRender( void )
 	VK_RenderEnd();
 
 	VK_RenderTempBufferEnd();
+}
+
+// FIXME better place?
+int R_WorldToScreen( const vec3_t point, vec3_t screen )
+{
+	matrix4x4	worldToScreen;
+	qboolean	behind;
+	float	w;
+
+	if( !point || !screen )
+		return true;
+
+	Matrix4x4_Copy( worldToScreen, g_camera.worldviewProjectionMatrix );
+	screen[0] = worldToScreen[0][0] * point[0] + worldToScreen[0][1] * point[1] + worldToScreen[0][2] * point[2] + worldToScreen[0][3];
+	screen[1] = worldToScreen[1][0] * point[0] + worldToScreen[1][1] * point[1] + worldToScreen[1][2] * point[2] + worldToScreen[1][3];
+	w = worldToScreen[3][0] * point[0] + worldToScreen[3][1] * point[1] + worldToScreen[3][2] * point[2] + worldToScreen[3][3];
+	screen[2] = 0.0f; // just so we have something valid here
+
+	if( w < 0.001f )
+	{
+		screen[0] *= 100000;
+		screen[1] *= 100000;
+		behind = true;
+	}
+	else
+	{
+		float invw = 1.0f / w;
+		screen[0] *= invw;
+		screen[1] *= invw;
+		behind = false;
+	}
+
+	return behind;
+}
+
+int TriWorldToScreen( const float *world, float *screen )
+{
+	int	retval;
+
+	retval = R_WorldToScreen( world, screen );
+
+	screen[0] =  0.5f * screen[0] * (float)g_camera.viewport[2];
+	screen[1] = -0.5f * screen[1] * (float)g_camera.viewport[3];
+	screen[0] += 0.5f * (float)g_camera.viewport[2];
+	screen[1] += 0.5f * (float)g_camera.viewport[3];
+
+	return retval;
 }

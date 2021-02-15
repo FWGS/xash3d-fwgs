@@ -2,6 +2,7 @@
 #include "vk_common.h"
 #include "vk_textures.h"
 #include "vk_render.h"
+#include "vk_global.h"
 
 #include "xash3d_mathlib.h"
 #include "const.h"
@@ -38,18 +39,6 @@ typedef struct
 cvar_t *r_glowshellfreq;
 
 cvar_t r_shadows = { "r_shadows", "0", 0 };
-
-static vec3_t hullcolor[8] = 
-{
-{ 1.0f, 1.0f, 1.0f },
-{ 1.0f, 0.5f, 0.5f },
-{ 0.5f, 1.0f, 0.5f },
-{ 1.0f, 1.0f, 0.5f },
-{ 0.5f, 0.5f, 1.0f },
-{ 1.0f, 0.5f, 1.0f },
-{ 0.5f, 1.0f, 1.0f },
-{ 1.0f, 1.0f, 1.0f },
-};
 
 typedef struct sortedmesh_s
 {
@@ -116,10 +105,6 @@ typedef struct
 	player_model_t  player_models[MAX_CLIENTS];
 
 	// drawelements renderer
-	vec3_t			arrayverts[MAXSTUDIOVERTS];
-	vec2_t			arraycoord[MAXSTUDIOVERTS];
-	unsigned short	arrayelems[MAXSTUDIOVERTS*6];
-	uint8_t			arraycolor[MAXSTUDIOVERTS][4];
 	uint			numverts;
 	uint			numelems;
 
@@ -146,16 +131,12 @@ int			g_iBackFaceCull;
 int			g_nTopColor, g_nBottomColor;	// remap colors
 int			g_nFaceFlags, g_nForceFaceFlags;
 
+// FIXME VK this should be promoted to somewhere global-ish, and done properly
+// For now it's just a hack to get studio models to compile basically
 static struct {
 	qboolean drawWorld;	// ignore world for drawing PlayerModel
 	cl_entity_t *currententity;
 	model_t *currentmodel;
-
-	vec3_t		vieworg;		// locked vieworigin
-	vec3_t		viewangles;
-	vec3_t		vforward;
-	vec3_t		vright;
-	vec3_t		vup;
 } RI;
 
 void R_StudioInit( void )
@@ -429,12 +410,6 @@ static cl_entity_t *pfnGetViewEntity( void )
 	return gEngine.GetViewModel();
 }
 
-/*
-===============
-pfnGetEngineTimes
-
-===============
-*/
 static void pfnGetEngineTimes( int *framecount, double *current, double *old )
 {
 	/* FIXME VK NOT IMPLEMENTED */
@@ -444,37 +419,19 @@ static void pfnGetEngineTimes( int *framecount, double *current, double *old )
 	if( old ) *old =   gpGlobals->oldtime;
 }
 
-/*
-===============
-pfnGetViewInfo
-
-===============
-*/
 static void pfnGetViewInfo( float *origin, float *upv, float *rightv, float *forwardv )
 {
-	if( origin ) VectorCopy( RI.vieworg, origin );
-	if( forwardv ) VectorCopy( RI.vforward, forwardv );
-	if( rightv ) VectorCopy( RI.vright, rightv );
-	if( upv ) VectorCopy( RI.vup, upv );
+	if( origin ) VectorCopy( g_camera.vieworg, origin );
+	if( forwardv ) VectorCopy( g_camera.vforward, forwardv );
+	if( rightv ) VectorCopy( g_camera.vright, rightv );
+	if( upv ) VectorCopy( g_camera.vup, upv );
 }
 
-/*
-===============
-R_GetChromeSprite
-
-===============
-*/
 static model_t *R_GetChromeSprite( void )
 {
 	return gEngine.GetDefaultSprite( REF_CHROME_SPRITE );
 }
 
-/*
-===============
-pfnGetModelCounters
-
-===============
-*/
 static void pfnGetModelCounters( int **s, int **a )
 {
 	*s = &g_studio.framecount;
@@ -484,24 +441,12 @@ static void pfnGetModelCounters( int **s, int **a )
 	*a = 0;
 }
 
-/*
-===============
-pfnGetAliasScale
-
-===============
-*/
 static void pfnGetAliasScale( float *x, float *y )
 {
 	if( x ) *x = 1.0f;
 	if( y ) *y = 1.0f;
 }
 
-/*
-===============
-pfnStudioGetBoneTransform
-
-===============
-*/
 static float ****pfnStudioGetBoneTransform( void )
 {
 	return (float ****)g_studio.bonestransform;
@@ -1287,7 +1232,7 @@ void R_StudioSetupChrome( float *pchrome, int bone, vec3_t normal )
 		tmp[2] += g_studio.bonestransform[bone][2][3];
 
 		VectorNormalize( tmp );
-		CrossProduct( tmp, RI.vright, chromeupvec );
+		CrossProduct( tmp, g_camera.vright, chromeupvec );
 		VectorNormalize( chromeupvec );
 		CrossProduct( tmp, chromeupvec, chromerightvec );
 		VectorNormalize( chromerightvec );
@@ -2156,42 +2101,6 @@ _inline void R_StudioDrawChromeMesh( short *ptricmds, vec3_t *pstudionorms, floa
 }
 */
 
-static int R_StudioBuildIndices( qboolean tri_strip, int vertexState )
-{
-	// build in indices
-	if( vertexState++ < 3 )
-	{
-		g_studio.arrayelems[g_studio.numelems++] = g_studio.numverts;
-	}
-	else if( tri_strip )
-	{
-		// flip triangles between clockwise and counter clockwise
-		if( vertexState & 1 )
-		{
-			// draw triangle [n-2 n-1 n]
-			g_studio.arrayelems[g_studio.numelems++] = g_studio.numverts - 2;
-			g_studio.arrayelems[g_studio.numelems++] = g_studio.numverts - 1;
-			g_studio.arrayelems[g_studio.numelems++] = g_studio.numverts;
-		}
-		else
-		{
-			// draw triangle [n-1 n-2 n]
-			g_studio.arrayelems[g_studio.numelems++] = g_studio.numverts - 1;
-			g_studio.arrayelems[g_studio.numelems++] = g_studio.numverts - 2;
-			g_studio.arrayelems[g_studio.numelems++] = g_studio.numverts;
-		}
-	}
-	else
-	{
-		// draw triangle fan [0 n-1 n]
-		g_studio.arrayelems[g_studio.numelems++] = g_studio.numverts - ( vertexState - 1 );
-		g_studio.arrayelems[g_studio.numelems++] = g_studio.numverts - 1;
-		g_studio.arrayelems[g_studio.numelems++] = g_studio.numverts;
-	}
-
-	return vertexState;
-}
-
 static void R_StudioDrawPoints( void )
 {
 	int		i, j, k, m_skinnum;
@@ -2634,7 +2543,7 @@ static void R_StudioRestoreRenderer( void )
 
 void R_StudioSetChromeOrigin( void )
 {
-	VectorCopy( RI.vieworg, g_studio.chrome_origin );
+	VectorCopy( g_camera.vieworg, g_studio.chrome_origin );
 }
 
 static int pfnIsHardware( void )
