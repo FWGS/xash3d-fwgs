@@ -175,7 +175,7 @@ void R_ProcessEntData( qboolean allocate )
 	{
 		g_lists.draw_list->num_solid_entities = 0;
 		g_lists.draw_list->num_trans_entities = 0;
-		/* g_lists.draw_list->num_beam_entities = 0; */
+		g_lists.draw_list->num_beam_entities = 0;
 	}
 
 	if( gEngine.drawFuncs->R_ProcessEntData )
@@ -186,7 +186,7 @@ void R_ClearScreen( void )
 {
 	g_lists.draw_list->num_solid_entities = 0;
 	g_lists.draw_list->num_trans_entities = 0;
-	/* g_lists.draw_list->num_beam_entities = 0; */
+	g_lists.draw_list->num_beam_entities = 0;
 
 	// clear the scene befor start new frame
 	if( gEngine.drawFuncs->R_ClearScene != NULL )
@@ -213,7 +213,7 @@ void R_ClearScene( void )
 {
 	g_lists.draw_list->num_solid_entities = 0;
 	g_lists.draw_list->num_trans_entities = 0;
-	/* g_lists.draw_list->num_beam_entities = 0; */
+	g_lists.draw_list->num_beam_entities = 0;
 }
 
 
