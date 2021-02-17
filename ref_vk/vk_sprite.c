@@ -650,11 +650,11 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 {
 	vec3_t	point;
 	vk_buffer_alloc_t buf_vertex, buf_index;
-	brush_vertex_t *dst_vtx;
+	vk_vertex_t *dst_vtx;
 	uint16_t *dst_idx;
 
 	// Get buffer region for vertices and indices
-	buf_vertex = VK_RenderTempBufferAlloc( sizeof(brush_vertex_t), 4 );
+	buf_vertex = VK_RenderTempBufferAlloc( sizeof(vk_vertex_t), 4 );
 	if (!buf_vertex.ptr)
 	{
 		gEngine.Con_Printf(S_ERROR "Cannot render mesh\n"); // TODO mesh signature?

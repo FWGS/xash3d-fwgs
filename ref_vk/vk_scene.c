@@ -9,6 +9,7 @@
 #include "vk_core.h"
 #include "vk_sprite.h"
 #include "vk_global.h"
+#include "vk_beams.h"
 
 #include "com_strings.h"
 #include "ref_params.h"
@@ -16,6 +17,15 @@
 
 #include <stdlib.h> // qsort
 #include <memory.h>
+
+typedef struct draw_list_s {
+	struct cl_entity_s	*solid_entities[MAX_SCENE_ENTITIES];	// opaque moving or alpha brushes
+	vk_trans_entity_t trans_entities[MAX_SCENE_ENTITIES];	// translucent brushes or studio models kek
+	struct cl_entity_s	*beam_entities[MAX_SCENE_ENTITIES];
+	uint		num_solid_entities;
+	uint		num_trans_entities;
+	uint		num_beam_entities;
+} draw_list_t;
 
 static struct {
 	draw_list_t	draw_stack[MAX_SCENE_STACK];
@@ -391,7 +401,7 @@ static int R_TransEntityCompare( const void *a, const void *b)
 
 // FIXME where should this function be
 #define RP_NORMALPASS() true // FIXME ???
-static int CL_FxBlend( cl_entity_t *e, const vec3_t vieworg ) // FIXME do R_SetupFrustum: , vec3_t vforward )
+int CL_FxBlend( cl_entity_t *e ) // FIXME do R_SetupFrustum: , vec3_t vforward )
 {
 	int	blend = 0;
 	float	offset, dist;
@@ -474,12 +484,11 @@ static int CL_FxBlend( cl_entity_t *e, const vec3_t vieworg ) // FIXME do R_Setu
 		if( blend < 0 ) blend = 0;
 		else blend = e->curstate.renderamt;
 		break;
-	/* FIXME
 	case kRenderFxHologram:
 	case kRenderFxDistort:
 		VectorCopy( e->origin, tmp );
-		VectorSubtract( tmp, vieworg, tmp );
-		dist = DotProduct( tmp, vforward );
+		VectorSubtract( tmp, g_camera.vieworg, tmp );
+		dist = DotProduct( tmp, g_camera.vforward );
 
 		// turn off distance fade
 		if( e->curstate.renderfx == kRenderFxDistort )
@@ -497,7 +506,6 @@ static int CL_FxBlend( cl_entity_t *e, const vec3_t vieworg ) // FIXME do R_Setu
 			blend += gEngine.COM_RandomLong( -32, 31 );
 		}
 		break;
-	*/
 	default:
 		blend = e->curstate.renderamt;
 		break;
@@ -526,22 +534,29 @@ static void prepareMatrix( const ref_viewpass_t *rvp, matrix4x4 worldview, matri
 	Matrix4x4_Concat( mvp, projection, worldview);
 }
 
-static int drawEntity( cl_entity_t *ent, int render_mode, int ubo_index, const matrix4x4 mvp )
+static void drawEntity( cl_entity_t *ent, int render_mode, const matrix4x4 mvp )
 {
 	const model_t *mod = ent->model;
 	matrix4x4 model, ent_mvp;
-	uniform_data_t *ubo = VK_RenderGetUniformSlot(ubo_index);
+	uniform_data_t *ubo;
 	float alpha;
+	int ubo_index;
 
 	if (!mod)
-		return 0;
+		return;
 
 	// handle studiomodels with custom rendermodes on texture
-	alpha = render_mode == kRenderNormal ? 1.f : CL_FxBlend( ent, fixme_rvp.vieworigin ) / 255.0f;
+	alpha = render_mode == kRenderNormal ? 1.f : CL_FxBlend( ent ) / 255.0f;
 
 	// TODO ref_gl does this earlier, can we too?
 	if( alpha <= 0.0f )
-		return 0;
+		return;
+
+	// TODO might accidentally alloc ubo for things that won't be rendered; optimize this
+	ubo_index = VK_RenderUniformAlloc();
+	if (ubo_index < 0)
+		return; // TODO complain
+	ubo = VK_RenderGetUniformSlot(ubo_index);
 
 	switch (render_mode) {
 		case kRenderNormal:
@@ -592,19 +607,18 @@ static int drawEntity( cl_entity_t *ent, int render_mode, int ubo_index, const m
 			Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp);
 			VK_SpriteDrawModel( ent, ubo_index );
 			break;
-
-		default:
-			return 0;
 	}
-
-	return 1;
 }
 
+static float g_frametime = 0;
 void VK_SceneRender( void )
 {
 	matrix4x4 worldview, projection, mvp;
 	int current_pipeline_index = kRenderNormal;
-	int ubo_index = 0;
+
+	g_frametime = /*FIXME VK RP_NORMALPASS( )) ? */
+		gpGlobals->time - gpGlobals->oldtime
+	/* FIXME VK : 0.f */;
 
 	if (!VK_BrushRenderBegin())
 		return;
@@ -617,11 +631,14 @@ void VK_SceneRender( void )
 
 	// Draw view model
 	{
-		uniform_data_t *ubo = VK_RenderGetUniformSlot(ubo_index);
+		const int ubo_index = VK_RenderUniformAlloc();
+		uniform_data_t *ubo;
+		ASSERT(ubo_index >= 0);
+		ubo = VK_RenderGetUniformSlot(ubo_index);
 		Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp );
 		Vector4Set(ubo->color, 1.f, 1.f, 1.f, 1.f);
 		R_RunViewmodelEvents();
-		R_DrawViewModel( ubo_index++ );
+		R_DrawViewModel( ubo_index );
 	}
 
 	// Draw world brush
@@ -629,11 +646,13 @@ void VK_SceneRender( void )
 		cl_entity_t *world = gEngine.GetEntityByIndex( 0 );
 		if( world && world->model )
 		{
-			uniform_data_t *ubo = VK_RenderGetUniformSlot(ubo_index);
+			const int ubo_index = VK_RenderUniformAlloc();
+			uniform_data_t *ubo;
+			ASSERT(ubo_index >= 0);
+			ubo = VK_RenderGetUniformSlot(ubo_index);
 			Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp );
 			Vector4Set(ubo->color, 1.f, 1.f, 1.f, 1.f);
 			VK_BrushDrawModel( world, kRenderNormal, ubo_index );
-			ubo_index++;
 		}
 	}
 
@@ -641,8 +660,11 @@ void VK_SceneRender( void )
 	for (int i = 0; i < g_lists.draw_list->num_solid_entities; ++i)
 	{
 		cl_entity_t *ent = g_lists.draw_list->solid_entities[i];
-		ubo_index += drawEntity(ent, kRenderNormal, ubo_index, mvp);
+		drawEntity(ent, kRenderNormal, mvp);
 	}
+
+	// Draw opaque beams
+	gEngine.CL_DrawEFX( g_frametime, false );
 
 	{
 		if (vk_core.debug) {
@@ -661,12 +683,15 @@ void VK_SceneRender( void )
 		for (int i = 0; i < g_lists.draw_list->num_trans_entities; ++i)
 		{
 			const vk_trans_entity_t *ent = g_lists.draw_list->trans_entities + i;
-			ubo_index += drawEntity(ent->entity, ent->render_mode, ubo_index, mvp);
+			drawEntity(ent->entity, ent->render_mode, mvp);
 		}
 
 		if (vk_core.debug)
 			vkCmdEndDebugUtilsLabelEXT(vk_core.cb);
 	}
+
+	// Draw transparent beams
+	gEngine.CL_DrawEFX( g_frametime, true );
 
 	VK_RenderEnd();
 
@@ -718,4 +743,63 @@ int TriWorldToScreen( const float *world, float *screen )
 	screen[1] += 0.5f * (float)g_camera.viewport[3];
 
 	return retval;
+}
+
+/*
+================
+CL_AddCustomBeam
+
+Add the beam that encoded as custom entity
+================
+*/
+void CL_AddCustomBeam( cl_entity_t *pEnvBeam )
+{
+	if( g_lists.draw_list->num_beam_entities >= ARRAYSIZE(g_lists.draw_list->beam_entities) )
+	{
+		gEngine.Con_Printf( S_ERROR "Too many beams %d!\n", g_lists.draw_list->num_beam_entities );
+		return;
+	}
+
+	if( pEnvBeam )
+	{
+		g_lists.draw_list->beam_entities[g_lists.draw_list->num_beam_entities] = pEnvBeam;
+		g_lists.draw_list->num_beam_entities++;
+	}
+}
+
+void CL_DrawBeams( int fTrans, BEAM *active_beams )
+{
+	BEAM	*pBeam;
+	int	i, flags;
+
+	// FIXME VK pglDepthMask( fTrans ? GL_FALSE : GL_TRUE );
+
+	// server beams don't allocate beam chains
+	// all params are stored in cl_entity_t
+	for( i = 0; i < g_lists.draw_list->num_beam_entities; i++ )
+	{
+		cl_entity_t *currentbeam = g_lists.draw_list->beam_entities[i];
+		flags = currentbeam->curstate.rendermode & 0xF0;
+
+		if( fTrans && FBitSet( flags, FBEAM_SOLID ))
+			continue;
+
+		if( !fTrans && !FBitSet( flags, FBEAM_SOLID ))
+			continue;
+
+		R_BeamDrawCustomEntity( currentbeam, g_frametime );
+		// FIXME VK r_stats.c_view_beams_count++;
+	}
+
+	// draw temporary entity beams
+	for( pBeam = active_beams; pBeam; pBeam = pBeam->next )
+	{
+		if( fTrans && FBitSet( pBeam->flags, FBEAM_SOLID ))
+			continue;
+
+		if( !fTrans && !FBitSet( pBeam->flags, FBEAM_SOLID ))
+			continue;
+
+		R_BeamDraw( pBeam, g_frametime );
+	}
 }

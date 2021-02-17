@@ -33,11 +33,11 @@ vk_buffer_alloc_t VK_RenderTempBufferAlloc( uint32_t unit_size, uint32_t count )
 void VK_RenderTempBufferEnd( void );
 
 // TODO is this a good place?
-typedef struct brush_vertex_s {
+typedef struct vk_vertex_s {
 	vec3_t pos;
 	vec2_t gl_tc;
 	vec2_t lm_tc;
-} brush_vertex_t;
+} vk_vertex_t;
 
 typedef struct render_draw_s {
 	int ubo_index;
@@ -48,5 +48,8 @@ typedef struct render_draw_s {
 } render_draw_t;
 
 void VK_RenderBegin( void );
+// Allocate one uniform slot, -1 if no slot available
+int VK_RenderUniformAlloc( void );
+// FIXME rename to Submit something
 void VK_RenderDraw( const render_draw_t *draw );
 void VK_RenderEnd( void );

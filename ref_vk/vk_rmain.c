@@ -8,6 +8,7 @@
 #include "vk_lightmap.h"
 #include "vk_sprite.h"
 #include "vk_studio.h"
+#include "vk_beams.h"
 
 #include "xash3d_types.h"
 #include "com_strings.h"
@@ -43,11 +44,6 @@ static void GL_BackendStartFrame( void )
 	PRINT_NOT_IMPLEMENTED();
 }
 static void GL_BackendEndFrame( void )
-{
-	PRINT_NOT_IMPLEMENTED();
-}
-
-static void CL_AddCustomBeam( cl_entity_t *pEnvBeam )
 {
 	PRINT_NOT_IMPLEMENTED();
 }
@@ -127,10 +123,6 @@ static void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, ve
 {
 	PRINT_NOT_IMPLEMENTED();
 }
-static void CL_InitStudioAPI( void )
-{
-	PRINT_NOT_IMPLEMENTED();
-}
 
 // bmodel
 static void R_InitSkyClouds( struct mip_s *mt, struct texture_s *tx, qboolean custom_palette )
@@ -197,15 +189,6 @@ static void CL_DrawParticles( double frametime, particle_t *particles, float par
 static void CL_DrawTracers( double frametime, particle_t *tracers )
 {
 	PRINT_NOT_IMPLEMENTED();
-}
-static void CL_DrawBeams( int fTrans , BEAM *beams )
-{
-	PRINT_NOT_IMPLEMENTED();
-}
-static qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
-{
-	PRINT_NOT_IMPLEMENTED();
-	return false;
 }
 
 // Xash3D Render Interface

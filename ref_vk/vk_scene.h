@@ -14,15 +14,6 @@ typedef struct vk_trans_entity_s {
 	int render_mode;
 } vk_trans_entity_t;
 
-typedef struct draw_list_s {
-	struct cl_entity_s	*solid_entities[MAX_SCENE_ENTITIES];	// opaque moving or alpha brushes
-	vk_trans_entity_t trans_entities[MAX_SCENE_ENTITIES];	// translucent brushes or studio models kek
-	//cl_entity_t	*beam_entities[MAX_DRAW_ENTITIES];
-	uint		num_solid_entities;
-	uint		num_trans_entities;
-	//uint		num_beam_entities;
-} draw_list_t;
-
 void VK_SceneInit( void );
 void FIXME_VK_SceneSetViewPass( const struct ref_viewpass_s *rvp );
 void VK_SceneRender( void );
@@ -37,3 +28,9 @@ void R_PopScene( void );
 
 void R_NewMap( void );
 void R_RenderScene( void );
+
+// TODO should this be here?
+int CL_FxBlend( struct cl_entity_s *e );
+struct beam_s;
+void CL_DrawBeams( int fTrans, struct beam_s *active_beams );
+void CL_AddCustomBeam( struct cl_entity_s *pEnvBeam );

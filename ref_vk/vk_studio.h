@@ -16,3 +16,5 @@ void VK_StudioDrawModel( cl_entity_t *ent, int render_mode, int ubo_index );
 
 void R_RunViewmodelEvents( void );
 void R_DrawViewModel( int ubo_index );
+
+void CL_InitStudioAPI( void );

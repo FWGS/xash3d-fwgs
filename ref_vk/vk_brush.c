@@ -217,7 +217,7 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 	uint32_t vertex_offset = 0;
 	int num_surfaces = 0;
 	vk_buffer_alloc_t vertex_alloc, index_alloc;
-	brush_vertex_t *bvert = NULL;
+	vk_vertex_t *bvert = NULL;
 	uint16_t *bind = NULL;
 	uint32_t index_offset = 0;
 
@@ -243,7 +243,7 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 			max_texture_id = surf->texinfo->texture->gl_texturenum;
 	}
 
-	vertex_alloc = VK_RenderBufferAlloc( sizeof(brush_vertex_t), num_vertices );
+	vertex_alloc = VK_RenderBufferAlloc( sizeof(vk_vertex_t), num_vertices );
 	bvert = vertex_alloc.ptr;
 	bmodel->vertex_offset = vertex_alloc.buffer_offset_in_units;
 	if (!bvert)
@@ -306,7 +306,7 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 				const int iedge = mod->surfedges[surf->firstedge + k];
 				const medge_t *edge = mod->edges + (iedge >= 0 ? iedge : -iedge);
 				const mvertex_t *in_vertex = mod->vertexes + (iedge >= 0 ? edge->v[0] : edge->v[1]);
-				brush_vertex_t vertex = {
+				vk_vertex_t vertex = {
 					{in_vertex->position[0], in_vertex->position[1], in_vertex->position[2]},
 				};
 

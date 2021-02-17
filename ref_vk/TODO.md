@@ -1,18 +1,17 @@
-## 2021-02-15
-- [x] weapon models -- viewmodel
-- [x] coalesce studio model draw calls
-- [x] initual sprite support
-
 # Next
 - [ ] fix sprite blending
+- [ ] wrap viewmodel in vk debug label
 
 # Planned
+- [ ] draw more types of beams
+- [ ] fix brush blending
+- [ ] sprite depth offset
+- [ ] fix incorrect viewport sprite culling
 - [ ] improve g_camera handling; trace SetViewPass vs RenderScene ...
 - [ ] loading to the same map breaks geometry
 - [ ] studio model lighting
 - [ ] move all consts to vk_const
 - [ ] what is GL_Backend*/GL_RenderFrame ???
-- [ ] beams
 - [ ] particles
 - [ ] decals
 - [ ] issue: transparent brushes are too transparent (train ride)
@@ -25,6 +24,7 @@
 - [ ] RTX
 - [ ] studio models survive NewMap; need to compactify buffers after removing all brushes
 - [ ] sometimes it gets very slow (1fps) when ran under lldb (only on stream?)
+- [ ] optimize perf: cmdbuf managements and semaphores, upload to gpu, ...
 
 # Someday
 - [ ] cleanup unused stuff in vk_studio.c
@@ -37,6 +37,8 @@
 - [ ] better 2d renderer: fill DRAWQUAD(texture, color, ...) command into storage buffer instead of 4 vertices
 - [ ] auto-atlas lots of smol textures: most of model texture are tiny (64x64 or less), can we not rebind them all the time? alt: bindless texture array
 - [ ] can we also try to coalesce sprite draw calls?
+- [ ] not visibly watertight map brushes
+
 
 ## 2021-02-06
 - [x] alpha test
@@ -64,3 +66,12 @@
 - [x] studio models vk debug markers
 - [x] studio models white texture as lightmap
 - [x] studio models fixes
+
+## 2021-02-15
+- [x] weapon models -- viewmodel
+- [x] coalesce studio model draw calls
+- [x] initual sprite support
+
+## 2021-02-17
+- [x] draw some beams
+

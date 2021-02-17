@@ -432,13 +432,15 @@ static model_t *R_GetChromeSprite( void )
 	return gEngine.GetDefaultSprite( REF_CHROME_SPRITE );
 }
 
+static int fixme_studio_models_drawn;
+
 static void pfnGetModelCounters( int **s, int **a )
 {
 	*s = &g_studio.framecount;
 
 	/* FIXME VK NOT IMPLEMENTED */
 	/* *a = &r_stats.c_studio_models_drawn; */
-	*a = 0;
+	*a = &fixme_studio_models_drawn;
 }
 
 static void pfnGetAliasScale( float *x, float *y )
@@ -1913,7 +1915,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	int	i;
 	int num_vertices = 0, num_indices = 0;
 	vk_buffer_alloc_t buf_vertex, buf_index;
-	brush_vertex_t *dst_vtx;
+	vk_vertex_t *dst_vtx;
 	uint16_t *dst_idx;
 	uint32_t vertex_offset, index_offset;
 	short* const ptricmds_initial = ptricmds;
@@ -1938,7 +1940,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	ASSERT(num_indices > 0);
 
 	// Get buffer region for vertices and indices
-	buf_vertex = VK_RenderTempBufferAlloc( sizeof(brush_vertex_t), num_vertices );
+	buf_vertex = VK_RenderTempBufferAlloc( sizeof(vk_vertex_t), num_vertices );
 	if (!buf_vertex.ptr)
 	{
 		gEngine.Con_Printf(S_ERROR "Cannot render mesh\n"); // TODO mesh signature?
@@ -1966,7 +1968,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 
 		for(int j = 0; j < vertices ; ++j, ++dst_vtx, ptricmds += 4 )
 		{
-			ASSERT((((brush_vertex_t*)buf_vertex.ptr) + num_vertices) > dst_vtx);
+			ASSERT((((vk_vertex_t*)buf_vertex.ptr) + num_vertices) > dst_vtx);
 
 			VectorCopy(g_studio.verts[ptricmds[0]], dst_vtx->pos);
 			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = mode == FAN ? .5f : 0.f;
@@ -3507,7 +3509,6 @@ void CL_InitStudioAPI( void )
 void VK_StudioInit( void )
 {
 	R_StudioInit();
-	CL_InitStudioAPI();
 }
 
 void VK_StudioShutdown( void )

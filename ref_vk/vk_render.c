@@ -22,6 +22,7 @@ static struct {
 	} stat;
 
 	uint32_t temp_buffer_offset;
+	int next_free_uniform_slot;
 
 	VkPipelineLayout pipeline_layout;
 	VkPipeline pipelines[kRenderTransAdd + 1];
@@ -75,9 +76,9 @@ static qboolean createPipelines( void )
 		};
 
 		VkVertexInputAttributeDescription attribs[] = {
-			{.binding = 0, .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(brush_vertex_t, pos)},
-			{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(brush_vertex_t, gl_tc)},
-			{.binding = 0, .location = 2, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(brush_vertex_t, lm_tc)},
+			{.binding = 0, .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(vk_vertex_t, pos)},
+			{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vk_vertex_t, gl_tc)},
+			{.binding = 0, .location = 2, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vk_vertex_t, lm_tc)},
 		};
 
 		VkPipelineShaderStageCreateInfo shader_stages[] = {
@@ -101,7 +102,7 @@ static qboolean createPipelines( void )
 			.stages = shader_stages,
 			.num_stages = ARRAYSIZE(shader_stages),
 
-			.vertex_stride = sizeof(brush_vertex_t),
+			.vertex_stride = sizeof(vk_vertex_t),
 
 			.depthTestEnable = VK_TRUE,
 			.depthWriteEnable = VK_TRUE,
@@ -274,6 +275,7 @@ vk_buffer_alloc_t VK_RenderBufferAlloc( uint32_t unit_size, uint32_t count )
 void VK_RenderBufferClearAll( void )
 {
 	g_render.buffer_free_offset = 0;
+	g_render.next_free_uniform_slot = 0;
 	g_render.stat.align_holes_size = 0;
 }
 
@@ -308,6 +310,8 @@ static struct {
 } g_render_state;
 
 void VK_RenderBegin( void ) {
+	g_render.next_free_uniform_slot = 0;
+
 	g_render_state.pipeline = -1;
 	g_render_state.lightmap = -1;
 	g_render_state.texture = -1;
@@ -374,6 +378,14 @@ void VK_RenderDraw( const render_draw_t *draw )
 		vkCmdDrawIndexed(vk_core.cb, draw->element_count, 1, draw->index_offset, draw->vertex_offset, 0);
 	}
 }
+
+int VK_RenderUniformAlloc( void ) {
+	if (g_render.next_free_uniform_slot == MAX_UNIFORM_SLOTS)
+		return -1;
+
+	return g_render.next_free_uniform_slot++;
+}
+
 
 void VK_RenderEnd( void )
 {
