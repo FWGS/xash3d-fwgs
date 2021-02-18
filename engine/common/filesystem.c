@@ -324,7 +324,7 @@ static void listdirectory( stringlist_t *list, const char *path, qboolean lowerc
 #if XASH_WIN32
 	char pattern[4096];
 	struct _finddata_t	n_file;
-	int		hFile;
+	intptr_t		hFile;
 #else
 	DIR *dir;
 	struct dirent *entry;

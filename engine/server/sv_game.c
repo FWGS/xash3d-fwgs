@@ -3138,9 +3138,9 @@ void SV_AllocStringPool( void )
 #endif
 
 	str64.pstringarray = ptr;
-	str64.pstringarraystatic = ptr + str64.maxstringarray;
+	str64.pstringarraystatic = (byte*)ptr + str64.maxstringarray;
 	str64.pstringbase = str64.poldstringbase = ptr;
-	str64.plast = ptr + 1;
+	str64.plast = (byte*)ptr + 1;
 	svgame.globals->pStringBase = ptr;
 #else
 	svgame.stringspool = Mem_AllocPool( "Server Strings" );
@@ -3153,9 +3153,11 @@ void SV_FreeStringPool( void )
 #ifdef XASH_64BIT
 	Con_Reportf( "SV_FreeStringPool()\n" );
 
+#if USE_MMAP
 	if( str64.pstringarray != str64.staticstringarray )
 		munmap( str64.pstringarray, (str64.maxstringarray * 2) & ~(sysconf( _SC_PAGESIZE ) - 1) );
 	else
+#endif
 		Mem_Free( str64.staticstringarray );
 #else
 	Mem_FreePool( &svgame.stringspool );
