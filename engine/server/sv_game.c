@@ -3153,7 +3153,7 @@ void SV_FreeStringPool( void )
 #ifdef XASH_64BIT
 	Con_Reportf( "SV_FreeStringPool()\n" );
 
-#if USE_MMAP
+#ifdef USE_MMAP
 	if( str64.pstringarray != str64.staticstringarray )
 		munmap( str64.pstringarray, (str64.maxstringarray * 2) & ~(sysconf( _SC_PAGESIZE ) - 1) );
 	else
