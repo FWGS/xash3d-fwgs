@@ -354,7 +354,11 @@ void Wcon_CreateConsole( void )
 
 	if( host.type == HOST_DEDICATED )
 	{
+#ifdef XASH_64BIT
+		s_wcd.SysInputLineWndProc = (WNDPROC)SetWindowLongPtr( s_wcd.hwndInputLine, GWLP_WNDPROC, (LONG_PTR)Wcon_InputLineProc );
+#else
 		s_wcd.SysInputLineWndProc = (WNDPROC)SetWindowLong( s_wcd.hwndInputLine, GWL_WNDPROC, (long)Wcon_InputLineProc );
+#endif
 		SendMessage( s_wcd.hwndInputLine, WM_SETFONT, ( WPARAM )s_wcd.hfBufferFont, 0 );
 	}
 

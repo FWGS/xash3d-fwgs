@@ -20,9 +20,14 @@ GNU General Public License for more details.
 #ifdef XASH_64BIT
 #include <dbghelp.h>
 
-void *COM_LoadLibrary( const char *dllname, int build_ordinals_table )
+void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath )
 {
-	return LoadLibraryA( dllname );
+	dll_user_t *hInst;
+
+	hInst = FS_FindLibrary( dllname, directpath );
+	if( !hInst ) return NULL; // nothing to load
+
+	return LoadLibraryA( hInst->fullPath );
 }
 
 void COM_FreeLibrary( void *hInstance )
