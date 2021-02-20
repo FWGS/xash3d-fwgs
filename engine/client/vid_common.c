@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #define WINDOW_NAME			XASH_ENGINE_NAME " Window" // Half-Life
 convar_t	*vid_displayfrequency;
 convar_t	*vid_fullscreen;
+convar_t	*vid_mode;
 convar_t	*vid_brightness;
 convar_t	*vid_gamma;
 convar_t	*vid_highdpi;
@@ -182,6 +183,7 @@ void VID_Init( void )
 	vid_brightness = Cvar_Get( "brightness", "0.0", FCVAR_ARCHIVE, "brightness factor" );
 	vid_displayfrequency = Cvar_Get ( "vid_displayfrequency", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "fullscreen refresh rate" );
 	vid_fullscreen = Cvar_Get( "fullscreen", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "enable fullscreen mode" );
+	vid_mode = Cvar_Get( "vid_mode", "0", FCVAR_RENDERINFO, "current video mode index (used just for storage)" );
 	vid_highdpi = Cvar_Get( "vid_highdpi", "1", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "enable High-DPI mode" );
 	vid_rotate = Cvar_Get( "vid_rotate", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen rotation (0-3)" );
 	vid_scale = Cvar_Get( "vid_scale", "1.0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "pixel scale" );
