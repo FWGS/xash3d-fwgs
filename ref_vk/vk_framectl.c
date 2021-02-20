@@ -2,6 +2,7 @@
 
 #include "vk_2d.h"
 #include "vk_scene.h"
+#include "vk_render.h"
 
 #include "eiface.h"
 
@@ -12,6 +13,8 @@ static struct
 	VkSemaphore image_available;
 	VkSemaphore done;
 	VkFence fence;
+
+	uint32_t swapchain_image_index;
 } g_frame;
 
 static VkFormat findSupportedImageFormat(const VkFormat *candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
@@ -251,7 +254,8 @@ static qboolean createSwapchain( void )
 
 void R_BeginFrame( qboolean clearScene )
 {
-	// gEngine.Con_Reportf("%s(clearScene=%d)\n", __FUNCTION__, clearScene);
+	// TODO should we handle multiple R_BeginFrame w/o R_EndFrame gracefully?
+	ASSERT(g_frame.swapchain_image_index == -1);
 
 	// Check that swapchain has the same size
 	{
@@ -263,6 +267,29 @@ void R_BeginFrame( qboolean clearScene )
 		{
 			createSwapchain();
 		}
+	}
+
+	for (int i = 0;; ++i)
+	{
+		const VkResult acquire_result = vkAcquireNextImageKHR(vk_core.device, vk_frame.swapchain, UINT64_MAX, g_frame.image_available,
+			VK_NULL_HANDLE, &g_frame.swapchain_image_index);
+		switch (acquire_result)
+		{
+			// TODO re-ask for swapchain size if it changed
+			case VK_ERROR_OUT_OF_DATE_KHR:
+			case VK_ERROR_SURFACE_LOST_KHR:
+				if (i == 0) {
+					createSwapchain();
+					continue;
+				}
+				gEngine.Con_Printf(S_WARN "vkAcquireNextImageKHR returned %s, frame will be lost\n", resultName(acquire_result));
+				return;
+
+			default:
+				XVK_CHECK(acquire_result);
+		}
+
+		break;
 	}
 
 	// FIXME when
@@ -286,17 +313,16 @@ void R_BeginFrame( qboolean clearScene )
 	}
 
 	vk2dBegin();
+	VK_RenderBegin();
 }
 
-void GL_RenderFrame( const struct ref_viewpass_s *rvp )
+void VK_RenderFrame( const struct ref_viewpass_s *rvp )
 {
-	// gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-	FIXME_VK_SceneSetViewPass(rvp);
+	VK_SceneRender( rvp );
 }
 
 void R_EndFrame( void )
 {
-	uint32_t swapchain_image_index;
 	VkClearValue clear_value[] = {
 		{.color = {{1., 0., 0., 0.}}},
 		{.depthStencil = {1., 0.}} // TODO reverse-z
@@ -316,35 +342,11 @@ void R_EndFrame( void )
 	VkPresentInfoKHR presinfo = {
 		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 		.pSwapchains = &vk_frame.swapchain,
-		.pImageIndices = &swapchain_image_index,
+		.pImageIndices = &g_frame.swapchain_image_index,
 		.swapchainCount = 1,
 		.pWaitSemaphores = &g_frame.done,
 		.waitSemaphoreCount = 1,
 	};
-
-	// gEngine.Con_Reportf("%s\n", __FUNCTION__);
-
-	for (int i = 0;; ++i)
-	{
-		const VkResult acquire_result = vkAcquireNextImageKHR(vk_core.device, vk_frame.swapchain, UINT64_MAX, g_frame.image_available,
-			VK_NULL_HANDLE, &swapchain_image_index);
-		switch (acquire_result)
-		{
-			case VK_ERROR_OUT_OF_DATE_KHR:
-			case VK_ERROR_SURFACE_LOST_KHR:
-				if (i == 0) {
-					createSwapchain();
-					continue;
-				}
-				gEngine.Con_Printf(S_WARN "vkAcquireNextImageKHR returned %s, frame will be lost\n", resultName(acquire_result));
-				return;
-
-			default:
-				XVK_CHECK(acquire_result);
-		}
-
-		break;
-	}
 
 	{
 		VkCommandBufferBeginInfo beginfo = {
@@ -362,7 +364,7 @@ void R_EndFrame( void )
 			.renderArea.extent.height = vk_frame.create_info.imageExtent.height,
 			.clearValueCount = ARRAYSIZE(clear_value),
 			.pClearValues = clear_value,
-			.framebuffer = vk_frame.framebuffers[swapchain_image_index],
+			.framebuffer = vk_frame.framebuffers[g_frame.swapchain_image_index],
 		};
 		vkCmdBeginRenderPass(vk_core.cb, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
 	}
@@ -380,9 +382,8 @@ void R_EndFrame( void )
 		vkCmdSetScissor(vk_core.cb, 0, ARRAYSIZE(scissor), scissor);
 	}
 
-	VK_SceneRender();
-
-	vk2dEnd();
+	VK_RenderEnd( vk_core.cb );
+	vk2dEnd( vk_core.cb );
 
 	vkCmdEndRenderPass(vk_core.cb);
 	XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
@@ -405,6 +406,8 @@ void R_EndFrame( void )
 	// TODO bad sync
 	XVK_CHECK(vkWaitForFences(vk_core.device, 1, &g_frame.fence, VK_TRUE, INT64_MAX));
 	XVK_CHECK(vkResetFences(vk_core.device, 1, &g_frame.fence));
+
+	g_frame.swapchain_image_index = -1;
 }
 
 qboolean VK_FrameCtlInit( void )
@@ -418,6 +421,7 @@ qboolean VK_FrameCtlInit( void )
 	g_frame.image_available = createSemaphore();
 	g_frame.done = createSemaphore();
 	g_frame.fence = createFence();
+	g_frame.swapchain_image_index = -1;
 
 	return true;
 }

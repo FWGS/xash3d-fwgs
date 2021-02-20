@@ -1,5 +1,6 @@
 #pragma once
 
+#include "vk_core.h"
 #include "xash3d_types.h"
 
 void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty );
@@ -11,4 +12,4 @@ void CL_FillRGBABlend( float x, float y, float w, float h, int r, int g, int b, 
 qboolean initVk2d( void );
 void deinitVk2d( void );
 void vk2dBegin( void );
-void vk2dEnd( void );
+void vk2dEnd( VkCommandBuffer cmdbuf );

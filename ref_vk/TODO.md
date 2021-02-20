@@ -3,15 +3,15 @@
 	- [x] move uniform_data_t to global render state ~inside render_draw_t, remove any mentions of uniform/slots from api; alt: global render state?~
 	- [x] rename RenderDraw to SubmitDraw
 	- [x] ~add debug label to render_draw_t?;~ alt: VK_RenderDebugNameBegin/End
+	- [x] perform 3d rendering on corresponding refapi calls, not endframe
+	- [ ] restore debug labels
 - [x] fix sprite blending
 
 # Next
-- [ ] refactor vk_render interface:
-	- [ ] make 2nd commad buffer for resource upload
-	- [ ] start building command buffers in beginframe
-	- [ ] perform 3d rendering on corresponding refapi calls, not endframe
 
 # Planned
+- [ ] make 2nd commad buffer for resource upload
+- [ ] fix sprite blending; there are commented out functions that we really need (see tunnel before the helicopter in the very beginning)
 - [ ] RTX: make projection matrix independent render global/current/static state
 - [ ] fix projection matrix differences w/ gl render
 - [ ] bad condition for temp vs map-permanent buffer error message
@@ -40,6 +40,8 @@
 - [ ] RTX: studio models should not pre-transform vertices with modelView matrix
 
 # Someday
+- [ ] start building command buffers in beginframe
+- [ ] multiple frames in flight (#nd cmdbuf, ...)
 - [ ] cleanup unused stuff in vk_studio.c
 - [ ] (helps with RTX?) unified rendering (brush/studio models/...), each model is instance, instance data is read from storage buffers, gives info about vertex format, texture bindings, etc; which are read from another set of storage buffers, ..
 - [ ] waf shader build step -- get from upstream

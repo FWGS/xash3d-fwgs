@@ -27,5 +27,5 @@ qboolean VK_FrameCtlInit( void );
 void VK_FrameCtlShutdown( void );
 
 void R_BeginFrame( qboolean clearScene );
-void GL_RenderFrame( const struct ref_viewpass_s *rvp );
+void VK_RenderFrame( const struct ref_viewpass_s *rvp );
 void R_EndFrame( void );

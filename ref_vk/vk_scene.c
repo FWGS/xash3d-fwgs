@@ -14,6 +14,7 @@
 #include "com_strings.h"
 #include "ref_params.h"
 #include "eiface.h"
+#include "pm_movevars.h"
 
 #include <stdlib.h> // qsort
 #include <memory.h>
@@ -222,16 +223,16 @@ void R_RenderScene( void )
 	PRINT_NOT_IMPLEMENTED();
 }
 
+#define WORLDMODEL (gEngine.pfnGetModelByIndex( 1 ))
+#define MOVEVARS (gEngine.pfnGetMoveVars())
 static float R_GetFarClip( void )
 {
-	/* FIXME
-	if( WORLDMODEL && RI.drawWorld )
+	if( WORLDMODEL /* FIXME VK && RI.drawWorld */ )
 		return MOVEVARS->zmax * 1.73f;
-	*/
 	return 2048.0f;
 }
 
-static void R_SetupProjectionMatrix( const ref_viewpass_t *rvp, matrix4x4 m )
+static void R_SetupProjectionMatrix( matrix4x4 m )
 {
 	float xMin, xMax, yMin, yMax, zNear, zFar;
 
@@ -249,62 +250,22 @@ static void R_SetupProjectionMatrix( const ref_viewpass_t *rvp, matrix4x4 m )
 	zNear = 4.0f;
 	zFar = Q_max( 256.0f, farClip );
 
-	yMax = zNear * tan( rvp->fov_y * M_PI_F / 360.0f );
+	yMax = zNear * tan( g_camera.fov_y * M_PI_F / 360.0f );
 	yMin = -yMax;
 
-	xMax = zNear * tan( rvp->fov_x * M_PI_F / 360.0f );
+	xMax = zNear * tan( g_camera.fov_x * M_PI_F / 360.0f );
 	xMin = -xMax;
 
 	Matrix4x4_CreateProjection( m, xMax, xMin, yMax, yMin, zNear, zFar );
 }
 
-static void R_SetupModelviewMatrix( const ref_viewpass_t* rvp, matrix4x4 m )
+static void R_SetupModelviewMatrix( matrix4x4 m )
 {
 	Matrix4x4_CreateModelview( m );
-	Matrix4x4_ConcatRotate( m, -rvp->viewangles[2], 1, 0, 0 );
-	Matrix4x4_ConcatRotate( m, -rvp->viewangles[0], 0, 1, 0 );
-	Matrix4x4_ConcatRotate( m, -rvp->viewangles[1], 0, 0, 1 );
-	Matrix4x4_ConcatTranslate( m, -rvp->vieworigin[0], -rvp->vieworigin[1], -rvp->vieworigin[2] );
-}
-
-// FIXME this is a total garbage. pls avoid adding even more weird local static state
-static ref_viewpass_t fixme_rvp;
-
-void FIXME_VK_SceneSetViewPass( const struct ref_viewpass_s *rvp )
-{
-	fixme_rvp = *rvp;
-
-	R_SetupModelviewMatrix( rvp, g_camera.worldviewMatrix );
-	R_SetupProjectionMatrix( rvp, g_camera.projectionMatrix );
-
-	Matrix4x4_Concat( g_camera.worldviewProjectionMatrix, g_camera.projectionMatrix, g_camera.worldviewMatrix );
-
-	/*
-	RI.params = RP_NONE;
-	RI.drawWorld = FBitSet( rvp->flags, RF_DRAW_WORLD );
-	RI.onlyClientDraw = FBitSet( rvp->flags, RF_ONLY_CLIENTDRAW );
-	RI.farClip = 0;
-
-	if( !FBitSet( rvp->flags, RF_DRAW_CUBEMAP ))
-		RI.drawOrtho = FBitSet( rvp->flags, RF_DRAW_OVERVIEW );
-	else RI.drawOrtho = false;
-	*/
-
-	// setup viewport
-	g_camera.viewport[0] = rvp->viewport[0];
-	g_camera.viewport[1] = rvp->viewport[1];
-	g_camera.viewport[2] = rvp->viewport[2];
-	g_camera.viewport[3] = rvp->viewport[3];
-
-	// calc FOV
-	g_camera.fov_x = rvp->fov_x;
-	g_camera.fov_y = rvp->fov_y;
-
-	VectorCopy( rvp->vieworigin, g_camera.vieworg );
-	VectorCopy( rvp->viewangles, g_camera.viewangles );
-	//VectorCopy( rvp->vieworigin, g_camera.pvsorigin );
-
-	AngleVectors( g_camera.viewangles, g_camera.vforward, g_camera.vright, g_camera.vup );
+	Matrix4x4_ConcatRotate( m, -g_camera.viewangles[2], 1, 0, 0 );
+	Matrix4x4_ConcatRotate( m, -g_camera.viewangles[0], 0, 1, 0 );
+	Matrix4x4_ConcatRotate( m, -g_camera.viewangles[1], 0, 0, 1 );
+	Matrix4x4_ConcatTranslate( m, -g_camera.vieworg[0], -g_camera.vieworg[1], -g_camera.vieworg[2] );
 }
 
 static void R_RotateForEntity( matrix4x4 out, const cl_entity_t *e )
@@ -347,7 +308,6 @@ Sorting translucent entities by rendermode then by distance
 FIXME find a better place for this function
 ===============
 */
-static vec3_t R_TransEntityCompare_vieworg; // F
 static int R_TransEntityCompare( const void *a, const void *b)
 {
 	vk_trans_entity_t *tent1, *tent2;
@@ -371,7 +331,7 @@ static int R_TransEntityCompare( const void *a, const void *b)
 	{
 		VectorAverage( ent1->model->mins, ent1->model->maxs, org );
 		VectorAdd( ent1->origin, org, org );
-		VectorSubtract( R_TransEntityCompare_vieworg, org, vecLen );
+		VectorSubtract( g_camera.vieworg, org, vecLen );
 		dist1 = DotProduct( vecLen, vecLen );
 	}
 	else dist1 = 1000000000;
@@ -380,7 +340,7 @@ static int R_TransEntityCompare( const void *a, const void *b)
 	{
 		VectorAverage( ent2->model->mins, ent2->model->maxs, org );
 		VectorAdd( ent2->origin, org, org );
-		VectorSubtract( R_TransEntityCompare_vieworg, org, vecLen );
+		VectorSubtract( g_camera.vieworg, org, vecLen );
 		dist2 = DotProduct( vecLen, vecLen );
 	}
 	else dist2 = 1000000000;
@@ -516,22 +476,74 @@ int CL_FxBlend( cl_entity_t *e ) // FIXME do R_SetupFrustum: , vec3_t vforward )
 	return blend;
 }
 
-static void prepareMatrix( const ref_viewpass_t *rvp, matrix4x4 worldview, matrix4x4 projection, matrix4x4 mvp )
+// Analagous to R_SetupRefParams, R_SetupFrustum in GL/Soft renderers
+static void setupCamera( const ref_viewpass_t *rvp, matrix4x4 mvp )
 {
-	matrix4x4 tmp;
+	/* FIXME VK unused?
+	RI.params = RP_NONE;
+	RI.drawWorld = FBitSet( rvp->flags, RF_DRAW_WORLD );
+	RI.onlyClientDraw = FBitSet( rvp->flags, RF_ONLY_CLIENTDRAW );
+	RI.farClip = 0;
 
-	// Vulkan has Y pointing down, and z should end up in (0, 1)
-	const matrix4x4 vk_proj_fixup = {
-		{1, 0, 0, 0},
-		{0, -1, 0, 0},
-		{0, 0, .5, 0},
-		{0, 0, .5, 1}
-	};
-	R_SetupProjectionMatrix( rvp, tmp );
-	Matrix4x4_Concat( projection, vk_proj_fixup, tmp );
+	if( !FBitSet( rvp->flags, RF_DRAW_CUBEMAP ))
+		RI.drawOrtho = FBitSet( rvp->flags, RF_DRAW_OVERVIEW );
+	else RI.drawOrtho = false;
+	*/
 
-	R_SetupModelviewMatrix( rvp, worldview );
-	Matrix4x4_Concat( mvp, projection, worldview);
+	// setup viewport
+	g_camera.viewport[0] = rvp->viewport[0];
+	g_camera.viewport[1] = rvp->viewport[1];
+	g_camera.viewport[2] = rvp->viewport[2];
+	g_camera.viewport[3] = rvp->viewport[3];
+
+	// calc FOV
+	g_camera.fov_x = rvp->fov_x;
+	g_camera.fov_y = rvp->fov_y;
+
+	VectorCopy( rvp->vieworigin, g_camera.vieworg );
+	VectorCopy( rvp->viewangles, g_camera.viewangles );
+	// FIXME VK unused? VectorCopy( rvp->vieworigin, g_camera.pvsorigin );
+
+	if( RP_NORMALPASS() && ( gEngine.EngineGetParm( PARM_WATER_LEVEL, 0 ) >= 3 ))
+	{
+		g_camera.fov_x = atan( tan( DEG2RAD( g_camera.fov_x ) / 2 ) * ( 0.97f + sin( gpGlobals->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
+		g_camera.fov_y = atan( tan( DEG2RAD( g_camera.fov_y ) / 2 ) * ( 1.03f - sin( gpGlobals->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
+	}
+
+	// build the transformation matrix for the given view angles
+	AngleVectors( g_camera.viewangles, g_camera.vforward, g_camera.vright, g_camera.vup );
+
+	/* FIXME VK unused?
+	if( !r_lockfrustum->value )
+	{
+		VectorCopy( RI.vieworg, RI.cullorigin );
+		VectorCopy( RI.vforward, RI.cull_vforward );
+		VectorCopy( RI.vright, RI.cull_vright );
+		VectorCopy( RI.vup, RI.cull_vup );
+	}
+	*/
+
+	/* FIXME VK unused?
+	if( RI.drawOrtho )
+		GL_FrustumInitOrtho( &RI.frustum, ov->xLeft, ov->xRight, ov->yTop, ov->yBottom, ov->zNear, ov->zFar );
+	else GL_FrustumInitProj( &g_camera.frustum, 0.0f, R_GetFarClip(), g_camera.fov_x, g_camera.fov_y ); // NOTE: we ignore nearplane here (mirrors only)
+	*/
+
+	R_SetupProjectionMatrix( g_camera.projectionMatrix );
+	R_SetupModelviewMatrix( g_camera.modelviewMatrix );
+
+	Matrix4x4_Concat( g_camera.worldviewProjectionMatrix, g_camera.projectionMatrix, g_camera.modelviewMatrix );
+
+	{
+		// Vulkan has Y pointing down, and z should end up in (0, 1)
+		const matrix4x4 vk_proj_fixup = {
+			{1, 0, 0, 0},
+			{0, -1, 0, 0},
+			{0, 0, .5, 0},
+			{0, 0, .5, 1}
+		};
+		Matrix4x4_Concat( mvp, vk_proj_fixup, g_camera.worldviewProjectionMatrix);
+	}
 }
 
 static void drawEntity( cl_entity_t *ent, int render_mode, const matrix4x4 mvp )
@@ -604,19 +616,18 @@ static void drawEntity( cl_entity_t *ent, int render_mode, const matrix4x4 mvp )
 }
 
 static float g_frametime = 0;
-void VK_SceneRender( void )
+void VK_SceneRender( const ref_viewpass_t *rvp )
 {
-	matrix4x4 worldview, projection, mvp;
+	matrix4x4 mvp;
 	int current_pipeline_index = kRenderNormal;
 
 	g_frametime = /*FIXME VK RP_NORMALPASS( )) ? */
 		gpGlobals->time - gpGlobals->oldtime
 	/* FIXME VK : 0.f */;
 
+	// FIXME this is a bad place for this call -- theoretically we can get multiple calls to VK_SceneRender so we should not erase previous tmp buffer contents
 	VK_RenderTempBufferBegin();
-	VK_RenderBegin();
-
-	prepareMatrix( &fixme_rvp, worldview, projection, mvp );
+	setupCamera( rvp, mvp );
 
 	VK_RenderDebugLabelBegin( "opaque" );
 
@@ -655,7 +666,6 @@ void VK_SceneRender( void )
 
 	{
 		// sort translucents entities by rendermode and distance
-		VectorCopy( fixme_rvp.vieworigin, R_TransEntityCompare_vieworg );
 		qsort( g_lists.draw_list->trans_entities, g_lists.draw_list->num_trans_entities, sizeof( vk_trans_entity_t ), R_TransEntityCompare );
 
 		// Draw transparent ents
@@ -671,8 +681,6 @@ void VK_SceneRender( void )
 	gEngine.CL_DrawEFX( g_frametime, true );
 
 	VK_RenderDebugLabelEnd();
-
-	VK_RenderEnd();
 
 	VK_RenderTempBufferEnd();
 }

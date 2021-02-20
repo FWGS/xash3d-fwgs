@@ -137,14 +137,14 @@ void vk2dBegin( void )
 	g2d.batch[0].vertex_count = 0;
 }
 
-void vk2dEnd( void )
+void vk2dEnd( VkCommandBuffer cmdbuf )
 {
 	const VkDeviceSize offset = 0;
 
 	if (!g2d.num_pics)
 		return;
 
-	vkCmdBindVertexBuffers(vk_core.cb, 0, 1, &g2d.pics_buffer.buffer, &offset);
+	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &g2d.pics_buffer.buffer, &offset);
 
 	for (int i = 0; i <= g2d.current_batch; ++i)
 	{
@@ -152,9 +152,9 @@ void vk2dEnd( void )
 		const VkPipeline pipeline = g2d.pipelines[g2d.batch[i].blending_mode];
 		if (texture->vk.descriptor)
 		{
-			vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g2d.pipeline_layout, 0, 1, &texture->vk.descriptor, 0, NULL);
-			vkCmdDraw(vk_core.cb, g2d.batch[i].vertex_count, 1, g2d.batch[i].vertex_offset, 0);
+			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g2d.pipeline_layout, 0, 1, &texture->vk.descriptor, 0, NULL);
+			vkCmdDraw(cmdbuf, g2d.batch[i].vertex_count, 1, g2d.batch[i].vertex_offset, 0);
 		} // FIXME else what?
 	}
 }

@@ -15,8 +15,8 @@ typedef struct vk_trans_entity_s {
 } vk_trans_entity_t;
 
 void VK_SceneInit( void );
-void FIXME_VK_SceneSetViewPass( const struct ref_viewpass_s *rvp );
-void VK_SceneRender( void );
+
+void VK_SceneRender( const struct ref_viewpass_s *rvp );
 
 qboolean VK_LoadBrushModel( model_t *mod, const byte *buffer );
 qboolean R_AddEntity( struct cl_entity_s *clent, int type );
