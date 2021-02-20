@@ -6,11 +6,24 @@
 #include "vk_common.h"
 #include "vk_pipeline.h"
 #include "vk_textures.h"
+#include "vk_math.h"
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
 
+#include <memory.h>
+
+#define MAX_UNIFORM_SLOTS (MAX_SCENE_ENTITIES * 2 /* solid + trans */ + 1)
+
+typedef struct {
+	matrix4x4 mvp;
+	vec4_t color;
+} uniform_data_t;
+
 static struct {
+	VkPipelineLayout pipeline_layout;
+	VkPipeline pipelines[kRenderTransAdd + 1];
+
 	vk_buffer_t buffer;
 	uint32_t buffer_free_offset;
 
@@ -22,18 +35,7 @@ static struct {
 	} stat;
 
 	uint32_t temp_buffer_offset;
-	int next_free_uniform_slot;
-
-	VkPipelineLayout pipeline_layout;
-	VkPipeline pipelines[kRenderTransAdd + 1];
 } g_render;
-
-uniform_data_t *VK_RenderGetUniformSlot(int index)
-{
-	ASSERT(index >= 0);
-	ASSERT(index < MAX_UNIFORM_SLOTS);
-	return (uniform_data_t*)(((uint8_t*)g_render.uniform_buffer.mapped) + (g_render.uniform_unit_size * index));
-}
 
 static qboolean createPipelines( void )
 {
@@ -140,7 +142,9 @@ static qboolean createPipelines( void )
 					ci.depthWriteEnable = VK_FALSE;
 					ci.blendEnable = VK_TRUE;
 					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
-					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+
+					// sprites do SRC_ALPHA
+					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;// TODO ? FACTOR_ONE;
 					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
 					name = "brush kRenderTransAdd";
 					break;
@@ -266,8 +270,9 @@ static vk_buffer_alloc_t renderBufferAlloc( uint32_t unit_size, uint32_t count )
 
 vk_buffer_alloc_t VK_RenderBufferAlloc( uint32_t unit_size, uint32_t count )
 {
+	// FIXME this is not correct: on the very first map load it will trigger a lot
 	if (g_render.buffer_free_offset >= g_render.temp_buffer_offset)
-		gEngine.Con_Printf(S_ERROR "Trying to allocate map-permanent storage int temp buffer context\n");
+		gEngine.Con_Printf(S_ERROR "Trying to allocate map-permanent storage in temp buffer context\n");
 
 	return renderBufferAlloc( unit_size, count );
 }
@@ -275,7 +280,6 @@ vk_buffer_alloc_t VK_RenderBufferAlloc( uint32_t unit_size, uint32_t count )
 void VK_RenderBufferClearAll( void )
 {
 	g_render.buffer_free_offset = 0;
-	g_render.next_free_uniform_slot = 0;
 	g_render.stat.align_holes_size = 0;
 }
 
@@ -306,16 +310,31 @@ static struct {
 	int pipeline;
 	int lightmap; // TODO rename to 2nd texture
 	int texture;
-	int ubo_index;
+
+	int uniform_data_set_mask;
+	int next_free_uniform_slot;
+	uniform_data_t current_uniform_data;
+	uniform_data_t dirty_uniform_data;
 } g_render_state;
 
+enum {
+	UNIFORM_UNSET = 0,
+	UNIFORM_SET_COLOR = 1,
+	UNIFORM_SET_MATRIX = 2,
+	UNIFORM_SET_ALL = UNIFORM_SET_COLOR | UNIFORM_SET_MATRIX,
+	UNIFORM_UPLOADED = 4,
+};
+
 void VK_RenderBegin( void ) {
-	g_render.next_free_uniform_slot = 0;
+	g_render_state.next_free_uniform_slot = 0;
 
 	g_render_state.pipeline = -1;
 	g_render_state.lightmap = -1;
 	g_render_state.texture = -1;
-	g_render_state.ubo_index = -1;
+	g_render_state.uniform_data_set_mask = UNIFORM_UNSET;
+
+	memset(&g_render_state.current_uniform_data, 0, sizeof(g_render_state.current_uniform_data));
+	memset(&g_render_state.dirty_uniform_data, 0, sizeof(g_render_state.dirty_uniform_data));
 
 	{
 		const VkDeviceSize offset = 0;
@@ -324,13 +343,67 @@ void VK_RenderBegin( void ) {
 	}
 }
 
-void VK_RenderDraw( const render_draw_t *draw )
+void VK_RenderStateSetColor( float r, float g, float b, float a )
+{
+	g_render_state.uniform_data_set_mask |= UNIFORM_SET_COLOR;
+	g_render_state.dirty_uniform_data.color[0] = r;
+	g_render_state.dirty_uniform_data.color[1] = g;
+	g_render_state.dirty_uniform_data.color[2] = b;
+	g_render_state.dirty_uniform_data.color[3] = a;
+}
+
+void VK_RenderStateSetMatrix( const matrix4x4 mvp )
+{
+	g_render_state.uniform_data_set_mask |= UNIFORM_SET_MATRIX;
+	Matrix4x4_ToArrayFloatGL( mvp, (float*)g_render_state.dirty_uniform_data.mvp );
+}
+
+static uniform_data_t *getUniformSlot(int index)
+{
+	ASSERT(index >= 0);
+	ASSERT(index < MAX_UNIFORM_SLOTS);
+	return (uniform_data_t*)(((uint8_t*)g_render.uniform_buffer.mapped) + (g_render.uniform_unit_size * index));
+}
+
+static int allocUniformSlot( void ) {
+	if (g_render_state.next_free_uniform_slot == MAX_UNIFORM_SLOTS)
+		return -1;
+
+	return g_render_state.next_free_uniform_slot++;
+}
+
+void VK_RenderScheduleDraw( const render_draw_t *draw )
 {
 	ASSERT(draw->render_mode >= 0);
 	ASSERT(draw->render_mode < ARRAYSIZE(g_render.pipelines));
 	ASSERT(draw->lightmap >= 0);
 	ASSERT(draw->texture >= 0);
-	ASSERT(draw->ubo_index >= 0);
+
+	if ((g_render_state.uniform_data_set_mask & UNIFORM_SET_ALL) != UNIFORM_SET_ALL) {
+		gEngine.Con_Printf( S_ERROR "Not all uniform state was initialized prior to rendering\n" );
+		return;
+	}
+
+	// Figure out whether we need to update UBO data, and upload new data if we do
+	// TODO generally it's not safe to do memcmp for structure
+	if (((g_render_state.uniform_data_set_mask & UNIFORM_UPLOADED) == 0) || memcmp(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.current_uniform_data)) != 0) {
+		const int ubo_index = allocUniformSlot();
+		uniform_data_t *ubo;
+		if (ubo_index < 0) {
+			gEngine.Con_Printf( S_ERROR "Ran out of uniform slots\n" );
+			return;
+		}
+
+		ubo = getUniformSlot( ubo_index );
+		memcpy(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.dirty_uniform_data));
+		memcpy(ubo, &g_render_state.current_uniform_data, sizeof(*ubo));
+		g_render_state.uniform_data_set_mask |= UNIFORM_UPLOADED;
+
+		{
+			const uint32_t dynamic_offset[] = { g_render.uniform_unit_size * ubo_index};
+			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
+		}
+	}
 
 	if (g_render_state.pipeline != draw->render_mode) {
 		g_render_state.pipeline = draw->render_mode;
@@ -347,12 +420,6 @@ void VK_RenderDraw( const render_draw_t *draw )
 		g_render_state.texture = draw->texture;
 		// TODO names/enums for binding points
 		vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 1, 1, &findTexture(g_render_state.texture)->vk.descriptor, 0, NULL);
-	}
-
-	if (g_render_state.ubo_index != draw->ubo_index) {
-		const uint32_t dynamic_offset[] = { g_render.uniform_unit_size * draw->ubo_index};
-		g_render_state.ubo_index = draw->ubo_index;
-		vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, ARRAYSIZE(dynamic_offset), dynamic_offset);
 	}
 
 	if (draw->index_offset == UINT32_MAX) {
@@ -378,14 +445,6 @@ void VK_RenderDraw( const render_draw_t *draw )
 		vkCmdDrawIndexed(vk_core.cb, draw->element_count, 1, draw->index_offset, draw->vertex_offset, 0);
 	}
 }
-
-int VK_RenderUniformAlloc( void ) {
-	if (g_render.next_free_uniform_slot == MAX_UNIFORM_SLOTS)
-		return -1;
-
-	return g_render.next_free_uniform_slot++;
-}
-
 
 void VK_RenderEnd( void )
 {

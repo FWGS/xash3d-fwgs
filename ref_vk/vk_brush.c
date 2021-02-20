@@ -126,7 +126,7 @@ texture_t *R_TextureAnimation( const cl_entity_t *ent, msurface_t *s )
 	return base;
 }
 
-void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode, int ubo_index )
+void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode )
 {
 	// Expect all buffers to be bound
 	const model_t *mod = ent->model;
@@ -137,6 +137,12 @@ void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode, int ubo_index )
 
 	if (!bmodel) {
 		gEngine.Con_Printf( S_ERROR "Model %s wasn't loaded\n", mod->name);
+		return;
+	}
+
+	if (!tglob.lightmapTextures[0])
+	{
+		gEngine.Con_Printf( S_ERROR "Don't have a lightmap texture\n");
 		return;
 	}
 
@@ -159,7 +165,6 @@ void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode, int ubo_index )
 		{
 			if (index_count) {
 				const render_draw_t draw = {
-					.ubo_index = ubo_index,
 					.lightmap = tglob.lightmapTextures[0],
 					.texture = current_texture,
 					.render_mode = render_mode,
@@ -168,7 +173,7 @@ void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode, int ubo_index )
 					.index_offset = index_offset,
 				};
 
-				VK_RenderDraw( &draw );
+				VK_RenderScheduleDraw( &draw );
 			}
 
 			current_texture = t->gl_texturenum;
@@ -185,7 +190,6 @@ void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode, int ubo_index )
 
 	if (index_count) {
 		const render_draw_t draw = {
-			.ubo_index = ubo_index,
 			.lightmap = tglob.lightmapTextures[0],
 			.texture = current_texture,
 			.render_mode = render_mode,
@@ -194,22 +198,11 @@ void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode, int ubo_index )
 			.index_offset = index_offset,
 		};
 
-		VK_RenderDraw( &draw );
+		VK_RenderScheduleDraw( &draw );
 	}
 
 	if (vk_core.debug)
 		vkCmdEndDebugUtilsLabelEXT(vk_core.cb);
-}
-
-qboolean VK_BrushRenderBegin( void )
-{
-	if (!tglob.lightmapTextures[0])
-	{
-		gEngine.Con_Printf( S_ERROR "Don't have a lightmap texture\n");
-		return false;
-	}
-
-	return true;
 }
 
 static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_surfaces) {

@@ -153,7 +153,7 @@ static void applyBrightness( float brightness, const vec4_t color, vec4_t out )
 	out[3] = 1.f;
 }
 
-static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments, int flags, int ubo_index, const vec4_t color, int texture, int render_mode )
+static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments, int flags, const vec4_t color, int texture, int render_mode )
 {
 	int	noiseIndex, noiseStep;
 	int	i, total_segs, segs_drawn;
@@ -376,7 +376,6 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	}
 	{
 		const render_draw_t draw = {
-			.ubo_index = ubo_index,
 			.lightmap = tglob.whiteTexture,
 			.texture = texture,
 			.render_mode = render_mode,
@@ -385,7 +384,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			.index_offset = index_buffer.buffer_offset_in_units,
 		};
 
-		VK_RenderDraw( &draw );
+		VK_RenderScheduleDraw( &draw );
 	}
 }
 
@@ -955,8 +954,6 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	vec4_t color;
 	int render_mode;
 	int	texturenum;
-	int ubo_index = VK_RenderUniformAlloc();
-	uniform_data_t *ubo = VK_RenderGetUniformSlot( ubo_index );
 
 	model = gEngine.pfnGetModelByIndex( pbeam->modelIndex );
 	SetBits( pbeam->flags, FBEAM_ISACTIVE );
@@ -1097,10 +1094,6 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	else
 		color[3] = pbeam->brightness;
 
-	// Ran out of UBO slots
-	if (!ubo)
-		return;
-
 	{
 		matrix4x4 tmp;
 		const matrix4x4 vk_proj_fixup = {
@@ -1110,9 +1103,11 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 			{0, 0, .5, 1}
 		};
 		Matrix4x4_Concat( tmp, vk_proj_fixup, g_camera.worldviewProjectionMatrix);
-		Matrix4x4_ToArrayFloatGL( tmp, (float*)ubo->mvp );
+		VK_RenderStateSetMatrix( tmp );
 	}
-	Vector4Set(ubo->color, 1, 1, 1, 1);
+
+	// TODO gl renderer has per-vertex color that is updated using brightness and whatever
+	VK_RenderStateSetColor( color[0], color[1], color[2], color[3] );
 
 	if (vk_core.debug) {
 		VkDebugUtilsLabelEXT label = {
@@ -1138,7 +1133,7 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 		break;
 	case TE_BEAMPOINTS:
 	case TE_BEAMHOSE:
-		R_DrawSegs( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments, pbeam->flags, ubo_index, color, texturenum, render_mode );
+		R_DrawSegs( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments, pbeam->flags, color, texturenum, render_mode );
 		break;
 	case TE_BEAMFOLLOW:
 		// FIXME VK TriBegin( TRI_QUADS );

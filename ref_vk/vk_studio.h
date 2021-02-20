@@ -12,9 +12,9 @@ void VK_StudioShutdown( void );
 void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded );
 void Mod_StudioLoadTextures( model_t *mod, void *data );
 
-void VK_StudioDrawModel( cl_entity_t *ent, int render_mode, int ubo_index );
+void VK_StudioDrawModel( cl_entity_t *ent, int render_mode );
 
 void R_RunViewmodelEvents( void );
-void R_DrawViewModel( int ubo_index );
+void R_DrawViewModel( void );
 
 void CL_InitStudioAPI( void );

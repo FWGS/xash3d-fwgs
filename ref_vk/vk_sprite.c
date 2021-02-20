@@ -639,14 +639,14 @@ qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 	}
 	else
 	{
-		// FIXME VK if( R_CullSpriteModel( e, origin ))
-			return true;
+		// FIXME VK if( R_CullSpriteModel( e, origin )) return true;
+		return false;
 	}
 
 	return false;
 }
 
-static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale, int ubo_index, int texture, int render_mode )
+static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale, int texture, int render_mode )
 {
 	vec3_t	point;
 	vk_buffer_alloc_t buf_vertex, buf_index;
@@ -705,7 +705,6 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 
 	{
 		const render_draw_t draw = {
-			.ubo_index = ubo_index,
 			.lightmap = tglob.whiteTexture,
 			.texture = texture,
 			.render_mode = render_mode,
@@ -714,7 +713,7 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 			.index_offset = buf_index.buffer_offset_in_units,
 		};
 
-		VK_RenderDraw( &draw );
+		VK_RenderScheduleDraw( &draw );
 	}
 }
 
@@ -766,7 +765,7 @@ static qboolean R_SpriteAllowLerping( cl_entity_t *e, msprite_t *psprite )
 	return true;
 }
 
-void VK_SpriteDrawModel( cl_entity_t *e, int ubo_index )
+void VK_SpriteDrawModel( cl_entity_t *e )
 {
 	mspriteframe_t	*frame, *oldframe;
 	msprite_t		*psprite;
@@ -776,7 +775,6 @@ void VK_SpriteDrawModel( cl_entity_t *e, int ubo_index )
 	float		lerp = 1.0f, ilerp, scale;
 	vec3_t		v_forward, v_right, v_up;
 	vec3_t		origin, color, color2 = { 0.0f };
-	uniform_data_t *ubo = VK_RenderGetUniformSlot(ubo_index);
 
 	/* FIXME VK
 	if( RI.params & RP_ENVVIEW )
@@ -945,7 +943,8 @@ void VK_SpriteDrawModel( cl_entity_t *e, int ubo_index )
 		ubo->color[2] = color[2];
 		ubo->color[3] = tr.blend;
 		*/
-		R_DrawSpriteQuad( frame, origin, v_right, v_up, scale, ubo_index, frame->gl_texturenum, e->curstate.rendermode );
+		VK_RenderStateSetColor( color[0], color[1], color[2], .5f ); // FIXME VK: tr.blend
+		R_DrawSpriteQuad( frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode );
 	}
 	else
 	{
@@ -955,15 +954,16 @@ void VK_SpriteDrawModel( cl_entity_t *e, int ubo_index )
 
 		if( ilerp != 0.0f )
 		{
-			// FIXME VK make sure we end up with the same values
-			ubo->color[3] *= ilerp;
-			R_DrawSpriteQuad( oldframe, origin, v_right, v_up, scale, ubo_index, oldframe->gl_texturenum, e->curstate.rendermode  );
+			// FIXME VK make sure we end up with the same values as gl
+			VK_RenderStateSetColor( color[0], color[1], color[2], 1.f * ilerp );
+			R_DrawSpriteQuad( oldframe, origin, v_right, v_up, scale, oldframe->gl_texturenum, e->curstate.rendermode  );
 		}
 
 		if( lerp != 0.0f )
 		{
-			ubo->color[3] *= lerp;
-			R_DrawSpriteQuad( frame, origin, v_right, v_up, scale, ubo_index, frame->gl_texturenum, e->curstate.rendermode  );
+			// FIXME VK make sure we end up with the same values as gl
+			VK_RenderStateSetColor( color[0], color[1], color[2], 1.f * lerp );
+			R_DrawSpriteQuad( frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode  );
 		}
 	}
 

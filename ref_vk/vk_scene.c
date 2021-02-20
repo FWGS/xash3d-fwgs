@@ -538,9 +538,7 @@ static void drawEntity( cl_entity_t *ent, int render_mode, const matrix4x4 mvp )
 {
 	const model_t *mod = ent->model;
 	matrix4x4 model, ent_mvp;
-	uniform_data_t *ubo;
 	float alpha;
-	int ubo_index;
 
 	if (!mod)
 		return;
@@ -548,24 +546,18 @@ static void drawEntity( cl_entity_t *ent, int render_mode, const matrix4x4 mvp )
 	// handle studiomodels with custom rendermodes on texture
 	alpha = render_mode == kRenderNormal ? 1.f : CL_FxBlend( ent ) / 255.0f;
 
-	// TODO ref_gl does this earlier, can we too?
+	// TODO ref_gl does this earlier (when adding entity), can we too?
 	if( alpha <= 0.0f )
 		return;
 
-	// TODO might accidentally alloc ubo for things that won't be rendered; optimize this
-	ubo_index = VK_RenderUniformAlloc();
-	if (ubo_index < 0)
-		return; // TODO complain
-	ubo = VK_RenderGetUniformSlot(ubo_index);
-
 	switch (render_mode) {
 		case kRenderNormal:
-			Vector4Set(ubo->color, 1.f, 1.f, 1.f, 1.f);
+			VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f);
 			break;
 
 		case kRenderTransColor:
 			// FIXME also zero out texture? use white texture
-			Vector4Set(ubo->color,
+			VK_RenderStateSetColor(
 					ent->curstate.rendercolor.r / 255.f,
 					ent->curstate.rendercolor.g / 255.f,
 					ent->curstate.rendercolor.b / 255.f,
@@ -573,39 +565,40 @@ static void drawEntity( cl_entity_t *ent, int render_mode, const matrix4x4 mvp )
 			break;
 
 		case kRenderTransAdd:
-			Vector4Set(ubo->color, alpha, alpha, alpha, 1.f);
+			VK_RenderStateSetColor( alpha, alpha, alpha, 1.f);
 			break;
 
 		case kRenderTransAlpha:
-			Vector4Set(ubo->color, 1.f, 1.f, 1.f, 1.f);
+			VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f);
 			// TODO Q1compat Vector4Set(e_ubo->color, 1.f, 1.f, 1.f, alpha);
 			break;
 
 		default:
-			Vector4Set(ubo->color, 1.f, 1.f, 1.f, alpha);
+			VK_RenderStateSetColor( 1.f, 1.f, 1.f, alpha);
 	}
 
-	// TODO sort by entity type?
-	// TODO other entity types
 	switch (mod->type)
 	{
 		case mod_brush:
 			R_RotateForEntity( model, ent );
 			Matrix4x4_Concat( ent_mvp, mvp, model );
-			Matrix4x4_ToArrayFloatGL( ent_mvp, (float*)ubo->mvp);
-			VK_BrushDrawModel( ent, render_mode, ubo_index );
+			VK_RenderStateSetMatrix( ent_mvp );
+			VK_BrushDrawModel( ent, render_mode );
 			break;
 
 		case mod_studio:
-			/* R_RotateForEntity( model, ent ); */
-			/* Matrix4x4_Concat( ent_mvp, mvp, model ); */
-			Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp);
-			VK_StudioDrawModel( ent, render_mode, ubo_index );
+			VK_RenderStateSetMatrix( mvp );
+			VK_StudioDrawModel( ent, render_mode );
 			break;
 
 		case mod_sprite:
-			Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp);
-			VK_SpriteDrawModel( ent, ubo_index );
+			VK_RenderStateSetMatrix( mvp );
+			VK_SpriteDrawModel( ent );
+			break;
+
+		case mod_alias:
+		case mod_bad:
+			PRINT_NOT_IMPLEMENTED();
 			break;
 	}
 }
@@ -620,25 +613,17 @@ void VK_SceneRender( void )
 		gpGlobals->time - gpGlobals->oldtime
 	/* FIXME VK : 0.f */;
 
-	if (!VK_BrushRenderBegin())
-		return;
-
 	VK_RenderTempBufferBegin();
-
 	VK_RenderBegin();
 
 	prepareMatrix( &fixme_rvp, worldview, projection, mvp );
 
 	// Draw view model
 	{
-		const int ubo_index = VK_RenderUniformAlloc();
-		uniform_data_t *ubo;
-		ASSERT(ubo_index >= 0);
-		ubo = VK_RenderGetUniformSlot(ubo_index);
-		Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp );
-		Vector4Set(ubo->color, 1.f, 1.f, 1.f, 1.f);
+		VK_RenderStateSetMatrix( mvp );
+		VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f );
 		R_RunViewmodelEvents();
-		R_DrawViewModel( ubo_index );
+		R_DrawViewModel();
 	}
 
 	// Draw world brush
@@ -646,13 +631,9 @@ void VK_SceneRender( void )
 		cl_entity_t *world = gEngine.GetEntityByIndex( 0 );
 		if( world && world->model )
 		{
-			const int ubo_index = VK_RenderUniformAlloc();
-			uniform_data_t *ubo;
-			ASSERT(ubo_index >= 0);
-			ubo = VK_RenderGetUniformSlot(ubo_index);
-			Matrix4x4_ToArrayFloatGL( mvp, (float*)ubo->mvp );
-			Vector4Set(ubo->color, 1.f, 1.f, 1.f, 1.f);
-			VK_BrushDrawModel( world, kRenderNormal, ubo_index );
+			VK_RenderStateSetMatrix( mvp );
+			VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f);
+			VK_BrushDrawModel( world, kRenderNormal );
 		}
 	}
 

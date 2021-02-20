@@ -3,14 +3,8 @@
 #include "vk_const.h"
 #include "vk_core.h"
 
-typedef struct {
-	matrix4x4 mvp;
-	vec4_t color;
-} uniform_data_t;
-
-#define MAX_UNIFORM_SLOTS (MAX_SCENE_ENTITIES * 2 /* solid + trans */ + 1)
-
-uniform_data_t *VK_RenderGetUniformSlot(int index);
+qboolean VK_RenderInit( void );
+void VK_RenderShutdown( void );
 
 typedef struct vk_buffer_alloc_s {
 	uint32_t buffer_offset_in_units;
@@ -19,18 +13,22 @@ typedef struct vk_buffer_alloc_s {
 
 // TODO uploading to GPU mem interface
 vk_buffer_alloc_t VK_RenderBufferAlloc( uint32_t unit_size, uint32_t count );
-
 void VK_RenderBufferClearAll( void );
-
-qboolean VK_RenderInit( void );
-void VK_RenderShutdown( void );
-
 void VK_RenderBufferPrintStats( void );
 
 // TODO address cringiness of this when doing buffer upload to GPU RAM properly
 void VK_RenderTempBufferBegin( void );
 vk_buffer_alloc_t VK_RenderTempBufferAlloc( uint32_t unit_size, uint32_t count );
 void VK_RenderTempBufferEnd( void );
+
+// Set UBO state for next VK_RenderScheduleDraw calls
+// Why? Xash Ref code is organized in a way where we can't reliably pass this info with
+// ScheduleDraw itself, so we need to either set up per-submodule global state, or
+// centralize this global state in here
+void VK_RenderStateSetColor( float r, float g, float b, float a );
+// TODO void VK_RenderStateGetColor( vec4_t color );
+void VK_RenderStateSetMatrix( const matrix4x4 mvp );
+// TODO: set projection and mv matrices separately
 
 // TODO is this a good place?
 typedef struct vk_vertex_s {
@@ -40,7 +38,6 @@ typedef struct vk_vertex_s {
 } vk_vertex_t;
 
 typedef struct render_draw_s {
-	int ubo_index;
 	int lightmap, texture;
 	int render_mode;
 	uint32_t element_count;
@@ -48,8 +45,5 @@ typedef struct render_draw_s {
 } render_draw_t;
 
 void VK_RenderBegin( void );
-// Allocate one uniform slot, -1 if no slot available
-int VK_RenderUniformAlloc( void );
-// FIXME rename to Submit something
-void VK_RenderDraw( const render_draw_t *draw );
+void VK_RenderScheduleDraw( const render_draw_t *draw );
 void VK_RenderEnd( void );

@@ -107,9 +107,6 @@ typedef struct
 	// drawelements renderer
 	uint			numverts;
 	uint			numelems;
-
-	// TODO prettify Vulkan stuff
-	int vk_ubo_index;
 } studio_draw_state_t;
 
 // studio-related cvars
@@ -1920,11 +1917,6 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	uint32_t vertex_offset, index_offset;
 	short* const ptricmds_initial = ptricmds;
 
-	if (g_studio.vk_ubo_index < 0) {
-		gEngine.Con_Printf(S_ERROR "Cannot render mesh: ubo_index is unset\n"); // TODO mesh signature?
-		return;
-	}
-
 	// Compute counts of vertices and indices
 	while(( i = *( ptricmds++ )))
 	{
@@ -2017,7 +2009,6 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	// Render
 	{
 		const render_draw_t draw = {
-			.ubo_index = g_studio.vk_ubo_index,
 			.lightmap = tglob.whiteTexture,
 			.texture = texture,
 			.render_mode = render_mode,
@@ -2026,7 +2017,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			.index_offset = buf_index.buffer_offset_in_units,
 		};
 
-		VK_RenderDraw( &draw );
+		VK_RenderScheduleDraw( &draw );
 	}
 }
 
@@ -3181,7 +3172,7 @@ void R_GatherPlayerLight( void )
 	*/
 }
 
-void R_DrawViewModel( int ubo_index )
+void R_DrawViewModel( void )
 {
 	cl_entity_t	*view = gEngine.GetViewModel();
 
@@ -3222,7 +3213,6 @@ void R_DrawViewModel( int ubo_index )
 	}
 	*/
 
-	g_studio.vk_ubo_index = ubo_index;
 	switch( RI.currententity->model->type )
 	{
 		/* FIXME VK
@@ -3236,7 +3226,6 @@ void R_DrawViewModel( int ubo_index )
 		break;
 	}
 
-	g_studio.vk_ubo_index = -1;
 	RI.currententity = NULL;
 	RI.currentmodel = NULL;
 
@@ -3520,16 +3509,14 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	PRINT_NOT_IMPLEMENTED_ARGS("(%s)", mod->name);
 }
 
-void VK_StudioDrawModel( cl_entity_t *ent, int render_mode, int ubo_index )
+void VK_StudioDrawModel( cl_entity_t *ent, int render_mode )
 {
 	RI.currententity = ent;
 	RI.currentmodel = ent->model;
 	RI.drawWorld = true;
 
-	g_studio.vk_ubo_index = ubo_index;
 	R_DrawStudioModel( ent );
 
-	g_studio.vk_ubo_index = -1;
 	RI.currentmodel = NULL;
 	RI.currententity = NULL;
 }

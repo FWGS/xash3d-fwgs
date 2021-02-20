@@ -1,9 +1,12 @@
+# 2021-02-20
+- [ ] refactor vk_render interface:
+	- [x] move uniform_data_t to global render state ~inside render_draw_t, remove any mentions of uniform/slots from api; alt: global render state?~
+	- [x] rename RenderDraw to SubmitDraw
+
 # Next
 - [ ] refactor vk_render interface:
 	- [ ] make projection matrix independent render global/current/static state
-	- [ ] move uniform_data_t inside render_draw_t, remove any mentions of uniform/slots from api; alt: global render state?
 	- [ ] add debug label to render_draw_t?; alt: VK_RenderDebugNameBegin/End
-	- [ ] rename RenderDraw to SubmitDraw
 	- [ ] make 2nd commad buffer for resource upload
 	- [ ] start building command buffers in beginframe
 	- [ ] perform 3d rendering on corresponding refapi calls, not endframe
@@ -11,6 +14,8 @@
 - [ ] wrap viewmodel in vk debug label
 
 # Planned
+- [ ] fix projection matrix differences w/ gl render
+- [ ] bad condition for temp vs map-permanent buffer error message
 - [ ] draw more types of beams
 - [ ] fix brush blending
 - [ ] sprite depth offset
@@ -33,6 +38,7 @@
 - [ ] studio models survive NewMap; need to compactify buffers after removing all brushes
 - [ ] sometimes it gets very slow (1fps) when ran under lldb (only on stream?)
 - [ ] optimize perf: cmdbuf managements and semaphores, upload to gpu, ...
+- [ ] RTX: studio models should not pre-transform vertices with modelView matrix
 
 # Someday
 - [ ] cleanup unused stuff in vk_studio.c

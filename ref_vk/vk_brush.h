@@ -11,5 +11,5 @@ qboolean VK_BrushInit( void );
 void VK_BrushShutdown( void );
 qboolean VK_LoadBrushModel( struct model_s *mod, const byte *buffer );
 qboolean VK_BrushRenderBegin( void );
-void VK_BrushDrawModel( const struct cl_entity_s *ent, int render_mode, int ubo_index );
+void VK_BrushDrawModel( const struct cl_entity_s *ent, int render_mode );
 void VK_BrushClear( void );
