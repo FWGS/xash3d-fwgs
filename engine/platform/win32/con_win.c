@@ -241,7 +241,7 @@ void Wcon_WinPrint( const char *pMsg )
 	{
 		SendMessage( s_wcd.hwndBuffer, EM_SETSEL, 0, -1 );
 		s_wcd.outLen = len;
-	} 
+	}
 
 	SendMessage( s_wcd.hwndBuffer, EM_REPLACESEL, 0, (LPARAM)pMsg );
 
@@ -312,7 +312,7 @@ void Wcon_CreateConsole( void )
 		// print into log
 		Con_Reportf( S_ERROR  "Can't register window class '%s'\n", SYSCONSOLE );
 		return;
-	} 
+	}
 
 	AdjustWindowRect( &rect, DEDSTYLE, FALSE );
 
@@ -400,7 +400,7 @@ destroy win32 console
 */
 void Wcon_DestroyConsole( void )
 {
-	// last text message into console or log 
+	// last text message into console or log
 	Con_Reportf( "Sys_FreeLibrary: Unloading xash.dll\n" );
 
 	Sys_CloseLog();
@@ -440,17 +440,17 @@ void Wcon_DestroyConsole( void )
 ================
 Con_Input
 
-returned input text 
+returned input text
 ================
 */
 char *Wcon_Input( void )
 {
 	if( s_wcd.consoleText[0] == 0 )
 		return NULL;
-		
+
 	Q_strncpy( s_wcd.returnedText, s_wcd.consoleText, sizeof( s_wcd.returnedText ));
 	s_wcd.consoleText[0] = 0;
-	
+
 	return s_wcd.returnedText;
 }
 
@@ -458,7 +458,7 @@ char *Wcon_Input( void )
 ================
 Con_SetFocus
 
-change focus to console hwnd 
+change focus to console hwnd
 ================
 */
 void Wcon_RegisterHotkeys( void )

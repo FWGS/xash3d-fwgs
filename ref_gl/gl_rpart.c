@@ -139,7 +139,7 @@ static qboolean CL_CullTracer( particle_t *p, const vec3_t start, const vec3_t e
 			mins[i] = end[i];
 			maxs[i] = start[i];
 		}
-		
+
 		// don't let it be zero sized
 		if( mins[i] == maxs[i] )
 		{
@@ -225,10 +225,10 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 			VectorSubtract( normal, tmp2, normal );
 
 			// compute four vertexes
-			VectorSubtract( start, normal, verts[0] ); 
-			VectorAdd( start, normal, verts[1] ); 
-			VectorAdd( verts[0], delta, verts[2] ); 
-			VectorAdd( verts[1], delta, verts[3] ); 
+			VectorSubtract( start, normal, verts[0] );
+			VectorAdd( start, normal, verts[1] );
+			VectorAdd( verts[0], delta, verts[2] );
+			VectorAdd( verts[1], delta, verts[3] );
 
 			if( p->color > sizeof( gTracerColors ) / sizeof( color24 ) )
 			{

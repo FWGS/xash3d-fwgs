@@ -281,7 +281,7 @@ void MD5Update( MD5Context_t *ctx, const byte *buf, uint len )
 ===============
 MD5Final
 
-Final wrapup - pad to 64-byte boundary with the bit pattern 
+Final wrapup - pad to 64-byte boundary with the bit pattern
 1 0* (64-bit count of bits processed, MSB-first)
 ===============
 */

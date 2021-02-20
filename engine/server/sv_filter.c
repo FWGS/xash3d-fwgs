@@ -289,7 +289,7 @@ static void SV_WriteID_f( void )
 	FS_Close( f );
 }
 
-static qboolean StringToIP( const char *str, const char *maskstr, uint *outip, uint *outmask ) 
+static qboolean StringToIP( const char *str, const char *maskstr, uint *outip, uint *outmask )
 {
 	byte ip[4] = {0};
 	byte mask[4] = {0};

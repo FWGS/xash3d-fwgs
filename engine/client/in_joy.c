@@ -24,17 +24,6 @@ GNU General Public License for more details.
 #define SHRT_MAX 0x7FFF
 #endif
 
-typedef enum engineAxis_e
-{
-	JOY_AXIS_SIDE = 0,
-	JOY_AXIS_FWD,
-	JOY_AXIS_PITCH,
-	JOY_AXIS_YAW,
-	JOY_AXIS_RT,
-	JOY_AXIS_LT,
-	JOY_AXIS_NULL
-} engineAxis_t;
-
 #define MAX_AXES JOY_AXIS_NULL
 
 // index - axis num come from event
@@ -246,8 +235,6 @@ Axis events
 */
 void Joy_AxisMotionEvent( byte axis, short value )
 {
-	byte engineAxis;
-
 	if( !joy_found->value )
 		return;
 
@@ -257,8 +244,11 @@ void Joy_AxisMotionEvent( byte axis, short value )
 		return;
 	}
 
-	engineAxis = joyaxesmap[axis]; // convert to engine inner axis control
+	return Joy_KnownAxisMotionEvent( joyaxesmap[axis], value );
+}
 
+void Joy_KnownAxisMotionEvent( engineAxis_t engineAxis, short value )
+{
 	if( engineAxis == JOY_AXIS_NULL )
 		return;
 
@@ -395,8 +385,8 @@ void Joy_Init( void )
 	joy_side    = Cvar_Get( "joy_side",    "1.0", FCVAR_ARCHIVE, "joystick side sensitivity. Values from -1.0 to 1.0" );
 	joy_forward = Cvar_Get( "joy_forward", "1.0", FCVAR_ARCHIVE, "joystick forward sensitivity. Values from -1.0 to 1.0" );
 
-	joy_lt_threshold = Cvar_Get( "joy_lt_threshold", "-16384", FCVAR_ARCHIVE, "left trigger threshold. Value from -32768 to 32767");
-	joy_rt_threshold = Cvar_Get( "joy_rt_threshold", "-16384", FCVAR_ARCHIVE, "right trigger threshold. Value from -32768 to 32767" );
+	joy_lt_threshold = Cvar_Get( "joy_lt_threshold", "16384", FCVAR_ARCHIVE, "left trigger threshold. Value from 0 to 32767");
+	joy_rt_threshold = Cvar_Get( "joy_rt_threshold", "16384", FCVAR_ARCHIVE, "right trigger threshold. Value from 0 to 32767" );
 
 	// emit a key event at 75% axis move
 	joy_side_key_threshold = Cvar_Get( "joy_side_key_threshold", "24576", FCVAR_ARCHIVE, "side axis key event emit threshold. Value from 0 to 32767" );

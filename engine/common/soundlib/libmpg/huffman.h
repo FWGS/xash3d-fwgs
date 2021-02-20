@@ -5,7 +5,7 @@
 	see COPYING and AUTHORS files in distribution or http://mpg123.org
 	initially written by Michael Hipp
 
-	probably we could save a few bytes of memory, because the 
+	probably we could save a few bytes of memory, because the
 	smaller tables are often the part of a bigger table
 */
 
@@ -13,14 +13,14 @@
 #ifndef HUFFMAN_H_
 #define HUFFMAN_H_
 
-struct newhuff 
+struct newhuff
 {
 	uint		linbits;
 	const short	*table;
 };
 
-static const short tab0[] = 
-{ 
+static const short tab0[] =
+{
    0
 };
 
@@ -291,7 +291,7 @@ static const short tab_c1[] =
    0
 };
 
-static const struct newhuff ht[] = 
+static const struct newhuff ht[] =
 {
 { 0 , tab0  },
 { 0 , tab1  },
@@ -328,7 +328,7 @@ static const struct newhuff ht[] =
 { 13, tab24 }
 };
 
-static const struct newhuff htc[] = 
+static const struct newhuff htc[] =
 {
 { 0 , tab_c0 },
 { 0 , tab_c1 }

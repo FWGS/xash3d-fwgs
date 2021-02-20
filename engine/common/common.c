@@ -125,7 +125,7 @@ float GAME_EXPORT COM_RandomFloat( float flLow, float flHigh )
 int GAME_EXPORT COM_RandomLong( int lLow, int lHigh )
 {
 	dword	maxAcceptable;
-	dword	n, x = lHigh - lLow + 1; 	
+	dword	n, x = lHigh - lLow + 1;
 
 	if( idum == 0 ) COM_SetRandomSeed( 0 );
 
@@ -184,7 +184,7 @@ typedef struct
 
 typedef struct
 {
-	lzss_list_t	*hash_table;	
+	lzss_list_t	*hash_table;
 	lzss_node_t	*hash_node;
 	int		window_size;
 } lzss_state_t;
@@ -247,7 +247,7 @@ byte *LZSS_CompressNoAlloc( lzss_state_t *state, byte *pInput, int input_length,
 	lzss_header_t	*header = (lzss_header_t *)pStart;
 	byte		*pOutput = pStart + sizeof( lzss_header_t );
 	const byte	*pEncodedPosition = NULL;
-	byte		*pLookAhead = pInput; 
+	byte		*pLookAhead = pInput;
 	byte		*pWindow = pInput;
 	int		i, putCmdByte = 0;
 	byte		*pCmdByte = NULL;
@@ -309,9 +309,9 @@ byte *LZSS_CompressNoAlloc( lzss_state_t *state, byte *pInput, int input_length,
 			*pCmdByte = (*pCmdByte >> 1) | 0x80;
 			*pOutput++ = (( pLookAhead - pEncodedPosition - 1 ) >> LZSS_LOOKSHIFT );
 			*pOutput++ = (( pLookAhead - pEncodedPosition - 1 ) << LZSS_LOOKSHIFT ) | ( encoded_length - 1 );
-		} 
-		else 
-		{ 
+		}
+		else
+		{
 			*pCmdByte = ( *pCmdByte >> 1 );
 			*pOutput++ = *pLookAhead;
 			encoded_length = 1;
@@ -392,7 +392,7 @@ uint LZSS_Decompress( const byte *pInput, byte *pOutput )
 
 	while( 1 )
 	{
-		if( !getCmdByte ) 
+		if( !getCmdByte )
 			cmdByte = *pInput++;
 		getCmdByte = ( getCmdByte + 1 ) & 0x07;
 
@@ -405,15 +405,15 @@ uint LZSS_Decompress( const byte *pInput, byte *pOutput )
 			position |= ( *pInput >> LZSS_LOOKSHIFT );
 			count = ( *pInput++ & 0x0F ) + 1;
 
-			if( count == 1 ) 
+			if( count == 1 )
 				break;
 
 			pSource = pOutput - position - 1;
 			for( i = 0; i < count; i++ )
 				*pOutput++ = *pSource++;
 			totalBytes += count;
-		} 
-		else 
+		}
+		else
 		{
 			*pOutput++ = *pInput++;
 			totalBytes++;
@@ -482,10 +482,10 @@ char *COM_ParseFile( char *data, char *token )
 
 	if( !token )
 		return NULL;
-	
+
 	len = 0;
 	token[0] = 0;
-	
+
 	if( !data )
 		return NULL;
 // skip whitespace
@@ -496,7 +496,7 @@ skipwhite:
 			return NULL;	// end of file;
 		data++;
 	}
-	
+
 	// skip // comments
 	if( c=='/' && data[1] == '/' )
 	{
@@ -551,7 +551,7 @@ skipwhite:
 		if( COM_IsSingleChar( c ))
 			break;
 	} while( c > 32 );
-	
+
 	token[len] = 0;
 
 	return data;
@@ -665,7 +665,7 @@ int GAME_EXPORT COM_ExpandFilename( const char *fileName, char *nameOutBuffer, i
 	// models\barney.mdl - D:\Xash3D\bshift\models\barney.mdl
 	if(( path = FS_GetDiskPath( fileName, false )) != NULL )
 	{
-		Q_sprintf( result, "%s/%s", host.rootdir, path );		
+		Q_sprintf( result, "%s/%s", host.rootdir, path );
 
 		// check for enough room
 		if( Q_strlen( result ) > nameOutBufferSize )
@@ -771,7 +771,7 @@ void COM_HexConvert( const char *pszInput, int nInputLength, byte *pOutput )
 	for( i = 0; i < nInputLength; i += 2 )
 	{
 		pIn = &pszInput[i];
-		*p = COM_Nibble( pIn[0] ) << 4 | COM_Nibble( pIn[1] );		
+		*p = COM_Nibble( pIn[0] ) << 4 | COM_Nibble( pIn[1] );
 		p++;
 	}
 }
@@ -817,7 +817,7 @@ char *COM_MemFgets( byte *pMemFile, int fileSize, int *filePos, char *pBuffer, i
 
 		// copy it out
 		memcpy( pBuffer, pMemFile + *filePos, size );
-		
+
 		// If the buffer isn't full, terminate (this is always true)
 		if( size < bufferSize ) pBuffer[size] = 0;
 
@@ -925,7 +925,7 @@ COM_FreeFile
 */
 void GAME_EXPORT COM_FreeFile( void *buffer )
 {
-	free( buffer ); 
+	free( buffer );
 }
 
 /*

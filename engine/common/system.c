@@ -277,7 +277,7 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 
 	Con_Reportf( "Sys_LoadLibrary: Loading %s", dll->name );
 
-	if( dll->fcts ) 
+	if( dll->fcts )
 	{
 		// lookup export table
 		for( func = dll->fcts; func && func->name != NULL; func++ )
@@ -287,7 +287,7 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 	if( !dll->link ) dll->link = LoadLibrary ( dll->name ); // environment pathes
 
 	// no DLL found
-	if( !dll->link ) 
+	if( !dll->link )
 	{
 		Q_snprintf( errorstring, sizeof( errorstring ), "Sys_LoadLibrary: couldn't load %s\n", dll->name );
 		goto error;
@@ -307,7 +307,7 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 	return true;
 error:
 	Con_Reportf( " - failed\n" );
-	Sys_FreeLibrary( dll ); // trying to free 
+	Sys_FreeLibrary( dll ); // trying to free
 	if( dll->crash ) Sys_Error( "%s", errorstring );
 	else Con_Reportf( S_ERROR  "%s", errorstring );
 
@@ -354,7 +354,7 @@ void Sys_WaitForQuit( void )
 #if XASH_WIN32
 	MSG	msg;
 
-	Wcon_RegisterHotkeys();		
+	Wcon_RegisterHotkeys();
 
 	msg.message = 0;
 
@@ -365,7 +365,7 @@ void Sys_WaitForQuit( void )
 		{
 			TranslateMessage( &msg );
 			DispatchMessage( &msg );
-		} 
+		}
 		else Sys_Sleep( 20 );
 	}
 #endif
@@ -415,7 +415,7 @@ void Sys_Error( const char *error, ... )
 	if( host.change_game ) Sys_Sleep( 200 );
 
 	error_on_exit = true;
-	host.status = HOST_ERR_FATAL;	
+	host.status = HOST_ERR_FATAL;
 	va_start( argptr, error );
 	Q_vsnprintf( text, MAX_PRINT_MSG, error, argptr );
 	va_end( argptr );

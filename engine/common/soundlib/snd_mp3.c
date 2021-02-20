@@ -186,7 +186,7 @@ int Stream_ReadMPG( stream_t *stream, int needBytes, void *buffer )
 
 		// check remaining size
 		if( bytesWritten + stream->pos > needBytes )
-			outsize = ( needBytes - bytesWritten ); 
+			outsize = ( needBytes - bytesWritten );
 		else outsize = stream->pos;
 
 		// copy raw sample to output buffer

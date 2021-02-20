@@ -47,7 +47,7 @@ static float	rgNoise[NOISE_DIVISIONS+1];	// global noise array
 static void FracNoise( float *noise, int divs )
 {
 	int	div2;
-	
+
 	div2 = divs >> 1;
 	if( divs < 2 ) return;
 
@@ -200,7 +200,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	float	flMaxWidth, vLast, vStep, brightness;
 	vec3_t	perp1, vLastNormal = { 0.0f };
 	beamseg_t	curSeg;
-	
+
 	if( segments < 2 ) return;
 
 	length = VectorLength( delta );
@@ -258,7 +258,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	{
 		beamseg_t	nextSeg;
 		vec3_t	vPoint1, vPoint2;
-	
+
 		Assert( noiseIndex < ( NOISE_DIVISIONS << 16 ));
 
 		fraction = i * div;
@@ -425,7 +425,7 @@ void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float f
 				VectorMA( point, factor, RI.vright, point );
 			}
 		}
-		
+
 		// Transform point into screen space
 		TriWorldToScreen( point, screen );
 
@@ -439,7 +439,7 @@ void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float f
 			VectorNormalize( tmp );
 			VectorScale( RI.vup, -tmp[0], normal );	// Build point along noraml line (normal is -y, x)
 			VectorMA( normal, tmp[1], RI.vright, normal );
-			
+
 			// Make a wide line
 			VectorMA( point, width, normal, last1 );
 			VectorMA( point, -width, normal, last2 );
@@ -478,10 +478,10 @@ void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, float fr
 
 	length = VectorLength( delta ) * 0.01f;
 	if( length < 0.5f ) length = 0.5f;	// don't lose all of the noise/texture on short beams
-	
+
 	div = 1.0f / (segments - 1);
 	vStep = length * div;		// Texture length texels per space pixel
-	
+
 	// scroll speed 3.5 -- initial texture position, scrolls 3.5/sec (1.0 is entire texture)
 	vLast = fmod( freq * speed, 1 );
 	scale = scale * length;
@@ -536,14 +536,14 @@ void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scale, floa
 
 	length = VectorLength( delta ) * 0.01f;
 	if( length < 0.5f ) length = 0.5f;	// don't lose all of the noise/texture on short beams
-		
+
 	div = 1.0f / (segments - 1);
 	vStep = length * div;		// texture length texels per space pixel
-	
+
 	// Scroll speed 3.5 -- initial texture position, scrolls 3.5/sec (1.0 is entire texture)
 	vLast = fmod( freq * speed, 1 );
 	scale = scale * length;
-	
+
 	for ( i = 0; i < segments; i++ )
 	{
 		float	s, c;
@@ -653,7 +653,7 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 	// Build point along noraml line (normal is -y, x)
 	VectorScale( RI.vup, tmp[0], normal );	// Build point along normal line (normal is -y, x)
 	VectorMA( normal, tmp[1], RI.vright, normal );
-	
+
 	// Make a wide line
 	VectorMA( delta, pbeam->width, normal, last1 );
 	VectorMA( delta, -pbeam->width, normal, last2 );
@@ -690,7 +690,7 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 		// Make a wide line
 		VectorMA( particles->org, pbeam->width, normal, last1 );
 		VectorMA( particles->org, -pbeam->width, normal, last2 );
-		
+
 		vLast += vStep;	// Advance texture scroll (v axis only)
 
 		if( particles->next != NULL )
@@ -751,13 +751,13 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 
 	VectorClear( screenLast );
 	segments = segments * M_PI;
-	
+
 	if( segments > NOISE_DIVISIONS * 8 )
 		segments = NOISE_DIVISIONS * 8;
 
 	length = VectorLength( delta ) * 0.01f * M_PI_F;
 	if( length < 0.5f ) length = 0.5f;		// Don't lose all of the noise/texture on short beams
-		
+
 	div = 1.0f / ( segments - 1 );
 
 	vStep = length * div / 8.0f;			// texture length texels per space pixel
@@ -775,7 +775,7 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 
 	VectorCopy( delta, xaxis );
 	radius = VectorLength( xaxis );
-	
+
 	// cull beamring
 	// --------------------------------
 	// Compute box center +/- radius
@@ -792,7 +792,7 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 		return;
 	}
 
-	VectorSet( yaxis, xaxis[1], -xaxis[0], 0.0f ); 
+	VectorSet( yaxis, xaxis[1], -xaxis[0], 0.0f );
 	VectorNormalize( yaxis );
 	VectorScale( yaxis, radius, yaxis );
 
@@ -803,7 +803,7 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 		fraction = i * div;
 		SinCos( fraction * M_PI2, &x, &y );
 
-		VectorMAMAM( x, xaxis, y, yaxis, 1.0f, center, point ); 
+		VectorMAMAM( x, xaxis, y, yaxis, 1.0f, center, point );
 
 		// distort using noise
 		factor = rgNoise[(noiseIndex >> 16) & (NOISE_DIVISIONS - 1)] * scale;
@@ -813,7 +813,7 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 		factor = rgNoise[(noiseIndex >> 16) & (NOISE_DIVISIONS - 1)] * scale;
 		factor *= cos( fraction * M_PI_F * 24 + freq );
 		VectorMA( point, factor, RI.vright, point );
-		
+
 		// Transform point into screen space
 		TriWorldToScreen( point, screen );
 
@@ -829,7 +829,7 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 			// Build point along normal line (normal is -y, x)
 			VectorScale( RI.vup, tmp[0], normal );
 			VectorMA( normal, tmp[1], RI.vright, normal );
-			
+
 			// Make a wide line
 			VectorMA( point, width, normal, last1 );
 			VectorMA( point, -width, normal, last2 );
@@ -1276,7 +1276,7 @@ void GAME_EXPORT CL_DrawBeams( int fTrans, BEAM *active_beams )
 
 	//pglShadeModel( GL_SMOOTH );
 	//pglDepthMask( fTrans ? GL_FALSE : GL_TRUE );
-	
+
 	// server beams don't allocate beam chains
 	// all params are stored in cl_entity_t
 	for( i = 0; i < tr.draw_list->num_beam_entities; i++ )

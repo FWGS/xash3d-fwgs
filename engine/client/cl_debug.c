@@ -97,7 +97,7 @@ typedef struct
 
 typedef struct
 {
-	oldcmd_t	oldcmd[MSG_COUNT];   
+	oldcmd_t	oldcmd[MSG_COUNT];
 	int	currentcmd;
 	qboolean	parsing;
 } msg_debug_t;
@@ -155,7 +155,7 @@ void CL_Parse_RecordCommand( int cmd, int startoffset )
 	int	slot;
 
 	if( cmd == svc_nop ) return;
-	
+
 	slot = ( cls_message_debug.currentcmd++ & MSG_MASK );
 	cls_message_debug.oldcmd[slot].command = cmd;
 	cls_message_debug.oldcmd[slot].starting_offset = startoffset;
@@ -187,7 +187,7 @@ write net_message into buffer.dat for debugging
 static void CL_WriteErrorMessage( int current_count, sizebuf_t *msg )
 {
 	const char	*buffer_file = "buffer.dat";
-	file_t		*fp;	
+	file_t		*fp;
 
 	fp = FS_Open( buffer_file, "wb", false );
 	if( !fp ) return;

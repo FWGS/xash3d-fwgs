@@ -590,10 +590,9 @@ static void SetFullscreenModeFromCommandLine( void )
 void R_CollectRendererNames( void )
 {
 	const char *renderers[] = DEFAULT_RENDERERS;
-	int i;
+	int i, cur;
 
-	ref.numRenderers = 0;
-
+	cur = 0;
 	for( i = 0; i < DEFAULT_RENDERERS_LEN; i++ )
 	{
 		string temp;
@@ -616,32 +615,33 @@ void R_CollectRendererNames( void )
 			continue;
 		}
 
-		Q_strncpy( ref.shortNames[i], renderers[i], sizeof( ref.shortNames[i] ));
+		Q_strncpy( ref.shortNames[cur], renderers[i], sizeof( ref.shortNames[cur] ));
 
 		pfn = COM_GetProcAddress( dll, GET_REF_HUMANREADABLE_NAME );
 		if( !pfn ) // just in case
 		{
 			Con_Reportf( "R_CollectRendererNames: can't find GetHumanReadableName export in %s\n", temp );
-			Q_strncpy( ref.readableNames[i], renderers[i], sizeof( ref.readableNames[i] ));
+			Q_strncpy( ref.readableNames[cur], renderers[i], sizeof( ref.readableNames[cur] ));
 		}
 		else
 		{
 			REF_HUMANREADABLE_NAME GetHumanReadableName = (REF_HUMANREADABLE_NAME)pfn;
 
-			GetHumanReadableName( ref.readableNames[i], sizeof( ref.readableNames[i] ));
+			GetHumanReadableName( ref.readableNames[cur], sizeof( ref.readableNames[cur] ));
 		}
 
-		Con_Printf( "Found renderer %s: %s\n", ref.shortNames[i], ref.readableNames[i] );
+		Con_Printf( "Found renderer %s: %s\n", ref.shortNames[cur], ref.readableNames[cur] );
 
-		ref.numRenderers++;
+		cur++;
 		COM_FreeLibrary( dll );
 	}
+	ref.numRenderers = cur;
 }
 
 qboolean R_Init( void )
 {
 	qboolean success = false;
-	string refopt;
+	string requested;
 
 	gl_vsync = Cvar_Get( "gl_vsync", "0", FCVAR_ARCHIVE,  "enable vertical syncronization" );
 	gl_showtextures = Cvar_Get( "r_showtextures", "0", FCVAR_CHEAT, "show all uploaded textures" );
@@ -663,15 +663,19 @@ qboolean R_Init( void )
 
 	R_CollectRendererNames();
 
-	// command line have priority
-	if( !Sys_GetParmFromCmdLine( "-ref", refopt ) )
-	{
+	// Priority:
+	// 1. Command line `-ref` argument.
+	// 2. `ref_dll` cvar.
+	// 3. Detected renderers in `DEFAULT_RENDERERS` order.
+	requested[0] = '\0';
+	if( !Sys_GetParmFromCmdLine( "-ref", requested ) && COM_CheckString( r_refdll->string ) )
 		// r_refdll is set to empty by default, so we can change hardcoded defaults just in case
-		Q_strncpy( refopt, COM_CheckString( r_refdll->string ) ?
-			r_refdll->string : DEFAULT_ACCELERATED_RENDERER, sizeof( refopt ) );
-	}
+		Q_strncpy( requested, r_refdll->string, sizeof( requested ) );
 
-	if( !(success = R_LoadRenderer( refopt )))
+	if ( requested[0] )
+		success = R_LoadRenderer( requested );
+
+	if( !success )
 	{
 		int i;
 
@@ -679,7 +683,7 @@ qboolean R_Init( void )
 		for( i = 0; i < ref.numRenderers; i++ )
 		{
 			// skip renderer that was requested but failed to load
-			if( Q_strcmp( refopt, ref.shortNames[i] ))
+			if( !Q_strcmp( requested, ref.shortNames[i] ) )
 				continue;
 
 			success = R_LoadRenderer( ref.shortNames[i] );

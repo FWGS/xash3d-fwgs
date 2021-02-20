@@ -72,7 +72,7 @@ static void FindNextChunk( const char *name )
 			iff_dataPtr = NULL;
 			return;
 		}
-		
+
 		iff_dataPtr += 4;
 		iff_chunkLen = GetLittleLong();
 
@@ -217,14 +217,14 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 		if( iff_dataPtr )
 		{
 			if( !Q_strncmp( (const char *)iff_dataPtr + 28, "mark", 4 ))
-			{	
+			{
 				// this is not a proper parse, but it works with CoolEdit...
 				iff_dataPtr += 24;
 				sound.samples = sound.loopstart + GetLittleLong(); // samples in loop
 			}
 		}
 	}
-	else 
+	else
 	{
 		sound.loopstart = -1;
 		sound.samples = 0;
@@ -321,7 +321,7 @@ stream_t *Stream_OpenWAV( const char *filename )
 
 	// open
 	file = FS_Open( filename, "rb", false );
-	if( !file ) return NULL;	
+	if( !file ) return NULL;
 
 	// find "RIFF" chunk
 	if( !StreamFindNextChunk( file, "RIFF", &last_chunk ))
@@ -392,7 +392,7 @@ stream_t *Stream_OpenWAV( const char *filename )
 	stream->width = sound.width;
 	stream->rate = sound.rate;
 	stream->type = WF_PCMDATA;
-	
+
 	return stream;
 }
 

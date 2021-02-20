@@ -23,7 +23,7 @@ void *create_decoder( int *error )
 
 	if( error ) *error = 0;
 	mpg123_init();
-	
+
 	mpg = mpg123_new( &ret );
 	if( !mpg ) return NULL;
 

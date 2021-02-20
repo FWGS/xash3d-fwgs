@@ -65,9 +65,6 @@ def subdirs():
 def options(opt):
 	grp = opt.add_option_group('Common options')
 
-	grp.add_option('-T', '--build-type', action='store', dest='BUILD_TYPE', default = None,
-		help = 'build type: debug, release or none(custom flags)')
-
 	grp.add_option('-d', '--dedicated', action = 'store_true', dest = 'DEDICATED', default = False,
 		help = 'build Xash Dedicated Server [default: %default]')
 
@@ -83,22 +80,13 @@ def options(opt):
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
 		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compatibility!) [default: %default]')
 
-	grp.add_option('--enable-lto', action = 'store_true', dest = 'LTO', default = False,
-		help = 'enable Link Time Optimization if possible [default: %default]')
-
-	grp.add_option('--enable-poly-opt', action = 'store_true', dest = 'POLLY', default = False,
-		help = 'enable polyhedral optimization if possible [default: %default]')
-
 	grp.add_option('--low-memory-mode', action = 'store', dest = 'LOW_MEMORY', default = 0, type = 'int',
 		help = 'enable low memory mode (only for devices have <128 ram)')
-
-	grp.add_option('--enable-magx', action = 'store_true', dest = 'MAGX', default = False,
-		help = 'enable targetting for MotoMAGX phones [default: %default]')
 
 	grp.add_option('--ignore-projects', action = 'store', dest = 'IGNORE_PROJECTS', default = None,
 		help = 'disable selected projects from build [default: %default]')
 
-	opt.load('subproject')
+	opt.load('compiler_optimizations subproject')
 
 	for i in SUBDIRS:
 		if not i.mandatory and not opt.path.find_node(i.name+'/wscript'):
@@ -107,31 +95,16 @@ def options(opt):
 
 		opt.add_subproject(i.name)
 
-
 	opt.load('xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test')
 	if sys.platform == 'win32':
 		opt.load('msvc msdev msvs')
 	opt.load('reconfigure')
 
 def configure(conf):
-	enforce_pic = True # modern defaults
-	valid_build_types = ['fastnative', 'fast', 'release', 'debug', 'nooptimize', 'sanitize', 'none']
-	conf.load('fwgslib reconfigure')
+	conf.load('fwgslib reconfigure compiler_optimizations')
 	if conf.options.IGNORE_PROJECTS:
 		conf.env.IGNORE_PROJECTS = conf.options.IGNORE_PROJECTS.split(',')
 
-	conf.start_msg('Build type')
-	if conf.options.BUILD_TYPE == None:
-		conf.end_msg('not set', color='RED')
-		conf.fatal('Please set a build type, for example "-T release"')
-	elif not conf.options.BUILD_TYPE in valid_build_types:
-		conf.end_msg(conf.options.BUILD_TYPE, color='RED')
-		conf.fatal('Invalid build type. Valid are: %s' % ', '.join(valid_build_types))
-	conf.end_msg(conf.options.BUILD_TYPE)
-
-	# -march=native should not be used
-	if conf.options.BUILD_TYPE.startswith('fast'):
-		Logs.warn('WARNING: \'%s\' build type should not be used in release builds', conf.options.BUILD_TYPE)
 
 	# Force XP compability, all build targets should add
 	# subsystem=bld.env.MSVC_SUBSYSTEM
@@ -140,12 +113,10 @@ def configure(conf):
 	conf.env.MSVC_TARGETS = ['x86'] # explicitly request x86 target for MSVC
 	if sys.platform == 'win32':
 		conf.load('msvc msvc_pdb msdev msvs')
-	conf.load('xshlib subproject xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install waf_unit_test')
+	conf.load('xshlib subproject xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install waf_unit_test enforce_pic')
 
-	try:
-		conf.env.CC_VERSION[0]
-	except IndexError:
-		conf.env.CC_VERSION = (0,)
+
+	enforce_pic = True # modern defaults
 
 	# modify options dictionary early
 	if conf.env.DEST_OS == 'android':
@@ -153,113 +124,32 @@ def configure(conf):
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
 		conf.options.GL     = False
-
-	if conf.env.STATIC_LINKING:
-		enforce_pic = False # PIC may break static linking
-
-	conf.env.MAGX = conf.options.MAGX
-	if conf.options.MAGX:
-		conf.options.USE_SELECT = True
-		conf.options.SDL12 = True
-		conf.options.NO_VGUI = True
-		conf.options.GL = False
-		conf.options.LOW_MEMORY = 1
-		conf.options.SINGLE_BINARY = True
+	elif conf.env.MAGX:
+		conf.options.USE_SELECT       = True
+		conf.options.SDL12            = True
+		conf.options.NO_VGUI          = True
+		conf.options.GL               = False
+		conf.options.LOW_MEMORY       = 1
+		conf.options.SINGLE_BINARY    = True
 		conf.options.NO_ASYNC_RESOLVE = True
 		conf.define('XASH_SDLMAIN', 1)
 		enforce_pic = False
 
-		# useless to change toolchain path, as toolchain meant to be placed in this path
-		toolchain_path = '/opt/toolchains/motomagx/arm-eabi2/lib/'
-		conf.env.INCLUDES_MAGX = [toolchain_path + i for i in ['ezx-z6/include', 'qt-2.3.8/include']]
-		conf.env.LIBPATH_MAGX  = [toolchain_path + i for i in ['ezx-z6/lib', 'qt-2.3.8/lib']]
-		conf.env.LINKFLAGS_MAGX = ['-Wl,-rpath-link=' + i for i in conf.env.LIBPATH_MAGX]
-		for lib in ['qte-mt', 'ezxappbase', 'ezxpm', 'log_util']:
-			conf.check_cc(lib=lib, use='MAGX', uselib_store='MAGX')
+	if conf.env.STATIC_LINKING:
+		enforce_pic = False # PIC may break full static builds
 
-	if enforce_pic:
-		# Every static library must have fPIC
-		if conf.env.DEST_OS != 'win32' and '-fPIC' in conf.env.CFLAGS_cshlib:
-			conf.env.append_unique('CFLAGS_cstlib', '-fPIC')
-			conf.env.append_unique('CXXFLAGS_cxxstlib', '-fPIC')
-	else:
-		if '-fPIC' in conf.env.CFLAGS_cshlib:
-			conf.env.CFLAGS_cshlib.remove('-fPIC')
-		if '-fPIC' in conf.env.CXXFLAGS_cshlib:
-			conf.env.CXXFLAGS_cxxshlib.remove('-fPIC')
-		if '-fPIC' in conf.env.CFLAGS_MACBUNDLE:
-			conf.env.CFLAGS_MACBUNDLE.remove('-fPIC')
-		if '-fPIC' in conf.env.CXXFLAGS_MACBUNDLE:
-			conf.env.CXXFLAGS_MACBUNDLE.remove('-fPIC')
+	conf.check_pic(enforce_pic)
 
 	# We restrict 64-bit builds ONLY for Win/Linux/OSX running on Intel architecture
 	# Because compatibility with original GoldSrc
 	if conf.env.DEST_OS in ['win32', 'linux', 'darwin'] and conf.env.DEST_CPU == 'x86_64':
 		conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
-		if not conf.env.BIT32_MANDATORY:
+		if conf.env.BIT32_MANDATORY:
 			Logs.info('WARNING: will build engine for 32-bit target')
 	else:
 		conf.env.BIT32_MANDATORY = False
 
 	conf.load('force_32bit')
-
-	linker_flags = {
-		'common': {
-			'msvc':  ['/DEBUG'], # always create PDB, doesn't affect result binaries
-			'gcc':   ['-Wl,--no-undefined'],
-			'owcc':  ['-Wl,option stack=512k']
-		},
-		'sanitize': {
-			'clang': ['-fsanitize=undefined', '-fsanitize=address'],
-			'gcc':   ['-fsanitize=undefined', '-fsanitize=address'],
-		}
-	}
-
-	compiler_c_cxx_flags = {
-		'common': {
-			# disable thread-safe local static initialization for C++11 code, as it cause crashes on Windows XP
-			'msvc':    ['/D_USING_V110_SDK71_', '/Zi', '/FS', '/Zc:threadSafeInit-', '/MT'],
-			'clang':   ['-g', '-gdwarf-2', '-fvisibility=hidden'],
-			'gcc':     ['-g', '-fvisibility=hidden'],
-			'owcc':	   ['-fno-short-enum', '-ffloat-store', '-g3']
-		},
-		'fast': {
-			'msvc':    ['/O2', '/Oy'],
-			'gcc': {
-				'3':       ['-O3', '-fomit-frame-pointer'],
-				'default': ['-Ofast', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer']
-			},
-			'clang':   ['-Ofast'],
-			'default': ['-O3']
-		},
-		'fastnative': {
-			'msvc':    ['/O2', '/Oy'],
-			'gcc':     ['-Ofast', '-march=native', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer'],
-			'clang':   ['-Ofast', '-march=native'],
-			'default': ['-O3']
-		},
-		'release': {
-			'msvc':    ['/O2'],
-			'owcc':    ['-O3', '-foptimize-sibling-calls', '-fomit-leaf-frame-pointer', '-fomit-frame-pointer', '-fschedule-insns', '-funsafe-math-optimizations', '-funroll-loops', '-frerun-optimizer', '-finline-functions', '-finline-limit=512', '-fguess-branch-probability', '-fno-strict-aliasing', '-floop-optimize'],
-			'default': ['-O3']
-		},
-		'debug': {
-			'msvc':    ['/O1'],
-			'gcc':     ['-Og'],
-			'owcc':    ['-O0', '-fno-omit-frame-pointer', '-funwind-tables', '-fno-omit-leaf-frame-pointer'],
-			'default': ['-O1']
-		},
-		'sanitize': {
-			'msvc':    ['/Od', '/RTC1'],
-			'gcc':     ['-Og', '-fsanitize=undefined', '-fsanitize=address'],
-			'clang':   ['-O0', '-fsanitize=undefined', '-fsanitize=address'],
-			'default': ['-O0']
-		},
-		'nooptimize': {
-			'msvc':    ['/Od'],
-			'default': ['-O0']
-		}
-	}
 
 	compiler_optional_flags = [
 #		'-Wall', '-Wextra', '-Wpedantic',
@@ -297,39 +187,13 @@ def configure(conf):
 		'-fnonconst-initializers' # owcc
 	]
 
-	linkflags = conf.get_flags_by_type(linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC, conf.env.CC_VERSION[0])
-	cflags    = conf.get_flags_by_type(compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC, conf.env.CC_VERSION[0])
-
-	# Here we don't differentiate C or C++ flags
-	if conf.options.LTO:
-		lto_cflags = {
-			'msvc':  ['/GL'],
-			'gcc':   ['-flto'],
-			'clang': ['-flto']
-		}
-
-		lto_linkflags = {
-			'msvc':  ['/LTCG'],
-			'gcc':   ['-flto'],
-			'clang': ['-flto']
-		}
-		cflags    += conf.get_flags_by_compiler(lto_cflags, conf.env.COMPILER_CC)
-		linkflags += conf.get_flags_by_compiler(lto_linkflags, conf.env.COMPILER_CC)
-
-	if conf.options.POLLY:
-		polly_cflags = {
-			'gcc':   ['-fgraphite-identity'],
-			'clang': ['-mllvm', '-polly']
-			# msvc sosat :(
-		}
-
-		cflags   += conf.get_flags_by_compiler(polly_cflags, conf.env.COMPILER_CC)
+	cflags, linkflags = conf.get_optimization_flags()
 
 	# And here C++ flags starts to be treated separately
 	cxxflags = list(cflags)
 	if conf.env.COMPILER_CC != 'msvc':
-		conf.check_cc(cflags=cflags, linkflags=linkflags, msg= 'Checking for required C flags')
-		conf.check_cxx(cxxflags=cflags, linkflags=linkflags, msg= 'Checking for required C++ flags')
+		conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
+		conf.check_cxx(cxxflags=cflags, linkflags=linkflags, msg='Checking for required C++ flags')
 
 		conf.env.append_unique('CFLAGS', cflags)
 		conf.env.append_unique('CXXFLAGS', cxxflags)
@@ -404,9 +268,7 @@ def configure(conf):
 		conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
-
-	if conf.options.LOW_MEMORY:
-		conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
+	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
 
 	for i in SUBDIRS:
 		if not i.is_enabled(conf):

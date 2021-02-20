@@ -306,7 +306,7 @@ static void FinalizeSections( MEMORYMODULE *module )
 {
 	PIMAGE_SECTION_HEADER section = IMAGE_FIRST_SECTION( module->headers );
 	int	i;
-	
+
 	// loop through all sections and change access flags
 	for( i = 0; i < module->headers->FileHeader.NumberOfSections; i++, section++ )
 	{
@@ -370,7 +370,7 @@ static void PerformBaseRelocation( MEMORYMODULE *module, DWORD delta )
 				type = *relInfo >> 12;
 				// the lower 12 bits define the offset
 				offset = *relInfo & 0xfff;
-				
+
 				switch( type )
 				{
 				case IMAGE_REL_BASED_ABSOLUTE:
@@ -523,7 +523,7 @@ static void MemoryFreeLibrary( void *hInstance )
 	if( module != NULL )
 	{
 		int	i;
-	
+
 		if( module->initialized != 0 )
 		{
 			// notify library about detaching from process
@@ -616,7 +616,7 @@ void *MemoryLoadLibrary( const char *name )
 
 	// commit memory for headers
 	headers = (byte *)VirtualAlloc( code, old_header->OptionalHeader.SizeOfHeaders, MEM_COMMIT, PAGE_READWRITE );
-	
+
 	// copy PE header to code
 	memcpy( headers, dos_header, dos_header->e_lfanew + old_header->OptionalHeader.SizeOfHeaders );
 	result->headers = (PIMAGE_NT_HEADERS)&((const byte *)(headers))[dos_header->e_lfanew];
@@ -825,7 +825,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 			goto table_error;
 		}
 
-		if((( optional_header.DataDirectory[0].VirtualAddress >= section_header.VirtualAddress ) && 
+		if((( optional_header.DataDirectory[0].VirtualAddress >= section_header.VirtualAddress ) &&
 			(optional_header.DataDirectory[0].VirtualAddress < (section_header.VirtualAddress + section_header.Misc.VirtualSize))))
 		{
 			rdata_found = true;
@@ -835,7 +835,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( rdata_found )
 	{
-		rdata_delta = section_header.VirtualAddress - section_header.PointerToRawData; 
+		rdata_delta = section_header.VirtualAddress - section_header.PointerToRawData;
 	}
 
 	exports_offset = optional_header.DataDirectory[0].VirtualAddress - rdata_delta;
@@ -994,7 +994,7 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 	}
 
 	directory = &old_header->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
-	
+
 	if( directory->Size <= 0 )
 	{
 		Q_snprintf( errorstring, sizeof( errorstring ), "%s has no dependencies. Is this dll valid?\n", name );
@@ -1096,7 +1096,7 @@ void COM_FreeLibrary( void *hInstance )
 		return;
 	}
 	else Con_Reportf( "Sys_FreeLibrary: Unloading %s\n", hInst->dllName );
-	
+
 	if( hInst->custom_loader )
 		MemoryFreeLibrary( hInst->hInstance );
 	else FreeLibrary( hInst->hInstance );

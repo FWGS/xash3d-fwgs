@@ -32,11 +32,11 @@ void SV_ClientPrintf( sv_client_t *cl, char *fmt, ... )
 
 	if( FBitSet( cl->flags, FCL_FAKECLIENT ))
 		return;
-	
+
 	va_start( argptr, fmt );
 	Q_vsprintf( string, fmt, argptr );
 	va_end( argptr );
-	
+
 	MSG_BeginServerCmd( &cl->netchan.message, svc_print );
 	MSG_WriteString( &cl->netchan.message, string );
 }
@@ -91,7 +91,7 @@ Sends text to all active clients
 void SV_BroadcastCommand( const char *fmt, ... )
 {
 	char	string[MAX_SYSPATH];
-	va_list	argptr;	
+	va_list	argptr;
 
 	if( sv.state == ss_dead )
 		return;
@@ -302,7 +302,7 @@ void SV_NextMap_f( void )
 
 		COM_FileBase( t->filenames[i], nextmap );
 		if( Q_stricmp( sv_hostmap->string, nextmap ))
-			continue; 
+			continue;
 
 		next = ( i + 1 ) % t->numfilenames;
 		COM_FileBase( t->filenames[next], nextmap );
@@ -742,11 +742,11 @@ void SV_ServerInfo_f( void )
 		return;
 	}
 
-	// if this is a cvar, change it too	
+	// if this is a cvar, change it too
 	var = Cvar_FindVar( Cmd_Argv( 1 ));
 	if( var )
 	{
-		freestring( var->string ); // free the old value string	
+		freestring( var->string ); // free the old value string
 		var->string = copystring( Cmd_Argv( 2 ));
 		var->value = Q_atof( var->string );
 	}
@@ -882,7 +882,7 @@ void SV_EdictUsage_f( void )
 		return;
 	}
 
-	active = pfnNumberOfEntities(); 
+	active = pfnNumberOfEntities();
 	Con_Printf( "%5i edicts is used\n", active );
 	Con_Printf( "%5i edicts is free\n", GI->max_edicts - active );
 	Con_Printf( "%5i total\n", GI->max_edicts );

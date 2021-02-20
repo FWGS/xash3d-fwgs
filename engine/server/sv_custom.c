@@ -551,7 +551,7 @@ void SV_SendResource( resource_t *pResource, sizebuf_t *msg )
 	}
 	else MSG_WriteOneBit( msg, 0 );
 }
- 
+
 void SV_SendResources( sv_client_t *cl, sizebuf_t *msg )
 {
 	int	i;

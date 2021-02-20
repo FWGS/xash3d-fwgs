@@ -1,9 +1,9 @@
 /***
 *
 *	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*	
-*	This product contains software technology licensed from Id 
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc. 
+*
+*	This product contains software technology licensed from Id
+*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
 *	All Rights Reserved.
 *
 *   Use, distribution, and modification of this source code and/or resulting
@@ -73,12 +73,12 @@
 #define K_CAPSLOCK		175
 #define K_KP_NUMLOCK	176
 #define K_WIN			177
-	
+
 //
 // joystick buttons
 //
-#define K_JOY1		203
-#define K_JOY2		204
+#define K_JOY1		203 // LTRIGGER (L2)
+#define K_JOY2		204 // RTRIGGER (R2)
 #define K_JOY3		205
 #define K_JOY4		206
 
@@ -132,9 +132,17 @@
 #define K_Z_BUTTON  K_AUX15
 
 #define K_AUX16		222
+#define K_DPAD_UP  K_AUX16
+
 #define K_AUX17		223
+#define K_DPAD_DOWN  K_AUX17
+
 #define K_AUX18		224
+#define K_DPAD_LEFT  K_AUX18
+
 #define K_AUX19		225
+#define K_DPAD_RIGHT  K_AUX19
+
 #define K_AUX20		226
 #define K_AUX21		227
 #define K_AUX22		228

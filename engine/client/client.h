@@ -110,7 +110,7 @@ extern int CL_UPDATE_BACKUP;
 #define MIN_EX_INTERP	50.0f
 #define MAX_EX_INTERP	100.0f
 
-#define CL_MIN_RESEND_TIME	1.5f		// mininum time gap (in seconds) before a subsequent connection request is sent.    
+#define CL_MIN_RESEND_TIME	1.5f		// mininum time gap (in seconds) before a subsequent connection request is sent.
 #define CL_MAX_RESEND_TIME	20.0f		// max time.  The cvar cl_resend is bounded by these.
 
 #define cl_serverframetime()	(cl.mtime[0] - cl.mtime[1])
@@ -180,7 +180,7 @@ typedef struct
 						// render a frame yet
 	int		parsecount;		// server message counter
 	int		parsecountmod;		// modulo with network window
-									
+
 	qboolean		video_prepped;		// false if on new level or new ref dll
 	qboolean		audio_prepped;		// false if on new level or new snd dll
 	qboolean		paused;
@@ -306,7 +306,7 @@ typedef struct
 	char		name[32];
 	int		number;	// svc_ number
 	int		size;	// if size == -1, size come from first byte after svcnum
-	pfnUserMsgHook	func;	// user-defined function	
+	pfnUserMsgHook	func;	// user-defined function
 } cl_user_message_t;
 
 typedef void (*pfnEventHook)( event_args_t *args );
@@ -538,7 +538,7 @@ typedef struct
 
 	netadr_t		hltv_listen_address;
 
-	int		signon;			// 0 to SIGNONS, for the signon sequence.	
+	int		signon;			// 0 to SIGNONS, for the signon sequence.
 	int		quakePort;		// a 16 bit value that allows quake servers
 						// to work around address translating routers
 						// g-cont. this port allow many copies of engine in multiplayer game
@@ -848,7 +848,7 @@ _inline cl_entity_t *CL_EDICT_NUM( int n )
 		return clgame.entities + n;
 
 	Host_Error( "CL_EDICT_NUM: bad number %i\n", n );
-	return NULL;	
+	return NULL;
 }
 
 //

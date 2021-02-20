@@ -365,7 +365,7 @@ void CL_CenterPrint( const char *text, float y )
 		length++;
 	}
 
-	clgame.centerPrint.totalHeight = ( clgame.centerPrint.lines * clgame.scrInfo.iCharHeight ); 
+	clgame.centerPrint.totalHeight = ( clgame.centerPrint.lines * clgame.scrInfo.iCharHeight );
 	clgame.centerPrint.y = CL_AdjustYPos( y, clgame.centerPrint.totalHeight );
 }
 
@@ -503,7 +503,7 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 
 		rc = *prc;
 
-		// Sigh! some stupid modmakers set wrong rectangles in hud.txt 
+		// Sigh! some stupid modmakers set wrong rectangles in hud.txt
 		if( rc.left <= 0 || rc.left >= width ) rc.left = 0;
 		if( rc.top <= 0 || rc.top >= height ) rc.top = 0;
 		if( rc.right <= 0 || rc.right > width ) rc.right = width;
@@ -563,7 +563,7 @@ void CL_DrawCenterPrint( void )
 	colorDefault = g_color_table[7];
 	pText = clgame.centerPrint.message;
 	Con_DrawCharacterLen( 0, NULL, &charHeight );
-	
+
 	for( i = 0; i < clgame.centerPrint.lines; i++ )
 	{
 		lineLength = 0;
@@ -612,7 +612,7 @@ void CL_DrawScreenFade( void )
 	// keep pushing reset time out indefinitely
 	if( sf->fadeFlags & FFADE_STAYOUT )
 		sf->fadeReset = cl.time + 0.1f;
-		
+
 	if( sf->fadeReset == 0.0f && sf->fadeEnd == 0.0f )
 		return;	// inactive
 
@@ -652,7 +652,7 @@ void CL_DrawScreenFade( void )
 CL_InitTitles
 
 parse all messages that declared in titles.txt
-and hold them into permament memory pool 
+and hold them into permament memory pool
 ====================
 */
 static void CL_InitTitles( const char *filename )
@@ -714,7 +714,7 @@ void CL_ParseTextMessage( sizebuf_t *msg )
 	{
 		channel = msgindex;
 		msgindex = (msgindex + 1) & (MAX_TEXTCHANNELS - 1);
-	}	
+	}
 
 	// grab message channel
 	text = &cl_textmessage[channel];
@@ -739,7 +739,7 @@ void CL_ParseTextMessage( sizebuf_t *msg )
 	else text->fxtime = 0.0f;
 
 	// to prevent grab too long messages
-	Q_strncpy( (char *)text->pMessage, MSG_ReadString( msg ), 2048 ); 		
+	Q_strncpy( (char *)text->pMessage, MSG_ReadString( msg ), 2048 );
 
 	CL_HudMessage( text->pName );
 }
@@ -784,7 +784,7 @@ void CL_ParseFinaleCutscene( sizebuf_t *msg, int level )
 	text->fxtime = 0.0f;
 
 	// to prevent grab too long messages
-	Q_strncpy( (char *)text->pMessage, MSG_ReadString( msg ), 2048 ); 		
+	Q_strncpy( (char *)text->pMessage, MSG_ReadString( msg ), 2048 );
 
 	if( *text->pMessage == '\0' )
 		return; // no real text
@@ -978,7 +978,7 @@ static void CL_DrawLoadingOrPaused( qboolean paused, float percent )
 		right = (int)ceil( percent * step );
 		s2 = (float)right / width;
 		width = right;
-	
+
 		ref.dllFuncs.Color4ub( 208, 152, 0, 255 );
 		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, s2, 1, cls.loadingBar );
@@ -1047,7 +1047,7 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 		Host_Error( "CL_LinkUserMessage: bad message name\n" );
 
 	if( svc_num <= svc_lastmsg )
-		Host_Error( "CL_LinkUserMessage: tried to hook a system message \"%s\"\n", svc_strings[svc_num] );	
+		Host_Error( "CL_LinkUserMessage: tried to hook a system message \"%s\"\n", svc_strings[svc_num] );
 
 	// see if already hooked
 	for( i = 0; i < MAX_USER_MESSAGES && clgame.msg[i].name[0]; i++ )
@@ -1062,7 +1062,7 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 		}
 	}
 
-	if( i == MAX_USER_MESSAGES ) 
+	if( i == MAX_USER_MESSAGES )
 	{
 		Host_Error( "CL_LinkUserMessage: MAX_USER_MESSAGES hit!\n" );
 		return;
@@ -1116,7 +1116,7 @@ void CL_InitEdicts( void )
 	if(( clgame.maxRemapInfos - 1 ) != clgame.maxEntities )
 	{
 		CL_ClearAllRemaps (); // purge old remap info
-		clgame.maxRemapInfos = clgame.maxEntities + 1; 
+		clgame.maxRemapInfos = clgame.maxEntities + 1;
 		clgame.remap_info = (remap_info_t **)Mem_Calloc( clgame.mempool, sizeof( remap_info_t* ) * clgame.maxRemapInfos );
 	}
 
@@ -1277,7 +1277,7 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 	for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
 		if( !mod->name[0] ) break; // this is a valid spot
 
-	if( i == MAX_CLIENT_SPRITES ) 
+	if( i == MAX_CLIENT_SPRITES )
 	{
 		Con_Printf( S_ERROR "MAX_CLIENT_SPRITES limit exceeded (%d)\n", MAX_CLIENT_SPRITES );
 		return NULL;
@@ -1689,7 +1689,7 @@ static int GAME_EXPORT pfnHookUserMsg( const char *pszName, pfnUserMsgHook pfn )
 
 	// ignore blank names or invalid callbacks
 	if( !pszName || !*pszName || !pfn )
-		return 0;	
+		return 0;
 
 	for( i = 0; i < MAX_USER_MESSAGES && clgame.msg[i].name[0]; i++ )
 	{
@@ -1698,7 +1698,7 @@ static int GAME_EXPORT pfnHookUserMsg( const char *pszName, pfnUserMsgHook pfn )
 			return 1;
 	}
 
-	if( i == MAX_USER_MESSAGES ) 
+	if( i == MAX_USER_MESSAGES )
 	{
 		Host_Error( "HookUserMsg: MAX_USER_MESSAGES hit!\n" );
 		return 0;
@@ -1750,7 +1750,7 @@ static int GAME_EXPORT pfnClientCmd( const char *szCmdString )
 	else
 	{
 		// will exec later
-		Q_strncat( host.deferred_cmd, va( "%s\n", szCmdString ), sizeof( host.deferred_cmd )); 
+		Q_strncat( host.deferred_cmd, va( "%s\n", szCmdString ), sizeof( host.deferred_cmd ));
 	}
 
 	return 1;
@@ -1779,7 +1779,7 @@ static void GAME_EXPORT pfnGetPlayerInfo( int ent_num, hud_player_info_t *pinfo 
 	pinfo->thisplayer = ( ent_num == cl.playernum ) ? true : false;
 	pinfo->name = player->name;
 	pinfo->model = player->model;
-	pinfo->spectator = player->spectator;		
+	pinfo->spectator = player->spectator;
 	pinfo->ping = player->ping;
 	pinfo->packetloss = player->packet_loss;
 	pinfo->topcolor = player->topcolor;
@@ -1876,7 +1876,7 @@ static int GAME_EXPORT pfnDrawCharacter( int x, int y, int number, int r, int g,
 =============
 pfnDrawConsoleString
 
-drawing string like a console string 
+drawing string like a console string
 =============
 */
 int GAME_EXPORT pfnDrawConsoleString( int x, int y, char *string )
@@ -2143,7 +2143,7 @@ void GAME_EXPORT pfnCalcShake( void )
 
 	// Sine wave that slowly settles to zero
 	fraction = fraction * sin( cl.time * freq );
-	
+
 	// add to view origin
 	VectorScale( clgame.shake.offset, fraction, clgame.shake.applied_offset );
 
@@ -2166,7 +2166,7 @@ void GAME_EXPORT pfnApplyShake( float *origin, float *angles, float factor )
 	if( origin ) VectorMA( origin, factor, clgame.shake.applied_offset, origin );
 	if( angles ) angles[ROLL] += clgame.shake.applied_angle * factor;
 }
-	
+
 /*
 =============
 pfnIsSpectateOnly
@@ -2208,7 +2208,7 @@ static pmtrace_t *pfnTraceLine( float *start, float *end, int flags, int usehull
 	int		old_usehull;
 
 	old_usehull = clgame.pmove->usehull;
-	clgame.pmove->usehull = usehull;	
+	clgame.pmove->usehull = usehull;
 
 	switch( flags )
 	{
@@ -2256,7 +2256,7 @@ static void GAME_EXPORT pfnHookEvent( const char *filename, pfnEventHook pfn )
 
 	// ignore blank names
 	if( !filename || !*filename )
-		return;	
+		return;
 
 	Q_strncpy( name, filename, sizeof( name ));
 	COM_FixSlashes( name );
@@ -2264,7 +2264,7 @@ static void GAME_EXPORT pfnHookEvent( const char *filename, pfnEventHook pfn )
 	// find an empty slot
 	for( i = 0; i < MAX_EVENTS; i++ )
 	{
-		ev = clgame.events[i];		
+		ev = clgame.events[i];
 		if( !ev ) break;
 
 		if( !Q_stricmp( name, ev->name ) && ev->func != NULL )
@@ -2391,7 +2391,7 @@ pfnLocalPlayerViewheight
 */
 void GAME_EXPORT pfnLocalPlayerViewheight( float *view_ofs )
 {
-	if( view_ofs ) VectorCopy( cl.viewheight, view_ofs );		
+	if( view_ofs ) VectorCopy( cl.viewheight, view_ofs );
 }
 
 /*
@@ -2537,7 +2537,7 @@ movevars_t *pfnGetMoveVars( void )
 {
 	return &clgame.movevars;
 }
-	
+
 /*
 =============
 pfnStopAllSounds
@@ -3393,8 +3393,8 @@ void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags, double
 	nr->timeout = nr->timesend + timeout;
 	nr->pfnFunc = response;
 	nr->resp.context = context;
-	nr->resp.type = request;	
-	nr->resp.remote_address = *remote_address; 
+	nr->resp.type = request;
+	nr->resp.remote_address = *remote_address;
 	nr->flags = flags;
 
 	if( request == NETAPI_REQUEST_SERVERLIST )
@@ -3583,7 +3583,7 @@ void GAME_EXPORT Voice_EndVoiceTweakMode( void )
 Voice_SetControlFloat
 
 =================
-*/	
+*/
 void GAME_EXPORT Voice_SetControlFloat( VoiceTweakControl iControl, float value )
 {
 }
@@ -3604,7 +3604,7 @@ static void GAME_EXPORT VGui_ViewportPaintBackground( int extents[4] )
 	// stub
 }
 
-// shared between client and server			
+// shared between client and server
 triangleapi_t gTriApi;
 
 static efx_api_t gEfxApi =
@@ -3752,7 +3752,7 @@ static IVoiceTweak gVoiceApi =
 };
 
 // engine callbacks
-static cl_enginefunc_t gEngfuncs = 
+static cl_enginefunc_t gEngfuncs =
 {
 	pfnSPR_Load,
 	pfnSPR_Frames,
@@ -3970,7 +3970,7 @@ qboolean CL_LoadProgs( const char *name )
 	// trying to get single export
 	if(( GetClientAPI = (void *)COM_GetProcAddress( clgame.hInstance, "GetClientAPI" )) != NULL )
 	{
-		Con_Reportf( "CL_LoadProgs: found single callback export\n" );		
+		Con_Reportf( "CL_LoadProgs: found single callback export\n" );
 
 		// trying to fill interface now
 		GetClientAPI( &clgame.dllFuncs );

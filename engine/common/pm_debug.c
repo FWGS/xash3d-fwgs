@@ -21,7 +21,7 @@ GNU General Public License for more details.
 #endif
 
 // expand debugging BBOX particle hulls by this many units.
-#define BOX_GAP	0.0f    
+#define BOX_GAP	0.0f
 
 /*
 ===============

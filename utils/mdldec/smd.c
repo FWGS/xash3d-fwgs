@@ -28,7 +28,7 @@ static matrix3x4	*bonetransform;
 
 /*
 ============
-CreateBoneTransformMatrices        
+CreateBoneTransformMatrices
 ============
 */
 static qboolean CreateBoneTransformMatrices( void )
@@ -46,7 +46,7 @@ static qboolean CreateBoneTransformMatrices( void )
 
 /*
 ============
-FillBoneTransformMatrices        
+FillBoneTransformMatrices
 ============
 */
 static void FillBoneTransformMatrices( void )
@@ -223,7 +223,7 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 	int	 i, indices[3];
 	int	 vert_index;
 	int	 norm_index;
-	int	 bone_index; 
+	int	 bone_index;
 	float	 s, t, u, v;
 	byte	*vertbone;
 	vec3_t	*studioverts;
@@ -260,7 +260,7 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 
 		Matrix3x4_VectorTransform( bonetransform[bone_index], studioverts[vert_index], vert );
 		Matrix3x4_VectorRotate( bonetransform[bone_index], studionorms[norm_index], norm );
-		VectorNormalize( norm );		
+		VectorNormalize( norm );
 
 		u = ( triverts[indices[i]]->s + 1.0f ) * s;
 		v = 1.0f - triverts[indices[i]]->t * t;

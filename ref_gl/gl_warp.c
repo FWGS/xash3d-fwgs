@@ -70,9 +70,9 @@ static int CheckSkybox( const char *name )
 	int		i, j, num_checked_sides;
 	const char	*sidename;
 
-	// search for skybox images				
+	// search for skybox images
 	for( i = 0; i < 3; i++ )
-	{	
+	{
 		num_checked_sides = 0;
 		for( j = 0; j < 6; j++ )
 		{
@@ -164,7 +164,7 @@ void ClipSkyPolygon( int nump, vec3_t vecs, int stage )
 		gEngfuncs.Host_Error( "ClipSkyPolygon: MAX_CLIP_VERTS\n" );
 loc1:
 	if( stage == 6 )
-	{	
+	{
 		// fully clipped, so draw it
 		DrawSkyPolygon( nump, vecs );
 		return;
@@ -193,7 +193,7 @@ loc1:
 	}
 
 	if( !front || !back )
-	{	
+	{
 		// not clipped
 		stage++;
 		goto loc1;
@@ -435,7 +435,7 @@ void R_SetupSky( const char *skyboxname )
 	{
 		gEngfuncs.Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", skyboxname );
 		R_SetupSky( "desert" ); // force to default
-		return; 
+		return;
 	}
 
 	// release old skybox

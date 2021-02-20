@@ -27,7 +27,7 @@ Image_LoadPAL
 */
 qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesize )
 {
-	int	rendermode = LUMP_NORMAL; 
+	int	rendermode = LUMP_NORMAL;
 
 	if( filesize != 768 )
 	{
@@ -65,7 +65,7 @@ qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesi
 	image.size = 1024;	// expanded palette
 	image.width = image.height = 0;
 	image.depth = 1;
-	
+
 	return true;
 }
 
@@ -88,7 +88,7 @@ qboolean Image_LoadFNT( const char *name, const byte *buffer, fs_offset_t filesi
 		return false;
 
 	memcpy( &font, buffer, sizeof( font ));
-	
+
 	// last sixty four bytes - what the hell ????
 	size = sizeof( qfont_t ) - 4 + ( font.height * font.width * QCHAR_WIDTH ) + sizeof( short ) + 768 + 64;
 
@@ -118,7 +118,7 @@ qboolean Image_LoadFNT( const char *name, const byte *buffer, fs_offset_t filesi
 		Image_GetPaletteLMP( pal, LUMP_MASKED );
 		image.flags |= IMAGE_HAS_ALPHA; // fonts always have transparency
 	}
-	else 
+	else
 	{
 		return false;
 	}
@@ -206,7 +206,7 @@ qboolean Image_LoadSPR( const char *name, const byte *buffer, fs_offset_t filesi
 	if( image.hint == IL_HINT_HL )
 	{
 		if( !image.d_currentpal )
-			return false;		
+			return false;
 	}
 	else if( image.hint == IL_HINT_Q1 )
 	{
@@ -244,7 +244,7 @@ qboolean Image_LoadSPR( const char *name, const byte *buffer, fs_offset_t filesi
 		SetBits( image.flags, IMAGE_HAS_ALPHA );
 		break;
 	}
-	
+
 	fin =  (byte *)(buffer + sizeof(dspriteframe_t));
 
 	if( truecolor )
@@ -378,7 +378,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 		pal = (byte *)buffer + mip.offsets[0] + (((image.width * image.height) * 85)>>6);
 		numcolors = *(short *)pal;
 		if( numcolors != 256 ) pal = NULL; // corrupted mip ?
-		else pal += sizeof( short ); // skip colorsize 
+		else pal += sizeof( short ); // skip colorsize
 
 		hl_texture = true;
 
@@ -474,7 +474,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 	else
 	{
 		return false; // unknown or unsupported mode rejected
-	} 
+	}
 
 	// check for quake-sky texture
 	if( !Q_strncmp( mip.name, "sky", 3 ) && image.width == ( image.height * 2 ))
@@ -513,10 +513,10 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 			reflectivity[1] += pal[i*3+1];
 			reflectivity[2] += pal[i*3+2];
 		}
- 
+
 		VectorDivide( reflectivity, 256, image.fogParams );
 	}
- 
+
 	image.type = PF_INDEXED_32;	// 32-bit palete
 	image.depth = 1;
 

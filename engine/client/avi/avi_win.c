@@ -91,7 +91,7 @@ static dllfunc_t avifile_funcs[] =
 };
 
 dll_info_t avifile_dll = { "avifil32.dll", avifile_funcs, false };
-			  
+
 typedef struct movie_state_s
 {
 	qboolean		active;
@@ -423,7 +423,7 @@ int AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, int offset, int leng
 		result = 0;
 
 		// seek to correct chunk and all that stuff
-		if( !AVI_SeekPosition( Avi, offset )) 
+		if( !AVI_SeekPosition( Avi, offset ))
 			return 0; // don't continue if we're waiting for the play pointer to catch up
 
 		while( length > 0 )
@@ -535,7 +535,7 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 
 	Avi->video_stream = Avi->audio_stream = NULL;
 
-	// open the streams until a stream is not available. 
+	// open the streams until a stream is not available.
 	while( 1 )
 	{
 		PAVISTREAM	stream = NULL;
@@ -585,17 +585,17 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 			}
 			else Avi->audio_bytes_per_sample = Avi->audio_header->nBlockAlign;
 			Avi->audio_length *= Avi->audio_bytes_per_sample;
-		} 
+		}
 		else
 		{
 			pAVIStreamRelease( stream );
 		}
 	}
 
-	// display error message-stream not found. 
+	// display error message-stream not found.
 	if( Avi->video_stream == NULL )
 	{
-		if( Avi->pfile ) // if file is open, close it 
+		if( Avi->pfile ) // if file is open, close it
 			pAVIFileRelease( Avi->pfile );
 		if( !Avi->quiet )
 			Con_DPrintf( S_ERROR "couldn't find a valid video stream.\n" );
@@ -613,9 +613,9 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 	}
 
 	bmih.biSize = sizeof( BITMAPINFOHEADER );
-	bmih.biPlanes = 1;	
+	bmih.biPlanes = 1;
 	bmih.biBitCount = 32;
-	bmih.biCompression = BI_RGB;	
+	bmih.biCompression = BI_RGB;
 	bmih.biWidth = Avi->video_xres;
 	bmih.biHeight = -Avi->video_yres; // invert height to flip image upside down
 

@@ -65,7 +65,7 @@ void set_pointer( mpg123_handle_t *fr, long backstep )
 	if( backstep )
 		memcpy( fr->wordpointer, fr->bsbufold + fr->fsizeold - backstep, backstep );
 
-	fr->bitindex = 0; 
+	fr->bitindex = 0;
 }
 
 int frame_bitrate( mpg123_handle_t *fr )
@@ -82,7 +82,7 @@ double compute_bpf( mpg123_handle_t *fr )
 {
 	double	bpf;
 
-	switch( fr->lay ) 
+	switch( fr->lay )
 	{
 	case 1:
 		bpf = tabsel_123[fr->lsf][0][fr->bitrate_index];
@@ -127,9 +127,9 @@ double mpg123_tpf( mpg123_handle_t *fr )
 int get_songlen( mpg123_handle_t *fr, int no )
 {
 	double	tpf;
-	
+
 	if( !fr ) return 0;
-	
+
 	if( no < 0 )
 	{
 		if( !fr->rd || fr->rdat.filelen < 0 )
@@ -220,7 +220,7 @@ static int check_lame_tag( mpg123_handle_t *fr )
 	}
 	else goto check_lame_tag_no;
 
-	lame_offset += 4; 
+	lame_offset += 4;
 	xing_flags = bit_read_long( fr->bsbuf, &lame_offset );
 
 	// from now on, I have to carefully check if the announced data is actually
@@ -258,7 +258,7 @@ static int check_lame_tag( mpg123_handle_t *fr )
 		{
 			// the Xing bitstream length, at least as interpreted by the Lame
 			// encoder, encompasses all data from the Xing header frame on,
-			// ignoring leading ID3v2 data. Trailing tags (ID3v1) seem to be 
+			// ignoring leading ID3v2 data. Trailing tags (ID3v1) seem to be
 			// included, though.
 			if( fr->rdat.filelen < 1 )
 			{
@@ -287,10 +287,10 @@ static int check_lame_tag( mpg123_handle_t *fr )
 	// 10: lowpass
 	// 11-18: ReplayGain
 	// 19: encoder flags
-	// 20: ABR 
+	// 20: ABR
 	// 21-23: encoder delays
 	check_bytes_left( 24 ); // I'm interested in 24 B of extra info.
-	
+
 	if( fr->bsbuf[lame_offset] != 0 )
 	{
 		byte	lame_vbr;
@@ -322,7 +322,7 @@ static int check_lame_tag( mpg123_handle_t *fr )
 			}
 		}
 
-		lame_offset += 9; // 9 in 
+		lame_offset += 9; // 9 in
 
 		// the 4 big bits are tag revision, the small bits vbr method.
 		lame_vbr = fr->bsbuf[lame_offset] & 15;
@@ -381,7 +381,7 @@ static int check_lame_tag( mpg123_handle_t *fr )
 		if( fr->vbr == MPG123_ABR )
 			fr->abr_rate = fr->bsbuf[lame_offset];
 		lame_offset += 1; // 21 in
-	
+
 		// Encoder delay and padding, two 12 bit values
 		// ... lame does write them from int.
 		pad_in  = ((((int) fr->bsbuf[lame_offset]) << 4) | (((int) fr->bsbuf[lame_offset+1]) >> 4));
@@ -455,7 +455,7 @@ static void halfspeed_prepare( mpg123_handle_t *fr )
 static int halfspeed_do( mpg123_handle_t *fr )
 {
 	// speed-down hack: Play it again, Sam (the frame, I mean).
-	if( fr->p.halfspeed ) 
+	if( fr->p.halfspeed )
 	{
 		if( fr->halfphase ) // repeat last frame
 		{
@@ -614,7 +614,7 @@ static int decode_header( mpg123_handle_t *fr, ulong newhead, int *freeformat_co
 	return PARSE_GOOD;
 }
 
-// advance a byte in stream to get next possible header and forget 
+// advance a byte in stream to get next possible header and forget
 // buffered data if possible (for feed reader).
 static int forget_head_shift( mpg123_handle_t *fr, ulong *newheadp, int forget )
 {
@@ -743,7 +743,7 @@ static int skip_junk( mpg123_handle_t *fr, ulong *newheadp, long *headcount )
 	{
 		++(*headcount);
 		if( limit >= 0 && *headcount >= limit )
-			break;				
+			break;
 
 		if( ++forgetcount > FORGET_INTERVAL )
 			forgetcount = 0;
@@ -814,7 +814,7 @@ static int wetwork( mpg123_handle_t *fr, ulong *newheadp )
 			try++;
 
 			if( limit >= 0 && try >= limit )
-				break;				
+				break;
 
 			if( ++forgetcount > FORGET_INTERVAL )
 				forgetcount = 0;

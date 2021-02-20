@@ -184,17 +184,17 @@ void CL_CheckClientState( void )
 {
 	// first update is the pre-final signon stage
 	if(( cls.state == ca_connected || cls.state == ca_validate ) && ( cls.signon == SIGNONS ))
-	{	
+	{
 		cls.state = ca_active;
 		cls.changelevel = false;		// changelevel is done
 		cls.changedemo = false;		// changedemo is done
 		cl.first_frame = true;		// first rendering frame
 
 		SCR_MakeLevelShot();		// make levelshot if needs
-		Cvar_SetValue( "scr_loading", 0.0f );	// reset progress bar	
+		Cvar_SetValue( "scr_loading", 0.0f );	// reset progress bar
 		Netchan_ReportFlow( &cls.netchan );
 
-		Con_DPrintf( "client connected at %.2f sec\n", Sys_DoubleTime() - cls.timestart ); 
+		Con_DPrintf( "client connected at %.2f sec\n", Sys_DoubleTime() - cls.timestart );
 		if(( cls.demoplayback || cls.disable_servercount != cl.servercount ) && cl.video_prepped )
 			SCR_EndLoadingPlaque(); // get rid of loading plaque
 	}
@@ -254,7 +254,7 @@ static float CL_LerpPoint( void )
 	float	f, frac = 1.0f;
 
 	f = cl_serverframetime();
-	
+
 	if( f == 0.0f || cls.timedemo )
 	{
 		cl.time = cl.mtime[0];
@@ -262,7 +262,7 @@ static float CL_LerpPoint( void )
 	}
 
 	if( f > 0.1f )
-	{	
+	{
 		// dropped packet, or start of demo
 		cl.mtime[1] = cl.mtime[0] - 0.1f;
 		f = 0.1f;
@@ -372,7 +372,7 @@ void CL_ComputeClientInterpolationAmount( usercmd_t *cmd )
 	}
 
 	if( forced ) Cvar_SetValue( "ex_interp", (float)interpolation_msec * 0.001f );
-	interpolation_msec = bound( min_interp, interpolation_msec, max_interp );	
+	interpolation_msec = bound( min_interp, interpolation_msec, max_interp );
 
 	cmd->lerp_msec = CL_DriftInterpolationAmount( interpolation_msec );
 }
@@ -637,7 +637,7 @@ void CL_CreateCmd( void )
 	CL_SetSolidPlayers( cl.playernum );
 
 	// message we are constructing.
-	i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;   
+	i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;
 	pcmd = &cl.commands[i];
 	pcmd->processedfuncs = false;
 
@@ -723,7 +723,7 @@ void CL_WritePacket( void )
 	int		numcmds;
 	int		newcmds;
 	int		cmdnumber;
-	
+
 	// don't send anything if playing back a demo
 	if( cls.demoplayback || cls.state < ca_connected || cls.state == ca_cinematic )
 		return;
@@ -778,7 +778,7 @@ void CL_WritePacket( void )
 	if( send_command )
 	{
 		int	outgoing_sequence;
-	
+
 		if( cl_cmdrate->value > 0 ) // clamped between 10 and 100 fps
 			cls.nextcmdtime = host.realtime + bound( 0.1f, ( 1.0f / cl_cmdrate->value ), 0.01f );
 		else cls.nextcmdtime = host.realtime; // always able to send right away
@@ -809,7 +809,7 @@ void CL_WritePacket( void )
 		// put an upper/lower bound on this
 		newcmds = bound( 0, newcmds, cls.legacymode?MAX_LEGACY_TOTAL_CMDS:MAX_TOTAL_CMDS );
 		if( cls.state == ca_connected ) newcmds = 0;
-	
+
 		MSG_WriteByte( &buf, newcmds );
 
 		numcmds = newcmds + numbackup;
@@ -833,7 +833,7 @@ void CL_WritePacket( void )
 
 		// message we are constructing.
 		i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;
-	
+
 		// determine if we need to ask for a new set of delta's.
 		if( cl.validsequence && (cls.state == ca_active) && !( cls.demorecording && cls.demowaiting ))
 		{
@@ -1240,7 +1240,7 @@ void CL_Connect_f( void )
 	else if( Cmd_Argc() != 2 )
 	{
 		Con_Printf( S_USAGE "connect <server>\n" );
-		return;	
+		return;
 	}
 
 	Q_strncpy( server, Cmd_Argv( 1 ), sizeof( server ));
@@ -1319,7 +1319,7 @@ void CL_Rcon_f( void )
 		NET_StringToAdr( rcon_address->string, &to );
 		if( to.port == 0 ) to.port = MSG_BigShort( PORT_SERVER );
 	}
-	
+
 	NET_SendPacket( NS_CLIENT, Q_strlen( message ) + 1, message, to );
 }
 
@@ -1893,7 +1893,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	int	len = sizeof( buf );
 	int	dataoffset = 0;
 	netadr_t	servadr;
-	
+
 	MSG_Clear( msg );
 	MSG_ReadLong( msg ); // skip the -1
 
@@ -2218,7 +2218,7 @@ void CL_ReadNetMessage( void )
 			continue;
 		}
 
-		// can't be a valid sequenced packet	
+		// can't be a valid sequenced packet
 		if( cls.state < ca_connected ) continue;
 
 		if( !cls.demoplayback && MSG_GetMaxBytes( &net_message ) < 8 )
@@ -2257,7 +2257,7 @@ void CL_ReadNetMessage( void )
 			MSG_Init( &net_message, "ServerData", net_message_buffer, curSize );
 			CL_ParseServerMessage( &net_message, false );
 		}
-		
+
 		if( Netchan_CopyFileFragments( &cls.netchan, &net_message ))
 		{
 			// remove from resource request stuff.
@@ -2333,7 +2333,7 @@ void CL_ReadPackets( void )
 			return;
 		}
 	}
-	
+
 }
 
 /*
@@ -2672,7 +2672,7 @@ qboolean CL_PrecacheResources( void )
 				}
 				else
 				{
-					Q_strncpy( cl.sound_precache[pRes->nIndex], pRes->szFileName, sizeof( cl.sound_precache[0] )); 
+					Q_strncpy( cl.sound_precache[pRes->nIndex], pRes->szFileName, sizeof( cl.sound_precache[0] ));
 					cl.sound_index[pRes->nIndex] = S_RegisterSound( pRes->szFileName );
 
 					if( !cl.sound_index[pRes->nIndex] )
@@ -2814,7 +2814,7 @@ void CL_InitLocal( void )
 	cl_nodelta = Cvar_Get ("cl_nodelta", "0", 0, "disable delta-compression for server messages" );
 	cl_idealpitchscale = Cvar_Get( "cl_idealpitchscale", "0.8", 0, "how much to look up/down slopes and stairs when not using freelook" );
 	cl_solid_players = Cvar_Get( "cl_solid_players", "1", 0, "Make all players not solid (can't traceline them)" );
-	cl_interp = Cvar_Get( "ex_interp", "0.1", FCVAR_ARCHIVE, "Interpolate object positions starting this many seconds in past" ); 
+	cl_interp = Cvar_Get( "ex_interp", "0.1", FCVAR_ARCHIVE, "Interpolate object positions starting this many seconds in past" );
 	cl_timeout = Cvar_Get( "cl_timeout", "60", 0, "connect timeout (in-seconds)" );
 	cl_charset = Cvar_Get( "cl_charset", "utf-8", FCVAR_ARCHIVE, "1-byte charset to use (iconv style)" );
 	hud_utf8 = Cvar_Get( "hud_utf8", "0", FCVAR_ARCHIVE, "Use utf-8 encoding for hud text" );
@@ -2874,7 +2874,7 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("god", NULL, "enable godmode" );
 	Cmd_AddCommand ("fov", NULL, "set client field of view" );
 	Cmd_AddCommand ("log", NULL, "logging server events" );
-		
+
 	// register our commands
 	Cmd_AddCommand ("pause", NULL, "pause the game (if the server allows pausing)" );
 	Cmd_AddCommand ("localservers", CL_LocalServers_f, "collect info about local servers" );
@@ -2901,7 +2901,7 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("linefile", CL_ReadLineFile_f, "show leaks on a map (if present of course)" );
 	Cmd_AddCommand ("fullserverinfo", CL_FullServerinfo_f, "sent by server when serverinfo changes" );
 	Cmd_AddCommand ("upload", CL_BeginUpload_f, "uploading file to the server" );
-	
+
 	Cmd_AddCommand ("quit", CL_Quit_f, "quit from game" );
 	Cmd_AddCommand ("exit", CL_Quit_f, "quit from game" );
 

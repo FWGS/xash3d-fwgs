@@ -26,7 +26,7 @@ enum mpg123_enc_enum
 	// 0000 0000 0100 0000 Some 16 bit integer encoding.
 	MPG123_ENC_16     = 0x040,
 	// 0000 0000 1000 0000 Some signed integer encoding.
-	MPG123_ENC_SIGNED = 0x080,  
+	MPG123_ENC_SIGNED = 0x080,
 	// 0000 0000 1101 0000 signed 16 bit
 	MPG123_ENC_SIGNED_16   = (MPG123_ENC_16|MPG123_ENC_SIGNED|0x10),
 	// 0000 0000 0110 0000 unsigned 16 bit

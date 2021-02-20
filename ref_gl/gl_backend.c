@@ -94,7 +94,7 @@ void GL_BackendEndFrame( void )
 	case 1:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i wpoly, %3i apoly\n%3i epoly, %3i spoly",
 		r_stats.c_world_polys, r_stats.c_alias_polys, r_stats.c_studio_polys, r_stats.c_sprite_polys );
-		break;		
+		break;
 	case 2:
 		R_Speeds_Printf( "visible leafs:\n%3i leafs\ncurrent leaf %3i\n", r_stats.c_world_leafs, curleaf - WORLDMODEL->leafs );
 		R_Speeds_Printf( "ReciusiveWorldNode: %3lf secs\nDrawTextureChains %lf\n", r_stats.t_world_node, r_stats.t_world_draw );
@@ -185,7 +185,7 @@ void GL_SelectTexture( GLint tmu )
 	if( tmu >= GL_MaxTextureUnits( ))
 	{
 		gEngfuncs.Con_Reportf( S_ERROR "GL_SelectTexture: bad tmu state %i\n", tmu );
-		return; 
+		return;
 	}
 
 	if( glState.activeTMU == tmu )
@@ -280,7 +280,7 @@ void GL_TextureTarget( uint target )
 	if( glState.activeTMU < 0 || glState.activeTMU >= GL_MaxTextureUnits( ))
 	{
 		gEngfuncs.Con_Reportf( S_ERROR "GL_TextureTarget: bad tmu state %i\n", glState.activeTMU );
-		return; 
+		return;
 	}
 
 	if( glState.currentTextureTargets[glState.activeTMU] != target )
@@ -465,13 +465,13 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 	r_shot->width = (gpGlobals->width + 3) & ~3;
 	r_shot->height = (gpGlobals->height + 3) & ~3;
 	r_shot->flags = IMAGE_HAS_COLOR;
-	r_shot->type = PF_RGB_24;
+	r_shot->type = PF_RGBA_32;
 	r_shot->size = r_shot->width * r_shot->height * gEngfuncs.Image_GetPFDesc( r_shot->type )->bpp;
 	r_shot->palette = NULL;
 	r_shot->buffer = Mem_Malloc( r_temppool, r_shot->size );
 
 	// get screen frame
-	pglReadPixels( 0, 0, r_shot->width, r_shot->height, GL_RGB, GL_UNSIGNED_BYTE, r_shot->buffer );
+	pglReadPixels( 0, 0, r_shot->width, r_shot->height, GL_RGBA, GL_UNSIGNED_BYTE, r_shot->buffer );
 
 	switch( shot_type )
 	{

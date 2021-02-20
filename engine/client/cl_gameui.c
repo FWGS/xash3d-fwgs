@@ -306,7 +306,7 @@ static void GAME_EXPORT UI_DrawLogo( const char *filename, float x, float y, flo
 	{
 		string		path;
 		const char	*fullpath;
-	
+
 		// run cinematic if not
 		Q_snprintf( path, sizeof( path ), "media/%s", filename );
 		COM_DefaultExtension( path, ".avi" );
@@ -390,7 +390,7 @@ static void UI_UpdateUserinfo( void )
 	player->bottomcolor = Q_atoi( Info_ValueForKey( player->userinfo, "bottomcolor" ));
 	host.userinfo_changed = false; // we got it
 }
-	
+
 void Host_Credits( void )
 {
 	if( !gameui.hInstance ) return;
@@ -776,7 +776,7 @@ static void GAME_EXPORT pfnDrawCharacter( int ix, int iy, int iwidth, int iheigh
 =============
 UI_DrawConsoleString
 
-drawing string like a console string 
+drawing string like a console string
 =============
 */
 static int GAME_EXPORT UI_DrawConsoleString( int x, int y, const char *string )
@@ -1046,7 +1046,7 @@ int GAME_EXPORT pfnCheckGameDll( void )
 		COM_FreeLibrary( hInst ); // don't increase linker's reference counter
 		return true;
 	}
-	Con_Reportf( S_WARN "Could not load server library:\n%s", COM_GetLibraryError() );
+	Con_Reportf( S_WARN "Could not load server library: %s\n", COM_GetLibraryError() );
 	return false;
 }
 
@@ -1108,7 +1108,7 @@ static void GAME_EXPORT UI_ShellExecute( const char *path, const char *parms, in
 
 
 // engine callbacks
-static ui_enginefuncs_t gEngfuncs = 
+static ui_enginefuncs_t gEngfuncs =
 {
 	pfnPIC_Load,
 	GL_FreeImage,
@@ -1149,7 +1149,7 @@ static ui_enginefuncs_t gEngfuncs =
 	Con_DefaultColor,
 	pfnGetPlayerModel,
 	pfnSetPlayerModel,
-	pfnClearScene,	
+	pfnClearScene,
 	pfnRenderScene,
 	pfnAddEntity,
 	Host_Error,

@@ -594,7 +594,7 @@ static gl_texture_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mno
 	gl_texture_t *tex = NULL;
 
 	// assure the initial node is not null
-	// we could check it here, but we would rather check it 
+	// we could check it here, but we would rather check it
 	// outside the call to get rid of one additional recursion level
 	Assert( node != NULL );
 
@@ -615,7 +615,7 @@ static gl_texture_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mno
 		// find texture
 		pleaf = (mleaf_t *)node;
 		mark = pleaf->firstmarksurface;
-		c = pleaf->nummarksurfaces;	
+		c = pleaf->nummarksurfaces;
 
 		for( i = 0; i < c; i++, mark++ )
 		{
@@ -724,7 +724,7 @@ static void R_CheckFog( void )
 		if( ent && ent->model && ent->model->type == mod_brush )
 		{
 			msurface_t	*surf;
-	
+
 			count = ent->model->nummodelsurfaces;
 
 			for( i = 0, surf = &ent->model->surfaces[ent->model->firstmodelsurface]; i < count; i++, surf++ )
@@ -890,7 +890,7 @@ void R_DrawEntitiesOnList( void )
 		else tr.blend = 1.0f; // draw as solid but sorted by distance
 
 		if( tr.blend <= 0.0f ) continue;
-	
+
 		Assert( RI.currententity != NULL );
 		Assert( RI.currentmodel != NULL );
 
@@ -971,7 +971,7 @@ void R_RenderScene( void )
 	R_MarkLeaves();
 	R_DrawFog ();
 
-	R_CheckGLFog();	
+	R_CheckGLFog();
 	R_DrawWorld();
 	R_CheckFog();
 

@@ -124,7 +124,7 @@ void Log_Printf( const char *fmt, ... )
 	if( svs.log.active && svs.maxclients > 1 )
 	{
 		// echo to server console
-		if( mp_logecho.value ) 
+		if( mp_logecho.value )
 			Con_Printf( "%s", string );
 
 		// echo to log file

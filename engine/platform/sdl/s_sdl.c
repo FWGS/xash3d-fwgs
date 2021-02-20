@@ -26,7 +26,7 @@ GNU General Public License for more details.
 
 #if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
 #include <stdlib.h>
-#define SDL_setenv setenv 
+#define SDL_setenv setenv
 #define SDL_GetCurrentAudioDriver() "legacysdl"
 #define SDL_OpenAudioDevice( a, b, c, d, e ) SDL_OpenAudio( ( c ), ( d ) )
 #define SDL_CloseAudioDevice( a ) SDL_CloseAudio()

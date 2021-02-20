@@ -161,7 +161,7 @@ static qboolean LoadMDL( const char *modelname )
 		fprintf( stderr, "ERROR: %s is not a main HL model file.\n", modelname );
 		return false;
 	}
-                        
+
 	if( destdir[0] != '\0' )
 	{
 		if( !IsFileExists( destdir ) )
@@ -200,7 +200,8 @@ static qboolean LoadMDL( const char *modelname )
 			}
 		}
 
-		if( memcmp( &texture_hdr->ident, id_mdlhdr, sizeof( id_mdlhdr ) ) )
+		if( memcmp( &texture_hdr->ident, id_mdlhdr, sizeof( id_mdlhdr ) )
+		    || !texture_hdr->numtextures )
 		{
 			fprintf( stderr, "ERROR: %s is not a valid external textures file.\n", texturename );
 			return false;
@@ -276,7 +277,7 @@ int main( int argc, char *argv[] )
 	}
 	else if( argc == 3 )
 	{
-		if( Q_strlen( argv[2] ) > MAX_SYSPATH - 1 )
+		if( Q_strlen( argv[2] ) > MAX_SYSPATH - 2 )
 		{
 			fputs( "ERROR: Destination path is too long.\n", stderr );
 			goto end;
