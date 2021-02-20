@@ -73,7 +73,7 @@ CFLAGS = {
 		'default': ['-O3']
 	},
 	'debug': {
-		'msvc':    ['/O1'],
+		'msvc':    ['/Od'],
 		'gcc':     ['-Og'],
 		'owcc':    ['-O0', '-fno-omit-frame-pointer', '-funwind-tables', '-fno-omit-leaf-frame-pointer'],
 		'default': ['-O1']
