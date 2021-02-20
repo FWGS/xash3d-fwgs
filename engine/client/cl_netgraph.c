@@ -658,7 +658,7 @@ void SCR_DrawNetGraph( void )
 	if( net_graph->value < 3 )
 	{
 		ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
-
+		ref.dllFuncs.GL_Bind( XASH_TEXTURE0, R_GetBuiltinTexture( REF_WHITE_TEXTURE ) );
 		ref.dllFuncs.Begin( TRI_QUADS ); // draw all the fills as a long solid sequence of quads for speedup reasons
 
 		// NOTE: fill colors without texture at this point
