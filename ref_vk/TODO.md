@@ -1,4 +1,12 @@
 # Next
+- [ ] refactor vk_render interface:
+	- [ ] make projection matrix independent render global/current/static state
+	- [ ] move uniform_data_t inside render_draw_t, remove any mentions of uniform/slots from api; alt: global render state?
+	- [ ] add debug label to render_draw_t?; alt: VK_RenderDebugNameBegin/End
+	- [ ] rename RenderDraw to SubmitDraw
+	- [ ] make 2nd commad buffer for resource upload
+	- [ ] start building command buffers in beginframe
+	- [ ] perform 3d rendering on corresponding refapi calls, not endframe
 - [ ] fix sprite blending
 - [ ] wrap viewmodel in vk debug label
 
@@ -38,6 +46,7 @@
 - [ ] auto-atlas lots of smol textures: most of model texture are tiny (64x64 or less), can we not rebind them all the time? alt: bindless texture array
 - [ ] can we also try to coalesce sprite draw calls?
 - [ ] not visibly watertight map brushes
+- [ ] collect render_draw_t w/o submitting them to cmdbuf, then sort by render_mode, trans depth, and other parameters, trying to batch as much stuff as possible; only then submit
 
 
 ## 2021-02-06
