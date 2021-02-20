@@ -124,12 +124,14 @@ static qboolean createPipelines( void )
 					ci.stages[1].pSpecializationInfo = NULL;
 					ci.blendEnable = VK_FALSE;
 					ci.depthWriteEnable = VK_TRUE;
+					ci.depthTestEnable = VK_TRUE;
 					name = "brush kRenderNormal";
 					break;
 
 				case kRenderTransColor:
 					ci.stages[1].pSpecializationInfo = NULL;
 					ci.depthWriteEnable = VK_TRUE;
+					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
 					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
 					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -140,6 +142,7 @@ static qboolean createPipelines( void )
 				case kRenderTransAdd:
 					ci.stages[1].pSpecializationInfo = NULL;
 					ci.depthWriteEnable = VK_FALSE;
+					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
 					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
 
@@ -152,14 +155,25 @@ static qboolean createPipelines( void )
 				case kRenderTransAlpha:
 					ci.stages[1].pSpecializationInfo = &alpha_test_spec;
 					ci.depthWriteEnable = VK_TRUE;
+					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_FALSE;
 					name = "brush kRenderTransAlpha(test)";
 					break;
 
 				case kRenderGlow:
+					ci.stages[1].pSpecializationInfo = NULL;
+					ci.depthWriteEnable = VK_FALSE;
+					ci.depthTestEnable = VK_FALSE;
+					ci.blendEnable = VK_TRUE;
+					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
+					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+					break;
+
 				case kRenderTransTexture:
 					ci.stages[1].pSpecializationInfo = NULL;
 					ci.depthWriteEnable = VK_FALSE;
+					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
 					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
 					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;

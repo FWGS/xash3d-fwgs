@@ -3,13 +3,13 @@
 	- [x] move uniform_data_t to global render state ~inside render_draw_t, remove any mentions of uniform/slots from api; alt: global render state?~
 	- [x] rename RenderDraw to SubmitDraw
 	- [x] ~add debug label to render_draw_t?;~ alt: VK_RenderDebugNameBegin/End
+- [x] fix sprite blending
 
 # Next
 - [ ] refactor vk_render interface:
 	- [ ] make 2nd commad buffer for resource upload
 	- [ ] start building command buffers in beginframe
 	- [ ] perform 3d rendering on corresponding refapi calls, not endframe
-- [ ] fix sprite blending
 
 # Planned
 - [ ] RTX: make projection matrix independent render global/current/static state
