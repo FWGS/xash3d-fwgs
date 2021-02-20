@@ -47,3 +47,6 @@ typedef struct render_draw_s {
 void VK_RenderBegin( void );
 void VK_RenderScheduleDraw( const render_draw_t *draw );
 void VK_RenderEnd( void );
+
+void VK_RenderDebugLabelBegin( const char *label );
+void VK_RenderDebugLabelEnd( void );

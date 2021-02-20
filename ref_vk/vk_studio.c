@@ -2110,11 +2110,12 @@ static void R_StudioDrawPoints( void )
 
 	if( !m_pStudioHeader ) return;
 
+	VK_RenderDebugLabelBegin( m_pSubModel->name );
 
 	g_studio.numverts = g_studio.numelems = 0;
 
 	// safety bounding the skinnum
-	m_skinnum = bound( 0, RI.currententity->curstate.skin, ( m_pStudioHeader->numskinfamilies - 1 ));	    
+	m_skinnum = bound( 0, RI.currententity->curstate.skin, ( m_pStudioHeader->numskinfamilies - 1 ));
 	ptexture = (mstudiotexture_t *)((byte *)m_pStudioHeader + m_pStudioHeader->textureindex);
 	pvertbone = ((byte *)m_pStudioHeader + m_pSubModel->vertinfoindex);
 	pnormbone = ((byte *)m_pStudioHeader + m_pSubModel->norminfoindex);
@@ -2275,6 +2276,8 @@ static void R_StudioDrawPoints( void )
 		tr.blend = oldblend;
 		*/
 	}
+
+	VK_RenderDebugLabelEnd();
 }
 
 static void R_StudioSetRemapColors( int newTop, int newBottom )
@@ -2684,13 +2687,7 @@ void R_StudioRenderFinal( void )
 	rendermode = R_StudioGetForceFaceFlags() ? kRenderTransAdd : RI.currententity->curstate.rendermode;
 	R_StudioSetupRenderer( rendermode );
 
-	if (vk_core.debug) {
-		VkDebugUtilsLabelEXT label = {
-			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
-			.pLabelName = RI.currentmodel->name,
-		};
-		vkCmdBeginDebugUtilsLabelEXT(vk_core.cb, &label);
-	}
+	VK_RenderDebugLabelBegin( RI.currentmodel->name );
 
 	for( i = 0; i < m_pStudioHeader->numbodyparts; i++ )
 	{
@@ -2703,8 +2700,7 @@ void R_StudioRenderFinal( void )
 
 	R_StudioRestoreRenderer();
 
-	if (vk_core.debug)
-		vkCmdEndDebugUtilsLabelEXT(vk_core.cb);
+	VK_RenderDebugLabelEnd();
 }
 
 void R_StudioRenderModel( void )
@@ -3079,6 +3075,8 @@ static int R_StudioDrawModel( int flags )
 
 void R_StudioDrawModelInternal( cl_entity_t *e, int flags )
 {
+	VK_RenderDebugLabelBegin( e->model->name );
+
 	if( !RI.drawWorld )
 	{
 		if( e->player )
@@ -3092,6 +3090,8 @@ void R_StudioDrawModelInternal( cl_entity_t *e, int flags )
 			pStudioDraw->StudioDrawPlayer( flags, R_StudioGetPlayerState( e->index - 1 ));
 		else pStudioDraw->StudioDrawModel( flags );
 	}
+
+	VK_RenderDebugLabelEnd();
 }
 
 void R_DrawStudioModel( cl_entity_t *e )

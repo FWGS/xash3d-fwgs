@@ -1109,13 +1109,7 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	// TODO gl renderer has per-vertex color that is updated using brightness and whatever
 	VK_RenderStateSetColor( color[0], color[1], color[2], color[3] );
 
-	if (vk_core.debug) {
-		VkDebugUtilsLabelEXT label = {
-			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
-			.pLabelName = "beam",
-		};
-		vkCmdBeginDebugUtilsLabelEXT(vk_core.cb, &label);
-	}
+	VK_RenderDebugLabelBegin( "beam" );
 
 	switch( pbeam->type )
 	{
@@ -1145,8 +1139,7 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 		break;
 	}
 
-	if (vk_core.debug)
-		vkCmdEndDebugUtilsLabelEXT(vk_core.cb);
+	VK_RenderDebugLabelEnd();
 
 	// FIXME VK r_stats.c_view_beams_count++;
 }

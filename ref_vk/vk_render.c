@@ -449,3 +449,20 @@ void VK_RenderScheduleDraw( const render_draw_t *draw )
 void VK_RenderEnd( void )
 {
 }
+
+void VK_RenderDebugLabelBegin( const char *name )
+{
+	if (vk_core.debug) {
+		VkDebugUtilsLabelEXT label = {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+			.pLabelName = name,
+		};
+		vkCmdBeginDebugUtilsLabelEXT(vk_core.cb, &label);
+	}
+}
+
+void VK_RenderDebugLabelEnd( void )
+{
+	if (vk_core.debug)
+		vkCmdEndDebugUtilsLabelEXT(vk_core.cb);
+}

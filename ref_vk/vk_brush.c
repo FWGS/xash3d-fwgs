@@ -146,13 +146,7 @@ void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode )
 		return;
 	}
 
-	if (vk_core.debug) {
-		VkDebugUtilsLabelEXT label = {
-			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
-			.pLabelName = mod->name,
-		};
-		vkCmdBeginDebugUtilsLabelEXT(vk_core.cb, &label);
-	}
+	VK_RenderDebugLabelBegin( mod->name );
 
 	for (int i = 0; i < bmodel->num_surfaces; ++i) {
 		const vk_brush_model_surface_t *bsurf = bmodel->surfaces + i;
@@ -201,8 +195,7 @@ void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode )
 		VK_RenderScheduleDraw( &draw );
 	}
 
-	if (vk_core.debug)
-		vkCmdEndDebugUtilsLabelEXT(vk_core.cb);
+	VK_RenderDebugLabelEnd();
 }
 
 static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_surfaces) {

@@ -2,18 +2,17 @@
 - [ ] refactor vk_render interface:
 	- [x] move uniform_data_t to global render state ~inside render_draw_t, remove any mentions of uniform/slots from api; alt: global render state?~
 	- [x] rename RenderDraw to SubmitDraw
+	- [x] ~add debug label to render_draw_t?;~ alt: VK_RenderDebugNameBegin/End
 
 # Next
 - [ ] refactor vk_render interface:
-	- [ ] make projection matrix independent render global/current/static state
-	- [ ] add debug label to render_draw_t?; alt: VK_RenderDebugNameBegin/End
 	- [ ] make 2nd commad buffer for resource upload
 	- [ ] start building command buffers in beginframe
 	- [ ] perform 3d rendering on corresponding refapi calls, not endframe
 - [ ] fix sprite blending
-- [ ] wrap viewmodel in vk debug label
 
 # Planned
+- [ ] RTX: make projection matrix independent render global/current/static state
 - [ ] fix projection matrix differences w/ gl render
 - [ ] bad condition for temp vs map-permanent buffer error message
 - [ ] draw more types of beams

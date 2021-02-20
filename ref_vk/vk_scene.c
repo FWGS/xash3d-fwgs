@@ -618,6 +618,8 @@ void VK_SceneRender( void )
 
 	prepareMatrix( &fixme_rvp, worldview, projection, mvp );
 
+	VK_RenderDebugLabelBegin( "opaque" );
+
 	// Draw view model
 	{
 		VK_RenderStateSetMatrix( mvp );
@@ -647,15 +649,11 @@ void VK_SceneRender( void )
 	// Draw opaque beams
 	gEngine.CL_DrawEFX( g_frametime, false );
 
-	{
-		if (vk_core.debug) {
-			VkDebugUtilsLabelEXT label = {
-				.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
-				.pLabelName = "transparent",
-			};
-			vkCmdBeginDebugUtilsLabelEXT(vk_core.cb, &label);
-		}
+	VK_RenderDebugLabelEnd();
 
+	VK_RenderDebugLabelBegin( "tranparent" );
+
+	{
 		// sort translucents entities by rendermode and distance
 		VectorCopy( fixme_rvp.vieworigin, R_TransEntityCompare_vieworg );
 		qsort( g_lists.draw_list->trans_entities, g_lists.draw_list->num_trans_entities, sizeof( vk_trans_entity_t ), R_TransEntityCompare );
@@ -667,12 +665,12 @@ void VK_SceneRender( void )
 			drawEntity(ent->entity, ent->render_mode, mvp);
 		}
 
-		if (vk_core.debug)
-			vkCmdEndDebugUtilsLabelEXT(vk_core.cb);
 	}
 
 	// Draw transparent beams
 	gEngine.CL_DrawEFX( g_frametime, true );
+
+	VK_RenderDebugLabelEnd();
 
 	VK_RenderEnd();
 
