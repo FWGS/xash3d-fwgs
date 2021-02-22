@@ -66,7 +66,7 @@ typedef struct vulkan_core_s {
 
 	byte *pool;
 
-	qboolean debug;
+	qboolean debug, rtx;
 	struct {
 		VkSurfaceKHR surface;
 		uint32_t num_surface_formats;
@@ -120,6 +120,7 @@ const char *resultName(VkResult result);
 	X(vkGetDeviceProcAddr) \
 	X(vkDestroyDevice) \
 	X(vkDestroySurfaceKHR) \
+	X(vkEnumerateDeviceExtensionProperties) \
 
 #define INSTANCE_DEBUG_FUNCS(X) \
 	X(vkCreateDebugUtilsMessengerEXT) \

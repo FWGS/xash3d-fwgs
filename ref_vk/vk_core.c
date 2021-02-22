@@ -114,6 +114,16 @@ static const char *validation_layers[] = {
 	"VK_LAYER_KHRONOS_validation",
 };
 
+static const char* device_extensions[] = {
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+
+	// Optional: RTX
+	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+	//VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+	VK_KHR_RAY_QUERY_EXTENSION_NAME,
+	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+};
+
 VkBool32 debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT                  messageTypes,
@@ -246,12 +256,32 @@ static qboolean createInstance( void )
 	return true;
 }
 
-qboolean pickAndCreateDevice( void )
+static qboolean hasExtension( const VkExtensionProperties *exts, uint32_t num_exts, const char *extension )
+{
+	for (uint32_t i = 0; i < num_exts; ++i) {
+		if (strncmp(exts[i].extensionName, extension, sizeof(exts[i].extensionName)) == 0)
+			return true;
+	}
+
+	return false;
+}
+
+static qboolean deviceSupportsRtx( const VkExtensionProperties *exts, uint32_t num_exts )
+{
+	for (int i = 1 /* skip swapchain ext */; i < ARRAYSIZE(device_extensions); ++i) {
+		if (!hasExtension(exts, num_exts, device_extensions[i]))
+			return false;
+	}
+	return true;
+}
+
+static qboolean pickAndCreateDevice( void )
 {
 	VkPhysicalDevice *physical_devices = NULL;
 	uint32_t num_physical_devices = 0;
 	uint32_t best_device_index = UINT32_MAX;
 	uint32_t queue_index = UINT32_MAX;
+	qboolean retval = false;
 
 	XVK_CHECK(vkEnumeratePhysicalDevices(vk_core.instance, &num_physical_devices, physical_devices));
 
@@ -263,7 +293,11 @@ qboolean pickAndCreateDevice( void )
 	{
 		VkQueueFamilyProperties *queue_family_props = NULL;
 		uint32_t num_queue_family_properties = 0;
+		uint32_t num_device_extensions = 0;
+		VkExtensionProperties *extensions;
 		VkPhysicalDeviceProperties props;
+
+		// FIXME also pay attention to various device limits. We depend on them implicitly now.
 
 		vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &num_queue_family_properties, queue_family_props);
 		queue_family_props = Mem_Malloc(vk_core.pool, sizeof(VkQueueFamilyProperties) * num_queue_family_properties);
@@ -289,6 +323,23 @@ qboolean pickAndCreateDevice( void )
 			break;
 		}
 
+		XVK_CHECK(vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &num_device_extensions, NULL));
+		extensions = Mem_Malloc(vk_core.pool, sizeof(VkExtensionProperties) * num_device_extensions);
+		XVK_CHECK(vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &num_device_extensions, extensions));
+
+		gEngine.Con_Reportf( "\tSupported device extensions: %u\n", num_device_extensions);
+		for (uint32_t j = 0; j < num_device_extensions; ++j) {
+			gEngine.Con_Reportf( "\t\t: %s: %u.%u.%u\n", extensions[j].extensionName, XVK_PARSE_VERSION(extensions[j].specVersion));
+		}
+
+		if (vk_core.rtx) {
+			if (!deviceSupportsRtx(extensions, num_device_extensions)) {
+				gEngine.Con_Printf( S_WARN "Device doesn't support necessary RTX extensions, skipping\n");
+				queue_index = UINT32_MAX;
+			}
+		}
+
+		Mem_Free(extensions);
 		Mem_Free(queue_family_props);
 
 		// TODO pick the best device
@@ -310,15 +361,16 @@ qboolean pickAndCreateDevice( void )
 			.queueCount = 1,
 			.pQueuePriorities = &prio,
 		};
-		const char *device_extensions[] = {
-			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-		};
 		VkDeviceCreateInfo create_info = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			.flags = 0,
 			.queueCreateInfoCount = 1,
 			.pQueueCreateInfos = &queue_info,
-			.enabledExtensionCount = ARRAYSIZE(device_extensions),
+
+			// TODO for now device_extensions array contains one required extension (swapchain)
+			// and a bunch of RTX-optional extensions. Use only one if RTX was not requested,
+			// and only use all of them if it was.
+			.enabledExtensionCount = vk_core.rtx ? ARRAYSIZE(device_extensions) : 1,
 			.ppEnabledExtensionNames = device_extensions,
 		};
 
@@ -336,10 +388,13 @@ qboolean pickAndCreateDevice( void )
 		loadDeviceFunctions(device_funcs, ARRAYSIZE(device_funcs));
 
 		vkGetDeviceQueue(vk_core.device, 0, 0, &vk_core.queue);
+		retval = true;
+	} else {
+		gEngine.Con_Printf( S_ERROR "No compatibe Vulkan devices found. Vulkan render will not be available\n" );
 	}
 
 	Mem_Free(physical_devices);
-	return true;
+	return retval;
 }
 
 static const char *presentModeName(VkPresentModeKHR present_mode)
@@ -503,6 +558,7 @@ qboolean R_VkInit( void )
 	// FIXME !!!! handle initialization errors properly: destroy what has already been created
 
 	vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
+	vk_core.rtx = !!(gEngine.Sys_CheckParm("-rtx"));
 
 	if( !gEngine.R_Init_Video( REF_VULKAN )) // request Vulkan surface
 	{
