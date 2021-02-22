@@ -275,7 +275,7 @@ static vk_buffer_alloc_t renderBufferAlloc( uint32_t unit_size, uint32_t count )
 	}
 
 	ret.buffer_offset_in_units = offset / unit_size;
-	ret.ptr = g_render.buffer.mapped + offset;
+	ret.ptr = ((byte*)g_render.buffer.mapped) + offset;
 
 	g_render.stat.align_holes_size += offset - g_render.buffer_free_offset;
 	g_render.buffer_free_offset = offset + alloc_size;

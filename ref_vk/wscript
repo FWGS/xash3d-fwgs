@@ -17,6 +17,14 @@ def configure(conf):
 
 	conf.define('REF_DLL', 1)
 
+	if conf.env.DEST_OS == 'win32':
+		conf.start_msg('Vulkan SDK available?')
+		if not 'VULKAN_SDK' in conf.environ:
+			Logs.warn('VULKAN_SDK environment variable is not available, ref_vk will not be built')
+			conf.end_msg('no')
+		conf.env.VULKAN_SDK = conf.environ['VULKAN_SDK']
+		conf.end_msg('found at ' + conf.env.VULKAN_SDK)
+
 def build(bld):
 	libs = [ 'public', 'M' ]
 
@@ -30,6 +38,9 @@ def build(bld):
 		'../public',
 		'../common',
 		'../pm_shared' ]
+
+	if bld.env.DEST_OS == 'win32':
+		includes.append(bld.env.VULKAN_SDK + '\\Include')
 
 	bld.shlib(
 		source   = source,
