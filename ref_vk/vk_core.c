@@ -177,7 +177,7 @@ static qboolean createInstance( void )
 	unsigned int num_instance_extensions = vk_core.debug ? 1 : 0;
 	VkApplicationInfo app_info = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-		.apiVersion = VK_API_VERSION_1_0,
+		.apiVersion = vk_core.rtx ? VK_API_VERSION_1_2 : VK_API_VERSION_1_0,
 		.applicationVersion = VK_MAKE_VERSION(0, 0, 0), // TODO
 		.engineVersion = VK_MAKE_VERSION(0, 0, 0),
 		.pApplicationName = "",
