@@ -105,16 +105,30 @@ def configure(conf):
 	if conf.options.IGNORE_PROJECTS:
 		conf.env.IGNORE_PROJECTS = conf.options.IGNORE_PROJECTS.split(',')
 
-
 	# Force XP compability, all build targets should add
 	# subsystem=bld.env.MSVC_SUBSYSTEM
 	# TODO: wrapper around bld.stlib, bld.shlib and so on?
 	conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
-	conf.env.MSVC_TARGETS = ['x86'] # explicitly request x86 target for MSVC
+	conf.env.MSVC_TARGETS = ['x86' if not conf.options.ALLOW64 else 'x64']
+
 	if sys.platform == 'win32':
 		conf.load('msvc msvc_pdb msdev msvs')
+
+	# FIXME windows64
+	# On Windows with option -8 (and this MSVC_TARGETS being set to x64)
+	# conf.env.DEST_CPU will be set to value 'amd64', which is totally unexpected
+	# by the rest of xash3d-fwgs/waf build system. I have no idea what is the
+	# correct fix for this. As a workaround we'd want to set to 'x86_64' (the
+	# expected value) here, but the next `conf.load` line calls into msvc again
+	# and rewrited the value a couple of times.
+	# Send help.
+
 	conf.load('xshlib subproject xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install waf_unit_test enforce_pic')
 
+	# FIXME windows64
+	# NOW we can rewrite the DEST_CPU value...
+	if sys.platform == 'win32' and conf.env.DEST_CPU == 'amd64':
+		conf.env.DEST_CPU = 'x86_64'
 
 	enforce_pic = True # modern defaults
 
