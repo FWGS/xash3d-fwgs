@@ -668,6 +668,22 @@ library_error:
 	return NULL;
 }
 
+static DWORD GetOffsetByRVA( DWORD rva, PIMAGE_NT_HEADERS nt_header )
+{
+	int i = 0;
+	PIMAGE_SECTION_HEADER sect_header = IMAGE_FIRST_SECTION( nt_header );
+
+	if (!rva)
+		return rva;
+
+	for( i = 0; i < nt_header->FileHeader.NumberOfSections; i++, sect_header++)
+	{
+		if( rva >= sect_header->VirtualAddress && rva < sect_header->VirtualAddress + sect_header->Misc.VirtualSize )
+			break;	
+	}
+	return (rva - sect_header->VirtualAddress + sect_header->PointerToRawData);
+}
+
 /*
 ---------------------------------------------------------------
 
@@ -953,12 +969,12 @@ table_error:
 
 qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname, qboolean directpath )
 {
-	PIMAGE_DOS_HEADER	dos_header;
-	PIMAGE_NT_HEADERS	old_header;
-	PIMAGE_DATA_DIRECTORY	directory;
+	PIMAGE_DOS_HEADER	dosHeader;
+	PIMAGE_NT_HEADERS	peHeader;
+	PIMAGE_DATA_DIRECTORY	importDir;
 	PIMAGE_IMPORT_DESCRIPTOR importDesc;
 	string errorstring = "";
-	void		*data = NULL;
+	byte *data = NULL;
 	dll_user_t *hInst;
 
 	hInst = FS_FindLibrary( name, directpath );
@@ -974,33 +990,31 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 		goto libraryerror;
 	}
 
-	dos_header = ( PIMAGE_DOS_HEADER )data;
-	if( dos_header->e_magic != IMAGE_DOS_SIGNATURE )
+	dosHeader = ( PIMAGE_DOS_HEADER )data;
+	if( dosHeader->e_magic != IMAGE_DOS_SIGNATURE )
 	{
 		Q_snprintf( errorstring, sizeof( errorstring ), "%s it's not a valid executable file", name );
 		goto libraryerror;
 	}
 
-	old_header = ( PIMAGE_NT_HEADERS )&( ( const byte * )( data ) )[dos_header->e_lfanew];
-	if( old_header->Signature != IMAGE_NT_SIGNATURE )
+	peHeader = ( PIMAGE_NT_HEADERS )(data + dosHeader->e_lfanew);
+	if( peHeader->Signature != IMAGE_NT_SIGNATURE )
 	{
 		Q_snprintf( errorstring, sizeof( errorstring ), "%s missing PE header", name );
 		goto libraryerror;
 	}
 
-	directory = &old_header->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
-
-	if( directory->Size <= 0 )
+	importDir = &peHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+	if( importDir->Size <= 0 )
 	{
-		Q_snprintf( errorstring, sizeof( errorstring ), "%s has no dependencies. Is this dll valid?\n", name );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s has no dependencies. Is this library valid?\n", name );
 		goto libraryerror;
 	}
 
-	importDesc = (PIMAGE_IMPORT_DESCRIPTOR)CALCULATE_ADDRESS( data, directory->VirtualAddress );
-
+	importDesc = (PIMAGE_IMPORT_DESCRIPTOR)CALCULATE_ADDRESS( data, GetOffsetByRVA(importDir->VirtualAddress, peHeader) );
 	for( ; !IsBadReadPtr( importDesc, sizeof( IMAGE_IMPORT_DESCRIPTOR)) && importDesc->Name; importDesc++ )
 	{
-		const char *importName = ( const char* )CALCULATE_ADDRESS( data, importDesc->Name );
+		const char *importName = (const char *)CALCULATE_ADDRESS( data, GetOffsetByRVA( importDesc->Name, peHeader ) );
 		Con_Reportf( "library %s has direct dependency %s\n", name, importName );
 
 		if( !Q_stricmp( importName, depname ) )
