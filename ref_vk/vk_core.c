@@ -361,8 +361,24 @@ static qboolean pickAndCreateDevice( void )
 			.queueCount = 1,
 			.pQueuePriorities = &prio,
 		};
+		VkPhysicalDeviceBufferDeviceAddressFeatures buffer_address_feature = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+			.bufferDeviceAddress = VK_TRUE,
+		};
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR accel_feature = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+			.accelerationStructure = VK_TRUE,
+			.pNext = &buffer_address_feature,
+		};
+		VkPhysicalDeviceRayQueryFeaturesKHR ray_query_feature = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+			.rayQuery = VK_TRUE,
+			.pNext = &accel_feature,
+		};
+
 		VkDeviceCreateInfo create_info = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+			.pNext = vk_core.rtx ? &ray_query_feature : NULL,
 			.flags = 0,
 			.queueCreateInfoCount = 1,
 			.pQueueCreateInfos = &queue_info,

@@ -93,7 +93,12 @@ void R_NewMap( void )
 
 	// TODO should we do something like VK_BrushBeginLoad?
 	VK_BrushClear();
-	VK_RenderBufferClearAll();
+
+	// FIXME this is totally incorrect btw.
+	// When loading a save game from the same map this is called, but brush models
+	// have not been destroyed, which prevents them from being loaded ("again").
+	// This leads to ASSERTS firing when trying to draw erased buffers.
+	VK_RenderBufferClearMap();
 
 	// Load all models at once
 	gEngine.Con_Reportf( "Num models: %d:\n", num_models );
@@ -625,8 +630,6 @@ void VK_SceneRender( const ref_viewpass_t *rvp )
 		gpGlobals->time - gpGlobals->oldtime
 	/* FIXME VK : 0.f */;
 
-	// FIXME this is a bad place for this call -- theoretically we can get multiple calls to VK_SceneRender so we should not erase previous tmp buffer contents
-	VK_RenderTempBufferBegin();
 	setupCamera( rvp, mvp );
 
 	VK_RenderDebugLabelBegin( "opaque" );
@@ -681,8 +684,6 @@ void VK_SceneRender( const ref_viewpass_t *rvp )
 	gEngine.CL_DrawEFX( g_frametime, true );
 
 	VK_RenderDebugLabelEnd();
-
-	VK_RenderTempBufferEnd();
 }
 
 // FIXME better place?

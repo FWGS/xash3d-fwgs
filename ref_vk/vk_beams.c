@@ -163,9 +163,10 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	beamseg_t	curSeg;
 	int total_vertices = 0;
 	int total_indices = 0;
-	vk_buffer_alloc_t vertex_buffer, index_buffer;
-	vk_vertex_t *pvtx = NULL;
-	uint16_t *pidx = NULL;
+	vk_buffer_handle_t vertex_buffer, index_buffer;
+	vk_buffer_lock_t vertex_lock, index_lock;
+	vk_vertex_t *dst_vtx;
+	uint16_t *dst_idx;
 
 	if( segments < 2 ) return;
 
@@ -223,16 +224,19 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	total_indices = (total_vertices - 2) * 3; // STRIP unrolled into LIST (TODO get rid of this)
 	ASSERT(total_vertices < UINT16_MAX );
 
-	vertex_buffer = VK_RenderTempBufferAlloc(sizeof(vk_vertex_t), total_vertices);
-	index_buffer = VK_RenderTempBufferAlloc(sizeof(uint16_t), total_indices);
-
-	if (!vertex_buffer.ptr || !index_buffer.ptr) {
-		gEngine.Con_Printf(S_ERROR "Couldn't allocate %d vertices or %d indices for beam\n", total_vertices, total_indices);
+	vertex_buffer = VK_RenderBufferAlloc( sizeof(vk_vertex_t), total_vertices, LifetimeSingleFrame );
+	index_buffer = VK_RenderBufferAlloc( sizeof(uint16_t), total_indices, LifetimeSingleFrame );
+	if (vertex_buffer == InvalidHandle || index_buffer == InvalidHandle)
+	{
+		// TODO should we free one of the above if it still succeeded?
+		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
 		return;
 	}
 
-	pvtx = vertex_buffer.ptr;
-	pidx = index_buffer.ptr;
+	vertex_lock = VK_RenderBufferLock( vertex_buffer );
+	index_lock = VK_RenderBufferLock( index_buffer );
+	dst_vtx = vertex_lock.ptr;
+	dst_idx = index_lock.ptr;
 
 	// specify all the segments.
 	for( i = 0; i < segments; i++ )
@@ -297,21 +301,21 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			VectorMA( curSeg.pos, ( curSeg.width * 0.5f ), vAveNormal, vPoint1 );
 			VectorMA( curSeg.pos, (-curSeg.width * 0.5f ), vAveNormal, vPoint2 );
 
-			pvtx->lm_tc[0] = pvtx->lm_tc[1] = 0.f;
-			pvtx->gl_tc[0] = 0.0f;
-			pvtx->gl_tc[1] = curSeg.texcoord;
-			//FIXME VK applyBrightness( brightness, color, pvtx->color );
+			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
+			dst_vtx->gl_tc[0] = 0.0f;
+			dst_vtx->gl_tc[1] = curSeg.texcoord;
+			//FIXME VK applyBrightness( brightness, color, dst_vtx->color );
 			// FIXME VK pglNormal3fv( vAveNormal );
-			VectorCopy( vPoint1, pvtx->pos );
-			++pvtx;
+			VectorCopy( vPoint1, dst_vtx->pos );
+			++dst_vtx;
 
-			pvtx->lm_tc[0] = pvtx->lm_tc[1] = 0.f;
-			pvtx->gl_tc[0] = 1.0f;
-			pvtx->gl_tc[1] = curSeg.texcoord;
-			//FIXME VK applyBrightness( brightness, color, pvtx->color );
+			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
+			dst_vtx->gl_tc[0] = 1.0f;
+			dst_vtx->gl_tc[1] = curSeg.texcoord;
+			//FIXME VK applyBrightness( brightness, color, dst_vtx->color );
 			// FIXME VK pglNormal3fv( vAveNormal );
-			VectorCopy( vPoint2, pvtx->pos );
-			++pvtx;
+			VectorCopy( vPoint2, dst_vtx->pos );
+			++dst_vtx;
 		}
 
 		curSeg = nextSeg;
@@ -337,21 +341,21 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			VectorMA( curSeg.pos, ( curSeg.width * 0.5f ), vLastNormal, vPoint1 );
 			VectorMA( curSeg.pos, (-curSeg.width * 0.5f ), vLastNormal, vPoint2 );
 
-			pvtx->lm_tc[0] = pvtx->lm_tc[1] = 0.f;
-			pvtx->gl_tc[0] = 0.0f;
-			pvtx->gl_tc[1] = curSeg.texcoord;
-			//FIXME VK applyBrightness( brightness, color, pvtx->color );
+			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
+			dst_vtx->gl_tc[0] = 0.0f;
+			dst_vtx->gl_tc[1] = curSeg.texcoord;
+			//FIXME VK applyBrightness( brightness, color, dst_vtx->color );
 			// FIXME VK pglNormal3fv( vLastNormal );
-			VectorCopy( vPoint1, pvtx->pos );
-			++pvtx;
+			VectorCopy( vPoint1, dst_vtx->pos );
+			++dst_vtx;
 
-			pvtx->lm_tc[0] = pvtx->lm_tc[1] = 0.f;
-			pvtx->gl_tc[0] = 1.0f;
-			pvtx->gl_tc[1] = curSeg.texcoord;
-			//FIXME VK applyBrightness( brightness, color, pvtx->color );
+			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
+			dst_vtx->gl_tc[0] = 1.0f;
+			dst_vtx->gl_tc[1] = curSeg.texcoord;
+			//FIXME VK applyBrightness( brightness, color, dst_vtx->color );
 			// FIXME VK pglNormal3fv( vLastNormal );
-			VectorCopy( vPoint2, pvtx->pos );
-			++pvtx;
+			VectorCopy( vPoint2, dst_vtx->pos );
+			++dst_vtx;
 		}
 
 		vLast += vStep; // Advance texture scroll (v axis only)
@@ -362,26 +366,32 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 		if( i & 1 )
 		{
 			// draw triangle [n-1 n-2 n]
-			pidx[(i-2)*3+0] = i - 1;
-			pidx[(i-2)*3+1] = i - 2;
-			pidx[(i-2)*3+2] = i;
+			dst_idx[(i-2)*3+0] = i - 1;
+			dst_idx[(i-2)*3+1] = i - 2;
+			dst_idx[(i-2)*3+2] = i;
 		}
 		else
 		{
 			// draw triangle [n-2 n-1 n]
-			pidx[(i-2)*3+0] = i - 2;
-			pidx[(i-2)*3+1] = i - 1;
-			pidx[(i-2)*3+2] = i;
+			dst_idx[(i-2)*3+0] = i - 2;
+			dst_idx[(i-2)*3+1] = i - 1;
+			dst_idx[(i-2)*3+2] = i;
 		}
 	}
+
+	VK_RenderBufferUnlock( index_buffer );
+	VK_RenderBufferUnlock( vertex_buffer );
+
 	{
 		const render_draw_t draw = {
 			.lightmap = tglob.whiteTexture,
 			.texture = texture,
 			.render_mode = render_mode,
 			.element_count = total_indices,
-			.vertex_offset = vertex_buffer.buffer_offset_in_units,
-			.index_offset = index_buffer.buffer_offset_in_units,
+			.vertex_offset = 0,
+			.index_offset = 0,
+			.vertex_buffer = vertex_buffer,
+			.index_buffer = index_buffer,
 		};
 
 		VK_RenderScheduleDraw( &draw );

@@ -649,26 +649,25 @@ qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale, int texture, int render_mode )
 {
 	vec3_t	point;
-	vk_buffer_alloc_t buf_vertex, buf_index;
+	vk_buffer_handle_t vertex_buffer, index_buffer;
+	vk_buffer_lock_t vertex_lock, index_lock;
 	vk_vertex_t *dst_vtx;
 	uint16_t *dst_idx;
 
 	// Get buffer region for vertices and indices
-	buf_vertex = VK_RenderTempBufferAlloc( sizeof(vk_vertex_t), 4 );
-	if (!buf_vertex.ptr)
+	vertex_buffer = VK_RenderBufferAlloc( sizeof(vk_vertex_t), 4, LifetimeSingleFrame );
+	index_buffer = VK_RenderBufferAlloc( sizeof(uint16_t), 6, LifetimeSingleFrame );
+	if (vertex_buffer == InvalidHandle || index_buffer == InvalidHandle)
 	{
-		gEngine.Con_Printf(S_ERROR "Cannot render mesh\n"); // TODO mesh signature?
+		// TODO should we free one of the above if it still succeeded?
+		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
 		return;
 	}
-	dst_vtx = buf_vertex.ptr;
 
-	buf_index = VK_RenderTempBufferAlloc( sizeof(uint16_t), 6 );
-	if (!buf_index.ptr)
-	{
-		gEngine.Con_Printf(S_ERROR "Cannot render mesh\n"); // TODO mesh signature?
-		return;
-	}
-	dst_idx = buf_index.ptr;
+	vertex_lock = VK_RenderBufferLock( vertex_buffer );
+	index_lock = VK_RenderBufferLock( index_buffer );
+	dst_vtx = vertex_lock.ptr;
+	dst_idx = index_lock.ptr;
 
 	// FIXME VK r_stats.c_sprite_polys++;
 
@@ -703,14 +702,19 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 	dst_idx[4] = 2;
 	dst_idx[5] = 3;
 
+	VK_RenderBufferUnlock( index_buffer );
+	VK_RenderBufferUnlock( vertex_buffer );
+
 	{
 		const render_draw_t draw = {
 			.lightmap = tglob.whiteTexture,
 			.texture = texture,
 			.render_mode = render_mode,
 			.element_count = 6,
-			.vertex_offset = buf_vertex.buffer_offset_in_units,
-			.index_offset = buf_index.buffer_offset_in_units,
+			.vertex_offset = 0,
+			.index_offset = 0,
+			.vertex_buffer = vertex_buffer,
+			.index_buffer = index_buffer,
 		};
 
 		VK_RenderScheduleDraw( &draw );

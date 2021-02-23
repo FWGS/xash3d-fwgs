@@ -6,20 +6,36 @@
 qboolean VK_RenderInit( void );
 void VK_RenderShutdown( void );
 
-typedef struct vk_buffer_alloc_s {
-	uint32_t buffer_offset_in_units;
+typedef int vk_buffer_handle_t; // -1 == invalid handle
+enum { InvalidHandle = -1 };
+
+typedef struct {
 	void *ptr;
-} vk_buffer_alloc_t;
+	uint32_t unit_size, count;
+} vk_buffer_lock_t;
+
+typedef enum {
+	LifetimeLong,
+	LifetimeMap,
+	LifetimeSingleFrame,
+} vk_lifetime_t;
+
+// TODO: allocation lifetime with contents validity lifetime?
+
+vk_buffer_handle_t VK_RenderBufferAlloc( uint32_t unit_size, uint32_t count, vk_lifetime_t lifetime );
+vk_buffer_lock_t VK_RenderBufferLock( vk_buffer_handle_t handle );
+void VK_RenderBufferUnlock( vk_buffer_handle_t handle );
+
+// TODO buffer refcount when doing RTX AS updates? need to store buffer handles somewhere between frames
+
+// Free all LifetimeSingleFrame resources
+void VK_RenderBufferClearFrame( void );
+
+// Free all LifetimeMap resources
+void VK_RenderBufferClearMap( void );
 
 // TODO uploading to GPU mem interface
-vk_buffer_alloc_t VK_RenderBufferAlloc( uint32_t unit_size, uint32_t count );
-void VK_RenderBufferClearAll( void );
 void VK_RenderBufferPrintStats( void );
-
-// TODO address cringiness of this when doing buffer upload to GPU RAM properly
-void VK_RenderTempBufferBegin( void );
-vk_buffer_alloc_t VK_RenderTempBufferAlloc( uint32_t unit_size, uint32_t count );
-void VK_RenderTempBufferEnd( void );
 
 // Set UBO state for next VK_RenderScheduleDraw calls
 // Why? Xash Ref code is organized in a way where we can't reliably pass this info with
@@ -42,6 +58,7 @@ typedef struct render_draw_s {
 	int render_mode;
 	uint32_t element_count;
 	uint32_t index_offset, vertex_offset;
+	vk_buffer_handle_t index_buffer, vertex_buffer;
 } render_draw_t;
 
 void VK_RenderBegin( void );

@@ -1,15 +1,12 @@
-# 2021-02-20
-- [ ] refactor vk_render interface:
-	- [x] move uniform_data_t to global render state ~inside render_draw_t, remove any mentions of uniform/slots from api; alt: global render state?~
-	- [x] rename RenderDraw to SubmitDraw
-	- [x] ~add debug label to render_draw_t?;~ alt: VK_RenderDebugNameBegin/End
-	- [x] perform 3d rendering on corresponding refapi calls, not endframe
-	- [ ] restore debug labels
-- [x] fix sprite blending
-
 # Next
+- [ ] (RTX; common) Staging vs on-GPU buffers
+- [ ] (RTX) BLAS construction on buffer unlock
+- [ ] (RTX) ray trace compute shader
+- [ ] (RTX) geometry indexing
+- [ ] (RTX) textures
 
 # Planned
+- [ ] restore render debug labels
 - [ ] make 2nd commad buffer for resource upload
 - [ ] fix sprite blending; there are commented out functions that we really need (see tunnel before the helicopter in the very beginning)
 - [ ] RTX: make projection matrix independent render global/current/static state
@@ -55,6 +52,7 @@
 - [ ] not visibly watertight map brushes
 - [ ] collect render_draw_t w/o submitting them to cmdbuf, then sort by render_mode, trans depth, and other parameters, trying to batch as much stuff as possible; only then submit
 
+# Previously
 
 ## 2021-02-06
 - [x] alpha test
@@ -91,3 +89,14 @@
 ## 2021-02-17
 - [x] draw some beams
 
+## 2021-02-20
+- [x] refactor vk_render interface:
+	- [x] move uniform_data_t to global render state ~inside render_draw_t, remove any mentions of uniform/slots from api; alt: global render state?~
+	- [x] rename RenderDraw to SubmitDraw
+	- [x] ~add debug label to render_draw_t?;~ alt: VK_RenderDebugNameBegin/End
+	- [x] perform 3d rendering on corresponding refapi calls, not endframe
+- [x] fix sprite blending
+
+## 2021-02-22
+- [x] RTX: load extensions with -rtx arg
+- [x] vk_render: buffer-alloc-centric upload and draw api
