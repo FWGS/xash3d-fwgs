@@ -13,7 +13,7 @@ task:
 task:
   name: freebsd-12-amd64
   freebsd_instance:
-    image_family: freebsd-12-1
+    image_family: freebsd-12-2
   setup_script:
     - pkg update
     - pkg install -y git sdl2 python
