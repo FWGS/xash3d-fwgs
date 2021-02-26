@@ -218,6 +218,83 @@ static TYPEDESCRIPTION gTempEntvars[] =
 	DEFINE_ENTITY_GLOBAL_FIELD( globalname, FIELD_STRING ),
 };
 
+struct
+{
+	const char *mapname;
+	const char *titlename;
+} gTitleComments[] =
+{
+	// default Half-Life map titles
+	// ordering is important
+	// strings hw.so| grep T0A0TITLE -B 50 -A 150
+	{ "T0A0", "#T0A0TITLE" },
+	{ "C0A0", "#C0A0TITLE" },
+	{ "C1A0", "#C0A1TITLE" },
+	{ "C1A1", "#C1A1TITLE" },
+	{ "C1A2", "#C1A2TITLE" },
+	{ "C1A3", "#C1A3TITLE" },
+	{ "C1A4", "#C1A4TITLE" },
+	{ "C2A1", "#C2A1TITLE" },
+	{ "C2A2", "#C2A2TITLE" },
+	{ "C2A3", "#C2A3TITLE" },
+	{ "C2A4D", "#C2A4TITLE2" },
+	{ "C2A4E", "#C2A4TITLE2" },
+	{ "C2A4F", "#C2A4TITLE2" },
+	{ "C2A4G", "#C2A4TITLE2" },
+	{ "C2A4", "#C2A4TITLE1" },
+	{ "C2A5", "#C2A5TITLE" },
+	{ "C3A1", "#C3A1TITLE" },
+	{ "C3A2", "#C3A2TITLE" },
+	{ "C4A1A", "#C4A1ATITLE" },
+	{ "C4A1B", "#C4A1ATITLE" },
+	{ "C4A1C", "#C4A1ATITLE" },
+	{ "C4A1D", "#C4A1ATITLE" },
+	{ "C4A1E", "#C4A1ATITLE" },
+	{ "C4A1", "#C4A1TITLE" },
+	{ "C4A2", "#C4A2TITLE" },
+	{ "C4A3", "#C4A3TITLE" },
+	{ "C5A1", "#C5TITLE" },
+	{ "OFBOOT", "#OF_BOOT0TITLE" },
+	{ "OF0A", "#OF1A1TITLE" },
+	{ "OF1A1", "#OF1A3TITLE" },
+	{ "OF1A2", "#OF1A3TITLE" },
+	{ "OF1A3", "#OF1A3TITLE" },
+	{ "OF1A4", "#OF1A3TITLE" },
+	{ "OF1A", "#OF1A5TITLE" },
+	{ "OF2A1", "#OF2A1TITLE" },
+	{ "OF2A2", "#OF2A1TITLE" },
+	{ "OF2A3", "#OF2A1TITLE" },
+	{ "OF2A", "#OF2A4TITLE" },
+	{ "OF3A1", "#OF3A1TITLE" },
+	{ "OF3A2", "#OF3A1TITLE" },
+	{ "OF3A", "#OF3A3TITLE" },
+	{ "OF4A1", "#OF4A1TITLE" },
+	{ "OF4A2", "#OF4A1TITLE" },
+	{ "OF4A3", "#OF4A1TITLE" },
+	{ "OF4A", "#OF4A4TITLE" },
+	{ "OF5A", "#OF5A1TITLE" },
+	{ "OF6A1", "#OF6A1TITLE" },
+	{ "OF6A2", "#OF6A1TITLE" },
+	{ "OF6A3", "#OF6A1TITLE" },
+	{ "OF6A4b", "#OF6A4TITLE" },
+	{ "OF6A4", "#OF6A4TITLE" },
+	{ "OF6A5", "#OF6A4TITLE" },
+	{ "OF6A", "#OF6A4TITLE" },
+	{ "OF7A", "#OF7A0TITLE" },
+	{ "ba_tram", "#BA_TRAMTITLE" },
+	{ "ba_security", "#BA_SECURITYTITLE" },
+	{ "ba_main", "#BA_SECURITYTITLE" },
+	{ "ba_elevator", "#BA_SECURITYTITLE" },
+	{ "ba_canal", "#BA_CANALSTITLE" },
+	{ "ba_yard", "#BA_YARDTITLE" },
+	{ "ba_xen", "#BA_XENTITLE" },
+	{ "ba_hazard", "#BA_HAZARD" },
+	{ "ba_power", "#BA_POWERTITLE" },
+	{ "ba_teleport1", "#BA_POWERTITLE" },
+	{ "ba_teleport", "#BA_TELEPORTTITLE" },
+	{ "ba_outro", "#BA_OUTRO" },
+};
+
 /*
 =============
 SaveBuildComment
@@ -228,30 +305,49 @@ typically it writes world message and level time
 */
 static void SaveBuildComment( char *text, int maxlength )
 {
-	const char	*pName;
+	string      comment;
+	const char *pName = NULL;
 
 	text[0] = '\0'; // clear
 
 	if( pfnSaveGameComment != NULL )
 	{
 		// get save comment from gamedll
-		pfnSaveGameComment( text, maxlength );
+		pfnSaveGameComment( comment, MAX_STRING );
+		pName = comment;
 	}
 	else
 	{
-		if( svgame.edicts->v.message != 0 )
+		size_t i;
+		const char *mapname = STRING( svgame.globals->mapname );
+
+		for( i = 0; i < ARRAYSIZE( gTitleComments ); i++ )
 		{
-			// trying to extract message from the world
-			pName = STRING( svgame.edicts->v.message );
-		}
-		else
-		{
-			// or use mapname
-			pName = STRING( svgame.globals->mapname );
+			// compare if strings are equal at beginning
+			size_t len = strlen( gTitleComments[i].mapname );
+			if( !Q_strnicmp( mapname, gTitleComments[i].mapname, len ))
+			{
+				pName = gTitleComments[i].titlename;
+				break;
+			}
 		}
 
-		Q_snprintf( text, maxlength, "%-64.64s %02d:%02d", pName, (int)(sv.time / 60.0 ), (int)fmod( sv.time, 60.0 ));
+		if( !pName )
+		{
+			if( svgame.edicts->v.message != 0 )
+			{
+				// trying to extract message from the world
+				pName = STRING( svgame.edicts->v.message );
+			}
+			else
+			{
+				// or use mapname
+				pName = STRING( svgame.globals->mapname );
+			}
+		}
 	}
+
+	Q_snprintf( text, maxlength, "%-64.64s %02d:%02d", pName, (int)(sv.time / 60.0 ), (int)fmod( sv.time, 60.0 ));
 }
 
 /*
@@ -2276,6 +2372,7 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 	// each field is a short (size), short (index of name), binary string of "size" bytes (data)
 	for( i = 0; i < nNumberOfFields; i++ )
 	{
+		size_t size;
 		// Data order is:
 		// Size
 		// szName
@@ -2286,13 +2383,15 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 		pFieldName = pTokenList[*(short *)pData];
 		pData += sizeof( short );
 
+		size = Q_min( nFieldSize, MAX_STRING );
+
 		if( !Q_stricmp( pFieldName, "comment" ))
 		{
-			Q_strncpy( description, pData, nFieldSize );
+			Q_strncpy( description, pData, size );
 		}
 		else if( !Q_stricmp( pFieldName, "mapName" ))
 		{
-			Q_strncpy( mapName, pData, nFieldSize );
+			Q_strncpy( mapName, pData, size );
 		}
 
 		// move to start of next field.
