@@ -342,6 +342,9 @@ static void R_FreeVideoModes( void )
 {
 	int i;
 
+	if( !vidmodes )
+		return;
+
 	for( i = 0; i < num_vidmodes; i++ )
 		Mem_Free( (char*)vidmodes[i].desc );
 	Mem_Free( vidmodes );
