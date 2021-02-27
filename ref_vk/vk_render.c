@@ -7,6 +7,7 @@
 #include "vk_pipeline.h"
 #include "vk_textures.h"
 #include "vk_math.h"
+#include "vk_rtx.h"
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
@@ -27,6 +28,8 @@ typedef struct vk_buffer_alloc_s {
 	uint32_t count;
 	qboolean locked;
 	vk_lifetime_t lifetime;
+
+	vk_ray_model_handle_t rtx_model;
 } vk_buffer_alloc_t;
 
 // TODO estimate
@@ -408,6 +411,8 @@ typedef struct {
 	render_draw_t draw;
 	uint32_t ubo_offset;
 	//char debug_name[MAX_DEBUG_NAME_LENGTH];
+
+	vk_ray_model_handle_t ray_model;
 } draw_command_t;
 
 static struct {
@@ -470,6 +475,7 @@ static int allocUniformSlot( void ) {
 void VK_RenderScheduleDraw( const render_draw_t *draw )
 {
 	int ubo_index = g_render_state.next_free_uniform_slot - 1;
+	const vk_buffer_alloc_t *vertex_buffer = NULL, *index_buffer = NULL;
 	draw_command_t *draw_command;
 
 	ASSERT(draw->render_mode >= 0);
@@ -478,7 +484,7 @@ void VK_RenderScheduleDraw( const render_draw_t *draw )
 	ASSERT(draw->texture >= 0);
 
 	{
-		const vk_buffer_alloc_t *vertex_buffer = getBufferFromHandle(draw->vertex_buffer);
+		vertex_buffer = getBufferFromHandle(draw->vertex_buffer);
 		ASSERT(vertex_buffer);
 		ASSERT(!vertex_buffer->locked);
 	}
@@ -486,7 +492,7 @@ void VK_RenderScheduleDraw( const render_draw_t *draw )
 	// Index buffer is optional
 	if (draw->index_buffer != InvalidHandle)
 	{
-		const vk_buffer_alloc_t *index_buffer = getBufferFromHandle(draw->index_buffer);
+		index_buffer = getBufferFromHandle(draw->index_buffer);
 		ASSERT(index_buffer);
 		ASSERT(!index_buffer->locked);
 	}
@@ -520,6 +526,24 @@ void VK_RenderScheduleDraw( const render_draw_t *draw )
 	draw_command = g_render_state.draw_commands + (g_render_state.num_draw_commands++);
 	draw_command->draw = *draw;
 	draw_command->ubo_offset = g_render.uniform_unit_size * ubo_index;
+	draw_command->ray_model = InvalidRayModel;
+
+	if (vk_core.rtx)
+		// TODO there's a more complex story with lifetimes and rebuilds && vertex_buffer->lifetime < LifetimeSingleFrame)
+	{
+		// TODO it would make sense to join logical models into a single ray model
+		// but here we've completely lost this info, as models are now just a stream
+		// of independent draws
+		const vk_ray_model_create_t ray_model_args = {
+			.element_count = draw->element_count,
+			.vertex_count = vertex_buffer->count,
+			.index_offset = index_buffer ? index_buffer->unit_size * (draw->index_offset + index_buffer->buffer_offset_in_units) : UINT32_MAX,
+			.vertex_offset = (draw->vertex_offset + vertex_buffer->buffer_offset_in_units) * vertex_buffer->unit_size,
+			.buffer = g_render.buffer.buffer,
+		};
+
+		draw_command->ray_model = VK_RayModelCreate( &ray_model_args );
+	}
 }
 
 void VK_RenderEnd( VkCommandBuffer cmdbuf )
@@ -531,6 +555,8 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 	int texture = -1;
 	int lightmap = -1;
 	uint32_t ubo_offset = -1;
+
+	ASSERT(!vk_core.rtx);
 
 	{
 		const VkDeviceSize offset = 0;
@@ -592,4 +618,17 @@ void VK_RenderDebugLabelEnd( void )
 {
 	/* if (vk_core.debug) */
 	/* 	vkCmdEndDebugUtilsLabelEXT(vk_core.cb); */
+}
+
+void VK_RenderEndRTX( VkCommandBuffer cmdbuf )
+{
+	ASSERT(vk_core.rtx);
+	VK_RaySceneBegin();
+	for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
+		const draw_command_t *const draw = g_render_state.draw_commands + i;
+		if (draw->ray_model) {
+			VK_RayScenePushModel( cmdbuf, draw->ray_model );
+		}
+	}
+	VK_RaySceneEnd( cmdbuf );
 }

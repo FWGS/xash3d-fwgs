@@ -103,7 +103,7 @@ static qboolean createRenderPass( void ) {
 		.format = VK_FORMAT_B8G8R8A8_UNORM, //SRGB,// FIXME too early swapchain.create_info.imageFormat;
 		.samples = VK_SAMPLE_COUNT_1_BIT,
 		//.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+		.loadOp = vk_core.rtx ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR,
 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -356,6 +356,9 @@ void R_EndFrame( void )
 		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
 	}
 
+	if (vk_core.rtx)
+		VK_RenderEndRTX( vk_core.cb );
+
 	{
 		VkRenderPassBeginInfo rpbi = {
 			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -382,7 +385,9 @@ void R_EndFrame( void )
 		vkCmdSetScissor(vk_core.cb, 0, ARRAYSIZE(scissor), scissor);
 	}
 
-	VK_RenderEnd( vk_core.cb );
+	if (!vk_core.rtx)
+		VK_RenderEnd( vk_core.cb );
+
 	vk2dEnd( vk_core.cb );
 
 	vkCmdEndRenderPass(vk_core.cb);

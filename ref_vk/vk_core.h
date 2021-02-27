@@ -66,6 +66,7 @@ typedef struct vulkan_core_s {
 
 	byte *pool;
 
+	// TODO dynamic rtx_on/off
 	qboolean debug, rtx;
 	struct {
 		VkSurfaceKHR surface;
@@ -199,8 +200,16 @@ const char *resultName(VkResult result);
 	X(vkCmdBindIndexBuffer) \
 	X(vkCmdDrawIndexed) \
 
+#define DEVICE_FUNCS_RTX(X) \
+	X(vkGetAccelerationStructureBuildSizesKHR) \
+	X(vkCreateAccelerationStructureKHR) \
+	X(vkGetBufferDeviceAddress) \
+	X(vkCmdBuildAccelerationStructuresKHR) \
+	X(vkDestroyAccelerationStructureKHR) \
+
 #define X(f) extern PFN_##f f;
 	DEVICE_FUNCS(X)
+	DEVICE_FUNCS_RTX(X)
 	INSTANCE_FUNCS(X)
 	INSTANCE_DEBUG_FUNCS(X)
 #undef X

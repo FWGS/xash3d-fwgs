@@ -1,4 +1,5 @@
 #include "vk_core.h"
+
 #include "vk_common.h"
 #include "vk_textures.h"
 #include "vk_2d.h"
@@ -11,6 +12,7 @@
 #include "vk_pipeline.h"
 #include "vk_render.h"
 #include "vk_studio.h"
+#include "vk_rtx.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -62,6 +64,12 @@ static dllfunc_t instance_debug_funcs[] = {
 static dllfunc_t device_funcs[] = {
 #define X(f) {#f, (void**)&f},
 	DEVICE_FUNCS(X)
+#undef X
+};
+
+static dllfunc_t device_funcs_rtx[] = {
+#define X(f) {#f, (void**)&f},
+	DEVICE_FUNCS_RTX(X)
 #undef X
 };
 
@@ -403,6 +411,11 @@ static qboolean pickAndCreateDevice( void )
 
 		loadDeviceFunctions(device_funcs, ARRAYSIZE(device_funcs));
 
+		if (vk_core.rtx)
+		{
+			loadDeviceFunctions(device_funcs_rtx, ARRAYSIZE(device_funcs_rtx));
+		}
+
 		vkGetDeviceQueue(vk_core.device, 0, 0, &vk_core.queue);
 		retval = true;
 	} else {
@@ -623,7 +636,7 @@ qboolean R_VkInit( void )
 	if (!createCommandPool())
 		return false;
 
-	if (!createBuffer(&vk_core.staging, 16 * 1024 * 1024, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	if (!createBuffer(&vk_core.staging, 16 * 1024 * 1024 /* TODO why 16Mb? */, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
 	{
@@ -673,11 +686,22 @@ qboolean R_VkInit( void )
 	if (!VK_BrushInit())
 		return false;
 
+	if (vk_core.rtx)
+	{
+		if (!VK_RayInit())
+			return false;
+	}
+
 	return true;
 }
 
 void R_VkShutdown( void )
 {
+	if (vk_core.rtx)
+	{
+		VK_RayShutdown();
+	}
+
 	VK_BrushShutdown();
 	VK_StudioShutdown();
 	deinitVk2d();
