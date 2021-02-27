@@ -50,7 +50,6 @@ SUBDIRS = [
 	Subproject('game_launch', singlebin=True),
 	Subproject('ref_gl',),
 	Subproject('ref_soft'),
-	Subproject('ref_vk',),
 	Subproject('mainui'),
 	Subproject('vgui_support'),
 	Subproject('stub/server', dedicated=False),
@@ -95,9 +94,9 @@ def options(opt):
 
 		opt.add_subproject(i.name)
 
-	opt.load('xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test')
+	opt.load('xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs')
 	if sys.platform == 'win32':
-		opt.load('msvc msdev msvs')
+		opt.load('msvc')
 	opt.load('reconfigure')
 
 def configure(conf):
@@ -111,24 +110,17 @@ def configure(conf):
 	conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
 	conf.env.MSVC_TARGETS = ['x86' if not conf.options.ALLOW64 else 'x64']
 
-	if sys.platform == 'win32':
-		conf.load('msvc msvc_pdb msdev msvs')
+	# Load compilers early
+	conf.load('xshlib xcompile compiler_c compiler_cxx')
 
-	# FIXME windows64
-	# On Windows with option -8 (and this MSVC_TARGETS being set to x64)
-	# conf.env.DEST_CPU will be set to value 'amd64', which is totally unexpected
-	# by the rest of xash3d-fwgs/waf build system. I have no idea what is the
-	# correct fix for this. As a workaround we'd want to set to 'x86_64' (the
-	# expected value) here, but the next `conf.load` line calls into msvc again
-	# and rewrited the value a couple of times.
-	# Send help.
-
-	conf.load('xshlib subproject xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install waf_unit_test enforce_pic')
-
-	# FIXME windows64
-	# NOW we can rewrite the DEST_CPU value...
-	if sys.platform == 'win32' and conf.env.DEST_CPU == 'amd64':
+	# HACKHACK: override msvc DEST_CPU value by something that we understand
+	if conf.env.DEST_CPU == 'amd64':
 		conf.env.DEST_CPU = 'x86_64'
+
+	if conf.env.COMPILER_CC == 'msvc':
+		conf.load('msvc_pdb')
+
+	conf.load('msvs msdev subproject gitversion clang_compilation_database strip_on_install waf_unit_test enforce_pic')
 
 	enforce_pic = True # modern defaults
 
