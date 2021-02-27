@@ -77,7 +77,7 @@ static void createDepthImage(int w, int h) {
 	vk_frame.depth.image = createImage(w, h, vk_frame.depth.format, tiling, usage);
 
 	vkGetImageMemoryRequirements(vk_core.device, vk_frame.depth.image, &memreq);
-	vk_frame.depth.device_memory = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	vk_frame.depth.device_memory = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
 	XVK_CHECK(vkBindImageMemory(vk_core.device, vk_frame.depth.image, vk_frame.depth.device_memory.device_memory, 0));
 
 	{

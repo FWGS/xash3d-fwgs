@@ -249,7 +249,7 @@ qboolean VK_RenderInit( void )
 
 	// TODO device memory and friends (e.g. handle mobile memory ...)
 
-	if (!createBuffer(&g_render.buffer, vertex_buffer_size + index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	if (!createBuffer(&g_render.buffer, vertex_buffer_size + index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | (vk_core.rtx ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT : 0), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
 	if (!createBuffer(&g_render.uniform_buffer, g_render.uniform_unit_size * MAX_UNIFORM_SLOTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
@@ -411,8 +411,6 @@ typedef struct {
 	render_draw_t draw;
 	uint32_t ubo_offset;
 	//char debug_name[MAX_DEBUG_NAME_LENGTH];
-
-	vk_ray_model_handle_t ray_model;
 } draw_command_t;
 
 static struct {
@@ -526,24 +524,6 @@ void VK_RenderScheduleDraw( const render_draw_t *draw )
 	draw_command = g_render_state.draw_commands + (g_render_state.num_draw_commands++);
 	draw_command->draw = *draw;
 	draw_command->ubo_offset = g_render.uniform_unit_size * ubo_index;
-	draw_command->ray_model = InvalidRayModel;
-
-	if (vk_core.rtx)
-		// TODO there's a more complex story with lifetimes and rebuilds && vertex_buffer->lifetime < LifetimeSingleFrame)
-	{
-		// TODO it would make sense to join logical models into a single ray model
-		// but here we've completely lost this info, as models are now just a stream
-		// of independent draws
-		const vk_ray_model_create_t ray_model_args = {
-			.element_count = draw->element_count,
-			.vertex_count = vertex_buffer->count,
-			.index_offset = index_buffer ? index_buffer->unit_size * (draw->index_offset + index_buffer->buffer_offset_in_units) : UINT32_MAX,
-			.vertex_offset = (draw->vertex_offset + vertex_buffer->buffer_offset_in_units) * vertex_buffer->unit_size,
-			.buffer = g_render.buffer.buffer,
-		};
-
-		draw_command->ray_model = VK_RayModelCreate( &ray_model_args );
-	}
 }
 
 void VK_RenderEnd( VkCommandBuffer cmdbuf )
@@ -626,9 +606,24 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf )
 	VK_RaySceneBegin();
 	for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
 		const draw_command_t *const draw = g_render_state.draw_commands + i;
-		if (draw->ray_model) {
-			VK_RayScenePushModel( cmdbuf, draw->ray_model );
-		}
+		const vk_buffer_alloc_t *vertex_buffer = getBufferFromHandle( draw->draw.vertex_buffer );
+		const vk_buffer_alloc_t *index_buffer = draw->draw.index_buffer != InvalidHandle ? getBufferFromHandle( draw->draw.index_buffer ) : NULL;
+		const uint32_t vertex_offset = vertex_buffer->buffer_offset_in_units + draw->draw.vertex_offset;
+
+		// TODO there's a more complex story with lifetimes and rebuilds && vertex_buffer->lifetime < LifetimeSingleFrame)
+		// TODO it would make sense to join logical models into a single ray model
+		// but here we've completely lost this info, as models are now just a stream
+		// of independent draws
+
+		const vk_ray_model_create_t ray_model_args = {
+			.element_count = draw->draw.element_count,
+			.max_vertex = vertex_buffer->count, // TODO this is an upper bound for brushes at least, it can be lowered
+			.index_offset = index_buffer ? index_buffer->unit_size * (draw->draw.index_offset + index_buffer->buffer_offset_in_units) : UINT32_MAX,
+			.vertex_offset = (draw->draw.vertex_offset + vertex_buffer->buffer_offset_in_units) * vertex_buffer->unit_size,
+			.buffer = g_render.buffer.buffer,
+		};
+
+		VK_RayScenePushModel(cmdbuf, &ray_model_args);
 	}
 	VK_RaySceneEnd( cmdbuf );
 }

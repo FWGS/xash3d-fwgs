@@ -16,11 +16,12 @@ qboolean createBuffer(vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage,
 	vkGetBufferMemoryRequirements(vk_core.device, buf->buffer, &memreq);
 	gEngine.Con_Reportf("memreq: memoryTypeBits=0x%x alignment=%zu size=%zu\n", memreq.memoryTypeBits, memreq.alignment, memreq.size);
 
-	buf->device_memory = allocateDeviceMemory(memreq, flags);
+	buf->device_memory = allocateDeviceMemory(memreq, flags, usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT ? VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT : 0);
 	XVK_CHECK(vkBindBufferMemory(vk_core.device, buf->buffer, buf->device_memory.device_memory, buf->device_memory.offset));
 
 	// FIXME when there are many allocation per VkDeviceMemory, fix this
-	XVK_CHECK(vkMapMemory(vk_core.device, buf->device_memory.device_memory, 0, bci.size, 0, &buf->mapped));
+	if (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT & flags)
+		XVK_CHECK(vkMapMemory(vk_core.device, buf->device_memory.device_memory, 0, bci.size, 0, &buf->mapped));
 
 	buf->size = size;
 
@@ -37,7 +38,9 @@ void destroyBuffer(vk_buffer_t *buf) {
 
 	if (buf->device_memory.device_memory)
 	{
-		vkUnmapMemory(vk_core.device, buf->device_memory.device_memory);
+		if (buf->mapped)
+			vkUnmapMemory(vk_core.device, buf->device_memory.device_memory);
+
 		freeDeviceMemory(&buf->device_memory);
 		buf->device_memory.device_memory = VK_NULL_HANDLE;
 		buf->device_memory.offset = 0;

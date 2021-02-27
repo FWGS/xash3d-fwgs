@@ -9,15 +9,17 @@
 
 #define MAX_ACCELS 1024
 #define MAX_SCRATCH_BUFFER (16*1024*1024)
-#define MAX_ACCELS_BUFFER (16*1024*1024)
+#define MAX_ACCELS_BUFFER (64*1024*1024)
 
+/*
 typedef struct {
 	//int lightmap, texture;
 	//int render_mode;
-	uint32_t element_count, vertex_count;
+	uint32_t element_count;
 	uint32_t index_offset, vertex_offset;
 	VkBuffer buffer;
 } vk_ray_model_t;
+*/
 
 static struct {
 	/* VkPipelineLayout pipeline_layout; */
@@ -68,11 +70,16 @@ static qboolean createAndBuildAccelerationStructure(VkCommandBuffer cmdbuf, cons
 		return false;
 	}
 
-  vkGetAccelerationStructureBuildSizesKHR(
+	vkGetAccelerationStructureBuildSizesKHR(
 		vk_core.device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &build_info, max_prim_counts, &build_size);
 
-	gEngine.Con_Reportf(
-		"AS build size: %d, scratch size: %d", build_size.accelerationStructureSize, build_size.buildScratchSize);
+	{
+		uint32_t max_prims = 0;
+		for (int i = 0; i < n_geoms; ++i)
+			max_prims += max_prim_counts[i];
+		gEngine.Con_Reportf(
+			"AS max_prims=%u, n_geoms=%u, build size: %d, scratch size: %d\n", max_prims, n_geoms, build_size.accelerationStructureSize, build_size.buildScratchSize);
+	}
 
 	if (MAX_SCRATCH_BUFFER - g_rtx_scene.scratch_offset < build_size.buildScratchSize) {
 		gEngine.Con_Printf(S_ERROR "Scratch buffer overflow: left %u bytes, but need %u\n",
@@ -93,6 +100,7 @@ static qboolean createAndBuildAccelerationStructure(VkCommandBuffer cmdbuf, cons
 
 	// TODO alignment?
 	g_rtx_scene.buffer_offset += build_size.accelerationStructureSize;
+	g_rtx_scene.buffer_offset = (g_rtx_scene.buffer_offset + 255) & ~255; // Buffer must be aligned to 256 according to spec
 	g_rtx_scene.num_accels++;
 
 	build_info.dstAccelerationStructure = *handle;
@@ -117,38 +125,46 @@ void VK_RaySceneBegin( void )
 	g_rtx_scene.num_accels = 0;
 }
 
-static vk_ray_model_t *getModelByHandle(vk_ray_model_handle_t handle);
+/*
+static vk_ray_model_t *getModelByHandle(vk_ray_model_handle_t handle)
+{
+}
+*/
 
-void VK_RayScenePushModel( VkCommandBuffer cmdbuf, vk_ray_model_handle_t model_handle )
+void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *model) // _handle_t model_handle )
 {
 	ASSERT(vk_core.rtx);
-	vk_ray_model_t *model = getModelByHandle(model_handle);
-	const VkDeviceAddress buffer_addr = getBufferDeviceAddress(model->buffer);
-	const VkAccelerationStructureGeometryKHR geom[] = {
-		{
-			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-			.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
-			.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
-			.geometry.triangles =
-				(VkAccelerationStructureGeometryTrianglesDataKHR){
-					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-					.indexType = model->index_offset == UINT32_MAX ? VK_INDEX_TYPE_NONE_KHR : VK_INDEX_TYPE_UINT16,
-					.maxVertex = model->vertex_count,
-					.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-					.vertexStride = sizeof(vk_vertex_t),
-					.vertexData.deviceAddress = buffer_addr + model->vertex_offset,
-					.indexData.deviceAddress = buffer_addr + model->index_offset,
-				},
-		}};
 
-	const uint32_t max_prim_counts[ARRAYSIZE(geom)] = {model->vertex_count};
-	const VkAccelerationStructureBuildRangeInfoKHR build_range_tri = {
-		.primitiveCount = model->element_count / 3,
-	};
-	const VkAccelerationStructureBuildRangeInfoKHR *build_ranges[ARRAYSIZE(geom)] = {&build_range_tri};
+	{
+		//vk_ray_model_t *model = getModelByHandle(model_handle);
+		const VkDeviceAddress buffer_addr = getBufferDeviceAddress(model->buffer);
+		const uint32_t prim_count = model->element_count / 3;
+		const VkAccelerationStructureGeometryKHR geom[] = {
+			{
+				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+				.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+				.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+				.geometry.triangles =
+					(VkAccelerationStructureGeometryTrianglesDataKHR){
+						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+						.indexType = model->index_offset == UINT32_MAX ? VK_INDEX_TYPE_NONE_KHR : VK_INDEX_TYPE_UINT16,
+						.maxVertex = model->max_vertex,
+						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+						.vertexStride = sizeof(vk_vertex_t),
+						.vertexData.deviceAddress = buffer_addr + model->vertex_offset,
+						.indexData.deviceAddress = buffer_addr + model->index_offset,
+					},
+			} };
 
-	createAndBuildAccelerationStructure(cmdbuf,
-		geom, max_prim_counts, build_ranges, ARRAYSIZE(geom), VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR);
+		const uint32_t max_prim_counts[ARRAYSIZE(geom)] = { prim_count };
+		const VkAccelerationStructureBuildRangeInfoKHR build_range_tri = {
+			.primitiveCount = prim_count,
+		};
+		const VkAccelerationStructureBuildRangeInfoKHR* build_ranges[ARRAYSIZE(geom)] = { &build_range_tri };
+
+		createAndBuildAccelerationStructure(cmdbuf,
+			geom, max_prim_counts, build_ranges, ARRAYSIZE(geom), VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR);
+	}
 }
 
 void VK_RaySceneEnd( VkCommandBuffer cmdbuf )
@@ -190,5 +206,7 @@ void VK_RayShutdown( void )
 	ASSERT(vk_core.rtx);
 	destroyBuffer(&g_rtx.scratch_buffer);
 	destroyBuffer(&g_rtx.accels_buffer);
+
+	// TODO dealloc all ASes
 }
 

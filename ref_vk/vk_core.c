@@ -41,6 +41,7 @@ static PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
 	INSTANCE_FUNCS(X)
 	INSTANCE_DEBUG_FUNCS(X)
 	DEVICE_FUNCS(X)
+	DEVICE_FUNCS_RTX(X)
 #undef X
 
 static dllfunc_t nullinst_funcs[] = {
@@ -802,11 +803,18 @@ static uint32_t findMemoryWithType(uint32_t type_index_bits, VkMemoryPropertyFla
 	return UINT32_MAX;
 }
 
-device_memory_t allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags props) {
+device_memory_t allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags props, VkMemoryAllocateFlags flags) {
 	// TODO coalesce allocations, ...
 	device_memory_t ret = {0};
+
+	const VkMemoryAllocateFlagsInfo mafi = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+		.flags = flags,
+	};
+
 	VkMemoryAllocateInfo mai = {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.pNext = flags ? &mafi : NULL,
 		.allocationSize = req.size,
 		.memoryTypeIndex = findMemoryWithType(req.memoryTypeBits, props),
 	};

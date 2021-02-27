@@ -345,7 +345,7 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 	{
 		VkMemoryRequirements memreq;
 		vkGetImageMemoryRequirements(vk_core.device, tex->vk.image, &memreq);
-		tex->vk.device_memory = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		tex->vk.device_memory = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
 		XVK_CHECK(vkBindImageMemory(vk_core.device, tex->vk.image, tex->vk.device_memory.device_memory, tex->vk.device_memory.offset));
 	}
 

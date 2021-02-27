@@ -24,7 +24,7 @@ typedef struct device_memory_s
 	uint32_t offset;
 } device_memory_t;
 
-device_memory_t allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags props);
+device_memory_t allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags props, VkMemoryAllocateFlags flags);
 void freeDeviceMemory(device_memory_t *mem);
 
 typedef struct vk_buffer_s
