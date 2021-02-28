@@ -3,6 +3,7 @@
 # mittorn, 2018
 
 from waflib import Logs
+from waflib.extras import pthread
 import os
 
 top = '.'
@@ -69,8 +70,7 @@ def configure(conf):
 		conf.define('XASH_NO_LIBDL',1)
 
 	if not conf.env.DEST_OS in ['win32', 'android'] and not conf.options.NO_ASYNC_RESOLVE:
-		conf.load('pthreads')
-		conf.check_pthread_flag()
+		conf.check_pthreads()
 
 	if hasattr(conf.options, 'DLLEMU'):
 		conf.define_cond('XASH_DLL_LOADER', conf.options.DLLEMU)
