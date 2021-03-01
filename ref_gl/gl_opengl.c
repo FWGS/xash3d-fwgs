@@ -842,7 +842,7 @@ void GL_InitCommands( void )
 	r_dynamic = gEngfuncs.Cvar_Get( "r_dynamic", "1", FCVAR_ARCHIVE, "allow dynamic lighting (dlights, lightstyles)" );
 	r_traceglow = gEngfuncs.Cvar_Get( "r_traceglow", "1", FCVAR_ARCHIVE, "cull flares behind models" );
 	r_lightmap = gEngfuncs.Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
-	r_drawentities = gEngfuncs.Cvar_Get( "r_drawentities", "1", FCVAR_CHEAT, "render entities" );
+	r_drawentities = gEngfuncs.pfnGetCvarPointer( "r_drawentities", 0 );
 	r_decals = gEngfuncs.pfnGetCvarPointer( "r_decals", 0 );
 	r_showhull = gEngfuncs.pfnGetCvarPointer( "r_showhull", 0 );
 
