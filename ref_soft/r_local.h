@@ -714,7 +714,6 @@ extern cvar_t	*gl_lightmap_nearest;
 extern cvar_t	*gl_keeptjunctions;
 
 extern cvar_t	*gl_round_down;
-extern cvar_t	*gl_detailscale;
 extern cvar_t	*gl_wireframe;
 extern cvar_t	*gl_polyoffset;
 extern cvar_t	*gl_finish;
