@@ -24,7 +24,7 @@ GNU General Public License for more details.
 #include "sound.h"
 #include "vid_common.h"
 
-static SDL_Joystick *joy;
+SDL_Joystick *g_joy = NULL;
 #if !SDL_VERSION_ATLEAST( 2, 0, 0 )
 #define SDL_WarpMouseInWindow( win, x, y ) SDL_WarpMouse( ( x ), ( y ) )
 #endif
@@ -143,9 +143,9 @@ static int SDLash_JoyInit_Old( int numjoy )
 		return 0;
 	}
 
-	if( joy )
+	if( g_joy )
 	{
-		SDL_JoystickClose( joy );
+		SDL_JoystickClose( g_joy );
 	}
 
 	num = SDL_NumJoysticks();
@@ -165,9 +165,9 @@ static int SDLash_JoyInit_Old( int numjoy )
 
 	Con_Reportf( "Pass +set joy_index N to command line, where N is number, to select active joystick\n" );
 
-	joy = SDL_JoystickOpen( numjoy );
+	g_joy = SDL_JoystickOpen( numjoy );
 
-	if( !joy )
+	if( !g_joy )
 	{
 		Con_Reportf( "Failed to select joystick: %s\n", SDL_GetError( ) );
 		return 0;
@@ -179,8 +179,8 @@ static int SDLash_JoyInit_Old( int numjoy )
 		"\tHats: %i\n"
 		"\tButtons: %i\n"
 		"\tBalls: %i\n",
-		SDL_JoystickName( joy ), SDL_JoystickNumAxes( joy ), SDL_JoystickNumHats( joy ),
-		SDL_JoystickNumButtons( joy ), SDL_JoystickNumBalls( joy ) );
+		SDL_JoystickName( g_joy ), SDL_JoystickNumAxes( g_joy ), SDL_JoystickNumHats( g_joy ),
+		SDL_JoystickNumButtons( g_joy ), SDL_JoystickNumBalls( g_joy ) );
 
 	SDL_GameControllerEventState( SDL_DISABLE );
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
