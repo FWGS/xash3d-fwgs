@@ -338,7 +338,7 @@ void R_EndFrame( void )
 	}
 
 	if (vk_core.rtx)
-		VK_RenderEndRTX( vk_core.cb, vk_frame.image_views[g_frame.swapchain_image_index], vk_frame.create_info.imageExtent.width, vk_frame.create_info.imageExtent.height );
+		VK_RenderEndRTX( vk_core.cb, vk_frame.image_views[g_frame.swapchain_image_index], vk_frame.images[g_frame.swapchain_image_index], vk_frame.create_info.imageExtent.width, vk_frame.create_info.imageExtent.height );
 
 	{
 		VkRenderPassBeginInfo rpbi = {

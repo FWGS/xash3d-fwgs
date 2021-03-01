@@ -122,20 +122,28 @@ static VkAccelerationStructureKHR createAndBuildAccelerationStructure(VkCommandB
 	return accel;
 }
 
-void VK_RaySceneBegin( void )
+static void cleanupASFIXME(void)
 {
-	ASSERT(vk_core.rtx);
-	g_rtx_scene.buffer_offset = 0;
-	g_rtx_scene.scratch_offset = 0;
-
 	// FIXME we really should not do this; cache ASs per model
 	for (int i = 0; i < g_rtx_scene.num_accels; ++i) {
 		if (g_rtx.accels[i] != VK_NULL_HANDLE)
 			vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.accels[i], NULL);
 	}
-	vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.tlas, NULL);
+	if (g_rtx.tlas != VK_NULL_HANDLE)
+		vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.tlas, NULL);
 
 	g_rtx_scene.num_accels = 0;
+}
+
+void VK_RaySceneBegin( void )
+{
+	ASSERT(vk_core.rtx);
+
+	// FIXME this buffer might have objects that live longer
+	g_rtx_scene.buffer_offset = 0;
+	g_rtx_scene.scratch_offset = 0;
+
+	cleanupASFIXME();
 }
 
 /*
@@ -193,7 +201,7 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 	}
 }
 
-void VK_RaySceneEnd( VkCommandBuffer cmdbuf, VkImageView img_dst, uint32_t w, uint32_t h )
+void VK_RaySceneEnd( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h )
 {
 	ASSERT(vk_core.rtx);
 
@@ -217,7 +225,7 @@ void VK_RaySceneEnd( VkCommandBuffer cmdbuf, VkImageView img_dst, uint32_t w, ui
 	{
 		VkBufferMemoryBarrier bmb[] = { {
 			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-			.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_TRANSFER_WRITE_BIT,
+			.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, // | VK_ACCESS_TRANSFER_WRITE_BIT,
 			.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
 			.buffer = g_rtx.accels_buffer.buffer,
 			.offset = 0,
@@ -258,7 +266,7 @@ void VK_RaySceneEnd( VkCommandBuffer cmdbuf, VkImageView img_dst, uint32_t w, ui
 	{
 		const VkDescriptorImageInfo dii = {
 			.sampler = VK_NULL_HANDLE,
-			.imageView = img_dst,
+			.imageView = img_dst_view,
 			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 		};
 		/*
@@ -308,7 +316,7 @@ void VK_RaySceneEnd( VkCommandBuffer cmdbuf, VkImageView img_dst, uint32_t w, ui
 	}
 	
 
-	// 4. Barrier for TLAS build
+	// 4. Barrier for TLAS build and dest image layout transfer
 	{
 		VkBufferMemoryBarrier bmb[] = { {
 			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
@@ -318,8 +326,22 @@ void VK_RaySceneEnd( VkCommandBuffer cmdbuf, VkImageView img_dst, uint32_t w, ui
 			.offset = 0,
 			.size = VK_WHOLE_SIZE,
 		}};
+		VkImageMemoryBarrier image_barrier[] = { {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = img_dst,
+			.srcAccessMask = 0,
+			.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.subresourceRange = (VkImageSubresourceRange) {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			}} };
 		vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0,
-			0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
+			0, NULL, ARRAYSIZE(bmb), bmb, ARRAYSIZE(image_barrier), image_barrier);
 	}
 
 	// 4. dispatch compute
@@ -361,7 +383,7 @@ static void createLayouts( void ) {
 		plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		plci.setLayoutCount = 1;
 		plci.pSetLayouts = &g_rtx.desc_layout;
-		plci.pushConstantRangeCount = 1;
+		//plci.pushConstantRangeCount = 1;
 		//plci.pPushConstantRanges = &push_const;
 		XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &g_rtx.pipeline_layout));
 	}
@@ -404,6 +426,7 @@ static void createPipeline( void ) {
 	};
 
 	XVK_CHECK(vkCreateComputePipelines(vk_core.device, VK_NULL_HANDLE, 1, &cpci, NULL, &g_rtx.pipeline));
+	vkDestroyShaderModule(vk_core.device, cpci.stage.module, NULL);
 }
 
 qboolean VK_RayInit( void )
@@ -451,6 +474,8 @@ void VK_RayShutdown( void )
 	vkDestroyDescriptorPool(vk_core.device, g_rtx.desc_pool, NULL);
 	vkDestroyPipelineLayout(vk_core.device, g_rtx.pipeline_layout, NULL);
 	vkDestroyDescriptorSetLayout(vk_core.device, g_rtx.desc_layout, NULL);
+
+	cleanupASFIXME();
 
 	destroyBuffer(&g_rtx.scratch_buffer);
 	destroyBuffer(&g_rtx.accels_buffer);
