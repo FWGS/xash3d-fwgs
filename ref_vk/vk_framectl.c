@@ -179,7 +179,7 @@ static qboolean createSwapchain( void )
 	create_info->imageExtent.width = vk_frame.surface_caps.currentExtent.width;
 	create_info->imageExtent.height = vk_frame.surface_caps.currentExtent.height;
 	create_info->imageArrayLayers = 1;
-	create_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	create_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | (vk_core.rtx ? VK_IMAGE_USAGE_STORAGE_BIT : 0);
 	create_info->imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	create_info->preTransform = vk_frame.surface_caps.currentTransform;
 	create_info->compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -328,25 +328,6 @@ void R_EndFrame( void )
 		{.depthStencil = {1., 0.}} // TODO reverse-z
 	};
 	VkPipelineStageFlags stageflags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	VkSubmitInfo subinfo = {
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.pNext = NULL,
-		.commandBufferCount = 1,
-		.pCommandBuffers = &vk_core.cb,
-		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &g_frame.image_available,
-		.signalSemaphoreCount = 1,
-		.pSignalSemaphores = &g_frame.done,
-		.pWaitDstStageMask = &stageflags,
-	};
-	VkPresentInfoKHR presinfo = {
-		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-		.pSwapchains = &vk_frame.swapchain,
-		.pImageIndices = &g_frame.swapchain_image_index,
-		.swapchainCount = 1,
-		.pWaitSemaphores = &g_frame.done,
-		.waitSemaphoreCount = 1,
-	};
 
 	{
 		VkCommandBufferBeginInfo beginfo = {
@@ -357,7 +338,7 @@ void R_EndFrame( void )
 	}
 
 	if (vk_core.rtx)
-		VK_RenderEndRTX( vk_core.cb );
+		VK_RenderEndRTX( vk_core.cb, vk_frame.image_views[g_frame.swapchain_image_index], vk_frame.create_info.imageExtent.width, vk_frame.create_info.imageExtent.height );
 
 	{
 		VkRenderPassBeginInfo rpbi = {
@@ -393,9 +374,31 @@ void R_EndFrame( void )
 	vkCmdEndRenderPass(vk_core.cb);
 	XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
 
-	XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, g_frame.fence));
+	{
+		const VkSubmitInfo subinfo = {
+			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+			.pNext = NULL,
+			.commandBufferCount = 1,
+			.pCommandBuffers = &vk_core.cb,
+			.waitSemaphoreCount = 1,
+			.pWaitSemaphores = &g_frame.image_available,
+			.signalSemaphoreCount = 1,
+			.pSignalSemaphores = &g_frame.done,
+			.pWaitDstStageMask = &stageflags,
+		};
+		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, g_frame.fence));
+	}
 
 	{
+		const VkPresentInfoKHR presinfo = {
+			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+			.pSwapchains = &vk_frame.swapchain,
+			.pImageIndices = &g_frame.swapchain_image_index,
+			.swapchainCount = 1,
+			.pWaitSemaphores = &g_frame.done,
+			.waitSemaphoreCount = 1,
+		};
+
 		const VkResult present_result = vkQueuePresentKHR(vk_core.queue, &presinfo);
 		switch (present_result)
 		{

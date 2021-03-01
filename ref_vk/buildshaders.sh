@@ -7,7 +7,7 @@ build() {
 	glslc -o "build-debug-amd64/lib/xash3d/valve/$NAME.spv" "ref_vk/shaders/$NAME"
 }
 
-for s in 2d.frag 2d.vert brush.vert brush.frag
+for s in 2d.frag 2d.vert brush.vert brush.frag rtx.comp
 do
 	build "$s"
 done

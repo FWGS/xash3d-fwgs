@@ -1,0 +1,22 @@
+#version 460
+#extension GL_EXT_ray_query : require
+
+// FIXME shader specialization
+layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
+
+layout(binding = 0, set = 0, rgba8) uniform image2D image;
+layout(binding = 1, set = 0) uniform accelerationStructureEXT tlas;
+
+//layout(binding = 2, set = 0) buffer Vertices { vec4 vertices[]; };
+
+/*
+layout (push_constant) uniform PC {
+};
+*/
+
+void main() {
+	vec2 res = imageSize(image);
+	vec2 uv = gl_GlobalInvocationID.xy / res * .5 - .5;
+
+	imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(res, 0., 1.));
+}

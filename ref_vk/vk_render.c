@@ -600,7 +600,7 @@ void VK_RenderDebugLabelEnd( void )
 	/* 	vkCmdEndDebugUtilsLabelEXT(vk_core.cb); */
 }
 
-void VK_RenderEndRTX( VkCommandBuffer cmdbuf )
+void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst, uint32_t w, uint32_t h )
 {
 	ASSERT(vk_core.rtx);
 	VK_RaySceneBegin();
@@ -625,5 +625,5 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf )
 
 		VK_RayScenePushModel(cmdbuf, &ray_model_args);
 	}
-	VK_RaySceneEnd( cmdbuf );
+	VK_RaySceneEnd( cmdbuf, img_dst, w, h );
 }

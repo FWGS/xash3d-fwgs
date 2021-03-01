@@ -199,6 +199,9 @@ const char *resultName(VkResult result);
 	X(vkCmdUpdateBuffer) \
 	X(vkCmdBindIndexBuffer) \
 	X(vkCmdDrawIndexed) \
+	X(vkCmdPushConstants) \
+	X(vkCreateComputePipelines) \
+	X(vkCmdDispatch) \
 
 #define DEVICE_FUNCS_RTX(X) \
 	X(vkGetAccelerationStructureBuildSizesKHR) \
@@ -206,6 +209,7 @@ const char *resultName(VkResult result);
 	X(vkGetBufferDeviceAddress) \
 	X(vkCmdBuildAccelerationStructuresKHR) \
 	X(vkDestroyAccelerationStructureKHR) \
+	X(vkGetAccelerationStructureDeviceAddressKHR) \
 
 #define X(f) extern PFN_##f f;
 	DEVICE_FUNCS(X)
