@@ -149,10 +149,12 @@ R_StudioInit
 */
 void R_StudioInit( void )
 {
-	cl_himodels = gEngfuncs.Cvar_Get( "cl_himodels", "1", FCVAR_ARCHIVE, "draw high-resolution player models in multiplayer" );
 	r_studio_sort_textures = gEngfuncs.Cvar_Get( "r_studio_sort_textures", "0", FCVAR_ARCHIVE, "change draw order for additive meshes" );
 	r_drawviewmodel = gEngfuncs.Cvar_Get( "r_drawviewmodel", "1", 0, "draw firstperson weapon model" );
 	r_studio_drawelements = gEngfuncs.Cvar_Get( "r_studio_drawelements", "1", FCVAR_ARCHIVE, "use glDrawElements for studiomodels" );
+
+	// guaranteed to exist by engine
+	cl_himodels = gEngfuncs.pfnGetCvarPointer( "cl_himodels", 0 );
 
 	Matrix3x4_LoadIdentity( g_studio.rotationmatrix );
 	r_glowshellfreq = gEngfuncs.Cvar_Get( "r_glowshellfreq", "2.2", 0, "glowing shell frequency update" );

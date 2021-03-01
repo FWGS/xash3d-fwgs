@@ -1930,7 +1930,7 @@ qboolean GAME_EXPORT R_Init( void )
 	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
 	vid_gamma = gEngfuncs.pfnGetCvarPointer( "gamma", 0 );
 	r_norefresh = gEngfuncs.Cvar_Get( "r_norefresh", "0", 0, "disable 3D rendering (use with caution)" );
-	r_drawentities = gEngfuncs.Cvar_Get( "r_drawentities", "1", FCVAR_CHEAT, "render entities" );
+	r_drawentities = gEngfuncs.pfnGetCvarPointer( "r_drawentities", 0 );
 	vid_brightness = gEngfuncs.pfnGetCvarPointer( "brightness", 0 );
 	r_fullbright = gEngfuncs.Cvar_Get( "r_fullbright", "0", FCVAR_CHEAT, "disable lightmaps, get fullbright for entities" );
 
