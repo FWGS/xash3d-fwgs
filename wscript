@@ -212,17 +212,6 @@ def configure(conf):
 	conf.env.append_unique('CXXFLAGS', cxxflags)
 	conf.env.append_unique('LINKFLAGS', linkflags)
 
-	# check if we can use C99 tgmath
-	if conf.check_cc(header_name='tgmath.h', mandatory=False):
-		if conf.env.COMPILER_CC == 'msvc':
-			conf.define('_CRT_SILENCE_NONCONFORMING_TGMATH_H', 1)
-		tgmath_usable = conf.check_cc(fragment='''#include<tgmath.h>
-			int main(void){ return (int)sin(2.0f); }''',
-			msg='Checking if tgmath.h is usable', mandatory=False)
-		conf.define_cond('HAVE_TGMATH_H', tgmath_usable)
-	else:
-		conf.undefine('HAVE_TGMATH_H')
-
 	# check if we can use C99 stdint
 	if conf.check_cc(header_name='stdint.h', mandatory=False):
 		# use system
@@ -266,6 +255,18 @@ def configure(conf):
 			conf.check_cc(**i)
 
 		# conf.multicheck(*a, run_all_tests = True, mandatory = True)
+
+	# check if we can use C99 tgmath
+	if conf.check_cc(header_name='tgmath.h', mandatory=False):
+		if conf.env.COMPILER_CC == 'msvc':
+			conf.define('_CRT_SILENCE_NONCONFORMING_TGMATH_H', 1)
+		tgmath_usable = conf.check_cc(fragment='''#include<tgmath.h>
+			const float val = 2;
+			int main(void){ return (int)(-asin(val)); }''',
+			msg='Checking if tgmath.h is usable', mandatory=False, use='M')
+		conf.define_cond('HAVE_TGMATH_H', tgmath_usable)
+	else:
+		conf.undefine('HAVE_TGMATH_H')
 
 	# indicate if we are packaging for Linux/BSD
 	if not conf.options.WIN_INSTALL and conf.env.DEST_OS not in ['win32', 'darwin', 'android']:
