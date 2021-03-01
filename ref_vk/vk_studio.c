@@ -138,7 +138,7 @@ static struct {
 
 void R_StudioInit( void )
 {
-	cl_himodels = gEngine.Cvar_Get( "cl_himodels", "1", FCVAR_ARCHIVE, "draw high-resolution player models in multiplayer" );
+	cl_himodels = gEngine.pfnGetCvarPointer( "cl_himodels", 0 );
 	r_drawviewmodel = gEngine.Cvar_Get( "r_drawviewmodel", "1", 0, "draw firstperson weapon model" );
 
 	Matrix3x4_LoadIdentity( g_studio.rotationmatrix );
