@@ -48,12 +48,12 @@ static void GAME_EXPORT R_IncrementSpeedsCounter( int type )
 
 static const byte * GAME_EXPORT R_GetTextureOriginalBuffer( unsigned int idx )
 {
-	/*gl_texture_t *glt = R_GetTexture( idx );
+	image_t *glt = R_GetTexture( idx );
 
 	if( !glt || !glt->original || !glt->original->buffer )
-		return NULL;*/
+		return NULL;
 
-	return NULL;
+	return glt->original->buffer;
 }
 
 /*
@@ -244,15 +244,15 @@ static float GAME_EXPORT R_GetFrameTime( void )
 
 static const char * GAME_EXPORT GL_TextureName( unsigned int texnum )
 {
-	return "";//return R_GetTexture( texnum )->name;
+	return R_GetTexture( texnum )->name;
 }
 
 const byte * GAME_EXPORT GL_TextureData( unsigned int texnum )
 {
-//	rgbdata_t *pic = R_GetTexture( texnum )->original;
+	rgbdata_t *pic = R_GetTexture( texnum )->original;
 
-	//if( pic != NULL )
-		//return pic->buffer;
+	if( pic != NULL )
+		return pic->buffer;
 	return NULL;
 }
 
