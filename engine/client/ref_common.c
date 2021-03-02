@@ -652,6 +652,11 @@ qboolean R_Init( void )
 	r_showtree = Cvar_Get( "r_showtree", "0", FCVAR_ARCHIVE, "build the graph of visible BSP tree" );
 	r_refdll = Cvar_Get( "r_refdll", "", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "choose renderer implementation, if supported" );
 
+	// cvars that are expected to exist by client.dll
+	// refdll should just get pointer to them
+	Cvar_Get( "r_drawentities", "1", FCVAR_CHEAT, "render entities" );
+	Cvar_Get( "cl_himodels", "1", FCVAR_ARCHIVE, "draw high-resolution player models in multiplayer" );
+
 	// cvars are created, execute video config
 	Cbuf_AddText( "exec video.cfg" );
 	Cbuf_Execute();
