@@ -44,7 +44,7 @@ static struct {
 	uint32_t buffer_frame_begin_offset;
 
 	vk_buffer_t uniform_buffer;
-	uint32_t uniform_unit_size;
+	uint32_t ubo_align;
 
 	struct {
 		int align_holes_size;
@@ -243,16 +243,17 @@ qboolean VK_RenderInit( void )
 	// TODO Better estimates
 	const uint32_t vertex_buffer_size = MAX_BUFFER_VERTICES * sizeof(float) * (3 + 3 + 2 + 2);
 	const uint32_t index_buffer_size = MAX_BUFFER_INDICES * sizeof(uint16_t);
-	const uint32_t ubo_align = Q_max(4, vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
+	uint32_t uniform_unit_size;
 
-	g_render.uniform_unit_size = ((sizeof(uniform_data_t) + ubo_align - 1) / ubo_align) * ubo_align;
+	g_render.ubo_align = Q_max(4, vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
+	uniform_unit_size = ((sizeof(uniform_data_t) + g_render.ubo_align - 1) / g_render.ubo_align) * g_render.ubo_align;
 
 	// TODO device memory and friends (e.g. handle mobile memory ...)
 
 	if (!createBuffer(&g_render.buffer, vertex_buffer_size + index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | (vk_core.rtx ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT : 0), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
-	if (!createBuffer(&g_render.uniform_buffer, g_render.uniform_unit_size * MAX_UNIFORM_SLOTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	if (!createBuffer(&g_render.uniform_buffer, uniform_unit_size * MAX_UNIFORM_SLOTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
 	{
@@ -415,12 +416,19 @@ typedef struct {
 
 static struct {
 	int uniform_data_set_mask;
-	int next_free_uniform_slot;
 	uniform_data_t current_uniform_data;
 	uniform_data_t dirty_uniform_data;
 
+	uint32_t current_ubo_offset;
+	uint32_t uniform_free_offset;
+
 	draw_command_t draw_commands[MAX_DRAW_COMMANDS];
 	int num_draw_commands;
+
+	// FIXME vk_rtx-specific
+	struct {
+		matrix4x4 proj_inv, view_inv;
+	} rtx;
 } g_render_state;
 
 enum {
@@ -432,8 +440,9 @@ enum {
 };
 
 void VK_RenderBegin( void ) {
-	g_render_state.next_free_uniform_slot = 0;
+	g_render_state.uniform_free_offset = 0;
 	g_render_state.uniform_data_set_mask = UNIFORM_UNSET;
+	g_render_state.current_ubo_offset = UINT32_MAX;
 
 	memset(&g_render_state.current_uniform_data, 0, sizeof(g_render_state.current_uniform_data));
 	memset(&g_render_state.dirty_uniform_data, 0, sizeof(g_render_state.dirty_uniform_data));
@@ -456,23 +465,33 @@ void VK_RenderStateSetMatrix( const matrix4x4 mvp )
 	Matrix4x4_ToArrayFloatGL( mvp, (float*)g_render_state.dirty_uniform_data.mvp );
 }
 
-static uniform_data_t *getUniformSlot(int index)
+void VK_RenderStateSetProjectionMatrix(const matrix4x4 proj)
 {
-	ASSERT(index >= 0);
-	ASSERT(index < MAX_UNIFORM_SLOTS);
-	return (uniform_data_t*)(((uint8_t*)g_render.uniform_buffer.mapped) + (g_render.uniform_unit_size * index));
+	matrix4x4 tmp;
+	Matrix4x4_Invert_Full(tmp, proj);
+	Matrix4x4_ToArrayFloatGL( tmp, g_render_state.rtx.proj_inv);
 }
 
-static int allocUniformSlot( void ) {
-	if (g_render_state.next_free_uniform_slot == MAX_UNIFORM_SLOTS)
-		return -1;
+void VK_RenderStateSetViewMatrix(const matrix4x4 view)
+{
+	matrix4x4 tmp;
+	Matrix4x4_Invert_Full(tmp, view);
+	Matrix4x4_ToArrayFloatGL( tmp, g_render_state.rtx.view_inv);
+}
 
-	return g_render_state.next_free_uniform_slot++;
+static uint32_t allocUniform( uint32_t size, uint32_t alignment ) {
+	// FIXME Q_max is not correct, we need NAIMENSCHEEE OBSCHEEE KRATNOE
+	const uint32_t align = Q_max(alignment, g_render.ubo_align);
+	const uint32_t offset = (((g_render_state.uniform_free_offset + align - 1) / align) * align);
+	if (offset + size > g_render.uniform_buffer.size)
+		return UINT32_MAX;
+
+	g_render_state.uniform_free_offset = offset + size;
+	return offset;
 }
 
 void VK_RenderScheduleDraw( const render_draw_t *draw )
 {
-	int ubo_index = g_render_state.next_free_uniform_slot - 1;
 	const vk_buffer_alloc_t *vertex_buffer = NULL, *index_buffer = NULL;
 	draw_command_t *draw_command;
 
@@ -507,15 +526,15 @@ void VK_RenderScheduleDraw( const render_draw_t *draw )
 
 	// Figure out whether we need to update UBO data, and upload new data if we do
 	// TODO generally it's not safe to do memcmp for structures comparison
-	if (((g_render_state.uniform_data_set_mask & UNIFORM_UPLOADED) == 0) || memcmp(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.current_uniform_data)) != 0) {
+	if (g_render_state.current_ubo_offset == UINT32_MAX || ((g_render_state.uniform_data_set_mask & UNIFORM_UPLOADED) == 0) || memcmp(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.current_uniform_data)) != 0) {
 		uniform_data_t *ubo;
-		ubo_index = allocUniformSlot();
-		if (ubo_index < 0) {
+		g_render_state.current_ubo_offset = allocUniform( sizeof(uniform_data_t), 16 );
+		if (g_render_state.current_ubo_offset == UINT32_MAX) {
 			gEngine.Con_Printf( S_ERROR "Ran out of uniform slots\n" );
 			return;
 		}
 
-		ubo = getUniformSlot( ubo_index );
+		ubo = (uniform_data_t*)((byte*)g_render.uniform_buffer.mapped + g_render_state.current_ubo_offset);
 		memcpy(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.dirty_uniform_data));
 		memcpy(ubo, &g_render_state.current_uniform_data, sizeof(*ubo));
 		g_render_state.uniform_data_set_mask |= UNIFORM_UPLOADED;
@@ -523,7 +542,7 @@ void VK_RenderScheduleDraw( const render_draw_t *draw )
 
 	draw_command = g_render_state.draw_commands + (g_render_state.num_draw_commands++);
 	draw_command->draw = *draw;
-	draw_command->ubo_offset = g_render.uniform_unit_size * ubo_index;
+	draw_command->ubo_offset = g_render_state.current_ubo_offset;
 }
 
 void VK_RenderEnd( VkCommandBuffer cmdbuf )
@@ -625,5 +644,33 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 
 		VK_RayScenePushModel(cmdbuf, &ray_model_args);
 	}
-	VK_RaySceneEnd( cmdbuf, img_dst_view, img_dst, w, h );
+
+	{
+		float *matrices = NULL;
+		const vk_ray_scene_render_args_t args = {
+			.cmdbuf = cmdbuf,
+			.dst = {
+				.image_view = img_dst_view,
+				.image = img_dst,
+				.width = w,
+				.height = h,
+			},
+			// FIXME this should really be in vk_rtx, calling vk_render(or what?) to alloc slot for it
+			.ubo = {
+				.buffer = g_render.uniform_buffer.buffer,
+				.offset = allocUniform(sizeof(float) * 16 * 2, 16 * sizeof(float)),
+				.size = sizeof(float) * 16 * 2,
+			},
+		};
+
+		if (args.ubo.offset == UINT32_MAX) {
+			gEngine.Con_Printf(S_ERROR "Cannot allocate UBO for RTX\n");
+			return;
+		}
+
+		matrices = (byte*)g_render.uniform_buffer.mapped + args.ubo.offset;
+		memcpy(matrices, &g_render_state.rtx, sizeof(g_render_state.rtx));
+
+		VK_RaySceneEnd(&args);
+	}
 }

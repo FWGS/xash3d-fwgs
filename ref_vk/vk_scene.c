@@ -548,6 +548,7 @@ static void setupCamera( const ref_viewpass_t *rvp, matrix4x4 mvp )
 			{0, 0, .5, 1}
 		};
 		Matrix4x4_Concat( mvp, vk_proj_fixup, g_camera.worldviewProjectionMatrix);
+		Matrix4x4_Concat( g_camera.projectionMatrixVk, vk_proj_fixup, g_camera.projectionMatrix);
 	}
 }
 
@@ -631,6 +632,9 @@ void VK_SceneRender( const ref_viewpass_t *rvp )
 	/* FIXME VK : 0.f */;
 
 	setupCamera( rvp, mvp );
+
+	VK_RenderStateSetProjectionMatrix(g_camera.projectionMatrixVk);
+	VK_RenderStateSetViewMatrix(g_camera.modelviewMatrix);
 
 	VK_RenderDebugLabelBegin( "opaque" );
 

@@ -201,14 +201,17 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 	}
 }
 
-void VK_RaySceneEnd( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h )
+void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 {
 	ASSERT(vk_core.rtx);
+	ASSERT(args->ubo.size == sizeof(float) * 16 * 2); // ubo should contain two matrices
+	const VkCommandBuffer cmdbuf = args->cmdbuf;
 
 	// Upload all blas instances references to GPU mem
 	{
 		VkAccelerationStructureInstanceKHR *inst = g_rtx.tlas_geom_buffer.mapped;
 		for (int i = 0; i < g_rtx_scene.num_accels; ++i) {
+			ASSERT(g_rtx.accels[i] != VK_NULL_HANDLE);
 			inst[i] = (VkAccelerationStructureInstanceKHR){
 				.transform = (VkTransformMatrixKHR){1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0},
 				.instanceCustomIndex = 0,
@@ -232,9 +235,9 @@ void VK_RaySceneEnd( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage i
 			.size = VK_WHOLE_SIZE,
 		}};
 		vkCmdPipelineBarrier(cmdbuf,
-				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-				0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
+			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
 	}
 
 	// 2. Create TLAS
@@ -255,7 +258,7 @@ void VK_RaySceneEnd( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage i
 
 		const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = {g_rtx_scene.num_accels};
 		const VkAccelerationStructureBuildRangeInfoKHR tl_build_range = {
-				.primitiveCount = g_rtx_scene.num_accels,
+			.primitiveCount = g_rtx_scene.num_accels,
 		};
 		const VkAccelerationStructureBuildRangeInfoKHR *tl_build_ranges[] = {&tl_build_range};
 		g_rtx.tlas = createAndBuildAccelerationStructure(cmdbuf,
@@ -266,16 +269,14 @@ void VK_RaySceneEnd( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage i
 	{
 		const VkDescriptorImageInfo dii = {
 			.sampler = VK_NULL_HANDLE,
-			.imageView = img_dst_view,
+			.imageView = args->dst.image_view,
 			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 		};
-		/*
 		const VkDescriptorBufferInfo dbi = {
-			.buffer = g_rtx.tri_buf.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE,
+			.buffer = args->ubo.buffer,
+			.offset = args->ubo.offset,
+			.range = args->ubo.size,
 		};
-		*/
 		const VkWriteDescriptorSetAccelerationStructureKHR wdsas = {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
 			.accelerationStructureCount = 1,
@@ -291,16 +292,15 @@ void VK_RaySceneEnd( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage i
 				.dstArrayElement = 0,
 				.pImageInfo = &dii,
 			},
-			/*
 			{
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				.dstSet = g_rtx.desc_set,
 				.dstBinding = 2,
 				.dstArrayElement = 0,
 				.pBufferInfo = &dbi,
-			},*/
+			},
 			{
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 				.descriptorCount = 1,
@@ -328,7 +328,7 @@ void VK_RaySceneEnd( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage i
 		}};
 		VkImageMemoryBarrier image_barrier[] = { {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = img_dst,
+			.image = args->dst.image,
 			.srcAccessMask = 0,
 			.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -348,7 +348,7 @@ void VK_RaySceneEnd( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage i
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline);
 	//vkCmdPushConstants(cmdbuf, g_rtx.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(matrix4x4), mvp);
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline_layout, 0, 1, &g_rtx.desc_set, 0, NULL);
-	vkCmdDispatch(cmdbuf, (w+WG_W-1)/WG_W, (h+WG_H-1)/WG_H, 1);
+	vkCmdDispatch(cmdbuf, (args->dst.width+WG_W-1)/WG_W, (args->dst.height+WG_H-1)/WG_H, 1);
 }
 
 static void createLayouts( void ) {
@@ -362,10 +362,11 @@ static void createLayouts( void ) {
 		.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	/* }, { */ /* 	.binding = 2, */
-	/* 	.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, */
-	/* 	.descriptorCount = 1, */
-	/* 	.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, */
+	}, {
+		.binding = 2,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
 	},
 	};
 
@@ -391,7 +392,7 @@ static void createLayouts( void ) {
 	{
 		VkDescriptorPoolSize pools[] = {
 			{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 1},
-			//{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 1},
+			{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1},
 			{.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, .descriptorCount = 1},
 		};
 

@@ -46,6 +46,9 @@ void VK_RenderStateSetColor( float r, float g, float b, float a );
 void VK_RenderStateSetMatrix( const matrix4x4 mvp );
 // TODO: set projection and mv matrices separately
 
+void VK_RenderStateSetProjectionMatrix(const matrix4x4 proj);
+void VK_RenderStateSetViewMatrix(const matrix4x4 view);
+
 // TODO is this a good place?
 typedef struct vk_vertex_s {
 	vec3_t pos;
