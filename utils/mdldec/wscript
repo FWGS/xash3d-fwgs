@@ -27,7 +27,7 @@ def build(bld):
 		includes = includes,
 		use      = libs,
 		install_path = bld.env.BINDIR,
-		subsystem = bld.env.MSVC_SUBSYSTEM
+		subsystem = bld.env.CONSOLE_SUBSYSTEM
 	)
 
 	bld.install_files(bld.env.SHAREDIR, 'res/activities.txt')

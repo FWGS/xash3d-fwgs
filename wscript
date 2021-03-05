@@ -114,10 +114,6 @@ def configure(conf):
 	if conf.options.IGNORE_PROJECTS:
 		conf.env.IGNORE_PROJECTS = conf.options.IGNORE_PROJECTS.split(',')
 
-	# Force XP compability, all build targets should add
-	# subsystem=bld.env.MSVC_SUBSYSTEM
-	# TODO: wrapper around bld.stlib, bld.shlib and so on?
-	conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
 	conf.env.MSVC_TARGETS = ['x86' if not conf.options.ALLOW64 else 'x64']
 
 	# Load compilers early
@@ -131,6 +127,14 @@ def configure(conf):
 		conf.load('msvc_pdb')
 
 	conf.load('msvs msdev subproject gitversion clang_compilation_database strip_on_install waf_unit_test enforce_pic')
+
+	# Force XP compatibility, all build targets should add subsystem=bld.env.MSVC_SUBSYSTEM
+	if conf.env.MSVC_TARGETS[0] == 'x86':
+		conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
+		conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE,5.01'
+	else:
+		conf.env.MSVC_SUBSYSTEM = 'WINDOWS'
+		conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE'
 
 	enforce_pic = True # modern defaults
 
