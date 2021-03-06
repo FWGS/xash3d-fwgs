@@ -465,18 +465,20 @@ void VK_RenderStateSetMatrix( const matrix4x4 mvp )
 	Matrix4x4_ToArrayFloatGL( mvp, (float*)g_render_state.dirty_uniform_data.mvp );
 }
 
-void VK_RenderStateSetProjectionMatrix(const matrix4x4 proj)
+void VK_RenderStateSetProjectionMatrix(const matrix4x4 proj_vk)
 {
-	matrix4x4 tmp;
-	Matrix4x4_Invert_Full(tmp, proj);
-	Matrix4x4_ToArrayFloatGL( tmp, g_render_state.rtx.proj_inv);
+	matrix4x4 proj_inv_row;
+	Matrix4x4_Invert_Full(proj_inv_row, proj_vk);
+	Matrix4x4_ToArrayFloatGL(proj_inv_row, (float*)g_render_state.rtx.proj_inv);
 }
 
 void VK_RenderStateSetViewMatrix(const matrix4x4 view)
 {
+	// TODO there's a more efficient way to construct an inverse view matrix
+	// from vforward/right/up vectors and origin in g_camera
 	matrix4x4 tmp;
 	Matrix4x4_Invert_Full(tmp, view);
-	Matrix4x4_ToArrayFloatGL( tmp, g_render_state.rtx.view_inv);
+	Matrix4x4_ToArrayFloatGL( tmp, (float*)g_render_state.rtx.view_inv);
 }
 
 static uint32_t allocUniform( uint32_t size, uint32_t alignment ) {

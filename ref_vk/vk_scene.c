@@ -541,11 +541,12 @@ static void setupCamera( const ref_viewpass_t *rvp, matrix4x4 mvp )
 
 	{
 		// Vulkan has Y pointing down, and z should end up in (0, 1)
+		// NOTE this matrix is row-major
 		const matrix4x4 vk_proj_fixup = {
 			{1, 0, 0, 0},
 			{0, -1, 0, 0},
-			{0, 0, .5, 0},
-			{0, 0, .5, 1}
+			{0, 0, .5, .5},
+			{0, 0, 0, 1}
 		};
 		Matrix4x4_Concat( mvp, vk_proj_fixup, g_camera.worldviewProjectionMatrix);
 		Matrix4x4_Concat( g_camera.projectionMatrixVk, vk_proj_fixup, g_camera.projectionMatrix);
