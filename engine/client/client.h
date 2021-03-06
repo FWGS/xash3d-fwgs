@@ -655,8 +655,6 @@ extern convar_t	cl_allow_download;
 extern convar_t	cl_allow_upload;
 extern convar_t	cl_download_ingame;
 extern convar_t	*cl_nopred;
-extern convar_t	*cl_showfps;
-extern convar_t	*cl_envshot_size;
 extern convar_t	*cl_timeout;
 extern convar_t	*cl_nodelta;
 extern convar_t	*cl_interp;

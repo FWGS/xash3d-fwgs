@@ -27,8 +27,10 @@ convar_t *scr_viewsize;
 convar_t *cl_testlights;
 convar_t *cl_allow_levelshots;
 convar_t *cl_levelshot_name;
-convar_t *cl_envshot_size;
+static convar_t *cl_envshot_size;
 convar_t *v_dark;
+static convar_t *net_speeds;
+static convar_t *cl_showfps;
 
 typedef struct
 {
@@ -777,6 +779,8 @@ void SCR_Init( void )
 	cl_envshot_size = Cvar_Get( "cl_envshot_size", "256", FCVAR_ARCHIVE, "envshot size of cube side" );
 	v_dark = Cvar_Get( "v_dark", "0", 0, "starts level from dark screen" );
 	scr_viewsize = Cvar_Get( "viewsize", "120", FCVAR_ARCHIVE, "screen size" );
+	net_speeds = Cvar_Get( "net_speeds", "0", FCVAR_ARCHIVE, "show network packets" );
+	cl_showfps = Cvar_Get( "cl_showfps", "1", FCVAR_ARCHIVE, "show client fps" );
 
 	// register our commands
 	Cmd_AddCommand( "skyname", CL_SetSky_f, "set new skybox by basename" );
