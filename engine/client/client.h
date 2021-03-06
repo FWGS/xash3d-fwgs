@@ -717,6 +717,7 @@ void CL_SaveShot_f( void );
 void CL_LevelShot_f( void );
 void CL_SetSky_f( void );
 void SCR_Viewpos_f( void );
+void CL_WavePlayLen_f( void );
 
 //
 // cl_custom.c
