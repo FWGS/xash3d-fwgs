@@ -4556,15 +4556,7 @@ pfnEngineStub
 extended iface stubs
 =============
 */
-static int GAME_EXPORT pfnGetFileSize( char *filename )
-{
-	return 0;
-}
-static unsigned int GAME_EXPORT pfnGetApproxWavePlayLen(const char *filepath)
-{
-	return 0;
-}
-static int GAME_EXPORT pfnGetLocalizedStringLength(const char *label)
+static int GAME_EXPORT pfnGetLocalizedStringLength( const char *label )
 {
 	return 0;
 }
@@ -4718,8 +4710,8 @@ static enginefuncs_t gEngfuncs =
 	pfnGetPlayerAuthId,
 	pfnSequenceGet,
 	pfnSequencePickSentence,
-	pfnGetFileSize,
-	pfnGetApproxWavePlayLen,
+	COM_FileSize,
+	Sound_GetApproxWavePlayLen,
 	pfnIsCareerMatch,
 	pfnGetLocalizedStringLength,
 	pfnRegisterTutorMessageShown,

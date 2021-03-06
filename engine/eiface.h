@@ -264,7 +264,7 @@ typedef struct enginefuncs_s
 
 	void*	(*pfnSequenceGet)				( const char* fileName, const char* entryName );
 	void*	(*pfnSequencePickSentence)		( const char* groupName, int pickMethod, int *picked );
-	int			(*pfnGetFileSize)						( char *filename );
+	int			(*pfnGetFileSize)						( const char *filename );
 	unsigned int (*pfnGetApproxWavePlayLen)				(const char *filepath);
 	int			(*pfnIsCareerMatch)						( void );
 	int			(*pfnGetLocalizedStringLength)			(const char *label);
