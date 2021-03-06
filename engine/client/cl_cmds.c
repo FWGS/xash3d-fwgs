@@ -418,3 +418,32 @@ void SCR_Viewpos_f( void )
 	Con_Printf( "org ( %g %g %g )\n", refState.vieworg[0], refState.vieworg[1], refState.vieworg[2] );
 	Con_Printf( "ang ( %g %g %g )\n", refState.viewangles[0], refState.viewangles[1], refState.viewangles[2] );
 }
+
+/*
+=============
+CL_WavePlayLen_f
+
+=============
+*/
+void CL_WavePlayLen_f( void )
+{
+	const char *name;
+	uint msecs;
+
+	if( Cmd_Argc() != 2 )
+	{
+		Con_Printf( "waveplaylen <wave file name>: returns approximate number of milliseconds a wave file will take to play.\n" );
+		return;
+	}
+
+	name = Cmd_Argv( 1 );
+	msecs = Sound_GetApproxWavePlayLen( name );
+
+	if( msecs == 0 )
+	{
+		Con_Printf( "Unable to read %s, file may be missing or incorrectly formatted.\n", name );
+		return;
+	}
+
+	Con_Printf( "Play time is approximately %dms\n", msecs );
+}
