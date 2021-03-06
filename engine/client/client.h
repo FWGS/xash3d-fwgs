@@ -880,6 +880,7 @@ void SCR_MakeLevelShot( void );
 void SCR_NetSpeeds( void );
 void SCR_RSpeeds( void );
 void SCR_DrawFPS( int height );
+void SCR_DrawPos( void );
 
 //
 // cl_netgraph.c
