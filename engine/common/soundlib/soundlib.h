@@ -94,23 +94,23 @@ struct stream_s
 
 typedef struct
 {
-	int	riff_id;		// 'RIFF'
-	int	rLen;
-	int	wave_id;		// 'WAVE'
-	int	fmt_id;		// 'fmt '
-	int	pcm_header_len;	// varies...
-	short	wFormatTag;
-	short	nChannels;	// 1,2 for stereo data is (l,r) pairs
-	int	nSamplesPerSec;
-	int	nAvgBytesPerSec;
-	short	nBlockAlign;
-	short	nBitsPerSample;
+	int32_t	riff_id;		// 'RIFF'
+	int32_t	rLen;
+	int32_t	wave_id;		// 'WAVE'
+	int32_t	fmt_id;		// 'fmt '
+	int32_t	pcm_header_len;	// varies...
+	int16_t	wFormatTag;
+	int16_t	nChannels;	// 1,2 for stereo data is (l,r) pairs
+	int32_t	nSamplesPerSec;
+	int32_t	nAvgBytesPerSec;
+	int16_t	nBlockAlign;
+	int16_t	nBitsPerSample;
 } wavehdr_t;
 
 typedef struct
 {
-	int	data_id;		// 'data' or 'fact'
-	int	dLen;
+	int32_t	data_id;		// 'data' or 'fact'
+	int32_t	dLen;
 } chunkhdr_t;
 
 extern sndlib_t sound;
