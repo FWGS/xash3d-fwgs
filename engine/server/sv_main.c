@@ -884,7 +884,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &hostname );
 	timeout = Cvar_Get( "timeout", "125", FCVAR_SERVER, "connection timeout" );
 	sv_pausable = Cvar_Get( "pausable", "1", FCVAR_SERVER, "allow players to pause or not" );
-	sv_validate_changelevel = Cvar_Get( "sv_validate_changelevel", "1", FCVAR_ARCHIVE, "test change level for level-designer errors" );
+	sv_validate_changelevel = Cvar_Get( "sv_validate_changelevel", "0", 0, "test change level for level-designer errors" );
 	Cvar_RegisterVariable( &sv_clienttrace );
 	Cvar_RegisterVariable( &sv_bounce );
 	Cvar_RegisterVariable( &sv_spectatormaxspeed );
