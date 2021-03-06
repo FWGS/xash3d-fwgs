@@ -87,7 +87,6 @@ unacknowledged reliable
 convar_t	*net_showpackets;
 convar_t	*net_chokeloopback;
 convar_t	*net_showdrop;
-convar_t	*net_speeds;
 convar_t	*net_qport;
 
 int	net_drop;
@@ -252,7 +251,6 @@ void Netchan_Init( void )
 	net_showpackets = Cvar_Get ("net_showpackets", "0", 0, "show network packets" );
 	net_chokeloopback = Cvar_Get( "net_chokeloop", "0", 0, "apply bandwidth choke to loopback packets" );
 	net_showdrop = Cvar_Get( "net_showdrop", "0", 0, "show packets that are dropped" );
-	net_speeds = Cvar_Get( "net_speeds", "0", FCVAR_ARCHIVE, "show network packets" );
 	net_qport = Cvar_Get( "net_qport", va( "%i", port ), FCVAR_READ_ONLY, "current quake netport" );
 
 	net_mempool = Mem_AllocPool( "Network Pool" );
