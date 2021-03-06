@@ -276,8 +276,8 @@ def configure(conf):
 		if conf.env.COMPILER_CC == 'msvc':
 			conf.define('_CRT_SILENCE_NONCONFORMING_TGMATH_H', 1)
 		tgmath_usable = conf.check_cc(fragment='''#include<tgmath.h>
-			const float val = 2;
-			int main(void){ return (int)(-asin(val)); }''',
+			const float val = 2, val2 = 3;
+			int main(void){ return (int)(-asin(val) + cos(val2)); }''',
 			msg='Checking if tgmath.h is usable', mandatory=False, use='M')
 		conf.define_cond('HAVE_TGMATH_H', tgmath_usable)
 	else:
