@@ -681,7 +681,7 @@ Issue changing level
 */
 void SV_QueueChangeLevel( const char *level, const char *landname )
 {
-	int	flags, smooth = false;
+	uint	flags, smooth = false;
 	char	mapname[MAX_QPATH];
 	char	*spawn_entity;
 
@@ -880,9 +880,9 @@ SV_MapIsValid
 Validate map
 ==============
 */
-int SV_MapIsValid( const char *filename, const char *spawn_entity, const char *landmark_name )
+uint SV_MapIsValid( const char *filename, const char *spawn_entity, const char *landmark_name )
 {
-	int	flags = 0;
+	uint	flags = 0;
 	char	*pfile;
 	char	*ents;
 
@@ -3679,7 +3679,7 @@ vaild map must contain one info_player_deatchmatch
 */
 int GAME_EXPORT pfnIsMapValid( char *filename )
 {
-	int	flags = SV_MapIsValid( filename, GI->mp_entity, NULL );
+	uint	flags = SV_MapIsValid( filename, GI->mp_entity, NULL );
 
 	if( FBitSet( flags, MAP_IS_EXIST ) && FBitSet( flags, MAP_HAS_SPAWNPOINT ))
 		return true;

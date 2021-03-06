@@ -615,7 +615,7 @@ void SV_EmptyStringPool( void );
 void SV_PrintStr64Stats_f( void );
 #endif
 sv_client_t *SV_ClientFromEdict( const edict_t *pEdict, qboolean spawned_only );
-int SV_MapIsValid( const char *filename, const char *spawn_entity, const char *landmark_name );
+uint SV_MapIsValid( const char *filename, const char *spawn_entity, const char *landmark_name );
 void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
 edict_t *SV_FindGlobalEntity( string_t classname, string_t globalname );
 qboolean SV_CreateStaticEntity( struct sizebuf_s *msg, int index );
