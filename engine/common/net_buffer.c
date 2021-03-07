@@ -27,7 +27,7 @@ GNU General Public License for more details.
 static dword	BitWriteMasks[32][33];
 static dword	ExtraMasks[32];
 
-short MSG_BigShort( short swap )
+unsigned short MSG_BigShort( unsigned short swap )
 {
 	return (swap >> 8)|(swap << 8);
 }
