@@ -60,7 +60,7 @@ qboolean Q_isdigit( const char *str )
 	return false;
 }
 
-int Q_strlen( const char *string )
+size_t Q_strlen( const char *string )
 {
 	int		len;
 	const char	*p;
