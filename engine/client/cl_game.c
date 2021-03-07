@@ -3402,7 +3402,8 @@ void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags, double
 		char	fullquery[512] = "1\xFF" "0.0.0.0:0\0" "\\gamedir\\";
 
 		// make sure what port is specified
-		if( !nr->resp.remote_address.port ) nr->resp.remote_address.port = MSG_BigShort( PORT_MASTER );
+		if( !nr->resp.remote_address.port )
+			nr->resp.remote_address.port = MSG_BigShort( PORT_MASTER );
 
 		// grab the list from the master server
 		Q_strcpy( &fullquery[22], GI->gamefolder );
@@ -3873,9 +3874,9 @@ static cl_enginefunc_t gEngfuncs =
 	LocalPlayerInfo_ValueForKey,
 	pfnVGUI2DrawCharacter,
 	pfnVGUI2DrawCharacterAdditive,
-	(void*)Sound_GetApproxWavePlayLen,
+	Sound_GetApproxWavePlayLen,
 	GetCareerGameInterface,
-	(void*)Cvar_Set,
+	Cvar_Set,
 	pfnIsCareerMatch,
 	pfnPlaySoundVoiceByName,
 	pfnMP3_InitStream,
