@@ -13,6 +13,7 @@
 #include "vk_render.h"
 #include "vk_studio.h"
 #include "vk_rtx.h"
+#include "vk_descriptor.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -487,102 +488,6 @@ static qboolean createCommandPool( void ) {
 	return true;
 }
 
-// ... FIXME actual numbers
-#define MAX_TEXTURES 4096
-
-static qboolean initDescriptorPool( void )
-{
-	VkDescriptorPoolSize dps[] = {
-		{
-			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			.descriptorCount = MAX_TEXTURES,
-		}, {
-			.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-			.descriptorCount = 1,
-		/*
-		}, {
-			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			.descriptorCount = 1,
-#if RTX
-		}, {
-			.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-			.descriptorCount = 1,
-#endif
-		*/
-		},
-	};
-	VkDescriptorPoolCreateInfo dpci = {
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		.pPoolSizes = dps,
-		.poolSizeCount = ARRAYSIZE(dps),
-		.maxSets = MAX_TEXTURES + 1,
-	};
-
-	XVK_CHECK(vkCreateDescriptorPool(vk_core.device, &dpci, NULL, &vk_core.descriptor_pool.pool));
-
-	{
-		// ... TODO find better place for this; this should be per-pipeline/shader
-		VkDescriptorSetLayoutBinding bindings[] = { {
-				.binding = 0,
-				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				.descriptorCount = 1,
-				.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-				.pImmutableSamplers = &vk_core.default_sampler,
-		}};
-		VkDescriptorSetLayoutCreateInfo dslci = {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-			.bindingCount = ARRAYSIZE(bindings),
-			.pBindings = bindings,
-		};
-		VkDescriptorSetLayout* tmp_layouts = Mem_Malloc(vk_core.pool, sizeof(VkDescriptorSetLayout) * MAX_DESC_SETS);
-		VkDescriptorSetAllocateInfo dsai = {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-			.descriptorPool = vk_core.descriptor_pool.pool,
-			.descriptorSetCount = MAX_DESC_SETS,
-			.pSetLayouts = tmp_layouts,
-		};
-		XVK_CHECK(vkCreateDescriptorSetLayout(vk_core.device, &dslci, NULL, &vk_core.descriptor_pool.one_texture_layout));
-		for (int i = 0; i < (int)MAX_DESC_SETS; ++i)
-				tmp_layouts[i] = vk_core.descriptor_pool.one_texture_layout;
-
-		XVK_CHECK(vkAllocateDescriptorSets(vk_core.device, &dsai, vk_core.descriptor_pool.sets));
-
-		Mem_Free(tmp_layouts);
-	}
-
-	{
-		const int num_sets = ARRAYSIZE(vk_core.descriptor_pool.ubo_sets);
-		// ... TODO find better place for this; this should be per-pipeline/shader
-		VkDescriptorSetLayoutBinding bindings[] = { {
-				.binding = 0,
-				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-				.descriptorCount = 1,
-				.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-		}};
-		VkDescriptorSetLayoutCreateInfo dslci = {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-			.bindingCount = ARRAYSIZE(bindings),
-			.pBindings = bindings,
-		};
-		VkDescriptorSetLayout* tmp_layouts = Mem_Malloc(vk_core.pool, sizeof(VkDescriptorSetLayout) * num_sets);
-		VkDescriptorSetAllocateInfo dsai = {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-			.descriptorPool = vk_core.descriptor_pool.pool,
-			.descriptorSetCount = num_sets,
-			.pSetLayouts = tmp_layouts,
-		};
-		XVK_CHECK(vkCreateDescriptorSetLayout(vk_core.device, &dslci, NULL, &vk_core.descriptor_pool.one_uniform_buffer_layout));
-		for (int i = 0; i < num_sets; ++i)
-				tmp_layouts[i] = vk_core.descriptor_pool.one_uniform_buffer_layout;
-
-		XVK_CHECK(vkAllocateDescriptorSets(vk_core.device, &dsai, vk_core.descriptor_pool.ubo_sets));
-
-		Mem_Free(tmp_layouts);
-	}
-
-	return true;
-}
-
 qboolean R_VkInit( void )
 {
 	// FIXME !!!! handle initialization errors properly: destroy what has already been created
@@ -662,7 +567,7 @@ qboolean R_VkInit( void )
 		return false;
 
 	// TODO ...
-	if (!initDescriptorPool())
+	if (!VK_DescriptorInit())
 		return false;
 
 	VK_LoadCvars();
@@ -715,9 +620,8 @@ void R_VkShutdown( void )
 
 	VK_PipelineShutdown();
 
-	vkDestroyDescriptorPool(vk_core.device, vk_core.descriptor_pool.pool, NULL);
-	vkDestroyDescriptorSetLayout(vk_core.device, vk_core.descriptor_pool.one_texture_layout, NULL);
-	vkDestroyDescriptorSetLayout(vk_core.device, vk_core.descriptor_pool.one_uniform_buffer_layout, NULL);
+	VK_DescriptorShutdown();
+
 	vkDestroySampler(vk_core.device, vk_core.default_sampler, NULL);
 	destroyBuffer(&vk_core.staging);
 

@@ -15,15 +15,20 @@
 #define WG_W 16
 #define WG_H 8
 
-/*
+typedef struct {
+	vec3_t pos;
+	float radius;
+	vec3_t color;
+	float padding_;
+} vk_light_t;
+
 typedef struct {
 	//int lightmap, texture;
 	//int render_mode;
-	uint32_t element_count;
+	//uint32_t element_count;
 	uint32_t index_offset, vertex_offset;
-	VkBuffer buffer;
+	//VkBuffer buffer;
 } vk_ray_model_t;
-*/
 
 static struct {
 	VkPipelineLayout pipeline_layout;
@@ -314,7 +319,7 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 
 		vkUpdateDescriptorSets(vk_core.device, ARRAYSIZE(wds), wds, 0, NULL);
 	}
-	
+
 
 	// 4. Barrier for TLAS build and dest image layout transfer
 	{

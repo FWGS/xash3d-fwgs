@@ -8,9 +8,11 @@
 #include "vk_textures.h"
 #include "vk_math.h"
 #include "vk_rtx.h"
+#include "vk_descriptor.h"
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
+#include "protocol.h" // MAX_DLIGHTS
 
 #include <memory.h>
 
@@ -64,9 +66,10 @@ static qboolean createPipelines( void )
 	/* }; */
 
 	VkDescriptorSetLayout descriptor_layouts[] = {
-		vk_core.descriptor_pool.one_uniform_buffer_layout,
-		vk_core.descriptor_pool.one_texture_layout,
-		vk_core.descriptor_pool.one_texture_layout,
+		vk_desc.one_uniform_buffer_layout,
+		vk_desc.one_texture_layout,
+		vk_desc.one_texture_layout,
+		vk_desc.one_uniform_buffer_layout,
 	};
 
 	VkPipelineLayoutCreateInfo plci = {
@@ -83,12 +86,14 @@ static qboolean createPipelines( void )
 	{
 		struct ShaderSpec {
 			float alpha_test_threshold;
-		} spec_data = { .25f };
+			uint32_t max_dlights;
+		} spec_data = { .25f, MAX_DLIGHTS };
 		const VkSpecializationMapEntry spec_map[] = {
 			{.constantID = 0, .offset = offsetof(struct ShaderSpec, alpha_test_threshold), .size = sizeof(float) },
+			{.constantID = 1, .offset = offsetof(struct ShaderSpec, max_dlights), .size = sizeof(uint32_t) },
 		};
 
-		VkSpecializationInfo alpha_test_spec = {
+		VkSpecializationInfo shader_spec = {
 			.mapEntryCount = ARRAYSIZE(spec_map),
 			.pMapEntries = spec_map,
 			.dataSize = sizeof(struct ShaderSpec),
@@ -97,8 +102,9 @@ static qboolean createPipelines( void )
 
 		VkVertexInputAttributeDescription attribs[] = {
 			{.binding = 0, .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(vk_vertex_t, pos)},
-			{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vk_vertex_t, gl_tc)},
-			{.binding = 0, .location = 2, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vk_vertex_t, lm_tc)},
+			{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(vk_vertex_t, normal)},
+			{.binding = 0, .location = 2, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vk_vertex_t, gl_tc)},
+			{.binding = 0, .location = 3, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vk_vertex_t, lm_tc)},
 		};
 
 		VkPipelineShaderStageCreateInfo shader_stages[] = {
@@ -112,6 +118,7 @@ static qboolean createPipelines( void )
 			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
 			.module = loadShader("brush.frag.spv"),
 			.pName = "main",
+			.pSpecializationInfo = &shader_spec,
 		}};
 
 		vk_pipeline_create_info_t ci = {
@@ -139,7 +146,7 @@ static qboolean createPipelines( void )
 			switch (i)
 			{
 				case kRenderNormal:
-					ci.stages[1].pSpecializationInfo = NULL;
+					spec_data.alpha_test_threshold = 0.f;
 					ci.blendEnable = VK_FALSE;
 					ci.depthWriteEnable = VK_TRUE;
 					ci.depthTestEnable = VK_TRUE;
@@ -147,7 +154,7 @@ static qboolean createPipelines( void )
 					break;
 
 				case kRenderTransColor:
-					ci.stages[1].pSpecializationInfo = NULL;
+					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_TRUE;
 					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
@@ -158,7 +165,7 @@ static qboolean createPipelines( void )
 					break;
 
 				case kRenderTransAdd:
-					ci.stages[1].pSpecializationInfo = NULL;
+					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_FALSE;
 					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
@@ -171,7 +178,7 @@ static qboolean createPipelines( void )
 					break;
 
 				case kRenderTransAlpha:
-					ci.stages[1].pSpecializationInfo = &alpha_test_spec;
+					spec_data.alpha_test_threshold = .25f;
 					ci.depthWriteEnable = VK_TRUE;
 					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_FALSE;
@@ -179,7 +186,7 @@ static qboolean createPipelines( void )
 					break;
 
 				case kRenderGlow:
-					ci.stages[1].pSpecializationInfo = NULL;
+					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_FALSE;
 					ci.depthTestEnable = VK_FALSE;
 					ci.blendEnable = VK_TRUE;
@@ -189,7 +196,7 @@ static qboolean createPipelines( void )
 					break;
 
 				case kRenderTransTexture:
-					ci.stages[1].pSpecializationInfo = NULL;
+					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_FALSE;
 					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
@@ -238,6 +245,14 @@ static void resetAllocFreeList( void ) {
 	}
 }
 
+typedef struct {
+	uint32_t num_lights, pad[3];
+	struct {
+		vec4_t pos_r;
+		vec4_t color;
+	} light[MAX_DLIGHTS];
+} vk_ubo_lights_t;
+
 qboolean VK_RenderInit( void )
 {
 	// TODO Better estimates
@@ -257,20 +272,33 @@ qboolean VK_RenderInit( void )
 		return false;
 
 	{
-		VkDescriptorBufferInfo dbi = {
+		VkDescriptorBufferInfo dbi_uniform_data = {
 			.buffer = g_render.uniform_buffer.buffer,
 			.offset = 0,
 			.range = sizeof(uniform_data_t),
 		};
-		VkWriteDescriptorSet wds[] = { {
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstBinding = 0,
-			.dstArrayElement = 0,
-			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-			.pBufferInfo = &dbi,
-			.dstSet = vk_core.descriptor_pool.ubo_sets[0], // FIXME
-		}};
+		VkDescriptorBufferInfo dbi_uniform_lights = {
+			.buffer = g_render.uniform_buffer.buffer,
+			.offset = 0,
+			.range = sizeof(vk_ubo_lights_t),
+		};
+		VkWriteDescriptorSet wds[] = {{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstBinding = 0,
+				.dstArrayElement = 0,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+				.pBufferInfo = &dbi_uniform_data,
+				.dstSet = vk_desc.ubo_sets[0], // FIXME
+			}, {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstBinding = 0,
+				.dstArrayElement = 0,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+				.pBufferInfo = &dbi_uniform_lights,
+				.dstSet = vk_desc.ubo_sets[1], // FIXME
+			}};
 		vkUpdateDescriptorSets(vk_core.device, ARRAYSIZE(wds), wds, 0, NULL);
 	}
 
@@ -565,6 +593,39 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 		vkCmdBindIndexBuffer(cmdbuf, g_render.buffer.buffer, 0, VK_INDEX_TYPE_UINT16);
 	}
 
+	{
+		vk_ubo_lights_t* ubo_lights;
+		const uint32_t ubo_lights_offset = allocUniform(sizeof(*ubo_lights), 4);
+		if (ubo_lights_offset == UINT32_MAX) {
+			gEngine.Con_Printf(S_ERROR "Cannot allocate UBO for DLights\n");
+			return;
+		}
+		ubo_lights = (vk_ubo_lights_t*)((byte*)(g_render.uniform_buffer.mapped) + ubo_lights_offset);
+
+		// TODO this should not be here (where? vk_scene?)
+		ubo_lights->num_lights = 0;
+		for (int i = 0; i < MAX_DLIGHTS; ++i) {
+			const dlight_t *l = gEngine.GetDynamicLight(i);
+			if( !l || l->die < gpGlobals->time || !l->radius )
+				continue;
+			Vector4Set(
+				ubo_lights->light[ubo_lights->num_lights].color,
+				l->color.r / 255.f,
+				l->color.g / 255.f,
+				l->color.b / 255.f,
+				1.f);
+			Vector4Set(
+				ubo_lights->light[ubo_lights->num_lights].pos_r,
+				l->origin[0],
+				l->origin[1],
+				l->origin[2],
+				l->radius);
+			ubo_lights->num_lights++;
+		}
+
+		vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 3, 1, vk_desc.ubo_sets + 1, 1, &ubo_lights_offset);
+	}
+
 	for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
 		const draw_command_t *const draw = g_render_state.draw_commands + i;
 		const vk_buffer_alloc_t *vertex_buffer = getBufferFromHandle( draw->draw.vertex_buffer );
@@ -574,7 +635,7 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 		if (ubo_offset != draw->ubo_offset)
 		{
 			ubo_offset = draw->ubo_offset;
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 0, 1, vk_core.descriptor_pool.ubo_sets, 1., &ubo_offset);
+			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 0, 1, vk_desc.ubo_sets, 1, &ubo_offset);
 		}
 
 		if (pipeline != draw->draw.render_mode) {
@@ -670,7 +731,7 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 			return;
 		}
 
-		matrices = (byte*)g_render.uniform_buffer.mapped + args.ubo.offset;
+		matrices = (float*)((byte*)g_render.uniform_buffer.mapped + args.ubo.offset);
 		memcpy(matrices, &g_render_state.rtx, sizeof(g_render_state.rtx));
 
 		VK_RaySceneEnd(&args);

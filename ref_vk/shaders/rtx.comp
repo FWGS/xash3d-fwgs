@@ -1,16 +1,38 @@
 #version 460
 #extension GL_EXT_ray_query : require
+#extension GL_EXT_shader_16bit_storage : require
 
 // FIXME shader specialization
 layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
+
+// struct Light {
+// 	vec4 pos_r;
+// 	vec4 color;
+// };
 
 layout(binding = 0, set = 0, rgba8) uniform image2D image;
 layout(binding = 1, set = 0) uniform accelerationStructureEXT tlas;
 layout(binding = 2, set = 0) uniform UBO {
 	mat4 inv_proj, inv_view;
+	//int num_lights;
+	//Light lights[];
 } ubo;
 
-//layout(binding = 2, set = 0) buffer Vertices { vec4 vertices[]; };
+// struct Kusok {
+// 	uint index_offset;
+// 	uint vertex_offset;
+// };
+
+// struct Vertex {
+// 	vec3 pos;
+// 	vec3 normal;
+// 	vec2 gl_tc;
+// 	vec2 lm_tc;
+// };
+
+// layout(binding = 3, set = 0) buffer Kusok { Kusok kusochki[]; };
+// layout(binding = 4, set = 0) buffer Indices { uint16_t indices[]; };
+// layout(binding = 5, set = 0) buffer Vertices { Vertex vertices[]; };
 
 /*
 layout (push_constant) uniform PC {

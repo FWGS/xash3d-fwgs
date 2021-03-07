@@ -103,6 +103,10 @@ static qboolean createRenderPass( void ) {
 		.format = VK_FORMAT_B8G8R8A8_UNORM, //SRGB,// FIXME too early swapchain.create_info.imageFormat;
 		.samples = VK_SAMPLE_COUNT_1_BIT,
 		//.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+
+		// TODO realtime switch between rtx and non-rtx requires either
+		// - re-creating render pass and all pipelines
+		// - having 2 sets of render passes and pipelines
 		.loadOp = vk_core.rtx ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR,
 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,

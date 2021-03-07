@@ -7,6 +7,7 @@
 #include "vk_framectl.h"
 #include "vk_renderstate.h"
 #include "vk_pipeline.h"
+#include "vk_descriptor.h"
 
 #include "com_strings.h"
 #include "eiface.h"
@@ -169,7 +170,7 @@ static qboolean createPipelines( void )
 		/* }; */
 
 		VkDescriptorSetLayout descriptor_layouts[] = {
-			vk_core.descriptor_pool.one_texture_layout,
+			vk_desc.one_texture_layout,
 		};
 
 		VkPipelineLayoutCreateInfo plci = {

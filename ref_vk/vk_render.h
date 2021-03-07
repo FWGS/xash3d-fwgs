@@ -52,6 +52,7 @@ void VK_RenderStateSetViewMatrix(const matrix4x4 view);
 // TODO is this a good place?
 typedef struct vk_vertex_s {
 	vec3_t pos;
+	vec3_t normal;
 	vec2_t gl_tc;
 	vec2_t lm_tc;
 } vk_vertex_t;

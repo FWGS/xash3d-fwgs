@@ -1,7 +1,11 @@
+## 2021-03-06
+- [x] (RTX; common) Staging vs on-GPU buffers
+- [x] (RTX) BLAS construction on buffer unlock
+- [x] (RTX) ray trace compute shader
+- [x] dlight test
+
 # Next
-- [ ] (RTX; common) Staging vs on-GPU buffers
-- [ ] (RTX) BLAS construction on buffer unlock
-- [ ] (RTX) ray trace compute shader
+- [ ] studio models normals
 - [ ] (RTX) geometry indexing
 - [ ] (RTX) textures
 

@@ -2,6 +2,8 @@
 
 #include "vk_common.h"
 #include "vk_core.h"
+#include "vk_const.h"
+#include "vk_descriptor.h"
 
 #include "xash3d_mathlib.h"
 #include "crtlib.h"
@@ -12,7 +14,6 @@
 #include <memory.h>
 #include <math.h>
 
-#define MAX_TEXTURES	4096
 #define TEXTURES_HASH_SIZE	(MAX_TEXTURES >> 2)
 
 static vk_texture_t vk_textures[MAX_TEXTURES];
@@ -457,7 +458,7 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 	// TODO how should we approach this:
 	// - per-texture desc sets can be inconvenient if texture is used in different incompatible contexts
 	// - update descriptor sets in batch?
-	if (vk_core.descriptor_pool.next_free != MAX_DESC_SETS)
+	if (vk_desc.next_free != MAX_TEXTURES)
 	{
 		VkDescriptorImageInfo dii_tex = {
 			.imageView = tex->vk.image_view,
@@ -471,7 +472,7 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			.pImageInfo = &dii_tex,
 		}};
-		wds[0].dstSet = tex->vk.descriptor = vk_core.descriptor_pool.sets[vk_core.descriptor_pool.next_free++];
+		wds[0].dstSet = tex->vk.descriptor = vk_desc.sets[vk_desc.next_free++];
 		vkUpdateDescriptorSets(vk_core.device, ARRAYSIZE(wds), wds, 0, NULL);
 	}
 	else

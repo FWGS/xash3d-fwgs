@@ -321,6 +321,10 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 				t += sample_size * 0.5f;
 				t /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->height;
 
+				if( FBitSet( surf->flags, SURF_PLANEBACK ))
+					VectorNegate( surf->plane->normal, vertex.normal );
+				else VectorCopy( surf->plane->normal, vertex.normal );
+
 				vertex.lm_tc[0] = s;
 				vertex.lm_tc[1] = t;
 

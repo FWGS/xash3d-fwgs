@@ -42,23 +42,6 @@ typedef struct physical_device_s {
 	VkPhysicalDeviceProperties properties;
 } physical_device_t;
 
-// FIXME dynamic; better estimate
-#define MAX_DESC_SETS 4096
-
-typedef struct descriptor_pool_s
-{
-	VkDescriptorPool pool;
-	int next_free;
-	//uint32_t *free_set;
-
-	VkDescriptorSet sets[MAX_DESC_SETS];
-	VkDescriptorSetLayout one_texture_layout;
-
-	// FIXME HOW THE F
-	VkDescriptorSet ubo_sets[1];
-	VkDescriptorSetLayout one_uniform_buffer_layout;
-} descriptor_pool_t;
-
 typedef struct vulkan_core_s {
 	uint32_t vulkan_version;
 	VkInstance instance;
@@ -66,7 +49,8 @@ typedef struct vulkan_core_s {
 
 	byte *pool;
 
-	// TODO dynamic rtx_on/off
+	// TODO store important capabilities that affect render code paths
+	// (as rtx, dedicated gpu memory, bindless, etc) separately in a struct
 	qboolean debug, rtx;
 	struct {
 		VkSurfaceKHR surface;
@@ -87,7 +71,6 @@ typedef struct vulkan_core_s {
 	vk_buffer_t staging;
 
 	VkSampler default_sampler;
-	descriptor_pool_t descriptor_pool;
 } vulkan_core_t;
 
 extern vulkan_core_t vk_core;
