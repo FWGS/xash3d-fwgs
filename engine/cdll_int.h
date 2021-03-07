@@ -285,9 +285,9 @@ typedef struct cl_enginefuncs_s
 	const char	*(*LocalPlayerInfo_ValueForKey)( const char* key );
 	int		(*pfnVGUI2DrawCharacter)( int x, int y, int ch, unsigned int font );
 	int		(*pfnVGUI2DrawCharacterAdditive)( int x, int y, int ch, int r, int g, int b, unsigned int font );
-	unsigned int	(*pfnGetApproxWavePlayLen)( char *filename );
+	unsigned int	(*pfnGetApproxWavePlayLen)( const char *filename );
 	void*		(*GetCareerGameUI)( void );	// g-cont. !!!! potential crash-point!
-	void		(*Cvar_Set)( char *name, char *value );
+	void		(*Cvar_Set)( const char *name, const char *value );
 	int		(*pfnIsPlayingCareerMatch)( void );
 	void		(*pfnPlaySoundVoiceByName)( char *szSound, float volume, int pitch );
 	void		(*pfnPrimeMusicStream)( char *filename, int looping );
