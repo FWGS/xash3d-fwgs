@@ -1,8 +1,9 @@
 ## 2021-03-08
 - [x] studio models normals
-- [ ] (RTX) geometry indexing
+- [x] (RTX) geometry indexing
 
 # Next
+- [ ] (RTX) dlights
 - [ ] (RTX) textures
 
 # Planned

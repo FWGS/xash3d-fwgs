@@ -51,10 +51,11 @@ void VK_RenderStateSetViewMatrix(const matrix4x4 view);
 
 // TODO is this a good place?
 typedef struct vk_vertex_s {
-	vec3_t pos;
-	vec3_t normal;
-	vec2_t gl_tc;
-	vec2_t lm_tc;
+	// TODO padding needed for storage buffer reading, figure out how to fix in GLSL/SPV side
+	vec3_t pos; float p0_;
+	vec3_t normal; float p1_;
+	vec2_t gl_tc; //float p2_[2];
+	vec2_t lm_tc; //float p3_[2];
 } vk_vertex_t;
 
 typedef struct render_draw_s {

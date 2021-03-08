@@ -23,6 +23,11 @@ typedef struct {
 } vk_light_t;
 
 typedef struct {
+	uint32_t index_offset;
+	uint32_t vertex_offset;
+} vk_kusok_data_t;
+
+typedef struct {
 	//int lightmap, texture;
 	//int render_mode;
 	//uint32_t element_count;
@@ -42,6 +47,8 @@ static struct {
 	VkDeviceAddress accels_buffer_addr, scratch_buffer_addr;
 
 	vk_buffer_t tlas_geom_buffer;
+
+	vk_buffer_t kusochki_buffer;
 
 	VkAccelerationStructureKHR accels[MAX_ACCELS];
 	VkAccelerationStructureKHR tlas;
@@ -116,6 +123,7 @@ static VkAccelerationStructureKHR createAndBuildAccelerationStructure(VkCommandB
 	asci.size = build_size.accelerationStructureSize;
 	XVK_CHECK(vkCreateAccelerationStructureKHR(vk_core.device, &asci, NULL, &accel));
 
+	// TODO this function has weird semantics: it allocates data in buffers, but doesn't allocate the AS itself
 	g_rtx_scene.buffer_offset += build_size.accelerationStructureSize;
 	g_rtx_scene.buffer_offset = (g_rtx_scene.buffer_offset + 255) & ~255; // Buffer must be aligned to 256 according to spec
 
@@ -183,8 +191,8 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 						.maxVertex = model->max_vertex,
 						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
 						.vertexStride = sizeof(vk_vertex_t),
-						.vertexData.deviceAddress = buffer_addr + model->vertex_offset,
-						.indexData.deviceAddress = buffer_addr + model->index_offset,
+						.vertexData.deviceAddress = buffer_addr + model->vertex_offset * sizeof(vk_vertex_t),
+						.indexData.deviceAddress = buffer_addr + model->index_offset * sizeof(uint16_t),
 					},
 			} };
 
@@ -200,6 +208,13 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 		if (!*handle) {
 			gEngine.Con_Printf(S_ERROR "Error building BLAS\n");
 			return;
+		}
+
+		// Store geometry references in kusochki
+		{
+			vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + g_rtx_scene.num_accels;
+			kusok->vertex_offset = model->vertex_offset;
+			kusok->index_offset = model->index_offset;
 		}
 
 		g_rtx_scene.num_accels++;
@@ -219,7 +234,7 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 			ASSERT(g_rtx.accels[i] != VK_NULL_HANDLE);
 			inst[i] = (VkAccelerationStructureInstanceKHR){
 				.transform = (VkTransformMatrixKHR){1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0},
-				.instanceCustomIndex = 0,
+				.instanceCustomIndex = i,
 				.mask = 0xff,
 				.instanceShaderBindingTableRecordOffset = 0,
 				.flags = 0,
@@ -272,15 +287,30 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 
 	// 3. Update descriptor sets (bind dest image, tlas, projection matrix)
 	{
-		const VkDescriptorImageInfo dii = {
+		const VkDescriptorImageInfo dii_dst = {
 			.sampler = VK_NULL_HANDLE,
 			.imageView = args->dst.image_view,
 			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 		};
-		const VkDescriptorBufferInfo dbi = {
+		const VkDescriptorBufferInfo dbi_ubo = {
 			.buffer = args->ubo.buffer,
 			.offset = args->ubo.offset,
 			.range = args->ubo.size,
+		};
+		const VkDescriptorBufferInfo dbi_kusochki = {
+			.buffer = g_rtx.kusochki_buffer.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_accels * sizeof(vk_kusok_data_t),
+		};
+		const VkDescriptorBufferInfo dbi_indices = {
+			.buffer = args->geometry_data.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
+		};
+		const VkDescriptorBufferInfo dbi_vertices = {
+			.buffer = args->geometry_data.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
 		};
 		const VkWriteDescriptorSetAccelerationStructureKHR wdsas = {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
@@ -295,16 +325,7 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 				.dstSet = g_rtx.desc_set,
 				.dstBinding = 0,
 				.dstArrayElement = 0,
-				.pImageInfo = &dii,
-			},
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				.dstSet = g_rtx.desc_set,
-				.dstBinding = 2,
-				.dstArrayElement = 0,
-				.pBufferInfo = &dbi,
+				.pImageInfo = &dii_dst,
 			},
 			{
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -314,6 +335,42 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 				.dstBinding = 1,
 				.dstArrayElement = 0,
 				.pNext = &wdsas,
+			},
+			{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				.dstSet = g_rtx.desc_set,
+				.dstBinding = 2,
+				.dstArrayElement = 0,
+				.pBufferInfo = &dbi_ubo,
+			},
+			{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				.dstSet = g_rtx.desc_set,
+				.dstBinding = 3,
+				.dstArrayElement = 0,
+				.pBufferInfo = &dbi_kusochki,
+			},
+			{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				.dstSet = g_rtx.desc_set,
+				.dstBinding = 4,
+				.dstArrayElement = 0,
+				.pBufferInfo = &dbi_indices,
+			},
+			{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				.dstSet = g_rtx.desc_set,
+				.dstBinding = 5,
+				.dstArrayElement = 0,
+				.pBufferInfo = &dbi_vertices,
 			},
 		};
 
@@ -372,6 +429,21 @@ static void createLayouts( void ) {
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	}, {
+		.binding = 3,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	}, {
+		.binding = 4,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	}, {
+		.binding = 5,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
 	},
 	};
 
@@ -397,6 +469,7 @@ static void createLayouts( void ) {
 	{
 		VkDescriptorPoolSize pools[] = {
 			{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 1},
+			{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 3},
 			{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1},
 			{.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, .descriptorCount = 1},
 		};
@@ -464,6 +537,13 @@ qboolean VK_RayInit( void )
 		return false;
 	}
 
+	if (!createBuffer(&g_rtx.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_ACCELS,
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
+		/* TODO DEVICE_LOCAL */ VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+		// FIXME complain, handle
+		return false;
+	}
+
 	createLayouts();
 	createPipeline();
 
@@ -486,5 +566,6 @@ void VK_RayShutdown( void )
 	destroyBuffer(&g_rtx.scratch_buffer);
 	destroyBuffer(&g_rtx.accels_buffer);
 	destroyBuffer(&g_rtx.tlas_geom_buffer);
+	destroyBuffer(&g_rtx.kusochki_buffer);
 }
 

@@ -265,7 +265,7 @@ qboolean VK_RenderInit( void )
 
 	// TODO device memory and friends (e.g. handle mobile memory ...)
 
-	if (!createBuffer(&g_render.buffer, vertex_buffer_size + index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | (vk_core.rtx ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT : 0), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	if (!createBuffer(&g_render.buffer, vertex_buffer_size + index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | (vk_core.rtx ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
 	if (!createBuffer(&g_render.uniform_buffer, uniform_unit_size * MAX_UNIFORM_SLOTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
@@ -700,8 +700,8 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 		const vk_ray_model_create_t ray_model_args = {
 			.element_count = draw->draw.element_count,
 			.max_vertex = vertex_buffer->count, // TODO this is an upper bound for brushes at least, it can be lowered
-			.index_offset = index_buffer ? index_buffer->unit_size * (draw->draw.index_offset + index_buffer->buffer_offset_in_units) : UINT32_MAX,
-			.vertex_offset = (draw->draw.vertex_offset + vertex_buffer->buffer_offset_in_units) * vertex_buffer->unit_size,
+			.index_offset = index_buffer ? (draw->draw.index_offset + index_buffer->buffer_offset_in_units) : UINT32_MAX,
+			.vertex_offset = (draw->draw.vertex_offset + vertex_buffer->buffer_offset_in_units),
 			.buffer = g_render.buffer.buffer,
 		};
 
@@ -723,6 +723,11 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 				.buffer = g_render.uniform_buffer.buffer,
 				.offset = allocUniform(sizeof(float) * 16 * 2, 16 * sizeof(float)),
 				.size = sizeof(float) * 16 * 2,
+			},
+
+			.geometry_data = {
+				.buffer = g_render.buffer.buffer,
+				.size = g_render.buffer_free_offset,
 			},
 		};
 

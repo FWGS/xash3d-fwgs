@@ -18,26 +18,21 @@ layout(binding = 2, set = 0) uniform UBO {
 	//Light lights[];
 } ubo;
 
-// struct Kusok {
-// 	uint index_offset;
-// 	uint vertex_offset;
-// };
-
-// struct Vertex {
-// 	vec3 pos;
-// 	vec3 normal;
-// 	vec2 gl_tc;
-// 	vec2 lm_tc;
-// };
-
-// layout(binding = 3, set = 0) buffer Kusok { Kusok kusochki[]; };
-// layout(binding = 4, set = 0) buffer Indices { uint16_t indices[]; };
-// layout(binding = 5, set = 0) buffer Vertices { Vertex vertices[]; };
-
-/*
-layout (push_constant) uniform PC {
+struct Kusok {
+	uint index_offset;
+	uint vertex_offset;
 };
-*/
+
+struct Vertex {
+	vec3 pos;
+	vec3 normal;
+	vec2 gl_tc;
+	vec2 lm_tc;
+};
+
+layout(std430, binding = 3, set = 0) readonly buffer Kusochki { Kusok kusochki[]; };
+layout(std430, binding = 4, set = 0) readonly buffer Indices { uint16_t indices[]; };
+layout(std430, binding = 5, set = 0) readonly buffer Vertices { Vertex vertices[]; };
 
 void main() {
 	vec2 res = imageSize(image);
@@ -58,8 +53,33 @@ void main() {
 	if (rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
 		C = vec3(1., 0., 1.);
 	} else {
-		vec3 pos = O+D*l;
-		C = fract(pos/100.);
+		//vec3 pos = O+D*l;
+		//C = fract(pos/100.);
+
+		//const int instance_index = rayQueryGetIntersectionInstanceIdEXT(rayQuery, true);
+		const int instance_index = rayQueryGetIntersectionInstanceCustomIndexEXT(rayQuery, true);
+		/* C.r = float(instance_index & 15) / 15.f; */
+		/* C.g = float((instance_index >> 4) & 15) / 15.f; */
+		/* C.b = float((instance_index >> 8) & 15) / 15.f; */
+
+		//rayQueryGetIntersectionGeometryIndexEXT
+		const int prim_index = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
+
+		/* C.r = float(prim_index & 7) / 7.f; */
+		/* C.g = float((prim_index >> 3) & 7) / 7.f; */
+		/* C.b = float((prim_index >> 6) & 7) / 7.f; */
+	
+		const uint first_index_offset = kusochki[instance_index].index_offset + prim_index * 3;
+		const uint first_vertex_index = uint(indices[first_index_offset]) + kusochki[instance_index].vertex_offset;
+		const vec3 normal = vertices[first_vertex_index].normal;
+		//const vec3 normal = vertices[kusochki[instance_index].vertex_offset].normal;
+
+		//const vec3 normal = vertices[prim_index * 3].normal;
+		C = normal * .5 + .5;
+
+		/* C.r = float(first_vertex_index & 31) / 31.f; */
+		/* C.g = float((first_vertex_index >> 5) & 31) / 31.f; */
+		/* C.b = float((first_vertex_index >> 10) & 31) / 31.f; */
 	}
 
 	imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(C, 1.));

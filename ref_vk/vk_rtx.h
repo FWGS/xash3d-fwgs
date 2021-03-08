@@ -28,12 +28,20 @@ typedef struct {
 		uint32_t width, height;
 	} dst;
 
-	// inv_view/proj matrices
+	// TODO inv_view/proj matrices
 	struct {
 		VkBuffer buffer;
 		uint32_t offset;
 		uint32_t size;
 	} ubo;
+
+	// TODO dlights
+
+	// Buffer holding vertex and index data
+	struct {
+		VkBuffer buffer; // must be the same as in vk_ray_model_create_t TODO: validate or make impossible to specify incorrectly
+		uint32_t size;
+	} geometry_data;
 } vk_ray_scene_render_args_t;
 void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args);
 
