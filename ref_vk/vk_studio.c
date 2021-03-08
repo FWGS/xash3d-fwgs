@@ -1960,6 +1960,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			ASSERT((((vk_vertex_t*)vertex_lock.ptr) + vertex_lock.count) > dst_vtx);
 
 			VectorCopy(g_studio.verts[ptricmds[0]], dst_vtx->pos);
+			VectorCopy(g_studio.norms[ptricmds[0]], dst_vtx->normal);
 			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = mode == FAN ? .5f : 0.f;
 			// FIXME VK R_StudioSetColorBegin( ptricmds, pstudionorms );
 			dst_vtx->gl_tc[0] = ptricmds[2] * s;
@@ -2163,8 +2164,9 @@ static void R_StudioDrawPoints( void )
 		float factor = (1.0f / 128.0f);
 		shellscale = Q_max( factor, RI.currententity->curstate.renderamt * factor );
 		R_StudioBuildNormalTable();
-		R_StudioGenerateNormals();
 	}
+
+	R_StudioGenerateNormals();
 
 	for( j = k = 0; j < m_pSubModel->nummesh; j++ ) 
 	{

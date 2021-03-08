@@ -1,12 +1,8 @@
-## 2021-03-06
-- [x] (RTX; common) Staging vs on-GPU buffers
-- [x] (RTX) BLAS construction on buffer unlock
-- [x] (RTX) ray trace compute shader
-- [x] dlight test
+## 2021-03-08
+- [x] studio models normals
+- [ ] (RTX) geometry indexing
 
 # Next
-- [ ] studio models normals
-- [ ] (RTX) geometry indexing
 - [ ] (RTX) textures
 
 # Planned
@@ -104,3 +100,10 @@
 ## 2021-02-22
 - [x] RTX: load extensions with -rtx arg
 - [x] vk_render: buffer-alloc-centric upload and draw api
+
+## 2021-03-06
+- [x] (RTX; common) Staging vs on-GPU buffers
+- [x] (RTX) BLAS construction on buffer unlock
+- [x] (RTX) ray trace compute shader
+- [x] dlight test
+

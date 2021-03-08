@@ -25,7 +25,7 @@ layout(location=4) in vec4 vColor;
 layout(location=0) out vec4 outColor;
 
 // FIXME what should this be?
-const float dlight_attenuation_const = 10000.;
+const float dlight_attenuation_const = 5000.;
 
 void main() {
 	outColor = vec4(0.);
@@ -39,7 +39,6 @@ void main() {
 	outColor.rgb += baseColor.rgb * texture(sLightmap, vLightmapUV).rgb;
 
 	for (uint i = 0; i < ubo.num_lights; ++i) {
-		// TODO use pos_r.w as radius
 		const vec4 light_pos_r = ubo.lights[i].pos_r;
 		const vec3 light_dir = light_pos_r.xyz - vPos;
 		const vec3 light_color = ubo.lights[i].color.rgb;
