@@ -264,6 +264,9 @@ between a deactivate and an activate.
 */
 void SNDDMA_Activate( qboolean active )
 {
+	if( !dma.initialized )
+		return;
+
 	SDL_PauseAudioDevice( sdl_dev, !active );
 }
 #endif // XASH_SOUND == SOUND_SDL
