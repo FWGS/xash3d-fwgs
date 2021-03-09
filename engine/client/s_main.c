@@ -1679,26 +1679,41 @@ void S_PlayVol_f( void )
 	S_StartLocalSound( Cmd_Argv( 1 ), Q_atof( Cmd_Argv( 2 )), false );
 }
 
+static void S_Say( const char *name, qboolean reliable )
+{
+	char sentence[1024];
+
+	// predefined vox sentence
+	if( name[0] == '!' )
+	{
+		S_StartLocalSound( name, 1.0f, reliable );
+		return;
+	}
+
+	Q_snprintf( sentence, sizeof( sentence ), "!#%s", name );
+	S_StartLocalSound( sentence, 1.0f, reliable );
+}
+
 void S_Say_f( void )
 {
 	if( Cmd_Argc() == 1 )
 	{
-		Con_Printf( S_USAGE "speak <soundfile>\n" );
+		Con_Printf( S_USAGE "speak <vox sentence>\n" );
 		return;
 	}
 
-	S_StartLocalSound( Cmd_Argv( 1 ), 1.0f, false );
+	S_Say( Cmd_Argv( 1 ), false );
 }
 
 void S_SayReliable_f( void )
 {
 	if( Cmd_Argc() == 1 )
 	{
-		Con_Printf( S_USAGE "spk <soundfile>\n" );
+		Con_Printf( S_USAGE "spk <vox sentence>\n" );
 		return;
 	}
 
-	S_StartLocalSound( Cmd_Argv( 1 ), 1.0f, true );
+	S_Say( Cmd_Argv( 1 ), true );
 }
 
 /*
