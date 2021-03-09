@@ -45,8 +45,12 @@ typedef struct convar_s
 #define FCVAR_TEMPORARY		(1<<21)	// these cvars holds their values and can be unlink in any time
 #define FCVAR_LOCALONLY     (1<<22) // can be set only from local buffers
 
-#define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc )	convar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
-#define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc )	convar_t cv = { #cv, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
+#define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc ) \
+	convar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc, NULL }
+
+#define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc ) \
+	CVAR_DEFINE( cv, #cv, cvstr, cvflags, cvdesc )
+
 #define CVAR_TO_BOOL( x )		((x) && ((x)->value != 0.0f) ? true : false )
 
 cvar_t *Cvar_GetList( void );
