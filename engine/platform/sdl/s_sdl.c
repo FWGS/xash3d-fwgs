@@ -126,7 +126,7 @@ qboolean SNDDMA_Init( void )
 	dma.format.speed    = obtained.freq;
 	dma.format.channels = obtained.channels;
 	dma.format.width    = 2;
-	samplecount = s_samplecount->value;
+	samplecount = s_samplecount.value;
 	if( !samplecount )
 		samplecount = 0x8000;
 	dma.samples         = samplecount * obtained.channels;
