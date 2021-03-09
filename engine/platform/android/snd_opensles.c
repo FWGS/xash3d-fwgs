@@ -25,7 +25,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "pthread.h"
 #include "sound.h"
 
-extern convar_t		*s_primary;
 extern dma_t			dma;
 
 static SLObjectItf snddma_android_engine = NULL;
@@ -64,8 +63,6 @@ void SNDDMA_Activate( qboolean active )
 	}
 	else
 	{
-		//if( s_globalfocus->integer )
-			//return;
 		(*snddma_android_play)->SetPlayState( snddma_android_play, SL_PLAYSTATE_STOPPED );
 		(*snddma_android_bufferQueue)->Clear( snddma_android_bufferQueue );
 	}
@@ -175,7 +172,7 @@ static const char *SNDDMA_Android_Init( void )
 	result = (*snddma_android_bufferQueue)->RegisterCallback( snddma_android_bufferQueue, SNDDMA_Android_Callback, NULL );
 	if( result != SL_RESULT_SUCCESS ) return "bufferQueue->RegisterCallback";
 
-	samples = s_samplecount->value;
+	samples = s_samplecount.value;
 	if( !samples )
 		samples = 4096;
 

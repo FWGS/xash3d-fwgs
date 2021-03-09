@@ -991,7 +991,7 @@ void MIX_UpsampleAllPaintbuffers( int end, int count )
 	// upsample all 11khz buffers by 2x
 	// only upsample roombuffer if dsp fx are on KDB: perf
 	MIX_SetCurrentPaintbuffer( IROOMBUFFER ); // operates on MixUpSample
-	S_MixUpsample( count / ( SOUND_DMA_SPEED / SOUND_11k ), s_lerping->value );
+	S_MixUpsample( count / ( SOUND_DMA_SPEED / SOUND_11k ), s_lerping.value );
 
 	// mix 22khz sounds:
 	MIX_MixChannelsToPaintbuffer( end, SOUND_22k, SOUND_22k );
@@ -999,7 +999,7 @@ void MIX_UpsampleAllPaintbuffers( int end, int count )
 	// upsample all 22khz buffers by 2x
 	// only upsample roombuffer if dsp fx are on KDB: perf
 	MIX_SetCurrentPaintbuffer( IROOMBUFFER );
-	S_MixUpsample( count / ( SOUND_DMA_SPEED / SOUND_22k ), s_lerping->value );
+	S_MixUpsample( count / ( SOUND_DMA_SPEED / SOUND_22k ), s_lerping.value );
 
 	// mix all 44khz sounds to all active paintbuffers
 	MIX_MixChannelsToPaintbuffer( end, SOUND_44k, SOUND_DMA_SPEED );
