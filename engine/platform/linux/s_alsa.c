@@ -376,6 +376,9 @@ between a deactivate and an activate.
 */
 void SNDDMA_Activate( qboolean active )
 {
+	if( !dma.initialized )
+		return;
+
 	s_alsa.paused = !active;
 
 	if( !s_alsa.paused )
