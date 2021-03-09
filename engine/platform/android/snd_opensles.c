@@ -35,7 +35,6 @@ static SLPlayItf snddma_android_play;
 
 static pthread_mutex_t snddma_android_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static int snddma_android_pos;
 static int snddma_android_size;
 
 static const SLInterfaceID *pSL_IID_ENGINE;
@@ -78,7 +77,7 @@ static void SNDDMA_Android_Callback( SLBufferQueueItf bq, void *context )
 	(*bq)->Enqueue( bq, buffer2, snddma_android_size );
 	memcpy( buffer2, dma.buffer, snddma_android_size );
 	memset( dma.buffer, 0, snddma_android_size );
-	snddma_android_pos += dma.samples;
+	dma.samplepos += dma.samples;
 
 	pthread_mutex_unlock( &snddma_android_mutex );
 }
@@ -215,11 +214,6 @@ qboolean SNDDMA_Init( void )
 	return true;
 }
 
-int SNDDMA_GetDMAPos( void )
-{
-	return snddma_android_pos;
-}
-
 void SNDDMA_Shutdown( void )
 {
 	Msg( "Closing OpenSL ES audio device...\n" );
@@ -260,43 +254,5 @@ void SNDDMA_Submit( void )
 void SNDDMA_BeginPainting( void )
 {
 	pthread_mutex_lock( &snddma_android_mutex );
-}
-
-
-/*
-==============
-SNDDMA_GetSoundtime
-
-update global soundtime
-===============
-*/
-int SNDDMA_GetSoundtime( void )
-{
-	static int	buffers, oldsamplepos;
-	int		samplepos, fullsamples;
-
-	fullsamples = dma.samples / 2;
-
-	// it is possible to miscount buffers
-	// if it has wrapped twice between
-	// calls to S_Update.  Oh well.
-	samplepos = SNDDMA_GetDMAPos();
-
-	if( samplepos < oldsamplepos )
-	{
-		buffers++; // buffer wrapped
-
-		if( paintedtime > 0x40000000 )
-		{
-			// time to chop things off to avoid 32 bit limits
-			buffers = 0;
-			paintedtime = fullsamples;
-			S_StopAllSounds( true );
-		}
-	}
-
-	oldsamplepos = samplepos;
-
-	return (buffers * fullsamples + samplepos / 2);
 }
 #endif

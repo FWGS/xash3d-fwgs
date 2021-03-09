@@ -1450,6 +1450,45 @@ void S_StopAllSounds( qboolean ambient )
 	memset( &soundfade, 0, sizeof( soundfade ));
 }
 
+/*
+==============
+S_GetSoundtime
+
+update global soundtime
+
+(was part of platform code)
+===============
+*/
+static int S_GetSoundtime( void )
+{
+	static int buffers, oldsamplepos;
+	int samplepos, fullsamples;
+
+	fullsamples = dma.samples / 2;
+
+	// it is possible to miscount buffers
+	// if it has wrapped twice between
+	// calls to S_Update.  Oh well.
+	samplepos = dma.samplepos;
+
+	if( samplepos < oldsamplepos )
+	{
+		buffers++; // buffer wrapped
+
+		if( paintedtime > 0x40000000 )
+		{
+			// time to chop things off to avoid 32 bit limits
+			buffers     = 0;
+			paintedtime = fullsamples;
+			S_StopAllSounds( true );
+		}
+	}
+
+	oldsamplepos = samplepos;
+
+	return ( buffers * fullsamples + samplepos / 2 );
+}
+
 //=============================================================================
 void S_UpdateChannels( void )
 {
@@ -1461,7 +1500,7 @@ void S_UpdateChannels( void )
 	if( !dma.buffer ) return;
 
 	// updates DMA time
-	soundtime = SNDDMA_GetSoundtime();
+	soundtime = S_GetSoundtime();
 
 	// soundtime - total samples that have been played out to hardware at dmaspeed
 	// paintedtime - total samples that have been mixed at speed
