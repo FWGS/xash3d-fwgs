@@ -200,58 +200,6 @@ qboolean SNDDMA_Init( void )
 
 /*
 ==============
-SNDDMA_GetDMAPos
-
-return the current sample position (in mono samples read)
-inside the recirculating dma buffer, so the mixing code will know
-how many sample are required to fill it up.
-===============
-*/
-int SNDDMA_GetDMAPos( void )
-{
-	return dma.samplepos;
-}
-
-/*
-==============
-SNDDMA_GetSoundtime
-
-update global soundtime
-===============
-*/
-int SNDDMA_GetSoundtime( void )
-{
-	static int buffers, oldsamplepos;
-	int samplepos, fullsamples;
-
-	fullsamples = dma.samples / 2;
-
-	// it is possible to miscount buffers
-	// if it has wrapped twice between
-	// calls to S_Update.  Oh well.
-	samplepos = SNDDMA_GetDMAPos( );
-
-	if( samplepos < oldsamplepos )
-	{
-		buffers++; // buffer wrapped
-
-		if( paintedtime > 0x40000000 )
-		{
-			// time to chop things off to avoid 32 bit limits
-			buffers     = 0;
-			paintedtime = fullsamples;
-			S_StopAllSounds( true );
-		}
-	}
-
-	oldsamplepos = samplepos;
-
-	return ( buffers * fullsamples + samplepos / 2 );
-}
-
-
-/*
-==============
 SNDDMA_Shutdown
 
 Closes the ALSA pcm device and frees the dma buffer.
