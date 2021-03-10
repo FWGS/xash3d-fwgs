@@ -904,7 +904,7 @@ int Delta_ClampIntegerField( delta_t *pField, int iValue, qboolean bSigned, int 
 	{
 		int signbits = bSigned ? (numbits - 1) : numbits;
 		int maxnum = BIT( signbits ) - 1;
-		int minnum = bSigned ? -maxnum : 0;
+		int minnum = bSigned ? ( -maxnum - 1 ) : 0;
 		iValue = bound( minnum, iValue, maxnum );
 	}
 
@@ -1126,21 +1126,30 @@ qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to
 
 	if( pField->flags & DT_BYTE )
 	{
-		iValue = *(byte *)((byte *)to + pField->offset );
+		if( bSigned )
+			iValue = *(int8_t *)((int8_t *)to + pField->offset );
+		else
+			iValue = *(uint8_t *)((int8_t *)to + pField->offset );
 		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
 		if( pField->multiplier != 1.0f ) iValue *= pField->multiplier;
 		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
 	}
 	else if( pField->flags & DT_SHORT )
 	{
-		iValue = *(word *)((byte *)to + pField->offset );
+		if( bSigned )
+			iValue = *(int16_t *)((int8_t *)to + pField->offset );
+		else
+			iValue = *(uint16_t *)((int8_t *)to + pField->offset );
 		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
 		if( pField->multiplier != 1.0f ) iValue *= pField->multiplier;
 		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
 	}
 	else if( pField->flags & DT_INTEGER )
 	{
-		iValue = *(uint *)((byte *)to + pField->offset );
+		if( bSigned )
+			iValue = *(int32_t *)((int8_t *)to + pField->offset );
+		else
+			iValue = *(uint32_t *)((int8_t *)to + pField->offset );
 		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
 		if( pField->multiplier != 1.0f ) iValue *= pField->multiplier;
 		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
@@ -1214,9 +1223,15 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 		}
 		else
 		{
-			iValue = *(byte *)((byte *)from + pField->offset );
+			if( bSigned )
+				iValue = *(int8_t *)((uint8_t *)from + pField->offset );
+			else
+				iValue = *(uint8_t *)((uint8_t *)from + pField->offset );
 		}
-		*(byte *)((byte *)to + pField->offset ) = iValue;
+		if( bSigned )
+			*(int8_t *)((uint8_t *)to + pField->offset ) = iValue;
+		else
+			*(uint8_t *)((uint8_t *)to + pField->offset ) = iValue;
 	}
 	else if( pField->flags & DT_SHORT )
 	{
@@ -1227,9 +1242,15 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 		}
 		else
 		{
-			iValue = *(word *)((byte *)from + pField->offset );
+			if( bSigned )
+				iValue = *(int16_t *)((uint8_t *)from + pField->offset );
+			else
+				iValue = *(uint16_t *)((uint8_t *)from + pField->offset );
 		}
-		*(word *)((byte *)to + pField->offset ) = iValue;
+		if( bSigned )
+			*(int16_t *)((uint8_t *)to + pField->offset ) = iValue;
+		else
+			*(uint16_t *)((uint8_t *)to + pField->offset ) = iValue;
 	}
 	else if( pField->flags & DT_INTEGER )
 	{
@@ -1240,9 +1261,15 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 		}
 		else
 		{
-			iValue = *(uint *)((byte *)from + pField->offset );
+			if( bSigned )
+				iValue = *(int32_t *)((uint8_t *)from + pField->offset );
+			else
+				iValue = *(uint32_t *)((uint8_t *)from + pField->offset );
 		}
-		*(uint *)((byte *)to + pField->offset ) = iValue;
+		if( bSigned )
+			*(int32_t *)((uint8_t *)to + pField->offset ) = iValue;
+		else
+			*(uint32_t *)((uint8_t *)to + pField->offset ) = iValue;
 	}
 	else if( pField->flags & DT_FLOAT )
 	{
