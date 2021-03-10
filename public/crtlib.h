@@ -46,7 +46,7 @@ void Q_strnupr( const char *in, char *out, size_t size_out );
 #define Q_strlwr( in, out ) Q_strnlwr( in, out, 99999 )
 void Q_strnlwr( const char *in, char *out, size_t size_out );
 size_t Q_strlen( const char *string );
-int Q_colorstr( const char *string );
+size_t Q_colorstr( const char *string );
 char Q_toupper( const char in );
 char Q_tolower( const char in );
 #define Q_strcat( dst, src ) Q_strncat( dst, src, 99999 )
