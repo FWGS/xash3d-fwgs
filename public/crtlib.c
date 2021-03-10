@@ -554,7 +554,7 @@ char *Q_stristr( const char *string, const char *string2 )
 
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args )
 {
-	size_t	result;
+	int	result;
 
 #ifndef _MSC_VER
 	result = vsnprintf( buffer, buffersize, format, args );
@@ -746,7 +746,7 @@ Extracts the base name of a file (no path, no extension, assumes '/' as path sep
 */
 void COM_FileBase( const char *in, char *out )
 {
-	size_t	len, start, end;
+	int	len, start, end;
 
 	len = Q_strlen( in );
 	if( !len ) return;
