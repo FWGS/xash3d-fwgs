@@ -98,10 +98,26 @@ void main() {
 			const vec4 light_pos_r = lights[i].pos_r;
 			const vec3 light_color = lights[i].color.rgb;
 			const vec3 light_dir = light_pos_r.xyz - pos;
+			const vec3 light_dir_norm = normalize(light_dir);
+			const float dot_ld_norm = dot(light_dir_norm, normal);
+			if (dot_ld_norm <= 0.)
+				continue;
+
 			const float d2 = dot(light_dir, light_dir);
+			const float light_dist = sqrt(d2);
+
+			rayQueryEXT shadowRayQuery;
+			rayQueryInitializeEXT(shadowRayQuery, tlas,
+				gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT,
+				0xff,
+				pos + normal * .01, 0., light_dir_norm, light_dist);
+			while(rayQueryProceedEXT(shadowRayQuery)) {}
+			if (rayQueryGetIntersectionTypeEXT(shadowRayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT)
+				continue;
+
 			const float r2 = light_pos_r.w * light_pos_r.w;
 			const float attenuation = dlight_attenuation_const / (d2 + r2 * .5);
-			C += baseColor.rgb * light_color * max(0., dot(normalize(light_dir), normal)) * attenuation;
+			C += baseColor.rgb * light_color * dot_ld_norm * attenuation;
 		}
 	}
 

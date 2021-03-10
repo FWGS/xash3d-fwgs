@@ -1,10 +1,16 @@
-## 2021-03-08
-- [x] studio models normals
-- [x] (RTX) geometry indexing
+## 2021-03-10
+- [x] rtx: dlights
+- [x] rtx: dlight shadows
 
 # Next
-- [ ] (RTX) dlights
-- [ ] (RTX) textures
+- [ ] rtx: dlight soft shadows
+- [ ] rtx: path tracing
+- [ ] rtx: textures
+- [ ] rtx: blend normals according to barycentrics
+- [ ] rtx: light entities
+- [ ] rtx: add fps
+	- [ ] better AS structure (fewer blases, etc)
+	- [ ] rasterize into G-buffer, and only then compute lighting with rtx
 
 # Planned
 - [ ] restore render debug labels
@@ -104,7 +110,10 @@
 
 ## 2021-03-06
 - [x] (RTX; common) Staging vs on-GPU buffers
-- [x] (RTX) BLAS construction on buffer unlock
-- [x] (RTX) ray trace compute shader
+- [x] rtx: BLAS construction on buffer unlock
+- [x] rtx: ray trace compute shader
 - [x] dlight test
 
+## 2021-03-08
+- [x] studio models normals
+- [x] rtx: geometry indexing
