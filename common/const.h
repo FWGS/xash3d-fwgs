@@ -606,13 +606,6 @@
 #define CONTENT_GRAVITY_FLYFIELD	-18
 #define CONTENT_FOG			-19
 
-#define CONTENT_EMPTY		-1
-#define CONTENT_SOLID		-2
-#define CONTENT_WATER		-3
-#define CONTENT_SLIME		-4
-#define CONTENT_LAVA		-5
-#define CONTENT_SKY			-6
-
 // channels
 #define CHAN_AUTO			0
 #define CHAN_WEAPON			1
