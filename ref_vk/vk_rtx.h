@@ -35,7 +35,11 @@ typedef struct {
 		uint32_t size;
 	} ubo;
 
-	// TODO dlights
+	struct {
+		VkBuffer buffer;
+		uint32_t offset;
+		uint32_t size;
+	} dlights;
 
 	// Buffer holding vertex and index data
 	struct {

@@ -575,6 +575,41 @@ void VK_RenderScheduleDraw( const render_draw_t *draw )
 	draw_command->ubo_offset = g_render_state.current_ubo_offset;
 }
 
+// Return offset of dlights data into UBO buffer
+static uint32_t writeDlightsToUBO()
+{
+	vk_ubo_lights_t* ubo_lights;
+	const uint32_t ubo_lights_offset = allocUniform(sizeof(*ubo_lights), 4);
+	if (ubo_lights_offset == UINT32_MAX) {
+		gEngine.Con_Printf(S_ERROR "Cannot allocate UBO for DLights\n");
+		return UINT32_MAX;
+	}
+	ubo_lights = (vk_ubo_lights_t*)((byte*)(g_render.uniform_buffer.mapped) + ubo_lights_offset);
+
+	// TODO this should not be here (where? vk_scene?)
+	ubo_lights->num_lights = 0;
+	for (int i = 0; i < MAX_DLIGHTS; ++i) {
+		const dlight_t *l = gEngine.GetDynamicLight(i);
+		if( !l || l->die < gpGlobals->time || !l->radius )
+			continue;
+		Vector4Set(
+			ubo_lights->light[ubo_lights->num_lights].color,
+			l->color.r / 255.f,
+			l->color.g / 255.f,
+			l->color.b / 255.f,
+			1.f);
+		Vector4Set(
+			ubo_lights->light[ubo_lights->num_lights].pos_r,
+			l->origin[0],
+			l->origin[1],
+			l->origin[2],
+			l->radius);
+		ubo_lights->num_lights++;
+	}
+
+	return ubo_lights_offset;
+}
+
 void VK_RenderEnd( VkCommandBuffer cmdbuf )
 {
 	// TODO we can sort collected draw commands for more efficient and correct rendering
@@ -585,6 +620,10 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 	int lightmap = -1;
 	uint32_t ubo_offset = -1;
 
+	const uint32_t dlights_ubo_offset = writeDlightsToUBO();
+	if (dlights_ubo_offset == UINT32_MAX)
+		return;
+
 	ASSERT(!vk_core.rtx);
 
 	{
@@ -593,38 +632,7 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 		vkCmdBindIndexBuffer(cmdbuf, g_render.buffer.buffer, 0, VK_INDEX_TYPE_UINT16);
 	}
 
-	{
-		vk_ubo_lights_t* ubo_lights;
-		const uint32_t ubo_lights_offset = allocUniform(sizeof(*ubo_lights), 4);
-		if (ubo_lights_offset == UINT32_MAX) {
-			gEngine.Con_Printf(S_ERROR "Cannot allocate UBO for DLights\n");
-			return;
-		}
-		ubo_lights = (vk_ubo_lights_t*)((byte*)(g_render.uniform_buffer.mapped) + ubo_lights_offset);
-
-		// TODO this should not be here (where? vk_scene?)
-		ubo_lights->num_lights = 0;
-		for (int i = 0; i < MAX_DLIGHTS; ++i) {
-			const dlight_t *l = gEngine.GetDynamicLight(i);
-			if( !l || l->die < gpGlobals->time || !l->radius )
-				continue;
-			Vector4Set(
-				ubo_lights->light[ubo_lights->num_lights].color,
-				l->color.r / 255.f,
-				l->color.g / 255.f,
-				l->color.b / 255.f,
-				1.f);
-			Vector4Set(
-				ubo_lights->light[ubo_lights->num_lights].pos_r,
-				l->origin[0],
-				l->origin[1],
-				l->origin[2],
-				l->radius);
-			ubo_lights->num_lights++;
-		}
-
-		vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 3, 1, vk_desc.ubo_sets + 1, 1, &ubo_lights_offset);
-	}
+	vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 3, 1, vk_desc.ubo_sets + 1, 1, &dlights_ubo_offset);
 
 	for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
 		const draw_command_t *const draw = g_render_state.draw_commands + i;
@@ -684,6 +692,10 @@ void VK_RenderDebugLabelEnd( void )
 
 void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h )
 {
+	const uint32_t dlights_ubo_offset = writeDlightsToUBO();
+	if (dlights_ubo_offset == UINT32_MAX)
+		return;
+
 	ASSERT(vk_core.rtx);
 	VK_RaySceneBegin();
 	for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
@@ -723,6 +735,12 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 				.buffer = g_render.uniform_buffer.buffer,
 				.offset = allocUniform(sizeof(float) * 16 * 2, 16 * sizeof(float)),
 				.size = sizeof(float) * 16 * 2,
+			},
+
+			.dlights = {
+				.buffer = g_render.uniform_buffer.buffer,
+				.offset = dlights_ubo_offset,
+				.size = sizeof(vk_ubo_lights_t),
 			},
 
 			.geometry_data = {

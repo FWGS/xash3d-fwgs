@@ -317,6 +317,11 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 			.accelerationStructureCount = 1,
 			.pAccelerationStructures = &g_rtx.tlas,
 		};
+		const VkDescriptorBufferInfo dbi_dlights = {
+			.buffer = args->dlights.buffer,
+			.offset = args->dlights.offset,
+			.range = args->dlights.size,
+		};
 		const VkWriteDescriptorSet wds[] = {
 			{
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -371,6 +376,15 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 				.dstBinding = 5,
 				.dstArrayElement = 0,
 				.pBufferInfo = &dbi_vertices,
+			},
+			{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				.dstSet = g_rtx.desc_set,
+				.dstBinding = 6,
+				.dstArrayElement = 0,
+				.pBufferInfo = &dbi_dlights,
 			},
 		};
 
@@ -444,6 +458,11 @@ static void createLayouts( void ) {
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	}, {
+		.binding = 6,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
 	},
 	};
 
@@ -470,7 +489,7 @@ static void createLayouts( void ) {
 		VkDescriptorPoolSize pools[] = {
 			{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 1},
 			{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 3},
-			{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1},
+			{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 2},
 			{.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, .descriptorCount = 1},
 		};
 

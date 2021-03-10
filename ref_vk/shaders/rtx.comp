@@ -2,18 +2,16 @@
 #extension GL_EXT_ray_query : require
 #extension GL_EXT_shader_16bit_storage : require
 
+
 // FIXME shader specialization
 layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
-
-// struct Light {
-// 	vec4 pos_r;
-// 	vec4 color;
-// };
 
 layout(binding = 0, set = 0, rgba8) uniform image2D image;
 layout(binding = 1, set = 0) uniform accelerationStructureEXT tlas;
 layout(binding = 2, set = 0) uniform UBO {
 	mat4 inv_proj, inv_view;
+
+	// TODO combine
 	//int num_lights;
 	//Light lights[];
 } ubo;
@@ -34,6 +32,20 @@ layout(std430, binding = 3, set = 0) readonly buffer Kusochki { Kusok kusochki[]
 layout(std430, binding = 4, set = 0) readonly buffer Indices { uint16_t indices[]; };
 layout(std430, binding = 5, set = 0) readonly buffer Vertices { Vertex vertices[]; };
 
+// TODO #include, use from here and regular shader
+struct Light {
+	vec4 pos_r;
+	vec4 color;
+};
+// FIXME what should this be?
+const float dlight_attenuation_const = 5000.;
+// TODO specialize in vk_rtx.c
+layout (constant_id = 1) const uint max_dlights = 32;
+layout(set=0,binding=6) uniform UBODLights {
+	uint num_lights;
+	Light lights[max_dlights];
+};
+
 void main() {
 	vec2 res = imageSize(image);
 	vec2 uv = (gl_GlobalInvocationID.xy + .5) / res * 2. - 1.;
@@ -53,7 +65,7 @@ void main() {
 	if (rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
 		C = vec3(1., 0., 1.);
 	} else {
-		//vec3 pos = O+D*l;
+		vec3 pos = O+D*l;
 		//C = fract(pos/100.);
 
 		//const int instance_index = rayQueryGetIntersectionInstanceIdEXT(rayQuery, true);
@@ -68,18 +80,29 @@ void main() {
 		/* C.r = float(prim_index & 7) / 7.f; */
 		/* C.g = float((prim_index >> 3) & 7) / 7.f; */
 		/* C.b = float((prim_index >> 6) & 7) / 7.f; */
-	
+
 		const uint first_index_offset = kusochki[instance_index].index_offset + prim_index * 3;
 		const uint first_vertex_index = uint(indices[first_index_offset]) + kusochki[instance_index].vertex_offset;
 		const vec3 normal = vertices[first_vertex_index].normal;
 		//const vec3 normal = vertices[kusochki[instance_index].vertex_offset].normal;
 
 		//const vec3 normal = vertices[prim_index * 3].normal;
-		C = normal * .5 + .5;
+		//C = normal * .5 + .5;
 
 		/* C.r = float(first_vertex_index & 31) / 31.f; */
 		/* C.g = float((first_vertex_index >> 5) & 31) / 31.f; */
 		/* C.b = float((first_vertex_index >> 10) & 31) / 31.f; */
+
+		const vec3 baseColor = vec3(1.);
+		for (uint i = 0; i < num_lights; ++i) {
+			const vec4 light_pos_r = lights[i].pos_r;
+			const vec3 light_color = lights[i].color.rgb;
+			const vec3 light_dir = light_pos_r.xyz - pos;
+			const float d2 = dot(light_dir, light_dir);
+			const float r2 = light_pos_r.w * light_pos_r.w;
+			const float attenuation = dlight_attenuation_const / (d2 + r2 * .5);
+			C += baseColor.rgb * light_color * max(0., dot(normalize(light_dir), normal)) * attenuation;
+		}
 	}
 
 	imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(C, 1.));
