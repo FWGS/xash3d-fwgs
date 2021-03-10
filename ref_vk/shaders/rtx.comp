@@ -2,7 +2,6 @@
 #extension GL_EXT_ray_query : require
 #extension GL_EXT_shader_16bit_storage : require
 
-
 // FIXME shader specialization
 layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
 
@@ -38,13 +37,23 @@ struct Light {
 	vec4 color;
 };
 // FIXME what should this be?
-const float dlight_attenuation_const = 5000.;
+const float dlight_attenuation_const = 20000.;
 // TODO specialize in vk_rtx.c
 layout (constant_id = 1) const uint max_dlights = 32;
 layout(set=0,binding=6) uniform UBODLights {
 	uint num_lights;
 	Light lights[max_dlights];
 };
+
+// TODO find better random function
+float rand01_state;
+float rand01() {
+	return rand01_state = fract(sin(rand01_state)*54873.35729);
+}
+
+layout (push_constant) uniform PC {
+	float t;
+} pc;
 
 void main() {
 	vec2 res = imageSize(image);
@@ -66,7 +75,6 @@ void main() {
 		C = vec3(1., 0., 1.);
 	} else {
 		vec3 pos = O+D*l;
-		//C = fract(pos/100.);
 
 		//const int instance_index = rayQueryGetIntersectionInstanceIdEXT(rayQuery, true);
 		const int instance_index = rayQueryGetIntersectionInstanceCustomIndexEXT(rayQuery, true);
@@ -94,10 +102,21 @@ void main() {
 		/* C.b = float((first_vertex_index >> 10) & 31) / 31.f; */
 
 		const vec3 baseColor = vec3(1.);
+		rand01_state = fract((pos.x + pos.y + pos.z)/100.) + uv.x + uv.y + pc.t;
 		for (uint i = 0; i < num_lights; ++i) {
 			const vec4 light_pos_r = lights[i].pos_r;
 			const vec3 light_color = lights[i].color.rgb;
-			const vec3 light_dir = light_pos_r.xyz - pos;
+
+			rand01_state += fract((light_pos_r.x + light_pos_r.y + light_pos_r.z)/100.);
+
+			// Find random point on a sphere
+			// TODO proper BRDF importance sampling and correct random point distribution
+			vec3 rnd = normalize(vec3(rand01()*2.-1., rand01()*2.-1., rand01()*2.-1.));
+			if (dot(rnd, pos - light_pos_r.xyz) < 0.) rnd = -rnd;
+
+			// TODO fudge this
+			const float light_r_scaler = 10.;
+			const vec3 light_dir = light_pos_r.xyz - pos + rnd * light_pos_r.w / light_r_scaler;
 			const vec3 light_dir_norm = normalize(light_dir);
 			const float dot_ld_norm = dot(light_dir_norm, normal);
 			if (dot_ld_norm <= 0.)
@@ -116,6 +135,7 @@ void main() {
 				continue;
 
 			const float r2 = light_pos_r.w * light_pos_r.w;
+			// TODO this is a bad approximation
 			const float attenuation = dlight_attenuation_const / (d2 + r2 * .5);
 			C += baseColor.rgb * light_color * dot_ld_norm * attenuation;
 		}

@@ -422,7 +422,10 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 
 	// 4. dispatch compute
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline);
-	//vkCmdPushConstants(cmdbuf, g_rtx.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(matrix4x4), mvp);
+	{
+		const float t = gpGlobals->realtime;
+		vkCmdPushConstants(cmdbuf, g_rtx.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(float), &t);
+	}
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline_layout, 0, 1, &g_rtx.desc_set, 0, NULL);
 	vkCmdDispatch(cmdbuf, (args->dst.width+WG_W-1)/WG_W, (args->dst.height+WG_H-1)/WG_H, 1);
 }
@@ -470,18 +473,18 @@ static void createLayouts( void ) {
 
 	XVK_CHECK(vkCreateDescriptorSetLayout(vk_core.device, &dslci, NULL, &g_rtx.desc_layout));
 
-	/* VkPushConstantRange push_const = {0}; */
-	/* push_const.offset = 0; */
-	/* push_const.size = sizeof(matrix4x4); */
-	/* push_const.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT; */
+	VkPushConstantRange push_const = {0};
+	push_const.offset = 0;
+	push_const.size = sizeof(float);
+	push_const.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
 	{
 		VkPipelineLayoutCreateInfo plci = {0};
 		plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		plci.setLayoutCount = 1;
 		plci.pSetLayouts = &g_rtx.desc_layout;
-		//plci.pushConstantRangeCount = 1;
-		//plci.pPushConstantRanges = &push_const;
+		plci.pushConstantRangeCount = 1;
+		plci.pPushConstantRanges = &push_const;
 		XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &g_rtx.pipeline_layout));
 	}
 

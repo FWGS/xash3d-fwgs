@@ -1,16 +1,18 @@
 ## 2021-03-10
 - [x] rtx: dlights
 - [x] rtx: dlight shadows
+- [x] rtx: dlight soft shadows
 
 # Next
-- [ ] rtx: dlight soft shadows
+- [ ] rtx: model matrices
+- [ ] rtx: blend normals according to barycentrics
 - [ ] rtx: path tracing
 - [ ] rtx: textures
-- [ ] rtx: blend normals according to barycentrics
 - [ ] rtx: light entities
 - [ ] rtx: add fps
 	- [ ] better AS structure (fewer blases, etc)
 	- [ ] rasterize into G-buffer, and only then compute lighting with rtx
+- [ ] rtx: better random
 
 # Planned
 - [ ] restore render debug labels
