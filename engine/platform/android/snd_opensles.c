@@ -187,7 +187,6 @@ static const char *SNDDMA_Android_Init( void )
 
 	//snddma_android_mutex = trap_Mutex_Create();
 
-	snddma_android_pos = 0;
 	dma.initialized = true;
 
 	SNDDMA_Activate( true );
