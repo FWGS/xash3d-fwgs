@@ -81,10 +81,10 @@ typedef struct wadtype_s
 struct file_s
 {
 	int		handle;			// file descriptor
+	int		ungetc;			// single stored character from ungetc, cleared to EOF when read
 	fs_offset_t		real_length;		// uncompressed file size (for files opened in "read" mode)
 	fs_offset_t		position;			// current position in the file
 	fs_offset_t		offset;			// offset into the package (0 if external file)
-	int		ungetc;			// single stored character from ungetc, cleared to EOF when read
 	time_t		filetime;			// pak, wad or real filetime
 						// contents buffer
 	fs_offset_t		buff_ind, buff_len;		// buffer current index and length
@@ -100,8 +100,8 @@ struct wfile_s
 {
 	string		filename;
 	int		infotableofs;
-	byte		*mempool;			// W_ReadLump temp buffers
 	int		numlumps;
+	byte		*mempool;			// W_ReadLump temp buffers
 	file_t		*handle;
 	dlumpinfo_t	*lumps;
 	time_t		filetime;
