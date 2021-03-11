@@ -753,7 +753,7 @@ static void SV_FinishPMove( playermove_t *pmove, sv_client_t *cl )
 	VectorCopy( pmove->movedir, clent->v.movedir );
 	clent->v.flTimeStepSound = pmove->flTimeStepSound;
 	clent->v.flFallVelocity = pmove->flFallVelocity;
-	clent->v.oldbuttons = pmove->oldbuttons;
+	clent->v.oldbuttons = pmove->cmd.buttons;
 	clent->v.waterlevel = pmove->waterlevel;
 	clent->v.watertype = pmove->watertype;
 	clent->v.maxspeed = pmove->clientmaxspeed;
