@@ -1821,7 +1821,7 @@ static qboolean FS_ParseLiblistGam( const char *filename, const char *gamedir, g
 	char	*afile;
 
 	if( !GameInfo ) return false;
-	afile = (char *)FS_LoadFile( filename, NULL, false );
+	afile = (char *)FS_LoadDirectFile( filename, NULL );
 	if( !afile ) return false;
 
 	FS_InitGameInfo( GameInfo, gamedir );
@@ -1922,6 +1922,8 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 		string	filepath_ro, liblist_ro;
 		fs_offset_t roLibListTime, roGameInfoTime, rwGameInfoTime;
 
+		FS_AllowDirectPaths( true );
+
 		Q_snprintf( filepath_ro, sizeof( filepath_ro ), "%s/%s/gameinfo.txt", host.rodir, gamedir );
 		Q_snprintf( liblist_ro, sizeof( liblist_ro ), "%s/%s/liblist.gam", host.rodir, gamedir );
 
@@ -1949,6 +1951,8 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 				Mem_Free( afile_ro );
 			}
 		}
+
+		FS_AllowDirectPaths( false );
 	}
 
 	// if user change liblist.gam update the gameinfo.txt
