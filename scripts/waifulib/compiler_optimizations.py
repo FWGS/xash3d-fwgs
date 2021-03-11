@@ -74,9 +74,8 @@ CFLAGS = {
 	},
 	'debug': {
 		'msvc':    ['/Od'],
-		'gcc':     ['-Og'],
 		'owcc':    ['-O0', '-fno-omit-frame-pointer', '-funwind-tables', '-fno-omit-leaf-frame-pointer'],
-		'default': ['-O1']
+		'default': ['-O0']
 	},
 	'sanitize': {
 		'msvc':    ['/Od', '/RTC1'],
