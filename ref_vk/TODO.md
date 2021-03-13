@@ -1,13 +1,10 @@
-## 2021-03-10
-- [x] rtx: dlights
-- [x] rtx: dlight shadows
-- [x] rtx: dlight soft shadows
-
-# Next
+## 2021-03-13
+- [x] rtx: blend normals according to barycentrics
 - [ ] rtx: model matrices
-- [ ] rtx: blend normals according to barycentrics
 - [ ] rtx: path tracing
 - [ ] rtx: textures
+
+# Next
 - [ ] rtx: light entities
 - [ ] rtx: add fps
 	- [ ] better AS structure (fewer blases, etc)
@@ -119,3 +116,8 @@
 ## 2021-03-08
 - [x] studio models normals
 - [x] rtx: geometry indexing
+
+## 2021-03-10
+- [x] rtx: dlights
+- [x] rtx: dlight shadows
+- [x] rtx: dlight soft shadows
