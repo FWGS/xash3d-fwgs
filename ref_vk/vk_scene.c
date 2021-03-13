@@ -482,7 +482,7 @@ int CL_FxBlend( cl_entity_t *e ) // FIXME do R_SetupFrustum: , vec3_t vforward )
 }
 
 // Analagous to R_SetupRefParams, R_SetupFrustum in GL/Soft renderers
-static void setupCamera( const ref_viewpass_t *rvp, matrix4x4 mvp )
+static void setupCamera( const ref_viewpass_t *rvp )
 {
 	/* FIXME VK unused?
 	RI.params = RP_NONE;
@@ -538,25 +538,12 @@ static void setupCamera( const ref_viewpass_t *rvp, matrix4x4 mvp )
 	R_SetupModelviewMatrix( g_camera.modelviewMatrix );
 
 	Matrix4x4_Concat( g_camera.worldviewProjectionMatrix, g_camera.projectionMatrix, g_camera.modelviewMatrix );
-
-	{
-		// Vulkan has Y pointing down, and z should end up in (0, 1)
-		// NOTE this matrix is row-major
-		const matrix4x4 vk_proj_fixup = {
-			{1, 0, 0, 0},
-			{0, -1, 0, 0},
-			{0, 0, .5, .5},
-			{0, 0, 0, 1}
-		};
-		Matrix4x4_Concat( mvp, vk_proj_fixup, g_camera.worldviewProjectionMatrix);
-		Matrix4x4_Concat( g_camera.projectionMatrixVk, vk_proj_fixup, g_camera.projectionMatrix);
-	}
 }
 
-static void drawEntity( cl_entity_t *ent, int render_mode, const matrix4x4 mvp )
+static void drawEntity( cl_entity_t *ent, int render_mode )
 {
 	const model_t *mod = ent->model;
-	matrix4x4 model, ent_mvp;
+	matrix4x4 model;
 	float alpha;
 
 	if (!mod)
@@ -600,18 +587,17 @@ static void drawEntity( cl_entity_t *ent, int render_mode, const matrix4x4 mvp )
 	{
 		case mod_brush:
 			R_RotateForEntity( model, ent );
-			Matrix4x4_Concat( ent_mvp, mvp, model );
-			VK_RenderStateSetMatrix( ent_mvp );
+			VK_RenderStateSetMatrixModel( model );
 			VK_BrushDrawModel( ent, render_mode );
 			break;
 
 		case mod_studio:
-			VK_RenderStateSetMatrix( mvp );
+			VK_RenderStateSetMatrixModel( matrix4x4_identity );
 			VK_StudioDrawModel( ent, render_mode );
 			break;
 
 		case mod_sprite:
-			VK_RenderStateSetMatrix( mvp );
+			VK_RenderStateSetMatrixModel( matrix4x4_identity );
 			VK_SpriteDrawModel( ent );
 			break;
 
@@ -625,23 +611,22 @@ static void drawEntity( cl_entity_t *ent, int render_mode, const matrix4x4 mvp )
 static float g_frametime = 0;
 void VK_SceneRender( const ref_viewpass_t *rvp )
 {
-	matrix4x4 mvp;
 	int current_pipeline_index = kRenderNormal;
 
 	g_frametime = /*FIXME VK RP_NORMALPASS( )) ? */
 		gpGlobals->time - gpGlobals->oldtime
 	/* FIXME VK : 0.f */;
 
-	setupCamera( rvp, mvp );
+	setupCamera( rvp );
 
-	VK_RenderStateSetProjectionMatrix(g_camera.projectionMatrixVk);
-	VK_RenderStateSetViewMatrix(g_camera.modelviewMatrix);
+	VK_RenderStateSetMatrixProjection( g_camera.projectionMatrix );
+	VK_RenderStateSetMatrixView( g_camera.modelviewMatrix );
+	VK_RenderStateSetMatrixModel( matrix4x4_identity );
 
 	VK_RenderDebugLabelBegin( "opaque" );
 
 	// Draw view model
 	{
-		VK_RenderStateSetMatrix( mvp );
 		VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f );
 		R_RunViewmodelEvents();
 		R_DrawViewModel();
@@ -652,7 +637,6 @@ void VK_SceneRender( const ref_viewpass_t *rvp )
 		cl_entity_t *world = gEngine.GetEntityByIndex( 0 );
 		if( world && world->model )
 		{
-			VK_RenderStateSetMatrix( mvp );
 			VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f);
 			VK_BrushDrawModel( world, kRenderNormal );
 		}
@@ -662,7 +646,7 @@ void VK_SceneRender( const ref_viewpass_t *rvp )
 	for (int i = 0; i < g_lists.draw_list->num_solid_entities; ++i)
 	{
 		cl_entity_t *ent = g_lists.draw_list->solid_entities[i];
-		drawEntity(ent, kRenderNormal, mvp);
+		drawEntity(ent, kRenderNormal);
 	}
 
 	// Draw opaque beams
@@ -680,7 +664,7 @@ void VK_SceneRender( const ref_viewpass_t *rvp )
 		for (int i = 0; i < g_lists.draw_list->num_trans_entities; ++i)
 		{
 			const vk_trans_entity_t *ent = g_lists.draw_list->trans_entities + i;
-			drawEntity(ent->entity, ent->render_mode, mvp);
+			drawEntity(ent->entity, ent->render_mode);
 		}
 
 	}

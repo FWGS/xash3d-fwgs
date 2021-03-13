@@ -43,11 +43,10 @@ void VK_RenderBufferPrintStats( void );
 // centralize this global state in here
 void VK_RenderStateSetColor( float r, float g, float b, float a );
 // TODO void VK_RenderStateGetColor( vec4_t color );
-void VK_RenderStateSetMatrix( const matrix4x4 mvp );
-// TODO: set projection and mv matrices separately
 
-void VK_RenderStateSetProjectionMatrix(const matrix4x4 proj);
-void VK_RenderStateSetViewMatrix(const matrix4x4 view);
+void VK_RenderStateSetMatrixProjection(const matrix4x4 proj);
+void VK_RenderStateSetMatrixView(const matrix4x4 view);
+void VK_RenderStateSetMatrixModel(const matrix4x4 model);
 
 // TODO is this a good place?
 typedef struct vk_vertex_s {

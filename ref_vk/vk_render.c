@@ -447,18 +447,17 @@ static struct {
 	draw_command_t draw_commands[MAX_DRAW_COMMANDS];
 	int num_draw_commands;
 
-	// FIXME vk_rtx-specific
-	struct {
-		matrix4x4 proj_inv, view_inv;
-	} rtx;
+	matrix4x4 model, view, projection;
 } g_render_state;
 
 enum {
 	UNIFORM_UNSET = 0,
 	UNIFORM_SET_COLOR = 1,
-	UNIFORM_SET_MATRIX = 2,
-	UNIFORM_SET_ALL = UNIFORM_SET_COLOR | UNIFORM_SET_MATRIX,
-	UNIFORM_UPLOADED = 4,
+	UNIFORM_SET_MATRIX_MODEL = 2,
+	UNIFORM_SET_MATRIX_VIEW = 4,
+	UNIFORM_SET_MATRIX_PROJECTION = 8,
+	UNIFORM_SET_ALL = UNIFORM_SET_COLOR | UNIFORM_SET_MATRIX_MODEL | UNIFORM_SET_MATRIX_VIEW | UNIFORM_SET_MATRIX_PROJECTION,
+	UNIFORM_UPLOADED = 16,
 };
 
 void VK_RenderBegin( void ) {
@@ -481,26 +480,44 @@ void VK_RenderStateSetColor( float r, float g, float b, float a )
 	g_render_state.dirty_uniform_data.color[3] = a;
 }
 
-void VK_RenderStateSetMatrix( const matrix4x4 mvp )
+void VK_RenderStateSetMatrixProjection(const matrix4x4 projection)
 {
-	g_render_state.uniform_data_set_mask |= UNIFORM_SET_MATRIX;
-	Matrix4x4_ToArrayFloatGL( mvp, (float*)g_render_state.dirty_uniform_data.mvp );
+	g_render_state.uniform_data_set_mask |= UNIFORM_SET_MATRIX_PROJECTION;
+
+	// Vulkan has Y pointing down, and z should end up in (0, 1)
+	// NOTE this matrix is row-major
+	static const matrix4x4 vk_proj_fixup = {
+		{1, 0, 0, 0},
+		{0, -1, 0, 0},
+		{0, 0, .5, .5},
+		{0, 0, 0, 1}
+	};
+
+	Matrix4x4_Concat( g_render_state.projection, vk_proj_fixup, projection );
 }
 
-void VK_RenderStateSetProjectionMatrix(const matrix4x4 proj_vk)
+void VK_RenderStateSetMatrixView(const matrix4x4 view)
 {
-	matrix4x4 proj_inv_row;
-	Matrix4x4_Invert_Full(proj_inv_row, proj_vk);
-	Matrix4x4_ToArrayFloatGL(proj_inv_row, (float*)g_render_state.rtx.proj_inv);
+	g_render_state.uniform_data_set_mask |= UNIFORM_SET_MATRIX_VIEW;
+	Matrix4x4_Copy(g_render_state.view, view);
 }
 
-void VK_RenderStateSetViewMatrix(const matrix4x4 view)
+void VK_RenderStateSetMatrixModel( const matrix4x4 model )
 {
-	// TODO there's a more efficient way to construct an inverse view matrix
-	// from vforward/right/up vectors and origin in g_camera
-	matrix4x4 tmp;
-	Matrix4x4_Invert_Full(tmp, view);
-	Matrix4x4_ToArrayFloatGL( tmp, (float*)g_render_state.rtx.view_inv);
+	g_render_state.uniform_data_set_mask |= UNIFORM_SET_MATRIX_MODEL;
+	Matrix4x4_Copy(g_render_state.model, model);
+
+	// Assume that projection and view matrices are already properly set
+	ASSERT(g_render_state.uniform_data_set_mask & UNIFORM_SET_MATRIX_VIEW);
+	ASSERT(g_render_state.uniform_data_set_mask & UNIFORM_SET_MATRIX_PROJECTION);
+
+	{
+		matrix4x4 mv, mvp;
+		// TODO this can be cached (on a really slow device?)
+		Matrix4x4_Concat(mv, g_render_state.view, g_render_state.model);
+		Matrix4x4_Concat(mvp, g_render_state.projection, mv);
+		Matrix4x4_ToArrayFloatGL(mvp, (float*)g_render_state.dirty_uniform_data.mvp);
+	}
 }
 
 static uint32_t allocUniform( uint32_t size, uint32_t alignment ) {
@@ -715,7 +732,6 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 	}
 
 	{
-		float *matrices = NULL;
 		const vk_ray_scene_render_args_t args = {
 			.cmdbuf = cmdbuf,
 			.dst = {
@@ -727,8 +743,8 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 			// FIXME this should really be in vk_rtx, calling vk_render(or what?) to alloc slot for it
 			.ubo = {
 				.buffer = g_render.uniform_buffer.buffer,
-				.offset = allocUniform(sizeof(float) * 16 * 2, 16 * sizeof(float)),
-				.size = sizeof(float) * 16 * 2,
+				.offset = allocUniform(sizeof(matrix4x4) * 2, sizeof(matrix4x4)),
+				.size = sizeof(matrix4x4) * 2,
 			},
 
 			.dlights = {
@@ -748,8 +764,17 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 			return;
 		}
 
-		matrices = (float*)((byte*)g_render.uniform_buffer.mapped + args.ubo.offset);
-		memcpy(matrices, &g_render_state.rtx, sizeof(g_render_state.rtx));
+		{
+			matrix4x4 *ubo_matrices = (matrix4x4*)((byte*)g_render.uniform_buffer.mapped + args.ubo.offset);
+			matrix4x4 proj_inv, view_inv;
+			Matrix4x4_Invert_Full(proj_inv, g_render_state.projection);
+			Matrix4x4_ToArrayFloatGL(proj_inv, (float*)ubo_matrices[0]);
+
+			// TODO there's a more efficient way to construct an inverse view matrix
+			// from vforward/right/up vectors and origin in g_camera
+			Matrix4x4_Invert_Full(view_inv, g_render_state.view);
+			Matrix4x4_ToArrayFloatGL(view_inv, (float*)ubo_matrices[1]);
+		}
 
 		VK_RaySceneEnd(&args);
 	}

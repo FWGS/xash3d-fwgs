@@ -556,14 +556,14 @@ static void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scal
 
 	length = VectorLength( delta ) * 0.01f;
 	if( length < 0.5f ) length = 0.5f;	// don't lose all of the noise/texture on short beams
-		
+
 	div = 1.0f / (segments - 1);
 	vStep = length * div;		// texture length texels per space pixel
-	
+
 	// Scroll speed 3.5 -- initial texture position, scrolls 3.5/sec (1.0 is entire texture)
 	vLast = fmod( freq * speed, 1 );
 	scale = scale * length;
-	
+
 	for ( i = 0; i < segments; i++ )
 	{
 		float	s, c;
@@ -670,7 +670,7 @@ static void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 	// Build point along noraml line (normal is -y, x)
 	VectorScale( g_camera.vup, tmp[0], normal );	// Build point along normal line (normal is -y, x)
 	VectorMA( normal, tmp[1], g_camera.vright, normal );
-	
+
 	// Make a wide line
 	VectorMA( delta, pbeam->width, normal, last1 );
 	VectorMA( delta, -pbeam->width, normal, last2 );
@@ -704,7 +704,7 @@ static void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 		// Make a wide line
 		VectorMA( particles->org, pbeam->width, normal, last1 );
 		VectorMA( particles->org, -pbeam->width, normal, last2 );
-		
+
 		vLast += vStep;	// Advance texture scroll (v axis only)
 
 		if( particles->next != NULL )
@@ -755,13 +755,13 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 
 	VectorClear( screenLast );
 	segments = segments * M_PI_F;
-	
+
 	if( segments > NOISE_DIVISIONS * 8 )
 		segments = NOISE_DIVISIONS * 8;
 
 	length = VectorLength( delta ) * 0.01f * M_PI_F;
 	if( length < 0.5f ) length = 0.5f;		// Don't lose all of the noise/texture on short beams
-		
+
 	div = 1.0f / ( segments - 1 );
 
 	vStep = length * div / 8.0f;			// texture length texels per space pixel
@@ -779,7 +779,7 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 
 	VectorCopy( delta, xaxis );
 	radius = VectorLength( xaxis );
-	
+
 	// cull beamring
 	// --------------------------------
 	// Compute box center +/- radius
@@ -796,7 +796,7 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 		return;
 	}
 
-	VectorSet( yaxis, xaxis[1], -xaxis[0], 0.0f ); 
+	VectorSet( yaxis, xaxis[1], -xaxis[0], 0.0f );
 	VectorNormalize( yaxis );
 	VectorScale( yaxis, radius, yaxis );
 
@@ -807,7 +807,7 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 		fraction = i * div;
 		SinCos( fraction * M_PI2_F, &x, &y );
 
-		VectorMAMAM( x, xaxis, y, yaxis, 1.0f, center, point ); 
+		VectorMAMAM( x, xaxis, y, yaxis, 1.0f, center, point );
 
 		// distort using noise
 		factor = rgNoise[(noiseIndex >> 16) & (NOISE_DIVISIONS - 1)] * scale;
@@ -817,7 +817,7 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 		factor = rgNoise[(noiseIndex >> 16) & (NOISE_DIVISIONS - 1)] * scale;
 		factor *= cos( fraction * M_PI_F * 24 + freq );
 		VectorMA( point, factor, g_camera.vright, point );
-		
+
 		// Transform point into screen space
 		TriWorldToScreen( point, screen );
 
@@ -833,7 +833,7 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 			// Build point along normal line (normal is -y, x)
 			VectorScale( g_camera.vup, tmp[0], normal );
 			VectorMA( normal, tmp[1], g_camera.vright, normal );
-			
+
 			// Make a wide line
 			VectorMA( point, width, normal, last1 );
 			VectorMA( point, -width, normal, last2 );
@@ -1104,17 +1104,9 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	else
 		color[3] = pbeam->brightness;
 
-	{
-		matrix4x4 tmp;
-		const matrix4x4 vk_proj_fixup = {
-			{1, 0, 0, 0},
-			{0, -1, 0, 0},
-			{0, 0, .5, 0},
-			{0, 0, .5, 1}
-		};
-		Matrix4x4_Concat( tmp, vk_proj_fixup, g_camera.worldviewProjectionMatrix);
-		VK_RenderStateSetMatrix( tmp );
-	}
+	// FIXME VK what is our vk_render matrix state now? do we have all matrices set properly?
+	// TODO this can be done only once for all beams, i.e. before calling CL_DrawEFX
+	VK_RenderStateSetMatrixModel( matrix4x4_identity );
 
 	// TODO gl renderer has per-vertex color that is updated using brightness and whatever
 	VK_RenderStateSetColor( color[0], color[1], color[2], color[3] );

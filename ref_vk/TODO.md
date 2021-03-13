@@ -1,6 +1,7 @@
 ## 2021-03-13
 - [x] rtx: blend normals according to barycentrics
 - [x] rtx: (debug/dev) shader reload
+- [x] rtx: make projection matrix independent render global/current/static state
 - [ ] rtx: model matrices
 - [ ] rtx: path tracing
 - [ ] rtx: textures
@@ -16,7 +17,6 @@
 - [ ] restore render debug labels
 - [ ] make 2nd commad buffer for resource upload
 - [ ] fix sprite blending; there are commented out functions that we really need (see tunnel before the helicopter in the very beginning)
-- [ ] RTX: make projection matrix independent render global/current/static state
 - [ ] fix projection matrix differences w/ gl render
 - [ ] bad condition for temp vs map-permanent buffer error message
 - [ ] draw more types of beams
@@ -37,11 +37,10 @@
 - [ ] flashlight
 - [ ] screenshot
 - [ ] fog
-- [ ] RTX
 - [ ] studio models survive NewMap; need to compactify buffers after removing all brushes
 - [ ] sometimes it gets very slow (1fps) when ran under lldb (only on stream?)
 - [ ] optimize perf: cmdbuf managements and semaphores, upload to gpu, ...
-- [ ] RTX: studio models should not pre-transform vertices with modelView matrix
+- [ ] rtx: studio models should not pre-transform vertices with modelView matrix
 
 # Someday
 - [ ] start building command buffers in beginframe

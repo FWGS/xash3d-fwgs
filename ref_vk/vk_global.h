@@ -20,8 +20,6 @@ typedef struct vk_global_camera_s {
 
 	matrix4x4		projectionMatrix;
 	matrix4x4		worldviewProjectionMatrix;	// worldviewMatrix * projectionMatrix
-
-	matrix4x4		projectionMatrixVk;
 } vk_global_camera_t;
 
 extern vk_global_camera_t g_camera;
