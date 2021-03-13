@@ -2,16 +2,17 @@
 - [x] rtx: blend normals according to barycentrics
 - [x] rtx: (debug/dev) shader reload
 - [x] rtx: make projection matrix independent render global/current/static state
-- [ ] rtx: model matrices
-- [ ] rtx: path tracing
-- [ ] rtx: textures
+- [x] rtx: model matrices
 
 # Next
 - [ ] rtx: light entities
+- [ ] rtx: path tracing
+- [ ] rtx: textures
 - [ ] rtx: add fps
 	- [ ] better AS structure (fewer blases, etc)
 	- [ ] rasterize into G-buffer, and only then compute lighting with rtx
 - [ ] rtx: better random
+- [ ] rtx: some studio models have glitchy geometry
 
 # Planned
 - [ ] restore render debug labels

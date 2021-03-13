@@ -434,6 +434,7 @@ typedef struct {
 	render_draw_t draw;
 	uint32_t ubo_offset;
 	//char debug_name[MAX_DEBUG_NAME_LENGTH];
+	matrix3x4 transform;
 } draw_command_t;
 
 static struct {
@@ -584,6 +585,7 @@ void VK_RenderScheduleDraw( const render_draw_t *draw )
 	draw_command = g_render_state.draw_commands + (g_render_state.num_draw_commands++);
 	draw_command->draw = *draw;
 	draw_command->ubo_offset = g_render_state.current_ubo_offset;
+	Matrix3x4_Copy(draw_command->transform, g_render_state.model);
 }
 
 // Return offset of dlights data into UBO buffer
@@ -720,12 +722,13 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 		// but here we've completely lost this info, as models are now just a stream
 		// of independent draws
 
-		const vk_ray_model_create_t ray_model_args = {
+		vk_ray_model_create_t ray_model_args = {
 			.element_count = draw->draw.element_count,
 			.max_vertex = vertex_buffer->count, // TODO this is an upper bound for brushes at least, it can be lowered
 			.index_offset = index_buffer ? (draw->draw.index_offset + index_buffer->buffer_offset_in_units) : UINT32_MAX,
 			.vertex_offset = (draw->draw.vertex_offset + vertex_buffer->buffer_offset_in_units),
 			.buffer = g_render.buffer.buffer,
+			.transform_row = &draw->transform,
 		};
 
 		VK_RayScenePushModel(cmdbuf, &ray_model_args);

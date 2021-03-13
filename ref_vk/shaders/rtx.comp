@@ -81,6 +81,7 @@ void main() {
 
 		//rayQueryGetIntersectionGeometryIndexEXT
 		const int prim_index = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
+		const mat4x3 transform = rayQueryGetIntersectionObjectToWorldEXT(rayQuery, true);
 
 		const uint first_index_offset = kusochki[instance_index].index_offset + prim_index * 3;
 		const uint vi1 = uint(indices[first_index_offset+0]) + kusochki[instance_index].vertex_offset;
@@ -91,8 +92,9 @@ void main() {
 		const vec3 n3 = vertices[vi3].normal;
 
 		const vec2 bary = rayQueryGetIntersectionBarycentricsEXT(rayQuery, true);
-		const vec3 normal = normalize(n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y);
+		const vec3 normal = normalize(transpose(inverse(mat3(transform))) * (n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y));
 		// TODO rotate normal accroding to model matrix
+
 
 		const vec3 baseColor = vec3(1.);
 		rand01_state = fract((pos.x + pos.y + pos.z)/100.) + uv.x + uv.y + pc.t;
