@@ -100,28 +100,25 @@ static qboolean createPipelines( void )
 			.pData = &spec_data
 		};
 
-		VkVertexInputAttributeDescription attribs[] = {
+		const VkVertexInputAttributeDescription attribs[] = {
 			{.binding = 0, .location = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(vk_vertex_t, pos)},
 			{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(vk_vertex_t, normal)},
 			{.binding = 0, .location = 2, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vk_vertex_t, gl_tc)},
 			{.binding = 0, .location = 3, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vk_vertex_t, lm_tc)},
 		};
 
-		VkPipelineShaderStageCreateInfo shader_stages[] = {
+		const vk_shader_stage_t shader_stages[] = {
 		{
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_VERTEX_BIT,
-			.module = loadShader("brush.vert.spv"),
-			.pName = "main",
+			.filename = "brush.vert.spv",
+			.specialization_info = NULL,
 		}, {
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.module = loadShader("brush.frag.spv"),
-			.pName = "main",
-			.pSpecializationInfo = &shader_spec,
+			.filename = "brush.frag.spv",
+			.specialization_info = &shader_spec,
 		}};
 
-		vk_pipeline_create_info_t ci = {
+		vk_pipeline_graphics_create_info_t ci = {
 			.layout = g_render.pipeline_layout,
 			.attribs = attribs,
 			.num_attribs = ARRAYSIZE(attribs),
@@ -210,7 +207,7 @@ static qboolean createPipelines( void )
 					ASSERT(!"Unreachable");
 			}
 
-			g_render.pipelines[i] = createPipeline(&ci);
+			g_render.pipelines[i] = VK_PipelineGraphicsCreate(&ci);
 
 			if (!g_render.pipelines[i])
 			{
@@ -229,9 +226,6 @@ static qboolean createPipelines( void )
 				XVK_CHECK(vkSetDebugUtilsObjectNameEXT(vk_core.device, &debug_name));
 			}
 		}
-
-		for (int i = 0; i < (int)ARRAYSIZE(shader_stages); ++i)
-			vkDestroyShaderModule(vk_core.device, shader_stages[i].module, NULL);
 	}
 
 	return true;

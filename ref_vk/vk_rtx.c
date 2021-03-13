@@ -4,6 +4,7 @@
 #include "vk_common.h"
 #include "vk_render.h"
 #include "vk_buffer.h"
+#include "vk_pipeline.h"
 
 #include "eiface.h"
 
@@ -52,6 +53,8 @@ static struct {
 
 	VkAccelerationStructureKHR accels[MAX_ACCELS];
 	VkAccelerationStructureKHR tlas;
+
+	qboolean reload_pipeline;
 } g_rtx;
 
 static struct {
@@ -221,11 +224,30 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 	}
 }
 
+static void createPipeline( void )
+{
+	const vk_pipeline_compute_create_info_t ci = {
+		.layout = g_rtx.pipeline_layout,
+		.shader_filename = "rtx.comp.spv",
+	};
+
+	g_rtx.pipeline = VK_PipelineComputeCreate(&ci);
+	ASSERT(g_rtx.pipeline);
+}
+
 void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 {
 	ASSERT(vk_core.rtx);
 	ASSERT(args->ubo.size == sizeof(float) * 16 * 2); // ubo should contain two matrices
 	const VkCommandBuffer cmdbuf = args->cmdbuf;
+
+	if (g_rtx.reload_pipeline) {
+		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
+		// TODO gracefully handle reload errors: need to change createPipeline, loadShader, VK_PipelineCreate...
+		vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
+		createPipeline();
+		g_rtx.reload_pipeline = false;
+	}
 
 	// Upload all blas instances references to GPU mem
 	{
@@ -514,20 +536,8 @@ static void createLayouts( void ) {
 	}
 }
 
-static void createPipeline( void ) {
-	VkComputePipelineCreateInfo cpci = {
-		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-		.layout = g_rtx.pipeline_layout,
-		.stage = (VkPipelineShaderStageCreateInfo){
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-			.module = loadShader("rtx.comp.spv"),
-			.pName = "main",
-		},
-	};
-
-	XVK_CHECK(vkCreateComputePipelines(vk_core.device, VK_NULL_HANDLE, 1, &cpci, NULL, &g_rtx.pipeline));
-	vkDestroyShaderModule(vk_core.device, cpci.stage.module, NULL);
+static void reloadPipeline( void ) {
+	g_rtx.reload_pipeline = true;
 }
 
 qboolean VK_RayInit( void )
@@ -568,6 +578,9 @@ qboolean VK_RayInit( void )
 
 	createLayouts();
 	createPipeline();
+
+	if (vk_core.debug)
+		gEngine.Cmd_AddCommand("vk_rtx_reload", reloadPipeline, "Reload RTX shader");
 
 	return true;
 }

@@ -4,6 +4,8 @@
 
 #include "eiface.h"
 
+#define MAX_STAGES 2
+
 static struct {
 	VkPipelineCache cache;
 } g_pipeline;
@@ -25,7 +27,7 @@ void VK_PipelineShutdown( void )
 	vkDestroyPipelineCache(vk_core.device, g_pipeline.cache, NULL);
 }
 
-VkPipeline createPipeline(const vk_pipeline_create_info_t *ci)
+VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *ci)
 {
 	VkVertexInputBindingDescription vibd = {
 		.binding = 0,
@@ -100,10 +102,12 @@ VkPipeline createPipeline(const vk_pipeline_create_info_t *ci)
 		.pDynamicStates = dynamic_states,
 	};
 
+	VkPipelineShaderStageCreateInfo stage_create_infos[MAX_STAGES];
+
 	VkGraphicsPipelineCreateInfo gpci = {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.stageCount = ci->num_stages,
-		.pStages = ci->stages,
+		.pStages = stage_create_infos,
 		.pVertexInputState = &vertex_input,
 		.pInputAssemblyState = &input_assembly,
 		.pViewportState = &viewport_state,
@@ -117,8 +121,45 @@ VkPipeline createPipeline(const vk_pipeline_create_info_t *ci)
 		.subpass = 0,
 	};
 
+	if (ci->num_stages > MAX_STAGES)
+		return VK_NULL_HANDLE;
+
+	for (int i = 0; i < ci->num_stages; ++i) {
+		stage_create_infos[i] = (VkPipelineShaderStageCreateInfo){
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = ci->stages[i].stage,
+			.module = loadShader(ci->stages[i].filename),
+			.pSpecializationInfo = ci->stages[i].specialization_info,
+			.pName = "main",
+		};
+	}
+
 	VkPipeline pipeline;
 	XVK_CHECK(vkCreateGraphicsPipelines(vk_core.device, g_pipeline.cache, 1, &gpci, NULL, &pipeline));
+
+	for (int i = 0; i < ci->num_stages; ++i) {
+		vkDestroyShaderModule(vk_core.device, stage_create_infos[i].module, NULL);
+	}
+
+	return pipeline;
+}
+
+VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci) {
+	const VkComputePipelineCreateInfo cpci = {
+		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+		.layout = ci->layout,
+		.stage = (VkPipelineShaderStageCreateInfo){
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_COMPUTE_BIT,
+			.module = loadShader(ci->shader_filename),
+			.pName = "main",
+			.pSpecializationInfo = ci->specialization_info,
+		},
+	};
+
+	VkPipeline pipeline;
+	XVK_CHECK(vkCreateComputePipelines(vk_core.device, VK_NULL_HANDLE, 1, &cpci, NULL, &pipeline));
+	vkDestroyShaderModule(vk_core.device, cpci.stage.module, NULL);
 
 	return pipeline;
 }

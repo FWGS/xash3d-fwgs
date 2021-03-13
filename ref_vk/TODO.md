@@ -1,5 +1,6 @@
 ## 2021-03-13
 - [x] rtx: blend normals according to barycentrics
+- [x] rtx: (debug/dev) shader reload
 - [ ] rtx: model matrices
 - [ ] rtx: path tracing
 - [ ] rtx: textures

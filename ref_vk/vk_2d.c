@@ -185,26 +185,22 @@ static qboolean createPipelines( void )
 	}
 
 	{
-		VkVertexInputAttributeDescription attribs[] = {
+		const VkVertexInputAttributeDescription attribs[] = {
 			{.binding = 0, .location = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vertex_2d_t, x)},
 			{.binding = 0, .location = 1, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vertex_2d_t, u)},
 			{.binding = 0, .location = 2, .format = VK_FORMAT_R8G8B8A8_UNORM, .offset = offsetof(vertex_2d_t, color)},
 		};
 
-		VkPipelineShaderStageCreateInfo shader_stages[] = {
+		const vk_shader_stage_t shader_stages[] = {
 		{
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_VERTEX_BIT,
-			.module = loadShader("2d.vert.spv"),
-			.pName = "main",
+			.filename = "2d.vert.spv",
 		}, {
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.module = loadShader("2d.frag.spv"),
-			.pName = "main",
+			.filename = "2d.frag.spv",
 		}};
 
-		vk_pipeline_create_info_t pci = {
+		vk_pipeline_graphics_create_info_t pci = {
 			.layout = g2d.pipeline_layout,
 			.attribs = attribs,
 			.num_attribs = ARRAYSIZE(attribs),
@@ -247,7 +243,7 @@ static qboolean createPipelines( void )
 					break;
 			}
 
-			g2d.pipelines[i] = createPipeline(&pci);
+			g2d.pipelines[i] = VK_PipelineGraphicsCreate(&pci);
 
 			if (!g2d.pipelines[i])
 			{
@@ -255,9 +251,6 @@ static qboolean createPipelines( void )
 				return false;
 			}
 		}
-
-	for (int i = 0; i < (int)ARRAYSIZE(shader_stages); ++i)
-		vkDestroyShaderModule(vk_core.device, shader_stages[i].module, NULL);
 	}
 
 	return true;

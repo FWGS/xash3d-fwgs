@@ -1,11 +1,17 @@
 #include "vk_core.h"
 
 typedef struct {
+  const char *filename;
+	VkShaderStageFlagBits stage;
+	VkSpecializationInfo *specialization_info;
+} vk_shader_stage_t;
+
+typedef struct {
 	VkPipelineLayout layout;
 	VkVertexInputAttributeDescription *attribs;
 	uint32_t num_attribs;
 
-	VkPipelineShaderStageCreateInfo *stages;
+	vk_shader_stage_t *stages;
 	uint32_t num_stages;
 
 	uint32_t vertex_stride;
@@ -23,9 +29,17 @@ typedef struct {
   VkBlendOp                alphaBlendOp;
 
   VkCullModeFlags cullMode;
-} vk_pipeline_create_info_t;
+} vk_pipeline_graphics_create_info_t;
 
-VkPipeline createPipeline(const vk_pipeline_create_info_t *ci);
+VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *ci);
+
+typedef struct {
+	VkPipelineLayout layout;
+  const char *shader_filename;
+	VkSpecializationInfo *specialization_info;
+} vk_pipeline_compute_create_info_t;
+
+VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci);
 
 qboolean VK_PipelineInit( void );
 void VK_PipelineShutdown( void );
