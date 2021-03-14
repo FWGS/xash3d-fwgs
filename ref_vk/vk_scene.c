@@ -79,6 +79,96 @@ int R_FIXME_GetEntityRenderMode( cl_entity_t *ent )
 	return ent->curstate.rendermode;
 }
 
+static void parseLights( void ) {
+	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+	char *pos;
+	enum {
+		Unknown,
+		Light, LightSpot,
+	} classname = Unknown;
+	struct {
+		vec3_t origin;
+		vec3_t color;
+		//float radius;
+		int style;
+	} light = {0};
+	enum {
+		HaveOrigin = 1,
+		HaveColor = 2,
+		//HaveStyle = 4,
+		HaveClass = 8,
+		HaveAll = HaveOrigin | HaveColor | HaveClass,
+	};
+	unsigned int have = 0;
+
+	ASSERT(world);
+
+	pos = world->entities;
+	for (;;) {
+		string key, value;
+
+		pos = gEngine.COM_ParseFile(pos, key);
+		if (!pos)
+			break;
+		if (key[0] == '{') {
+			classname = Unknown;
+			have = 0;
+			continue;
+		}
+		if (key[0] == '}') {
+			// TODO handle entity
+			if (have != HaveAll)
+				continue;
+			if (classname != Light && classname != LightSpot)
+				continue;
+			VK_RenderAddStaticLight(light.origin, light.color);
+			continue;
+		}
+
+		pos = gEngine.COM_ParseFile(pos, value);
+		if (!pos)
+			break;
+
+		if (Q_strcmp(key, "origin") == 0) {
+			const int components = sscanf(value, "%f %f %f",
+				&light.origin[0],
+				&light.origin[1],
+				&light.origin[2]);
+			if (components == 3)
+				have |= HaveOrigin;
+		} else
+		if (Q_strcmp(key, "_light") == 0) {
+			float scale = 1.f / 255.f;
+			const int components = sscanf(value, "%f %f %f %f",
+				&light.color[0],
+				&light.color[1],
+				&light.color[2],
+				&scale);
+			if (components == 1) {
+				light.color[2] = light.color[1] = light.color[0] = light.color[0] / 255.f;
+				have |= HaveColor;
+			} else if (components == 4) {
+				scale /= 255.f * 255.f;
+				light.color[0] *= scale;
+				light.color[1] *= scale;
+				light.color[2] *= scale;
+				have |= HaveColor;
+			} else if (components == 3) {
+				light.color[0] *= scale;
+				light.color[1] *= scale;
+				light.color[2] *= scale;
+				have |= HaveColor;
+			}
+		} else if (Q_strcmp(key, "classname") == 0) {
+			if (Q_strcmp(value, "light") == 0)
+				classname = Light;
+			else if (Q_strcmp(value, "light_spot") == 0)
+				classname = LightSpot;
+			have |= HaveClass;
+		}
+	}
+}
+
 // tell the renderer what new map is started
 void R_NewMap( void )
 {
@@ -99,6 +189,8 @@ void R_NewMap( void )
 	// have not been destroyed, which prevents them from being loaded ("again").
 	// This leads to ASSERTS firing when trying to draw erased buffers.
 	VK_RenderBufferClearMap();
+
+	parseLights();
 
 	// Load all models at once
 	gEngine.Con_Reportf( "Num models: %d:\n", num_models );

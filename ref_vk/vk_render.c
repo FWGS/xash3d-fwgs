@@ -55,6 +55,11 @@ static struct {
 	vk_buffer_alloc_t allocs[MAX_ALLOCS];
 	int allocs_free[MAX_ALLOCS];
 	int num_free_allocs;
+
+	struct {
+		vec3_t origin, color;
+	} static_lights[32];
+	int num_static_lights;
 } g_render;
 
 static qboolean createPipelines( void )
@@ -405,7 +410,8 @@ void VK_RenderBufferClearFrame( void )
 
 		if (alloc->lifetime != LifetimeSingleFrame)
 			continue;
-alloc->unit_size = 0;
+
+		alloc->unit_size = 0;
 		g_render.allocs_free[g_render.num_free_allocs++] = i;
 		ASSERT(g_render.num_free_allocs <= MAX_ALLOCS);
 	}
@@ -416,6 +422,7 @@ void VK_RenderBufferClearMap( void )
 {
 	g_render.buffer_free_offset = g_render.buffer_frame_begin_offset = 0;
 	g_render.stat.align_holes_size = 0;
+	g_render.num_static_lights = 0;
 	resetAllocFreeList();
 }
 
@@ -588,10 +595,21 @@ void VK_RenderScheduleDraw( const render_draw_t *draw )
 	Matrix3x4_Copy(draw_command->transform, g_render_state.model);
 }
 
+void VK_RenderAddStaticLight(vec3_t origin, vec3_t color)
+{
+	if (g_render.num_static_lights == ARRAYSIZE(g_render.static_lights))
+		return;
+
+	VectorCopy(origin, g_render.static_lights[g_render.num_static_lights].origin);
+	VectorCopy(color, g_render.static_lights[g_render.num_static_lights].color);
+	g_render.num_static_lights++;
+}
+
 // Return offset of dlights data into UBO buffer
 static uint32_t writeDlightsToUBO()
 {
 	vk_ubo_lights_t* ubo_lights;
+	int num_lights = 0;
 	const uint32_t ubo_lights_offset = allocUniform(sizeof(*ubo_lights), 4);
 	if (ubo_lights_offset == UINT32_MAX) {
 		gEngine.Con_Printf(S_ERROR "Cannot allocate UBO for DLights\n");
@@ -599,27 +617,45 @@ static uint32_t writeDlightsToUBO()
 	}
 	ubo_lights = (vk_ubo_lights_t*)((byte*)(g_render.uniform_buffer.mapped) + ubo_lights_offset);
 
+	for (int i = 0; i < g_render.num_static_lights && num_lights < ARRAYSIZE(ubo_lights->light); ++i) {
+		Vector4Set(
+			ubo_lights->light[num_lights].color,
+			g_render.static_lights[i].color[0],
+			g_render.static_lights[i].color[1],
+			g_render.static_lights[i].color[2],
+			1.f);
+		Vector4Set(
+			ubo_lights->light[num_lights].pos_r,
+			g_render.static_lights[i].origin[0],
+			g_render.static_lights[i].origin[1],
+			g_render.static_lights[i].origin[2],
+			50.f /* FIXME WHAT */);
+
+		num_lights++;
+	}
+
 	// TODO this should not be here (where? vk_scene?)
-	ubo_lights->num_lights = 0;
-	for (int i = 0; i < MAX_DLIGHTS; ++i) {
+	for (int i = 0; i < MAX_DLIGHTS && num_lights < ARRAYSIZE(ubo_lights->light); ++i) {
 		const dlight_t *l = gEngine.GetDynamicLight(i);
 		if( !l || l->die < gpGlobals->time || !l->radius )
 			continue;
 		Vector4Set(
-			ubo_lights->light[ubo_lights->num_lights].color,
+			ubo_lights->light[num_lights].color,
 			l->color.r / 255.f,
 			l->color.g / 255.f,
 			l->color.b / 255.f,
 			1.f);
 		Vector4Set(
-			ubo_lights->light[ubo_lights->num_lights].pos_r,
+			ubo_lights->light[num_lights].pos_r,
 			l->origin[0],
 			l->origin[1],
 			l->origin[2],
 			l->radius);
-		ubo_lights->num_lights++;
+
+		num_lights++;
 	}
 
+	ubo_lights->num_lights = num_lights;
 	return ubo_lights_offset;
 }
 

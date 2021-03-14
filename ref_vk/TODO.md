@@ -3,9 +3,9 @@
 - [x] rtx: (debug/dev) shader reload
 - [x] rtx: make projection matrix independent render global/current/static state
 - [x] rtx: model matrices
+- [x] rtx: light entities -- still not enough to enlight maps :(
 
 # Next
-- [ ] rtx: light entities
 - [ ] rtx: path tracing
 - [ ] rtx: textures
 - [ ] rtx: add fps
@@ -15,6 +15,8 @@
 - [ ] rtx: some studio models have glitchy geometry
 
 # Planned
+- [ ] rtx: lower resolution framebuffer + upscale
+- [ ] dlight for flashlight seems to be broken
 - [ ] restore render debug labels
 - [ ] make 2nd commad buffer for resource upload
 - [ ] fix sprite blending; there are commented out functions that we really need (see tunnel before the helicopter in the very beginning)

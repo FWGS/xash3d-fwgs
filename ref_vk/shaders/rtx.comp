@@ -102,7 +102,8 @@ void main() {
 			const vec4 light_pos_r = lights[i].pos_r;
 			const vec3 light_color = lights[i].color.rgb;
 
-			rand01_state += fract((light_pos_r.x + light_pos_r.y + light_pos_r.z)/100.);
+			rand01_state = fract((pos.x + pos.y + pos.z)/100.) + uv.x + uv.y + fract(pc.t) + i;
+			//rand01_state += fract(fract(pc.t) + i + (light_pos_r.x + light_pos_r.y + light_pos_r.z)/1000.);
 
 			// Find random point on a sphere
 			// TODO proper BRDF importance sampling and correct random point distribution
