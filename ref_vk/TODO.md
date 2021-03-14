@@ -4,9 +4,11 @@
 - [x] rtx: make projection matrix independent render global/current/static state
 - [x] rtx: model matrices
 - [x] rtx: light entities -- still not enough to enlight maps :(
+- [x] rtx: path tracing
 
 # Next
-- [ ] rtx: path tracing
+- [ ] rtx: control bounces with cvars
+- [ ] rtx: lower resolution framebuffer + upscale
 - [ ] rtx: textures
 - [ ] rtx: add fps
 	- [ ] better AS structure (fewer blases, etc)
@@ -15,7 +17,6 @@
 - [ ] rtx: some studio models have glitchy geometry
 
 # Planned
-- [ ] rtx: lower resolution framebuffer + upscale
 - [ ] dlight for flashlight seems to be broken
 - [ ] restore render debug labels
 - [ ] make 2nd commad buffer for resource upload
