@@ -1,13 +1,12 @@
-## 2021-03-13
-- [x] rtx: blend normals according to barycentrics
-- [x] rtx: (debug/dev) shader reload
-- [x] rtx: make projection matrix independent render global/current/static state
-- [x] rtx: model matrices
-- [x] rtx: light entities -- still not enough to enlight maps :(
-- [x] rtx: path tracing
+## 2021-03-15
+- [x] rtx: control bounces with cvars
+- [ ] rtx: don't group brush draws by texture
+- [ ] rtx: emissive materials
+	- [ ] rtx: emissive textures
+	- [ ] rtx: emissive beams
+	- [ ] rtx: emissive particles
 
 # Next
-- [ ] rtx: control bounces with cvars
 - [ ] rtx: lower resolution framebuffer + upscale
 - [ ] rtx: textures
 - [ ] rtx: add fps
@@ -125,3 +124,11 @@
 - [x] rtx: dlights
 - [x] rtx: dlight shadows
 - [x] rtx: dlight soft shadows
+
+## 2021-03-13
+- [x] rtx: blend normals according to barycentrics
+- [x] rtx: (debug/dev) shader reload
+- [x] rtx: make projection matrix independent render global/current/static state
+- [x] rtx: model matrices
+- [x] rtx: light entities -- still not enough to enlight maps :(
+- [x] rtx: path tracing

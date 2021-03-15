@@ -5,6 +5,7 @@
 #include "vk_render.h"
 #include "vk_buffer.h"
 #include "vk_pipeline.h"
+#include "vk_cvar.h"
 
 #include "eiface.h"
 
@@ -37,6 +38,11 @@ typedef struct {
 	matrix3x4 transform_row;
 	VkAccelerationStructureKHR accel;
 } vk_ray_model_t;
+
+typedef struct {
+	float t;
+	int bounces;
+} vk_rtx_push_constants_t;
 
 static struct {
 	VkPipelineLayout pipeline_layout;
@@ -450,8 +456,11 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 	// 4. dispatch compute
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline);
 	{
-		const float t = gpGlobals->realtime;
-		vkCmdPushConstants(cmdbuf, g_rtx.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(float), &t);
+		vk_rtx_push_constants_t push_constants = {
+			.t = gpGlobals->realtime,
+			.bounces = vk_rtx_bounces->value,
+		};
+		vkCmdPushConstants(cmdbuf, g_rtx.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants), &push_constants);
 	}
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline_layout, 0, 1, &g_rtx.desc_set, 0, NULL);
 	vkCmdDispatch(cmdbuf, (args->dst.width+WG_W-1)/WG_W, (args->dst.height+WG_H-1)/WG_H, 1);
@@ -502,7 +511,7 @@ static void createLayouts( void ) {
 
 	VkPushConstantRange push_const = {0};
 	push_const.offset = 0;
-	push_const.size = sizeof(float);
+	push_const.size = sizeof(vk_rtx_push_constants_t);
 	push_const.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
 	{

@@ -53,6 +53,7 @@ float rand01() {
 
 layout (push_constant) uniform PC {
 	float t;
+	int bounces;
 } pc;
 
 void main() {
@@ -68,7 +69,7 @@ void main() {
 
 	vec3 kc = vec3(1.);
 	const float L = 10000.;
-	for (int bounce = 0; bounce < 4; ++bounce) {
+	for (int bounce = 0; bounce < pc.bounces; ++bounce) {
 		rayQueryEXT rayQuery;
 		rayQueryInitializeEXT(rayQuery, tlas, gl_RayFlagsOpaqueEXT, 0xff, O, 0., D, L);
 		while(rayQueryProceedEXT(rayQuery)) {}
