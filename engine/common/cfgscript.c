@@ -292,7 +292,8 @@ int CSCR_WriteGameCVars( file_t *cfg, const char *scriptfilename )
 
 static void CSCR_RegisterVariable( scrvardef_t *var, void *unused )
 {
-	Cvar_Get( var->name, var->value, var->flags|FCVAR_TEMPORARY, var->desc );
+	if( !Cvar_FindVar( var->name ))
+		Cvar_Get( var->name, var->value, var->flags|FCVAR_TEMPORARY, var->desc );
 }
 
 /*
