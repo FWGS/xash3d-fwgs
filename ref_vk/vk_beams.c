@@ -307,6 +307,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			//FIXME VK applyBrightness( brightness, color, dst_vtx->color );
 			// FIXME VK pglNormal3fv( vAveNormal );
 			VectorCopy( vPoint1, dst_vtx->pos );
+			VectorCopy( vAveNormal, dst_vtx->normal );
 			++dst_vtx;
 
 			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
@@ -392,6 +393,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			.index_offset = 0,
 			.vertex_buffer = vertex_buffer,
 			.index_buffer = index_buffer,
+			.emissive = { color[0], color[1], color[2] },
 		};
 
 		VK_RenderScheduleDraw( &draw );

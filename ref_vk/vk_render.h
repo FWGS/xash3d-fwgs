@@ -66,6 +66,7 @@ typedef struct render_draw_s {
 	uint32_t element_count;
 	uint32_t index_offset, vertex_offset;
 	vk_buffer_handle_t index_buffer, vertex_buffer;
+	struct { float r, g, b; } emissive;
 } render_draw_t;
 
 void VK_RenderBegin( void );

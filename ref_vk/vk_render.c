@@ -762,13 +762,14 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 		// but here we've completely lost this info, as models are now just a stream
 		// of independent draws
 
-		vk_ray_model_create_t ray_model_args = {
+		const vk_ray_model_create_t ray_model_args = {
 			.element_count = draw->draw.element_count,
 			.max_vertex = vertex_buffer->count, // TODO this is an upper bound for brushes at least, it can be lowered
 			.index_offset = index_buffer ? (draw->draw.index_offset + index_buffer->buffer_offset_in_units) : UINT32_MAX,
 			.vertex_offset = (draw->draw.vertex_offset + vertex_buffer->buffer_offset_in_units),
 			.buffer = g_render.buffer.buffer,
 			.transform_row = &draw->transform,
+			.emissive = { draw->draw.emissive.r, draw->draw.emissive.g, draw->draw.emissive.b },
 		};
 
 		VK_RayScenePushModel(cmdbuf, &ray_model_args);

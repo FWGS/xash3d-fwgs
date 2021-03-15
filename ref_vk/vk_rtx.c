@@ -27,6 +27,8 @@ typedef struct {
 typedef struct {
 	uint32_t index_offset;
 	uint32_t vertex_offset;
+	float sad_padding_[2];
+	vec4_t emissive;
 } vk_kusok_data_t;
 
 typedef struct {
@@ -227,6 +229,9 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 			vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + g_rtx_scene.num_models;
 			kusok->vertex_offset = create_info->vertex_offset;
 			kusok->index_offset = create_info->index_offset;
+			kusok->emissive[0] = create_info->emissive.r;
+			kusok->emissive[1] = create_info->emissive.g;
+			kusok->emissive[2] = create_info->emissive.b;
 		}
 
 		memcpy(model->transform_row, *create_info->transform_row, sizeof(model->transform_row));
