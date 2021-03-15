@@ -798,7 +798,6 @@ The second parameter should be the current protocol version number.
 void SV_Info( netadr_t from )
 {
 	char	string[MAX_INFO_STRING];
-	int	i, count = 0;
 	int	version;
 
 	// ignore in single player
@@ -814,6 +813,9 @@ void SV_Info( netadr_t from )
 	}
 	else
 	{
+		int i, count = 0;
+		qboolean havePassword = COM_CheckStringEmpty( sv_password.string );
+
 		for( i = 0; i < svs.maxclients; i++ )
 			if( svs.clients[i].state >= cs_connected )
 				count++;
@@ -826,6 +828,7 @@ void SV_Info( netadr_t from )
 		Info_SetValueForKey( string, "numcl", va( "%i", count ), MAX_INFO_STRING );
 		Info_SetValueForKey( string, "maxcl", va( "%i", svs.maxclients ), MAX_INFO_STRING );
 		Info_SetValueForKey( string, "gamedir", GI->gamefolder, MAX_INFO_STRING );
+		Info_SetValueForKey( string, "password", havePassword ? "1" : "0", MAX_INFO_STRING );
 	}
 
 	Netchan_OutOfBandPrint( NS_SERVER, from, "info\n%s", string );
