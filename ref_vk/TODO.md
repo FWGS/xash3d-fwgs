@@ -1,6 +1,6 @@
 ## 2021-03-15
 - [x] rtx: control bounces with cvars
-- [ ] rtx: don't group brush draws by texture
+- [x] rtx: device-local buffers -- doesn't affect perf noticeably :(
 - [ ] rtx: emissive materials
 	- [ ] rtx: emissive textures
 	- [ ] rtx: emissive beams
@@ -10,6 +10,8 @@
 - [ ] rtx: lower resolution framebuffer + upscale
 - [ ] rtx: textures
 - [ ] rtx: add fps
+	- [ ] rtx: don't group brush draws by texture
+		-- this has failed: increases BLAS count to ~3000, halves fps
 	- [ ] better AS structure (fewer blases, etc)
 	- [ ] rasterize into G-buffer, and only then compute lighting with rtx
 - [ ] rtx: better random

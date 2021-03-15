@@ -178,8 +178,10 @@ static vk_ray_model_t *getModelByHandle(vk_ray_model_handle_t handle)
 
 void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *create_info) // _handle_t model_handle )
 {
-	vk_ray_model_t *model = g_rtx.models + g_rtx_scene.num_models;
-	if (g_rtx_scene.num_models > ARRAYSIZE(g_rtx.models)) {
+	vk_ray_model_t* model = g_rtx.models + g_rtx_scene.num_models;
+	ASSERT(g_rtx_scene.num_models <= ARRAYSIZE(g_rtx.models));
+
+	if (g_rtx_scene.num_models == ARRAYSIZE(g_rtx.models)) {
 		gEngine.Con_Printf(S_ERROR "Ran out of AccelerationStructure slots\n");
 		return;
 	}
@@ -559,8 +561,8 @@ qboolean VK_RayInit( void )
 	ASSERT(vk_core.rtx);
 	// TODO complain and cleanup on failure
 	if (!createBuffer(&g_rtx.accels_buffer, MAX_ACCELS_BUFFER,
-		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 		))
 	{
 		return false;
@@ -569,23 +571,23 @@ qboolean VK_RayInit( void )
 
 	if (!createBuffer(&g_rtx.scratch_buffer, MAX_SCRATCH_BUFFER,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 		)) {
 		return false;
 	}
 	g_rtx.scratch_buffer_addr = getBufferDeviceAddress(g_rtx.scratch_buffer.buffer);
 
 	if (!createBuffer(&g_rtx.tlas_geom_buffer, sizeof(VkAccelerationStructureInstanceKHR) * MAX_ACCELS,
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-		/* TODO DEVICE_LOCAL */ VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
 		return false;
 	}
 
 	if (!createBuffer(&g_rtx.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_ACCELS,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
-		/* TODO DEVICE_LOCAL */ VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
 		return false;
 	}
