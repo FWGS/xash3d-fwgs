@@ -770,6 +770,7 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 			.buffer = g_render.buffer.buffer,
 			.transform_row = &draw->transform,
 			.emissive = { draw->draw.emissive.r, draw->draw.emissive.g, draw->draw.emissive.b },
+			.texture_id = draw->draw.texture,
 		};
 
 		VK_RayScenePushModel(cmdbuf, &ray_model_args);

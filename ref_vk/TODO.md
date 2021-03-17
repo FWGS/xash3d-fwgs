@@ -1,12 +1,5 @@
-## 2021-03-15
-- [x] rtx: control bounces with cvars
-- [x] rtx: device-local buffers -- doesn't affect perf noticeably :(
-- [ ] rtx: emissive materials
-	- [ ] rtx: emissive textures
-	- [ ] rtx: emissive beams
-	- [ ] rtx: emissive particles
-
 # Next
+- [ ] rtx: emissive particles
 - [ ] rtx: lower resolution framebuffer + upscale
 - [ ] rtx: textures
 - [ ] rtx: add fps
@@ -134,3 +127,10 @@
 - [x] rtx: model matrices
 - [x] rtx: light entities -- still not enough to enlight maps :(
 - [x] rtx: path tracing
+
+## 2021-03-15
+- [x] rtx: control bounces with cvars
+- [x] rtx: device-local buffers -- doesn't affect perf noticeably :(
+- [x] rtx: emissive materials
+	- [x] rtx: emissive textures
+	- [x] rtx: emissive beams

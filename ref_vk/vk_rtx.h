@@ -5,6 +5,7 @@
 typedef struct {
 	//int lightmap, texture;
 	//int render_mode;
+	int texture_id;
 	uint32_t max_vertex;
 	uint32_t element_count;
 	uint32_t index_offset, vertex_offset;
