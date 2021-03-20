@@ -2,6 +2,50 @@
 #extension GL_EXT_ray_query : require
 #extension GL_EXT_shader_16bit_storage : require
 
+const float
+    C_A = 434073., C_B = 497559., C_C = 397590., C_D = 498071.,
+	C_E = 988959., C_F = 988945., C_G = 400790., C_H = 630681.,
+	C_I = 467495., C_J = 467491., C_K = 611161., C_L = 69919.,
+	C_M = 653721., C_N = 638361., C_O = 432534., C_P = 497425.,
+	C_Q = 432606., C_R = 497497., C_S = 923271., C_T = 991778.,
+	C_U = 629142., C_V = 629075., C_W = 646615., C_X = 628377.,
+	C_Y = 628292., C_Z = 1016879., C_1 = 291919., C_2 = 493087.,
+	C_3 = 495239., C_4 = 630408., C_5 = 988807., C_6 = 272278.,
+	C_7 = 1016900., C_8 = 431766., C_9 = 433730., C_0 = 433590.,
+    C_dot = 1024.;
+
+float gB(in float g, in vec2 gp){
+    return (gp.x<4.&&gp.y<5.) ? mod(floor(g / pow(2., gp.y*4. + gp.x)), 2.) : 0.;
+}
+
+#define PUTC(g) if(pc.x==lx){col=gB(g,pg);}lx+=1.
+
+float diGlyph(in float di) {
+    if (di == 0.) return C_0;
+    if (di == 1.) return C_1;
+    if (di == 2.) return C_2;
+    if (di == 3.) return C_3;
+    if (di == 4.) return C_4;
+    if (di == 5.) return C_5;
+    if (di == 6.) return C_6;
+    if (di == 7.) return C_7;
+    if (di == 8.) return C_8;
+    if (di == 9.) return C_9;
+    return C_E;
+}
+
+void printInt(in float num, in vec2 pg, in vec2 pc, inout float lx, inout float col) {
+    /*if (num < 0.) {
+        PUTC(C_N);
+        num *= -1.;
+    } else {
+    	PUTC(diGlyph(mod(floor(num/1000.),10.)));
+    }*/
+    if (num >= 1000.) { PUTC(diGlyph(mod(floor(num/1000.),10.))); }
+    if (num >= 100.) { PUTC(diGlyph(mod(floor(num/100.),10.))); }
+    if (num >= 10.) { PUTC(diGlyph(mod(floor(num/10.),10.))); }
+    PUTC(diGlyph(mod(floor(num),10.)));
+}
 // FIXME shader specialization
 layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
 
@@ -18,6 +62,7 @@ layout(binding = 2, set = 0) uniform UBO {
 struct Kusok {
 	uint index_offset;
 	uint vertex_offset;
+	uint triangles;
 	vec4 emissive;
 };
 
@@ -46,16 +91,65 @@ layout(set=0,binding=6) uniform UBODLights {
 	Light lights[max_dlights];
 };
 
+layout (constant_id = 2) const uint max_lighttextures = 256;
+layout (set=0,binding=7) uniform UBOLightTextures {
+	uint num_lighttextures;
+	uint lighttextures[max_lighttextures];
+};
+
+float printText(in vec2 p) {
+#define PIXSZ 4.
+    p = floor(p / PIXSZ);
+    vec2 pc = floor(p / vec2(5.,6.));
+    vec2 pg = mod(p, vec2(5.,6.));
+    float lx = 1.;
+    float col = 0.;
+
+#define PUTN(n) printInt(n,pg,pc,lx,col)
+	if (pc.y == 0.) {
+		PUTC(C_N); PUTC(0.); PUTN(float(num_lighttextures));
+	} else if (pc.y <= float(num_lighttextures)) {
+		PUTN((pc.y-1.)); PUTC(0.); PUTN(float(lighttextures[int(pc.y-1.)]));
+	}
+    return col;
+}
+
+
 // TODO find better random function
-float rand01_state;
+// float rand01_state;
+// float rand01() {
+// 	return rand01_state = fract(sin(rand01_state)*54873.35729);
+// }
+uint rand01_state = 0;
+uint rand() {
+	//rand01_state = rand01_state * 1103515245 + 12345;
+	// xorshift32
+	rand01_state ^= rand01_state << 13;
+	rand01_state ^= rand01_state >> 17;
+	rand01_state ^= rand01_state << 5;
+	return rand01_state;
+}
+uint rand_range(uint rmax) {
+	return rand() % rmax;
+}
 float rand01() {
-	return rand01_state = fract(sin(rand01_state)*54873.35729);
+	return uintBitsToFloat(0x3f800000 | (rand() & 0x007fffff)) - 1.;
 }
 
 layout (push_constant) uniform PC {
 	float t;
 	int bounces;
 } pc;
+
+bool shadowed(vec3 pos, vec3 dir, float dist) {
+	rayQueryEXT shadowRayQuery;
+	rayQueryInitializeEXT(shadowRayQuery, tlas,
+		gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT,
+		0xff,
+		pos, 0., dir, dist);
+	while(rayQueryProceedEXT(shadowRayQuery)) {}
+	return rayQueryGetIntersectionTypeEXT(shadowRayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+}
 
 void main() {
 	vec2 res = imageSize(image);
@@ -70,6 +164,8 @@ void main() {
 
 	vec3 kc = vec3(1.);
 	const float L = 10000.;
+
+	rand01_state = uint(mod(pc.t, 100.) * 1000.) + gl_GlobalInvocationID.x * 1823 + 31337 * gl_GlobalInvocationID.y;
 	for (int bounce = 0; bounce < pc.bounces; ++bounce) {
 		rayQueryEXT rayQuery;
 		rayQueryInitializeEXT(rayQuery, tlas, gl_RayFlagsOpaqueEXT, 0xff, O, 0., D, L);
@@ -99,17 +195,68 @@ void main() {
 
 		const vec2 bary = rayQueryGetIntersectionBarycentricsEXT(rayQuery, true);
 		const vec3 normal = normalize(transpose(inverse(mat3(transform))) * (n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y));
-		// TODO rotate normal accroding to model matrix
 
-		C += kc * kusochki[instance_index].emissive.rgb;
-
+		// TODO read from texture
 		const vec3 baseColor = vec3(1.);
-		rand01_state = fract((pos.x + pos.y + pos.z)/100.) + uv.x + uv.y + pc.t;
+
+		for (uint i = 0; i < num_lighttextures; ++i) {
+			const uint kusok_index = lighttextures[i];
+			const Kusok kusok = kusochki[kusok_index];
+			if (kusok_index == instance_index) {
+				// TODO do we need to do this when we have textures?
+				//C += kc * kusok.emissive.rgb;
+				continue;
+			}
+
+			const uint picked_tri = rand_range(kusok.triangles);
+			for (uint ti = 0; ti < kusok.triangles; ++ti) {
+				const uint first_index_offset = kusok.index_offset + ti * 3;
+
+				// TODO this is not entirely correct -- need to mix between all normals, or have this normal precomputed
+				const uint vi1 = uint(indices[first_index_offset+0]) + kusok.vertex_offset;
+				const vec3 n1 = vertices[vi1].normal;
+				// if (dot(n1, normal) >= 0. /* TODO epsilon */ )
+				// 	continue;
+
+				if (picked_tri > ti)
+					continue;
+
+				// TODO random sample point on the entire kusok geometry
+				const uint vi2 = uint(indices[first_index_offset+1]) + kusok.vertex_offset;
+				const uint vi3 = uint(indices[first_index_offset+2]) + kusok.vertex_offset;
+
+				const vec3 sample_pos = mix(mix(
+					vertices[vi1].pos, vertices[vi2].pos, rand01()
+				), vertices[vi3].pos, rand01());
+
+				// const vec3 n2 = vertices[vi2].normal;
+				// const vec3 n3 = vertices[vi3].normal;
+
+				vec3 light_dir = sample_pos - pos;
+				if (dot(light_dir, normal) <= 0.)
+					continue;
+
+				const float light_dist = length(light_dir);
+				light_dir /= light_dist;
+				if (shadowed(pos + .01 * normal, light_dir, light_dist))
+					continue;
+
+				// TODO
+				const float brightness_fudge = 1000.;
+				const vec3 emissive = kusochki[kusok_index].emissive.rgb;
+				C += brightness_fudge * kc * baseColor * emissive * dot(light_dir, normal) / (light_dist * light_dist);
+
+				// Sample just one triangle
+				break;
+			}
+		}
+
+		//rand01_state = fract((pos.x + pos.y + pos.z)/100.) + uv.x + uv.y + pc.t;
 		for (uint i = 0; i < num_lights; ++i) {
 			const vec4 light_pos_r = lights[i].pos_r;
 			const vec3 light_color = lights[i].color.rgb;
 
-			rand01_state = fract((pos.x + pos.y + pos.z)/100.) + uv.x + uv.y + fract(pc.t) + i;
+			//rand01_state = fract((pos.x + pos.y + pos.z)/100.) + uv.x + uv.y + fract(pc.t) + i;
 			//rand01_state += fract(fract(pc.t) + i + (light_pos_r.x + light_pos_r.y + light_pos_r.z)/1000.);
 
 			// Find random point on a sphere
@@ -128,13 +275,7 @@ void main() {
 			const float d2 = dot(light_dir, light_dir);
 			const float light_dist = sqrt(d2);
 
-			rayQueryEXT shadowRayQuery;
-			rayQueryInitializeEXT(shadowRayQuery, tlas,
-				gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT,
-				0xff,
-				pos + normal * .01, 0., light_dir_norm, light_dist);
-			while(rayQueryProceedEXT(shadowRayQuery)) {}
-			if (rayQueryGetIntersectionTypeEXT(shadowRayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT)
+			if (shadowed(pos + .01 * normal, light_dir_norm, light_dist))
 				continue;
 
 			const float r2 = light_pos_r.w * light_pos_r.w;
@@ -154,5 +295,6 @@ void main() {
 			));
 	} // for all bounces
 
+	C = mix(C, vec3(1.), printText(vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y)));
 	imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(C, 1.));
 }

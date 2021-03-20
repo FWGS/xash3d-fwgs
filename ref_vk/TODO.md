@@ -1,8 +1,10 @@
 ## 2021-03-17..20
 - [x] rtx: lower resolution framebuffer + upscale
-- [ ] rtx: importance sample emissive surface
+- [x] rtx: importance sample emissive surface
+- [ ] rtx: remove entnity-parsed lights
 
 # Next
+- [ ] rtx: naive temporal denoise: mix with previous frame
 - [ ] rtx: emissive particles
 - [ ] rtx: textures
 - [ ] rtx: add fps
@@ -15,6 +17,7 @@
 
 # Planned
 - [ ] rtx: cull light sources (dlights and light textures) using bsp
+- [ ] enable entity-parsed lights by lightstyles
 - [ ] dlight for flashlight seems to be broken
 - [ ] restore render debug labels
 - [ ] make 2nd commad buffer for resource upload

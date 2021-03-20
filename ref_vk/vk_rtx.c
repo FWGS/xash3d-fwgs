@@ -14,6 +14,7 @@
 #define MAX_ACCELS 1024
 #define MAX_SCRATCH_BUFFER (16*1024*1024)
 #define MAX_ACCELS_BUFFER (64*1024*1024)
+#define MAX_LIGHT_TEXTURES 256
 
 // TODO settings/realtime modifiable/adaptive
 #define FRAME_WIDTH 1280
@@ -34,9 +35,20 @@ typedef struct {
 typedef struct {
 	uint32_t index_offset;
 	uint32_t vertex_offset;
-	float sad_padding_[2];
+	uint32_t triangles;
+	float sad_padding_[1];
 	vec4_t emissive;
 } vk_kusok_data_t;
+
+typedef struct {
+	uint32_t num_lighttextures;
+	uint32_t padding__[3];
+	struct {
+		// TODO should we move emissive here?
+		uint32_t kusok_index;
+		uint32_t padding__[3];
+	} lighttexture[MAX_LIGHT_TEXTURES];
+} vk_lighttexture_data_t;
 
 typedef struct {
 	//int lightmap, texture;
@@ -68,6 +80,9 @@ static struct {
 
 	vk_buffer_t kusochki_buffer;
 
+	// TODO this should really be a single uniform buffer for matrices and light data
+	vk_buffer_t lighttextures_buffer;
+
 	vk_ray_model_t models[MAX_ACCELS];
 	VkAccelerationStructureKHR tlas;
 
@@ -79,6 +94,7 @@ static struct {
 
 static struct {
 	int num_models;
+	int num_lighttextures;
 	uint32_t scratch_offset, buffer_offset;
 } g_rtx_scene;
 
@@ -270,6 +286,7 @@ static void cleanupASFIXME(void)
 		vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.tlas, NULL);
 
 	g_rtx_scene.num_models = 0;
+	g_rtx_scene.num_lighttextures = 0;
 }
 
 void VK_RaySceneBegin( void )
@@ -359,6 +376,8 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 			vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + g_rtx_scene.num_models;
 			kusok->vertex_offset = create_info->vertex_offset;
 			kusok->index_offset = create_info->index_offset;
+			ASSERT(create_info->element_count % 3 == 0);
+			kusok->triangles = create_info->element_count / 3;
 
 			ASSERT(create_info->texture_id < MAX_TEXTURES);
 			if (create_info->texture_id >= 0 && g_rtx_emissive_texture_table_t[create_info->texture_id].set) {
@@ -367,6 +386,17 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 				kusok->emissive[0] = create_info->emissive.r;
 				kusok->emissive[1] = create_info->emissive.g;
 				kusok->emissive[2] = create_info->emissive.b;
+			}
+
+			if (kusok->emissive[0] > 0 || kusok->emissive[1] > 0 || kusok->emissive[2] > 0) {
+				if (g_rtx_scene.num_lighttextures < MAX_LIGHT_TEXTURES) {
+					vk_lighttexture_data_t *ltd = (vk_lighttexture_data_t*)g_rtx.lighttextures_buffer.mapped;
+					ltd->lighttexture[g_rtx_scene.num_lighttextures].kusok_index = g_rtx_scene.num_models;
+					g_rtx_scene.num_lighttextures++;
+					ltd->num_lighttextures = g_rtx_scene.num_lighttextures;
+				} else {
+					gEngine.Con_Printf(S_ERROR "Ran out of light textures space");
+				}
 			}
 		}
 
@@ -500,6 +530,11 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 			.offset = args->dlights.offset,
 			.range = args->dlights.size,
 		};
+		const VkDescriptorBufferInfo dbi_lighttextures = {
+			.buffer = g_rtx.lighttextures_buffer.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE,
+		};
 		const VkWriteDescriptorSet wds[] = {
 			{
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -564,11 +599,19 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 				.dstArrayElement = 0,
 				.pBufferInfo = &dbi_dlights,
 			},
+			{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				.dstSet = g_rtx.desc_set,
+				.dstBinding = 7,
+				.dstArrayElement = 0,
+				.pBufferInfo = &dbi_lighttextures,
+			},
 		};
 
 		vkUpdateDescriptorSets(vk_core.device, ARRAYSIZE(wds), wds, 0, NULL);
 	}
-
 
 	// 4. Barrier for TLAS build and dest image layout transfer
 	{
@@ -703,6 +746,11 @@ static void createLayouts( void ) {
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	}, {
+		.binding = 7,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
 	},
 	};
 
@@ -729,7 +777,7 @@ static void createLayouts( void ) {
 		VkDescriptorPoolSize pools[] = {
 			{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 1},
 			{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 3},
-			{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 2},
+			{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 3},
 			{.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, .descriptorCount = 1},
 		};
 
@@ -791,6 +839,13 @@ qboolean VK_RayInit( void )
 		return false;
 	}
 
+	if (!createBuffer(&g_rtx.lighttextures_buffer, sizeof(vk_lighttexture_data_t),
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+		// FIXME complain, handle
+		return false;
+	}
+
 	createLayouts();
 	createPipeline();
 
@@ -824,5 +879,6 @@ void VK_RayShutdown( void )
 	destroyBuffer(&g_rtx.accels_buffer);
 	destroyBuffer(&g_rtx.tlas_geom_buffer);
 	destroyBuffer(&g_rtx.kusochki_buffer);
+	destroyBuffer(&g_rtx.lighttextures_buffer);
 }
 
