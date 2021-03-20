@@ -97,6 +97,8 @@ layout (set=0,binding=7) uniform UBOLightTextures {
 	uint lighttextures[max_lighttextures];
 };
 
+layout(binding = 8, set = 0, rgba8) uniform readonly image2D previous_frame;
+
 float printText(in vec2 p) {
 #define PIXSZ 4.
     p = floor(p / PIXSZ);
@@ -296,5 +298,11 @@ void main() {
 	} // for all bounces
 
 	C = mix(C, vec3(1.), printText(vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y)));
+
+	//if (gl_GlobalInvocationID.x > imageSize(image).x / 2)
+	{
+		const float wet = .9;
+		C = mix(C, imageLoad(previous_frame, ivec2(gl_GlobalInvocationID.xy)).rgb, wet);
+	}
 	imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(C, 1.));
 }

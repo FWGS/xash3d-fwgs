@@ -186,6 +186,7 @@ const char *resultName(VkResult result);
 	X(vkCreateComputePipelines) \
 	X(vkCmdDispatch) \
 	X(vkCmdBlitImage) \
+	X(vkCmdClearColorImage) \
 
 #define DEVICE_FUNCS_RTX(X) \
 	X(vkGetAccelerationStructureBuildSizesKHR) \

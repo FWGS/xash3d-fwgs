@@ -86,7 +86,7 @@ static struct {
 	vk_ray_model_t models[MAX_ACCELS];
 	VkAccelerationStructureKHR tlas;
 
-	int frame_number;
+	unsigned frame_number;
 	vk_image_t frames[2];
 
 	qboolean reload_pipeline;
@@ -422,8 +422,10 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 	ASSERT(vk_core.rtx);
 	ASSERT(args->ubo.size == sizeof(float) * 16 * 2); // ubo should contain two matrices
 	const VkCommandBuffer cmdbuf = args->cmdbuf;
-	//const vk_image_t* frame_src = g_rtx.frames + 1;
-	const vk_image_t* frame_dst = g_rtx.frames + 0;
+	const vk_image_t* frame_src = g_rtx.frames + ((g_rtx.frame_number+1)%2);
+	const vk_image_t* frame_dst = g_rtx.frames + (g_rtx.frame_number%2);
+
+	g_rtx.frame_number++;
 
 	if (g_rtx.reload_pipeline) {
 		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
@@ -498,6 +500,11 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 		const VkDescriptorImageInfo dii_dst = {
 			.sampler = VK_NULL_HANDLE,
 			.imageView = frame_dst->view,
+			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+		};
+		const VkDescriptorImageInfo dii_src = {
+			.sampler = VK_NULL_HANDLE,
+			.imageView = frame_src->view,
 			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 		};
 		const VkDescriptorBufferInfo dbi_ubo = {
@@ -608,6 +615,15 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 				.dstArrayElement = 0,
 				.pBufferInfo = &dbi_lighttextures,
 			},
+			{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				.dstSet = g_rtx.desc_set,
+				.dstBinding = 8,
+				.dstArrayElement = 0,
+				.pImageInfo = &dii_src,
+			},
 		};
 
 		vkUpdateDescriptorSets(vk_core.device, ARRAYSIZE(wds), wds, 0, NULL);
@@ -636,7 +652,7 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 				.levelCount = 1,
 				.baseArrayLayer = 0,
 				.layerCount = 1,
-			}} };
+		}} };
 		vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0,
 			0, NULL, ARRAYSIZE(bmb), bmb, ARRAYSIZE(image_barrier), image_barrier);
 	}
@@ -662,7 +678,7 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 			.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
 			.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
 			.subresourceRange =
 				(VkImageSubresourceRange){
 					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -704,7 +720,7 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 		region.dstOffsets[1].z = 1;
 		region.srcSubresource.aspectMask = region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		region.srcSubresource.layerCount = region.dstSubresource.layerCount = 1;
-		vkCmdBlitImage(args->cmdbuf, frame_dst->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		vkCmdBlitImage(args->cmdbuf, frame_dst->image, VK_IMAGE_LAYOUT_GENERAL,
 			args->dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region,
 			VK_FILTER_NEAREST);
 	}
@@ -751,6 +767,11 @@ static void createLayouts( void ) {
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	}, {
+		.binding = 8,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
 	},
 	};
 
@@ -775,7 +796,7 @@ static void createLayouts( void ) {
 
 	{
 		VkDescriptorPoolSize pools[] = {
-			{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 1},
+			{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 2},
 			{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 3},
 			{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 3},
 			{.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, .descriptorCount = 1},
@@ -851,7 +872,49 @@ qboolean VK_RayInit( void )
 
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
 		g_rtx.frames[i] = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT); // | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+	}
+
+	// Start with black previous frame
+	{
+		const vk_image_t *frame_src = g_rtx.frames + 1;
+		const VkImageMemoryBarrier image_barriers[] = { {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = frame_src->image,
+			.srcAccessMask = 0,
+			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.subresourceRange = (VkImageSubresourceRange) {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+		}} };
+
+		const VkClearColorValue clear_value = {0};
+
+		const VkCommandBufferBeginInfo beginfo = {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		};
+
+		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
+		vkCmdPipelineBarrier(vk_core.cb, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0,
+			0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+		vkCmdClearColorImage(vk_core.cb, frame_src->image, VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &image_barriers->subresourceRange);
+		XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
+
+		{
+			const VkSubmitInfo subinfo = {
+				.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+				.commandBufferCount = 1,
+				.pCommandBuffers = &vk_core.cb,
+			};
+			XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
+			XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
+		}
 	}
 
 	if (vk_core.debug)
