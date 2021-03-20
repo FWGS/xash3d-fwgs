@@ -15,7 +15,12 @@
 #define MAX_SCRATCH_BUFFER (16*1024*1024)
 #define MAX_ACCELS_BUFFER (64*1024*1024)
 
+// TODO settings/realtime modifiable/adaptive
+#define FRAME_WIDTH 1280
+#define FRAME_HEIGHT 720
+
 // TODO sync with shaders
+// TODO optimal values
 #define WG_W 16
 #define WG_H 8
 
@@ -65,6 +70,9 @@ static struct {
 
 	vk_ray_model_t models[MAX_ACCELS];
 	VkAccelerationStructureKHR tlas;
+
+	int frame_number;
+	vk_image_t frames[2];
 
 	qboolean reload_pipeline;
 } g_rtx;
@@ -303,9 +311,9 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 				continue;
 			ASSERT(tex_id < MAX_TEXTURES);
 
-			g_rtx_emissive_texture_table_t[tex_id].emissive[0] = hack_valve_rad_table->r * scale;
-			g_rtx_emissive_texture_table_t[tex_id].emissive[1] = hack_valve_rad_table->g * scale;
-			g_rtx_emissive_texture_table_t[tex_id].emissive[2] = hack_valve_rad_table->b * scale;
+			g_rtx_emissive_texture_table_t[tex_id].emissive[0] = hack_valve_rad_table[i].r * scale;
+			g_rtx_emissive_texture_table_t[tex_id].emissive[1] = hack_valve_rad_table[i].g * scale;
+			g_rtx_emissive_texture_table_t[tex_id].emissive[2] = hack_valve_rad_table[i].b * scale;
 			g_rtx_emissive_texture_table_t[tex_id].set = true;
 		}
 	}
@@ -384,6 +392,8 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 	ASSERT(vk_core.rtx);
 	ASSERT(args->ubo.size == sizeof(float) * 16 * 2); // ubo should contain two matrices
 	const VkCommandBuffer cmdbuf = args->cmdbuf;
+	//const vk_image_t* frame_src = g_rtx.frames + 1;
+	const vk_image_t* frame_dst = g_rtx.frames + 0;
 
 	if (g_rtx.reload_pipeline) {
 		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
@@ -457,7 +467,7 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 	{
 		const VkDescriptorImageInfo dii_dst = {
 			.sampler = VK_NULL_HANDLE,
-			.imageView = args->dst.image_view,
+			.imageView = frame_dst->view,
 			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 		};
 		const VkDescriptorBufferInfo dbi_ubo = {
@@ -572,7 +582,7 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 		}};
 		VkImageMemoryBarrier image_barrier[] = { {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = args->dst.image,
+			.image = frame_dst->image,
 			.srcAccessMask = 0,
 			.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -598,7 +608,63 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 		vkCmdPushConstants(cmdbuf, g_rtx.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants), &push_constants);
 	}
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline_layout, 0, 1, &g_rtx.desc_set, 0, NULL);
-	vkCmdDispatch(cmdbuf, (args->dst.width+WG_W-1)/WG_W, (args->dst.height+WG_H-1)/WG_H, 1);
+	vkCmdDispatch(cmdbuf, (FRAME_WIDTH+WG_W-1)/WG_W, (FRAME_HEIGHT+WG_H-1)/WG_H, 1);
+
+	// Blit RTX frame onto swapchain image
+	{
+		VkImageMemoryBarrier image_barriers[] = {
+		{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = frame_dst->image,
+			.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			.subresourceRange =
+				(VkImageSubresourceRange){
+					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+					.baseMipLevel = 0,
+					.levelCount = 1,
+					.baseArrayLayer = 0,
+					.layerCount = 1,
+				},
+			},
+			{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = args->dst.image,
+			.srcAccessMask = 0,
+			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			.subresourceRange =
+				(VkImageSubresourceRange){
+					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+					.baseMipLevel = 0,
+					.levelCount = 1,
+					.baseArrayLayer = 0,
+					.layerCount = 1,
+				},
+		}};
+		vkCmdPipelineBarrier(args->cmdbuf,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+	}
+
+	{
+		VkImageBlit region = {0};
+		region.srcOffsets[1].x = FRAME_WIDTH;
+		region.srcOffsets[1].y = FRAME_HEIGHT;
+		region.srcOffsets[1].z = 1;
+		region.dstOffsets[1].x = args->dst.width;
+		region.dstOffsets[1].y = args->dst.height;
+		region.dstOffsets[1].z = 1;
+		region.srcSubresource.aspectMask = region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.srcSubresource.layerCount = region.dstSubresource.layerCount = 1;
+		vkCmdBlitImage(args->cmdbuf, frame_dst->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			args->dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region,
+			VK_FILTER_NEAREST);
+	}
 }
 
 static void createLayouts( void ) {
@@ -728,6 +794,11 @@ qboolean VK_RayInit( void )
 	createLayouts();
 	createPipeline();
 
+	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
+		g_rtx.frames[i] = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT); // | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+	}
+
 	if (vk_core.debug)
 		gEngine.Cmd_AddCommand("vk_rtx_reload", reloadPipeline, "Reload RTX shader");
 
@@ -738,13 +809,15 @@ void VK_RayShutdown( void )
 {
 	ASSERT(vk_core.rtx);
 
-	// TODO dealloc all ASes
+	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i)
+		VK_ImageDestroy(g_rtx.frames + i);
 
 	vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
 	vkDestroyDescriptorPool(vk_core.device, g_rtx.desc_pool, NULL);
 	vkDestroyPipelineLayout(vk_core.device, g_rtx.pipeline_layout, NULL);
 	vkDestroyDescriptorSetLayout(vk_core.device, g_rtx.desc_layout, NULL);
 
+	// TODO dealloc all ASes
 	cleanupASFIXME();
 
 	destroyBuffer(&g_rtx.scratch_buffer);

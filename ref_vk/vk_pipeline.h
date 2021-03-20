@@ -11,7 +11,7 @@ typedef struct {
 	VkVertexInputAttributeDescription *attribs;
 	uint32_t num_attribs;
 
-	vk_shader_stage_t *stages;
+	const vk_shader_stage_t *stages;
 	uint32_t num_stages;
 
 	uint32_t vertex_stride;
@@ -23,7 +23,7 @@ typedef struct {
   VkBool32                 blendEnable;
   VkBlendFactor            srcColorBlendFactor;
   VkBlendFactor            dstColorBlendFactor;
-	VkBlendOp                colorBlendOp;
+  VkBlendOp                colorBlendOp;
   VkBlendFactor            srcAlphaBlendFactor;
   VkBlendFactor            dstAlphaBlendFactor;
   VkBlendOp                alphaBlendOp;

@@ -65,3 +65,12 @@ int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 
 #define VK_LoadTextureInternal( name, pic, flags ) VK_LoadTextureFromBuffer( name, pic, flags, false )
 
+typedef struct {
+	// TODO better memory allocation
+	device_memory_t devmem;
+	VkImage image;
+	VkImageView view;
+} vk_image_t;
+
+vk_image_t VK_ImageCreate(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage);
+void VK_ImageDestroy(vk_image_t *img);

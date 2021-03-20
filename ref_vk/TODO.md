@@ -1,6 +1,9 @@
+## 2021-03-17..20
+- [x] rtx: lower resolution framebuffer + upscale
+- [ ] rtx: importance sample emissive surface
+
 # Next
 - [ ] rtx: emissive particles
-- [ ] rtx: lower resolution framebuffer + upscale
 - [ ] rtx: textures
 - [ ] rtx: add fps
 	- [ ] rtx: don't group brush draws by texture
@@ -11,6 +14,7 @@
 - [ ] rtx: some studio models have glitchy geometry
 
 # Planned
+- [ ] rtx: cull light sources (dlights and light textures) using bsp
 - [ ] dlight for flashlight seems to be broken
 - [ ] restore render debug labels
 - [ ] make 2nd commad buffer for resource upload
