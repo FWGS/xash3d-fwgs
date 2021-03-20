@@ -672,29 +672,32 @@ int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 }
 
 vk_image_t VK_ImageCreate(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage) {
-	VkImageCreateInfo ici = {.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-	ici.imageType = VK_IMAGE_TYPE_2D;
-	ici.extent.width = width;
-	ici.extent.height = height;
-	ici.extent.depth = 1;
-	ici.mipLevels = 1;
-	ici.arrayLayers = 1;
-	ici.format = format;
-	ici.tiling = tiling;
-	ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	ici.usage = usage;
-	ici.samples = VK_SAMPLE_COUNT_1_BIT;
-	ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
 	vk_image_t image;
+	VkMemoryRequirements memreq;
+	VkImageViewCreateInfo ivci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+
+	VkImageCreateInfo ici = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		.imageType = VK_IMAGE_TYPE_2D,
+		.extent.width = width,
+		.extent.height = height,
+		.extent.depth = 1,
+		.mipLevels = 1,
+		.arrayLayers = 1,
+		.format = format,
+		.tiling = tiling,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.usage = usage,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+	};
+
 	XVK_CHECK(vkCreateImage(vk_core.device, &ici, NULL, &image.image));
 
-	VkMemoryRequirements memreq;
 	vkGetImageMemoryRequirements(vk_core.device, image.image, &memreq);
 	image.devmem = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
 	XVK_CHECK(vkBindImageMemory(vk_core.device, image.image, image.devmem.device_memory, 0));
 
-	VkImageViewCreateInfo ivci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
 	ivci.format = ici.format;
 	ivci.image = image.image;

@@ -11,6 +11,8 @@
 #include "eiface.h"
 #include "xash3d_mathlib.h"
 
+#include <string.h>
+
 #define MAX_ACCELS 1024
 #define MAX_SCRATCH_BUFFER (16*1024*1024)
 #define MAX_ACCELS_BUFFER (64*1024*1024)
@@ -419,11 +421,14 @@ static void createPipeline( void )
 
 void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 {
-	ASSERT(vk_core.rtx);
-	ASSERT(args->ubo.size == sizeof(float) * 16 * 2); // ubo should contain two matrices
 	const VkCommandBuffer cmdbuf = args->cmdbuf;
 	const vk_image_t* frame_src = g_rtx.frames + ((g_rtx.frame_number+1)%2);
 	const vk_image_t* frame_dst = g_rtx.frames + (g_rtx.frame_number%2);
+
+	ASSERT(vk_core.rtx);
+	// ubo should contain two matrices
+	// FIXME pass these matrices explicitly to let RTX module handle ubo itself
+	ASSERT(args->ubo.size == sizeof(float) * 16 * 2);
 
 	g_rtx.frame_number++;
 
@@ -440,7 +445,6 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 		VkAccelerationStructureInstanceKHR *inst = g_rtx.tlas_geom_buffer.mapped;
 		for (int i = 0; i < g_rtx_scene.num_models; ++i) {
 			const vk_ray_model_t * const model = g_rtx.models + i;
-			const matrix3x4 * const m = model->transform_row;
 			ASSERT(model->accel != VK_NULL_HANDLE);
 			inst[i] = (VkAccelerationStructureInstanceKHR){
 				.instanceCustomIndex = i,
@@ -777,12 +781,12 @@ static void createLayouts( void ) {
 
 	VkDescriptorSetLayoutCreateInfo dslci = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, .bindingCount = ARRAYSIZE(bindings), .pBindings = bindings, };
 
-	XVK_CHECK(vkCreateDescriptorSetLayout(vk_core.device, &dslci, NULL, &g_rtx.desc_layout));
-
 	VkPushConstantRange push_const = {0};
 	push_const.offset = 0;
 	push_const.size = sizeof(vk_rtx_push_constants_t);
 	push_const.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+	XVK_CHECK(vkCreateDescriptorSetLayout(vk_core.device, &dslci, NULL, &g_rtx.desc_layout));
 
 	{
 		VkPipelineLayoutCreateInfo plci = {0};

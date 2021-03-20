@@ -492,19 +492,18 @@ void VK_RenderStateSetColor( float r, float g, float b, float a )
 	g_render_state.dirty_uniform_data.color[3] = a;
 }
 
+// Vulkan has Y pointing down, and z should end up in (0, 1)
+// NOTE this matrix is row-major
+static const matrix4x4 vk_proj_fixup = {
+	{1, 0, 0, 0},
+	{0, -1, 0, 0},
+	{0, 0, .5, .5},
+	{0, 0, 0, 1}
+};
+
 void VK_RenderStateSetMatrixProjection(const matrix4x4 projection)
 {
 	g_render_state.uniform_data_set_mask |= UNIFORM_SET_MATRIX_PROJECTION;
-
-	// Vulkan has Y pointing down, and z should end up in (0, 1)
-	// NOTE this matrix is row-major
-	static const matrix4x4 vk_proj_fixup = {
-		{1, 0, 0, 0},
-		{0, -1, 0, 0},
-		{0, 0, .5, .5},
-		{0, 0, 0, 1}
-	};
-
 	Matrix4x4_Concat( g_render_state.projection, vk_proj_fixup, projection );
 }
 
@@ -610,7 +609,7 @@ void VK_RenderAddStaticLight(vec3_t origin, vec3_t color)
 }
 
 // Return offset of dlights data into UBO buffer
-static uint32_t writeDlightsToUBO()
+static uint32_t writeDlightsToUBO( void )
 {
 	vk_ubo_lights_t* ubo_lights;
 	int num_lights = 0;

@@ -8,7 +8,7 @@ typedef struct {
 
 typedef struct {
 	VkPipelineLayout layout;
-	VkVertexInputAttributeDescription *attribs;
+	const VkVertexInputAttributeDescription *attribs;
 	uint32_t num_attribs;
 
 	const vk_shader_stage_t *stages;

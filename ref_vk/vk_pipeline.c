@@ -29,6 +29,7 @@ void VK_PipelineShutdown( void )
 
 VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *ci)
 {
+	VkPipeline pipeline;
 	VkVertexInputBindingDescription vibd = {
 		.binding = 0,
 		.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
@@ -134,7 +135,6 @@ VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *c
 		};
 	}
 
-	VkPipeline pipeline;
 	XVK_CHECK(vkCreateGraphicsPipelines(vk_core.device, g_pipeline.cache, 1, &gpci, NULL, &pipeline));
 
 	for (int i = 0; i < ci->num_stages; ++i) {
