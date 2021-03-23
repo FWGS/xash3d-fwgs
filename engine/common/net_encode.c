@@ -989,7 +989,6 @@ qboolean Delta_CompareField( delta_t *pField, void *from, void *to, float timeba
 #if defined __GNUC__ && __GNUC_MAJOR < 9 && !defined __clang__
 #pragma GCC diagnostic pop
 #endif
-
 		fromF = Delta_ClampIntegerField( pField, fromF, bSigned, pField->bits );
 		toF = Delta_ClampIntegerField( pField, toF, bSigned, pField->bits );
 		if( pField->multiplier != 1.0f ) fromF *= pField->multiplier;
@@ -1254,6 +1253,10 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 	}
 	else if( pField->flags & DT_INTEGER )
 	{
+#if defined __GNUC__ && __GNUC_MAJOR < 9 && !defined __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wduplicated-branches"
+#endif
 		if( bChanged )
 		{
 			iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
@@ -1270,6 +1273,9 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 			*(int32_t *)((uint8_t *)to + pField->offset ) = iValue;
 		else
 			*(uint32_t *)((uint8_t *)to + pField->offset ) = iValue;
+#if defined __GNUC__ && __GNUC_MAJOR < 9 && !defined __clang__
+#pragma GCC diagnostic pop
+#endif
 	}
 	else if( pField->flags & DT_FLOAT )
 	{
