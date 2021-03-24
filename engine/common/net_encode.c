@@ -1145,10 +1145,17 @@ qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to
 	}
 	else if( pField->flags & DT_INTEGER )
 	{
+#if defined __GNUC__ && __GNUC_MAJOR < 9 && !defined __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wduplicated-branches"
+#endif
 		if( bSigned )
 			iValue = *(int32_t *)((int8_t *)to + pField->offset );
 		else
 			iValue = *(uint32_t *)((int8_t *)to + pField->offset );
+#if defined __GNUC__ && __GNUC_MAJOR < 9 && !defined __clang__
+#pragma GCC diagnostic pop
+#endif
 		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
 		if( pField->multiplier != 1.0f ) iValue *= pField->multiplier;
 		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
