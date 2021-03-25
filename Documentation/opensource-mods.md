@@ -64,6 +64,9 @@ Official github repository - https://github.com/Fograin/hl-subsmod-ex
 ## Half-Life: Weapon Edition
 Available on ModDB - https://www.moddb.com/mods/half-life-weapon-edition/downloads/half-life-weapon-edition-1508-alpha-open-src
 
+## Half-Life: Year of the Dragon
+Available on ModDB - https://www.moddb.com/mods/year-of-the-dragon
+
 ## Half-Nuked
 Available on ModDB - https://www.moddb.com/mods/half-nuked/downloads/half-nuked-src
 
@@ -96,6 +99,9 @@ Available on GamerLab - http://gamer-lab.com/eng/code_mods_goldsrc/Mortal_Combat
 
 ## Natural Selection
 Official github repository - https://github.com/unknownworlds/NS
+
+## Overturn
+Available in mod archive on ModDB - https://www.moddb.com/mods/overturn
 
 ## Spirit of Half-Life
 [Logic&Trick's](https://github.com/LogicAndTrick) mirror - https://files.logic-and-trick.com/#/Half-Life/Mods/Spirit%20of%20Half-Life
