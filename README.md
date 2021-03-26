@@ -40,6 +40,7 @@ For additional info, run Xash3D with `-help` command line key.
 
 ## Contributing
 * Before sending an issue, check if someone already reported your issue. Make sure you're following "How To Ask Questions The Smart Way" guide by Eric Steven Raymond. Read more: http://www.catb.org/~esr/faqs/smart-questions.html
+* Issues are accepted in both English and Russian
 * Before sending a PR, check if you followed our contribution guide in CONTRIBUTING.md file.
 
 ## Build instructions
