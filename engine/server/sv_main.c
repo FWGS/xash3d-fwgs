@@ -782,7 +782,7 @@ send error message and return false on wrong input devices
 qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 {
 	const char *input_devices_str = Info_ValueForKey( useragent, "d" );
-	const char *id = Info_ValueForKey( useragent, "i" );
+	const char *id = Info_ValueForKey( useragent, "uuid" );
 
 	if( !sv_allow_noinputdevices->value && ( !input_devices_str || !input_devices_str[0] ) )
 	{
@@ -871,7 +871,6 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_fps );
 	Cvar_RegisterVariable( &showtriggers );
 	Cvar_RegisterVariable( &sv_aim );
-	Cvar_RegisterVariable( &motdfile );
 	Cvar_RegisterVariable( &deathmatch );
 	Cvar_RegisterVariable( &coop );
 	Cvar_RegisterVariable( &teamplay );
