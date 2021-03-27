@@ -427,12 +427,10 @@ qboolean Image_SavePNG( const char *name, rgbdata_t *pix )
 	// get image description
 	switch( pix->type )
 	{
-	case PF_RGB_24:
-		pixel_size = 3;
-		break;
-	case PF_RGBA_32:
-		pixel_size = 4;
-		break;
+	case PF_BGR_24:
+	case PF_RGB_24: pixel_size = 3; break;
+	case PF_BGRA_32:
+	case PF_RGBA_32: pixel_size = 4; break;
 	default:
 		return false;
 	}
@@ -443,18 +441,47 @@ qboolean Image_SavePNG( const char *name, rgbdata_t *pix )
 	filtered_size = ( rowsize + 1 ) * pix->height;
 
 	out = filtered_buffer = Mem_Malloc( host.imagepool, filtered_size );
-	in = pix->buffer;
 
 	// apply adaptive filter to image
-	for( y = 0; y < pix->height; y++ )
+	switch( pix->type )
 	{
-		*out++ = PNG_F_NONE;
-		rowend = in + rowsize;
-		for( ; in < rowend; )
+	case PF_RGB_24:
+	case PF_RGBA_32:
+		for( y = 0; y < pix->height; y++ )
 		{
-			*out++ = *in++;
+			in = pix->buffer + y * pix->width * pixel_size;
+			*out++ = PNG_F_NONE;
+			rowend = in + rowsize;
+			for( ; in < rowend; in += pixel_size )
+			{
+				*out++ = in[0];
+				*out++ = in[1];
+				*out++ = in[2];
+				if( pix->flags & IMAGE_HAS_ALPHA )
+					*out++ = in[3];
+			}
 		}
+		break;
+	case PF_BGR_24:
+	case PF_BGRA_32:
+		for( y = 0; y < pix->height; y++ )
+		{
+			in = pix->buffer + y * pix->width * pixel_size;
+			*out++ = PNG_F_NONE;
+			rowend = in + rowsize;
+			for( ; in < rowend; in += pixel_size )
+			{
+				*out++ = in[2];
+				*out++ = in[1];
+				*out++ = in[0];
+				if( pix->flags & IMAGE_HAS_ALPHA )
+					*out++ = in[3];
+			}
+		}
+		break;
 	}
+
+
 
 	// get IHDR chunk length
 	ihdr_len = sizeof( png_ihdr_t );
