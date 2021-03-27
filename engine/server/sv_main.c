@@ -64,6 +64,8 @@ CVAR_DEFINE_AUTO( coop, "0", 0, "cooperative mode in multiplayer game" );
 CVAR_DEFINE_AUTO( teamplay, "0", 0, "team mode in multiplayer game" );
 CVAR_DEFINE_AUTO( skill, "1", 0, "skill level in singleplayer game" );
 CVAR_DEFINE_AUTO( temp1, "0", 0, "temporary cvar that used by some mods" );
+CVAR_DEFINE_AUTO( listipcfgfile, "listip.cfg", 0, "name of listip.cfg file" );
+CVAR_DEFINE_AUTO( mapchangecfgfile, "", 0, "name of map change configuration file" );
 
 // physic-related variables
 CVAR_DEFINE_AUTO( sv_gravity, "800", FCVAR_MOVEVARS, "world gravity value" );
@@ -850,10 +852,8 @@ void SV_Init( void )
 	Cvar_Get( "sv_alltalk", "1", 0, "allow to talking for all players (legacy, unused)" );
 	Cvar_Get( "sv_allow_PhysX", "1", FCVAR_ARCHIVE, "allow XashXT to usage PhysX engine" );			// XashXT cvar
 	Cvar_Get( "sv_precache_meshes", "1", FCVAR_ARCHIVE, "cache SOLID_CUSTOM meshes before level loading" );	// Paranoia 2 cvar
-	Cvar_Get( "mapcyclefile", "mapcycle.txt", 0, "name of config file for map changing rules" );
 	Cvar_Get( "servercfgfile", "server.cfg", 0, "name of dedicated server configuration file" );
 	Cvar_Get( "lservercfgfile", "listenserver.cfg", 0, "name of listen server configuration file" );
-	Cvar_Get( "logsdir", "logs", 0, "default folder to write server logs" );
 
 	Cvar_RegisterVariable( &sv_zmax );
 	Cvar_RegisterVariable( &sv_wateramp );
@@ -930,6 +930,13 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &mp_logecho );
 	Cvar_RegisterVariable( &mp_logfile );
 	Cvar_RegisterVariable( &sv_background_freeze );
+
+	Cvar_RegisterVariable( &mapcyclefile );
+	Cvar_RegisterVariable( &motdfile );
+	Cvar_RegisterVariable( &logsdir );
+	Cvar_RegisterVariable( &bannedcfgfile );
+	Cvar_RegisterVariable( &listipcfgfile );
+	Cvar_RegisterVariable( &mapchangecfgfile );
 
 	sv_allow_joystick = Cvar_Get( "sv_allow_joystick", "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
 	sv_allow_mouse = Cvar_Get( "sv_allow_mouse", "1", FCVAR_ARCHIVE, "allow connect with mouse" );
