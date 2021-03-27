@@ -932,6 +932,30 @@ void SV_EntityInfo_f( void )
 }
 
 /*
+================
+Rcon_Redirect_f
+
+Force redirect N lines of console output to client
+================
+*/
+void Rcon_Redirect_f( void )
+{
+	int lines = 2000;
+
+	if( !host.rd.target )
+	{
+		Msg( "redirect is only valid from rcon\n" );
+		return;
+	}
+
+	if( Cmd_Argc() == 2 )
+		lines = Q_atoi( Cmd_Argv( 1 ) );
+
+	host.rd.lines = lines;
+	Msg( "Redirection enabled for next %d lines\n", lines );
+}
+
+/*
 ==================
 SV_InitHostCommands
 
@@ -978,6 +1002,7 @@ void SV_InitOperatorCommands( void )
 	Cmd_AddCommand( "shutdownserver", SV_KillServer_f, "shutdown current server" );
 	Cmd_AddCommand( "changelevel", SV_ChangeLevel_f, "change level" );
 	Cmd_AddCommand( "changelevel2", SV_ChangeLevel2_f, "smooth change level" );
+	Cmd_AddCommand( "redirect", Rcon_Redirect_f, "force enable rcon redirection" );
 
 	if( host.type == HOST_NORMAL )
 	{

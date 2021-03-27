@@ -553,5 +553,5 @@ void Sys_Print( const char *pMsg )
 
 	Sys_PrintLog( pMsg );
 
-	// Rcon_Print( pMsg );
+	Rcon_Print( pMsg );
 }

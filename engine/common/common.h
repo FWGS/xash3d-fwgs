@@ -325,11 +325,12 @@ typedef struct
 
 typedef struct host_redirect_s
 {
-	rdtype_t		target;
-	char		*buffer;
-	int		buffersize;
-	netadr_t		address;
-	void		(*flush)( netadr_t adr, rdtype_t target, char *buffer );
+	rdtype_t target;
+	char     *buffer;
+	size_t   buffersize;
+	netadr_t address;
+	void     (*flush)( netadr_t adr, rdtype_t target, char *buffer );
+	int      lines;
 } host_redirect_t;
 
 typedef struct
@@ -947,6 +948,7 @@ void VID_Init( void );
 void UI_SetActiveMenu( qboolean fActive );
 void UI_ShowConnectionWarning( void );
 void Cmd_Null_f( void );
+void Rcon_Print( const char *pMsg );
 
 // soundlib shared exports
 qboolean S_Init( void );
