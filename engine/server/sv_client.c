@@ -608,7 +608,7 @@ SVC COMMAND REDIRECT
 
 ==============================================================================
 */
-void SV_BeginRedirect( netadr_t adr, int target, char *buffer, int buffersize, void (*flush))
+void SV_BeginRedirect( netadr_t adr, rdtype_t target, char *buffer, size_t buffersize, void (*flush))
 {
 	if( !target || !buffer || !buffersize || !flush )
 		return;
@@ -619,6 +619,8 @@ void SV_BeginRedirect( netadr_t adr, int target, char *buffer, int buffersize, v
 	host.rd.flush = flush;
 	host.rd.address = adr;
 	host.rd.buffer[0] = 0;
+	if( host.rd.lines == 0 )
+		host.rd.lines = -1;
 }
 
 void SV_FlushRedirect( netadr_t adr, int dest, char *buf )
@@ -644,6 +646,9 @@ void SV_FlushRedirect( netadr_t adr, int dest, char *buf )
 
 void SV_EndRedirect( void )
 {
+	if( host.rd.lines > 0 )
+		return;
+
 	if( host.rd.flush )
 		host.rd.flush( host.rd.address, host.rd.target, host.rd.buffer );
 
@@ -651,6 +656,34 @@ void SV_EndRedirect( void )
 	host.rd.buffer = NULL;
 	host.rd.buffersize = 0;
 	host.rd.flush = NULL;
+}
+
+/*
+================
+Rcon_Print
+
+Print message to rcon buffer and send to rcon redirect target
+================
+*/
+void Rcon_Print( const char *pMsg )
+{
+	if( host.rd.target && host.rd.lines && host.rd.flush && host.rd.buffer )
+	{
+		size_t len = Q_strncat( host.rd.buffer, pMsg, host.rd.buffersize );
+
+		if( len && host.rd.buffer[len-1] == '\n' )
+		{
+			host.rd.flush( host.rd.address, host.rd.target, host.rd.buffer );
+
+			if( host.rd.lines > 0 )
+				host.rd.lines--;
+
+			host.rd.buffer[0] = 0;
+
+			if( !host.rd.lines )
+				Msg( "End of redirection!\n" );
+		}
+	}
 }
 
 /*
