@@ -376,17 +376,6 @@ void SV_ConnectClient( netadr_t from )
 
 	// build a new connection
 	// accept the new client
-	if( Q_strncpy( newcl->useragent, Cmd_Argv( 6 ), MAX_INFO_STRING ) )
-	{
-		const char *id = Info_ValueForKey( newcl->useragent, "i" );
-
-		if( *id )
-		{
-			//sscanf( id, "%llx", &newcl->WonID );
-		}
-
-		// Q_strncpy( cl->auth_id, id, sizeof( cl->auth_id ) );
-	}
 
 	sv.current_client = newcl;
 	newcl->edict = EDICT_NUM( (newcl - svs.clients) + 1 );
@@ -396,6 +385,7 @@ void SV_ConnectClient( netadr_t from )
 	newcl->userid = g_userid++;	// create unique userid
 	newcl->state = cs_connected;
 	newcl->extensions = extensions & (NET_EXT_SPLITSIZE);
+	Q_strncpy( newcl->useragent, protinfo, MAX_INFO_STRING );
 
 	// reset viewentities (from previous level)
 	memset( newcl->viewentity, 0, sizeof( newcl->viewentity ));
@@ -411,7 +401,7 @@ void SV_ConnectClient( netadr_t from )
 
 	// build protinfo answer
 	protinfo[0] = '\0';
-	Info_SetValueForKey( protinfo, "ext", va( "%d",newcl->extensions ), sizeof( protinfo ) );
+	Info_SetValueForKey( protinfo, "ext", va( "%d", newcl->extensions ), sizeof( protinfo ) );
 
 	// send the connect packet to the client
 	Netchan_OutOfBandPrint( NS_SERVER, from, "client_connect %s", protinfo );
