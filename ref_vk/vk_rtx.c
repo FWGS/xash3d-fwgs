@@ -7,6 +7,7 @@
 #include "vk_pipeline.h"
 #include "vk_cvar.h"
 #include "vk_textures.h"
+#include "vk_light.h"
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
@@ -99,107 +100,6 @@ static struct {
 	int num_lighttextures;
 	uint32_t scratch_offset, buffer_offset;
 } g_rtx_scene;
-
-static struct {
-	vec3_t emissive;
-	qboolean set;
-} g_rtx_emissive_texture_table_t[MAX_TEXTURES];
-
-static qboolean hack_rad_table_initialized = false;
-static struct {
-	const char *name;
-	int r, g, b, intensity;
-} hack_valve_rad_table[] = {
-	"+0~GENERIC65", 255, 255, 255, 750,
-	"+0~GENERIC85", 110, 140, 235, 20000,
-	"+0~GENERIC86", 255, 230, 125, 10000,
-	"+0~GENERIC86B", 60, 220, 170, 20000,
-	"+0~GENERIC86R", 128, 0, 0, 60000,
-	"GENERIC87A", 100, 255, 100, 1000,
-	"GENERIC88A", 255, 100, 100, 1000,
-	"GENERIC89A", 40, 40, 130, 1000,
-	"GENERIC90A", 200, 255, 200, 1000,
-	"GENERIC105", 255, 100, 100, 1000,
-	"GENERIC106", 120, 120, 100, 1000,
-	"GENERIC107", 180, 50, 180, 1000,
-	"GEN_VEND1", 50, 180, 50, 1000,
-	"EMERGLIGHT", 255, 200, 100, 50000,
-	"+0~FIFTS_LGHT01", 160, 170, 220, 4000,
-	"+0~FIFTIES_LGT2", 160, 170, 220, 5000,
-	"+0~FIFTS_LGHT4", 160, 170, 220, 4000,
-	"+0~LIGHT1", 40, 60, 150, 3000,
-	"+0~LIGHT3A", 180, 180, 230, 10000,
-	"+0~LIGHT4A", 200, 190, 130, 11000,
-	"+0~LIGHT5A", 80, 150, 200, 10000,
-	"+0~LIGHT6A", 150, 5, 5, 25000,
-	"+0~TNNL_LGT1", 240, 230, 100, 10000,
-	"+0~TNNL_LGT2", 190, 255, 255, 12000,
-	"+0~TNNL_LGT3", 150, 150, 210, 17000,
-	"+0~TNNL_LGT4", 170, 90, 40, 10000,
-	"+0LAB1_W6D", 165, 230, 255, 4000,
-	"+0LAB1_W6", 150, 160, 210, 8800,
-	"+0LAB1_W7", 245, 240, 210, 4000,
-	"SKKYLITE", 165, 230, 255, 1000,
-	"+0~DRKMTLS1", 205, 0, 0, 6000,
-	"+0~DRKMTLGT1", 200, 200, 180, 6000,
-	"+0~DRKMTLS2", 150, 120, 20, 30000,
-	"+0~DRKMTLS2C", 255, 200, 100, 50000,
-	"+0DRKMTL_SCRN", 60, 80, 255, 10000,
-	"~LAB_CRT9A", 225, 150, 150, 100,
-	"~LAB_CRT9B", 100, 100, 255, 100,
-	"~LAB_CRT9C", 100, 200, 150, 100,
-	"~LIGHT3A", 190, 20, 20, 3000,
-	"~LIGHT3B", 155, 155, 235, 2000,
-	"~LIGHT3C", 220, 210, 150, 2500,
-	"~LIGHT3E", 90, 190, 140, 6000,
-	"C1A3C_MAP", 100, 100, 255, 100,
-	"FIFTIES_MON1B", 100, 100, 180, 30,
-	"+0~LAB_CRT8", 50, 50, 255, 100,
-	"ELEV2_CIEL", 255, 200, 100, 800,
-	"YELLOW", 255, 200, 100, 2000,
-	"RED", 255, 0, 0, 1000,
-	"+0~GENERIC65", 255, 255, 255, 14000,
-	"+0~LIGHT3A", 255, 255, 255, 25000,
-	"~LIGHT3B", 84, 118, 198, 14000,
-	"+0~DRKMTLS2C", 255, 200, 100, 10,
-	"~LIGHT3A", 190, 20, 20, 14000,
-	"~LIGHT3C", 198, 215, 74, 14000,
-	"+0~LIGHT4A", 231, 223, 82, 20000,
-	"+0~FIFTS_LGHT06", 255, 255, 255, 8000,
-	"+0~FIFTIES_LGT2", 255, 255, 255, 20000,
-	"~SPOTYELLOW", 189, 231, 253, 20000,
-	"~SPOTBLUE", 7, 163, 245, 18000,
-	"+0~DRKMTLS1", 255, 10, 10, 14000,
-	"CRYS_2TOP", 171, 254, 168, 14000,
-	"+0~GENERIC85", 11000, 16000, 22000, 255,
-	"DRKMTL_SCRN3", 1, 111, 220, 500,
-	"+0~LIGHT3A", 255, 255, 255, 25000,
-	"~LIGHT3B", 84, 118, 198, 14000,
-	"+0~DRKMTLS2C", 255, 200, 100, 10,
-	"~LIGHT3A", 190, 20, 20, 14000,
-	"~LIGHT3C", 198, 215, 74, 14000,
-	"+0~LIGHT4A", 231, 223, 82, 20000,
-	"+0~FIFTS_LGHT06", 255, 255, 255, 8000,
-	"+0~FIFTIES_LGT2", 255, 255, 255, 20000,
-	"~SPOTYELLOW", 189, 231, 253, 20000,
-	"+0~DRKMTLS1", 255, 10, 10, 14000,
-	"LITEPANEL1", 190, 170, 120, 2500,
-	"+0BUTTONLITE", 255, 255, 255, 25,
-	"+ABUTTONLITE", 255, 255, 255, 25,
-	"+0~FIFTS_LGHT3", 160, 170, 220, 4000,
-	"~LIGHT5F", 200, 190, 140, 2500,
-	"+A~FIFTIES_LGT2", 160, 170, 220, 4000,
-	"~LIGHT3F", 200, 190, 140, 2500,
-	"~SPOTBLUE", 7, 163, 245, 18000,
-	"+0~FIFTS_LGHT5", 255, 255, 255, 10000,
-	"+0~LAB1_CMP2", 255, 255, 255, 20,
-	"LAB1_COMP3D", 255, 255, 255, 20,
-	"~LAB1_COMP7", 255, 255, 255, 20,
-	"+0~GENERIC65", 255, 255, 255, 750,
-	"+0~LAB1_CMP2", 255, 255, 255, 20,
-	"LAB1_COMP3D", 255, 255, 255, 20,
-	"~LAB1_COMP7", 255, 255, 255, 20,
-};
 
 static VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer) {
 	const VkBufferDeviceAddressInfo bdai = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
@@ -318,25 +218,6 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 		return;
 	}
 
-	if (!hack_rad_table_initialized) {
-		hack_rad_table_initialized = true;
-		for (int i = 0; i < ARRAYSIZE(hack_valve_rad_table); ++i) {
-			const float scale = hack_valve_rad_table[i].intensity / (255.f * 255.f);
-			int tex_id;
-			char name[256];
-			Q_sprintf(name, "halflife.wad/%s.mip", hack_valve_rad_table[i].name);
-			tex_id = VK_FindTexture(name);
-			if (!tex_id)
-				continue;
-			ASSERT(tex_id < MAX_TEXTURES);
-
-			g_rtx_emissive_texture_table_t[tex_id].emissive[0] = hack_valve_rad_table[i].r * scale;
-			g_rtx_emissive_texture_table_t[tex_id].emissive[1] = hack_valve_rad_table[i].g * scale;
-			g_rtx_emissive_texture_table_t[tex_id].emissive[2] = hack_valve_rad_table[i].b * scale;
-			g_rtx_emissive_texture_table_t[tex_id].set = true;
-		}
-	}
-
 	ASSERT(vk_core.rtx);
 
 	{
@@ -382,8 +263,8 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 			kusok->triangles = create_info->element_count / 3;
 
 			ASSERT(create_info->texture_id < MAX_TEXTURES);
-			if (create_info->texture_id >= 0 && g_rtx_emissive_texture_table_t[create_info->texture_id].set) {
-				VectorCopy(g_rtx_emissive_texture_table_t[create_info->texture_id].emissive, kusok->emissive);
+			if (create_info->texture_id >= 0 && g_emissive_texture_table[create_info->texture_id].set) {
+				VectorCopy(g_emissive_texture_table[create_info->texture_id].emissive, kusok->emissive);
 			} else {
 				kusok->emissive[0] = create_info->emissive.r;
 				kusok->emissive[1] = create_info->emissive.g;

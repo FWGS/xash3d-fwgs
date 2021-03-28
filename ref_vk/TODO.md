@@ -1,10 +1,10 @@
-## 2021-03-17..20
-- [x] rtx: lower resolution framebuffer + upscale
-- [x] rtx: importance sample emissive surface
-- [ ] rtx: remove entnity-parsed lights
+## 2021-03-28
+- [x] bake s/d-lights visibility data into bsp leaves
 
 # Next
-- [ ] rtx: naive temporal denoise: mix with previous frame
+- [ ] rtx: use light visibility data
+- [ ] rtx: read rad file data
+	- [ ] rtx: hack: interpret textures with '~' or '{' as emissive
 - [ ] rtx: emissive particles
 - [ ] rtx: textures
 - [ ] rtx: add fps
@@ -16,6 +16,7 @@
 - [ ] rtx: some studio models have glitchy geometry
 
 # Planned
+- [ ] bake light visibility in compute shader
 - [ ] rtx: cull light sources (dlights and light textures) using bsp
 - [ ] enable entity-parsed lights by lightstyles
 - [ ] dlight for flashlight seems to be broken
@@ -141,3 +142,12 @@
 - [x] rtx: emissive materials
 	- [x] rtx: emissive textures
 	- [x] rtx: emissive beams
+
+## 2021-03-17..20
+- [x] rtx: lower resolution framebuffer + upscale
+- [x] rtx: importance sample emissive surface
+- [x] rtx: remove entnity-parsed lights
+- [x] rtx: naive temporal denoise: mix with previous frame
+
+## 2021-03-22
+- [x] rtx: traverse bsp for science!
