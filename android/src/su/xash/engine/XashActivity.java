@@ -492,6 +492,11 @@ public class XashActivity extends Activity {
 		mEngineReady = true;
 	}
 	
+	private boolean checkCstrike( String gamelibdir, String packagename, String signature )
+	{
+		return ( !FWGSLib.checkGameLibDir( gamelibdir, packagename ) ||
+				CertCheck.dumbCertificateCheck( getContext(), packagename, signature, false ) );
+	}
 
 	private boolean setupEnvironment()
 	{
@@ -512,10 +517,7 @@ public class XashActivity extends Activity {
 			mMinWidth = 640;
 			mMinHeight = 300;
 			
-			final String allowed = "in.celest.xash3d.cs16client";
-			
-			if( !FWGSLib.checkGameLibDir( gamelibdir, allowed ) || 
-				CertCheck.dumbCertificateCheck( getContext(), allowed, null, true ) )
+			if ( !checkCstrike( gamelibdir, "su.xash.cs16client", "AtsVnfclsm6zLW/qxxPk970zgfA=" ) && !checkCstrike( gamelibdir, "in.celest.xash3d.cs16client", null ) )
 			{
 				finish();
 				return false;
