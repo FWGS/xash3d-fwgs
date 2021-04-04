@@ -521,6 +521,12 @@ skipwhite:
 			}
 			data++;
 
+			if( c == '\\' && *data == '"' )
+			{
+				token[len++] = (byte)*data++;
+				continue;
+			}
+
 			if( c == '\"' )
 			{
 				token[len] = 0;
