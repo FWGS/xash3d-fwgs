@@ -516,8 +516,11 @@ public class XashActivity extends Activity {
 		{
 			mMinWidth = 640;
 			mMinHeight = 300;
+
+			final String velaron_signature = "AtsVnfclsm6zLW/qxxPk970zgfA=";
+			final String sdlash_signature = "DMsE8f5hlR7211D8uehbFpbA0n8=";
 			
-			if ( !checkCstrike( gamelibdir, "su.xash.cs16client", "AtsVnfclsm6zLW/qxxPk970zgfA=" ) && !checkCstrike( gamelibdir, "in.celest.xash3d.cs16client", null ) )
+			if ( !checkCstrike( gamelibdir, "su.xash.cs16client", velaron_signature ) && !checkCstrike( gamelibdir, "in.celest.xash3d.cs16client", sdlash_signature ) )
 			{
 				finish();
 				return false;
