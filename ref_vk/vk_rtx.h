@@ -12,15 +12,10 @@ typedef struct {
 	VkBuffer buffer;
 	const matrix3x4 *transform_row;
 	struct { float r,g,b; } emissive;
-} vk_ray_model_create_t;
-
-typedef int vk_ray_model_handle_t;
-enum { InvalidRayModel = -1 };
-
-vk_ray_model_handle_t VK_RayModelCreate( const vk_ray_model_create_t *args );
+} vk_ray_model_dynamic_t;
 
 void VK_RaySceneBegin( void );
-void VK_RayScenePushModel(VkCommandBuffer cmdbuf, const vk_ray_model_create_t* model); // vk_ray_model_handle_t model );
+void VK_RaySceneAddModelDynamic(VkCommandBuffer cmdbuf, const vk_ray_model_dynamic_t* model);
 
 typedef struct {
 	VkCommandBuffer cmdbuf;

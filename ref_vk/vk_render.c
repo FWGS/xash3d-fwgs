@@ -620,6 +620,8 @@ static uint32_t writeDlightsToUBO( void )
 	}
 	ubo_lights = (vk_ubo_lights_t*)((byte*)(g_render.uniform_buffer.mapped) + ubo_lights_offset);
 
+// TODO rtx and query light styles
+#if 0
 	for (int i = 0; i < g_render.num_static_lights && num_lights < ARRAYSIZE(ubo_lights->light); ++i) {
 		Vector4Set(
 			ubo_lights->light[num_lights].color,
@@ -636,6 +638,7 @@ static uint32_t writeDlightsToUBO( void )
 
 		num_lights++;
 	}
+#endif
 
 	// TODO this should not be here (where? vk_scene?)
 	for (int i = 0; i < MAX_DLIGHTS && num_lights < ARRAYSIZE(ubo_lights->light); ++i) {
@@ -750,6 +753,7 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 
 	ASSERT(vk_core.rtx);
 	VK_RaySceneBegin();
+
 	for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
 		const draw_command_t *const draw = g_render_state.draw_commands + i;
 		const vk_buffer_alloc_t *vertex_buffer = getBufferFromHandle( draw->draw.vertex_buffer );
@@ -761,7 +765,7 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 		// but here we've completely lost this info, as models are now just a stream
 		// of independent draws
 
-		const vk_ray_model_create_t ray_model_args = {
+		const vk_ray_model_dynamic_t dynamic_model = {
 			.element_count = draw->draw.element_count,
 			.max_vertex = vertex_buffer->count, // TODO this is an upper bound for brushes at least, it can be lowered
 			.index_offset = index_buffer ? (draw->draw.index_offset + index_buffer->buffer_offset_in_units) : UINT32_MAX,
@@ -772,7 +776,7 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 			.texture_id = draw->draw.texture,
 		};
 
-		VK_RayScenePushModel(cmdbuf, &ray_model_args);
+		VK_RaySceneAddModelDynamic(cmdbuf, &dynamic_model);
 	}
 
 	{
@@ -821,5 +825,78 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 		}
 
 		VK_RaySceneEnd(&args);
+	}
+}
+
+qboolean VK_RenderModelInit( vk_render_model_t *model) {
+	if (vk_core.rtx) {
+		PRINT_NOT_IMPLEMENTED();
+		return false;
+	}
+
+	// TODO pre-bake optimal draws
+	return true;
+}
+
+void VK_RenderModelDestroy( vk_render_model_t* model ) {
+	(void)model;
+
+	if (vk_core.rtx) {
+		PRINT_NOT_IMPLEMENTED();
+	}
+}
+
+void VK_RenderModelDraw( vk_render_model_t* model ) {
+	int current_texture = -1;
+	int index_count = 0;
+	int index_offset = -1;
+
+	for (int i = 0; i < model->num_geometries; ++i) {
+		const vk_render_geometry_t *geom = model->geometries + i;
+		if (geom->texture < 0)
+			continue;
+
+		if (current_texture != geom->texture)
+		{
+			if (index_count) {
+				const render_draw_t draw = {
+					.lightmap = tglob.lightmapTextures[0],
+					.texture = current_texture,
+					.render_mode = model->render_mode,
+					.element_count = index_count,
+					.vertex_buffer = model->vertex_buffer,
+					.index_buffer = model->index_buffer,
+					.vertex_offset = 0,
+					.index_offset = index_offset,
+				};
+
+				VK_RenderScheduleDraw( &draw );
+			}
+
+			current_texture = geom->texture;
+			index_count = 0;
+			index_offset = -1;
+		}
+
+		if (index_offset < 0)
+			index_offset = geom->index_offset;
+		// Make sure that all surfaces are concatenated in buffers
+		ASSERT(index_offset + index_count == geom->index_offset);
+		index_count += geom->element_count;
+	}
+
+	if (index_count) {
+		const render_draw_t draw = {
+			.lightmap = tglob.lightmapTextures[0],
+			.texture = current_texture,
+			.render_mode = model->render_mode,
+			.element_count = index_count,
+			.vertex_buffer = model->vertex_buffer,
+			.index_buffer = model->index_buffer,
+			.vertex_offset = 0,
+			.index_offset = index_offset,
+		};
+
+		VK_RenderScheduleDraw( &draw );
 	}
 }

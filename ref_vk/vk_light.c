@@ -507,6 +507,7 @@ void VK_LightsBakePVL( int frame_number ) {
 	for (int i = 0; i < map->numleafs; ++i) {
 		const mleaf_t *leaf = map->leafs + i;
 		vk_light_leaf_t *lights = g_lights.leaves + i;
+		// TODO we should not decompress PVS, as it might be faster to interate through compressed directly
 		const byte *visdata = Mod_DecompressPVS(leaf->compressed_vis, world->visbytes);
 		int num_emissive_lights = 0;
 
@@ -550,6 +551,11 @@ void VK_LightsBakePVL( int frame_number ) {
 					++num_emissive_lights;
 					if (lights->num_slights == MAX_VISIBLE_SURFACE_LIGHTS)
 						continue;
+
+					// TODO cull by:
+					// - front/back facing?
+					// - distance and intensity
+					// - ...
 
 					lights->slights[lights->num_slights++] = candidate_light;
 				}

@@ -66,13 +66,44 @@ typedef struct render_draw_s {
 	uint32_t element_count;
 	uint32_t index_offset, vertex_offset;
 	vk_buffer_handle_t index_buffer, vertex_buffer;
-	struct { float r, g, b; } emissive;
+	/* TODO this should be a separate thing? */ struct { float r, g, b; } emissive;
 } render_draw_t;
 
-void VK_RenderBegin( void );
+typedef struct {
+	int texture;
+	uint32_t element_count;
+	uint32_t index_offset, vertex_offset;
+} vk_render_geometry_t;
+
+typedef struct {
+	const char *debug_name;
+	int render_mode;
+	int num_geometries;
+	vk_render_geometry_t *geometries;
+
+	// Common for the entire model
+	vk_buffer_handle_t index_buffer, vertex_buffer;
+
+	// TODO potentially dynamic data: textures
+	//qboolean dynamic; // whether this model will require data reupload
+
+	struct {
+		void *blas; // FIXME
+	} rtx;
+} vk_render_model_t;
+
+qboolean VK_RenderModelInit( vk_render_model_t* model );
+void VK_RenderModelDestroy( vk_render_model_t* model );
+void VK_RenderModelDraw( vk_render_model_t* model );
+
+void VK_RenderFrameBegin( void );
+
+// void VK_RenderObjectBegin( void *tag, const char *name /* expect transient ... */ );
+// void VK_RenderObjectEnd();
+
 void VK_RenderScheduleDraw( const render_draw_t *draw );
-void VK_RenderEnd( VkCommandBuffer cmdbuf );
-void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h );
+void VK_RenderFrameEnd( VkCommandBuffer cmdbuf );
+void VK_RenderFrameEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h );
 
 void VK_RenderDebugLabelBegin( const char *label );
 void VK_RenderDebugLabelEnd( void );

@@ -32,6 +32,7 @@ typedef struct {
 typedef struct {
 	int frame_number;
 
+	// TODO make this opaque light clusters
 	int num_leaves; // same as worldmodel->numleaves
 	vk_light_leaf_t *leaves;
 

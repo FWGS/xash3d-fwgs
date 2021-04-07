@@ -93,7 +93,7 @@ void R_NewMap( void )
 	VK_RunLightStyles();
 
 	// TODO should we do something like VK_BrushBeginLoad?
-	VK_BrushClear();
+	VK_BrushStatsClear();
 
 	// FIXME this is totally incorrect btw.
 	// When loading a save game from the same map this is called, but brush models
@@ -116,7 +116,7 @@ void R_NewMap( void )
 		if( m->type != mod_brush )
 			continue;
 
-		if (!VK_LoadBrushModel( m, NULL ))
+		if (!VK_BrushModelLoad( m ))
 		{
 			gEngine.Con_Printf( S_ERROR "Couldn't load model %s\n", m->name );
 		}
@@ -591,7 +591,7 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 		case mod_brush:
 			R_RotateForEntity( model, ent );
 			VK_RenderStateSetMatrixModel( model );
-			VK_BrushDrawModel( ent, render_mode );
+			VK_BrushModelDraw( ent, render_mode );
 			break;
 
 		case mod_studio:
@@ -643,7 +643,7 @@ void VK_SceneRender( const ref_viewpass_t *rvp )
 			VK_LightsBakePVL( 0 /* FIXME frame number */);
 
 			VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f);
-			VK_BrushDrawModel( world, kRenderNormal );
+			VK_BrushModelDraw( world, kRenderNormal );
 		}
 	}
 

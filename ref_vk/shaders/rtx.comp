@@ -301,7 +301,7 @@ void main() {
 
 	//if (gl_GlobalInvocationID.x > imageSize(image).x / 2)
 	{
-		const float wet = .9;
+		const float wet = .5;
 		C = mix(C, imageLoad(previous_frame, ivec2(gl_GlobalInvocationID.xy)).rgb, wet);
 	}
 	imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(C, 1.));

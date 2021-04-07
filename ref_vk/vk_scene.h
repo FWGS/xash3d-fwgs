@@ -18,7 +18,6 @@ void VK_SceneInit( void );
 
 void VK_SceneRender( const struct ref_viewpass_s *rvp );
 
-qboolean VK_LoadBrushModel( model_t *mod, const byte *buffer );
 qboolean R_AddEntity( struct cl_entity_s *clent, int type );
 void R_ProcessEntData( qboolean allocate );
 void R_ClearScreen( void );

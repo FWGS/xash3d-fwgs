@@ -183,7 +183,7 @@ static void loadDeviceFunctions(dllfunc_t *funcs, int count)
 
 static qboolean createInstance( void )
 {
-	const char **instance_extensions = NULL;
+	char ** instance_extensions = NULL;
 	unsigned int num_instance_extensions = vk_core.debug ? 1 : 0;
 	VkApplicationInfo app_info = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,

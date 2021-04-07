@@ -138,11 +138,6 @@ static void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *load
 	PRINT_NOT_IMPLEMENTED_ARGS("(%p, %s), %p, %d", mod, mod->name, buffer, *loaded);
 }
 
-static void Mod_UnloadTextures( model_t *mod )
-{
-	PRINT_NOT_IMPLEMENTED_ARGS("(%p, %s)", mod, mod->name);
-}
-
 static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buffer )
 {
 	qboolean loaded = true;
@@ -175,8 +170,16 @@ static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte
 	if( loaded && gEngine.drawFuncs->Mod_ProcessUserData )
 		gEngine.drawFuncs->Mod_ProcessUserData( mod, create, buffer );
 
-	if( !create )
-		Mod_UnloadTextures( mod );
+	if( !create ) {
+		switch( mod->type )
+		{
+			case mod_brush:
+				VK_BrushModelDestroy( mod );
+				break;
+			default:
+				PRINT_NOT_IMPLEMENTED_ARGS("destroy (%p, %d, %s)", mod, mod->type, mod->name);
+		}
+	}
 
 	return loaded;
 }

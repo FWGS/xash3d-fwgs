@@ -1,5 +1,10 @@
-## 2021-03-28
-- [x] bake s/d-lights visibility data into bsp leaves
+## 2021-04-06..07
+- [ ] persistent models
+	- [x] load brushes into render model
+	- [x] destroy brushes when time comes (when?)
+	- [x] rasterize models in renderer
+	- [ ] rtx: build AS for model
+	- [ ] rtx: include pre-built models in TLAS
 
 # Next
 - [ ] rtx: use light visibility data
@@ -151,3 +156,6 @@
 
 ## 2021-03-22
 - [x] rtx: traverse bsp for science!
+
+## 2021-03-28
+- [x] bake s/d-lights visibility data into bsp leaves

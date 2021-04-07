@@ -208,7 +208,7 @@ static vk_ray_model_t *getModelByHandle(vk_ray_model_handle_t handle)
 }
 */
 
-void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *create_info) // _handle_t model_handle )
+void VK_RaySceneAddModelDynamic( VkCommandBuffer cmdbuf, const vk_ray_model_dynamic_t *dynamic)
 {
 	vk_ray_model_t* model = g_rtx.models + g_rtx_scene.num_models;
 	ASSERT(g_rtx_scene.num_models <= ARRAYSIZE(g_rtx.models));
@@ -221,8 +221,8 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 	ASSERT(vk_core.rtx);
 
 	{
-		const VkDeviceAddress buffer_addr = getBufferDeviceAddress(create_info->buffer);
-		const uint32_t prim_count = create_info->element_count / 3;
+		const VkDeviceAddress buffer_addr = getBufferDeviceAddress(dynamic->buffer);
+		const uint32_t prim_count = dynamic->element_count / 3;
 		const VkAccelerationStructureGeometryKHR geom[] = {
 			{
 				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -231,12 +231,12 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 				.geometry.triangles =
 					(VkAccelerationStructureGeometryTrianglesDataKHR){
 						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-						.indexType = create_info->index_offset == UINT32_MAX ? VK_INDEX_TYPE_NONE_KHR : VK_INDEX_TYPE_UINT16,
-						.maxVertex = create_info->max_vertex,
+						.indexType = dynamic->index_offset == UINT32_MAX ? VK_INDEX_TYPE_NONE_KHR : VK_INDEX_TYPE_UINT16,
+						.maxVertex = dynamic->max_vertex,
 						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
 						.vertexStride = sizeof(vk_vertex_t),
-						.vertexData.deviceAddress = buffer_addr + create_info->vertex_offset * sizeof(vk_vertex_t),
-						.indexData.deviceAddress = buffer_addr + create_info->index_offset * sizeof(uint16_t),
+						.vertexData.deviceAddress = buffer_addr + dynamic->vertex_offset * sizeof(vk_vertex_t),
+						.indexData.deviceAddress = buffer_addr + dynamic->index_offset * sizeof(uint16_t),
 					},
 			} };
 
@@ -257,18 +257,18 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 		// Store geometry references in kusochki
 		{
 			vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + g_rtx_scene.num_models;
-			kusok->vertex_offset = create_info->vertex_offset;
-			kusok->index_offset = create_info->index_offset;
-			ASSERT(create_info->element_count % 3 == 0);
-			kusok->triangles = create_info->element_count / 3;
+			kusok->vertex_offset = dynamic->vertex_offset;
+			kusok->index_offset = dynamic->index_offset;
+			ASSERT(dynamic->element_count % 3 == 0);
+			kusok->triangles = dynamic->element_count / 3;
 
-			ASSERT(create_info->texture_id < MAX_TEXTURES);
-			if (create_info->texture_id >= 0 && g_emissive_texture_table[create_info->texture_id].set) {
-				VectorCopy(g_emissive_texture_table[create_info->texture_id].emissive, kusok->emissive);
+			ASSERT(dynamic->texture_id < MAX_TEXTURES);
+			if (dynamic->texture_id >= 0 && g_emissive_texture_table[dynamic->texture_id].set) {
+				VectorCopy(g_emissive_texture_table[dynamic->texture_id].emissive, kusok->emissive);
 			} else {
-				kusok->emissive[0] = create_info->emissive.r;
-				kusok->emissive[1] = create_info->emissive.g;
-				kusok->emissive[2] = create_info->emissive.b;
+				kusok->emissive[0] = dynamic->emissive.r;
+				kusok->emissive[1] = dynamic->emissive.g;
+				kusok->emissive[2] = dynamic->emissive.b;
 			}
 
 			if (kusok->emissive[0] > 0 || kusok->emissive[1] > 0 || kusok->emissive[2] > 0) {
@@ -283,7 +283,7 @@ void VK_RayScenePushModel( VkCommandBuffer cmdbuf, const vk_ray_model_create_t *
 			}
 		}
 
-		memcpy(model->transform_row, *create_info->transform_row, sizeof(model->transform_row));
+		memcpy(model->transform_row, *dynamic->transform_row, sizeof(model->transform_row));
 
 		g_rtx_scene.num_models++;
 	}

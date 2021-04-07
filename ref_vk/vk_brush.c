@@ -17,20 +17,12 @@
 #include <math.h>
 #include <memory.h>
 
-typedef struct vk_brush_model_surface_s {
-	int texture_num;
-	msurface_t *surf;
-
-	uint32_t index_offset;
-	uint16_t index_count;
-} vk_brush_model_surface_t;
-
 typedef struct vk_brush_model_s {
-	vk_buffer_handle_t vertex_buffer;
-	vk_buffer_handle_t index_buffer;
+	vk_render_model_t render_model;
 
-	int num_surfaces;
-	vk_brush_model_surface_t surfaces[];
+	// Surfaces for getting animated textures.
+	// Each surface corresponds to a single geometry within render_model with the same index.
+	msurface_t *surf[];
 } vk_brush_model_t;
 
 static struct {
@@ -123,14 +115,11 @@ texture_t *R_TextureAnimation( const cl_entity_t *ent, msurface_t *s )
 	return base;
 }
 
-void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode )
+void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode )
 {
 	// Expect all buffers to be bound
 	const model_t *mod = ent->model;
-	const vk_brush_model_t *bmodel = mod->cache.data;
-	int current_texture = -1;
-	int index_count = 0;
-	int index_offset = -1;
+	vk_brush_model_t *bmodel = mod->cache.data;
 
 	if (!bmodel) {
 		gEngine.Con_Printf( S_ERROR "Model %s wasn't loaded\n", mod->name);
@@ -143,63 +132,58 @@ void VK_BrushDrawModel( const cl_entity_t *ent, int render_mode )
 		return;
 	}
 
-	VK_RenderDebugLabelBegin( mod->name );
-
-	for (int i = 0; i < bmodel->num_surfaces; ++i) {
-		const vk_brush_model_surface_t *bsurf = bmodel->surfaces + i;
-		texture_t *t = R_TextureAnimation(ent, bsurf->surf);
-
+	for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
+		texture_t *t = R_TextureAnimation(ent, bmodel->surf[i]);
 		if (t->gl_texturenum < 0)
 			continue;
 
-		if (current_texture != t->gl_texturenum)
-		{
-			if (index_count) {
-				const render_draw_t draw = {
-					.lightmap = tglob.lightmapTextures[0],
-					.texture = current_texture,
-					.render_mode = render_mode,
-					.element_count = index_count,
-					.vertex_buffer = bmodel->vertex_buffer,
-					.index_buffer = bmodel->index_buffer,
-					.vertex_offset = 0,
-					.index_offset = index_offset,
-				};
-
-				VK_RenderScheduleDraw( &draw );
-			}
-
-			current_texture = t->gl_texturenum;
-			index_count = 0;
-			index_offset = -1;
-		}
-
-		if (index_offset < 0)
-			index_offset = bsurf->index_offset;
-		// Make sure that all surfaces are concatenated in buffers
-		ASSERT(index_offset + index_count == bsurf->index_offset);
-		index_count += bsurf->index_count;
+		bmodel->render_model.geometries[i].texture = t->gl_texturenum;
 	}
 
-	if (index_count) {
-		const render_draw_t draw = {
-			.lightmap = tglob.lightmapTextures[0],
-			.texture = current_texture,
-			.render_mode = render_mode,
-			.element_count = index_count,
-			.vertex_buffer = bmodel->vertex_buffer,
-			.index_buffer = bmodel->index_buffer,
-			.vertex_offset = 0,
-			.index_offset = index_offset,
-		};
-
-		VK_RenderScheduleDraw( &draw );
-	}
-
-	VK_RenderDebugLabelEnd();
+	bmodel->render_model.render_mode = render_mode;
+	VK_RenderModelDraw(&bmodel->render_model);
 }
 
-static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_surfaces) {
+static qboolean renderableSurface( const msurface_t *surf, int i ) {
+	if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) ) {
+		gEngine.Con_Reportf("Skipping surface %d because of flags %08x\n", i, surf->flags);
+		return false;
+	}
+
+	if( FBitSet( surf->flags, SURF_DRAWTILED )) {
+		gEngine.Con_Reportf("Skipping surface %d because of tiled flag\n", i);
+		return false;
+	}
+
+	return true;
+}
+
+typedef struct {
+	int num_surfaces, num_vertices, num_indices;
+	int max_texture_id;
+} model_sizes_t;
+
+static model_sizes_t computeSizes( const model_t *mod ) {
+	model_sizes_t sizes = {0};
+
+	for( int i = 0; i < mod->nummodelsurfaces; ++i)
+	{
+		const msurface_t *surf = mod->surfaces + mod->firstmodelsurface + i;
+
+		if (!renderableSurface(surf, i))
+			continue;
+
+		++sizes.num_surfaces;
+		sizes.num_vertices += surf->numedges;
+		sizes.num_indices += 3 * (surf->numedges - 1);
+		if (surf->texinfo->texture->gl_texturenum > sizes.max_texture_id)
+			sizes.max_texture_id = surf->texinfo->texture->gl_texturenum;
+	}
+
+	return sizes;
+}
+
+static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	vk_brush_model_t *bmodel = mod->cache.data;
 	uint32_t vertex_offset = 0;
 	int num_surfaces = 0;
@@ -209,35 +193,13 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 	uint16_t *bind = NULL;
 	uint32_t index_offset = 0;
 
-	int num_indices = 0, num_vertices = 0, max_texture_id = 0;
-	for( int i = 0; i < mod->nummodelsurfaces; ++i)
-	{
-		const msurface_t *surf = mod->surfaces + mod->firstmodelsurface + i;
-		vk_brush_model_surface_t *bsurf = out_surfaces + num_surfaces;
-
-		if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) ) {
-			gEngine.Con_Reportf("Skipping surface %d because of flags %08x\n", i, surf->flags);
-			continue;
-		}
-
-		if( FBitSet( surf->flags, SURF_DRAWTILED )) {
-			gEngine.Con_Reportf("Skipping surface %d because of tiled flag\n", i);
-			continue;
-		}
-
-		num_vertices += surf->numedges;
-		num_indices += 3 * (surf->numedges - 1);
-		if (surf->texinfo->texture->gl_texturenum > max_texture_id)
-			max_texture_id = surf->texinfo->texture->gl_texturenum;
-	}
-
-	vertex_buffer = VK_RenderBufferAlloc( sizeof(vk_vertex_t), num_vertices, LifetimeMap );
-	index_buffer = VK_RenderBufferAlloc( sizeof(uint16_t), num_indices, LifetimeMap );
+	vertex_buffer = VK_RenderBufferAlloc( sizeof(vk_vertex_t), sizes.num_vertices, LifetimeMap );
+	index_buffer = VK_RenderBufferAlloc( sizeof(uint16_t), sizes.num_indices, LifetimeMap );
 	if (vertex_buffer == InvalidHandle || index_buffer == InvalidHandle)
 	{
 		// TODO should we free one of the above if it still succeeded?
 		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
-		return -1;
+		return false;
 	}
 
 	vertex_lock = VK_RenderBufferLock( vertex_buffer );
@@ -245,33 +207,24 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 	bvert = vertex_lock.ptr;
 	bind = index_lock.ptr;
 
-	if (!bind)
-	{
-		gEngine.Con_Printf(S_ERROR "Ran out of buffer index space\n");
-		return -1;
-	}
-
-	g_brush.stat.num_indices += num_indices;
-	g_brush.stat.num_vertices += num_vertices;
-
 	// Load sorted by gl_texturenum
-	for (int t = 0; t <= max_texture_id; ++t)
+	for (int t = 0; t <= sizes.max_texture_id; ++t)
 	{
 		for( int i = 0; i < mod->nummodelsurfaces; ++i)
 		{
 			msurface_t *surf = mod->surfaces + mod->firstmodelsurface + i;
-			vk_brush_model_surface_t *bsurf = out_surfaces + num_surfaces;
 			mextrasurf_t	*info = surf->info;
+			vk_render_geometry_t *model_geometry = bmodel->render_model.geometries + num_surfaces;
 			const float sample_size = gEngine.Mod_SampleSizeForFace( surf );
+			int index_count = 0;
 
-			if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
-				continue;
-
-			if( FBitSet( surf->flags, SURF_DRAWTILED ))
+			if (!renderableSurface(surf, i))
 				continue;
 
 			if (t != surf->texinfo->texture->gl_texturenum)
 				continue;
+
+			bmodel->surf[num_surfaces] = surf;
 
 			++num_surfaces;
 
@@ -280,13 +233,13 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 			if (vertex_offset + surf->numedges >= UINT16_MAX)
 			{
 				gEngine.Con_Printf(S_ERROR "Model %s indices don't fit into 16 bits\n", mod->name);
-				return -1;
+				// FIXME unlock and free buffers
+				return false;
 			}
 
-			bsurf->surf = surf;
-			bsurf->texture_num = surf->texinfo->texture->gl_texturenum;
-			bsurf->index_offset = index_offset;
-			bsurf->index_count = 0;
+			model_geometry->index_offset = index_offset;
+			model_geometry->vertex_offset = 0;
+			model_geometry->texture = t;
 
 			VK_CreateSurfaceLightmap( surf, mod );
 
@@ -335,11 +288,12 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 					*(bind++) = (uint16_t)(vertex_offset + 0);
 					*(bind++) = (uint16_t)(vertex_offset + k - 1);
 					*(bind++) = (uint16_t)(vertex_offset + k);
-					bsurf->index_count += 3;
+					index_count += 3;
 					index_offset += 3;
 				}
 			}
 
+			model_geometry->element_count = index_count;
 			vertex_offset += surf->numedges;
 		}
 	}
@@ -347,16 +301,16 @@ static int loadBrushSurfaces( const model_t *mod, vk_brush_model_surface_t *out_
 	VK_RenderBufferUnlock( index_buffer );
 	VK_RenderBufferUnlock( vertex_buffer );
 
-	bmodel->vertex_buffer = vertex_buffer;
-	bmodel->index_buffer = index_buffer;
+	ASSERT(sizes.num_surfaces == num_surfaces);
+	bmodel->render_model.num_geometries = num_surfaces;
+	bmodel->render_model.index_buffer = index_buffer;
+	bmodel->render_model.vertex_buffer = vertex_buffer;
 
 	return num_surfaces;
 }
 
-qboolean VK_LoadBrushModel( model_t *mod, const byte *buffer )
+qboolean VK_BrushModelLoad( model_t *mod )
 {
-	vk_brush_model_t *bmodel;
-
 	if (mod->cache.data)
 	{
 		gEngine.Con_Reportf( S_WARN "Model %s was already loaded\n", mod->name );
@@ -365,20 +319,40 @@ qboolean VK_LoadBrushModel( model_t *mod, const byte *buffer )
 
 	gEngine.Con_Reportf("%s: %s flags=%08x\n", __FUNCTION__, mod->name, mod->flags);
 
-	bmodel = Mem_Malloc(vk_core.pool, sizeof(vk_brush_model_t) + sizeof(vk_brush_model_surface_t) * mod->nummodelsurfaces);
-	mod->cache.data = bmodel;
+	{
+		const model_sizes_t sizes = computeSizes( mod );
+		vk_brush_model_t *bmodel = Mem_Malloc(vk_core.pool, sizeof(vk_brush_model_t) + (sizeof(msurface_t*) + sizeof(vk_render_geometry_t)) * sizes.num_surfaces);
+		mod->cache.data = bmodel;
+		bmodel->render_model.debug_name = mod->name;
+		bmodel->render_model.render_mode = kRenderNormal;
+		bmodel->render_model.geometries = (vk_render_geometry_t*)((char*)(bmodel + 1) + sizeof(msurface_t*) * sizes.num_surfaces);
 
-	bmodel->num_surfaces = loadBrushSurfaces( mod, bmodel->surfaces );
-	if (bmodel->num_surfaces < 0) {
-		gEngine.Con_Reportf( S_ERROR "Model %s was not loaded\n", mod->name );
-		return false;
+		if (!loadBrushSurfaces(sizes, mod) || !VK_RenderModelInit(&bmodel->render_model)) {
+			gEngine.Con_Printf(S_ERROR "Could not load model %s\n", mod->name);
+			Mem_Free(bmodel);
+			return false;
+		}
+
+		g_brush.stat.num_indices += sizes.num_indices;
+		g_brush.stat.num_vertices += sizes.num_vertices;
+
+		gEngine.Con_Reportf("Model %s loaded surfaces: %d (of %d); total vertices: %u, total indices: %u\n", mod->name, bmodel->render_model.num_geometries, mod->nummodelsurfaces, g_brush.stat.num_vertices, g_brush.stat.num_indices);
 	}
 
-	gEngine.Con_Reportf("Model %s loaded surfaces: %d (of %d); total vertices: %u, total indices: %u\n", mod->name, bmodel->num_surfaces, mod->nummodelsurfaces, g_brush.stat.num_vertices, g_brush.stat.num_indices);
 	return true;
 }
 
-void VK_BrushClear( void )
+void VK_BrushModelDestroy( model_t *mod ) {
+	vk_brush_model_t *bmodel = mod->cache.data;
+	if (!bmodel)
+		return;
+
+	VK_RenderModelDestroy(&bmodel->render_model);
+	Mem_Free(bmodel);
+	mod->cache.data = NULL;
+}
+
+void VK_BrushStatsClear( void )
 {
 	// Free previous map data
 	g_brush.stat.num_vertices = 0;
