@@ -2,6 +2,17 @@
 
 #include "vk_core.h"
 
+struct vk_render_model_s;
+
+typedef struct {
+	struct vk_render_model_s *model;
+	VkBuffer buffer;
+	uint32_t vertex_offset, index_offset;
+} vk_ray_model_init_t;
+
+qboolean VK_RayModelInit( vk_ray_model_init_t model_init);
+void VK_RayModelDestroy( struct vk_render_model_s *model );
+
 typedef struct {
 	//int lightmap, texture;
 	//int render_mode;
@@ -14,8 +25,9 @@ typedef struct {
 	struct { float r,g,b; } emissive;
 } vk_ray_model_dynamic_t;
 
-void VK_RaySceneBegin( void );
-void VK_RaySceneAddModelDynamic(VkCommandBuffer cmdbuf, const vk_ray_model_dynamic_t* model);
+void VK_RayFrameBegin( void );
+void VK_RayFrameAddModel( const struct vk_render_model_s *model, const matrix3x4 *transform_row );
+void VK_RayFrameAddModelDynamic(VkCommandBuffer cmdbuf, const vk_ray_model_dynamic_t* model);
 
 typedef struct {
 	VkCommandBuffer cmdbuf;
@@ -44,8 +56,10 @@ typedef struct {
 		VkBuffer buffer; // must be the same as in vk_ray_model_create_t TODO: validate or make impossible to specify incorrectly
 		uint32_t size;
 	} geometry_data;
-} vk_ray_scene_render_args_t;
-void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args);
+} vk_ray_frame_render_args_t;
+void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args);
+
+void VK_RayNewMap( void );
 
 qboolean VK_RayInit( void );
 void VK_RayShutdown( void );

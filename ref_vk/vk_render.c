@@ -30,8 +30,6 @@ typedef struct vk_buffer_alloc_s {
 	uint32_t count;
 	qboolean locked;
 	vk_lifetime_t lifetime;
-
-	vk_ray_model_handle_t rtx_model;
 } vk_buffer_alloc_t;
 
 // TODO estimate
@@ -481,6 +479,9 @@ void VK_RenderBegin( void ) {
 	memset(&g_render_state.dirty_uniform_data, 0, sizeof(g_render_state.dirty_uniform_data));
 
 	g_render_state.num_draw_commands = 0;
+
+	if (vk_core.rtx)
+		VK_RayFrameBegin();
 }
 
 void VK_RenderStateSetColor( float r, float g, float b, float a )
@@ -752,35 +753,37 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 		return;
 
 	ASSERT(vk_core.rtx);
-	VK_RaySceneBegin();
 
-	for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
-		const draw_command_t *const draw = g_render_state.draw_commands + i;
-		const vk_buffer_alloc_t *vertex_buffer = getBufferFromHandle( draw->draw.vertex_buffer );
-		const vk_buffer_alloc_t *index_buffer = draw->draw.index_buffer != InvalidHandle ? getBufferFromHandle( draw->draw.index_buffer ) : NULL;
-		const uint32_t vertex_offset = vertex_buffer->buffer_offset_in_units + draw->draw.vertex_offset;
+	// FIXME fix me
+	if (!vk_core.rtx) {
+		for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
+			const draw_command_t *const draw = g_render_state.draw_commands + i;
+			const vk_buffer_alloc_t *vertex_buffer = getBufferFromHandle( draw->draw.vertex_buffer );
+			const vk_buffer_alloc_t *index_buffer = draw->draw.index_buffer != InvalidHandle ? getBufferFromHandle( draw->draw.index_buffer ) : NULL;
+			const uint32_t vertex_offset = vertex_buffer->buffer_offset_in_units + draw->draw.vertex_offset;
 
-		// TODO there's a more complex story with lifetimes and rebuilds && vertex_buffer->lifetime < LifetimeSingleFrame)
-		// TODO it would make sense to join logical models into a single ray model
-		// but here we've completely lost this info, as models are now just a stream
-		// of independent draws
+			// TODO there's a more complex story with lifetimes and rebuilds && vertex_buffer->lifetime < LifetimeSingleFrame)
+			// TODO it would make sense to join logical models into a single ray model
+			// but here we've completely lost this info, as models are now just a stream
+			// of independent draws
 
-		const vk_ray_model_dynamic_t dynamic_model = {
-			.element_count = draw->draw.element_count,
-			.max_vertex = vertex_buffer->count, // TODO this is an upper bound for brushes at least, it can be lowered
-			.index_offset = index_buffer ? (draw->draw.index_offset + index_buffer->buffer_offset_in_units) : UINT32_MAX,
-			.vertex_offset = (draw->draw.vertex_offset + vertex_buffer->buffer_offset_in_units),
-			.buffer = g_render.buffer.buffer,
-			.transform_row = &draw->transform,
-			.emissive = { draw->draw.emissive.r, draw->draw.emissive.g, draw->draw.emissive.b },
-			.texture_id = draw->draw.texture,
-		};
+			const vk_ray_model_dynamic_t dynamic_model = {
+				.element_count = draw->draw.element_count,
+				.max_vertex = vertex_buffer->count, // TODO this is an upper bound for brushes at least, it can be lowered
+				.index_offset = index_buffer ? (draw->draw.index_offset + index_buffer->buffer_offset_in_units) : UINT32_MAX,
+				.vertex_offset = (draw->draw.vertex_offset + vertex_buffer->buffer_offset_in_units),
+				.buffer = g_render.buffer.buffer,
+				.transform_row = &draw->transform,
+				.emissive = { draw->draw.emissive.r, draw->draw.emissive.g, draw->draw.emissive.b },
+				.texture_id = draw->draw.texture,
+			};
 
-		VK_RaySceneAddModelDynamic(cmdbuf, &dynamic_model);
+			VK_RayFrameAddModelDynamic(cmdbuf, &dynamic_model);
+		}
 	}
 
 	{
-		const vk_ray_scene_render_args_t args = {
+		const vk_ray_frame_render_args_t args = {
 			.cmdbuf = cmdbuf,
 			.dst = {
 				.image_view = img_dst_view,
@@ -824,14 +827,23 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 			Matrix4x4_ToArrayFloatGL(view_inv, (float*)ubo_matrices[1]);
 		}
 
-		VK_RaySceneEnd(&args);
+		VK_RayFrameEnd(&args);
 	}
 }
 
 qboolean VK_RenderModelInit( vk_render_model_t *model) {
 	if (vk_core.rtx) {
-		PRINT_NOT_IMPLEMENTED();
-		return false;
+		// TODO runtime rtx switch: ???
+		const vk_buffer_alloc_t *vertex_buffer = getBufferFromHandle( model->vertex_buffer );
+		const vk_buffer_alloc_t *index_buffer = model->index_buffer != InvalidHandle ? getBufferFromHandle( model->index_buffer ) : NULL;
+		const vk_ray_model_init_t args = {
+			.buffer = g_render.buffer.buffer,
+			.index_offset = index_buffer ? index_buffer->buffer_offset_in_units : UINT32_MAX,
+			.vertex_offset = vertex_buffer->buffer_offset_in_units,
+			.model = model,
+		};
+		model->rtx.blas = VK_NULL_HANDLE;
+		return VK_RayModelInit(args);
 	}
 
 	// TODO pre-bake optimal draws
@@ -839,14 +851,17 @@ qboolean VK_RenderModelInit( vk_render_model_t *model) {
 }
 
 void VK_RenderModelDestroy( vk_render_model_t* model ) {
-	(void)model;
-
 	if (vk_core.rtx) {
-		PRINT_NOT_IMPLEMENTED();
+		VK_RayModelDestroy(model);
 	}
 }
 
 void VK_RenderModelDraw( vk_render_model_t* model ) {
+	if (vk_core.rtx) {
+		VK_RayFrameAddModel(model, g_render_state.model);
+		return;
+	}
+
 	int current_texture = -1;
 	int index_count = 0;
 	int index_offset = -1;

@@ -54,11 +54,6 @@ typedef struct {
 } vk_lighttexture_data_t;
 
 typedef struct {
-	//int lightmap, texture;
-	//int render_mode;
-	//uint32_t element_count;
-	//uint32_t index_offset, vertex_offset;
-	//VkBuffer buffer;
 	matrix3x4 transform_row;
 	VkAccelerationStructureKHR accel;
 } vk_ray_model_t;
@@ -86,20 +81,26 @@ static struct {
 	// TODO this should really be a single uniform buffer for matrices and light data
 	vk_buffer_t lighttextures_buffer;
 
-	vk_ray_model_t models[MAX_ACCELS];
 	VkAccelerationStructureKHR tlas;
+
+	// Data that is alive longer than one frame, usually within one map
+	struct {
+		uint32_t buffer_offset;
+	} map;
+
+	// Per-frame data that is accumulated between RayFrameBegin and End calls
+	struct {
+		int num_models;
+		int num_lighttextures;
+		vk_ray_model_t models[MAX_ACCELS];
+		uint32_t scratch_offset; // for building dynamic blases
+	} frame;
 
 	unsigned frame_number;
 	vk_image_t frames[2];
 
 	qboolean reload_pipeline;
 } g_rtx;
-
-static struct {
-	int num_models;
-	int num_lighttextures;
-	uint32_t scratch_offset, buffer_offset;
-} g_rtx_scene;
 
 static VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer) {
 	const VkBufferDeviceAddressInfo bdai = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
@@ -114,102 +115,104 @@ static VkDeviceAddress getASAddress(VkAccelerationStructureKHR as) {
 	return vkGetAccelerationStructureDeviceAddressKHR(vk_core.device, &asdai);
 }
 
-static VkAccelerationStructureKHR createAndBuildAccelerationStructure(VkCommandBuffer cmdbuf, const VkAccelerationStructureGeometryKHR *geoms, const uint32_t *max_prim_counts, const VkAccelerationStructureBuildRangeInfoKHR **build_ranges, uint32_t n_geoms, VkAccelerationStructureTypeKHR type) {
-	VkAccelerationStructureKHR accel;
+typedef struct {
+	VkAccelerationStructureKHR *accel;
+	const VkAccelerationStructureGeometryKHR *geoms;
+	const uint32_t *max_prim_counts;
+	const VkAccelerationStructureBuildRangeInfoKHR **build_ranges;
+	uint32_t n_geoms;
+	VkAccelerationStructureTypeKHR type;
+	qboolean dynamic;
+} as_build_args_t;
 
+static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_build_args_t *args) {
+	const qboolean is_update = *args->accel != VK_NULL_HANDLE;
 	VkAccelerationStructureBuildGeometryInfoKHR build_info = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-		.type = type,
-		.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR,
-		.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
-		.geometryCount = n_geoms,
-		.pGeometries = geoms,
+		.type = args->type,
+		.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | ( args->dynamic ? VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR : 0),
+		.mode =  is_update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+		.geometryCount = args->n_geoms,
+		.pGeometries = args->geoms,
+		.srcAccelerationStructure = *args->accel,
 	};
 
 	VkAccelerationStructureBuildSizesInfoKHR build_size = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
 
-	VkAccelerationStructureCreateInfoKHR asci = {
-		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-		.buffer = g_rtx.accels_buffer.buffer,
-		.offset = g_rtx_scene.buffer_offset,
-		.type = type,
-	};
+	uint32_t scratch_buffer_size = 0;
 
 	vkGetAccelerationStructureBuildSizesKHR(
-		vk_core.device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &build_info, max_prim_counts, &build_size);
+		vk_core.device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &build_info, args->max_prim_counts, &build_size);
+
+	scratch_buffer_size = is_update ? build_size.updateScratchSize : build_size.buildScratchSize;
 
 	if (0)
 	{
 		uint32_t max_prims = 0;
-		for (int i = 0; i < n_geoms; ++i)
-			max_prims += max_prim_counts[i];
+		for (int i = 0; i < args->n_geoms; ++i)
+			max_prims += args->max_prim_counts[i];
 		gEngine.Con_Reportf(
-			"AS max_prims=%u, n_geoms=%u, build size: %d, scratch size: %d\n", max_prims, n_geoms, build_size.accelerationStructureSize, build_size.buildScratchSize);
+			"AS max_prims=%u, n_geoms=%u, build size: %d, scratch size: %d\n", max_prims, args->n_geoms, build_size.accelerationStructureSize, build_size.buildScratchSize);
 	}
 
-	if (MAX_SCRATCH_BUFFER - g_rtx_scene.scratch_offset < build_size.buildScratchSize) {
+	if (MAX_SCRATCH_BUFFER - g_rtx.frame.scratch_offset < scratch_buffer_size) {
 		gEngine.Con_Printf(S_ERROR "Scratch buffer overflow: left %u bytes, but need %u\n",
-			MAX_SCRATCH_BUFFER - g_rtx_scene.scratch_offset,
-			build_size.buildScratchSize);
-		return VK_NULL_HANDLE;
+			MAX_SCRATCH_BUFFER - g_rtx.frame.scratch_offset,
+			scratch_buffer_size);
+		return false;
 	}
 
-	if (MAX_ACCELS_BUFFER - g_rtx_scene.buffer_offset < build_size.accelerationStructureSize) {
-		gEngine.Con_Printf(S_ERROR "Accels buffer overflow: left %u bytes, but need %u\n",
-			MAX_ACCELS_BUFFER - g_rtx_scene.buffer_offset,
-			build_size.accelerationStructureSize);
-		return VK_NULL_HANDLE;
+	if (*args->accel == VK_NULL_HANDLE) {
+		VkAccelerationStructureCreateInfoKHR asci = {
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+			.buffer = g_rtx.accels_buffer.buffer,
+			.offset = g_rtx.map.buffer_offset,
+			.type = args->type,
+			.size = build_size.accelerationStructureSize,
+		};
+
+		if (MAX_ACCELS_BUFFER - g_rtx.map.buffer_offset < build_size.accelerationStructureSize) {
+			gEngine.Con_Printf(S_ERROR "Accels buffer overflow: left %u bytes, but need %u\n",
+				MAX_ACCELS_BUFFER - g_rtx.map.buffer_offset,
+				build_size.accelerationStructureSize);
+			return false;
+		}
+
+		XVK_CHECK(vkCreateAccelerationStructureKHR(vk_core.device, &asci, NULL, args->accel));
+
+		g_rtx.map.buffer_offset += build_size.accelerationStructureSize;
+		g_rtx.map.buffer_offset = (g_rtx.map.buffer_offset + 255) & ~255; // Buffer must be aligned to 256 according to spec
 	}
 
-	asci.size = build_size.accelerationStructureSize;
-	XVK_CHECK(vkCreateAccelerationStructureKHR(vk_core.device, &asci, NULL, &accel));
+	build_info.dstAccelerationStructure = *args->accel;
+	build_info.scratchData.deviceAddress = g_rtx.scratch_buffer_addr + g_rtx.frame.scratch_offset;
+	g_rtx.frame.scratch_offset += scratch_buffer_size;
 
-	// TODO this function has weird semantics: it allocates data in buffers, but doesn't allocate the AS itself
-	g_rtx_scene.buffer_offset += build_size.accelerationStructureSize;
-	g_rtx_scene.buffer_offset = (g_rtx_scene.buffer_offset + 255) & ~255; // Buffer must be aligned to 256 according to spec
-
-	build_info.dstAccelerationStructure = accel;
-	build_info.scratchData.deviceAddress = g_rtx.scratch_buffer_addr + g_rtx_scene.scratch_offset;
-	g_rtx_scene.scratch_offset += build_size.buildScratchSize;
-
-	vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &build_info, build_ranges);
-	return accel;
+	vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &build_info, args->build_ranges);
+	return true;
 }
 
-static void cleanupASFIXME(void)
-{
-	// FIXME we really should not do this; cache ASs per model
-	for (int i = 0; i < g_rtx_scene.num_models; ++i) {
-		if (g_rtx.models[i].accel != VK_NULL_HANDLE)
-			vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.models[i].accel, NULL);
-	}
-	if (g_rtx.tlas != VK_NULL_HANDLE)
-		vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.tlas, NULL);
+void VK_RayNewMap( void ) {
+	ASSERT(vk_core.rtx);
 
-	g_rtx_scene.num_models = 0;
-	g_rtx_scene.num_lighttextures = 0;
+	g_rtx.map.buffer_offset = 0;
 }
 
-void VK_RaySceneBegin( void )
+void VK_RayFrameBegin( void )
 {
 	ASSERT(vk_core.rtx);
 
-	// FIXME this buffer might have objects that live longer
-	g_rtx_scene.buffer_offset = 0;
-	g_rtx_scene.scratch_offset = 0;
-
-	cleanupASFIXME();
+	g_rtx.frame.scratch_offset = 0;
+	g_rtx.frame.num_models = 0;
+	g_rtx.frame.num_lighttextures = 0;
 }
 
-/*
-static vk_ray_model_t *getModelByHandle(vk_ray_model_handle_t handle)
+void VK_RayFrameAddModelDynamic( VkCommandBuffer cmdbuf, const vk_ray_model_dynamic_t *dynamic)
 {
-}
-*/
+	PRINT_NOT_IMPLEMENTED();
 
-void VK_RaySceneAddModelDynamic( VkCommandBuffer cmdbuf, const vk_ray_model_dynamic_t *dynamic)
-{
+#if 0
 	vk_ray_model_t* model = g_rtx.models + g_rtx_scene.num_models;
 	ASSERT(g_rtx_scene.num_models <= ARRAYSIZE(g_rtx.models));
 
@@ -246,7 +249,7 @@ void VK_RaySceneAddModelDynamic( VkCommandBuffer cmdbuf, const vk_ray_model_dyna
 		};
 		const VkAccelerationStructureBuildRangeInfoKHR* build_ranges[ARRAYSIZE(geom)] = { &build_range_tri };
 
-		model->accel = createAndBuildAccelerationStructure(cmdbuf,
+		model->accel = createOrUpdateAccelerationStructure(cmdbuf,
 			geom, max_prim_counts, build_ranges, ARRAYSIZE(geom), VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR);
 
 		if (!model->accel) {
@@ -287,6 +290,7 @@ void VK_RaySceneAddModelDynamic( VkCommandBuffer cmdbuf, const vk_ray_model_dyna
 
 		g_rtx_scene.num_models++;
 	}
+#endif
 }
 
 static void createPipeline( void )
@@ -300,11 +304,11 @@ static void createPipeline( void )
 	ASSERT(g_rtx.pipeline);
 }
 
-void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
+void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 {
 	const VkCommandBuffer cmdbuf = args->cmdbuf;
-	const vk_image_t* frame_src = g_rtx.frames + ((g_rtx.frame_number+1)%2);
-	const vk_image_t* frame_dst = g_rtx.frames + (g_rtx.frame_number%2);
+	const vk_image_t* frame_src = g_rtx.frames + ((g_rtx.frame_number + 1) % 2);
+	const vk_image_t* frame_dst = g_rtx.frames + (g_rtx.frame_number % 2);
 
 	ASSERT(vk_core.rtx);
 	// ubo should contain two matrices
@@ -323,9 +327,9 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 
 	// Upload all blas instances references to GPU mem
 	{
-		VkAccelerationStructureInstanceKHR *inst = g_rtx.tlas_geom_buffer.mapped;
-		for (int i = 0; i < g_rtx_scene.num_models; ++i) {
-			const vk_ray_model_t * const model = g_rtx.models + i;
+		VkAccelerationStructureInstanceKHR* inst = g_rtx.tlas_geom_buffer.mapped;
+		for (int i = 0; i < g_rtx.frame.num_models; ++i) {
+			const vk_ray_model_t* const model = g_rtx.frame.models + i;
 			ASSERT(model->accel != VK_NULL_HANDLE);
 			inst[i] = (VkAccelerationStructureInstanceKHR){
 				.instanceCustomIndex = i,
@@ -348,7 +352,7 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 			.buffer = g_rtx.accels_buffer.buffer,
 			.offset = 0,
 			.size = VK_WHOLE_SIZE,
-		}};
+		} };
 		vkCmdPipelineBarrier(cmdbuf,
 			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
@@ -356,6 +360,8 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 	}
 
 	// 2. Create TLAS
+	/* FIXME once*/
+	if (!g_rtx.tlas && g_rtx.frame.num_models > 0)
 	{
 		const VkAccelerationStructureGeometryKHR tl_geom[] = {
 			{
@@ -370,189 +376,204 @@ void VK_RaySceneEnd(const vk_ray_scene_render_args_t* args)
 					},
 			},
 		};
-
-		const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = {g_rtx_scene.num_models};
+		const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = { MAX_ACCELS };
 		const VkAccelerationStructureBuildRangeInfoKHR tl_build_range = {
-			.primitiveCount = g_rtx_scene.num_models,
+			.primitiveCount = g_rtx.frame.num_models,
 		};
-		const VkAccelerationStructureBuildRangeInfoKHR *tl_build_ranges[] = {&tl_build_range};
-		g_rtx.tlas = createAndBuildAccelerationStructure(cmdbuf,
-			tl_geom, tl_max_prim_counts, tl_build_ranges, ARRAYSIZE(tl_geom), VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR);
+		const VkAccelerationStructureBuildRangeInfoKHR* tl_build_ranges[] = { &tl_build_range };
+		const as_build_args_t asrgs = {
+			.geoms = tl_geom,
+			.max_prim_counts = tl_max_prim_counts,
+			.build_ranges = tl_build_ranges,
+			.n_geoms = ARRAYSIZE(tl_geom),
+			.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+			.dynamic = true,
+			.accel = &g_rtx.tlas,
+		};
+		if (!createOrUpdateAccelerationStructure(cmdbuf, &asrgs)) {
+			gEngine.Host_Error("Could not create/update TLAS\n");
+			return;
+		}
 	}
 
-	// 3. Update descriptor sets (bind dest image, tlas, projection matrix)
+	if (g_rtx.tlas != VK_NULL_HANDLE)
 	{
-		const VkDescriptorImageInfo dii_dst = {
-			.sampler = VK_NULL_HANDLE,
-			.imageView = frame_dst->view,
-			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-		};
-		const VkDescriptorImageInfo dii_src = {
-			.sampler = VK_NULL_HANDLE,
-			.imageView = frame_src->view,
-			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-		};
-		const VkDescriptorBufferInfo dbi_ubo = {
-			.buffer = args->ubo.buffer,
-			.offset = args->ubo.offset,
-			.range = args->ubo.size,
-		};
-		const VkDescriptorBufferInfo dbi_kusochki = {
-			.buffer = g_rtx.kusochki_buffer.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
-		};
-		const VkDescriptorBufferInfo dbi_indices = {
-			.buffer = args->geometry_data.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-		};
-		const VkDescriptorBufferInfo dbi_vertices = {
-			.buffer = args->geometry_data.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-		};
-		const VkWriteDescriptorSetAccelerationStructureKHR wdsas = {
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-			.accelerationStructureCount = 1,
-			.pAccelerationStructures = &g_rtx.tlas,
-		};
-		const VkDescriptorBufferInfo dbi_dlights = {
-			.buffer = args->dlights.buffer,
-			.offset = args->dlights.offset,
-			.range = args->dlights.size,
-		};
-		const VkDescriptorBufferInfo dbi_lighttextures = {
-			.buffer = g_rtx.lighttextures_buffer.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE,
-		};
-		const VkWriteDescriptorSet wds[] = {
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				.dstSet = g_rtx.desc_set,
-				.dstBinding = 0,
-				.dstArrayElement = 0,
-				.pImageInfo = &dii_dst,
-			},
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-				.dstSet = g_rtx.desc_set,
-				.dstBinding = 1,
-				.dstArrayElement = 0,
-				.pNext = &wdsas,
-			},
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				.dstSet = g_rtx.desc_set,
-				.dstBinding = 2,
-				.dstArrayElement = 0,
-				.pBufferInfo = &dbi_ubo,
-			},
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-				.dstSet = g_rtx.desc_set,
-				.dstBinding = 3,
-				.dstArrayElement = 0,
-				.pBufferInfo = &dbi_kusochki,
-			},
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-				.dstSet = g_rtx.desc_set,
-				.dstBinding = 4,
-				.dstArrayElement = 0,
-				.pBufferInfo = &dbi_indices,
-			},
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-				.dstSet = g_rtx.desc_set,
-				.dstBinding = 5,
-				.dstArrayElement = 0,
-				.pBufferInfo = &dbi_vertices,
-			},
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				.dstSet = g_rtx.desc_set,
-				.dstBinding = 6,
-				.dstArrayElement = 0,
-				.pBufferInfo = &dbi_dlights,
-			},
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				.dstSet = g_rtx.desc_set,
-				.dstBinding = 7,
-				.dstArrayElement = 0,
-				.pBufferInfo = &dbi_lighttextures,
-			},
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				.dstSet = g_rtx.desc_set,
-				.dstBinding = 8,
-				.dstArrayElement = 0,
-				.pImageInfo = &dii_src,
-			},
-		};
+		// 3. Update descriptor sets (bind dest image, tlas, projection matrix)
+		{
+			const VkDescriptorImageInfo dii_dst = {
+				.sampler = VK_NULL_HANDLE,
+				.imageView = frame_dst->view,
+				.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+			};
+			const VkDescriptorImageInfo dii_src = {
+				.sampler = VK_NULL_HANDLE,
+				.imageView = frame_src->view,
+				.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+			};
+			const VkDescriptorBufferInfo dbi_ubo = {
+				.buffer = args->ubo.buffer,
+				.offset = args->ubo.offset,
+				.range = args->ubo.size,
+			};
+			const VkDescriptorBufferInfo dbi_kusochki = {
+				.buffer = g_rtx.kusochki_buffer.buffer,
+				.offset = 0,
+				.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
+			};
+			const VkDescriptorBufferInfo dbi_indices = {
+				.buffer = args->geometry_data.buffer,
+				.offset = 0,
+				.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
+			};
+			const VkDescriptorBufferInfo dbi_vertices = {
+				.buffer = args->geometry_data.buffer,
+				.offset = 0,
+				.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
+			};
+			const VkWriteDescriptorSetAccelerationStructureKHR wdsas = {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+				.accelerationStructureCount = 1,
+				.pAccelerationStructures = &g_rtx.tlas,
+			};
+			const VkDescriptorBufferInfo dbi_dlights = {
+				.buffer = args->dlights.buffer,
+				.offset = args->dlights.offset,
+				.range = args->dlights.size,
+			};
+			const VkDescriptorBufferInfo dbi_lighttextures = {
+				.buffer = g_rtx.lighttextures_buffer.buffer,
+				.offset = 0,
+				.range = VK_WHOLE_SIZE,
+			};
+			const VkWriteDescriptorSet wds[] = {
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					.dstSet = g_rtx.desc_set,
+					.dstBinding = 0,
+					.dstArrayElement = 0,
+					.pImageInfo = &dii_dst,
+				},
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+					.dstSet = g_rtx.desc_set,
+					.dstBinding = 1,
+					.dstArrayElement = 0,
+					.pNext = &wdsas,
+				},
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.dstSet = g_rtx.desc_set,
+					.dstBinding = 2,
+					.dstArrayElement = 0,
+					.pBufferInfo = &dbi_ubo,
+				},
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+					.dstSet = g_rtx.desc_set,
+					.dstBinding = 3,
+					.dstArrayElement = 0,
+					.pBufferInfo = &dbi_kusochki,
+				},
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+					.dstSet = g_rtx.desc_set,
+					.dstBinding = 4,
+					.dstArrayElement = 0,
+					.pBufferInfo = &dbi_indices,
+				},
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+					.dstSet = g_rtx.desc_set,
+					.dstBinding = 5,
+					.dstArrayElement = 0,
+					.pBufferInfo = &dbi_vertices,
+				},
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.dstSet = g_rtx.desc_set,
+					.dstBinding = 6,
+					.dstArrayElement = 0,
+					.pBufferInfo = &dbi_dlights,
+				},
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.dstSet = g_rtx.desc_set,
+					.dstBinding = 7,
+					.dstArrayElement = 0,
+					.pBufferInfo = &dbi_lighttextures,
+				},
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					.dstSet = g_rtx.desc_set,
+					.dstBinding = 8,
+					.dstArrayElement = 0,
+					.pImageInfo = &dii_src,
+				},
+			};
 
-		vkUpdateDescriptorSets(vk_core.device, ARRAYSIZE(wds), wds, 0, NULL);
+			vkUpdateDescriptorSets(vk_core.device, ARRAYSIZE(wds), wds, 0, NULL);
+		}
 	}
 
-	// 4. Barrier for TLAS build and dest image layout transfer
-	{
-		VkBufferMemoryBarrier bmb[] = { {
-			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-			.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
-			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-			.buffer = g_rtx.accels_buffer.buffer,
-			.offset = 0,
-			.size = VK_WHOLE_SIZE,
-		}};
-		VkImageMemoryBarrier image_barrier[] = { {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = frame_dst->image,
-			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.subresourceRange = (VkImageSubresourceRange) {
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.baseMipLevel = 0,
-				.levelCount = 1,
-				.baseArrayLayer = 0,
-				.layerCount = 1,
-		}} };
-		vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0,
-			0, NULL, ARRAYSIZE(bmb), bmb, ARRAYSIZE(image_barrier), image_barrier);
-	}
+		// 4. Barrier for TLAS build and dest image layout transfer
+		{
+			VkBufferMemoryBarrier bmb[] = { {
+				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+				.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+				.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+				.buffer = g_rtx.accels_buffer.buffer,
+				.offset = 0,
+				.size = VK_WHOLE_SIZE,
+			} };
+			VkImageMemoryBarrier image_barrier[] = { {
+				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				.image = frame_dst->image,
+				.srcAccessMask = 0,
+				.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+				.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+				.subresourceRange = (VkImageSubresourceRange) {
+					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+					.baseMipLevel = 0,
+					.levelCount = 1,
+					.baseArrayLayer = 0,
+					.layerCount = 1,
+			}} };
+			vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0,
+				0, NULL, ARRAYSIZE(bmb), bmb, ARRAYSIZE(image_barrier), image_barrier);
+		}
 
-	// 4. dispatch compute
-	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline);
-	{
-		vk_rtx_push_constants_t push_constants = {
-			.t = gpGlobals->realtime,
-			.bounces = vk_rtx_bounces->value,
-		};
-		vkCmdPushConstants(cmdbuf, g_rtx.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants), &push_constants);
+	if (g_rtx.tlas) {
+		// 4. dispatch compute
+		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline);
+		{
+			vk_rtx_push_constants_t push_constants = {
+				.t = gpGlobals->realtime,
+				.bounces = vk_rtx_bounces->value,
+			};
+			vkCmdPushConstants(cmdbuf, g_rtx.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants), &push_constants);
+		}
+		vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline_layout, 0, 1, &g_rtx.desc_set, 0, NULL);
+		vkCmdDispatch(cmdbuf, (FRAME_WIDTH + WG_W - 1) / WG_W, (FRAME_HEIGHT + WG_H - 1) / WG_H, 1);
 	}
-	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline_layout, 0, 1, &g_rtx.desc_set, 0, NULL);
-	vkCmdDispatch(cmdbuf, (FRAME_WIDTH+WG_W-1)/WG_W, (FRAME_HEIGHT+WG_H-1)/WG_H, 1);
 
 	// Blit RTX frame onto swapchain image
 	{
@@ -820,8 +841,8 @@ void VK_RayShutdown( void )
 	vkDestroyPipelineLayout(vk_core.device, g_rtx.pipeline_layout, NULL);
 	vkDestroyDescriptorSetLayout(vk_core.device, g_rtx.desc_layout, NULL);
 
-	// TODO dealloc all ASes
-	cleanupASFIXME();
+	if (g_rtx.tlas != VK_NULL_HANDLE)
+		vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.tlas, NULL);
 
 	destroyBuffer(&g_rtx.scratch_buffer);
 	destroyBuffer(&g_rtx.accels_buffer);
@@ -830,3 +851,140 @@ void VK_RayShutdown( void )
 	destroyBuffer(&g_rtx.lighttextures_buffer);
 }
 
+qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
+	VkAccelerationStructureGeometryKHR *geoms = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geoms));
+	uint32_t *geom_max_prim_counts = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_max_prim_counts));
+	VkAccelerationStructureBuildRangeInfoKHR *geom_build_ranges = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
+	VkAccelerationStructureBuildRangeInfoKHR **geom_build_ranges_ptr = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
+	const VkDeviceAddress buffer_addr = getBufferDeviceAddress(args.buffer);
+	qboolean result;
+
+	ASSERT(vk_core.rtx);
+
+	for (int i = 0; i < args.model->num_geometries; ++i) {
+		const vk_render_geometry_t *mg = args.model->geometries + i;
+		const uint32_t prim_count = mg->element_count / 3;
+
+		geom_max_prim_counts[i] = prim_count;
+		geoms[i] = (VkAccelerationStructureGeometryKHR)
+			{
+				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+				.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+				.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+				.geometry.triangles =
+					(VkAccelerationStructureGeometryTrianglesDataKHR){
+						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+						.indexType = args.index_offset == UINT32_MAX ? VK_INDEX_TYPE_NONE_KHR : VK_INDEX_TYPE_UINT16,
+						.maxVertex = mg->vertex_count,
+						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+						.vertexStride = sizeof(vk_vertex_t),
+						.vertexData.deviceAddress = buffer_addr + (args.vertex_offset + mg->vertex_offset) * sizeof(vk_vertex_t),
+						.indexData.deviceAddress = buffer_addr + (args.index_offset + mg->index_offset) * sizeof(uint16_t),
+					},
+			};
+
+		geom_build_ranges[i] = (VkAccelerationStructureBuildRangeInfoKHR) {
+			.primitiveCount = prim_count,
+		};
+		geom_build_ranges_ptr[i] = geom_build_ranges + i;
+
+		// Store geometry references in kusochki
+		// FIXME
+		#if 0
+		{
+			vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + g_rtx_scene.num_models;
+			kusok->vertex_offset = dynamic->vertex_offset;
+			kusok->index_offset = dynamic->index_offset;
+			ASSERT(dynamic->element_count % 3 == 0);
+			kusok->triangles = dynamic->element_count / 3;
+
+			ASSERT(dynamic->texture_id < MAX_TEXTURES);
+			if (dynamic->texture_id >= 0 && g_emissive_texture_table[dynamic->texture_id].set) {
+				VectorCopy(g_emissive_texture_table[dynamic->texture_id].emissive, kusok->emissive);
+			} else {
+				kusok->emissive[0] = dynamic->emissive.r;
+				kusok->emissive[1] = dynamic->emissive.g;
+				kusok->emissive[2] = dynamic->emissive.b;
+			}
+
+			if (kusok->emissive[0] > 0 || kusok->emissive[1] > 0 || kusok->emissive[2] > 0) {
+				if (g_rtx_scene.num_lighttextures < MAX_LIGHT_TEXTURES) {
+					vk_lighttexture_data_t *ltd = (vk_lighttexture_data_t*)g_rtx.lighttextures_buffer.mapped;
+					ltd->lighttexture[g_rtx_scene.num_lighttextures].kusok_index = g_rtx_scene.num_models;
+					g_rtx_scene.num_lighttextures++;
+					ltd->num_lighttextures = g_rtx_scene.num_lighttextures;
+				} else {
+					gEngine.Con_Printf(S_ERROR "Ran out of light textures space");
+				}
+			}
+		}
+		#endif
+	}
+
+	{
+		const as_build_args_t asrgs = {
+			.geoms = geoms,
+			.max_prim_counts = geom_max_prim_counts,
+			.build_ranges = geom_build_ranges_ptr,
+			.n_geoms = args.model->num_geometries,
+			.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+			.dynamic = false, //model->dynamic,
+			.accel = &args.model->rtx.blas,
+		};
+
+		// TODO batch building multiple blases together
+		const VkCommandBufferBeginInfo beginfo = {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		};
+		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
+
+		result = createOrUpdateAccelerationStructure(vk_core.cb, &asrgs);
+
+		XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
+	}
+
+	{
+		const VkSubmitInfo subinfo = {
+			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+			.commandBufferCount = 1,
+			.pCommandBuffers = &vk_core.cb,
+		};
+		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
+		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
+		g_rtx.frame.scratch_offset = 0;
+	}
+
+	Mem_Free(geom_build_ranges);
+	Mem_Free(geom_max_prim_counts);
+	Mem_Free(geoms);
+
+	return result;
+}
+
+void VK_RayModelDestroy( struct vk_render_model_s *model ) {
+	ASSERT(vk_core.rtx);
+	if (model->rtx.blas != VK_NULL_HANDLE) {
+		vkDestroyAccelerationStructureKHR(vk_core.device, model->rtx.blas, NULL);
+		model->rtx.blas = VK_NULL_HANDLE;
+	}
+}
+
+void VK_RayFrameAddModel( const struct vk_render_model_s *model, const matrix3x4 *transform_row ) {
+	ASSERT(vk_core.rtx);
+
+	ASSERT(g_rtx.frame.num_models <= ARRAYSIZE(g_rtx.frame.models));
+
+	if (g_rtx.frame.num_models == ARRAYSIZE(g_rtx.frame.models)) {
+		gEngine.Con_Printf(S_ERROR "Ran out of AccelerationStructure slots\n");
+		return;
+	}
+
+	{
+		vk_ray_model_t* ray_model = g_rtx.frame.models + g_rtx.frame.num_models;
+		ASSERT(model->rtx.blas != VK_NULL_HANDLE);
+		ray_model->accel = model->rtx.blas;
+		memcpy(ray_model->transform_row, *transform_row, sizeof(ray_model->transform_row));
+		g_rtx.frame.num_models++;
+	}
+}

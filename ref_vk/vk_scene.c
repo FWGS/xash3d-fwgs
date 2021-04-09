@@ -85,7 +85,15 @@ void R_NewMap( void )
 {
 	const int num_models = gEngine.EngineGetParm( PARM_NUMMODELS, 0 );
 
-	gEngine.Con_Reportf( "R_NewMap\n" );
+	// Existence of cache.data for the world means that we've already have loaded this map
+	// and this R_NewMap call is from within loading of a saved game.
+	const qboolean is_save_load = !!gEngine.pfnGetModelByIndex( 1 )->cache.data;
+
+	gEngine.Con_Reportf( "R_NewMap, loading save: %d\n", is_save_load );
+
+	// Skip clearing already loaded data if the map hasn't changed.
+	if (is_save_load)
+		return;
 
 	VK_ClearLightmap();
 

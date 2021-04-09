@@ -240,6 +240,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			model_geometry->index_offset = index_offset;
 			model_geometry->vertex_offset = 0;
 			model_geometry->texture = t;
+			model_geometry->vertex_count = surf->numedges;
 
 			VK_CreateSurfaceLightmap( surf, mod );
 

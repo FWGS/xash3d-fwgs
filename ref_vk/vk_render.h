@@ -73,9 +73,10 @@ typedef struct {
 	int texture;
 	uint32_t element_count;
 	uint32_t index_offset, vertex_offset;
+	uint32_t vertex_count;
 } vk_render_geometry_t;
 
-typedef struct {
+typedef struct vk_render_model_s {
 	const char *debug_name;
 	int render_mode;
 	int num_geometries;
@@ -88,7 +89,7 @@ typedef struct {
 	//qboolean dynamic; // whether this model will require data reupload
 
 	struct {
-		void *blas; // FIXME
+		VkAccelerationStructureKHR blas;
 	} rtx;
 } vk_render_model_t;
 

@@ -138,6 +138,8 @@ float rand01() {
 	return uintBitsToFloat(0x3f800000 | (rand() & 0x007fffff)) - 1.;
 }
 
+float hash(float f) { return fract(sin(f)*53478.4327); }
+
 layout (push_constant) uniform PC {
 	float t;
 	int bounces;
@@ -180,6 +182,9 @@ void main() {
 
 		vec3 pos = O+D*l;
 
+		C = fract(pos / 100.);
+		break;
+
 		//const int instance_index = rayQueryGetIntersectionInstanceIdEXT(rayQuery, true);
 		const int instance_index = rayQueryGetIntersectionInstanceCustomIndexEXT(rayQuery, true);
 
@@ -206,7 +211,7 @@ void main() {
 			const Kusok kusok = kusochki[kusok_index];
 			if (kusok_index == instance_index) {
 				// TODO do we need to do this when we have textures?
-				//C += kc * kusok.emissive.rgb;
+				C += kc * vec3(hash(float(instance_index)), hash(float(instance_index)+15.43), hash(float(instance_index)+34.));//kusok.emissive.rgb;
 				continue;
 			}
 
@@ -286,6 +291,11 @@ void main() {
 			C += kc * baseColor.rgb * light_color * dot_ld_norm * attenuation;
 		} // for all lights
 
+		const Kusok kusok = kusochki[instance_index];
+		if (any(greaterThan(kusok.emissive.rgb, vec3(0.)))) {
+				C += kc * vec3(hash(float(instance_index)-102.3), hash(float(instance_index)+15.43), hash(float(instance_index)+34.));//kusok.emissive.rgb;
+		}
+
 		kc *= .9;
 		const float rough = .4;
 		O = pos + .01 * normal;
@@ -297,9 +307,10 @@ void main() {
 			));
 	} // for all bounces
 
-	C = mix(C, vec3(1.), printText(vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y)));
+	//C = mix(C, vec3(1.), printText(vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y)));
 
 	//if (gl_GlobalInvocationID.x > imageSize(image).x / 2)
+	if (false)
 	{
 		const float wet = .5;
 		C = mix(C, imageLoad(previous_frame, ivec2(gl_GlobalInvocationID.xy)).rgb, wet);
