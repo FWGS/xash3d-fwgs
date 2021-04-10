@@ -648,7 +648,7 @@ void VK_SceneRender( const ref_viewpass_t *rvp )
 		cl_entity_t *world = gEngine.GetEntityByIndex( 0 );
 		if( world && world->model )
 		{
-			VK_LightsBakePVL( 0 /* FIXME frame number */);
+			//VK_LightsBakePVL( 0 /* FIXME frame number */);
 
 			VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f);
 			VK_BrushModelDraw( world, kRenderNormal );

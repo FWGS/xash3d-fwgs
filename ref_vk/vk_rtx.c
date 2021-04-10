@@ -126,7 +126,10 @@ typedef struct {
 } as_build_args_t;
 
 static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_build_args_t *args) {
-	const qboolean is_update = *args->accel != VK_NULL_HANDLE;
+	const qboolean should_create = *args->accel == VK_NULL_HANDLE;
+	const qboolean is_update = false; // TODO: can allow updates only if we know that we only touch vertex positions essentially
+	// (no geometry/instance count, flags, etc changes are allowed by the spec)
+
 	VkAccelerationStructureBuildGeometryInfoKHR build_info = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
 		.type = args->type,
@@ -163,7 +166,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 		return false;
 	}
 
-	if (*args->accel == VK_NULL_HANDLE) {
+	if (should_create) {
 		VkAccelerationStructureCreateInfoKHR asci = {
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
 			.buffer = g_rtx.accels_buffer.buffer,
@@ -360,8 +363,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	}
 
 	// 2. Create TLAS
-	/* FIXME once*/
-	if (!g_rtx.tlas && g_rtx.frame.num_models > 0)
+	if (g_rtx.frame.num_models > 0)
 	{
 		const VkAccelerationStructureGeometryKHR tl_geom[] = {
 			{

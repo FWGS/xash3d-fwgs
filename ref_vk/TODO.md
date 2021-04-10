@@ -1,12 +1,9 @@
-## 2021-04-06..07
-- [ ] persistent models
-	- [x] load brushes into render model
-	- [x] destroy brushes when time comes (when?)
-	- [x] rasterize models in renderer
-	- [ ] rtx: build AS for model
-	- [ ] rtx: include pre-built models in TLAS
+## 2021-04-10
+- [x] rtx: fix tlas rebuild
+- [ ] rtx: upload kusochki metadata w/ leaves
 
 # Next
+- [ ] rtx: fix blas destruction on exit
 - [ ] rtx: use light visibility data
 - [ ] rtx: read rad file data
 	- [ ] rtx: hack: interpret textures with '~' or '{' as emissive
@@ -159,3 +156,13 @@
 
 ## 2021-03-28
 - [x] bake s/d-lights visibility data into bsp leaves
+
+## 2021-04-06..08
+- [x] persistent models
+	- [x] load brushes into render model
+	- [x] destroy brushes when time comes (when?)
+	- [x] rasterize models in renderer
+
+## 2021-04-09
+- [x] rtx: build AS for model
+- [x] rtx: include pre-built models in TLAS
