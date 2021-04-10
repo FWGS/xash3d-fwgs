@@ -41,6 +41,8 @@ void printInt(in float num, in vec2 pg, in vec2 pc, inout float lx, inout float 
     } else {
     	PUTC(diGlyph(mod(floor(num/1000.),10.)));
     }*/
+    if (num >= 100000.) { PUTC(diGlyph(mod(floor(num/100000.),10.))); }
+    if (num >= 10000.) { PUTC(diGlyph(mod(floor(num/10000.),10.))); }
     if (num >= 1000.) { PUTC(diGlyph(mod(floor(num/1000.),10.))); }
     if (num >= 100.) { PUTC(diGlyph(mod(floor(num/100.),10.))); }
     if (num >= 10.) { PUTC(diGlyph(mod(floor(num/10.),10.))); }
@@ -63,7 +65,7 @@ struct Kusok {
 	uint index_offset;
 	uint vertex_offset;
 	uint triangles;
-	vec4 emissive;
+	//vec4 emissive;
 };
 
 struct Vertex {
@@ -108,11 +110,17 @@ float printText(in vec2 p) {
     float col = 0.;
 
 #define PUTN(n) printInt(n,pg,pc,lx,col)
-	if (pc.y == 0.) {
-		PUTC(C_N); PUTC(0.); PUTN(float(num_lighttextures));
-	} else if (pc.y <= float(num_lighttextures)) {
-		PUTN((pc.y-1.)); PUTC(0.); PUTN(float(lighttextures[int(pc.y-1.)]));
-	}
+	// if (pc.y == 0.) {
+	// 	PUTC(C_N); PUTC(0.); PUTN(float(num_lighttextures));
+	// } else if (pc.y <= float(num_lighttextures)) {
+	// 	PUTN((pc.y-1.)); PUTC(0.); PUTN(float(lighttextures[int(pc.y-1.)]));
+	// }
+	if (pc.y < 0.)
+		return 0.;
+
+	const int idx = int(pc.y);
+	const Kusok kusok = kusochki[idx];
+	PUTN(idx); PUTC(0.); PUTN(kusok.index_offset); PUTC(0.); PUTN(kusok.vertex_offset); PUTC(0.); PUTN(kusok.triangles);
     return col;
 }
 
@@ -182,20 +190,22 @@ void main() {
 
 		vec3 pos = O+D*l;
 
-		C = fract(pos / 100.);
-		break;
-
+		const int instance_kusochki_offset = rayQueryGetIntersectionInstanceCustomIndexEXT(rayQuery, true);
 		//const int instance_index = rayQueryGetIntersectionInstanceIdEXT(rayQuery, true);
-		const int instance_index = rayQueryGetIntersectionInstanceCustomIndexEXT(rayQuery, true);
+		const int geom_index = rayQueryGetIntersectionGeometryIndexEXT(rayQuery, true);
+		const int kusok_index = instance_kusochki_offset + geom_index;
 
-		//rayQueryGetIntersectionGeometryIndexEXT
+		//C = fract(pos / 100.);
+		//C = vec3(hash(float(geom_index)), hash(float(geom_index)+15.43), hash(float(geom_index)+34.));
+		//break;
+
 		const int prim_index = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
 		const mat4x3 transform = rayQueryGetIntersectionObjectToWorldEXT(rayQuery, true);
 
-		const uint first_index_offset = kusochki[instance_index].index_offset + prim_index * 3;
-		const uint vi1 = uint(indices[first_index_offset+0]) + kusochki[instance_index].vertex_offset;
-		const uint vi2 = uint(indices[first_index_offset+1]) + kusochki[instance_index].vertex_offset;
-		const uint vi3 = uint(indices[first_index_offset+2]) + kusochki[instance_index].vertex_offset;
+		const uint first_index_offset = kusochki[kusok_index].index_offset + prim_index * 3;
+		const uint vi1 = uint(indices[first_index_offset+0]) + kusochki[kusok_index].vertex_offset;
+		const uint vi2 = uint(indices[first_index_offset+1]) + kusochki[kusok_index].vertex_offset;
+		const uint vi3 = uint(indices[first_index_offset+2]) + kusochki[kusok_index].vertex_offset;
 		const vec3 n1 = vertices[vi1].normal;
 		const vec3 n2 = vertices[vi2].normal;
 		const vec3 n3 = vertices[vi3].normal;
@@ -203,15 +213,19 @@ void main() {
 		const vec2 bary = rayQueryGetIntersectionBarycentricsEXT(rayQuery, true);
 		const vec3 normal = normalize(transpose(inverse(mat3(transform))) * (n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y));
 
+		//C = normal * .5 + .5; break;
+
 		// TODO read from texture
 		const vec3 baseColor = vec3(1.);
 
+// FIXME upload this data
+#if 0
 		for (uint i = 0; i < num_lighttextures; ++i) {
-			const uint kusok_index = lighttextures[i];
+			const uint kusok_index_light = lighttextures[i];
 			const Kusok kusok = kusochki[kusok_index];
-			if (kusok_index == instance_index) {
+			if (kusok_index_light == kusok_index) {
 				// TODO do we need to do this when we have textures?
-				C += kc * vec3(hash(float(instance_index)), hash(float(instance_index)+15.43), hash(float(instance_index)+34.));//kusok.emissive.rgb;
+				C += kc * vec3(hash(float(kusok_index)), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.));//kusok.emissive.rgb;
 				continue;
 			}
 
@@ -250,13 +264,14 @@ void main() {
 
 				// TODO
 				const float brightness_fudge = 1000.;
-				const vec3 emissive = kusochki[kusok_index].emissive.rgb;
-				C += brightness_fudge * kc * baseColor * emissive * dot(light_dir, normal) / (light_dist * light_dist);
+				//const vec3 emissive = kusochki[kusok_index].emissive.rgb;
+				//C += brightness_fudge * kc * baseColor * emissive * dot(light_dir, normal) / (light_dist * light_dist);
 
 				// Sample just one triangle
 				break;
 			}
 		}
+#endif
 
 		//rand01_state = fract((pos.x + pos.y + pos.z)/100.) + uv.x + uv.y + pc.t;
 		for (uint i = 0; i < num_lights; ++i) {
@@ -291,10 +306,10 @@ void main() {
 			C += kc * baseColor.rgb * light_color * dot_ld_norm * attenuation;
 		} // for all lights
 
-		const Kusok kusok = kusochki[instance_index];
-		if (any(greaterThan(kusok.emissive.rgb, vec3(0.)))) {
-				C += kc * vec3(hash(float(instance_index)-102.3), hash(float(instance_index)+15.43), hash(float(instance_index)+34.));//kusok.emissive.rgb;
-		}
+		//const Kusok kusok = kusochki[kusok_index];
+		// if (any(greaterThan(kusok.emissive.rgb, vec3(0.)))) {
+		// 		C += kc * vec3(hash(float(kusok_index)-102.3), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.));//kusok.emissive.rgb;
+		//}
 
 		kc *= .9;
 		const float rough = .4;
@@ -307,6 +322,7 @@ void main() {
 			));
 	} // for all bounces
 
+	//C = mix(C, vec3(1.), printText(vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y)));
 	//C = mix(C, vec3(1.), printText(vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y)));
 
 	//if (gl_GlobalInvocationID.x > imageSize(image).x / 2)

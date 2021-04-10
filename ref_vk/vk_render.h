@@ -74,6 +74,7 @@ typedef struct {
 	uint32_t element_count;
 	uint32_t index_offset, vertex_offset;
 	uint32_t vertex_count;
+	// TODO potentially dynamic int light_cluster;
 } vk_render_geometry_t;
 
 typedef struct vk_render_model_s {
@@ -90,6 +91,7 @@ typedef struct vk_render_model_s {
 
 	struct {
 		VkAccelerationStructureKHR blas;
+		uint32_t kusochki_offset;
 	} rtx;
 } vk_render_model_t;
 

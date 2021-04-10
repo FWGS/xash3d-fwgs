@@ -15,6 +15,7 @@
 #include <string.h>
 
 #define MAX_ACCELS 1024
+#define MAX_KUSOCHKI 8192
 #define MAX_SCRATCH_BUFFER (16*1024*1024)
 #define MAX_ACCELS_BUFFER (64*1024*1024)
 #define MAX_LIGHT_TEXTURES 256
@@ -39,8 +40,9 @@ typedef struct {
 	uint32_t index_offset;
 	uint32_t vertex_offset;
 	uint32_t triangles;
-	float sad_padding_[1];
-	vec4_t emissive;
+	//uint32_t leaf;
+	//float sad_padding_[1];
+	//vec4_t emissive;
 } vk_kusok_data_t;
 
 typedef struct {
@@ -56,6 +58,7 @@ typedef struct {
 typedef struct {
 	matrix3x4 transform_row;
 	VkAccelerationStructureKHR accel;
+	uint32_t kusochki_offset;
 } vk_ray_model_t;
 
 typedef struct {
@@ -86,6 +89,7 @@ static struct {
 	// Data that is alive longer than one frame, usually within one map
 	struct {
 		uint32_t buffer_offset;
+		int num_kusochki;
 	} map;
 
 	// Per-frame data that is accumulated between RayFrameBegin and End calls
@@ -200,6 +204,7 @@ void VK_RayNewMap( void ) {
 	ASSERT(vk_core.rtx);
 
 	g_rtx.map.buffer_offset = 0;
+	g_rtx.map.num_kusochki = 0;
 }
 
 void VK_RayFrameBegin( void )
@@ -335,7 +340,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			const vk_ray_model_t* const model = g_rtx.frame.models + i;
 			ASSERT(model->accel != VK_NULL_HANDLE);
 			inst[i] = (VkAccelerationStructureInstanceKHR){
-				.instanceCustomIndex = i,
+				.instanceCustomIndex = model->kusochki_offset,
 				.mask = 0xff,
 				.instanceShaderBindingTableRecordOffset = 0,
 				.flags = 0,
@@ -761,7 +766,7 @@ qboolean VK_RayInit( void )
 		return false;
 	}
 
-	if (!createBuffer(&g_rtx.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_ACCELS,
+	if (!createBuffer(&g_rtx.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_KUSOCHKI,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
@@ -854,18 +859,35 @@ void VK_RayShutdown( void )
 }
 
 qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
-	VkAccelerationStructureGeometryKHR *geoms = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geoms));
-	uint32_t *geom_max_prim_counts = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_max_prim_counts));
-	VkAccelerationStructureBuildRangeInfoKHR *geom_build_ranges = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
-	VkAccelerationStructureBuildRangeInfoKHR **geom_build_ranges_ptr = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
+	VkAccelerationStructureGeometryKHR *geoms;
+	uint32_t *geom_max_prim_counts;
+	VkAccelerationStructureBuildRangeInfoKHR *geom_build_ranges;
+	VkAccelerationStructureBuildRangeInfoKHR **geom_build_ranges_ptr;
 	const VkDeviceAddress buffer_addr = getBufferDeviceAddress(args.buffer);
+	vk_kusok_data_t *kusochki;
 	qboolean result;
 
 	ASSERT(vk_core.rtx);
+	ASSERT(g_rtx.map.num_kusochki <= MAX_KUSOCHKI);
+
+	if (g_rtx.map.num_kusochki == MAX_KUSOCHKI) {
+		gEngine.Con_Printf(S_ERROR "Maximum number of kusochki exceeded\n");
+		return false;
+	}
+
+	geoms = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geoms));
+	geom_max_prim_counts = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_max_prim_counts));
+	geom_build_ranges = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
+	geom_build_ranges_ptr = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
+
+	kusochki = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + g_rtx.map.num_kusochki;
+	args.model->rtx.kusochki_offset = g_rtx.map.num_kusochki;
 
 	for (int i = 0; i < args.model->num_geometries; ++i) {
 		const vk_render_geometry_t *mg = args.model->geometries + i;
 		const uint32_t prim_count = mg->element_count / 3;
+		const uint32_t vertex_offset = args.vertex_offset + mg->vertex_offset;
+		const uint32_t index_offset = args.index_offset + mg->index_offset;
 
 		geom_max_prim_counts[i] = prim_count;
 		geoms[i] = (VkAccelerationStructureGeometryKHR)
@@ -880,8 +902,8 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 						.maxVertex = mg->vertex_count,
 						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
 						.vertexStride = sizeof(vk_vertex_t),
-						.vertexData.deviceAddress = buffer_addr + (args.vertex_offset + mg->vertex_offset) * sizeof(vk_vertex_t),
-						.indexData.deviceAddress = buffer_addr + (args.index_offset + mg->index_offset) * sizeof(uint16_t),
+						.vertexData.deviceAddress = buffer_addr + vertex_offset * sizeof(vk_vertex_t),
+						.indexData.deviceAddress = buffer_addr + index_offset * sizeof(uint16_t),
 					},
 			};
 
@@ -890,37 +912,9 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 		};
 		geom_build_ranges_ptr[i] = geom_build_ranges + i;
 
-		// Store geometry references in kusochki
-		// FIXME
-		#if 0
-		{
-			vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + g_rtx_scene.num_models;
-			kusok->vertex_offset = dynamic->vertex_offset;
-			kusok->index_offset = dynamic->index_offset;
-			ASSERT(dynamic->element_count % 3 == 0);
-			kusok->triangles = dynamic->element_count / 3;
-
-			ASSERT(dynamic->texture_id < MAX_TEXTURES);
-			if (dynamic->texture_id >= 0 && g_emissive_texture_table[dynamic->texture_id].set) {
-				VectorCopy(g_emissive_texture_table[dynamic->texture_id].emissive, kusok->emissive);
-			} else {
-				kusok->emissive[0] = dynamic->emissive.r;
-				kusok->emissive[1] = dynamic->emissive.g;
-				kusok->emissive[2] = dynamic->emissive.b;
-			}
-
-			if (kusok->emissive[0] > 0 || kusok->emissive[1] > 0 || kusok->emissive[2] > 0) {
-				if (g_rtx_scene.num_lighttextures < MAX_LIGHT_TEXTURES) {
-					vk_lighttexture_data_t *ltd = (vk_lighttexture_data_t*)g_rtx.lighttextures_buffer.mapped;
-					ltd->lighttexture[g_rtx_scene.num_lighttextures].kusok_index = g_rtx_scene.num_models;
-					g_rtx_scene.num_lighttextures++;
-					ltd->num_lighttextures = g_rtx_scene.num_lighttextures;
-				} else {
-					gEngine.Con_Printf(S_ERROR "Ran out of light textures space");
-				}
-			}
-		}
-		#endif
+		kusochki[i].vertex_offset = vertex_offset;
+		kusochki[i].index_offset = index_offset;
+		kusochki[i].triangles = prim_count;
 	}
 
 	{
@@ -961,6 +955,10 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 	Mem_Free(geom_max_prim_counts);
 	Mem_Free(geoms);
 
+	if (result) {
+		g_rtx.map.num_kusochki += args.model->num_geometries;
+	}
+
 	return result;
 }
 
@@ -986,6 +984,7 @@ void VK_RayFrameAddModel( const struct vk_render_model_s *model, const matrix3x4
 		vk_ray_model_t* ray_model = g_rtx.frame.models + g_rtx.frame.num_models;
 		ASSERT(model->rtx.blas != VK_NULL_HANDLE);
 		ray_model->accel = model->rtx.blas;
+		ray_model->kusochki_offset = model->rtx.kusochki_offset;
 		memcpy(ray_model->transform_row, *transform_row, sizeof(ray_model->transform_row));
 		g_rtx.frame.num_models++;
 	}

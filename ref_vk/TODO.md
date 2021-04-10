@@ -1,23 +1,18 @@
-## 2021-04-10
-- [x] rtx: fix tlas rebuild
-- [ ] rtx: upload kusochki metadata w/ leaves
 
 # Next
-- [ ] rtx: fix blas destruction on exit
 - [ ] rtx: use light visibility data
+- [ ] sometimes we get uninitialized models
+	- [ ] run under asan
+- [ ] rtx: fix blas destruction on exit
 - [ ] rtx: read rad file data
 	- [ ] rtx: hack: interpret textures with '~' or '{' as emissive
 - [ ] rtx: emissive particles
 - [ ] rtx: textures
-- [ ] rtx: add fps
-	- [ ] rtx: don't group brush draws by texture
-		-- this has failed: increases BLAS count to ~3000, halves fps
-	- [ ] better AS structure (fewer blases, etc)
-	- [ ] rasterize into G-buffer, and only then compute lighting with rtx
 - [ ] rtx: better random
 - [ ] rtx: some studio models have glitchy geometry
 
 # Planned
+- [ ] rtx: add fps: rasterize into G-buffer, and only then compute lighting with rtx
 - [ ] bake light visibility in compute shader
 - [ ] rtx: cull light sources (dlights and light textures) using bsp
 - [ ] enable entity-parsed lights by lightstyles
@@ -166,3 +161,10 @@
 ## 2021-04-09
 - [x] rtx: build AS for model
 - [x] rtx: include pre-built models in TLAS
+
+## 2021-04-10
+- [x] rtx: fix tlas rebuild
+- [x] rtx: upload kusochki metadata ~~w/ leaves~~
+- [x] rtx: add fps
+	- [x] rtx: don't group brush draws by texture
+	- [x] better AS structure (fewer blases, etc)

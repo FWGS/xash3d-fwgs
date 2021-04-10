@@ -622,7 +622,7 @@ static uint32_t writeDlightsToUBO( void )
 	ubo_lights = (vk_ubo_lights_t*)((byte*)(g_render.uniform_buffer.mapped) + ubo_lights_offset);
 
 // TODO rtx and query light styles
-#if 0
+#if 1
 	for (int i = 0; i < g_render.num_static_lights && num_lights < ARRAYSIZE(ubo_lights->light); ++i) {
 		Vector4Set(
 			ubo_lights->light[num_lights].color,
