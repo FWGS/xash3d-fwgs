@@ -15,7 +15,7 @@ typedef struct {
 
 extern vk_emissive_texture_table_t g_emissive_texture_table[MAX_TEXTURES];
 
-void VK_LightsLoad( void );
+void VK_LightsLoadMap( void );
 
 typedef struct {
 	uint8_t num_dlights;
@@ -30,18 +30,19 @@ typedef struct {
 } vk_emissive_surface_t;
 
 typedef struct {
-	int frame_number;
-
 	// TODO make this opaque light clusters
 	int num_leaves; // same as worldmodel->numleaves
 	vk_light_leaf_t *leaves;
 
 	int num_emissive_surfaces;
 	vk_emissive_surface_t emissive_surfaces[256]; // indexed by uint8_t
+
+	int num_surfaces;
+	struct {
+		int leaf;
+	} *surfaces;
 } vk_potentially_visible_lights_t;
 
 extern vk_potentially_visible_lights_t g_lights;
-
-void VK_LightsBakePVL( int frame_number );
 
 void VK_LightsShutdown( void );

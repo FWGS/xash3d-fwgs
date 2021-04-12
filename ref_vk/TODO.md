@@ -1,7 +1,13 @@
+## 2021-04-12
+- [x] rtx: fix surface-kusok index mismatch
+- [x] rtx: try to use light visibility data
+	-> too few slots for light sources
+	-> some areas have too many naively visible lights
+- [x] rtx: fix light shadow artefacts
 
 # Next
-- [ ] rtx: use light visibility data
-- [ ] sometimes we get uninitialized models
+- [ ] rtx: "toilet error": attempting to get AS device address crashes the driver
+- [ ] rtx: sometimes we get uninitialized models
 	- [ ] run under asan
 - [ ] rtx: fix blas destruction on exit
 - [ ] rtx: read rad file data
@@ -10,8 +16,14 @@
 - [ ] rtx: textures
 - [ ] rtx: better random
 - [ ] rtx: some studio models have glitchy geometry
+- [ ] rtx: simple convolution denoise (bilateral?)
 
 # Planned
+- [ ] rtx: denoise
+	- [ ] non local means ?
+	- [ ] reprojection
+	- [ ] SVG+
+	- [ ] ...
 - [ ] rtx: add fps: rasterize into G-buffer, and only then compute lighting with rtx
 - [ ] bake light visibility in compute shader
 - [ ] rtx: cull light sources (dlights and light textures) using bsp
@@ -168,3 +180,6 @@
 - [x] rtx: add fps
 	- [x] rtx: don't group brush draws by texture
 	- [x] better AS structure (fewer blases, etc)
+
+## 2021-04-11
+- [x] vscode build and debug

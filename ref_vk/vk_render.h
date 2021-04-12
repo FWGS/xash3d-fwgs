@@ -74,6 +74,7 @@ typedef struct {
 	uint32_t element_count;
 	uint32_t index_offset, vertex_offset;
 	uint32_t vertex_count;
+	int leaf, surface_index;
 	// TODO potentially dynamic int light_cluster;
 } vk_render_geometry_t;
 

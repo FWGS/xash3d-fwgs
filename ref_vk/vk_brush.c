@@ -10,6 +10,7 @@
 #include "vk_lightmap.h"
 #include "vk_scene.h"
 #include "vk_render.h"
+#include "vk_light.h"
 
 #include "ref_params.h"
 #include "eiface.h"
@@ -212,7 +213,8 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	{
 		for( int i = 0; i < mod->nummodelsurfaces; ++i)
 		{
-			msurface_t *surf = mod->surfaces + mod->firstmodelsurface + i;
+			const int surface_index = mod->firstmodelsurface + i;
+			msurface_t *surf = mod->surfaces + surface_index;
 			mextrasurf_t	*info = surf->info;
 			vk_render_geometry_t *model_geometry = bmodel->render_model.geometries + num_surfaces;
 			const float sample_size = gEngine.Mod_SampleSizeForFace( surf );
@@ -241,6 +243,8 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			model_geometry->vertex_offset = 0;
 			model_geometry->texture = t;
 			model_geometry->vertex_count = surf->numedges;
+			model_geometry->leaf = surface_index < g_lights.num_surfaces ? g_lights.surfaces[surface_index].leaf : -1;
+			model_geometry->surface_index = i;
 
 			VK_CreateSurfaceLightmap( surf, mod );
 

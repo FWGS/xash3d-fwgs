@@ -1,6 +1,10 @@
 #version 460
 #extension GL_EXT_ray_query : require
 #extension GL_EXT_shader_16bit_storage : require
+#extension GL_EXT_shader_8bit_storage : require
+
+const float normal_offset_fudge = .01;
+const float shadow_offset_fudge = .5;
 
 const float
     C_A = 434073., C_B = 497559., C_C = 397590., C_D = 498071.,
@@ -65,6 +69,10 @@ struct Kusok {
 	uint index_offset;
 	uint vertex_offset;
 	uint triangles;
+	uint leaf;
+	uint num_dlights;
+	uint num_surface_lights;
+	uint is_emissive;
 	//vec4 emissive;
 };
 
@@ -93,13 +101,42 @@ layout(set=0,binding=6) uniform UBODLights {
 	Light lights[max_dlights];
 };
 
-layout (constant_id = 2) const uint max_lighttextures = 256;
-layout (set=0,binding=7) uniform UBOLightTextures {
-	uint num_lighttextures;
-	uint lighttextures[max_lighttextures];
+struct EmissiveKusok {
+	uint kusok_index;
+	vec3 emissive_color;
 };
 
+layout (constant_id = 2) const uint max_lighttextures = 256;
+layout (set = 0, binding = 7/*, align=4*/) uniform UBOEmissiveKusochki {
+	uint num_kusochki;
+	EmissiveKusok kusochki[256];
+} emissive_kusochki;
+
 layout(binding = 8, set = 0, rgba8) uniform readonly image2D previous_frame;
+
+// FIXME shader specialization constants
+#define MAX_VISIBLE_DLIGHTS 15
+#define MAX_VISIBLE_SURFACE_LIGHTS 15
+struct LightLeaf {
+	uint8_t num_dlights;
+	uint8_t num_slights;
+	uint8_t dlights[MAX_VISIBLE_DLIGHTS];
+	uint8_t slights[MAX_VISIBLE_SURFACE_LIGHTS];
+};
+
+// FIMXE specialize
+layout (constant_id = 3) const uint max_light_leaves = 8192;
+layout (set = 0, binding = 9, align = 1) readonly buffer UBOLightLeaves {
+	LightLeaf light_leaves[max_light_leaves];
+};
+
+layout (push_constant) uniform PC {
+	float t;
+	int bounces;
+	float prev_frame_blend_factor;
+} pc;
+
+//uint picked_light = 76;//uint(mod(pc.t * 4., emissive_kusochki.num_kusochki));
 
 float printText(in vec2 p) {
 #define PIXSZ 4.
@@ -119,8 +156,35 @@ float printText(in vec2 p) {
 		return 0.;
 
 	const int idx = int(pc.y);
-	const Kusok kusok = kusochki[idx];
-	PUTN(idx); PUTC(0.); PUTN(kusok.index_offset); PUTC(0.); PUTN(kusok.vertex_offset); PUTC(0.); PUTN(kusok.triangles);
+#define _ PUTC(0.);
+	if (false) {
+		const Kusok kusok = kusochki[idx];
+		PUTN(idx); PUTC(0.); PUTN(kusok.leaf); PUTC(0.); PUTN(kusok.num_surface_lights); PUTC(0.);
+		PUTN(kusok.num_dlights);
+		//PUTN(kusok.index_offset); PUTC(0.); PUTN(kusok.vertex_offset); PUTC(0.); PUTN(kusok.triangles);
+	} else if (false) {
+		PUTN(idx);
+		_ PUTN(float(int(light_leaves[idx].num_slights)));
+		_ PUTN(float(int(light_leaves[idx].slights[0])));
+		_ PUTN(float(int(light_leaves[idx].slights[1])));
+		_ PUTN(float(int(light_leaves[idx].slights[2])));
+		_ PUTN(float(int(light_leaves[idx].slights[3])));
+	} else if (false)
+	{
+		PUTN(emissive_kusochki.num_kusochki);
+		_ PUTN(idx);
+		_ PUTN(emissive_kusochki.kusochki[idx].kusok_index);
+		_ PUTN(emissive_kusochki.kusochki[idx].emissive_color.r*255.);
+		_ PUTN(emissive_kusochki.kusochki[idx].emissive_color.g*255.);
+		_ PUTN(emissive_kusochki.kusochki[idx].emissive_color.b*255.);
+
+		const uint kidx = emissive_kusochki.kusochki[idx].kusok_index;
+		_ PUTN(kusochki[kidx].leaf);
+		_ PUTN(kusochki[kidx].triangles);
+	} else if (true) {
+		//PUTN(picked_light);
+	}
+#undef _
     return col;
 }
 
@@ -147,11 +211,6 @@ float rand01() {
 }
 
 float hash(float f) { return fract(sin(f)*53478.4327); }
-
-layout (push_constant) uniform PC {
-	float t;
-	int bounces;
-} pc;
 
 bool shadowed(vec3 pos, vec3 dir, float dist) {
 	rayQueryEXT shadowRayQuery;
@@ -194,10 +253,18 @@ void main() {
 		//const int instance_index = rayQueryGetIntersectionInstanceIdEXT(rayQuery, true);
 		const int geom_index = rayQueryGetIntersectionGeometryIndexEXT(rayQuery, true);
 		const int kusok_index = instance_kusochki_offset + geom_index;
+		const Kusok kusok = kusochki[kusok_index];
+		const uint leaf = kusochki[kusok_index].leaf-1;
 
 		//C = fract(pos / 100.);
 		//C = vec3(hash(float(geom_index)), hash(float(geom_index)+15.43), hash(float(geom_index)+34.));
+		//C = vec3(hash(float(leaf)), hash(float(leaf)+15.43), hash(float(leaf)+34.));
+		//C = vec3(hash(float(leaf)), float(kusok.num_surface_lights) / 63., float(kusok.is_emissive));
 		//break;
+		// if (kusok.is_emissive != 0) {
+		// 	C = vec3(0., 1., 0.);
+		// 	break;
+		//}
 
 		const int prim_index = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
 		const mat4x3 transform = rayQueryGetIntersectionObjectToWorldEXT(rayQuery, true);
@@ -218,57 +285,76 @@ void main() {
 		// TODO read from texture
 		const vec3 baseColor = vec3(1.);
 
-// FIXME upload this data
-#if 0
-		for (uint i = 0; i < num_lighttextures; ++i) {
-			const uint kusok_index_light = lighttextures[i];
-			const Kusok kusok = kusochki[kusok_index];
-			if (kusok_index_light == kusok_index) {
-				// TODO do we need to do this when we have textures?
-				C += kc * vec3(hash(float(kusok_index)), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.));//kusok.emissive.rgb;
-				continue;
-			}
+#if 1
+		if (kusok.leaf != 0xffffffff) {
+			const uint num_emissive_kusochki = uint(light_leaves[kusok.leaf].num_slights);
+			//const uint num_emissive_kusochki = emissive_kusochki.num_kusochki;
+			for (uint i = 0; i < num_emissive_kusochki; ++i) {
+				const uint index_into_emissive_kusochki = uint(light_leaves[kusok.leaf].slights[i]);
+				//const uint index_into_emissive_kusochki = i;
+				const uint emissive_kusok_index = emissive_kusochki.kusochki[index_into_emissive_kusochki].kusok_index;
+				const Kusok ekusok = kusochki[emissive_kusok_index];
+				const vec3 emissive = emissive_kusochki.kusochki[index_into_emissive_kusochki].emissive_color.rgb;
 
-			const uint picked_tri = rand_range(kusok.triangles);
-			for (uint ti = 0; ti < kusok.triangles; ++ti) {
-				const uint first_index_offset = kusok.index_offset + ti * 3;
-
-				// TODO this is not entirely correct -- need to mix between all normals, or have this normal precomputed
-				const uint vi1 = uint(indices[first_index_offset+0]) + kusok.vertex_offset;
-				const vec3 n1 = vertices[vi1].normal;
-				// if (dot(n1, normal) >= 0. /* TODO epsilon */ )
+				// if (i != picked_light) {
 				// 	continue;
+				// }
 
-				if (picked_tri > ti)
+				if (emissive_kusok_index == kusok_index) {
+					// TODO do we need to do this when we have textures?
+					//C += kc * vec3(hash(float(kusok_index)), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.));//kusok.emissive.rgb;
+					//C = vec3(1., 0., 1.);
+					if (bounce == 0)
+						C += kc * emissive;
 					continue;
+				}
 
-				// TODO random sample point on the entire kusok geometry
-				const uint vi2 = uint(indices[first_index_offset+1]) + kusok.vertex_offset;
-				const uint vi3 = uint(indices[first_index_offset+2]) + kusok.vertex_offset;
+				const uint picked_tri = rand_range(ekusok.triangles);
+				for (uint ti = 0; ti < ekusok.triangles; ++ti) {
+					const uint first_index_offset = ekusok.index_offset + ti * 3;
 
-				const vec3 sample_pos = mix(mix(
-					vertices[vi1].pos, vertices[vi2].pos, rand01()
-				), vertices[vi3].pos, rand01());
+					// TODO this is not entirely correct -- need to mix between all normals, or have this normal precomputed
+					const uint vi1 = uint(indices[first_index_offset+0]) + ekusok.vertex_offset;
+					const vec3 n1 = vertices[vi1].normal;
+					// if (dot(n1, normal) >= 0. /* TODO epsilon */ )
+					// 	continue;
 
-				// const vec3 n2 = vertices[vi2].normal;
-				// const vec3 n3 = vertices[vi3].normal;
+					if (picked_tri > ti)
+						continue;
 
-				vec3 light_dir = sample_pos - pos;
-				if (dot(light_dir, normal) <= 0.)
-					continue;
+					// TODO random sample point on the entire ekusok geometry
+					const uint vi2 = uint(indices[first_index_offset+1]) + ekusok.vertex_offset;
+					const uint vi3 = uint(indices[first_index_offset+2]) + ekusok.vertex_offset;
 
-				const float light_dist = length(light_dir);
-				light_dir /= light_dist;
-				if (shadowed(pos + .01 * normal, light_dir, light_dist))
-					continue;
+					const vec3 sample_pos = mix(mix(
+						vertices[vi1].pos, vertices[vi2].pos, rand01()
+					), vertices[vi3].pos, rand01());
 
-				// TODO
-				const float brightness_fudge = 1000.;
-				//const vec3 emissive = kusochki[kusok_index].emissive.rgb;
-				//C += brightness_fudge * kc * baseColor * emissive * dot(light_dir, normal) / (light_dist * light_dist);
+					//const vec3 sample_pos = vertices[vi1].pos;
 
-				// Sample just one triangle
-				break;
+					// const vec3 n2 = vertices[vi2].normal;
+					// const vec3 n3 = vertices[vi3].normal;
+
+					vec3 light_dir = sample_pos - pos;
+					if (dot(light_dir, normal) <= 0.) {
+						//C = vec3(1., 0., 1.);
+						continue;
+					}
+
+					const float light_dist = length(light_dir);
+					light_dir /= light_dist;
+					if (shadowed(pos + normal_offset_fudge * normal, light_dir, light_dist - shadow_offset_fudge)) {
+						//C = vec3(0., 1., 0.);
+						continue;
+					}
+
+					// TODO
+					const float brightness_fudge = 100.;
+					C += brightness_fudge * kc * baseColor * emissive * dot(light_dir, normal) / (light_dist * light_dist);
+
+					// Sample just one triangle
+					break;
+				}
 			}
 		}
 #endif
@@ -297,7 +383,7 @@ void main() {
 			const float d2 = dot(light_dir, light_dir);
 			const float light_dist = sqrt(d2);
 
-			if (shadowed(pos + .01 * normal, light_dir_norm, light_dist))
+			if (shadowed(pos + .01 * normal, light_dir_norm, light_dist + shadow_offset_fudge))
 				continue;
 
 			const float r2 = light_pos_r.w * light_pos_r.w;
@@ -323,13 +409,12 @@ void main() {
 	} // for all bounces
 
 	//C = mix(C, vec3(1.), printText(vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y)));
-	//C = mix(C, vec3(1.), printText(vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y)));
+	C = mix(C, vec3(1.), printText(vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y)));
 
 	//if (gl_GlobalInvocationID.x > imageSize(image).x / 2)
-	if (false)
+	if (true)
 	{
-		const float wet = .5;
-		C = mix(C, imageLoad(previous_frame, ivec2(gl_GlobalInvocationID.xy)).rgb, wet);
+		C = mix(C, imageLoad(previous_frame, ivec2(gl_GlobalInvocationID.xy)).rgb, pc.prev_frame_blend_factor);
 	}
 	imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(C, 1.));
 }

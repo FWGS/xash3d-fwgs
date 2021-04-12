@@ -18,7 +18,8 @@
 #define MAX_KUSOCHKI 8192
 #define MAX_SCRATCH_BUFFER (16*1024*1024)
 #define MAX_ACCELS_BUFFER (64*1024*1024)
-#define MAX_LIGHT_TEXTURES 256
+#define MAX_EMISSIVE_KUSOCHKI 256
+#define MAX_LIGHT_LEAVES 8192
 
 // TODO settings/realtime modifiable/adaptive
 #define FRAME_WIDTH 1280
@@ -40,20 +41,24 @@ typedef struct {
 	uint32_t index_offset;
 	uint32_t vertex_offset;
 	uint32_t triangles;
-	//uint32_t leaf;
+	uint32_t leaf;
+	uint32_t num_dlights;
+	uint32_t num_surface_lights;
+	uint32_t emissive;
 	//float sad_padding_[1];
-	//vec4_t emissive;
 } vk_kusok_data_t;
 
 typedef struct {
-	uint32_t num_lighttextures;
+	uint32_t num_kusochki;
 	uint32_t padding__[3];
 	struct {
 		// TODO should we move emissive here?
 		uint32_t kusok_index;
 		uint32_t padding__[3];
-	} lighttexture[MAX_LIGHT_TEXTURES];
-} vk_lighttexture_data_t;
+		vec3_t emissive_color;
+		uint32_t padding___;
+	} kusochki[MAX_EMISSIVE_KUSOCHKI];
+} vk_emissive_kusochki_t;
 
 typedef struct {
 	matrix3x4 transform_row;
@@ -64,6 +69,7 @@ typedef struct {
 typedef struct {
 	float t;
 	int bounces;
+	float prev_frame_blend_factor;
 } vk_rtx_push_constants_t;
 
 static struct {
@@ -82,7 +88,8 @@ static struct {
 	vk_buffer_t kusochki_buffer;
 
 	// TODO this should really be a single uniform buffer for matrices and light data
-	vk_buffer_t lighttextures_buffer;
+	vk_buffer_t emissive_kusochki_buffer;
+	vk_buffer_t light_leaves_buffer;
 
 	VkAccelerationStructureKHR tlas;
 
@@ -205,6 +212,22 @@ void VK_RayNewMap( void ) {
 
 	g_rtx.map.buffer_offset = 0;
 	g_rtx.map.num_kusochki = 0;
+
+	// Upload light leaves
+	ASSERT(g_lights.num_leaves <= MAX_LIGHT_LEAVES);
+	memcpy(g_rtx.light_leaves_buffer.mapped, g_lights.leaves, g_lights.num_leaves * sizeof(vk_light_leaf_t));
+
+	// Upload emissive kusochki
+	{
+		vk_emissive_kusochki_t *ek = g_rtx.emissive_kusochki_buffer.mapped;
+		ASSERT(g_lights.num_emissive_surfaces <= MAX_EMISSIVE_KUSOCHKI);
+		memset(ek, 0, sizeof(*ek));
+		ek->num_kusochki = g_lights.num_emissive_surfaces;
+		// for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
+		// 	VectorCopy(g_lights.emissive_surfaces[i].emissive, ek->kusochki[i].emissive_color);
+		// 	ek->kusochki[i].kusok_index = g_lights.emissive_surfaces[i].surface_index;
+		// }
+	}
 }
 
 void VK_RayFrameBegin( void )
@@ -447,8 +470,13 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 				.offset = args->dlights.offset,
 				.range = args->dlights.size,
 			};
-			const VkDescriptorBufferInfo dbi_lighttextures = {
-				.buffer = g_rtx.lighttextures_buffer.buffer,
+			const VkDescriptorBufferInfo dbi_emissive_kusochki = {
+				.buffer = g_rtx.emissive_kusochki_buffer.buffer,
+				.offset = 0,
+				.range = VK_WHOLE_SIZE,
+			};
+			const VkDescriptorBufferInfo dbi_light_leaves = {
+				.buffer = g_rtx.light_leaves_buffer.buffer,
 				.offset = 0,
 				.range = VK_WHOLE_SIZE,
 			};
@@ -523,7 +551,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 					.dstSet = g_rtx.desc_set,
 					.dstBinding = 7,
 					.dstArrayElement = 0,
-					.pBufferInfo = &dbi_lighttextures,
+					.pBufferInfo = &dbi_emissive_kusochki,
 				},
 				{
 					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -533,6 +561,15 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 					.dstBinding = 8,
 					.dstArrayElement = 0,
 					.pImageInfo = &dii_src,
+				},
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+					.dstSet = g_rtx.desc_set,
+					.dstBinding = 9,
+					.dstArrayElement = 0,
+					.pBufferInfo = &dbi_light_leaves,
 				},
 			};
 
@@ -575,6 +612,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			vk_rtx_push_constants_t push_constants = {
 				.t = gpGlobals->realtime,
 				.bounces = vk_rtx_bounces->value,
+				.prev_frame_blend_factor = vk_rtx_prev_frame_blend_factor->value,
 			};
 			vkCmdPushConstants(cmdbuf, g_rtx.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants), &push_constants);
 		}
@@ -685,6 +723,11 @@ static void createLayouts( void ) {
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	}, {
+		.binding = 9,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
 	},
 	};
 
@@ -710,7 +753,7 @@ static void createLayouts( void ) {
 	{
 		VkDescriptorPoolSize pools[] = {
 			{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 2},
-			{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 3},
+			{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 4},
 			{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 3},
 			{.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, .descriptorCount = 1},
 		};
@@ -772,9 +815,15 @@ qboolean VK_RayInit( void )
 		// FIXME complain, handle
 		return false;
 	}
-
-	if (!createBuffer(&g_rtx.lighttextures_buffer, sizeof(vk_lighttexture_data_t),
+	if (!createBuffer(&g_rtx.emissive_kusochki_buffer, sizeof(vk_emissive_kusochki_t),
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+		// FIXME complain, handle
+		return false;
+	}
+
+	if (!createBuffer(&g_rtx.light_leaves_buffer, sizeof(vk_light_leaf_t) * MAX_LIGHT_LEAVES,
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
 		return false;
@@ -855,7 +904,8 @@ void VK_RayShutdown( void )
 	destroyBuffer(&g_rtx.accels_buffer);
 	destroyBuffer(&g_rtx.tlas_geom_buffer);
 	destroyBuffer(&g_rtx.kusochki_buffer);
-	destroyBuffer(&g_rtx.lighttextures_buffer);
+	destroyBuffer(&g_rtx.emissive_kusochki_buffer);
+	destroyBuffer(&g_rtx.light_leaves_buffer);
 }
 
 qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
@@ -915,6 +965,30 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 		kusochki[i].vertex_offset = vertex_offset;
 		kusochki[i].index_offset = index_offset;
 		kusochki[i].triangles = prim_count;
+		kusochki[i].leaf = mg->leaf;
+		kusochki[i].emissive = ((mg->texture >= 0 && mg->texture < MAX_TEXTURES)
+			? g_emissive_texture_table[mg->texture].set
+			: 0);
+
+		if (mg->leaf >= 0 && mg->leaf < g_lights.num_leaves)
+		{
+			const vk_light_leaf_t* leaflight = g_lights.leaves + mg->leaf;
+			kusochki[i].num_dlights = leaflight->num_dlights;
+			kusochki[i].num_surface_lights = leaflight->num_slights;
+		} else {
+			kusochki[i].num_dlights = kusochki[i].num_surface_lights = 0;
+		}
+
+		if (kusochki[i].emissive && mg->surface_index >= 0) {
+			vk_emissive_kusochki_t *ek = g_rtx.emissive_kusochki_buffer.mapped;
+			for (int j = 0; j < g_lights.num_emissive_surfaces; ++j) {
+				if (mg->surface_index == g_lights.emissive_surfaces[j].surface_index) {
+					VectorCopy(g_lights.emissive_surfaces[j].emissive, ek->kusochki[j].emissive_color);
+					ek->kusochki[j].kusok_index = i + args.model->rtx.kusochki_offset;
+					break;
+				}
+			}
+		}
 	}
 
 	{

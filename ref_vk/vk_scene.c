@@ -11,6 +11,7 @@
 #include "vk_global.h"
 #include "vk_beams.h"
 #include "vk_light.h"
+#include "vk_rtx.h"
 
 #include "com_strings.h"
 #include "ref_params.h"
@@ -100,6 +101,8 @@ void R_NewMap( void )
 	// This is to ensure that we have computed lightstyles properly
 	VK_RunLightStyles();
 
+	VK_LightsLoadMap();
+
 	// TODO should we do something like VK_BrushBeginLoad?
 	VK_BrushStatsClear();
 
@@ -109,7 +112,8 @@ void R_NewMap( void )
 	// This leads to ASSERTS firing when trying to draw erased buffers.
 	VK_RenderBufferClearMap();
 
-	VK_LightsLoad();
+	if (vk_core.rtx)
+		VK_RayNewMap();
 
 	// Load all models at once
 	gEngine.Con_Reportf( "Num models: %d:\n", num_models );

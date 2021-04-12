@@ -380,12 +380,17 @@ static qboolean pickAndCreateDevice( void )
 			.accelerationStructure = VK_TRUE,
 			.pNext = &buffer_address_feature,
 		};
+		VkPhysicalDevice8BitStorageFeatures eight_bit_feature = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES,
+			.pNext = &accel_feature,
+			.storageBuffer8BitAccess = VK_TRUE,
+			.uniformAndStorageBuffer8BitAccess = VK_TRUE,
+		};
 		VkPhysicalDeviceRayQueryFeaturesKHR ray_query_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
 			.rayQuery = VK_TRUE,
-			.pNext = &accel_feature,
+			.pNext = &eight_bit_feature,
 		};
-
 		VkDeviceCreateInfo create_info = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			.pNext = vk_core.rtx ? &ray_query_feature : NULL,

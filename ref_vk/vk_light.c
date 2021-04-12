@@ -384,22 +384,20 @@ static void initPVL( void ) {
 		Mem_Free(g_lights.leaves);
 	}
 
+	if (g_lights.surfaces) {
+		Mem_Free(g_lights.surfaces);
+	}
+
 	g_lights.num_leaves = map->numleafs;
 	g_lights.leaves = Mem_Malloc(vk_core.pool, g_lights.num_leaves * sizeof(vk_light_leaf_t));
-	g_lights.frame_number = -1;
+
+	g_lights.num_surfaces = map->nummarksurfaces;
+	g_lights.surfaces = Mem_Malloc(vk_core.pool, g_lights.num_surfaces * sizeof(*g_lights.surfaces));
 
 	g_lights.num_emissive_surfaces = 0;
 }
 
-void VK_LightsLoad( void ) {
-	parseStaticLightEntities();
-	initPVL();
-
-	// FIXME ...
-	initHackRadTable();
-}
-
-void VK_LightsBakePVL( int frame_number ) {
+static void bakeLights( void ) {
 	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
 	const world_static_t *world = gEngine.GetWorld();
 
@@ -475,6 +473,8 @@ void VK_LightsBakePVL( int frame_number ) {
 			const int surface_index = surface - map->surfaces;
 			ASSERT(surface_index >= 0);
 			ASSERT(surface_index < map->numsurfaces);
+
+			g_lights.surfaces[surface_index].leaf = leaf->cluster;
 
 			// TODO entity transformation
 			// TODO ^^^ we need to bake it per-entity probably
@@ -574,5 +574,14 @@ void VK_LightsBakePVL( int frame_number ) {
 
 	Mem_Free(surface_to_emissive_surface_map);
 	Mem_Free(eigenlicht);
-	g_lights.frame_number = frame_number;
+}
+
+void VK_LightsLoadMap( void ) {
+	parseStaticLightEntities();
+	initPVL();
+
+	// FIXME ...
+	initHackRadTable();
+
+	bakeLights();
 }
