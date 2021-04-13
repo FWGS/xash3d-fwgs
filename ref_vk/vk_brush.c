@@ -356,6 +356,7 @@ qboolean VK_BrushModelLoad( model_t *mod )
 
 void VK_BrushModelDestroy( model_t *mod ) {
 	vk_brush_model_t *bmodel = mod->cache.data;
+	ASSERT(mod->type == mod_brush);
 	if (!bmodel)
 		return;
 

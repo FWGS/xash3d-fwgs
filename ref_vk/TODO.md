@@ -1,10 +1,10 @@
 ## 2021-04-13
 - [x] rtx: "toilet error": attempting to get AS device address crashes the driver
+- [x] rtx: fix blas destruction on exit
 
 # Next
 - [ ] rtx: sometimes we get uninitialized models
 	- [ ] run under asan
-- [ ] rtx: fix blas destruction on exit
 - [ ] rtx: read rad file data
 	- [ ] rtx: hack: interpret textures with '~' or '{' as emissive
 - [ ] rtx: emissive particles

@@ -18,7 +18,7 @@
 
 #define PRINT_NOT_IMPLEMENTED_ARGS(msg, ...) do { \
 		static int called = 0; \
-		gEngine.Con_Printf( S_ERROR "VK NOT_IMPLEMENTED(x%d): %s" msg "\n", called, __FUNCTION__, __VA_ARGS__ ); \
+		gEngine.Con_Printf( S_ERROR "VK NOT_IMPLEMENTED(x%d): %s " msg "\n", called, __FUNCTION__, __VA_ARGS__ ); \
 		++called; \
 	} while(0)
 

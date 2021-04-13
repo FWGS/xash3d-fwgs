@@ -111,6 +111,10 @@ static struct {
 	vk_image_t frames[2];
 
 	qboolean reload_pipeline;
+
+	// HACK: we don't have a way to properly destroy all models and their Vulkan objects on shutdown.
+	// This makes validation layers unhappy. Remember created objects here and destroy them manually.
+	VkAccelerationStructureKHR blases[MAX_ACCELS];
 } g_rtx;
 
 static VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer) {
@@ -900,6 +904,11 @@ void VK_RayShutdown( void )
 	if (g_rtx.tlas != VK_NULL_HANDLE)
 		vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.tlas, NULL);
 
+	for (int i = 0; i < ARRAYSIZE(g_rtx.blases); ++i) {
+		if (g_rtx.blases[i] != VK_NULL_HANDLE)
+			vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.blases[i], NULL);
+	}
+
 	destroyBuffer(&g_rtx.scratch_buffer);
 	destroyBuffer(&g_rtx.accels_buffer);
 	destroyBuffer(&g_rtx.tlas_geom_buffer);
@@ -1030,7 +1039,18 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 	Mem_Free(geoms);
 
 	if (result) {
+		int blas_index;
 		g_rtx.map.num_kusochki += args.model->num_geometries;
+
+		for (blas_index = 0; blas_index < ARRAYSIZE(g_rtx.blases); ++blas_index) {
+			if (g_rtx.blases[blas_index] == VK_NULL_HANDLE) {
+				g_rtx.blases[blas_index] = args.model->rtx.blas;
+				break;
+			}
+		}
+
+		if (blas_index == ARRAYSIZE(g_rtx.blases))
+			gEngine.Con_Printf(S_WARN "Too many BLASes created :(\n");
 	}
 
 	gEngine.Con_Reportf("Model %s (%p) created blas %p\n", args.model->debug_name, args.model, args.model->rtx.blas);
@@ -1041,6 +1061,16 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 void VK_RayModelDestroy( struct vk_render_model_s *model ) {
 	ASSERT(vk_core.rtx);
 	if (model->rtx.blas != VK_NULL_HANDLE) {
+		int blas_index;
+		for (blas_index = 0; blas_index < ARRAYSIZE(g_rtx.blases); ++blas_index) {
+			if (g_rtx.blases[blas_index] == model->rtx.blas) {
+				g_rtx.blases[blas_index] = VK_NULL_HANDLE;
+				break;
+			}
+		}
+		if (blas_index == ARRAYSIZE(g_rtx.blases))
+			gEngine.Con_Printf(S_WARN "Model BLAS was missing\n");
+
 		vkDestroyAccelerationStructureKHR(vk_core.device, model->rtx.blas, NULL);
 		model->rtx.blas = VK_NULL_HANDLE;
 	}
