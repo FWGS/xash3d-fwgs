@@ -1033,6 +1033,8 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 		g_rtx.map.num_kusochki += args.model->num_geometries;
 	}
 
+	gEngine.Con_Reportf("Model %s (%p) created blas %p\n", args.model->debug_name, args.model, args.model->rtx.blas);
+
 	return result;
 }
 

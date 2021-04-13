@@ -1,12 +1,7 @@
-## 2021-04-12
-- [x] rtx: fix surface-kusok index mismatch
-- [x] rtx: try to use light visibility data
-	-> too few slots for light sources
-	-> some areas have too many naively visible lights
-- [x] rtx: fix light shadow artefacts
+## 2021-04-13
+- [x] rtx: "toilet error": attempting to get AS device address crashes the driver
 
 # Next
-- [ ] rtx: "toilet error": attempting to get AS device address crashes the driver
 - [ ] rtx: sometimes we get uninitialized models
 	- [ ] run under asan
 - [ ] rtx: fix blas destruction on exit
@@ -183,3 +178,10 @@
 
 ## 2021-04-11
 - [x] vscode build and debug
+
+## 2021-04-12
+- [x] rtx: fix surface-kusok index mismatch
+- [x] rtx: try to use light visibility data
+	-> too few slots for light sources
+	-> some areas have too many naively visible lights
+- [x] rtx: fix light shadow artefacts

@@ -127,6 +127,9 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode )
 		return;
 	}
 
+	if (bmodel->render_model.num_geometries == 0)
+		return;
+
 	if (!tglob.lightmapTextures[0])
 	{
 		gEngine.Con_Printf( S_ERROR "Don't have a lightmap texture\n");
@@ -311,7 +314,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	bmodel->render_model.index_buffer = index_buffer;
 	bmodel->render_model.vertex_buffer = vertex_buffer;
 
-	return num_surfaces;
+	return true;
 }
 
 qboolean VK_BrushModelLoad( model_t *mod )
@@ -326,16 +329,20 @@ qboolean VK_BrushModelLoad( model_t *mod )
 
 	{
 		const model_sizes_t sizes = computeSizes( mod );
-		vk_brush_model_t *bmodel = Mem_Malloc(vk_core.pool, sizeof(vk_brush_model_t) + (sizeof(msurface_t*) + sizeof(vk_render_geometry_t)) * sizes.num_surfaces);
+
+		vk_brush_model_t *bmodel = Mem_Calloc(vk_core.pool, sizeof(vk_brush_model_t) + (sizeof(msurface_t*) + sizeof(vk_render_geometry_t)) * sizes.num_surfaces);
 		mod->cache.data = bmodel;
 		bmodel->render_model.debug_name = mod->name;
 		bmodel->render_model.render_mode = kRenderNormal;
-		bmodel->render_model.geometries = (vk_render_geometry_t*)((char*)(bmodel + 1) + sizeof(msurface_t*) * sizes.num_surfaces);
 
-		if (!loadBrushSurfaces(sizes, mod) || !VK_RenderModelInit(&bmodel->render_model)) {
-			gEngine.Con_Printf(S_ERROR "Could not load model %s\n", mod->name);
-			Mem_Free(bmodel);
-			return false;
+		if (sizes.num_surfaces != 0) {
+			bmodel->render_model.geometries = (vk_render_geometry_t*)((char*)(bmodel + 1) + sizeof(msurface_t*) * sizes.num_surfaces);
+
+			if (!loadBrushSurfaces(sizes, mod) || !VK_RenderModelInit(&bmodel->render_model)) {
+				gEngine.Con_Printf(S_ERROR "Could not load model %s\n", mod->name);
+				Mem_Free(bmodel);
+				return false;
+			}
 		}
 
 		g_brush.stat.num_indices += sizes.num_indices;
