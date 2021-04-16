@@ -1,5 +1,4 @@
 #include "vk_light.h"
-#include "vk_render.h"
 #include "vk_textures.h"
 
 #include "mod_local.h"
@@ -8,6 +7,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+vk_potentially_visible_lights_t g_lights = {0};
 
 vk_emissive_texture_table_t g_emissive_texture_table[MAX_TEXTURES];
 
@@ -169,7 +170,9 @@ static void parseStaticLightEntities( void ) {
 				continue;
 			if (classname != Light && classname != LightSpot)
 				continue;
-			VK_RenderAddStaticLight(light.origin, light.color);
+
+			// TODO store this
+			//VK_RenderAddStaticLight(light.origin, light.color);
 			continue;
 		}
 
@@ -375,43 +378,13 @@ static void traverseBSP( void ) {
 	//exit(0);
 }
 
-vk_potentially_visible_lights_t g_lights = {0};
-
-static void initPVL( void ) {
-	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
-
-	if (g_lights.leaves) {
-		Mem_Free(g_lights.leaves);
-	}
-
-	if (g_lights.surfaces) {
-		Mem_Free(g_lights.surfaces);
-	}
-
-	g_lights.num_leaves = map->numleafs;
-	g_lights.leaves = Mem_Malloc(vk_core.pool, g_lights.num_leaves * sizeof(vk_light_leaf_t));
-
-	g_lights.num_surfaces = map->nummarksurfaces;
-	g_lights.surfaces = Mem_Malloc(vk_core.pool, g_lights.num_surfaces * sizeof(*g_lights.surfaces));
-
-	g_lights.num_emissive_surfaces = 0;
-}
-
-static void bakeLights( void ) {
-	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
-	const world_static_t *world = gEngine.GetWorld();
-
-	// "Self" lights that belong to a particular leaf
-	// TODO use temp pool
-	vk_light_leaf_t *eigenlicht = Mem_Malloc(vk_core.pool, g_lights.num_leaves * sizeof(vk_light_leaf_t));
-	int *surface_to_emissive_surface_map = Mem_Malloc(vk_core.pool, map->numsurfaces * sizeof(int));
+static void buildStaticMapEmissiveSurfaces( void ) {
+	const model_t *map = gEngine.pfnGetModelByIndex( 1 );
 
 	// Initialize emissive surface table
-	for (int i = 0; i < map->numsurfaces; ++i) {
+	for (int i = map->firstmodelsurface; i < map->firstmodelsurface + map->nummodelsurfaces; ++i) {
 		const msurface_t *surface = map->surfaces + i;
 		const int texture_num = surface->texinfo->texture->gl_texturenum;
-
-		surface_to_emissive_surface_map[i] = -1;
 
 		// TODO animated textures ???
 		if (!g_emissive_texture_table[texture_num].set)
@@ -422,8 +395,6 @@ static void bakeLights( void ) {
 
 			esurf->surface_index = i;
 			VectorCopy(g_emissive_texture_table[texture_num].emissive, esurf->emissive);
-
-			surface_to_emissive_surface_map[i] = g_lights.num_emissive_surfaces;
 		}
 
 		++g_lights.num_emissive_surfaces;
@@ -435,153 +406,134 @@ static void bakeLights( void ) {
 		gEngine.Con_Printf(S_ERROR "Too many emissive surfaces found: %d; some areas will be dark\n", g_lights.num_emissive_surfaces);
 		g_lights.num_emissive_surfaces = UINT8_MAX + 1;
 	}
+}
 
-	//DumpLeaves();
-	traverseBSP();
+static void buildStaticMapLightsGrid( void ) {
+	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
 
-	// 1. For each leaf collect all emissive surfaces (dlights TODO)
-	//   -> set of all emissive surfaces per leaf:
-	//   		0 for most of leaves
-	//   		1-7 for a few of them
-	//
-	// 2. For each leaf collect all visible leaves (use PVS)
-	// 		For each potentially visible leaf collect all emissive surfaces
-	// 	 -> set of all potentially visible surfaces for each leaf
-	//
+	// 1. Determine map bounding box (and optimal grid size?)
+		// map->mins, maxs
+	vec3_t map_size, min_cell, max_cell;
+	VectorSubtract(map->maxs, map->mins, map_size);
 
+	VectorDivide(map->mins, LIGHT_GRID_CELL_SIZE, min_cell);
+	min_cell[0] = floorf(min_cell[0]);
+	min_cell[1] = floorf(min_cell[1]);
+	min_cell[2] = floorf(min_cell[2]);
+	VectorCopy(min_cell, g_lights.grid.min_cell);
 
-	// First pass: find lights belonging to each leaf
-	// TODO this will include wagonchik geometry, which is not what we want
-	// TODO hack: do only the first submodel?
-	// Lights construction should happen on render with entity knowledge
-	for (int i = 0; i < map->numleafs; ++i) {
-		vk_light_leaf_t *eigen = eigenlicht + i;
-		const mleaf_t *leaf = map->leafs + i;
-		int num_surface_lights = 0;
+	VectorDivide(map->maxs, LIGHT_GRID_CELL_SIZE, max_cell);
+	max_cell[0] = ceilf(max_cell[0]);
+	max_cell[1] = ceilf(max_cell[1]);
+	max_cell[2] = ceilf(max_cell[2]);
 
-		eigen->num_dlights = eigen->num_slights = 0;
+	VectorSubtract(max_cell, min_cell, g_lights.grid.size);
+	g_lights.grid.num_cells = g_lights.grid.size[0] * g_lights.grid.size[1] * g_lights.grid.size[2];
 
-		if (leaf->cluster < 0)
-			continue;
+	gEngine.Con_Reportf("Map mins:(%f, %f, %f), maxs:(%f, %f, %f), size:(%f, %f, %f), min_cell:(%f, %f, %f) cells:(%d, %d, %d); total: %d\n",
+		map->mins[0], map->mins[1], map->mins[2],
+		map->maxs[0], map->maxs[1], map->maxs[2],
+		map_size[0], map_size[1], map_size[2],
+		min_cell[0], min_cell[1], min_cell[2],
+		g_lights.grid.size[0],
+		g_lights.grid.size[1],
+		g_lights.grid.size[2],
+		g_lights.grid.num_cells
+	);
 
-		ASSERT(leaf->contents < 0);
-		ASSERT(leaf->parent);
-		//ASSERT(leaf->nummarksurfaces == leaf->parent->numsurfaces);
+	// 3. For all light sources
+	for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
+		const vk_emissive_surface_t *emissive = g_lights.emissive_surfaces + i;
+		const msurface_t *surface = map->surfaces + emissive->surface_index;
+		int cluster_index;
+		vk_light_cluster_t *cluster;
+		vec3_t light_cell;
 
-		for (int j = 0; j < leaf->nummarksurfaces; ++j) {
-			const msurface_t *surface = leaf->firstmarksurface[j];
-			const int surface_index = surface - map->surfaces;
-			ASSERT(surface_index >= 0);
-			ASSERT(surface_index < map->numsurfaces);
+		// VectorAdd(surface->info->maxs, surface->info->mins, light_pos);
+		// VectorDivide(light_pos, 2.f, light_pos);
 
-			g_lights.surfaces[surface_index].leaf = leaf->cluster;
+		// TODO light_radius, culling, ...
+		// 		3.1 Compute light size and intensity (?)
+		//		3.2 Compute which cells it might affect
+		//			- light orientation
+		//			- light intensity
+		//			- PVS
 
-			// TODO entity transformation
-			// TODO ^^^ we need to bake it per-entity probably
-
-			{
-				const int emissive_index = surface_to_emissive_surface_map[surface_index];
-				if (emissive_index < 0)
-					continue;
-
-				ASSERT(emissive_index < 256);
-
-				++num_surface_lights;
-				if (eigen->num_slights == MAX_VISIBLE_SURFACE_LIGHTS)
-					continue;
-
-				eigen->slights[eigen->num_slights++] = emissive_index;
-			}
-		}
-
-		if (num_surface_lights > 0)
-			gEngine.Con_Reportf("Leaf %d surface lights %d\n", i, num_surface_lights);
-
-		if (num_surface_lights > MAX_VISIBLE_SURFACE_LIGHTS)
-			gEngine.Con_Printf(S_ERROR "Too many surface lights %d for leaf %d\n", num_surface_lights, i);
-
-		// TODO dlights
-	}
-
-	// Second pass: find lights visible from each leaf
-	for (int i = 0; i < map->numleafs; ++i) {
-		const mleaf_t *leaf = map->leafs + i;
-		vk_light_leaf_t *lights = g_lights.leaves + i;
-		// TODO we should not decompress PVS, as it might be faster to interate through compressed directly
-		const byte *visdata = Mod_DecompressPVS(leaf->compressed_vis, world->visbytes);
-		int num_emissive_lights = 0;
+		ASSERT(surface->info);
 
 		{
-			// start with self lights
-			vk_light_leaf_t *eigen = eigenlicht + i;
-			memcpy(lights, eigen, sizeof(*eigen));
-			num_emissive_lights = eigen->num_slights;
-
-			/* PR("Leaf %d: marksurfaces=%d, eigen: slights=%d\n", */
-			/* 		i, leaf->nummarksurfaces, eigen->num_slights); */
+			vec3_t light_cell_f;
+			VectorDivide(surface->info->origin, LIGHT_GRID_CELL_SIZE, light_cell_f);
+			light_cell[0] = floorf(light_cell_f[0]);
+			light_cell[1] = floorf(light_cell_f[1]);
+			light_cell[2] = floorf(light_cell_f[2]);
 		}
+		VectorSubtract(light_cell, g_lights.grid.min_cell, light_cell);
 
-		if (leaf->cluster < 0)
+		ASSERT(light_cell[0] >= 0);
+		ASSERT(light_cell[1] >= 0);
+		ASSERT(light_cell[2] >= 0);
+		ASSERT(light_cell[0] < g_lights.grid.size[0]);
+		ASSERT(light_cell[1] < g_lights.grid.size[1]);
+		ASSERT(light_cell[2] < g_lights.grid.size[2]);
+
+		//		3.3	Add it to those cells
+		cluster_index = light_cell[0] + light_cell[1] * g_lights.grid.size[0] + light_cell[2] * g_lights.grid.size[0] * g_lights.grid.size[1];
+		cluster = g_lights.grid.cells + cluster_index;
+
+		if (cluster->num_emissive_surfaces == MAX_VISIBLE_SURFACE_LIGHTS) {
+			gEngine.Con_Printf(S_ERROR "Cluster %d,%d,%d(%d) ran out of emissive surfaces slots\n",
+				light_cell[0], light_cell[1],  light_cell[2], cluster_index
+				);
 			continue;
-
-		if (!visdata)
-			continue;
-
-		// TODO optimize: it's possible to iterate through all PVS leaves without unpacking and enumerating all leaves (?)
-		for (int j = 0; j < map->numleafs; ++j) {
-			if (j != i && CHECKVISBIT(visdata, map->leafs[j].cluster)) {
-				const vk_light_leaf_t *pvs_eigen = eigenlicht + j;
-
-				// copy pvs lights into this leaf lights
-				for (int k = 0; k < pvs_eigen->num_slights; ++k) {
-					const uint8_t candidate_light = pvs_eigen->slights[k];
-
-					// dedup surfaces: many leafs can look at the same surface, and so it will be included more than once
-					qboolean dup = false;
-					// It's N^2, but the numbers are small (<10..20), so it's good i guess
-					for (int l = 0; l < lights->num_slights; ++l)
-						if (candidate_light == lights->slights[l]) {
-							dup = true;
-							break;
-						}
-
-					if (dup)
-						continue;
-
-					++num_emissive_lights;
-					if (lights->num_slights == MAX_VISIBLE_SURFACE_LIGHTS)
-						continue;
-
-					// TODO cull by:
-					// - front/back facing?
-					// - distance and intensity
-					// - ...
-
-					lights->slights[lights->num_slights++] = candidate_light;
-				}
-			}
 		}
 
-		// TODO we see too many light sources for some map leaves. which and why?
-		// TODO if not all emissive surfaces can fit, sort them by importance?
-
-		if (num_emissive_lights > 0) {
-			vk_light_leaf_t *eigen = eigenlicht + i;
-			gEngine.Con_Reportf("Leaf %d surfaces=%d, emissive=%d, visible emssive=%d%s\n", i, leaf->nummarksurfaces, eigen->num_slights, num_emissive_lights,
-				(num_emissive_lights > MAX_VISIBLE_SURFACE_LIGHTS) ? " (TOO MANY!)" : "");
-		}
+		cluster->emissive_surfaces[cluster->num_emissive_surfaces] = i;
+		++cluster->num_emissive_surfaces;
 	}
 
-	Mem_Free(surface_to_emissive_surface_map);
-	Mem_Free(eigenlicht);
+	// Print light grid stats
+	{
+		#define GROUPSIZE 4
+		int histogram[1 + (MAX_VISIBLE_SURFACE_LIGHTS + GROUPSIZE - 1) / GROUPSIZE] = {0};
+		for (int i = 0; i < g_lights.grid.num_cells; ++i) {
+			const vk_light_cluster_t *cluster = g_lights.grid.cells + i;
+			const int hist_index = cluster->num_emissive_surfaces ? 1 + cluster->num_emissive_surfaces / GROUPSIZE : 0;
+			histogram[hist_index]++;
+		}
+
+		gEngine.Con_Reportf("Built %d light clusters. Stats:\n", g_lights.grid.num_cells);
+		gEngine.Con_Reportf("  0: %d\n", histogram[0]);
+		for (int i = 1; i < ARRAYSIZE(histogram); ++i)
+			gEngine.Con_Reportf("  %d-%d: %d\n",
+				(i - 1) * GROUPSIZE,
+				i * GROUPSIZE - 1,
+				histogram[i]);
+	}
+
+	{
+		for (int i = 0; i < g_lights.grid.num_cells; ++i) {
+			const vk_light_cluster_t *cluster = g_lights.grid.cells + i;
+			if (cluster->num_emissive_surfaces > 0) {
+				gEngine.Con_Reportf(" cluster %d: emissive_surfaces=%d\n", i, cluster->num_emissive_surfaces);
+			}
+		}
+	}
 }
 
 void VK_LightsLoadMap( void ) {
 	parseStaticLightEntities();
-	initPVL();
+
+	g_lights.num_emissive_surfaces = 0;
+	g_lights.grid.num_cells = 0;
+	memset(g_lights.grid.size, 0, sizeof(g_lights.grid.size));
 
 	// FIXME ...
 	initHackRadTable();
 
-	bakeLights();
+	buildStaticMapEmissiveSurfaces();
+	buildStaticMapLightsGrid();
+}
+
+void VK_LightsShutdown( void ) {
 }

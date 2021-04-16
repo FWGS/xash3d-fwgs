@@ -1,12 +1,12 @@
-## 2021-04-13
-- [x] rtx: "toilet error": attempting to get AS device address crashes the driver
-- [x] rtx: fix blas destruction on exit
+## 2021-04-14..16
+- [x] rtx: grid-based light clusters
+- [ ] rtx: radius-based light clusters visibility
 
 # Next
-- [ ] rtx: sometimes we get uninitialized models
-	- [ ] run under asan
 - [ ] rtx: read rad file data
 	- [ ] rtx: hack: interpret textures with '~' or '{' as emissive
+- [ ] rtx: restore studio models
+- [ ] rtx: restore dynamic stuff like particles, beams, etc
 - [ ] rtx: emissive particles
 - [ ] rtx: textures
 - [ ] rtx: better random
@@ -53,6 +53,7 @@
 - [ ] rtx: studio models should not pre-transform vertices with modelView matrix
 
 # Someday
+- [ ] run under asan
 - [ ] start building command buffers in beginframe
 - [ ] multiple frames in flight (#nd cmdbuf, ...)
 - [ ] cleanup unused stuff in vk_studio.c
@@ -185,3 +186,8 @@
 	-> too few slots for light sources
 	-> some areas have too many naively visible lights
 - [x] rtx: fix light shadow artefacts
+
+## 2021-04-13
+- [x] rtx: "toilet error": attempting to get AS device address crashes the driver
+- [x] rtx: fix blas destruction on exit
+- [x] rtx: sometimes we get uninitialized models

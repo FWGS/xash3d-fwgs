@@ -246,7 +246,6 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			model_geometry->vertex_offset = 0;
 			model_geometry->texture = t;
 			model_geometry->vertex_count = surf->numedges;
-			model_geometry->leaf = surface_index < g_lights.num_surfaces ? g_lights.surfaces[surface_index].leaf : -1;
 			model_geometry->surface_index = i;
 
 			VK_CreateSurfaceLightmap( surf, mod );
