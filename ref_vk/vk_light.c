@@ -408,6 +408,27 @@ static void buildStaticMapEmissiveSurfaces( void ) {
 	}
 }
 
+static void addSurfaceLightToCell( const int light_cell[3], int emissive_surface_index ) {
+	const uint cluster_index = light_cell[0] + light_cell[1] * g_lights.grid.size[0] + light_cell[2] * g_lights.grid.size[0] * g_lights.grid.size[1];
+	vk_light_cluster_t *cluster = g_lights.grid.cells + cluster_index;
+
+	if (light_cell[0] < 0 || light_cell[1] < 0 || light_cell[2] < 0
+		|| (light_cell[0] >= g_lights.grid.size[0])
+		|| (light_cell[1] >= g_lights.grid.size[1])
+		|| (light_cell[2] >= g_lights.grid.size[2]))
+		return;
+
+	if (cluster->num_emissive_surfaces == MAX_VISIBLE_SURFACE_LIGHTS) {
+		gEngine.Con_Printf(S_ERROR "Cluster %d,%d,%d(%d) ran out of emissive surfaces slots\n",
+			light_cell[0], light_cell[1],  light_cell[2], cluster_index
+			);
+		return;
+	}
+
+	cluster->emissive_surfaces[cluster->num_emissive_surfaces] = emissive_surface_index;
+	++cluster->num_emissive_surfaces;
+}
+
 static void buildStaticMapLightsGrid( void ) {
 	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
 
@@ -429,6 +450,7 @@ static void buildStaticMapLightsGrid( void ) {
 
 	VectorSubtract(max_cell, min_cell, g_lights.grid.size);
 	g_lights.grid.num_cells = g_lights.grid.size[0] * g_lights.grid.size[1] * g_lights.grid.size[2];
+	ASSERT(g_lights.grid.num_cells < MAX_LIGHT_CLUSTERS);
 
 	gEngine.Con_Reportf("Map mins:(%f, %f, %f), maxs:(%f, %f, %f), size:(%f, %f, %f), min_cell:(%f, %f, %f) cells:(%d, %d, %d); total: %d\n",
 		map->mins[0], map->mins[1], map->mins[2],
@@ -448,19 +470,9 @@ static void buildStaticMapLightsGrid( void ) {
 		int cluster_index;
 		vk_light_cluster_t *cluster;
 		vec3_t light_cell;
-
-		// VectorAdd(surface->info->maxs, surface->info->mins, light_pos);
-		// VectorDivide(light_pos, 2.f, light_pos);
-
-		// TODO light_radius, culling, ...
-		// 		3.1 Compute light size and intensity (?)
-		//		3.2 Compute which cells it might affect
-		//			- light orientation
-		//			- light intensity
-		//			- PVS
-
 		ASSERT(surface->info);
 
+		// FIXME using just origin is incorrect
 		{
 			vec3_t light_cell_f;
 			VectorDivide(surface->info->origin, LIGHT_GRID_CELL_SIZE, light_cell_f);
@@ -478,18 +490,19 @@ static void buildStaticMapLightsGrid( void ) {
 		ASSERT(light_cell[2] < g_lights.grid.size[2]);
 
 		//		3.3	Add it to those cells
-		cluster_index = light_cell[0] + light_cell[1] * g_lights.grid.size[0] + light_cell[2] * g_lights.grid.size[0] * g_lights.grid.size[1];
-		cluster = g_lights.grid.cells + cluster_index;
-
-		if (cluster->num_emissive_surfaces == MAX_VISIBLE_SURFACE_LIGHTS) {
-			gEngine.Con_Printf(S_ERROR "Cluster %d,%d,%d(%d) ran out of emissive surfaces slots\n",
-				light_cell[0], light_cell[1],  light_cell[2], cluster_index
-				);
-			continue;
-		}
-
-		cluster->emissive_surfaces[cluster->num_emissive_surfaces] = i;
-		++cluster->num_emissive_surfaces;
+		// TODO radius
+		for (int x = -1; x <= 1; ++x)
+			for (int y = -1; y <= 1; ++y)
+				for (int z = -1; z <= 1; ++z) {
+					const int cell[3] = { light_cell[0] + x, light_cell[1] + y, light_cell[2] + z};
+					// TODO culling, ...
+					// 		3.1 Compute light size and intensity (?)
+					//		3.2 Compute which cells it might affect
+					//			- light orientation
+					//			- light intensity
+					//			- PVS
+					addSurfaceLightToCell(cell, i);
+				}
 	}
 
 	// Print light grid stats
