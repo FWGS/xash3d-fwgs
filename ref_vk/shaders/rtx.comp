@@ -69,9 +69,6 @@ struct Kusok {
 	uint index_offset;
 	uint vertex_offset;
 	uint triangles;
-	uint leaf;
-	uint num_dlights;
-	uint num_surface_lights;
 	uint is_emissive;
 	//vec4 emissive;
 };
@@ -95,7 +92,7 @@ struct Light {
 // FIXME what should this be?
 const float dlight_attenuation_const = 20000.;
 // TODO specialize in vk_rtx.c
-layout (constant_id = 1) const uint max_dlights = 32;
+layout (constant_id = 0) const uint max_dlights = 32;
 layout(set=0,binding=6) uniform UBODLights {
 	uint num_lights;
 	Light lights[max_dlights];
@@ -106,29 +103,39 @@ struct EmissiveKusok {
 	vec3 emissive_color;
 };
 
-layout (constant_id = 2) const uint max_lighttextures = 256;
+layout (constant_id = 1) const uint MAX_EMISSIVE_KUSOCHKI = 256;
 layout (set = 0, binding = 7/*, align=4*/) uniform UBOEmissiveKusochki {
 	uint num_kusochki;
-	EmissiveKusok kusochki[256];
+	EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
 } emissive_kusochki;
 
 layout(binding = 8, set = 0, rgba8) uniform readonly image2D previous_frame;
 
-// FIXME shader specialization constants
-#define MAX_VISIBLE_DLIGHTS 15
-#define MAX_VISIBLE_SURFACE_LIGHTS 15
-struct LightLeaf {
+layout (constant_id = 2) const uint MAX_VISIBLE_DLIGHTS = 15;
+layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 31;
+
+const uint LIGHT_CLUSTER_SIZE = 2 + MAX_VISIBLE_DLIGHTS + MAX_VISIBLE_SURFACE_LIGHTS;
+const uint LIGHT_CLUSTER_NUM_DLIGHTS_OFFSET = 0;
+const uint LIGHT_CLUSTER_NUM_EMISSIVE_SURFACES_OFFSET = 1;
+const uint LIGHT_CLUSTER_DLIGHTS_DATA_OFFSET = 2;
+const uint LIGHT_CLUSTER_EMISSIVE_SURFACES_DATA_OFFSET = 3 + MAX_VISIBLE_DLIGHTS;
+
+struct LightCluster {
 	uint8_t num_dlights;
-	uint8_t num_slights;
+	uint8_t num_emissive_surfaces;
 	uint8_t dlights[MAX_VISIBLE_DLIGHTS];
-	uint8_t slights[MAX_VISIBLE_SURFACE_LIGHTS];
+	uint8_t emissive_surfaces[MAX_VISIBLE_SURFACE_LIGHTS];
 };
 
 // FIMXE specialize
-layout (constant_id = 3) const uint max_light_leaves = 8192;
-layout (set = 0, binding = 9, align = 1) readonly buffer UBOLightLeaves {
-	LightLeaf light_leaves[max_light_leaves];
-};
+layout (constant_id = 4) const float LIGHT_GRID_CELL_SIZE = 256.;
+layout (constant_id = 5) const uint MAX_LIGHT_CLUSTERS = 32768;
+const uint HACK_OFFSET = 0;
+layout (set = 0, binding = 9, align = 1) readonly buffer UBOLightClusters {
+	ivec3 grid_min, grid_size;
+	//uint8_t clusters_data[MAX_LIGHT_CLUSTERS * LIGHT_CLUSTER_SIZE + HACK_OFFSET];
+	LightCluster clusters[MAX_LIGHT_CLUSTERS];
+} light_grid;
 
 layout (push_constant) uniform PC {
 	float t;
@@ -137,6 +144,7 @@ layout (push_constant) uniform PC {
 } pc;
 
 //uint picked_light = 76;//uint(mod(pc.t * 4., emissive_kusochki.num_kusochki));
+int time_off = int(pc.t * 8.);
 
 float printText(in vec2 p) {
 #define PIXSZ 4.
@@ -159,16 +167,39 @@ float printText(in vec2 p) {
 #define _ PUTC(0.);
 	if (false) {
 		const Kusok kusok = kusochki[idx];
-		PUTN(idx); PUTC(0.); PUTN(kusok.leaf); PUTC(0.); PUTN(kusok.num_surface_lights); PUTC(0.);
-		PUTN(kusok.num_dlights);
+		PUTN(idx);
 		//PUTN(kusok.index_offset); PUTC(0.); PUTN(kusok.vertex_offset); PUTC(0.); PUTN(kusok.triangles);
 	} else if (false) {
-		PUTN(idx);
-		_ PUTN(float(int(light_leaves[idx].num_slights)));
-		_ PUTN(float(int(light_leaves[idx].slights[0])));
-		_ PUTN(float(int(light_leaves[idx].slights[1])));
-		_ PUTN(float(int(light_leaves[idx].slights[2])));
-		_ PUTN(float(int(light_leaves[idx].slights[3])));
+		if (idx == 0) {
+			PUTN(light_grid.grid_min.x); _
+			PUTN(light_grid.grid_min.y); _
+			PUTN(light_grid.grid_min.z); _
+			PUTN(light_grid.grid_size.x); _
+			PUTN(light_grid.grid_size.y); _
+			PUTN(light_grid.grid_size.z);
+		} else {
+			const int index = int(mod(idx - 1 /* + time_off*/, 500));
+			PUTN(index);
+
+			// const uint cluster_offset = index * LIGHT_CLUSTER_SIZE + HACK_OFFSET;
+			// const int num_dlights = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_DLIGHTS_OFFSET]);
+			// const int num_emissive_surfaces = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_EMISSIVE_SURFACES_OFFSET]);
+			// const uint emissive_surfaces_offset = cluster_offset + LIGHT_CLUSTER_EMISSIVE_SURFACES_DATA_OFFSET;
+
+			// _ PUTC(C_D); PUTN(num_dlights);
+			// _ PUTC(C_S); PUTN(num_emissive_surfaces);
+			// _ PUTN(float(int(light_grid.clusters_data[emissive_surfaces_offset + 0])));
+			// _ PUTN(float(int(light_grid.clusters_data[emissive_surfaces_offset + 1])));
+			// _ PUTN(float(int(light_grid.clusters_data[emissive_surfaces_offset + 2])));
+			// _ PUTN(float(int(light_grid.clusters_data[emissive_surfaces_offset + 3])));
+
+			_ PUTC(C_D); PUTN(int(light_grid.clusters[index].num_dlights));
+			_ PUTC(C_S); PUTN(int(light_grid.clusters[index].num_emissive_surfaces));
+			_ PUTN(float(int(light_grid.clusters[index].emissive_surfaces[0])));
+			_ PUTN(float(int(light_grid.clusters[index].emissive_surfaces[1])));
+			_ PUTN(float(int(light_grid.clusters[index].emissive_surfaces[2])));
+			_ PUTN(float(int(light_grid.clusters[index].emissive_surfaces[3])));
+		}
 	} else if (false)
 	{
 		PUTN(emissive_kusochki.num_kusochki);
@@ -179,7 +210,6 @@ float printText(in vec2 p) {
 		_ PUTN(emissive_kusochki.kusochki[idx].emissive_color.b*255.);
 
 		const uint kidx = emissive_kusochki.kusochki[idx].kusok_index;
-		_ PUTN(kusochki[kidx].leaf);
 		_ PUTN(kusochki[kidx].triangles);
 	} else if (true) {
 		//PUTN(picked_light);
@@ -254,9 +284,9 @@ void main() {
 		const int geom_index = rayQueryGetIntersectionGeometryIndexEXT(rayQuery, true);
 		const int kusok_index = instance_kusochki_offset + geom_index;
 		const Kusok kusok = kusochki[kusok_index];
-		const uint leaf = kusochki[kusok_index].leaf-1;
+		//const uint leaf = kusochki[kusok_index].leaf-1;
 
-		//C = fract(pos / 100.);
+		//C = fract(pos / 256.);	break;
 		//C = vec3(hash(float(geom_index)), hash(float(geom_index)+15.43), hash(float(geom_index)+34.));
 		//C = vec3(hash(float(leaf)), hash(float(leaf)+15.43), hash(float(leaf)+34.));
 		//C = vec3(hash(float(leaf)), float(kusok.num_surface_lights) / 63., float(kusok.is_emissive));
@@ -280,17 +310,35 @@ void main() {
 		const vec2 bary = rayQueryGetIntersectionBarycentricsEXT(rayQuery, true);
 		const vec3 normal = normalize(transpose(inverse(mat3(transform))) * (n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y));
 
+		pos += normal * normal_offset_fudge;
+
 		//C = normal * .5 + .5; break;
 
 		// TODO read from texture
 		const vec3 baseColor = vec3(1.);
 
+		const ivec3 light_cell = ivec3(floor(pos / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
+		const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
+		if (any(greaterThanEqual(light_cell, light_grid.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS) {
+			C = vec3(1., 0., 0.);
+			break;
+		} else
 #if 1
-		if (kusok.leaf != 0xffffffff) {
-			const uint num_emissive_kusochki = uint(light_leaves[kusok.leaf].num_slights);
+		{
+			// const uint cluster_offset = cluster_index * LIGHT_CLUSTER_SIZE + HACK_OFFSET;
+			// const int num_dlights = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_DLIGHTS_OFFSET]);
+			// const int num_emissive_surfaces = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_EMISSIVE_SURFACES_OFFSET]);
+			// const uint emissive_surfaces_offset = cluster_offset + LIGHT_CLUSTER_EMISSIVE_SURFACES_DATA_OFFSET;
+			//C = vec3(float(num_emissive_surfaces));
+
+			//C = vec3(float(int(light_grid.clusters[cluster_index].num_emissive_surfaces)));
+			//C += .3 * fract(vec3(light_cell) / 4.);
+			//break;
+
+			const uint num_emissive_kusochki = uint(light_grid.clusters[cluster_index].num_emissive_surfaces);
 			//const uint num_emissive_kusochki = emissive_kusochki.num_kusochki;
 			for (uint i = 0; i < num_emissive_kusochki; ++i) {
-				const uint index_into_emissive_kusochki = uint(light_leaves[kusok.leaf].slights[i]);
+				const uint index_into_emissive_kusochki = uint(light_grid.clusters[cluster_index].emissive_surfaces[i]);
 				//const uint index_into_emissive_kusochki = i;
 				const uint emissive_kusok_index = emissive_kusochki.kusochki[index_into_emissive_kusochki].kusok_index;
 				const Kusok ekusok = kusochki[emissive_kusok_index];
@@ -343,13 +391,13 @@ void main() {
 
 					const float light_dist = length(light_dir);
 					light_dir /= light_dist;
-					if (shadowed(pos + normal_offset_fudge * normal, light_dir, light_dist - shadow_offset_fudge)) {
+					if (shadowed(pos, light_dir, light_dist - shadow_offset_fudge)) {
 						//C = vec3(0., 1., 0.);
 						continue;
 					}
 
 					// TODO
-					const float brightness_fudge = 100.;
+					const float brightness_fudge = 5.;
 					C += brightness_fudge * kc * baseColor * emissive * dot(light_dir, normal) / (light_dist * light_dist);
 
 					// Sample just one triangle

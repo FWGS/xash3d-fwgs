@@ -1,10 +1,7 @@
-## 2021-04-14..16
-- [x] rtx: grid-based light clusters
-- [ ] rtx: radius-based light clusters visibility
 
 # Next
-- [ ] rtx: read rad file data
-	- [ ] rtx: hack: interpret textures with '~' or '{' as emissive
+- [ ] rtx: light intensity-based light clusters visibility
+- [ ] rtx: hack (rad): interpret textures with '~' or '{' as emissive
 - [ ] rtx: restore studio models
 - [ ] rtx: restore dynamic stuff like particles, beams, etc
 - [ ] rtx: emissive particles
@@ -191,3 +188,9 @@
 - [x] rtx: "toilet error": attempting to get AS device address crashes the driver
 - [x] rtx: fix blas destruction on exit
 - [x] rtx: sometimes we get uninitialized models
+
+## 2021-04-14..16
+- [x] rtx: grid-based light clusters
+
+## 2021-04-17
+- [x] rtx: read rad file data

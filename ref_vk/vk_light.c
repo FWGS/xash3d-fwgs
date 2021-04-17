@@ -107,6 +107,77 @@ static struct {
 	"~LAB1_COMP7", 255, 255, 255, 20,
 };
 
+typedef struct {
+	const char *name;
+	int r, g, b, intensity;
+} vk_light_texture_rad_data;
+
+static void loadRadData( const model_t *map, const char *filename ) {
+	fs_offset_t size;
+	const byte *data, *buffer = gEngine.COM_LoadFile( filename, &size, false);
+
+	memset(g_emissive_texture_table, 0, sizeof(g_emissive_texture_table));
+
+	if (!buffer) {
+		gEngine.Con_Printf(S_ERROR "Couldn't load rad data from file %s, the map will be completely black\n", filename);
+		return;
+	}
+
+	data = buffer;
+	for (;;) {
+		string name;
+		float r, g, b, scale;
+
+		int num = sscanf(data, "%s %f %f %f %f", name, &r, &g, &b, &scale);
+		if (num == 2) {
+			r = g = b;
+		} else if (num == 5) {
+			scale /= 255.f;
+			r *= scale;
+			g *= scale;
+			b *= scale;
+		} else if (num == 4) {
+			// Ok, rgb only, no scaling
+		} else {
+			gEngine.Con_Printf( "skipping rad entry %s\n", num ? name : "" );
+			num = 0;
+		}
+
+		if (num != 0) {
+			gEngine.Con_Printf("rad entry: %s %f %f %f\n", name, r, g, b);
+
+			{
+				const char *tex_name_without_prefix = Q_strchr(name, '/');
+				if (!tex_name_without_prefix)
+					tex_name_without_prefix = name;
+				else
+					tex_name_without_prefix += 1;
+
+				// TODO we also have textures in format Q_sprintf(name, "halflife.wad/%s.mip", hack_valve_rad_table[i].name);
+				string texname;
+				Q_sprintf(texname, "#%s:%s.mip", map->name, tex_name_without_prefix);
+
+				const int tex_id = VK_FindTexture(texname);
+				if (tex_id) {
+					ASSERT(tex_id < MAX_TEXTURES);
+
+					g_emissive_texture_table[tex_id].emissive[0] = r;
+					g_emissive_texture_table[tex_id].emissive[1] = g;
+					g_emissive_texture_table[tex_id].emissive[2] = b;
+					g_emissive_texture_table[tex_id].set = true;
+				}
+			}
+		}
+
+		data = Q_strchr(data, '\n');
+		if (!data)
+			break;
+		while (!isalnum(*data)) ++data;
+	}
+
+	Mem_Free(buffer);
+}
+
 // TODO load from .rad file
 static void initHackRadTable( void ) {
 	memset(g_emissive_texture_table, 0, sizeof(g_emissive_texture_table));
@@ -491,9 +562,9 @@ static void buildStaticMapLightsGrid( void ) {
 
 		//		3.3	Add it to those cells
 		// TODO radius
-		for (int x = -1; x <= 1; ++x)
-			for (int y = -1; y <= 1; ++y)
-				for (int z = -1; z <= 1; ++z) {
+		for (int x = -2; x <= 2; ++x)
+			for (int y = -2; y <= 2; ++y)
+				for (int z = -2; z <= 2; ++z) {
 					const int cell[3] = { light_cell[0] + x, light_cell[1] + y, light_cell[2] + z};
 					// TODO culling, ...
 					// 		3.1 Compute light size and intensity (?)
@@ -535,6 +606,8 @@ static void buildStaticMapLightsGrid( void ) {
 }
 
 void VK_LightsLoadMap( void ) {
+	const model_t *map = gEngine.pfnGetModelByIndex( 1 );
+
 	parseStaticLightEntities();
 
 	g_lights.num_emissive_surfaces = 0;
@@ -542,7 +615,10 @@ void VK_LightsLoadMap( void ) {
 	memset(g_lights.grid.size, 0, sizeof(g_lights.grid.size));
 
 	// FIXME ...
-	initHackRadTable();
+	//initHackRadTable();
+
+	// Load RAD data based on map name
+	loadRadData( map, "rad/lights_anomalous_materials.rad" );
 
 	buildStaticMapEmissiveSurfaces();
 	buildStaticMapLightsGrid();
