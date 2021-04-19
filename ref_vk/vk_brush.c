@@ -150,12 +150,13 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode )
 
 static qboolean renderableSurface( const msurface_t *surf, int i ) {
 	if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) ) {
-		gEngine.Con_Reportf("Skipping surface %d because of flags %08x\n", i, surf->flags);
+		// FIXME don't print this on second sort-by-texture pass
+		//gEngine.Con_Reportf("Skipping surface %d because of flags %08x\n", i, surf->flags);
 		return false;
 	}
 
 	if( FBitSet( surf->flags, SURF_DRAWTILED )) {
-		gEngine.Con_Reportf("Skipping surface %d because of tiled flag\n", i);
+		//gEngine.Con_Reportf("Skipping surface %d because of tiled flag\n", i);
 		return false;
 	}
 

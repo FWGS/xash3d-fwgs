@@ -309,6 +309,8 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 	const VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
 	const VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
+	gEngine.Con_Reportf("Uploading texture %s\n", tex->name);
+
 	if (!pic->buffer)
 		return false;
 

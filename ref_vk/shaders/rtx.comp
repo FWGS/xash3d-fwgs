@@ -446,7 +446,8 @@ void main() {
 		//}
 
 		kc *= .9;
-		const float rough = .4;
+		//const float rough = .4;
+		const float rough = .3 * hash(.01 * dot(floor((inverse(mat4(transform)) * vec4(pos, 1.))/10.).xyz, vec3(1.)));
 		O = pos + .01 * normal;
 		// TODO this is totally not correct
 		D = normalize(mix(
@@ -462,7 +463,9 @@ void main() {
 	//if (gl_GlobalInvocationID.x > imageSize(image).x / 2)
 	if (true)
 	{
-		C = mix(C, imageLoad(previous_frame, ivec2(gl_GlobalInvocationID.xy)).rgb, pc.prev_frame_blend_factor);
+		vec3 prev_frame = imageLoad(previous_frame, ivec2(gl_GlobalInvocationID.xy)).rgb;
+		prev_frame *= prev_frame;
+		C = mix(C, prev_frame, pc.prev_frame_blend_factor);
 	}
-	imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(C, 1.));
+	imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(sqrt(C), 1.));
 }
