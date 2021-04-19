@@ -69,13 +69,13 @@ static void loadRadData( const model_t *map, const char *filename ) {
 				// Try bsp texture first
 				Q_sprintf(texname, "#%s:%s.mip", map->name, texture_name);
 				int tex_id = VK_FindTexture(texname);
-				gEngine.Con_Reportf("Looked up texture %s -> %d", texname, tex_id);
+				gEngine.Con_Reportf("Looked up texture %s -> %d\n", texname, tex_id);
 
 				// Try wad texture if bsp is not there
 				if (!tex_id && wad_name) {
 					Q_sprintf(texname, "%s.wad/%s.mip", wad_name, texture_name);
 					tex_id = VK_FindTexture(texname);
-					gEngine.Con_Reportf("Looked up texture %s -> %d", texname, tex_id);
+					gEngine.Con_Reportf("Looked up texture %s -> %d\n", texname, tex_id);
 				}
 
 				if (tex_id) {
@@ -518,7 +518,7 @@ void VK_LightsLoadMap( void ) {
 
 	g_lights.num_emissive_surfaces = 0;
 	g_lights.grid.num_cells = 0;
-	memset(g_lights.grid.size, 0, sizeof(g_lights.grid.size));
+	memset(&g_lights.grid, 0, sizeof(g_lights.grid));
 
 	// FIXME ...
 	//initHackRadTable();

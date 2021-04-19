@@ -1,14 +1,24 @@
+## 2021-04-19
+- [x] rtx: light intensity-based light clusters visibility
+- [x] rtx: check multiple variants of texture name (wad and non-wad)
+- [x] rtx: rad liquids/xeno/... textures
 
 # Next
-- [ ] rtx: light intensity-based light clusters visibility
-- [ ] rtx: hack (rad): interpret textures with '~' or '{' as emissive
 - [ ] rtx: restore studio models
+- [ ] rtx: textures
 - [ ] rtx: restore dynamic stuff like particles, beams, etc
 - [ ] rtx: emissive particles
-- [ ] rtx: textures
 - [ ] rtx: better random
 - [ ] rtx: some studio models have glitchy geometry
 - [ ] rtx: simple convolution denoise (bilateral?)
+- [ ] rtx: live rad file reloading (or other solution for tuning lights)
+- [ ] rtx: map name to rad files mapping
+- [ ] water surfaces
+- [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, ...
+- [ ] rtx: dynamic surface lights / dynamic light clusters
+- [ ] rtx: cluster dlights
+- [ ] rtx: entity lights
+- [ ] rtx: light styles
 
 # Planned
 - [ ] rtx: denoise
