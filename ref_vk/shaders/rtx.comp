@@ -70,6 +70,7 @@ struct Kusok {
 	uint vertex_offset;
 	uint triangles;
 	uint is_emissive;
+	uint texture;
 	//vec4 emissive;
 };
 
@@ -136,6 +137,9 @@ layout (set = 0, binding = 9, align = 1) readonly buffer UBOLightClusters {
 	//uint8_t clusters_data[MAX_LIGHT_CLUSTERS * LIGHT_CLUSTER_SIZE + HACK_OFFSET];
 	LightCluster clusters[MAX_LIGHT_CLUSTERS];
 } light_grid;
+
+layout (constant_id = 6) const uint MAX_TEXTURES = 4096;
+layout (set = 0, binding = 10) uniform sampler2D textures[MAX_TEXTURES];
 
 layout (push_constant) uniform PC {
 	float t;
@@ -314,8 +318,8 @@ void main() {
 
 		//C = normal * .5 + .5; break;
 
-		// TODO read from texture
-		const vec3 baseColor = vec3(1.);
+		const vec2 texture_uv = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y;
+		const vec3 baseColor = pow(texture(textures[kusochki[kusok_index].texture], texture_uv).rgb, vec3(2.));
 
 		const ivec3 light_cell = ivec3(floor(pos / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
 		const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
@@ -447,7 +451,7 @@ void main() {
 
 		kc *= .9;
 		//const float rough = .4;
-		const float rough = .3 * hash(.01 * dot(floor((inverse(mat4(transform)) * vec4(pos, 1.))/10.).xyz, vec3(1.)));
+		const float rough = .3;// * hash(.01 * dot(floor((inverse(mat4(transform)) * vec4(pos, 1.))/10.).xyz, vec3(1.)));
 		O = pos + .01 * normal;
 		// TODO this is totally not correct
 		D = normalize(mix(

@@ -42,6 +42,7 @@ typedef struct {
 	uint32_t vertex_offset;
 	uint32_t triangles;
 	uint32_t debug_is_emissive;
+	uint32_t texture;
 	//float sad_padding_[1];
 } vk_kusok_data_t;
 
@@ -488,6 +489,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 				.offset = 0,
 				.range = VK_WHOLE_SIZE,
 			};
+			VkDescriptorImageInfo dii_all_textures[MAX_TEXTURES];
 			const VkWriteDescriptorSet wds[] = {
 				{
 					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -579,7 +581,25 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 					.dstArrayElement = 0,
 					.pBufferInfo = &dbi_light_leaves,
 				},
+				{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.dstBinding = 10,
+					.dstArrayElement = 0,
+					.descriptorCount = ARRAYSIZE(dii_all_textures),
+					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.dstSet = g_rtx.desc_set,
+					.pImageInfo = dii_all_textures,
+				},
 			};
+
+			for (int i = 0; i < MAX_TEXTURES; ++i) {
+				const vk_texture_t *texture = findTexture(i);
+				const qboolean exists = texture->vk.image_view != VK_NULL_HANDLE;
+				dii_all_textures[i].sampler = VK_NULL_HANDLE;
+				dii_all_textures[i].imageView = exists ? texture->vk.image_view : findTexture(tglob.defaultTexture)->vk.image_view;
+				ASSERT(dii_all_textures[i].imageView != VK_NULL_HANDLE);
+				dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			}
 
 			vkUpdateDescriptorSets(vk_core.device, ARRAYSIZE(wds), wds, 0, NULL);
 		}
@@ -686,7 +706,9 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 }
 
 static void createLayouts( void ) {
-  VkDescriptorSetLayoutBinding bindings[] = {{
+	VkSampler samplers[MAX_TEXTURES];
+
+	VkDescriptorSetLayoutBinding bindings[] = {{
 		.binding = 0,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1,
@@ -736,15 +758,25 @@ static void createLayouts( void ) {
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	}, {
+		.binding = 10,
+		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorCount = MAX_TEXTURES,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.pImmutableSamplers = samplers,
 	},
 	};
 
 	VkDescriptorSetLayoutCreateInfo dslci = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, .bindingCount = ARRAYSIZE(bindings), .pBindings = bindings, };
 
-	VkPushConstantRange push_const = {0};
-	push_const.offset = 0;
-	push_const.size = sizeof(vk_rtx_push_constants_t);
-	push_const.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	VkPushConstantRange push_const = {
+		.offset = 0,
+		.size = sizeof(vk_rtx_push_constants_t),
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	for (int i = 0; i < ARRAYSIZE(samplers); ++i)
+		samplers[i] = vk_core.default_sampler;
 
 	XVK_CHECK(vkCreateDescriptorSetLayout(vk_core.device, &dslci, NULL, &g_rtx.desc_layout));
 
@@ -982,6 +1014,9 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 		kusochki[i].index_offset = index_offset;
 		kusochki[i].triangles = prim_count;
 		kusochki[i].debug_is_emissive = is_emissive;
+
+		// TODO animated textures
+		kusochki[i].texture = mg->texture;
 
 		// TODO this is bad. there should be another way to tie kusochki index to emissive surface index
 		if (is_emissive && mg->surface_index >= 0) {
