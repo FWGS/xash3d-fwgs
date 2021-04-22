@@ -286,7 +286,7 @@ void main() {
 		const Kusok kusok = kusochki[kusok_index];
 		//const uint leaf = kusochki[kusok_index].leaf-1;
 
-		//C = fract(pos / 256.);	break;
+		//C = fract(pos / LIGHT_GRID_CELL_SIZE);	break;
 		//C = vec3(hash(float(geom_index)), hash(float(geom_index)+15.43), hash(float(geom_index)+34.));
 		//C = vec3(hash(float(leaf)), hash(float(leaf)+15.43), hash(float(leaf)+34.));
 		//C = vec3(hash(float(leaf)), float(kusok.num_surface_lights) / 63., float(kusok.is_emissive));
@@ -384,7 +384,7 @@ void main() {
 					// const vec3 n3 = vertices[vi3].normal;
 
 					vec3 light_dir = sample_pos - pos;
-					if (dot(light_dir, normal) <= 0.) {
+					if (dot(light_dir, n1) >= 0.) {
 						//C = vec3(1., 0., 1.);
 						continue;
 					}

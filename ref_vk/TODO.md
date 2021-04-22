@@ -1,24 +1,26 @@
-## 2021-04-19
-- [x] rtx: light intensity-based light clusters visibility
-- [x] rtx: check multiple variants of texture name (wad and non-wad)
-- [x] rtx: rad liquids/xeno/... textures
+## 2021-04-22
+- [x] rtx: fix backlight glitch
 
 # Next
+- [ ] rtx: dynamic surface lights / dynamic light clusters
+- [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, ...
+- [ ] rtx: live rad file reloading (or other solution for tuning lights)
 - [ ] rtx: restore studio models
-- [ ] rtx: textures
 - [ ] rtx: restore dynamic stuff like particles, beams, etc
+- [ ] rtx: textures
 - [ ] rtx: emissive particles
 - [ ] rtx: better random
 - [ ] rtx: some studio models have glitchy geometry
 - [ ] rtx: simple convolution denoise (bilateral?)
-- [ ] rtx: live rad file reloading (or other solution for tuning lights)
 - [ ] rtx: map name to rad files mapping
 - [ ] water surfaces
-- [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, ...
-- [ ] rtx: dynamic surface lights / dynamic light clusters
 - [ ] rtx: cluster dlights
 - [ ] rtx: entity lights
 - [ ] rtx: light styles
+- [ ] rtx: dynamically sized light clusters
+	Split into 2 buffers:
+		struct LightCluster { uint16 offset, length; }
+		uint8_t data[];
 
 # Planned
 - [ ] rtx: denoise
@@ -204,3 +206,8 @@
 
 ## 2021-04-17
 - [x] rtx: read rad file data
+
+## 2021-04-19
+- [x] rtx: light intensity-based light clusters visibility
+- [x] rtx: check multiple variants of texture name (wad and non-wad)
+- [x] rtx: rad liquids/xeno/... textures
