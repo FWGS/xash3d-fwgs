@@ -25,6 +25,7 @@ typedef enum {
 vk_buffer_handle_t VK_RenderBufferAlloc( uint32_t unit_size, uint32_t count, vk_lifetime_t lifetime );
 vk_buffer_lock_t VK_RenderBufferLock( vk_buffer_handle_t handle );
 void VK_RenderBufferUnlock( vk_buffer_handle_t handle );
+uint32_t VK_RenderBufferGetOffsetInUnits( vk_buffer_handle_t handle );
 
 // TODO buffer refcount when doing RTX AS updates? need to store buffer handles somewhere between frames
 
@@ -60,22 +61,20 @@ typedef struct vk_vertex_s {
 	vec2_t lm_tc; //float p3_[2];
 } vk_vertex_t;
 
-typedef struct render_draw_s {
-	int lightmap, texture;
-	int render_mode;
-	uint32_t element_count;
-	uint32_t index_offset, vertex_offset;
-	vk_buffer_handle_t index_buffer, vertex_buffer;
-	/* TODO this should be a separate thing? */ struct { float r, g, b; } emissive;
-} render_draw_t;
-
 typedef struct {
-	int texture;
-	uint32_t element_count;
+	vk_buffer_handle_t index_buffer, vertex_buffer;
 	uint32_t index_offset, vertex_offset;
+
+	// TODO can be dynamic
+	int texture;
+
+	uint32_t element_count;
 	uint32_t vertex_count;
+
+	// TODO we don't really need this here
+	// as it's used to tie emissive surfaces to geometry in RTX renderer
+	// we can and should infer this dynamically (from texture) when building dynamic light clusters
 	int surface_index;
-	// TODO potentially dynamic int light_cluster;
 } vk_render_geometry_t;
 
 typedef struct vk_render_model_s {
@@ -84,11 +83,10 @@ typedef struct vk_render_model_s {
 	int num_geometries;
 	vk_render_geometry_t *geometries;
 
-	// Common for the entire model
-	vk_buffer_handle_t index_buffer, vertex_buffer;
-
 	// TODO potentially dynamic data: textures
-	//qboolean dynamic; // whether this model will require data reupload
+
+	// This model will be one-frame only, its buffers are not preserved between frames
+	qboolean dynamic;
 
 	struct {
 		VkAccelerationStructureKHR blas;
@@ -102,12 +100,12 @@ void VK_RenderModelDraw( vk_render_model_t* model );
 
 void VK_RenderFrameBegin( void );
 
-// void VK_RenderObjectBegin( void *tag, const char *name /* expect transient ... */ );
-// void VK_RenderObjectEnd();
+void VK_RenderModelDynamicBegin( const char *debug_name, int render_mode );
+void VK_RenderModelDynamicAddGeometry( const vk_render_geometry_t *geom );
+void VK_RenderModelDynamicCommit( void );
 
-void VK_RenderScheduleDraw( const render_draw_t *draw );
 void VK_RenderFrameEnd( VkCommandBuffer cmdbuf );
 void VK_RenderFrameEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h );
 
-void VK_RenderDebugLabelBegin( const char *label );
-void VK_RenderDebugLabelEnd( void );
+// void VK_RenderDebugLabelBegin( const char *label );
+// void VK_RenderDebugLabelEnd( void );

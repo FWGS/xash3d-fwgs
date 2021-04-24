@@ -248,6 +248,8 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			model_geometry->texture = t;
 			model_geometry->vertex_count = surf->numedges;
 			model_geometry->surface_index = i;
+			model_geometry->vertex_buffer = vertex_buffer;
+			model_geometry->index_buffer = index_buffer;
 
 			VK_CreateSurfaceLightmap( surf, mod );
 
@@ -311,8 +313,6 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 
 	ASSERT(sizes.num_surfaces == num_surfaces);
 	bmodel->render_model.num_geometries = num_surfaces;
-	bmodel->render_model.index_buffer = index_buffer;
-	bmodel->render_model.vertex_buffer = vertex_buffer;
 
 	return true;
 }

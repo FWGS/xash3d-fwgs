@@ -706,18 +706,19 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 	VK_RenderBufferUnlock( vertex_buffer );
 
 	{
-		const render_draw_t draw = {
-			.lightmap = tglob.whiteTexture,
-			.texture = texture,
-			.render_mode = render_mode,
-			.element_count = 6,
-			.vertex_offset = 0,
-			.index_offset = 0,
-			.vertex_buffer = vertex_buffer,
-			.index_buffer = index_buffer,
-		};
+		// TODO
+		// const render_draw_t draw = {
+		// 	.lightmap = tglob.whiteTexture,
+		// 	.texture = texture,
+		// 	.render_mode = render_mode,
+		// 	.element_count = 6,
+		// 	.vertex_offset = 0,
+		// 	.index_offset = 0,
+		// 	.vertex_buffer = vertex_buffer,
+		// 	.index_buffer = index_buffer,
+		// };
 
-		VK_RenderScheduleDraw( &draw );
+		// VK_RenderScheduleDraw( &draw );
 	}
 }
 
@@ -940,7 +941,7 @@ void VK_SpriteDrawModel( cl_entity_t *e )
 	if( oldframe == frame )
 	{
 		// draw the single non-lerped frame
-		
+
 		/* FIXME VK make sure we end up with the same values
 		ubo->color[0] = color[0];
 		ubo->color[1] = color[1];

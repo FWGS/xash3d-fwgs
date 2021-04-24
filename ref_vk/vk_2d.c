@@ -28,8 +28,8 @@ typedef struct vertex_2d_s {
 } vertex_2d_t;
 
 // TODO should these be dynamic?
-#define MAX_PICS 8192
-#define MAX_BATCHES 128
+#define MAX_PICS 16384
+#define MAX_BATCHES 256
 
 static struct {
 	VkPipelineLayout pipeline_layout;

@@ -384,19 +384,20 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	VK_RenderBufferUnlock( vertex_buffer );
 
 	{
-		const render_draw_t draw = {
-			.lightmap = tglob.whiteTexture,
-			.texture = texture,
-			.render_mode = render_mode,
-			.element_count = total_indices,
-			.vertex_offset = 0,
-			.index_offset = 0,
-			.vertex_buffer = vertex_buffer,
-			.index_buffer = index_buffer,
-			.emissive = { color[0], color[1], color[2] },
-		};
+		// TODO
+		// const render_draw_t draw = {
+		// 	.lightmap = tglob.whiteTexture,
+		// 	.texture = texture,
+		// 	.render_mode = render_mode,
+		// 	.element_count = total_indices,
+		// 	.vertex_offset = 0,
+		// 	.index_offset = 0,
+		// 	.vertex_buffer = vertex_buffer,
+		// 	.index_buffer = index_buffer,
+		// 	.emissive = { color[0], color[1], color[2] },
+		// };
 
-		VK_RenderScheduleDraw( &draw );
+		// VK_RenderScheduleDraw( &draw );
 	}
 }
 

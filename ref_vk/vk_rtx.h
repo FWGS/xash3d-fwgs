@@ -7,7 +7,6 @@ struct vk_render_model_s;
 typedef struct {
 	struct vk_render_model_s *model;
 	VkBuffer buffer;
-	uint32_t vertex_offset, index_offset;
 } vk_ray_model_init_t;
 
 qboolean VK_RayModelInit( vk_ray_model_init_t model_init);

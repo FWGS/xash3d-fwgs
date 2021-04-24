@@ -1,5 +1,11 @@
+## 2021-04-24, E86
+- [x] rtx: restore studio models
+
 # Next
-- [ ] rtx: restore studio models
+- [ ] rtx: dynamic models AS caching
+- [ ] rtx: better memory handling
+	- [ ] robust tracking of memory hierarchies: global/static, map, frame
+	- or just do a generic allocator with compaction?
 - [ ] rtx: dynamic surface lights / dynamic light clusters
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, ...
 - [ ] rtx: live rad file reloading (or other solution for tuning lights)
@@ -18,6 +24,8 @@
 		struct LightCluster { uint16 offset, length; }
 		uint8_t data[];
 - [ ] rtx: alpha test/blending
+- [ ] make a wrapper for descriptor sets/layouts
+- [ ] rtx: coalesce all these buffers
 
 # Planned
 - [ ] rtx: denoise
@@ -26,7 +34,7 @@
 	- [ ] SVG+
 	- [ ] ...
 - [ ] rtx: add fps: rasterize into G-buffer, and only then compute lighting with rtx
-- [ ] bake light visibility in compute shader
+- [ ] rtx: bake light visibility in compute shader
 - [ ] rtx: cull light sources (dlights and light textures) using bsp
 - [ ] enable entity-parsed lights by lightstyles
 - [ ] dlight for flashlight seems to be broken

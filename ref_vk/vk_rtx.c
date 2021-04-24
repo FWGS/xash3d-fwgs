@@ -62,6 +62,7 @@ typedef struct {
 	matrix3x4 transform_row;
 	VkAccelerationStructureKHR accel;
 	uint32_t kusochki_offset;
+	qboolean dynamic;
 } vk_ray_model_t;
 
 typedef struct {
@@ -108,6 +109,10 @@ static struct {
 		int num_lighttextures;
 		vk_ray_model_t models[MAX_ACCELS];
 		uint32_t scratch_offset; // for building dynamic blases
+
+		// for dynamic models
+		uint32_t buffer_offset_at_frame_begin;
+		int num_kusochki_at_frame_begin;
 	} frame;
 
 	unsigned frame_number;
@@ -243,9 +248,30 @@ void VK_RayFrameBegin( void )
 {
 	ASSERT(vk_core.rtx);
 
+	// FIXME we depend on the fact that only a single frame can be in flight
+	// currently framectl waits for the queue to complete before returning
+	// so we can be sure here that previous frame is complete and we're free to
+	// destroy/reuse dynamic ASes from previous frame
+	for (int i = 0; i < g_rtx.frame.num_models; ++i) {
+		vk_ray_model_t *model = g_rtx.frame.models + i;
+		if (!model->dynamic)
+			continue;
+
+		// TODO cache and reuse
+		for (int j = 0; j < ARRAYSIZE(g_rtx.blases); ++j) {
+			if (g_rtx.blases[j] == model->accel) {
+				vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.blases[j], NULL);
+				g_rtx.blases[j] = VK_NULL_HANDLE;
+				model->accel = VK_NULL_HANDLE;
+			}
+		}
+	}
+
 	g_rtx.frame.scratch_offset = 0;
 	g_rtx.frame.num_models = 0;
 	g_rtx.frame.num_lighttextures = 0;
+	g_rtx.frame.buffer_offset_at_frame_begin = g_rtx.map.buffer_offset;
+	g_rtx.frame.num_kusochki_at_frame_begin = g_rtx.map.num_kusochki;
 }
 
 void VK_RayFrameAddModelDynamic( VkCommandBuffer cmdbuf, const vk_ray_model_dynamic_t *dynamic)
@@ -703,6 +729,10 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			args->dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region,
 			VK_FILTER_NEAREST);
 	}
+
+	// Restore dynamic buffer offset
+	g_rtx.map.buffer_offset = g_rtx.frame.buffer_offset_at_frame_begin;
+	g_rtx.map.num_kusochki = g_rtx.frame.num_kusochki_at_frame_begin;
 }
 
 static void createLayouts( void ) {
@@ -965,8 +995,8 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 	ASSERT(vk_core.rtx);
 	ASSERT(g_rtx.map.num_kusochki <= MAX_KUSOCHKI);
 
-	if (g_rtx.map.num_kusochki == MAX_KUSOCHKI) {
-		gEngine.Con_Printf(S_ERROR "Maximum number of kusochki exceeded\n");
+	if (g_rtx.map.num_kusochki + args.model->num_geometries > MAX_KUSOCHKI) {
+		gEngine.Con_Printf(S_ERROR "Maximum number of kusochki exceeded on model %s\n", args.model->debug_name);
 		return false;
 	}
 
@@ -981,8 +1011,8 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 	for (int i = 0; i < args.model->num_geometries; ++i) {
 		const vk_render_geometry_t *mg = args.model->geometries + i;
 		const uint32_t prim_count = mg->element_count / 3;
-		const uint32_t vertex_offset = args.vertex_offset + mg->vertex_offset;
-		const uint32_t index_offset = args.index_offset + mg->index_offset;
+		const uint32_t vertex_offset = mg->vertex_offset + VK_RenderBufferGetOffsetInUnits(mg->vertex_buffer);
+		const uint32_t index_offset = mg->index_buffer == InvalidHandle ? UINT32_MAX : (mg->index_offset + VK_RenderBufferGetOffsetInUnits(mg->index_buffer));
 		const qboolean is_emissive = ((mg->texture >= 0 && mg->texture < MAX_TEXTURES)
 			? g_emissive_texture_table[mg->texture].set
 			: false);
@@ -996,7 +1026,7 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 				.geometry.triangles =
 					(VkAccelerationStructureGeometryTrianglesDataKHR){
 						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-						.indexType = args.index_offset == UINT32_MAX ? VK_INDEX_TYPE_NONE_KHR : VK_INDEX_TYPE_UINT16,
+						.indexType = mg->index_buffer == InvalidHandle ? VK_INDEX_TYPE_NONE_KHR : VK_INDEX_TYPE_UINT16,
 						.maxVertex = mg->vertex_count,
 						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
 						.vertexStride = sizeof(vk_vertex_t),
@@ -1122,6 +1152,7 @@ void VK_RayFrameAddModel( const struct vk_render_model_s *model, const matrix3x4
 		ASSERT(model->rtx.blas != VK_NULL_HANDLE);
 		ray_model->accel = model->rtx.blas;
 		ray_model->kusochki_offset = model->rtx.kusochki_offset;
+		ray_model->dynamic = model->dynamic;
 		memcpy(ray_model->transform_row, *transform_row, sizeof(ray_model->transform_row));
 		g_rtx.frame.num_models++;
 	}

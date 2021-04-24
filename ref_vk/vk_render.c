@@ -399,6 +399,12 @@ void VK_RenderBufferUnlock( vk_buffer_handle_t handle )
 	// TODO upload from staging to gpumem
 }
 
+uint32_t VK_RenderBufferGetOffsetInUnits( vk_buffer_handle_t handle )
+{
+	const vk_buffer_alloc_t *alloc = getBufferFromHandle( handle );
+	return alloc->buffer_offset_in_units;
+}
+
 // Free all LifetimeSingleFrame resources
 void VK_RenderBufferClearFrame( void )
 {
@@ -438,6 +444,15 @@ void VK_RenderBufferPrintStats( void )
 
 #define MAX_DRAW_COMMANDS 8192 // TODO estimate
 #define MAX_DEBUG_NAME_LENGTH 32
+
+typedef struct render_draw_s {
+	int lightmap, texture;
+	int render_mode;
+	uint32_t element_count;
+	uint32_t index_offset, vertex_offset;
+	vk_buffer_handle_t index_buffer, vertex_buffer;
+	/* TODO this should be a separate thing? */ struct { float r, g, b; } emissive;
+} render_draw_t;
 
 typedef struct {
 	render_draw_t draw;
@@ -543,7 +558,7 @@ static uint32_t allocUniform( uint32_t size, uint32_t alignment ) {
 	return offset;
 }
 
-void VK_RenderScheduleDraw( const render_draw_t *draw )
+static void VK_RenderScheduleDraw( const render_draw_t *draw )
 {
 	const vk_buffer_alloc_t *vertex_buffer = NULL, *index_buffer = NULL;
 	draw_command_t *draw_command;
@@ -831,15 +846,11 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 	}
 }
 
-qboolean VK_RenderModelInit( vk_render_model_t *model) {
+qboolean VK_RenderModelInit( vk_render_model_t *model ) {
 	if (vk_core.rtx) {
 		// TODO runtime rtx switch: ???
-		const vk_buffer_alloc_t *vertex_buffer = getBufferFromHandle( model->vertex_buffer );
-		const vk_buffer_alloc_t *index_buffer = model->index_buffer != InvalidHandle ? getBufferFromHandle( model->index_buffer ) : NULL;
 		const vk_ray_model_init_t args = {
 			.buffer = g_render.buffer.buffer,
-			.index_offset = index_buffer ? index_buffer->buffer_offset_in_units : UINT32_MAX,
-			.vertex_offset = vertex_buffer->buffer_offset_in_units,
 			.model = model,
 		};
 		model->rtx.blas = VK_NULL_HANDLE;
@@ -865,13 +876,15 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 	int current_texture = -1;
 	int index_count = 0;
 	int index_offset = -1;
+	vk_buffer_handle_t vertex_buffer = InvalidHandle;
+	vk_buffer_handle_t index_buffer = InvalidHandle;
 
 	for (int i = 0; i < model->num_geometries; ++i) {
 		const vk_render_geometry_t *geom = model->geometries + i;
 		if (geom->texture < 0)
 			continue;
 
-		if (current_texture != geom->texture)
+		if (current_texture != geom->texture || vertex_buffer != geom->vertex_buffer || index_buffer != geom->index_buffer)
 		{
 			if (index_count) {
 				const render_draw_t draw = {
@@ -879,8 +892,8 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 					.texture = current_texture,
 					.render_mode = model->render_mode,
 					.element_count = index_count,
-					.vertex_buffer = model->vertex_buffer,
-					.index_buffer = model->index_buffer,
+					.vertex_buffer = vertex_buffer,
+					.index_buffer = index_buffer,
 					.vertex_offset = 0,
 					.index_offset = index_offset,
 				};
@@ -889,6 +902,8 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 			}
 
 			current_texture = geom->texture;
+			vertex_buffer = geom->vertex_buffer;
+			index_buffer = geom->index_buffer;
 			index_count = 0;
 			index_offset = -1;
 		}
@@ -906,12 +921,49 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 			.texture = current_texture,
 			.render_mode = model->render_mode,
 			.element_count = index_count,
-			.vertex_buffer = model->vertex_buffer,
-			.index_buffer = model->index_buffer,
+			.vertex_buffer = vertex_buffer,
+			.index_buffer = index_buffer,
 			.vertex_offset = 0,
 			.index_offset = index_offset,
 		};
 
 		VK_RenderScheduleDraw( &draw );
 	}
+}
+
+#define MAX_DYNAMIC_GEOMETRY 256
+
+static struct {
+	vk_render_model_t model;
+	vk_render_geometry_t geometries[MAX_DYNAMIC_GEOMETRY];
+} g_dynamic_model = {0};
+
+void VK_RenderModelDynamicBegin( const char *debug_name, int render_mode ) {
+	ASSERT(!g_dynamic_model.model.geometries);
+	g_dynamic_model.model.debug_name = debug_name;
+	g_dynamic_model.model.geometries = g_dynamic_model.geometries;
+	g_dynamic_model.model.num_geometries = 0;
+	g_dynamic_model.model.render_mode = render_mode;
+	memset(&g_dynamic_model.model.rtx, 0, sizeof(g_dynamic_model.model.rtx));
+}
+void VK_RenderModelDynamicAddGeometry( const vk_render_geometry_t *geom ) {
+	ASSERT(g_dynamic_model.model.geometries);
+	if (g_dynamic_model.model.num_geometries == MAX_DYNAMIC_GEOMETRY) {
+		gEngine.Con_Printf(S_ERROR "Ran out of dynamic model geometry slots for model %s\n", g_dynamic_model.model.debug_name);
+		return;
+	}
+
+	g_dynamic_model.geometries[g_dynamic_model.model.num_geometries++] = *geom;
+}
+void VK_RenderModelDynamicCommit( void ) {
+	ASSERT(g_dynamic_model.model.geometries);
+
+	if (g_dynamic_model.model.num_geometries > 0) {
+		g_dynamic_model.model.dynamic = true;
+		VK_RenderModelInit( &g_dynamic_model.model );
+		VK_RenderModelDraw( &g_dynamic_model );
+	}
+
+	g_dynamic_model.model.debug_name = NULL;
+	g_dynamic_model.model.geometries = NULL;
 }
