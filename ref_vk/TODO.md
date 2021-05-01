@@ -1,8 +1,8 @@
-## 2021-04-24, E86
-- [x] rtx: restore studio models
-
 # Next
+- [ ] make map/frame lifetime aware allocator and use it everywhere: render, rtx buffers, etc
+- [ ] studio models: pre-compute buffer sizes and allocate them at once
 - [ ] rtx: dynamic models AS caching
+- [ ] rtx: weird purple bbox-like glitches on dynamic geometry
 - [ ] rtx: better memory handling
 	- [ ] robust tracking of memory hierarchies: global/static, map, frame
 	- or just do a generic allocator with compaction?
@@ -24,7 +24,6 @@
 		struct LightCluster { uint16 offset, length; }
 		uint8_t data[];
 - [ ] rtx: alpha test/blending
-- [ ] make a wrapper for descriptor sets/layouts
 - [ ] rtx: coalesce all these buffers
 
 # Planned
@@ -220,3 +219,9 @@
 ## 2021-04-22
 - [x] rtx: fix backlight glitch
 - [x] rtx: textures
+
+## 2021-04-24, E86
+- [x] rtx: restore studio models
+
+## 2021-05-01, E89
+- [x] make a wrapper for descriptor sets/layouts

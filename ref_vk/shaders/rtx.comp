@@ -435,7 +435,7 @@ void main() {
 			const float d2 = dot(light_dir, light_dir);
 			const float light_dist = sqrt(d2);
 
-			if (shadowed(pos + .01 * normal, light_dir_norm, light_dist + shadow_offset_fudge))
+			if (shadowed(pos, light_dir_norm, light_dist + shadow_offset_fudge))
 				continue;
 
 			const float r2 = light_pos_r.w * light_pos_r.w;
@@ -452,7 +452,7 @@ void main() {
 		kc *= .9;
 		//const float rough = .4;
 		const float rough = .3;// * hash(.01 * dot(floor((inverse(mat4(transform)) * vec4(pos, 1.))/10.).xyz, vec3(1.)));
-		O = pos + .01 * normal;
+		O = pos;
 		// TODO this is totally not correct
 		D = normalize(mix(
 				reflect(D, normal),

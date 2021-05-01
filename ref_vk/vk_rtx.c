@@ -8,6 +8,7 @@
 #include "vk_cvar.h"
 #include "vk_textures.h"
 #include "vk_light.h"
+#include "vk_descriptor.h"
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
@@ -76,25 +77,84 @@ typedef struct {
 	vk_light_cluster_t clusters[MAX_LIGHT_CLUSTERS];
 } vk_ray_shader_light_grid;
 
-static struct {
-	VkPipelineLayout pipeline_layout;
-	VkPipeline pipeline;
-	VkDescriptorSetLayout desc_layout;
-	VkDescriptorPool desc_pool;
-	VkDescriptorSet desc_set;
+enum {
+	RayDescBinding_DestImage = 0,
+	RayDescBinding_TLAS = 1,
+	RayDescBinding_UBOMatrices = 2,
+	RayDescBinding_Kusochki = 3,
+	RayDescBinding_Indices = 4,
+	RayDescBinding_Vertices = 5,
+	RayDescBinding_UBOLights = 6,
+	RayDescBinding_EmissiveKusochki = 7,
+	RayDescBinding_PrevFrame = 8,
+	RayDescBinding_LightClusters = 9,
+	RayDescBinding_Textures = 10,
+	RayDescBinding_COUNT
+};
 
+static struct {
+	vk_descriptors_t descriptors;
+	VkDescriptorSetLayoutBinding desc_bindings[RayDescBinding_COUNT];
+	vk_descriptor_value_t desc_values[RayDescBinding_COUNT];
+	VkDescriptorSet desc_sets[1];
+
+	VkPipeline pipeline;
+
+	// Stores AS built data. Lifetime similar to render buffer:
+	// - some portion lives for entire map lifetime
+	// - some portion lives only for a single frame (may have several frames in flight)
+	// TODO: unify this with render buffer
+	// Needs: AS_STORAGE_BIT, SHADER_DEVICE_ADDRESS_BIT
 	vk_buffer_t accels_buffer;
+
+	// Temp: lives only during a single frame (may have many in flight)
+	// Used for building ASes;
+	// Needs: AS_STORAGE_BIT, SHADER_DEVICE_ADDRESS_BIT
 	vk_buffer_t scratch_buffer;
 	VkDeviceAddress accels_buffer_addr, scratch_buffer_addr;
 
+	// Temp-ish: used for making TLAS, contains addressed to all used BLASes
+	// Lifetime and nature of usage similar to scratch_buffer
+	// TODO: unify them
+	// Needs: SHADER_DEVICE_ADDRESS, STORAGE_BUFFER, AS_BUILD_INPUT_READ_ONLY
 	vk_buffer_t tlas_geom_buffer;
 
+	// Geometry metadata. Lifetime is similar to geometry lifetime itself.
+	// Semantically close to render buffer (describes layout for those objects)
+	// TODO unify with render buffer
+	// Needs: STORAGE_BUFFER
 	vk_buffer_t kusochki_buffer;
 
 	// TODO this should really be a single uniform buffer for matrices and light data
+
+	// Expected to be small (qualifies for uniform buffer)
+	// Two distinct modes: (TODO which?)
+	// - static map-only lighting: constant for the entire map lifetime.
+	//   Could be joined with render buffer, if not for possible uniform buffer binding optimization.
+	//   This is how it operates now.
+	// - fully dynamic lights: re-built each frame, so becomes similar to scratch_buffer and could be unified (same about uniform binding opt)
+	//   This allows studio and other non-brush model to be emissive.
+	// Needs: STORAGE/UNIFORM_BUFFER
 	vk_buffer_t emissive_kusochki_buffer;
+
+	// Planned to contain seveal types of data:
+	// - grid structure itself
+	// - lights data:
+	//   - dlights (fully dynamic)
+	//   - entity lights (can be dynamic with light styles)
+	//   - surface lights (map geometry is static, however brush models can have them too and move around (e.g. wagonchik and elevators))
+	// Therefore, this is also dynamic and lifetime is per-frame
+	// TODO: unify with scratch buffer
+	// Needs: STORAGE_BUFFER
+	// Can be potentially crated using compute shader (would need shader write bit)
 	vk_buffer_t light_grid_buffer;
 
+	// TODO make this:
+	//               v -- begin of ring buffer
+	// |XXXMAPLIFETME|<......|FRAME1|FRAME2|FRAMEN|......................>|
+	//            busy pos - ^      ^      ^      ^ -- write pos
+
+	// TODO need several TLASes for N frames in flight
 	VkAccelerationStructureKHR tlas;
 
 	// Data that is alive longer than one frame, usually within one map
@@ -362,7 +422,7 @@ void VK_RayFrameAddModelDynamic( VkCommandBuffer cmdbuf, const vk_ray_model_dyna
 static void createPipeline( void )
 {
 	const vk_pipeline_compute_create_info_t ci = {
-		.layout = g_rtx.pipeline_layout,
+		.layout = g_rtx.descriptors.pipeline_layout,
 		.shader_filename = "rtx.comp.spv",
 	};
 
@@ -464,171 +524,81 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	if (g_rtx.tlas != VK_NULL_HANDLE)
 	{
 		// 3. Update descriptor sets (bind dest image, tlas, projection matrix)
-		{
-			const VkDescriptorImageInfo dii_dst = {
-				.sampler = VK_NULL_HANDLE,
-				.imageView = frame_dst->view,
-				.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-			};
-			const VkDescriptorImageInfo dii_src = {
-				.sampler = VK_NULL_HANDLE,
-				.imageView = frame_src->view,
-				.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-			};
-			const VkDescriptorBufferInfo dbi_ubo = {
-				.buffer = args->ubo.buffer,
-				.offset = args->ubo.offset,
-				.range = args->ubo.size,
-			};
-			const VkDescriptorBufferInfo dbi_kusochki = {
-				.buffer = g_rtx.kusochki_buffer.buffer,
-				.offset = 0,
-				.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
-			};
-			const VkDescriptorBufferInfo dbi_indices = {
-				.buffer = args->geometry_data.buffer,
-				.offset = 0,
-				.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-			};
-			const VkDescriptorBufferInfo dbi_vertices = {
-				.buffer = args->geometry_data.buffer,
-				.offset = 0,
-				.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-			};
-			const VkWriteDescriptorSetAccelerationStructureKHR wdsas = {
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-				.accelerationStructureCount = 1,
-				.pAccelerationStructures = &g_rtx.tlas,
-			};
-			const VkDescriptorBufferInfo dbi_dlights = {
-				.buffer = args->dlights.buffer,
-				.offset = args->dlights.offset,
-				.range = args->dlights.size,
-			};
-			const VkDescriptorBufferInfo dbi_emissive_kusochki = {
-				.buffer = g_rtx.emissive_kusochki_buffer.buffer,
-				.offset = 0,
-				.range = VK_WHOLE_SIZE,
-			};
-			const VkDescriptorBufferInfo dbi_light_leaves = {
-				.buffer = g_rtx.light_grid_buffer.buffer,
-				.offset = 0,
-				.range = VK_WHOLE_SIZE,
-			};
-			VkDescriptorImageInfo dii_all_textures[MAX_TEXTURES];
-			const VkWriteDescriptorSet wds[] = {
-				{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-					.dstSet = g_rtx.desc_set,
-					.dstBinding = 0,
-					.dstArrayElement = 0,
-					.pImageInfo = &dii_dst,
-				},
-				{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-					.dstSet = g_rtx.desc_set,
-					.dstBinding = 1,
-					.dstArrayElement = 0,
-					.pNext = &wdsas,
-				},
-				{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.dstSet = g_rtx.desc_set,
-					.dstBinding = 2,
-					.dstArrayElement = 0,
-					.pBufferInfo = &dbi_ubo,
-				},
-				{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-					.dstSet = g_rtx.desc_set,
-					.dstBinding = 3,
-					.dstArrayElement = 0,
-					.pBufferInfo = &dbi_kusochki,
-				},
-				{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-					.dstSet = g_rtx.desc_set,
-					.dstBinding = 4,
-					.dstArrayElement = 0,
-					.pBufferInfo = &dbi_indices,
-				},
-				{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-					.dstSet = g_rtx.desc_set,
-					.dstBinding = 5,
-					.dstArrayElement = 0,
-					.pBufferInfo = &dbi_vertices,
-				},
-				{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.dstSet = g_rtx.desc_set,
-					.dstBinding = 6,
-					.dstArrayElement = 0,
-					.pBufferInfo = &dbi_dlights,
-				},
-				{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.dstSet = g_rtx.desc_set,
-					.dstBinding = 7,
-					.dstArrayElement = 0,
-					.pBufferInfo = &dbi_emissive_kusochki,
-				},
-				{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-					.dstSet = g_rtx.desc_set,
-					.dstBinding = 8,
-					.dstArrayElement = 0,
-					.pImageInfo = &dii_src,
-				},
-				{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-					.dstSet = g_rtx.desc_set,
-					.dstBinding = 9,
-					.dstArrayElement = 0,
-					.pBufferInfo = &dbi_light_leaves,
-				},
-				{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.dstBinding = 10,
-					.dstArrayElement = 0,
-					.descriptorCount = ARRAYSIZE(dii_all_textures),
-					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.dstSet = g_rtx.desc_set,
-					.pImageInfo = dii_all_textures,
-				},
-			};
+		VkDescriptorImageInfo dii_all_textures[MAX_TEXTURES];
 
-			for (int i = 0; i < MAX_TEXTURES; ++i) {
-				const vk_texture_t *texture = findTexture(i);
-				const qboolean exists = texture->vk.image_view != VK_NULL_HANDLE;
-				dii_all_textures[i].sampler = VK_NULL_HANDLE;
-				dii_all_textures[i].imageView = exists ? texture->vk.image_view : findTexture(tglob.defaultTexture)->vk.image_view;
-				ASSERT(dii_all_textures[i].imageView != VK_NULL_HANDLE);
-				dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			}
+		g_rtx.desc_values[RayDescBinding_DestImage].image = (VkDescriptorImageInfo){
+			.sampler = VK_NULL_HANDLE,
+			.imageView = frame_dst->view,
+			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+		};
 
-			vkUpdateDescriptorSets(vk_core.device, ARRAYSIZE(wds), wds, 0, NULL);
+		g_rtx.desc_values[RayDescBinding_PrevFrame].image = (VkDescriptorImageInfo){
+			.sampler = VK_NULL_HANDLE,
+			.imageView = frame_src->view,
+			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+		};
+
+		g_rtx.desc_values[RayDescBinding_UBOMatrices].buffer = (VkDescriptorBufferInfo){
+			.buffer = args->ubo.buffer,
+			.offset = args->ubo.offset,
+			.range = args->ubo.size,
+		};
+
+		g_rtx.desc_values[RayDescBinding_Kusochki].buffer = (VkDescriptorBufferInfo){
+			.buffer = g_rtx.kusochki_buffer.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
+		};
+
+		g_rtx.desc_values[RayDescBinding_Indices].buffer = (VkDescriptorBufferInfo){
+			.buffer = args->geometry_data.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
+		};
+
+		g_rtx.desc_values[RayDescBinding_Vertices].buffer = (VkDescriptorBufferInfo){
+			.buffer = args->geometry_data.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
+		};
+
+		g_rtx.desc_values[RayDescBinding_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+			.accelerationStructureCount = 1,
+			.pAccelerationStructures = &g_rtx.tlas,
+		};
+
+		g_rtx.desc_values[RayDescBinding_UBOLights].buffer = (VkDescriptorBufferInfo){
+			.buffer = args->dlights.buffer,
+			.offset = args->dlights.offset,
+			.range = args->dlights.size,
+		};
+
+		g_rtx.desc_values[RayDescBinding_EmissiveKusochki].buffer = (VkDescriptorBufferInfo){
+			.buffer = g_rtx.emissive_kusochki_buffer.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE,
+		};
+
+		g_rtx.desc_values[RayDescBinding_LightClusters].buffer = (VkDescriptorBufferInfo){
+			.buffer = g_rtx.light_grid_buffer.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE,
+		};
+
+		g_rtx.desc_values[RayDescBinding_Textures].image_array = dii_all_textures;
+
+		// TODO: move this to vk_texture.c
+		for (int i = 0; i < MAX_TEXTURES; ++i) {
+			const vk_texture_t *texture = findTexture(i);
+			const qboolean exists = texture->vk.image_view != VK_NULL_HANDLE;
+			dii_all_textures[i].sampler = VK_NULL_HANDLE;
+			dii_all_textures[i].imageView = exists ? texture->vk.image_view : findTexture(tglob.defaultTexture)->vk.image_view;
+			ASSERT(dii_all_textures[i].imageView != VK_NULL_HANDLE);
+			dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		}
+
+		VK_DescriptorsWrite(&g_rtx.descriptors);
 	}
 
 		// 4. Barrier for TLAS build and dest image layout transfer
@@ -668,9 +638,9 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 				.bounces = vk_rtx_bounces->value,
 				.prev_frame_blend_factor = vk_rtx_prev_frame_blend_factor->value,
 			};
-			vkCmdPushConstants(cmdbuf, g_rtx.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants), &push_constants);
+			vkCmdPushConstants(cmdbuf, g_rtx.descriptors.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants), &push_constants);
 		}
-		vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline_layout, 0, 1, &g_rtx.desc_set, 0, NULL);
+		vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.descriptors.pipeline_layout, 0, 1, g_rtx.descriptors.desc_sets + 0, 0, NULL);
 		vkCmdDispatch(cmdbuf, (FRAME_WIDTH + WG_W - 1) / WG_W, (FRAME_HEIGHT + WG_H - 1) / WG_H, 1);
 	}
 
@@ -738,112 +708,99 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 static void createLayouts( void ) {
 	VkSampler samplers[MAX_TEXTURES];
 
-	VkDescriptorSetLayoutBinding bindings[] = {{
-		.binding = 0,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	}, {
-		.binding = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	}, {
-		.binding = 2,
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	}, {
-		.binding = 3,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	}, {
-		.binding = 4,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	}, {
-		.binding = 5,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	}, {
-		.binding = 6,
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	}, {
-		.binding = 7,
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	}, {
-		.binding = 8,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	}, {
-		.binding = 9,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	}, {
-		.binding = 10,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = MAX_TEXTURES,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-		.pImmutableSamplers = samplers,
-	},
-	};
-
-	VkDescriptorSetLayoutCreateInfo dslci = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, .bindingCount = ARRAYSIZE(bindings), .pBindings = bindings, };
-
-	VkPushConstantRange push_const = {
+	g_rtx.descriptors.bindings = g_rtx.desc_bindings;
+	g_rtx.descriptors.num_bindings = ARRAYSIZE(g_rtx.desc_bindings);
+	g_rtx.descriptors.values = g_rtx.desc_values;
+	g_rtx.descriptors.num_sets = 1;
+	g_rtx.descriptors.desc_sets = g_rtx.desc_sets;
+	g_rtx.descriptors.push_constants = (VkPushConstantRange){
 		.offset = 0,
 		.size = sizeof(vk_rtx_push_constants_t),
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
 	};
 
+	g_rtx.desc_bindings[RayDescBinding_DestImage] =	(VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_DestImage,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_rtx.desc_bindings[RayDescBinding_TLAS] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_TLAS,
+		.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_rtx.desc_bindings[RayDescBinding_UBOMatrices] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_UBOMatrices,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_rtx.desc_bindings[RayDescBinding_Kusochki] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Kusochki,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_rtx.desc_bindings[RayDescBinding_Indices] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Indices,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_rtx.desc_bindings[RayDescBinding_Vertices] =	(VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Vertices,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_rtx.desc_bindings[RayDescBinding_UBOLights] =	(VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_UBOLights,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_rtx.desc_bindings[RayDescBinding_EmissiveKusochki] =	(VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_EmissiveKusochki,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_rtx.desc_bindings[RayDescBinding_PrevFrame] =	(VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_PrevFrame,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_rtx.desc_bindings[RayDescBinding_LightClusters] =	(VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_LightClusters,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_rtx.desc_bindings[RayDescBinding_Textures] =	(VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Textures,
+		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorCount = MAX_TEXTURES,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.pImmutableSamplers = samplers,
+	};
+
 	for (int i = 0; i < ARRAYSIZE(samplers); ++i)
 		samplers[i] = vk_core.default_sampler;
 
-	XVK_CHECK(vkCreateDescriptorSetLayout(vk_core.device, &dslci, NULL, &g_rtx.desc_layout));
-
-	{
-		VkPipelineLayoutCreateInfo plci = {0};
-		plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		plci.setLayoutCount = 1;
-		plci.pSetLayouts = &g_rtx.desc_layout;
-		plci.pushConstantRangeCount = 1;
-		plci.pPushConstantRanges = &push_const;
-		XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &g_rtx.pipeline_layout));
-	}
-
-	{
-		VkDescriptorPoolSize pools[] = {
-			{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 2},
-			{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 4},
-			{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 3},
-			{.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, .descriptorCount = 1},
-		};
-
-		VkDescriptorPoolCreateInfo dpci = {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-			.maxSets = 1, .poolSizeCount = ARRAYSIZE(pools), .pPoolSizes = pools,
-		};
-		XVK_CHECK(vkCreateDescriptorPool(vk_core.device, &dpci, NULL, &g_rtx.desc_pool));
-	}
-
-	{
-		VkDescriptorSetAllocateInfo dsai = {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-			.descriptorPool = g_rtx.desc_pool,
-			.descriptorSetCount = 1,
-			.pSetLayouts = &g_rtx.desc_layout,
-		};
-		XVK_CHECK(vkAllocateDescriptorSets(vk_core.device, &dsai, &g_rtx.desc_set));
-	}
+	VK_DescriptorsCreate(&g_rtx.descriptors);
 }
 
 static void reloadPipeline( void ) {
@@ -963,9 +920,7 @@ void VK_RayShutdown( void )
 		VK_ImageDestroy(g_rtx.frames + i);
 
 	vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
-	vkDestroyDescriptorPool(vk_core.device, g_rtx.desc_pool, NULL);
-	vkDestroyPipelineLayout(vk_core.device, g_rtx.pipeline_layout, NULL);
-	vkDestroyDescriptorSetLayout(vk_core.device, g_rtx.desc_layout, NULL);
+	VK_DescriptorsDestroy(&g_rtx.descriptors);
 
 	if (g_rtx.tlas != VK_NULL_HANDLE)
 		vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.tlas, NULL);
@@ -1114,7 +1069,7 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 			gEngine.Con_Printf(S_WARN "Too many BLASes created :(\n");
 	}
 
-	gEngine.Con_Reportf("Model %s (%p) created blas %p\n", args.model->debug_name, args.model, args.model->rtx.blas);
+	//gEngine.Con_Reportf("Model %s (%p) created blas %p\n", args.model->debug_name, args.model, args.model->rtx.blas);
 
 	return result;
 }

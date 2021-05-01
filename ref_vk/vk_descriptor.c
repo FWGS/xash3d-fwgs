@@ -111,3 +111,115 @@ void VK_DescriptorShutdown( void )
 	vkDestroyDescriptorSetLayout(vk_core.device, vk_desc.one_texture_layout, NULL);
 	vkDestroyDescriptorSetLayout(vk_core.device, vk_desc.one_uniform_buffer_layout, NULL);
 }
+
+void VK_DescriptorsCreate(const vk_descriptors_t *desc)
+{
+	{
+		VkDescriptorSetLayoutCreateInfo dslci = {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+			.bindingCount = desc->num_bindings,
+			.pBindings = desc->bindings,
+		};
+		XVK_CHECK(vkCreateDescriptorSetLayout(vk_core.device, &dslci, NULL, &desc->desc_layout));
+	}
+
+	{
+		VkPipelineLayoutCreateInfo plci = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			.setLayoutCount = 1,
+			.pSetLayouts = &desc->desc_layout,
+			.pushConstantRangeCount = 1,
+			.pPushConstantRanges = &desc->push_constants,
+		};
+		XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &desc->pipeline_layout));
+	}
+
+	{
+		int num_desc_types = 0;
+		VkDescriptorPoolSize pools[8] = {0};
+
+		for (int i = 0; i < desc->num_bindings; ++i) {
+			const VkDescriptorSetLayoutBinding *bind = desc->bindings + i;
+			int j;
+			for (j = 0; j < num_desc_types; ++j) {
+				if (pools[j].type == bind->descriptorType) {
+					pools[j].descriptorCount++;
+					break;
+				}
+			}
+
+			if (j == num_desc_types) {
+				ASSERT(num_desc_types < ARRAYSIZE(pools));
+				pools[j].descriptorCount = 1;
+				pools[j].type = bind->descriptorType;
+				++num_desc_types;
+			}
+		}
+
+		VkDescriptorPoolCreateInfo dpci = {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+			.maxSets = 1, .poolSizeCount = num_desc_types, .pPoolSizes = pools,
+		};
+		XVK_CHECK(vkCreateDescriptorPool(vk_core.device, &dpci, NULL, &desc->desc_pool));
+	}
+
+	{
+		VkDescriptorSetAllocateInfo dsai = {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+			.descriptorPool = desc->desc_pool,
+			.descriptorSetCount = desc->num_sets,
+			.pSetLayouts = &desc->desc_layout,
+		};
+		XVK_CHECK(vkAllocateDescriptorSets(vk_core.device, &dsai, desc->desc_sets));
+	}
+}
+
+void VK_DescriptorsWrite(vk_descriptors_t *desc)
+{
+	VkWriteDescriptorSet wds[16];
+	ASSERT(ARRAYSIZE(wds) >= desc->num_bindings);
+	for (int i = 0; i < desc->num_bindings; ++i){
+		const VkDescriptorSetLayoutBinding *binding = desc->bindings + i;
+		wds[i] = (VkWriteDescriptorSet) {
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.descriptorCount = binding->descriptorCount,
+			.descriptorType = binding->descriptorType,
+			.dstSet = /* TODO */ desc->desc_sets[0],
+			.dstBinding = binding->binding,
+			.dstArrayElement = 0,
+		};
+
+		switch (binding->descriptorType) {
+			case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+			case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+				// TODO
+				ASSERT(wds[i].descriptorCount == 1);
+				wds[i].pBufferInfo = &desc->values[i].buffer;
+				break;
+			case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+			case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+				if (wds[i].descriptorCount > 1)
+					wds[i].pImageInfo = desc->values[i].image_array;
+				else
+					wds[i].pImageInfo = &desc->values[i].image;
+				break;
+			case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
+				// TODO
+				ASSERT(wds[i].descriptorCount == 1);
+				wds[i].pNext = &desc->values[i].accel;
+				break;
+			default:
+				gEngine.Con_Printf(S_ERROR "Unexpected descriptor type %d\n", binding->descriptorType);
+				ASSERT("Unexpected descriptor type");
+		}
+	}
+
+	vkUpdateDescriptorSets(vk_core.device, desc->num_bindings, wds, 0, NULL);
+}
+
+void VK_DescriptorsDestroy(vk_descriptors_t *desc)
+{
+	vkDestroyDescriptorPool(vk_core.device, desc->desc_pool, NULL);
+	vkDestroyPipelineLayout(vk_core.device, desc->pipeline_layout, NULL);
+	vkDestroyDescriptorSetLayout(vk_core.device, desc->desc_layout, NULL);
+}
