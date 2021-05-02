@@ -250,25 +250,29 @@ should be put at.
 */
 static float CL_LerpPoint( void )
 {
-	float	f, frac = 1.0f;
+	float frac = 1.0f;
+	float server_frametime = cl_serverframetime();
 
-	f = cl_serverframetime();
-
-	if( f == 0.0f || cls.timedemo )
+	if( server_frametime == 0.0f || cls.timedemo )
 	{
 		cl.time = cl.mtime[0];
 		return 1.0f;
 	}
 
-	if( f > 0.1f )
+	if( server_frametime > 0.1f )
 	{
 		// dropped packet, or start of demo
 		cl.mtime[1] = cl.mtime[0] - 0.1f;
-		f = 0.1f;
+		server_frametime = 0.1f;
 	}
-#if 1
+#if 0
+	/*
+	g-cont: this code more suitable for singleplayer
+	NOTE in multiplayer causes significant framerate stutter/jitter and
+	occuring frames with zero time delta and even with negative time delta.
+	game becomes more twitchy and as if without interpolation.
+	*/
 	frac = (cl.time - cl.mtime[1]) / f;
-
 	if( frac < 0.0f )
 	{
 		if( frac < -0.01f )
@@ -282,15 +286,16 @@ static float CL_LerpPoint( void )
 		frac = 1.0f;
 	}
 #else
+	// for multiplayer
 	if( cl_interp->value > 0.001f )
 	{
 		// manual lerp value (goldsrc mode)
-		frac = ( cl.time - cl.mtime[0] ) / cl_interp->value;
+		frac = ( cl.time - cl.mtime[1] ) / cl_interp->value;
 	}
-	else if( f > 0.001f )
+	else if( server_frametime > 0.001f )
 	{
 		// automatic lerp (classic mode)
-		frac = ( cl.time - cl.mtime[1] ) / f;
+		frac = ( cl.time - cl.mtime[1] ) / server_frametime;
 	}
 #endif
 	return frac;
