@@ -2670,7 +2670,7 @@ R_StudioSetRemapColors
 */
 static void R_StudioSetRemapColors( int newTop, int newBottom )
 {
-	gEngfuncs.CL_AllocRemapInfo( RI.currententity, newTop, newBottom );
+	gEngfuncs.CL_AllocRemapInfo( RI.currententity, RI.currentmodel, newTop, newBottom );
 
 	if( gEngfuncs.CL_GetRemapInfoForEntity( RI.currententity ))
 	{

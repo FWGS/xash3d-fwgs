@@ -329,9 +329,9 @@ typedef struct ref_api_s
 
 	// remap
 	struct remap_info_s *(*CL_GetRemapInfoForEntity)( cl_entity_t *e );
-	void (*CL_AllocRemapInfo)( cl_entity_t *ent, int topcolor, int bottomcolor );
+	void (*CL_AllocRemapInfo)( cl_entity_t *entity, model_t *model, int topcolor, int bottomcolor );
 	void (*CL_FreeRemapInfo)( struct remap_info_s *info );
-	void (*CL_UpdateRemapInfo)( cl_entity_t *ent, int topcolor, int bottomcolor );
+	void (*CL_UpdateRemapInfo)( cl_entity_t *entity, int topcolor, int bottomcolor );
 
 	// utils
 	void  (*CL_ExtraUpdate)( void );

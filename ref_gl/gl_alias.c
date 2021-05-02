@@ -1005,7 +1005,7 @@ R_AliasSetRemapColors
 */
 void R_AliasSetRemapColors( int newTop, int newBottom )
 {
-	gEngfuncs.CL_AllocRemapInfo( RI.currententity, newTop, newBottom );
+	gEngfuncs.CL_AllocRemapInfo( RI.currententity, RI.currentmodel, newTop, newBottom );
 
 	if( gEngfuncs.CL_GetRemapInfoForEntity( RI.currententity ))
 	{

@@ -953,7 +953,7 @@ void CL_EmitEntities( void );
 // cl_remap.c
 //
 remap_info_t *CL_GetRemapInfoForEntity( cl_entity_t *e );
-void CL_AllocRemapInfo( cl_entity_t *ent, int topcolor, int bottomcolor );
+void CL_AllocRemapInfo( cl_entity_t *entity, model_t *model, int topcolor, int bottomcolor );
 void CL_FreeRemapInfo( remap_info_t *info );
 void CL_UpdateRemapInfo( cl_entity_t *ent, int topcolor, int bottomcolor );
 void CL_ClearAllRemaps( void );

@@ -98,7 +98,7 @@ CL_DuplicateTexture
 Dupliacte texture with remap pixels
 ====================
 */
-void CL_DuplicateTexture( cl_entity_t *entity, mstudiotexture_t *ptexture, int topcolor, int bottomcolor )
+void CL_DuplicateTexture( cl_entity_t *entity, model_t *model, mstudiotexture_t *ptexture, int topcolor, int bottomcolor )
 {
 	const char *name;
 	texture_t		*tx = NULL;
@@ -114,9 +114,9 @@ void CL_DuplicateTexture( cl_entity_t *entity, mstudiotexture_t *ptexture, int t
 	Q_snprintf( texname, sizeof( texname ), "#%i_%s", entity->curstate.number, name + 1 );
 
 	// search for pixels
-	for( i = 0; i < entity->model->numtextures; i++ )
+	for( i = 0; i < model->numtextures; i++ )
 	{
-		tx = entity->model->textures[i];
+		tx = model->textures[i];
 		if( tx->gl_texturenum == index )
 			break; // found
 	}
@@ -242,7 +242,7 @@ Allocate new remap info per entity
 and make copy of remap textures
 ====================
 */
-void CL_AllocRemapInfo( cl_entity_t *entity, int topcolor, int bottomcolor )
+void CL_AllocRemapInfo( cl_entity_t *entity, model_t *model, int topcolor, int bottomcolor )
 {
 	remap_info_t	*info;
 	studiohdr_t	*phdr;
@@ -253,7 +253,7 @@ void CL_AllocRemapInfo( cl_entity_t *entity, int topcolor, int bottomcolor )
 	if( !entity ) return;
 	i = ( entity == &clgame.viewent ) ? clgame.maxEntities : entity->curstate.number;
 
-	if( !entity->model || ( entity->model->type != mod_alias && entity->model->type != mod_studio ))
+	if( !model || ( model->type != mod_alias && model->type != mod_studio ))
 	{
 		// entity has changed model by another type, release remap info
 		if( clgame.remap_info[i] )
@@ -265,7 +265,7 @@ void CL_AllocRemapInfo( cl_entity_t *entity, int topcolor, int bottomcolor )
 	}
 
 	// model doesn't contains remap textures
-	if( entity->model->numtextures <= 0 )
+	if( model->numtextures <= 0 )
 	{
 		// entity has changed model with no remap textures
 		if( clgame.remap_info[i] )
@@ -276,16 +276,16 @@ void CL_AllocRemapInfo( cl_entity_t *entity, int topcolor, int bottomcolor )
 		return;
 	}
 
-	if( entity->model->type == mod_studio )
+	if( model->type == mod_studio )
 	{
-		phdr = (studiohdr_t *)Mod_StudioExtradata( entity->model );
+		phdr = (studiohdr_t *)Mod_StudioExtradata( model );
 		if( !phdr ) return;	// bad model?
 
 		src = (mstudiotexture_t *)(((byte *)phdr) + phdr->textureindex);
 		dst = (clgame.remap_info[i] ? clgame.remap_info[i]->ptexture : NULL);
 
 		// NOTE: we must copy all the structures 'mstudiotexture_t' for easy access when model is rendering
-		if( !CL_CmpStudioTextures( phdr->numtextures, src, dst ) || clgame.remap_info[i]->model != entity->model )
+		if( !CL_CmpStudioTextures( phdr->numtextures, src, dst ) || clgame.remap_info[i]->model != model )
 		{
 			// this code catches studiomodel change with another studiomodel with remap textures
 			// e.g. playermodel 'barney' with playermodel 'gordon'
@@ -314,16 +314,16 @@ void CL_AllocRemapInfo( cl_entity_t *entity, int topcolor, int bottomcolor )
 		for( i = 0; i < info->numtextures; i++ )
 		{
 			if( dst[i].flags & STUDIO_NF_COLORMAP )
-				CL_DuplicateTexture( entity, &dst[i], topcolor, bottomcolor );
+				CL_DuplicateTexture( entity, model, &dst[i], topcolor, bottomcolor );
 		}
 	}
-	else if( entity->model->type == mod_alias )
+	else if( model->type == mod_alias )
 	{
-		ahdr = (aliashdr_t *)Mod_AliasExtradata( entity->model );
+		ahdr = (aliashdr_t *)Mod_AliasExtradata( model );
 		if( !ahdr ) return;	// bad model?
 
 		// NOTE: we must copy all the structures 'mstudiotexture_t' for easy access when model is rendering
-		if( !clgame.remap_info[i] || clgame.remap_info[i]->model != entity->model )
+		if( !clgame.remap_info[i] || clgame.remap_info[i]->model != model )
 		{
 			// this code catches studiomodel change with another studiomodel with remap textures
 			// e.g. playermodel 'barney' with playermodel 'gordon'
@@ -336,7 +336,7 @@ void CL_AllocRemapInfo( cl_entity_t *entity, int topcolor, int bottomcolor )
 			return;
 		}
 
-		info->numtextures = entity->model->numtextures;
+		info->numtextures = model->numtextures;
 
 		// alias remapping is easy
 		CL_UpdateRemapInfo( entity, topcolor, bottomcolor );
@@ -347,7 +347,7 @@ void CL_AllocRemapInfo( cl_entity_t *entity, int topcolor, int bottomcolor )
 		return;
 	}
 
-	info->model = entity->model;
+	info->model = model;
 }
 
 /*
