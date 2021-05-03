@@ -35,6 +35,9 @@ void VK_RenderBufferClearFrame( void );
 // Free all LifetimeMap resources
 void VK_RenderBufferClearMap( void );
 
+// Mark map as loaded
+void VK_RenderMapLoadEnd( void );
+
 // TODO uploading to GPU mem interface
 void VK_RenderBufferPrintStats( void );
 

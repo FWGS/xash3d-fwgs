@@ -59,6 +59,7 @@ typedef struct {
 void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args);
 
 void VK_RayNewMap( void );
+void VK_RayMapLoadEnd( void );
 
 qboolean VK_RayInit( void );
 void VK_RayShutdown( void );

@@ -130,12 +130,6 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode )
 	if (bmodel->render_model.num_geometries == 0)
 		return;
 
-	if (!tglob.lightmapTextures[0])
-	{
-		gEngine.Con_Printf( S_ERROR "Don't have a lightmap texture\n");
-		return;
-	}
-
 	for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
 		texture_t *t = R_TextureAnimation(ent, bmodel->surf[i]);
 		if (t->gl_texturenum < 0)

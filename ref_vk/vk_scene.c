@@ -101,15 +101,12 @@ void R_NewMap( void )
 	// This is to ensure that we have computed lightstyles properly
 	VK_RunLightStyles();
 
+	// TODO this should be per frame
 	VK_LightsLoadMap();
 
 	// TODO should we do something like VK_BrushBeginLoad?
 	VK_BrushStatsClear();
 
-	// FIXME this is totally incorrect btw.
-	// When loading a save game from the same map this is called, but brush models
-	// have not been destroyed, which prevents them from being loaded ("again").
-	// This leads to ASSERTS firing when trying to draw erased buffers.
 	VK_RenderBufferClearMap();
 
 	if (vk_core.rtx)
@@ -136,7 +133,9 @@ void R_NewMap( void )
 
 	// TODO should we do something like VK_BrushEndLoad?
 	VK_UploadLightmap();
-
+	VK_RenderMapLoadEnd();
+	if (vk_core.rtx)
+		VK_RayMapLoadEnd();
 	VK_RenderBufferPrintStats();
 }
 

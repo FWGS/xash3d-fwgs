@@ -48,3 +48,47 @@ void destroyBuffer(vk_buffer_t *buf) {
 		buf->size = 0;
 	}
 }
+
+void VK_RingBuffer_Clear(vk_ring_buffer_t* buf) {
+	buf->offset_free = 0;
+	buf->permanent_size = 0;
+	buf->free = buf->size;
+}
+
+//     <                 v->
+// |MAP|.........|FRAME|...|
+//               ^      XXXXX
+
+uint32_t VK_RingBuffer_Alloc(vk_ring_buffer_t* buf, uint32_t size, uint32_t align) {
+	uint32_t offset = ALIGN_UP(buf->offset_free, align);
+	const uint32_t align_diff = offset - buf->offset_free;
+	uint32_t available = buf->free - align_diff;
+	const uint32_t tail = buf->size - offset;
+
+	if (available < size)
+		return AllocFailed;
+
+	if (size > tail) {
+		offset = ALIGN_UP(buf->permanent_size, align);
+		const uint32_t align_diff = offset - buf->permanent_size;
+		available -= align_diff - tail;
+	}
+
+	if (available < size)
+		return AllocFailed;
+
+	buf->offset_free = offset + size;
+	buf->free = available - size;
+
+	return offset;
+}
+
+void VK_RingBuffer_Fix(vk_ring_buffer_t* buf) {
+	ASSERT(buf->permanent_size == 0);
+	buf->permanent_size = buf->offset_free;
+}
+
+void VK_RingBuffer_ClearFrame(vk_ring_buffer_t* buf) {
+	buf->offset_free = buf->permanent_size;
+	buf->free = buf->size - buf->permanent_size;
+}

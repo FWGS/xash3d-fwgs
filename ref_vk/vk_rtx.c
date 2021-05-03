@@ -106,6 +106,7 @@ static struct {
 	// TODO: unify this with render buffer
 	// Needs: AS_STORAGE_BIT, SHADER_DEVICE_ADDRESS_BIT
 	vk_buffer_t accels_buffer;
+	vk_ring_buffer_t accels_buffer_alloc;
 
 	// Temp: lives only during a single frame (may have many in flight)
 	// Used for building ASes;
@@ -124,6 +125,7 @@ static struct {
 	// TODO unify with render buffer
 	// Needs: STORAGE_BUFFER
 	vk_buffer_t kusochki_buffer;
+	vk_ring_buffer_t kusochki_alloc;
 
 	// TODO this should really be a single uniform buffer for matrices and light data
 
@@ -149,19 +151,8 @@ static struct {
 	// Can be potentially crated using compute shader (would need shader write bit)
 	vk_buffer_t light_grid_buffer;
 
-	// TODO make this:
-	//               v -- begin of ring buffer
-	// |XXXMAPLIFETME|<......|FRAME1|FRAME2|FRAMEN|......................>|
-	//            busy pos - ^      ^      ^      ^ -- write pos
-
 	// TODO need several TLASes for N frames in flight
 	VkAccelerationStructureKHR tlas;
-
-	// Data that is alive longer than one frame, usually within one map
-	struct {
-		uint32_t buffer_offset;
-		int num_kusochki;
-	} map;
 
 	// Per-frame data that is accumulated between RayFrameBegin and End calls
 	struct {
@@ -169,10 +160,6 @@ static struct {
 		int num_lighttextures;
 		vk_ray_model_t models[MAX_ACCELS];
 		uint32_t scratch_offset; // for building dynamic blases
-
-		// for dynamic models
-		uint32_t buffer_offset_at_frame_begin;
-		int num_kusochki_at_frame_begin;
 	} frame;
 
 	unsigned frame_number;
@@ -250,25 +237,22 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 	}
 
 	if (should_create) {
+		const uint32_t buffer_offset = VK_RingBuffer_Alloc(&g_rtx.accels_buffer_alloc, build_size.accelerationStructureSize, 256);
 		VkAccelerationStructureCreateInfoKHR asci = {
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
 			.buffer = g_rtx.accels_buffer.buffer,
-			.offset = g_rtx.map.buffer_offset,
+			.offset = buffer_offset,
 			.type = args->type,
 			.size = build_size.accelerationStructureSize,
 		};
 
-		if (MAX_ACCELS_BUFFER - g_rtx.map.buffer_offset < build_size.accelerationStructureSize) {
-			gEngine.Con_Printf(S_ERROR "Accels buffer overflow: left %u bytes, but need %u\n",
-				MAX_ACCELS_BUFFER - g_rtx.map.buffer_offset,
+		if (buffer_offset == AllocFailed) {
+			gEngine.Con_Printf(S_ERROR "Failed to allocated %u bytes for accel buffer\n",
 				build_size.accelerationStructureSize);
 			return false;
 		}
 
 		XVK_CHECK(vkCreateAccelerationStructureKHR(vk_core.device, &asci, NULL, args->accel));
-
-		g_rtx.map.buffer_offset += build_size.accelerationStructureSize;
-		g_rtx.map.buffer_offset = (g_rtx.map.buffer_offset + 255) & ~255; // Buffer must be aligned to 256 according to spec
 	}
 
 	build_info.dstAccelerationStructure = *args->accel;
@@ -282,8 +266,8 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 void VK_RayNewMap( void ) {
 	ASSERT(vk_core.rtx);
 
-	g_rtx.map.buffer_offset = 0;
-	g_rtx.map.num_kusochki = 0;
+	VK_RingBuffer_Clear(&g_rtx.accels_buffer_alloc);
+	VK_RingBuffer_Clear(&g_rtx.kusochki_alloc);
 
 	// Upload light grid
 	{
@@ -302,6 +286,11 @@ void VK_RayNewMap( void ) {
 		memset(ek, 0, sizeof(*ek));
 		ek->num_kusochki = g_lights.num_emissive_surfaces;
 	}
+}
+
+void VK_RayMapLoadEnd( void ) {
+	VK_RingBuffer_Fix(&g_rtx.accels_buffer_alloc);
+	VK_RingBuffer_Fix(&g_rtx.kusochki_alloc);
 }
 
 void VK_RayFrameBegin( void )
@@ -330,8 +319,10 @@ void VK_RayFrameBegin( void )
 	g_rtx.frame.scratch_offset = 0;
 	g_rtx.frame.num_models = 0;
 	g_rtx.frame.num_lighttextures = 0;
-	g_rtx.frame.buffer_offset_at_frame_begin = g_rtx.map.buffer_offset;
-	g_rtx.frame.num_kusochki_at_frame_begin = g_rtx.map.num_kusochki;
+
+	// TODO N frames in flight
+	VK_RingBuffer_ClearFrame(&g_rtx.accels_buffer_alloc);
+	VK_RingBuffer_ClearFrame(&g_rtx.kusochki_alloc);
 }
 
 void VK_RayFrameAddModelDynamic( VkCommandBuffer cmdbuf, const vk_ray_model_dynamic_t *dynamic)
@@ -699,10 +690,6 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			args->dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region,
 			VK_FILTER_NEAREST);
 	}
-
-	// Restore dynamic buffer offset
-	g_rtx.map.buffer_offset = g_rtx.frame.buffer_offset_at_frame_begin;
-	g_rtx.map.num_kusochki = g_rtx.frame.num_kusochki_at_frame_begin;
 }
 
 static void createLayouts( void ) {
@@ -819,6 +806,7 @@ qboolean VK_RayInit( void )
 		return false;
 	}
 	g_rtx.accels_buffer_addr = getBufferDeviceAddress(g_rtx.accels_buffer.buffer);
+	g_rtx.accels_buffer_alloc.size = g_rtx.accels_buffer.size;
 
 	if (!createBuffer(&g_rtx.scratch_buffer, MAX_SCRATCH_BUFFER,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
@@ -842,6 +830,8 @@ qboolean VK_RayInit( void )
 		// FIXME complain, handle
 		return false;
 	}
+	g_rtx.kusochki_alloc.size = MAX_KUSOCHKI;
+
 	if (!createBuffer(&g_rtx.emissive_kusochki_buffer, sizeof(vk_emissive_kusochki_t),
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
@@ -946,11 +936,11 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 	const VkDeviceAddress buffer_addr = getBufferDeviceAddress(args.buffer);
 	vk_kusok_data_t *kusochki;
 	qboolean result;
+	const uint32_t kusochki_count_offset = VK_RingBuffer_Alloc(&g_rtx.kusochki_alloc, args.model->num_geometries, 1);
 
 	ASSERT(vk_core.rtx);
-	ASSERT(g_rtx.map.num_kusochki <= MAX_KUSOCHKI);
 
-	if (g_rtx.map.num_kusochki + args.model->num_geometries > MAX_KUSOCHKI) {
+	if (kusochki_count_offset == AllocFailed) {
 		gEngine.Con_Printf(S_ERROR "Maximum number of kusochki exceeded on model %s\n", args.model->debug_name);
 		return false;
 	}
@@ -960,8 +950,8 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 	geom_build_ranges = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
 	geom_build_ranges_ptr = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
 
-	kusochki = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + g_rtx.map.num_kusochki;
-	args.model->rtx.kusochki_offset = g_rtx.map.num_kusochki;
+	kusochki = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + kusochki_count_offset;
+	args.model->rtx.kusochki_offset = kusochki_count_offset;
 
 	for (int i = 0; i < args.model->num_geometries; ++i) {
 		const vk_render_geometry_t *mg = args.model->geometries + i;
@@ -1056,8 +1046,6 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 
 	if (result) {
 		int blas_index;
-		g_rtx.map.num_kusochki += args.model->num_geometries;
-
 		for (blas_index = 0; blas_index < ARRAYSIZE(g_rtx.blases); ++blas_index) {
 			if (g_rtx.blases[blas_index] == VK_NULL_HANDLE) {
 				g_rtx.blases[blas_index] = args.model->rtx.blas;

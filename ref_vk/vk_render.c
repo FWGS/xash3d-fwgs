@@ -40,15 +40,10 @@ static struct {
 	VkPipeline pipelines[kRenderTransAdd + 1];
 
 	vk_buffer_t buffer;
-	uint32_t buffer_free_offset;
-	uint32_t buffer_frame_begin_offset;
+	vk_ring_buffer_t buffer_alloc;
 
 	vk_buffer_t uniform_buffer;
 	uint32_t ubo_align;
-
-	struct {
-		int align_holes_size;
-	} stat;
 
 	vk_buffer_alloc_t allocs[MAX_ALLOCS];
 	int allocs_free[MAX_ALLOCS];
@@ -308,6 +303,8 @@ qboolean VK_RenderInit( void )
 
 	resetAllocFreeList();
 
+	g_render.buffer_alloc.size = g_render.buffer.size;
+
 	return true;
 }
 
@@ -323,8 +320,8 @@ void VK_RenderShutdown( void )
 
 vk_buffer_handle_t VK_RenderBufferAlloc( uint32_t unit_size, uint32_t count, vk_lifetime_t lifetime )
 {
-	const uint32_t offset = ALIGN_UP(g_render.buffer_free_offset, unit_size);
 	const uint32_t alloc_size = unit_size * count;
+	uint32_t offset;
 	vk_buffer_alloc_t *alloc;
 	vk_buffer_handle_t handle = InvalidHandle;
 
@@ -332,14 +329,16 @@ vk_buffer_handle_t VK_RenderBufferAlloc( uint32_t unit_size, uint32_t count, vk_
 	ASSERT(lifetime != LifetimeLong);
 	ASSERT(unit_size > 0);
 
-	if (offset + alloc_size > g_render.buffer.size) {
-		gEngine.Con_Printf(S_ERROR "Cannot allocate %u bytes aligned at %u from buffer; only %u are left",
-				alloc_size, unit_size, g_render.buffer.size - offset);
+	if (!g_render.num_free_allocs) {
+		gEngine.Con_Printf(S_ERROR "Cannot allocate buffer, allocs count exhausted\n" );
 		return InvalidHandle;
 	}
 
-	if (!g_render.num_free_allocs) {
-		gEngine.Con_Printf(S_ERROR "Cannot allocate buffer, allocs count exhausted\n" );
+	offset = VK_RingBuffer_Alloc(&g_render.buffer_alloc, alloc_size, unit_size);
+
+	if (offset == AllocFailed) {
+		gEngine.Con_Printf(S_ERROR "Cannot allocate %u bytes aligned at %u from buffer; only %u are left",
+				alloc_size, unit_size, g_render.buffer_alloc.free);
 		return InvalidHandle;
 	}
 
@@ -352,12 +351,6 @@ vk_buffer_handle_t VK_RenderBufferAlloc( uint32_t unit_size, uint32_t count, vk_
 	alloc->unit_size = unit_size;
 	alloc->lifetime = lifetime;
 	alloc->count = count;
-
-	g_render.stat.align_holes_size += offset - g_render.buffer_free_offset;
-	g_render.buffer_free_offset = offset + alloc_size;
-
-	if (lifetime < LifetimeSingleFrame)
-		g_render.buffer_frame_begin_offset = g_render.buffer_free_offset;
 
 	return handle;
 }
@@ -408,7 +401,7 @@ uint32_t VK_RenderBufferGetOffsetInUnits( vk_buffer_handle_t handle )
 // Free all LifetimeSingleFrame resources
 void VK_RenderBufferClearFrame( void )
 {
-	g_render.buffer_free_offset = g_render.buffer_frame_begin_offset;
+	VK_RingBuffer_ClearFrame(&g_render.buffer_alloc);
 
 	for (int i = 0; i < MAX_ALLOCS; ++i) {
 		vk_buffer_alloc_t *alloc = g_render.allocs + i;
@@ -428,18 +421,21 @@ void VK_RenderBufferClearFrame( void )
 // Free all LifetimeMap resources
 void VK_RenderBufferClearMap( void )
 {
-	g_render.buffer_free_offset = g_render.buffer_frame_begin_offset = 0;
-	g_render.stat.align_holes_size = 0;
+	VK_RingBuffer_Clear(&g_render.buffer_alloc);
 	g_render.num_static_lights = 0;
 	resetAllocFreeList();
 }
 
+void VK_RenderMapLoadEnd( void )
+{
+	VK_RingBuffer_Fix(&g_render.buffer_alloc);
+}
+
 void VK_RenderBufferPrintStats( void )
 {
-	gEngine.Con_Reportf("Buffer usage: %uKiB of (%uKiB); holes: %u bytes\n",
-		g_render.buffer_free_offset / 1024,
-		g_render.buffer.size / 1024,
-		g_render.stat.align_holes_size);
+	gEngine.Con_Reportf("Buffer usage: %uKiB of (%uKiB)\n",
+		g_render.buffer_alloc.permanent_size / 1024,
+		g_render.buffer.size / 1024);
 }
 
 #define MAX_DRAW_COMMANDS 8192 // TODO estimate
@@ -821,7 +817,7 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 
 			.geometry_data = {
 				.buffer = g_render.buffer.buffer,
-				.size = g_render.buffer_free_offset,
+				.size = VK_WHOLE_SIZE,
 			},
 		};
 
