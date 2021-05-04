@@ -658,6 +658,7 @@ extern convar_t	*cl_nopred;
 extern convar_t	*cl_timeout;
 extern convar_t	*cl_nodelta;
 extern convar_t	*cl_interp;
+extern convar_t *cl_nointerp;
 extern convar_t	*cl_showerror;
 extern convar_t	*cl_nosmooth;
 extern convar_t	*cl_smoothtime;
