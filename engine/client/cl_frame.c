@@ -131,6 +131,9 @@ some ents will be ignore lerping
 */
 qboolean CL_EntityIgnoreLerp( cl_entity_t *e )
 {
+	if( cl_nointerp->value > 0.f )
+		return true;
+
 	if( e->model && e->model->type == mod_alias )
 		return false;
 
@@ -528,6 +531,13 @@ void CL_ComputePlayerOrigin( cl_entity_t *ent )
 
 	if( !ent->player || ent->index == ( cl.playernum + 1 ))
 		return;
+
+	if( cl_nointerp->value > 0.f )
+	{
+		VectorCopy( ent->curstate.angles, ent->angles );
+		VectorCopy( ent->curstate.origin, ent->origin );
+		return;
+	}
 
 	if( cls.demoplayback == DEMO_QUAKE1 )
 	{
