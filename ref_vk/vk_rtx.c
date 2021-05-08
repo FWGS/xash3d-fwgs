@@ -166,6 +166,7 @@ static struct {
 	vk_image_t frames[2];
 
 	qboolean reload_pipeline;
+	qboolean freeze_models;
 
 	// HACK: we don't have a way to properly destroy all models and their Vulkan objects on shutdown.
 	// This makes validation layers unhappy. Remember created objects here and destroy them manually.
@@ -229,7 +230,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 			"AS max_prims=%u, n_geoms=%u, build size: %d, scratch size: %d\n", max_prims, args->n_geoms, build_size.accelerationStructureSize, build_size.buildScratchSize);
 	}
 
-	if (MAX_SCRATCH_BUFFER - g_rtx.frame.scratch_offset < scratch_buffer_size) {
+	if (MAX_SCRATCH_BUFFER < g_rtx.frame.scratch_offset + scratch_buffer_size) {
 		gEngine.Con_Printf(S_ERROR "Scratch buffer overflow: left %u bytes, but need %u\n",
 			MAX_SCRATCH_BUFFER - g_rtx.frame.scratch_offset,
 			scratch_buffer_size);
@@ -253,11 +254,17 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 		}
 
 		XVK_CHECK(vkCreateAccelerationStructureKHR(vk_core.device, &asci, NULL, args->accel));
+
+		// gEngine.Con_Reportf("AS=%p, n_geoms=%u, build: %#x %d %#x\n", *args->accel, args->n_geoms, buffer_offset, build_size.accelerationStructureSize, buffer_offset + build_size.accelerationStructureSize);
 	}
 
 	build_info.dstAccelerationStructure = *args->accel;
 	build_info.scratchData.deviceAddress = g_rtx.scratch_buffer_addr + g_rtx.frame.scratch_offset;
+	uint32_t scratch_offset_initial = g_rtx.frame.scratch_offset;
 	g_rtx.frame.scratch_offset += scratch_buffer_size;
+	g_rtx.frame.scratch_offset = ALIGN_UP(g_rtx.frame.scratch_offset, vk_core.physical_device.properties_accel.minAccelerationStructureScratchOffsetAlignment);
+
+	//gEngine.Con_Reportf("AS=%p, n_geoms=%u, scratch: %#x %d %#x\n", *args->accel, args->n_geoms, scratch_offset_initial, scratch_buffer_size, scratch_offset_initial + scratch_buffer_size);
 
 	vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &build_info, args->build_ranges);
 	return true;
@@ -297,6 +304,9 @@ void VK_RayFrameBegin( void )
 {
 	ASSERT(vk_core.rtx);
 
+	if (g_rtx.freeze_models)
+		return;
+
 	// FIXME we depend on the fact that only a single frame can be in flight
 	// currently framectl waits for the queue to complete before returning
 	// so we can be sure here that previous frame is complete and we're free to
@@ -305,15 +315,24 @@ void VK_RayFrameBegin( void )
 		vk_ray_model_t *model = g_rtx.frame.models + i;
 		if (!model->dynamic)
 			continue;
+		if (model->accel == NULL)
+			continue;
 
 		// TODO cache and reuse
 		for (int j = 0; j < ARRAYSIZE(g_rtx.blases); ++j) {
 			if (g_rtx.blases[j] == model->accel) {
+				//gEngine.Con_Reportf("FrameBegin: frame model %d destroying AS=%p blas_index=%d\n", i, model->accel, j);
 				vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.blases[j], NULL);
 				g_rtx.blases[j] = VK_NULL_HANDLE;
 				model->accel = VK_NULL_HANDLE;
+				break;
 			}
 		}
+	}
+
+	if (g_rtx.tlas != VK_NULL_HANDLE) {
+		vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.tlas, NULL);
+		g_rtx.tlas = VK_NULL_HANDLE;
 	}
 
 	g_rtx.frame.scratch_offset = 0;
@@ -448,6 +467,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		for (int i = 0; i < g_rtx.frame.num_models; ++i) {
 			const vk_ray_model_t* const model = g_rtx.frame.models + i;
 			ASSERT(model->accel != VK_NULL_HANDLE);
+			//gEngine.Con_Reportf("  %d: AS=%p\n", i, model->accel);
 			inst[i] = (VkAccelerationStructureInstanceKHR){
 				.instanceCustomIndex = model->kusochki_offset,
 				.mask = 0xff,
@@ -492,7 +512,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 					},
 			},
 		};
-		const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = { MAX_ACCELS };
+		const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = { g_rtx.frame.num_models };
 		const VkAccelerationStructureBuildRangeInfoKHR tl_build_range = {
 			.primitiveCount = g_rtx.frame.num_models,
 		};
@@ -503,7 +523,8 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			.build_ranges = tl_build_ranges,
 			.n_geoms = ARRAYSIZE(tl_geom),
 			.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
-			.dynamic = true,
+			// we can't really rebuild TLAS because instance count changes are not allowed .dynamic = true,
+			.dynamic = false,
 			.accel = &g_rtx.tlas,
 		};
 		if (!createOrUpdateAccelerationStructure(cmdbuf, &asrgs)) {
@@ -794,6 +815,10 @@ static void reloadPipeline( void ) {
 	g_rtx.reload_pipeline = true;
 }
 
+static void freezeModels( void ) {
+	g_rtx.freeze_models = !g_rtx.freeze_models;
+}
+
 qboolean VK_RayInit( void )
 {
 	ASSERT(vk_core.rtx);
@@ -896,8 +921,10 @@ qboolean VK_RayInit( void )
 		}
 	}
 
-	if (vk_core.debug)
+	if (vk_core.debug) {
 		gEngine.Cmd_AddCommand("vk_rtx_reload", reloadPipeline, "Reload RTX shader");
+		gEngine.Cmd_AddCommand("vk_rtx_freeze", freezeModels, "Freeze models, do not update/add/delete models from to-draw list");
+	}
 
 	return true;
 }
@@ -940,14 +967,18 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 
 	ASSERT(vk_core.rtx);
 
+	if (g_rtx.freeze_models)
+		return;
+
 	if (kusochki_count_offset == AllocFailed) {
 		gEngine.Con_Printf(S_ERROR "Maximum number of kusochki exceeded on model %s\n", args.model->debug_name);
 		return false;
 	}
 
-	geoms = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geoms));
+	// FIXME don't touch allocator each frame many times pls
+	geoms = Mem_Calloc(vk_core.pool, args.model->num_geometries * sizeof(*geoms));
 	geom_max_prim_counts = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_max_prim_counts));
-	geom_build_ranges = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
+	geom_build_ranges = Mem_Calloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
 	geom_build_ranges_ptr = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
 
 	kusochki = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + kusochki_count_offset;
@@ -979,6 +1010,10 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 						.indexData.deviceAddress = buffer_addr + index_offset * sizeof(uint16_t),
 					},
 			};
+
+		// gEngine.Con_Printf("  g%d: v(%#x %d %#x) V%d i(%#x %d %#x) I%d\n", i,
+		// 	vertex_offset*sizeof(vk_vertex_t), mg->vertex_count * sizeof(vk_vertex_t), (vertex_offset + mg->vertex_count) * sizeof(vk_vertex_t), mg->vertex_count,
+		// 	index_offset*sizeof(uint16_t), mg->element_count * sizeof(uint16_t), (index_offset + mg->element_count) * sizeof(uint16_t), mg->element_count);
 
 		geom_build_ranges[i] = (VkAccelerationStructureBuildRangeInfoKHR) {
 			.primitiveCount = prim_count,
@@ -1040,6 +1075,7 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 		g_rtx.frame.scratch_offset = 0;
 	}
 
+	Mem_Free(geom_build_ranges_ptr);
 	Mem_Free(geom_build_ranges);
 	Mem_Free(geom_max_prim_counts);
 	Mem_Free(geoms);
@@ -1053,6 +1089,8 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 			}
 		}
 
+		// gEngine.Con_Reportf("Model %s generated AS=%p blas_index=%d\n", args.model->debug_name, args.model->rtx.blas, blas_index);
+
 		if (blas_index == ARRAYSIZE(g_rtx.blases))
 			gEngine.Con_Printf(S_WARN "Too many BLASes created :(\n");
 	}
@@ -1063,6 +1101,8 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 }
 
 void VK_RayModelDestroy( struct vk_render_model_s *model ) {
+	ASSERT(!g_rtx.freeze_models);
+
 	ASSERT(vk_core.rtx);
 	if (model->rtx.blas != VK_NULL_HANDLE) {
 		int blas_index;
@@ -1075,6 +1115,8 @@ void VK_RayModelDestroy( struct vk_render_model_s *model ) {
 		if (blas_index == ARRAYSIZE(g_rtx.blases))
 			gEngine.Con_Printf(S_WARN "Model BLAS was missing\n");
 
+		// gEngine.Con_Reportf("Model %s destroying AS=%p blas_index=%d\n", model->debug_name, model->rtx.blas, blas_index);
+
 		vkDestroyAccelerationStructureKHR(vk_core.device, model->rtx.blas, NULL);
 		model->rtx.blas = VK_NULL_HANDLE;
 	}
@@ -1084,6 +1126,9 @@ void VK_RayFrameAddModel( const struct vk_render_model_s *model, const matrix3x4
 	ASSERT(vk_core.rtx);
 
 	ASSERT(g_rtx.frame.num_models <= ARRAYSIZE(g_rtx.frame.models));
+
+	if (g_rtx.freeze_models)
+		return;
 
 	if (g_rtx.frame.num_models == ARRAYSIZE(g_rtx.frame.models)) {
 		gEngine.Con_Printf(S_ERROR "Ran out of AccelerationStructure slots\n");

@@ -150,6 +150,32 @@ layout (push_constant) uniform PC {
 //uint picked_light = 76;//uint(mod(pc.t * 4., emissive_kusochki.num_kusochki));
 int time_off = int(pc.t * 8.);
 
+float hash(float f) { return fract(sin(f)*53478.4327); }
+
+float printTiledNumber(vec2 p, int n) {
+	if (n == 0) return 0.;
+	float t = pc.t;
+	float x = floor(p.x / 5. / 2.);
+	//p.y += 12. * fract(pc.t * (4. + 3. * hash(x)));
+    p = floor(p / 2.);
+    vec2 pc = floor(p / vec2(5.,6.));
+    vec2 pg = mod(p, vec2(5.,6.));
+    float lx = 1.;
+    float col = 0.;
+
+#define PUTN(n) printInt(n,pg,pc,lx,col)
+
+	// float ncol = floor(pc.x / 3.);
+	// float tlen = floor(16. + 32. * hash(ncol));
+	// pc.y = mod(pc.y + floor(t * (6. + 9. * hash(ncol))), tlen);
+	// if (pc.y > tlen * .6) return 0.;
+
+	pc.y = mod(pc.y, 2.);
+	pc.x = mod(pc.x, 3.);
+	PUTN(n);
+	return col;
+}
+
 float printText(in vec2 p) {
 #define PIXSZ 4.
     p = floor(p / PIXSZ);
@@ -244,15 +270,15 @@ float rand01() {
 	return uintBitsToFloat(0x3f800000 | (rand() & 0x007fffff)) - 1.;
 }
 
-float hash(float f) { return fract(sin(f)*53478.4327); }
-
 bool shadowed(vec3 pos, vec3 dir, float dist) {
 	rayQueryEXT shadowRayQuery;
 	rayQueryInitializeEXT(shadowRayQuery, tlas,
 		gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT,
 		0xff,
 		pos, 0., dir, dist);
-	while(rayQueryProceedEXT(shadowRayQuery)) {}
+	while(rayQueryProceedEXT(shadowRayQuery)) {
+		rayQueryConfirmIntersectionEXT(shadowRayQuery);
+	}
 	return rayQueryGetIntersectionTypeEXT(shadowRayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT;
 }
 
@@ -274,8 +300,18 @@ void main() {
 	for (int bounce = 0; bounce < pc.bounces; ++bounce) {
 		rayQueryEXT rayQuery;
 		rayQueryInitializeEXT(rayQuery, tlas, gl_RayFlagsOpaqueEXT, 0xff, O, 0., D, L);
-		while(rayQueryProceedEXT(rayQuery)) {}
+		while(rayQueryProceedEXT(rayQuery)) {
+			rayQueryConfirmIntersectionEXT(rayQuery);
+		}
 		const float l = rayQueryGetIntersectionTEXT(rayQuery, true);
+		if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionGeneratedEXT) {
+			C += kc * vec3(0., 1., 0.);
+			break;
+		}
+		if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
+			C += kc * vec3(0., 0., 0.);
+			break;
+		}
 		if (rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
 			C += kc * vec3(1., 0., 1.);
 			break;
@@ -284,14 +320,20 @@ void main() {
 		vec3 pos = O+D*l;
 
 		const int instance_kusochki_offset = rayQueryGetIntersectionInstanceCustomIndexEXT(rayQuery, true);
-		//const int instance_index = rayQueryGetIntersectionInstanceIdEXT(rayQuery, true);
+		const int instance_index = rayQueryGetIntersectionInstanceIdEXT(rayQuery, true);
 		const int geom_index = rayQueryGetIntersectionGeometryIndexEXT(rayQuery, true);
 		const int kusok_index = instance_kusochki_offset + geom_index;
 		const Kusok kusok = kusochki[kusok_index];
 		//const uint leaf = kusochki[kusok_index].leaf-1;
 
 		//C = fract(pos / LIGHT_GRID_CELL_SIZE);	break;
-		//C = vec3(hash(float(geom_index)), hash(float(geom_index)+15.43), hash(float(geom_index)+34.));
+		//C = vec3(hash(float(geom_index)), hash(float(geom_index)+15.43), hash(float(geom_index)+34.)); break;
+
+		// C = vec3(hash(float(instance_index)), hash(float(instance_index)+15.43), hash(float(instance_index)+34.)) + .1 * fract(pos/LIGHT_GRID_CELL_SIZE);
+		// vec2 pix = vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y);
+		// C = mix(C*.5, vec3(0., 1., 0.), printTiledNumber(pix, instance_index));
+		// break;
+
 		//C = vec3(hash(float(leaf)), hash(float(leaf)+15.43), hash(float(leaf)+34.));
 		//C = vec3(hash(float(leaf)), float(kusok.num_surface_lights) / 63., float(kusok.is_emissive));
 		//break;

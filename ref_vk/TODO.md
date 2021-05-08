@@ -1,8 +1,14 @@
+## 2021-05-08, E92
+- [x] rtx: weird purple bbox-like glitches on dynamic geometry (tlas vs blas memory corruption/aliasing)
+
 # Next
-- [ ] make map/frame lifetime aware allocator and use it everywhere: render, rtx buffers, etc
+- [ ] rtx: improve AS lifetime/management; i.e. pre-cache them, etc
+- [ ] add debug names to all of the buffers
+- [ ] nvnsight into buffer memory and stuff
+- [ ] rtx: build acceleration structures in a single queue/cmdbuf
 - [ ] studio models: pre-compute buffer sizes and allocate them at once
+- [ ] studio models: fix lighting: should have white texture instead of lightmap
 - [ ] rtx: dynamic models AS caching
-- [ ] rtx: weird purple bbox-like glitches on dynamic geometry
 - [ ] rtx: better memory handling
 	- [ ] robust tracking of memory hierarchies: global/static, map, frame
 	- or just do a generic allocator with compaction?
@@ -225,3 +231,6 @@
 
 ## 2021-05-01, E89
 - [x] make a wrapper for descriptor sets/layouts
+
+## 2021-05-03, E90
+- [x] make map/frame lifetime aware allocator and use it everywhere: render, rtx buffers, etc
