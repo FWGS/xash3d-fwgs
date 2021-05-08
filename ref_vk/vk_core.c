@@ -386,10 +386,15 @@ static qboolean pickAndCreateDevice( void )
 			.storageBuffer8BitAccess = VK_TRUE,
 			.uniformAndStorageBuffer8BitAccess = VK_TRUE,
 		};
+		VkPhysicalDevice16BitStorageFeatures sixteen_bit_feature = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES,
+			.pNext = &eight_bit_feature,
+			.storageBuffer16BitAccess = VK_TRUE,
+		};
 		VkPhysicalDeviceRayQueryFeaturesKHR ray_query_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
 			.rayQuery = VK_TRUE,
-			.pNext = &eight_bit_feature,
+			.pNext = &sixteen_bit_feature,
 		};
 		VkDeviceCreateInfo create_info = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -421,7 +426,13 @@ static qboolean pickAndCreateDevice( void )
 		if (vk_core.rtx)
 		{
 			loadDeviceFunctions(device_funcs_rtx, ARRAYSIZE(device_funcs_rtx));
+			vk_core.physical_device.properties2.pNext = &vk_core.physical_device.properties_accel;
+			vk_core.physical_device.properties_accel.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
 		}
+
+		// TODO should we check Vk version first?
+		vk_core.physical_device.properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		vkGetPhysicalDeviceProperties2(vk_core.physical_device.device, &vk_core.physical_device.properties2);
 
 		vkGetDeviceQueue(vk_core.device, 0, 0, &vk_core.queue);
 		retval = true;

@@ -40,6 +40,8 @@ typedef struct physical_device_s {
 	VkPhysicalDevice device;
 	VkPhysicalDeviceMemoryProperties memory_properties;
 	VkPhysicalDeviceProperties properties;
+	VkPhysicalDeviceProperties2 properties2;
+	VkPhysicalDeviceAccelerationStructurePropertiesKHR properties_accel;
 } physical_device_t;
 
 typedef struct vulkan_core_s {
