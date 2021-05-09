@@ -388,6 +388,18 @@ void SV_CreateResourceList( void )
 
 /*
 ================
+SV_WriteVoiceCodec
+================
+*/
+void SV_WriteVoiceCodec( sizebuf_t *msg )
+{
+	MSG_BeginServerCmd( msg, svc_voiceinit );
+	MSG_WriteString( msg, "opus" );
+	MSG_WriteByte( msg, 0 );
+}
+
+/*
+================
 SV_CreateBaseline
 
 Entity baselines are used to compress the update messages
@@ -403,6 +415,8 @@ void SV_CreateBaseline( void )
 	int		playermodel;
 	int		delta_type;
 	int		entnum;
+
+	SV_WriteVoiceCodec( &sv.signon );
 
 	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
 		playermodel = SV_ModelIndex( DEFAULT_PLAYER_PATH_QUAKE );

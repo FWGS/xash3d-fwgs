@@ -254,4 +254,19 @@ void SNDDMA_BeginPainting( void )
 {
 	pthread_mutex_lock( &snddma_android_mutex );
 }
+
+qboolean VoiceCapture_Init( void )
+{
+	return false;
+}
+
+qboolean VoiceCapture_RecordStart( void )
+{
+	return false;
+}
+
+void VoiceCapture_RecordStop( void )
+{
+	return 0;
+}
 #endif
