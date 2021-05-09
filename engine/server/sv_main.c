@@ -112,6 +112,9 @@ CVAR_DEFINE_AUTO( violence_ablood, "1", 0, "draw alien blood" );
 CVAR_DEFINE_AUTO( violence_hgibs, "1", 0, "show human gib entities" );
 CVAR_DEFINE_AUTO( violence_agibs, "1", 0, "show alien gib entities" );
 
+// voice chat
+CVAR_DEFINE_AUTO( sv_voiceenable, "1", FCVAR_ARCHIVE|FCVAR_SERVER, "enable voice support" );
+
 convar_t	*sv_novis;			// disable server culling entities by vis
 convar_t	*sv_pausable;
 convar_t	*timeout;				// seconds without any message
@@ -977,6 +980,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &listipcfgfile );
 	Cvar_RegisterVariable( &mapchangecfgfile );
 
+	Cvar_RegisterVariable( &sv_voiceenable );
 	Cvar_RegisterVariable( &sv_trace_messages );
 
 	sv_allow_joystick = Cvar_Get( "sv_allow_joystick", "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
