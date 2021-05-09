@@ -1685,7 +1685,10 @@ CL_ParseVoiceInit
 */
 void CL_ParseVoiceInit( sizebuf_t *msg )
 {
-	// TODO: ???
+	char *pszCodec = MSG_ReadString( msg );
+	int quality = MSG_ReadByte( msg );
+
+	Voice_Init( pszCodec, quality );
 }
 
 /*
@@ -1696,7 +1699,28 @@ CL_ParseVoiceData
 */
 void CL_ParseVoiceData( sizebuf_t *msg )
 {
-	// TODO: ???
+	int size, idx, frames;
+	unsigned char received[8192];
+
+	idx = MSG_ReadByte( msg ) + 1;
+
+	frames = MSG_ReadByte( msg );
+
+	size = MSG_ReadShort( msg );
+	size = Q_min( size, 8192 );
+
+	MSG_ReadBytes( msg, received, size );
+
+	if ( idx <= 0 || idx > cl.maxclients )
+		return;
+
+	if ( idx == cl.playernum + 1 )
+		Voice_LocalPlayerTalkingAck();
+	
+	if ( !size )
+		return;
+
+	Voice_AddIncomingData( idx, received, size, frames );
 }
 
 /*
@@ -2340,6 +2364,7 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 			break;
 		case svc_voicedata:
 			CL_ParseVoiceData( msg );
+			cl.frames[cl.parsecountmod].graphdata.voicebytes += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_resourcelocation:
 			CL_ParseResLocation( msg );
@@ -3127,6 +3152,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 			break;
 		case svc_voicedata:
 			CL_ParseVoiceData( msg );
+			cl.frames[cl.parsecountmod].graphdata.voicebytes += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_resourcelocation:
 			CL_ParseResLocation( msg );

@@ -958,6 +958,9 @@ void MIX_MixRawSamplesBuffer( int end )
 			pbuf[j-paintedtime].left += ( ch->rawsamples[j & ( ch->max_samples - 1 )].left * ch->leftvol ) >> 8;
 			pbuf[j-paintedtime].right += ( ch->rawsamples[j & ( ch->max_samples - 1 )].right * ch->rightvol ) >> 8;
 		}
+
+		if ( ch->entnum > 0 )
+			SND_MoveMouthRaw( ch, &ch->rawsamples[paintedtime & ( ch->max_samples - 1 )], stop - paintedtime );
 	}
 }
 
