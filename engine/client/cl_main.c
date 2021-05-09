@@ -864,6 +864,9 @@ void CL_WritePacket( void )
 		cl.commands[cls.netchan.outgoing_sequence & CL_UPDATE_MASK].sendsize = MSG_GetNumBytesWritten( &buf );
 		cl.commands[cls.netchan.outgoing_sequence & CL_UPDATE_MASK].heldback = false;
 
+		// send voice data to the server
+		CL_AddVoiceToDatagram();
+
 		// composite the rest of the datagram..
 		if( MSG_GetNumBitsWritten( &cls.datagram ) <= MSG_GetNumBitsLeft( &buf ))
 			MSG_WriteBits( &buf, MSG_GetData( &cls.datagram ), MSG_GetNumBitsWritten( &cls.datagram ));
@@ -2815,6 +2818,8 @@ void CL_InitLocal( void )
 	Cvar_RegisterVariable( &cl_logocolor );
 	Cvar_RegisterVariable( &cl_test_bandwidth );
 
+	Voice_RegisterCvars();
+
 	// register our variables
 	cl_crosshair = Cvar_Get( "crosshair", "1", FCVAR_ARCHIVE, "show weapon chrosshair" );
 	cl_nodelta = Cvar_Get ("cl_nodelta", "0", 0, "disable delta-compression for server messages" );
@@ -3016,8 +3021,8 @@ void Host_ClientFrame( void )
 	// a new portion updates from server
 	CL_RedoPrediction ();
 
-	// TODO: implement
-//	Voice_Idle( host.frametime );
+	// update voice
+	Voice_Idle( host.frametime );
 
 	// emit visible entities
 	CL_EmitEntities ();
@@ -3071,6 +3076,7 @@ void CL_Init( void )
 
 	VID_Init();	// init video
 	S_Init();	// init sound
+	Voice_Init( "opus", 0 ); // init voice
 
 	// unreliable buffer. unsed for unreliable commands and voice stream
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));

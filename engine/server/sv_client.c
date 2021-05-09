@@ -2532,6 +2532,58 @@ void SV_ParseCvarValue2( sv_client_t *cl, sizebuf_t *msg )
 
 /*
 ===================
+SV_ParseVoiceData
+===================
+*/
+void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
+{
+	char received[4096];
+	sv_client_t	*cur;
+	int i, client;
+	uint length, size, frames;
+
+	cl->m_bLoopback = MSG_ReadByte( msg );
+
+	frames = MSG_ReadByte( msg );
+
+	size = MSG_ReadShort( msg );
+	client = cl - svs.clients;
+
+	if ( size > sizeof( received ) )
+	{
+		Con_DPrintf( "SV_ParseVoiceData: invalid incoming packet.\n" );
+		SV_DropClient( cl, false );
+		return;
+	}
+
+	if ( !Cvar_VariableInteger( "sv_voiceenable" ) )
+		return;
+
+	MSG_ReadBytes( msg, received, size );
+
+	for( i = 0, cur = svs.clients; i < svs.maxclients; i++, cur++ )
+	{
+		if ( cur->state < cs_connected && cl != cur )
+			continue;
+		
+		length = size;
+
+		if ( MSG_GetNumBytesLeft( &cur->datagram ) < length + 6 )
+			continue;
+
+		if ( cl == cur && !cur->m_bLoopback )
+			length = 0;
+
+		MSG_BeginServerCmd( &cur->datagram, svc_voicedata );
+		MSG_WriteByte( &cur->datagram, client );
+		MSG_WriteByte( &cur->datagram, frames );
+		MSG_WriteShort( &cur->datagram, length );
+		MSG_WriteBytes( &cur->datagram, received, length );
+	}
+}
+
+/*
+===================
 SV_ExecuteClientMessage
 
 Parse a client packet
@@ -2599,6 +2651,9 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg )
 			break;
 		case clc_fileconsistency:
 			SV_ParseConsistencyResponse( cl, msg );
+			break;
+		case clc_voicedata:
+			SV_ParseVoiceData( cl, msg );
 			break;
 		case clc_requestcvarvalue:
 			SV_ParseCvarValue( cl, msg );

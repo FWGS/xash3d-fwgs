@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #if XASH_SOUND == SOUND_SDL
 
 #include "sound.h"
+#include "voice.h"
 
 #include <SDL.h>
 
@@ -43,6 +44,8 @@ so it can unlock and free the data block after it has been played.
 =======================================================================
 */
 static int sdl_dev;
+static SDL_AudioDeviceID in_dev;
+static SDL_AudioFormat sdl_format;
 
 //static qboolean	snd_firsttime = true;
 //static qboolean	primary_format_set;
@@ -133,6 +136,8 @@ qboolean SNDDMA_Init( void )
 	dma.buffer          = Z_Calloc( dma.samples * 2 );
 	dma.samplepos       = 0;
 
+	sdl_format = obtained.format;
+
 	Con_Printf( "Using SDL audio driver: %s @ %d Hz\n", SDL_GetCurrentAudioDriver( ), obtained.freq );
 
 	dma.initialized = true;
@@ -220,4 +225,70 @@ void SNDDMA_Activate( qboolean active )
 
 	SDL_PauseAudioDevice( sdl_dev, !active );
 }
+
+/*
+===========
+SDL_SoundInputCallback
+===========
+*/
+void SDL_SoundInputCallback( void *userdata, Uint8 *stream, int len )
+{
+	int size;
+
+	size = Q_min( len, sizeof( voice.buffer ) - voice.buffer_pos );
+	SDL_memset( voice.buffer + voice.buffer_pos, 0, size );
+	SDL_MixAudioFormat( voice.buffer + voice.buffer_pos, stream, sdl_format, size, SDL_MIX_MAXVOLUME );
+	voice.buffer_pos += size;
+}
+
+/*
+===========
+VoiceCapture_Init
+===========
+*/
+qboolean VoiceCapture_Init( void )
+{
+	SDL_AudioSpec wanted, spec;
+
+	SDL_zero( wanted );
+	wanted.freq = voice.samplerate;
+	wanted.format = AUDIO_S16LSB;
+	wanted.channels = voice.channels;
+	wanted.samples = voice.frame_size / voice.width;
+	wanted.callback = SDL_SoundInputCallback;
+
+	in_dev = SDL_OpenAudioDevice( NULL, SDL_TRUE, &wanted, &spec, 0 );
+
+	if( SDLash_IsAudioError( in_dev ) )
+	{
+		Con_Printf( "VoiceCapture_Init: error creating capture device (%s)\n", SDL_GetError() );
+		return false;
+	}
+		
+	Con_Printf( S_NOTE "VoiceCapture_Init: capture device creation success (%i: %s)\n", in_dev, SDL_GetAudioDeviceName( in_dev, SDL_TRUE ) );
+	return true;
+}
+
+/*
+===========
+VoiceCapture_RecordStart
+===========
+*/
+qboolean VoiceCapture_RecordStart( void )
+{
+	SDL_PauseAudioDevice( in_dev, SDL_FALSE );
+
+	return true;
+}
+
+/*
+===========
+VoiceCapture_RecordStop
+===========
+*/
+void VoiceCapture_RecordStop( void )
+{
+	SDL_PauseAudioDevice( in_dev, SDL_TRUE );
+}
+
 #endif // XASH_SOUND == SOUND_SDL

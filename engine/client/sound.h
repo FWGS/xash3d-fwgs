@@ -27,6 +27,7 @@ extern poolhandle_t sndpool;
 #define SOUND_22k			22050	// 22khz sample rate
 #define SOUND_32k			32000	// 32khz sample rate
 #define SOUND_44k			44100	// 44khz sample rate
+#define SOUND_48k			48000	// 48khz sample rate
 #define DMA_MSEC_PER_SAMPLE		((float)(1000.0 / SOUND_DMA_SPEED))
 
 // fixed point stuff for real-time resampling
@@ -202,7 +203,7 @@ typedef struct
 
 #define MAX_DYNAMIC_CHANNELS	(60 + NUM_AMBIENTS)
 #define MAX_CHANNELS	(256 + MAX_DYNAMIC_CHANNELS)	// Scourge Of Armagon has too many static sounds on hip2m4.bsp
-#define MAX_RAW_CHANNELS	16
+#define MAX_RAW_CHANNELS	48
 #define MAX_RAW_SAMPLES	8192
 
 extern sound_t	ambient_sfx[NUM_AMBIENTS];
@@ -270,6 +271,7 @@ int S_GetCurrentStaticSounds( soundlist_t *pout, int size );
 int S_GetCurrentDynamicSounds( soundlist_t *pout, int size );
 sfx_t *S_GetSfxByHandle( sound_t handle );
 rawchan_t *S_FindRawChannel( int entnum, qboolean create );
+void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol );
 void S_RawSamples( uint samples, uint rate, word width, word channels, const byte *data, int entnum );
 void S_StopSound( int entnum, int channel, const char *soundname );
 void S_UpdateFrame( struct ref_viewpass_s *rvp );
@@ -282,9 +284,12 @@ void S_FreeSounds( void );
 // s_mouth.c
 //
 void SND_InitMouth( int entnum, int entchannel );
+void SND_ForceInitMouth( int entnum );
 void SND_MoveMouth8( channel_t *ch, wavdata_t *pSource, int count );
 void SND_MoveMouth16( channel_t *ch, wavdata_t *pSource, int count );
+void SND_MoveMouthRaw( rawchan_t *ch, portable_samplepair_t *pData, int count );
 void SND_CloseMouth( channel_t *ch );
+void SND_ForceCloseMouth( int entnum );
 
 //
 // s_stream.c
