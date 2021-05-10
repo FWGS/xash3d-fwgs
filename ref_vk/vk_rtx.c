@@ -187,7 +187,7 @@ static VkDeviceAddress getASAddress(VkAccelerationStructureKHR as) {
 }
 
 typedef struct {
-	VkAccelerationStructureKHR *accel;
+	VkAccelerationStructureKHR *p_accel;
 	const VkAccelerationStructureGeometryKHR *geoms;
 	const uint32_t *max_prim_counts;
 	const VkAccelerationStructureBuildRangeInfoKHR **build_ranges;
@@ -197,9 +197,13 @@ typedef struct {
 } as_build_args_t;
 
 static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_build_args_t *args) {
-	const qboolean should_create = *args->accel == VK_NULL_HANDLE;
+	const qboolean should_create = *args->p_accel == VK_NULL_HANDLE;
 	const qboolean is_update = false; // TODO: can allow updates only if we know that we only touch vertex positions essentially
 	// (no geometry/instance count, flags, etc changes are allowed by the spec)
+
+	ASSERT(args->geoms);
+	ASSERT(args->n_geoms > 0);
+	ASSERT(args->p_accel);
 
 	VkAccelerationStructureBuildGeometryInfoKHR build_info = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -208,7 +212,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 		.mode =  is_update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
 		.geometryCount = args->n_geoms,
 		.pGeometries = args->geoms,
-		.srcAccelerationStructure = *args->accel,
+		.srcAccelerationStructure = *args->p_accel,
 	};
 
 	VkAccelerationStructureBuildSizesInfoKHR build_size = {
@@ -253,18 +257,22 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 			return false;
 		}
 
-		XVK_CHECK(vkCreateAccelerationStructureKHR(vk_core.device, &asci, NULL, args->accel));
+		XVK_CHECK(vkCreateAccelerationStructureKHR(vk_core.device, &asci, NULL, args->p_accel));
 
-		// gEngine.Con_Reportf("AS=%p, n_geoms=%u, build: %#x %d %#x\n", *args->accel, args->n_geoms, buffer_offset, build_size.accelerationStructureSize, buffer_offset + build_size.accelerationStructureSize);
+		// gEngine.Con_Reportf("AS=%p, n_geoms=%u, build: %#x %d %#x\n", *args->p_accel, args->n_geoms, buffer_offset, build_size.accelerationStructureSize, buffer_offset + build_size.accelerationStructureSize);
 	}
 
-	build_info.dstAccelerationStructure = *args->accel;
+	// If not enough data for building, just create
+	if (!cmdbuf || !args->build_ranges)
+		return true;
+
+	build_info.dstAccelerationStructure = *args->p_accel;
 	build_info.scratchData.deviceAddress = g_rtx.scratch_buffer_addr + g_rtx.frame.scratch_offset;
 	uint32_t scratch_offset_initial = g_rtx.frame.scratch_offset;
 	g_rtx.frame.scratch_offset += scratch_buffer_size;
 	g_rtx.frame.scratch_offset = ALIGN_UP(g_rtx.frame.scratch_offset, vk_core.physical_device.properties_accel.minAccelerationStructureScratchOffsetAlignment);
 
-	//gEngine.Con_Reportf("AS=%p, n_geoms=%u, scratch: %#x %d %#x\n", *args->accel, args->n_geoms, scratch_offset_initial, scratch_buffer_size, scratch_offset_initial + scratch_buffer_size);
+	//gEngine.Con_Reportf("AS=%p, n_geoms=%u, scratch: %#x %d %#x\n", *args->p_accel, args->n_geoms, scratch_offset_initial, scratch_buffer_size, scratch_offset_initial + scratch_buffer_size);
 
 	vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &build_info, args->build_ranges);
 	return true;
@@ -275,6 +283,44 @@ void VK_RayNewMap( void ) {
 
 	VK_RingBuffer_Clear(&g_rtx.accels_buffer_alloc);
 	VK_RingBuffer_Clear(&g_rtx.kusochki_alloc);
+
+	// Recreate tlas
+	// Why here and not in init: to make sure that its memory is preserved. Map init will clear all memory regions.
+	{
+		if (g_rtx.tlas != VK_NULL_HANDLE) {
+			vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.tlas, NULL);
+			g_rtx.tlas = VK_NULL_HANDLE;
+		}
+
+		const VkAccelerationStructureGeometryKHR tl_geom[] = {
+			{
+				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+				//.flags = VK_GEOMETRY_OPAQUE_BIT,
+				.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
+				.geometry.instances =
+					(VkAccelerationStructureGeometryInstancesDataKHR){
+						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
+						.data.deviceAddress = getBufferDeviceAddress(g_rtx.tlas_geom_buffer.buffer),
+						.arrayOfPointers = VK_FALSE,
+					},
+			},
+		};
+		const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = { MAX_ACCELS };
+		const as_build_args_t asrgs = {
+			.geoms = tl_geom,
+			.max_prim_counts = tl_max_prim_counts,
+			.build_ranges = NULL,
+			.n_geoms = 1,
+			.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+			// we can't really rebuild TLAS because instance count changes are not allowed .dynamic = true,
+			.dynamic = false,
+			.p_accel = &g_rtx.tlas,
+		};
+		if (!createOrUpdateAccelerationStructure(VK_NULL_HANDLE, &asrgs)) {
+			gEngine.Host_Error("Could not create TLAS\n");
+			return false;
+		}
+	}
 
 	// Upload light grid
 	{
@@ -328,11 +374,6 @@ void VK_RayFrameBegin( void )
 				break;
 			}
 		}
-	}
-
-	if (g_rtx.tlas != VK_NULL_HANDLE) {
-		vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.tlas, NULL);
-		g_rtx.tlas = VK_NULL_HANDLE;
 	}
 
 	g_rtx.frame.scratch_offset = 0;
@@ -496,7 +537,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
 	}
 
-	// 2. Create TLAS
+	// 2. Build TLAS
 	if (g_rtx.frame.num_models > 0)
 	{
 		const VkAccelerationStructureGeometryKHR tl_geom[] = {
@@ -525,10 +566,10 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
 			// we can't really rebuild TLAS because instance count changes are not allowed .dynamic = true,
 			.dynamic = false,
-			.accel = &g_rtx.tlas,
+			.p_accel = &g_rtx.tlas,
 		};
 		if (!createOrUpdateAccelerationStructure(cmdbuf, &asrgs)) {
-			gEngine.Host_Error("Could not create/update TLAS\n");
+			gEngine.Host_Error("Could not update TLAS\n");
 			return;
 		}
 	}
@@ -968,7 +1009,7 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 	ASSERT(vk_core.rtx);
 
 	if (g_rtx.freeze_models)
-		return;
+		return true;
 
 	if (kusochki_count_offset == AllocFailed) {
 		gEngine.Con_Printf(S_ERROR "Maximum number of kusochki exceeded on model %s\n", args.model->debug_name);
@@ -1049,7 +1090,7 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 			.n_geoms = args.model->num_geometries,
 			.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 			.dynamic = false, //model->dynamic,
-			.accel = &args.model->rtx.blas,
+			.p_accel = &args.model->rtx.blas,
 		};
 
 		// TODO batch building multiple blases together

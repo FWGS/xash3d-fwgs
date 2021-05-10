@@ -1,5 +1,5 @@
-## 2021-05-08, E92
-- [x] rtx: weird purple bbox-like glitches on dynamic geometry (tlas vs blas memory corruption/aliasing)
+## 2021-05-10, E93
+- [x] rtx: don't recreate tlas each frame
 
 # Next
 - [ ] rtx: improve AS lifetime/management; i.e. pre-cache them, etc
@@ -234,3 +234,6 @@
 
 ## 2021-05-03, E90
 - [x] make map/frame lifetime aware allocator and use it everywhere: render, rtx buffers, etc
+
+## 2021-05-08, E92
+- [x] rtx: weird purple bbox-like glitches on dynamic geometry (tlas vs blas memory corruption/aliasing)
