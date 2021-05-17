@@ -80,6 +80,8 @@ typedef struct {
 	int surface_index;
 } vk_render_geometry_t;
 
+struct vk_accel_s;
+
 typedef struct vk_render_model_s {
 	const char *debug_name;
 	int render_mode;
@@ -94,6 +96,7 @@ typedef struct vk_render_model_s {
 	struct {
 		VkAccelerationStructureKHR blas;
 		uint32_t kusochki_offset;
+		struct vk_accel_s *cache_accel;
 	} rtx;
 } vk_render_model_t;
 
