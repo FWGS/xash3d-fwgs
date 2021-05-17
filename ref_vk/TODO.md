@@ -1,16 +1,6 @@
-## 2021-05-..-17, E93, E94
-- [x] rtx: improve AS lifetime/management; i.e. pre-cache them, etc
-- [x] add debug names to all of the buffers
-
-## 2021-05-10, E93
-- [x] rtx: don't recreate tlas each frame
-
 # Next
-- [ ] nvnsight into buffer memory and stuff
 - [ ] rtx: build acceleration structures in a single queue/cmdbuf
-- [ ] studio models: pre-compute buffer sizes and allocate them at once
-- [ ] studio models: fix lighting: should have white texture instead of lightmap
-- [ ] rtx: dynamic models AS caching
+- [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
 - [ ] rtx: better memory handling
 	- [ ] robust tracking of memory hierarchies: global/static, map, frame
 	- or just do a generic allocator with compaction?
@@ -20,7 +10,6 @@
 - [ ] rtx: restore dynamic stuff like particles, beams, etc
 - [ ] rtx: emissive particles
 - [ ] rtx: better random
-- [ ] rtx: some studio models have glitchy geometry
 - [ ] rtx: simple convolution denoise (bilateral?)
 - [ ] rtx: map name to rad files mapping
 - [ ] water surfaces
@@ -35,6 +24,7 @@
 - [ ] rtx: coalesce all these buffers
 
 # Planned
+- [ ] studio models: pre-compute buffer sizes and allocate them at once
 - [ ] rtx: denoise
 	- [ ] non local means ?
 	- [ ] reprojection
@@ -74,6 +64,7 @@
 - [ ] rtx: studio models should not pre-transform vertices with modelView matrix
 
 # Someday
+- [ ] nvnsight into buffer memory and stuff
 - [ ] run under asan
 - [ ] start building command buffers in beginframe
 - [ ] multiple frames in flight (#nd cmdbuf, ...)
@@ -239,3 +230,12 @@
 
 ## 2021-05-08, E92
 - [x] rtx: weird purple bbox-like glitches on dynamic geometry (tlas vs blas memory corruption/aliasing)
+- [x] rtx: some studio models have glitchy geometry
+
+## 2021-05-10, E93
+- [x] rtx: don't recreate tlas each frame
+- [x] rtx: dynamic models AS caching
+
+## 2021-05-..-17, E93, E94
+- [x] rtx: improve AS lifetime/management; i.e. pre-cache them, etc
+- [x] add debug names to all of the buffers
