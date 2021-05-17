@@ -79,6 +79,19 @@ extern vulkan_core_t vk_core;
 
 const char *resultName(VkResult result);
 
+#define SET_DEBUG_NAME(object, type, name) \
+do { \
+	if (vk_core.debug) { \
+		VkDebugUtilsObjectNameInfoEXT duoni = { \
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, \
+			.objectHandle = (uint64_t)object, \
+			.objectType = type, \
+			.pObjectName = name, \
+		}; \
+		XVK_CHECK(vkSetDebugUtilsObjectNameEXT(vk_core.device, &duoni)); \
+	} \
+} while (0)
+
 // TODO make this not fatal: devise proper error handling strategies
 // FIXME Host_Error does not cause process to exit, we need to handle this manually
 #define XVK_CHECK(f) do { \

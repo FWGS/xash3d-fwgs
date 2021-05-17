@@ -261,7 +261,7 @@ qboolean initVk2d( void )
 	if (!createPipelines())
 		return false;
 
-	if (!createBuffer(&g2d.pics_buffer, sizeof(vertex_2d_t) * (MAX_PICS * 6),
+	if (!createBuffer("2d pics_buffer", &g2d.pics_buffer, sizeof(vertex_2d_t) * (MAX_PICS * 6),
 				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ))
 		// FIXME cleanup
 		return false;

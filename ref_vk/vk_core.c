@@ -558,7 +558,7 @@ qboolean R_VkInit( void )
 	if (!createCommandPool())
 		return false;
 
-	if (!createBuffer(&vk_core.staging, 16 * 1024 * 1024 /* TODO why 16Mb? */, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	if (!createBuffer("staging", &vk_core.staging, 16 * 1024 * 1024 /* TODO why 16Mb? */, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
 	{

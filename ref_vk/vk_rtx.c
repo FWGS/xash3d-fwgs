@@ -197,6 +197,7 @@ static VkDeviceAddress getASAddress(VkAccelerationStructureKHR as) {
 }
 
 typedef struct {
+	const char *debug_name;
 	VkAccelerationStructureKHR *p_accel;
 	const VkAccelerationStructureGeometryKHR *geoms;
 	const uint32_t *max_prim_counts;
@@ -326,6 +327,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 		}
 
 		XVK_CHECK(vkCreateAccelerationStructureKHR(vk_core.device, &asci, NULL, args->p_accel));
+		SET_DEBUG_NAME(*args->p_accel, VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR, args->debug_name);
 
 		// gEngine.Con_Reportf("AS=%p, n_geoms=%u, build: %#x %d %#x\n", *args->p_accel, args->n_geoms, buffer_offset, build_size.accelerationStructureSize, buffer_offset + build_size.accelerationStructureSize);
 	}
@@ -360,6 +362,16 @@ void VK_RayNewMap( void ) {
 			g_rtx.tlas = VK_NULL_HANDLE;
 		}
 
+		// Clear BLAS cache
+		for (int i = 0; i < ARRAYSIZE(g_rtx.blas_cache.accels); ++i) {
+			vk_accel_t *a = g_rtx.blas_cache.accels + i;
+			if (a->as == VK_NULL_HANDLE)
+				break;
+
+			vkDestroyAccelerationStructureKHR(vk_core.device, a->as, NULL);
+			memset(a, 0, sizeof(*a));
+		}
+
 		const VkAccelerationStructureGeometryKHR tl_geom[] = {
 			{
 				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -383,6 +395,7 @@ void VK_RayNewMap( void ) {
 			// we can't really rebuild TLAS because instance count changes are not allowed .dynamic = true,
 			.dynamic = false,
 			.p_accel = &g_rtx.tlas,
+			.debug_name = "TLAS",
 		};
 		if (!createOrUpdateAccelerationStructure(VK_NULL_HANDLE, &asrgs)) {
 			gEngine.Host_Error("Could not create TLAS\n");
@@ -551,6 +564,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			// we can't really rebuild TLAS because instance count changes are not allowed .dynamic = true,
 			.dynamic = false,
 			.p_accel = &g_rtx.tlas,
+			.debug_name = "TLAS...",
 		};
 		if (!createOrUpdateAccelerationStructure(cmdbuf, &asrgs)) {
 			gEngine.Host_Error("Could not update TLAS\n");
@@ -848,7 +862,7 @@ qboolean VK_RayInit( void )
 {
 	ASSERT(vk_core.rtx);
 	// TODO complain and cleanup on failure
-	if (!createBuffer(&g_rtx.accels_buffer, MAX_ACCELS_BUFFER,
+	if (!createBuffer("ray accels_buffer", &g_rtx.accels_buffer, MAX_ACCELS_BUFFER,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 		))
@@ -858,7 +872,7 @@ qboolean VK_RayInit( void )
 	g_rtx.accels_buffer_addr = getBufferDeviceAddress(g_rtx.accels_buffer.buffer);
 	g_rtx.accels_buffer_alloc.size = g_rtx.accels_buffer.size;
 
-	if (!createBuffer(&g_rtx.scratch_buffer, MAX_SCRATCH_BUFFER,
+	if (!createBuffer("ray scratch_buffer", &g_rtx.scratch_buffer, MAX_SCRATCH_BUFFER,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 		)) {
@@ -866,7 +880,7 @@ qboolean VK_RayInit( void )
 	}
 	g_rtx.scratch_buffer_addr = getBufferDeviceAddress(g_rtx.scratch_buffer.buffer);
 
-	if (!createBuffer(&g_rtx.tlas_geom_buffer, sizeof(VkAccelerationStructureInstanceKHR) * MAX_ACCELS,
+	if (!createBuffer("ray tlas_geom_buffer", &g_rtx.tlas_geom_buffer, sizeof(VkAccelerationStructureInstanceKHR) * MAX_ACCELS,
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
@@ -874,7 +888,7 @@ qboolean VK_RayInit( void )
 		return false;
 	}
 
-	if (!createBuffer(&g_rtx.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_KUSOCHKI,
+	if (!createBuffer("ray kusochki_buffer", &g_rtx.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_KUSOCHKI,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
@@ -882,14 +896,14 @@ qboolean VK_RayInit( void )
 	}
 	g_rtx.kusochki_alloc.size = MAX_KUSOCHKI;
 
-	if (!createBuffer(&g_rtx.emissive_kusochki_buffer, sizeof(vk_emissive_kusochki_t),
+	if (!createBuffer("ray emissive_kusochki_buffer", &g_rtx.emissive_kusochki_buffer, sizeof(vk_emissive_kusochki_t),
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
 		return false;
 	}
 
-	if (!createBuffer(&g_rtx.light_grid_buffer, sizeof(vk_ray_shader_light_grid),
+	if (!createBuffer("ray light_grid_buffer", &g_rtx.light_grid_buffer, sizeof(vk_ray_shader_light_grid),
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
@@ -1081,6 +1095,7 @@ qboolean VK_RayModelInit( vk_ray_model_init_t args ) {
 			.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 			.dynamic = args.model->dynamic,
 			.p_accel = &as,
+			.debug_name = args.model->debug_name,
 		};
 
 		// TODO batch building multiple blases together

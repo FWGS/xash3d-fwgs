@@ -257,12 +257,12 @@ qboolean VK_RenderInit( void )
 
 	// TODO device memory and friends (e.g. handle mobile memory ...)
 
-	if (!createBuffer(&g_render.buffer, vertex_buffer_size + index_buffer_size,
+	if (!createBuffer("render buffer", &g_render.buffer, vertex_buffer_size + index_buffer_size,
 		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | (vk_core.rtx ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0),
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | (vk_core.rtx ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0))) // TODO staging buffer?
 		return false;
 
-	if (!createBuffer(&g_render.uniform_buffer, uniform_unit_size * MAX_UNIFORM_SLOTS,
+	if (!createBuffer("render uniform_buffer", &g_render.uniform_buffer, uniform_unit_size * MAX_UNIFORM_SLOTS,
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | (vk_core.rtx ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0))) // TODO staging buffer?
 		return false;
@@ -940,7 +940,8 @@ void VK_RenderModelDynamicBegin( const char *debug_name, int render_mode ) {
 	g_dynamic_model.model.geometries = g_dynamic_model.geometries;
 	g_dynamic_model.model.num_geometries = 0;
 	g_dynamic_model.model.render_mode = render_mode;
-	memset(&g_dynamic_model.model.rtx, 0, sizeof(g_dynamic_model.model.rtx));
+	g_dynamic_model.model.rtx.blas = VK_NULL_HANDLE;
+	g_dynamic_model.model.rtx.kusochki_offset = 0;
 }
 void VK_RenderModelDynamicAddGeometry( const vk_render_geometry_t *geom ) {
 	ASSERT(g_dynamic_model.model.geometries);

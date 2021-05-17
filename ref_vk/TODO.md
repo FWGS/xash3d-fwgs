@@ -1,9 +1,11 @@
+## 2021-05-..-17, E93, E94
+- [x] rtx: improve AS lifetime/management; i.e. pre-cache them, etc
+- [x] add debug names to all of the buffers
+
 ## 2021-05-10, E93
 - [x] rtx: don't recreate tlas each frame
 
 # Next
-- [ ] rtx: improve AS lifetime/management; i.e. pre-cache them, etc
-- [ ] add debug names to all of the buffers
 - [ ] nvnsight into buffer memory and stuff
 - [ ] rtx: build acceleration structures in a single queue/cmdbuf
 - [ ] studio models: pre-compute buffer sizes and allocate them at once

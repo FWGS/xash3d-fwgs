@@ -2,7 +2,7 @@
 
 #include <memory.h>
 
-qboolean createBuffer(vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags flags)
+qboolean createBuffer(const char *debug_name, vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags flags)
 {
 	VkBufferCreateInfo bci = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -12,6 +12,7 @@ qboolean createBuffer(vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage,
 	};
 	VkMemoryRequirements memreq;
 	XVK_CHECK(vkCreateBuffer(vk_core.device, &bci, NULL, &buf->buffer));
+	SET_DEBUG_NAME(buf->buffer, VK_OBJECT_TYPE_BUFFER, debug_name);
 
 	vkGetBufferMemoryRequirements(vk_core.device, buf->buffer, &memreq);
 	gEngine.Con_Reportf("memreq: memoryTypeBits=0x%x alignment=%zu size=%zu\n", memreq.memoryTypeBits, memreq.alignment, memreq.size);
