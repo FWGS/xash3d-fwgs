@@ -31,6 +31,9 @@ Uploaded to github by Oleg Cherkasky - https://github.com/gunrunners-paradise/Ct
 ## Deathmatch Classic
 Available in Valve's Half-Life repository - https://github.com/ValveSoftware/halflife/tree/master/dmc
 
+## ESHQ
+Official github repository - https://github.com/adslbarxatov/xash3d-for-ESHQ
+
 ## Flat-Life
 Available on GamerLab - http://gamer-lab.com/eng/code_mods_goldsrc/Half-Life_2D_(Flat-Life)
 
@@ -45,6 +48,9 @@ Available on GamerLab - http://gamer-lab.com/eng/code_mods_goldsrc/GT_mod_(Polni
 
 ## Half-Life: Echoes
 Download link on dropbox - https://www.dropbox.com/s/s6j8gtegn10wgvj/dlls.zip?dl=1
+
+## Half-Life: Expanded Arsenal
+Available on ModDB - https://www.moddb.com/mods/half-life-expanded-arsenal
 
 ## Half-Life: Gravgun mod
 Branch **gravgun** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/gravgun
