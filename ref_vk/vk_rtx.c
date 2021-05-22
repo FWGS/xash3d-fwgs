@@ -458,7 +458,6 @@ void VK_RayFrameBegin( void )
 	// HACK: blas caching requires persistent memory
 	// proper fix would need some other memory allocation strategy
 	// VK_RingBuffer_ClearFrame(&g_rtx.accels_buffer_alloc);
-
 	VK_RingBuffer_ClearFrame(&g_rtx.kusochki_alloc);
 }
 
@@ -478,6 +477,40 @@ static void createPipeline( void )
 	ASSERT(g_rtx.pipeline);
 }
 
+static void validateModelData( void ) {
+	const vk_kusok_data_t* kusochki = g_rtx.kusochki_buffer.mapped;
+	ASSERT(g_rtx.frame.num_models <= ARRAYSIZE(g_rtx.frame.models));
+	for (int i = 0; i < g_rtx.frame.num_models; ++i) {
+		const vk_ray_model_t *model = g_rtx.frame.models + i;
+		int num_geoms = 1; // TODO can't validate non-dynamic models because this info is lost
+		ASSERT(model->accel != VK_NULL_HANDLE);
+		ASSERT(model->kusochki_offset < MAX_KUSOCHKI);
+
+		if (model->dynamic) {
+			ASSERT(model->cache_accel);
+			ASSERT(model->cache_accel->as == model->accel);
+			ASSERT(model->cache_accel->geoms);
+			ASSERT(model->cache_accel->num_geoms > 0);
+			ASSERT(model->cache_accel->taken);
+			num_geoms = model->cache_accel->num_geoms;
+		} else {
+			ASSERT(!model->cache_accel);
+		}
+
+		for (int j = 0; j < num_geoms; j++) {
+			const vk_kusok_data_t *kusok = kusochki + j;
+			const vk_texture_t *tex = findTexture(kusok->texture);
+			ASSERT(tex);
+			ASSERT(tex->vk.image_view != VK_NULL_HANDLE);
+
+			// uint32_t index_offset;
+			// uint32_t vertex_offset;
+			// uint32_t triangles;
+			// uint32_t debug_is_emissive;
+		}
+	}
+}
+
 void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 {
 	const VkCommandBuffer cmdbuf = args->cmdbuf;
@@ -488,6 +521,9 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	// ubo should contain two matrices
 	// FIXME pass these matrices explicitly to let RTX module handle ubo itself
 	ASSERT(args->ubo.size == sizeof(float) * 16 * 2);
+
+	if (vk_core.debug)
+		validateModelData();
 
 	g_rtx.frame_number++;
 

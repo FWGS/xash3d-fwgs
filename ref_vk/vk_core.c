@@ -14,6 +14,7 @@
 #include "vk_studio.h"
 #include "vk_rtx.h"
 #include "vk_descriptor.h"
+#include "vk_nv_aftermath.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -132,6 +133,12 @@ static const char* device_extensions[] = {
 	//VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 	VK_KHR_RAY_QUERY_EXTENSION_NAME,
 	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+
+	// FIXME make this not depend on RTX
+#ifdef USE_AFTERMATH
+	VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME,
+	VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME,
+#endif
 };
 
 VkBool32 debugCallback(
@@ -396,9 +403,18 @@ static qboolean pickAndCreateDevice( void )
 			.rayQuery = VK_TRUE,
 			.pNext = &sixteen_bit_feature,
 		};
+		void *head = &ray_query_feature;
+#ifdef USE_AFTERMATH
+		VkDeviceDiagnosticsConfigCreateInfoNV diag_config_nv = {
+			.sType = VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV,
+			.flags = VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_AUTOMATIC_CHECKPOINTS_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV,
+			.pNext = head,
+		};
+		head = &diag_config_nv;
+#endif
 		VkDeviceCreateInfo create_info = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-			.pNext = vk_core.rtx ? &ray_query_feature : NULL,
+			.pNext = vk_core.rtx ? head : NULL,
 			.flags = 0,
 			.queueCreateInfoCount = 1,
 			.pQueueCreateInfos = &queue_info,
@@ -549,6 +565,12 @@ qboolean R_VkInit( void )
 		return false;
 	}
 
+#if USE_AFTERMATH
+	if (!VK_AftermathInit()) {
+		gEngine.Con_Printf( S_ERROR "Cannot initialize Nvidia Nsight Aftermath SDK\n" );
+	}
+#endif
+
 	if (!pickAndCreateDevice())
 		return false;
 
@@ -644,6 +666,11 @@ void R_VkShutdown( void )
 	vkDestroyCommandPool(vk_core.device, vk_core.command_pool, NULL);
 
 	vkDestroyDevice(vk_core.device, NULL);
+
+#if USE_AFTERMATH
+	VK_AftermathShutdown();
+#endif
+
 
 	if (vk_core.debug_messenger)
 	{

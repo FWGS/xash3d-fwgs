@@ -171,7 +171,7 @@ float printTiledNumber(vec2 p, int n) {
 	// if (pc.y > tlen * .6) return 0.;
 
 	pc.y = mod(pc.y, 2.);
-	pc.x = mod(pc.x, 3.);
+	pc.x = mod(pc.x, 5.);
 	PUTN(n);
 	return col;
 }
@@ -323,14 +323,20 @@ void main() {
 		const int instance_index = rayQueryGetIntersectionInstanceIdEXT(rayQuery, true);
 		const int geom_index = rayQueryGetIntersectionGeometryIndexEXT(rayQuery, true);
 		const int kusok_index = instance_kusochki_offset + geom_index;
+
+		// vec2 pix = vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y);
+		// C = mix(C*.5, vec3(0., 1., 0.), printTiledNumber(pix*2., kusok_index));
+		// break;
+
 		const Kusok kusok = kusochki[kusok_index];
+
+
 		//const uint leaf = kusochki[kusok_index].leaf-1;
 
 		//C = fract(pos / LIGHT_GRID_CELL_SIZE);	break;
 		//C = vec3(hash(float(geom_index)), hash(float(geom_index)+15.43), hash(float(geom_index)+34.)); break;
 
 		// C = vec3(hash(float(instance_index)), hash(float(instance_index)+15.43), hash(float(instance_index)+34.)) + .1 * fract(pos/LIGHT_GRID_CELL_SIZE);
-		// vec2 pix = vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y);
 		// C = mix(C*.5, vec3(0., 1., 0.), printTiledNumber(pix, instance_index));
 		// break;
 
