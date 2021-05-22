@@ -45,6 +45,11 @@ const char *Android_LoadID( void );
 void Android_SaveID( const char *id );
 #endif
 
+#if XASH_NSWITCH
+void NSwitch_Init( void );
+void NSwitch_Shutdown( void );
+#endif
+
 /*
 ==============================================================================
 

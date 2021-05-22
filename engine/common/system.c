@@ -25,7 +25,12 @@ GNU General Public License for more details.
 #if XASH_POSIX
 #include <unistd.h>
 #include <signal.h>
+#if XASH_NSWITCH
+#define SOLDER_LIBDL_COMPAT
+#include <solder.h>
+#else
 #include <dlfcn.h>
+#endif
 
 #if !XASH_ANDROID
 #include <pwd.h>
@@ -126,7 +131,7 @@ char *Sys_GetCurrentUser( void )
 
 	if( GetUserName( s_userName, &size ))
 		return s_userName;
-#elif XASH_POSIX && !XASH_ANDROID
+#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH
 	uid_t uid = geteuid();
 	struct passwd *pw = getpwuid( uid );
 
@@ -405,6 +410,9 @@ void Sys_Error( const char *error, ... )
 {
 	va_list	argptr;
 	char	text[MAX_PRINT_MSG];
+#if XASH_NSWITCH
+	FILE	*fout;
+#endif
 
 	DEBUG_BREAK;
 
@@ -428,6 +436,16 @@ void Sys_Error( const char *error, ... )
 		if( host.hWnd ) SDL_HideWindow( host.hWnd );
 #endif
 	}
+
+#if XASH_NSWITCH
+	fprintf( stderr, "Fatal error: %s\n", text );
+	fout = fopen( "fatal.log", "w" );
+	if (fout)
+	{
+		fprintf( fout, "Fatal error: %s\n", text );
+		fclose( fout );
+	}
+#endif
 
 	if( host_developer.value )
 	{

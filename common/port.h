@@ -54,7 +54,12 @@ GNU General Public License for more details.
 #if XASH_POSIX
 	#define PATH_SPLITTER "/"
 	#include <unistd.h>
-	#include <dlfcn.h>
+	#ifdef XASH_NSWITCH
+		#define SOLDER_LIBDL_COMPAT
+		#include <solder.h>
+	#else
+		#include <dlfcn.h>
+	#endif
 	#define O_BINARY 0 // O_BINARY is Windows extension
 	#define O_TEXT 0 // O_TEXT is Windows extension
 	// Windows functions to posix equivalent
