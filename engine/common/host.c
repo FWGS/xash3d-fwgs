@@ -990,6 +990,10 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #if TARGET_OS_IOS
 		const char *IOS_GetDocsDir();
 		Q_strncpy( host.rootdir, IOS_GetDocsDir(), sizeof(host.rootdir) );
+#elif XASH_NSWITCH
+		// we can't NOT be in the same directory as the NRO
+		host.rootdir[0] = '.';
+		host.rootdir[1] = '\0';
 #elif XASH_SDL == 2
 		char *szBasePath;
 

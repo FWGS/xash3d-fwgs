@@ -20,7 +20,7 @@ GNU General Public License for more details.
 #include <stdlib.h>
 #include <stdarg.h>
 
-#if defined(__APPLE__) || defined(__unix__) || defined(__HAIKU__)
+#if defined(__APPLE__) || defined(__unix__) || defined(__HAIKU__) || defined(__SWITCH__)
 	#define XASHLIB    "libxash." OS_LIB_EXT
 #elif _WIN32
 	#if !__MINGW32__ && _MSC_VER >= 1200

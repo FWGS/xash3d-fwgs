@@ -51,6 +51,19 @@ def configure(conf):
 	elif conf.env.DEST_OS == 'android': # Android doesn't need SDL2
 		for i in ['log']:
 			conf.check_cc(lib = i)
+	if conf.env.DEST_OS == 'nswitch':
+		# our pkg-config script for SDL2 tactically forgets to add -lstdc++ to LDFLAGS
+		conf.options.SDL2_SANITY_CHECK = False
+		conf.load('sdl2')
+		if not conf.env.HAVE_SDL2:
+			conf.fatal('SDL2 not availiable! Install switch-sdl2!')
+		conf.define('XASH_SDL', 2)
+		# find our dynamic linker
+		# conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
+		conf.env.append_unique('LDFLAGS', '-lsolderd')
+		# disallow undefined symbols
+		conf.env.append_unique('CXXFLAGS', '-Wl,--no-undefined')
+		conf.env.append_unique('CFLAGS', '-Wl,--no-undefined')
 	elif conf.options.FBDEV_SW:
 		# unused, XASH_LINUX without XASH_SDL gives fbdev & alsa support
 		# conf.define('XASH_FBDEV', 1)
@@ -158,6 +171,11 @@ def build(bld):
 	if bld.env.DEST_OS == 'android':
 		libs += ['LOG']
 		source += bld.path.ant_glob(['platform/android/*.cpp', 'platform/android/*.c', 'platform/linux/*.c'])
+
+	if bld.env.DEST_OS == 'nswitch':
+		libs += ['SOLDER']
+		source += bld.path.ant_glob(['platform/nswitch/*.c'])
+		is_cxx_link = True # switch-mesa requires libstdc++
 
 	# add client files
 	if not bld.env.DEDICATED:

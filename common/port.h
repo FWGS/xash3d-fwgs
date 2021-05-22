@@ -39,7 +39,12 @@ GNU General Public License for more details.
 
 	#if XASH_POSIX
 		#include <unistd.h>
-		#include <dlfcn.h>
+		#ifdef XASH_NSWITCH
+			#define SOLDER_LIBDL_COMPAT
+			#include <solder.h>
+		#else
+			#include <dlfcn.h>
+		#endif
 
 		#define PATH_SPLITTER "/"
 		#define HAVE_DUP

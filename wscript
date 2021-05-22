@@ -155,6 +155,12 @@ def configure(conf):
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
 		conf.options.GL     = False
+	elif conf.env.DEST_OS == 'nswitch':
+		conf.options.NO_VGUI          = True
+		conf.options.GL               = True
+		conf.options.SINGLE_BINARY    = True
+		conf.options.NO_ASYNC_RESOLVE = True
+		conf.options.USE_STBTT        = True
 	elif conf.env.MAGX:
 		conf.options.USE_SELECT       = True
 		conf.options.SDL12            = True
@@ -226,6 +232,14 @@ def configure(conf):
 	]
 
 	cflags, linkflags = conf.get_optimization_flags()
+
+	# on the Switch, allow undefined symbols by default, which is needed for libsolder to work
+	# we'll specifically disallow for the engine executable
+	# additionally, shared libs are linked without libc
+	if conf.env.DEST_OS == 'nswitch':
+		linkflags.remove('-Wl,--no-undefined')
+		conf.env.append_unique('LINKFLAGS_cshlib', ['-nostdlib', '-nostartfiles'])
+		conf.env.append_unique('LINKFLAGS_cxxshlib', ['-nostdlib', '-nostartfiles'])
 
 	# And here C++ flags starts to be treated separately
 	cxxflags = list(cflags)
@@ -322,7 +336,7 @@ def configure(conf):
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 	else:
-		if sys.platform != 'win32' and not conf.env.DEST_OS == 'android':
+		if sys.platform != 'win32' and conf.env.DEST_OS not in ['android', 'nswitch']:
 			conf.env.PREFIX = '/'
 
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
