@@ -418,7 +418,7 @@ class NintendoSwitch:
 	def linkflags(self):
 		linkflags = ['-fPIE', '-specs=%s/switch.specs' % self.libnx_dir]
 		# libsolder only supports sysv hashes and we need to build everything with -rdynamoc
-		linkflags += ['-rdynamic']
+		linkflags += ['-Wl,--hash-style=sysv', '-rdynamic']
 		# avoid pulling in and exposing mesa's internals, that crashes it for some god forsaken reason
 		linkflags += ['-Wl,--exclude-libs=libglapi.a', '-Wl,--exclude-libs=libdrm_nouveau.a']
 		return linkflags
