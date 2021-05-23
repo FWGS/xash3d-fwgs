@@ -48,6 +48,8 @@ void Android_SaveID( const char *id );
 #if XASH_NSWITCH
 void NSwitch_Init( void );
 void NSwitch_Shutdown( void );
+int NSwitch_GetScreenWidth( void );
+int NSwitch_GetScreenHeight( void );
 #endif
 
 /*

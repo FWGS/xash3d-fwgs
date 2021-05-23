@@ -183,6 +183,11 @@ Default build-depended cvar and constant values
 // You need add library loading code to library.c when adding new platform
 #endif // XASH_ANDROID || XASH_IOS || XASH_EMSCRIPTEN
 
+#if XASH_NSWITCH
+	#define DEFAULT_MODE_WIDTH  1280
+	#define DEFAULT_MODE_HEIGHT 720
+#endif // XASH_NSWITCH
+
 // allow override for developer/debug builds
 #ifndef DEFAULT_DEV
 	#define DEFAULT_DEV 0
