@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <ctype.h>
 #include <switch.h>
 #include <solder.h>
+#include <SDL.h>
 
 static int nxlink_sock = -1;
 
@@ -27,11 +28,34 @@ static int nxlink_sock = -1;
 const solder_export_t solder_extra_exports[] =
 {
 	SOLDER_EXPORT_SYMBOL(vsprintf),
-	SOLDER_EXPORT_SYMBOL(isalpha),
-	SOLDER_EXPORT_SYMBOL(isalnum),
-	SOLDER_EXPORT_SYMBOL(tolower),
-	SOLDER_EXPORT_SYMBOL(toupper),
+	SOLDER_EXPORT_SYMBOL( isalpha ),
+	SOLDER_EXPORT_SYMBOL( isalnum ),
+	SOLDER_EXPORT_SYMBOL( tolower ),
+	SOLDER_EXPORT_SYMBOL( toupper ),
 };
+
+void userAppInit( void )
+{
+	socketInitializeDefault();
+	nxlink_sock = nxlinkStdio();
+	if ( solder_init( 0 ) < 0 )
+	{
+		fprintf( stderr, "solder_init() failed: %s\n", solder_dlerror() );
+		fflush( stderr );
+		exit(1);
+	}
+}
+
+void userAppExit( void )
+{
+	solder_quit();
+	if ( nxlink_sock >= 0 )
+	{
+		close( nxlink_sock );
+		nxlink_sock = -1;
+	}
+	socketExit();
+}
 
 void Platform_ShellExecute( const char *path, const char *parms )
 {
@@ -40,36 +64,27 @@ void Platform_ShellExecute( const char *path, const char *parms )
 
 void NSwitch_Init( void )
 {
-	socketInitializeDefault();
-	nxlink_sock = nxlinkStdio();
-	if ( solder_init(0) < 0 )
-	{
-		fprintf( stderr, "solder_init() failed: %s\n", solder_dlerror() );
-		fflush( stderr );
-		exit(1);
-	}
-	printf("NSwitch_Init\n");
+	printf( "NSwitch_Init\n" );
 }
 
 void NSwitch_Shutdown( void )
 {
-	printf("NSwitch_Shutdown\n");
-	solder_quit();
-	if (nxlink_sock >= 0)
-		close(nxlink_sock);
-	socketExit();
+	printf( "NSwitch_Shutdown\n" );
+	// force deinit everything SDL-related to avoid issues with changing games
+	if ( SDL_WasInit( 0 ) )
+		SDL_Quit();
 }
 
 int NSwitch_GetScreenWidth( void )
 {
-	if (appletGetOperationMode() == AppletOperationMode_Console)
+	if ( appletGetOperationMode() == AppletOperationMode_Console )
 		return 1920; // docked
 	return 1280; // undocked
 }
 
 int NSwitch_GetScreenHeight( void )
 {
-	if (appletGetOperationMode() == AppletOperationMode_Console)
+	if ( appletGetOperationMode() == AppletOperationMode_Console )
 		return 1080; // docked
 	return 720; // undocked
 }
