@@ -9,8 +9,6 @@
 #include "soundlib/soundlib.h"
 #include "library.h"
 
-#define SAMPLES_PER_SEC ( SOUND_48k / BYTES_PER_SAMPLE )
-
 extern convar_t voice_scale;
 
 typedef struct voice_state_s
