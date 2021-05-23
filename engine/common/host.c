@@ -852,6 +852,9 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	char ticrate[16];
 	int len;
 
+	// in case this is a restart, zero out the host structure
+	memset( &host, 0, sizeof( host ) );
+
 	// some commands may turn engine into infinite loop,
 	// e.g. xash.exe +game xash -game xash
 	// so we clear all cmd_args, but leave dbg states as well

@@ -375,6 +375,8 @@ void IN_Shutdown( void )
 #endif
 
 	Touch_Shutdown();
+
+	Key_FreeBindings();
 }
 
 
