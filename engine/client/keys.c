@@ -950,6 +950,24 @@ int Key_ToUpper( int keynum )
  * +--+--+--+--+--+--+--+--+--+--+--+--+--+
  */
 
+/*
+============
+Key_FreeBindings
+============
+*/
+void Key_FreeBindings( void )
+{
+	int i;
+	for( i = 0; i < 256; i++ )
+	{
+		if( keys[i].binding )
+		{
+			Mem_Free( (char *)keys[i].binding );
+			keys[i].binding = NULL;
+		}
+	}
+}
+
 #define MAX_OSK_ROWS 13
 #define MAX_OSK_LINES 4
 

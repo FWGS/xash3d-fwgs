@@ -96,6 +96,9 @@ qboolean SNDDMA_Init( void )
 	SDL_setenv( "PULSE_PROP_application.name", GI->title, 1 );
 	SDL_setenv( "PULSE_PROP_media.role", "game", 1 );
 
+	// zero out the dma struct in case this is a restart
+	memset( &dma, 0, sizeof( dma ) );
+
 	memset( &desired, 0, sizeof( desired ) );
 	desired.freq     = SOUND_DMA_SPEED;
 	desired.format   = AUDIO_S16LSB;
