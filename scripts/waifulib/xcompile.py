@@ -341,7 +341,7 @@ class NintendoSwitch:
 				break
 		else:
 			ctx.fatal('Set %s environment variable pointing to the DEVKITPRO home!' %
-				' or '.join(ANDROID_NDK_ENVVARS))
+				' or '.join(NSWITCH_ENVVARS))
 
 		self.dkp_dir = os.path.abspath(self.dkp_dir)
 
