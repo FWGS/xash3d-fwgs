@@ -53,8 +53,7 @@ def configure(conf):
 			conf.fatal('SDL2 not availiable! Install switch-sdl2!')
 		conf.define('XASH_SDL', 2)
 		# find our dynamic linker
-		# conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
-		conf.env.append_unique('LDFLAGS', '-lsolderd')
+		conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
 		# disallow undefined symbols
 		conf.env.append_unique('CXXFLAGS', '-Wl,--no-undefined')
 		conf.env.append_unique('CFLAGS', '-Wl,--no-undefined')
