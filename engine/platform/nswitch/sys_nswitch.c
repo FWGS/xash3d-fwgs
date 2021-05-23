@@ -59,3 +59,17 @@ void NSwitch_Shutdown( void )
 		close(nxlink_sock);
 	socketExit();
 }
+
+int NSwitch_GetScreenWidth( void )
+{
+	if (appletGetOperationMode() == AppletOperationMode_Console)
+		return 1920; // docked
+	return 1280; // undocked
+}
+
+int NSwitch_GetScreenHeight( void )
+{
+	if (appletGetOperationMode() == AppletOperationMode_Console)
+		return 1080; // docked
+	return 720; // undocked
+}
