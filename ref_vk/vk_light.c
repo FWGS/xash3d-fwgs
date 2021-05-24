@@ -19,7 +19,7 @@ typedef struct {
 
 static void loadRadData( const model_t *map, const char *filename ) {
 	fs_offset_t size;
-	const byte *data, *buffer = gEngine.COM_LoadFile( filename, &size, false);
+	byte *data, *buffer = gEngine.COM_LoadFile( filename, &size, false);
 
 	memset(g_emissive_texture_table, 0, sizeof(g_emissive_texture_table));
 

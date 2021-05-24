@@ -112,7 +112,7 @@ void VK_DescriptorShutdown( void )
 	vkDestroyDescriptorSetLayout(vk_core.device, vk_desc.one_uniform_buffer_layout, NULL);
 }
 
-void VK_DescriptorsCreate(const vk_descriptors_t *desc)
+void VK_DescriptorsCreate(vk_descriptors_t *desc)
 {
 	{
 		VkDescriptorSetLayoutCreateInfo dslci = {
@@ -174,7 +174,7 @@ void VK_DescriptorsCreate(const vk_descriptors_t *desc)
 	}
 }
 
-void VK_DescriptorsWrite(vk_descriptors_t *desc)
+void VK_DescriptorsWrite(const vk_descriptors_t *desc)
 {
 	VkWriteDescriptorSet wds[16];
 	ASSERT(ARRAYSIZE(wds) >= desc->num_bindings);
@@ -217,7 +217,7 @@ void VK_DescriptorsWrite(vk_descriptors_t *desc)
 	vkUpdateDescriptorSets(vk_core.device, desc->num_bindings, wds, 0, NULL);
 }
 
-void VK_DescriptorsDestroy(vk_descriptors_t *desc)
+void VK_DescriptorsDestroy(const vk_descriptors_t *desc)
 {
 	vkDestroyDescriptorPool(vk_core.device, desc->desc_pool, NULL);
 	vkDestroyPipelineLayout(vk_core.device, desc->pipeline_layout, NULL);

@@ -691,6 +691,7 @@ VkShaderModule loadShader(const char *filename) {
 	};
 	VkShaderModule shader;
 	byte* buf = gEngine.COM_LoadFile( filename, &size, false);
+	uint32_t *pcode;
 
 	if (!buf)
 	{
@@ -703,7 +704,9 @@ VkShaderModule loadShader(const char *filename) {
 
 	smci.codeSize = size;
 	//smci.pCode = (const uint32_t*)buf;
-	memcpy(&smci.pCode, &buf, sizeof(void*));
+	//memcpy(&smci.pCode, &buf, sizeof(void*));
+	memcpy(&pcode, &buf, sizeof(pcode));
+	smci.pCode = pcode;
 
 	XVK_CHECK(vkCreateShaderModule(vk_core.device, &smci, NULL, &shader));
 	Mem_Free(buf);

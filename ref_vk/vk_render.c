@@ -958,7 +958,7 @@ void VK_RenderModelDynamicCommit( void ) {
 	if (g_dynamic_model.model.num_geometries > 0) {
 		g_dynamic_model.model.dynamic = true;
 		VK_RenderModelInit( &g_dynamic_model.model );
-		VK_RenderModelDraw( &g_dynamic_model );
+		VK_RenderModelDraw( &g_dynamic_model.model );
 	}
 
 	g_dynamic_model.model.debug_name = NULL;

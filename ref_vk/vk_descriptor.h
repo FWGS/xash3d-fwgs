@@ -51,8 +51,8 @@ typedef struct {
 } vk_descriptors_t;
 
 void VK_DescriptorsCreate(vk_descriptors_t *desc);
-void VK_DescriptorsWrite(vk_descriptors_t *desc);
-void VK_DescriptorsDestroy(vk_descriptors_t *desc);
+void VK_DescriptorsWrite(const vk_descriptors_t *desc);
+void VK_DescriptorsDestroy(const vk_descriptors_t *desc);
 
 // typedef enum {
 // 	VK_DescType_SingleTexture,
