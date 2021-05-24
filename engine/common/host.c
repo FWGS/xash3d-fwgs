@@ -883,7 +883,10 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	// HACKHACK: Quake console is always allowed
 	// TODO: determine if we are running QWrap more reliable
-	if( Sys_CheckParm( "-console" ) || !Q_stricmp( SI.exeName, "quake" ))
+	// HACK: since we can't pass command line on Switch, console is always on
+#if !XASH_NSWITCH
+	if( Sys_CheckParm( "-console" ) || !Q_stricmp( SI.exeName, "quake" ) )
+#endif
 		host.allow_console = true;
 
 	if( Sys_CheckParm( "-dev" ))
