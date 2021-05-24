@@ -1508,7 +1508,7 @@ void Field_KeyDownEvent( field_t *edit, int key )
 		return;
 	}
 
-	if( key == K_BACKSPACE )
+	if( key == K_BACKSPACE || key == K_B_BUTTON )
 	{
 		if( edit->cursor > 0 )
 		{
@@ -1520,7 +1520,7 @@ void Field_KeyDownEvent( field_t *edit, int key )
 		return;
 	}
 
-	if( key == K_RIGHTARROW )
+	if( key == K_RIGHTARROW || key == K_DPAD_RIGHT )
 	{
 		if( edit->cursor < len ) edit->cursor = Con_UtfMoveRight( edit->buffer, edit->cursor, edit->widthInChars );
 		if( edit->cursor >= edit->scroll + edit->widthInChars && edit->cursor <= len )
@@ -1528,7 +1528,7 @@ void Field_KeyDownEvent( field_t *edit, int key )
 		return;
 	}
 
-	if( key == K_LEFTARROW )
+	if( key == K_LEFTARROW || key == K_DPAD_LEFT )
 	{
 		if( edit->cursor > 0 ) edit->cursor= Con_UtfMoveLeft( edit->buffer, edit->cursor );
 		if( edit->cursor < edit->scroll ) edit->scroll--;
@@ -1717,8 +1717,8 @@ void Key_Console( int key )
 		return;
 	}
 
-	// enter finishes the line
-	if( key == K_ENTER || key == K_KP_ENTER )
+	// enter or A finish the line
+	if( key == K_ENTER || key == K_KP_ENTER || key == K_A_BUTTON )
 	{
 		// if not in the game explicitly prepent a slash if needed
 		if( cls.state != ca_active && con.input.buffer[0] != '\\' && con.input.buffer[0] != '/' )
@@ -1757,7 +1757,7 @@ void Key_Console( int key )
 	}
 
 	// command completion
-	if( key == K_TAB )
+	if( key == K_TAB || key == K_X_BUTTON )
 	{
 		Con_CompleteCommand( &con.input );
 		Con_Bottom();
