@@ -161,4 +161,8 @@ def get_optimization_flags(conf):
 	if conf.options.POLLY:
 		cflags   += conf.get_flags_by_compiler(POLLY_CFLAGS, conf.env.COMPILER_CC)
 
+	if conf.env.DEST_OS == 'nswitch' and conf.options.BUILD_TYPE == 'debug':
+		# enable remote debugger
+		cflags.append('-DNSWITCH_DEBUG')
+
 	return cflags, linkflags

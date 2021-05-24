@@ -22,7 +22,9 @@ GNU General Public License for more details.
 #include <solder.h>
 #include <SDL.h>
 
+#ifdef NSWITCH_DEBUG
 static int nxlink_sock = -1;
+#endif
 
 // HACKHACK: force these lads to link in
 const solder_export_t solder_extra_exports[] =
@@ -37,7 +39,9 @@ const solder_export_t solder_extra_exports[] =
 void userAppInit( void )
 {
 	socketInitializeDefault();
+#ifdef NSWITCH_DEBUG
 	nxlink_sock = nxlinkStdio();
+#endif
 	if ( solder_init( 0 ) < 0 )
 	{
 		fprintf( stderr, "solder_init() failed: %s\n", solder_dlerror() );
@@ -49,11 +53,13 @@ void userAppInit( void )
 void userAppExit( void )
 {
 	solder_quit();
+#ifdef NSWITCH_DEBUG
 	if ( nxlink_sock >= 0 )
 	{
 		close( nxlink_sock );
 		nxlink_sock = -1;
 	}
+#endif
 	socketExit();
 }
 
