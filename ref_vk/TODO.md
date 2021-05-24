@@ -239,3 +239,9 @@
 ## 2021-05-..-17, E93, E94
 - [x] rtx: improve AS lifetime/management; i.e. pre-cache them, etc
 - [x] add debug names to all of the buffers
+
+## 2021-05-22, E97
+- [x] add nvidia aftermath sdk
+
+# 2021-05-24, E98
+- [x] rtx: simplify AS tracking

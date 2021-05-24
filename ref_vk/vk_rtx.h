@@ -3,30 +3,18 @@
 #include "vk_core.h"
 
 struct vk_render_model_s;
+struct vk_ray_model_s;
 
 typedef struct {
 	struct vk_render_model_s *model;
-	VkBuffer buffer;
+	VkBuffer buffer; // TODO must be uniform for all models. Shall we read it directly from vk_render?
 } vk_ray_model_init_t;
 
-qboolean VK_RayModelInit( vk_ray_model_init_t model_init);
-void VK_RayModelDestroy( struct vk_render_model_s *model );
-
-typedef struct {
-	//int lightmap, texture;
-	//int render_mode;
-	int texture_id;
-	uint32_t max_vertex;
-	uint32_t element_count;
-	uint32_t index_offset, vertex_offset;
-	VkBuffer buffer;
-	const matrix3x4 *transform_row;
-	struct { float r,g,b; } emissive;
-} vk_ray_model_dynamic_t;
+struct vk_ray_model_s *VK_RayModelInit( vk_ray_model_init_t model_init );
+void VK_RayModelDestroy( struct vk_ray_model_s *model );
 
 void VK_RayFrameBegin( void );
-void VK_RayFrameAddModel( const struct vk_render_model_s *model, const matrix3x4 *transform_row );
-void VK_RayFrameAddModelDynamic(VkCommandBuffer cmdbuf, const vk_ray_model_dynamic_t* model);
+void VK_RayFrameAddModel( struct vk_ray_model_s *model, const matrix3x4 *transform_row );
 
 typedef struct {
 	VkCommandBuffer cmdbuf;

@@ -80,7 +80,7 @@ typedef struct {
 	int surface_index;
 } vk_render_geometry_t;
 
-struct vk_accel_s;
+struct vk_ray_model_s;
 
 typedef struct vk_render_model_s {
 	const char *debug_name;
@@ -93,11 +93,7 @@ typedef struct vk_render_model_s {
 	// This model will be one-frame only, its buffers are not preserved between frames
 	qboolean dynamic;
 
-	struct {
-		VkAccelerationStructureKHR blas;
-		uint32_t kusochki_offset;
-		struct vk_accel_s *cache_accel;
-	} rtx;
+	struct vk_ray_model_s *ray_model;
 } vk_render_model_t;
 
 qboolean VK_RenderModelInit( vk_render_model_t* model );

@@ -765,34 +765,6 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 
 	ASSERT(vk_core.rtx);
 
-	// FIXME fix me
-	if (!vk_core.rtx) {
-		for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
-			const draw_command_t *const draw = g_render_state.draw_commands + i;
-			const vk_buffer_alloc_t *vertex_buffer = getBufferFromHandle( draw->draw.vertex_buffer );
-			const vk_buffer_alloc_t *index_buffer = draw->draw.index_buffer != InvalidHandle ? getBufferFromHandle( draw->draw.index_buffer ) : NULL;
-			const uint32_t vertex_offset = vertex_buffer->buffer_offset_in_units + draw->draw.vertex_offset;
-
-			// TODO there's a more complex story with lifetimes and rebuilds && vertex_buffer->lifetime < LifetimeSingleFrame)
-			// TODO it would make sense to join logical models into a single ray model
-			// but here we've completely lost this info, as models are now just a stream
-			// of independent draws
-
-			const vk_ray_model_dynamic_t dynamic_model = {
-				.element_count = draw->draw.element_count,
-				.max_vertex = vertex_buffer->count, // TODO this is an upper bound for brushes at least, it can be lowered
-				.index_offset = index_buffer ? (draw->draw.index_offset + index_buffer->buffer_offset_in_units) : UINT32_MAX,
-				.vertex_offset = (draw->draw.vertex_offset + vertex_buffer->buffer_offset_in_units),
-				.buffer = g_render.buffer.buffer,
-				.transform_row = &draw->transform,
-				.emissive = { draw->draw.emissive.r, draw->draw.emissive.g, draw->draw.emissive.b },
-				.texture_id = draw->draw.texture,
-			};
-
-			VK_RayFrameAddModelDynamic(cmdbuf, &dynamic_model);
-		}
-	}
-
 	{
 		const vk_ray_frame_render_args_t args = {
 			.cmdbuf = cmdbuf,
@@ -849,8 +821,8 @@ qboolean VK_RenderModelInit( vk_render_model_t *model ) {
 			.buffer = g_render.buffer.buffer,
 			.model = model,
 		};
-		model->rtx.blas = VK_NULL_HANDLE;
-		return VK_RayModelInit(args);
+		model->ray_model = VK_RayModelInit(args);
+		return !!model->ray_model;
 	}
 
 	// TODO pre-bake optimal draws
@@ -859,13 +831,13 @@ qboolean VK_RenderModelInit( vk_render_model_t *model ) {
 
 void VK_RenderModelDestroy( vk_render_model_t* model ) {
 	if (vk_core.rtx) {
-		VK_RayModelDestroy(model);
+		VK_RayModelDestroy(model->ray_model);
 	}
 }
 
 void VK_RenderModelDraw( vk_render_model_t* model ) {
 	if (vk_core.rtx) {
-		VK_RayFrameAddModel(model, g_render_state.model);
+		VK_RayFrameAddModel(model->ray_model, (const matrix3x4*)g_render_state.model);
 		return;
 	}
 
@@ -940,8 +912,6 @@ void VK_RenderModelDynamicBegin( const char *debug_name, int render_mode ) {
 	g_dynamic_model.model.geometries = g_dynamic_model.geometries;
 	g_dynamic_model.model.num_geometries = 0;
 	g_dynamic_model.model.render_mode = render_mode;
-	g_dynamic_model.model.rtx.blas = VK_NULL_HANDLE;
-	g_dynamic_model.model.rtx.kusochki_offset = 0;
 }
 void VK_RenderModelDynamicAddGeometry( const vk_render_geometry_t *geom ) {
 	ASSERT(g_dynamic_model.model.geometries);
