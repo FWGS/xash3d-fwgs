@@ -31,15 +31,33 @@ GNU General Public License for more details.
 #define XASH_NOCONHOST 1
 #endif
 
+#if XASH_NSWITCH
+#include <switch.h>
+#endif
+
 static char szGameDir[128]; // safe place to keep gamedir
 static int g_iArgc;
 static char **g_pszArgv;
 
 void Launcher_ChangeGame( const char *progname )
 {
+#if XASH_NSWITCH
+	char argv[4096];
+	const char *exe = g_pszArgv[0];
+	// envSetNextLoad wants a single command line string
+	// TODO: carry over the old argv
+	snprintf( argv, sizeof( argv ), "%s -game %s", exe, progname );
+	// just restart the entire thing
+	printf( "envSetNextLoad exe: `%s`\n", exe );
+	printf( "envSetNextLoad argv:\n`%s`\n", argv );
+	Host_Shutdown( );
+	envSetNextLoad( exe, argv );
+	exit( 0 );
+#else
 	strncpy( szGameDir, progname, sizeof( szGameDir ) - 1 );
 	Host_Shutdown( );
 	exit( Host_Main( g_iArgc, g_pszArgv, szGameDir, 1, &Launcher_ChangeGame ) );
+#endif
 }
 
 #if XASH_NOCONHOST
