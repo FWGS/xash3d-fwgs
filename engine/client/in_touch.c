@@ -1839,7 +1839,8 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 		// Hack for keyboard, hope it help
 		if( cls.key_dest == key_console || cls.key_dest == key_message )
 		{
-			Key_EnableTextInput( true, true );
+			if ( type == event_down ) // don't pop it again on event_up
+				Key_EnableTextInput( true, true );
 			if( cls.key_dest == key_console )
 			{
 				static float y1 = 0;
