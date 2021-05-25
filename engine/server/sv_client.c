@@ -1751,7 +1751,7 @@ void SV_UserinfoChanged( sv_client_t *cl )
 	// rate command
 	val = Info_ValueForKey( cl->userinfo, "rate" );
 	if( COM_CheckString( val ) )
-		cl->netchan.rate = bound( MIN_RATE, Q_atoi( val ), MAX_RATE );
+		cl->netchan.rate = bound( sv_minrate.value, Q_atoi( val ), sv_maxrate.value );
 	else cl->netchan.rate = DEFAULT_RATE;
 
 	// movement prediction
@@ -1775,8 +1775,7 @@ void SV_UserinfoChanged( sv_client_t *cl )
 	{
 		if( Q_atoi( val ) != 0 )
 		{
-			int i = bound( 10, Q_atoi( val ), 300 );
-			cl->cl_updaterate = 1.0 / i;
+			cl->cl_updaterate = 1.0 / bound( sv_minupdaterate.value, Q_atoi( val ), sv_maxupdaterate.value );
 		}
 		else cl->cl_updaterate = 0.0;
 	}
