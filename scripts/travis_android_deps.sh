@@ -3,7 +3,7 @@
 echo "Download HLSDK"
 
 cd $TRAVIS_BUILD_DIR
-git clone --depth 1 --recursive https://github.com/FWGS/hlsdk-xash3d hlsdk || exit 1
+git clone --depth 1 --recursive https://github.com/FWGS/hlsdk-xash3d -b mobile_hacks hlsdk || exit 1
 
 echo "Download and unpack Android SDK"
 mkdir -p sdk && cd sdk
