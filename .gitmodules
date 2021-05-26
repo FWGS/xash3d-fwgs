@@ -1,6 +1,7 @@
 [submodule "mainui"]
 	path = mainui
-	url = https://github.com/FWGS/mainui_cpp
+	url = https://github.com/fgsfdsfgs/xash3d_mainui
+	branch = switch
 [submodule "ref_gl/nanogl"]
 	path = ref_gl/nanogl
 	url = https://github.com/FWGS/nanogl
