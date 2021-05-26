@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <switch.h>
 #include <solder.h>
 #include <SDL.h>
@@ -29,11 +31,12 @@ static int nxlink_sock = -1;
 // HACKHACK: force these lads to link in
 const solder_export_t solder_extra_exports[] =
 {
-	SOLDER_EXPORT_SYMBOL(vsprintf),
+	SOLDER_EXPORT_SYMBOL( vsprintf ),
 	SOLDER_EXPORT_SYMBOL( isalpha ),
 	SOLDER_EXPORT_SYMBOL( isalnum ),
 	SOLDER_EXPORT_SYMBOL( tolower ),
 	SOLDER_EXPORT_SYMBOL( toupper ),
+	SOLDER_EXPORT_SYMBOL( stpcpy ),
 };
 
 void userAppInit( void )
