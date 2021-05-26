@@ -67,6 +67,10 @@ typedef struct vk_ray_model_s {
 	uint32_t kusochki_offset;
 	qboolean dynamic;
 	qboolean taken;
+
+	struct {
+		uint32_t as_offset;
+	} debug;
 } vk_ray_model_t;
 
 typedef struct {
@@ -230,6 +234,7 @@ static vk_ray_model_t *getModelFromCache(int num_geoms, const VkAccelerationStru
 				break;
 
 			if (model->geoms[j].flags != geoms[j].flags)
+				break;
 
 			if (geoms[j].geometryType == VK_GEOMETRY_TYPE_TRIANGLES_KHR) {
 				// TODO what else should we compare?
@@ -262,7 +267,7 @@ static vk_ray_model_t *getModelFromCache(int num_geoms, const VkAccelerationStru
 	return model;
 }
 
-static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_build_args_t *args) {
+static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_build_args_t *args, vk_ray_model_t *model) {
 	qboolean should_create = *args->p_accel == VK_NULL_HANDLE;
 	qboolean is_update = false; //!should_create && args->dynamic;
 
@@ -326,12 +331,21 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 		XVK_CHECK(vkCreateAccelerationStructureKHR(vk_core.device, &asci, NULL, args->p_accel));
 		SET_DEBUG_NAME(*args->p_accel, VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR, args->debug_name);
 
+		if (model) {
+			model->size = asci.size;
+			model->debug.as_offset = buffer_offset;
+		}
+
 		// gEngine.Con_Reportf("AS=%p, n_geoms=%u, build: %#x %d %#x\n", *args->p_accel, args->n_geoms, buffer_offset, build_size.accelerationStructureSize, buffer_offset + build_size.accelerationStructureSize);
 	}
 
 	// If not enough data for building, just create
 	if (!cmdbuf || !args->build_ranges)
 		return true;
+
+	if (model) {
+		ASSERT(model->size >= build_size.accelerationStructureSize);
+	}
 
 	build_info.dstAccelerationStructure = *args->p_accel;
 	build_info.scratchData.deviceAddress = g_rtx.scratch_buffer_addr + g_rtx.frame.scratch_offset;
@@ -375,7 +389,7 @@ static void createTlas( VkCommandBuffer cmdbuf ) {
 		.p_accel = &g_rtx.tlas,
 		.debug_name = "TLAS",
 	};
-	if (!createOrUpdateAccelerationStructure(cmdbuf, &asrgs)) {
+	if (!createOrUpdateAccelerationStructure(cmdbuf, &asrgs, NULL)) {
 		gEngine.Host_Error("Could not create/update TLAS\n");
 		return;
 	}
@@ -390,11 +404,7 @@ void VK_RayNewMap( void ) {
 	// Clear model cache
 	for (int i = 0; i < ARRAYSIZE(g_rtx.models_cache); ++i) {
 		vk_ray_model_t *model = g_rtx.models_cache + i;
-		if (model->as == VK_NULL_HANDLE)
-			break;
-
-		vkDestroyAccelerationStructureKHR(vk_core.device, model->as, NULL);
-		memset(model, 0, sizeof(*model));
+		VK_RayModelDestroy(model);
 	}
 
 	// Recreate tlas
@@ -475,6 +485,43 @@ static void createPipeline( void )
 	ASSERT(g_rtx.pipeline);
 }
 
+static void assertNoOverlap( uint32_t o1, uint32_t s1, uint32_t o2, uint32_t s2 ) {
+	uint32_t min_offset, min_size;
+	uint32_t max_offset;
+
+	if (o1 < o2) {
+		min_offset = o1;
+		min_size = s1;
+		max_offset = o2;
+	} else {
+		min_offset = o2;
+		min_size = s2;
+		max_offset = o1;
+	}
+
+	ASSERT(min_offset + min_size <= max_offset);
+}
+
+static void validateModelPair( const vk_ray_model_t *m1, const vk_ray_model_t *m2 ) {
+	if (m1 == m2) return;
+	if (!m2->num_geoms) return;
+	assertNoOverlap(m1->debug.as_offset, m1->size, m2->debug.as_offset, m2->size);
+	if (m1->taken && m2->taken)
+		assertNoOverlap(m1->kusochki_offset, m1->num_geoms, m2->kusochki_offset, m2->num_geoms);
+}
+
+static void validateModel( const vk_ray_model_t *model ) {
+	for (int j = 0; j < ARRAYSIZE(g_rtx.models_cache); ++j) {
+		validateModelPair(model, g_rtx.models_cache + j);
+	}
+}
+
+static void validateModels( void ) {
+	for (int i = 0; i < ARRAYSIZE(g_rtx.models_cache); ++i) {
+		validateModel(g_rtx.models_cache + i);
+	}
+}
+
 static void validateModelData( void ) {
 	const vk_kusok_data_t* kusochki = g_rtx.kusochki_buffer.mapped;
 	ASSERT(g_rtx.frame.num_models <= ARRAYSIZE(g_rtx.frame.models));
@@ -500,6 +547,12 @@ static void validateModelData( void ) {
 			// uint32_t vertex_offset;
 			// uint32_t triangles;
 			// uint32_t debug_is_emissive;
+		}
+
+		// Check for as model memory aliasing
+		for (int j = 0; j < g_rtx.frame.num_models; ++j) {
+			const vk_ray_model_t *model2 = g_rtx.frame.models[j].model;
+			validateModelPair(model, model2);
 		}
 	}
 }
@@ -1101,7 +1154,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 				.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 			};
 			XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
-			result = createOrUpdateAccelerationStructure(vk_core.cb, &asrgs);
+			result = createOrUpdateAccelerationStructure(vk_core.cb, &asrgs, ray_model);
 			XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
 
 			if (!result)
@@ -1115,12 +1168,15 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 					.commandBufferCount = 1,
 					.pCommandBuffers = &vk_core.cb,
 				};
-				XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
-				XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
-				g_rtx.frame.scratch_offset = 0;
 
 				ray_model->kusochki_offset = kusochki_count_offset;
 				ray_model->dynamic = args.model->dynamic;
+
+				validateModel(ray_model);
+
+				XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
+				XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
+				g_rtx.frame.scratch_offset = 0;
 			}
 		}
 	}
@@ -1143,6 +1199,7 @@ void VK_RayModelDestroy( struct vk_ray_model_s *model ) {
 		//gEngine.Con_Reportf("Model %s destroying AS=%p blas_index=%d\n", model->debug_name, model->rtx.blas, blas_index);
 
 		vkDestroyAccelerationStructureKHR(vk_core.device, model->as, NULL);
+		Mem_Free(model->geoms);
 		memset(model, 0, sizeof(*model));
 	}
 }
