@@ -1508,7 +1508,7 @@ void Field_KeyDownEvent( field_t *edit, int key )
 		return;
 	}
 
-	if( key == K_BACKSPACE || key == K_B_BUTTON )
+	if( key == K_BACKSPACE || key == K_X_BUTTON )
 	{
 		if( edit->cursor > 0 )
 		{
@@ -1757,7 +1757,7 @@ void Key_Console( int key )
 	}
 
 	// command completion
-	if( key == K_TAB || key == K_X_BUTTON )
+	if( key == K_TAB || key == K_L2_BUTTON )
 	{
 		Con_CompleteCommand( &con.input );
 		Con_Bottom();
