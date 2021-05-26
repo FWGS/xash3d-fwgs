@@ -884,7 +884,7 @@ static void R_CheckVBO( void )
 	if( glConfig.max_texture_units < 3 )
 		disable = true;
 
-#ifdef XASH_MOBILE_PLATFORM
+#if defined XASH_MOBILE_PLATFORM && !defined XASH_NSWITCH
 	// VideoCore4 drivers have a problem with mixing VBO and client arrays
 	// Disable it, as there is no suitable workaround here
 	if( Q_stristr( glConfig.renderer_string, "VideoCore IV" ) || Q_stristr( glConfig.renderer_string, "vc4" ) )
