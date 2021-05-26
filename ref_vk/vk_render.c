@@ -821,7 +821,7 @@ qboolean VK_RenderModelInit( vk_render_model_t *model ) {
 			.buffer = g_render.buffer.buffer,
 			.model = model,
 		};
-		model->ray_model = VK_RayModelInit(args);
+		model->ray_model = VK_RayModelCreate(args);
 		return !!model->ray_model;
 	}
 

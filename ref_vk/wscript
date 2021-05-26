@@ -47,6 +47,7 @@ def configure(conf):
 		conf.env.LIB_AFTERMATH = [lib]
 		conf.end_msg('SDK: {0}, includes: {1}, libpath: {2}, lib: {3}'.format(path, conf.env.INCLUDES_AFTERMATH, conf.env.LIBPATH_AFTERMATH, conf.env.LIB_AFTERMATH))
 
+	# TODO if debug
 	conf.env.GLSLCFLAGS += ['-g']
 
 def build(bld):
@@ -75,6 +76,8 @@ def build(bld):
 		# includes.append(bld.env.AFTERMATH_INCLUDE)
 		# libs.append(bld.env.AFTERMATH_LIB)
 		# libpath.append(bld.env.AFTERMATH_LIBDIR)
+
+	bld.env.CFLAGS += ["/WX"]
 
 	bld.shlib(
 		source   = source,

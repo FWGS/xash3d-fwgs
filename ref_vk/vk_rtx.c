@@ -345,6 +345,42 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 	return true;
 }
 
+static void createTlas( VkCommandBuffer cmdbuf ) {
+	const VkAccelerationStructureGeometryKHR tl_geom[] = {
+		{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+			//.flags = VK_GEOMETRY_OPAQUE_BIT,
+			.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
+			.geometry.instances =
+				(VkAccelerationStructureGeometryInstancesDataKHR){
+					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
+					.data.deviceAddress = getBufferDeviceAddress(g_rtx.tlas_geom_buffer.buffer),
+					.arrayOfPointers = VK_FALSE,
+				},
+		},
+	};
+	const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = { cmdbuf == VK_NULL_HANDLE ? MAX_ACCELS : g_rtx.frame.num_models };
+	const VkAccelerationStructureBuildRangeInfoKHR tl_build_range = {
+		.primitiveCount = g_rtx.frame.num_models,
+	};
+	const VkAccelerationStructureBuildRangeInfoKHR* tl_build_ranges[] = { &tl_build_range };
+	const as_build_args_t asrgs = {
+		.geoms = tl_geom,
+		.max_prim_counts = tl_max_prim_counts,
+		.build_ranges =  cmdbuf == VK_NULL_HANDLE ? NULL : tl_build_ranges,
+		.n_geoms = ARRAYSIZE(tl_geom),
+		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+		// we can't really rebuild TLAS because instance count changes are not allowed .dynamic = true,
+		.dynamic = false,
+		.p_accel = &g_rtx.tlas,
+		.debug_name = "TLAS",
+	};
+	if (!createOrUpdateAccelerationStructure(cmdbuf, &asrgs)) {
+		gEngine.Host_Error("Could not create/update TLAS\n");
+		return;
+	}
+}
+
 void VK_RayNewMap( void ) {
 	ASSERT(vk_core.rtx);
 
@@ -369,34 +405,7 @@ void VK_RayNewMap( void ) {
 			g_rtx.tlas = VK_NULL_HANDLE;
 		}
 
-		const VkAccelerationStructureGeometryKHR tl_geom[] = {
-			{
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-				//.flags = VK_GEOMETRY_OPAQUE_BIT,
-				.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
-				.geometry.instances =
-					(VkAccelerationStructureGeometryInstancesDataKHR){
-						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
-						.data.deviceAddress = getBufferDeviceAddress(g_rtx.tlas_geom_buffer.buffer),
-						.arrayOfPointers = VK_FALSE,
-					},
-			},
-		};
-		const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = { MAX_ACCELS };
-		const as_build_args_t asrgs = {
-			.geoms = tl_geom,
-			.max_prim_counts = tl_max_prim_counts,
-			.build_ranges = NULL,
-			.n_geoms = 1,
-			.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
-			// we can't really rebuild TLAS because instance count changes are not allowed .dynamic = true,
-			.dynamic = false,
-			.p_accel = &g_rtx.tlas,
-			.debug_name = "TLAS",
-		};
-		if (!createOrUpdateAccelerationStructure(VK_NULL_HANDLE, &asrgs)) {
-			gEngine.Host_Error("Could not create TLAS\n");
-		}
+		createTlas(VK_NULL_HANDLE);
 	}
 
 	// Upload light grid
@@ -557,39 +566,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	// 2. Build TLAS
 	if (g_rtx.frame.num_models > 0)
 	{
-		const VkAccelerationStructureGeometryKHR tl_geom[] = {
-			{
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-				//.flags = VK_GEOMETRY_OPAQUE_BIT,
-				.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
-				.geometry.instances =
-					(VkAccelerationStructureGeometryInstancesDataKHR){
-						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
-						.data.deviceAddress = getBufferDeviceAddress(g_rtx.tlas_geom_buffer.buffer),
-						.arrayOfPointers = VK_FALSE,
-					},
-			},
-		};
-		const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = { g_rtx.frame.num_models };
-		const VkAccelerationStructureBuildRangeInfoKHR tl_build_range = {
-			.primitiveCount = g_rtx.frame.num_models,
-		};
-		const VkAccelerationStructureBuildRangeInfoKHR* tl_build_ranges[] = { &tl_build_range };
-		const as_build_args_t asrgs = {
-			.geoms = tl_geom,
-			.max_prim_counts = tl_max_prim_counts,
-			.build_ranges = tl_build_ranges,
-			.n_geoms = ARRAYSIZE(tl_geom),
-			.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
-			// we can't really rebuild TLAS because instance count changes are not allowed .dynamic = true,
-			.dynamic = false,
-			.p_accel = &g_rtx.tlas,
-			.debug_name = "TLAS...",
-		};
-		if (!createOrUpdateAccelerationStructure(cmdbuf, &asrgs)) {
-			gEngine.Host_Error("Could not update TLAS\n");
-			return;
-		}
+		createTlas(cmdbuf);
 	}
 
 	if (g_rtx.tlas != VK_NULL_HANDLE)
@@ -1016,7 +993,7 @@ void VK_RayShutdown( void )
 	destroyBuffer(&g_rtx.light_grid_buffer);
 }
 
-vk_ray_model_t* VK_RayModelInit( vk_ray_model_init_t args ) {
+vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 	VkAccelerationStructureGeometryKHR *geoms;
 	uint32_t *geom_max_prim_counts;
 	VkAccelerationStructureBuildRangeInfoKHR *geom_build_ranges;
