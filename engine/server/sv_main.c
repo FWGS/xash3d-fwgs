@@ -53,6 +53,7 @@ CVAR_DEFINE_AUTO( sv_downloadurl, "", FCVAR_PROTECTED, "location from which clie
 CVAR_DEFINE( sv_consistency, "mp_consistency", "1", FCVAR_SERVER, "enbale consistency check in multiplayer" );
 CVAR_DEFINE_AUTO( mp_logecho, "1", 0, "log multiplayer frags to server logfile" );
 CVAR_DEFINE_AUTO( mp_logfile, "1", 0, "log multiplayer frags to console" );
+CVAR_DEFINE_AUTO( sv_autosave, "1", FCVAR_ARCHIVE|FCVAR_SERVER, "enable autosaving" );
 
 // game-related cvars
 CVAR_DEFINE_AUTO( mapcyclefile, "mapcycle.txt", 0, "name of multiplayer map cycle configuration file" );
@@ -929,6 +930,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &mp_logecho );
 	Cvar_RegisterVariable( &mp_logfile );
 	Cvar_RegisterVariable( &sv_background_freeze );
+	Cvar_RegisterVariable( &sv_autosave );
 
 	Cvar_RegisterVariable( &mapcyclefile );
 	Cvar_RegisterVariable( &motdfile );
