@@ -433,6 +433,7 @@ extern convar_t		sv_consistency;
 extern convar_t		sv_password;
 extern convar_t		sv_uploadmax;
 extern convar_t		sv_trace_messages;
+extern convar_t		sv_autosave;
 extern convar_t		deathmatch;
 extern convar_t		hostname;
 extern convar_t		skill;
