@@ -1,5 +1,4 @@
 # Next
-- [ ] rtx: build acceleration structures in a single queue/cmdbuf
 - [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
 - [ ] rtx: better memory handling
 	- [ ] robust tracking of memory hierarchies: global/static, map, frame
@@ -20,8 +19,10 @@
 	Split into 2 buffers:
 		struct LightCluster { uint16 offset, length; }
 		uint8_t data[];
+- [ ] rtx: ray tracing pipeline
 - [ ] rtx: alpha test/blending
 - [ ] rtx: coalesce all these buffers
+- [ ] crash in PM_RecursiveHullCheck
 
 # Planned
 - [ ] studio models: pre-compute buffer sizes and allocate them at once
@@ -245,3 +246,9 @@
 
 # 2021-05-24, E98
 - [x] rtx: simplify AS tracking
+
+## 2021-05-26, E99
+- [x] rtx: fix device lost after map load
+
+## 2021-05-28, E100
+- [x] rtx: build acceleration structures in a single queue/cmdbuf
