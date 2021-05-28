@@ -47,7 +47,9 @@ GNU General Public License for more details.
 		#endif
 
 		#define PATH_SPLITTER "/"
-		#define HAVE_DUP
+		#if !XASH_NSWITCH
+			#define HAVE_DUP
+		#endif
 
 		#define O_BINARY    0
 		#define O_TEXT      0
