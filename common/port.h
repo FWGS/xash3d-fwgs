@@ -54,7 +54,7 @@ GNU General Public License for more details.
 #if XASH_POSIX
 	#define PATH_SPLITTER "/"
 	#include <unistd.h>
-	#ifdef XASH_NSWITCH
+	#if XASH_NSWITCH
 		#define SOLDER_LIBDL_COMPAT
 		#include <solder.h>
 	#else
@@ -69,7 +69,9 @@ GNU General Public License for more details.
 	#define SetCurrentDirectory( x )	(!chdir( x ))
 	#define FreeLibrary( x )			dlclose( x )
 	#define tell( a )					lseek(a, 0, SEEK_CUR)
-	#define HAVE_DUP
+	#if !XASH_NSWITCH
+		#define HAVE_DUP
+	#endif
 #endif
 
 #if XASH_DOS4GW
