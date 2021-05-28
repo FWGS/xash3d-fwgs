@@ -318,6 +318,14 @@ void R_BeginFrame( qboolean clearScene )
 
 	vk2dBegin();
 	VK_RenderBegin();
+
+	{
+		VkCommandBufferBeginInfo beginfo = {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		};
+		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
+	}
 }
 
 void VK_RenderFrame( const struct ref_viewpass_s *rvp )
@@ -332,14 +340,6 @@ void R_EndFrame( void )
 		{.depthStencil = {1., 0.}} // TODO reverse-z
 	};
 	VkPipelineStageFlags stageflags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-	{
-		VkCommandBufferBeginInfo beginfo = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		};
-		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
-	}
 
 	if (vk_core.rtx)
 		VK_RenderEndRTX( vk_core.cb, vk_frame.image_views[g_frame.swapchain_image_index], vk_frame.images[g_frame.swapchain_image_index], vk_frame.create_info.imageExtent.width, vk_frame.create_info.imageExtent.height );
@@ -418,6 +418,9 @@ void R_EndFrame( void )
 	// TODO bad sync
 	XVK_CHECK(vkWaitForFences(vk_core.device, 1, &g_frame.fence, VK_TRUE, INT64_MAX));
 	XVK_CHECK(vkResetFences(vk_core.device, 1, &g_frame.fence));
+
+	if (vk_core.debug)
+		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
 
 	// TODO better sync implies multiple frames in flight, which means that we must
 	// retain temporary (SingleFrame) buffer contents for longer, until all users are done.

@@ -507,15 +507,21 @@ static qboolean createCommandPool( void ) {
 		.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
 	};
 
+	VkCommandBuffer bufs[2];
+
 	VkCommandBufferAllocateInfo cbai = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.commandBufferCount = 1,
+		.commandBufferCount = ARRAYSIZE(bufs),
 		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 	};
 
+
 	XVK_CHECK(vkCreateCommandPool(vk_core.device, &cpci, NULL, &vk_core.command_pool));
 	cbai.commandPool = vk_core.command_pool;
-	XVK_CHECK(vkAllocateCommandBuffers(vk_core.device, &cbai, &vk_core.cb));
+	XVK_CHECK(vkAllocateCommandBuffers(vk_core.device, &cbai, bufs));
+
+	vk_core.cb = bufs[0];
+	vk_core.cb_tex = bufs[1];
 
 	return true;
 }

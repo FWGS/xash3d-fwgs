@@ -377,8 +377,8 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 				.layerCount = 1,
 			}};
 
-		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
-		vkCmdPipelineBarrier(vk_core.cb,
+		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb_tex, &beginfo));
+		vkCmdPipelineBarrier(vk_core.cb_tex,
 				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 				VK_PIPELINE_STAGE_TRANSFER_BIT,
 				0, 0, NULL, 0, NULL, 1, &image_barrier);
@@ -402,7 +402,7 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 				.depth = 1,
 			};
 			memcpy(((uint8_t*)vk_core.staging.mapped) + staging_offset, pic->buffer, pic->size);
-			vkCmdCopyBufferToImage(vk_core.cb, vk_core.staging.buffer, tex->vk.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+			vkCmdCopyBufferToImage(vk_core.cb_tex, vk_core.staging.buffer, tex->vk.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 		}
 
 		// 	5.2 image:layout:DST -> image:layout:SAMPLED
@@ -418,18 +418,18 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 			.baseArrayLayer = 0,
 			.layerCount = 1,
 		};
-		vkCmdPipelineBarrier(vk_core.cb,
+		vkCmdPipelineBarrier(vk_core.cb_tex,
 				VK_PIPELINE_STAGE_TRANSFER_BIT,
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 				0, 0, NULL, 0, NULL, 1, &image_barrier);
 
-		XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
+		XVK_CHECK(vkEndCommandBuffer(vk_core.cb_tex));
 	}
 
 	{
 		VkSubmitInfo subinfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
 		subinfo.commandBufferCount = 1;
-		subinfo.pCommandBuffers = &vk_core.cb;
+		subinfo.pCommandBuffers = &vk_core.cb_tex;
 		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
 		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
 	}

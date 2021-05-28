@@ -1147,15 +1147,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		} else {
 			qboolean result;
 			asrgs.p_accel = &ray_model->as;
-
-			// TODO batch building multiple blases together
-			const VkCommandBufferBeginInfo beginfo = {
-				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-				.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-			};
-			XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
 			result = createOrUpdateAccelerationStructure(vk_core.cb, &asrgs, ray_model);
-			XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
 
 			if (!result)
 			{
@@ -1172,11 +1164,8 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 				ray_model->kusochki_offset = kusochki_count_offset;
 				ray_model->dynamic = args.model->dynamic;
 
-				validateModel(ray_model);
-
-				XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
-				XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
-				g_rtx.frame.scratch_offset = 0;
+				if (vk_core.debug)
+					validateModel(ray_model);
 			}
 		}
 	}

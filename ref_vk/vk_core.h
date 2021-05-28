@@ -69,6 +69,7 @@ typedef struct vulkan_core_s {
 
 	VkCommandPool command_pool;
 	VkCommandBuffer cb;
+	VkCommandBuffer cb_tex;
 
 	vk_buffer_t staging;
 
@@ -97,6 +98,9 @@ do { \
 #define XVK_CHECK(f) do { \
 		const VkResult result = f; \
 		if (result != VK_SUCCESS) { \
+			gEngine.Con_Printf( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
+				__FILE__, __LINE__, result, resultName(result)); \
+			Sleep(3000); \
 			gEngine.Host_Error( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
 				__FILE__, __LINE__, result, resultName(result)); \
 		} \
