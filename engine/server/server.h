@@ -206,7 +206,7 @@ typedef struct sv_client_s
 	cl_state_t	state;
 	cl_upload_t	upstate;			// uploading state
 	char		name[32];			// extracted from userinfo, color string allowed
-	int		flags;			// client flags, some info
+	uint		flags;			// client flags, some info
 	CRC32_t		crcValue;
 
 	char		userinfo[MAX_INFO_STRING];	// name, etc (received from client)
