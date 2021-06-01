@@ -214,11 +214,11 @@ void MSG_WriteSBitLong( sizebuf_t *sb, int data, int numbits )
 	}
 }
 
-void MSG_WriteBitLong( sizebuf_t *sb, int data, int numbits, qboolean bSigned )
+void MSG_WriteBitLong( sizebuf_t *sb, uint data, int numbits, qboolean bSigned )
 {
 	if( bSigned )
-		MSG_WriteSBitLong( sb, data, numbits );
-	else MSG_WriteUBitLong( sb, (uint)data, numbits );
+		MSG_WriteSBitLong( sb, (int)data, numbits );
+	else MSG_WriteUBitLong( sb, data, numbits );
 }
 
 qboolean MSG_WriteBits( sizebuf_t *sb, const void *pData, int nBits )
