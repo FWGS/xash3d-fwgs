@@ -92,7 +92,7 @@ convar_t	*net_qport;
 int	net_drop;
 netadr_t	net_from;
 sizebuf_t	net_message;
-byte	*net_mempool;
+static poolhandle_t net_mempool;
 byte	net_message_buffer[NET_MAX_MESSAGE];
 
 const char *ns_strings[NS_COUNT] =

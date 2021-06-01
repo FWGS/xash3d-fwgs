@@ -95,7 +95,7 @@ struct touch_s
 	qboolean initialized;
 	qboolean config_loaded;
 	touchbuttonlist_t list_user, list_edit;
-	byte *mempool;
+	poolhandle_t mempool;
 	touchState state;
 
 	int look_finger;

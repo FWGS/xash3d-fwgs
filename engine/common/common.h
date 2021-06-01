@@ -392,7 +392,7 @@ typedef struct host_parm_s
 	uint		type;		// running at
 	jmp_buf		abortframe;	// abort current frame
 	dword		errorframe;	// to prevent multiple host error
-	byte		*mempool;		// static mempool for misc allocations
+	poolhandle_t mempool;		// static mempool for misc allocations
 	string		finalmsg;		// server shutdown final message
 	string		downloadfile;	// filename to be downloading
 	int		downloadcount;	// how many files remain to downloading
@@ -446,8 +446,8 @@ typedef struct host_parm_s
 	char		rootdir[MAX_OSPATH];	// member root directory
 	char		rodir[MAX_OSPATH];		// readonly root
 	char		gamefolder[MAX_QPATH];	// it's a default gamefolder
-	byte		*imagepool;	// imagelib mempool
-	byte		*soundpool;	// soundlib mempool
+	poolhandle_t imagepool;	// imagelib mempool
+	poolhandle_t soundpool;	// soundlib mempool
 
 	uint		features;		// custom features that enables by mod-maker request
 
@@ -505,14 +505,14 @@ void Cmd_ForwardToServer( void );
 // zone.c
 //
 void Memory_Init( void );
-void *_Mem_Realloc( byte *poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline );
-void *_Mem_Alloc( byte *poolptr, size_t size, qboolean clear, const char *filename, int fileline );
-byte *_Mem_AllocPool( const char *name, const char *filename, int fileline );
-void _Mem_FreePool( byte **poolptr, const char *filename, int fileline );
-void _Mem_EmptyPool( byte *poolptr, const char *filename, int fileline );
+void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline );
+void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline );
+poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline );
+void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline );
+void _Mem_EmptyPool( poolhandle_t poolptr, const char *filename, int fileline );
 void _Mem_Free( void *data, const char *filename, int fileline );
 void _Mem_Check( const char *filename, int fileline );
-qboolean Mem_IsAllocatedExt( byte *poolptr, void *data );
+qboolean Mem_IsAllocatedExt( poolhandle_t poolptr, void *data );
 void Mem_PrintList( size_t minallocationsize );
 void Mem_PrintStats( void );
 
@@ -746,7 +746,7 @@ cvar_t *pfnCVarGetPointer( const char *szVarName );
 int pfnDrawConsoleString( int x, int y, char *string );
 void pfnDrawSetTextColor( float r, float g, float b );
 void pfnDrawConsoleStringLen( const char *pText, int *length, int *height );
-void *Cache_Check( byte *mempool, struct cache_user_s *c );
+void *Cache_Check( poolhandle_t mempool, struct cache_user_s *c );
 void COM_TrimSpace( const char *source, char *dest );
 edict_t* pfnPEntityOfEntIndex( int iEntIndex );
 void pfnGetModelBounds( model_t *mod, float *mins, float *maxs );
@@ -765,7 +765,7 @@ float pfnTime( void );
 #define copystring( s ) _copystring( host.mempool, s, __FILE__, __LINE__ )
 #define SV_CopyString( s ) _copystring( svgame.stringspool, s, __FILE__, __LINE__ )
 #define freestring( s ) if( s != NULL ) { Mem_Free( s ); s = NULL; }
-char *_copystring( byte *mempool, const char *s, const char *filename, int fileline );
+char *_copystring( poolhandle_t mempool, const char *s, const char *filename, int fileline );
 
 // CS:CS engfuncs (stubs)
 void *pfnSequenceGet( const char *fileName, const char *entryName );
