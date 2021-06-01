@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "client.h"
+#include "kbutton.h"
 
 #if XASH_LOW_MEMORY == 0
 #define NET_TIMINGS			1024
@@ -33,11 +34,11 @@ GNU General Public License for more details.
 #define NUM_LATENCY_SAMPLES		8
 
 convar_t	*net_graph;
-convar_t	*net_graphpos;
-convar_t	*net_graphwidth;
-convar_t	*net_graphheight;
-convar_t	*net_graphsolid;
-convar_t	*net_scale;
+static convar_t	*net_graphpos;
+static convar_t	*net_graphwidth;
+static convar_t	*net_graphheight;
+static convar_t	*net_graphsolid;
+static convar_t	*net_scale;
 
 static struct packet_latency_t
 {
@@ -95,7 +96,7 @@ NetGraph_AtEdge
 edge detect
 ==========
 */
-qboolean NetGraph_AtEdge( int x, int width )
+static qboolean NetGraph_AtEdge( int x, int width )
 {
 	if( x > 3 )
 	{
@@ -113,7 +114,7 @@ NetGraph_InitColors
 init netgraph colors
 ==========
 */
-void NetGraph_InitColors( void )
+static void NetGraph_InitColors( void )
 {
 	byte	mincolor[2][3];
 	byte	maxcolor[2][3];
@@ -167,7 +168,7 @@ NetGraph_GetFrameData
 get frame data info, like chokes, packet losses, also update graph, packet and cmdinfo
 ==========
 */
-void NetGraph_GetFrameData( float *latency, int *latency_count )
+static void NetGraph_GetFrameData( float *latency, int *latency_count )
 {
 	int		i, choke_count = 0, loss_count = 0;
 	double		newtime = Sys_DoubleTime();
@@ -249,7 +250,7 @@ NetGraph_DrawTimes
 
 ===========
 */
-void NetGraph_DrawTimes( wrect_t rect, int x, int w )
+static void NetGraph_DrawTimes( wrect_t rect, int x, int w )
 {
 	int	i, j, extrap_point = NETGRAPH_LERP_HEIGHT / 3, a, h;
 	rgba_t	colors = { 0.9 * 255, 0.9 * 255, 0.7 * 255, 255 };
@@ -324,7 +325,7 @@ NetGraph_DrawHatches
 
 ===========
 */
-void NetGraph_DrawHatches( int x, int y )
+static void NetGraph_DrawHatches( int x, int y )
 {
 	int	ystep = (int)( 10.0f / net_scale->value );
 	byte	colorminor[4] = { 0, 63, 63, 200 };
@@ -353,7 +354,7 @@ NetGraph_DrawTextFields
 
 ===========
 */
-void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int count, float avg, int packet_loss, int packet_choke )
+static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int count, float avg, int packet_loss, int packet_choke, int graphtype )
 {
 	static int	lastout;
 	rgba_t		colors = { 0.9 * 255, 0.9 * 255, 0.7 * 255, 255 };
@@ -400,7 +401,7 @@ void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int count, floa
 		Con_DrawString( x, y, va( "out:  %i %.2f k/s", out, cls.netchan.flow[FLOW_OUTGOING].avgkbytespersec ), colors );
 		y += 15;
 
-		if( net_graph->value > 2 )
+		if( graphtype > 2 )
 		{
 			int	loss = (int)(( packet_loss + PACKETLOSS_AVG_FRAC ) - 0.01f );
 			int	choke = (int)(( packet_choke + PACKETCHOKE_AVG_FRAC ) - 0.01f );
@@ -409,7 +410,7 @@ void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int count, floa
 		}
 	}
 
-	if( net_graph->value < 3 )
+	if( graphtype < 3 )
 		Con_DrawString( ptx, pty, va( "%i/s", (int)cl_cmdrate->value ), colors );
 
 	Con_DrawString( ptx, last_y, va( "%i/s" , (int)cl_updaterate->value ), colors );
@@ -423,7 +424,7 @@ NetGraph_DrawDataSegment
 
 ===========
 */
-int NetGraph_DrawDataSegment( wrect_t *fill, int bytes, byte r, byte g, byte b, byte a )
+static int NetGraph_DrawDataSegment( wrect_t *fill, int bytes, byte r, byte g, byte b, byte a )
 {
 	float	h = bytes / net_scale->value;
 	byte	colors[4] = { r, g, b, a };
@@ -450,7 +451,7 @@ NetGraph_ColorForHeight
 color based on packet latency
 ===========
 */
-void NetGraph_ColorForHeight( struct packet_latency_t *packet, byte color[4], int *ping )
+static void NetGraph_ColorForHeight( struct packet_latency_t *packet, byte color[4], int *ping )
 {
 	switch( packet->latency )
 	{
@@ -485,7 +486,7 @@ NetGraph_DrawDataUsage
 
 ===========
 */
-void NetGraph_DrawDataUsage( int x, int y, int w )
+static void NetGraph_DrawDataUsage( int x, int y, int w, int graphtype )
 {
 	int	a, i, h, lastvalidh = 0, ping;
 	int	pingheight = net_graphheight->value - NETGRAPH_LERP_HEIGHT - 2;
@@ -540,7 +541,7 @@ void NetGraph_DrawDataUsage( int x, int y, int w )
 		if( NetGraph_AtEdge( a, w ))
 			NetGraph_DrawRect( &fill, color );
 
-		if( net_graph->value < 2 )
+		if( graphtype < 2 )
 			continue;
 
 		color[0] = color[1] = color[2] = color[3] = 255;
@@ -587,7 +588,7 @@ void NetGraph_DrawDataUsage( int x, int y, int w )
 			continue;
 	}
 
-	if( net_graph->value >= 2 )
+	if( graphtype >= 2 )
 		NetGraph_DrawHatches( x, y - net_graphheight->value - 1 );
 }
 
@@ -597,7 +598,7 @@ NetGraph_GetScreenPos
 
 ===========
 */
-void NetGraph_GetScreenPos( wrect_t *rect, int *w, int *x, int *y )
+static void NetGraph_GetScreenPos( wrect_t *rect, int *w, int *x, int *y )
 {
 	rect->left = rect->top = 0;
 	rect->right = refState.width;
@@ -636,6 +637,8 @@ void SCR_DrawNetGraph( void )
 	float	avg_ping;
 	int	ping_count;
 	int	w, x, y;
+	kbutton_t *in_graph;
+	int   graphtype;
 
 	if( !host.allow_console )
 		return;
@@ -643,8 +646,20 @@ void SCR_DrawNetGraph( void )
 	if( cls.state != ca_active )
 		return;
 
-	if( !net_graph->value )
+	in_graph = clgame.dllFuncs.KB_Find( "in_graph" );
+
+	if( in_graph->state & 1 )
+	{
+		graphtype = 2;
+	}
+	else if( net_graph->value != 0.0f )
+	{
+		graphtype = (int)net_graph->value;
+	}
+	else
+	{
 		return;
+	}
 
 	if( net_scale->value <= 0 )
 		Cvar_SetValue( "net_scale", 0.1f );
@@ -653,16 +668,16 @@ void SCR_DrawNetGraph( void )
 
 	NetGraph_GetFrameData( &avg_ping, &ping_count );
 
-	NetGraph_DrawTextFields( x, y, w, rect, ping_count, avg_ping, packet_loss, packet_choke );
+	NetGraph_DrawTextFields( x, y, w, rect, ping_count, avg_ping, packet_loss, packet_choke, graphtype );
 
-	if( net_graph->value < 3 )
+	if( graphtype < 3 )
 	{
 		ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
 		ref.dllFuncs.GL_Bind( XASH_TEXTURE0, R_GetBuiltinTexture( REF_WHITE_TEXTURE ) );
 		ref.dllFuncs.Begin( TRI_QUADS ); // draw all the fills as a long solid sequence of quads for speedup reasons
 
 		// NOTE: fill colors without texture at this point
-		NetGraph_DrawDataUsage( x, y, w );
+		NetGraph_DrawDataUsage( x, y, w, graphtype );
 		NetGraph_DrawTimes( rect, x, w );
 
 		ref.dllFuncs.End();
