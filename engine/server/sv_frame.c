@@ -356,7 +356,7 @@ static void SV_EmitPacketEntities( sv_client_t *cl, client_frame_t *to, sizebuf_
 					if( !Q_strcmp( classname, sv.instanced[i].classname ))
 					{
 						baseline = &sv.instanced[i].baseline;
-						offset = -i;
+						offset = -i - 1; // to avoid zero offset
 						break;
 					}
 				}
