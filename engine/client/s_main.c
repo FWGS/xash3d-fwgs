@@ -23,7 +23,7 @@ GNU General Public License for more details.
 #define SND_CLIP_DISTANCE		1000.0f
 
 dma_t		dma;
-byte		*sndpool;
+poolhandle_t sndpool;
 static soundfade_t	soundfade;
 channel_t   	channels[MAX_CHANNELS];
 sound_t		ambient_sfx[NUM_AMBIENTS];

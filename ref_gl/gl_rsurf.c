@@ -1734,7 +1734,7 @@ extern decal_t	gDecalPool[MAX_RENDER_DECALS];
 struct vbo_static_s
 {
 	// quickly free all allocations on map change
-	byte *mempool;
+	poolhandle_t mempool;
 
 	// arays
 	vbodecaldata_t *decaldata; // array

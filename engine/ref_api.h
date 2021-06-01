@@ -356,10 +356,10 @@ typedef struct ref_api_s
 	int	(*pfnGetStudioModelInterface)( int version, struct r_studio_interface_s **ppinterface, struct engine_studio_api_s *pstudio );
 
 	// memory
-	byte *(*_Mem_AllocPool)( const char *name, const char *filename, int fileline );
-	void  (*_Mem_FreePool)( byte **poolptr, const char *filename, int fileline );
-	void *(*_Mem_Alloc)( byte *poolptr, size_t size, qboolean clear, const char *filename, int fileline );
-	void *(*_Mem_Realloc)( byte *poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline );
+	poolhandle_t (*_Mem_AllocPool)( const char *name, const char *filename, int fileline );
+	void  (*_Mem_FreePool)( poolhandle_t *poolptr, const char *filename, int fileline );
+	void *(*_Mem_Alloc)( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline );
+	void *(*_Mem_Realloc)( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline );
 	void  (*_Mem_Free)( void *data, const char *filename, int fileline );
 
 	// library management
@@ -424,7 +424,7 @@ typedef struct ref_api_s
 	rgbdata_t *(*FS_CopyImage)( rgbdata_t *in );
 	void (*FS_FreeImage)( rgbdata_t *pack );
 	void (*Image_SetMDLPointer)( byte *p );
-	byte *(*Image_GetPool)( void );
+	poolhandle_t (*Image_GetPool)( void );
 	const struct bpc_desc_s *(*Image_GetPFDesc)( int idx );
 
 	// client exports

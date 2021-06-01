@@ -57,7 +57,7 @@ typedef	int	fixed16_t;
 #define LM_SAMPLE_SIZE             16
 
 
-extern byte	*r_temppool;
+extern poolhandle_t r_temppool;
 
 #define BLOCK_SIZE		tr.block_size	// lightmap blocksize
 #define BLOCK_SIZE_DEFAULT	128		// for keep backward compatibility

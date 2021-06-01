@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #ifndef SOUND_H
 #define SOUND_H
 
-extern byte *sndpool;
+extern poolhandle_t sndpool;
 
 #include "xash3d_mathlib.h"
 
