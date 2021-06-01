@@ -1870,7 +1870,7 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 			}
 			else
 			{
-				baseline_offset = abs( baseline_offset );
+				baseline_offset = abs( baseline_offset + 1 );
 				if( baseline_offset < cl.instanced_baseline_count )
 					from = &cl.instanced_baseline[baseline_offset];
 			}
