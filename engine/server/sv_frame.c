@@ -349,7 +349,7 @@ static void SV_EmitPacketEntities( sv_client_t *cl, client_frame_t *to, sizebuf_
 			{
 				offset = SV_FindBestBaseline( cl, newindex, &baseline, newent, to, player );
 			}
-			else
+			else if ( from == NULL )
 			{
 				for( i = 0; i < sv.num_instanced; i++ )
 				{
