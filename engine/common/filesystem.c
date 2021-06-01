@@ -101,7 +101,7 @@ struct wfile_s
 	string		filename;
 	int		infotableofs;
 	int		numlumps;
-	byte		*mempool;			// W_ReadLump temp buffers
+	poolhandle_t mempool;			// W_ReadLump temp buffers
 	file_t		*handle;
 	dlumpinfo_t	*lumps;
 	time_t		filetime;
@@ -144,7 +144,7 @@ typedef struct searchpath_s
 	struct searchpath_s *next;
 } searchpath_t;
 
-static byte			*fs_mempool;
+static poolhandle_t     fs_mempool;
 static searchpath_t		*fs_searchpaths = NULL;	// chain
 static searchpath_t		fs_directpath;		// static direct path
 static char			fs_basedir[MAX_SYSPATH];	// base game directory

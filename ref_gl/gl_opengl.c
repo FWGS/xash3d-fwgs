@@ -49,7 +49,7 @@ cvar_t	*tracergreen;
 cvar_t	*tracerblue;
 cvar_t	*traceralpha;
 
-byte		*r_temppool;
+poolhandle_t r_temppool;
 
 gl_globals_t	tr;
 glconfig_t	glConfig;

@@ -345,8 +345,8 @@ typedef struct
 	NEW_DLL_FUNCTIONS	dllFuncs2;		// new dll exported funcs (may be NULL)
 	physics_interface_t	physFuncs;		// physics interface functions (Xash3D extension)
 
-	byte		*mempool;			// server premamnent pool: edicts etc
-	byte		*stringspool;		// for engine strings
+	poolhandle_t mempool;			// server premamnent pool: edicts etc
+	poolhandle_t stringspool;		// for engine strings
 } svgame_static_t;
 
 typedef struct

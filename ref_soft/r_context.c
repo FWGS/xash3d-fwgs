@@ -19,7 +19,7 @@ ref_api_t      gEngfuncs;
 ref_globals_t *gpGlobals;
 gl_globals_t tr;
 ref_speeds_t r_stats;
-byte *r_temppool;
+poolhandle_t r_temppool;
 cvar_t *gl_emboss_scale;
 cvar_t *r_norefresh;
 cvar_t	*vid_brightness;

@@ -50,19 +50,44 @@ typedef struct mempool_s
 	struct mempool_s	*next;		// linked into global mempool list
 	const char	*filename;	// file name and line where Mem_AllocPool was called
 	int		fileline;
+	poolhandle_t idx;
 	char		name[64];		// name of the pool
 	uint		sentinel2;	// should always be MEMHEADER_SENTINEL1
 } mempool_t;
 
-mempool_t *poolchain = NULL; // critical stuff
+static mempool_t *poolchain = NULL; // critical stuff
 
-void *_Mem_Alloc( byte *poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+// a1ba: due to mempool being passed with the model through reused 32-bit field
+// which makes engine incompatible with 64-bit pointers I changed mempool type
+// from pointer to 32-bit handle, thankfully mempool structure is private
+// But! Mempools are handled through linked list so we can't index them safely
+static uint lastidx = 0;
+
+static mempool_t *Mem_FindPool( poolhandle_t poolptr )
 {
-	memheader_t	*mem;
-	mempool_t		*pool = (mempool_t *)poolptr;
+	mempool_t *pool;
+
+	for( pool = poolchain; pool; pool = pool->next )
+	{
+		if( pool->idx == poolptr )
+			return pool;
+	}
+
+	Sys_Error( "%s: not allocated or double freed pool %d", __FUNCTION__, poolptr );
+
+	return NULL;
+}
+
+void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+{
+	memheader_t *mem;
+	mempool_t   *pool;
 
 	if( size <= 0 ) return NULL;
-	if( poolptr == NULL ) Sys_Error( "Mem_Alloc: pool == NULL (alloc at %s:%i)\n", filename, fileline );
+	if( !poolptr ) Sys_Error( "Mem_Alloc: pool == NULL (alloc at %s:%i)\n", filename, fileline );
+
+	pool = Mem_FindPool( poolptr );
+
 	pool->totalsize += size;
 
 	// big allocations are not clumped
@@ -147,7 +172,7 @@ void _Mem_Free( void *data, const char *filename, int fileline )
 	Mem_FreeBlock((memheader_t *)((byte *)data - sizeof( memheader_t )), filename, fileline );
 }
 
-void *_Mem_Realloc( byte *poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
+void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
 	memheader_t	*memhdr = NULL;
 	char		*nb;
@@ -172,12 +197,16 @@ void *_Mem_Realloc( byte *poolptr, void *memptr, size_t size, qboolean clear, co
 	return (void *)nb;
 }
 
-byte *_Mem_AllocPool( const char *name, const char *filename, int fileline )
+poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline )
 {
 	mempool_t *pool;
 
 	pool = (mempool_t *)Q_malloc( sizeof( mempool_t ));
-	if( pool == NULL ) Sys_Error( "Mem_AllocPool: out of memory (allocpool at %s:%i)\n", filename, fileline );
+	if( pool == NULL )
+	{
+		Sys_Error( "Mem_AllocPool: out of memory (allocpool at %s:%i)\n", filename, fileline );
+		return 0;
+	}
 	memset( pool, 0, sizeof( mempool_t ));
 
 	// fill header
@@ -190,17 +219,18 @@ byte *_Mem_AllocPool( const char *name, const char *filename, int fileline )
 	pool->realsize = sizeof( mempool_t );
 	Q_strncpy( pool->name, name, sizeof( pool->name ));
 	pool->next = poolchain;
+	pool->idx = ++lastidx;
 	poolchain = pool;
 
-	return (byte *)pool;
+	return pool->idx;
 }
 
-void _Mem_FreePool( byte **poolptr, const char *filename, int fileline )
+void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
 {
-	mempool_t	*pool = (mempool_t *)*poolptr;
+	mempool_t	*pool;
 	mempool_t	**chainaddress;
 
-	if( pool )
+	if( *poolptr && ( pool = Mem_FindPool( *poolptr )))
 	{
 		// unlink pool from chain
 		for( chainaddress = &poolchain; *chainaddress && *chainaddress != pool; chainaddress = &((*chainaddress)->next));
@@ -214,14 +244,14 @@ void _Mem_FreePool( byte **poolptr, const char *filename, int fileline )
 		// free the pool itself
 		memset( pool, 0xBF, sizeof( mempool_t ));
 		Q_free( pool );
-		*poolptr = NULL;
+		*poolptr = 0;
 	}
 }
 
-void _Mem_EmptyPool( byte *poolptr, const char *filename, int fileline )
+void _Mem_EmptyPool( poolhandle_t poolptr, const char *filename, int fileline )
 {
-	mempool_t *pool = (mempool_t *)poolptr;
-	if( poolptr == NULL ) Sys_Error( "Mem_EmptyPool: pool == NULL (emptypool at %s:%i)\n", filename, fileline );
+	mempool_t *pool = Mem_FindPool( poolptr );
+	if( !poolptr ) Sys_Error( "Mem_EmptyPool: pool == NULL (emptypool at %s:%i)\n", filename, fileline );
 
 	if( pool->sentinel1 != MEMHEADER_SENTINEL1 ) Sys_Error( "Mem_EmptyPool: trashed pool sentinel 1 (allocpool at %s:%i, emptypool at %s:%i)\n", pool->filename, pool->fileline, filename, fileline );
 	if( pool->sentinel2 != MEMHEADER_SENTINEL1 ) Sys_Error( "Mem_EmptyPool: trashed pool sentinel 2 (allocpool at %s:%i, emptypool at %s:%i)\n", pool->filename, pool->fileline, filename, fileline );
@@ -230,7 +260,7 @@ void _Mem_EmptyPool( byte *poolptr, const char *filename, int fileline )
 	while( pool->chain ) Mem_FreeBlock( pool->chain, filename, fileline );
 }
 
-qboolean Mem_CheckAlloc( mempool_t *pool, void *data )
+static qboolean Mem_CheckAlloc( mempool_t *pool, void *data )
 {
 	memheader_t *header, *target;
 
@@ -256,15 +286,15 @@ qboolean Mem_CheckAlloc( mempool_t *pool, void *data )
 Check pointer for memory
 ========================
 */
-qboolean Mem_IsAllocatedExt( byte *poolptr, void *data )
+qboolean Mem_IsAllocatedExt( poolhandle_t poolptr, void *data )
 {
 	mempool_t	*pool = NULL;
-	if( poolptr ) pool = (mempool_t *)poolptr;
+	if( poolptr ) pool = Mem_FindPool( poolptr );
 
 	return Mem_CheckAlloc( pool, data );
 }
 
-void Mem_CheckHeaderSentinels( void *data, const char *filename, int fileline )
+static void Mem_CheckHeaderSentinels( void *data, const char *filename, int fileline )
 {
 	memheader_t	*mem;
 
@@ -288,8 +318,8 @@ void Mem_CheckHeaderSentinels( void *data, const char *filename, int fileline )
 
 void _Mem_Check( const char *filename, int fileline )
 {
-	memheader_t	*mem;
-	mempool_t		*pool;
+	memheader_t *mem;
+	mempool_t   *pool;
 
 	for( pool = poolchain; pool; pool = pool->next )
 	{
@@ -306,8 +336,8 @@ void _Mem_Check( const char *filename, int fileline )
 
 void Mem_PrintStats( void )
 {
-	size_t	count = 0, size = 0, realsize = 0;
-	mempool_t	*pool;
+	size_t    count = 0, size = 0, realsize = 0;
+	mempool_t *pool;
 
 	Mem_Check();
 	for( pool = poolchain; pool; pool = pool->next )

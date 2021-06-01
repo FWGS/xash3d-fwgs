@@ -178,7 +178,7 @@ static int pfnGetStudioModelInterface( int version, struct r_studio_interface_s 
 		0;
 }
 
-static byte *pfnImage_GetPool( void )
+static poolhandle_t pfnImage_GetPool( void )
 {
 	return host.imagepool;
 }

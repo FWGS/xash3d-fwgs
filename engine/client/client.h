@@ -437,7 +437,7 @@ typedef struct
 	void		*hInstance;		// pointer to client.dll
 	cldll_func_t	dllFuncs;			// dll exported funcs
 	render_interface_t	drawFuncs;		// custom renderer support
-	byte		*mempool;			// client edicts pool
+	poolhandle_t      mempool;			// client edicts pool
 	string		mapname;			// map name
 	string		maptitle;			// display map title
 	string		itemspath;		// path to items description for auto-complete func
@@ -496,7 +496,7 @@ typedef struct
 	void		*hInstance;		// pointer to client.dll
 	UI_FUNCTIONS	dllFuncs;			// dll exported funcs
 	UI_EXTENDED_FUNCTIONS dllFuncs2;	// fwgs extension
-	byte		*mempool;			// client edicts pool
+	poolhandle_t      mempool;			// client edicts pool
 
 	cl_entity_t	playermodel;		// uiPlayerSetup drawing model
 	player_info_t	playerinfo;		// local playerinfo
@@ -534,7 +534,7 @@ typedef struct
 
 	keydest_t		key_dest;
 
-	byte		*mempool;			// client premamnent pool: edicts etc
+	poolhandle_t      mempool;			// client premamnent pool: edicts etc
 
 	netadr_t		hltv_listen_address;
 
