@@ -122,9 +122,9 @@ int SV_GetFragmentSize( void *pcl, fragsize_t mode )
 		int frmax = Q_atoi( Info_ValueForKey( cl->userinfo, "cl_frmax" ));
 
 		if( frmax < FRAGMENT_MIN_SIZE || frmax > FRAGMENT_MAX_SIZE )
-			cl_frag_size = frmax;
+			cl_frag_size /= 2; // add window for unreliable
 		else
-			cl_frag_size /= 2;// add window for unreliable
+			cl_frag_size = frmax;
 	}
 
 	return cl_frag_size - HEADER_BYTES;
