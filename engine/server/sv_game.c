@@ -4786,6 +4786,9 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 		if( ++numpairs >= 256 ) break;
 	}
 
+	if( classname == NULL )
+		return false;
+
 	ent = SV_AllocPrivateData( ent, ALLOC_STRING( classname ));
 
 	if( !SV_IsValidEdict( ent ) || FBitSet( ent->v.flags, FL_KILLME ))
