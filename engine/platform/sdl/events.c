@@ -271,30 +271,27 @@ SDLash_MouseEvent
 static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 {
 	int down = button.state != SDL_RELEASED;
-	qboolean istouch;
+	uint mstate = 0;
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	istouch = button.which == SDL_TOUCH_MOUSEID;
-#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
-	istouch = false;
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	if( button.which == SDL_TOUCH_MOUSEID )
+		return;
 
 	switch( button.button )
 	{
 	case SDL_BUTTON_LEFT:
-		SDLash_MouseKey( K_MOUSE1, down, istouch );
-		break;
-	case SDL_BUTTON_RIGHT:
-		SDLash_MouseKey( K_MOUSE2, down, istouch );
+		if( down ) SetBits( mstate, BIT( 0 ));
 		break;
 	case SDL_BUTTON_MIDDLE:
-		SDLash_MouseKey( K_MOUSE3, down, istouch );
+		if( down ) SetBits( mstate, BIT( 1 ));
+		break;
+	case SDL_BUTTON_RIGHT:
+		if( down ) SetBits( mstate, BIT( 2 ));
 		break;
 	case SDL_BUTTON_X1:
-		SDLash_MouseKey( K_MOUSE4, down, istouch );
+		if( down ) SetBits( mstate, BIT( 3 ));
 		break;
 	case SDL_BUTTON_X2:
-		SDLash_MouseKey( K_MOUSE5, down, istouch );
+		if( down ) SetBits( mstate, BIT( 4 ));
 		break;
 #if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
 	case SDL_BUTTON_WHEELUP:
@@ -307,6 +304,8 @@ static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 	default:
 		Con_Printf( "Unknown mouse button ID: %d\n", button.button );
 	}
+
+	IN_MouseEvent( mstate );
 }
 
 /*
@@ -426,13 +425,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 	{
 	/* Mouse events */
 	case SDL_MOUSEMOTION:
-		if( !host.mouse_visible
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
-		    && event->motion.which != SDL_TOUCH_MOUSEID )
-#else
-		    )
-#endif
-			IN_MouseEvent();
+		/* ignored */
 		break;
 
 	case SDL_MOUSEBUTTONUP:
