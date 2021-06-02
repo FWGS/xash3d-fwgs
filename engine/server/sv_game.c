@@ -4787,7 +4787,15 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 	}
 
 	if( classname == NULL )
+	{
+		// release allocated strings
+		for( i = 0; i < numpairs; i++ )
+		{
+			Mem_Free( pkvd[i].szKeyName );
+			Mem_Free( pkvd[i].szValue );
+		}
 		return false;
+	}
 
 	ent = SV_AllocPrivateData( ent, ALLOC_STRING( classname ));
 
