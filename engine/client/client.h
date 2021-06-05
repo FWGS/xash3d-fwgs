@@ -844,6 +844,12 @@ movevars_t *pfnGetMoveVars( void );
 
 _inline cl_entity_t *CL_EDICT_NUM( int n )
 {
+	if( !clgame.entities )
+	{
+		Host_Error( "CL_EDICT_NUM: clgame.entities is NULL\n");
+		return NULL;
+	}
+
 	if(( n >= 0 ) && ( n < clgame.maxEntities ))
 		return clgame.entities + n;
 
