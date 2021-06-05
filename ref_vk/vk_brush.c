@@ -18,14 +18,6 @@
 #include <math.h>
 #include <memory.h>
 
-typedef struct vk_brush_model_s {
-	vk_render_model_t render_model;
-
-	// Surfaces for getting animated textures.
-	// Each surface corresponds to a single geometry within render_model with the same index.
-	msurface_t *surf[];
-} vk_brush_model_t;
-
 static struct {
 	struct {
 		int num_vertices, num_indices;
@@ -131,7 +123,7 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode )
 		return;
 
 	for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
-		texture_t *t = R_TextureAnimation(ent, bmodel->surf[i]);
+		texture_t *t = R_TextureAnimation(ent, bmodel->render_model.geometries[i].surf);
 		if (t->gl_texturenum < 0)
 			continue;
 
@@ -185,7 +177,7 @@ static model_sizes_t computeSizes( const model_t *mod ) {
 static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	vk_brush_model_t *bmodel = mod->cache.data;
 	uint32_t vertex_offset = 0;
-	int num_surfaces = 0;
+	int num_geometries = 0;
 	vk_buffer_handle_t vertex_buffer, index_buffer;
 	vk_buffer_lock_t vertex_lock, index_lock;
 	vk_vertex_t *bvert = NULL;
@@ -214,7 +206,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			const int surface_index = mod->firstmodelsurface + i;
 			msurface_t *surf = mod->surfaces + surface_index;
 			mextrasurf_t	*info = surf->info;
-			vk_render_geometry_t *model_geometry = bmodel->render_model.geometries + num_surfaces;
+			vk_render_geometry_t *model_geometry = bmodel->render_model.geometries + num_geometries;
 			const float sample_size = gEngine.Mod_SampleSizeForFace( surf );
 			int index_count = 0;
 
@@ -224,9 +216,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			if (t != surf->texinfo->texture->gl_texturenum)
 				continue;
 
-			bmodel->surf[num_surfaces] = surf;
-
-			++num_surfaces;
+			++num_geometries;
 
 			//gEngine.Con_Reportf( "surface %d: numverts=%d numedges=%d\n", i, surf->polys ? surf->polys->numverts : -1, surf->numedges );
 
@@ -237,11 +227,11 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 				return false;
 			}
 
+			model_geometry->surf = surf;
 			model_geometry->index_offset = index_offset;
 			model_geometry->vertex_offset = 0;
 			model_geometry->texture = t;
 			model_geometry->vertex_count = surf->numedges;
-			model_geometry->surface_index = i;
 			model_geometry->vertex_buffer = vertex_buffer;
 			model_geometry->index_buffer = index_buffer;
 
@@ -305,8 +295,8 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	VK_RenderBufferUnlock( index_buffer );
 	VK_RenderBufferUnlock( vertex_buffer );
 
-	ASSERT(sizes.num_surfaces == num_surfaces);
-	bmodel->render_model.num_geometries = num_surfaces;
+	ASSERT(sizes.num_surfaces == num_geometries);
+	bmodel->render_model.num_geometries = num_geometries;
 
 	return true;
 }
@@ -323,14 +313,17 @@ qboolean VK_BrushModelLoad( model_t *mod )
 
 	{
 		const model_sizes_t sizes = computeSizes( mod );
+		const size_t model_size =
+			sizeof(vk_brush_model_t) +
+			sizeof(vk_render_geometry_t) * sizes.num_surfaces;
 
-		vk_brush_model_t *bmodel = Mem_Calloc(vk_core.pool, sizeof(vk_brush_model_t) + (sizeof(msurface_t*) + sizeof(vk_render_geometry_t)) * sizes.num_surfaces);
+		vk_brush_model_t *bmodel = Mem_Calloc(vk_core.pool, model_size);
 		mod->cache.data = bmodel;
 		bmodel->render_model.debug_name = mod->name;
 		bmodel->render_model.render_mode = kRenderNormal;
 
 		if (sizes.num_surfaces != 0) {
-			bmodel->render_model.geometries = (vk_render_geometry_t*)((char*)(bmodel + 1) + sizeof(msurface_t*) * sizes.num_surfaces);
+			bmodel->render_model.geometries = (vk_render_geometry_t*)((char*)(bmodel + 1));
 
 			if (!loadBrushSurfaces(sizes, mod) || !VK_RenderModelInit(&bmodel->render_model)) {
 				gEngine.Con_Printf(S_ERROR "Could not load model %s\n", mod->name);

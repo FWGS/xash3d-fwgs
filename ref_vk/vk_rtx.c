@@ -51,11 +51,11 @@ typedef struct {
 	uint32_t num_kusochki;
 	uint32_t padding__[3];
 	struct {
-		// TODO should we move emissive here?
 		uint32_t kusok_index;
 		uint32_t padding__[3];
 		vec3_t emissive_color;
 		uint32_t padding___;
+		matrix3x4 transform;
 	} kusochki[MAX_EMISSIVE_KUSOCHKI];
 } vk_emissive_kusochki_t;
 
@@ -86,7 +86,7 @@ typedef struct {
 
 typedef struct {
 	int min_cell[4], size[3]; // 4th element is padding
-	vk_light_cluster_t clusters[MAX_LIGHT_CLUSTERS];
+	vk_lights_cell_t cells[MAX_LIGHT_CLUSTERS];
 } vk_ray_shader_light_grid;
 
 enum {
@@ -417,24 +417,6 @@ void VK_RayNewMap( void ) {
 
 		createTlas(VK_NULL_HANDLE);
 	}
-
-	// Upload light grid
-	{
-		vk_ray_shader_light_grid *grid = g_rtx.light_grid_buffer.mapped;
-		ASSERT(g_lights.grid.num_cells <= MAX_LIGHT_CLUSTERS);
-		VectorCopy(g_lights.grid.min_cell, grid->min_cell);
-		VectorCopy(g_lights.grid.size, grid->size);
-		memcpy(grid->clusters, g_lights.grid.cells, g_lights.grid.num_cells * sizeof(vk_light_cluster_t));
-	}
-
-	// Upload emissive kusochki
-	// TODO we build kusochki indices when uploading/processing kusochki
-	{
-		vk_emissive_kusochki_t *ek = g_rtx.emissive_kusochki_buffer.mapped;
-		ASSERT(g_lights.num_emissive_surfaces <= MAX_EMISSIVE_KUSOCHKI);
-		memset(ek, 0, sizeof(*ek));
-		ek->num_kusochki = g_lights.num_emissive_surfaces;
-	}
 }
 
 void VK_RayMapLoadEnd( void ) {
@@ -466,6 +448,8 @@ void VK_RayFrameBegin( void )
 	g_rtx.frame.scratch_offset = 0;
 	g_rtx.frame.num_models = 0;
 	g_rtx.frame.num_lighttextures = 0;
+
+	VK_LightsFrameInit();
 
 	// TODO N frames in flight
 	// HACK: blas caching requires persistent memory
@@ -572,6 +556,32 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		validateModelData();
 
 	g_rtx.frame_number++;
+
+	// Finalize and update dynamic lights
+	{
+		VK_LightsFrameFinalize();
+
+		// Upload light grid
+		{
+			vk_ray_shader_light_grid *grid = g_rtx.light_grid_buffer.mapped;
+			ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
+			VectorCopy(g_lights.map.grid_min_cell, grid->min_cell);
+			VectorCopy(g_lights.map.grid_size, grid->size);
+			memcpy(grid->cells, g_lights.cells, g_lights.map.grid_cells * sizeof(vk_lights_cell_t));
+		}
+
+		// Upload dynamic emissive kusochki
+		{
+			vk_emissive_kusochki_t *ek = g_rtx.emissive_kusochki_buffer.mapped;
+			ASSERT(g_lights.num_emissive_surfaces <= MAX_EMISSIVE_KUSOCHKI);
+			ek->num_kusochki = g_lights.num_emissive_surfaces;
+			for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
+				ek->kusochki[i].kusok_index = g_lights.emissive_surfaces[i].kusok_index;
+				VectorCopy(g_lights.emissive_surfaces[i].emissive, ek->kusochki[i].emissive_color);
+				Matrix3x4_Copy(ek->kusochki[i].transform, g_lights.emissive_surfaces[i].transform);
+			}
+		}
+	}
 
 	if (g_rtx.reload_pipeline) {
 		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
@@ -1075,13 +1085,13 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 	kusochki = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + kusochki_count_offset;
 
 	for (int i = 0; i < args.model->num_geometries; ++i) {
-		const vk_render_geometry_t *mg = args.model->geometries + i;
+		vk_render_geometry_t *mg = args.model->geometries + i;
 		const uint32_t prim_count = mg->element_count / 3;
 		const uint32_t vertex_offset = mg->vertex_offset + VK_RenderBufferGetOffsetInUnits(mg->vertex_buffer);
 		const uint32_t index_offset = mg->index_buffer == InvalidHandle ? UINT32_MAX : (mg->index_offset + VK_RenderBufferGetOffsetInUnits(mg->index_buffer));
-		const qboolean is_emissive = ((mg->texture >= 0 && mg->texture < MAX_TEXTURES)
-			? g_emissive_texture_table[mg->texture].set
-			: false);
+		// const qboolean is_emissive = ((mg->texture >= 0 && mg->texture < MAX_TEXTURES)
+		// 	? g_emissive_texture_table[mg->texture].set
+		// 	: false);
 
 		geom_max_prim_counts[i] = prim_count;
 		geoms[i] = (VkAccelerationStructureGeometryKHR)
@@ -1113,22 +1123,10 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		kusochki[i].vertex_offset = vertex_offset;
 		kusochki[i].index_offset = index_offset;
 		kusochki[i].triangles = prim_count;
-		kusochki[i].debug_is_emissive = is_emissive;
-
-		// TODO animated textures
+		kusochki[i].debug_is_emissive = false; // is_emissive;
 		kusochki[i].texture = mg->texture;
 
-		// TODO this is bad. there should be another way to tie kusochki index to emissive surface index
-		if (is_emissive && mg->surface_index >= 0) {
-			vk_emissive_kusochki_t *ek = g_rtx.emissive_kusochki_buffer.mapped;
-			for (int j = 0; j < g_lights.num_emissive_surfaces; ++j) {
-				if (mg->surface_index == g_lights.emissive_surfaces[j].surface_index) {
-					VectorCopy(g_lights.emissive_surfaces[j].emissive, ek->kusochki[j].emissive_color);
-					ek->kusochki[j].kusok_index = i + kusochki_count_offset;
-					break;
-				}
-			}
-		}
+		mg->kusok_index = i + kusochki_count_offset;
 	}
 
 	{
@@ -1193,9 +1191,8 @@ void VK_RayModelDestroy( struct vk_ray_model_s *model ) {
 	}
 }
 
-void VK_RayFrameAddModel( vk_ray_model_t *model, const matrix3x4 *transform_row ) {
+void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row ) {
 	ASSERT(vk_core.rtx);
-
 	ASSERT(g_rtx.frame.num_models <= ARRAYSIZE(g_rtx.frame.models));
 
 	if (g_rtx.freeze_models)
@@ -1212,5 +1209,14 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const matrix3x4 *transform_row 
 		draw_model->model = model;
 		memcpy(draw_model->transform_row, *transform_row, sizeof(draw_model->transform_row));
 		g_rtx.frame.num_models++;
+	}
+
+	if (render_model)
+		VK_LightsAddEmissiveSurfacesFromModel( render_model, transform_row );
+
+	for (int i = 0; i < render_model->num_geometries; ++i) {
+		const vk_render_geometry_t *geom = render_model->geometries + i;
+		vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + geom->kusok_index;
+		kusok->texture = geom->texture;
 	}
 }

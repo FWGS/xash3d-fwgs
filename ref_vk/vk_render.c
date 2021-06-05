@@ -837,7 +837,7 @@ void VK_RenderModelDestroy( vk_render_model_t* model ) {
 
 void VK_RenderModelDraw( vk_render_model_t* model ) {
 	if (vk_core.rtx) {
-		VK_RayFrameAddModel(model->ray_model, (const matrix3x4*)g_render_state.model);
+		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model);
 		return;
 	}
 

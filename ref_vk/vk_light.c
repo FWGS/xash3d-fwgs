@@ -1,5 +1,6 @@
 #include "vk_light.h"
 #include "vk_textures.h"
+#include "vk_brush.h"
 
 #include "mod_local.h"
 #include "xash3d_mathlib.h"
@@ -8,9 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
-vk_potentially_visible_lights_t g_lights = {0};
-
-vk_emissive_texture_table_t g_emissive_texture_table[MAX_TEXTURES];
+vk_lights_t g_lights = {0};
 
 typedef struct {
 	const char *name;
@@ -21,7 +20,7 @@ static void loadRadData( const model_t *map, const char *filename ) {
 	fs_offset_t size;
 	byte *data, *buffer = gEngine.COM_LoadFile( filename, &size, false);
 
-	memset(g_emissive_texture_table, 0, sizeof(g_emissive_texture_table));
+	memset(g_lights.map.emissive_textures, 0, sizeof(g_lights.map.emissive_textures));
 
 	if (!buffer) {
 		gEngine.Con_Printf(S_ERROR "Couldn't load rad data from file %s, the map will be completely black\n", filename);
@@ -81,10 +80,10 @@ static void loadRadData( const model_t *map, const char *filename ) {
 				if (tex_id) {
 					ASSERT(tex_id < MAX_TEXTURES);
 
-					g_emissive_texture_table[tex_id].emissive[0] = r;
-					g_emissive_texture_table[tex_id].emissive[1] = g;
-					g_emissive_texture_table[tex_id].emissive[2] = b;
-					g_emissive_texture_table[tex_id].set = true;
+					g_lights.map.emissive_textures[tex_id].emissive[0] = r;
+					g_lights.map.emissive_textures[tex_id].emissive[1] = g;
+					g_lights.map.emissive_textures[tex_id].emissive[2] = b;
+					g_lights.map.emissive_textures[tex_id].set = true;
 				}
 			}
 		}
@@ -286,7 +285,7 @@ static void visitLeaf(const mleaf_t *leaf, const mnode_t *parent, const traversa
 		const msurface_t *surf = leaf->firstmarksurface[i];
 		const int surf_index = surf - ctx->map->surfaces;
 		const int texture_num = surf->texinfo->texture->gl_texturenum;
-		const qboolean emissive = texture_num >= 0 && g_emissive_texture_table[texture_num].set;
+		const qboolean emissive = texture_num >= 0 && g_lights.map.emissive_textures[texture_num].set;
 
 		if (emissive) num_emissive++;
 
@@ -341,65 +340,15 @@ static void traverseBSP( void ) {
 			i, i,
 			surf->texinfo && surf->texinfo->texture ? surf->texinfo->texture->name : "NULL",
 			surf->numedges, texture_num,
-			(texture_num >= 0 && g_emissive_texture_table[texture_num].set) ? "red" : "transparent" );
+			(texture_num >= 0 && g_lights.map.emissive_textures[texture_num].set) ? "red" : "transparent" );
 	}
 	fprintf(ctx.f, "}\n}\n");
 	fclose(ctx.f);
 	//exit(0);
 }
 
-static void buildStaticMapEmissiveSurfaces( void ) {
-	const model_t *map = gEngine.pfnGetModelByIndex( 1 );
-
-	// Initialize emissive surface table
-	for (int i = map->firstmodelsurface; i < map->firstmodelsurface + map->nummodelsurfaces; ++i) {
-		const msurface_t *surface = map->surfaces + i;
-		const int texture_num = surface->texinfo->texture->gl_texturenum;
-
-		// TODO animated textures ???
-		if (!g_emissive_texture_table[texture_num].set)
-			continue;
-
-		if (g_lights.num_emissive_surfaces < 256) {
-			vk_emissive_surface_t *esurf = g_lights.emissive_surfaces + g_lights.num_emissive_surfaces;
-
-			esurf->surface_index = i;
-			VectorCopy(g_emissive_texture_table[texture_num].emissive, esurf->emissive);
-		}
-
-		++g_lights.num_emissive_surfaces;
-	}
-
-	gEngine.Con_Reportf("Emissive surfaces found: %d\n", g_lights.num_emissive_surfaces);
-
-	if (g_lights.num_emissive_surfaces > UINT8_MAX + 1) {
-		gEngine.Con_Printf(S_ERROR "Too many emissive surfaces found: %d; some areas will be dark\n", g_lights.num_emissive_surfaces);
-		g_lights.num_emissive_surfaces = UINT8_MAX + 1;
-	}
-}
-
-static void addSurfaceLightToCell( const int light_cell[3], int emissive_surface_index ) {
-	const uint cluster_index = light_cell[0] + light_cell[1] * g_lights.grid.size[0] + light_cell[2] * g_lights.grid.size[0] * g_lights.grid.size[1];
-	vk_light_cluster_t *cluster = g_lights.grid.cells + cluster_index;
-
-	if (light_cell[0] < 0 || light_cell[1] < 0 || light_cell[2] < 0
-		|| (light_cell[0] >= g_lights.grid.size[0])
-		|| (light_cell[1] >= g_lights.grid.size[1])
-		|| (light_cell[2] >= g_lights.grid.size[2]))
-		return;
-
-	if (cluster->num_emissive_surfaces == MAX_VISIBLE_SURFACE_LIGHTS) {
-		gEngine.Con_Printf(S_ERROR "Cluster %d,%d,%d(%d) ran out of emissive surfaces slots\n",
-			light_cell[0], light_cell[1],  light_cell[2], cluster_index
-			);
-		return;
-	}
-
-	cluster->emissive_surfaces[cluster->num_emissive_surfaces] = emissive_surface_index;
-	++cluster->num_emissive_surfaces;
-}
-
-static void buildStaticMapLightsGrid( void ) {
+void VK_LightsNewMap( void )
+{
 	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
 
 	// 1. Determine map bounding box (and optimal grid size?)
@@ -411,88 +360,152 @@ static void buildStaticMapLightsGrid( void ) {
 	min_cell[0] = floorf(min_cell[0]);
 	min_cell[1] = floorf(min_cell[1]);
 	min_cell[2] = floorf(min_cell[2]);
-	VectorCopy(min_cell, g_lights.grid.min_cell);
+	VectorCopy(min_cell, g_lights.map.grid_min_cell);
 
 	VectorDivide(map->maxs, LIGHT_GRID_CELL_SIZE, max_cell);
 	max_cell[0] = ceilf(max_cell[0]);
 	max_cell[1] = ceilf(max_cell[1]);
 	max_cell[2] = ceilf(max_cell[2]);
 
-	VectorSubtract(max_cell, min_cell, g_lights.grid.size);
-	g_lights.grid.num_cells = g_lights.grid.size[0] * g_lights.grid.size[1] * g_lights.grid.size[2];
-	ASSERT(g_lights.grid.num_cells < MAX_LIGHT_CLUSTERS);
+	VectorSubtract(max_cell, min_cell, g_lights.map.grid_size);
+	g_lights.map.grid_cells = g_lights.map.grid_size[0] * g_lights.map.grid_size[1] * g_lights.map.grid_size[2];
+	ASSERT(g_lights.map.grid_cells < MAX_LIGHT_CLUSTERS);
 
 	gEngine.Con_Reportf("Map mins:(%f, %f, %f), maxs:(%f, %f, %f), size:(%f, %f, %f), min_cell:(%f, %f, %f) cells:(%d, %d, %d); total: %d\n",
 		map->mins[0], map->mins[1], map->mins[2],
 		map->maxs[0], map->maxs[1], map->maxs[2],
 		map_size[0], map_size[1], map_size[2],
 		min_cell[0], min_cell[1], min_cell[2],
-		g_lights.grid.size[0],
-		g_lights.grid.size[1],
-		g_lights.grid.size[2],
-		g_lights.grid.num_cells
+		g_lights.map.grid_size[0],
+		g_lights.map.grid_size[1],
+		g_lights.map.grid_size[2],
+		g_lights.map.grid_cells
 	);
 
-	// 3. For all light sources
-	for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
-		const vk_emissive_surface_t *emissive = g_lights.emissive_surfaces + i;
-		const msurface_t *surface = map->surfaces + emissive->surface_index;
-		int cluster_index;
-		vk_light_cluster_t *cluster;
-		vec3_t light_cell;
-		float effective_radius;
-		const float intensity_threshold = 1.f / 255.f; // TODO better estimate
-		const float intensity = Q_max(Q_max(emissive->emissive[0], emissive->emissive[1]), emissive->emissive[2]);
-		ASSERT(surface->info);
+	parseStaticLightEntities();
 
-		// FIXME using just origin is incorrect
-		{
-			vec3_t light_cell_f;
-			VectorDivide(surface->info->origin, LIGHT_GRID_CELL_SIZE, light_cell_f);
-			light_cell[0] = floorf(light_cell_f[0]);
-			light_cell[1] = floorf(light_cell_f[1]);
-			light_cell[2] = floorf(light_cell_f[2]);
-		}
-		VectorSubtract(light_cell, g_lights.grid.min_cell, light_cell);
+	// Load RAD data based on map name
+	loadRadData( map, "rad/lights_anomalous_materials.rad" );
+}
 
-		ASSERT(light_cell[0] >= 0);
-		ASSERT(light_cell[1] >= 0);
-		ASSERT(light_cell[2] >= 0);
-		ASSERT(light_cell[0] < g_lights.grid.size[0]);
-		ASSERT(light_cell[1] < g_lights.grid.size[1]);
-		ASSERT(light_cell[2] < g_lights.grid.size[2]);
+void VK_LightsFrameInit( void )
+{
+	g_lights.num_emissive_surfaces = 0;
+	memset(g_lights.cells, 0, sizeof(g_lights.cells));
+}
 
-		//		3.3	Add it to those cells
-		effective_radius = sqrtf(intensity / intensity_threshold);
-		{
-			const int irad = ceilf(effective_radius / LIGHT_GRID_CELL_SIZE);
-			gEngine.Con_Reportf("Emissive surface %d: max intensity: %f; eff rad: %f; cell rad: %d\n", i, intensity, effective_radius, irad);
-			for (int x = -irad; x <= irad; ++x)
-				for (int y = -irad; y <= irad; ++y)
-					for (int z = -irad; z <= irad; ++z) {
-						const int cell[3] = { light_cell[0] + x, light_cell[1] + y, light_cell[2] + z};
-						// TODO culling, ...
-						// 		3.1 Compute light size and intensity (?)
-						//		3.2 Compute which cells it might affect
-						//			- light orientation
-						//			- light intensity
-						//			- PVS
-						addSurfaceLightToCell(cell, i);
-					}
-		}
+static void addSurfaceLightToCell( const int light_cell[3], int emissive_surface_index ) {
+	const uint cell_index = light_cell[0] + light_cell[1] * g_lights.map.grid_size[0] + light_cell[2] * g_lights.map.grid_size[0] * g_lights.map.grid_size[1];
+	vk_lights_cell_t *cluster = g_lights.cells + cell_index;
+
+	if (light_cell[0] < 0 || light_cell[1] < 0 || light_cell[2] < 0
+		|| (light_cell[0] >= g_lights.map.grid_size[0])
+		|| (light_cell[1] >= g_lights.map.grid_size[1])
+		|| (light_cell[2] >= g_lights.map.grid_size[2]))
+		return;
+
+	if (cluster->num_emissive_surfaces == MAX_VISIBLE_SURFACE_LIGHTS) {
+		gEngine.Con_Printf(S_ERROR "Cluster %d,%d,%d(%d) ran out of emissive surfaces slots\n",
+			light_cell[0], light_cell[1],  light_cell[2], cell_index
+			);
+		return;
 	}
 
+	cluster->emissive_surfaces[cluster->num_emissive_surfaces] = emissive_surface_index;
+	++cluster->num_emissive_surfaces;
+}
+
+void VK_LightsAddEmissiveSurfacesFromModel( const struct vk_render_model_s *model, const matrix3x4 *transform_row )
+{
+	for (int i = 0; i < model->num_geometries; ++i) {
+		const vk_render_geometry_t *geom = model->geometries + i;
+		const int texture_num = geom->texture; // Animated texture
+		if (!geom->surf)
+			continue; // TODO break? no surface means that model is not brush
+
+		if (!g_lights.map.emissive_textures[texture_num].set)
+			continue;
+
+		if (g_lights.num_emissive_surfaces < 256) {
+			// Insert into emissive surfaces
+			vk_emissive_surface_t *esurf = g_lights.emissive_surfaces + g_lights.num_emissive_surfaces;
+			esurf->kusok_index = geom->kusok_index;
+			VectorCopy(g_lights.map.emissive_textures[texture_num].emissive, esurf->emissive);
+			Matrix3x4_Copy(esurf->transform, *transform_row);
+
+			// Insert into light grid cell
+			{
+				int cluster_index;
+				vec3_t light_cell;
+				float effective_radius;
+				const float intensity_threshold = 1.f / 255.f; // TODO better estimate
+				const float intensity = Q_max(Q_max(esurf->emissive[0], esurf->emissive[1]), esurf->emissive[2]);
+				ASSERT(geom->surf->info);
+				// FIXME using just origin is incorrect
+				{
+					vec3_t light_cell_f;
+					vec3_t origin;
+					Matrix3x4_VectorTransform(*transform_row, geom->surf->info->origin, origin);
+					VectorDivide(origin, LIGHT_GRID_CELL_SIZE, light_cell_f);
+					light_cell[0] = floorf(light_cell_f[0]);
+					light_cell[1] = floorf(light_cell_f[1]);
+					light_cell[2] = floorf(light_cell_f[2]);
+				}
+				VectorSubtract(light_cell, g_lights.map.grid_min_cell, light_cell);
+
+				ASSERT(light_cell[0] >= 0);
+				ASSERT(light_cell[1] >= 0);
+				ASSERT(light_cell[2] >= 0);
+				ASSERT(light_cell[0] < g_lights.map.grid_size[0]);
+				ASSERT(light_cell[1] < g_lights.map.grid_size[1]);
+				ASSERT(light_cell[2] < g_lights.map.grid_size[2]);
+
+				//		3.3	Add it to those cells
+				effective_radius = sqrtf(intensity / intensity_threshold);
+				{
+					const int irad = ceilf(effective_radius / LIGHT_GRID_CELL_SIZE);
+					//gEngine.Con_Reportf("Emissive surface %d: max intensity: %f; eff rad: %f; cell rad: %d\n", i, intensity, effective_radius, irad);
+					for (int x = -irad; x <= irad; ++x)
+						for (int y = -irad; y <= irad; ++y)
+							for (int z = -irad; z <= irad; ++z) {
+								const int cell[3] = { light_cell[0] + x, light_cell[1] + y, light_cell[2] + z};
+								// TODO culling, ...
+								// 		3.1 Compute light size and intensity (?)
+								//		3.2 Compute which cells it might affect
+								//			- light orientation
+								//			- light intensity
+								//			- PVS
+								addSurfaceLightToCell(cell, g_lights.num_emissive_surfaces);
+							}
+				}
+			}
+		}
+
+		++g_lights.num_emissive_surfaces;
+	}
+}
+
+void VK_LightsFrameFinalize( void )
+{
+	if (g_lights.num_emissive_surfaces > UINT8_MAX) {
+		gEngine.Con_Printf(S_ERROR "Too many emissive surfaces found: %d; some areas will be dark\n", g_lights.num_emissive_surfaces);
+		g_lights.num_emissive_surfaces = UINT8_MAX;
+	}
+
+#if 0
 	// Print light grid stats
+	gEngine.Con_Reportf("Emissive surfaces found: %d\n", g_lights.num_emissive_surfaces);
+
 	{
 		#define GROUPSIZE 4
 		int histogram[1 + (MAX_VISIBLE_SURFACE_LIGHTS + GROUPSIZE - 1) / GROUPSIZE] = {0};
-		for (int i = 0; i < g_lights.grid.num_cells; ++i) {
-			const vk_light_cluster_t *cluster = g_lights.grid.cells + i;
+		for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+			const vk_lights_cell_t *cluster = g_lights.cells + i;
 			const int hist_index = cluster->num_emissive_surfaces ? 1 + cluster->num_emissive_surfaces / GROUPSIZE : 0;
 			histogram[hist_index]++;
 		}
 
-		gEngine.Con_Reportf("Built %d light clusters. Stats:\n", g_lights.grid.num_cells);
+		gEngine.Con_Reportf("Built %d light clusters. Stats:\n", g_lights.map.grid_cells);
 		gEngine.Con_Reportf("  0: %d\n", histogram[0]);
 		for (int i = 1; i < ARRAYSIZE(histogram); ++i)
 			gEngine.Con_Reportf("  %d-%d: %d\n",
@@ -502,32 +515,14 @@ static void buildStaticMapLightsGrid( void ) {
 	}
 
 	{
-		for (int i = 0; i < g_lights.grid.num_cells; ++i) {
-			const vk_light_cluster_t *cluster = g_lights.grid.cells + i;
+		for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+			const vk_lights_cell_t *cluster = g_lights.cells + i;
 			if (cluster->num_emissive_surfaces > 0) {
 				gEngine.Con_Reportf(" cluster %d: emissive_surfaces=%d\n", i, cluster->num_emissive_surfaces);
 			}
 		}
 	}
-}
-
-void VK_LightsLoadMap( void ) {
-	const model_t *map = gEngine.pfnGetModelByIndex( 1 );
-
-	parseStaticLightEntities();
-
-	g_lights.num_emissive_surfaces = 0;
-	g_lights.grid.num_cells = 0;
-	memset(&g_lights.grid, 0, sizeof(g_lights.grid));
-
-	// FIXME ...
-	//initHackRadTable();
-
-	// Load RAD data based on map name
-	loadRadData( map, "rad/lights_anomalous_materials.rad" );
-
-	buildStaticMapEmissiveSurfaces();
-	buildStaticMapLightsGrid();
+#endif
 }
 
 void VK_LightsShutdown( void ) {

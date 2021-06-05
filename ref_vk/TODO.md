@@ -1,9 +1,12 @@
+## 2021-06-05, E103
+- [x] rtx: dynamic surface lights / dynamic light clusters
+- [x] rtx: animated textures
+
 # Next
-- [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
+- [ ] rtx: attenuate surface lights by normal
 - [ ] rtx: better memory handling
 	- [ ] robust tracking of memory hierarchies: global/static, map, frame
 	- or just do a generic allocator with compaction?
-- [ ] rtx: dynamic surface lights / dynamic light clusters
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, ...
 - [ ] rtx: live rad file reloading (or other solution for tuning lights)
 - [ ] rtx: restore dynamic stuff like particles, beams, etc
@@ -23,6 +26,7 @@
 - [ ] rtx: alpha test/blending
 - [ ] rtx: coalesce all these buffers
 - [ ] crash in PM_RecursiveHullCheck
+- [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
 
 # Planned
 - [ ] studio models: pre-compute buffer sizes and allocate them at once

@@ -102,6 +102,7 @@ layout(set=0,binding=6) uniform UBODLights {
 struct EmissiveKusok {
 	uint kusok_index;
 	vec3 emissive_color;
+	vec4 tx_row_x, tx_row_y, tx_row_z;
 };
 
 layout (constant_id = 1) const uint MAX_EMISSIVE_KUSOCHKI = 256;
@@ -112,8 +113,8 @@ layout (set = 0, binding = 7/*, align=4*/) uniform UBOEmissiveKusochki {
 
 layout(binding = 8, set = 0, rgba8) uniform readonly image2D previous_frame;
 
-layout (constant_id = 2) const uint MAX_VISIBLE_DLIGHTS = 15;
-layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 31;
+layout (constant_id = 2) const uint MAX_VISIBLE_DLIGHTS = 255;//15;
+layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 255;//31;
 
 const uint LIGHT_CLUSTER_SIZE = 2 + MAX_VISIBLE_DLIGHTS + MAX_VISIBLE_SURFACE_LIGHTS;
 const uint LIGHT_CLUSTER_NUM_DLIGHTS_OFFSET = 0;
@@ -361,7 +362,6 @@ void main() {
 
 		const vec2 bary = rayQueryGetIntersectionBarycentricsEXT(rayQuery, true);
 		const vec3 normal = normalize(transpose(inverse(mat3(transform))) * (n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y));
-
 		pos += normal * normal_offset_fudge;
 
 		//C = normal * .5 + .5; break;
@@ -389,12 +389,37 @@ void main() {
 
 			const uint num_emissive_kusochki = uint(light_grid.clusters[cluster_index].num_emissive_surfaces);
 			//const uint num_emissive_kusochki = emissive_kusochki.num_kusochki;
+			float sampling_light_scale = 1.;
+#if 0
+			const uint max_lights_per_frame = 4;
+			uint begin_i = 0, end_i = num_emissive_kusochki;
+			if (end_i > max_lights_per_frame) {
+			 	begin_i = rand() % (num_emissive_kusochki - max_lights_per_frame);
+				end_i = begin_i + max_lights_per_frame;
+				sampling_light_scale = float(num_emissive_kusochki) / float(max_lights_per_frame);
+			}
+			for (uint i = begin_i; i < end_i; ++i) {
+#else
 			for (uint i = 0; i < num_emissive_kusochki; ++i) {
+#endif
 				const uint index_into_emissive_kusochki = uint(light_grid.clusters[cluster_index].emissive_surfaces[i]);
 				//const uint index_into_emissive_kusochki = i;
+				// if (index_into_emissive_kusochki < 45 || index_into_emissive_kusochki > 48)
+				// 	continue;
+				const EmissiveKusok ek = emissive_kusochki.kusochki[index_into_emissive_kusochki];
 				const uint emissive_kusok_index = emissive_kusochki.kusochki[index_into_emissive_kusochki].kusok_index;
 				const Kusok ekusok = kusochki[emissive_kusok_index];
 				const vec3 emissive = emissive_kusochki.kusochki[index_into_emissive_kusochki].emissive_color.rgb;
+
+				// TODO streamline matrices layouts
+				const mat4x3 emissive_transform = mat4x3(
+					vec3(ek.tx_row_x.x, ek.tx_row_y.x, ek.tx_row_z.x),
+					vec3(ek.tx_row_x.y, ek.tx_row_y.y, ek.tx_row_z.y),
+					vec3(ek.tx_row_x.z, ek.tx_row_y.z, ek.tx_row_z.z),
+					vec3(ek.tx_row_x.w, ek.tx_row_y.w, ek.tx_row_z.w)
+				);
+
+				const mat3 emissive_transform_normal = transpose(inverse(mat3(emissive_transform)));
 
 				// if (i != picked_light) {
 				// 	continue;
@@ -415,7 +440,7 @@ void main() {
 
 					// TODO this is not entirely correct -- need to mix between all normals, or have this normal precomputed
 					const uint vi1 = uint(indices[first_index_offset+0]) + ekusok.vertex_offset;
-					const vec3 n1 = vertices[vi1].normal;
+					const vec3 n1 = normalize(emissive_transform_normal * vertices[vi1].normal);
 					// if (dot(n1, normal) >= 0. /* TODO epsilon */ )
 					// 	continue;
 
@@ -426,10 +451,11 @@ void main() {
 					const uint vi2 = uint(indices[first_index_offset+1]) + ekusok.vertex_offset;
 					const uint vi3 = uint(indices[first_index_offset+2]) + ekusok.vertex_offset;
 
-					const vec3 sample_pos = mix(mix(
-						vertices[vi1].pos, vertices[vi2].pos, rand01()
-					), vertices[vi3].pos, rand01());
+					const vec3 v1 = (emissive_transform * vec4(vertices[vi1].pos, 1.)).xyz;
+					const vec3 v2 = (emissive_transform * vec4(vertices[vi2].pos, 1.)).xyz;
+					const vec3 v3 = (emissive_transform * vec4(vertices[vi3].pos, 1.)).xyz;
 
+					const vec3 sample_pos = mix(mix(v1, v2, rand01()), v3, rand01());
 					//const vec3 sample_pos = vertices[vi1].pos;
 
 					// const vec3 n2 = vertices[vi2].normal;
@@ -450,7 +476,7 @@ void main() {
 
 					// TODO
 					const float brightness_fudge = 5.;
-					C += brightness_fudge * kc * baseColor * emissive * dot(light_dir, normal) / (light_dist * light_dist);
+					C += sampling_light_scale * brightness_fudge * kc * baseColor * emissive * dot(light_dir, normal) / (light_dist * light_dist);
 
 					// Sample just one triangle
 					break;

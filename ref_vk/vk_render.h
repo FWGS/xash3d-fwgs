@@ -74,10 +74,14 @@ typedef struct {
 	uint32_t element_count;
 	uint32_t vertex_count;
 
-	// TODO we don't really need this here
-	// as it's used to tie emissive surfaces to geometry in RTX renderer
-	// we can and should infer this dynamically (from texture) when building dynamic light clusters
-	int surface_index;
+	// Non-null only for brush models
+	// Used for:
+	// - updating animated textures for brush models
+	// - updating dynamic lights (TODO: can decouple from surface/brush models by providing texture_id and aabb directly here)
+	struct msurface_s *surf;
+
+	// Index into kusochki buffer for current frame
+	uint32_t kusok_index;
 } vk_render_geometry_t;
 
 struct vk_ray_model_s;

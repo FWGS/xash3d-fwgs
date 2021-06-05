@@ -101,8 +101,7 @@ void R_NewMap( void )
 	// This is to ensure that we have computed lightstyles properly
 	VK_RunLightStyles();
 
-	// TODO this should be per frame
-	VK_LightsLoadMap();
+	VK_LightsNewMap();
 
 	// TODO should we do something like VK_BrushBeginLoad?
 	VK_BrushStatsClear();
