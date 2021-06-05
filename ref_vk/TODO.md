@@ -1,13 +1,14 @@
 ## 2021-06-05, E103
 - [x] rtx: dynamic surface lights / dynamic light clusters
 - [x] rtx: animated textures
+- [x] rtx: attenuate surface lights by normal
 
 # Next
-- [ ] rtx: attenuate surface lights by normal
+- [ ] run under asan
 - [ ] rtx: better memory handling
 	- [ ] robust tracking of memory hierarchies: global/static, map, frame
 	- or just do a generic allocator with compaction?
-- [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, ...
+- [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
 - [ ] rtx: live rad file reloading (or other solution for tuning lights)
 - [ ] rtx: restore dynamic stuff like particles, beams, etc
 - [ ] rtx: emissive particles
@@ -29,6 +30,8 @@
 - [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
 
 # Planned
+- [ ] rtx: too many emissive lights in c3a1b
+- [ ] rtx: c3a1b: assert model->size >= build_size.accelerationStructureSize failed at vk_rtx.c:347
 - [ ] studio models: pre-compute buffer sizes and allocate them at once
 - [ ] rtx: denoise
 	- [ ] non local means ?
@@ -70,7 +73,6 @@
 
 # Someday
 - [ ] nvnsight into buffer memory and stuff
-- [ ] run under asan
 - [ ] start building command buffers in beginframe
 - [ ] multiple frames in flight (#nd cmdbuf, ...)
 - [ ] cleanup unused stuff in vk_studio.c

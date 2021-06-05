@@ -430,7 +430,7 @@ void main() {
 					//C += kc * vec3(hash(float(kusok_index)), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.));//kusok.emissive.rgb;
 					//C = vec3(1., 0., 1.);
 					if (bounce == 0)
-						C += kc * emissive;
+						C += kc * emissive * baseColor;
 					continue;
 				}
 
@@ -462,12 +462,14 @@ void main() {
 					// const vec3 n3 = vertices[vi3].normal;
 
 					vec3 light_dir = sample_pos - pos;
-					if (dot(light_dir, n1) >= 0.) {
+					float light_dot = -dot(light_dir, n1);
+					if (light_dot <= 0.) {
 						//C = vec3(1., 0., 1.);
 						continue;
 					}
 
 					const float light_dist = length(light_dir);
+					light_dot /= light_dist;
 					light_dir /= light_dist;
 					if (shadowed(pos, light_dir, light_dist - shadow_offset_fudge)) {
 						//C = vec3(0., 1., 0.);
@@ -476,7 +478,7 @@ void main() {
 
 					// TODO
 					const float brightness_fudge = 5.;
-					C += sampling_light_scale * brightness_fudge * kc * baseColor * emissive * dot(light_dir, normal) / (light_dist * light_dist);
+					C += light_dot * sampling_light_scale * brightness_fudge * kc * baseColor * emissive * dot(light_dir, normal) / (light_dist * light_dist);
 
 					// Sample just one triangle
 					break;
