@@ -62,6 +62,10 @@ def configure(conf):
 			conf.fatal('SDL2 not availiable! If you want to build dedicated server, specify --dedicated')
 		conf.define('XASH_SDL', 2)
 
+	if conf.env.DEST_OS == 'haiku':
+		conf.env.LIB_HAIKU = ['network']
+		conf.env.LIBPATH_HAIKU = ['/boot/system/lib']
+
 	if conf.options.USE_SELECT == None:
 		conf.options.USE_SELECT = conf.options.DEDICATED
 
@@ -112,6 +116,8 @@ def build(bld):
 		source += bld.path.ant_glob(['platform/dos/*.c'])
 		source += bld.path.ant_glob(['platform/stub/s_stub.c'])
 
+	if bld.env.DEST_OS == 'haiku':
+		libs.append('HAIKU')
 
 	if bld.get_define('XASH_CUSTOM_SWAP'):
 		source += bld.path.ant_glob(['platform/misc/kmalloc.c', 'platform/misc/sbrk.c'])
