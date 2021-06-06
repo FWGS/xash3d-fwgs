@@ -93,6 +93,8 @@ extern poolhandle_t r_temppool;
 #define CULL_VISFRAME	3		// culled by PVS
 #define CULL_OTHER		4		// culled by other reason
 
+#define HACKS_RELATED_HLMODS		// some HL-mods works differently under Xash and can't be fixed without some hacks at least at current time
+
 typedef struct gltexture_s
 {
 	char		name[256];	// game path, including extension (can be store image programs)
