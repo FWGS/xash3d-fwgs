@@ -78,23 +78,48 @@ CL_DescribeEvent
 
 =============
 */
-void CL_DescribeEvent( int slot, int flags, const char *eventname )
+void CL_DescribeEvent( event_info_t *ei, int slot )
 {
-	int		idx = (slot & 31);
+	int		idx = (slot & 63) * 2;
 	con_nprint_t	info;
+	string origin_str = { 0 }; //, angles_str = { 0 };
 
-	if( !eventname || !cl_showevents->value )
+	if( !cl_showevents->value )
 		return;
 
-	// mark reliable as green and unreliable as red
-	if( FBitSet( flags, FEV_RELIABLE ))
-		VectorSet( info.color, 0.0f, 1.0f, 0.0f );
-	else VectorSet( info.color, 1.0f, 0.0f, 0.0f );
-
-	info.time_to_live = 0.5f;
+	info.time_to_live = 1.0f;
 	info.index = idx;
 
-	Con_NXPrintf( &info, "%i %f %s", slot, cl.time, eventname );
+	// mark reliable as green and unreliable as red
+	if( FBitSet( ei->flags, FEV_RELIABLE ))
+		VectorSet( info.color, 0.5f, 1.0f, 0.5f );
+	else VectorSet( info.color, 1.0f, 0.5f, 0.5f );
+
+	if( !VectorIsNull( ei->args.origin ))
+	{
+		Q_snprintf( origin_str, sizeof( origin_str ), "(%.2f,%.2f,%.2f)",
+			ei->args.origin[0], ei->args.origin[1], ei->args.origin[2]);
+	}
+
+	/*if( !VectorIsNull( ei->args.angles ))
+	{
+		Q_snprintf( angles_str, sizeof( angles_str ), "ang %.2f %.2f %.2f",
+			ei->args.angles[0], ei->args.angles[1], ei->args.angles[2]);
+	}*/
+
+	Con_NXPrintf( &info, "%i %.2f %c %s %s",
+		slot, cl.time,
+		(FBitSet( ei->flags, FEV_CLIENT ) ? 'c' :
+		FBitSet( ei->flags, FEV_SERVER ) ? 's' : '?'),
+		cl.event_precache[ei->index],
+		origin_str);
+
+	info.index++;
+
+	Con_NXPrintf( &info, "b(%i,%i) i(%i,%i) f(%.2f,%.2f)",
+		ei->args.bparam1, ei->args.bparam2,
+		ei->args.iparam1, ei->args.iparam2,
+		ei->args.fparam1, ei->args.fparam2);
 }
 
 /*
@@ -202,7 +227,7 @@ qboolean CL_FireEvent( event_info_t *ei, int slot )
 		{
 			if( ev->func )
 			{
-				CL_DescribeEvent( slot, ei->flags, cl.event_precache[ei->index] );
+				CL_DescribeEvent( ei, slot );
 				ev->func( &ei->args );
 				return true;
 			}
