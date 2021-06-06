@@ -669,8 +669,6 @@ void Host_InputFrame( void )
 		}
 	}
 
-	Cbuf_Execute ();
-
 	if( !in_mouseinitialized )
 		return;
 
