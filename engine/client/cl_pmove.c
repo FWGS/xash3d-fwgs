@@ -1082,13 +1082,14 @@ Runs prediction code for user cmd
 void CL_RunUsercmd( local_state_t *from, local_state_t *to, usercmd_t *u, qboolean runfuncs, double *time, unsigned int random_seed )
 {
 	usercmd_t		cmd;
-	local_state_t	temp;
-	usercmd_t		split;
-
-	memset( &temp, 0, sizeof( temp ));
 
 	if( u->msec > 50 )
 	{
+		local_state_t	temp;
+		usercmd_t		split;
+
+		memset( &temp, 0, sizeof( temp ));
+
 		split = *u;
 		split.msec /= 2;
 		CL_RunUsercmd( from, &temp, &split, runfuncs, time, random_seed );
@@ -1155,12 +1156,12 @@ Sets cl.predicted.origin and cl.predicted.angles
 */
 void CL_PredictMovement( qboolean repredicting )
 {
-	runcmd_t		*to_cmd, *from_cmd;
+	runcmd_t		*to_cmd = NULL, *from_cmd;
 	local_state_t	*from = NULL, *to = NULL;
-	int		current_command;
-	int		current_command_mod;
+	uint		current_command;
+	uint		current_command_mod;
 	frame_t		*frame = NULL;
-	int		i, stoppoint;
+	uint		i, stoppoint;
 	qboolean		runfuncs;
 	double		f = 1.0;
 	cl_entity_t	*ent;
