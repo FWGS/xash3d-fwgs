@@ -1378,17 +1378,13 @@ qboolean CL_GetEntitySpatialization( channel_t *ch )
 	ent = CL_GetEntityByIndex( ch->entnum );
 
 	// entity is not present on the client but has valid origin
-	if( !ent || !ent->index || ent->curstate.messagenum == 0 )
+	if( !ent || !ent->model || ent->curstate.messagenum != cl.parsecount )
 		return valid_origin;
 
-#if 0
-	// uncomment this if you want enable additional check by PVS
-	if( ent->curstate.messagenum != cl.parsecount )
-		return valid_origin;
-#endif
-	// setup origin
-	VectorAverage( ent->curstate.mins, ent->curstate.maxs, ch->origin );
-	VectorAdd( ch->origin, ent->curstate.origin, ch->origin );
+	VectorCopy( ent->origin, ch->origin );
+
+	if( ent->model->type == mod_brush )
+		VectorAverage( ent->curstate.mins, ent->curstate.maxs, ch->origin );
 
 	return true;
 }
@@ -1406,12 +1402,10 @@ qboolean CL_GetMovieSpatialization( rawchan_t *ch )
 		return valid_origin;
 
 	// setup origin
-	VectorAverage( ent->curstate.mins, ent->curstate.maxs, ch->origin );
-	VectorAdd( ch->origin, ent->curstate.origin, ch->origin );
+	VectorCopy( ent->origin, ch->origin );
 
-	// setup radius
-	if( ent->model != NULL && ent->model->radius ) ch->radius = ent->model->radius;
-	else ch->radius = RadiusFromBounds( ent->curstate.mins, ent->curstate.maxs );
+	if( ent->model->type == mod_brush )
+		VectorAverage( ent->curstate.mins, ent->curstate.maxs, ch->origin );
 
 	return true;
 }
