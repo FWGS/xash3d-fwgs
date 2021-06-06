@@ -264,7 +264,9 @@ void CL_CheckPredictionError( void )
 		// save for error interpolation
 		VectorCopy( delta, cl.local.prediction_error );
 
-		if( dist > MIN_CORRECTION_DISTANCE )
+		// GoldSrc checks for singleplayer
+		// we would check for local server
+		if( dist > MIN_CORRECTION_DISTANCE && !SV_Active() )
 			cls.correction_time = cl_smoothtime->value;
 	}
 }
@@ -1227,10 +1229,6 @@ void CL_PredictMovement( qboolean repredicting )
 		if( to_cmd->senttime >= host.realtime )
 			break;
 
-		// now interpolate some fraction of the final frame
-		if( to_cmd->senttime != from_cmd->senttime )
-			f = (host.realtime - from_cmd->senttime) / (to_cmd->senttime - from_cmd->senttime) * 0.1;
-
 		from = to;
 		from_cmd = to_cmd;
 	}
@@ -1263,8 +1261,10 @@ void CL_PredictMovement( qboolean repredicting )
 		return;
 	}
 
-	f = bound( 0.0f, f, 1.0f );
-	f = 0.0;	// FIXME: make work, do revision
+	// now interpolate some fraction of the final frame
+	if( to_cmd->senttime != from_cmd->senttime )
+		f = bound( 0.0, (host.realtime - from_cmd->senttime) / (to_cmd->senttime - from_cmd->senttime) * 0.1, 1.0 );
+	else f = 0.0;
 
 	if( CL_PlayerTeleported( from, to ))
 	{
