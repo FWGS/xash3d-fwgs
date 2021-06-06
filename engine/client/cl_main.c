@@ -2973,11 +2973,11 @@ Host_ClientBegin
 */
 void Host_ClientBegin( void )
 {
-	// if client is not active, do nothing
-	if( !cls.initialized ) return;
-
 	// exec console commands
 	Cbuf_Execute ();
+
+	// if client is not active, do nothing
+	if( !cls.initialized ) return;
 
 	// finalize connection process if needs
 	CL_CheckClientState();
