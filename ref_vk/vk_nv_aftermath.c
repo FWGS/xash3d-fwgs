@@ -1,6 +1,6 @@
+#ifdef USE_AFTERMATH
 #include "vk_nv_aftermath.h"
 
-#ifdef USE_AFTERMATH
 #include "vk_common.h"
 
 #include "xash3d_types.h"

@@ -3,6 +3,7 @@
 #include "vk_2d.h"
 #include "vk_scene.h"
 #include "vk_render.h"
+#include "vk_rtx.h"
 
 #include "eiface.h"
 

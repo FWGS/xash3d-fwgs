@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h> // isalnum...
 
 vk_lights_t g_lights = {0};
 

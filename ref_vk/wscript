@@ -77,7 +77,7 @@ def build(bld):
 		# libs.append(bld.env.AFTERMATH_LIB)
 		# libpath.append(bld.env.AFTERMATH_LIBDIR)
 
-	bld.env.CFLAGS += ["/WX"]
+	#bld.env.CFLAGS += ["/WX"]
 
 	bld.shlib(
 		source   = source,

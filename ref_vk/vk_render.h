@@ -113,5 +113,9 @@ void VK_RenderModelDynamicCommit( void );
 void VK_RenderFrameEnd( VkCommandBuffer cmdbuf );
 void VK_RenderFrameEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h );
 
-// void VK_RenderDebugLabelBegin( const char *label );
-// void VK_RenderDebugLabelEnd( void );
+void VK_RenderDebugLabelBegin( const char *label );
+void VK_RenderDebugLabelEnd( void );
+
+void VK_RenderBegin( void );
+void VK_RenderEnd( VkCommandBuffer cmdbuf );
+void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h );

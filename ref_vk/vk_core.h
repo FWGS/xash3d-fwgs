@@ -100,7 +100,6 @@ do { \
 		if (result != VK_SUCCESS) { \
 			gEngine.Con_Printf( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
 				__FILE__, __LINE__, result, resultName(result)); \
-			Sleep(3000); \
 			gEngine.Host_Error( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
 				__FILE__, __LINE__, result, resultName(result)); \
 		} \

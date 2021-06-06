@@ -143,14 +143,14 @@ void VK_DescriptorsCreate(vk_descriptors_t *desc)
 			int j;
 			for (j = 0; j < num_desc_types; ++j) {
 				if (pools[j].type == bind->descriptorType) {
-					pools[j].descriptorCount++;
+					pools[j].descriptorCount += bind->descriptorCount;
 					break;
 				}
 			}
 
 			if (j == num_desc_types) {
 				ASSERT(num_desc_types < ARRAYSIZE(pools));
-				pools[j].descriptorCount = 1;
+				pools[j].descriptorCount = bind->descriptorCount;
 				pools[j].type = bind->descriptorType;
 				++num_desc_types;
 			}
@@ -158,7 +158,9 @@ void VK_DescriptorsCreate(vk_descriptors_t *desc)
 
 		VkDescriptorPoolCreateInfo dpci = {
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-			.maxSets = 1, .poolSizeCount = num_desc_types, .pPoolSizes = pools,
+			.maxSets = desc->num_sets,
+			.poolSizeCount = num_desc_types,
+			.pPoolSizes = pools,
 		};
 		XVK_CHECK(vkCreateDescriptorPool(vk_core.device, &dpci, NULL, &desc->desc_pool));
 	}
