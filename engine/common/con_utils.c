@@ -876,7 +876,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "bsp" ))
 			continue;
 
-		if( use_filter && !Q_strnicmp( t->filenames[i], mpfilter, size))
+		if( use_filter && !Q_stristr( t->filenames[i], mpfilter ))
 			continue;
 
 		f = FS_Open( t->filenames[i], "rb", onlyingamedir );
