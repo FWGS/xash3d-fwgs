@@ -521,6 +521,12 @@ skipwhite:
 			}
 			data++;
 
+			if( c == '\\' && *data == '"' )
+			{
+				token[len++] = (byte)*data++;
+				continue;
+			}
+
 			if( c == '\"' )
 			{
 				token[len] = 0;
@@ -836,7 +842,7 @@ Cache_Check
 consistency check
 ====================
 */
-void *Cache_Check( byte *mempool, cache_user_t *c )
+void *Cache_Check( poolhandle_t mempool, cache_user_t *c )
 {
 	if( !c->data )
 		return NULL;
@@ -1171,7 +1177,7 @@ qboolean COM_IsSafeFileToDownload( const char *filename )
 	return true;
 }
 
-char *_copystring( byte *mempool, const char *s, const char *filename, int fileline )
+char *_copystring( poolhandle_t mempool, const char *s, const char *filename, int fileline )
 {
 	char	*b;
 

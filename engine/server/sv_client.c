@@ -122,9 +122,9 @@ int SV_GetFragmentSize( void *pcl, fragsize_t mode )
 		int frmax = Q_atoi( Info_ValueForKey( cl->userinfo, "cl_frmax" ));
 
 		if( frmax < FRAGMENT_MIN_SIZE || frmax > FRAGMENT_MAX_SIZE )
-			cl_frag_size = frmax;
+			cl_frag_size /= 2; // add window for unreliable
 		else
-			cl_frag_size /= 2;// add window for unreliable
+			cl_frag_size = frmax;
 	}
 
 	return cl_frag_size - HEADER_BYTES;
@@ -376,17 +376,6 @@ void SV_ConnectClient( netadr_t from )
 
 	// build a new connection
 	// accept the new client
-	if( Q_strncpy( newcl->useragent, Cmd_Argv( 6 ), MAX_INFO_STRING ) )
-	{
-		const char *id = Info_ValueForKey( newcl->useragent, "i" );
-
-		if( *id )
-		{
-			//sscanf( id, "%llx", &newcl->WonID );
-		}
-
-		// Q_strncpy( cl->auth_id, id, sizeof( cl->auth_id ) );
-	}
 
 	sv.current_client = newcl;
 	newcl->edict = EDICT_NUM( (newcl - svs.clients) + 1 );
@@ -396,6 +385,7 @@ void SV_ConnectClient( netadr_t from )
 	newcl->userid = g_userid++;	// create unique userid
 	newcl->state = cs_connected;
 	newcl->extensions = extensions & (NET_EXT_SPLITSIZE);
+	Q_strncpy( newcl->useragent, protinfo, MAX_INFO_STRING );
 
 	// reset viewentities (from previous level)
 	memset( newcl->viewentity, 0, sizeof( newcl->viewentity ));
@@ -411,7 +401,7 @@ void SV_ConnectClient( netadr_t from )
 
 	// build protinfo answer
 	protinfo[0] = '\0';
-	Info_SetValueForKey( protinfo, "ext", va( "%d",newcl->extensions ), sizeof( protinfo ) );
+	Info_SetValueForKey( protinfo, "ext", va( "%d", newcl->extensions ), sizeof( protinfo ) );
 
 	// send the connect packet to the client
 	Netchan_OutOfBandPrint( NS_SERVER, from, "client_connect %s", protinfo );
@@ -608,7 +598,7 @@ SVC COMMAND REDIRECT
 
 ==============================================================================
 */
-void SV_BeginRedirect( netadr_t adr, int target, char *buffer, int buffersize, void (*flush))
+void SV_BeginRedirect( netadr_t adr, rdtype_t target, char *buffer, size_t buffersize, void (*flush))
 {
 	if( !target || !buffer || !buffersize || !flush )
 		return;
@@ -619,6 +609,8 @@ void SV_BeginRedirect( netadr_t adr, int target, char *buffer, int buffersize, v
 	host.rd.flush = flush;
 	host.rd.address = adr;
 	host.rd.buffer[0] = 0;
+	if( host.rd.lines == 0 )
+		host.rd.lines = -1;
 }
 
 void SV_FlushRedirect( netadr_t adr, int dest, char *buf )
@@ -644,6 +636,9 @@ void SV_FlushRedirect( netadr_t adr, int dest, char *buf )
 
 void SV_EndRedirect( void )
 {
+	if( host.rd.lines > 0 )
+		return;
+
 	if( host.rd.flush )
 		host.rd.flush( host.rd.address, host.rd.target, host.rd.buffer );
 
@@ -651,6 +646,34 @@ void SV_EndRedirect( void )
 	host.rd.buffer = NULL;
 	host.rd.buffersize = 0;
 	host.rd.flush = NULL;
+}
+
+/*
+================
+Rcon_Print
+
+Print message to rcon buffer and send to rcon redirect target
+================
+*/
+void Rcon_Print( const char *pMsg )
+{
+	if( host.rd.target && host.rd.lines && host.rd.flush && host.rd.buffer )
+	{
+		size_t len = Q_strncat( host.rd.buffer, pMsg, host.rd.buffersize );
+
+		if( len && host.rd.buffer[len-1] == '\n' )
+		{
+			host.rd.flush( host.rd.address, host.rd.target, host.rd.buffer );
+
+			if( host.rd.lines > 0 )
+				host.rd.lines--;
+
+			host.rd.buffer[0] = 0;
+
+			if( !host.rd.lines )
+				Msg( "End of redirection!\n" );
+		}
+	}
 }
 
 /*
@@ -798,7 +821,6 @@ The second parameter should be the current protocol version number.
 void SV_Info( netadr_t from )
 {
 	char	string[MAX_INFO_STRING];
-	int	i, count = 0;
 	int	version;
 
 	// ignore in single player
@@ -814,6 +836,9 @@ void SV_Info( netadr_t from )
 	}
 	else
 	{
+		int i, count = 0;
+		qboolean havePassword = COM_CheckStringEmpty( sv_password.string );
+
 		for( i = 0; i < svs.maxclients; i++ )
 			if( svs.clients[i].state >= cs_connected )
 				count++;
@@ -826,6 +851,7 @@ void SV_Info( netadr_t from )
 		Info_SetValueForKey( string, "numcl", va( "%i", count ), MAX_INFO_STRING );
 		Info_SetValueForKey( string, "maxcl", va( "%i", svs.maxclients ), MAX_INFO_STRING );
 		Info_SetValueForKey( string, "gamedir", GI->gamefolder, MAX_INFO_STRING );
+		Info_SetValueForKey( string, "password", havePassword ? "1" : "0", MAX_INFO_STRING );
 	}
 
 	Netchan_OutOfBandPrint( NS_SERVER, from, "info\n%s", string );
@@ -1725,7 +1751,7 @@ void SV_UserinfoChanged( sv_client_t *cl )
 	// rate command
 	val = Info_ValueForKey( cl->userinfo, "rate" );
 	if( COM_CheckString( val ) )
-		cl->netchan.rate = bound( MIN_RATE, Q_atoi( val ), MAX_RATE );
+		cl->netchan.rate = bound( sv_minrate.value, Q_atoi( val ), sv_maxrate.value );
 	else cl->netchan.rate = DEFAULT_RATE;
 
 	// movement prediction
@@ -1749,8 +1775,7 @@ void SV_UserinfoChanged( sv_client_t *cl )
 	{
 		if( Q_atoi( val ) != 0 )
 		{
-			int i = bound( 10, Q_atoi( val ), 300 );
-			cl->cl_updaterate = 1.0 / i;
+			cl->cl_updaterate = 1.0 / bound( sv_minupdaterate.value, Q_atoi( val ), sv_maxupdaterate.value );
 		}
 		else cl->cl_updaterate = 0.0;
 	}

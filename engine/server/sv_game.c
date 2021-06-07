@@ -681,7 +681,7 @@ Issue changing level
 */
 void SV_QueueChangeLevel( const char *level, const char *landname )
 {
-	int	flags, smooth = false;
+	uint	flags, smooth = false;
 	char	mapname[MAX_QPATH];
 	char	*spawn_entity;
 
@@ -880,9 +880,9 @@ SV_MapIsValid
 Validate map
 ==============
 */
-int SV_MapIsValid( const char *filename, const char *spawn_entity, const char *landmark_name )
+uint SV_MapIsValid( const char *filename, const char *spawn_entity, const char *landmark_name )
 {
-	int	flags = 0;
+	uint	flags = 0;
 	char	*pfile;
 	char	*ents;
 
@@ -3679,7 +3679,7 @@ vaild map must contain one info_player_deatchmatch
 */
 int GAME_EXPORT pfnIsMapValid( char *filename )
 {
-	int	flags = SV_MapIsValid( filename, GI->mp_entity, NULL );
+	uint	flags = SV_MapIsValid( filename, GI->mp_entity, NULL );
 
 	if( FBitSet( flags, MAP_IS_EXIST ) && FBitSet( flags, MAP_HAS_SPAWNPOINT ))
 		return true;
@@ -4556,15 +4556,7 @@ pfnEngineStub
 extended iface stubs
 =============
 */
-static int GAME_EXPORT pfnGetFileSize( char *filename )
-{
-	return 0;
-}
-static unsigned int GAME_EXPORT pfnGetApproxWavePlayLen(const char *filepath)
-{
-	return 0;
-}
-static int GAME_EXPORT pfnGetLocalizedStringLength(const char *label)
+static int GAME_EXPORT pfnGetLocalizedStringLength( const char *label )
 {
 	return 0;
 }
@@ -4718,8 +4710,8 @@ static enginefuncs_t gEngfuncs =
 	pfnGetPlayerAuthId,
 	pfnSequenceGet,
 	pfnSequencePickSentence,
-	pfnGetFileSize,
-	pfnGetApproxWavePlayLen,
+	COM_FileSize,
+	Sound_GetApproxWavePlayLen,
 	pfnIsCareerMatch,
 	pfnGetLocalizedStringLength,
 	pfnRegisterTutorMessageShown,
@@ -4792,6 +4784,17 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 		if( !Q_strcmp( keyname, "classname" ) && classname == NULL )
 			classname = copystring( pkvd[numpairs].szValue );
 		if( ++numpairs >= 256 ) break;
+	}
+
+	if( classname == NULL )
+	{
+		// release allocated strings
+		for( i = 0; i < numpairs; i++ )
+		{
+			Mem_Free( pkvd[i].szKeyName );
+			Mem_Free( pkvd[i].szValue );
+		}
+		return false;
 	}
 
 	ent = SV_AllocPrivateData( ent, ALLOC_STRING( classname ));

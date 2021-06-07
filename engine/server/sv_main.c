@@ -32,10 +32,10 @@ CVAR_DEFINE_AUTO( sv_filterban, "1", 0, "filter banned users" );
 CVAR_DEFINE_AUTO( sv_cheats, "0", FCVAR_SERVER, "allow cheats on server" );
 CVAR_DEFINE_AUTO( sv_instancedbaseline, "1", 0, "allow to use instanced baselines to saves network overhead" );
 CVAR_DEFINE_AUTO( sv_contact, "", FCVAR_ARCHIVE|FCVAR_SERVER, "server techincal support contact address or web-page" );
-CVAR_DEFINE_AUTO( sv_minupdaterate, "10.0", FCVAR_ARCHIVE, "minimal value for 'cl_updaterate' window" );
-CVAR_DEFINE_AUTO( sv_maxupdaterate, "30.0", FCVAR_ARCHIVE, "maximal value for 'cl_updaterate' window" );
-CVAR_DEFINE_AUTO( sv_minrate, "0", FCVAR_SERVER, "min bandwidth rate allowed on server, 0 == unlimited" );
-CVAR_DEFINE_AUTO( sv_maxrate, "0", FCVAR_SERVER, "max bandwidth rate allowed on server, 0 == unlimited" );
+CVAR_DEFINE_AUTO( sv_minupdaterate, "25.0", FCVAR_ARCHIVE, "minimal value for 'cl_updaterate' window" );
+CVAR_DEFINE_AUTO( sv_maxupdaterate, "60.0", FCVAR_ARCHIVE, "maximal value for 'cl_updaterate' window" );
+CVAR_DEFINE_AUTO( sv_minrate, "5000", FCVAR_SERVER, "min bandwidth rate allowed on server, 0 == unlimited" );
+CVAR_DEFINE_AUTO( sv_maxrate, "50000", FCVAR_SERVER, "max bandwidth rate allowed on server, 0 == unlimited" );
 CVAR_DEFINE_AUTO( sv_logrelay, "0", FCVAR_ARCHIVE, "allow log messages from remote machines to be logged on this server" );
 CVAR_DEFINE_AUTO( sv_newunit, "0", 0, "clear level-saves from previous SP game chapter to help keep .sav file size as minimum" );
 CVAR_DEFINE_AUTO( sv_clienttrace, "1", FCVAR_SERVER, "0 = big box(Quake), 0.5 = halfsize, 1 = normal (100%), otherwise it's a scaling factor" );
@@ -64,6 +64,8 @@ CVAR_DEFINE_AUTO( coop, "0", 0, "cooperative mode in multiplayer game" );
 CVAR_DEFINE_AUTO( teamplay, "0", 0, "team mode in multiplayer game" );
 CVAR_DEFINE_AUTO( skill, "1", 0, "skill level in singleplayer game" );
 CVAR_DEFINE_AUTO( temp1, "0", 0, "temporary cvar that used by some mods" );
+CVAR_DEFINE_AUTO( listipcfgfile, "listip.cfg", 0, "name of listip.cfg file" );
+CVAR_DEFINE_AUTO( mapchangecfgfile, "", 0, "name of map change configuration file" );
 
 // physic-related variables
 CVAR_DEFINE_AUTO( sv_gravity, "800", FCVAR_MOVEVARS, "world gravity value" );
@@ -780,7 +782,7 @@ send error message and return false on wrong input devices
 qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 {
 	const char *input_devices_str = Info_ValueForKey( useragent, "d" );
-	const char *id = Info_ValueForKey( useragent, "i" );
+	const char *id = Info_ValueForKey( useragent, "uuid" );
 
 	if( !sv_allow_noinputdevices->value && ( !input_devices_str || !input_devices_str[0] ) )
 	{
@@ -850,10 +852,8 @@ void SV_Init( void )
 	Cvar_Get( "sv_alltalk", "1", 0, "allow to talking for all players (legacy, unused)" );
 	Cvar_Get( "sv_allow_PhysX", "1", FCVAR_ARCHIVE, "allow XashXT to usage PhysX engine" );			// XashXT cvar
 	Cvar_Get( "sv_precache_meshes", "1", FCVAR_ARCHIVE, "cache SOLID_CUSTOM meshes before level loading" );	// Paranoia 2 cvar
-	Cvar_Get( "mapcyclefile", "mapcycle.txt", 0, "name of config file for map changing rules" );
 	Cvar_Get( "servercfgfile", "server.cfg", 0, "name of dedicated server configuration file" );
 	Cvar_Get( "lservercfgfile", "listenserver.cfg", 0, "name of listen server configuration file" );
-	Cvar_Get( "logsdir", "logs", 0, "default folder to write server logs" );
 
 	Cvar_RegisterVariable( &sv_zmax );
 	Cvar_RegisterVariable( &sv_wateramp );
@@ -866,12 +866,15 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_skyname );
 	Cvar_RegisterVariable( &sv_footsteps );
 	Cvar_RegisterVariable( &sv_wateralpha );
+	Cvar_RegisterVariable( &sv_minupdaterate );
+	Cvar_RegisterVariable( &sv_maxupdaterate );
+	Cvar_RegisterVariable( &sv_minrate );
+	Cvar_RegisterVariable( &sv_maxrate );
 	Cvar_RegisterVariable( &sv_cheats );
 	Cvar_RegisterVariable( &sv_airmove );
 	Cvar_RegisterVariable( &sv_fps );
 	Cvar_RegisterVariable( &showtriggers );
 	Cvar_RegisterVariable( &sv_aim );
-	Cvar_RegisterVariable( &motdfile );
 	Cvar_RegisterVariable( &deathmatch );
 	Cvar_RegisterVariable( &coop );
 	Cvar_RegisterVariable( &teamplay );
@@ -884,7 +887,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &hostname );
 	timeout = Cvar_Get( "timeout", "125", FCVAR_SERVER, "connection timeout" );
 	sv_pausable = Cvar_Get( "pausable", "1", FCVAR_SERVER, "allow players to pause or not" );
-	sv_validate_changelevel = Cvar_Get( "sv_validate_changelevel", "1", FCVAR_ARCHIVE, "test change level for level-designer errors" );
+	sv_validate_changelevel = Cvar_Get( "sv_validate_changelevel", "0", 0, "test change level for level-designer errors" );
 	Cvar_RegisterVariable( &sv_clienttrace );
 	Cvar_RegisterVariable( &sv_bounce );
 	Cvar_RegisterVariable( &sv_spectatormaxspeed );
@@ -930,6 +933,13 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &mp_logecho );
 	Cvar_RegisterVariable( &mp_logfile );
 	Cvar_RegisterVariable( &sv_background_freeze );
+
+	Cvar_RegisterVariable( &mapcyclefile );
+	Cvar_RegisterVariable( &motdfile );
+	Cvar_RegisterVariable( &logsdir );
+	Cvar_RegisterVariable( &bannedcfgfile );
+	Cvar_RegisterVariable( &listipcfgfile );
+	Cvar_RegisterVariable( &mapchangecfgfile );
 
 	sv_allow_joystick = Cvar_Get( "sv_allow_joystick", "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
 	sv_allow_mouse = Cvar_Get( "sv_allow_mouse", "1", FCVAR_ARCHIVE, "allow connect with mouse" );

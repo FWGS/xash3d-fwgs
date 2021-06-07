@@ -1305,7 +1305,7 @@ static void Mod_MakeHull0( void )
 Mod_SetupHull
 =================
 */
-static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, byte *mempool, int headnode, int hullnum )
+static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, poolhandle_t mempool, int headnode, int hullnum )
 {
 	hull_t	*hull = &mod->hulls[hullnum];
 	int	count;
@@ -1469,7 +1469,7 @@ for embedded submodels
 static void Mod_SetupSubmodels( dbspmodel_t *bmod )
 {
 	qboolean	colored = false;
-	byte	*mempool;
+	poolhandle_t mempool;
 	char	*ents;
 	model_t	*mod;
 	dmodel_t 	*bm;
@@ -1550,7 +1550,7 @@ static void Mod_SetupSubmodels( dbspmodel_t *bmod )
 			loadmodel = Mod_FindName( name, true );
 			*loadmodel = *mod;
 			Q_strncpy( loadmodel->name, name, sizeof( loadmodel->name ));
-			loadmodel->mempool = NULL;
+			loadmodel->mempool = 0;
 			mod = loadmodel;
 		}
 	}

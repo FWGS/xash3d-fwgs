@@ -1,8 +1,11 @@
 Source code of this mods is available for modders and porters in public access.
 
 # Original Work
+## Absolute Zero
+Official gitlab repository - https://gitlab.com/Cobalt-57/half-life-absolute-zero/
+
 ## Adrenaline Gamer
-Oficial github repository by Martin \"Bullet\" Webrant - https://github.com/martinwebrant/agmod
+Official github repository by Martin \"Bullet\" Webrant - https://github.com/martinwebrant/agmod
 
 ## Arrangement
 Mirrored on github - https://github.com/JoelTroch/am_src_30jan2011
@@ -14,10 +17,10 @@ Mirrored on github - https://github.com/JoelTroch/am_src_rebirth
 Mirrored on github - https://github.com/nekonomicon/BattleGrounds
 
 ## Bubblemod
-Download page on oficial site - http://www.bubblemod.org/dl_default.php
+Download page on official site - http://www.bubblemod.org/dl_default.php
 
 ## Chicken Fortress
-Oficial github repository - https://github.com/CKFDevPowered/CKF3Alpha
+Official github repository - https://github.com/CKFDevPowered/CKF3Alpha
 
 ## Cold Ice
 Version 1.9 is available on ModDB - https://www.moddb.com/mods/cold-ice/downloads/cold-ice-sdk
@@ -28,59 +31,83 @@ Uploaded to github by Oleg Cherkasky - https://github.com/gunrunners-paradise/Ct
 ## Deathmatch Classic
 Available in Valve's Half-Life repository - https://github.com/ValveSoftware/halflife/tree/master/dmc
 
+## ESHQ
+Official github repository - https://github.com/adslbarxatov/xash3d-for-ESHQ
+
+## Flat-Life
+Available on GamerLab - http://gamer-lab.com/eng/code_mods_goldsrc/Half-Life_2D_(Flat-Life)
+
 ## Gang Wars
 Mirrored on github - https://github.com/hammermaps/gw1.45src
 
 ## Go-mod
-Available in mod archives on ModDB - https://www.moddb.com/mods/go-mod/downloads
+Versions 2.0 and 3.0, available in mod archives on ModDB - https://www.moddb.com/mods/go-mod/downloads
+
+## GT mod
+Available on GamerLab - http://gamer-lab.com/eng/code_mods_goldsrc/GT_mod_(Polnie_ishodniki)
 
 ## Half-Life: Echoes
 Download link on dropbox - https://www.dropbox.com/s/s6j8gtegn10wgvj/dlls.zip?dl=1
+
+## Half-Life: Expanded Arsenal
+Available on ModDB - https://www.moddb.com/mods/half-life-expanded-arsenal
 
 ## Half-Life: Gravgun mod
 Branch **gravgun** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/gravgun
 
 ## Half-Life: Invasion
-oficial github repository - https://github.com/jlecorre/hlinvasion
+official github repository - https://github.com/jlecorre/hlinvasion
 
 ## Half-Life: Quest Mode
 Available on cs-mapping.com.ua - https://old.cs-mapping.com.ua/forum/showthread.php?t=38030
 
 ## Half-Life: Top-Down
-Oficial gitlab repository - https://gitlab.com/Sockman/hltopdown
+Official gitlab repository - https://gitlab.com/Sockman/hltopdown
 
 ## Half-Life: Update
-Oficial github repository - https://github.com/Fograin/hl-subsmod-ex
+Official github repository - https://github.com/Fograin/hl-subsmod-ex
 
 ## Half-Life: Weapon Edition
 Available on ModDB - https://www.moddb.com/mods/half-life-weapon-edition/downloads/half-life-weapon-edition-1508-alpha-open-src
+
+## Half-Life: Year of the Dragon
+Available on ModDB - https://www.moddb.com/mods/year-of-the-dragon
 
 ## Half-Nuked
 Available on ModDB - https://www.moddb.com/mods/half-nuked/downloads/half-nuked-src
 
 ## Half-Payne
-Oficial github repository - https://github.com/suXinjke/HalfPayne
+Official github repository - https://github.com/suXinjke/HalfPayne
 
 ## Half-Quake
-Oficial github repository - https://github.com/muddasheep/hqtrilogy
+Official github repository - https://github.com/muddasheep/hqtrilogy
 
 ## Half-Rats: Parasomnia
-Oficial github repository - https://github.com/HeathGames/half_rats_parasomnia_src
+Official github repository - https://github.com/HeathGames/half_rats_parasomnia_src
 
 ## Half-Screwed
-Oficial github repository - https://github.com/desukuran/half-screwed
+Official github repository - https://github.com/desukuran/half-screwed
 
 ## Headcrab Frenzy
 Version 1.3 on ModDB - https://www.moddb.com/mods/headcrab-frenzy/downloads/headcrab-frenzy-13-beta-source-code
 
+## Heart of Evil
+Available on ModDB - https://www.moddb.com/mods/heart-of-evil/downloads/heart-of-evil-dlls-source-code
+
 ## Ingram Chillin' Mod
-Oficial SourceForge repository - https://sourceforge.net/projects/icm-hl/
+Official SourceForge repository - https://sourceforge.net/projects/icm-hl/
 
 ## MechMod
-Oficial github repository - https://github.com/vermagav/mechmod
+Official github repository - https://github.com/vermagav/mechmod
+
+## Mortal Combat Forever
+Available on GamerLab - http://gamer-lab.com/eng/code_mods_goldsrc/Mortal_Combat_Forever_(Polnie_ishodniki)
 
 ## Natural Selection
-Oficial github repository - https://github.com/unknownworlds/NS
+Official github repository - https://github.com/unknownworlds/NS
+
+## Overturn
+Available in mod archive on ModDB - https://www.moddb.com/mods/overturn
 
 ## Spirit of Half-Life
 [Logic&Trick's](https://github.com/LogicAndTrick) mirror - https://files.logic-and-trick.com/#/Half-Life/Mods/Spirit%20of%20Half-Life
@@ -102,6 +129,8 @@ Available on ModDB: https://www.moddb.com/mods/paranoia/downloads/paranoia-toolk
 ## Paranoia 2: The Savior
 Prealpha, mirrored on github - https://github.com/a1batross/Paranoia2_ancient
 
+Version 1.51, mirrored on github - https://github.com/a1batross/Paranoia2_original
+
 ## Raven City
 *Unfinished mod*
 
@@ -111,7 +140,7 @@ Was found on HLFX - http://hlfx.ru/forum/showthread.php?s=2c892dfc52f72be52a89c3
 Available in Valve's Half-Life repository - https://github.com/ValveSoftware/halflife/tree/master/ricochet
 
 ## Wizard Wars
-Download page on oficial site - http://www.thothie.com/ww/
+Download page on official site - http://www.thothie.com/ww/
 
 ## XashXT
 Mirrored on github - https://github.com/a1batross/XashXT_original
@@ -127,6 +156,9 @@ Mirrored on github - https://github.com/ZXCmod/ZXCmod
 # Reimplementation
 ## Absolute Redemption
 Branch **redempt** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/redempt
+
+## Adrenaline Gamer
+OpenAG by YaLTeR - https://github.com/YaLTeR/OpenAG
 
 ## Afraid of Monsters
 malortie's recreation - https://github.com/malortie/halflife/tree/mod-hl-aom

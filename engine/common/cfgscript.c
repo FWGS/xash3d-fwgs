@@ -203,83 +203,15 @@ qboolean CSCR_ParseHeader( parserstate_t *ps )
 }
 
 /*
-======================
-CSCR_WriteGameCVars
+==============
+CSCR_ParseFile
 
-Print all cvars declared in script to game.cfg file
-======================
+generic scr parser
+will callback on each scrvardef_t
+==============
 */
-int CSCR_WriteGameCVars( file_t *cfg, const char *scriptfilename )
-{
-	parserstate_t	state = { 0 };
-	qboolean		success = false;
-	int		count = 0;
-	fs_offset_t		length = 0;
-	char		*start;
-
-	state.filename = scriptfilename;
-	state.buf = start = (char *)FS_LoadFile( scriptfilename, &length, true );
-
-	if( !state.buf || !length )
-		return 0;
-
-	Con_DPrintf( "Reading config script file %s\n", scriptfilename );
-
-	if( !CSCR_ParseHeader( &state ))
-		goto finish;
-
-	while( !CSCR_ExpectString( &state, "}", false, false ))
-	{
-		scrvardef_t	var = { 0 };
-
-		if( CSCR_ParseSingleCvar( &state, &var ) )
-		{
-			convar_t	*cvar = Cvar_FindVar( var.name );
-
-			if( cvar && !FBitSet( cvar->flags, FCVAR_SERVER|FCVAR_ARCHIVE ))
-			{
-				// cvars will be placed in game.cfg and restored on map start
-				if( var.flags & FCVAR_USERINFO )
-					FS_Printf( cfg, "setinfo %s \"%s\"\n", var.name, cvar->string );
-				else FS_Printf( cfg, "%s \"%s\"\n", var.name, cvar->string );
-			}
-			count++;
-		}
-		else
-		{
-			break;
-		}
-
-		if( count > 1024 )
-			break;
-	}
-
-	if( COM_ParseFile( state.buf, state.token ))
-		Con_DPrintf( S_ERROR "Got extra tokens!\n" );
-	else success = true;
-finish:
-	if( !success )
-	{
-		state.token[sizeof( state.token ) - 1] = 0;
-
-		if( start && state.buf )
-			Con_DPrintf( S_ERROR "Parse error in %s, byte %d, token %s\n", scriptfilename, (int)( state.buf - start ), state.token );
-		else Con_DPrintf( S_ERROR "Parse error in %s, token %s\n", scriptfilename, state.token );
-	}
-
-	if( start ) Mem_Free( start );
-
-	return count;
-}
-
-/*
-======================
-CSCR_LoadDefaultCVars
-
-Register all cvars declared in config file and set default values
-======================
-*/
-int CSCR_LoadDefaultCVars( const char *scriptfilename )
+static int CSCR_ParseFile( const char *scriptfilename,
+	void (*callback)( scrvardef_t *var, void * ), void *userdata )
 {
 	parserstate_t	state = { 0 };
 	qboolean		success = false;
@@ -305,7 +237,7 @@ int CSCR_LoadDefaultCVars( const char *scriptfilename )
 		// Create a new object
 		if( CSCR_ParseSingleCvar( &state, &var ) )
 		{
-			Cvar_Get( var.name, var.value, var.flags|FCVAR_TEMPORARY, var.desc );
+			callback( &var, userdata );
 			count++;
 		}
 		else
@@ -330,4 +262,48 @@ finish:
 	if( start ) Mem_Free( start );
 
 	return count;
+}
+
+static void CSCR_WriteVariableToFile( scrvardef_t *var, void *file )
+{
+	file_t   *cfg  = (file_t*)file;
+	convar_t *cvar = Cvar_FindVar( var->name );
+
+	if( cvar && !FBitSet( cvar->flags, FCVAR_SERVER|FCVAR_ARCHIVE ))
+	{
+		// cvars will be placed in game.cfg and restored on map start
+		if( var->flags & FCVAR_USERINFO )
+			FS_Printf( cfg, "setinfo %s \"%s\"\n", var->name, cvar->string );
+		else FS_Printf( cfg, "%s \"%s\"\n", var->name, cvar->string );
+	}
+}
+
+/*
+======================
+CSCR_WriteGameCVars
+
+Print all cvars declared in script to game.cfg file
+======================
+*/
+int CSCR_WriteGameCVars( file_t *cfg, const char *scriptfilename )
+{
+	return CSCR_ParseFile( scriptfilename, CSCR_WriteVariableToFile, cfg );
+}
+
+static void CSCR_RegisterVariable( scrvardef_t *var, void *unused )
+{
+	if( !Cvar_FindVar( var->name ))
+		Cvar_Get( var->name, var->value, var->flags|FCVAR_TEMPORARY, var->desc );
+}
+
+/*
+======================
+CSCR_LoadDefaultCVars
+
+Register all cvars declared in config file and set default values
+======================
+*/
+int CSCR_LoadDefaultCVars( const char *scriptfilename )
+{
+	return CSCR_ParseFile( scriptfilename, CSCR_RegisterVariable, NULL );
 }

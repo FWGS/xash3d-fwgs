@@ -90,6 +90,21 @@ GNU General Public License for more details.
 #define SDL_GetScancodeName( x ) "unknown"
 #endif
 
+static qboolean SDLash_IsInstanceIDAGameController( SDL_JoystickID joyId )
+{
+#if !SDL_VERSION_ATLEAST( 2, 0, 4 )
+	// HACKHACK: if we're not initialized g_joy, then we're probably using gamecontroller api
+	// so return true
+	if( !g_joy )
+		return true;
+	return false;
+#else
+	if( SDL_GameControllerFromInstanceID( joyId ) )
+		return true;
+	return false;
+#endif
+}
+
 /*
 =============
 SDLash_KeyEvent
@@ -325,8 +340,8 @@ static void SDLash_ActiveEvent( int gain )
 	if( gain )
 	{
 		host.status = HOST_FRAME;
-		IN_ActivateMouse(true);
-		if( snd_mute_losefocus->value )
+		IN_ActivateMouse( true );
+		if( dma.initialized && snd_mute_losefocus.value )
 		{
 			SNDDMA_Activate( true );
 		}
@@ -346,7 +361,7 @@ static void SDLash_ActiveEvent( int gain )
 #endif
 		host.status = HOST_NOFOCUS;
 		IN_DeactivateMouse();
-		if( snd_mute_losefocus->value )
+		if( dma.initialized && snd_mute_losefocus.value )
 		{
 			SNDDMA_Activate( false );
 		}
@@ -432,23 +447,23 @@ static void SDLash_EventFilter( SDL_Event *event )
 
 	/* Joystick events */
 	case SDL_JOYAXISMOTION:
-		if ( SDL_GameControllerFromInstanceID( event->jaxis.which ) == NULL )
+		if ( !SDLash_IsInstanceIDAGameController( event->jaxis.which ))
 			Joy_AxisMotionEvent( event->jaxis.axis, event->jaxis.value );
 		break;
 
 	case SDL_JOYBALLMOTION:
-		if ( SDL_GameControllerFromInstanceID( event->jball.which ) == NULL )
+		if ( !SDLash_IsInstanceIDAGameController( event->jball.which ))
 			Joy_BallMotionEvent( event->jball.ball, event->jball.xrel, event->jball.yrel );
 		break;
 
 	case SDL_JOYHATMOTION:
-		if ( SDL_GameControllerFromInstanceID( event->jhat.which ) == NULL )
+		if ( !SDLash_IsInstanceIDAGameController( event->jhat.which ))
 			Joy_HatMotionEvent( event->jhat.hat, event->jhat.value );
 		break;
 
 	case SDL_JOYBUTTONDOWN:
 	case SDL_JOYBUTTONUP:
-		if ( SDL_GameControllerFromInstanceID( event->jbutton.which ) == NULL )
+		if ( !SDLash_IsInstanceIDAGameController( event->jbutton.which ))
 			Joy_ButtonEvent( event->jbutton.button, event->jbutton.state );
 		break;
 

@@ -356,7 +356,7 @@ static void SV_EmitPacketEntities( sv_client_t *cl, client_frame_t *to, sizebuf_
 					if( !Q_strcmp( classname, sv.instanced[i].classname ))
 					{
 						baseline = &sv.instanced[i].baseline;
-						offset = -i;
+						offset = -i - 1; // to avoid zero offset
 						break;
 					}
 				}
@@ -838,8 +838,10 @@ SV_SendClientMessages
 */
 void SV_SendClientMessages( void )
 {
-	sv_client_t	*cl;
-	int		i;
+	sv_client_t *cl;
+	int          i;
+	double       updaterate_time;
+	double       time_until_next_message;
 
 	if( sv.state == ss_dead )
 		return;
@@ -865,7 +867,14 @@ void SV_SendClientMessages( void )
 
 		if( cl->state == cs_spawned )
 		{
-			if(( host.realtime + sv.frametime ) >= cl->next_messagetime )
+			// Try to send a message as soon as we can.
+			// If the target time for sending is within the next frame interval ( based on last frame ),
+			// trigger the send now. Note that in single player,
+			// FCL_SEND_NET_MESSAGE flag is also set any time a packet arrives from the client.
+			time_until_next_message = cl->next_messagetime - ( host.realtime + sv.frametime );
+			if( time_until_next_message <= 0.0 )
+				SetBits( cl->flags, FCL_SEND_NET_MESSAGE );
+			else if( time_until_next_message > 2.0 ) // something got hosed
 				SetBits( cl->flags, FCL_SEND_NET_MESSAGE );
 		}
 
@@ -901,7 +910,9 @@ void SV_SendClientMessages( void )
 			}
 
 			// now that we were able to send, reset timer to point to next possible send time.
-			cl->next_messagetime = host.realtime + sv.frametime + cl->cl_updaterate;
+			// check here also because sv_max/minupdaterate could been changed in runtime
+			updaterate_time = bound( 1.0 / sv_maxupdaterate.value, cl->cl_updaterate, 1.0 / sv_minupdaterate.value );
+			cl->next_messagetime   = host.realtime + sv.frametime + updaterate_time; 
 			ClearBits( cl->flags, FCL_SEND_NET_MESSAGE );
 
 			// NOTE: we should send frame even if server is not simulated to prevent overflow

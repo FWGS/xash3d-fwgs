@@ -81,10 +81,10 @@ typedef struct wadtype_s
 struct file_s
 {
 	int		handle;			// file descriptor
+	int		ungetc;			// single stored character from ungetc, cleared to EOF when read
 	fs_offset_t		real_length;		// uncompressed file size (for files opened in "read" mode)
 	fs_offset_t		position;			// current position in the file
 	fs_offset_t		offset;			// offset into the package (0 if external file)
-	int		ungetc;			// single stored character from ungetc, cleared to EOF when read
 	time_t		filetime;			// pak, wad or real filetime
 						// contents buffer
 	fs_offset_t		buff_ind, buff_len;		// buffer current index and length
@@ -100,8 +100,8 @@ struct wfile_s
 {
 	string		filename;
 	int		infotableofs;
-	byte		*mempool;			// W_ReadLump temp buffers
 	int		numlumps;
+	poolhandle_t mempool;			// W_ReadLump temp buffers
 	file_t		*handle;
 	dlumpinfo_t	*lumps;
 	time_t		filetime;
@@ -144,7 +144,7 @@ typedef struct searchpath_s
 	struct searchpath_s *next;
 } searchpath_t;
 
-static byte			*fs_mempool;
+static poolhandle_t     fs_mempool;
 static searchpath_t		*fs_searchpaths = NULL;	// chain
 static searchpath_t		fs_directpath;		// static direct path
 static char			fs_basedir[MAX_SYSPATH];	// base game directory
@@ -1821,7 +1821,7 @@ static qboolean FS_ParseLiblistGam( const char *filename, const char *gamedir, g
 	char	*afile;
 
 	if( !GameInfo ) return false;
-	afile = (char *)FS_LoadFile( filename, NULL, false );
+	afile = (char *)FS_LoadDirectFile( filename, NULL );
 	if( !afile ) return false;
 
 	FS_InitGameInfo( GameInfo, gamedir );
@@ -1922,6 +1922,8 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 		string	filepath_ro, liblist_ro;
 		fs_offset_t roLibListTime, roGameInfoTime, rwGameInfoTime;
 
+		FS_AllowDirectPaths( true );
+
 		Q_snprintf( filepath_ro, sizeof( filepath_ro ), "%s/%s/gameinfo.txt", host.rodir, gamedir );
 		Q_snprintf( liblist_ro, sizeof( liblist_ro ), "%s/%s/liblist.gam", host.rodir, gamedir );
 
@@ -1949,6 +1951,8 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 				Mem_Free( afile_ro );
 			}
 		}
+
+		FS_AllowDirectPaths( false );
 	}
 
 	// if user change liblist.gam update the gameinfo.txt
@@ -2344,7 +2348,10 @@ file_t *FS_OpenZipFile( zip_t *zip, int pack_ind )
 
 	// compressed files handled in Zip_LoadFile
 	if( pfile->flags != ZIP_COMPRESSION_NO_COMPRESSION )
+	{
+		Con_Printf( S_ERROR "%s: can't open compressed file %s", __FUNCTION__, pfile->name );
 		return NULL;
+	}
 
 	return FS_OpenHandle( zip->filename, zip->handle, pfile->offset, pfile->size );
 }

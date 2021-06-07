@@ -11,7 +11,7 @@ export CXXFLAGS="-static-libgcc -static-libstdc++ -no-pthread -msse2"
 export LDFLAGS="-static-libgcc -static-libstdc++ -no-pthread -Wl,--allow-multiple-definition" # workaround some other mingw bugs
 export WINRC="i686-w64-mingw32-windres"
 rm -rf build # clean build directory
-./waf configure -s "SDL2_mingw/i686-w64-mingw32/" --build-type=none --prefix="." --win-style-install -v || die # can't compile VGUI support on MinGW, due to differnet C++ ABI
+./waf configure -s "SDL2_mingw/i686-w64-mingw32/" --build-type=none --prefix="." --win-style-install -v --enable-utils || die # can't compile VGUI support on MinGW, due to differnet C++ ABI
 ./waf build -v || die
 cp $TRAVIS_BUILD_DIR/SDL2_mingw/i686-w64-mingw32//bin/SDL2.dll . # Install SDL2
 cp vgui_support_bin/vgui_support.dll .

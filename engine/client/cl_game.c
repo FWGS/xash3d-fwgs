@@ -2417,12 +2417,15 @@ pfnIndexFromTrace
 */
 int GAME_EXPORT pfnIndexFromTrace( struct pmtrace_s *pTrace )
 {
+#if 0 // Velaron: breaks compatibility with mods that call the function after CL_PopPMStates
 	if( pTrace->ent >= 0 && pTrace->ent < clgame.pmove->numphysent )
 	{
 		// return cl.entities number
 		return clgame.pmove->physents[pTrace->ent].info;
 	}
 	return -1;
+#endif
+	return clgame.pmove->physents[pTrace->ent].info;
 }
 
 /*
@@ -3402,7 +3405,8 @@ void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags, double
 		char	fullquery[512] = "1\xFF" "0.0.0.0:0\0" "\\gamedir\\";
 
 		// make sure what port is specified
-		if( !nr->resp.remote_address.port ) nr->resp.remote_address.port = MSG_BigShort( PORT_MASTER );
+		if( !nr->resp.remote_address.port )
+			nr->resp.remote_address.port = MSG_BigShort( PORT_MASTER );
 
 		// grab the list from the master server
 		Q_strcpy( &fullquery[22], GI->gamefolder );
@@ -3873,9 +3877,9 @@ static cl_enginefunc_t gEngfuncs =
 	LocalPlayerInfo_ValueForKey,
 	pfnVGUI2DrawCharacter,
 	pfnVGUI2DrawCharacterAdditive,
-	(void*)Sound_GetApproxWavePlayLen,
+	Sound_GetApproxWavePlayLen,
 	GetCareerGameInterface,
-	(void*)Cvar_Set,
+	Cvar_Set,
 	pfnIsCareerMatch,
 	pfnPlaySoundVoiceByName,
 	pfnMP3_InitStream,

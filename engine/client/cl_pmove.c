@@ -264,7 +264,9 @@ void CL_CheckPredictionError( void )
 		// save for error interpolation
 		VectorCopy( delta, cl.local.prediction_error );
 
-		if( dist > MIN_CORRECTION_DISTANCE )
+		// GoldSrc checks for singleplayer
+		// we would check for local server
+		if( dist > MIN_CORRECTION_DISTANCE && !SV_Active() )
 			cls.correction_time = cl_smoothtime->value;
 	}
 }
@@ -1048,7 +1050,7 @@ void CL_FinishPMove( playermove_t *pmove, local_state_t *to )
 	VectorCopy( pmove->angles, ps->angles );
 	VectorCopy( pmove->basevelocity, ps->basevelocity );
 	VectorCopy( pmove->punchangle, cd->punchangle );
-	ps->oldbuttons = pmove->oldbuttons;
+	ps->oldbuttons = pmove->cmd.buttons;
 	ps->friction = pmove->friction;
 	ps->movetype = pmove->movetype;
 	ps->onground = pmove->onground;
@@ -1080,13 +1082,14 @@ Runs prediction code for user cmd
 void CL_RunUsercmd( local_state_t *from, local_state_t *to, usercmd_t *u, qboolean runfuncs, double *time, unsigned int random_seed )
 {
 	usercmd_t		cmd;
-	local_state_t	temp;
-	usercmd_t		split;
-
-	memset( &temp, 0, sizeof( temp ));
 
 	if( u->msec > 50 )
 	{
+		local_state_t	temp;
+		usercmd_t		split;
+
+		memset( &temp, 0, sizeof( temp ));
+
 		split = *u;
 		split.msec /= 2;
 		CL_RunUsercmd( from, &temp, &split, runfuncs, time, random_seed );
@@ -1153,12 +1156,12 @@ Sets cl.predicted.origin and cl.predicted.angles
 */
 void CL_PredictMovement( qboolean repredicting )
 {
-	runcmd_t		*to_cmd, *from_cmd;
+	runcmd_t		*to_cmd = NULL, *from_cmd;
 	local_state_t	*from = NULL, *to = NULL;
-	int		current_command;
-	int		current_command_mod;
+	uint		current_command;
+	uint		current_command_mod;
 	frame_t		*frame = NULL;
-	int		i, stoppoint;
+	uint		i, stoppoint;
 	qboolean		runfuncs;
 	double		f = 1.0;
 	cl_entity_t	*ent;
@@ -1227,10 +1230,6 @@ void CL_PredictMovement( qboolean repredicting )
 		if( to_cmd->senttime >= host.realtime )
 			break;
 
-		// now interpolate some fraction of the final frame
-		if( to_cmd->senttime != from_cmd->senttime )
-			f = (host.realtime - from_cmd->senttime) / (to_cmd->senttime - from_cmd->senttime) * 0.1;
-
 		from = to;
 		from_cmd = to_cmd;
 	}
@@ -1263,8 +1262,10 @@ void CL_PredictMovement( qboolean repredicting )
 		return;
 	}
 
-	f = bound( 0.0f, f, 1.0f );
-	f = 0.0;	// FIXME: make work, do revision
+	// now interpolate some fraction of the final frame
+	if( to_cmd->senttime != from_cmd->senttime )
+		f = bound( 0.0, (host.realtime - from_cmd->senttime) / (to_cmd->senttime - from_cmd->senttime) * 0.1, 1.0 );
+	else f = 0.0;
 
 	if( CL_PlayerTeleported( from, to ))
 	{

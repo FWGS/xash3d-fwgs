@@ -2096,7 +2096,7 @@ qboolean SV_LoadGame( const char *pPath )
 	qboolean		validload = false;
 	GAME_HEADER	gameHeader;
 	file_t		*pFile;
-	int		flags;
+	uint		flags;
 
 	if( Host_IsDedicated() )
 		return false;
@@ -2289,7 +2289,7 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 
 	if( tag == 0x0065 )
 	{
-		Q_strncpy( comment, "old version Xash3D <unsupported>", MAX_STRING );
+		Q_strncpy( comment, "<old version Xash3D unsupported>", MAX_STRING );
 		FS_Close( f );
 		return 0;
 	}
@@ -2409,7 +2409,7 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 		time_t		fileTime;
 		const struct tm	*file_tm;
 		string		timestring;
-		int		flags;
+		uint		flags;
 
 		// now check for map problems
 		flags = SV_MapIsValid( mapName, GI->sp_entity, NULL );

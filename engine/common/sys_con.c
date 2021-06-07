@@ -22,10 +22,10 @@ GNU General Public License for more details.
 #define XASH_COLORIZE_CONSOLE
 // use with caution, running engine in Qt Creator may cause a freeze in read() call
 // I was never encountered this bug anywhere else, so still enable by default
-// #define XASH_USE_SELECT
+// #define XASH_USE_SELECT 1
 #endif
 
-#ifdef XASH_USE_SELECT
+#if XASH_USE_SELECT
 // non-blocking console input
 #include <sys/select.h>
 #endif
@@ -42,7 +42,7 @@ static LogData s_ld;
 
 char *Sys_Input( void )
 {
-#ifdef XASH_USE_SELECT
+#if XASH_USE_SELECT
 	{
 		fd_set rfds;
 		static char line[1024];

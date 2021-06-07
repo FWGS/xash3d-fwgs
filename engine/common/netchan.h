@@ -282,7 +282,6 @@ extern netadr_t		net_from;
 extern netadr_t		net_local;
 extern sizebuf_t		net_message;
 extern byte		net_message_buffer[NET_MAX_MESSAGE];
-extern convar_t		*net_speeds;
 extern convar_t		sv_lan;
 extern convar_t		sv_lan_rate;
 extern int		net_drop;

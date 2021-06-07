@@ -60,9 +60,9 @@ qboolean Q_isdigit( const char *str )
 	return false;
 }
 
-int Q_strlen( const char *string )
+size_t Q_strlen( const char *string )
 {
-	int		len;
+	size_t		len;
 	const char	*p;
 
 	if( !string ) return 0;
@@ -77,9 +77,9 @@ int Q_strlen( const char *string )
 	return len;
 }
 
-int Q_colorstr( const char *string )
+size_t Q_colorstr( const char *string )
 {
-	int		len;
+	size_t		len;
 	const char	*p;
 
 	if( !string ) return 0;
@@ -325,7 +325,7 @@ void Q_atov( float *vec, const char *str, size_t siz )
 
 char *Q_strchr( const char *s, char c )
 {
-	int	len = Q_strlen( s );
+	size_t	len = Q_strlen( s );
 
 	while( len-- )
 	{
@@ -337,7 +337,7 @@ char *Q_strchr( const char *s, char c )
 
 char *Q_strrchr( const char *s, char c )
 {
-	int	len = Q_strlen( s );
+	size_t	len = Q_strlen( s );
 
 	s += len;
 
@@ -504,7 +504,8 @@ const char* Q_timestamp( int format )
 
 char *Q_strstr( const char *string, const char *string2 )
 {
-	int	c, len;
+	int	c;
+	size_t	len;
 
 	if( !string || !string2 ) return NULL;
 
@@ -528,7 +529,8 @@ char *Q_strstr( const char *string, const char *string2 )
 
 char *Q_stristr( const char *string, const char *string2 )
 {
-	int	c, len;
+	int	c;
+	size_t	len;
 
 	if( !string || !string2 ) return NULL;
 
@@ -552,7 +554,7 @@ char *Q_stristr( const char *string, const char *string2 )
 
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args )
 {
-	size_t	result;
+	int	result;
 
 #ifndef _MSC_VER
 	result = vsnprintf( buffer, buffersize, format, args );

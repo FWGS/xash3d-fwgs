@@ -107,8 +107,8 @@ extern int CL_UPDATE_BACKUP;
 #define MIN_UPDATERATE	10.0f
 #define MAX_UPDATERATE	102.0f
 
-#define MIN_EX_INTERP	50.0f
-#define MAX_EX_INTERP	100.0f
+#define MIN_EX_INTERP	0.005f
+#define MAX_EX_INTERP	0.1f
 
 #define CL_MIN_RESEND_TIME	1.5f		// mininum time gap (in seconds) before a subsequent connection request is sent.
 #define CL_MAX_RESEND_TIME	20.0f		// max time.  The cvar cl_resend is bounded by these.
@@ -437,7 +437,7 @@ typedef struct
 	void		*hInstance;		// pointer to client.dll
 	cldll_func_t	dllFuncs;			// dll exported funcs
 	render_interface_t	drawFuncs;		// custom renderer support
-	byte		*mempool;			// client edicts pool
+	poolhandle_t      mempool;			// client edicts pool
 	string		mapname;			// map name
 	string		maptitle;			// display map title
 	string		itemspath;		// path to items description for auto-complete func
@@ -496,7 +496,7 @@ typedef struct
 	void		*hInstance;		// pointer to client.dll
 	UI_FUNCTIONS	dllFuncs;			// dll exported funcs
 	UI_EXTENDED_FUNCTIONS dllFuncs2;	// fwgs extension
-	byte		*mempool;			// client edicts pool
+	poolhandle_t      mempool;			// client edicts pool
 
 	cl_entity_t	playermodel;		// uiPlayerSetup drawing model
 	player_info_t	playerinfo;		// local playerinfo
@@ -534,7 +534,7 @@ typedef struct
 
 	keydest_t		key_dest;
 
-	byte		*mempool;			// client premamnent pool: edicts etc
+	poolhandle_t      mempool;			// client premamnent pool: edicts etc
 
 	netadr_t		hltv_listen_address;
 
@@ -655,11 +655,10 @@ extern convar_t	cl_allow_download;
 extern convar_t	cl_allow_upload;
 extern convar_t	cl_download_ingame;
 extern convar_t	*cl_nopred;
-extern convar_t	*cl_showfps;
-extern convar_t	*cl_envshot_size;
 extern convar_t	*cl_timeout;
 extern convar_t	*cl_nodelta;
 extern convar_t	*cl_interp;
+extern convar_t *cl_nointerp;
 extern convar_t	*cl_showerror;
 extern convar_t	*cl_nosmooth;
 extern convar_t	*cl_smoothtime;
@@ -719,6 +718,7 @@ void CL_SaveShot_f( void );
 void CL_LevelShot_f( void );
 void CL_SetSky_f( void );
 void SCR_Viewpos_f( void );
+void CL_WavePlayLen_f( void );
 
 //
 // cl_custom.c
@@ -882,6 +882,7 @@ void SCR_MakeLevelShot( void );
 void SCR_NetSpeeds( void );
 void SCR_RSpeeds( void );
 void SCR_DrawFPS( int height );
+void SCR_DrawPos( void );
 
 //
 // cl_netgraph.c
@@ -953,7 +954,7 @@ void CL_EmitEntities( void );
 // cl_remap.c
 //
 remap_info_t *CL_GetRemapInfoForEntity( cl_entity_t *e );
-void CL_AllocRemapInfo( cl_entity_t *ent, int topcolor, int bottomcolor );
+void CL_AllocRemapInfo( cl_entity_t *entity, model_t *model, int topcolor, int bottomcolor );
 void CL_FreeRemapInfo( remap_info_t *info );
 void CL_UpdateRemapInfo( cl_entity_t *ent, int topcolor, int bottomcolor );
 void CL_ClearAllRemaps( void );

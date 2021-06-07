@@ -63,7 +63,7 @@ void MSG_ExciseBits( sizebuf_t *sb, int startbit, int bitstoremove );
 _inline int MSG_TellBit( sizebuf_t *sb ) { return sb->iCurBit; }
 _inline const char *MSG_GetName( sizebuf_t *sb ) { return sb->pDebugName; }
 qboolean MSG_CheckOverflow( sizebuf_t *sb );
-short MSG_BigShort( short swap );
+unsigned short MSG_BigShort( unsigned short swap );
 
 // init writing
 void MSG_StartWriting( sizebuf_t *sb, void *pData, int nBytes, int iStartBit, int nBits );
@@ -73,7 +73,7 @@ void MSG_Clear( sizebuf_t *sb );
 void MSG_WriteOneBit( sizebuf_t *sb, int nValue );
 void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits );
 void MSG_WriteSBitLong( sizebuf_t *sb, int data, int numbits );
-void MSG_WriteBitLong( sizebuf_t *sb, int data, int numbits, qboolean bSigned );
+void MSG_WriteBitLong( sizebuf_t *sb, uint data, int numbits, qboolean bSigned );
 qboolean MSG_WriteBits( sizebuf_t *sb, const void *pData, int nBits );
 void MSG_WriteBitAngle( sizebuf_t *sb, float fAngle, int numbits );
 void MSG_WriteBitFloat( sizebuf_t *sb, float val );

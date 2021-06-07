@@ -545,7 +545,7 @@ cmd_t *GAME_EXPORT Cmd_GetNextFunctionHandle( cmd_t *cmd )
 Cmd_GetName
 ============
 */
-char *GAME_EXPORT Cmd_GetName( cmd_t *cmd )
+const char *GAME_EXPORT Cmd_GetName( cmd_t *cmd )
 {
 	return cmd->name;
 }

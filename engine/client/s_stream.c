@@ -63,7 +63,7 @@ float S_GetMusicVolume( void )
 		scale = 1.0f - scale;
 	}
 
-	return s_musicvolume->value * scale;
+	return s_musicvolume.value * scale;
 }
 
 /*
@@ -183,7 +183,7 @@ void S_StreamBackgroundTrack( void )
 		return;
 
 	// don't bother playing anything if musicvolume is 0
-	if( !s_musicvolume->value || s_listener.paused || s_listener.stream_paused )
+	if( !s_musicvolume.value || s_listener.paused || s_listener.stream_paused )
 		return;
 
 	if( !cl.background )

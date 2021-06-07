@@ -27,8 +27,11 @@ convar_t *scr_viewsize;
 convar_t *cl_testlights;
 convar_t *cl_allow_levelshots;
 convar_t *cl_levelshot_name;
-convar_t *cl_envshot_size;
+static convar_t *cl_envshot_size;
 convar_t *v_dark;
+static convar_t *net_speeds;
+static convar_t *cl_showfps;
+static convar_t *cl_showpos;
 
 typedef struct
 {
@@ -100,6 +103,41 @@ void SCR_DrawFPS( int height )
 
 	Con_DrawStringLen( fpsstring, &offset, NULL );
 	Con_DrawString( refState.width - offset - 4, height, fpsstring, color );
+}
+
+/*
+==============
+SCR_DrawPos
+
+Draw local player position, angles and velocity
+==============
+*/
+void SCR_DrawPos( void )
+{
+	static char     msg[MAX_SYSPATH];
+	float speed;
+	cl_entity_t *ent;
+	rgba_t color;
+
+	if( cls.state != ca_active || !cl_showpos->value || cl.background )
+		return;
+
+	ent = CL_GetLocalPlayer();
+	speed = VectorLength( cl.simvel );
+
+	Q_snprintf( msg, MAX_SYSPATH,
+		"pos: %.2f %.2f %.2f\n"
+		"ang: %.2f %.2f %.2f\n"
+		"velocity: %.2f",
+		cl.simorg[0], cl.simorg[1], cl.simorg[2],
+		// should we use entity angles or viewangles?
+		// view isn't always bound to player
+		ent->angles[0], ent->angles[1], ent->angles[2],
+		speed );
+
+	MakeRGBA( color, 255, 255, 255, 255 );
+
+	Con_DrawString( refState.width / 2, 4, msg, color );
 }
 
 /*
@@ -777,6 +815,9 @@ void SCR_Init( void )
 	cl_envshot_size = Cvar_Get( "cl_envshot_size", "256", FCVAR_ARCHIVE, "envshot size of cube side" );
 	v_dark = Cvar_Get( "v_dark", "0", 0, "starts level from dark screen" );
 	scr_viewsize = Cvar_Get( "viewsize", "120", FCVAR_ARCHIVE, "screen size" );
+	net_speeds = Cvar_Get( "net_speeds", "0", FCVAR_ARCHIVE, "show network packets" );
+	cl_showfps = Cvar_Get( "cl_showfps", "1", FCVAR_ARCHIVE, "show client fps" );
+	cl_showpos = Cvar_Get( "cl_showpos", "0", FCVAR_ARCHIVE, "show local player position and velocity" );
 
 	// register our commands
 	Cmd_AddCommand( "skyname", CL_SetSky_f, "set new skybox by basename" );

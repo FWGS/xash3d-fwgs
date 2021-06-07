@@ -291,7 +291,7 @@ typedef struct model_s
 	// shared modelinfo
 	modtype_t		type;		// model type
 	int		numframes;	// sprite's framecount
-	byte		*mempool;		// private mempool (was synctype)
+	poolhandle_t mempool;		// private mempool (was synctype)
 	int		flags;		// hl compatibility
 
 //

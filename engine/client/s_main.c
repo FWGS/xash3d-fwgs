@@ -23,7 +23,7 @@ GNU General Public License for more details.
 #define SND_CLIP_DISTANCE		1000.0f
 
 dma_t		dma;
-byte		*sndpool;
+poolhandle_t sndpool;
 static soundfade_t	soundfade;
 channel_t   	channels[MAX_CHANNELS];
 sound_t		ambient_sfx[NUM_AMBIENTS];
@@ -35,17 +35,17 @@ int		total_channels;
 int		soundtime;	// sample PAIRS
 int   		paintedtime; 	// sample PAIRS
 
-convar_t		*s_volume;
-convar_t		*s_musicvolume;
-convar_t		*s_show;
-convar_t		*s_mixahead;
-convar_t		*s_lerping;
-convar_t		*s_ambient_level;
-convar_t		*s_ambient_fade;
-convar_t		*s_combine_sounds;
-convar_t		*snd_mute_losefocus;
-convar_t		*s_test;		// cvar for testing new effects
-convar_t		*s_samplecount;
+static CVAR_DEFINE( s_volume, "volume", "0.7", FCVAR_ARCHIVE, "sound volume" );
+CVAR_DEFINE( s_musicvolume, "MP3Volume", "1.0", FCVAR_ARCHIVE, "background music volume" );
+static CVAR_DEFINE( s_mixahead, "_snd_mixahead", "0.12", 0, "how much sound to mix ahead of time" );
+static CVAR_DEFINE_AUTO( s_show, "0", FCVAR_ARCHIVE, "show playing sounds" );
+CVAR_DEFINE_AUTO( s_lerping, "0", FCVAR_ARCHIVE, "apply interpolation to sound output" );
+static CVAR_DEFINE( s_ambient_level, "ambient_level", "0.3", FCVAR_ARCHIVE, "volume of environment noises (water and wind)" );
+static CVAR_DEFINE( s_ambient_fade, "ambient_fade", "1000", FCVAR_ARCHIVE, "rate of volume fading when client is moving" );
+static CVAR_DEFINE_AUTO( s_combine_sounds, "0", FCVAR_ARCHIVE, "combine channels with same sounds" );
+CVAR_DEFINE_AUTO( snd_mute_losefocus, "1", FCVAR_ARCHIVE, "silence the audio when game window loses focus" );
+CVAR_DEFINE_AUTO( s_test, "0", 0, "engine developer cvar for quick testing new features" );
+CVAR_DEFINE_AUTO( s_samplecount, "0", FCVAR_ARCHIVE, "sample count (0 for default value)" );
 
 /*
 =============================================================================
@@ -68,7 +68,7 @@ float S_GetMasterVolume( void )
 		scale = bound( 0.0f, soundfade.percent / 100.0f, 1.0f );
 		scale = 1.0f - scale;
 	}
-	return s_volume->value * scale;
+	return s_volume.value * scale;
 }
 
 /*
@@ -945,7 +945,7 @@ void S_UpdateAmbientSounds( void )
 
 	leaf = Mod_PointInLeaf( s_listener.origin, cl.worldmodel->nodes );
 
-	if( !leaf || !s_ambient_level->value )
+	if( !leaf || !s_ambient_level.value )
 	{
 		for( ambient_channel = 0; ambient_channel < NUM_AMBIENTS; ambient_channel++ )
 			channels[ambient_channel].sfx = NULL;
@@ -965,18 +965,18 @@ void S_UpdateAmbientSounds( void )
 			continue;
 		}
 
-		vol = s_ambient_level->value * leaf->ambient_sound_level[ambient_channel];
+		vol = s_ambient_level.value * leaf->ambient_sound_level[ambient_channel];
 		if( vol < 0 ) vol = 0;
 
 		// don't adjust volume too fast
 		if( chan->master_vol < vol )
 		{
-			chan->master_vol += s_listener.frametime * s_ambient_fade->value;
+			chan->master_vol += s_listener.frametime * s_ambient_fade.value;
 			if( chan->master_vol > vol ) chan->master_vol = vol;
 		}
 		else if( chan->master_vol > vol )
 		{
-			chan->master_vol -= s_listener.frametime * s_ambient_fade->value;
+			chan->master_vol -= s_listener.frametime * s_ambient_fade.value;
 			if( chan->master_vol < vol ) chan->master_vol = vol;
 		}
 
@@ -1192,7 +1192,7 @@ void S_StreamAviSamples( void *Avi, int entnum, float fvol, float attn, float sy
 		ch->s_rawend = soundtime;
 
 	// position is changed, synchronization is lost etc
-	if( fabs( ch->oldtime - synctime ) > s_mixahead->value )
+	if( fabs( ch->oldtime - synctime ) > s_mixahead.value )
 		ch->sound_info.loopStart = AVI_TimeToSoundPosition( Avi, synctime * 1000 );
 	ch->oldtime = synctime; // keep actual time
 
@@ -1450,6 +1450,45 @@ void S_StopAllSounds( qboolean ambient )
 	memset( &soundfade, 0, sizeof( soundfade ));
 }
 
+/*
+==============
+S_GetSoundtime
+
+update global soundtime
+
+(was part of platform code)
+===============
+*/
+static int S_GetSoundtime( void )
+{
+	static int buffers, oldsamplepos;
+	int samplepos, fullsamples;
+
+	fullsamples = dma.samples / 2;
+
+	// it is possible to miscount buffers
+	// if it has wrapped twice between
+	// calls to S_Update.  Oh well.
+	samplepos = dma.samplepos;
+
+	if( samplepos < oldsamplepos )
+	{
+		buffers++; // buffer wrapped
+
+		if( paintedtime > 0x40000000 )
+		{
+			// time to chop things off to avoid 32 bit limits
+			buffers     = 0;
+			paintedtime = fullsamples;
+			S_StopAllSounds( true );
+		}
+	}
+
+	oldsamplepos = samplepos;
+
+	return ( buffers * fullsamples + samplepos / 2 );
+}
+
 //=============================================================================
 void S_UpdateChannels( void )
 {
@@ -1461,12 +1500,12 @@ void S_UpdateChannels( void )
 	if( !dma.buffer ) return;
 
 	// updates DMA time
-	soundtime = SNDDMA_GetSoundtime();
+	soundtime = S_GetSoundtime();
 
 	// soundtime - total samples that have been played out to hardware at dmaspeed
 	// paintedtime - total samples that have been mixed at speed
 	// endtime - target for samples in mixahead buffer at speed
-	endtime = soundtime + s_mixahead->value * SOUND_DMA_SPEED;
+	endtime = soundtime + s_mixahead.value * SOUND_DMA_SPEED;
 	samps = dma.samples >> 1;
 
 	if((int)(endtime - soundtime) > samps )
@@ -1562,7 +1601,7 @@ void SND_UpdateSound( void )
 		// try to combine static sounds with a previous channel of the same
 		// sound effect so we don't mix five torches every frame
 		// g-cont: perfomance option, probably kill stereo effect in most cases
-		if( i >= MAX_DYNAMIC_CHANNELS && s_combine_sounds->value )
+		if( i >= MAX_DYNAMIC_CHANNELS && s_combine_sounds.value )
 		{
 			// see if it can just use the last one
 			if( combine && combine->sfx == ch->sfx )
@@ -1602,7 +1641,7 @@ void SND_UpdateSound( void )
 	S_SpatializeRawChannels();
 
 	// debugging output
-	if( CVAR_TO_BOOL( s_show ))
+	if( s_show.value != 0.0f )
 	{
 		info.color[0] = 1.0f;
 		info.color[1] = 0.6f;
@@ -1679,26 +1718,41 @@ void S_PlayVol_f( void )
 	S_StartLocalSound( Cmd_Argv( 1 ), Q_atof( Cmd_Argv( 2 )), false );
 }
 
+static void S_Say( const char *name, qboolean reliable )
+{
+	char sentence[1024];
+
+	// predefined vox sentence
+	if( name[0] == '!' )
+	{
+		S_StartLocalSound( name, 1.0f, reliable );
+		return;
+	}
+
+	Q_snprintf( sentence, sizeof( sentence ), "!#%s", name );
+	S_StartLocalSound( sentence, 1.0f, reliable );
+}
+
 void S_Say_f( void )
 {
 	if( Cmd_Argc() == 1 )
 	{
-		Con_Printf( S_USAGE "speak <soundfile>\n" );
+		Con_Printf( S_USAGE "speak <vox sentence>\n" );
 		return;
 	}
 
-	S_StartLocalSound( Cmd_Argv( 1 ), 1.0f, false );
+	S_Say( Cmd_Argv( 1 ), false );
 }
 
 void S_SayReliable_f( void )
 {
 	if( Cmd_Argc() == 1 )
 	{
-		Con_Printf( S_USAGE "spk <soundfile>\n" );
+		Con_Printf( S_USAGE "spk <vox sentence>\n" );
 		return;
 	}
 
-	S_StartLocalSound( Cmd_Argv( 1 ), 1.0f, true );
+	S_Say( Cmd_Argv( 1 ), true );
 }
 
 /*
@@ -1815,17 +1869,17 @@ qboolean S_Init( void )
 		return false;
 	}
 
-	s_volume = Cvar_Get( "volume", "0.7", FCVAR_ARCHIVE, "sound volume" );
-	s_musicvolume = Cvar_Get( "MP3Volume", "1.0", FCVAR_ARCHIVE, "background music volume" );
-	s_mixahead = Cvar_Get( "_snd_mixahead", "0.12", 0, "how much sound to mix ahead of time" );
-	s_show = Cvar_Get( "s_show", "0", FCVAR_ARCHIVE, "show playing sounds" );
-	s_lerping = Cvar_Get( "s_lerping", "0", FCVAR_ARCHIVE, "apply interpolation to sound output" );
-	s_ambient_level = Cvar_Get( "ambient_level", "0.3", FCVAR_ARCHIVE, "volume of environment noises (water and wind)" );
-	s_ambient_fade = Cvar_Get( "ambient_fade", "1000", FCVAR_ARCHIVE, "rate of volume fading when client is moving" );
-	s_combine_sounds = Cvar_Get( "s_combine_channels", "0", FCVAR_ARCHIVE, "combine channels with same sounds" );
-	snd_mute_losefocus = Cvar_Get( "snd_mute_losefocus", "1", FCVAR_ARCHIVE, "silence the audio when game window loses focus" );
-	s_test = Cvar_Get( "s_test", "0", 0, "engine developer cvar for quick testing new features" );
-	s_samplecount = Cvar_Get( "s_samplecount", "0", FCVAR_ARCHIVE, "sample count (0 for default value)" );
+	Cvar_RegisterVariable( &s_volume );
+	Cvar_RegisterVariable( &s_musicvolume );
+	Cvar_RegisterVariable( &s_mixahead );
+	Cvar_RegisterVariable( &s_show );
+	Cvar_RegisterVariable( &s_lerping );
+	Cvar_RegisterVariable( &s_ambient_level );
+	Cvar_RegisterVariable( &s_ambient_fade );
+	Cvar_RegisterVariable( &s_combine_sounds );
+	Cvar_RegisterVariable( &snd_mute_losefocus );
+	Cvar_RegisterVariable( &s_test );
+	Cvar_RegisterVariable( &s_samplecount );
 
 	Cmd_AddCommand( "play", S_Play_f, "playing a specified sound file" );
 	Cmd_AddCommand( "play2", S_Play2_f, "playing a group of specified sound files" ); // nehahra stuff
