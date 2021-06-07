@@ -49,6 +49,7 @@ jobs:
             - libfuse2:i386
             - zlib1g:i386
             - unzip
+            - libvulkan-dev:i386
       before_script:
         - export ARCH=i686
         - sh scripts/travis_common_deps.sh
@@ -137,6 +138,7 @@ jobs:
             - libstdc++6
             - libfuse2
             - unzip
+            - libvulkan-dev
       before_script:
         - export ARCH=x86_64
         - sh scripts/travis_common_deps.sh
