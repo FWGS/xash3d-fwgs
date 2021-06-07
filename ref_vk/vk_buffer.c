@@ -71,8 +71,7 @@ uint32_t VK_RingBuffer_Alloc(vk_ring_buffer_t* buf, uint32_t size, uint32_t alig
 
 	if (size > tail) {
 		offset = ALIGN_UP(buf->permanent_size, align);
-		const uint32_t align_diff = offset - buf->permanent_size;
-		available -= align_diff - tail;
+		available -= (offset - buf->permanent_size) - tail;
 	}
 
 	if (available < size)
