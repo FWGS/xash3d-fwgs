@@ -4,6 +4,7 @@ sudo: false
 env:
   global:
     - SDL_VERSION=2.0.8
+    - VULKAN_SDK_VERSION=1.2.176.1
     - DEPLOY_BRANCH=anewengine
 git:
   depth: 50
