@@ -55,6 +55,7 @@ static void loadRadData( const model_t *map, const char *filename ) {
 				const char *wad_name = NULL;
 				char *texture_name = Q_strchr(name, '/');
 				string texname;
+				int tex_id;
 
 				if (!texture_name) {
 					texture_name = name;
@@ -68,7 +69,7 @@ static void loadRadData( const model_t *map, const char *filename ) {
 
 				// Try bsp texture first
 				Q_sprintf(texname, "#%s:%s.mip", map->name, texture_name);
-				int tex_id = VK_FindTexture(texname);
+				tex_id = VK_FindTexture(texname);
 				gEngine.Con_Reportf("Looked up texture %s -> %d\n", texname, tex_id);
 
 				// Try wad texture if bsp is not there
