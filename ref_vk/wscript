@@ -26,16 +26,17 @@ def configure(conf):
 	if not conf.env.VK:
 		return
 
-	conf.load('glslc')
-	conf.define('REF_DLL', 1)
-
 	if conf.env.DEST_OS == 'win32':
 		conf.start_msg('Vulkan SDK available?')
 		if not 'VULKAN_SDK' in conf.environ:
-			Logs.warn('VULKAN_SDK environment variable is not available, ref_vk will not be built')
+			conf.error('VULKAN_SDK environment variable is not available, ref_vk will not be built')
 			conf.end_msg('no')
 		conf.env.VULKAN_SDK = conf.environ['VULKAN_SDK']
 		conf.end_msg('found at ' + conf.env.VULKAN_SDK)
+
+	conf.load('glslc')
+
+	conf.define('REF_DLL', 1)
 
 	if conf.options.NSIGHT_AFTERMATH_SDK:
 		conf.start_msg('Nvidia Nsight Aftermath SDK')
