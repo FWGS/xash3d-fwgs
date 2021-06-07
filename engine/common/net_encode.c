@@ -1177,17 +1177,17 @@ qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to
 	}
 	else if( pField->flags & DT_TIMEWINDOW_8 )
 	{
+		bSigned = true; // timewindow is always signed
 		flValue = *(float *)((byte *)to + pField->offset );
-		flTime = Q_rint( timebase * 100.0f ) - Q_rint( flValue * 100.0f );
-		iValue = (uint)abs( flTime );
+		iValue = (int)Q_rint( timebase * 100.0f ) - (int)Q_rint( flValue * 100.0f );
 		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
 		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
 	}
 	else if( pField->flags & DT_TIMEWINDOW_BIG )
 	{
+		bSigned = true; // timewindow is always signed
 		flValue = *(float *)((byte *)to + pField->offset );
-		flTime = Q_rint( timebase * pField->multiplier ) - Q_rint( flValue * pField->multiplier );
-		iValue = (uint)abs( flTime );
+		iValue = (int)Q_rint( timebase * pField->multiplier ) - (int)Q_rint( flValue * pField->multiplier );
 		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
 		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
 	}
@@ -1314,9 +1314,9 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 	{
 		if( bChanged )
 		{
+			bSigned = true; // timewindow is always signed
 			iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
-			flValue = (float)((int)(iValue * 0.01f ));
-			flTime = timebase + flValue;
+			flTime = ((timebase * 100.0f) - iValue ) / 100.0f;
 		}
 		else
 		{
@@ -1328,9 +1328,12 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 	{
 		if( bChanged )
 		{
+			bSigned = true; // timewindow is always signed
 			iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
-			flValue = (float)((int)iValue) * ( 1.0f / pField->multiplier );
-			flTime = timebase + flValue;
+			flTime = ((timebase * pField->multiplier) - iValue );
+
+			if( pField->multiplier != 1.0f )
+				flTime /= pField->multiplier;
 		}
 		else
 		{
@@ -1357,7 +1360,7 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 
 /*
 =============================================================================
-
+1
 usercmd_t communication
 
 =============================================================================
