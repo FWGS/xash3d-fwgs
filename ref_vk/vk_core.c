@@ -141,7 +141,7 @@ static const char* device_extensions[] = {
 #endif
 };
 
-VKAPI_PTR VkBool32 debugCallback(
+VkBool32 VKAPI_PTR debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT                  messageTypes,
     const VkDebugUtilsMessengerCallbackDataEXT*      pCallbackData,
