@@ -139,7 +139,7 @@ _inline int Sys_Start( void )
 		changeGame = Sys_ChangeGame;
 #endif
 
-	char *game = getenv( E_GAME  );
+	const char *game = getenv( E_GAME  );
 	if( !game  )
 		game = GAME_PATH;
 
