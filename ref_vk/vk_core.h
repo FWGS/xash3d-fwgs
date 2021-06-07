@@ -49,7 +49,7 @@ typedef struct vulkan_core_s {
 	VkInstance instance;
 	VkDebugUtilsMessengerEXT debug_messenger;
 
-	byte *pool;
+	poolhandle_t pool;
 
 	// TODO store important capabilities that affect render code paths
 	// (as rtx, dedicated gpu memory, bindless, etc) separately in a struct
