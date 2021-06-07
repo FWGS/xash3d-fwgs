@@ -90,24 +90,6 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	return Platform_POSIX_LoadLibrary( dllname );
 #endif
 
-#if XASH_HAIKU
-	// First look for libraries in the mirror directory
-	libdir = getenv( "XASH3D_MIRRORDIR" );
-	if( libdir ) {
-		char path[MAX_SYSPATH];
-		char game[MAX_SYSPATH] = { 0 };
-		if( GI && !Q_strstr( dllname, "menu" ) )
-		Q_snprintf( game, MAX_SYSPATH, "/%s", GI->gamefolder );
-		Q_snprintf( path, MAX_SYSPATH, "%s%s/%s", libdir, game, dllname );
-		pHandle = dlopen( path, RTLD_NOW );
-		if( pHandle )
-			return pHandle;
-
-		COM_PushLibraryError( dlerror() );
-	}
-	// Then through FS_FindLibrary() function in the gamebase directory
-#endif
-
 	// platforms where gameinfo mechanism is working goes here
 	// and use FS_FindLibrary
 	hInst = FS_FindLibrary( dllname, directpath );
