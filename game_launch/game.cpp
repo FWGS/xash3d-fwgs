@@ -20,14 +20,8 @@ GNU General Public License for more details.
 #include <stdlib.h>
 #include <stdarg.h>
 
-#if defined(__APPLE__) || defined(__unix__)
+#if defined(__APPLE__) || defined(__unix__) || defined(__HAIKU__)
 	#define XASHLIB    "libxash." OS_LIB_EXT
-#elif __HAIKU__
-	#include <libgen.h>
-	#define XASHLIB     "libxash." OS_LIB_EXT
-	#define E_GAME      "XASH3D_GAME"
-	#define E_BASEDIR   "XASH3D_BASEDIR"
-	#define E_MIRRORDIR "XASH3D_MIRRORDIR"
 #elif _WIN32
 	#if !__MINGW32__ && _MSC_VER >= 1200
 		#define USE_WINMAIN
@@ -36,6 +30,7 @@ GNU General Public License for more details.
 	#define dlerror() GetStringLastError()
 	#include <shellapi.h> // CommandLineToArgvW
 #endif
+
 
 #ifdef WIN32
 extern "C"
@@ -48,6 +43,7 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 #endif
 
+#define E_GAME	"XASH3D_GAME" // default env dir to start from
 #define GAME_PATH	"valve"	// default dir to start from
 
 typedef void (*pfnChangeGame)( const char *progname );
@@ -93,15 +89,7 @@ static const char *GetStringLastError()
 
 static void Sys_LoadEngine( void )
 {
-#ifdef __HAIKU__
-	char path[PATH_MAX];
-	char *engine = getenv( E_MIRRORDIR );
-	strncpy( path, engine, PATH_MAX );
-	strncat( path, "/"XASHLIB, PATH_MAX );
-	if(( hEngine = LoadLibrary( path )) == NULL )
-#else
 	if(( hEngine = LoadLibrary( XASHLIB )) == NULL )
-#endif
 	{
 		Xash_Error("Unable to load the " XASHLIB ": %s", dlerror() );
 	}
@@ -152,12 +140,11 @@ _inline int Sys_Start( void )
 		changeGame = Sys_ChangeGame;
 #endif
 
-#ifdef __HAIKU__
-	const char* game = getenv( E_GAME );
+	char *game = getenv( E_GAME  );
+	if( !game  )
+		game = GAME_PATH;
+
 	ret = Xash_Main( szArgc, szArgv, game, 0, changeGame );
-#else
-	ret = Xash_Main( szArgc, szArgv, GAME_PATH, 0, changeGame );
-#endif
 
 	Sys_UnloadEngine();
 
@@ -169,35 +156,6 @@ int main( int argc, char **argv )
 {
 	szArgc = argc;
 	szArgv = argv;
-
-#ifdef __HAIKU__
-	// To make it able to start from Deskbar
-	chdir( dirname( argv[0]  )  );
-	char path[PATH_MAX];
-	getcwd( path, PATH_MAX  );
-	const char *game = getenv( E_GAME  );
-	if( !game  )
-		setenv( E_GAME, GAME_PATH, 1  );
-	const char *basedir = getenv( E_BASEDIR  );
-	if( !basedir  )
-		setenv( E_BASEDIR, path, 1  );
-	const char *mirrordir = getenv( E_MIRRORDIR  );
-	// The mirror "extras/" directory structure for Haiku OS which is needeed for the HPGK-package:
-	// extras.pak
-	// libmenu.so
-	// libxash.so
-	// valve/
-	//  cl_dlls/
-	//   client_haiku_amd64.so
-	//  dlls/
-	//   hl_haiku_amd64.so
-	if( !mirrordir  )
-	{
-		strncpy( path, getenv( E_BASEDIR  ), PATH_MAX  );
-		strncat( path, "/extras", PATH_MAX  );
-		setenv( E_MIRRORDIR, path, 1  );
-	}
-#endif
 
 	return Sys_Start();
 }
