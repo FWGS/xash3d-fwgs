@@ -1,7 +1,7 @@
 @echo off
 
 rem try fix py2 build
-rem chcp 1252
+chcp 1252
 set PYTHONIOENCODING=UTF-8
 rem from issue #964
 
