@@ -2,6 +2,8 @@
 
 . scripts/lib.sh
 
+export VULKAN_SDK=C:/VulkanSDK/$VULKAN_SDK_VERSION
+
 # Build engine
 cd $TRAVIS_BUILD_DIR
 
