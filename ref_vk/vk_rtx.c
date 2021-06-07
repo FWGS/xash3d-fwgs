@@ -349,7 +349,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 
 	build_info.dstAccelerationStructure = *args->p_accel;
 	build_info.scratchData.deviceAddress = g_rtx.scratch_buffer_addr + g_rtx.frame.scratch_offset;
-	uint32_t scratch_offset_initial = g_rtx.frame.scratch_offset;
+	//uint32_t scratch_offset_initial = g_rtx.frame.scratch_offset;
 	g_rtx.frame.scratch_offset += scratch_buffer_size;
 	g_rtx.frame.scratch_offset = ALIGN_UP(g_rtx.frame.scratch_offset, vk_core.physical_device.properties_accel.minAccelerationStructureScratchOffsetAlignment);
 
