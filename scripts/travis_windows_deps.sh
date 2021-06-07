@@ -5,12 +5,10 @@ mv SDL2-$SDL_VERSION SDL2_VC
 
 set -eux
 
-date
 curl -L --show-error --output vulkan_sdk.exe https://vulkan.lunarg.com/sdk/download/$VULKAN_SDK_VERSION/windows/vulkan_sdk.exe
 date
 echo "Installing Vulkan SDK $VULKAN_SDK_VERSION"
-date
-runas /user:administrator vulkan_sdk.exe /S
+start /wait vulkan_sdk.exe /S
 date
 echo "Installed"
 
