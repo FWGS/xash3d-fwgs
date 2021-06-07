@@ -1402,11 +1402,6 @@ void FS_Rescan( void )
 		FS_AddPak_Fullpath( va( "%sextras.pak", SDL_GetBasePath() ), NULL, extrasFlags );
 		FS_AddPak_Fullpath( va( "%sextras_%s.pak", SDL_GetBasePath(), GI->gamefolder ), NULL, extrasFlags );
 	}
-#elif XASH_HAIKU
-	if( ( dir = getenv( "XASH3D_MIRRORDIR" ) ) )
-		FS_AddPak_Fullpath( va( "%s/extras.pak", dir  ), NULL, extrasFlags );
-	if( ( dir = getenv( "XASH3D_BASEDIR" ) ) )
-		FS_AddPak_Fullpath( va( "%s/%s/extras.pak", dir , GI->gamefolder  ), NULL, extrasFlags );
 #else
 	str = getenv( "XASH3D_EXTRAS_PAK1" );
 	if( COM_CheckString( str ) )
