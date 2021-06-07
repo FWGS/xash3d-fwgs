@@ -17,6 +17,10 @@ def configure(conf):
 	if conf.options.DEDICATED:
 		return
 
+	# Vulkan is not supported on Android yet for CI reasons: requres NDK>12, glslc lookup etc.
+	if conf.env.DEST_OS == 'android':
+		return
+
 	conf.load('glslc')
 	conf.define('REF_DLL', 1)
 
