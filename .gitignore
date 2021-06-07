@@ -329,7 +329,6 @@ __pycache__
 *.vcxproj
 
 # vim/cscope/coc/clangd
-.cache
 compile_commands.json
 cscope.out
 core
