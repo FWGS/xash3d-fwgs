@@ -79,9 +79,6 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 {
 	dll_user_t *hInst = NULL;
 	void *pHandle = NULL;
-#if XASH_HAIKU
-	const char *libdir;
-#endif
 
 	COM_ResetLibraryError();
 

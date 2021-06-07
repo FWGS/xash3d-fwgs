@@ -31,7 +31,6 @@ GNU General Public License for more details.
 	#include <shellapi.h> // CommandLineToArgvW
 #endif
 
-
 #ifdef WIN32
 extern "C"
 {

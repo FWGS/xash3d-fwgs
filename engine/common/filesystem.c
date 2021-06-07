@@ -1390,9 +1390,6 @@ void FS_Rescan( void )
 {
 	const char *str;
 	const int extrasFlags = FS_NOWRITE_PATH | FS_CUSTOM_PATH;
-#if XASH_HAIKU
-	char *dir;
-#endif
 	Con_Reportf( "FS_Rescan( %s )\n", GI->title );
 
 	FS_ClearSearchPath();
