@@ -141,7 +141,7 @@ static const char* device_extensions[] = {
 #endif
 };
 
-VkBool32 debugCallback(
+VkBool32 VKAPI_PTR debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT                  messageTypes,
     const VkDebugUtilsMessengerCallbackDataEXT*      pCallbackData,
@@ -190,11 +190,11 @@ static void loadDeviceFunctions(dllfunc_t *funcs, int count)
 
 static qboolean createInstance( void )
 {
-	char ** instance_extensions = NULL;
+	const char ** instance_extensions = NULL;
 	unsigned int num_instance_extensions = vk_core.debug ? 1 : 0;
 	VkApplicationInfo app_info = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-		.apiVersion = vk_core.rtx ? VK_API_VERSION_1_2 : VK_API_VERSION_1_0,
+		.apiVersion = vk_core.rtx ? VK_API_VERSION_1_2 : VK_API_VERSION_1_1,
 		.applicationVersion = VK_MAKE_VERSION(0, 0, 0), // TODO
 		.engineVersion = VK_MAKE_VERSION(0, 0, 0),
 		.pApplicationName = "",
@@ -286,8 +286,10 @@ static qboolean hasExtension( const VkExtensionProperties *exts, uint32_t num_ex
 static qboolean deviceSupportsRtx( const VkExtensionProperties *exts, uint32_t num_exts )
 {
 	for (int i = 1 /* skip swapchain ext */; i < ARRAYSIZE(device_extensions); ++i) {
-		if (!hasExtension(exts, num_exts, device_extensions[i]))
+		if (!hasExtension(exts, num_exts, device_extensions[i])) {
+			gEngine.Con_Reportf(S_ERROR "Extension %s is not supported\n", device_extensions[i]);
 			return false;
+		}
 	}
 	return true;
 }
@@ -328,15 +330,17 @@ static qboolean pickAndCreateDevice( void )
 		for (uint32_t j = 0; j < num_queue_family_properties; ++j)
 		{
 			VkBool32 present = 0;
-			if (!(queue_family_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT))
+			if (!(queue_family_props[j].queueFlags & VK_QUEUE_GRAPHICS_BIT))
 				continue;
 
 			vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices[i], j, vk_core.surface.surface, &present);
 
+			gEngine.Con_Reportf("Queue %d/%d present: %d\n", j, num_queue_family_properties, present);
+
 			if (!present)
 				continue;
 
-			queue_index = i;
+			queue_index = j;
 			break;
 		}
 

@@ -6,7 +6,11 @@ from waflib import *
 from waflib.Tools import c_preproc, ccroot
 
 def configure(conf):
-	conf.find_program('glslc')
+	if conf.env.DEST_OS == 'win32':
+		conf.find_program('glslc', path_list=[os.path.join(conf.env.VULKAN_SDK, 'Bin')])
+	else:
+		conf.find_program('glslc')
+
 
 	conf.add_os_flags('GLSLCPPFLAGS', dup=False)
 	conf.add_os_flags('GLSLCFLAGS', dup=False)

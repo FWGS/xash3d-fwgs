@@ -145,11 +145,14 @@ def configure(conf):
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
 		conf.options.GL     = False
+		# Vulkan is not supported on Android yet for CI reasons: requres NDK>12, glslc lookup etc.
+		conf.options.VK     = False
 	elif conf.env.MAGX:
 		conf.options.USE_SELECT       = True
 		conf.options.SDL12            = True
 		conf.options.NO_VGUI          = True
 		conf.options.GL               = False
+		conf.options.VK               = False
 		conf.options.LOW_MEMORY       = 1
 		conf.options.SINGLE_BINARY    = True
 		conf.options.NO_ASYNC_RESOLVE = True

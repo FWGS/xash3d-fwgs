@@ -836,16 +836,16 @@ void VK_RenderModelDestroy( vk_render_model_t* model ) {
 }
 
 void VK_RenderModelDraw( vk_render_model_t* model ) {
-	if (vk_core.rtx) {
-		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model);
-		return;
-	}
-
 	int current_texture = -1;
 	int index_count = 0;
 	int index_offset = -1;
 	vk_buffer_handle_t vertex_buffer = InvalidHandle;
 	vk_buffer_handle_t index_buffer = InvalidHandle;
+
+	if (vk_core.rtx) {
+		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model);
+		return;
+	}
 
 	for (int i = 0; i < model->num_geometries; ++i) {
 		const vk_render_geometry_t *geom = model->geometries + i;

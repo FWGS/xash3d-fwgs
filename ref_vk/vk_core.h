@@ -49,7 +49,7 @@ typedef struct vulkan_core_s {
 	VkInstance instance;
 	VkDebugUtilsMessengerEXT debug_messenger;
 
-	byte *pool;
+	poolhandle_t pool;
 
 	// TODO store important capabilities that affect render code paths
 	// (as rtx, dedicated gpu memory, bindless, etc) separately in a struct
@@ -100,7 +100,6 @@ do { \
 		if (result != VK_SUCCESS) { \
 			gEngine.Con_Printf( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
 				__FILE__, __LINE__, result, resultName(result)); \
-			Sleep(3000); \
 			gEngine.Host_Error( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
 				__FILE__, __LINE__, result, resultName(result)); \
 		} \

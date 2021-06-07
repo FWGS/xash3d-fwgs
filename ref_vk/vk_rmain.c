@@ -9,6 +9,7 @@
 #include "vk_sprite.h"
 #include "vk_studio.h"
 #include "vk_beams.h"
+#include "vk_brush.h"
 
 #include "xash3d_types.h"
 #include "com_strings.h"

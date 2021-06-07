@@ -9,6 +9,10 @@ top = '.'
 
 def options(opt):
 	grp = opt.add_option_group('ref_vk options')
+
+	grp.add_option('--disable-vulkan', action='store_false', dest='VK', default=True,
+		help = 'disable vulkan [default: vulkan is enabled]')
+
 	grp.add_option('', '--aftermath', action='store', dest = 'NSIGHT_AFTERMATH_SDK', default = None,
 		help = 'Path to Nvidia Nsight Aftermath SDK (optional)')
 
@@ -17,16 +21,24 @@ def configure(conf):
 	if conf.options.DEDICATED:
 		return
 
-	conf.load('glslc')
-	conf.define('REF_DLL', 1)
+	conf.env.VK = conf.options.VK
+
+	if not conf.env.VK:
+		return
 
 	if conf.env.DEST_OS == 'win32':
 		conf.start_msg('Vulkan SDK available?')
 		if not 'VULKAN_SDK' in conf.environ:
-			Logs.warn('VULKAN_SDK environment variable is not available, ref_vk will not be built')
+			conf.error('VULKAN_SDK environment variable is not available, ref_vk will not be built')
 			conf.end_msg('no')
 		conf.env.VULKAN_SDK = conf.environ['VULKAN_SDK']
+		if not os.path.isdir(conf.env.VULKAN_SDK):
+			conf.error(conf.env.VULKAN_SDK + ' is not a valid directory')
 		conf.end_msg('found at ' + conf.env.VULKAN_SDK)
+
+	conf.load('glslc')
+
+	conf.define('REF_DLL', 1)
 
 	if conf.options.NSIGHT_AFTERMATH_SDK:
 		conf.start_msg('Nvidia Nsight Aftermath SDK')
@@ -51,6 +63,9 @@ def configure(conf):
 	conf.env.GLSLCFLAGS += ['-g']
 
 def build(bld):
+	if not bld.env.VK:
+		return
+
 	libs = [ 'public', 'M' ]
 	defines = []
 	libpath = []
@@ -73,11 +88,8 @@ def build(bld):
 	if bld.env.HAVE_AFTERMATH:
 		defines.append('USE_AFTERMATH')
 		libs.append('AFTERMATH')
-		# includes.append(bld.env.AFTERMATH_INCLUDE)
-		# libs.append(bld.env.AFTERMATH_LIB)
-		# libpath.append(bld.env.AFTERMATH_LIBDIR)
 
-	bld.env.CFLAGS += ["/WX"]
+	#FIXME bld.env.CFLAGS += ["/WX"]
 
 	bld.shlib(
 		source   = source,
@@ -96,6 +108,6 @@ def build(bld):
 		features = 'glsl',
 		# includes = 'shaders/', # write your includes here
 		# defines = 'TEST', # write your C preprocessor defines here
-		install_path = bld.env.LIBDIR + '/valve' # TEMPORARY!!!!
+		install_path = bld.env.LIBDIR + '/valve' # FIXME TEMPORARY!!!!
 	)
 

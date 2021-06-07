@@ -218,6 +218,7 @@ static vk_ray_model_t *getModelFromCache(int num_geoms, const VkAccelerationStru
 	int i;
 	for (i = 0; i < ARRAYSIZE(g_rtx.models_cache); ++i)
 	{
+		int j;
 	 	model = g_rtx.models_cache + i;
 		if (model->taken)
 			continue;
@@ -228,7 +229,6 @@ static vk_ray_model_t *getModelFromCache(int num_geoms, const VkAccelerationStru
 		if (model->num_geoms != num_geoms)
 			continue;
 
-		int j;
 		for (j = 0; j < num_geoms; ++j) {
 			if (model->geoms[j].geometryType != geoms[j].geometryType)
 				break;
@@ -349,7 +349,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 
 	build_info.dstAccelerationStructure = *args->p_accel;
 	build_info.scratchData.deviceAddress = g_rtx.scratch_buffer_addr + g_rtx.frame.scratch_offset;
-	uint32_t scratch_offset_initial = g_rtx.frame.scratch_offset;
+	//uint32_t scratch_offset_initial = g_rtx.frame.scratch_offset;
 	g_rtx.frame.scratch_offset += scratch_buffer_size;
 	g_rtx.frame.scratch_offset = ALIGN_UP(g_rtx.frame.scratch_offset, vk_core.physical_device.properties_accel.minAccelerationStructureScratchOffsetAlignment);
 
@@ -1060,7 +1060,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 	VkAccelerationStructureGeometryKHR *geoms;
 	uint32_t *geom_max_prim_counts;
 	VkAccelerationStructureBuildRangeInfoKHR *geom_build_ranges;
-	VkAccelerationStructureBuildRangeInfoKHR **geom_build_ranges_ptr;
+	const VkAccelerationStructureBuildRangeInfoKHR **geom_build_ranges_ptr;
 	const VkDeviceAddress buffer_addr = getBufferDeviceAddress(args.buffer);
 	vk_kusok_data_t *kusochki;
 	const uint32_t kusochki_count_offset = VK_RingBuffer_Alloc(&g_rtx.kusochki_alloc, args.model->num_geometries, 1);

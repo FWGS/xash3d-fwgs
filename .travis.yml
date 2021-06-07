@@ -4,6 +4,7 @@ sudo: false
 env:
   global:
     - SDL_VERSION=2.0.8
+    - VULKAN_SDK_VERSION=1.2.176.1
     - DEPLOY_BRANCH=anewengine
 git:
   depth: 50
@@ -34,7 +35,7 @@ jobs:
       name: "Build for Linux i686"
       cache: ccache
       os: linux
-      dist: xenial
+      dist: bionic
       addons:
         apt:
           packages:
@@ -125,7 +126,7 @@ jobs:
       name: "Build for Linux amd64"
       cache: ccache
       os: linux
-      dist: xenial
+      dist: bionic
       addons:
         apt:
           packages:
