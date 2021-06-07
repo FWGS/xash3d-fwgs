@@ -34,7 +34,7 @@ jobs:
       name: "Build for Linux i686"
       cache: ccache
       os: linux
-      dist: xenial
+      dist: bionic
       addons:
         apt:
           packages:
@@ -125,7 +125,7 @@ jobs:
       name: "Build for Linux amd64"
       cache: ccache
       os: linux
-      dist: xenial
+      dist: bionic
       addons:
         apt:
           packages:
