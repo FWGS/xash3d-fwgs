@@ -184,7 +184,7 @@ static void SV_BanID_f( void )
 
 			for( i = 0, cl1 = svs.clients; i < sv_maxclients->value; i++, cl1++ )
 			{
-				if( !Q_strncmp( id, Info_ValueForKey( cl1->useragent, "i" ), len ) )
+				if( !Q_strncmp( id, Info_ValueForKey( cl1->useragent, "uuid" ), len ) )
 				{
 					cl = cl1;
 					break;
@@ -197,7 +197,7 @@ static void SV_BanID_f( void )
 			Con_DPrintf( S_WARN "banid: no such player\n" );
 		}
 		else
-			id = Info_ValueForKey( cl->useragent, "i" );
+			id = Info_ValueForKey( cl->useragent, "uuid" );
 
 		if( !id[0] )
 		{
@@ -254,7 +254,7 @@ static void SV_RemoveID_f( void )
 		if( num >= sv_maxclients->value || num < 0 )
 			return;
 
-		id = Info_ValueForKey( svs.clients[num].useragent, "i" );
+		id = Info_ValueForKey( svs.clients[num].useragent, "uuid" );
 	}
 
 	if( !id[0] )

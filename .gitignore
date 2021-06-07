@@ -328,9 +328,13 @@ __pycache__
 *.sln
 *.vcxproj
 
-# vim/coc/clangd
-.cache
+# vim/cscope/coc/clangd
 compile_commands.json
 cscope.out
-
 core
+
+# Visual Studio Code
+.vscode/*
+*.code-workspace
+.history/*
+.cache/*

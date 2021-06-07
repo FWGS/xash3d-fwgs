@@ -1,5 +1,5 @@
 # Xash3D FWGS Engine
-[![Build Status](https://api.travis-ci.org/FWGS/xash3d-fwgs.svg?branch=master)](https://travis-ci.org/FWGS/xash3d-fwgs) [![FreeBSD Build Status](https://img.shields.io/cirrus/github/FWGS/xash3d-fwgs?label=freebsd%20build)](https://cirrus-ci.com/github/FWGS/xash3d-fwgs) [![Discord Server](https://img.shields.io/discord/355697768582610945.svg)](https://discord.gg/TbnHcVb) \
+[![Build Status](https://api.travis-ci.org/FWGS/xash3d-fwgs.svg?branch=master)](https://travis-ci.org/FWGS/xash3d-fwgs) [![FreeBSD Build Status](https://img.shields.io/cirrus/github/FWGS/xash3d-fwgs?label=freebsd%20build)](https://cirrus-ci.com/github/FWGS/xash3d-fwgs) [![Discord Server](https://img.shields.io/discord/355697768582610945.svg)](http://discord.fwgs.ru/) \
 [![Download Stable](https://img.shields.io/badge/download-stable-yellow)](https://github.com/FWGS/xash3d-fwgs/releases/latest) [![Download Testing](https://img.shields.io/badge/downloads-testing-orange)](https://github.com/FWGS/xash3d-deploy/tree/anewengine-master)
 
 Xash3D FWGS is a fork of Xash3D Engine by Unkle Mike with extended features and crossplatform.
@@ -26,8 +26,21 @@ Read more about Xash3D on ModDB: https://www.moddb.com/engines/xash3d-engine
 * Voice support
 * Vulkan renderer
 
+## Installation & Running
+0) Download Xash3D binaries: you can use [testing](https://github.com/FWGS/xash3d-deploy/tree/anewengine-master) build, also you can compile engine from sources.
+Choose proper build package depending on which platform you're using.
+1) Copy engine binaries to some directory.
+2) Copy `valve` directory from [Half-Life](https://store.steampowered.com/app/70/HalfLife/) to mentioned above directory with engine binaries.
+Also if you're using Windows: you should copy `vgui.dll` library from Half-Life directory to Xash3D directory.
+But instead, you can compile [hlsdk-xash3d](https://github.com/FWGS/hlsdk-xash3d) yourself instead of using official Valve game binaries, but you still needed to copy `valve` directory because all resources like sounds/models/maps located in there.
+3) Download [extras.pak](https://github.com/FWGS/xash-extras/releases/tag/v0.19.2) and place it to `valve` directory.
+4) Run `xash3d.exe`/`xash3d.sh`/`xash3d` depending on which platform you're using.
+
+For additional info, run Xash3D with `-help` command line key.
+
 ## Contributing
 * Before sending an issue, check if someone already reported your issue. Make sure you're following "How To Ask Questions The Smart Way" guide by Eric Steven Raymond. Read more: http://www.catb.org/~esr/faqs/smart-questions.html
+* Issues are accepted in both English and Russian
 * Before sending a PR, check if you followed our contribution guide in CONTRIBUTING.md file.
 
 ## Build instructions
@@ -38,7 +51,7 @@ If you're stuck somewhere and you need a clear example, read `.travis.yml` and `
 NOTE: NEVER USE GitHub's ZIP ARCHIVES. They are broken and don't contain external dependencies sources we're using.
 
 ### Prerequisites
-#### Windows(Visual Studio)
+#### Windows (Visual Studio)
 * Install Visual Studio.
 * Install latest [Python](https://python.org) **OR** run `cinst python.install` if you have Chocolatey.
 * Install latest [Git](https://git-scm.com/download/win) **OR** run `cinst git.install` if you have Chocolatey.
@@ -64,7 +77,7 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`
 
 ### Building
-#### Windows(Visual Studio)
+#### Windows (Visual Studio)
 0) Open command line
 1) Navigate to `xash3d-fwgs` directory.
 2) Carefully examine which build options are available: `waf --help`
@@ -79,9 +92,4 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 2) Compile: `./waf build`
 3) Install(optional): `./waf install`
 
-## Running
-0) Copy libraries and main executable somewhere, if you're skipped installation stage.
-1) Copy game files to same directory
-2) Run `xash3d.exe`/`xash3d.sh`/`xash3d` depending on which platform you're using.
 
-For additional info, run Xash3D with `-help` command line key.

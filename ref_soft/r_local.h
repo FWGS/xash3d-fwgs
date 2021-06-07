@@ -57,7 +57,7 @@ typedef	int	fixed16_t;
 #define LM_SAMPLE_SIZE             16
 
 
-extern byte	*r_temppool;
+extern poolhandle_t r_temppool;
 
 #define BLOCK_SIZE		tr.block_size	// lightmap blocksize
 #define BLOCK_SIZE_DEFAULT	128		// for keep backward compatibility
@@ -714,7 +714,6 @@ extern cvar_t	*gl_lightmap_nearest;
 extern cvar_t	*gl_keeptjunctions;
 
 extern cvar_t	*gl_round_down;
-extern cvar_t	*gl_detailscale;
 extern cvar_t	*gl_wireframe;
 extern cvar_t	*gl_polyoffset;
 extern cvar_t	*gl_finish;

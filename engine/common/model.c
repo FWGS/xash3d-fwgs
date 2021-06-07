@@ -27,7 +27,7 @@ GNU General Public License for more details.
 static model_info_t	mod_crcinfo[MAX_MODELS];
 static model_t	mod_known[MAX_MODELS];
 static int	mod_numknown = 0;
-byte		*com_studiocache;		// cache for submodels
+poolhandle_t      com_studiocache;		// cache for submodels
 convar_t		*mod_studiocache;
 convar_t		*r_wadtextures;
 convar_t		*r_showhull;

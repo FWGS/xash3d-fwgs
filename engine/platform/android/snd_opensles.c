@@ -25,7 +25,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "pthread.h"
 #include "sound.h"
 
-extern convar_t		*s_primary;
 extern dma_t			dma;
 
 static SLObjectItf snddma_android_engine = NULL;
@@ -36,7 +35,6 @@ static SLPlayItf snddma_android_play;
 
 static pthread_mutex_t snddma_android_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static int snddma_android_pos;
 static int snddma_android_size;
 
 static const SLInterfaceID *pSL_IID_ENGINE;
@@ -64,8 +62,6 @@ void SNDDMA_Activate( qboolean active )
 	}
 	else
 	{
-		//if( s_globalfocus->integer )
-			//return;
 		(*snddma_android_play)->SetPlayState( snddma_android_play, SL_PLAYSTATE_STOPPED );
 		(*snddma_android_bufferQueue)->Clear( snddma_android_bufferQueue );
 	}
@@ -81,7 +77,7 @@ static void SNDDMA_Android_Callback( SLBufferQueueItf bq, void *context )
 	(*bq)->Enqueue( bq, buffer2, snddma_android_size );
 	memcpy( buffer2, dma.buffer, snddma_android_size );
 	memset( dma.buffer, 0, snddma_android_size );
-	snddma_android_pos += dma.samples;
+	dma.samplepos += dma.samples;
 
 	pthread_mutex_unlock( &snddma_android_mutex );
 }
@@ -175,7 +171,7 @@ static const char *SNDDMA_Android_Init( void )
 	result = (*snddma_android_bufferQueue)->RegisterCallback( snddma_android_bufferQueue, SNDDMA_Android_Callback, NULL );
 	if( result != SL_RESULT_SUCCESS ) return "bufferQueue->RegisterCallback";
 
-	samples = s_samplecount->value;
+	samples = s_samplecount.value;
 	if( !samples )
 		samples = 4096;
 
@@ -191,7 +187,6 @@ static const char *SNDDMA_Android_Init( void )
 
 	//snddma_android_mutex = trap_Mutex_Create();
 
-	snddma_android_pos = 0;
 	dma.initialized = true;
 
 	SNDDMA_Activate( true );
@@ -216,11 +211,6 @@ qboolean SNDDMA_Init( void )
 	Msg( "OpenSL ES audio initialized.\n" );
 
 	return true;
-}
-
-int SNDDMA_GetDMAPos( void )
-{
-	return snddma_android_pos;
 }
 
 void SNDDMA_Shutdown( void )
@@ -263,43 +253,5 @@ void SNDDMA_Submit( void )
 void SNDDMA_BeginPainting( void )
 {
 	pthread_mutex_lock( &snddma_android_mutex );
-}
-
-
-/*
-==============
-SNDDMA_GetSoundtime
-
-update global soundtime
-===============
-*/
-int SNDDMA_GetSoundtime( void )
-{
-	static int	buffers, oldsamplepos;
-	int		samplepos, fullsamples;
-
-	fullsamples = dma.samples / 2;
-
-	// it is possible to miscount buffers
-	// if it has wrapped twice between
-	// calls to S_Update.  Oh well.
-	samplepos = SNDDMA_GetDMAPos();
-
-	if( samplepos < oldsamplepos )
-	{
-		buffers++; // buffer wrapped
-
-		if( paintedtime > 0x40000000 )
-		{
-			// time to chop things off to avoid 32 bit limits
-			buffers = 0;
-			paintedtime = fullsamples;
-			S_StopAllSounds( true );
-		}
-	}
-
-	oldsamplepos = samplepos;
-
-	return (buffers * fullsamples + samplepos / 2);
 }
 #endif

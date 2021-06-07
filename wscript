@@ -20,11 +20,12 @@ class Subproject:
 	ignore    = False # if true will be ignored, set by user request
 	mandatory  = False
 
-	def __init__(self, name, dedicated=True, singlebin=False, mandatory = False):
+	def __init__(self, name, dedicated=True, singlebin=False, mandatory = False, utility = False):
 		self.name = name
 		self.dedicated = dedicated
 		self.singlebin = singlebin
 		self.mandatory = mandatory
+		self.utility = utility
 
 	def is_enabled(self, ctx):
 		if not self.mandatory:
@@ -43,6 +44,9 @@ class Subproject:
 		if ctx.env.DEDICATED and self.dedicated:
 			return False
 
+		if self.utility and not ctx.env.ENABLE_UTILS:
+			return False
+
 		return True
 
 SUBDIRS = [
@@ -57,6 +61,7 @@ SUBDIRS = [
 	Subproject('stub/client'),
 	Subproject('dllemu'),
 	Subproject('engine', dedicated=False),
+	Subproject('utils/mdldec', utility=True)
 ]
 
 def subdirs():
@@ -86,6 +91,11 @@ def options(opt):
 	grp.add_option('--ignore-projects', action = 'store', dest = 'IGNORE_PROJECTS', default = None,
 		help = 'disable selected projects from build [default: %default]')
 
+	grp = opt.add_option_group('Utilities options')
+
+	grp.add_option('--enable-utils', action = 'store_true', dest = 'ENABLE_UTILS', default = False,
+		help = 'enable building various development utilities [default: %default]')
+
 	opt.load('compiler_optimizations subproject')
 
 	for i in SUBDIRS:
@@ -105,10 +115,6 @@ def configure(conf):
 	if conf.options.IGNORE_PROJECTS:
 		conf.env.IGNORE_PROJECTS = conf.options.IGNORE_PROJECTS.split(',')
 
-	# Force XP compability, all build targets should add
-	# subsystem=bld.env.MSVC_SUBSYSTEM
-	# TODO: wrapper around bld.stlib, bld.shlib and so on?
-	conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
 	conf.env.MSVC_TARGETS = ['x86' if not conf.options.ALLOW64 else 'x64']
 
 	# Load compilers early
@@ -122,6 +128,14 @@ def configure(conf):
 		conf.load('msvc_pdb')
 
 	conf.load('msvs msdev subproject gitversion clang_compilation_database strip_on_install waf_unit_test enforce_pic')
+
+	# Force XP compatibility, all build targets should add subsystem=bld.env.MSVC_SUBSYSTEM
+	if conf.env.MSVC_TARGETS[0] == 'x86':
+		conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
+		conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE,5.01'
+	else:
+		conf.env.MSVC_SUBSYSTEM = 'WINDOWS'
+		conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE'
 
 	enforce_pic = True # modern defaults
 
@@ -213,17 +227,6 @@ def configure(conf):
 	conf.env.append_unique('CXXFLAGS', cxxflags)
 	conf.env.append_unique('LINKFLAGS', linkflags)
 
-	# check if we can use C99 tgmath
-	if conf.check_cc(header_name='tgmath.h', mandatory=False):
-		if conf.env.COMPILER_CC == 'msvc':
-			conf.define('_CRT_SILENCE_NONCONFORMING_TGMATH_H', 1)
-		tgmath_usable = conf.check_cc(fragment='''#include<tgmath.h>
-			int main(void){ return (int)sin(2.0f); }''',
-			msg='Checking if tgmath.h is usable', mandatory=False)
-		conf.define_cond('HAVE_TGMATH_H', tgmath_usable)
-	else:
-		conf.undefine('HAVE_TGMATH_H')
-
 	# check if we can use C99 stdint
 	if conf.check_cc(header_name='stdint.h', mandatory=False):
 		# use system
@@ -232,6 +235,7 @@ def configure(conf):
 		# include portable stdint by Paul Hsich
 		conf.define('STDINT_H', 'pstdint.h')
 
+	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
 	if conf.env.DEST_OS == 'dos':
@@ -268,11 +272,24 @@ def configure(conf):
 
 		# conf.multicheck(*a, run_all_tests = True, mandatory = True)
 
+	# check if we can use C99 tgmath
+	if conf.check_cc(header_name='tgmath.h', mandatory=False):
+		if conf.env.COMPILER_CC == 'msvc':
+			conf.define('_CRT_SILENCE_NONCONFORMING_TGMATH_H', 1)
+		tgmath_usable = conf.check_cc(fragment='''#include<tgmath.h>
+			const float val = 2, val2 = 3;
+			int main(void){ return (int)(-asin(val) + cos(val2)); }''',
+			msg='Checking if tgmath.h is usable', mandatory=False, use='M')
+		conf.define_cond('HAVE_TGMATH_H', tgmath_usable)
+	else:
+		conf.undefine('HAVE_TGMATH_H')
+
 	# indicate if we are packaging for Linux/BSD
 	if not conf.options.WIN_INSTALL and conf.env.DEST_OS not in ['win32', 'darwin', 'android']:
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
+		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 	else:
-		conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
+		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)

@@ -43,7 +43,6 @@ convar_t	*rcon_client_password;
 convar_t	*rcon_address;
 convar_t	*cl_timeout;
 convar_t	*cl_nopred;
-convar_t	*cl_showfps;
 convar_t	*cl_nodelta;
 convar_t	*cl_crosshair;
 convar_t	*cl_cmdbackup;
@@ -64,6 +63,7 @@ convar_t	*cl_updaterate;
 convar_t	*cl_showevents;
 convar_t	*cl_cmdrate;
 convar_t	*cl_interp;
+convar_t	*cl_nointerp;
 convar_t	*cl_dlmax;
 convar_t	*cl_upmax;
 
@@ -241,6 +241,11 @@ void CL_SignonReply( void )
 	}
 }
 
+float CL_LerpInterval( void )
+{
+	return max( cl_interp->value, 1.f / cl_updaterate->value );
+}
+
 /*
 ===============
 CL_LerpPoint
@@ -251,25 +256,29 @@ should be put at.
 */
 static float CL_LerpPoint( void )
 {
-	float	f, frac = 1.0f;
+	float frac = 1.0f;
+	float server_frametime = cl_serverframetime();
 
-	f = cl_serverframetime();
-
-	if( f == 0.0f || cls.timedemo )
+	if( server_frametime == 0.0f || cls.timedemo )
 	{
 		cl.time = cl.mtime[0];
 		return 1.0f;
 	}
 
-	if( f > 0.1f )
+	if( server_frametime > 0.1f )
 	{
 		// dropped packet, or start of demo
 		cl.mtime[1] = cl.mtime[0] - 0.1f;
-		f = 0.1f;
+		server_frametime = 0.1f;
 	}
-#if 1
+#if 0
+	/*
+	g-cont: this code more suitable for singleplayer
+	NOTE in multiplayer causes significant framerate stutter/jitter and
+	occuring frames with zero time delta and even with negative time delta.
+	game becomes more twitchy and as if without interpolation.
+	*/
 	frac = (cl.time - cl.mtime[1]) / f;
-
 	if( frac < 0.0f )
 	{
 		if( frac < -0.01f )
@@ -283,15 +292,17 @@ static float CL_LerpPoint( void )
 		frac = 1.0f;
 	}
 #else
+	// for multiplayer
 	if( cl_interp->value > 0.001f )
 	{
 		// manual lerp value (goldsrc mode)
-		frac = ( cl.time - cl.mtime[0] ) / cl_interp->value;
+		float td = max( 0.f, cl.time - cl.mtime[0] );
+		frac = td / CL_LerpInterval();
 	}
-	else if( f > 0.001f )
+	else if( server_frametime > 0.001f )
 	{
 		// automatic lerp (classic mode)
-		frac = ( cl.time - cl.mtime[1] ) / f;
+		frac = ( cl.time - cl.mtime[1] ) / server_frametime;  
 	}
 #endif
 	return frac;
@@ -334,10 +345,10 @@ Validate interpolation cvars, calc interpolation window
 */
 void CL_ComputeClientInterpolationAmount( usercmd_t *cmd )
 {
-	int	min_interp = MIN_EX_INTERP;
-	int	max_interp = MAX_EX_INTERP;
-	int	interpolation_msec;
-	qboolean	forced = false;
+	const float epsilon = 0.001f; // to avoid float invalid comparision
+	float min_interp = MIN_EX_INTERP;
+	float max_interp = MAX_EX_INTERP;
+	float interpolation_time;
 
 	if( cl_updaterate->value < MIN_UPDATERATE )
 	{
@@ -352,29 +363,24 @@ void CL_ComputeClientInterpolationAmount( usercmd_t *cmd )
 	}
 
 	if( cls.spectator )
-		max_interp = 200;
+		max_interp = 0.2f;
 
-	min_interp = 1000.0f / cl_updaterate->value;
-	min_interp = Q_max( 1, min_interp );
-	interpolation_msec = cl_interp->value * 1000.0f;
-
-	if(( interpolation_msec + 1 ) < min_interp )
+	min_interp = 1.0f / cl_updaterate->value;
+	interpolation_time = CL_LerpInterval( );
+	
+	if( (cl_interp->value + epsilon) < min_interp )
 	{
-		Con_Printf( "ex_interp forced up to %i msec\n", interpolation_msec );
-		interpolation_msec = min_interp;
-		forced = true;
+		Con_Printf( "ex_interp forced up to %.1f msec\n", min_interp * 1000.f );
+		Cvar_SetValue( "ex_interp", min_interp );
 	}
-	else if(( interpolation_msec - 1 ) > max_interp )
+	else if( (cl_interp->value - epsilon) > max_interp )
 	{
-		Con_Printf( "ex_interp forced down to %i msec\n", interpolation_msec );
-		interpolation_msec = max_interp;
-		forced = true;
+		Con_Printf( "ex_interp forced down to %.1f msec\n", max_interp * 1000.f );
+		Cvar_SetValue( "ex_interp", max_interp );
 	}
 
-	if( forced ) Cvar_SetValue( "ex_interp", (float)interpolation_msec * 0.001f );
-	interpolation_msec = bound( min_interp, interpolation_msec, max_interp );
-
-	cmd->lerp_msec = CL_DriftInterpolationAmount( interpolation_msec );
+	interpolation_time = bound( min_interp, interpolation_time, max_interp );
+	cmd->lerp_msec = CL_DriftInterpolationAmount( interpolation_time * 1000 );
 }
 
 /*
@@ -2840,8 +2846,8 @@ void CL_InitLocal( void )
 	Cvar_Get( "team", "", FCVAR_USERINFO, "player team" );
 	Cvar_Get( "skin", "", FCVAR_USERINFO, "player skin" );
 
-	cl_showfps = Cvar_Get( "cl_showfps", "1", FCVAR_ARCHIVE, "show client fps" );
-	cl_nosmooth = Cvar_Get( "cl_nosmooth", "0", FCVAR_ARCHIVE, "disable smooth up stair climbing and interpolate position in multiplayer" );
+	cl_nosmooth = Cvar_Get( "cl_nosmooth", "0", FCVAR_ARCHIVE, "disable smooth up stair climbing" );
+	cl_nointerp = Cvar_Get( "cl_nointerp", "0", FCVAR_CLIENTDLL, "disable interpolation of entities and players" );
 	cl_smoothtime = Cvar_Get( "cl_smoothtime", "0", FCVAR_ARCHIVE, "time to smooth up" );
 	cl_cmdbackup = Cvar_Get( "cl_cmdbackup", "10", FCVAR_ARCHIVE, "how many additional history commands are sent" );
 	cl_cmdrate = Cvar_Get( "cl_cmdrate", "30", FCVAR_ARCHIVE, "Max number of command packets sent to server per second" );
@@ -2881,6 +2887,7 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("internetservers", CL_InternetServers_f, "collect info about internet servers" );
 	Cmd_AddCommand ("cd", CL_PlayCDTrack_f, "Play cd-track (not real cd-player of course)" );
 	Cmd_AddCommand ("mp3", CL_PlayCDTrack_f, "Play mp3-track (based on virtual cd-player)" );
+	Cmd_AddCommand ("waveplaylen", CL_WavePlayLen_f, "Get approximate length of wave file");
 
 	Cmd_AddCommand ("setinfo", CL_SetInfo_f, "examine or change the userinfo string (alias of userinfo)" );
 	Cmd_AddCommand ("userinfo", CL_SetInfo_f, "examine or change the userinfo string (alias of setinfo)" );
@@ -2966,11 +2973,11 @@ Host_ClientBegin
 */
 void Host_ClientBegin( void )
 {
-	// if client is not active, do nothing
-	if( !cls.initialized ) return;
-
 	// exec console commands
 	Cbuf_Execute ();
+
+	// if client is not active, do nothing
+	if( !cls.initialized ) return;
 
 	// finalize connection process if needs
 	CL_CheckClientState();

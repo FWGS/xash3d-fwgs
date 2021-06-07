@@ -30,5 +30,8 @@ qboolean GL_UpdateContext( void );
 qboolean GL_DeleteContext( void );
 void VID_SaveWindowSize( int width, int height );
 
+// joystick events
+extern SDL_Joystick *g_joy;
+
 #endif // XASH_SDL
 #endif // KEYWRAPPER_H
