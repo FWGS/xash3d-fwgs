@@ -7,3 +7,9 @@ curl -L --show-error --output vulkan_sdk.exe https://vulkan.lunarg.com/sdk/downl
 echo "Installing Vulkan SDK $VULKAN_SDK_VERSION"
 runas /user:administrator vulkan_sdk.exe /S
 echo "Installed"
+
+export VULKAN_SDK=C:/VulkanSDK/$VULKAN_SDK_VERSION
+ls -la C:/
+ls -la C:/VulkanSDK
+ls -la $VULKAN_SDK
+ls -la $VULKAN_SDK/Bin/glslc.exe

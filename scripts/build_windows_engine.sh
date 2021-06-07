@@ -3,10 +3,6 @@
 . scripts/lib.sh
 
 export VULKAN_SDK=C:/VulkanSDK/$VULKAN_SDK_VERSION
-ls -la C:/
-ls -la C:/VulkanSDK
-ls -la $VULKAN_SDK
-ls -la $VULKAN_SDK/Bin/glslc.exe
 
 # Build engine
 cd $TRAVIS_BUILD_DIR
