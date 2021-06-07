@@ -7,13 +7,16 @@ set -eux
 
 curl -L --show-error --output vulkan_sdk.exe https://vulkan.lunarg.com/sdk/download/$VULKAN_SDK_VERSION/windows/vulkan_sdk.exe
 date
-echo "Installing Vulkan SDK $VULKAN_SDK_VERSION"
-start /wait vulkan_sdk.exe /S
+echo "Unpacking Vulkan SDK $VULKAN_SDK_VERSION"
+#start /wait vulkan_sdk.exe /S
+7z x -ovulkan_sdk vulkan_sdk.exe
 date
-echo "Installed"
+#echo "Installed"
 
-export VULKAN_SDK=C:/VulkanSDK/$VULKAN_SDK_VERSION
-ls -la C:/
-ls -la C:/VulkanSDK
+#ls -la vulkan_sdk
+
+export VULKAN_SDK=$TRAVIS_BUILD_DIR/vulkan_sdk
+#ls -la C:/
+#ls -la C:/VulkanSDK
 ls -la $VULKAN_SDK
 ls -la $VULKAN_SDK/Bin/glslc.exe
