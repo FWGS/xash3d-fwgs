@@ -1,8 +1,3 @@
-## 2021-06-05, E103
-- [x] rtx: dynamic surface lights / dynamic light clusters
-- [x] rtx: animated textures
-- [x] rtx: attenuate surface lights by normal
-
 # Next
 - [ ] run under asan
 - [ ] rtx: better memory handling
@@ -10,12 +5,9 @@
 	- or just do a generic allocator with compaction?
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
 - [ ] rtx: live rad file reloading (or other solution for tuning lights)
-- [ ] rtx: restore dynamic stuff like particles, beams, etc
-- [ ] rtx: emissive particles
 - [ ] rtx: better random
 - [ ] rtx: simple convolution denoise (bilateral?)
 - [ ] rtx: map name to rad files mapping
-- [ ] water surfaces
 - [ ] rtx: cluster dlights
 - [ ] rtx: entity lights
 - [ ] rtx: light styles
@@ -24,12 +16,19 @@
 		struct LightCluster { uint16 offset, length; }
 		uint8_t data[];
 - [ ] rtx: ray tracing pipeline
+- [ ] rtx: restore dynamic stuff like particles, beams, etc
+- [ ] rtx: emissive particles
 - [ ] rtx: alpha test/blending
 - [ ] rtx: coalesce all these buffers
 - [ ] crash in PM_RecursiveHullCheck
 - [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
 
 # Planned
+- [ ] rtx: importance-sample sky light; there are sky surfaces that we can consider light sources
+- [ ] cull water surfaces (see c3a2a)
+- [ ] water surface normal and performance
+- [ ] create water surfaces once in vk_brush
+- [ ] consider doing per-geometry rendermode: brushes can be built only once; late transparency depth sorting for vk render;
 - [ ] rtx: too many emissive lights in c3a1b
 - [ ] rtx: c3a1b: assert model->size >= build_size.accelerationStructureSize failed at vk_rtx.c:347
 - [ ] studio models: pre-compute buffer sizes and allocate them at once
@@ -258,3 +257,15 @@
 
 ## 2021-05-28, E100
 - [x] rtx: build acceleration structures in a single queue/cmdbuf
+
+## 2021-06-05, E103
+- [x] rtx: dynamic surface lights / dynamic light clusters
+- [x] rtx: animated textures
+- [x] rtx: attenuate surface lights by normal
+
+## 2021-06-07, E104..
+- [x] fix CI for vulkan branch
+
+# 2021-06-09..12, E105..106
+- [x] c3a2a: no water surfaces in vk (transparent in gl: *45,*24,*19-21)
+- [x] water surfaces

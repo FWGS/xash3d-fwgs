@@ -12,6 +12,7 @@
 #include "vk_beams.h"
 #include "vk_light.h"
 #include "vk_rtx.h"
+#include "vk_textures.h"
 
 #include "com_strings.h"
 #include "ref_params.h"
@@ -79,6 +80,188 @@ int R_FIXME_GetEntityRenderMode( cl_entity_t *ent )
 		return kRenderTransAdd;
 	*/
 	return ent->curstate.rendermode;
+}
+
+// speed up sin calculations
+static const float r_turbsin[] =
+{
+	#include "warpsin.h"
+};
+
+#define SUBDIVIDE_SIZE	64
+#define TURBSCALE		( 256.0f / ( M_PI2 ))
+
+/*
+=============
+EmitWaterPolys
+
+Does a water warp on the pre-fragmented glpoly_t chain
+=============
+*/
+static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboolean reverse )
+{
+	float	*v, nv, waveHeight;
+	float	s, t, os, ot;
+	glpoly_t	*p;
+	int	i;
+	int num_vertices = 0, num_indices = 0;
+	vk_buffer_handle_t vertex_buffer, index_buffer = InvalidHandle;
+	vk_buffer_lock_t vertex_lock, index_lock;
+	int vertex_offset = 0;
+	vk_vertex_t *vertices;
+	uint16_t *indices;
+
+	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS );
+
+	if( !warp->polys ) return;
+
+	// set the current waveheight
+	// FIXME VK if( warp->polys->verts[0][2] >= RI.vieworg[2] )
+	// 	waveHeight = -ent->curstate.scale;
+	// else
+	waveHeight = ent->curstate.scale;
+
+	// reset fog color for nonlightmapped water
+	// FIXME VK GL_ResetFogColor();
+
+	// Compute vertex count
+	for( p = warp->polys; p; p = p->next ) {
+		const int triangles = p->numverts - 2;
+		num_vertices += p->numverts;
+		num_indices += triangles * 3;
+	}
+
+	vertex_buffer = VK_RenderBufferAlloc( sizeof(vk_vertex_t), num_vertices, LifetimeSingleFrame );
+	index_buffer = VK_RenderBufferAlloc( sizeof(uint16_t), num_indices, LifetimeSingleFrame );
+	if (vertex_buffer == InvalidHandle || index_buffer == InvalidHandle)
+	{
+		// TODO should we free one of the above if it still succeeded?
+		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
+		return;
+	}
+
+	vertex_lock = VK_RenderBufferLock( vertex_buffer );
+	index_lock = VK_RenderBufferLock( index_buffer );
+
+	vertices = vertex_lock.ptr;
+	indices = index_lock.ptr;
+
+	for( p = warp->polys; p; p = p->next )
+	{
+		if( reverse )
+			v = p->verts[0] + ( p->numverts - 1 ) * VERTEXSIZE;
+		else v = p->verts[0];
+
+		for( i = 0; i < p->numverts; i++ )
+		{
+			if( waveHeight )
+			{
+				nv = r_turbsin[(int)(gpGlobals->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
+				nv = (r_turbsin[(int)(v[0] * 5.0f + gpGlobals->time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
+				nv = nv * waveHeight + v[2];
+			}
+			else nv = v[2];
+
+			os = v[3];
+			ot = v[4];
+
+			s = os + r_turbsin[(int)((ot * 0.125f + gpGlobals->time) * TURBSCALE) & 255];
+			s *= ( 1.0f / SUBDIVIDE_SIZE );
+
+			t = ot + r_turbsin[(int)((os * 0.125f + gpGlobals->time) * TURBSCALE) & 255];
+			t *= ( 1.0f / SUBDIVIDE_SIZE );
+
+			vertices[vertex_offset + i].pos[0] = v[0];
+			vertices[vertex_offset + i].pos[1] = v[1];
+			vertices[vertex_offset + i].pos[2] = nv;
+
+			vertices[vertex_offset + i].gl_tc[0] = s;
+			vertices[vertex_offset + i].gl_tc[1] = t;
+
+			vertices[vertex_offset + i].lm_tc[0] = 0;
+			vertices[vertex_offset + i].lm_tc[1] = 0;
+
+			// FIXME calc normal
+			vertices[vertex_offset + i].normal[0] = 0;
+			vertices[vertex_offset + i].normal[1] = 0;
+			vertices[vertex_offset + i].normal[2] = 1;
+
+			// Ray tracing apparently expects triangle list only (although spec is not very clear about this kekw)
+			if (i > 1) {
+				// vec3_t e0, e1, normal;
+				// VectorSubtract( vertices[vertex_offset + i - 1].pos, vertices[vertex_offset].pos, e0 );
+				// VectorSubtract( vertices[vertex_offset + i].pos, vertices[vertex_offset].pos, e1 );
+				// CrossProduct( e1, e0, normal );
+				// //VectorNormalize(normal);
+
+				// VectorAdd(normal, vertices[vertex_offset].normal, vertices[vertex_offset].normal);
+				// VectorAdd(normal, vertices[vertex_offset + i].normal, vertices[vertex_offset + i].normal);
+				// VectorAdd(normal, vertices[vertex_offset + i - 1].normal, vertices[vertex_offset + i - 1].normal);
+
+				*(indices++) = (uint16_t)(vertex_offset);
+				*(indices++) = (uint16_t)(vertex_offset + i - 1);
+				*(indices++) = (uint16_t)(vertex_offset + i);
+			}
+
+			if( reverse )
+				v -= VERTEXSIZE;
+			else v += VERTEXSIZE;
+		}
+
+		// for( i = 0; i < p->numverts; i++ ) {
+		// 	VectorNormalize(vertices[vertex_offset + i].normal);
+		// }
+
+		vertex_offset += p->numverts;
+	}
+
+	VK_RenderBufferUnlock( vertex_buffer );
+	VK_RenderBufferUnlock( index_buffer );
+
+	// Render
+	{
+		const vk_render_geometry_t geometry = {
+			.texture = warp->texinfo->texture->gl_texturenum, // FIXME assert >= 0
+
+			.vertex_count = num_vertices,
+			.vertex_buffer = vertex_buffer,
+			.vertex_offset = 0,
+
+			.element_count = num_indices,
+			.index_offset = 0,
+			.index_buffer = index_buffer,
+		};
+
+		VK_RenderModelDynamicAddGeometry( &geometry );
+	}
+
+	// FIXME VK GL_SetupFogColorForSurfaces();
+}
+
+void XVK_DrawWaterSurfaces( const cl_entity_t *ent )
+{
+	const model_t *model = ent->model;
+	VK_RenderModelDynamicBegin( model->name, ent->curstate.rendermode );
+
+	// (done?) Subdivide surfaces to glpolys
+	// Iterate through all surfaces, find *TURB*
+	for( int i = 0; i < model->nummodelsurfaces; i++ )
+	{
+		const msurface_t *surf = model->surfaces + model->firstmodelsurface + i;
+
+		if( !FBitSet( surf->flags, SURF_DRAWTURB ) && !FBitSet( surf->flags, SURF_DRAWTURB_QUADS) )
+			continue;
+
+		// Iterate through all glpolys
+		// generate geometries
+		EmitWaterPolys( ent, surf, false );
+	}
+
+	// submit as dynamic model
+	VK_RenderModelDynamicCommit();
+
+	// TODO:
+	// - upload water geometry only once, animate in compute/vertex shader
 }
 
 // tell the renderer what new map is started
@@ -626,6 +809,9 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 			R_RotateForEntity( model, ent );
 			VK_RenderStateSetMatrixModel( model );
 			VK_BrushModelDraw( ent, render_mode );
+
+			// FIXME refactor water handling: move this inside BrushModelDraw
+			XVK_DrawWaterSurfaces( ent );
 			break;
 
 		case mod_studio:
@@ -679,6 +865,9 @@ void VK_SceneRender( const ref_viewpass_t *rvp )
 			VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f);
 			VK_BrushModelDraw( world, kRenderNormal );
 		}
+
+		// FIXME refactor water handling
+		XVK_DrawWaterSurfaces( world );
 	}
 
 	// Draw opaque entities

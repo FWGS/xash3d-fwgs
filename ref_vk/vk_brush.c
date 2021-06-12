@@ -136,6 +136,7 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode )
 
 static qboolean renderableSurface( const msurface_t *surf, int i ) {
 	if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) ) {
+	//if( surf->flags & ( SURF_DRAWSKY | SURF_CONVEYOR ) ) {
 		// FIXME don't print this on second sort-by-texture pass
 		//gEngine.Con_Reportf("Skipping surface %d because of flags %08x\n", i, surf->flags);
 		return false;
@@ -277,7 +278,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 
 				*(bvert++) = vertex;
 
-				// TODO contemplate triangle_strip (or fan?) + primitive restart
+				// Ray tracing apparently expects triangle list only (although spec is not very clear about this kekw)
 				if (k > 1) {
 					*(bind++) = (uint16_t)(vertex_offset + 0);
 					*(bind++) = (uint16_t)(vertex_offset + k - 1);
