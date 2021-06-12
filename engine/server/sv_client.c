@@ -1896,7 +1896,7 @@ static qboolean SV_Kill_f( sv_client_t *cl )
 	
 	if( cl->state != cs_spawned )
 	{
-		SV_ClientPrintf( cl, "Can't suicide because of client not connected!\n" );
+		SV_ClientPrintf( cl, "Can't suicide - not connected!\n" );
 		return true;
 	}
 
