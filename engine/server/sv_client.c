@@ -280,8 +280,12 @@ void SV_ConnectClient( netadr_t from )
 	}
 
 	version = Q_atoi( Cmd_Argv( 1 ));
-
-	if( version != PROTOCOL_VERSION )
+	
+	if( !version )
+	{
+		SV_RejectConnection( from, "undefined protocol, protocol must be %i\n", PROTOCOL_VERSION );
+		return;
+	}else if( version != PROTOCOL_VERSION )
 	{
 		SV_RejectConnection( from, "unsupported protocol (%i should be %i)\n", version, PROTOCOL_VERSION );
 		return;
