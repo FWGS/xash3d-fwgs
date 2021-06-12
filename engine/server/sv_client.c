@@ -1893,6 +1893,12 @@ static qboolean SV_Kill_f( sv_client_t *cl )
 {
 	if( !SV_IsValidEdict( cl->edict ))
 		return true;
+	
+	if( cl->state != cs_spawned )
+	{
+		SV_ClientPrintf( cl, "Can't suicide - already dead!\n" );
+		return true;
+	}
 
 	if( cl->edict->v.health <= 0.0f )
 	{
