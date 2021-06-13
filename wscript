@@ -250,13 +250,7 @@ def configure(conf):
 		# Don't check them more than once, to save time
 		# Usually, they are always available
 		# but we need them in uselib
-		a = map(lambda x: {
-			# 'features': 'c',
-			# 'message': '...' + x,
-			'lib': x,
-			# 'uselib_store': x.upper(),
-			# 'global_define': False,
-		}, [
+		a = [
 			'user32',
 			'shell32',
 			'gdi32',
@@ -264,12 +258,16 @@ def configure(conf):
 			'dbghelp',
 			'psapi',
 			'ws2_32'
-		])
+		]
 
-		for i in a:
-			conf.check_cc(**i)
-
-		# conf.multicheck(*a, run_all_tests = True, mandatory = True)
+		if conf.env.COMPILER_CC == 'msvc':
+			for i in a:
+				conf.start_msg('Checking for MSVC library')
+				conf.check_lib_msvc(i)
+				conf.end_msg(i)
+		else:
+			for i in a:
+				conf.check_cc(lib = i)
 
 	# check if we can use C99 tgmath
 	if conf.check_cc(header_name='tgmath.h', mandatory=False):
