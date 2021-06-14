@@ -5,6 +5,7 @@
 
 const float normal_offset_fudge = .01;
 const float shadow_offset_fudge = .5;
+const float brightness_fudge = 50.;
 
 const float
     C_A = 434073., C_B = 497559., C_C = 397590., C_D = 498071.,
@@ -274,7 +275,7 @@ float rand01() {
 bool shadowed(vec3 pos, vec3 dir, float dist) {
 	rayQueryEXT shadowRayQuery;
 	rayQueryInitializeEXT(shadowRayQuery, tlas,
-		gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT,
+		gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsCullBackFacingTrianglesEXT,
 		0xff,
 		pos, 0., dir, dist);
 	while(rayQueryProceedEXT(shadowRayQuery)) {
@@ -300,7 +301,7 @@ void main() {
 	rand01_state = uint(mod(pc.t, 100.) * 1000.) + gl_GlobalInvocationID.x * 1823 + 31337 * gl_GlobalInvocationID.y;
 	for (int bounce = 0; bounce < pc.bounces; ++bounce) {
 		rayQueryEXT rayQuery;
-		rayQueryInitializeEXT(rayQuery, tlas, gl_RayFlagsOpaqueEXT, 0xff, O, 0., D, L);
+		rayQueryInitializeEXT(rayQuery, tlas, gl_RayFlagsOpaqueEXT | gl_RayFlagsCullFrontFacingTrianglesEXT, 0xff, O, 0., D, L);
 		while(rayQueryProceedEXT(rayQuery)) {
 			rayQueryConfirmIntersectionEXT(rayQuery);
 		}
@@ -430,7 +431,8 @@ void main() {
 					//C += kc * vec3(hash(float(kusok_index)), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.));//kusok.emissive.rgb;
 					//C = vec3(1., 0., 1.);
 					if (bounce == 0)
-						C += kc * emissive * baseColor;
+						//C += kc * emissive * baseColor;
+						C += kc * baseColor;
 					continue;
 				}
 
@@ -477,7 +479,6 @@ void main() {
 					}
 
 					// TODO
-					const float brightness_fudge = 5.;
 					C += light_dot * sampling_light_scale * brightness_fudge * kc * baseColor * emissive * dot(light_dir, normal) / (light_dist * light_dist);
 
 					// Sample just one triangle
@@ -525,9 +526,8 @@ void main() {
 		// 		C += kc * vec3(hash(float(kusok_index)-102.3), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.));//kusok.emissive.rgb;
 		//}
 
-		kc *= .9 * baseColor;
 		//const float rough = .4;
-		const float rough = .3;// * hash(.01 * dot(floor((inverse(mat4(transform)) * vec4(pos, 1.))/10.).xyz, vec3(1.)));
+		const float rough = .9;// * hash(.01 * dot(floor((inverse(mat4(transform)) * vec4(pos, 1.))/10.).xyz, vec3(1.)));
 		O = pos;
 		// TODO this is totally not correct
 		D = normalize(mix(
@@ -535,6 +535,7 @@ void main() {
 				vec3(rand01(), rand01(), rand01())*2.-1.,
 				rough
 			));
+		kc *= .9 * baseColor * dot(D, normal);
 	} // for all bounces
 
 	//C = mix(C, vec3(1.), printText(vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y)));

@@ -73,6 +73,7 @@ Does a water warp on the pre-fragmented glpoly_t chain
 */
 static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboolean reverse )
 {
+	const float time = gpGlobals->time;
 	float	*v, nv, waveHeight;
 	float	s, t, os, ot;
 	glpoly_t	*p;
@@ -81,8 +82,11 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 	vk_buffer_handle_t vertex_buffer, index_buffer = InvalidHandle;
 	vk_buffer_lock_t vertex_lock, index_lock;
 	int vertex_offset = 0;
-	vk_vertex_t *vertices;
+	vk_vertex_t *gpu_vertices;
 	uint16_t *indices;
+
+#define MAX_WATER_VERTICES 16
+	vk_vertex_t poly_vertices[MAX_WATER_VERTICES];
 
 	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS );
 
@@ -116,11 +120,13 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 	vertex_lock = VK_RenderBufferLock( vertex_buffer );
 	index_lock = VK_RenderBufferLock( index_buffer );
 
-	vertices = vertex_lock.ptr;
+	gpu_vertices = vertex_lock.ptr;
 	indices = index_lock.ptr;
 
 	for( p = warp->polys; p; p = p->next )
 	{
+		ASSERT(p->numverts <= MAX_WATER_VERTICES);
+
 		if( reverse )
 			v = p->verts[0] + ( p->numverts - 1 ) * VERTEXSIZE;
 		else v = p->verts[0];
@@ -129,8 +135,8 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 		{
 			if( waveHeight )
 			{
-				nv = r_turbsin[(int)(gpGlobals->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
-				nv = (r_turbsin[(int)(v[0] * 5.0f + gpGlobals->time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
+				nv = r_turbsin[(int)(time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
+				nv = (r_turbsin[(int)(v[0] * 5.0f + time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
 				nv = nv * waveHeight + v[2];
 			}
 			else nv = v[2];
@@ -144,33 +150,38 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 			t = ot + r_turbsin[(int)((os * 0.125f + gpGlobals->time) * TURBSCALE) & 255];
 			t *= ( 1.0f / SUBDIVIDE_SIZE );
 
-			vertices[vertex_offset + i].pos[0] = v[0];
-			vertices[vertex_offset + i].pos[1] = v[1];
-			vertices[vertex_offset + i].pos[2] = nv;
+			poly_vertices[i].pos[0] = v[0];
+			poly_vertices[i].pos[1] = v[1];
+			poly_vertices[i].pos[2] = nv;
 
-			vertices[vertex_offset + i].gl_tc[0] = s;
-			vertices[vertex_offset + i].gl_tc[1] = t;
+			poly_vertices[i].gl_tc[0] = s;
+			poly_vertices[i].gl_tc[1] = t;
 
-			vertices[vertex_offset + i].lm_tc[0] = 0;
-			vertices[vertex_offset + i].lm_tc[1] = 0;
+			poly_vertices[i].lm_tc[0] = 0;
+			poly_vertices[i].lm_tc[1] = 0;
 
-			// FIXME calc normal
-			vertices[vertex_offset + i].normal[0] = 0;
-			vertices[vertex_offset + i].normal[1] = 0;
-			vertices[vertex_offset + i].normal[2] = 1;
+#define WATER_NORMALS
+			poly_vertices[i].normal[0] = 0;
+			poly_vertices[i].normal[1] = 0;
+#ifdef WATER_NORMALS
+			poly_vertices[i].normal[2] = 0;
+#else
+			poly_vertices[i].normal[2] = 1;
+#endif
 
 			// Ray tracing apparently expects triangle list only (although spec is not very clear about this kekw)
 			if (i > 1) {
-				// vec3_t e0, e1, normal;
-				// VectorSubtract( vertices[vertex_offset + i - 1].pos, vertices[vertex_offset].pos, e0 );
-				// VectorSubtract( vertices[vertex_offset + i].pos, vertices[vertex_offset].pos, e1 );
-				// CrossProduct( e1, e0, normal );
-				// //VectorNormalize(normal);
+#ifdef WATER_NORMALS
+				vec3_t e0, e1, normal;
+				VectorSubtract( poly_vertices[i - 1].pos, poly_vertices[0].pos, e0 );
+				VectorSubtract( poly_vertices[i].pos, poly_vertices[0].pos, e1 );
+				CrossProduct( e1, e0, normal );
+				//VectorNormalize(normal);
 
-				// VectorAdd(normal, vertices[vertex_offset].normal, vertices[vertex_offset].normal);
-				// VectorAdd(normal, vertices[vertex_offset + i].normal, vertices[vertex_offset + i].normal);
-				// VectorAdd(normal, vertices[vertex_offset + i - 1].normal, vertices[vertex_offset + i - 1].normal);
-
+				VectorAdd(normal, poly_vertices[0].normal, poly_vertices[0].normal);
+				VectorAdd(normal, poly_vertices[i].normal, poly_vertices[i].normal);
+				VectorAdd(normal, poly_vertices[i - 1].normal, poly_vertices[i - 1].normal);
+#endif
 				*(indices++) = (uint16_t)(vertex_offset);
 				*(indices++) = (uint16_t)(vertex_offset + i - 1);
 				*(indices++) = (uint16_t)(vertex_offset + i);
@@ -181,10 +192,13 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 			else v += VERTEXSIZE;
 		}
 
-		// for( i = 0; i < p->numverts; i++ ) {
-		// 	VectorNormalize(vertices[vertex_offset + i].normal);
-		// }
+#ifdef WATER_NORMALS
+		for( i = 0; i < p->numverts; i++ ) {
+			VectorNormalize(poly_vertices[i].normal);
+		}
+#endif
 
+		memcpy(gpu_vertices + vertex_offset, poly_vertices, sizeof(vk_vertex_t) * p->numverts);
 		vertex_offset += p->numverts;
 	}
 
@@ -214,9 +228,29 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 void XVK_DrawWaterSurfaces( const cl_entity_t *ent )
 {
 	const model_t *model = ent->model;
+	vec3_t		mins, maxs;
+
+	if( !VectorIsNull( ent->angles ))
+	{
+		for( int i = 0; i < 3; i++ )
+		{
+			mins[i] = ent->origin[i] - model->radius;
+			maxs[i] = ent->origin[i] + model->radius;
+		}
+		//rotated = true;
+	}
+	else
+	{
+		VectorAdd( ent->origin, model->mins, mins );
+		VectorAdd( ent->origin, model->maxs, maxs );
+		//rotated = false;
+	}
+
+	// if( R_CullBox( mins, maxs ))
+	// 	return;
+
 	VK_RenderModelDynamicBegin( model->name, ent->curstate.rendermode );
 
-	// (done?) Subdivide surfaces to glpolys
 	// Iterate through all surfaces, find *TURB*
 	for( int i = 0; i < model->nummodelsurfaces; i++ )
 	{
@@ -228,10 +262,9 @@ void XVK_DrawWaterSurfaces( const cl_entity_t *ent )
 		if( surf->plane->type != PLANE_Z && !FBitSet( ent->curstate.effects, EF_WATERSIDES ))
 			continue;
 
-		// TODO better culling for bottom water brush plane
+		if( mins[2] + 1.0f >= surf->plane->dist )
+			continue;
 
-		// Iterate through all glpolys
-		// generate geometries
 		EmitWaterPolys( ent, surf, false );
 	}
 
