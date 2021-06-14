@@ -166,7 +166,7 @@ def build(bld):
 			'client/vgui/*.c',
 			'client/avi/*.c'])
 	
-		libs.append('OPUS')
+		libs.append('opus')
 
 	includes = ['common', 'server', 'client', 'client/vgui', 'tests', '.', '../public', '../common', '../filesystem', '../pm_shared' ]
 
