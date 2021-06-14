@@ -10,6 +10,7 @@ struct cl_entity_s;
 
 typedef struct vk_brush_model_s {
 	vk_render_model_t render_model;
+	int num_water_surfaces;
 } vk_brush_model_t;
 
 qboolean VK_BrushInit( void );
