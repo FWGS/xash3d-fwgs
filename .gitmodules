@@ -13,6 +13,6 @@
 [submodule "ref_gl/gl4es"]
 	path = ref_gl/gl4es
 	url = https://github.com/ptitSeb/gl4es
-[submodule "opus"]
-	path = 3rdparty/opus
+[submodule "3rdparty/opus/opus"]
+	path = 3rdparty/opus/opus
 	url = https://github.com/xiph/opus

@@ -50,6 +50,7 @@ class Subproject:
 		return True
 
 SUBDIRS = [
+	Subproject('3rdparty/opus'),
 	Subproject('public',      dedicated=False, mandatory = True),
 	Subproject('game_launch', singlebin=True),
 	Subproject('ref_gl',),
@@ -179,7 +180,7 @@ def configure(conf):
 		'-Werror=vla',
 		'-Werror=tautological-compare',
 		'-Werror=duplicated-cond',
-		'-Werror=duplicated-branches', # BEWARE: buggy
+#		'-Werror=duplicated-branches', # BEWARE: buggy
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
 		'-Wcast-align',
@@ -296,11 +297,9 @@ def configure(conf):
 			continue
 
 		conf.add_subproject(i.name)
-	
-	conf.load('opus')
 
 def build(bld):
-	bld.load('opus xshlib')
+	bld.load('xshlib')
 
 	for i in SUBDIRS:
 		if not i.is_enabled(bld):
