@@ -225,6 +225,11 @@ void XVK_DrawWaterSurfaces( const cl_entity_t *ent )
 		if( !FBitSet( surf->flags, SURF_DRAWTURB ) && !FBitSet( surf->flags, SURF_DRAWTURB_QUADS) )
 			continue;
 
+		if( surf->plane->type != PLANE_Z && !FBitSet( ent->curstate.effects, EF_WATERSIDES ))
+			continue;
+
+		// TODO better culling for bottom water brush plane
+
 		// Iterate through all glpolys
 		// generate geometries
 		EmitWaterPolys( ent, surf, false );
