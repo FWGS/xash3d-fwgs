@@ -27,6 +27,7 @@ Table is sorted by status.
 | Linux(elbrus)   | In progress                | @a1batross, @mittorn | Rare and eventual access to e2k machine
 | Android/Linux(aarch64) | In progress         | @a1batross           |
 | Linux(mipsel)   | In progress                | @mittorn             |
+| Wii             | In progress                | Collaborative effort |  [Github Repository](https://github.com/saucesaft/xash3d-wii) 
 | Haiku           | Incomplete, Old Engine     | not maintained       | 
 | Emscripten      | Incomplete, Old Engine     | not maintained       | 
 | PSVita          | Not merged, Old Engine     | not maintained       | [GitHub Repository](https://github.com/fgsfdsfgs/vitaXash3D)
