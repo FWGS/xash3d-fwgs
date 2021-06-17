@@ -494,6 +494,7 @@ int Cmd_AddRefCommand( const char *cmd_name, xcommand_t function, const char *de
 void Cmd_RemoveCommand( const char *cmd_name );
 qboolean Cmd_Exists( const char *cmd_name );
 void Cmd_LookupCmds( void *buffer, void *ptr, setpair_t callback );
+int Cmd_ListMaps( search_t *t , char *lastmapname, size_t len );
 qboolean Cmd_GetMapList( const char *s, char *completedname, int length );
 qboolean Cmd_GetDemoList( const char *s, char *completedname, int length );
 qboolean Cmd_GetMovieList( const char *s, char *completedname, int length );

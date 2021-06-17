@@ -244,7 +244,7 @@ void SV_Maps_f( void )
 {
 	const char *separator = "-------------------";
 	const char *argStr = Cmd_Argv( 1 ); // Substr
-	int listIndex;
+	int nummaps;
 	search_t *mapList;
 
 	if( Cmd_Argc() != 2 )
@@ -261,12 +261,11 @@ void SV_Maps_f( void )
 		return;
 	}
 
-	for( listIndex = 0; listIndex != mapList->numfilenames; ++listIndex )
-	{
-		Msg( "%s\n", mapList->filenames[listIndex] + 5 ); // Do not show "maps/"
-	}
+	nummaps = Cmd_ListMaps( mapList, NULL, 0 );
 
-	Msg( "%s\nDirectory: \"%s/maps\" - Maps listed: %d\n", separator, GI->basedir, mapList->numfilenames );
+	Mem_Free( mapList );
+
+	Msg( "%s\nDirectory: \"%s/maps\" - Maps listed: %d\n", separator, GI->basedir, nummaps );
 }
 
 /*

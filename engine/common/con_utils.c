@@ -51,26 +51,16 @@ static con_autocomplete_t		con;
 */
 /*
 =====================================
-Cmd_GetMapList
+Cmd_ListMaps
 
-Prints or complete map filename
 =====================================
 */
-qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
+int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len )
 {
-	search_t		*t;
-	file_t		*f;
-	string		message, compiler, generator, matchbuf;
-	byte		buf[MAX_SYSPATH]; // 1 kb
-	int		i, nummaps;
-
-	t = FS_Search( va( "maps/%s*.bsp", s ), true, con_gamemaps->value );
-	if( !t ) return false;
-
-	COM_FileBase( t->filenames[0], matchbuf );
-	if( completedname && length )
-		Q_strncpy( completedname, matchbuf, length );
-	if( t->numfilenames == 1 ) return true;
+	byte   buf[MAX_SYSPATH]; // 1 kb
+	file_t *f;
+	int i, nummaps;
+	string mapname, message, compiler, generator;
 
 	for( i = 0, nummaps = 0; i < t->numfilenames; i++ )
 	{
@@ -78,9 +68,7 @@ qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
 		const char	*ext = COM_FileExtension( t->filenames[i] );
 		int		ver = -1, lumpofs = 0, lumplen = 0;
 		char		*ents = NULL, *pfile;
-		qboolean		validmap = false;
 		int		version = 0;
-		char		*szBuf;
 		string	version_description;
 
 		if( Q_stricmp( ext, "bsp" )) continue;
@@ -157,7 +145,7 @@ qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
 		}
 
 		if( f ) FS_Close(f);
-		COM_FileBase( t->filenames[i], matchbuf );
+		COM_FileBase( t->filenames[i], mapname );
 
 		switch( ver )
 		{
@@ -179,11 +167,41 @@ qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
 		default:	Q_strncpy( version_description, "??", sizeof( version_description )); break;
 		}
 
-		Con_Printf( "%16s (%s) ^3%s^7 ^2%s %s^7\n", matchbuf, version_description, message, compiler, generator );
+		Con_Printf( "%16s (%s) ^3%s^7 ^2%s %s^7\n", mapname, version_description, message, compiler, generator );
 		nummaps++;
 	}
 
-	Con_Printf( "\n^3 %i maps found.\n", nummaps );
+	if( lastmapname && len )
+		Q_strncpy( lastmapname, mapname, len );
+
+	return nummaps;
+}
+
+/*
+=====================================
+Cmd_GetMapList
+
+Prints or complete map filename
+=====================================
+*/
+qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
+{
+	search_t *t;
+	string   matchbuf;
+	int	 i, nummaps;
+
+	t = FS_Search( va( "maps/%s*.bsp", s ), true, con_gamemaps->value );
+	if( !t ) return false;
+
+	COM_FileBase( t->filenames[0], matchbuf );
+	if( completedname && length )
+		Q_strncpy( completedname, matchbuf, length );
+	if( t->numfilenames == 1 ) return true;
+
+	nummaps = Cmd_ListMaps( t, matchbuf, sizeof( matchbuf ));
+
+	Con_Printf( "\n^3 %d maps found.\n", nummaps );
+
 	Mem_Free( t );
 
 	// cut shortestMatch to the amount common with s
