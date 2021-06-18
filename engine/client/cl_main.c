@@ -1374,6 +1374,11 @@ void CL_ClearState( void )
 	Cvar_SetValue( "scr_download", -1.0f );
 	Cvar_SetValue( "scr_loading", 0.0f );
 	host.allow_console = host.allow_console_init;
+	if( !SV_Active( ) && !CL_IsPlaybackDemo( ) && !cls.demorecording )
+	{
+		Delta_Shutdown( );
+		Delta_InitClient( );
+	}
 	HTTP_ClearCustomServers();
 }
 

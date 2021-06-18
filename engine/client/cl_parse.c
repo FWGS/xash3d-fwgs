@@ -2132,7 +2132,11 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 			old_background = cl.background;
 			if( MSG_ReadOneBit( msg ))
 			{
-				cls.changelevel = true;
+				// if it's local client, do not clean states on serverdata packet
+				if( Host_IsLocalClient( ) )
+				{
+					cls.changelevel = true;
+				}
 				S_StopAllSounds( true );
 
 				Con_Printf( "Server changing, reconnecting\n" );
