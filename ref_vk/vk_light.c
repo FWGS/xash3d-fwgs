@@ -425,14 +425,19 @@ void VK_LightsAddEmissiveSurfacesFromModel( const struct vk_render_model_s *mode
 		if (!geom->surf)
 			continue; // TODO break? no surface means that model is not brush
 
-		if (!g_lights.map.emissive_textures[texture_num].set)
+		if (geom->material != kXVkMaterialSky && !g_lights.map.emissive_textures[texture_num].set)
 			continue;
 
 		if (g_lights.num_emissive_surfaces < 256) {
 			// Insert into emissive surfaces
 			vk_emissive_surface_t *esurf = g_lights.emissive_surfaces + g_lights.num_emissive_surfaces;
 			esurf->kusok_index = geom->kusok_index;
-			VectorCopy(g_lights.map.emissive_textures[texture_num].emissive, esurf->emissive);
+			if (geom->material != kXVkMaterialSky) {
+				VectorCopy(g_lights.map.emissive_textures[texture_num].emissive, esurf->emissive);
+			} else {
+				// TODO per-map sky emissive
+				VectorSet(esurf->emissive, 1000.f, 1000.f, 1000.f);
+			}
 			Matrix3x4_Copy(esurf->transform, *transform_row);
 
 			// Insert into light grid cell

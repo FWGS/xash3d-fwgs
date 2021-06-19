@@ -70,9 +70,10 @@ struct Kusok {
 	uint index_offset;
 	uint vertex_offset;
 	uint triangles;
-	uint is_emissive;
+
+	// Material
 	uint texture;
-	//vec4 emissive;
+	float roughness;
 };
 
 struct Vertex {
@@ -311,7 +312,8 @@ void main() {
 			break;
 		}
 		if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
-			C += kc * vec3(0., 0., 0.);
+			// SKY/Nothing
+			C += kc * vec3(1., 0., 0.);
 			break;
 		}
 		if (rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
@@ -343,12 +345,8 @@ void main() {
 		// break;
 
 		//C = vec3(hash(float(leaf)), hash(float(leaf)+15.43), hash(float(leaf)+34.));
-		//C = vec3(hash(float(leaf)), float(kusok.num_surface_lights) / 63., float(kusok.is_emissive));
+		//C = vec3(hash(float(leaf)), float(kusok.num_surface_lights) / 63., 0.);
 		//break;
-		// if (kusok.is_emissive != 0) {
-		// 	C = vec3(0., 1., 0.);
-		// 	break;
-		//}
 
 		const int prim_index = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
 		const mat4x3 transform = rayQueryGetIntersectionObjectToWorldEXT(rayQuery, true);
@@ -526,8 +524,7 @@ void main() {
 		// 		C += kc * vec3(hash(float(kusok_index)-102.3), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.));//kusok.emissive.rgb;
 		//}
 
-		//const float rough = .4;
-		const float rough = .9;// * hash(.01 * dot(floor((inverse(mat4(transform)) * vec4(pos, 1.))/10.).xyz, vec3(1.)));
+		const float rough = kusok.roughness;
 		O = pos;
 		// TODO this is totally not correct
 		D = normalize(mix(
@@ -535,7 +532,9 @@ void main() {
 				vec3(rand01(), rand01(), rand01())*2.-1.,
 				rough
 			));
-		kc *= .9 * baseColor * dot(D, normal);
+		kc *= baseColor * dot(D, normal);
+		//kc *= dot(D, normal);
+		//kc *= .9;
 	} // for all bounces
 
 	//C = mix(C, vec3(1.), printText(vec2(1.,-1.) * vec2(gl_GlobalInvocationID.xy) + vec2(0., imageSize(image).y)));

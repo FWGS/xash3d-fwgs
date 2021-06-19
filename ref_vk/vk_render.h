@@ -64,12 +64,20 @@ typedef struct vk_vertex_s {
 	vec2_t lm_tc; //float p3_[2];
 } vk_vertex_t;
 
+// TODO not sure how to do materials yet. Figure this out
+typedef enum {
+	kXVkMaterialDiffuse,
+	kXVkMaterialWater,
+	kXVkMaterialSky,
+} XVkMaterialType;
+
 typedef struct {
 	vk_buffer_handle_t index_buffer, vertex_buffer;
 	uint32_t index_offset, vertex_offset;
 
 	// TODO can be dynamic
 	int texture;
+	XVkMaterialType material;
 
 	uint32_t element_count;
 	uint32_t vertex_count;

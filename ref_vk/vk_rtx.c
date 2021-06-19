@@ -42,9 +42,10 @@ typedef struct {
 	uint32_t index_offset;
 	uint32_t vertex_offset;
 	uint32_t triangles;
-	uint32_t debug_is_emissive;
+
+	// Material parameters
 	uint32_t texture;
-	//float sad_padding_[1];
+	float roughness;
 } vk_kusok_data_t;
 
 typedef struct {
@@ -536,7 +537,6 @@ static void validateModelData( void ) {
 			// uint32_t index_offset;
 			// uint32_t vertex_offset;
 			// uint32_t triangles;
-			// uint32_t debug_is_emissive;
 		}
 
 		// Check for as model memory aliasing
@@ -1129,8 +1129,9 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		kusochki[i].vertex_offset = vertex_offset;
 		kusochki[i].index_offset = index_offset;
 		kusochki[i].triangles = prim_count;
-		kusochki[i].debug_is_emissive = false; // is_emissive;
+
 		kusochki[i].texture = mg->texture;
+		kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.;
 
 		mg->kusok_index = i + kusochki_count_offset;
 	}

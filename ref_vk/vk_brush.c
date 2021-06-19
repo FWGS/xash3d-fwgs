@@ -209,6 +209,7 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 	{
 		const vk_render_geometry_t geometry = {
 			.texture = warp->texinfo->texture->gl_texturenum, // FIXME assert >= 0
+			.material = kXVkMaterialWater,
 
 			.vertex_count = num_vertices,
 			.vertex_buffer = vertex_buffer,
@@ -359,11 +360,34 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode )
 }
 
 static qboolean renderableSurface( const msurface_t *surf, int i ) {
-	if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) ) {
+// 	if ( i >= 0 && (surf->flags & ~(SURF_PLANEBACK | SURF_UNDERWATER | SURF_TRANSPARENT)) != 0)
+// 	{
+// 		gEngine.Con_Reportf("\t%d flags: ", i);
+// #define PRINTFLAGS(X) \
+// 	X(SURF_PLANEBACK) \
+// 	X(SURF_DRAWSKY) \
+// 	X(SURF_DRAWTURB_QUADS) \
+// 	X(SURF_DRAWTURB) \
+// 	X(SURF_DRAWTILED) \
+// 	X(SURF_CONVEYOR) \
+// 	X(SURF_UNDERWATER) \
+// 	X(SURF_TRANSPARENT)
+
+// #define PRINTFLAG(f) if (FBitSet(surf->flags, f)) gEngine.Con_Reportf(" %s", #f);
+// 		PRINTFLAGS(PRINTFLAG)
+// 		gEngine.Con_Reportf("\n");
+// 	}
+
+	//if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) ) {
+	if( surf->flags & ( SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) ) {
 	//if( surf->flags & ( SURF_DRAWSKY | SURF_CONVEYOR ) ) {
 		// FIXME don't print this on second sort-by-texture pass
 		//gEngine.Con_Reportf("Skipping surface %d because of flags %08x\n", i, surf->flags);
 		return false;
+	}
+
+	if( FBitSet( surf->flags, SURF_DRAWSKY )) {
+		return true;
 	}
 
 	if( FBitSet( surf->flags, SURF_DRAWTILED )) {
@@ -440,7 +464,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			const float sample_size = gEngine.Mod_SampleSizeForFace( surf );
 			int index_count = 0;
 
-			if (!renderableSurface(surf, i))
+			if (!renderableSurface(surf, -1))
 				continue;
 
 			if (t != surf->texinfo->texture->gl_texturenum)
@@ -465,7 +489,12 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			model_geometry->vertex_buffer = vertex_buffer;
 			model_geometry->index_buffer = index_buffer;
 
-			VK_CreateSurfaceLightmap( surf, mod );
+			if( FBitSet( surf->flags, SURF_DRAWSKY )) {
+				model_geometry->material = kXVkMaterialSky;
+			} else {
+				model_geometry->material = kXVkMaterialDiffuse;
+				VK_CreateSurfaceLightmap( surf, mod );
+			}
 
 			for( int k = 0; k < surf->numedges; k++ )
 			{

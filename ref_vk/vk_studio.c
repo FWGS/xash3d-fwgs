@@ -2012,6 +2012,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 		const vk_render_geometry_t geometry = {
 			//.lightmap = tglob.whiteTexture,
 			.texture = texture,
+			.material = kXVkMaterialDiffuse,
 
 			.vertex_count = num_vertices,
 			.vertex_buffer = vertex_buffer,
