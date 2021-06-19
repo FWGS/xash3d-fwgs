@@ -240,6 +240,10 @@ static vk_ray_model_t *getModelFromCache(int num_geoms, const VkAccelerationStru
 				// TODO what else should we compare?
 				if (model->geoms[j].geometry.triangles.maxVertex != geoms[j].geometry.triangles.maxVertex)
 					break;
+
+				ASSERT(model->geoms[j].geometry.triangles.vertexStride == geoms[j].geometry.triangles.vertexStride);
+				ASSERT(model->geoms[j].geometry.triangles.vertexFormat == geoms[j].geometry.triangles.vertexFormat);
+				ASSERT(model->geoms[j].geometry.triangles.indexType == geoms[j].geometry.triangles.indexType);
 			} else {
 				PRINT_NOT_IMPLEMENTED_ARGS("Non-tri geometries are not implemented");
 				break;
@@ -269,7 +273,7 @@ static vk_ray_model_t *getModelFromCache(int num_geoms, const VkAccelerationStru
 
 static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_build_args_t *args, vk_ray_model_t *model) {
 	qboolean should_create = *args->p_accel == VK_NULL_HANDLE;
-	qboolean is_update = false; //!should_create && args->dynamic;
+	qboolean is_update = false; // FIXME this crashes for some reason !should_create && args->dynamic;
 
 	VkAccelerationStructureBuildGeometryInfoKHR build_info = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -313,18 +317,20 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 	}
 
 	if (should_create) {
-		const uint32_t buffer_offset = VK_RingBuffer_Alloc(&g_rtx.accels_buffer_alloc, build_size.accelerationStructureSize, 256);
-		VkAccelerationStructureCreateInfoKHR asci = {
+		// FIXME for some reason we get inconsistent AS sizes for the geometries with same count and same maxVertices
+		// HACK: add buffer size
+		const uint32_t as_size = build_size.accelerationStructureSize + 0;
+		const uint32_t buffer_offset = VK_RingBuffer_Alloc(&g_rtx.accels_buffer_alloc, as_size, 256);
+		const VkAccelerationStructureCreateInfoKHR asci = {
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
 			.buffer = g_rtx.accels_buffer.buffer,
 			.offset = buffer_offset,
 			.type = args->type,
-			.size = build_size.accelerationStructureSize,
+			.size = as_size,
 		};
 
 		if (buffer_offset == AllocFailed) {
-			gEngine.Con_Printf(S_ERROR "Failed to allocated %u bytes for accel buffer\n",
-				build_size.accelerationStructureSize);
+			gEngine.Con_Printf(S_ERROR "Failed to allocated %u bytes for accel buffer\n", asci.size);
 			return false;
 		}
 
@@ -336,7 +342,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 			model->debug.as_offset = buffer_offset;
 		}
 
-		// gEngine.Con_Reportf("AS=%p, n_geoms=%u, build: %#x %d %#x\n", *args->p_accel, args->n_geoms, buffer_offset, build_size.accelerationStructureSize, buffer_offset + build_size.accelerationStructureSize);
+		// gEngine.Con_Reportf("AS=%p, n_geoms=%u, build: %#x %d %#x\n", *args->p_accel, args->n_geoms, buffer_offset, asci.size, buffer_offset + asci.size);
 	}
 
 	// If not enough data for building, just create

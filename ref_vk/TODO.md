@@ -22,11 +22,12 @@
 - [ ] rtx: coalesce all these buffers
 - [ ] crash in PM_RecursiveHullCheck
 - [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
+- [ ] rtx: ray tracing shaders specialization, e.g. for light clusters constants
 
 # Planned
+- [ ] rtx: do not rebuild static studio models (most of them). BLAS building takes most of the frame time (~12ms where ray tracing itself is just 3ms)
 - [ ] rtx: importance-sample sky light; there are sky surfaces that we can consider light sources
 - [ ] cull water surfaces (see c3a2a)
-- [ ] water surface normal and performance
 - [ ] create water surfaces once in vk_brush
 - [ ] consider doing per-geometry rendermode: brushes can be built only once; late transparency depth sorting for vk render;
 - [ ] rtx: too many emissive lights in c3a1b
@@ -269,3 +270,8 @@
 # 2021-06-09..12, E105..106
 - [x] c3a2a: no water surfaces in vk (transparent in gl: *45,*24,*19-21)
 - [x] water surfaces
+
+# 2021-06-14, E107
+- [x] rtx: optimize water normals. now they're very slow because we R/W gpu mem? yes
+- [x] cull bottom water surfaces (they're PLANE_Z looking down)
+- [x] fix water normals
