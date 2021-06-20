@@ -17,80 +17,6 @@ GNU General Public License for more details.
 #include "common.h"
 #include "library.h"
 
-#ifdef XASH_64BIT
-#include <dbghelp.h>
-
-void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath )
-{
-	dll_user_t *hInst;
-
-	hInst = FS_FindLibrary( dllname, directpath );
-	if( !hInst ) return NULL; // nothing to load
-
-	return LoadLibraryA( hInst->fullPath );
-}
-
-void COM_FreeLibrary( void *hInstance )
-{
-	FreeLibrary( hInstance );
-}
-
-void *COM_GetProcAddress( void *hInstance, const char *name )
-{
-	return GetProcAddress( hInstance, name );
-}
-
-void *COM_FunctionFromName( void *hInstance, const char *name )
-{
-	return GetProcAddress( hInstance, name );
-}
-
-const char *COM_NameForFunction( void *hInstance, void *function )
-{
-#if 0
-	static qboolean initialized = false;
-	if( initialized )
-	{
-		char message[1024];
-		int len = 0;
-		size_t i;
-		HANDLE process = GetCurrentProcess();
-		HANDLE thread = GetCurrentThread();
-		IMAGEHLP_LINE64 line;
-		DWORD dline = 0;
-		DWORD options;
-		CONTEXT context;
-		STACKFRAME64 stackframe;
-		DWORD image;
-		char buffer[sizeof( IMAGEHLP_SYMBOL64) + MAX_SYM_NAME * sizeof(TCHAR)];
-		PIMAGEHLP_SYMBOL64 symbol = ( PIMAGEHLP_SYMBOL64)buffer;
-		memset( symbol, 0, sizeof(IMAGEHLP_SYMBOL64) + MAX_SYM_NAME );
-		symbol->SizeOfStruct = sizeof( IMAGEHLP_SYMBOL64);
-		symbol->MaxNameLength = MAX_SYM_NAME;
-		DWORD displacement = 0;
-
-		options = SymGetOptions();
-		SymSetOptions( options );
-
-		SymInitialize( process, NULL, TRUE );
-
-		if( SymGetSymFromAddr64( process, function, &displacement, symbol ) )
-		{
-			Msg( "%s\n", symbol->Name );
-			return copystring( symbol->Name );
-		}
-
-	}
-#endif
-
-#ifdef XASH_ALLOW_SAVERESTORE_OFFSETS
-	return COM_OffsetNameForFunction( function );
-#endif
-
-	return NULL;
-}
-#else // XASH_64BIT
-
 /*
 ---------------------------------------------------------------
 
@@ -1166,5 +1092,4 @@ const char *COM_NameForFunction( void *hInstance, void *function )
 
 	return NULL;
 }
-#endif // XASH_64BIT
 #endif // _WIN32
