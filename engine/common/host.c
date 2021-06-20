@@ -40,11 +40,15 @@ GNU General Public License for more details.
 #include "input.h"
 #include "enginefeatures.h"
 #include "render_api.h"	// decallist_t
-
+#include "tests.h"
 
 pfnChangeGame	pChangeGame = NULL;
 host_parm_t		host;	// host parms
 sysinfo_t		SI;
+
+#ifdef XASH_ENGINE_TESTS
+struct tests_stats_s tests_stats;
+#endif
 
 CVAR_DEFINE( host_developer, "developer", "0", 0, "engine is in development-mode" );
 CVAR_DEFINE_AUTO( sys_ticrate, "100", 0, "framerate in dedicated mode" );
@@ -771,6 +775,19 @@ void Host_Userconfigd_f( void )
 	Mem_Free( t );
 }
 
+#if XASH_ENGINE_TESTS
+static void Host_RunTests( void )
+{
+	memset( &tests_stats, 0, sizeof( tests_stats ));
+
+	Test_RunLibCommon();
+
+	Msg( "Done! %d passed, %d failed\n", tests_stats.passed, tests_stats.failed );
+
+	Sys_Quit();
+}
+#endif
+
 /*
 =================
 Host_InitCommon
@@ -826,6 +843,14 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 				developer = bound( DEV_NONE, abs( Q_atoi( dev_level )), DEV_EXTENDED );
 		}
 	}
+
+#if XASH_ENGINE_TESTS
+	if( Sys_CheckParm( "-runtests" ))
+	{
+		host.allow_console = true;
+		developer = DEV_EXTENDED;
+	}
+#endif
 
 	host.con_showalways = true;
 
@@ -895,6 +920,11 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	}
 
 	Con_Init(); // early console running to catch all the messages
+
+#if XASH_ENGINE_TESTS
+	if( Sys_CheckParm( "-runtests" ))
+		Host_RunTests();
+#endif
 
 	Platform_Init();
 
