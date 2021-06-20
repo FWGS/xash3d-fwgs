@@ -17,10 +17,11 @@ extern struct tests_stats_s tests_stats;
 	if(!( exp )) \
 	{ \
 		tests_stats.failed++; \
-		Msg( "assert failed at %s:%i\n", __FILE__, __LINE__ ) \
+		Msg( "assert failed at %s:%i\n", __FILE__, __LINE__ ); \
 	} \
 	else tests_stats.passed++;
 
+void Test_RunImagelib( void );
 void Test_RunLibCommon( void );
 
 #endif
