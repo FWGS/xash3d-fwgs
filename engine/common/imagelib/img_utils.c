@@ -139,6 +139,13 @@ static const savepixformat_t save_game[] =
 { NULL, NULL, NULL }
 };
 
+void Image_Setup( void )
+{
+	image.cmd_flags = IL_USE_LERPING|IL_ALLOW_OVERWRITE;
+	image.loadformats = load_game;
+	image.saveformats = save_game;
+}
+
 void Image_Init( void )
 {
 	// init pools
@@ -148,9 +155,7 @@ void Image_Init( void )
 	switch( host.type )
 	{
 	case HOST_NORMAL:
-		image.cmd_flags = IL_USE_LERPING|IL_ALLOW_OVERWRITE;
-		image.loadformats = load_game;
-		image.saveformats = save_game;
+		Image_Setup( );
 		break;
 	case HOST_DEDICATED:
 		image.cmd_flags = 0;

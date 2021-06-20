@@ -776,15 +776,19 @@ void Host_Userconfigd_f( void )
 }
 
 #if XASH_ENGINE_TESTS
-static void Host_RunTests( void )
+static void Host_RunTests( int stage )
 {
-	memset( &tests_stats, 0, sizeof( tests_stats ));
-
-	Test_RunLibCommon();
-
-	Msg( "Done! %d passed, %d failed\n", tests_stats.passed, tests_stats.failed );
-
-	Sys_Quit();
+	switch( stage )
+	{
+	case 0: // early engine load
+		memset( &tests_stats, 0, sizeof( tests_stats ));
+		Test_RunLibCommon();
+		break;
+	case 1: // after FS load
+		Test_RunImagelib();
+		Msg( "Done! %d passed, %d failed\n", tests_stats.passed, tests_stats.failed );
+		Sys_Quit();
+	}
 }
 #endif
 
@@ -923,7 +927,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 #if XASH_ENGINE_TESTS
 	if( Sys_CheckParm( "-runtests" ))
-		Host_RunTests();
+		Host_RunTests( 0 );
 #endif
 
 	Platform_Init();
@@ -990,6 +994,11 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	FS_Init();
 	Image_Init();
 	Sound_Init();
+
+#if XASH_ENGINE_TESTS
+	if( Sys_CheckParm( "-runtests" ))
+		Host_RunTests( 1 );
+#endif
 
 	FS_LoadGameInfo( NULL );
 	Q_strncpy( host.gamefolder, GI->gamefolder, sizeof( host.gamefolder ));

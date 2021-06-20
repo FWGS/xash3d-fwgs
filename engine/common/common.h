@@ -581,6 +581,7 @@ fs_offset_t FS_FileLength( file_t *f );
 //
 #include "com_image.h"
 
+void Image_Setup( void );
 void Image_Init( void );
 void Image_Shutdown( void );
 void Image_AddCmdFlags( uint flags );
