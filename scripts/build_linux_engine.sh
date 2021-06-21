@@ -10,14 +10,17 @@ else # elif [ "$1" = "full" ]; then
 	APPNAME=$APP-$ARCH
 fi
 
-if [ ! "$ARCH" ]; then
-	ARCH=i686
+if [ -z "$ARCH" ]; then
+	if [ -z "$TRAVIS_CPU_ARCH" ]; then
+		ARCH=i386
+	else
+		ARCH=$TRAVIS_CPU_ARCH
+	fi
 fi
 
 # set up ccache
 export CC="ccache gcc"
 export CXX="ccache g++"
-
 
 build_sdl2()
 {
