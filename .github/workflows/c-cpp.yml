@@ -1,0 +1,61 @@
+name: Xash3D FWGS
+on: [push, pull_request]
+jobs:
+  linux_amd64:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-18.04
+            targetos: linux
+            targetarch: amd64
+          - os: ubuntu-18.04
+            targetos: linux
+            targetarch: i386
+          - os: windows-latest
+            targetos: win32
+            targetarch: amd64
+          - os: windows-latest
+            targetos: win32
+            targetarch: i386
+    env:
+      SDL_VERSION: 2.0.14
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - name: Checkout xash-extras
+      uses: actions/checkout@v2
+      with:
+        repository: xash-extras
+        path: xash-extras
+    
+    - name: Cache SDL2 zip
+      if: matrix.targetos == 'linux' || matrix.targetos == 'win32'
+      id: cache-sdl2
+      uses: actions/cache@v2
+      with:
+        path: SDL2.zip
+        key: sdl2-${{ env.SDL_VERSION }}-${{ matrix.targetos }}
+    - name: Download SDL2 source
+      if: matrix.targetos == 'linux' && steps.cache-sdl2-src.outputs.cache-hit != 'true'
+      run: wget -q http://libsdl.org/release/SDL2-$SDL_VERSION.zip -o SDL2.zip
+    - name: Unpack SDL2 source
+      if: matrix.targetos == 'linux'
+      run: unzip -q SDL2.zip && mv SDL2-$SDL_VERSION SDL2_src
+    - name: Download SDL2 VC prebuilt
+      if: matrix.targetos == 'win32' && steps.cache-sdl2-src.outputs.cache-hit != 'true'
+      run: wget -q http://libsdl.org/release/SDL2-devel-$SDL_VERSION-VC.zip -o SDL2.zip
+    - name: Unpack SDL2 VC prebuilt
+      if: matrix.targetos == 'win32'
+      run: unzip -q SDL2.zip && mv SDL2-$SDL_VERSION SDL2_VC
+      
+    - name: Build engine linux
+      if: matrix.targetos == 'linux'
+      run: |
+        scripts/build_linux_engine.sh dedicated
+        scripts/build_linux_engine.sh full
+    - name: Build engine windows
+      if: matrix.targetos == 'win32'
+      run: scripts/build_windows_engine.sh
