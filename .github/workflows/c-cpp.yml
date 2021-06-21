@@ -1,7 +1,7 @@
-name: Xash3D FWGS
+name: Build & Deploy Engine
 on: [push, pull_request]
 jobs:
-  linux_amd64:
+  build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -20,6 +20,7 @@ jobs:
             targetarch: i386
     env:
       SDL_VERSION: 2.0.14
+      GH_CPU_ARCH: ${{ matrix.targetarch }}
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -28,7 +29,7 @@ jobs:
     - name: Checkout xash-extras
       uses: actions/checkout@v2
       with:
-        repository: xash-extras
+        repository: FWGS/xash-extras
         path: xash-extras
     
     - name: Cache SDL2 zip
