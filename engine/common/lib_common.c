@@ -43,31 +43,37 @@ void *COM_FunctionFromName_SR( void *hInstance, const char *pName )
 	char **funcs = NULL;
 	size_t numfuncs, i;
 	void *f = NULL;
+	const char *func = NULL;
 
 #ifdef XASH_ALLOW_SAVERESTORE_OFFSETS
-	if( !memcmp( pName, "ofs:",4 ) )
-		return (byte*)svgame.dllFuncs.pfnGameInit + Q_atoi(pName + 4);
+	if( !memcmp( pName, "ofs:", 4 ))
+		return (byte*)svgame.dllFuncs.pfnGameInit + Q_atoi( pName + 4 );
 #endif
 
-#if XASH_MSVC && XASH_X86
-	funcs = COM_ConvertToLocalPlatform( MANGLE_VALVE, pName, &numfuncs );
-#elif XASH_POSIX
+#if XASH_POSIX
 	funcs = COM_ConvertToLocalPlatform( MANGLE_ITANIUM, pName, &numfuncs );
-#endif
 
 	if( funcs )
 	{
 		for( i = 0; i < numfuncs; i++ )
 		{
-			f = COM_FunctionFromName( hInstance, funcs[i] );
+			if( !f )
+				f = COM_FunctionFromName( hInstance, funcs[i] );
 			Z_Free( funcs[i] );
-			if( f )
-				break;
 		}
 		Z_Free( funcs );
 
 		if( f ) return f;
 	}
+#elif XASH_MSVC
+	// TODO: COM_ConvertToLocalPlatform doesn't support MSVC yet
+	// also custom loader strips always MSVC mangling, so Win32
+	// platforms already use platform-neutral names
+	func = COM_GetPlatformNeutralName( pName );
+
+	if( func )
+		COM_FunctionFromName( hInstance, func );
+#endif
 
 	return COM_FunctionFromName( hInstance, pName );
 }
