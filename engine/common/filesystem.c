@@ -2349,7 +2349,7 @@ file_t *FS_OpenZipFile( zip_t *zip, int pack_ind )
 	// compressed files handled in Zip_LoadFile
 	if( pfile->flags != ZIP_COMPRESSION_NO_COMPRESSION )
 	{
-		Con_Printf( S_ERROR "%s: can't open compressed file %s", __FUNCTION__, pfile->name );
+		Con_Printf( S_ERROR "%s: can't open compressed file %s\n", __FUNCTION__, pfile->name );
 		return NULL;
 	}
 
