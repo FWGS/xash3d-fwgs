@@ -63,6 +63,7 @@ typedef struct {
 typedef struct vk_ray_model_s {
 	VkAccelerationStructureKHR as;
 	VkAccelerationStructureGeometryKHR *geoms;
+	int max_prims;
 	int num_geoms;
 	int size;
 	uint32_t kusochki_offset;
@@ -214,7 +215,7 @@ static void returnModelToCache(vk_ray_model_t *model) {
 	model->taken = false;
 }
 
-static vk_ray_model_t *getModelFromCache(int num_geoms, const VkAccelerationStructureGeometryKHR *geoms) { //}, int size) {
+static vk_ray_model_t *getModelFromCache(int num_geoms, int max_prims, const VkAccelerationStructureGeometryKHR *geoms) { //}, int size) {
 	vk_ray_model_t *model = NULL;
 	int i;
 	for (i = 0; i < ARRAYSIZE(g_rtx.models_cache); ++i)
@@ -228,6 +229,9 @@ static vk_ray_model_t *getModelFromCache(int num_geoms, const VkAccelerationStru
 			break;
 
 		if (model->num_geoms != num_geoms)
+			continue;
+
+		if (model->max_prims != max_prims)
 			continue;
 
 		for (j = 0; j < num_geoms; ++j) {
@@ -266,6 +270,7 @@ static vk_ray_model_t *getModelFromCache(int num_geoms, const VkAccelerationStru
 		model->geoms = Mem_Malloc(vk_core.pool, size);
 		memcpy(model->geoms, geoms, size);
 		model->num_geoms = num_geoms;
+		model->max_prims = max_prims;
 	}
 
 	model->taken = true;
@@ -274,7 +279,8 @@ static vk_ray_model_t *getModelFromCache(int num_geoms, const VkAccelerationStru
 
 static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_build_args_t *args, vk_ray_model_t *model) {
 	qboolean should_create = *args->p_accel == VK_NULL_HANDLE;
-	qboolean is_update = false; // FIXME this crashes for some reason !should_create && args->dynamic;
+	//qboolean is_update = false; // FIXME this crashes for some reason !should_create && args->dynamic;
+	qboolean is_update = !should_create && args->dynamic;
 
 	VkAccelerationStructureBuildGeometryInfoKHR build_info = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -318,9 +324,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 	}
 
 	if (should_create) {
-		// FIXME for some reason we get inconsistent AS sizes for the geometries with same count and same maxVertices
-		// HACK: add buffer size
-		const uint32_t as_size = build_size.accelerationStructureSize + 0;
+		const uint32_t as_size = build_size.accelerationStructureSize;
 		const uint32_t buffer_offset = VK_RingBuffer_Alloc(&g_rtx.accels_buffer_alloc, as_size, 256);
 		const VkAccelerationStructureCreateInfoKHR asci = {
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
@@ -1102,6 +1106,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 	vk_kusok_data_t *kusochki;
 	const uint32_t kusochki_count_offset = VK_RingBuffer_Alloc(&g_rtx.kusochki_alloc, args.model->num_geometries, 1);
 	vk_ray_model_t *ray_model;
+	int max_prims = 0;
 
 	ASSERT(vk_core.rtx);
 
@@ -1130,6 +1135,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		// 	? g_emissive_texture_table[mg->texture].set
 		// 	: false);
 
+		max_prims += prim_count;
 		geom_max_prim_counts[i] = prim_count;
 		geoms[i] = (VkAccelerationStructureGeometryKHR)
 			{
@@ -1177,7 +1183,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 			.dynamic = args.model->dynamic,
 			.debug_name = args.model->debug_name,
 		};
-		ray_model = getModelFromCache(args.model->num_geometries, geoms); //, build_size.accelerationStructureSize);
+		ray_model = getModelFromCache(args.model->num_geometries, max_prims, geoms); //, build_size.accelerationStructureSize);
 		if (!ray_model) {
 			gEngine.Con_Printf(S_ERROR "Ran out of model cache slots\n");
 		} else {

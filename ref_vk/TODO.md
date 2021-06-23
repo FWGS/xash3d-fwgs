@@ -1,29 +1,32 @@
 ## 2021-06-23, E109
 - [x] rtx: ray tracing shaders specialization, e.g. for light clusters constants
+- [x] rtx: restore dynamic stuff like particles, beams, etc
+- [x] rtx: c3a1b: assert model->size >= build_size.accelerationStructureSize failed at vk_rtx.c:347
 
 # Next
-- [ ] run under asan
-- [ ] rtx: better memory handling
-	- [ ] robust tracking of memory hierarchies: global/static, map, frame
-	- or just do a generic allocator with compaction?
+- [ ] rtx: ray tracing pipeline
+	- [ ] rtx: split ray tracing into modules: models/blas, pipeline mgmt, buffer mgmt
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
-- [ ] rtx: simple convolution denoise (bilateral?)
 - [ ] rtx: cluster dlights
-- [ ] rtx: entity lights
-- [ ] rtx: light styles
 - [ ] rtx: dynamically sized light clusters
 	Split into 2 buffers:
 		struct LightCluster { uint16 offset, length; }
 		uint8_t data[];
-- [ ] rtx: ray tracing pipeline
-- [ ] rtx: restore dynamic stuff like particles, beams, etc
-- [ ] rtx: emissive particles
-- [ ] rtx: alpha test/blending
-- [ ] rtx: coalesce all these buffers
-- [ ] crash in PM_RecursiveHullCheck
 - [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
 
 # Planned
+- [ ] rtx: better memory handling
+	- [ ] robust tracking of memory hierarchies: global/static, map, frame
+	- or just do a generic allocator with compaction?
+- [ ] rtx: alpha test/blending
+- [ ] rtx: coalesce all these buffers
+- [ ] crash in PM_RecursiveHullCheck
+- [ ] rtx: entity lights
+- [ ] rtx: light styles
+- [ ] run under asan
+- [ ] rtx: simple convolution denoise (bilateral?)
+- [ ] rtx: emissive beams
+- [ ] rtx: emissive particles
 - [ ] rtx: better random
 - [ ] rtx: map name to rad files mapping
 - [ ] rtx: live rad file reloading (or other solution for tuning lights)
@@ -33,7 +36,6 @@
 - [ ] create water surfaces once in vk_brush
 - [ ] consider doing per-geometry rendermode: brushes can be built only once; late transparency depth sorting for vk render;
 - [ ] rtx: too many emissive lights in c3a1b
-- [ ] rtx: c3a1b: assert model->size >= build_size.accelerationStructureSize failed at vk_rtx.c:347
 - [ ] studio models: pre-compute buffer sizes and allocate them at once
 - [ ] rtx: denoise
 	- [ ] non local means ?
