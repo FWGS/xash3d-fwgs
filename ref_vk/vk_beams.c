@@ -384,20 +384,24 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	VK_RenderBufferUnlock( vertex_buffer );
 
 	{
-		// TODO
-		// const render_draw_t draw = {
-		// 	.lightmap = tglob.whiteTexture,
-		// 	.texture = texture,
-		// 	.render_mode = render_mode,
-		// 	.element_count = total_indices,
-		// 	.vertex_offset = 0,
-		// 	.index_offset = 0,
-		// 	.vertex_buffer = vertex_buffer,
-		// 	.index_buffer = index_buffer,
-		// 	.emissive = { color[0], color[1], color[2] },
-		// };
+		VK_RenderModelDynamicBegin( "beam" /* TODO its name */, render_mode );
+		const vk_render_geometry_t geometry = {
+			.texture = texture,
+			.material = kXVkMaterialDiffuse,
 
-		// VK_RenderScheduleDraw( &draw );
+			.vertex_count = total_vertices,
+			.vertex_buffer = vertex_buffer,
+			.vertex_offset = 0,
+
+			.element_count = total_indices,
+			.index_offset = 0,
+			.index_buffer = index_buffer,
+		};
+
+		// FIXME .emissive = { color[0], color[1], color[2] },
+
+		VK_RenderModelDynamicAddGeometry( &geometry );
+		VK_RenderModelDynamicCommit();
 	}
 }
 

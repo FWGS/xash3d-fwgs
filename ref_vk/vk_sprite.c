@@ -706,19 +706,22 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 	VK_RenderBufferUnlock( vertex_buffer );
 
 	{
-		// TODO
-		// const render_draw_t draw = {
-		// 	.lightmap = tglob.whiteTexture,
-		// 	.texture = texture,
-		// 	.render_mode = render_mode,
-		// 	.element_count = 6,
-		// 	.vertex_offset = 0,
-		// 	.index_offset = 0,
-		// 	.vertex_buffer = vertex_buffer,
-		// 	.index_buffer = index_buffer,
-		// };
+		VK_RenderModelDynamicBegin( "sprite" /* TODO its name */, render_mode );
+		const vk_render_geometry_t geometry = {
+			.texture = texture,
+			.material = kXVkMaterialDiffuse,
 
-		// VK_RenderScheduleDraw( &draw );
+			.vertex_count = 4,
+			.vertex_buffer = vertex_buffer,
+			.vertex_offset = 0,
+
+			.element_count = 6,
+			.index_offset = 0,
+			.index_buffer = index_buffer,
+		};
+
+		VK_RenderModelDynamicAddGeometry( &geometry );
+		VK_RenderModelDynamicCommit();
 	}
 }
 
