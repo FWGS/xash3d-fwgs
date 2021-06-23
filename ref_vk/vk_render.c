@@ -856,7 +856,7 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 		{
 			if (index_count) {
 				const render_draw_t draw = {
-					.lightmap = tglob.lightmapTextures[0],
+					.lightmap = tglob.lightmapTextures[0], // FIXME there can be more than one lightmap textures
 					.texture = current_texture,
 					.render_mode = model->render_mode,
 					.element_count = index_count,

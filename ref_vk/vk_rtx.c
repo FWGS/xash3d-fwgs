@@ -467,9 +467,40 @@ void VK_RayFrameBegin( void )
 
 static void createPipeline( void )
 {
+	struct RayShaderSpec {
+		int max_dlights;
+		int max_emissive_kusochki;
+		uint32_t max_visible_dlights;
+		uint32_t max_visible_surface_lights;
+		float light_grid_cell_size;
+		int max_light_clusters;
+	} spec_data = {
+		.max_dlights = MAX_DLIGHTS,
+		.max_emissive_kusochki = MAX_EMISSIVE_KUSOCHKI,
+		.max_visible_dlights = MAX_VISIBLE_DLIGHTS,
+		.max_visible_surface_lights = MAX_VISIBLE_SURFACE_LIGHTS,
+		.light_grid_cell_size = LIGHT_GRID_CELL_SIZE,
+		.max_light_clusters = MAX_LIGHT_CLUSTERS,
+	};
+	const VkSpecializationMapEntry spec_map[] = {
+		{.constantID = 0, .offset = offsetof(struct RayShaderSpec, max_dlights), .size = sizeof(int) },
+		{.constantID = 1, .offset = offsetof(struct RayShaderSpec, max_emissive_kusochki), .size = sizeof(int) },
+		{.constantID = 2, .offset = offsetof(struct RayShaderSpec, max_visible_dlights), .size = sizeof(uint32_t) },
+		{.constantID = 3, .offset = offsetof(struct RayShaderSpec, max_visible_surface_lights), .size = sizeof(uint32_t) },
+		{.constantID = 4, .offset = offsetof(struct RayShaderSpec, light_grid_cell_size), .size = sizeof(float) },
+		{.constantID = 5, .offset = offsetof(struct RayShaderSpec, max_light_clusters), .size = sizeof(int) },
+	};
+
+	VkSpecializationInfo spec = {
+		.mapEntryCount = ARRAYSIZE(spec_map),
+		.pMapEntries = spec_map,
+		.dataSize = sizeof(spec_data),
+		.pData = &spec_data,
+	};
 	const vk_pipeline_compute_create_info_t ci = {
 		.layout = g_rtx.descriptors.pipeline_layout,
 		.shader_filename = "rtx.comp.spv",
+		.specialization_info = &spec,
 	};
 
 	g_rtx.pipeline = VK_PipelineComputeCreate(&ci);

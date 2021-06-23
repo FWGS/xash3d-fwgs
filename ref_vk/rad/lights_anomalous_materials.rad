@@ -114,7 +114,7 @@ halflife/+0~drkmtls2 150 120 20 2500 //15000
 halflife/+0~drkmtls2c 255 200 100 1000
 halflife/+0drkmtl_scrn 60 80 255 5000
 halflife/emerglight 255 200 100 400
-halflife/subway_lights 255 248 202 50 //250
+halflife/subway_lights 255 248 202 500 //250
 halflife/+0buttonlite 235 22 22 1
 halflife/+abuttonlite 24 235 24 1
 halflife/c1a3c_map 100 100 255 100

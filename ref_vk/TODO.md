@@ -1,13 +1,13 @@
+## 2021-06-23, E109
+- [x] rtx: ray tracing shaders specialization, e.g. for light clusters constants
+
 # Next
 - [ ] run under asan
 - [ ] rtx: better memory handling
 	- [ ] robust tracking of memory hierarchies: global/static, map, frame
 	- or just do a generic allocator with compaction?
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
-- [ ] rtx: live rad file reloading (or other solution for tuning lights)
-- [ ] rtx: better random
 - [ ] rtx: simple convolution denoise (bilateral?)
-- [ ] rtx: map name to rad files mapping
 - [ ] rtx: cluster dlights
 - [ ] rtx: entity lights
 - [ ] rtx: light styles
@@ -22,9 +22,11 @@
 - [ ] rtx: coalesce all these buffers
 - [ ] crash in PM_RecursiveHullCheck
 - [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
-- [ ] rtx: ray tracing shaders specialization, e.g. for light clusters constants
 
 # Planned
+- [ ] rtx: better random
+- [ ] rtx: map name to rad files mapping
+- [ ] rtx: live rad file reloading (or other solution for tuning lights)
 - [ ] rtx: do not rebuild static studio models (most of them). BLAS building takes most of the frame time (~12ms where ray tracing itself is just 3ms)
 - [ ] rtx: importance-sample sky light; there are sky surfaces that we can consider light sources
 - [ ] cull water surfaces (see c3a2a)
@@ -72,6 +74,7 @@
 - [ ] rtx: studio models should not pre-transform vertices with modelView matrix
 
 # Someday
+- [ ] more than one lightmap texture. E.g. sponza ends up having 3 lightmaps
 - [ ] nvnsight into buffer memory and stuff
 - [ ] start building command buffers in beginframe
 - [ ] multiple frames in flight (#nd cmdbuf, ...)
