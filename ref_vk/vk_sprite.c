@@ -706,7 +706,6 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 	VK_RenderBufferUnlock( vertex_buffer );
 
 	{
-		VK_RenderModelDynamicBegin( "sprite" /* TODO its name */, render_mode );
 		const vk_render_geometry_t geometry = {
 			.texture = texture,
 			.material = kXVkMaterialDiffuse,
@@ -720,6 +719,7 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 			.index_buffer = index_buffer,
 		};
 
+		VK_RenderModelDynamicBegin( "sprite" /* TODO its name */, render_mode );
 		VK_RenderModelDynamicAddGeometry( &geometry );
 		VK_RenderModelDynamicCommit();
 	}
