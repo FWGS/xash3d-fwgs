@@ -29,7 +29,7 @@ static void loadRadData( const model_t *map, const char *filename ) {
 	}
 
 	data = buffer;
-	for (;;) {
+	while (*data != '\0') {
 		string name;
 		float r, g, b, scale;
 
@@ -93,7 +93,8 @@ static void loadRadData( const model_t *map, const char *filename ) {
 		data = Q_strchr(data, '\n');
 		if (!data)
 			break;
-		while (!isalnum(*data)) ++data;
+		while (!isalnum(*data) && *data != '\0')
+			++data;
 	}
 
 	Mem_Free(buffer);
