@@ -384,7 +384,6 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	VK_RenderBufferUnlock( vertex_buffer );
 
 	{
-		VK_RenderModelDynamicBegin( "beam" /* TODO its name */, render_mode );
 		const vk_render_geometry_t geometry = {
 			.texture = texture,
 			.material = kXVkMaterialDiffuse,
@@ -400,6 +399,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 
 		// FIXME .emissive = { color[0], color[1], color[2] },
 
+		VK_RenderModelDynamicBegin( "beam" /* TODO its name */, render_mode );
 		VK_RenderModelDynamicAddGeometry( &geometry );
 		VK_RenderModelDynamicCommit();
 	}
