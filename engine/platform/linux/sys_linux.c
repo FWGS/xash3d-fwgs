@@ -18,22 +18,6 @@ GNU General Public License for more details.
 #include <fcntl.h>
 #include "platform/platform.h"
 
-#if XASH_TIMER == TIMER_LINUX
-double Platform_DoubleTime( void )
-{
-	struct timespec ts;
-
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-
-	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
-}
-
-void Platform_Sleep( int msec )
-{
-	usleep( msec * 1000 );
-}
-#endif // XASH_TIMER == TIMER_LINUX
-
 qboolean Sys_DebuggerPresent( void )
 {
 	char buf[4096];
