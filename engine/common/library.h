@@ -31,7 +31,7 @@ typedef struct dll_user_s
 	dword	*funcs;
 	char	*names[MAX_LIBRARY_EXPORTS];	// max 4096 exports supported
 	int	num_ordinals;		// actual exports count
-	dword	funcBase;			// base offset
+	uintptr_t	funcBase;			// base offset
 } dll_user_t;
 
 dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath );
