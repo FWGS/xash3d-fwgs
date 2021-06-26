@@ -3347,11 +3347,23 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 	{
 		// NOTE: if search is NULL let the OS found library himself
 		Q_strncpy( hInst->fullPath, dllpath, sizeof( hInst->fullPath ));
+
+		if( search && ( search->wad || search->pack || search->zip ) )
+		{
 #if XASH_WIN32 && XASH_X86 // a1ba: custom loader is non-portable (I just don't want to touch it)
-		hInst->custom_loader = (search) ? true : false;
+			Con_Printf( S_WARN "%s: loading libraries from packs is deprecated "
+				"and will be removed in the future\n", __FUNCTION__ );
+			hInst->custom_loader = true;
 #else
-		hInst->custom_loader = false;
+			Con_Printf( S_WARN "%s: loading libraries from packs is unsupported on "
+				"this platform\n", __FUNCTION__ );
+			hInst->custom_loader = false;
 #endif
+		}
+		else
+		{
+			hInst->custom_loader = true;
+		}
 	}
 	fs_ext_path = false; // always reset direct paths
 
