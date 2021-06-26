@@ -72,7 +72,7 @@ void *COM_FunctionFromName_SR( void *hInstance, const char *pName )
 	func = COM_GetPlatformNeutralName( pName );
 
 	if( func )
-		COM_FunctionFromName( hInstance, func );
+		return COM_FunctionFromName( hInstance, func );
 #endif
 
 	return COM_FunctionFromName( hInstance, pName );
