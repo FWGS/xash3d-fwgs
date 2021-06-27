@@ -12,6 +12,22 @@ else
 	die
 fi
 
+APPDIR=$APPNAME.AppDir
+APPIMAGE=$APPNAME.AppImage
+
+# convert our ARCH to AppImage architecture
+case "$ARCH" in
+  i386)
+    APPARCH=i686
+    ;;
+  amd64)
+    APPARCH=x86_64
+    ;;
+  *)
+    APPARCH=$ARCH
+    ;;
+esac
+
 build_sdl2()
 {
 	cd "$BUILDDIR"/SDL2_src || die
@@ -44,7 +60,6 @@ build_engine()
 	if [ "$APP" = "xashds" ]; then
 		./waf configure -T release -d -W $AMD64 || die
 	elif [ "$APP" = "xash3d-fwgs" ]; then
-		APPDIR=$APPNAME.AppDir
 		./waf configure --sdl2=SDL2_linux -T release --enable-stb --prefix="$APPDIR" -W $AMD64 --enable-utils || die
 	else
 		die
@@ -55,9 +70,6 @@ build_engine()
 
 build_appimage()
 {
-	APPDIR=$APPNAME.AppDir
-	APPIMAGE=$APPNAME.AppImage
-
 	cd "$BUILDDIR" || die
 
 	./waf install || die
@@ -101,9 +113,9 @@ Exec=AppRun
 Categories=Game;
 EOF
 
-	wget "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$ARCH.AppImage"
-	chmod +x "appimagetool-$ARCH.AppImage"
-	./appimagetool-$ARCH.AppImage "$APPDIR" "$APPIMAGE"
+	wget "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$APPARCH.AppImage"
+	chmod +x "appimagetool-$APPARCH.AppImage"
+	./appimagetool-$APPARCH.AppImage "$APPDIR" "$APPIMAGE"
 }
 
 rm -rf build # clean-up build directory
@@ -111,7 +123,9 @@ rm -rf build # clean-up build directory
 if [ $APP != "xashds" ]; then
 	build_sdl2
 fi
+
 build_engine
+
 if [ $APP != "xashds" ]; then
 	build_appimage
 else
