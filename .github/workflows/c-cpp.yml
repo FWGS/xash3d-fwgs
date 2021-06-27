@@ -73,8 +73,8 @@ jobs:
     - name: Build engine linux
       if: matrix.targetos == 'linux'
       run: |
-        scripts/build_linux_engine.sh dedicated
-        scripts/build_linux_engine.sh full
+        bash scripts/build_linux_engine.sh dedicated
+        bash scripts/build_linux_engine.sh full
     - name: Build engine windows
       if: matrix.targetos == 'win32'
-      run: scripts/build_windows_engine.sh
+      run: bash scripts/build_windows_engine.sh
