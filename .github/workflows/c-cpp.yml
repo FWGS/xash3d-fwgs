@@ -31,6 +31,19 @@ jobs:
       with:
         repository: FWGS/xash-extras
         path: xash-extras
+
+    - name: Install dependencies (linux-i386)
+      if: matrix.targetos == 'linux' && matrix.targetarch == 'i386'
+      run: |
+        sudo dpkg --add-architecture i386
+        sudo apt update
+        sudo apt install gcc-multilib g++-multilib libx11-dev:i386 libxext-dev:i386 x11-utils libgl1-mesa-dev libasound-dev libstdc++6:i386 libfuse2:i386 zlib1g:i386
+    - name: Install dependencies (linux-amd64)
+      if: matrix.targetos == 'linux' && matrix.targetarch == 'amd64'
+      run: |
+        sudo apt update
+        sudo apt install gcc-multilib g++-multilib libx11-dev libxext-dev x11-utils libgl1-mesa-dev libasound-dev libstdc++6 libfuse2 zlib1g
+
     
     - name: Cache SDL2 zip
       if: matrix.targetos == 'linux' || matrix.targetos == 'win32'
