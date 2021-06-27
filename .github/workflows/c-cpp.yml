@@ -43,6 +43,10 @@ jobs:
       run: |
         sudo apt update
         sudo apt install gcc-multilib g++-multilib libx11-dev libxext-dev x11-utils libgl1-mesa-dev libasound-dev libstdc++6 libfuse2 zlib1g
+    - name: Install dependencies (windows)
+      if: matrix.targetos == 'win32'
+      run: |
+        choco install wget
 
     
     - name: Cache SDL2 zip
