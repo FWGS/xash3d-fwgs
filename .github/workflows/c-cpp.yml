@@ -41,13 +41,13 @@ jobs:
         key: sdl2-${{ env.SDL_VERSION }}-${{ matrix.targetos }}
     - name: Download SDL2 source
       if: matrix.targetos == 'linux' && steps.cache-sdl2-src.outputs.cache-hit != 'true'
-      run: wget -q http://libsdl.org/release/SDL2-$SDL_VERSION.zip -o SDL2.zip
+      run: wget http://libsdl.org/release/SDL2-$SDL_VERSION.zip -o SDL2.zip
     - name: Unpack SDL2 source
       if: matrix.targetos == 'linux'
       run: unzip -q SDL2.zip && mv SDL2-$SDL_VERSION SDL2_src
     - name: Download SDL2 VC prebuilt
       if: matrix.targetos == 'win32' && steps.cache-sdl2-src.outputs.cache-hit != 'true'
-      run: wget -q http://libsdl.org/release/SDL2-devel-$SDL_VERSION-VC.zip -o SDL2.zip
+      run: wget http://libsdl.org/release/SDL2-devel-$SDL_VERSION-VC.zip -o SDL2.zip
     - name: Unpack SDL2 VC prebuilt
       if: matrix.targetos == 'win32'
       run: unzip -q SDL2.zip && mv SDL2-$SDL_VERSION SDL2_VC
