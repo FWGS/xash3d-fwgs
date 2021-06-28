@@ -3,7 +3,9 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-18.04
@@ -21,6 +23,7 @@ jobs:
     env:
       SDL_VERSION: 2.0.14
       GH_CPU_ARCH: ${{ matrix.targetarch }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -78,3 +81,11 @@ jobs:
     - name: Build engine windows
       if: matrix.targetos == 'win32'
       run: bash scripts/build_windows_engine.sh
+
+    - name: Upload engine Linux
+      if: matrix.targetos == 'linux'
+      run: bash scripts/continious_upload.sh xash3d-fwgs-${{ matrix.targetarch }}.AppImage xashds-linux-${{ matrix.targetarch }}
+
+    - name: Upload engine Windows
+      if: matrix.targetos == 'win32'
+      run: bash scripts/continious_upload.sh xash3d-fwgs-win32-${{ matrix.targetarch }}.7z xash3d-fwgs-vc2008-sln-${{ matrix.targetarch }}.7z
