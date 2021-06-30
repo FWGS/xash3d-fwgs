@@ -6,7 +6,7 @@
 
 set +x
 
-wget -O upload.sh "https://raw.githubusercontent.com/probonopd/uploadtool/master/upload.sh"
+wget -O upload.sh "https://raw.githubusercontent.com/FWGS/uploadtool/gha-fixes/upload.sh"
 chmod +x upload.sh
 
 ./upload.sh $*
