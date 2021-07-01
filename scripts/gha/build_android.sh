@@ -14,6 +14,9 @@ fi
 
 export API=21
 export TOOLCHAIN=host
+export CC=clang-12
+export CXX=clang++-12
+export STRIP=llvm-strip-12
 sh compile.sh release
 
 if [[ "$GH_CPU_ARCH" == "64" ]]; then
