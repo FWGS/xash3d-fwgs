@@ -4993,6 +4993,18 @@ void SV_SpawnEntities( const char *mapname )
 	SV_LoadFromFile( mapname, sv.worldmodel->entities );
 }
 
+void SV_CheckStudioLerpFeature( void )
+{
+	if( sv_computestudiolerp.value > 0.0f )
+	{
+		SetBits( host.features, ENGINE_COMPUTE_STUDIO_LERP );
+	}
+	else
+	{
+		ClearBits( host.features, ENGINE_COMPUTE_STUDIO_LERP );
+	}
+}
+
 void SV_UnloadProgs( void )
 {
 	if( !svgame.hInstance )
@@ -5144,6 +5156,7 @@ qboolean SV_LoadProgs( const char *name )
 		Con_Printf( S_WARN "SV_LoadProgs: couldn't get physics API\n" );
 	}
 
+	SV_CheckStudioLerpFeature();
 	// grab function SV_SaveGameComment
 	SV_InitSaveRestore ();
 
