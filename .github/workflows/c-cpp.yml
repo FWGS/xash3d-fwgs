@@ -57,9 +57,12 @@ jobs:
     - name: Build engine
       run: bash scripts/gha/build_${{ matrix.targetos }}.sh
 
-    - name: Upload engine (android)
-      if: matrix.targetos == 'android'
-      run: bash scripts/continious_upload.sh xashdroid.apk xashdroid-64-test.apk
+    - name: Upload engine (android 32)
+      if: matrix.targetos == 'android' && matrix.targetarch == '32'
+      run: bash scripts/continious_upload.sh xashdroid.apk
+    - name: Upload engine (android 64)
+      if: matrix.targetos == 'android' && matrix.targetarch == '64'
+      run: bash scripts/continious_upload.sh xashdroid-64-test.apk
     - name: Upload engine (motomagx)
       if: matrix.targetos == 'motomagx'
       run: bash scripts/continious_upload.sh xash3d-fwgs-magx.7z
