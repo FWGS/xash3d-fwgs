@@ -2,8 +2,9 @@
 
 . scripts/lib.sh
 
-APPDIR=xash3d-fwgs
-APPIMAGE=xash3d-fwgs-$ARCH.tar.xz
+APP=xash3d-fwgs
+APPDIR=$APP
+APPIMAGE=$APP-$ARCH.tar.xz
 
 build_sdl2()
 {
