@@ -12,7 +12,6 @@ elif [[ "$GH_CPU_ARCH" == "32&64" ]]; then
 	export ARCHS="armeabi armeabi-v7a x86 aarch64 x86_64"
 fi
 
-export ARCHS=$GH_CPU_ARCH
 export API=21
 export TOOLCHAIN=host
 sh compile.sh release

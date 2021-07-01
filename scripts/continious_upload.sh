@@ -6,8 +6,8 @@
 
 set +x
 
-wget -O upload.sh "https://raw.githubusercontent.com/FWGS/uploadtool/gha-fixes/upload.sh"
+curl "https://raw.githubusercontent.com/FWGS/uploadtool/gha-fixes/upload.sh" -o upload.sh
 chmod +x upload.sh
 
-./upload.sh $*
+bash ./upload.sh $*
 
