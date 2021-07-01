@@ -26,11 +26,10 @@ addons:
       - libfuse2
       - unzip
 before_script:
-  - sh scripts/travis_common_deps.sh
-  - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
+  - sh scripts/travis/deps_common.sh
+  - sh scripts/travis/deps_${TRAVIS_OS_NAME}.sh
 script:
-  - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh full
-  - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh dedicated
+  - sh scripts/travis/build_${TRAVIS_OS_NAME}.sh
 after_script:
   - ccache --show-stats
-  - sh scripts/continious_upload.sh xash3d-fwgs-${ARCH}.AppImage xashds-linux-${ARCH}
+  - sh scripts/continious_upload.sh xash3d-fwgs-${ARCH}.tar.xz xashds-linux-${ARCH}

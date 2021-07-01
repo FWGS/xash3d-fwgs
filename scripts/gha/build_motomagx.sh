@@ -3,7 +3,7 @@
 . scripts/lib.sh
 . /opt/toolchains/motomagx/setenv-z6.sh
 
-cd $TRAVIS_BUILD_DIR
+cd $GITHUB_WORKSPACE
 
 mkdir -p Xash/valve/cl_dlls
 mkdir -p Xash/valve/dlls
@@ -30,4 +30,4 @@ exec $mypath/xash -dev $@
 EOF
 
 
-7z a -t7z $TRAVIS_BUILD_DIR/xash3d-magx.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on -r Xash/
+7z a -t7z $GITHUB_WORKSPACE/xash3d-fwgs-magx.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on -r Xash/

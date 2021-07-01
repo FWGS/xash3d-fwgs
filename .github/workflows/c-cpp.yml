@@ -14,6 +14,18 @@ jobs:
           - os: ubuntu-18.04
             targetos: linux
             targetarch: i386
+
+          - os: ubuntu-18.04
+            targetos: android
+            targetarch: armeabi armeabi-v7a x86
+          - os: ubuntu-18.04
+            targetos: android
+            targetarch: aarch64 x86_64
+
+          - os: ubuntu-18.04
+            targetos: motomagx
+            targetarch: armv6
+
           - os: windows-latest
             targetos: win32
             targetarch: amd64
@@ -24,68 +36,36 @@ jobs:
       SDL_VERSION: 2.0.14
       GH_CPU_ARCH: ${{ matrix.targetarch }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ANDROID_SDK_TOOLS_VER: 4333796
+      ANDROID_NDK_VER: r10e
+      UPLOADTOOL_ISPRERELEASE: true
     steps:
     - name: Checkout
       uses: actions/checkout@v2
       with:
         submodules: recursive
     - name: Checkout xash-extras
+      if: matrix.targetos != 'android'
       uses: actions/checkout@v2
       with:
         repository: FWGS/xash-extras
         path: xash-extras
 
-    - name: Install dependencies (linux-i386)
-      if: matrix.targetos == 'linux' && matrix.targetarch == 'i386'
-      run: |
-        sudo dpkg --add-architecture i386
-        sudo apt update
-        sudo apt install gcc-multilib g++-multilib libx11-dev:i386 libxext-dev:i386 x11-utils libgl1-mesa-dev libasound-dev libstdc++6:i386 libfuse2:i386 zlib1g:i386
-    - name: Install dependencies (linux-amd64)
-      if: matrix.targetos == 'linux' && matrix.targetarch == 'amd64'
-      run: |
-        sudo apt update
-        sudo apt install gcc-multilib g++-multilib libx11-dev libxext-dev x11-utils libgl1-mesa-dev libasound-dev libstdc++6 libfuse2 zlib1g
-    - name: Install dependencies (windows)
-      if: matrix.targetos == 'win32'
-      run: |
-        choco install wget
+    - name: Install dependencies
+      run: bash scripts/gha/deps_${{ matrix.targetos }}.sh
 
-    
-    - name: Cache SDL2 zip
-      if: matrix.targetos == 'linux' || matrix.targetos == 'win32'
-      id: cache-sdl2
-      uses: actions/cache@v2
-      with:
-        path: SDL2.zip
-        key: sdl2-${{ env.SDL_VERSION }}-${{ matrix.targetos }}
-    - name: Download SDL2 source
-      if: matrix.targetos == 'linux' && steps.cache-sdl2-src.outputs.cache-hit != 'true'
-      run: wget http://libsdl.org/release/SDL2-${{ env.SDL_VERSION }}.zip -O SDL2.zip
-    - name: Unpack SDL2 source
-      if: matrix.targetos == 'linux'
-      run: unzip -q SDL2.zip && mv SDL2-${{ env.SDL_VERSION }} SDL2_src
+    - name: Build engine
+      run: bash scripts/gha/build_${{ matrix.targetos }}.sh
 
-    - name: Download SDL2 VC prebuilt
-      if: matrix.targetos == 'win32' && steps.cache-sdl2-src.outputs.cache-hit != 'true'
-      run: wget http://libsdl.org/release/SDL2-devel-${{ env.SDL_VERSION }}-VC.zip -O SDL2.zip
-    - name: Unpack SDL2 VC prebuilt
-      if: matrix.targetos == 'win32'
-      run: unzip -q SDL2.zip && mv SDL2-${{ env.SDL_VERSION }} SDL2_VC
-      
-    - name: Build engine linux
-      if: matrix.targetos == 'linux'
-      run: |
-        bash scripts/build_linux_engine.sh dedicated
-        bash scripts/build_linux_engine.sh full
-    - name: Build engine windows
-      if: matrix.targetos == 'win32'
-      run: bash scripts/build_windows_engine.sh
-
-    - name: Upload engine Linux
+    - name: Upload engine (android)
+      if: matrix.targetos == 'android'
+      run: bash scripts/continious_upload.sh xashdroid.apk xashdroid-64-test.apk
+    - name: Upload engine (motomagx)
+      if: matrix.targetos == 'motomagx'
+      run: bash scripts/continious_upload.sh xash3d-fwgs-magx.7z
+    - name: Upload engine (linux)
       if: matrix.targetos == 'linux'
       run: bash scripts/continious_upload.sh xash3d-fwgs-${{ matrix.targetarch }}.AppImage xashds-linux-${{ matrix.targetarch }}
-
-    - name: Upload engine Windows
+    - name: Upload engine (windows)
       if: matrix.targetos == 'win32'
       run: bash scripts/continious_upload.sh xash3d-fwgs-win32-${{ matrix.targetarch }}.7z xash3d-fwgs-vc2008-sln-${{ matrix.targetarch }}.7z
