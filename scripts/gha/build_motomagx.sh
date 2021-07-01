@@ -9,10 +9,10 @@ mkdir -p Xash/valve/cl_dlls
 mkdir -p Xash/valve/dlls
 
 cd hlsdk
-./waf configure -T fast --enable-magx --enable-simple-mod-hacks build install --destdir=../Xash
+./waf configure -T fast --enable-magx --enable-simple-mod-hacks build install --destdir=../Xash || die
 cd ../
 
-./waf configure -T fast --enable-magx --win-style-install --prefix='' build install --destdir=Xash/
+./waf configure -T fast --enable-magx --win-style-install --prefix='' build install --destdir=Xash/ || die
 
 cat > Xash/run.sh << 'EOF'
 mypath=${0%/*}
