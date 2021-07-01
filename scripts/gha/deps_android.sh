@@ -1,5 +1,9 @@
 #!/bin/bash
 
+echo "Install packages"
+sudo apt update
+sudo apt install clang-10 lld-10 llvm-10-tools p7zip-full
+
 echo "Download HLSDK"
 
 cd $GITHUB_WORKSPACE
