@@ -190,6 +190,9 @@ def configure(conf):
                                    # so just warn, not error
 		'-Winit-self',
 		'-Werror=implicit-fallthrough=2', # clang incompatible without "=2"
+		'-Werror=logical-op',
+		'-Werror=write-strings',
+#		'-Werror=format=2',
 #		'-Wdouble-promotion', # disable warning flood
 		'-Wstrict-aliasing',
 	]
@@ -204,6 +207,9 @@ def configure(conf):
 		'-Werror=old-style-definition',
 		'-Werror=declaration-after-statement',
 		'-Werror=enum-conversion',
+		'-Werror=jump-misses-init',
+		'-Werror=strict-prototypes',
+#		'-Werror=nested-externs',
 		'-fnonconst-initializers' # owcc
 	]
 
