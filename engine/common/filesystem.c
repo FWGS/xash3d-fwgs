@@ -3362,7 +3362,7 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 		}
 		else
 		{
-			hInst->custom_loader = true;
+			hInst->custom_loader = false;
 		}
 	}
 	fs_ext_path = false; // always reset direct paths
