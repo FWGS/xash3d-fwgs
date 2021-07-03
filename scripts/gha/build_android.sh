@@ -20,5 +20,7 @@ export STRIP=llvm-strip-12
 sh compile.sh release
 
 if [[ "$GH_CPU_ARCH" == "64" ]]; then
-	mv xashdroid.apk xashdroid-64-test.apk
+	mv xashdroid.apk ../xashdroid-64.apk
+else
+	mv xashdroid.apk ../xashdroid-32.apk
 fi
