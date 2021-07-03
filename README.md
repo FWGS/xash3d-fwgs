@@ -27,12 +27,12 @@ Read more about Xash3D on ModDB: https://www.moddb.com/engines/xash3d-engine
 * Vulkan renderer
 
 ## Installation & Running
-0) Download Xash3D binaries: you can use [testing](https://github.com/FWGS/xash3d-deploy/tree/anewengine-master) build, also you can compile engine from sources.
+0) Get Xash3D binaries: you can use [testing](https://github.com/FWGS/xash3d-fwgs/releases/tag/continuous) build or you can compile engine from source code.
 Choose proper build package depending on which platform you're using.
 1) Copy engine binaries to some directory.
-2) Copy `valve` directory from [Half-Life](https://store.steampowered.com/app/70/HalfLife/) to mentioned above directory with engine binaries.
+2) Copy `valve` directory from [Half-Life](https://store.steampowered.com/app/70/HalfLife/) to directory with engine binaries.
 Also if you're using Windows: you should copy `vgui.dll` library from Half-Life directory to Xash3D directory.
-But instead, you can compile [hlsdk-xash3d](https://github.com/FWGS/hlsdk-xash3d) yourself instead of using official Valve game binaries, but you still needed to copy `valve` directory because all resources like sounds/models/maps located in there.
+As alternative, you can compile [hlsdk-xash3d](https://github.com/FWGS/hlsdk-xash3d) instead of using official Valve game binaries, but you still needed to copy `valve` directory as all game resources located in there.
 3) Download [extras.pak](https://github.com/FWGS/xash-extras/releases/tag/v0.19.2) and place it to `valve` directory.
 4) Run `xash3d.exe`/`xash3d.sh`/`xash3d` depending on which platform you're using.
 
@@ -46,9 +46,7 @@ For additional info, run Xash3D with `-help` command line key.
 ## Build instructions
 We are using Waf build system. If you have some Waf-related questions, I recommend you to read https://waf.io/book/
 
-If you're stuck somewhere and you need a clear example, read `.travis.yml` and `scripts/build*.sh`.
-
-NOTE: NEVER USE GitHub's ZIP ARCHIVES. They are broken and don't contain external dependencies sources we're using.
+NOTE: NEVER USE GitHub's ZIP ARCHIVES. GitHub doesn't include external dependencies we're using!
 
 ### Prerequisites
 #### Windows (Visual Studio)
@@ -61,7 +59,7 @@ NOTE: NEVER USE GitHub's ZIP ARCHIVES. They are broken and don't contain externa
 
 #### GNU/Linux
 NOTE FOR USERS WITH X86 COMPATIBLE CPUs:
-We have forced build system to throw an error, if you're trying to build 64-bit engine. This done for keeping compatibility with Steam releases of Half-Life and based on it's engine games.
+We have forced Waf to throw an error, if you're trying to build 64-bit engine. This was done for keeping compatibility with Steam releases of Half-Life and based on it's engine games.
 Even if Xash3D FWGS does support targetting 64-bit, you can't load games without recompiling them from source code!
 
 ##### Debian/Ubuntu
@@ -88,7 +86,7 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 #### Linux
 0) Examine which build options are available: `./waf --help`
 1) Configure build: `./waf configure -T release --prefix=/path/to/any/output/directory`
-(To compile 64-bit engine on 64-bit x86 processor, you need to pass `-8` also)
+(You need to pass `-8` to compile 64-bit engine on 64-bit x86 processor)
 2) Compile: `./waf build`
 3) Install(optional): `./waf install`
 
