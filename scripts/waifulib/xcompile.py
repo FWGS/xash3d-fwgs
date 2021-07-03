@@ -201,9 +201,10 @@ class Android:
 	def cc(self):
 		if self.is_host():
 			s = 'clang'
+			environ = getattr(ctx, 'environ', os.environ)
 
-			if 'CC' in os.environ:
-				s = os.environ['CC']
+			if 'CC' in environ:
+				s = environ['CC']
 
 			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
 		return self.gen_toolchain_path() + ('clang' if self.is_clang() else 'gcc')
@@ -211,17 +212,20 @@ class Android:
 	def cxx(self):
 		if self.is_host():
 			s = 'clang++'
+			environ = getattr(ctx, 'environ', os.environ)
 
-			if 'CXX' in os.environ:
-				s = os.environ['CXX']
+			if 'CXX' in environ:
+				s = environ['CXX']
 
 			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
 		return self.gen_toolchain_path() + ('clang++' if self.is_clang() else 'g++')
 
 	def strip(self):
 		if self.is_host():
-			if 'STRIP' in os.environ:
-				return os.environ['STRIP']
+			environ = getattr(ctx, 'environ', os.environ)
+
+			if 'STRIP' in environ:
+				return environ['STRIP']
 			return 'llvm-strip'
 		return os.path.join(self.gen_binutils_path(), 'strip')
 
