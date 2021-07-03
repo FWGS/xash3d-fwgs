@@ -5,6 +5,9 @@ echo "deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-12 main" | sudo tee
 wget -O- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
 sudo apt update
 sudo apt install clang-12 lld-12 llvm-12 llvm-12-tools p7zip-full
+sudo rm /usr/bin/lld /usr/bin/ld.lld
+sudo ln -s /usr/bin/lld-12 /usr/bin/lld
+sudo ln -s /usr/bin/ld.lld-12 /usr/bin/ld.lld
 
 echo "Download HLSDK"
 
