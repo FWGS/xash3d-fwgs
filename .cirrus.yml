@@ -7,8 +7,8 @@ task:
     - pkg install -y git sdl2 python
     - git submodule update --init --recursive
   test_script:
-    # - ./scripts/build_freebsd_engine.sh dedicated
-    - ./scripts/build_freebsd_engine.sh
+    - ./scripts/cirrus/build_freebsd.sh dedicated
+    - ./scripts/cirrus/build_freebsd.sh full
 
 task:
   name: freebsd-12-amd64
@@ -19,8 +19,8 @@ task:
     - pkg install -y git sdl2 python
     - git submodule update --init --recursive
   test_script:
-    # - ./scripts/build_freebsd_engine.sh dedicated
-    - ./scripts/build_freebsd_engine.sh
+    - ./scripts/cirrus/build_freebsd.sh dedicated
+    - ./scripts/cirrus/build_freebsd.sh full
 
 task:
   name: freebsd-13-amd64
@@ -31,5 +31,5 @@ task:
     - pkg install -y git sdl2 python
     - git submodule update --init --recursive
   test_script:
-    # - ./scripts/build_freebsd_engine.sh dedicated
-    - ./scripts/build_freebsd_engine.sh
+    - ./scripts/cirrus/build_freebsd.sh dedicated
+    - ./scripts/cirrus/build_freebsd.sh full

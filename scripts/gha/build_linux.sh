@@ -2,39 +2,36 @@
 
 . scripts/lib.sh
 
-if [ "$1" = "dedicated" ]; then
-	APP=xashds
-	APPNAME=$APP-linux-$ARCH # since we have no extension, mark executable name that it for linux
-else # elif [ "$1" = "full" ]; then
-	APP=xash3d-fwgs
-	APPNAME=$APP-$ARCH
-fi
-
-if [ ! "$ARCH" ]; then
-	ARCH=i686
-fi
-
-# set up ccache
-export CC="ccache gcc"
-export CXX="ccache g++"
-
+APP=xash3d-fwgs
+APPDIR=$APP.AppDir
+APPIMAGE=$APP-$ARCH.AppImage
 
 build_sdl2()
 {
-	cd "$TRAVIS_BUILD_DIR"/SDL2_src || die
-	if [ "$ARCH" = "i686" ]; then
+	cd "$BUILDDIR"/SDL2_src || die
+	if [ "$ARCH" = "i386" ]; then
 		export CFLAGS="-msse2 -march=i686 -m32 -ggdb -O2"
 		export LDFLAGS="-m32"
 	fi
-	./configure --disable-render --disable-haptic --disable-power --disable-filesystem \
-		--disable-file --disable-libudev --disable-dbus --disable-ibus \
-		--disable-ime --disable-fcitx \
-		--enable-alsa-shared --enable-pulseaudio-shared \
-		--enable-wayland-shared --enable-x11-shared \
+	./configure \
+		--disable-render \
+		--disable-haptic \
+		--disable-power \
+		--disable-filesystem \
+		--disable-file \
+		--disable-libudev \
+		--disable-dbus \
+		--disable-ibus \
+		--disable-ime \
+		--disable-fcitx \
+		--enable-alsa-shared \
+		--enable-pulseaudio-shared \
+		--enable-wayland-shared \
+		--enable-x11-shared \
 		--prefix / || die # get rid of /usr/local stuff
 	make -j2 || die
-	mkdir -p "$TRAVIS_BUILD_DIR"/SDL2_linux
-	make install DESTDIR="$TRAVIS_BUILD_DIR"/SDL2_linux || die
+	mkdir -p "$BUILDDIR"/SDL2_linux
+	make install DESTDIR="$BUILDDIR"/SDL2_linux || die
 	export CFLAGS=""
 	export LDFLAGS=""
 }
@@ -42,16 +39,15 @@ build_sdl2()
 build_engine()
 {
 	# Build engine
-	cd "$TRAVIS_BUILD_DIR" || die
+	cd "$BUILDDIR" || die
 
-	if [ "$ARCH" = "x86_64" ]; then # we need enabling 64-bit target only on Intel-compatible CPUs
+	if [ "$ARCH" = "amd64" ]; then # we need enabling 64-bit target only on Intel-compatible CPUs
 		AMD64="-8"
 	fi
 
-	if [ "$APP" = "xashds" ]; then
+	if [ "$1" = "dedicated" ]; then
 		./waf configure -T release -d -W $AMD64 || die
-	elif [ "$APP" = "xash3d-fwgs" ]; then
-		APPDIR=$APPNAME.AppDir
+	elif [ "$1" = "full" ]; then
 		./waf configure --sdl2=SDL2_linux -T release --enable-stb --prefix="$APPDIR" -W $AMD64 --enable-utils || die
 	else
 		die
@@ -62,10 +58,7 @@ build_engine()
 
 build_appimage()
 {
-	APPDIR=$APPNAME.AppDir
-	APPIMAGE=$APPNAME.AppImage
-
-	cd "$TRAVIS_BUILD_DIR" || die
+	cd "$BUILDDIR" || die
 
 	./waf install || die
 
@@ -73,7 +66,7 @@ build_appimage()
 	python3 scripts/makepak.py xash-extras/ "$APPDIR/extras.pak"
 
 	cp SDL2_linux/lib/libSDL2-2.0.so.0 "$APPDIR/"
-	if [ "$ARCH" = "i686" ]; then
+	if [ "$ARCH" = "i386" ]; then
 		cp vgui-dev/lib/vgui.so "$APPDIR/"
 	fi
 
@@ -101,26 +94,21 @@ EOF
 
 	cat > "$APPDIR/$APP.desktop" <<EOF
 [Desktop Entry]
-Name=$APP
-Icon=$APP
+Name=xash3d-fwgs
+Icon=xash3d-fwgs
 Type=Application
 Exec=AppRun
 Categories=Game;
 EOF
 
-	wget "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$ARCH.AppImage"
-	chmod +x "appimagetool-$ARCH.AppImage"
-	./appimagetool-$ARCH.AppImage "$APPDIR" "$APPIMAGE"
+	./appimagetool.AppImage "$APPDIR" "$APPIMAGE"
 }
 
 rm -rf build # clean-up build directory
+build_engine dedicated
+mv build/engine/xash xashds-linux-$ARCH
 
-if [ $APP != "xashds" ]; then
-	build_sdl2
-fi
-build_engine
-if [ $APP != "xashds" ]; then
-	build_appimage
-else
-	mv build/engine/xash $APPNAME
-fi
+rm -rf build
+build_sdl2
+build_engine full
+build_appimage
