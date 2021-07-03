@@ -201,7 +201,7 @@ class Android:
 	def cc(self):
 		if self.is_host():
 			s = 'clang'
-			environ = getattr(ctx, 'environ', os.environ)
+			environ = getattr(self.ctx, 'environ', os.environ)
 
 			if 'CC' in environ:
 				s = environ['CC']
@@ -212,7 +212,7 @@ class Android:
 	def cxx(self):
 		if self.is_host():
 			s = 'clang++'
-			environ = getattr(ctx, 'environ', os.environ)
+			environ = getattr(self.ctx, 'environ', os.environ)
 
 			if 'CXX' in environ:
 				s = environ['CXX']
@@ -222,7 +222,7 @@ class Android:
 
 	def strip(self):
 		if self.is_host():
-			environ = getattr(ctx, 'environ', os.environ)
+			environ = getattr(self.ctx, 'environ', os.environ)
 
 			if 'STRIP' in environ:
 				return environ['STRIP']
