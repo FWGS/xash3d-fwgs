@@ -82,6 +82,9 @@ def configure(conf):
 	if hasattr(conf.options, 'DLLEMU'):
 		conf.define_cond('XASH_DLL_LOADER', conf.options.DLLEMU)
 
+	if conf.env.MAGX:
+		conf.define('XASH_CRASHHANDLER', 0)
+
 	conf.env.ENGINE_TESTS = conf.options.ENGINE_TESTS
 
 	conf.define_cond('XASH_ENGINE_TESTS', conf.env.ENGINE_TESTS)
