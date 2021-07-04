@@ -10,7 +10,16 @@ typedef struct vk_framectl_s {
 		VkImage image;
 		VkImageView image_view;
 	} depth;
-	VkRenderPass render_pass;
+
+	struct {
+		// Used when the entire rendering is traditional triangle rasterization
+		// Discards and clears color buffer
+		VkRenderPass raster;
+
+		// Used for 2D overlay rendering after ray tracing pass
+		// Preserves color buffer contents
+		VkRenderPass after_ray_tracing;
+	} render_pass;
 
 	VkSurfaceCapabilitiesKHR surface_caps;
 	VkSwapchainCreateInfoKHR create_info;

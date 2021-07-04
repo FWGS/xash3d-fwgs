@@ -16,6 +16,8 @@ static struct
 	VkFence fence;
 
 	uint32_t swapchain_image_index;
+
+	qboolean rtx_enabled;
 } g_frame;
 
 static VkFormat findSupportedImageFormat(const VkFormat *candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
@@ -99,20 +101,17 @@ static void destroyDepthImage( void ) {
 	freeDeviceMemory(&vk_frame.depth.device_memory);
 }
 
-static qboolean createRenderPass( void ) {
+static VkRenderPass createRenderPass( qboolean ray_tracing ) {
+	VkRenderPass render_pass;
+
 	VkAttachmentDescription attachments[] = {{
 		.format = VK_FORMAT_B8G8R8A8_UNORM, //SRGB,// FIXME too early swapchain.create_info.imageFormat;
 		.samples = VK_SAMPLE_COUNT_1_BIT,
-		//.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-
-		// TODO realtime switch between rtx and non-rtx requires either
-		// - re-creating render pass and all pipelines
-		// - having 2 sets of render passes and pipelines
-		.loadOp = vk_core.rtx ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR,
+		.loadOp = ray_tracing ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR /* TODO: prod renderer should not care VK_ATTACHMENT_LOAD_OP_DONT_CARE */,
 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.initialLayout = ray_tracing ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
 		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 	}, {
 		// Depth
@@ -151,9 +150,8 @@ static qboolean createRenderPass( void ) {
 		.pSubpasses = &subdesc,
 	};
 
-	XVK_CHECK(vkCreateRenderPass(vk_core.device, &rpci, NULL, &vk_frame.render_pass));
-
-	return true;
+	XVK_CHECK(vkCreateRenderPass(vk_core.device, &rpci, NULL, &render_pass));
+	return render_pass;
 }
 
 static void destroySwapchain( VkSwapchainKHR swapchain )
@@ -184,7 +182,7 @@ static qboolean createSwapchain( void )
 	create_info->imageExtent.width = vk_frame.surface_caps.currentExtent.width;
 	create_info->imageExtent.height = vk_frame.surface_caps.currentExtent.height;
 	create_info->imageArrayLayers = 1;
-	create_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | (vk_core.rtx ? VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
+	create_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | (vk_core.rtx ? /*VK_IMAGE_USAGE_STORAGE_BIT |*/ VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
 	create_info->imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	create_info->preTransform = vk_frame.surface_caps.currentTransform;
 	create_info->compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -243,7 +241,7 @@ static qboolean createSwapchain( void )
 			};
 			VkFramebufferCreateInfo fbci = {
 				.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-				.renderPass = vk_frame.render_pass,
+				.renderPass = vk_frame.render_pass.raster,
 				.attachmentCount = ARRAYSIZE(attachments),
 				.pAttachments = attachments,
 				.width = vk_frame.create_info.imageExtent.width,
@@ -318,7 +316,7 @@ void R_BeginFrame( qboolean clearScene )
 	}
 
 	vk2dBegin();
-	VK_RenderBegin();
+	VK_RenderBegin( g_frame.rtx_enabled );
 
 	{
 		VkCommandBufferBeginInfo beginfo = {
@@ -342,13 +340,13 @@ void R_EndFrame( void )
 	};
 	VkPipelineStageFlags stageflags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-	if (vk_core.rtx)
+	if (g_frame.rtx_enabled)
 		VK_RenderEndRTX( vk_core.cb, vk_frame.image_views[g_frame.swapchain_image_index], vk_frame.images[g_frame.swapchain_image_index], vk_frame.create_info.imageExtent.width, vk_frame.create_info.imageExtent.height );
 
 	{
 		VkRenderPassBeginInfo rpbi = {
 			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-			.renderPass = vk_frame.render_pass,
+			.renderPass = g_frame.rtx_enabled ? vk_frame.render_pass.after_ray_tracing : vk_frame.render_pass.raster,
 			.renderArea.extent.width = vk_frame.create_info.imageExtent.width,
 			.renderArea.extent.height = vk_frame.create_info.imageExtent.height,
 			.clearValueCount = ARRAYSIZE(clear_value),
@@ -371,7 +369,7 @@ void R_EndFrame( void )
 		vkCmdSetScissor(vk_core.cb, 0, ARRAYSIZE(scissor), scissor);
 	}
 
-	if (!vk_core.rtx)
+	if (!g_frame.rtx_enabled)
 		VK_RenderEnd( vk_core.cb );
 
 	vk2dEnd( vk_core.cb );
@@ -432,10 +430,17 @@ void R_EndFrame( void )
 	g_frame.swapchain_image_index = -1;
 }
 
+static void toggleRaytracing( void ) {
+	ASSERT(vk_core.rtx);
+	g_frame.rtx_enabled = !g_frame.rtx_enabled;
+	gEngine.Con_Printf(S_WARN "Switching ray tracing to %d\n", g_frame.rtx_enabled);
+}
+
 qboolean VK_FrameCtlInit( void )
 {
-	if (!createRenderPass())
-		return false;
+	vk_frame.render_pass.raster = createRenderPass(false);
+	if (vk_core.rtx)
+		vk_frame.render_pass.after_ray_tracing = createRenderPass(true);
 
 	if (!createSwapchain())
 		return false;
@@ -444,6 +449,11 @@ qboolean VK_FrameCtlInit( void )
 	g_frame.done = createSemaphore();
 	g_frame.fence = createFence();
 	g_frame.swapchain_image_index = -1;
+
+	g_frame.rtx_enabled = vk_core.rtx;
+
+	if (vk_core.rtx)
+		gEngine.Cmd_AddCommand("vk_rtx_toggle", toggleRaytracing, "Toggle between rasterization and ray tracing");
 
 	return true;
 }
@@ -456,5 +466,7 @@ void VK_FrameCtlShutdown( void )
 
 	destroySwapchain( vk_frame.swapchain );
 
-	vkDestroyRenderPass(vk_core.device, vk_frame.render_pass, NULL);
+	vkDestroyRenderPass(vk_core.device, vk_frame.render_pass.raster, NULL);
+	if (vk_core.rtx)
+		vkDestroyRenderPass(vk_core.device, vk_frame.render_pass.after_ray_tracing, NULL);
 }

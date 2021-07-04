@@ -851,6 +851,30 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			args->dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region,
 			VK_FILTER_NEAREST);
 	}
+
+	{
+		VkImageMemoryBarrier image_barriers[] = {
+		{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = args->dst.image,
+			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.subresourceRange =
+				(VkImageSubresourceRange){
+					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+					.baseMipLevel = 0,
+					.levelCount = 1,
+					.baseArrayLayer = 0,
+					.layerCount = 1,
+				},
+		}};
+		vkCmdPipelineBarrier(args->cmdbuf,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+	}
 }
 
 static void createLayouts( void ) {
@@ -1197,12 +1221,6 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 				returnModelToCache(ray_model);
 				ray_model = NULL;
 			} else {
-				const VkSubmitInfo subinfo = {
-					.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-					.commandBufferCount = 1,
-					.pCommandBuffers = &vk_core.cb,
-				};
-
 				ray_model->kusochki_offset = kusochki_count_offset;
 				ray_model->dynamic = args.model->dynamic;
 

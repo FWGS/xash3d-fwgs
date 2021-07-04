@@ -117,7 +117,7 @@ VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *c
 		.pColorBlendState = &color_blend,
 		.pDepthStencilState = &depth,
 		.layout = ci->layout,
-		.renderPass = vk_frame.render_pass,
+		.renderPass = vk_frame.render_pass.raster,
 		.pDynamicState = &dynamic_state_create_info,
 		.subpass = 0,
 	};
