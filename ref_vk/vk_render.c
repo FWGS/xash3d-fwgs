@@ -469,6 +469,8 @@ static struct {
 	int num_draw_commands;
 
 	matrix4x4 model, view, projection;
+
+	qboolean current_frame_is_ray_traced;
 } g_render_state;
 
 enum {
@@ -481,7 +483,7 @@ enum {
 	UNIFORM_UPLOADED = 16,
 };
 
-void VK_RenderBegin( void ) {
+void VK_RenderBegin( qboolean ray_tracing ) {
 	g_render_state.uniform_free_offset = 0;
 	g_render_state.uniform_data_set_mask = UNIFORM_UNSET;
 	g_render_state.current_ubo_offset = UINT32_MAX;
@@ -490,8 +492,9 @@ void VK_RenderBegin( void ) {
 	memset(&g_render_state.dirty_uniform_data, 0, sizeof(g_render_state.dirty_uniform_data));
 
 	g_render_state.num_draw_commands = 0;
+	g_render_state.current_frame_is_ray_traced = ray_tracing;
 
-	if (vk_core.rtx)
+	if (ray_tracing)
 		VK_RayFrameBegin();
 }
 
@@ -691,7 +694,7 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 	if (dlights_ubo_offset == UINT32_MAX)
 		return;
 
-	ASSERT(!vk_core.rtx);
+	ASSERT(!g_render_state.current_frame_is_ray_traced);
 
 	{
 		const VkDeviceSize offset = 0;
@@ -815,7 +818,7 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 }
 
 qboolean VK_RenderModelInit( vk_render_model_t *model ) {
-	if (vk_core.rtx) {
+	if (vk_core.rtx && (g_render_state.current_frame_is_ray_traced || !model->dynamic)) {
 		// TODO runtime rtx switch: ???
 		const vk_ray_model_init_t args = {
 			.buffer = g_render.buffer.buffer,
@@ -830,7 +833,7 @@ qboolean VK_RenderModelInit( vk_render_model_t *model ) {
 }
 
 void VK_RenderModelDestroy( vk_render_model_t* model ) {
-	if (vk_core.rtx) {
+	if (vk_core.rtx && (g_render_state.current_frame_is_ray_traced || !model->dynamic)) {
 		VK_RayModelDestroy(model->ray_model);
 	}
 }
@@ -842,7 +845,7 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 	vk_buffer_handle_t vertex_buffer = InvalidHandle;
 	vk_buffer_handle_t index_buffer = InvalidHandle;
 
-	if (vk_core.rtx) {
+	if (g_render_state.current_frame_is_ray_traced) {
 		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model);
 		return;
 	}
