@@ -258,7 +258,7 @@ qboolean VK_RenderInit( void )
 	// TODO device memory and friends (e.g. handle mobile memory ...)
 
 	if (!createBuffer("render buffer", &g_render.buffer, vertex_buffer_size + index_buffer_size,
-		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | (vk_core.rtx ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0),
+		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | (vk_core.rtx ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0),
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | (vk_core.rtx ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0))) // TODO staging buffer?
 		return false;
 
@@ -842,6 +842,7 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 	int current_texture = -1;
 	int index_count = 0;
 	int index_offset = -1;
+	int vertex_offset = 0;
 	vk_buffer_handle_t vertex_buffer = InvalidHandle;
 	vk_buffer_handle_t index_buffer = InvalidHandle;
 
@@ -855,7 +856,7 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 		if (geom->texture < 0)
 			continue;
 
-		if (current_texture != geom->texture || vertex_buffer != geom->vertex_buffer || index_buffer != geom->index_buffer)
+		if (current_texture != geom->texture || vertex_buffer != geom->vertex_buffer || index_buffer != geom->index_buffer || vertex_offset != geom->vertex_offset)
 		{
 			if (index_count) {
 				const render_draw_t draw = {
@@ -865,7 +866,7 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 					.element_count = index_count,
 					.vertex_buffer = vertex_buffer,
 					.index_buffer = index_buffer,
-					.vertex_offset = 0,
+					.vertex_offset = vertex_offset,
 					.index_offset = index_offset,
 				};
 
@@ -877,6 +878,7 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 			index_buffer = geom->index_buffer;
 			index_count = 0;
 			index_offset = -1;
+			vertex_offset = geom->vertex_offset;
 		}
 
 		if (index_offset < 0)
@@ -894,7 +896,7 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 			.element_count = index_count,
 			.vertex_buffer = vertex_buffer,
 			.index_buffer = index_buffer,
-			.vertex_offset = 0,
+			.vertex_offset = vertex_offset,
 			.index_offset = index_offset,
 		};
 

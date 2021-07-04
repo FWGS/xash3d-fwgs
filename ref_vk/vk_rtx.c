@@ -1152,9 +1152,6 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		const uint32_t prim_count = mg->element_count / 3;
 		const uint32_t vertex_offset = mg->vertex_offset + VK_RenderBufferGetOffsetInUnits(mg->vertex_buffer);
 		const uint32_t index_offset = mg->index_buffer == InvalidHandle ? UINT32_MAX : (mg->index_offset + VK_RenderBufferGetOffsetInUnits(mg->index_buffer));
-		// const qboolean is_emissive = ((mg->texture >= 0 && mg->texture < MAX_TEXTURES)
-		// 	? g_emissive_texture_table[mg->texture].set
-		// 	: false);
 
 		max_prims += prim_count;
 		geom_max_prim_counts[i] = prim_count;
@@ -1175,9 +1172,11 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 					},
 			};
 
-		// gEngine.Con_Printf("  g%d: v(%#x %d %#x) V%d i(%#x %d %#x) I%d\n", i,
-		// 	vertex_offset*sizeof(vk_vertex_t), mg->vertex_count * sizeof(vk_vertex_t), (vertex_offset + mg->vertex_count) * sizeof(vk_vertex_t), mg->vertex_count,
-		// 	index_offset*sizeof(uint16_t), mg->element_count * sizeof(uint16_t), (index_offset + mg->element_count) * sizeof(uint16_t), mg->element_count);
+#if 0
+		gEngine.Con_Reportf("  g%d: v(%#x %d %#x) V%d i(%#x %d %#x) I%d\n", i,
+			vertex_offset*sizeof(vk_vertex_t), mg->vertex_count * sizeof(vk_vertex_t), (vertex_offset + mg->vertex_count) * sizeof(vk_vertex_t), mg->vertex_count,
+			index_offset*sizeof(uint16_t), mg->element_count * sizeof(uint16_t), (index_offset + mg->element_count) * sizeof(uint16_t), mg->element_count);
+#endif
 
 		geom_build_ranges[i] = (VkAccelerationStructureBuildRangeInfoKHR) {
 			.primitiveCount = prim_count,
