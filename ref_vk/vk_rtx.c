@@ -204,7 +204,7 @@ typedef struct {
 	VkAccelerationStructureKHR *p_accel;
 	const VkAccelerationStructureGeometryKHR *geoms;
 	const uint32_t *max_prim_counts;
-	const VkAccelerationStructureBuildRangeInfoKHR **build_ranges;
+	const VkAccelerationStructureBuildRangeInfoKHR *build_ranges;
 	uint32_t n_geoms;
 	VkAccelerationStructureTypeKHR type;
 	qboolean dynamic;
@@ -366,7 +366,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 
 	//gEngine.Con_Reportf("AS=%p, n_geoms=%u, scratch: %#x %d %#x\n", *args->p_accel, args->n_geoms, scratch_offset_initial, scratch_buffer_size, scratch_offset_initial + scratch_buffer_size);
 
-	vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &build_info, args->build_ranges);
+	vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &build_info, &args->build_ranges);
 	return true;
 }
 
@@ -388,11 +388,10 @@ static void createTlas( VkCommandBuffer cmdbuf ) {
 	const VkAccelerationStructureBuildRangeInfoKHR tl_build_range = {
 		.primitiveCount = g_rtx.frame.num_models,
 	};
-	const VkAccelerationStructureBuildRangeInfoKHR* tl_build_ranges[] = { &tl_build_range };
 	const as_build_args_t asrgs = {
 		.geoms = tl_geom,
 		.max_prim_counts = tl_max_prim_counts,
-		.build_ranges =  cmdbuf == VK_NULL_HANDLE ? NULL : tl_build_ranges,
+		.build_ranges =  cmdbuf == VK_NULL_HANDLE ? NULL : &tl_build_range,
 		.n_geoms = ARRAYSIZE(tl_geom),
 		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
 		// we can't really rebuild TLAS because instance count changes are not allowed .dynamic = true,
@@ -1125,7 +1124,6 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 	VkAccelerationStructureGeometryKHR *geoms;
 	uint32_t *geom_max_prim_counts;
 	VkAccelerationStructureBuildRangeInfoKHR *geom_build_ranges;
-	const VkAccelerationStructureBuildRangeInfoKHR **geom_build_ranges_ptr;
 	const VkDeviceAddress buffer_addr = getBufferDeviceAddress(args.buffer);
 	vk_kusok_data_t *kusochki;
 	const uint32_t kusochki_count_offset = VK_RingBuffer_Alloc(&g_rtx.kusochki_alloc, args.model->num_geometries, 1);
@@ -1146,7 +1144,6 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 	geoms = Mem_Calloc(vk_core.pool, args.model->num_geometries * sizeof(*geoms));
 	geom_max_prim_counts = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_max_prim_counts));
 	geom_build_ranges = Mem_Calloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
-	geom_build_ranges_ptr = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
 
 	kusochki = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + kusochki_count_offset;
 
@@ -1185,7 +1182,6 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		geom_build_ranges[i] = (VkAccelerationStructureBuildRangeInfoKHR) {
 			.primitiveCount = prim_count,
 		};
-		geom_build_ranges_ptr[i] = geom_build_ranges + i;
 
 		kusochki[i].vertex_offset = vertex_offset;
 		kusochki[i].index_offset = index_offset;
@@ -1201,7 +1197,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		as_build_args_t asrgs = {
 			.geoms = geoms,
 			.max_prim_counts = geom_max_prim_counts,
-			.build_ranges = geom_build_ranges_ptr,
+			.build_ranges = geom_build_ranges,
 			.n_geoms = args.model->num_geometries,
 			.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 			.dynamic = args.model->dynamic,
@@ -1230,7 +1226,6 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		}
 	}
 
-	Mem_Free(geom_build_ranges_ptr);
 	Mem_Free(geom_build_ranges);
 	Mem_Free(geom_max_prim_counts);
 	Mem_Free(geoms); // TODO this can be cached within models_cache ??
