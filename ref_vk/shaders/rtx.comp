@@ -299,6 +299,8 @@ void main() {
 	vec3 kc = vec3(1.);
 	const float L = 10000.;
 
+	//imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(uv.x * uv.y), 1.)); return;
+
 	rand01_state = uint(mod(pc.t, 100.) * 1000.) + gl_GlobalInvocationID.x * 1823 + 31337 * gl_GlobalInvocationID.y;
 	for (int bounce = 0; bounce < pc.bounces; ++bounce) {
 		rayQueryEXT rayQuery;
@@ -313,11 +315,11 @@ void main() {
 		}
 		if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
 			// SKY/Nothing
-			C += kc * vec3(1., 0., 0.);
+			C += kc * vec3(1., 0., 1.);
 			break;
 		}
 		if (rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
-			C += kc * vec3(1., 0., 1.);
+			C += kc * vec3(1., 1., 0.);
 			break;
 		}
 
@@ -332,21 +334,15 @@ void main() {
 		// C = mix(C*.5, vec3(0., 1., 0.), printTiledNumber(pix*2., kusok_index));
 		// break;
 
-		const Kusok kusok = kusochki[kusok_index];
-
-
-		//const uint leaf = kusochki[kusok_index].leaf-1;
+		//const Kusok kusok = kusochki[kusok_index];
 
 		//C = fract(pos / LIGHT_GRID_CELL_SIZE);	break;
 		//C = vec3(hash(float(geom_index)), hash(float(geom_index)+15.43), hash(float(geom_index)+34.)); break;
+		//C = vec3(hash(float(kusok_index)), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.)); break;
 
 		// C = vec3(hash(float(instance_index)), hash(float(instance_index)+15.43), hash(float(instance_index)+34.)) + .1 * fract(pos/LIGHT_GRID_CELL_SIZE);
 		// C = mix(C*.5, vec3(0., 1., 0.), printTiledNumber(pix, instance_index));
 		// break;
-
-		//C = vec3(hash(float(leaf)), hash(float(leaf)+15.43), hash(float(leaf)+34.));
-		//C = vec3(hash(float(leaf)), float(kusok.num_surface_lights) / 63., 0.);
-		//break;
 
 		const int prim_index = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
 		const mat4x3 transform = rayQueryGetIntersectionObjectToWorldEXT(rayQuery, true);
@@ -366,7 +362,10 @@ void main() {
 		//C = normal * .5 + .5; break;
 
 		const vec2 texture_uv = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y;
-		const vec3 baseColor = pow(texture(textures[kusochki[kusok_index].texture], texture_uv).rgb, vec3(2.));
+		const uint tex_index = kusochki[kusok_index].texture;
+		//C = vec3(hash(float(tex_index)), hash(float(tex_index)+15.43), hash(float(tex_index)+34.)); break; // * vec3(texture_uv, 1.); break;
+		const vec3 baseColor = pow(texture(textures[tex_index], texture_uv).rgb, vec3(2.));
+		C = baseColor; break;
 
 		const ivec3 light_cell = ivec3(floor(pos / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
 		const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
@@ -524,7 +523,7 @@ void main() {
 		// 		C += kc * vec3(hash(float(kusok_index)-102.3), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.));//kusok.emissive.rgb;
 		//}
 
-		const float rough = kusok.roughness;
+		const float rough = kusochki[kusok_index].roughness;
 		O = pos;
 		// TODO this is totally not correct
 		D = normalize(mix(
