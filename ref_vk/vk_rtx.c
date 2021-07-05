@@ -2,24 +2,22 @@
 
 #include "vk_core.h"
 #include "vk_common.h"
-#include "vk_render.h"
 #include "vk_buffer.h"
 #include "vk_pipeline.h"
 #include "vk_cvar.h"
 #include "vk_textures.h"
 #include "vk_light.h"
 #include "vk_descriptor.h"
+#include "vk_ray_internal.h"
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
 
 #include <string.h>
 
-#define MAX_ACCELS 1024
-#define MAX_KUSOCHKI 8192
 #define MAX_SCRATCH_BUFFER (16*1024*1024)
 #define MAX_ACCELS_BUFFER (64*1024*1024)
-#define MAX_EMISSIVE_KUSOCHKI 256
+
 #define MAX_LIGHT_LEAVES 8192
 
 // TODO settings/realtime modifiable/adaptive
@@ -37,48 +35,6 @@ typedef struct {
 	vec3_t color;
 	float padding_;
 } vk_light_t;
-
-typedef struct {
-	uint32_t index_offset;
-	uint32_t vertex_offset;
-	uint32_t triangles;
-
-	// Material parameters
-	uint32_t texture;
-	float roughness;
-} vk_kusok_data_t;
-
-typedef struct {
-	uint32_t num_kusochki;
-	uint32_t padding__[3];
-	struct {
-		uint32_t kusok_index;
-		uint32_t padding__[3];
-		vec3_t emissive_color;
-		uint32_t padding___;
-		matrix3x4 transform;
-	} kusochki[MAX_EMISSIVE_KUSOCHKI];
-} vk_emissive_kusochki_t;
-
-typedef struct vk_ray_model_s {
-	VkAccelerationStructureKHR as;
-	VkAccelerationStructureGeometryKHR *geoms;
-	int max_prims;
-	int num_geoms;
-	int size;
-	uint32_t kusochki_offset;
-	qboolean dynamic;
-	qboolean taken;
-
-	struct {
-		uint32_t as_offset;
-	} debug;
-} vk_ray_model_t;
-
-typedef struct {
-	matrix3x4 transform_row;
-	vk_ray_model_t *model;
-} vk_ray_draw_model_t;
 
 typedef struct {
 	float t;
@@ -134,25 +90,6 @@ static struct {
 	// Needs: SHADER_DEVICE_ADDRESS, STORAGE_BUFFER, AS_BUILD_INPUT_READ_ONLY
 	vk_buffer_t tlas_geom_buffer;
 
-	// Geometry metadata. Lifetime is similar to geometry lifetime itself.
-	// Semantically close to render buffer (describes layout for those objects)
-	// TODO unify with render buffer
-	// Needs: STORAGE_BUFFER
-	vk_buffer_t kusochki_buffer;
-	vk_ring_buffer_t kusochki_alloc;
-
-	// TODO this should really be a single uniform buffer for matrices and light data
-
-	// Expected to be small (qualifies for uniform buffer)
-	// Two distinct modes: (TODO which?)
-	// - static map-only lighting: constant for the entire map lifetime.
-	//   Could be joined with render buffer, if not for possible uniform buffer binding optimization.
-	//   This is how it operates now.
-	// - fully dynamic lights: re-built each frame, so becomes similar to scratch_buffer and could be unified (same about uniform binding opt)
-	//   This allows studio and other non-brush model to be emissive.
-	// Needs: STORAGE/UNIFORM_BUFFER
-	vk_buffer_t emissive_kusochki_buffer;
-
 	// Planned to contain seveal types of data:
 	// - grid structure itself
 	// - lights data:
@@ -170,9 +107,6 @@ static struct {
 
 	// Per-frame data that is accumulated between RayFrameBegin and End calls
 	struct {
-		int num_models;
-		int num_lighttextures;
-		vk_ray_draw_model_t models[MAX_ACCELS];
 		uint32_t scratch_offset; // for building dynamic blases
 	} frame;
 
@@ -180,13 +114,9 @@ static struct {
 	vk_image_t frames[2];
 
 	qboolean reload_pipeline;
-	qboolean freeze_models;
-
-#define MODEL_CACHE_SIZE 1024
-	vk_ray_model_t models_cache[MODEL_CACHE_SIZE];
 } g_rtx = {0};
 
-static VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer) {
+VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer) {
 	const VkBufferDeviceAddressInfo bdai = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
 	return vkGetBufferDeviceAddress(vk_core.device, &bdai);
 }
@@ -199,88 +129,14 @@ static VkDeviceAddress getASAddress(VkAccelerationStructureKHR as) {
 	return vkGetAccelerationStructureDeviceAddressKHR(vk_core.device, &asdai);
 }
 
-typedef struct {
-	const char *debug_name;
-	VkAccelerationStructureKHR *p_accel;
-	const VkAccelerationStructureGeometryKHR *geoms;
-	const uint32_t *max_prim_counts;
-	const VkAccelerationStructureBuildRangeInfoKHR *build_ranges;
-	uint32_t n_geoms;
-	VkAccelerationStructureTypeKHR type;
-	qboolean dynamic;
-} as_build_args_t;
-
-static void returnModelToCache(vk_ray_model_t *model) {
-	ASSERT(model->taken);
-	model->taken = false;
-}
-
-static vk_ray_model_t *getModelFromCache(int num_geoms, int max_prims, const VkAccelerationStructureGeometryKHR *geoms) { //}, int size) {
-	vk_ray_model_t *model = NULL;
-	int i;
-	for (i = 0; i < ARRAYSIZE(g_rtx.models_cache); ++i)
-	{
-		int j;
-	 	model = g_rtx.models_cache + i;
-		if (model->taken)
-			continue;
-
-		if (!model->as)
-			break;
-
-		if (model->num_geoms != num_geoms)
-			continue;
-
-		if (model->max_prims != max_prims)
-			continue;
-
-		for (j = 0; j < num_geoms; ++j) {
-			if (model->geoms[j].geometryType != geoms[j].geometryType)
-				break;
-
-			if (model->geoms[j].flags != geoms[j].flags)
-				break;
-
-			if (geoms[j].geometryType == VK_GEOMETRY_TYPE_TRIANGLES_KHR) {
-				// TODO what else should we compare?
-				if (model->geoms[j].geometry.triangles.maxVertex != geoms[j].geometry.triangles.maxVertex)
-					break;
-
-				ASSERT(model->geoms[j].geometry.triangles.vertexStride == geoms[j].geometry.triangles.vertexStride);
-				ASSERT(model->geoms[j].geometry.triangles.vertexFormat == geoms[j].geometry.triangles.vertexFormat);
-				ASSERT(model->geoms[j].geometry.triangles.indexType == geoms[j].geometry.triangles.indexType);
-			} else {
-				PRINT_NOT_IMPLEMENTED_ARGS("Non-tri geometries are not implemented");
-				break;
-			}
-		}
-
-		if (j == num_geoms)
-			break;
-	}
-
-	if (i == ARRAYSIZE(g_rtx.models_cache))
-		return NULL;
-
-	// if (model->size > 0)
-	// 	ASSERT(model->size >= size);
-
-	if (!model->geoms) {
-		const size_t size = sizeof(*geoms) * num_geoms;
-		model->geoms = Mem_Malloc(vk_core.pool, size);
-		memcpy(model->geoms, geoms, size);
-		model->num_geoms = num_geoms;
-		model->max_prims = max_prims;
-	}
-
-	model->taken = true;
-	return model;
-}
-
-static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_build_args_t *args, vk_ray_model_t *model) {
+// TODO split this into smaller building blocks in a separate module
+qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_build_args_t *args, vk_ray_model_t *model) {
 	qboolean should_create = *args->p_accel == VK_NULL_HANDLE;
-	//qboolean is_update = false; // FIXME this crashes for some reason !should_create && args->dynamic;
+#if 1 // update does not work at all on AMD gpus
+	qboolean is_update = false; // FIXME this crashes for some reason !should_create && args->dynamic;
+#else
 	qboolean is_update = !should_create && args->dynamic;
+#endif
 
 	VkAccelerationStructureBuildGeometryInfoKHR build_info = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -307,7 +163,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 
 	scratch_buffer_size = is_update ? build_size.updateScratchSize : build_size.buildScratchSize;
 
-	if (0)
+#if 0
 	{
 		uint32_t max_prims = 0;
 		for (int i = 0; i < args->n_geoms; ++i)
@@ -315,6 +171,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 		gEngine.Con_Reportf(
 			"AS max_prims=%u, n_geoms=%u, build size: %d, scratch size: %d\n", max_prims, args->n_geoms, build_size.accelerationStructureSize, build_size.buildScratchSize);
 	}
+#endif
 
 	if (MAX_SCRATCH_BUFFER < g_rtx.frame.scratch_offset + scratch_buffer_size) {
 		gEngine.Con_Printf(S_ERROR "Scratch buffer overflow: left %u bytes, but need %u\n",
@@ -384,9 +241,9 @@ static void createTlas( VkCommandBuffer cmdbuf ) {
 				},
 		},
 	};
-	const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = { cmdbuf == VK_NULL_HANDLE ? MAX_ACCELS : g_rtx.frame.num_models };
+	const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = { cmdbuf == VK_NULL_HANDLE ? MAX_ACCELS : g_ray_model_state.frame.num_models };
 	const VkAccelerationStructureBuildRangeInfoKHR tl_build_range = {
-		.primitiveCount = g_rtx.frame.num_models,
+		.primitiveCount = g_ray_model_state.frame.num_models,
 	};
 	const as_build_args_t asrgs = {
 		.geoms = tl_geom,
@@ -409,11 +266,11 @@ void VK_RayNewMap( void ) {
 	ASSERT(vk_core.rtx);
 
 	VK_RingBuffer_Clear(&g_rtx.accels_buffer_alloc);
-	VK_RingBuffer_Clear(&g_rtx.kusochki_alloc);
+	VK_RingBuffer_Clear(&g_ray_model_state.kusochki_alloc);
 
 	// Clear model cache
-	for (int i = 0; i < ARRAYSIZE(g_rtx.models_cache); ++i) {
-		vk_ray_model_t *model = g_rtx.models_cache + i;
+	for (int i = 0; i < ARRAYSIZE(g_ray_model_state.models_cache); ++i) {
+		vk_ray_model_t *model = g_ray_model_state.models_cache + i;
 		VK_RayModelDestroy(model);
 	}
 
@@ -431,41 +288,22 @@ void VK_RayNewMap( void ) {
 
 void VK_RayMapLoadEnd( void ) {
 	VK_RingBuffer_Fix(&g_rtx.accels_buffer_alloc);
-	VK_RingBuffer_Fix(&g_rtx.kusochki_alloc);
+	VK_RingBuffer_Fix(&g_ray_model_state.kusochki_alloc);
 }
 
 void VK_RayFrameBegin( void )
 {
 	ASSERT(vk_core.rtx);
 
-	if (g_rtx.freeze_models)
+	g_rtx.frame.scratch_offset = 0;
+
+	if (g_ray_model_state.freeze_models)
 		return;
 
-	// FIXME we depend on the fact that only a single frame can be in flight
-	// currently framectl waits for the queue to complete before returning
-	// so we can be sure here that previous frame is complete and we're free to
-	// destroy/reuse dynamic ASes from previous frame
-	for (int i = 0; i < g_rtx.frame.num_models; ++i) {
-		vk_ray_draw_model_t *model = g_rtx.frame.models + i;
-		ASSERT(model->model);
-		if (!model->model->dynamic)
-			continue;
+	XVK_RayModel_ClearForNextFrame();
 
-		returnModelToCache(model->model);
-		model->model = NULL;
-	}
-
-	g_rtx.frame.scratch_offset = 0;
-	g_rtx.frame.num_models = 0;
-	g_rtx.frame.num_lighttextures = 0;
-
+	// TODO shouldn't we do this in freeze models mode anyway?
 	VK_LightsFrameInit();
-
-	// TODO N frames in flight
-	// HACK: blas caching requires persistent memory
-	// proper fix would need some other memory allocation strategy
-	// VK_RingBuffer_ClearFrame(&g_rtx.accels_buffer_alloc);
-	VK_RingBuffer_ClearFrame(&g_rtx.kusochki_alloc);
 }
 
 static void createPipeline( void )
@@ -510,77 +348,6 @@ static void createPipeline( void )
 	ASSERT(g_rtx.pipeline);
 }
 
-static void assertNoOverlap( uint32_t o1, uint32_t s1, uint32_t o2, uint32_t s2 ) {
-	uint32_t min_offset, min_size;
-	uint32_t max_offset;
-
-	if (o1 < o2) {
-		min_offset = o1;
-		min_size = s1;
-		max_offset = o2;
-	} else {
-		min_offset = o2;
-		min_size = s2;
-		max_offset = o1;
-	}
-
-	ASSERT(min_offset + min_size <= max_offset);
-}
-
-static void validateModelPair( const vk_ray_model_t *m1, const vk_ray_model_t *m2 ) {
-	if (m1 == m2) return;
-	if (!m2->num_geoms) return;
-	assertNoOverlap(m1->debug.as_offset, m1->size, m2->debug.as_offset, m2->size);
-	if (m1->taken && m2->taken)
-		assertNoOverlap(m1->kusochki_offset, m1->num_geoms, m2->kusochki_offset, m2->num_geoms);
-}
-
-static void validateModel( const vk_ray_model_t *model ) {
-	for (int j = 0; j < ARRAYSIZE(g_rtx.models_cache); ++j) {
-		validateModelPair(model, g_rtx.models_cache + j);
-	}
-}
-
-static void validateModels( void ) {
-	for (int i = 0; i < ARRAYSIZE(g_rtx.models_cache); ++i) {
-		validateModel(g_rtx.models_cache + i);
-	}
-}
-
-static void validateModelData( void ) {
-	const vk_kusok_data_t* kusochki = g_rtx.kusochki_buffer.mapped;
-	ASSERT(g_rtx.frame.num_models <= ARRAYSIZE(g_rtx.frame.models));
-	for (int i = 0; i < g_rtx.frame.num_models; ++i) {
-		const vk_ray_draw_model_t *draw_model = g_rtx.frame.models + i;
-		const vk_ray_model_t *model = draw_model->model;
-		int num_geoms = 1; // TODO can't validate non-dynamic models because this info is lost
-		ASSERT(model);
-		ASSERT(model->as != VK_NULL_HANDLE);
-		ASSERT(model->kusochki_offset < MAX_KUSOCHKI);
-		ASSERT(model->geoms);
-		ASSERT(model->num_geoms > 0);
-		ASSERT(model->taken);
-		num_geoms = model->num_geoms;
-
-		for (int j = 0; j < num_geoms; j++) {
-			const vk_kusok_data_t *kusok = kusochki + j;
-			const vk_texture_t *tex = findTexture(kusok->texture);
-			ASSERT(tex);
-			ASSERT(tex->vk.image_view != VK_NULL_HANDLE);
-
-			// uint32_t index_offset;
-			// uint32_t vertex_offset;
-			// uint32_t triangles;
-		}
-
-		// Check for as model memory aliasing
-		for (int j = 0; j < g_rtx.frame.num_models; ++j) {
-			const vk_ray_model_t *model2 = g_rtx.frame.models[j].model;
-			validateModelPair(model, model2);
-		}
-	}
-}
-
 void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 {
 	const VkCommandBuffer cmdbuf = args->cmdbuf;
@@ -593,7 +360,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	ASSERT(args->ubo.size == sizeof(float) * 16 * 2);
 
 	if (vk_core.debug)
-		validateModelData();
+		XVK_RayModel_Validate();
 
 	g_rtx.frame_number++;
 
@@ -612,7 +379,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 
 		// Upload dynamic emissive kusochki
 		{
-			vk_emissive_kusochki_t *ek = g_rtx.emissive_kusochki_buffer.mapped;
+			vk_emissive_kusochki_t *ek = g_ray_model_state.emissive_kusochki_buffer.mapped;
 			ASSERT(g_lights.num_emissive_surfaces <= MAX_EMISSIVE_KUSOCHKI);
 			ek->num_kusochki = g_lights.num_emissive_surfaces;
 			for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
@@ -634,8 +401,8 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	// Upload all blas instances references to GPU mem
 	{
 		VkAccelerationStructureInstanceKHR* inst = g_rtx.tlas_geom_buffer.mapped;
-		for (int i = 0; i < g_rtx.frame.num_models; ++i) {
-			const vk_ray_draw_model_t* const model = g_rtx.frame.models + i;
+		for (int i = 0; i < g_ray_model_state.frame.num_models; ++i) {
+			const vk_ray_draw_model_t* const model = g_ray_model_state.frame.models + i;
 			ASSERT(model->model);
 			ASSERT(model->model->as != VK_NULL_HANDLE);
 			inst[i] = (VkAccelerationStructureInstanceKHR){
@@ -667,7 +434,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	}
 
 	// 2. Build TLAS
-	if (g_rtx.frame.num_models > 0)
+	if (g_ray_model_state.frame.num_models > 0)
 	{
 		createTlas(cmdbuf);
 	}
@@ -696,7 +463,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		};
 
 		g_rtx.desc_values[RayDescBinding_Kusochki].buffer = (VkDescriptorBufferInfo){
-			.buffer = g_rtx.kusochki_buffer.buffer,
+			.buffer = g_ray_model_state.kusochki_buffer.buffer,
 			.offset = 0,
 			.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
 		};
@@ -726,7 +493,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		};
 
 		g_rtx.desc_values[RayDescBinding_EmissiveKusochki].buffer = (VkDescriptorBufferInfo){
-			.buffer = g_rtx.emissive_kusochki_buffer.buffer,
+			.buffer = g_ray_model_state.emissive_kusochki_buffer.buffer,
 			.offset = 0,
 			.range = VK_WHOLE_SIZE,
 		};
@@ -979,7 +746,7 @@ static void reloadPipeline( void ) {
 }
 
 static void freezeModels( void ) {
-	g_rtx.freeze_models = !g_rtx.freeze_models;
+	g_ray_model_state.freeze_models = !g_ray_model_state.freeze_models;
 }
 
 qboolean VK_RayInit( void )
@@ -1012,15 +779,15 @@ qboolean VK_RayInit( void )
 		return false;
 	}
 
-	if (!createBuffer("ray kusochki_buffer", &g_rtx.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_KUSOCHKI,
+	if (!createBuffer("ray kusochki_buffer", &g_ray_model_state.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_KUSOCHKI,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
 		return false;
 	}
-	g_rtx.kusochki_alloc.size = MAX_KUSOCHKI;
+	g_ray_model_state.kusochki_alloc.size = MAX_KUSOCHKI;
 
-	if (!createBuffer("ray emissive_kusochki_buffer", &g_rtx.emissive_kusochki_buffer, sizeof(vk_emissive_kusochki_t),
+	if (!createBuffer("ray emissive_kusochki_buffer", &g_ray_model_state.emissive_kusochki_buffer, sizeof(vk_emissive_kusochki_t),
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
@@ -1105,8 +872,8 @@ void VK_RayShutdown( void )
 	if (g_rtx.tlas != VK_NULL_HANDLE)
 		vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.tlas, NULL);
 
-	for (int i = 0; i < ARRAYSIZE(g_rtx.models_cache); ++i) {
-		vk_ray_model_t *model = g_rtx.models_cache + i;
+	for (int i = 0; i < ARRAYSIZE(g_ray_model_state.models_cache); ++i) {
+		vk_ray_model_t *model = g_ray_model_state.models_cache + i;
 		if (model->as != VK_NULL_HANDLE)
 			vkDestroyAccelerationStructureKHR(vk_core.device, model->as, NULL);
 		model->as = VK_NULL_HANDLE;
@@ -1115,164 +882,7 @@ void VK_RayShutdown( void )
 	destroyBuffer(&g_rtx.scratch_buffer);
 	destroyBuffer(&g_rtx.accels_buffer);
 	destroyBuffer(&g_rtx.tlas_geom_buffer);
-	destroyBuffer(&g_rtx.kusochki_buffer);
-	destroyBuffer(&g_rtx.emissive_kusochki_buffer);
+	destroyBuffer(&g_ray_model_state.kusochki_buffer);
+	destroyBuffer(&g_ray_model_state.emissive_kusochki_buffer);
 	destroyBuffer(&g_rtx.light_grid_buffer);
-}
-
-vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
-	VkAccelerationStructureGeometryKHR *geoms;
-	uint32_t *geom_max_prim_counts;
-	VkAccelerationStructureBuildRangeInfoKHR *geom_build_ranges;
-	const VkDeviceAddress buffer_addr = getBufferDeviceAddress(args.buffer);
-	vk_kusok_data_t *kusochki;
-	const uint32_t kusochki_count_offset = VK_RingBuffer_Alloc(&g_rtx.kusochki_alloc, args.model->num_geometries, 1);
-	vk_ray_model_t *ray_model;
-	int max_prims = 0;
-
-	ASSERT(vk_core.rtx);
-
-	if (g_rtx.freeze_models)
-		return args.model->ray_model;
-
-	if (kusochki_count_offset == AllocFailed) {
-		gEngine.Con_Printf(S_ERROR "Maximum number of kusochki exceeded on model %s\n", args.model->debug_name);
-		return false;
-	}
-
-	// FIXME don't touch allocator each frame many times pls
-	geoms = Mem_Calloc(vk_core.pool, args.model->num_geometries * sizeof(*geoms));
-	geom_max_prim_counts = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_max_prim_counts));
-	geom_build_ranges = Mem_Calloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
-
-	kusochki = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + kusochki_count_offset;
-
-	for (int i = 0; i < args.model->num_geometries; ++i) {
-		vk_render_geometry_t *mg = args.model->geometries + i;
-		const uint32_t prim_count = mg->element_count / 3;
-		const uint32_t vertex_offset = mg->vertex_offset + VK_RenderBufferGetOffsetInUnits(mg->vertex_buffer);
-		const uint32_t index_offset = mg->index_buffer == InvalidHandle ? UINT32_MAX : (mg->index_offset + VK_RenderBufferGetOffsetInUnits(mg->index_buffer));
-
-		max_prims += prim_count;
-		geom_max_prim_counts[i] = prim_count;
-		geoms[i] = (VkAccelerationStructureGeometryKHR)
-			{
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-				.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
-				.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
-				.geometry.triangles =
-					(VkAccelerationStructureGeometryTrianglesDataKHR){
-						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-						.indexType = mg->index_buffer == InvalidHandle ? VK_INDEX_TYPE_NONE_KHR : VK_INDEX_TYPE_UINT16,
-						.maxVertex = mg->vertex_count,
-						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-						.vertexStride = sizeof(vk_vertex_t),
-						.vertexData.deviceAddress = buffer_addr + vertex_offset * sizeof(vk_vertex_t),
-						.indexData.deviceAddress = buffer_addr + index_offset * sizeof(uint16_t),
-					},
-			};
-
-#if 0
-		gEngine.Con_Reportf("  g%d: v(%#x %d %#x) V%d i(%#x %d %#x) I%d\n", i,
-			vertex_offset*sizeof(vk_vertex_t), mg->vertex_count * sizeof(vk_vertex_t), (vertex_offset + mg->vertex_count) * sizeof(vk_vertex_t), mg->vertex_count,
-			index_offset*sizeof(uint16_t), mg->element_count * sizeof(uint16_t), (index_offset + mg->element_count) * sizeof(uint16_t), mg->element_count);
-#endif
-
-		geom_build_ranges[i] = (VkAccelerationStructureBuildRangeInfoKHR) {
-			.primitiveCount = prim_count,
-		};
-
-		kusochki[i].vertex_offset = vertex_offset;
-		kusochki[i].index_offset = index_offset;
-		kusochki[i].triangles = prim_count;
-
-		kusochki[i].texture = mg->texture;
-		kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.;
-
-		mg->kusok_index = i + kusochki_count_offset;
-	}
-
-	{
-		as_build_args_t asrgs = {
-			.geoms = geoms,
-			.max_prim_counts = geom_max_prim_counts,
-			.build_ranges = geom_build_ranges,
-			.n_geoms = args.model->num_geometries,
-			.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
-			.dynamic = args.model->dynamic,
-			.debug_name = args.model->debug_name,
-		};
-		ray_model = getModelFromCache(args.model->num_geometries, max_prims, geoms); //, build_size.accelerationStructureSize);
-		if (!ray_model) {
-			gEngine.Con_Printf(S_ERROR "Ran out of model cache slots\n");
-		} else {
-			qboolean result;
-			asrgs.p_accel = &ray_model->as;
-			result = createOrUpdateAccelerationStructure(vk_core.cb, &asrgs, ray_model);
-
-			if (!result)
-			{
-				gEngine.Con_Printf(S_ERROR "Could not build BLAS for %s\n", args.model->debug_name);
-				returnModelToCache(ray_model);
-				ray_model = NULL;
-			} else {
-				ray_model->kusochki_offset = kusochki_count_offset;
-				ray_model->dynamic = args.model->dynamic;
-
-				if (vk_core.debug)
-					validateModel(ray_model);
-			}
-		}
-	}
-
-	Mem_Free(geom_build_ranges);
-	Mem_Free(geom_max_prim_counts);
-	Mem_Free(geoms); // TODO this can be cached within models_cache ??
-
-	//gEngine.Con_Reportf("Model %s (%p) created blas %p\n", args.model->debug_name, args.model, args.model->rtx.blas);
-
-	return ray_model;
-}
-
-void VK_RayModelDestroy( struct vk_ray_model_s *model ) {
-	ASSERT(!g_rtx.freeze_models);
-
-	ASSERT(vk_core.rtx);
-	if (model->as != VK_NULL_HANDLE) {
-		//gEngine.Con_Reportf("Model %s destroying AS=%p blas_index=%d\n", model->debug_name, model->rtx.blas, blas_index);
-
-		vkDestroyAccelerationStructureKHR(vk_core.device, model->as, NULL);
-		Mem_Free(model->geoms);
-		memset(model, 0, sizeof(*model));
-	}
-}
-
-void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row ) {
-	ASSERT(vk_core.rtx);
-	ASSERT(g_rtx.frame.num_models <= ARRAYSIZE(g_rtx.frame.models));
-
-	if (g_rtx.freeze_models)
-		return;
-
-	if (g_rtx.frame.num_models == ARRAYSIZE(g_rtx.frame.models)) {
-		gEngine.Con_Printf(S_ERROR "Ran out of AccelerationStructure slots\n");
-		return;
-	}
-
-	{
-		vk_ray_draw_model_t* draw_model = g_rtx.frame.models + g_rtx.frame.num_models;
-		ASSERT(model->as != VK_NULL_HANDLE);
-		draw_model->model = model;
-		memcpy(draw_model->transform_row, *transform_row, sizeof(draw_model->transform_row));
-		g_rtx.frame.num_models++;
-	}
-
-	if (render_model)
-		VK_LightsAddEmissiveSurfacesFromModel( render_model, transform_row );
-
-	for (int i = 0; i < render_model->num_geometries; ++i) {
-		const vk_render_geometry_t *geom = render_model->geometries + i;
-		vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + geom->kusok_index;
-		kusok->texture = geom->texture;
-	}
 }
