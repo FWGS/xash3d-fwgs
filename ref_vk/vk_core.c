@@ -130,8 +130,7 @@ static const char* device_extensions[] = {
 
 	// Optional: RTX
 	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-	//VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-	VK_KHR_RAY_QUERY_EXTENSION_NAME,
+	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 
 	// FIXME make this not depend on RTX
@@ -388,8 +387,8 @@ static qboolean pickAndCreateDevice( void )
 		};
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR accel_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
-			.accelerationStructure = VK_TRUE,
 			.pNext = &buffer_address_feature,
+			.accelerationStructure = VK_TRUE,
 		};
 		VkPhysicalDevice8BitStorageFeatures eight_bit_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES,
@@ -402,12 +401,13 @@ static qboolean pickAndCreateDevice( void )
 			.pNext = &eight_bit_feature,
 			.storageBuffer16BitAccess = VK_TRUE,
 		};
-		VkPhysicalDeviceRayQueryFeaturesKHR ray_query_feature = {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
-			.rayQuery = VK_TRUE,
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_feature = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
 			.pNext = &sixteen_bit_feature,
+			.rayTracingPipeline = VK_TRUE,
+			// TODO .rayTraversalPrimitiveCulling = VK_TRUE,
 		};
-		void *head = &ray_query_feature;
+		void *head = &ray_tracing_pipeline_feature;
 #ifdef USE_AFTERMATH
 		VkDeviceDiagnosticsConfigCreateInfoNV diag_config_nv = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV,
@@ -448,6 +448,9 @@ static qboolean pickAndCreateDevice( void )
 			loadDeviceFunctions(device_funcs_rtx, ARRAYSIZE(device_funcs_rtx));
 			vk_core.physical_device.properties2.pNext = &vk_core.physical_device.properties_accel;
 			vk_core.physical_device.properties_accel.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+			vk_core.physical_device.properties_accel.pNext = &vk_core.physical_device.properties_ray_tracing_pipeline;
+			vk_core.physical_device.properties_ray_tracing_pipeline.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+			vk_core.physical_device.properties_ray_tracing_pipeline.pNext = NULL;
 		}
 
 		// TODO should we check Vk version first?

@@ -42,6 +42,7 @@ typedef struct physical_device_s {
 	VkPhysicalDeviceProperties properties;
 	VkPhysicalDeviceProperties2 properties2;
 	VkPhysicalDeviceAccelerationStructurePropertiesKHR properties_accel;
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR properties_ray_tracing_pipeline;
 } physical_device_t;
 
 typedef struct vulkan_core_s {
@@ -213,6 +214,9 @@ do { \
 	X(vkCmdBuildAccelerationStructuresKHR) \
 	X(vkDestroyAccelerationStructureKHR) \
 	X(vkGetAccelerationStructureDeviceAddressKHR) \
+	X(vkCmdTraceRaysKHR) \
+	X(vkCreateRayTracingPipelinesKHR) \
+	X(vkGetRayTracingShaderGroupHandlesKHR) \
 
 #define X(f) extern PFN_##f f;
 	DEVICE_FUNCS(X)

@@ -20,6 +20,8 @@
 
 #define MAX_LIGHT_LEAVES 8192
 
+#define SBT_SIZE 1
+
 // TODO settings/realtime modifiable/adaptive
 #define FRAME_WIDTH 1280
 #define FRAME_HEIGHT 720
@@ -69,6 +71,10 @@ static struct {
 	VkDescriptorSet desc_sets[1];
 
 	VkPipeline pipeline;
+
+	// Shader binding table buffer
+	vk_buffer_t sbt_buffer;
+	uint32_t sbt_record_size;
 
 	// Stores AS built data. Lifetime similar to render buffer:
 	// - some portion lives for entire map lifetime
@@ -338,14 +344,53 @@ static void createPipeline( void )
 		.dataSize = sizeof(spec_data),
 		.pData = &spec_data,
 	};
-	const vk_pipeline_compute_create_info_t ci = {
-		.layout = g_rtx.descriptors.pipeline_layout,
-		.shader_filename = "rtx.comp.spv",
-		.specialization_info = &spec,
+
+	const VkPipelineShaderStageCreateInfo shaders[] = {
+		{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+			.module = loadShader("ray.rgen.spv"),
+			.pSpecializationInfo = &spec,
+			.pName = "main",
+		},
 	};
 
-	g_rtx.pipeline = VK_PipelineComputeCreate(&ci);
-	ASSERT(g_rtx.pipeline);
+	const VkRayTracingShaderGroupCreateInfoKHR shader_groups[SBT_SIZE] = {
+		{
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.generalShader = 0, // raygen stage index; FIXME enum
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		}
+	};
+
+	const VkRayTracingPipelineCreateInfoKHR rtpci = {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+		//TODO .flags = VK_PIPELINE_CREATE_RAY_TRACING_NO_NULL_ANY_HIT_SHADERS_BIT_KHR  ....
+		.stageCount = ARRAYSIZE(shaders),
+		.pStages = shaders,
+		.groupCount = ARRAYSIZE(shader_groups),
+		.pGroups = shader_groups,
+		.maxPipelineRayRecursionDepth = 1,
+		.layout = g_rtx.descriptors.pipeline_layout,
+	};
+
+	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &g_rtx.pipeline));
+
+	{
+		const uint32_t sbt_handle_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
+		const uint32_t sbt_handles_buffer_size =  SBT_SIZE * sbt_handle_size;
+		uint8_t *sbt_handles = Mem_Malloc(vk_core.pool, sbt_handles_buffer_size);
+		XVK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(vk_core.device, g_rtx.pipeline, 0, SBT_SIZE, sbt_handles_buffer_size, sbt_handles));
+		for (int i = 0; i < SBT_SIZE; ++i)
+		{
+			uint8_t *sbt_dst = g_rtx.sbt_buffer.mapped;
+			memcpy(sbt_dst + g_rtx.sbt_record_size * i, sbt_handles + sbt_handle_size, sbt_handle_size);
+		}
+		Mem_Free(sbt_handles);
+	}
 }
 
 void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
@@ -543,23 +588,35 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 					.baseArrayLayer = 0,
 					.layerCount = 1,
 			}} };
-			vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0,
+			vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0,
 				0, NULL, ARRAYSIZE(bmb), bmb, ARRAYSIZE(image_barrier), image_barrier);
 		}
 
 	if (g_rtx.tlas) {
-		// 4. dispatch compute
-		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline);
+		// 4. dispatch ray tracing
+		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_rtx.pipeline);
 		{
 			vk_rtx_push_constants_t push_constants = {
 				.t = gpGlobals->realtime,
 				.bounces = vk_rtx_bounces->value,
 				.prev_frame_blend_factor = vk_rtx_prev_frame_blend_factor->value,
 			};
-			vkCmdPushConstants(cmdbuf, g_rtx.descriptors.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants), &push_constants);
+			vkCmdPushConstants(cmdbuf, g_rtx.descriptors.pipeline_layout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(push_constants), &push_constants);
 		}
-		vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.descriptors.pipeline_layout, 0, 1, g_rtx.descriptors.desc_sets + 0, 0, NULL);
-		vkCmdDispatch(cmdbuf, (FRAME_WIDTH + WG_W - 1) / WG_W, (FRAME_HEIGHT + WG_H - 1) / WG_H, 1);
+		vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_rtx.descriptors.pipeline_layout, 0, 1, g_rtx.descriptors.desc_sets + 0, 0, NULL);
+
+		{
+			const VkStridedDeviceAddressRegionKHR sbt_raygen = {
+				.deviceAddress = getBufferDeviceAddress(g_rtx.sbt_buffer.buffer),
+				.size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize,
+				.stride = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize,
+			};
+			const VkStridedDeviceAddressRegionKHR sbt_miss = { .deviceAddress = 0, };
+			const VkStridedDeviceAddressRegionKHR sbt_hit = { .deviceAddress = 0, };
+			const VkStridedDeviceAddressRegionKHR sbt_callable = { .deviceAddress = 0, };
+
+			vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_hit, &sbt_miss, &sbt_callable, FRAME_WIDTH, FRAME_HEIGHT, 1 );
+		}
 	}
 
 	// Blit RTX frame onto swapchain image
@@ -598,7 +655,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 				},
 		}};
 		vkCmdPipelineBarrier(args->cmdbuf,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
 	}
@@ -654,84 +711,84 @@ static void createLayouts( void ) {
 	g_rtx.descriptors.push_constants = (VkPushConstantRange){
 		.offset = 0,
 		.size = sizeof(vk_rtx_push_constants_t),
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_DestImage] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_DestImage,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_TLAS] = (VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_TLAS,
 		.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_UBOMatrices] = (VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_UBOMatrices,
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_Kusochki] = (VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Kusochki,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_Indices] = (VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Indices,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_Vertices] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Vertices,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_UBOLights] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_UBOLights,
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_EmissiveKusochki] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_EmissiveKusochki,
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_PrevFrame] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_PrevFrame,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_LightClusters] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_LightClusters,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_Textures] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Textures,
 		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		.descriptorCount = MAX_TEXTURES,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 		.pImmutableSamplers = samplers,
 	};
 
@@ -753,6 +810,18 @@ qboolean VK_RayInit( void )
 {
 	ASSERT(vk_core.rtx);
 	// TODO complain and cleanup on failure
+
+	//g_rtx.sbt_record_size = ALIGN_UP(vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize, vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleAlignment);
+	g_rtx.sbt_record_size = ALIGN_UP(vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize, vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupBaseAlignment);
+
+	if (!createBuffer("ray sbt_buffer", &g_rtx.sbt_buffer, SBT_SIZE * g_rtx.sbt_record_size,
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	{
+		return false;
+	}
+
+
 	if (!createBuffer("ray accels_buffer", &g_rtx.accels_buffer, MAX_ACCELS_BUFFER,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
@@ -835,7 +904,7 @@ qboolean VK_RayInit( void )
 		};
 
 		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
-		vkCmdPipelineBarrier(vk_core.cb, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0,
+		vkCmdPipelineBarrier(vk_core.cb, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0,
 			0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
 		vkCmdClearColorImage(vk_core.cb, frame_src->image, VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &image_barriers->subresourceRange);
 		XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
@@ -885,4 +954,5 @@ void VK_RayShutdown( void )
 	destroyBuffer(&g_ray_model_state.kusochki_buffer);
 	destroyBuffer(&g_ray_model_state.emissive_kusochki_buffer);
 	destroyBuffer(&g_rtx.light_grid_buffer);
+	destroyBuffer(&g_rtx.sbt_buffer);
 }

@@ -43,3 +43,5 @@ VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci)
 
 qboolean VK_PipelineInit( void );
 void VK_PipelineShutdown( void );
+
+extern VkPipelineCache g_pipeline_cache;
