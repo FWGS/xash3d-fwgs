@@ -1,8 +1,8 @@
 #version 460 core
 
-#extension GL_EXT_ray_tracing : enable
-#extension GL_EXT_shader_16bit_storage : require
-#extension GL_EXT_shader_8bit_storage : require
+#extension GL_EXT_ray_tracing : require
+// #extension GL_EXT_shader_16bit_storage : require
+// #extension GL_EXT_shader_8bit_storage : require
 
 // FIXME shader specialization
 //layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
@@ -17,6 +17,7 @@ layout(binding = 2, set = 0) uniform UBO {
 	//Light lights[];
 } ubo;
 
+#if 0
 struct Kusok {
 	uint index_offset;
 	uint vertex_offset;
@@ -100,11 +101,26 @@ layout (push_constant) uniform PC {
 	int bounces;
 	float prev_frame_blend_factor;
 } pc;
+#endif
+
+layout(location = 0) rayPayloadEXT vec4 ray_result;
 
 void main() {
-	// vec2 res = imageSize(image);
-	// vec2 uv = (gl_LaunchIDEXT.xy + .5) / res * 2. - 1.;
+	vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
+
+	vec4 origin    = ubo.inv_view * vec4(0, 0, 0, 1);
+	vec4 target    = ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
+	vec4 direction = ubo.inv_view * vec4(normalize(target.xyz), 0);
+
+	const uint sbt_offset = 0;
+	const uint sbt_stride = 0;
+	const uint miss_index = 0;
+	const float L = 10000.;
+	traceRayEXT(tlas, gl_RayFlagsOpaqueEXT, 0xff,
+		sbt_offset, sbt_stride, miss_index,
+		origin.rgb, 0., direction.rgb, L, 0);
 
 	//imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(vec3(uv.x * uv.y), 1.)); return;
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(1.)); return;
+	//vec3 c = vec3(fract(gl_LaunchIDEXT.xy / 10.), 1.);
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), ray_result);//vec4(c, 1.));
 }

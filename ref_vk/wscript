@@ -62,7 +62,7 @@ def configure(conf):
 	# TODO if debug
 	conf.env.GLSLCFLAGS += ['-g']
 
-	# TODO for rtx shaders only (rgen, ...)
+	# TODO for rtx shaders only (rgen, rmiss, rchit, ...)
 	conf.env.GLSLCFLAGS += ['--target-env=vulkan1.2']
 
 def build(bld):
@@ -74,7 +74,7 @@ def build(bld):
 	libpath = []
 
 	source = bld.path.ant_glob(['*.c'])
-	glsl_source = bld.path.ant_glob(['shaders/*.vert', 'shaders/*.frag', 'shaders/*.comp', 'shaders/*.rgen'])
+	glsl_source = bld.path.ant_glob(['shaders/*.vert', 'shaders/*.frag', 'shaders/*.comp', 'shaders/*.rgen', 'shaders/*.rchit', 'shaders/*.rmiss'])
 
 	includes = ['.',
 		'../engine',
