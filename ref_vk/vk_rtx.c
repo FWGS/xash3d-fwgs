@@ -379,6 +379,9 @@ static void createPipeline( void )
 
 	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &g_rtx.pipeline));
 
+	for (int i = 0; i < ARRAYSIZE(shaders); ++i)
+		vkDestroyShaderModule(vk_core.device, shaders[i].module, NULL);
+
 	{
 		const uint32_t sbt_handle_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
 		const uint32_t sbt_handles_buffer_size =  SBT_SIZE * sbt_handle_size;
