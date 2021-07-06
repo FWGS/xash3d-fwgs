@@ -189,7 +189,7 @@ static void loadDeviceFunctions(dllfunc_t *funcs, int count)
 
 static qboolean createInstance( void )
 {
-	char ** instance_extensions = NULL;
+	const char ** instance_extensions = NULL;
 	unsigned int num_instance_extensions = vk_core.debug ? 1 : 0;
 	VkApplicationInfo app_info = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -218,7 +218,7 @@ static qboolean createInstance( void )
 	if (vid_extensions < 0)
 	{
 		gEngine.Con_Printf( S_ERROR "Cannot get Vulkan instance extensions\n" );
-		Mem_Free(instance_extensions);
+		Mem_Free((void*)instance_extensions);
 		return false;
 	}
 
@@ -268,7 +268,7 @@ static qboolean createInstance( void )
 		}
 	}
 
-	Mem_Free(instance_extensions);
+	Mem_Free((void*)instance_extensions);
 	return true;
 }
 

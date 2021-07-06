@@ -166,7 +166,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 
 	if (kusochki_count_offset == AllocFailed) {
 		gEngine.Con_Printf(S_ERROR "Maximum number of kusochki exceeded on model %s\n", args.model->debug_name);
-		return false;
+		return NULL;
 	}
 
 	// FIXME don't touch allocator each frame many times pls
