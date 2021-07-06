@@ -3,8 +3,11 @@
 #include "vk_rtx.h"
 #include "vk_textures.h"
 #include "vk_render.h"
+#include "vk_light.h"
 
 #include "eiface.h"
+
+#include <string.h>
 
 xvk_ray_model_state_t g_ray_model_state;
 

@@ -92,7 +92,8 @@ def build(bld):
 		defines.append('USE_AFTERMATH')
 		libs.append('AFTERMATH')
 
-	#FIXME bld.env.CFLAGS += ["/WX"]
+	if bld.env.COMPILER_CC == 'msvc':
+		bld.env.CFLAGS += ['/WX']
 
 	bld.shlib(
 		source   = source,
