@@ -73,6 +73,7 @@ GNU General Public License for more details.
 
 #define Q_min( a, b )	(((a) < (b)) ? (a) : (b))
 #define Q_max( a, b )	(((a) > (b)) ? (a) : (b))
+#define Q_equal( a, b ) (((a) > ((b) - EQUAL_EPSILON)) && ((a) < ((b) + EQUAL_EPSILON)))
 #define Q_recip( a )	((float)(1.0f / (float)(a)))
 #define Q_floor( a )	((float)(int)(a))
 #define Q_ceil( a )		((float)(int)((a) + 1))
