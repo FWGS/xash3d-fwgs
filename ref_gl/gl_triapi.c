@@ -338,7 +338,7 @@ void TriCullFace( TRICULLSTYLE mode )
 		break;
 	}
 
-	GL_Cull( mode );
+	GL_Cull( glMode );
 }
 
 /*
