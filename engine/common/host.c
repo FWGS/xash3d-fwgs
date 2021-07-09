@@ -822,7 +822,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		Sys_SetupCrashHandler();
 
 	host.enabledll = !Sys_CheckParm( "-nodll" );
-
+	host.features = 0;
 	host.change_game = bChangeGame;
 	host.config_executed = false;
 	host.status = HOST_INIT; // initialzation started

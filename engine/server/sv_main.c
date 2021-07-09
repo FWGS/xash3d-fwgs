@@ -49,6 +49,7 @@ CVAR_DEFINE_AUTO( sv_logbans, "0", 0, "print into the server log info about play
 CVAR_DEFINE_AUTO( sv_allow_upload, "1", FCVAR_SERVER, "allow uploading custom resources on a server" );
 CVAR_DEFINE_AUTO( sv_allow_download, "1", FCVAR_SERVER, "allow downloading custom resources to the client" );
 CVAR_DEFINE_AUTO( sv_uploadmax, "0.5", FCVAR_SERVER, "max size to upload custom resources (500 kB as default)" );
+CVAR_DEFINE_AUTO( sv_computestudiolerp, "1", FCVAR_SERVER, "enable MOVETYPE_STEP lerping back in engine (smoothing NPCs in multiplayer)" );
 CVAR_DEFINE_AUTO( sv_downloadurl, "", FCVAR_PROTECTED, "location from which clients can download missing files" );
 CVAR_DEFINE( sv_consistency, "mp_consistency", "1", FCVAR_SERVER, "enbale consistency check in multiplayer" );
 CVAR_DEFINE_AUTO( mp_logecho, "1", 0, "log multiplayer frags to server logfile" );
@@ -918,6 +919,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_send_logos );
 	Cvar_RegisterVariable( &sv_send_resources );
 	Cvar_RegisterVariable( &sv_uploadmax );
+	Cvar_RegisterVariable( &sv_computestudiolerp );
 	Cvar_RegisterVariable( &sv_version );
 	Cvar_RegisterVariable( &sv_instancedbaseline );
 	Cvar_RegisterVariable( &sv_consistency );

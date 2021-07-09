@@ -428,6 +428,7 @@ extern convar_t		sv_skyvec_z;
 extern convar_t		sv_consistency;
 extern convar_t		sv_password;
 extern convar_t		sv_uploadmax;
+extern convar_t     sv_computestudiolerp;
 extern convar_t		deathmatch;
 extern convar_t		hostname;
 extern convar_t		skill;
