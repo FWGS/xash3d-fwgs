@@ -1,8 +1,9 @@
 #version 460 core
-#extension GL_EXT_ray_tracing: require
+#extension GL_GOOGLE_include_directive : require
+#include "ray_common.glsl"
 
-layout(location = 0) rayPayloadInEXT vec4 ray_result;
+layout(location = 0) rayPayloadInEXT RayResult ray_result;
 
 void main() {
-    ray_result = vec4(1., 0., 1., 0.);
+    ray_result.color = vec3(1., 0., 1.);
 }

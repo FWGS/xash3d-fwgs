@@ -54,10 +54,10 @@ enum {
 	RayDescBinding_TLAS = 1,
 	RayDescBinding_UBOMatrices = 2,
 
-	RayDescBinding_Kusochki = 3,
-	RayDescBinding_Indices = 4,
-	RayDescBinding_Vertices = 5,
-	RayDescBinding_Textures = 6,
+	// RayDescBinding_Kusochki = 3,
+	// RayDescBinding_Indices = 4,
+	// RayDescBinding_Vertices = 5,
+	// RayDescBinding_Textures = 6,
 
 	// RayDescBinding_UBOLights = 7,
 	// RayDescBinding_EmissiveKusochki = 8,
@@ -154,7 +154,7 @@ qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_bu
 		.mode =  is_update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
 		.geometryCount = args->n_geoms,
 		.pGeometries = args->geoms,
-		.srcAccelerationStructure = *args->p_accel,
+		.srcAccelerationStructure = is_update ? *args->p_accel : VK_NULL_HANDLE,
 	};
 
 	VkAccelerationStructureBuildSizesInfoKHR build_size = {
@@ -250,7 +250,7 @@ static void createTlas( VkCommandBuffer cmdbuf ) {
 				},
 		},
 	};
-	const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = { cmdbuf == VK_NULL_HANDLE ? MAX_ACCELS : g_ray_model_state.frame.num_models };
+	const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = { MAX_ACCELS }; //cmdbuf == VK_NULL_HANDLE ? MAX_ACCELS : g_ray_model_state.frame.num_models };
 	const VkAccelerationStructureBuildRangeInfoKHR tl_build_range = {
 		.primitiveCount = g_ray_model_state.frame.num_models,
 	};
@@ -358,15 +358,15 @@ static void createPipeline( void )
 		},
 		{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-			.module = loadShader("ray.rchit.spv"),
+			.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
+			.module = loadShader("ray.rmiss.spv"),
 			//.pSpecializationInfo = &spec,
 			.pName = "main",
 		},
 		{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
-			.module = loadShader("ray.rmiss.spv"),
+			.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+			.module = loadShader("ray.rchit.spv"),
 			//.pSpecializationInfo = &spec,
 			.pName = "main",
 		},
@@ -383,20 +383,20 @@ static void createPipeline( void )
 		},
 		{
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
 			.anyHitShader = VK_SHADER_UNUSED_KHR,
-			.closestHitShader = 1, // FIXME enum index
-			.generalShader = VK_SHADER_UNUSED_KHR,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.generalShader = 1, // miss stage index; FIXME enum
 			.intersectionShader = VK_SHADER_UNUSED_KHR,
 		},
 		{
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
 			.anyHitShader = VK_SHADER_UNUSED_KHR,
-			.closestHitShader = VK_SHADER_UNUSED_KHR,
-			.generalShader = 2, // miss stage index; FIXME enum
+			.closestHitShader = 2, // FIXME enum index
+			.generalShader = VK_SHADER_UNUSED_KHR,
 			.intersectionShader = VK_SHADER_UNUSED_KHR,
-		}
+		},
 	};
 
 	const VkRayTracingPipelineCreateInfoKHR rtpci = {
@@ -413,21 +413,22 @@ static void createPipeline( void )
 	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &g_rtx.pipeline));
 	ASSERT(g_rtx.pipeline != VK_NULL_HANDLE);
 
-	for (int i = 0; i < ARRAYSIZE(shaders); ++i)
-		vkDestroyShaderModule(vk_core.device, shaders[i].module, NULL);
-
 	{
+		ASSERT(SBT_SIZE == ARRAYSIZE(shader_groups));
 		const uint32_t sbt_handle_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
-		const uint32_t sbt_handles_buffer_size =  SBT_SIZE * sbt_handle_size;
+		const uint32_t sbt_handles_buffer_size = ARRAYSIZE(shader_groups) * sbt_handle_size;
 		uint8_t *sbt_handles = Mem_Malloc(vk_core.pool, sbt_handles_buffer_size);
-		XVK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(vk_core.device, g_rtx.pipeline, 0, SBT_SIZE, sbt_handles_buffer_size, sbt_handles));
-		for (int i = 0; i < SBT_SIZE; ++i)
+		XVK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(vk_core.device, g_rtx.pipeline, 0, ARRAYSIZE(shader_groups), sbt_handles_buffer_size, sbt_handles));
+		for (int i = 0; i < ARRAYSIZE(shader_groups); ++i)
 		{
 			uint8_t *sbt_dst = g_rtx.sbt_buffer.mapped;
 			memcpy(sbt_dst + g_rtx.sbt_record_size * i, sbt_handles + sbt_handle_size * i, sbt_handle_size);
 		}
 		Mem_Free(sbt_handles);
 	}
+
+	for (int i = 0; i < ARRAYSIZE(shaders); ++i)
+		vkDestroyShaderModule(vk_core.device, shaders[i].module, NULL);
 }
 
 void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
@@ -538,47 +539,47 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		// 	.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 		// };
 
-		g_rtx.desc_values[RayDescBinding_UBOMatrices].buffer = (VkDescriptorBufferInfo){
-			.buffer = args->ubo.buffer,
-			.offset = args->ubo.offset,
-			.range = args->ubo.size,
-		};
-
-		g_rtx.desc_values[RayDescBinding_Kusochki].buffer = (VkDescriptorBufferInfo){
-			.buffer = g_ray_model_state.kusochki_buffer.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
-		};
-
-		g_rtx.desc_values[RayDescBinding_Indices].buffer = (VkDescriptorBufferInfo){
-			.buffer = args->geometry_data.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-		};
-
-		g_rtx.desc_values[RayDescBinding_Vertices].buffer = (VkDescriptorBufferInfo){
-			.buffer = args->geometry_data.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-		};
-
 		g_rtx.desc_values[RayDescBinding_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
 			.accelerationStructureCount = 1,
 			.pAccelerationStructures = &g_rtx.tlas,
 		};
 
-		g_rtx.desc_values[RayDescBinding_Textures].image_array = dii_all_textures;
+		g_rtx.desc_values[RayDescBinding_UBOMatrices].buffer = (VkDescriptorBufferInfo){
+			.buffer = args->ubo.buffer,
+			.offset = args->ubo.offset,
+			.range = args->ubo.size,
+		};
 
-		// TODO: move this to vk_texture.c
-		for (int i = 0; i < MAX_TEXTURES; ++i) {
-			const vk_texture_t *texture = findTexture(i);
-			const qboolean exists = texture->vk.image_view != VK_NULL_HANDLE;
-			dii_all_textures[i].sampler = VK_NULL_HANDLE;
-			dii_all_textures[i].imageView = exists ? texture->vk.image_view : findTexture(tglob.defaultTexture)->vk.image_view;
-			ASSERT(dii_all_textures[i].imageView != VK_NULL_HANDLE);
-			dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		}
+		// g_rtx.desc_values[RayDescBinding_Kusochki].buffer = (VkDescriptorBufferInfo){
+		// 	.buffer = g_ray_model_state.kusochki_buffer.buffer,
+		// 	.offset = 0,
+		// 	.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
+		// };
+
+		// g_rtx.desc_values[RayDescBinding_Indices].buffer = (VkDescriptorBufferInfo){
+		// 	.buffer = args->geometry_data.buffer,
+		// 	.offset = 0,
+		// 	.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
+		// };
+
+		// g_rtx.desc_values[RayDescBinding_Vertices].buffer = (VkDescriptorBufferInfo){
+		// 	.buffer = args->geometry_data.buffer,
+		// 	.offset = 0,
+		// 	.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
+		// };
+
+		// g_rtx.desc_values[RayDescBinding_Textures].image_array = dii_all_textures;
+
+		// // TODO: move this to vk_texture.c
+		// for (int i = 0; i < MAX_TEXTURES; ++i) {
+		// 	const vk_texture_t *texture = findTexture(i);
+		// 	const qboolean exists = texture->vk.image_view != VK_NULL_HANDLE;
+		// 	dii_all_textures[i].sampler = VK_NULL_HANDLE;
+		// 	dii_all_textures[i].imageView = exists ? texture->vk.image_view : findTexture(tglob.defaultTexture)->vk.image_view;
+		// 	ASSERT(dii_all_textures[i].imageView != VK_NULL_HANDLE);
+		// 	dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		// }
 
 		// g_rtx.desc_values[RayDescBinding_UBOLights].buffer = (VkDescriptorBufferInfo){
 		// 	.buffer = args->dlights.buffer,
@@ -651,11 +652,11 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	.stride = sbt_record_size, \
 }
 			const VkStridedDeviceAddressRegionKHR sbt_raygen = SBT_INDEX(0);
-			const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(2);
-			const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(1);
+			const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(1);
+			const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(2);
 			const VkStridedDeviceAddressRegionKHR sbt_callable = { 0 };
 
-			vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_hit, &sbt_miss, &sbt_callable, FRAME_WIDTH, FRAME_HEIGHT, 1 );
+			vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_miss, &sbt_hit, &sbt_callable, FRAME_WIDTH, FRAME_HEIGHT, 1 );
 		}
 	}
 
@@ -775,37 +776,37 @@ static void createLayouts( void ) {
 		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
-	g_rtx.desc_bindings[RayDescBinding_Kusochki] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Kusochki,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-	};
+	// g_rtx.desc_bindings[RayDescBinding_Kusochki] = (VkDescriptorSetLayoutBinding){
+	// 	.binding = RayDescBinding_Kusochki,
+	// 	.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+	// 	.descriptorCount = 1,
+	// 	.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+	// };
 
-	g_rtx.desc_bindings[RayDescBinding_Indices] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Indices,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-	};
+	// g_rtx.desc_bindings[RayDescBinding_Indices] = (VkDescriptorSetLayoutBinding){
+	// 	.binding = RayDescBinding_Indices,
+	// 	.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+	// 	.descriptorCount = 1,
+	// 	.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+	// };
 
-	g_rtx.desc_bindings[RayDescBinding_Vertices] =	(VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Vertices,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-	};
+	// g_rtx.desc_bindings[RayDescBinding_Vertices] =	(VkDescriptorSetLayoutBinding){
+	// 	.binding = RayDescBinding_Vertices,
+	// 	.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+	// 	.descriptorCount = 1,
+	// 	.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+	// };
 
-	g_rtx.desc_bindings[RayDescBinding_Textures] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Textures,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = MAX_TEXTURES,
-		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-		.pImmutableSamplers = samplers,
-	};
+	// g_rtx.desc_bindings[RayDescBinding_Textures] = (VkDescriptorSetLayoutBinding){
+	// 	.binding = RayDescBinding_Textures,
+	// 	.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+	// 	.descriptorCount = MAX_TEXTURES,
+	// 	.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+	// 	.pImmutableSamplers = samplers,
+	// };
 
-	for (int i = 0; i < ARRAYSIZE(samplers); ++i)
-		samplers[i] = vk_core.default_sampler;
+	// for (int i = 0; i < ARRAYSIZE(samplers); ++i)
+	// 	samplers[i] = vk_core.default_sampler;
 
 	// g_rtx.desc_bindings[RayDescBinding_UBOLights] =	(VkDescriptorSetLayoutBinding){
 	// 	.binding = RayDescBinding_UBOLights,

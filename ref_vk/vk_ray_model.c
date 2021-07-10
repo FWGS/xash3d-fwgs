@@ -196,8 +196,8 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 						.maxVertex = mg->vertex_count,
 						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
 						.vertexStride = sizeof(vk_vertex_t),
-						.vertexData.deviceAddress = buffer_addr + vertex_offset * sizeof(vk_vertex_t),
-						.indexData.deviceAddress = buffer_addr + index_offset * sizeof(uint16_t),
+						.vertexData.deviceAddress = buffer_addr,
+						.indexData.deviceAddress = buffer_addr,
 					},
 			};
 
@@ -209,6 +209,8 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 
 		geom_build_ranges[i] = (VkAccelerationStructureBuildRangeInfoKHR) {
 			.primitiveCount = prim_count,
+			.primitiveOffset = index_offset == UINT32_MAX ? 0 : index_offset * sizeof(uint16_t),
+			.firstVertex = vertex_offset,
 		};
 
 		kusochki[i].vertex_offset = vertex_offset;

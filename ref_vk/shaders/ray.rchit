@@ -1,53 +1,56 @@
 #version 460 core
-#extension GL_EXT_ray_tracing: require
-#extension GL_EXT_shader_16bit_storage : require
+#extension GL_GOOGLE_include_directive : require
+#include "ray_common.glsl"
 
-struct Kusok {
-	uint index_offset;
-	uint vertex_offset;
-	uint triangles;
+//#extension GL_EXT_shader_16bit_storage : require
 
-	// Material
-	uint texture;
-	float roughness;
-};
+// struct Kusok {
+// 	uint index_offset;
+// 	uint vertex_offset;
+// 	uint triangles;
 
-struct Vertex {
-	vec3 pos;
-	vec3 normal;
-	vec2 gl_tc;
-	vec2 lm_tc;
-};
+// 	// Material
+// 	uint texture;
+// 	float roughness;
+// };
 
-layout(std430, binding = 3, set = 0) readonly buffer Kusochki { Kusok kusochki[]; };
-layout(std430, binding = 4, set = 0) readonly buffer Indices { uint16_t indices[]; };
-layout(std430, binding = 5, set = 0) readonly buffer Vertices { Vertex vertices[]; };
+// struct Vertex {
+// 	vec3 pos;
+// 	vec3 normal;
+// 	vec2 gl_tc;
+// 	vec2 lm_tc;
+// };
 
-layout (constant_id = 6) const uint MAX_TEXTURES = 4096;
-layout (set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
+// layout(std430, binding = 3, set = 0) readonly buffer Kusochki { Kusok kusochki[]; };
+// layout(std430, binding = 4, set = 0) readonly buffer Indices { uint16_t indices[]; };
+// layout(std430, binding = 5, set = 0) readonly buffer Vertices { Vertex vertices[]; };
 
-layout(location = 0) rayPayloadInEXT vec4 ray_result;
+// layout (constant_id = 6) const uint MAX_TEXTURES = 4096;
+// layout (set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
 
-hitAttributeEXT vec2 bary;
+layout(location = 0) rayPayloadInEXT RayResult ray_result;
 
-// float hash(float f) { return fract(sin(f)*53478.4327); }
-// vec3 hashUintToVec3(uint i) { return vec3(hash(float(i)), hash(float(i)+15.43), hash(float(i)+34.)); }
+//hitAttributeEXT vec2 bary;
+
+float hash(float f) { return fract(sin(f)*53478.4327); }
+vec3 hashUintToVec3(uint i) { return vec3(hash(float(i)), hash(float(i)+15.43), hash(float(i)+34.)); }
 
 void main() {
-    const float l = gl_HitTEXT;
-    ray_result = vec4(fract(l / 8.));
+    //const float l = gl_HitTEXT;
+    //ray_result.color = vec3(fract(l / 10.));
     //return;
 
-    //ray_result = vec4(.5);
+    //ray_result.color = vec3(.5);
 
-    //vec3 hit_pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-	//ray_result = vec4(fract(hit_pos), 1.);
-    //ray_result = vec4(bary, 0., 1.);
+    vec3 hit_pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+	ray_result.color = fract((hit_pos + .5) / 10.);
+    //ray_result.color = vec3(1.);
     //return;
 
-    //ray_result.rgb = hashUintToVec3(gl_GeometryIndexEXT);
+    //ray_result.color = hashUintToVec3(gl_GeometryIndexEXT);
 
-    // const int instance_kusochki_offset = gl_InstanceCustomIndexEXT;
+    //const int instance_kusochki_offset = gl_InstanceCustomIndexEXT;
+    //ray_result.color = hashUintToVec3(uint(instance_kusochki_offset));
     // const int kusok_index = instance_kusochki_offset + gl_GeometryIndexEXT;
 
     // const uint first_index_offset = kusochki[kusok_index].index_offset + gl_PrimitiveID * 3;
