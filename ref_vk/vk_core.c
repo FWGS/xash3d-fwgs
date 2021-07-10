@@ -293,7 +293,7 @@ static qboolean deviceSupportsRtx( const VkExtensionProperties *exts, uint32_t n
 	return true;
 }
 
-static qboolean pickAndCreateDevice( void )
+static qboolean pickAndCreateDevice( qboolean skip_first_device )
 {
 	VkPhysicalDevice *physical_devices = NULL;
 	uint32_t num_physical_devices = 0;
@@ -322,7 +322,7 @@ static qboolean pickAndCreateDevice( void )
 		vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &num_queue_family_properties, queue_family_props);
 
 		vkGetPhysicalDeviceProperties(physical_devices[i], &props);
-		gEngine.Con_Reportf("\t%u: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
+		gEngine.Con_Printf("\t%u: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
 			i, props.vendorID, props.deviceID, props.deviceType, props.deviceName,
 			XVK_PARSE_VERSION(props.driverVersion), XVK_PARSE_VERSION(props.apiVersion));
 
@@ -364,10 +364,13 @@ static qboolean pickAndCreateDevice( void )
 
 		// TODO pick the best device
 		// For now we'll pick the first one that has graphics and can present to the surface
-		if (queue_index < num_queue_family_properties)
+		if (queue_index < num_queue_family_properties && best_device_index == UINT32_MAX)
 		{
-			best_device_index = i;
-			break;
+			if (skip_first_device) {
+				skip_first_device = false;
+			} else {
+				best_device_index = i;
+			}
 		}
 	}
 
@@ -537,6 +540,10 @@ qboolean R_VkInit( void )
 {
 	// FIXME !!!! handle initialization errors properly: destroy what has already been created
 
+	// FIXME need to be able to pick up devices by indexes, but xash doesn't let us read arguments :(
+	// So for now we will just skip the first available device
+	const qboolean skip_first_device = !!(gEngine.Sys_CheckParm("-vkskipdev"));
+
 	vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
 	vk_core.rtx = !!(gEngine.Sys_CheckParm("-rtx"));
 
@@ -584,7 +591,7 @@ qboolean R_VkInit( void )
 	}
 #endif
 
-	if (!pickAndCreateDevice())
+	if (!pickAndCreateDevice( skip_first_device ))
 		return false;
 
 	if (!initSurface())
