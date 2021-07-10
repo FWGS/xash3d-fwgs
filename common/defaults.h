@@ -172,9 +172,11 @@ Default build-depended cvar and constant values
 #if XASH_MOBILE_PLATFORM
 	#define DEFAULT_TOUCH_ENABLE "1"
 	#define DEFAULT_M_IGNORE "1"
+	#define DEFAULT_SLEEPTIME "1"
 #else // !XASH_MOBILE_PLATFORM
 	#define DEFAULT_TOUCH_ENABLE "0"
 	#define DEFAULT_M_IGNORE "0"
+	#define DEFAULT_SLEEPTIME "0"
 #endif // !XASH_MOBILE_PLATFORM
 
 #if XASH_ANDROID || XASH_IOS || XASH_EMSCRIPTEN
