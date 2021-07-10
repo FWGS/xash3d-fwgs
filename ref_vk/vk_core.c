@@ -384,29 +384,26 @@ static qboolean pickAndCreateDevice( qboolean skip_first_device )
 			.queueCount = 1,
 			.pQueuePriorities = &prio,
 		};
-		VkPhysicalDeviceBufferDeviceAddressFeatures buffer_address_feature = {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
-			.bufferDeviceAddress = VK_TRUE,
-		};
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR accel_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
-			.pNext = &buffer_address_feature,
 			.accelerationStructure = VK_TRUE,
-		};
-		VkPhysicalDevice8BitStorageFeatures eight_bit_feature = {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES,
-			.pNext = &accel_feature,
-			.storageBuffer8BitAccess = VK_TRUE,
-			.uniformAndStorageBuffer8BitAccess = VK_TRUE,
 		};
 		VkPhysicalDevice16BitStorageFeatures sixteen_bit_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES,
-			.pNext = &eight_bit_feature,
+			.pNext = &accel_feature,
 			.storageBuffer16BitAccess = VK_TRUE,
+		};
+		VkPhysicalDeviceVulkan12Features vk12_features = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+			.pNext = &sixteen_bit_feature,
+			.shaderSampledImageArrayNonUniformIndexing = VK_TRUE, // Needed for texture sampling in closest hit shader
+			.storageBuffer8BitAccess = VK_TRUE,
+			.uniformAndStorageBuffer8BitAccess = VK_TRUE,
+			.bufferDeviceAddress = VK_TRUE,
 		};
 		VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
-			.pNext = &sixteen_bit_feature,
+			.pNext = &vk12_features,
 			.rayTracingPipeline = VK_TRUE,
 			// TODO .rayTraversalPrimitiveCulling = VK_TRUE,
 		};

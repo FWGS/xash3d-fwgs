@@ -54,10 +54,10 @@ enum {
 	RayDescBinding_TLAS = 1,
 	RayDescBinding_UBOMatrices = 2,
 
-	// RayDescBinding_Kusochki = 3,
-	// RayDescBinding_Indices = 4,
-	// RayDescBinding_Vertices = 5,
-	// RayDescBinding_Textures = 6,
+	RayDescBinding_Kusochki = 3,
+	RayDescBinding_Indices = 4,
+	RayDescBinding_Vertices = 5,
+	RayDescBinding_Textures = 6,
 
 	// RayDescBinding_UBOLights = 7,
 	// RayDescBinding_EmissiveKusochki = 8,
@@ -551,35 +551,35 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			.range = args->ubo.size,
 		};
 
-		// g_rtx.desc_values[RayDescBinding_Kusochki].buffer = (VkDescriptorBufferInfo){
-		// 	.buffer = g_ray_model_state.kusochki_buffer.buffer,
-		// 	.offset = 0,
-		// 	.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
-		// };
+		g_rtx.desc_values[RayDescBinding_Kusochki].buffer = (VkDescriptorBufferInfo){
+			.buffer = g_ray_model_state.kusochki_buffer.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
+		};
 
-		// g_rtx.desc_values[RayDescBinding_Indices].buffer = (VkDescriptorBufferInfo){
-		// 	.buffer = args->geometry_data.buffer,
-		// 	.offset = 0,
-		// 	.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-		// };
+		g_rtx.desc_values[RayDescBinding_Indices].buffer = (VkDescriptorBufferInfo){
+			.buffer = args->geometry_data.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
+		};
 
-		// g_rtx.desc_values[RayDescBinding_Vertices].buffer = (VkDescriptorBufferInfo){
-		// 	.buffer = args->geometry_data.buffer,
-		// 	.offset = 0,
-		// 	.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-		// };
+		g_rtx.desc_values[RayDescBinding_Vertices].buffer = (VkDescriptorBufferInfo){
+			.buffer = args->geometry_data.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
+		};
 
-		// g_rtx.desc_values[RayDescBinding_Textures].image_array = dii_all_textures;
+		g_rtx.desc_values[RayDescBinding_Textures].image_array = dii_all_textures;
 
-		// // TODO: move this to vk_texture.c
-		// for (int i = 0; i < MAX_TEXTURES; ++i) {
-		// 	const vk_texture_t *texture = findTexture(i);
-		// 	const qboolean exists = texture->vk.image_view != VK_NULL_HANDLE;
-		// 	dii_all_textures[i].sampler = VK_NULL_HANDLE;
-		// 	dii_all_textures[i].imageView = exists ? texture->vk.image_view : findTexture(tglob.defaultTexture)->vk.image_view;
-		// 	ASSERT(dii_all_textures[i].imageView != VK_NULL_HANDLE);
-		// 	dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		// }
+		// TODO: move this to vk_texture.c
+		for (int i = 0; i < MAX_TEXTURES; ++i) {
+			const vk_texture_t *texture = findTexture(i);
+			const qboolean exists = texture->vk.image_view != VK_NULL_HANDLE;
+			dii_all_textures[i].sampler = vk_core.default_sampler; // FIXME on AMD using pImmutableSamplers leads to NEAREST filtering ??. VK_NULL_HANDLE;
+			dii_all_textures[i].imageView = exists ? texture->vk.image_view : findTexture(tglob.defaultTexture)->vk.image_view;
+			ASSERT(dii_all_textures[i].imageView != VK_NULL_HANDLE);
+			dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		}
 
 		// g_rtx.desc_values[RayDescBinding_UBOLights].buffer = (VkDescriptorBufferInfo){
 		// 	.buffer = args->dlights.buffer,
@@ -742,7 +742,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 }
 
 static void createLayouts( void ) {
-	VkSampler samplers[MAX_TEXTURES];
+	//VkSampler samplers[MAX_TEXTURES];
 
 	g_rtx.descriptors.bindings = g_rtx.desc_bindings;
 	g_rtx.descriptors.num_bindings = ARRAYSIZE(g_rtx.desc_bindings);
@@ -776,34 +776,35 @@ static void createLayouts( void ) {
 		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
-	// g_rtx.desc_bindings[RayDescBinding_Kusochki] = (VkDescriptorSetLayoutBinding){
-	// 	.binding = RayDescBinding_Kusochki,
-	// 	.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-	// 	.descriptorCount = 1,
-	// 	.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-	// };
+	g_rtx.desc_bindings[RayDescBinding_Kusochki] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Kusochki,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+	};
 
-	// g_rtx.desc_bindings[RayDescBinding_Indices] = (VkDescriptorSetLayoutBinding){
-	// 	.binding = RayDescBinding_Indices,
-	// 	.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-	// 	.descriptorCount = 1,
-	// 	.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-	// };
+	g_rtx.desc_bindings[RayDescBinding_Indices] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Indices,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+	};
 
-	// g_rtx.desc_bindings[RayDescBinding_Vertices] =	(VkDescriptorSetLayoutBinding){
-	// 	.binding = RayDescBinding_Vertices,
-	// 	.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-	// 	.descriptorCount = 1,
-	// 	.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-	// };
+	g_rtx.desc_bindings[RayDescBinding_Vertices] =	(VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Vertices,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+	};
 
-	// g_rtx.desc_bindings[RayDescBinding_Textures] = (VkDescriptorSetLayoutBinding){
-	// 	.binding = RayDescBinding_Textures,
-	// 	.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-	// 	.descriptorCount = MAX_TEXTURES,
-	// 	.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-	// 	.pImmutableSamplers = samplers,
-	// };
+	g_rtx.desc_bindings[RayDescBinding_Textures] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Textures,
+		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorCount = MAX_TEXTURES,
+		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+		// FIXME on AMD using immutable samplers leads to nearest filtering ???!
+		.pImmutableSamplers = NULL, //samplers,
+	};
 
 	// for (int i = 0; i < ARRAYSIZE(samplers); ++i)
 	// 	samplers[i] = vk_core.default_sampler;
