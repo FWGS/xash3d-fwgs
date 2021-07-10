@@ -413,8 +413,8 @@ static void createPipeline( void )
 	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &g_rtx.pipeline));
 	ASSERT(g_rtx.pipeline != VK_NULL_HANDLE);
 
+	ASSERT(SBT_SIZE == ARRAYSIZE(shader_groups));
 	{
-		ASSERT(SBT_SIZE == ARRAYSIZE(shader_groups));
 		const uint32_t sbt_handle_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
 		const uint32_t sbt_handles_buffer_size = ARRAYSIZE(shader_groups) * sbt_handle_size;
 		uint8_t *sbt_handles = Mem_Malloc(vk_core.pool, sbt_handles_buffer_size);
