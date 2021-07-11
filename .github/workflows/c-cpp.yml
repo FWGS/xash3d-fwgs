@@ -22,9 +22,9 @@ jobs:
             targetos: android
             targetarch: 64
 
-          - os: ubuntu-18.04
-            targetos: motomagx
-            targetarch: armv6
+          # - os: ubuntu-18.04
+          #   targetos: motomagx
+          #   targetarch: armv6
 
           - os: windows-latest
             targetos: win32
