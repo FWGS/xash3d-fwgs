@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef XASH_VULKAN
+
 // Define Vulkan handles without depending on vulkan.h
 #ifndef VULKAN_H_
 #define VK_DEFINE_HANDLE(object) typedef struct object##_T* object;
@@ -19,3 +21,5 @@ VK_DEFINE_NON_DISPATCHABLE_HANDLE(VkSurfaceKHR)
 int XVK_GetInstanceExtensions( unsigned int count, const char **pNames );
 void *XVK_GetVkGetInstanceProcAddr( void );
 VkSurfaceKHR XVK_CreateSurface( VkInstance instance );
+
+#endif // ifdef XASH_VULKAN
