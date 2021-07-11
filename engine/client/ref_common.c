@@ -391,9 +391,9 @@ static ref_api_t gEngfuncs =
 	NULL,
 	NULL,
 #else
-	VK_GetInstanceExtensions,
-	VK_GetVkGetInstanceProcAddr,
-	VK_CreateSurface,
+	XVK_GetInstanceExtensions,
+	XVK_GetVkGetInstanceProcAddr,
+	XVK_CreateSurface,
 #endif
 };
 

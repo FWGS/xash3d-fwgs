@@ -968,7 +968,7 @@ int GL_GetAttribute( int attr, int *val )
 #define EGL_LIB NULL
 #endif
 
-int VK_GetInstanceExtensions( unsigned int count, const char **pNames )
+int XVK_GetInstanceExtensions( unsigned int count, const char **pNames )
 {
 	if (!SDL_Vulkan_GetInstanceExtensions(host.hWnd, &count, pNames))
 	{
@@ -979,16 +979,16 @@ int VK_GetInstanceExtensions( unsigned int count, const char **pNames )
 	return (int)count;
 }
 
-void *VK_GetVkGetInstanceProcAddr( void )
+void *XVK_GetVkGetInstanceProcAddr( void )
 {
 	return SDL_Vulkan_GetVkGetInstanceProcAddr();
 }
 
-vulkan_non_dispatchable_handle_t VK_CreateSurface( vulkan_handle_t vkInstance )
+VkSurfaceKHR XVK_CreateSurface( VkInstance instance )
 {
 	VkSurfaceKHR surface;
 
-	if (!SDL_Vulkan_CreateSurface(host.hWnd, vkInstance, &surface))
+	if (!SDL_Vulkan_CreateSurface(host.hWnd, instance, &surface))
 	{
 		Con_Reportf( S_ERROR  "Couldn't create Vulkan surface: %s\n", SDL_GetError());
 		return 0;
