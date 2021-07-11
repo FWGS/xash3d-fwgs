@@ -29,6 +29,9 @@ def options(opt):
 	grp.add_option('--enable-static-binary', action = 'store_true', dest = 'STATIC', default = False,
 		help = 'build static binary(not recommended, --single-binary required) [default: %default]')
 
+	grp.add_option('--enable-engine-tests', action = 'store_true', dest = 'ENGINE_TESTS', default = False,
+		help = 'embed tests into the engine, jump into them by -runtests command line switch [default: %default]')
+
 	opt.load('sdl2')
 
 def configure(conf):
@@ -79,6 +82,12 @@ def configure(conf):
 	if hasattr(conf.options, 'DLLEMU'):
 		conf.define_cond('XASH_DLL_LOADER', conf.options.DLLEMU)
 
+	if conf.env.MAGX:
+		conf.define('XASH_CRASHHANDLER', 0)
+
+	conf.env.ENGINE_TESTS = conf.options.ENGINE_TESTS
+
+	conf.define_cond('XASH_ENGINE_TESTS', conf.env.ENGINE_TESTS)
 	conf.define_cond('XASH_STATIC_LIBS', conf.env.STATIC_LINKING)
 	conf.define_cond('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
 	conf.define_cond('SINGLE_BINARY', conf.env.SINGLE_BINARY)
@@ -92,6 +101,8 @@ def configure(conf):
 def build(bld):
 	is_cxx_link = False
 	libs = [ 'public', 'dllemu' ]
+
+	# basic build: dedicated only
 	source = bld.path.ant_glob([
 		'common/*.c',
 		'common/imagelib/*.c',
@@ -99,7 +110,9 @@ def build(bld):
 		'common/soundlib/libmpg/*.c',
 		'server/*.c'])
 
-	# basic build: dedicated only, no dependencies
+	if bld.env.ENGINE_TESTS:
+		source += bld.path.ant_glob(['tests/*.c'])
+
 	if bld.env.DEST_OS == 'win32':
 		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32' ]
 		source += bld.path.ant_glob(['platform/win32/*.c'])
@@ -146,7 +159,7 @@ def build(bld):
 			'client/vgui/*.c',
 			'client/avi/*.c'])
 
-	includes = ['common', 'server', 'client', 'client/vgui', '.', '../public', '../common', '../pm_shared' ]
+	includes = ['common', 'server', 'client', 'client/vgui', 'tests', '.', '../public', '../common', '../pm_shared' ]
 
 	if bld.env.SINGLE_BINARY:
 		install_path = bld.env.BINDIR

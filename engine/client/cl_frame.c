@@ -1381,10 +1381,16 @@ qboolean CL_GetEntitySpatialization( channel_t *ch )
 	if( !ent || !ent->model || ent->curstate.messagenum != cl.parsecount )
 		return valid_origin;
 
-	VectorCopy( ent->origin, ch->origin );
-
+	// setup origin
 	if( ent->model->type == mod_brush )
-		VectorAverage( ent->curstate.mins, ent->curstate.maxs, ch->origin );
+	{
+		VectorAverage( ent->model->mins, ent->model->maxs, ch->origin );
+		VectorAdd( ent->origin, ch->origin, ch->origin );
+	}
+	else
+	{
+		VectorCopy( ent->origin, ch->origin );
+	}
 
 	return true;
 }
@@ -1402,10 +1408,15 @@ qboolean CL_GetMovieSpatialization( rawchan_t *ch )
 		return valid_origin;
 
 	// setup origin
-	VectorCopy( ent->origin, ch->origin );
-
 	if( ent->model->type == mod_brush )
-		VectorAverage( ent->curstate.mins, ent->curstate.maxs, ch->origin );
+	{
+		VectorAverage( ent->model->mins, ent->model->maxs, ch->origin );
+		VectorAdd( ent->origin, ch->origin, ch->origin );
+	}
+	else
+	{
+		VectorCopy( ent->origin, ch->origin );
+	}
 
 	return true;
 }

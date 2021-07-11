@@ -31,7 +31,7 @@ typedef struct dll_user_s
 	dword	*funcs;
 	char	*names[MAX_LIBRARY_EXPORTS];	// max 4096 exports supported
 	int	num_ordinals;		// actual exports count
-	dword	funcBase;			// base offset
+	uintptr_t	funcBase;			// base offset
 } dll_user_t;
 
 dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath );
@@ -57,5 +57,32 @@ typedef enum
 } ECommonLibraryType;
 
 void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t size );
+
+typedef enum
+{
+	MANGLE_UNKNOWN = 0,
+
+	/* binary offset, when NameForFunction isn't implemented */
+	MANGLE_OFFSET,
+
+	/* Itanium C++ ABI mangling, native for most operating systems */
+	MANGLE_ITANIUM,
+
+	/* MSVC "decoration" */
+	MANGLE_MSVC,
+
+	/* Valve's silly mangle for crossplatform saves */
+	MANGLE_VALVE,
+} EFunctionMangleType;
+
+// converts to MANGLE_VALVE if possible
+const char *COM_GetPlatformNeutralName( const char *in_name );
+
+// converts to native mangling, result must be freed
+char **COM_ConvertToLocalPlatform( EFunctionMangleType to, const char *from, size_t *numfuncs );
+
+// used by lib_win.c
+char *COM_GetMSVCName( const char *in_name );
+
 
 #endif//LIBRARY_H

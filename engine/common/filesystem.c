@@ -2349,7 +2349,7 @@ file_t *FS_OpenZipFile( zip_t *zip, int pack_ind )
 	// compressed files handled in Zip_LoadFile
 	if( pfile->flags != ZIP_COMPRESSION_NO_COMPRESSION )
 	{
-		Con_Printf( S_ERROR "%s: can't open compressed file %s", __FUNCTION__, pfile->name );
+		Con_Printf( S_ERROR "%s: can't open compressed file %s\n", __FUNCTION__, pfile->name );
 		return NULL;
 	}
 
@@ -3347,7 +3347,23 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 	{
 		// NOTE: if search is NULL let the OS found library himself
 		Q_strncpy( hInst->fullPath, dllpath, sizeof( hInst->fullPath ));
-		hInst->custom_loader = (search) ? true : false;
+
+		if( search && ( search->wad || search->pack || search->zip ) )
+		{
+#if XASH_WIN32 && XASH_X86 // a1ba: custom loader is non-portable (I just don't want to touch it)
+			Con_Printf( S_WARN "%s: loading libraries from packs is deprecated "
+				"and will be removed in the future\n", __FUNCTION__ );
+			hInst->custom_loader = true;
+#else
+			Con_Printf( S_WARN "%s: loading libraries from packs is unsupported on "
+				"this platform\n", __FUNCTION__ );
+			hInst->custom_loader = false;
+#endif
+		}
+		else
+		{
+			hInst->custom_loader = false;
+		}
 	}
 	fs_ext_path = false; // always reset direct paths
 

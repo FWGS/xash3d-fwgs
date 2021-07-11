@@ -42,6 +42,7 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 #endif
 
+#define E_GAME	"XASH3D_GAME" // default env dir to start from
 #define GAME_PATH	"valve"	// default dir to start from
 
 typedef void (*pfnChangeGame)( const char *progname );
@@ -138,7 +139,12 @@ _inline int Sys_Start( void )
 		changeGame = Sys_ChangeGame;
 #endif
 
-	ret = Xash_Main( szArgc, szArgv, GAME_PATH, 0, changeGame );
+	const char *game = getenv( E_GAME  );
+	if( !game  )
+		game = GAME_PATH;
+
+	ret = Xash_Main( szArgc, szArgv, game, 0, changeGame );
+
 	Sys_UnloadEngine();
 
 	return ret;

@@ -3,212 +3,34 @@ compiler: gcc
 sudo: false
 env:
   global:
-    - SDL_VERSION=2.0.8
+    - SDL_VERSION=2.0.14
     - VULKAN_SDK_VERSION=1.2.176.1
-    - DEPLOY_BRANCH=anewengine
 git:
   depth: 50
   submodules: true
-jdk:
-  - oraclejdk8
 
-jobs:
-  include:
-    - stage: init
-      name: "Initialize webdav cache"
-      os: linux
-      cache: false
-      script:
-        - sh scripts/yadisk_clear.sh
-    - stage: build
-      name: "Build for Windows MSVC"
-      cache: ccache
-      os: windows
-      before_script:
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
-      script:
-        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
-      after_script:
-        - sh scripts/continious_upload.sh xash3d-win32-vc.7z xash3d-vc2008-sln.7z
-    - # ...
-      name: "Build for Linux i686"
-      cache: ccache
-      os: linux
-      dist: bionic
-      addons:
-        apt:
-          packages:
-            - gcc-multilib
-            - g++-multilib
-            - libx11-dev:i386
-            - libxext-dev:i386
-            - x11-utils
-            - libgl1-mesa-dev
-            - libasound-dev
-            - libstdc++6:i386
-            - libfuse2:i386
-            - zlib1g:i386
-            - unzip
-      before_script:
-        - export ARCH=i686
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
-      script:
-        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh full
-        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh dedicated
-      after_script:
-        - ccache --show-stats
-        - sh scripts/continious_upload.sh xash3d-fwgs-${ARCH}.AppImage xashds-linux-${ARCH}
-    - # ...
-      name: "Build for Android"
-      cache: ccache
-      os: linux
-      dist: xenial
-      language: java # we want xenial, so just java, not android
-      jdk: openjdk8
-      addons:
-        apt:
-          packages:
-            - clang-9
-            - lld-9
-            - p7zip-full
-          sources:
-            - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
-              key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
-      before_script:
-        - export ANDROID_HOME=$TRAVIS_BUILD_DIR/sdk
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_android_deps.sh r10e
-        - export ANDROID_SDK_HOME=$ANDROID_HOME
-        - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
-      script:
-        - cd android
-        - export ARCHS="armeabi armeabi-v7a x86"
-        - export TOOLCHAIN="host"
-        - sh compile.sh release
-      after_script:
-        - ccache --show-stats
-        - sh ../scripts/continious_upload.sh xashdroid.apk
-    - # ...
-      name: "Build for Android 64"
-      cache: ccache
-      os: linux
-      dist: xenial
-      language: java # we want xenial, so just java, not android
-      jdk: openjdk8
-      addons:
-        apt:
-          packages:
-            - clang-9
-            - lld-9
-            - p7zip-full
-          sources:
-            - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
-              key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
-      before_script:
-        - export ANDROID_HOME=$TRAVIS_BUILD_DIR/sdk
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_android_deps.sh r10e
-        - export ANDROID_SDK_HOME=$ANDROID_HOME
-        - export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
-      script:
-        - cd android
-        - export ARCHS="aarch64 x86_64"
-        - export API=21
-        - export TOOLCHAIN="host"
-        - sh compile.sh release
-      after_script:
-        - ccache --show-stats
-        - mv xashdroid.apk xashdroid-64-test.apk
-        - sh ../scripts/continious_upload.sh xashdroid-64-test.apk
-    - # ...
-      name: "Build for Linux amd64"
-      cache: ccache
-      os: linux
-      dist: bionic
-      addons:
-        apt:
-          packages:
-            - libx11-dev
-            - libxext-dev
-            - x11-utils
-            - libgl1-mesa-dev
-            - libasound-dev
-            - libstdc++6
-            - libfuse2
-            - unzip
-      before_script:
-        - export ARCH=x86_64
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
-      script:
-        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh full
-        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh dedicated
-      after_script:
-        - ccache --show-stats
-        - sh scripts/continious_upload.sh xash3d-fwgs-${ARCH}.AppImage xashds-linux-${ARCH}
-#    - # ...
-#      name: "Build for Windows MinGW"
-#      cache: ccache
-#      os: linux
-#      dist: xenial
-#      addons:
-#        apt:
-#          packages:
-#            - mingw-w64-i686-dev
-#            - binutils-mingw-w64-i686
-#            - gcc-mingw-w64-i686
-#            - g++-mingw-w64-i686
-#            - p7zip-full
-#      before_script:
-#        - sh scripts/travis_common_deps.sh
-#        - sh scripts/travis_mingw_deps.sh
-#      script:
-#        - sh scripts/build_mingw_engine.sh
-#      after_script:
-#        - ccache --show-stats
-#        - sh scripts/continious_upload.sh xash3d-mingw.7z
-#    - # ...
-#      name: "Build for OSX"
-#      cache: ccache
-#      os: osx
-#      before_script:
-#        - sh scripts/travis_common_deps.sh
-#        - sh scripts/travis_${TRAVIS_OS_NAME}_deps.sh
-#      script:
-#        - sh scripts/build_${TRAVIS_OS_NAME}_engine.sh
-#      after_script:
-#        - sh scripts/continious_upload.sh xash3d-osx.tar.bz2
-    - # ...
-      name: "Build for MotoMAGX"
-      sudo: true
-      cache: ccache
-      os: linux
-      dist: xenial
-      addons:
-        apt:
-          packages:
-            - libc6:i386
-            - libstdc++6:i386
-            - gcc-multilib
-            - g++-multilib
-            - p7zip-full
-          sources:
-            - sourceline: 'deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main'
-              key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
-      before_script:
-        - sh scripts/travis_common_deps.sh
-        - sh scripts/travis_motomagx_deps.sh
-      script:
-        - sh scripts/build_motomagx_engine.sh
-      after_script:
-        - cd $TRAVIS_BUILD_DIR
-        - ccache --show-stats
-        - sh scripts/continious_upload.sh xash3d-magx.7z
-    - stage: deploy
-      name: "Deploy to github repo"
-      os: linux
-      cache: false
-      script:
-        - sh scripts/travis-deploy.sh xash3d-fwgs-i686.AppImage xash3d-fwgs-x86_64.AppImage xash3d-win32-vc.7z xash3d-vc2008-sln.7z xashdroid.apk xashdroid-64-test.apk xashds-linux-i686 xashds-linux-x86_64 xash3d-magx.7z
+os: linux
+arch:
+  - aarch64
+  - ppc64le
+  - s390x
+addons:
+  apt:
+    update: true
+    packages:
+      - libx11-dev
+      - libxext-dev
+      - x11-utils
+      - libgl1-mesa-dev
+      - libasound-dev
+      - libstdc++6
+      - libfuse2
+      - unzip
+before_script:
+  - sh scripts/travis/deps_common.sh
+  - sh scripts/travis/deps_${TRAVIS_OS_NAME}.sh
+script:
+  - sh scripts/travis/build_${TRAVIS_OS_NAME}.sh
+after_script:
+  - ccache --show-stats
+  - sh scripts/continious_upload.sh xash3d-fwgs-${ARCH}.tar.xz xashds-linux-${ARCH}
