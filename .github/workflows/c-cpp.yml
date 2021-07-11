@@ -34,6 +34,7 @@ jobs:
             targetarch: i386
     env:
       SDL_VERSION: 2.0.14
+      VULKAN_SDK_VERSION: 1.2.176.1
       GH_CPU_ARCH: ${{ matrix.targetarch }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       ANDROID_SDK_TOOLS_VER: 4333796
