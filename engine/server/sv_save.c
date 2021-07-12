@@ -2115,6 +2115,7 @@ qboolean SV_LoadGame( const char *pPath )
 	if( !SV_InitGame( ))
 		return false;
 
+	svs.initialized = true;
 	pFile = FS_Open( pPath, "rb", true );
 
 	if( pFile )
