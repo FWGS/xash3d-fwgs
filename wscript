@@ -158,6 +158,8 @@ def configure(conf):
 		conf.options.NO_ASYNC_RESOLVE = True
 		conf.define('XASH_SDLMAIN', 1)
 		enforce_pic = False
+	else:
+		conf.options.VK = True
 
 	if conf.env.STATIC_LINKING:
 		enforce_pic = False # PIC may break full static builds

@@ -772,12 +772,14 @@ device_memory_t allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyF
 		.flags = flags,
 	};
 
-	VkMemoryAllocateInfo mai = {
+	const VkMemoryAllocateInfo mai = {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		.pNext = flags ? &mafi : NULL,
 		.allocationSize = req.size,
 		.memoryTypeIndex = findMemoryWithType(req.memoryTypeBits, props),
 	};
+
+	ASSERT(mai.memoryTypeIndex != UINT32_MAX);
 	XVK_CHECK(vkAllocateMemory(vk_core.device, &mai, NULL, &ret.device_memory));
 	return ret;
 }
