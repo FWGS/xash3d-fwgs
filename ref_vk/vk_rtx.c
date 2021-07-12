@@ -59,10 +59,11 @@ enum {
 	RayDescBinding_Vertices = 5,
 	RayDescBinding_Textures = 6,
 
-	// RayDescBinding_UBOLights = 7,
-	// RayDescBinding_EmissiveKusochki = 8,
-	// RayDescBinding_PrevFrame = 9,
-	// RayDescBinding_LightClusters = 10,
+	RayDescBinding_UBOLights = 7,
+	RayDescBinding_EmissiveKusochki = 8,
+	RayDescBinding_LightClusters = 9,
+
+	// RayDescBinding_PrevFrame = 10,
 
 	RayDescBinding_COUNT
 };
@@ -581,23 +582,23 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		}
 
-		// g_rtx.desc_values[RayDescBinding_UBOLights].buffer = (VkDescriptorBufferInfo){
-		// 	.buffer = args->dlights.buffer,
-		// 	.offset = args->dlights.offset,
-		// 	.range = args->dlights.size,
-		// };
+		g_rtx.desc_values[RayDescBinding_UBOLights].buffer = (VkDescriptorBufferInfo){
+			.buffer = args->dlights.buffer,
+			.offset = args->dlights.offset,
+			.range = args->dlights.size,
+		};
 
-		// g_rtx.desc_values[RayDescBinding_EmissiveKusochki].buffer = (VkDescriptorBufferInfo){
-		// 	.buffer = g_ray_model_state.emissive_kusochki_buffer.buffer,
-		// 	.offset = 0,
-		// 	.range = VK_WHOLE_SIZE,
-		// };
+		g_rtx.desc_values[RayDescBinding_EmissiveKusochki].buffer = (VkDescriptorBufferInfo){
+			.buffer = g_ray_model_state.emissive_kusochki_buffer.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE,
+		};
 
-		// g_rtx.desc_values[RayDescBinding_LightClusters].buffer = (VkDescriptorBufferInfo){
-		// 	.buffer = g_rtx.light_grid_buffer.buffer,
-		// 	.offset = 0,
-		// 	.range = VK_WHOLE_SIZE,
-		// };
+		g_rtx.desc_values[RayDescBinding_LightClusters].buffer = (VkDescriptorBufferInfo){
+			.buffer = g_rtx.light_grid_buffer.buffer,
+			.offset = 0,
+			.range = VK_WHOLE_SIZE,
+		};
 
 		VK_DescriptorsWrite(&g_rtx.descriptors);
 	}
@@ -780,21 +781,21 @@ static void createLayouts( void ) {
 		.binding = RayDescBinding_Kusochki,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_Indices] = (VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Indices,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_Vertices] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Vertices,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_Textures] = (VkDescriptorSetLayoutBinding){
@@ -809,30 +810,30 @@ static void createLayouts( void ) {
 	// for (int i = 0; i < ARRAYSIZE(samplers); ++i)
 	// 	samplers[i] = vk_core.default_sampler;
 
-	// g_rtx.desc_bindings[RayDescBinding_UBOLights] =	(VkDescriptorSetLayoutBinding){
-	// 	.binding = RayDescBinding_UBOLights,
-	// 	.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-	// 	.descriptorCount = 1,
-	// 	.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	// };
+	g_rtx.desc_bindings[RayDescBinding_UBOLights] =	(VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_UBOLights,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+	};
 
-	// g_rtx.desc_bindings[RayDescBinding_EmissiveKusochki] =	(VkDescriptorSetLayoutBinding){
-	// 	.binding = RayDescBinding_EmissiveKusochki,
-	// 	.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-	// 	.descriptorCount = 1,
-	// 	.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	// };
+	g_rtx.desc_bindings[RayDescBinding_EmissiveKusochki] =	(VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_EmissiveKusochki,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+	};
+
+	g_rtx.desc_bindings[RayDescBinding_LightClusters] =	(VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_LightClusters,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+	};
 
 	// g_rtx.desc_bindings[RayDescBinding_PrevFrame] =	(VkDescriptorSetLayoutBinding){
 	// 	.binding = RayDescBinding_PrevFrame,
 	// 	.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-	// 	.descriptorCount = 1,
-	// 	.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	// };
-
-	// g_rtx.desc_bindings[RayDescBinding_LightClusters] =	(VkDescriptorSetLayoutBinding){
-	// 	.binding = RayDescBinding_LightClusters,
-	// 	.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 	// 	.descriptorCount = 1,
 	// 	.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	// };

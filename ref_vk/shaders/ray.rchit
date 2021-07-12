@@ -1,35 +1,14 @@
 #version 460 core
-#extension GL_GOOGLE_include_directive : require
-#include "ray_common.glsl"
-
-#extension GL_EXT_shader_16bit_storage : require
 #extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_GOOGLE_include_directive : require
 
-struct Kusok {
-	uint index_offset;
-	uint vertex_offset;
-	uint triangles;
-
-	// Material
-	uint texture;
-	float roughness;
-};
-
-struct Vertex {
-	vec3 pos;
-	vec3 normal;
-	vec2 gl_tc;
-	vec2 lm_tc;
-};
-
-layout(std430, binding = 3, set = 0) readonly buffer Kusochki { Kusok kusochki[]; };
-layout(std430, binding = 4, set = 0) readonly buffer Indices { uint16_t indices[]; };
-layout(std430, binding = 5, set = 0) readonly buffer Vertices { Vertex vertices[]; };
+#include "ray_common.glsl"
+#include "ray_kusochki.glsl"
 
 layout (constant_id = 6) const uint MAX_TEXTURES = 4096;
 layout (set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
 
-layout(location = 0) rayPayloadInEXT RayResult ray_result;
+layout(location = 0) rayPayloadInEXT RayPayload payload;
 
 hitAttributeEXT vec2 bary;
 
@@ -52,7 +31,7 @@ void main() {
     //ray_result.color = hashUintToVec3(gl_GeometryIndexEXT);
 
     const int instance_kusochki_offset = gl_InstanceCustomIndexEXT;
-    ray_result.color = hashUintToVec3(uint(instance_kusochki_offset));
+    //ray_result.color = hashUintToVec3(uint(instance_kusochki_offset));
     const int kusok_index = instance_kusochki_offset + gl_GeometryIndexEXT;
 
     const uint first_index_offset = kusochki[kusok_index].index_offset + gl_PrimitiveID * 3;
@@ -72,5 +51,10 @@ void main() {
     const vec2 texture_uv = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y;
     const uint tex_index = kusochki[kusok_index].texture;
     const vec3 base_color = pow(texture(textures[nonuniformEXT(tex_index)], texture_uv).rgb, vec3(2.));
-    ray_result.color = base_color;
+
+    payload.hit_pos_t = vec4(hit_pos, gl_HitTEXT);
+    payload.albedo = base_color;
+    payload.normal = normal;
+    payload.roughness = kusochki[kusok_index].roughness;
+    payload.kusok_index = kusok_index;
 }
