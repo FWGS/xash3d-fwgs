@@ -5028,6 +5028,7 @@ void SV_UnloadProgs( void )
 
 	Mod_ResetStudioAPI ();
 
+	svs.game_library_loaded = false;
 	COM_FreeLibrary( svgame.hInstance );
 	Mem_FreePool( &svgame.mempool );
 	memset( &svgame, 0, sizeof( svgame ));
