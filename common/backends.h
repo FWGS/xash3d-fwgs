@@ -44,7 +44,7 @@ GNU General Public License for more details.
 // timer (XASH_TIMER)
 #define TIMER_NULL  0 // not used
 #define TIMER_SDL   1
-#define TIMER_LINUX 2
+#define TIMER_POSIX 2
 #define TIMER_WIN32 3
 #define TIMER_DOS   4
 

@@ -1893,6 +1893,12 @@ static qboolean SV_Kill_f( sv_client_t *cl )
 {
 	if( !SV_IsValidEdict( cl->edict ))
 		return true;
+	
+	if( cl->state != cs_spawned )
+	{
+		SV_ClientPrintf( cl, "Can't suicide - not connected!\n" );
+		return true;
+	}
 
 	if( cl->edict->v.health <= 0.0f )
 	{
@@ -2176,6 +2182,7 @@ void SV_TSourceEngineQuery( netadr_t from )
 
 	MSG_Init( &buf, "TSourceEngineQuery", answer, sizeof( answer ));
 
+	MSG_WriteLong( &buf, -1 ); // Mark as connectionless
 	MSG_WriteByte( &buf, 'm' );
 	MSG_WriteString( &buf, NET_AdrToString( net_local ));
 	MSG_WriteString( &buf, hostname.string );
@@ -2186,8 +2193,11 @@ void SV_TSourceEngineQuery( netadr_t from )
 	MSG_WriteByte( &buf, svs.maxclients );
 	MSG_WriteByte( &buf, PROTOCOL_VERSION );
 	MSG_WriteByte( &buf, Host_IsDedicated() ? 'D' : 'L' );
+#if defined(_WIN32)
 	MSG_WriteByte( &buf, 'W' );
-
+#else
+	MSG_WriteByte( &buf, 'L' );
+#endif
 	if( Q_stricmp( GI->gamefolder, "valve" ))
 	{
 		MSG_WriteByte( &buf, 1 ); // mod

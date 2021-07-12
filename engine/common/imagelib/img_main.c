@@ -491,3 +491,78 @@ rgbdata_t *FS_CopyImage( rgbdata_t *in )
 
 	return out;
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+static void GeneratePixel( byte *pix, uint i, uint j, uint w, uint h, qboolean genAlpha )
+{
+	double x = ( j / (double)w ) - 0.5;
+	double y = ( i / (double)h ) - 0.5;
+	double d = sqrt( x * x + y * y );
+	pix[0] = (byte)(( sin( d * 30.0 ) + 1.0 ) * 126 );
+	pix[1] = (byte)(( sin( d * 27.723 ) + 1.0 ) * 126 );
+	pix[2] = (byte)(( sin( d * 42.41 ) + 1.0 ) * 126 );
+	pix[3] = genAlpha ? (byte)(( cos( d * 2.0 ) + 1.0 ) * 126 ) : 255;
+}
+
+static void Test_CheckImage( const char *name, rgbdata_t *rgb )
+{
+	rgbdata_t *load;
+
+	// test reading
+	load = FS_LoadImage( name, NULL, 0 );
+	TASSERT( load->width == rgb->width )
+	TASSERT( load->height == rgb->height )
+	TASSERT( load->type == rgb->type )
+	TASSERT( ( load->flags & rgb->flags ) != 0 )
+	TASSERT( load->size == rgb->size )
+	TASSERT( memcmp(load->buffer, rgb->buffer, rgb->size ) == 0 )
+
+	Mem_Free( load );
+}
+
+void Test_RunImagelib( void )
+{
+	rgbdata_t rgb = { 0 };
+	byte *buf;
+	const char *extensions[] = { "tga", "png", "bmp" };
+	uint i, j;
+
+	Image_Setup();
+
+	// generate image
+	rgb.width = 256;
+	rgb.height = 512;
+	rgb.type = PF_RGBA_32;
+	rgb.flags = IMAGE_HAS_ALPHA;
+	rgb.size = rgb.width * rgb.height * 4;
+	buf = rgb.buffer = Z_Malloc( rgb.size );
+
+	for( i = 0; i < rgb.height; i++ )
+	{
+		for( j = 0; j < rgb.width; j++ )
+		{
+			GeneratePixel( buf, i, j, rgb.width, rgb.height, true );
+			buf += 4;
+		}
+	}
+
+	for( i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++ )
+	{
+		const char *name = va( "test_gen.%s", extensions[i] );
+
+		// test saving
+		qboolean ret = FS_SaveImage( name, &rgb );
+		Con_Printf( "Checking if we can save images in '%s' format...\n", extensions[i] );
+		ASSERT(ret == true);
+
+		// test reading
+		Con_Printf( "Checking if we can read images in '%s' format...\n", extensions[i] );
+		Test_CheckImage( name, &rgb );
+	}
+
+	Z_Free( rgb.buffer );
+}
+
+#endif /* XASH_ENGINE_TESTS */

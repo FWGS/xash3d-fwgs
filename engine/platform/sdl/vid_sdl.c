@@ -14,7 +14,9 @@ GNU General Public License for more details.
 */
 #if !XASH_DEDICATED
 #include <SDL.h>
+#ifdef XASH_VULKAN
 #include <SDL_vulkan.h>
+#endif
 #include "common.h"
 #include "client.h"
 #include "mod_local.h"
@@ -639,9 +641,11 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		case REF_GL:
 			wndFlags |= SDL_WINDOW_OPENGL;
 			break;
+#ifdef XASH_VULKAN
 		case REF_VULKAN:
 			wndFlags |= SDL_WINDOW_VULKAN;
 			break;
+#endif
 	}
 
 	if( !fullscreen )
@@ -968,7 +972,8 @@ int GL_GetAttribute( int attr, int *val )
 #define EGL_LIB NULL
 #endif
 
-int VK_GetInstanceExtensions( unsigned int count, const char **pNames )
+#ifdef XASH_VULKAN
+int XVK_GetInstanceExtensions( unsigned int count, const char **pNames )
 {
 	if (!SDL_Vulkan_GetInstanceExtensions(host.hWnd, &count, pNames))
 	{
@@ -979,16 +984,16 @@ int VK_GetInstanceExtensions( unsigned int count, const char **pNames )
 	return (int)count;
 }
 
-void *VK_GetVkGetInstanceProcAddr( void )
+void *XVK_GetVkGetInstanceProcAddr( void )
 {
 	return SDL_Vulkan_GetVkGetInstanceProcAddr();
 }
 
-vulkan_non_dispatchable_handle_t VK_CreateSurface( vulkan_handle_t vkInstance )
+VkSurfaceKHR XVK_CreateSurface( VkInstance instance )
 {
 	VkSurfaceKHR surface;
 
-	if (!SDL_Vulkan_CreateSurface(host.hWnd, vkInstance, &surface))
+	if (!SDL_Vulkan_CreateSurface(host.hWnd, instance, &surface))
 	{
 		Con_Reportf( S_ERROR  "Couldn't create Vulkan surface: %s\n", SDL_GetError());
 		return 0;
@@ -996,6 +1001,7 @@ vulkan_non_dispatchable_handle_t VK_CreateSurface( vulkan_handle_t vkInstance )
 
 	return surface;
 }
+#endif
 
 /*
 ==================
@@ -1044,8 +1050,10 @@ qboolean R_Init_Video( const int type )
 			return false;
 		}
 		break;
+#ifdef XASH_VULKAN
 	case REF_VULKAN:
 		break;
+#endif
 	default:
 		Host_Error( "Can't initialize unknown context type %d!\n", type );
 		break;

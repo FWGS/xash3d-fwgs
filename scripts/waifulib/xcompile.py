@@ -200,16 +200,32 @@ class Android:
 
 	def cc(self):
 		if self.is_host():
-			return 'clang --target=%s%d' % (self.ndk_triplet(), self.api)
+			s = 'clang'
+			environ = getattr(self.ctx, 'environ', os.environ)
+
+			if 'CC' in environ:
+				s = environ['CC']
+
+			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
 		return self.gen_toolchain_path() + ('clang' if self.is_clang() else 'gcc')
 
 	def cxx(self):
 		if self.is_host():
-			return 'clang++ --target=%s%d' % (self.ndk_triplet(), self.api)
+			s = 'clang++'
+			environ = getattr(self.ctx, 'environ', os.environ)
+
+			if 'CXX' in environ:
+				s = environ['CXX']
+
+			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
 		return self.gen_toolchain_path() + ('clang++' if self.is_clang() else 'g++')
 
 	def strip(self):
 		if self.is_host():
+			environ = getattr(self.ctx, 'environ', os.environ)
+
+			if 'STRIP' in environ:
+				return environ['STRIP']
 			return 'llvm-strip'
 		return os.path.join(self.gen_binutils_path(), 'strip')
 
@@ -372,8 +388,6 @@ def configure(conf):
 		conf.env.INCLUDES_MAGX = [toolchain_path + i for i in ['ezx-z6/include', 'qt-2.3.8/include']]
 		conf.env.LIBPATH_MAGX  = [toolchain_path + i for i in ['ezx-z6/lib', 'qt-2.3.8/lib']]
 		conf.env.LINKFLAGS_MAGX = ['-Wl,-rpath-link=' + i for i in conf.env.LIBPATH_MAGX]
-		for lib in ['qte-mt', 'ezxappbase', 'ezxpm', 'log_util']:
-			conf.check_cc(lib=lib, use='MAGX', uselib_store='MAGX')
 
 	conf.env.MAGX = conf.options.MAGX
 	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android' })
@@ -390,6 +404,10 @@ def post_compiler_cxx_configure(conf):
 		if conf.android.ndk_rev == 19:
 			conf.env.CXXFLAGS_cxxshlib += ['-static-libstdc++']
 			conf.env.LDFLAGS_cxxshlib += ['-static-libstdc++']
+	elif conf.options.MAGX:
+		for lib in ['qte-mt', 'ezxappbase', 'ezxpm', 'log_util']:
+			conf.check_cc(lib=lib, use='MAGX', uselib_store='MAGX')
+
 	return
 
 def post_compiler_c_configure(conf):

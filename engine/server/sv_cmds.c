@@ -233,6 +233,43 @@ void SV_Map_f( void )
 
 /*
 ==================
+SV_Maps_f
+
+Lists maps according to given substring.
+
+TODO: Make it more convenient. (Timestamp check, temporary file, ...)
+==================
+*/
+void SV_Maps_f( void )
+{
+	const char *separator = "-------------------";
+	const char *argStr = Cmd_Argv( 1 ); // Substr
+	int nummaps;
+	search_t *mapList;
+
+	if( Cmd_Argc() != 2 )
+	{
+		Msg( "Usage: maps <substring>\nmaps * for full listing\n" );
+		return;
+	}
+
+	mapList = FS_Search( va( "maps/*%s*.bsp", argStr ), true, true );
+
+	if( !mapList )
+	{
+		Msg( "No related map found in \"%s/maps\"\n", GI->gamefolder );
+		return;
+	}
+
+	nummaps = Cmd_ListMaps( mapList, NULL, 0 );
+
+	Mem_Free( mapList );
+
+	Msg( "%s\nDirectory: \"%s/maps\" - Maps listed: %d\n", separator, GI->basedir, nummaps );
+}
+
+/*
+==================
 SV_MapBackground_f
 
 Set background map (enable physics in menu)
@@ -966,6 +1003,7 @@ is available always
 void SV_InitHostCommands( void )
 {
 	Cmd_AddCommand( "map", SV_Map_f, "start new level" );
+	Cmd_AddCommand( "maps", SV_Maps_f, "list maps" );
 
 	if( host.type == HOST_NORMAL )
 	{

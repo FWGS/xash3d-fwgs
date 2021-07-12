@@ -205,7 +205,7 @@ static qboolean createInstance( void )
 		.pApplicationInfo = &app_info,
 	};
 
-	int vid_extensions = gEngine.VK_GetInstanceExtensions(0, NULL);
+	int vid_extensions = gEngine.XVK_GetInstanceExtensions(0, NULL);
 	if (vid_extensions < 0)
 	{
 		gEngine.Con_Printf( S_ERROR "Cannot get Vulkan instance extensions\n" );
@@ -215,7 +215,7 @@ static qboolean createInstance( void )
 	num_instance_extensions += vid_extensions;
 
 	instance_extensions = Mem_Malloc(vk_core.pool, sizeof(const char*) * num_instance_extensions);
-	vid_extensions = gEngine.VK_GetInstanceExtensions(vid_extensions, instance_extensions);
+	vid_extensions = gEngine.XVK_GetInstanceExtensions(vid_extensions, instance_extensions);
 	if (vid_extensions < 0)
 	{
 		gEngine.Con_Printf( S_ERROR "Cannot get Vulkan instance extensions\n" );
@@ -543,7 +543,7 @@ qboolean R_VkInit( void )
 		return false;
 	}
 
-	vkGetInstanceProcAddr = gEngine.VK_GetVkGetInstanceProcAddr();
+	vkGetInstanceProcAddr = gEngine.XVK_GetVkGetInstanceProcAddr();
 	if (!vkGetInstanceProcAddr)
 	{
 		gEngine.Con_Printf( S_ERROR "Cannot get vkGetInstanceProcAddr address\n" );
@@ -568,7 +568,7 @@ qboolean R_VkInit( void )
 	if (!createInstance())
 		return false;
 
-	vk_core.surface.surface = gEngine.VK_CreateSurface(vk_core.instance);
+	vk_core.surface.surface = gEngine.XVK_CreateSurface(vk_core.instance);
 	if (!vk_core.surface.surface)
 	{
 		gEngine.Con_Printf( S_ERROR "Cannot create Vulkan surface\n" );
@@ -772,12 +772,14 @@ device_memory_t allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyF
 		.flags = flags,
 	};
 
-	VkMemoryAllocateInfo mai = {
+	const VkMemoryAllocateInfo mai = {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		.pNext = flags ? &mafi : NULL,
 		.allocationSize = req.size,
 		.memoryTypeIndex = findMemoryWithType(req.memoryTypeBits, props),
 	};
+
+	ASSERT(mai.memoryTypeIndex != UINT32_MAX);
 	XVK_CHECK(vkAllocateMemory(vk_core.device, &mai, NULL, &ret.device_memory));
 	return ret;
 }
