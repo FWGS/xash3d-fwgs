@@ -102,8 +102,8 @@ keyname_t keynames[] =
 // A/B X/Y names match the Xbox controller layout
 {"A_BUTTON", K_A_BUTTON, "+jump"},
 {"B_BUTTON", K_B_BUTTON, "+use"},
-{"X_BUTTON", K_X_BUTTON, "+reload"}, // Flashlight
-{"Y_BUTTON", K_Y_BUTTON, "impulse 100"},
+{"X_BUTTON", K_X_BUTTON, "+reload"},
+{"Y_BUTTON", K_Y_BUTTON, "impulse 100"}, // Flashlight
 {"BACK",   K_BACK_BUTTON, "cancelselect"}, // Menu
 {"MODE",   K_MODE_BUTTON, ""},
 {"START",  K_START_BUTTON, "pause"},

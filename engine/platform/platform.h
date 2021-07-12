@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "system.h"
 #include "defaults.h"
+#include "ref_vulkan.h"
 
 /*
 ==============================================================================
@@ -123,28 +124,6 @@ void GL_SwapBuffers( void );
 void *SW_LockBuffer( void );
 void SW_UnlockBuffer( void );
 qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
-
-//
-// Vulkan
-//
-
-// FIXME MAXIMUM DUMB
-// We need to declare this somewhere visible from:
-// - ref_api.h + ref_dll
-// - platform.h
-// Naively including ref_api.h in platform.h leads to weird compilation errors wrt wrong type casts (fwd declaration conflicts?)
-// Figure this out
-#if defined(__LP64__) || defined(_WIN64) || (defined(__x86_64__) && !defined(__ILP32__) ) || defined(_M_X64) || defined(__ia64) || defined (_M_IA64) || defined(__aarch64__) || defined(__powerpc64__)
-typedef void* vulkan_non_dispatchable_handle_t;
-#else
-typedef uint64_t vulkan_non_dispatchable_handle_t;
-#endif
-typedef void* vulkan_handle_t;
-// FIXME END MAXIMUM DUMB
-
-int VK_GetInstanceExtensions( unsigned int count, const char **pNames );
-void *VK_GetVkGetInstanceProcAddr( void );
-vulkan_non_dispatchable_handle_t VK_CreateSurface( vulkan_handle_t vkInstance );
 
 //
 // in_evdev.c

@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "r_efx.h"
 #include "com_image.h"
+#include "ref_vulkan.h"
 
 #define REF_API_VERSION 1
 
@@ -251,14 +252,6 @@ typedef enum
 	PARM_NUMMODELS         = -13, // cl.nummodels
 } ref_parm_e;
 
-#if defined(__LP64__) || defined(_WIN64) || (defined(__x86_64__) && !defined(__ILP32__) ) || defined(_M_X64) || defined(__ia64) || defined (_M_IA64) || defined(__aarch64__) || defined(__powerpc64__)
-typedef void* vulkan_non_dispatchable_handle_t;
-#else
-typedef uint64_t vulkan_non_dispatchable_handle_t;
-#endif
-
-typedef void* vulkan_handle_t;
-
 typedef struct ref_api_s
 {
 	int	(*EngineGetParm)( int parm, int arg );	// generic
@@ -441,10 +434,11 @@ typedef struct ref_api_s
 	void	(*pfnDrawTransparentTriangles)( void );
 	render_interface_t	*drawFuncs;
 
-	// Vulkan
-	int (*VK_GetInstanceExtensions)( unsigned int count, const char **pNames );
-	void *(*VK_GetVkGetInstanceProcAddr)( void );
-	vulkan_non_dispatchable_handle_t (*VK_CreateSurface)( vulkan_handle_t vkInstance );
+#ifdef XASH_VULKAN
+	int (*XVK_GetInstanceExtensions)( unsigned int count, const char **pNames );
+	void *(*XVK_GetVkGetInstanceProcAddr)( void );
+	VkSurfaceKHR (*XVK_CreateSurface)( VkInstance instance );
+#endif
 } ref_api_t;
 
 struct mip_s;

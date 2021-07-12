@@ -16,81 +16,11 @@ GNU General Public License for more details.
 #if XASH_LIB == LIB_WIN32
 #include "common.h"
 #include "library.h"
+#include <winnt.h>
 
-#ifdef XASH_64BIT
-#include <dbghelp.h>
+#define CALCULATE_ADDRESS( base, offset ) ( ( DWORD )( base ) + ( DWORD )( offset ) )
 
-void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath )
-{
-	dll_user_t *hInst;
-
-	hInst = FS_FindLibrary( dllname, directpath );
-	if( !hInst ) return NULL; // nothing to load
-
-	return LoadLibraryA( hInst->fullPath );
-}
-
-void COM_FreeLibrary( void *hInstance )
-{
-	FreeLibrary( hInstance );
-}
-
-void *COM_GetProcAddress( void *hInstance, const char *name )
-{
-	return GetProcAddress( hInstance, name );
-}
-
-void *COM_FunctionFromName( void *hInstance, const char *name )
-{
-	return GetProcAddress( hInstance, name );
-}
-
-const char *COM_NameForFunction( void *hInstance, void *function )
-{
-#if 0
-	static qboolean initialized = false;
-	if( initialized )
-	{
-		char message[1024];
-		int len = 0;
-		size_t i;
-		HANDLE process = GetCurrentProcess();
-		HANDLE thread = GetCurrentThread();
-		IMAGEHLP_LINE64 line;
-		DWORD dline = 0;
-		DWORD options;
-		CONTEXT context;
-		STACKFRAME64 stackframe;
-		DWORD image;
-		char buffer[sizeof( IMAGEHLP_SYMBOL64) + MAX_SYM_NAME * sizeof(TCHAR)];
-		PIMAGEHLP_SYMBOL64 symbol = ( PIMAGEHLP_SYMBOL64)buffer;
-		memset( symbol, 0, sizeof(IMAGEHLP_SYMBOL64) + MAX_SYM_NAME );
-		symbol->SizeOfStruct = sizeof( IMAGEHLP_SYMBOL64);
-		symbol->MaxNameLength = MAX_SYM_NAME;
-		DWORD displacement = 0;
-
-		options = SymGetOptions();
-		SymSetOptions( options );
-
-		SymInitialize( process, NULL, TRUE );
-
-		if( SymGetSymFromAddr64( process, function, &displacement, symbol ) )
-		{
-			Msg( "%s\n", symbol->Name );
-			return copystring( symbol->Name );
-		}
-
-	}
-#endif
-
-#ifdef XASH_ALLOW_SAVERESTORE_OFFSETS
-	return COM_OffsetNameForFunction( function );
-#endif
-
-	return NULL;
-}
-#else // XASH_64BIT
-
+#if XASH_X86
 /*
 ---------------------------------------------------------------
 
@@ -99,105 +29,10 @@ const char *COM_NameForFunction( void *hInstance, void *function )
 ---------------------------------------------------------------
 */
 
-#define DOS_SIGNATURE		0x5A4D		// MZ
-#define NT_SIGNATURE		0x00004550	// PE00
 #define NUMBER_OF_DIRECTORY_ENTRIES	16
 #ifndef IMAGE_SIZEOF_BASE_RELOCATION
 #define IMAGE_SIZEOF_BASE_RELOCATION	( sizeof( IMAGE_BASE_RELOCATION ))
 #endif
-
-typedef struct
-{
-	// dos .exe header
-	word	e_magic;		// magic number
-	word	e_cblp;		// bytes on last page of file
-	word	e_cp;		// pages in file
-	word	e_crlc;		// relocations
-	word	e_cparhdr;	// size of header in paragraphs
-	word	e_minalloc;	// minimum extra paragraphs needed
-	word	e_maxalloc;	// maximum extra paragraphs needed
-	word	e_ss;		// initial (relative) SS value
-	word	e_sp;		// initial SP value
-	word	e_csum;		// checksum
-	word	e_ip;		// initial IP value
-	word	e_cs;		// initial (relative) CS value
-	word	e_lfarlc;		// file address of relocation table
-	word	e_ovno;		// overlay number
-	word	e_res[4];		// reserved words
-	word	e_oemid;		// OEM identifier (for e_oeminfo)
-	word	e_oeminfo;	// OEM information; e_oemid specific
-	word	e_res2[10];	// reserved words
-	long	e_lfanew;		// file address of new exe header
-} DOS_HEADER;
-
-typedef struct
-{
-	// win .exe header
-	word	Machine;
-	word	NumberOfSections;
-	dword	TimeDateStamp;
-	dword	PointerToSymbolTable;
-	dword	NumberOfSymbols;
-	word	SizeOfOptionalHeader;
-	word	Characteristics;
-} PE_HEADER;
-
-typedef struct
-{
-	dword	VirtualAddress;
-	dword	Size;
-} DATA_DIRECTORY;
-
-typedef struct
-{
-	word	Magic;
-	byte	MajorLinkerVersion;
-	byte	MinorLinkerVersion;
-	dword	SizeOfCode;
-	dword	SizeOfInitializedData;
-	dword	SizeOfUninitializedData;
-	dword	AddressOfEntryPoint;
-	dword	BaseOfCode;
-	dword	BaseOfData;
-	dword	ImageBase;
-	dword	SectionAlignment;
-	dword	FileAlignment;
-	word	MajorOperatingSystemVersion;
-	word	MinorOperatingSystemVersion;
-	word	MajorImageVersion;
-	word	MinorImageVersion;
-	word	MajorSubsystemVersion;
-	word	MinorSubsystemVersion;
-	dword	Win32VersionValue;
-	dword	SizeOfImage;
-	dword	SizeOfHeaders;
-	dword	CheckSum;
-	word	Subsystem;
-	word	DllCharacteristics;
-	dword	SizeOfStackReserve;
-	dword	SizeOfStackCommit;
-	dword	SizeOfHeapReserve;
-	dword	SizeOfHeapCommit;
-	dword	LoaderFlags;
-	dword	NumberOfRvaAndSizes;
-
-	DATA_DIRECTORY	DataDirectory[NUMBER_OF_DIRECTORY_ENTRIES];
-} OPTIONAL_HEADER;
-
-typedef struct
-{
-	dword	Characteristics;
-	dword	TimeDateStamp;
-	word	MajorVersion;
-	word	MinorVersion;
-	dword	Name;
-	dword	Base;
-	dword	NumberOfFunctions;
-	dword	NumberOfNames;
-	dword	AddressOfFunctions;		// RVA from base of image
-	dword	AddressOfNames;		// RVA from base of image
-	dword	AddressOfNameOrdinals;	// RVA from base of image
-} EXPORT_DIRECTORY;
 
 typedef struct
 {
@@ -207,26 +42,6 @@ typedef struct
 	int		numModules;
 	int		initialized;
 } MEMORYMODULE, *PMEMORYMODULE;
-
-typedef struct
-{
-	byte	Name[8];	// dos name length
-
-	union
-	{
-		dword	PhysicalAddress;
-		dword	VirtualSize;
-	} Misc;
-
-	dword	VirtualAddress;
-	dword	SizeOfRawData;
-	dword	PointerToRawData;
-	dword	PointerToRelocations;
-	dword	PointerToLinenumbers;
-	word	NumberOfRelocations;
-	word	NumberOfLinenumbers;
-	dword	Characteristics;
-} SECTION_HEADER;
 
 // Protection flags for memory pages (Executable, Readable, Writeable)
 static int ProtectionFlags[2][2][2] =
@@ -244,7 +59,6 @@ static int ProtectionFlags[2][2][2] =
 typedef BOOL (WINAPI *DllEntryProc)( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved );
 
 #define GET_HEADER_DICTIONARY( module, idx )	&(module)->headers->OptionalHeader.DataDirectory[idx]
-#define CALCULATE_ADDRESS( base, offset )	((DWORD)(base) + (DWORD)(offset))
 
 static void CopySections( const byte *data, PIMAGE_NT_HEADERS old_headers, PMEMORYMODULE module )
 {
@@ -672,6 +486,7 @@ library_error:
 
 	return NULL;
 }
+#endif
 
 static DWORD GetOffsetByRVA( DWORD rva, PIMAGE_NT_HEADERS nt_header )
 {
@@ -727,41 +542,18 @@ static void FreeNameFuncGlobals( dll_user_t *hInst )
 	hInst->funcs = NULL;
 }
 
-char *GetMSVCName( const char *in_name )
-{
-	static string	out_name;
-	char		*pos;
-
-	if( in_name[0] == '?' )  // is this a MSVC C++ mangled name?
-	{
-		if(( pos = Q_strstr( in_name, "@@" )) != NULL )
-		{
-			int	len = pos - in_name;
-
-			// strip off the leading '?'
-			Q_strncpy( out_name, in_name + 1, sizeof( out_name ));
-			out_name[len-1] = 0; // terminate string at the "@@"
-			return out_name;
-		}
-	}
-
-	Q_strncpy( out_name, in_name, sizeof( out_name ));
-
-	return out_name;
-}
-
 qboolean LibraryLoadSymbols( dll_user_t *hInst )
 {
 	file_t		*f;
 	string		errorstring;
-	DOS_HEADER	dos_header;
+	IMAGE_DOS_HEADER	dos_header;
 	LONG		nt_signature;
-	PE_HEADER		pe_header;
-	SECTION_HEADER	section_header;
+	IMAGE_FILE_HEADER   pe_header;
+	IMAGE_SECTION_HEADER	section_header;
 	qboolean		rdata_found;
-	OPTIONAL_HEADER	optional_header;
+	IMAGE_OPTIONAL_HEADER   optional_header;
 	long		rdata_delta = 0;
-	EXPORT_DIRECTORY	export_directory;
+	IMAGE_EXPORT_DIRECTORY  export_directory;
 	long		name_offset;
 	long		exports_offset;
 	long		ordinal_offset;
@@ -789,7 +581,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 		goto table_error;
 	}
 
-	if( dos_header.e_magic != DOS_SIGNATURE )
+	if( dos_header.e_magic != IMAGE_DOS_SIGNATURE )
 	{
 		Q_sprintf( errorstring, "%s does not have a valid dll signature", hInst->shortPath );
 		goto table_error;
@@ -807,7 +599,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 		goto table_error;
 	}
 
-	if( nt_signature != NT_SIGNATURE )
+	if( nt_signature != IMAGE_NT_SIGNATURE )
 	{
 		Q_sprintf( errorstring, "%s does not have a valid NT signature", hInst->shortPath );
 		goto table_error;
@@ -934,7 +726,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 			if( FS_Seek( f, name_offset, SEEK_SET ) != -1 )
 			{
 				FsGetString( f, function_name );
-				hInst->names[i] = copystring( GetMSVCName( function_name ));
+				hInst->names[i] = copystring( COM_GetMSVCName( function_name ));
 			}
 			else break;
 		}
@@ -954,8 +746,8 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 			void	*fn_offset;
 
 			index = hInst->ordinals[i];
-			fn_offset = (void *)COM_GetProcAddress( hInst, "GiveFnptrsToDll" );
-			hInst->funcBase = (dword)(fn_offset) - hInst->funcs[index];
+			fn_offset = COM_GetProcAddress( hInst, "GiveFnptrsToDll" );
+			hInst->funcBase = (uintptr_t)(fn_offset) - hInst->funcs[index];
 			break;
 		}
 	}
@@ -1012,7 +804,7 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 	importDir = &peHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
 	if( importDir->Size <= 0 )
 	{
-		Q_snprintf( errorstring, sizeof( errorstring ), "%s has no dependencies. Is this library valid?\n", name );
+		Con_Printf( S_WARN "%s: %s has no dependencies. Is this library valid?\n", __FUNCTION__, name );
 		goto libraryerror;
 	}
 
@@ -1030,7 +822,10 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 	}
 
 libraryerror:
-	if( errorstring[0] ) Con_Printf( errorstring );
+	if( errorstring[0] )
+	{
+		Con_Printf( S_ERROR "%s: %s\n", __FUNCTION__, errorstring );
+	}
 	if( data ) Mem_Free( data ); // release memory
 	return false;
 }
@@ -1049,17 +844,22 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	hInst = FS_FindLibrary( dllname, directpath );
 	if( !hInst ) return NULL; // nothing to load
 
+	if( hInst->encrypted )
+	{
+		Con_Printf( S_ERROR "LoadLibrary: couldn't load encrypted library %s\n", dllname );
+		return NULL;
+	}
+
+#if XASH_X86
 	if( hInst->custom_loader )
 	{
-		if( hInst->encrypted )
-		{
-			Con_Printf( S_ERROR "LoadLibrary: couldn't load encrypted library %s\n", dllname );
-			return NULL;
-		}
-
 		hInst->hInstance = MemoryLoadLibrary( hInst->fullPath );
 	}
-	else hInst->hInstance = LoadLibrary( hInst->fullPath );
+	else
+#endif
+	{
+		hInst->hInstance = LoadLibrary( hInst->fullPath );
+	}
 
 	if( !hInst->hInstance )
 	{
@@ -1091,8 +891,10 @@ void *COM_GetProcAddress( void *hInstance, const char *name )
 	if( !hInst || !hInst->hInstance )
 		return NULL;
 
+#if XASH_X86
 	if( hInst->custom_loader )
 		return (void *)MemoryGetProcAddress( hInst->hInstance, name );
+#endif
 	return (void *)GetProcAddress( hInst->hInstance, name );
 }
 
@@ -1111,9 +913,16 @@ void COM_FreeLibrary( void *hInstance )
 	}
 	else Con_Reportf( "Sys_FreeLibrary: Unloading %s\n", hInst->dllName );
 
+#if XASH_X86
 	if( hInst->custom_loader )
+	{
 		MemoryFreeLibrary( hInst->hInstance );
-	else FreeLibrary( hInst->hInstance );
+	}
+	else
+#endif
+	{
+		FreeLibrary( hInst->hInstance );
+	}
 
 	hInst->hInstance = NULL;
 
@@ -1166,5 +975,4 @@ const char *COM_NameForFunction( void *hInstance, void *function )
 
 	return NULL;
 }
-#endif // XASH_64BIT
 #endif // _WIN32

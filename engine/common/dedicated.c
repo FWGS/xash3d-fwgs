@@ -190,7 +190,7 @@ void CL_WriteMessageHistory( void )
 
 void Host_ClientBegin( void )
 {
-
+	Cbuf_Execute();
 }
 
 void Host_ClientFrame( void )
@@ -200,7 +200,6 @@ void Host_ClientFrame( void )
 
 void Host_InputFrame( void )
 {
-	Cbuf_Execute( );
 }
 
 void VID_InitDefaultResolution( void )

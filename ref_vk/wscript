@@ -39,6 +39,7 @@ def configure(conf):
 	conf.load('glslc')
 
 	conf.define('REF_DLL', 1)
+	conf.define('XASH_VULKAN', 1)
 
 	if conf.options.NSIGHT_AFTERMATH_SDK:
 		conf.start_msg('Nvidia Nsight Aftermath SDK')

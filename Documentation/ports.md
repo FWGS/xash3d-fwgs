@@ -18,19 +18,21 @@ Table is sorted by status.
 | Platform        | Status                     | Maintainer           | Note
 | --------        | ------                     | ----------           | ----
 | Windows         | Supported                  | @a1batross           |
-| Linux(x86)      | Supported                  | @a1batross, @mittorn |
-| Linux(amd64)    | Supported                  | @mittorn             |
 | *BSD            | Supported                  | @nekonomicon         |
-| Linux(arm)      | Supported                  | @a1batross, @mittorn |
+| GNU/Linux(x86, amd64, arm) | Supported       | @a1batross, @mittorn |
 | Android         | Supported                  | @a1batross, @mittorn |
 | MotoMAGX        | Supported                  | @a1batross           |
-| Linux(elbrus)   | In progress                | @a1batross, @mittorn | Rare and eventual access to e2k machine
-| Android/Linux(aarch64) | In progress         | @a1batross           |
-| Linux(mipsel)   | In progress                | @mittorn             |
-| Haiku           | Incomplete, Old Engine     | not maintained       | 
-| Emscripten      | Incomplete, Old Engine     | not maintained       | 
-| PSVita          | Not merged, Old Engine     | not maintained       | [GitHub Repository](https://github.com/fgsfdsfgs/vitaXash3D)
-| Switch          | Not merged, Old Engine     | not maintained       | [GitHub Repository](https://github.com/switchports/xash3d-switch)
-| 3DS             | Not merged, Old Engine     | not maintained       | [GitHub Repository](https://github.com/masterfeizz/Xash3DS)
+| GNU/Linux(elbrus) | Supported                | @a1batross, @mittorn | Rare and eventual access to e2k machine
+| Haiku           | Supported                  | not maintained       | Was added by #478 and #483
+| DOS4GW          | Supported                  | @mittorn             |
+| GNU/Linux(mipsel) | Supported                | @mittorn             |
+| Switch          | In progress                | @fgsfdsfgs           | [Github Repository](https://github.com/fgsfdsfgs/xash3d-fwgs/tree/switch_new) 
+| Wii             | In progress                | Collaborative effort | [Github Repository](https://github.com/saucesaft/xash3d-wii) 
+| PSP             | In progress                | Collaborative effort | No sources available at this moment
+| Emscripten      | Old Engine                 | not maintained       | 
+| Oculus Quest    | Old Engine fork            | @DrBeef              | [GitHub Repository](https://github.com/DrBeef/Lambda1VR)
+| PSVita          | Old Engine fork            | not maintained       | [GitHub Repository](https://github.com/fgsfdsfgs/vitaXash3D)
+| Switch          | Old Engine fork            | not maintained       | [GitHub Repository](https://github.com/switchports/xash3d-switch)
+| 3DS             | Old Engine fork            | not maintained       | [GitHub Repository](https://github.com/masterfeizz/Xash3DS)
 | macOS           | Deprecated                 | not maintained       | See GitHub issue #61
 | iOS             | Deprecated                 | not maintained       | See GitHub issue #61

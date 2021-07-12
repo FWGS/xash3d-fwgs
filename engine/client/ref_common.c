@@ -386,14 +386,10 @@ static ref_api_t gEngfuncs =
 	pfnDrawTransparentTriangles,
 	&clgame.drawFuncs,
 
-#if XASH_ANDROID
-	NULL,
-	NULL,
-	NULL,
-#else
-	VK_GetInstanceExtensions,
-	VK_GetVkGetInstanceProcAddr,
-	VK_CreateSurface,
+#ifdef XASH_VULKAN
+	XVK_GetInstanceExtensions,
+	XVK_GetVkGetInstanceProcAddr,
+	XVK_CreateSurface,
 #endif
 };
 

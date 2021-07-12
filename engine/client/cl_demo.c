@@ -371,7 +371,7 @@ void CL_WriteDemoHeader( const char *name )
 
 	demo.header.id = IDEMOHEADER;
 	demo.header.dem_protocol = DEMO_PROTOCOL;
-	demo.header.net_protocol = PROTOCOL_VERSION;
+	demo.header.net_protocol = cls.legacymode ? PROTOCOL_LEGACY_VERSION : PROTOCOL_VERSION;
 	demo.header.host_fps = bound( MIN_FPS, host_maxfps->value, MAX_FPS );
 	Q_strncpy( demo.header.mapname, clgame.mapname, sizeof( demo.header.mapname ));
 	Q_strncpy( demo.header.comment, clgame.maptitle, sizeof( demo.header.comment ));
@@ -1199,7 +1199,9 @@ int GAME_EXPORT CL_GetDemoComment( const char *demoname, char *comment )
 		return false;
 	}
 
-	if( demohdr.net_protocol != PROTOCOL_VERSION || demohdr.dem_protocol != DEMO_PROTOCOL )
+	if(( demohdr.net_protocol != PROTOCOL_VERSION &&
+		demohdr.net_protocol != PROTOCOL_LEGACY_VERSION ) ||
+		demohdr.dem_protocol != DEMO_PROTOCOL )
 	{
 		FS_Close( demfile );
 		Q_strncpy( comment, "<invalid protocol>", MAX_STRING );
@@ -1381,7 +1383,7 @@ void CL_Record_f( void )
 	// open the demo file
 	Q_sprintf( demopath, "%s.dem", demoname );
 
-	// make sure what old demo is removed
+	// make sure that old demo is removed
 	if( FS_FileExists( demopath, false ))
 		FS_Delete( demopath );
 
@@ -1476,13 +1478,17 @@ void CL_PlayDemo_f( void )
 		return;
 	}
 
-	if( demo.header.net_protocol != PROTOCOL_VERSION || demo.header.dem_protocol != DEMO_PROTOCOL )
+	if( demo.header.dem_protocol != DEMO_PROTOCOL )
 	{
-		if( demo.header.dem_protocol != DEMO_PROTOCOL )
-			Con_Printf( S_ERROR "playdemo: demo protocol outdated (%i should be %i)\n", demo.header.dem_protocol, DEMO_PROTOCOL );
+		Con_Printf( S_ERROR "playdemo: demo protocol outdated (%i should be %i)\n", demo.header.dem_protocol, DEMO_PROTOCOL );
+		CL_DemoAborted();
+		return;
+	}
 
-		if( demo.header.net_protocol != PROTOCOL_VERSION )
-			Con_Printf( S_ERROR "playdemo: net protocol outdated (%i should be %i)\n", demo.header.net_protocol, PROTOCOL_VERSION );
+	if( demo.header.net_protocol != PROTOCOL_VERSION &&
+		demo.header.net_protocol != PROTOCOL_LEGACY_VERSION )
+	{
+		Con_Printf( S_ERROR "playdemo: net protocol outdated (%i should be %i)\n", demo.header.net_protocol, PROTOCOL_VERSION );
 		CL_DemoAborted();
 		return;
 	}
@@ -1515,6 +1521,7 @@ void CL_PlayDemo_f( void )
 
 	// g-cont. is this need?
 	Q_strncpy( cls.servername, demoname, sizeof( cls.servername ));
+	cls.legacymode = demo.header.net_protocol == PROTOCOL_LEGACY_VERSION;
 
 	// begin a playback demo
 }
