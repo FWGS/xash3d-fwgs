@@ -20,7 +20,7 @@
 
 #define MAX_LIGHT_LEAVES 8192
 
-#define SBT_SIZE 3
+#define SBT_SIZE 4
 
 // TODO settings/realtime modifiable/adaptive
 #define FRAME_WIDTH 1280
@@ -366,6 +366,13 @@ static void createPipeline( void )
 		},
 		{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
+			.module = loadShader("shadow.rmiss.spv"),
+			//.pSpecializationInfo = &spec,
+			.pName = "main",
+		},
+		{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
 			.module = loadShader("ray.rchit.spv"),
 			//.pSpecializationInfo = &spec,
@@ -392,9 +399,17 @@ static void createPipeline( void )
 		},
 		{
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.generalShader = 2, // shadow miss stage index; FIXME enum
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		},
+		{
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
 			.anyHitShader = VK_SHADER_UNUSED_KHR,
-			.closestHitShader = 2, // FIXME enum index
+			.closestHitShader = 3, // FIXME enum index
 			.generalShader = VK_SHADER_UNUSED_KHR,
 			.intersectionShader = VK_SHADER_UNUSED_KHR,
 		},
@@ -647,14 +662,14 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		{
 			const uint32_t sbt_record_size = g_rtx.sbt_record_size;
 			//const uint32_t sbt_record_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
-#define SBT_INDEX(index) { \
+#define SBT_INDEX(index, count) { \
 	.deviceAddress = getBufferDeviceAddress(g_rtx.sbt_buffer.buffer) + g_rtx.sbt_record_size * index, \
-	.size = sbt_record_size, \
+	.size = sbt_record_size * count, \
 	.stride = sbt_record_size, \
 }
-			const VkStridedDeviceAddressRegionKHR sbt_raygen = SBT_INDEX(0);
-			const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(1);
-			const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(2);
+			const VkStridedDeviceAddressRegionKHR sbt_raygen = SBT_INDEX(0, 1);
+			const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(1, 2);
+			const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(3, 1);
 			const VkStridedDeviceAddressRegionKHR sbt_callable = { 0 };
 
 			vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_miss, &sbt_hit, &sbt_callable, FRAME_WIDTH, FRAME_HEIGHT, 1 );

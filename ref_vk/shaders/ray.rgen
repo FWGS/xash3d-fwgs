@@ -85,6 +85,17 @@ float rand01() {
 }
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
+layout(location = 1) rayPayloadEXT bool shadow;
+
+bool shadowed(vec3 pos, vec3 dir, float dist) {
+	shadow = true;
+	traceRayEXT(tlas,
+		gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,
+		0xff,
+		0, 0, 1 /* miss index */, 
+		pos, 0., dir, dist, 1 /* payload location */);
+	return shadow;
+}
 
 void main() {
 	vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
@@ -108,6 +119,7 @@ void main() {
 	if (payload.hit_pos_t.w > 0.) {
 		const int bounce = 0;
 		const vec3 kc = vec3(1.);
+		//rand01_state = uint(mod(pc.t, 100.) * 1000.) + gl_GlobalInvocationID.x * 1823 + 31337 * gl_GlobalInvocationID.y;
 
 		const ivec3 light_cell = ivec3(floor(payload.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
 		const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
@@ -211,10 +223,11 @@ void main() {
 					if (light_dir_normal_dot <= 0.)
 						continue;
 
-					// if (shadowed(pos, light_dir, light_dist - shadow_offset_fudge)) {
-					// 	//C = vec3(0., 1., 0.);
-					// 	continue;
-					// }
+					const float shadow_offset_fudge = .5;
+					if (shadowed(payload.hit_pos_t.xyz, light_dir, light_dist - shadow_offset_fudge)) {
+						//C = vec3(0., 1., 0.);
+						continue;
+					}
 
 					// TODO
 					const float brightness_fudge = 50.;
