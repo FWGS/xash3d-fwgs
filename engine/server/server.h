@@ -352,6 +352,7 @@ typedef struct
 typedef struct
 {
 	qboolean		initialized;		// sv_init has completed
+	qboolean	game_library_loaded;	// is game library loaded in SV_InitGame
 	double		timestart;		// just for profiling
 
 	int		maxclients;		// server max clients
@@ -467,7 +468,6 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg );
 qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent );
 void Host_SetServerState( int state );
 qboolean SV_IsSimulating( void );
-qboolean SV_InitGame( void );
 void SV_FreeClients( void );
 void Master_Add( void );
 void Master_Heartbeat( void );
@@ -476,6 +476,7 @@ void Master_Packet( void );
 //
 // sv_init.c
 //
+qboolean SV_InitGame( void );
 void SV_ActivateServer( int runPhysics );
 qboolean SV_SpawnServer( const char *server, const char *startspot, qboolean background );
 model_t *SV_ModelHandle( int modelindex );
