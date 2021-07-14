@@ -48,6 +48,7 @@ typedef struct {
 typedef struct {
 	matrix3x4 transform_row;
 	vk_ray_model_t *model;
+	int render_mode;
 } vk_ray_draw_model_t;
 
 typedef struct {

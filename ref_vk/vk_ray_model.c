@@ -294,6 +294,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		vk_ray_draw_model_t* draw_model = g_ray_model_state.frame.models + g_ray_model_state.frame.num_models;
 		ASSERT(model->as != VK_NULL_HANDLE);
 		draw_model->model = model;
+		draw_model->render_mode = render_model->render_mode;
 		memcpy(draw_model->transform_row, *transform_row, sizeof(draw_model->transform_row));
 		g_ray_model_state.frame.num_models++;
 	}

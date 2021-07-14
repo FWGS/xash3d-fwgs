@@ -35,7 +35,7 @@ class glsl(Task.Task):
 	def keyword(self):
 		return 'Compiling shader'
 
-@TaskGen.extension('.vert', '.frag', '.comp', '.rgen', '.rchit', '.rmiss')
+@TaskGen.extension('.vert', '.frag', '.comp', '.rgen', '.rchit', '.rmiss', '.rahit')
 def process_glsl_source(self, src):
 	# see ccroot.apply_incpaths
 	lst = self.to_incnodes(self.to_list(getattr(self, 'includes', [])) + self.env.GLSLCINCLUDES)

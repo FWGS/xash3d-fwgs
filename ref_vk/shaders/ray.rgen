@@ -101,8 +101,14 @@ layout(location = 1) rayPayloadEXT bool shadow;
 
 bool shadowed(vec3 pos, vec3 dir, float dist) {
 	shadow = true;
+	const uint flags =  0
+		| gl_RayFlagsCullFrontFacingTrianglesEXT
+		//| gl_RayFlagsOpaqueEXT 
+		| gl_RayFlagsTerminateOnFirstHitEXT
+		| gl_RayFlagsSkipClosestHitShaderEXT
+		;
 	traceRayEXT(tlas,
-		gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,
+		flags,
 		0xff,
 		0, 0, 1 /* miss index */, 
 		pos, 0., dir, dist, 1 /* payload location */);
@@ -120,15 +126,17 @@ void main() {
 	vec3 kc = vec3(1.);
 	vec3 C = vec3(0.);
 
-	//for (int bounce = 0; bounce < push_constants.bounces; ++bounce) {
 	for (int bounce = 0; bounce < 2; ++bounce) {
-		//const int bounce = 0;
+		const uint flags = 0
+			| gl_RayFlagsCullFrontFacingTrianglesEXT
+			//| gl_RayFlagsOpaqueEXT
+			;
 		const uint sbt_offset = 0;
 		const uint sbt_stride = 0;
 		const uint miss_index = 0;
 		const int ray_payload_loc = 0;
 		const float L = 10000.;
-		traceRayEXT(tlas, gl_RayFlagsOpaqueEXT, 0xff,
+		traceRayEXT(tlas, flags, 0xff,
 			sbt_offset, sbt_stride, miss_index,
 			origin, .001, direction, L,
 			ray_payload_loc);

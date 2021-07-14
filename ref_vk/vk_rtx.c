@@ -378,6 +378,13 @@ static void createPipeline( void )
 			//.pSpecializationInfo = &spec,
 			.pName = "main",
 		},
+		{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
+			.module = loadShader("alphamask.rahit.spv"),
+			//.pSpecializationInfo = &spec,
+			.pName = "main",
+		},
 	};
 
 	const VkRayTracingShaderGroupCreateInfoKHR shader_groups[SBT_SIZE] = {
@@ -408,7 +415,7 @@ static void createPipeline( void )
 		{
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
-			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.anyHitShader = 4, // FIXME index of alphamask shader
 			.closestHitShader = 3, // FIXME enum index
 			.generalShader = VK_SHADER_UNUSED_KHR,
 			.intersectionShader = VK_SHADER_UNUSED_KHR,
@@ -508,7 +515,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 				.instanceCustomIndex = model->model->kusochki_offset,
 				.mask = 0xff,
 				.instanceShaderBindingTableRecordOffset = 0,
-				.flags = 0,
+				.flags = model->render_mode == kRenderNormal ? VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR : VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR,
 				.accelerationStructureReference = getASAddress(model->model->as), // TODO cache this addr
 			};
 			memcpy(&inst[i].transform, model->transform_row, sizeof(VkTransformMatrixKHR));
@@ -797,28 +804,28 @@ static void createLayouts( void ) {
 		.binding = RayDescBinding_Kusochki,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_Indices] = (VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Indices,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_Vertices] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Vertices,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_Textures] = (VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Textures,
 		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		.descriptorCount = MAX_TEXTURES,
-		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
 		// FIXME on AMD using immutable samplers leads to nearest filtering ???!
 		.pImmutableSamplers = NULL, //samplers,
 	};
