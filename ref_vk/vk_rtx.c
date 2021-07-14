@@ -39,7 +39,7 @@ typedef struct {
 } vk_light_t;
 
 typedef struct {
-	float t;
+	uint32_t random_seed;
 	int bounces;
 	float prev_frame_blend_factor;
 } vk_rtx_push_constants_t;
@@ -649,14 +649,15 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	if (g_rtx.tlas) {
 		// 4. dispatch ray tracing
 		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_rtx.pipeline);
-		// {
-		// 	vk_rtx_push_constants_t push_constants = {
-		// 		.t = gpGlobals->realtime,
-		// 		.bounces = vk_rtx_bounces->value,
-		// 		.prev_frame_blend_factor = vk_rtx_prev_frame_blend_factor->value,
-		// 	};
-		// 	vkCmdPushConstants(cmdbuf, g_rtx.descriptors.pipeline_layout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(push_constants), &push_constants);
-		// }
+		{
+			vk_rtx_push_constants_t push_constants = {
+				//.t = gpGlobals->realtime,
+				.random_seed = (uint32_t)gEngine.COM_RandomLong(0, INT32_MAX),
+				.bounces = vk_rtx_bounces->value,
+				.prev_frame_blend_factor = vk_rtx_prev_frame_blend_factor->value,
+			};
+			vkCmdPushConstants(cmdbuf, g_rtx.descriptors.pipeline_layout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(push_constants), &push_constants);
+		}
 		vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_rtx.descriptors.pipeline_layout, 0, 1, g_rtx.descriptors.desc_sets + 0, 0, NULL);
 
 		{
@@ -765,11 +766,11 @@ static void createLayouts( void ) {
 	g_rtx.descriptors.values = g_rtx.desc_values;
 	g_rtx.descriptors.num_sets = 1;
 	g_rtx.descriptors.desc_sets = g_rtx.desc_sets;
-	// g_rtx.descriptors.push_constants = (VkPushConstantRange){
-	// 	.offset = 0,
-	// 	.size = sizeof(vk_rtx_push_constants_t),
-	// 	.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	// };
+	g_rtx.descriptors.push_constants = (VkPushConstantRange){
+		.offset = 0,
+		.size = sizeof(vk_rtx_push_constants_t),
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+	};
 
 	g_rtx.desc_bindings[RayDescBinding_DestImage] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_DestImage,

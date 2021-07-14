@@ -63,6 +63,12 @@ layout (set = 0, binding = 9, align = 1) readonly buffer UBOLightClusters {
 	LightCluster clusters[MAX_LIGHT_CLUSTERS];
 } light_grid;
 
+layout (push_constant) uniform PushConstants {
+	uint random_seed;
+	int bounces;
+	float prev_frame_blend_factor;
+} push_constants;
+
 // TODO find better random function
 // float rand01_state;
 // float rand01() {
@@ -98,6 +104,7 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 }
 
 void main() {
+	rand01_state = push_constants.random_seed + gl_LaunchIDEXT.x * 1833 +  gl_LaunchIDEXT.y * 31337; 
 	vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
 
 	vec4 origin    = ubo.inv_view * vec4(0, 0, 0, 1);
