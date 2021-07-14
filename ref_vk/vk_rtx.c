@@ -63,7 +63,7 @@ enum {
 	RayDescBinding_EmissiveKusochki = 8,
 	RayDescBinding_LightClusters = 9,
 
-	// RayDescBinding_PrevFrame = 10,
+	RayDescBinding_PrevFrame = 10,
 
 	RayDescBinding_COUNT
 };
@@ -549,11 +549,11 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 		};
 
-		// g_rtx.desc_values[RayDescBinding_PrevFrame].image = (VkDescriptorImageInfo){
-		// 	.sampler = VK_NULL_HANDLE,
-		// 	.imageView = frame_src->view,
-		// 	.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-		// };
+		g_rtx.desc_values[RayDescBinding_PrevFrame].image = (VkDescriptorImageInfo){
+			.sampler = VK_NULL_HANDLE,
+			.imageView = frame_src->view,
+			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+		};
 
 		g_rtx.desc_values[RayDescBinding_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
@@ -847,12 +847,12 @@ static void createLayouts( void ) {
 		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
-	// g_rtx.desc_bindings[RayDescBinding_PrevFrame] =	(VkDescriptorSetLayoutBinding){
-	// 	.binding = RayDescBinding_PrevFrame,
-	// 	.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-	// 	.descriptorCount = 1,
-	// 	.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	// };
+	g_rtx.desc_bindings[RayDescBinding_PrevFrame] =	(VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_PrevFrame,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+	};
 
 	VK_DescriptorsCreate(&g_rtx.descriptors);
 }

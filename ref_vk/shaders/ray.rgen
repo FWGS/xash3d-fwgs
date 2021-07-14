@@ -63,6 +63,8 @@ layout (set = 0, binding = 9, align = 1) readonly buffer UBOLightClusters {
 	LightCluster clusters[MAX_LIGHT_CLUSTERS];
 } light_grid;
 
+layout(set = 0, binding = 10, rgba8) uniform readonly image2D previous_frame;
+
 layout (push_constant) uniform PushConstants {
 	uint random_seed;
 	int bounces;
@@ -247,5 +249,10 @@ void main() {
 		}
 	}
 
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(sqrt(C), 1.));//vec4(c, 1.));
+	{
+		vec3 prev_frame = imageLoad(previous_frame, ivec2(gl_LaunchIDEXT.xy)).rgb;
+		prev_frame *= prev_frame;
+		C = mix(C, prev_frame, push_constants.prev_frame_blend_factor);
+	}
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(sqrt(C), 1.));
 }
