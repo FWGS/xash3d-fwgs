@@ -998,6 +998,7 @@ void CL_ParseClientData( sizebuf_t *msg )
 	clientdata_t	nullcd;
 	frame_t		*frame;
 	int		idx;
+	int		last_predicted = -1;
 
 	// This is the last movement that the server ack'd
 	command_ack = cls.netchan.incoming_acknowledged;
@@ -1036,7 +1037,6 @@ void CL_ParseClientData( sizebuf_t *msg )
 
 	if( cl.last_command_ack != -1 )
 	{
-		int		last_predicted;
 		clientdata_t	*pcd, *ppcd;
 		entity_state_t	*ps, *pps;
 		weapon_data_t	*wd, *pwd;
@@ -1113,6 +1113,26 @@ void CL_ParseClientData( sizebuf_t *msg )
 
 		from_cd = &cl.frames[delta_sequence & CL_UPDATE_MASK].clientdata;
 		from_wd = cl.frames[delta_sequence & CL_UPDATE_MASK].weapondata;
+
+		// HACKHACK: as new frame gets unconditionally overwritten by old in delta
+		// parse and we can't get rid of this overwrite (at the time of writing,
+		// it just breaks everything)
+		// rerun TxferPredictionData pointing to our old frame, so the predicted data
+		// gets copied to new frame and overwritten only if new data present in delta
+		if( last_predicted > 0 )
+		{
+			clientdata_t	*ppcd;
+			entity_state_t	*ps, *pps;
+			weapon_data_t	*pwd;
+
+			pps = &cl.predicted_frames[last_predicted].playerstate;
+			pwd = cl.predicted_frames[last_predicted].weapondata;
+			ppcd = &cl.predicted_frames[last_predicted].client;
+
+			ps = &frame->playerstate[cl.playernum];
+
+			clgame.dllFuncs.pfnTxferPredictionData( ps, pps, from_cd, ppcd, from_wd, pwd );
+		}
 	}
 	else
 	{
