@@ -126,7 +126,7 @@ void main() {
 	vec3 kc = vec3(1.);
 	vec3 C = vec3(0.);
 
-	for (int bounce = 0; bounce < 2; ++bounce) {
+	for (int bounce = 0; bounce < push_constants.bounces; ++bounce) {
 		const uint flags = 0
 			| gl_RayFlagsCullFrontFacingTrianglesEXT
 			//| gl_RayFlagsOpaqueEXT
@@ -143,7 +143,7 @@ void main() {
 
 		if (payload.hit_pos_t.w <= 0.) {
 			C += kc * payload.albedo;
-			//break;
+			break;
 		}
 
 		const ivec3 light_cell = ivec3(floor(payload.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;

@@ -454,55 +454,8 @@ static void createPipeline( void )
 		vkDestroyShaderModule(vk_core.device, shaders[i].module, NULL);
 }
 
-void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
-{
-	const VkCommandBuffer cmdbuf = args->cmdbuf;
-	const vk_image_t* frame_src = g_rtx.frames + ((g_rtx.frame_number + 1) % 2);
-	const vk_image_t* frame_dst = g_rtx.frames + (g_rtx.frame_number % 2);
-
-	ASSERT(vk_core.rtx);
-	// ubo should contain two matrices
-	// FIXME pass these matrices explicitly to let RTX module handle ubo itself
-	ASSERT(args->ubo.size == sizeof(float) * 16 * 2);
-
-	if (vk_core.debug)
-		XVK_RayModel_Validate();
-
-	g_rtx.frame_number++;
-
-	// Finalize and update dynamic lights
-	{
-		VK_LightsFrameFinalize();
-
-		// Upload light grid
-		{
-			vk_ray_shader_light_grid *grid = g_rtx.light_grid_buffer.mapped;
-			ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
-			VectorCopy(g_lights.map.grid_min_cell, grid->min_cell);
-			VectorCopy(g_lights.map.grid_size, grid->size);
-			memcpy(grid->cells, g_lights.cells, g_lights.map.grid_cells * sizeof(vk_lights_cell_t));
-		}
-
-		// Upload dynamic emissive kusochki
-		{
-			vk_emissive_kusochki_t *ek = g_ray_model_state.emissive_kusochki_buffer.mapped;
-			ASSERT(g_lights.num_emissive_surfaces <= MAX_EMISSIVE_KUSOCHKI);
-			ek->num_kusochki = g_lights.num_emissive_surfaces;
-			for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
-				ek->kusochki[i].kusok_index = g_lights.emissive_surfaces[i].kusok_index;
-				VectorCopy(g_lights.emissive_surfaces[i].emissive, ek->kusochki[i].emissive_color);
-				Matrix3x4_Copy(ek->kusochki[i].transform, g_lights.emissive_surfaces[i].transform);
-			}
-		}
-	}
-
-	if (g_rtx.reload_pipeline) {
-		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
-		// TODO gracefully handle reload errors: need to change createPipeline, loadShader, VK_PipelineCreate...
-		vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
-		createPipeline();
-		g_rtx.reload_pipeline = false;
-	}
+static void prepareTlas( VkCommandBuffer cmdbuf ) {
+	ASSERT(g_ray_model_state.frame.num_models > 0);
 
 	// Upload all blas instances references to GPU mem
 	{
@@ -540,91 +493,90 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	}
 
 	// 2. Build TLAS
-	if (g_ray_model_state.frame.num_models > 0)
-	{
-		createTlas(cmdbuf);
+	createTlas(cmdbuf);
+}
+
+static void updateDescriptors( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t *args, const vk_image_t *frame_src, const vk_image_t *frame_dst ) {
+	// 3. Update descriptor sets (bind dest image, tlas, projection matrix)
+	VkDescriptorImageInfo dii_all_textures[MAX_TEXTURES];
+
+	g_rtx.desc_values[RayDescBinding_DestImage].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = frame_dst->view,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
+	g_rtx.desc_values[RayDescBinding_PrevFrame].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = frame_src->view,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
+	g_rtx.desc_values[RayDescBinding_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+		.accelerationStructureCount = 1,
+		.pAccelerationStructures = &g_rtx.tlas,
+	};
+
+	g_rtx.desc_values[RayDescBinding_UBOMatrices].buffer = (VkDescriptorBufferInfo){
+		.buffer = args->ubo.buffer,
+		.offset = args->ubo.offset,
+		.range = args->ubo.size,
+	};
+
+	g_rtx.desc_values[RayDescBinding_Kusochki].buffer = (VkDescriptorBufferInfo){
+		.buffer = g_ray_model_state.kusochki_buffer.buffer,
+		.offset = 0,
+		.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
+	};
+
+	g_rtx.desc_values[RayDescBinding_Indices].buffer = (VkDescriptorBufferInfo){
+		.buffer = args->geometry_data.buffer,
+		.offset = 0,
+		.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
+	};
+
+	g_rtx.desc_values[RayDescBinding_Vertices].buffer = (VkDescriptorBufferInfo){
+		.buffer = args->geometry_data.buffer,
+		.offset = 0,
+		.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
+	};
+
+	g_rtx.desc_values[RayDescBinding_Textures].image_array = dii_all_textures;
+
+	// TODO: move this to vk_texture.c
+	for (int i = 0; i < MAX_TEXTURES; ++i) {
+		const vk_texture_t *texture = findTexture(i);
+		const qboolean exists = texture->vk.image_view != VK_NULL_HANDLE;
+		dii_all_textures[i].sampler = vk_core.default_sampler; // FIXME on AMD using pImmutableSamplers leads to NEAREST filtering ??. VK_NULL_HANDLE;
+		dii_all_textures[i].imageView = exists ? texture->vk.image_view : findTexture(tglob.defaultTexture)->vk.image_view;
+		ASSERT(dii_all_textures[i].imageView != VK_NULL_HANDLE);
+		dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	}
 
-	if (g_rtx.tlas != VK_NULL_HANDLE)
-	{
-		// 3. Update descriptor sets (bind dest image, tlas, projection matrix)
-		VkDescriptorImageInfo dii_all_textures[MAX_TEXTURES];
+	g_rtx.desc_values[RayDescBinding_UBOLights].buffer = (VkDescriptorBufferInfo){
+		.buffer = args->dlights.buffer,
+		.offset = args->dlights.offset,
+		.range = args->dlights.size,
+	};
 
-		g_rtx.desc_values[RayDescBinding_DestImage].image = (VkDescriptorImageInfo){
-			.sampler = VK_NULL_HANDLE,
-			.imageView = frame_dst->view,
-			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-		};
+	g_rtx.desc_values[RayDescBinding_EmissiveKusochki].buffer = (VkDescriptorBufferInfo){
+		.buffer = g_ray_model_state.emissive_kusochki_buffer.buffer,
+		.offset = 0,
+		.range = VK_WHOLE_SIZE,
+	};
 
-		g_rtx.desc_values[RayDescBinding_PrevFrame].image = (VkDescriptorImageInfo){
-			.sampler = VK_NULL_HANDLE,
-			.imageView = frame_src->view,
-			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-		};
+	g_rtx.desc_values[RayDescBinding_LightClusters].buffer = (VkDescriptorBufferInfo){
+		.buffer = g_rtx.light_grid_buffer.buffer,
+		.offset = 0,
+		.range = VK_WHOLE_SIZE,
+	};
 
-		g_rtx.desc_values[RayDescBinding_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-			.accelerationStructureCount = 1,
-			.pAccelerationStructures = &g_rtx.tlas,
-		};
+	VK_DescriptorsWrite(&g_rtx.descriptors);
+}
 
-		g_rtx.desc_values[RayDescBinding_UBOMatrices].buffer = (VkDescriptorBufferInfo){
-			.buffer = args->ubo.buffer,
-			.offset = args->ubo.offset,
-			.range = args->ubo.size,
-		};
-
-		g_rtx.desc_values[RayDescBinding_Kusochki].buffer = (VkDescriptorBufferInfo){
-			.buffer = g_ray_model_state.kusochki_buffer.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
-		};
-
-		g_rtx.desc_values[RayDescBinding_Indices].buffer = (VkDescriptorBufferInfo){
-			.buffer = args->geometry_data.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-		};
-
-		g_rtx.desc_values[RayDescBinding_Vertices].buffer = (VkDescriptorBufferInfo){
-			.buffer = args->geometry_data.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-		};
-
-		g_rtx.desc_values[RayDescBinding_Textures].image_array = dii_all_textures;
-
-		// TODO: move this to vk_texture.c
-		for (int i = 0; i < MAX_TEXTURES; ++i) {
-			const vk_texture_t *texture = findTexture(i);
-			const qboolean exists = texture->vk.image_view != VK_NULL_HANDLE;
-			dii_all_textures[i].sampler = vk_core.default_sampler; // FIXME on AMD using pImmutableSamplers leads to NEAREST filtering ??. VK_NULL_HANDLE;
-			dii_all_textures[i].imageView = exists ? texture->vk.image_view : findTexture(tglob.defaultTexture)->vk.image_view;
-			ASSERT(dii_all_textures[i].imageView != VK_NULL_HANDLE);
-			dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		}
-
-		g_rtx.desc_values[RayDescBinding_UBOLights].buffer = (VkDescriptorBufferInfo){
-			.buffer = args->dlights.buffer,
-			.offset = args->dlights.offset,
-			.range = args->dlights.size,
-		};
-
-		g_rtx.desc_values[RayDescBinding_EmissiveKusochki].buffer = (VkDescriptorBufferInfo){
-			.buffer = g_ray_model_state.emissive_kusochki_buffer.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE,
-		};
-
-		g_rtx.desc_values[RayDescBinding_LightClusters].buffer = (VkDescriptorBufferInfo){
-			.buffer = g_rtx.light_grid_buffer.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE,
-		};
-
-		VK_DescriptorsWrite(&g_rtx.descriptors);
-	}
-
+static qboolean rayTrace( VkCommandBuffer cmdbuf, VkImage frame_dst )
+{
 	// 4. Barrier for TLAS build and dest image layout transfer
 	{
 		VkBufferMemoryBarrier bmb[] = { {
@@ -637,7 +589,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		} };
 		VkImageMemoryBarrier image_barrier[] = { {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = frame_dst->image,
+			.image = frame_dst,
 			.srcAccessMask = 0,
 			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -653,47 +605,92 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			0, NULL, ARRAYSIZE(bmb), bmb, ARRAYSIZE(image_barrier), image_barrier);
 	}
 
-	if (g_rtx.tlas) {
-		// 4. dispatch ray tracing
-		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_rtx.pipeline);
-		{
-			vk_rtx_push_constants_t push_constants = {
-				//.t = gpGlobals->realtime,
-				.random_seed = (uint32_t)gEngine.COM_RandomLong(0, INT32_MAX),
-				.bounces = vk_rtx_bounces->value,
-				.prev_frame_blend_factor = vk_rtx_prev_frame_blend_factor->value,
-			};
-			vkCmdPushConstants(cmdbuf, g_rtx.descriptors.pipeline_layout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(push_constants), &push_constants);
-		}
-		vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_rtx.descriptors.pipeline_layout, 0, 1, g_rtx.descriptors.desc_sets + 0, 0, NULL);
+	// 4. dispatch ray tracing
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_rtx.pipeline);
+	{
+		vk_rtx_push_constants_t push_constants = {
+			//.t = gpGlobals->realtime,
+			.random_seed = (uint32_t)gEngine.COM_RandomLong(0, INT32_MAX),
+			.bounces = vk_rtx_bounces->value,
+			.prev_frame_blend_factor = vk_rtx_prev_frame_blend_factor->value,
+		};
+		vkCmdPushConstants(cmdbuf, g_rtx.descriptors.pipeline_layout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(push_constants), &push_constants);
+	}
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_rtx.descriptors.pipeline_layout, 0, 1, g_rtx.descriptors.desc_sets + 0, 0, NULL);
 
-		{
-			const uint32_t sbt_record_size = g_rtx.sbt_record_size;
-			//const uint32_t sbt_record_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
+	{
+		const uint32_t sbt_record_size = g_rtx.sbt_record_size;
+		//const uint32_t sbt_record_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
 #define SBT_INDEX(index, count) { \
-	.deviceAddress = getBufferDeviceAddress(g_rtx.sbt_buffer.buffer) + g_rtx.sbt_record_size * index, \
-	.size = sbt_record_size * count, \
-	.stride = sbt_record_size, \
+.deviceAddress = getBufferDeviceAddress(g_rtx.sbt_buffer.buffer) + g_rtx.sbt_record_size * index, \
+.size = sbt_record_size * count, \
+.stride = sbt_record_size, \
 }
-			const VkStridedDeviceAddressRegionKHR sbt_raygen = SBT_INDEX(0, 1);
-			const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(1, 2);
-			const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(3, 1);
-			const VkStridedDeviceAddressRegionKHR sbt_callable = { 0 };
+		const VkStridedDeviceAddressRegionKHR sbt_raygen = SBT_INDEX(0, 1);
+		const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(1, 2);
+		const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(3, 1);
+		const VkStridedDeviceAddressRegionKHR sbt_callable = { 0 };
 
-			vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_miss, &sbt_hit, &sbt_callable, FRAME_WIDTH, FRAME_HEIGHT, 1 );
-		}
+		vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_miss, &sbt_hit, &sbt_callable, FRAME_WIDTH, FRAME_HEIGHT, 1 );
 	}
 
-	// Blit RTX frame onto swapchain image
+	return true;
+}
+
+	// Finalize and update dynamic lights
+static void updateLights()
+{
+	VK_LightsFrameFinalize();
+
+	// Upload light grid
+	{
+		vk_ray_shader_light_grid *grid = g_rtx.light_grid_buffer.mapped;
+		ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
+		VectorCopy(g_lights.map.grid_min_cell, grid->min_cell);
+		VectorCopy(g_lights.map.grid_size, grid->size);
+		memcpy(grid->cells, g_lights.cells, g_lights.map.grid_cells * sizeof(vk_lights_cell_t));
+	}
+
+	// Upload dynamic emissive kusochki
+	{
+		vk_emissive_kusochki_t *ek = g_ray_model_state.emissive_kusochki_buffer.mapped;
+		ASSERT(g_lights.num_emissive_surfaces <= MAX_EMISSIVE_KUSOCHKI);
+		ek->num_kusochki = g_lights.num_emissive_surfaces;
+		for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
+			ek->kusochki[i].kusok_index = g_lights.emissive_surfaces[i].kusok_index;
+			VectorCopy(g_lights.emissive_surfaces[i].emissive, ek->kusochki[i].emissive_color);
+			Matrix3x4_Copy(ek->kusochki[i].transform, g_lights.emissive_surfaces[i].transform);
+		}
+	}
+}
+
+static void blitImage( VkCommandBuffer cmdbuf, VkImage src, VkImage dst, int src_width, int src_height, int dst_width, int dst_height ) 
+{
+	// Blit raytraced image to frame buffer
+	{
+		VkImageBlit region = {0};
+		region.srcOffsets[1].x = src_width;
+		region.srcOffsets[1].y = src_height;
+		region.srcOffsets[1].z = 1;
+		region.dstOffsets[1].x = dst_width;
+		region.dstOffsets[1].y = dst_height;
+		region.dstOffsets[1].z = 1;
+		region.srcSubresource.aspectMask = region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.srcSubresource.layerCount = region.dstSubresource.layerCount = 1;
+		vkCmdBlitImage(cmdbuf, src, VK_IMAGE_LAYOUT_GENERAL,
+			dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region,
+			VK_FILTER_NEAREST);
+	}
+
 	{
 		VkImageMemoryBarrier image_barriers[] = {
 		{
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = frame_dst->image,
-			.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.image = dst,
+			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			.subresourceRange =
 				(VkImageSubresourceRange){
 					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -702,8 +699,70 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 					.baseArrayLayer = 0,
 					.layerCount = 1,
 				},
-			},
-			{
+		}};
+		vkCmdPipelineBarrier(cmdbuf,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+	}
+}
+
+static void clearVkImage( VkCommandBuffer cmdbuf, VkImage image ) {
+	const VkImageMemoryBarrier image_barriers[] = { {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.image = image,
+		.srcAccessMask = 0,
+		.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+		.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+		.subresourceRange = (VkImageSubresourceRange) {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+	}} };
+
+	const VkClearColorValue clear_value = {0};
+
+	vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+		0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+
+	vkCmdClearColorImage(cmdbuf, image, VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &image_barriers->subresourceRange);
+}
+
+void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
+{
+	const VkCommandBuffer cmdbuf = args->cmdbuf;
+	const vk_image_t* frame_src = g_rtx.frames + ((g_rtx.frame_number + 1) % 2);
+	const vk_image_t* frame_dst = g_rtx.frames + (g_rtx.frame_number % 2);
+
+	ASSERT(vk_core.rtx);
+	// ubo should contain two matrices
+	// FIXME pass these matrices explicitly to let RTX module handle ubo itself
+	ASSERT(args->ubo.size == sizeof(float) * 16 * 2);
+
+	g_rtx.frame_number++;
+
+	if (vk_core.debug)
+		XVK_RayModel_Validate();
+
+	if (g_rtx.reload_pipeline) {
+		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
+		// TODO gracefully handle reload errors: need to change createPipeline, loadShader, VK_PipelineCreate...
+		vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
+		createPipeline();
+		g_rtx.reload_pipeline = false;
+	}
+
+	updateLights();
+
+	if (g_ray_model_state.frame.num_models == 0)
+	{
+		clearVkImage( cmdbuf, frame_dst->image );
+
+		// Prepare destination image for writing
+		VkImageMemoryBarrier image_barriers[] = {{
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 			.image = args->dst.image,
 			.srcAccessMask = 0,
@@ -720,49 +779,58 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 				},
 		}};
 		vkCmdPipelineBarrier(args->cmdbuf,
-			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
-	}
+	} else {
+		prepareTlas(cmdbuf);
+		updateDescriptors(cmdbuf, args, frame_src, frame_dst);
+		rayTrace(cmdbuf, frame_dst->image);
 
-	{
-		VkImageBlit region = {0};
-		region.srcOffsets[1].x = FRAME_WIDTH;
-		region.srcOffsets[1].y = FRAME_HEIGHT;
-		region.srcOffsets[1].z = 1;
-		region.dstOffsets[1].x = args->dst.width;
-		region.dstOffsets[1].y = args->dst.height;
-		region.dstOffsets[1].z = 1;
-		region.srcSubresource.aspectMask = region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		region.srcSubresource.layerCount = region.dstSubresource.layerCount = 1;
-		vkCmdBlitImage(args->cmdbuf, frame_dst->image, VK_IMAGE_LAYOUT_GENERAL,
-			args->dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region,
-			VK_FILTER_NEAREST);
-	}
-
-	{
-		VkImageMemoryBarrier image_barriers[] = {
+		// Barrier for frame_dst image
 		{
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = args->dst.image,
-			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			.subresourceRange =
-				(VkImageSubresourceRange){
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = 1,
-					.baseArrayLayer = 0,
-					.layerCount = 1,
+			const VkImageMemoryBarrier image_barriers[] = {
+			{
+				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				.image = frame_dst->image,
+				.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+				.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+				.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+				.subresourceRange =
+					(VkImageSubresourceRange){
+						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+						.baseMipLevel = 0,
+						.levelCount = 1,
+						.baseArrayLayer = 0,
+						.layerCount = 1,
+					},
 				},
-		}};
-		vkCmdPipelineBarrier(args->cmdbuf,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+				{
+				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				.image = args->dst.image,
+				.srcAccessMask = 0,
+				.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+				.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				.subresourceRange =
+					(VkImageSubresourceRange){
+						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+						.baseMipLevel = 0,
+						.levelCount = 1,
+						.baseArrayLayer = 0,
+						.layerCount = 1,
+					},
+			}};
+			vkCmdPipelineBarrier(args->cmdbuf,
+				VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+		}
 	}
+
+	// Blit RTX frame onto swapchain image
+	blitImage(cmdbuf, frame_src->image, args->dst.image, FRAME_WIDTH, FRAME_HEIGHT, args->dst.width, args->dst.height);
 }
 
 static void createLayouts( void ) {
@@ -945,33 +1013,13 @@ qboolean VK_RayInit( void )
 
 	// Start with black previous frame
 	{
-		const vk_image_t *frame_src = g_rtx.frames + 1;
-		const VkImageMemoryBarrier image_barriers[] = { {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = frame_src->image,
-			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.subresourceRange = (VkImageSubresourceRange) {
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.baseMipLevel = 0,
-				.levelCount = 1,
-				.baseArrayLayer = 0,
-				.layerCount = 1,
-		}} };
-
-		const VkClearColorValue clear_value = {0};
-
 		const VkCommandBufferBeginInfo beginfo = {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 		};
 
 		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
-		vkCmdPipelineBarrier(vk_core.cb, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0,
-			0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
-		vkCmdClearColorImage(vk_core.cb, frame_src->image, VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &image_barriers->subresourceRange);
+		clearVkImage( vk_core.cb, g_rtx.frames[1].image );
 		XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
 
 		{
