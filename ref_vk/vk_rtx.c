@@ -637,8 +637,8 @@ static qboolean rayTrace( VkCommandBuffer cmdbuf, VkImage frame_dst )
 	return true;
 }
 
-	// Finalize and update dynamic lights
-static void updateLights()
+// Finalize and update dynamic lights
+static void updateLights( void )
 {
 	VK_LightsFrameFinalize();
 
@@ -761,27 +761,30 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	{
 		clearVkImage( cmdbuf, frame_dst->image );
 
-		// Prepare destination image for writing
-		VkImageMemoryBarrier image_barriers[] = {{
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = args->dst.image,
-			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			.subresourceRange =
-				(VkImageSubresourceRange){
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = 1,
-					.baseArrayLayer = 0,
-					.layerCount = 1,
-				},
-		}};
-		vkCmdPipelineBarrier(args->cmdbuf,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+		{
+			// Prepare destination image for writing
+			const VkImageMemoryBarrier image_barriers[] = {{
+				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				.image = args->dst.image,
+				.srcAccessMask = 0,
+				.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+				.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				.subresourceRange =
+					(VkImageSubresourceRange){
+						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+						.baseMipLevel = 0,
+						.levelCount = 1,
+						.baseArrayLayer = 0,
+						.layerCount = 1,
+					},
+			}};
+
+			vkCmdPipelineBarrier(args->cmdbuf,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+		}
 	} else {
 		prepareTlas(cmdbuf);
 		updateDescriptors(cmdbuf, args, frame_src, frame_dst);
