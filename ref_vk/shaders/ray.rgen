@@ -295,14 +295,16 @@ void main() {
 			} // for all lights
 		}
 
-		origin = payload.hit_pos_t.xyz;
+		const float normal_offset_fudge = .01;
+		origin = payload.hit_pos_t.xyz + normal_offset_fudge * payload.normal;
 		// TODO this is totally not correct
 		direction = normalize(mix(
 				reflect(direction, payload.normal),
 				vec3(rand01(), rand01(), rand01())*2.-1.,
 				payload.roughness
 			));
-		kc *= payload.albedo * dot(direction, payload.normal);
+		//direction *= dot(direction, payload.normal);
+		kc *= mix(vec3(1.), dot(direction, payload.normal) * payload.albedo, payload.roughness);
 	} // for all bounces
 
 	{
