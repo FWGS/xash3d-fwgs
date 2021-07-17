@@ -1,0 +1,316 @@
+#version 460 core
+#extension GL_GOOGLE_include_directive : require
+#include "ray_common.glsl"
+#include "ray_kusochki.glsl"
+
+#extension GL_EXT_shader_8bit_storage : require
+
+// FIXME what should this be?
+const float dlight_attenuation_const = 20000.;
+const float shadow_offset_fudge = .5;
+
+layout (constant_id = 0) const uint MAX_DLIGHTS = 32;
+layout (constant_id = 1) const uint MAX_EMISSIVE_KUSOCHKI = 256;
+layout (constant_id = 2) const uint MAX_VISIBLE_DLIGHTS = 255;//15;
+layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 255;//31;
+layout (constant_id = 4) const float LIGHT_GRID_CELL_SIZE = 256.;
+layout (constant_id = 5) const uint MAX_LIGHT_CLUSTERS = 32768;
+
+const uint LIGHT_CLUSTER_SIZE = 2 + MAX_VISIBLE_DLIGHTS + MAX_VISIBLE_SURFACE_LIGHTS;
+const uint LIGHT_CLUSTER_NUM_DLIGHTS_OFFSET = 0;
+const uint LIGHT_CLUSTER_NUM_EMISSIVE_SURFACES_OFFSET = 1;
+const uint LIGHT_CLUSTER_DLIGHTS_DATA_OFFSET = 2;
+const uint LIGHT_CLUSTER_EMISSIVE_SURFACES_DATA_OFFSET = 3 + MAX_VISIBLE_DLIGHTS;
+
+layout(binding = 0, set = 0, rgba8) uniform image2D image;
+layout(binding = 1, set = 0) uniform accelerationStructureEXT tlas;
+layout(binding = 2, set = 0) uniform UBO {
+	mat4 inv_proj, inv_view;
+
+	// TODO combine
+	//int num_lights;
+	//Light lights[];
+} ubo;
+
+struct Light {
+	vec4 pos_r;
+	vec4 color;
+};
+
+// TODO move these into light clusters
+layout(set = 0, binding = 7) uniform UBODLights {
+	uint num_lights;
+	Light lights[MAX_DLIGHTS];
+};
+
+// TODO #include, use from here and regular shader
+struct EmissiveKusok {
+	uint kusok_index;
+	vec3 emissive_color;
+	vec4 tx_row_x, tx_row_y, tx_row_z;
+};
+
+layout (set = 0, binding = 8/*, align=4*/) uniform UBOEmissiveKusochki {
+	uint num_kusochki;
+	EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
+} emissive_kusochki;
+
+struct LightCluster {
+	uint8_t num_dlights;
+	uint8_t num_emissive_surfaces;
+	uint8_t dlights[MAX_VISIBLE_DLIGHTS];
+	uint8_t emissive_surfaces[MAX_VISIBLE_SURFACE_LIGHTS];
+};
+layout (set = 0, binding = 9, align = 1) readonly buffer UBOLightClusters {
+	ivec3 grid_min, grid_size;
+	//uint8_t clusters_data[MAX_LIGHT_CLUSTERS * LIGHT_CLUSTER_SIZE + HACK_OFFSET];
+	LightCluster clusters[MAX_LIGHT_CLUSTERS];
+} light_grid;
+
+layout(set = 0, binding = 10, rgba8) uniform readonly image2D previous_frame;
+
+layout (push_constant) uniform PushConstants {
+	uint random_seed;
+	int bounces;
+	float prev_frame_blend_factor;
+} push_constants;
+
+// TODO find better random function
+// float rand01_state;
+// float rand01() {
+// 	return rand01_state = fract(sin(rand01_state)*54873.35729);
+// }
+uint rand01_state = 0;
+uint rand() {
+	//rand01_state = rand01_state * 1103515245 + 12345;
+	// xorshift32
+	rand01_state ^= rand01_state << 13;
+	rand01_state ^= rand01_state >> 17;
+	rand01_state ^= rand01_state << 5;
+	return rand01_state;
+}
+uint rand_range(uint rmax) {
+	return rand() % rmax;
+}
+float rand01() {
+	return uintBitsToFloat(0x3f800000 | (rand() & 0x007fffff)) - 1.;
+}
+
+layout(location = 0) rayPayloadEXT RayPayload payload;
+layout(location = 1) rayPayloadEXT bool shadow;
+
+bool shadowed(vec3 pos, vec3 dir, float dist) {
+	shadow = true;
+	const uint flags =  0
+		| gl_RayFlagsCullFrontFacingTrianglesEXT
+		//| gl_RayFlagsOpaqueEXT 
+		| gl_RayFlagsTerminateOnFirstHitEXT
+		| gl_RayFlagsSkipClosestHitShaderEXT
+		;
+	traceRayEXT(tlas,
+		flags,
+		0xff,
+		0, 0, 1 /* miss index */, 
+		pos, 0., dir, dist, 1 /* payload location */);
+	return shadow;
+}
+
+void main() {
+	rand01_state = push_constants.random_seed + gl_LaunchIDEXT.x * 1833 +  gl_LaunchIDEXT.y * 31337; 
+	vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
+
+	vec3 origin    = (ubo.inv_view * vec4(0, 0, 0, 1)).xyz;
+	vec4 target    = ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
+	vec3 direction = (ubo.inv_view * vec4(normalize(target.xyz), 0)).xyz;
+
+	vec3 kc = vec3(1.);
+	vec3 C = vec3(0.);
+
+	for (int bounce = 0; bounce < push_constants.bounces; ++bounce) {
+		const uint flags = 0
+			| gl_RayFlagsCullFrontFacingTrianglesEXT
+			//| gl_RayFlagsOpaqueEXT
+			;
+		const uint sbt_offset = 0;
+		const uint sbt_stride = 0;
+		const uint miss_index = 0;
+		const int ray_payload_loc = 0;
+		const float L = 10000.;
+		traceRayEXT(tlas, flags, 0xff,
+			sbt_offset, sbt_stride, miss_index,
+			origin, .001, direction, L,
+			ray_payload_loc);
+
+		if (payload.hit_pos_t.w <= 0.) {
+			C += kc * payload.albedo;
+			break;
+		}
+
+		const ivec3 light_cell = ivec3(floor(payload.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
+		const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
+		if (any(greaterThanEqual(light_cell, light_grid.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS) {
+			C = vec3(1., 0., 0.);
+		} else {
+			// const uint cluster_offset = cluster_index * LIGHT_CLUSTER_SIZE + HACK_OFFSET;
+			// const int num_dlights = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_DLIGHTS_OFFSET]);
+			// const int num_emissive_surfaces = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_EMISSIVE_SURFACES_OFFSET]);
+			// const uint emissive_surfaces_offset = cluster_offset + LIGHT_CLUSTER_EMISSIVE_SURFACES_DATA_OFFSET;
+			//C = vec3(float(num_emissive_surfaces));
+
+			//C = vec3(float(int(light_grid.clusters[cluster_index].num_emissive_surfaces)));
+			//C += .3 * fract(vec3(light_cell) / 4.);
+
+			const uint num_emissive_kusochki = uint(light_grid.clusters[cluster_index].num_emissive_surfaces);
+			//const uint num_emissive_kusochki = emissive_kusochki.num_kusochki;
+
+			float sampling_light_scale = 1.;
+#if 0
+			const uint max_lights_per_frame = 4;
+			uint begin_i = 0, end_i = num_emissive_kusochki;
+			if (end_i > max_lights_per_frame) {
+				begin_i = rand() % (num_emissive_kusochki - max_lights_per_frame);
+				end_i = begin_i + max_lights_per_frame;
+				sampling_light_scale = float(num_emissive_kusochki) / float(max_lights_per_frame);
+			}
+			for (uint i = begin_i; i < end_i; ++i) {
+#else
+			for (uint i = 0; i < num_emissive_kusochki; ++i) {
+#endif
+				const uint index_into_emissive_kusochki = uint(light_grid.clusters[cluster_index].emissive_surfaces[i]);
+				const EmissiveKusok ek = emissive_kusochki.kusochki[index_into_emissive_kusochki];
+				const uint emissive_kusok_index = emissive_kusochki.kusochki[index_into_emissive_kusochki].kusok_index;
+				const Kusok ekusok = kusochki[emissive_kusok_index];
+				const vec3 emissive = emissive_kusochki.kusochki[index_into_emissive_kusochki].emissive_color.rgb;
+
+				// TODO streamline matrices layouts
+				const mat4x3 emissive_transform = mat4x3(
+					vec3(ek.tx_row_x.x, ek.tx_row_y.x, ek.tx_row_z.x),
+					vec3(ek.tx_row_x.y, ek.tx_row_y.y, ek.tx_row_z.y),
+					vec3(ek.tx_row_x.z, ek.tx_row_y.z, ek.tx_row_z.z),
+					vec3(ek.tx_row_x.w, ek.tx_row_y.w, ek.tx_row_z.w)
+				);
+
+				const mat3 emissive_transform_normal = transpose(inverse(mat3(emissive_transform)));
+
+				// if (i != picked_light) {
+				// 	continue;
+				// }
+
+				if (emissive_kusok_index == uint(payload.kusok_index)) {
+					// TODO do we need to do this when we have textures?
+					//C += kc * vec3(hash(float(kusok_index)), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.));//kusok.emissive.rgb;
+					//C = vec3(1., 0., 1.);
+					if (bounce == 0)
+						//C += kc * emissive * baseColor;
+						C += kc * payload.albedo;
+					continue;
+				}
+
+				const uint picked_tri = rand_range(ekusok.triangles);
+				for (uint ti = 0; ti < ekusok.triangles; ++ti) {
+					const uint first_index_offset = ekusok.index_offset + ti * 3;
+
+					// TODO this is not entirely correct -- need to mix between all normals, or have this normal precomputed
+					const uint vi1 = uint(indices[first_index_offset+0]) + ekusok.vertex_offset;
+					const vec3 n1 = normalize(emissive_transform_normal * vertices[vi1].normal);
+					// if (dot(n1, normal) >= 0. /* TODO epsilon */ )
+					// 	continue;
+
+					if (picked_tri > ti)
+						continue;
+
+					// TODO random sample point on the entire ekusok geometry
+					const uint vi2 = uint(indices[first_index_offset+1]) + ekusok.vertex_offset;
+					const uint vi3 = uint(indices[first_index_offset+2]) + ekusok.vertex_offset;
+
+					const vec3 v1 = (emissive_transform * vec4(vertices[vi1].pos, 1.)).xyz;
+					const vec3 v2 = (emissive_transform * vec4(vertices[vi2].pos, 1.)).xyz;
+					const vec3 v3 = (emissive_transform * vec4(vertices[vi3].pos, 1.)).xyz;
+
+					const vec3 sample_pos = mix(mix(v1, v2, rand01()), v3, rand01());
+					//const vec3 sample_pos = vertices[vi1].pos;
+
+					// const vec3 n2 = vertices[vi2].normal;
+					// const vec3 n3 = vertices[vi3].normal;
+
+					vec3 light_dir = sample_pos - payload.hit_pos_t.xyz;
+					float light_dot = -dot(light_dir, n1);
+					if (light_dot <= 0.) {
+						//C = vec3(1., 0., 1.);
+						continue;
+					}
+
+					const float light_dist = length(light_dir);
+					light_dot /= light_dist;
+					light_dir /= light_dist;
+
+					const float light_dir_normal_dot = dot(light_dir, payload.normal);
+					if (light_dir_normal_dot <= 0.)
+						continue;
+
+					if (shadowed(payload.hit_pos_t.xyz, light_dir, light_dist - shadow_offset_fudge)) {
+						//C = vec3(0., 1., 0.);
+						continue;
+					}
+
+					// TODO
+					const float brightness_fudge = 50.;
+					C += light_dot * sampling_light_scale * brightness_fudge * kc * payload.albedo * emissive * light_dir_normal_dot / (light_dist * light_dist);
+
+					// Sample just one triangle
+					break;
+				} // for emissive kusok triangles
+			} // for all emissive kusochki
+
+			for (uint i = 0; i < num_lights; ++i) {
+				const vec4 light_pos_r = lights[i].pos_r;
+				const vec3 light_color = lights[i].color.rgb;
+
+				//rand01_state = fract((pos.x + pos.y + pos.z)/100.) + uv.x + uv.y + fract(pc.t) + i;
+				//rand01_state += fract(fract(pc.t) + i + (light_pos_r.x + light_pos_r.y + light_pos_r.z)/1000.);
+
+				// Find random point on a sphere
+				// TODO proper BRDF importance sampling and correct random point distribution
+				vec3 rnd = normalize(vec3(rand01(), rand01(), rand01())*2.-1.);
+				if (dot(rnd, payload.hit_pos_t.xyz - light_pos_r.xyz) < 0.) rnd = -rnd;
+
+				// TODO fudge this
+				const float light_r_scaler = 2.;
+				const vec3 light_dir = light_pos_r.xyz - payload.hit_pos_t.xyz + rnd * light_pos_r.w / light_r_scaler;
+				const vec3 light_dir_norm = normalize(light_dir);
+				const float dot_ld_norm = dot(light_dir_norm, payload.normal);
+				if (dot_ld_norm <= 0.)
+					continue;
+
+				const float d2 = dot(light_dir, light_dir);
+				const float light_dist = sqrt(d2);
+
+				if (shadowed(payload.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
+					continue;
+
+				const float r2 = light_pos_r.w * light_pos_r.w;
+				// TODO this is a bad approximation
+				const float attenuation = dlight_attenuation_const / (d2 + r2 * .5);
+				C += kc * payload.albedo * light_color * dot_ld_norm * attenuation;
+			} // for all lights
+		}
+
+		const float normal_offset_fudge = .01;
+		origin = payload.hit_pos_t.xyz + normal_offset_fudge * payload.normal;
+		// TODO this is totally not correct
+		direction = normalize(mix(
+				reflect(direction, payload.normal),
+				vec3(rand01(), rand01(), rand01())*2.-1.,
+				payload.roughness
+			));
+		//direction *= dot(direction, payload.normal);
+		kc *= mix(vec3(1.), dot(direction, payload.normal) * payload.albedo, payload.roughness);
+	} // for all bounces
+
+	{
+		vec3 prev_frame = imageLoad(previous_frame, ivec2(gl_LaunchIDEXT.xy)).rgb;
+		prev_frame *= prev_frame;
+		C = mix(C, prev_frame, push_constants.prev_frame_blend_factor);
+	}
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(sqrt(C), 1.));
+}

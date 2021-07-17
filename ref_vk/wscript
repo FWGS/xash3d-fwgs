@@ -63,6 +63,9 @@ def configure(conf):
 	# TODO if debug
 	conf.env.GLSLCFLAGS += ['-g']
 
+	# TODO for rtx shaders only (rgen, rmiss, rchit, ...)
+	conf.env.GLSLCFLAGS += ['--target-env=vulkan1.2']
+
 def build(bld):
 	if not bld.env.VK:
 		return
@@ -72,7 +75,7 @@ def build(bld):
 	libpath = []
 
 	source = bld.path.ant_glob(['*.c'])
-	glsl_source = bld.path.ant_glob(['shaders/*.vert', 'shaders/*.frag', 'shaders/*.comp'])
+	glsl_source = bld.path.ant_glob(['shaders/*.vert', 'shaders/*.frag', 'shaders/*.comp', 'shaders/*.rgen', 'shaders/*.rchit', 'shaders/*.rmiss', 'shaders/*.rahit'])
 
 	includes = ['.',
 		'../engine',
@@ -90,7 +93,8 @@ def build(bld):
 		defines.append('USE_AFTERMATH')
 		libs.append('AFTERMATH')
 
-	#FIXME bld.env.CFLAGS += ["/WX"]
+	if bld.env.COMPILER_CC == 'msvc':
+		bld.env.CFLAGS += ['/WX']
 
 	bld.shlib(
 		source   = source,

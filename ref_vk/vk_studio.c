@@ -2014,13 +2014,13 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			.texture = texture,
 			.material = kXVkMaterialDiffuse,
 
-			.vertex_count = num_vertices,
 			.vertex_buffer = vertex_buffer,
 			.vertex_offset = 0,
+			.vertex_count = num_vertices,
 
-			.element_count = num_indices,
-			.index_offset = 0,
 			.index_buffer = index_buffer,
+			.index_offset = 0,
+			.element_count = num_indices,
 		};
 
 		VK_RenderModelDynamicAddGeometry( &geometry );

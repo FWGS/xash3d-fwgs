@@ -130,8 +130,7 @@ static const char* device_extensions[] = {
 
 	// Optional: RTX
 	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-	//VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-	VK_KHR_RAY_QUERY_EXTENSION_NAME,
+	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 
 	// FIXME make this not depend on RTX
@@ -219,7 +218,7 @@ static qboolean createInstance( void )
 	if (vid_extensions < 0)
 	{
 		gEngine.Con_Printf( S_ERROR "Cannot get Vulkan instance extensions\n" );
-		Mem_Free(instance_extensions);
+		Mem_Free((void*)instance_extensions);
 		return false;
 	}
 
@@ -269,7 +268,7 @@ static qboolean createInstance( void )
 		}
 	}
 
-	Mem_Free(instance_extensions);
+	Mem_Free((void*)instance_extensions);
 	return true;
 }
 
@@ -294,7 +293,7 @@ static qboolean deviceSupportsRtx( const VkExtensionProperties *exts, uint32_t n
 	return true;
 }
 
-static qboolean pickAndCreateDevice( void )
+static qboolean pickAndCreateDevice( qboolean skip_first_device )
 {
 	VkPhysicalDevice *physical_devices = NULL;
 	uint32_t num_physical_devices = 0;
@@ -323,7 +322,7 @@ static qboolean pickAndCreateDevice( void )
 		vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &num_queue_family_properties, queue_family_props);
 
 		vkGetPhysicalDeviceProperties(physical_devices[i], &props);
-		gEngine.Con_Reportf("\t%u: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
+		gEngine.Con_Printf("\t%u: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
 			i, props.vendorID, props.deviceID, props.deviceType, props.deviceName,
 			XVK_PARSE_VERSION(props.driverVersion), XVK_PARSE_VERSION(props.apiVersion));
 
@@ -365,10 +364,13 @@ static qboolean pickAndCreateDevice( void )
 
 		// TODO pick the best device
 		// For now we'll pick the first one that has graphics and can present to the surface
-		if (queue_index < num_queue_family_properties)
+		if (queue_index < num_queue_family_properties && best_device_index == UINT32_MAX)
 		{
-			best_device_index = i;
-			break;
+			if (skip_first_device) {
+				skip_first_device = false;
+			} else {
+				best_device_index = i;
+			}
 		}
 	}
 
@@ -382,32 +384,30 @@ static qboolean pickAndCreateDevice( void )
 			.queueCount = 1,
 			.pQueuePriorities = &prio,
 		};
-		VkPhysicalDeviceBufferDeviceAddressFeatures buffer_address_feature = {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
-			.bufferDeviceAddress = VK_TRUE,
-		};
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR accel_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
 			.accelerationStructure = VK_TRUE,
-			.pNext = &buffer_address_feature,
-		};
-		VkPhysicalDevice8BitStorageFeatures eight_bit_feature = {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES,
-			.pNext = &accel_feature,
-			.storageBuffer8BitAccess = VK_TRUE,
-			.uniformAndStorageBuffer8BitAccess = VK_TRUE,
 		};
 		VkPhysicalDevice16BitStorageFeatures sixteen_bit_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES,
-			.pNext = &eight_bit_feature,
+			.pNext = &accel_feature,
 			.storageBuffer16BitAccess = VK_TRUE,
 		};
-		VkPhysicalDeviceRayQueryFeaturesKHR ray_query_feature = {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
-			.rayQuery = VK_TRUE,
+		VkPhysicalDeviceVulkan12Features vk12_features = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
 			.pNext = &sixteen_bit_feature,
+			.shaderSampledImageArrayNonUniformIndexing = VK_TRUE, // Needed for texture sampling in closest hit shader
+			.storageBuffer8BitAccess = VK_TRUE,
+			.uniformAndStorageBuffer8BitAccess = VK_TRUE,
+			.bufferDeviceAddress = VK_TRUE,
 		};
-		void *head = &ray_query_feature;
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_feature = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+			.pNext = &vk12_features,
+			.rayTracingPipeline = VK_TRUE,
+			// TODO .rayTraversalPrimitiveCulling = VK_TRUE,
+		};
+		void *head = &ray_tracing_pipeline_feature;
 #ifdef USE_AFTERMATH
 		VkDeviceDiagnosticsConfigCreateInfoNV diag_config_nv = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV,
@@ -448,6 +448,9 @@ static qboolean pickAndCreateDevice( void )
 			loadDeviceFunctions(device_funcs_rtx, ARRAYSIZE(device_funcs_rtx));
 			vk_core.physical_device.properties2.pNext = &vk_core.physical_device.properties_accel;
 			vk_core.physical_device.properties_accel.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+			vk_core.physical_device.properties_accel.pNext = &vk_core.physical_device.properties_ray_tracing_pipeline;
+			vk_core.physical_device.properties_ray_tracing_pipeline.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+			vk_core.physical_device.properties_ray_tracing_pipeline.pNext = NULL;
 		}
 
 		// TODO should we check Vk version first?
@@ -534,6 +537,10 @@ qboolean R_VkInit( void )
 {
 	// FIXME !!!! handle initialization errors properly: destroy what has already been created
 
+	// FIXME need to be able to pick up devices by indexes, but xash doesn't let us read arguments :(
+	// So for now we will just skip the first available device
+	const qboolean skip_first_device = !!(gEngine.Sys_CheckParm("-vkskipdev"));
+
 	vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
 	vk_core.rtx = !!(gEngine.Sys_CheckParm("-rtx"));
 
@@ -581,7 +588,7 @@ qboolean R_VkInit( void )
 	}
 #endif
 
-	if (!pickAndCreateDevice())
+	if (!pickAndCreateDevice( skip_first_device ))
 		return false;
 
 	if (!initSurface())

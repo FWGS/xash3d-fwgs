@@ -19,11 +19,6 @@ qboolean VK_DescriptorInit( void )
 		}, {
 			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			.descriptorCount = 1,
-#if RTX
-		}, {
-			.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-			.descriptorCount = 1,
-#endif
 		*/
 		},
 	};
@@ -128,7 +123,7 @@ void VK_DescriptorsCreate(vk_descriptors_t *desc)
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 			.setLayoutCount = 1,
 			.pSetLayouts = &desc->desc_layout,
-			.pushConstantRangeCount = 1,
+			.pushConstantRangeCount = desc->push_constants.size > 0 ? 1 : 0,
 			.pPushConstantRanges = &desc->push_constants,
 		};
 		XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &desc->pipeline_layout));

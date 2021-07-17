@@ -20,6 +20,12 @@ void VK_RayFrameBegin( void );
 void VK_RayFrameAddModel( struct vk_ray_model_s *model, const struct vk_render_model_s *render_model, const matrix3x4 *transform_row );
 
 typedef struct {
+	VkBuffer buffer;
+	uint32_t offset;
+	uint32_t size;
+} vk_buffer_region_t;
+
+typedef struct {
 	VkCommandBuffer cmdbuf;
 
 	struct {
@@ -28,18 +34,11 @@ typedef struct {
 		uint32_t width, height;
 	} dst;
 
-	// TODO inv_view/proj matrices
-	struct {
-		VkBuffer buffer;
-		uint32_t offset;
-		uint32_t size;
-	} ubo;
+	// TODO inv_view/proj matrices instead of UBO
+	vk_buffer_region_t ubo;
 
-	struct {
-		VkBuffer buffer;
-		uint32_t offset;
-		uint32_t size;
-	} dlights;
+	// TODO get rid of this, dlights should be in light clusters
+	vk_buffer_region_t dlights;
 
 	// Buffer holding vertex and index data
 	struct {

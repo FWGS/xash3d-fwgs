@@ -1,11 +1,11 @@
-## 2021-06-23, E109
-- [x] rtx: ray tracing shaders specialization, e.g. for light clusters constants
-- [x] rtx: restore dynamic stuff like particles, beams, etc
-- [x] rtx: c3a1b: assert model->size >= build_size.accelerationStructureSize failed at vk_rtx.c:347
+## 2021-07-17, E110..120
+- [x] rtx: ray tracing pipeline
+- [x] rtx: fix rendering on AMD
+- [x] rtx: split models into a separate module
+- [x] rtx: alpha test
 
 # Next
-- [ ] rtx: ray tracing pipeline
-	- [ ] rtx: split ray tracing into modules: models/blas, pipeline mgmt, buffer mgmt
+	- [ ] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
 - [ ] rtx: cluster dlights
 - [ ] rtx: dynamically sized light clusters
@@ -15,10 +15,14 @@
 - [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
 
 # Planned
+- [ ] rtx: sky light/emissive skybox:
+	- [ ] consider baking it into a single (or a few localized) kusok that has one entry in light cluster
+	- [ ] just ignore sky surfaces and treat not hitting anything as hitting sky. importance-sample by sun direction
+	- [ ] pre-compute importance sampling direction by searching for ray-miss directions
 - [ ] rtx: better memory handling
 	- [ ] robust tracking of memory hierarchies: global/static, map, frame
 	- or just do a generic allocator with compaction?
-- [ ] rtx: alpha test/blending
+- [ ] rtx: alpha blending
 - [ ] rtx: coalesce all these buffers
 - [ ] crash in PM_RecursiveHullCheck
 - [ ] rtx: entity lights
@@ -57,7 +61,6 @@
 - [ ] sprite depth offset
 - [ ] fix incorrect viewport sprite culling
 - [ ] improve g_camera handling; trace SetViewPass vs RenderScene ...
-- [ ] loading to the same map breaks geometry
 - [ ] studio model lighting
 - [ ] move all consts to vk_const
 - [ ] what is GL_Backend*/GL_RenderFrame ???
@@ -67,7 +70,7 @@
 - [ ] render skybox
 - [ ] mipmaps
 - [ ] lightmap dynamic styles
-- [ ] flashlight
+- [ ] better flashlight: spotlight instead of dlight point
 - [ ] screenshot
 - [ ] fog
 - [ ] studio models survive NewMap; need to compactify buffers after removing all brushes
@@ -81,8 +84,6 @@
 - [ ] start building command buffers in beginframe
 - [ ] multiple frames in flight (#nd cmdbuf, ...)
 - [ ] cleanup unused stuff in vk_studio.c
-- [ ] (helps with RTX?) unified rendering (brush/studio models/...), each model is instance, instance data is read from storage buffers, gives info about vertex format, texture bindings, etc; which are read from another set of storage buffers, ..
-- [ ] waf shader build step -- get from upstream
 - [ ] embed shaders into binary
 - [ ] verify resources lifetime: make sure we don't leak and delete all textures, brushes, models, etc between maps
 - [ ] custom allocator for vulkan
@@ -90,10 +91,13 @@
 - [ ] better 2d renderer: fill DRAWQUAD(texture, color, ...) command into storage buffer instead of 4 vertices
 - [ ] auto-atlas lots of smol textures: most of model texture are tiny (64x64 or less), can we not rebind them all the time? alt: bindless texture array
 - [ ] can we also try to coalesce sprite draw calls?
-- [ ] not visibly watertight map brushes
+- [ ] brush geometry is not watertight 
 - [ ] collect render_draw_t w/o submitting them to cmdbuf, then sort by render_mode, trans depth, and other parameters, trying to batch as much stuff as possible; only then submit
 
 # Previously
+- [x] loading to the same map breaks geometry
+- [x] (helps with RTX?) unified rendering (brush/studio models/...), each model is instance, instance data is read from storage buffers, gives info about vertex format, texture bindings, etc; which are read from another set of storage buffers, ..
+- [x] waf shader build step -- get from upstream
 
 ## 2021-02-06
 - [x] alpha test
@@ -280,3 +284,8 @@
 - [x] rtx: optimize water normals. now they're very slow because we R/W gpu mem? yes
 - [x] cull bottom water surfaces (they're PLANE_Z looking down)
 - [x] fix water normals
+
+## 2021-06-23, E109
+- [x] rtx: ray tracing shaders specialization, e.g. for light clusters constants
+- [x] rtx: restore dynamic stuff like particles, beams, etc
+- [x] rtx: c3a1b: assert model->size >= build_size.accelerationStructureSize failed at vk_rtx.c:347

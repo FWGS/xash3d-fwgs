@@ -6,25 +6,23 @@
 
 #define MAX_STAGES 2
 
-static struct {
-	VkPipelineCache cache;
-} g_pipeline;
+VkPipelineCache g_pipeline_cache;
 
 qboolean VK_PipelineInit( void )
 {
 	VkPipelineCacheCreateInfo pcci = {
-    .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
-    .initialDataSize = 0,
-    .pInitialData = NULL,
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+		.initialDataSize = 0,
+		.pInitialData = NULL,
 	};
 
-	XVK_CHECK(vkCreatePipelineCache(vk_core.device, &pcci, NULL, &g_pipeline.cache));
+	XVK_CHECK(vkCreatePipelineCache(vk_core.device, &pcci, NULL, &g_pipeline_cache));
 	return true;
 }
 
 void VK_PipelineShutdown( void )
 {
-	vkDestroyPipelineCache(vk_core.device, g_pipeline.cache, NULL);
+	vkDestroyPipelineCache(vk_core.device, g_pipeline_cache, NULL);
 }
 
 VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *ci)
@@ -135,7 +133,7 @@ VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *c
 		};
 	}
 
-	XVK_CHECK(vkCreateGraphicsPipelines(vk_core.device, g_pipeline.cache, 1, &gpci, NULL, &pipeline));
+	XVK_CHECK(vkCreateGraphicsPipelines(vk_core.device, g_pipeline_cache, 1, &gpci, NULL, &pipeline));
 
 	for (int i = 0; i < ci->num_stages; ++i) {
 		vkDestroyShaderModule(vk_core.device, stage_create_infos[i].module, NULL);

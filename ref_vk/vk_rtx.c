@@ -2,25 +2,25 @@
 
 #include "vk_core.h"
 #include "vk_common.h"
-#include "vk_render.h"
 #include "vk_buffer.h"
 #include "vk_pipeline.h"
 #include "vk_cvar.h"
 #include "vk_textures.h"
 #include "vk_light.h"
 #include "vk_descriptor.h"
+#include "vk_ray_internal.h"
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
 
 #include <string.h>
 
-#define MAX_ACCELS 1024
-#define MAX_KUSOCHKI 8192
 #define MAX_SCRATCH_BUFFER (16*1024*1024)
 #define MAX_ACCELS_BUFFER (64*1024*1024)
-#define MAX_EMISSIVE_KUSOCHKI 256
+
 #define MAX_LIGHT_LEAVES 8192
+
+#define SBT_SIZE 4
 
 // TODO settings/realtime modifiable/adaptive
 #define FRAME_WIDTH 1280
@@ -39,49 +39,7 @@ typedef struct {
 } vk_light_t;
 
 typedef struct {
-	uint32_t index_offset;
-	uint32_t vertex_offset;
-	uint32_t triangles;
-
-	// Material parameters
-	uint32_t texture;
-	float roughness;
-} vk_kusok_data_t;
-
-typedef struct {
-	uint32_t num_kusochki;
-	uint32_t padding__[3];
-	struct {
-		uint32_t kusok_index;
-		uint32_t padding__[3];
-		vec3_t emissive_color;
-		uint32_t padding___;
-		matrix3x4 transform;
-	} kusochki[MAX_EMISSIVE_KUSOCHKI];
-} vk_emissive_kusochki_t;
-
-typedef struct vk_ray_model_s {
-	VkAccelerationStructureKHR as;
-	VkAccelerationStructureGeometryKHR *geoms;
-	int max_prims;
-	int num_geoms;
-	int size;
-	uint32_t kusochki_offset;
-	qboolean dynamic;
-	qboolean taken;
-
-	struct {
-		uint32_t as_offset;
-	} debug;
-} vk_ray_model_t;
-
-typedef struct {
-	matrix3x4 transform_row;
-	vk_ray_model_t *model;
-} vk_ray_draw_model_t;
-
-typedef struct {
-	float t;
+	uint32_t random_seed;
 	int bounces;
 	float prev_frame_blend_factor;
 } vk_rtx_push_constants_t;
@@ -95,14 +53,18 @@ enum {
 	RayDescBinding_DestImage = 0,
 	RayDescBinding_TLAS = 1,
 	RayDescBinding_UBOMatrices = 2,
+
 	RayDescBinding_Kusochki = 3,
 	RayDescBinding_Indices = 4,
 	RayDescBinding_Vertices = 5,
-	RayDescBinding_UBOLights = 6,
-	RayDescBinding_EmissiveKusochki = 7,
-	RayDescBinding_PrevFrame = 8,
+	RayDescBinding_Textures = 6,
+
+	RayDescBinding_UBOLights = 7,
+	RayDescBinding_EmissiveKusochki = 8,
 	RayDescBinding_LightClusters = 9,
-	RayDescBinding_Textures = 10,
+
+	RayDescBinding_PrevFrame = 10,
+
 	RayDescBinding_COUNT
 };
 
@@ -113,6 +75,10 @@ static struct {
 	VkDescriptorSet desc_sets[1];
 
 	VkPipeline pipeline;
+
+	// Shader binding table buffer
+	vk_buffer_t sbt_buffer;
+	uint32_t sbt_record_size;
 
 	// Stores AS built data. Lifetime similar to render buffer:
 	// - some portion lives for entire map lifetime
@@ -134,25 +100,6 @@ static struct {
 	// Needs: SHADER_DEVICE_ADDRESS, STORAGE_BUFFER, AS_BUILD_INPUT_READ_ONLY
 	vk_buffer_t tlas_geom_buffer;
 
-	// Geometry metadata. Lifetime is similar to geometry lifetime itself.
-	// Semantically close to render buffer (describes layout for those objects)
-	// TODO unify with render buffer
-	// Needs: STORAGE_BUFFER
-	vk_buffer_t kusochki_buffer;
-	vk_ring_buffer_t kusochki_alloc;
-
-	// TODO this should really be a single uniform buffer for matrices and light data
-
-	// Expected to be small (qualifies for uniform buffer)
-	// Two distinct modes: (TODO which?)
-	// - static map-only lighting: constant for the entire map lifetime.
-	//   Could be joined with render buffer, if not for possible uniform buffer binding optimization.
-	//   This is how it operates now.
-	// - fully dynamic lights: re-built each frame, so becomes similar to scratch_buffer and could be unified (same about uniform binding opt)
-	//   This allows studio and other non-brush model to be emissive.
-	// Needs: STORAGE/UNIFORM_BUFFER
-	vk_buffer_t emissive_kusochki_buffer;
-
 	// Planned to contain seveal types of data:
 	// - grid structure itself
 	// - lights data:
@@ -170,9 +117,6 @@ static struct {
 
 	// Per-frame data that is accumulated between RayFrameBegin and End calls
 	struct {
-		int num_models;
-		int num_lighttextures;
-		vk_ray_draw_model_t models[MAX_ACCELS];
 		uint32_t scratch_offset; // for building dynamic blases
 	} frame;
 
@@ -180,13 +124,9 @@ static struct {
 	vk_image_t frames[2];
 
 	qboolean reload_pipeline;
-	qboolean freeze_models;
-
-#define MODEL_CACHE_SIZE 1024
-	vk_ray_model_t models_cache[MODEL_CACHE_SIZE];
 } g_rtx = {0};
 
-static VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer) {
+VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer) {
 	const VkBufferDeviceAddressInfo bdai = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
 	return vkGetBufferDeviceAddress(vk_core.device, &bdai);
 }
@@ -199,88 +139,14 @@ static VkDeviceAddress getASAddress(VkAccelerationStructureKHR as) {
 	return vkGetAccelerationStructureDeviceAddressKHR(vk_core.device, &asdai);
 }
 
-typedef struct {
-	const char *debug_name;
-	VkAccelerationStructureKHR *p_accel;
-	const VkAccelerationStructureGeometryKHR *geoms;
-	const uint32_t *max_prim_counts;
-	const VkAccelerationStructureBuildRangeInfoKHR **build_ranges;
-	uint32_t n_geoms;
-	VkAccelerationStructureTypeKHR type;
-	qboolean dynamic;
-} as_build_args_t;
-
-static void returnModelToCache(vk_ray_model_t *model) {
-	ASSERT(model->taken);
-	model->taken = false;
-}
-
-static vk_ray_model_t *getModelFromCache(int num_geoms, int max_prims, const VkAccelerationStructureGeometryKHR *geoms) { //}, int size) {
-	vk_ray_model_t *model = NULL;
-	int i;
-	for (i = 0; i < ARRAYSIZE(g_rtx.models_cache); ++i)
-	{
-		int j;
-	 	model = g_rtx.models_cache + i;
-		if (model->taken)
-			continue;
-
-		if (!model->as)
-			break;
-
-		if (model->num_geoms != num_geoms)
-			continue;
-
-		if (model->max_prims != max_prims)
-			continue;
-
-		for (j = 0; j < num_geoms; ++j) {
-			if (model->geoms[j].geometryType != geoms[j].geometryType)
-				break;
-
-			if (model->geoms[j].flags != geoms[j].flags)
-				break;
-
-			if (geoms[j].geometryType == VK_GEOMETRY_TYPE_TRIANGLES_KHR) {
-				// TODO what else should we compare?
-				if (model->geoms[j].geometry.triangles.maxVertex != geoms[j].geometry.triangles.maxVertex)
-					break;
-
-				ASSERT(model->geoms[j].geometry.triangles.vertexStride == geoms[j].geometry.triangles.vertexStride);
-				ASSERT(model->geoms[j].geometry.triangles.vertexFormat == geoms[j].geometry.triangles.vertexFormat);
-				ASSERT(model->geoms[j].geometry.triangles.indexType == geoms[j].geometry.triangles.indexType);
-			} else {
-				PRINT_NOT_IMPLEMENTED_ARGS("Non-tri geometries are not implemented");
-				break;
-			}
-		}
-
-		if (j == num_geoms)
-			break;
-	}
-
-	if (i == ARRAYSIZE(g_rtx.models_cache))
-		return NULL;
-
-	// if (model->size > 0)
-	// 	ASSERT(model->size >= size);
-
-	if (!model->geoms) {
-		const size_t size = sizeof(*geoms) * num_geoms;
-		model->geoms = Mem_Malloc(vk_core.pool, size);
-		memcpy(model->geoms, geoms, size);
-		model->num_geoms = num_geoms;
-		model->max_prims = max_prims;
-	}
-
-	model->taken = true;
-	return model;
-}
-
-static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_build_args_t *args, vk_ray_model_t *model) {
+// TODO split this into smaller building blocks in a separate module
+qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_build_args_t *args, vk_ray_model_t *model) {
 	qboolean should_create = *args->p_accel == VK_NULL_HANDLE;
-	//qboolean is_update = false; // FIXME this crashes for some reason !should_create && args->dynamic;
+#if 1 // update does not work at all on AMD gpus
+	qboolean is_update = false; // FIXME this crashes for some reason !should_create && args->dynamic;
+#else
 	qboolean is_update = !should_create && args->dynamic;
+#endif
 
 	VkAccelerationStructureBuildGeometryInfoKHR build_info = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -289,7 +155,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 		.mode =  is_update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
 		.geometryCount = args->n_geoms,
 		.pGeometries = args->geoms,
-		.srcAccelerationStructure = *args->p_accel,
+		.srcAccelerationStructure = is_update ? *args->p_accel : VK_NULL_HANDLE,
 	};
 
 	VkAccelerationStructureBuildSizesInfoKHR build_size = {
@@ -307,7 +173,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 
 	scratch_buffer_size = is_update ? build_size.updateScratchSize : build_size.buildScratchSize;
 
-	if (0)
+#if 0
 	{
 		uint32_t max_prims = 0;
 		for (int i = 0; i < args->n_geoms; ++i)
@@ -315,6 +181,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 		gEngine.Con_Reportf(
 			"AS max_prims=%u, n_geoms=%u, build size: %d, scratch size: %d\n", max_prims, args->n_geoms, build_size.accelerationStructureSize, build_size.buildScratchSize);
 	}
+#endif
 
 	if (MAX_SCRATCH_BUFFER < g_rtx.frame.scratch_offset + scratch_buffer_size) {
 		gEngine.Con_Printf(S_ERROR "Scratch buffer overflow: left %u bytes, but need %u\n",
@@ -366,7 +233,7 @@ static qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, cons
 
 	//gEngine.Con_Reportf("AS=%p, n_geoms=%u, scratch: %#x %d %#x\n", *args->p_accel, args->n_geoms, scratch_offset_initial, scratch_buffer_size, scratch_offset_initial + scratch_buffer_size);
 
-	vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &build_info, args->build_ranges);
+	vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &build_info, &args->build_ranges);
 	return true;
 }
 
@@ -384,15 +251,14 @@ static void createTlas( VkCommandBuffer cmdbuf ) {
 				},
 		},
 	};
-	const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = { cmdbuf == VK_NULL_HANDLE ? MAX_ACCELS : g_rtx.frame.num_models };
+	const uint32_t tl_max_prim_counts[ARRAYSIZE(tl_geom)] = { MAX_ACCELS }; //cmdbuf == VK_NULL_HANDLE ? MAX_ACCELS : g_ray_model_state.frame.num_models };
 	const VkAccelerationStructureBuildRangeInfoKHR tl_build_range = {
-		.primitiveCount = g_rtx.frame.num_models,
+		.primitiveCount = g_ray_model_state.frame.num_models,
 	};
-	const VkAccelerationStructureBuildRangeInfoKHR* tl_build_ranges[] = { &tl_build_range };
 	const as_build_args_t asrgs = {
 		.geoms = tl_geom,
 		.max_prim_counts = tl_max_prim_counts,
-		.build_ranges =  cmdbuf == VK_NULL_HANDLE ? NULL : tl_build_ranges,
+		.build_ranges =  cmdbuf == VK_NULL_HANDLE ? NULL : &tl_build_range,
 		.n_geoms = ARRAYSIZE(tl_geom),
 		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
 		// we can't really rebuild TLAS because instance count changes are not allowed .dynamic = true,
@@ -410,11 +276,11 @@ void VK_RayNewMap( void ) {
 	ASSERT(vk_core.rtx);
 
 	VK_RingBuffer_Clear(&g_rtx.accels_buffer_alloc);
-	VK_RingBuffer_Clear(&g_rtx.kusochki_alloc);
+	VK_RingBuffer_Clear(&g_ray_model_state.kusochki_alloc);
 
 	// Clear model cache
-	for (int i = 0; i < ARRAYSIZE(g_rtx.models_cache); ++i) {
-		vk_ray_model_t *model = g_rtx.models_cache + i;
+	for (int i = 0; i < ARRAYSIZE(g_ray_model_state.models_cache); ++i) {
+		vk_ray_model_t *model = g_ray_model_state.models_cache + i;
 		VK_RayModelDestroy(model);
 	}
 
@@ -432,41 +298,22 @@ void VK_RayNewMap( void ) {
 
 void VK_RayMapLoadEnd( void ) {
 	VK_RingBuffer_Fix(&g_rtx.accels_buffer_alloc);
-	VK_RingBuffer_Fix(&g_rtx.kusochki_alloc);
+	VK_RingBuffer_Fix(&g_ray_model_state.kusochki_alloc);
 }
 
 void VK_RayFrameBegin( void )
 {
 	ASSERT(vk_core.rtx);
 
-	if (g_rtx.freeze_models)
+	g_rtx.frame.scratch_offset = 0;
+
+	if (g_ray_model_state.freeze_models)
 		return;
 
-	// FIXME we depend on the fact that only a single frame can be in flight
-	// currently framectl waits for the queue to complete before returning
-	// so we can be sure here that previous frame is complete and we're free to
-	// destroy/reuse dynamic ASes from previous frame
-	for (int i = 0; i < g_rtx.frame.num_models; ++i) {
-		vk_ray_draw_model_t *model = g_rtx.frame.models + i;
-		ASSERT(model->model);
-		if (!model->model->dynamic)
-			continue;
+	XVK_RayModel_ClearForNextFrame();
 
-		returnModelToCache(model->model);
-		model->model = NULL;
-	}
-
-	g_rtx.frame.scratch_offset = 0;
-	g_rtx.frame.num_models = 0;
-	g_rtx.frame.num_lighttextures = 0;
-
+	// TODO shouldn't we do this in freeze models mode anyway?
 	VK_LightsFrameInit();
-
-	// TODO N frames in flight
-	// HACK: blas caching requires persistent memory
-	// proper fix would need some other memory allocation strategy
-	// VK_RingBuffer_ClearFrame(&g_rtx.accels_buffer_alloc);
-	VK_RingBuffer_ClearFrame(&g_rtx.kusochki_alloc);
 }
 
 static void createPipeline( void )
@@ -501,149 +348,127 @@ static void createPipeline( void )
 		.dataSize = sizeof(spec_data),
 		.pData = &spec_data,
 	};
-	const vk_pipeline_compute_create_info_t ci = {
-		.layout = g_rtx.descriptors.pipeline_layout,
-		.shader_filename = "rtx.comp.spv",
-		.specialization_info = &spec,
+
+	const VkPipelineShaderStageCreateInfo shaders[] = {
+		{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+			.module = loadShader("ray.rgen.spv"),
+			//.pSpecializationInfo = &spec,
+			.pName = "main",
+		},
+		{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
+			.module = loadShader("ray.rmiss.spv"),
+			//.pSpecializationInfo = &spec,
+			.pName = "main",
+		},
+		{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
+			.module = loadShader("shadow.rmiss.spv"),
+			//.pSpecializationInfo = &spec,
+			.pName = "main",
+		},
+		{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+			.module = loadShader("ray.rchit.spv"),
+			//.pSpecializationInfo = &spec,
+			.pName = "main",
+		},
+		{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
+			.module = loadShader("alphamask.rahit.spv"),
+			//.pSpecializationInfo = &spec,
+			.pName = "main",
+		},
 	};
 
-	g_rtx.pipeline = VK_PipelineComputeCreate(&ci);
-	ASSERT(g_rtx.pipeline);
-}
+	const VkRayTracingShaderGroupCreateInfoKHR shader_groups[SBT_SIZE] = {
+		{
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.generalShader = 0, // raygen stage index; FIXME enum
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		},
+		{
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.generalShader = 1, // miss stage index; FIXME enum
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		},
+		{
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.generalShader = 2, // shadow miss stage index; FIXME enum
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		},
+		{
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+			.anyHitShader = 4, // FIXME index of alphamask shader
+			.closestHitShader = 3, // FIXME enum index
+			.generalShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		},
+	};
 
-static void assertNoOverlap( uint32_t o1, uint32_t s1, uint32_t o2, uint32_t s2 ) {
-	uint32_t min_offset, min_size;
-	uint32_t max_offset;
+	const VkRayTracingPipelineCreateInfoKHR rtpci = {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+		//TODO .flags = VK_PIPELINE_CREATE_RAY_TRACING_NO_NULL_ANY_HIT_SHADERS_BIT_KHR  ....
+		.stageCount = ARRAYSIZE(shaders),
+		.pStages = shaders,
+		.groupCount = ARRAYSIZE(shader_groups),
+		.pGroups = shader_groups,
+		.maxPipelineRayRecursionDepth = 1,
+		.layout = g_rtx.descriptors.pipeline_layout,
+	};
 
-	if (o1 < o2) {
-		min_offset = o1;
-		min_size = s1;
-		max_offset = o2;
-	} else {
-		min_offset = o2;
-		min_size = s2;
-		max_offset = o1;
-	}
+	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &g_rtx.pipeline));
+	ASSERT(g_rtx.pipeline != VK_NULL_HANDLE);
 
-	ASSERT(min_offset + min_size <= max_offset);
-}
-
-static void validateModelPair( const vk_ray_model_t *m1, const vk_ray_model_t *m2 ) {
-	if (m1 == m2) return;
-	if (!m2->num_geoms) return;
-	assertNoOverlap(m1->debug.as_offset, m1->size, m2->debug.as_offset, m2->size);
-	if (m1->taken && m2->taken)
-		assertNoOverlap(m1->kusochki_offset, m1->num_geoms, m2->kusochki_offset, m2->num_geoms);
-}
-
-static void validateModel( const vk_ray_model_t *model ) {
-	for (int j = 0; j < ARRAYSIZE(g_rtx.models_cache); ++j) {
-		validateModelPair(model, g_rtx.models_cache + j);
-	}
-}
-
-static void validateModels( void ) {
-	for (int i = 0; i < ARRAYSIZE(g_rtx.models_cache); ++i) {
-		validateModel(g_rtx.models_cache + i);
-	}
-}
-
-static void validateModelData( void ) {
-	const vk_kusok_data_t* kusochki = g_rtx.kusochki_buffer.mapped;
-	ASSERT(g_rtx.frame.num_models <= ARRAYSIZE(g_rtx.frame.models));
-	for (int i = 0; i < g_rtx.frame.num_models; ++i) {
-		const vk_ray_draw_model_t *draw_model = g_rtx.frame.models + i;
-		const vk_ray_model_t *model = draw_model->model;
-		int num_geoms = 1; // TODO can't validate non-dynamic models because this info is lost
-		ASSERT(model);
-		ASSERT(model->as != VK_NULL_HANDLE);
-		ASSERT(model->kusochki_offset < MAX_KUSOCHKI);
-		ASSERT(model->geoms);
-		ASSERT(model->num_geoms > 0);
-		ASSERT(model->taken);
-		num_geoms = model->num_geoms;
-
-		for (int j = 0; j < num_geoms; j++) {
-			const vk_kusok_data_t *kusok = kusochki + j;
-			const vk_texture_t *tex = findTexture(kusok->texture);
-			ASSERT(tex);
-			ASSERT(tex->vk.image_view != VK_NULL_HANDLE);
-
-			// uint32_t index_offset;
-			// uint32_t vertex_offset;
-			// uint32_t triangles;
-		}
-
-		// Check for as model memory aliasing
-		for (int j = 0; j < g_rtx.frame.num_models; ++j) {
-			const vk_ray_model_t *model2 = g_rtx.frame.models[j].model;
-			validateModelPair(model, model2);
-		}
-	}
-}
-
-void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
-{
-	const VkCommandBuffer cmdbuf = args->cmdbuf;
-	const vk_image_t* frame_src = g_rtx.frames + ((g_rtx.frame_number + 1) % 2);
-	const vk_image_t* frame_dst = g_rtx.frames + (g_rtx.frame_number % 2);
-
-	ASSERT(vk_core.rtx);
-	// ubo should contain two matrices
-	// FIXME pass these matrices explicitly to let RTX module handle ubo itself
-	ASSERT(args->ubo.size == sizeof(float) * 16 * 2);
-
-	if (vk_core.debug)
-		validateModelData();
-
-	g_rtx.frame_number++;
-
-	// Finalize and update dynamic lights
+	ASSERT(SBT_SIZE == ARRAYSIZE(shader_groups));
 	{
-		VK_LightsFrameFinalize();
-
-		// Upload light grid
+		const uint32_t sbt_handle_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
+		const uint32_t sbt_handles_buffer_size = ARRAYSIZE(shader_groups) * sbt_handle_size;
+		uint8_t *sbt_handles = Mem_Malloc(vk_core.pool, sbt_handles_buffer_size);
+		XVK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(vk_core.device, g_rtx.pipeline, 0, ARRAYSIZE(shader_groups), sbt_handles_buffer_size, sbt_handles));
+		for (int i = 0; i < ARRAYSIZE(shader_groups); ++i)
 		{
-			vk_ray_shader_light_grid *grid = g_rtx.light_grid_buffer.mapped;
-			ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
-			VectorCopy(g_lights.map.grid_min_cell, grid->min_cell);
-			VectorCopy(g_lights.map.grid_size, grid->size);
-			memcpy(grid->cells, g_lights.cells, g_lights.map.grid_cells * sizeof(vk_lights_cell_t));
+			uint8_t *sbt_dst = g_rtx.sbt_buffer.mapped;
+			memcpy(sbt_dst + g_rtx.sbt_record_size * i, sbt_handles + sbt_handle_size * i, sbt_handle_size);
 		}
-
-		// Upload dynamic emissive kusochki
-		{
-			vk_emissive_kusochki_t *ek = g_rtx.emissive_kusochki_buffer.mapped;
-			ASSERT(g_lights.num_emissive_surfaces <= MAX_EMISSIVE_KUSOCHKI);
-			ek->num_kusochki = g_lights.num_emissive_surfaces;
-			for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
-				ek->kusochki[i].kusok_index = g_lights.emissive_surfaces[i].kusok_index;
-				VectorCopy(g_lights.emissive_surfaces[i].emissive, ek->kusochki[i].emissive_color);
-				Matrix3x4_Copy(ek->kusochki[i].transform, g_lights.emissive_surfaces[i].transform);
-			}
-		}
+		Mem_Free(sbt_handles);
 	}
 
-	if (g_rtx.reload_pipeline) {
-		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
-		// TODO gracefully handle reload errors: need to change createPipeline, loadShader, VK_PipelineCreate...
-		vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
-		createPipeline();
-		g_rtx.reload_pipeline = false;
-	}
+	for (int i = 0; i < ARRAYSIZE(shaders); ++i)
+		vkDestroyShaderModule(vk_core.device, shaders[i].module, NULL);
+}
+
+static void prepareTlas( VkCommandBuffer cmdbuf ) {
+	ASSERT(g_ray_model_state.frame.num_models > 0);
 
 	// Upload all blas instances references to GPU mem
 	{
 		VkAccelerationStructureInstanceKHR* inst = g_rtx.tlas_geom_buffer.mapped;
-		for (int i = 0; i < g_rtx.frame.num_models; ++i) {
-			const vk_ray_draw_model_t* const model = g_rtx.frame.models + i;
+		for (int i = 0; i < g_ray_model_state.frame.num_models; ++i) {
+			const vk_ray_draw_model_t* const model = g_ray_model_state.frame.models + i;
 			ASSERT(model->model);
 			ASSERT(model->model->as != VK_NULL_HANDLE);
 			inst[i] = (VkAccelerationStructureInstanceKHR){
 				.instanceCustomIndex = model->model->kusochki_offset,
 				.mask = 0xff,
 				.instanceShaderBindingTableRecordOffset = 0,
-				.flags = 0,
+				.flags = model->render_mode == kRenderNormal ? VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR : VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR,
 				.accelerationStructureReference = getASAddress(model->model->as), // TODO cache this addr
 			};
 			memcpy(&inst[i].transform, model->transform_row, sizeof(VkTransformMatrixKHR));
@@ -668,187 +493,192 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	}
 
 	// 2. Build TLAS
-	if (g_rtx.frame.num_models > 0)
-	{
-		createTlas(cmdbuf);
+	createTlas(cmdbuf);
+}
+
+static void updateDescriptors( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t *args, const vk_image_t *frame_src, const vk_image_t *frame_dst ) {
+	// 3. Update descriptor sets (bind dest image, tlas, projection matrix)
+	VkDescriptorImageInfo dii_all_textures[MAX_TEXTURES];
+
+	g_rtx.desc_values[RayDescBinding_DestImage].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = frame_dst->view,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
+	g_rtx.desc_values[RayDescBinding_PrevFrame].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = frame_src->view,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
+	g_rtx.desc_values[RayDescBinding_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+		.accelerationStructureCount = 1,
+		.pAccelerationStructures = &g_rtx.tlas,
+	};
+
+	g_rtx.desc_values[RayDescBinding_UBOMatrices].buffer = (VkDescriptorBufferInfo){
+		.buffer = args->ubo.buffer,
+		.offset = args->ubo.offset,
+		.range = args->ubo.size,
+	};
+
+	g_rtx.desc_values[RayDescBinding_Kusochki].buffer = (VkDescriptorBufferInfo){
+		.buffer = g_ray_model_state.kusochki_buffer.buffer,
+		.offset = 0,
+		.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
+	};
+
+	g_rtx.desc_values[RayDescBinding_Indices].buffer = (VkDescriptorBufferInfo){
+		.buffer = args->geometry_data.buffer,
+		.offset = 0,
+		.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
+	};
+
+	g_rtx.desc_values[RayDescBinding_Vertices].buffer = (VkDescriptorBufferInfo){
+		.buffer = args->geometry_data.buffer,
+		.offset = 0,
+		.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
+	};
+
+	g_rtx.desc_values[RayDescBinding_Textures].image_array = dii_all_textures;
+
+	// TODO: move this to vk_texture.c
+	for (int i = 0; i < MAX_TEXTURES; ++i) {
+		const vk_texture_t *texture = findTexture(i);
+		const qboolean exists = texture->vk.image_view != VK_NULL_HANDLE;
+		dii_all_textures[i].sampler = vk_core.default_sampler; // FIXME on AMD using pImmutableSamplers leads to NEAREST filtering ??. VK_NULL_HANDLE;
+		dii_all_textures[i].imageView = exists ? texture->vk.image_view : findTexture(tglob.defaultTexture)->vk.image_view;
+		ASSERT(dii_all_textures[i].imageView != VK_NULL_HANDLE);
+		dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	}
 
-	if (g_rtx.tlas != VK_NULL_HANDLE)
+	g_rtx.desc_values[RayDescBinding_UBOLights].buffer = (VkDescriptorBufferInfo){
+		.buffer = args->dlights.buffer,
+		.offset = args->dlights.offset,
+		.range = args->dlights.size,
+	};
+
+	g_rtx.desc_values[RayDescBinding_EmissiveKusochki].buffer = (VkDescriptorBufferInfo){
+		.buffer = g_ray_model_state.emissive_kusochki_buffer.buffer,
+		.offset = 0,
+		.range = VK_WHOLE_SIZE,
+	};
+
+	g_rtx.desc_values[RayDescBinding_LightClusters].buffer = (VkDescriptorBufferInfo){
+		.buffer = g_rtx.light_grid_buffer.buffer,
+		.offset = 0,
+		.range = VK_WHOLE_SIZE,
+	};
+
+	VK_DescriptorsWrite(&g_rtx.descriptors);
+}
+
+static qboolean rayTrace( VkCommandBuffer cmdbuf, VkImage frame_dst )
+{
+	// 4. Barrier for TLAS build and dest image layout transfer
 	{
-		// 3. Update descriptor sets (bind dest image, tlas, projection matrix)
-		VkDescriptorImageInfo dii_all_textures[MAX_TEXTURES];
-
-		g_rtx.desc_values[RayDescBinding_DestImage].image = (VkDescriptorImageInfo){
-			.sampler = VK_NULL_HANDLE,
-			.imageView = frame_dst->view,
-			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-		};
-
-		g_rtx.desc_values[RayDescBinding_PrevFrame].image = (VkDescriptorImageInfo){
-			.sampler = VK_NULL_HANDLE,
-			.imageView = frame_src->view,
-			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-		};
-
-		g_rtx.desc_values[RayDescBinding_UBOMatrices].buffer = (VkDescriptorBufferInfo){
-			.buffer = args->ubo.buffer,
-			.offset = args->ubo.offset,
-			.range = args->ubo.size,
-		};
-
-		g_rtx.desc_values[RayDescBinding_Kusochki].buffer = (VkDescriptorBufferInfo){
-			.buffer = g_rtx.kusochki_buffer.buffer,
+		VkBufferMemoryBarrier bmb[] = { {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+			.buffer = g_rtx.accels_buffer.buffer,
 			.offset = 0,
-			.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
-		};
-
-		g_rtx.desc_values[RayDescBinding_Indices].buffer = (VkDescriptorBufferInfo){
-			.buffer = args->geometry_data.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-		};
-
-		g_rtx.desc_values[RayDescBinding_Vertices].buffer = (VkDescriptorBufferInfo){
-			.buffer = args->geometry_data.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-		};
-
-		g_rtx.desc_values[RayDescBinding_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-			.accelerationStructureCount = 1,
-			.pAccelerationStructures = &g_rtx.tlas,
-		};
-
-		g_rtx.desc_values[RayDescBinding_UBOLights].buffer = (VkDescriptorBufferInfo){
-			.buffer = args->dlights.buffer,
-			.offset = args->dlights.offset,
-			.range = args->dlights.size,
-		};
-
-		g_rtx.desc_values[RayDescBinding_EmissiveKusochki].buffer = (VkDescriptorBufferInfo){
-			.buffer = g_rtx.emissive_kusochki_buffer.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE,
-		};
-
-		g_rtx.desc_values[RayDescBinding_LightClusters].buffer = (VkDescriptorBufferInfo){
-			.buffer = g_rtx.light_grid_buffer.buffer,
-			.offset = 0,
-			.range = VK_WHOLE_SIZE,
-		};
-
-		g_rtx.desc_values[RayDescBinding_Textures].image_array = dii_all_textures;
-
-		// TODO: move this to vk_texture.c
-		for (int i = 0; i < MAX_TEXTURES; ++i) {
-			const vk_texture_t *texture = findTexture(i);
-			const qboolean exists = texture->vk.image_view != VK_NULL_HANDLE;
-			dii_all_textures[i].sampler = VK_NULL_HANDLE;
-			dii_all_textures[i].imageView = exists ? texture->vk.image_view : findTexture(tglob.defaultTexture)->vk.image_view;
-			ASSERT(dii_all_textures[i].imageView != VK_NULL_HANDLE);
-			dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		}
-
-		VK_DescriptorsWrite(&g_rtx.descriptors);
-	}
-
-		// 4. Barrier for TLAS build and dest image layout transfer
-		{
-			VkBufferMemoryBarrier bmb[] = { {
-				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-				.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
-				.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-				.buffer = g_rtx.accels_buffer.buffer,
-				.offset = 0,
-				.size = VK_WHOLE_SIZE,
-			} };
-			VkImageMemoryBarrier image_barrier[] = { {
-				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-				.image = frame_dst->image,
-				.srcAccessMask = 0,
-				.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-				.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-				.subresourceRange = (VkImageSubresourceRange) {
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = 1,
-					.baseArrayLayer = 0,
-					.layerCount = 1,
-			}} };
-			vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0,
-				0, NULL, ARRAYSIZE(bmb), bmb, ARRAYSIZE(image_barrier), image_barrier);
-		}
-
-	if (g_rtx.tlas) {
-		// 4. dispatch compute
-		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.pipeline);
-		{
-			vk_rtx_push_constants_t push_constants = {
-				.t = gpGlobals->realtime,
-				.bounces = vk_rtx_bounces->value,
-				.prev_frame_blend_factor = vk_rtx_prev_frame_blend_factor->value,
-			};
-			vkCmdPushConstants(cmdbuf, g_rtx.descriptors.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants), &push_constants);
-		}
-		vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_rtx.descriptors.pipeline_layout, 0, 1, g_rtx.descriptors.desc_sets + 0, 0, NULL);
-		vkCmdDispatch(cmdbuf, (FRAME_WIDTH + WG_W - 1) / WG_W, (FRAME_HEIGHT + WG_H - 1) / WG_H, 1);
-	}
-
-	// Blit RTX frame onto swapchain image
-	{
-		VkImageMemoryBarrier image_barriers[] = {
-		{
+			.size = VK_WHOLE_SIZE,
+		} };
+		VkImageMemoryBarrier image_barrier[] = { {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = frame_dst->image,
-			.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.subresourceRange =
-				(VkImageSubresourceRange){
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = 1,
-					.baseArrayLayer = 0,
-					.layerCount = 1,
-				},
-			},
-			{
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = args->dst.image,
+			.image = frame_dst,
 			.srcAccessMask = 0,
 			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			.subresourceRange =
-				(VkImageSubresourceRange){
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = 1,
-					.baseArrayLayer = 0,
-					.layerCount = 1,
-				},
-		}};
-		vkCmdPipelineBarrier(args->cmdbuf,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.subresourceRange = (VkImageSubresourceRange) {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+		}} };
+		vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR | VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+			0, NULL, ARRAYSIZE(bmb), bmb, ARRAYSIZE(image_barrier), image_barrier);
 	}
 
+	// 4. dispatch ray tracing
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_rtx.pipeline);
+	{
+		vk_rtx_push_constants_t push_constants = {
+			//.t = gpGlobals->realtime,
+			.random_seed = (uint32_t)gEngine.COM_RandomLong(0, INT32_MAX),
+			.bounces = vk_rtx_bounces->value,
+			.prev_frame_blend_factor = vk_rtx_prev_frame_blend_factor->value,
+		};
+		vkCmdPushConstants(cmdbuf, g_rtx.descriptors.pipeline_layout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(push_constants), &push_constants);
+	}
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_rtx.descriptors.pipeline_layout, 0, 1, g_rtx.descriptors.desc_sets + 0, 0, NULL);
+
+	{
+		const uint32_t sbt_record_size = g_rtx.sbt_record_size;
+		//const uint32_t sbt_record_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
+#define SBT_INDEX(index, count) { \
+.deviceAddress = getBufferDeviceAddress(g_rtx.sbt_buffer.buffer) + g_rtx.sbt_record_size * index, \
+.size = sbt_record_size * count, \
+.stride = sbt_record_size, \
+}
+		const VkStridedDeviceAddressRegionKHR sbt_raygen = SBT_INDEX(0, 1);
+		const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(1, 2);
+		const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(3, 1);
+		const VkStridedDeviceAddressRegionKHR sbt_callable = { 0 };
+
+		vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_miss, &sbt_hit, &sbt_callable, FRAME_WIDTH, FRAME_HEIGHT, 1 );
+	}
+
+	return true;
+}
+
+// Finalize and update dynamic lights
+static void updateLights( void )
+{
+	VK_LightsFrameFinalize();
+
+	// Upload light grid
+	{
+		vk_ray_shader_light_grid *grid = g_rtx.light_grid_buffer.mapped;
+		ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
+		VectorCopy(g_lights.map.grid_min_cell, grid->min_cell);
+		VectorCopy(g_lights.map.grid_size, grid->size);
+		memcpy(grid->cells, g_lights.cells, g_lights.map.grid_cells * sizeof(vk_lights_cell_t));
+	}
+
+	// Upload dynamic emissive kusochki
+	{
+		vk_emissive_kusochki_t *ek = g_ray_model_state.emissive_kusochki_buffer.mapped;
+		ASSERT(g_lights.num_emissive_surfaces <= MAX_EMISSIVE_KUSOCHKI);
+		ek->num_kusochki = g_lights.num_emissive_surfaces;
+		for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
+			ek->kusochki[i].kusok_index = g_lights.emissive_surfaces[i].kusok_index;
+			VectorCopy(g_lights.emissive_surfaces[i].emissive, ek->kusochki[i].emissive_color);
+			Matrix3x4_Copy(ek->kusochki[i].transform, g_lights.emissive_surfaces[i].transform);
+		}
+	}
+}
+
+static void blitImage( VkCommandBuffer cmdbuf, VkImage src, VkImage dst, int src_width, int src_height, int dst_width, int dst_height ) 
+{
+	// Blit raytraced image to frame buffer
 	{
 		VkImageBlit region = {0};
-		region.srcOffsets[1].x = FRAME_WIDTH;
-		region.srcOffsets[1].y = FRAME_HEIGHT;
+		region.srcOffsets[1].x = src_width;
+		region.srcOffsets[1].y = src_height;
 		region.srcOffsets[1].z = 1;
-		region.dstOffsets[1].x = args->dst.width;
-		region.dstOffsets[1].y = args->dst.height;
+		region.dstOffsets[1].x = dst_width;
+		region.dstOffsets[1].y = dst_height;
 		region.dstOffsets[1].z = 1;
 		region.srcSubresource.aspectMask = region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		region.srcSubresource.layerCount = region.dstSubresource.layerCount = 1;
-		vkCmdBlitImage(args->cmdbuf, frame_dst->image, VK_IMAGE_LAYOUT_GENERAL,
-			args->dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region,
+		vkCmdBlitImage(cmdbuf, src, VK_IMAGE_LAYOUT_GENERAL,
+			dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region,
 			VK_FILTER_NEAREST);
 	}
 
@@ -856,7 +686,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		VkImageMemoryBarrier image_barriers[] = {
 		{
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = args->dst.image,
+			.image = dst,
 			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
 			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -870,15 +700,144 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 					.layerCount = 1,
 				},
 		}};
-		vkCmdPipelineBarrier(args->cmdbuf,
+		vkCmdPipelineBarrier(cmdbuf,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
 	}
 }
 
+static void clearVkImage( VkCommandBuffer cmdbuf, VkImage image ) {
+	const VkImageMemoryBarrier image_barriers[] = { {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.image = image,
+		.srcAccessMask = 0,
+		.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+		.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+		.subresourceRange = (VkImageSubresourceRange) {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+	}} };
+
+	const VkClearColorValue clear_value = {0};
+
+	vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+		0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+
+	vkCmdClearColorImage(cmdbuf, image, VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &image_barriers->subresourceRange);
+}
+
+void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
+{
+	const VkCommandBuffer cmdbuf = args->cmdbuf;
+	const vk_image_t* frame_src = g_rtx.frames + ((g_rtx.frame_number + 1) % 2);
+	const vk_image_t* frame_dst = g_rtx.frames + (g_rtx.frame_number % 2);
+
+	ASSERT(vk_core.rtx);
+	// ubo should contain two matrices
+	// FIXME pass these matrices explicitly to let RTX module handle ubo itself
+	ASSERT(args->ubo.size == sizeof(float) * 16 * 2);
+
+	g_rtx.frame_number++;
+
+	if (vk_core.debug)
+		XVK_RayModel_Validate();
+
+	if (g_rtx.reload_pipeline) {
+		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
+		// TODO gracefully handle reload errors: need to change createPipeline, loadShader, VK_PipelineCreate...
+		vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
+		createPipeline();
+		g_rtx.reload_pipeline = false;
+	}
+
+	updateLights();
+
+	if (g_ray_model_state.frame.num_models == 0)
+	{
+		clearVkImage( cmdbuf, frame_dst->image );
+
+		{
+			// Prepare destination image for writing
+			const VkImageMemoryBarrier image_barriers[] = {{
+				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				.image = args->dst.image,
+				.srcAccessMask = 0,
+				.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+				.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				.subresourceRange =
+					(VkImageSubresourceRange){
+						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+						.baseMipLevel = 0,
+						.levelCount = 1,
+						.baseArrayLayer = 0,
+						.layerCount = 1,
+					},
+			}};
+
+			vkCmdPipelineBarrier(args->cmdbuf,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+		}
+	} else {
+		prepareTlas(cmdbuf);
+		updateDescriptors(cmdbuf, args, frame_src, frame_dst);
+		rayTrace(cmdbuf, frame_dst->image);
+
+		// Barrier for frame_dst image
+		{
+			const VkImageMemoryBarrier image_barriers[] = {
+			{
+				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				.image = frame_dst->image,
+				.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+				.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+				.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+				.subresourceRange =
+					(VkImageSubresourceRange){
+						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+						.baseMipLevel = 0,
+						.levelCount = 1,
+						.baseArrayLayer = 0,
+						.layerCount = 1,
+					},
+				},
+				{
+				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				.image = args->dst.image,
+				.srcAccessMask = 0,
+				.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+				.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				.subresourceRange =
+					(VkImageSubresourceRange){
+						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+						.baseMipLevel = 0,
+						.levelCount = 1,
+						.baseArrayLayer = 0,
+						.layerCount = 1,
+					},
+			}};
+			vkCmdPipelineBarrier(args->cmdbuf,
+				VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+		}
+	}
+
+	// Blit RTX frame onto swapchain image
+	blitImage(cmdbuf, frame_src->image, args->dst.image, FRAME_WIDTH, FRAME_HEIGHT, args->dst.width, args->dst.height);
+}
+
 static void createLayouts( void ) {
-	VkSampler samplers[MAX_TEXTURES];
+	//VkSampler samplers[MAX_TEXTURES];
 
 	g_rtx.descriptors.bindings = g_rtx.desc_bindings;
 	g_rtx.descriptors.num_bindings = ARRAYSIZE(g_rtx.desc_bindings);
@@ -888,89 +847,90 @@ static void createLayouts( void ) {
 	g_rtx.descriptors.push_constants = (VkPushConstantRange){
 		.offset = 0,
 		.size = sizeof(vk_rtx_push_constants_t),
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_DestImage] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_DestImage,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_TLAS] = (VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_TLAS,
 		.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_UBOMatrices] = (VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_UBOMatrices,
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_Kusochki] = (VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Kusochki,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_Indices] = (VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Indices,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_Vertices] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Vertices,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
 	};
+
+	g_rtx.desc_bindings[RayDescBinding_Textures] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Textures,
+		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorCount = MAX_TEXTURES,
+		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
+		// FIXME on AMD using immutable samplers leads to nearest filtering ???!
+		.pImmutableSamplers = NULL, //samplers,
+	};
+
+	// for (int i = 0; i < ARRAYSIZE(samplers); ++i)
+	// 	samplers[i] = vk_core.default_sampler;
 
 	g_rtx.desc_bindings[RayDescBinding_UBOLights] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_UBOLights,
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_EmissiveKusochki] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_EmissiveKusochki,
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	};
-
-	g_rtx.desc_bindings[RayDescBinding_PrevFrame] =	(VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_PrevFrame,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_LightClusters] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_LightClusters,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
 
-	g_rtx.desc_bindings[RayDescBinding_Textures] =	(VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Textures,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = MAX_TEXTURES,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-		.pImmutableSamplers = samplers,
+	g_rtx.desc_bindings[RayDescBinding_PrevFrame] =	(VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_PrevFrame,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
-
-	for (int i = 0; i < ARRAYSIZE(samplers); ++i)
-		samplers[i] = vk_core.default_sampler;
 
 	VK_DescriptorsCreate(&g_rtx.descriptors);
 }
@@ -980,13 +940,24 @@ static void reloadPipeline( void ) {
 }
 
 static void freezeModels( void ) {
-	g_rtx.freeze_models = !g_rtx.freeze_models;
+	g_ray_model_state.freeze_models = !g_ray_model_state.freeze_models;
 }
 
 qboolean VK_RayInit( void )
 {
 	ASSERT(vk_core.rtx);
 	// TODO complain and cleanup on failure
+
+	//g_rtx.sbt_record_size = ALIGN_UP(vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize, vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleAlignment);
+	g_rtx.sbt_record_size = ALIGN_UP(vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize, vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupBaseAlignment);
+
+	if (!createBuffer("ray sbt_buffer", &g_rtx.sbt_buffer, SBT_SIZE * g_rtx.sbt_record_size,
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	{
+		return false;
+	}
+
 	if (!createBuffer("ray accels_buffer", &g_rtx.accels_buffer, MAX_ACCELS_BUFFER,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
@@ -1013,15 +984,15 @@ qboolean VK_RayInit( void )
 		return false;
 	}
 
-	if (!createBuffer("ray kusochki_buffer", &g_rtx.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_KUSOCHKI,
+	if (!createBuffer("ray kusochki_buffer", &g_ray_model_state.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_KUSOCHKI,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
 		return false;
 	}
-	g_rtx.kusochki_alloc.size = MAX_KUSOCHKI;
+	g_ray_model_state.kusochki_alloc.size = MAX_KUSOCHKI;
 
-	if (!createBuffer("ray emissive_kusochki_buffer", &g_rtx.emissive_kusochki_buffer, sizeof(vk_emissive_kusochki_t),
+	if (!createBuffer("ray emissive_kusochki_buffer", &g_ray_model_state.emissive_kusochki_buffer, sizeof(vk_emissive_kusochki_t),
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
@@ -1045,33 +1016,13 @@ qboolean VK_RayInit( void )
 
 	// Start with black previous frame
 	{
-		const vk_image_t *frame_src = g_rtx.frames + 1;
-		const VkImageMemoryBarrier image_barriers[] = { {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = frame_src->image,
-			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.subresourceRange = (VkImageSubresourceRange) {
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.baseMipLevel = 0,
-				.levelCount = 1,
-				.baseArrayLayer = 0,
-				.layerCount = 1,
-		}} };
-
-		const VkClearColorValue clear_value = {0};
-
 		const VkCommandBufferBeginInfo beginfo = {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 		};
 
 		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
-		vkCmdPipelineBarrier(vk_core.cb, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0,
-			0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
-		vkCmdClearColorImage(vk_core.cb, frame_src->image, VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &image_barriers->subresourceRange);
+		clearVkImage( vk_core.cb, g_rtx.frames[1].image );
 		XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
 
 		{
@@ -1106,8 +1057,8 @@ void VK_RayShutdown( void )
 	if (g_rtx.tlas != VK_NULL_HANDLE)
 		vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.tlas, NULL);
 
-	for (int i = 0; i < ARRAYSIZE(g_rtx.models_cache); ++i) {
-		vk_ray_model_t *model = g_rtx.models_cache + i;
+	for (int i = 0; i < ARRAYSIZE(g_ray_model_state.models_cache); ++i) {
+		vk_ray_model_t *model = g_ray_model_state.models_cache + i;
 		if (model->as != VK_NULL_HANDLE)
 			vkDestroyAccelerationStructureKHR(vk_core.device, model->as, NULL);
 		model->as = VK_NULL_HANDLE;
@@ -1116,169 +1067,8 @@ void VK_RayShutdown( void )
 	destroyBuffer(&g_rtx.scratch_buffer);
 	destroyBuffer(&g_rtx.accels_buffer);
 	destroyBuffer(&g_rtx.tlas_geom_buffer);
-	destroyBuffer(&g_rtx.kusochki_buffer);
-	destroyBuffer(&g_rtx.emissive_kusochki_buffer);
+	destroyBuffer(&g_ray_model_state.kusochki_buffer);
+	destroyBuffer(&g_ray_model_state.emissive_kusochki_buffer);
 	destroyBuffer(&g_rtx.light_grid_buffer);
-}
-
-vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
-	VkAccelerationStructureGeometryKHR *geoms;
-	uint32_t *geom_max_prim_counts;
-	VkAccelerationStructureBuildRangeInfoKHR *geom_build_ranges;
-	const VkAccelerationStructureBuildRangeInfoKHR **geom_build_ranges_ptr;
-	const VkDeviceAddress buffer_addr = getBufferDeviceAddress(args.buffer);
-	vk_kusok_data_t *kusochki;
-	const uint32_t kusochki_count_offset = VK_RingBuffer_Alloc(&g_rtx.kusochki_alloc, args.model->num_geometries, 1);
-	vk_ray_model_t *ray_model;
-	int max_prims = 0;
-
-	ASSERT(vk_core.rtx);
-
-	if (g_rtx.freeze_models)
-		return args.model->ray_model;
-
-	if (kusochki_count_offset == AllocFailed) {
-		gEngine.Con_Printf(S_ERROR "Maximum number of kusochki exceeded on model %s\n", args.model->debug_name);
-		return false;
-	}
-
-	// FIXME don't touch allocator each frame many times pls
-	geoms = Mem_Calloc(vk_core.pool, args.model->num_geometries * sizeof(*geoms));
-	geom_max_prim_counts = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_max_prim_counts));
-	geom_build_ranges = Mem_Calloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
-	geom_build_ranges_ptr = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
-
-	kusochki = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + kusochki_count_offset;
-
-	for (int i = 0; i < args.model->num_geometries; ++i) {
-		vk_render_geometry_t *mg = args.model->geometries + i;
-		const uint32_t prim_count = mg->element_count / 3;
-		const uint32_t vertex_offset = mg->vertex_offset + VK_RenderBufferGetOffsetInUnits(mg->vertex_buffer);
-		const uint32_t index_offset = mg->index_buffer == InvalidHandle ? UINT32_MAX : (mg->index_offset + VK_RenderBufferGetOffsetInUnits(mg->index_buffer));
-		// const qboolean is_emissive = ((mg->texture >= 0 && mg->texture < MAX_TEXTURES)
-		// 	? g_emissive_texture_table[mg->texture].set
-		// 	: false);
-
-		max_prims += prim_count;
-		geom_max_prim_counts[i] = prim_count;
-		geoms[i] = (VkAccelerationStructureGeometryKHR)
-			{
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-				.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
-				.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
-				.geometry.triangles =
-					(VkAccelerationStructureGeometryTrianglesDataKHR){
-						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-						.indexType = mg->index_buffer == InvalidHandle ? VK_INDEX_TYPE_NONE_KHR : VK_INDEX_TYPE_UINT16,
-						.maxVertex = mg->vertex_count,
-						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-						.vertexStride = sizeof(vk_vertex_t),
-						.vertexData.deviceAddress = buffer_addr + vertex_offset * sizeof(vk_vertex_t),
-						.indexData.deviceAddress = buffer_addr + index_offset * sizeof(uint16_t),
-					},
-			};
-
-		// gEngine.Con_Printf("  g%d: v(%#x %d %#x) V%d i(%#x %d %#x) I%d\n", i,
-		// 	vertex_offset*sizeof(vk_vertex_t), mg->vertex_count * sizeof(vk_vertex_t), (vertex_offset + mg->vertex_count) * sizeof(vk_vertex_t), mg->vertex_count,
-		// 	index_offset*sizeof(uint16_t), mg->element_count * sizeof(uint16_t), (index_offset + mg->element_count) * sizeof(uint16_t), mg->element_count);
-
-		geom_build_ranges[i] = (VkAccelerationStructureBuildRangeInfoKHR) {
-			.primitiveCount = prim_count,
-		};
-		geom_build_ranges_ptr[i] = geom_build_ranges + i;
-
-		kusochki[i].vertex_offset = vertex_offset;
-		kusochki[i].index_offset = index_offset;
-		kusochki[i].triangles = prim_count;
-
-		kusochki[i].texture = mg->texture;
-		kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.;
-
-		mg->kusok_index = i + kusochki_count_offset;
-	}
-
-	{
-		as_build_args_t asrgs = {
-			.geoms = geoms,
-			.max_prim_counts = geom_max_prim_counts,
-			.build_ranges = geom_build_ranges_ptr,
-			.n_geoms = args.model->num_geometries,
-			.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
-			.dynamic = args.model->dynamic,
-			.debug_name = args.model->debug_name,
-		};
-		ray_model = getModelFromCache(args.model->num_geometries, max_prims, geoms); //, build_size.accelerationStructureSize);
-		if (!ray_model) {
-			gEngine.Con_Printf(S_ERROR "Ran out of model cache slots\n");
-		} else {
-			qboolean result;
-			asrgs.p_accel = &ray_model->as;
-			result = createOrUpdateAccelerationStructure(vk_core.cb, &asrgs, ray_model);
-
-			if (!result)
-			{
-				gEngine.Con_Printf(S_ERROR "Could not build BLAS for %s\n", args.model->debug_name);
-				returnModelToCache(ray_model);
-				ray_model = NULL;
-			} else {
-				ray_model->kusochki_offset = kusochki_count_offset;
-				ray_model->dynamic = args.model->dynamic;
-
-				if (vk_core.debug)
-					validateModel(ray_model);
-			}
-		}
-	}
-
-	Mem_Free(geom_build_ranges_ptr);
-	Mem_Free(geom_build_ranges);
-	Mem_Free(geom_max_prim_counts);
-	Mem_Free(geoms); // TODO this can be cached within models_cache ??
-
-	//gEngine.Con_Reportf("Model %s (%p) created blas %p\n", args.model->debug_name, args.model, args.model->rtx.blas);
-
-	return ray_model;
-}
-
-void VK_RayModelDestroy( struct vk_ray_model_s *model ) {
-	ASSERT(!g_rtx.freeze_models);
-
-	ASSERT(vk_core.rtx);
-	if (model->as != VK_NULL_HANDLE) {
-		//gEngine.Con_Reportf("Model %s destroying AS=%p blas_index=%d\n", model->debug_name, model->rtx.blas, blas_index);
-
-		vkDestroyAccelerationStructureKHR(vk_core.device, model->as, NULL);
-		Mem_Free(model->geoms);
-		memset(model, 0, sizeof(*model));
-	}
-}
-
-void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row ) {
-	ASSERT(vk_core.rtx);
-	ASSERT(g_rtx.frame.num_models <= ARRAYSIZE(g_rtx.frame.models));
-
-	if (g_rtx.freeze_models)
-		return;
-
-	if (g_rtx.frame.num_models == ARRAYSIZE(g_rtx.frame.models)) {
-		gEngine.Con_Printf(S_ERROR "Ran out of AccelerationStructure slots\n");
-		return;
-	}
-
-	{
-		vk_ray_draw_model_t* draw_model = g_rtx.frame.models + g_rtx.frame.num_models;
-		ASSERT(model->as != VK_NULL_HANDLE);
-		draw_model->model = model;
-		memcpy(draw_model->transform_row, *transform_row, sizeof(draw_model->transform_row));
-		g_rtx.frame.num_models++;
-	}
-
-	if (render_model)
-		VK_LightsAddEmissiveSurfacesFromModel( render_model, transform_row );
-
-	for (int i = 0; i < render_model->num_geometries; ++i) {
-		const vk_render_geometry_t *geom = render_model->geometries + i;
-		vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_rtx.kusochki_buffer.mapped) + geom->kusok_index;
-		kusok->texture = geom->texture;
-	}
+	destroyBuffer(&g_rtx.sbt_buffer);
 }
