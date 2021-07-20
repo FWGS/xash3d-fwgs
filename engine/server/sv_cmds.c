@@ -681,7 +681,7 @@ void SV_Status_f( void )
 	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
 	{
 		int	j, l;
-		char	*s;
+		const char	*s;
 
 		if( !cl->state ) continue;
 
