@@ -48,7 +48,7 @@ writes into struct by offsets not names
 void Sys_Sleep( int msec );
 double Sys_DoubleTime( void );
 char *Sys_GetClipboardData( void );
-char *Sys_GetCurrentUser( void );
+const char *Sys_GetCurrentUser( void );
 int Sys_CheckParm( const char *parm );
 void Sys_Warn( const char *format, ... ) _format( 1 );
 void Sys_Error( const char *error, ... ) _format( 1 );

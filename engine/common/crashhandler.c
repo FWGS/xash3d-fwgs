@@ -285,7 +285,7 @@ struct sigaction oldFilter;
 #define STACK_BACKTRACE_STR "Stack backtrace:\n"
 #define STACK_DUMP_STR_LEN 12
 #define STACK_DUMP_STR "Stack dump:\n"
-#define ALIGN( x, y ) (((int) (x) + ((y)-1)) & ~((y)-1))
+#define ALIGN( x, y ) (((uintptr_t) (x) + ((y)-1)) & ~((y)-1))
 
 static void Sys_Crash( int signal, siginfo_t *si, void *context)
 {

@@ -384,7 +384,7 @@ typedef enum _fieldtypes
 typedef struct
 {
 	FIELDTYPE		fieldType;
-	char		*fieldName;
+	const char		*fieldName;
 	int		fieldOffset;
 	short		fieldSize;
 	short		flags;

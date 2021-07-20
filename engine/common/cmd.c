@@ -463,7 +463,7 @@ typedef struct cmd_s
 } cmd_t;
 
 static int		cmd_argc;
-static char		*cmd_args = NULL;
+static const char	*cmd_args = NULL;
 static char		*cmd_argv[MAX_CMD_TOKENS];
 static char		cmd_tokenized[MAX_CMD_BUFFER];	// will have 0 bytes inserted
 static cmd_t		*cmd_functions;			// possible commands to execute
@@ -560,7 +560,7 @@ are inserted in the apropriate place, The argv array
 will point into this temporary buffer.
 ============
 */
-void Cmd_TokenizeString( char *text )
+void Cmd_TokenizeString( const char *text )
 {
 	char	cmd_token[MAX_CMD_BUFFER];
 	int	i;
@@ -577,7 +577,7 @@ void Cmd_TokenizeString( char *text )
 	while( 1 )
 	{
 		// skip whitespace up to a /n
-		while( *text && ((byte)*text) <= ' ' && *text != '\r' && *text != '\n' )
+		while( *text && *text <= ' ' && *text != '\r' && *text != '\n' )
 			text++;
 
 		if( *text == '\n' || *text == '\r' )
@@ -885,7 +885,7 @@ Cmd_ExecuteString
 A complete command line has been parsed, so try to execute it
 ============
 */
-void Cmd_ExecuteString( char *text )
+void Cmd_ExecuteString( const char *text )
 {
 	cmd_t	*cmd = NULL;
 	cmdalias_t	*a = NULL;

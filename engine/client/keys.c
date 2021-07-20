@@ -29,7 +29,7 @@ typedef struct
 
 typedef struct keyname_s
 {
-	char		*name;	// key name
+	const char	*name;	// key name
 	int		keynum;	// key number
 	const char	*binding;	// default bind
 } keyname_t;

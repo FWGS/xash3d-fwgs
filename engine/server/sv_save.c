@@ -810,7 +810,7 @@ static char *StoreHashTable( SAVERESTOREDATA *pSaveData )
 	{
 		for( i = 0; i < pSaveData->tokenCount; i++ )
 		{
-			char *pszToken = pSaveData->pTokens[i] ? pSaveData->pTokens[i] : "";
+			const char *pszToken = pSaveData->pTokens[i] ? pSaveData->pTokens[i] : "";
 
 			// just copy the token byte-by-byte
 			while( *pszToken )
