@@ -87,7 +87,7 @@ typedef struct net_api_s
 	void		(*SendRequest)( int context, int request, int flags, double timeout, struct netadr_s *remote_address, net_api_response_func_t response );
 	void		(*CancelRequest)( int context );
 	void		(*CancelAllRequests)( void );
-	char		*(*AdrToString)( struct netadr_s *a );
+	const char	*(*AdrToString)( struct netadr_s *a );
 	int		( *CompareAdr)( struct netadr_s *a, struct netadr_s *b );
 	int		( *StringToAdr)( char *s, struct netadr_s *a );
 	const char	*(*ValueForKey)( const char *s, const char *key );
