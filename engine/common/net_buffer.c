@@ -386,7 +386,7 @@ qboolean MSG_WriteString( sizebuf_t *sb, const char *pStr )
 	{
 		do
 		{
-			MSG_WriteChar( sb, *pStr );
+			MSG_WriteChar( sb, (signed char)*pStr );
 			pStr++;
 		} while( *( pStr - 1 ));
 	}
