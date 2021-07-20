@@ -2729,7 +2729,7 @@ pfnWriteChar
 */
 void GAME_EXPORT pfnWriteChar( int iValue )
 {
-	MSG_WriteChar( &sv.multicast, (char)iValue );
+	MSG_WriteChar( &sv.multicast, (signed char)iValue );
 	svgame.msg_realsize++;
 }
 
