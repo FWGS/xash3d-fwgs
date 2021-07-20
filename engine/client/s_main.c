@@ -1773,7 +1773,7 @@ void S_Music_f( void )
 	else if( c == 2 )
 	{
 		string	intro, main, track;
-		char	*ext[] = { "mp3", "wav" };
+		const char	*ext[] = { "mp3", "wav" };
 		int	i;
 
 		Q_strncpy( track, Cmd_Argv( 1 ), sizeof( track ));

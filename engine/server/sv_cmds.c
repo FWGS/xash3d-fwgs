@@ -25,7 +25,7 @@ SV_ClientPrintf
 Sends text across to be displayed if the level passes
 =================
 */
-void SV_ClientPrintf( sv_client_t *cl, char *fmt, ... )
+void SV_ClientPrintf( sv_client_t *cl, const char *fmt, ... )
 {
 	char	string[MAX_SYSPATH];
 	va_list	argptr;
@@ -48,7 +48,7 @@ SV_BroadcastPrintf
 Sends text to all active clients
 =================
 */
-void SV_BroadcastPrintf( sv_client_t *ignore, char *fmt, ... )
+void SV_BroadcastPrintf( sv_client_t *ignore, const char *fmt, ... )
 {
 	char		string[MAX_SYSPATH];
 	va_list		argptr;

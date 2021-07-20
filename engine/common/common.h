@@ -498,8 +498,8 @@ int Cmd_ListMaps( search_t *t , char *lastmapname, size_t len );
 qboolean Cmd_GetMapList( const char *s, char *completedname, int length );
 qboolean Cmd_GetDemoList( const char *s, char *completedname, int length );
 qboolean Cmd_GetMovieList( const char *s, char *completedname, int length );
-void Cmd_TokenizeString( char *text );
-void Cmd_ExecuteString( char *text );
+void Cmd_TokenizeString( const char *text );
+void Cmd_ExecuteString( const char *text );
 void Cmd_ForwardToServer( void );
 
 //
@@ -869,14 +869,14 @@ void SV_CreateDecal( sizebuf_t *msg, const float *origin, int decalIndex, int en
 void Log_Printf( const char *fmt, ... ) _format( 1 );
 void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
 qboolean SV_RestoreCustomDecal( struct decallist_s *entry, edict_t *pEdict, qboolean adjacent );
-void SV_BroadcastPrintf( struct sv_client_s *ignore, char *fmt, ... ) _format( 2 );
+void SV_BroadcastPrintf( struct sv_client_s *ignore, const char *fmt, ... ) _format( 2 );
 int R_CreateDecalList( struct decallist_s *pList );
 void R_ClearAllDecals( void );
 void CL_ClearStaticEntities( void );
 qboolean S_StreamGetCurrentState( char *currentTrack, char *loopTrack, int *position );
 struct cl_entity_s *CL_GetEntityByIndex( int index );
 struct player_info_s *CL_GetPlayerInfo( int playerIndex );
-void CL_ServerCommand( qboolean reliable, char *fmt, ... ) _format( 2 );
+void CL_ServerCommand( qboolean reliable, const char *fmt, ... ) _format( 2 );
 void CL_HudMessage( const char *pMessage );
 const char *CL_MsgInfo( int cmd );
 void SV_DrawDebugTriangles( void );

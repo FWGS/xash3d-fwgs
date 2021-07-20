@@ -18,8 +18,12 @@ GNU General Public License for more details.
 
 #include "cvardef.h"
 
+#ifdef XASH_64BIT
+#define CVAR_SENTINEL		0xDEADBEEFDEADBEEF
+#else
 #define CVAR_SENTINEL		0xDEADBEEF
-#define CVAR_CHECK_SENTINEL( cv )	((uint)(cv)->next == CVAR_SENTINEL)
+#endif
+#define CVAR_CHECK_SENTINEL( cv )	((uintptr_t)(cv)->next == CVAR_SENTINEL)
 
 // NOTE: if this is changed, it must be changed in cvardef.h too
 typedef struct convar_s
@@ -46,7 +50,7 @@ typedef struct convar_s
 #define FCVAR_LOCALONLY     (1<<22) // can be set only from local buffers
 
 #define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc ) \
-	convar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc, NULL }
+	convar_t cv = { (char*)cvname, (char*)cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, (char*)cvdesc, NULL }
 
 #define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc ) \
 	CVAR_DEFINE( cv, #cv, cvstr, cvflags, cvdesc )
