@@ -3492,7 +3492,7 @@ NetAPI_AdrToString
 
 =================
 */
-char *NetAPI_AdrToString( netadr_t *a )
+const char *NetAPI_AdrToString( netadr_t *a )
 {
 	return NET_AdrToString( *a );
 }
