@@ -224,10 +224,12 @@ static void WriteTextureRenderMode( FILE *fp )
 			fprintf( fp, "$texrendermode \"%s\" \"additive\" \n", texture->name );
 
 		if( texture->flags & STUDIO_NF_MASKED )
-			fprintf( fp, "$texrendermode \"%s\" \"masked\" \n", texture->name );
-
-		if( texture->flags & ( STUDIO_NF_MASKED | STUDIO_NF_ALPHASOLID ) )
-			fprintf( fp, "$texrendermode \"%s\" \"masked_solid\" \n", texture->name ); // xash3d extension
+		{
+			if( texture->flags & STUDIO_NF_ALPHASOLID )
+				fprintf( fp, "$texrendermode \"%s\" \"masked_solid\" \n", texture->name ); // xash3d extension
+			else
+				fprintf( fp, "$texrendermode \"%s\" \"masked\" \n", texture->name );
+		}
 
 		if( texture->flags & STUDIO_NF_TWOSIDE )
 			fprintf( fp, "$texrendermode \"%s\" \"twoside\" \n", texture->name );
