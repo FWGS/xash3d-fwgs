@@ -990,11 +990,14 @@ void GAME_EXPORT Con_DrawStringLen( const char *pText, int *length, int *height 
 {
 	int	curLength = 0;
 
-	if( !length ) return;
-	*length = 0;
+	if( !con.curFont )
+		return;
+	if( height )
+		*height = con.curFont->charHeight;
+	if (!length)
+		return;
 
-	if( !con.curFont ) return;
-	if( height ) *height = con.curFont->charHeight;
+	*length = 0;
 
 	while( *pText )
 	{
