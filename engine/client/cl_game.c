@@ -1329,7 +1329,7 @@ pfnSPR_Load
 
 =========
 */
-HSPRITE GAME_EXPORT pfnSPR_Load( const char *szPicName )
+HSPRITE EXPORT pfnSPR_Load( const char *szPicName )
 {
 	model_t	*spr;
 
@@ -1376,7 +1376,7 @@ pfnSPR_Frames
 
 =========
 */
-static int GAME_EXPORT pfnSPR_Frames( HSPRITE hPic )
+int EXPORT pfnSPR_Frames( HSPRITE hPic )
 {
 	int	numFrames;
 
