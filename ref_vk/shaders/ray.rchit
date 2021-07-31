@@ -57,4 +57,5 @@ void main() {
     payload.normal = normal;
     payload.roughness = kusochki[kusok_index].roughness;
     payload.kusok_index = kusok_index;
+    payload.material_flags = kusochki[kusok_index].material_flags;
 }

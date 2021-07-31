@@ -5,4 +5,5 @@ struct RayPayload {
     vec3 normal;
     float roughness;
     int kusok_index;
+    uint material_flags;
 };

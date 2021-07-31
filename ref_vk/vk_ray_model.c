@@ -219,6 +219,32 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 
 		kusochki[i].texture = mg->texture;
 		kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.;
+	
+		switch (args.model->render_mode) {
+			case kRenderNormal:
+				kusochki[i].flags = 0;
+				break;
+
+			// C = (1 - alpha) * DST + alpha * SRC (TODO is this right?)
+			case kRenderTransColor:
+			case kRenderTransTexture:
+				kusochki[i].flags = 1;
+				break;
+
+			// Additive blending: C = SRC * alpha + DST
+			case kRenderGlow:
+			case kRenderTransAdd:
+				kusochki[i].flags = 2;
+				break;
+
+			// Alpha test (TODO additive? mixing?)
+			case kRenderTransAlpha:
+				kusochki[i].flags = 3;
+				break;
+
+			default:
+				gEngine.Host_Error("Unexpected render mode %d\n", args.model->render_mode);
+		}
 
 		mg->kusok_index = i + kusochki_count_offset;
 	}
@@ -279,6 +305,7 @@ void VK_RayModelDestroy( struct vk_ray_model_s *model ) {
 }
 
 void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row ) {
+	uint32_t material_flags = 0;
 	ASSERT(vk_core.rtx);
 	ASSERT(g_ray_model_state.frame.num_models <= ARRAYSIZE(g_ray_model_state.frame.models));
 
@@ -302,10 +329,37 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 	if (render_model)
 		VK_LightsAddEmissiveSurfacesFromModel( render_model, transform_row );
 
+	switch (render_model->render_mode) {
+		case kRenderNormal:
+			material_flags = 0;
+			break;
+
+		// C = (1 - alpha) * DST + alpha * SRC (TODO is this right?)
+		case kRenderTransColor:
+		case kRenderTransTexture:
+			material_flags = 1;
+			break;
+
+		// Additive blending: C = SRC * alpha + DST
+		case kRenderGlow:
+		case kRenderTransAdd:
+			material_flags = 2;
+			break;
+
+		// Alpha test (TODO additive? mixing?)
+		case kRenderTransAlpha:
+			material_flags = 3;
+			break;
+
+		default:
+			gEngine.Host_Error("Unexpected render mode %d\n", render_model->render_mode);
+	}
+
 	for (int i = 0; i < render_model->num_geometries; ++i) {
 		const vk_render_geometry_t *geom = render_model->geometries + i;
 		vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_ray_model_state.kusochki_buffer.mapped) + geom->kusok_index;
 		kusok->texture = geom->texture;
+		kusok->flags = material_flags;
 	}
 }
 

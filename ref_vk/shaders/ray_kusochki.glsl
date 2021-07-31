@@ -8,6 +8,7 @@ struct Kusok {
 	// Material
 	uint texture;
 	float roughness;
+	uint material_flags;
 };
 
 struct Vertex {

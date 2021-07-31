@@ -31,6 +31,7 @@ typedef struct {
 	// Material parameters
 	uint32_t texture;
 	float roughness;
+	uint32_t flags; // 0 -- opaque, 1 -- alpha mix, 2 -- additive, 3 -- alpha test
 } vk_kusok_data_t;
 
 typedef struct {
