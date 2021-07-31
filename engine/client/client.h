@@ -827,7 +827,7 @@ int CL_FindModelIndex( const char *m );
 cl_entity_t *CL_GetLocalPlayer( void );
 model_t *CL_LoadClientSprite( const char *filename );
 model_t *CL_LoadModel( const char *modelname, int *index );
-HSPRITE pfnSPR_Load( const char *szPicName );
+HSPRITE EXPORT pfnSPR_Load( const char *szPicName );
 HSPRITE pfnSPR_LoadExt( const char *szPicName, uint texFlags );
 void PicAdjustSize( float *x, float *y, float *w, float *h );
 int CL_GetScreenInfo( SCREENINFO *pscrinfo );
