@@ -1,11 +1,6 @@
-## 2021-07-17, E110..120
-- [x] rtx: ray tracing pipeline
-- [x] rtx: fix rendering on AMD
-- [x] rtx: split models into a separate module
-- [x] rtx: alpha test
-
 # Next
-	- [ ] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
+- [ ] mipmaps
+- [ ] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
 - [ ] rtx: cluster dlights
 - [ ] rtx: dynamically sized light clusters
@@ -15,6 +10,8 @@
 - [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
 
 # Planned
+- [ ] rtx: transparency layering issue, possible approaches:
+	- [ ]  trace a special transparent-only ray separately from opaque. This can at least be used to remove black texture areas
 - [ ] rtx: sky light/emissive skybox:
 	- [ ] consider baking it into a single (or a few localized) kusok that has one entry in light cluster
 	- [ ] just ignore sky surfaces and treat not hitting anything as hitting sky. importance-sample by sun direction
@@ -22,7 +19,6 @@
 - [ ] rtx: better memory handling
 	- [ ] robust tracking of memory hierarchies: global/static, map, frame
 	- or just do a generic allocator with compaction?
-- [ ] rtx: alpha blending
 - [ ] rtx: coalesce all these buffers
 - [ ] crash in PM_RecursiveHullCheck
 - [ ] rtx: entity lights
@@ -68,7 +64,6 @@
 - [ ] decals
 - [ ] issue: transparent brushes are too transparent (train ride)
 - [ ] render skybox
-- [ ] mipmaps
 - [ ] lightmap dynamic styles
 - [ ] better flashlight: spotlight instead of dlight point
 - [ ] screenshot
@@ -289,3 +284,12 @@
 - [x] rtx: ray tracing shaders specialization, e.g. for light clusters constants
 - [x] rtx: restore dynamic stuff like particles, beams, etc
 - [x] rtx: c3a1b: assert model->size >= build_size.accelerationStructureSize failed at vk_rtx.c:347
+
+## 2021-07-17, E110..120
+- [x] rtx: ray tracing pipeline
+- [x] rtx: fix rendering on AMD
+- [x] rtx: split models into a separate module
+- [x] rtx: alpha test
+
+## 2021-07-31, E121
+- [x] rtx: alpha blending -- did a PoC
