@@ -1038,7 +1038,7 @@ void GL_CheckForErrors_( const char *filename, const int fileline )
 	if(( err = pglGetError( )) == GL_NO_ERROR )
 		return;
 
-	// gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s (called at %s:%i)\n", GL_ErrorString( err ), filename, fileline );
+	gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s (at %s:%i)\n", GL_ErrorString( err ), filename, fileline );
 }
 
 void GL_SetupAttributes( int safegl )
