@@ -2,11 +2,12 @@
 #extension GL_GOOGLE_include_directive : require
 #include "ray_common.glsl"
 #include "ray_kusochki.glsl"
+#include "noise.glsl"
 
 #extension GL_EXT_shader_8bit_storage : require
 
 // FIXME what should this be?
-const float dlight_attenuation_const = 20000.;
+const float dlight_attenuation_const = 10000.;
 const float shadow_offset_fudge = .5;
 const float normal_offset_fudge = .1;
 
@@ -76,27 +77,6 @@ layout (push_constant) uniform PushConstants {
 	float prev_frame_blend_factor;
 	float pixel_cone_spread_angle;
 } push_constants;
-
-// TODO find better random function
-// float rand01_state;
-// float rand01() {
-// 	return rand01_state = fract(sin(rand01_state)*54873.35729);
-// }
-uint rand01_state = 0;
-uint rand() {
-	//rand01_state = rand01_state * 1103515245 + 12345;
-	// xorshift32
-	rand01_state ^= rand01_state << 13;
-	rand01_state ^= rand01_state >> 17;
-	rand01_state ^= rand01_state << 5;
-	return rand01_state;
-}
-uint rand_range(uint rmax) {
-	return rand() % rmax;
-}
-float rand01() {
-	return uintBitsToFloat(0x3f800000 | (rand() & 0x007fffff)) - 1.;
-}
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
 layout(location = 1) rayPayloadEXT bool shadow;
@@ -227,7 +207,7 @@ vec3 computeLighting(int bounce) {
 				}
 
 				// TODO
-				const float brightness_fudge = 50.;
+				const float brightness_fudge = 30.;
 				C += light_dot * sampling_light_scale * brightness_fudge * payload.albedo * emissive * light_dir_normal_dot / (light_dist * light_dist);
 
 				// Sample just one triangle
@@ -309,7 +289,7 @@ void main() {
 			C += kc * computeLighting(bounce);
 		} else if (payload.material_flags == 1) {
 			kc *= payload.albedo;
-			if (rand01() < .8) {
+			if (rand01() < .5) {
 				origin = payload.hit_pos_t.xyz + normal_offset_fudge * direction;
 				//C += kc * vec3(1., 0., 0.);
 				//break;
@@ -331,7 +311,8 @@ void main() {
 		// TODO this is totally not correct
 		direction = normalize(mix(
 				reflect(direction, payload.normal),
-				vec3(rand01(), rand01(), rand01())*2.-1.,
+				//vec3(rand01(), rand01(), rand01())*2.-1.,
+				rand3_f01(uvec3(gl_LaunchIDEXT.xy, (bounce + 1) * push_constants.random_seed)) * 2. - 1.,
 				payload.roughness
 			));
 		//direction *= dot(direction, payload.normal);
