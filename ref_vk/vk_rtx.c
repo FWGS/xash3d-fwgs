@@ -42,6 +42,7 @@ typedef struct {
 	uint32_t random_seed;
 	int bounces;
 	float prev_frame_blend_factor;
+	float pixel_cone_spread_angle;
 } vk_rtx_push_constants_t;
 
 typedef struct {
@@ -575,7 +576,7 @@ static void updateDescriptors( VkCommandBuffer cmdbuf, const vk_ray_frame_render
 	VK_DescriptorsWrite(&g_rtx.descriptors);
 }
 
-static qboolean rayTrace( VkCommandBuffer cmdbuf, VkImage frame_dst )
+static qboolean rayTrace( VkCommandBuffer cmdbuf, VkImage frame_dst, float fov_angle_y )
 {
 	// 4. Barrier for TLAS build and dest image layout transfer
 	{
@@ -613,6 +614,7 @@ static qboolean rayTrace( VkCommandBuffer cmdbuf, VkImage frame_dst )
 			.random_seed = (uint32_t)gEngine.COM_RandomLong(0, INT32_MAX),
 			.bounces = vk_rtx_bounces->value,
 			.prev_frame_blend_factor = vk_rtx_prev_frame_blend_factor->value,
+			.pixel_cone_spread_angle = atanf((2.0f*tanf(fov_angle_y * 0.5f)) / (float)FRAME_HEIGHT),
 		};
 		vkCmdPushConstants(cmdbuf, g_rtx.descriptors.pipeline_layout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(push_constants), &push_constants);
 	}
@@ -788,7 +790,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	} else {
 		prepareTlas(cmdbuf);
 		updateDescriptors(cmdbuf, args, frame_src, frame_dst);
-		rayTrace(cmdbuf, frame_dst->image);
+		rayTrace(cmdbuf, frame_dst->image, args->fov_angle_y);
 
 		// Barrier for frame_dst image
 		{

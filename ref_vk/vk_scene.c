@@ -657,7 +657,7 @@ void VK_SceneRender( const ref_viewpass_t *rvp )
 
 	setupCamera( rvp );
 
-	VK_RenderStateSetMatrixProjection( g_camera.projectionMatrix );
+	VK_RenderStateSetMatrixProjection( g_camera.projectionMatrix, g_camera.fov_y ); // FIXME why is this in degrees, not in radians? * M_PI_F / 360.0f );
 	VK_RenderStateSetMatrixView( g_camera.modelviewMatrix );
 	VK_RenderStateSetMatrixModel( matrix4x4_identity );
 

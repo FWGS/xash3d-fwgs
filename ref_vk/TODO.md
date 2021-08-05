@@ -1,5 +1,7 @@
+## 2021-08-02..04, E122-123
+- [x] mipmaps
+
 # Next
-- [ ] mipmaps
 - [ ] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
 - [ ] rtx: cluster dlights
@@ -10,6 +12,8 @@
 - [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
 
 # Planned
+- [ ] rtx: better mip lods: there's a weird math that operates on fov degrees (not radians) that we copypasted from ray tracing gems 2 chapter 7. When the book is available, get through the math and figure this out.
+- [ ] sane texture memory management: do not allocate VKDeviceMemory for every texture
 - [ ] rtx: transparency layering issue, possible approaches:
 	- [ ]  trace a special transparent-only ray separately from opaque. This can at least be used to remove black texture areas
 - [ ] rtx: sky light/emissive skybox:

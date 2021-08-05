@@ -53,6 +53,8 @@ static struct {
 		vec3_t origin, color;
 	} static_lights[32];
 	int num_static_lights;
+
+	float fov_angle_y;
 } g_render;
 
 static qboolean createPipelines( void )
@@ -516,10 +518,11 @@ static const matrix4x4 vk_proj_fixup = {
 	{0, 0, 0, 1}
 };
 
-void VK_RenderStateSetMatrixProjection(const matrix4x4 projection)
+void VK_RenderStateSetMatrixProjection(const matrix4x4 projection, float fov_angle_y)
 {
 	g_render_state.uniform_data_set_mask |= UNIFORM_SET_MATRIX_PROJECTION;
 	Matrix4x4_Concat( g_render_state.projection, vk_proj_fixup, projection );
+	g_render.fov_angle_y = fov_angle_y;
 }
 
 void VK_RenderStateSetMatrixView(const matrix4x4 view)
@@ -794,6 +797,8 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 				.buffer = g_render.buffer.buffer,
 				.size = VK_WHOLE_SIZE,
 			},
+
+			.fov_angle_y = g_render.fov_angle_y,
 		};
 
 		if (args.ubo.offset == UINT32_MAX) {

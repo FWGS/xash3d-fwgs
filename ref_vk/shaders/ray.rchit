@@ -17,6 +17,32 @@ vec3 hashUintToVec3(uint i) { return vec3(hash(float(i)), hash(float(i)+15.43), 
 
 const float normal_offset_fudge = .01;
 
+// Taken from Ray Tracing Gems II, Chapter 7. Texture Coordinate Gradients Estimation for Ray Cones, by Wessam Bahnassi
+// https://www.realtimerendering.com/raytracinggems/rtg2/index.html
+// https://github.com/Apress/Ray-Tracing-Gems-II/blob/main/Chapter_07/Raytracing.hlsl
+vec4 UVDerivsFromRayCone(vec3 vRayDir, vec3 vWorldNormal, float vRayConeWidth, vec2 aUV[3], vec3 aPos[3], mat3 matWorld)
+{
+	vec2 vUV10 = aUV[1]-aUV[0];
+	vec2 vUV20 = aUV[2]-aUV[0];
+	float fQuadUVArea = abs(vUV10.x*vUV20.y - vUV20.x*vUV10.y);
+
+	// Since the ray cone's width is in world-space, we need to compute the quad
+	// area in world-space as well to enable proper ratio calculation
+	vec3 vEdge10 = (aPos[1]-aPos[0]) * matWorld;
+	vec3 vEdge20 = (aPos[2]-aPos[0]) * matWorld;
+	vec3 vFaceNrm = cross(vEdge10, vEdge20);
+	float fQuadArea = length(vFaceNrm);
+
+	float fDistTerm = abs(vRayConeWidth);
+	float fNormalTerm = abs(dot(vRayDir,vWorldNormal));
+	float fProjectedConeWidth = vRayConeWidth/fNormalTerm;
+	float fVisibleAreaRatio = (fProjectedConeWidth*fProjectedConeWidth) / fQuadArea;
+
+	float fVisibleUVArea = fQuadUVArea*fVisibleAreaRatio;
+	float fULength = sqrt(fVisibleUVArea);
+	return vec4(fULength,0,0,fULength);
+}
+
 void main() {
     //const float l = gl_HitTEXT;
     //ray_result.color = vec3(fract(l / 10.));
@@ -25,6 +51,8 @@ void main() {
     //ray_result.color = vec3(.5);
 
     vec3 hit_pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+    payload.t_offset += gl_HitTEXT;
+
 	// ray_result.color = fract((hit_pos + .5) / 10.);
     //ray_result.color = vec3(1.);
     //return;
@@ -43,14 +71,28 @@ void main() {
     const vec3 n3 = vertices[vi3].normal;
 
     // TODO use already inverse gl_WorldToObject ?
-    const vec3 normal = normalize(transpose(inverse(mat3(gl_ObjectToWorldEXT))) * (n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y));
+    const mat3 matWorld = mat3(gl_ObjectToWorldEXT);
+    const vec3 normal = normalize(transpose(inverse(matWorld)) * (n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y));
     hit_pos += normal * normal_offset_fudge;
 
     // //C = normal * .5 + .5; break;
 
+    const vec2 uvs[3] = {
+        vertices[vi1].gl_tc,
+        vertices[vi2].gl_tc,
+        vertices[vi3].gl_tc,
+    };
+    const vec3 pos[3] = {
+        vertices[vi1].pos,
+        vertices[vi2].pos,
+        vertices[vi3].pos,
+    };
     const vec2 texture_uv = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y;
     const uint tex_index = kusochki[kusok_index].texture;
-    const vec3 base_color = pow(texture(textures[nonuniformEXT(tex_index)], texture_uv).rgb, vec3(2.));
+
+    const float ray_cone_width = payload.pixel_cone_spread_angle * payload.t_offset;
+    const vec4 uv_lods = UVDerivsFromRayCone(gl_WorldRayDirectionEXT, normal, ray_cone_width, uvs, pos, matWorld);
+    const vec3 base_color = pow(textureGrad(textures[nonuniformEXT(tex_index)], texture_uv, uv_lods.xy, uv_lods.zw).rgb, vec3(2.));
 
     payload.hit_pos_t = vec4(hit_pos, gl_HitTEXT);
     payload.albedo = base_color;
