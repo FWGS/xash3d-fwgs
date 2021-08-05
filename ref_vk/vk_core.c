@@ -407,7 +407,12 @@ static qboolean pickAndCreateDevice( qboolean skip_first_device )
 			.rayTracingPipeline = VK_TRUE,
 			// TODO .rayTraversalPrimitiveCulling = VK_TRUE,
 		};
-		void *head = &ray_tracing_pipeline_feature;
+		VkPhysicalDeviceFeatures2 features = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+			.pNext = &ray_tracing_pipeline_feature,
+			.features.samplerAnisotropy = VK_TRUE,
+		};
+		void *head = &features;
 #ifdef USE_AFTERMATH
 		VkDeviceDiagnosticsConfigCreateInfoNV diag_config_nv = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV,
@@ -608,7 +613,8 @@ qboolean R_VkInit( void )
 			.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,//CLAMP_TO_EDGE,
 			.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,//CLAMP_TO_EDGE,
 			.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-			.anisotropyEnable = VK_FALSE,
+			.anisotropyEnable = vk_core.rtx,
+			.maxAnisotropy = 16,
 			.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
 			.unnormalizedCoordinates = VK_FALSE,
 			.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,

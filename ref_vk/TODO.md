@@ -2,6 +2,7 @@
 - [x] mipmaps
 
 # Next
+- [ ] anisotropic texture sampling
 - [ ] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
 - [ ] rtx: cluster dlights
@@ -78,6 +79,7 @@
 - [ ] rtx: studio models should not pre-transform vertices with modelView matrix
 
 # Someday
+- [ ] rtx: dynamic rtx/non-rtx switching breaks dynamic models
 - [ ] more than one lightmap texture. E.g. sponza ends up having 3 lightmaps
 - [ ] nvnsight into buffer memory and stuff
 - [ ] start building command buffers in beginframe
