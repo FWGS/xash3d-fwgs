@@ -560,12 +560,12 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 					.depth = 1,
 				};
 
-				if ( mip > 0 )
+				memcpy(((uint8_t*)vk_core.staging.mapped) + staging_offset, buf, mip_size);
+
+				if ( mip < mipCount - 1 )
 				{
 					BuildMipMap( buf, width, height, 1, tex->flags );
 				}
-
-				memcpy(((uint8_t*)vk_core.staging.mapped) + staging_offset, buf, mip_size);
 
 				// TODO we could do this only once w/ region array
 				vkCmdCopyBufferToImage(vk_core.cb_tex, vk_core.staging.buffer, tex->vk.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
