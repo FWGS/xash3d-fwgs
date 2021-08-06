@@ -74,6 +74,7 @@ layout (push_constant) uniform PushConstants {
 	uint random_seed;
 	int bounces;
 	float prev_frame_blend_factor;
+	float pixel_cone_spread_angle;
 } push_constants;
 
 // TODO find better random function
@@ -281,6 +282,9 @@ void main() {
 	vec3 kc = vec3(1.);
 	vec3 C = vec3(0.);
 
+	payload.t_offset = .0;
+	payload.pixel_cone_spread_angle = push_constants.pixel_cone_spread_angle;
+
 	for (int bounce = 0; bounce < push_constants.bounces; ++bounce) {
 		const uint flags = 0
 			| gl_RayFlagsCullFrontFacingTrianglesEXT
@@ -293,7 +297,7 @@ void main() {
 		const float L = 10000.;
 		traceRayEXT(tlas, flags, 0xff,
 			sbt_offset, sbt_stride, miss_index,
-			origin, .001, direction, L,
+			origin, 0., direction, L,
 			ray_payload_loc);
 
 		if (payload.hit_pos_t.w <= 0.) {

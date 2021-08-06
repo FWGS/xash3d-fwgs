@@ -303,16 +303,177 @@ static VkFormat VK_GetFormat(pixformat_t format)
 	}
 }
 
+static size_t CalcImageSize( pixformat_t format, int width, int height, int depth )
+{
+	size_t	size = 0;
+
+	// check the depth error
+	depth = Q_max( 1, depth );
+
+	switch( format )
+	{
+	case PF_LUMINANCE:
+		size = width * height * depth;
+		break;
+	case PF_RGB_24:
+	case PF_BGR_24:
+		size = width * height * depth * 3;
+		break;
+	case PF_BGRA_32:
+	case PF_RGBA_32:
+		size = width * height * depth * 4;
+		break;
+	case PF_DXT1:
+		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 8) * depth;
+		break;
+	case PF_DXT3:
+	case PF_DXT5:
+	case PF_ATI2:
+		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 16) * depth;
+		break;
+	}
+
+	return size;
+}
+
+static int CalcMipmapCount( vk_texture_t *tex, qboolean haveBuffer )
+{
+	int	width, height;
+	int	mipcount;
+
+	ASSERT( tex != NULL );
+
+	if( !haveBuffer )// || tex->target == GL_TEXTURE_3D )
+		return 1;
+
+	// generate mip-levels by user request
+	if( FBitSet( tex->flags, TF_NOMIPMAP ))
+		return 1;
+
+	// mip-maps can't exceeds 16
+	for( mipcount = 0; mipcount < 16; mipcount++ )
+	{
+		width = Q_max( 1, ( tex->width >> mipcount ));
+		height = Q_max( 1, ( tex->height >> mipcount ));
+		if( width == 1 && height == 1 )
+			break;
+	}
+
+	return mipcount + 1;
+}
+
+static void BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth, int flags )
+{
+	byte *out = in;
+	int	instride = ALIGN( srcWidth * 4, 1 );
+	int	mipWidth, mipHeight, outpadding;
+	int	row, x, y, z;
+	vec3_t	normal;
+
+	if( !in ) return;
+
+	mipWidth = Q_max( 1, ( srcWidth >> 1 ));
+	mipHeight = Q_max( 1, ( srcHeight >> 1 ));
+	outpadding = ALIGN( mipWidth * 4, 1 ) - mipWidth * 4;
+
+	if( FBitSet( flags, TF_ALPHACONTRAST ))
+	{
+		memset( in, mipWidth, mipWidth * mipHeight * 4 );
+		return;
+	}
+
+	// move through all layers
+	for( z = 0; z < srcDepth; z++ )
+	{
+		if( FBitSet( flags, TF_NORMALMAP ))
+		{
+			for( y = 0; y < mipHeight; y++, in += instride * 2, out += outpadding )
+			{
+				byte *next = ((( y << 1 ) + 1 ) < srcHeight ) ? ( in + instride ) : in;
+				for( x = 0, row = 0; x < mipWidth; x++, row += 8, out += 4 )
+				{
+					if((( x << 1 ) + 1 ) < srcWidth )
+					{
+						normal[0] = MAKE_SIGNED( in[row+0] ) + MAKE_SIGNED( in[row+4] )
+						+ MAKE_SIGNED( next[row+0] ) + MAKE_SIGNED( next[row+4] );
+						normal[1] = MAKE_SIGNED( in[row+1] ) + MAKE_SIGNED( in[row+5] )
+						+ MAKE_SIGNED( next[row+1] ) + MAKE_SIGNED( next[row+5] );
+						normal[2] = MAKE_SIGNED( in[row+2] ) + MAKE_SIGNED( in[row+6] )
+						+ MAKE_SIGNED( next[row+2] ) + MAKE_SIGNED( next[row+6] );
+					}
+					else
+					{
+						normal[0] = MAKE_SIGNED( in[row+0] ) + MAKE_SIGNED( next[row+0] );
+						normal[1] = MAKE_SIGNED( in[row+1] ) + MAKE_SIGNED( next[row+1] );
+						normal[2] = MAKE_SIGNED( in[row+2] ) + MAKE_SIGNED( next[row+2] );
+					}
+
+					if( !VectorNormalizeLength( normal ))
+						VectorSet( normal, 0.5f, 0.5f, 1.0f );
+
+					out[0] = 128 + (byte)(127.0f * normal[0]);
+					out[1] = 128 + (byte)(127.0f * normal[1]);
+					out[2] = 128 + (byte)(127.0f * normal[2]);
+					out[3] = 255;
+				}
+			}
+		}
+		else
+		{
+			for( y = 0; y < mipHeight; y++, in += instride * 2, out += outpadding )
+			{
+				byte *next = ((( y << 1 ) + 1 ) < srcHeight ) ? ( in + instride ) : in;
+				for( x = 0, row = 0; x < mipWidth; x++, row += 8, out += 4 )
+				{
+					if((( x << 1 ) + 1 ) < srcWidth )
+					{
+						out[0] = (in[row+0] + in[row+4] + next[row+0] + next[row+4]) >> 2;
+						out[1] = (in[row+1] + in[row+5] + next[row+1] + next[row+5]) >> 2;
+						out[2] = (in[row+2] + in[row+6] + next[row+2] + next[row+6]) >> 2;
+						out[3] = (in[row+3] + in[row+7] + next[row+3] + next[row+7]) >> 2;
+					}
+					else
+					{
+						out[0] = (in[row+0] + next[row+0]) >> 1;
+						out[1] = (in[row+1] + next[row+1]) >> 1;
+						out[2] = (in[row+2] + next[row+2]) >> 1;
+						out[3] = (in[row+3] + next[row+3]) >> 1;
+					}
+				}
+			}
+		}
+	}
+}
+
 static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 {
 	const VkFormat format = VK_GetFormat(pic->type);
 	const VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
 	const VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	byte *buf = pic->buffer;
 
-	gEngine.Con_Reportf("Uploading texture %s\n", tex->name);
+	int mipCount = 0;
+
+	// TODO non-rbga textures
+	// TODO cubemaps
 
 	if (!pic->buffer)
 		return false;
+
+	tex->width = pic->width;
+	tex->height = pic->height;
+	mipCount = CalcMipmapCount( tex, ( buf != NULL ));
+
+	gEngine.Con_Reportf("Uploading texture %s, mips=%d\n", tex->name, mipCount);
+
+	// TODO this vvv
+	// // NOTE: only single uncompressed textures can be resamples, no mips, no layers, no sides
+	// if(( tex->depth == 1 ) && (( pic->width != tex->width ) || ( pic->height != tex->height )))
+	// 	data = GL_ResampleTexture( buf, pic->width, pic->height, tex->width, tex->height, normalMap );
+	// else data = buf;
+
+	// if( !ImageDXT( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
+	// 	data = GL_ApplyFilter( data, tex->width, tex->height );
 
 	// 1. Create VkImage w/ usage = DST|SAMPLED, layout=UNDEFINED
 	{
@@ -323,7 +484,7 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 			.extent.height = pic->height,
 			.extent.depth = 1,
 			.format = format,
-			.mipLevels = 1, // TODO pic->numMips,
+			.mipLevels = mipCount,
 			.arrayLayers = 1,
 			.tiling = tiling,
 			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -332,16 +493,7 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		};
 		XVK_CHECK(vkCreateImage(vk_core.device, &image_create_info, NULL, &tex->vk.image));
-
-		if (vk_core.debug) {
-			VkDebugUtilsObjectNameInfoEXT debug_name = {
-				.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-				.objectHandle = (uint64_t)tex->vk.image,
-				.objectType = VK_OBJECT_TYPE_IMAGE,
-				.pObjectName = tex->name,
-			};
-			XVK_CHECK(vkSetDebugUtilsObjectNameEXT(vk_core.device, &debug_name));
-		}
+		SET_DEBUG_NAME(tex->vk.image, VK_OBJECT_TYPE_IMAGE, tex->name);
 	}
 
 	// 2. Alloc mem for VkImage and bind it (DEV_LOCAL)
@@ -353,7 +505,8 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 	}
 
 	{
-		const size_t staging_offset = 0; // TODO multiple staging buffer users params.staging->ptr
+		size_t staging_offset = 0; // TODO multiple staging buffer users params.staging->ptr
+
 		// 5. Create/get cmdbuf for transitions
 		VkCommandBufferBeginInfo beginfo = {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -372,7 +525,7 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 			.subresourceRange = (VkImageSubresourceRange) {
 				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 				.baseMipLevel = 0,
-				.levelCount = 1, // TODO
+				.levelCount = mipCount,
 				.baseArrayLayer = 0,
 				.layerCount = 1,
 			}};
@@ -384,25 +537,41 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 				0, 0, NULL, 0, NULL, 1, &image_barrier);
 
 		// 		5.1.2 copyBufferToImage for all mip levels
-		//for (int i = 0; i < 1/* TODO params.mipmaps_count*/; ++i)
 		{
-			VkBufferImageCopy region = {0};
-			region.bufferOffset = /*TODO mip->offset +*/ staging_offset;
-			region.bufferRowLength = 0;
-			region.bufferImageHeight = 0;
-			region.imageSubresource = (VkImageSubresourceLayers){
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.mipLevel = 0, // TODO mip->mip_level,
-				.baseArrayLayer = 0,
-				.layerCount = 1,
-			};
-			region.imageExtent = (VkExtent3D){
-				.width = pic->width, // TODO mip->width,
-				.height = pic->height, // TODO mip->height,
-				.depth = 1,
-			};
-			memcpy(((uint8_t*)vk_core.staging.mapped) + staging_offset, pic->buffer, pic->size);
-			vkCmdCopyBufferToImage(vk_core.cb_tex, vk_core.staging.buffer, tex->vk.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+			for (int mip = 0; mip < mipCount; ++mip)
+			{
+				const int width = Q_max( 1, ( pic->width >> mip ));
+				const int height = Q_max( 1, ( pic->height >> mip ));
+				const size_t mip_size = CalcImageSize( pic->type, width, height, 1 );
+
+				VkBufferImageCopy region = {0};
+				region.bufferOffset = staging_offset;
+				region.bufferRowLength = 0;
+				region.bufferImageHeight = 0;
+				region.imageSubresource = (VkImageSubresourceLayers){
+					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+					.mipLevel = mip,
+					.baseArrayLayer = 0,
+					.layerCount = 1,
+				};
+				region.imageExtent = (VkExtent3D){
+					.width = width,
+					.height = height,
+					.depth = 1,
+				};
+
+				memcpy(((uint8_t*)vk_core.staging.mapped) + staging_offset, buf, mip_size);
+
+				if ( mip < mipCount - 1 )
+				{
+					BuildMipMap( buf, width, height, 1, tex->flags );
+				}
+
+				// TODO we could do this only once w/ region array
+				vkCmdCopyBufferToImage(vk_core.cb_tex, vk_core.staging.buffer, tex->vk.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+				staging_offset += mip_size;
+			}
 		}
 
 		// 	5.2 image:layout:DST -> image:layout:SAMPLED
@@ -414,7 +583,7 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 		image_barrier.subresourceRange = (VkImageSubresourceRange){
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.baseMipLevel = 0,
-			.levelCount = 1, // FIXME params.mipmaps_count,
+			.levelCount = mipCount,
 			.baseArrayLayer = 0,
 			.layerCount = 1,
 		};
@@ -441,21 +610,13 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 		ivci.image = tex->vk.image;
 		ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		ivci.subresourceRange.baseMipLevel = 0;
-		ivci.subresourceRange.levelCount = 1; // FIXME params.mipmaps_count;
+		ivci.subresourceRange.levelCount = mipCount;
 		ivci.subresourceRange.baseArrayLayer = 0;
 		ivci.subresourceRange.layerCount = 1;
 		ivci.components = (VkComponentMapping){0, 0, 0, (pic->flags & IMAGE_HAS_ALPHA) ? 0 : VK_COMPONENT_SWIZZLE_ONE};
 		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, &tex->vk.image_view));
+		SET_DEBUG_NAME(tex->vk.image_view, VK_OBJECT_TYPE_IMAGE_VIEW, tex->name);
 	}
-		if (vk_core.debug) {
-			VkDebugUtilsObjectNameInfoEXT debug_name = {
-				.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-				.objectHandle = (uint64_t)tex->vk.image_view,
-				.objectType = VK_OBJECT_TYPE_IMAGE_VIEW,
-				.pObjectName = tex->name,
-			};
-			XVK_CHECK(vkSetDebugUtilsObjectNameEXT(vk_core.device, &debug_name));
-		}
 
 	// TODO how should we approach this:
 	// - per-texture desc sets can be inconvenient if texture is used in different incompatible contexts

@@ -48,7 +48,7 @@ void VK_RenderBufferPrintStats( void );
 void VK_RenderStateSetColor( float r, float g, float b, float a );
 // TODO void VK_RenderStateGetColor( vec4_t color );
 
-void VK_RenderStateSetMatrixProjection(const matrix4x4 proj);
+void VK_RenderStateSetMatrixProjection(const matrix4x4 proj, float fov_angle_y);
 void VK_RenderStateSetMatrixView(const matrix4x4 view);
 void VK_RenderStateSetMatrixModel(const matrix4x4 model);
 
