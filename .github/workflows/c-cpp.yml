@@ -45,7 +45,6 @@ jobs:
       with:
         submodules: recursive
     - name: Checkout xash-extras
-      if: matrix.targetos != 'android'
       uses: actions/checkout@v2
       with:
         repository: FWGS/xash-extras
