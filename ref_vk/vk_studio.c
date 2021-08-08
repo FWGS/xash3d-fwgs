@@ -1663,13 +1663,7 @@ void R_StudioLighting( float *lv, int bone, int flags, vec3_t normal )
 	*lv = illum * (1.0f / 255.0f);
 }
 
-/*
-====================
-R_LightLambert
-
-====================
-*/
-void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], vec3_t normal, vec3_t color, byte *out )
+void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], const vec3_t normal, vec3_t color, byte *out )
 {
 	vec3_t	finalLight;
 	vec3_t	localLight;
@@ -1712,30 +1706,33 @@ void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], vec3_t normal, vec3_t color,
 	out[2] = finalLight[2] * 255;
 }
 
-/* FIXME VK
-static void R_StudioSetColorBegin(short *ptricmds, vec3_t *pstudionorms )
+static void R_StudioSetColorBegin(const short *ptricmds, const vec3_t *pstudionorms, rgba_t out_color )
 {
 	float	*lv = (float *)g_studio.lightvalues[ptricmds[1]];
-	rgba_t color;
 
 	if( g_studio.numlocallights )
 	{
-		color[3] = tr.blend * 255;
-		R_LightLambert( g_studio.lightpos[ptricmds[0]], pstudionorms[ptricmds[1]], lv, color );
-		pglColor4ubv( color );
+		// FIXME VK color[3] = tr.blend * 255;
+		out_color[3] = 255;
+		R_LightLambert( g_studio.lightpos[ptricmds[0]], pstudionorms[ptricmds[1]], lv, out_color );
 	}
 	else
 	{
 		if( RI.currententity->curstate.rendermode == kRenderTransColor )
 		{
-			color[3] = tr.blend * 255;
-			VectorCopy( (byte*)&RI.currententity->curstate.rendercolor, color );
-			pglColor4ubv( color );
+			// FIXME VK color[3] = tr.blend * 255;
+			out_color[3] = 255;
+			VectorCopy( (byte*)&RI.currententity->curstate.rendercolor, out_color );
 		}
-		else pglColor4f( lv[0], lv[1], lv[2], tr.blend );
+		else
+		{
+			out_color[0] = lv[0] * 255.0f;
+			out_color[1] = lv[1] * 255.0f;
+			out_color[2] = lv[2] * 255.0f;
+			out_color[3] = 255; // FIXME VK tr.blend / 255.0f;
+		}
 	}
 }
-*/
 
 static void R_StudioSetColorArray(short *ptricmds, vec3_t *pstudionorms, byte *color )
 {
@@ -1758,12 +1755,6 @@ static void R_StudioSetColorArray(short *ptricmds, vec3_t *pstudionorms, byte *c
 	}
 }
 
-/*
-====================
-R_LightStrength
-
-====================
-*/
 void R_LightStrength( int bone, vec3_t localpos, vec4_t light[MAX_LOCALLIGHTS] )
 {
 	int	i;
@@ -1961,10 +1952,12 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 
 			VectorCopy(g_studio.verts[ptricmds[0]], dst_vtx->pos);
 			VectorCopy(g_studio.norms[ptricmds[0]], dst_vtx->normal);
-			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = mode == FAN ? .5f : 0.f;
-			// FIXME VK R_StudioSetColorBegin( ptricmds, pstudionorms );
+			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
 			dst_vtx->gl_tc[0] = ptricmds[2] * s;
 			dst_vtx->gl_tc[1] = ptricmds[3] * t;
+
+			dst_vtx->flags = 1; // vertex lighting instead of lightmap lighting
+			R_StudioSetColorBegin( ptricmds, pstudionorms, dst_vtx->color );
 
 			if (j > 1) {
 				switch (mode) {

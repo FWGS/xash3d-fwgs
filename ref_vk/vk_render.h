@@ -59,9 +59,12 @@ void VK_RenderAddStaticLight(vec3_t origin, vec3_t color);
 typedef struct vk_vertex_s {
 	// TODO padding needed for storage buffer reading, figure out how to fix in GLSL/SPV side
 	vec3_t pos; float p0_;
-	vec3_t normal; float p1_;
+	vec3_t normal; uint32_t flags;
 	vec2_t gl_tc; //float p2_[2];
 	vec2_t lm_tc; //float p3_[2];
+
+	rgba_t color; // per-vertex (non-rt lighting) color, color[3] == 1(255) => use color, discard lightmap; color[3] == 0 => use lightmap, discard color
+	float _padding[3];
 } vk_vertex_t;
 
 // TODO not sure how to do materials yet. Figure this out
