@@ -1,8 +1,7 @@
-## 2021-08-02..04, E122-123
-- [x] mipmaps
+## 2021-08-07, E124
+- [x] anisotropic texture sampling
 
 # Next
-- [ ] anisotropic texture sampling
 - [ ] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
 - [ ] rtx: cluster dlights
@@ -299,3 +298,6 @@
 
 ## 2021-07-31, E121
 - [x] rtx: alpha blending -- did a PoC
+
+## 2021-08-02..04, E122-123
+- [x] mipmaps

@@ -193,7 +193,10 @@ static qboolean createInstance( void )
 	unsigned int num_instance_extensions = vk_core.debug ? 1 : 0;
 	VkApplicationInfo app_info = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-		.apiVersion = vk_core.rtx ? VK_API_VERSION_1_2 : VK_API_VERSION_1_1,
+		// TODO support versions 1.0 and 1.1 for simple traditional rendering
+		// This would require using older physical device features and props query structures
+		// .apiVersion = vk_core.rtx ? VK_API_VERSION_1_2 : VK_API_VERSION_1_1,
+		.apiVersion = VK_API_VERSION_1_2,
 		.applicationVersion = VK_MAKE_VERSION(0, 0, 0), // TODO
 		.engineVersion = VK_MAKE_VERSION(0, 0, 0),
 		.pApplicationName = "",
@@ -298,6 +301,7 @@ static qboolean pickAndCreateDevice( qboolean skip_first_device )
 	VkPhysicalDevice *physical_devices = NULL;
 	uint32_t num_physical_devices = 0;
 	uint32_t best_device_index = UINT32_MAX;
+	VkPhysicalDeviceFeatures2 best_device_features;
 	uint32_t queue_index = UINT32_MAX;
 	qboolean retval = false;
 
@@ -314,6 +318,7 @@ static qboolean pickAndCreateDevice( qboolean skip_first_device )
 		uint32_t num_device_extensions = 0;
 		VkExtensionProperties *extensions;
 		VkPhysicalDeviceProperties props;
+		VkPhysicalDeviceFeatures2 features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,};
 
 		// FIXME also pay attention to various device limits. We depend on them implicitly now.
 
@@ -325,6 +330,9 @@ static qboolean pickAndCreateDevice( qboolean skip_first_device )
 		gEngine.Con_Printf("\t%u: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
 			i, props.vendorID, props.deviceID, props.deviceType, props.deviceName,
 			XVK_PARSE_VERSION(props.driverVersion), XVK_PARSE_VERSION(props.apiVersion));
+
+		vkGetPhysicalDeviceFeatures2(physical_devices[i], &features);
+		gEngine.Con_Printf("\t\tAnistoropy supported: %d\n", features.features.samplerAnisotropy);
 
 		for (uint32_t j = 0; j < num_queue_family_properties; ++j)
 		{
@@ -370,6 +378,7 @@ static qboolean pickAndCreateDevice( qboolean skip_first_device )
 				skip_first_device = false;
 			} else {
 				best_device_index = i;
+				best_device_features = features;
 			}
 		}
 	}
@@ -409,10 +418,9 @@ static qboolean pickAndCreateDevice( qboolean skip_first_device )
 		};
 		VkPhysicalDeviceFeatures2 features = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-			.pNext = &ray_tracing_pipeline_feature,
-			.features.samplerAnisotropy = VK_TRUE,
+			.pNext = vk_core.rtx ? &ray_tracing_pipeline_feature : NULL,
+			.features.samplerAnisotropy = best_device_features.features.samplerAnisotropy,
 		};
-		void *head = &features;
 #ifdef USE_AFTERMATH
 		VkDeviceDiagnosticsConfigCreateInfoNV diag_config_nv = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV,
@@ -423,7 +431,7 @@ static qboolean pickAndCreateDevice( qboolean skip_first_device )
 #endif
 		VkDeviceCreateInfo create_info = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-			.pNext = vk_core.rtx ? head : NULL,
+			.pNext = &features,
 			.flags = 0,
 			.queueCreateInfoCount = 1,
 			.pQueueCreateInfos = &queue_info,
@@ -436,6 +444,7 @@ static qboolean pickAndCreateDevice( qboolean skip_first_device )
 		};
 
 		vk_core.physical_device.device = physical_devices[best_device_index];
+		vk_core.physical_device.anisotropy_enabled = features.features.samplerAnisotropy;
 		vkGetPhysicalDeviceMemoryProperties(vk_core.physical_device.device, &vk_core.physical_device.memory_properties);
 
 		vkGetPhysicalDeviceProperties(vk_core.physical_device.device, &vk_core.physical_device.properties);
@@ -613,8 +622,8 @@ qboolean R_VkInit( void )
 			.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,//CLAMP_TO_EDGE,
 			.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,//CLAMP_TO_EDGE,
 			.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-			.anisotropyEnable = vk_core.rtx,
-			.maxAnisotropy = 16,
+			.anisotropyEnable = vk_core.physical_device.anisotropy_enabled,
+			.maxAnisotropy = vk_core.physical_device.properties.limits.maxSamplerAnisotropy,
 			.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
 			.unnormalizedCoordinates = VK_FALSE,
 			.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
@@ -693,7 +702,6 @@ void R_VkShutdown( void )
 #if USE_AFTERMATH
 	VK_AftermathShutdown();
 #endif
-
 
 	if (vk_core.debug_messenger)
 	{
