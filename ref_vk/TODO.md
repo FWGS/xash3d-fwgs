@@ -1,5 +1,10 @@
 ## 2021-08-07, E124
 - [x] anisotropic texture sampling
+- [x] studio model lighting prep
+	- [x] copy over R_LightVec from GL renderer
+	- [x] add per-vertex color attribute
+	- [x] support per-vertex colors
+	- [x] disable lightmaps, or use white texture for it instead
 
 # Next
 - [ ] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
@@ -10,8 +15,16 @@
 		struct LightCluster { uint16 offset, length; }
 		uint8_t data[];
 - [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
+	- [ ] make it look correct lol
 
 # Planned
+- [ ] studio model types:
+	- [x] normal
+	- [ ] float
+	- [ ] chrome
+- [ ] simplify buffer api: do alloc+lock as a single op
+- [ ] more beams types
+- [ ] more particle types
 - [ ] rtx: better mip lods: there's a weird math that operates on fov degrees (not radians) that we copypasted from ray tracing gems 2 chapter 7. When the book is available, get through the math and figure this out.
 - [ ] sane texture memory management: do not allocate VKDeviceMemory for every texture
 - [ ] rtx: transparency layering issue, possible approaches:
