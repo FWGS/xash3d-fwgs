@@ -6,40 +6,34 @@
 qboolean VK_RenderInit( void );
 void VK_RenderShutdown( void );
 
-typedef int vk_buffer_handle_t; // -1 == invalid handle
-enum { InvalidHandle = -1 };
+// General buffer usage pattern
+// 1. alloc (allocates buffer mem, stores allocation data)
+// 2. (returns void* buf and handle) write to buf
+// 3. upload and lock (ensures that all this data is in gpu mem, e.g. uploads from staging)
+// 4. ... use it 
+// 5. free (frame/map end)
+
+typedef struct {
+	struct {
+		uint32_t size; // single unit size in bytes
+		uint32_t offset; // offset in units from start of vulkan buffer
+		uint32_t count; // number of units in this allocation
+	} unit;
+} xvk_render_buffer_t;
 
 typedef struct {
 	void *ptr;
-	uint32_t unit_size, count;
-} vk_buffer_lock_t;
+	xvk_render_buffer_t buffer;
+} xvk_render_buffer_allocation_t;
 
-typedef enum {
-	LifetimeLong,
-	LifetimeMap,
-	LifetimeSingleFrame,
-} vk_lifetime_t;
+xvk_render_buffer_allocation_t XVK_RenderBufferAllocAndLock( uint32_t unit_size, uint32_t count );
+void XVK_RenderBufferUnlock( xvk_render_buffer_t handle );
+void XVK_RenderBufferMapFreeze( void ); // Permanently freeze all allocations as map-permanent
+void XVK_RenderBufferMapClear( void ); // Free the entire buffer for a new map
 
-// TODO: allocation lifetime with contents validity lifetime?
+void XVK_RenderBufferFrameClear( /*int frame_id*/void ); // mark data for frame with given id as free (essentially, just forward the ring buffer)
 
-vk_buffer_handle_t VK_RenderBufferAlloc( uint32_t unit_size, uint32_t count, vk_lifetime_t lifetime );
-vk_buffer_lock_t VK_RenderBufferLock( vk_buffer_handle_t handle );
-void VK_RenderBufferUnlock( vk_buffer_handle_t handle );
-uint32_t VK_RenderBufferGetOffsetInUnits( vk_buffer_handle_t handle );
-
-// TODO buffer refcount when doing RTX AS updates? need to store buffer handles somewhere between frames
-
-// Free all LifetimeSingleFrame resources
-void VK_RenderBufferClearFrame( void );
-
-// Free all LifetimeMap resources
-void VK_RenderBufferClearMap( void );
-
-// Mark map as loaded
-void VK_RenderMapLoadEnd( void );
-
-// TODO uploading to GPU mem interface
-void VK_RenderBufferPrintStats( void );
+void XVK_RenderBufferPrintStats( void );
 
 // Set UBO state for next VK_RenderScheduleDraw calls
 // Why? Xash Ref code is organized in a way where we can't reliably pass this info with
@@ -75,8 +69,7 @@ typedef enum {
 } XVkMaterialType;
 
 typedef struct {
-	vk_buffer_handle_t index_buffer, vertex_buffer;
-	uint32_t index_offset, vertex_offset;
+	int index_offset, vertex_offset;
 
 	// TODO can be dynamic
 	int texture;

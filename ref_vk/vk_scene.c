@@ -107,7 +107,7 @@ void R_NewMap( void )
 	// TODO should we do something like VK_BrushBeginLoad?
 	VK_BrushStatsClear();
 
-	VK_RenderBufferClearMap();
+	XVK_RenderBufferMapClear();
 
 	if (vk_core.rtx)
 		VK_RayNewMap();
@@ -157,10 +157,10 @@ void R_NewMap( void )
 
 	// TODO should we do something like VK_BrushEndLoad?
 	VK_UploadLightmap();
-	VK_RenderMapLoadEnd();
+	XVK_RenderBufferMapFreeze();
+	XVK_RenderBufferPrintStats();
 	if (vk_core.rtx)
 		VK_RayMapLoadEnd();
-	VK_RenderBufferPrintStats();
 }
 
 qboolean R_AddEntity( struct cl_entity_s *clent, int type )

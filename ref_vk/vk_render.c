@@ -23,15 +23,6 @@ typedef struct {
 	vec4_t color;
 } uniform_data_t;
 
-typedef struct vk_buffer_alloc_s {
-	// TODO uint32_t sequence
-	uint32_t unit_size; // if 0 then this alloc slot is free
-	uint32_t buffer_offset_in_units;
-	uint32_t count;
-	qboolean locked;
-	vk_lifetime_t lifetime;
-} vk_buffer_alloc_t;
-
 // TODO estimate
 #define MAX_ALLOCS 1024
 
@@ -40,14 +31,10 @@ static struct {
 	VkPipeline pipelines[kRenderTransAdd + 1];
 
 	vk_buffer_t buffer;
-	vk_ring_buffer_t buffer_alloc;
+	vk_ring_buffer_t buffer_alloc_ring;
 
 	vk_buffer_t uniform_buffer;
 	uint32_t ubo_align;
-
-	vk_buffer_alloc_t allocs[MAX_ALLOCS];
-	int allocs_free[MAX_ALLOCS];
-	int num_free_allocs;
 
 	struct {
 		vec3_t origin, color;
@@ -233,14 +220,6 @@ static qboolean createPipelines( void )
 	return true;
 }
 
-static void resetAllocFreeList( void ) {
-	g_render.num_free_allocs = MAX_ALLOCS;
-	for (int i = 0; i < MAX_ALLOCS; ++i) {
-		g_render.allocs_free[i] = MAX_ALLOCS - i - 1;
-		g_render.allocs[i].unit_size = 0;
-	}
-}
-
 typedef struct {
 	uint32_t num_lights, pad[3];
 	struct {
@@ -251,8 +230,7 @@ typedef struct {
 
 qboolean VK_RenderInit( void )
 {
-	// TODO Better estimates
-	const uint32_t vertex_buffer_size = MAX_BUFFER_VERTICES * sizeof(float) * (3 + 3 + 2 + 2);
+	const uint32_t vertex_buffer_size = MAX_BUFFER_VERTICES * sizeof(vk_vertex_t);
 	const uint32_t index_buffer_size = MAX_BUFFER_INDICES * sizeof(uint16_t);
 	uint32_t uniform_unit_size;
 
@@ -305,9 +283,7 @@ qboolean VK_RenderInit( void )
 	if (!createPipelines())
 		return false;
 
-	resetAllocFreeList();
-
-	g_render.buffer_alloc.size = g_render.buffer.size;
+	g_render.buffer_alloc_ring.size = g_render.buffer.size;
 
 	return true;
 }
@@ -322,123 +298,51 @@ void VK_RenderShutdown( void )
 	destroyBuffer( &g_render.uniform_buffer );
 }
 
-vk_buffer_handle_t VK_RenderBufferAlloc( uint32_t unit_size, uint32_t count, vk_lifetime_t lifetime )
-{
+xvk_render_buffer_allocation_t XVK_RenderBufferAllocAndLock( uint32_t unit_size, uint32_t count ) {
 	const uint32_t alloc_size = unit_size * count;
 	uint32_t offset;
-	vk_buffer_alloc_t *alloc;
-	vk_buffer_handle_t handle = InvalidHandle;
+	xvk_render_buffer_allocation_t retval = {0};
 
-	// FIXME long lifetimes are not supported yet
-	ASSERT(lifetime != LifetimeLong);
 	ASSERT(unit_size > 0);
 
-	if (!g_render.num_free_allocs) {
-		gEngine.Con_Printf(S_ERROR "Cannot allocate buffer, allocs count exhausted\n" );
-		return InvalidHandle;
-	}
-
-	offset = VK_RingBuffer_Alloc(&g_render.buffer_alloc, alloc_size, unit_size);
+	offset = VK_RingBuffer_Alloc(&g_render.buffer_alloc_ring, alloc_size, unit_size);
 
 	if (offset == AllocFailed) {
 		gEngine.Con_Printf(S_ERROR "Cannot allocate %u bytes aligned at %u from buffer; only %u are left",
-				alloc_size, unit_size, g_render.buffer_alloc.free);
-		return InvalidHandle;
+				alloc_size, unit_size, g_render.buffer_alloc_ring.free);
+		return retval;
 	}
 
 	// TODO bake sequence number into handle (to detect buffer lifetime misuse)
-	handle = g_render.allocs_free[--g_render.num_free_allocs];
-	alloc = g_render.allocs + handle;
-	ASSERT(alloc->unit_size == 0);
+	retval.buffer.unit.size = unit_size;
+	retval.buffer.unit.count = count;
+	retval.buffer.unit.offset = offset / unit_size;
+	retval.ptr = ((byte*)g_render.buffer.mapped) + offset;
 
-	alloc->buffer_offset_in_units = offset / unit_size;
-	alloc->unit_size = unit_size;
-	alloc->lifetime = lifetime;
-	alloc->count = count;
-
-	return handle;
+	return retval;
 }
 
-static vk_buffer_alloc_t *getBufferFromHandle( vk_buffer_handle_t handle )
-{
-	vk_buffer_alloc_t *alloc;
-
-	ASSERT(handle >= 0);
-	ASSERT(handle < MAX_ALLOCS);
-
-	// TODO check sequence number
-	alloc = g_render.allocs + handle;
-	ASSERT(alloc->unit_size != 0);
-
-	return alloc;
+void XVK_RenderBufferUnlock( xvk_render_buffer_t handle ) {
+	// TODO check whether we need to upload something from staging, etc
 }
 
-vk_buffer_lock_t VK_RenderBufferLock( vk_buffer_handle_t handle )
-{
-	vk_buffer_lock_t ret = {0};
-	vk_buffer_alloc_t *alloc = getBufferFromHandle( handle );
-	ASSERT(!alloc->locked);
-	alloc->locked = true;
-
-	ret.unit_size = alloc->unit_size;
-	ret.count = alloc->count;
-	ret.ptr = ((byte*)g_render.buffer.mapped) + alloc->unit_size * alloc->buffer_offset_in_units;
-
-	return ret;
+void XVK_RenderBufferMapFreeze( void ) {
+	VK_RingBuffer_Fix(&g_render.buffer_alloc_ring);
 }
 
-void VK_RenderBufferUnlock( vk_buffer_handle_t handle )
-{
-	vk_buffer_alloc_t *alloc = getBufferFromHandle( handle );
-	ASSERT(alloc->locked);
-	alloc->locked = false;
-
-	// TODO upload from staging to gpumem
-}
-
-uint32_t VK_RenderBufferGetOffsetInUnits( vk_buffer_handle_t handle )
-{
-	const vk_buffer_alloc_t *alloc = getBufferFromHandle( handle );
-	return alloc->buffer_offset_in_units;
-}
-
-// Free all LifetimeSingleFrame resources
-void VK_RenderBufferClearFrame( void )
-{
-	VK_RingBuffer_ClearFrame(&g_render.buffer_alloc);
-
-	for (int i = 0; i < MAX_ALLOCS; ++i) {
-		vk_buffer_alloc_t *alloc = g_render.allocs + i;
-
-		if (!alloc->unit_size)
-			continue;
-
-		if (alloc->lifetime != LifetimeSingleFrame)
-			continue;
-
-		alloc->unit_size = 0;
-		g_render.allocs_free[g_render.num_free_allocs++] = i;
-		ASSERT(g_render.num_free_allocs <= MAX_ALLOCS);
-	}
-}
-
-// Free all LifetimeMap resources
-void VK_RenderBufferClearMap( void )
-{
-	VK_RingBuffer_Clear(&g_render.buffer_alloc);
+void XVK_RenderBufferMapClear( void ) {
+	VK_RingBuffer_Clear(&g_render.buffer_alloc_ring);
 	g_render.num_static_lights = 0;
-	resetAllocFreeList();
 }
 
-void VK_RenderMapLoadEnd( void )
-{
-	VK_RingBuffer_Fix(&g_render.buffer_alloc);
+void XVK_RenderBufferFrameClear( /*int frame_id*/void ) {
+	VK_RingBuffer_ClearFrame(&g_render.buffer_alloc_ring);
 }
 
-void VK_RenderBufferPrintStats( void )
-{
+void XVK_RenderBufferPrintStats( void ) {
+	// TODO get alignment holes size
 	gEngine.Con_Reportf("Buffer usage: %uKiB of (%uKiB)\n",
-		g_render.buffer_alloc.permanent_size / 1024,
+		g_render.buffer_alloc_ring.permanent_size / 1024,
 		g_render.buffer.size / 1024);
 }
 
@@ -450,7 +354,6 @@ typedef struct render_draw_s {
 	int render_mode;
 	uint32_t element_count;
 	uint32_t index_offset, vertex_offset;
-	vk_buffer_handle_t index_buffer, vertex_buffer;
 	/* TODO this should be a separate thing? */ struct { float r, g, b; } emissive;
 } render_draw_t;
 
@@ -564,27 +467,12 @@ static uint32_t allocUniform( uint32_t size, uint32_t alignment ) {
 
 static void VK_RenderScheduleDraw( const render_draw_t *draw )
 {
-	const vk_buffer_alloc_t *vertex_buffer = NULL, *index_buffer = NULL;
 	draw_command_t *draw_command;
 
 	ASSERT(draw->render_mode >= 0);
 	ASSERT(draw->render_mode < ARRAYSIZE(g_render.pipelines));
 	ASSERT(draw->lightmap >= 0);
 	ASSERT(draw->texture >= 0);
-
-	{
-		vertex_buffer = getBufferFromHandle(draw->vertex_buffer);
-		ASSERT(vertex_buffer);
-		ASSERT(!vertex_buffer->locked);
-	}
-
-	// Index buffer is optional
-	if (draw->index_buffer != InvalidHandle)
-	{
-		index_buffer = getBufferFromHandle(draw->index_buffer);
-		ASSERT(index_buffer);
-		ASSERT(!index_buffer->locked);
-	}
 
 	if ((g_render_state.uniform_data_set_mask & UNIFORM_SET_ALL) != UNIFORM_SET_ALL) {
 		gEngine.Con_Printf( S_ERROR "Not all uniform state was initialized prior to rendering\n" );
@@ -711,9 +599,6 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 
 	for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
 		const draw_command_t *const draw = g_render_state.draw_commands + i;
-		const vk_buffer_alloc_t *vertex_buffer = getBufferFromHandle( draw->draw.vertex_buffer );
-		const vk_buffer_alloc_t *index_buffer = draw->draw.index_buffer != InvalidHandle ? getBufferFromHandle( draw->draw.index_buffer ) : NULL;
-		const uint32_t vertex_offset = vertex_buffer->buffer_offset_in_units + draw->draw.vertex_offset;
 
 		if (ubo_offset != draw->ubo_offset)
 		{
@@ -738,12 +623,9 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 1, 1, &findTexture(texture)->vk.descriptor, 0, NULL);
 		}
 
-		if (draw->draw.index_buffer) {
-			const uint32_t index_offset = index_buffer->buffer_offset_in_units + draw->draw.index_offset;
-			vkCmdDrawIndexed(vk_core.cb, draw->draw.element_count, 1, index_offset, vertex_offset, 0);
-		} else {
-			vkCmdDraw(vk_core.cb, draw->draw.element_count, 1, vertex_offset, 0);
-		}
+		// Only indexed mode is supported
+		ASSERT(draw->draw.index_offset >= 0);
+		vkCmdDrawIndexed(vk_core.cb, draw->draw.element_count, 1, draw->draw.index_offset, draw->draw.vertex_offset, 0);
 	}
 }
 
@@ -847,32 +729,35 @@ void VK_RenderModelDestroy( vk_render_model_t* model ) {
 
 void VK_RenderModelDraw( vk_render_model_t* model ) {
 	int current_texture = -1;
-	int index_count = 0;
+	int element_count = 0;
 	int index_offset = -1;
 	int vertex_offset = 0;
-	vk_buffer_handle_t vertex_buffer = InvalidHandle;
-	vk_buffer_handle_t index_buffer = InvalidHandle;
 
 	if (g_render_state.current_frame_is_ray_traced) {
 		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model);
 		return;
 	}
 
+
 	for (int i = 0; i < model->num_geometries; ++i) {
 		const vk_render_geometry_t *geom = model->geometries + i;
+		const qboolean split = current_texture != geom->texture 
+			|| vertex_offset != geom->vertex_offset
+			|| (index_offset + element_count) != geom->index_offset;
+
+		// We only support indexed geometry
+		ASSERT(geom->index_offset >= 0);
+
 		if (geom->texture < 0)
 			continue;
 
-		if (current_texture != geom->texture || vertex_buffer != geom->vertex_buffer || index_buffer != geom->index_buffer || vertex_offset != geom->vertex_offset)
-		{
-			if (index_count) {
+		if (split) {
+			if (element_count) {
 				const render_draw_t draw = {
 					.lightmap = tglob.lightmapTextures[0], // FIXME there can be more than one lightmap textures
 					.texture = current_texture,
 					.render_mode = model->render_mode,
-					.element_count = index_count,
-					.vertex_buffer = vertex_buffer,
-					.index_buffer = index_buffer,
+					.element_count = element_count,
 					.vertex_offset = vertex_offset,
 					.index_offset = index_offset,
 				};
@@ -881,28 +766,22 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 			}
 
 			current_texture = geom->texture;
-			vertex_buffer = geom->vertex_buffer;
-			index_buffer = geom->index_buffer;
-			index_count = 0;
-			index_offset = -1;
+			index_offset = geom->index_offset;
 			vertex_offset = geom->vertex_offset;
+			element_count = 0;
 		}
 
-		if (index_offset < 0)
-			index_offset = geom->index_offset;
 		// Make sure that all surfaces are concatenated in buffers
-		ASSERT(index_offset + index_count == geom->index_offset);
-		index_count += geom->element_count;
+		ASSERT(index_offset + element_count == geom->index_offset);
+		element_count += geom->element_count;
 	}
 
-	if (index_count) {
+	if (element_count) {
 		const render_draw_t draw = {
 			.lightmap = tglob.lightmapTextures[0],
 			.texture = current_texture,
 			.render_mode = model->render_mode,
-			.element_count = index_count,
-			.vertex_buffer = vertex_buffer,
-			.index_buffer = index_buffer,
+			.element_count = element_count,
 			.vertex_offset = vertex_offset,
 			.index_offset = index_offset,
 		};
