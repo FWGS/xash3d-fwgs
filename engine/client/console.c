@@ -28,6 +28,7 @@ convar_t	*con_fontsize;
 convar_t	*con_charset;
 convar_t	*con_fontscale;
 convar_t	*con_fontnum;
+convar_t        *con_color;
 
 static int g_codepage = 0;
 static qboolean g_utf8 = false;
@@ -145,31 +146,34 @@ void Con_Clear_f( void )
 
 /*
 ================
-Con_SetColor_f
+Con_SetColor
 ================
 */
-void Con_SetColor_f( void )
+static void Con_SetColor( void )
 {
-	vec3_t	color;
+	vec3_t color;
+	int r, g, b;
+	int num;
 
-	switch( Cmd_Argc( ))
+	if( !FBitSet( con_color->flags, FCVAR_CHANGED ))
+		return;
+
+	num = sscanf( con_color->string, "%i %i %i", &r, &g, &b );
+
+	switch( num )
 	{
 	case 1:
-		Con_Printf( "\"con_color\" is %i %i %i\n", g_color_table[7][0], g_color_table[7][1], g_color_table[7][2] );
+		Con_DefaultColor( r, r, r );
 		break;
-	case 2:
-		VectorSet( color, g_color_table[7][0], g_color_table[7][1], g_color_table[7][2] );
-		Q_atov( color, Cmd_Argv( 1 ), 3 );
-		Con_DefaultColor( color[0], color[1], color[2] );
-		break;
-	case 4:
-		VectorSet( color, Q_atof( Cmd_Argv( 1 )), Q_atof( Cmd_Argv( 2 )), Q_atof( Cmd_Argv( 3 )));
-		Con_DefaultColor( color[0], color[1], color[2] );
+	case 3:
+		Con_DefaultColor( r, g, b );
 		break;
 	default:
-		Con_Printf( S_USAGE "con_color \"r g b\"\n" );
+		Cvar_DirectSet( con_color, con_color->def_string );
 		break;
 	}
+
+	ClearBits( con_color->flags, FCVAR_CHANGED );
 }
 
 /*
@@ -1176,6 +1180,7 @@ void Con_Init( void )
 	con_charset = Cvar_Get( "con_charset", "cp1251", FCVAR_ARCHIVE, "console font charset (only cp1251 supported now)" );
 	con_fontscale = Cvar_Get( "con_fontscale", "1.0", FCVAR_ARCHIVE, "scale font texture" );
 	con_fontnum = Cvar_Get( "con_fontnum", "-1", FCVAR_ARCHIVE, "console font number (0, 1 or 2), -1 for autoselect" );
+	con_color = Cvar_Get( "con_color", "240 180 24", FCVAR_ARCHIVE, "set a custom console color" );
 
 	// init the console buffer
 	con.bufsize = CON_TEXTSIZE;
@@ -1194,7 +1199,6 @@ void Con_Init( void )
 	con.chat.widthInChars = con.linewidth;
 
 	Cmd_AddCommand( "toggleconsole", Con_ToggleConsole_f, "opens or closes the console" );
-	Cmd_AddCommand( "con_color", Con_SetColor_f, "set a custom console color" );
 	Cmd_AddCommand( "clear", Con_Clear_f, "clear console history" );
 	Cmd_AddCommand( "messagemode", Con_MessageMode_f, "enable message mode \"say\"" );
 	Cmd_AddCommand( "messagemode2", Con_MessageMode2_f, "enable message mode \"say_team\"" );
@@ -2285,6 +2289,8 @@ Scroll it up or down
 void Con_RunConsole( void )
 {
 	float	lines_per_frame;
+
+	Con_SetColor( );
 
 	// decide on the destination height of the console
 	if( host.allow_console && cls.key_dest == key_console )
