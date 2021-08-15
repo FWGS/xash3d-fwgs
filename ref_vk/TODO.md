@@ -1,5 +1,6 @@
 ## 2021-08-15, E126
 - [x] restore render debug labels
+- [x] restore draw call concatenation; brush geoms are generated in a way that makes concatenating them impossible
 
 # Next
 - [ ] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
@@ -12,9 +13,9 @@
 		uint8_t data[];
 
 # Planned
+- [ ] filter things to render, e.g.: some sprites are there to fake bloom, we don't need to draw them in rtx mode
 - [ ] make a list of all possible materials, categorize them and figure out what to do
 - [ ] possibly split vk_render into (a) rendering/pipeline, (b) buffer management/allocation, (c) render state
-- [ ] restore draw call concatenation; brush geoms are generated in a way that makes concatenating them impossible
 - [ ] rtx: light styles: need static lights data, not clear how and what to do
 - [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
 	- [ ] make it look correct lol
