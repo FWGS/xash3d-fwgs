@@ -474,9 +474,9 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			}
 
 			model_geometry->surf = surf;
-			model_geometry->texture = t;
+			model_geometry->texture = surf->texinfo->texture->gl_texturenum;
 
-			model_geometry->vertex_offset = vertex_buffer.buffer.unit.offset + vertex_offset;
+			model_geometry->vertex_offset = vertex_buffer.buffer.unit.offset;
 			model_geometry->vertex_count = surf->numedges;
 
 			model_geometry->index_offset = index_offset;
@@ -530,9 +530,9 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 
 				// Ray tracing apparently expects triangle list only (although spec is not very clear about this kekw)
 				if (k > 1) {
-					*(bind++) = (uint16_t)(0);
-					*(bind++) = (uint16_t)(k - 1);
-					*(bind++) = (uint16_t)(k);
+					*(bind++) = (uint16_t)(vertex_offset + 0);
+					*(bind++) = (uint16_t)(vertex_offset + k - 1);
+					*(bind++) = (uint16_t)(vertex_offset + k);
 					index_count += 3;
 					index_offset += 3;
 				}
