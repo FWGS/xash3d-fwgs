@@ -476,7 +476,7 @@ static uint32_t allocUniform( uint32_t size, uint32_t alignment ) {
 	return offset;
 }
 
-static draw_command_t *drawCmdAlloc() {
+static draw_command_t *drawCmdAlloc( void ) {
 	ASSERT(g_render_state.num_draw_commands < ARRAYSIZE(g_render_state.draw_commands));
 	return g_render_state.draw_commands + (g_render_state.num_draw_commands++);
 }
