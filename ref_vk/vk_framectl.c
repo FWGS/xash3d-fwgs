@@ -425,7 +425,7 @@ void R_EndFrame( void )
 	// retain temporary (SingleFrame) buffer contents for longer, until all users are done.
 	// (this probably means that we should really have some kind of refcount going on...)
 	// For now we can just erase these buffers now because of sync with fence
-	VK_RenderBufferClearFrame();
+	XVK_RenderBufferFrameClear();
 
 	g_frame.swapchain_image_index = -1;
 }

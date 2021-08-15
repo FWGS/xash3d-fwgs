@@ -649,25 +649,22 @@ qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale, int texture, int render_mode )
 {
 	vec3_t	point;
-	vk_buffer_handle_t vertex_buffer, index_buffer;
-	vk_buffer_lock_t vertex_lock, index_lock;
+	xvk_render_buffer_allocation_t vertex_buffer, index_buffer;
 	vk_vertex_t *dst_vtx;
 	uint16_t *dst_idx;
 
 	// Get buffer region for vertices and indices
-	vertex_buffer = VK_RenderBufferAlloc( sizeof(vk_vertex_t), 4, LifetimeSingleFrame );
-	index_buffer = VK_RenderBufferAlloc( sizeof(uint16_t), 6, LifetimeSingleFrame );
-	if (vertex_buffer == InvalidHandle || index_buffer == InvalidHandle)
+	vertex_buffer = XVK_RenderBufferAllocAndLock( sizeof(vk_vertex_t), 4 );
+	index_buffer = XVK_RenderBufferAllocAndLock( sizeof(uint16_t), 6 );
+	if (!vertex_buffer.ptr || !index_buffer.ptr)
 	{
 		// TODO should we free one of the above if it still succeeded?
 		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
 		return;
 	}
 
-	vertex_lock = VK_RenderBufferLock( vertex_buffer );
-	index_lock = VK_RenderBufferLock( index_buffer );
-	dst_vtx = vertex_lock.ptr;
-	dst_idx = index_lock.ptr;
+	dst_vtx = vertex_buffer.ptr;
+	dst_idx = index_buffer.ptr;
 
 	// FIXME VK r_stats.c_sprite_polys++;
 
@@ -702,8 +699,8 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 	dst_idx[4] = 2;
 	dst_idx[5] = 3;
 
-	VK_RenderBufferUnlock( index_buffer );
-	VK_RenderBufferUnlock( vertex_buffer );
+	XVK_RenderBufferUnlock( index_buffer.buffer );
+	XVK_RenderBufferUnlock( vertex_buffer.buffer );
 
 	{
 		const vk_render_geometry_t geometry = {
@@ -711,12 +708,10 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 			.material = kXVkMaterialDiffuse,
 
 			.vertex_count = 4,
-			.vertex_buffer = vertex_buffer,
-			.vertex_offset = 0,
+			.vertex_offset = vertex_buffer.buffer.unit.offset,
 
 			.element_count = 6,
-			.index_offset = 0,
-			.index_buffer = index_buffer,
+			.index_offset = index_buffer.buffer.unit.offset,
 		};
 
 		VK_RenderModelDynamicBegin( "sprite" /* TODO its name */, render_mode );

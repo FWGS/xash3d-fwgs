@@ -1902,8 +1902,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	float	*lv;
 	int	i;
 	int num_vertices = 0, num_indices = 0;
-	vk_buffer_handle_t vertex_buffer, index_buffer;
-	vk_buffer_lock_t vertex_lock, index_lock;
+	xvk_render_buffer_allocation_t vertex_buffer, index_buffer;
 	vk_vertex_t *dst_vtx;
 	uint16_t *dst_idx;
 	uint32_t vertex_offset = 0, index_offset = 0;
@@ -1924,19 +1923,17 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	ASSERT(num_indices > 0);
 
 	// Get buffer region for vertices and indices
-	vertex_buffer = VK_RenderBufferAlloc( sizeof(vk_vertex_t), num_vertices, LifetimeSingleFrame );
-	index_buffer = VK_RenderBufferAlloc( sizeof(uint16_t), num_indices, LifetimeSingleFrame );
-	if (vertex_buffer == InvalidHandle || index_buffer == InvalidHandle)
+	vertex_buffer = XVK_RenderBufferAllocAndLock( sizeof(vk_vertex_t), num_vertices );
+	index_buffer = XVK_RenderBufferAllocAndLock( sizeof(uint16_t), num_indices );
+	if (vertex_buffer.ptr == NULL || index_buffer.ptr == NULL)
 	{
 		// TODO should we free one of the above if it still succeeded?
 		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
 		return;
 	}
 
-	vertex_lock = VK_RenderBufferLock( vertex_buffer );
-	index_lock = VK_RenderBufferLock( index_buffer );
-	dst_vtx = vertex_lock.ptr;
-	dst_idx = index_lock.ptr;
+	dst_vtx = vertex_buffer.ptr;
+	dst_idx = index_buffer.ptr;
 
 	// Restore ptricmds and upload vertices
 	ptricmds = ptricmds_initial;
@@ -1948,7 +1945,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 
 		for(int j = 0; j < vertices ; ++j, ++dst_vtx, ptricmds += 4 )
 		{
-			ASSERT((((vk_vertex_t*)vertex_lock.ptr) + vertex_lock.count) > dst_vtx);
+			ASSERT((((vk_vertex_t*)vertex_buffer.ptr) + num_vertices) > dst_vtx);
 
 			VectorCopy(g_studio.verts[ptricmds[0]], dst_vtx->pos);
 			VectorCopy(g_studio.norms[ptricmds[0]], dst_vtx->normal);
@@ -1997,8 +1994,8 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	ASSERT(index_offset == num_indices);
 	ASSERT(vertex_offset == num_vertices);
 
-	VK_RenderBufferUnlock( index_buffer );
-	VK_RenderBufferUnlock( vertex_buffer );
+	XVK_RenderBufferUnlock( index_buffer.buffer );
+	XVK_RenderBufferUnlock( vertex_buffer.buffer );
 
 	// Render
 	{
@@ -2007,12 +2004,10 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			.texture = texture,
 			.material = kXVkMaterialDiffuse,
 
-			.vertex_buffer = vertex_buffer,
-			.vertex_offset = 0,
+			.vertex_offset = vertex_buffer.buffer.unit.offset,
 			.vertex_count = num_vertices,
 
-			.index_buffer = index_buffer,
-			.index_offset = 0,
+			.index_offset = index_buffer.buffer.unit.offset,
 			.element_count = num_indices,
 		};
 

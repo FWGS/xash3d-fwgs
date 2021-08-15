@@ -1,12 +1,6 @@
-## 2021-08-07, E124
-- [x] anisotropic texture sampling
-- [x] studio model lighting prep
-	- [x] copy over R_LightVec from GL renderer
-	- [x] add per-vertex color attribute
-	- [x] support per-vertex colors
-	- [x] disable lightmaps, or use white texture for it instead
-
 # Next
+- [ ] restore render debug labels
+- [ ] rtx: simple convolution denoise (bilateral?)
 - [ ] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
 - [ ] rtx: cluster dlights
@@ -14,15 +8,18 @@
 	Split into 2 buffers:
 		struct LightCluster { uint16 offset, length; }
 		uint8_t data[];
-- [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
-	- [ ] make it look correct lol
 
 # Planned
+- [ ] make a list of all possible materials, categorize them and figure out what to do
+- [ ] possibly split vk_render into (a) rendering/pipeline, (b) buffer management/allocation, (c) render state
+- [ ] restore draw call concatenation; brush geoms are generated in a way that makes concatenating them impossible
+- [ ] rtx: light styles: need static lights data, not clear how and what to do
+- [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
+	- [ ] make it look correct lol
 - [ ] studio model types:
 	- [x] normal
 	- [ ] float
 	- [ ] chrome
-- [ ] simplify buffer api: do alloc+lock as a single op
 - [ ] more beams types
 - [ ] more particle types
 - [ ] rtx: better mip lods: there's a weird math that operates on fov degrees (not radians) that we copypasted from ray tracing gems 2 chapter 7. When the book is available, get through the math and figure this out.
@@ -39,9 +36,7 @@
 - [ ] rtx: coalesce all these buffers
 - [ ] crash in PM_RecursiveHullCheck
 - [ ] rtx: entity lights
-- [ ] rtx: light styles
 - [ ] run under asan
-- [ ] rtx: simple convolution denoise (bilateral?)
 - [ ] rtx: emissive beams
 - [ ] rtx: emissive particles
 - [ ] rtx: better random
@@ -64,7 +59,6 @@
 - [ ] rtx: cull light sources (dlights and light textures) using bsp
 - [ ] enable entity-parsed lights by lightstyles
 - [ ] dlight for flashlight seems to be broken
-- [ ] restore render debug labels
 - [ ] make 2nd commad buffer for resource upload
 - [ ] fix sprite blending; there are commented out functions that we really need (see tunnel before the helicopter in the very beginning)
 - [ ] fix projection matrix differences w/ gl render
@@ -314,3 +308,14 @@
 
 ## 2021-08-02..04, E122-123
 - [x] mipmaps
+
+## 2021-08-07, E124
+- [x] anisotropic texture sampling
+- [x] studio model lighting prep
+	- [x] copy over R_LightVec from GL renderer
+	- [x] add per-vertex color attribute
+	- [x] support per-vertex colors
+	- [x] disable lightmaps, or use white texture for it instead
+
+## 2021-08-11, E125
+- [x] simplify buffer api: do alloc+lock as a single op

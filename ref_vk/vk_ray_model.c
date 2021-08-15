@@ -179,8 +179,6 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 	for (int i = 0; i < args.model->num_geometries; ++i) {
 		vk_render_geometry_t *mg = args.model->geometries + i;
 		const uint32_t prim_count = mg->element_count / 3;
-		const uint32_t vertex_offset = mg->vertex_offset + VK_RenderBufferGetOffsetInUnits(mg->vertex_buffer);
-		const uint32_t index_offset = mg->index_buffer == InvalidHandle ? UINT32_MAX : (mg->index_offset + VK_RenderBufferGetOffsetInUnits(mg->index_buffer));
 
 		max_prims += prim_count;
 		geom_max_prim_counts[i] = prim_count;
@@ -192,7 +190,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 				.geometry.triangles =
 					(VkAccelerationStructureGeometryTrianglesDataKHR){
 						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-						.indexType = mg->index_buffer == InvalidHandle ? VK_INDEX_TYPE_NONE_KHR : VK_INDEX_TYPE_UINT16,
+						.indexType = VK_INDEX_TYPE_UINT16,
 						.maxVertex = mg->vertex_count,
 						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
 						.vertexStride = sizeof(vk_vertex_t),
@@ -209,12 +207,12 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 
 		geom_build_ranges[i] = (VkAccelerationStructureBuildRangeInfoKHR) {
 			.primitiveCount = prim_count,
-			.primitiveOffset = index_offset == UINT32_MAX ? 0 : index_offset * sizeof(uint16_t),
-			.firstVertex = vertex_offset,
+			.primitiveOffset = mg->index_offset * sizeof(uint16_t),
+			.firstVertex = mg->vertex_offset,
 		};
 
-		kusochki[i].vertex_offset = vertex_offset;
-		kusochki[i].index_offset = index_offset;
+		kusochki[i].vertex_offset = mg->vertex_offset;
+		kusochki[i].index_offset = mg->index_offset;
 		kusochki[i].triangles = prim_count;
 
 		kusochki[i].texture = mg->texture;

@@ -79,8 +79,7 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 	glpoly_t	*p;
 	int	i;
 	int num_vertices = 0, num_indices = 0;
-	vk_buffer_handle_t vertex_buffer, index_buffer = InvalidHandle;
-	vk_buffer_lock_t vertex_lock, index_lock;
+	xvk_render_buffer_allocation_t vertex_buffer, index_buffer = {0};
 	int vertex_offset = 0;
 	vk_vertex_t *gpu_vertices;
 	uint16_t *indices;
@@ -108,20 +107,17 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 		num_indices += triangles * 3;
 	}
 
-	vertex_buffer = VK_RenderBufferAlloc( sizeof(vk_vertex_t), num_vertices, LifetimeSingleFrame );
-	index_buffer = VK_RenderBufferAlloc( sizeof(uint16_t), num_indices, LifetimeSingleFrame );
-	if (vertex_buffer == InvalidHandle || index_buffer == InvalidHandle)
+	vertex_buffer = XVK_RenderBufferAllocAndLock( sizeof(vk_vertex_t), num_vertices );
+	index_buffer = XVK_RenderBufferAllocAndLock( sizeof(uint16_t), num_indices );
+	if (vertex_buffer.ptr == NULL || index_buffer.ptr == NULL)
 	{
 		// TODO should we free one of the above if it still succeeded?
 		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
 		return;
 	}
 
-	vertex_lock = VK_RenderBufferLock( vertex_buffer );
-	index_lock = VK_RenderBufferLock( index_buffer );
-
-	gpu_vertices = vertex_lock.ptr;
-	indices = index_lock.ptr;
+	gpu_vertices = vertex_buffer.ptr;
+	indices = index_buffer.ptr;
 
 	for( p = warp->polys; p; p = p->next )
 	{
@@ -189,7 +185,8 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 
 			if( reverse )
 				v -= VERTEXSIZE;
-			else v += VERTEXSIZE;
+			else
+				v += VERTEXSIZE;
 		}
 
 #ifdef WATER_NORMALS
@@ -202,8 +199,8 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 		vertex_offset += p->numverts;
 	}
 
-	VK_RenderBufferUnlock( vertex_buffer );
-	VK_RenderBufferUnlock( index_buffer );
+	XVK_RenderBufferUnlock( vertex_buffer.buffer );
+	XVK_RenderBufferUnlock( index_buffer.buffer );
 
 	// Render
 	{
@@ -212,12 +209,10 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 			.material = kXVkMaterialWater,
 
 			.vertex_count = num_vertices,
-			.vertex_buffer = vertex_buffer,
-			.vertex_offset = 0,
+			.vertex_offset = vertex_buffer.buffer.unit.offset,
 
 			.element_count = num_indices,
-			.index_offset = 0,
-			.index_buffer = index_buffer,
+			.index_offset = index_buffer.buffer.unit.offset,
 		};
 
 		VK_RenderModelDynamicAddGeometry( &geometry );
@@ -432,25 +427,22 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	vk_brush_model_t *bmodel = mod->cache.data;
 	uint32_t vertex_offset = 0;
 	int num_geometries = 0;
-	vk_buffer_handle_t vertex_buffer, index_buffer;
-	vk_buffer_lock_t vertex_lock, index_lock;
+	xvk_render_buffer_allocation_t vertex_buffer, index_buffer;
 	vk_vertex_t *bvert = NULL;
 	uint16_t *bind = NULL;
 	uint32_t index_offset = 0;
 
-	vertex_buffer = VK_RenderBufferAlloc( sizeof(vk_vertex_t), sizes.num_vertices, LifetimeMap );
-	index_buffer = VK_RenderBufferAlloc( sizeof(uint16_t), sizes.num_indices, LifetimeMap );
-	if (vertex_buffer == InvalidHandle || index_buffer == InvalidHandle)
-	{
-		// TODO should we free one of the above if it still succeeded?
+	vertex_buffer = XVK_RenderBufferAllocAndLock( sizeof(vk_vertex_t), sizes.num_vertices );
+	index_buffer = XVK_RenderBufferAllocAndLock( sizeof(uint16_t), sizes.num_indices );
+	if (vertex_buffer.ptr == NULL || index_buffer.ptr == NULL) {
 		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
 		return false;
 	}
 
-	vertex_lock = VK_RenderBufferLock( vertex_buffer );
-	index_lock = VK_RenderBufferLock( index_buffer );
-	bvert = vertex_lock.ptr;
-	bind = index_lock.ptr;
+	bvert = vertex_buffer.ptr;
+	bind = index_buffer.ptr;
+
+	index_offset = index_buffer.buffer.unit.offset;
 
 	// Load sorted by gl_texturenum
 	for (int t = 0; t <= sizes.max_texture_id; ++t)
@@ -484,11 +476,9 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			model_geometry->surf = surf;
 			model_geometry->texture = t;
 
-			model_geometry->vertex_buffer = vertex_buffer;
-			model_geometry->vertex_offset = vertex_offset;
+			model_geometry->vertex_offset = vertex_buffer.buffer.unit.offset + vertex_offset;
 			model_geometry->vertex_count = surf->numedges;
 
-			model_geometry->index_buffer = index_buffer;
 			model_geometry->index_offset = index_offset;
 
 			if( FBitSet( surf->flags, SURF_DRAWSKY )) {
@@ -553,8 +543,8 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 		}
 	}
 
-	VK_RenderBufferUnlock( index_buffer );
-	VK_RenderBufferUnlock( vertex_buffer );
+	XVK_RenderBufferUnlock( index_buffer.buffer );
+	XVK_RenderBufferUnlock( vertex_buffer.buffer );
 
 	ASSERT(sizes.num_surfaces == num_geometries);
 	bmodel->render_model.num_geometries = num_geometries;

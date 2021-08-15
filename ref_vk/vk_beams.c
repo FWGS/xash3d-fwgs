@@ -163,8 +163,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	beamseg_t	curSeg;
 	int total_vertices = 0;
 	int total_indices = 0;
-	vk_buffer_handle_t vertex_buffer, index_buffer;
-	vk_buffer_lock_t vertex_lock, index_lock;
+	xvk_render_buffer_allocation_t vertex_buffer, index_buffer;
 	vk_vertex_t *dst_vtx;
 	uint16_t *dst_idx;
 
@@ -224,19 +223,17 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	total_indices = (total_vertices - 2) * 3; // STRIP unrolled into LIST (TODO get rid of this)
 	ASSERT(total_vertices < UINT16_MAX );
 
-	vertex_buffer = VK_RenderBufferAlloc( sizeof(vk_vertex_t), total_vertices, LifetimeSingleFrame );
-	index_buffer = VK_RenderBufferAlloc( sizeof(uint16_t), total_indices, LifetimeSingleFrame );
-	if (vertex_buffer == InvalidHandle || index_buffer == InvalidHandle)
+	vertex_buffer = XVK_RenderBufferAllocAndLock( sizeof(vk_vertex_t), total_vertices );
+	index_buffer = XVK_RenderBufferAllocAndLock( sizeof(uint16_t), total_indices );
+	if (!vertex_buffer.ptr || !index_buffer.ptr)
 	{
 		// TODO should we free one of the above if it still succeeded?
 		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
 		return;
 	}
 
-	vertex_lock = VK_RenderBufferLock( vertex_buffer );
-	index_lock = VK_RenderBufferLock( index_buffer );
-	dst_vtx = vertex_lock.ptr;
-	dst_idx = index_lock.ptr;
+	dst_vtx = vertex_buffer.ptr;
+	dst_idx = index_buffer.ptr;
 
 	// specify all the segments.
 	for( i = 0; i < segments; i++ )
@@ -380,8 +377,8 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 		}
 	}
 
-	VK_RenderBufferUnlock( index_buffer );
-	VK_RenderBufferUnlock( vertex_buffer );
+	XVK_RenderBufferUnlock( index_buffer.buffer );
+	XVK_RenderBufferUnlock( vertex_buffer.buffer );
 
 	{
 		const vk_render_geometry_t geometry = {
@@ -389,12 +386,10 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			.material = kXVkMaterialDiffuse,
 
 			.vertex_count = total_vertices,
-			.vertex_buffer = vertex_buffer,
-			.vertex_offset = 0,
+			.vertex_offset = vertex_buffer.buffer.unit.offset,
 
 			.element_count = total_indices,
-			.index_offset = 0,
-			.index_buffer = index_buffer,
+			.index_offset = index_buffer.buffer.unit.offset,
 		};
 
 		// FIXME .emissive = { color[0], color[1], color[2] },
