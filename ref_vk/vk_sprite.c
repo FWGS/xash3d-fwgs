@@ -646,7 +646,7 @@ qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 	return false;
 }
 
-static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale, int texture, int render_mode )
+static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale, int texture, int render_mode )
 {
 	vec3_t	point;
 	xvk_render_buffer_allocation_t vertex_buffer, index_buffer;
@@ -714,7 +714,7 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 			.index_offset = index_buffer.buffer.unit.offset,
 		};
 
-		VK_RenderModelDynamicBegin( "sprite" /* TODO its name */, render_mode );
+		VK_RenderModelDynamicBegin( debug_name, render_mode );
 		VK_RenderModelDynamicAddGeometry( &geometry );
 		VK_RenderModelDynamicCommit();
 	}
@@ -928,14 +928,6 @@ void VK_SpriteDrawModel( cl_entity_t *e )
 		GL_Cull( GL_NONE );
 	*/
 
-	if (vk_core.debug) {
-		VkDebugUtilsLabelEXT label = {
-			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
-			.pLabelName = model->name,
-		};
-		vkCmdBeginDebugUtilsLabelEXT(vk_core.cb, &label);
-	}
-
 	if( oldframe == frame )
 	{
 		// draw the single non-lerped frame
@@ -947,7 +939,7 @@ void VK_SpriteDrawModel( cl_entity_t *e )
 		ubo->color[3] = tr.blend;
 		*/
 		VK_RenderStateSetColor( color[0], color[1], color[2], .5f ); // FIXME VK: tr.blend
-		R_DrawSpriteQuad( frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode );
+		R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode );
 	}
 	else
 	{
@@ -959,14 +951,14 @@ void VK_SpriteDrawModel( cl_entity_t *e )
 		{
 			// FIXME VK make sure we end up with the same values as gl
 			VK_RenderStateSetColor( color[0], color[1], color[2], 1.f * ilerp );
-			R_DrawSpriteQuad( oldframe, origin, v_right, v_up, scale, oldframe->gl_texturenum, e->curstate.rendermode  );
+			R_DrawSpriteQuad( model->name, oldframe, origin, v_right, v_up, scale, oldframe->gl_texturenum, e->curstate.rendermode  );
 		}
 
 		if( lerp != 0.0f )
 		{
 			// FIXME VK make sure we end up with the same values as gl
 			VK_RenderStateSetColor( color[0], color[1], color[2], 1.f * lerp );
-			R_DrawSpriteQuad( frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode  );
+			R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode  );
 		}
 	}
 
@@ -989,7 +981,4 @@ void VK_SpriteDrawModel( cl_entity_t *e )
 		pglDepthFunc( GL_LEQUAL );
 	}
 	*/
-
-	if (vk_core.debug)
-		vkCmdEndDebugUtilsLabelEXT(vk_core.cb);
 }

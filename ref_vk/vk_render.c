@@ -357,11 +357,22 @@ typedef struct render_draw_s {
 	/* TODO this should be a separate thing? */ struct { float r, g, b; } emissive;
 } render_draw_t;
 
+enum draw_command_type_e {
+	DrawLabelBegin,
+	DrawLabelEnd,
+	DrawDraw
+};
+
 typedef struct {
-	render_draw_t draw;
-	uint32_t ubo_offset;
-	//char debug_name[MAX_DEBUG_NAME_LENGTH];
-	matrix3x4 transform;
+	enum draw_command_type_e type;
+	union {
+		char debug_label[MAX_DEBUG_NAME_LENGTH];
+		struct {
+			render_draw_t draw;
+			uint32_t ubo_offset;
+			matrix3x4 transform;
+		} draw;
+	};
 } draw_command_t;
 
 static struct {
@@ -465,7 +476,27 @@ static uint32_t allocUniform( uint32_t size, uint32_t alignment ) {
 	return offset;
 }
 
-static void VK_RenderScheduleDraw( const render_draw_t *draw )
+static draw_command_t *drawCmdAlloc( void ) {
+	ASSERT(g_render_state.num_draw_commands < ARRAYSIZE(g_render_state.draw_commands));
+	return g_render_state.draw_commands + (g_render_state.num_draw_commands++);
+}
+
+static void drawCmdPushDebugLabelBegin( const char *debug_label ) {
+	if (vk_core.debug) {
+		draw_command_t *draw_command = drawCmdAlloc();
+		draw_command->type = DrawLabelBegin;
+		Q_strncpy(draw_command->debug_label, debug_label, sizeof draw_command->debug_label);
+	}
+}
+
+static void drawCmdPushDebugLabelEnd( void ) {
+	if (vk_core.debug) {
+		draw_command_t *draw_command = drawCmdAlloc();
+		draw_command->type = DrawLabelEnd;
+	}
+}
+
+static void drawCmdPushDraw( const render_draw_t *draw )
 {
 	draw_command_t *draw_command;
 
@@ -500,10 +531,11 @@ static void VK_RenderScheduleDraw( const render_draw_t *draw )
 		g_render_state.uniform_data_set_mask |= UNIFORM_UPLOADED;
 	}
 
-	draw_command = g_render_state.draw_commands + (g_render_state.num_draw_commands++);
-	draw_command->draw = *draw;
-	draw_command->ubo_offset = g_render_state.current_ubo_offset;
-	Matrix3x4_Copy(draw_command->transform, g_render_state.model);
+	draw_command = drawCmdAlloc();
+	draw_command->draw.draw = *draw;
+	draw_command->draw.ubo_offset = g_render_state.current_ubo_offset;
+	draw_command->type = DrawDraw;
+	Matrix3x4_Copy(draw_command->draw.transform, g_render_state.model);
 }
 
 void VK_RenderAddStaticLight(vec3_t origin, vec3_t color)
@@ -600,51 +632,58 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 	for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
 		const draw_command_t *const draw = g_render_state.draw_commands + i;
 
-		if (ubo_offset != draw->ubo_offset)
+		switch (draw->type) {
+			case DrawLabelBegin:
+				{
+					VkDebugUtilsLabelEXT label = {
+						.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+						.pLabelName = draw->debug_label,
+					};
+					vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &label);
+				}
+				continue;
+			case DrawLabelEnd:
+				vkCmdEndDebugUtilsLabelEXT(cmdbuf);
+				continue;
+		}
+
+		if (ubo_offset != draw->draw.ubo_offset)
 		{
-			ubo_offset = draw->ubo_offset;
+			ubo_offset = draw->draw.ubo_offset;
 			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 0, 1, vk_desc.ubo_sets, 1, &ubo_offset);
 		}
 
-		if (pipeline != draw->draw.render_mode) {
-			pipeline = draw->draw.render_mode;
+		if (pipeline != draw->draw.draw.render_mode) {
+			pipeline = draw->draw.draw.render_mode;
 			vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipelines[pipeline]);
 		}
 
-		if (lightmap != draw->draw.lightmap) {
-			lightmap = draw->draw.lightmap;
+		if (lightmap != draw->draw.draw.lightmap) {
+			lightmap = draw->draw.draw.lightmap;
 			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 2, 1, &findTexture(lightmap)->vk.descriptor, 0, NULL);
 		}
 
-		if (texture != draw->draw.texture)
+		if (texture != draw->draw.draw.texture)
 		{
-			texture = draw->draw.texture;
+			texture = draw->draw.draw.texture;
 			// TODO names/enums for binding points
 			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 1, 1, &findTexture(texture)->vk.descriptor, 0, NULL);
 		}
 
 		// Only indexed mode is supported
-		ASSERT(draw->draw.index_offset >= 0);
-		vkCmdDrawIndexed(vk_core.cb, draw->draw.element_count, 1, draw->draw.index_offset, draw->draw.vertex_offset, 0);
+		ASSERT(draw->draw.draw.index_offset >= 0);
+		vkCmdDrawIndexed(vk_core.cb, draw->draw.draw.element_count, 1, draw->draw.draw.index_offset, draw->draw.draw.vertex_offset, 0);
 	}
 }
 
 void VK_RenderDebugLabelBegin( const char *name )
 {
-	// TODO fix this
-	/* if (vk_core.debug) { */
-	/* 	VkDebugUtilsLabelEXT label = { */
-	/* 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT, */
-	/* 		.pLabelName = name, */
-	/* 	}; */
-	/* 	vkCmdBeginDebugUtilsLabelEXT(vk_core.cb, &label); */
-	/* } */
+	drawCmdPushDebugLabelBegin(name);
 }
 
 void VK_RenderDebugLabelEnd( void )
 {
-	/* if (vk_core.debug) */
-	/* 	vkCmdEndDebugUtilsLabelEXT(vk_core.cb); */
+	drawCmdPushDebugLabelEnd();
 }
 
 void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h )
@@ -738,10 +777,11 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 		return;
 	}
 
+	drawCmdPushDebugLabelBegin( model->debug_name );
 
 	for (int i = 0; i < model->num_geometries; ++i) {
 		const vk_render_geometry_t *geom = model->geometries + i;
-		const qboolean split = current_texture != geom->texture 
+		const qboolean split = current_texture != geom->texture
 			|| vertex_offset != geom->vertex_offset
 			|| (index_offset + element_count) != geom->index_offset;
 
@@ -753,7 +793,7 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 
 		if (split) {
 			if (element_count) {
-				const render_draw_t draw = {
+				render_draw_t draw = {
 					.lightmap = tglob.lightmapTextures[0], // FIXME there can be more than one lightmap textures
 					.texture = current_texture,
 					.render_mode = model->render_mode,
@@ -762,7 +802,7 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 					.index_offset = index_offset,
 				};
 
-				VK_RenderScheduleDraw( &draw );
+				drawCmdPushDraw( &draw );
 			}
 
 			current_texture = geom->texture;
@@ -786,8 +826,10 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 			.index_offset = index_offset,
 		};
 
-		VK_RenderScheduleDraw( &draw );
+		drawCmdPushDraw( &draw );
 	}
+
+	drawCmdPushDebugLabelEnd();
 }
 
 #define MAX_DYNAMIC_GEOMETRY 256

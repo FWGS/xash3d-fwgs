@@ -147,6 +147,15 @@ void vk2dEnd( VkCommandBuffer cmdbuf )
 
 	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &g2d.pics_buffer.buffer, &offset);
 
+	if (vk_core.debug)
+	{
+		VkDebugUtilsLabelEXT label = {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+			.pLabelName = "2d overlay",
+		};
+		vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &label);
+	}
+
 	for (int i = 0; i <= g2d.current_batch; ++i)
 	{
 		vk_texture_t *texture = findTexture(g2d.batch[i].texture);
@@ -158,6 +167,9 @@ void vk2dEnd( VkCommandBuffer cmdbuf )
 			vkCmdDraw(cmdbuf, g2d.batch[i].vertex_count, 1, g2d.batch[i].vertex_offset, 0);
 		} // FIXME else what?
 	}
+
+	if (vk_core.debug)
+		vkCmdEndDebugUtilsLabelEXT(cmdbuf);
 }
 
 static qboolean createPipelines( void )
