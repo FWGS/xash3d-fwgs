@@ -1,7 +1,9 @@
+## 2021-08-15, E126
+- [x] restore render debug labels
+
 # Next
-- [ ] restore render debug labels
-- [ ] rtx: simple convolution denoise (bilateral?)
 - [ ] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
+- [ ] rtx: simple convolution denoise (bilateral?)
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
 - [ ] rtx: cluster dlights
 - [ ] rtx: dynamically sized light clusters
@@ -98,7 +100,7 @@
 - [ ] better 2d renderer: fill DRAWQUAD(texture, color, ...) command into storage buffer instead of 4 vertices
 - [ ] auto-atlas lots of smol textures: most of model texture are tiny (64x64 or less), can we not rebind them all the time? alt: bindless texture array
 - [ ] can we also try to coalesce sprite draw calls?
-- [ ] brush geometry is not watertight 
+- [ ] brush geometry is not watertight
 - [ ] collect render_draw_t w/o submitting them to cmdbuf, then sort by render_mode, trans depth, and other parameters, trying to batch as much stuff as possible; only then submit
 
 # Previously
