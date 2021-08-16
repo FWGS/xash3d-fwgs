@@ -275,20 +275,20 @@ static qboolean createInstance( void )
 	return true;
 }
 
-static qboolean hasExtension( const VkExtensionProperties *exts, uint32_t num_exts, const char *extension )
+static const VkExtensionProperties *findExtension( const VkExtensionProperties *exts, uint32_t num_exts, const char *extension )
 {
 	for (uint32_t i = 0; i < num_exts; ++i) {
 		if (strncmp(exts[i].extensionName, extension, sizeof(exts[i].extensionName)) == 0)
-			return true;
+			return exts + i;
 	}
 
-	return false;
+	return NULL;
 }
 
 static qboolean deviceSupportsRtx( const VkExtensionProperties *exts, uint32_t num_exts )
 {
 	for (int i = 1 /* skip swapchain ext */; i < ARRAYSIZE(device_extensions); ++i) {
-		if (!hasExtension(exts, num_exts, device_extensions[i])) {
+		if (!findExtension(exts, num_exts, device_extensions[i])) {
 			gEngine.Con_Reportf(S_ERROR "Extension %s is not supported\n", device_extensions[i]);
 			return false;
 		}
@@ -296,105 +296,127 @@ static qboolean deviceSupportsRtx( const VkExtensionProperties *exts, uint32_t n
 	return true;
 }
 
-static qboolean pickAndCreateDevice( qboolean skip_first_device )
-{
+// FIXME this is almost exactly the physical_device_t, reuse
+typedef struct {
+	VkPhysicalDevice device;
+	VkPhysicalDeviceFeatures2 features;
+	VkPhysicalDeviceProperties props;
+	uint32_t queue_index;
+	qboolean anisotropy;
+	qboolean ray_tracing;
+} vk_available_device_t;
+
+static int enumerateDevices( vk_available_device_t **available_devices ) {
 	VkPhysicalDevice *physical_devices = NULL;
 	uint32_t num_physical_devices = 0;
-	uint32_t best_device_index = UINT32_MAX;
-	VkPhysicalDeviceFeatures2 best_device_features;
-	uint32_t queue_index = UINT32_MAX;
-	qboolean retval = false;
+	vk_available_device_t *this_device = NULL;
 
 	XVK_CHECK(vkEnumeratePhysicalDevices(vk_core.instance, &num_physical_devices, physical_devices));
-
 	physical_devices = Mem_Malloc(vk_core.pool, sizeof(VkPhysicalDevice) * num_physical_devices);
 	XVK_CHECK(vkEnumeratePhysicalDevices(vk_core.instance, &num_physical_devices, physical_devices));
-
 	gEngine.Con_Reportf("Have %u devices:\n", num_physical_devices);
-	for (uint32_t i = 0; i < num_physical_devices; ++i)
-	{
-		VkQueueFamilyProperties *queue_family_props = NULL;
-		uint32_t num_queue_family_properties = 0;
-		uint32_t num_device_extensions = 0;
-		VkExtensionProperties *extensions;
+
+	*available_devices = Mem_Malloc(vk_core.pool, num_physical_devices * sizeof(vk_available_device_t));
+	this_device = *available_devices;
+	for (uint32_t i = 0; i < num_physical_devices; ++i) {
+		uint32_t queue_index = VK_QUEUE_FAMILY_IGNORED;
 		VkPhysicalDeviceProperties props;
 		VkPhysicalDeviceFeatures2 features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,};
 
 		// FIXME also pay attention to various device limits. We depend on them implicitly now.
-
-		vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &num_queue_family_properties, queue_family_props);
-		queue_family_props = Mem_Malloc(vk_core.pool, sizeof(VkQueueFamilyProperties) * num_queue_family_properties);
-		vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &num_queue_family_properties, queue_family_props);
 
 		vkGetPhysicalDeviceProperties(physical_devices[i], &props);
 		gEngine.Con_Printf("\t%u: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
 			i, props.vendorID, props.deviceID, props.deviceType, props.deviceName,
 			XVK_PARSE_VERSION(props.driverVersion), XVK_PARSE_VERSION(props.apiVersion));
 
-		vkGetPhysicalDeviceFeatures2(physical_devices[i], &features);
-		gEngine.Con_Printf("\t\tAnistoropy supported: %d\n", features.features.samplerAnisotropy);
-
-		for (uint32_t j = 0; j < num_queue_family_properties; ++j)
 		{
-			VkBool32 present = 0;
-			if (!(queue_family_props[j].queueFlags & VK_QUEUE_GRAPHICS_BIT))
-				continue;
+			uint32_t num_queue_family_properties = 0;
+			VkQueueFamilyProperties *queue_family_props = NULL;
+			vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &num_queue_family_properties, queue_family_props);
+			queue_family_props = Mem_Malloc(vk_core.pool, sizeof(VkQueueFamilyProperties) * num_queue_family_properties);
+			vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &num_queue_family_properties, queue_family_props);
 
-			vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices[i], j, vk_core.surface.surface, &present);
+			// Find queue family that supports needed properties
+			for (uint32_t j = 0; j < num_queue_family_properties; ++j) {
+				VkBool32 supports_present = 0;
+				const qboolean supports_graphics = !!(queue_family_props[j].queueFlags & VK_QUEUE_GRAPHICS_BIT);
+				const qboolean supports_compute = !!(queue_family_props[j].queueFlags & VK_QUEUE_COMPUTE_BIT);
+				vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices[i], j, vk_core.surface.surface, &supports_present);
 
-			gEngine.Con_Reportf("Queue %d/%d present: %d\n", j, num_queue_family_properties, present);
+				gEngine.Con_Reportf("\t\tQueue %d/%d present: %d graphics: %d compute: %d\n", j, num_queue_family_properties, supports_present, supports_graphics, supports_compute);
 
-			if (!present)
-				continue;
+				if (!supports_present)
+					continue;
 
-			queue_index = j;
-			break;
-		}
+				// ray tracing needs compute
+				// also, by vk spec graphics queue must support compute
+				if (!supports_graphics || !supports_compute)
+					continue;
 
-		XVK_CHECK(vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &num_device_extensions, NULL));
-		extensions = Mem_Malloc(vk_core.pool, sizeof(VkExtensionProperties) * num_device_extensions);
-		XVK_CHECK(vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &num_device_extensions, extensions));
-
-		gEngine.Con_Reportf( "\tSupported device extensions: %u\n", num_device_extensions);
-		for (uint32_t j = 0; j < num_device_extensions; ++j) {
-			gEngine.Con_Reportf( "\t\t: %s: %u.%u.%u\n", extensions[j].extensionName, XVK_PARSE_VERSION(extensions[j].specVersion));
-		}
-
-		if (vk_core.rtx) {
-			if (!deviceSupportsRtx(extensions, num_device_extensions)) {
-				gEngine.Con_Printf( S_WARN "Device doesn't support necessary RTX extensions, skipping\n");
-				queue_index = UINT32_MAX;
+				queue_index = j;
+				break;
 			}
+
+			Mem_Free(queue_family_props);
 		}
 
-		Mem_Free(extensions);
-		Mem_Free(queue_family_props);
+		if (queue_index == VK_QUEUE_FAMILY_IGNORED) {
+			gEngine.Con_Printf( S_WARN "\t\tSkipping this device as compatible queue (which has both compute and graphics and also can present) not found\n" );
+			continue;
+		}
 
-		// TODO pick the best device
-		// For now we'll pick the first one that has graphics and can present to the surface
-		if (queue_index < num_queue_family_properties && best_device_index == UINT32_MAX)
 		{
-			if (skip_first_device) {
-				skip_first_device = false;
-			} else {
-				best_device_index = i;
-				best_device_features = features;
+			uint32_t num_device_extensions = 0;
+			VkExtensionProperties *extensions;
+
+			XVK_CHECK(vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &num_device_extensions, NULL));
+			extensions = Mem_Malloc(vk_core.pool, sizeof(VkExtensionProperties) * num_device_extensions);
+			XVK_CHECK(vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &num_device_extensions, extensions));
+
+			gEngine.Con_Reportf( "\t\tSupported device extensions: %u\n", num_device_extensions);
+			for (int j = 0; j < ARRAYSIZE(device_extensions); ++j) {
+				const VkExtensionProperties *ext_prop = findExtension(extensions, num_device_extensions, device_extensions[j]);
+				if (!ext_prop) {
+					gEngine.Con_Printf( "\t\t\t%s: N/A\n", device_extensions[j]);
+				} else {
+					gEngine.Con_Printf( "\t\t\t%s: %u.%u.%u\n", ext_prop->extensionName, XVK_PARSE_VERSION(ext_prop->specVersion));
+				}
 			}
+
+			vkGetPhysicalDeviceFeatures2(physical_devices[i], &features);
+			this_device->anisotropy = features.features.samplerAnisotropy;
+			gEngine.Con_Printf("\t\tAnistoropy supported: %d\n", this_device->anisotropy);
+
+			this_device->ray_tracing = deviceSupportsRtx(extensions, num_device_extensions);
+			gEngine.Con_Printf("\t\tRay tracing supported: %d\n", this_device->ray_tracing);
+
+			Mem_Free(extensions);
 		}
+
+		this_device->device = physical_devices[i];
+		this_device->queue_index = queue_index;
+		this_device->features = features;
+		this_device->props = props;
+		++this_device;
 	}
 
-	if (best_device_index < num_physical_devices)
-	{
-		float prio = 1.f;
-		VkDeviceQueueCreateInfo queue_info = {
-			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-			.flags = 0,
-			.queueFamilyIndex = queue_index,
-			.queueCount = 1,
-			.pQueuePriorities = &prio,
-		};
+	Mem_Free(physical_devices);
+
+	return this_device - *available_devices;
+}
+
+static qboolean createDevice( qboolean skip_first_device ) {
+	void *head = NULL;
+	vk_available_device_t *available_devices;
+	const int num_available_devices = enumerateDevices( &available_devices );
+
+	for (int i = 0; i < num_available_devices; ++i) {
+		const vk_available_device_t *candidate_device = available_devices + i;
+
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR accel_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+			.pNext = NULL,
 			.accelerationStructure = VK_TRUE,
 		};
 		VkPhysicalDevice16BitStorageFeatures sixteen_bit_feature = {
@@ -418,19 +440,30 @@ static qboolean pickAndCreateDevice( qboolean skip_first_device )
 		};
 		VkPhysicalDeviceFeatures2 features = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-			.pNext = vk_core.rtx ? &ray_tracing_pipeline_feature : NULL,
-			.features.samplerAnisotropy = best_device_features.features.samplerAnisotropy,
+			.pNext = vk_core.rtx ? &ray_tracing_pipeline_feature: NULL,
+			.features.samplerAnisotropy = candidate_device->features.features.samplerAnisotropy,
 		};
+
 #ifdef USE_AFTERMATH
 		VkDeviceDiagnosticsConfigCreateInfoNV diag_config_nv = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV,
-			.flags = VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_AUTOMATIC_CHECKPOINTS_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV,
 			.pNext = &features,
+			.flags = VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_AUTOMATIC_CHECKPOINTS_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV,
 		};
 		void *head = &diag_config_nv;
 #else
-	void *head = &features;
+		void *head = &features;
 #endif
+
+		const float queue_priorities[1] = {1.f};
+		VkDeviceQueueCreateInfo queue_info = {
+			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+			.flags = 0,
+			.queueFamilyIndex = candidate_device->queue_index,
+			.queueCount = ARRAYSIZE(queue_priorities),
+			.pQueuePriorities = queue_priorities,
+		};
+
 		VkDeviceCreateInfo create_info = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			.pNext = head,
@@ -445,17 +478,30 @@ static qboolean pickAndCreateDevice( qboolean skip_first_device )
 			.ppEnabledExtensionNames = device_extensions,
 		};
 
-		vk_core.physical_device.device = physical_devices[best_device_index];
+		if (vk_core.rtx && !candidate_device->ray_tracing) {
+			gEngine.Con_Printf(S_WARN "Skipping device %d due to missing ray tracing extensions\n", i);
+			continue;
+		}
+
+		// FIXME do only once
+		vkGetPhysicalDeviceMemoryProperties(candidate_device->device, &vk_core.physical_device.memory_properties);
+
+		gEngine.Con_Printf("Trying device #%d: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
+			i, candidate_device->props.vendorID, candidate_device->props.deviceID, candidate_device->props.deviceType, candidate_device->props.deviceName,
+			XVK_PARSE_VERSION(candidate_device->props.driverVersion), XVK_PARSE_VERSION(candidate_device->props.apiVersion));
+
+		{
+			const VkResult result = vkCreateDevice(candidate_device->device, &create_info, NULL, &vk_core.device);
+			if (result != VK_SUCCESS) {
+				gEngine.Con_Printf( S_ERROR "%s:%d vkCreateDevice failed (%d): %s\n",
+					__FILE__, __LINE__, result, resultName(result));
+				continue;
+			}
+		}
+
+		vk_core.physical_device.device = candidate_device->device;
 		vk_core.physical_device.anisotropy_enabled = features.features.samplerAnisotropy;
-		vkGetPhysicalDeviceMemoryProperties(vk_core.physical_device.device, &vk_core.physical_device.memory_properties);
-
-		vkGetPhysicalDeviceProperties(vk_core.physical_device.device, &vk_core.physical_device.properties);
-		gEngine.Con_Printf("Picked device #%u: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
-			best_device_index, vk_core.physical_device.properties.vendorID, vk_core.physical_device.properties.deviceID, vk_core.physical_device.properties.deviceType, vk_core.physical_device.properties.deviceName,
-			XVK_PARSE_VERSION(vk_core.physical_device.properties.driverVersion), XVK_PARSE_VERSION(vk_core.physical_device.properties.apiVersion));
-
-		// TODO allow it to fail gracefully
-		XVK_CHECK(vkCreateDevice(vk_core.physical_device.device, &create_info, NULL, &vk_core.device));
+		vk_core.physical_device.properties = candidate_device->props;
 
 		loadDeviceFunctions(device_funcs, ARRAYSIZE(device_funcs));
 
@@ -474,13 +520,11 @@ static qboolean pickAndCreateDevice( qboolean skip_first_device )
 		vkGetPhysicalDeviceProperties2(vk_core.physical_device.device, &vk_core.physical_device.properties2);
 
 		vkGetDeviceQueue(vk_core.device, 0, 0, &vk_core.queue);
-		retval = true;
-	} else {
-		gEngine.Con_Printf( S_ERROR "No compatibe Vulkan devices found. Vulkan render will not be available\n" );
+		return true;
 	}
 
-	Mem_Free(physical_devices);
-	return retval;
+	gEngine.Con_Printf( S_ERROR "No compatibe Vulkan devices found. Vulkan render will not be available\n" );
+	return false;
 }
 
 static const char *presentModeName(VkPresentModeKHR present_mode)
@@ -604,7 +648,7 @@ qboolean R_VkInit( void )
 	}
 #endif
 
-	if (!pickAndCreateDevice( skip_first_device ))
+	if (!createDevice( skip_first_device ))
 		return false;
 
 	if (!initSurface())
