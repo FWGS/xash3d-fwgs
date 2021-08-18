@@ -385,7 +385,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			.texture = texture,
 			.material = kXVkMaterialDiffuse,
 
-			.vertex_count = total_vertices,
+			.max_vertex = total_vertices,
 			.vertex_offset = vertex_buffer.buffer.unit.offset,
 
 			.element_count = total_indices,

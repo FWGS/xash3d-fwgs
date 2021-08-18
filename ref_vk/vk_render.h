@@ -76,7 +76,9 @@ typedef struct {
 	XVkMaterialType material;
 
 	uint32_t element_count;
-	uint32_t vertex_count;
+
+	// Maximum index of vertex used for this geometry; needed for ray tracing BLAS building
+	uint32_t max_vertex;
 
 	// Non-null only for brush models
 	// Used for:

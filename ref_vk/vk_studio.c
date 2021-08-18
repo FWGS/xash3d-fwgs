@@ -2005,7 +2005,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			.material = kXVkMaterialDiffuse,
 
 			.vertex_offset = vertex_buffer.buffer.unit.offset,
-			.vertex_count = num_vertices,
+			.max_vertex = num_vertices,
 
 			.index_offset = index_buffer.buffer.unit.offset,
 			.element_count = num_indices,

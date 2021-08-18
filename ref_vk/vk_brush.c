@@ -208,7 +208,7 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 			.texture = warp->texinfo->texture->gl_texturenum, // FIXME assert >= 0
 			.material = kXVkMaterialWater,
 
-			.vertex_count = num_vertices,
+			.max_vertex = num_vertices,
 			.vertex_offset = vertex_buffer.buffer.unit.offset,
 
 			.element_count = num_indices,
@@ -477,7 +477,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			model_geometry->texture = surf->texinfo->texture->gl_texturenum;
 
 			model_geometry->vertex_offset = vertex_buffer.buffer.unit.offset;
-			model_geometry->vertex_count = surf->numedges;
+			model_geometry->max_vertex = vertex_offset + surf->numedges;
 
 			model_geometry->index_offset = index_offset;
 

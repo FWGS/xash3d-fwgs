@@ -191,7 +191,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 					(VkAccelerationStructureGeometryTrianglesDataKHR){
 						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
 						.indexType = VK_INDEX_TYPE_UINT16,
-						.maxVertex = mg->vertex_count,
+						.maxVertex = mg->max_vertex,
 						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
 						.vertexStride = sizeof(vk_vertex_t),
 						.vertexData.deviceAddress = buffer_addr,

@@ -707,7 +707,7 @@ static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec
 			.texture = texture,
 			.material = kXVkMaterialDiffuse,
 
-			.vertex_count = 4,
+			.max_vertex = 4,
 			.vertex_offset = vertex_buffer.buffer.unit.offset,
 
 			.element_count = 6,
