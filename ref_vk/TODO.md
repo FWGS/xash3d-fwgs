@@ -1,11 +1,63 @@
-## 2021-08-15, E126
-- [x] restore render debug labels
-- [x] restore draw call concatenation; brush geoms are generated in a way that makes concatenating them impossible
+## 2021-08-22, E129
+- [x] fix depth test for glow render mode
 
 # Next
-- [ ] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
-- [ ] rtx: simple convolution denoise (bilateral?)
+- [ ] screenshot
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
+- [ ] make a list of all possible materials, categorize them and figure out what to do
+	- orig:
+		- HL: (how does this map?)
+			- Render: Normal (по умолчанию), Color, Texture, Glow, Solid, Additive
+			- Render FX: разные пульсации, строб, плавные переходы, Constant Glow, Distort, Hologram (Distort + fade)
+		- brush:
+			- opaque:
+				- "diffuse": pbr (diffuse, metallic, roughness, ...)
+				- reflective: specular, ...
+				- emissive
+			- semi-opaque: alpha mask + same as opaque
+			- transparent:
+				- glass:
+					- reflective
+					- translucent + refractions
+				- additive:
+					- ???
+		- studio:
+			- normal: ~same as opaque
+			- float: ???
+			- chrome:
+				- reflective
+			- glow shell
+				- transparent-additive
+			- x rendermode ???
+		- sprite
+			- transparent additive:
+				- fake bloom (rtx: just disable)
+				- misc: smoke, explosions (rtx: custom shader?)
+			- can generally be in all "HL Render/FX" modes
+		- beams:
+			- can have custom color?
+			- transparent additive
+				- rtx: needs custom shader
+			- can generally be in all "HL Render/FX" modes
+		- decals: ???
+	- rtx proposal:
+		- kusok
+			- bool alpha_mask -- whether need to check alpha mask for boolean anyhit transparency
+			- render modes:
+				- opaque
+					- emissive
+					- diffuse
+					- specular/reflection
+				- transparent additive -- render_mode
+					- force emissive
+					- no diffuse, specular, ...
+				- translucent -- render_mode
+					- ? diffuse
+					- (? specular)/reflection
+					- refraction
+				- sky?
+					- emissive cubemap
+- [ ] rtx: simple convolution denoise (bilateral?)
 - [ ] rtx: cluster dlights
 - [ ] rtx: dynamically sized light clusters
 	Split into 2 buffers:
@@ -13,8 +65,20 @@
 		uint8_t data[];
 
 # Planned
-- [ ] filter things to render, e.g.: some sprites are there to fake bloom, we don't need to draw them in rtx mode
-- [ ] make a list of all possible materials, categorize them and figure out what to do
+- [ ] issue: transparent brushes are too transparent (train ride)
+	- [ ] (test_shaders_basic.bsp) shows that for brushes at least there are the following discrepancies with gl renderer:
+		- [ ] traditional:
+			- [ ] anything textured transparent is slightly darker in ref_vk
+			- [ ] "Color" render mode should not sample texture at all and use just color
+			- [ ] "Texture" looks mostly correct, but ~2x darker than it should be
+			- [ ] "Glow" looks totally incorrect, it should be the same as "Texture" (as in ref_gl)
+			- [ ] "Additive" is way too dark in ref_vk
+	- [ ] rtx:
+			- [ ] "Color" should use solid color instead of texture
+			- [ ] "Color", "Texture", ("Glow"?) should be able to reflect and refract, likely not universally though, as they might be used for different intended effects in game. figure this out on case-by-case basis. maybe we could control it based on texture names and such.
+			- [ ] "Additive" should just be emissive and not reflective/refractive
+- [ ] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
+- [ ] rtx: filter things to render, e.g.: some sprites are there to fake bloom, we don't need to draw them in rtx mode
 - [ ] possibly split vk_render into (a) rendering/pipeline, (b) buffer management/allocation, (c) render state
 - [ ] rtx: light styles: need static lights data, not clear how and what to do
 - [ ] studio models: fix lighting: should have white texture instead of lightmap OR we could write nearest surface lightmap coords to fake light
@@ -42,7 +106,6 @@
 - [ ] run under asan
 - [ ] rtx: emissive beams
 - [ ] rtx: emissive particles
-- [ ] rtx: better random
 - [ ] rtx: map name to rad files mapping
 - [ ] rtx: live rad file reloading (or other solution for tuning lights)
 - [ ] rtx: do not rebuild static studio models (most of them). BLAS building takes most of the frame time (~12ms where ray tracing itself is just 3ms)
@@ -76,11 +139,9 @@
 - [ ] what is GL_Backend*/GL_RenderFrame ???
 - [ ] particles
 - [ ] decals
-- [ ] issue: transparent brushes are too transparent (train ride)
 - [ ] render skybox
 - [ ] lightmap dynamic styles
 - [ ] better flashlight: spotlight instead of dlight point
-- [ ] screenshot
 - [ ] fog
 - [ ] studio models survive NewMap; need to compactify buffers after removing all brushes
 - [ ] sometimes it gets very slow (1fps) when ran under lldb (only on stream?)
@@ -312,6 +373,8 @@
 ## 2021-08-02..04, E122-123
 - [x] mipmaps
 
+- [x] rtx: better random
+
 ## 2021-08-07, E124
 - [x] anisotropic texture sampling
 - [x] studio model lighting prep
@@ -322,3 +385,13 @@
 
 ## 2021-08-11, E125
 - [x] simplify buffer api: do alloc+lock as a single op
+
+## 2021-08-15, E126
+- [x] restore render debug labels
+- [x] restore draw call concatenation; brush geoms are generated in a way that makes concatenating them impossible
+
+## 2021-08-16, E127
+- [x] better device enumeration
+
+## 2021-08-18, E128
+- [x] rtx: fix maxVertex for brushes

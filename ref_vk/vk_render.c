@@ -174,7 +174,7 @@ static qboolean createPipelines( void )
 				case kRenderGlow:
 					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_FALSE;
-					ci.depthTestEnable = VK_FALSE;
+					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
 					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
 					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;

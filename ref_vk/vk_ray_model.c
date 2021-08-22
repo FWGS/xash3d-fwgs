@@ -218,6 +218,8 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		kusochki[i].texture = mg->texture;
 		kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.;
 	
+		// FIXME this should not be done here, as we generally don't really have
+		// render_mode information yet. (does this affect BLAS building?)
 		switch (args.model->render_mode) {
 			case kRenderNormal:
 				kusochki[i].flags = 0;

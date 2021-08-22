@@ -2608,6 +2608,8 @@ static void R_StudioDrawPointsShadow( void )
 
 void GL_StudioSetRenderMode( int rendermode )
 {
+	PRINT_NOT_IMPLEMENTED_ARGS("(%d)", rendermode);
+
 	/* FIXME VK
 	switch( rendermode )
 	{
