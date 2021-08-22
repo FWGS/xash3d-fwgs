@@ -38,3 +38,5 @@ void VK_FrameCtlShutdown( void );
 void R_BeginFrame( qboolean clearScene );
 void VK_RenderFrame( const struct ref_viewpass_s *rvp );
 void R_EndFrame( void );
+
+qboolean VID_ScreenShot( const char *filename, int shot_type );

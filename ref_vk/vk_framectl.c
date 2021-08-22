@@ -7,6 +7,8 @@
 
 #include "eiface.h"
 
+#include <string.h>
+
 vk_framectl_t vk_frame = {0};
 
 static struct
@@ -18,6 +20,8 @@ static struct
 	uint32_t swapchain_image_index;
 
 	qboolean rtx_enabled;
+
+	int last_frame_index; // Index of previous fully drawn frame into images array
 } g_frame;
 
 static VkFormat findSupportedImageFormat(const VkFormat *candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
@@ -172,6 +176,9 @@ static qboolean createSwapchain( void )
 	VkSwapchainCreateInfoKHR *create_info = &vk_frame.create_info;
 	const uint32_t prev_num_images = vk_frame.num_images;
 
+	// recreating swapchain means invalidating any previous frames
+	g_frame.last_frame_index = -1;
+
 	XVK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_core.physical_device.device, vk_core.surface.surface, &vk_frame.surface_caps));
 
 	create_info->sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -182,7 +189,7 @@ static qboolean createSwapchain( void )
 	create_info->imageExtent.width = vk_frame.surface_caps.currentExtent.width;
 	create_info->imageExtent.height = vk_frame.surface_caps.currentExtent.height;
 	create_info->imageArrayLayers = 1;
-	create_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | (vk_core.rtx ? /*VK_IMAGE_USAGE_STORAGE_BIT |*/ VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
+	create_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | (vk_core.rtx ? /*VK_IMAGE_USAGE_STORAGE_BIT |*/ VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
 	create_info->imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	create_info->preTransform = vk_frame.surface_caps.currentTransform;
 	create_info->compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -427,6 +434,7 @@ void R_EndFrame( void )
 	// For now we can just erase these buffers now because of sync with fence
 	XVK_RenderBufferFrameClear();
 
+	g_frame.last_frame_index = g_frame.swapchain_image_index;
 	g_frame.swapchain_image_index = -1;
 }
 
@@ -469,4 +477,282 @@ void VK_FrameCtlShutdown( void )
 	vkDestroyRenderPass(vk_core.device, vk_frame.render_pass.raster, NULL);
 	if (vk_core.rtx)
 		vkDestroyRenderPass(vk_core.device, vk_frame.render_pass.after_ray_tracing, NULL);
+}
+
+static qboolean canBlitFromSwapchainToFormat( VkFormat dest_format ) {
+	VkFormatProperties props;
+
+	vkGetPhysicalDeviceFormatProperties(vk_core.physical_device.device, vk_frame.create_info.imageFormat, &props);
+	if (!(props.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
+		gEngine.Con_Reportf(S_WARN "Swapchain source format doesn't support blit\n");
+		return false;
+	}
+
+	vkGetPhysicalDeviceFormatProperties(vk_core.physical_device.device, dest_format, &props);
+	if (!(props.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+		gEngine.Con_Reportf(S_WARN "Destination format doesn't support blit\n");
+		return false;
+	}
+
+	return true;
+}
+
+static rgbdata_t *XVK_ReadPixels( void ) {
+	const VkFormat dest_format = VK_FORMAT_R8G8B8A8_UNORM;
+	VkImage dest_image;
+	VkImage frame_image;
+	device_memory_t dest_devmem;
+	rgbdata_t *r_shot = NULL;
+	const int
+		width = vk_frame.surface_caps.currentExtent.width,
+		height = vk_frame.surface_caps.currentExtent.height;
+	const qboolean blit = canBlitFromSwapchainToFormat( dest_format );
+
+	if (g_frame.last_frame_index < 0)
+		return NULL;
+
+	frame_image = vk_frame.images[g_frame.last_frame_index];
+
+	// Create destination image to blit/copy framebuffer pixels to
+	{
+		VkImageCreateInfo image_create_info = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+			.imageType = VK_IMAGE_TYPE_2D,
+			.extent.width = width,
+			.extent.height = height,
+			.extent.depth = 1,
+			.format = dest_format,
+			.mipLevels = 1,
+			.arrayLayers = 1,
+			.tiling = VK_IMAGE_TILING_LINEAR,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		};
+		XVK_CHECK(vkCreateImage(vk_core.device, &image_create_info, NULL, &dest_image));
+	}
+
+	{
+		VkMemoryRequirements memreq;
+		vkGetImageMemoryRequirements(vk_core.device, dest_image, &memreq);
+		dest_devmem = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 0);
+		XVK_CHECK(vkBindImageMemory(vk_core.device, dest_image, dest_devmem.device_memory, dest_devmem.offset));
+	}
+
+	{
+		VkCommandBufferBeginInfo beginfo = {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		};
+		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb_tex, &beginfo));
+	}
+
+	{
+		// Barrier 1: dest image
+		VkImageMemoryBarrier image_barrier[2] = {{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = dest_image,
+			.srcAccessMask = 0,
+			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			.subresourceRange = (VkImageSubresourceRange) {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			}}, { // Barrier 2: source swapchain image
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = frame_image,
+			.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT, // ?????
+			.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			.subresourceRange = (VkImageSubresourceRange) {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+		}}};
+
+		vkCmdPipelineBarrier(vk_core.cb_tex,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, 0, NULL, 0, NULL, ARRAYSIZE(image_barrier), image_barrier);
+	}
+
+	// Blit/transfer
+	if (blit) {
+		const VkImageBlit blit = {
+			.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.srcSubresource.layerCount = 1,
+			.dstSubresource.layerCount = 1,
+			.srcOffsets = {{0}, {width, height, 1}},
+			.dstOffsets = {{0}, {width, height, 1}}
+		};
+		vkCmdBlitImage(vk_core.cb_tex,
+			frame_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dest_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
+	} else {
+		const VkImageCopy copy = {
+			.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.srcSubresource.layerCount = 1,
+			.dstSubresource.layerCount = 1,
+			.extent.width = width,
+			.extent.height = height,
+			.extent.depth = 1,
+		};
+
+		vkCmdCopyImage(vk_core.cb_tex,
+			frame_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dest_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+
+		gEngine.Con_Printf(S_WARN "Blit is not supported, screenshot will likely have mixed components; TODO: swizzle in software\n");
+	}
+
+	{
+		// Barrier 1: dest image
+		VkImageMemoryBarrier image_barrier[2] = {{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = dest_image,
+			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.subresourceRange = (VkImageSubresourceRange) {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			}}, { // Barrier 2: source swapchain image
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = frame_image,
+			.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+			.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			.subresourceRange = (VkImageSubresourceRange) {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+		}}};
+
+		vkCmdPipelineBarrier(vk_core.cb_tex,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, 0, NULL, 0, NULL, ARRAYSIZE(image_barrier), image_barrier);
+	}
+
+	// submit command buffer to queue
+	XVK_CHECK(vkEndCommandBuffer(vk_core.cb_tex));
+	{
+		VkSubmitInfo subinfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
+		subinfo.commandBufferCount = 1;
+		subinfo.pCommandBuffers = &vk_core.cb_tex;
+		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
+	}
+
+	// wait for queue
+		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
+
+	// copy bytes to buffer
+	{
+		const VkImageSubresource subres = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		};
+		VkSubresourceLayout layout;
+		const char *mapped;
+		vkGetImageSubresourceLayout(vk_core.device, dest_image, &subres, &layout);
+
+		vkMapMemory(vk_core.device, dest_devmem.device_memory, 0, VK_WHOLE_SIZE, 0, (void**)&mapped);
+
+		mapped += layout.offset;
+
+		{
+			const int row_size = 4 * width;
+			poolhandle_t r_temppool = vk_core.pool; // TODO
+
+			r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
+			r_shot->width = width;
+			r_shot->height = height;
+			r_shot->flags = IMAGE_HAS_COLOR;
+			r_shot->type = PF_RGBA_32;
+			r_shot->size = r_shot->width * r_shot->height * gEngine.Image_GetPFDesc( r_shot->type )->bpp;
+			r_shot->palette = NULL;
+			r_shot->buffer = Mem_Malloc( r_temppool, r_shot->size );
+
+			for (int y = 0; y < height; ++y, mapped += layout.rowPitch) {
+				memcpy(r_shot->buffer + row_size * y, mapped, row_size);
+			}
+		}
+
+		vkUnmapMemory(vk_core.device, dest_devmem.device_memory);
+	}
+
+	vkDestroyImage(vk_core.device, dest_image, NULL);
+	freeDeviceMemory(&dest_devmem);
+
+	return r_shot;
+}
+
+qboolean VID_ScreenShot( const char *filename, int shot_type )
+{
+	uint flags = 0;
+	int	width = 0, height = 0;
+	qboolean	result;
+
+	// get screen frame
+	rgbdata_t *r_shot = XVK_ReadPixels();
+	if (!r_shot)
+		return false;
+
+	switch( shot_type )
+	{
+	case VID_SCREENSHOT:
+		break;
+	case VID_SNAPSHOT:
+		gEngine.FS_AllowDirectPaths( true );
+		break;
+	case VID_LEVELSHOT:
+		flags |= IMAGE_RESAMPLE;
+		if( gpGlobals->wideScreen )
+		{
+			height = 480;
+			width = 800;
+		}
+		else
+		{
+			height = 480;
+			width = 640;
+		}
+		break;
+	case VID_MINISHOT:
+		flags |= IMAGE_RESAMPLE;
+		height = 200;
+		width = 320;
+		break;
+	case VID_MAPSHOT:
+		flags |= IMAGE_RESAMPLE|IMAGE_QUANTIZE;	// GoldSrc request overviews in 8-bit format
+		height = 768;
+		width = 1024;
+		break;
+	}
+
+	gEngine.Image_Process( &r_shot, width, height, flags, 0.0f );
+
+	// write image
+	result = gEngine.FS_SaveImage( filename, r_shot );
+	gEngine.FS_AllowDirectPaths( false );			// always reset after store screenshot
+	gEngine.FS_FreeImage( r_shot );
+
+	gEngine.Con_Printf("Wrote screenshot %s\n", filename);
+	return result;
 }

@@ -1,8 +1,8 @@
 ## 2021-08-22, E129
 - [x] fix depth test for glow render mode
+- [x] screenshots
 
 # Next
-- [ ] screenshot
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
 - [ ] make a list of all possible materials, categorize them and figure out what to do
 	- orig:

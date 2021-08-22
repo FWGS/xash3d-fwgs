@@ -207,6 +207,8 @@ do { \
 	X(vkCmdDispatch) \
 	X(vkCmdBlitImage) \
 	X(vkCmdClearColorImage) \
+	X(vkCmdCopyImage) \
+	X(vkGetImageSubresourceLayout) \
 
 #define DEVICE_FUNCS_RTX(X) \
 	X(vkGetAccelerationStructureBuildSizesKHR) \

@@ -73,13 +73,6 @@ static void R_SetupSky( const char *skyname )
 	PRINT_NOT_IMPLEMENTED();
 }
 
-// screenshot, cubemapshot
-static qboolean VID_ScreenShot( const char *filename, int shot_type )
-{
-	PRINT_NOT_IMPLEMENTED();
-	return false;
-}
-
 static qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot )
 {
 	PRINT_NOT_IMPLEMENTED();
