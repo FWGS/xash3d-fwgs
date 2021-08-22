@@ -506,7 +506,7 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 	const int
 		width = vk_frame.surface_caps.currentExtent.width,
 		height = vk_frame.surface_caps.currentExtent.height;
-	const qboolean blit = canBlitFromSwapchainToFormat( dest_format );
+	qboolean blit = canBlitFromSwapchainToFormat( dest_format );
 
 	if (g_frame.last_frame_index < 0)
 		return NULL;
@@ -689,8 +689,28 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 			r_shot->palette = NULL;
 			r_shot->buffer = Mem_Malloc( r_temppool, r_shot->size );
 
-			for (int y = 0; y < height; ++y, mapped += layout.rowPitch) {
-				memcpy(r_shot->buffer + row_size * y, mapped, row_size);
+			if (!blit) {
+				if (dest_format != VK_FORMAT_R8G8B8A8_UNORM || vk_frame.create_info.imageFormat != VK_FORMAT_B8G8R8A8_UNORM) {
+					gEngine.Con_Printf(S_WARN "Don't have a blit function for this format pair, will save as-is w/o conversion; expect image to look wrong\n");
+					blit = true;
+				} else {
+					char *dst = r_shot->buffer;
+					for (int y = 0; y < height; ++y, mapped += layout.rowPitch) {
+						const char *src = mapped;
+						for (int x = 0; x < width; ++x, dst += 4, src += 4) {
+							dst[0] = src[2];
+							dst[1] = src[1];
+							dst[2] = src[0];
+							dst[3] = src[3];
+						}
+					}
+				}
+			}
+
+			if (blit) {
+				for (int y = 0; y < height; ++y, mapped += layout.rowPitch) {
+					memcpy(r_shot->buffer + row_size * y, mapped, row_size);
+				}
 			}
 		}
 
