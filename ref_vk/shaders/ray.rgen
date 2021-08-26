@@ -97,7 +97,7 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 	return shadow;
 }
 
-vec3 computeLighting(int bounce) {
+vec3 computeLighting() {
 	vec3 C = vec3(0.);
 	const ivec3 light_cell = ivec3(floor(payload.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
 	const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
@@ -153,9 +153,6 @@ vec3 computeLighting(int bounce) {
 				// TODO do we need to do this when we have textures?
 				//C += kc * vec3(hash(float(kusok_index)), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.));//kusok.emissive.rgb;
 				//C = vec3(1., 0., 1.);
-				if (bounce == 0)
-					//C += kc * emissive * baseColor;
-					C += payload.albedo;
 				continue;
 			}
 
@@ -285,38 +282,45 @@ void main() {
 			break;
 		}
 
-		if (payload.material_flags == 0 || payload.material_flags == 3) {
-			C += kc * computeLighting(bounce);
-		} else if (payload.material_flags == 1) {
-			kc *= payload.albedo;
-			if (rand01() < .5) {
-				origin = payload.hit_pos_t.xyz + normal_offset_fudge * direction;
-				//C += kc * vec3(1., 0., 0.);
-				//break;
-				continue;
-			} else {
-				payload.roughness = 0.;
-			}
-		} else if (payload.material_flags == 2) {
-			//C += kc * vec3(0., 1., 0.);
-			C += kc * payload.albedo;
-			origin = payload.hit_pos_t.xyz + normal_offset_fudge * direction;
-			continue;
-		} else {
-			C += kc * vec3(1., 1., 0.);
-			break;
+		if ((payload.material_flags & kXVkMaterialFlagEmissive) != 0) {
+			C += kc * payload.albedo; // TODO albedo is not correct, should have emissive field
 		}
 
-		origin = payload.hit_pos_t.xyz + normal_offset_fudge * payload.normal;
-		// TODO this is totally not correct
-		direction = normalize(mix(
-				reflect(direction, payload.normal),
-				//vec3(rand01(), rand01(), rand01())*2.-1.,
-				rand3_f01(uvec3(gl_LaunchIDEXT.xy, (bounce + 1) * push_constants.random_seed)) * 2. - 1.,
-				payload.roughness
-			));
-		//direction *= dot(direction, payload.normal);
-		kc *= mix(vec3(1.), dot(direction, payload.normal) * payload.albedo, payload.roughness);
+		if ((payload.material_flags & kXVkMaterialFlagDiffuse) != 0) {
+			C += kc * computeLighting();
+		}
+
+		// HACK
+		if ((payload.material_flags & kXVkMaterialFlagReflective) != 0) {
+				payload.roughness = 0.;
+		}
+
+		float through_probablity = .0;
+		if ((payload.material_flags & kXVkMaterialFlagRefractive) != 0) {
+			through_probablity = .5; // .... FIXME
+		}
+
+		if ((payload.material_flags & kXVkMaterialFlagAdditive) != 0) {
+			through_probablity = 1.;
+		}
+
+		if (through_probablity > 0. && rand01() < through_probablity) {
+			origin = payload.hit_pos_t.xyz - normal_offset_fudge * payload.normal;
+			kc *= payload.albedo; // ... FIXME
+		} else {
+			origin = payload.hit_pos_t.xyz + normal_offset_fudge * payload.normal;
+
+			// TODO this is totally not correct
+			direction = normalize(mix(
+					reflect(direction, payload.normal),
+					//vec3(rand01(), rand01(), rand01())*2.-1.,
+					rand3_f01(uvec3(gl_LaunchIDEXT.xy, (bounce + 1) * push_constants.random_seed)) * 2. - 1.,
+					payload.roughness
+				));
+			direction *= dot(direction, payload.normal);
+			kc *= mix(vec3(1.), dot(direction, payload.normal) * payload.albedo, payload.roughness);
+		}
+
 	} // for all bounces
 
 	{

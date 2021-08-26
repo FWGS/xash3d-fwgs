@@ -185,7 +185,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		geoms[i] = (VkAccelerationStructureGeometryKHR)
 			{
 				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-				.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+				.flags = VK_GEOMETRY_OPAQUE_BIT_KHR, // FIXME this is not true. incoming mode might have transparency eventually (and also dynamically)
 				.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
 				.geometry.triangles =
 					(VkAccelerationStructureGeometryTrianglesDataKHR){
@@ -216,35 +216,12 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		kusochki[i].triangles = prim_count;
 
 		kusochki[i].texture = mg->texture;
-		kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.;
-	
-		// FIXME this should not be done here, as we generally don't really have
-		// render_mode information yet. (does this affect BLAS building?)
-		switch (args.model->render_mode) {
-			case kRenderNormal:
-				kusochki[i].flags = 0;
-				break;
+		kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.; // FIXME
 
-			// C = (1 - alpha) * DST + alpha * SRC (TODO is this right?)
-			case kRenderTransColor:
-			case kRenderTransTexture:
-				kusochki[i].flags = 1;
-				break;
-
-			// Additive blending: C = SRC * alpha + DST
-			case kRenderGlow:
-			case kRenderTransAdd:
-				kusochki[i].flags = 2;
-				break;
-
-			// Alpha test (TODO additive? mixing?)
-			case kRenderTransAlpha:
-				kusochki[i].flags = 3;
-				break;
-
-			default:
-				gEngine.Host_Error("Unexpected render mode %d\n", args.model->render_mode);
-		}
+		// We don't know render_mode yet
+		// TODO: assume diffuse-only surface by default?
+		// TODO: does this affect BLAS building?
+		kusochki[i].material_flags = 0; // kXVkMaterialFlagDiffuse;
 
 		mg->kusok_index = i + kusochki_count_offset;
 	}
@@ -326,29 +303,26 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		g_ray_model_state.frame.num_models++;
 	}
 
-	if (render_model)
-		VK_LightsAddEmissiveSurfacesFromModel( render_model, transform_row );
-
 	switch (render_model->render_mode) {
 		case kRenderNormal:
-			material_flags = 0;
+			material_flags = kXVkMaterialFlagDiffuse;
 			break;
 
 		// C = (1 - alpha) * DST + alpha * SRC (TODO is this right?)
 		case kRenderTransColor:
 		case kRenderTransTexture:
-			material_flags = 1;
+			material_flags = kXVkMaterialFlagDiffuse | kXVkMaterialFlagReflective | kXVkMaterialFlagRefractive;
 			break;
 
 		// Additive blending: C = SRC * alpha + DST
 		case kRenderGlow:
 		case kRenderTransAdd:
-			material_flags = 2;
+			material_flags = kXVkMaterialFlagAdditive | kXVkMaterialFlagEmissive;
 			break;
 
 		// Alpha test (TODO additive? mixing?)
 		case kRenderTransAlpha:
-			material_flags = 3;
+			material_flags = kXVkMaterialFlagDiffuse | kXVkMaterialFlagAlphaTest;
 			break;
 
 		default:
@@ -357,9 +331,10 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 	for (int i = 0; i < render_model->num_geometries; ++i) {
 		const vk_render_geometry_t *geom = render_model->geometries + i;
+		const qboolean emissive = VK_LightsAddEmissiveSurface( geom, transform_row );
 		vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_ray_model_state.kusochki_buffer.mapped) + geom->kusok_index;
 		kusok->texture = geom->texture;
-		kusok->flags = material_flags;
+		kusok->material_flags = material_flags | (emissive ? kXVkMaterialFlagEmissive : 0);
 	}
 }
 

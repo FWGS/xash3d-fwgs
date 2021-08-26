@@ -484,7 +484,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			if( FBitSet( surf->flags, SURF_DRAWSKY )) {
 				model_geometry->material = kXVkMaterialSky;
 			} else {
-				model_geometry->material = kXVkMaterialDiffuse;
+				model_geometry->material = kXVkMaterialRegular;
 				VK_CreateSurfaceLightmap( surf, mod );
 			}
 
@@ -573,7 +573,7 @@ qboolean VK_BrushModelLoad( model_t *mod )
 		bmodel->render_model.debug_name = mod->name;
 		bmodel->render_model.render_mode = kRenderNormal;
 
-		bmodel->num_water_surfaces = sizes.water_surfaces != 0;
+		bmodel->num_water_surfaces = sizes.water_surfaces;
 
 		if (sizes.num_surfaces != 0) {
 			bmodel->render_model.geometries = (vk_render_geometry_t*)((char*)(bmodel + 1));

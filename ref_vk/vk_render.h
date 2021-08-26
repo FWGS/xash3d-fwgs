@@ -10,7 +10,7 @@ void VK_RenderShutdown( void );
 // 1. alloc (allocates buffer mem, stores allocation data)
 // 2. (returns void* buf and handle) write to buf
 // 3. upload and lock (ensures that all this data is in gpu mem, e.g. uploads from staging)
-// 4. ... use it 
+// 4. ... use it
 // 5. free (frame/map end)
 
 typedef struct {
@@ -61,18 +61,29 @@ typedef struct vk_vertex_s {
 	float _padding[3];
 } vk_vertex_t;
 
-// TODO not sure how to do materials yet. Figure this out
+// Quirk for passing surface type to the renderer
+// xash3d does not really have a notion of materials. Instead there are custom code paths
+// for different things. There's also render_mode for entities which determine blending mode
+// and stuff.
+// For ray tracing we do need to assing a material to each rendered surface, so we need to
+// figure out what it is given heuristics like render_mode, texture name, etc.
+// For some things we don't even have that. E.g. water and sky surfaces are weird.
+// Lets just assigne water and sky materials to those geometries (and probably completely
+// disregard render_mode, as it should be irrelevant).
 typedef enum {
-	kXVkMaterialDiffuse,
+	kXVkMaterialRegular = 0,
 	kXVkMaterialWater,
 	kXVkMaterialSky,
+	kXVkMaterialEmissive,
 } XVkMaterialType;
 
-typedef struct {
+typedef struct  vk_render_geometry_s {
 	int index_offset, vertex_offset;
 
-	// TODO can be dynamic
+	// Animated textures will be dynamic and change between frames
 	int texture;
+
+	// If this geometry is special, it will have a material type override
 	XVkMaterialType material;
 
 	uint32_t element_count;
@@ -98,11 +109,10 @@ typedef struct vk_render_model_s {
 	int num_geometries;
 	vk_render_geometry_t *geometries;
 
-	// TODO potentially dynamic data: textures
-
 	// This model will be one-frame only, its buffers are not preserved between frames
 	qboolean dynamic;
 
+	// Non-NULL only for ray tracing
 	struct vk_ray_model_s *ray_model;
 } vk_render_model_t;
 

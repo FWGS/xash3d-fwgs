@@ -705,7 +705,7 @@ static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec
 	{
 		const vk_render_geometry_t geometry = {
 			.texture = texture,
-			.material = kXVkMaterialDiffuse,
+			.material = kXVkMaterialEmissive,
 
 			.max_vertex = 4,
 			.vertex_offset = vertex_buffer.buffer.unit.offset,

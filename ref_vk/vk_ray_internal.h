@@ -8,6 +8,14 @@
 #define MAX_EMISSIVE_KUSOCHKI 256
 #define MODEL_CACHE_SIZE 1024
 
+// Shared with shaders
+#define	kXVkMaterialFlagEmissive (1<<0)
+#define	kXVkMaterialFlagDiffuse (1<<1)
+#define	kXVkMaterialFlagAdditive (1<<2)
+#define	kXVkMaterialFlagReflective (1<<3)
+#define	kXVkMaterialFlagRefractive (1<<4)
+#define	kXVkMaterialFlagAlphaTest (1<<5)
+
 typedef struct vk_ray_model_s {
 	VkAccelerationStructureKHR as;
 	VkAccelerationStructureGeometryKHR *geoms;
@@ -31,7 +39,7 @@ typedef struct {
 	// Material parameters
 	uint32_t texture;
 	float roughness;
-	uint32_t flags; // 0 -- opaque, 1 -- alpha mix, 2 -- additive, 3 -- alpha test
+	uint32_t material_flags;
 } vk_kusok_data_t;
 
 typedef struct {

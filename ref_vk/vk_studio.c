@@ -2002,7 +2002,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 		const vk_render_geometry_t geometry = {
 			//.lightmap = tglob.whiteTexture,
 			.texture = texture,
-			.material = kXVkMaterialDiffuse,
+			.material = kXVkMaterialRegular,
 
 			.vertex_offset = vertex_buffer.buffer.unit.offset,
 			.max_vertex = num_vertices,

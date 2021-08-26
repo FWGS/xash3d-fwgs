@@ -418,79 +418,77 @@ static void addSurfaceLightToCell( const int light_cell[3], int emissive_surface
 	++cluster->num_emissive_surfaces;
 }
 
-void VK_LightsAddEmissiveSurfacesFromModel( const struct vk_render_model_s *model, const matrix3x4 *transform_row )
-{
-	for (int i = 0; i < model->num_geometries; ++i) {
-		const vk_render_geometry_t *geom = model->geometries + i;
-		const int texture_num = geom->texture; // Animated texture
-		if (!geom->surf)
-			continue; // TODO break? no surface means that model is not brush
+qboolean VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row ) {
+	const int texture_num = geom->texture; // Animated texture
+	if (!geom->surf)
+		return false; // TODO break? no surface means that model is not brush
 
-		if (geom->material != kXVkMaterialSky && !g_lights.map.emissive_textures[texture_num].set)
-			continue;
+	if (geom->material != kXVkMaterialSky && geom->material != kXVkMaterialEmissive && !g_lights.map.emissive_textures[texture_num].set)
+		return false;
 
-		if (g_lights.num_emissive_surfaces < 256) {
-			// Insert into emissive surfaces
-			vk_emissive_surface_t *esurf = g_lights.emissive_surfaces + g_lights.num_emissive_surfaces;
-			esurf->kusok_index = geom->kusok_index;
-			if (geom->material != kXVkMaterialSky) {
-				VectorCopy(g_lights.map.emissive_textures[texture_num].emissive, esurf->emissive);
-			} else {
-				// TODO per-map sky emissive
-				VectorSet(esurf->emissive, 1000.f, 1000.f, 1000.f);
-			}
-			Matrix3x4_Copy(esurf->transform, *transform_row);
+	if (g_lights.num_emissive_surfaces < 256) {
+		// Insert into emissive surfaces
+		vk_emissive_surface_t *esurf = g_lights.emissive_surfaces + g_lights.num_emissive_surfaces;
+		esurf->kusok_index = geom->kusok_index;
+		if (geom->material != kXVkMaterialSky && geom->material != kXVkMaterialEmissive) {
+			VectorCopy(g_lights.map.emissive_textures[texture_num].emissive, esurf->emissive);
+		} else {
+			// TODO per-map sky emissive
+			VectorSet(esurf->emissive, 1000.f, 1000.f, 1000.f);
+		}
+		Matrix3x4_Copy(esurf->transform, *transform_row);
 
-			// Insert into light grid cell
+		// Insert into light grid cell
+		{
+			int cluster_index;
+			vec3_t light_cell;
+			float effective_radius;
+			const float intensity_threshold = 1.f / 255.f; // TODO better estimate
+			const float intensity = Q_max(Q_max(esurf->emissive[0], esurf->emissive[1]), esurf->emissive[2]);
+			ASSERT(geom->surf->info);
+			// FIXME using just origin is incorrect
 			{
-				int cluster_index;
-				vec3_t light_cell;
-				float effective_radius;
-				const float intensity_threshold = 1.f / 255.f; // TODO better estimate
-				const float intensity = Q_max(Q_max(esurf->emissive[0], esurf->emissive[1]), esurf->emissive[2]);
-				ASSERT(geom->surf->info);
-				// FIXME using just origin is incorrect
-				{
-					vec3_t light_cell_f;
-					vec3_t origin;
-					Matrix3x4_VectorTransform(*transform_row, geom->surf->info->origin, origin);
-					VectorDivide(origin, LIGHT_GRID_CELL_SIZE, light_cell_f);
-					light_cell[0] = floorf(light_cell_f[0]);
-					light_cell[1] = floorf(light_cell_f[1]);
-					light_cell[2] = floorf(light_cell_f[2]);
-				}
-				VectorSubtract(light_cell, g_lights.map.grid_min_cell, light_cell);
+				vec3_t light_cell_f;
+				vec3_t origin;
+				Matrix3x4_VectorTransform(*transform_row, geom->surf->info->origin, origin);
+				VectorDivide(origin, LIGHT_GRID_CELL_SIZE, light_cell_f);
+				light_cell[0] = floorf(light_cell_f[0]);
+				light_cell[1] = floorf(light_cell_f[1]);
+				light_cell[2] = floorf(light_cell_f[2]);
+			}
+			VectorSubtract(light_cell, g_lights.map.grid_min_cell, light_cell);
 
-				ASSERT(light_cell[0] >= 0);
-				ASSERT(light_cell[1] >= 0);
-				ASSERT(light_cell[2] >= 0);
-				ASSERT(light_cell[0] < g_lights.map.grid_size[0]);
-				ASSERT(light_cell[1] < g_lights.map.grid_size[1]);
-				ASSERT(light_cell[2] < g_lights.map.grid_size[2]);
+			ASSERT(light_cell[0] >= 0);
+			ASSERT(light_cell[1] >= 0);
+			ASSERT(light_cell[2] >= 0);
+			ASSERT(light_cell[0] < g_lights.map.grid_size[0]);
+			ASSERT(light_cell[1] < g_lights.map.grid_size[1]);
+			ASSERT(light_cell[2] < g_lights.map.grid_size[2]);
 
-				//		3.3	Add it to those cells
-				effective_radius = sqrtf(intensity / intensity_threshold);
-				{
-					const int irad = ceilf(effective_radius / LIGHT_GRID_CELL_SIZE);
-					//gEngine.Con_Reportf("Emissive surface %d: max intensity: %f; eff rad: %f; cell rad: %d\n", i, intensity, effective_radius, irad);
-					for (int x = -irad; x <= irad; ++x)
-						for (int y = -irad; y <= irad; ++y)
-							for (int z = -irad; z <= irad; ++z) {
-								const int cell[3] = { light_cell[0] + x, light_cell[1] + y, light_cell[2] + z};
-								// TODO culling, ...
-								// 		3.1 Compute light size and intensity (?)
-								//		3.2 Compute which cells it might affect
-								//			- light orientation
-								//			- light intensity
-								//			- PVS
-								addSurfaceLightToCell(cell, g_lights.num_emissive_surfaces);
-							}
-				}
+			//		3.3	Add it to those cells
+			effective_radius = sqrtf(intensity / intensity_threshold);
+			{
+				const int irad = ceilf(effective_radius / LIGHT_GRID_CELL_SIZE);
+				//gEngine.Con_Reportf("Emissive surface %d: max intensity: %f; eff rad: %f; cell rad: %d\n", i, intensity, effective_radius, irad);
+				for (int x = -irad; x <= irad; ++x)
+					for (int y = -irad; y <= irad; ++y)
+						for (int z = -irad; z <= irad; ++z) {
+							const int cell[3] = { light_cell[0] + x, light_cell[1] + y, light_cell[2] + z};
+							// TODO culling, ...
+							// 		3.1 Compute light size and intensity (?)
+							//		3.2 Compute which cells it might affect
+							//			- light orientation
+							//			- light intensity
+							//			- PVS
+							addSurfaceLightToCell(cell, g_lights.num_emissive_surfaces);
+						}
 			}
 		}
-
-		++g_lights.num_emissive_surfaces;
 	}
+
+	++g_lights.num_emissive_surfaces;
+
+	return true;
 }
 
 void VK_LightsFrameFinalize( void )

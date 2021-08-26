@@ -65,6 +65,9 @@
 		uint8_t data[];
 
 # Planned
+- [ ] improve nonuniformEXT usage: https://github.com/KhronosGroup/Vulkan-Samples/pull/243/files#diff-262568ff21d7a618c0069d6a4ddf78e715fe5326c71dd2f5cdf8fc8da929bc4eR31
+- [ ] emissive beams
+- [ ] emissive particles/sprites
 - [ ] issue: transparent brushes are too transparent (train ride)
 	- [ ] (test_shaders_basic.bsp) shows that for brushes at least there are the following discrepancies with gl renderer:
 		- [ ] traditional:
@@ -147,6 +150,7 @@
 - [ ] sometimes it gets very slow (1fps) when ran under lldb (only on stream?)
 - [ ] optimize perf: cmdbuf managements and semaphores, upload to gpu, ...
 - [ ] rtx: studio models should not pre-transform vertices with modelView matrix
+- [ ] include common headers with struct definitions from both shaders and c code
 
 # Someday
 - [ ] rtx: dynamic rtx/non-rtx switching breaks dynamic models

@@ -48,7 +48,7 @@ void VK_LightsNewMap( void );
 
 void VK_LightsFrameInit( void );
 
-struct vk_render_model_s;
-void VK_LightsAddEmissiveSurfacesFromModel( const struct vk_render_model_s *model, const matrix3x4 *transform_row);
+struct vk_render_geometry_s;
+qboolean VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row );
 
 void VK_LightsFrameFinalize( void );
