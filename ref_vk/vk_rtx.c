@@ -660,7 +660,6 @@ static void updateLights( void )
 		ek->num_kusochki = g_lights.num_emissive_surfaces;
 		for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
 			ek->kusochki[i].kusok_index = g_lights.emissive_surfaces[i].kusok_index;
-			VectorCopy(g_lights.emissive_surfaces[i].emissive, ek->kusochki[i].emissive_color);
 			Matrix3x4_Copy(ek->kusochki[i].transform, g_lights.emissive_surfaces[i].transform);
 		}
 	}

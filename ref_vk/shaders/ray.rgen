@@ -48,7 +48,6 @@ layout(set = 0, binding = 7) uniform UBODLights {
 // TODO #include, use from here and regular shader
 struct EmissiveKusok {
 	uint kusok_index;
-	vec3 emissive_color;
 	vec4 tx_row_x, tx_row_y, tx_row_z;
 };
 
@@ -133,7 +132,7 @@ vec3 computeLighting() {
 			const EmissiveKusok ek = emissive_kusochki.kusochki[index_into_emissive_kusochki];
 			const uint emissive_kusok_index = emissive_kusochki.kusochki[index_into_emissive_kusochki].kusok_index;
 			const Kusok ekusok = kusochki[emissive_kusok_index];
-			const vec3 emissive = emissive_kusochki.kusochki[index_into_emissive_kusochki].emissive_color.rgb;
+			const vec3 emissive = ekusok.emissive;
 
 			// TODO streamline matrices layouts
 			const mat4x3 emissive_transform = mat4x3(
@@ -282,17 +281,10 @@ void main() {
 			break;
 		}
 
-		if ((payload.material_flags & kXVkMaterialFlagEmissive) != 0) {
-			C += kc * payload.albedo; // TODO albedo is not correct, should have emissive field
-		}
+		C += kc * payload.emissive;
 
-		if ((payload.material_flags & kXVkMaterialFlagDiffuse) != 0) {
+		if ((payload.material_flags & kXVkMaterialFlagLighting) != 0) {
 			C += kc * computeLighting();
-		}
-
-		// HACK
-		if ((payload.material_flags & kXVkMaterialFlagReflective) != 0) {
-				payload.roughness = 0.;
 		}
 
 		float through_probablity = .0;
@@ -305,9 +297,11 @@ void main() {
 		}
 
 		if (through_probablity > 0. && rand01() < through_probablity) {
+			// Refraction/additive
 			origin = payload.hit_pos_t.xyz - normal_offset_fudge * payload.normal;
 			kc *= payload.albedo; // ... FIXME
 		} else {
+			// Diffuse/specular bounce
 			origin = payload.hit_pos_t.xyz + normal_offset_fudge * payload.normal;
 
 			// TODO this is totally not correct
@@ -320,7 +314,6 @@ void main() {
 			direction *= dot(direction, payload.normal);
 			kc *= mix(vec3(1.), dot(direction, payload.normal) * payload.albedo, payload.roughness);
 		}
-
 	} // for all bounces
 
 	{

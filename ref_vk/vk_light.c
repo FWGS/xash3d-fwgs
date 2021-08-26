@@ -418,13 +418,13 @@ static void addSurfaceLightToCell( const int light_cell[3], int emissive_surface
 	++cluster->num_emissive_surfaces;
 }
 
-qboolean VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row ) {
+const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row ) {
 	const int texture_num = geom->texture; // Animated texture
 	if (!geom->surf)
-		return false; // TODO break? no surface means that model is not brush
+		return NULL; // TODO break? no surface means that model is not brush
 
 	if (geom->material != kXVkMaterialSky && geom->material != kXVkMaterialEmissive && !g_lights.map.emissive_textures[texture_num].set)
-		return false;
+		return NULL;
 
 	if (g_lights.num_emissive_surfaces < 256) {
 		// Insert into emissive surfaces
@@ -484,11 +484,13 @@ qboolean VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, c
 						}
 			}
 		}
+
+		++g_lights.num_emissive_surfaces;
+		return esurf;
 	}
 
 	++g_lights.num_emissive_surfaces;
-
-	return true;
+	return NULL;
 }
 
 void VK_LightsFrameFinalize( void )

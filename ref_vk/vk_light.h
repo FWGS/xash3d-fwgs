@@ -48,7 +48,11 @@ void VK_LightsNewMap( void );
 
 void VK_LightsFrameInit( void );
 
+// TODO there is an arguably better way to organize this.
+// a. this only belongs to ray tracing mode
+// b. kusochki now have emissive color, so it probably makes more sense to not store emissive
+//    separately in emissive surfaces.
 struct vk_render_geometry_s;
-qboolean VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row );
+const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row );
 
 void VK_LightsFrameFinalize( void );

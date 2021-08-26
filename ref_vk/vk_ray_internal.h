@@ -3,18 +3,12 @@
 #include "vk_core.h"
 #include "vk_buffer.h"
 
+#include "shaders/ray_interop.h"
+
 #define MAX_ACCELS 1024
 #define MAX_KUSOCHKI 8192
 #define MAX_EMISSIVE_KUSOCHKI 256
 #define MODEL_CACHE_SIZE 1024
-
-// Shared with shaders
-#define	kXVkMaterialFlagEmissive (1<<0)
-#define	kXVkMaterialFlagDiffuse (1<<1)
-#define	kXVkMaterialFlagAdditive (1<<2)
-#define	kXVkMaterialFlagReflective (1<<3)
-#define	kXVkMaterialFlagRefractive (1<<4)
-#define	kXVkMaterialFlagAlphaTest (1<<5)
 
 typedef struct vk_ray_model_s {
 	VkAccelerationStructureKHR as;
@@ -40,6 +34,11 @@ typedef struct {
 	uint32_t texture;
 	float roughness;
 	uint32_t material_flags;
+
+	float _padding_0[2];
+	vec3_t emissive;
+	
+	float _padding_1[1];
 } vk_kusok_data_t;
 
 typedef struct {
@@ -48,8 +47,6 @@ typedef struct {
 	struct {
 		uint32_t kusok_index;
 		uint32_t padding__[3];
-		vec3_t emissive_color;
-		uint32_t padding___;
 		matrix3x4 transform;
 	} kusochki[MAX_EMISSIVE_KUSOCHKI];
 } vk_emissive_kusochki_t;

@@ -6,6 +6,7 @@
 #include "vk_light.h"
 
 #include "eiface.h"
+#include "xash3d_mathlib.h"
 
 #include <string.h>
 
@@ -217,6 +218,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 
 		kusochki[i].texture = mg->texture;
 		kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.; // FIXME
+		VectorSet(kusochki[i].emissive, 0, 0, 0 );
 
 		// We don't know render_mode yet
 		// TODO: assume diffuse-only surface by default?
@@ -283,6 +285,9 @@ void VK_RayModelDestroy( struct vk_ray_model_s *model ) {
 
 void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row ) {
 	uint32_t material_flags = 0;
+	qboolean reflective = false;
+	qboolean force_emissive = false;
+
 	ASSERT(vk_core.rtx);
 	ASSERT(g_ray_model_state.frame.num_models <= ARRAYSIZE(g_ray_model_state.frame.models));
 
@@ -305,24 +310,26 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 	switch (render_model->render_mode) {
 		case kRenderNormal:
-			material_flags = kXVkMaterialFlagDiffuse;
+			material_flags = kXVkMaterialFlagLighting;
 			break;
 
 		// C = (1 - alpha) * DST + alpha * SRC (TODO is this right?)
 		case kRenderTransColor:
 		case kRenderTransTexture:
-			material_flags = kXVkMaterialFlagDiffuse | kXVkMaterialFlagReflective | kXVkMaterialFlagRefractive;
+			material_flags = kXVkMaterialFlagLighting | kXVkMaterialFlagRefractive;
+			reflective = true;
 			break;
 
 		// Additive blending: C = SRC * alpha + DST
 		case kRenderGlow:
 		case kRenderTransAdd:
-			material_flags = kXVkMaterialFlagAdditive | kXVkMaterialFlagEmissive;
+			material_flags = kXVkMaterialFlagAdditive;
+			force_emissive = true;
 			break;
 
 		// Alpha test (TODO additive? mixing?)
 		case kRenderTransAlpha:
-			material_flags = kXVkMaterialFlagDiffuse | kXVkMaterialFlagAlphaTest;
+			material_flags = kXVkMaterialFlagLighting | kXVkMaterialFlagAlphaTest;
 			break;
 
 		default:
@@ -331,10 +338,21 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 	for (int i = 0; i < render_model->num_geometries; ++i) {
 		const vk_render_geometry_t *geom = render_model->geometries + i;
-		const qboolean emissive = VK_LightsAddEmissiveSurface( geom, transform_row );
+		const vk_emissive_surface_t *esurf = VK_LightsAddEmissiveSurface( geom, transform_row );
 		vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_ray_model_state.kusochki_buffer.mapped) + geom->kusok_index;
 		kusok->texture = geom->texture;
-		kusok->material_flags = material_flags | (emissive ? kXVkMaterialFlagEmissive : 0);
+		kusok->material_flags = material_flags;
+		
+		// HACK until there is proper specular
+		// FIXME also this erases previour roughness conditionally
+		if (reflective)
+			kusok->roughness = 0.f;
+
+		if (esurf) {
+			VectorCopy(esurf->emissive, kusok->emissive);
+		} else if (force_emissive) {
+			VectorSet(kusok->emissive, 1.f, 1.f, 1.f);
+		}
 	}
 }
 

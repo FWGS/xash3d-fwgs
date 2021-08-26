@@ -1,18 +1,9 @@
 #extension GL_EXT_shader_16bit_storage : require
 //#extension GL_EXT_shader_8bit_storage : require
 
-// Shared with native
-#define	kXVkMaterialFlagEmissive (1<<0)
-#define	kXVkMaterialFlagDiffuse (1<<1) // means: compute lighting
-#define	kXVkMaterialFlagAdditive (1<<2)
-#define	kXVkMaterialFlagReflective (1<<3)
-#define	kXVkMaterialFlagRefractive (1<<4)
-#define	kXVkMaterialFlagAlphaTest (1<<5)
+#include "ray_interop.h"
 
-// TODO?
-// DoLighting
-// PassThrough ??? reflective vs refractive + additive
-
+// TODO move to ray_interop
 struct Kusok {
 	uint index_offset;
 	uint vertex_offset;
@@ -22,6 +13,7 @@ struct Kusok {
 	uint texture;
 	float roughness;
 	uint material_flags;
+	vec3 emissive;
 };
 
 struct Vertex {
