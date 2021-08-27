@@ -988,7 +988,7 @@ static void CL_DrawLoadingOrPaused( qboolean paused, float percent )
 	{
 		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
-		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.loadingBar );
+		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.pauseIcon );
 	}
 }
 
