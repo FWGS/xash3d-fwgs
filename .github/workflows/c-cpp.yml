@@ -86,7 +86,9 @@ jobs:
       if: matrix.targetos == 'linux' && matrix.targetarch == 'amd64'
       run: |
         tar -xvf pvs-studio.tgz && mv ${{ env.PVS_VERSION }} pvs-studio
-        pvs-studio/bin/pvs-studio-analyzer credentials ${{ secrets.PVS_NAME }} ${{ secrets.PVS_KEY }}
+        mkdir -p ~/.config/PVS-Studio
+        echo ${{ secrets.PVS_NAME }} > ~/.config/PVS-Studio/PVS-Studio.lic
+        echo ${{ secrets.PVS_KEY }} >> ~/.config/PVS-Studio/PVS-Studio.lic
         pvs-studio/bin/pvs-studio-analyzer analyze --file build/compile_commands.json -j3
         pvs-studio/bin/plog-converter -a GA:1,2 -t sarif -o report.sarif PVS-Studio.log
     - name: Upload SARIF
