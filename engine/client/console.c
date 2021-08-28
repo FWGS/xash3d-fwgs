@@ -675,7 +675,9 @@ static void Con_LoadConchars( void )
 		Con_LoadConsoleFont( i, con.chars + i );
 
 	// select properly fontsize
-	if( refState.width <= 640 )
+	if( con_fontnum->value >= 0 && con_fontnum->value <= CON_NUMFONTS - 1 )
+		fontSize = con_fontnum->value;
+	else if( refState.width <= 640 )
 		fontSize = 0;
 	else if( refState.width >= 1280 )
 		fontSize = 2;
