@@ -984,6 +984,12 @@ static void CL_DrawLoadingOrPaused( qboolean paused, float percent )
 		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, s2, 1, cls.loadingBar );
 		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 	}
+	else if( !( paused || cl_allow_levelshots->value ) )
+	{
+		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.loadingBar );
+	}
 	else
 	{
 		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
