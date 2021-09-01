@@ -1,8 +1,11 @@
-## 2021-08-22, E129
-- [x] fix depth test for glow render mode
-- [x] screenshots
+## 2021-09-01, E132
+- [x] rtx: ingest brdfs from ray tracing gems 2
 
 # Next
+- [ ] rtx: directly select a triangle for light sampling
+- [ ] rtx: pass alpha for transparency
+- [ ] rtx: remove additive/refractive flags in favor or probability of ray continuing further instead of bouncing off
+- [ ] rtx: experiment with refraction index and "refraction roughness"
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
 - [ ] make a list of all possible materials, categorize them and figure out what to do
 	- orig:
@@ -65,6 +68,7 @@
 		uint8_t data[];
 
 # Planned
+- [ ] rtx: shrink payload between shaders
 - [ ] improve nonuniformEXT usage: https://github.com/KhronosGroup/Vulkan-Samples/pull/243/files#diff-262568ff21d7a618c0069d6a4ddf78e715fe5326c71dd2f5cdf8fc8da929bc4eR31
 - [ ] emissive beams
 - [ ] emissive particles/sprites
@@ -399,3 +403,11 @@
 
 ## 2021-08-18, E128
 - [x] rtx: fix maxVertex for brushes
+
+## 2021-08-22, E129
+- [x] fix depth test for glow render mode
+- [x] screenshots
+
+## 2021-08-26, E131
+- [x] rtx: material flags for kusochki
+

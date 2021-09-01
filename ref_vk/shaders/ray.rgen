@@ -3,6 +3,7 @@
 #include "ray_common.glsl"
 #include "ray_kusochki.glsl"
 #include "noise.glsl"
+#include "brdf.h"
 
 #extension GL_EXT_shader_8bit_storage : require
 
@@ -96,7 +97,7 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 	return shadow;
 }
 
-vec3 computeLighting() {
+vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
 	vec3 C = vec3(0.);
 	const ivec3 light_cell = ivec3(floor(payload.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
 	const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
@@ -204,7 +205,7 @@ vec3 computeLighting() {
 
 				// TODO
 				const float brightness_fudge = 30.;
-				C += light_dot * sampling_light_scale * brightness_fudge * payload.albedo * emissive * light_dir_normal_dot / (light_dist * light_dist);
+				C += sampling_light_scale * brightness_fudge * emissive * evalCombinedBRDF(payload.normal, light_dir, view_dir, material) / (light_dist * light_dist);
 
 				// Sample just one triangle
 				break;
@@ -248,7 +249,7 @@ vec3 computeLighting() {
 }
 
 void main() {
-	rand01_state = push_constants.random_seed + gl_LaunchIDEXT.x * 1833 +  gl_LaunchIDEXT.y * 31337; 
+	rand01_state = push_constants.random_seed + gl_LaunchIDEXT.x * 1833 +  gl_LaunchIDEXT.y * 31337;
 	vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
 
 	vec3 origin    = (ubo.inv_view * vec4(0, 0, 0, 1)).xyz;
@@ -281,12 +282,22 @@ void main() {
 			break;
 		}
 
+		MaterialProperties material;
+		material.baseColor = payload.albedo;
+		material.metalness = 0.f;
+		material.emissive = payload.emissive;
+		material.roughness = .1f;// payload.roughness;
+
 		C += kc * payload.emissive;
 
 		if ((payload.material_flags & kXVkMaterialFlagLighting) != 0) {
-			C += kc * computeLighting();
+			C += kc * computeLighting(-direction, material);
 		}
 
+#if 1
+		if (bounce == push_constants.bounces - 1)
+			break;
+#else
 		float through_probablity = .0;
 		if ((payload.material_flags & kXVkMaterialFlagRefractive) != 0) {
 			through_probablity = .5; // .... FIXME
@@ -299,7 +310,10 @@ void main() {
 		if (through_probablity > 0. && rand01() < through_probablity) {
 			// Refraction/additive
 			origin = payload.hit_pos_t.xyz - normal_offset_fudge * payload.normal;
-			kc *= payload.albedo; // ... FIXME
+
+			if ((payload.material_flags & kXVkMaterialFlagAdditive) == 0) {
+				kc *= payload.albedo; // ... FIXME
+			}
 		} else {
 			// Diffuse/specular bounce
 			origin = payload.hit_pos_t.xyz + normal_offset_fudge * payload.normal;
@@ -314,6 +328,7 @@ void main() {
 			direction *= dot(direction, payload.normal);
 			kc *= mix(vec3(1.), dot(direction, payload.normal) * payload.albedo, payload.roughness);
 		}
+#endif
 	} // for all bounces
 
 	{
