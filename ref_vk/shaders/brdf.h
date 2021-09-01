@@ -951,3 +951,23 @@ bool evalIndirectCombinedBRDF(vec2 u, vec3 shadingNormal, vec3 geometryNormal, v
 
 	return true;
 }
+
+// Calculates probability of selecting BRDF (specular or diffuse) using the approximate Fresnel term
+float getBrdfProbability(MaterialProperties material, vec3 V, vec3 shadingNormal) {
+	
+	// Evaluate Fresnel term using the shading normal
+	// Note: we use the shading normal instead of the microfacet normal (half-vector) for Fresnel term here. That's suboptimal for rough surfaces at grazing angles, but half-vector is yet unknown at this point
+	float specularF0 = luminance(baseColorToSpecularF0(material.baseColor, material.metalness));
+	float diffuseReflectance = luminance(baseColorToDiffuseReflectance(material.baseColor, material.metalness));
+	float Fresnel = saturate(luminance(evalFresnel(vec3(specularF0), shadowedF90(vec3(specularF0)), max(0.0f, dot(V, shadingNormal)))));
+
+	// Approximate relative contribution of BRDFs using the Fresnel term
+	float specular = Fresnel;
+	float diffuse = diffuseReflectance * (1.0f - Fresnel); //< If diffuse term is weighted by Fresnel, apply it here as well
+
+	// Return probability of selecting specular BRDF over diffuse BRDF
+	float p = (specular / max(0.0001f, (specular + diffuse)));
+
+	// Clamp probability to avoid undersampling of less prominent BRDF
+	return clamp(p, 0.1f, 0.9f);
+}

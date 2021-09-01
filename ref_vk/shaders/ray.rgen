@@ -151,7 +151,7 @@ vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
 
 			if (emissive_kusok_index == uint(payload.kusok_index)) {
 				// TODO do we need to do this when we have textures?
-				//C += kc * vec3(hash(float(kusok_index)), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.));//kusok.emissive.rgb;
+				//C += throughput * vec3(hash(float(kusok_index)), hash(float(kusok_index)+15.43), hash(float(kusok_index)+34.));//kusok.emissive.rgb;
 				//C = vec3(1., 0., 1.);
 				continue;
 			}
@@ -256,7 +256,7 @@ void main() {
 	vec4 target    = ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
 	vec3 direction = (ubo.inv_view * vec4(normalize(target.xyz), 0)).xyz;
 
-	vec3 kc = vec3(1.);
+	vec3 throughput = vec3(1.);
 	vec3 C = vec3(0.);
 
 	payload.t_offset = .0;
@@ -277,8 +277,9 @@ void main() {
 			origin, 0., direction, L,
 			ray_payload_loc);
 
+		// Sky/envmap
 		if (payload.hit_pos_t.w <= 0.) {
-			C += kc * payload.albedo;
+			C += throughput * payload.albedo;
 			break;
 		}
 
@@ -286,49 +287,47 @@ void main() {
 		material.baseColor = payload.albedo;
 		material.metalness = 0.f;
 		material.emissive = payload.emissive;
-		material.roughness = .1f;// payload.roughness;
+		material.roughness = .1f; // FIXME payload.roughness;
 
-		C += kc * payload.emissive;
+		C += throughput * payload.emissive;
 
 		if ((payload.material_flags & kXVkMaterialFlagLighting) != 0) {
-			C += kc * computeLighting(-direction, material);
+			C += throughput * computeLighting(-direction, material);
 		}
 
-#if 1
 		if (bounce == push_constants.bounces - 1)
 			break;
-#else
-		float through_probablity = .0;
-		if ((payload.material_flags & kXVkMaterialFlagRefractive) != 0) {
-			through_probablity = .5; // .... FIXME
-		}
 
-		if ((payload.material_flags & kXVkMaterialFlagAdditive) != 0) {
-			through_probablity = 1.;
-		}
-
-		if (through_probablity > 0. && rand01() < through_probablity) {
-			// Refraction/additive
-			origin = payload.hit_pos_t.xyz - normal_offset_fudge * payload.normal;
-
-			if ((payload.material_flags & kXVkMaterialFlagAdditive) == 0) {
-				kc *= payload.albedo; // ... FIXME
-			}
+		vec3 shadingNormal = payload.normal;
+		vec3 geometryNormal = payload.normal;
+		vec3 V = -direction;
+		int brdfType;
+		if (material.metalness == 1.0f && material.roughness == 0.0f) {
+			// Fast path for mirrors
+			brdfType = SPECULAR_TYPE;
 		} else {
-			// Diffuse/specular bounce
-			origin = payload.hit_pos_t.xyz + normal_offset_fudge * payload.normal;
 
-			// TODO this is totally not correct
-			direction = normalize(mix(
-					reflect(direction, payload.normal),
-					//vec3(rand01(), rand01(), rand01())*2.-1.,
-					rand3_f01(uvec3(gl_LaunchIDEXT.xy, (bounce + 1) * push_constants.random_seed)) * 2. - 1.,
-					payload.roughness
-				));
-			direction *= dot(direction, payload.normal);
-			kc *= mix(vec3(1.), dot(direction, payload.normal) * payload.albedo, payload.roughness);
+			// Decide whether to sample diffuse or specular BRDF (based on Fresnel term)
+			float brdfProbability = getBrdfProbability(material, V, shadingNormal);
+
+			if (rand01() < brdfProbability) {
+				brdfType = SPECULAR_TYPE;
+				throughput /= brdfProbability;
+			} else {
+				brdfType = DIFFUSE_TYPE;
+				throughput /= (1.0f - brdfProbability);
+			}
 		}
-#endif
+
+		vec2 u = vec2(rand01(), rand01());
+		vec3 brdfWeight;
+		if (!evalIndirectCombinedBRDF(u, shadingNormal, geometryNormal, V, material, brdfType, direction, brdfWeight)) {
+			break; // Ray was eaten by the surface :(
+		}
+
+		// FIXME better offset (see ray tracing gems, ch 6?)
+		origin = payload.hit_pos_t.xyz + normal_offset_fudge * payload.normal;
+		throughput *= brdfWeight;
 	} // for all bounces
 
 	{
