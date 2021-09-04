@@ -17,11 +17,30 @@ typedef struct {
 	int r, g, b, intensity;
 } vk_light_texture_rad_data;
 
-static void loadRadData( const model_t *map, const char *filename ) {
-	fs_offset_t size;
-	byte *data, *buffer = gEngine.COM_LoadFile( filename, &size, false);
+static int lookupTextureF( const char *fmt, ...) {
+	int tex_id = 0;
+	char buffer[1024];
+	va_list argptr;
+	va_start( argptr, fmt );
+	vsnprintf( buffer, sizeof buffer, fmt, argptr );
+	va_end( argptr );
 
-	memset(g_lights.map.emissive_textures, 0, sizeof(g_lights.map.emissive_textures));
+	tex_id = VK_FindTexture(buffer);
+	gEngine.Con_Reportf("Looked up texture %s -> %d\n", buffer, tex_id);
+	return tex_id;
+}
+
+static void loadRadData( const model_t *map, const char *fmt, ... ) {
+	fs_offset_t size;
+	byte *data, *buffer;
+	char filename[1024];
+
+	va_list argptr;
+	va_start( argptr, fmt );
+	vsnprintf( filename, sizeof filename, fmt, argptr );
+	va_end( argptr );
+
+	buffer = gEngine.COM_LoadFile( filename, &size, false);
 
 	if (!buffer) {
 		gEngine.Con_Printf(S_ERROR "Couldn't load rad data from file %s, the map will be completely black\n", filename);
@@ -68,15 +87,17 @@ static void loadRadData( const model_t *map, const char *filename ) {
 				}
 
 				// Try bsp texture first
-				Q_sprintf(texname, "#%s:%s.mip", map->name, texture_name);
-				tex_id = VK_FindTexture(texname);
-				gEngine.Con_Reportf("Looked up texture %s -> %d\n", texname, tex_id);
+				tex_id = lookupTextureF("#%s:%s.mip", map->name, texture_name);
 
 				// Try wad texture if bsp is not there
-				if (!tex_id && wad_name) {
-					Q_sprintf(texname, "%s.wad/%s.mip", wad_name, texture_name);
-					tex_id = VK_FindTexture(texname);
-					gEngine.Con_Reportf("Looked up texture %s -> %d\n", texname, tex_id);
+				if (!tex_id) {
+					if (!wad_name)
+						wad_name = "halflife";
+					tex_id = lookupTextureF("%s.wad/%s.mip", wad_name, texture_name);
+				}
+
+				if (!tex_id) {
+					tex_id = lookupTextureF("%s.wad/+%s.mip", wad_name, texture_name);
 				}
 
 				if (tex_id) {
@@ -388,7 +409,9 @@ void VK_LightsNewMap( void )
 	parseStaticLightEntities();
 
 	// Load RAD data based on map name
-	loadRadData( map, "rad/lights_anomalous_materials.rad" );
+	memset(g_lights.map.emissive_textures, 0, sizeof(g_lights.map.emissive_textures));
+	loadRadData( map, "rad/lights.rad" );
+	loadRadData( map, "rad/%s.rad", map->name );
 }
 
 void VK_LightsFrameInit( void )
