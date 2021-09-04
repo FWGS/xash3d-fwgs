@@ -375,13 +375,25 @@ static void createPipeline( void )
 	}
 
 	VkPipelineShaderStageCreateInfo shaders[ShaderStageIndex_COUNT];
+	VkRayTracingShaderGroupCreateInfoKHR shader_groups[ShaderBindingTable_COUNT];
+
+	const VkRayTracingPipelineCreateInfoKHR rtpci = {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+		//TODO .flags = VK_PIPELINE_CREATE_RAY_TRACING_NO_NULL_ANY_HIT_SHADERS_BIT_KHR  ....
+		.stageCount = ARRAYSIZE(shaders),
+		.pStages = shaders,
+		.groupCount = ARRAYSIZE(shader_groups),
+		.pGroups = shader_groups,
+		.maxPipelineRayRecursionDepth = 1,
+		.layout = g_rtx.descriptors.pipeline_layout,
+	};
+
 	DEFINE_SHADER("ray.rgen.spv", RAYGEN, RayGen);
 	DEFINE_SHADER("ray.rmiss.spv", MISS, Miss);
 	DEFINE_SHADER("shadow.rmiss.spv", MISS, Miss_Shadow);
 	DEFINE_SHADER("ray.rchit.spv", CLOSEST_HIT, ClosestHit);
 	DEFINE_SHADER("alphamask.rahit.spv", ANY_HIT, AnyHit_AlphaMask);
 
-	VkRayTracingShaderGroupCreateInfoKHR shader_groups[ShaderBindingTable_COUNT];
 	shader_groups[ShaderBindingTable_RayGen] = (VkRayTracingShaderGroupCreateInfoKHR) {
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
@@ -425,17 +437,6 @@ static void createPipeline( void )
 		.closestHitShader = ShaderStageIndex_ClosestHit,
 		.generalShader = VK_SHADER_UNUSED_KHR,
 		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-
-	const VkRayTracingPipelineCreateInfoKHR rtpci = {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
-		//TODO .flags = VK_PIPELINE_CREATE_RAY_TRACING_NO_NULL_ANY_HIT_SHADERS_BIT_KHR  ....
-		.stageCount = ARRAYSIZE(shaders),
-		.pStages = shaders,
-		.groupCount = ARRAYSIZE(shader_groups),
-		.pGroups = shader_groups,
-		.maxPipelineRayRecursionDepth = 1,
-		.layout = g_rtx.descriptors.pipeline_layout,
 	};
 
 	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &g_rtx.pipeline));
