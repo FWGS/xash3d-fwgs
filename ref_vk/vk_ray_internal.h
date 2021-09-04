@@ -37,7 +37,7 @@ typedef struct {
 
 	float _padding_0[2];
 	vec3_t emissive;
-	
+
 	float _padding_1[1];
 } vk_kusok_data_t;
 
@@ -55,6 +55,7 @@ typedef struct {
 	matrix3x4 transform_row;
 	vk_ray_model_t *model;
 	int render_mode;
+	qboolean alphamask;
 } vk_ray_draw_model_t;
 
 typedef struct {
@@ -104,7 +105,7 @@ typedef struct {
 } xvk_ray_model_state_t;
 
 extern xvk_ray_model_state_t g_ray_model_state;
-	
+
 void XVK_RayModel_ClearForNextFrame( void );
 void XVK_RayModel_Validate(void);
 

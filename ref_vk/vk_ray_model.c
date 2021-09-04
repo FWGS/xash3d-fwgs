@@ -287,6 +287,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 	uint32_t material_flags = 0;
 	qboolean reflective = false;
 	qboolean force_emissive = false;
+	vk_ray_draw_model_t* draw_model = g_ray_model_state.frame.models + g_ray_model_state.frame.num_models;
 
 	ASSERT(vk_core.rtx);
 	ASSERT(g_ray_model_state.frame.num_models <= ARRAYSIZE(g_ray_model_state.frame.models));
@@ -300,8 +301,8 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 	}
 
 	{
-		vk_ray_draw_model_t* draw_model = g_ray_model_state.frame.models + g_ray_model_state.frame.num_models;
 		ASSERT(model->as != VK_NULL_HANDLE);
+		draw_model->alphamask = false;
 		draw_model->model = model;
 		draw_model->render_mode = render_model->render_mode;
 		memcpy(draw_model->transform_row, *transform_row, sizeof(draw_model->transform_row));
@@ -318,6 +319,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		case kRenderTransTexture:
 			material_flags = kXVkMaterialFlagLighting | kXVkMaterialFlagRefractive;
 			reflective = true;
+			draw_model->alphamask = true;
 			break;
 
 		// Additive blending: C = SRC * alpha + DST
@@ -325,11 +327,13 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		case kRenderTransAdd:
 			material_flags = kXVkMaterialFlagAdditive;
 			force_emissive = true;
+			draw_model->alphamask = true;
 			break;
 
 		// Alpha test (TODO additive? mixing?)
 		case kRenderTransAlpha:
 			material_flags = kXVkMaterialFlagLighting | kXVkMaterialFlagAlphaTest;
+			draw_model->alphamask = true;
 			break;
 
 		default:
@@ -342,7 +346,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_ray_model_state.kusochki_buffer.mapped) + geom->kusok_index;
 		kusok->texture = geom->texture;
 		kusok->material_flags = material_flags;
-		
+
 		// HACK until there is proper specular
 		// FIXME also this erases previour roughness conditionally
 		if (reflective)

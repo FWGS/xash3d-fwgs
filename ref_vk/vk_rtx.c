@@ -20,7 +20,14 @@
 
 #define MAX_LIGHT_LEAVES 8192
 
-#define SBT_SIZE 4
+enum {
+	ShaderBindingTable_RayGen,
+	ShaderBindingTable_Miss,
+	ShaderBindingTable_Miss_Shadow,
+	ShaderBindingTable_Hit,
+	ShaderBindingTable_HitWithAlphaMask,
+	ShaderBindingTable_COUNT
+};
 
 // TODO settings/realtime modifiable/adaptive
 #define FRAME_WIDTH 1280
@@ -350,77 +357,74 @@ static void createPipeline( void )
 		.pData = &spec_data,
 	};
 
-	const VkPipelineShaderStageCreateInfo shaders[] = {
-		{
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-			.module = loadShader("ray.rgen.spv"),
-			//.pSpecializationInfo = &spec,
-			.pName = "main",
-		},
-		{
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
-			.module = loadShader("ray.rmiss.spv"),
-			//.pSpecializationInfo = &spec,
-			.pName = "main",
-		},
-		{
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
-			.module = loadShader("shadow.rmiss.spv"),
-			//.pSpecializationInfo = &spec,
-			.pName = "main",
-		},
-		{
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-			.module = loadShader("ray.rchit.spv"),
-			//.pSpecializationInfo = &spec,
-			.pName = "main",
-		},
-		{
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-			.module = loadShader("alphamask.rahit.spv"),
-			//.pSpecializationInfo = &spec,
-			.pName = "main",
-		},
+	enum {
+		ShaderStageIndex_RayGen,
+		ShaderStageIndex_Miss,
+		ShaderStageIndex_Miss_Shadow,
+		ShaderStageIndex_ClosestHit,
+		ShaderStageIndex_AnyHit_AlphaMask,
+		ShaderStageIndex_COUNT,
 	};
 
-	const VkRayTracingShaderGroupCreateInfoKHR shader_groups[SBT_SIZE] = {
-		{
-			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-			.anyHitShader = VK_SHADER_UNUSED_KHR,
-			.closestHitShader = VK_SHADER_UNUSED_KHR,
-			.generalShader = 0, // raygen stage index; FIXME enum
-			.intersectionShader = VK_SHADER_UNUSED_KHR,
-		},
-		{
-			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-			.anyHitShader = VK_SHADER_UNUSED_KHR,
-			.closestHitShader = VK_SHADER_UNUSED_KHR,
-			.generalShader = 1, // miss stage index; FIXME enum
-			.intersectionShader = VK_SHADER_UNUSED_KHR,
-		},
-		{
-			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-			.anyHitShader = VK_SHADER_UNUSED_KHR,
-			.closestHitShader = VK_SHADER_UNUSED_KHR,
-			.generalShader = 2, // shadow miss stage index; FIXME enum
-			.intersectionShader = VK_SHADER_UNUSED_KHR,
-		},
-		{
-			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
-			.anyHitShader = 4, // FIXME index of alphamask shader
-			.closestHitShader = 3, // FIXME enum index
-			.generalShader = VK_SHADER_UNUSED_KHR,
-			.intersectionShader = VK_SHADER_UNUSED_KHR,
-		},
+#define DEFINE_SHADER(filename, bit, index) \
+	shaders[ShaderStageIndex_##index] = (VkPipelineShaderStageCreateInfo){ \
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, \
+		.stage = VK_SHADER_STAGE_##bit##_BIT_KHR, \
+		.module = loadShader(filename), \
+		.pName = "main", \
+	}
+
+	VkPipelineShaderStageCreateInfo shaders[ShaderStageIndex_COUNT];
+	DEFINE_SHADER("ray.rgen.spv", RAYGEN, RayGen);
+	DEFINE_SHADER("ray.rmiss.spv", MISS, Miss);
+	DEFINE_SHADER("shadow.rmiss.spv", MISS, Miss_Shadow);
+	DEFINE_SHADER("ray.rchit.spv", CLOSEST_HIT, ClosestHit);
+	DEFINE_SHADER("alphamask.rahit.spv", ANY_HIT, AnyHit_AlphaMask);
+
+	VkRayTracingShaderGroupCreateInfoKHR shader_groups[ShaderBindingTable_COUNT];
+	shader_groups[ShaderBindingTable_RayGen] = (VkRayTracingShaderGroupCreateInfoKHR) {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.generalShader = ShaderStageIndex_RayGen,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+
+	shader_groups[ShaderBindingTable_Miss] = (VkRayTracingShaderGroupCreateInfoKHR) {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.generalShader = ShaderStageIndex_Miss,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+
+	shader_groups[ShaderBindingTable_Miss_Shadow] = (VkRayTracingShaderGroupCreateInfoKHR) {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.generalShader = ShaderStageIndex_Miss_Shadow,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+
+	shader_groups[ShaderBindingTable_Hit] = (VkRayTracingShaderGroupCreateInfoKHR) {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.closestHitShader = ShaderStageIndex_ClosestHit,
+		.generalShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+
+	shader_groups[ShaderBindingTable_HitWithAlphaMask] = (VkRayTracingShaderGroupCreateInfoKHR) {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+		.anyHitShader = ShaderStageIndex_AnyHit_AlphaMask,
+		.closestHitShader = ShaderStageIndex_ClosestHit,
+		.generalShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
 	};
 
 	const VkRayTracingPipelineCreateInfoKHR rtpci = {
@@ -437,7 +441,6 @@ static void createPipeline( void )
 	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &g_rtx.pipeline));
 	ASSERT(g_rtx.pipeline != VK_NULL_HANDLE);
 
-	ASSERT(SBT_SIZE == ARRAYSIZE(shader_groups));
 	{
 		const uint32_t sbt_handle_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
 		const uint32_t sbt_handles_buffer_size = ARRAYSIZE(shader_groups) * sbt_handle_size;
@@ -468,7 +471,7 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 			inst[i] = (VkAccelerationStructureInstanceKHR){
 				.instanceCustomIndex = model->model->kusochki_offset,
 				.mask = 0xff,
-				.instanceShaderBindingTableRecordOffset = 0,
+				.instanceShaderBindingTableRecordOffset = model->alphamask ? 1 : 0,
 				.flags = model->render_mode == kRenderNormal ? VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR : VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR, // TODO is render_mode a good indicator of transparency in general case?
 				.accelerationStructureReference = getASAddress(model->model->as), // TODO cache this addr
 			};
@@ -628,9 +631,9 @@ static qboolean rayTrace( VkCommandBuffer cmdbuf, VkImage frame_dst, float fov_a
 .size = sbt_record_size * count, \
 .stride = sbt_record_size, \
 }
-		const VkStridedDeviceAddressRegionKHR sbt_raygen = SBT_INDEX(0, 1);
-		const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(1, 2);
-		const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(3, 1);
+		const VkStridedDeviceAddressRegionKHR sbt_raygen = SBT_INDEX(ShaderBindingTable_RayGen, 1);
+		const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(ShaderBindingTable_Miss, 2);
+		const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(ShaderBindingTable_Hit, 2);
 		const VkStridedDeviceAddressRegionKHR sbt_callable = { 0 };
 
 		vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_miss, &sbt_hit, &sbt_callable, FRAME_WIDTH, FRAME_HEIGHT, 1 );
@@ -665,7 +668,7 @@ static void updateLights( void )
 	}
 }
 
-static void blitImage( VkCommandBuffer cmdbuf, VkImage src, VkImage dst, int src_width, int src_height, int dst_width, int dst_height ) 
+static void blitImage( VkCommandBuffer cmdbuf, VkImage src, VkImage dst, int src_width, int src_height, int dst_width, int dst_height )
 {
 	// Blit raytraced image to frame buffer
 	{
@@ -952,7 +955,7 @@ qboolean VK_RayInit( void )
 	//g_rtx.sbt_record_size = ALIGN_UP(vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize, vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleAlignment);
 	g_rtx.sbt_record_size = ALIGN_UP(vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize, vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupBaseAlignment);
 
-	if (!createBuffer("ray sbt_buffer", &g_rtx.sbt_buffer, SBT_SIZE * g_rtx.sbt_record_size,
+	if (!createBuffer("ray sbt_buffer", &g_rtx.sbt_buffer, ShaderBindingTable_COUNT * g_rtx.sbt_record_size,
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 	{
