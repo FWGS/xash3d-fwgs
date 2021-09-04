@@ -140,7 +140,7 @@ vec3 sampleSurfaceTriangle(vec3 view_dir, MaterialProperties material, mat4x3 em
 	light_dist *= meters_per_unit;
 
 	// TODO sample emissive texture
-	return payload.albedo * evalCombinedBRDF(payload.normal, light_dir, view_dir, material) / (light_dist * light_dist);
+	return payload.base_color * evalCombinedBRDF(payload.normal, light_dir, view_dir, material) / (light_dist * light_dist);
 }
 
 vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
@@ -222,7 +222,7 @@ vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
 			const float r2 = light_pos_r.w * light_pos_r.w;
 			// TODO this is a bad approximation
 			const float attenuation = dlight_attenuation_const / (d2 + r2 * .5);
-			C += payload.albedo * light_color * dot_ld_norm * attenuation;
+			C += payload.base_color * light_color * dot_ld_norm * attenuation;
 		} // for all lights
 	}
 
@@ -260,12 +260,12 @@ void main() {
 
 		// Sky/envmap
 		if (payload.hit_pos_t.w <= 0.) {
-			C += throughput * payload.albedo;
+			C += throughput * payload.base_color;
 			break;
 		}
 
 		MaterialProperties material;
-		material.baseColor = payload.albedo;
+		material.baseColor = payload.base_color;
 		material.metalness = 0.f;
 		material.emissive = payload.emissive;
 		material.roughness = .1f; // FIXME payload.roughness;

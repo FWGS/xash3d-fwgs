@@ -283,10 +283,11 @@ void VK_RayModelDestroy( struct vk_ray_model_s *model ) {
 	}
 }
 
-void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row ) {
+void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row, const vec4_t color) {
 	uint32_t material_flags = 0;
 	qboolean reflective = false;
 	qboolean force_emissive = false;
+	qboolean additive = false;
 	vk_ray_draw_model_t* draw_model = g_ray_model_state.frame.models + g_ray_model_state.frame.num_models;
 
 	ASSERT(vk_core.rtx);
@@ -302,7 +303,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 	{
 		ASSERT(model->as != VK_NULL_HANDLE);
-		draw_model->alphamask = false;
+		draw_model->alpha_test = false;
 		draw_model->model = model;
 		draw_model->render_mode = render_model->render_mode;
 		memcpy(draw_model->transform_row, *transform_row, sizeof(draw_model->transform_row));
@@ -317,23 +318,23 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		// C = (1 - alpha) * DST + alpha * SRC (TODO is this right?)
 		case kRenderTransColor:
 		case kRenderTransTexture:
-			material_flags = kXVkMaterialFlagLighting | kXVkMaterialFlagRefractive;
+			material_flags = kXVkMaterialFlagLighting;// | kXVkMaterialFlagRefractive;
 			reflective = true;
-			draw_model->alphamask = true;
+			draw_model->alpha_test = true;
 			break;
 
 		// Additive blending: C = SRC * alpha + DST
 		case kRenderGlow:
 		case kRenderTransAdd:
-			material_flags = kXVkMaterialFlagAdditive;
+			additive = true;
 			force_emissive = true;
-			draw_model->alphamask = true;
+			draw_model->alpha_test = true;
 			break;
 
 		// Alpha test (TODO additive? mixing?)
 		case kRenderTransAlpha:
-			material_flags = kXVkMaterialFlagLighting | kXVkMaterialFlagAlphaTest;
-			draw_model->alphamask = true;
+			material_flags = kXVkMaterialFlagLighting;
+			draw_model->alpha_test = true;
 			break;
 
 		default:
@@ -348,9 +349,19 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		kusok->material_flags = material_flags;
 
 		// HACK until there is proper specular
-		// FIXME also this erases previour roughness conditionally
+		// FIXME also this erases previour roughness unconditionally
 		if (reflective)
 			kusok->roughness = 0.f;
+		else
+			kusok->roughness = 1.f;
+
+		Vector4Copy(color, kusok->color);
+
+		if (additive) {
+			// Alpha zero means fully transparent -- no reflections, full refraction
+			// Together with force_emissive, this results in just adding emissive color
+			kusok->color[3] = 0.f;
+		}
 
 		if (esurf) {
 			VectorCopy(esurf->emissive, kusok->emissive);

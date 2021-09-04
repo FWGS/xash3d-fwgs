@@ -517,7 +517,8 @@ static void drawCmdPushDraw( const render_draw_t *draw )
 
 	// Figure out whether we need to update UBO data, and upload new data if we do
 	// TODO generally it's not safe to do memcmp for structures comparison
-	if (g_render_state.current_ubo_offset == UINT32_MAX || ((g_render_state.uniform_data_set_mask & UNIFORM_UPLOADED) == 0) || memcmp(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.current_uniform_data)) != 0) {
+	if (g_render_state.current_ubo_offset == UINT32_MAX || ((g_render_state.uniform_data_set_mask & UNIFORM_UPLOADED) == 0)
+		|| memcmp(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.current_uniform_data)) != 0) {
 		uniform_data_t *ubo;
 		g_render_state.current_ubo_offset = allocUniform( sizeof(uniform_data_t), 16 );
 		if (g_render_state.current_ubo_offset == UINT32_MAX) {
@@ -773,7 +774,7 @@ void VK_RenderModelDraw( vk_render_model_t* model ) {
 	int vertex_offset = 0;
 
 	if (g_render_state.current_frame_is_ray_traced) {
-		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model);
+		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model, g_render_state.dirty_uniform_data.color);
 		return;
 	}
 

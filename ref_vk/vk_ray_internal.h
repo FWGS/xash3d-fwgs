@@ -25,21 +25,7 @@ typedef struct vk_ray_model_s {
 	} debug;
 } vk_ray_model_t;
 
-typedef struct {
-	uint32_t index_offset;
-	uint32_t vertex_offset;
-	uint32_t triangles;
-
-	// Material parameters
-	uint32_t texture;
-	float roughness;
-	uint32_t material_flags;
-
-	float _padding_0[2];
-	vec3_t emissive;
-
-	float _padding_1[1];
-} vk_kusok_data_t;
+typedef struct Kusok vk_kusok_data_t;
 
 typedef struct {
 	uint32_t num_kusochki;
@@ -55,7 +41,7 @@ typedef struct {
 	matrix3x4 transform_row;
 	vk_ray_model_t *model;
 	int render_mode;
-	qboolean alphamask;
+	qboolean alpha_test;
 } vk_ray_draw_model_t;
 
 typedef struct {

@@ -2,8 +2,8 @@
 #extension GL_EXT_nonuniform_qualifier : enable
 #extension GL_GOOGLE_include_directive : require
 
-#include "ray_common.glsl"
 #include "ray_kusochki.glsl"
+#include "ray_common.glsl"
 
 layout (constant_id = 6) const uint MAX_TEXTURES = 4096;
 layout (set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
@@ -50,6 +50,7 @@ void main() {
 
     //ray_result.color = vec3(.5);
 
+	// FIXME compute hit pos based on barycentric coords (better precision)
     vec3 hit_pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
     payload.t_offset += gl_HitTEXT;
 
@@ -73,9 +74,9 @@ void main() {
     // TODO use already inverse gl_WorldToObject ?
     const mat3 matWorld = mat3(gl_ObjectToWorldEXT);
     const vec3 normal = normalize(transpose(inverse(matWorld)) * (n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y));
-    hit_pos += normal * normal_offset_fudge;
 
-    // //C = normal * .5 + .5; break;
+	// FIXME there's a better way to do this
+    hit_pos += normal * normal_offset_fudge;
 
     const vec2 uvs[3] = {
         vertices[vi1].gl_tc,
@@ -94,8 +95,11 @@ void main() {
     const vec4 uv_lods = UVDerivsFromRayCone(gl_WorldRayDirectionEXT, normal, ray_cone_width, uvs, pos, matWorld);
     const vec3 base_color = pow(textureGrad(textures[nonuniformEXT(tex_index)], texture_uv, uv_lods.xy, uv_lods.zw).rgb, vec3(2.));
 
+	// FIXME read alpha from texture
+
     payload.hit_pos_t = vec4(hit_pos, gl_HitTEXT);
-    payload.albedo = base_color;
+    payload.base_color = base_color * kusochki[kusok_index].color.rgb;
+	payload.alpha = kusochki[kusok_index].color.a;
     payload.normal = normal;
     payload.emissive = kusochki[kusok_index].emissive * base_color; // TODO emissive should have a special texture
     payload.roughness = kusochki[kusok_index].roughness;

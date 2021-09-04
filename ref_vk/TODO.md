@@ -1,11 +1,12 @@
-## 2021-09-01, E132
-- [x] rtx: ingest brdfs from ray tracing gems 2
-- [x] rtx: directly select a triangle for light sampling
+## 2021-09-04, E133
+- [x] rtx: different sbts for opaque and alpha mask
+- [x] include common headers with struct definitions from both shaders and c code
 
 # Next
 - [ ] rtx: pass alpha for transparency
 - [ ] rtx: remove additive/refractive flags in favor or probability of ray continuing further instead of bouncing off
 - [ ] rtx: experiment with refraction index and "refraction roughness"
+- [ ] rtx: configuration that includes texture name -> pbr params mapping, etc. Global, per-map, ...
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
 - [ ] make a list of all possible materials, categorize them and figure out what to do
 	- orig:
@@ -153,8 +154,8 @@
 - [ ] studio models survive NewMap; need to compactify buffers after removing all brushes
 - [ ] sometimes it gets very slow (1fps) when ran under lldb (only on stream?)
 - [ ] optimize perf: cmdbuf managements and semaphores, upload to gpu, ...
-- [ ] rtx: studio models should not pre-transform vertices with modelView matrix
-- [ ] include common headers with struct definitions from both shaders and c code
+- [ ] ? rtx: studio models should not pre-transform vertices with modelView matrix
+- [ ] rtx: non-realtime unbiased mode: make "ground truth" screenshots that take 1e5 samples per pixels and seconds to produce. what for: semi-interactive material tuning, comparison w/ denoise, etc.
 
 # Someday
 - [ ] rtx: dynamic rtx/non-rtx switching breaks dynamic models
@@ -411,3 +412,6 @@
 ## 2021-08-26, E131
 - [x] rtx: material flags for kusochki
 
+## 2021-09-01, E132
+- [x] rtx: ingest brdfs from ray tracing gems 2
+- [x] rtx: directly select a triangle for light sampling

@@ -1,20 +1,9 @@
 #extension GL_EXT_shader_16bit_storage : require
 //#extension GL_EXT_shader_8bit_storage : require
 
+#define GLSL
 #include "ray_interop.h"
-
-// TODO move to ray_interop
-struct Kusok {
-	uint index_offset;
-	uint vertex_offset;
-	uint triangles;
-
-	// Material
-	uint texture;
-	float roughness;
-	uint material_flags;
-	vec3 emissive;
-};
+#undef GLSL
 
 struct Vertex {
 	vec3 pos;
