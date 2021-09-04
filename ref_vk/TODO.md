@@ -1,8 +1,8 @@
 ## 2021-09-01, E132
 - [x] rtx: ingest brdfs from ray tracing gems 2
+- [x] rtx: directly select a triangle for light sampling
 
 # Next
-- [ ] rtx: directly select a triangle for light sampling
 - [ ] rtx: pass alpha for transparency
 - [ ] rtx: remove additive/refractive flags in favor or probability of ray continuing further instead of bouncing off
 - [ ] rtx: experiment with refraction index and "refraction roughness"
