@@ -11,7 +11,7 @@
 const float dlight_attenuation_const = 10000.;
 const float shadow_offset_fudge = .5;
 const float normal_offset_fudge = .1;
-const float brightness_fudge = 30.;
+const float meters_per_unit = 1. / 39.37;
 
 layout (constant_id = 0) const uint MAX_DLIGHTS = 32;
 layout (constant_id = 1) const uint MAX_EMISSIVE_KUSOCHKI = 256;
@@ -85,15 +85,15 @@ layout(location = 1) rayPayloadEXT bool shadow;
 bool shadowed(vec3 pos, vec3 dir, float dist) {
 	shadow = true;
 	const uint flags =  0
-		| gl_RayFlagsCullFrontFacingTrianglesEXT
-		//| gl_RayFlagsOpaqueEXT 
+		//| gl_RayFlagsCullFrontFacingTrianglesEXT
+		//| gl_RayFlagsOpaqueEXT
 		| gl_RayFlagsTerminateOnFirstHitEXT
 		| gl_RayFlagsSkipClosestHitShaderEXT
 		;
 	traceRayEXT(tlas,
 		flags,
 		0xff,
-		0, 0, 1 /* miss index */, 
+		0, 0, 1 /* miss index */,
 		pos, 0., dir, dist, 1 /* payload location */);
 	return shadow;
 }
@@ -127,9 +127,8 @@ vec3 sampleSurfaceTriangle(vec3 view_dir, MaterialProperties material, mat4x3 em
 	if (light_dot <= 0.)
 		return vec3(0.);
 
-	const float light_dist = length(light_dir);
-	light_dot /= light_dist;
-	light_dir /= light_dist;
+	float light_dist = length(light_dir);
+	light_dir = normalize(light_dir);
 
 	const float light_dir_normal_dot = dot(light_dir, payload.normal);
 	if (light_dir_normal_dot <= 0.)
@@ -138,8 +137,10 @@ vec3 sampleSurfaceTriangle(vec3 view_dir, MaterialProperties material, mat4x3 em
 	if (shadowed(payload.hit_pos_t.xyz, light_dir, light_dist - shadow_offset_fudge))
 		return vec3(0.);
 
+	light_dist *= meters_per_unit;
+
 	// TODO sample emissive texture
-	return brightness_fudge * evalCombinedBRDF(payload.normal, light_dir, view_dir, material) / (light_dist * light_dist);
+	return payload.albedo * evalCombinedBRDF(payload.normal, light_dir, view_dir, material) / (light_dist * light_dist);
 }
 
 vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
@@ -244,7 +245,7 @@ void main() {
 
 	for (int bounce = 0; bounce < push_constants.bounces; ++bounce) {
 		const uint flags = 0
-			| gl_RayFlagsCullFrontFacingTrianglesEXT
+			//| gl_RayFlagsCullFrontFacingTrianglesEXT
 			//| gl_RayFlagsOpaqueEXT
 			;
 		const uint sbt_offset = 0;
