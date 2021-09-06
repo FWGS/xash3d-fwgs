@@ -22,17 +22,13 @@ struct Kusok {
 	// Material
 	uint texture;
 
-	float roughness;
-	uint material_flags;
-	PAD(2)
+	vec4 color;
 
 	vec3 emissive;
-	PAD(1)
+	//PAD(1)
 
-	vec4 color;
+	float roughness;
 };
-
-#define	kXVkMaterialFlagLighting (1<<0)
 
 #ifndef GLSL
 #undef uint

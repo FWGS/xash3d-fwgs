@@ -8,5 +8,4 @@ struct RayPayload {
 		vec3 emissive;
     float roughness;
     int kusok_index;
-    uint material_flags;
 };

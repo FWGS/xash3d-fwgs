@@ -220,11 +220,6 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.; // FIXME
 		VectorSet(kusochki[i].emissive, 0, 0, 0 );
 
-		// We don't know render_mode yet
-		// TODO: assume diffuse-only surface by default?
-		// TODO: does this affect BLAS building?
-		kusochki[i].material_flags = 0; // kXVkMaterialFlagDiffuse;
-
 		mg->kusok_index = i + kusochki_count_offset;
 	}
 
@@ -284,7 +279,6 @@ void VK_RayModelDestroy( struct vk_ray_model_s *model ) {
 }
 
 void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row, const vec4_t color) {
-	uint32_t material_flags = 0;
 	qboolean reflective = false;
 	qboolean force_emissive = false;
 	qboolean additive = false;
@@ -312,13 +306,11 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 	switch (render_model->render_mode) {
 		case kRenderNormal:
-			material_flags = kXVkMaterialFlagLighting;
 			break;
 
 		// C = (1 - alpha) * DST + alpha * SRC (TODO is this right?)
 		case kRenderTransColor:
 		case kRenderTransTexture:
-			material_flags = kXVkMaterialFlagLighting;// | kXVkMaterialFlagRefractive;
 			reflective = true;
 			draw_model->alpha_test = true;
 			break;
@@ -333,7 +325,6 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 		// Alpha test (TODO additive? mixing?)
 		case kRenderTransAlpha:
-			material_flags = kXVkMaterialFlagLighting;
 			draw_model->alpha_test = true;
 			break;
 
@@ -351,7 +342,6 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		const vk_emissive_surface_t *esurf = VK_LightsAddEmissiveSurface( geom, transform_row );
 		vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_ray_model_state.kusochki_buffer.mapped) + geom->kusok_index;
 		kusok->texture = geom->texture;
-		kusok->material_flags = material_flags;
 
 		// HACK until there is proper specular
 		// FIXME also this erases previour roughness unconditionally

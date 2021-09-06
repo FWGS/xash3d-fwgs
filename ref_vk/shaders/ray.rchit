@@ -106,5 +106,4 @@ void main() {
     payload.emissive = kusochki[kusok_index].emissive * base_color; // TODO emissive should have a special texture
     payload.roughness = kusochki[kusok_index].roughness;
     payload.kusok_index = kusok_index;
-    payload.material_flags = kusochki[kusok_index].material_flags;
 }
