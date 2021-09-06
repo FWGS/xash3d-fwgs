@@ -32,7 +32,8 @@ static int lookupTextureF( const char *fmt, ...) {
 
 static void loadRadData( const model_t *map, const char *fmt, ... ) {
 	fs_offset_t size;
-	byte *data, *buffer;
+	char *data;
+	byte *buffer;
 	char filename[1024];
 
 	va_list argptr;
@@ -47,12 +48,22 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 		return;
 	}
 
-	data = buffer;
-	while (*data != '\0') {
+	data = (char*)buffer;
+	for (;;) {
 		string name;
-		float r, g, b, scale;
+		float r=0, g=0, b=0, scale=0;
+		int num;
+		char* line_end;
 
-		int num = sscanf(data, "%s %f %f %f %f", name, &r, &g, &b, &scale);
+		while (*data != '\0' && isspace(*data)) ++data;
+		if (*data == '\0')
+			break;
+
+		line_end = Q_strchr(data, '\n');
+		if (line_end) *line_end = '\0';
+
+		num = sscanf(data, "%s %f %f %f %f", name, &r, &g, &b, &scale);
+		gEngine.Con_Printf("raw rad entry (%d): %s %f %f %f %f\n", num, name, r, g, b, scale);
 		if (num == 2) {
 			r = g = b;
 		} else if (num == 5) {
@@ -68,7 +79,7 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 		}
 
 		if (num != 0) {
-			gEngine.Con_Printf("rad entry: %s %f %f %f\n", name, r, g, b);
+			gEngine.Con_Printf("rad entry (%d): %s %f %f %f (%f)\n", num, name, r, g, b, scale);
 
 			{
 				const char *wad_name = NULL;
@@ -96,10 +107,6 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 					tex_id = lookupTextureF("%s.wad/%s.mip", wad_name, texture_name);
 				}
 
-				if (!tex_id) {
-					tex_id = lookupTextureF("%s.wad/+%s.mip", wad_name, texture_name);
-				}
-
 				if (tex_id) {
 					ASSERT(tex_id < MAX_TEXTURES);
 
@@ -111,11 +118,10 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 			}
 		}
 
-		data = Q_strchr(data, '\n');
-		if (!data)
+		if (!line_end)
 			break;
-		while (!isalnum(*data) && *data != '\0')
-			++data;
+
+		data = line_end + 1;
 	}
 
 	Mem_Free(buffer);
