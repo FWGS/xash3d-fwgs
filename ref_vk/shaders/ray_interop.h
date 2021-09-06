@@ -11,6 +11,9 @@
 #define PAD(x)
 #endif
 
+#define GEOMETRY_BIT_ANY 0x01
+#define GEOMETRY_BIT_OPAQUE 0x02
+
 struct Kusok {
 	uint index_offset;
 	uint vertex_offset;

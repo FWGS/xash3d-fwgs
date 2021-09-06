@@ -341,6 +341,11 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 			gEngine.Host_Error("Unexpected render mode %d\n", render_model->render_mode);
 	}
 
+	draw_model->translucent = false;
+	if (additive || color[3] < 1.f) {
+		draw_model->translucent = true;
+	}
+
 	for (int i = 0; i < render_model->num_geometries; ++i) {
 		const vk_render_geometry_t *geom = render_model->geometries + i;
 		const vk_emissive_surface_t *esurf = VK_LightsAddEmissiveSurface( geom, transform_row );

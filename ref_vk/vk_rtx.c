@@ -471,7 +471,7 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 			ASSERT(model->model->as != VK_NULL_HANDLE);
 			inst[i] = (VkAccelerationStructureInstanceKHR){
 				.instanceCustomIndex = model->model->kusochki_offset,
-				.mask = 0xff,
+				.mask = (model->translucent ? 0 : GEOMETRY_BIT_OPAQUE) | GEOMETRY_BIT_ANY,
 				.instanceShaderBindingTableRecordOffset = model->alpha_test ? 1 : 0,
 				.flags = model->render_mode == kRenderNormal ? VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR : VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR, // TODO is render_mode a good indicator of transparency in general case?
 				.accelerationStructureReference = getASAddress(model->model->as), // TODO cache this addr

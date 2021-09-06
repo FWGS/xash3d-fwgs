@@ -92,7 +92,7 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 		;
 	traceRayEXT(tlas,
 		flags,
-		0xff,
+		GEOMETRY_BIT_OPAQUE,
 		0, 0, 1 /* miss index */,
 		pos, 0., dir, dist, 1 /* payload location */);
 	return shadow;
@@ -134,7 +134,7 @@ vec3 sampleSurfaceTriangle(vec3 view_dir, MaterialProperties material, mat4x3 em
 	if (light_dir_normal_dot <= 0.)
 		return vec3(0.);
 
-	if (shadowed(payload.hit_pos_t.xyz, light_dir, light_dist - shadow_offset_fudge))
+	if (shadowed(payload.hit_pos_t.xyz + payload.normal * shadow_offset_fudge, light_dir, light_dist - shadow_offset_fudge))
 		return vec3(0.);
 
 	light_dist *= meters_per_unit;
@@ -216,7 +216,7 @@ vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
 			const float d2 = dot(light_dir, light_dir);
 			const float light_dist = sqrt(d2);
 
-			if (shadowed(payload.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
+			if (shadowed(payload.hit_pos_t.xyz + payload.normal * shadow_offset_fudge, light_dir_norm, light_dist + shadow_offset_fudge))
 				continue;
 
 			const float r2 = light_pos_r.w * light_pos_r.w;
@@ -244,6 +244,8 @@ void main() {
 	payload.pixel_cone_spread_angle = push_constants.pixel_cone_spread_angle;
 
 	for (int bounce = 0; bounce < push_constants.bounces; ++bounce) {
+		// TODO early exit based on throughput being too small
+
 		const uint flags = 0
 			//| gl_RayFlagsCullFrontFacingTrianglesEXT
 			//| gl_RayFlagsOpaqueEXT
@@ -253,7 +255,7 @@ void main() {
 		const uint miss_index = 0;
 		const int ray_payload_loc = 0;
 		const float L = 10000.;
-		traceRayEXT(tlas, flags, 0xff,
+		traceRayEXT(tlas, flags, GEOMETRY_BIT_ANY,
 			sbt_offset, sbt_stride, miss_index,
 			origin, 0., direction, L,
 			ray_payload_loc);
@@ -264,20 +266,29 @@ void main() {
 			break;
 		}
 
+		//C = vec3(payload.reflection); break;
+
 		MaterialProperties material;
 		material.baseColor = payload.base_color;
 		material.metalness = 0.f;
 		material.emissive = payload.emissive;
-		material.roughness = .1f; // FIXME payload.roughness;
+		material.roughness = payload.roughness;
 
 		C += throughput * payload.emissive;
 
-		if ((payload.material_flags & kXVkMaterialFlagLighting) != 0) {
-			C += throughput * computeLighting(-direction, material);
+		// Decide whether ray continues through, or relfects
+		if (rand01() > payload.reflection) {
+			origin = payload.hit_pos_t.xyz - normal_offset_fudge * payload.normal;
+			//throughput *= 1. - payload.reflection;
+			throughput *= payload.base_color;
+			continue;
 		}
+
+		C += throughput * computeLighting(-direction, material);
 
 		if (bounce == push_constants.bounces - 1)
 			break;
+
 
 		vec3 shadingNormal = payload.normal;
 		vec3 geometryNormal = payload.normal;

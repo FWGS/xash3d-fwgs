@@ -42,6 +42,7 @@ typedef struct {
 	vk_ray_model_t *model;
 	int render_mode;
 	qboolean alpha_test;
+	qboolean translucent;
 } vk_ray_draw_model_t;
 
 typedef struct {

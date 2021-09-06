@@ -75,9 +75,6 @@ void main() {
     const mat3 matWorld = mat3(gl_ObjectToWorldEXT);
     const vec3 normal = normalize(transpose(inverse(matWorld)) * (n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y));
 
-	// FIXME there's a better way to do this
-    hit_pos += normal * normal_offset_fudge;
-
     const vec2 uvs[3] = {
         vertices[vi1].gl_tc,
         vertices[vi2].gl_tc,
@@ -93,14 +90,18 @@ void main() {
 
     const float ray_cone_width = payload.pixel_cone_spread_angle * payload.t_offset;
     const vec4 uv_lods = UVDerivsFromRayCone(gl_WorldRayDirectionEXT, normal, ray_cone_width, uvs, pos, matWorld);
-    const vec3 base_color = pow(textureGrad(textures[nonuniformEXT(tex_index)], texture_uv, uv_lods.xy, uv_lods.zw).rgb, vec3(2.));
+    const vec4 tex_color = textureGrad(textures[nonuniformEXT(tex_index)], texture_uv, uv_lods.xy, uv_lods.zw);
+    const vec3 base_color = pow(tex_color.rgb, vec3(2.));
+    /* tex_color = pow(tex_color, vec4(2.)); */
+    /* const vec3 base_color = tex_color.rgb; */
 
 	// FIXME read alpha from texture
 
     payload.hit_pos_t = vec4(hit_pos, gl_HitTEXT);
     payload.base_color = base_color * kusochki[kusok_index].color.rgb;
-	payload.alpha = kusochki[kusok_index].color.a;
-    payload.normal = normal;
+	payload.reflection = tex_color.a * kusochki[kusok_index].color.a;
+    payload.normal = normal * sign(dot(normal, -gl_WorldRayDirectionEXT));
+
     payload.emissive = kusochki[kusok_index].emissive * base_color; // TODO emissive should have a special texture
     payload.roughness = kusochki[kusok_index].roughness;
     payload.kusok_index = kusok_index;

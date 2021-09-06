@@ -4,7 +4,7 @@ struct RayPayload {
     vec4 hit_pos_t;
     vec3 normal;
     vec3 base_color;
-		float alpha;
+		float reflection;
 		vec3 emissive;
     float roughness;
     int kusok_index;
