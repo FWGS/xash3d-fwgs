@@ -15,7 +15,7 @@
 
 #include <string.h>
 
-#define MAX_SCRATCH_BUFFER (16*1024*1024)
+#define MAX_SCRATCH_BUFFER (32*1024*1024)
 #define MAX_ACCELS_BUFFER (64*1024*1024)
 
 #define MAX_LIGHT_LEAVES 8192
