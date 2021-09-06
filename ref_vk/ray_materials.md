@@ -1,0 +1,52 @@
+- orig:
+- HL: (how does this map?)
+	- Render: Normal (по умолчанию), Color, Texture, Glow, Solid, Additive
+	- Render FX: разные пульсации, строб, плавные переходы, Constant Glow, Distort, Hologram (Distort + fade)
+- brush:
+	- opaque:
+		- "diffuse": pbr (diffuse, metallic, roughness, ...)
+		- reflective: specular, ...
+		- emissive
+	- semi-opaque: alpha mask + same as opaque
+	- transparent:
+		- glass:
+			- reflective
+			- translucent + refractions
+		- additive:
+			- ???
+- studio:
+	- normal: ~same as opaque
+	- float: ???
+	- chrome:
+		- reflective
+	- glow shell
+		- transparent-additive
+	- x rendermode ???
+- sprite
+	- transparent additive:
+		- fake bloom (rtx: just disable)
+		- misc: smoke, explosions (rtx: custom shader?)
+	- can generally be in all "HL Render/FX" modes
+- beams:
+	- can have custom color?
+	- transparent additive
+		- rtx: needs custom shader
+	- can generally be in all "HL Render/FX" modes
+- decals: ???
+- rtx proposal:
+- kusok
+	- bool alpha_mask -- whether need to check alpha mask for boolean anyhit transparency
+	- render modes:
+		- opaque
+			- emissive
+			- diffuse
+			- specular/reflection
+		- transparent additive -- render_mode
+			- force emissive
+			- no diffuse, specular, ...
+		- translucent -- render_mode
+			- ? diffuse
+			- (? specular)/reflection
+			- refraction
+		- sky?
+			- emissive cubemap

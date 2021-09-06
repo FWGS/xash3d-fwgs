@@ -1,66 +1,6 @@
-## 2021-09-04, E133
-- [x] rtx: different sbts for opaque and alpha mask
-- [x] include common headers with struct definitions from both shaders and c code
-
 # Next
-- [ ] rtx: pass alpha for transparency
-- [ ] rtx: remove additive/refractive flags in favor or probability of ray continuing further instead of bouncing off
-- [ ] rtx: experiment with refraction index and "refraction roughness"
 - [ ] rtx: configuration that includes texture name -> pbr params mapping, etc. Global, per-map, ...
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
-- [ ] make a list of all possible materials, categorize them and figure out what to do
-	- orig:
-		- HL: (how does this map?)
-			- Render: Normal (по умолчанию), Color, Texture, Glow, Solid, Additive
-			- Render FX: разные пульсации, строб, плавные переходы, Constant Glow, Distort, Hologram (Distort + fade)
-		- brush:
-			- opaque:
-				- "diffuse": pbr (diffuse, metallic, roughness, ...)
-				- reflective: specular, ...
-				- emissive
-			- semi-opaque: alpha mask + same as opaque
-			- transparent:
-				- glass:
-					- reflective
-					- translucent + refractions
-				- additive:
-					- ???
-		- studio:
-			- normal: ~same as opaque
-			- float: ???
-			- chrome:
-				- reflective
-			- glow shell
-				- transparent-additive
-			- x rendermode ???
-		- sprite
-			- transparent additive:
-				- fake bloom (rtx: just disable)
-				- misc: smoke, explosions (rtx: custom shader?)
-			- can generally be in all "HL Render/FX" modes
-		- beams:
-			- can have custom color?
-			- transparent additive
-				- rtx: needs custom shader
-			- can generally be in all "HL Render/FX" modes
-		- decals: ???
-	- rtx proposal:
-		- kusok
-			- bool alpha_mask -- whether need to check alpha mask for boolean anyhit transparency
-			- render modes:
-				- opaque
-					- emissive
-					- diffuse
-					- specular/reflection
-				- transparent additive -- render_mode
-					- force emissive
-					- no diffuse, specular, ...
-				- translucent -- render_mode
-					- ? diffuse
-					- (? specular)/reflection
-					- refraction
-				- sky?
-					- emissive cubemap
 - [ ] rtx: simple convolution denoise (bilateral?)
 - [ ] rtx: cluster dlights
 - [ ] rtx: dynamically sized light clusters
@@ -71,6 +11,7 @@
 # Planned
 - [ ] rtx: shrink payload between shaders
 - [ ] improve nonuniformEXT usage: https://github.com/KhronosGroup/Vulkan-Samples/pull/243/files#diff-262568ff21d7a618c0069d6a4ddf78e715fe5326c71dd2f5cdf8fc8da929bc4eR31
+- [ ] rtx: experiment with refraction index and "refraction roughness"
 - [ ] emissive beams
 - [ ] emissive particles/sprites
 - [ ] issue: transparent brushes are too transparent (train ride)
@@ -291,8 +232,8 @@
 ## 2021-04-12
 - [x] rtx: fix surface-kusok index mismatch
 - [x] rtx: try to use light visibility data
-	-> too few slots for light sources
-	-> some areas have too many naively visible lights
+	- too few slots for light sources
+	- some areas have too many naively visible lights
 - [x] rtx: fix light shadow artefacts
 
 ## 2021-04-13
@@ -381,7 +322,6 @@
 
 ## 2021-08-02..04, E122-123
 - [x] mipmaps
-
 - [x] rtx: better random
 
 ## 2021-08-07, E124
@@ -415,3 +355,13 @@
 ## 2021-09-01, E132
 - [x] rtx: ingest brdfs from ray tracing gems 2
 - [x] rtx: directly select a triangle for light sampling
+
+## 2021-09-04, E133
+- [x] rtx: different sbts for opaque and alpha mask
+- [x] include common headers with struct definitions from both shaders and c code
+
+## 2021-09-06, E134
+- [x] rtx: pass alpha for transparency
+- [x] rtx: remove additive/refractive flags in favor or probability of ray continuing further instead of bouncing off
+- [x] make a list of all possible materials, categorize them and figure out what to do
+
