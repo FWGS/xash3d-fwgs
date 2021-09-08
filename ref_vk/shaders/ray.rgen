@@ -103,11 +103,6 @@ vec3 sampleSurfaceTriangle(vec3 view_dir, MaterialProperties material, mat4x3 em
 
 	// TODO this is not entirely correct -- need to mix between all normals, or have this normal precomputed
 	const uint vi1 = uint(indices[first_index_offset+0]) + vertex_offset;
-	const vec3 n1 = normalize(emissive_transform_normal * vertices[vi1].normal);
-	// if (dot(n1, normal) >= 0. /* TODO epsilon */ )
-	// 	continue;
-
-	// TODO random sample point on the entire geometry ?
 	const uint vi2 = uint(indices[first_index_offset+1]) + vertex_offset;
 	const uint vi3 = uint(indices[first_index_offset+2]) + vertex_offset;
 
@@ -117,30 +112,30 @@ vec3 sampleSurfaceTriangle(vec3 view_dir, MaterialProperties material, mat4x3 em
 
 	// TODO projected uniform sampling
 	const vec3 sample_pos = mix(mix(v1, v2, rand01()), v3, rand01());
-	//const vec3 sample_pos = vertices[vi1].pos;
-
-	// const vec3 n2 = vertices[vi2].normal;
-	// const vec3 n3 = vertices[vi3].normal;
 
 	vec3 light_dir = sample_pos - payload.hit_pos_t.xyz;
-	float light_dot = -dot(light_dir, n1);
-	if (light_dot <= 0.)
-		return vec3(0.);
-
-	float light_dist = length(light_dir);
-	light_dir = normalize(light_dir);
-
 	const float light_dir_normal_dot = dot(light_dir, payload.normal);
 	if (light_dir_normal_dot <= 0.)
 		return vec3(0.);
 
-	if (shadowed(payload.hit_pos_t.xyz + payload.normal * shadow_offset_fudge, light_dir, light_dist - shadow_offset_fudge))
+	// Consider area light sources as planes, take the first normal
+	const vec3 normal = normalize(emissive_transform_normal * vertices[vi1].normal);
+
+	const float light_dot = -dot(light_dir, normal);
+	if (light_dot <= 0.)
 		return vec3(0.);
 
-	light_dist *= meters_per_unit;
+	const float area = .5 * length(cross(v1 - v2, v1 - v3)) * meters_per_unit * meters_per_unit;
+	const float light_dist2 = dot(light_dir, light_dir);
+	float pdf = light_dist2 / (area * light_dot);
+
+	light_dir = normalize(light_dir);
+
+	if (shadowed(payload.hit_pos_t.xyz + payload.normal * shadow_offset_fudge, light_dir, sqrt(light_dist2) - shadow_offset_fudge * 2.))
+		return vec3(0.);
 
 	// TODO sample emissive texture
-	return payload.base_color * evalCombinedBRDF(payload.normal, light_dir, view_dir, material) / (light_dist * light_dist);
+	return evalCombinedBRDF(payload.normal, light_dir, view_dir, material) / pdf;
 }
 
 vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
@@ -193,7 +188,7 @@ vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
 				continue;
 
 			const uint triangle_index = rand_range(ekusok.triangles);
-			C += sampling_light_scale * emissive * sampleSurfaceTriangle(view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
+			C += sampling_light_scale * payload.base_color * emissive * sampleSurfaceTriangle(view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
 		} // for all emissive kusochki
 
 		for (uint i = 0; i < num_lights; ++i) {
@@ -325,7 +320,8 @@ void main() {
 	{
 		vec3 prev_frame = imageLoad(previous_frame, ivec2(gl_LaunchIDEXT.xy)).rgb;
 		prev_frame *= prev_frame;
+		prev_frame *= 10.;
 		C = mix(C, prev_frame, push_constants.prev_frame_blend_factor);
 	}
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(sqrt(C/20.), 1.));
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(sqrt(C/10.), 1.));
 }
