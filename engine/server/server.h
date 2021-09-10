@@ -510,7 +510,7 @@ void SV_WaterMove( edict_t *ent );
 // sv_send.c
 //
 void SV_SendClientMessages( void );
-void SV_ClientPrintf( sv_client_t *cl, char *fmt, ... ) _format( 2 );
+void SV_ClientPrintf( sv_client_t *cl, const char *fmt, ... ) _format( 2 );
 void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
 
 //
@@ -532,7 +532,7 @@ void SV_ClientThink( sv_client_t *cl, usercmd_t *cmd );
 void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg );
 void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg );
 edict_t *SV_FakeConnect( const char *netname );
-void SV_ExecuteClientCommand( sv_client_t *cl, char *s );
+void SV_ExecuteClientCommand( sv_client_t *cl, const char *s );
 void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed );
 void SV_BuildReconnect( sizebuf_t *msg );
 qboolean SV_IsPlayerIndex( int idx );
@@ -540,7 +540,7 @@ int SV_CalcPing( sv_client_t *cl );
 void SV_InitClientMove( void );
 void SV_UpdateServerInfo( void );
 void SV_EndRedirect( void );
-void SV_RejectConnection( netadr_t from, char *fmt, ... ) _format( 2 );
+void SV_RejectConnection( netadr_t from, const char *fmt, ... ) _format( 2 );
 
 //
 // sv_cmds.c

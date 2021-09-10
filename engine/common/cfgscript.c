@@ -25,7 +25,7 @@ typedef enum
 	T_COUNT
 } cvartype_t;
 
-char *cvartypes[] = { NULL, "BOOL" , "NUMBER", "LIST", "STRING" };
+const char *cvartypes[] = { NULL, "BOOL", "NUMBER", "LIST", "STRING" };
 
 typedef struct parserstate_s
 {

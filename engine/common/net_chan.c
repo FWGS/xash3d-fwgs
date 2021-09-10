@@ -517,7 +517,7 @@ Netchan_OutOfBandPrint
 Sends a text message in an out-of-band datagram
 ================
 */
-void Netchan_OutOfBandPrint( int net_socket, netadr_t adr, char *format, ... )
+void Netchan_OutOfBandPrint( int net_socket, netadr_t adr, const char *format, ... )
 {
 	char	string[MAX_PRINT_MSG];
 	va_list	argptr;

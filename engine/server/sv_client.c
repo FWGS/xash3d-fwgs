@@ -137,7 +137,7 @@ SV_RejectConnection
 Rejects connection request and sends back a message
 ================
 */
-void SV_RejectConnection( netadr_t from, char *fmt, ... )
+void SV_RejectConnection( netadr_t from, const char *fmt, ... )
 {
 	char	text[1024];
 	va_list	argptr;
@@ -2118,7 +2118,7 @@ ucmd_t ucmds[] =
 SV_ExecuteUserCommand
 ==================
 */
-void SV_ExecuteClientCommand( sv_client_t *cl, char *s )
+void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
 {
 	ucmd_t	*u;
 
