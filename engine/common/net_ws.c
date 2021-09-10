@@ -536,7 +536,7 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr *sadr, qboolean 
 NET_AdrToString
 ====================
 */
-char *NET_AdrToString( const netadr_t a )
+const char *NET_AdrToString( const netadr_t a )
 {
 	if( a.type == NA_LOOPBACK )
 		return "loopback";
@@ -548,7 +548,7 @@ char *NET_AdrToString( const netadr_t a )
 NET_BaseAdrToString
 ====================
 */
-char *NET_BaseAdrToString( const netadr_t a )
+const char *NET_BaseAdrToString( const netadr_t a )
 {
 	if( a.type == NA_LOOPBACK )
 		return "loopback";

@@ -118,7 +118,7 @@ Sys_GetCurrentUser
 returns username for current profile
 ================
 */
-char *Sys_GetCurrentUser( void )
+const char *Sys_GetCurrentUser( void )
 {
 #if XASH_WIN32
 	static string	s_userName;

@@ -2535,7 +2535,7 @@ CL_ServerCommand
 send command to a server
 ====================
 */
-void CL_ServerCommand( qboolean reliable, char *fmt, ... )
+void CL_ServerCommand( qboolean reliable, const char *fmt, ... )
 {
 	char		string[MAX_SYSPATH];
 	va_list		argptr;

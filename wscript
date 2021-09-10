@@ -91,6 +91,9 @@ def options(opt):
 	grp.add_option('--ignore-projects', action = 'store', dest = 'IGNORE_PROJECTS', default = None,
 		help = 'disable selected projects from build [default: %default]')
 
+	grp.add_option('--disable-werror', action = 'store_true', dest = 'DISABLE_WERROR', default = False,
+		help = 'disable compilation abort on warning')
+
 	grp = opt.add_option_group('Utilities options')
 
 	grp.add_option('--enable-utils', action = 'store_true', dest = 'ENABLE_UTILS', default = False,
@@ -223,7 +226,7 @@ def configure(conf):
 
 	# And here C++ flags starts to be treated separately
 	cxxflags = list(cflags)
-	if conf.env.COMPILER_CC != 'msvc':
+	if conf.env.COMPILER_CC != 'msvc' and not conf.options.DISABLE_WERROR:
 		conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
 		conf.check_cxx(cxxflags=cflags, linkflags=linkflags, msg='Checking for required C++ flags')
 

@@ -988,7 +988,7 @@ static void CL_DrawLoadingOrPaused( qboolean paused, float percent )
 	{
 		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
-		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.loadingBar );
+		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.pauseIcon );
 	}
 }
 
@@ -1329,7 +1329,7 @@ pfnSPR_Load
 
 =========
 */
-HSPRITE GAME_EXPORT pfnSPR_Load( const char *szPicName )
+HSPRITE EXPORT pfnSPR_Load( const char *szPicName )
 {
 	model_t	*spr;
 
@@ -1376,7 +1376,7 @@ pfnSPR_Frames
 
 =========
 */
-static int GAME_EXPORT pfnSPR_Frames( HSPRITE hPic )
+int EXPORT pfnSPR_Frames( HSPRITE hPic )
 {
 	int	numFrames;
 
@@ -3492,7 +3492,7 @@ NetAPI_AdrToString
 
 =================
 */
-char *NetAPI_AdrToString( netadr_t *a )
+const char *NetAPI_AdrToString( netadr_t *a )
 {
 	return NET_AdrToString( *a );
 }
