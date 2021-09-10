@@ -92,9 +92,8 @@ jobs:
     #     echo ${{ secrets.PVS_KEY }} >> ~/.config/PVS-Studio/PVS-Studio.lic
     #     pvs-studio/bin/pvs-studio-analyzer analyze --file build/compile_commands.json -j3
     #     pvs-studio/bin/plog-converter -a GA:1,2 -t sarif -o report.sarif PVS-Studio.log
-
-    - name: Upload SARIF
-      if: matrix.targetos == 'linux' && matrix.targetarch == 'amd64'
-      uses: github/codeql-action/upload-sarif@v1
-      with:
-        sarif_file: report.sarif
+    # - name: Upload SARIF
+    #   if: matrix.targetos == 'linux' && matrix.targetarch == 'amd64'
+    #   uses: github/codeql-action/upload-sarif@v1
+    #   with:
+    #     sarif_file: report.sarif
