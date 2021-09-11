@@ -44,9 +44,11 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 	buffer = gEngine.COM_LoadFile( filename, &size, false);
 
 	if (!buffer) {
-		gEngine.Con_Printf(S_ERROR "Couldn't load rad data from file %s, the map will be completely black\n", filename);
+		gEngine.Con_Printf(S_ERROR "Couldn't load RAD data from file %s, the map will be completely black\n", filename);
 		return;
 	}
+
+	gEngine.Con_Reportf("Loading RAD data from file %s\n", filename);
 
 	data = (char*)buffer;
 	for (;;) {
@@ -417,7 +419,20 @@ void VK_LightsNewMap( void )
 	// Load RAD data based on map name
 	memset(g_lights.map.emissive_textures, 0, sizeof(g_lights.map.emissive_textures));
 	loadRadData( map, "rad/lights.rad" );
-	loadRadData( map, "rad/%s.rad", map->name );
+
+	{
+		char mapname[sizeof(map->name)];
+		Q_strcpy(mapname, map->name);
+		char *suffix_bsp = Q_stristr(mapname, ".bsp");
+		if (suffix_bsp)
+			*suffix_bsp = '\0';
+		const char *name_begin = Q_strrchr(mapname, '/');
+		if (name_begin)
+			++name_begin;
+		else
+			name_begin = mapname;
+		loadRadData( map, "rad/%s.rad", name_begin );
+	}
 }
 
 void VK_LightsFrameInit( void )
