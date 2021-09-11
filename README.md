@@ -26,7 +26,7 @@
 - If you feel adventurous, you can follow [build instructions](https://github.com/w23/xash3d-fwgs/wiki/64-bit-build-on-Windows). Note that they might be slightly out of date, kek.
 
 ## Follow development
-This project is 99.999% developed live on stream. I'm not a graphcis programmer, and have no idea what I'm doing. I'm essentially learning Vulkan, game engine renderer development, linear algebra, and ray tracing techniques while I'm getting my hands dirty with this. This is all for your amusement.
+This project is 99.999% developed live on stream. I'm not a graphcis programmer, and have no idea what I'm doing. I'm essentially learning Vulkan, game engine renderer development, linear algebra, and ray tracing techniques while getting hands dirty with this. This is all for your amusement.
 
 You can watch me making a fool of myself publicly here:
 - [Archive playlist on YouTube/floba23](https://www.youtube.com/playlist?list=PLP0z1CQXyu5CrDa522FklxbOC0SM_Manl)
