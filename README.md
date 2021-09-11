@@ -1,3 +1,34 @@
+# Vulkan plus Ray Tracing (RTX) temporary fork of Xash3D FWGS engine
+[![GitHub Actions Status](https://github.com/w23/xash3d-fwgs/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/w23/xash3d-fwgs/actions/workflows/c-cpp.yml)
+
+## TL;DR
+- This fork adds Vulkan renderer to Xash3D-FWGS engine.
+- This is work-in-progress. It is in very early stages and is not ready for unsupervised usage.
+- Vulkan renderer targets two different modes:
+  - Traditional rasterizer. It is intended to produce pixel-perfect identical frames to existing GL renderer as possible.
+  - Ray tracing. It implements real time path traced global illumination lighting with PBR materials. It will look noticeably different from original game.
+- It is intended to be merged back into upstream/master when it gets mature and stable enough.
+- It primarily focuses Half-Life 1 game. Mods compatibility is not being considered at this time. This may change with maturity of the new renderer.
+
+## Current status
+- Not ready for any use
+- See Issues and [ref_vk/TODO.md](ref_vk/TODO.md)
+- Traditional rasterizer works with some issues (and at some point worked on Raspberry Pi 4 even). It is slower than OpenGL renderer (1. I suck at Vulkan. 2. It does not perform any visibility culling). Some features are not implemented yet: most of blending modes, some studio models features, sprites, beams, decals, tri api, etc)
+- Ray tracer mostly works too, with dynamic GI and stuff. It misses roughly the same set of features as traditional rasterizer. It also requires material remaster (i.e. newer textures for PBR parameters) and missing RAD files for most of the game maps. Work on these haven't been started yet.
+
+## Follow development
+This project is 99.999% developed live on stream. I'm not a graphcis programmer, and have no idea what I'm doing. I'm essentially learning Vulkan, game engine renderer development, linear algebra, and ray tracing techniques while I'm getting my hands dirty with this. This is all for your amusement.
+
+You can watch me making a fool of myself publicly here:
+- [Archive playlist on YouTube/floba23](https://www.youtube.com/playlist?list=PLP0z1CQXyu5CrDa522FklxbOC0SM_Manl)
+- [Twitch/provod](https://twitch.tv/provod)
+
+---
+
+Regular upstream Xash3D README.md follows.
+
+---
+
 # Xash3D FWGS Engine
 [![GitHub Actions Status](https://github.com/FWGS/xash3d-fwgs/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/FWGS/xash3d-fwgs/actions/workflows/c-cpp.yml) [![Travis CI Status](https://api.travis-ci.org/FWGS/xash3d-fwgs.svg?branch=master)](https://travis-ci.org/FWGS/xash3d-fwgs) [![FreeBSD Build Status](https://img.shields.io/cirrus/github/FWGS/xash3d-fwgs?label=freebsd%20build)](https://cirrus-ci.com/github/FWGS/xash3d-fwgs) [![Discord Server](https://img.shields.io/discord/355697768582610945.svg)](http://discord.fwgs.ru/) \
 [![Download Stable](https://img.shields.io/badge/download-stable-yellow)](https://github.com/FWGS/xash3d-fwgs/releases/latest) [![Download Testing](https://img.shields.io/badge/downloads-testing-orange)](https://github.com/FWGS/xash3d-fwgs/releases/tag/continuous) 
