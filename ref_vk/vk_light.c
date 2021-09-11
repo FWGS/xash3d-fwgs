@@ -421,17 +421,23 @@ void VK_LightsNewMap( void )
 	loadRadData( map, "rad/lights.rad" );
 
 	{
+		// Extract <mapname> from maps/<mapname>.bsp
 		char mapname[sizeof(map->name)];
-		Q_strcpy(mapname, map->name);
-		char *suffix_bsp = Q_stristr(mapname, ".bsp");
-		if (suffix_bsp)
-			*suffix_bsp = '\0';
-		const char *name_begin = Q_strrchr(mapname, '/');
+		int name_len;
+
+		const char *name_begin = Q_strrchr(map->name, '/');
 		if (name_begin)
 			++name_begin;
 		else
-			name_begin = mapname;
-		loadRadData( map, "rad/%s.rad", name_begin );
+			name_begin = map->name;
+
+		name_len = Q_strlen(name_begin);
+
+		// Strip ".bsp" suffix
+		if (name_len > 4 && 0 == Q_stricmp(name_begin + name_len - 4, ".bsp"))
+			name_len -= 4;
+
+		loadRadData( map, "rad/%.*s.rad", name_len, name_begin );
 	}
 }
 
