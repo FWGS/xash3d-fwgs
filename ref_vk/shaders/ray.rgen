@@ -238,6 +238,7 @@ void main() {
 	payload.t_offset = .0;
 	payload.pixel_cone_spread_angle = push_constants.pixel_cone_spread_angle;
 
+	int brdfType = SPECULAR_TYPE;
 	for (int bounce = 0; bounce < push_constants.bounces; ++bounce) {
 		// TODO early exit based on throughput being too small
 
@@ -269,7 +270,8 @@ void main() {
 		material.emissive = payload.emissive;
 		material.roughness = payload.roughness;
 
-		C += throughput * payload.emissive;
+		if (brdfType == SPECULAR_TYPE)
+			C += throughput * payload.emissive;
 
 		// Decide whether ray continues through, or relfects
 		if (rand01() > payload.reflection) {
@@ -284,11 +286,9 @@ void main() {
 		if (bounce == push_constants.bounces - 1)
 			break;
 
-
 		vec3 shadingNormal = payload.normal;
 		vec3 geometryNormal = payload.normal;
 		vec3 V = -direction;
-		int brdfType;
 		if (material.metalness == 1.0f && material.roughness == 0.0f) {
 			// Fast path for mirrors
 			brdfType = SPECULAR_TYPE;
