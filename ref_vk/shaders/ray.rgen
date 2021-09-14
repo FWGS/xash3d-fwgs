@@ -270,8 +270,8 @@ void main() {
 		material.emissive = payload.emissive;
 		material.roughness = payload.roughness;
 
-		if (brdfType == SPECULAR_TYPE)
-			C += throughput * payload.emissive;
+		if (bounce == 0) //brdfType == SPECULAR_TYPE)
+			C += throughput * payload.emissive * meters_per_unit * meters_per_unit;
 
 		// Decide whether ray continues through, or relfects
 		if (rand01() > payload.reflection) {
