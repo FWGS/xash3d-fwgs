@@ -2104,7 +2104,7 @@ static void R_StudioDrawPoints( void )
 
 	if( !m_pStudioHeader ) return;
 
-	VK_RenderModelDynamicBegin( m_pSubModel->name, RI.currententity->curstate.rendermode );
+	VK_RenderModelDynamicBegin( RI.currententity->curstate.rendermode, "%s", m_pSubModel->name );
 
 	g_studio.numverts = g_studio.numelems = 0;
 

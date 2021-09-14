@@ -840,9 +840,14 @@ static struct {
 	vk_render_geometry_t geometries[MAX_DYNAMIC_GEOMETRY];
 } g_dynamic_model = {0};
 
-void VK_RenderModelDynamicBegin( const char *debug_name, int render_mode ) {
+void VK_RenderModelDynamicBegin( int render_mode, const char *debug_name_fmt, ... ) {
 	ASSERT(!g_dynamic_model.model.geometries);
-	g_dynamic_model.model.debug_name = debug_name;
+
+	va_list argptr;
+	va_start( argptr, debug_name_fmt );
+	vsnprintf(g_dynamic_model.model.debug_name, sizeof(g_dynamic_model.model.debug_name), debug_name_fmt, argptr );
+	va_end( argptr );
+
 	g_dynamic_model.model.geometries = g_dynamic_model.geometries;
 	g_dynamic_model.model.num_geometries = 0;
 	g_dynamic_model.model.render_mode = render_mode;
@@ -865,6 +870,6 @@ void VK_RenderModelDynamicCommit( void ) {
 		VK_RenderModelDraw( &g_dynamic_model.model );
 	}
 
-	g_dynamic_model.model.debug_name = NULL;
+	g_dynamic_model.model.debug_name[0] = '\0';
 	g_dynamic_model.model.geometries = NULL;
 }

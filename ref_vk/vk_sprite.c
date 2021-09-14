@@ -714,7 +714,7 @@ static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec
 			.index_offset = index_buffer.buffer.unit.offset,
 		};
 
-		VK_RenderModelDynamicBegin( debug_name, render_mode );
+		VK_RenderModelDynamicBegin( render_mode, "%s", debug_name );
 		VK_RenderModelDynamicAddGeometry( &geometry );
 		VK_RenderModelDynamicCommit();
 	}

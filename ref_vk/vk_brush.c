@@ -207,6 +207,7 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 		const vk_render_geometry_t geometry = {
 			.texture = warp->texinfo->texture->gl_texturenum, // FIXME assert >= 0
 			.material = kXVkMaterialWater,
+			.surf = warp,
 
 			.max_vertex = num_vertices,
 			.vertex_offset = vertex_buffer.buffer.unit.offset,
@@ -245,7 +246,7 @@ void XVK_DrawWaterSurfaces( const cl_entity_t *ent )
 	// if( R_CullBox( mins, maxs ))
 	// 	return;
 
-	VK_RenderModelDynamicBegin( model->name, ent->curstate.rendermode );
+	VK_RenderModelDynamicBegin( ent->curstate.rendermode, "%s water", model->name );
 
 	// Iterate through all surfaces, find *TURB*
 	for( int i = 0; i < model->nummodelsurfaces; i++ )
@@ -278,7 +279,7 @@ R_TextureAnimation
 Returns the proper texture for a given time and surface
 ===============
 */
-texture_t *R_TextureAnimation( const cl_entity_t *ent, msurface_t *s )
+texture_t *R_TextureAnimation( const cl_entity_t *ent, const msurface_t *s )
 {
 	texture_t	*base = s->texinfo->texture;
 	int	count, reletive;
@@ -570,7 +571,7 @@ qboolean VK_BrushModelLoad( model_t *mod )
 
 		vk_brush_model_t *bmodel = Mem_Calloc(vk_core.pool, model_size);
 		mod->cache.data = bmodel;
-		bmodel->render_model.debug_name = mod->name;
+		Q_strncpy(bmodel->render_model.debug_name, mod->name, sizeof(bmodel->render_model.debug_name));
 		bmodel->render_model.render_mode = kRenderNormal;
 
 		bmodel->num_water_surfaces = sizes.water_surfaces;

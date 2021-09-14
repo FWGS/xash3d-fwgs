@@ -394,7 +394,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 
 		// FIXME .emissive = { color[0], color[1], color[2] },
 
-		VK_RenderModelDynamicBegin( "beam" /* TODO its name */, render_mode );
+		VK_RenderModelDynamicBegin( render_mode, "beam" /* TODO its name */ );
 		VK_RenderModelDynamicAddGeometry( &geometry );
 		VK_RenderModelDynamicCommit();
 	}

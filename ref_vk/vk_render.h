@@ -95,7 +95,7 @@ typedef struct  vk_render_geometry_s {
 	// Used for:
 	// - updating animated textures for brush models
 	// - updating dynamic lights (TODO: can decouple from surface/brush models by providing texture_id and aabb directly here)
-	struct msurface_s *surf;
+	const struct msurface_s *surf;
 
 	// Index into kusochki buffer for current frame
 	uint32_t kusok_index;
@@ -103,8 +103,10 @@ typedef struct  vk_render_geometry_s {
 
 struct vk_ray_model_s;
 
+#define MAX_MODEL_NAME_LENGTH 64
+
 typedef struct vk_render_model_s {
-	const char *debug_name;
+	char debug_name[MAX_MODEL_NAME_LENGTH];
 	int render_mode;
 	int num_geometries;
 	vk_render_geometry_t *geometries;
@@ -122,7 +124,7 @@ void VK_RenderModelDraw( vk_render_model_t* model );
 
 void VK_RenderFrameBegin( void );
 
-void VK_RenderModelDynamicBegin( const char *debug_name, int render_mode );
+void VK_RenderModelDynamicBegin( int render_mode, const char *debug_name_fmt, ... );
 void VK_RenderModelDynamicAddGeometry( const vk_render_geometry_t *geom );
 void VK_RenderModelDynamicCommit( void );
 
