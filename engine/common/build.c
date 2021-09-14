@@ -104,9 +104,9 @@ const char *Q_buildos( void )
 
 /*
 ============
-Q_buildos
+Q_buildarch
 
-Returns current name of operating system. Without any spaces.
+Returns current name of the architecture. Without any spaces.
 ============
 */
 const char *Q_buildarch( void )
@@ -146,6 +146,8 @@ const char *Q_buildarch( void )
 	archname = "javascript";
 #elif XASH_E2K
 	archname = "e2k";
+#elif XASH_RISCV && XASH_64BIT
+	archname = "riscv64";
 #else
 #error "Place your architecture name here! If this is a mistake, try to fix conditions above and report a bug"
 #endif
