@@ -841,13 +841,12 @@ static struct {
 } g_dynamic_model = {0};
 
 void VK_RenderModelDynamicBegin( int render_mode, const char *debug_name_fmt, ... ) {
-	ASSERT(!g_dynamic_model.model.geometries);
-
 	va_list argptr;
 	va_start( argptr, debug_name_fmt );
 	vsnprintf(g_dynamic_model.model.debug_name, sizeof(g_dynamic_model.model.debug_name), debug_name_fmt, argptr );
 	va_end( argptr );
 
+	ASSERT(!g_dynamic_model.model.geometries);
 	g_dynamic_model.model.geometries = g_dynamic_model.geometries;
 	g_dynamic_model.model.num_geometries = 0;
 	g_dynamic_model.model.render_mode = render_mode;

@@ -43,7 +43,7 @@ typedef struct {
 	// Buffer holding vertex and index data
 	struct {
 		VkBuffer buffer; // must be the same as in vk_ray_model_create_t TODO: validate or make impossible to specify incorrectly
-		uint32_t size;
+		uint64_t size;
 	} geometry_data;
 
 	float fov_angle_y;
