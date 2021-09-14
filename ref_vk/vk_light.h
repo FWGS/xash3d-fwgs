@@ -45,6 +45,7 @@ extern vk_lights_t g_lights;
 void VK_LightsShutdown( void );
 
 void VK_LightsNewMap( void );
+void VK_LightsLoadMapStaticLights( void );
 
 void VK_LightsFrameInit( void );
 

@@ -414,6 +414,13 @@ void VK_LightsNewMap( void )
 		g_lights.map.grid_cells
 	);
 
+	VK_LightsLoadMapStaticLights();
+}
+
+void VK_LightsLoadMapStaticLights( void )
+{
+	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
+
 	parseStaticLightEntities();
 
 	// Load RAD data based on map name

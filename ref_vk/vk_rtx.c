@@ -132,6 +132,7 @@ static struct {
 	vk_image_t frames[2];
 
 	qboolean reload_pipeline;
+	qboolean reload_lighting;
 } g_rtx = {0};
 
 VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer) {
@@ -319,6 +320,11 @@ void VK_RayFrameBegin( void )
 		return;
 
 	XVK_RayModel_ClearForNextFrame();
+
+	if (g_rtx.reload_lighting) {
+		g_rtx.reload_lighting = false;
+		VK_LightsLoadMapStaticLights();
+	}
 
 	// TODO shouldn't we do this in freeze models mode anyway?
 	VK_LightsFrameInit();
@@ -944,6 +950,11 @@ static void reloadPipeline( void ) {
 	g_rtx.reload_pipeline = true;
 }
 
+static void reloadLighting( void ) {
+	g_rtx.reload_lighting = true;
+}
+
+
 static void freezeModels( void ) {
 	g_ray_model_state.freeze_models = !g_ray_model_state.freeze_models;
 }
@@ -1043,6 +1054,7 @@ qboolean VK_RayInit( void )
 
 	if (vk_core.debug) {
 		gEngine.Cmd_AddCommand("vk_rtx_reload", reloadPipeline, "Reload RTX shader");
+		gEngine.Cmd_AddCommand("vk_rtx_reload_rad", reloadLighting, "Reload RAD files for static lights");
 		gEngine.Cmd_AddCommand("vk_rtx_freeze", freezeModels, "Freeze models, do not update/add/delete models from to-draw list");
 	}
 
