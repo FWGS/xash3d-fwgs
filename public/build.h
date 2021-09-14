@@ -71,6 +71,7 @@ For more information, please refer to <http://unlicense.org/>
 #undef XASH_WIN32
 #undef XASH_WIN64
 #undef XASH_X86
+#undef XASH_RISCV
 
 //================================================================
 //
@@ -171,6 +172,13 @@ For more information, please refer to <http://unlicense.org/>
 #if defined(__x86_64__) || defined(_M_X64)
 	#define XASH_64BIT 1
 	#define XASH_AMD64 1
+#elif defined(__riscv)
+	#define XASH_RISCV 1
+	#if __riscv_xlen == 64
+		#define XASH_64BIT 1
+	#else
+		#error "Unknown RISC-V architecture with bit length of " STRING(__riscv_xlen)
+	#endif
 #elif defined(__i386__) || defined(_X86_) || defined(_M_IX86)
 	#define XASH_X86 1
 #elif defined __aarch64__ || defined _M_ARM64
