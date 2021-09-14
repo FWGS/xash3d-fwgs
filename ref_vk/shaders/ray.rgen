@@ -125,13 +125,14 @@ vec3 sampleSurfaceTriangle(vec3 view_dir, MaterialProperties material, mat4x3 em
 	if (light_dot <= 0.)
 		return vec3(0.);
 
+	// TODO emissive normals and areas can be precomputed
 	const float area = .5 * length(cross(v1 - v2, v1 - v3)) * meters_per_unit * meters_per_unit;
 	const float light_dist2 = dot(light_dir, light_dir);
 	float pdf = light_dist2 / (area * light_dot);
 
 	light_dir = normalize(light_dir);
 
-	if (shadowed(payload.hit_pos_t.xyz + payload.normal * shadow_offset_fudge, light_dir, sqrt(light_dist2) - shadow_offset_fudge * 2.))
+	if (shadowed(payload.hit_pos_t.xyz, light_dir, sqrt(light_dist2)))
 		return vec3(0.);
 
 	// TODO sample emissive texture
@@ -211,7 +212,7 @@ vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
 			const float d2 = dot(light_dir, light_dir);
 			const float light_dist = sqrt(d2);
 
-			if (shadowed(payload.hit_pos_t.xyz + payload.normal * shadow_offset_fudge, light_dir_norm, light_dist + shadow_offset_fudge))
+			if (shadowed(payload.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
 				continue;
 
 			const float r2 = light_pos_r.w * light_pos_r.w;
@@ -262,8 +263,6 @@ void main() {
 			break;
 		}
 
-		//C = vec3(payload.reflection); break;
-
 		MaterialProperties material;
 		material.baseColor = payload.base_color;
 		material.metalness = 0.f;
@@ -287,7 +286,7 @@ void main() {
 			break;
 
 		vec3 shadingNormal = payload.normal;
-		vec3 geometryNormal = payload.normal;
+		vec3 geometryNormal = payload.geometry_normal;
 		vec3 V = -direction;
 		if (material.metalness == 1.0f && material.roughness == 0.0f) {
 			// Fast path for mirrors
@@ -312,8 +311,7 @@ void main() {
 			break; // Ray was eaten by the surface :(
 		}
 
-		// FIXME better offset (see ray tracing gems, ch 6?)
-		origin = payload.hit_pos_t.xyz + normal_offset_fudge * payload.normal;
+		origin = payload.hit_pos_t.xyz;
 		throughput *= brdfWeight;
 	} // for all bounces
 

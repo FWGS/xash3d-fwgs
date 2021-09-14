@@ -888,7 +888,7 @@ vec3 evalCombinedBRDF(vec3 N, vec3 L, vec3 V, MaterialProperties material) {
 	const BrdfData data = prepareBRDFData(N, L, V, material);
 
 	// Ignore V and L rays "below" the hemisphere
-	if (data.Vbackfacing || data.Lbackfacing) return vec3(0.0f, 0.0f, 0.0f);
+	//if (data.Vbackfacing || data.Lbackfacing) return vec3(0.0f, 0.0f, 0.0f);
 
 	// Eval specular and diffuse BRDFs
 	vec3 specular = evalSpecular(data);
@@ -954,7 +954,7 @@ bool evalIndirectCombinedBRDF(vec2 u, vec3 shadingNormal, vec3 geometryNormal, v
 
 // Calculates probability of selecting BRDF (specular or diffuse) using the approximate Fresnel term
 float getBrdfProbability(MaterialProperties material, vec3 V, vec3 shadingNormal) {
-	
+
 	// Evaluate Fresnel term using the shading normal
 	// Note: we use the shading normal instead of the microfacet normal (half-vector) for Fresnel term here. That's suboptimal for rough surfaces at grazing angles, but half-vector is yet unknown at this point
 	float specularF0 = luminance(baseColorToSpecularF0(material.baseColor, material.metalness));

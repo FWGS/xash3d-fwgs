@@ -15,7 +15,8 @@ hitAttributeEXT vec2 bary;
 float hash(float f) { return fract(sin(f)*53478.4327); }
 vec3 hashUintToVec3(uint i) { return vec3(hash(float(i)), hash(float(i)+15.43), hash(float(i)+34.)); }
 
-const float normal_offset_fudge = .01;
+// FIXME implement more robust self-intersection avoidance (see chap 6 of "Ray Tracing Gems")
+const float normal_offset_fudge = .001;
 
 // Taken from Ray Tracing Gems II, Chapter 7. Texture Coordinate Gradients Estimation for Ray Cones, by Wessam Bahnassi
 // https://www.realtimerendering.com/raytracinggems/rtg2/index.html
@@ -44,29 +45,17 @@ vec4 UVDerivsFromRayCone(vec3 vRayDir, vec3 vWorldNormal, float vRayConeWidth, v
 }
 
 void main() {
-    //const float l = gl_HitTEXT;
-    //ray_result.color = vec3(fract(l / 10.));
-    //return;
-
-    //ray_result.color = vec3(.5);
-
-	// FIXME compute hit pos based on barycentric coords (better precision)
-    vec3 hit_pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
     payload.t_offset += gl_HitTEXT;
 
-	// ray_result.color = fract((hit_pos + .5) / 10.);
-    //ray_result.color = vec3(1.);
-    //return;
-    //ray_result.color = hashUintToVec3(gl_GeometryIndexEXT);
-
     const int instance_kusochki_offset = gl_InstanceCustomIndexEXT;
-    //ray_result.color = hashUintToVec3(uint(instance_kusochki_offset));
     const int kusok_index = instance_kusochki_offset + gl_GeometryIndexEXT;
 
     const uint first_index_offset = kusochki[kusok_index].index_offset + gl_PrimitiveID * 3;
+
     const uint vi1 = uint(indices[first_index_offset+0]) + kusochki[kusok_index].vertex_offset;
     const uint vi2 = uint(indices[first_index_offset+1]) + kusochki[kusok_index].vertex_offset;
     const uint vi3 = uint(indices[first_index_offset+2]) + kusochki[kusok_index].vertex_offset;
+
     const vec3 n1 = vertices[vi1].normal;
     const vec3 n2 = vertices[vi2].normal;
     const vec3 n3 = vertices[vi3].normal;
@@ -80,6 +69,7 @@ void main() {
         vertices[vi2].gl_tc,
         vertices[vi3].gl_tc,
     };
+
     const vec3 pos[3] = {
         vertices[vi1].pos,
         vertices[vi2].pos,
@@ -98,11 +88,16 @@ void main() {
 
 	// FIXME read alpha from texture
 
+	const vec3 real_geom_normal = normalize(transpose(inverse(matWorld)) * cross(pos[0]-pos[1], pos[2]-pos[0]));
+	const float geom_normal_sign = sign(dot(real_geom_normal, -gl_WorldRayDirectionEXT));
+	const vec3 geom_normal = geom_normal_sign * real_geom_normal;
+
+    const vec3 hit_pos = pos[0] * (1. - bary.x - bary.y) + pos[1] * bary.x + pos[2] * bary.y + geom_normal + normal_offset_fudge;
     payload.hit_pos_t = vec4(hit_pos, gl_HitTEXT);
     payload.base_color = base_color * kusochki[kusok_index].color.rgb;
 	payload.reflection = tex_color.a * kusochki[kusok_index].color.a;
-    payload.normal = normal * sign(dot(normal, -gl_WorldRayDirectionEXT));
-
+    payload.normal = normal * geom_normal_sign;
+	payload.geometry_normal = geom_normal;
     payload.emissive = kusochki[kusok_index].emissive * base_color; // TODO emissive should have a special texture
     payload.roughness = kusochki[kusok_index].roughness;
     payload.kusok_index = kusok_index;
