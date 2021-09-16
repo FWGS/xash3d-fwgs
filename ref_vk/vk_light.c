@@ -64,8 +64,13 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 		line_end = Q_strchr(data, '\n');
 		if (line_end) *line_end = '\0';
 
+		name[0] = '\0';
 		num = sscanf(data, "%s %f %f %f %f", name, &r, &g, &b, &scale);
 		gEngine.Con_Printf("raw rad entry (%d): %s %f %f %f %f\n", num, name, r, g, b, scale);
+		if (Q_strstr(name, "//") != NULL) {
+			num = 0;
+		}
+
 		if (num == 2) {
 			r = g = b;
 		} else if (num == 5) {
@@ -76,7 +81,7 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 		} else if (num == 4) {
 			// Ok, rgb only, no scaling
 		} else {
-			gEngine.Con_Printf( "skipping rad entry %s\n", num ? name : "" );
+			gEngine.Con_Printf( "skipping rad entry %s\n", name[0] ? name : "(empty)" );
 			num = 0;
 		}
 
