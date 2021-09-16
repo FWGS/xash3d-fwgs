@@ -61,8 +61,9 @@ void main() {
     const vec3 n3 = vertices[vi3].normal;
 
     // TODO use already inverse gl_WorldToObject ?
-    const mat3 matWorld = mat3(gl_ObjectToWorldEXT);
-    const vec3 normal = normalize(transpose(inverse(matWorld)) * (n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y));
+    const mat3 matWorldRotation = mat3(gl_ObjectToWorldEXT);
+	const mat3 normalTransformMat = transpose(inverse(matWorldRotation));
+    const vec3 normal = normalize(normalTransformMat * (n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y));
 
     const vec2 uvs[3] = {
         vertices[vi1].gl_tc,
@@ -79,7 +80,7 @@ void main() {
     const uint tex_index = kusochki[kusok_index].texture;
 
     const float ray_cone_width = payload.pixel_cone_spread_angle * payload.t_offset;
-    const vec4 uv_lods = UVDerivsFromRayCone(gl_WorldRayDirectionEXT, normal, ray_cone_width, uvs, pos, matWorld);
+    const vec4 uv_lods = UVDerivsFromRayCone(gl_WorldRayDirectionEXT, normal, ray_cone_width, uvs, pos, matWorldRotation);
     const vec4 tex_color = textureGrad(textures[nonuniformEXT(tex_index)], texture_uv, uv_lods.xy, uv_lods.zw);
     //const vec3 base_color = pow(tex_color.rgb, vec3(2.));
     const vec3 base_color = tex_color.rgb;// pow(tex_color.rgb, vec3(2.));
@@ -88,11 +89,14 @@ void main() {
 
 	// FIXME read alpha from texture
 
-	const vec3 real_geom_normal = normalize(transpose(inverse(matWorld)) * cross(pos[0]-pos[1], pos[2]-pos[0]));
+	const vec3 real_geom_normal = normalize(normalTransformMat * cross(pos[2]-pos[0], pos[1]-pos[0]));
 	const float geom_normal_sign = sign(dot(real_geom_normal, -gl_WorldRayDirectionEXT));
 	const vec3 geom_normal = geom_normal_sign * real_geom_normal;
 
-    const vec3 hit_pos = pos[0] * (1. - bary.x - bary.y) + pos[1] * bary.x + pos[2] * bary.y + geom_normal + normal_offset_fudge;
+	// This one is supposed to be numerically better, but I can't see why
+    const vec3 hit_pos = (gl_ObjectToWorldEXT * vec4(pos[0] * (1. - bary.x - bary.y) + pos[1] * bary.x + pos[2] * bary.y, 1.)).xyz + geom_normal * normal_offset_fudge;
+	//const vec3 hit_pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT + geom_normal * normal_offset_fudge;
+
     payload.hit_pos_t = vec4(hit_pos, gl_HitTEXT);
     payload.base_color = base_color * kusochki[kusok_index].color.rgb;
 	payload.reflection = tex_color.a * kusochki[kusok_index].color.a;

@@ -9,8 +9,7 @@
 
 // FIXME what should this be?
 const float dlight_attenuation_const = 10000.;
-const float shadow_offset_fudge = .5;
-const float normal_offset_fudge = .1;
+const float shadow_offset_fudge = .1;
 const float meters_per_unit = 1. / 39.37;
 
 layout (constant_id = 0) const uint MAX_DLIGHTS = 32;
@@ -94,7 +93,7 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 		flags,
 		GEOMETRY_BIT_OPAQUE,
 		0, 0, 1 /* miss index */,
-		pos, 0., dir, dist, 1 /* payload location */);
+		pos, 0., dir, dist - shadow_offset_fudge, 1 /* payload location */);
 	return shadow;
 }
 
@@ -274,8 +273,7 @@ void main() {
 
 		// Decide whether ray continues through, or relfects
 		if (rand01() > payload.reflection) {
-			origin = payload.hit_pos_t.xyz - normal_offset_fudge * payload.normal;
-			//throughput *= 1. - payload.reflection;
+			origin = payload.hit_pos_t.xyz;
 			throughput *= payload.base_color;
 			continue;
 		}
