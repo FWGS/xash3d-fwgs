@@ -116,3 +116,4 @@ def build(bld):
 		install_path = bld.env.LIBDIR + '/valve' # FIXME TEMPORARY!!!!
 	)
 
+	bld.install_files(bld.env.LIBDIR + '/valve/maps', bld.path.ant_glob('rad/*.rad'))

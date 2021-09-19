@@ -430,26 +430,16 @@ void VK_LightsLoadMapStaticLights( void )
 
 	// Load RAD data based on map name
 	memset(g_lights.map.emissive_textures, 0, sizeof(g_lights.map.emissive_textures));
-	loadRadData( map, "rad/lights.rad" );
+	loadRadData( map, "maps/lights.rad" );
 
 	{
-		// Extract <mapname> from maps/<mapname>.bsp
-		char mapname[sizeof(map->name)];
-		int name_len;
-
-		const char *name_begin = Q_strrchr(map->name, '/');
-		if (name_begin)
-			++name_begin;
-		else
-			name_begin = map->name;
-
-		name_len = Q_strlen(name_begin);
+		int name_len = Q_strlen(map->name);
 
 		// Strip ".bsp" suffix
-		if (name_len > 4 && 0 == Q_stricmp(name_begin + name_len - 4, ".bsp"))
+		if (name_len > 4 && 0 == Q_stricmp(map->name + name_len - 4, ".bsp"))
 			name_len -= 4;
 
-		loadRadData( map, "rad/%.*s.rad", name_len, name_begin );
+		loadRadData( map, "%.*s.rad", name_len, map->name );
 	}
 }
 
