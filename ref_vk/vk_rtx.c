@@ -67,11 +67,10 @@ enum {
 	RayDescBinding_Vertices = 5,
 	RayDescBinding_Textures = 6,
 
-	RayDescBinding_UBOLights = 7,
-	RayDescBinding_EmissiveKusochki = 8,
-	RayDescBinding_LightClusters = 9,
+	RayDescBinding_Lights = 7,
+	RayDescBinding_LightClusters = 8,
 
-	RayDescBinding_PrevFrame = 10,
+	RayDescBinding_PrevFrame = 9,
 
 	RayDescBinding_COUNT
 };
@@ -333,24 +332,24 @@ void VK_RayFrameBegin( void )
 static void createPipeline( void )
 {
 	struct RayShaderSpec {
-		int max_dlights;
+		int max_point_lights;
 		int max_emissive_kusochki;
-		uint32_t max_visible_dlights;
+		uint32_t max_visible_point_lights;
 		uint32_t max_visible_surface_lights;
 		float light_grid_cell_size;
 		int max_light_clusters;
 	} spec_data = {
-		.max_dlights = MAX_DLIGHTS,
+		.max_point_lights = MAX_POINT_LIGHTS,
 		.max_emissive_kusochki = MAX_EMISSIVE_KUSOCHKI,
-		.max_visible_dlights = MAX_VISIBLE_DLIGHTS,
+		.max_visible_point_lights = MAX_VISIBLE_POINT_LIGHTS,
 		.max_visible_surface_lights = MAX_VISIBLE_SURFACE_LIGHTS,
 		.light_grid_cell_size = LIGHT_GRID_CELL_SIZE,
 		.max_light_clusters = MAX_LIGHT_CLUSTERS,
 	};
 	const VkSpecializationMapEntry spec_map[] = {
-		{.constantID = 0, .offset = offsetof(struct RayShaderSpec, max_dlights), .size = sizeof(int) },
+		{.constantID = 0, .offset = offsetof(struct RayShaderSpec, max_point_lights), .size = sizeof(int) },
 		{.constantID = 1, .offset = offsetof(struct RayShaderSpec, max_emissive_kusochki), .size = sizeof(int) },
-		{.constantID = 2, .offset = offsetof(struct RayShaderSpec, max_visible_dlights), .size = sizeof(uint32_t) },
+		{.constantID = 2, .offset = offsetof(struct RayShaderSpec, max_visible_point_lights), .size = sizeof(uint32_t) },
 		{.constantID = 3, .offset = offsetof(struct RayShaderSpec, max_visible_surface_lights), .size = sizeof(uint32_t) },
 		{.constantID = 4, .offset = offsetof(struct RayShaderSpec, light_grid_cell_size), .size = sizeof(float) },
 		{.constantID = 5, .offset = offsetof(struct RayShaderSpec, max_light_clusters), .size = sizeof(int) },
@@ -565,14 +564,8 @@ static void updateDescriptors( VkCommandBuffer cmdbuf, const vk_ray_frame_render
 		dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	}
 
-	g_rtx.desc_values[RayDescBinding_UBOLights].buffer = (VkDescriptorBufferInfo){
-		.buffer = args->dlights.buffer,
-		.offset = args->dlights.offset,
-		.range = args->dlights.size,
-	};
-
-	g_rtx.desc_values[RayDescBinding_EmissiveKusochki].buffer = (VkDescriptorBufferInfo){
-		.buffer = g_ray_model_state.emissive_kusochki_buffer.buffer,
+	g_rtx.desc_values[RayDescBinding_Lights].buffer = (VkDescriptorBufferInfo){
+		.buffer = g_ray_model_state.lights_buffer.buffer,
 		.offset = 0,
 		.range = VK_WHOLE_SIZE,
 	};
@@ -665,12 +658,18 @@ static void updateLights( void )
 
 	// Upload dynamic emissive kusochki
 	{
-		vk_emissive_kusochki_t *ek = g_ray_model_state.emissive_kusochki_buffer.mapped;
+		vk_lights_buffer_t *ek = g_ray_model_state.lights_buffer.mapped;
 		ASSERT(g_lights.num_emissive_surfaces <= MAX_EMISSIVE_KUSOCHKI);
 		ek->num_kusochki = g_lights.num_emissive_surfaces;
 		for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
 			ek->kusochki[i].kusok_index = g_lights.emissive_surfaces[i].kusok_index;
 			Matrix3x4_Copy(ek->kusochki[i].transform, g_lights.emissive_surfaces[i].transform);
+		}
+
+		ek->num_point_lights = g_lights.num_point_lights;
+		for (int i = 0; i < g_lights.num_point_lights; ++i) {
+			Vector4Copy(g_lights.point_lights[i].origin, ek->point_lights[i].position);
+			Vector4Copy(g_lights.point_lights[i].color, ek->point_lights[i].color);
 		}
 	}
 }
@@ -915,15 +914,8 @@ static void createLayouts( void ) {
 	// for (int i = 0; i < ARRAYSIZE(samplers); ++i)
 	// 	samplers[i] = vk_core.default_sampler;
 
-	g_rtx.desc_bindings[RayDescBinding_UBOLights] =	(VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_UBOLights,
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	};
-
-	g_rtx.desc_bindings[RayDescBinding_EmissiveKusochki] =	(VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_EmissiveKusochki,
+	g_rtx.desc_bindings[RayDescBinding_Lights] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Lights,
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
@@ -1008,7 +1000,7 @@ qboolean VK_RayInit( void )
 	}
 	g_ray_model_state.kusochki_alloc.size = MAX_KUSOCHKI;
 
-	if (!createBuffer("ray emissive_kusochki_buffer", &g_ray_model_state.emissive_kusochki_buffer, sizeof(vk_emissive_kusochki_t),
+	if (!createBuffer("ray lights_buffer", &g_ray_model_state.lights_buffer, sizeof(vk_lights_buffer_t),
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
@@ -1085,7 +1077,7 @@ void VK_RayShutdown( void )
 	destroyBuffer(&g_rtx.accels_buffer);
 	destroyBuffer(&g_rtx.tlas_geom_buffer);
 	destroyBuffer(&g_ray_model_state.kusochki_buffer);
-	destroyBuffer(&g_ray_model_state.emissive_kusochki_buffer);
+	destroyBuffer(&g_ray_model_state.lights_buffer);
 	destroyBuffer(&g_rtx.light_grid_buffer);
 	destroyBuffer(&g_rtx.sbt_buffer);
 }

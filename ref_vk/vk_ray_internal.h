@@ -2,6 +2,7 @@
 
 #include "vk_core.h"
 #include "vk_buffer.h"
+#include "vk_const.h"
 
 #include "shaders/ray_interop.h"
 
@@ -29,13 +30,15 @@ typedef struct Kusok vk_kusok_data_t;
 
 typedef struct {
 	uint32_t num_kusochki;
-	uint32_t padding__[3];
+	uint32_t num_point_lights;
+	uint32_t padding__[2];
 	struct {
 		uint32_t kusok_index;
 		uint32_t padding__[3];
 		matrix3x4 transform;
 	} kusochki[MAX_EMISSIVE_KUSOCHKI];
-} vk_emissive_kusochki_t;
+	struct PointLight point_lights[MAX_POINT_LIGHTS];
+} vk_lights_buffer_t;
 
 typedef struct {
 	matrix3x4 transform_row;
@@ -76,7 +79,7 @@ typedef struct {
 	// - fully dynamic lights: re-built each frame, so becomes similar to scratch_buffer and could be unified (same about uniform binding opt)
 	//   This allows studio and other non-brush model to be emissive.
 	// Needs: STORAGE/UNIFORM_BUFFER
-	vk_buffer_t emissive_kusochki_buffer;
+	vk_buffer_t lights_buffer;
 
 	// Per-frame data that is accumulated between RayFrameBegin and End calls
 	struct {

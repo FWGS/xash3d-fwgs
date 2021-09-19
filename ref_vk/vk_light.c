@@ -13,6 +13,21 @@
 vk_lights_t g_lights = {0};
 
 typedef struct {
+	vec3_t origin;
+	vec3_t color;
+	//int style;
+	//char pattern[64];
+	//int dark;
+} vk_light_entity_t;
+
+struct {
+	int num_lights;
+	vk_light_entity_t lights[64];
+
+	// TODO spot light entities
+} g_light_entities;
+
+typedef struct {
 	const char *name;
 	int r, g, b, intensity;
 } vk_light_texture_rad_data;
@@ -134,7 +149,13 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 	Mem_Free(buffer);
 }
 
+static void addStaticPointLight(vec3_t origin, vec3_t color)
+{
+}
+
 static void parseStaticLightEntities( void ) {
+	g_light_entities.num_lights = 0;
+
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 	char *pos;
 	enum {
@@ -144,9 +165,8 @@ static void parseStaticLightEntities( void ) {
 	struct {
 		vec3_t origin;
 		vec3_t color;
-		//float radius;
-		int style;
-	} light = {0};
+		//int style;
+	} values;
 	enum {
 		HaveOrigin = 1,
 		HaveColor = 2,
@@ -159,6 +179,7 @@ static void parseStaticLightEntities( void ) {
 	ASSERT(world);
 
 	pos = world->entities;
+	//gEngine.Con_Reportf("ENTITIES: %s\n", pos);
 	for (;;) {
 		string key, value;
 
@@ -174,11 +195,24 @@ static void parseStaticLightEntities( void ) {
 			// TODO handle entity
 			if (have != HaveAll)
 				continue;
-			if (classname != Light && classname != LightSpot)
-				continue;
 
-			// TODO store this
-			//VK_RenderAddStaticLight(light.origin, light.color);
+			switch (classname) {
+				case Light:
+					if (g_light_entities.num_lights == ARRAYSIZE(g_light_entities.lights)) {
+						gEngine.Con_Printf(S_ERROR "Too many lights entities in map\n");
+						continue;
+					} else {
+						vk_light_entity_t *le = g_light_entities.lights + g_light_entities.num_lights++;
+						VectorCopy(values.origin, le->origin);
+						VectorCopy(values.color, le->color);
+						//le->style = values.style;
+					}
+					break;
+				case LightSpot:
+					// TODO
+					break;
+			}
+
 			continue;
 		}
 
@@ -188,32 +222,32 @@ static void parseStaticLightEntities( void ) {
 
 		if (Q_strcmp(key, "origin") == 0) {
 			const int components = sscanf(value, "%f %f %f",
-				&light.origin[0],
-				&light.origin[1],
-				&light.origin[2]);
+				&values.origin[0],
+				&values.origin[1],
+				&values.origin[2]);
 			if (components == 3)
 				have |= HaveOrigin;
 		} else
 		if (Q_strcmp(key, "_light") == 0) {
 			float scale = 1.f / 255.f;
 			const int components = sscanf(value, "%f %f %f %f",
-				&light.color[0],
-				&light.color[1],
-				&light.color[2],
+				&values.color[0],
+				&values.color[1],
+				&values.color[2],
 				&scale);
 			if (components == 1) {
-				light.color[2] = light.color[1] = light.color[0] = light.color[0] / 255.f;
+				values.color[2] = values.color[1] = values.color[0] = values.color[0] / 255.f;
 				have |= HaveColor;
 			} else if (components == 4) {
 				scale /= 255.f * 255.f;
-				light.color[0] *= scale;
-				light.color[1] *= scale;
-				light.color[2] *= scale;
+				values.color[0] *= scale;
+				values.color[1] *= scale;
+				values.color[2] *= scale;
 				have |= HaveColor;
 			} else if (components == 3) {
-				light.color[0] *= scale;
-				light.color[1] *= scale;
-				light.color[2] *= scale;
+				values.color[0] *= scale;
+				values.color[1] *= scale;
+				values.color[2] *= scale;
 				have |= HaveColor;
 			}
 		} else if (Q_strcmp(key, "classname") == 0) {
@@ -545,11 +579,72 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 	return NULL;
 }
 
+static qboolean addDlight( const dlight_t *dlight ) {
+	vk_point_light_t *light = g_lights.point_lights + g_lights.num_point_lights;
+
+	if( !dlight || dlight->die < gpGlobals->time || !dlight->radius )
+		return true;
+
+	if (g_lights.num_point_lights >= MAX_POINT_LIGHTS)
+		return false;
+
+	Vector4Set(
+		light->color,
+		dlight->color.r / 255.f,
+		dlight->color.g / 255.f,
+		dlight->color.b / 255.f,
+		1.f);
+	Vector4Set(
+		light->origin,
+		dlight->origin[0],
+		dlight->origin[1],
+		dlight->origin[2],
+		dlight->radius);
+
+	++g_lights.num_point_lights;
+
+	return true;
+}
+
 void VK_LightsFrameFinalize( void )
 {
 	if (g_lights.num_emissive_surfaces > UINT8_MAX) {
 		gEngine.Con_Printf(S_ERROR "Too many emissive surfaces found: %d; some areas will be dark\n", g_lights.num_emissive_surfaces);
 		g_lights.num_emissive_surfaces = UINT8_MAX;
+	}
+
+	g_lights.num_point_lights = 0;
+	for (int i = 0; i < g_light_entities.num_lights; ++i, ++g_lights.num_point_lights) {
+		const vk_light_entity_t *entity = g_light_entities.lights + i;
+		vk_point_light_t *light = g_lights.point_lights + g_lights.num_point_lights;
+
+		if (g_lights.num_point_lights >= MAX_POINT_LIGHTS) {
+			gEngine.Con_Printf(S_ERROR "Too many point light entities, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
+			break;
+		}
+
+		Vector4Copy(entity->color, light->color);
+		Vector4Copy(entity->origin, light->origin);
+
+		// FIXME ???
+		light->origin[3] = 50.f;
+		light->color[3] = 1.f;
+	}
+
+	for (int i = 0; i < MAX_ELIGHTS; ++i) {
+		const dlight_t *dlight = gEngine.GetEntityLight(i);
+		if (!addDlight(dlight)) {
+			gEngine.Con_Printf(S_ERROR "Too many elights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
+			break;
+		}
+	}
+
+	for (int i = 0; i < MAX_DLIGHTS; ++i) {
+		const dlight_t *dlight = gEngine.GetDynamicLight(i);
+		if (!addDlight(dlight)) {
+			gEngine.Con_Printf(S_ERROR "Too many dlights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
+			break;
+		}
 	}
 
 #if 0

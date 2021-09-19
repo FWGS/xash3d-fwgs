@@ -37,9 +37,6 @@ typedef struct {
 	// TODO inv_view/proj matrices instead of UBO
 	vk_buffer_region_t ubo;
 
-	// TODO get rid of this, dlights should be in light clusters
-	vk_buffer_region_t dlights;
-
 	// Buffer holding vertex and index data
 	struct {
 		VkBuffer buffer; // must be the same as in vk_ray_model_create_t TODO: validate or make impossible to specify incorrectly

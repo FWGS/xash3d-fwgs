@@ -46,9 +46,6 @@ void VK_RenderStateSetMatrixProjection(const matrix4x4 proj, float fov_angle_y);
 void VK_RenderStateSetMatrixView(const matrix4x4 view);
 void VK_RenderStateSetMatrixModel(const matrix4x4 model);
 
-// TODO: radius, intensity, style, PVS bits, etc..
-void VK_RenderAddStaticLight(vec3_t origin, vec3_t color);
-
 // TODO is this a good place?
 typedef struct vk_vertex_s {
 	// TODO padding needed for storage buffer reading, figure out how to fix in GLSL/SPV side

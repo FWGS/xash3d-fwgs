@@ -30,6 +30,11 @@ struct Kusok {
 	float roughness;
 };
 
+struct PointLight {
+	vec4 position;
+	vec4 color;
+};
+
 #ifndef GLSL
 #undef uint
 #undef vec3

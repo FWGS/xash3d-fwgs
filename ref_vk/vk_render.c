@@ -36,11 +36,6 @@ static struct {
 	vk_buffer_t uniform_buffer;
 	uint32_t ubo_align;
 
-	struct {
-		vec3_t origin, color;
-	} static_lights[32];
-	int num_static_lights;
-
 	float fov_angle_y;
 } g_render;
 
@@ -332,7 +327,6 @@ void XVK_RenderBufferMapFreeze( void ) {
 
 void XVK_RenderBufferMapClear( void ) {
 	VK_RingBuffer_Clear(&g_render.buffer_alloc_ring);
-	g_render.num_static_lights = 0;
 }
 
 void XVK_RenderBufferFrameClear( /*int frame_id*/void ) {
@@ -539,16 +533,6 @@ static void drawCmdPushDraw( const render_draw_t *draw )
 	Matrix3x4_Copy(draw_command->draw.transform, g_render_state.model);
 }
 
-void VK_RenderAddStaticLight(vec3_t origin, vec3_t color)
-{
-	if (g_render.num_static_lights == ARRAYSIZE(g_render.static_lights))
-		return;
-
-	VectorCopy(origin, g_render.static_lights[g_render.num_static_lights].origin);
-	VectorCopy(color, g_render.static_lights[g_render.num_static_lights].color);
-	g_render.num_static_lights++;
-}
-
 // Return offset of dlights data into UBO buffer
 static uint32_t writeDlightsToUBO( void )
 {
@@ -560,26 +544,6 @@ static uint32_t writeDlightsToUBO( void )
 		return UINT32_MAX;
 	}
 	ubo_lights = (vk_ubo_lights_t*)((byte*)(g_render.uniform_buffer.mapped) + ubo_lights_offset);
-
-// TODO rtx and query light styles
-#if 1
-	for (int i = 0; i < g_render.num_static_lights && num_lights < ARRAYSIZE(ubo_lights->light); ++i) {
-		Vector4Set(
-			ubo_lights->light[num_lights].color,
-			g_render.static_lights[i].color[0],
-			g_render.static_lights[i].color[1],
-			g_render.static_lights[i].color[2],
-			1.f);
-		Vector4Set(
-			ubo_lights->light[num_lights].pos_r,
-			g_render.static_lights[i].origin[0],
-			g_render.static_lights[i].origin[1],
-			g_render.static_lights[i].origin[2],
-			50.f /* FIXME WHAT */);
-
-		num_lights++;
-	}
-#endif
 
 	// TODO this should not be here (where? vk_scene?)
 	for (int i = 0; i < MAX_DLIGHTS && num_lights < ARRAYSIZE(ubo_lights->light); ++i) {
@@ -689,10 +653,6 @@ void VK_RenderDebugLabelEnd( void )
 
 void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h )
 {
-	const uint32_t dlights_ubo_offset = writeDlightsToUBO();
-	if (dlights_ubo_offset == UINT32_MAX)
-		return;
-
 	ASSERT(vk_core.rtx);
 
 	{
@@ -709,12 +669,6 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 				.buffer = g_render.uniform_buffer.buffer,
 				.offset = allocUniform(sizeof(matrix4x4) * 2, sizeof(matrix4x4)),
 				.size = sizeof(matrix4x4) * 2,
-			},
-
-			.dlights = {
-				.buffer = g_render.uniform_buffer.buffer,
-				.offset = dlights_ubo_offset,
-				.size = sizeof(vk_ubo_lights_t),
 			},
 
 			.geometry_data = {

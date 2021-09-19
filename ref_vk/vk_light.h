@@ -13,9 +13,9 @@ typedef struct {
 } vk_emissive_texture_t;
 
 typedef struct {
-	uint8_t num_dlights;
+	uint8_t num_point_lights;
 	uint8_t num_emissive_surfaces;
-	uint8_t dlights[MAX_VISIBLE_DLIGHTS];
+	uint8_t point_lights[MAX_VISIBLE_POINT_LIGHTS];
 	uint8_t emissive_surfaces[MAX_VISIBLE_SURFACE_LIGHTS];
 } vk_lights_cell_t;
 
@@ -24,6 +24,12 @@ typedef struct {
 	uint32_t kusok_index;
 	matrix3x4 transform;
 } vk_emissive_surface_t;
+
+typedef struct {
+	vec4_t origin, color;
+} vk_point_light_t;
+
+// TODO spotlight
 
 typedef struct {
 	struct {
@@ -36,6 +42,9 @@ typedef struct {
 
 	int num_emissive_surfaces;
 	vk_emissive_surface_t emissive_surfaces[255]; // indexed by uint8_t
+
+	int num_point_lights;
+	vk_point_light_t point_lights[MAX_POINT_LIGHTS];
 
 	vk_lights_cell_t cells[MAX_LIGHT_CLUSTERS];
 } vk_lights_t;

@@ -97,17 +97,17 @@ void R_NewMap( void )
 	if (is_save_load)
 		return;
 
+	// TODO should we do something like VK_BrushBeginLoad?
+	VK_BrushStatsClear();
+
+	XVK_RenderBufferMapClear();
+
 	VK_ClearLightmap();
 
 	// This is to ensure that we have computed lightstyles properly
 	VK_RunLightStyles();
 
 	VK_LightsNewMap();
-
-	// TODO should we do something like VK_BrushBeginLoad?
-	VK_BrushStatsClear();
-
-	XVK_RenderBufferMapClear();
 
 	if (vk_core.rtx)
 		VK_RayNewMap();
