@@ -149,8 +149,77 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 	Mem_Free(buffer);
 }
 
-static void addStaticPointLight(vec3_t origin, vec3_t color)
-{
+
+#define ENT_PROP_LIST(X) \
+	X(0, vec3_t, origin, Vec3) \
+	X(1, vec3_t, angles, Vec3) \
+	X(2, float, pitch, Float) \
+	X(3, vec3_t, _light, Rgbav) \
+	X(4, class_name_e, classname, Classname) \
+
+typedef enum {
+	Unknown = 0,
+	Light,
+	LightSpot,
+	LightEnvironment,
+	Ignored,
+} class_name_e;
+
+typedef struct {
+#define DECLARE_FIELD(num, type, name, kind) type name;
+	ENT_PROP_LIST(DECLARE_FIELD)
+#undef DECLARE_FIELD
+} entity_props_t;
+
+typedef enum {
+	None = 0,
+#define DECLARE_FIELD(num, type, name, kind) Field_##name = (1<<num),
+	ENT_PROP_LIST(DECLARE_FIELD)
+#undef DECLARE_FIELD
+} fields_read_e;
+
+static unsigned parseEntPropFloat(const string value, float *out, unsigned bit) {
+	return (1 == sscanf(value, "%f", out)) ? bit : 0;
+}
+
+static unsigned parseEntPropVec3(const string value, vec3_t *out, unsigned bit) {
+	return (3 == sscanf(value, "%f %f %f", &(*out)[0], &(*out)[1], &(*out)[2])) ? bit : 0;
+}
+
+static unsigned parseEntPropRgbav(const string value, vec3_t *out, unsigned bit) {
+	float scale = 1.f / 255.f;
+	const int components = sscanf(value, "%f %f %f %f", &(*out)[0], &(*out)[1], &(*out)[2], &scale);
+	if (components == 1) {
+		(*out)[2] = (*out)[1] = (*out)[0] = (*out)[0] / 255.f;
+		return bit;
+	} else if (components == 4) {
+		scale /= 255.f * 255.f;
+		(*out)[0] *= scale;
+		(*out)[1] *= scale;
+		(*out)[2] *= scale;
+		return bit;
+	} else if (components == 3) {
+		(*out)[0] *= scale;
+		(*out)[1] *= scale;
+		(*out)[2] *= scale;
+		return bit;
+	}
+
+	return 0;
+}
+
+static unsigned parseEntPropClassname(const string value, class_name_e *out, unsigned bit) {
+	if (Q_strcmp(value, "light") == 0) {
+		*out = Light;
+	} else if (Q_strcmp(value, "light_spot") == 0) {
+		*out = LightSpot;
+	} else if (Q_strcmp(value, "light_environment") == 0) {
+		*out = LightEnvironment;
+	} else {
+		*out = Ignored;
+	}
+
+	return bit;
 }
 
 static void parseStaticLightEntities( void ) {
@@ -158,23 +227,8 @@ static void parseStaticLightEntities( void ) {
 
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 	char *pos;
-	enum {
-		Unknown,
-		Light, LightSpot,
-	} classname = Unknown;
-	struct {
-		vec3_t origin;
-		vec3_t color;
-		//int style;
-	} values;
-	enum {
-		HaveOrigin = 1,
-		HaveColor = 2,
-		//HaveStyle = 4,
-		HaveClass = 8,
-		HaveAll = HaveOrigin | HaveColor | HaveClass,
-	};
-	unsigned int have = 0;
+	unsigned have_fields = 0;
+	entity_props_t values;
 
 	ASSERT(world);
 
@@ -187,25 +241,29 @@ static void parseStaticLightEntities( void ) {
 		if (!pos)
 			break;
 		if (key[0] == '{') {
-			classname = Unknown;
-			have = 0;
+			have_fields = None;
+			values = (entity_props_t){0};
 			continue;
-		}
-		if (key[0] == '}') {
-			// TODO handle entity
-			if (have != HaveAll)
-				continue;
-
-			switch (classname) {
+		} else if (key[0] == '}') {
+			switch (values.classname) {
 				case Light:
+					{
+						const unsigned need_fields = Field_origin | Field__light;
+						if (have_fields & need_fields != need_fields) {
+							gEngine.Con_Printf(S_ERROR "Missing some fields for light entity\n");
+							continue;
+						}
+					}
+
 					if (g_light_entities.num_lights == ARRAYSIZE(g_light_entities.lights)) {
 						gEngine.Con_Printf(S_ERROR "Too many lights entities in map\n");
 						continue;
-					} else {
+					}
+
+					{
 						vk_light_entity_t *le = g_light_entities.lights + g_light_entities.num_lights++;
 						VectorCopy(values.origin, le->origin);
-						VectorCopy(values.color, le->color);
-						//le->style = values.style;
+						VectorCopy(values._light, le->color);
 					}
 					break;
 				case LightSpot:
@@ -220,43 +278,18 @@ static void parseStaticLightEntities( void ) {
 		if (!pos)
 			break;
 
-		if (Q_strcmp(key, "origin") == 0) {
-			const int components = sscanf(value, "%f %f %f",
-				&values.origin[0],
-				&values.origin[1],
-				&values.origin[2]);
-			if (components == 3)
-				have |= HaveOrigin;
+#define READ_FIELD(num, type, name, kind) \
+		if (Q_strcmp(key, #name) == 0) { \
+			const unsigned bit = parseEntProp##kind(value, &values.name, Field_##name); \
+			if (bit == 0) { \
+				gEngine.Con_Printf( S_ERROR "Error parsing entity property " #name ", invalid value: %s\n", value); \
+			} else have_fields |= bit; \
 		} else
-		if (Q_strcmp(key, "_light") == 0) {
-			float scale = 1.f / 255.f;
-			const int components = sscanf(value, "%f %f %f %f",
-				&values.color[0],
-				&values.color[1],
-				&values.color[2],
-				&scale);
-			if (components == 1) {
-				values.color[2] = values.color[1] = values.color[0] = values.color[0] / 255.f;
-				have |= HaveColor;
-			} else if (components == 4) {
-				scale /= 255.f * 255.f;
-				values.color[0] *= scale;
-				values.color[1] *= scale;
-				values.color[2] *= scale;
-				have |= HaveColor;
-			} else if (components == 3) {
-				values.color[0] *= scale;
-				values.color[1] *= scale;
-				values.color[2] *= scale;
-				have |= HaveColor;
-			}
-		} else if (Q_strcmp(key, "classname") == 0) {
-			if (Q_strcmp(value, "light") == 0)
-				classname = Light;
-			else if (Q_strcmp(value, "light_spot") == 0)
-				classname = LightSpot;
-			have |= HaveClass;
+		ENT_PROP_LIST(READ_FIELD)
+		{
+			//gEngine.Con_Reportf("Unknown field %s with value %s\n", key, value);
 		}
+#undef CHECK_FIELD
 	}
 }
 
