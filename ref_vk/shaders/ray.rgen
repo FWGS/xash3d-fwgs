@@ -40,6 +40,7 @@ struct EmissiveKusok {
 layout (set = 0, binding = 7/*, align=4*/) uniform Lights {
 	uint num_kusochki;
 	uint num_point_lights;
+	vec3 sun_dir, sun_color;
 	EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
 	PointLight point_lights[MAX_POINT_LIGHTS];
 } lights;
@@ -125,6 +126,17 @@ vec3 sampleSurfaceTriangle(vec3 view_dir, MaterialProperties material, mat4x3 em
 	return evalCombinedBRDF(payload.normal, light_dir, view_dir, material) / pdf;
 }
 
+vec3 sampleSun(vec3 view_dir, MaterialProperties material) {
+	const float light_dot = dot(lights.sun_dir, payload.normal);
+	if (light_dot <= 1e-5)
+		return vec3(0.);
+
+	if (shadowed(payload.hit_pos_t.xyz, lights.sun_dir, 1e5))
+		return vec3(0.);
+
+	return lights.sun_color * light_dot * evalCombinedBRDF(payload.normal, lights.sun_dir, view_dir, material);
+}
+
 vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
 	vec3 C = vec3(0.);
 	const ivec3 light_cell = ivec3(floor(payload.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
@@ -207,6 +219,8 @@ vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
 			C += payload.base_color * light_color * dot_ld_norm * attenuation;
 		} // for all lights
 	}
+
+	C += sampleSun(view_dir, material);
 
 	return C;
 }

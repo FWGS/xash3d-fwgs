@@ -31,7 +31,11 @@ typedef struct Kusok vk_kusok_data_t;
 typedef struct {
 	uint32_t num_kusochki;
 	uint32_t num_point_lights;
-	uint32_t padding__[2];
+	uint32_t padding__1[2];
+	vec3_t sun_dir;
+	uint32_t padding__2[1];
+	vec3_t sun_color;
+	uint32_t padding__3[1];
 	struct {
 		uint32_t kusok_index;
 		uint32_t padding__[3];

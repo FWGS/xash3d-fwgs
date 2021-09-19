@@ -671,6 +671,10 @@ static void updateLights( void )
 			Vector4Copy(g_lights.point_lights[i].origin, ek->point_lights[i].position);
 			Vector4Copy(g_lights.point_lights[i].color, ek->point_lights[i].color);
 		}
+
+		//VectorCopy(g_lights.map.sun_color, ek->sun_color);
+		VectorScale(g_lights.map.sun_color, 50, ek->sun_color);
+		VectorCopy(g_lights.map.sun_dir, ek->sun_dir);
 	}
 }
 
@@ -918,7 +922,7 @@ static void createLayouts( void ) {
 		.binding = RayDescBinding_Lights,
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR,
 	};
 
 	g_rtx.desc_bindings[RayDescBinding_LightClusters] =	(VkDescriptorSetLayoutBinding){

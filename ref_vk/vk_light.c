@@ -156,6 +156,7 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 	X(2, float, pitch, Float) \
 	X(3, vec3_t, _light, Rgbav) \
 	X(4, class_name_e, classname, Classname) \
+	X(5, float, angle, Float) \
 
 typedef enum {
 	Unknown = 0,
@@ -224,6 +225,8 @@ static unsigned parseEntPropClassname(const string value, class_name_e *out, uns
 
 static void parseStaticLightEntities( void ) {
 	g_light_entities.num_lights = 0;
+	VectorSet(g_lights.map.sun_dir, 0, 0, 0);
+	VectorSet(g_lights.map.sun_color, 0, 0, 0);
 
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 	char *pos;
@@ -269,6 +272,48 @@ static void parseStaticLightEntities( void ) {
 				case LightSpot:
 					// TODO
 					break;
+
+				case LightEnvironment:
+				{
+					float angle = values.angle;
+					vec3_t dir = {0};
+
+					const unsigned need_fields = Field__light;
+					if (have_fields & need_fields != need_fields) {
+						gEngine.Con_Printf(S_ERROR "Missing _light prop for light_environment\n");
+						continue;
+					}
+
+					if (angle == -1) { // UP
+						dir[0] = dir[1] = 0;
+						dir[2] = 1;
+					} else if (angle == -2) { // DOWN
+						dir[0] = dir[1] = 0;
+						dir[2] = -1;
+					} else {
+						if (angle == 0) {
+							angle = values.angles[1];
+						}
+
+						angle *= M_PI / 180.f;
+
+						dir[2] = 0;
+						dir[0] = cosf(angle);
+						dir[1] = sinf(angle);
+					}
+
+					angle = values.pitch ? values.pitch : values.angles[0];
+
+					angle *= M_PI / 180.f;
+					dir[2] = sinf(angle);
+					dir[0] *= cosf(angle);
+					dir[1] *= cosf(angle);
+
+					VectorScale(dir, -1.f, g_lights.map.sun_dir);
+					//VectorCopy(dir, g_lights.map.sun_dir);
+					VectorCopy(values._light, g_lights.map.sun_color);
+					break;
+				}
 			}
 
 			continue;

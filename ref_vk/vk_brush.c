@@ -383,7 +383,7 @@ static qboolean renderableSurface( const msurface_t *surf, int i ) {
 	}
 
 	if( FBitSet( surf->flags, SURF_DRAWSKY )) {
-		return true;
+		return false;
 	}
 
 	if( FBitSet( surf->flags, SURF_DRAWTILED )) {
@@ -398,7 +398,7 @@ typedef struct {
 	int num_surfaces, num_vertices, num_indices;
 	int max_texture_id;
 	int water_surfaces;
-	int sky_surfaces;
+	//int sky_surfaces;
 } model_sizes_t;
 
 static model_sizes_t computeSizes( const model_t *mod ) {
@@ -409,7 +409,7 @@ static model_sizes_t computeSizes( const model_t *mod ) {
 		const msurface_t *surf = mod->surfaces + mod->firstmodelsurface + i;
 
 		sizes.water_surfaces += !!(surf->flags & (SURF_DRAWTURB | SURF_DRAWTURB_QUADS));
-		sizes.sky_surfaces += !!(surf->flags & SURF_DRAWSKY);
+		//sizes.sky_surfaces += !!(surf->flags & SURF_DRAWSKY);
 
 		if (!renderableSurface(surf, i))
 			continue;

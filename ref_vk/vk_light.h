@@ -38,6 +38,9 @@ typedef struct {
 		int grid_cells;
 
 		vk_emissive_texture_t emissive_textures[MAX_TEXTURES];
+
+		vec3_t sun_color;
+		vec3_t sun_dir;
 	} map;
 
 	int num_emissive_surfaces;
