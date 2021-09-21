@@ -224,16 +224,16 @@ static unsigned parseEntPropClassname(const string value, class_name_e *out, uns
 }
 
 static void parseStaticLightEntities( void ) {
-	g_light_entities.num_lights = 0;
-	VectorSet(g_lights.map.sun_dir, 0, 0, 0);
-	VectorSet(g_lights.map.sun_color, 0, 0, 0);
-
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 	char *pos;
 	unsigned have_fields = 0;
 	entity_props_t values;
 
 	ASSERT(world);
+
+	g_light_entities.num_lights = 0;
+	VectorSet(g_lights.map.sun_dir, 0, 0, 0);
+	VectorSet(g_lights.map.sun_color, 0, 0, 0);
 
 	pos = world->entities;
 	//gEngine.Con_Reportf("ENTITIES: %s\n", pos);
@@ -252,7 +252,7 @@ static void parseStaticLightEntities( void ) {
 				case Light:
 					{
 						const unsigned need_fields = Field_origin | Field__light;
-						if (have_fields & need_fields != need_fields) {
+						if ((have_fields & need_fields) != need_fields) {
 							gEngine.Con_Printf(S_ERROR "Missing some fields for light entity\n");
 							continue;
 						}
@@ -279,7 +279,7 @@ static void parseStaticLightEntities( void ) {
 					vec3_t dir = {0};
 
 					const unsigned need_fields = Field__light;
-					if (have_fields & need_fields != need_fields) {
+					if ((have_fields & need_fields) != need_fields) {
 						gEngine.Con_Printf(S_ERROR "Missing _light prop for light_environment\n");
 						continue;
 					}
@@ -314,6 +314,11 @@ static void parseStaticLightEntities( void ) {
 					VectorCopy(values._light, g_lights.map.sun_color);
 					break;
 				}
+
+				case Unknown:
+				case Ignored:
+					// Skip
+					break;
 			}
 
 			continue;
