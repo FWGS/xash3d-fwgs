@@ -536,7 +536,7 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 	{
 		VkMemoryRequirements memreq;
 		vkGetImageMemoryRequirements(vk_core.device, dest_image, &memreq);
-		dest_devmem = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 0);
+		dest_devmem = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, 0);
 		XVK_CHECK(vkBindImageMemory(vk_core.device, dest_image, dest_devmem.device_memory, dest_devmem.offset));
 	}
 
@@ -661,7 +661,7 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 	}
 
 	// wait for queue
-		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
+	XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
 
 	// copy bytes to buffer
 	{
