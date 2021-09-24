@@ -12,26 +12,6 @@
 
 vk_lights_t g_lights = {0};
 
-typedef struct {
-	vec3_t origin;
-	vec3_t color;
-	//int style;
-	//char pattern[64];
-	//int dark;
-} vk_light_entity_t;
-
-struct {
-	int num_lights;
-	vk_light_entity_t lights[64];
-
-	// TODO spot light entities
-} g_light_entities;
-
-typedef struct {
-	const char *name;
-	int r, g, b, intensity;
-} vk_light_texture_rad_data;
-
 static int lookupTextureF( const char *fmt, ...) {
 	int tex_id = 0;
 	char buffer[1024];
@@ -149,6 +129,20 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 	Mem_Free(buffer);
 }
 
+typedef struct {
+	vec3_t origin;
+	vec3_t color;
+	//int style;
+	//char pattern[64];
+	//int dark;
+} vk_light_entity_t;
+
+struct {
+	int num_lights;
+	vk_light_entity_t lights[64];
+
+	// TODO spot light entities
+} g_light_entities;
 
 #define ENT_PROP_LIST(X) \
 	X(0, vec3_t, origin, Vec3) \
@@ -341,6 +335,53 @@ static void parseStaticLightEntities( void ) {
 		}
 #undef CHECK_FIELD
 	}
+}
+
+typedef enum { LightTypePoint, LightTypeSurface, LightTypeSpot} LightType;
+
+#define MAX_LEAF_LIGHTS 64
+typedef struct {
+	int num_lights;
+	struct {
+		LightType type;
+	} light[MAX_LEAF_LIGHTS];
+} vk_light_leaf_t;
+
+static struct {
+	vk_light_leaf_t leaves[MAX_MAP_LEAFS];
+} g_lights_bsp;
+
+static void lbspClear( void ) {
+	for (int i = 0; i < MAX_MAP_LEAFS; ++i)
+		g_lights_bsp.leaves[i].num_lights = 0;
+}
+
+static void lbspAddLightByLeaf( LightType type, const mleaf_t *leaf) {
+	const int leaf_index = leaf->cluster + 1;
+	ASSERT(leaf_index >= 0 && leaf_index < MAX_MAP_LEAFS);
+
+	{
+		vk_light_leaf_t *light_leaf = g_lights_bsp.leaves + leaf_index;
+
+		ASSERT(light_leaf->num_lights <= MAX_LEAF_LIGHTS);
+		if (light_leaf->num_lights == MAX_LEAF_LIGHTS) {
+			gEngine.Con_Printf(S_ERROR "Max number of lights %d exceeded for leaf %d\n", MAX_LEAF_LIGHTS, leaf_index);
+			return;
+		}
+
+		light_leaf->light[light_leaf->num_lights++].type = type;
+	}
+}
+
+static void lbspAddLightByOrigin( LightType type, const vec3_t origin) {
+	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+	const mleaf_t* leaf = gEngine.Mod_PointInLeaf(origin, world->nodes);
+	if (!leaf) {
+		gEngine.Con_Printf(S_ERROR "Adding light %d with origin (%f, %f, %f) ended up in no leaf\n",
+			type, origin[0], origin[1], origin[2]);
+		return;
+	}
+	lbspAddLightByLeaf( type, leaf);
 }
 
 // FIXME copied from mod_bmodel.c
@@ -564,6 +605,8 @@ void VK_LightsFrameInit( void )
 {
 	g_lights.num_emissive_surfaces = 0;
 	memset(g_lights.cells, 0, sizeof(g_lights.cells));
+
+	lbspClear();
 }
 
 static void addSurfaceLightToCell( const int light_cell[3], int emissive_surface_index ) {
@@ -595,6 +638,13 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 	if (geom->material != kXVkMaterialSky && geom->material != kXVkMaterialEmissive && !g_lights.map.emissive_textures[texture_num].set)
 		return NULL;
 
+	// FIXME how does one get an mleaf_t from msurface_t ????!
+	{
+		vec3_t origin;
+		Matrix3x4_VectorTransform(*transform_row, geom->surf->info->origin, origin);
+		lbspAddLightByOrigin( LightTypeSurface, origin );
+	}
+
 	if (g_lights.num_emissive_surfaces < 256) {
 		// Insert into emissive surfaces
 		vk_emissive_surface_t *esurf = g_lights.emissive_surfaces + g_lights.num_emissive_surfaces;
@@ -609,7 +659,6 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 
 		// Insert into light grid cell
 		{
-			int cluster_index;
 			vec3_t light_cell;
 			float effective_radius;
 			const float intensity_threshold = 1.f / 255.f; // TODO better estimate
@@ -668,6 +717,8 @@ static qboolean addDlight( const dlight_t *dlight ) {
 	if( !dlight || dlight->die < gpGlobals->time || !dlight->radius )
 		return true;
 
+	lbspAddLightByOrigin( LightTypePoint, dlight->origin );
+
 	if (g_lights.num_point_lights >= MAX_POINT_LIGHTS)
 		return false;
 
@@ -701,6 +752,8 @@ void VK_LightsFrameFinalize( void )
 		const vk_light_entity_t *entity = g_light_entities.lights + i;
 		vk_point_light_t *light = g_lights.point_lights + g_lights.num_point_lights;
 
+		lbspAddLightByOrigin( LightTypePoint, entity->origin );
+
 		if (g_lights.num_point_lights >= MAX_POINT_LIGHTS) {
 			gEngine.Con_Printf(S_ERROR "Too many point light entities, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
 			break;
@@ -728,6 +781,29 @@ void VK_LightsFrameFinalize( void )
 			gEngine.Con_Printf(S_ERROR "Too many dlights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
 			break;
 		}
+	}
+
+	{
+		qboolean have_surf = false;
+		for (int i = 0; i < MAX_MAP_LEAFS; ++i ) {
+			const vk_light_leaf_t *lleaf = g_lights_bsp.leaves + i;
+			int point = 0, spot = 0, surface = 0;
+			if (lleaf->num_lights == 0)
+				continue;
+
+			for (int j = 0; j < lleaf->num_lights; ++j) {
+				switch (lleaf->light[j].type) {
+					case LightTypePoint: ++point; break;
+					case LightTypeSpot: ++spot; break;
+					case LightTypeSurface: have_surf = true; ++surface; break;
+				}
+			}
+
+			gEngine.Con_Printf("\tLeaf %d, lights %d: spot=%d point=%d surface=%d\n", i, lleaf->num_lights, spot, point, surface);
+		}
+
+		if (have_surf)
+			exit(0);
 	}
 
 #if 0
