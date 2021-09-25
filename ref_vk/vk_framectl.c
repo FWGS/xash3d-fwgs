@@ -171,15 +171,21 @@ static void destroySwapchain( VkSwapchainKHR swapchain )
 	destroyDepthImage();
 }
 
+extern ref_globals_t *gpGlobals;
+
 static qboolean createSwapchain( void )
 {
 	VkSwapchainCreateInfoKHR *create_info = &vk_frame.create_info;
 	const uint32_t prev_num_images = vk_frame.num_images;
-
 	// recreating swapchain means invalidating any previous frames
 	g_frame.last_frame_index = -1;
 
 	XVK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_core.physical_device.device, vk_core.surface.surface, &vk_frame.surface_caps));
+	if (vk_frame.surface_caps.currentExtent.width == 0xfffffffful)
+		vk_frame.surface_caps.currentExtent.width = gpGlobals->width;
+
+	if (vk_frame.surface_caps.currentExtent.height == 0xfffffffful)
+		vk_frame.surface_caps.currentExtent.height = gpGlobals->height;
 
 	create_info->sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	create_info->pNext = NULL;
