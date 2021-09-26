@@ -553,7 +553,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	return true;
 }
 
-qboolean VK_BrushModelLoad( model_t *mod )
+qboolean VK_BrushModelLoad( model_t *mod, qboolean map )
 {
 	if (mod->cache.data)
 	{
@@ -573,6 +573,7 @@ qboolean VK_BrushModelLoad( model_t *mod )
 		mod->cache.data = bmodel;
 		Q_strncpy(bmodel->render_model.debug_name, mod->name, sizeof(bmodel->render_model.debug_name));
 		bmodel->render_model.render_mode = kRenderNormal;
+		bmodel->render_model.static_map = map;
 
 		bmodel->num_water_surfaces = sizes.water_surfaces;
 

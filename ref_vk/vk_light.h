@@ -66,6 +66,6 @@ void VK_LightsFrameInit( void );
 // b. kusochki now have emissive color, so it probably makes more sense to not store emissive
 //    separately in emissive surfaces.
 struct vk_render_geometry_s;
-const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row );
+const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map );
 
 void VK_LightsFrameFinalize( void );

@@ -339,7 +339,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 	for (int i = 0; i < render_model->num_geometries; ++i) {
 		const vk_render_geometry_t *geom = render_model->geometries + i;
-		const vk_emissive_surface_t *esurf = VK_LightsAddEmissiveSurface( geom, transform_row );
+		const vk_emissive_surface_t *esurf = VK_LightsAddEmissiveSurface( geom, transform_row, render_model->static_map );
 		vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_ray_model_state.kusochki_buffer.mapped) + geom->kusok_index;
 		kusok->texture = geom->texture;
 

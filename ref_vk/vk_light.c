@@ -347,9 +347,21 @@ typedef struct {
 	} light[MAX_LEAF_LIGHTS];
 } vk_light_leaf_t;
 
+#define MAX_SURF_ASSOCIATED_LEAFS 16
+
+typedef struct {
+	// FIXME figure out how bsp really works you dumbass!
+	int num_associated_leafs;
+	int associated_leafs[MAX_SURF_ASSOCIATED_LEAFS];
+} vk_surface_metadata_t;
+
 static struct {
 	vk_light_leaf_t leaves[MAX_MAP_LEAFS];
-} g_lights_bsp;
+
+	// Worldmodel surfaces
+	int num_surfaces;
+	vk_surface_metadata_t *surfaces;
+} g_lights_bsp = {0};
 
 static void lbspClear( void ) {
 	for (int i = 0; i < MAX_MAP_LEAFS; ++i)
@@ -542,6 +554,63 @@ static void traverseBSP( void ) {
 	//exit(0);
 }
 
+static void attributeSurfacesToLeafs( void ) {
+	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
+	if (g_lights_bsp.surfaces != NULL) {
+		Mem_Free(g_lights_bsp.surfaces);
+	}
+
+	g_lights_bsp.num_surfaces = map->numsurfaces;
+	g_lights_bsp.surfaces = Mem_Malloc(vk_core.pool, g_lights_bsp.num_surfaces * sizeof(vk_surface_metadata_t));
+	for (int i = 0; i < g_lights_bsp.num_surfaces; ++i) {
+		gEngine.Con_Printf("\t%d\n", i);
+		g_lights_bsp.surfaces[i].num_associated_leafs = 0;
+	}
+
+	for (int i = 0; i < map->numnodes; ++i) {
+		const mnode_t *node = map->nodes + i;
+		gEngine.Con_Reportf("\tnode %d: num surfaces %d: %d-%d\n", i, node->numsurfaces, node->firstsurface, node->firstsurface + node->numsurfaces);
+	}
+
+	for (int i = 0; i < map->numleafs; ++i) {
+		const mleaf_t *leaf = map->leafs + i;
+		gEngine.Con_Printf("\tleaf %d\n", i);
+		for (int j = 0; j < leaf->nummarksurfaces; ++j) {
+			const msurface_t *surf = leaf->firstmarksurface[j];
+			const int surface_index = surf - map->surfaces;
+			vk_surface_metadata_t * const smeta = g_lights_bsp.surfaces + surface_index;
+			gEngine.Con_Printf("\t\tmark surf %d: surf_index=%d\n", j, surface_index);
+			ASSERT(surface_index >= 0);
+			ASSERT(surface_index < g_lights_bsp.num_surfaces);
+
+			if (smeta->num_associated_leafs == MAX_SURF_ASSOCIATED_LEAFS) {
+				gEngine.Con_Printf(S_ERROR "Surface %d has too many leaf associations, wants another one: %d)\n", surface_index, i);
+				continue;
+			}
+
+			smeta->associated_leafs[smeta->num_associated_leafs++] = i;
+		}
+	}
+
+	{
+		int empty = 0;
+		for (int i = 0; i < g_lights_bsp.num_surfaces; ++i) {
+			const vk_surface_metadata_t * const smeta = g_lights_bsp.surfaces + i;
+			if (smeta->num_associated_leafs == 0) {
+				++empty;
+				continue;
+			}
+
+			gEngine.Con_Reportf("\tsurf%d: leafs=%d:", i, smeta->num_associated_leafs);
+			for (int j = 0; j < smeta->num_associated_leafs; ++j) {
+				gEngine.Con_Reportf(" %d", smeta->associated_leafs[j]);
+			}
+			gEngine.Con_Reportf("\n");
+		}
+		gEngine.Con_Reportf("Unassociated surfaces: %d\n", empty);
+	}
+}
+
 void VK_LightsNewMap( void )
 {
 	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
@@ -576,6 +645,9 @@ void VK_LightsNewMap( void )
 		g_lights.map.grid_size[2],
 		g_lights.map.grid_cells
 	);
+
+	traverseBSP();
+	attributeSurfacesToLeafs();
 
 	VK_LightsLoadMapStaticLights();
 }
@@ -630,7 +702,7 @@ static void addSurfaceLightToCell( const int light_cell[3], int emissive_surface
 	++cluster->num_emissive_surfaces;
 }
 
-const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row ) {
+const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map ) {
 	const int texture_num = geom->texture; // Animated texture
 	if (!geom->surf)
 		return NULL; // TODO break? no surface means that model is not brush
@@ -638,8 +710,16 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 	if (geom->material != kXVkMaterialSky && geom->material != kXVkMaterialEmissive && !g_lights.map.emissive_textures[texture_num].set)
 		return NULL;
 
-	// FIXME how does one get an mleaf_t from msurface_t ????!
-	{
+	if (static_map) {
+		model_t	*map = gEngine.pfnGetModelByIndex( 1 );
+		const int surf_index = geom->surf - map->surfaces;
+		const vk_surface_metadata_t * const smeta = g_lights_bsp.surfaces + surf_index;
+		gEngine.Con_Reportf("Emissive surface %d, leafs %d\n", surf_index, smeta->num_associated_leafs);
+
+		for (int i = 0; i < smeta->num_associated_leafs; ++i) {
+			lbspAddLightByLeaf(LightTypeSurface, map->leafs + smeta->associated_leafs[i]);
+		}
+	} else {
 		vec3_t origin;
 		Matrix3x4_VectorTransform(*transform_row, geom->surf->info->origin, origin);
 		lbspAddLightByOrigin( LightTypeSurface, origin );

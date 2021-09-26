@@ -136,7 +136,7 @@ void R_NewMap( void )
 		if( m->type != mod_brush )
 			continue;
 
-		if (!VK_BrushModelLoad( m ))
+		if (!VK_BrushModelLoad( m, i == 0 ))
 		{
 			gEngine.Con_Printf( S_ERROR "Couldn't load model %s\n", m->name );
 		}

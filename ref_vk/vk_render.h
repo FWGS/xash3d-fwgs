@@ -111,6 +111,9 @@ typedef struct vk_render_model_s {
 	// This model will be one-frame only, its buffers are not preserved between frames
 	qboolean dynamic;
 
+	// FIXME ...
+	qboolean static_map;
+
 	// Non-NULL only for ray tracing
 	struct vk_ray_model_s *ray_model;
 } vk_render_model_t;
