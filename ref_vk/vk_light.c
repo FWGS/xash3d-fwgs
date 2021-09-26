@@ -581,13 +581,18 @@ void VK_LightsFrameInit( void )
 
 static void addSurfaceLightToCell( const int light_cell[3], int emissive_surface_index ) {
 	const uint cell_index = light_cell[0] + light_cell[1] * g_lights.map.grid_size[0] + light_cell[2] * g_lights.map.grid_size[0] * g_lights.map.grid_size[1];
-	vk_lights_cell_t *cluster = g_lights.cells + cell_index;
+	vk_lights_cell_t *const cluster = g_lights.cells + cell_index;
 
 	if (light_cell[0] < 0 || light_cell[1] < 0 || light_cell[2] < 0
 		|| (light_cell[0] >= g_lights.map.grid_size[0])
 		|| (light_cell[1] >= g_lights.map.grid_size[1])
 		|| (light_cell[2] >= g_lights.map.grid_size[2]))
 		return;
+
+	// Check whether it has been added already
+	for (int i = 0; i < cluster->num_emissive_surfaces; ++i )
+		if (cluster->emissive_surfaces[i] == emissive_surface_index)
+			return;
 
 	if (cluster->num_emissive_surfaces == MAX_VISIBLE_SURFACE_LIGHTS) {
 		gEngine.Con_Printf(S_ERROR "Cluster %d,%d,%d(%d) ran out of emissive surfaces slots\n",
@@ -596,8 +601,7 @@ static void addSurfaceLightToCell( const int light_cell[3], int emissive_surface
 		return;
 	}
 
-	cluster->emissive_surfaces[cluster->num_emissive_surfaces] = emissive_surface_index;
-	++cluster->num_emissive_surfaces;
+	cluster->emissive_surfaces[cluster->num_emissive_surfaces++] = emissive_surface_index;
 }
 
 const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map ) {
@@ -605,25 +609,29 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 	if (!geom->surf)
 		return NULL; // TODO break? no surface means that model is not brush
 
+	// FIXME non-static light surfaces are broken temporarily
+	if (!static_map)
+		return NULL;
+
 	if (geom->material != kXVkMaterialSky && geom->material != kXVkMaterialEmissive && !g_lights.map.emissive_textures[texture_num].set)
 		return NULL;
 
-	if (static_map) {
+	if (g_lights.num_emissive_surfaces >= 256)
+		return NULL;
+
+	{
 		const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 		const vk_light_leaf_set_t *const leafs = getMapLeafsAffectedBySurface( geom->surf );
-		gEngine.Con_Reportf("surface %p, leafs %d\n", geom->surf, leafs->num);
-		for (int i = 0; i < leafs->num; ++i)
-			lbspAddLightByLeaf(LightTypeSurface, world->leafs + leafs->leafs[i]);
-	} else {
-		// FIXME attribute based on bbox not just origin
-		vec3_t origin;
-		Matrix3x4_VectorTransform(*transform_row, geom->surf->info->origin, origin);
-		lbspAddLightByOrigin( LightTypeSurface, origin );
-	}
-
-	if (g_lights.num_emissive_surfaces < 256) {
-		// Insert into emissive surfaces
 		vk_emissive_surface_t *esurf = g_lights.emissive_surfaces + g_lights.num_emissive_surfaces;
+
+		{
+			// Add this light to per-leaf stats
+			//gEngine.Con_Reportf("surface %p, leafs %d\n", geom->surf, leafs->num);
+			for (int i = 0; i < leafs->num; ++i)
+				lbspAddLightByLeaf(LightTypeSurface, world->leafs + leafs->leafs[i]);
+		}
+
+		// Insert into emissive surfaces
 		esurf->kusok_index = geom->kusok_index;
 		if (geom->material != kXVkMaterialSky && geom->material != kXVkMaterialEmissive) {
 			VectorCopy(g_lights.map.emissive_textures[texture_num].emissive, esurf->emissive);
@@ -633,58 +641,46 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 		}
 		Matrix3x4_Copy(esurf->transform, *transform_row);
 
-		// Insert into light grid cell
-		{
-			vec3_t light_cell;
-			float effective_radius;
-			const float intensity_threshold = 1.f / 255.f; // TODO better estimate
-			const float intensity = Q_max(Q_max(esurf->emissive[0], esurf->emissive[1]), esurf->emissive[2]);
-			ASSERT(geom->surf->info);
-			// FIXME using just origin is incorrect
-			{
-				vec3_t light_cell_f;
-				vec3_t origin;
-				Matrix3x4_VectorTransform(*transform_row, geom->surf->info->origin, origin);
-				VectorDivide(origin, LIGHT_GRID_CELL_SIZE, light_cell_f);
-				light_cell[0] = floorf(light_cell_f[0]);
-				light_cell[1] = floorf(light_cell_f[1]);
-				light_cell[2] = floorf(light_cell_f[2]);
-			}
-			VectorSubtract(light_cell, g_lights.map.grid_min_cell, light_cell);
+		// Iterate through each visible/potentially affected leaf to get a range of grid cells
+		for (int i = 0; i < leafs->num; ++i) {
+			const mleaf_t *const leaf = world->leafs + leafs->leafs[i];
 
-			ASSERT(light_cell[0] >= 0);
-			ASSERT(light_cell[1] >= 0);
-			ASSERT(light_cell[2] >= 0);
-			ASSERT(light_cell[0] < g_lights.map.grid_size[0]);
-			ASSERT(light_cell[1] < g_lights.map.grid_size[1]);
-			ASSERT(light_cell[2] < g_lights.map.grid_size[2]);
+			const int min_x = (int)(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
+			const int min_y = (int)(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
+			const int min_z = (int)(leaf->minmaxs[2] / LIGHT_GRID_CELL_SIZE);
 
-			//		3.3	Add it to those cells
-			effective_radius = sqrtf(intensity / intensity_threshold);
-			{
-				const int irad = ceilf(effective_radius / LIGHT_GRID_CELL_SIZE);
-				//gEngine.Con_Reportf("Emissive surface %d: max intensity: %f; eff rad: %f; cell rad: %d\n", i, intensity, effective_radius, irad);
-				for (int x = -irad; x <= irad; ++x)
-					for (int y = -irad; y <= irad; ++y)
-						for (int z = -irad; z <= irad; ++z) {
-							const int cell[3] = { light_cell[0] + x, light_cell[1] + y, light_cell[2] + z};
-							// TODO culling, ...
-							//		3.1 Compute light size and intensity (?)
-							//		3.2 Compute which cells it might affect
-							//			- light orientation
-							//			- light intensity
-							//			- PVS
-							addSurfaceLightToCell(cell, g_lights.num_emissive_surfaces);
-						}
+			const int max_x = (int)(leaf->minmaxs[3] / LIGHT_GRID_CELL_SIZE);
+			const int max_y = (int)(leaf->minmaxs[4] / LIGHT_GRID_CELL_SIZE);
+			const int max_z = (int)(leaf->minmaxs[5] / LIGHT_GRID_CELL_SIZE);
+
+			/* gEngine.Con_Reportf( "minmaxs %f-%f, %f-%f, %f-%f =>" */
+			/* 	"cells %d-%d, %d-%d, %d-%d\n", */
+			/* 	leaf->minmaxs[0], leaf->minmaxs[3], */
+			/* 	leaf->minmaxs[1], leaf->minmaxs[4], */
+			/* 	leaf->minmaxs[2], leaf->minmaxs[5], */
+			/* 	min_x, max_x, */
+			/* 	min_y, max_y, */
+			/* 	min_z, max_z); */
+
+			for (int x = min_x; x <= max_x; ++x)
+			for (int y = min_y; y <= max_y; ++y)
+			for (int z = min_z; z <= max_z; ++z) {
+				const int cell[3] = {
+					x - g_lights.map.grid_min_cell[0],
+					y - g_lights.map.grid_min_cell[1],
+					z - g_lights.map.grid_min_cell[2]
+				};
+				// TODO culling, ...
+				//		3.1 Compute light size and intensity (?)
+				//			- light orientation
+				//			- light intensity
+				addSurfaceLightToCell(cell, g_lights.num_emissive_surfaces);
 			}
 		}
 
 		++g_lights.num_emissive_surfaces;
 		return esurf;
 	}
-
-	++g_lights.num_emissive_surfaces;
-	return NULL;
 }
 
 static qboolean addDlight( const dlight_t *dlight ) {
@@ -778,43 +774,43 @@ void VK_LightsFrameFinalize( void )
 
 				gEngine.Con_Printf("\tLeaf %d, lights %d: spot=%d point=%d surface=%d\n", i, lleaf->num_lights, spot, point, surface);
 			}
+
+#if 1
+		// Print light grid stats
+		gEngine.Con_Reportf("Emissive surfaces found: %d\n", g_lights.num_emissive_surfaces);
+
+		{
+			#define GROUPSIZE 4
+			int histogram[1 + (MAX_VISIBLE_SURFACE_LIGHTS + GROUPSIZE - 1) / GROUPSIZE] = {0};
+			for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+				const vk_lights_cell_t *cluster = g_lights.cells + i;
+				const int hist_index = cluster->num_emissive_surfaces ? 1 + cluster->num_emissive_surfaces / GROUPSIZE : 0;
+				histogram[hist_index]++;
+			}
+
+			gEngine.Con_Reportf("Built %d light clusters. Stats:\n", g_lights.map.grid_cells);
+			gEngine.Con_Reportf("  0: %d\n", histogram[0]);
+			for (int i = 1; i < ARRAYSIZE(histogram); ++i)
+				gEngine.Con_Reportf("  %d-%d: %d\n",
+					(i - 1) * GROUPSIZE,
+					i * GROUPSIZE - 1,
+					histogram[i]);
+		}
+
+		{
+			for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+				const vk_lights_cell_t *cluster = g_lights.cells + i;
+				if (cluster->num_emissive_surfaces > 0) {
+					gEngine.Con_Reportf(" cluster %d: emissive_surfaces=%d\n", i, cluster->num_emissive_surfaces);
+				}
+			}
+		}
+#endif
 		}
 
 		/* if (have_surf) */
 		/* 	exit(0); */
 	}
-
-#if 0
-	// Print light grid stats
-	gEngine.Con_Reportf("Emissive surfaces found: %d\n", g_lights.num_emissive_surfaces);
-
-	{
-		#define GROUPSIZE 4
-		int histogram[1 + (MAX_VISIBLE_SURFACE_LIGHTS + GROUPSIZE - 1) / GROUPSIZE] = {0};
-		for (int i = 0; i < g_lights.map.grid_cells; ++i) {
-			const vk_lights_cell_t *cluster = g_lights.cells + i;
-			const int hist_index = cluster->num_emissive_surfaces ? 1 + cluster->num_emissive_surfaces / GROUPSIZE : 0;
-			histogram[hist_index]++;
-		}
-
-		gEngine.Con_Reportf("Built %d light clusters. Stats:\n", g_lights.map.grid_cells);
-		gEngine.Con_Reportf("  0: %d\n", histogram[0]);
-		for (int i = 1; i < ARRAYSIZE(histogram); ++i)
-			gEngine.Con_Reportf("  %d-%d: %d\n",
-				(i - 1) * GROUPSIZE,
-				i * GROUPSIZE - 1,
-				histogram[i]);
-	}
-
-	{
-		for (int i = 0; i < g_lights.map.grid_cells; ++i) {
-			const vk_lights_cell_t *cluster = g_lights.cells + i;
-			if (cluster->num_emissive_surfaces > 0) {
-				gEngine.Con_Reportf(" cluster %d: emissive_surfaces=%d\n", i, cluster->num_emissive_surfaces);
-			}
-		}
-	}
-#endif
 }
 
 void VK_LightsShutdown( void ) {
