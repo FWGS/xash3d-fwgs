@@ -346,13 +346,15 @@ typedef struct {
 		LightType type;
 	} light[MAX_LEAF_LIGHTS];
 } vk_light_leaf_t;
-
 #define MAX_SURF_ASSOCIATED_LEAFS 16
 
 typedef struct {
-	// FIXME figure out how bsp really works you dumbass!
-	int num_associated_leafs;
-	int associated_leafs[MAX_SURF_ASSOCIATED_LEAFS];
+	int num;
+	int leafs[];
+} vk_light_leaf_set_t;
+
+typedef struct {
+	vk_light_leaf_set_t *potentially_visible_leafs;
 } vk_surface_metadata_t;
 
 static struct {
@@ -361,7 +363,99 @@ static struct {
 	// Worldmodel surfaces
 	int num_surfaces;
 	vk_surface_metadata_t *surfaces;
+
+	// Used for accumulating potentially visible leafs
+	struct {
+		int count;
+
+		// This buffer space is used for two things:
+		// As a growing array of u16 leaf indexes (low 16 bits)
+		// As a bit field for marking added leafs (highest {31st} bit)
+		uint32_t leafs[MAX_MAP_LEAFS];
+	} accum;
 } g_lights_bsp = {0};
+
+static void prepareLeafAccum( void ) {
+	memset(&g_lights_bsp.accum, 0, sizeof(g_lights_bsp.accum));
+}
+
+static qboolean addLeafToAccum( uint16_t leaf_index ) {
+	// Check whether this leaf was already added
+#define LEAF_ADDED_BIT 0x8000000ul
+	if (g_lights_bsp.accum.leafs[leaf_index] & LEAF_ADDED_BIT)
+		return false;
+#undef LEAF_ADDED_BIT
+
+	g_lights_bsp.accum.leafs[g_lights_bsp.accum.count++] |= leaf_index;
+	return true;
+}
+
+vk_light_leaf_set_t *getMapLeafsAffectedBySurface( const msurface_t *surf ) {
+	const model_t	*const map = gEngine.pfnGetModelByIndex( 1 );
+	const int surf_index = surf - map->surfaces;
+	vk_surface_metadata_t * const smeta = g_lights_bsp.surfaces + surf_index;
+	ASSERT(surf_index >= 0);
+	ASSERT(surf_index < g_lights_bsp.num_surfaces);
+
+	// Check if PVL hasn't been collected yet
+	if (!smeta->potentially_visible_leafs) {
+		int leafs_direct = 0, leafs_pvs = 0;
+		prepareLeafAccum();
+
+		// Enumerate all the map leafs and pick ones that have this surface referenced
+		gEngine.Con_Reportf("Collecting visible leafs for surface %d:", surf_index);
+		for (int i = 0; i < map->numleafs; ++i) {
+			const mleaf_t *leaf = map->leafs + i;
+			for (int j = 0; j < leaf->nummarksurfaces; ++j) {
+				const msurface_t *leaf_surf = leaf->firstmarksurface[j];
+				if (leaf_surf != surf)
+					continue;
+
+				// FIXME split direct leafs marking from pvs propagation
+				leafs_direct++;
+				if (addLeafToAccum( i )) {
+					gEngine.Con_Reportf(" %d", i);
+				} else {
+					--leafs_pvs;
+				}
+
+				// Get all PVS leafs
+				{
+					const byte *pvs = leaf->compressed_vis;
+					int pvs_leaf_index = 0;
+					for (;pvs_leaf_index < map->numleafs; ++pvs) {
+						uint8_t bits = pvs[0];
+
+						// PVS is RLE encoded
+						if (bits == 0) {
+							const int skip = pvs[1];
+							pvs_leaf_index += skip;
+							++pvs;
+							continue;
+						}
+
+						for (int k = 0; k < 8; ++k, ++pvs_leaf_index, bits >>= 1) {
+							if ((bits&1) == 0)
+								continue;
+
+							if (addLeafToAccum( pvs_leaf_index )) {
+								leafs_pvs++;
+								gEngine.Con_Reportf(" *%d", pvs_leaf_index);
+							}
+						}
+					}
+				}
+			}
+		}
+		gEngine.Con_Reportf(" (sum=%d, direct=%d, pvs=%d)\n", g_lights_bsp.accum.count, leafs_direct, leafs_pvs);
+
+		smeta->potentially_visible_leafs = (vk_light_leaf_set_t*)Mem_Malloc(vk_core.pool, sizeof(smeta->potentially_visible_leafs) + sizeof(int) * g_lights_bsp.accum.count);
+		smeta->potentially_visible_leafs->num = g_lights_bsp.accum.count;
+		memcpy(smeta->potentially_visible_leafs->leafs, g_lights_bsp.accum.leafs, sizeof(int) * smeta->potentially_visible_leafs->num);
+	}
+
+	return smeta->potentially_visible_leafs;
+}
 
 static void lbspClear( void ) {
 	for (int i = 0; i < MAX_MAP_LEAFS; ++i)
@@ -396,220 +490,24 @@ static void lbspAddLightByOrigin( LightType type, const vec3_t origin) {
 	lbspAddLightByLeaf( type, leaf);
 }
 
-// FIXME copied from mod_bmodel.c
-// TODO would it be possible to not decompress each time, but instead get a list of all leaves?
-static byte		g_visdata[(MAX_MAP_LEAFS+7)/8];	// intermediate buffer
-byte *Mod_DecompressPVS( const byte *in, int visbytes )
-{
-	byte	*out;
-	int	c;
-
-	out = g_visdata;
-
-	if( !in )
-	{
-		// no vis info, so make all visible
-		while( visbytes )
-		{
-			*out++ = 0xff;
-			visbytes--;
-		}
-		return g_visdata;
-	}
-
-	do
-	{
-		if( *in )
-		{
-			*out++ = *in++;
-			continue;
-		}
-
-		c = in[1];
-		in += 2;
-
-		while( c )
-		{
-			*out++ = 0;
-			c--;
-		}
-	} while( out - g_visdata < visbytes );
-
-	return g_visdata;
-}
-
-#define PR(...) gEngine.Con_Reportf(__VA_ARGS__)
-
-static void DumpLeaves( void ) {
-	model_t	*map = gEngine.pfnGetModelByIndex( 1 );
-	const world_static_t *world = gEngine.GetWorld();
-	ASSERT(map);
-
-	PR("visbytes=%d leafs: %d:\n", world->visbytes, map->numleafs);
-	for (int i = 0; i < map->numleafs; ++i) {
-		const mleaf_t* leaf = map->leafs + i;
-		PR("  %d: contents=%d numsurfaces=%d cluster=%d\n",
-			i, leaf->contents, leaf->nummarksurfaces, leaf->cluster);
-
-		// TODO: mark which surfaces belong to which leaves
-		// TODO: figure out whether this relationship is stable (surface belongs to only one leaf)
-
-		// print out PVS
-		{
-			int pvs_count = 0;
-			const byte *visdata = Mod_DecompressPVS(leaf->compressed_vis, world->visbytes);
-			if (!visdata) continue;
-			PR("    PVS:");
-			for (int j = 0; j < map->numleafs; ++j) {
-				if (CHECKVISBIT(visdata, map->leafs[j].cluster /* FIXME cluster (j+1) or j??!?!*/)) {
-					pvs_count++;
-					PR(" %d", j);
-				}
-			}
-			PR(" TOTAL: %d\n", pvs_count);
-		}
-	}
-}
-
-typedef struct {
-	model_t	*map;
-	const world_static_t *world;
-	FILE *f;
-} traversal_context_t;
-
-static void visitLeaf(const mleaf_t *leaf, const mnode_t *parent, const traversal_context_t *ctx) {
-	const int parent_index = parent - ctx->map->nodes;
-	int pvs_count = 0;
-	const byte *visdata = Mod_DecompressPVS(leaf->compressed_vis, ctx->world->visbytes);
-	int num_emissive = 0;
-
-	// ??? empty leaf?
-	if (leaf->cluster < 0) // || leaf->nummarksurfaces == 0)
-		return;
-
-	fprintf(ctx->f, "\"N%d\" -> \"L%d\"\n", parent_index, leaf->cluster);
-	for (int i = 0; i < leaf->nummarksurfaces; ++i) {
-		const msurface_t *surf = leaf->firstmarksurface[i];
-		const int surf_index = surf - ctx->map->surfaces;
-		const int texture_num = surf->texinfo->texture->gl_texturenum;
-		const qboolean emissive = texture_num >= 0 && g_lights.map.emissive_textures[texture_num].set;
-
-		if (emissive) num_emissive++;
-
-		fprintf(ctx->f, "L%d -> S%d [color=\"#%s\"; dir=\"none\"];\n",
-			leaf->cluster, surf_index, emissive ? "ff0000ff" : "00000040");
-	}
-
-	if (!visdata)
-		return;
-
-	for (int j = 0; j < ctx->map->numleafs; ++j) {
-		if (CHECKVISBIT(visdata, ctx->map->leafs[j].cluster)) {
-			pvs_count++;
-		}
-	}
-
-	fprintf(ctx->f, "\"L%d\" [label=\"Leaf cluster %d\\npvs_count: %d\\nummarksurfaces: %d\\n num_emissive: %d\"; style=filled; fillcolor=\"%s\"; ];\n",
-		leaf->cluster, leaf->cluster, pvs_count, leaf->nummarksurfaces, num_emissive,
-		num_emissive > 0 ? "red" : "transparent"
-		);
-}
-
-static void visitNode(const mnode_t *node, const mnode_t *parent, const traversal_context_t *ctx) {
-	if (node->contents < 0) {
-		visitLeaf((const mleaf_t*)node, parent, ctx);
-	} else {
-		const int parent_index = parent ? parent - ctx->map->nodes : -1;
-		const int node_index = node - ctx->map->nodes;
-		fprintf(ctx->f, "\"N%d\" -> \"N%d\"\n", parent_index, node_index);
-		fprintf(ctx->f, "\"N%d\" [label=\"numsurfaces: %d\\nfirstsurface: %d\"];\n",
-			node_index, node->numsurfaces, node->firstsurface);
-		visitNode(node->children[0], node, ctx);
-		visitNode(node->children[1], node, ctx);
-	}
-}
-
-static void traverseBSP( void ) {
-	const traversal_context_t ctx = {
-		.map = gEngine.pfnGetModelByIndex( 1 ),
-		.world = gEngine.GetWorld(),
-		.f = fopen("bsp.dot", "w"),
-	};
-
-	fprintf(ctx.f, "digraph bsp { node [shape=box];\n");
-	visitNode(ctx.map->nodes, NULL, &ctx);
-	fprintf(ctx.f,
-		"subgraph surfaces {rank = max; style= filled; color = lightgray;\n");
-	for (int i = 0; i < ctx.map->numsurfaces; i++) {
-		const msurface_t *surf = ctx.map->surfaces + i;
-		const int texture_num = surf->texinfo->texture->gl_texturenum;
-		fprintf(ctx.f, "S%d [rank=\"max\"; label=\"S%d\\ntexture: %s\\nnumedges: %d\\ntexture_num=%d\"; style=filled; fillcolor=\"%s\";];\n",
-			i, i,
-			surf->texinfo && surf->texinfo->texture ? surf->texinfo->texture->name : "NULL",
-			surf->numedges, texture_num,
-			(texture_num >= 0 && g_lights.map.emissive_textures[texture_num].set) ? "red" : "transparent" );
-	}
-	fprintf(ctx.f, "}\n}\n");
-	fclose(ctx.f);
-	//exit(0);
-}
-
-static void attributeSurfacesToLeafs( void ) {
+static void prepareSurfacesLeafVisibilityCache( void ) {
 	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
 	if (g_lights_bsp.surfaces != NULL) {
+		for (int i = 0; i < g_lights_bsp.num_surfaces; ++i) {
+			vk_surface_metadata_t *smeta = g_lights_bsp.surfaces + i;
+			if (smeta->potentially_visible_leafs)
+				Mem_Free(smeta->potentially_visible_leafs);
+		}
 		Mem_Free(g_lights_bsp.surfaces);
 	}
 
 	g_lights_bsp.num_surfaces = map->numsurfaces;
 	g_lights_bsp.surfaces = Mem_Malloc(vk_core.pool, g_lights_bsp.num_surfaces * sizeof(vk_surface_metadata_t));
-	for (int i = 0; i < g_lights_bsp.num_surfaces; ++i) {
-		gEngine.Con_Printf("\t%d\n", i);
-		g_lights_bsp.surfaces[i].num_associated_leafs = 0;
-	}
-
-	for (int i = 0; i < map->numnodes; ++i) {
-		const mnode_t *node = map->nodes + i;
-		gEngine.Con_Reportf("\tnode %d: num surfaces %d: %d-%d\n", i, node->numsurfaces, node->firstsurface, node->firstsurface + node->numsurfaces);
-	}
-
-	for (int i = 0; i < map->numleafs; ++i) {
-		const mleaf_t *leaf = map->leafs + i;
-		gEngine.Con_Printf("\tleaf %d\n", i);
-		for (int j = 0; j < leaf->nummarksurfaces; ++j) {
-			const msurface_t *surf = leaf->firstmarksurface[j];
-			const int surface_index = surf - map->surfaces;
-			vk_surface_metadata_t * const smeta = g_lights_bsp.surfaces + surface_index;
-			gEngine.Con_Printf("\t\tmark surf %d: surf_index=%d\n", j, surface_index);
-			ASSERT(surface_index >= 0);
-			ASSERT(surface_index < g_lights_bsp.num_surfaces);
-
-			if (smeta->num_associated_leafs == MAX_SURF_ASSOCIATED_LEAFS) {
-				gEngine.Con_Printf(S_ERROR "Surface %d has too many leaf associations, wants another one: %d)\n", surface_index, i);
-				continue;
-			}
-
-			smeta->associated_leafs[smeta->num_associated_leafs++] = i;
-		}
-	}
-
-	{
-		int empty = 0;
-		for (int i = 0; i < g_lights_bsp.num_surfaces; ++i) {
-			const vk_surface_metadata_t * const smeta = g_lights_bsp.surfaces + i;
-			if (smeta->num_associated_leafs == 0) {
-				++empty;
-				continue;
-			}
-
-			gEngine.Con_Reportf("\tsurf%d: leafs=%d:", i, smeta->num_associated_leafs);
-			for (int j = 0; j < smeta->num_associated_leafs; ++j) {
-				gEngine.Con_Reportf(" %d", smeta->associated_leafs[j]);
-			}
-			gEngine.Con_Reportf("\n");
-		}
-		gEngine.Con_Reportf("Unassociated surfaces: %d\n", empty);
-	}
+	for (int i = 0; i < g_lights_bsp.num_surfaces; ++i)
+		g_lights_bsp.surfaces[i].potentially_visible_leafs = NULL;
 }
+
+extern void traverseBSP( void );
 
 void VK_LightsNewMap( void )
 {
@@ -646,8 +544,8 @@ void VK_LightsNewMap( void )
 		g_lights.map.grid_cells
 	);
 
-	traverseBSP();
-	attributeSurfacesToLeafs();
+	//traverseBSP();
+	prepareSurfacesLeafVisibilityCache();
 
 	VK_LightsLoadMapStaticLights();
 }
@@ -711,15 +609,13 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 		return NULL;
 
 	if (static_map) {
-		model_t	*map = gEngine.pfnGetModelByIndex( 1 );
-		const int surf_index = geom->surf - map->surfaces;
-		const vk_surface_metadata_t * const smeta = g_lights_bsp.surfaces + surf_index;
-		gEngine.Con_Reportf("Emissive surface %d, leafs %d\n", surf_index, smeta->num_associated_leafs);
-
-		for (int i = 0; i < smeta->num_associated_leafs; ++i) {
-			lbspAddLightByLeaf(LightTypeSurface, map->leafs + smeta->associated_leafs[i]);
-		}
+		const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+		const vk_light_leaf_set_t *const leafs = getMapLeafsAffectedBySurface( geom->surf );
+		gEngine.Con_Reportf("surface %p, leafs %d\n", geom->surf, leafs->num);
+		for (int i = 0; i < leafs->num; ++i)
+			lbspAddLightByLeaf(LightTypeSurface, world->leafs + leafs->leafs[i]);
 	} else {
+		// FIXME attribute based on bbox not just origin
 		vec3_t origin;
 		Matrix3x4_VectorTransform(*transform_row, geom->surf->info->origin, origin);
 		lbspAddLightByOrigin( LightTypeSurface, origin );
@@ -773,7 +669,7 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 						for (int z = -irad; z <= irad; ++z) {
 							const int cell[3] = { light_cell[0] + x, light_cell[1] + y, light_cell[2] + z};
 							// TODO culling, ...
-							// 		3.1 Compute light size and intensity (?)
+							//		3.1 Compute light size and intensity (?)
 							//		3.2 Compute which cells it might affect
 							//			- light orientation
 							//			- light intensity
@@ -864,26 +760,28 @@ void VK_LightsFrameFinalize( void )
 	}
 
 	{
-		qboolean have_surf = false;
-		for (int i = 0; i < MAX_MAP_LEAFS; ++i ) {
-			const vk_light_leaf_t *lleaf = g_lights_bsp.leaves + i;
-			int point = 0, spot = 0, surface = 0;
-			if (lleaf->num_lights == 0)
-				continue;
+		static qboolean have_surf = false;
+		if (!have_surf) {
+			for (int i = 0; i < MAX_MAP_LEAFS; ++i ) {
+				const vk_light_leaf_t *lleaf = g_lights_bsp.leaves + i;
+				int point = 0, spot = 0, surface = 0;
+				if (lleaf->num_lights == 0)
+					continue;
 
-			for (int j = 0; j < lleaf->num_lights; ++j) {
-				switch (lleaf->light[j].type) {
-					case LightTypePoint: ++point; break;
-					case LightTypeSpot: ++spot; break;
-					case LightTypeSurface: have_surf = true; ++surface; break;
+				for (int j = 0; j < lleaf->num_lights; ++j) {
+					switch (lleaf->light[j].type) {
+						case LightTypePoint: ++point; break;
+						case LightTypeSpot: ++spot; break;
+						case LightTypeSurface: have_surf = true; ++surface; break;
+					}
 				}
-			}
 
-			gEngine.Con_Printf("\tLeaf %d, lights %d: spot=%d point=%d surface=%d\n", i, lleaf->num_lights, spot, point, surface);
+				gEngine.Con_Printf("\tLeaf %d, lights %d: spot=%d point=%d surface=%d\n", i, lleaf->num_lights, spot, point, surface);
+			}
 		}
 
-		if (have_surf)
-			exit(0);
+		/* if (have_surf) */
+		/* 	exit(0); */
 	}
 
 #if 0
