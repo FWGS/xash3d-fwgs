@@ -232,9 +232,11 @@ static void parseStaticLightEntities( void ) {
 	pos = world->entities;
 	//gEngine.Con_Reportf("ENTITIES: %s\n", pos);
 	for (;;) {
-		string key, value;
+		char key[1024];
+		char value[1024];
 
 		pos = gEngine.COM_ParseFile(pos, key);
+		ASSERT(Q_strlen(key) < sizeof(key));
 		if (!pos)
 			break;
 		if (key[0] == '{') {
@@ -319,6 +321,7 @@ static void parseStaticLightEntities( void ) {
 		}
 
 		pos = gEngine.COM_ParseFile(pos, value);
+		ASSERT(Q_strlen(value) < sizeof(value));
 		if (!pos)
 			break;
 
