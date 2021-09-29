@@ -1,6 +1,6 @@
 #include "vk_sprite.h"
 #include "vk_textures.h"
-#include "vk_global.h"
+#include "camera.h"
 #include "vk_render.h"
 #include "vk_scene.h"
 

@@ -3,6 +3,7 @@
 #include "xash3d_types.h"
 #include "const.h"
 #include "com_model.h"
+#include <string.h>
 #include "xash3d_mathlib.h"
 
 void Matrix4x4_ToArrayFloatGL( const matrix4x4 in, float out[16] );

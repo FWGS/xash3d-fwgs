@@ -1,6 +1,6 @@
 #include "vk_beams.h"
 #include "vk_common.h"
-#include "vk_global.h"
+#include "camera.h"
 #include "vk_render.h"
 #include "vk_textures.h"
 #include "vk_sprite.h"
