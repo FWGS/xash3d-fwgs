@@ -432,7 +432,7 @@ vk_light_leaf_set_t *getMapLeafsAffectedBySurface( const msurface_t *surf ) {
 						// PVS is RLE encoded
 						if (bits == 0) {
 							const int skip = pvs[1];
-							pvs_leaf_index += skip;
+							pvs_leaf_index += skip * 8;
 							++pvs;
 							continue;
 						}
@@ -441,9 +441,9 @@ vk_light_leaf_set_t *getMapLeafsAffectedBySurface( const msurface_t *surf ) {
 							if ((bits&1) == 0)
 								continue;
 
-							if (addLeafToAccum( pvs_leaf_index )) {
+							if (addLeafToAccum( pvs_leaf_index + 1 )) {
 								leafs_pvs++;
-								gEngine.Con_Reportf(" *%d", pvs_leaf_index);
+								gEngine.Con_Reportf(" *%d", pvs_leaf_index + 1);
 							}
 						}
 					}
@@ -648,13 +648,13 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 		for (int i = 0; i < leafs->num; ++i) {
 			const mleaf_t *const leaf = world->leafs + leafs->leafs[i];
 
-			const int min_x = (int)(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
-			const int min_y = (int)(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
-			const int min_z = (int)(leaf->minmaxs[2] / LIGHT_GRID_CELL_SIZE);
+			const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
+			const int min_y = floorf(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
+			const int min_z = floorf(leaf->minmaxs[2] / LIGHT_GRID_CELL_SIZE);
 
-			const int max_x = (int)(leaf->minmaxs[3] / LIGHT_GRID_CELL_SIZE);
-			const int max_y = (int)(leaf->minmaxs[4] / LIGHT_GRID_CELL_SIZE);
-			const int max_z = (int)(leaf->minmaxs[5] / LIGHT_GRID_CELL_SIZE);
+			const int max_x = ceilf(leaf->minmaxs[3] / LIGHT_GRID_CELL_SIZE);
+			const int max_y = ceilf(leaf->minmaxs[4] / LIGHT_GRID_CELL_SIZE);
+			const int max_z = ceilf(leaf->minmaxs[5] / LIGHT_GRID_CELL_SIZE);
 
 			/* gEngine.Con_Reportf( "minmaxs %f-%f, %f-%f, %f-%f =>" */
 			/* 	"cells %d-%d, %d-%d, %d-%d\n", */
@@ -665,9 +665,9 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 			/* 	min_y, max_y, */
 			/* 	min_z, max_z); */
 
-			for (int x = min_x; x <= max_x; ++x)
-			for (int y = min_y; y <= max_y; ++y)
-			for (int z = min_z; z <= max_z; ++z) {
+			for (int x = min_x; x < max_x; ++x)
+			for (int y = min_y; y < max_y; ++y)
+			for (int z = min_z; z < max_z; ++z) {
 				const int cell[3] = {
 					x - g_lights.map.grid_min_cell[0],
 					y - g_lights.map.grid_min_cell[1],
