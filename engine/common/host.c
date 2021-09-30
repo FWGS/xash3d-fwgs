@@ -783,6 +783,7 @@ static void Host_RunTests( int stage )
 	case 0: // early engine load
 		memset( &tests_stats, 0, sizeof( tests_stats ));
 		Test_RunLibCommon();
+		Test_RunCommon();
 		break;
 	case 1: // after FS load
 		Test_RunImagelib();
