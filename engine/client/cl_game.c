@@ -966,7 +966,7 @@ static void CL_DrawLoadingOrPaused( qboolean paused, float percent )
 
 	SPR_AdjustSizei( &x, &y, &width, &height );
 
-	if( !paused && cl_allow_levelshots->value )
+	if( !paused )
 	{
 		float	step, s2;
 
