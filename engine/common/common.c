@@ -476,11 +476,11 @@ COM_ParseFile
 text parser
 ==============
 */
-char *COM_ParseFile( char *data, char *token )
+char *COM_ParseFileSafe( char *data, char *token, const size_t size )
 {
 	int	c, len;
 
-	if( !token )
+	if( !token || !size )
 		return NULL;
 
 	len = 0;
@@ -498,7 +498,7 @@ skipwhite:
 	}
 
 	// skip // comments
-	if( c=='/' && data[1] == '/' )
+	if( c == '/' && data[1] == '/' )
 	{
 		while( *data && *data != '\n' )
 			data++;
@@ -523,7 +523,13 @@ skipwhite:
 
 			if( c == '\\' && *data == '"' )
 			{
-				token[len++] = (byte)*data++;
+				if( len + 1 < size )
+				{
+					token[len] = (byte)*data;
+					len++;
+				}
+
+				data++;
 				continue;
 			}
 
@@ -532,26 +538,43 @@ skipwhite:
 				token[len] = 0;
 				return data;
 			}
-			token[len] = c;
-			len++;
+
+			if( len + 1 < size )
+			{
+				token[len] = c;
+				len++;
+			}
 		}
 	}
 
 	// parse single characters
 	if( COM_IsSingleChar( c ))
 	{
-		token[len] = c;
-		len++;
-		token[len] = 0;
-		return data + 1;
+		if( size >= 2 ) // char and \0
+		{
+			token[len] = c;
+			len++;
+			token[len] = 0;
+			return data + 1;
+		}
+		else
+		{
+			// couldn't pass anything
+			token[0] = 0;
+			return data;
+		}
 	}
 
 	// parse a regular word
 	do
 	{
-		token[len] = c;
+		if( len + 1 < size )
+		{
+			token[len] = c;
+			len++;
+		}
+
 		data++;
-		len++;
 		c = ((byte)*data);
 
 		if( COM_IsSingleChar( c ))
@@ -561,6 +584,19 @@ skipwhite:
 	token[len] = 0;
 
 	return data;
+}
+
+/*
+================
+COM_ParseFile
+
+old unsafe version of ParseFile, deprecated
+only for API compatibility
+================
+*/
+char *COM_ParseFile( char *data, char *token )
+{
+	return COM_ParseFileSafe( data, token, -1 );
 }
 
 /*
@@ -612,21 +648,6 @@ qboolean COM_ParseVector( char **pfile, float *v, size_t size )
 		return true;
 	return false;
 }
-
-/*
-=============
-COM_CheckString
-
-=============
-*/
-#if 0
-int COM_CheckString( const char *string )
-{
-	if( !string || !*string )
-		return 0;
-	return 1;
-}
-#endif
 
 /*
 =============
@@ -1296,3 +1317,34 @@ only exists in PlayStation version
 void GAME_EXPORT pfnResetTutorMessageDecayData( void )
 {
 }
+
+#if XASH_ENGINE_TESTS
+
+#include "tests.h"
+
+void Test_RunCommon( void )
+{
+	char *file = (char*)"q asdf \"qwerty\" \"f \\\"f\" meowmeow\n// comment \"stuff ignored\"\nbark";
+	char buf[5];
+
+	Msg( "Checking COM_ParseFile...\n" );
+
+	file = COM_ParseFileSafe( file, buf, sizeof( buf ));
+	TASSERT( !Q_strcmp( buf, "q" ));
+
+	file = COM_ParseFileSafe( file, buf, sizeof( buf ));
+	TASSERT( !Q_strcmp( buf, "asdf" ));
+
+	file = COM_ParseFileSafe( file, buf, sizeof( buf ));
+	TASSERT( !Q_strcmp( buf, "qwer" ));
+
+	file = COM_ParseFileSafe( file, buf, sizeof( buf ));
+	TASSERT( !Q_strcmp( buf, "f \"f" ));
+
+	file = COM_ParseFileSafe( file, buf, sizeof( buf ));
+	TASSERT( !Q_strcmp( buf, "meow" ));
+
+	file = COM_ParseFileSafe( file, buf, sizeof( buf ));
+	TASSERT( !Q_strcmp( buf, "bark" ));
+}
+#endif
