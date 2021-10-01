@@ -10,7 +10,7 @@
 // FIXME what should this be?
 const float point_light_attenuation_const = 10000.;
 const float shadow_offset_fudge = .1;
-const float meters_per_unit = 1. / 39.37;
+const float meters_per_unit = 1.;// / 39.37;
 
 layout (constant_id = 0) const uint MAX_POINT_LIGHTS = 32;
 layout (constant_id = 1) const uint MAX_EMISSIVE_KUSOCHKI = 256;
@@ -314,11 +314,12 @@ void main() {
 		throughput *= brdfWeight;
 	} // for all bounces
 
+	const float color_factor = 10000.;
 	{
 		vec3 prev_frame = imageLoad(previous_frame, ivec2(gl_LaunchIDEXT.xy)).rgb;
 		prev_frame *= prev_frame;
-		prev_frame *= 10.;
+		prev_frame *= color_factor;
 		C = mix(C, prev_frame, push_constants.prev_frame_blend_factor);
 	}
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(sqrt(C/10.), 1.));
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(sqrt(C/color_factor), 1.));
 }
