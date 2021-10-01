@@ -120,24 +120,24 @@ int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len )
 				message[0] = 0; // remove 'error'
 				pfile = ents;
 
-				while(( pfile = COM_ParseFile( pfile, token )) != NULL )
+				while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 				{
 					if( !Q_strcmp( token, "{" )) continue;
 					else if( !Q_strcmp( token, "}" )) break;
 					else if( !Q_strcmp( token, "message" ))
 					{
 						// get the message contents
-						pfile = COM_ParseFile( pfile, message );
+						pfile = COM_ParseFile( pfile, message, sizeof( message ));
 					}
 					else if( !Q_strcmp( token, "compiler" ) || !Q_strcmp( token, "_compiler" ))
 					{
 						// get the message contents
-						pfile = COM_ParseFile( pfile, compiler );
+						pfile = COM_ParseFile( pfile, compiler, sizeof( compiler ));
 					}
 					else if( !Q_strcmp( token, "generator" ) || !Q_strcmp( token, "_generator" ))
 					{
 						// get the message contents
-						pfile = COM_ParseFile( pfile, generator );
+						pfile = COM_ParseFile( pfile, generator, sizeof( generator ));
 					}
 				}
 				Mem_Free( ents );
@@ -942,18 +942,18 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 				Q_strncpy( message, "No Title", MAX_STRING );
 				pfile = ents;
 
-				while(( pfile = COM_ParseFile( pfile, token )) != NULL )
+				while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 				{
 					if( token[0] == '}' && worldspawn )
 						worldspawn = false;
 					else if( !Q_strcmp( token, "message" ) && worldspawn )
 					{
 						// get the message contents
-						pfile = COM_ParseFile( pfile, message );
+						pfile = COM_ParseFile( pfile, message, sizeof( message ));
 					}
 					else if( !Q_strcmp( token, "classname" ))
 					{
-						pfile = COM_ParseFile( pfile, token );
+						pfile = COM_ParseFile( pfile, token, sizeof( token ));
 						if( !Q_strcmp( token, GI->mp_entity ) || use_filter )
 							num_spawnpoints++;
 					}

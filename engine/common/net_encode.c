@@ -561,7 +561,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	delta_field_t	*pFieldInfo;
 	char		*oldpos;
 
-	*delta_script = COM_ParseFile( *delta_script, token );
+	*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 	if( Q_strcmp( token, "(" ))
 	{
 		Con_DPrintf( S_ERROR "Delta_ParseField: expected '(', found '%s' instead\n", token );
@@ -569,7 +569,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	}
 
 	// read the variable name
-	if(( *delta_script = COM_ParseFile( *delta_script, token )) == NULL )
+	if(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) == NULL )
 	{
 		Con_DPrintf( S_ERROR "Delta_ParseField: missing field name\n" );
 		return false;
@@ -582,7 +582,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 		return false;
 	}
 
-	*delta_script = COM_ParseFile( *delta_script, token );
+	*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 	if( Q_strcmp( token, "," ))
 	{
 		Con_DPrintf( S_ERROR "Delta_ParseField: expected ',', found '%s' instead\n", token );
@@ -596,7 +596,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	pField->flags = 0;
 
 	// read delta-flags
-	while(( *delta_script = COM_ParseFile( *delta_script, token )) != NULL )
+	while(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) != NULL )
 	{
 		if( !Q_strcmp( token, "," ))
 			break;	// end of flags argument
@@ -631,7 +631,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	}
 
 	// read delta-bits
-	if(( *delta_script = COM_ParseFile( *delta_script, token )) == NULL )
+	if(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) == NULL )
 	{
 		Con_DPrintf( S_ERROR "Delta_ReadField: %s field bits argument is missing\n", pField->name );
 		return false;
@@ -639,7 +639,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 
 	pField->bits = Q_atoi( token );
 
-	*delta_script = COM_ParseFile( *delta_script, token );
+	*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 	if( Q_strcmp( token, "," ))
 	{
 		Con_DPrintf( S_ERROR "Delta_ReadField: expected ',', found '%s' instead\n", token );
@@ -647,7 +647,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	}
 
 	// read delta-multiplier
-	if(( *delta_script = COM_ParseFile( *delta_script, token )) == NULL )
+	if(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) == NULL )
 	{
 		Con_DPrintf( S_ERROR "Delta_ReadField: %s missing 'multiplier' argument\n", pField->name );
 		return false;
@@ -657,7 +657,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 
 	if( bPost )
 	{
-		*delta_script = COM_ParseFile( *delta_script, token );
+		*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 		if( Q_strcmp( token, "," ))
 		{
 			Con_DPrintf( S_ERROR "Delta_ReadField: expected ',', found '%s' instead\n", token );
@@ -665,7 +665,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 		}
 
 		// read delta-postmultiplier
-		if(( *delta_script = COM_ParseFile( *delta_script, token )) == NULL )
+		if(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) == NULL )
 		{
 			Con_DPrintf( S_ERROR "Delta_ReadField: %s missing 'post_multiply' argument\n", pField->name );
 			return false;
@@ -680,7 +680,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	}
 
 	// closing brace...
-	*delta_script = COM_ParseFile( *delta_script, token );
+	*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 	if( Q_strcmp( token, ")" ))
 	{
 		Con_DPrintf( S_ERROR "Delta_ParseField: expected ')', found '%s' instead\n", token );
@@ -689,7 +689,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 
 	// ... and trying to parse optional ',' post-symbol
 	oldpos = *delta_script;
-	*delta_script = COM_ParseFile( *delta_script, token );
+	*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 	if( token[0] != ',' ) *delta_script = oldpos; // not a ','
 
 	return true;
@@ -709,7 +709,7 @@ void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char *encode
 	dt->numFields = 0;
 
 	// assume we have handled '{'
-	while(( *delta_script = COM_ParseFile( *delta_script, token )) != NULL )
+	while(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) != NULL )
 	{
 		Assert( dt->numFields <= dt->maxFields );
 
@@ -761,7 +761,7 @@ void Delta_InitFields( void )
 
 	pfile = (char *)afile;
 
-	while(( pfile = COM_ParseFile( pfile, token )) != NULL )
+	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
 		dt = Delta_FindStruct( token );
 
@@ -770,14 +770,14 @@ void Delta_InitFields( void )
 			Sys_Error( "%s: unknown struct %s\n", DELTA_PATH, token );
 		}
 
-		pfile = COM_ParseFile( pfile, encodeDll );
+		pfile = COM_ParseFile( pfile, encodeDll, sizeof( encodeDll ));
 
 		if( !Q_stricmp( encodeDll, "none" ))
 			Q_strcpy( encodeFunc, "null" );
-		else pfile = COM_ParseFile( pfile, encodeFunc );
+		else pfile = COM_ParseFile( pfile, encodeFunc, sizeof( encodeFunc ));
 
 		// jump to '{'
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 
 		if( token[0] != '{' )
 		{
