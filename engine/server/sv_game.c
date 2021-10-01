@@ -908,12 +908,12 @@ uint SV_MapIsValid( const char *filename, const char *spawn_entity, const char *
 
 		pfile = ents;
 
-		while(( pfile = COM_ParseFile( pfile, token )) != NULL )
+		while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 		{
 			if( !Q_strcmp( token, "classname" ))
 			{
 				// check classname for spawn entity
-				pfile = COM_ParseFile( pfile, check_name );
+				pfile = COM_ParseFile( pfile, check_name, sizeof( check_name ));
 				if( !Q_strcmp( spawn_entity, check_name ))
 				{
 					SetBits( flags, MAP_HAS_SPAWNPOINT );
@@ -926,7 +926,7 @@ uint SV_MapIsValid( const char *filename, const char *spawn_entity, const char *
 			else if( need_landmark && !Q_strcmp( token, "targetname" ))
 			{
 				// check targetname for landmark entity
-				pfile = COM_ParseFile( pfile, check_name );
+				pfile = COM_ParseFile( pfile, check_name, sizeof( check_name ));
 
 				if( !Q_strcmp( landmark_name, check_name ))
 				{
@@ -4747,14 +4747,14 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 		string	keyname;
 
 		// parse key
-		if(( *pfile = COM_ParseFile( *pfile, token )) == NULL )
+		if(( *pfile = COM_ParseFile( *pfile, token, sizeof( token ))) == NULL )
 			Host_Error( "ED_ParseEdict: EOF without closing brace\n" );
 		if( token[0] == '}' ) break; // end of desc
 
 		Q_strncpy( keyname, token, sizeof( keyname ));
 
 		// parse value
-		if(( *pfile = COM_ParseFile( *pfile, token )) == NULL )
+		if(( *pfile = COM_ParseFile( *pfile, token, sizeof( token ))) == NULL )
 			Host_Error( "ED_ParseEdict: EOF without closing brace\n" );
 
 		if( token[0] == '}' )
@@ -4916,7 +4916,7 @@ void SV_LoadFromFile( const char *mapname, char *entities )
 		inhibited = 0;
 
 		// parse ents
-		while(( entities = COM_ParseFile( entities, token )) != NULL )
+		while(( entities = COM_ParseFile( entities, token, sizeof( token ))) != NULL )
 		{
 			if( token[0] != '{' )
 				Host_Error( "ED_LoadFromFile: found %s when expecting {\n", token );
