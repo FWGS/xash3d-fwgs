@@ -445,8 +445,8 @@ int ID_ProcessWMIC( bloomfilter_t *value, const char *cmdline )
 
 	if( !ID_RunWMIC( buffer, cmdline ) )
 		return 0;
-	pbuf = COM_ParseFile( buffer, token ); // Header
-	while( pbuf = COM_ParseFile( pbuf, token ) )
+	pbuf = COM_ParseFile( buffer, token, sizeof( token )); // Header
+	while( pbuf = COM_ParseFile( pbuf, token, sizeof( token ) ) )
 	{
 		if( !ID_VerifyHEX( token ) )
 			continue;
@@ -465,8 +465,8 @@ int ID_CheckWMIC( bloomfilter_t value, const char *cmdline )
 
 	if( !ID_RunWMIC( buffer, cmdline ) )
 		return 0;
-	pbuf = COM_ParseFile( buffer, token ); // Header
-	while( pbuf = COM_ParseFile( pbuf, token ) )
+	pbuf = COM_ParseFile( buffer, token, sizeof( token )); // Header
+	while( pbuf = COM_ParseFile( pbuf, token, sizeof( token ) ) )
 	{
 		bloomfilter_t filter;
 

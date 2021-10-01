@@ -1581,69 +1581,69 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 	qboolean found_linux = false, found_osx = false;
 	string token;
 
-	while(( pfile = COM_ParseFile( pfile, token )) != NULL )
+	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
 		// different names in liblist/gameinfo
 		if( !Q_stricmp( token, isGameInfo ? "title" : "game" ))
 		{
-			pfile = COM_ParseFile( pfile, GameInfo->title );
+			pfile = COM_ParseFile( pfile, GameInfo->title, sizeof( GameInfo->title ));
 		}
 		// valid for both
 		else if( !Q_stricmp( token, "fallback_dir" ))
 		{
-			pfile = COM_ParseFile( pfile, GameInfo->falldir );
+			pfile = COM_ParseFile( pfile, GameInfo->falldir, sizeof( GameInfo->falldir ));
 		}
 		// valid for both
 		else if( !Q_stricmp( token, "startmap" ))
 		{
-			pfile = COM_ParseFile( pfile, GameInfo->startmap );
+			pfile = COM_ParseFile( pfile, GameInfo->startmap, sizeof( GameInfo->startmap ));
 			COM_StripExtension( GameInfo->startmap ); // HQ2:Amen has extension .bsp
 		}
 		// only trainmap is valid for gameinfo
 		else if( !Q_stricmp( token, "trainmap" ) ||
 			(!isGameInfo && !Q_stricmp( token, "trainingmap" )))
 		{
-			pfile = COM_ParseFile( pfile, GameInfo->trainmap );
+			pfile = COM_ParseFile( pfile, GameInfo->trainmap, sizeof( GameInfo->trainmap ));
 			COM_StripExtension( GameInfo->trainmap ); // HQ2:Amen has extension .bsp
 		}
 		// valid for both
 		else if( !Q_stricmp( token, "url_info" ))
 		{
-			pfile = COM_ParseFile( pfile, GameInfo->game_url );
+			pfile = COM_ParseFile( pfile, GameInfo->game_url, sizeof( GameInfo->game_url ));
 		}
 		// different names
 		else if( !Q_stricmp( token, isGameInfo ? "url_update" : "url_dl" ))
 		{
-			pfile = COM_ParseFile( pfile, GameInfo->update_url );
+			pfile = COM_ParseFile( pfile, GameInfo->update_url, sizeof( GameInfo->update_url ));
 		}
 		// valid for both
 		else if( !Q_stricmp( token, "gamedll" ))
 		{
-			pfile = COM_ParseFile( pfile, GameInfo->game_dll );
+			pfile = COM_ParseFile( pfile, GameInfo->game_dll, sizeof( GameInfo->game_dll ));
 			COM_FixSlashes( GameInfo->game_dll );
 		}
 		// valid for both
 		else if( !Q_stricmp( token, "gamedll_linux" ))
 		{
-			pfile = COM_ParseFile( pfile, GameInfo->game_dll_linux );
+			pfile = COM_ParseFile( pfile, GameInfo->game_dll_linux, sizeof( GameInfo->game_dll_linux ));
 			found_linux = true;
 		}
 		// valid for both
 		else if( !Q_stricmp( token, "gamedll_osx" ))
 		{
-			pfile = COM_ParseFile( pfile, GameInfo->game_dll_osx );
+			pfile = COM_ParseFile( pfile, GameInfo->game_dll_osx, sizeof( GameInfo->game_dll_osx ));
 			found_osx = true;
 		}
 		// valid for both
 		else if( !Q_stricmp( token, "icon" ))
 		{
-			pfile = COM_ParseFile( pfile, GameInfo->iconpath );
+			pfile = COM_ParseFile( pfile, GameInfo->iconpath, sizeof( GameInfo->iconpath ));
 			COM_FixSlashes( GameInfo->iconpath );
 			COM_DefaultExtension( GameInfo->iconpath, ".ico" );
 		}
 		else if( !Q_stricmp( token, "type" ))
 		{
-			pfile = COM_ParseFile( pfile, token );
+			pfile = COM_ParseFile( pfile, token, sizeof( token ));
 
 			if( !isGameInfo && !Q_stricmp( token, "singleplayer_only" ))
 			{
@@ -1673,43 +1673,43 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 		// valid for both
 		else if( !Q_stricmp( token, "version" ))
 		{
-			pfile = COM_ParseFile( pfile, token );
+			pfile = COM_ParseFile( pfile, token, sizeof( token ));
 			GameInfo->version = Q_atof( token );
 		}
 		// valid for both
 		else if( !Q_stricmp( token, "size" ))
 		{
-			pfile = COM_ParseFile( pfile, token );
+			pfile = COM_ParseFile( pfile, token, sizeof( token ));
 			GameInfo->size = Q_atoi( token );
 		}
 		else if( !Q_stricmp( token, "edicts" ))
 		{
-			pfile = COM_ParseFile( pfile, token );
+			pfile = COM_ParseFile( pfile, token, sizeof( token ));
 			GameInfo->max_edicts = Q_atoi( token );
 		}
 		else if( !Q_stricmp( token, isGameInfo ? "mp_entity" : "mpentity" ))
 		{
-			pfile = COM_ParseFile( pfile, GameInfo->mp_entity );
+			pfile = COM_ParseFile( pfile, GameInfo->mp_entity, sizeof( GameInfo->mp_entity ));
 		}
 		else if( !Q_stricmp( token, isGameInfo ? "mp_filter" : "mpfilter" ))
 		{
-			pfile = COM_ParseFile( pfile, GameInfo->mp_filter );
+			pfile = COM_ParseFile( pfile, GameInfo->mp_filter, sizeof( GameInfo->mp_filter ));
 		}
 		// valid for both
 		else if( !Q_stricmp( token, "secure" ))
 		{
-			pfile = COM_ParseFile( pfile, token );
+			pfile = COM_ParseFile( pfile, token, sizeof( token ));
 			GameInfo->secure = Q_atoi( token );
 		}
 		// valid for both
 		else if( !Q_stricmp( token, "nomodels" ))
 		{
-			pfile = COM_ParseFile( pfile, token );
+			pfile = COM_ParseFile( pfile, token, sizeof( token ));
 			GameInfo->nomodels = Q_atoi( token );
 		}
 		else if( !Q_stricmp( token, isGameInfo ? "max_edicts" : "edicts" ))
 		{
-			pfile = COM_ParseFile( pfile, token );
+			pfile = COM_ParseFile( pfile, token, sizeof( token ));
 			GameInfo->max_edicts = bound( MIN_EDICTS, Q_atoi( token ), MAX_EDICTS );
 		}
 		// only for gameinfo
@@ -1718,40 +1718,40 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 			if( !Q_stricmp( token, "basedir" ))
 			{
 				string fs_path;
-				pfile = COM_ParseFile( pfile, fs_path );
+				pfile = COM_ParseFile( pfile, fs_path, sizeof( fs_path ));
 				if( Q_stricmp( fs_path, GameInfo->basedir ) || Q_stricmp( fs_path, GameInfo->gamefolder ))
 					Q_strncpy( GameInfo->basedir, fs_path, sizeof( GameInfo->basedir ));
 			}
 			else if( !Q_stricmp( token, "sp_entity" ))
 			{
-				pfile = COM_ParseFile( pfile, GameInfo->sp_entity );
+				pfile = COM_ParseFile( pfile, GameInfo->sp_entity, sizeof( GameInfo->sp_entity ));
 			}
 			else if( isGameInfo && !Q_stricmp( token, "dllpath" ))
 			{
-				pfile = COM_ParseFile( pfile, GameInfo->dll_path );
+				pfile = COM_ParseFile( pfile, GameInfo->dll_path, sizeof( GameInfo->dll_path ));
 			}
 			else if( isGameInfo && !Q_stricmp( token, "date" ))
 			{
-				pfile = COM_ParseFile( pfile, GameInfo->date );
+				pfile = COM_ParseFile( pfile, GameInfo->date, sizeof( GameInfo->date ));
 			}
 			else if( !Q_stricmp( token, "max_tempents" ))
 			{
-				pfile = COM_ParseFile( pfile, token );
+				pfile = COM_ParseFile( pfile, token, sizeof( token ));
 				GameInfo->max_tents = bound( 300, Q_atoi( token ), 2048 );
 			}
 			else if( !Q_stricmp( token, "max_beams" ))
 			{
-				pfile = COM_ParseFile( pfile, token );
+				pfile = COM_ParseFile( pfile, token, sizeof( token ));
 				GameInfo->max_beams = bound( 64, Q_atoi( token ), 512 );
 			}
 			else if( !Q_stricmp( token, "max_particles" ))
 			{
-				pfile = COM_ParseFile( pfile, token );
+				pfile = COM_ParseFile( pfile, token, sizeof( token ));
 				GameInfo->max_particles = bound( 4096, Q_atoi( token ), 32768 );
 			}
 			else if( !Q_stricmp( token, "gamemode" ))
 			{
-				pfile = COM_ParseFile( pfile, token );
+				pfile = COM_ParseFile( pfile, token, sizeof( token ));
 				// TODO: Remove this ugly hack too.
 				// This was made because Half-Life has multiplayer,
 				// but for some reason it's marked as singleplayer_only.
@@ -1767,11 +1767,12 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 
 				if( ambientNum < 0 || ambientNum > ( NUM_AMBIENTS - 1 ))
 					ambientNum = 0;
-				pfile = COM_ParseFile( pfile, GameInfo->ambientsound[ambientNum] );
+				pfile = COM_ParseFile( pfile, GameInfo->ambientsound[ambientNum],
+					sizeof( GameInfo->ambientsound[ambientNum] ));
 			}
 			else if( !Q_stricmp( token, "noskills" ))
 			{
-				pfile = COM_ParseFile( pfile, token );
+				pfile = COM_ParseFile( pfile, token, sizeof( token ));
 				GameInfo->noskills = Q_atoi( token );
 			}
 		}
