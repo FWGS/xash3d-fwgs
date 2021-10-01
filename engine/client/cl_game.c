@@ -3078,9 +3078,7 @@ char *pfnParseFile( char *data, char *token )
 {
 	char	*out;
 
-	host.com_handlecolon = true;
-	out = COM_ParseFile( data, token );
-	host.com_handlecolon = false;
+	out = _COM_ParseFileSafe( data, token, -1, PFILE_HANDLECOLON, NULL );
 
 	return out;
 }
