@@ -464,14 +464,14 @@ qboolean COM_ParseVector( char **pfile, float *v, size_t size )
 
 	if( size == 1 )
 	{
-		*pfile = COM_ParseFile( *pfile, token );
+		*pfile = COM_ParseFile( *pfile, token, sizeof( token ));
 		v[0] = Q_atof( token );
 		return true;
 	}
 
 	saved = *pfile;
 
-	if(( *pfile = COM_ParseFile( *pfile, token )) == NULL )
+	if(( *pfile = COM_ParseFile( *pfile, token, sizeof( token ))) == NULL )
 		return false;
 
 	if( token[0] == '(' )
@@ -480,13 +480,13 @@ qboolean COM_ParseVector( char **pfile, float *v, size_t size )
 
 	for( i = 0; i < size; i++ )
 	{
-		*pfile = COM_ParseFile( *pfile, token );
+		*pfile = COM_ParseFile( *pfile, token, sizeof( token ));
 		v[i] = Q_atof( token );
 	}
 
 	if( !bracket ) return true;	// done
 
-	if(( *pfile = COM_ParseFile( *pfile, token )) == NULL )
+	if(( *pfile = COM_ParseFile( *pfile, token, sizeof( token ))) == NULL )
 		return false;
 
 	if( token[0] == ')' )
@@ -1169,27 +1169,28 @@ void GAME_EXPORT pfnResetTutorMessageDecayData( void )
 
 void Test_RunCommon( void )
 {
-	char *file = (char*)"q asdf \"qwerty\" \"f \\\"f\" meowmeow\n// comment \"stuff ignored\"\nbark";
+	char *file = (char *)"q asdf \"qwerty\" \"f \\\"f\" meowmeow\n// comment \"stuff ignored\"\nbark";
+	int len;
 	char buf[5];
 
 	Msg( "Checking COM_ParseFile...\n" );
 
-	file = COM_ParseFileSafe( file, buf, sizeof( buf ));
-	TASSERT( !Q_strcmp( buf, "q" ));
+	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	TASSERT( !Q_strcmp( buf, "q" ) && len == 1);
 
-	file = COM_ParseFileSafe( file, buf, sizeof( buf ));
-	TASSERT( !Q_strcmp( buf, "asdf" ));
+	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	TASSERT( !Q_strcmp( buf, "asdf" ) && len == 4);
 
-	file = COM_ParseFileSafe( file, buf, sizeof( buf ));
-	TASSERT( !Q_strcmp( buf, "qwer" ));
+	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	TASSERT( !Q_strcmp( buf, "qwer" ) && len == -1);
 
-	file = COM_ParseFileSafe( file, buf, sizeof( buf ));
-	TASSERT( !Q_strcmp( buf, "f \"f" ));
+	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	TASSERT( !Q_strcmp( buf, "f \"f" ) && len == 4);
 
-	file = COM_ParseFileSafe( file, buf, sizeof( buf ));
-	TASSERT( !Q_strcmp( buf, "meow" ));
+	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	TASSERT( !Q_strcmp( buf, "meow" ) && len == -1);
 
-	file = COM_ParseFileSafe( file, buf, sizeof( buf ));
-	TASSERT( !Q_strcmp( buf, "bark" ));
+	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	TASSERT( !Q_strcmp( buf, "bark" ) && len == 4);
 }
 #endif
