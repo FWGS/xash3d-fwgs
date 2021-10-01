@@ -38,6 +38,12 @@ enum
 	TIME_FILENAME,
 };
 
+enum
+{
+	PFILE_IGNOREBRACKET = BIT( 0 ),
+	PFILE_HANDLECOLON   = BIT( 1 )
+};
+
 //
 // crtlib.c
 //
@@ -89,6 +95,9 @@ char COM_Hex2Char( uint8_t hex );
 void COM_Hex2String( uint8_t hex, char *str );
 #define COM_CheckString( string ) ( ( !string || !*string ) ? 0 : 1 )
 #define COM_CheckStringEmpty( string ) ( ( !*string ) ? 0 : 1 )
+const char *_COM_ParseFileSafe( const char *data, char *token, const int size, unsigned int flags, int *len );
+#define COM_ParseFileSafe( data, token, size ) _COM_ParseFileSafe( data, token, size, 0, NULL )
+#define COM_ParseFile( data, token ) COM_ParseFileSafe( data, token, -1 )
 int matchpattern( const char *in, const char *pattern, qboolean caseinsensitive );
 int matchpattern_with_separator( const char *in, const char *pattern, qboolean caseinsensitive, const char *separators, qboolean wildcard_least_one );
 
