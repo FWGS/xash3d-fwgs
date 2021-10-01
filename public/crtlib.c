@@ -995,7 +995,7 @@ COM_ParseFile
 text parser
 ==============
 */
-const char *_COM_ParseFileSafe( const char *data, char *token, const int size, unsigned int flags, int *plen )
+char *_COM_ParseFileSafe( char *data, char *token, const int size, unsigned int flags, int *plen )
 {
 	int	c, len = 0;
 	qboolean overflow = false;
@@ -1054,6 +1054,7 @@ skipwhite:
 					token[len] = (byte)*data;
 					len++;
 				}
+				else overflow = true;
 
 				data++;
 				continue;
@@ -1071,6 +1072,7 @@ skipwhite:
 				token[len] = c;
 				len++;
 			}
+			else overflow = true;
 		}
 	}
 
@@ -1102,6 +1104,7 @@ skipwhite:
 			token[len] = c;
 			len++;
 		}
+		else overflow = true;
 
 		data++;
 		c = ((byte)*data);
