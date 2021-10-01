@@ -287,7 +287,7 @@ void SV_ReadResourceList( const char *filename )
 	Con_DPrintf( "Precaching from %s\n", filename );
 	Con_DPrintf( "----------------------------------\n" );
 
-	while(( pfile = COM_ParseFile( pfile, token )) != NULL )
+	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
 		if( !COM_IsSafeFileToDownload( token ))
 			continue;
