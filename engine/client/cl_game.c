@@ -234,7 +234,7 @@ void CL_InitCDAudio( const char *filename )
 	pfile = (char *)afile;
 
 	// format: trackname\n [num]
-	while(( pfile = COM_ParseFile( pfile, token )) != NULL )
+	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
 		if( !Q_stricmp( token, "blank" )) token[0] = '\0';
 		Q_strncpy( clgame.cdtracks[c], token, sizeof( clgame.cdtracks[0] ));
@@ -1535,7 +1535,7 @@ static client_sprite_t *pfnSPR_GetList( char *psz, int *piCount )
 	if( !afile ) return NULL;
 
 	pfile = (char *)afile;
-	pfile = COM_ParseFile( pfile, token );
+	pfile = COM_ParseFile( pfile, token, sizeof( token ));
 	numSprites = Q_atoi( token );
 
 	Q_strncpy( pEntry->szListName, psz, sizeof( pEntry->szListName ));
@@ -1545,30 +1545,30 @@ static client_sprite_t *pfnSPR_GetList( char *psz, int *piCount )
 
 	for( index = 0; index < numSprites; index++ )
 	{
-		if(( pfile = COM_ParseFile( pfile, token )) == NULL )
+		if(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) == NULL )
 			break;
 
 		Q_strncpy( pEntry->pList[index].szName, token, sizeof( pEntry->pList[0].szName ));
 
 		// read resolution
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		pEntry->pList[index].iRes = Q_atoi( token );
 
 		// read spritename
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		Q_strncpy( pEntry->pList[index].szSprite, token, sizeof( pEntry->pList[0].szSprite ));
 
 		// parse rectangle
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		pEntry->pList[index].rc.left = Q_atoi( token );
 
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		pEntry->pList[index].rc.top = Q_atoi( token );
 
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		pEntry->pList[index].rc.right = pEntry->pList[index].rc.left + Q_atoi( token );
 
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		pEntry->pList[index].rc.bottom = pEntry->pList[index].rc.top + Q_atoi( token );
 
 		pEntry->count++;
@@ -3078,7 +3078,7 @@ char *pfnParseFile( char *data, char *token )
 {
 	char	*out;
 
-	out = _COM_ParseFileSafe( data, token, -1, PFILE_HANDLECOLON, NULL );
+	out = _COM_ParseFileSafe( data, token, INT_MAX, PFILE_HANDLECOLON, NULL );
 
 	return out;
 }

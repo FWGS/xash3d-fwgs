@@ -1115,7 +1115,7 @@ legacy wrapper
 */
 static char *pfnParseFile( char *buf, char *token )
 {
-	return COM_ParseFile( buf, token );
+	return COM_ParseFile( buf, token, INT_MAX );
 }
 
 // engine callbacks
