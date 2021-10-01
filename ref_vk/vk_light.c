@@ -342,7 +342,7 @@ static void parseStaticLightEntities( void ) {
 
 typedef enum { LightTypePoint, LightTypeSurface, LightTypeSpot} LightType;
 
-#define MAX_LEAF_LIGHTS 64
+#define MAX_LEAF_LIGHTS 256
 typedef struct {
 	int num_lights;
 	struct {
@@ -607,6 +607,70 @@ static void addSurfaceLightToCell( const int light_cell[3], int emissive_surface
 	cluster->emissive_surfaces[cluster->num_emissive_surfaces++] = emissive_surface_index;
 }
 
+static float estimateSurfaceLightRadianceForBox(const model_t *mod, const msurface_t *surf, const vec3_t emissive, const float minmax[6]) {
+	// FIXME transform surface
+	// this here only works for static map model
+
+	// TODO better estimation:
+	// - point on light surface closest to bbox
+	// - point on bbox sides closest to light surface
+	// - can there be a case where those closest points won't give us maximum estimated value?
+	//   e.g. there are point pairs that are not closest but give greater value because of better normal orientation.
+
+	vec3_t light_dir;
+	float light_normal_dot;
+	float surface_area = 0;
+	const float radiance = Q_max(Q_max(emissive[0], emissive[1]), emissive[2]);
+
+	// Pick bbox center FIXME this is not great, works only for relatively small light cell sizes)
+	vec3_t bbox_sample = {
+		(minmax[0] + minmax[3]) / 2.f,
+		(minmax[1] + minmax[4]) / 2.f,
+		(minmax[2] + minmax[5]) / 2.f,
+	};
+
+	// Pick surface center as sample point (also not great, see above)
+	vec3_t surface_sample;
+	VectorCopy(surf->info->origin, surface_sample);
+
+	VectorSubtract(bbox_sample, surface_sample, light_dir);
+
+	// FIXME transform normal
+	light_normal_dot = DotProduct(light_dir, surf->plane->normal);
+	if( FBitSet( surf->flags, SURF_PLANEBACK ))
+		light_normal_dot = -light_normal_dot;
+
+	if (light_normal_dot <= 0.f)
+		return 0.f;
+
+	// Compute surface area (sum of all triangle areas)
+	// FIXME: this is static (brush surfaces are static), so we should really compute this once in vk_brush.c on load
+	{
+		vec3_t triangle[3];
+		for( int i = 0; i < surf->numedges; i++ ) {
+			const int iedge = mod->surfedges[surf->firstedge + i];
+			const medge_t *edge = mod->edges + (iedge >= 0 ? iedge : -iedge);
+			const mvertex_t *in_vertex = mod->vertexes + (iedge >= 0 ? edge->v[0] : edge->v[1]);
+
+			VectorCopy(in_vertex->position, triangle[i%3]);
+
+			if (i > 2) {
+				vec3_t v01, v02, x;
+				VectorSubtract(triangle[0], triangle[1], v01);
+				VectorSubtract(triangle[0], triangle[2], v02);
+				CrossProduct(v01, v02, x);
+				surface_area += VectorLength2(x);
+			}
+		}
+
+		surface_area /= 2.f;
+	}
+
+	return surface_area * light_normal_dot / VectorLength2(light_dir);
+}
+
+static qboolean have_surf = false;
+
 const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map ) {
 	const int texture_num = geom->texture; // Animated texture
 	if (!geom->surf)
@@ -655,6 +719,15 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 			const int max_x = ceilf(leaf->minmaxs[3] / LIGHT_GRID_CELL_SIZE);
 			const int max_y = ceilf(leaf->minmaxs[4] / LIGHT_GRID_CELL_SIZE);
 			const int max_z = ceilf(leaf->minmaxs[5] / LIGHT_GRID_CELL_SIZE);
+
+			const float radiance = estimateSurfaceLightRadianceForBox(world, geom->surf, esurf->emissive, leaf->minmaxs);
+			const float RADIANCE_THRESHOLD = 100.f;
+
+			if (!have_surf)
+				gEngine.Con_Reportf("surf %d, leaf %d; radiance = %f\n", geom->surf - world->surfaces, leafs->leafs[i], radiance);
+
+			if (radiance < RADIANCE_THRESHOLD)
+				continue;
 
 			/* gEngine.Con_Reportf( "minmaxs %f-%f, %f-%f, %f-%f =>" */
 			/* 	"cells %d-%d, %d-%d, %d-%d\n", */
@@ -759,7 +832,6 @@ void VK_LightsFrameFinalize( void )
 	}
 
 	{
-		static qboolean have_surf = false;
 		if (!have_surf) {
 			for (int i = 0; i < MAX_MAP_LEAFS; ++i ) {
 				const vk_light_leaf_t *lleaf = g_lights_bsp.leaves + i;
