@@ -1743,7 +1743,7 @@ void CL_ParseResLocation( sizebuf_t *msg )
 		return;
 	}
 
-	while( ( data = COM_ParseFile( data, token ) ) )
+	while( ( data = COM_ParseFile( data, token, sizeof( token ) ) ) )
 	{
 		Con_Reportf( "Adding %s as download location\n", token );
 
