@@ -25,13 +25,3 @@ else
 fi
 
 7z a -t7z $BUILDDIR/xash3d-fwgs-win32-$ARCH.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on *.dll *.exe *.pdb
-
-echo "Generating VC2008 project"
-rm -rf vc2008/
-mkdir vc2008/
-./waf.bat msdev
-cp *.sln vc2008/
-find . -name "*.vcproj" -exec cp --parents \{\} vc2008/ \;
-rm -rf vc2008/vc2008 # HACKHACK
-
-7z a -t7z $BUILDDIR/xash3d-fwgs-vc2008-sln-$ARCH.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on -r vc2008
