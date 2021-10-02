@@ -67,4 +67,4 @@ jobs:
       run: bash scripts/continious_upload.sh xash3d-fwgs-${{ matrix.targetarch }}.AppImage xashds-linux-${{ matrix.targetarch }}
     - name: Upload engine (windows)
       if: matrix.targetos == 'win32'
-      run: bash scripts/continious_upload.sh xash3d-fwgs-win32-${{ matrix.targetarch }}.7z xash3d-fwgs-vc2008-sln-${{ matrix.targetarch }}.7z
+      run: bash scripts/continious_upload.sh xash3d-fwgs-win32-${{ matrix.targetarch }}.7z
