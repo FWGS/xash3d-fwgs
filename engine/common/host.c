@@ -980,7 +980,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	if( len && host.rodir[len - 1] == '/' )
 		host.rodir[len - 1] = 0;
 
-	if( !COM_CheckStringEmpty( host.rootdir ) || SetCurrentDirectory( host.rootdir ) != 0 )
+	if( !COM_CheckStringEmpty( host.rootdir ) || FS_SetCurrentDirectory( host.rootdir ) != 0 )
 		Con_Reportf( "%s is working directory now\n", host.rootdir );
 	else
 		Sys_Error( "Changing working directory to %s failed.\n", host.rootdir );

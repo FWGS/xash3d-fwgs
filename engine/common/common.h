@@ -566,6 +566,7 @@ int FS_FileTime( const char *filename, qboolean gamedironly );
 int FS_Print( file_t *file, const char *msg );
 qboolean FS_Rename( const char *oldname, const char *newname );
 int FS_FileExists( const char *filename, int gamedironly );
+int FS_SetCurrentDirectory( const char *path );
 qboolean FS_SysFileExists( const char *path, qboolean casesensitive );
 qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize );
 qboolean FS_Delete( const char *path );
