@@ -366,7 +366,11 @@ typedef enum _fieldtypes
 } FIELDTYPE;
 
 #ifndef offsetof
-#define offsetof(s,m)	(size_t)&(((s *)0)->m)
+#ifdef __GNUC__
+#define offsetof(s,m) __builtin_offsetof(s,m)
+#else
+#define offsetof(s,m) (size_t)&(((s *)0)->m)
+#endif
 #endif
 
 #define _FIELD(type,name,fieldtype,count,flags)		{ fieldtype, #name, offsetof(type, name), count, flags }
