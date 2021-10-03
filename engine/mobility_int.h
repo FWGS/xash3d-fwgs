@@ -36,6 +36,10 @@ extern "C" {
 #define TOUCH_FL_STROKE			(1U << 8)
 #define TOUCH_FL_PRECISION		(1U << 9)
 
+// flags for COM_ParseFileSafe
+#define PFILE_IGNOREBRACKET (1<<0)
+#define PFILE_HANDLECOLON   (1<<1)
+
 typedef struct mobile_engfuncs_s
 {
 	// indicates version of API. Should be equal to MOBILITY_API_VERSION
@@ -77,6 +81,9 @@ typedef struct mobile_engfuncs_s
 	void *(*pfnGetNativeObject)( const char *obj );
 
 	void (*pfnSetCustomClientID)( const char *id );
+
+	// COM_ParseFile but with buffer size limit, len reports written size or -1 on overflow
+	char* (*pfnParseFile)( char *data, char *buf, const int size, unsigned int flags, int *len );
 	// To be continued...
 } mobile_engfuncs_t;
 
