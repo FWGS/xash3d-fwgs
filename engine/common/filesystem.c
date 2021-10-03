@@ -463,6 +463,22 @@ static const char *FS_FixFileCase( const char *path )
 	return path;
 }
 
+#if XASH_WIN32
+/*
+====================
+FS_PathToWideChar
+
+Converts input UTF-8 string to wide char string.
+====================
+*/
+const wchar_t *FS_PathToWideChar( const char *path )
+{
+	static wchar_t pathBuffer[MAX_PATH];
+	MultiByteToWideChar( CP_UTF8, 0, path, -1, pathBuffer, MAX_PATH );
+	return pathBuffer;
+}
+#endif
+
 /*
 ====================
 FS_AddFileToPack
@@ -2240,7 +2256,11 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 	file->filetime = FS_SysFileTime( filepath );
 	file->ungetc = EOF;
 
+#if XASH_WIN32
+	file->handle = _wopen( FS_PathToWideChar(filepath), mod | opt, 0666 );
+#else
 	file->handle = open( filepath, mod|opt, 0666 );
+#endif
 
 #if !XASH_WIN32
 	if( file->handle < 0 )
@@ -2391,6 +2411,24 @@ qboolean FS_SysFileExists( const char *path, qboolean caseinsensitive )
 		return false;
 
 	return S_ISREG( buf.st_mode );
+#endif
+}
+
+/*
+==================
+FS_SetCurrentDirectory
+
+Sets current directory, path should be in UTF-8 encoding
+==================
+*/
+int FS_SetCurrentDirectory( const char *path )
+{
+#if XASH_WIN32
+	return SetCurrentDirectoryW( FS_PathToWideChar(path) );
+#elif XASH_POSIX
+	return !chdir( path );
+#else
+#error
 #endif
 }
 
