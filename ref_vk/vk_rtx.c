@@ -45,12 +45,7 @@ typedef struct {
 	float padding_;
 } vk_light_t;
 
-typedef struct {
-	uint32_t random_seed;
-	int bounces;
-	float prev_frame_blend_factor;
-	float pixel_cone_spread_angle;
-} vk_rtx_push_constants_t;
+typedef struct PushConstants vk_rtx_push_constants_t;
 
 typedef struct {
 	int min_cell[4], size[3]; // 4th element is padding
@@ -377,6 +372,7 @@ static void createPipeline( void )
 		.stage = VK_SHADER_STAGE_##bit##_BIT_KHR, \
 		.module = loadShader(filename), \
 		.pName = "main", \
+		.pSpecializationInfo = &spec, \
 	}
 
 	VkPipelineShaderStageCreateInfo shaders[ShaderStageIndex_COUNT];

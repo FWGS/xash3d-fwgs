@@ -59,12 +59,9 @@ layout (set = 0, binding = 8, align = 1) readonly buffer UBOLightClusters {
 
 layout(set = 0, binding = 9, rgba8) uniform readonly image2D previous_frame;
 
-layout (push_constant) uniform PushConstants {
-	uint random_seed;
-	int bounces;
-	float prev_frame_blend_factor;
-	float pixel_cone_spread_angle;
-} push_constants;
+layout (push_constant) uniform PC__ {
+	PushConstants push_constants;
+};
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
 layout(location = 1) rayPayloadEXT bool shadow;

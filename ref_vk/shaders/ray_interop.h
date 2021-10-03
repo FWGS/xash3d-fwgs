@@ -35,6 +35,13 @@ struct PointLight {
 	vec4 color;
 };
 
+struct PushConstants {
+	uint random_seed;
+	int bounces;
+	float prev_frame_blend_factor;
+	float pixel_cone_spread_angle;
+};
+
 #ifndef GLSL
 #undef uint
 #undef vec3
