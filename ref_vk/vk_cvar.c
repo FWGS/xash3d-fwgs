@@ -14,4 +14,7 @@ void VK_LoadCvars( void )
 	r_drawentities = gEngine.pfnGetCvarPointer( "r_drawentities", 0 );
 	vk_rtx_bounces = gEngine.Cvar_Get( "vk_rtx_bounces", "2", FCVAR_ARCHIVE, "RTX path tracing ray bounces" );
 	vk_rtx_prev_frame_blend_factor = gEngine.Cvar_Get("vk_rtx_prev_frame_blend_factor", "0.1", FCVAR_ARCHIVE, "RTX path tracer ghetto temporal denoiser strength");
+
+	vk_rtx_light_begin = gEngine.Cvar_Get( "vk_rtx_light_begin", "0", 0, "DEBUG: disable lights with index lower than this");
+	vk_rtx_light_end = gEngine.Cvar_Get( "vk_rtx_light_end", "0", 0, "DEBUG: disable lights with index higher than this ");
 }

@@ -1,6 +1,7 @@
 #include "vk_light.h"
 #include "vk_textures.h"
 #include "vk_brush.h"
+#include "vk_cvar.h"
 
 #include "mod_local.h"
 #include "xash3d_mathlib.h"
@@ -878,12 +879,22 @@ void VK_LightsFrameFinalize( void )
 		}
 
 		{
+			int num_clusters_with_lights_in_range = 0;
 			for (int i = 0; i < g_lights.map.grid_cells; ++i) {
 				const vk_lights_cell_t *cluster = g_lights.cells + i;
 				if (cluster->num_emissive_surfaces > 0) {
 					gEngine.Con_Reportf(" cluster %d: emissive_surfaces=%d\n", i, cluster->num_emissive_surfaces);
 				}
+
+				for (int j = 0; j < cluster->num_emissive_surfaces; ++j) {
+					const int index = cluster->emissive_surfaces[j];
+					if (index >= vk_rtx_light_begin->value && index < vk_rtx_light_end->value) {
+						++num_clusters_with_lights_in_range;
+					}
+				}
 			}
+
+			gEngine.Con_Reportf("Clusters with filtered lights: %d\n", num_clusters_with_lights_in_range);
 		}
 #endif
 		}

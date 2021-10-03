@@ -40,6 +40,7 @@ struct PushConstants {
 	int bounces;
 	float prev_frame_blend_factor;
 	float pixel_cone_spread_angle;
+	uint debug_light_index_begin, debug_light_index_end;
 };
 
 #ifndef GLSL

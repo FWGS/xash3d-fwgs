@@ -59,7 +59,7 @@ layout (set = 0, binding = 8, align = 1) readonly buffer UBOLightClusters {
 
 layout(set = 0, binding = 9, rgba8) uniform readonly image2D previous_frame;
 
-layout (push_constant) uniform PC__ {
+layout (push_constant) uniform PC_ {
 	PushConstants push_constants;
 };
 
@@ -101,18 +101,24 @@ vec3 sampleSurfaceTriangle(vec3 view_dir, MaterialProperties material, mat4x3 em
 	const float light_dir_normal_dot = dot(light_dir, payload.normal);
 	if (light_dir_normal_dot <= 0.)
 		return vec3(0.);
+		//return vec3(1., 0., 1.);
 
 	// Consider area light sources as planes, take the first normal
 	const vec3 normal = normalize(emissive_transform_normal * vertices[vi1].normal);
 
 	const float light_dot = -dot(light_dir, normal);
 	if (light_dot <= 0.)
-		return vec3(0.);
+		return vec3(0.);//1., 0., 0.);
+		//return vec3(1., 0., 0.);
 
 	// TODO emissive normals and areas can be precomputed
 	const float area = .5 * length(cross(v1 - v2, v1 - v3)) * meters_per_unit * meters_per_unit;
 	const float light_dist2 = dot(light_dir, light_dir);
 	float pdf = light_dist2 / (area * light_dot);
+
+	if (pdf > 100.)
+		//return vec3(0., 1., 0.);
+		return vec3(0.);//, 1., 0.);
 
 	light_dir = normalize(light_dir);
 
@@ -162,9 +168,16 @@ vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
 		}
 		for (uint i = begin_i; i < end_i; ++i) {
 #else
+		
 		for (uint i = 0; i < num_emissive_kusochki; ++i) {
 #endif
 			const uint index_into_emissive_kusochki = uint(light_grid.clusters[cluster_index].emissive_surfaces[i]);
+
+			if (push_constants.debug_light_index_begin < push_constants.debug_light_index_end) {
+				if (index_into_emissive_kusochki < push_constants.debug_light_index_begin || index_into_emissive_kusochki >= push_constants.debug_light_index_end)
+					continue;
+			}
+
 			const EmissiveKusok ek = lights.kusochki[index_into_emissive_kusochki];
 			const uint emissive_kusok_index = lights.kusochki[index_into_emissive_kusochki].kusok_index;
 			const Kusok ekusok = kusochki[emissive_kusok_index];
@@ -222,6 +235,8 @@ vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
 	return C;
 }
 
+const float color_factor = 10000.;
+
 void main() {
 	rand01_state = push_constants.random_seed + gl_LaunchIDEXT.x * 1833 +  gl_LaunchIDEXT.y * 31337;
 	vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
@@ -258,6 +273,36 @@ void main() {
 		if (payload.hit_pos_t.w <= 0.) {
 			C += throughput * payload.base_color;
 			break;
+		}
+
+		// light clusters debugging
+		if (false)
+		{
+			const ivec3 light_cell = ivec3(floor(payload.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
+			const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
+			if (any(greaterThanEqual(light_cell, light_grid.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS) {
+				C = vec3(1., 0., 0.) * color_factor;
+				break;
+			}
+
+			const uint num_emissive_kusochki = uint(light_grid.clusters[cluster_index].num_emissive_surfaces);
+			for (uint i = 0; i < num_emissive_kusochki; ++i) {
+				const uint index_into_emissive_kusochki = uint(light_grid.clusters[cluster_index].emissive_surfaces[i]);
+
+				if (push_constants.debug_light_index_begin < push_constants.debug_light_index_end) {
+					if (index_into_emissive_kusochki < push_constants.debug_light_index_begin || index_into_emissive_kusochki >= push_constants.debug_light_index_end)
+						continue;
+				}
+
+				//C = vec3(0., 0., 1.) * color_factor;
+			}
+
+			/* const uvec3 cellrand = pcg3d(uvec3(light_cell)); */
+			/* C = .02 * color_factor * vec3( */
+			/* 	uintToFloat01(cellrand.r), */
+			/* 	uintToFloat01(cellrand.g), */
+			/* 	uintToFloat01(cellrand.b)); */
+			//break;
 		}
 
 		MaterialProperties material;
@@ -311,7 +356,6 @@ void main() {
 		throughput *= brdfWeight;
 	} // for all bounces
 
-	const float color_factor = 10000.;
 	{
 		vec3 prev_frame = imageLoad(previous_frame, ivec2(gl_LaunchIDEXT.xy)).rgb;
 		prev_frame *= prev_frame;
