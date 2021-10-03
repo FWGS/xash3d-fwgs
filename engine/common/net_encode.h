@@ -28,8 +28,6 @@ GNU General Public License for more details.
 #define DT_STRING		BIT( 7 )	// A null terminated string, sent as 8 byte chars
 #define DT_SIGNED		BIT( 8 )	// sign modificator
 
-#undef offsetof
-#define offsetof( s, m )	(size_t)&(((s *)0)->m)
 #define NUM_FIELDS( x )	((sizeof( x ) / sizeof( x[0] )) - 1)
 
 // helper macroses

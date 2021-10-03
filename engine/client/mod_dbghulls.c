@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #include "mod_local.h"
 #include "xash3d_mathlib.h"
 #include "world.h"
-
+#include "eiface.h" // offsetof
 
 #define MAX_CLIPNODE_DEPTH		256	// should never exceeds
 
@@ -67,7 +67,7 @@ _inline void list_del( hullnode_t *entry )
 
 static winding_t * winding_alloc( uint numpoints )
 {
-	return (winding_t *)malloc( (int)((winding_t *)0)->p[numpoints] );
+	return (winding_t *)malloc( offsetof( winding_t, p[numpoints] ) );
 }
 
 static void free_winding( winding_t *w )
@@ -84,7 +84,7 @@ static winding_t *winding_copy( winding_t *w )
 	winding_t	*neww;
 
 	neww = winding_alloc( w->numpoints );
-	memcpy( neww, w, (int)((winding_t *)0)->p[w->numpoints] );
+	memcpy( neww, w, offsetof( winding_t, p[w->numpoints] ) );
 
 	return neww;
 }
@@ -111,7 +111,7 @@ static void winding_reverse( winding_t *w )
 static winding_t *winding_shrink( winding_t *w )
 {
 	winding_t	*neww = winding_alloc( w->numpoints );
-	memcpy( neww, w, (int)((winding_t *)0)->p[w->numpoints] );
+	memcpy( neww, w, offsetof( winding_t, p[w->numpoints] ));
 	free_winding( w );
 
 	return neww;
