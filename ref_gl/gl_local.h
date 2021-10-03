@@ -36,8 +36,12 @@ GNU General Public License for more details.
 #include "wadfile.h"
 
 #ifndef offsetof
-#define offsetof(s,m)       (size_t)&(((s *)0)->m)
-#endif // offsetof
+#ifdef __GNUC__
+#define offsetof(s,m) __builtin_offsetof(s,m)
+#else
+#define offsetof(s,m) (size_t)&(((s *)0)->m)
+#endif
+#endif
 
 #define ASSERT(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
 #define Assert(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
