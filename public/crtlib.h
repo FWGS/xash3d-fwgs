@@ -38,11 +38,8 @@ enum
 	TIME_FILENAME,
 };
 
-enum
-{
-	PFILE_IGNOREBRACKET = BIT( 0 ),
-	PFILE_HANDLECOLON   = BIT( 1 )
-};
+#define PFILE_IGNOREBRACKET BIT( 0 )
+#define PFILE_HANDLECOLON   BIT( 1 )
 
 //
 // crtlib.c

@@ -31,6 +31,10 @@ typedef int		HIMAGE;		// handle to a graphic
 #define PIC_KEEP_SOURCE	(1<<1)		// some images keep source
 #define PIC_NOFLIP_TGA	(1<<2)		// Steam background completely ignore tga attribute 0x20
 
+// flags for COM_ParseFileSafe
+#define PFILE_IGNOREBRACKET (1<<0)
+#define PFILE_HANDLECOLON   (1<<1)
+
 typedef struct ui_globalvars_s
 {
 	float		time;		// unclamped host.realtime
@@ -206,6 +210,8 @@ typedef struct ui_extendedfuncs_s {
 	int (*pfnGetRenderers)( unsigned int num, char *shortName, size_t size1, char *readableName, size_t size2 );
 
 	double (*pfnDoubleTime)( void );
+
+	char *(*pfnParseFile)( char *data, char *buf, const int size, unsigned int flags, int *len );
 } ui_extendedfuncs_t;
 
 // deprecated export from old engine
