@@ -534,6 +534,7 @@ void VK_LightsNewMap( void )
 
 	VectorSubtract(max_cell, min_cell, g_lights.map.grid_size);
 	g_lights.map.grid_cells = g_lights.map.grid_size[0] * g_lights.map.grid_size[1] * g_lights.map.grid_size[2];
+
 	ASSERT(g_lights.map.grid_cells < MAX_LIGHT_CLUSTERS);
 
 	gEngine.Con_Reportf("Map mins:(%f, %f, %f), maxs:(%f, %f, %f), size:(%f, %f, %f), min_cell:(%f, %f, %f) cells:(%d, %d, %d); total: %d\n",
@@ -790,29 +791,33 @@ static qboolean addDlight( const dlight_t *dlight ) {
 
 void VK_LightsFrameFinalize( void )
 {
+	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+
 	if (g_lights.num_emissive_surfaces > UINT8_MAX) {
 		gEngine.Con_Printf(S_ERROR "Too many emissive surfaces found: %d; some areas will be dark\n", g_lights.num_emissive_surfaces);
 		g_lights.num_emissive_surfaces = UINT8_MAX;
 	}
 
 	g_lights.num_point_lights = 0;
-	for (int i = 0; i < g_light_entities.num_lights; ++i, ++g_lights.num_point_lights) {
-		const vk_light_entity_t *entity = g_light_entities.lights + i;
-		vk_point_light_t *light = g_lights.point_lights + g_lights.num_point_lights;
+	if (world) {
+		for (int i = 0; i < g_light_entities.num_lights; ++i, ++g_lights.num_point_lights) {
+			const vk_light_entity_t *entity = g_light_entities.lights + i;
+			vk_point_light_t *light = g_lights.point_lights + g_lights.num_point_lights;
 
-		lbspAddLightByOrigin( LightTypePoint, entity->origin );
+			lbspAddLightByOrigin( LightTypePoint, entity->origin );
 
-		if (g_lights.num_point_lights >= MAX_POINT_LIGHTS) {
-			gEngine.Con_Printf(S_ERROR "Too many point light entities, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
-			break;
+			if (g_lights.num_point_lights >= MAX_POINT_LIGHTS) {
+				gEngine.Con_Printf(S_ERROR "Too many point light entities, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
+				break;
+			}
+
+			Vector4Copy(entity->color, light->color);
+			Vector4Copy(entity->origin, light->origin);
+
+			// FIXME ???
+			light->origin[3] = 50.f;
+			light->color[3] = 1.f;
 		}
-
-		Vector4Copy(entity->color, light->color);
-		Vector4Copy(entity->origin, light->origin);
-
-		// FIXME ???
-		light->origin[3] = 50.f;
-		light->color[3] = 1.f;
 	}
 
 	for (int i = 0; i < MAX_ELIGHTS; ++i) {
