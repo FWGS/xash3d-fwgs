@@ -108,7 +108,8 @@ static mobile_engfuncs_t gpMobileEngfuncs =
 	pfnDrawScaledCharacter,
 	Sys_Warn,
 	pfnGetNativeObject,
-	ID_SetCustomClientID
+	ID_SetCustomClientID,
+	_COM_ParseFileSafe
 };
 
 qboolean Mobile_Init( void )
