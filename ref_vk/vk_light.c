@@ -619,56 +619,71 @@ static float estimateSurfaceLightRadianceForBox(const model_t *mod, const msurfa
 	// - can there be a case where those closest points won't give us maximum estimated value?
 	//   e.g. there are point pairs that are not closest but give greater value because of better normal orientation.
 
-	vec3_t light_dir;
-	float light_normal_dot;
-	float surface_area = 0;
-	const float radiance = Q_max(Q_max(emissive[0], emissive[1]), emissive[2]);
+	//vec3_t light_dir;
+	//float light_normal_dot;
+	//float surface_area = 0;
+	//const float radiance = Q_max(Q_max(emissive[0], emissive[1]), emissive[2]);
 
-	// Pick bbox center FIXME this is not great, works only for relatively small light cell sizes)
-	vec3_t bbox_sample = {
+	// Use bbox center for normal culling estimation
+	const vec3_t bbox_center = {
 		(minmax[0] + minmax[3]) / 2.f,
 		(minmax[1] + minmax[4]) / 2.f,
 		(minmax[2] + minmax[5]) / 2.f,
 	};
 
-	// Pick surface center as sample point (also not great, see above)
-	vec3_t surface_sample;
-	VectorCopy(surf->info->origin, surface_sample);
+	const float size_x = minmax[0] - minmax[3];
+	const float size_y = minmax[1] - minmax[4];
+	const float size_z = minmax[2] - minmax[5];
 
-	VectorSubtract(bbox_sample, surface_sample, light_dir);
+	float bbox_plane_dist = PlaneDiff(bbox_center, surf->plane);
+	if( FBitSet( surf->flags, SURF_PLANEBACK ))
+		bbox_plane_dist = -bbox_plane_dist;
+	bbox_plane_dist += .5f * sqrtf(size_x * size_x + size_y * size_y + size_z * size_z);
+
+	if (bbox_plane_dist < 0.)
+		return 0;
+
+	// Pick surface center as sample point
+	/* vec3_t surface_sample; */
+	/* VectorCopy(surf->info->origin, surface_sample); */
+  /*  */
+	/* VectorSubtract(bbox_sample, surface_sample, light_dir); */
 
 	// FIXME transform normal
-	light_normal_dot = DotProduct(light_dir, surf->plane->normal);
-	if( FBitSet( surf->flags, SURF_PLANEBACK ))
-		light_normal_dot = -light_normal_dot;
+	/* light_normal_dot = DotProduct(light_dir, surf->plane->normal); */
+	/* if( FBitSet( surf->flags, SURF_PLANEBACK )) */
+	/* 	light_normal_dot = -light_normal_dot; */
 
-	if (light_normal_dot <= 0.f)
-		return 0.f;
 
-	// Compute surface area (sum of all triangle areas)
-	// FIXME: this is static (brush surfaces are static), so we should really compute this once in vk_brush.c on load
-	{
-		vec3_t triangle[3];
-		for( int i = 0; i < surf->numedges; i++ ) {
-			const int iedge = mod->surfedges[surf->firstedge + i];
-			const medge_t *edge = mod->edges + (iedge >= 0 ? iedge : -iedge);
-			const mvertex_t *in_vertex = mod->vertexes + (iedge >= 0 ? edge->v[0] : edge->v[1]);
+	return 1000.f;
 
-			VectorCopy(in_vertex->position, triangle[i%3]);
-
-			if (i > 2) {
-				vec3_t v01, v02, x;
-				VectorSubtract(triangle[0], triangle[1], v01);
-				VectorSubtract(triangle[0], triangle[2], v02);
-				CrossProduct(v01, v02, x);
-				surface_area += VectorLength2(x);
-			}
-		}
-
-		surface_area /= 2.f;
-	}
-
-	return surface_area * light_normal_dot / VectorLength2(light_dir);
+	/* if (light_normal_dot <= 0.f) */
+	/* 	return 0.f; */
+  /*  */
+	/* // Compute surface area (sum of all triangle areas) */
+	/* // FIXME: this is static (brush surfaces are static), so we should really compute this once in vk_brush.c on load */
+	/* { */
+	/* 	vec3_t triangle[3]; */
+	/* 	for( int i = 0; i < surf->numedges; i++ ) { */
+	/* 		const int iedge = mod->surfedges[surf->firstedge + i]; */
+	/* 		const medge_t *edge = mod->edges + (iedge >= 0 ? iedge : -iedge); */
+	/* 		const mvertex_t *in_vertex = mod->vertexes + (iedge >= 0 ? edge->v[0] : edge->v[1]); */
+  /*  */
+	/* 		VectorCopy(in_vertex->position, triangle[i%3]); */
+  /*  */
+	/* 		if (i > 2) { */
+	/* 			vec3_t v01, v02, x; */
+	/* 			VectorSubtract(triangle[0], triangle[1], v01); */
+	/* 			VectorSubtract(triangle[0], triangle[2], v02); */
+	/* 			CrossProduct(v01, v02, x); */
+	/* 			surface_area += VectorLength2(x); */
+	/* 		} */
+	/* 	} */
+  /*  */
+	/* 	surface_area /= 2.f; */
+	/* } */
+  /*  */
+	/* return surface_area * light_normal_dot / VectorLength2(light_dir); */
 }
 
 static qboolean have_surf = false;
@@ -748,6 +763,20 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 					y - g_lights.map.grid_min_cell[1],
 					z - g_lights.map.grid_min_cell[2]
 				};
+				const float minmaxs[6] = {
+					x * LIGHT_GRID_CELL_SIZE,
+					y * LIGHT_GRID_CELL_SIZE,
+					z * LIGHT_GRID_CELL_SIZE,
+					(x+1) * LIGHT_GRID_CELL_SIZE,
+					(y+1) * LIGHT_GRID_CELL_SIZE,
+					(z+1) * LIGHT_GRID_CELL_SIZE,
+				};
+
+				const float radiance = estimateSurfaceLightRadianceForBox(world, geom->surf, esurf->emissive, minmaxs);
+
+				if (radiance < RADIANCE_THRESHOLD)
+					continue;
+
 				// TODO culling, ...
 				//		3.1 Compute light size and intensity (?)
 				//			- light orientation
