@@ -38,8 +38,10 @@ enum
 	TIME_FILENAME,
 };
 
-#define PFILE_IGNOREBRACKET BIT( 0 )
-#define PFILE_HANDLECOLON   BIT( 1 )
+// a1ba: not using BIT macro, so flags can be copypasted into
+// exported APIs headers and will get nice warning in case of changing values
+#define PFILE_IGNOREBRACKET (1<<0)
+#define PFILE_HANDLECOLON   (1<<1)
 
 //
 // crtlib.c
