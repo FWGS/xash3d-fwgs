@@ -114,6 +114,45 @@ const sx_preset_t rgsxpre[MAXPRESETS] =
 { 0.0, 0.0, 0.001, 0.999, 0.0,   0.2,   0.8,      2.0,   0.05   }  // 28
 };
 
+// 0x0045dca8 enginegl.exe
+// SHA256: 42383d32cd712e59ee2c1bd78b7ba48814e680e7026c4223e730111f34a60d66
+const sx_preset_t rgsxpre_hlalpha052[MAXPRESETS] =
+{
+//          -------reverb--------  -------delay--------
+// lp  mod  size   refl   rvblp  delay  feedback  dlylp  left
+{ 0.0, 0.0, 0.0,   0.0,   1.0,   0.0,   0.0,      2.0,   0.0    }, // 0 off
+{ 0.0, 0.0, 0.0,   0.0,   1.0,   0.08,  0.8,      2.0,   0.0    }, // 1 generic
+{ 0.0, 0.0, 0.0,   0.0,   1.0,   0.02,  0.75,     0.0,   0.001  }, // 2 metalic
+{ 0.0, 0.0, 0.0,   0.0,   1.0,   0.03,  0.78,     0.0,   0.002  }, // 3
+{ 0.0, 0.0, 0.0,   0.0,   1.0,   0.06,  0.77,     0.0,   0.003  }, // 4
+{ 0.0, 0.0, 0.05,  0.85,  1.0,   0.008, 0.96,     2.0,   0.01   }, // 5 tunnel
+{ 0.0, 0.0, 0.05,  0.88,  1.0,   0.01,  0.98,     2.0,   0.02   }, // 6
+{ 0.0, 0.0, 0.05,  0.92,  1.0,   0.015, 0.995,    2.0,   0.04   }, // 7
+{ 0.0, 0.0, 0.05,  0.84,  1.0,   0.0,   0.0,      2.0,   0.003  }, // 8 chamber
+{ 0.0, 0.0, 0.05,  0.9,   1.0,   0.0,   0.0,      2.0,   0.002  }, // 9
+{ 0.0, 0.0, 0.05,  0.95,  1.0,   0.0,   0.0,      2.0,   0.001  }, // 10
+{ 0.0, 0.0, 0.05,  0.7,   0.0,   0.0,   0.0,      2.0,   0.003  }, // 11 brite
+{ 0.0, 0.0, 0.055, 0.78,  0.0,   0.0,   0.0,      2.0,   0.002  }, // 12
+{ 0.0, 0.0, 0.05,  0.86,  0.0,   0.0,   0.0,      2.0,   0.001  }, // 13
+{ 1.0, 1.0, 0.0,   0.0,   1.0,   0.0,   0.0,      2.0,   0.01   }, // 14 water
+{ 1.0, 1.0, 0.0,   0.0,   1.0,   0.06,  0.85,     2.0,   0.02   }, // 15
+{ 1.0, 1.0, 0.0,   0.0,   1.0,   0.2,   0.6,      2.0,   0.05   }, // 16
+{ 0.0, 0.0, 0.05,  0.8,   1.0,   0.15,  0.48,     2.0,   0.008  }, // 17 concrete
+{ 0.0, 0.0, 0.06,  0.9,   1.0,   0.22,  0.52,     2.0,   0.005  }, // 18
+{ 0.0, 0.0, 0.07,  0.94,  1.0,   0.3,   0.6,      2.0,   0.001  }, // 19
+{ 0.0, 0.0, 0.0,   0.0,   1.0,   0.3,   0.42,     2.0,   0.0    }, // 20 outside
+{ 0.0, 0.0, 0.0,   0.0,   1.0,   0.35,  0.48,     2.0,   0.0    }, // 21
+{ 0.0, 0.0, 0.0,   0.0,   1.0,   0.38,  0.6,      2.0,   0.0    }, // 22
+{ 0.0, 0.0, 0.05,  0.9,   1.0,   0.2,   0.28,     0.0,   0.0    }, // 23 cavern
+{ 0.0, 0.0, 0.07,  0.9,   1.0,   0.3,   0.4,      0.0,   0.0    }, // 24
+{ 0.0, 0.0, 0.09,  0.9,   1.0,   0.35,  0.5,      0.0,   0.0    }, // 25
+{ 0.0, 1.0, 0.01,  0.9,   0.0,   0.0,   0.0,      2.0,   0.05   }, // 26 weirdo
+{ 0.0, 0.0, 0.0,   0.0,   1.0,   0.009, 0.999,    2.0,   0.04   }, // 27
+{ 0.0, 0.0, 0.001, 0.999, 0.0,   0.2,   0.8,      2.0,   0.05   }, // 28
+};
+
+const sx_preset_t *ptable = rgsxpre;
+
 // cvars
 convar_t	*dsp_off;		// disable dsp
 convar_t	*roomwater_type;	// water room_type
@@ -138,6 +177,8 @@ convar_t	*sxdly_feedback;	// cycles
 convar_t	*sxdly_delay;	// current delay in seconds
 
 convar_t	*dsp_room;	// for compability
+
+convar_t	*dsp_coeff_table; // use release or 0.52 style
 int			idsp_dma_speed;
 int			idsp_room;
 int			room_typeprev;
@@ -194,6 +235,8 @@ void SX_Init( void )
 	sxmod2cur = sxmod2 = 450 * ( idsp_dma_speed / SOUND_11k );
 
 	dsp_off          = Cvar_Get( "dsp_off",        "0",  FCVAR_ARCHIVE, "disable DSP processing" );
+	dsp_coeff_table  = Cvar_Get( "dsp_coeff_table", "0", FCVAR_ARCHIVE, "select DSP coefficient table: 0 for release or 1 for alpha 0.52" );
+
 	roomwater_type   = Cvar_Get( "waterroom_type", "14", 0, "water room type" );
 	room_type        = Cvar_Get( "room_type",      "0",  0, "current room type preset" );
 
@@ -352,8 +395,6 @@ void DLY_CheckNewStereoDelayVal( void )
 		if( dly->delaysamples == 0 )
 			DLY_Free( STEREODLY );
 	}
-
-	ClearBits( sxste_delay->flags, FCVAR_CHANGED );
 }
 
 /*
@@ -463,7 +504,6 @@ void DLY_CheckNewDelayVal( void )
 		}
 	}
 
-	ClearBits( sxdly_delay->flags, FCVAR_CHANGED );
 	dly->lp = sxdly_lp->value;
 	dly->delayfeedback = 255 * sxdly_feedback->value;
 }
@@ -497,9 +537,9 @@ void DLY_DoDelay( int count )
 
 			if( dly->lp ) // lowpass
 			{
+				val = ( dly->lp0 + dly->lp1 + val ) / 3;
 				dly->lp0 = dly->lp1;
 				dly->lp1 = val;
-				val = ( dly->lp0 + dly->lp1 + (val << 1) ) >> 2;
 			}
 
 			dly->lpdelayline[dly->idelayinput] = val;
@@ -512,7 +552,7 @@ void DLY_DoDelay( int count )
 		else
 		{
 			dly->lpdelayline[dly->idelayinput] = 0;
-			dly->lp0 = dly->lp1 = 0;
+			dly->lp0 = dly->lp1 = dly->lp2 = 0;
 		}
 
 		DLY_MovePointer( dly );
@@ -547,7 +587,7 @@ void RVB_SetUpDly( int pos, float delay, int kmod )
 		rgsxdly[pos].idelayoutputxf = rgsxdly[pos].idelayinput - samples;
 		if( rgsxdly[pos].idelayoutputxf < 0 )
 			rgsxdly[pos].idelayoutputxf += rgsxdly[pos].cdelaysamplesmax;
-		rgsxdly[pos].xfade = 32;
+		rgsxdly[pos].xfade = REVERB_XFADE;
 	}
 
 	if( !rgsxdly[pos].delaysamples )
@@ -582,7 +622,6 @@ void RVB_CheckNewReverbVal( void )
 		}
 	}
 
-	ClearBits( sxrvb_size->flags, FCVAR_CHANGED );
 	dly1->lp = dly2->lp = sxrvb_lp->value;
 	dly1->delayfeedback = dly2->delayfeedback = (int)(255 * sxrvb_feedback->value);
 }
@@ -609,14 +648,14 @@ int RVB_DoReverbForOneDly( dly_t *dly, const int vlr, const portable_samplepair_
 	if( dly->xfade || delay || samplepair->left || samplepair->right )
 	{
 		// modulate delay rate
-		if( !dly->xfade && !dly->modcur && dly->mod )
+		if( !dly->mod )
 		{
 			dly->idelayoutputxf = dly->idelayoutput + ((COM_RandomLong( 0, 255 ) * delay) >> 9 );
 
-			//dly->xfade = 32;
-		}
+			dly->idelayoutputxf %= dly->cdelaysamplesmax;
 
-		dly->idelayoutputxf %= dly->cdelaysamplesmax;
+			dly->xfade = REVERB_XFADE;
+		}
 
 		if( dly->xfade )
 		{
@@ -685,7 +724,9 @@ void RVB_DoReverb( int count )
 		voutm = RVB_DoReverbForOneDly( dly1, vlr, paint );
 		voutm += RVB_DoReverbForOneDly( dly2, vlr, paint );
 
-		voutm = (11 * voutm) >> 6;
+		if( dsp_coeff_table->value == 1.0f )
+			voutm /= 6; // alpha
+		else voutm = (11 * voutm) >> 6;
 
 		paint->left = CLIP( paint->left + voutm );
 		paint->right = CLIP( paint->right + voutm );
@@ -718,17 +759,18 @@ void RVB_DoAMod( int count )
 			res.left >>= 2;
 			res.right >>= 2;
 
+			rgsxlp[4] = paint->left;
+			rgsxlp[9] = paint->right;
+
 			rgsxlp[0] = rgsxlp[1];
 			rgsxlp[1] = rgsxlp[2];
 			rgsxlp[2] = rgsxlp[3];
 			rgsxlp[3] = rgsxlp[4];
-			rgsxlp[4] = paint->left;
-
+			rgsxlp[4] = rgsxlp[5];
 			rgsxlp[5] = rgsxlp[6];
 			rgsxlp[6] = rgsxlp[7];
 			rgsxlp[7] = rgsxlp[8];
 			rgsxlp[8] = rgsxlp[9];
-			rgsxlp[9] = paint->right;
 		}
 
 		if( sxmod_mod->value )
@@ -814,6 +856,27 @@ void CheckNewDspPresets( void )
 	if( dsp_off->value != 0.0f )
 		return;
 
+	if( FBitSet( dsp_coeff_table->flags, FCVAR_CHANGED ))
+	{
+		switch( (int)dsp_coeff_table->value )
+		{
+		case 0: // release
+			ptable = rgsxpre;
+			break;
+		case 1: // alpha
+			ptable = rgsxpre_hlalpha052;
+			break;
+		default:
+			ptable = rgsxpre;
+			break;
+		}
+
+		SX_ReloadRoomFX();
+		room_typeprev = -1;
+
+		ClearBits( dsp_coeff_table->flags, FCVAR_CHANGED );
+	}
+
 	if( s_listener.waterlevel > 2 )
 		idsp_room = roomwater_type->value;
 	else idsp_room = room_type->value;
@@ -835,7 +898,9 @@ void CheckNewDspPresets( void )
 
 	if( idsp_room != room_typeprev )
 	{
-		const sx_preset_t *cur = rgsxpre + idsp_room;
+		const sx_preset_t *cur;
+
+		cur = ptable + idsp_room;
 
 		Cvar_SetValue( "room_lp", cur->room_lp );
 		Cvar_SetValue( "room_mod", cur->room_mod );
@@ -853,6 +918,10 @@ void CheckNewDspPresets( void )
 	RVB_CheckNewReverbVal( );
 	DLY_CheckNewDelayVal( );
 	DLY_CheckNewStereoDelayVal();
+
+	ClearBits( sxrvb_size->flags, FCVAR_CHANGED );
+	ClearBits( sxdly_delay->flags, FCVAR_CHANGED );
+	ClearBits( sxste_delay->flags, FCVAR_CHANGED );
 }
 
 void SX_Profiling_f( void )

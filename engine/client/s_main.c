@@ -1662,7 +1662,7 @@ void SND_UpdateSound( void )
 		VectorSet( info.color, 1.0f, 1.0f, 1.0f );
 		info.index = 0;
 
-		Con_NXPrintf( &info, "room_type: %i ----(%i)---- painted: %i\n", idsp_room, total - 1, paintedtime );
+		Con_NXPrintf( &info, "room_type: %i (%s) ----(%i)---- painted: %i\n", idsp_room, Cvar_VariableString( "dsp_coeff_table" ), total - 1, paintedtime );
 	}
 
 	S_StreamBackgroundTrack ();
