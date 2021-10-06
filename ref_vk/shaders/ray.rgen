@@ -155,7 +155,7 @@ vec3 sampleSun(vec3 view_dir, MaterialProperties material) {
 	return lights.sun_color * light_dot * evalCombinedBRDF(payload.normal, lights.sun_dir, view_dir, material);
 }
 
-vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
+vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material) {
 	vec3 C = vec3(0.);
 	const ivec3 light_cell = ivec3(floor(payload.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
 	const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
@@ -212,7 +212,7 @@ vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
 				continue;
 
 			const uint triangle_index = rand_range(ekusok.triangles);
-			C += sampling_light_scale * sampleSurfaceTriangle(payload.base_color * emissive, view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
+			C += sampling_light_scale * sampleSurfaceTriangle(throughput * payload.base_color * emissive, view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
 		} // for all emissive kusochki
 
 		for (uint i = 0; i < lights.num_point_lights; ++i) {
@@ -241,11 +241,11 @@ vec3 computeLighting(vec3 view_dir, MaterialProperties material) {
 			const float r2 = light_pos_r.w * light_pos_r.w;
 			// TODO this is a bad approximation
 			const float attenuation = point_light_attenuation_const / (d2 + r2 * .5);
-			C += payload.base_color * light_color * dot_ld_norm * attenuation;
+			C += throughput * payload.base_color * light_color * dot_ld_norm * attenuation;
 		} // for all lights
 	}
 
-	C += sampleSun(view_dir, material);
+	C += throughput * sampleSun(view_dir, material);
 
 	return C;
 }
@@ -336,7 +336,7 @@ void main() {
 			continue;
 		}
 
-		C += throughput * computeLighting(-direction, material);
+		C += computeLighting(throughput, -direction, material);
 
 		if (bounce == push_constants.bounces - 1)
 			break;
