@@ -7,6 +7,8 @@
 
 #extension GL_EXT_shader_8bit_storage : require
 
+//#define DEBUG_LIGHT_CULLING
+
 // FIXME what should this be?
 const float point_light_attenuation_const = 10000.;
 const float shadow_offset_fudge = .1;
@@ -82,7 +84,7 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 	return shadow;
 }
 
-const float emissive_factor = 1000.;
+const float color_factor = 10000.;
 
 vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties material, mat4x3 emissive_transform, mat3 emissive_transform_normal, uint triangle_index, uint index_offset, uint vertex_offset) {
 	const uint first_index_offset = index_offset + triangle_index * 3;
@@ -102,16 +104,22 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 	vec3 light_dir = sample_pos - payload.hit_pos_t.xyz;
 	const float light_dir_normal_dot = dot(light_dir, payload.normal);
 	if (light_dir_normal_dot <= 0.)
+#ifdef DEBUG_LIGHT_CULLING
+		return vec3(1., 0., 1.) * color_factor;
+#else
 		return vec3(0.);
-		//return vec3(1., 0., 1.) * emissive_factor;
+#endif
 
 	// Consider area light sources as planes, take the first normal
 	const vec3 normal = normalize(emissive_transform_normal * vertices[vi1].normal);
 
 	const float light_dot = -dot(light_dir, normal);
 	if (light_dot <= 0.)
+#ifdef DEBUG_LIGHT_CULLING
+		return vec3(1., 0., 0.) * color_factor;
+#else
 		return vec3(0.);
-		//return vec3(1., 0., 0.) * emissive_factor;
+#endif
 
 	// TODO emissive normals and areas can be precomputed
 	const float area = .5 * length(cross(v1 - v2, v1 - v3)) * meters_per_unit * meters_per_unit;
@@ -119,28 +127,37 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 	float pdf = light_dist2 / (area * light_dot);
 
 	if (pdf > 100.)
-		//return vec3(0., 1., 0.) * emissive_factor;
+#ifdef DEBUG_LIGHT_CULLING
+		return vec3(0., 1., 0.) * color_factor;
+#else
 		return vec3(0.);
+#endif
 
 	light_dir = normalize(light_dir);
 
 	color /= pdf;
 
 	if (dot(color,color) < 100.)
+#ifdef DEBUG_LIGHT_CULLING
+		return vec3(0., 1., 0.) * color_factor;
+#else
 		return vec3(0.);
-		//return vec3(0., 1., 0.) * emissive_factor;
+#endif
 
 	// TODO sample emissive texture
 	color *= evalCombinedBRDF(payload.normal, light_dir, view_dir, material);
 
 	if (dot(color,color) < 100.)
+#ifdef DEBUG_LIGHT_CULLING
+		return vec3(1., 1., 0.) * color_factor;
+#else
 		return vec3(0.);
-		//return vec3(1., 1., 0.) * emissive_factor;
+#endif
 
 	if (shadowed(payload.hit_pos_t.xyz, light_dir, sqrt(light_dist2)))
 		return vec3(0.);
 
-	//return vec3(emissive_factor);// color;
+	//return vec3(color_factor);// color;
 	return color;
 }
 
@@ -250,8 +267,6 @@ vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 	return C;
 }
 
-const float color_factor = 10000.;
-
 void main() {
 	rand01_state = push_constants.random_seed + gl_LaunchIDEXT.x * 1833 +  gl_LaunchIDEXT.y * 31337;
 	vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
@@ -290,8 +305,8 @@ void main() {
 			break;
 		}
 
+#ifdef DEBUG_LIGHT_CULLING
 		// light clusters debugging
-		if (false)
 		{
 			const ivec3 light_cell = ivec3(floor(payload.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
 			const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
@@ -319,6 +334,7 @@ void main() {
 			/* 	uintToFloat01(cellrand.b)); */
 			//break;
 		}
+#endif
 
 		MaterialProperties material;
 		material.baseColor = payload.base_color;
