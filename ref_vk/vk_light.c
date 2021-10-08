@@ -89,6 +89,7 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 				char *texture_name = Q_strchr(name, '/');
 				string texname;
 				int tex_id;
+				const qboolean enabled = (r != 0 || g != 0 || b != 0);
 
 				if (!texture_name) {
 					texture_name = name;
@@ -116,7 +117,10 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 					g_lights.map.emissive_textures[tex_id].emissive[0] = r;
 					g_lights.map.emissive_textures[tex_id].emissive[1] = g;
 					g_lights.map.emissive_textures[tex_id].emissive[2] = b;
-					g_lights.map.emissive_textures[tex_id].set = true;
+					g_lights.map.emissive_textures[tex_id].set = enabled;
+
+					if (!enabled)
+						gEngine.Con_Reportf("rad entry %s disabled due to zero intensity\n", name);
 				}
 			}
 		}
