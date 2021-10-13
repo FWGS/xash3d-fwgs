@@ -262,7 +262,7 @@ static void parseStaticLightEntities( void ) {
 		char key[1024];
 		char value[1024];
 
-		pos = gEngine.COM_ParseFile(pos, key);
+		pos = COM_ParseFile(pos, key, sizeof(key));
 		ASSERT(Q_strlen(key) < sizeof(key));
 		if (!pos)
 			break;
@@ -347,7 +347,7 @@ static void parseStaticLightEntities( void ) {
 			continue;
 		}
 
-		pos = gEngine.COM_ParseFile(pos, value);
+		pos = COM_ParseFile(pos, value, sizeof(value));
 		ASSERT(Q_strlen(value) < sizeof(value));
 		if (!pos)
 			break;
