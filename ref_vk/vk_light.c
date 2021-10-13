@@ -402,26 +402,60 @@ static struct {
 		// As a growing array of u16 leaf indexes (low 16 bits)
 		// As a bit field for marking added leafs (highest {31st} bit)
 		uint32_t leafs[MAX_MAP_LEAFS];
+
+		byte visbytes[(MAX_MAP_LEAFS+7)/8];
 	} accum;
+
 } g_lights_bsp = {0};
 
 static void prepareLeafAccum( void ) {
 	memset(&g_lights_bsp.accum, 0, sizeof(g_lights_bsp.accum));
 }
 
+#define LEAF_ADDED_BIT 0x8000000ul
+
 static qboolean addLeafToAccum( uint16_t leaf_index ) {
 	// Check whether this leaf was already added
-#define LEAF_ADDED_BIT 0x8000000ul
 	if (g_lights_bsp.accum.leafs[leaf_index] & LEAF_ADDED_BIT)
 		return false;
-#undef LEAF_ADDED_BIT
+
+	g_lights_bsp.accum.leafs[leaf_index] |= LEAF_ADDED_BIT;
 
 	g_lights_bsp.accum.leafs[g_lights_bsp.accum.count++] |= leaf_index;
 	return true;
 }
 
-vk_light_leaf_set_t *getMapLeafsAffectedBySurface( const msurface_t *surf ) {
-	const model_t	*const map = gEngine.pfnGetModelByIndex( 1 );
+static int addCompressedPVSLeafsToAccum(const model_t *const map, const byte *pvs, qboolean print_debug) {
+	int pvs_leaf_index = 0;
+	int leafs_added = 0;
+	for (;pvs_leaf_index < map->numleafs; ++pvs) {
+		uint8_t bits = pvs[0];
+
+		// PVS is RLE encoded
+		if (bits == 0) {
+			const int skip = pvs[1];
+			pvs_leaf_index += skip * 8;
+			++pvs;
+			continue;
+		}
+
+		for (int k = 0; k < 8; ++k, ++pvs_leaf_index, bits >>= 1) {
+			if ((bits&1) == 0)
+				continue;
+
+			if (addLeafToAccum( pvs_leaf_index + 1 )) {
+				leafs_added++;
+				if (print_debug)
+					gEngine.Con_Reportf(" .%d", pvs_leaf_index + 1);
+			}
+		}
+	}
+
+	return leafs_added;
+}
+
+vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
+	const model_t *const map = gEngine.pfnGetModelByIndex( 1 );
 	const int surf_index = surf - map->surfaces;
 	vk_surface_metadata_t * const smeta = g_lights_bsp.surfaces + surf_index;
 	ASSERT(surf_index >= 0);
@@ -446,45 +480,99 @@ vk_light_leaf_set_t *getMapLeafsAffectedBySurface( const msurface_t *surf ) {
 				if (addLeafToAccum( i )) {
 					gEngine.Con_Reportf(" %d", i);
 				} else {
+					// This leaf was already added earlier by PVS
+					// but it really should be counted as direct
 					--leafs_pvs;
 				}
 
 				// Get all PVS leafs
-				{
-					const byte *pvs = leaf->compressed_vis;
-					int pvs_leaf_index = 0;
-					for (;pvs_leaf_index < map->numleafs; ++pvs) {
-						uint8_t bits = pvs[0];
-
-						// PVS is RLE encoded
-						if (bits == 0) {
-							const int skip = pvs[1];
-							pvs_leaf_index += skip * 8;
-							++pvs;
-							continue;
-						}
-
-						for (int k = 0; k < 8; ++k, ++pvs_leaf_index, bits >>= 1) {
-							if ((bits&1) == 0)
-								continue;
-
-							if (addLeafToAccum( pvs_leaf_index + 1 )) {
-								leafs_pvs++;
-								gEngine.Con_Reportf(" *%d", pvs_leaf_index + 1);
-							}
-						}
-					}
-				}
+				leafs_pvs += addCompressedPVSLeafsToAccum(map, leaf->compressed_vis, true);
 			}
 		}
 		gEngine.Con_Reportf(" (sum=%d, direct=%d, pvs=%d)\n", g_lights_bsp.accum.count, leafs_direct, leafs_pvs);
 
 		smeta->potentially_visible_leafs = (vk_light_leaf_set_t*)Mem_Malloc(vk_core.pool, sizeof(smeta->potentially_visible_leafs) + sizeof(int) * g_lights_bsp.accum.count);
 		smeta->potentially_visible_leafs->num = g_lights_bsp.accum.count;
-		memcpy(smeta->potentially_visible_leafs->leafs, g_lights_bsp.accum.leafs, sizeof(int) * smeta->potentially_visible_leafs->num);
+
+		for (int i = 0; i < g_lights_bsp.accum.count; ++i) {
+			smeta->potentially_visible_leafs->leafs[i] = g_lights_bsp.accum.leafs[i] & 0xffffu;
+		}
 	}
 
 	return smeta->potentially_visible_leafs;
+}
+
+//static qboolean dump_fatpvs = true;
+static qboolean have_surf = false;
+
+vk_light_leaf_set_t *getMapLeafsAffectedByMovingSurface( const msurface_t *surf, const matrix3x4 *transform_row ) {
+	const model_t *const map = gEngine.pfnGetModelByIndex( 1 );
+	const mextrasurf_t *const extra = surf->info;
+
+	// This is a very conservative way to construct a bounding sphere. It's not great.
+	const vec3_t bbox_center = {
+		(extra->mins[0] + extra->maxs[0]) / 2.f,
+		(extra->mins[1] + extra->maxs[1]) / 2.f,
+		(extra->mins[2] + extra->maxs[2]) / 2.f,
+	};
+
+	const vec3_t bbox_size = {
+		extra->maxs[0] - extra->mins[0],
+		extra->maxs[1] - extra->mins[1],
+		extra->maxs[2] - extra->mins[2],
+	};
+
+	int leafs_direct = 0, leafs_pvs = 0;
+
+	const float radius = .5f * VectorLength(bbox_size);
+	vec3_t origin;
+
+	Matrix3x4_VectorTransform(*transform_row, bbox_center, origin);
+
+	if (debug_dump_lights.enabled) {
+		gEngine.Con_Reportf("\torigin = %f, %f, %f, R = %f\n",
+			origin[0], origin[1], origin[2], radius
+		);
+	}
+
+	prepareLeafAccum();
+
+	// TODO it's possible to somehow more efficiently traverse the bsp and collect only the affected leafs
+	// (origin + radius will accidentally touch leafs that are really should not be affected)
+	gEngine.R_FatPVS(origin, radius, g_lights_bsp.accum.visbytes, /*merge*/ false, /*fullvis*/ false);
+	if (!have_surf || debug_dump_lights.enabled)
+		gEngine.Con_Reportf("Collecting visible leafs for moving surface %p: %f,%f,%f %f: ", surf,
+			origin[0], origin[1], origin[2], radius);
+
+	for (int i = 0; i < map->numleafs; ++i) {
+		const mleaf_t *leaf = map->leafs + i;
+		if( !CHECKVISBIT( g_lights_bsp.accum.visbytes, i ))
+			continue;
+
+		leafs_direct++;
+
+		if (addLeafToAccum( i + 1 )) {
+			if (!have_surf || debug_dump_lights.enabled)
+				gEngine.Con_Reportf(" %d", i + 1);
+		} else {
+			// This leaf was already added earlier by PVS
+			// but it really should be counted as direct
+			leafs_pvs--;
+		}
+
+		// it seems that FatPVS already implements PVS walk leafs_pvs += addCompressedPVSLeafsToAccum(map, leaf->compressed_vis, debug_dump_lights.enabled);
+	}
+
+	if (!have_surf || debug_dump_lights.enabled)
+		gEngine.Con_Reportf(" (sum=%d, direct=%d, pvs=%d)\n", g_lights_bsp.accum.count, leafs_direct, leafs_pvs);
+
+	//dump_fatpvs = false;
+
+	for (int i = 0; i < g_lights_bsp.accum.count; ++i)
+		g_lights_bsp.accum.leafs[i] &= 0xffffu;
+
+	// ...... oh no
+	return (vk_light_leaf_set_t*)&g_lights_bsp.accum.count;
 }
 
 static void lbspClear( void ) {
@@ -665,16 +753,11 @@ static qboolean canSurfaceLightAffectAABB(const model_t *mod, const msurface_t *
 	return true;
 }
 
-static qboolean have_surf = false;
-
 const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map ) {
 	const int texture_num = geom->texture; // Animated texture
+
 	if (!geom->surf)
 		return NULL; // TODO break? no surface means that model is not brush
-
-	// FIXME non-static light surfaces are broken temporarily
-	if (!static_map)
-		return NULL;
 
 	if (geom->material != kXVkMaterialSky && geom->material != kXVkMaterialEmissive && !g_lights.map.emissive_textures[texture_num].set)
 		return NULL;
@@ -682,9 +765,31 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 	if (g_lights.num_emissive_surfaces >= 256)
 		return NULL;
 
+	// TODO E147-148
+	// 1. get leafs for arbitrary surfaces
+	//   + volume: bbox, (*)o+R, real surface vertices and edges, ...
+	//   + transform this to world space
+	//   + get touched leafs (FatPVS(o+R))
+	//   x ? propagate pvs visibility (if FatPVS doesn't do this for us... it does)
+	//   + add this surface to all affected light clusters
+	// 2. light clusters culling
+	//   - cull by box
+	//     - tranform origin
+	//     - tranform normal
+	//       - normal matrix
+	//     - cull by plane orientation
+
+	if (debug_dump_lights.enabled) {
+		const vk_texture_t *tex = findTexture(texture_num);
+		ASSERT(tex);
+		gEngine.Con_Printf("surface light %d: %s\n", g_lights.num_emissive_surfaces, tex->name);
+	}
+
 	{
 		const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
-		const vk_light_leaf_set_t *const leafs = getMapLeafsAffectedBySurface( geom->surf );
+		const vk_light_leaf_set_t *const leafs = static_map
+			? getMapLeafsAffectedByMapSurface( geom->surf )
+			: getMapLeafsAffectedByMovingSurface( geom->surf, transform_row );
 		vk_emissive_surface_t *esurf = g_lights.emissive_surfaces + g_lights.num_emissive_surfaces;
 
 		{
@@ -716,7 +821,7 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 			const int max_y = ceilf(leaf->minmaxs[4] / LIGHT_GRID_CELL_SIZE);
 			const int max_z = ceilf(leaf->minmaxs[5] / LIGHT_GRID_CELL_SIZE);
 
-			if (!canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, leaf->minmaxs))
+			if (static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, leaf->minmaxs))
 				continue;
 
 			for (int x = min_x; x < max_x; ++x)
@@ -736,7 +841,7 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 					(z+1) * LIGHT_GRID_CELL_SIZE,
 				};
 
-				if (!canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, minmaxs))
+				if (static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, minmaxs))
 					continue;
 
 				addSurfaceLightToCell(cell, g_lights.num_emissive_surfaces);
