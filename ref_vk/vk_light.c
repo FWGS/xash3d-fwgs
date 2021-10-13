@@ -765,20 +765,6 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 	if (g_lights.num_emissive_surfaces >= 256)
 		return NULL;
 
-	// TODO E147-148
-	// 1. get leafs for arbitrary surfaces
-	//   + volume: bbox, (*)o+R, real surface vertices and edges, ...
-	//   + transform this to world space
-	//   + get touched leafs (FatPVS(o+R))
-	//   x ? propagate pvs visibility (if FatPVS doesn't do this for us... it does)
-	//   + add this surface to all affected light clusters
-	// 2. light clusters culling
-	//   - cull by box
-	//     - tranform origin
-	//     - tranform normal
-	//       - normal matrix
-	//     - cull by plane orientation
-
 	if (debug_dump_lights.enabled) {
 		const vk_texture_t *tex = findTexture(texture_num);
 		ASSERT(tex);
