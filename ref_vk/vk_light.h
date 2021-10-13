@@ -54,6 +54,7 @@ typedef struct {
 
 extern vk_lights_t g_lights;
 
+void VK_LightsInit( void );
 void VK_LightsShutdown( void );
 
 void VK_LightsNewMap( void );

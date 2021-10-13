@@ -14,6 +14,7 @@
 #include "vk_studio.h"
 #include "vk_rtx.h"
 #include "vk_descriptor.h"
+#include "vk_light.h"
 #include "vk_nv_aftermath.h"
 
 #include "xash3d_types.h"
@@ -712,6 +713,8 @@ qboolean R_VkInit( void )
 	{
 		if (!VK_RayInit())
 			return false;
+
+		VK_LightsInit();
 	}
 
 	return true;
@@ -721,6 +724,7 @@ void R_VkShutdown( void )
 {
 	if (vk_core.rtx)
 	{
+		VK_LightsShutdown();
 		VK_RayShutdown();
 	}
 

@@ -11,6 +11,28 @@
 #include <string.h>
 #include <ctype.h> // isalnum...
 
+static struct {
+	qboolean enabled;
+	char name_filter[256];
+} debug_dump_lights;
+
+static void debugDumpLights( void ) {
+	debug_dump_lights.enabled = true;
+	if (gEngine.Cmd_Argc() > 1) {
+		Q_strncpy(debug_dump_lights.name_filter, gEngine.Cmd_Argv(1), sizeof(debug_dump_lights.name_filter));
+	} else {
+		debug_dump_lights.name_filter[0] = '\0';
+	}
+}
+
+void VK_LightsInit( void ) {
+	gEngine.Cmd_AddCommand("vk_lights_dump", debugDumpLights, "Dump all light sources for next frame");
+}
+
+void VK_LightsShutdown( void ) {
+	gEngine.Cmd_RemoveCommand("vk_lights_dump");
+}
+
 vk_lights_t g_lights = {0};
 
 static int lookupTextureF( const char *fmt, ...) {
@@ -759,6 +781,8 @@ void VK_LightsFrameFinalize( void )
 {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 
+	debug_dump_lights.enabled = false;
+
 	if (g_lights.num_emissive_surfaces > UINT8_MAX) {
 		gEngine.Con_Printf(S_ERROR "Too many emissive surfaces found: %d; some areas will be dark\n", g_lights.num_emissive_surfaces);
 		g_lights.num_emissive_surfaces = UINT8_MAX;
@@ -867,7 +891,4 @@ void VK_LightsFrameFinalize( void )
 		/* if (have_surf) */
 		/* 	exit(0); */
 	}
-}
-
-void VK_LightsShutdown( void ) {
 }
