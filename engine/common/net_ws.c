@@ -2559,7 +2559,7 @@ void HTTP_Init( void )
 
 	if( serverfile )
 	{
-		while( ( line = COM_ParseFile( line, token ) ) )
+		while( ( line = COM_ParseFile( line, token, sizeof( token ) ) ) )
 		{
 			httpserver_t *server = HTTP_ParseURL( token );
 

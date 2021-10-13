@@ -429,31 +429,6 @@ uint LZSS_Decompress( const byte *pInput, byte *pOutput )
 	return totalBytes;
 }
 
-
-
-
-
-/*
-==============
-COM_IsSingleChar
-
-interpert this character as single
-==============
-*/
-static int COM_IsSingleChar( char c )
-{
-	if( c == '{' || c == '}' || c == '\'' || c == ',' )
-		return true;
-
-	if( !host.com_ignorebracket && ( c == ')' || c == '(' ))
-		return true;
-
-	if( host.com_handlecolon && c == ':' )
-		return true;
-
-	return false;
-}
-
 /*
 ==============
 COM_IsWhiteSpace
@@ -467,100 +442,6 @@ static int COM_IsWhiteSpace( char space )
 	if( space == ' ' || space == '\t' || space == '\r' || space == '\n' )
 		return 1;
 	return 0;
-}
-
-/*
-==============
-COM_ParseFile
-
-text parser
-==============
-*/
-char *COM_ParseFile( char *data, char *token )
-{
-	int	c, len;
-
-	if( !token )
-		return NULL;
-
-	len = 0;
-	token[0] = 0;
-
-	if( !data )
-		return NULL;
-// skip whitespace
-skipwhite:
-	while(( c = ((byte)*data)) <= ' ' )
-	{
-		if( c == 0 )
-			return NULL;	// end of file;
-		data++;
-	}
-
-	// skip // comments
-	if( c=='/' && data[1] == '/' )
-	{
-		while( *data && *data != '\n' )
-			data++;
-		goto skipwhite;
-	}
-
-	// handle quoted strings specially
-	if( c == '\"' )
-	{
-		data++;
-		while( 1 )
-		{
-			c = (byte)*data;
-
-			// unexpected line end
-			if( !c )
-			{
-				token[len] = 0;
-				return data;
-			}
-			data++;
-
-			if( c == '\\' && *data == '"' )
-			{
-				token[len++] = (byte)*data++;
-				continue;
-			}
-
-			if( c == '\"' )
-			{
-				token[len] = 0;
-				return data;
-			}
-			token[len] = c;
-			len++;
-		}
-	}
-
-	// parse single characters
-	if( COM_IsSingleChar( c ))
-	{
-		token[len] = c;
-		len++;
-		token[len] = 0;
-		return data + 1;
-	}
-
-	// parse a regular word
-	do
-	{
-		token[len] = c;
-		data++;
-		len++;
-		c = ((byte)*data);
-
-		if( COM_IsSingleChar( c ))
-			break;
-	} while( c > 32 );
-
-	token[len] = 0;
-
-	return data;
 }
 
 /*
@@ -583,14 +464,14 @@ qboolean COM_ParseVector( char **pfile, float *v, size_t size )
 
 	if( size == 1 )
 	{
-		*pfile = COM_ParseFile( *pfile, token );
+		*pfile = COM_ParseFile( *pfile, token, sizeof( token ));
 		v[0] = Q_atof( token );
 		return true;
 	}
 
 	saved = *pfile;
 
-	if(( *pfile = COM_ParseFile( *pfile, token )) == NULL )
+	if(( *pfile = COM_ParseFile( *pfile, token, sizeof( token ))) == NULL )
 		return false;
 
 	if( token[0] == '(' )
@@ -599,34 +480,19 @@ qboolean COM_ParseVector( char **pfile, float *v, size_t size )
 
 	for( i = 0; i < size; i++ )
 	{
-		*pfile = COM_ParseFile( *pfile, token );
+		*pfile = COM_ParseFile( *pfile, token, sizeof( token ));
 		v[i] = Q_atof( token );
 	}
 
 	if( !bracket ) return true;	// done
 
-	if(( *pfile = COM_ParseFile( *pfile, token )) == NULL )
+	if(( *pfile = COM_ParseFile( *pfile, token, sizeof( token ))) == NULL )
 		return false;
 
 	if( token[0] == ')' )
 		return true;
 	return false;
 }
-
-/*
-=============
-COM_CheckString
-
-=============
-*/
-#if 0
-int COM_CheckString( const char *string )
-{
-	if( !string || !*string )
-		return 0;
-	return 1;
-}
-#endif
 
 /*
 =============
@@ -1296,3 +1162,35 @@ only exists in PlayStation version
 void GAME_EXPORT pfnResetTutorMessageDecayData( void )
 {
 }
+
+#if XASH_ENGINE_TESTS
+
+#include "tests.h"
+
+void Test_RunCommon( void )
+{
+	char *file = (char *)"q asdf \"qwerty\" \"f \\\"f\" meowmeow\n// comment \"stuff ignored\"\nbark";
+	int len;
+	char buf[5];
+
+	Msg( "Checking COM_ParseFile...\n" );
+
+	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	TASSERT( !Q_strcmp( buf, "q" ) && len == 1);
+
+	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	TASSERT( !Q_strcmp( buf, "asdf" ) && len == 4);
+
+	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	TASSERT( !Q_strcmp( buf, "qwer" ) && len == -1);
+
+	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	TASSERT( !Q_strcmp( buf, "f \"f" ) && len == 4);
+
+	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	TASSERT( !Q_strcmp( buf, "meow" ) && len == -1);
+
+	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	TASSERT( !Q_strcmp( buf, "bark" ) && len == 4);
+}
+#endif

@@ -1106,6 +1106,17 @@ static void GAME_EXPORT UI_ShellExecute( const char *path, const char *parms, in
 		Sys_Quit();
 }
 
+/*
+==============
+pfnParseFile
+
+legacy wrapper
+==============
+*/
+static char *pfnParseFile( char *buf, char *token )
+{
+	return COM_ParseFile( buf, token, INT_MAX );
+}
 
 // engine callbacks
 static ui_enginefuncs_t gEngfuncs =
@@ -1159,7 +1170,7 @@ static ui_enginefuncs_t gEngfuncs =
 	CL_Active,
 	pfnClientJoin,
 	COM_LoadFileForMe,
-	COM_ParseFile,
+	pfnParseFile,
 	COM_FreeFile,
 	Key_ClearStates,
 	Key_SetKeyDest,
@@ -1221,7 +1232,8 @@ static ui_extendedfuncs_t gExtendedfuncs =
 	Con_UtfMoveLeft,
 	Con_UtfMoveRight,
 	pfnGetRenderers,
-	Sys_DoubleTime
+	Sys_DoubleTime,
+	_COM_ParseFileSafe
 };
 
 void UI_UnloadProgs( void )

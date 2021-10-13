@@ -785,7 +785,7 @@ static void Mod_FindModelOrigin( const char *entities, const char *modelname, ve
 
 	pfile = (char *)entities;
 
-	while(( pfile = COM_ParseFile( pfile, token )) != NULL )
+	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
 		if( token[0] != '{' )
 			Host_Error( "Mod_FindModelOrigin: found %s when expecting {\n", token );
@@ -796,14 +796,14 @@ static void Mod_FindModelOrigin( const char *entities, const char *modelname, ve
 		while( 1 )
 		{
 			// parse key
-			if(( pfile = COM_ParseFile( pfile, token )) == NULL )
+			if(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) == NULL )
 				Host_Error( "Mod_FindModelOrigin: EOF without closing brace\n" );
 			if( token[0] == '}' ) break; // end of desc
 
 			Q_strncpy( keyname, token, sizeof( keyname ));
 
 			// parse value
-			if(( pfile = COM_ParseFile( pfile, token )) == NULL )
+			if(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) == NULL )
 				Host_Error( "Mod_FindModelOrigin: EOF without closing brace\n" );
 
 			if( token[0] == '}' )
@@ -1679,7 +1679,7 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 	bmod->wadlist.count = 0;
 
 	// parse all the wads for loading textures in right ordering
-	while(( pfile = COM_ParseFile( pfile, token )) != NULL )
+	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
 		if( token[0] != '{' )
 			Host_Error( "Mod_LoadEntities: found %s when expecting {\n", token );
@@ -1687,14 +1687,14 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 		while( 1 )
 		{
 			// parse key
-			if(( pfile = COM_ParseFile( pfile, token )) == NULL )
+			if(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) == NULL )
 				Host_Error( "Mod_LoadEntities: EOF without closing brace\n" );
 			if( token[0] == '}' ) break; // end of desc
 
 			Q_strncpy( keyname, token, sizeof( keyname ));
 
 			// parse value
-			if(( pfile = COM_ParseFile( pfile, token )) == NULL )
+			if(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) == NULL )
 				Host_Error( "Mod_LoadEntities: EOF without closing brace\n" );
 
 			if( token[0] == '}' )

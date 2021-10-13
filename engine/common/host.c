@@ -783,6 +783,7 @@ static void Host_RunTests( int stage )
 	case 0: // early engine load
 		memset( &tests_stats, 0, sizeof( tests_stats ));
 		Test_RunLibCommon();
+		Test_RunCommon();
 		break;
 	case 1: // after FS load
 		Test_RunImagelib();
@@ -980,7 +981,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	if( len && host.rodir[len - 1] == '/' )
 		host.rodir[len - 1] = 0;
 
-	if( !COM_CheckStringEmpty( host.rootdir ) || SetCurrentDirectory( host.rootdir ) != 0 )
+	if( !COM_CheckStringEmpty( host.rootdir ) || FS_SetCurrentDirectory( host.rootdir ) != 0 )
 		Con_Reportf( "%s is working directory now\n", host.rootdir );
 	else
 		Sys_Error( "Changing working directory to %s failed.\n", host.rootdir );
@@ -1131,10 +1132,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	if( Host_IsDedicated() && GameState->nextstate == STATE_RUNFRAME )
 	{
-		Con_Printf( "type 'map <mapname>' to run server... (TAB-autocomplete is working too)\n" );
-
 		// execute server.cfg after commandline
 		// so we have a chance to set servercfgfile
+		Con_Printf( "Type 'map <mapname>' to start game... (TAB-autocomplete is working too)\n" );
 		Cbuf_AddText( va( "exec %s\n", Cvar_VariableString( "servercfgfile" )));
 		Cbuf_Execute();
 	}

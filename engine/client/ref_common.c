@@ -335,7 +335,6 @@ static ref_api_t gEngfuncs =
 	COM_GetProcAddress,
 
 	FS_LoadFile,
-	COM_ParseFile,
 	FS_FileExists,
 	FS_AllowDirectPaths,
 

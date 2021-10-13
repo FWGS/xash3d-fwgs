@@ -513,19 +513,19 @@ void CL_ReadLineFile_f( void )
 
 	while( 1 )
 	{
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		if( !pfile ) break;
 		p1[0] = Q_atof( token );
 
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		if( !pfile ) break;
 		p1[1] = Q_atof( token );
 
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		if( !pfile ) break;
 		p1[2] = Q_atof( token );
 
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		if( !pfile ) break;
 
 		if( token[0] != '-' )
@@ -534,15 +534,15 @@ void CL_ReadLineFile_f( void )
 			break;
 		}
 
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		if( !pfile ) break;
 		p2[0] = Q_atof( token );
 
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		if( !pfile ) break;
 		p2[1] = Q_atof( token );
 
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		if( !pfile ) break;
 		p2[2] = Q_atof( token );
 
@@ -2020,15 +2020,15 @@ void CL_ReadPointFile_f( void )
 
 	while( 1 )
 	{
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		if( !pfile ) break;
 		org[0] = Q_atof( token );
 
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		if( !pfile ) break;
 		org[1] = Q_atof( token );
 
-		pfile = COM_ParseFile( pfile, token );
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
 		if( !pfile ) break;
 		org[2] = Q_atof( token );
 

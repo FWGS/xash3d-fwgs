@@ -40,8 +40,6 @@ jobs:
       ANDROID_SDK_TOOLS_VER: 4333796
       ANDROID_NDK_VER: r10e
       UPLOADTOOL_ISPRERELEASE: true
-      PVS_URL: https://files.pvs-studio.com/pvs-studio-7.14.50353.142-x86_64.tgz
-      PVS_VERSION: pvs-studio-7.14.50353.142-x86_64
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -59,41 +57,15 @@ jobs:
     - name: Build engine
       run: bash scripts/gha/build_${{ matrix.targetos }}.sh
 
-    # - name: Upload engine (android)
-    #   if: matrix.targetos == 'android'
-    #   run: bash scripts/continious_upload.sh xashdroid-${{ matrix.targetarch }}.apk
-    # - name: Upload engine (motomagx)
-    #   if: matrix.targetos == 'motomagx'
-    #   run: bash scripts/continious_upload.sh xash3d-fwgs-magx.7z
-    # - name: Upload engine (linux)
-    #   if: matrix.targetos == 'linux'
-    #   run: bash scripts/continious_upload.sh xash3d-fwgs-${{ matrix.targetarch }}.AppImage xashds-linux-${{ matrix.targetarch }}
-    # - name: Upload engine (windows)
-    #   if: matrix.targetos == 'win32'
-    #   run: bash scripts/continious_upload.sh xash3d-fwgs-win32-${{ matrix.targetarch }}.7z xash3d-fwgs-vc2008-sln-${{ matrix.targetarch }}.7z
-    #
-    # - name: Cache PVS-Studio
-    #   if: matrix.targetos == 'linux' && matrix.targetarch == 'amd64'
-    #   id: cache-pvs-studio
-    #   uses: actions/cache@v2
-    #   with:
-    #     path: pvs-studio.tgz
-    #     key: pvs-studio-key
-    # - name: Get PVS-Studio
-    #   if: matrix.targetos == 'linux' && matrix.targetarch == 'amd64' && steps.cache-pvs-studio.outputs.cache-hit != 'true'
-    #   run: wget --no-verbose ${{ env.PVS_URL }} -O pvs-studio.tgz
-    #
-    # - name: Static analysis
-    #   if: matrix.targetos == 'linux' && matrix.targetarch == 'amd64'
-    #   run: |
-    #     tar -xvf pvs-studio.tgz && mv ${{ env.PVS_VERSION }} pvs-studio
-    #     mkdir -p ~/.config/PVS-Studio
-    #     echo ${{ secrets.PVS_NAME }} > ~/.config/PVS-Studio/PVS-Studio.lic
-    #     echo ${{ secrets.PVS_KEY }} >> ~/.config/PVS-Studio/PVS-Studio.lic
-    #     pvs-studio/bin/pvs-studio-analyzer analyze --file build/compile_commands.json -j3
-    #     pvs-studio/bin/plog-converter -a GA:1,2 -t sarif -o report.sarif PVS-Studio.log
-    # - name: Upload SARIF
-    #   if: matrix.targetos == 'linux' && matrix.targetarch == 'amd64'
-    #   uses: github/codeql-action/upload-sarif@v1
-    #   with:
-    #     sarif_file: report.sarif
+    - name: Upload engine (android)
+      if: matrix.targetos == 'android'
+      run: bash scripts/continious_upload.sh xashdroid-${{ matrix.targetarch }}.apk
+    - name: Upload engine (motomagx)
+      if: matrix.targetos == 'motomagx'
+      run: bash scripts/continious_upload.sh xash3d-fwgs-magx.7z
+    - name: Upload engine (linux)
+      if: matrix.targetos == 'linux'
+      run: bash scripts/continious_upload.sh xash3d-fwgs-${{ matrix.targetarch }}.AppImage xashds-linux-${{ matrix.targetarch }}
+    - name: Upload engine (windows)
+      if: matrix.targetos == 'win32'
+      run: bash scripts/continious_upload.sh xash3d-fwgs-win32-${{ matrix.targetarch }}.7z
