@@ -38,13 +38,10 @@ typedef struct {
 		int grid_cells;
 
 		vk_emissive_texture_t emissive_textures[MAX_TEXTURES];
-
-		vec3_t sun_color;
-		vec3_t sun_dir;
 	} map;
 
 	int num_emissive_surfaces;
-	vk_emissive_surface_t emissive_surfaces[255]; // indexed by uint8_t
+	vk_emissive_surface_t emissive_surfaces[MAX_SURFACE_LIGHTS];
 
 	int num_point_lights;
 	vk_point_light_t point_lights[MAX_POINT_LIGHTS];

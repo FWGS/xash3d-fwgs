@@ -50,10 +50,6 @@ struct Lights {
 	uint num_kusochki;
 	uint num_point_lights;
 	PAD(2)
-	vec3 sun_dir;
-	PAD(1)
-	vec3 sun_color;
-	PAD(1)
 	STRUCT EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
 	STRUCT PointLight point_lights[MAX_POINT_LIGHTS];
 };

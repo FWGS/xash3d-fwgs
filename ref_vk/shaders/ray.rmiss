@@ -9,7 +9,6 @@ layout (set = 0, binding = 7/*, align=4*/) uniform UBOLights { Lights lights; };
 layout(location = 0) rayPayloadInEXT RayPayload payload;
 
 void main() {
-	const float sun_dot = max(0., dot(gl_WorldRayDirectionEXT, lights.sun_dir));
     payload.hit_pos_t = vec4(-1.);
     payload.geometry_normal = payload.normal = vec3(0., 1., 0.);
 	payload.reflection = 0.;

@@ -1,3 +1,16 @@
+# E149
+- [x] rtx: remove sun
+- [ ] rtx: point lights:
+	- [ ] static lights
+		- [ ] intensity "fix"
+	- [ ] dlights
+	- [ ] elights
+	- [ ] intensity fix for d/elights?
+	- [ ] point light clusters
+	- [ ] bsp:
+		- [ ] leaf culling
+		- [ ] pvs
+
 # Next
 - [ ] rtx: configuration that includes texture name -> pbr params mapping, etc. Global, per-map, ...
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
@@ -50,13 +63,11 @@
 	- [ ] robust tracking of memory hierarchies: global/static, map, frame
 	- or just do a generic allocator with compaction?
 - [ ] rtx: coalesce all these buffers
-- [ ] crash in PM_RecursiveHullCheck
+- [ ] crash in PM_RecursiveHullCheck. havent seen this in a while
 - [ ] rtx: entity lights
 - [ ] run under asan
-- [ ] rtx: emissive beams
-- [ ] rtx: emissive particles
-- [ ] rtx: map name to rad files mapping
-- [ ] rtx: live rad file reloading (or other solution for tuning lights)
+- [x] rtx: map name to rad files mapping
+- [x] rtx: live rad file reloading (or other solution for tuning lights)
 - [ ] rtx: do not rebuild static studio models (most of them). BLAS building takes most of the frame time (~12ms where ray tracing itself is just 3ms)
 - [ ] rtx: importance-sample sky light; there are sky surfaces that we can consider light sources
 - [ ] cull water surfaces (see c3a2a)
@@ -78,7 +89,6 @@
 - [ ] fix sprite blending; there are commented out functions that we really need (see tunnel before the helicopter in the very beginning)
 - [ ] fix projection matrix differences w/ gl render
 - [ ] bad condition for temp vs map-permanent buffer error message
-- [ ] draw more types of beams
 - [ ] fix brush blending
 - [ ] sprite depth offset
 - [ ] fix incorrect viewport sprite culling
@@ -99,7 +109,7 @@
 - [ ] rtx: non-realtime unbiased mode: make "ground truth" screenshots that take 1e5 samples per pixels and seconds to produce. what for: semi-interactive material tuning, comparison w/ denoise, etc.
 
 # Someday
-- [ ] rtx: dynamic rtx/non-rtx switching breaks dynamic models
+- [x] rtx: dynamic rtx/non-rtx switching breaks dynamic models (haven't seen this in a while)
 - [ ] more than one lightmap texture. E.g. sponza ends up having 3 lightmaps
 - [ ] nvnsight into buffer memory and stuff
 - [ ] start building command buffers in beginframe

@@ -669,10 +669,6 @@ static void updateLights( void )
 			Vector4Copy(g_lights.point_lights[i].origin, lights->point_lights[i].position);
 			Vector4Copy(g_lights.point_lights[i].color, lights->point_lights[i].color);
 		}
-
-		//VectorCopy(g_lights.map.sun_color, lights->sun_color);
-		VectorScale(g_lights.map.sun_color, 50, lights->sun_color);
-		VectorCopy(g_lights.map.sun_dir, lights->sun_dir);
 	}
 }
 

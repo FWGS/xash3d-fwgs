@@ -253,8 +253,6 @@ static void parseStaticLightEntities( void ) {
 	ASSERT(world);
 
 	g_light_entities.num_lights = 0;
-	VectorSet(g_lights.map.sun_dir, 0, 0, 0);
-	VectorSet(g_lights.map.sun_color, 0, 0, 0);
 
 	pos = world->entities;
 	//gEngine.Con_Reportf("ENTITIES: %s\n", pos);
@@ -332,9 +330,7 @@ static void parseStaticLightEntities( void ) {
 					dir[0] *= cosf(angle);
 					dir[1] *= cosf(angle);
 
-					VectorScale(dir, -1.f, g_lights.map.sun_dir);
-					//VectorCopy(dir, g_lights.map.sun_dir);
-					VectorCopy(values._light, g_lights.map.sun_color);
+					// TODO add
 					break;
 				}
 
@@ -868,8 +864,7 @@ static qboolean addDlight( const dlight_t *dlight ) {
 	return true;
 }
 
-void VK_LightsFrameFinalize( void )
-{
+void VK_LightsFrameFinalize( void ) {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 
 	debug_dump_lights.enabled = false;
