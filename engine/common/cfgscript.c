@@ -54,7 +54,7 @@ Return true if next token is pExpext and skip it
 */
 qboolean CSCR_ExpectString( parserstate_t *ps, const char *pExpect, qboolean skip, qboolean error )
 {
-	char	*tmp = COM_ParseFile( ps->buf, ps->token );
+	char	*tmp = COM_ParseFile( ps->buf, ps->token, sizeof( ps->token ));
 
 	if( !Q_stricmp( ps->token, pExpect ) )
 	{
@@ -99,13 +99,13 @@ CSCR_ParseSingleCvar
 qboolean CSCR_ParseSingleCvar( parserstate_t *ps, scrvardef_t *result )
 {
 	// read the name
-	ps->buf = COM_ParseFile( ps->buf, result->name );
+	ps->buf = COM_ParseFile( ps->buf, result->name, sizeof( result->name ));
 
 	if( !CSCR_ExpectString( ps, "{", false, true ))
 		return false;
 
 	// read description
-	ps->buf = COM_ParseFile( ps->buf, result->desc );
+	ps->buf = COM_ParseFile( ps->buf, result->desc, sizeof( result->desc ));
 
 	if( !CSCR_ExpectString( ps, "{", false, true ))
 		return false;
@@ -121,11 +121,11 @@ qboolean CSCR_ParseSingleCvar( parserstate_t *ps, scrvardef_t *result )
 		break;
 	case T_NUMBER:
 		// min
-		ps->buf = COM_ParseFile( ps->buf, ps->token );
+		ps->buf = COM_ParseFile( ps->buf, ps->token, sizeof( ps->token ));
 		result->fMin = Q_atof( ps->token );
 
 		// max
-		ps->buf = COM_ParseFile( ps->buf, ps->token );
+		ps->buf = COM_ParseFile( ps->buf, ps->token, sizeof( ps->token ));
 		result->fMax = Q_atof( ps->token );
 
 		if( !CSCR_ExpectString( ps, "}", false, true ))
@@ -149,7 +149,7 @@ qboolean CSCR_ParseSingleCvar( parserstate_t *ps, scrvardef_t *result )
 		return false;
 
 	// default value
-	ps->buf = COM_ParseFile( ps->buf, result->value );
+	ps->buf = COM_ParseFile( ps->buf, result->value, sizeof( result->value ));
 
 	if( !CSCR_ExpectString( ps, "}", false, true ))
 		return false;
@@ -177,7 +177,7 @@ qboolean CSCR_ParseHeader( parserstate_t *ps )
 
 	// Parse in the version #
 	// Get the first token.
-	ps->buf = COM_ParseFile( ps->buf, ps->token );
+	ps->buf = COM_ParseFile( ps->buf, ps->token, sizeof( ps->token ));
 
 	if( Q_atof( ps->token ) != 1 )
 	{
@@ -188,7 +188,7 @@ qboolean CSCR_ParseHeader( parserstate_t *ps )
 	if( !CSCR_ExpectString( ps, "DESCRIPTION", false, true ))
 		return false;
 
-	ps->buf = COM_ParseFile( ps->buf, ps->token );
+	ps->buf = COM_ParseFile( ps->buf, ps->token, sizeof( ps->token ));
 
 	if( Q_stricmp( ps->token, "INFO_OPTIONS") && Q_stricmp( ps->token, "SERVER_OPTIONS" ))
 	{
@@ -247,7 +247,7 @@ static int CSCR_ParseFile( const char *scriptfilename,
 			break;
 	}
 
-	if( COM_ParseFile( state.buf, state.token ))
+	if( COM_ParseFile( state.buf, state.token, sizeof( state.token )))
 		Con_DPrintf( S_ERROR "Got extra tokens!\n" );
 	else success = true;
 finish:

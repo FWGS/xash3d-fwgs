@@ -287,7 +287,7 @@ void SV_ReadResourceList( const char *filename )
 	Con_DPrintf( "Precaching from %s\n", filename );
 	Con_DPrintf( "----------------------------------\n" );
 
-	while(( pfile = COM_ParseFile( pfile, token )) != NULL )
+	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
 		if( !COM_IsSafeFileToDownload( token ))
 			continue;
@@ -668,8 +668,8 @@ qboolean SV_InitGame( void )
 {
 	string dllpath;
 
-	if( svs.initialized )
-		return true; // already initialized ?
+	if( svs.game_library_loaded )
+		return true;
 
 	// first initialize?
 	COM_ResetLibraryError();
@@ -683,8 +683,7 @@ qboolean SV_InitGame( void )
 	}
 
 	// client frames will be allocated in SV_ClientConnect
-	svs.initialized = true;
-
+	svs.game_library_loaded = true;
 	return true;
 }
 
@@ -862,6 +861,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	if( !SV_InitGame( ))
 		return false;
 
+	svs.initialized = true;
 	Log_Open();
 	Log_Printf( "Loading map \"%s\"\n", mapname );
 	Log_PrintServerVars();

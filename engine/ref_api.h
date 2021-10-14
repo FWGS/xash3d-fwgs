@@ -371,7 +371,6 @@ typedef struct ref_api_s
 
 	// filesystem
 	byte*	(*COM_LoadFile)( const char *path, fs_offset_t *pLength, qboolean gamedironly );
-	char*	(*COM_ParseFile)( char *data, char *token );
 	// use Mem_Free instead
 	// void	(*COM_FreeFile)( void *buffer );
 	int (*FS_FileExists)( const char *filename, int gamedironly );

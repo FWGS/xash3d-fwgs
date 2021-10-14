@@ -38,6 +38,11 @@ enum
 	TIME_FILENAME,
 };
 
+// a1ba: not using BIT macro, so flags can be copypasted into
+// exported APIs headers and will get nice warning in case of changing values
+#define PFILE_IGNOREBRACKET (1<<0)
+#define PFILE_HANDLECOLON   (1<<1)
+
 //
 // crtlib.c
 //
@@ -89,6 +94,9 @@ char COM_Hex2Char( uint8_t hex );
 void COM_Hex2String( uint8_t hex, char *str );
 #define COM_CheckString( string ) ( ( !string || !*string ) ? 0 : 1 )
 #define COM_CheckStringEmpty( string ) ( ( !*string ) ? 0 : 1 )
+char *_COM_ParseFileSafe( char *data, char *token, const int size, unsigned int flags, int *len );
+#define COM_ParseFile( data, token, size ) _COM_ParseFileSafe( data, token, size, 0, NULL )
+#define COM_ParseFileLegacy( data, token ) COM_ParseFileSafe( data, token, INT_MAX )
 int matchpattern( const char *in, const char *pattern, qboolean caseinsensitive );
 int matchpattern_with_separator( const char *in, const char *pattern, qboolean caseinsensitive, const char *separators, qboolean wildcard_least_one );
 

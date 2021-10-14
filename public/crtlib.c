@@ -967,6 +967,159 @@ void COM_Hex2String( uint8_t hex, char *str )
 	*str = '\0';
 }
 
+/*
+==============
+COM_IsSingleChar
+
+interpert this character as single
+==============
+*/
+static int COM_IsSingleChar( unsigned int flags, char c )
+{
+	if( c == '{' || c == '}' || c == '\'' || c == ',' )
+		return true;
+
+	if( !FBitSet( flags, PFILE_IGNOREBRACKET ) && ( c == ')' || c == '(' ))
+		return true;
+
+	if( FBitSet( flags, PFILE_HANDLECOLON ) && c == ':' )
+		return true;
+
+	return false;
+}
+
+/*
+==============
+COM_ParseFile
+
+text parser
+==============
+*/
+char *_COM_ParseFileSafe( char *data, char *token, const int size, unsigned int flags, int *plen )
+{
+	int	c, len = 0;
+	qboolean overflow = false;
+
+	if( !token || !size )
+	{
+		if( plen ) *plen = 0;
+		return NULL;
+	}
+
+	token[0] = 0;
+
+	if( !data )
+		return NULL;
+// skip whitespace
+skipwhite:
+	while(( c = ((byte)*data)) <= ' ' )
+	{
+		if( c == 0 )
+		{
+			if( plen ) *plen = overflow ? -1 : len;
+			return NULL;	// end of file;
+		}
+		data++;
+	}
+
+	// skip // comments
+	if( c == '/' && data[1] == '/' )
+	{
+		while( *data && *data != '\n' )
+			data++;
+		goto skipwhite;
+	}
+
+	// handle quoted strings specially
+	if( c == '\"' )
+	{
+		data++;
+		while( 1 )
+		{
+			c = (byte)*data;
+
+			// unexpected line end
+			if( !c )
+			{
+				token[len] = 0;
+				if( plen ) *plen = overflow ? -1 : len;
+				return data;
+			}
+			data++;
+
+			if( c == '\\' && *data == '"' )
+			{
+				if( len + 1 < size )
+				{
+					token[len] = (byte)*data;
+					len++;
+				}
+				else overflow = true;
+
+				data++;
+				continue;
+			}
+
+			if( c == '\"' )
+			{
+				token[len] = 0;
+				if( plen ) *plen = overflow ? -1 : len;
+				return data;
+			}
+
+			if( len + 1 < size )
+			{
+				token[len] = c;
+				len++;
+			}
+			else overflow = true;
+		}
+	}
+
+	// parse single characters
+	if( COM_IsSingleChar( flags, c ))
+	{
+		if( size >= 2 ) // char and \0
+		{
+			token[len] = c;
+			len++;
+			token[len] = 0;
+			if( plen ) *plen = overflow ? -1 : len;
+			return data + 1;
+		}
+		else
+		{
+			// couldn't pass anything
+			token[0] = 0;
+			if( plen ) *plen = overflow ? -1 : len;
+			return data;
+		}
+	}
+
+	// parse a regular word
+	do
+	{
+		if( len + 1 < size )
+		{
+			token[len] = c;
+			len++;
+		}
+		else overflow = true;
+
+		data++;
+		c = ((byte)*data);
+
+		if( COM_IsSingleChar( flags, c ))
+			break;
+	} while( c > 32 );
+
+	token[len] = 0;
+
+	if( plen ) *plen = overflow ? -1 : len;
+
+	return data;
+}
+
 int matchpattern( const char *in, const char *pattern, qboolean caseinsensitive )
 {
 	return matchpattern_with_separator( in, pattern, caseinsensitive, "/\\:", false );

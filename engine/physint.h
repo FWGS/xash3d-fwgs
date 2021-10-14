@@ -16,9 +16,11 @@ GNU General Public License for more details.
 #ifndef PHYSINT_H
 #define PHYSINT_H
 
+#include "eiface.h" // offsetof
+
 #define SV_PHYSICS_INTERFACE_VERSION	6
 
-#define STRUCT_FROM_LINK( l, t, m )	((t *)((byte *)l - (int)&(((t *)0)->m)))
+#define STRUCT_FROM_LINK( l, t, m )	((t *)((byte *)l - offsetof(t, m)))
 #define EDICT_FROM_AREA( l )		STRUCT_FROM_LINK( l, edict_t, area )
 
 // values that can be returned with pfnServerState

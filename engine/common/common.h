@@ -422,8 +422,6 @@ typedef struct host_parm_s
 	qboolean		stuffcmds_pending;	// should execute stuff commands
 	qboolean		allow_cheats;	// this host will allow cheating
 	qboolean		con_showalways;	// show console always (developer and dedicated)
-	qboolean		com_handlecolon;	// allow COM_ParseFile to handle colon as single char
-	qboolean		com_ignorebracket;	// allow COM_ParseFile to ignore () as single char
 	qboolean		change_game;	// initialize when game is changed
 	qboolean		mouse_visible;	// vgui override cursor control
 	qboolean		shutdown_issued;	// engine is shutting down
@@ -566,6 +564,7 @@ int FS_FileTime( const char *filename, qboolean gamedironly );
 int FS_Print( file_t *file, const char *msg );
 qboolean FS_Rename( const char *oldname, const char *newname );
 int FS_FileExists( const char *filename, int gamedironly );
+int FS_SetCurrentDirectory( const char *path );
 qboolean FS_SysFileExists( const char *path, qboolean casesensitive );
 qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize );
 qboolean FS_Delete( const char *path );
@@ -853,7 +852,6 @@ void CL_LegacyUpdateInfo( void );
 void CL_CharEvent( int key );
 qboolean CL_DisableVisibility( void );
 int CL_PointContents( const vec3_t point );
-char *COM_ParseFile( char *data, char *token );
 byte *COM_LoadFile( const char *filename, int usehunk, int *pLength );
 int CL_GetDemoComment( const char *demoname, char *comment );
 void COM_AddAppDirectoryToSearchPath( const char *pszBaseDir, const char *appName );

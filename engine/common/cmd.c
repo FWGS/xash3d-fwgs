@@ -595,9 +595,7 @@ void Cmd_TokenizeString( const char *text )
 		if( cmd_argc == 1 )
 			 cmd_args = text;
 
-		host.com_ignorebracket = true;
-		text = COM_ParseFile( (char*)text, cmd_token );
-		host.com_ignorebracket = false;
+		text = _COM_ParseFileSafe( (char*)text, cmd_token, sizeof( cmd_token ), PFILE_IGNOREBRACKET, NULL );
 
 		if( !text ) return;
 
