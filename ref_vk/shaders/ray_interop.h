@@ -7,8 +7,13 @@
 #define TOKENPASTE(x, y) x ## y
 #define TOKENPASTE2(x, y) TOKENPASTE(x, y)
 #define PAD(x) float TOKENPASTE2(pad_, __LINE__)[x];
+#define STRUCT struct
 #else
 #define PAD(x)
+#define STRUCT
+
+layout (constant_id = 0) const uint MAX_POINT_LIGHTS = 32;
+layout (constant_id = 1) const uint MAX_EMISSIVE_KUSOCHKI = 256;
 #endif
 
 #define GEOMETRY_BIT_ANY 0x01
@@ -35,6 +40,24 @@ struct PointLight {
 	vec4 color;
 };
 
+struct EmissiveKusok {
+	uint kusok_index;
+	PAD(3)
+	vec4 tx_row_x, tx_row_y, tx_row_z;
+};
+
+struct Lights {
+	uint num_kusochki;
+	uint num_point_lights;
+	PAD(2)
+	vec3 sun_dir;
+	PAD(1)
+	vec3 sun_color;
+	PAD(1)
+	STRUCT EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
+	STRUCT PointLight point_lights[MAX_POINT_LIGHTS];
+};
+
 struct PushConstants {
 	uint random_seed;
 	int bounces;
@@ -43,11 +66,13 @@ struct PushConstants {
 	uint debug_light_index_begin, debug_light_index_end;
 };
 
+#undef PAD
+#undef STRUCT
+
 #ifndef GLSL
 #undef uint
 #undef vec3
 #undef vec4
 #undef TOKENPASTE
 #undef TOKENPASTE2
-#undef PAD
 #endif

@@ -14,8 +14,6 @@ const float point_light_attenuation_const = 10000.;
 const float shadow_offset_fudge = .1;
 const float meters_per_unit = 1.;// / 39.37;
 
-layout (constant_id = 0) const uint MAX_POINT_LIGHTS = 32;
-layout (constant_id = 1) const uint MAX_EMISSIVE_KUSOCHKI = 256;
 layout (constant_id = 2) const uint MAX_VISIBLE_POINT_LIGHTS = 31;
 layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 255;
 layout (constant_id = 4) const float LIGHT_GRID_CELL_SIZE = 256.;
@@ -33,19 +31,7 @@ layout(set = 0, binding = 2) uniform UBO {
 	mat4 inv_proj, inv_view;
 } ubo;
 
-// TODO #include, use from here and regular shader
-struct EmissiveKusok {
-	uint kusok_index;
-	vec4 tx_row_x, tx_row_y, tx_row_z;
-};
-
-layout (set = 0, binding = 7/*, align=4*/) uniform Lights {
-	uint num_kusochki;
-	uint num_point_lights;
-	vec3 sun_dir, sun_color;
-	EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
-	PointLight point_lights[MAX_POINT_LIGHTS];
-} lights;
+layout (set = 0, binding = 7/*, align=4*/) uniform UBOLights { Lights lights; };
 
 struct LightCluster {
 	uint8_t num_dlights;
@@ -200,7 +186,7 @@ vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 		}
 		for (uint i = begin_i; i < end_i; ++i) {
 #else
-		
+
 		for (uint i = 0; i < num_emissive_kusochki; ++i) {
 #endif
 			const uint index_into_emissive_kusochki = uint(light_grid.clusters[cluster_index].emissive_surfaces[i]);

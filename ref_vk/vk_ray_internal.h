@@ -4,12 +4,12 @@
 #include "vk_buffer.h"
 #include "vk_const.h"
 
-#include "shaders/ray_interop.h"
-
 #define MAX_ACCELS 1024
 #define MAX_KUSOCHKI 8192
 #define MAX_EMISSIVE_KUSOCHKI 256
 #define MODEL_CACHE_SIZE 1024
+
+#include "shaders/ray_interop.h"
 
 typedef struct vk_ray_model_s {
 	VkAccelerationStructureKHR as;
@@ -27,22 +27,6 @@ typedef struct vk_ray_model_s {
 } vk_ray_model_t;
 
 typedef struct Kusok vk_kusok_data_t;
-
-typedef struct {
-	uint32_t num_kusochki;
-	uint32_t num_point_lights;
-	uint32_t padding__1[2];
-	vec3_t sun_dir;
-	uint32_t padding__2[1];
-	vec3_t sun_color;
-	uint32_t padding__3[1];
-	struct {
-		uint32_t kusok_index;
-		uint32_t padding__[3];
-		matrix3x4 transform;
-	} kusochki[MAX_EMISSIVE_KUSOCHKI];
-	struct PointLight point_lights[MAX_POINT_LIGHTS];
-} vk_lights_buffer_t;
 
 typedef struct {
 	matrix3x4 transform_row;

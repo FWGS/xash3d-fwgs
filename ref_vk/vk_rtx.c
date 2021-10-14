@@ -656,23 +656,23 @@ static void updateLights( void )
 
 	// Upload dynamic emissive kusochki
 	{
-		vk_lights_buffer_t *ek = g_ray_model_state.lights_buffer.mapped;
+		struct Lights *lights = g_ray_model_state.lights_buffer.mapped;
 		ASSERT(g_lights.num_emissive_surfaces <= MAX_EMISSIVE_KUSOCHKI);
-		ek->num_kusochki = g_lights.num_emissive_surfaces;
+		lights->num_kusochki = g_lights.num_emissive_surfaces;
 		for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
-			ek->kusochki[i].kusok_index = g_lights.emissive_surfaces[i].kusok_index;
-			Matrix3x4_Copy(ek->kusochki[i].transform, g_lights.emissive_surfaces[i].transform);
+			lights->kusochki[i].kusok_index = g_lights.emissive_surfaces[i].kusok_index;
+			Matrix3x4_Copy(lights->kusochki[i].tx_row_x, g_lights.emissive_surfaces[i].transform);
 		}
 
-		ek->num_point_lights = g_lights.num_point_lights;
+		lights->num_point_lights = g_lights.num_point_lights;
 		for (int i = 0; i < g_lights.num_point_lights; ++i) {
-			Vector4Copy(g_lights.point_lights[i].origin, ek->point_lights[i].position);
-			Vector4Copy(g_lights.point_lights[i].color, ek->point_lights[i].color);
+			Vector4Copy(g_lights.point_lights[i].origin, lights->point_lights[i].position);
+			Vector4Copy(g_lights.point_lights[i].color, lights->point_lights[i].color);
 		}
 
-		//VectorCopy(g_lights.map.sun_color, ek->sun_color);
-		VectorScale(g_lights.map.sun_color, 50, ek->sun_color);
-		VectorCopy(g_lights.map.sun_dir, ek->sun_dir);
+		//VectorCopy(g_lights.map.sun_color, lights->sun_color);
+		VectorScale(g_lights.map.sun_color, 50, lights->sun_color);
+		VectorCopy(g_lights.map.sun_dir, lights->sun_dir);
 	}
 }
 
@@ -1002,7 +1002,7 @@ qboolean VK_RayInit( void )
 	}
 	g_ray_model_state.kusochki_alloc.size = MAX_KUSOCHKI;
 
-	if (!createBuffer("ray lights_buffer", &g_ray_model_state.lights_buffer, sizeof(vk_lights_buffer_t),
+	if (!createBuffer("ray lights_buffer", &g_ray_model_state.lights_buffer, sizeof(struct Lights),
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
