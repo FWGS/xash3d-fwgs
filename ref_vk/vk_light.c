@@ -837,6 +837,7 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 
 static qboolean addDlight( const dlight_t *dlight ) {
 	vk_point_light_t *light = g_lights.point_lights + g_lights.num_point_lights;
+	const float scaler = dlight->radius / 255.f;
 
 	if( !dlight || dlight->die < gpGlobals->time || !dlight->radius )
 		return true;
@@ -848,16 +849,16 @@ static qboolean addDlight( const dlight_t *dlight ) {
 
 	Vector4Set(
 		light->color,
-		dlight->color.r / 255.f,
-		dlight->color.g / 255.f,
-		dlight->color.b / 255.f,
+		dlight->color.r * scaler,
+		dlight->color.g * scaler,
+		dlight->color.b * scaler,
 		1.f);
 	Vector4Set(
 		light->origin,
 		dlight->origin[0],
 		dlight->origin[1],
 		dlight->origin[2],
-		dlight->radius);
+		dlight->radius /* unused */ );
 
 	++g_lights.num_point_lights;
 
@@ -973,8 +974,5 @@ void VK_LightsFrameFinalize( void ) {
 		}
 #endif
 		}
-
-		/* if (have_surf) */
-		/* 	exit(0); */
 	}
 }
