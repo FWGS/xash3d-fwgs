@@ -244,6 +244,12 @@ static unsigned parseEntPropClassname(const string value, class_name_e *out, uns
 	return bit;
 }
 
+static void weirdGoldsrcLightScaling( vec3_t intensity ) {
+	float l1 = Q_max( intensity[0], max( intensity[1], intensity[2] ) );
+	l1 = l1 * l1 / 10;
+	VectorScale( intensity, l1, intensity );
+}
+
 static void parseStaticLightEntities( void ) {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 	char *pos;
@@ -283,6 +289,8 @@ static void parseStaticLightEntities( void ) {
 						gEngine.Con_Printf(S_ERROR "Too many lights entities in map\n");
 						continue;
 					}
+
+					weirdGoldsrcLightScaling(values._light);
 
 					{
 						vk_light_entity_t *le = g_light_entities.lights + g_light_entities.num_lights++;
@@ -853,6 +861,9 @@ static qboolean addDlight( const dlight_t *dlight ) {
 		dlight->color.g * scaler,
 		dlight->color.b * scaler,
 		1.f);
+
+	weirdGoldsrcLightScaling( light->color );
+
 	Vector4Set(
 		light->origin,
 		dlight->origin[0],
