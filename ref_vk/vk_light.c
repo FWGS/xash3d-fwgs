@@ -134,12 +134,16 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 				}
 
 				if (tex_id) {
+					vk_emissive_texture_t *const etex = g_lights.map.emissive_textures + tex_id;
 					ASSERT(tex_id < MAX_TEXTURES);
 
-					g_lights.map.emissive_textures[tex_id].emissive[0] = r;
-					g_lights.map.emissive_textures[tex_id].emissive[1] = g;
-					g_lights.map.emissive_textures[tex_id].emissive[2] = b;
-					g_lights.map.emissive_textures[tex_id].set = enabled;
+					etex->emissive[0] = r;
+					etex->emissive[1] = g;
+					etex->emissive[2] = b;
+					etex->set = enabled;
+
+					// See DIRECT_SCALE in qrad/lightmap.c
+					VectorScale(etex->emissive, 0.1f, etex->emissive);
 
 					if (!enabled)
 						gEngine.Con_Reportf("rad entry %s disabled due to zero intensity\n", name);
@@ -215,7 +219,7 @@ static unsigned parseEntPropRgbav(const string value, vec3_t *out, unsigned bit)
 		(*out)[2] = (*out)[1] = (*out)[0] = (*out)[0] / 255.f;
 		return bit;
 	} else if (components == 4) {
-		scale /= 255.f * 255.f;
+		scale /= 255.f;
 		(*out)[0] *= scale;
 		(*out)[1] *= scale;
 		(*out)[2] *= scale;
@@ -245,7 +249,7 @@ static unsigned parseEntPropClassname(const string value, class_name_e *out, uns
 }
 
 static void weirdGoldsrcLightScaling( vec3_t intensity ) {
-	float l1 = Q_max( intensity[0], max( intensity[1], intensity[2] ) );
+	float l1 = Q_max( intensity[0], Q_max( intensity[1], intensity[2] ) );
 	l1 = l1 * l1 / 10;
 	VectorScale( intensity, l1, intensity );
 }
@@ -290,7 +294,9 @@ static void parseStaticLightEntities( void ) {
 						continue;
 					}
 
+					gEngine.Con_Reportf("Pre scaling: %f %f %f ", values._light[0], values._light[1], values._light[2]);
 					weirdGoldsrcLightScaling(values._light);
+					gEngine.Con_Reportf("post scaling: %f %f %f\n", values._light[0], values._light[1], values._light[2]);
 
 					{
 						vk_light_entity_t *le = g_light_entities.lights + g_light_entities.num_lights++;
@@ -759,6 +765,8 @@ static qboolean canSurfaceLightAffectAABB(const model_t *mod, const msurface_t *
 
 const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map ) {
 	const int texture_num = geom->texture; // Animated texture
+	ASSERT(texture_num >= 0);
+	ASSERT(texture_num < MAX_TEXTURES);
 
 	if (!geom->surf)
 		return NULL; // TODO break? no surface means that model is not brush
@@ -771,8 +779,10 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 
 	if (debug_dump_lights.enabled) {
 		const vk_texture_t *tex = findTexture(texture_num);
+		const vk_emissive_texture_t *etex = g_lights.map.emissive_textures + texture_num;
 		ASSERT(tex);
-		gEngine.Con_Printf("surface light %d: %s\n", g_lights.num_emissive_surfaces, tex->name);
+		gEngine.Con_Printf("surface light %d: %s (%f %f %f)\n", g_lights.num_emissive_surfaces, tex->name,
+			etex->emissive[0], etex->emissive[1], etex->emissive[2]);
 	}
 
 	{
@@ -843,43 +853,55 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 	}
 }
 
-static qboolean addDlight( const dlight_t *dlight ) {
-	vk_point_light_t *light = g_lights.point_lights + g_lights.num_point_lights;
-	const float scaler = dlight->radius / 255.f;
+static int addPointLight( const vec3_t origin, float radius, const vec3_t color, float hack_attenuation ) {
+	const int index = g_lights.num_point_lights;
+	vk_point_light_t *const plight = g_lights.point_lights + index;
+
+	if (g_lights.num_point_lights >= MAX_POINT_LIGHTS) {
+		gEngine.Con_Printf(S_ERROR "Too many dlights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
+		return -1;
+	}
+
+	if (debug_dump_lights.enabled) {
+		gEngine.Con_Printf("point light %d: origin=(%f %f %f) R=%f color=(%f %f %f)\n", index,
+			origin[0], origin[1], origin[2], radius,
+			color[0], color[1], color[2]);
+	}
+
+	VectorCopy(origin, plight->origin);
+	plight->origin[3] = radius;
+
+	VectorScale(color, hack_attenuation, plight->color);
+
+	g_lights.num_point_lights++;
+	return index;
+}
+
+static void addDlight( const dlight_t *dlight ) {
+	const float scaler = 1.f; //dlight->radius / 255.f;
+	vec3_t color;
+	int index;
 
 	if( !dlight || dlight->die < gpGlobals->time || !dlight->radius )
-		return true;
+		return;
 
-	lbspAddLightByOrigin( LightTypePoint, dlight->origin );
-
-	if (g_lights.num_point_lights >= MAX_POINT_LIGHTS)
-		return false;
-
-	Vector4Set(
-		light->color,
+	VectorSet(
+		color,
 		dlight->color.r * scaler,
 		dlight->color.g * scaler,
-		dlight->color.b * scaler,
-		1.f);
+		dlight->color.b * scaler);
 
-	weirdGoldsrcLightScaling( light->color );
+	//weirdGoldsrcLightScaling( light->color );
 
-	Vector4Set(
-		light->origin,
-		dlight->origin[0],
-		dlight->origin[1],
-		dlight->origin[2],
-		dlight->radius /* unused */ );
+	index = addPointLight(dlight->origin, dlight->radius, color, 1e5f);
+	if (index < 0)
+		return;
 
-	++g_lights.num_point_lights;
-
-	return true;
+	lbspAddLightByOrigin( LightTypePoint, dlight->origin );
 }
 
 void VK_LightsFrameFinalize( void ) {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
-
-	debug_dump_lights.enabled = false;
 
 	if (g_lights.num_emissive_surfaces > UINT8_MAX) {
 		gEngine.Con_Printf(S_ERROR "Too many emissive surfaces found: %d; some areas will be dark\n", g_lights.num_emissive_surfaces);
@@ -888,40 +910,29 @@ void VK_LightsFrameFinalize( void ) {
 
 	g_lights.num_point_lights = 0;
 	if (world) {
-		for (int i = 0; i < g_light_entities.num_lights; ++i, ++g_lights.num_point_lights) {
+		for (int i = 0; i < g_light_entities.num_lights; ++i) {
 			const vk_light_entity_t *entity = g_light_entities.lights + i;
-			vk_point_light_t *light = g_lights.point_lights + g_lights.num_point_lights;
+			const float default_radius = 40.f; // FIXME tune
+			const int index = addPointLight(entity->origin, 5.f, entity->color, 1e3f);
+
+			if (index < 0)
+				break;
 
 			lbspAddLightByOrigin( LightTypePoint, entity->origin );
-
-			if (g_lights.num_point_lights >= MAX_POINT_LIGHTS) {
-				gEngine.Con_Printf(S_ERROR "Too many point light entities, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
-				break;
-			}
-
-			Vector4Copy(entity->color, light->color);
-			Vector4Copy(entity->origin, light->origin);
-
-			// FIXME ???
-			light->origin[3] = 50.f;
-			light->color[3] = 1.f;
 		}
 	}
-
-	for (int i = 0; i < MAX_ELIGHTS; ++i) {
-		const dlight_t *dlight = gEngine.GetEntityLight(i);
-		if (!addDlight(dlight)) {
-			gEngine.Con_Printf(S_ERROR "Too many elights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
-			break;
-		}
-	}
+  /*  */
+	/* for (int i = 0; i < MAX_ELIGHTS; ++i) { */
+	/* 	const dlight_t *dlight = gEngine.GetEntityLight(i); */
+	/* 	if (!addDlight(dlight)) { */
+	/* 		gEngine.Con_Printf(S_ERROR "Too many elights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS); */
+	/* 		break; */
+	/* 	} */
+	/* } */
 
 	for (int i = 0; i < MAX_DLIGHTS; ++i) {
 		const dlight_t *dlight = gEngine.GetDynamicLight(i);
-		if (!addDlight(dlight)) {
-			gEngine.Con_Printf(S_ERROR "Too many dlights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
-			break;
-		}
+		addDlight(dlight);
 	}
 
 	{
@@ -986,4 +997,6 @@ void VK_LightsFrameFinalize( void ) {
 #endif
 		}
 	}
+
+	debug_dump_lights.enabled = false;
 }

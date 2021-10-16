@@ -10,9 +10,7 @@
 //#define DEBUG_LIGHT_CULLING
 
 // FIXME what should this be?
-const float point_light_attenuation_const = 1e7;
 const float shadow_offset_fudge = .1;
-const float meters_per_unit = 1.;// / 39.37;
 
 layout (constant_id = 2) const uint MAX_VISIBLE_POINT_LIGHTS = 31;
 layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 255;
@@ -70,7 +68,7 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 	return shadow;
 }
 
-const float color_factor = 10000.;
+const float color_factor = 1000.;
 
 vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties material, mat4x3 emissive_transform, mat3 emissive_transform_normal, uint triangle_index, uint index_offset, uint vertex_offset) {
 	const uint first_index_offset = index_offset + triangle_index * 3;
@@ -108,7 +106,7 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 #endif
 
 	// TODO emissive normals and areas can be precomputed
-	const float area = .5 * length(cross(v1 - v2, v1 - v3)) * meters_per_unit * meters_per_unit;
+	const float area = .5 * length(cross(v1 - v2, v1 - v3));
 	const float light_dist2 = dot(light_dir, light_dir);
 	float pdf = light_dist2 / (area * light_dot);
 
@@ -207,9 +205,10 @@ vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 			C += sampling_light_scale * sampleSurfaceTriangle(throughput * payload.base_color * emissive, view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
 		} // for all emissive kusochki
 
+
 		for (uint i = 0; i < lights.num_point_lights; ++i) {
 			const vec4 light_pos_r = lights.point_lights[i].position;
-			vec3 color = lights.point_lights[i].color.rgb * point_light_attenuation_const;
+			vec3 color = lights.point_lights[i].color.rgb;
 
 			color *= throughput * payload.base_color;
 			// if (dot(color,color) < 100.) // FIXME why 100?
@@ -221,18 +220,30 @@ vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 			if (light_dot < 1e-5)
 				continue;
 
-			const float light_dist2 = dot(light_dir, light_dir);
-			const float pdf = light_dist2 / light_dot;
+#if 1
+			const float d2 = dot(light_dir, light_dir);
+			const float r2 = light_pos_r.w * light_pos_r.w;
+			const float light_dist = sqrt(d2);
+			const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
+			const float pdf = 1.f / (fdist * light_dot);
+#else
+			const float d2 = dot(light_dir, light_dir);
+			//const float r2 = light_pos_r.w * light_pos_r.w;
+			const float light_dist = sqrt(d2);
+			//const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
+			//const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
+			const float fdist = (light_dist > 1.) ? 1.f / d2 : 1.f; // qrad workaround
+			const float pdf = 1.f / (fdist * light_dot);
+#endif
 
 			color /= pdf;
 			// if (dot(color,color) < 100.) // FIXME why 100?
 			// 	continue;
 
 			color *= evalCombinedBRDF(payload.normal, light_dir_norm, view_dir, material);
-			if (dot(color,color) < 100.) // FIXME why 100?
+			if (dot(color,color) < 1.) // FIXME why 1?
 				continue;
 
-			const float light_dist = sqrt(light_dist2);
 			if (shadowed(payload.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
 				continue;
 
@@ -319,7 +330,7 @@ void main() {
 		material.roughness = payload.roughness;
 
 		if (bounce == 0) //brdfType == SPECULAR_TYPE)
-			C += throughput * payload.emissive * meters_per_unit * meters_per_unit;
+			C += throughput * payload.emissive;
 
 		// Decide whether ray continues through, or relfects
 		if (rand01() > payload.reflection) {
