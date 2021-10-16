@@ -666,8 +666,17 @@ static void updateLights( void )
 
 		lights->num_point_lights = g_lights.num_point_lights;
 		for (int i = 0; i < g_lights.num_point_lights; ++i) {
-			Vector4Copy(g_lights.point_lights[i].origin, lights->point_lights[i].position);
-			Vector4Copy(g_lights.point_lights[i].color, lights->point_lights[i].color);
+			vk_point_light_t *const src = g_lights.point_lights + i;
+			struct PointLight *const dst = lights->point_lights + i;
+
+			VectorCopy(src->origin, dst->origin_r);
+			dst->origin_r[3] = src->radius;
+
+			VectorCopy(src->color, dst->color_stopdot);
+			dst->color_stopdot[3] = src->stopdot;
+
+			VectorCopy(src->dir, dst->dir_stopdot2);
+			dst->dir_stopdot2[3] = src->stopdot2;
 		}
 	}
 }

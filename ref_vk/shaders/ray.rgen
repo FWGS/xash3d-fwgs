@@ -207,33 +207,44 @@ vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 
 
 		for (uint i = 0; i < lights.num_point_lights; ++i) {
-			const vec4 light_pos_r = lights.point_lights[i].position;
-			vec3 color = lights.point_lights[i].color.rgb;
+			const vec4 origin_r = lights.point_lights[i].origin_r;
+			vec3 color = lights.point_lights[i].color_stopdot.rgb;
+			float stopdot = lights.point_lights[i].color_stopdot.a;
+			vec3 dir = lights.point_lights[i].dir_stopdot2.xyz;
+			float stopdot2 = lights.point_lights[i].dir_stopdot2.a;
 
 			color *= throughput * payload.base_color;
 			// if (dot(color,color) < 100.) // FIXME why 100?
 			// 	continue;
 
-			const vec3 light_dir = light_pos_r.xyz - payload.hit_pos_t.xyz;
+			const vec3 light_dir = origin_r.xyz - payload.hit_pos_t.xyz;
 			const vec3 light_dir_norm = normalize(light_dir);
 			const float light_dot = dot(light_dir_norm, payload.normal);
 			if (light_dot < 1e-5)
 				continue;
 
+			const float spot_dot = -dot(light_dir_norm, dir);
+			if (spot_dot < stopdot2)
+				continue;
+
+			float spot_attenuation = 1.f;
+			if (spot_dot < stopdot)
+				spot_attenuation = (spot_dot - stopdot2) / (stopdot - stopdot2);
+
 #if 1
 			const float d2 = dot(light_dir, light_dir);
-			const float r2 = light_pos_r.w * light_pos_r.w;
+			const float r2 = origin_r.w * origin_r.w;
 			const float light_dist = sqrt(d2);
 			const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
-			const float pdf = 1.f / (fdist * light_dot);
+			const float pdf = 1.f / (fdist * light_dot * spot_attenuation);
 #else
 			const float d2 = dot(light_dir, light_dir);
-			//const float r2 = light_pos_r.w * light_pos_r.w;
+			//const float r2 = origin_r.w * origin_r.w;
 			const float light_dist = sqrt(d2);
 			//const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
 			//const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
 			const float fdist = (light_dist > 1.) ? 1.f / d2 : 1.f; // qrad workaround
-			const float pdf = 1.f / (fdist * light_dot);
+			const float pdf = 1.f / (fdist * light_dot * spot_attenuation);
 #endif
 
 			color /= pdf;

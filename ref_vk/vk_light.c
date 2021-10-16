@@ -160,21 +160,6 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 	Mem_Free(buffer);
 }
 
-typedef struct {
-	vec3_t origin;
-	vec3_t color;
-	//int style;
-	//char pattern[64];
-	//int dark;
-} vk_light_entity_t;
-
-struct {
-	int num_lights;
-	vk_light_entity_t lights[64];
-
-	// TODO spot light entities
-} g_light_entities;
-
 #define ENT_PROP_LIST(X) \
 	X(0, vec3_t, origin, Vec3) \
 	X(1, vec3_t, angles, Vec3) \
@@ -182,6 +167,8 @@ struct {
 	X(3, vec3_t, _light, Rgbav) \
 	X(4, class_name_e, classname, Classname) \
 	X(5, float, angle, Float) \
+	X(6, float, _cone, Float) \
+	X(7, float, _cone2, Float) \
 
 typedef enum {
 	Unknown = 0,
@@ -248,10 +235,133 @@ static unsigned parseEntPropClassname(const string value, class_name_e *out, uns
 	return bit;
 }
 
+typedef enum { LightTypePoint, LightTypeSurface, LightTypeSpot, LightTypeEnvironment} LightType;
+
+typedef struct {
+	LightType type;
+
+	vec3_t origin;
+	vec3_t color;
+	vec3_t dir;
+
+	//int style;
+	int flags;
+	float stopdot, stopdot2;
+	//char pattern[64];
+	//int dark;
+} vk_light_entity_t;
+
+struct {
+	int num_lights;
+	vk_light_entity_t lights[64];
+
+	// TODO spot light entities
+} g_light_entities;
+
 static void weirdGoldsrcLightScaling( vec3_t intensity ) {
 	float l1 = Q_max( intensity[0], Q_max( intensity[1], intensity[2] ) );
 	l1 = l1 * l1 / 10;
 	VectorScale( intensity, l1, intensity );
+}
+
+static void parseAngles( const entity_props_t *props, vk_light_entity_t *le) {
+	float angle = props->angle;
+	VectorSet( le->dir, 0, 0, 0 );
+
+	if (angle == -1) { // UP
+		le->dir[0] = le->dir[1] = 0;
+		le->dir[2] = 1;
+	} else if (angle == -2) { // DOWN
+		le->dir[0] = le->dir[1] = 0;
+		le->dir[2] = -1;
+	} else {
+		if (angle == 0) {
+			angle = props->angles[1];
+		}
+
+		angle *= M_PI / 180.f;
+
+		le->dir[2] = 0;
+		le->dir[0] = cosf(angle);
+		le->dir[1] = sinf(angle);
+	}
+
+	angle = props->pitch ? props->pitch : props->angles[0];
+
+	angle *= M_PI / 180.f;
+	le->dir[2] = sinf(angle);
+	le->dir[0] *= cosf(angle);
+	le->dir[1] *= cosf(angle);
+}
+
+static void parseStopDot( const entity_props_t *props, vk_light_entity_t *le) {
+	le->stopdot = props->_cone ? props->_cone : 10;
+	le->stopdot2 = Q_max(le->stopdot, props->_cone2);
+
+	le->stopdot = cosf(le->stopdot * M_PI / 180.f);
+	le->stopdot2 = cosf(le->stopdot2 * M_PI / 180.f);
+}
+
+static void addLightEntity( const entity_props_t *props, unsigned have_fields ) {
+	vk_light_entity_t *le = g_light_entities.lights + g_light_entities.num_lights;
+	unsigned expected_fields = 0;
+
+	if (g_light_entities.num_lights == ARRAYSIZE(g_light_entities.lights)) {
+		gEngine.Con_Printf(S_ERROR "Too many lights entities in map\n");
+		return;
+	}
+
+	*le = (vk_light_entity_t){0};
+
+	switch (props->classname) {
+		case Light:
+			le->type = LightTypePoint;
+			expected_fields = Field_origin;
+			break;
+
+		case LightSpot:
+			le->type = LightTypeSpot;
+			expected_fields = Field_origin | Field__cone | Field__cone2;
+			parseAngles(props, le);
+			parseStopDot(props, le);
+			break;
+
+		case LightEnvironment:
+			le->type = LightTypeEnvironment;
+			parseAngles(props, le);
+			parseStopDot(props, le);
+			break;
+	}
+
+	// TODO target entity support
+
+	if ((have_fields & expected_fields) != expected_fields) {
+		gEngine.Con_Printf(S_ERROR "Missing some fields for light entity\n");
+		return;
+	}
+
+	VectorCopy(props->origin, le->origin);
+
+	if ( (have_fields & Field__light) == 0 )
+	{
+		// same as qrad
+		VectorSet(le->color, 300, 300, 300);
+	} else {
+		VectorCopy(props->_light, le->color);
+	}
+
+	//gEngine.Con_Reportf("Pre scaling: %f %f %f ", values._light[0], values._light[1], values._light[2]);
+	weirdGoldsrcLightScaling(le->color);
+	//gEngine.Con_Reportf("post scaling: %f %f %f\n", values._light[0], values._light[1], values._light[2]);
+
+	gEngine.Con_Reportf("Added light %d: %s color=(%f %f %f) origin=(%f %f %f) dir=(%f %f %f) stopdot=(%f %f)\n", g_light_entities.num_lights,
+		le->type == LightTypeEnvironment ? "environment" : le->type == LightTypeSpot ? "spot" : "point",
+		le->color[0], le->color[1], le->color[2],
+		le->origin[0], le->origin[1], le->origin[2],
+		le->dir[0], le->dir[1], le->dir[2],
+		le->stopdot, le->stopdot2);
+
+	g_light_entities.num_lights++;
 }
 
 static void parseStaticLightEntities( void ) {
@@ -274,6 +384,7 @@ static void parseStaticLightEntities( void ) {
 		ASSERT(Q_strlen(key) < sizeof(key));
 		if (!pos)
 			break;
+
 		if (key[0] == '{') {
 			have_fields = None;
 			values = (entity_props_t){0};
@@ -281,79 +392,16 @@ static void parseStaticLightEntities( void ) {
 		} else if (key[0] == '}') {
 			switch (values.classname) {
 				case Light:
-					{
-						const unsigned need_fields = Field_origin | Field__light;
-						if ((have_fields & need_fields) != need_fields) {
-							gEngine.Con_Printf(S_ERROR "Missing some fields for light entity\n");
-							continue;
-						}
-					}
-
-					if (g_light_entities.num_lights == ARRAYSIZE(g_light_entities.lights)) {
-						gEngine.Con_Printf(S_ERROR "Too many lights entities in map\n");
-						continue;
-					}
-
-					gEngine.Con_Reportf("Pre scaling: %f %f %f ", values._light[0], values._light[1], values._light[2]);
-					weirdGoldsrcLightScaling(values._light);
-					gEngine.Con_Reportf("post scaling: %f %f %f\n", values._light[0], values._light[1], values._light[2]);
-
-					{
-						vk_light_entity_t *le = g_light_entities.lights + g_light_entities.num_lights++;
-						VectorCopy(values.origin, le->origin);
-						VectorCopy(values._light, le->color);
-					}
-					break;
 				case LightSpot:
-					// TODO
-					break;
-
 				case LightEnvironment:
-				{
-					float angle = values.angle;
-					vec3_t dir = {0};
-
-					const unsigned need_fields = Field__light;
-					if ((have_fields & need_fields) != need_fields) {
-						gEngine.Con_Printf(S_ERROR "Missing _light prop for light_environment\n");
-						continue;
-					}
-
-					if (angle == -1) { // UP
-						dir[0] = dir[1] = 0;
-						dir[2] = 1;
-					} else if (angle == -2) { // DOWN
-						dir[0] = dir[1] = 0;
-						dir[2] = -1;
-					} else {
-						if (angle == 0) {
-							angle = values.angles[1];
-						}
-
-						angle *= M_PI / 180.f;
-
-						dir[2] = 0;
-						dir[0] = cosf(angle);
-						dir[1] = sinf(angle);
-					}
-
-					angle = values.pitch ? values.pitch : values.angles[0];
-
-					angle *= M_PI / 180.f;
-					dir[2] = sinf(angle);
-					dir[0] *= cosf(angle);
-					dir[1] *= cosf(angle);
-
-					// TODO add
+					addLightEntity( &values, have_fields );
 					break;
-				}
 
 				case Unknown:
 				case Ignored:
 					// Skip
 					break;
 			}
-
 			continue;
 		}
 
@@ -376,8 +424,6 @@ static void parseStaticLightEntities( void ) {
 #undef CHECK_FIELD
 	}
 }
-
-typedef enum { LightTypePoint, LightTypeSurface, LightTypeSpot} LightType;
 
 #define MAX_LEAF_LIGHTS 256
 typedef struct {
@@ -853,7 +899,7 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 	}
 }
 
-static int addPointLight( const vec3_t origin, float radius, const vec3_t color, float hack_attenuation ) {
+static int addPointLight( const vec3_t origin, const vec3_t color, float radius, float hack_attenuation ) {
 	const int index = g_lights.num_point_lights;
 	vk_point_light_t *const plight = g_lights.point_lights + index;
 
@@ -869,9 +915,42 @@ static int addPointLight( const vec3_t origin, float radius, const vec3_t color,
 	}
 
 	VectorCopy(origin, plight->origin);
-	plight->origin[3] = radius;
+	plight->radius = radius;
 
 	VectorScale(color, hack_attenuation, plight->color);
+
+	// Omnidirectional light
+	plight->stopdot = plight->stopdot2 = -1.f;
+	VectorSet(plight->dir, 0, 0, 0);
+
+	g_lights.num_point_lights++;
+	return index;
+}
+
+static int addSpotLight( const vk_light_entity_t *le, float radius, float hack_attenuation ) {
+	const int index = g_lights.num_point_lights;
+	vk_point_light_t *const plight = g_lights.point_lights + index;
+
+	if (g_lights.num_point_lights >= MAX_POINT_LIGHTS) {
+		gEngine.Con_Printf(S_ERROR "Too many dlights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
+		return -1;
+	}
+
+	if (debug_dump_lights.enabled) {
+		gEngine.Con_Printf("spot light %d: origin=(%f %f %f) color=(%f %f %f) dir=(%f %f %f)\n", index,
+			le->origin[0], le->origin[1], le->origin[2],
+			le->color[0], le->color[1], le->color[2],
+			le->dir[0], le->dir[1], le->dir[2]);
+	}
+
+	VectorCopy(le->origin, plight->origin);
+	plight->radius = radius;
+
+	VectorScale(le->color, hack_attenuation, plight->color);
+
+	VectorCopy(le->dir, plight->dir);
+	plight->stopdot = le->stopdot;
+	plight->stopdot2 = le->stopdot2;
 
 	g_lights.num_point_lights++;
 	return index;
@@ -893,7 +972,7 @@ static void addDlight( const dlight_t *dlight ) {
 
 	//weirdGoldsrcLightScaling( light->color );
 
-	index = addPointLight(dlight->origin, dlight->radius, color, 1e5f);
+	index = addPointLight(dlight->origin, color, dlight->radius, 1e5f);
 	if (index < 0)
 		return;
 
@@ -911,17 +990,30 @@ void VK_LightsFrameFinalize( void ) {
 	g_lights.num_point_lights = 0;
 	if (world) {
 		for (int i = 0; i < g_light_entities.num_lights; ++i) {
-			const vk_light_entity_t *entity = g_light_entities.lights + i;
+			const vk_light_entity_t *le = g_light_entities.lights + i;
 			const float default_radius = 40.f; // FIXME tune
-			const int index = addPointLight(entity->origin, 5.f, entity->color, 1e3f);
+			const float hack_attenuation = 1e3f; // FIXME tune
+			const float hack_attenuation_spot = 1e2f; // FIXME tune
+			int index;
+
+			switch (le->type) {
+				case LightTypePoint:
+					index = addPointLight(le->origin, le->color, default_radius, hack_attenuation);
+					break;
+
+				case LightTypeSpot:
+				case LightTypeEnvironment:
+					index = addSpotLight(le, default_radius, hack_attenuation_spot);
+					break;
+			}
 
 			if (index < 0)
 				break;
 
-			lbspAddLightByOrigin( LightTypePoint, entity->origin );
+			lbspAddLightByOrigin( le->type, le->origin );
 		}
 	}
-  /*  */
+
 	/* for (int i = 0; i < MAX_ELIGHTS; ++i) { */
 	/* 	const dlight_t *dlight = gEngine.GetEntityLight(i); */
 	/* 	if (!addDlight(dlight)) { */

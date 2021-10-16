@@ -36,8 +36,9 @@ struct Kusok {
 };
 
 struct PointLight {
-	vec4 position;
-	vec4 color;
+	vec4 origin_r;
+	vec4 color_stopdot;
+	vec4 dir_stopdot2;
 };
 
 struct EmissiveKusok {

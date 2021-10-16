@@ -25,8 +25,17 @@ typedef struct {
 	matrix3x4 transform;
 } vk_emissive_surface_t;
 
+enum {
+	LightFlag_Directional = 0x1,
+};
+
 typedef struct {
-	vec4_t origin, color;
+	vec3_t origin;
+	vec3_t color;
+	vec3_t dir;
+	float stopdot, stopdot2;
+	float radius;
+	int flags;
 } vk_point_light_t;
 
 // TODO spotlight
