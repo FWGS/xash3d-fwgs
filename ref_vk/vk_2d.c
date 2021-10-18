@@ -131,7 +131,7 @@ void CL_FillRGBABlend( float x, float y, float w, float h, int r, int g, int b, 
 	drawFill(x, y, w, h, r, g, b, a, kRenderTransColor);
 }
 
-void vk2dBegin( void )
+static void XVK_2dClear( void )
 {
 	g2d.num_pics = 0;
 	g2d.current_batch = 0;
@@ -170,6 +170,8 @@ void vk2dEnd( VkCommandBuffer cmdbuf )
 
 	if (vk_core.debug)
 		vkCmdEndDebugUtilsLabelEXT(cmdbuf);
+
+	XVK_2dClear();
 }
 
 static qboolean createPipelines( void )

@@ -28,6 +28,9 @@
 #include <string.h>
 #include <errno.h>
 
+#define APROF_IMPLEMENT
+#include "profiler.h"
+
 #define XVK_PARSE_VERSION(v) \
 	VK_VERSION_MAJOR(v), \
 	VK_VERSION_MINOR(v), \

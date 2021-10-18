@@ -5,6 +5,8 @@
 #include "vk_render.h"
 #include "vk_rtx.h"
 
+#include "profiler.h"
+
 #include "eiface.h"
 
 #include <string.h>
@@ -23,6 +25,14 @@ static struct
 
 	int last_frame_index; // Index of previous fully drawn frame into images array
 } g_frame;
+
+#define PROFILER_SCOPES(X) \
+	X(end_frame , "R_EndFrame"); \
+	X(frame_gpu_wait, "Wait for GPU"); \
+
+#define SCOPE_DECLARE(scope, name) APROF_SCOPE_DECLARE(scope)
+PROFILER_SCOPES(SCOPE_DECLARE)
+#undef SCOPE_DECLARE
 
 static VkFormat findSupportedImageFormat(const VkFormat *candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
 	for (int i = 0; candidates[i] != VK_FORMAT_UNDEFINED; ++i) {
@@ -270,6 +280,18 @@ static qboolean createSwapchain( void )
 
 void R_BeginFrame( qboolean clearScene )
 {
+	{
+		gEngine.Con_NPrintf(5, "Perf scopes:");
+		for (int i = 0; i < g_aprof.num_scopes; ++i) {
+			const aprof_scope_t *const scope = g_aprof.scopes + i;
+			gEngine.Con_NPrintf(6 + i, "%s: total=%.03fms self=%.03fms", scope->name,
+				scope->frame.duration / 1e6,
+				(scope->frame.duration - scope->frame.duration_children) / 1e6);
+		}
+
+		aprof_scope_frame();
+	}
+
 	// TODO should we handle multiple R_BeginFrame w/o R_EndFrame gracefully?
 	ASSERT(g_frame.swapchain_image_index == -1);
 
@@ -328,7 +350,6 @@ void R_BeginFrame( qboolean clearScene )
 		}
 	}
 
-	vk2dBegin();
 	VK_RenderBegin( g_frame.rtx_enabled );
 
 	{
@@ -347,6 +368,7 @@ void VK_RenderFrame( const struct ref_viewpass_s *rvp )
 
 void R_EndFrame( void )
 {
+	APROF_SCOPE_BEGIN_EARLY(end_frame);
 	VkClearValue clear_value[] = {
 		{.color = {{1., 0., 0., 0.}}},
 		{.depthStencil = {1., 0.}} // TODO reverse-z
@@ -427,9 +449,11 @@ void R_EndFrame( void )
 		}
 	}
 
+	APROF_SCOPE_BEGIN(frame_gpu_wait);
 	// TODO bad sync
 	XVK_CHECK(vkWaitForFences(vk_core.device, 1, &g_frame.fence, VK_TRUE, INT64_MAX));
 	XVK_CHECK(vkResetFences(vk_core.device, 1, &g_frame.fence));
+	APROF_SCOPE_END(frame_gpu_wait);
 
 	if (vk_core.debug)
 		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
@@ -442,6 +466,8 @@ void R_EndFrame( void )
 
 	g_frame.last_frame_index = g_frame.swapchain_image_index;
 	g_frame.swapchain_image_index = -1;
+
+	APROF_SCOPE_END(end_frame);
 }
 
 static void toggleRaytracing( void ) {
@@ -452,6 +478,7 @@ static void toggleRaytracing( void ) {
 
 qboolean VK_FrameCtlInit( void )
 {
+	PROFILER_SCOPES(APROF_SCOPE_INIT);
 	vk_frame.render_pass.raster = createRenderPass(false);
 	if (vk_core.rtx)
 		vk_frame.render_pass.after_ray_tracing = createRenderPass(true);
