@@ -7,6 +7,11 @@
 +0LAB1_W6        150 160 210  8800
 SUBWAY_LIGHTS    230 234 255  1000
 
+~SPOTRED         255 25  30   0
+//+A~GENERIC86B
+//+0~GENERIC86B    60  220 170  0
+
+
 
 //hack
-exit1            255 0   0    200
+EXIT1            255 0   0    200

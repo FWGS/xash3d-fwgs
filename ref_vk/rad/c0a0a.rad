@@ -2,8 +2,8 @@
 RED              255 0   0    2000
 +0~FIFTIES_LGT2  230 234 255  3000
 SKKYLITE         255 155 70   1000
-SUBWAY_LIGHTS    230 234 255  1000
+SUBWAY_LIGHTS    190 195 255  1500
 
 
 //hack
-exit1            255 0   0    2000
+EXIT1            255 0   0    2000

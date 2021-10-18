@@ -4,7 +4,7 @@ RED              255 0   0    2000
 +0~LIGHT6A       150 5   5    25000
 ~SPOTBLUE        80  190 240  2000
 +0~TNNL_LGT4     170 90  40   10000
-SUBWAY_LIGHTS    230 234 255  1000
+SUBWAY_LIGHTS    190 195 255  1500
 
 //hack
-exit1            255 0   0    200
+EXIT1            255 0   0    200
