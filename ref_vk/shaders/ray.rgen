@@ -9,8 +9,10 @@
 
 //#define DEBUG_LIGHT_CULLING
 
-// FIXME what should this be?
+// FIXME what should these be?
 const float shadow_offset_fudge = .1;
+const float pdf_culling_threshold = 100.;
+const float color_culling_threshold = 1.;
 
 layout (constant_id = 2) const uint MAX_VISIBLE_POINT_LIGHTS = 31;
 layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 255;
@@ -110,7 +112,7 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 	const float light_dist2 = dot(light_dir, light_dir);
 	float pdf = light_dist2 / (area * light_dot);
 
-	if (pdf > 100.) // FIXME why 100?
+	if (pdf > pdf_culling_threshold)
 #ifdef DEBUG_LIGHT_CULLING
 		return vec3(0., 1., 0.) * color_factor;
 #else
@@ -119,7 +121,7 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 
 	color /= pdf;
 
-	if (dot(color,color) < 100.) // FIXME why 100?
+	if (dot(color,color) < color_culling_threshold)
 #ifdef DEBUG_LIGHT_CULLING
 		return vec3(0., 1., 0.) * color_factor;
 #else
@@ -131,7 +133,7 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 	// TODO sample emissive texture
 	color *= evalCombinedBRDF(payload.normal, light_dir, view_dir, material);
 
-	if (dot(color,color) < 100.)
+	if (dot(color,color) < color_culling_threshold)
 #ifdef DEBUG_LIGHT_CULLING
 		return vec3(1., 1., 0.) * color_factor;
 #else
@@ -214,7 +216,7 @@ vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 			float stopdot2 = lights.point_lights[i].dir_stopdot2.a;
 
 			color *= throughput * payload.base_color;
-			// if (dot(color,color) < 100.) // FIXME why 100?
+			// if (dot(color,color) < color_culling_threshold)
 			// 	continue;
 
 			const vec3 light_dir = origin_r.xyz - payload.hit_pos_t.xyz;
@@ -248,11 +250,11 @@ vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 #endif
 
 			color /= pdf;
-			// if (dot(color,color) < 100.) // FIXME why 100?
+			// if (dot(color,color) < color_culling_threshold)
 			// 	continue;
 
 			color *= evalCombinedBRDF(payload.normal, light_dir_norm, view_dir, material);
-			if (dot(color,color) < 1.) // FIXME why 1?
+			if (dot(color,color) < color_culling_threshold)
 				continue;
 
 			if (shadowed(payload.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
