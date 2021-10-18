@@ -35,6 +35,7 @@ typedef struct {
 	struct {
 		uint64_t duration;
 		uint64_t duration_children;
+		int count;
 	} frame;
 } aprof_scope_t;
 
@@ -110,6 +111,7 @@ void aprof_scope_event(aprof_scope_id_t scope_id, int begin) {
 		scope = g_aprof.scopes + frame->scope;
 		frame_duration = now - frame->time_begin;
 		scope->frame.duration += frame_duration;
+		scope->frame.count++;
 
 		if (g_aprof.stack_depth > 1) {
 			const aprof_stack_frame_t *const parent_frame = g_aprof.stack + g_aprof.stack_depth - 2;

@@ -2,6 +2,7 @@
 #include "vk_textures.h"
 #include "vk_brush.h"
 #include "vk_cvar.h"
+#include "profiler.h"
 
 #include "mod_local.h"
 #include "xash3d_mathlib.h"
@@ -10,6 +11,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h> // isalnum...
+
+#define PROFILER_SCOPES(X) \
+	X(finalize , "VK_LightsFrameFinalize"); \
+	X(emissive_surface, "VK_LightsAddEmissiveSurface"); \
+	X(static_lights, "add static lights"); \
+	X(dlights, "add dlights"); \
+
+#define SCOPE_DECLARE(scope, name) APROF_SCOPE_DECLARE(scope)
+PROFILER_SCOPES(SCOPE_DECLARE)
+#undef SCOPE_DECLARE
 
 static struct {
 	qboolean enabled;
@@ -26,6 +37,8 @@ static void debugDumpLights( void ) {
 }
 
 void VK_LightsInit( void ) {
+	PROFILER_SCOPES(APROF_SCOPE_INIT);
+
 	gEngine.Cmd_AddCommand("vk_lights_dump", debugDumpLights, "Dump all light sources for next frame");
 }
 
@@ -810,18 +823,20 @@ static qboolean canSurfaceLightAffectAABB(const model_t *mod, const msurface_t *
 }
 
 const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map ) {
+	APROF_SCOPE_BEGIN_EARLY(emissive_surface);
 	const int texture_num = geom->texture; // Animated texture
+	vk_emissive_surface_t *retval = NULL;
 	ASSERT(texture_num >= 0);
 	ASSERT(texture_num < MAX_TEXTURES);
 
 	if (!geom->surf)
-		return NULL; // TODO break? no surface means that model is not brush
+		goto fin; // TODO break? no surface means that model is not brush
 
 	if (geom->material != kXVkMaterialSky && geom->material != kXVkMaterialEmissive && !g_lights.map.emissive_textures[texture_num].set)
-		return NULL;
+		goto fin;
 
 	if (g_lights.num_emissive_surfaces >= 256)
-		return NULL;
+		goto fin;
 
 	if (debug_dump_lights.enabled) {
 		const vk_texture_t *tex = findTexture(texture_num);
@@ -895,8 +910,12 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 		}
 
 		++g_lights.num_emissive_surfaces;
-		return esurf;
+		retval = esurf;
 	}
+
+fin:
+	APROF_SCOPE_END(emissive_surface);
+	return retval;
 }
 
 static int addPointLight( const vec3_t origin, const vec3_t color, float radius, float hack_attenuation ) {
@@ -980,6 +999,7 @@ static void addDlight( const dlight_t *dlight ) {
 }
 
 void VK_LightsFrameFinalize( void ) {
+	APROF_SCOPE_BEGIN_EARLY(finalize);
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 
 	if (g_lights.num_emissive_surfaces > UINT8_MAX) {
@@ -987,6 +1007,7 @@ void VK_LightsFrameFinalize( void ) {
 		g_lights.num_emissive_surfaces = UINT8_MAX;
 	}
 
+	APROF_SCOPE_BEGIN(static_lights);
 	g_lights.num_point_lights = 0;
 	if (world) {
 		for (int i = 0; i < g_light_entities.num_lights; ++i) {
@@ -1013,6 +1034,7 @@ void VK_LightsFrameFinalize( void ) {
 			lbspAddLightByOrigin( le->type, le->origin );
 		}
 	}
+	APROF_SCOPE_END(static_lights);
 
 	/* for (int i = 0; i < MAX_ELIGHTS; ++i) { */
 	/* 	const dlight_t *dlight = gEngine.GetEntityLight(i); */
@@ -1022,10 +1044,12 @@ void VK_LightsFrameFinalize( void ) {
 	/* 	} */
 	/* } */
 
+	APROF_SCOPE_BEGIN(dlights);
 	for (int i = 0; i < MAX_DLIGHTS; ++i) {
 		const dlight_t *dlight = gEngine.GetDynamicLight(i);
 		addDlight(dlight);
 	}
+	APROF_SCOPE_END(dlights);
 
 	{
 		if (!have_surf) {
@@ -1091,4 +1115,5 @@ void VK_LightsFrameFinalize( void ) {
 	}
 
 	debug_dump_lights.enabled = false;
+	APROF_SCOPE_END(finalize);
 }

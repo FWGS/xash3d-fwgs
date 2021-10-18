@@ -284,9 +284,12 @@ void R_BeginFrame( qboolean clearScene )
 		gEngine.Con_NPrintf(5, "Perf scopes:");
 		for (int i = 0; i < g_aprof.num_scopes; ++i) {
 			const aprof_scope_t *const scope = g_aprof.scopes + i;
-			gEngine.Con_NPrintf(6 + i, "%s: total=%.03fms self=%.03fms", scope->name,
+			gEngine.Con_NPrintf(6 + i, "%s: c%d t%.03f(%.03f)ms s%.03f(%.03f)ms", scope->name,
+				scope->frame.count,
 				scope->frame.duration / 1e6,
-				(scope->frame.duration - scope->frame.duration_children) / 1e6);
+				(scope->frame.duration / 1e6) / scope->frame.count,
+				(scope->frame.duration - scope->frame.duration_children) / 1e6,
+				(scope->frame.duration - scope->frame.duration_children) / 1e6 / scope->frame.count);
 		}
 
 		aprof_scope_frame();
