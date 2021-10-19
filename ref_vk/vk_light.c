@@ -529,6 +529,7 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 	const model_t *const map = gEngine.pfnGetModelByIndex( 1 );
 	const int surf_index = surf - map->surfaces;
 	vk_surface_metadata_t * const smeta = g_lights_bsp.surfaces + surf_index;
+	const qboolean verbose_debug = false;
 	ASSERT(surf_index >= 0);
 	ASSERT(surf_index < g_lights_bsp.num_surfaces);
 
@@ -538,7 +539,8 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 		prepareLeafAccum();
 
 		// Enumerate all the map leafs and pick ones that have this surface referenced
-		gEngine.Con_Reportf("Collecting visible leafs for surface %d:", surf_index);
+		if (verbose_debug)
+			gEngine.Con_Reportf("Collecting visible leafs for surface %d:", surf_index);
 		for (int i = 0; i < map->numleafs; ++i) {
 			const mleaf_t *leaf = map->leafs + i;
 			for (int j = 0; j < leaf->nummarksurfaces; ++j) {
@@ -549,7 +551,8 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 				// FIXME split direct leafs marking from pvs propagation
 				leafs_direct++;
 				if (addLeafToAccum( i )) {
-					gEngine.Con_Reportf(" %d", i);
+					if (verbose_debug)
+						gEngine.Con_Reportf(" %d", i);
 				} else {
 					// This leaf was already added earlier by PVS
 					// but it really should be counted as direct
@@ -557,10 +560,11 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 				}
 
 				// Get all PVS leafs
-				leafs_pvs += addCompressedPVSLeafsToAccum(map, leaf->compressed_vis, true);
+				leafs_pvs += addCompressedPVSLeafsToAccum(map, leaf->compressed_vis, verbose_debug);
 			}
 		}
-		gEngine.Con_Reportf(" (sum=%d, direct=%d, pvs=%d)\n", g_lights_bsp.accum.count, leafs_direct, leafs_pvs);
+		if (verbose_debug)
+			gEngine.Con_Reportf(" (sum=%d, direct=%d, pvs=%d)\n", g_lights_bsp.accum.count, leafs_direct, leafs_pvs);
 
 		smeta->potentially_visible_leafs = (vk_light_leaf_set_t*)Mem_Malloc(vk_core.pool, sizeof(smeta->potentially_visible_leafs) + sizeof(int) * g_lights_bsp.accum.count);
 		smeta->potentially_visible_leafs->num = g_lights_bsp.accum.count;
@@ -1123,7 +1127,7 @@ void VK_LightsFrameFinalize( void ) {
 				gEngine.Con_Printf("\tLeaf %d, lights %d: spot=%d point=%d surface=%d\n", i, lleaf->num_lights, spot, point, surface);
 			}
 
-#if 1
+#if 0
 		// Print light grid stats
 		gEngine.Con_Reportf("Emissive surfaces found: %d\n", g_lights.num_emissive_surfaces);
 
