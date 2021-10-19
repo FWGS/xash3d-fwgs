@@ -17,7 +17,7 @@
 	X(emissive_surface, "VK_LightsAddEmissiveSurface"); \
 	X(static_lights, "add static lights"); \
 	X(dlights, "add dlights"); \
-	X(canSurfaceLightAffectAABB, "canSurfaceLightAffectAABB"); \
+	//X(canSurfaceLightAffectAABB, "canSurfaceLightAffectAABB"); \
 
 #define SCOPE_DECLARE(scope, name) APROF_SCOPE_DECLARE(scope)
 PROFILER_SCOPES(SCOPE_DECLARE)
@@ -831,7 +831,7 @@ static qboolean addSurfaceLightToCell( int cell_index, int emissive_surface_inde
 }
 
 static qboolean canSurfaceLightAffectAABB(const model_t *mod, const msurface_t *surf, const vec3_t emissive, const float minmax[6]) {
-	APROF_SCOPE_BEGIN_EARLY(canSurfaceLightAffectAABB);
+	//APROF_SCOPE_BEGIN_EARLY(canSurfaceLightAffectAABB); // DO NOT DO THIS. We have like 600k of these calls per frame :feelsbadman:
 	qboolean retval = true;
 	// FIXME transform surface
 	// this here only works for static map model
@@ -843,23 +843,24 @@ static qboolean canSurfaceLightAffectAABB(const model_t *mod, const msurface_t *
 		(minmax[2] + minmax[5]) / 2.f,
 	};
 
-	const float size_x = minmax[0] - minmax[3];
-	const float size_y = minmax[1] - minmax[4];
-	const float size_z = minmax[2] - minmax[5];
-
 	float bbox_plane_dist = PlaneDiff(bbox_center, surf->plane);
 	if( FBitSet( surf->flags, SURF_PLANEBACK ))
 		bbox_plane_dist = -bbox_plane_dist;
 
-	// Fast conservative estimate by max distance from bbox center
-	// TODO is enumerating all points or finding a closest one is better/faster?
-	bbox_plane_dist += .5f * sqrtf(size_x * size_x + size_y * size_y + size_z * size_z);
+	if (bbox_plane_dist < 0.f) {
+		// Fast conservative estimate by max distance from bbox center
+		// TODO is enumerating all points or finding a closest one is better/faster?
+		const float size_x = minmax[0] - minmax[3];
+		const float size_y = minmax[1] - minmax[4];
+		const float size_z = minmax[2] - minmax[5];
+		const float plane_dist_guard_sqr = (size_x * size_x + size_y * size_y + size_z * size_z) * .25f;
 
-	// Check whether this bbox is completely behind the surface
-	if (bbox_plane_dist < 0.)
-		retval = false;
+		// Check whether this bbox is completely behind the surface
+		if (bbox_plane_dist*bbox_plane_dist > plane_dist_guard_sqr)
+			retval = false;
+	}
 
-	APROF_SCOPE_END(canSurfaceLightAffectAABB);
+	//APROF_SCOPE_END(canSurfaceLightAffectAABB);
 
 	return retval;
 }
