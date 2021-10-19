@@ -270,9 +270,7 @@ typedef struct {
 
 struct {
 	int num_lights;
-	vk_light_entity_t lights[64];
-
-	// TODO spot light entities
+	vk_light_entity_t lights[256];
 } g_light_entities;
 
 static void weirdGoldsrcLightScaling( vec3_t intensity ) {
