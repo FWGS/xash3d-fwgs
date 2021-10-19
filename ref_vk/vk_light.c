@@ -17,6 +17,7 @@
 	X(emissive_surface, "VK_LightsAddEmissiveSurface"); \
 	X(static_lights, "add static lights"); \
 	X(dlights, "add dlights"); \
+	X(canSurfaceLightAffectAABB, "canSurfaceLightAffectAABB"); \
 
 #define SCOPE_DECLARE(scope, name) APROF_SCOPE_DECLARE(scope)
 PROFILER_SCOPES(SCOPE_DECLARE)
@@ -36,17 +37,20 @@ static void debugDumpLights( void ) {
 	}
 }
 
+vk_lights_t g_lights = {0};
+
 void VK_LightsInit( void ) {
 	PROFILER_SCOPES(APROF_SCOPE_INIT);
 
 	gEngine.Cmd_AddCommand("vk_lights_dump", debugDumpLights, "Dump all light sources for next frame");
 }
 
+static void clusterBitMapShutdown( void );
+
 void VK_LightsShutdown( void ) {
 	gEngine.Cmd_RemoveCommand("vk_lights_dump");
+	clusterBitMapShutdown();
 }
-
-vk_lights_t g_lights = {0};
 
 static int lookupTextureF( const char *fmt, ...) {
 	int tex_id = 0;
@@ -571,6 +575,51 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 	return smeta->potentially_visible_leafs;
 }
 
+
+static struct {
+#define CLUSTERS_BIT_MAP_SIZE_UINT ((g_lights.map.grid_cells + 31) / 32)
+	uint32_t *clusters_bit_map;
+} g_lights_tmp;
+
+static void clusterBitMapClear( void ) {
+	memset(g_lights_tmp.clusters_bit_map, 0, CLUSTERS_BIT_MAP_SIZE_UINT * sizeof(uint32_t));
+}
+
+// Returns true if wasn't set
+static qboolean clusterBitMapCheckOrSet( int cell_index ) {
+	uint32_t *const bits = g_lights_tmp.clusters_bit_map + (cell_index / 32);
+	const uint32_t bit = 1 << (cell_index % 32);
+
+	if ((*bits) & bit)
+		return false;
+
+	(*bits) |= bit;
+	return true;
+}
+
+static void clusterBitMapInit( void ) {
+	ASSERT(!g_lights_tmp.clusters_bit_map);
+
+	g_lights_tmp.clusters_bit_map = Mem_Malloc(vk_core.pool, CLUSTERS_BIT_MAP_SIZE_UINT * sizeof(uint32_t));
+	clusterBitMapClear();
+}
+
+static void clusterBitMapShutdown( void ) {
+	if (g_lights_tmp.clusters_bit_map)
+		Mem_Free(g_lights_tmp.clusters_bit_map);
+	g_lights_tmp.clusters_bit_map = NULL;
+}
+
+static int computeCellIndex( const int light_cell[3] ) {
+	if (light_cell[0] < 0 || light_cell[1] < 0 || light_cell[2] < 0
+		|| (light_cell[0] >= g_lights.map.grid_size[0])
+		|| (light_cell[1] >= g_lights.map.grid_size[1])
+		|| (light_cell[2] >= g_lights.map.grid_size[2]))
+		return -1;
+
+	return light_cell[0] + light_cell[1] * g_lights.map.grid_size[0] + light_cell[2] * g_lights.map.grid_size[0] * g_lights.map.grid_size[1];
+}
+
 //static qboolean dump_fatpvs = true;
 static qboolean have_surf = false;
 
@@ -732,6 +781,9 @@ void VK_LightsNewMap( void )
 		g_lights.map.grid_cells
 	);
 
+	clusterBitMapShutdown();
+	clusterBitMapInit();
+
 	//traverseBSP();
 	prepareSurfacesLeafVisibilityCache();
 
@@ -767,32 +819,20 @@ void VK_LightsFrameInit( void )
 	lbspClear();
 }
 
-static void addSurfaceLightToCell( const int light_cell[3], int emissive_surface_index ) {
-	const uint cell_index = light_cell[0] + light_cell[1] * g_lights.map.grid_size[0] + light_cell[2] * g_lights.map.grid_size[0] * g_lights.map.grid_size[1];
+static qboolean addSurfaceLightToCell( int cell_index, int emissive_surface_index ) {
 	vk_lights_cell_t *const cluster = g_lights.cells + cell_index;
 
-	if (light_cell[0] < 0 || light_cell[1] < 0 || light_cell[2] < 0
-		|| (light_cell[0] >= g_lights.map.grid_size[0])
-		|| (light_cell[1] >= g_lights.map.grid_size[1])
-		|| (light_cell[2] >= g_lights.map.grid_size[2]))
-		return;
-
-	// Check whether it has been added already
-	for (int i = 0; i < cluster->num_emissive_surfaces; ++i )
-		if (cluster->emissive_surfaces[i] == emissive_surface_index)
-			return;
-
 	if (cluster->num_emissive_surfaces == MAX_VISIBLE_SURFACE_LIGHTS) {
-		gEngine.Con_Printf(S_ERROR "Cluster %d,%d,%d(%d) ran out of emissive surfaces slots\n",
-			light_cell[0], light_cell[1],  light_cell[2], cell_index
-			);
-		return;
+		return false;
 	}
 
 	cluster->emissive_surfaces[cluster->num_emissive_surfaces++] = emissive_surface_index;
+	return true;
 }
 
 static qboolean canSurfaceLightAffectAABB(const model_t *mod, const msurface_t *surf, const vec3_t emissive, const float minmax[6]) {
+	APROF_SCOPE_BEGIN_EARLY(canSurfaceLightAffectAABB);
+	qboolean retval = true;
 	// FIXME transform surface
 	// this here only works for static map model
 
@@ -817,9 +857,11 @@ static qboolean canSurfaceLightAffectAABB(const model_t *mod, const msurface_t *
 
 	// Check whether this bbox is completely behind the surface
 	if (bbox_plane_dist < 0.)
-		return false;
+		retval = false;
 
-	return true;
+	APROF_SCOPE_END(canSurfaceLightAffectAABB);
+
+	return retval;
 }
 
 const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map ) {
@@ -870,6 +912,8 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 		}
 		Matrix3x4_Copy(esurf->transform, *transform_row);
 
+		clusterBitMapClear();
+
 		// Iterate through each visible/potentially affected leaf to get a range of grid cells
 		for (int i = 0; i < leafs->num; ++i) {
 			const mleaf_t *const leaf = world->leafs + leafs->leafs[i];
@@ -893,19 +937,29 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 					y - g_lights.map.grid_min_cell[1],
 					z - g_lights.map.grid_min_cell[2]
 				};
-				const float minmaxs[6] = {
-					x * LIGHT_GRID_CELL_SIZE,
-					y * LIGHT_GRID_CELL_SIZE,
-					z * LIGHT_GRID_CELL_SIZE,
-					(x+1) * LIGHT_GRID_CELL_SIZE,
-					(y+1) * LIGHT_GRID_CELL_SIZE,
-					(z+1) * LIGHT_GRID_CELL_SIZE,
-				};
 
-				if (static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, minmaxs))
+				const int cell_index = computeCellIndex( cell );
+				if (cell_index < 0)
 					continue;
 
-				addSurfaceLightToCell(cell, g_lights.num_emissive_surfaces);
+				if (clusterBitMapCheckOrSet( cell_index )) {
+					const float minmaxs[6] = {
+						x * LIGHT_GRID_CELL_SIZE,
+						y * LIGHT_GRID_CELL_SIZE,
+						z * LIGHT_GRID_CELL_SIZE,
+						(x+1) * LIGHT_GRID_CELL_SIZE,
+						(y+1) * LIGHT_GRID_CELL_SIZE,
+						(z+1) * LIGHT_GRID_CELL_SIZE,
+					};
+
+					if (static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, minmaxs))
+						continue;
+
+					if (!addSurfaceLightToCell(cell_index, g_lights.num_emissive_surfaces)) {
+						gEngine.Con_Printf(S_ERROR "Cluster %d,%d,%d(%d) ran out of emissive surfaces slots\n",
+							cell[0], cell[1],  cell[2], cell_index);
+					}
+				}
 			}
 		}
 
