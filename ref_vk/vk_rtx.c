@@ -761,8 +761,8 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 
 	g_rtx.frame_number++;
 
-	if (vk_core.debug)
-		XVK_RayModel_Validate();
+	// if (vk_core.debug)
+	// 	XVK_RayModel_Validate();
 
 	if (g_rtx.reload_pipeline) {
 		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
