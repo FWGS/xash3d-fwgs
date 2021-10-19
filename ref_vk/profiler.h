@@ -68,6 +68,16 @@ static uint64_t _aprof_time_now( void ) {
 	clock_gettime(CLOCK_MONOTONIC, &tp);
 	return tp.tv_nsec + tp.tv_sec * 1000000000ull;
 }
+#elif defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define WIN32_EXTRA_LEAN
+#include <windows.h>
+static LARGE_INTEGER _aprof_frequency;
+static uint64_t _aprof_time_now( void ) {
+	LARGE_INTEGER pc;
+	QueryPerformanceCounter(&pc);
+	return pc.QuadPart * 1000000000ull / _aprof_frequency.QuadPart;
+}
 #else
 #error aprof is not implemented for this os
 #endif
@@ -75,6 +85,11 @@ static uint64_t _aprof_time_now( void ) {
 aprof_state_t g_aprof = {0};
 
 aprof_scope_id_t aprof_scope_init(const char *scope_name) {
+#if defined(_WIN32)
+	if (_aprof_frequency.QuadPart == 0)
+		QueryPerformanceFrequency(&_aprof_frequency);
+#endif
+
 	if (g_aprof.num_scopes == APROF_MAX_SCOPES)
 		return -1;
 
