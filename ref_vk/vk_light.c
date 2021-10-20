@@ -479,13 +479,13 @@ static struct {
 
 } g_lights_bsp = {0};
 
-static void prepareLeafAccum( void ) {
+static void leafAccumPrepare( void ) {
 	memset(&g_lights_bsp.accum, 0, sizeof(g_lights_bsp.accum));
 }
 
 #define LEAF_ADDED_BIT 0x8000000ul
 
-static qboolean addLeafToAccum( uint16_t leaf_index ) {
+static qboolean leafAccumAdd( uint16_t leaf_index ) {
 	// Check whether this leaf was already added
 	if (g_lights_bsp.accum.leafs[leaf_index] & LEAF_ADDED_BIT)
 		return false;
@@ -496,9 +496,15 @@ static qboolean addLeafToAccum( uint16_t leaf_index ) {
 	return true;
 }
 
-static int addCompressedPVSLeafsToAccum(const model_t *const map, const byte *pvs, qboolean print_debug) {
+static void leafAccumFinalize( void ) {
+	for (int i = 0; i < g_lights_bsp.accum.count; ++i)
+		g_lights_bsp.accum.leafs[i] &= 0xffffu;
+}
+
+static int leafAccumAddPotentiallyVisibleFromLeaf(const model_t *const map, const mleaf_t *leaf, qboolean print_debug) {
 	int pvs_leaf_index = 0;
 	int leafs_added = 0;
+	const byte *pvs = leaf->compressed_vis;
 	for (;pvs_leaf_index < map->numleafs; ++pvs) {
 		uint8_t bits = pvs[0];
 
@@ -514,7 +520,7 @@ static int addCompressedPVSLeafsToAccum(const model_t *const map, const byte *pv
 			if ((bits&1) == 0)
 				continue;
 
-			if (addLeafToAccum( pvs_leaf_index + 1 )) {
+			if (leafAccumAdd( pvs_leaf_index + 1 )) {
 				leafs_added++;
 				if (print_debug)
 					gEngine.Con_Reportf(" .%d", pvs_leaf_index + 1);
@@ -536,7 +542,7 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 	// Check if PVL hasn't been collected yet
 	if (!smeta->potentially_visible_leafs) {
 		int leafs_direct = 0, leafs_pvs = 0;
-		prepareLeafAccum();
+		leafAccumPrepare();
 
 		// Enumerate all the map leafs and pick ones that have this surface referenced
 		if (verbose_debug)
@@ -550,7 +556,7 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 
 				// FIXME split direct leafs marking from pvs propagation
 				leafs_direct++;
-				if (addLeafToAccum( i )) {
+				if (leafAccumAdd( i )) {
 					if (verbose_debug)
 						gEngine.Con_Reportf(" %d", i);
 				} else {
@@ -560,17 +566,19 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 				}
 
 				// Get all PVS leafs
-				leafs_pvs += addCompressedPVSLeafsToAccum(map, leaf->compressed_vis, verbose_debug);
+				leafs_pvs += leafAccumAddPotentiallyVisibleFromLeaf(map, leaf, verbose_debug);
 			}
 		}
 		if (verbose_debug)
 			gEngine.Con_Reportf(" (sum=%d, direct=%d, pvs=%d)\n", g_lights_bsp.accum.count, leafs_direct, leafs_pvs);
 
+		leafAccumFinalize();
+
 		smeta->potentially_visible_leafs = (vk_light_leaf_set_t*)Mem_Malloc(vk_core.pool, sizeof(smeta->potentially_visible_leafs) + sizeof(int) * g_lights_bsp.accum.count);
 		smeta->potentially_visible_leafs->num = g_lights_bsp.accum.count;
 
 		for (int i = 0; i < g_lights_bsp.accum.count; ++i) {
-			smeta->potentially_visible_leafs->leafs[i] = g_lights_bsp.accum.leafs[i] & 0xffffu;
+			smeta->potentially_visible_leafs->leafs[i] = g_lights_bsp.accum.leafs[i];
 		}
 	}
 
@@ -622,7 +630,6 @@ static int computeCellIndex( const int light_cell[3] ) {
 	return light_cell[0] + light_cell[1] * g_lights.map.grid_size[0] + light_cell[2] * g_lights.map.grid_size[0] * g_lights.map.grid_size[1];
 }
 
-//static qboolean dump_fatpvs = true;
 static qboolean have_surf = false;
 
 vk_light_leaf_set_t *getMapLeafsAffectedByMovingSurface( const msurface_t *surf, const matrix3x4 *transform_row ) {
@@ -655,7 +662,7 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMovingSurface( const msurface_t *surf,
 		);
 	}
 
-	prepareLeafAccum();
+	leafAccumPrepare();
 
 	// TODO it's possible to somehow more efficiently traverse the bsp and collect only the affected leafs
 	// (origin + radius will accidentally touch leafs that are really should not be affected)
@@ -671,7 +678,7 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMovingSurface( const msurface_t *surf,
 
 		leafs_direct++;
 
-		if (addLeafToAccum( i + 1 )) {
+		if (leafAccumAdd( i + 1 )) {
 			if (!have_surf || debug_dump_lights.enabled)
 				gEngine.Con_Reportf(" %d", i + 1);
 		} else {
@@ -679,17 +686,12 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMovingSurface( const msurface_t *surf,
 			// but it really should be counted as direct
 			leafs_pvs--;
 		}
-
-		// it seems that FatPVS already implements PVS walk leafs_pvs += addCompressedPVSLeafsToAccum(map, leaf->compressed_vis, debug_dump_lights.enabled);
 	}
 
 	if (!have_surf || debug_dump_lights.enabled)
 		gEngine.Con_Reportf(" (sum=%d, direct=%d, pvs=%d)\n", g_lights_bsp.accum.count, leafs_direct, leafs_pvs);
 
-	//dump_fatpvs = false;
-
-	for (int i = 0; i < g_lights_bsp.accum.count; ++i)
-		g_lights_bsp.accum.leafs[i] &= 0xffffu;
+	leafAccumFinalize();
 
 	// ...... oh no
 	return (vk_light_leaf_set_t*)&g_lights_bsp.accum.count;
@@ -745,10 +747,7 @@ static void prepareSurfacesLeafVisibilityCache( void ) {
 		g_lights_bsp.surfaces[i].potentially_visible_leafs = NULL;
 }
 
-extern void traverseBSP( void );
-
-void VK_LightsNewMap( void )
-{
+void VK_LightsNewMap( void ) {
 	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
 
 	// 1. Determine map bounding box (and optimal grid size?)
@@ -786,14 +785,12 @@ void VK_LightsNewMap( void )
 	clusterBitMapShutdown();
 	clusterBitMapInit();
 
-	//traverseBSP();
 	prepareSurfacesLeafVisibilityCache();
 
 	VK_LightsLoadMapStaticLights();
 }
 
-void VK_LightsLoadMapStaticLights( void )
-{
+void VK_LightsLoadMapStaticLights( void ) {
 	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
 
 	parseStaticLightEntities();
@@ -829,6 +826,16 @@ static qboolean addSurfaceLightToCell( int cell_index, int emissive_surface_inde
 	}
 
 	cluster->emissive_surfaces[cluster->num_emissive_surfaces++] = emissive_surface_index;
+	return true;
+}
+
+static qboolean addLightToCell( int cell_index, int light_index ) {
+	vk_lights_cell_t *const cluster = g_lights.cells + cell_index;
+
+	if (cluster->num_point_lights == MAX_VISIBLE_POINT_LIGHTS)
+		return false;
+
+	cluster->point_lights[cluster->num_point_lights++] = light_index;
 	return true;
 }
 
@@ -975,12 +982,57 @@ fin:
 	return retval;
 }
 
+static void addPointLightToClusters( int index ) {
+	vk_point_light_t *const light = g_lights.point_lights + index;
+	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+	const mleaf_t* leaf = gEngine.Mod_PointInLeaf(light->origin, world->nodes);
+	const vk_light_leaf_set_t *const leafs = (vk_light_leaf_set_t*)&g_lights_bsp.accum.count;
+
+	leafAccumPrepare();
+	leafAccumAddPotentiallyVisibleFromLeaf( world, leaf, false);
+	leafAccumFinalize();
+
+	clusterBitMapClear();
+	for (int i = 0; i < leafs->num; ++i) {
+		const mleaf_t *const leaf = world->leafs + leafs->leafs[i];
+
+		const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
+		const int min_y = floorf(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
+		const int min_z = floorf(leaf->minmaxs[2] / LIGHT_GRID_CELL_SIZE);
+
+		const int max_x = ceilf(leaf->minmaxs[3] / LIGHT_GRID_CELL_SIZE);
+		const int max_y = ceilf(leaf->minmaxs[4] / LIGHT_GRID_CELL_SIZE);
+		const int max_z = ceilf(leaf->minmaxs[5] / LIGHT_GRID_CELL_SIZE);
+
+		for (int x = min_x; x < max_x; ++x)
+		for (int y = min_y; y < max_y; ++y)
+		for (int z = min_z; z < max_z; ++z) {
+			const int cell[3] = {
+				x - g_lights.map.grid_min_cell[0],
+				y - g_lights.map.grid_min_cell[1],
+				z - g_lights.map.grid_min_cell[2]
+			};
+
+			const int cell_index = computeCellIndex( cell );
+			if (cell_index < 0)
+				continue;
+
+			if (clusterBitMapCheckOrSet( cell_index )) {
+				if (!addLightToCell(cell_index, index)) {
+					// gEngine.Con_Printf(S_ERROR "Cluster %d,%d,%d(%d) ran out of light slots\n",
+					// 	cell[0], cell[1],  cell[2], cell_index);
+				}
+			}
+		}
+	}
+}
+
 static int addPointLight( const vec3_t origin, const vec3_t color, float radius, float hack_attenuation ) {
 	const int index = g_lights.num_point_lights;
 	vk_point_light_t *const plight = g_lights.point_lights + index;
 
 	if (g_lights.num_point_lights >= MAX_POINT_LIGHTS) {
-		gEngine.Con_Printf(S_ERROR "Too many dlights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
+		gEngine.Con_Printf(S_ERROR "Too many lights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
 		return -1;
 	}
 
@@ -999,6 +1051,7 @@ static int addPointLight( const vec3_t origin, const vec3_t color, float radius,
 	plight->stopdot = plight->stopdot2 = -1.f;
 	VectorSet(plight->dir, 0, 0, 0);
 
+	addPointLightToClusters( index );
 	g_lights.num_point_lights++;
 	return index;
 }
@@ -1008,7 +1061,7 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, float hack_a
 	vk_point_light_t *const plight = g_lights.point_lights + index;
 
 	if (g_lights.num_point_lights >= MAX_POINT_LIGHTS) {
-		gEngine.Con_Printf(S_ERROR "Too many dlights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
+		gEngine.Con_Printf(S_ERROR "Too many lights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
 		return -1;
 	}
 
@@ -1028,6 +1081,7 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, float hack_a
 	plight->stopdot = le->stopdot;
 	plight->stopdot2 = le->stopdot2;
 
+	addPointLightToClusters( index );
 	g_lights.num_point_lights++;
 	return index;
 }

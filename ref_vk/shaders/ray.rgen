@@ -34,7 +34,7 @@ layout(set = 0, binding = 2) uniform UBO {
 layout (set = 0, binding = 7/*, align=4*/) uniform UBOLights { Lights lights; };
 
 struct LightCluster {
-	uint8_t num_dlights;
+	uint8_t num_point_lights;
 	uint8_t num_emissive_surfaces;
 	uint8_t point_lights[MAX_VISIBLE_POINT_LIGHTS];
 	uint8_t emissive_surfaces[MAX_VISIBLE_SURFACE_LIGHTS];
@@ -147,123 +147,133 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 	return color;
 }
 
-vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material) {
+vec3 computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, MaterialProperties material) {
 	vec3 C = vec3(0.);
-	const ivec3 light_cell = ivec3(floor(payload.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
-	const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
-	if (any(greaterThanEqual(light_cell, light_grid.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS) {
-		C = vec3(1., 0., 0.);
-	} else {
-		// const uint cluster_offset = cluster_index * LIGHT_CLUSTER_SIZE + HACK_OFFSET;
-		// const int num_dlights = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_DLIGHTS_OFFSET]);
-		// const int num_emissive_surfaces = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_EMISSIVE_SURFACES_OFFSET]);
-		// const uint emissive_surfaces_offset = cluster_offset + LIGHT_CLUSTER_EMISSIVE_SURFACES_DATA_OFFSET;
-		//C = vec3(float(num_emissive_surfaces));
 
-		//C = vec3(float(int(light_grid.clusters[cluster_index].num_emissive_surfaces)));
-		//C += .3 * fract(vec3(light_cell) / 4.);
+	const uint num_point_lights = uint(light_grid.clusters[cluster_index].num_point_lights);
+	for (uint j = 0; j < num_point_lights; ++j) {
+		const uint i = uint(light_grid.clusters[cluster_index].point_lights[j]);
 
-		const uint num_emissive_kusochki = uint(light_grid.clusters[cluster_index].num_emissive_surfaces);
-		float sampling_light_scale = 1.;
-#if 0
-		const uint max_lights_per_frame = 4;
-		uint begin_i = 0, end_i = num_emissive_kusochki;
-		if (end_i > max_lights_per_frame) {
-			begin_i = rand() % (num_emissive_kusochki - max_lights_per_frame);
-			end_i = begin_i + max_lights_per_frame;
-			sampling_light_scale = float(num_emissive_kusochki) / float(max_lights_per_frame);
-		}
-		for (uint i = begin_i; i < end_i; ++i) {
-#else
+		vec3 color = lights.point_lights[i].color_stopdot.rgb;
+		color *= throughput * payload.base_color;
+		if (dot(color,color) < color_culling_threshold)
+			continue;
 
-		for (uint i = 0; i < num_emissive_kusochki; ++i) {
-#endif
-			const uint index_into_emissive_kusochki = uint(light_grid.clusters[cluster_index].emissive_surfaces[i]);
+		const vec4 origin_r = lights.point_lights[i].origin_r;
+		const float stopdot = lights.point_lights[i].color_stopdot.a;
+		const vec3 dir = lights.point_lights[i].dir_stopdot2.xyz;
+		const float stopdot2 = lights.point_lights[i].dir_stopdot2.a;
 
-			if (push_constants.debug_light_index_begin < push_constants.debug_light_index_end) {
-				if (index_into_emissive_kusochki < push_constants.debug_light_index_begin || index_into_emissive_kusochki >= push_constants.debug_light_index_end)
-					continue;
-			}
+		const vec3 light_dir = origin_r.xyz - payload.hit_pos_t.xyz;
+		const vec3 light_dir_norm = normalize(light_dir);
+		const float light_dot = dot(light_dir_norm, payload.normal);
+		if (light_dot < 1e-5)
+			continue;
 
-			const EmissiveKusok ek = lights.kusochki[index_into_emissive_kusochki];
-			const uint emissive_kusok_index = lights.kusochki[index_into_emissive_kusochki].kusok_index;
-			const Kusok ekusok = kusochki[emissive_kusok_index];
-			const vec3 emissive = ekusok.emissive;
+		const float spot_dot = -dot(light_dir_norm, dir);
+		if (spot_dot < stopdot2)
+			continue;
 
-			// TODO streamline matrices layouts
-			const mat4x3 emissive_transform = mat4x3(
-				vec3(ek.tx_row_x.x, ek.tx_row_y.x, ek.tx_row_z.x),
-				vec3(ek.tx_row_x.y, ek.tx_row_y.y, ek.tx_row_z.y),
-				vec3(ek.tx_row_x.z, ek.tx_row_y.z, ek.tx_row_z.z),
-				vec3(ek.tx_row_x.w, ek.tx_row_y.w, ek.tx_row_z.w)
-			);
-
-			const mat3 emissive_transform_normal = transpose(inverse(mat3(emissive_transform)));
-
-			if (emissive_kusok_index == uint(payload.kusok_index))
-				continue;
-
-			const uint triangle_index = rand_range(ekusok.triangles);
-			C += sampling_light_scale * sampleSurfaceTriangle(throughput * payload.base_color * emissive, view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
-		} // for all emissive kusochki
-
-
-		for (uint i = 0; i < lights.num_point_lights; ++i) {
-			const vec4 origin_r = lights.point_lights[i].origin_r;
-			vec3 color = lights.point_lights[i].color_stopdot.rgb;
-			float stopdot = lights.point_lights[i].color_stopdot.a;
-			vec3 dir = lights.point_lights[i].dir_stopdot2.xyz;
-			float stopdot2 = lights.point_lights[i].dir_stopdot2.a;
-
-			color *= throughput * payload.base_color;
-			// if (dot(color,color) < color_culling_threshold)
-			// 	continue;
-
-			const vec3 light_dir = origin_r.xyz - payload.hit_pos_t.xyz;
-			const vec3 light_dir_norm = normalize(light_dir);
-			const float light_dot = dot(light_dir_norm, payload.normal);
-			if (light_dot < 1e-5)
-				continue;
-
-			const float spot_dot = -dot(light_dir_norm, dir);
-			if (spot_dot < stopdot2)
-				continue;
-
-			float spot_attenuation = 1.f;
-			if (spot_dot < stopdot)
-				spot_attenuation = (spot_dot - stopdot2) / (stopdot - stopdot2);
+		float spot_attenuation = 1.f;
+		if (spot_dot < stopdot)
+			spot_attenuation = (spot_dot - stopdot2) / (stopdot - stopdot2);
 
 #if 1
-			const float d2 = dot(light_dir, light_dir);
-			const float r2 = origin_r.w * origin_r.w;
-			const float light_dist = sqrt(d2);
-			const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
-			const float pdf = 1.f / (fdist * light_dot * spot_attenuation);
+		const float d2 = dot(light_dir, light_dir);
+		const float r2 = origin_r.w * origin_r.w;
+		const float light_dist = sqrt(d2);
+		const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
+		const float pdf = 1.f / (fdist * light_dot * spot_attenuation);
 #else
-			const float d2 = dot(light_dir, light_dir);
-			//const float r2 = origin_r.w * origin_r.w;
-			const float light_dist = sqrt(d2);
-			//const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
-			//const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
-			const float fdist = (light_dist > 1.) ? 1.f / d2 : 1.f; // qrad workaround
-			const float pdf = 1.f / (fdist * light_dot * spot_attenuation);
+		const float d2 = dot(light_dir, light_dir);
+		//const float r2 = origin_r.w * origin_r.w;
+		const float light_dist = sqrt(d2);
+		//const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
+		//const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
+		const float fdist = (light_dist > 1.) ? 1.f / d2 : 1.f; // qrad workaround
+		const float pdf = 1.f / (fdist * light_dot * spot_attenuation);
 #endif
 
-			color /= pdf;
-			// if (dot(color,color) < color_culling_threshold)
-			// 	continue;
+		color /= pdf;
+		// if (dot(color,color) < color_culling_threshold)
+		// 	continue;
 
-			color *= evalCombinedBRDF(payload.normal, light_dir_norm, view_dir, material);
-			if (dot(color,color) < color_culling_threshold)
-				continue;
+		color *= evalCombinedBRDF(payload.normal, light_dir_norm, view_dir, material);
+		if (dot(color,color) < color_culling_threshold)
+			continue;
 
-			if (shadowed(payload.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
-				continue;
+		if (shadowed(payload.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
+			continue;
 
-			C += color;
-		} // for all lights
+		C += color;
+	} // for all lights
+
+	return C;
+}
+
+vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material) {
+	const ivec3 light_cell = ivec3(floor(payload.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
+	const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
+
+	if (any(greaterThanEqual(light_cell, light_grid.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS)
+		return throughput * vec3(1., 0., 0.);
+
+	vec3 C = vec3(0.);
+
+	// const uint cluster_offset = cluster_index * LIGHT_CLUSTER_SIZE + HACK_OFFSET;
+	// const int num_dlights = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_DLIGHTS_OFFSET]);
+	// const int num_emissive_surfaces = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_EMISSIVE_SURFACES_OFFSET]);
+	// const uint emissive_surfaces_offset = cluster_offset + LIGHT_CLUSTER_EMISSIVE_SURFACES_DATA_OFFSET;
+	//C = vec3(float(num_emissive_surfaces));
+
+	//C = vec3(float(int(light_grid.clusters[cluster_index].num_emissive_surfaces)));
+	//C += .3 * fract(vec3(light_cell) / 4.);
+
+	const uint num_emissive_kusochki = uint(light_grid.clusters[cluster_index].num_emissive_surfaces);
+	float sampling_light_scale = 1.;
+#if 0
+	const uint max_lights_per_frame = 4;
+	uint begin_i = 0, end_i = num_emissive_kusochki;
+	if (end_i > max_lights_per_frame) {
+		begin_i = rand() % (num_emissive_kusochki - max_lights_per_frame);
+		end_i = begin_i + max_lights_per_frame;
+		sampling_light_scale = float(num_emissive_kusochki) / float(max_lights_per_frame);
 	}
+	for (uint i = begin_i; i < end_i; ++i) {
+#else
 
+	for (uint i = 0; i < num_emissive_kusochki; ++i) {
+#endif
+		const uint index_into_emissive_kusochki = uint(light_grid.clusters[cluster_index].emissive_surfaces[i]);
+
+		if (push_constants.debug_light_index_begin < push_constants.debug_light_index_end) {
+			if (index_into_emissive_kusochki < push_constants.debug_light_index_begin || index_into_emissive_kusochki >= push_constants.debug_light_index_end)
+				continue;
+		}
+
+		const EmissiveKusok ek = lights.kusochki[index_into_emissive_kusochki];
+		const uint emissive_kusok_index = lights.kusochki[index_into_emissive_kusochki].kusok_index;
+		const Kusok ekusok = kusochki[emissive_kusok_index];
+		const vec3 emissive = ekusok.emissive;
+
+		// TODO streamline matrices layouts
+		const mat4x3 emissive_transform = mat4x3(
+			vec3(ek.tx_row_x.x, ek.tx_row_y.x, ek.tx_row_z.x),
+			vec3(ek.tx_row_x.y, ek.tx_row_y.y, ek.tx_row_z.y),
+			vec3(ek.tx_row_x.z, ek.tx_row_y.z, ek.tx_row_z.z),
+			vec3(ek.tx_row_x.w, ek.tx_row_y.w, ek.tx_row_z.w)
+		);
+
+		const mat3 emissive_transform_normal = transpose(inverse(mat3(emissive_transform)));
+
+		if (emissive_kusok_index == uint(payload.kusok_index))
+			continue;
+
+		const uint triangle_index = rand_range(ekusok.triangles);
+		C += sampling_light_scale * sampleSurfaceTriangle(throughput * payload.base_color * emissive, view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
+	} // for all emissive kusochki
+
+	C += computePointLights(cluster_index, throughput, view_dir, material);
 	return C;
 }
 
