@@ -217,10 +217,10 @@ static unsigned parseEntPropVec3(const string value, vec3_t *out, unsigned bit) 
 }
 
 static unsigned parseEntPropRgbav(const string value, vec3_t *out, unsigned bit) {
-	float scale = 1.f / 255.f;
+	float scale = 1.f;
 	const int components = sscanf(value, "%f %f %f %f", &(*out)[0], &(*out)[1], &(*out)[2], &scale);
 	if (components == 1) {
-		(*out)[2] = (*out)[1] = (*out)[0] = (*out)[0] / 255.f;
+		(*out)[2] = (*out)[1] = (*out)[0] = (*out)[0];
 		return bit;
 	} else if (components == 4) {
 		scale /= 255.f;
