@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <assert.h>
+#include <string.h>
 
 #define APROF_SCOPE_DECLARE(scope) \
 	static aprof_scope_id_t _aprof_scope_id_##scope = -1
