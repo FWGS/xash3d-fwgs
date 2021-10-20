@@ -186,6 +186,7 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 	X(5, float, angle, Float) \
 	X(6, float, _cone, Float) \
 	X(7, float, _cone2, Float) \
+	X(8, int, _sky, Int) \
 
 typedef enum {
 	Unknown = 0,
@@ -210,6 +211,10 @@ typedef enum {
 
 static unsigned parseEntPropFloat(const string value, float *out, unsigned bit) {
 	return (1 == sscanf(value, "%f", out)) ? bit : 0;
+}
+
+static unsigned parseEntPropInt(const string value, int *out, unsigned bit) {
+	return (1 == sscanf(value, "%d", out)) ? bit : 0;
 }
 
 static unsigned parseEntPropVec3(const string value, vec3_t *out, unsigned bit) {
@@ -335,8 +340,13 @@ static void addLightEntity( const entity_props_t *props, unsigned have_fields ) 
 			break;
 
 		case LightSpot:
-			le->type = LightTypeSpot;
-			expected_fields = Field_origin | Field__cone | Field__cone2;
+			if ((have_fields & Field__sky) && props->_sky != 0) {
+				le->type = LightTypeEnvironment;
+				expected_fields = Field__cone | Field__cone2;
+			} else {
+				le->type = LightTypeSpot;
+				expected_fields = Field_origin | Field__cone | Field__cone2;
+			}
 			parseAngles(props, le);
 			parseStopDot(props, le);
 			break;
@@ -365,9 +375,11 @@ static void addLightEntity( const entity_props_t *props, unsigned have_fields ) 
 		VectorCopy(props->_light, le->color);
 	}
 
-	//gEngine.Con_Reportf("Pre scaling: %f %f %f ", values._light[0], values._light[1], values._light[2]);
-	weirdGoldsrcLightScaling(le->color);
-	//gEngine.Con_Reportf("post scaling: %f %f %f\n", values._light[0], values._light[1], values._light[2]);
+	if (le->type != LightEnvironment) {
+		//gEngine.Con_Reportf("Pre scaling: %f %f %f ", values._light[0], values._light[1], values._light[2]);
+		weirdGoldsrcLightScaling(le->color);
+		//gEngine.Con_Reportf("post scaling: %f %f %f\n", values._light[0], values._light[1], values._light[2]);
+	}
 
 	gEngine.Con_Reportf("Added light %d: %s color=(%f %f %f) origin=(%f %f %f) dir=(%f %f %f) stopdot=(%f %f)\n", g_light_entities.num_lights,
 		le->type == LightTypeEnvironment ? "environment" : le->type == LightTypeSpot ? "spot" : "point",
@@ -1042,6 +1054,7 @@ static int addPointLight( const vec3_t origin, const vec3_t color, float radius,
 			color[0], color[1], color[2]);
 	}
 
+	*plight = (vk_point_light_t){0};
 	VectorCopy(origin, plight->origin);
 	plight->radius = radius;
 
@@ -1066,12 +1079,14 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, float hack_a
 	}
 
 	if (debug_dump_lights.enabled) {
-		gEngine.Con_Printf("spot light %d: origin=(%f %f %f) color=(%f %f %f) dir=(%f %f %f)\n", index,
+		gEngine.Con_Printf("%s light %d: origin=(%f %f %f) color=(%f %f %f) dir=(%f %f %f)\n", index,
+			le->type == LightTypeEnvironment ? "environment" : "spot",
 			le->origin[0], le->origin[1], le->origin[2],
 			le->color[0], le->color[1], le->color[2],
 			le->dir[0], le->dir[1], le->dir[2]);
 	}
 
+	*plight = (vk_point_light_t){0};
 	VectorCopy(le->origin, plight->origin);
 	plight->radius = radius;
 
@@ -1080,6 +1095,9 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, float hack_a
 	VectorCopy(le->dir, plight->dir);
 	plight->stopdot = le->stopdot;
 	plight->stopdot2 = le->stopdot2;
+
+	if (le->type == LightTypeEnvironment)
+		plight->flags = LightFlag_Environment;
 
 	addPointLightToClusters( index );
 	g_lights.num_point_lights++;

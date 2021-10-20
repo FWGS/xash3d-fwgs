@@ -26,7 +26,7 @@ typedef struct {
 } vk_emissive_surface_t;
 
 enum {
-	LightFlag_Directional = 0x1,
+	LightFlag_Environment = 0x1,
 };
 
 typedef struct {

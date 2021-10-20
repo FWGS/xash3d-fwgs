@@ -677,6 +677,8 @@ static void updateLights( void )
 
 			VectorCopy(src->dir, dst->dir_stopdot2);
 			dst->dir_stopdot2[3] = src->stopdot2;
+
+			dst->environment = !!(src->flags & LightFlag_Environment);
 		}
 	}
 }

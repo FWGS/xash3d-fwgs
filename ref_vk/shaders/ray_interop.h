@@ -9,11 +9,15 @@
 #define PAD(x) float TOKENPASTE2(pad_, __LINE__)[x];
 #define STRUCT struct
 #else
+#extension GL_EXT_shader_8bit_storage : require
+
 #define PAD(x)
 #define STRUCT
 
 layout (constant_id = 0) const uint MAX_POINT_LIGHTS = 32;
 layout (constant_id = 1) const uint MAX_EMISSIVE_KUSOCHKI = 256;
+layout (constant_id = 2) const uint MAX_VISIBLE_POINT_LIGHTS = 31;
+layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 255;
 #endif
 
 #define GEOMETRY_BIT_ANY 0x01
@@ -39,6 +43,8 @@ struct PointLight {
 	vec4 origin_r;
 	vec4 color_stopdot;
 	vec4 dir_stopdot2;
+	uint environment; // Is directional-only environment light
+	PAD(3)
 };
 
 struct EmissiveKusok {
@@ -53,6 +59,13 @@ struct Lights {
 	PAD(2)
 	STRUCT EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
 	STRUCT PointLight point_lights[MAX_POINT_LIGHTS];
+};
+
+struct LightCluster {
+	uint8_t num_point_lights;
+	uint8_t num_emissive_surfaces;
+	uint8_t point_lights[MAX_VISIBLE_POINT_LIGHTS];
+	uint8_t emissive_surfaces[MAX_VISIBLE_SURFACE_LIGHTS];
 };
 
 struct PushConstants {
