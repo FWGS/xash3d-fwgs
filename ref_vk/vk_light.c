@@ -276,7 +276,11 @@ typedef struct {
 struct {
 	int num_lights;
 	vk_light_entity_t lights[256];
+
+	int single_environment_index;
 } g_light_entities;
+
+enum { NoEnvironmentLights = -1, MoreThanOneEnvironmentLight = -2 };
 
 static void weirdGoldsrcLightScaling( vec3_t intensity ) {
 	float l1 = Q_max( intensity[0], Q_max( intensity[1], intensity[2] ) );
@@ -323,7 +327,8 @@ static void parseStopDot( const entity_props_t *props, vk_light_entity_t *le) {
 }
 
 static void addLightEntity( const entity_props_t *props, unsigned have_fields ) {
-	vk_light_entity_t *le = g_light_entities.lights + g_light_entities.num_lights;
+	const int index = g_light_entities.num_lights;
+	vk_light_entity_t *le = g_light_entities.lights + index;
 	unsigned expected_fields = 0;
 
 	if (g_light_entities.num_lights == ARRAYSIZE(g_light_entities.lights)) {
@@ -355,6 +360,12 @@ static void addLightEntity( const entity_props_t *props, unsigned have_fields ) 
 			le->type = LightTypeEnvironment;
 			parseAngles(props, le);
 			parseStopDot(props, le);
+
+			if (g_light_entities.single_environment_index == NoEnvironmentLights) {
+				g_light_entities.single_environment_index = index;
+			} else {
+				g_light_entities.single_environment_index = MoreThanOneEnvironmentLight;
+			}
 			break;
 	}
 
@@ -400,6 +411,7 @@ static void parseStaticLightEntities( void ) {
 	ASSERT(world);
 
 	g_light_entities.num_lights = 0;
+	g_light_entities.single_environment_index = NoEnvironmentLights;
 
 	pos = world->entities;
 	//gEngine.Con_Reportf("ENTITIES: %s\n", pos);
@@ -992,6 +1004,37 @@ fin:
 	return retval;
 }
 
+static void addLightIndexToleaf( const mleaf_t *leaf, int index ) {
+	const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
+	const int min_y = floorf(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
+	const int min_z = floorf(leaf->minmaxs[2] / LIGHT_GRID_CELL_SIZE);
+
+	const int max_x = ceilf(leaf->minmaxs[3] / LIGHT_GRID_CELL_SIZE);
+	const int max_y = ceilf(leaf->minmaxs[4] / LIGHT_GRID_CELL_SIZE);
+	const int max_z = ceilf(leaf->minmaxs[5] / LIGHT_GRID_CELL_SIZE);
+
+	for (int x = min_x; x < max_x; ++x)
+	for (int y = min_y; y < max_y; ++y)
+	for (int z = min_z; z < max_z; ++z) {
+		const int cell[3] = {
+			x - g_lights.map.grid_min_cell[0],
+			y - g_lights.map.grid_min_cell[1],
+			z - g_lights.map.grid_min_cell[2]
+		};
+
+		const int cell_index = computeCellIndex( cell );
+		if (cell_index < 0)
+			continue;
+
+		if (clusterBitMapCheckOrSet( cell_index )) {
+			if (!addLightToCell(cell_index, index)) {
+				// gEngine.Con_Printf(S_ERROR "Cluster %d,%d,%d(%d) ran out of light slots\n",
+				// 	cell[0], cell[1],  cell[2], cell_index);
+			}
+		}
+	}
+}
+
 static void addPointLightToClusters( int index ) {
 	vk_point_light_t *const light = g_lights.point_lights + index;
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
@@ -1005,35 +1048,17 @@ static void addPointLightToClusters( int index ) {
 	clusterBitMapClear();
 	for (int i = 0; i < leafs->num; ++i) {
 		const mleaf_t *const leaf = world->leafs + leafs->leafs[i];
+		addLightIndexToleaf( leaf, index );
+	}
+}
 
-		const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
-		const int min_y = floorf(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
-		const int min_z = floorf(leaf->minmaxs[2] / LIGHT_GRID_CELL_SIZE);
+static void addPointLightToAllClusters( int index ) {
+	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 
-		const int max_x = ceilf(leaf->minmaxs[3] / LIGHT_GRID_CELL_SIZE);
-		const int max_y = ceilf(leaf->minmaxs[4] / LIGHT_GRID_CELL_SIZE);
-		const int max_z = ceilf(leaf->minmaxs[5] / LIGHT_GRID_CELL_SIZE);
-
-		for (int x = min_x; x < max_x; ++x)
-		for (int y = min_y; y < max_y; ++y)
-		for (int z = min_z; z < max_z; ++z) {
-			const int cell[3] = {
-				x - g_lights.map.grid_min_cell[0],
-				y - g_lights.map.grid_min_cell[1],
-				z - g_lights.map.grid_min_cell[2]
-			};
-
-			const int cell_index = computeCellIndex( cell );
-			if (cell_index < 0)
-				continue;
-
-			if (clusterBitMapCheckOrSet( cell_index )) {
-				if (!addLightToCell(cell_index, index)) {
-					// gEngine.Con_Printf(S_ERROR "Cluster %d,%d,%d(%d) ran out of light slots\n",
-					// 	cell[0], cell[1],  cell[2], cell_index);
-				}
-			}
-		}
+	clusterBitMapClear();
+	for (int i = 1; i < world->numleafs; ++i) {
+		const mleaf_t *const leaf = world->leafs + i;
+		addLightIndexToleaf( leaf, index );
 	}
 }
 
@@ -1067,7 +1092,7 @@ static int addPointLight( const vec3_t origin, const vec3_t color, float radius,
 	return index;
 }
 
-static int addSpotLight( const vk_light_entity_t *le, float radius, float hack_attenuation ) {
+static int addSpotLight( const vk_light_entity_t *le, float radius, float hack_attenuation, qboolean all_clusters ) {
 	const int index = g_lights.num_point_lights;
 	vk_point_light_t *const plight = g_lights.point_lights + index;
 
@@ -1097,7 +1122,11 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, float hack_a
 	if (le->type == LightTypeEnvironment)
 		plight->flags = LightFlag_Environment;
 
-	addPointLightToClusters( index );
+	if (all_clusters)
+		addPointLightToAllClusters( index );
+	else
+		addPointLightToClusters( index );
+
 	g_lights.num_point_lights++;
 	return index;
 }
@@ -1151,7 +1180,7 @@ void VK_LightsFrameFinalize( void ) {
 
 				case LightTypeSpot:
 				case LightTypeEnvironment:
-					index = addSpotLight(le, default_radius, hack_attenuation_spot);
+					index = addSpotLight(le, default_radius, hack_attenuation_spot, i == g_light_entities.single_environment_index);
 					break;
 			}
 
