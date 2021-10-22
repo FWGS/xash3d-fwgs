@@ -642,8 +642,6 @@ static int computeCellIndex( const int light_cell[3] ) {
 	return light_cell[0] + light_cell[1] * g_lights.map.grid_size[0] + light_cell[2] * g_lights.map.grid_size[0] * g_lights.map.grid_size[1];
 }
 
-static qboolean have_surf = false;
-
 vk_light_leaf_set_t *getMapLeafsAffectedByMovingSurface( const msurface_t *surf, const matrix3x4 *transform_row ) {
 	const model_t *const map = gEngine.pfnGetModelByIndex( 1 );
 	const mextrasurf_t *const extra = surf->info;
@@ -679,7 +677,7 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMovingSurface( const msurface_t *surf,
 	// TODO it's possible to somehow more efficiently traverse the bsp and collect only the affected leafs
 	// (origin + radius will accidentally touch leafs that are really should not be affected)
 	gEngine.R_FatPVS(origin, radius, g_lights_bsp.accum.visbytes, /*merge*/ false, /*fullvis*/ false);
-	if (!have_surf || debug_dump_lights.enabled)
+	if (debug_dump_lights.enabled)
 		gEngine.Con_Reportf("Collecting visible leafs for moving surface %p: %f,%f,%f %f: ", surf,
 			origin[0], origin[1], origin[2], radius);
 
@@ -691,7 +689,7 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMovingSurface( const msurface_t *surf,
 		leafs_direct++;
 
 		if (leafAccumAdd( i + 1 )) {
-			if (!have_surf || debug_dump_lights.enabled)
+			if (debug_dump_lights.enabled)
 				gEngine.Con_Reportf(" %d", i + 1);
 		} else {
 			// This leaf was already added earlier by PVS
@@ -700,7 +698,7 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMovingSurface( const msurface_t *surf,
 		}
 	}
 
-	if (!have_surf || debug_dump_lights.enabled)
+	if (debug_dump_lights.enabled)
 		gEngine.Con_Reportf(" (sum=%d, direct=%d, pvs=%d)\n", g_lights_bsp.accum.count, leafs_direct, leafs_pvs);
 
 	leafAccumFinalize();
@@ -1180,24 +1178,24 @@ void VK_LightsFrameFinalize( void ) {
 	}
 	APROF_SCOPE_END(dlights);
 
-	{
-		if (!have_surf) {
-			for (int i = 0; i < MAX_MAP_LEAFS; ++i ) {
-				const vk_light_leaf_t *lleaf = g_lights_bsp.leaves + i;
-				int point = 0, spot = 0, surface = 0;
-				if (lleaf->num_lights == 0)
-					continue;
+	if (debug_dump_lights.enabled) {
+		for (int i = 0; i < MAX_MAP_LEAFS; ++i ) {
+			const vk_light_leaf_t *lleaf = g_lights_bsp.leaves + i;
+			int point = 0, spot = 0, surface = 0, env = 0;;
+			if (lleaf->num_lights == 0)
+				continue;
 
-				for (int j = 0; j < lleaf->num_lights; ++j) {
-					switch (lleaf->light[j].type) {
-						case LightTypePoint: ++point; break;
-						case LightTypeSpot: ++spot; break;
-						case LightTypeSurface: have_surf = true; ++surface; break;
-					}
+			for (int j = 0; j < lleaf->num_lights; ++j) {
+				switch (lleaf->light[j].type) {
+					case LightTypePoint: ++point; break;
+					case LightTypeSpot: ++spot; break;
+					case LightTypeSurface: ++surface; break;
+					case LightTypeEnvironment: ++env; break;
 				}
-
-				gEngine.Con_Printf("\tLeaf %d, lights %d: spot=%d point=%d surface=%d\n", i, lleaf->num_lights, spot, point, surface);
 			}
+
+			gEngine.Con_Printf("\tLeaf %d, lights %d: spot=%d point=%d surface=%d env=%d\n", i, lleaf->num_lights, spot, point, surface, env);
+		}
 
 #if 0
 		// Print light grid stats
@@ -1240,7 +1238,6 @@ void VK_LightsFrameFinalize( void ) {
 			gEngine.Con_Reportf("Clusters with filtered lights: %d\n", num_clusters_with_lights_in_range);
 		}
 #endif
-		}
 	}
 
 	debug_dump_lights.enabled = false;
