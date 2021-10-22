@@ -52,131 +52,6 @@ void VK_LightsShutdown( void ) {
 	clusterBitMapShutdown();
 }
 
-static int lookupTextureF( const char *fmt, ...) {
-	int tex_id = 0;
-	char buffer[1024];
-	va_list argptr;
-	va_start( argptr, fmt );
-	vsnprintf( buffer, sizeof buffer, fmt, argptr );
-	va_end( argptr );
-
-	tex_id = VK_FindTexture(buffer);
-	gEngine.Con_Reportf("Looked up texture %s -> %d\n", buffer, tex_id);
-	return tex_id;
-}
-
-static void loadRadData( const model_t *map, const char *fmt, ... ) {
-	fs_offset_t size;
-	char *data;
-	byte *buffer;
-	char filename[1024];
-
-	va_list argptr;
-	va_start( argptr, fmt );
-	vsnprintf( filename, sizeof filename, fmt, argptr );
-	va_end( argptr );
-
-	buffer = gEngine.COM_LoadFile( filename, &size, false);
-
-	if (!buffer) {
-		gEngine.Con_Printf(S_ERROR "Couldn't load RAD data from file %s, the map will be completely black\n", filename);
-		return;
-	}
-
-	gEngine.Con_Reportf("Loading RAD data from file %s\n", filename);
-
-	data = (char*)buffer;
-	for (;;) {
-		string name;
-		float r=0, g=0, b=0, scale=0;
-		int num;
-		char* line_end;
-
-		while (*data != '\0' && isspace(*data)) ++data;
-		if (*data == '\0')
-			break;
-
-		line_end = Q_strchr(data, '\n');
-		if (line_end) *line_end = '\0';
-
-		name[0] = '\0';
-		num = sscanf(data, "%s %f %f %f %f", name, &r, &g, &b, &scale);
-		gEngine.Con_Printf("raw rad entry (%d): %s %f %f %f %f\n", num, name, r, g, b, scale);
-		if (Q_strstr(name, "//") != NULL) {
-			num = 0;
-		}
-
-		if (num == 2) {
-			r = g = b;
-		} else if (num == 5) {
-			scale /= 255.f;
-			r *= scale;
-			g *= scale;
-			b *= scale;
-		} else if (num == 4) {
-			// Ok, rgb only, no scaling
-		} else {
-			gEngine.Con_Printf( "skipping rad entry %s\n", name[0] ? name : "(empty)" );
-			num = 0;
-		}
-
-		if (num != 0) {
-			gEngine.Con_Printf("rad entry (%d): %s %f %f %f (%f)\n", num, name, r, g, b, scale);
-
-			{
-				const char *wad_name = NULL;
-				char *texture_name = Q_strchr(name, '/');
-				string texname;
-				int tex_id;
-				const qboolean enabled = (r != 0 || g != 0 || b != 0);
-
-				if (!texture_name) {
-					texture_name = name;
-				} else {
-					// name is now just a wad name
-					texture_name[0] = '\0';
-					wad_name = name;
-
-					texture_name += 1;
-				}
-
-				// Try bsp texture first
-				tex_id = lookupTextureF("#%s:%s.mip", map->name, texture_name);
-
-				// Try wad texture if bsp is not there
-				if (!tex_id) {
-					if (!wad_name)
-						wad_name = "halflife";
-					tex_id = lookupTextureF("%s.wad/%s.mip", wad_name, texture_name);
-				}
-
-				if (tex_id) {
-					vk_emissive_texture_t *const etex = g_lights.map.emissive_textures + tex_id;
-					ASSERT(tex_id < MAX_TEXTURES);
-
-					etex->emissive[0] = r;
-					etex->emissive[1] = g;
-					etex->emissive[2] = b;
-					etex->set = enabled;
-
-					// See DIRECT_SCALE in qrad/lightmap.c
-					VectorScale(etex->emissive, 0.1f, etex->emissive);
-
-					if (!enabled)
-						gEngine.Con_Reportf("rad entry %s disabled due to zero intensity\n", name);
-				}
-			}
-		}
-
-		if (!line_end)
-			break;
-
-		data = line_end + 1;
-	}
-
-	Mem_Free(buffer);
-}
-
 #define ENT_PROP_LIST(X) \
 	X(0, vec3_t, origin, Vec3) \
 	X(1, vec3_t, angles, Vec3) \
@@ -187,12 +62,14 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 	X(6, float, _cone, Float) \
 	X(7, float, _cone2, Float) \
 	X(8, int, _sky, Int) \
+	X(9, string, wad, WadList) \
 
 typedef enum {
 	Unknown = 0,
 	Light,
 	LightSpot,
 	LightEnvironment,
+	Worldspawn,
 	Ignored,
 } class_name_e;
 
@@ -209,19 +86,54 @@ typedef enum {
 #undef DECLARE_FIELD
 } fields_read_e;
 
-static unsigned parseEntPropFloat(const string value, float *out, unsigned bit) {
+static unsigned parseEntPropWadList(const char* value, string *out, unsigned bit) {
+	int dst_left = sizeof(string) - 2; // ; \0
+	char *dst = *out;
+	*dst = '\0';
+	gEngine.Con_Reportf("WADS: %s\n", value);
+
+	for (; *value;) {
+		const char *file_begin = value;
+
+		for (; *value && *value != ';'; ++value) {
+			if (*value == '\\' || *value == '/')
+				file_begin = value + 1;
+		}
+
+		{
+			const int len = value - file_begin;
+			gEngine.Con_Reportf("WAD: %.*s\n", len, file_begin);
+
+			if (len < dst_left) {
+				Q_strncpy(dst, file_begin, len + 1);
+				dst += len;
+				dst[0] = ';';
+				dst++;
+				dst[0] = '\0';
+				dst_left -= len;
+			}
+		}
+
+		if (*value) value++;
+	}
+
+	gEngine.Con_Reportf("wad list: %s\n", *out);
+	return bit;
+}
+
+static unsigned parseEntPropFloat(const char* value, float *out, unsigned bit) {
 	return (1 == sscanf(value, "%f", out)) ? bit : 0;
 }
 
-static unsigned parseEntPropInt(const string value, int *out, unsigned bit) {
+static unsigned parseEntPropInt(const char* value, int *out, unsigned bit) {
 	return (1 == sscanf(value, "%d", out)) ? bit : 0;
 }
 
-static unsigned parseEntPropVec3(const string value, vec3_t *out, unsigned bit) {
+static unsigned parseEntPropVec3(const char* value, vec3_t *out, unsigned bit) {
 	return (3 == sscanf(value, "%f %f %f", &(*out)[0], &(*out)[1], &(*out)[2])) ? bit : 0;
 }
 
-static unsigned parseEntPropRgbav(const string value, vec3_t *out, unsigned bit) {
+static unsigned parseEntPropRgbav(const char* value, vec3_t *out, unsigned bit) {
 	float scale = 1.f;
 	const int components = sscanf(value, "%f %f %f %f", &(*out)[0], &(*out)[1], &(*out)[2], &scale);
 	if (components == 1) {
@@ -243,13 +155,15 @@ static unsigned parseEntPropRgbav(const string value, vec3_t *out, unsigned bit)
 	return 0;
 }
 
-static unsigned parseEntPropClassname(const string value, class_name_e *out, unsigned bit) {
+static unsigned parseEntPropClassname(const char* value, class_name_e *out, unsigned bit) {
 	if (Q_strcmp(value, "light") == 0) {
 		*out = Light;
 	} else if (Q_strcmp(value, "light_spot") == 0) {
 		*out = LightSpot;
 	} else if (Q_strcmp(value, "light_environment") == 0) {
 		*out = LightEnvironment;
+	} else if (Q_strcmp(value, "worldspawn") == 0) {
+		*out = Worldspawn;
 	} else {
 		*out = Ignored;
 	}
@@ -278,6 +192,8 @@ struct {
 	vk_light_entity_t lights[256];
 
 	int single_environment_index;
+
+	string wadlist;
 } g_light_entities;
 
 enum { NoEnvironmentLights = -1, MoreThanOneEnvironmentLight = -2 };
@@ -402,6 +318,10 @@ static void addLightEntity( const entity_props_t *props, unsigned have_fields ) 
 	g_light_entities.num_lights++;
 }
 
+static void readWorldspawn( const entity_props_t *props ) {
+	Q_strcpy(g_light_entities.wadlist, props->wad);
+}
+
 static void parseStaticLightEntities( void ) {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 	char *pos;
@@ -434,6 +354,10 @@ static void parseStaticLightEntities( void ) {
 				case LightSpot:
 				case LightEnvironment:
 					addLightEntity( &values, have_fields );
+					break;
+
+				case Worldspawn:
+					readWorldspawn( &values );
 					break;
 
 				case Unknown:
@@ -502,6 +426,140 @@ static struct {
 	} accum;
 
 } g_lights_bsp = {0};
+
+static int lookupTextureF( const char *fmt, ...) {
+	int tex_id = 0;
+	char buffer[1024];
+	va_list argptr;
+	va_start( argptr, fmt );
+	vsnprintf( buffer, sizeof buffer, fmt, argptr );
+	va_end( argptr );
+
+	tex_id = VK_FindTexture(buffer);
+	gEngine.Con_Reportf("Looked up texture %s -> %d\n", buffer, tex_id);
+	return tex_id;
+}
+
+static void loadRadData( const model_t *map, const char *fmt, ... ) {
+	fs_offset_t size;
+	char *data;
+	byte *buffer;
+	char filename[1024];
+
+	va_list argptr;
+	va_start( argptr, fmt );
+	vsnprintf( filename, sizeof filename, fmt, argptr );
+	va_end( argptr );
+
+	buffer = gEngine.COM_LoadFile( filename, &size, false);
+
+	if (!buffer) {
+		gEngine.Con_Printf(S_ERROR "Couldn't load RAD data from file %s, the map will be completely black\n", filename);
+		return;
+	}
+
+	gEngine.Con_Reportf("Loading RAD data from file %s\n", filename);
+
+	data = (char*)buffer;
+	for (;;) {
+		string name;
+		float r=0, g=0, b=0, scale=0;
+		int num;
+		char* line_end;
+
+		while (*data != '\0' && isspace(*data)) ++data;
+		if (*data == '\0')
+			break;
+
+		line_end = Q_strchr(data, '\n');
+		if (line_end) *line_end = '\0';
+
+		name[0] = '\0';
+		num = sscanf(data, "%s %f %f %f %f", name, &r, &g, &b, &scale);
+		gEngine.Con_Printf("raw rad entry (%d): %s %f %f %f %f\n", num, name, r, g, b, scale);
+		if (Q_strstr(name, "//") != NULL) {
+			num = 0;
+		}
+
+		if (num == 2) {
+			r = g = b;
+		} else if (num == 5) {
+			scale /= 255.f;
+			r *= scale;
+			g *= scale;
+			b *= scale;
+		} else if (num == 4) {
+			// Ok, rgb only, no scaling
+		} else {
+			gEngine.Con_Printf( "skipping rad entry %s\n", name[0] ? name : "(empty)" );
+			num = 0;
+		}
+
+		if (num != 0) {
+			gEngine.Con_Printf("rad entry (%d): %s %f %f %f (%f)\n", num, name, r, g, b, scale);
+
+			{
+				const char *wad_name = NULL;
+				char *texture_name = Q_strchr(name, '/');
+				string texname;
+				int tex_id;
+				const qboolean enabled = (r != 0 || g != 0 || b != 0);
+
+				if (!texture_name) {
+					texture_name = name;
+				} else {
+					// name is now just a wad name
+					texture_name[0] = '\0';
+					wad_name = name;
+
+					texture_name += 1;
+				}
+
+				// Try bsp texture first
+				tex_id = lookupTextureF("#%s:%s.mip", map->name, texture_name);
+
+				// Try wad texture if bsp is not there
+				if (!tex_id && wad_name) {
+					tex_id = lookupTextureF("%s.wad/%s.mip", wad_name, texture_name);
+				}
+
+				if (!tex_id) {
+					const char *wad = g_light_entities.wadlist;
+					for (; *wad;) {
+						const char *const wad_end = Q_strchr(wad, ';');
+						tex_id = lookupTextureF("%.*s/%s.mip", wad_end - wad, wad, texture_name);
+						if (tex_id)
+							break;
+						wad = wad_end + 1;
+					}
+				}
+
+				if (tex_id) {
+					vk_emissive_texture_t *const etex = g_lights.map.emissive_textures + tex_id;
+					ASSERT(tex_id < MAX_TEXTURES);
+
+					etex->emissive[0] = r;
+					etex->emissive[1] = g;
+					etex->emissive[2] = b;
+					etex->set = enabled;
+
+					// See DIRECT_SCALE in qrad/lightmap.c
+					VectorScale(etex->emissive, 0.1f, etex->emissive);
+
+					if (!enabled)
+						gEngine.Con_Reportf("rad entry %s disabled due to zero intensity\n", name);
+				}
+			}
+		}
+
+		if (!line_end)
+			break;
+
+		data = line_end + 1;
+	}
+
+	Mem_Free(buffer);
+}
 
 static void leafAccumPrepare( void ) {
 	memset(&g_lights_bsp.accum, 0, sizeof(g_lights_bsp.accum));
