@@ -10,9 +10,9 @@
 #define MAX_BUFFER_INDICES (MAX_BUFFER_VERTICES * 3)
 
 // indexed by uint8_t
-#define MAX_SURFACE_LIGHTS 255
+#define MAX_SURFACE_LIGHTS 256
 // indexed by uint8_t
-#define MAX_POINT_LIGHTS 255
+#define MAX_POINT_LIGHTS 256
 
 // indexed by uint8_t
 #define MAX_VISIBLE_POINT_LIGHTS 31

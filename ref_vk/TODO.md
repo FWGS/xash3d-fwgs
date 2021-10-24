@@ -1,12 +1,14 @@
 ## 2021-10-24 E155
 - [ ] rtx: static lights
 	- [x] point lights
-	- [ ] surface lights
+	- [x] surface lights
+	- [ ] remove surface visibility cache
 - [ ] rtx: remove lbsp
 - [ ] rtx: rename point lights to lampochki
 - [ ] rtx: move entity parsing to its own module
 
 # Next
+- [ ] rtx: rename emissive surface to surface lights
 - [ ] rtx: configuration that includes texture name -> pbr params mapping, etc. Global, per-map, ...
 - [ ] rtx: better light culling: normal, bsp visibility, light volumes and intensity, sort by intensity, etc
 - [ ] rtx: simple convolution denoise (bilateral?)

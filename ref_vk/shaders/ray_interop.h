@@ -31,6 +31,7 @@ struct Kusok {
 	// Material
 	uint texture;
 
+	// TODO the color is per-model, not per-kusok
 	vec4 color;
 
 	vec3 emissive;
@@ -50,6 +51,8 @@ struct PointLight {
 struct EmissiveKusok {
 	uint kusok_index;
 	PAD(3)
+	vec3 emissive;
+	PAD(1)
 	vec4 tx_row_x, tx_row_y, tx_row_z;
 };
 

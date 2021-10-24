@@ -249,7 +249,6 @@ vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 		const EmissiveKusok ek = lights.kusochki[index_into_emissive_kusochki];
 		const uint emissive_kusok_index = lights.kusochki[index_into_emissive_kusochki].kusok_index;
 		const Kusok ekusok = kusochki[emissive_kusok_index];
-		const vec3 emissive = ekusok.emissive;
 
 		// TODO streamline matrices layouts
 		const mat4x3 emissive_transform = mat4x3(
@@ -265,7 +264,7 @@ vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 			continue;
 
 		const uint triangle_index = rand_range(ekusok.triangles);
-		C += sampling_light_scale * sampleSurfaceTriangle(throughput * payload.base_color * emissive, view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
+		C += sampling_light_scale * sampleSurfaceTriangle(throughput * payload.base_color * ek.emissive, view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
 	} // for all emissive kusochki
 
 	C += computePointLights(cluster_index, throughput, view_dir, material);

@@ -142,6 +142,9 @@ void R_NewMap( void )
 		}
 	}
 
+	// After we've loaded map brush model, we can proceed with loading static surface lights
+	VK_LightsLoadMapStaticLights();
+
 	if (vk_core.rtx)
 	{
 		const VkSubmitInfo subinfo = {

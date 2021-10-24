@@ -669,8 +669,12 @@ static void updateLights( void )
 		ASSERT(g_lights.num_emissive_surfaces <= MAX_EMISSIVE_KUSOCHKI);
 		lights->num_kusochki = g_lights.num_emissive_surfaces;
 		for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
-			lights->kusochki[i].kusok_index = g_lights.emissive_surfaces[i].kusok_index;
-			Matrix3x4_Copy(lights->kusochki[i].tx_row_x, g_lights.emissive_surfaces[i].transform);
+			const vk_emissive_surface_t *const src_esurf = g_lights.emissive_surfaces + i;
+			struct EmissiveKusok *const dst_ekusok = lights->kusochki + i;
+
+			dst_ekusok->kusok_index = src_esurf->kusok_index;
+			Matrix3x4_Copy(dst_ekusok->tx_row_x, src_esurf->transform);
+			VectorCopy(src_esurf->emissive, dst_ekusok->emissive);
 		}
 
 		lights->num_point_lights = g_lights.num_point_lights;

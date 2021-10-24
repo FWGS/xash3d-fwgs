@@ -866,8 +866,6 @@ void VK_LightsNewMap( void ) {
 	clusterBitMapInit();
 
 	prepareSurfacesLeafVisibilityCache();
-
-	VK_LightsLoadMapStaticLights();
 }
 
 void VK_LightsFrameInit( void ) {
@@ -1232,6 +1230,8 @@ static void processStaticPointLights( void ) {
 void VK_LightsLoadMapStaticLights( void ) {
 	const model_t *map = gEngine.pfnGetModelByIndex( 1 );
 
+	//debug_dump_lights.enabled = true;
+
 	// Clear static lights counts
 	{
 		g_lights.num_emissive_surfaces = g_lights.num_static.emissive_surfaces = 0;
@@ -1261,7 +1261,20 @@ void VK_LightsLoadMapStaticLights( void ) {
 		loadRadData( map, "%.*s.rad", name_len, map->name );
 	}
 
-	// FIXME load static map model
+	// Load static map model
+	{
+		matrix3x4 xform;
+		Matrix3x4_LoadIdentity(xform);
+		const vk_brush_model_t *const bmodel = map->cache.data;
+		ASSERT(bmodel);
+
+		for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
+			const vk_render_geometry_t *geom = bmodel->render_model.geometries + i;
+			if (!VK_LightsAddEmissiveSurface( geom, &xform, true )) {
+				// TODO how to differentiate between this and non-emissive gEngine.Con_Printf(S_ERROR "Ran out of surface light slots, geom %d of %d\n", i, bmodel->render_model.num_geometries);
+			}
+		}
+	}
 
 	// Fix static counts
 	{
