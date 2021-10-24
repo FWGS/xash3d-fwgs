@@ -1,6 +1,9 @@
 #include "vk_common.h"
 #include "vk_mapents.h"
 
+#include "eiface.h" // ARRAYSIZE
+#include "xash3d_mathlib.h"
+
 xvk_map_entities_t g_map_entities;
 
 static unsigned parseEntPropWadList(const char* value, string *out, unsigned bit) {

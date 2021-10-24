@@ -1,8 +1,5 @@
 #pragma once
-
-#include "const.h" // required for mod_local.h
-#include "mod_local.h"
-#include "xash3d_mathlib.h"
+#include "xash3d_types.h"
 
 #define ENT_PROP_LIST(X) \
 	X(0, vec3_t, origin, Vec3) \
@@ -54,7 +51,7 @@ typedef struct {
 	float stopdot, stopdot2;
 	//char pattern[64];
 	//int dark;
-	
+
 	string target_entity;
 } vk_light_entity_t;
 
