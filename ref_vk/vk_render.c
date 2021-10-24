@@ -808,7 +808,7 @@ void VK_RenderModelDynamicBegin( int render_mode, const char *debug_name_fmt, ..
 void VK_RenderModelDynamicAddGeometry( const vk_render_geometry_t *geom ) {
 	ASSERT(g_dynamic_model.model.geometries);
 	if (g_dynamic_model.model.num_geometries == MAX_DYNAMIC_GEOMETRY) {
-		gEngine.Con_Printf(S_ERROR "Ran out of dynamic model geometry slots for model %s\n", g_dynamic_model.model.debug_name);
+		ERROR_THROTTLED(10, "Ran out of dynamic model geometry slots for model %s", g_dynamic_model.model.debug_name);
 		return;
 	}
 
