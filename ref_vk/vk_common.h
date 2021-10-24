@@ -32,6 +32,18 @@
 		++called; \
 	} while(0)
 
+#define PRINT_THROTTLED(delay, prefix, msg, ...) do { \
+		static int called = 0; \
+		static double next_message_time = 0.; \
+		if (gpGlobals->realtime > next_message_time) { \
+			gEngine.Con_Printf( prefix "(x%d) " msg "\n", called, ##__VA_ARGS__ ); \
+			next_message_time = gpGlobals->realtime + delay; \
+		} \
+		++called; \
+	} while(0)
+
+#define ERROR_THROTTLED(delay, msg, ...) PRINT_THROTTLED(delay, S_ERROR, msg, ##__VA_ARGS__)
+
 #define ALIGN_UP(ptr, align) ((((ptr) + (align) - 1) / (align)) * (align))
 
 extern ref_api_t gEngine;

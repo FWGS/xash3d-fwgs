@@ -2,6 +2,7 @@
 #include "vk_textures.h"
 #include "vk_brush.h"
 #include "vk_cvar.h"
+#include "vk_common.h"
 #include "profiler.h"
 
 #include "mod_local.h"
@@ -1029,7 +1030,7 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 						continue;
 
 					if (!addSurfaceLightToCell(cell_index, g_lights.num_emissive_surfaces)) {
-						gEngine.Con_Printf(S_ERROR "Cluster %d,%d,%d(%d) ran out of emissive surfaces slots\n",
+						ERROR_THROTTLED(10, "Cluster %d,%d,%d(%d) ran out of emissive surfaces slots",
 							cell[0], cell[1],  cell[2], cell_index);
 					}
 				}
@@ -1069,8 +1070,8 @@ static void addLightIndexToleaf( const mleaf_t *leaf, int index ) {
 
 		if (clusterBitMapCheckOrSet( cell_index )) {
 			if (!addLightToCell(cell_index, index)) {
-				// gEngine.Con_Printf(S_ERROR "Cluster %d,%d,%d(%d) ran out of light slots\n",
-				// 	cell[0], cell[1],  cell[2], cell_index);
+				ERROR_THROTTLED(10, "Cluster %d,%d,%d(%d) ran out of light slots",
+					cell[0], cell[1],  cell[2], cell_index);
 			}
 		}
 	}
@@ -1108,7 +1109,7 @@ static int addPointLight( const vec3_t origin, const vec3_t color, float radius,
 	vk_point_light_t *const plight = g_lights.point_lights + index;
 
 	if (g_lights.num_point_lights >= MAX_POINT_LIGHTS) {
-		gEngine.Con_Printf(S_ERROR "Too many lights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
+		ERROR_THROTTLED(10, "Too many lights, MAX_POINT_LIGHTS=%d", MAX_POINT_LIGHTS);
 		return -1;
 	}
 
@@ -1138,7 +1139,7 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, float hack_a
 	vk_point_light_t *const plight = g_lights.point_lights + index;
 
 	if (g_lights.num_point_lights >= MAX_POINT_LIGHTS) {
-		gEngine.Con_Printf(S_ERROR "Too many lights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS);
+		ERROR_THROTTLED(10, "Too many lights, MAX_POINT_LIGHTS=%d", MAX_POINT_LIGHTS);
 		return -1;
 	}
 
@@ -1294,14 +1295,14 @@ void VK_LightsFrameFinalize( void ) {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 
 	if (g_lights.num_emissive_surfaces > UINT8_MAX) {
-		gEngine.Con_Printf(S_ERROR "Too many emissive surfaces found: %d; some areas will be dark\n", g_lights.num_emissive_surfaces);
+		ERROR_THROTTLED(10, "Too many emissive surfaces found: %d; some areas will be dark", g_lights.num_emissive_surfaces);
 		g_lights.num_emissive_surfaces = UINT8_MAX;
 	}
 
 	/* for (int i = 0; i < MAX_ELIGHTS; ++i) { */
 	/* 	const dlight_t *dlight = gEngine.GetEntityLight(i); */
 	/* 	if (!addDlight(dlight)) { */
-	/* 		gEngine.Con_Printf(S_ERROR "Too many elights, MAX_POINT_LIGHTS=%d\n", MAX_POINT_LIGHTS); */
+	/* 		ERROR_THROTTLED(10,"Too many elights, MAX_POINT_LIGHTS=%d", MAX_POINT_LIGHTS); */
 	/* 		break; */
 	/* 	} */
 	/* } */
