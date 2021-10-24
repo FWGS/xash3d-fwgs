@@ -968,21 +968,9 @@ static void CL_DrawLoadingOrPaused( qboolean paused, float percent )
 
 	if( !paused )
 	{
-		float	step, s2;
-
-		ref.dllFuncs.Color4ub( 128, 128, 128, 255 );
+		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.loadingBar );
-
-		step = (float)width / 100.0f;
-		right = (int)ceil( percent * step );
-		s2 = (float)right / width;
-		width = right;
-
-		ref.dllFuncs.Color4ub( 208, 152, 0, 255 );
-		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
-		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, s2, 1, cls.loadingBar );
-		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 	}
 	else
 	{
