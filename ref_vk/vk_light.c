@@ -1264,9 +1264,9 @@ void VK_LightsLoadMapStaticLights( void ) {
 	// Load static map model
 	{
 		matrix3x4 xform;
-		Matrix3x4_LoadIdentity(xform);
 		const vk_brush_model_t *const bmodel = map->cache.data;
 		ASSERT(bmodel);
+		Matrix3x4_LoadIdentity(xform);
 
 		for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
 			const vk_render_geometry_t *geom = bmodel->render_model.geometries + i;
