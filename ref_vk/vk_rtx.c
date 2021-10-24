@@ -49,7 +49,7 @@ typedef struct PushConstants vk_rtx_push_constants_t;
 
 typedef struct {
 	int min_cell[4], size[3]; // 4th element is padding
-	vk_lights_cell_t cells[MAX_LIGHT_CLUSTERS];
+	struct LightCluster cells[MAX_LIGHT_CLUSTERS];
 } vk_ray_shader_light_grid;
 
 enum {
@@ -651,7 +651,16 @@ static void updateLights( void )
 		ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
 		VectorCopy(g_lights.map.grid_min_cell, grid->min_cell);
 		VectorCopy(g_lights.map.grid_size, grid->size);
-		memcpy(grid->cells, g_lights.cells, g_lights.map.grid_cells * sizeof(vk_lights_cell_t));
+
+		for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+			const vk_lights_cell_t *const src = g_lights.cells + i;
+			struct LightCluster *const dst = grid->cells + i;
+
+			dst->num_point_lights = src->num_point_lights;
+			dst->num_emissive_surfaces = src->num_emissive_surfaces;
+			memcpy(dst->point_lights, src->point_lights, sizeof(uint8_t) * src->num_point_lights);
+			memcpy(dst->emissive_surfaces, src->emissive_surfaces, sizeof(uint8_t) * src->num_emissive_surfaces);
+		}
 	}
 
 	// Upload dynamic emissive kusochki

@@ -1,15 +1,10 @@
-# E149
-- [x] rtx: remove sun
-- [ ] rtx: point lights:
-	- [ ] static lights
-		- [ ] intensity "fix"
-	- [ ] dlights
-	- [ ] elights
-	- [ ] intensity fix for d/elights?
-	- [ ] point light clusters
-	- [ ] bsp:
-		- [ ] leaf culling
-		- [ ] pvs
+## 2021-10-24 E155
+- [ ] rtx: static lights
+	- [x] point lights
+	- [ ] surface lights
+- [ ] rtx: remove lbsp
+- [ ] rtx: rename point lights to lampochki
+- [ ] rtx: move entity parsing to its own module
 
 # Next
 - [ ] rtx: configuration that includes texture name -> pbr params mapping, etc. Global, per-map, ...
@@ -375,3 +370,15 @@
 - [x] rtx: remove additive/refractive flags in favor or probability of ray continuing further instead of bouncing off
 - [x] make a list of all possible materials, categorize them and figure out what to do
 
+# E149
+- [x] rtx: remove sun
+- [x] rtx: point lights:
+	- [x] static lights
+		- [x] intensity "fix"
+	- [x] dlights
+	- [ ] elights
+	- [x] intensity fix for d/elights?
+	- [x] point light clusters
+	- [x] bsp:
+		- [x] leaf culling
+		- [x] pvs

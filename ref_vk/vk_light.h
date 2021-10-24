@@ -17,6 +17,11 @@ typedef struct {
 	uint8_t num_emissive_surfaces;
 	uint8_t point_lights[MAX_VISIBLE_POINT_LIGHTS];
 	uint8_t emissive_surfaces[MAX_VISIBLE_SURFACE_LIGHTS];
+
+	struct {
+		uint8_t point_lights;
+		uint8_t emissive_surfaces;
+	} num_static;
 } vk_lights_cell_t;
 
 typedef struct {
@@ -54,6 +59,11 @@ typedef struct {
 
 	int num_point_lights;
 	vk_point_light_t point_lights[MAX_POINT_LIGHTS];
+
+	struct {
+		int emissive_surfaces;
+		int point_lights;
+	} num_static;
 
 	vk_lights_cell_t cells[MAX_LIGHT_CLUSTERS];
 } vk_lights_t;

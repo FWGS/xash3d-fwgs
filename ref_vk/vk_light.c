@@ -870,30 +870,15 @@ void VK_LightsNewMap( void ) {
 	VK_LightsLoadMapStaticLights();
 }
 
-void VK_LightsLoadMapStaticLights( void ) {
-	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
+void VK_LightsFrameInit( void ) {
+	g_lights.num_emissive_surfaces = g_lights.num_static.emissive_surfaces;
+	g_lights.num_point_lights = g_lights.num_static.point_lights;
 
-	parseStaticLightEntities();
-
-	// Load RAD data based on map name
-	memset(g_lights.map.emissive_textures, 0, sizeof(g_lights.map.emissive_textures));
-	loadRadData( map, "maps/lights.rad" );
-
-	{
-		int name_len = Q_strlen(map->name);
-
-		// Strip ".bsp" suffix
-		if (name_len > 4 && 0 == Q_stricmp(map->name + name_len - 4, ".bsp"))
-			name_len -= 4;
-
-		loadRadData( map, "%.*s.rad", name_len, map->name );
+	for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+		vk_lights_cell_t *const cell = g_lights.cells + i;
+		cell->num_point_lights = cell->num_static.point_lights;
+		cell->num_emissive_surfaces = cell->num_static.emissive_surfaces;
 	}
-}
-
-void VK_LightsFrameInit( void )
-{
-	g_lights.num_emissive_surfaces = 0;
-	memset(g_lights.cells, 0, sizeof(g_lights.cells));
 
 	lbspClear();
 }
@@ -1212,6 +1197,85 @@ static void addDlight( const dlight_t *dlight ) {
 	lbspAddLightByOrigin( LightTypePoint, dlight->origin );
 }
 
+static void processStaticPointLights( void ) {
+	APROF_SCOPE_BEGIN_EARLY(static_lights);
+	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+	ASSERT(world);
+
+	g_lights.num_point_lights = 0;
+	for (int i = 0; i < g_light_entities.num_lights; ++i) {
+		const vk_light_entity_t *le = g_light_entities.lights + i;
+		const float default_radius = 40.f; // FIXME tune
+		const float hack_attenuation = 1e3f; // FIXME tune
+		const float hack_attenuation_spot = 1e2f; // FIXME tune
+		int index;
+
+		switch (le->type) {
+			case LightTypePoint:
+				index = addPointLight(le->origin, le->color, default_radius, hack_attenuation);
+				break;
+
+			case LightTypeSpot:
+			case LightTypeEnvironment:
+				index = addSpotLight(le, default_radius, hack_attenuation_spot, i == g_light_entities.single_environment_index);
+				break;
+		}
+
+		if (index < 0)
+			break;
+
+		lbspAddLightByOrigin( le->type, le->origin );
+	}
+	APROF_SCOPE_END(static_lights);
+}
+
+void VK_LightsLoadMapStaticLights( void ) {
+	const model_t *map = gEngine.pfnGetModelByIndex( 1 );
+
+	// Clear static lights counts
+	{
+		g_lights.num_emissive_surfaces = g_lights.num_static.emissive_surfaces = 0;
+		g_lights.num_point_lights = g_lights.num_static.point_lights = 0;
+
+		for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+			vk_lights_cell_t *const cell = g_lights.cells + i;
+			cell->num_point_lights = cell->num_static.point_lights = 0;
+			cell->num_emissive_surfaces = cell->num_static.emissive_surfaces = 0;
+		}
+	}
+
+	parseStaticLightEntities();
+	processStaticPointLights();
+
+	// Load RAD data based on map name
+	memset(g_lights.map.emissive_textures, 0, sizeof(g_lights.map.emissive_textures));
+	loadRadData( map, "maps/lights.rad" );
+
+	{
+		int name_len = Q_strlen(map->name);
+
+		// Strip ".bsp" suffix
+		if (name_len > 4 && 0 == Q_stricmp(map->name + name_len - 4, ".bsp"))
+			name_len -= 4;
+
+		loadRadData( map, "%.*s.rad", name_len, map->name );
+	}
+
+	// FIXME load static map model
+
+	// Fix static counts
+	{
+		g_lights.num_static.emissive_surfaces = g_lights.num_emissive_surfaces;
+		g_lights.num_static.point_lights = g_lights.num_point_lights;
+
+		for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+			vk_lights_cell_t *const cell = g_lights.cells + i;
+			cell->num_static.point_lights = cell->num_point_lights;
+			cell->num_static.emissive_surfaces = cell->num_emissive_surfaces;
+		}
+	}
+}
+
 void VK_LightsFrameFinalize( void ) {
 	APROF_SCOPE_BEGIN_EARLY(finalize);
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
@@ -1220,35 +1284,6 @@ void VK_LightsFrameFinalize( void ) {
 		gEngine.Con_Printf(S_ERROR "Too many emissive surfaces found: %d; some areas will be dark\n", g_lights.num_emissive_surfaces);
 		g_lights.num_emissive_surfaces = UINT8_MAX;
 	}
-
-	APROF_SCOPE_BEGIN(static_lights);
-	g_lights.num_point_lights = 0;
-	if (world) {
-		for (int i = 0; i < g_light_entities.num_lights; ++i) {
-			const vk_light_entity_t *le = g_light_entities.lights + i;
-			const float default_radius = 40.f; // FIXME tune
-			const float hack_attenuation = 1e3f; // FIXME tune
-			const float hack_attenuation_spot = 1e2f; // FIXME tune
-			int index;
-
-			switch (le->type) {
-				case LightTypePoint:
-					index = addPointLight(le->origin, le->color, default_radius, hack_attenuation);
-					break;
-
-				case LightTypeSpot:
-				case LightTypeEnvironment:
-					index = addSpotLight(le, default_radius, hack_attenuation_spot, i == g_light_entities.single_environment_index);
-					break;
-			}
-
-			if (index < 0)
-				break;
-
-			lbspAddLightByOrigin( le->type, le->origin );
-		}
-	}
-	APROF_SCOPE_END(static_lights);
 
 	/* for (int i = 0; i < MAX_ELIGHTS; ++i) { */
 	/* 	const dlight_t *dlight = gEngine.GetEntityLight(i); */
