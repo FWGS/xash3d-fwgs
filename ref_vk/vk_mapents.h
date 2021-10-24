@@ -15,6 +15,8 @@
 	X(7, float, _cone2, Float) \
 	X(8, int, _sky, Int) \
 	X(9, string, wad, WadList) \
+	X(10, string, targetname, String) \
+	X(11, string, target, String) \
 
 typedef enum {
 	Unknown = 0,
@@ -52,7 +54,16 @@ typedef struct {
 	float stopdot, stopdot2;
 	//char pattern[64];
 	//int dark;
+	
+	string target_entity;
 } vk_light_entity_t;
+
+typedef struct {
+	string targetname;
+	vec3_t origin;
+} xvk_mapent_target_t;
+
+#define MAX_MAPENT_TARGETS 256
 
 typedef struct {
 	int num_lights;
@@ -61,6 +72,9 @@ typedef struct {
 	int single_environment_index;
 
 	string wadlist;
+
+	int num_targets;
+	xvk_mapent_target_t targets[MAX_MAPENT_TARGETS];
 } xvk_map_entities_t;
 
 extern xvk_map_entities_t g_map_entities;

@@ -46,6 +46,15 @@ static unsigned parseEntPropInt(const char* value, int *out, unsigned bit) {
 	return (1 == sscanf(value, "%d", out)) ? bit : 0;
 }
 
+static unsigned parseEntPropString(const char* value, string *out, unsigned bit) {
+	const int len = Q_strlen(value);
+	if (len >= sizeof(string))
+		gEngine.Con_Printf(S_ERROR, "Map entity value '%s' is too long, max length is %d\n",
+			value, sizeof(string));
+	Q_strncpy(*out, value, sizeof(*out));
+	return bit;
+}
+
 static unsigned parseEntPropVec3(const char* value, vec3_t *out, unsigned bit) {
 	return (3 == sscanf(value, "%f %f %f", &(*out)[0], &(*out)[1], &(*out)[2])) ? bit : 0;
 }
@@ -175,7 +184,8 @@ static void addLightEntity( const entity_props_t *props, unsigned have_fields ) 
 			break;
 	}
 
-	// TODO target entity support
+	if (have_fields & Field_target)
+		Q_strcpy(le->target_entity, props->target);
 
 	if ((have_fields & expected_fields) != expected_fields) {
 		gEngine.Con_Printf(S_ERROR "Missing some fields for light entity\n");
@@ -208,6 +218,33 @@ static void addLightEntity( const entity_props_t *props, unsigned have_fields ) 
 	g_map_entities.num_lights++;
 }
 
+static void addTargetEntity( const entity_props_t *props ) {
+	xvk_mapent_target_t *target = g_map_entities.targets + g_map_entities.num_targets;
+
+	gEngine.Con_Reportf("Adding target entity %s at (%f, %f, %f)\n",
+		props->targetname, props->origin[0], props->origin[1], props->origin[2]);
+
+	if (g_map_entities.num_targets == MAX_MAPENT_TARGETS) {
+		gEngine.Con_Printf(S_ERROR "Too many map target entities\n");
+		return;
+	}
+
+	Q_strcpy(target->targetname, props->targetname);
+	VectorCopy(props->origin, target->origin);
+
+	++g_map_entities.num_targets;
+}
+
+const xvk_mapent_target_t *findTargetByName(const char *name) {
+	for (int i = 0; i < g_map_entities.num_targets; ++i) {
+		const xvk_mapent_target_t *target = g_map_entities.targets + i;
+		if (Q_strcmp(name, target->targetname) == 0)
+			return target;
+	}
+
+	return NULL;
+}
+
 static void readWorldspawn( const entity_props_t *props ) {
 	Q_strcpy(g_map_entities.wadlist, props->wad);
 }
@@ -220,6 +257,7 @@ void XVK_ParseMapEntities( void ) {
 
 	ASSERT(map);
 
+	g_map_entities.num_targets = 0;
 	g_map_entities.num_lights = 0;
 	g_map_entities.single_environment_index = NoEnvironmentLights;
 
@@ -239,6 +277,9 @@ void XVK_ParseMapEntities( void ) {
 			values = (entity_props_t){0};
 			continue;
 		} else if (key[0] == '}') {
+			const int target_fields = Field_targetname | Field_origin;
+			if ((have_fields & target_fields) == target_fields)
+				addTargetEntity( &values );
 			switch (values.classname) {
 				case Light:
 				case LightSpot:
@@ -275,5 +316,29 @@ void XVK_ParseMapEntities( void ) {
 			//gEngine.Con_Reportf("Unknown field %s with value %s\n", key, value);
 		}
 #undef CHECK_FIELD
+	}
+
+	// Patch spotlight directions based on target entities
+	for (int i = 0; i < g_map_entities.num_lights; ++i) {
+		vk_light_entity_t *const light = g_map_entities.lights + i;
+		const xvk_mapent_target_t *target;
+
+		if (light->type != LightSpot)
+			continue;
+
+		if (light->target_entity[0] == '\0')
+			continue;
+
+		target = findTargetByName(light->target_entity);
+		if (!target) {
+			gEngine.Con_Printf(S_ERROR "Couldn't find target entity '%s' for spot light %d\n", light->target_entity, i);
+			continue;
+		}
+
+		VectorSubtract(target->origin, light->origin, light->dir);
+		VectorNormalize(light->dir);
+
+		gEngine.Con_Reportf("Light %d patched direction towards '%s': %f %f %f\n", i, target->targetname,
+			light->dir[0], light->dir[1], light->dir[2]);
 	}
 }
