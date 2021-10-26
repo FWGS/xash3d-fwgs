@@ -643,6 +643,7 @@ char *SV_Localinfo( void );
 void Log_Close( void );
 void Log_Open( void );
 void Log_PrintServerVars( void );
+qboolean Log_isLogging (void)
 qboolean SV_IsServerLogging_f ( sv_client_t *cl );
 
 //
