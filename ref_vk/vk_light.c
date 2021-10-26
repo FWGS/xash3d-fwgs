@@ -2,6 +2,7 @@
 #include "vk_mapents.h"
 #include "vk_textures.h"
 #include "vk_brush.h"
+#include "vk_lightmap.h"
 #include "vk_cvar.h"
 #include "vk_common.h"
 #include "profiler.h"
@@ -770,7 +771,7 @@ static void addPointLightToAllClusters( int index ) {
 	}
 }
 
-static int addPointLight( const vec3_t origin, const vec3_t color, float radius, float hack_attenuation ) {
+static int addPointLight( const vec3_t origin, const vec3_t color, float radius, int lightstyle, float hack_attenuation ) {
 	const int index = g_lights.num_point_lights;
 	vk_point_light_t *const plight = g_lights.point_lights + index;
 
@@ -789,7 +790,9 @@ static int addPointLight( const vec3_t origin, const vec3_t color, float radius,
 	VectorCopy(origin, plight->origin);
 	plight->radius = radius;
 
-	VectorScale(color, hack_attenuation, plight->color);
+	VectorScale(color, hack_attenuation, plight->base_color);
+	VectorCopy(plight->base_color, plight->color);
+	plight->lightstyle = lightstyle;
 
 	// Omnidirectional light
 	plight->stopdot = plight->stopdot2 = -1.f;
@@ -800,7 +803,7 @@ static int addPointLight( const vec3_t origin, const vec3_t color, float radius,
 	return index;
 }
 
-static int addSpotLight( const vk_light_entity_t *le, float radius, float hack_attenuation, qboolean all_clusters ) {
+static int addSpotLight( const vk_light_entity_t *le, float radius, int lightstyle, float hack_attenuation, qboolean all_clusters ) {
 	const int index = g_lights.num_point_lights;
 	vk_point_light_t *const plight = g_lights.point_lights + index;
 
@@ -821,7 +824,9 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, float hack_a
 	VectorCopy(le->origin, plight->origin);
 	plight->radius = radius;
 
-	VectorScale(le->color, hack_attenuation, plight->color);
+	VectorScale(le->color, hack_attenuation, plight->base_color);
+	VectorCopy(plight->base_color, plight->color);
+	plight->lightstyle = lightstyle;
 
 	VectorCopy(le->dir, plight->dir);
 	plight->stopdot = le->stopdot;
@@ -853,7 +858,7 @@ static void addDlight( const dlight_t *dlight ) {
 		dlight->color.g * scaler,
 		dlight->color.b * scaler);
 
-	index = addPointLight(dlight->origin, color, dlight->radius, 1e5f);
+	index = addPointLight(dlight->origin, color, dlight->radius, -1, 1e5f);
 	if (index < 0)
 		return;
 
@@ -875,12 +880,12 @@ static void processStaticPointLights( void ) {
 
 		switch (le->type) {
 			case LightTypePoint:
-				index = addPointLight(le->origin, le->color, default_radius, hack_attenuation);
+				index = addPointLight(le->origin, le->color, default_radius, le->style, hack_attenuation);
 				break;
 
 			case LightTypeSpot:
 			case LightTypeEnvironment:
-				index = addSpotLight(le, default_radius, hack_attenuation_spot, i == g_map_entities.single_environment_index);
+				index = addSpotLight(le, default_radius, le->style, hack_attenuation_spot, i == g_map_entities.single_environment_index);
 				break;
 		}
 
@@ -970,6 +975,17 @@ void VK_LightsFrameFinalize( void ) {
 	/* 		break; */
 	/* 	} */
 	/* } */
+
+	for (int i = 0; i < g_lights.num_point_lights; ++i) {
+		vk_point_light_t *const light = g_lights.point_lights + i;
+		if (light->lightstyle < 0 || light->lightstyle >= MAX_LIGHTSTYLES)
+			continue;
+
+		{
+			const float scale = g_lightmap.lightstylevalue[light->lightstyle] / 255.f;
+			VectorScale(light->base_color, scale, light->color);
+		}
+	}
 
 	APROF_SCOPE_BEGIN(dlights);
 	for (int i = 0; i < MAX_DLIGHTS; ++i) {

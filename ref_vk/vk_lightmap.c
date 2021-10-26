@@ -16,11 +16,11 @@ typedef struct
 	//msurface_t	*dynamic_surfaces;
 	//msurface_t	*lightmap_surfaces[MAX_LIGHTMAPS];
 	byte		lightmap_buffer[BLOCK_SIZE_MAX*BLOCK_SIZE_MAX*4];
-
-	int		lightstylevalue[MAX_LIGHTSTYLES];	// value 0 - 65536
 } gllightmapstate_t;
 
 static gllightmapstate_t gl_lms;
+
+xvk_lightmap_state_t g_lightmap;
 
 // TODO this doesn't really need to be this huge
 static uint		r_blocklights[BLOCK_SIZE_MAX*BLOCK_SIZE_MAX*3]; // This is just a temp HDR-ish buffer for lightmap generation
@@ -150,7 +150,7 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 	// add all the lightmaps
 	for( map = 0; map < MAXLIGHTMAPS && surf->styles[map] != 255 && lm; map++ )
 	{
-		const uint scale = gl_lms.lightstylevalue[surf->styles[map]];
+		const uint scale = g_lightmap.lightstylevalue[surf->styles[map]];
 		for( i = 0, bl = r_blocklights; i < size; i++, bl += 3, lm++ )
 		{
 			bl[0] += gEngine.LightToTexGamma( lm->r ) * scale;
@@ -253,7 +253,7 @@ void VK_RunLightStyles( void )
 		ls = gEngine.GetLightStyle( i );
 		if( !world->lightdata )
 		{
-			gl_lms.lightstylevalue[i] = 256 * 256;
+			g_lightmap.lightstylevalue[i] = 256 * 256;
 			continue;
 		}
 
@@ -267,18 +267,18 @@ void VK_RunLightStyles( void )
 
 		if( !ls->length )
 		{
-			gl_lms.lightstylevalue[i] = 256 * scale;
+			g_lightmap.lightstylevalue[i] = 256 * scale;
 			continue;
 		}
 		else if( ls->length == 1 )
 		{
 			// single length style so don't bother interpolating
-			gl_lms.lightstylevalue[i] = ls->map[0] * 22 * scale;
+			g_lightmap.lightstylevalue[i] = ls->map[0] * 22 * scale;
 			continue;
 		}
 		else if( !ls->interp || !CVAR_TO_BOOL( cl_lightstyle_lerping ))
 		{
-			gl_lms.lightstylevalue[i] = ls->map[flight%ls->length] * 22 * scale;
+			g_lightmap.lightstylevalue[i] = ls->map[flight%ls->length] * 22 * scale;
 			continue;
 		}
 
@@ -291,6 +291,6 @@ void VK_RunLightStyles( void )
 		k = ls->map[clight % ls->length];
 		l += (float)( k * 22.0f ) * lerpfrac;
 
-		gl_lms.lightstylevalue[i] = (int)l * scale;
+		g_lightmap.lightstylevalue[i] = (int)l * scale;
 	}
 }

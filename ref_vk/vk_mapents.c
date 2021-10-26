@@ -205,16 +205,23 @@ static void addLightEntity( const entity_props_t *props, unsigned have_fields ) 
 		VectorCopy(props->_light, le->color);
 	}
 
+	if ( (have_fields & Field_style) != 0) {
+		le->style = props->style;
+	}
+
 	if (le->type != LightEnvironment) {
 		//gEngine.Con_Reportf("Pre scaling: %f %f %f ", values._light[0], values._light[1], values._light[2]);
 		weirdGoldsrcLightScaling(le->color);
 		//gEngine.Con_Reportf("post scaling: %f %f %f\n", values._light[0], values._light[1], values._light[2]);
 	}
 
-	gEngine.Con_Reportf("Added light %d: %s color=(%f %f %f) origin=(%f %f %f) dir=(%f %f %f) stopdot=(%f %f)\n", g_map_entities.num_lights,
+	gEngine.Con_Reportf("Added light %d: %s targetname=%s color=(%f %f %f) origin=(%f %f %f) style=%d dir=(%f %f %f) stopdot=(%f %f)\n",
+		g_map_entities.num_lights,
 		le->type == LightTypeEnvironment ? "environment" : le->type == LightTypeSpot ? "spot" : "point",
+		props->targetname,
 		le->color[0], le->color[1], le->color[2],
 		le->origin[0], le->origin[1], le->origin[2],
+		le->style,
 		le->dir[0], le->dir[1], le->dir[2],
 		le->stopdot, le->stopdot2);
 

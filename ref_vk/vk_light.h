@@ -41,6 +41,9 @@ typedef struct {
 	float stopdot, stopdot2;
 	float radius;
 	int flags;
+
+	int lightstyle;
+	vec3_t base_color;
 } vk_point_light_t;
 
 // TODO spotlight

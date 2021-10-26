@@ -14,6 +14,7 @@
 	X(9, string, wad, WadList) \
 	X(10, string, targetname, String) \
 	X(11, string, target, String) \
+	X(12, int, style, Int) \
 
 typedef enum {
 	Unknown = 0,
@@ -46,11 +47,8 @@ typedef struct {
 	vec3_t color;
 	vec3_t dir;
 
-	//int style;
-	int flags;
+	int style;
 	float stopdot, stopdot2;
-	//char pattern[64];
-	//int dark;
 
 	string target_entity;
 } vk_light_entity_t;
