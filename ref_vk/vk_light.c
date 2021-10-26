@@ -873,9 +873,9 @@ static void processStaticPointLights( void ) {
 	g_lights.num_point_lights = 0;
 	for (int i = 0; i < g_map_entities.num_lights; ++i) {
 		const vk_light_entity_t *le = g_map_entities.lights + i;
-		const float default_radius = 40.f; // FIXME tune
-		const float hack_attenuation = 1e3f; // FIXME tune
-		const float hack_attenuation_spot = 1e2f; // FIXME tune
+		const float default_radius = 50.f; // FIXME tune
+		const float hack_attenuation = 100.f; // FIXME tune
+		const float hack_attenuation_spot = 100.f; // FIXME tune
 		int index;
 
 		switch (le->type) {
