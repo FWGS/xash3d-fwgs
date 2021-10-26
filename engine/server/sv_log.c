@@ -122,6 +122,10 @@ void Log_Printf( const char *fmt, ... )
 	if( mp_logecho.value )
 		Con_Printf( "%s", string );
 
+	// if mp_logfile was just switched on, there's no file. We need to open it.
+	if( mp_logfile.value && !svs.log.file )
+		Log_Open();
+
 	// echo to log file
 	if( svs.log.file && mp_logfile.value )
 		FS_Printf( svs.log.file, "%s", string );
