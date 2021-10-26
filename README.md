@@ -76,6 +76,8 @@ As alternative, you can compile [hlsdk-xash3d](https://github.com/FWGS/hlsdk-xas
 3) Download [extras.pak](https://github.com/FWGS/xash-extras/releases/tag/v0.19.2) and place it to `valve` directory.
 4) Run `xash3d.exe`/`xash3d.sh`/`xash3d` depending on which platform you're using.
 
+Note: on Linux, you may need to create an sh file with the command `LD_LIBRARY_PATH=. ./xash3d`.
+
 For additional info, run Xash3D with `-help` command line key.
 
 ## Contributing
@@ -130,4 +132,5 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 2) Compile: `./waf build`
 3) Install(optional): `./waf install`
 
+Note: if compiling 32-bit on amd64, you may need to supply `export PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig` prior to running configure.   
 
