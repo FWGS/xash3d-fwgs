@@ -26,9 +26,6 @@ void Log_Open( void )
 	const char		*temp;
 	int		i;
 
-	if( !svs.log.active )
-		return;
-
 	if( !mp_logfile.value )
 	{
 		Con_Printf( "Server logging data to console.\n" );
@@ -68,7 +65,7 @@ void Log_Open( void )
 	if( i == 1000 )
 	{
 		Con_Printf( "Unable to open logfiles under %s\nLogging disabled\n", szFileBase );
-		svs.log.active = false;
+		mp_logfile.value = 0;
 		return;
 	}
 
@@ -103,7 +100,7 @@ void Log_Printf( const char *fmt, ... )
 	struct tm	*today;
 	int		len;
 
-	if( !svs.log.active )
+	if( !Log_isLogging() )
 		return;
 
 	time( &ltime );
@@ -121,16 +118,13 @@ void Log_Printf( const char *fmt, ... )
 	if( svs.log.net_log )
 		Netchan_OutOfBandPrint( NS_SERVER, svs.log.net_address, "log %s", string );
 
-	if( svs.log.active && svs.maxclients > 1 )
-	{
-		// echo to server console
-		if( mp_logecho.value )
-			Con_Printf( "%s", string );
+	// echo to server console
+	if( mp_logecho.value )
+		Con_Printf( "%s", string );
 
-		// echo to log file
-		if( svs.log.file && mp_logfile.value )
-			FS_Printf( svs.log.file, "%s", string );
-	}
+	// echo to log file
+	if( svs.log.file && mp_logfile.value )
+		FS_Printf( svs.log.file, "%s", string );
 }
 
 static void Log_PrintServerCvar( const char *var_name, const char *var_value, void *unused2, void *unused3 )
@@ -146,7 +140,7 @@ Log_PrintServerVars
 */
 void Log_PrintServerVars( void )
 {
-	if( !svs.log.active )
+	if( ! Log_isLogging() )
 		return;
 
 	Log_Printf( "Server cvars start\n" );
@@ -154,41 +148,28 @@ void Log_PrintServerVars( void )
 	Log_Printf( "Server cvars end\n" );
 }
 
+
+qboolean Log_isLogging (void)
+{
+	return svs.maxclients > 1 && (mp_logfile.value > 0 || mp_logecho.value > 0);
+}
+
+
 /*
 ====================
-SV_ServerLog_f
+SV_IsServerLogging_f
 
 ====================
 */
-qboolean SV_ServerLog_f( sv_client_t *cl )
+
+qboolean SV_IsServerLogging_f( sv_client_t *cl )
 {
-	if( svs.maxclients <= 1 )
+	if( svs.maxclients <= 1)
 		return false;
 
-	if( Cmd_Argc() != 2 )
-	{
-		SV_ClientPrintf( cl, "usage: log < on|off >\n" );
-
-		if( svs.log.active )
+	if( Log_isLogging () )
 			SV_ClientPrintf( cl, "currently logging\n" );
 		else SV_ClientPrintf( cl, "not currently logging\n" );
-		return true;
-	}
-
-	if( !Q_stricmp( Cmd_Argv( 1 ), "off" ))
-	{
-		if( svs.log.active )
-			Log_Close();
-	}
-	else if( !Q_stricmp( Cmd_Argv( 1 ), "on" ))
-	{
-		svs.log.active = true;
-		Log_Open();
-	}
-	else
-	{
-		SV_ClientPrintf( cl, "log: unknown parameter %s\n", Cmd_Argv( 1 ));
-	}
-
+	
 	return true;
 }

@@ -111,7 +111,6 @@ typedef struct
 
 typedef struct
 {
-	qboolean		active;
 	qboolean		net_log;
 	netadr_t		net_address;
 	file_t		*file;
@@ -644,7 +643,7 @@ char *SV_Localinfo( void );
 void Log_Close( void );
 void Log_Open( void );
 void Log_PrintServerVars( void );
-qboolean SV_ServerLog_f( sv_client_t *cl );
+qboolean SV_IsServerLogging_f ( sv_client_t *cl );
 
 //
 // sv_save.c
