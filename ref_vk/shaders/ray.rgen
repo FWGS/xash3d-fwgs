@@ -290,7 +290,7 @@ void main() {
 		// TODO early exit based on throughput being too small
 
 		const uint flags = 0
-			//| gl_RayFlagsCullFrontFacingTrianglesEXT
+			| gl_RayFlagsCullFrontFacingTrianglesEXT
 			//| gl_RayFlagsOpaqueEXT
 			;
 		const uint sbt_offset = 0;
