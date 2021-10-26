@@ -326,7 +326,7 @@ void XVK_ParseMapEntities( void ) {
 		vk_light_entity_t *const light = g_map_entities.lights + i;
 		const xvk_mapent_target_t *target;
 
-		if (light->type != LightSpot)
+		if (light->type != LightSpot && light->type != LightTypeEnvironment)
 			continue;
 
 		if (light->target_entity[0] == '\0')
