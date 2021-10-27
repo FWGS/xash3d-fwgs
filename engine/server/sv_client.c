@@ -2101,7 +2101,6 @@ ucmd_t ucmds[] =
 { "spawn", SV_Spawn_f },
 { "pause", SV_Pause_f },
 { "noclip", SV_Noclip_f },
-{ "log", SV_ServerLog_f },
 { "setinfo", SV_SetInfo_f },
 { "sendres", SV_SendRes_f },
 { "notarget", SV_Notarget_f },
