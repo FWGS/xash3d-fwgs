@@ -387,6 +387,8 @@ extern	areanode_t	sv_areanodes[];		// AABB dynamic tree
 
 extern convar_t		mp_logecho;
 extern convar_t		mp_logfile;
+extern convar_t		sv_log_onefile;
+extern convar_t		sv_log_singleplayer;
 extern convar_t		sv_unlag;
 extern convar_t		sv_maxunlag;
 extern convar_t		sv_unlagpush;
@@ -644,7 +646,8 @@ char *SV_Localinfo( void );
 void Log_Close( void );
 void Log_Open( void );
 void Log_PrintServerVars( void );
-qboolean SV_ServerLog_f( sv_client_t *cl );
+void SV_ServerLog_f( void );
+void SV_SetLogAddress_f( void );
 
 //
 // sv_save.c

@@ -29,6 +29,9 @@ void Log_Open( void )
 	if( !svs.log.active )
 		return;
 
+	if( sv_log_onefile.value && svs.log.file )
+		return;
+
 	if( !mp_logfile.value )
 	{
 		Con_Printf( "Server logging data to console.\n" );
@@ -121,7 +124,7 @@ void Log_Printf( const char *fmt, ... )
 	if( svs.log.net_log )
 		Netchan_OutOfBandPrint( NS_SERVER, svs.log.net_address, "log %s", string );
 
-	if( svs.log.active && svs.maxclients > 1 )
+	if( svs.log.active && ( svs.maxclients > 1 || sv_log_singleplayer.value != 0.0f ))
 	{
 		// echo to server console
 		if( mp_logecho.value )
@@ -156,23 +159,67 @@ void Log_PrintServerVars( void )
 
 /*
 ====================
+SV_SetLogAddress_f
+
+====================
+*/
+void SV_SetLogAddress_f( void )
+{
+	const char *s;
+	int port;
+	string addr;
+
+	if( Cmd_Argc() != 3 )
+	{
+		Con_Printf( "logaddress: usage\nlogaddress ip port\n" );
+
+		if( svs.log.active )
+			Con_Printf( "current: %s\n", NET_AdrToString( svs.log.net_address ));
+
+		return;
+	}
+
+	port = Q_atoi( Cmd_Argv( 2 ));
+	if( !port )
+	{
+		Con_Printf( "logaddress: must specify a valid port\n" );
+		return;
+	}
+
+	s = Cmd_Argv( 1 );
+	if( !COM_CheckString( s ))
+	{
+		Con_Printf( "logaddress: unparseable address\n" );
+		return;
+	}
+
+	Q_snprintf( addr, sizeof( addr ), "%s:%i", s, port );
+	if( !NET_StringToAdr( addr, &svs.log.net_address ))
+	{
+		Con_Printf( "logaddress: unable to resolve %s\n", addr );
+		return;
+	}
+
+	svs.log.net_log = true;
+	Con_Printf( "logaddress: %s\n", NET_AdrToString( svs.log.net_address ));
+}
+
+/*
+====================
 SV_ServerLog_f
 
 ====================
 */
-qboolean SV_ServerLog_f( sv_client_t *cl )
+void SV_ServerLog_f( void )
 {
-	if( svs.maxclients <= 1 )
-		return false;
-
 	if( Cmd_Argc() != 2 )
 	{
-		SV_ClientPrintf( cl, "usage: log < on|off >\n" );
+		Con_Printf("usage: log < on|off >\n" );
 
 		if( svs.log.active )
-			SV_ClientPrintf( cl, "currently logging\n" );
-		else SV_ClientPrintf( cl, "not currently logging\n" );
-		return true;
+			Con_Printf( "currently logging\n" );
+		else Con_Printf( "not currently logging\n" );
+		return;
 	}
 
 	if( !Q_stricmp( Cmd_Argv( 1 ), "off" ))
@@ -187,8 +234,8 @@ qboolean SV_ServerLog_f( sv_client_t *cl )
 	}
 	else
 	{
-		SV_ClientPrintf( cl, "log: unknown parameter %s\n", Cmd_Argv( 1 ));
+		Con_Printf( "log: unknown parameter %s\n", Cmd_Argv( 1 ));
 	}
 
-	return true;
+	return;
 }
