@@ -763,6 +763,8 @@ void R_VkShutdown( void )
 	vkDestroySurfaceKHR(vk_core.instance, vk_core.surface.surface, NULL);
 	vkDestroyInstance(vk_core.instance, NULL);
 	Mem_FreePool(&vk_core.pool);
+
+	gEngine.R_Free_Video();
 }
 
 VkShaderModule loadShader(const char *filename) {
