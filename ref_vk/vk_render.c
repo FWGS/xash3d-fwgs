@@ -721,14 +721,14 @@ void VK_RenderModelDestroy( vk_render_model_t* model ) {
 	}
 }
 
-void VK_RenderModelDraw( vk_render_model_t* model ) {
+void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 	int current_texture = -1;
 	int element_count = 0;
 	int index_offset = -1;
 	int vertex_offset = 0;
 
 	if (g_render_state.current_frame_is_ray_traced) {
-		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model, g_render_state.dirty_uniform_data.color);
+		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model, g_render_state.dirty_uniform_data.color, ent ? ent->curstate.rendercolor : (color24){255,255,255});
 		return;
 	}
 
@@ -820,7 +820,7 @@ void VK_RenderModelDynamicCommit( void ) {
 	if (g_dynamic_model.model.num_geometries > 0) {
 		g_dynamic_model.model.dynamic = true;
 		VK_RenderModelInit( &g_dynamic_model.model );
-		VK_RenderModelDraw( &g_dynamic_model.model );
+		VK_RenderModelDraw( NULL, &g_dynamic_model.model );
 	}
 
 	g_dynamic_model.model.debug_name[0] = '\0';

@@ -278,7 +278,36 @@ void VK_RayModelDestroy( struct vk_ray_model_s *model ) {
 	}
 }
 
-void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row, const vec4_t color) {
+// TODO move this to some common place with traditional renderer
+static void computeConveyorSpeed(const color24 rendercolor, int tex_index, vec2_t speed) {
+	float sy, cy;
+	float flConveyorSpeed = 0.0f;
+	float flRate, flAngle;
+	vk_texture_t *texture = findTexture( tex_index );
+	//gl_texture_t	*texture;
+
+	// FIXME
+	/* if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && RI.currententity == gEngfuncs.GetEntityByIndex( 0 ) ) */
+	/* { */
+	/* 	// same as doom speed */
+	/* 	flConveyorSpeed = -35.0f; */
+	/* } */
+	/* else */
+	{
+		flConveyorSpeed = (rendercolor.g<<8|rendercolor.b) / 16.0f;
+		if( rendercolor.r ) flConveyorSpeed = -flConveyorSpeed;
+	}
+	//texture = R_GetTexture( glState.currentTextures[glState.activeTMU] );
+
+	flRate = fabs( flConveyorSpeed ) / (float)texture->width;
+	flAngle = ( flConveyorSpeed >= 0 ) ? 180 : 0;
+
+	SinCos( flAngle * ( M_PI_F / 180.0f ), &sy, &cy );
+	speed[0] = cy * flRate;
+	speed[1] = sy * flRate;
+}
+
+void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row, const vec4_t color, color24 entcolor) {
 	qboolean reflective = false;
 	qboolean force_emissive = false;
 	qboolean additive = false;
@@ -362,6 +391,12 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 			VectorCopy(esurf->emissive, kusok->emissive);
 		} else if (force_emissive) {
 			VectorSet(kusok->emissive, 1.f, 1.f, 1.f);
+		}
+
+		if (geom->material == kXVkMaterialConveyor) {
+			computeConveyorSpeed( entcolor, geom->texture, kusok->uv_speed );
+		} else {
+			kusok->uv_speed[0] = kusok->uv_speed[1] = 0.f;
 		}
 	}
 }

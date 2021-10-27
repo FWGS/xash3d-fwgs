@@ -10,6 +10,10 @@ layout (set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
 
+layout (push_constant) uniform PC_ {
+	PushConstants push_constants;
+};
+
 hitAttributeEXT vec2 bary;
 
 float hash(float f) { return fract(sin(f)*53478.4327); }
@@ -76,7 +80,7 @@ void main() {
         vertices[vi2].pos,
         vertices[vi3].pos,
     };
-    const vec2 texture_uv = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y;
+    const vec2 texture_uv = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y + push_constants.time * kusochki[kusok_index].uv_speed;
     const uint tex_index = kusochki[kusok_index].texture;
 
     const float ray_cone_width = payload.pixel_cone_spread_angle * payload.t_offset;

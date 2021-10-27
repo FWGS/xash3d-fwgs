@@ -67,11 +67,13 @@ typedef struct vk_vertex_s {
 // For some things we don't even have that. E.g. water and sky surfaces are weird.
 // Lets just assigne water and sky materials to those geometries (and probably completely
 // disregard render_mode, as it should be irrelevant).
+// FIXME these should be bits, not enums
 typedef enum {
 	kXVkMaterialRegular = 0,
 	kXVkMaterialWater,
 	kXVkMaterialSky,
 	kXVkMaterialEmissive,
+	kXVkMaterialConveyor,
 } XVkMaterialType;
 
 typedef struct  vk_render_geometry_s {
@@ -120,7 +122,7 @@ typedef struct vk_render_model_s {
 
 qboolean VK_RenderModelInit( vk_render_model_t* model );
 void VK_RenderModelDestroy( vk_render_model_t* model );
-void VK_RenderModelDraw( vk_render_model_t* model );
+void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model );
 
 void VK_RenderFrameBegin( void );
 

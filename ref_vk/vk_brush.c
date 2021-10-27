@@ -352,7 +352,7 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode )
 	}
 
 	bmodel->render_model.render_mode = render_mode;
-	VK_RenderModelDraw(&bmodel->render_model);
+	VK_RenderModelDraw(ent, &bmodel->render_model);
 }
 
 static qboolean renderableSurface( const msurface_t *surf, int i ) {
@@ -375,7 +375,7 @@ static qboolean renderableSurface( const msurface_t *surf, int i ) {
 // 	}
 
 	//if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) ) {
-	if( surf->flags & ( SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) ) {
+	if( surf->flags & ( SURF_DRAWTURB | SURF_DRAWTURB_QUADS ) ) {
 	//if( surf->flags & ( SURF_DRAWSKY | SURF_CONVEYOR ) ) {
 		// FIXME don't print this on second sort-by-texture pass
 		//gEngine.Con_Reportf("Skipping surface %d because of flags %08x\n", i, surf->flags);
@@ -487,6 +487,10 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			} else {
 				model_geometry->material = kXVkMaterialRegular;
 				VK_CreateSurfaceLightmap( surf, mod );
+			}
+
+			if (FBitSet( surf->flags, SURF_CONVEYOR )) {
+				model_geometry->material = kXVkMaterialConveyor;
 			}
 
 			for( int k = 0; k < surf->numedges; k++ )

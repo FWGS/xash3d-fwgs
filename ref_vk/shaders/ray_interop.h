@@ -2,6 +2,7 @@
 
 #ifndef GLSL
 #define uint uint32_t
+#define vec2 vec2_t
 #define vec3 vec3_t
 #define vec4 vec4_t
 #define TOKENPASTE(x, y) x ## y
@@ -38,6 +39,9 @@ struct Kusok {
 	//PAD(1)
 
 	float roughness;
+
+	vec2 uv_speed; // for conveyors
+	PAD(2)
 };
 
 struct PointLight {
@@ -72,6 +76,7 @@ struct LightCluster {
 };
 
 struct PushConstants {
+	float time;
 	uint random_seed;
 	int bounces;
 	float prev_frame_blend_factor;
