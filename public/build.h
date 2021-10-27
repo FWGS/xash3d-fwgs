@@ -52,22 +52,28 @@ For more information, please refer to <http://unlicense.org/>
 #undef XASH_ARMv6
 #undef XASH_ARMv7
 #undef XASH_ARMv8
-//#undef XASH_BIG_ENDIAN
+#undef XASH_BIG_ENDIAN
 #undef XASH_BSD
+#undef XASH_DOS4GW
 #undef XASH_E2K
 #undef XASH_EMSCRIPTEN
 #undef XASH_FREEBSD
+#undef XASH_HAIKU
 #undef XASH_IOS
 #undef XASH_JS
 #undef XASH_LINUX
-//#undef XASH_LITTLE_ENDIAN
+#undef XASH_LITTLE_ENDIAN
 #undef XASH_MINGW
 #undef XASH_MIPS
 #undef XASH_MOBILE_PLATFORM
 #undef XASH_MSVC
 #undef XASH_NETBSD
 #undef XASH_OPENBSD
-#undef XASH_HAIKU
+#undef XASH_POSIX
+#undef XASH_RISCV
+#undef XASH_RISCV_DOUBLEFP
+#undef XASH_RISCV_SINGLEFP
+#undef XASH_RISCV_SOFTFP
 #undef XASH_WIN32
 #undef XASH_WIN64
 #undef XASH_X86
@@ -133,8 +139,12 @@ For more information, please refer to <http://unlicense.org/>
 //
 //================================================================
 
-#if defined(XASH_LITTLE_ENDIAN) && defined(XASH_BIG_ENDIAN)
-	#error "Both XASH_LITTLE_ENDIAN and XASH_BIG_ENDIAN are defined"
+#if defined(XASH_FORCE_LITTLE_ENDIAN) && defined(XASH_FORCE_BIG_ENDIAN)
+	#error "Both XASH_FORCE_LITTLE_ENDIAN and XASH_FORCE_BIG_ENDIAN are defined"
+#elif defined(XASH_FORCE_LITTLE_ENDIAN)
+	#define XASH_LITTLE_ENDIAN 1
+#elif defined(XASH_FORCE_BIG_ENDIAN)
+	#define XASH_BIG_ENDIAN 1
 #endif
 
 #if !defined(XASH_LITTLE_ENDIAN) && !defined(XASH_BIG_ENDIAN)
@@ -207,6 +217,25 @@ For more information, please refer to <http://unlicense.org/>
 #elif defined __e2k__
 	#define XASH_64BIT 1
 	#define XASH_E2K 1
+#elif defined __riscv
+	#define XASH_RISCV 1
+	#if __riscv_xlen == 64
+		#define XASH_64BIT
+	#elif __riscv_xlen == 32
+		// ...
+	#else
+		#error "Unknown RISC-V ABI"
+	#endif
+
+	#if defined __riscv_float_abi_soft
+		#define XASH_RISCV_SOFTFP
+	#elif defined __riscv_float_abi_single
+		#define XASH_RISCV_SINGLEFP
+	#elif defined __riscv_float_abi_double
+		#define XASH_RISCV_DOUBLEFP
+	#else
+		#error "Unknown RISC-V float ABI"
+	#endif
 #else
 	#error "Place your architecture name here! If this is a mistake, try to fix conditions above and report a bug"
 #endif
