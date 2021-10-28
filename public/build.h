@@ -121,7 +121,7 @@ For more information, please refer to <http://unlicense.org/>
 	#define XASH_EMSCRIPTEN 1
 #elif defined __WATCOMC__ && defined __DOS__
 	#define XASH_DOS4GW 1
-	#define XASH_LITTLE_ENDIAN
+	#define XASH_LITTLE_ENDIAN 1
 #elif defined __HAIKU__
 	#define XASH_HAIKU 1
 	#define XASH_POSIX 1
@@ -220,7 +220,7 @@ For more information, please refer to <http://unlicense.org/>
 #elif defined __riscv
 	#define XASH_RISCV 1
 	#if __riscv_xlen == 64
-		#define XASH_64BIT
+		#define XASH_64BIT 1
 	#elif __riscv_xlen == 32
 		// ...
 	#else
@@ -228,11 +228,11 @@ For more information, please refer to <http://unlicense.org/>
 	#endif
 
 	#if defined __riscv_float_abi_soft
-		#define XASH_RISCV_SOFTFP
+		#define XASH_RISCV_SOFTFP 1
 	#elif defined __riscv_float_abi_single
-		#define XASH_RISCV_SINGLEFP
+		#define XASH_RISCV_SINGLEFP 1
 	#elif defined __riscv_float_abi_double
-		#define XASH_RISCV_DOUBLEFP
+		#define XASH_RISCV_DOUBLEFP 1
 	#else
 		#error "Unknown RISC-V float ABI"
 	#endif
