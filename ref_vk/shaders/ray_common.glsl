@@ -1,5 +1,9 @@
 #extension GL_EXT_ray_tracing: require
-struct RayPayload {
+
+#define PAYLOAD_LOCATION_OPAQUE 0
+#define PAYLOAD_LOCATION_SHADOW 1
+
+struct RayPayloadOpaque {
     float t_offset, pixel_cone_spread_angle;
     vec4 hit_pos_t;
     vec3 normal;
@@ -10,3 +14,8 @@ struct RayPayload {
     float roughness;
     int kusok_index;
 };
+
+struct RayPayloadShadow {
+	bool shadow;
+};
+

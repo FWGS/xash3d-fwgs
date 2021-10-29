@@ -1,8 +1,10 @@
 #version 460 core
 #extension GL_EXT_ray_tracing: require
 
-layout(location = 1) rayPayloadInEXT bool shadow;
+#include "ray_common.glsl"
+
+layout(location = PAYLOAD_LOCATION_SHADOW) rayPayloadInEXT RayPayloadShadow payload_shadow;
 
 void main() {
-    shadow = false;
+    payload_shadow.shadow = false;
 }

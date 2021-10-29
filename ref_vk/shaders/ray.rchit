@@ -8,7 +8,7 @@
 layout (constant_id = 6) const uint MAX_TEXTURES = 4096;
 layout (set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
 
-layout(location = 0) rayPayloadInEXT RayPayload payload;
+layout(location = PAYLOAD_LOCATION_OPAQUE) rayPayloadInEXT RayPayloadOpaque payload;
 
 layout (push_constant) uniform PC_ {
 	PushConstants push_constants;

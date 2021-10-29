@@ -41,11 +41,11 @@ layout (push_constant) uniform PC_ {
 	PushConstants push_constants;
 };
 
-layout(location = 0) rayPayloadEXT RayPayload payload;
-layout(location = 1) rayPayloadEXT bool shadow;
+layout(location = PAYLOAD_LOCATION_OPAQUE) rayPayloadEXT RayPayloadOpaque payload_opaque;
+layout(location = PAYLOAD_LOCATION_SHADOW) rayPayloadEXT RayPayloadShadow payload_shadow;
 
 bool shadowed(vec3 pos, vec3 dir, float dist) {
-	shadow = true;
+	payload_shadow.shadow = true;
 	const uint flags =  0
 		//| gl_RayFlagsCullFrontFacingTrianglesEXT
 		//| gl_RayFlagsOpaqueEXT
@@ -56,6 +56,8 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 		flags,
 		GEOMETRY_BIT_OPAQUE,
 		0, 0, SHADER_OFFSET_MISS_SHADOW,
+		pos, 0., dir, dist - shadow_offset_fudge, PAYLOAD_LOCATION_SHADOW);
+	return payload_shadow.shadow;
 }
 
 const float color_factor = 1000.;
@@ -75,8 +77,8 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 	// TODO projected uniform sampling
 	const vec3 sample_pos = mix(mix(v1, v2, rand01()), v3, rand01());
 
-	vec3 light_dir = sample_pos - payload.hit_pos_t.xyz;
-	const float light_dir_normal_dot = dot(light_dir, payload.normal);
+	vec3 light_dir = sample_pos - payload_opaque.hit_pos_t.xyz;
+	const float light_dir_normal_dot = dot(light_dir, payload_opaque.normal);
 	if (light_dir_normal_dot <= 0.)
 #ifdef DEBUG_LIGHT_CULLING
 		return vec3(1., 0., 1.) * color_factor;
@@ -119,7 +121,7 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 	light_dir = normalize(light_dir);
 
 	// TODO sample emissive texture
-	color *= evalCombinedBRDF(payload.normal, light_dir, view_dir, material);
+	color *= evalCombinedBRDF(payload_opaque.normal, light_dir, view_dir, material);
 
 	if (dot(color,color) < color_culling_threshold)
 #ifdef DEBUG_LIGHT_CULLING
@@ -128,7 +130,7 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 		return vec3(0.);
 #endif
 
-	if (shadowed(payload.hit_pos_t.xyz, light_dir, sqrt(light_dist2)))
+	if (shadowed(payload_opaque.hit_pos_t.xyz, light_dir, sqrt(light_dist2)))
 		return vec3(0.);
 
 	//return vec3(color_factor);// color;
@@ -143,7 +145,7 @@ vec3 computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 		const uint i = uint(light_grid.clusters[cluster_index].point_lights[j]);
 
 		vec3 color = lights.point_lights[i].color_stopdot.rgb;
-		color *= throughput * payload.base_color;
+		color *= throughput * payload_opaque.base_color;
 		if (dot(color,color) < color_culling_threshold)
 			continue;
 
@@ -153,9 +155,9 @@ vec3 computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 		const float stopdot2 = lights.point_lights[i].dir_stopdot2.a;
 		const bool environment = (lights.point_lights[i].environment == 0);
 
-		const vec3 light_dir = environment ? (origin_r.xyz - payload.hit_pos_t.xyz) : -dir; // TODO need to randomize sampling direction for environment soft shadow
+		const vec3 light_dir = environment ? (origin_r.xyz - payload_opaque.hit_pos_t.xyz) : -dir; // TODO need to randomize sampling direction for environment soft shadow
 		const vec3 light_dir_norm = normalize(light_dir);
-		const float light_dot = dot(light_dir_norm, payload.normal);
+		const float light_dot = dot(light_dir_norm, payload_opaque.normal);
 		if (light_dot < 1e-5)
 			continue;
 
@@ -190,12 +192,12 @@ vec3 computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 		// if (dot(color,color) < color_culling_threshold)
 		// 	continue;
 
-		color *= evalCombinedBRDF(payload.normal, light_dir_norm, view_dir, material);
+		color *= evalCombinedBRDF(payload_opaque.normal, light_dir_norm, view_dir, material);
 		if (dot(color,color) < color_culling_threshold)
 			continue;
 
 		// TODO for environment light check that we've hit SURF_SKY
-		if (shadowed(payload.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
+		if (shadowed(payload_opaque.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
 			continue;
 
 		C += color;
@@ -205,7 +207,7 @@ vec3 computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 }
 
 vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material) {
-	const ivec3 light_cell = ivec3(floor(payload.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
+	const ivec3 light_cell = ivec3(floor(payload_opaque.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
 	const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
 
 	if (any(greaterThanEqual(light_cell, light_grid.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS)
@@ -258,11 +260,11 @@ vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 
 		const mat3 emissive_transform_normal = transpose(inverse(mat3(emissive_transform)));
 
-		if (emissive_kusok_index == uint(payload.kusok_index))
+		if (emissive_kusok_index == uint(payload_opaque.kusok_index))
 			continue;
 
 		const uint triangle_index = rand_range(ekusok.triangles);
-		C += sampling_light_scale * sampleSurfaceTriangle(throughput * payload.base_color * ek.emissive, view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
+		C += sampling_light_scale * sampleSurfaceTriangle(throughput * payload_opaque.base_color * ek.emissive, view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
 	} // for all emissive kusochki
 
 	C += computePointLights(cluster_index, throughput, view_dir, material);
@@ -280,8 +282,8 @@ void main() {
 	vec3 throughput = vec3(1.);
 	vec3 C = vec3(0.);
 
-	payload.t_offset = .0;
-	payload.pixel_cone_spread_angle = push_constants.pixel_cone_spread_angle;
+	payload_opaque.t_offset = .0;
+	payload_opaque.pixel_cone_spread_angle = push_constants.pixel_cone_spread_angle;
 
 	int brdfType = SPECULAR_TYPE;
 	for (int bounce = 0; bounce < push_constants.bounces; ++bounce) {
@@ -302,15 +304,15 @@ void main() {
 			ray_payload_loc);
 
 		// Sky/envmap
-		if (payload.hit_pos_t.w <= 0.) {
-			C += throughput * payload.base_color;
+		if (payload_opaque.hit_pos_t.w <= 0.) {
+			C += throughput * payload_opaque.base_color;
 			break;
 		}
 
 #ifdef DEBUG_LIGHT_CULLING
 		// light clusters debugging
 		{
-			const ivec3 light_cell = ivec3(floor(payload.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
+			const ivec3 light_cell = ivec3(floor(payload_opaque.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
 			const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
 			if (any(greaterThanEqual(light_cell, light_grid.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS) {
 				C = vec3(1., 0., 0.) * color_factor;
@@ -339,18 +341,18 @@ void main() {
 #endif
 
 		MaterialProperties material;
-		material.baseColor = payload.base_color;
+		material.baseColor = payload_opaque.base_color;
 		material.metalness = 0.f;
-		material.emissive = payload.emissive;
-		material.roughness = payload.roughness;
+		material.emissive = payload_opaque.emissive;
+		material.roughness = payload_opaque.roughness;
 
 		if (bounce == 0) //brdfType == SPECULAR_TYPE)
-			C += throughput * payload.emissive;
+			C += throughput * payload_opaque.emissive;
 
 		// Decide whether ray continues through, or relfects
-		if (rand01() > payload.reflection) {
-			origin = payload.hit_pos_t.xyz;
-			throughput *= payload.base_color;
+		if (rand01() > payload_opaque.reflection) {
+			origin = payload_opaque.hit_pos_t.xyz;
+			throughput *= payload_opaque.base_color;
 			continue;
 		}
 
@@ -359,8 +361,8 @@ void main() {
 		if (bounce == push_constants.bounces - 1)
 			break;
 
-		vec3 shadingNormal = payload.normal;
-		vec3 geometryNormal = payload.geometry_normal;
+		vec3 shadingNormal = payload_opaque.normal;
+		vec3 geometryNormal = payload_opaque.geometry_normal;
 		vec3 V = -direction;
 		if (material.metalness == 1.0f && material.roughness == 0.0f) {
 			// Fast path for mirrors
@@ -385,7 +387,7 @@ void main() {
 			break; // Ray was eaten by the surface :(
 		}
 
-		origin = payload.hit_pos_t.xyz;
+		origin = payload_opaque.hit_pos_t.xyz;
 		throughput *= brdfWeight;
 	} // for all bounces
 

@@ -6,7 +6,7 @@
 
 layout (set = 0, binding = 7/*, align=4*/) uniform UBOLights { Lights lights; };
 
-layout(location = 0) rayPayloadInEXT RayPayload payload;
+layout(location = PAYLOAD_LOCATION_OPAQUE) rayPayloadInEXT RayPayloadOpaque payload;
 
 void main() {
     payload.hit_pos_t = vec4(-1.);
