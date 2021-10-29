@@ -472,11 +472,24 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 			ASSERT(model->model->as != VK_NULL_HANDLE);
 			inst[i] = (VkAccelerationStructureInstanceKHR){
 				.instanceCustomIndex = model->model->kusochki_offset,
-				.mask = (model->translucent ? 0 : GEOMETRY_BIT_OPAQUE) | GEOMETRY_BIT_ANY,
-				.instanceShaderBindingTableRecordOffset = model->alpha_test ? 1 : 0,
-				.flags = model->render_mode == kRenderNormal ? VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR : VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR, // TODO is render_mode a good indicator of transparency in general case?
+				.instanceShaderBindingTableRecordOffset = 0,
 				.accelerationStructureReference = getASAddress(model->model->as), // TODO cache this addr
 			};
+			switch (model->material_mode) {
+				case MaterialMode_Opaque:
+					inst[i].mask = GEOMETRY_BIT_OPAQUE;
+					inst[i].flags = VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
+					break;
+				case MaterialMode_Opaque_AlphaTest:
+					inst[i].mask = GEOMETRY_BIT_OPAQUE;
+					inst[i].instanceShaderBindingTableRecordOffset = 1,
+					inst[i].flags = VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
+					break;
+				case MaterialMode_Additive:
+					inst[i].mask = GEOMETRY_BIT_ADDITIVE;
+					inst[i].flags = VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
+					break;
+			}
 			memcpy(&inst[i].transform, model->transform_row, sizeof(VkTransformMatrixKHR));
 		}
 	}

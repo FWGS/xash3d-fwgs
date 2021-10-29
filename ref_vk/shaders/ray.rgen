@@ -298,7 +298,7 @@ void main() {
 		const uint miss_index = 0;
 		const int ray_payload_loc = 0;
 		const float L = 10000.;
-		traceRayEXT(tlas, flags, GEOMETRY_BIT_ANY,
+		traceRayEXT(tlas, flags, GEOMETRY_BIT_OPAQUE,
 			sbt_offset, sbt_stride, miss_index,
 			origin, 0., direction, L,
 			ray_payload_loc);

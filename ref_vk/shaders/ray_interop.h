@@ -21,8 +21,9 @@ layout (constant_id = 2) const uint MAX_VISIBLE_POINT_LIGHTS = 31;
 layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 255;
 #endif
 
-#define GEOMETRY_BIT_ANY 0x01
-#define GEOMETRY_BIT_OPAQUE 0x02
+#define GEOMETRY_BIT_OPAQUE 0x01
+#define GEOMETRY_BIT_ADDITIVE 0x02
+#define GEOMETRY_BIT_ANY 0xff
 
 struct Kusok {
 	uint index_offset;
