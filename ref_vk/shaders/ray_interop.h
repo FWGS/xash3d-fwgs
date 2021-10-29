@@ -26,9 +26,11 @@ layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 255;
 
 #define SHADER_OFFSET_MISS_REGULAR 0
 #define SHADER_OFFSET_MISS_SHADOW 1
+#define SHADER_OFFSET_MISS_EMPTY 2
 
 #define SHADER_OFFSET_HIT_REGULAR 0
 #define SHADER_OFFSET_HIT_ALPHA_TEST 1
+#define SHADER_OFFSET_HIT_ADDITIVE 2
 
 struct Kusok {
 	uint index_offset;

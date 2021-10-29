@@ -25,9 +25,11 @@ enum {
 
 	ShaderBindingTable_Miss,
 	ShaderBindingTable_Miss_Shadow,
+	ShaderBindingTable_Miss_Empty,
 
 	ShaderBindingTable_Hit,
 	ShaderBindingTable_Hit_WithAlphaTest,
+	ShaderBindingTable_Hit_Additive,
 
 	ShaderBindingTable_COUNT
 };
@@ -364,8 +366,10 @@ static void createPipeline( void )
 		ShaderStageIndex_RayGen,
 		ShaderStageIndex_Miss,
 		ShaderStageIndex_Miss_Shadow,
+		ShaderStageIndex_Miss_Empty,
 		ShaderStageIndex_ClosestHit,
 		ShaderStageIndex_AnyHit_AlphaTest,
+		ShaderStageIndex_AnyHit_Additive,
 		ShaderStageIndex_COUNT,
 	};
 
@@ -395,9 +399,12 @@ static void createPipeline( void )
 	DEFINE_SHADER("ray.rgen.spv", RAYGEN, ShaderStageIndex_RayGen);
 	DEFINE_SHADER("ray.rmiss.spv", MISS, ShaderStageIndex_Miss);
 	DEFINE_SHADER("shadow.rmiss.spv", MISS, ShaderStageIndex_Miss_Shadow);
+	DEFINE_SHADER("empty.rmiss.spv", MISS, ShaderStageIndex_Miss_Empty);
 	DEFINE_SHADER("ray.rchit.spv", CLOSEST_HIT, ShaderStageIndex_ClosestHit);
 	DEFINE_SHADER("alphamask.rahit.spv", ANY_HIT, ShaderStageIndex_AnyHit_AlphaTest);
+	DEFINE_SHADER("additive.rahit.spv", ANY_HIT, ShaderStageIndex_AnyHit_Additive);
 
+	// TODO static assert
 #define ASSERT_SHADER_OFFSET(sbt_kind, sbt_index, offset) \
 	ASSERT(offset == (sbt_index - sbt_kind))
 
@@ -406,6 +413,7 @@ static void createPipeline( void )
 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Miss, ShaderBindingTable_Miss_Shadow, SHADER_OFFSET_MISS_SHADOW);
 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit, ShaderBindingTable_Hit, SHADER_OFFSET_HIT_REGULAR);
 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit, ShaderBindingTable_Hit_WithAlphaTest, SHADER_OFFSET_HIT_ALPHA_TEST);
+	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit, ShaderBindingTable_Hit_Additive, SHADER_OFFSET_HIT_ADDITIVE);
 
 	shader_groups[ShaderBindingTable_RayGen] = (VkRayTracingShaderGroupCreateInfoKHR) {
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
@@ -434,6 +442,15 @@ static void createPipeline( void )
 		.intersectionShader = VK_SHADER_UNUSED_KHR,
 	};
 
+	shader_groups[ShaderBindingTable_Miss_Empty] = (VkRayTracingShaderGroupCreateInfoKHR) {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.generalShader = ShaderBindingTable_Miss_Empty,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+
 	shader_groups[ShaderBindingTable_Hit] = (VkRayTracingShaderGroupCreateInfoKHR) {
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
@@ -448,6 +465,15 @@ static void createPipeline( void )
 		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
 		.anyHitShader = ShaderStageIndex_AnyHit_AlphaTest,
 		.closestHitShader = ShaderStageIndex_ClosestHit,
+		.generalShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+
+	shader_groups[ShaderBindingTable_Hit_Additive] = (VkRayTracingShaderGroupCreateInfoKHR) {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+		.anyHitShader = ShaderStageIndex_AnyHit_Additive,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
 		.generalShader = VK_SHADER_UNUSED_KHR,
 		.intersectionShader = VK_SHADER_UNUSED_KHR,
 	};
@@ -494,11 +520,12 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 					break;
 				case MaterialMode_Opaque_AlphaTest:
 					inst[i].mask = GEOMETRY_BIT_OPAQUE;
-					inst[i].instanceShaderBindingTableRecordOffset = 1,
+					inst[i].instanceShaderBindingTableRecordOffset = SHADER_OFFSET_HIT_ALPHA_TEST,
 					inst[i].flags = VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
 					break;
 				case MaterialMode_Additive:
 					inst[i].mask = GEOMETRY_BIT_ADDITIVE;
+					inst[i].instanceShaderBindingTableRecordOffset = SHADER_OFFSET_HIT_ADDITIVE,
 					inst[i].flags = VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
 					break;
 			}
@@ -651,12 +678,12 @@ static qboolean rayTrace( VkCommandBuffer cmdbuf, VkImage frame_dst, float fov_a
 		//const uint32_t sbt_record_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
 #define SBT_INDEX(index, count) { \
 .deviceAddress = getBufferDeviceAddress(g_rtx.sbt_buffer.buffer) + g_rtx.sbt_record_size * index, \
-.size = sbt_record_size * count, \
+.size = sbt_record_size * (count), \
 .stride = sbt_record_size, \
 }
 		const VkStridedDeviceAddressRegionKHR sbt_raygen = SBT_INDEX(ShaderBindingTable_RayGen, 1);
-		const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(ShaderBindingTable_Miss, 2);
-		const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(ShaderBindingTable_Hit, 2);
+		const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(ShaderBindingTable_Miss, ShaderBindingTable_Miss_Empty - ShaderBindingTable_Miss);
+		const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(ShaderBindingTable_Hit, ShaderBindingTable_Hit_Additive - ShaderBindingTable_Hit);
 		const VkStridedDeviceAddressRegionKHR sbt_callable = { 0 };
 
 		vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_miss, &sbt_hit, &sbt_callable, FRAME_WIDTH, FRAME_HEIGHT, 1 );

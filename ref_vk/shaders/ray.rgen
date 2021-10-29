@@ -43,6 +43,7 @@ layout (push_constant) uniform PC_ {
 
 layout(location = PAYLOAD_LOCATION_OPAQUE) rayPayloadEXT RayPayloadOpaque payload_opaque;
 layout(location = PAYLOAD_LOCATION_SHADOW) rayPayloadEXT RayPayloadShadow payload_shadow;
+layout(location = PAYLOAD_LOCATION_ADDITIVE) rayPayloadEXT RayPayloadAdditive payload_additive;
 
 bool shadowed(vec3 pos, vec3 dir, float dist) {
 	payload_shadow.shadow = true;
@@ -296,17 +297,35 @@ void main() {
 		const uint sbt_offset = 0;
 		const uint sbt_stride = 0;
 		const uint miss_index = 0;
-		const int ray_payload_loc = 0;
 		const float L = 10000.;
 		traceRayEXT(tlas, flags, GEOMETRY_BIT_OPAQUE,
 			sbt_offset, sbt_stride, miss_index,
 			origin, 0., direction, L,
-			ray_payload_loc);
+			PAYLOAD_LOCATION_OPAQUE);
 
 		// Sky/envmap
 		if (payload_opaque.hit_pos_t.w <= 0.) {
 			C += throughput * payload_opaque.base_color;
 			break;
+		}
+
+		// Additive translucency
+		{
+			const uint flags =  0
+				/* TODO try without*/ | gl_RayFlagsCullFrontFacingTrianglesEXT
+				//| gl_RayFlagsOpaqueEXT
+				| gl_RayFlagsSkipClosestHitShaderEXT
+				;
+			const uint sbt_offset = 0;
+			const uint sbt_stride = 0;
+			const float L = 10000.;
+
+			payload_additive.color = vec3(0.);
+			traceRayEXT(tlas, flags, GEOMETRY_BIT_ADDITIVE,
+				sbt_offset, sbt_stride, SHADER_OFFSET_MISS_EMPTY,
+				origin, 0., direction, payload_opaque.hit_pos_t.w,
+				PAYLOAD_LOCATION_ADDITIVE);
+			C += throughput * payload_additive.color * color_factor;
 		}
 
 #ifdef DEBUG_LIGHT_CULLING
