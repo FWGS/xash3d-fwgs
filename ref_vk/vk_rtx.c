@@ -22,10 +22,13 @@
 
 enum {
 	ShaderBindingTable_RayGen,
+
 	ShaderBindingTable_Miss,
 	ShaderBindingTable_Miss_Shadow,
+
 	ShaderBindingTable_Hit,
-	ShaderBindingTable_HitWithAlphaMask,
+	ShaderBindingTable_Hit_WithAlphaTest,
+
 	ShaderBindingTable_COUNT
 };
 
@@ -362,12 +365,12 @@ static void createPipeline( void )
 		ShaderStageIndex_Miss,
 		ShaderStageIndex_Miss_Shadow,
 		ShaderStageIndex_ClosestHit,
-		ShaderStageIndex_AnyHit_AlphaMask,
+		ShaderStageIndex_AnyHit_AlphaTest,
 		ShaderStageIndex_COUNT,
 	};
 
-#define DEFINE_SHADER(filename, bit, index) \
-	shaders[ShaderStageIndex_##index] = (VkPipelineShaderStageCreateInfo){ \
+#define DEFINE_SHADER(filename, bit, sbt_index) \
+	shaders[sbt_index] = (VkPipelineShaderStageCreateInfo){ \
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, \
 		.stage = VK_SHADER_STAGE_##bit##_BIT_KHR, \
 		.module = loadShader(filename), \
@@ -389,11 +392,20 @@ static void createPipeline( void )
 		.layout = g_rtx.descriptors.pipeline_layout,
 	};
 
-	DEFINE_SHADER("ray.rgen.spv", RAYGEN, RayGen);
-	DEFINE_SHADER("ray.rmiss.spv", MISS, Miss);
-	DEFINE_SHADER("shadow.rmiss.spv", MISS, Miss_Shadow);
-	DEFINE_SHADER("ray.rchit.spv", CLOSEST_HIT, ClosestHit);
-	DEFINE_SHADER("alphamask.rahit.spv", ANY_HIT, AnyHit_AlphaMask);
+	DEFINE_SHADER("ray.rgen.spv", RAYGEN, ShaderStageIndex_RayGen);
+	DEFINE_SHADER("ray.rmiss.spv", MISS, ShaderStageIndex_Miss);
+	DEFINE_SHADER("shadow.rmiss.spv", MISS, ShaderStageIndex_Miss_Shadow);
+	DEFINE_SHADER("ray.rchit.spv", CLOSEST_HIT, ShaderStageIndex_ClosestHit);
+	DEFINE_SHADER("alphamask.rahit.spv", ANY_HIT, ShaderStageIndex_AnyHit_AlphaTest);
+
+#define ASSERT_SHADER_OFFSET(sbt_kind, sbt_index, offset) \
+	ASSERT(offset == (sbt_index - sbt_kind))
+
+	ASSERT_SHADER_OFFSET(ShaderBindingTable_RayGen, ShaderBindingTable_RayGen, 0);
+	ASSERT_SHADER_OFFSET(ShaderBindingTable_Miss, ShaderBindingTable_Miss, SHADER_OFFSET_MISS_REGULAR);
+	ASSERT_SHADER_OFFSET(ShaderBindingTable_Miss, ShaderBindingTable_Miss_Shadow, SHADER_OFFSET_MISS_SHADOW);
+	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit, ShaderBindingTable_Hit, SHADER_OFFSET_HIT_REGULAR);
+	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit, ShaderBindingTable_Hit_WithAlphaTest, SHADER_OFFSET_HIT_ALPHA_TEST);
 
 	shader_groups[ShaderBindingTable_RayGen] = (VkRayTracingShaderGroupCreateInfoKHR) {
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
@@ -431,10 +443,10 @@ static void createPipeline( void )
 		.intersectionShader = VK_SHADER_UNUSED_KHR,
 	};
 
-	shader_groups[ShaderBindingTable_HitWithAlphaMask] = (VkRayTracingShaderGroupCreateInfoKHR) {
+	shader_groups[ShaderBindingTable_Hit_WithAlphaTest] = (VkRayTracingShaderGroupCreateInfoKHR) {
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
-		.anyHitShader = ShaderStageIndex_AnyHit_AlphaMask,
+		.anyHitShader = ShaderStageIndex_AnyHit_AlphaTest,
 		.closestHitShader = ShaderStageIndex_ClosestHit,
 		.generalShader = VK_SHADER_UNUSED_KHR,
 		.intersectionShader = VK_SHADER_UNUSED_KHR,

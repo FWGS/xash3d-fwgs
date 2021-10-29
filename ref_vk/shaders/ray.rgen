@@ -55,9 +55,7 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 	traceRayEXT(tlas,
 		flags,
 		GEOMETRY_BIT_OPAQUE,
-		0, 0, 1 /* miss index */,
-		pos, 0., dir, dist - shadow_offset_fudge, 1 /* payload location */);
-	return shadow;
+		0, 0, SHADER_OFFSET_MISS_SHADOW,
 }
 
 const float color_factor = 1000.;
