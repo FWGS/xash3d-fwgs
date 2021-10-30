@@ -470,6 +470,7 @@ ref_interface_t gReffuncs =
 	R_DrawTileClear,
 	CL_FillRGBA,
 	CL_FillRGBABlend,
+	R_WorldToScreen,
 
 	VID_ScreenShot,
 	VID_CubemapShot,
@@ -556,7 +557,6 @@ ref_interface_t gReffuncs =
 	TriTexCoord2f,
 	TriVertex3fv,
 	TriVertex3f,
-	TriWorldToScreen,
 	TriFog,
 	R_ScreenToWorld,
 	TriGetMatrix,
