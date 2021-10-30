@@ -482,7 +482,6 @@ typedef struct ref_interface_s
 	void (*GL_ProcessTexture)( int texnum, float gamma, int topColor, int bottomColor );
 	void (*R_SetupSky)( const char *skyname );
 
-
 	// 2D
 	void (*R_Set2DMode)( qboolean enable );
 	void (*R_DrawStretchRaw)( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty );
@@ -490,6 +489,7 @@ typedef struct ref_interface_s
 	void (*R_DrawTileClear)( int texnum, int x, int y, int w, int h );
 	void (*FillRGBA)( float x, float y, float w, float h, int r, int g, int b, int a ); // in screen space
 	void (*FillRGBABlend)( float x, float y, float w, float h, int r, int g, int b, int a ); // in screen space
+	int  (*WorldToScreen)( const vec3_t world, vec3_t screen );  // Returns 1 if it's z clipped
 
 	// screenshot, cubemapshot
 	qboolean (*VID_ScreenShot)( const char *filename, int shot_type );
@@ -603,7 +603,6 @@ typedef struct ref_interface_s
 	void	(*TexCoord2f)( float u, float v );
 	void	(*Vertex3fv)( const float *worldPnt );
 	void	(*Vertex3f)( float x, float y, float z );
-	int	(*WorldToScreen)( const float *world, float *screen );  // Returns 1 if it's z clipped
 	void	(*Fog)( float flFogColor[3], float flStart, float flEnd, int bOn ); //Works just like GL_FOG, flFogColor is r/g/b.
 	void	(*ScreenToWorld)( const float *screen, float *world  );
 	void	(*GetMatrix)( const int pname, float *matrix );
