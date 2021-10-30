@@ -2,6 +2,7 @@
 #include "vk_textures.h"
 #include "vk_global.h"
 #include "vk_render.h"
+#include "vk_scene.h"
 
 #include "sprite.h"
 #include "xash3d_mathlib.h"
@@ -612,9 +613,6 @@ static float R_SpriteGlowBlend( vec3_t origin, int rendermode, int renderfx, flo
 
 	return brightness;
 }
-
-// FIXME
-int TriWorldToScreen( const float *world, float *screen );
 
 // Do occlusion test for glow-sprites
 qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )

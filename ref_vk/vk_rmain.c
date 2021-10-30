@@ -413,11 +413,6 @@ static void	TriVertex3f( float x, float y, float z )
 {
 	PRINT_NOT_IMPLEMENTED();
 }
-static int	TriWorldToScreen( const float *world, float *screen )
-{
-	PRINT_NOT_IMPLEMENTED();
-	return 0;
-}
 static void	TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 {
 	PRINT_NOT_IMPLEMENTED();
@@ -534,6 +529,7 @@ ref_interface_t gReffuncs =
 	R_DrawTileClear,
 	CL_FillRGBA,
 	CL_FillRGBABlend,
+	R_WorldToScreen,
 
 	VID_ScreenShot,
 	VID_CubemapShot,
@@ -620,7 +616,6 @@ ref_interface_t gReffuncs =
 	TriTexCoord2f,
 	TriVertex3fv,
 	TriVertex3f,
-	TriWorldToScreen,
 	TriFog,
 	R_ScreenToWorld,
 	TriGetMatrix,

@@ -28,6 +28,9 @@ void R_PopScene( void );
 void R_NewMap( void );
 void R_RenderScene( void );
 
+int R_WorldToScreen( const vec3_t point, vec3_t screen );
+int TriWorldToScreen( const float *world, float *screen );
+
 // TODO should this be here?
 int CL_FxBlend( struct cl_entity_s *e );
 struct beam_s;
