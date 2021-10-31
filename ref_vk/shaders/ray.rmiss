@@ -11,7 +11,7 @@ layout(location = PAYLOAD_LOCATION_OPAQUE) rayPayloadInEXT RayPayloadOpaque payl
 void main() {
     payload.hit_pos_t = vec4(-1.);
     payload.geometry_normal = payload.normal = vec3(0., 1., 0.);
-	payload.reflection = 0.;
+	payload.transmissiveness = 0.;
     payload.roughness = 0.;
     payload.base_color = vec3(0.);//mix(vec3(.1, .2, .7), lights.sun_color, pow(sun_dot, 100.));
 	//vec3(1., 0., 1.);

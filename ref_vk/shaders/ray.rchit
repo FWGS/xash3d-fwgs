@@ -103,7 +103,7 @@ void main() {
 
     payload.hit_pos_t = vec4(hit_pos, gl_HitTEXT);
     payload.base_color = base_color * kusochki[kusok_index].color.rgb;
-	payload.reflection = tex_color.a * kusochki[kusok_index].color.a;
+	payload.transmissiveness = (1. - tex_color.a * kusochki[kusok_index].color.a);
     payload.normal = normal * geom_normal_sign;
 	payload.geometry_normal = geom_normal;
     payload.emissive = kusochki[kusok_index].emissive * base_color; // TODO emissive should have a special texture

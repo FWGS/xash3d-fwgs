@@ -10,7 +10,7 @@ struct RayPayloadOpaque {
 	vec3 normal;
 	vec3 geometry_normal;
 	vec3 base_color;
-	float reflection;
+	float transmissiveness;
 	vec3 emissive;
 	float roughness;
 	int kusok_index;

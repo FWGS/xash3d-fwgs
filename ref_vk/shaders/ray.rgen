@@ -368,17 +368,16 @@ void main() {
 		if (bounce == 0) //brdfType == SPECULAR_TYPE)
 			C += throughput * payload_opaque.emissive;
 
-		// Decide whether ray continues through, or relfects
-		if (rand01() > payload_opaque.reflection) {
-			origin = payload_opaque.hit_pos_t.xyz;
-			throughput *= payload_opaque.base_color;
-			continue;
-		}
-
+ // TODO should we do this after reflect/transmit decision?
+#define SKIP_TRASMITTED_LIGHT
+#ifndef SKIP_TRASMITTED_LIGHT
 		C += computeLighting(throughput, -direction, material);
 
 		if (bounce == push_constants.bounces - 1)
 			break;
+#else
+		vec3 prev_throughput = throughput;
+#endif
 
 		vec3 shadingNormal = payload_opaque.normal;
 		vec3 geometryNormal = payload_opaque.geometry_normal;
@@ -387,18 +386,30 @@ void main() {
 			// Fast path for mirrors
 			brdfType = SPECULAR_TYPE;
 		} else {
+				// Decide whether to sample diffuse or specular BRDF (based on Fresnel term)
+				float brdfProbability = getBrdfProbability(material, V, shadingNormal);
+				if (rand01() < brdfProbability) {
+					brdfType = SPECULAR_TYPE;
+					throughput /= brdfProbability;
+				} else {
+					if (rand01() < payload_opaque.transmissiveness) {
+						throughput *= material.baseColor;
+						direction = refract(direction, payload_opaque.geometry_normal, .8);
+						origin = payload_opaque.hit_pos_t.xyz - payload_opaque.geometry_normal * shadow_offset_fudge;
+						continue;
+					}
 
-			// Decide whether to sample diffuse or specular BRDF (based on Fresnel term)
-			float brdfProbability = getBrdfProbability(material, V, shadingNormal);
-
-			if (rand01() < brdfProbability) {
-				brdfType = SPECULAR_TYPE;
-				throughput /= brdfProbability;
-			} else {
-				brdfType = DIFFUSE_TYPE;
-				throughput /= (1.0f - brdfProbability);
-			}
+					brdfType = DIFFUSE_TYPE;
+					throughput /= (1.0f - brdfProbability);
+				}
 		}
+
+#ifdef SKIP_TRASMITTED_LIGHT
+		C += computeLighting(prev_throughput, -direction, material);
+
+		if (bounce == push_constants.bounces - 1)
+			break;
+#endif
 
 		vec2 u = vec2(rand01(), rand01());
 		vec3 brdfWeight;
