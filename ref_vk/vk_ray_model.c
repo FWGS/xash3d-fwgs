@@ -339,7 +339,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		case kRenderTransColor:
 		case kRenderTransTexture:
 			HACK_reflective = true;
-			draw_model->material_mode = MaterialMode_Opaque_AlphaTest; // FIXME add new translucency mode
+			draw_model->material_mode = MaterialMode_Refractive;
 			break;
 
 		// Additive blending: C = SRC * alpha + DST

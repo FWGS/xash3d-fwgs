@@ -34,6 +34,8 @@ typedef struct {
 	enum {
 		MaterialMode_Opaque,
 		MaterialMode_Opaque_AlphaTest,
+		MaterialMode_Refractive,
+		// TODO MaterialMode_Subtractive,
 		MaterialMode_Additive,
 	} material_mode;
 } vk_ray_draw_model_t;

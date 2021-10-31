@@ -298,7 +298,7 @@ void main() {
 		const uint sbt_stride = 0;
 		const uint miss_index = 0;
 		const float L = 10000.;
-		traceRayEXT(tlas, flags, GEOMETRY_BIT_OPAQUE,
+		traceRayEXT(tlas, flags, GEOMETRY_BIT_OPAQUE | GEOMETRY_BIT_REFRACTIVE,
 			sbt_offset, sbt_stride, miss_index,
 			origin, 0., direction, L,
 			PAYLOAD_LOCATION_OPAQUE);
