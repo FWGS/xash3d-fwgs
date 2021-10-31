@@ -46,6 +46,7 @@ static CVAR_DEFINE_AUTO( s_combine_sounds, "0", FCVAR_ARCHIVE, "combine channels
 CVAR_DEFINE_AUTO( snd_mute_losefocus, "1", FCVAR_ARCHIVE, "silence the audio when game window loses focus" );
 CVAR_DEFINE_AUTO( s_test, "0", 0, "engine developer cvar for quick testing new features" );
 CVAR_DEFINE_AUTO( s_samplecount, "0", FCVAR_ARCHIVE, "sample count (0 for default value)" );
+CVAR_DEFINE_AUTO( s_warn_late_precache, "0", FCVAR_ARCHIVE, "warn about late precached sounds on client-side" );
 
 /*
 =============================================================================
