@@ -20,6 +20,9 @@ struct RayPayloadShadow {
 	bool shadow;
 };
 
+
+const float additive_soft_overshoot = 16.;
 struct RayPayloadAdditive {
 	vec3 color;
+	float ray_distance;
 };

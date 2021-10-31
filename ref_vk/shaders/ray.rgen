@@ -272,6 +272,25 @@ vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 	return C;
 }
 
+// Additive translucency
+vec3 traceAdditive(vec3 origin, vec3 direction, float ray_distance) {
+	const uint flags =  0
+		/* TODO try without*/ | gl_RayFlagsCullFrontFacingTrianglesEXT
+		//| gl_RayFlagsOpaqueEXT
+		| gl_RayFlagsSkipClosestHitShaderEXT
+		;
+	const uint sbt_offset = 0;
+	const uint sbt_stride = 0;
+
+	payload_additive.color = vec3(0.);
+	payload_additive.ray_distance = ray_distance;
+	traceRayEXT(tlas, flags, GEOMETRY_BIT_ADDITIVE,
+		sbt_offset, sbt_stride, SHADER_OFFSET_MISS_EMPTY,
+		origin, 0., direction, ray_distance + additive_soft_overshoot,
+		PAYLOAD_LOCATION_ADDITIVE);
+	return payload_additive.color * color_factor;
+}
+
 void main() {
 	rand01_state = push_constants.random_seed + gl_LaunchIDEXT.x * 1833 +  gl_LaunchIDEXT.y * 31337;
 	vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
@@ -309,24 +328,7 @@ void main() {
 			break;
 		}
 
-		// Additive translucency
-		{
-			const uint flags =  0
-				/* TODO try without*/ | gl_RayFlagsCullFrontFacingTrianglesEXT
-				//| gl_RayFlagsOpaqueEXT
-				| gl_RayFlagsSkipClosestHitShaderEXT
-				;
-			const uint sbt_offset = 0;
-			const uint sbt_stride = 0;
-			const float L = 10000.;
-
-			payload_additive.color = vec3(0.);
-			traceRayEXT(tlas, flags, GEOMETRY_BIT_ADDITIVE,
-				sbt_offset, sbt_stride, SHADER_OFFSET_MISS_EMPTY,
-				origin, 0., direction, payload_opaque.hit_pos_t.w,
-				PAYLOAD_LOCATION_ADDITIVE);
-			C += throughput * payload_additive.color * color_factor;
-		}
+		C += throughput * traceAdditive(origin, direction, payload_opaque.hit_pos_t.w);
 
 #ifdef DEBUG_LIGHT_CULLING
 		// light clusters debugging
