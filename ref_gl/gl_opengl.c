@@ -1,5 +1,9 @@
 
 #include "gl_local.h"
+#if XASH_GL4ES
+#include "gl4es/include/gl4esinit.h"
+#include "gl4es/include/gl4eshint.h"
+#endif // XASH_GL4ES
 
 cvar_t	*gl_extensions;
 cvar_t	*gl_texture_anisotropy;
@@ -648,7 +652,6 @@ void GL_InitExtensionsBigGL( void )
 		const char *version = pglGetString( GL_VERSION | 0x10000 );
 		const char *extensions = pglGetString( GL_EXTENSIONS | 0x10000 );
 		glConfig.wrapper = GLES_WRAPPER_GL4ES;
-
 	}
 
 	// multitexture
@@ -991,6 +994,10 @@ void R_Shutdown( void )
 
 	Mem_FreePool( &r_temppool );
 
+#ifdef XASH_GL4ES
+	close_gl4es();
+#endif // XASH_GL4ES
+
 	// shut down OS specific OpenGL stuff like contexts, etc.
 	gEngfuncs.R_Free_Video();
 }
@@ -1171,8 +1178,6 @@ void GL_SetupAttributes( int safegl )
 void wes_init( const char *gles2 );
 int nanoGL_Init( void );
 #ifdef XASH_GL4ES
-#include "gl4es/include/gl4esinit.h"
-#include "gl4es/include/gl4eshint.h"
 void GL4ES_GetMainFBSize( int *width, int *height )
 {
 	*width = gpGlobals->width;
@@ -1185,7 +1190,6 @@ void *GL4ES_GetProcAddress( const char *name )
 		return NULL;
 	return gEngfuncs.GL_GetProcAddress( name );
 }
-
 #endif
 
 void GL_OnContextCreated( void )
@@ -1220,5 +1224,4 @@ void GL_OnContextCreated( void )
 	// dxt unpacked to 16-bit looks ugly
 	pglHint( GL_AVOID16BITS_HINT_GL4ES, 1 );
 #endif
-
 }
