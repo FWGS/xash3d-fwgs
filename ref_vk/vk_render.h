@@ -74,6 +74,7 @@ typedef enum {
 	kXVkMaterialSky,
 	kXVkMaterialEmissive,
 	kXVkMaterialConveyor,
+	kXVkMaterialChrome,
 } XVkMaterialType;
 
 typedef struct  vk_render_geometry_s {

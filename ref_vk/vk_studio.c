@@ -1950,8 +1950,17 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			VectorCopy(g_studio.verts[ptricmds[0]], dst_vtx->pos);
 			VectorCopy(g_studio.norms[ptricmds[0]], dst_vtx->normal);
 			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
-			dst_vtx->gl_tc[0] = ptricmds[2] * s;
-			dst_vtx->gl_tc[1] = ptricmds[3] * t;
+
+			if (FBitSet( g_nFaceFlags, STUDIO_NF_CHROME ))
+			{
+				// FIXME also support glow mode
+				const int idx = ptricmds[1];
+				dst_vtx->gl_tc[0] = g_studio.chrome[idx][0] * s;
+				dst_vtx->gl_tc[1] = g_studio.chrome[idx][1] * t;
+			} else {
+				dst_vtx->gl_tc[0] = ptricmds[2] * s;
+				dst_vtx->gl_tc[1] = ptricmds[3] * t;
+			}
 
 			dst_vtx->flags = 1; // vertex lighting instead of lightmap lighting
 			R_StudioSetColorBegin( ptricmds, pstudionorms, dst_vtx->color );
@@ -1997,12 +2006,13 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	XVK_RenderBufferUnlock( index_buffer.buffer );
 	XVK_RenderBufferUnlock( vertex_buffer.buffer );
 
+
 	// Render
 	{
 		const vk_render_geometry_t geometry = {
 			//.lightmap = tglob.whiteTexture,
 			.texture = texture,
-			.material = kXVkMaterialRegular,
+			.material = FBitSet( g_nFaceFlags, STUDIO_NF_CHROME ) ? kXVkMaterialChrome : kXVkMaterialRegular,
 
 			.vertex_offset = vertex_buffer.buffer.unit.offset,
 			.max_vertex = num_vertices,

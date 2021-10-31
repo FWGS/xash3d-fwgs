@@ -366,10 +366,13 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 		// HACK until there is proper specular
 		// FIXME also this erases previour roughness unconditionally
-		if (HACK_reflective)
+		if (HACK_reflective) {
 			kusok->roughness = 0.f;
-		else
+		} else if (geom->material == kXVkMaterialChrome) {
+			kusok->roughness = .1f;
+		} else {
 			kusok->roughness = 1.f;
+		}
 
 		Vector4Copy(color, kusok->color);
 
