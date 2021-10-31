@@ -8,6 +8,10 @@
 layout (constant_id = 6) const uint MAX_TEXTURES = 4096;
 layout (set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
 
+layout (push_constant) uniform PC_ {
+	PushConstants push_constants;
+};
+
 layout(location = PAYLOAD_LOCATION_ADDITIVE) rayPayloadInEXT RayPayloadAdditive payload_additive;
 
 hitAttributeEXT vec2 bary;
@@ -21,7 +25,7 @@ void main() {
     const uint vi2 = uint(indices[first_index_offset+1]) + kusochki[kusok_index].vertex_offset;
     const uint vi3 = uint(indices[first_index_offset+2]) + kusochki[kusok_index].vertex_offset;
 
-    const vec2 texture_uv = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y;
+    const vec2 texture_uv = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y + push_constants.time * kusochki[kusok_index].uv_speed;
     const uint tex_index = kusochki[kusok_index].texture;
     const vec4 texture_color = texture(textures[nonuniformEXT(tex_index)], texture_uv);
 	const vec3 color = texture_color.rgb * kusochki[kusok_index].color.rgb * texture_color.a * kusochki[kusok_index].color.a;
