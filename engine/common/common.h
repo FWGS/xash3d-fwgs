@@ -184,6 +184,7 @@ extern convar_t	host_developer;
 extern convar_t	*host_limitlocal;
 extern convar_t	*host_framerate;
 extern convar_t	*host_maxfps;
+extern convar_t cl_filterstuffcmd;
 
 /*
 ==============================================================
@@ -465,7 +466,7 @@ extern sysinfo_t	SI;
 #define CMD_CLIENTDLL	BIT( 1 )		// added by client.dll
 #define CMD_GAMEUIDLL	BIT( 2 )		// added by GameUI.dll
 #define CMD_LOCALONLY	BIT( 3 )		// restricted from server commands
-#define CMD_REFDLL	BIT( 4 )		// added by ref.dll
+#define CMD_REFDLL		BIT( 4 )		// added by ref.dll
 
 typedef void (*xcommand_t)( void );
 
