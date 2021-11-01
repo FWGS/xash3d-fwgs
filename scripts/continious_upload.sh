@@ -168,7 +168,15 @@ if [ "$TRAVIS_EVENT_TYPE" == "pull_request" ] || [ "$GITHUB_EVENT_NAME" == "pull
     rm -f ./uploaded-to
     for FILE in "$@" ; do
       BASENAME="$(basename "${FILE}")"
-      curl --upload-file $FILE "https://transfersh.com/$BASENAME" > ./one-upload
+      curl \
+        --max-time 60 \
+        --connect-timeout 10 \
+        --retry 5 \
+        --speed-limit 16384 \
+        --speed-time 10 \
+        --upload-file $FILE \
+        "https://transfersh.com/$BASENAME" \
+          > ./one-upload
       echo "$(cat ./one-upload)" # this way we get a newline
       echo -n "$(cat ./one-upload)\\n" >> ./uploaded-to # this way we get a \n but no newline
     done
