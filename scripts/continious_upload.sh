@@ -312,6 +312,11 @@ for FILE in "$@" ; do
   curl -H "Authorization: token ${GITHUB_TOKEN}" \
        -H "Accept: application/vnd.github.manifold-preview" \
        -H "Content-Type: application/octet-stream" \
+       --max-time 60 \
+       --connect-timeout 10 \
+       --retry 5 \
+       --speed-limit 16384 \
+       --speed-time 10 \
        --data-binary "@$FULLNAME" \
        "$upload_url?name=$(urlencode "$BASENAME")"
   echo ""
