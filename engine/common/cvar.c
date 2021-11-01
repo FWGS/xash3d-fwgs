@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include <math.h>	// fabs...
 #include "common.h"
 #include "base_cmd.h"
+#include "eiface.h" // ARRAYSIZE
 
 convar_t	*cvar_vars = NULL; // head of list
 convar_t	*cmd_scripting;
@@ -754,6 +755,38 @@ static void Cvar_SetGL( const char *name, const char *value )
 	Cvar_FullSet( name, value, FCVAR_GLCONFIG );
 }
 
+static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
+{
+	const char *prefixes[] = { "cl_", "gl_", "m_", "r_", "hud_" };
+	int i;
+
+	if( isPrivileged )
+		return true;
+
+	// TODO: figure this out
+	//if( v->flags & FCVAR_SERVER )
+	//	return false;
+
+	if( cl_filterstuffcmd.value <= 0.0f )
+		return true;
+
+	// TODO: figure this out too
+	//if( v->flags & FCVAR_EXTDLL )
+	//	return false;
+
+	// a1ba: xash3d-fwgs extension
+	if( v->flags & FCVAR_LOCALONLY )
+		return false;
+
+	for( i = 0; i < ARRAYSIZE( prefixes ); i++ )
+	{
+		if( Q_stricmp( v->name, prefixes[i] ))
+			return false;
+	}
+
+	return true;
+}
+
 /*
 ============
 Cvar_Command
@@ -761,7 +794,7 @@ Cvar_Command
 Handles variable inspection and changing from the console
 ============
 */
-qboolean Cvar_Command( convar_t *v )
+qboolean Cvar_CommandWithPrivilegeCheck( convar_t *v, qboolean isPrivileged )
 {
 	// special case for setup opengl configuration
 	if( host.apply_opengl_config )
@@ -773,7 +806,8 @@ qboolean Cvar_Command( convar_t *v )
 	// check variables
 	if( !v ) // already found in basecmd
 		v = Cvar_FindVar( Cmd_Argv( 0 ));
-	if( !v ) return false;
+	if( !v )
+		return false;
 
 	// perform a variable print or set
 	if( Cmd_Argc() == 1 )
@@ -795,6 +829,11 @@ qboolean Cvar_Command( convar_t *v )
 	{
 		Con_Printf( "can't set \"%s\" in multiplayer\n", v->name );
 		return false;
+	}
+	else if( !Cvar_ShouldSetCvar( v, isPrivileged ))
+	{
+		Con_Printf( "%s is a privileged variable\n", v->name );
+		return true;
 	}
 	else
 	{
