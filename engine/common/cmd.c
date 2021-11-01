@@ -30,11 +30,15 @@ typedef struct
 } cmdbuf_t;
 
 qboolean			cmd_wait;
-cmdbuf_t			cmd_text;
+cmdbuf_t			cmd_text, filteredcmd_text;
 byte			cmd_text_buf[MAX_CMD_BUFFER];
+byte			filteredcmd_text_buf[MAX_CMD_BUFFER];
 cmdalias_t		*cmd_alias;
 uint			cmd_condition;
 int			cmd_condlevel;
+static qboolean cmd_currentCommandIsPrivileged;
+
+static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPrivileged );
 
 /*
 =============================================================================
@@ -52,8 +56,10 @@ Cbuf_Init
 void Cbuf_Init( void )
 {
 	cmd_text.data = cmd_text_buf;
-	cmd_text.maxsize = MAX_CMD_BUFFER;
-	cmd_text.cursize = 0;
+	filteredcmd_text.data = filteredcmd_text_buf;
+
+	filteredcmd_text.maxsize = cmd_text.maxsize = MAX_CMD_BUFFER;
+	filteredcmd_text.cursize = cmd_text.cursize = 0;
 }
 
 /*
@@ -63,8 +69,9 @@ Cbuf_Clear
 */
 void Cbuf_Clear( void )
 {
-	memset( cmd_text.data, 0, sizeof( cmd_text_buf ));
-	cmd_text.cursize = 0;
+	memset( cmd_text.data, 0, cmd_text.maxsize );
+	memset( filteredcmd_text.data, 0, filteredcmd_text.maxsize );
+	cmd_text.cursize = filteredcmd_text.cursize = 0;
 }
 
 /*
@@ -88,6 +95,19 @@ void *Cbuf_GetSpace( cmdbuf_t *buf, int length )
 	return data;
 }
 
+static void Cbuf_AddTextToBuffer( cmdbuf_t *buf, const char *text )
+{
+	int l = Q_strlen( text );
+
+	if(( buf->cursize + l ) >= buf->maxsize )
+	{
+		Con_Reportf( S_WARN "%s: overflow\n", __func__ );
+		return;
+	}
+
+	memcpy( Cbuf_GetSpace( buf, l ), text, l );
+}
+
 /*
 ============
 Cbuf_AddText
@@ -97,16 +117,17 @@ Adds command text at the end of the buffer
 */
 void Cbuf_AddText( const char *text )
 {
-	int	l = Q_strlen( text );
+	Cbuf_AddTextToBuffer( &cmd_text, text );
+}
 
-	if(( cmd_text.cursize + l ) >= cmd_text.maxsize )
-	{
-		Con_Reportf( S_WARN "Cbuf_AddText: overflow\n" );
-	}
-	else
-	{
-		memcpy( Cbuf_GetSpace( &cmd_text, l ), text, l );
-	}
+/*
+============
+Cbuf_AddFilteredText
+============
+*/
+void Cbuf_AddFilteredText( const char *text )
+{
+	Cbuf_AddTextToBuffer( &filteredcmd_text, text );
 }
 
 /*
@@ -117,20 +138,25 @@ Adds command text immediately after the current command
 Adds a \n to the text
 ============
 */
-void Cbuf_InsertText( const char *text )
+static void Cbuf_InsertTextToBuffer( cmdbuf_t *buf, const char *text )
 {
 	int	l = Q_strlen( text );
 
-	if(( cmd_text.cursize + l ) >= cmd_text.maxsize )
+	if(( buf->cursize + l ) >= buf->maxsize )
 	{
 		Con_Reportf( S_WARN "Cbuf_InsertText: overflow\n" );
 	}
 	else
 	{
-		memmove( cmd_text.data + l, cmd_text.data, cmd_text.cursize );
-		memcpy( cmd_text.data, text, l );
-		cmd_text.cursize += l;
+		memmove( buf->data + l, buf->data, buf->cursize );
+		memcpy( buf->data, text, l );
+		buf->cursize += l;
 	}
+}
+
+void Cbuf_InsertText( const char *text )
+{
+	Cbuf_InsertTextToBuffer( &cmd_text, text );
 }
 
 /*
@@ -138,22 +164,29 @@ void Cbuf_InsertText( const char *text )
 Cbuf_Execute
 ============
 */
-void Cbuf_Execute( void )
+void Cbuf_ExecuteCommandsFromBuffer( cmdbuf_t *buf, qboolean isPrivileged, int cmdsToExecute )
 {
 	char	*text;
 	char	line[MAX_CMD_LINE];
 	int	i, quotes;
 	char	*comment;
 
-	while( cmd_text.cursize )
+	while( buf->cursize )
 	{
+		// limit amount of commands that can be issued
+		if( cmdsToExecute >= 0 )
+		{
+			if( !cmdsToExecute-- )
+				break;
+		}
+
 		// find a \n or ; line break
-		text = (char *)cmd_text.data;
+		text = (char *)buf->data;
 
 		quotes = false;
 		comment = NULL;
 
-		for( i = 0; i < cmd_text.cursize; i++ )
+		for( i = 0; i < buf->cursize; i++ )
 		{
 			if( !comment )
 			{
@@ -162,7 +195,7 @@ void Cbuf_Execute( void )
 				if( quotes )
 				{
 					// make sure i doesn't get > cursize which causes a negative size in memmove, which is fatal --blub
-					if( i < ( cmd_text.cursize - 1 ) && ( text[i+0] == '\\' && (text[i+1] == '"' || text[i+1] == '\\')))
+					if( i < ( buf->cursize - 1 ) && ( text[i+0] == '\\' && (text[i+1] == '"' || text[i+1] == '\\')))
 						i++;
 				}
 				else
@@ -191,19 +224,19 @@ void Cbuf_Execute( void )
 		// delete the text from the command buffer and move remaining commands down
 		// this is necessary because commands (exec) can insert data at the
 		// beginning of the text buffer
-		if( i == cmd_text.cursize )
+		if( i == buf->cursize )
 		{
-			cmd_text.cursize = 0;
+			buf->cursize = 0;
 		}
 		else
 		{
 			i++;
-			cmd_text.cursize -= i;
-			memmove( cmd_text.data, text + i, cmd_text.cursize );
+			buf->cursize -= i;
+			memmove( buf->data, text + i, buf->cursize );
 		}
 
 		// execute the command line
-		Cmd_ExecuteString( line );
+		Cmd_ExecuteStringWithPrivilegeCheck( line, isPrivileged );
 
 		if( cmd_wait )
 		{
@@ -213,6 +246,17 @@ void Cbuf_Execute( void )
 			break;
 		}
 	}
+}
+
+/*
+============
+Cbuf_Execute
+============
+*/
+void Cbuf_Execute( void )
+{
+	Cbuf_ExecuteCommandsFromBuffer( &cmd_text, true, -1 );
+	Cbuf_ExecuteCommandsFromBuffer( &filteredcmd_text, false, 1 );
 }
 
 /*
@@ -282,6 +326,11 @@ void Cbuf_ExecStuffCmds( void )
 
 ==============================================================================
 */
+qboolean Cmd_CurrentCommandIsPrivileged( void )
+{
+	return cmd_currentCommandIsPrivileged;
+}
+
 /*
 ===============
 Cmd_StuffCmds_f
@@ -876,6 +925,32 @@ void Cmd_Else_f( void )
 	cmd_condition ^= BIT( cmd_condlevel );
 }
 
+static qboolean Cmd_ShouldAllowCommand( cmd_t *cmd, qboolean isPrivileged )
+{
+	const char *prefixes[] = { "cl_", "gl_", "r_", "m_", "hud_" };
+	int i;
+
+	// always allow local commands
+	if( isPrivileged )
+		return true;
+
+	// never allow local only commands from remote
+	if( FBitSet( cmd->flags, CMD_LOCALONLY ))
+		return false;
+
+	// allow engine commands if user don't mind
+	if( cl_filterstuffcmd.value <= 0.0f )
+		return true;
+
+	for( i = 0; i < ARRAYSIZE( prefixes ); i++ )
+	{
+		if( !Q_stricmp( cmd->name, prefixes[i] ))
+			return false;
+	}
+
+	return true;
+}
+
 /*
 ============
 Cmd_ExecuteString
@@ -883,7 +958,7 @@ Cmd_ExecuteString
 A complete command line has been parsed, so try to execute it
 ============
 */
-void Cmd_ExecuteString( const char *text )
+static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPrivileged )
 {
 	cmd_t	*cmd = NULL;
 	cmdalias_t	*a = NULL;
@@ -952,44 +1027,56 @@ void Cmd_ExecuteString( const char *text )
 	if( !host.apply_game_config )
 	{
 		// check aliases
-		if( a ) // already found in basecmd
+		if( !a ) // if not found in basecmd
 		{
-			Cbuf_InsertText( a->value );
-			return;
+			for( a = cmd_alias; a; a = a->next )
+			{
+				if( !Q_stricmp( cmd_argv[0], a->name ))
+					break;
+			}
 		}
 
-		for( a = cmd_alias; a; a = a->next )
+		if( a )
 		{
-			if( !Q_stricmp( cmd_argv[0], a->name ))
-			{
-				Cbuf_InsertText( a->value );
-				return;
-			}
+			Cbuf_InsertTextToBuffer(
+				isPrivileged ? &cmd_text : &filteredcmd_text,
+				a->value );
+			return;
 		}
 	}
 
 	// special mode for restore game.dll archived cvars
 	if( !host.apply_game_config || !Q_strcmp( cmd_argv[0], "exec" ))
 	{
-		// check functions
-		if( cmd && cmd->function ) // already found in basecmd
+		if( !cmd || !cmd->function ) // if not found in basecmd
 		{
-			cmd->function();
-			return;
+			for( cmd = cmd_functions; cmd; cmd = cmd->next )
+			{
+				if( !Q_stricmp( cmd_argv[0], cmd->name ) && cmd->function )
+					break;
+			}
 		}
 
-		for( cmd = cmd_functions; cmd; cmd = cmd->next )
+		// check functions
+		if( cmd && cmd->function )
 		{
-			if( !Q_stricmp( cmd_argv[0], cmd->name ) && cmd->function )
+			if( Cmd_ShouldAllowCommand( cmd, isPrivileged ))
 			{
+				cmd_currentCommandIsPrivileged = isPrivileged;
 				cmd->function();
-				return;
+				cmd_currentCommandIsPrivileged = true;
 			}
+			else
+			{
+				Con_Printf( S_WARN "Could not execute privileged command %s\n", cmd->name );
+			}
+
+			return;
 		}
 	}
 
 	// check cvars
-	if( Cvar_Command( cvar )) return;
+	if( Cvar_CommandWithPrivilegeCheck( cvar, isPrivileged )) return;
 
 	if( host.apply_game_config )
 		return; // don't send nothing to server: we is a server!
@@ -1009,6 +1096,11 @@ void Cmd_ExecuteString( const char *text )
 			Con_Printf( S_WARN "Unknown command \"%s\"\n", text );
 		}
 	}
+}
+
+void Cmd_ExecuteString( const char *text )
+{
+	Cmd_ExecuteStringWithPrivilegeCheck( text, true );
 }
 
 /*
