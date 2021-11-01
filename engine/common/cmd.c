@@ -256,7 +256,9 @@ Cbuf_Execute
 void Cbuf_Execute( void )
 {
 	Cbuf_ExecuteCommandsFromBuffer( &cmd_text, true, -1 );
+#if !XASH_DEDICATED
 	Cbuf_ExecuteCommandsFromBuffer( &filteredcmd_text, false, 1 );
+#endif
 }
 
 /*
