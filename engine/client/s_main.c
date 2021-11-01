@@ -1881,6 +1881,7 @@ qboolean S_Init( void )
 	Cvar_RegisterVariable( &snd_mute_losefocus );
 	Cvar_RegisterVariable( &s_test );
 	Cvar_RegisterVariable( &s_samplecount );
+	Cvar_RegisterVariable( &s_warn_late_precache );
 
 	Cmd_AddCommand( "play", S_Play_f, "playing a specified sound file" );
 	Cmd_AddCommand( "play2", S_Play2_f, "playing a group of specified sound files" ); // nehahra stuff
