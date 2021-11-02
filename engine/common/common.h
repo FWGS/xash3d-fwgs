@@ -476,6 +476,7 @@ typedef void (*xcommand_t)( void );
 void Cbuf_Init( void );
 void Cbuf_Clear( void );
 void Cbuf_AddText( const char *text );
+void Cbuf_AddFilteredText( const char *text );
 void Cbuf_InsertText( const char *text );
 void Cbuf_ExecStuffCmds( void );
 void Cbuf_Execute (void);

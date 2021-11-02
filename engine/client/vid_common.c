@@ -190,7 +190,7 @@ void VID_Init( void )
 
 	// a1ba: planned to be named vid_mode for compability
 	// but supported mode list is filled by backends, so numbers are not portable any more
-	Cmd_AddCommand( "vid_setmode", VID_Mode_f, "display video mode" );
+	Cmd_AddRestrictedCommand( "vid_setmode", VID_Mode_f, "display video mode" );
 
 	R_Init(); // init renderer
 }

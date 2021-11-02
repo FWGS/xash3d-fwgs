@@ -1023,18 +1023,18 @@ void Touch_Init( void )
 	Cmd_AddCommand( "touch_show", Touch_Show_f, "show button" );
 	Cmd_AddCommand( "touch_hide", Touch_Hide_f, "hide button" );
 	Cmd_AddCommand( "touch_list", Touch_ListButtons_f, "list buttons" );
-	Cmd_AddCommand( "touch_removeall", Touch_RemoveAll_f, "remove all buttons" );
-	Cmd_AddCommand( "touch_loaddefaults", Touch_LoadDefaults_f, "generate config from defaults" );
+	Cmd_AddRestrictedCommand( "touch_removeall", Touch_RemoveAll_f, "remove all buttons" );
+	Cmd_AddRestrictedCommand( "touch_loaddefaults", Touch_LoadDefaults_f, "generate config from defaults" );
 	Cmd_AddCommand( "touch_roundall", Touch_RoundAll_f, "round all buttons coordinates to grid" );
-	Cmd_AddCommand( "touch_exportconfig", Touch_ExportConfig_f, "export config keeping aspect ratio" );
+	Cmd_AddRestrictedCommand( "touch_exportconfig", Touch_ExportConfig_f, "export config keeping aspect ratio" );
 	Cmd_AddCommand( "touch_set_stroke", Touch_Stroke_f, "set global stroke width and color" );
 	Cmd_AddCommand( "touch_setclientonly", Touch_SetClientOnly_f, "when 1, only client buttons are shown" );
-	Cmd_AddCommand( "touch_reloadconfig", Touch_ReloadConfig_f, "load config, not saving changes" );
-	Cmd_AddCommand( "touch_writeconfig", Touch_WriteConfig, "save current config" );
-	Cmd_AddCommand( "touch_deleteprofile", Touch_DeleteProfile_f, "delete profile by name" );
+	Cmd_AddRestrictedCommand( "touch_reloadconfig", Touch_ReloadConfig_f, "load config, not saving changes" );
+	Cmd_AddRestrictedCommand( "touch_writeconfig", Touch_WriteConfig, "save current config" );
+	Cmd_AddRestrictedCommand( "touch_deleteprofile", Touch_DeleteProfile_f, "delete profile by name" );
 	Cmd_AddCommand( "touch_generate_code", Touch_GenerateCode_f, "create code sample for mobility API" );
 	Cmd_AddCommand( "touch_fade", Touch_Fade_f, "start fade animation for selected buttons" );
-	Cmd_AddCommand( "touch_toggleselection", Touch_ToggleSelection_f, "toggle vidibility on selected button in editor" );
+	Cmd_AddRestrictedCommand( "touch_toggleselection", Touch_ToggleSelection_f, "toggle vidibility on selected button in editor" );
 
 	// not saved, just runtime state for scripting
 	touch_in_menu = Cvar_Get( "touch_in_menu", "0", 0, "draw touch in menu (for internal use only)" );
@@ -1050,22 +1050,22 @@ void Touch_Init( void )
 	touch_exp_mult = Cvar_Get( "touch_exp_mult", "0", 0, "exponent multiplier, usually 20-200, 0 to disable" );
 
 	// touch.cfg
-	touch_grid_count = Cvar_Get( "touch_grid_count", "50", 0, "touch grid count" );
-	touch_grid_enable = Cvar_Get( "touch_grid_enable", "1", 0, "enable touch grid" );
-	touch_config_file = Cvar_Get( "touch_config_file", "touch.cfg", FCVAR_ARCHIVE, "current touch profile file" );
-	touch_precise_amount = Cvar_Get( "touch_precise_amount", "0.5", 0, "sensitivity multiplier for precise-look" );
+	touch_grid_count = Cvar_Get( "touch_grid_count", "50", FCVAR_LOCALONLY, "touch grid count" );
+	touch_grid_enable = Cvar_Get( "touch_grid_enable", "1", FCVAR_LOCALONLY, "enable touch grid" );
+	touch_config_file = Cvar_Get( "touch_config_file", "touch.cfg", FCVAR_ARCHIVE | FCVAR_LOCALONLY, "current touch profile file" );
+	touch_precise_amount = Cvar_Get( "touch_precise_amount", "0.5", FCVAR_LOCALONLY, "sensitivity multiplier for precise-look" );
 	touch_highlight_r = Cvar_Get( "touch_highlight_r", "1.0", 0, "highlight r color" );
 	touch_highlight_g = Cvar_Get( "touch_highlight_g", "1.0", 0, "highlight g color" );
 	touch_highlight_b = Cvar_Get( "touch_highlight_b", "1.0", 0, "highlight b color" );
 	touch_highlight_a = Cvar_Get( "touch_highlight_a", "1.0", 0, "highlight alpha" );
-	touch_dpad_radius = Cvar_Get( "touch_dpad_radius", "1.0", 0, "dpad radius multiplier" );
-	touch_joy_radius = Cvar_Get( "touch_joy_radius", "1.0", 0, "joy radius multiplier" );
-	touch_move_indicator = Cvar_Get( "touch_move_indicator", "0.0", 0, "indicate move events (0 to disable)" );
-	touch_joy_texture = Cvar_Get( "touch_joy_texture", "touch_default/joy.tga", 0, "texture for move indicator");
+	touch_dpad_radius = Cvar_Get( "touch_dpad_radius", "1.0", FCVAR_LOCALONLY, "dpad radius multiplier" );
+	touch_joy_radius = Cvar_Get( "touch_joy_radius", "1.0", FCVAR_LOCALONLY, "joy radius multiplier" );
+	touch_move_indicator = Cvar_Get( "touch_move_indicator", "0.0", FCVAR_LOCALONLY, "indicate move events (0 to disable)" );
+	touch_joy_texture = Cvar_Get( "touch_joy_texture", "touch_default/joy.tga", FCVAR_LOCALONLY, "texture for move indicator");
 
 	// input devices cvar
-	touch_enable = Cvar_Get( "touch_enable", DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE, "enable touch controls" );
-	touch_emulate = Cvar_Get( "touch_emulate", "0", FCVAR_ARCHIVE, "emulate touch with mouse" );
+	touch_enable = Cvar_Get( "touch_enable", DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_LOCALONLY, "enable touch controls" );
+	touch_emulate = Cvar_Get( "touch_emulate", "0", FCVAR_ARCHIVE | FCVAR_LOCALONLY, "emulate touch with mouse" );
 
 	/// TODO: touch sdl platform
 	// SDL_SetHint( SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH, "1" );

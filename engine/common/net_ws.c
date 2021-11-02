@@ -2543,10 +2543,10 @@ void HTTP_Init( void )
 
 	http.first_file = http.last_file = NULL;
 
-	Cmd_AddCommand("http_download", &HTTP_Download_f, "add file to download queue");
-	Cmd_AddCommand("http_skip", &HTTP_Skip_f, "skip current download server");
-	Cmd_AddCommand("http_cancel", &HTTP_Cancel_f, "cancel current download");
-	Cmd_AddCommand("http_clear", &HTTP_Clear_f, "cancel all downloads");
+	Cmd_AddRestrictedCommand("http_download", &HTTP_Download_f, "add file to download queue");
+	Cmd_AddRestrictedCommand("http_skip", &HTTP_Skip_f, "skip current download server");
+	Cmd_AddRestrictedCommand("http_cancel", &HTTP_Cancel_f, "cancel current download");
+	Cmd_AddRestrictedCommand("http_clear", &HTTP_Clear_f, "cancel all downloads");
 	Cmd_AddCommand("http_list", &HTTP_List_f, "list all queued downloads");
 	Cmd_AddCommand("http_addcustomserver", &HTTP_AddCustomServer_f, "add custom fastdl server");
 	http_useragent = Cvar_Get( "http_useragent", "xash3d", FCVAR_ARCHIVE, "User-Agent string" );

@@ -449,9 +449,9 @@ void Platfrom_MouseMove( float *yaw, float *pitch )
 
 void Evdev_Init( void )
 {
-	Cmd_AddCommand ("evdev_open", Evdev_OpenDevice_f, "Open event device");
-	Cmd_AddCommand ("evdev_close", Evdev_CloseDevice_f, "Close event device");
-	Cmd_AddCommand ("evdev_autodetect", Evdev_Autodetect_f, "Automaticly open mouses and keyboards");
+	Cmd_AddRestrictedCommand ("evdev_open", Evdev_OpenDevice_f, "Open event device");
+	Cmd_AddRestrictedCommand ("evdev_close", Evdev_CloseDevice_f, "Close event device");
+	Cmd_AddRestrictedCommand ("evdev_autodetect", Evdev_Autodetect_f, "Automaticly open mouses and keyboards");
 #if XASH_INPUT == INPUT_EVDEV
 	Evdev_Autodetect_f();
 #endif

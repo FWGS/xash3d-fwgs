@@ -614,10 +614,10 @@ void ID_Init( void )
 	byte md5[16];
 	int i;
 
-	Cmd_AddCommand( "bloomfilter", ID_BloomFilter_f, "print bloomfilter raw value of arguments set");
-	Cmd_AddCommand( "verifyhex", ID_VerifyHEX_f, "check if id source seems to be fake" );
+	Cmd_AddRestrictedCommand( "bloomfilter", ID_BloomFilter_f, "print bloomfilter raw value of arguments set");
+	Cmd_AddRestrictedCommand( "verifyhex", ID_VerifyHEX_f, "check if id source seems to be fake" );
 #if XASH_LINUX
-	Cmd_AddCommand( "testcpuinfo", ID_TestCPUInfo_f, "try read cpu serial" );
+	Cmd_AddRestrictedCommand( "testcpuinfo", ID_TestCPUInfo_f, "try read cpu serial" );
 #endif
 
 #if XASH_ANDROID && !XASH_DEDICATED

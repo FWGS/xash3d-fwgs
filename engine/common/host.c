@@ -989,9 +989,9 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	Sys_InitLog();
 
-	Cmd_AddCommand( "exec", Host_Exec_f, "execute a script file" );
+	Cmd_AddRestrictedCommand( "exec", Host_Exec_f, "execute a script file" );
 	Cmd_AddCommand( "memlist", Host_MemStats_f, "prints memory pool information" );
-	Cmd_AddCommand( "userconfigd", Host_Userconfigd_f, "execute all scripts from userconfig.d" );
+	Cmd_AddRestrictedCommand( "userconfigd", Host_Userconfigd_f, "execute all scripts from userconfig.d" );
 
 	FS_Init();
 	Image_Init();
@@ -1047,9 +1047,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	// init commands and vars
 	if( host_developer.value >= DEV_EXTENDED )
 	{
-		Cmd_AddCommand ( "sys_error", Sys_Error_f, "just throw a fatal error to test shutdown procedures");
-		Cmd_AddCommand ( "host_error", Host_Error_f, "just throw a host error to test shutdown procedures");
-		Cmd_AddCommand ( "crash", Host_Crash_f, "a way to force a bus error for development reasons");
+		Cmd_AddRestrictedCommand ( "sys_error", Sys_Error_f, "just throw a fatal error to test shutdown procedures");
+		Cmd_AddRestrictedCommand ( "host_error", Host_Error_f, "just throw a host error to test shutdown procedures");
+		Cmd_AddRestrictedCommand ( "crash", Host_Crash_f, "a way to force a bus error for development reasons");
 	}
 
 	Cvar_RegisterVariable( &cl_filterstuffcmd );
@@ -1074,7 +1074,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	// allow to change game from the console
 	if( pChangeGame != NULL )
 	{
-		Cmd_AddCommand( "game", Host_ChangeGame_f, "change game" );
+		Cmd_AddRestrictedCommand( "game", Host_ChangeGame_f, "change game" );
 		Cvar_Get( "host_allow_changegame", "1", FCVAR_READ_ONLY, "allows to change games" );
 	}
 	else
@@ -1094,10 +1094,10 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Wcon_InitConsoleCommands ();
 #endif
 
-		Cmd_AddCommand( "quit", Sys_Quit, "quit the game" );
-		Cmd_AddCommand( "exit", Sys_Quit, "quit the game" );
+		Cmd_AddRestrictedCommand( "quit", Sys_Quit, "quit the game" );
+		Cmd_AddRestrictedCommand( "exit", Sys_Quit, "quit the game" );
 	}
-	else Cmd_AddCommand( "minimize", Host_Minimize_f, "minimize main window to tray" );
+	else Cmd_AddRestrictedCommand( "minimize", Host_Minimize_f, "minimize main window to tray" );
 
 	host.errorframe = 0;
 
