@@ -1077,10 +1077,10 @@ void HPAK_Validate_f( void )
 
 void HPAK_Init( void )
 {
-	Cmd_AddCommand( "hpklist", HPAK_List_f, "list all files in specified HPK-file" );
-	Cmd_AddCommand( "hpkremove", HPAK_Remove_f, "remove specified file from HPK-file" );
-	Cmd_AddCommand( "hpkval", HPAK_Validate_f, "validate specified HPK-file" );
-	Cmd_AddCommand( "hpkextract", HPAK_Extract_f, "extract all lumps from specified HPK-file" );
+	Cmd_AddRestrictedCommand( "hpklist", HPAK_List_f, "list all files in specified HPK-file" );
+	Cmd_AddRestrictedCommand( "hpkremove", HPAK_Remove_f, "remove specified file from HPK-file" );
+	Cmd_AddRestrictedCommand( "hpkval", HPAK_Validate_f, "validate specified HPK-file" );
+	Cmd_AddRestrictedCommand( "hpkextract", HPAK_Extract_f, "extract all lumps from specified HPK-file" );
 	hpk_maxsize = Cvar_Get( "hpk_maxsize", "0", FCVAR_ARCHIVE, "set limit by size for all HPK-files ( 0 - unlimited )" );
 
 	gp_hpak_queue = NULL;

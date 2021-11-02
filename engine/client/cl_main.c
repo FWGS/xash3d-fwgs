@@ -2876,7 +2876,7 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("give", NULL, "give specified item or weapon" );
 	Cmd_AddCommand ("drop", NULL, "drop current/specified item or weapon" );
 	Cmd_AddCommand ("gametitle", NULL, "show game logo" );
-	Cmd_AddCommand( "kill", NULL, "die instantly" );
+	Cmd_AddRestrictedCommand ("kill", NULL, "die instantly" );
 	Cmd_AddCommand ("god", NULL, "enable godmode" );
 	Cmd_AddCommand ("fov", NULL, "set client field of view" );
 	Cmd_AddCommand ("log", NULL, "logging server events" );
@@ -2889,8 +2889,8 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("mp3", CL_PlayCDTrack_f, "Play mp3-track (based on virtual cd-player)" );
 	Cmd_AddCommand ("waveplaylen", CL_WavePlayLen_f, "Get approximate length of wave file");
 
-	Cmd_AddCommand ("setinfo", CL_SetInfo_f, "examine or change the userinfo string (alias of userinfo)" );
-	Cmd_AddCommand ("userinfo", CL_SetInfo_f, "examine or change the userinfo string (alias of setinfo)" );
+	Cmd_AddRestrictedCommand ("setinfo", CL_SetInfo_f, "examine or change the userinfo string (alias of userinfo)" );
+	Cmd_AddRestrictedCommand ("userinfo", CL_SetInfo_f, "examine or change the userinfo string (alias of setinfo)" );
 	Cmd_AddCommand ("physinfo", CL_Physinfo_f, "print current client physinfo" );
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f, "disconnect from server" );
 	Cmd_AddCommand ("record", CL_Record_f, "record a demo" );
@@ -2909,8 +2909,8 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("fullserverinfo", CL_FullServerinfo_f, "sent by server when serverinfo changes" );
 	Cmd_AddCommand ("upload", CL_BeginUpload_f, "uploading file to the server" );
 
-	Cmd_AddCommand ("quit", CL_Quit_f, "quit from game" );
-	Cmd_AddCommand ("exit", CL_Quit_f, "quit from game" );
+	Cmd_AddRestrictedCommand ("quit", CL_Quit_f, "quit from game" );
+	Cmd_AddRestrictedCommand ("exit", CL_Quit_f, "quit from game" );
 
 	Cmd_AddCommand ("screenshot", CL_ScreenShot_f, "takes a screenshot of the next rendered frame" );
 	Cmd_AddCommand ("snapshot", CL_SnapShot_f, "takes a snapshot of the next rendered frame" );
@@ -2919,7 +2919,7 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("levelshot", CL_LevelShot_f, "same as \"screenshot\", used for create plaque images" );
 	Cmd_AddCommand ("saveshot", CL_SaveShot_f, "used for create save previews with LoadGame menu" );
 
-	Cmd_AddCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
+	Cmd_AddRestrictedCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
 	Cmd_AddCommand ("reconnect", CL_Reconnect_f, "reconnect to current level" );
 
 	Cmd_AddCommand ("rcon", CL_Rcon_f, "sends a command to the server console (rcon_password and rcon_address required)" );

@@ -66,7 +66,7 @@ qboolean SNDDMA_Init( void )
 
 	Sys_GetParmFromCmdLine( "-alsadev", device );
 
-	Cmd_AddCommand("pcm_pause", SND_Pause_f, "set pcm pause (debug)" );
+	Cmd_AddRestrictedCommand("pcm_pause", SND_Pause_f, "set pcm pause (debug)" );
 
 	if( ( err = snd_pcm_open( &s_alsa.pcm_handle, device, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK ) ) < 0)
 	{
