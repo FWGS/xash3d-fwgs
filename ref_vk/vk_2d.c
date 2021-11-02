@@ -93,8 +93,8 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 	}
 
 	{
-		const float vw = vk_frame.create_info.imageExtent.width;
-		const float vh = vk_frame.create_info.imageExtent.height;
+		const float vw = vk_frame.width;
+		const float vh = vk_frame.height;
 		const float x1 = (x / vw)*2.f - 1.f;
 		const float y1 = (y / vh)*2.f - 1.f;
 		const float x2 = ((x + w) / vw)*2.f - 1.f;

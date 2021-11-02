@@ -13,8 +13,22 @@
 
 vk_framectl_t vk_frame = {0};
 
-static struct
-{
+static struct {
+	struct {
+		VkFormat format;
+		device_memory_t device_memory;
+		VkImage image;
+		VkImageView image_view;
+	} depth;
+
+	VkSurfaceCapabilitiesKHR surface_caps;
+	VkSwapchainCreateInfoKHR create_info;
+	VkSwapchainKHR swapchain;
+	uint32_t num_images;
+	VkImage *images;
+	VkImageView *image_views;
+	VkFramebuffer *framebuffers;
+
 	VkSemaphore image_available;
 	VkSemaphore done;
 	VkFence fence;
@@ -91,28 +105,28 @@ static void createDepthImage(int w, int h) {
 	const VkImageUsageFlags usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	VkMemoryRequirements memreq;
 
-	vk_frame.depth.image = createImage(w, h, vk_frame.depth.format, tiling, usage);
+	g_frame.depth.image = createImage(w, h, g_frame.depth.format, tiling, usage);
 
-	vkGetImageMemoryRequirements(vk_core.device, vk_frame.depth.image, &memreq);
-	vk_frame.depth.device_memory = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
-	XVK_CHECK(vkBindImageMemory(vk_core.device, vk_frame.depth.image, vk_frame.depth.device_memory.device_memory, 0));
+	vkGetImageMemoryRequirements(vk_core.device, g_frame.depth.image, &memreq);
+	g_frame.depth.device_memory = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
+	XVK_CHECK(vkBindImageMemory(vk_core.device, g_frame.depth.image, g_frame.depth.device_memory.device_memory, 0));
 
 	{
 		VkImageViewCreateInfo ivci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
 		ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		ivci.format = vk_frame.depth.format;
-		ivci.image = vk_frame.depth.image;
+		ivci.format = g_frame.depth.format;
+		ivci.image = g_frame.depth.image;
 		ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 		ivci.subresourceRange.levelCount = 1;
 		ivci.subresourceRange.layerCount = 1;
-		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, &vk_frame.depth.image_view));
+		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, &g_frame.depth.image_view));
 	}
 }
 
 static void destroyDepthImage( void ) {
-	vkDestroyImageView(vk_core.device, vk_frame.depth.image_view, NULL);
-	vkDestroyImage(vk_core.device, vk_frame.depth.image, NULL);
-	freeDeviceMemory(&vk_frame.depth.device_memory);
+	vkDestroyImageView(vk_core.device, g_frame.depth.image_view, NULL);
+	vkDestroyImage(vk_core.device, g_frame.depth.image, NULL);
+	freeDeviceMemory(&g_frame.depth.device_memory);
 }
 
 static VkRenderPass createRenderPass( qboolean ray_tracing ) {
@@ -129,7 +143,7 @@ static VkRenderPass createRenderPass( qboolean ray_tracing ) {
 		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 	}, {
 		// Depth
-		.format = vk_frame.depth.format = findSupportedImageFormat(depth_formats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT),
+		.format = g_frame.depth.format = findSupportedImageFormat(depth_formats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT),
 		.samples = VK_SAMPLE_COUNT_1_BIT,
 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 		.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -170,10 +184,10 @@ static VkRenderPass createRenderPass( qboolean ray_tracing ) {
 
 static void destroySwapchain( VkSwapchainKHR swapchain )
 {
-	for (uint32_t i = 0; i < vk_frame.num_images; ++i)
+	for (uint32_t i = 0; i < g_frame.num_images; ++i)
 	{
-		vkDestroyImageView(vk_core.device, vk_frame.image_views[i], NULL);
-		vkDestroyFramebuffer(vk_core.device, vk_frame.framebuffers[i], NULL);
+		vkDestroyImageView(vk_core.device, g_frame.image_views[i], NULL);
+		vkDestroyFramebuffer(vk_core.device, g_frame.framebuffers[i], NULL);
 	}
 
 	vkDestroySwapchainKHR(vk_core.device, swapchain, NULL);
@@ -183,95 +197,108 @@ static void destroySwapchain( VkSwapchainKHR swapchain )
 
 extern ref_globals_t *gpGlobals;
 
+static uint32_t clamp_u32(uint32_t v, uint32_t min, uint32_t max) {
+	if (v < min) v = min;
+	if (v > max) v = max;
+	return v;
+}
+
 static qboolean createSwapchain( void )
 {
-	VkSwapchainCreateInfoKHR *create_info = &vk_frame.create_info;
-	const uint32_t prev_num_images = vk_frame.num_images;
+	VkSwapchainCreateInfoKHR *create_info = &g_frame.create_info;
+	const uint32_t prev_num_images = g_frame.num_images;
 	// recreating swapchain means invalidating any previous frames
 	g_frame.last_frame_index = -1;
 
-	XVK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_core.physical_device.device, vk_core.surface.surface, &vk_frame.surface_caps));
-	if (vk_frame.surface_caps.currentExtent.width == 0xfffffffful)
-		vk_frame.surface_caps.currentExtent.width = gpGlobals->width;
+	XVK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_core.physical_device.device, vk_core.surface.surface, &g_frame.surface_caps));
 
-	if (vk_frame.surface_caps.currentExtent.height == 0xfffffffful)
-		vk_frame.surface_caps.currentExtent.height = gpGlobals->height;
+	vk_frame.width = g_frame.surface_caps.currentExtent.width;
+	vk_frame.height = g_frame.surface_caps.currentExtent.height;
+
+	if (vk_frame.width == 0xfffffffful || vk_frame.width == 0)
+		vk_frame.width = gpGlobals->width;
+
+	if (vk_frame.height == 0xfffffffful || vk_frame.height == 0)
+		vk_frame.height = gpGlobals->height;
+
+	vk_frame.width = clamp_u32(vk_frame.width, g_frame.surface_caps.minImageExtent.width, g_frame.surface_caps.maxImageExtent.width);
+	vk_frame.height = clamp_u32(vk_frame.height, g_frame.surface_caps.minImageExtent.height, g_frame.surface_caps.maxImageExtent.height);
 
 	create_info->sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	create_info->pNext = NULL;
 	create_info->surface = vk_core.surface.surface;
 	create_info->imageFormat = VK_FORMAT_B8G8R8A8_UNORM;//SRGB; // TODO get from surface_formats
 	create_info->imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR; // TODO get from surface_formats
-	create_info->imageExtent.width = vk_frame.surface_caps.currentExtent.width;
-	create_info->imageExtent.height = vk_frame.surface_caps.currentExtent.height;
+	create_info->imageExtent.width = vk_frame.width;
+	create_info->imageExtent.height = vk_frame.height;
 	create_info->imageArrayLayers = 1;
 	create_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | (vk_core.rtx ? /*VK_IMAGE_USAGE_STORAGE_BIT |*/ VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
 	create_info->imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	create_info->preTransform = vk_frame.surface_caps.currentTransform;
+	create_info->preTransform = g_frame.surface_caps.currentTransform;
 	create_info->compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 	create_info->presentMode = VK_PRESENT_MODE_FIFO_KHR; // TODO caps, MAILBOX is better
 	//create_info->presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR; // TODO caps, MAILBOX is better
 	create_info->clipped = VK_TRUE;
-	create_info->oldSwapchain = vk_frame.swapchain;
+	create_info->oldSwapchain = g_frame.swapchain;
 
-	create_info->minImageCount = vk_frame.surface_caps.minImageCount + 3;
-	if (vk_frame.surface_caps.maxImageCount && create_info->minImageCount > vk_frame.surface_caps.maxImageCount)
-		create_info->minImageCount = vk_frame.surface_caps.maxImageCount;
+	create_info->minImageCount = g_frame.surface_caps.minImageCount + 3;
+	if (g_frame.surface_caps.maxImageCount && create_info->minImageCount > g_frame.surface_caps.maxImageCount)
+		create_info->minImageCount = g_frame.surface_caps.maxImageCount;
 
-	XVK_CHECK(vkCreateSwapchainKHR(vk_core.device, create_info, NULL, &vk_frame.swapchain));
+	XVK_CHECK(vkCreateSwapchainKHR(vk_core.device, create_info, NULL, &g_frame.swapchain));
 	if (create_info->oldSwapchain)
 	{
 		destroySwapchain( create_info->oldSwapchain );
 	}
 
-	createDepthImage(vk_frame.surface_caps.currentExtent.width, vk_frame.surface_caps.currentExtent.height);
+	createDepthImage(vk_frame.width, vk_frame.height);
 
-	vk_frame.num_images = 0;
-	XVK_CHECK(vkGetSwapchainImagesKHR(vk_core.device, vk_frame.swapchain, &vk_frame.num_images, NULL));
-	if (prev_num_images != vk_frame.num_images)
+	g_frame.num_images = 0;
+	XVK_CHECK(vkGetSwapchainImagesKHR(vk_core.device, g_frame.swapchain, &g_frame.num_images, NULL));
+	if (prev_num_images != g_frame.num_images)
 	{
-		if (vk_frame.images)
+		if (g_frame.images)
 		{
-			Mem_Free(vk_frame.images);
-			Mem_Free(vk_frame.image_views);
-			Mem_Free(vk_frame.framebuffers);
+			Mem_Free(g_frame.images);
+			Mem_Free(g_frame.image_views);
+			Mem_Free(g_frame.framebuffers);
 		}
 
-		vk_frame.images = Mem_Malloc(vk_core.pool, sizeof(*vk_frame.images) * vk_frame.num_images);
-		vk_frame.image_views = Mem_Malloc(vk_core.pool, sizeof(*vk_frame.image_views) * vk_frame.num_images);
-		vk_frame.framebuffers = Mem_Malloc(vk_core.pool, sizeof(*vk_frame.framebuffers) * vk_frame.num_images);
+		g_frame.images = Mem_Malloc(vk_core.pool, sizeof(*g_frame.images) * g_frame.num_images);
+		g_frame.image_views = Mem_Malloc(vk_core.pool, sizeof(*g_frame.image_views) * g_frame.num_images);
+		g_frame.framebuffers = Mem_Malloc(vk_core.pool, sizeof(*g_frame.framebuffers) * g_frame.num_images);
 	}
 
-	XVK_CHECK(vkGetSwapchainImagesKHR(vk_core.device, vk_frame.swapchain, &vk_frame.num_images, vk_frame.images));
+	XVK_CHECK(vkGetSwapchainImagesKHR(vk_core.device, g_frame.swapchain, &g_frame.num_images, g_frame.images));
 
-	for (uint32_t i = 0; i < vk_frame.num_images; ++i) {
+	for (uint32_t i = 0; i < g_frame.num_images; ++i) {
 		VkImageViewCreateInfo ivci = {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 			.viewType = VK_IMAGE_VIEW_TYPE_2D,
-			.format = vk_frame.create_info.imageFormat,
-			.image = vk_frame.images[i],
+			.format = g_frame.create_info.imageFormat,
+			.image = g_frame.images[i],
 			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.subresourceRange.levelCount = 1,
 			.subresourceRange.layerCount = 1,
 		};
 
-		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, vk_frame.image_views + i));
+		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, g_frame.image_views + i));
 
 		{
 			const VkImageView attachments[] = {
-				vk_frame.image_views[i],
-				vk_frame.depth.image_view
+				g_frame.image_views[i],
+				g_frame.depth.image_view
 			};
 			VkFramebufferCreateInfo fbci = {
 				.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 				.renderPass = vk_frame.render_pass.raster,
 				.attachmentCount = ARRAYSIZE(attachments),
 				.pAttachments = attachments,
-				.width = vk_frame.create_info.imageExtent.width,
-				.height = vk_frame.create_info.imageExtent.height,
+				.width = g_frame.create_info.imageExtent.width,
+				.height = g_frame.create_info.imageExtent.height,
 				.layers = 1,
 			};
-			XVK_CHECK(vkCreateFramebuffer(vk_core.device, &fbci, NULL, vk_frame.framebuffers + i));
+			XVK_CHECK(vkCreateFramebuffer(vk_core.device, &fbci, NULL, g_frame.framebuffers + i));
 		}
 	}
 
@@ -303,8 +330,8 @@ void R_BeginFrame( qboolean clearScene )
 		VkSurfaceCapabilitiesKHR surface_caps;
 		XVK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_core.physical_device.device, vk_core.surface.surface, &surface_caps));
 
-		if (surface_caps.currentExtent.width != vk_frame.surface_caps.currentExtent.width
-			|| surface_caps.currentExtent.height != vk_frame.surface_caps.currentExtent.height)
+		if (surface_caps.currentExtent.width != g_frame.surface_caps.currentExtent.width
+			|| surface_caps.currentExtent.height != g_frame.surface_caps.currentExtent.height)
 		{
 			createSwapchain();
 		}
@@ -312,7 +339,7 @@ void R_BeginFrame( qboolean clearScene )
 
 	for (int i = 0;; ++i)
 	{
-		const VkResult acquire_result = vkAcquireNextImageKHR(vk_core.device, vk_frame.swapchain, UINT64_MAX, g_frame.image_available,
+		const VkResult acquire_result = vkAcquireNextImageKHR(vk_core.device, g_frame.swapchain, UINT64_MAX, g_frame.image_available,
 			VK_NULL_HANDLE, &g_frame.swapchain_image_index);
 		switch (acquire_result)
 		{
@@ -379,28 +406,28 @@ void R_EndFrame( void )
 	VkPipelineStageFlags stageflags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
 	if (g_frame.rtx_enabled)
-		VK_RenderEndRTX( vk_core.cb, vk_frame.image_views[g_frame.swapchain_image_index], vk_frame.images[g_frame.swapchain_image_index], vk_frame.create_info.imageExtent.width, vk_frame.create_info.imageExtent.height );
+		VK_RenderEndRTX( vk_core.cb, g_frame.image_views[g_frame.swapchain_image_index], g_frame.images[g_frame.swapchain_image_index], g_frame.create_info.imageExtent.width, g_frame.create_info.imageExtent.height );
 
 	{
 		VkRenderPassBeginInfo rpbi = {
 			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 			.renderPass = g_frame.rtx_enabled ? vk_frame.render_pass.after_ray_tracing : vk_frame.render_pass.raster,
-			.renderArea.extent.width = vk_frame.create_info.imageExtent.width,
-			.renderArea.extent.height = vk_frame.create_info.imageExtent.height,
+			.renderArea.extent.width = g_frame.create_info.imageExtent.width,
+			.renderArea.extent.height = g_frame.create_info.imageExtent.height,
 			.clearValueCount = ARRAYSIZE(clear_value),
 			.pClearValues = clear_value,
-			.framebuffer = vk_frame.framebuffers[g_frame.swapchain_image_index],
+			.framebuffer = g_frame.framebuffers[g_frame.swapchain_image_index],
 		};
 		vkCmdBeginRenderPass(vk_core.cb, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
 	}
 
 	{
 		const VkViewport viewport[] = {
-			{0.f, 0.f, (float)vk_frame.surface_caps.currentExtent.width, (float)vk_frame.surface_caps.currentExtent.height, 0.f, 1.f},
+			{0.f, 0.f, (float)vk_frame.width, (float)vk_frame.height, 0.f, 1.f},
 		};
 		const VkRect2D scissor[] = {{
 			{0, 0},
-			vk_frame.surface_caps.currentExtent,
+			{vk_frame.width, vk_frame.height},
 		}};
 
 		vkCmdSetViewport(vk_core.cb, 0, ARRAYSIZE(viewport), viewport);
@@ -433,7 +460,7 @@ void R_EndFrame( void )
 	{
 		const VkPresentInfoKHR presinfo = {
 			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-			.pSwapchains = &vk_frame.swapchain,
+			.pSwapchains = &g_frame.swapchain,
 			.pImageIndices = &g_frame.swapchain_image_index,
 			.swapchainCount = 1,
 			.pWaitSemaphores = &g_frame.done,
@@ -508,7 +535,7 @@ void VK_FrameCtlShutdown( void )
 	destroySemaphore(g_frame.done);
 	destroySemaphore(g_frame.image_available);
 
-	destroySwapchain( vk_frame.swapchain );
+	destroySwapchain( g_frame.swapchain );
 
 	vkDestroyRenderPass(vk_core.device, vk_frame.render_pass.raster, NULL);
 	if (vk_core.rtx)
@@ -518,7 +545,7 @@ void VK_FrameCtlShutdown( void )
 static qboolean canBlitFromSwapchainToFormat( VkFormat dest_format ) {
 	VkFormatProperties props;
 
-	vkGetPhysicalDeviceFormatProperties(vk_core.physical_device.device, vk_frame.create_info.imageFormat, &props);
+	vkGetPhysicalDeviceFormatProperties(vk_core.physical_device.device, g_frame.create_info.imageFormat, &props);
 	if (!(props.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
 		gEngine.Con_Reportf(S_WARN "Swapchain source format doesn't support blit\n");
 		return false;
@@ -540,14 +567,14 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 	device_memory_t dest_devmem;
 	rgbdata_t *r_shot = NULL;
 	const int
-		width = vk_frame.surface_caps.currentExtent.width,
-		height = vk_frame.surface_caps.currentExtent.height;
+		width = vk_frame.width,
+		height = vk_frame.height;
 	qboolean blit = canBlitFromSwapchainToFormat( dest_format );
 
 	if (g_frame.last_frame_index < 0)
 		return NULL;
 
-	frame_image = vk_frame.images[g_frame.last_frame_index];
+	frame_image = g_frame.images[g_frame.last_frame_index];
 
 	// Create destination image to blit/copy framebuffer pixels to
 	{
@@ -726,7 +753,7 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 			r_shot->buffer = Mem_Malloc( r_temppool, r_shot->size );
 
 			if (!blit) {
-				if (dest_format != VK_FORMAT_R8G8B8A8_UNORM || vk_frame.create_info.imageFormat != VK_FORMAT_B8G8R8A8_UNORM) {
+				if (dest_format != VK_FORMAT_R8G8B8A8_UNORM || g_frame.create_info.imageFormat != VK_FORMAT_B8G8R8A8_UNORM) {
 					gEngine.Con_Printf(S_WARN "Don't have a blit function for this format pair, will save as-is w/o conversion; expect image to look wrong\n");
 					blit = true;
 				} else {
