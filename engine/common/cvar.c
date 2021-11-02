@@ -769,20 +769,11 @@ static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
 	if( isPrivileged )
 		return true;
 
-	// TODO: figure this out
-	//if( v->flags & FCVAR_SERVER )
-	//	return false;
+	if( v->flags & FCVAR_LOCALONLY )
+		return false;
 
 	if( cl_filterstuffcmd.value <= 0.0f )
 		return true;
-
-	// TODO: figure this out too
-	//if( v->flags & FCVAR_EXTDLL )
-	//	return false;
-
-	// a1ba: xash3d-fwgs extension
-	if( v->flags & FCVAR_LOCALONLY )
-		return false;
 
 	for( i = 0; i < ARRAYSIZE( prefixes ); i++ )
 	{
