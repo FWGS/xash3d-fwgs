@@ -72,7 +72,7 @@ build cvar auto description that based on the setup flags
 */
 const char *Cvar_BuildAutoDescription( int flags )
 {
-	static char	desc[128];
+	static char	desc[256];
 
 	desc[0] = '\0';
 
@@ -91,6 +91,12 @@ const char *Cvar_BuildAutoDescription( int flags )
 
 	if( FBitSet( flags, FCVAR_ARCHIVE ))
 		Q_strncat( desc, "archived ", sizeof( desc ));
+
+	if( FBitSet( flags, FCVAR_PROTECTED ))
+		Q_strncat( desc, "protected ", sizeof( desc ));
+
+	if( FBitSet( flags, FCVAR_LOCALONLY ))
+		Q_strncat( desc, "privileged ", sizeof( desc ));
 
 	Q_strncat( desc, "cvar", sizeof( desc ));
 
@@ -992,7 +998,7 @@ Reads in all archived cvars
 void Cvar_Init( void )
 {
 	cvar_vars = NULL;
-	cmd_scripting = Cvar_Get( "cmd_scripting", "0", FCVAR_ARCHIVE, "enable simple condition checking and variable operations" );
+	cmd_scripting = Cvar_Get( "cmd_scripting", "0", FCVAR_ARCHIVE|FCVAR_LOCALONLY, "enable simple condition checking and variable operations" );
 	Cvar_RegisterVariable (&host_developer); // early registering for dev
 
 	Cmd_AddRestrictedCommand( "setgl", Cvar_SetGL_f, "change the value of a opengl variable" );	// OBSOLETE
