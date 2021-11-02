@@ -747,7 +747,15 @@ Cmd_AddClientCommand
 */
 int GAME_EXPORT Cmd_AddClientCommand( const char *cmd_name, xcommand_t function )
 {
-	return Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, "client command", CMD_CLIENTDLL );
+	int flags = CMD_CLIENTDLL;
+
+	// a1ba: try to mitigate outdated client.dll vulnerabilities
+	if( !Q_stricmp( cmd_name, "motd_write" ))
+	{
+		flags |= CMD_LOCALONLY;
+	}
+
+	return Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, "client command", flags );
 }
 
 /*
