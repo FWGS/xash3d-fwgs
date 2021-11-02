@@ -25,8 +25,8 @@
 #define FCVAR_PRINTABLEONLY		(1<<7)	// This cvar's string cannot contain unprintable characters ( e.g., used for player name etc ).
 #define FCVAR_UNLOGGED		(1<<8)	// If this is a FCVAR_SERVER, don't log changes to the log file / console if we are creating a log
 #define FCVAR_NOEXTRAWHITEPACE	(1<<9)	// strip trailing/leading white space from this cvar
+#define FCVAR_LOCALONLY		(1<<10)
 
-#define FCVAR_MOVEVARS		(1<<10)	// this cvar is a part of movevars_t struct that shared between client and server
 #define FCVAR_LATCH			(1<<11)	// notify client what this cvar will be applied only after server restart (but don't does more nothing)
 #define FCVAR_GLCONFIG		(1<<12)	// write it into <renderer>.cfg(see RefAPI)
 #define FCVAR_CHANGED		(1<<13)	// set each time the cvar is changed
