@@ -125,8 +125,8 @@ qboolean Mobile_Init( void )
 		success = true;
 
 	Cmd_AddCommand( "vibrate", (xcommand_t)Vibrate_f, "Vibrate for specified time");
-	vibration_length = Cvar_Get( "vibration_length", "1.0", FCVAR_ARCHIVE, "Vibration length");
-	vibration_enable = Cvar_Get( "vibration_enable", "1", FCVAR_ARCHIVE, "Enable vibration");
+	vibration_length = Cvar_Get( "vibration_length", "1.0", FCVAR_ARCHIVE | FCVAR_LOCALONLY, "Vibration length");
+	vibration_enable = Cvar_Get( "vibration_enable", "1", FCVAR_ARCHIVE | FCVAR_LOCALONLY, "Enable vibration");
 
 	return success;
 }
