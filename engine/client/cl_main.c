@@ -30,7 +30,7 @@ GNU General Public License for more details.
 #define CL_TEST_RETRIES_NORESPONCE	2
 #define CL_TEST_RETRIES		5
 
-CVAR_DEFINE_AUTO( mp_decals, "300", FCVAR_ARCHIVE, "decals limit in multiplayer" );
+CVAR_DEFINE_AUTO( mp_decals, "300", FCVAR_ARCHIVE|FCVAR_LOCALONLY, "decals limit in multiplayer" );
 CVAR_DEFINE_AUTO( dev_overview, "0", 0, "draw level in overview-mode" );
 CVAR_DEFINE_AUTO( cl_resend, "6.0", 0, "time to resend connect" );
 CVAR_DEFINE_AUTO( cl_allow_download, "1", FCVAR_ARCHIVE, "allow to downloading resources from the server" );
@@ -2820,13 +2820,13 @@ void CL_InitLocal( void )
 	cl_nodelta = Cvar_Get ("cl_nodelta", "0", 0, "disable delta-compression for server messages" );
 	cl_idealpitchscale = Cvar_Get( "cl_idealpitchscale", "0.8", 0, "how much to look up/down slopes and stairs when not using freelook" );
 	cl_solid_players = Cvar_Get( "cl_solid_players", "1", 0, "Make all players not solid (can't traceline them)" );
-	cl_interp = Cvar_Get( "ex_interp", "0.1", FCVAR_ARCHIVE, "Interpolate object positions starting this many seconds in past" );
+	cl_interp = Cvar_Get( "ex_interp", "0.1", FCVAR_ARCHIVE | FCVAR_LOCALONLY, "Interpolate object positions starting this many seconds in past" );
 	cl_timeout = Cvar_Get( "cl_timeout", "60", 0, "connect timeout (in-seconds)" );
 	cl_charset = Cvar_Get( "cl_charset", "utf-8", FCVAR_ARCHIVE, "1-byte charset to use (iconv style)" );
 	hud_utf8 = Cvar_Get( "hud_utf8", "0", FCVAR_ARCHIVE, "Use utf-8 encoding for hud text" );
 
-	rcon_client_password = Cvar_Get( "rcon_password", "", 0, "remote control client password" );
-	rcon_address = Cvar_Get( "rcon_address", "", 0, "remote control address" );
+	rcon_client_password = Cvar_Get( "rcon_password", "", FCVAR_LOCALONLY, "remote control client password" );
+	rcon_address = Cvar_Get( "rcon_address", "", FCVAR_LOCALONLY, "remote control address" );
 
 	cl_trace_messages = Cvar_Get( "cl_trace_messages", "0", FCVAR_ARCHIVE|FCVAR_CHEAT, "enable message names tracing (good for developers)");
 
