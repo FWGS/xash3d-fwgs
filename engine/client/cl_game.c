@@ -1754,8 +1754,17 @@ static int GAME_EXPORT pfnFilteredClientCmd( const char *szCmdString )
 	if( !COM_CheckString( szCmdString ))
 		return 0;
 
+	// a1ba:
+	// there should be stufftext validator, that checks
+	// hardcoded commands and disallows them before passing to
+	// filtered buffer, returning 0
+	// I've replaced it by hooking potentially exploitable
+	// commands and variables(motd_write, motdfile, etc) in client interfaces
+
 	Cbuf_AddFilteredText( szCmdString );
 	Cbuf_AddFilteredText( "\n" );
+
+	return 1;
 }
 
 /*
