@@ -2061,9 +2061,9 @@ void FS_Init( void )
 
 	FS_InitMemory();
 
-	Cmd_AddCommand( "fs_rescan", FS_Rescan_f, "rescan filesystem search pathes" );
-	Cmd_AddCommand( "fs_path", FS_Path_f, "show filesystem search pathes" );
-	Cmd_AddCommand( "fs_clearpaths", FS_ClearPaths_f, "clear filesystem search pathes" );
+	Cmd_AddRestrictedCommand( "fs_rescan", FS_Rescan_f, "rescan filesystem search pathes" );
+	Cmd_AddRestrictedCommand( "fs_path", FS_Path_f, "show filesystem search pathes" );
+	Cmd_AddRestrictedCommand( "fs_clearpaths", FS_ClearPaths_f, "clear filesystem search pathes" );
 
 #if !XASH_WIN32
 	if( Sys_CheckParm( "-casesensitive" ) )

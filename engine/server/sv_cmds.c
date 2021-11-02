@@ -1002,19 +1002,19 @@ is available always
 */
 void SV_InitHostCommands( void )
 {
-	Cmd_AddCommand( "map", SV_Map_f, "start new level" );
+	Cmd_AddRestrictedCommand( "map", SV_Map_f, "start new level" );
 	Cmd_AddCommand( "maps", SV_Maps_f, "list maps" );
 
 	if( host.type == HOST_NORMAL )
 	{
-		Cmd_AddCommand( "newgame", SV_NewGame_f, "begin new game" );
-		Cmd_AddCommand( "hazardcourse", SV_HazardCourse_f, "starting a Hazard Course" );
-		Cmd_AddCommand( "map_background", SV_MapBackground_f, "set background map" );
-		Cmd_AddCommand( "load", SV_Load_f, "load a saved game file" );
-		Cmd_AddCommand( "loadquick", SV_QuickLoad_f, "load a quick-saved game file" );
-		Cmd_AddCommand( "reload", SV_Reload_f, "continue from latest save or restart level" );
-		Cmd_AddCommand( "killsave", SV_DeleteSave_f, "delete a saved game file and saveshot" );
-		Cmd_AddCommand( "nextmap", SV_NextMap_f, "load next level" );
+		Cmd_AddRestrictedCommand( "newgame", SV_NewGame_f, "begin new game" );
+		Cmd_AddRestrictedCommand( "hazardcourse", SV_HazardCourse_f, "starting a Hazard Course" );
+		Cmd_AddRestrictedCommand( "map_background", SV_MapBackground_f, "set background map" );
+		Cmd_AddRestrictedCommand( "load", SV_Load_f, "load a saved game file" );
+		Cmd_AddRestrictedCommand( "loadquick", SV_QuickLoad_f, "load a quick-saved game file" );
+		Cmd_AddRestrictedCommand( "reload", SV_Reload_f, "continue from latest save or restart level" );
+		Cmd_AddRestrictedCommand( "killsave", SV_DeleteSave_f, "delete a saved game file and saveshot" );
+		Cmd_AddRestrictedCommand( "nextmap", SV_NextMap_f, "load next level" );
 	}
 }
 
