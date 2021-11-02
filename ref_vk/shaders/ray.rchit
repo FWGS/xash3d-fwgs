@@ -87,7 +87,7 @@ void main() {
     const vec4 uv_lods = UVDerivsFromRayCone(gl_WorldRayDirectionEXT, normal, ray_cone_width, uvs, pos, matWorldRotation);
     const vec4 tex_color = textureGrad(textures[nonuniformEXT(tex_index)], texture_uv, uv_lods.xy, uv_lods.zw);
     //const vec3 base_color = pow(tex_color.rgb, vec3(2.));
-    const vec3 base_color = tex_color.rgb;// pow(tex_color.rgb, vec3(2.));
+    const vec3 base_color = ((push_constants.flags & PUSH_FLAG_LIGHTMAP_ONLY) != 0) ? vec3(1.) : tex_color.rgb;// pow(tex_color.rgb, vec3(2.));
     /* tex_color = pow(tex_color, vec4(2.)); */
     /* const vec3 base_color = tex_color.rgb; */
 

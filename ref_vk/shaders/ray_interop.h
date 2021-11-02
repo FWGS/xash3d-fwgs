@@ -84,6 +84,8 @@ struct LightCluster {
 	uint8_t emissive_surfaces[MAX_VISIBLE_SURFACE_LIGHTS];
 };
 
+#define PUSH_FLAG_LIGHTMAP_ONLY	0x01
+
 struct PushConstants {
 	float time;
 	uint random_seed;
@@ -91,6 +93,7 @@ struct PushConstants {
 	float prev_frame_blend_factor;
 	float pixel_cone_spread_angle;
 	uint debug_light_index_begin, debug_light_index_end;
+	uint flags;
 };
 
 #undef PAD

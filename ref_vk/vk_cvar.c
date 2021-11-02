@@ -17,4 +17,5 @@ void VK_LoadCvars( void )
 
 	vk_rtx_light_begin = gEngine.Cvar_Get( "vk_rtx_light_begin", "0", 0, "DEBUG: disable lights with index lower than this");
 	vk_rtx_light_end = gEngine.Cvar_Get( "vk_rtx_light_end", "0", 0, "DEBUG: disable lights with index higher than this ");
+	r_lightmap = gEngine.Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
 }

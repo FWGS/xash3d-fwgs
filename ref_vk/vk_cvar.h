@@ -13,6 +13,7 @@ void VK_LoadCvars( void );
 	X(vk_rtx_prev_frame_blend_factor) \
 	X(vk_rtx_light_begin) \
 	X(vk_rtx_light_end) \
+	X(r_lightmap) \
 
 #define EXTERN_CVAR(cvar) extern cvar_t *cvar;
 DECLARE_CVAR(EXTERN_CVAR)

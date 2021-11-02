@@ -672,6 +672,7 @@ static qboolean rayTrace( VkCommandBuffer cmdbuf, VkImage frame_dst, float fov_a
 			.pixel_cone_spread_angle = atanf((2.0f*tanf(fov_angle_y * 0.5f)) / (float)FRAME_HEIGHT),
 			.debug_light_index_begin = (uint32_t)(vk_rtx_light_begin->value),
 			.debug_light_index_end = (uint32_t)(vk_rtx_light_end->value),
+			.flags = r_lightmap->value ? PUSH_FLAG_LIGHTMAP_ONLY : 0,
 		};
 		vkCmdPushConstants(cmdbuf, g_rtx.descriptors.pipeline_layout, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 0, sizeof(push_constants), &push_constants);
 	}
