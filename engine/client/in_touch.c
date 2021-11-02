@@ -1037,17 +1037,17 @@ void Touch_Init( void )
 	Cmd_AddRestrictedCommand( "touch_toggleselection", Touch_ToggleSelection_f, "toggle vidibility on selected button in editor" );
 
 	// not saved, just runtime state for scripting
-	touch_in_menu = Cvar_Get( "touch_in_menu", "0", 0, "draw touch in menu (for internal use only)" );
+	touch_in_menu = Cvar_Get( "touch_in_menu", "0", FCVAR_LOCALONLY, "draw touch in menu (for internal use only)" );
 
 	// sensitivity configuration
-	touch_forwardzone = Cvar_Get( "touch_forwardzone", "0.06", 0, "forward touch zone" );
-	touch_sidezone = Cvar_Get( "touch_sidezone", "0.06", 0, "side touch zone" );
-	touch_pitch = Cvar_Get( "touch_pitch", "90", 0, "touch pitch sensitivity" );
-	touch_yaw = Cvar_Get( "touch_yaw", "120", 0, "touch yaw sensitivity" );
-	touch_nonlinear_look = Cvar_Get( "touch_nonlinear_look", "0", 0, "enable nonlinear touch look" );
-	touch_pow_factor = Cvar_Get( "touch_pow_factor", "1.3", 0, "set > 1 to enable" );
-	touch_pow_mult = Cvar_Get( "touch_pow_mult", "400.0", 0, "power multiplier, usually 200-1000" );
-	touch_exp_mult = Cvar_Get( "touch_exp_mult", "0", 0, "exponent multiplier, usually 20-200, 0 to disable" );
+	touch_forwardzone = Cvar_Get( "touch_forwardzone", "0.06", FCVAR_LOCALONLY, "forward touch zone" );
+	touch_sidezone = Cvar_Get( "touch_sidezone", "0.06", FCVAR_LOCALONLY, "side touch zone" );
+	touch_pitch = Cvar_Get( "touch_pitch", "90", FCVAR_LOCALONLY, "touch pitch sensitivity" );
+	touch_yaw = Cvar_Get( "touch_yaw", "120", FCVAR_LOCALONLY, "touch yaw sensitivity" );
+	touch_nonlinear_look = Cvar_Get( "touch_nonlinear_look", "0", FCVAR_LOCALONLY, "enable nonlinear touch look" );
+	touch_pow_factor = Cvar_Get( "touch_pow_factor", "1.3", FCVAR_LOCALONLY, "set > 1 to enable" );
+	touch_pow_mult = Cvar_Get( "touch_pow_mult", "400.0", FCVAR_LOCALONLY, "power multiplier, usually 200-1000" );
+	touch_exp_mult = Cvar_Get( "touch_exp_mult", "0", FCVAR_LOCALONLY, "exponent multiplier, usually 20-200, 0 to disable" );
 
 	// touch.cfg
 	touch_grid_count = Cvar_Get( "touch_grid_count", "50", FCVAR_LOCALONLY, "touch grid count" );
