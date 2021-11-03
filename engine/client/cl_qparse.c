@@ -825,6 +825,9 @@ CL_QuakeStuffText
 void CL_QuakeStuffText( const char *text )
 {
 	Q_strncat( cmd_buf, text, sizeof( cmd_buf ));
+
+	// a1ba: didn't filtered, anyway quake protocol
+	// only supported for demos, not network games
 	Cbuf_AddText( text );
 }
 

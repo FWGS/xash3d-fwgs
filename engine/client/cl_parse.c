@@ -2179,11 +2179,11 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 		case svc_stufftext:
 			s = MSG_ReadString( msg );
 #ifdef HACKS_RELATED_HLMODS
-			// dsiable Cry Of Fear antisave protection
+			// disable Cry Of Fear antisave protection
 			if( !Q_strnicmp( s, "disconnect", 10 ) && cls.signon != SIGNONS )
 				break; // too early
 #endif
-			Cbuf_AddText( s );
+			Cbuf_AddFilteredText( s );
 			break;
 		case svc_setangle:
 			CL_ParseSetAngle( msg );
@@ -2944,13 +2944,13 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 		case svc_stufftext:
 			s = MSG_ReadString( msg );
 #ifdef HACKS_RELATED_HLMODS
-			// dsiable Cry Of Fear antisave protection
+			// disable Cry Of Fear antisave protection
 			if( !Q_strnicmp( s, "disconnect", 10 ) && cls.signon != SIGNONS )
 				break; // too early
 #endif
 
 			Con_Reportf( "Stufftext: %s", s );
-			Cbuf_AddText( s );
+			Cbuf_AddFilteredText( s );
 			break;
 		case svc_setangle:
 			CL_ParseSetAngle( msg );
