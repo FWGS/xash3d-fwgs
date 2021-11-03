@@ -111,14 +111,14 @@ IN_StartupMouse
 */
 void IN_StartupMouse( void )
 {
-	m_ignore = Cvar_Get( "m_ignore", DEFAULT_M_IGNORE, FCVAR_ARCHIVE | FCVAR_LOCALONLY, "ignore mouse events" );
+	m_ignore = Cvar_Get( "m_ignore", DEFAULT_M_IGNORE, FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "ignore mouse events" );
 
-	m_enginemouse = Cvar_Get( "m_enginemouse", "0", FCVAR_ARCHIVE | FCVAR_LOCALONLY, "read mouse events in engine instead of client" );
-	m_enginesens = Cvar_Get( "m_enginesens", "0.3", FCVAR_ARCHIVE | FCVAR_LOCALONLY, "mouse sensitivity, when m_enginemouse enabled" );
-	m_pitch = Cvar_Get( "m_pitch", "0.022", FCVAR_ARCHIVE | FCVAR_LOCALONLY, "mouse pitch value" );
-	m_yaw = Cvar_Get( "m_yaw", "0.022", FCVAR_ARCHIVE | FCVAR_LOCALONLY, "mouse yaw value" );
-	look_filter = Cvar_Get( "look_filter", "0", FCVAR_ARCHIVE | FCVAR_LOCALONLY, "filter look events making it smoother" );
-	m_rawinput = Cvar_Get( "m_rawinput", "1", FCVAR_ARCHIVE | FCVAR_LOCALONLY, "enable mouse raw input" );
+	m_enginemouse = Cvar_Get( "m_enginemouse", "0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "read mouse events in engine instead of client" );
+	m_enginesens = Cvar_Get( "m_enginesens", "0.3", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "mouse sensitivity, when m_enginemouse enabled" );
+	m_pitch = Cvar_Get( "m_pitch", "0.022", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "mouse pitch value" );
+	m_yaw = Cvar_Get( "m_yaw", "0.022", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "mouse yaw value" );
+	look_filter = Cvar_Get( "look_filter", "0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "filter look events making it smoother" );
+	m_rawinput = Cvar_Get( "m_rawinput", "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "enable mouse raw input" );
 
 	// You can use -nomouse argument to prevent using mouse from client
 	// -noenginemouse will disable all mouse input
@@ -462,9 +462,9 @@ IN_Init
 */
 void IN_Init( void )
 {
-	cl_forwardspeed	= Cvar_Get( "cl_forwardspeed", "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_LOCALONLY, "Default forward move speed" );
-	cl_backspeed	= Cvar_Get( "cl_backspeed", "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_LOCALONLY, "Default back move speed"  );
-	cl_sidespeed	= Cvar_Get( "cl_sidespeed", "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_LOCALONLY, "Default side move speed"  );
+	cl_forwardspeed	= Cvar_Get( "cl_forwardspeed", "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_PRIVILEGED, "Default forward move speed" );
+	cl_backspeed	= Cvar_Get( "cl_backspeed", "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_PRIVILEGED, "Default back move speed"  );
+	cl_sidespeed	= Cvar_Get( "cl_sidespeed", "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_PRIVILEGED, "Default side move speed"  );
 
 	if( !Host_IsDedicated() )
 	{

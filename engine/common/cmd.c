@@ -727,7 +727,7 @@ Cmd_AddRestrictedCommand
 */
 void Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
 {
-	Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, cmd_desc, CMD_LOCALONLY );
+	Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, cmd_desc, CMD_PRIVILEGED );
 }
 
 /*
@@ -752,7 +752,7 @@ int GAME_EXPORT Cmd_AddClientCommand( const char *cmd_name, xcommand_t function 
 	// a1ba: try to mitigate outdated client.dll vulnerabilities
 	if( !Q_stricmp( cmd_name, "motd_write" ))
 	{
-		flags |= CMD_LOCALONLY;
+		flags |= CMD_PRIVILEGED;
 	}
 
 	return Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, "client command", flags );
@@ -945,7 +945,7 @@ static qboolean Cmd_ShouldAllowCommand( cmd_t *cmd, qboolean isPrivileged )
 		return true;
 
 	// never allow local only commands from remote
-	if( FBitSet( cmd->flags, CMD_LOCALONLY ))
+	if( FBitSet( cmd->flags, CMD_PRIVILEGED ))
 		return false;
 
 	// allow engine commands if user don't mind

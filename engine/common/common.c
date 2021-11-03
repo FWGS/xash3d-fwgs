@@ -888,7 +888,7 @@ cvar_t *pfnCvar_RegisterClientVariable( const char *szName, const char *szValue,
 {
 	// a1ba: try to mitigate outdated client.dll vulnerabilities
 	if( !Q_stricmp( szName, "motdfile" ))
-		flags |= FCVAR_LOCALONLY;
+		flags |= FCVAR_PRIVILEGED;
 
 	if( FBitSet( flags, FCVAR_GLCONFIG ))
 		return (cvar_t *)Cvar_Get( szName, szValue, flags, va( CVAR_GLCONFIG_DESCRIPTION, szName ));

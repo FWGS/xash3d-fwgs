@@ -52,7 +52,7 @@ struct tests_stats_s tests_stats;
 
 CVAR_DEFINE( host_developer, "developer", "0", 0, "engine is in development-mode" );
 CVAR_DEFINE_AUTO( sys_ticrate, "100", 0, "framerate in dedicated mode" );
-CVAR_DEFINE_AUTO( cl_filterstuffcmd, "1", FCVAR_ARCHIVE | FCVAR_LOCALONLY, "filter commands coming from server" );
+CVAR_DEFINE_AUTO( cl_filterstuffcmd, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "filter commands coming from server" );
 
 convar_t	*host_serverstate;
 convar_t	*host_gameloaded;
@@ -1088,9 +1088,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	Cvar_RegisterVariable( &cl_filterstuffcmd );
 	host_serverstate = Cvar_Get( "host_serverstate", "0", FCVAR_READ_ONLY, "displays current server state" );
-	host_maxfps = Cvar_Get( "fps_max", "72", FCVAR_ARCHIVE|FCVAR_LOCALONLY, "host fps upper limit" );
-	host_framerate = Cvar_Get( "host_framerate", "0", FCVAR_LOCALONLY, "locks frame timing to this value in seconds" );
-	host_sleeptime = Cvar_Get( "sleeptime", "1", FCVAR_ARCHIVE|FCVAR_LOCALONLY, "milliseconds to sleep for each frame. higher values reduce fps accuracy" );
+	host_maxfps = Cvar_Get( "fps_max", "72", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "host fps upper limit" );
+	host_framerate = Cvar_Get( "host_framerate", "0", FCVAR_PRIVILEGED, "locks frame timing to this value in seconds" );
+	host_sleeptime = Cvar_Get( "sleeptime", "1", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "milliseconds to sleep for each frame. higher values reduce fps accuracy" );
 	host_gameloaded = Cvar_Get( "host_gameloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded game.dll" );
 	host_clientloaded = Cvar_Get( "host_clientloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );
 	host_limitlocal = Cvar_Get( "host_limitlocal", "0", 0, "apply cl_cmdrate and rate to loopback connection" );
