@@ -522,8 +522,8 @@ void Key_Init( void )
 	// setup default binding. "unbindall" from config.cfg will be reset it
 	for( kn = keynames; kn->name; kn++ ) Key_SetBinding( kn->keynum, kn->binding );
 
-	osk_enable = Cvar_Get( "osk_enable", "0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "enable built-in on-screen keyboard" );
-	key_rotate = Cvar_Get( "key_rotate", "0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "rotate arrow keys (0-3)" );
+	osk_enable = Cvar_Get( "osk_enable", "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable built-in on-screen keyboard" );
+	key_rotate = Cvar_Get( "key_rotate", "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "rotate arrow keys (0-3)" );
 
 }
 
