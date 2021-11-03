@@ -952,6 +952,9 @@ static qboolean Cmd_ShouldAllowCommand( cmd_t *cmd, qboolean isPrivileged )
 	if( cl_filterstuffcmd.value <= 0.0f )
 		return true;
 
+	if( FBitSet( cmd->flags, CMD_FILTERABLE ))
+		return false;
+
 	for( i = 0; i < ARRAYSIZE( prefixes ); i++ )
 	{
 		if( !Q_stricmp( cmd->name, prefixes[i] ))
