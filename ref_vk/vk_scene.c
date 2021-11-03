@@ -12,6 +12,7 @@
 #include "vk_light.h"
 #include "vk_rtx.h"
 #include "vk_textures.h"
+#include "vk_cvar.h"
 #include "camera.h"
 
 #include "com_strings.h"
@@ -543,6 +544,7 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 }
 
 static float g_frametime = 0;
+
 void VK_SceneRender( const ref_viewpass_t *rvp )
 {
 	int current_pipeline_index = kRenderNormal;
@@ -609,6 +611,9 @@ void VK_SceneRender( const ref_viewpass_t *rvp )
 	gEngine.CL_DrawEFX( g_frametime, true );
 
 	VK_RenderDebugLabelEnd();
+
+	if (ui_infotool->value > 0)
+		XVK_CameraDebugPrintCenterEntity();
 }
 
 /*

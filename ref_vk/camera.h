@@ -31,3 +31,4 @@ void R_SetupCamera( const struct ref_viewpass_s *rvp );
 int R_WorldToScreen( const vec3_t point, vec3_t screen );
 int TriWorldToScreen( const float *world, float *screen );
 
+void XVK_CameraDebugPrintCenterEntity( void );

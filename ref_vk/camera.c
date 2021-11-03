@@ -1,9 +1,12 @@
 #include "camera.h"
 #include "vk_common.h"
 #include "vk_math.h"
+#include "vk_textures.h"
 
 #include "ref_params.h"
 #include "pm_movevars.h"
+#include "pm_defs.h"
+#include "pmtrace.h"
 
 vk_global_camera_t g_camera;
 
@@ -156,4 +159,69 @@ int TriWorldToScreen( const float *world, float *screen )
 	screen[1] += 0.5f * (float)g_camera.viewport[3];
 
 	return retval;
+}
+
+static const char *renderModeName( int rendermode ) {
+	switch (rendermode) {
+		case kRenderNormal: return "kRenderNormal";
+		case kRenderTransColor: return "kRenderTransColor";
+		case kRenderTransTexture: return "kRenderTransTexture";
+		case kRenderGlow: return "kRenderGlow";
+		case kRenderTransAlpha: return "kRenderTransAlpha";
+		case kRenderTransAdd: return "kRenderTransAdd";
+		default: return "UNKNOWN";
+	}
+}
+
+void XVK_CameraDebugPrintCenterEntity( void ) {
+	vec3_t vec_end;
+	pmtrace_t trace;
+	const msurface_t *surf;
+	char buf[1024], *p = buf, *end = buf + sizeof(buf);
+	const physent_t *physent = NULL;
+	const cl_entity_t *ent = NULL;
+
+	VectorMA(g_camera.vieworg, 1e6, g_camera.vforward, vec_end);
+
+	trace = gEngine.CL_TraceLine( g_camera.vieworg, vec_end, PM_NORMAL );
+	surf = gEngine.EV_TraceSurface( Q_max(trace.ent, 0), g_camera.vieworg, vec_end );
+
+	if (trace.ent > 0) {
+		physent = gEngine.EV_GetPhysent( trace.ent );
+	}
+
+	ent = gEngine.GetEntityByIndex( (physent && physent->info > 0) ? physent->info : 0 );
+
+	p += Q_snprintf(p, end - p,
+		"o\n"
+		"cam.origin: %.03f %.03f %.03f\n",
+		// TODO cam dir
+		// TODO hit pos
+		g_camera.vieworg[0], g_camera.vieworg[1], g_camera.vieworg[2]
+	);
+
+	p += Q_snprintf(p, end - p,
+		"entity index: %d, name: %s\n",
+		(physent && physent->info > 0) ? physent->info : -1,
+		(ent && ent->model) ? ent->model->name : "N/A");
+
+	if (ent) {
+		p += Q_snprintf(p, end - p,
+			"ent type: %d, rendermode: %d(%s)\n",
+			ent->curstate.entityType,
+			ent->curstate.rendermode,
+			renderModeName(ent->curstate.rendermode));
+	}
+
+	if (surf && ent && ent->model && ent->model->surfaces) {
+		const int surface_index = surf - ent->model->surfaces;
+		const int tex_id = surf->texinfo->texture->gl_texturenum;
+		const vk_texture_t* const texture = findTexture( tex_id );
+
+		p += Q_snprintf(p, end - p,
+			"surface index: %d; texture: %s\n",
+			surface_index, texture ? texture->name : "NONE"
+		);
+	}
+	gEngine.CL_CenterPrint(buf, 0.5f);
 }
