@@ -769,15 +769,18 @@ static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
 	if( isPrivileged )
 		return true;
 
-	if( v->flags & FCVAR_PRIVILEGED )
+	if( FBitSet( v->flags, FCVAR_PRIVILEGED ))
 		return false;
 
 	if( cl_filterstuffcmd.value <= 0.0f )
 		return true;
 
+	if( FBitSet( v->flags, FCVAR_FILTERABLE ))
+		return false;
+
 	for( i = 0; i < ARRAYSIZE( prefixes ); i++ )
 	{
-		if( Q_stricmp( v->name, prefixes[i] ))
+		if( !Q_stricmp( v->name, prefixes[i] ))
 			return false;
 	}
 
