@@ -95,7 +95,7 @@ const char *Cvar_BuildAutoDescription( int flags )
 	if( FBitSet( flags, FCVAR_PROTECTED ))
 		Q_strncat( desc, "protected ", sizeof( desc ));
 
-	if( FBitSet( flags, FCVAR_LOCALONLY ))
+	if( FBitSet( flags, FCVAR_PRIVILEGED ))
 		Q_strncat( desc, "privileged ", sizeof( desc ));
 
 	Q_strncat( desc, "cvar", sizeof( desc ));
@@ -769,7 +769,7 @@ static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
 	if( isPrivileged )
 		return true;
 
-	if( v->flags & FCVAR_LOCALONLY )
+	if( v->flags & FCVAR_PRIVILEGED )
 		return false;
 
 	if( cl_filterstuffcmd.value <= 0.0f )
@@ -989,7 +989,7 @@ Reads in all archived cvars
 void Cvar_Init( void )
 {
 	cvar_vars = NULL;
-	cmd_scripting = Cvar_Get( "cmd_scripting", "0", FCVAR_ARCHIVE|FCVAR_LOCALONLY, "enable simple condition checking and variable operations" );
+	cmd_scripting = Cvar_Get( "cmd_scripting", "0", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "enable simple condition checking and variable operations" );
 	Cvar_RegisterVariable (&host_developer); // early registering for dev
 
 	Cmd_AddRestrictedCommand( "setgl", Cvar_SetGL_f, "change the value of a opengl variable" );	// OBSOLETE

@@ -465,8 +465,9 @@ extern sysinfo_t	SI;
 #define CMD_SERVERDLL	BIT( 0 )		// added by server.dll
 #define CMD_CLIENTDLL	BIT( 1 )		// added by client.dll
 #define CMD_GAMEUIDLL	BIT( 2 )		// added by GameUI.dll
-#define CMD_LOCALONLY	BIT( 3 )		// restricted from server commands
-#define CMD_REFDLL		BIT( 4 )		// added by ref.dll
+#define CMD_PRIVILEGED	BIT( 3 )		// only available in privileged mode
+#define CMD_FILTERABLE  BIT( 4 )		// filtered in unprivileged mode if cl_filterstuffcmd is 1
+#define CMD_REFDLL	BIT( 5 )		// added by ref.dll
 
 typedef void (*xcommand_t)( void );
 
