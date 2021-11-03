@@ -1037,35 +1037,35 @@ void Touch_Init( void )
 	Cmd_AddRestrictedCommand( "touch_toggleselection", Touch_ToggleSelection_f, "toggle vidibility on selected button in editor" );
 
 	// not saved, just runtime state for scripting
-	touch_in_menu = Cvar_Get( "touch_in_menu", "0", FCVAR_PRIVILEGED, "draw touch in menu (for internal use only)" );
+	touch_in_menu = Cvar_Get( "touch_in_menu", "0", FCVAR_FILTERABLE, "draw touch in menu (for internal use only)" );
 
 	// sensitivity configuration
-	touch_forwardzone = Cvar_Get( "touch_forwardzone", "0.06", FCVAR_PRIVILEGED, "forward touch zone" );
-	touch_sidezone = Cvar_Get( "touch_sidezone", "0.06", FCVAR_PRIVILEGED, "side touch zone" );
-	touch_pitch = Cvar_Get( "touch_pitch", "90", FCVAR_PRIVILEGED, "touch pitch sensitivity" );
-	touch_yaw = Cvar_Get( "touch_yaw", "120", FCVAR_PRIVILEGED, "touch yaw sensitivity" );
-	touch_nonlinear_look = Cvar_Get( "touch_nonlinear_look", "0", FCVAR_PRIVILEGED, "enable nonlinear touch look" );
-	touch_pow_factor = Cvar_Get( "touch_pow_factor", "1.3", FCVAR_PRIVILEGED, "set > 1 to enable" );
-	touch_pow_mult = Cvar_Get( "touch_pow_mult", "400.0", FCVAR_PRIVILEGED, "power multiplier, usually 200-1000" );
-	touch_exp_mult = Cvar_Get( "touch_exp_mult", "0", FCVAR_PRIVILEGED, "exponent multiplier, usually 20-200, 0 to disable" );
+	touch_forwardzone = Cvar_Get( "touch_forwardzone", "0.06", FCVAR_FILTERABLE, "forward touch zone" );
+	touch_sidezone = Cvar_Get( "touch_sidezone", "0.06", FCVAR_FILTERABLE, "side touch zone" );
+	touch_pitch = Cvar_Get( "touch_pitch", "90", FCVAR_FILTERABLE, "touch pitch sensitivity" );
+	touch_yaw = Cvar_Get( "touch_yaw", "120", FCVAR_FILTERABLE, "touch yaw sensitivity" );
+	touch_nonlinear_look = Cvar_Get( "touch_nonlinear_look", "0", FCVAR_FILTERABLE, "enable nonlinear touch look" );
+	touch_pow_factor = Cvar_Get( "touch_pow_factor", "1.3", FCVAR_FILTERABLE, "set > 1 to enable" );
+	touch_pow_mult = Cvar_Get( "touch_pow_mult", "400.0", FCVAR_FILTERABLE, "power multiplier, usually 200-1000" );
+	touch_exp_mult = Cvar_Get( "touch_exp_mult", "0", FCVAR_FILTERABLE, "exponent multiplier, usually 20-200, 0 to disable" );
 
 	// touch.cfg
-	touch_grid_count = Cvar_Get( "touch_grid_count", "50", FCVAR_PRIVILEGED, "touch grid count" );
-	touch_grid_enable = Cvar_Get( "touch_grid_enable", "1", FCVAR_PRIVILEGED, "enable touch grid" );
+	touch_grid_count = Cvar_Get( "touch_grid_count", "50", FCVAR_FILTERABLE, "touch grid count" );
+	touch_grid_enable = Cvar_Get( "touch_grid_enable", "1", FCVAR_FILTERABLE, "enable touch grid" );
 	touch_config_file = Cvar_Get( "touch_config_file", "touch.cfg", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "current touch profile file" );
-	touch_precise_amount = Cvar_Get( "touch_precise_amount", "0.5", FCVAR_PRIVILEGED, "sensitivity multiplier for precise-look" );
+	touch_precise_amount = Cvar_Get( "touch_precise_amount", "0.5", FCVAR_FILTERABLE, "sensitivity multiplier for precise-look" );
 	touch_highlight_r = Cvar_Get( "touch_highlight_r", "1.0", 0, "highlight r color" );
 	touch_highlight_g = Cvar_Get( "touch_highlight_g", "1.0", 0, "highlight g color" );
 	touch_highlight_b = Cvar_Get( "touch_highlight_b", "1.0", 0, "highlight b color" );
 	touch_highlight_a = Cvar_Get( "touch_highlight_a", "1.0", 0, "highlight alpha" );
-	touch_dpad_radius = Cvar_Get( "touch_dpad_radius", "1.0", FCVAR_PRIVILEGED, "dpad radius multiplier" );
-	touch_joy_radius = Cvar_Get( "touch_joy_radius", "1.0", FCVAR_PRIVILEGED, "joy radius multiplier" );
-	touch_move_indicator = Cvar_Get( "touch_move_indicator", "0.0", FCVAR_PRIVILEGED, "indicate move events (0 to disable)" );
-	touch_joy_texture = Cvar_Get( "touch_joy_texture", "touch_default/joy.tga", FCVAR_PRIVILEGED, "texture for move indicator");
+	touch_dpad_radius = Cvar_Get( "touch_dpad_radius", "1.0", FCVAR_FILTERABLE, "dpad radius multiplier" );
+	touch_joy_radius = Cvar_Get( "touch_joy_radius", "1.0", FCVAR_FILTERABLE, "joy radius multiplier" );
+	touch_move_indicator = Cvar_Get( "touch_move_indicator", "0.0", FCVAR_FILTERABLE, "indicate move events (0 to disable)" );
+	touch_joy_texture = Cvar_Get( "touch_joy_texture", "touch_default/joy.tga", FCVAR_FILTERABLE, "texture for move indicator");
 
 	// input devices cvar
-	touch_enable = Cvar_Get( "touch_enable", DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "enable touch controls" );
-	touch_emulate = Cvar_Get( "touch_emulate", "0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "emulate touch with mouse" );
+	touch_enable = Cvar_Get( "touch_enable", DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable touch controls" );
+	touch_emulate = Cvar_Get( "touch_emulate", "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "emulate touch with mouse" );
 
 	/// TODO: touch sdl platform
 	// SDL_SetHint( SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH, "1" );
