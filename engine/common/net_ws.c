@@ -1693,15 +1693,15 @@ void NET_Init( void )
 
 	if( net.initialized ) return;
 
-	net_clockwindow = Cvar_Get( "clockwindow", "0.5", FCVAR_LOCALONLY, "timewindow to execute client moves" );
+	net_clockwindow = Cvar_Get( "clockwindow", "0.5", FCVAR_PRIVILEGED, "timewindow to execute client moves" );
 	net_address = Cvar_Get( "net_address", "0", FCVAR_READ_ONLY, "contain local address of current client" );
 	net_ipname = Cvar_Get( "ip", "localhost", FCVAR_READ_ONLY, "network ip address" );
 	net_iphostport = Cvar_Get( "ip_hostport", "0", FCVAR_READ_ONLY, "network ip host port" );
 	net_hostport = Cvar_Get( "hostport", va( "%i", PORT_SERVER ), FCVAR_READ_ONLY, "network default host port" );
 	net_ipclientport = Cvar_Get( "ip_clientport", "0", FCVAR_READ_ONLY, "network ip client port" );
 	net_clientport = Cvar_Get( "clientport", va( "%i", PORT_CLIENT ), FCVAR_READ_ONLY, "network default client port" );
-	net_fakelag = Cvar_Get( "fakelag", "0", FCVAR_LOCALONLY, "lag all incoming network data (including loopback) by xxx ms." );
-	net_fakeloss = Cvar_Get( "fakeloss", "0", FCVAR_LOCALONLY, "act like we dropped the packet this % of the time." );
+	net_fakelag = Cvar_Get( "fakelag", "0", FCVAR_PRIVILEGED, "lag all incoming network data (including loopback) by xxx ms." );
+	net_fakeloss = Cvar_Get( "fakeloss", "0", FCVAR_PRIVILEGED, "act like we dropped the packet this % of the time." );
 
 	// prepare some network data
 	for( i = 0; i < NS_COUNT; i++ )
