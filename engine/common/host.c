@@ -354,10 +354,11 @@ Host_Exec_f
 */
 void Host_Exec_f( void )
 {
-	string	cfgpath;
+	string cfgpath;
 	byte *f;
 	char *txt;
 	fs_offset_t	len;
+	char *arg;
 
 	if( Cmd_Argc() != 2 )
 	{
@@ -365,14 +366,47 @@ void Host_Exec_f( void )
 		return;
 	}
 
-	if( !Q_stricmp( "game.cfg", Cmd_Argv( 1 )))
+	arg = Cmd_Argv( 1 );
+
+#ifndef XASH_DEDICATED
+	if( !Cmd_CurrentCommandIsPrivileged() )
+	{
+		const char *unprivilegedWhitelist[] =
+		{
+			NULL, "mapdefault.cfg", "scout.cfg", "sniper.cfg",
+			"soldier.cfg", "demoman.cfg", "medic.cfg", "hwguy.cfg",
+			"pyro.cfg", "spy.cfg", "engineer.cfg", "civilian.cfg"
+		};
+		int i;
+		qboolean allow = false;
+
+		unprivilegedWhitelist[0] = va( "%s.cfg", clgame.mapname );
+
+		for( i = 0; i < ARRAYSIZE( unprivilegedWhitelist ); i++ )
+		{
+			if( !Q_strcmp( arg, unprivilegedWhitelist[i] ))
+			{
+				allow = true;
+				break;
+			}
+		}
+
+		if( !allow )
+		{
+			Con_Printf( "exec %s: not privileged or in whitelist\n", arg );
+			return;
+		}
+	}
+#endif // XASH_DEDICATED
+
+	if( !Q_stricmp( "game.cfg", arg ))
 	{
 		// don't execute game.cfg in singleplayer
 		if( SV_GetMaxClients() == 1 )
 			return;
 	}
 
-	Q_strncpy( cfgpath, Cmd_Argv( 1 ), sizeof( cfgpath ));
+	Q_strncpy( cfgpath, arg, sizeof( cfgpath ));
 	COM_DefaultExtension( cfgpath, ".cfg" ); // append as default
 
 	f = FS_LoadFile( cfgpath, &len, false );
@@ -382,7 +416,7 @@ void Host_Exec_f( void )
 		return;
 	}
 
-	if( !Q_stricmp( "config.cfg", Cmd_Argv( 1 )))
+	if( !Q_stricmp( "config.cfg", arg ))
 		host.config_executed = true;
 
 	// adds \n\0 at end of the file
@@ -392,7 +426,7 @@ void Host_Exec_f( void )
 	Mem_Free( f );
 
 	if( !host.apply_game_config )
-		Con_Printf( "execing %s\n", Cmd_Argv( 1 ));
+		Con_Printf( "execing %s\n", arg );
 	Cbuf_InsertText( txt );
 	Mem_Free( txt );
 }
@@ -989,7 +1023,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	Sys_InitLog();
 
-	Cmd_AddRestrictedCommand( "exec", Host_Exec_f, "execute a script file" );
+	Cmd_AddCommand( "exec", Host_Exec_f, "execute a script file" );
 	Cmd_AddCommand( "memlist", Host_MemStats_f, "prints memory pool information" );
 	Cmd_AddRestrictedCommand( "userconfigd", Host_Userconfigd_f, "execute all scripts from userconfig.d" );
 

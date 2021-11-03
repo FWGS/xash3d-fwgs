@@ -480,6 +480,7 @@ void Cbuf_AddFilteredText( const char *text );
 void Cbuf_InsertText( const char *text );
 void Cbuf_ExecStuffCmds( void );
 void Cbuf_Execute (void);
+qboolean Cmd_CurrentCommandIsPrivileged( void );
 int Cmd_Argc( void );
 const char *Cmd_Args( void );
 const char *Cmd_Argv( int arg );
