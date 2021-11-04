@@ -669,7 +669,7 @@ static qboolean rayTrace( VkCommandBuffer cmdbuf, VkImage frame_dst, float fov_a
 			.random_seed = (uint32_t)gEngine.COM_RandomLong(0, INT32_MAX),
 			.bounces = vk_rtx_bounces->value,
 			.prev_frame_blend_factor = vk_rtx_prev_frame_blend_factor->value,
-			.pixel_cone_spread_angle = atanf((2.0f*tanf(fov_angle_y * 0.5f)) / (float)FRAME_HEIGHT),
+			.pixel_cone_spread_angle = atanf((2.0f*tanf(DEG2RAD(fov_angle_y) * 0.5f)) / (float)FRAME_HEIGHT),
 			.debug_light_index_begin = (uint32_t)(vk_rtx_light_begin->value),
 			.debug_light_index_end = (uint32_t)(vk_rtx_light_end->value),
 			.flags = r_lightmap->value ? PUSH_FLAG_LIGHTMAP_ONLY : 0,
