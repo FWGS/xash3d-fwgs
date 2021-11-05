@@ -232,7 +232,7 @@ static qboolean createSwapchain( void )
 	create_info->imageExtent.width = vk_frame.width;
 	create_info->imageExtent.height = vk_frame.height;
 	create_info->imageArrayLayers = 1;
-	create_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | (vk_core.rtx ? /*VK_IMAGE_USAGE_STORAGE_BIT |*/ VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
+	create_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | (vk_core.rtx ? VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
 	create_info->imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	create_info->preTransform = g_frame.surface_caps.currentTransform;
 	create_info->compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;

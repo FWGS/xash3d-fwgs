@@ -66,7 +66,8 @@ int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 #define VK_LoadTextureInternal( name, pic, flags ) VK_LoadTextureFromBuffer( name, pic, flags, false )
 
 typedef struct {
-	// TODO better memory allocation
+	// FIXME better memory allocation
+	// OCHEN PLOHO
 	device_memory_t devmem;
 	VkImage image;
 	VkImageView view;

@@ -9,12 +9,12 @@ typedef struct {
 	VkCommandBuffer cmdbuf;
 
 	struct {
-		VkImage image;
+		VkImageView image_view;
 		uint32_t width, height;
 	} in;
 
 	struct {
-		VkImage image;
+		VkImageView image_view;
 		uint32_t width, height;
 	} out;
 } xvk_denoiser_args_t;
