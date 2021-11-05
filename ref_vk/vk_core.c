@@ -715,6 +715,9 @@ qboolean R_VkInit( void )
 			return false;
 
 		VK_LightsInit();
+
+		if (!XVK_DenoiserInit())
+			return false;
 	}
 
 	return true;
@@ -724,6 +727,7 @@ void R_VkShutdown( void )
 {
 	if (vk_core.rtx)
 	{
+		XVK_DenoiserDestroy();
 		VK_LightsShutdown();
 		VK_RayShutdown();
 	}
