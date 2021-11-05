@@ -94,3 +94,18 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 
 Note: if compiling 32-bit on amd64, you may need to supply `export PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig` prior to running configure.   
 
+
+
+
+## I wil make
+ 
+ New GUI 
+ 
+ Play CS 1.6 in one app
+
+
+## Related
+
+Here are some related projects
+
+
