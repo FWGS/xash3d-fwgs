@@ -1138,7 +1138,7 @@ qboolean VK_RayInit( void )
 	createPipeline();
 
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
-		g_rtx.frames[i] = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+		g_rtx.frames[i] = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
 			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 
 		SET_DEBUG_NAMEF(g_rtx.frames[i].image, VK_OBJECT_TYPE_IMAGE, "rtx frame[%d]", i);

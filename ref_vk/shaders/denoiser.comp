@@ -2,8 +2,8 @@
 
 layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
 
-layout(set = 0, binding = 0, rgba8) uniform image2D source;
-layout(set = 0, binding = 1, rgba8) uniform image2D dest;
+layout(set = 0, binding = 0, rgba16f) uniform image2D source;
+layout(set = 0, binding = 1, rgba16f) uniform image2D dest;
 
 // Blatantly copypasted from https://www.shadertoy.com/view/XsGfWV
 vec3 aces_tonemap(vec3 color){
