@@ -1883,46 +1883,42 @@ Find the client cvar value
 and sent it back to the server
 ==============
 */
-void CL_ParseCvarValue( sizebuf_t *msg )
+void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext )
 {
-	const char *cvarName = MSG_ReadString( msg );
-	convar_t *cvar = Cvar_FindVar( cvarName );
+	const char *cvarName, *response;
+	convar_t *cvar;
+	int requestID;
 
-	// build the answer
-	MSG_BeginClientCmd( &cls.netchan.message, clc_requestcvarvalue );
-	MSG_WriteString( &cls.netchan.message, cvar ? cvar->string : "Not Found" );
-}
+	if( ext )
+		requestID = MSG_ReadLong( msg );
 
-/*
-==============
-CL_ParseCvarValue2
-
-Find the client cvar value
-and sent it back to the server
-==============
-*/
-void CL_ParseCvarValue2( sizebuf_t *msg )
-{
-	int requestID = MSG_ReadLong( msg );
-	const char *cvarName = MSG_ReadString( msg );
-	convar_t *cvar = Cvar_FindVar( cvarName );
-
-	// build the answer
-	MSG_BeginClientCmd( &cls.netchan.message, clc_requestcvarvalue2 );
-	MSG_WriteLong( &cls.netchan.message, requestID );
-	MSG_WriteString( &cls.netchan.message, cvarName );
+	cvarName = MSG_ReadString( msg );
+	cvar = Cvar_FindVar( cvarName );
 
 	if( cvar )
 	{
-		// cheater can change value ignoring Cvar_Set so we responce incorrect value
-		if( cvar->value != Q_atof( cvar->string ))
-			MSG_WriteString( &cls.netchan.message, va( "%s (%g)", cvar->string, cvar->value ));
-		else MSG_WriteString( &cls.netchan.message, cvar->string );
+		if( cvar->flags & FCVAR_PRIVILEGED )
+			response = "CVAR is privileged";
+		else if( cvar->flags & FCVAR_SERVER )
+			response = "CVAR is server-only";
+		else if( cvar->flags & FCVAR_PROTECTED )
+			response = "CVAR is protected";
+		else
+			response = cvar->string;
+	}
+	else response = "Bad CVAR request";
+
+	if( ext )
+	{
+		MSG_BeginClientCmd( &cls.netchan.message, clc_requestcvarvalue2 );
+		MSG_WriteLong( &cls.netchan.message, requestID );
+		MSG_WriteString( &cls.netchan.message, cvarName );
 	}
 	else
 	{
-		MSG_WriteString( &cls.netchan.message, "Not Found" );
+		MSG_BeginClientCmd( &cls.netchan.message, clc_requestcvarvalue );
 	}
+	MSG_WriteString( &cls.netchan.message, response );
 }
 
 /*
@@ -2376,10 +2372,10 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 			CL_ParseResLocation( msg );
 			break;
 		case svc_querycvarvalue:
-			CL_ParseCvarValue( msg );
+			CL_ParseCvarValue( msg, false );
 			break;
 		case svc_querycvarvalue2:
-			CL_ParseCvarValue2( msg );
+			CL_ParseCvarValue( msg, true );
 			break;
 		case svc_exec:
 			CL_ParseExec( msg );
