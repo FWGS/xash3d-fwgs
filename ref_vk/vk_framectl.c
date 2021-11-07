@@ -107,6 +107,8 @@ static void createDepthImage(int w, int h) {
 
 	g_frame.depth.image = createImage(w, h, g_frame.depth.format, tiling, usage);
 
+	SET_DEBUG_NAME(g_frame.depth.image, VK_OBJECT_TYPE_IMAGE, "depth buffer");
+
 	vkGetImageMemoryRequirements(vk_core.device, g_frame.depth.image, &memreq);
 	g_frame.depth.device_memory = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
 	XVK_CHECK(vkBindImageMemory(vk_core.device, g_frame.depth.image, g_frame.depth.device_memory.device_memory, 0));
@@ -300,6 +302,8 @@ static qboolean createSwapchain( void )
 			};
 			XVK_CHECK(vkCreateFramebuffer(vk_core.device, &fbci, NULL, g_frame.framebuffers + i));
 		}
+
+		SET_DEBUG_NAMEF(g_frame.images[i], VK_OBJECT_TYPE_IMAGE, "swapchain image[%d]", i);
 	}
 
 	return true;

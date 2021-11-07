@@ -95,6 +95,21 @@ do { \
 	} \
 } while (0)
 
+#define SET_DEBUG_NAMEF(object, type, fmt, ...) \
+do { \
+	if (vk_core.debug) { \
+		char buffer[1024]; \
+		VkDebugUtilsObjectNameInfoEXT duoni = { \
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, \
+			.objectHandle = (uint64_t)object, \
+			.objectType = type, \
+			.pObjectName = buffer, \
+		}; \
+		Q_snprintf(buffer, sizeof(buffer), fmt, ##__VA_ARGS__); \
+		XVK_CHECK(vkSetDebugUtilsObjectNameEXT(vk_core.device, &duoni)); \
+	} \
+} while (0)
+
 // TODO make this not fatal: devise proper error handling strategies
 // FIXME Host_Error does not cause process to exit, we need to handle this manually
 #define XVK_CHECK(f) do { \
