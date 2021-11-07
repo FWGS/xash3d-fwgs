@@ -71,8 +71,6 @@ enum {
 	RayDescBinding_Lights = 7,
 	RayDescBinding_LightClusters = 8,
 
-	RayDescBinding_PrevFrame = 9,
-
 	RayDescBinding_COUNT
 };
 
@@ -559,19 +557,13 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 	createTlas(cmdbuf);
 }
 
-static void updateDescriptors( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t *args, const vk_image_t *frame_src, const vk_image_t *frame_dst ) {
+static void updateDescriptors( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t *args, const vk_image_t *frame_dst ) {
 	// 3. Update descriptor sets (bind dest image, tlas, projection matrix)
 	VkDescriptorImageInfo dii_all_textures[MAX_TEXTURES];
 
 	g_rtx.desc_values[RayDescBinding_DestImage].image = (VkDescriptorImageInfo){
 		.sampler = VK_NULL_HANDLE,
 		.imageView = frame_dst->view,
-		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-	};
-
-	g_rtx.desc_values[RayDescBinding_PrevFrame].image = (VkDescriptorImageInfo){
-		.sampler = VK_NULL_HANDLE,
-		.imageView = frame_src->view,
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 	};
 
@@ -835,7 +827,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		}
 	} else {
 		prepareTlas(cmdbuf);
-		updateDescriptors(cmdbuf, args, frame_src, frame_dst);
+		updateDescriptors(cmdbuf, args, frame_dst);
 		rayTrace(cmdbuf, frame_dst->image, args->fov_angle_y);
 
 		// Barrier for frame_dst image
@@ -847,7 +839,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 				.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
 				.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
 				.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-				.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				.newLayout = VK_IMAGE_LAYOUT_GENERAL,
 				.subresourceRange =
 					(VkImageSubresourceRange){
 						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -884,7 +876,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		const xvk_denoiser_args_t denoiser_args = {
 			.cmdbuf = cmdbuf,
 			.in = {
-				.image_view = frame_src->view,
+				.image_view = frame_dst->view,
 				.width = FRAME_WIDTH,
 				.height = FRAME_HEIGHT,
 			},
@@ -1002,13 +994,6 @@ static void createLayouts( void ) {
 	g_rtx.desc_bindings[RayDescBinding_LightClusters] =	(VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_LightClusters,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	};
-
-	g_rtx.desc_bindings[RayDescBinding_PrevFrame] =	(VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_PrevFrame,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};

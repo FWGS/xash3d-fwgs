@@ -35,8 +35,6 @@ layout (set = 0, binding = 8, align = 1) readonly buffer UBOLightClusters {
 	LightCluster clusters[MAX_LIGHT_CLUSTERS];
 } light_grid;
 
-layout(set = 0, binding = 9, rgba8) uniform readonly image2D previous_frame;
-
 layout (push_constant) uniform PC_ {
 	PushConstants push_constants;
 };
@@ -439,14 +437,6 @@ void main() {
 		origin = payload_opaque.hit_pos_t.xyz;
 		throughput *= brdfWeight;
 	} // for all bounces
-
-	if (false)
-	{
-		vec3 prev_frame = imageLoad(previous_frame, ivec2(gl_LaunchIDEXT.xy)).rgb;
-		prev_frame *= prev_frame;
-		prev_frame *= color_factor;
-		C = mix(C, prev_frame, push_constants.prev_frame_blend_factor);
-	}
 
 	C /= color_factor;
 	C = aces_tonemap(C);
