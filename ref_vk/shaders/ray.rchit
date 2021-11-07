@@ -22,30 +22,41 @@ vec3 hashUintToVec3(uint i) { return vec3(hash(float(i)), hash(float(i)+15.43), 
 // FIXME implement more robust self-intersection avoidance (see chap 6 of "Ray Tracing Gems")
 const float normal_offset_fudge = .001;
 
-// Taken from Ray Tracing Gems II, Chapter 7. Texture Coordinate Gradients Estimation for Ray Cones, by Wessam Bahnassi
-// https://www.realtimerendering.com/raytracinggems/rtg2/index.html
-// https://github.com/Apress/Ray-Tracing-Gems-II/blob/main/Chapter_07/Raytracing.hlsl
-vec4 UVDerivsFromRayCone(vec3 vRayDir, vec3 vWorldNormal, float vRayConeWidth, vec2 aUV[3], vec3 aPos[3], mat3 matWorld)
+// Taken from Journal of Computer Graphics Techniques, Vol. 10, No. 1, 2021.
+// Improved Shader and Texture Level of Detail Using Ray Cones,
+// by T. Akenine-Moller, C. Crassin, J. Boksansky, L. Belcour, A. Panteleev, and O. Wright
+// https://jcgt.org/published/0010/01/01/
+// P is the intersection point
+// f is the triangle normal
+// d is the ray cone direction
+void computeAnisotropicEllipseAxes(in vec3 P, in vec3 f,
+    in vec3 d, in float rayConeRadiusAtIntersection,
+    in vec3 positions[3], in vec2 txcoords[3],
+    in vec2 interpolatedTexCoordsAtIntersection,
+    out vec2 texGradient1, out vec2 texGradient2)
 {
-	vec2 vUV10 = aUV[1]-aUV[0];
-	vec2 vUV20 = aUV[2]-aUV[0];
-	float fQuadUVArea = abs(vUV10.x*vUV20.y - vUV20.x*vUV10.y);
-
-	// Since the ray cone's width is in world-space, we need to compute the quad
-	// area in world-space as well to enable proper ratio calculation
-	vec3 vEdge10 = (aPos[1]-aPos[0]) * matWorld;
-	vec3 vEdge20 = (aPos[2]-aPos[0]) * matWorld;
-	vec3 vFaceNrm = cross(vEdge10, vEdge20);
-	float fQuadArea = length(vFaceNrm);
-
-	float fDistTerm = abs(vRayConeWidth);
-	float fNormalTerm = abs(dot(vRayDir,vWorldNormal));
-	float fProjectedConeWidth = vRayConeWidth/fNormalTerm;
-	float fVisibleAreaRatio = (fProjectedConeWidth*fProjectedConeWidth) / fQuadArea;
-
-	float fVisibleUVArea = fQuadUVArea*fVisibleAreaRatio;
-	float fULength = sqrt(fVisibleUVArea);
-	return vec4(fULength,0,0,fULength);
+    // Compute ellipse axes.
+    vec3 a1 = d - dot(f, d) * f;
+    vec3 p1 = a1 - dot(d, a1) * d;
+    a1 *= rayConeRadiusAtIntersection / max(0.0001, length(p1));
+    vec3 a2 = cross(f, a1);
+    vec3 p2 = a2 - dot(d, a2) * d;
+    a2 *= rayConeRadiusAtIntersection / max(0.0001, length(p2));
+    // Compute texture coordinate gradients.
+    vec3 eP, delta = P - positions[0];
+    vec3 e1 = positions[1] - positions[0];
+    vec3 e2 = positions[2] - positions[0];
+    float oneOverAreaTriangle = 1.0 / dot(f, cross(e1, e2));
+    eP = delta + a1;
+    float u1 = dot(f, cross(eP, e2)) * oneOverAreaTriangle;
+    float v1 = dot(f, cross(e1, eP)) * oneOverAreaTriangle;
+    texGradient1 = (1.0-u1-v1) * txcoords[0] + u1 * txcoords[1] +
+    v1 * txcoords[2] - interpolatedTexCoordsAtIntersection;
+    eP = delta + a2;
+    float u2 = dot(f, cross(eP, e2)) * oneOverAreaTriangle;
+    float v2 = dot(f, cross(e1, eP)) * oneOverAreaTriangle;
+    texGradient2 = (1.0-u2-v2) * txcoords[0] + u2 * txcoords[1] +
+    v2 * txcoords[2] - interpolatedTexCoordsAtIntersection;
 }
 
 void main() {
@@ -83,8 +94,17 @@ void main() {
     const vec2 texture_uv = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y + push_constants.time * kusochki[kusok_index].uv_speed;
     const uint tex_index = kusochki[kusok_index].texture;
 
+    const vec3 real_geom_normal = normalize(normalTransformMat * cross(pos[2]-pos[0], pos[1]-pos[0]));
+    const float geom_normal_sign = sign(dot(real_geom_normal, -gl_WorldRayDirectionEXT));
+    const vec3 geom_normal = geom_normal_sign * real_geom_normal;
+
+    // This one is supposed to be numerically better, but I can't see why
+    const vec3 hit_pos = (gl_ObjectToWorldEXT * vec4(pos[0] * (1. - bary.x - bary.y) + pos[1] * bary.x + pos[2] * bary.y, 1.)).xyz + geom_normal * normal_offset_fudge;
+    //const vec3 hit_pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT + geom_normal * normal_offset_fudge;
+
     const float ray_cone_width = payload.pixel_cone_spread_angle * payload.t_offset;
-    const vec4 uv_lods = UVDerivsFromRayCone(gl_WorldRayDirectionEXT, normal, ray_cone_width, uvs, pos, matWorldRotation);
+    vec4 uv_lods;
+    computeAnisotropicEllipseAxes(hit_pos, normal, gl_WorldRayDirectionEXT, ray_cone_width, pos, uvs, texture_uv, uv_lods.xy, uv_lods.zw);
     const vec4 tex_color = textureGrad(textures[nonuniformEXT(tex_index)], texture_uv, uv_lods.xy, uv_lods.zw);
     //const vec3 base_color = pow(tex_color.rgb, vec3(2.));
     const vec3 base_color = ((push_constants.flags & PUSH_FLAG_LIGHTMAP_ONLY) != 0) ? vec3(1.) : tex_color.rgb;// pow(tex_color.rgb, vec3(2.));
@@ -92,14 +112,6 @@ void main() {
     /* const vec3 base_color = tex_color.rgb; */
 
 	// FIXME read alpha from texture
-
-	const vec3 real_geom_normal = normalize(normalTransformMat * cross(pos[2]-pos[0], pos[1]-pos[0]));
-	const float geom_normal_sign = sign(dot(real_geom_normal, -gl_WorldRayDirectionEXT));
-	const vec3 geom_normal = geom_normal_sign * real_geom_normal;
-
-	// This one is supposed to be numerically better, but I can't see why
-    const vec3 hit_pos = (gl_ObjectToWorldEXT * vec4(pos[0] * (1. - bary.x - bary.y) + pos[1] * bary.x + pos[2] * bary.y, 1.)).xyz + geom_normal * normal_offset_fudge;
-	//const vec3 hit_pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT + geom_normal * normal_offset_fudge;
 
     payload.hit_pos_t = vec4(hit_pos, gl_HitTEXT);
     payload.base_color = base_color * kusochki[kusok_index].color.rgb;
