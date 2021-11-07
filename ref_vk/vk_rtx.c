@@ -925,8 +925,6 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	updateLights();
 
 	if (g_ray_model_state.frame.num_models == 0) {
-		clearVkImage( cmdbuf, current_frame->denoised.image );
-
 		const xvk_blit_args blit_args = {
 			.cmdbuf = args->cmdbuf,
 			.in_stage = VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -946,6 +944,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			},
 		};
 
+		clearVkImage( cmdbuf, current_frame->denoised.image );
 		blitImage( &blit_args );
 	} else {
 		prepareTlas(cmdbuf);

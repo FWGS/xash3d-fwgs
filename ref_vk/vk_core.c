@@ -16,6 +16,7 @@
 #include "vk_descriptor.h"
 #include "vk_light.h"
 #include "vk_nv_aftermath.h"
+#include "vk_denoiser.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
