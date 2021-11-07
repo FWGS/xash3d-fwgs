@@ -59,7 +59,7 @@ typedef struct {
 } vk_ray_shader_light_grid;
 
 enum {
-	RayDescBinding_DestImage = 0,
+	RayDescBinding_Dest_ImageBaseColor = 0,
 	RayDescBinding_TLAS = 1,
 	RayDescBinding_UBOMatrices = 2,
 
@@ -71,8 +71,18 @@ enum {
 	RayDescBinding_Lights = 7,
 	RayDescBinding_LightClusters = 8,
 
+	RayDescBinding_Dest_ImageDiffuseGI = 9,
+	//RayDescBinding_Dest_ImageNormal = 10,
+	//RayDescBinding_Dest_ImageSpecular = 11,
+
 	RayDescBinding_COUNT
 };
+
+typedef struct {
+	vk_image_t denoised;
+	vk_image_t base_color;
+	vk_image_t diffuse_gi;
+} xvk_ray_frame_images_t;
 
 static struct {
 	vk_descriptors_t descriptors;
@@ -127,7 +137,7 @@ static struct {
 	} frame;
 
 	unsigned frame_number;
-	vk_image_t frames[2];
+	xvk_ray_frame_images_t frames[2];
 
 	qboolean reload_pipeline;
 	qboolean reload_lighting;
@@ -557,13 +567,13 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 	createTlas(cmdbuf);
 }
 
-static void updateDescriptors( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t *args, const vk_image_t *frame_dst ) {
+static void updateDescriptors( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t *args, const xvk_ray_frame_images_t *frame_dst ) {
 	// 3. Update descriptor sets (bind dest image, tlas, projection matrix)
 	VkDescriptorImageInfo dii_all_textures[MAX_TEXTURES];
 
-	g_rtx.desc_values[RayDescBinding_DestImage].image = (VkDescriptorImageInfo){
+	g_rtx.desc_values[RayDescBinding_Dest_ImageBaseColor].image = (VkDescriptorImageInfo){
 		.sampler = VK_NULL_HANDLE,
-		.imageView = frame_dst->view,
+		.imageView = frame_dst->base_color.view,
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 	};
 
@@ -621,10 +631,16 @@ static void updateDescriptors( VkCommandBuffer cmdbuf, const vk_ray_frame_render
 		.range = VK_WHOLE_SIZE,
 	};
 
+	g_rtx.desc_values[RayDescBinding_Dest_ImageDiffuseGI].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = frame_dst->diffuse_gi.view,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
 	VK_DescriptorsWrite(&g_rtx.descriptors);
 }
 
-static qboolean rayTrace( VkCommandBuffer cmdbuf, VkImage frame_dst, float fov_angle_y )
+static qboolean rayTrace( VkCommandBuffer cmdbuf, const xvk_ray_frame_images_t *current_frame, float fov_angle_y )
 {
 	// 4. Barrier for TLAS build and dest image layout transfer
 	{
@@ -638,9 +654,9 @@ static qboolean rayTrace( VkCommandBuffer cmdbuf, VkImage frame_dst, float fov_a
 		} };
 		VkImageMemoryBarrier image_barrier[] = { {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = frame_dst,
+			.image = current_frame->base_color.image,
 			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
 			.subresourceRange = (VkImageSubresourceRange) {
@@ -649,9 +665,26 @@ static qboolean rayTrace( VkCommandBuffer cmdbuf, VkImage frame_dst, float fov_a
 				.levelCount = 1,
 				.baseArrayLayer = 0,
 				.layerCount = 1,
-		}} };
-		vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR | VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-			0, NULL, ARRAYSIZE(bmb), bmb, ARRAYSIZE(image_barrier), image_barrier);
+			},
+		}, {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = current_frame->diffuse_gi.image,
+			.srcAccessMask = 0,
+			.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.subresourceRange = (VkImageSubresourceRange) {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			},
+		} };
+		vkCmdPipelineBarrier(cmdbuf,
+			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			0, 0, NULL, ARRAYSIZE(bmb), bmb, ARRAYSIZE(image_barrier), image_barrier);
 	}
 
 	// 4. dispatch ray tracing
@@ -770,22 +803,71 @@ static void clearVkImage( VkCommandBuffer cmdbuf, VkImage image ) {
 	vkCmdClearColorImage(cmdbuf, image, VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &image_barriers->subresourceRange);
 }
 
-static void blitImage( VkCommandBuffer cmdbuf, VkImage src, VkImage dst, int src_width, int src_height, int dst_width, int dst_height )
-{
-	// Blit raytraced image to frame buffer
+typedef struct {
+	VkCommandBuffer cmdbuf;
+
+	VkPipelineStageFlags in_stage;
+	struct {
+		VkImage image;
+		int width, height;
+		VkImageLayout oldLayout;
+		VkAccessFlags srcAccessMask;
+	} src, dst;
+} xvk_blit_args;
+
+static void blitImage( const xvk_blit_args *blit_args ) {
+	{
+		const VkImageMemoryBarrier image_barriers[] = { {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = blit_args->src.image,
+			.srcAccessMask = blit_args->src.srcAccessMask,
+			.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+			.oldLayout = blit_args->src.oldLayout,
+			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			.subresourceRange =
+				(VkImageSubresourceRange){
+					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+					.baseMipLevel = 0,
+					.levelCount = 1,
+					.baseArrayLayer = 0,
+					.layerCount = 1,
+				},
+		}, {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = blit_args->dst.image,
+			.srcAccessMask = blit_args->dst.srcAccessMask,
+			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.oldLayout = blit_args->dst.oldLayout,
+			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			.subresourceRange =
+				(VkImageSubresourceRange){
+					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+					.baseMipLevel = 0,
+					.levelCount = 1,
+					.baseArrayLayer = 0,
+					.layerCount = 1,
+				},
+		} };
+
+		vkCmdPipelineBarrier(blit_args->cmdbuf,
+			blit_args->in_stage,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+	}
+
 	{
 		VkImageBlit region = {0};
-		region.srcOffsets[1].x = src_width;
-		region.srcOffsets[1].y = src_height;
+		region.srcOffsets[1].x = blit_args->src.width;
+		region.srcOffsets[1].y = blit_args->src.height;
 		region.srcOffsets[1].z = 1;
-		region.dstOffsets[1].x = dst_width;
-		region.dstOffsets[1].y = dst_height;
+		region.dstOffsets[1].x = blit_args->dst.width;
+		region.dstOffsets[1].y = blit_args->dst.height;
 		region.dstOffsets[1].z = 1;
 		region.srcSubresource.aspectMask = region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		region.srcSubresource.layerCount = region.dstSubresource.layerCount = 1;
-		vkCmdBlitImage(cmdbuf,
-			src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		vkCmdBlitImage(blit_args->cmdbuf,
+			blit_args->src.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			blit_args->dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &region,
 			VK_FILTER_NEAREST);
 	}
@@ -794,7 +876,7 @@ static void blitImage( VkCommandBuffer cmdbuf, VkImage src, VkImage dst, int src
 		VkImageMemoryBarrier image_barriers[] = {
 		{
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = dst,
+			.image = blit_args->dst.image,
 			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
 			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -808,7 +890,7 @@ static void blitImage( VkCommandBuffer cmdbuf, VkImage src, VkImage dst, int src
 					.layerCount = 1,
 				},
 		}};
-		vkCmdPipelineBarrier(cmdbuf,
+		vkCmdPipelineBarrier(blit_args->cmdbuf,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
@@ -818,8 +900,7 @@ static void blitImage( VkCommandBuffer cmdbuf, VkImage src, VkImage dst, int src
 void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 {
 	const VkCommandBuffer cmdbuf = args->cmdbuf;
-	const vk_image_t* frame_denoiser_dst = g_rtx.frames + ((g_rtx.frame_number + 1) % 2);
-	const vk_image_t* frame_dst = g_rtx.frames + (g_rtx.frame_number % 2);
+	const xvk_ray_frame_images_t* current_frame = g_rtx.frames + (g_rtx.frame_number % 2);
 
 	ASSERT(vk_core.rtx);
 	// ubo should contain two matrices
@@ -836,140 +917,131 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		// TODO gracefully handle reload errors: need to change createPipeline, loadShader, VK_PipelineCreate...
 		vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
 		createPipeline();
+
+		XVK_DenoiserReloadPipeline();
 		g_rtx.reload_pipeline = false;
 	}
 
 	updateLights();
 
-	if (g_ray_model_state.frame.num_models == 0)
-	{
-		clearVkImage( cmdbuf, frame_dst->image );
+	if (g_ray_model_state.frame.num_models == 0) {
+		clearVkImage( cmdbuf, current_frame->denoised.image );
 
-		{
-			// Prepare destination image for writing
-			const VkImageMemoryBarrier image_barriers[] = {{
-				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		const xvk_blit_args blit_args = {
+			.cmdbuf = args->cmdbuf,
+			.in_stage = VK_PIPELINE_STAGE_TRANSFER_BIT,
+			.src = {
+				.image = current_frame->denoised.image,
+				.width = FRAME_WIDTH,
+				.height = FRAME_HEIGHT,
+				.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+				.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			},
+			.dst = {
 				.image = args->dst.image,
-				.srcAccessMask = 0,
-				.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+				.width = args->dst.width,
+				.height = args->dst.height,
 				.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+				.srcAccessMask = 0,
+			},
+		};
 
-				.subresourceRange =
-					(VkImageSubresourceRange){
-						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-						.baseMipLevel = 0,
-						.levelCount = 1,
-						.baseArrayLayer = 0,
-						.layerCount = 1,
-					},
-			}};
-
-			vkCmdPipelineBarrier(args->cmdbuf,
-				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
-		}
+		blitImage( &blit_args );
 	} else {
 		prepareTlas(cmdbuf);
-		updateDescriptors(cmdbuf, args, frame_dst);
-		rayTrace(cmdbuf, frame_dst->image, args->fov_angle_y);
+		updateDescriptors(cmdbuf, args, current_frame);
+		rayTrace(cmdbuf, current_frame, args->fov_angle_y);
 
-		// Barrier for frame_dst image
 		{
-			const VkImageMemoryBarrier image_barriers[] = {
-			{
-				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-				.image = frame_dst->image,
-				.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-				.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-				.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-				.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-				.subresourceRange =
-					(VkImageSubresourceRange){
-						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-						.baseMipLevel = 0,
-						.levelCount = 1,
-						.baseArrayLayer = 0,
-						.layerCount = 1,
-					},
-				},
-				{
-				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-				.image = frame_denoiser_dst->image,
-				.srcAccessMask = 0,
-				.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-				.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-				.subresourceRange =
-					(VkImageSubresourceRange){
-						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-						.baseMipLevel = 0,
-						.levelCount = 1,
-						.baseArrayLayer = 0,
-						.layerCount = 1,
-					},
-			}};
+			const VkImageMemoryBarrier image_barriers[] = { {
+					.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+					.image = current_frame->base_color.image,
+					.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+					.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+					.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+					.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+					.subresourceRange =
+						(VkImageSubresourceRange){
+							.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+							.baseMipLevel = 0,
+							.levelCount = 1,
+							.baseArrayLayer = 0,
+							.layerCount = 1,
+						},
+				}, {
+					.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+					.image = current_frame->diffuse_gi.image,
+					.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+					.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+					.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+					.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+					.subresourceRange =
+						(VkImageSubresourceRange){
+							.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+							.baseMipLevel = 0,
+							.levelCount = 1,
+							.baseArrayLayer = 0,
+							.layerCount = 1,
+						},
+				}, {
+					.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+					.image = current_frame->denoised.image,
+					.srcAccessMask = 0,
+					.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+					.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+					.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+					.subresourceRange =
+						(VkImageSubresourceRange){
+							.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+							.baseMipLevel = 0,
+							.levelCount = 1,
+							.baseArrayLayer = 0,
+							.layerCount = 1,
+						},
+			} };
 			vkCmdPipelineBarrier(args->cmdbuf,
 				VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 				0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
 		}
-	}
 
-	{
-		const xvk_denoiser_args_t denoiser_args = {
-			.cmdbuf = cmdbuf,
-			.width = FRAME_WIDTH,
-			.height = FRAME_HEIGHT,
-			.view_src = frame_dst->view,
-			.view_dst = frame_denoiser_dst->view,
-		};
-
-		XVK_DenoiserDenoise( &denoiser_args );
-	}
-
-	{
-		const VkImageMemoryBarrier image_barriers[] = {
 		{
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = frame_denoiser_dst->image,
-			.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			.subresourceRange =
-				(VkImageSubresourceRange){
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = 1,
-					.baseArrayLayer = 0,
-					.layerCount = 1,
+			const xvk_denoiser_args_t denoiser_args = {
+				.cmdbuf = cmdbuf,
+				.width = FRAME_WIDTH,
+				.height = FRAME_HEIGHT,
+				.src = {
+					.base_color_view = current_frame->base_color.view,
+					.diffuse_gi_view = current_frame->diffuse_gi.view,
 				},
-		}, {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = args->dst.image,
-			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			.subresourceRange =
-				(VkImageSubresourceRange){
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = 1,
-					.baseArrayLayer = 0,
-					.layerCount = 1,
-				},
-		}};
-		vkCmdPipelineBarrier(args->cmdbuf,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+				.dst_view = current_frame->denoised.view,
+			};
 
-		blitImage(args->cmdbuf, frame_denoiser_dst->image, args->dst.image,
-			FRAME_WIDTH, FRAME_HEIGHT,
-			args->dst.width, args->dst.height);
+			XVK_DenoiserDenoise( &denoiser_args );
+		}
+
+		{
+			const xvk_blit_args blit_args = {
+				.cmdbuf = args->cmdbuf,
+				.in_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				.src = {
+					.image = current_frame->denoised.image,
+					.width = FRAME_WIDTH,
+					.height = FRAME_HEIGHT,
+					.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+					.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+				},
+				.dst = {
+					.image = args->dst.image,
+					.width = args->dst.width,
+					.height = args->dst.height,
+					.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+					.srcAccessMask = 0,
+				},
+			};
+
+			blitImage( &blit_args );
+		}
 	}
 }
 
@@ -987,8 +1059,15 @@ static void createLayouts( void ) {
 		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
 	};
 
-	g_rtx.desc_bindings[RayDescBinding_DestImage] =	(VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_DestImage,
+	g_rtx.desc_bindings[RayDescBinding_Dest_ImageDiffuseGI] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Dest_ImageDiffuseGI,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+	};
+
+	g_rtx.desc_bindings[RayDescBinding_Dest_ImageBaseColor] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Dest_ImageBaseColor,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
@@ -1138,32 +1217,17 @@ qboolean VK_RayInit( void )
 	createPipeline();
 
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
-		g_rtx.frames[i] = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+		g_rtx.frames[i].denoised = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SFLOAT,
+			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT );
+		SET_DEBUG_NAMEF(g_rtx.frames[i].denoised.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] denoised", i);
 
-		SET_DEBUG_NAMEF(g_rtx.frames[i].image, VK_OBJECT_TYPE_IMAGE, "rtx frame[%d]", i);
-	}
+		g_rtx.frames[i].base_color = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R8G8B8A8_UNORM,
+			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT);
+		SET_DEBUG_NAMEF(g_rtx.frames[i].base_color.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] base_color", i);
 
-	// Start with black previous frame
-	{
-		const VkCommandBufferBeginInfo beginfo = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		};
-
-		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
-		clearVkImage( vk_core.cb, g_rtx.frames[1].image );
-		XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
-
-		{
-			const VkSubmitInfo subinfo = {
-				.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-				.commandBufferCount = 1,
-				.pCommandBuffers = &vk_core.cb,
-			};
-			XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
-			XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
-		}
+		g_rtx.frames[i].diffuse_gi = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SFLOAT,
+			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT);
+		SET_DEBUG_NAMEF(g_rtx.frames[i].diffuse_gi.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] diffuse_gi", i);
 	}
 
 	if (vk_core.debug) {
@@ -1175,12 +1239,14 @@ qboolean VK_RayInit( void )
 	return true;
 }
 
-void VK_RayShutdown( void )
-{
+void VK_RayShutdown( void ) {
 	ASSERT(vk_core.rtx);
 
-	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i)
-		VK_ImageDestroy(g_rtx.frames + i);
+	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
+		VK_ImageDestroy(&g_rtx.frames[i].denoised);
+		VK_ImageDestroy(&g_rtx.frames[i].base_color);
+		VK_ImageDestroy(&g_rtx.frames[i].diffuse_gi);
+	}
 
 	vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
 	VK_DescriptorsDestroy(&g_rtx.descriptors);

@@ -6,8 +6,9 @@
 #include "eiface.h" // ARRAYSIZE
 
 enum {
-	DenoiserBinding_SourceImage = 0,
-	DenoiserBinding_DestImage = 1,
+	DenoiserBinding_Source_BaseColor = 0,
+	DenoiserBinding_Source_DiffuseGI = 1,
+	DenoiserBinding_DestImage = 2,
 
 	DenoiserBinding_COUNT
 };
@@ -41,8 +42,15 @@ static void createLayouts( void ) {
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
 	};
 
-	g_denoiser.desc_bindings[DenoiserBinding_SourceImage] = (VkDescriptorSetLayoutBinding){
-		.binding = DenoiserBinding_SourceImage,
+	g_denoiser.desc_bindings[DenoiserBinding_Source_BaseColor] = (VkDescriptorSetLayoutBinding){
+		.binding = DenoiserBinding_Source_BaseColor,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_denoiser.desc_bindings[DenoiserBinding_Source_DiffuseGI] = (VkDescriptorSetLayoutBinding){
+		.binding = DenoiserBinding_Source_DiffuseGI,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -80,19 +88,31 @@ void XVK_DenoiserDestroy( void ) {
 	VK_DescriptorsDestroy(&g_denoiser.descriptors);
 }
 
+void XVK_DenoiserReloadPipeline( void ) {
+	// TODO handle errors gracefully
+	vkDestroyPipeline(vk_core.device, g_denoiser.pipeline, NULL);
+	g_denoiser.pipeline = createPipeline();
+}
+
 void XVK_DenoiserDenoise( const xvk_denoiser_args_t* args ) {
 	const uint32_t WG_W = 16;
 	const uint32_t WG_H = 8;
 
-	g_denoiser.desc_values[DenoiserBinding_SourceImage].image = (VkDescriptorImageInfo){
+	g_denoiser.desc_values[DenoiserBinding_Source_BaseColor].image = (VkDescriptorImageInfo){
 		.sampler = VK_NULL_HANDLE,
-		.imageView = args->view_src,
+		.imageView = args->src.base_color_view,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
+	g_denoiser.desc_values[DenoiserBinding_Source_DiffuseGI].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = args->src.diffuse_gi_view,
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 	};
 
 	g_denoiser.desc_values[DenoiserBinding_DestImage].image = (VkDescriptorImageInfo){
 		.sampler = VK_NULL_HANDLE,
-		.imageView = args->view_dst,
+		.imageView = args->dst_view,
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 	};
 

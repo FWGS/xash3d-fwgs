@@ -1,9 +1,12 @@
 #version 460
 
+#include "noise.glsl"
+
 layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
 
-layout(set = 0, binding = 0, rgba16f) uniform image2D source;
-layout(set = 0, binding = 1, rgba16f) uniform image2D dest;
+layout(set = 0, binding = 0, rgba8) uniform image2D src_base_color;
+layout(set = 0, binding = 1, rgba16f) uniform image2D src_diffuse_gi;
+layout(set = 0, binding = 2, rgba16f) uniform image2D dest;
 
 // Blatantly copypasted from https://www.shadertoy.com/view/XsGfWV
 vec3 aces_tonemap(vec3 color){
@@ -24,13 +27,44 @@ vec3 aces_tonemap(vec3 color){
 }
 
 void main() {
-	ivec2 res = ivec2(imageSize(source));
+	ivec2 res = ivec2(imageSize(src_base_color));
 	ivec2 pix = ivec2(gl_GlobalInvocationID);
+
+	if (any(greaterThanEqual(pix, res))) {
+		return;
+	}
 
 	vec3 colour = vec3(0.);
 
-	if (all(lessThan(pix, res)))
-		colour = aces_tonemap(imageLoad(source, pix).rgb);
+	const vec4 base_color = imageLoad(src_base_color, pix);
+	const float material_index = imageLoad(src_diffuse_gi, pix).a;
 
-	imageStore(dest, pix, vec4(colour, 1.));
+	// const uint mi = uint(material_index);
+	// imageStore(dest, pix, vec4(rand3_f01(uvec3(mi,mi+1,mi+2)), 0.));
+	// return;
+
+	const int KERNEL_SIZE = 8;
+	float scale = 0.;
+	for (int x = -KERNEL_SIZE; x <= KERNEL_SIZE; ++x)
+		for (int y = -KERNEL_SIZE; y <= KERNEL_SIZE; ++y) {
+			const ivec2 p = pix + ivec2(x, y);
+			if (any(greaterThanEqual(p, res)) || any(lessThan(p, ivec2(0)))) {
+				continue;
+			}
+
+			const vec4 c = imageLoad(src_diffuse_gi, p);
+			if (c.a == material_index) {
+				colour += imageLoad(src_diffuse_gi, p).rgb;
+				scale += 1.;
+			}
+		}
+
+	if (scale > 0.) {
+		colour /= scale;
+		colour *= base_color.rgb;
+		colour = aces_tonemap(colour);
+	}
+
+	imageStore(dest, pix, vec4(colour, 0.));
+	//imageStore(dest, pix, imageLoad(src_diffuse_gi, pix));
 }

@@ -14,6 +14,7 @@ struct RayPayloadOpaque {
 	vec3 emissive;
 	float roughness;
 	int kusok_index;
+	uint material_index;
 };
 
 struct RayPayloadShadow {

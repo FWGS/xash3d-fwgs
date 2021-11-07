@@ -21,7 +21,9 @@ layout (constant_id = 5) const uint MAX_LIGHT_CLUSTERS = 32768;
 //const uint LIGHT_CLUSTER_DLIGHTS_DATA_OFFSET = 2;
 //const uint LIGHT_CLUSTER_EMISSIVE_SURFACES_DATA_OFFSET = 3 + MAX_VISIBLE_DLIGHTS;
 
-layout(set = 0, binding = 0, rgba8) uniform image2D image;
+layout(set = 0, binding = 0, rgba8) uniform image2D out_image_base_color;
+layout(set = 0, binding = 9, rgba16f) uniform image2D out_image_diffuse_gi;
+
 layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
 layout(set = 0, binding = 2) uniform UBO {
 	mat4 inv_proj, inv_view;
@@ -143,7 +145,7 @@ vec3 computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 		const uint i = uint(light_grid.clusters[cluster_index].point_lights[j]);
 
 		vec3 color = lights.point_lights[i].color_stopdot.rgb;
-		color *= throughput * payload_opaque.base_color;
+		color *= throughput * material.baseColor;
 		if (dot(color,color) < color_culling_threshold)
 			continue;
 
@@ -262,7 +264,7 @@ vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 			continue;
 
 		const uint triangle_index = rand_range(ekusok.triangles);
-		C += sampling_light_scale * sampleSurfaceTriangle(throughput * payload_opaque.base_color * ek.emissive, view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
+		C += sampling_light_scale * sampleSurfaceTriangle(throughput * material.baseColor * ek.emissive, view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
 	} // for all emissive kusochki
 
 	C += computePointLights(cluster_index, throughput, view_dir, material);
@@ -299,8 +301,13 @@ void main() {
 	vec3 throughput = vec3(1.);
 	vec3 C = vec3(0.);
 
+	payload_opaque.material_index = 0;
 	payload_opaque.t_offset = .0;
 	payload_opaque.pixel_cone_spread_angle = push_constants.pixel_cone_spread_angle;
+
+	float out_material_index = 0.;
+	vec4 out_base_color = vec4(0.);
+	//vec4 out_diffuse_gi = vec4(0.);
 
 	int brdfType = SPECULAR_TYPE;
 	for (int bounce = 0; bounce < push_constants.bounces; ++bounce) {
@@ -364,8 +371,14 @@ void main() {
 		material.emissive = payload_opaque.emissive;
 		material.roughness = payload_opaque.roughness;
 
-		if (bounce == 0) //brdfType == SPECULAR_TYPE)
+		if (bounce == 0) { //brdfType == SPECULAR_TYPE)
 			C += throughput * payload_opaque.emissive;
+
+			out_base_color.rgb = payload_opaque.base_color;
+			material.baseColor = vec3(1.);
+			payload_opaque.base_color = vec3(1.);
+			out_material_index = float(payload_opaque.material_index);
+		}
 
  // TODO should we do this after reflect/transmit decision?
 #define SKIP_TRASMITTED_LIGHT
@@ -422,5 +435,6 @@ void main() {
 
 	C /= color_factor;
 
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(C, 1.));
+	imageStore(out_image_base_color, ivec2(gl_LaunchIDEXT.xy), out_base_color);
+	imageStore(out_image_diffuse_gi, ivec2(gl_LaunchIDEXT.xy), vec4(C, out_material_index));
 }
