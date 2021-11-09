@@ -1262,6 +1262,8 @@ void VK_RayShutdown( void ) {
 		VK_ImageDestroy(&g_rtx.frames[i].denoised);
 		VK_ImageDestroy(&g_rtx.frames[i].base_color);
 		VK_ImageDestroy(&g_rtx.frames[i].diffuse_gi);
+		VK_ImageDestroy(&g_rtx.frames[i].specular);
+		VK_ImageDestroy(&g_rtx.frames[i].additive);
 	}
 
 	vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
