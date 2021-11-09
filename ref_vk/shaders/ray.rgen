@@ -24,6 +24,8 @@ layout (constant_id = 5) const uint MAX_LIGHT_CLUSTERS = 32768;
 
 layout(set = 0, binding = 0, rgba8) uniform image2D out_image_base_color;
 layout(set = 0, binding = 9, rgba16f) uniform image2D out_image_diffuse_gi;
+layout(set = 0, binding = 10, rgba16f) uniform image2D out_image_specular;
+layout(set = 0, binding = 11, rgba16f) uniform image2D out_image_additive;
 
 layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
 layout(set = 0, binding = 2) uniform UBO {
@@ -338,7 +340,7 @@ void main() {
 	payload_opaque.pixel_cone_spread_angle = push_constants.pixel_cone_spread_angle;
 
 	float out_material_index = 0.;
-	vec3 out_emissive = vec3(0.);
+	vec3 out_additive = vec3(0.);
 	vec3 out_diffuse_gi = vec3(0.);
 	vec3 out_specular = vec3(0.);
 
@@ -405,7 +407,7 @@ void main() {
 		material.roughness = payload_opaque.roughness;
 
 		if (bounce == 0) { //brdfType == SPECULAR_TYPE)
-			out_emissive = payload_opaque.emissive + additive;
+			out_additive = payload_opaque.emissive + additive;
 			additive = vec3(0.);
 
 			out_material_index = float(payload_opaque.material_index);
@@ -489,4 +491,6 @@ void main() {
 	}
 
 	imageStore(out_image_diffuse_gi, ivec2(gl_LaunchIDEXT.xy), vec4(out_diffuse_gi / color_factor, out_material_index));
+	imageStore(out_image_specular, ivec2(gl_LaunchIDEXT.xy), vec4(out_specular / color_factor, 0.));
+	imageStore(out_image_additive, ivec2(gl_LaunchIDEXT.xy), vec4(out_additive / color_factor, 0.));
 }

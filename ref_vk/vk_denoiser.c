@@ -6,9 +6,12 @@
 #include "eiface.h" // ARRAYSIZE
 
 enum {
-	DenoiserBinding_Source_BaseColor = 0,
-	DenoiserBinding_Source_DiffuseGI = 1,
-	DenoiserBinding_DestImage = 2,
+	DenoiserBinding_DestImage = 0,
+
+	DenoiserBinding_Source_BaseColor = 1,
+	DenoiserBinding_Source_DiffuseGI = 2,
+	DenoiserBinding_Source_Specular = 3,
+	DenoiserBinding_Source_Additive = 4,
 
 	DenoiserBinding_COUNT
 };
@@ -51,6 +54,20 @@ static void createLayouts( void ) {
 
 	g_denoiser.desc_bindings[DenoiserBinding_Source_DiffuseGI] = (VkDescriptorSetLayoutBinding){
 		.binding = DenoiserBinding_Source_DiffuseGI,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_denoiser.desc_bindings[DenoiserBinding_Source_Specular] = (VkDescriptorSetLayoutBinding){
+		.binding = DenoiserBinding_Source_Specular,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_denoiser.desc_bindings[DenoiserBinding_Source_Additive] = (VkDescriptorSetLayoutBinding){
+		.binding = DenoiserBinding_Source_Additive,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -109,6 +126,19 @@ void XVK_DenoiserDenoise( const xvk_denoiser_args_t* args ) {
 		.imageView = args->src.diffuse_gi_view,
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 	};
+
+	g_denoiser.desc_values[DenoiserBinding_Source_Specular].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = args->src.specular_view,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
+	g_denoiser.desc_values[DenoiserBinding_Source_Additive].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = args->src.additive_view,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
 
 	g_denoiser.desc_values[DenoiserBinding_DestImage].image = (VkDescriptorImageInfo){
 		.sampler = VK_NULL_HANDLE,

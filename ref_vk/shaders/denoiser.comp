@@ -4,9 +4,12 @@
 
 layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
 
-layout(set = 0, binding = 0, rgba8) uniform image2D src_base_color;
-layout(set = 0, binding = 1, rgba16f) uniform image2D src_diffuse_gi;
-layout(set = 0, binding = 2, rgba16f) uniform image2D dest;
+layout(set = 0, binding = 0, rgba16f) uniform image2D dest;
+
+layout(set = 0, binding = 1, rgba8) uniform image2D src_base_color;
+layout(set = 0, binding = 2, rgba16f) uniform image2D src_diffuse_gi;
+layout(set = 0, binding = 3, rgba16f) uniform image2D src_specular;
+layout(set = 0, binding = 4, rgba16f) uniform image2D src_additive;
 
 // Blatantly copypasted from https://www.shadertoy.com/view/XsGfWV
 vec3 aces_tonemap(vec3 color){
@@ -41,6 +44,7 @@ void main() {
 
 	//imageStore(dest, pix, vec4(aces_tonemap(base_color.rgb), 0.)); return;
 	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_diffuse_gi, pix).rgb), 0.)); return;
+	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_specular, pix).rgb), 0.)); return;
 
 	// const uint mi = uint(material_index);
 	// imageStore(dest, pix, vec4(rand3_f01(uvec3(mi,mi+1,mi+2)), 0.));
@@ -65,8 +69,12 @@ void main() {
 	if (scale > 0.) {
 		colour /= scale;
 		colour *= base_color.rgb;
-		colour = aces_tonemap(colour);
 	}
+
+	colour += imageLoad(src_specular, pix).rgb;
+	colour += imageLoad(src_additive, pix).rgb;
+
+	colour = aces_tonemap(colour);
 
 	imageStore(dest, pix, vec4(colour, 0.));
 	//imageStore(dest, pix, imageLoad(src_diffuse_gi, pix));

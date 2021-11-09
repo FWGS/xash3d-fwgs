@@ -14,6 +14,8 @@ typedef struct {
 	struct {
 		VkImageView base_color_view;
 		VkImageView diffuse_gi_view;
+		VkImageView specular_view;
+		VkImageView additive_view;
 	} src;
 
 	VkImageView dst_view;
