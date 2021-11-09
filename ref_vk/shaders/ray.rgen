@@ -10,7 +10,8 @@
 // FIXME what should these be?
 const float shadow_offset_fudge = .1;
 const float pdf_culling_threshold = 100.;
-const float color_culling_threshold = 1.;
+const float color_factor = 600.;
+const float color_culling_threshold = 600./color_factor;
 
 layout (constant_id = 4) const float LIGHT_GRID_CELL_SIZE = 256.;
 layout (constant_id = 5) const uint MAX_LIGHT_CLUSTERS = 32768;
@@ -61,9 +62,32 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 	return payload_shadow.shadow;
 }
 
-const float color_factor = 600.;
+// This is an entry point for evaluation of all other BRDFs based on selected configuration (for direct light)
+void evalSplitBRDF(vec3 N, vec3 L, vec3 V, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
+	// Prepare data needed for BRDF evaluation - unpack material properties and evaluate commonly used terms (e.g. Fresnel, NdotL, ...)
+	const BrdfData data = prepareBRDFData(N, L, V, material);
 
-vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties material, mat4x3 emissive_transform, mat3 emissive_transform_normal, uint triangle_index, uint index_offset, uint vertex_offset) {
+	// Ignore V and L rays "below" the hemisphere
+	//if (data.Vbackfacing || data.Lbackfacing) return vec3(0.0f, 0.0f, 0.0f);
+
+	// Eval specular and diffuse BRDFs
+	specular = evalSpecular(data);
+	diffuse = evalDiffuse(data);
+
+	// Combine specular and diffuse layers
+#if COMBINE_BRDFS_WITH_FRESNEL
+	// Specular is already multiplied by F, just attenuate diffuse
+	diffuse *= vec3(1.) - data.F;
+#endif
+}
+
+void sampleSurfaceTriangle(
+	vec3 color, vec3 view_dir, MaterialProperties material /* TODO BrdfData instead is supposedly more efficient */,
+	mat4x3 emissive_transform, mat3 emissive_transform_normal,
+	uint triangle_index, uint index_offset, uint vertex_offset,
+	out vec3 diffuse, out vec3 specular)
+{
+	diffuse = specular = vec3(0.);
 	const uint first_index_offset = index_offset + triangle_index * 3;
 
 	// TODO this is not entirely correct -- need to mix between all normals, or have this normal precomputed
@@ -84,7 +108,7 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 #ifdef DEBUG_LIGHT_CULLING
 		return vec3(1., 0., 1.) * color_factor;
 #else
-		return vec3(0.);
+		return;
 #endif
 
 	// Consider area light sources as planes, take the first normal
@@ -95,7 +119,7 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 #ifdef DEBUG_LIGHT_CULLING
 		return vec3(1., 0., 0.) * color_factor;
 #else
-		return vec3(0.);
+		return;
 #endif
 
 	// TODO emissive normals and areas can be precomputed
@@ -107,7 +131,7 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 #ifdef DEBUG_LIGHT_CULLING
 		return vec3(0., 1., 0.) * color_factor;
 #else
-		return vec3(0.);
+		return;
 #endif
 
 	color /= pdf;
@@ -116,36 +140,37 @@ vec3 sampleSurfaceTriangle(vec3 color, vec3 view_dir, MaterialProperties materia
 #ifdef DEBUG_LIGHT_CULLING
 		return vec3(0., 1., 0.) * color_factor;
 #else
-		return vec3(0.);
+		return;
 #endif
 
 	light_dir = normalize(light_dir);
 
 	// TODO sample emissive texture
-	color *= evalCombinedBRDF(payload_opaque.normal, light_dir, view_dir, material);
+	evalSplitBRDF(payload_opaque.normal, light_dir, view_dir, material, diffuse, specular);
+	diffuse *= color;
+	specular *= color;
 
-	if (dot(color,color) < color_culling_threshold)
+	vec3 combined = diffuse + specular;
+
+	if (dot(combined,combined) < color_culling_threshold)
 #ifdef DEBUG_LIGHT_CULLING
 		return vec3(1., 1., 0.) * color_factor;
 #else
-		return vec3(0.);
+		return;
 #endif
 
-	if (shadowed(payload_opaque.hit_pos_t.xyz, light_dir, sqrt(light_dist2)))
-		return vec3(0.);
-
-	return color;
+	if (shadowed(payload_opaque.hit_pos_t.xyz, light_dir, sqrt(light_dist2))) {
+		diffuse = specular = vec3(0.);
+	}
 }
 
-vec3 computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, MaterialProperties material) {
-	vec3 C = vec3(0.);
-
+void computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
+	diffuse = specular = vec3(0.);
 	const uint num_point_lights = uint(light_grid.clusters[cluster_index].num_point_lights);
 	for (uint j = 0; j < num_point_lights; ++j) {
 		const uint i = uint(light_grid.clusters[cluster_index].point_lights[j]);
 
-		vec3 color = lights.point_lights[i].color_stopdot.rgb;
-		color *= throughput * material.baseColor;
+		vec3 color = lights.point_lights[i].color_stopdot.rgb * throughput;
 		if (dot(color,color) < color_culling_threshold)
 			continue;
 
@@ -192,28 +217,33 @@ vec3 computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 		// if (dot(color,color) < color_culling_threshold)
 		// 	continue;
 
-		color *= evalCombinedBRDF(payload_opaque.normal, light_dir_norm, view_dir, material);
-		if (dot(color,color) < color_culling_threshold)
+		// TODO split into diffuse and specular for denoiser
+		vec3 ldiffuse, lspecular;
+		evalSplitBRDF(payload_opaque.normal, light_dir_norm, view_dir, material, ldiffuse, lspecular);
+		ldiffuse *= color;
+		lspecular *= color;
+
+		vec3 combined = ldiffuse + lspecular;
+
+		if (dot(combined,combined) < color_culling_threshold)
 			continue;
 
 		// TODO for environment light check that we've hit SURF_SKY
 		if (shadowed(payload_opaque.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
 			continue;
 
-		C += color;
+		diffuse += ldiffuse;
+		specular += lspecular;
 	} // for all lights
-
-	return C;
 }
 
-vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material) {
+void computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
+	diffuse = specular = vec3(0.);
 	const ivec3 light_cell = ivec3(floor(payload_opaque.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
 	const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
 
 	if (any(greaterThanEqual(light_cell, light_grid.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS)
-		return throughput * vec3(1., 0., 0.);
-
-	vec3 C = vec3(0.);
+		return; // throughput * vec3(1., 0., 0.);
 
 	// const uint cluster_offset = cluster_index * LIGHT_CLUSTER_SIZE + HACK_OFFSET;
 	// const int num_dlights = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_DLIGHTS_OFFSET]);
@@ -264,11 +294,16 @@ vec3 computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 			continue;
 
 		const uint triangle_index = rand_range(ekusok.triangles);
-		C += sampling_light_scale * sampleSurfaceTriangle(throughput * material.baseColor * ek.emissive, view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset);
+		vec3 ldiffuse, lspecular;
+		sampleSurfaceTriangle(throughput * ek.emissive, view_dir, material, emissive_transform, emissive_transform_normal, triangle_index, ekusok.index_offset, ekusok.vertex_offset, ldiffuse, lspecular);
+		diffuse += ldiffuse * sampling_light_scale;
+		specular += lspecular * sampling_light_scale;
 	} // for all emissive kusochki
 
-	C += computePointLights(cluster_index, throughput, view_dir, material);
-	return C;
+	vec3 ldiffuse, lspecular;
+	computePointLights(cluster_index, throughput, view_dir, material, ldiffuse, lspecular);
+	diffuse += ldiffuse;
+	specular += lspecular;
 }
 
 // Additive translucency
@@ -298,29 +333,27 @@ void main() {
 	vec4 target    = ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
 	vec3 direction = (ubo.inv_view * vec4(normalize(target.xyz), 0)).xyz;
 
-	vec3 throughput = vec3(1.);
-	vec3 C = vec3(0.);
-
 	payload_opaque.material_index = 0;
 	payload_opaque.t_offset = .0;
 	payload_opaque.pixel_cone_spread_angle = push_constants.pixel_cone_spread_angle;
 
 	float out_material_index = 0.;
-	vec4 out_base_color = vec4(0.);
-	//vec4 out_diffuse_gi = vec4(0.);
+	vec3 out_emissive = vec3(0.);
+	vec3 out_diffuse_gi = vec3(0.);
+	vec3 out_specular = vec3(0.);
 
+	// Can be specular or diffuse_gi based on first bounce
+	vec3 out_accumulated = vec3(0.);
+
+	int first_bounce_brdf_type = 0;
 	int brdfType = SPECULAR_TYPE;
+	vec3 throughput = vec3(1.);
 	for (int bounce = 0; bounce < push_constants.bounces; ++bounce) {
-		// TODO early exit based on throughput being too small
-
-		const uint flags = 0
-			| gl_RayFlagsCullFrontFacingTrianglesEXT
-			//| gl_RayFlagsOpaqueEXT
-			;
+		const uint flags = gl_RayFlagsCullFrontFacingTrianglesEXT;
 		const uint sbt_offset = 0;
 		const uint sbt_stride = 0;
 		const uint miss_index = 0;
-		const float L = 10000.;
+		const float L = 10000.; // Why 10k?
 		traceRayEXT(tlas, flags, GEOMETRY_BIT_OPAQUE | GEOMETRY_BIT_REFRACTIVE,
 			sbt_offset, sbt_stride, miss_index,
 			origin, 0., direction, L,
@@ -328,11 +361,11 @@ void main() {
 
 		// Sky/envmap
 		if (payload_opaque.hit_pos_t.w <= 0.) {
-			C += throughput * payload_opaque.base_color;
+			out_accumulated += throughput * payload_opaque.base_color;
 			break;
 		}
 
-		C += throughput * traceAdditive(origin, direction, payload_opaque.hit_pos_t.w);
+		vec3 additive = traceAdditive(origin, direction, payload_opaque.hit_pos_t.w);
 
 #ifdef DEBUG_LIGHT_CULLING
 		// light clusters debugging
@@ -367,17 +400,17 @@ void main() {
 
 		MaterialProperties material;
 		material.baseColor = payload_opaque.base_color;
-		material.metalness = 0.f;
+		material.metalness = 0.f; // TODO
 		material.emissive = payload_opaque.emissive;
 		material.roughness = payload_opaque.roughness;
 
 		if (bounce == 0) { //brdfType == SPECULAR_TYPE)
-			C += throughput * payload_opaque.emissive;
+			out_emissive = payload_opaque.emissive + additive;
+			additive = vec3(0.);
 
-			out_base_color.rgb = payload_opaque.base_color;
-			material.baseColor = vec3(1.);
-			payload_opaque.base_color = vec3(1.);
 			out_material_index = float(payload_opaque.material_index);
+			imageStore(out_image_base_color, ivec2(gl_LaunchIDEXT.xy), vec4(payload_opaque.base_color, 0.));
+			payload_opaque.base_color = vec3(1.);
 		}
 
  // TODO should we do this after reflect/transmit decision?
@@ -391,9 +424,9 @@ void main() {
 		vec3 prev_throughput = throughput;
 #endif
 
-		vec3 shadingNormal = payload_opaque.normal;
-		vec3 geometryNormal = payload_opaque.geometry_normal;
-		vec3 V = -direction;
+		const vec3 shadingNormal = payload_opaque.normal;
+		const vec3 geometryNormal = payload_opaque.geometry_normal;
+		const vec3 V = -direction;
 		if (material.metalness == 1.0f && material.roughness == 0.0f) {
 			// Fast path for mirrors
 			brdfType = SPECULAR_TYPE;
@@ -404,6 +437,7 @@ void main() {
 					brdfType = SPECULAR_TYPE;
 					throughput /= brdfProbability;
 				} else {
+					// Refraction
 					if (rand01() < payload_opaque.transmissiveness) {
 						throughput *= material.baseColor;
 						direction = refract(direction, payload_opaque.geometry_normal, .8);
@@ -417,7 +451,16 @@ void main() {
 		}
 
 #ifdef SKIP_TRASMITTED_LIGHT
-		C += computeLighting(prev_throughput, -direction, material);
+		vec3 diffuse, specular;
+		computeLighting(prev_throughput, -direction, material, diffuse, specular);
+
+		if (bounce == 0) {
+			out_diffuse_gi += diffuse;
+			out_specular += specular;
+		} else {
+			out_accumulated += payload_opaque.base_color * (diffuse + specular);
+			out_accumulated += prev_throughput * additive;
+		}
 
 		if (bounce == push_constants.bounces - 1)
 			break;
@@ -429,12 +472,21 @@ void main() {
 			break; // Ray was eaten by the surface :(
 		}
 
-		origin = payload_opaque.hit_pos_t.xyz;
 		throughput *= brdfWeight;
+		if (dot(throughput, throughput) < color_culling_threshold)
+			break;
+
+		origin = payload_opaque.hit_pos_t.xyz;
+
+		if (bounce == 0)
+			first_bounce_brdf_type = brdfType;
 	} // for all bounces
 
-	C /= color_factor;
+	if (first_bounce_brdf_type == DIFFUSE_TYPE) {
+		out_diffuse_gi += out_accumulated;
+	} else {
+		out_specular += out_accumulated;
+	}
 
-	imageStore(out_image_base_color, ivec2(gl_LaunchIDEXT.xy), out_base_color);
-	imageStore(out_image_diffuse_gi, ivec2(gl_LaunchIDEXT.xy), vec4(C, out_material_index));
+	imageStore(out_image_diffuse_gi, ivec2(gl_LaunchIDEXT.xy), vec4(out_diffuse_gi / color_factor, out_material_index));
 }
