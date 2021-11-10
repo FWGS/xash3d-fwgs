@@ -91,7 +91,8 @@ void main() {
         gl_ObjectToWorldEXT * vec4(vertices[vi2].pos, 1.),
         gl_ObjectToWorldEXT * vec4(vertices[vi3].pos, 1.),
     };
-    const vec2 texture_uv = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y + push_constants.time * kusochki[kusok_index].uv_speed;
+    const vec2 texture_uv_stationary = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y;
+    const vec2 texture_uv = texture_uv_stationary + push_constants.time * kusochki[kusok_index].uv_speed;
     const uint tex_index = kusochki[kusok_index].texture;
 
     const vec3 real_geom_normal = normalize(cross(pos[2]-pos[0], pos[1]-pos[0]));
@@ -104,7 +105,7 @@ void main() {
 
     const float ray_cone_width = payload.pixel_cone_spread_angle * payload.t_offset;
     vec4 uv_lods;
-    computeAnisotropicEllipseAxes(hit_pos, normal, gl_WorldRayDirectionEXT, ray_cone_width, pos, uvs, texture_uv, uv_lods.xy, uv_lods.zw);
+    computeAnisotropicEllipseAxes(hit_pos, normal, gl_WorldRayDirectionEXT, ray_cone_width, pos, uvs, texture_uv_stationary, uv_lods.xy, uv_lods.zw);
     const vec4 tex_color = textureGrad(textures[nonuniformEXT(tex_index)], texture_uv, uv_lods.xy, uv_lods.zw);
     //const vec3 base_color = pow(tex_color.rgb, vec3(2.));
     const vec3 base_color = ((push_constants.flags & PUSH_FLAG_LIGHTMAP_ONLY) != 0) ? vec3(1.) : tex_color.rgb;// pow(tex_color.rgb, vec3(2.));
