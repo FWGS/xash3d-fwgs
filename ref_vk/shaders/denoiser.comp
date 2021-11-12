@@ -47,8 +47,6 @@ void main() {
 		return;
 	}
 
-	vec3 colour = vec3(0.);
-
 	const vec4 base_color = imageLoad(src_base_color, pix);
 	const float material_index = imageLoad(src_diffuse_gi, pix).a;
 
@@ -67,6 +65,9 @@ void main() {
 
 	const int KERNEL_SIZE = 8;
 	float total_scale = 0.;
+	float specular_total_scale = 0.;
+	vec3 colour = vec3(0.);
+	vec3 speculour = vec3(0.);
 	for (int x = -KERNEL_SIZE; x <= KERNEL_SIZE; ++x)
 		for (int y = -KERNEL_SIZE; y <= KERNEL_SIZE; ++y) {
 			const ivec2 p = pix + ivec2(x, y);
@@ -90,6 +91,14 @@ void main() {
 			const float scale = normpdf(x, sigma) * normpdf(y, sigma);
 			colour += scale * imageLoad(src_diffuse_gi, p).rgb;
 			total_scale += scale;
+
+			const int SPECULAR_KERNEL_SIZE = 2;
+			if (all(lessThan(abs(ivec2(x, y)), ivec2(SPECULAR_KERNEL_SIZE)))) {
+				const float spigma = SPECULAR_KERNEL_SIZE / 2.;
+				const float specuale = normpdf(x, spigma) * normpdf(y, spigma);
+				speculour += specuale * imageLoad(src_specular, p).rgb;
+				specular_total_scale += specuale;
+			}
 		}
 
 	if (total_scale > 0.) {
@@ -97,7 +106,13 @@ void main() {
 		colour *= base_color.rgb;
 	}
 
-	colour += imageLoad(src_specular, pix).rgb;
+	if (specular_total_scale > 0.) {
+		speculour /= specular_total_scale;
+		//speculour *= base_color.rgb;
+		colour += speculour;
+	}
+
+	//colour += imageLoad(src_specular, pix).rgb;
 	colour += imageLoad(src_additive, pix).rgb;
 
 	colour = aces_tonemap(colour);
