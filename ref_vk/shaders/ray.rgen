@@ -27,6 +27,7 @@ layout(set = 0, binding = 0, rgba8) uniform image2D out_image_base_color;
 layout(set = 0, binding = 9, rgba16f) uniform image2D out_image_diffuse_gi;
 layout(set = 0, binding = 10, rgba16f) uniform image2D out_image_specular;
 layout(set = 0, binding = 11, rgba16f) uniform image2D out_image_additive;
+layout(set = 0, binding = 12, rgba16f) uniform image2D out_image_normals;
 
 layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
 layout(set = 0, binding = 2) uniform UBO {
@@ -405,8 +406,13 @@ void main() {
 		material.baseColor = payload_opaque.base_color;
 		material.metalness = 0.f; // TODO
 		material.emissive = payload_opaque.emissive;
-		//material.roughness = uintToFloat01(xxhash32(uvec3(floor(payload_opaque.hit_pos_t.xyz/64.)))); //payload_opaque.roughness;
 		material.roughness = payload_opaque.roughness;
+
+		// material.roughness = uintToFloat01(xxhash32(uvec3(abs(floor(payload_opaque.hit_pos_t.xyz/64.)))));
+		// material.metalness = step(.5, xxhash32(uvec3(abs(floor(payload_opaque.hit_pos_t.xyz/32.)))));
+
+		const vec3 shadingNormal = payload_opaque.normal;
+		const vec3 geometryNormal = payload_opaque.geometry_normal;
 
 		if (bounce == 0) { //brdfType == SPECULAR_TYPE)
 			out_additive = payload_opaque.emissive + additive;
@@ -414,6 +420,7 @@ void main() {
 
 			out_material_index = float(payload_opaque.material_index);
 			imageStore(out_image_base_color, ivec2(gl_LaunchIDEXT.xy), vec4(payload_opaque.base_color, 0.));
+			imageStore(out_image_normals, ivec2(gl_LaunchIDEXT.xy), vec4(geometryNormal.xy, shadingNormal.xy));
 			payload_opaque.base_color = vec3(1.);
 		}
 
@@ -428,8 +435,6 @@ void main() {
 		vec3 prev_throughput = throughput;
 #endif
 
-		const vec3 shadingNormal = payload_opaque.normal;
-		const vec3 geometryNormal = payload_opaque.geometry_normal;
 		const vec3 V = -direction;
 		if (material.metalness == 1.0f && material.roughness == 0.0f) {
 			// Fast path for mirrors

@@ -10,6 +10,7 @@ layout(set = 0, binding = 1, rgba8) uniform image2D src_base_color;
 layout(set = 0, binding = 2, rgba16f) uniform image2D src_diffuse_gi;
 layout(set = 0, binding = 3, rgba16f) uniform image2D src_specular;
 layout(set = 0, binding = 4, rgba16f) uniform image2D src_additive;
+layout(set = 0, binding = 5, rgba16f) uniform image2D src_normals;
 
 // Blatantly copypasted from https://www.shadertoy.com/view/XsGfWV
 vec3 aces_tonemap(vec3 color){
@@ -32,6 +33,12 @@ vec3 aces_tonemap(vec3 color){
 float normpdf2(in float x2, in float sigma) { return 0.39894*exp(-0.5*x2/(sigma*sigma))/sigma; }
 float normpdf(in float x, in float sigma) { return normpdf2(x*x, sigma); }
 
+void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) {
+	const vec4 n = imageLoad(src_normals, uv);
+	geometry_normal = vec3(n.xy, sqrt(1. - n.x*n.x - n.y*n.y));
+	shading_normal = vec3(n.zw, sqrt(1. - n.z*n.z - n.w*n.w));
+}
+
 void main() {
 	ivec2 res = ivec2(imageSize(src_base_color));
 	ivec2 pix = ivec2(gl_GlobalInvocationID);
@@ -49,6 +56,11 @@ void main() {
 	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_diffuse_gi, pix).rgb), 0.)); return;
 	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_specular, pix).rgb), 0.)); return;
 
+	vec3 geometry_normal, shading_normal;
+	readNormals(pix, geometry_normal, shading_normal);
+
+	//imageStore(dest, pix, vec4(.5 + geometry_normal * .5, 0.)); return;
+
 	// const uint mi = uint(material_index);
 	// imageStore(dest, pix, vec4(rand3_f01(uvec3(mi,mi+1,mi+2)), 0.));
 	// return;
@@ -65,6 +77,14 @@ void main() {
 			const vec4 c = imageLoad(src_diffuse_gi, p);
 			if (c.a != material_index)
 				continue;
+
+			vec3 sample_geometry_normal, sample_shading_normal;
+			readNormals(p, sample_geometry_normal, sample_shading_normal);
+
+			if ( dot(sample_geometry_normal, geometry_normal) < .99 )
+				continue;
+
+			// TODO bilaterally filter shading normals
 
 			const float sigma = KERNEL_SIZE / 2.;
 			const float scale = normpdf(x, sigma) * normpdf(y, sigma);

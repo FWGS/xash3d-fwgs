@@ -74,7 +74,7 @@ enum {
 	RayDescBinding_Dest_ImageDiffuseGI = 9,
 	RayDescBinding_Dest_ImageSpecular = 10,
 	RayDescBinding_Dest_ImageAdditive = 11,
-	//RayDescBinding_Dest_ImageNormal = 12,
+	RayDescBinding_Dest_ImageNormals = 12,
 
 	RayDescBinding_COUNT
 };
@@ -85,6 +85,7 @@ typedef struct {
 	vk_image_t diffuse_gi;
 	vk_image_t specular;
 	vk_image_t additive;
+	vk_image_t normals;
 } xvk_ray_frame_images_t;
 
 static struct {
@@ -651,6 +652,13 @@ static void updateDescriptors( VkCommandBuffer cmdbuf, const vk_ray_frame_render
 		.imageView = frame_dst->additive.view,
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 	};
+
+	g_rtx.desc_values[RayDescBinding_Dest_ImageNormals].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = frame_dst->normals.view,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
 	VK_DescriptorsWrite(&g_rtx.descriptors);
 }
 
@@ -660,6 +668,7 @@ static qboolean rayTrace( VkCommandBuffer cmdbuf, const xvk_ray_frame_images_t *
 	X(diffuse_gi) \
 	X(specular) \
 	X(additive) \
+	X(normals) \
 
 	// 4. Barrier for TLAS build and dest image layout transfer
 	{
@@ -1009,6 +1018,7 @@ LIST_GBUFFER_IMAGES(GBUFFER_READ_BARRIER)
 					.diffuse_gi_view = current_frame->diffuse_gi.view,
 					.specular_view = current_frame->specular.view,
 					.additive_view = current_frame->additive.view,
+					.normals_view = current_frame->normals.view,
 				},
 				.dst_view = current_frame->denoised.view,
 			};
@@ -1069,6 +1079,12 @@ static void createLayouts( void ) {
 	};
 	g_rtx.desc_bindings[RayDescBinding_Dest_ImageSpecular] = (VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Dest_ImageSpecular,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+	};
+	g_rtx.desc_bindings[RayDescBinding_Dest_ImageNormals] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Dest_ImageNormals,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
@@ -1244,6 +1260,11 @@ qboolean VK_RayInit( void )
 		g_rtx.frames[i].additive = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SFLOAT,
 			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT);
 		SET_DEBUG_NAMEF(g_rtx.frames[i].additive.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] additive", i);
+
+		// TODO make sure this format and usage is suppported
+		g_rtx.frames[i].normals = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SNORM,
+			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT);
+		SET_DEBUG_NAMEF(g_rtx.frames[i].normals.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] normals", i);
 	}
 
 	if (vk_core.debug) {
@@ -1264,6 +1285,7 @@ void VK_RayShutdown( void ) {
 		VK_ImageDestroy(&g_rtx.frames[i].diffuse_gi);
 		VK_ImageDestroy(&g_rtx.frames[i].specular);
 		VK_ImageDestroy(&g_rtx.frames[i].additive);
+		VK_ImageDestroy(&g_rtx.frames[i].normals);
 	}
 
 	vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
