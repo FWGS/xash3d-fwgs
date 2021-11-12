@@ -72,8 +72,9 @@ enum {
 	RayDescBinding_LightClusters = 8,
 
 	RayDescBinding_Dest_ImageDiffuseGI = 9,
-	//RayDescBinding_Dest_ImageNormal = 10,
-	//RayDescBinding_Dest_ImageSpecular = 11,
+	RayDescBinding_Dest_ImageSpecular = 10,
+	RayDescBinding_Dest_ImageAdditive = 11,
+	RayDescBinding_Dest_ImageNormals = 12,
 
 	RayDescBinding_COUNT
 };
@@ -82,6 +83,9 @@ typedef struct {
 	vk_image_t denoised;
 	vk_image_t base_color;
 	vk_image_t diffuse_gi;
+	vk_image_t specular;
+	vk_image_t additive;
+	vk_image_t normals;
 } xvk_ray_frame_images_t;
 
 static struct {
@@ -637,11 +641,35 @@ static void updateDescriptors( VkCommandBuffer cmdbuf, const vk_ray_frame_render
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 	};
 
+	g_rtx.desc_values[RayDescBinding_Dest_ImageSpecular].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = frame_dst->specular.view,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
+	g_rtx.desc_values[RayDescBinding_Dest_ImageAdditive].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = frame_dst->additive.view,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
+	g_rtx.desc_values[RayDescBinding_Dest_ImageNormals].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = frame_dst->normals.view,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
 	VK_DescriptorsWrite(&g_rtx.descriptors);
 }
 
-static qboolean rayTrace( VkCommandBuffer cmdbuf, const xvk_ray_frame_images_t *current_frame, float fov_angle_y )
-{
+static qboolean rayTrace( VkCommandBuffer cmdbuf, const xvk_ray_frame_images_t *current_frame, float fov_angle_y ) {
+#define LIST_GBUFFER_IMAGES(X) \
+	X(base_color) \
+	X(diffuse_gi) \
+	X(specular) \
+	X(additive) \
+	X(normals) \
+
 	// 4. Barrier for TLAS build and dest image layout transfer
 	{
 		VkBufferMemoryBarrier bmb[] = { {
@@ -652,35 +680,24 @@ static qboolean rayTrace( VkCommandBuffer cmdbuf, const xvk_ray_frame_images_t *
 			.offset = 0,
 			.size = VK_WHOLE_SIZE,
 		} };
-		VkImageMemoryBarrier image_barrier[] = { {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = current_frame->base_color.image,
-			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.subresourceRange = (VkImageSubresourceRange) {
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.baseMipLevel = 0,
-				.levelCount = 1,
-				.baseArrayLayer = 0,
-				.layerCount = 1,
-			},
-		}, {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = current_frame->diffuse_gi.image,
-			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.subresourceRange = (VkImageSubresourceRange) {
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.baseMipLevel = 0,
-				.levelCount = 1,
-				.baseArrayLayer = 0,
-				.layerCount = 1,
-			},
-		} };
+		VkImageMemoryBarrier image_barrier[] = {
+#define GBUFFER_WRITE_BARRIER(img) { \
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, \
+			.image = current_frame->img.image, \
+			.srcAccessMask = 0, \
+			.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT, \
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED, \
+			.newLayout = VK_IMAGE_LAYOUT_GENERAL, \
+			.subresourceRange = (VkImageSubresourceRange) { \
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, \
+				.baseMipLevel = 0, \
+				.levelCount = 1, \
+				.baseArrayLayer = 0, \
+				.layerCount = 1, \
+			}, \
+		},
+LIST_GBUFFER_IMAGES(GBUFFER_WRITE_BARRIER)
+		};
 		vkCmdPipelineBarrier(cmdbuf,
 			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
@@ -952,37 +969,24 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		rayTrace(cmdbuf, current_frame, args->fov_angle_y);
 
 		{
-			const VkImageMemoryBarrier image_barriers[] = { {
-					.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-					.image = current_frame->base_color.image,
-					.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-					.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-					.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-					.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-					.subresourceRange =
-						(VkImageSubresourceRange){
-							.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-							.baseMipLevel = 0,
-							.levelCount = 1,
-							.baseArrayLayer = 0,
-							.layerCount = 1,
-						},
-				}, {
-					.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-					.image = current_frame->diffuse_gi.image,
-					.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-					.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-					.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-					.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-					.subresourceRange =
-						(VkImageSubresourceRange){
-							.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-							.baseMipLevel = 0,
-							.levelCount = 1,
-							.baseArrayLayer = 0,
-							.layerCount = 1,
-						},
-				}, {
+			const VkImageMemoryBarrier image_barriers[] = {
+#define GBUFFER_READ_BARRIER(img) { \
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, \
+			.image = current_frame->img.image, \
+			.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT, \
+			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT, \
+			.oldLayout = VK_IMAGE_LAYOUT_GENERAL, \
+			.newLayout = VK_IMAGE_LAYOUT_GENERAL, \
+			.subresourceRange = (VkImageSubresourceRange) { \
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, \
+				.baseMipLevel = 0, \
+				.levelCount = 1, \
+				.baseArrayLayer = 0, \
+				.layerCount = 1, \
+			}, \
+		},
+LIST_GBUFFER_IMAGES(GBUFFER_READ_BARRIER)
+				{
 					.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 					.image = current_frame->denoised.image,
 					.srcAccessMask = 0,
@@ -1012,6 +1016,9 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 				.src = {
 					.base_color_view = current_frame->base_color.view,
 					.diffuse_gi_view = current_frame->diffuse_gi.view,
+					.specular_view = current_frame->specular.view,
+					.additive_view = current_frame->additive.view,
+					.normals_view = current_frame->normals.view,
 				},
 				.dst_view = current_frame->denoised.view,
 			};
@@ -1060,6 +1067,24 @@ static void createLayouts( void ) {
 
 	g_rtx.desc_bindings[RayDescBinding_Dest_ImageDiffuseGI] = (VkDescriptorSetLayoutBinding){
 		.binding = RayDescBinding_Dest_ImageDiffuseGI,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+	};
+	g_rtx.desc_bindings[RayDescBinding_Dest_ImageAdditive] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Dest_ImageAdditive,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+	};
+	g_rtx.desc_bindings[RayDescBinding_Dest_ImageSpecular] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Dest_ImageSpecular,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+	};
+	g_rtx.desc_bindings[RayDescBinding_Dest_ImageNormals] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_Dest_ImageNormals,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
@@ -1227,6 +1252,19 @@ qboolean VK_RayInit( void )
 		g_rtx.frames[i].diffuse_gi = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SFLOAT,
 			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT);
 		SET_DEBUG_NAMEF(g_rtx.frames[i].diffuse_gi.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] diffuse_gi", i);
+
+		g_rtx.frames[i].specular = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SFLOAT,
+			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT);
+		SET_DEBUG_NAMEF(g_rtx.frames[i].specular.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] specular", i);
+
+		g_rtx.frames[i].additive = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SFLOAT,
+			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT);
+		SET_DEBUG_NAMEF(g_rtx.frames[i].additive.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] additive", i);
+
+		// TODO make sure this format and usage is suppported
+		g_rtx.frames[i].normals = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SNORM,
+			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT);
+		SET_DEBUG_NAMEF(g_rtx.frames[i].normals.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] normals", i);
 	}
 
 	if (vk_core.debug) {
@@ -1245,6 +1283,9 @@ void VK_RayShutdown( void ) {
 		VK_ImageDestroy(&g_rtx.frames[i].denoised);
 		VK_ImageDestroy(&g_rtx.frames[i].base_color);
 		VK_ImageDestroy(&g_rtx.frames[i].diffuse_gi);
+		VK_ImageDestroy(&g_rtx.frames[i].specular);
+		VK_ImageDestroy(&g_rtx.frames[i].additive);
+		VK_ImageDestroy(&g_rtx.frames[i].normals);
 	}
 
 	vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
