@@ -29,6 +29,9 @@ vec3 aces_tonemap(vec3 color){
 	return pow(clamp(m2 * (a / b), 0.0, 1.0), vec3(1.0 / 2.2));
 }
 
+float normpdf2(in float x2, in float sigma) { return 0.39894*exp(-0.5*x2/(sigma*sigma))/sigma; }
+float normpdf(in float x, in float sigma) { return normpdf2(x*x, sigma); }
+
 void main() {
 	ivec2 res = ivec2(imageSize(src_base_color));
 	ivec2 pix = ivec2(gl_GlobalInvocationID);
@@ -51,7 +54,7 @@ void main() {
 	// return;
 
 	const int KERNEL_SIZE = 8;
-	float scale = 0.;
+	float total_scale = 0.;
 	for (int x = -KERNEL_SIZE; x <= KERNEL_SIZE; ++x)
 		for (int y = -KERNEL_SIZE; y <= KERNEL_SIZE; ++y) {
 			const ivec2 p = pix + ivec2(x, y);
@@ -60,14 +63,17 @@ void main() {
 			}
 
 			const vec4 c = imageLoad(src_diffuse_gi, p);
-			if (c.a == material_index) {
-				colour += imageLoad(src_diffuse_gi, p).rgb;
-				scale += 1.;
-			}
+			if (c.a != material_index)
+				continue;
+
+			const float sigma = KERNEL_SIZE / 2.;
+			const float scale = normpdf(x, sigma) * normpdf(y, sigma);
+			colour += scale * imageLoad(src_diffuse_gi, p).rgb;
+			total_scale += scale;
 		}
 
-	if (scale > 0.) {
-		colour /= scale;
+	if (total_scale > 0.) {
+		colour /= total_scale;
 		colour *= base_color.rgb;
 	}
 
