@@ -3162,10 +3162,10 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 			CL_ParseResLocation( msg );
 			break;
 		case svc_querycvarvalue:
-			CL_ParseCvarValue( msg );
+			CL_ParseCvarValue( msg, false );
 			break;
 		case svc_querycvarvalue2:
-			CL_ParseCvarValue2( msg );
+			CL_ParseCvarValue( msg, true );
 			break;
 		default:
 			CL_ParseUserMessage( msg, cmd );
