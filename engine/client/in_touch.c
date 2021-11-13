@@ -134,6 +134,9 @@ struct touch_s
 	qboolean configchanged;
 } touch;
 
+// private to the engine flags
+#define TOUCH_FL_UNPRIVILEGED BIT( 10 )
+
 touchdefaultbutton_t g_DefaultButtons[256];
 int g_LastDefaultButton;
 
@@ -455,28 +458,42 @@ static void Touch_Stroke_f( void )
 	MakeRGBA( touch.scolor, Q_atoi( Cmd_Argv( 2 ) ), Q_atoi( Cmd_Argv( 3 ) ), Q_atoi( Cmd_Argv( 4 ) ), Q_atoi( Cmd_Argv( 5 ) ) );
 }
 
-static touch_button_t *Touch_FindButton( touchbuttonlist_t *list, const char *name )
+static touch_button_t *Touch_FindButton( touchbuttonlist_t *list, const char *name, qboolean privileged )
 {
 	touch_button_t *button;
 
 	for( button = list->first; button; button = button->next )
-		if( !Q_strncmp( button->name, name, sizeof( button->name )))
-			return button;
+	{
+		if( !privileged && !FBitSet( button->flags, TOUCH_FL_UNPRIVILEGED ))
+			continue;
+
+		if( Q_strncmp( button->name, name, sizeof( button->name )))
+			continue;
+
+		return button;
+	}
 
 	return NULL;
 }
 
-static touch_button_t *Touch_FindFirst( touchbuttonlist_t *list, const char *name )
+static touch_button_t *Touch_FindFirst( touchbuttonlist_t *list, const char *name, qboolean privileged )
 {
 	touch_button_t *button;
 
 	for( button = list->first; button; button = button->next )
+	{
+		if( !privileged && !FBitSet( button->flags, TOUCH_FL_UNPRIVILEGED ))
+			continue;
+
 		if(( Q_strchr( name, '*' ) && Q_stricmpext( name, button->name )) || !Q_strncmp( name, button->name, sizeof( button->name )))
+		{
 			return button;
+		}
+	}
 	return NULL;
 }
 
-void Touch_SetClientOnly( qboolean state )
+void Touch_SetClientOnly( byte state )
 {
 	touch.clientonly = state;
 	host.mouse_visible = state;
@@ -511,13 +528,13 @@ static void Touch_SetClientOnly_f( void )
 	Touch_SetClientOnly( Q_atoi( Cmd_Argv( 1 )));
 }
 
-static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *name )
+static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *name, qboolean privileged )
 {
 	touch_button_t *button;
 
 	IN_TouchEditClear();
 
-	while(( button = Touch_FindFirst( &touch.list_user, name )))
+	while(( button = Touch_FindFirst( &touch.list_user, name, !privileged )))
 	{
 		if( button->prev )
 			button->prev->next = button->next;
@@ -534,9 +551,9 @@ static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *nam
 
 }
 
-void Touch_RemoveButton( const char *name )
+void Touch_RemoveButton( const char *name, qboolean privileged )
 {
-	Touch_RemoveButtonFromList( &touch.list_user, name );
+	Touch_RemoveButtonFromList( &touch.list_user, name, privileged );
 }
 
 static void IN_TouchRemoveButton_f( void )
@@ -547,7 +564,7 @@ static void IN_TouchRemoveButton_f( void )
 		return;
 	}
 
-	Touch_RemoveButton( Cmd_Argv( 1 ));
+	Touch_RemoveButton( Cmd_Argv( 1 ), Cmd_CurrentCommandIsPrivileged());
 }
 
 static void Touch_ClearList( touchbuttonlist_t *list )
@@ -578,9 +595,9 @@ static void Touch_SetColor( touchbuttonlist_t *list, const char *name, byte *col
 	}
 }
 
-static void Touch_SetTexture( touchbuttonlist_t *list, const char *name, const char *texture )
+static void Touch_SetTexture( touchbuttonlist_t *list, const char *name, const char *texture, qboolean privileged )
 {
-	touch_button_t *button = Touch_FindButton( list, name );
+	touch_button_t *button = Touch_FindButton( list, name, privileged );
 
 	if( !button )
 		return;
@@ -605,12 +622,15 @@ static void Touch_SetCommand( touch_button_t *button, const char *command )
 		button->type = touch_wheel;
 }
 
-void Touch_HideButtons( const char *name, byte hide )
+void Touch_HideButtons( const char *name, byte hide, qboolean privileged )
 {
 	touch_button_t *button;
 
 	for( button = touch.list_user.first; button; button = button->next)
 	{
+		if( !privileged && !FBitSet( button->flags, TOUCH_FL_UNPRIVILEGED ))
+		    continue;
+
 		if(( Q_strchr( name, '*' ) && Q_stricmpext( name, button->name )) || !Q_strncmp( name, button->name, sizeof( button->name )))
 		{
 			if( hide )
@@ -635,7 +655,7 @@ static void Touch_Hide_f( void )
 		return;
 	}
 
-	Touch_HideButtons( Cmd_Argv( 1 ), true );
+	Touch_HideButtons( Cmd_Argv( 1 ), true, Cmd_CurrentCommandIsPrivileged() );
 }
 
 static void Touch_Show_f( void )
@@ -646,14 +666,17 @@ static void Touch_Show_f( void )
 		return;
 	}
 
-	Touch_HideButtons( Cmd_Argv( 1 ), false );
+	Touch_HideButtons( Cmd_Argv( 1 ), false, Cmd_CurrentCommandIsPrivileged() );
 }
 
-static void Touch_FadeButtons( touchbuttonlist_t *list, const char *name, float speed, float end, float start  )
+static void Touch_FadeButtons( touchbuttonlist_t *list, const char *name, float speed, float end, float start, qboolean privileged )
 {
 	touch_button_t *button;
 	for( button = list->first; button; button = button->next)
 	{
+		if( !privileged && !FBitSet( button->flags, TOUCH_FL_UNPRIVILEGED ))
+		    continue;
+
 		if(( Q_strchr( name, '*' ) && Q_stricmpext( name, button->name )) || !Q_strncmp( name, button->name, sizeof( button->name )))
 		{
 			if( start >= 0 )
@@ -678,7 +701,8 @@ static void Touch_Fade_f( void )
 		return;
 	}
 
-	Touch_FadeButtons( &touch.list_user, Cmd_Argv( 1 ), Q_atof( Cmd_Argv( 2 )), Q_atof( Cmd_Argv( 3 )), start );
+	Touch_FadeButtons( &touch.list_user,Cmd_Argv( 1 ), Q_atof( Cmd_Argv( 2 )), Q_atof( Cmd_Argv( 3 )),
+		start, Cmd_CurrentCommandIsPrivileged() );
 }
 
 static void Touch_SetColor_f( void )
@@ -686,7 +710,7 @@ static void Touch_SetColor_f( void )
 	rgba_t color;
 	if( Cmd_Argc() == 6 )
 	{
-		MakeRGBA( color,  Q_atoi( Cmd_Argv(2) ), Q_atoi( Cmd_Argv(3) ), Q_atoi( Cmd_Argv(4) ), Q_atoi( Cmd_Argv(5) ) );
+	MakeRGBA( color,  Q_atoi( Cmd_Argv(2) ), Q_atoi( Cmd_Argv(3) ), Q_atoi( Cmd_Argv(4) ), Q_atoi( Cmd_Argv(5) ) );
 		Touch_SetColor( &touch.list_user, Cmd_Argv(1), color );
 		return;
 	}
@@ -697,7 +721,7 @@ static void Touch_SetTexture_f( void )
 {
 	if( Cmd_Argc() == 3 )
 	{
-		Touch_SetTexture( &touch.list_user, Cmd_Argv( 1 ), Cmd_Argv( 2 ) );
+		Touch_SetTexture( &touch.list_user, Cmd_Argv( 1 ), Cmd_Argv( 2 ), Cmd_CurrentCommandIsPrivileged() );
 		return;
 	}
 	Con_Printf( S_USAGE "touch_settexture <name> <file>\n" );
@@ -707,9 +731,13 @@ static void Touch_SetFlags_f( void )
 {
 	if( Cmd_Argc() == 3 )
 	{
-		touch_button_t *button = Touch_FindButton( &touch.list_user, Cmd_Argv( 1 ) );
+		qboolean privileged = Cmd_CurrentCommandIsPrivileged();
+
+		touch_button_t *button = Touch_FindButton( &touch.list_user, Cmd_Argv( 1 ), privileged );
 		if( button )
-			button->flags = Q_atoi( Cmd_Argv( 2 ) );
+		{
+			button->flags = ( privileged ? 0 : TOUCH_FL_UNPRIVILEGED | TOUCH_FL_CLIENT ) | Q_atoi( Cmd_Argv( 2 ));
+		}
 		return;
 	}
 	Con_Printf( S_USAGE "touch_setflags <name> <file>\n" );
@@ -719,7 +747,7 @@ static void Touch_SetCommand_f( void )
 {
 	if( Cmd_Argc() == 3 )
 	{
-		touch_button_t *button = Touch_FindButton( &touch.list_user, Cmd_Argv(1) );
+		touch_button_t *button = Touch_FindButton( &touch.list_user, Cmd_Argv(1), Cmd_CurrentCommandIsPrivileged() );
 
 		if( !button )
 			Con_Printf( S_ERROR "no such button" );
@@ -744,18 +772,22 @@ static void Touch_ReloadConfig_f( void )
 	Cbuf_AddText( va("exec %s\n", touch_config_file->string ) );
 }
 
-static touch_button_t *Touch_AddButton( touchbuttonlist_t *list, const char *name,  const char *texture, const char *command, float x1, float y1, float x2, float y2, byte *color )
+static touch_button_t *Touch_AddButton( touchbuttonlist_t *list,
+	const char *name, const char *texture, const char *command,
+	float x1, float y1, float x2, float y2, byte *color,
+	qboolean privileged )
 {
 	touch_button_t *button = Mem_Calloc( touch.mempool, sizeof( touch_button_t ) );
 
 	button->texture = -1;
 	Q_strncpy( button->texturefile, texture, sizeof( B( texturefile )));
 	Q_strncpy( button->name, name, sizeof( B( name )));
-	Touch_RemoveButtonFromList( list, name ); //replace if exist
+	Touch_RemoveButtonFromList( list, name, privileged ); //replace if exist
 	button->x1 = x1;
 	button->y1 = y1;
 	button->x2 = x2;
 	button->y2 = y2;
+	button->flags = privileged ? 0 : TOUCH_FL_UNPRIVILEGED | TOUCH_FL_CLIENT;
 	MakeRGBA( button->color, color[0], color[1], color[2], color[3] );
 	button->command[0] = 0;
 	button->flags = 0;
@@ -788,7 +820,7 @@ void Touch_AddClientButton( const char *name, const char *texture, const char *c
 	{
 		y2 = y1 + ( x2 - x1 ) * (SCR_W/SCR_H) * aspect;
 	}
-	button = Touch_AddButton( &touch.list_user, name, texture, command, x1, y1, x2, y2, color );
+	button = Touch_AddButton( &touch.list_user, name, texture, command, x1, y1, x2, y2, color, true );
 	button->flags |= flags | TOUCH_FL_CLIENT | TOUCH_FL_NOEDIT;
 	button->aspect = aspect;
 }
@@ -815,7 +847,7 @@ static void Touch_LoadDefaults_f( void )
 		}
 
 		IN_TouchCheckCoords( &x1, &y1, &x2, &y2 );
-		button = Touch_AddButton( &touch.list_user, g_DefaultButtons[i].name, g_DefaultButtons[i].texturefile, g_DefaultButtons[i].command, x1, y1, x2, y2, g_DefaultButtons[i].color );
+		button = Touch_AddButton( &touch.list_user, g_DefaultButtons[i].name, g_DefaultButtons[i].texturefile, g_DefaultButtons[i].command, x1, y1, x2, y2, g_DefaultButtons[i].color, true );
 		button->flags |= g_DefaultButtons[i].flags;
 		button->aspect = g_DefaultButtons[i].aspect;
 	}
@@ -855,51 +887,66 @@ static void Touch_AddButton_f( void )
 {
 	rgba_t color;
 	int argc = Cmd_Argc( );
+	touch_button_t *button = NULL;
+	const char *name, *texture, *command;
+	float x1, y1, x2, y2;
+	qboolean privileged = Cmd_CurrentCommandIsPrivileged();
 
-	if( argc >= 12 )
+	if( argc < 4 )
 	{
-		touch_button_t *button;
-		MakeRGBA( color, Q_atoi( Cmd_Argv(8) ), Q_atoi( Cmd_Argv(9) ),
-			Q_atoi( Cmd_Argv(10) ), Q_atoi( Cmd_Argv(11) ) );
-		button = Touch_AddButton( &touch.list_user, Cmd_Argv(1), Cmd_Argv(2), Cmd_Argv(3),
-			Q_atof( Cmd_Argv(4) ), Q_atof( Cmd_Argv(5) ),
-			Q_atof( Cmd_Argv(6) ), Q_atof( Cmd_Argv(7) ) ,
-			color );
-		if( argc >= 13 )
-		{
-			button->flags = Q_atoi( Cmd_Argv(12) );
-		}
-		if( argc >= 14 )
-		{
-			// Recalculate button coordinates aspect ratio
-			// This is feature for distributed configs
-			float aspect = Q_atof( Cmd_Argv(13) );
-			if( aspect )
-			{
-				if( B(texturefile)[0] != '#' )
-					B(y2) = B(y1) + ( B(x2) - B(x1) ) * (SCR_W/SCR_H) * aspect;
-				B(aspect) = aspect;
-			}
-		}
-
+		Con_Printf( S_USAGE "touch_addbutton <name> <texture> <command> [<x1> <y1> <x2> <y2> [ r g b a ] ]\n" );
 		return;
 	}
-	if( argc == 8 )
+
+	name = Cmd_Argv( 1 );
+	texture = Cmd_Argv( 2 );
+	command = Cmd_Argv( 3 );
+
+	if( argc < 8 )
+	{
+		x1 = y1 = 0.4f;
+		x2 = y2 = 0.6f;
+	}
+	else
+	{
+		x1 = Q_atof( Cmd_Argv( 4 ));
+		y1 = Q_atof( Cmd_Argv( 5 ));
+		x2 = Q_atof( Cmd_Argv( 6 ));
+		y2 = Q_atof( Cmd_Argv( 7 ));
+	}
+
+	if( argc < 12 )
 	{
 		MakeRGBA( color, 255, 255, 255, 255 );
-		Touch_AddButton( &touch.list_user, Cmd_Argv(1), Cmd_Argv(2), Cmd_Argv(3),
-			Q_atof( Cmd_Argv(4) ), Q_atof( Cmd_Argv(5) ),
-			Q_atof( Cmd_Argv(6) ), Q_atof( Cmd_Argv(7) ),
-			color );
-		return;
 	}
-	if( argc == 4 )
+	else
 	{
-		MakeRGBA( color, 255, 255, 255, 255 );
-		Touch_AddButton( &touch.list_user, Cmd_Argv(1), Cmd_Argv(2), Cmd_Argv(3), 0.4, 0.4, 0.6, 0.6, color );
-		return;
+		MakeRGBA( color,
+			Q_atoi( Cmd_Argv( 8 )),
+			Q_atoi( Cmd_Argv( 9 )),
+			Q_atoi( Cmd_Argv( 10 )),
+			Q_atoi( Cmd_Argv( 11 )));
 	}
-	Con_Printf( S_USAGE "touch_addbutton <name> <texture> <command> [<x1> <y1> <x2> <y2> [ r g b a ] ]\n" );
+
+	button = Touch_AddButton( &touch.list_user, name, texture, command, x1, y1, x2, y2, color, privileged );
+
+	if( argc >= 13 )
+	{
+		SetBits( button->flags, Q_atoi( Cmd_Argv( 12 )));
+	}
+
+	if( argc >= 14 )
+	{
+		// Recalculate button coordinates aspect ratio
+		// This is feature for distributed configs
+		float aspect = Q_atof( Cmd_Argv( 13 ));
+		if( aspect )
+		{
+			if( B( texturefile )[0] != '#' )
+				B( y2 ) = B( y1 ) + ( B( x2 ) - B( x1 )) * ( SCR_W / SCR_H ) * aspect;
+			B( aspect ) = aspect;
+		}
+	}
 }
 
 static void Touch_EnableEdit_f( void )
@@ -925,7 +972,7 @@ static void Touch_DisableEdit_f( void )
 	{
 		Cvar_Set( "touch_in_menu", "0" );
 	}
-	else  if( cls.key_dest ==  key_game )
+	else if( cls.key_dest ==  key_game )
 		Touch_WriteConfig();
 }
 
@@ -946,26 +993,29 @@ static void Touch_InitEditor( void )
 	float x = 0.1f * (SCR_H/SCR_W);
 	float y = 0.05f;
 	touch_button_t *temp;
+	rgba_t color;
+
+	MakeRGBA( color, 255, 255, 255, 255 );
 
 	Touch_ClearList( &touch.list_edit );
 
-	temp = Touch_AddButton( &touch.list_edit, "close", "touch_default/edit_close.tga", "touch_disableedit", 0, y, x, y + 0.1f, (byte*)"\xff\xff\xff\xff" );
+	temp = Touch_AddButton( &touch.list_edit, "close", "touch_default/edit_close.tga", "touch_disableedit", 0, y, x, y + 0.1f, color, true );
 	SetBits( temp->flags, TOUCH_FL_NOEDIT );
 
-	temp = Touch_AddButton( &touch.list_edit, "close", "#Close and save", "", x, y, x + 0.2f, y + 0.1f, (byte*)"\xff\xff\xff\xff" );
-	SetBits( temp->flags, TOUCH_FL_NOEDIT );
-
-	y += 0.2f;
-
-	temp = Touch_AddButton( &touch.list_edit, "cancel", "touch_default/edit_reset.tga", "touch_reloadconfig", 0, y, x, y + 0.1f, (byte*)"\xff\xff\xff\xff" );
-	SetBits( temp->flags, TOUCH_FL_NOEDIT );
-
-	temp = Touch_AddButton( &touch.list_edit, "close", "#Cancel and reset", "", x, y, x + 0.2f, y + 0.1f, (byte*)"\xff\xff\xff\xff" );
+	temp = Touch_AddButton( &touch.list_edit, "close", "#Close and save", "", x, y, x + 0.2f, y + 0.1f, color, true );
 	SetBits( temp->flags, TOUCH_FL_NOEDIT );
 
 	y += 0.2f;
 
-	touch.hidebutton = Touch_AddButton( &touch.list_edit, "showhide", "touch_default/edit_hide.tga", "touch_toggleselection", 0, y, x, y + 0.1f, (byte*)"\xff\xff\xff\xff" );
+	temp = Touch_AddButton( &touch.list_edit, "cancel", "touch_default/edit_reset.tga", "touch_reloadconfig", 0, y, x, y + 0.1f, color, true );
+	SetBits( temp->flags, TOUCH_FL_NOEDIT );
+
+	temp = Touch_AddButton( &touch.list_edit, "close", "#Cancel and reset", "", x, y, x + 0.2f, y + 0.1f, color, true );
+	SetBits( temp->flags, TOUCH_FL_NOEDIT );
+
+	y += 0.2f;
+
+	touch.hidebutton = Touch_AddButton( &touch.list_edit, "showhide", "touch_default/edit_hide.tga", "touch_toggleselection", 0, y, x, y + 0.1f, color, true );
 	SetBits( touch.hidebutton->flags, TOUCH_FL_HIDE | TOUCH_FL_NOEDIT );
 }
 
@@ -1014,25 +1064,25 @@ void Touch_Init( void )
 
 	Cmd_AddCommand( "touch_addbutton", Touch_AddButton_f, "add native touch button" );
 	Cmd_AddCommand( "touch_removebutton", IN_TouchRemoveButton_f, "remove native touch button" );
-	Cmd_AddCommand( "touch_enableedit", Touch_EnableEdit_f, "enable button editing mode" );
-	Cmd_AddCommand( "touch_disableedit", Touch_DisableEdit_f, "disable button editing mode" );
+	Cmd_AddRestrictedCommand( "touch_enableedit", Touch_EnableEdit_f, "enable button editing mode" );
+	Cmd_AddRestrictedCommand( "touch_disableedit", Touch_DisableEdit_f, "disable button editing mode" );
 	Cmd_AddCommand( "touch_settexture", Touch_SetTexture_f, "change button texture" );
 	Cmd_AddCommand( "touch_setcolor", Touch_SetColor_f, "change button color" );
 	Cmd_AddCommand( "touch_setcommand", Touch_SetCommand_f, "change button command" );
 	Cmd_AddCommand( "touch_setflags", Touch_SetFlags_f, "change button flags (be careful)" );
 	Cmd_AddCommand( "touch_show", Touch_Show_f, "show button" );
 	Cmd_AddCommand( "touch_hide", Touch_Hide_f, "hide button" );
-	Cmd_AddCommand( "touch_list", Touch_ListButtons_f, "list buttons" );
+	Cmd_AddRestrictedCommand( "touch_list", Touch_ListButtons_f, "list buttons" );
 	Cmd_AddRestrictedCommand( "touch_removeall", Touch_RemoveAll_f, "remove all buttons" );
 	Cmd_AddRestrictedCommand( "touch_loaddefaults", Touch_LoadDefaults_f, "generate config from defaults" );
-	Cmd_AddCommand( "touch_roundall", Touch_RoundAll_f, "round all buttons coordinates to grid" );
+	Cmd_AddRestrictedCommand( "touch_roundall", Touch_RoundAll_f, "round all buttons coordinates to grid" );
 	Cmd_AddRestrictedCommand( "touch_exportconfig", Touch_ExportConfig_f, "export config keeping aspect ratio" );
 	Cmd_AddCommand( "touch_set_stroke", Touch_Stroke_f, "set global stroke width and color" );
 	Cmd_AddCommand( "touch_setclientonly", Touch_SetClientOnly_f, "when 1, only client buttons are shown" );
 	Cmd_AddRestrictedCommand( "touch_reloadconfig", Touch_ReloadConfig_f, "load config, not saving changes" );
 	Cmd_AddRestrictedCommand( "touch_writeconfig", Touch_WriteConfig, "save current config" );
 	Cmd_AddRestrictedCommand( "touch_deleteprofile", Touch_DeleteProfile_f, "delete profile by name" );
-	Cmd_AddCommand( "touch_generate_code", Touch_GenerateCode_f, "create code sample for mobility API" );
+	Cmd_AddRestrictedCommand( "touch_generate_code", Touch_GenerateCode_f, "create code sample for mobility API" );
 	Cmd_AddCommand( "touch_fade", Touch_Fade_f, "start fade animation for selected buttons" );
 	Cmd_AddRestrictedCommand( "touch_toggleselection", Touch_ToggleSelection_f, "toggle vidibility on selected button in editor" );
 
@@ -1630,7 +1680,9 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 
 					// command down: just execute command
 					Q_snprintf( command, sizeof( command ), "%s\n", button->command );
-					Cbuf_AddText( command );
+					if( FBitSet( B( flags ), TOUCH_FL_UNPRIVILEGED ))
+						Cbuf_AddFilteredText( command );
+					else Cbuf_AddText( command );
 
 					// increase precision
 					if( FBitSet( B(flags), TOUCH_FL_PRECISION ))
@@ -1654,7 +1706,9 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 					Q_snprintf( touch.wheel_end, sizeof( touch.wheel_end ), "%s\n", Cmd_Argv( 3 ) );
 					if( Q_snprintf( command, sizeof( command ), "%s\n", Cmd_Argv( 4 ) ) > 1)
 					{
-						Cbuf_AddText( command );
+						if( FBitSet( B( flags ), TOUCH_FL_UNPRIVILEGED ))
+							Cbuf_AddFilteredText( command );
+						else Cbuf_AddText( command );
 						touch.wheel_count++;
 					}
 
@@ -1776,8 +1830,12 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 						char command[256];
 
 						Q_snprintf( command, sizeof( command ), "%s\n", button->command );
+
 						command[0] = '-';
-						Cbuf_AddText( command );
+
+						if( FBitSet( B( flags ), TOUCH_FL_UNPRIVILEGED ))
+							Cbuf_AddFilteredText( command );
+						else Cbuf_AddText( command );
 					}
 
 					// disable precision mode
@@ -1791,7 +1849,11 @@ static qboolean Touch_ButtonPress( touchbuttonlist_t *list, touchEventType type,
 				if( button->type == touch_wheel )
 				{
 					if( touch.wheel_count )
-						Cbuf_AddText( touch.wheel_end );
+					{
+						if( FBitSet( B( flags ), TOUCH_FL_UNPRIVILEGED ))
+							Cbuf_AddFilteredText( touch.wheel_end );
+						else Cbuf_AddText( touch.wheel_end );
+					}
 
 					// disable precision mode
 					if( B(flags) & TOUCH_FL_PRECISION )
