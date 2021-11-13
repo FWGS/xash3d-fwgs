@@ -1958,10 +1958,10 @@ void CL_ParseExec( sizebuf_t *msg )
 	{
 		class_idx = MSG_ReadByte( msg );
 
-		if ( class_idx >= 0 && class_idx <= 11 )
+		if ( class_idx >= 0 && class_idx <= 11 && !Q_stricmp( GI->gamefolder, "tfc" ) )
 			Cbuf_AddText( class_cfgs[class_idx] );
 	}
-	else
+	else if ( !Q_stricmp( GI->gamefolder, "tfc" ) )
 	{
 		Cbuf_AddText( "exec mapdefault.cfg\n" );
 
