@@ -1927,6 +1927,53 @@ void CL_ParseCvarValue2( sizebuf_t *msg )
 
 /*
 ==============
+CL_ParseExec
+
+Exec map/class specific configs
+==============
+*/
+void CL_ParseExec( sizebuf_t *msg )
+{
+	qboolean is_class;
+	int class_idx;
+	string mapname;
+	const char *class_cfgs[] = {
+		"",
+		"exec scout.cfg\n",
+		"exec sniper.cfg\n",
+		"exec soldier.cfg\n",
+		"exec demoman.cfg\n",
+		"exec medic.cfg\n",
+		"exec hwguy.cfg\n",
+		"exec pyro.cfg\n",
+		"exec spy.cfg\n",
+		"exec engineer.cfg\n",
+		"",
+		"exec civilian.cfg\n"
+	};
+
+	is_class = MSG_ReadByte( msg );
+
+	if ( is_class )
+	{
+		class_idx = MSG_ReadByte( msg );
+
+		if ( class_idx >= 0 && class_idx <= 11 && !Q_stricmp( GI->gamefolder, "tfc" ) )
+			Cbuf_AddText( class_cfgs[class_idx] );
+	}
+	else if ( !Q_stricmp( GI->gamefolder, "tfc" ) )
+	{
+		Cbuf_AddText( "exec mapdefault.cfg\n" );
+
+		COM_FileBase( clgame.mapname, mapname );
+
+		if ( COM_CheckString( mapname ) )
+			Cbuf_AddText( va( "exec %s.cfg\n", mapname ) );
+	}
+}
+
+/*
+==============
 CL_DispatchUserMessage
 
 Dispatch user message by engine request
@@ -2333,6 +2380,9 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 			break;
 		case svc_querycvarvalue2:
 			CL_ParseCvarValue2( msg );
+			break;
+		case svc_exec:
+			CL_ParseExec( msg );
 			break;
 		default:
 			CL_ParseUserMessage( msg, cmd );

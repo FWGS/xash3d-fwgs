@@ -80,7 +80,7 @@ const char *svc_strings[256] =
 	"svc_unused56",
 	"svc_querycvarvalue",
 	"svc_querycvarvalue2",
-	"svc_unused59",
+	"svc_exec",
 	"svc_unused60",
 	"svc_unused61",
 	"svc_unused62",

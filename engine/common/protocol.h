@@ -78,7 +78,8 @@ GNU General Public License for more details.
 #define svc_resourcelocation		56	// [string]
 #define svc_querycvarvalue		57	// [string]
 #define svc_querycvarvalue2		58	// [string][int] (context)
-#define svc_lastmsg			58	// start user messages at this point
+#define svc_exec				59	// [byte][...]
+#define svc_lastmsg			59	// start user messages at this point
 
 // client to server
 #define clc_bad			0	// immediately drop client when received
