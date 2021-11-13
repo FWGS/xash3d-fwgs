@@ -93,6 +93,15 @@ static void *pfnGetNativeObject( const char *obj )
 	return Platform_GetNativeObject( obj );
 }
 
+static void pfnTouch_HideButtons( const char *name, byte state )
+{
+	Touch_HideButtons( name, state, true );
+}
+
+static void pfnTouch_RemoveButton( const char *name )
+{
+	Touch_RemoveButton( name, true );
+}
 
 static mobile_engfuncs_t gpMobileEngfuncs =
 {
@@ -101,9 +110,9 @@ static mobile_engfuncs_t gpMobileEngfuncs =
 	pfnEnableTextInput,
 	Touch_AddClientButton,
 	Touch_AddDefaultButton,
-	Touch_HideButtons,
-	Touch_RemoveButton,
-	(void*)Touch_SetClientOnly,
+	pfnTouch_HideButtons,
+	pfnTouch_RemoveButton,
+	Touch_SetClientOnly,
 	Touch_ResetDefaultButtons,
 	pfnDrawScaledCharacter,
 	Sys_Warn,
