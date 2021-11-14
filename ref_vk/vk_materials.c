@@ -3,6 +3,8 @@
 #include "vk_mapents.h"
 #include "vk_const.h"
 
+#include <stdio.h>
+
 static struct {
 	xvk_material_t materials[MAX_TEXTURES];
 } g_materials;
