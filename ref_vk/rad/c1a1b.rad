@@ -1,2 +1,16 @@
 +A~FIFTIES_LGT2  160 170 220  5000
 +ALAB1_W6        150 160 210  0
+
+
+// from 1f to 1b
+//LITEPANEL1       190 170 120  5000 // 1f from lights
+//+0LAB1_W6        150 160 210  8800 // 1b from lights
++0LAB1_W6          190 170 120  5000 // sync
+
+//+0~FIFTS_LGHT01  160 170 220  4000 // 1f from lights
+//+0~FIFTIES_LGT2  255 255 255  20000 // 1b from lights
++0~FIFTIES_LGT2  160 170 220  4000 // sync
+
+
+// TODO: +0LAB1_W6 (237 243 255) <-> LITEPANEL1 (255, 255, 255)
+// current 255 255 229 is wrong
