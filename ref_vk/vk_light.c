@@ -95,19 +95,6 @@ static struct {
 
 } g_lights_bsp = {0};
 
-static int lookupTextureF( const char *fmt, ...) {
-	int tex_id = 0;
-	char buffer[1024];
-	va_list argptr;
-	va_start( argptr, fmt );
-	vsnprintf( buffer, sizeof buffer, fmt, argptr );
-	va_end( argptr );
-
-	tex_id = VK_FindTexture(buffer);
-	gEngine.Con_Reportf("Looked up texture %s -> %d\n", buffer, tex_id);
-	return tex_id;
-}
-
 static void loadRadData( const model_t *map, const char *fmt, ... ) {
 	fs_offset_t size;
 	char *data;
@@ -183,19 +170,21 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 					texture_name += 1;
 				}
 
+				// FIXME replace this with findTexturesNamedLike from vk_materials.c
+
 				// Try bsp texture first
-				tex_id = lookupTextureF("#%s:%s.mip", map->name, texture_name);
+				tex_id = XVK_TextureLookupF("#%s:%s.mip", map->name, texture_name);
 
 				// Try wad texture if bsp is not there
 				if (!tex_id && wad_name) {
-					tex_id = lookupTextureF("%s.wad/%s.mip", wad_name, texture_name);
+					tex_id = XVK_TextureLookupF("%s.wad/%s.mip", wad_name, texture_name);
 				}
 
 				if (!tex_id) {
 					const char *wad = g_map_entities.wadlist;
 					for (; *wad;) {
 						const char *const wad_end = Q_strchr(wad, ';');
-						tex_id = lookupTextureF("%.*s/%s.mip", wad_end - wad, wad, texture_name);
+						tex_id = XVK_TextureLookupF("%.*s/%s.mip", wad_end - wad, wad, texture_name);
 						if (tex_id)
 							break;
 						wad = wad_end + 1;

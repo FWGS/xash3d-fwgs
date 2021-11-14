@@ -108,11 +108,8 @@ void R_NewMap( void )
 
 	VK_LightsNewMap();
 
-	if (vk_core.rtx) {
+	if (vk_core.rtx)
 		VK_RayNewMap();
-		XVK_ReloadMaterials();
-	}
-
 
 	// RTX map loading requires command buffer for building blases
 	if (vk_core.rtx)
@@ -146,6 +143,7 @@ void R_NewMap( void )
 
 	// After we've loaded map brush model, we can proceed with loading static surface lights
 	VK_LightsLoadMapStaticLights();
+	XVK_ReloadMaterials(); // requires wadlist from entities, which are parsed in lights loading routine ....
 
 	if (vk_core.rtx)
 	{

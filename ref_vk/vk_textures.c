@@ -878,3 +878,16 @@ void VK_ImageDestroy(vk_image_t *img) {
 	freeDeviceMemory(&img->devmem);
 	*img = (vk_image_t){0};
 }
+
+int XVK_TextureLookupF( const char *fmt, ...) {
+	int tex_id = 0;
+	char buffer[1024];
+	va_list argptr;
+	va_start( argptr, fmt );
+	vsnprintf( buffer, sizeof buffer, fmt, argptr );
+	va_end( argptr );
+
+	tex_id = VK_FindTexture(buffer);
+	gEngine.Con_Reportf("Looked up texture %s -> %d\n", buffer, tex_id);
+	return tex_id;
+}
