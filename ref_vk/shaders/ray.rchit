@@ -59,6 +59,10 @@ void computeAnisotropicEllipseAxes(in vec3 P, in vec3 f,
     v2 * txcoords[2] - interpolatedTexCoordsAtIntersection;
 }
 
+vec4 sampleTexture(uint tex_index, vec2 uv, vec4 uv_lods) {
+    return textureGrad(textures[nonuniformEXT(tex_index)], uv, uv_lods.xy, uv_lods.zw);
+}
+
 void main() {
     payload.t_offset += gl_HitTEXT;
 
@@ -93,7 +97,6 @@ void main() {
     };
     const vec2 texture_uv_stationary = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y;
     const vec2 texture_uv = texture_uv_stationary + push_constants.time * kusochki[kusok_index].uv_speed;
-    const uint tex_index = kusochki[kusok_index].texture;
 
     const vec3 real_geom_normal = normalize(cross(pos[2]-pos[0], pos[1]-pos[0]));
     const float geom_normal_sign = sign(dot(real_geom_normal, -gl_WorldRayDirectionEXT));
@@ -106,7 +109,9 @@ void main() {
     const float ray_cone_width = payload.pixel_cone_spread_angle * payload.t_offset;
     vec4 uv_lods;
     computeAnisotropicEllipseAxes(hit_pos, normal, gl_WorldRayDirectionEXT, ray_cone_width, pos, uvs, texture_uv_stationary, uv_lods.xy, uv_lods.zw);
-    const vec4 tex_color = textureGrad(textures[nonuniformEXT(tex_index)], texture_uv, uv_lods.xy, uv_lods.zw);
+
+	const uint tex_index = kusochki[kusok_index].tex_base_color;
+    const vec4 tex_color = sampleTexture(tex_index, texture_uv, uv_lods);
     //const vec3 base_color = pow(tex_color.rgb, vec3(2.));
     const vec3 base_color = ((push_constants.flags & PUSH_FLAG_LIGHTMAP_ONLY) != 0) ? vec3(1.) : tex_color.rgb;// pow(tex_color.rgb, vec3(2.));
     /* tex_color = pow(tex_color, vec4(2.)); */
@@ -120,7 +125,8 @@ void main() {
     payload.normal = normal * geom_normal_sign;
 	payload.geometry_normal = geom_normal;
     payload.emissive = kusochki[kusok_index].emissive * base_color; // TODO emissive should have a special texture
-    payload.roughness = kusochki[kusok_index].roughness;
     payload.kusok_index = kusok_index;
-	payload.material_index = nonuniformEXT(tex_index);
+    payload.roughness = sampleTexture(kusochki[kusok_index].tex_roughness, texture_uv, uv_lods).r;
+    payload.metalness = sampleTexture(kusochki[kusok_index].tex_metalness, texture_uv, uv_lods).r;
+	payload.material_index = tex_index;
 }

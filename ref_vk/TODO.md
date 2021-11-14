@@ -2,7 +2,7 @@
 - [ ] remove surface visibility cache
 - [ ] rtx: remove lbsp
 - [ ] rtx: rename point lights to lampochki
-- [ ] rtx: move entity parsing to its own module
+- [x] rtx: move entity parsing to its own module
 - [ ] rtx: rename emissive surface to surface lights
 - [ ] rtx: configuration that includes texture name -> pbr params mapping, etc. Global, per-map, ...
 - [ ] rtx: simple convolution denoise (bilateral?)

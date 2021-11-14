@@ -404,7 +404,7 @@ void main() {
 
 		MaterialProperties material;
 		material.baseColor = payload_opaque.base_color;
-		material.metalness = 0.f; // TODO
+		material.metalness = payload_opaque.metalness;
 		material.emissive = payload_opaque.emissive;
 		material.roughness = payload_opaque.roughness;
 

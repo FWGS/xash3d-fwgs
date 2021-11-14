@@ -2,6 +2,7 @@
 
 #include "vk_rtx.h"
 #include "vk_textures.h"
+#include "vk_materials.h"
 #include "vk_render.h"
 #include "vk_light.h"
 
@@ -133,7 +134,7 @@ void XVK_RayModel_Validate( void ) {
 
 		for (int j = 0; j < num_geoms; j++) {
 			const vk_kusok_data_t *kusok = kusochki + j;
-			const vk_texture_t *tex = findTexture(kusok->texture);
+			const vk_texture_t *tex = findTexture(kusok->tex_base_color);
 			ASSERT(tex);
 			ASSERT(tex->vk.image_view != VK_NULL_HANDLE);
 
@@ -216,8 +217,8 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		kusochki[i].index_offset = mg->index_offset;
 		kusochki[i].triangles = prim_count;
 
-		kusochki[i].texture = mg->texture;
-		kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.; // FIXME
+		//kusochki[i].texture = mg->texture;
+		//kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.; // FIXME
 		VectorSet(kusochki[i].emissive, 0, 0, 0 );
 
 		mg->kusok_index = i + kusochki_count_offset;
@@ -362,17 +363,23 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		const vk_render_geometry_t *geom = render_model->geometries + i;
 		const vk_emissive_surface_t *esurf = render_model->static_map ? NULL : VK_LightsAddEmissiveSurface( geom, transform_row, false );
 		vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_ray_model_state.kusochki_buffer.mapped) + geom->kusok_index;
-		kusok->texture = geom->texture;
+		const xvk_material_t *const mat = XVK_GetMaterialForTextureIndex( geom->texture );
+		ASSERT(mat);
+
+		kusok->tex_base_color = mat->base_color;
+		kusok->tex_roughness = mat->roughness;
+		kusok->tex_metalness = mat->metalness;
+		kusok->tex_normalmap = mat->normalmap;
 
 		// HACK until there is proper specular
 		// FIXME also this erases previour roughness unconditionally
-		if (HACK_reflective) {
-			kusok->roughness = 0.f;
-		} else if (geom->material == kXVkMaterialChrome) {
-			kusok->roughness = .1f;
-		} else {
-			kusok->roughness = 1.f;
-		}
+		// if (HACK_reflective) {
+		// 	kusok->roughness = 0.f;
+		// } else if (geom->material == kXVkMaterialChrome) {
+		// 	kusok->roughness = .1f;
+		// } else {
+		// 	kusok->roughness = 1.f;
+		// }
 
 		Vector4Copy(color, kusok->color);
 

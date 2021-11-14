@@ -20,7 +20,7 @@ void main() {
     const uint vi3 = uint(indices[first_index_offset+2]) + kusochki[kusok_index].vertex_offset;
 
     const vec2 texture_uv = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y;
-    const uint tex_index = kusochki[kusok_index].texture;
+    const uint tex_index = kusochki[kusok_index].tex_base_color;
     const vec4 texture_color = texture(textures[nonuniformEXT(tex_index)], texture_uv);
 
     if (texture_color.a < 0.1) {

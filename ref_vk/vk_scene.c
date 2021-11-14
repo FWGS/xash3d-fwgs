@@ -13,6 +13,7 @@
 #include "vk_rtx.h"
 #include "vk_textures.h"
 #include "vk_cvar.h"
+#include "vk_materials.h"
 #include "camera.h"
 
 #include "com_strings.h"
@@ -107,8 +108,11 @@ void R_NewMap( void )
 
 	VK_LightsNewMap();
 
-	if (vk_core.rtx)
+	if (vk_core.rtx) {
 		VK_RayNewMap();
+		XVK_ReloadMaterials();
+	}
+
 
 	// RTX map loading requires command buffer for building blases
 	if (vk_core.rtx)

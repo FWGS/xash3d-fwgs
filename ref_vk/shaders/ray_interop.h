@@ -39,18 +39,17 @@ struct Kusok {
 	uint triangles;
 
 	// Material
-	uint texture;
+	uint tex_base_color;
 
 	// TODO the color is per-model, not per-kusok
 	vec4 color;
 
 	vec3 emissive;
-	//PAD(1)
-
-	float roughness;
+	uint tex_roughness;
 
 	vec2 uv_speed; // for conveyors
-	PAD(2)
+	uint tex_metalness;
+	uint tex_normalmap;
 };
 
 struct PointLight {

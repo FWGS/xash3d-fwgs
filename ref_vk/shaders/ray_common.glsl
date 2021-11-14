@@ -13,6 +13,7 @@ struct RayPayloadOpaque {
 	float transmissiveness;
 	vec3 emissive;
 	float roughness;
+	float metalness;
 	int kusok_index;
 	uint material_index;
 };
