@@ -120,6 +120,8 @@ convar_t	*sv_reconnect_limit;		// minimum seconds between connect messages
 convar_t	*sv_validate_changelevel;
 convar_t	*sv_sendvelocity;
 convar_t	*sv_hostmap;
+convar_t	*sv_enttools_enable;
+convar_t	*sv_enttools_maxfire;
 
 convar_t	*sv_allow_noinputdevices;
 convar_t	*sv_allow_touch;
@@ -926,6 +928,8 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_downloadurl );
 	sv_novis = Cvar_Get( "sv_novis", "0", 0, "force to ignore server visibility" );
 	sv_hostmap = Cvar_Get( "hostmap", GI->startmap, 0, "keep name of last entered map" );
+	sv_enttools_enable = Cvar_Get("sv_enttools_enable", "0", FCVAR_ARCHIVE | FCVAR_PROTECTED, "Enable powerful and dangerous entity tools");
+	sv_enttools_maxfire = Cvar_Get("sv_enttools_maxfire", "5", FCVAR_ARCHIVE | FCVAR_PROTECTED, "Limit ent_fire actions count to prevent flooding");
 	Cvar_RegisterVariable( &sv_password );
 	Cvar_RegisterVariable( &sv_lan );
 	Cvar_RegisterVariable( &violence_ablood );

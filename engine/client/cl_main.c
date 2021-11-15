@@ -2877,6 +2877,11 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("drop", NULL, "drop current/specified item or weapon" );
 	Cmd_AddCommand ("gametitle", NULL, "show game logo" );
 	Cmd_AddCommand( "kill", NULL, "die instantly" );
+	Cmd_AddCommand("ent_list", NULL, "list entities on server");
+	Cmd_AddCommand("ent_fire", NULL, "fire entity command (be careful)");
+	Cmd_AddCommand("ent_info", NULL, "dump entity information");
+	Cmd_AddCommand("ent_create", NULL, "create entity with specified values (be careful)");
+	Cmd_AddCommand("ent_getvars", NULL, "put parameters of specified entities to client's' ent_last_* cvars");
 	Cmd_AddCommand ("god", NULL, "enable godmode" );
 	Cmd_AddCommand ("fov", NULL, "set client field of view" );
 	Cmd_AddCommand ("log", NULL, "logging server events" );

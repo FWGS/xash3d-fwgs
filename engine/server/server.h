@@ -445,6 +445,9 @@ extern	convar_t		*sv_hostmap;
 extern	convar_t		*sv_validate_changelevel;
 extern	convar_t		*public_server;
 
+extern	convar_t* sv_enttools_enable;
+extern	convar_t* sv_enttools_maxfire;
+
 //===========================================================
 //
 // sv_main.c
@@ -640,6 +643,7 @@ void SV_RestartStaticEnts( void );
 int pfnGetCurrentPlayer( void );
 edict_t *SV_EdictNum( int n );
 char *SV_Localinfo( void );
+edict_t *pfnFindEntityInSphere(edict_t* pStartEdict, const float* org, float flRadius);
 //
 // sv_log.c
 //
