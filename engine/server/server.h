@@ -445,6 +445,10 @@ extern	convar_t		*sv_hostmap;
 extern	convar_t		*sv_validate_changelevel;
 extern	convar_t		*public_server;
 
+// 0.19.2 stuff
+extern	convar_t* sv_enttools_enable;
+extern	convar_t* sv_enttools_maxfire;
+
 //===========================================================
 //
 // sv_main.c
