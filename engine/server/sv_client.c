@@ -2815,6 +2815,7 @@ static qboolean SV_EntCreate_f(sv_client_t* cl)
 		}
 	}
 
+	return true;
 }
 
 ucmd_t ucmds[] =
