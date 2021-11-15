@@ -2612,7 +2612,7 @@ static qboolean SV_EntFire_f(sv_client_t* cl)
 		}
 		else if (!Q_stricmp(Cmd_Argv(2), "clearflag"))
 		{
-			ClearBits(ent->v.flags, BIT(1U << Q_atoi(Cmd_Argv(3))));
+			ClearBits(ent->v.flags, BIT(Q_atoi(Cmd_Argv(3))));
 			SV_ClientPrintf(cl, "flags set to 0x%x\n", ent->v.flags);
 		}
 		else if (!Q_stricmp(Cmd_Argv(2), "setspawnflag"))
@@ -2622,7 +2622,7 @@ static qboolean SV_EntFire_f(sv_client_t* cl)
 		}
 		else if (!Q_stricmp(Cmd_Argv(2), "clearspawnflag"))
 		{
-			ClearBits(ent->v.spawnflags, BIT(1U << Q_atoi(Cmd_Argv(3))));
+			ClearBits(ent->v.spawnflags, BIT(Q_atoi(Cmd_Argv(3))));
 			SV_ClientPrintf(cl, "spawnflags set to 0x%x\n", ent->v.flags);
 		}
 		else if (!Q_stricmp(Cmd_Argv(2), "help"))
