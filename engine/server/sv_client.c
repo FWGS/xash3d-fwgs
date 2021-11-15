@@ -2195,7 +2195,7 @@ SV_EntList_f
 Print list of entities to client
 ===============
 */
-void SV_EntList_f(sv_client_t* cl)
+static qboolean SV_EntList_f(sv_client_t* cl)
 {
 	edict_t* ent = NULL;
 	int	i;
@@ -2232,7 +2232,11 @@ void SV_EntList_f(sv_client_t* cl)
 			SV_ClientPrintf(cl, ", model: %s", STRING(ent->v.model));
 
 		SV_ClientPrintf(cl, "\n");
+
+		return true;
 	}
+
+	return false;
 }
 
 
@@ -2304,7 +2308,7 @@ SV_EntInfo_f
 Print specified entity information to client
 ===============
 */
-void SV_EntInfo_f(sv_client_t* cl)
+static qboolean SV_EntInfo_f(sv_client_t* cl)
 {
 	edict_t* ent = NULL;
 	vec3_t borigin;
@@ -2361,12 +2365,14 @@ void SV_EntInfo_f(sv_client_t* cl)
 		SV_ClientPrintf(cl, "solid: %d\n", ent->v.solid);
 	SV_ClientPrintf(cl, "flags: 0x%x\n", ent->v.flags);
 	SV_ClientPrintf(cl, "spawnflags: 0x%x\n", ent->v.spawnflags);
+
+	return true;
 }
 
-void SV_EntSendVars(sv_client_t* cl, edict_t* ent)
+static qboolean SV_EntSendVars(sv_client_t* cl, edict_t* ent)
 {
 	if (!ent)
-		return;
+		return false;
 	MSG_WriteByte(&cl->netchan.message, svc_stufftext);
 	MSG_WriteString(&cl->netchan.message, va("set ent_last_name \"%s\"\n", STRING(ent->v.targetname)));
 	MSG_WriteByte(&cl->netchan.message, svc_stufftext);
@@ -2379,22 +2385,25 @@ void SV_EntSendVars(sv_client_t* cl, edict_t* ent)
 	MSG_WriteString(&cl->netchan.message, va("set ent_last_class \"%s\"\n", STRING(ent->v.classname)));
 	MSG_WriteByte(&cl->netchan.message, svc_stufftext);
 	MSG_WriteString(&cl->netchan.message, "ent_getvars_cb\n");
+
+	return true;
 }
 
-void SV_EntGetVars_f(sv_client_t* cl)
+static qboolean SV_EntGetVars_f(sv_client_t* cl)
 {
 	edict_t* ent = NULL;
 
 	if (Cmd_Argc() != 2)
 	{
 		SV_ClientPrintf(cl, "Use ent_getvars <index|name|inst>\n");
-		return;
+		return false;
 	}
 
 	ent = SV_EntFindSingle(cl, Cmd_Argv(1));
 	if (Cmd_Argc())
-		if (!SV_IsValidEdict(ent)) return;
+		if (!SV_IsValidEdict(ent)) return false;
 	SV_EntSendVars(cl, ent);
+	return true;
 }
 
 /*
@@ -2403,7 +2412,7 @@ SV_EntFire_f
 Perform some actions
 ===============
 */
-void SV_EntFire_f(sv_client_t* cl)
+static qboolean SV_EntFire_f(sv_client_t* cl)
 {
 	edict_t* ent = NULL;
 	int	i = 1, count = 0;
@@ -2413,7 +2422,7 @@ void SV_EntFire_f(sv_client_t* cl)
 	{
 		SV_ClientPrintf(cl, "Use ent_fire <index||pattern> <command> [<values>]\n"
 			"Use ent_fire 0 help to get command list\n");
-		return;
+		return false;
 	}
 
 	if ((single = Q_isdigit(Cmd_Argv(1))))
@@ -2421,7 +2430,7 @@ void SV_EntFire_f(sv_client_t* cl)
 		i = Q_atoi(Cmd_Argv(1));
 
 		if (i < 0 || i >= svgame.numEntities)
-			return;
+			return false;
 
 		ent = EDICT_NUM(i);
 	}
@@ -2449,7 +2458,7 @@ void SV_EntFire_f(sv_client_t* cl)
 
 		ent = EDICT_NUM(i);
 		if (ent->serialnumber != Q_atoi(cmd))
-			return;
+			return false;
 	}
 	else
 	{
@@ -2498,7 +2507,7 @@ void SV_EntFire_f(sv_client_t* cl)
 			char value[MAX_STRING];
 			KeyValueData	pkvd;
 			if (Cmd_Argc() != 5)
-				return;
+				return false;
 			pkvd.szClassName = (char*)STRING(ent->v.classname);
 			Q_strncpy(keyname, Cmd_Argv(3), MAX_STRING);
 			Q_strncpy(value, Cmd_Argv(4), MAX_STRING);
@@ -2580,7 +2589,7 @@ void SV_EntFire_f(sv_client_t* cl)
 		else if (!Q_stricmp(Cmd_Argv(2), "hullmin"))
 		{
 			if (Cmd_Argc() != 6)
-				return;
+				return false;
 			ent->v.mins[0] = Q_atof(Cmd_Argv(3));
 			ent->v.mins[1] = Q_atof(Cmd_Argv(4));
 			ent->v.mins[2] = Q_atof(Cmd_Argv(5));
@@ -2588,7 +2597,7 @@ void SV_EntFire_f(sv_client_t* cl)
 		else if (!Q_stricmp(Cmd_Argv(2), "hullmax"))
 		{
 			if (Cmd_Argc() != 6)
-				return;
+				return false;
 			ent->v.maxs[0] = Q_atof(Cmd_Argv(3));
 			ent->v.maxs[1] = Q_atof(Cmd_Argv(4));
 			ent->v.maxs[2] = Q_atof(Cmd_Argv(5));
@@ -2596,7 +2605,7 @@ void SV_EntFire_f(sv_client_t* cl)
 		else if (!Q_stricmp(Cmd_Argv(2), "rendercolor"))
 		{
 			if (Cmd_Argc() != 6)
-				return;
+				return false;
 			ent->v.rendercolor[0] = Q_atof(Cmd_Argv(3));
 			ent->v.rendercolor[1] = Q_atof(Cmd_Argv(4));
 			ent->v.rendercolor[2] = Q_atof(Cmd_Argv(5));
@@ -2673,16 +2682,18 @@ void SV_EntFire_f(sv_client_t* cl)
 				"    setspawnflag\n"
 				"    clearspawnflag\n"
 			);
-			return;
+			return false;
 		}
 		else
 		{
 			SV_ClientPrintf(cl, "Unknown command %s!\nUse \"ent_fire 0 help\" to list commands.\n", Cmd_Argv(2));
-			return;
+			return false;
 		}
 		if (single)
 			break;
 	}
+
+	return true;
 }
 
 /*
@@ -2691,7 +2702,7 @@ SV_EntCreate_f
 Create new entity with specified name.
 ===============
 */
-void SV_EntCreate_f(sv_client_t* cl)
+static qboolean SV_EntCreate_f(sv_client_t* cl)
 {
 	edict_t* ent = NULL;
 	int	i = 0;
@@ -2700,7 +2711,7 @@ void SV_EntCreate_f(sv_client_t* cl)
 	if (Cmd_Argc() < 2)
 	{
 		SV_ClientPrintf(cl, "Use ent_create <classname> <key1> <value1> <key2> <value2> ...\n");
-		return;
+		return false;
 	}
 
 	classname = ALLOC_STRING(Cmd_Argv(1));
@@ -2737,7 +2748,7 @@ void SV_EntCreate_f(sv_client_t* cl)
 	if (!ent)
 	{
 		SV_ClientPrintf(cl, "Invalid entity!\n");
-		return;
+		return false;
 	}
 
 	// choose default origin
