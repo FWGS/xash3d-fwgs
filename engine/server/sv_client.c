@@ -2091,9 +2091,7 @@ static qboolean SV_SendBuildInfo_f( sv_client_t *cl )
 	return true;
 }
 
-edict_t* pfnFindEntityInSphere(edict_t* pStartEdict, const float* org, float flRadius);
-
-static edict_t* SV_GetCrossEnt(edict_t* player)
+static edict_t *SV_GetCrossEnt(edict_t* player)
 {
 	edict_t* ent = EDICT_NUM(1);
 	edict_t* closest = NULL;
@@ -2315,13 +2313,13 @@ static qboolean SV_EntInfo_f(sv_client_t* cl)
 
 	if (Cmd_Argc() != 2)
 	{
-		SV_ClientPrintf(cl, "Use ent_info <index|name|inst>\n");
-		return;
+		SV_ClientPrintf(cl, S_USAGE "ent_info <index|name|inst>\n");
+		return false;
 	}
 
 	ent = SV_EntFindSingle(cl, Cmd_Argv(1));
 
-	if (!SV_IsValidEdict(ent)) return;
+	if (!SV_IsValidEdict(ent)) return false;
 
 	VectorAdd(ent->v.absmin, ent->v.absmax, borigin);
 	VectorScale(borigin, 0.5, borigin);
@@ -2369,40 +2367,19 @@ static qboolean SV_EntInfo_f(sv_client_t* cl)
 	return true;
 }
 
-static qboolean SV_EntSendVars(sv_client_t* cl, edict_t* ent)
-{
-	if (!ent)
-		return false;
-	MSG_WriteByte(&cl->netchan.message, svc_stufftext);
-	MSG_WriteString(&cl->netchan.message, va("set ent_last_name \"%s\"\n", STRING(ent->v.targetname)));
-	MSG_WriteByte(&cl->netchan.message, svc_stufftext);
-	MSG_WriteString(&cl->netchan.message, va("set ent_last_num %i\n", NUM_FOR_EDICT(ent)));
-	MSG_WriteByte(&cl->netchan.message, svc_stufftext);
-	MSG_WriteString(&cl->netchan.message, va("set ent_last_inst !%i_%i\n", NUM_FOR_EDICT(ent), ent->serialnumber));
-	MSG_WriteByte(&cl->netchan.message, svc_stufftext);
-	MSG_WriteString(&cl->netchan.message, va("set ent_last_origin \"%f %f %f\"\n", ent->v.origin[0], ent->v.origin[1], ent->v.origin[2]));
-	MSG_WriteByte(&cl->netchan.message, svc_stufftext);
-	MSG_WriteString(&cl->netchan.message, va("set ent_last_class \"%s\"\n", STRING(ent->v.classname)));
-	MSG_WriteByte(&cl->netchan.message, svc_stufftext);
-	MSG_WriteString(&cl->netchan.message, "ent_getvars_cb\n");
-
-	return true;
-}
-
 static qboolean SV_EntGetVars_f(sv_client_t* cl)
 {
 	edict_t* ent = NULL;
 
 	if (Cmd_Argc() != 2)
 	{
-		SV_ClientPrintf(cl, "Use ent_getvars <index|name|inst>\n");
+		SV_ClientPrintf(cl, S_USAGE "ent_getvars <index|name|inst>\n");
 		return false;
 	}
 
 	ent = SV_EntFindSingle(cl, Cmd_Argv(1));
 	if (Cmd_Argc())
 		if (!SV_IsValidEdict(ent)) return false;
-	SV_EntSendVars(cl, ent);
 	return true;
 }
 
@@ -2420,8 +2397,8 @@ static qboolean SV_EntFire_f(sv_client_t* cl)
 
 	if (Cmd_Argc() < 3)
 	{
-		SV_ClientPrintf(cl, "Use ent_fire <index||pattern> <command> [<values>]\n"
-			"Use ent_fire 0 help to get command list\n");
+		SV_ClientPrintf(cl, S_USAGE "ent_fire <index||pattern> <command> [<values>]\n"
+			S_USAGE "ent_fire 0 help to get command list\n");
 		return false;
 	}
 
@@ -2439,7 +2416,7 @@ static qboolean SV_EntFire_f(sv_client_t* cl)
 		ent = SV_GetCrossEnt(cl->edict);
 
 		if (!SV_IsValidEdict(ent))
-			return;
+			return false;
 
 		i = NUM_FOR_EDICT(ent);
 	}
@@ -2451,10 +2428,10 @@ static qboolean SV_EntFire_f(sv_client_t* cl)
 		while (isdigit(*cmd)) cmd++;
 
 		if (*cmd++ != '_')
-			return;
+			return false;
 
 		if (i < 0 || i >= svgame.numEntities)
-			return;
+			return false;
 
 		ent = EDICT_NUM(i);
 		if (ent->serialnumber != Q_atoi(cmd))
@@ -2630,22 +2607,22 @@ static qboolean SV_EntFire_f(sv_client_t* cl)
 		}
 		else if (!Q_stricmp(Cmd_Argv(2), "setflag"))
 		{
-			ent->v.flags |= 1U << Q_atoi(Cmd_Argv(3));
+		    SetBits(ent->v.flags, BIT(Q_atoi(Cmd_Argv(3))));
 			SV_ClientPrintf(cl, "flags set to 0x%x\n", ent->v.flags);
 		}
 		else if (!Q_stricmp(Cmd_Argv(2), "clearflag"))
 		{
-			ent->v.flags &= ~(1U << Q_atoi(Cmd_Argv(3)));
+			ClearBits(ent->v.flags, BIT(1U << Q_atoi(Cmd_Argv(3))));
 			SV_ClientPrintf(cl, "flags set to 0x%x\n", ent->v.flags);
 		}
 		else if (!Q_stricmp(Cmd_Argv(2), "setspawnflag"))
 		{
-			ent->v.spawnflags |= 1U << Q_atoi(Cmd_Argv(3));
+			SetBits(ent->v.spawnflags, BIT(Q_atoi(Cmd_Argv(3))));
 			SV_ClientPrintf(cl, "spawnflags set to 0x%x\n", ent->v.spawnflags);
 		}
 		else if (!Q_stricmp(Cmd_Argv(2), "clearspawnflag"))
 		{
-			ent->v.spawnflags &= ~(1U << Q_atoi(Cmd_Argv(3)));
+			ClearBits(ent->v.spawnflags, BIT(1U << Q_atoi(Cmd_Argv(3))));
 			SV_ClientPrintf(cl, "spawnflags set to 0x%x\n", ent->v.flags);
 		}
 		else if (!Q_stricmp(Cmd_Argv(2), "help"))
@@ -2710,7 +2687,7 @@ static qboolean SV_EntCreate_f(sv_client_t* cl)
 
 	if (Cmd_Argc() < 2)
 	{
-		SV_ClientPrintf(cl, "Use ent_create <classname> <key1> <value1> <key2> <value2> ...\n");
+		SV_ClientPrintf(cl, S_USAGE "ent_create <classname> <key1> <value1> <key2> <value2> ...\n");
 		return false;
 	}
 
@@ -2806,7 +2783,6 @@ static qboolean SV_EntCreate_f(sv_client_t* cl)
 		// but we will not lose anything in this case.
 		Q_strnlwr(newname, newname, 256);
 		ent->v.targetname = ALLOC_STRING(newname);
-		SV_EntSendVars(cl, ent);
 	}
 
 	SV_ClientPrintf(cl, "Created %i: %s, targetname %s\n", NUM_FOR_EDICT(ent), Cmd_Argv(1), STRING(ent->v.targetname));
