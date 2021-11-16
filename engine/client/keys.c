@@ -462,6 +462,7 @@ Writes lines containing "bind key value"
 void Key_WriteBindings( file_t *f )
 {
 	int	i;
+	string newCommand;
 
 	if( !f ) return;
 
@@ -472,7 +473,8 @@ void Key_WriteBindings( file_t *f )
 		if( !COM_CheckString( keys[i].binding ))
 			continue;
 
-		FS_Printf( f, "bind %s \"%s\"\n", Key_KeynumToString( i ), keys[i].binding );
+		Cmd_Escape( newCommand, keys[i].binding, sizeof( newCommand ));
+		FS_Printf( f, "bind %s \"%s\"\n", Key_KeynumToString( i ), newCommand );
 	}
 }
 
