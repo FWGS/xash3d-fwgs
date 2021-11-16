@@ -197,6 +197,8 @@ static inline int Touch_ExportButtonToConfig( file_t *f, touch_button_t *button,
 	if( FBitSet( flags, TOUCH_FL_DEF_HIDE ))
 		SetBits( flags, TOUCH_FL_HIDE );
 
+	Cmd_Escape( newCommand, B( command ), sizeof( newCommand ));
+
 	FS_Printf( f, "touch_addbutton \"%s\" \"%s\" \"%s\" %f %f %f %f %d %d %d %d %d",
 		B(name), B(texturefile), newCommand,
 		B(x1), B(y1), B(x2), B(y2),
