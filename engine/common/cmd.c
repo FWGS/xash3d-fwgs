@@ -983,7 +983,7 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 	cmd_condlevel = 0;
 
 	// cvar value substitution
-	if( cmd_scripting && cmd_scripting->value )
+	if( CVAR_TO_BOOL( cmd_scripting ))
 	{
 		while( *text )
 		{
@@ -1331,8 +1331,42 @@ void Cmd_Null_f( void )
 }
 
 /*
+==========
+Cmd_Escape
+
+inserts escape sequences
+==========
+*/
+void Cmd_Escape( char *newCommand, const char *oldCommand, int len )
+{
+	int c;
+	int scripting = CVAR_TO_BOOL( cmd_scripting );
+
+	while( (c = *oldCommand++) && len > 1 )
+	{
+		if( c == '"' )
+		{
+			*newCommand++ = '\\';
+			len--;
+		}
+
+		if( scripting && c == '$')
+		{
+			*newCommand++ = '$';
+			len--;
+		}
+
+		*newCommand++ = c; len--;
+	}
+
+	*newCommand++ = 0;
+}
+
+
+/*
 ============
 Cmd_Init
+
 ============
 */
 void Cmd_Init( void )

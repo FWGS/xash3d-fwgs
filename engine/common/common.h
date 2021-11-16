@@ -503,6 +503,7 @@ qboolean Cmd_GetMovieList( const char *s, char *completedname, int length );
 void Cmd_TokenizeString( const char *text );
 void Cmd_ExecuteString( const char *text );
 void Cmd_ForwardToServer( void );
+void Cmd_Escape( char *newCommand, const char *oldCommand, int len );
 
 //
 // zone.c
