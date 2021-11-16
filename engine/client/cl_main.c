@@ -1306,7 +1306,11 @@ void CL_Rcon_f( void )
 
 	for( i = 1; i < Cmd_Argc(); i++ )
 	{
-		Q_strcat( message, Cmd_Argv( i ));
+		string commmand;
+
+		Cmd_Escape( command, Cmd_Argv( i ), sizeof( command ));
+
+		Q_strcat( message, command );
 		Q_strcat( message, " " );
 	}
 
