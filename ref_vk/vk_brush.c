@@ -456,6 +456,9 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			vk_render_geometry_t *model_geometry = bmodel->render_model.geometries + num_geometries;
 			const float sample_size = gEngine.Mod_SampleSizeForFace( surf );
 			int index_count = 0;
+			vec3_t pos[3];
+			vec2_t uv[3];
+			vec3_t tangent;
 
 			if (!renderableSurface(surf, -1))
 				continue;
@@ -510,6 +513,18 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 
 				vertex.gl_tc[0] = s;
 				vertex.gl_tc[1] = t;
+
+				// TODO replace this with constructing tangent from surf->texinfo->vecs
+				if (k < 3) {
+					VectorCopy(vertex.pos, pos[k]);
+					Vector2Copy(vertex.gl_tc, uv[k]);
+					if (k == 2) {
+						computeTangent(tangent, pos[0], pos[1], pos[2], uv[0], uv[1], uv[2]);
+						VectorCopy(tangent, bvert[-1].tangent);
+						VectorCopy(tangent, bvert[-2].tangent);
+					}
+				}
+				VectorCopy(tangent, vertex.tangent);
 
 				// lightmap texture coordinates
 				s = DotProduct( in_vertex->position, info->lmvecs[0] ) + info->lmvecs[0][3];

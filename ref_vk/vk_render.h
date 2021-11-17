@@ -51,6 +51,7 @@ typedef struct vk_vertex_s {
 	// TODO padding needed for storage buffer reading, figure out how to fix in GLSL/SPV side
 	vec3_t pos; float p0_;
 	vec3_t normal; uint32_t flags;
+	vec3_t tangent; uint32_t p1_;
 	vec2_t gl_tc; //float p2_[2];
 	vec2_t lm_tc; //float p3_[2];
 

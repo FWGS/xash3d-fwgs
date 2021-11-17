@@ -310,7 +310,6 @@ static void computeConveyorSpeed(const color24 rendercolor, int tex_index, vec2_
 
 void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row, const vec4_t color, color24 entcolor) {
 	qboolean HACK_reflective = false;
-	qboolean force_emissive = false;
 	vk_ray_draw_model_t* draw_model = g_ray_model_state.frame.models + g_ray_model_state.frame.num_models;
 
 	ASSERT(vk_core.rtx);
@@ -346,7 +345,6 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		// Additive blending: C = SRC * alpha + DST
 		case kRenderGlow:
 		case kRenderTransAdd:
-			force_emissive = true;
 			draw_model->material_mode = MaterialMode_Additive;
 			break;
 
@@ -361,33 +359,29 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 	for (int i = 0; i < render_model->num_geometries; ++i) {
 		const vk_render_geometry_t *geom = render_model->geometries + i;
-		const vk_emissive_surface_t *esurf = render_model->static_map ? NULL : VK_LightsAddEmissiveSurface( geom, transform_row, false );
 		vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_ray_model_state.kusochki_buffer.mapped) + geom->kusok_index;
 		const xvk_material_t *const mat = XVK_GetMaterialForTextureIndex( geom->texture );
 		ASSERT(mat);
+
+		if (!render_model->static_map)
+			VK_LightsAddEmissiveSurface( geom, transform_row, false );
 
 		kusok->tex_base_color = mat->base_color;
 		kusok->tex_roughness = mat->roughness;
 		kusok->tex_metalness = mat->metalness;
 		kusok->tex_normalmap = mat->normalmap;
 
-		// HACK until there is proper specular
-		// FIXME also this erases previour roughness unconditionally
-		// if (HACK_reflective) {
-		// 	kusok->roughness = 0.f;
-		// } else if (geom->material == kXVkMaterialChrome) {
-		// 	kusok->roughness = .1f;
-		// } else {
-		// 	kusok->roughness = 1.f;
-		// }
+		// HACK until there is a proper mechanism for patching materials, see https://github.com/w23/xash3d-fwgs/issues/213
+		// FIXME also this erases previous roughness unconditionally
+		if (HACK_reflective) {
+			kusok->tex_roughness = tglob.blackTexture;
+		} else if (geom->material == kXVkMaterialChrome) {
+			kusok->tex_roughness = tglob.grayTexture;
+		}
 
 		Vector4Copy(color, kusok->color);
 
-		if (esurf) {
-			VectorCopy(esurf->emissive, kusok->emissive);
-		} else if (force_emissive) {
-			VectorSet(kusok->emissive, 1.f, 1.f, 1.f);
-		}
+		XVK_GetEmissiveForTexture( kusok->emissive, geom->texture );
 
 		if (geom->material == kXVkMaterialConveyor) {
 			computeConveyorSpeed( entcolor, geom->texture, kusok->uv_speed );
