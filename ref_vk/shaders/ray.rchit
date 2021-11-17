@@ -63,6 +63,10 @@ vec4 sampleTexture(uint tex_index, vec2 uv, vec4 uv_lods) {
     return textureGrad(textures[nonuniformEXT(tex_index)], uv, uv_lods.xy, uv_lods.zw);
 }
 
+vec3 baryMix(vec3 v1, vec3 v2, vec3 v3, vec2 bary) {
+    return v1 * (1. - bary.x - bary.y) + v2 * bary.x + v3 * bary.y;
+}
+
 void main() {
     payload.t_offset += gl_HitTEXT;
 
@@ -82,7 +86,7 @@ void main() {
     // TODO use already inverse gl_WorldToObject ?
     const mat3 matWorldRotation = mat3(gl_ObjectToWorldEXT);
 	const mat3 normalTransformMat = transpose(inverse(matWorldRotation));
-    const vec3 normal = normalize(normalTransformMat * (n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y));
+    vec3 normal = normalize(normalTransformMat * (n1 * (1. - bary.x - bary.y) + n2 * bary.x + n3 * bary.y));
 
     const vec2 uvs[3] = {
         vertices[vi1].gl_tc,
@@ -108,7 +112,7 @@ void main() {
 
     const float ray_cone_width = payload.pixel_cone_spread_angle * payload.t_offset;
     vec4 uv_lods;
-    computeAnisotropicEllipseAxes(hit_pos, normal, gl_WorldRayDirectionEXT, ray_cone_width, pos, uvs, texture_uv_stationary, uv_lods.xy, uv_lods.zw);
+    computeAnisotropicEllipseAxes(hit_pos, /* TODO geom_?*/ normal, gl_WorldRayDirectionEXT, ray_cone_width, pos, uvs, texture_uv_stationary, uv_lods.xy, uv_lods.zw);
 
 	const uint tex_index = kusochki[kusok_index].tex_base_color;
     const vec4 tex_color = sampleTexture(tex_index, texture_uv, uv_lods);
@@ -117,12 +121,24 @@ void main() {
     /* tex_color = pow(tex_color, vec4(2.)); */
     /* const vec3 base_color = tex_color.rgb; */
 
+		normal *= geom_normal_sign;
+		const uint tex_normal = kusochki[kusok_index].tex_normalmap;
+		vec3 T = baryMix(vertices[vi1].tangent, vertices[vi2].tangent, vertices[vi3].tangent, bary);
+		if (tex_normal > 0 && dot(T,T) > .5) {
+			T = normalize(normalTransformMat * T);
+			T = normalize(T - dot(T, normal) * normal);
+			const vec3 B = normalize(cross(normal, T));
+			const mat3 TBN = mat3(T, B, normal);
+			const vec3 tnorm = sampleTexture(tex_normal, texture_uv, uv_lods).xyz * 2. - 1.; // TODO is this sampling correct for normal data?
+			normal = normalize(TBN * tnorm);
+		}
+
 	// FIXME read alpha from texture
 
     payload.hit_pos_t = vec4(hit_pos, gl_HitTEXT);
     payload.base_color = base_color * kusochki[kusok_index].color.rgb;
 	payload.transmissiveness = (1. - tex_color.a * kusochki[kusok_index].color.a);
-    payload.normal = normal * geom_normal_sign;
+    payload.normal = normal;
 	payload.geometry_normal = geom_normal;
     payload.emissive = kusochki[kusok_index].emissive * base_color; // TODO emissive should have a special texture
     payload.kusok_index = kusok_index;

@@ -20,3 +20,5 @@ void Matrix4x4_CreateScale3( matrix4x4 out, float x, float y, float z );
 void Matrix4x4_CreateProjection(matrix4x4 out, float xMax, float xMin, float yMax, float yMin, float zNear, float zFar);
 void Matrix4x4_CreateOrtho(matrix4x4 m, float xLeft, float xRight, float yBottom, float yTop, float zNear, float zFar);
 void Matrix4x4_CreateModelview( matrix4x4 out );
+
+void computeTangent(vec3_t out_tangent, vec3_t v0, vec3_t v1, vec3_t v2, vec2_t uv0, vec2_t uv1, vec2_t uv2);

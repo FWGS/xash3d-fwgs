@@ -54,7 +54,7 @@ static void loadMaterialsFromFile( const char *filename ) {
 		.base_color = -1,
 		.metalness = tglob.blackTexture,
 		.roughness = tglob.whiteTexture,
-		.normalmap = tglob.grayTexture,
+		.normalmap = 0,
 	};
 	int current_material_index = -1;
 
@@ -80,7 +80,7 @@ static void loadMaterialsFromFile( const char *filename ) {
 				.base_color = -1,
 				.metalness = tglob.blackTexture,
 				.roughness = tglob.whiteTexture,
-				.normalmap = tglob.grayTexture,
+				.normalmap = 0,
 			};
 			continue;
 		}
@@ -105,7 +105,7 @@ static void loadMaterialsFromFile( const char *filename ) {
 		} else if (Q_stricmp(key, "normal_map") == 0) {
 			if ((current_material.normalmap = loadTextureF("%.*s%s", path_end - path_begin, path_begin, value)) < 0) {
 				gEngine.Con_Printf(S_ERROR "Failed to load normal_map texture %s\n", value);
-				current_material.normalmap = tglob.grayTexture;
+				current_material.normalmap = 0;
 			}
 		} else if (Q_stricmp(key, "metal_map") == 0) {
 			if ((current_material.metalness = loadTextureF("%.*s%s", path_end - path_begin, path_begin, value)) < 0) {
@@ -138,7 +138,7 @@ void XVK_ReloadMaterials( void ) {
 		mat->base_color = i;
 		mat->metalness = tglob.blackTexture;
 		mat->roughness = tglob.whiteTexture;
-		mat->normalmap = tglob.grayTexture;
+		mat->normalmap = 0;
 	}
 
 	loadMaterialsFromFile( "pbr/materials.mat" );
