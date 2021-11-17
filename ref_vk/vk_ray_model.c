@@ -371,15 +371,13 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		kusok->tex_metalness = mat->metalness;
 		kusok->tex_normalmap = mat->normalmap;
 
-		// HACK until there is proper specular
-		// FIXME also this erases previour roughness unconditionally
-		// if (HACK_reflective) {
-		// 	kusok->roughness = 0.f;
-		// } else if (geom->material == kXVkMaterialChrome) {
-		// 	kusok->roughness = .1f;
-		// } else {
-		// 	kusok->roughness = 1.f;
-		// }
+		// HACK until there is a proper mechanism for patching materials, see https://github.com/w23/xash3d-fwgs/issues/213
+		// FIXME also this erases previous roughness unconditionally
+		if (HACK_reflective) {
+			kusok->tex_roughness = tglob.blackTexture;
+		} else if (geom->material == kXVkMaterialChrome) {
+			kusok->tex_roughness = tglob.grayTexture;
+		}
 
 		Vector4Copy(color, kusok->color);
 
