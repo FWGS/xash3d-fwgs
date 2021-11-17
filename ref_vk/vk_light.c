@@ -594,7 +594,7 @@ static qboolean canSurfaceLightAffectAABB(const model_t *mod, const msurface_t *
 	return retval;
 }
 
-const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map ) {
+void VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map ) {
 	APROF_SCOPE_BEGIN_EARLY(emissive_surface);
 	const int texture_num = geom->texture; // Animated texture
 	vk_emissive_surface_t *retval = NULL;
@@ -699,7 +699,6 @@ const vk_emissive_surface_t *VK_LightsAddEmissiveSurface( const struct vk_render
 
 fin:
 	APROF_SCOPE_END(emissive_surface);
-	return retval;
 }
 
 static void addLightIndexToleaf( const mleaf_t *leaf, int index ) {
@@ -929,9 +928,8 @@ void VK_LightsLoadMapStaticLights( void ) {
 
 		for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
 			const vk_render_geometry_t *geom = bmodel->render_model.geometries + i;
-			if (!VK_LightsAddEmissiveSurface( geom, &xform, true )) {
+			VK_LightsAddEmissiveSurface( geom, &xform, true );
 				// TODO how to differentiate between this and non-emissive gEngine.Con_Printf(S_ERROR "Ran out of surface light slots, geom %d of %d\n", i, bmodel->render_model.num_geometries);
-			}
 		}
 	}
 
@@ -944,6 +942,20 @@ void VK_LightsLoadMapStaticLights( void ) {
 			vk_lights_cell_t *const cell = g_lights.cells + i;
 			cell->num_static.point_lights = cell->num_point_lights;
 			cell->num_static.emissive_surfaces = cell->num_emissive_surfaces;
+		}
+	}
+}
+
+void XVK_GetEmissiveForTexture( vec3_t out, int texture_id ) {
+	ASSERT(texture_id >= 0);
+	ASSERT(texture_id < MAX_TEXTURES);
+
+	{
+		vk_emissive_texture_t *const etex = g_lights.map.emissive_textures + texture_id;
+		if (etex->set) {
+			VectorCopy(etex->emissive, out);
+		} else {
+			VectorSet(out, 0, 0, 0);
 		}
 	}
 }
