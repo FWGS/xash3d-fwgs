@@ -86,7 +86,9 @@ static void loadMaterialsFromFile( const char *filename ) {
 		}
 
 		if (key[0] == '}') {
-			if (current_material_index >= 0 && current_material.base_color >= 0) {
+			if (current_material_index >= 0) {
+				if (current_material.base_color == -1)
+					current_material.base_color = current_material_index;
 				g_materials.materials[current_material_index] = current_material;
 			}
 			continue;
@@ -132,7 +134,7 @@ void XVK_ReloadMaterials( void ) {
 
 		if (!tex) {
 			mat->base_color = -1;
-			continue;
+			break;
 		}
 
 		mat->base_color = i;
