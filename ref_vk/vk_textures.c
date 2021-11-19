@@ -53,7 +53,7 @@ void destroyTextures( void )
 	for( unsigned int i = 0; i < vk_numTextures; i++ )
 		VK_FreeTexture( i );
 
-	//memset( tr.lightmapTextures, 0, sizeof( tr.lightmapTextures ));
+	//memset( tglob.lightmapTextures, 0, sizeof( tglob.lightmapTextures ));
 	memset( vk_texturesHashTable, 0, sizeof( vk_texturesHashTable ));
 	memset( vk_textures, 0, sizeof( vk_textures ));
 	vk_numTextures = 0;
@@ -209,7 +209,7 @@ static void VK_ProcessImage( vk_texture_t *tex, rgbdata_t *pic )
 
 		/* FIXME provod: ???
 		if( !FBitSet( tex->flags, TF_IMG_UPLOADED ) && FBitSet( tex->flags, TF_KEEP_SOURCE ))
-			tex->original = gEngfuncs.FS_CopyImage( pic ); // because current pic will be expanded to rgba
+			tex->original = gEngine.FS_CopyImage( pic ); // because current pic will be expanded to rgba
 		*/
 
 		// we need to expand image into RGBA buffer
@@ -784,7 +784,7 @@ void VK_FreeTexture( unsigned int texnum ) {
 	/*
 	// release source
 	if( tex->original )
-		gEngfuncs.FS_FreeImage( tex->original );
+		gEngine.FS_FreeImage( tex->original );
 	*/
 
 	vkDestroyImageView(vk_core.device, tex->vk.image_view, NULL);
@@ -890,4 +890,121 @@ int XVK_TextureLookupF( const char *fmt, ...) {
 	tex_id = VK_FindTexture(buffer);
 	gEngine.Con_Reportf("Looked up texture %s -> %d\n", buffer, tex_id);
 	return tex_id;
+}
+
+static void unloadSkybox( void )
+{
+	int	i;
+
+	// release old skybox
+	for( i = 0; i < 6; i++ )
+	{
+		if( !tglob.skyboxTextures[i] ) continue;
+		VK_FreeTexture( tglob.skyboxTextures[i] );
+	}
+
+	tglob.skyboxbasenum = 5800;	// set skybox base (to let some mods load hi-res skyboxes)
+
+	memset( tglob.skyboxTextures, 0, sizeof( tglob.skyboxTextures ));
+	tglob.fCustomSkybox = false;
+}
+
+static const char*		r_skyBoxSuffix[6] = { "rt", "bk", "lf", "ft", "up", "dn" };
+//static const int		r_skyTexOrder[6] = { 0, 2, 1, 3, 4, 5 };
+
+#define SKYBOX_MISSED	0
+#define SKYBOX_HLSTYLE	1
+#define SKYBOX_Q1STYLE	2
+
+static int CheckSkybox( const char *name )
+{
+	const char	*skybox_ext[3] = { "dds", "tga", "bmp" };
+	int		i, j, num_checked_sides;
+	const char	*sidename;
+
+	// search for skybox images
+	for( i = 0; i < 3; i++ )
+	{
+		num_checked_sides = 0;
+		for( j = 0; j < 6; j++ )
+		{
+			// build side name
+			sidename = va( "%s%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
+			if( gEngine.FS_FileExists( sidename, false ))
+				num_checked_sides++;
+
+		}
+
+		if( num_checked_sides == 6 )
+			return SKYBOX_HLSTYLE; // image exists
+
+		for( j = 0; j < 6; j++ )
+		{
+			// build side name
+			sidename = va( "%s_%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
+			if( gEngine.FS_FileExists( sidename, false ))
+				num_checked_sides++;
+		}
+
+		if( num_checked_sides == 6 )
+			return SKYBOX_Q1STYLE; // images exists
+	}
+
+	return SKYBOX_MISSED;
+}
+
+void XVK_SetupSky( const char *skyboxname )
+{
+	char	loadname[MAX_STRING];
+	char	sidename[MAX_STRING];
+	int	i, result, len;
+
+	if( !COM_CheckString( skyboxname ))
+	{
+		unloadSkybox();
+		return; // clear old skybox
+	}
+
+	Q_snprintf( loadname, sizeof( loadname ), "gfx/env/%s", skyboxname );
+	COM_StripExtension( loadname );
+
+	// kill the underline suffix to find them manually later
+	len = Q_strlen( loadname );
+
+	if( loadname[len - 1] == '_' )
+		loadname[len - 1] = '\0';
+	result = CheckSkybox( loadname );
+
+	// to prevent infinite recursion if default skybox was missed
+	if( result == SKYBOX_MISSED && Q_stricmp( loadname, DEFAULT_SKYBOX_PATH ))
+	{
+		gEngine.Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", skyboxname );
+		XVK_SetupSky( "desert" ); // force to default
+		return;
+	}
+
+	// release old skybox
+	unloadSkybox();
+	gEngine.Con_DPrintf( "SKY:  " );
+
+	for( i = 0; i < 6; i++ )
+	{
+		if( result == SKYBOX_HLSTYLE )
+			Q_snprintf( sidename, sizeof( sidename ), "%s%s", loadname, r_skyBoxSuffix[i] );
+		else Q_snprintf( sidename, sizeof( sidename ), "%s_%s", loadname, r_skyBoxSuffix[i] );
+
+		tglob.skyboxTextures[i] = VK_LoadTexture( sidename, NULL, 0, TF_CLAMP|TF_SKY );
+		if( !tglob.skyboxTextures[i] ) break;
+		gEngine.Con_DPrintf( "%s%s%s", skyboxname, r_skyBoxSuffix[i], i != 5 ? ", " : ". " );
+	}
+
+	if( i == 6 )
+	{
+		tglob.fCustomSkybox = true;
+		gEngine.Con_DPrintf( "done\n" );
+		return; // loaded
+	}
+
+	gEngine.Con_DPrintf( "^2failed\n" );
+	unloadSkybox();
 }

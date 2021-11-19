@@ -19,9 +19,15 @@
 #include "com_strings.h"
 #include "ref_params.h"
 #include "eiface.h"
+#include "pm_movevars.h"
 
 #include <stdlib.h> // qsort
 #include <memory.h>
+
+typedef struct vk_trans_entity_s {
+	struct cl_entity_s *entity;
+	int render_mode;
+} vk_trans_entity_t;
 
 typedef struct draw_list_s {
 	struct cl_entity_s	*solid_entities[MAX_SCENE_ENTITIES];	// opaque moving or alpha brushes
@@ -109,6 +115,8 @@ void R_NewMap( void )
 	VK_RunLightStyles();
 
 	VK_LightsNewMap();
+
+	XVK_SetupSky( gEngine.pfnGetMoveVars()->skyName );
 
 	if (vk_core.rtx)
 		VK_RayNewMap();

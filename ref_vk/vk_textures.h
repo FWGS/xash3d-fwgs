@@ -41,7 +41,9 @@ typedef struct vk_textures_global_s
 	int		cinTexture;      	// cinematic texture
 
 	int		skytexturenum;	// this not a gl_texturenum!
-	int		skyboxbasenum;	// start with 5800
+	int		skyboxbasenum;	// start with 5800 FIXME remove this, lewa says this is a GL1 hack
+
+	qboolean fCustomSkybox; // TODO do we need this for anything?
 } vk_textures_global_t;
 
 // TODO rename this consistently
@@ -66,6 +68,8 @@ int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 int XVK_TextureLookupF( const char *fmt, ...);
 
 #define VK_LoadTextureInternal( name, pic, flags ) VK_LoadTextureFromBuffer( name, pic, flags, false )
+
+void XVK_SetupSky( const char *skyboxname );
 
 typedef struct {
 	// FIXME better memory allocation

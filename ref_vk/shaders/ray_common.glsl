@@ -16,6 +16,7 @@ struct RayPayloadOpaque {
 	float metalness;
 	int kusok_index;
 	uint material_index;
+	vec4 debug;
 };
 
 struct RayPayloadShadow {

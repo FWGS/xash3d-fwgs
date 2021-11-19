@@ -9,11 +9,6 @@
 struct ref_viewpass_s;
 struct cl_entity_s;
 
-typedef struct vk_trans_entity_s {
-	struct cl_entity_s *entity;
-	int render_mode;
-} vk_trans_entity_t;
-
 void VK_SceneInit( void );
 
 void VK_SceneRender( const struct ref_viewpass_s *rvp );

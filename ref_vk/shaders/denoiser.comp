@@ -51,6 +51,7 @@ void main() {
 	const float material_index = imageLoad(src_diffuse_gi, pix).a;
 
 	//imageStore(dest, pix, vec4(aces_tonemap(base_color.rgb), 0.)); return;
+	//imageStore(dest, pix, vec4((base_color.rgb), 0.)); return;
 	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_diffuse_gi, pix).rgb), 0.)); return;
 	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_specular, pix).rgb), 0.)); return;
 
@@ -59,9 +60,9 @@ void main() {
 
 	//imageStore(dest, pix, vec4(.5 + geometry_normal * .5, 0.)); return;
 
-	// const uint mi = uint(material_index);
-	// imageStore(dest, pix, vec4(rand3_f01(uvec3(mi,mi+1,mi+2)), 0.));
-	// return;
+	/* const uint mi = uint(material_index); */
+	/* imageStore(dest, pix, vec4(rand3_f01(uvec3(mi,mi+1,mi+2)), 0.)); */
+	/* return; */
 
 	const int KERNEL_SIZE = 8;
 	float total_scale = 0.;

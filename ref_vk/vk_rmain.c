@@ -68,11 +68,6 @@ static void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottom
 	PRINT_NOT_IMPLEMENTED();
 }
 
-static void R_SetupSky( const char *skyname )
-{
-	PRINT_NOT_IMPLEMENTED();
-}
-
 static qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot )
 {
 	PRINT_NOT_IMPLEMENTED();
@@ -521,7 +516,7 @@ ref_interface_t gReffuncs =
 	R_GetTextureOriginalBuffer,
 	VK_LoadTextureFromBuffer,
 	GL_ProcessTexture,
-	R_SetupSky,
+	XVK_SetupSky,
 
 	R_Set2DMode,
 	R_DrawStretchRaw,

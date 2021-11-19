@@ -793,6 +793,13 @@ static void updateLights( void )
 
 			dst->environment = !!(src->flags & LightFlag_Environment);
 		}
+
+		lights->skybox_rt = tglob.skyboxTextures[0];
+		lights->skybox_bk = tglob.skyboxTextures[1];
+		lights->skybox_lf = tglob.skyboxTextures[2];
+		lights->skybox_ft = tglob.skyboxTextures[3];
+		lights->skybox_up = tglob.skyboxTextures[4];
+		lights->skybox_dn = tglob.skyboxTextures[5];
 	}
 }
 
@@ -1136,7 +1143,7 @@ static void createLayouts( void ) {
 		.binding = RayDescBinding_Textures,
 		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		.descriptorCount = MAX_TEXTURES,
-		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
+		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR,
 		// FIXME on AMD using immutable samplers leads to nearest filtering ???!
 		.pImmutableSamplers = NULL, //samplers,
 	};

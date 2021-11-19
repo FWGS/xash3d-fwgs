@@ -71,7 +71,7 @@ struct EmissiveKusok {
 struct Lights {
 	uint num_kusochki;
 	uint num_point_lights;
-	PAD(2)
+	uint skybox_rt, skybox_bk, skybox_lf, skybox_ft, skybox_up, skybox_dn;
 	STRUCT EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
 	STRUCT PointLight point_lights[MAX_POINT_LIGHTS];
 };
@@ -83,7 +83,7 @@ struct LightCluster {
 	uint8_t emissive_surfaces[MAX_VISIBLE_SURFACE_LIGHTS];
 };
 
-#define PUSH_FLAG_LIGHTMAP_ONLY	0x01
+#define PUSH_FLAG_LIGHTMAP_ONLY 0x01
 
 struct PushConstants {
 	float time;
