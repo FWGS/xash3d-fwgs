@@ -21,6 +21,8 @@ GNU General Public License for more details.
 convar_t	*cvar_vars = NULL; // head of list
 convar_t	*cmd_scripting;
 
+CVAR_DEFINE_AUTO( cl_filterstuffcmd, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "filter commands coming from server" );
+
 /*
 ============
 Cvar_GetList
@@ -780,7 +782,7 @@ static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
 
 	for( i = 0; i < ARRAYSIZE( prefixes ); i++ )
 	{
-		if( !Q_stricmp( v->name, prefixes[i] ))
+		if( !Q_strnicmp( v->name, prefixes[i], Q_strlen( prefixes[i] )))
 			return false;
 	}
 
@@ -994,9 +996,57 @@ void Cvar_Init( void )
 	cvar_vars = NULL;
 	cmd_scripting = Cvar_Get( "cmd_scripting", "0", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "enable simple condition checking and variable operations" );
 	Cvar_RegisterVariable (&host_developer); // early registering for dev
+	Cvar_RegisterVariable( &cl_filterstuffcmd );
 
 	Cmd_AddRestrictedCommand( "setgl", Cvar_SetGL_f, "change the value of a opengl variable" );	// OBSOLETE
 	Cmd_AddRestrictedCommand( "toggle", Cvar_Toggle_f, "toggles a console variable's values (use for more info)" );
 	Cmd_AddRestrictedCommand( "reset", Cvar_Reset_f, "reset any type variable to initial value" );
 	Cmd_AddCommand( "cvarlist", Cvar_List_f, "display all console variables beginning with the specified prefix" );
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+void Test_RunCvar( void )
+{
+	convar_t *test_privileged = Cvar_Get( "test_privileged", "0", FCVAR_PRIVILEGED, "bark bark" );
+	convar_t *test_unprivileged = Cvar_Get( "test_unprivileged", "0", 0, "meow meow" );
+	convar_t *hud_filtered = Cvar_Get( "hud_filtered", "0", 0, "dummy description" );
+	convar_t *filtered2 = Cvar_Get( "filtered2", "0", FCVAR_FILTERABLE, "filtered2" );
+
+	Cbuf_AddText( "test_privileged 1; test_unprivileged 1; hud_filtered 1; filtered2 1\n" );
+	Cbuf_Execute();
+	TASSERT( test_privileged->value   != 0.0f );
+	TASSERT( test_unprivileged->value != 0.0f );
+	TASSERT( hud_filtered->value      != 0.0f );
+	TASSERT( filtered2->value         != 0.0f );
+
+	Cvar_DirectSet( test_privileged,   "0" );
+	Cvar_DirectSet( test_unprivileged, "0" );
+	Cvar_DirectSet( hud_filtered,      "0" );
+	Cvar_DirectSet( filtered2,         "0" );
+	Cvar_DirectSet( &cl_filterstuffcmd, "0" );
+	Cbuf_AddFilteredText( "test_privileged 1; test_unprivileged 1; hud_filtered 1; filtered2 1\n" );
+	Cbuf_Execute();
+	Cbuf_Execute();
+	Cbuf_Execute();
+	TASSERT( test_privileged->value   == 0.0f );
+	TASSERT( test_unprivileged->value != 0.0f );
+	TASSERT( hud_filtered->value      != 0.0f );
+	TASSERT( filtered2->value         != 0.0f );
+
+	Cvar_DirectSet( test_privileged,   "0" );
+	Cvar_DirectSet( test_unprivileged, "0" );
+	Cvar_DirectSet( hud_filtered,      "0" );
+	Cvar_DirectSet( filtered2,         "0" );
+	Cvar_DirectSet( &cl_filterstuffcmd, "1" );
+	Cbuf_AddFilteredText( "test_privileged 1; test_unprivileged 1; hud_filtered 1; filtered2 1\n" );
+	Cbuf_Execute();
+	Cbuf_Execute();
+	Cbuf_Execute();
+	TASSERT( test_privileged->value   == 0.0f );
+	TASSERT( test_unprivileged->value != 0.0f );
+	TASSERT( hud_filtered->value      == 0.0f );
+	TASSERT( filtered2->value         == 0.0f );
+}
+#endif

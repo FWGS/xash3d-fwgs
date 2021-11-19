@@ -52,7 +52,6 @@ struct tests_stats_s tests_stats;
 
 CVAR_DEFINE( host_developer, "developer", "0", FCVAR_FILTERABLE, "engine is in development-mode" );
 CVAR_DEFINE_AUTO( sys_ticrate, "100", 0, "framerate in dedicated mode" );
-CVAR_DEFINE_AUTO( cl_filterstuffcmd, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "filter commands coming from server" );
 
 convar_t	*host_serverstate;
 convar_t	*host_gameloaded;
@@ -819,6 +818,8 @@ static void Host_RunTests( int stage )
 		memset( &tests_stats, 0, sizeof( tests_stats ));
 		Test_RunLibCommon();
 		Test_RunCommon();
+		Test_RunCmd();
+		Test_RunCvar();
 		break;
 	case 1: // after FS load
 		Test_RunImagelib();
@@ -1086,7 +1087,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Cmd_AddRestrictedCommand ( "crash", Host_Crash_f, "a way to force a bus error for development reasons");
 	}
 
-	Cvar_RegisterVariable( &cl_filterstuffcmd );
 	host_serverstate = Cvar_Get( "host_serverstate", "0", FCVAR_READ_ONLY, "displays current server state" );
 	host_maxfps = Cvar_Get( "fps_max", "72", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "host fps upper limit" );
 	host_framerate = Cvar_Get( "host_framerate", "0", FCVAR_FILTERABLE, "locks frame timing to this value in seconds" );
