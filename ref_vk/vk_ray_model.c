@@ -375,7 +375,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		// FIXME also this erases previous roughness unconditionally
 		if (HACK_reflective) {
 			kusok->tex_roughness = tglob.blackTexture;
-		} else if (geom->material == kXVkMaterialChrome) {
+		} else if (!mat->set && geom->material == kXVkMaterialChrome) {
 			kusok->tex_roughness = tglob.grayTexture;
 		}
 

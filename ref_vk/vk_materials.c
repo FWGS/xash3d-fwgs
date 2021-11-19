@@ -12,10 +12,13 @@ static struct {
 static int findTextureNamedLike( const char *texture_name ) {
 	const model_t *map = gEngine.pfnGetModelByIndex( 1 );
 	string texname;
-	int tex_id;
 
-	// Try bsp texture first
-	tex_id = XVK_TextureLookupF("#%s:%s.mip", map->name, texture_name);
+	// Try texture name as-is first
+	int tex_id = XVK_TextureLookupF("%s", texture_name);
+
+	// Try bsp name
+	if (!tex_id)
+		tex_id = XVK_TextureLookupF("#%s:%s.mip", map->name, texture_name);
 
 	if (!tex_id) {
 		const char *wad = g_map_entities.wadlist;
@@ -90,6 +93,7 @@ static void loadMaterialsFromFile( const char *filename ) {
 				if (current_material.base_color == -1)
 					current_material.base_color = current_material_index;
 				g_materials.materials[current_material_index] = current_material;
+				g_materials.materials[current_material_index].set = true;
 			}
 			continue;
 		}
@@ -141,6 +145,7 @@ void XVK_ReloadMaterials( void ) {
 		mat->metalness = tglob.blackTexture;
 		mat->roughness = tglob.whiteTexture;
 		mat->normalmap = 0;
+		mat->set = false;
 	}
 
 	loadMaterialsFromFile( "pbr/materials.mat" );
