@@ -957,7 +957,7 @@ static qboolean Cmd_ShouldAllowCommand( cmd_t *cmd, qboolean isPrivileged )
 
 	for( i = 0; i < ARRAYSIZE( prefixes ); i++ )
 	{
-		if( !Q_stricmp( cmd->name, prefixes[i] ))
+		if( !Q_strnicmp( cmd->name, prefixes[i], Q_strlen( prefixes[i] )))
 			return false;
 	}
 
@@ -1398,3 +1398,64 @@ void Cmd_Init( void )
 	Cmd_AddCommand( "basecmd_test", BaseCmd_Test_f, "test basecmd" );
 #endif
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+enum
+{
+	NO_CALL = 0,
+	PRIV = 1,
+	UNPRIV = 2
+};
+
+static int test_flags[3] = { NO_CALL, NO_CALL, NO_CALL };
+
+static void Test_PrivilegedCommand_f( void )
+{
+	test_flags[0] = Cmd_CurrentCommandIsPrivileged() ? PRIV : UNPRIV;
+}
+
+static void Test_UnprivilegedCommand_f( void )
+{
+	test_flags[1] = Cmd_CurrentCommandIsPrivileged() ? PRIV : UNPRIV;
+}
+
+static void Test_FilteredCommand_f( void )
+{
+	test_flags[2] = Cmd_CurrentCommandIsPrivileged() ? PRIV : UNPRIV;
+}
+
+void Test_RunCmd( void )
+{
+	Cmd_AddCommand( "test_privileged", Test_PrivilegedCommand_f, "bark bark" );
+	Cmd_AddRestrictedCommand( "test_unprivileged", Test_UnprivilegedCommand_f, "meow meow" );
+	Cmd_AddCommand( "hud_filtered", Test_FilteredCommand_f, "dummy description" );
+
+	Cbuf_AddText( "test_privileged; test_unprivileged; hud_filtered\n" );
+	Cbuf_Execute();
+	TASSERT( test_flags[0] == PRIV );
+	TASSERT( test_flags[1] == PRIV );
+	TASSERT( test_flags[2] == PRIV );
+
+	VectorSet( test_flags, NO_CALL, NO_CALL, NO_CALL );
+	Cvar_DirectSet( &cl_filterstuffcmd, "0" );
+	Cbuf_AddFilteredText( "test_privileged; test_unprivileged; hud_filtered\n" );
+	Cbuf_Execute();
+	TASSERT( test_flags[0] == UNPRIV );
+	TASSERT( test_flags[1] == NO_CALL );
+	TASSERT( test_flags[2] == UNPRIV );
+
+	VectorSet( test_flags, NO_CALL, NO_CALL, NO_CALL );
+	Cvar_DirectSet( &cl_filterstuffcmd, "1" );
+	Cbuf_AddFilteredText( "test_privileged; test_unprivileged; hud_filtered\n" );
+	Cbuf_Execute();
+	TASSERT( test_flags[0] == UNPRIV );
+	TASSERT( test_flags[1] == NO_CALL );
+	TASSERT( test_flags[2] == NO_CALL );
+
+	Cmd_RemoveCommand( "hud_filtered" );
+	Cmd_RemoveCommand( "test_unprivileged" );
+	Cmd_RemoveCommand( "test_privileged" );
+}
+#endif
