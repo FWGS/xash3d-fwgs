@@ -1,5 +1,6 @@
 #pragma once
 #include "vk_core.h"
+#include "vk_image.h"
 
 #include "xash3d_types.h"
 #include "const.h"
@@ -14,9 +15,7 @@ typedef struct vk_texture_s
 	uint texnum;
 
 	struct {
-		VkImage image;
-		VkImageView image_view;
-		device_memory_t device_memory;
+		xvk_image_t image;
 		VkDescriptorSet descriptor;
 	} vk;
 
@@ -70,14 +69,3 @@ int XVK_TextureLookupF( const char *fmt, ...);
 #define VK_LoadTextureInternal( name, pic, flags ) VK_LoadTextureFromBuffer( name, pic, flags, false )
 
 void XVK_SetupSky( const char *skyboxname );
-
-typedef struct {
-	// FIXME better memory allocation
-	// OCHEN PLOHO
-	device_memory_t devmem;
-	VkImage image;
-	VkImageView view;
-} vk_image_t;
-
-vk_image_t VK_ImageCreate(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage);
-void VK_ImageDestroy(vk_image_t *img);

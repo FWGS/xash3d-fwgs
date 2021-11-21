@@ -445,8 +445,7 @@ static void BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth, in
 	}
 }
 
-static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
-{
+static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *pic) {
 	const VkFormat format = VK_GetFormat(pic->type);
 	const VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
 	const VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -475,33 +474,18 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 	// if( !ImageDXT( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
 	// 	data = GL_ApplyFilter( data, tex->width, tex->height );
 
-	// 1. Create VkImage w/ usage = DST|SAMPLED, layout=UNDEFINED
 	{
-		VkImageCreateInfo image_create_info = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-			.imageType = VK_IMAGE_TYPE_2D,
-			.extent.width = pic->width,
-			.extent.height = pic->height,
-			.extent.depth = 1,
+		const xvk_image_create_t create = {
+			.debug_name = tex->name,
+			.width = pic->width,
+			.height = pic->height,
+			.mips = mipCount,
 			.format = format,
-			.mipLevels = mipCount,
-			.arrayLayers = 1,
 			.tiling = tiling,
-			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 			.usage = usage,
-			.samples = VK_SAMPLE_COUNT_1_BIT,
-			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+			.has_alpha = pic->flags & IMAGE_HAS_ALPHA,
 		};
-		XVK_CHECK(vkCreateImage(vk_core.device, &image_create_info, NULL, &tex->vk.image));
-		SET_DEBUG_NAME(tex->vk.image, VK_OBJECT_TYPE_IMAGE, tex->name);
-	}
-
-	// 2. Alloc mem for VkImage and bind it (DEV_LOCAL)
-	{
-		VkMemoryRequirements memreq;
-		vkGetImageMemoryRequirements(vk_core.device, tex->vk.image, &memreq);
-		tex->vk.device_memory = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
-		XVK_CHECK(vkBindImageMemory(vk_core.device, tex->vk.image, tex->vk.device_memory.device_memory, tex->vk.device_memory.offset));
+		tex->vk.image = XVK_ImageCreate(&create);
 	}
 
 	{
@@ -517,7 +501,7 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 		// 		5.1.1 transitionToLayout(UNDEFINED -> DST)
 		VkImageMemoryBarrier image_barrier = {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = tex->vk.image,
+			.image = tex->vk.image.image,
 			.srcAccessMask = 0,
 			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -568,7 +552,7 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 				}
 
 				// TODO we could do this only once w/ region array
-				vkCmdCopyBufferToImage(vk_core.cb_tex, vk_core.staging.buffer, tex->vk.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+				vkCmdCopyBufferToImage(vk_core.cb_tex, vk_core.staging.buffer, tex->vk.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
 				staging_offset += mip_size;
 			}
@@ -603,28 +587,13 @@ static qboolean VK_UploadTexture(vk_texture_t *tex, rgbdata_t *pic)
 		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
 	}
 
-	{
-		VkImageViewCreateInfo ivci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-		ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		ivci.format = format;
-		ivci.image = tex->vk.image;
-		ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		ivci.subresourceRange.baseMipLevel = 0;
-		ivci.subresourceRange.levelCount = mipCount;
-		ivci.subresourceRange.baseArrayLayer = 0;
-		ivci.subresourceRange.layerCount = 1;
-		ivci.components = (VkComponentMapping){0, 0, 0, (pic->flags & IMAGE_HAS_ALPHA) ? 0 : VK_COMPONENT_SWIZZLE_ONE};
-		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, &tex->vk.image_view));
-		SET_DEBUG_NAME(tex->vk.image_view, VK_OBJECT_TYPE_IMAGE_VIEW, tex->name);
-	}
-
 	// TODO how should we approach this:
 	// - per-texture desc sets can be inconvenient if texture is used in different incompatible contexts
 	// - update descriptor sets in batch?
 	if (vk_desc.next_free != MAX_TEXTURES)
 	{
 		VkDescriptorImageInfo dii_tex = {
-			.imageView = tex->vk.image_view,
+			.imageView = tex->vk.image.view,
 			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		};
 		VkWriteDescriptorSet wds[] = { {
@@ -707,7 +676,7 @@ int	VK_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	// upload texture
 	VK_ProcessImage( tex, pic );
 
-	if( !VK_UploadTexture( tex, pic ))
+	if( !uploadTexture( tex, pic ))
 	{
 		memset( tex, 0, sizeof( vk_texture_t ));
 		gEngine.FS_FreeImage( pic ); // release source texture
@@ -756,7 +725,7 @@ void VK_FreeTexture( unsigned int texnum ) {
 	ASSERT( tex != NULL );
 
 	// already freed?
-	if( !tex->vk.image ) return;
+	if( !tex->vk.image.image ) return;
 
 	// debug
 	if( !tex->name[0] )
@@ -787,9 +756,7 @@ void VK_FreeTexture( unsigned int texnum ) {
 		gEngine.FS_FreeImage( tex->original );
 	*/
 
-	vkDestroyImageView(vk_core.device, tex->vk.image_view, NULL);
-	vkDestroyImage(vk_core.device, tex->vk.image, NULL);
-	freeDeviceMemory(&tex->vk.device_memory);
+	XVK_ImageDestroy(&tex->vk.image);
 	memset(tex, 0, sizeof(*tex));
 }
 
@@ -821,7 +788,7 @@ int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 
 	VK_ProcessImage( tex, pic );
 
-	if( !VK_UploadTexture( tex, pic ))
+	if( !uploadTexture( tex, pic ))
 	{
 		memset( tex, 0, sizeof( vk_texture_t ));
 		return 0;
@@ -832,51 +799,6 @@ int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 	*/
 
 	return (tex - vk_textures);
-}
-
-vk_image_t VK_ImageCreate(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage) {
-	vk_image_t image;
-	VkMemoryRequirements memreq;
-	VkImageViewCreateInfo ivci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-
-	VkImageCreateInfo ici = {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-		.imageType = VK_IMAGE_TYPE_2D,
-		.extent.width = width,
-		.extent.height = height,
-		.extent.depth = 1,
-		.mipLevels = 1,
-		.arrayLayers = 1,
-		.format = format,
-		.tiling = tiling,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.usage = usage,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-	};
-
-	XVK_CHECK(vkCreateImage(vk_core.device, &ici, NULL, &image.image));
-
-	vkGetImageMemoryRequirements(vk_core.device, image.image, &memreq);
-	image.devmem = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
-	XVK_CHECK(vkBindImageMemory(vk_core.device, image.image, image.devmem.device_memory, 0));
-
-	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	ivci.format = ici.format;
-	ivci.image = image.image;
-	ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	ivci.subresourceRange.levelCount = 1;
-	ivci.subresourceRange.layerCount = 1;
-	XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, &image.view));
-
-	return image;
-}
-
-void VK_ImageDestroy(vk_image_t *img) {
-	vkDestroyImageView(vk_core.device, img->view, NULL);
-	vkDestroyImage(vk_core.device, img->image, NULL);
-	freeDeviceMemory(&img->devmem);
-	*img = (vk_image_t){0};
 }
 
 int XVK_TextureLookupF( const char *fmt, ...) {

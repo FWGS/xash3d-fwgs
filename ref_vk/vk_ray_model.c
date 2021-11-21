@@ -136,7 +136,7 @@ void XVK_RayModel_Validate( void ) {
 			const vk_kusok_data_t *kusok = kusochki + j;
 			const vk_texture_t *tex = findTexture(kusok->tex_base_color);
 			ASSERT(tex);
-			ASSERT(tex->vk.image_view != VK_NULL_HANDLE);
+			ASSERT(tex->vk.image.view != VK_NULL_HANDLE);
 
 			// uint32_t index_offset;
 			// uint32_t vertex_offset;

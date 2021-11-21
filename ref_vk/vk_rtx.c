@@ -80,12 +80,12 @@ enum {
 };
 
 typedef struct {
-	vk_image_t denoised;
-	vk_image_t base_color;
-	vk_image_t diffuse_gi;
-	vk_image_t specular;
-	vk_image_t additive;
-	vk_image_t normals;
+	xvk_image_t denoised;
+	xvk_image_t base_color;
+	xvk_image_t diffuse_gi;
+	xvk_image_t specular;
+	xvk_image_t additive;
+	xvk_image_t normals;
 } xvk_ray_frame_images_t;
 
 static struct {
@@ -616,9 +616,9 @@ static void updateDescriptors( VkCommandBuffer cmdbuf, const vk_ray_frame_render
 	// TODO: move this to vk_texture.c
 	for (int i = 0; i < MAX_TEXTURES; ++i) {
 		const vk_texture_t *texture = findTexture(i);
-		const qboolean exists = texture->vk.image_view != VK_NULL_HANDLE;
+		const qboolean exists = texture->vk.image.view != VK_NULL_HANDLE;
 		dii_all_textures[i].sampler = vk_core.default_sampler; // FIXME on AMD using pImmutableSamplers leads to NEAREST filtering ??. VK_NULL_HANDLE;
-		dii_all_textures[i].imageView = exists ? texture->vk.image_view : findTexture(tglob.defaultTexture)->vk.image_view;
+		dii_all_textures[i].imageView = exists ? texture->vk.image.view : findTexture(tglob.defaultTexture)->vk.image.view;
 		ASSERT(dii_all_textures[i].imageView != VK_NULL_HANDLE);
 		dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	}
@@ -1248,30 +1248,31 @@ qboolean VK_RayInit( void )
 	createPipeline();
 
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
-		g_rtx.frames[i].denoised = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SFLOAT,
-			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT );
-		SET_DEBUG_NAMEF(g_rtx.frames[i].denoised.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] denoised", i);
+#define CREATE_GBUFFER_IMAGE(name, format_, add_usage_bits) \
+		do { \
+			char debug_name[64]; \
+			const xvk_image_create_t create = { \
+				.debug_name = debug_name, \
+				.width = FRAME_WIDTH, \
+				.height = FRAME_HEIGHT, \
+				.mips = 1, \
+				.format = format_, \
+				.tiling = VK_IMAGE_TILING_OPTIMAL, \
+				.usage = VK_IMAGE_USAGE_STORAGE_BIT | add_usage_bits, \
+				.has_alpha = true, \
+			}; \
+			Q_snprintf(debug_name, sizeof(debug_name), "rtx frames[%d] " # name, i); \
+			g_rtx.frames[i].name = XVK_ImageCreate(&create); \
+		} while(0)
 
-		g_rtx.frames[i].base_color = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R8G8B8A8_UNORM,
-			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT);
-		SET_DEBUG_NAMEF(g_rtx.frames[i].base_color.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] base_color", i);
-
-		g_rtx.frames[i].diffuse_gi = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SFLOAT,
-			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT);
-		SET_DEBUG_NAMEF(g_rtx.frames[i].diffuse_gi.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] diffuse_gi", i);
-
-		g_rtx.frames[i].specular = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SFLOAT,
-			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT);
-		SET_DEBUG_NAMEF(g_rtx.frames[i].specular.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] specular", i);
-
-		g_rtx.frames[i].additive = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SFLOAT,
-			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT);
-		SET_DEBUG_NAMEF(g_rtx.frames[i].additive.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] additive", i);
-
+		CREATE_GBUFFER_IMAGE(denoised, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+		CREATE_GBUFFER_IMAGE(base_color, VK_FORMAT_R8G8B8A8_UNORM, 0);
+		CREATE_GBUFFER_IMAGE(diffuse_gi, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
+		CREATE_GBUFFER_IMAGE(specular, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
+		CREATE_GBUFFER_IMAGE(additive, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
 		// TODO make sure this format and usage is suppported
-		g_rtx.frames[i].normals = VK_ImageCreate(FRAME_WIDTH, FRAME_HEIGHT, VK_FORMAT_R16G16B16A16_SNORM,
-			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT);
-		SET_DEBUG_NAMEF(g_rtx.frames[i].normals.image, VK_OBJECT_TYPE_IMAGE, "rtx frames[%d] normals", i);
+		CREATE_GBUFFER_IMAGE(normals, VK_FORMAT_R16G16B16A16_SNORM, 0);
+#undef CREATE_GBUFFER_IMAGE
 	}
 
 	if (vk_core.debug) {
@@ -1287,12 +1288,12 @@ void VK_RayShutdown( void ) {
 	ASSERT(vk_core.rtx);
 
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
-		VK_ImageDestroy(&g_rtx.frames[i].denoised);
-		VK_ImageDestroy(&g_rtx.frames[i].base_color);
-		VK_ImageDestroy(&g_rtx.frames[i].diffuse_gi);
-		VK_ImageDestroy(&g_rtx.frames[i].specular);
-		VK_ImageDestroy(&g_rtx.frames[i].additive);
-		VK_ImageDestroy(&g_rtx.frames[i].normals);
+		XVK_ImageDestroy(&g_rtx.frames[i].denoised);
+		XVK_ImageDestroy(&g_rtx.frames[i].base_color);
+		XVK_ImageDestroy(&g_rtx.frames[i].diffuse_gi);
+		XVK_ImageDestroy(&g_rtx.frames[i].specular);
+		XVK_ImageDestroy(&g_rtx.frames[i].additive);
+		XVK_ImageDestroy(&g_rtx.frames[i].normals);
 	}
 
 	vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
