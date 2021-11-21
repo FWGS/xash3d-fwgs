@@ -71,7 +71,7 @@ struct EmissiveKusok {
 struct Lights {
 	uint num_kusochki;
 	uint num_point_lights;
-	uint skybox_rt, skybox_bk, skybox_lf, skybox_ft, skybox_up, skybox_dn;
+	PAD(2)
 	STRUCT EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
 	STRUCT PointLight point_lights[MAX_POINT_LIGHTS];
 };

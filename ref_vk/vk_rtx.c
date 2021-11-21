@@ -76,6 +76,8 @@ enum {
 	RayDescBinding_Dest_ImageAdditive = 11,
 	RayDescBinding_Dest_ImageNormals = 12,
 
+	RayDescBinding_SkyboxCube = 13,
+
 	RayDescBinding_COUNT
 };
 
@@ -613,6 +615,12 @@ static void updateDescriptors( VkCommandBuffer cmdbuf, const vk_ray_frame_render
 
 	g_rtx.desc_values[RayDescBinding_Textures].image_array = dii_all_textures;
 
+	g_rtx.desc_values[RayDescBinding_SkyboxCube].image = (VkDescriptorImageInfo){
+    .sampler = vk_core.default_sampler,
+    .imageView = tglob.skybox_cube.vk.image.view ? tglob.skybox_cube.vk.image.view : tglob.cubemap_placeholder.vk.image.view,
+    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+	};
+
 	// TODO: move this to vk_texture.c
 	for (int i = 0; i < MAX_TEXTURES; ++i) {
 		const vk_texture_t *texture = findTexture(i);
@@ -793,13 +801,6 @@ static void updateLights( void )
 
 			dst->environment = !!(src->flags & LightFlag_Environment);
 		}
-
-		lights->skybox_rt = tglob.skyboxTextures[0];
-		lights->skybox_bk = tglob.skyboxTextures[1];
-		lights->skybox_lf = tglob.skyboxTextures[2];
-		lights->skybox_ft = tglob.skyboxTextures[3];
-		lights->skybox_up = tglob.skyboxTextures[4];
-		lights->skybox_dn = tglob.skyboxTextures[5];
 	}
 }
 
@@ -1148,6 +1149,16 @@ static void createLayouts( void ) {
 		.pImmutableSamplers = NULL, //samplers,
 	};
 
+	g_rtx.desc_bindings[RayDescBinding_SkyboxCube] = (VkDescriptorSetLayoutBinding){
+		.binding = RayDescBinding_SkyboxCube,
+		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR,
+		// FIXME on AMD using immutable samplers leads to nearest filtering ???!
+		.pImmutableSamplers = NULL, //samplers,
+	};
+
+
 	// for (int i = 0; i < ARRAYSIZE(samplers); ++i)
 	// 	samplers[i] = vk_core.default_sampler;
 
@@ -1256,10 +1267,12 @@ qboolean VK_RayInit( void )
 				.width = FRAME_WIDTH, \
 				.height = FRAME_HEIGHT, \
 				.mips = 1, \
+				.layers = 1, \
 				.format = format_, \
 				.tiling = VK_IMAGE_TILING_OPTIMAL, \
 				.usage = VK_IMAGE_USAGE_STORAGE_BIT | add_usage_bits, \
 				.has_alpha = true, \
+				.is_cubemap = false, \
 			}; \
 			Q_snprintf(debug_name, sizeof(debug_name), "rtx frames[%d] " # name, i); \
 			g_rtx.frames[i].name = XVK_ImageCreate(&create); \

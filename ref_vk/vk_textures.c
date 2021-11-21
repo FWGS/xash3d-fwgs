@@ -230,6 +230,8 @@ static void VK_ProcessImage( vk_texture_t *tex, rgbdata_t *pic )
 	}
 }
 
+static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers, int num_layers, qboolean cubemap);
+
 static void VK_CreateInternalTextures( void )
 {
 	int	dx2, dy, d;
@@ -290,6 +292,22 @@ static void VK_CreateInternalTextures( void )
 	// cinematic dummy
 	pic = Common_FakeImage( 640, 100, 1, IMAGE_HAS_COLOR );
 	tglob.cinTexture = VK_LoadTextureInternal( "*cintexture", pic, TF_NOMIPMAP|TF_CLAMP );
+
+	{
+		rgbdata_t *sides[6];
+		pic = Common_FakeImage( 4, 4, 1, IMAGE_HAS_COLOR );
+		for( x = 0; x < 16; x++ )
+			((uint *)pic->buffer)[x] = 0xFFFFFFFF;
+
+		sides[0] = pic;
+		sides[1] = pic;
+		sides[2] = pic;
+		sides[3] = pic;
+		sides[4] = pic;
+		sides[5] = pic;
+
+		uploadTexture( &tglob.cubemap_placeholder, sides, 6, true );
+	}
 }
 
 static VkFormat VK_GetFormat(pixformat_t format)
@@ -445,45 +463,67 @@ static void BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth, in
 	}
 }
 
-static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *pic) {
-	const VkFormat format = VK_GetFormat(pic->type);
-	const VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
-	const VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-	byte *buf = pic->buffer;
-
+static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers, int num_layers, qboolean cubemap) {
+	const VkFormat format = VK_GetFormat(layers[0]->type);
 	int mipCount = 0;
 
 	// TODO non-rbga textures
-	// TODO cubemaps
 
-	if (!pic->buffer)
-		return false;
+	for (int i = 0; i < num_layers; ++i) {
+		if (!layers[i]->buffer) {
+			gEngine.Con_Printf(S_ERROR "Texture %s layer %d missing buffer\n", tex->name, i);
+			return false;
+		}
 
-	tex->width = pic->width;
-	tex->height = pic->height;
-	mipCount = CalcMipmapCount( tex, ( buf != NULL ));
+		if (i == 0)
+			continue;
 
-	gEngine.Con_Reportf("Uploading texture %s, mips=%d\n", tex->name, mipCount);
+		if (layers[0]->type != layers[i]->type) {
+			gEngine.Con_Printf(S_ERROR "Texture %s layer %d has type %d inconsistent with layer 0 type %d\n", tex->name, i, layers[i]->type, layers[0]->type);
+			return false;
+		}
+
+		if (layers[0]->width != layers[i]->width || layers[0]->height != layers[i]->height) {
+			gEngine.Con_Printf(S_ERROR "Texture %s layer %d has resolution %dx%d inconsistent with layer 0 resolution %dx%d\n",
+				tex->name, i, layers[i]->width, layers[i]->height, layers[0]->width, layers[0]->height);
+			return false;
+		}
+
+		if ((layers[0]->flags ^ layers[i]->flags) & IMAGE_HAS_ALPHA) {
+			gEngine.Con_Printf(S_ERROR "Texture %s layer %d has_alpha=%d inconsistent with layer 0 has_alpha=%d\n",
+				tex->name, i,
+				!!(layers[i]->flags & IMAGE_HAS_ALPHA),
+				!!(layers[0]->flags & IMAGE_HAS_ALPHA));
+		}
+	}
+
+	tex->width = layers[0]->width;
+	tex->height = layers[0]->height;
+	mipCount = CalcMipmapCount( tex, true);
+
+	gEngine.Con_Reportf("Uploading texture %s, mips=%d, layers=%d\n", tex->name, mipCount, layers);
 
 	// TODO this vvv
 	// // NOTE: only single uncompressed textures can be resamples, no mips, no layers, no sides
-	// if(( tex->depth == 1 ) && (( pic->width != tex->width ) || ( pic->height != tex->height )))
-	// 	data = GL_ResampleTexture( buf, pic->width, pic->height, tex->width, tex->height, normalMap );
+	// if(( tex->depth == 1 ) && (( layers->width != tex->width ) || ( layers->height != tex->height )))
+	// 	data = GL_ResampleTexture( buf, layers->width, layers->height, tex->width, tex->height, normalMap );
 	// else data = buf;
 
-	// if( !ImageDXT( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
+	// if( !ImageDXT( layers->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( layers->flags, IMAGE_ONEBIT_ALPHA ))
 	// 	data = GL_ApplyFilter( data, tex->width, tex->height );
 
 	{
 		const xvk_image_create_t create = {
 			.debug_name = tex->name,
-			.width = pic->width,
-			.height = pic->height,
+			.width = tex->width,
+			.height = tex->height,
 			.mips = mipCount,
+			.layers = num_layers,
 			.format = format,
-			.tiling = tiling,
-			.usage = usage,
-			.has_alpha = pic->flags & IMAGE_HAS_ALPHA,
+			.tiling = VK_IMAGE_TILING_OPTIMAL,
+			.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			.has_alpha = layers[0]->flags & IMAGE_HAS_ALPHA,
+			.is_cubemap = cubemap,
 		};
 		tex->vk.image = XVK_ImageCreate(&create);
 	}
@@ -511,7 +551,7 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *pic) {
 				.baseMipLevel = 0,
 				.levelCount = mipCount,
 				.baseArrayLayer = 0,
-				.layerCount = 1,
+				.layerCount = num_layers,
 			}};
 
 		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb_tex, &beginfo));
@@ -521,9 +561,10 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *pic) {
 				0, 0, NULL, 0, NULL, 1, &image_barrier);
 
 		// 		5.1.2 copyBufferToImage for all mip levels
-		{
-			for (int mip = 0; mip < mipCount; ++mip)
-			{
+		for (int layer = 0; layer < num_layers; ++layer) {
+			for (int mip = 0; mip < mipCount; ++mip) {
+				const rgbdata_t *const pic = layers[layer];
+				byte *buf = pic->buffer;
 				const int width = Q_max( 1, ( pic->width >> mip ));
 				const int height = Q_max( 1, ( pic->height >> mip ));
 				const size_t mip_size = CalcImageSize( pic->type, width, height, 1 );
@@ -535,7 +576,7 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *pic) {
 				region.imageSubresource = (VkImageSubresourceLayers){
 					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 					.mipLevel = mip,
-					.baseArrayLayer = 0,
+					.baseArrayLayer = layer,
 					.layerCount = 1,
 				};
 				region.imageExtent = (VkExtent3D){
@@ -569,7 +610,7 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *pic) {
 			.baseMipLevel = 0,
 			.levelCount = mipCount,
 			.baseArrayLayer = 0,
-			.layerCount = 1,
+			.layerCount = num_layers,
 		};
 		vkCmdPipelineBarrier(vk_core.cb_tex,
 				VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -676,7 +717,7 @@ int	VK_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	// upload texture
 	VK_ProcessImage( tex, pic );
 
-	if( !uploadTexture( tex, pic ))
+	if( !uploadTexture( tex, &pic, 1, false ))
 	{
 		memset( tex, 0, sizeof( vk_texture_t ));
 		gEngine.FS_FreeImage( pic ); // release source texture
@@ -788,7 +829,7 @@ int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 
 	VK_ProcessImage( tex, pic );
 
-	if( !uploadTexture( tex, pic ))
+	if( !uploadTexture( tex, &pic, 1, false ))
 	{
 		memset( tex, 0, sizeof( vk_texture_t ));
 		return 0;
@@ -814,20 +855,12 @@ int XVK_TextureLookupF( const char *fmt, ...) {
 	return tex_id;
 }
 
-static void unloadSkybox( void )
-{
-	int	i;
-
-	// release old skybox
-	for( i = 0; i < 6; i++ )
-	{
-		if( !tglob.skyboxTextures[i] ) continue;
-		VK_FreeTexture( tglob.skyboxTextures[i] );
+static void unloadSkybox( void ) {
+	if (tglob.skybox_cube.vk.image.image) {
+		XVK_ImageDestroy(&tglob.skybox_cube.vk.image);
+		memset(&tglob.skybox_cube, 0, sizeof(tglob.skybox_cube));
 	}
 
-	tglob.skyboxbasenum = 5800;	// set skybox base (to let some mods load hi-res skyboxes)
-
-	memset( tglob.skyboxTextures, 0, sizeof( tglob.skyboxTextures ));
 	tglob.fCustomSkybox = false;
 }
 
@@ -880,6 +913,7 @@ void XVK_SetupSky( const char *skyboxname )
 	char	loadname[MAX_STRING];
 	char	sidename[MAX_STRING];
 	int	i, result, len;
+	rgbdata_t *sides[6];
 
 	if( !COM_CheckString( skyboxname ))
 	{
@@ -915,18 +949,30 @@ void XVK_SetupSky( const char *skyboxname )
 			Q_snprintf( sidename, sizeof( sidename ), "%s%s", loadname, r_skyBoxSuffix[i] );
 		else Q_snprintf( sidename, sizeof( sidename ), "%s_%s", loadname, r_skyBoxSuffix[i] );
 
-		tglob.skyboxTextures[i] = VK_LoadTexture( sidename, NULL, 0, TF_CLAMP|TF_SKY );
-		if( !tglob.skyboxTextures[i] ) break;
+		sides[i] = gEngine.FS_LoadImage( sidename, NULL, 0);
+		if (!sides[i])
+			break;
+
 		gEngine.Con_DPrintf( "%s%s%s", skyboxname, r_skyBoxSuffix[i], i != 5 ? ", " : ". " );
 	}
 
-	if( i == 6 )
-	{
+	for (int j = 0; j < i; ++j)
+		gEngine.FS_FreeImage( sides[j] ); // release source texture
+
+	if( i != 6 )
+		goto fail;
+
+	if( !Common_CheckTexName( loadname ))
+		goto fail;
+
+	// needed? VK_ProcessImage( tex, pic );
+	if (uploadTexture(&tglob.skybox_cube, sides, 6, true)) {
 		tglob.fCustomSkybox = true;
 		gEngine.Con_DPrintf( "done\n" );
 		return; // loaded
 	}
 
+fail:
 	gEngine.Con_DPrintf( "^2failed\n" );
 	unloadSkybox();
 }

@@ -12,13 +12,14 @@ xvk_image_t XVK_ImageCreate(const xvk_image_create_t *create) {
 		.extent.height = create->height,
 		.extent.depth = 1,
 		.mipLevels = create->mips,
-		.arrayLayers = 1,
+		.arrayLayers = create->layers,
 		.format = create->format,
 		.tiling = create->tiling,
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 		.usage = create->usage,
 		.samples = VK_SAMPLE_COUNT_1_BIT,
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		.flags = create->is_cubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0,
 	};
 
 	XVK_CHECK(vkCreateImage(vk_core.device, &ici, NULL, &image.image));
@@ -30,14 +31,14 @@ xvk_image_t XVK_ImageCreate(const xvk_image_create_t *create) {
 	image.devmem = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
 	XVK_CHECK(vkBindImageMemory(vk_core.device, image.image, image.devmem.device_memory, 0));
 
-	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	ivci.viewType = create->is_cubemap ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
 	ivci.format = ici.format;
 	ivci.image = image.image;
 	ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	ivci.subresourceRange.baseMipLevel = 0;
 	ivci.subresourceRange.levelCount = ici.mipLevels;
 	ivci.subresourceRange.baseArrayLayer = 0;
-	ivci.subresourceRange.layerCount = 1;
+	ivci.subresourceRange.layerCount = ici.arrayLayers;
 	ivci.components = (VkComponentMapping){0, 0, 0, create->has_alpha ? 0 : VK_COMPONENT_SWIZZLE_ONE};
 	XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, &image.view));
 

@@ -15,11 +15,12 @@ typedef struct {
 typedef struct {
 	const char *debug_name;
 	uint32_t width, height;
+	int mips, layers;
 	VkFormat format;
 	VkImageTiling tiling;
 	VkImageUsageFlags usage;
-	int mips;
 	qboolean has_alpha;
+	qboolean is_cubemap;
 } xvk_image_create_t;
 
 xvk_image_t XVK_ImageCreate(const xvk_image_create_t *create);

@@ -36,13 +36,15 @@ typedef struct vk_textures_global_s
 	int		alphaskyTexture;	// quake1 alpha-sky layer
 	int		lightmapTextures[MAX_LIGHTMAPS];
 	int		dlightTexture;	// custom dlight texture
-	int		skyboxTextures[6];	// skybox sides
 	int		cinTexture;      	// cinematic texture
 
 	int		skytexturenum;	// this not a gl_texturenum!
 	int		skyboxbasenum;	// start with 5800 FIXME remove this, lewa says this is a GL1 hack
 
 	qboolean fCustomSkybox; // TODO do we need this for anything?
+
+	vk_texture_t skybox_cube;
+	vk_texture_t cubemap_placeholder;
 } vk_textures_global_t;
 
 // TODO rename this consistently
