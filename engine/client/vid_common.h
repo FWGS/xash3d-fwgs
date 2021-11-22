@@ -36,7 +36,7 @@ extern convar_t	*vid_highdpi;
 extern convar_t	*vid_rotate;
 extern convar_t	*vid_scale;
 
-extern convar_t	*gl_wgl_msaa_samples;
+extern convar_t	*gl_msaa_samples;
 void R_SaveVideoMode( int w, int h, int render_w, int render_h );
 void VID_CheckChanges( void );
 const char *VID_GetModeString( int vid_mode );

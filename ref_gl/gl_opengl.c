@@ -1142,13 +1142,13 @@ void GL_SetupAttributes( int safegl )
 
 	if( safegl < SAFE_NOMSAA )
 	{
-		switch( (int)gEngfuncs.pfnGetCvarFloat( "gl_wgl_msaa_samples" ))
+		switch( (int)gEngfuncs.pfnGetCvarFloat( "gl_msaa_samples" ))
 		{
 		case 2:
 		case 4:
 		case 8:
 		case 16:
-			samples = gEngfuncs.pfnGetCvarFloat( "gl_wgl_msaa_samples" );
+			samples = gEngfuncs.pfnGetCvarFloat( "gl_msaa_samples" );
 			break;
 		default:
 			samples = 0; // don't use, because invalid parameter is passed
@@ -1171,7 +1171,7 @@ void GL_SetupAttributes( int safegl )
 	}
 	else
 	{
-		gEngfuncs.Cvar_Set( "gl_wgl_msaa_samples", "0" );
+		gEngfuncs.Cvar_Set( "gl_msaa_samples", "0" );
 	}
 }
 
