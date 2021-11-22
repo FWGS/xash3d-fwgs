@@ -249,6 +249,12 @@ static dllfunc_t vbofuncs[] =
 	{ NULL, NULL }
 };
 
+static dllfunc_t multisampletexfuncs[] =
+{
+	{ GL_CALL(glTexImage2DMultisample) },
+	{ NULL, NULL }
+};
+
 static dllfunc_t drawrangeelementsfuncs[] =
 {
 { GL_CALL( glDrawRangeElements ) },
@@ -714,6 +720,7 @@ void GL_InitExtensionsBigGL( void )
 	GL_CheckExtension( "GL_ARB_depth_buffer_float", NULL, "gl_texture_depth_float", GL_ARB_DEPTH_FLOAT_EXT );
 	GL_CheckExtension( "GL_EXT_gpu_shader4", NULL, NULL, GL_EXT_GPU_SHADER4 ); // don't confuse users
 	GL_CheckExtension( "GL_ARB_vertex_buffer_object", vbofuncs, "gl_vertex_buffer_object", GL_ARB_VERTEX_BUFFER_OBJECT_EXT );
+	GL_CheckExtension( "GL_ARB_texture_multisample", multisampletexfuncs, "gl_texture_multisample", GL_TEXTURE_MULTISAMPLE );
 	if( GL_CheckExtension( "GL_ARB_shading_language_100", NULL, NULL, GL_SHADER_GLSL100_EXT ))
 	{
 		pglGetIntegerv( GL_MAX_TEXTURE_COORDS_ARB, &glConfig.max_texture_coords );
