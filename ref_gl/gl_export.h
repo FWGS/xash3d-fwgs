@@ -687,6 +687,7 @@ typedef float GLmatrix[16];
 #define GL_SAMPLE_COVERAGE_VALUE_ARB		0x80AA
 #define GL_SAMPLE_COVERAGE_INVERT_ARB		0x80AB
 #define GL_MULTISAMPLE_BIT_ARB		0x20000000
+#define GL_TEXTURE_2D_MULTISAMPLE			0x9100
 
 #define GL_COLOR_SUM_ARB			0x8458
 #define GL_VERTEX_PROGRAM_ARB			0x8620
@@ -1181,6 +1182,7 @@ APIENTRY_LINKAGE void GL_FUNCTION( glTexGeni )(GLenum coord, GLenum pname, GLint
 APIENTRY_LINKAGE void GL_FUNCTION( glTexGeniv )(GLenum coord, GLenum pname, const GLint *params);
 APIENTRY_LINKAGE void GL_FUNCTION( glTexImage1D )(GLenum target, GLint level, GLint internalformat, GLsizei width, GLint border, GLenum format, GLenum type, const GLvoid *pixels);
 APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2D )(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels);
+APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2DMultisample )(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
 APIENTRY_LINKAGE void GL_FUNCTION( glTexParameterf )(GLenum target, GLenum pname, GLfloat param);
 APIENTRY_LINKAGE void GL_FUNCTION( glTexParameterfv )(GLenum target, GLenum pname, const GLfloat *params);
 APIENTRY_LINKAGE void GL_FUNCTION( glTexParameteri )(GLenum target, GLenum pname, GLint param);
