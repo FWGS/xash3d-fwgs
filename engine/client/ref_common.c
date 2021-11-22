@@ -13,7 +13,7 @@ convar_t *gl_showtextures;
 convar_t *r_decals;
 convar_t *r_adjust_fov;
 convar_t *r_showtree;
-convar_t *gl_wgl_msaa_samples;
+convar_t *gl_msaa_samples;
 convar_t *gl_clear;
 convar_t *r_refdll;
 
@@ -642,7 +642,7 @@ qboolean R_Init( void )
 	gl_showtextures = Cvar_Get( "r_showtextures", "0", FCVAR_CHEAT, "show all uploaded textures" );
 	r_adjust_fov = Cvar_Get( "r_adjust_fov", "1", FCVAR_ARCHIVE, "making FOV adjustment for wide-screens" );
 	r_decals = Cvar_Get( "r_decals", "4096", FCVAR_ARCHIVE, "sets the maximum number of decals" );
-	gl_wgl_msaa_samples = Cvar_Get( "gl_wgl_msaa_samples", "0", FCVAR_GLCONFIG, "samples number for multisample anti-aliasing" );
+	gl_msaa_samples = Cvar_Get( "gl_msaa_samples", "0", FCVAR_GLCONFIG, "samples number for multisample anti-aliasing" );
 	gl_clear = Cvar_Get( "gl_clear", "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
 	r_showtree = Cvar_Get( "r_showtree", "0", FCVAR_ARCHIVE, "build the graph of visible BSP tree" );
 	r_refdll = Cvar_Get( "r_refdll", "", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "choose renderer implementation, if supported" );
