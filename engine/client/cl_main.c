@@ -1284,6 +1284,7 @@ void CL_Rcon_f( void )
 {
 	char	message[1024];
 	netadr_t	to;
+	string command;
 	int	i;
 
 	if( !COM_CheckString( rcon_client_password->string ))
@@ -1306,10 +1307,7 @@ void CL_Rcon_f( void )
 
 	for( i = 1; i < Cmd_Argc(); i++ )
 	{
-		string commmand;
-
 		Cmd_Escape( command, Cmd_Argv( i ), sizeof( command ));
-
 		Q_strcat( message, command );
 		Q_strcat( message, " " );
 	}
