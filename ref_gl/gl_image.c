@@ -362,6 +362,12 @@ static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int d
 	case PF_RGBA_32:
 		size = width * height * depth * 4;
 		break;
+	case PF_RGB_48:
+		size = width * height * depth * 6;
+		break;
+	case PF_RGBA_64:
+		size = width * height * depth * 8;
+		break;
 	case PF_DXT1:
 		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 8) * depth;
 		break;
@@ -452,9 +458,11 @@ static size_t GL_CalcTextureSize( GLenum format, int width, int height, int dept
 	case GL_LUMINANCE_ALPHA32F_ARB:
 		size = width * height * depth * 8;
 		break;
+	case GL_RGB16:
 	case GL_RGB16F_ARB:
 		size = width * height * depth * 6;
 		break;
+	case GL_RGBA16:
 	case GL_RGBA16F_ARB:
 		size = width * height * depth * 8;
 		break;
@@ -720,26 +728,56 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 		switch( GL_CalcTextureSamples( channelMask ))
 		{
 		case 1:
+		{
 			if( FBitSet( tex->flags, TF_ALPHACONTRAST ))
-				tex->format = GL_INTENSITY8;
-			else tex->format = GL_LUMINANCE8;
+				tex->format = Image16( format ) ? GL_INTENSITY16 : GL_INTENSITY8;
+			else tex->format = Image16( format ) ? GL_LUMINANCE16 : GL_LUMINANCE8;
 			break;
-		case 2: tex->format = GL_LUMINANCE8_ALPHA8; break;
+		}
+		case 2:
+		{
+			tex->format = Image16( format ) ? GL_LUMINANCE16_ALPHA16 : GL_LUMINANCE8_ALPHA8;
+			break;
+		}
 		case 3:
 			switch( bits )
 			{
-			case 16: tex->format = GL_RGB5; break;
-			case 32: tex->format = GL_RGB8; break;
-			default: tex->format = GL_RGB; break;
+			case 16:
+			{
+				tex->format = Image16( format ) ? GL_RGB10 : GL_RGB5;
+				break;
+			}
+			case 32:
+			{
+				tex->format = Image16( format ) ? GL_RGB16 : GL_RGB8;
+				break;
+			}
+			default:
+			{
+				tex->format = GL_RGB;
+				break;
+			}
 			}
 			break;
 		case 4:
 		default:
 			switch( bits )
 			{
-			case 16: tex->format = GL_RGBA4; break;
-			case 32: tex->format = GL_RGBA8; break;
-			default: tex->format = GL_RGBA; break;
+			case 16:
+			{
+				tex->format = Image16( format ) ? GL_RGBA8 : GL_RGBA4;
+				break;
+			}
+			case 32:
+			{
+				tex->format = Image16( format ) ? GL_RGBA16 : GL_RGBA8;
+				break;
+			}
+			default:
+			{
+				tex->format = GL_RGBA;
+				break;
+			}
 			}
 			break;
 		}
@@ -1016,6 +1054,8 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 		dataType = GL_HALF_FLOAT_ARB;
 	else if( FBitSet( tex->flags, TF_ARB_FLOAT ))
 		dataType = GL_FLOAT;
+	else if( Image16( type ))
+		dataType = GL_UNSIGNED_SHORT;
 
 	if( tex->target == GL_TEXTURE_1D )
 	{
@@ -1184,6 +1224,20 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 				GL_CheckTexImageError( tex );
 
 			}
+		}
+		else if( Image16( pic->type ))
+		{
+			width = Q_max( 1, tex->width );
+			height = Q_max( 1, tex->height );
+
+			texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
+			size = GL_CalcImageSize( pic->type, width, height, tex->depth );
+			GL_TextureImageRAW( tex, i, 0, width, height, tex->depth, pic->type, buf );
+			tex->size = texsize;
+			tex->numMips++;
+			buf += size; // move pointer
+
+			GL_CheckTexImageError( tex );
 		}
 		else // RGBA32
 		{
