@@ -40,9 +40,9 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 {
 	int		ret;
 	short		p, a, b, c, pa, pb, pc;
-	byte		*buf_p, *pixbuf, *raw, *prior, *idat_buf = NULL, *uncompressed_buffer = NULL, *rowend;
+	byte		*buf_p, *pixbuf, *raw, *prior, *idat_buf = NULL, *uncompressed_buffer = NULL;
 	uint	 	chunk_len, crc32, crc32_check, oldsize = 0, newsize = 0, rowsize;
-	uint	 	uncompressed_size, pixel_size, i, y, filter_type, chunk_sign;
+	uint		uncompressed_size, pixel_size, i, y, filter_type, chunk_sign, channel_size;
 	qboolean 	has_iend_chunk = false;
 	z_stream 	stream = {0};
 	png_t		png_hdr;
@@ -89,9 +89,9 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		return false;
 	}
 
-	if( png_hdr.ihdr_chunk.bitdepth != 8 )
+	if( png_hdr.ihdr_chunk.bitdepth != 8 && png_hdr.ihdr_chunk.bitdepth != 16 )
 	{
-		Con_DPrintf( S_WARN "Image_LoadPNG: Only 8-bit images is supported (%s)\n", name );
+		Con_DPrintf( S_WARN "Image_LoadPNG: Only 8-bit or 16-bit images is supported (%s)\n", name );
 		return false;
 	}
 
@@ -228,10 +228,19 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		break;
 	}
 
-	image.type = PF_RGBA_32; // always exctracted to 32-bit buffer
+	if( png_hdr.ihdr_chunk.bitdepth == 8 )
+	{
+		image.type = PF_RGBA_32; // always exctracted to 32-bit buffer
+		channel_size = 1;
+	}
+	else // if( png_hdr.ihdr_chunk.bitdepth == 16 )
+	{
+		image.type = PF_RGBA_64;
+		channel_size = 2;
+	}
 	image.width = png_hdr.ihdr_chunk.width;
 	image.height = png_hdr.ihdr_chunk.height;
-	image.size = image.height * image.width * 4;
+	image.size = image.height * image.width * channel_size * 4;
 	image.flags |= IMAGE_HAS_COLOR;
 
 	if( png_hdr.ihdr_chunk.colortype == PNG_CT_RGBA )
@@ -241,7 +250,7 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 
 	rowsize = pixel_size * image.width;
 
-	uncompressed_size = image.height * ( rowsize + 1 ); // +1 for filter
+	uncompressed_size = image.height * ( rowsize * channel_size + 1 ); // +1 for filter
 	uncompressed_buffer = Mem_Malloc( host.imagepool, uncompressed_size );
 
 	stream.next_in = idat_buf;
@@ -278,6 +287,9 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 
 	if( png_hdr.ihdr_chunk.colortype == PNG_CT_RGB )
 		prior = pixbuf = raw;
+
+	rowsize *= channel_size;
+	pixel_size *= channel_size;
 
 	filter_type = *raw++;
 
@@ -384,18 +396,37 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		pixbuf = image.rgba;
 		raw = uncompressed_buffer;
 
-		for( y = 0; y < image.height; y++ )
+		for( y = 0; y < image.height * image.width; y++, raw += pixel_size )
 		{
-			rowend = raw + rowsize;
-			for( ; raw < rowend; raw += pixel_size )
+			*pixbuf++ = raw[0];
+			*pixbuf++ = raw[1];
+			*pixbuf++ = raw[2];
+			if( channel_size == 1 )
 			{
-				*pixbuf++ = raw[0];
-				*pixbuf++ = raw[1];
-				*pixbuf++ = raw[2];
+				*pixbuf++ = 0xFF;
+			}
+			else
+			{
+				*pixbuf++ = raw[3];
+				*pixbuf++ = raw[4];
+				*pixbuf++ = raw[5];
+				*pixbuf++ = 0xFF;
 				*pixbuf++ = 0xFF;
 			}
 		}
 	}
+
+#if XASH_LITTLE_ENDIAN
+	if( channel_size == 2 )
+	{
+		pixbuf = image.rgba;
+		for( y = 0; y < image.height * image.width * 4; y++, pixbuf += 2 )
+		{
+			uint16_t val = *(uint16_t*)pixbuf;
+			*(uint16_t*)pixbuf = ntohs( val );
+		}
+	}
+#endif /* XASH_LITTLE_ENDIAN */
 
 	Mem_Free( uncompressed_buffer );
 
