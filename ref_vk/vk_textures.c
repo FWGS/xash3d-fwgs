@@ -48,10 +48,17 @@ void initTextures( void )
 	*/
 }
 
+static void unloadSkybox( void );
+
 void destroyTextures( void )
 {
 	for( unsigned int i = 0; i < vk_numTextures; i++ )
 		VK_FreeTexture( i );
+
+	unloadSkybox();
+
+	XVK_ImageDestroy(&tglob.cubemap_placeholder.vk.image);
+	memset(&tglob.cubemap_placeholder, 0, sizeof(tglob.cubemap_placeholder));
 
 	//memset( tglob.lightmapTextures, 0, sizeof( tglob.lightmapTextures ));
 	memset( vk_texturesHashTable, 0, sizeof( vk_texturesHashTable ));
