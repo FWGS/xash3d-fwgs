@@ -71,7 +71,7 @@ static const cubepack_t load_cubemap[] =
 };
 
 // soul of ImageLib - table of image format constants
-const bpc_desc_t PFDesc[] =
+const bpc_desc_t PFDesc[PF_TOTALCOUNT] =
 {
 { PF_UNKNOWN,	"raw",	0x1908, 0 },
 { PF_INDEXED_24,	"pal 24",	0x1908, 1 },
@@ -85,6 +85,8 @@ const bpc_desc_t PFDesc[] =
 { PF_DXT3,	"DXT 3",	0x83F2, 4 },
 { PF_DXT5,	"DXT 5",	0x83F3, 4 },
 { PF_ATI2,	"ATI 2",	0x8837, 4 },
+{ PF_RGBA_64,	"RGBA 64",	0x1908, 8 },
+{ PF_RGB_48,	"RGB 48",	0x1908, 6 },
 };
 
 void Image_Reset( void )

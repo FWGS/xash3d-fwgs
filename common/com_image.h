@@ -10,6 +10,7 @@ NOTE: number at end of pixelformat name it's a total bitscount e.g. PF_RGB_24 ==
 */
 #define ImageRAW( type )	(type == PF_RGBA_32 || type == PF_BGRA_32 || type == PF_RGB_24 || type == PF_BGR_24 || type == PF_LUMINANCE)
 #define ImageDXT( type )	(type == PF_DXT1 || type == PF_DXT3 || type == PF_DXT5 || type == PF_ATI2)
+#define Image16( type )	(type == PF_RGBA_64 || type == PF_RGB_48)
 
 typedef enum
 {
@@ -25,6 +26,8 @@ typedef enum
 	PF_DXT3,		// s3tc DXT3 format
 	PF_DXT5,		// s3tc DXT5 format
 	PF_ATI2,		// latc ATI2N format
+	PF_RGBA_64,		// 16-bit RGBA
+	PF_RGB_48,		// 16-bit RGB
 	PF_TOTALCOUNT,	// must be last
 } pixformat_t;
 
