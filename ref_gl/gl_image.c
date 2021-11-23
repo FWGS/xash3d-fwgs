@@ -2128,6 +2128,9 @@ void R_TextureList_f( void )
 		case GL_RGBA4:
 			gEngfuncs.Con_Printf( "RGBA4 " );
 			break;
+		case GL_RGBA16:
+			gEngfuncs.Con_Printf( "RGBA16" );
+			break;
 		case GL_RGB:
 			gEngfuncs.Con_Printf( "RGB   " );
 			break;
@@ -2137,12 +2140,21 @@ void R_TextureList_f( void )
 		case GL_RGB5:
 			gEngfuncs.Con_Printf( "RGB5  " );
 			break;
+		case GL_RGB10:
+			gEngfuncs.Con_Printf( "RGB10 " );
+			break;
+		case GL_RGB16:
+			gEngfuncs.Con_Printf( "RGB16 " );
+			break;
 		case GL_LUMINANCE4_ALPHA4:
 			gEngfuncs.Con_Printf( "L4A4  " );
 			break;
 		case GL_LUMINANCE_ALPHA:
 		case GL_LUMINANCE8_ALPHA8:
 			gEngfuncs.Con_Printf( "L8A8  " );
+			break;
+		case GL_LUMINANCE16_ALPHA16:
+			gEngfuncs.Con_Printf( "L16A16" );
 			break;
 		case GL_LUMINANCE4:
 			gEngfuncs.Con_Printf( "L4    " );
@@ -2151,11 +2163,17 @@ void R_TextureList_f( void )
 		case GL_LUMINANCE8:
 			gEngfuncs.Con_Printf( "L8    " );
 			break;
+		case GL_LUMINANCE16:
+			gEngfuncs.Con_Printf( "L16   " );
+			break;
 		case GL_ALPHA8:
 			gEngfuncs.Con_Printf( "A8    " );
 			break;
 		case GL_INTENSITY8:
 			gEngfuncs.Con_Printf( "I8    " );
+			break;
+		case GL_INTENSITY16:
+			gEngfuncs.Con_Printf( "I16   " );
 			break;
 		case GL_DEPTH_COMPONENT:
 		case GL_DEPTH_COMPONENT24:
