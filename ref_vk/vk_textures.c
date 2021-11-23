@@ -871,8 +871,17 @@ static void unloadSkybox( void ) {
 	tglob.fCustomSkybox = false;
 }
 
-static const char*		r_skyBoxSuffix[6] = { "rt", "bk", "lf", "ft", "up", "dn" };
-//static const int		r_skyTexOrder[6] = { 0, 2, 1, 3, 4, 5 };
+static struct {
+	const char *suffix;
+	uint flags;
+} g_skybox_info[6] = {
+	{"rt", IMAGE_ROT_90},
+	{"lf", IMAGE_FLIP_Y | IMAGE_ROT_90 | IMAGE_FLIP_X},
+	{"bk", IMAGE_FLIP_Y},
+	{"ft", IMAGE_FLIP_X},
+	{"up", IMAGE_ROT_90},
+	{"dn", IMAGE_ROT_90},
+};
 
 #define SKYBOX_MISSED	0
 #define SKYBOX_HLSTYLE	1
@@ -891,7 +900,7 @@ static int CheckSkybox( const char *name )
 		for( j = 0; j < 6; j++ )
 		{
 			// build side name
-			sidename = va( "%s%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
+			sidename = va( "%s%s.%s", name, g_skybox_info[j].suffix, skybox_ext[i] );
 			if( gEngine.FS_FileExists( sidename, false ))
 				num_checked_sides++;
 
@@ -903,7 +912,7 @@ static int CheckSkybox( const char *name )
 		for( j = 0; j < 6; j++ )
 		{
 			// build side name
-			sidename = va( "%s_%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
+			sidename = va( "%s_%s.%s", name, g_skybox_info[j].suffix, skybox_ext[i] );
 			if( gEngine.FS_FileExists( sidename, false ))
 				num_checked_sides++;
 		}
@@ -953,14 +962,22 @@ void XVK_SetupSky( const char *skyboxname )
 	for( i = 0; i < 6; i++ )
 	{
 		if( result == SKYBOX_HLSTYLE )
-			Q_snprintf( sidename, sizeof( sidename ), "%s%s", loadname, r_skyBoxSuffix[i] );
-		else Q_snprintf( sidename, sizeof( sidename ), "%s_%s", loadname, r_skyBoxSuffix[i] );
+			Q_snprintf( sidename, sizeof( sidename ), "%s%s", loadname, g_skybox_info[i].suffix );
+		else Q_snprintf( sidename, sizeof( sidename ), "%s_%s", loadname, g_skybox_info[i].suffix );
 
 		sides[i] = gEngine.FS_LoadImage( sidename, NULL, 0);
-		if (!sides[i])
+		if (!sides[i] || !sides[i]->buffer)
 			break;
 
-		gEngine.Con_DPrintf( "%s%s%s", skyboxname, r_skyBoxSuffix[i], i != 5 ? ", " : ". " );
+
+		{
+			uint img_flags = g_skybox_info[i].flags;
+			// we need to expand image into RGBA buffer
+			if( sides[i]->type == PF_INDEXED_24 || sides[i]->type == PF_INDEXED_32 )
+				img_flags |= IMAGE_FORCE_RGBA;
+			gEngine.Image_Process( &sides[i], 0, 0, img_flags, 0.f );
+		}
+		gEngine.Con_DPrintf( "%s%s%s", skyboxname, g_skybox_info[i].suffix, i != 5 ? ", " : ". " );
 	}
 
 	for (int j = 0; j < i; ++j)
