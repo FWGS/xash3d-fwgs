@@ -157,6 +157,8 @@ def configure(conf):
 		conf.options.NO_ASYNC_RESOLVE = True
 		conf.define('XASH_SDLMAIN', 1)
 		enforce_pic = False
+	elif conf.env.DEST_OS == 'dos':
+		conf.options.SINGLE_BINARY = True
 
 	if conf.env.STATIC_LINKING:
 		enforce_pic = False # PIC may break full static builds
@@ -246,8 +248,6 @@ def configure(conf):
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
-	if conf.env.DEST_OS == 'dos':
-		conf.env.SINGLE_BINARY = True
 
 	if conf.env.DEST_OS != 'win32':
 		conf.check_cc(lib='dl', mandatory=False)
