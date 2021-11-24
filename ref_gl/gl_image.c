@@ -720,8 +720,8 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 		else
 		{
 			if( FBitSet( tex->flags, TF_ARB_16BIT ) || gpGlobals->desktopBitsPixel == 16 )
-				tex->format = GL_LUMINANCE16F_ARB;
-			else tex->format = GL_LUMINANCE32F_ARB;
+				tex->format = GL_R16F;
+			else tex->format = GL_R32F;
 		}
 	}
 	else
@@ -733,10 +733,10 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 		{
 		case 1:
 			if( FBitSet( tex->flags, TF_ALPHACONTRAST ))
-				tex->format = GL_INTENSITY8;
-			else tex->format = GL_LUMINANCE8;
+				tex->format = GL_R8;
+			else tex->format = GL_R8;
 			break;
-		case 2: tex->format = GL_LUMINANCE8_ALPHA8; break;
+		case 2: tex->format = GL_RG8; break;
 		case 3:
 			switch( bits )
 			{
