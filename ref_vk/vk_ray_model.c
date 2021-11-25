@@ -136,7 +136,7 @@ void XVK_RayModel_Validate( void ) {
 			const vk_kusok_data_t *kusok = kusochki + j;
 			const vk_texture_t *tex = findTexture(kusok->tex_base_color);
 			ASSERT(tex);
-			ASSERT(tex->vk.image_view != VK_NULL_HANDLE);
+			ASSERT(tex->vk.image.view != VK_NULL_HANDLE);
 
 			// uint32_t index_offset;
 			// uint32_t vertex_offset;
@@ -216,6 +216,12 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		kusochki[i].vertex_offset = mg->vertex_offset;
 		kusochki[i].index_offset = mg->index_offset;
 		kusochki[i].triangles = prim_count;
+
+		if (mg->material == kXVkMaterialSky) {
+			kusochki[i].tex_base_color |= KUSOK_MATERIAL_FLAG_SKYBOX;
+		} else {
+			kusochki[i].tex_base_color &= (~KUSOK_MATERIAL_FLAG_SKYBOX);
+		}
 
 		//kusochki[i].texture = mg->texture;
 		//kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.; // FIXME
@@ -377,6 +383,10 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 			kusok->tex_roughness = tglob.blackTexture;
 		} else if (!mat->set && geom->material == kXVkMaterialChrome) {
 			kusok->tex_roughness = tglob.grayTexture;
+		}
+
+		if (geom->material == kXVkMaterialSky) {
+			kusok->tex_base_color |= KUSOK_MATERIAL_FLAG_SKYBOX;
 		}
 
 		Vector4Copy(color, kusok->color);

@@ -32,6 +32,9 @@ layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 255;
 #define SHADER_OFFSET_HIT_REGULAR 0
 #define SHADER_OFFSET_HIT_ALPHA_TEST 1
 #define SHADER_OFFSET_HIT_ADDITIVE 2
+#define SHADER_OFFSET_HIT_SHADOW 3
+
+#define KUSOK_MATERIAL_FLAG_SKYBOX 0x80000000
 
 struct Kusok {
 	uint index_offset;
@@ -71,7 +74,7 @@ struct EmissiveKusok {
 struct Lights {
 	uint num_kusochki;
 	uint num_point_lights;
-	uint skybox_rt, skybox_bk, skybox_lf, skybox_ft, skybox_up, skybox_dn;
+	PAD(2)
 	STRUCT EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
 	STRUCT PointLight point_lights[MAX_POINT_LIGHTS];
 };

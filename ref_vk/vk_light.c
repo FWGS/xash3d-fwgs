@@ -637,8 +637,8 @@ void VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const
 		if (geom->material != kXVkMaterialSky && geom->material != kXVkMaterialEmissive) {
 			VectorCopy(g_lights.map.emissive_textures[texture_num].emissive, esurf->emissive);
 		} else {
-			// TODO per-map sky emissive
-			VectorSet(esurf->emissive, 1000.f, 1000.f, 1000.f);
+			// TODO see #227
+			VectorSet(esurf->emissive, 0.f, 0.f, 0.f);
 		}
 		Matrix3x4_Copy(esurf->transform, *transform_row);
 
