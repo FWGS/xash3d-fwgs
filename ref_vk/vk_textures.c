@@ -744,6 +744,19 @@ int	VK_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	return tex - vk_textures;
 }
 
+int	XVK_LoadTextureReplace( const char *name, const byte *buf, size_t size, int flags ) {
+	vk_texture_t	*tex;
+	if( !Common_CheckTexName( name ))
+		return 0;
+
+	// free if already loaded
+	if(( tex = Common_TextureForName( name ))) {
+		VK_FreeTexture( tex - vk_textures );
+	}
+
+	return VK_LoadTexture( name, buf, size, flags );
+}
+
 int	VK_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags )
 {
 	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);

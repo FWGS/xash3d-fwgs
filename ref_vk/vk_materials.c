@@ -34,8 +34,8 @@ static int findTextureNamedLike( const char *texture_name ) {
 	return tex_id ? tex_id : -1;
 }
 
-static int loadTexture( const char *filename ) {
-	const int tex_id = VK_LoadTexture( filename, NULL, 0, 0);
+static int loadTexture( const char *filename, qboolean force_reload ) {
+	const int tex_id = force_reload ? XVK_LoadTextureReplace( filename, NULL, 0, 0 ) : VK_LoadTexture( filename, NULL, 0, 0 );
 	gEngine.Con_Reportf("Loading texture %s => %d\n", filename, tex_id);
 	return tex_id ? tex_id : -1;
 }
@@ -53,6 +53,7 @@ static void loadMaterialsFromFile( const char *filename ) {
 		.normalmap = 0,
 	};
 	int current_material_index = -1;
+	qboolean force_reload = false;
 
 	gEngine.Con_Reportf("Loading materials from %s\n", filename);
 
@@ -80,6 +81,7 @@ static void loadMaterialsFromFile( const char *filename ) {
 				.roughness = tglob.whiteTexture,
 				.normalmap = 0,
 			};
+			force_reload = false;
 			continue;
 		}
 
@@ -99,10 +101,12 @@ static void loadMaterialsFromFile( const char *filename ) {
 
 		if (Q_stricmp(key, "for") == 0) {
 			current_material_index = findTextureNamedLike(value);
+		} else if (Q_stricmp(key, "force_reload") == 0) {
+			force_reload = Q_atoi(value) != 0;
 		} else {
 			char texture_path[256];
 			int *tex_id_dest;
-			int tex_id = loadTexture(texture_path);
+			int tex_id = -1;
 			if (Q_stricmp(key, "basecolor_map") == 0) {
 				tex_id_dest = &current_material.base_color;
 			} else if (Q_stricmp(key, "normal_map") == 0) {
@@ -124,7 +128,7 @@ static void loadMaterialsFromFile( const char *filename ) {
 				Q_snprintf(texture_path, sizeof(texture_path), "%.*s%s", path_end - path_begin, path_begin, value);
 			}
 
-			tex_id = loadTexture(texture_path);
+			tex_id = loadTexture(texture_path, force_reload);
 			if (tex_id < 0) {
 				gEngine.Con_Printf(S_ERROR "Failed to load texture \"%s\" for key \"%s\"\n", value, key);
 				continue;

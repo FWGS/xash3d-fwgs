@@ -66,6 +66,8 @@ int		VK_CreateTextureArray( const char *name, int width, int height, int depth, 
 void		VK_FreeTexture( unsigned int texnum );
 int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
 
+int	XVK_LoadTextureReplace( const char *name, const byte *buf, size_t size, int flags );
+
 int XVK_TextureLookupF( const char *fmt, ...);
 
 #define VK_LoadTextureInternal( name, pic, flags ) VK_LoadTextureFromBuffer( name, pic, flags, false )
