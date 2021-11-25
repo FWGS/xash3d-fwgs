@@ -96,7 +96,7 @@ void main() {
 		payload.transmissiveness = 0.;
 		payload.normal = vec3(0.);
 		payload.geometry_normal = vec3(0.);
-		payload.emissive = texture(skybox, gl_WorldRayDirectionEXT).rgb;
+		payload.emissive = pow(texture(skybox, gl_WorldRayDirectionEXT).rgb, vec3(2.2)); // Why?! See #230
 		payload.kusok_index = -1;
 		payload.roughness = 0.;
 		payload.metalness = 0.;
