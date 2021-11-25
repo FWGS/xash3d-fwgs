@@ -1182,7 +1182,6 @@ APIENTRY_LINKAGE void GL_FUNCTION( glTexGeni )(GLenum coord, GLenum pname, GLint
 APIENTRY_LINKAGE void GL_FUNCTION( glTexGeniv )(GLenum coord, GLenum pname, const GLint *params);
 APIENTRY_LINKAGE void GL_FUNCTION( glTexImage1D )(GLenum target, GLint level, GLint internalformat, GLsizei width, GLint border, GLenum format, GLenum type, const GLvoid *pixels);
 APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2D )(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels);
-APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2DMultisample )(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
 APIENTRY_LINKAGE void GL_FUNCTION( glTexParameterf )(GLenum target, GLenum pname, GLfloat param);
 APIENTRY_LINKAGE void GL_FUNCTION( glTexParameterfv )(GLenum target, GLenum pname, const GLfloat *params);
 APIENTRY_LINKAGE void GL_FUNCTION( glTexParameteri )(GLenum target, GLenum pname, GLint param);
@@ -1354,6 +1353,10 @@ APIENTRY_LINKAGE void GL_FUNCTION( glDeleteVertexArrays )( GLsizei n, const GLui
 APIENTRY_LINKAGE void GL_FUNCTION( glGenVertexArrays )( GLsizei n, const GLuint *arrays );
 APIENTRY_LINKAGE GLboolean GL_FUNCTION( glIsVertexArray )( GLuint array );
 APIENTRY_LINKAGE void GL_FUNCTION( glSwapInterval ) ( int interval );
+
+#if defined( XASH_GLES )
+APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2DMultisample )(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
+#endif /* XASH_GLES */
 
 #if defined( XASH_GL_STATIC ) && !defined( REF_GL_KEEP_MANGLED_FUNCTIONS )
 #define pglGetError glGetError
