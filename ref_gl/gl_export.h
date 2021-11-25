@@ -1654,6 +1654,7 @@ APIENTRY_LINKAGE void GL_FUNCTION( glSwapInterval ) ( int interval );
 #define pglTexGeniv glTexGeniv
 #define pglTexImage1D glTexImage1D
 #define pglTexImage2D glTexImage2D
+#define pglTexImage2DMultisample glTexImage2DMultisample
 #define pglTexParameterf glTexParameterf
 #define pglTexParameterfv glTexParameterfv
 #define pglTexParameteri glTexParameteri
