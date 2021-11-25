@@ -16,6 +16,7 @@ const float throughput_threshold = 1e-3;
 
 layout (constant_id = 4) const float LIGHT_GRID_CELL_SIZE = 256.;
 layout (constant_id = 5) const uint MAX_LIGHT_CLUSTERS = 32768;
+layout (constant_id = 7) const uint SBT_RECORD_SIZE = 64;
 
 //const uint LIGHT_CLUSTER_SIZE = 2 + MAX_VISIBLE_POINT_LIGHTS + MAX_VISIBLE_SURFACE_LIGHTS;
 //const uint LIGHT_CLUSTER_NUM_DLIGHTS_OFFSET = 0;
@@ -51,7 +52,7 @@ layout(location = PAYLOAD_LOCATION_SHADOW) rayPayloadEXT RayPayloadShadow payloa
 layout(location = PAYLOAD_LOCATION_ADDITIVE) rayPayloadEXT RayPayloadAdditive payload_additive;
 
 bool shadowed(vec3 pos, vec3 dir, float dist) {
-	payload_shadow.shadow = true;
+	payload_shadow.hit_type = SHADOW_HIT;
 	const uint flags =  0
 		//| gl_RayFlagsCullFrontFacingTrianglesEXT
 		//| gl_RayFlagsOpaqueEXT
@@ -63,7 +64,24 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 		GEOMETRY_BIT_OPAQUE,
 		0, 0, SHADER_OFFSET_MISS_SHADOW,
 		pos, 0., dir, dist - shadow_offset_fudge, PAYLOAD_LOCATION_SHADOW);
-	return payload_shadow.shadow;
+	return payload_shadow.hit_type == SHADOW_HIT;
+}
+
+// TODO join with just shadowed()
+bool shadowedSky(vec3 pos, vec3 dir, float dist) {
+	payload_shadow.hit_type = SHADOW_HIT;
+	const uint flags =  0
+		//| gl_RayFlagsCullFrontFacingTrianglesEXT
+		//| gl_RayFlagsOpaqueEXT
+		//| gl_RayFlagsTerminateOnFirstHitEXT
+		//| gl_RayFlagsSkipClosestHitShaderEXT
+		;
+	traceRayEXT(tlas,
+		flags,
+		GEOMETRY_BIT_OPAQUE,
+		SHADER_OFFSET_HIT_SHADOW, SBT_RECORD_SIZE, SHADER_OFFSET_MISS_SHADOW,
+		pos, 0., dir, dist - shadow_offset_fudge, PAYLOAD_LOCATION_SHADOW);
+	return payload_shadow.hit_type != SHADOW_SKY;
 }
 
 // This is an entry point for evaluation of all other BRDFs based on selected configuration (for direct light)
@@ -182,9 +200,9 @@ void computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 		const float stopdot = lights.point_lights[i].color_stopdot.a;
 		const vec3 dir = lights.point_lights[i].dir_stopdot2.xyz;
 		const float stopdot2 = lights.point_lights[i].dir_stopdot2.a;
-		const bool environment = (lights.point_lights[i].environment == 0);
+		const bool not_environment = (lights.point_lights[i].environment == 0);
 
-		const vec3 light_dir = environment ? (origin_r.xyz - payload_opaque.hit_pos_t.xyz) : -dir; // TODO need to randomize sampling direction for environment soft shadow
+		const vec3 light_dir = not_environment ? (origin_r.xyz - payload_opaque.hit_pos_t.xyz) : -dir; // TODO need to randomize sampling direction for environment soft shadow
 		const vec3 light_dir_norm = normalize(light_dir);
 		const float light_dot = dot(light_dir_norm, payload_opaque.normal);
 		if (light_dot < 1e-5)
@@ -199,8 +217,8 @@ void computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 			spot_attenuation = (spot_dot - stopdot2) / (stopdot - stopdot2);
 
 		float fdist = 1.f;
-		float light_dist = 1e6; // TODO this is supposedly not the right way to do shadows for environment lights. qrad checks for hitting SURF_SKY, and maybe we should too?
-		if (environment) {
+		float light_dist = 1e4; // TODO this is supposedly not the right way to do shadows for environment lights. qrad checks for hitting SURF_SKY, and maybe we should too?
+		if (not_environment) {
 #if 1
 			const float d2 = dot(light_dir, light_dir);
 			const float r2 = origin_r.w * origin_r.w;
@@ -221,7 +239,6 @@ void computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 		// if (dot(color,color) < color_culling_threshold)
 		// 	continue;
 
-		// TODO split into diffuse and specular for denoiser
 		vec3 ldiffuse, lspecular;
 		evalSplitBRDF(payload_opaque.normal, light_dir_norm, view_dir, material, ldiffuse, lspecular);
 		ldiffuse *= color;
@@ -232,9 +249,14 @@ void computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 		if (dot(combined,combined) < color_culling_threshold)
 			continue;
 
-		// TODO for environment light check that we've hit SURF_SKY
-		if (shadowed(payload_opaque.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
-			continue;
+		if (not_environment) {
+			if (shadowed(payload_opaque.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
+				continue;
+		} else {
+			// for environment light check that we've hit SURF_SKY
+			if (shadowedSky(payload_opaque.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
+				continue;
+		}
 
 		diffuse += ldiffuse;
 		specular += lspecular;
@@ -365,7 +387,7 @@ void main() {
 		vec3 additive = traceAdditive(origin, direction, payload_opaque.hit_pos_t.w <= 0. ? L : payload_opaque.hit_pos_t.w);
 
 		// Sky/envmap
-		if (payload_opaque.hit_pos_t.w <= 0.) {
+		if (payload_opaque.kusok_index < 0) {
 			if (bounce == 0) {
 				out_additive += payload_opaque.emissive * color_factor + additive;
 			} else {

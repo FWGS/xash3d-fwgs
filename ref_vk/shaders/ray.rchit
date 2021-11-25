@@ -7,6 +7,7 @@
 
 layout (constant_id = 6) const uint MAX_TEXTURES = 4096;
 layout (set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
+layout (set = 0, binding = 13) uniform samplerCube skybox;
 
 layout(location = PAYLOAD_LOCATION_OPAQUE) rayPayloadInEXT RayPayloadOpaque payload;
 
@@ -79,6 +80,30 @@ void main() {
 	const uint vi2 = uint(indices[first_index_offset+1]) + kusochki[kusok_index].vertex_offset;
 	const uint vi3 = uint(indices[first_index_offset+2]) + kusochki[kusok_index].vertex_offset;
 
+	const vec3 pos[3] = {
+		gl_ObjectToWorldEXT * vec4(vertices[vi1].pos, 1.),
+		gl_ObjectToWorldEXT * vec4(vertices[vi2].pos, 1.),
+		gl_ObjectToWorldEXT * vec4(vertices[vi3].pos, 1.),
+	};
+	// This one is supposed to be numerically better, but I can't see why
+	const vec3 hit_pos = pos[0] * (1. - bary.x - bary.y) + pos[1] * bary.x + pos[2] * bary.y;
+	//const vec3 hit_pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT
+
+	const uint tex_base_color = kusochki[kusok_index].tex_base_color;
+	if ((tex_base_color & KUSOK_MATERIAL_FLAG_SKYBOX) != 0) {
+		payload.hit_pos_t = vec4(hit_pos, gl_HitTEXT);
+		payload.base_color = vec3(0.);
+		payload.transmissiveness = 0.;
+		payload.normal = vec3(0.);
+		payload.geometry_normal = vec3(0.);
+		payload.emissive = texture(skybox, gl_WorldRayDirectionEXT).rgb;
+		payload.kusok_index = -1;
+		payload.roughness = 0.;
+		payload.metalness = 0.;
+		payload.material_index = tex_base_color;
+		return;
+	}
+
 	const vec3 n1 = vertices[vi1].normal;
 	const vec3 n2 = vertices[vi2].normal;
 	const vec3 n3 = vertices[vi3].normal;
@@ -94,11 +119,6 @@ void main() {
 		vertices[vi3].gl_tc,
 	};
 
-	const vec3 pos[3] = {
-		gl_ObjectToWorldEXT * vec4(vertices[vi1].pos, 1.),
-		gl_ObjectToWorldEXT * vec4(vertices[vi2].pos, 1.),
-		gl_ObjectToWorldEXT * vec4(vertices[vi3].pos, 1.),
-	};
 	const vec2 texture_uv_stationary = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y;
 	const vec2 texture_uv = texture_uv_stationary + push_constants.time * kusochki[kusok_index].uv_speed;
 
@@ -106,15 +126,11 @@ void main() {
 	const float geom_normal_sign = sign(dot(real_geom_normal, -gl_WorldRayDirectionEXT));
 	const vec3 geom_normal = geom_normal_sign * real_geom_normal;
 
-	// This one is supposed to be numerically better, but I can't see why
-	const vec3 hit_pos = pos[0] * (1. - bary.x - bary.y) + pos[1] * bary.x + pos[2] * bary.y + geom_normal * normal_offset_fudge;
-	//const vec3 hit_pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT + geom_normal * normal_offset_fudge;
-
 	const float ray_cone_width = payload.pixel_cone_spread_angle * payload.t_offset;
 	vec4 uv_lods;
 	computeAnisotropicEllipseAxes(hit_pos, /* TODO geom_?*/ normal, gl_WorldRayDirectionEXT, ray_cone_width, pos, uvs, texture_uv_stationary, uv_lods.xy, uv_lods.zw);
 
-	const uint tex_index = kusochki[kusok_index].tex_base_color;
+	const uint tex_index = tex_base_color;
 	const vec4 tex_color = sampleTexture(tex_index, texture_uv, uv_lods);
 	//const vec3 base_color = pow(tex_color.rgb, vec3(2.));
 	const vec3 base_color = ((push_constants.flags & PUSH_FLAG_LIGHTMAP_ONLY) != 0) ? vec3(1.) : tex_color.rgb;// pow(tex_color.rgb, vec3(2.));
@@ -135,7 +151,7 @@ void main() {
 
 	// FIXME read alpha from texture
 
-	payload.hit_pos_t = vec4(hit_pos, gl_HitTEXT);
+	payload.hit_pos_t = vec4(hit_pos + geom_normal * normal_offset_fudge, gl_HitTEXT);
 	payload.base_color = base_color * kusochki[kusok_index].color.rgb;
 	payload.transmissiveness = (1. - tex_color.a * kusochki[kusok_index].color.a);
 	payload.normal = normal;

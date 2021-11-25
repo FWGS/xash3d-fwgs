@@ -217,6 +217,12 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		kusochki[i].index_offset = mg->index_offset;
 		kusochki[i].triangles = prim_count;
 
+		if (mg->material == kXVkMaterialSky) {
+			kusochki[i].tex_base_color |= KUSOK_MATERIAL_FLAG_SKYBOX;
+		} else {
+			kusochki[i].tex_base_color &= (~KUSOK_MATERIAL_FLAG_SKYBOX);
+		}
+
 		//kusochki[i].texture = mg->texture;
 		//kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.; // FIXME
 		VectorSet(kusochki[i].emissive, 0, 0, 0 );
@@ -377,6 +383,10 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 			kusok->tex_roughness = tglob.blackTexture;
 		} else if (!mat->set && geom->material == kXVkMaterialChrome) {
 			kusok->tex_roughness = tglob.grayTexture;
+		}
+
+		if (geom->material == kXVkMaterialSky) {
+			kusok->tex_base_color |= KUSOK_MATERIAL_FLAG_SKYBOX;
 		}
 
 		Vector4Copy(color, kusok->color);

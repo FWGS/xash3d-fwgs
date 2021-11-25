@@ -6,5 +6,5 @@
 layout(location = PAYLOAD_LOCATION_SHADOW) rayPayloadInEXT RayPayloadShadow payload_shadow;
 
 void main() {
-    payload_shadow.shadow = false;
+    payload_shadow.hit_type = SHADOW_MISS;
 }

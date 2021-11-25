@@ -382,8 +382,9 @@ static qboolean renderableSurface( const msurface_t *surf, int i ) {
 		return false;
 	}
 
+	// Explicitly enable SURF_SKY, otherwise they will be skipped by SURF_DRAWTILED
 	if( FBitSet( surf->flags, SURF_DRAWSKY )) {
-		return false;
+		return true;
 	}
 
 	if( FBitSet( surf->flags, SURF_DRAWTILED )) {
@@ -409,7 +410,6 @@ static model_sizes_t computeSizes( const model_t *mod ) {
 		const msurface_t *surf = mod->surfaces + mod->firstmodelsurface + i;
 
 		sizes.water_surfaces += !!(surf->flags & (SURF_DRAWTURB | SURF_DRAWTURB_QUADS));
-		//sizes.sky_surfaces += !!(surf->flags & SURF_DRAWSKY);
 
 		if (!renderableSurface(surf, i))
 			continue;
@@ -487,7 +487,9 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 				model_geometry->material = kXVkMaterialSky;
 			} else {
 				model_geometry->material = kXVkMaterialRegular;
-				VK_CreateSurfaceLightmap( surf, mod );
+				if (!FBitSet( surf->flags, SURF_DRAWTILED )) {
+					VK_CreateSurfaceLightmap( surf, mod );
+				}
 			}
 
 			if (FBitSet( surf->flags, SURF_CONVEYOR )) {

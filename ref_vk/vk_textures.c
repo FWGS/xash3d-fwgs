@@ -508,7 +508,7 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 	tex->height = layers[0]->height;
 	mipCount = CalcMipmapCount( tex, true);
 
-	gEngine.Con_Reportf("Uploading texture %s, mips=%d, layers=%d\n", tex->name, mipCount, layers);
+	gEngine.Con_Reportf("Uploading texture %s, mips=%d, layers=%d\n", tex->name, mipCount, num_layers);
 
 	// TODO this vvv
 	// // NOTE: only single uncompressed textures can be resamples, no mips, no layers, no sides
@@ -989,7 +989,7 @@ void XVK_SetupSky( const char *skyboxname )
 	if( !Common_CheckTexName( loadname ))
 		goto fail;
 
-	// needed? VK_ProcessImage( tex, pic );
+	Q_strncpy( tglob.skybox_cube.name, loadname, sizeof( tglob.skybox_cube.name ));
 	if (uploadTexture(&tglob.skybox_cube, sides, 6, true)) {
 		tglob.fCustomSkybox = true;
 		gEngine.Con_DPrintf( "done\n" );

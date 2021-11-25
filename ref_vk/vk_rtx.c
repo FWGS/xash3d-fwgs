@@ -31,6 +31,8 @@ enum {
 	ShaderBindingTable_Hit,
 	ShaderBindingTable_Hit_WithAlphaTest,
 	ShaderBindingTable_Hit_Additive,
+	ShaderBindingTable_Hit_Shadow,
+	ShaderBindingTable_Hit__END = ShaderBindingTable_Hit_Shadow,
 
 	ShaderBindingTable_COUNT
 };
@@ -353,6 +355,8 @@ static void createPipeline( void )
 		uint32_t max_visible_surface_lights;
 		float light_grid_cell_size;
 		int max_light_clusters;
+		uint32_t max_textures;
+		uint32_t sbt_record_size;
 	} spec_data = {
 		.max_point_lights = MAX_POINT_LIGHTS,
 		.max_emissive_kusochki = MAX_EMISSIVE_KUSOCHKI,
@@ -360,6 +364,8 @@ static void createPipeline( void )
 		.max_visible_surface_lights = MAX_VISIBLE_SURFACE_LIGHTS,
 		.light_grid_cell_size = LIGHT_GRID_CELL_SIZE,
 		.max_light_clusters = MAX_LIGHT_CLUSTERS,
+		.max_textures = MAX_TEXTURES,
+		.sbt_record_size = g_rtx.sbt_record_size,
 	};
 	const VkSpecializationMapEntry spec_map[] = {
 		{.constantID = 0, .offset = offsetof(struct RayShaderSpec, max_point_lights), .size = sizeof(int) },
@@ -368,6 +374,8 @@ static void createPipeline( void )
 		{.constantID = 3, .offset = offsetof(struct RayShaderSpec, max_visible_surface_lights), .size = sizeof(uint32_t) },
 		{.constantID = 4, .offset = offsetof(struct RayShaderSpec, light_grid_cell_size), .size = sizeof(float) },
 		{.constantID = 5, .offset = offsetof(struct RayShaderSpec, max_light_clusters), .size = sizeof(int) },
+		{.constantID = 6, .offset = offsetof(struct RayShaderSpec, max_textures), .size = sizeof(uint32_t) },
+		{.constantID = 7, .offset = offsetof(struct RayShaderSpec, sbt_record_size), .size = sizeof(uint32_t) },
 	};
 
 	VkSpecializationInfo spec = {
@@ -383,6 +391,7 @@ static void createPipeline( void )
 		ShaderStageIndex_Miss_Shadow,
 		ShaderStageIndex_Miss_Empty,
 		ShaderStageIndex_ClosestHit,
+		ShaderStageIndex_ClosestHit_Shadow,
 		ShaderStageIndex_AnyHit_AlphaTest,
 		ShaderStageIndex_AnyHit_Additive,
 		ShaderStageIndex_COUNT,
@@ -416,6 +425,7 @@ static void createPipeline( void )
 	DEFINE_SHADER("shadow.rmiss.spv", MISS, ShaderStageIndex_Miss_Shadow);
 	DEFINE_SHADER("empty.rmiss.spv", MISS, ShaderStageIndex_Miss_Empty);
 	DEFINE_SHADER("ray.rchit.spv", CLOSEST_HIT, ShaderStageIndex_ClosestHit);
+	DEFINE_SHADER("shadow.rchit.spv", CLOSEST_HIT, ShaderStageIndex_ClosestHit_Shadow);
 	DEFINE_SHADER("alphamask.rahit.spv", ANY_HIT, ShaderStageIndex_AnyHit_AlphaTest);
 	DEFINE_SHADER("additive.rahit.spv", ANY_HIT, ShaderStageIndex_AnyHit_Additive);
 
@@ -429,6 +439,7 @@ static void createPipeline( void )
 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit, ShaderBindingTable_Hit, SHADER_OFFSET_HIT_REGULAR);
 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit, ShaderBindingTable_Hit_WithAlphaTest, SHADER_OFFSET_HIT_ALPHA_TEST);
 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit, ShaderBindingTable_Hit_Additive, SHADER_OFFSET_HIT_ADDITIVE);
+	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit, ShaderBindingTable_Hit_Shadow, SHADER_OFFSET_HIT_SHADOW);
 
 	shader_groups[ShaderBindingTable_RayGen] = (VkRayTracingShaderGroupCreateInfoKHR) {
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
@@ -489,6 +500,15 @@ static void createPipeline( void )
 		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
 		.anyHitShader = ShaderStageIndex_AnyHit_Additive,
 		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.generalShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+
+	shader_groups[ShaderBindingTable_Hit_Shadow] = (VkRayTracingShaderGroupCreateInfoKHR) {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.closestHitShader = ShaderStageIndex_ClosestHit_Shadow,
 		.generalShader = VK_SHADER_UNUSED_KHR,
 		.intersectionShader = VK_SHADER_UNUSED_KHR,
 	};
@@ -739,7 +759,7 @@ LIST_GBUFFER_IMAGES(GBUFFER_WRITE_BARRIER)
 }
 		const VkStridedDeviceAddressRegionKHR sbt_raygen = SBT_INDEX(ShaderBindingTable_RayGen, 1);
 		const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(ShaderBindingTable_Miss, ShaderBindingTable_Miss_Empty - ShaderBindingTable_Miss);
-		const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(ShaderBindingTable_Hit, ShaderBindingTable_Hit_Additive - ShaderBindingTable_Hit);
+		const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(ShaderBindingTable_Hit, ShaderBindingTable_Hit__END - ShaderBindingTable_Hit);
 		const VkStridedDeviceAddressRegionKHR sbt_callable = { 0 };
 
 		vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_miss, &sbt_hit, &sbt_callable, FRAME_WIDTH, FRAME_HEIGHT, 1 );
