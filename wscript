@@ -78,8 +78,8 @@ def options(opt):
 	grp.add_option('-8', '--64bits', action = 'store_true', dest = 'ALLOW64', default = False,
 		help = 'allow targetting 64-bit engine(Linux/Windows/OSX x86 only) [default: %default]')
 
-	grp.add_option('-W', '--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
-		help = 'install like Windows build, ignore prefix, useful for development [default: %default]')
+	grp.add_option('-P', '--enable-packaging', action = 'store_true', dest = 'PACKAGING', default = False,
+		help = 'respect prefix option, useful for packaging for various operating systems [default: %default]')
 
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
 		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compatibility!) [default: %default]')
@@ -291,11 +291,12 @@ def configure(conf):
 		conf.undefine('HAVE_TGMATH_H')
 
 	# indicate if we are packaging for Linux/BSD
-	if not conf.options.WIN_INSTALL and conf.env.DEST_OS not in ['win32', 'darwin', 'android']:
+	if conf.options.PACKAGING:
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 	else:
-		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
+		conf.env.PREFIX = '/'
+		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = '/'
 
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
