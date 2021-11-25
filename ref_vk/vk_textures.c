@@ -943,6 +943,7 @@ void XVK_SetupSky( const char *skyboxname )
 	char	sidename[MAX_STRING];
 	int	i, result, len;
 	rgbdata_t *sides[6];
+	qboolean success = false;
 
 	if( !COM_CheckString( skyboxname ))
 	{
@@ -993,23 +994,25 @@ void XVK_SetupSky( const char *skyboxname )
 		gEngine.Con_DPrintf( "%s%s%s", skyboxname, g_skybox_info[i].suffix, i != 5 ? ", " : ". " );
 	}
 
+	if( i != 6 )
+		goto cleanup;
+
+	if( !Common_CheckTexName( loadname ))
+		goto cleanup;
+
+	Q_strncpy( tglob.skybox_cube.name, loadname, sizeof( tglob.skybox_cube.name ));
+	success = uploadTexture(&tglob.skybox_cube, sides, 6, true);
+
+cleanup:
 	for (int j = 0; j < i; ++j)
 		gEngine.FS_FreeImage( sides[j] ); // release source texture
 
-	if( i != 6 )
-		goto fail;
-
-	if( !Common_CheckTexName( loadname ))
-		goto fail;
-
-	Q_strncpy( tglob.skybox_cube.name, loadname, sizeof( tglob.skybox_cube.name ));
-	if (uploadTexture(&tglob.skybox_cube, sides, 6, true)) {
+	if (success) {
 		tglob.fCustomSkybox = true;
 		gEngine.Con_DPrintf( "done\n" );
-		return; // loaded
+	} else {
+		tglob.skybox_cube.name[0] = '\0';
+		gEngine.Con_DPrintf( "^2failed\n" );
+		unloadSkybox();
 	}
-
-fail:
-	gEngine.Con_DPrintf( "^2failed\n" );
-	unloadSkybox();
 }
