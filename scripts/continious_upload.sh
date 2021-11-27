@@ -50,13 +50,7 @@ fi
 RELEASE_BODY=""
 GIT_REPO_SLUG="$REPO_SLUG"
 
-GIT_COMMIT="$TRAVIS_COMMIT"
-GIT_TAG="$TRAVIS_TAG"
-
-if [ ! -z "$TRAVIS_REPO_SLUG" ] ; then
-  GIT_REPO_SLUG="$TRAVIS_REPO_SLUG"
-  RELEASE_BODY="Travis CI build log: ${TRAVIS_BUILD_WEB_URL}"
-elif [ ! -z "$GITHUB_ACTIONS" ] ; then
+if [ ! -z "$GITHUB_ACTIONS" ] ; then
   GIT_COMMIT="$GITHUB_SHA"
   GIT_REPO_SLUG="$GITHUB_REPOSITORY"
   if [[ "$GITHUB_REF" == "refs/tags/"* ]] ; then
@@ -116,8 +110,7 @@ else
 fi
 
 # Do not upload non-master branch builds
-# if [ "$GIT_TAG" != "$TRAVIS_BRANCH" ] && [ "$TRAVIS_BRANCH" != "master" ]; then export TRAVIS_EVENT_TYPE=pull_request; fi
-if [ "$TRAVIS_EVENT_TYPE" == "pull_request" ] || [ "$GITHUB_EVENT_NAME" == "pull_request" ] ; then
+if [ "$GITHUB_EVENT_NAME" == "pull_request" ] ; then
   echo "Release uploading disabled for pull requests, uploading to transfer.sh instead"
   rm -f ./uploaded-to
   for FILE in "$@" ; do
@@ -126,33 +119,11 @@ if [ "$TRAVIS_EVENT_TYPE" == "pull_request" ] || [ "$GITHUB_EVENT_NAME" == "pull
     echo "$(cat ./one-upload)" # this way we get a newline
     echo -n "$(cat ./one-upload)\\n" >> ./uploaded-to # this way we get a \n but no newline
   done
-#  review_url="https://api.github.com/repos/${GIT_REPO_SLUG}/pulls/${TRAVIS_PULL_REQUEST}/reviews"
-#  if [ -z $UPLOADTOOL_PR_BODY ] ; then
-#    body="Travis CI has created build artifacts for this PR here:"
-#  else
-#    body="$UPLOADTOOL_PR_BODY"
-#  fi
-#  body="$body\n$(cat ./uploaded-to)\nThe link(s) will expire 14 days from now."
-#  review_comment=$(curl -X POST \
-#    --header "Authorization: token ${GITHUB_TOKEN}" \
-#    --data '{"commit_id": "'"$GIT_COMMIT"'","body": "'"$body"'","event": "COMMENT"}' \
-#    $review_url)
-#  if echo $review_comment | grep -q "Bad credentials" 2>/dev/null ; then
-#    echo '"Bad credentials" response for --data {"commit_id": "'"$GIT_COMMIT"'","body": "'"$body"'","event": "COMMENT"}'
-#  fi
   $shatool "$@"
   exit 0
 fi
 
-if [ ! -z "$TRAVIS_REPO_SLUG" ] ; then
-  echo "Running on Travis CI"
-  echo "TRAVIS_COMMIT: $TRAVIS_COMMIT"
-  if [ -z "$GITHUB_TOKEN" ] ; then
-    echo "\$GITHUB_TOKEN missing, please set it in the Travis CI settings of this project"
-    echo "You can get one from https://github.com/settings/tokens"
-    exit 1
-  fi
-elif [ ! -z "$GITHUB_ACTIONS" ] ; then
+if [ ! -z "$GITHUB_ACTIONS" ] ; then
   echo "Running on GitHub Actions"
   if [ -z "$GITHUB_TOKEN" ] ; then
     echo "\$GITHUB_TOKEN missing, please add the following to your run action:"
@@ -163,7 +134,7 @@ elif [ ! -z "$GITHUB_ACTIONS" ] ; then
 else
   echo "Not running on known CI"
   if [ -z "$GIT_REPO_SLUG" ] ; then
-    read -r -p "Repo Slug (GitHub and Travis CI username/reponame): " GIT_REPO_SLUG
+    read -r -p "Repo Slug (GitHub username/reponame): " GIT_REPO_SLUG
   fi
   if [ -z "$GITHUB_TOKEN" ] ; then
     read -r -s -p "Token (https://github.com/settings/tokens): " GITHUB_TOKEN
