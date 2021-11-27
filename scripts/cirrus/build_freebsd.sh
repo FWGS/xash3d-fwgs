@@ -1,5 +1,7 @@
 #!/bin/sh
 
+. scripts/lib.sh
+
 if [ "$1" = "dedicated" ]; then
 	APP=xashds
 else # elif [ "$1" = "full" ]; then
@@ -14,7 +16,7 @@ build_engine()
 	if [ "$APP" = "xashds" ]; then
 		./waf configure -T release -d || die
 	elif [ "$APP" = "xash3d-fwgs" ]; then
-		./waf configure -T release --enable-stb -W --enable-utils || die
+		./waf configure -T release --enable-stb --enable-utils --enable-gl4es --enable-gles1 --enable-gles2 || die
 	else
 		die
 	fi
