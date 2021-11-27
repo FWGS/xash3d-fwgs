@@ -337,7 +337,7 @@ static void clusterBitMapClear( void ) {
 // Returns true if wasn't set
 static qboolean clusterBitMapCheckOrSet( int cell_index ) {
 	uint32_t *const bits = g_lights_tmp.clusters_bit_map + (cell_index / 32);
-	const uint32_t bit = 1 << (cell_index % 32);
+	const uint32_t bit = 1u << (cell_index % 32);
 
 	if ((*bits) & bit)
 		return false;
@@ -875,6 +875,10 @@ static void processStaticPointLights( void ) {
 			case LightTypeEnvironment:
 				index = addSpotLight(le, default_radius, le->style, hack_attenuation_spot, i == g_map_entities.single_environment_index);
 				break;
+
+			default:
+				ASSERT(!"Unexpected light type");
+				continue;
 		}
 
 		if (index < 0)
@@ -902,7 +906,6 @@ void VK_LightsLoadMapStaticLights( void ) {
 		}
 	}
 
-	XVK_ParseMapEntities();
 	processStaticPointLights();
 
 	// Load RAD data based on map name

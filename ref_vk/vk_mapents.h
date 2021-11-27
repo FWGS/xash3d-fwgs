@@ -15,6 +15,10 @@
 	X(10, string, targetname, String) \
 	X(11, string, target, String) \
 	X(12, int, style, Int) \
+	X(13, int, _xvk_surface_id, Int) \
+	X(14, string, _xvk_texture, String) \
+
+	//X(13, int, _xvk_ent_id, Int) \
 
 typedef enum {
 	Unknown = 0,
@@ -58,6 +62,22 @@ typedef struct {
 	vec3_t origin;
 } xvk_mapent_target_t;
 
+enum {
+	Patch_Surface_NoPatch = -1,
+	Patch_Surface_Delete = -2,
+};
+
+struct texture_s;
+
+typedef struct {
+	int tex_id;
+	const struct texture_s *tex;
+} xvk_patch_surface_t;
+
+typedef struct {
+	xvk_patch_surface_t *surfaces;
+} xvk_patch_t;
+
 #define MAX_MAPENT_TARGETS 256
 
 typedef struct {
@@ -70,6 +90,8 @@ typedef struct {
 
 	int num_targets;
 	xvk_mapent_target_t targets[MAX_MAPENT_TARGETS];
+
+	xvk_patch_t patch;
 } xvk_map_entities_t;
 
 extern xvk_map_entities_t g_map_entities;

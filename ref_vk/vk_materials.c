@@ -125,7 +125,7 @@ static void loadMaterialsFromFile( const char *filename ) {
 				Q_snprintf(texture_path, sizeof(texture_path), "pbr%s", value);
 			} else {
 				// Path relative to current material.mat file
-				Q_snprintf(texture_path, sizeof(texture_path), "%.*s%s", path_end - path_begin, path_begin, value);
+				Q_snprintf(texture_path, sizeof(texture_path), "%.*s%s", (int)(path_end - path_begin), path_begin, value);
 			}
 
 			tex_id = loadTexture(texture_path, force_reload);

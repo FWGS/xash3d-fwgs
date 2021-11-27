@@ -1,5 +1,7 @@
 #include "vk_common.h"
 #include "vk_mapents.h"
+#include "vk_core.h" // TODO we need only pool from there, not the entire vulkan garbage
+#include "vk_textures.h"
 
 #include "eiface.h" // ARRAYSIZE
 #include "xash3d_mathlib.h"
@@ -245,33 +247,52 @@ static void addTargetEntity( const entity_props_t *props ) {
 	++g_map_entities.num_targets;
 }
 
-const xvk_mapent_target_t *findTargetByName(const char *name) {
-	for (int i = 0; i < g_map_entities.num_targets; ++i) {
-		const xvk_mapent_target_t *target = g_map_entities.targets + i;
-		if (Q_strcmp(name, target->targetname) == 0)
-			return target;
-	}
-
-	return NULL;
-}
-
 static void readWorldspawn( const entity_props_t *props ) {
 	Q_strcpy(g_map_entities.wadlist, props->wad);
 }
 
-void XVK_ParseMapEntities( void ) {
+static void addPatchSurface( const entity_props_t *props ) {
 	const model_t* const map = gEngine.pfnGetModelByIndex( 1 );
-	char *pos;
+	const int num_surfaces = map->numsurfaces;
+	if (props->_xvk_surface_id < 0 || props->_xvk_surface_id >= num_surfaces) {
+		gEngine.Con_Printf(S_ERROR "Incorrect patch for surface_index %d where numsurfaces=%d\n", props->_xvk_surface_id, num_surfaces);
+		return;
+	}
+
+	if (!g_map_entities.patch.surfaces) {
+		g_map_entities.patch.surfaces = Mem_Malloc(vk_core.pool, num_surfaces * sizeof(xvk_patch_surface_t));
+		for (int i = 0; i < num_surfaces; ++i) {
+			g_map_entities.patch.surfaces[i].tex_id = Patch_Surface_NoPatch;
+			g_map_entities.patch.surfaces[i].tex = NULL;
+		}
+	}
+
+	if (props->_xvk_texture[0] != '\0') {
+		const int tex_id = VK_FindTexture( props->_xvk_texture );
+		gEngine.Con_Printf(S_WARN "Patch for surface %d with texture \"%s\" -> %d\n", props->_xvk_surface_id, props->_xvk_texture, tex_id);
+		g_map_entities.patch.surfaces[props->_xvk_surface_id].tex_id = tex_id;
+
+		// Find texture_t for this index
+		for (int i = 0; i < map->numtextures; ++i) {
+			const texture_t* const tex = map->textures[i];
+			if (tex->gl_texturenum == tex_id) {
+				g_map_entities.patch.surfaces[props->_xvk_surface_id].tex = tex;
+				break;
+			}
+		}
+
+		return;
+	}
+
+	gEngine.Con_Reportf("Patch: surface %d removed\n", props->_xvk_surface_id);
+	g_map_entities.patch.surfaces[props->_xvk_surface_id].tex_id = Patch_Surface_Delete;
+	g_map_entities.patch.surfaces[props->_xvk_surface_id].tex = NULL;
+}
+
+static void parseEntities( char *string ) {
 	unsigned have_fields = 0;
 	entity_props_t values;
-
-	ASSERT(map);
-
-	g_map_entities.num_targets = 0;
-	g_map_entities.num_lights = 0;
-	g_map_entities.single_environment_index = NoEnvironmentLights;
-
-	pos = map->entities;
+	char *pos = string;
 	//gEngine.Con_Reportf("ENTITIES: %s\n", pos);
 	for (;;) {
 		char key[1024];
@@ -302,6 +323,10 @@ void XVK_ParseMapEntities( void ) {
 					break;
 
 				case Unknown:
+					if (have_fields & Field__xvk_surface_id && have_fields & Field__xvk_texture) {
+						addPatchSurface( &values );
+					}
+					break;
 				case Ignored:
 					// Skip
 					break;
@@ -327,7 +352,19 @@ void XVK_ParseMapEntities( void ) {
 		}
 #undef CHECK_FIELD
 	}
+}
 
+const xvk_mapent_target_t *findTargetByName(const char *name) {
+	for (int i = 0; i < g_map_entities.num_targets; ++i) {
+		const xvk_mapent_target_t *target = g_map_entities.targets + i;
+		if (Q_strcmp(name, target->targetname) == 0)
+			return target;
+	}
+
+	return NULL;
+}
+
+static void orientSpotlights( void ) {
 	// Patch spotlight directions based on target entities
 	for (int i = 0; i < g_map_entities.num_lights; ++i) {
 		vk_light_entity_t *const light = g_map_entities.lights + i;
@@ -351,4 +388,40 @@ void XVK_ParseMapEntities( void ) {
 		gEngine.Con_Reportf("Light %d patched direction towards '%s': %f %f %f\n", i, target->targetname,
 			light->dir[0], light->dir[1], light->dir[2]);
 	}
+}
+
+static void parsePatches( const model_t *const map ) {
+	char filename[256];
+	byte *data;
+
+	if (g_map_entities.patch.surfaces) {
+		Mem_Free(g_map_entities.patch.surfaces);
+		g_map_entities.patch.surfaces = NULL;
+	}
+
+	Q_snprintf(filename, sizeof(filename), "luchiki/%s.patch", map->name);
+	gEngine.Con_Reportf("Loading patches from file \"%s\"\n", filename);
+	data = gEngine.COM_LoadFile( filename, 0, false );
+	if (!data) {
+		gEngine.Con_Reportf("No patch file \"%s\"\n", filename);
+		return;
+	}
+
+	parseEntities( (char*)data );
+	Mem_Free(data);
+}
+
+void XVK_ParseMapEntities( void ) {
+	const model_t* const map = gEngine.pfnGetModelByIndex( 1 );
+
+	ASSERT(map);
+
+	g_map_entities.num_targets = 0;
+	g_map_entities.num_lights = 0;
+	g_map_entities.single_environment_index = NoEnvironmentLights;
+
+	parseEntities( map->entities );
+	parsePatches( map );
+
+	orientSpotlights();
 }

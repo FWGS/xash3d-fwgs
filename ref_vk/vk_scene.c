@@ -15,6 +15,7 @@
 #include "vk_cvar.h"
 #include "vk_materials.h"
 #include "camera.h"
+#include "vk_mapents.h"
 
 #include "com_strings.h"
 #include "ref_params.h"
@@ -131,6 +132,9 @@ void R_NewMap( void )
 
 		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
 	}
+
+	// Load light entities and patch data prior to loading map brush model
+	XVK_ParseMapEntities();
 
 	// Load all models at once
 	gEngine.Con_Reportf( "Num models: %d:\n", num_models );
