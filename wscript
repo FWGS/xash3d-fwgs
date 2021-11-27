@@ -295,8 +295,10 @@ def configure(conf):
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 	else:
-		conf.env.PREFIX = '/'
-		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = '/'
+		if sys.platform != 'win32':
+			conf.env.PREFIX = '/'
+
+		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
