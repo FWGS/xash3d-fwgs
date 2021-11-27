@@ -357,7 +357,7 @@ void Host_Exec_f( void )
 	byte *f;
 	char *txt;
 	fs_offset_t	len;
-	char *arg;
+	const char *arg;
 
 	if( Cmd_Argc() != 2 )
 	{
