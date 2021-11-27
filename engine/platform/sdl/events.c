@@ -88,6 +88,7 @@ GNU General Public License for more details.
 #define SDL_SCANCODE_PRINTSCREEN SDLK_PRINT
 #define SDL_SCANCODE_UNKNOWN SDLK_UNKNOWN
 #define SDL_GetScancodeName( x ) "unknown"
+#define SDL_JoystickID Uint8
 #endif
 
 static qboolean SDLash_IsInstanceIDAGameController( SDL_JoystickID joyId )
