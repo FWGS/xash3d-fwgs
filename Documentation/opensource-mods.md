@@ -161,7 +161,7 @@ Branch **redempt** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/r
 OpenAG by YaLTeR - https://github.com/YaLTeR/OpenAG
 
 ## Afraid of Monsters
-malortie's recreation - https://github.com/malortie/halflife/tree/mod-hl-aom
+malortie's recreation - https://github.com/malortie/hl-aom
 
 Branch **aom** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/aom
 
@@ -169,17 +169,17 @@ Branch **aom** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/aom
 Reverse-engineered code, branch **aomdc** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/aomdc
 
 ## Azure Sheep
-malortie's recreation - https://github.com/malortie/halflife/tree/mod-hl-asheep
+malortie's recreation - https://github.com/malortie/hl-asheep
 
 Reverse-engineered code, branch **asheep** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/asheep
 
 ## Big Lolly
-malortie's recreation - https://github.com/malortie/halflife/tree/mod-hl-biglolly
+malortie's recreation - https://github.com/malortie/hl-biglolly
 
 Branch **biglolly** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/biglolly
 
 ## Black Ops
-malortie's recreation - https://github.com/malortie/halflife/tree/mod-hl-blackops
+malortie's recreation - https://github.com/malortie/hl-blackops
 
 Branch **blackops** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/blackops
 
@@ -206,7 +206,7 @@ CSO-like Xash3D-based mod, CSMoE - https://github.com/MoeMod/CSMoE
 Recreation by lostgamer aka nillerusr - https://github.com/LostGamerHL/crack_life
 
 ## Escape from the Darkness
-malortie's recreation - https://github.com/malortie/halflife/tree/mod-hl-eftd
+malortie's recreation - https://github.com/malortie/hl-eftd
 
 Reverse-engineered code, branch **eftd** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/eftd
 
@@ -229,7 +229,7 @@ Spirit of Half Life: Opposing-Force Edition - https://github.com/Hammermaps-DEV/
 Reverse-engineered code, branch **rebellion** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/rebellion
 
 ## Half-Life: Visitors
-malortie's recreation - https://github.com/malortie/halflife/tree/mod-hl-visitors
+malortie's recreation - https://github.com/malortie/hl-visitors
 
 Reverse-engineered code, branch **visitors** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/visitors
 
@@ -237,17 +237,17 @@ Reverse-engineered code, branch **visitors** in hlsdk-xash3d - https://github.co
 Branch **half-secret** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/half-secret
 
 ## Night at the Office
-malortie's recreation - https://github.com/malortie/halflife/tree/mod-hl-noffice
+malortie's recreation - https://github.com/malortie/hl-nato
 
 Branch **noffice** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/noffice
 
 ## Poke 646
-malortie's recreation - https://github.com/malortie/halflife/tree/mod-hl-poke646
+malortie's recreation - https://github.com/malortie/hl-poke646
 
 Reverse-engineered code, branch **poke646** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/poke646
 
 ## Poke 646: Vendetta
-malortie's recreation - https://github.com/malortie/halflife/tree/mod-hl-poke646
+malortie's recreation - https://github.com/malortie/hl-poke646-vendetta
 
 Reverse-engineered code, branch **poke646_vendetta** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/poke646_vendetta
 
@@ -261,19 +261,19 @@ Reverse-engineered code, branch **residual_point** in hlsdk-xash3d - https://git
 Reverse-engineered code by Velaron - https://github.com/Velaron/tf15-client
 
 ## The Gate
-malortie's recreation - https://github.com/malortie/halflife/tree/mod-hl-TheGate
+malortie's recreation - https://github.com/malortie/hl-thegate
 
 Reverse-engineered code, branch **thegate** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/thegate
 
 ## They Hunger
-malortie's recreation - https://github.com/malortie/halflife/tree/mod-hl-Hunger
+malortie's recreation - https://github.com/malortie/hl-theyhunger
 
 Reverse-engineered code, branch **theyhunger** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/theyhunger
 
 They Hunger: Tactical - https://www.moddb.com/mods/they-hunger-tactical/downloads/tht-source-code-documentation
 
 ## Times of Troubles
-malortie's recreation - https://github.com/malortie/halflife/tree/mod-hl-tot
+malortie's recreation - https://github.com/malortie/hl-tot
 
 Branch **tot** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/tot
 
@@ -295,7 +295,7 @@ Branch **dmc** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/dmc
 Branch **echoes** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/echoes
 
 ## Half-Life: Invasion
-Port to HLSDK 2.4 by malortie - https://github.com/malortie/halflife/tree/mod-hl-invasion
+Port to HLSDK 2.4 by malortie - https://github.com/malortie/hl-invasion
 
 Port to Linux by fmoraw - https://github.com/fmoraw/hlinvasion
 
@@ -309,7 +309,7 @@ Branch **half-screwed** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/t
 Port to Linux - https://github.com/fmoraw/NS
 
 ## Swiss Cheese Halloween 2002
-Just more playable version by malortie - https://github.com/malortie/halflife/tree/mod-hl-halloween
+Just more playable version by malortie - https://github.com/malortie/hl-shall
 
 Branch **halloween** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/halloween
 
