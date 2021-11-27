@@ -115,64 +115,17 @@ else
   esac
 fi
 
-if [ "$ARTIFACTORY_BASE_URL" != "" ]; then
-  echo "ARTIFACTORY_BASE_URL set, trying to upload to artifactory"
-
-  if [ "$ARTIFACTORY_API_KEY" == "" ]; then
-    echo "Please set ARTIFACTORY_API_KEY"
-    exit 1
-  fi
-
-  files="$@"
-
-  # artifactory doesn't support any kind of "artifact description", so we're uploading a text file containing the
-  # relevant details along with the other artifacts
-  tempdir=$(mktemp -d)
-  info_file="$tempdir"/build-info.txt
-  echo "Travis CI build log: ${TRAVIS_BUILD_WEB_URL}" > "$info_file"
-  files+=("$info_file")
-
-  set +x
-
-  for file in ${files[@]}; do
-    url="${ARTIFACTORY_BASE_URL}/travis-${TRAVIS_BUILD_NUMBER}/"$(basename "$file")
-    md5sum=$(md5sum "$file" | cut -d' ' -f1)
-    sha1sum=$(sha1sum "$file" | cut -d' ' -f1)
-    sha256sum=$(sha256sum "$file" | cut -d' ' -f1)
-    echo "Uploading $file to $url"
-    hashsums=(-H "X-Checksum-Md5:$md5sum")
-    hashsums+=(-H "X-Checksum-Sha1:$sha1sum")
-    hashsums+=(-H "X-Checksum-Sha256:$sha256sum")
-    if ! curl -H 'X-JFrog-Art-Api:'"$ARTIFACTORY_API_KEY" "${hashsums[@]}" -T "$file" "$url"; then
-      echo "Failed to upload file, exiting"
-      rm -r "$tempdir"
-      exit 1
-    fi
-    echo
-    echo "MD5 checksum: $md5sum"
-    echo "SHA1 checksum: $sha1sum"
-    echo "SHA256 checksum: $sha256sum"
-  done
-  rm -r "$tempdir"
-fi
-
 # Do not upload non-master branch builds
 # if [ "$GIT_TAG" != "$TRAVIS_BRANCH" ] && [ "$TRAVIS_BRANCH" != "master" ]; then export TRAVIS_EVENT_TYPE=pull_request; fi
 if [ "$TRAVIS_EVENT_TYPE" == "pull_request" ] || [ "$GITHUB_EVENT_NAME" == "pull_request" ] ; then
-  echo "Release uploading disabled for pull requests"
-  if [ "$ARTIFACTORY_BASE_URL" != "" ]; then
-    echo "Releases have already been uploaded to Artifactory, exiting"
-    exit 0
-  else
-    echo "Release uploading disabled for pull requests, uploading to transfer.sh instead"
-    rm -f ./uploaded-to
-    for FILE in "$@" ; do
-      BASENAME="$(basename "${FILE}")"
-      curl --upload-file $FILE "https://transfer.sh/$BASENAME" > ./one-upload
-      echo "$(cat ./one-upload)" # this way we get a newline
-      echo -n "$(cat ./one-upload)\\n" >> ./uploaded-to # this way we get a \n but no newline
-    done
-  fi
+  echo "Release uploading disabled for pull requests, uploading to transfer.sh instead"
+  rm -f ./uploaded-to
+  for FILE in "$@" ; do
+    BASENAME="$(basename "${FILE}")"
+    curl --upload-file $FILE "https://transfer.sh/$BASENAME" > ./one-upload
+    echo "$(cat ./one-upload)" # this way we get a newline
+    echo -n "$(cat ./one-upload)\\n" >> ./uploaded-to # this way we get a \n but no newline
+  done
 #  review_url="https://api.github.com/repos/${GIT_REPO_SLUG}/pulls/${TRAVIS_PULL_REQUEST}/reviews"
 #  if [ -z $UPLOADTOOL_PR_BODY ] ; then
 #    body="Travis CI has created build artifacts for this PR here:"
