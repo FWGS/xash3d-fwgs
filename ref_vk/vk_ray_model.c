@@ -391,7 +391,11 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 		Vector4Copy(color, kusok->color);
 
-		XVK_GetEmissiveForTexture( kusok->emissive, geom->texture );
+		if (geom->material == kXVkMaterialEmissive) {
+			VectorCopy( geom->emissive, kusok->emissive );
+		} else {
+			XVK_GetEmissiveForTexture( kusok->emissive, geom->texture );
+		}
 
 		if (geom->material == kXVkMaterialConveyor) {
 			computeConveyorSpeed( entcolor, geom->texture, kusok->uv_speed );
