@@ -222,7 +222,8 @@ void computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 #if 1
 			const float d2 = dot(light_dir, light_dir);
 			const float r2 = origin_r.w * origin_r.w;
-			light_dist = sqrt(d2);
+			//light_dist = sqrt(d2);
+			light_dist = sqrt(d2) - origin_r.w;
 			fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
 #else
 			const float d2 = dot(light_dir, light_dir);

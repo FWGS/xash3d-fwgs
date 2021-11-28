@@ -863,16 +863,17 @@ static void processStaticPointLights( void ) {
 		const float default_radius = 50.f; // FIXME tune
 		const float hack_attenuation = 100.f; // FIXME tune
 		const float hack_attenuation_spot = 100.f; // FIXME tune
+		float radius = le->radius > 0.f ? le->radius : default_radius;
 		int index;
 
 		switch (le->type) {
 			case LightTypePoint:
-				index = addPointLight(le->origin, le->color, default_radius, le->style, hack_attenuation);
+				index = addPointLight(le->origin, le->color, radius, le->style, hack_attenuation);
 				break;
 
 			case LightTypeSpot:
 			case LightTypeEnvironment:
-				index = addSpotLight(le, default_radius, le->style, hack_attenuation_spot, i == g_map_entities.single_environment_index);
+				index = addSpotLight(le, radius, le->style, hack_attenuation_spot, i == g_map_entities.single_environment_index);
 				break;
 
 			default:

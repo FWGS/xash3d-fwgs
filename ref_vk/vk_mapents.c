@@ -181,7 +181,11 @@ static void fillLightFromProps( vk_light_entity_t *le, const entity_props_t *pro
 		VectorSet(le->color, 300, 300, 300);
 	}
 
-	if ( (have_fields & Field_style) != 0) {
+	if (have_fields & Field_radius) {
+		le->radius = props->radius;
+	}
+
+	if (have_fields & Field_style) {
 		le->style = props->style;
 	}
 

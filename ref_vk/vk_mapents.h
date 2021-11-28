@@ -18,6 +18,7 @@
 	X(13, int, _xvk_surface_id, Int) \
 	X(14, string, _xvk_texture, String) \
 	X(15, int, _xvk_ent_id, Int) \
+	X(16, float, radius, Float) \
 
 typedef enum {
 	Unknown = 0,
@@ -50,6 +51,8 @@ typedef struct {
 	vec3_t origin;
 	vec3_t color;
 	vec3_t dir;
+
+	float radius;
 
 	int style;
 	float stopdot, stopdot2;
