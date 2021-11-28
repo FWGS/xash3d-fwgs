@@ -902,12 +902,12 @@ static struct {
 
 static int CheckSkybox( const char *name )
 {
-	const char	*skybox_ext[3] = { "dds", "tga", "bmp" };
+	const char	*skybox_ext[] = { "png", "dds", "tga", "bmp" };
 	int		i, j, num_checked_sides;
 	const char	*sidename;
 
 	// search for skybox images
-	for( i = 0; i < 3; i++ )
+	for( i = 0; i < ARRAYSIZE(skybox_ext); i++ )
 	{
 		num_checked_sides = 0;
 		for( j = 0; j < 6; j++ )
@@ -937,52 +937,24 @@ static int CheckSkybox( const char *name )
 	return SKYBOX_MISSED;
 }
 
-void XVK_SetupSky( const char *skyboxname )
-{
-	char	loadname[MAX_STRING];
-	char	sidename[MAX_STRING];
-	int	i, result, len;
+static qboolean loadSkybox( const char *prefix, int style ) {
 	rgbdata_t *sides[6];
 	qboolean success = false;
-
-	if( !COM_CheckString( skyboxname ))
-	{
-		unloadSkybox();
-		return; // clear old skybox
-	}
-
-	Q_snprintf( loadname, sizeof( loadname ), "gfx/env/%s", skyboxname );
-	COM_StripExtension( loadname );
-
-	// kill the underline suffix to find them manually later
-	len = Q_strlen( loadname );
-
-	if( loadname[len - 1] == '_' )
-		loadname[len - 1] = '\0';
-	result = CheckSkybox( loadname );
-
-	// to prevent infinite recursion if default skybox was missed
-	if( result == SKYBOX_MISSED && Q_stricmp( loadname, DEFAULT_SKYBOX_PATH ))
-	{
-		gEngine.Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", skyboxname );
-		XVK_SetupSky( "desert" ); // force to default
-		return;
-	}
+	int i;
 
 	// release old skybox
 	unloadSkybox();
 	gEngine.Con_DPrintf( "SKY:  " );
 
-	for( i = 0; i < 6; i++ )
-	{
-		if( result == SKYBOX_HLSTYLE )
-			Q_snprintf( sidename, sizeof( sidename ), "%s%s", loadname, g_skybox_info[i].suffix );
-		else Q_snprintf( sidename, sizeof( sidename ), "%s_%s", loadname, g_skybox_info[i].suffix );
+	for( i = 0; i < 6; i++ ) {
+		char sidename[MAX_STRING];
+		if( style == SKYBOX_HLSTYLE )
+			Q_snprintf( sidename, sizeof( sidename ), "%s%s", prefix, g_skybox_info[i].suffix );
+		else Q_snprintf( sidename, sizeof( sidename ), "%s_%s", prefix, g_skybox_info[i].suffix );
 
 		sides[i] = gEngine.FS_LoadImage( sidename, NULL, 0);
 		if (!sides[i] || !sides[i]->buffer)
 			break;
-
 
 		{
 			uint img_flags = g_skybox_info[i].flags;
@@ -991,16 +963,16 @@ void XVK_SetupSky( const char *skyboxname )
 				img_flags |= IMAGE_FORCE_RGBA;
 			gEngine.Image_Process( &sides[i], 0, 0, img_flags, 0.f );
 		}
-		gEngine.Con_DPrintf( "%s%s%s", skyboxname, g_skybox_info[i].suffix, i != 5 ? ", " : ". " );
+		gEngine.Con_DPrintf( "%s%s%s", prefix, g_skybox_info[i].suffix, i != 5 ? ", " : ". " );
 	}
 
 	if( i != 6 )
 		goto cleanup;
 
-	if( !Common_CheckTexName( loadname ))
+	if( !Common_CheckTexName( prefix ))
 		goto cleanup;
 
-	Q_strncpy( tglob.skybox_cube.name, loadname, sizeof( tglob.skybox_cube.name ));
+	Q_strncpy( tglob.skybox_cube.name, prefix, sizeof( tglob.skybox_cube.name ));
 	success = uploadTexture(&tglob.skybox_cube, sides, 6, true);
 
 cleanup:
@@ -1014,5 +986,41 @@ cleanup:
 		tglob.skybox_cube.name[0] = '\0';
 		gEngine.Con_DPrintf( "^2failed\n" );
 		unloadSkybox();
+	}
+
+	return success;
+}
+
+static const char *skybox_default = "desert";
+static const char *skybox_prefixes[] = { "pbr/env/%s", "gfx/env/%s" };
+
+void XVK_SetupSky( const char *skyboxname ) {
+	if( !COM_CheckString( skyboxname ))
+	{
+		unloadSkybox();
+		return; // clear old skybox
+	}
+
+	for (int i = 0; i < ARRAYSIZE(skybox_prefixes); ++i) {
+		char	loadname[MAX_STRING];
+		int style, len;
+
+		Q_snprintf( loadname, sizeof( loadname ), skybox_prefixes[i], skyboxname );
+		COM_StripExtension( loadname );
+
+		// kill the underline suffix to find them manually later
+		len = Q_strlen( loadname );
+
+		if( loadname[len - 1] == '_' )
+			loadname[len - 1] = '\0';
+		style = CheckSkybox( loadname );
+
+		if (loadSkybox(loadname, style))
+			return;
+	}
+
+	if (Q_stricmp(skyboxname, skybox_default) != 0) {
+		gEngine.Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", skyboxname );
+		XVK_SetupSky( "desert" ); // force to default
 	}
 }
