@@ -193,7 +193,7 @@ void XVK_CameraDebugPrintCenterEntity( void ) {
 	ent = gEngine.GetEntityByIndex( (physent && physent->info > 0) ? physent->info : 0 );
 
 	p += Q_snprintf(p, end - p,
-		"o\n"
+		"^\n"
 		"cam.origin: %.03f %.03f %.03f\n",
 		// TODO cam dir
 		// TODO hit pos

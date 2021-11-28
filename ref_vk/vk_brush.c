@@ -11,6 +11,7 @@
 #include "vk_scene.h"
 #include "vk_render.h"
 #include "vk_light.h"
+#include "vk_mapents.h"
 
 #include "ref_params.h"
 #include "eiface.h"
@@ -279,9 +280,9 @@ R_TextureAnimation
 Returns the proper texture for a given time and surface
 ===============
 */
-texture_t *R_TextureAnimation( const cl_entity_t *ent, const msurface_t *s )
+static const texture_t *R_TextureAnimation( const cl_entity_t *ent, const msurface_t *s, const struct texture_s *base_override )
 {
-	texture_t	*base = s->texinfo->texture;
+	const texture_t	*base = base_override ? base_override : s->texinfo->texture;
 	int	count, reletive;
 
 	if( ent && ent->curstate.frame )
@@ -344,11 +345,14 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode )
 		return;
 
 	for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
-		texture_t *t = R_TextureAnimation(ent, bmodel->render_model.geometries[i].surf);
+		vk_render_geometry_t *geom = bmodel->render_model.geometries + i;
+		const int surface_index = geom->surf - mod->surfaces;
+		const struct texture_s *override = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces[surface_index].tex : NULL;
+		const texture_t *t = R_TextureAnimation(ent, geom->surf, override);
 		if (t->gl_texturenum < 0)
 			continue;
 
-		bmodel->render_model.geometries[i].texture = t->gl_texturenum;
+		geom->texture = t->gl_texturenum;
 	}
 
 	bmodel->render_model.render_mode = render_mode;
@@ -373,6 +377,9 @@ static qboolean renderableSurface( const msurface_t *surf, int i ) {
 // 		PRINTFLAGS(PRINTFLAG)
 // 		gEngine.Con_Reportf("\n");
 // 	}
+//
+	if (g_map_entities.patch.surfaces && g_map_entities.patch.surfaces[i].flags & Patch_Surface_Delete)
+		return false;
 
 	//if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) ) {
 	if( surf->flags & ( SURF_DRAWTURB | SURF_DRAWTURB_QUADS ) ) {
@@ -457,11 +464,16 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			const float sample_size = gEngine.Mod_SampleSizeForFace( surf );
 			int index_count = 0;
 			vec3_t tangent;
+			int tex_id = surf->texinfo->texture->gl_texturenum;
+			const xvk_patch_surface_t *const psurf = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces + surface_index : NULL;
 
 			if (!renderableSurface(surf, -1))
 				continue;
 
-			if (t != surf->texinfo->texture->gl_texturenum)
+			if (psurf && psurf->flags & Patch_Surface_Texture)
+				tex_id = psurf->tex_id;
+
+			if (t != tex_id)
 				continue;
 
 			++num_geometries;
@@ -476,7 +488,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			}
 
 			model_geometry->surf = surf;
-			model_geometry->texture = surf->texinfo->texture->gl_texturenum;
+			model_geometry->texture = tex_id;
 
 			model_geometry->vertex_offset = vertex_buffer.buffer.unit.offset;
 			model_geometry->max_vertex = vertex_offset + surf->numedges;
@@ -494,6 +506,12 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 
 			if (FBitSet( surf->flags, SURF_CONVEYOR )) {
 				model_geometry->material = kXVkMaterialConveyor;
+			}
+
+			// FIXME material should be flags
+			if (psurf && psurf->flags & Patch_Surface_Emissive) {
+				model_geometry->material = kXVkMaterialEmissive;
+				VectorCopy(psurf->emissive, model_geometry->emissive);
 			}
 
 			VectorCopy(surf->texinfo->vecs[0], tangent);

@@ -15,6 +15,10 @@
 	X(10, string, targetname, String) \
 	X(11, string, target, String) \
 	X(12, int, style, Int) \
+	X(13, int, _xvk_surface_id, Int) \
+	X(14, string, _xvk_texture, String) \
+	X(15, int, _xvk_ent_id, Int) \
+	X(16, float, radius, Float) \
 
 typedef enum {
 	Unknown = 0,
@@ -41,11 +45,14 @@ typedef enum {
 typedef enum { LightTypePoint, LightTypeSurface, LightTypeSpot, LightTypeEnvironment} LightType;
 
 typedef struct {
+	int entity_index;
 	LightType type;
 
 	vec3_t origin;
 	vec3_t color;
 	vec3_t dir;
+
+	float radius;
 
 	int style;
 	float stopdot, stopdot2;
@@ -57,6 +64,26 @@ typedef struct {
 	string targetname;
 	vec3_t origin;
 } xvk_mapent_target_t;
+
+enum {
+	Patch_Surface_NoPatch = 0,
+	Patch_Surface_Delete = 0x01,
+	Patch_Surface_Texture = 0x02,
+	Patch_Surface_Emissive = 0x04,
+};
+
+struct texture_s;
+
+typedef struct {
+	uint32_t flags;
+	int tex_id;
+	const struct texture_s *tex;
+	vec3_t emissive;
+} xvk_patch_surface_t;
+
+typedef struct {
+	xvk_patch_surface_t *surfaces;
+} xvk_patch_t;
 
 #define MAX_MAPENT_TARGETS 256
 
@@ -70,6 +97,8 @@ typedef struct {
 
 	int num_targets;
 	xvk_mapent_target_t targets[MAX_MAPENT_TARGETS];
+
+	xvk_patch_t patch;
 } xvk_map_entities_t;
 
 extern xvk_map_entities_t g_map_entities;

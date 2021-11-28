@@ -337,7 +337,7 @@ static void clusterBitMapClear( void ) {
 // Returns true if wasn't set
 static qboolean clusterBitMapCheckOrSet( int cell_index ) {
 	uint32_t *const bits = g_lights_tmp.clusters_bit_map + (cell_index / 32);
-	const uint32_t bit = 1 << (cell_index % 32);
+	const uint32_t bit = 1u << (cell_index % 32);
 
 	if ((*bits) & bit)
 		return false;
@@ -604,7 +604,7 @@ void VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const
 	if (!geom->surf)
 		goto fin; // TODO break? no surface means that model is not brush
 
-	if (/* geom->material != kXVkMaterialSky &&  */geom->material != kXVkMaterialEmissive && !g_lights.map.emissive_textures[texture_num].set)
+	if (geom->material != kXVkMaterialEmissive && !g_lights.map.emissive_textures[texture_num].set)
 		goto fin;
 
 	if (g_lights.num_emissive_surfaces >= 256)
@@ -634,11 +634,10 @@ void VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const
 
 		// Insert into emissive surfaces
 		esurf->kusok_index = geom->kusok_index;
-		if (/* geom->material != kXVkMaterialSky &&  */geom->material != kXVkMaterialEmissive) {
+		if (geom->material != kXVkMaterialEmissive) {
 			VectorCopy(g_lights.map.emissive_textures[texture_num].emissive, esurf->emissive);
 		} else {
-			// TODO see #227
-			VectorSet(esurf->emissive, 0.f, 0.f, 0.f);
+			VectorCopy(geom->emissive, esurf->emissive);
 		}
 		Matrix3x4_Copy(esurf->transform, *transform_row);
 
@@ -864,17 +863,22 @@ static void processStaticPointLights( void ) {
 		const float default_radius = 50.f; // FIXME tune
 		const float hack_attenuation = 100.f; // FIXME tune
 		const float hack_attenuation_spot = 100.f; // FIXME tune
+		float radius = le->radius > 0.f ? le->radius : default_radius;
 		int index;
 
 		switch (le->type) {
 			case LightTypePoint:
-				index = addPointLight(le->origin, le->color, default_radius, le->style, hack_attenuation);
+				index = addPointLight(le->origin, le->color, radius, le->style, hack_attenuation);
 				break;
 
 			case LightTypeSpot:
 			case LightTypeEnvironment:
-				index = addSpotLight(le, default_radius, le->style, hack_attenuation_spot, i == g_map_entities.single_environment_index);
+				index = addSpotLight(le, radius, le->style, hack_attenuation_spot, i == g_map_entities.single_environment_index);
 				break;
+
+			default:
+				ASSERT(!"Unexpected light type");
+				continue;
 		}
 
 		if (index < 0)
@@ -902,7 +906,6 @@ void VK_LightsLoadMapStaticLights( void ) {
 		}
 	}
 
-	XVK_ParseMapEntities();
 	processStaticPointLights();
 
 	// Load RAD data based on map name

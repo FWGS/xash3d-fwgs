@@ -100,6 +100,9 @@ typedef struct  vk_render_geometry_s {
 
 	// Index into kusochki buffer for current frame
 	uint32_t kusok_index;
+
+	// for kXVkMaterialEmissive
+	vec3_t emissive;
 } vk_render_geometry_t;
 
 struct vk_ray_model_s;
