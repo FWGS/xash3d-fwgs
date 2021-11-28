@@ -644,7 +644,7 @@ qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 	return false;
 }
 
-static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale, int texture, int render_mode )
+static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale, int texture, int render_mode, vec3_t color )
 {
 	vec3_t	point;
 	xvk_render_buffer_allocation_t vertex_buffer, index_buffer;
@@ -710,6 +710,8 @@ static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec
 
 			.element_count = 6,
 			.index_offset = index_buffer.buffer.unit.offset,
+
+			.emissive = {color[0], color[1], color[2]},
 		};
 
 		VK_RenderModelDynamicBegin( render_mode, "%s", debug_name );
@@ -937,7 +939,7 @@ void VK_SpriteDrawModel( cl_entity_t *e )
 		ubo->color[3] = tr.blend;
 		*/
 		VK_RenderStateSetColor( color[0], color[1], color[2], .5f ); // FIXME VK: tr.blend
-		R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode );
+		R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode, color );
 	}
 	else
 	{
@@ -949,14 +951,14 @@ void VK_SpriteDrawModel( cl_entity_t *e )
 		{
 			// FIXME VK make sure we end up with the same values as gl
 			VK_RenderStateSetColor( color[0], color[1], color[2], 1.f * ilerp );
-			R_DrawSpriteQuad( model->name, oldframe, origin, v_right, v_up, scale, oldframe->gl_texturenum, e->curstate.rendermode  );
+			R_DrawSpriteQuad( model->name, oldframe, origin, v_right, v_up, scale, oldframe->gl_texturenum, e->curstate.rendermode, color );
 		}
 
 		if( lerp != 0.0f )
 		{
 			// FIXME VK make sure we end up with the same values as gl
 			VK_RenderStateSetColor( color[0], color[1], color[2], 1.f * lerp );
-			R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode  );
+			R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode, color );
 		}
 	}
 

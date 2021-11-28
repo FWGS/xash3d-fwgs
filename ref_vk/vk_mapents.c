@@ -251,9 +251,10 @@ static void readWorldspawn( const entity_props_t *props ) {
 	Q_strcpy(g_map_entities.wadlist, props->wad);
 }
 
-static void addPatchSurface( const entity_props_t *props ) {
+static void addPatchSurface( const entity_props_t *props, uint32_t have_fields ) {
 	const model_t* const map = gEngine.pfnGetModelByIndex( 1 );
 	const int num_surfaces = map->numsurfaces;
+	xvk_patch_surface_t *psurf = NULL;
 	if (props->_xvk_surface_id < 0 || props->_xvk_surface_id >= num_surfaces) {
 		gEngine.Con_Printf(S_ERROR "Incorrect patch for surface_index %d where numsurfaces=%d\n", props->_xvk_surface_id, num_surfaces);
 		return;
@@ -262,31 +263,46 @@ static void addPatchSurface( const entity_props_t *props ) {
 	if (!g_map_entities.patch.surfaces) {
 		g_map_entities.patch.surfaces = Mem_Malloc(vk_core.pool, num_surfaces * sizeof(xvk_patch_surface_t));
 		for (int i = 0; i < num_surfaces; ++i) {
-			g_map_entities.patch.surfaces[i].tex_id = Patch_Surface_NoPatch;
+			g_map_entities.patch.surfaces[i].flags = Patch_Surface_NoPatch;
+			g_map_entities.patch.surfaces[i].tex_id = -1;
 			g_map_entities.patch.surfaces[i].tex = NULL;
 		}
 	}
 
-	if (props->_xvk_texture[0] != '\0') {
-		const int tex_id = VK_FindTexture( props->_xvk_texture );
-		gEngine.Con_Printf(S_WARN "Patch for surface %d with texture \"%s\" -> %d\n", props->_xvk_surface_id, props->_xvk_texture, tex_id);
-		g_map_entities.patch.surfaces[props->_xvk_surface_id].tex_id = tex_id;
+	psurf = g_map_entities.patch.surfaces + props->_xvk_surface_id;
 
-		// Find texture_t for this index
-		for (int i = 0; i < map->numtextures; ++i) {
-			const texture_t* const tex = map->textures[i];
-			if (tex->gl_texturenum == tex_id) {
-				g_map_entities.patch.surfaces[props->_xvk_surface_id].tex = tex;
-				break;
+	if (have_fields & Field__xvk_texture) {
+		if (props->_xvk_texture[0] == '\0') {
+			gEngine.Con_Reportf("Patch: surface %d removed\n", props->_xvk_surface_id);
+			psurf->flags = Patch_Surface_Delete;
+			return;
+		} else {
+			const int tex_id = VK_FindTexture( props->_xvk_texture );
+			gEngine.Con_Reportf("Patch for surface %d with texture \"%s\" -> %d\n", props->_xvk_surface_id, props->_xvk_texture, tex_id);
+			psurf->tex_id = tex_id;
+
+			// Find texture_t for this index
+			for (int i = 0; i < map->numtextures; ++i) {
+				const texture_t* const tex = map->textures[i];
+				if (tex->gl_texturenum == tex_id) {
+					psurf->tex = tex;
+					break;
+				}
 			}
-		}
 
-		return;
+			psurf->flags |= Patch_Surface_Texture;
+		}
 	}
 
-	gEngine.Con_Reportf("Patch: surface %d removed\n", props->_xvk_surface_id);
-	g_map_entities.patch.surfaces[props->_xvk_surface_id].tex_id = Patch_Surface_Delete;
-	g_map_entities.patch.surfaces[props->_xvk_surface_id].tex = NULL;
+	if (have_fields & Field__light) {
+		VectorCopy(props->_light, psurf->emissive);
+		psurf->flags |= Patch_Surface_Emissive;
+		gEngine.Con_Reportf("Patch for surface %d: assign emissive %f %f %f\n", props->_xvk_surface_id,
+			psurf->emissive[0],
+			psurf->emissive[1],
+			psurf->emissive[2]
+		);
+	}
 }
 
 static void parseEntities( char *string ) {
@@ -323,8 +339,8 @@ static void parseEntities( char *string ) {
 					break;
 
 				case Unknown:
-					if (have_fields & Field__xvk_surface_id && have_fields & Field__xvk_texture) {
-						addPatchSurface( &values );
+					if (have_fields & Field__xvk_surface_id) {
+						addPatchSurface( &values, have_fields );
 					}
 					break;
 				case Ignored:

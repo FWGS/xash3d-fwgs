@@ -390,9 +390,10 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 
 			.element_count = total_indices,
 			.index_offset = index_buffer.buffer.unit.offset,
+
+			.emissive = { color[0], color[1], color[2] },
 		};
 
-		// FIXME .emissive = { color[0], color[1], color[2] },
 
 		VK_RenderModelDynamicBegin( render_mode, "beam" /* TODO its name */ );
 		VK_RenderModelDynamicAddGeometry( &geometry );

@@ -378,7 +378,7 @@ static qboolean renderableSurface( const msurface_t *surf, int i ) {
 // 		gEngine.Con_Reportf("\n");
 // 	}
 //
-	if (g_map_entities.patch.surfaces && g_map_entities.patch.surfaces[i].tex_id == Patch_Surface_Delete)
+	if (g_map_entities.patch.surfaces && g_map_entities.patch.surfaces[i].flags & Patch_Surface_Delete)
 		return false;
 
 	//if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) ) {
@@ -465,15 +465,13 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			int index_count = 0;
 			vec3_t tangent;
 			int tex_id = surf->texinfo->texture->gl_texturenum;
+			const xvk_patch_surface_t *const psurf = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces + surface_index : NULL;
 
 			if (!renderableSurface(surf, -1))
 				continue;
 
-			if (g_map_entities.patch.surfaces) {
-				const int patch = g_map_entities.patch.surfaces[surface_index].tex_id;
-				if (patch != Patch_Surface_NoPatch)
-					tex_id = patch;
-			}
+			if (psurf && psurf->flags & Patch_Surface_Texture)
+				tex_id = psurf->tex_id;
 
 			if (t != tex_id)
 				continue;
@@ -508,6 +506,12 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 
 			if (FBitSet( surf->flags, SURF_CONVEYOR )) {
 				model_geometry->material = kXVkMaterialConveyor;
+			}
+
+			// FIXME material should be flags
+			if (psurf && psurf->flags & Patch_Surface_Emissive) {
+				model_geometry->material = kXVkMaterialEmissive;
+				VectorCopy(psurf->emissive, model_geometry->emissive);
 			}
 
 			VectorCopy(surf->texinfo->vecs[0], tangent);

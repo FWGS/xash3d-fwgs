@@ -63,15 +63,19 @@ typedef struct {
 } xvk_mapent_target_t;
 
 enum {
-	Patch_Surface_NoPatch = -1,
-	Patch_Surface_Delete = -2,
+	Patch_Surface_NoPatch = 0,
+	Patch_Surface_Delete = 0x01,
+	Patch_Surface_Texture = 0x02,
+	Patch_Surface_Emissive = 0x04,
 };
 
 struct texture_s;
 
 typedef struct {
+	uint32_t flags;
 	int tex_id;
 	const struct texture_s *tex;
+	vec3_t emissive;
 } xvk_patch_surface_t;
 
 typedef struct {
