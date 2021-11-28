@@ -17,8 +17,7 @@
 	X(12, int, style, Int) \
 	X(13, int, _xvk_surface_id, Int) \
 	X(14, string, _xvk_texture, String) \
-
-	//X(13, int, _xvk_ent_id, Int) \
+	X(15, int, _xvk_ent_id, Int) \
 
 typedef enum {
 	Unknown = 0,
@@ -45,6 +44,7 @@ typedef enum {
 typedef enum { LightTypePoint, LightTypeSurface, LightTypeSpot, LightTypeEnvironment} LightType;
 
 typedef struct {
+	int entity_index;
 	LightType type;
 
 	vec3_t origin;

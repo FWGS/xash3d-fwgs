@@ -5,6 +5,7 @@
 
 #include "eiface.h" // ARRAYSIZE
 #include "xash3d_mathlib.h"
+#include <string.h>
 
 xvk_map_entities_t g_map_entities;
 
@@ -146,7 +147,61 @@ static void parseStopDot( const entity_props_t *props, vk_light_entity_t *le) {
 	le->stopdot2 = cosf(le->stopdot2 * M_PI / 180.f);
 }
 
-static void addLightEntity( const entity_props_t *props, unsigned have_fields ) {
+static void fillLightFromProps( vk_light_entity_t *le, const entity_props_t *props, unsigned have_fields, qboolean patch, int entity_index ) {
+	switch (le->type) {
+		case LightTypePoint:
+			break;
+
+		case LightTypeSpot:
+		case LightTypeEnvironment:
+			if (!patch || (have_fields & Field_pitch) || (have_fields & Field_angles) || (have_fields & Field_angle)) {
+				parseAngles(props, le);
+			}
+
+			if (!patch || (have_fields & Field__cone) || (have_fields & Field__cone2)) {
+				parseStopDot(props, le);
+			}
+			break;
+
+		default:
+			ASSERT(false);
+	}
+
+	if (have_fields & Field_target)
+		Q_strcpy(le->target_entity, props->target);
+
+	if (have_fields & Field_origin)
+		VectorCopy(props->origin, le->origin);
+
+	if (have_fields & Field__light)
+	{
+		VectorCopy(props->_light, le->color);
+	} else if (!patch) {
+		// same as qrad
+		VectorSet(le->color, 300, 300, 300);
+	}
+
+	if ( (have_fields & Field_style) != 0) {
+		le->style = props->style;
+	}
+
+	if (le->type != LightEnvironment && (!patch || (have_fields & Field__light))) {
+		weirdGoldsrcLightScaling(le->color);
+	}
+
+	gEngine.Con_Reportf("%s light %d (ent=%d): %s targetname=%s color=(%f %f %f) origin=(%f %f %f) style=%d dir=(%f %f %f) stopdot=(%f %f)\n",
+		patch ? "Patch" : "Added",
+		g_map_entities.num_lights, entity_index,
+		le->type == LightTypeEnvironment ? "environment" : le->type == LightTypeSpot ? "spot" : "point",
+		props->targetname,
+		le->color[0], le->color[1], le->color[2],
+		le->origin[0], le->origin[1], le->origin[2],
+		le->style,
+		le->dir[0], le->dir[1], le->dir[2],
+		le->stopdot, le->stopdot2);
+}
+
+static void addLightEntity( const entity_props_t *props, unsigned have_fields, int entity_index ) {
 	const int index = g_map_entities.num_lights;
 	vk_light_entity_t *le = g_map_entities.lights + index;
 	unsigned expected_fields = 0;
@@ -172,61 +227,32 @@ static void addLightEntity( const entity_props_t *props, unsigned have_fields ) 
 				le->type = LightTypeSpot;
 				expected_fields = Field_origin | Field__cone | Field__cone2;
 			}
-			parseAngles(props, le);
-			parseStopDot(props, le);
 			break;
 
 		case LightEnvironment:
 			le->type = LightTypeEnvironment;
-			parseAngles(props, le);
-			parseStopDot(props, le);
-
-			if (g_map_entities.single_environment_index == NoEnvironmentLights) {
-				g_map_entities.single_environment_index = index;
-			} else {
-				g_map_entities.single_environment_index = MoreThanOneEnvironmentLight;
-			}
 			break;
-	}
 
-	if (have_fields & Field_target)
-		Q_strcpy(le->target_entity, props->target);
+		default:
+			ASSERT(false);
+	}
 
 	if ((have_fields & expected_fields) != expected_fields) {
 		gEngine.Con_Printf(S_ERROR "Missing some fields for light entity\n");
 		return;
 	}
 
-	VectorCopy(props->origin, le->origin);
-
-	if ( (have_fields & Field__light) == 0 )
-	{
-		// same as qrad
-		VectorSet(le->color, 300, 300, 300);
-	} else {
-		VectorCopy(props->_light, le->color);
+	if (le->type == LightTypeEnvironment) {
+		if (g_map_entities.single_environment_index == NoEnvironmentLights) {
+			g_map_entities.single_environment_index = index;
+		} else {
+			g_map_entities.single_environment_index = MoreThanOneEnvironmentLight;
+		}
 	}
 
-	if ( (have_fields & Field_style) != 0) {
-		le->style = props->style;
-	}
+	fillLightFromProps(le, props, have_fields, false, entity_index);
 
-	if (le->type != LightEnvironment) {
-		//gEngine.Con_Reportf("Pre scaling: %f %f %f ", values._light[0], values._light[1], values._light[2]);
-		weirdGoldsrcLightScaling(le->color);
-		//gEngine.Con_Reportf("post scaling: %f %f %f\n", values._light[0], values._light[1], values._light[2]);
-	}
-
-	gEngine.Con_Reportf("Added light %d: %s targetname=%s color=(%f %f %f) origin=(%f %f %f) style=%d dir=(%f %f %f) stopdot=(%f %f)\n",
-		g_map_entities.num_lights,
-		le->type == LightTypeEnvironment ? "environment" : le->type == LightTypeSpot ? "spot" : "point",
-		props->targetname,
-		le->color[0], le->color[1], le->color[2],
-		le->origin[0], le->origin[1], le->origin[2],
-		le->style,
-		le->dir[0], le->dir[1], le->dir[2],
-		le->stopdot, le->stopdot2);
-
+	le->entity_index = entity_index;
 	g_map_entities.num_lights++;
 }
 
@@ -305,7 +331,34 @@ static void addPatchSurface( const entity_props_t *props, uint32_t have_fields )
 	}
 }
 
-static void parseEntities( char *string ) {
+int findLightEntityWithIndex( int index ) {
+	// TODO could do binary search (entities are sorted by index) but why
+	for (int i = 0; i < g_map_entities.num_lights; ++i) {
+		if (g_map_entities.lights[i].entity_index == index)
+			return i;
+	}
+
+	return -1;
+}
+
+static void addPatchEntity( const entity_props_t *props, uint32_t have_fields ) {
+	const int light_index = findLightEntityWithIndex( props->_xvk_ent_id );
+	if (light_index < 0) {
+		gEngine.Con_Printf(S_ERROR "Patch light entity with index=%d not found\n", props->_xvk_ent_id);
+		return;
+	}
+
+	if (have_fields == Field__xvk_ent_id) {
+		gEngine.Con_Reportf("Deleting light entity (%d of %d) with index=%d\n", light_index, g_map_entities.num_lights, props->_xvk_ent_id);
+		g_map_entities.num_lights--;
+		memmove(g_map_entities.lights + light_index, g_map_entities.lights + light_index + 1, sizeof(*g_map_entities.lights) * g_map_entities.num_lights - light_index);
+		return;
+	}
+
+	fillLightFromProps(g_map_entities.lights + light_index, props, have_fields, true, props->_xvk_ent_id);
+}
+
+static void parseEntities( char *string, int *count ) {
 	unsigned have_fields = 0;
 	entity_props_t values;
 	char *pos = string;
@@ -331,7 +384,7 @@ static void parseEntities( char *string ) {
 				case Light:
 				case LightSpot:
 				case LightEnvironment:
-					addLightEntity( &values, have_fields );
+					addLightEntity( &values, have_fields, *count );
 					break;
 
 				case Worldspawn:
@@ -341,12 +394,16 @@ static void parseEntities( char *string ) {
 				case Unknown:
 					if (have_fields & Field__xvk_surface_id) {
 						addPatchSurface( &values, have_fields );
+					} else if (have_fields & Field__xvk_ent_id) {
+						addPatchEntity( &values, have_fields );
 					}
 					break;
 				case Ignored:
 					// Skip
 					break;
 			}
+
+			++(*count);
 			continue;
 		}
 
@@ -406,7 +463,7 @@ static void orientSpotlights( void ) {
 	}
 }
 
-static void parsePatches( const model_t *const map ) {
+static void parsePatches( const model_t *const map, int *count) {
 	char filename[256];
 	byte *data;
 
@@ -423,12 +480,13 @@ static void parsePatches( const model_t *const map ) {
 		return;
 	}
 
-	parseEntities( (char*)data );
+	parseEntities( (char*)data, count );
 	Mem_Free(data);
 }
 
 void XVK_ParseMapEntities( void ) {
 	const model_t* const map = gEngine.pfnGetModelByIndex( 1 );
+	int entities_count = 0;
 
 	ASSERT(map);
 
@@ -436,8 +494,8 @@ void XVK_ParseMapEntities( void ) {
 	g_map_entities.num_lights = 0;
 	g_map_entities.single_environment_index = NoEnvironmentLights;
 
-	parseEntities( map->entities );
-	parsePatches( map );
+	parseEntities( map->entities, &entities_count );
+	parsePatches( map, &entities_count );
 
 	orientSpotlights();
 }
