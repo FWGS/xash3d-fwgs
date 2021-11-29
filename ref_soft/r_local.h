@@ -59,7 +59,7 @@ extern poolhandle_t r_temppool;
 #define BLOCK_SIZE_DEFAULT	128		// for keep backward compatibility
 #define BLOCK_SIZE_MAX	1024
 
-#define MAX_TEXTURES	4096
+#define MAX_TEXTURES	8192 // a1ba: increased by users request
 #define MAX_DECAL_SURFS	4096
 
 #if XASH_LOW_MEMORY
