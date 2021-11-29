@@ -414,11 +414,12 @@ static model_sizes_t computeSizes( const model_t *mod ) {
 
 	for( int i = 0; i < mod->nummodelsurfaces; ++i)
 	{
-		const msurface_t *surf = mod->surfaces + mod->firstmodelsurface + i;
+		const int surface_index = mod->firstmodelsurface + i;
+		const msurface_t *surf = mod->surfaces + surface_index;
 
 		sizes.water_surfaces += !!(surf->flags & (SURF_DRAWTURB | SURF_DRAWTURB_QUADS));
 
-		if (!renderableSurface(surf, i))
+		if (!renderableSurface(surf, surface_index))
 			continue;
 
 		++sizes.num_surfaces;
@@ -467,7 +468,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			int tex_id = surf->texinfo->texture->gl_texturenum;
 			const xvk_patch_surface_t *const psurf = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces + surface_index : NULL;
 
-			if (!renderableSurface(surf, -1))
+			if (!renderableSurface(surf, surface_index))
 				continue;
 
 			if (psurf && psurf->flags & Patch_Surface_Texture)
