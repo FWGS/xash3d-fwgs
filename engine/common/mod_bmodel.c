@@ -2780,13 +2780,28 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	if( isworld ) world.flags = 0;	// clear world settings
 	bmod->isworld = isworld;
 
-	if( header->version == HLBSP_VERSION &&
-		header->lumps[LUMP_ENTITIES].fileofs <= 1024 &&
-		(header->lumps[LUMP_ENTITIES].filelen % sizeof( dplane_t )) == 0 )
+	if( header->version == HLBSP_VERSION )
 	{
-		// blue-shift swapped lumps
-		srclumps[0].lumpnumber = LUMP_PLANES;
-		srclumps[1].lumpnumber = LUMP_ENTITIES;
+		// only relevant for half-life maps
+		if( header->lumps[LUMP_ENTITIES].fileofs <= 1024 &&
+			(header->lumps[LUMP_ENTITIES].filelen % sizeof( dplane_t )) == 0 )
+		{
+			// blue-shift swapped lumps
+			srclumps[0].lumpnumber = LUMP_PLANES;
+			srclumps[1].lumpnumber = LUMP_ENTITIES;
+		}
+		else
+		{
+			// everything else
+			srclumps[0].lumpnumber = LUMP_ENTITIES;
+			srclumps[1].lumpnumber = LUMP_PLANES;
+		}
+	}
+	else
+	{
+		// everything else
+		srclumps[0].lumpnumber = LUMP_ENTITIES;
+		srclumps[1].lumpnumber = LUMP_PLANES;
 	}
 
 	// loading base lumps
