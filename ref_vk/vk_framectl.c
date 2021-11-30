@@ -313,11 +313,7 @@ static qboolean createSwapchain( void )
 void R_BeginFrame( qboolean clearScene )
 {
 	if (vk_core.rtx && FBitSet( vk_rtx->flags, FCVAR_CHANGED )) {
-		if( CVAR_TO_BOOL( vk_rtx )) {
-			g_frame.rtx_enabled = 1;
-		} else {
-			g_frame.rtx_enabled = 0;
-		}
+		g_frame.rtx_enabled = CVAR_TO_BOOL( vk_rtx );
 	}
 	{
 		gEngine.Con_NPrintf(5, "Perf scopes:");
