@@ -1946,6 +1946,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 		for(int j = 0; j < vertices ; ++j, ++dst_vtx, ptricmds += 4 )
 		{
 			ASSERT((((vk_vertex_t*)vertex_buffer.ptr) + num_vertices) > dst_vtx);
+			*dst_vtx = (vk_vertex_t){0};
 
 			VectorCopy(g_studio.verts[ptricmds[0]], dst_vtx->pos);
 			VectorCopy(g_studio.norms[ptricmds[0]], dst_vtx->normal);
