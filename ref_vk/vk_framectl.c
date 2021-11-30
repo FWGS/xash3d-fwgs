@@ -4,6 +4,7 @@
 #include "vk_scene.h"
 #include "vk_render.h"
 #include "vk_rtx.h"
+#include "vk_cvar.h"
 
 #include "profiler.h"
 
@@ -311,6 +312,13 @@ static qboolean createSwapchain( void )
 
 void R_BeginFrame( qboolean clearScene )
 {
+	if (vk_core.rtx && FBitSet( vk_rtx->flags, FCVAR_CHANGED )) {
+		if( CVAR_TO_BOOL( vk_rtx )) {
+			g_frame.rtx_enabled = 1;
+		} else {
+			g_frame.rtx_enabled = 0;
+		}
+	}
 	{
 		gEngine.Con_NPrintf(5, "Perf scopes:");
 		for (int i = 0; i < g_aprof.num_scopes; ++i) {
@@ -527,8 +535,9 @@ qboolean VK_FrameCtlInit( void )
 
 	g_frame.rtx_enabled = vk_core.rtx;
 
-	if (vk_core.rtx)
+	if (vk_core.rtx) {
 		gEngine.Cmd_AddCommand("vk_rtx_toggle", toggleRaytracing, "Toggle between rasterization and ray tracing");
+	}
 
 	return true;
 }
