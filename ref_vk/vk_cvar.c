@@ -1,5 +1,6 @@
 #include "vk_cvar.h"
 #include "vk_common.h"
+#include "vk_render.h"
 
 #define NONEXTERN_CVAR(cvar) cvar_t *cvar;
 DECLARE_CVAR(NONEXTERN_CVAR)
@@ -19,5 +20,10 @@ void VK_LoadCvars( void )
 	vk_rtx_light_end = gEngine.Cvar_Get( "vk_rtx_light_end", "0", 0, "DEBUG: disable lights with index higher than this ");
 	r_lightmap = gEngine.Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
 	ui_infotool = gEngine.Cvar_Get( "ui_infotool", "0", FCVAR_CHEAT, "DEBUG: print entity info under crosshair" );
-	vk_rtx = gEngine.Cvar_Get( "vk_rtx", "1", FCVAR_ARCHIVE, "Enable or disable ray tracing mode" );
+	vk_rtx_extension = gEngine.Cvar_Get( "vk_rtx_extension", vk_core.rtx ? "1" : "0", FCVAR_READ_ONLY, "" );
+	if (vk_core.rtx) {
+		vk_rtx = gEngine.Cvar_Get( "vk_rtx", "1", FCVAR_GLCONFIG, "Enable or disable Ray Tracing mode" );
+	} else {
+		vk_rtx = gEngine.Cvar_Get( "vk_rtx", "0", FCVAR_READ_ONLY, "DISABLED: not supported without -rtx" );
+	}
 }

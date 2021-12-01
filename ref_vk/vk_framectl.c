@@ -512,6 +512,7 @@ void R_EndFrame( void )
 static void toggleRaytracing( void ) {
 	ASSERT(vk_core.rtx);
 	g_frame.rtx_enabled = !g_frame.rtx_enabled;
+	gEngine.Cvar_Set("vk_rtx", g_frame.rtx_enabled ? "1" : "0");
 	gEngine.Con_Printf(S_WARN "Switching ray tracing to %d\n", g_frame.rtx_enabled);
 }
 
