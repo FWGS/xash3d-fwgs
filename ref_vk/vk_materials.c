@@ -180,7 +180,6 @@ void XVK_ReloadMaterials( void ) {
 	loadMaterialsFromFile( "pbr/materials.mat" );
 	loadMaterialsFromFile( "pbr/models/materials.mat" );
 	loadMaterialsFromFile( "pbr/sprites/materials.mat" );
-	loadMaterialsFromFile( "pbr/gfx/env/materials.mat" );
 
 	{
 		const char *wad = g_map_entities.wadlist;
