@@ -315,6 +315,7 @@ void R_BeginFrame( qboolean clearScene )
 	if (vk_core.rtx && FBitSet( vk_rtx->flags, FCVAR_CHANGED )) {
 		g_frame.rtx_enabled = CVAR_TO_BOOL( vk_rtx );
 	}
+	ClearBits( vk_rtx->flags, FCVAR_CHANGED );
 	{
 		gEngine.Con_NPrintf(5, "Perf scopes:");
 		for (int i = 0; i < g_aprof.num_scopes; ++i) {
