@@ -5,6 +5,19 @@
 
 #include <stdio.h>
 
+static const xvk_material_t k_default_material = {
+		.tex_base_color = -1,
+		.tex_metalness = 0,
+		.tex_roughness = 0,
+		.tex_normalmap = 0,
+
+		.metalness = 0.f,
+		.roughness = 1.f,
+		.base_color = { 1.f, 1.f, 1.f },
+
+		.set = false,
+};
+
 static struct {
 	xvk_material_t materials[MAX_TEXTURES];
 } g_materials;
@@ -50,7 +63,7 @@ static void loadMaterialsFromFile( const char *filename ) {
 		.base_color = -1,
 		.metalness = tglob.blackTexture,
 		.roughness = tglob.whiteTexture,
-		.normalmap = 0,
+		.tex_normalmap = 0,
 	};
 	int current_material_index = -1;
 	qboolean force_reload = false;
@@ -75,20 +88,15 @@ static void loadMaterialsFromFile( const char *filename ) {
 			break;
 
 		if (key[0] == '{') {
-			current_material = (xvk_material_t){
-				.base_color = -1,
-				.metalness = tglob.blackTexture,
-				.roughness = tglob.whiteTexture,
-				.normalmap = 0,
-			};
+			current_material = k_default_material;
 			force_reload = false;
 			continue;
 		}
 
 		if (key[0] == '}') {
 			if (current_material_index >= 0) {
-				if (current_material.base_color == -1)
-					current_material.base_color = current_material_index;
+				if (current_material.tex_base_color == -1)
+					current_material.tex_base_color = current_material_index;
 				g_materials.materials[current_material_index] = current_material;
 				g_materials.materials[current_material_index].set = true;
 			}
@@ -105,16 +113,21 @@ static void loadMaterialsFromFile( const char *filename ) {
 			force_reload = Q_atoi(value) != 0;
 		} else {
 			char texture_path[256];
-			int *tex_id_dest;
-			int tex_id = -1;
+			int *tex_id_dest = NULL;
 			if (Q_stricmp(key, "basecolor_map") == 0) {
-				tex_id_dest = &current_material.base_color;
+				tex_id_dest = &current_material.tex_base_color;
 			} else if (Q_stricmp(key, "normal_map") == 0) {
-				tex_id_dest = &current_material.normalmap;
+				tex_id_dest = &current_material.tex_normalmap;
 			} else if (Q_stricmp(key, "metal_map") == 0) {
-				tex_id_dest = &current_material.metalness;
+				tex_id_dest = &current_material.tex_metalness;
 			} else if (Q_stricmp(key, "roughness_map") == 0) {
-				tex_id_dest = &current_material.roughness;
+				tex_id_dest = &current_material.tex_roughness;
+			} else if (Q_stricmp(key, "roughness") == 0) {
+				sscanf(value, "%f", &current_material.roughness);
+			} else if (Q_stricmp(key, "metalness") == 0) {
+				sscanf(value, "%f", &current_material.metalness);
+			} else if (Q_stricmp(key, "base_color") == 0) {
+				sscanf(value, "%f %f %f", &current_material.base_color[0], &current_material.base_color[1], &current_material.base_color[2]);
 			} else {
 				gEngine.Con_Printf(S_ERROR "Unknown material key %s\n", key);
 				continue;
@@ -128,13 +141,15 @@ static void loadMaterialsFromFile( const char *filename ) {
 				Q_snprintf(texture_path, sizeof(texture_path), "%.*s%s", (int)(path_end - path_begin), path_begin, value);
 			}
 
-			tex_id = loadTexture(texture_path, force_reload);
-			if (tex_id < 0) {
-				gEngine.Con_Printf(S_ERROR "Failed to load texture \"%s\" for key \"%s\"\n", value, key);
-				continue;
-			}
+			if (tex_id_dest) {
+				const int tex_id = loadTexture(texture_path, force_reload);
+				if (tex_id < 0) {
+					gEngine.Con_Printf(S_ERROR "Failed to load texture \"%s\" for key \"%s\"\n", value, key);
+					continue;
+				}
 
-			*tex_id_dest = tex_id;
+				*tex_id_dest = tex_id;
+			}
 		}
 	}
 
@@ -156,17 +171,10 @@ void XVK_ReloadMaterials( void ) {
 	for (int i = 0; i < MAX_TEXTURES; ++i) {
 		xvk_material_t *const mat = g_materials.materials + i;
 		const vk_texture_t *const tex = findTexture( i );
+		*mat = k_default_material;
 
-		if (!tex) {
-			mat->base_color = -1;
-			break;
-		}
-
-		mat->base_color = i;
-		mat->metalness = tglob.blackTexture;
-		mat->roughness = tglob.whiteTexture;
-		mat->normalmap = 0;
-		mat->set = false;
+		if (tex)
+			mat->tex_base_color = i;
 	}
 
 	loadMaterialsFromFile( "pbr/materials.mat" );

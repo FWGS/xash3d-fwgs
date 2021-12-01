@@ -73,12 +73,13 @@ void main() {
 
 	const int instance_kusochki_offset = gl_InstanceCustomIndexEXT;
 	const int kusok_index = instance_kusochki_offset + gl_GeometryIndexEXT;
+	const Kusok kusok = kusochki[kusok_index];
 
-	const uint first_index_offset = kusochki[kusok_index].index_offset + gl_PrimitiveID * 3;
+	const uint first_index_offset = kusok.index_offset + gl_PrimitiveID * 3;
 
-	const uint vi1 = uint(indices[first_index_offset+0]) + kusochki[kusok_index].vertex_offset;
-	const uint vi2 = uint(indices[first_index_offset+1]) + kusochki[kusok_index].vertex_offset;
-	const uint vi3 = uint(indices[first_index_offset+2]) + kusochki[kusok_index].vertex_offset;
+	const uint vi1 = uint(indices[first_index_offset+0]) + kusok.vertex_offset;
+	const uint vi2 = uint(indices[first_index_offset+1]) + kusok.vertex_offset;
+	const uint vi3 = uint(indices[first_index_offset+2]) + kusok.vertex_offset;
 
 	const vec3 pos[3] = {
 		gl_ObjectToWorldEXT * vec4(vertices[vi1].pos, 1.),
@@ -89,7 +90,7 @@ void main() {
 	const vec3 hit_pos = pos[0] * (1. - bary.x - bary.y) + pos[1] * bary.x + pos[2] * bary.y;
 	//const vec3 hit_pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT
 
-	const uint tex_base_color = kusochki[kusok_index].tex_base_color;
+	const uint tex_base_color = kusok.tex_base_color;
 	if ((tex_base_color & KUSOK_MATERIAL_FLAG_SKYBOX) != 0) {
 		payload.hit_pos_t = vec4(hit_pos, gl_HitTEXT);
 		payload.base_color = vec3(0.);
@@ -120,7 +121,7 @@ void main() {
 	};
 
 	const vec2 texture_uv_stationary = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y;
-	const vec2 texture_uv = texture_uv_stationary + push_constants.time * kusochki[kusok_index].uv_speed;
+	const vec2 texture_uv = texture_uv_stationary + push_constants.time * kusok.uv_speed;
 
 	const vec3 real_geom_normal = normalize(cross(pos[2]-pos[0], pos[1]-pos[0]));
 	const float geom_normal_sign = sign(dot(real_geom_normal, -gl_WorldRayDirectionEXT));
@@ -138,7 +139,7 @@ void main() {
 	/* const vec3 base_color = tex_color.rgb; */
 
 	normal *= geom_normal_sign;
-	const uint tex_normal = kusochki[kusok_index].tex_normalmap;
+	const uint tex_normal = kusok.tex_normalmap;
 	vec3 T = baryMix(vertices[vi1].tangent, vertices[vi2].tangent, vertices[vi3].tangent, bary);
 	if (tex_normal > 0 && dot(T,T) > .5) {
 		T = normalize(normalTransformMat * T);
@@ -152,14 +153,15 @@ void main() {
 	// FIXME read alpha from texture
 
 	payload.hit_pos_t = vec4(hit_pos + geom_normal * normal_offset_fudge, gl_HitTEXT);
-	payload.base_color = base_color * kusochki[kusok_index].color.rgb;
-	payload.transmissiveness = (1. - tex_color.a * kusochki[kusok_index].color.a);
+	payload.base_color = base_color * kusok.color.rgb;
+	payload.transmissiveness = (1. - tex_color.a * kusok.color.a);
 	payload.normal = normal;
 	payload.geometry_normal = geom_normal;
-	payload.emissive = kusochki[kusok_index].emissive * base_color; // TODO emissive should have a special texture
+	payload.emissive = kusok.emissive * base_color; // TODO emissive should have a special texture
 	payload.kusok_index = kusok_index;
-	payload.roughness = sampleTexture(kusochki[kusok_index].tex_roughness, texture_uv, uv_lods).r;
-	payload.metalness = sampleTexture(kusochki[kusok_index].tex_metalness, texture_uv, uv_lods).r;
+
+	payload.roughness = (kusok.tex_roughness > 0) ? sampleTexture(kusok.tex_roughness, texture_uv, uv_lods).r : kusok.roughness;
+	payload.metalness = (kusok.tex_metalness > 0) ? sampleTexture(kusok.tex_metalness, texture_uv, uv_lods).r : kusok.metalness;
 	payload.material_index = tex_index;
 	//payload.debug = vec4(texture_uv, uv_lods);
 

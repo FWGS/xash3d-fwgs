@@ -83,6 +83,7 @@ void main() {
 			vec3 sample_geometry_normal, sample_shading_normal;
 			readNormals(p, sample_geometry_normal, sample_shading_normal);
 
+			// FIXME also filter by depth, (kusok index?), etc
 			if ( dot(sample_geometry_normal, geometry_normal) < .99 )
 				continue;
 

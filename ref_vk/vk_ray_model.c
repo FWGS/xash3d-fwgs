@@ -372,10 +372,13 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		if (!render_model->static_map)
 			VK_LightsAddEmissiveSurface( geom, transform_row, false );
 
-		kusok->tex_base_color = mat->base_color;
-		kusok->tex_roughness = mat->roughness;
-		kusok->tex_metalness = mat->metalness;
-		kusok->tex_normalmap = mat->normalmap;
+		kusok->tex_base_color = mat->tex_base_color;
+		kusok->tex_roughness = mat->tex_roughness;
+		kusok->tex_metalness = mat->tex_metalness;
+		kusok->tex_normalmap = mat->tex_normalmap;
+
+		kusok->roughness = mat->roughness;
+		kusok->metalness = mat->metalness;
 
 		// HACK until there is a proper mechanism for patching materials, see https://github.com/w23/xash3d-fwgs/issues/213
 		// FIXME also this erases previous roughness unconditionally
@@ -390,6 +393,9 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		}
 
 		Vector4Copy(color, kusok->color);
+		kusok->color[0] *= mat->base_color[0];
+		kusok->color[1] *= mat->base_color[1];
+		kusok->color[2] *= mat->base_color[2];
 
 		if (geom->material == kXVkMaterialEmissive) {
 			VectorCopy( geom->emissive, kusok->emissive );

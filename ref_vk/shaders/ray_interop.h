@@ -50,9 +50,13 @@ struct Kusok {
 	vec3 emissive;
 	uint tex_roughness;
 
-	vec2 uv_speed; // for conveyors
+	vec2 uv_speed; // for conveyors; TODO this can definitely be done in software more efficiently (there only a handful of these per map)
 	uint tex_metalness;
 	uint tex_normalmap;
+
+	float roughness;
+	float metalness;
+	PAD(2)
 };
 
 struct PointLight {
