@@ -510,7 +510,8 @@ void Cvar_DirectSet( convar_t *var, const char *value )
 	if( var != Cvar_FindVar( var->name ))
 		return; // how this possible?
 
-	if( FBitSet( var->flags, FCVAR_READ_ONLY|FCVAR_GLCONFIG ))
+	//if( FBitSet( var->flags, FCVAR_READ_ONLY|FCVAR_GLCONFIG ))
+	if( FBitSet( var->flags, FCVAR_READ_ONLY )) // TODO: fix order VK init render or fix this GL-eccentric
 	{
 		Con_Printf( "%s is read-only.\n", var->name );
 		return;

@@ -2,6 +2,9 @@
 
 #include "cvardef.h"
 
+// from engine/common/cvar.h
+#define FCVAR_READ_ONLY		(1<<17)	// cannot be set by user at all, and can't be requested by CvarGetPointer from game dlls
+
 #define CVAR_TO_BOOL( x )		((x) && ((x)->value != 0.0f) ? true : false )
 
 void VK_LoadCvars( void );
