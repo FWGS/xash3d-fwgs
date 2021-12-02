@@ -396,6 +396,10 @@ static int enumerateDevices( vk_available_device_t **available_devices ) {
 			this_device->ray_tracing = deviceSupportsRtx(extensions, num_device_extensions);
 			gEngine.Con_Printf("\t\tRay tracing supported: %d\n", this_device->ray_tracing);
 
+			if (!vk_core.rtx && this_device->ray_tracing) {
+				vk_core.rtx = true;
+			}
+
 			Mem_Free(extensions);
 		}
 
@@ -607,7 +611,7 @@ qboolean R_VkInit( void )
 	const qboolean skip_first_device = !!(gEngine.Sys_CheckParm("-vkskipdev"));
 
 	vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
-	vk_core.rtx = !!(gEngine.Sys_CheckParm("-rtx"));
+	vk_core.rtx = false;
 
 	if( !gEngine.R_Init_Video( REF_VULKAN )) // request Vulkan surface
 	{
