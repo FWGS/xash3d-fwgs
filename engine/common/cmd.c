@@ -256,12 +256,10 @@ Cbuf_Execute
 void Cbuf_Execute( void )
 {
 	Cbuf_ExecuteCommandsFromBuffer( &cmd_text, true, -1 );
-#if !XASH_DEDICATED
 	// a1ba: unlimited commands for filtered buffer per frame
 	// I don't see any sense in restricting that at this moment
 	// but in future we may limit this
 	Cbuf_ExecuteCommandsFromBuffer( &filteredcmd_text, false, -1 );
-#endif
 }
 
 /*
