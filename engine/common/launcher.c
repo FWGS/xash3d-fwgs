@@ -15,8 +15,6 @@ GNU General Public License for more details.
 
 #ifdef SINGLE_BINARY
 
-#include <stdlib.h>
-#include <string.h>
 #include "build.h"
 #include "common.h"
 #ifdef XASH_SDLMAIN
@@ -37,7 +35,7 @@ static char **g_pszArgv;
 
 void Launcher_ChangeGame( const char *progname )
 {
-	strncpy( szGameDir, progname, sizeof( szGameDir ) - 1 );
+	Q_strncpy( szGameDir, progname, sizeof( szGameDir ) - 1 );
 	Host_Shutdown( );
 	exit( Host_Main( g_iArgc, g_pszArgv, szGameDir, 1, &Launcher_ChangeGame ) );
 }
@@ -81,7 +79,7 @@ int main( int argc, char** argv )
 	}
 	else
 	{
-		strncpy( gamedir_buf, gamedir, 32 );
+		Q_strncpy( gamedir_buf, gamedir, 32 );
 		gamedir = gamedir_buf;
 	}
 
