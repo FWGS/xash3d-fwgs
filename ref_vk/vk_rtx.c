@@ -959,6 +959,9 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 
 	if (g_rtx.reload_pipeline) {
 		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
+		// reload 2d
+		deinitVk2d();
+		initVk2d();
 		// TODO gracefully handle reload errors: need to change createPipeline, loadShader, VK_PipelineCreate...
 		vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
 		createPipeline();
