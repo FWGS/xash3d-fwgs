@@ -13,6 +13,9 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#if defined( ALLOCA_H )
+#include ALLOCA_H
+#endif
 #include "common.h"
 #include "studio.h"
 #include "xash3d_mathlib.h"

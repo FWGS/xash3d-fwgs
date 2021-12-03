@@ -290,6 +290,12 @@ def configure(conf):
 	else:
 		conf.undefine('HAVE_TGMATH_H')
 
+	# check if we can use alloca.h or malloc.h
+	if conf.check_cc(header_name='alloca.h', mandatory=False):
+		conf.define('ALLOCA_H', 'alloca.h')
+	elif conf.check_cc(header_name='malloc.h', mandatory=False):
+		conf.define('ALLOCA_H', 'malloc.h')
+
 	# indicate if we are packaging for Linux/BSD
 	if conf.options.PACKAGING:
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
