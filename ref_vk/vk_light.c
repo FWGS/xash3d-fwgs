@@ -286,18 +286,23 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 		// Enumerate all the map leafs and pick ones that have this surface referenced
 		if (verbose_debug)
 			gEngine.Con_Reportf("Collecting visible leafs for surface %d:", surf_index);
-		for (int i = 0; i < map->numleafs; ++i) {
+		for (int i = 1; i <= map->numleafs; ++i) {
 			const mleaf_t *leaf = map->leafs + i;
+			//if (verbose_debug) gEngine.Con_Reportf("    leaf %d(c%d)/%d:", i, leaf->cluster, map->numleafs);
 			for (int j = 0; j < leaf->nummarksurfaces; ++j) {
 				const msurface_t *leaf_surf = leaf->firstmarksurface[j];
-				if (leaf_surf != surf)
+				if (leaf_surf != surf) {
+					/* if (verbose_debug) { */
+					/* 	const int leaf_surf_index = leaf_surf - map->surfaces; */
+					/* 	gEngine.Con_Reportf(" !%d", leaf_surf_index); */
+					/* } */
 					continue;
+				}
 
 				// FIXME split direct leafs marking from pvs propagation
 				leafs_direct++;
 				if (leafAccumAdd( i )) {
-					if (verbose_debug)
-						gEngine.Con_Reportf(" %d", i);
+					if (verbose_debug) gEngine.Con_Reportf(" %d", i);
 				} else {
 					// This leaf was already added earlier by PVS
 					// but it really should be counted as direct
@@ -307,6 +312,8 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 				// Get all PVS leafs
 				leafs_pvs += leafAccumAddPotentiallyVisibleFromLeaf(map, leaf, verbose_debug);
 			}
+
+			//if (verbose_debug) gEngine.Con_Reportf("\n");
 		}
 		if (verbose_debug)
 			gEngine.Con_Reportf(" (sum=%d, direct=%d, pvs=%d)\n", g_lights_bsp.accum.count, leafs_direct, leafs_pvs);
@@ -408,7 +415,7 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMovingSurface( const msurface_t *surf,
 		gEngine.Con_Reportf("Collecting visible leafs for moving surface %p: %f,%f,%f %f: ", surf,
 			origin[0], origin[1], origin[2], radius);
 
-	for (int i = 0; i < map->numleafs; ++i) {
+	for (int i = 1; i <= map->numleafs; ++i) {
 		const mleaf_t *leaf = map->leafs + i;
 		if( !CHECKVISBIT( g_lights_bsp.accum.visbytes, i ))
 			continue;
@@ -752,7 +759,7 @@ static void addPointLightToAllClusters( int index ) {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 
 	clusterBitMapClear();
-	for (int i = 1; i < world->numleafs; ++i) {
+	for (int i = 1; i <= world->numleafs; ++i) {
 		const mleaf_t *const leaf = world->leafs + i;
 		addLightIndexToleaf( leaf, index );
 	}
@@ -800,8 +807,9 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, int lightsty
 	}
 
 	if (debug_dump_lights.enabled) {
-		gEngine.Con_Printf("%s light %d: origin=(%f %f %f) color=(%f %f %f) dir=(%f %f %f)\n", index,
+		gEngine.Con_Printf("%s light %d: origin=(%f %f %f) color=(%f %f %f) dir=(%f %f %f)\n",
 			le->type == LightTypeEnvironment ? "environment" : "spot",
+			index,
 			le->origin[0], le->origin[1], le->origin[2],
 			le->color[0], le->color[1], le->color[2],
 			le->dir[0], le->dir[1], le->dir[2]);

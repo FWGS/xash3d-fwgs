@@ -141,7 +141,7 @@ static void visitNode(const mnode_t *node, const mnode_t *parent, const traversa
 	}
 }
 
-static void traverseBSP( void ) {
+void traverseBSP( void ) {
 	const traversal_context_t ctx = {
 		.map = gEngine.pfnGetModelByIndex( 1 ),
 		.world = gEngine.GetWorld(),
