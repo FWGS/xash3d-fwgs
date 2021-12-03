@@ -942,6 +942,9 @@ static void blitImage( const xvk_blit_args *blit_args ) {
 	}
 }
 
+qboolean initVk2d(void);
+void deinitVk2d(void);
+
 void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 {
 	const VkCommandBuffer cmdbuf = args->cmdbuf;
