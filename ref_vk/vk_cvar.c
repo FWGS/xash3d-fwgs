@@ -1,6 +1,6 @@
 #include "vk_cvar.h"
 #include "vk_common.h"
-#include "vk_render.h"
+#include "vk_core.h"
 
 #define NONEXTERN_CVAR(cvar) cvar_t *cvar;
 DECLARE_CVAR(NONEXTERN_CVAR)
