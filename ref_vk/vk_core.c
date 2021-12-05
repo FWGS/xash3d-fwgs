@@ -398,7 +398,7 @@ static int enumerateDevices( vk_available_device_t **available_devices ) {
 			this_device->ray_tracing = deviceSupportsRtx(extensions, num_device_extensions);
 			gEngine.Con_Printf("\t\tRay tracing supported: %d\n", this_device->ray_tracing);
 
-			if (!vk_core.rtx && this_device->ray_tracing) {
+			if (!vk_core.rtx && this_device->ray_tracing && !CVAR_TO_BOOL(vk_only)) {
 				vk_core.rtx = true;
 			}
 
@@ -417,7 +417,7 @@ static int enumerateDevices( vk_available_device_t **available_devices ) {
 	return this_device - *available_devices;
 }
 
-static qboolean createDevice( qboolean skip_first_device ) {
+static qboolean createDevice( void ) {
 	void *head = NULL;
 	vk_available_device_t *available_devices;
 	const int num_available_devices = enumerateDevices( &available_devices );
@@ -488,11 +488,6 @@ static qboolean createDevice( qboolean skip_first_device ) {
 			.enabledExtensionCount = vk_core.rtx ? ARRAYSIZE(device_extensions) : 1,
 			.ppEnabledExtensionNames = device_extensions,
 		};
-
-		if (vk_core.rtx && !candidate_device->ray_tracing) {
-			gEngine.Con_Printf(S_WARN "Skipping device %d due to missing ray tracing extensions\n", i);
-			continue;
-		}
 
 		// FIXME do only once
 		vkGetPhysicalDeviceMemoryProperties(candidate_device->device, &vk_core.physical_device.memory_properties);
@@ -608,12 +603,9 @@ qboolean R_VkInit( void )
 {
 	// FIXME !!!! handle initialization errors properly: destroy what has already been created
 
-	// FIXME need to be able to pick up devices by indexes, but xash doesn't let us read arguments :(
-	// So for now we will just skip the first available device
-	const qboolean skip_first_device = !!(gEngine.Sys_CheckParm("-vkskipdev"));
-
 	vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
 	vk_core.rtx = false;
+	VK_LoadCvars();
 
 	if( !gEngine.R_Init_Video( REF_VULKAN )) // request Vulkan surface
 	{
@@ -659,8 +651,10 @@ qboolean R_VkInit( void )
 	}
 #endif
 
-	if (!createDevice( skip_first_device ))
+	if (!createDevice())
 		return false;
+
+	VK_LoadCvarsRTX();
 
 	if (!initSurface())
 		return false;
@@ -696,8 +690,6 @@ qboolean R_VkInit( void )
 	// TODO ...
 	if (!VK_DescriptorInit())
 		return false;
-
-	VK_LoadCvars();
 
 	if (!VK_FrameCtlInit())
 		return false;

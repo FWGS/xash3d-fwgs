@@ -49,8 +49,9 @@ void VK_SceneInit( void )
 {
 	g_lists.draw_list = g_lists.draw_stack;
 	g_lists.draw_stack_pos = 0;
-
-	gEngine.Cmd_AddCommand("vk_rtx_reload_materials", XVK_ReloadMaterials, "Reload PBR materials");
+	if (vk_core.rtx) {
+		gEngine.Cmd_AddCommand("vk_rtx_reload_materials", XVK_ReloadMaterials, "Reload PBR materials");
+	}
 }
 
 #define R_ModelOpaque( rm )	( rm == kRenderNormal )
