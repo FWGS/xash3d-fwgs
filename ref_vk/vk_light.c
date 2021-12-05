@@ -839,13 +839,27 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, int lightsty
 	return index;
 }
 
+static float sphereSolidAngleFromDistDiv2Pi(float r, float d) {
+	return 1. - sqrt(d*d - r*r)/d;
+}
+
 static void addDlight( const dlight_t *dlight ) {
-	const float scaler = 1.f; //dlight->radius / 255.f;
+	const float k_light_radius = 2.f;
+	const float k_threshold = 2.f;
+
+	float max_comp;
 	vec3_t color;
 	int index;
+	float scaler;
 
 	if( !dlight || dlight->die < gpGlobals->time || !dlight->radius )
 		return;
+
+	max_comp = Q_max(dlight->color.r, Q_max(dlight->color.g, dlight->color.b));
+	if (max_comp < k_threshold || dlight->radius <= k_light_radius)
+		return;
+
+	scaler = k_threshold / (max_comp * sphereSolidAngleFromDistDiv2Pi(k_light_radius, dlight->radius));
 
 	VectorSet(
 		color,
@@ -853,7 +867,7 @@ static void addDlight( const dlight_t *dlight ) {
 		dlight->color.g * scaler,
 		dlight->color.b * scaler);
 
-	index = addPointLight(dlight->origin, color, dlight->radius, -1, 1e5f);
+	index = addPointLight(dlight->origin, color, k_light_radius, -1, 1.f);
 	if (index < 0)
 		return;
 
@@ -869,9 +883,9 @@ static void processStaticPointLights( void ) {
 	for (int i = 0; i < g_map_entities.num_lights; ++i) {
 		const vk_light_entity_t *le = g_map_entities.lights + i;
 		const float default_radius = 2.f; // FIXME tune
-		const float hack_attenuation = 100.f; // FIXME tune
-		const float hack_attenuation_spot = 100.f; // FIXME tune
-		float radius = le->radius > 0.f ? le->radius : default_radius;
+		const float hack_attenuation = 1.f; // FIXME tune
+		const float hack_attenuation_spot = 1.f; // FIXME tune
+		const float radius = le->radius > 0.f ? le->radius : default_radius;
 		int index;
 
 		switch (le->type) {

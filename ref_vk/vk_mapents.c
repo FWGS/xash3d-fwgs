@@ -193,7 +193,7 @@ static void fillLightFromProps( vk_light_entity_t *le, const entity_props_t *pro
 		weirdGoldsrcLightScaling(le->color);
 	}
 
-	gEngine.Con_Reportf("%s light %d (ent=%d): %s targetname=%s color=(%f %f %f) origin=(%f %f %f) style=%d dir=(%f %f %f) stopdot=(%f %f)\n",
+	gEngine.Con_Reportf("%s light %d (ent=%d): %s targetname=%s color=(%f %f %f) origin=(%f %f %f) style=%d R=%f dir=(%f %f %f) stopdot=(%f %f)\n",
 		patch ? "Patch" : "Added",
 		g_map_entities.num_lights, entity_index,
 		le->type == LightTypeEnvironment ? "environment" : le->type == LightTypeSpot ? "spot" : "point",
@@ -201,6 +201,7 @@ static void fillLightFromProps( vk_light_entity_t *le, const entity_props_t *pro
 		le->color[0], le->color[1], le->color[2],
 		le->origin[0], le->origin[1], le->origin[2],
 		le->style,
+		le->radius,
 		le->dir[0], le->dir[1], le->dir[2],
 		le->stopdot, le->stopdot2);
 }

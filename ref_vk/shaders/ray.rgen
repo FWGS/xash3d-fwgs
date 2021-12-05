@@ -9,9 +9,9 @@
 
 // FIXME what should these be?
 const float shadow_offset_fudge = .1;
-const float pdf_culling_threshold = 100.;
-const float color_factor = 600.;
-const float color_culling_threshold = 600./color_factor;
+const float pdf_culling_threshold = 1e6;//100.;
+const float color_factor = 1.;
+const float color_culling_threshold = 1e-6;//600./color_factor;
 const float throughput_threshold = 1e-3;
 
 layout (constant_id = 4) const float LIGHT_GRID_CELL_SIZE = 256.;
@@ -103,6 +103,16 @@ void evalSplitBRDF(vec3 N, vec3 L, vec3 V, MaterialProperties material, out vec3
 #endif
 }
 
+float triangleSolidAngle(vec3 p, vec3 a, vec3 b, vec3 c) {
+	a = normalize(a - p);
+	b = normalize(b - p);
+	c = normalize(c - p);
+
+	const float tanHalfOmega = dot(a, cross(b,c)) / (1. + dot(b,c) + dot(c,a) + dot(a,b));
+
+	return atan(tanHalfOmega) * 2.;
+}
+
 void sampleSurfaceTriangle(
 	vec3 color, vec3 view_dir, MaterialProperties material /* TODO BrdfData instead is supposedly more efficient */,
 	mat4x3 emissive_transform, mat3 emissive_transform_normal,
@@ -145,9 +155,10 @@ void sampleSurfaceTriangle(
 #endif
 
 	// TODO emissive normals and areas can be precomputed
-	const float area = .5 * length(cross(v1 - v2, v1 - v3));
+	const float area = 1.;//.5 * length(cross(v1 - v2, v1 - v3));
 	const float light_dist2 = dot(light_dir, light_dir);
-	float pdf = light_dist2 / (area * light_dot);
+	//float pdf = /*light_dist2 */ 1./ (area * light_dot);
+	float pdf = TWO_PI / triangleSolidAngle(payload_opaque.hit_pos_t.xyz, v1, v2, v3);
 
 	if (pdf > pdf_culling_threshold)
 #ifdef DEBUG_LIGHT_CULLING
@@ -203,6 +214,8 @@ void computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 		const bool not_environment = (lights.point_lights[i].environment == 0);
 
 		const vec3 light_dir = not_environment ? (origin_r.xyz - payload_opaque.hit_pos_t.xyz) : -dir; // TODO need to randomize sampling direction for environment soft shadow
+		const float radius = origin_r.w;
+
 		const vec3 light_dir_norm = normalize(light_dir);
 		const float light_dot = dot(light_dir_norm, payload_opaque.normal);
 		if (light_dot < 1e-5)
@@ -216,27 +229,34 @@ void computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 		if (spot_dot < stopdot)
 			spot_attenuation = (spot_dot - stopdot2) / (stopdot - stopdot2);
 
-		float fdist = 1.f;
-		float light_dist = 1e4; // TODO this is supposedly not the right way to do shadows for environment lights. qrad checks for hitting SURF_SKY, and maybe we should too?
+		//float fdist = 1.f;
+		float light_dist = 1e5; // TODO this is supposedly not the right way to do shadows for environment lights. qrad checks for hitting SURF_SKY, and maybe we should too?
+		const float d2 = dot(light_dir, light_dir);
+		const float r2 = origin_r.w * origin_r.w;
 		if (not_environment) {
-#if 1
-			const float d2 = dot(light_dir, light_dir);
-			const float r2 = origin_r.w * origin_r.w;
-			//light_dist = sqrt(d2);
-			light_dist = sqrt(d2) - origin_r.w;
-			fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
-#else
-			const float d2 = dot(light_dir, light_dir);
-			//const float r2 = origin_r.w * origin_r.w;
-			light_dist = sqrt(d2);
-			//const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
-			//const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
-			fdist = (light_dist > 1.) ? 1.f / d2 : 1.f; // qrad workaround
-#endif
-		}
-		const float pdf = 1.f / (fdist * light_dot * spot_attenuation);
+			if (radius < 1e-3)
+				continue;
 
-		color /= pdf;
+			const float dist = length(light_dir);
+			if (radius > dist)
+				continue;
+#if 1
+			//light_dist = sqrt(d2);
+			light_dist = dist - radius;
+			//fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
+#else
+			light_dist = dist;
+			//const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
+			//const float fdist = 2.f / (r2 + d2 + light_dist * sqrt(d2 + r2));
+			//fdist = (light_dist > 1.) ? 1.f / d2 : 1.f; // qrad workaround
+#endif
+
+			//const float pdf = 1.f / (fdist * light_dot * spot_attenuation);
+			//const float pdf = TWO_PI / asin(radius / dist);
+			const float pdf = 1. / ((1. - sqrt(d2 - r2) / dist) * spot_attenuation);
+			color /= pdf;
+		}
+
 		// if (dot(color,color) < color_culling_threshold)
 		// 	continue;
 
