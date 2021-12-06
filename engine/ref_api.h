@@ -623,4 +623,48 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 typedef void (*REF_HUMANREADABLE_NAME)( char *out, size_t len );
 #define GET_REF_HUMANREADABLE_NAME "GetRefHumanReadableName"
 
+#ifdef REF_DLL
+#define DEFINE_ENGINE_SHARED_CVAR( x, y ) cvar_t *x = NULL;
+#define DECLARE_ENGINE_SHARED_CVAR( x, y ) extern cvar_t *x;
+#define RETRIEVE_ENGINE_SHARED_CVAR( x, y ) \
+	if(!( x = gEngfuncs.pfnGetCvarPointer( #y, 0 ) )) \
+		gEngfuncs.Host_Error( S_ERROR "engine betrayed us and didn't gave us %s cvar pointer\n", #y );
+#define ENGINE_SHARED_CVAR_NAME( f, x, y ) f( x, y )
+#define ENGINE_SHARED_CVAR( f, x ) ENGINE_SHARED_CVAR_NAME( f, x, x )
+
+// cvars that's logic is shared between renderer and engine
+// actually, they are just created on engine side for convinience
+// and must be retrieved by renderer side
+// sometimes it's done to standartize cvars to make it easier for users
+#define ENGINE_SHARED_CVAR_LIST( f ) \
+	ENGINE_SHARED_CVAR_NAME( f, vid_gamma, gamma ) \
+	ENGINE_SHARED_CVAR_NAME( f, vid_brightness, brightness ) \
+	ENGINE_SHARED_CVAR_NAME( f, gl_showtextures, r_showtextures ) \
+	ENGINE_SHARED_CVAR( f, r_speeds ) \
+	ENGINE_SHARED_CVAR( f, r_fullbright ) \
+	ENGINE_SHARED_CVAR( f, r_norefresh ) \
+	ENGINE_SHARED_CVAR( f, r_lightmap ) \
+	ENGINE_SHARED_CVAR( f, r_dynamic ) \
+	ENGINE_SHARED_CVAR( f, r_drawentities ) \
+	ENGINE_SHARED_CVAR( f, r_decals ) \
+	ENGINE_SHARED_CVAR( f, r_showhull ) \
+	ENGINE_SHARED_CVAR( f, gl_vsync ) \
+	ENGINE_SHARED_CVAR( f, gl_clear ) \
+	ENGINE_SHARED_CVAR( f, cl_himodels ) \
+	ENGINE_SHARED_CVAR( f, cl_lightstyle_lerping ) \
+	ENGINE_SHARED_CVAR( f, tracerred ) \
+	ENGINE_SHARED_CVAR( f, tracergreen ) \
+	ENGINE_SHARED_CVAR( f, tracerblue ) \
+	ENGINE_SHARED_CVAR( f, traceralpha ) \
+
+#define DECLARE_ENGINE_SHARED_CVAR_LIST() \
+	ENGINE_SHARED_CVAR_LIST( DECLARE_ENGINE_SHARED_CVAR )
+
+#define DEFINE_ENGINE_SHARED_CVAR_LIST() \
+	ENGINE_SHARED_CVAR_LIST( DEFINE_ENGINE_SHARED_CVAR )
+
+#define RETRIEVE_ENGINE_SHARED_CVAR_LIST() \
+	ENGINE_SHARED_CVAR_LIST( RETRIEVE_ENGINE_SHARED_CVAR )
+#endif
+
 #endif // REF_API
