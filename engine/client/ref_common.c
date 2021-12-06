@@ -658,6 +658,12 @@ qboolean R_Init( void )
 	Cvar_Get( "tracerblue", "0.4", 0, "tracer blue component weight ( 0 - 1.0 )" );
 	Cvar_Get( "traceralpha", "0.5", 0, "tracer alpha amount ( 0 - 1.0 )" );
 
+	Cvar_Get( "r_sprite_lerping", "1", FCVAR_ARCHIVE, "enables sprite animation lerping" );
+	Cvar_Get( "r_sprite_lighting", "1", FCVAR_ARCHIVE, "enables sprite lighting (blood etc)" );
+
+	Cvar_Get( "r_drawviewmodel", "1", 0, "draw firstperson weapon model" );
+	Cvar_Get( "r_glowshellfreq", "2.2", 0, "glowing shell frequency update" );
+
 	// cvars that are expected to exist by client.dll
 	// refdll should just get pointer to them
 	Cvar_Get( "r_drawentities", "1", FCVAR_CHEAT, "render entities" );

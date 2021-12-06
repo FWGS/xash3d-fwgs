@@ -24,8 +24,6 @@ GNU General Public License for more details.
 #define MAPSPRITE_SIZE	128
 #define GLARE_FALLOFF	19000.0f
 
-cvar_t		*r_sprite_lerping;
-cvar_t		*r_sprite_lighting;
 char		sprite_name[MAX_QPATH];
 char		group_suffix[8];
 static uint	r_texFlags = 0;
@@ -40,8 +38,6 @@ R_SpriteInit
 */
 void R_SpriteInit( void )
 {
-	r_sprite_lerping = gEngfuncs.Cvar_Get( "r_sprite_lerping", "1", FCVAR_ARCHIVE, "enables sprite animation lerping" );
-	r_sprite_lighting = gEngfuncs.Cvar_Get( "r_sprite_lighting", "1", FCVAR_ARCHIVE, "enables sprite lighting (blood etc)" );
 }
 
 /*
