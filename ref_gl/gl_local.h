@@ -734,9 +734,6 @@ extern cvar_t	*gl_test;		// cvar to testify new effects
 extern cvar_t	*gl_msaa;
 extern cvar_t *gl_stencilbits;
 
-extern cvar_t	*r_speeds;
-extern cvar_t	*r_fullbright;
-extern cvar_t	*r_norefresh;
 extern cvar_t	*r_lighting_extended;
 extern cvar_t	*r_lighting_modulate;
 extern cvar_t	*r_lighting_ambient;
@@ -749,24 +746,14 @@ extern cvar_t	*r_nocull;
 extern cvar_t	*r_lockpvs;
 extern cvar_t	*r_lockfrustum;
 extern cvar_t	*r_traceglow;
-extern cvar_t	*r_dynamic;
-extern cvar_t	*r_lightmap;
 extern cvar_t *r_vbo;
 extern cvar_t *r_vbo_dlightmode;
 
-extern cvar_t	*vid_brightness;
-extern cvar_t	*vid_gamma;
 
 //
 // engine shared convars
 //
-extern cvar_t *gl_showtextures;
-extern cvar_t	*tracerred;
-extern cvar_t	*tracergreen;
-extern cvar_t	*tracerblue;
-extern cvar_t	*traceralpha;
-extern cvar_t	*cl_lightstyle_lerping;
-extern cvar_t	*r_showhull;
+DECLARE_ENGINE_SHARED_CVAR_LIST()
 
 //
 // engine callbacks
