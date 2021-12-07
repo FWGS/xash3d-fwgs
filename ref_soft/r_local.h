@@ -686,7 +686,6 @@ void TriBrightness( float brightness );
 
 extern ref_api_t      gEngfuncs;
 extern ref_globals_t *gpGlobals;
-extern cvar_t	*gl_emboss_scale;
 extern cvar_t	*r_dynamic;
 
 DECLARE_ENGINE_SHARED_CVAR_LIST()

@@ -777,21 +777,12 @@ static void GL_ProcessImage( image_t *tex, rgbdata_t *pic )
 			tex->flags &= ~TF_MAKELUMA;
 		}
 
-		if( tex->flags & TF_ALLOW_EMBOSS )
-		{
-			img_flags |= IMAGE_EMBOSS;
-			tex->flags &= ~TF_ALLOW_EMBOSS;
-		}
-
 		if( !FBitSet( tex->flags, TF_IMG_UPLOADED ) && FBitSet( tex->flags, TF_KEEP_SOURCE ))
 			tex->original = gEngfuncs.FS_CopyImage( pic ); // because current pic will be expanded to rgba
 
 		// we need to expand image into RGBA buffer
 		if( pic->type == PF_INDEXED_24 || pic->type == PF_INDEXED_32 )
 			img_flags |= IMAGE_FORCE_RGBA;
-
-		// processing image before uploading (force to rgba, make luma etc)
-		if( pic->buffer ) gEngfuncs.Image_Process( &pic, 0, 0, img_flags, gl_emboss_scale->value );
 
 		if( FBitSet( tex->flags, TF_LUMINANCE ))
 			ClearBits( pic->flags, IMAGE_HAS_COLOR );

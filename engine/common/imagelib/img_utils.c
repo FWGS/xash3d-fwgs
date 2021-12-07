@@ -80,15 +80,6 @@ static byte palette_hl[768] =
 147,255,247,199,255,255,255,159,91,83
 };
 
-static float img_emboss[FILTER_SIZE][FILTER_SIZE] =
-{
-{-0.7f, -0.7f, -0.7f, -0.7f, 0.0f },
-{-0.7f, -0.7f, -0.7f,  0.0f, 0.7f },
-{-0.7f, -0.7f,  0.0f,  0.7f, 0.7f },
-{-0.7f,  0.0f,  0.7f,  0.7f, 0.7f },
-{ 0.0f,  0.7f,  0.7f,  0.7f, 0.7f },
-};
-
 /*
 =============================================================================
 
@@ -1368,107 +1359,7 @@ qboolean Image_RemapInternal( rgbdata_t *pic, int topColor, int bottomColor )
 	return true;
 }
 
-/*
-==================
-Image_ApplyFilter
-
-Applies a 5 x 5 filtering matrix to the texture, then runs it through a simulated OpenGL texture environment
-blend with the original data to derive a new texture.  Freaky, funky, and *f--king* *fantastic*.  You can do
-reasonable enough "fake bumpmapping" with this baby...
-
-Filtering algorithm from http://www.student.kuleuven.ac.be/~m0216922/CG/filtering.html
-All credit due
-==================
-*/
-static void Image_ApplyFilter( rgbdata_t *pic, float factor )
-{
-	int	i, x, y;
-	uint	*fin, *fout;
-	size_t	size;
-
-	// don't waste time
-	if( factor <= 0.0f ) return;
-
-	// first expand the image into 32-bit buffer
-	pic = Image_DecompressInternal( pic );
-	factor = bound( 0.0f, factor, 1.0f );
-	size = image.width * image.height * 4;
-	image.tempbuffer = Mem_Realloc( host.imagepool, image.tempbuffer, size );
-	fout = (uint *)image.tempbuffer;
-	fin = (uint *)pic->buffer;
-
-	for( x = 0; x < image.width; x++ )
-	{
-		for( y = 0; y < image.height; y++ )
-		{
-			vec3_t	vout = { 0.0f, 0.0f, 0.0f };
-			int	pos_x, pos_y;
-			float	avg;
-
-			for( pos_x = 0; pos_x < FILTER_SIZE; pos_x++ )
-			{
-				for( pos_y = 0; pos_y < FILTER_SIZE; pos_y++ )
-				{
-					int	img_x = (x - (FILTER_SIZE / 2) + pos_x + image.width) % image.width;
-					int	img_y = (y - (FILTER_SIZE / 2) + pos_y + image.height) % image.height;
-
-					// casting's a unary operation anyway, so the othermost set of brackets in the left part
-					// of the rvalue should not be necessary... but i'm paranoid when it comes to C...
-					vout[0] += ((float)((byte *)&fin[img_y * image.width + img_x])[0]) * img_emboss[pos_x][pos_y];
-					vout[1] += ((float)((byte *)&fin[img_y * image.width + img_x])[1]) * img_emboss[pos_x][pos_y];
-					vout[2] += ((float)((byte *)&fin[img_y * image.width + img_x])[2]) * img_emboss[pos_x][pos_y];
-				}
-			}
-
-			// multiply by factor, add bias, and clamp
-			for( i = 0; i < 3; i++ )
-			{
-				vout[i] *= factor;
-				vout[i] += 128.0f; // base
-				vout[i] = bound( 0.0f, vout[i], 255.0f );
-			}
-
-			// NTSC greyscale conversion standard
-			avg = (vout[0] * 30.0f + vout[1] * 59.0f + vout[2] * 11.0f) / 100.0f;
-
-			// divide by 255 so GL operations work as expected
-			vout[0] = avg / 255.0f;
-			vout[1] = avg / 255.0f;
-			vout[2] = avg / 255.0f;
-
-			// write to temp - first, write data in (to get the alpha channel quickly and
-			// easily, which will be left well alone by this particular operation...!)
-			fout[y * image.width + x] = fin[y * image.width + x];
-
-			// now write in each element, applying the blend operator.  blend
-			// operators are based on standard OpenGL TexEnv modes, and the
-			// formulas are derived from the OpenGL specs (http://www.opengl.org).
-			for( i = 0; i < 3; i++ )
-			{
-				// divide by 255 so GL operations work as expected
-				float	src = ((float)((byte *)&fin[y * image.width + x])[i]) / 255.0f;
-				float	tmp;
-
-				// default is GL_BLEND here
-				// CsS + CdD works out as Src * Dst * 2
-				tmp = vout[i] * src * 2.0f;
-
-				// multiply back by 255 to get the proper byte scale
-				tmp *= 255.0f;
-
-				// bound the temp target again now, cos the operation may have thrown it out
-				tmp = bound( 0.0f, tmp, 255.0f );
-				// and copy it in
-				((byte *)&fout[y * image.width + x])[i] = (byte)tmp;
-			}
-		}
-	}
-
-	// copy result back
-	memcpy( fin, fout, size );
-}
-
-qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, float bumpscale )
+qboolean Image_Process(rgbdata_t **pix, int width, int height, uint flags, float reserved )
 {
 	rgbdata_t	*pic = *pix;
 	qboolean	result = true;
@@ -1508,9 +1399,6 @@ qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, floa
 
 	if( FBitSet( flags, IMAGE_LIGHTGAMMA ))
 		pic = Image_LightGamma( pic );
-
-	if( FBitSet( flags, IMAGE_EMBOSS ))
-		Image_ApplyFilter( pic, bumpscale );
 
 	out = Image_FlipInternal( pic->buffer, &pic->width, &pic->height, pic->type, flags );
 	if( pic->buffer != out ) memcpy( pic->buffer, image.tempbuffer, pic->size );

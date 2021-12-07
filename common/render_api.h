@@ -82,7 +82,7 @@ typedef enum
 	TF_KEEP_SOURCE	= (1<<1),		// some images keep source
 	TF_NOFLIP_TGA	= (1<<2),		// Steam background completely ignore tga attribute 0x20
 	TF_EXPAND_SOURCE	= (1<<3),		// Don't keep source as 8-bit expand to RGBA
-	TF_ALLOW_EMBOSS	= (1<<4),		// Allow emboss-mapping for this image
+// reserved
 	TF_RECTANGLE	= (1<<5),		// this is GL_TEXTURE_RECTANGLE
 	TF_CUBEMAP	= (1<<6),		// it's cubemap texture
 	TF_DEPTHMAP	= (1<<7),		// custom texture filter used

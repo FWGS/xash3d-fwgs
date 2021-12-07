@@ -417,7 +417,7 @@ typedef struct ref_api_s
 	void (*Image_SetForceFlags)( uint flags );
 	void (*Image_ClearForceFlags)( void );
 	qboolean (*Image_CustomPalette)( void );
-	qboolean (*Image_Process)( rgbdata_t **pix, int width, int height, uint flags, float bumpscale );
+	qboolean (*Image_Process)( rgbdata_t **pix, int width, int height, uint flags, float reserved );
 	rgbdata_t *(*FS_LoadImage)( const char *filename, const byte *buffer, size_t size );
 	qboolean (*FS_SaveImage)( const char *filename, rgbdata_t *pix );
 	rgbdata_t *(*FS_CopyImage)( rgbdata_t *in );

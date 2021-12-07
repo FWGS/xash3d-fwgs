@@ -82,7 +82,7 @@ typedef enum
 	IMAGE_ROT_90	= BIT(18),	// flip from upper left corner to down right corner
 	IMAGE_ROT180	= IMAGE_FLIP_X|IMAGE_FLIP_Y,
 	IMAGE_ROT270	= IMAGE_FLIP_X|IMAGE_FLIP_Y|IMAGE_ROT_90,
-	IMAGE_EMBOSS	= BIT(19),	// apply emboss mapping
+// reserved
 	IMAGE_RESAMPLE	= BIT(20),	// resample image to specified dims
 // reserved
 // reserved

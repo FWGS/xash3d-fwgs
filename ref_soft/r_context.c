@@ -20,7 +20,6 @@ ref_globals_t *gpGlobals;
 gl_globals_t tr;
 ref_speeds_t r_stats;
 poolhandle_t r_temppool;
-cvar_t *gl_emboss_scale;
 viddef_t vid;
 static void GAME_EXPORT R_ClearScreen( void )
 {
