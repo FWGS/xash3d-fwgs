@@ -1915,7 +1915,6 @@ qboolean GAME_EXPORT R_Init( void )
 
 	RETRIEVE_ENGINE_SHARED_CVAR_LIST();
 
-	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
 	r_fullbright = gEngfuncs.Cvar_Get( "r_fullbright", "0", FCVAR_CHEAT, "disable lightmaps, get fullbright for entities" );
 
 //	sw_aliasstats = ri.Cvar_Get ("sw_polymodelstats", "0", 0);

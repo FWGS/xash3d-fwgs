@@ -2023,7 +2023,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 					if( FS_FileExists( texpath, false ))
 					{
-						tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, TF_ALLOW_EMBOSS|txFlags );
+						tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, txFlags );
 						bmod->wadlist.wadusage[j]++; // this wad are really used
 						break;
 					}
@@ -2039,7 +2039,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 				if( custom_palette ) size += sizeof( short ) + 768;
 				Q_snprintf( texname, sizeof( texname ), "#%s:%s.mip", loadstat.name, mt->name );
-				tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texname, (byte *)mt, size, TF_ALLOW_EMBOSS|txFlags );
+				tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texname, (byte *)mt, size, txFlags );
 			}
 
 			// if texture is completely missed

@@ -11,7 +11,6 @@ cvar_t	*gl_texture_lodbias;
 cvar_t	*gl_texture_nearest;
 cvar_t	*gl_lightmap_nearest;
 cvar_t	*gl_keeptjunctions;
-cvar_t	*gl_emboss_scale;
 cvar_t	*gl_check_errors;
 cvar_t	*gl_polyoffset;
 cvar_t	*gl_wireframe;
@@ -848,7 +847,6 @@ void GL_InitCommands( void )
 	gl_texture_anisotropy = gEngfuncs.Cvar_Get( "gl_anisotropy", "8", FCVAR_ARCHIVE, "textures anisotropic filter" );
 	gl_texture_lodbias =  gEngfuncs.Cvar_Get( "gl_texture_lodbias", "0.0", FCVAR_ARCHIVE, "LOD bias for mipmapped textures (perfomance|quality)" );
 	gl_keeptjunctions = gEngfuncs.Cvar_Get( "gl_keeptjunctions", "1", FCVAR_ARCHIVE, "removing tjuncs causes blinking pixels" );
-	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
 	gl_finish = gEngfuncs.Cvar_Get( "gl_finish", "0", FCVAR_ARCHIVE, "use glFinish instead of glFlush" );
 	gl_nosort = gEngfuncs.Cvar_Get( "gl_nosort", "0", FCVAR_ARCHIVE, "disable sorting of translucent surfaces" );
 	gl_test = gEngfuncs.Cvar_Get( "gl_test", "0", 0, "engine developer cvar for quick testing new features" );
