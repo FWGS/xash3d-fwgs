@@ -18,7 +18,7 @@
 	X(13, int, _xvk_surface_id, Int) \
 	X(14, string, _xvk_texture, String) \
 	X(15, int, _xvk_ent_id, Int) \
-	X(16, float, radius, Float) \
+	X(16, float, _xvk_radius, Float) \
 
 typedef enum {
 	Unknown = 0,
