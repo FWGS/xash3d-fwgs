@@ -148,8 +148,8 @@ R_StudioInit
 */
 void R_StudioInit( void )
 {
-	r_studio_sort_textures = gEngfuncs.Cvar_Get( "r_studio_sort_textures", "0", FCVAR_ARCHIVE, "change draw order for additive meshes" );
-	r_studio_drawelements = gEngfuncs.Cvar_Get( "r_studio_drawelements", "1", FCVAR_ARCHIVE, "use glDrawElements for studiomodels" );
+	r_studio_sort_textures = gEngfuncs.Cvar_Get( "r_studio_sort_textures", "0", FCVAR_GLCONFIG, "change draw order for additive meshes" );
+	r_studio_drawelements = gEngfuncs.Cvar_Get( "r_studio_drawelements", "1", FCVAR_GLCONFIG, "use glDrawElements for studiomodels" );
 
 	Matrix3x4_LoadIdentity( g_studio.rotationmatrix );
 

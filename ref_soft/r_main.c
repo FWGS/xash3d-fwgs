@@ -1915,8 +1915,6 @@ qboolean GAME_EXPORT R_Init( void )
 
 	RETRIEVE_ENGINE_SHARED_CVAR_LIST();
 
-	r_fullbright = gEngfuncs.Cvar_Get( "r_fullbright", "0", FCVAR_CHEAT, "disable lightmaps, get fullbright for entities" );
-
 //	sw_aliasstats = ri.Cvar_Get ("sw_polymodelstats", "0", 0);
 //	sw_allow_modex = ri.Cvar_Get( "sw_allow_modex", "1", CVAR_ARCHIVE );
 	sw_clearcolor = gEngfuncs.Cvar_Get ("sw_clearcolor", "48999", 0, "screen clear color");
@@ -1933,7 +1931,7 @@ qboolean GAME_EXPORT R_Init( void )
 	sw_waterwarp = gEngfuncs.Cvar_Get ("sw_waterwarp", "1", FCVAR_GLCONFIG, "nothing");
 	sw_notransbrushes = gEngfuncs.Cvar_Get( "sw_notransbrushes", "0", FCVAR_GLCONFIG, "do not apply transparency to water/glasses (faster)");
 	sw_noalphabrushes = gEngfuncs.Cvar_Get( "sw_noalphabrushes", "0", FCVAR_GLCONFIG, "do not draw brush holes (faster)");
-	r_traceglow = gEngfuncs.Cvar_Get( "r_traceglow", "1", FCVAR_ARCHIVE, "cull flares behind models" );
+	r_traceglow = gEngfuncs.Cvar_Get( "r_traceglow", "1", FCVAR_GLCONFIG, "cull flares behind models" );
 #ifndef DISABLE_TEXFILTER
 	sw_texfilt = gEngfuncs.Cvar_Get ("sw_texfilt", "0", FCVAR_GLCONFIG, "texture dither");
 #endif
