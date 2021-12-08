@@ -144,8 +144,9 @@ void sampleSurfaceTriangle(
 	const vec3 v3 = (emissive_transform * vec4(vertices[vi3].pos, 1.)).xyz;
 
 	// TODO projected uniform sampling
-	vec2 bary = vec2(rand01(), rand01());
-	bary.y *= (1. - bary.x);
+	vec2 bary = vec2(sqrt(rand01()), rand01());
+	bary.y *= bary.x;
+	bary.x = 1. - bary.x;
 	const vec3 sample_pos = baryMix(v1, v2, v3, bary);
 
 	vec3 light_dir = sample_pos - payload_opaque.hit_pos_t.xyz;
