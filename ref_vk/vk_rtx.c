@@ -28,11 +28,13 @@ enum {
 	ShaderBindingTable_Miss_Shadow,
 	ShaderBindingTable_Miss_Empty,
 
-	ShaderBindingTable_Hit,
+	ShaderBindingTable_Hit_Base,
 	ShaderBindingTable_Hit_WithAlphaTest,
 	ShaderBindingTable_Hit_Additive,
-	ShaderBindingTable_Hit_Shadow,
-	ShaderBindingTable_Hit__END = ShaderBindingTable_Hit_Shadow,
+
+	ShaderBindingTable_Hit_Shadow_Base,
+	ShaderBindingTable_Hit_Shadow_AlphaTest,
+	ShaderBindingTable_Hit__END = ShaderBindingTable_Hit_Shadow_AlphaTest,
 
 	ShaderBindingTable_COUNT
 };
@@ -431,15 +433,18 @@ static void createPipeline( void )
 
 	// TODO static assert
 #define ASSERT_SHADER_OFFSET(sbt_kind, sbt_index, offset) \
-	ASSERT(offset == (sbt_index - sbt_kind))
+	ASSERT((offset) == (sbt_index - sbt_kind))
 
 	ASSERT_SHADER_OFFSET(ShaderBindingTable_RayGen, ShaderBindingTable_RayGen, 0);
 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Miss, ShaderBindingTable_Miss, SHADER_OFFSET_MISS_REGULAR);
 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Miss, ShaderBindingTable_Miss_Shadow, SHADER_OFFSET_MISS_SHADOW);
-	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit, ShaderBindingTable_Hit, SHADER_OFFSET_HIT_REGULAR);
-	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit, ShaderBindingTable_Hit_WithAlphaTest, SHADER_OFFSET_HIT_ALPHA_TEST);
-	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit, ShaderBindingTable_Hit_Additive, SHADER_OFFSET_HIT_ADDITIVE);
-	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit, ShaderBindingTable_Hit_Shadow, SHADER_OFFSET_HIT_SHADOW);
+
+	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_Base, SHADER_OFFSET_HIT_REGULAR_BASE + SHADER_OFFSET_HIT_REGULAR);
+	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_WithAlphaTest, SHADER_OFFSET_HIT_REGULAR_BASE + SHADER_OFFSET_HIT_ALPHA_TEST);
+	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_Additive, SHADER_OFFSET_HIT_REGULAR_BASE + SHADER_OFFSET_HIT_ADDITIVE);
+
+	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_Shadow_Base, SHADER_OFFSET_HIT_SHADOW_BASE + 0);
+	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_Shadow_AlphaTest, SHADER_OFFSET_HIT_SHADOW_BASE + SHADER_OFFSET_HIT_ALPHA_TEST);
 
 	shader_groups[ShaderBindingTable_RayGen] = (VkRayTracingShaderGroupCreateInfoKHR) {
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
@@ -477,7 +482,7 @@ static void createPipeline( void )
 		.intersectionShader = VK_SHADER_UNUSED_KHR,
 	};
 
-	shader_groups[ShaderBindingTable_Hit] = (VkRayTracingShaderGroupCreateInfoKHR) {
+	shader_groups[ShaderBindingTable_Hit_Base] = (VkRayTracingShaderGroupCreateInfoKHR) {
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
 		.anyHitShader = VK_SHADER_UNUSED_KHR,
@@ -504,10 +509,19 @@ static void createPipeline( void )
 		.intersectionShader = VK_SHADER_UNUSED_KHR,
 	};
 
-	shader_groups[ShaderBindingTable_Hit_Shadow] = (VkRayTracingShaderGroupCreateInfoKHR) {
+	shader_groups[ShaderBindingTable_Hit_Shadow_Base] = (VkRayTracingShaderGroupCreateInfoKHR) {
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
 		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.closestHitShader = ShaderStageIndex_ClosestHit_Shadow,
+		.generalShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+
+	shader_groups[ShaderBindingTable_Hit_Shadow_AlphaTest] = (VkRayTracingShaderGroupCreateInfoKHR) {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+		.anyHitShader = ShaderStageIndex_AnyHit_AlphaTest,
 		.closestHitShader = ShaderStageIndex_ClosestHit_Shadow,
 		.generalShader = VK_SHADER_UNUSED_KHR,
 		.intersectionShader = VK_SHADER_UNUSED_KHR,
@@ -551,6 +565,7 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 			switch (model->material_mode) {
 				case MaterialMode_Opaque:
 					inst[i].mask = GEOMETRY_BIT_OPAQUE;
+					inst[i].instanceShaderBindingTableRecordOffset = SHADER_OFFSET_HIT_REGULAR,
 					inst[i].flags = VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
 					break;
 				case MaterialMode_Opaque_AlphaTest:
@@ -560,6 +575,7 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 					break;
 				case MaterialMode_Refractive:
 					inst[i].mask = GEOMETRY_BIT_REFRACTIVE;
+					inst[i].instanceShaderBindingTableRecordOffset = SHADER_OFFSET_HIT_REGULAR,
 					inst[i].flags = VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
 					break;
 				case MaterialMode_Additive:
@@ -759,7 +775,7 @@ LIST_GBUFFER_IMAGES(GBUFFER_WRITE_BARRIER)
 }
 		const VkStridedDeviceAddressRegionKHR sbt_raygen = SBT_INDEX(ShaderBindingTable_RayGen, 1);
 		const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(ShaderBindingTable_Miss, ShaderBindingTable_Miss_Empty - ShaderBindingTable_Miss);
-		const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(ShaderBindingTable_Hit, ShaderBindingTable_Hit__END - ShaderBindingTable_Hit);
+		const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit__END - ShaderBindingTable_Hit_Base);
 		const VkStridedDeviceAddressRegionKHR sbt_callable = { 0 };
 
 		vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_miss, &sbt_hit, &sbt_callable, FRAME_WIDTH, FRAME_HEIGHT, 1 );

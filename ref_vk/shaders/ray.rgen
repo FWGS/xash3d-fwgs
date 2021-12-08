@@ -65,7 +65,7 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 	traceRayEXT(tlas,
 		flags,
 		GEOMETRY_BIT_OPAQUE,
-		0, 0, SHADER_OFFSET_MISS_SHADOW,
+		SHADER_OFFSET_HIT_SHADOW_BASE, SBT_RECORD_SIZE, SHADER_OFFSET_MISS_SHADOW,
 		pos, 0., dir, dist - shadow_offset_fudge, PAYLOAD_LOCATION_SHADOW);
 	return payload_shadow.hit_type == SHADOW_HIT;
 }
@@ -82,7 +82,7 @@ bool shadowedSky(vec3 pos, vec3 dir, float dist) {
 	traceRayEXT(tlas,
 		flags,
 		GEOMETRY_BIT_OPAQUE,
-		SHADER_OFFSET_HIT_SHADOW, SBT_RECORD_SIZE, SHADER_OFFSET_MISS_SHADOW,
+		SHADER_OFFSET_HIT_SHADOW_BASE, SBT_RECORD_SIZE, SHADER_OFFSET_MISS_SHADOW,
 		pos, 0., dir, dist - shadow_offset_fudge, PAYLOAD_LOCATION_SHADOW);
 	return payload_shadow.hit_type != SHADOW_SKY;
 }
