@@ -79,7 +79,7 @@ void BuildGammaTable( float lightgamma, float brightness )
 
 byte LightToTexGamma( byte b )
 {
-	if( host.features & ENGINE_LINEAR_GAMMA_SPACE )
+	if( FBitSet( host.features, ENGINE_LINEAR_GAMMA_SPACE ))
 		return b;
 	else
 		return lightgammatable[b];
@@ -87,7 +87,7 @@ byte LightToTexGamma( byte b )
 
 byte TextureToGamma( byte b )
 {
-	if( host.features & ENGINE_LINEAR_GAMMA_SPACE )
+	if( FBitSet( host.features, ENGINE_LINEAR_GAMMA_SPACE ))
 		return b;
 	else
 		return texgammatable[b];
