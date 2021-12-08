@@ -25,5 +25,6 @@ GNU General Public License for more details.
 #define ENGINE_COMPENSATE_QUAKE_BUG	(1<<5)	// compensate stupid quake bug (inverse pitch) for mods where this bug is fixed
 #define ENGINE_IMPROVED_LINETRACE	(1<<6)	// new traceline that tracing through alphatextures
 #define ENGINE_COMPUTE_STUDIO_LERP	(1<<7)	// enable MOVETYPE_STEP lerping back in engine
+#define ENGINE_LINEAR_GAMMA_SPACE	(1<<8)	// disable influence of gamma/brightness cvars to textures/lightmaps, for mods with custom renderer
 
 #endif//FEATURES_H
