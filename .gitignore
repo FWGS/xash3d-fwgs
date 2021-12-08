@@ -1,5 +1,7 @@
 # Build data
 build/
+build-xash3d-fwgs
+build-hlsdk-xash3d
 libs/armeabi*
 libs/x86
 obj
