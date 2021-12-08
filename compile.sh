@@ -11,7 +11,7 @@ if echo "$HOME" | grep "com.termux"; then
 else
 	echo "-- Configuring for Android SDK/NDK"
 	if [ -z "$TOOLCHAIN" ]; then
-		TOOLCHAIN=host
+		TOOLCHAIN=llvm
 	fi
 fi
 
@@ -28,7 +28,7 @@ if [ -z "$1" ]; then
 	BUILD_TYPE=debug
 else
 	BUILD_TYPE=$1
-	if [ "$TOOLCHAIN" = "host" ]; then
+	if [ "$TOOLCHAIN" = "host" || "$TOOLCHAIN" = "llvm" ]; then
 		ENGINE_FLAGS="--enable-poly-opt"
 		SDK_FLAGS="--enable-poly-opt"
 	fi
