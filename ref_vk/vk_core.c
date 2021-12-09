@@ -317,6 +317,7 @@ static int enumerateDevices( vk_available_device_t **available_devices ) {
 	VkPhysicalDevice *physical_devices = NULL;
 	uint32_t num_physical_devices = 0;
 	vk_available_device_t *this_device = NULL;
+	string device_current;
 
 	XVK_CHECK(vkEnumeratePhysicalDevices(vk_core.instance, &num_physical_devices, physical_devices));
 	physical_devices = Mem_Malloc(vk_core.pool, sizeof(VkPhysicalDevice) * num_physical_devices);
@@ -333,6 +334,14 @@ static int enumerateDevices( vk_available_device_t **available_devices ) {
 		// FIXME also pay attention to various device limits. We depend on them implicitly now.
 
 		vkGetPhysicalDeviceProperties(physical_devices[i], &props);
+
+		// Store devices list in vk_core.device_list for vk_device_list
+		Q_snprintf( device_current, sizeof(device_current), "\n%04x:%04x - %s", props.vendorID, props.deviceID, props.deviceName );
+		Q_strncat( vk_core.device_list, device_current, MAX_STRING );
+		if (i == num_physical_devices-1) {
+			Q_strncat( vk_core.device_list, "\n", MAX_STRING );
+		}
+
 		gEngine.Con_Printf("\t%u: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
 			i, props.vendorID, props.deviceID, props.deviceType, props.deviceName,
 			XVK_PARSE_VERSION(props.driverVersion), XVK_PARSE_VERSION(props.apiVersion));
@@ -421,6 +430,9 @@ static qboolean createDevice( void ) {
 	void *head = NULL;
 	vk_available_device_t *available_devices;
 	const int num_available_devices = enumerateDevices( &available_devices );
+	char unique_deviceID[16];
+	const qboolean is_target_device = vk_device_target_id && Q_stricmp(vk_device_target_id->string, "0") && num_available_devices > 0;
+	qboolean is_target_device_found = false;
 
 	for (int i = 0; i < num_available_devices; ++i) {
 		const vk_available_device_t *candidate_device = available_devices + i;
@@ -495,6 +507,20 @@ static qboolean createDevice( void ) {
 		gEngine.Con_Printf("Trying device #%d: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
 			i, candidate_device->props.vendorID, candidate_device->props.deviceID, candidate_device->props.deviceType, candidate_device->props.deviceName,
 			XVK_PARSE_VERSION(candidate_device->props.driverVersion), XVK_PARSE_VERSION(candidate_device->props.apiVersion));
+
+		// Skip non-target device
+		Q_snprintf( unique_deviceID, sizeof( unique_deviceID ), "%04x:%04x", candidate_device->props.vendorID, candidate_device->props.deviceID );
+		if (is_target_device && !is_target_device_found && Q_stricmp(vk_device_target_id->string, unique_deviceID)) {
+			if (i == num_available_devices-1) {
+				gEngine.Con_Printf("Not found device %s, start on %s. Please set a valid device.\n", vk_device_target_id->string, unique_deviceID);
+			} else {
+				gEngine.Con_Printf("Skip device %s, because selected %s\n", unique_deviceID, vk_device_target_id->string);
+				continue;
+			}
+		} else {
+			is_target_device_found = true;
+		}
+
 
 		{
 			const VkResult result = vkCreateDevice(candidate_device->device, &create_info, NULL, &vk_core.device);
@@ -654,7 +680,7 @@ qboolean R_VkInit( void )
 	if (!createDevice())
 		return false;
 
-	VK_LoadCvarsRTX();
+	VK_LoadCvarsAfterInit();
 
 	if (!initSurface())
 		return false;

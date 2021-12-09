@@ -8,7 +8,7 @@
 #define CVAR_TO_BOOL( x )		((x) && ((x)->value != 0.0f) ? true : false )
 
 void VK_LoadCvars( void );
-void VK_LoadCvarsRTX( void );
+void VK_LoadCvarsAfterInit( void );
 
 #define DECLARE_CVAR(X) \
 	X(r_lighting_modulate) \
@@ -21,7 +21,9 @@ void VK_LoadCvarsRTX( void );
 	X(vk_rtx) \
 	X(vk_rtx_extension) \
 	X(vk_only) \
-	X(vk_deviceid) \
+	X(vk_device_list) \
+	X(vk_device_target_id) \
+
 
 #define EXTERN_CVAR(cvar) extern cvar_t *cvar;
 DECLARE_CVAR(EXTERN_CVAR)

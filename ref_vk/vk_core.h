@@ -67,6 +67,7 @@ typedef struct vulkan_core_s {
 
 	physical_device_t physical_device;
 	VkDevice device;
+	string device_list;
 	VkQueue queue;
 
 	VkCommandPool command_pool;
