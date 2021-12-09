@@ -407,10 +407,6 @@ static int enumerateDevices( vk_available_device_t **available_devices ) {
 			this_device->ray_tracing = deviceSupportsRtx(extensions, num_device_extensions);
 			gEngine.Con_Printf("\t\tRay tracing supported: %d\n", this_device->ray_tracing);
 
-			if (!vk_core.rtx && this_device->ray_tracing && !CVAR_TO_BOOL(vk_only)) {
-				vk_core.rtx = true;
-			}
-
 			Mem_Free(extensions);
 		}
 
@@ -436,6 +432,22 @@ static qboolean createDevice( void ) {
 
 	for (int i = 0; i < num_available_devices; ++i) {
 		const vk_available_device_t *candidate_device = available_devices + i;
+		// Skip non-target device
+		Q_snprintf( unique_deviceID, sizeof( unique_deviceID ), "%04x:%04x", candidate_device->props.vendorID, candidate_device->props.deviceID );
+		if (is_target_device && !is_target_device_found && Q_stricmp(vk_device_target_id->string, unique_deviceID)) {
+			if (i == num_available_devices-1) {
+				gEngine.Con_Printf("Not found device %s, start on %s. Please set a valid device.\n", vk_device_target_id->string, unique_deviceID);
+			} else {
+				gEngine.Con_Printf("Skip device %s, because selected %s\n", unique_deviceID, vk_device_target_id->string);
+				continue;
+			}
+		} else {
+			is_target_device_found = true;
+		}
+
+		if (candidate_device->ray_tracing && !CVAR_TO_BOOL(vk_only)) {
+			vk_core.rtx = true;
+		}
 
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR accel_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
@@ -507,20 +519,6 @@ static qboolean createDevice( void ) {
 		gEngine.Con_Printf("Trying device #%d: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
 			i, candidate_device->props.vendorID, candidate_device->props.deviceID, candidate_device->props.deviceType, candidate_device->props.deviceName,
 			XVK_PARSE_VERSION(candidate_device->props.driverVersion), XVK_PARSE_VERSION(candidate_device->props.apiVersion));
-
-		// Skip non-target device
-		Q_snprintf( unique_deviceID, sizeof( unique_deviceID ), "%04x:%04x", candidate_device->props.vendorID, candidate_device->props.deviceID );
-		if (is_target_device && !is_target_device_found && Q_stricmp(vk_device_target_id->string, unique_deviceID)) {
-			if (i == num_available_devices-1) {
-				gEngine.Con_Printf("Not found device %s, start on %s. Please set a valid device.\n", vk_device_target_id->string, unique_deviceID);
-			} else {
-				gEngine.Con_Printf("Skip device %s, because selected %s\n", unique_deviceID, vk_device_target_id->string);
-				continue;
-			}
-		} else {
-			is_target_device_found = true;
-		}
-
 
 		{
 			const VkResult result = vkCreateDevice(candidate_device->device, &create_info, NULL, &vk_core.device);
