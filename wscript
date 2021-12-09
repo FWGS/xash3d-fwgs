@@ -148,8 +148,6 @@ def configure(conf):
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
 		conf.options.GL     = False
-		# Vulkan is not supported on Android yet for CI reasons: requres NDK>12, glslc lookup etc.
-		conf.options.VK     = False
 	elif conf.env.MAGX:
 		conf.options.USE_SELECT       = True
 		conf.options.SDL12            = True
@@ -163,8 +161,6 @@ def configure(conf):
 		enforce_pic = False
 	elif conf.env.DEST_OS == 'dos':
 		conf.options.SINGLE_BINARY = True
-	else:
-		conf.options.VK = True
 
 	if conf.env.STATIC_LINKING:
 		enforce_pic = False # PIC may break full static builds

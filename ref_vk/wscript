@@ -39,7 +39,6 @@ def configure(conf):
 	conf.load('glslc')
 
 	conf.define('REF_DLL', 1)
-	conf.define('XASH_VULKAN', 1)
 
 	if conf.options.NSIGHT_AFTERMATH_SDK:
 		conf.start_msg('Nvidia Nsight Aftermath SDK')
@@ -62,6 +61,9 @@ def configure(conf):
 
 	# TODO if debug
 	conf.env.GLSLCFLAGS += ['-g']
+
+	if '-Werror=declaration-after-statement' in conf.env.CFLAGS:
+		conf.env.CFLAGS.remove('-Werror=declaration-after-statement')
 
 def build(bld):
 	if not bld.env.VK:

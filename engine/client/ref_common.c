@@ -385,11 +385,9 @@ static ref_api_t gEngfuncs =
 	pfnDrawTransparentTriangles,
 	&clgame.drawFuncs,
 
-#ifdef XASH_VULKAN
 	XVK_GetInstanceExtensions,
 	XVK_GetVkGetInstanceProcAddr,
 	XVK_CreateSurface,
-#endif
 };
 
 static void R_UnloadProgs( void )
