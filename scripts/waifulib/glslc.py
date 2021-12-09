@@ -44,6 +44,10 @@ def process_glsl_source(self, src):
 	self.env.INCPATHS = [x.path_from(cwd) for x in lst]
 	self.env.append_unique('GLSLCDEFINES', self.to_list(getattr(self, 'defines', [])))
 
+	flags = getattr(self, 'glslcflags', None)
+	if flags:
+		self.env.append_unique('GLSLCFLAGS', self.to_list(flags))
+
 	tsk = self.create_task('glsl', src, src.parent.find_or_declare('%s.spv' % src.name))
 
 	inst_to = getattr(self, 'install_path', None)
