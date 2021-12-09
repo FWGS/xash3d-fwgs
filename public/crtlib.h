@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #define STDLIB_H
 
 #include <stdarg.h>
+#include <string.h>
 #include "build.h"
 
 #ifdef __GNUC__
