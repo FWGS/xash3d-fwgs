@@ -427,7 +427,7 @@ static qboolean createDevice( void ) {
 	vk_available_device_t *available_devices;
 	const int num_available_devices = enumerateDevices( &available_devices );
 	char unique_deviceID[16];
-	const qboolean is_target_device = vk_device_target_id && Q_stricmp(vk_device_target_id->string, "0") && num_available_devices > 0;
+	const qboolean is_target_device = vk_device_target_id && Q_stricmp(vk_device_target_id->string, "") && num_available_devices > 0;
 	qboolean is_target_device_found = false;
 
 	for (int i = 0; i < num_available_devices; ++i) {

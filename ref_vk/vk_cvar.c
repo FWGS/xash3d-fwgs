@@ -16,7 +16,7 @@ void VK_LoadCvars( void )
 	r_lightmap = gEngine.Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
 	ui_infotool = gEngine.Cvar_Get( "ui_infotool", "0", FCVAR_CHEAT, "DEBUG: print entity info under crosshair" );
 	vk_only = gEngine.Cvar_Get( "vk_only", "0", FCVAR_GLCONFIG, "Full disable Ray Tracing pipeline" );
-	vk_device_target_id = gEngine.Cvar_Get( "vk_device_target_id", "0", FCVAR_GLCONFIG, "Selected video device id" );
+	vk_device_target_id = gEngine.Cvar_Get( "vk_device_target_id", "", FCVAR_GLCONFIG, "Selected video device id" );
 }
 void VK_LoadCvarsAfterInit( void )
 {
@@ -30,5 +30,4 @@ void VK_LoadCvarsAfterInit( void )
 		vk_rtx = gEngine.Cvar_Get( "vk_rtx", "0", FCVAR_READ_ONLY, "DISABLED: not supported by your hardware/software" );
 	}
 	vk_device_list = gEngine.Cvar_Get( "vk_device_list", vk_core.device_list, FCVAR_READ_ONLY, "List video devices" );
-
 }
