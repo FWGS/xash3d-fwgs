@@ -432,23 +432,7 @@ static qboolean createDevice( void ) {
 
 	for (int i = 0; i < num_available_devices; ++i) {
 		const vk_available_device_t *candidate_device = available_devices + i;
-		// Skip non-target device
-		Q_snprintf( unique_deviceID, sizeof( unique_deviceID ), "%04x:%04x", candidate_device->props.vendorID, candidate_device->props.deviceID );
-		if (is_target_device && !is_target_device_found && Q_stricmp(vk_device_target_id->string, unique_deviceID)) {
-			if (i == num_available_devices-1) {
-				gEngine.Con_Printf("Not found device %s, start on %s. Please set a valid device.\n", vk_device_target_id->string, unique_deviceID);
-			} else {
-				gEngine.Con_Printf("Skip device %s, because selected %s\n", unique_deviceID, vk_device_target_id->string);
-				continue;
-			}
-		} else {
-			is_target_device_found = true;
-		}
-
-		if (candidate_device->ray_tracing && !CVAR_TO_BOOL(vk_only)) {
-			vk_core.rtx = true;
-		}
-
+		
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR accel_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
 			.pNext = NULL,
@@ -512,6 +496,28 @@ static qboolean createDevice( void ) {
 			.enabledExtensionCount = vk_core.rtx ? ARRAYSIZE(device_extensions) : 1,
 			.ppEnabledExtensionNames = device_extensions,
 		};
+
+		// Skip non-target device
+		Q_snprintf( unique_deviceID, sizeof( unique_deviceID ), "%04x:%04x", candidate_device->props.vendorID, candidate_device->props.deviceID );
+		// default_device_id for vk_device_target_id
+		if (i == 0) { // TODO: select device with RTX by default
+			//Q_strncpy( vk_core.default_device_id, unique_deviceID, sizeof( vk_core.default_device_id ));
+			gEngine.Cvar_Set("vk_device_target_id", unique_deviceID);
+		}
+		if (is_target_device && !is_target_device_found && Q_stricmp(vk_device_target_id->string, unique_deviceID)) {
+			if (i == num_available_devices-1) {
+				gEngine.Con_Printf("Not found device %s, start on %s. Please set a valid device.\n", vk_device_target_id->string, unique_deviceID);
+			} else {
+				gEngine.Con_Printf("Skip device %s, because selected %s\n", unique_deviceID, vk_device_target_id->string);
+				continue;
+			}
+		} else {
+			is_target_device_found = true;
+		}
+
+		if (candidate_device->ray_tracing && !CVAR_TO_BOOL(vk_only)) {
+			vk_core.rtx = true;
+		}
 
 		// FIXME do only once
 		vkGetPhysicalDeviceMemoryProperties(candidate_device->device, &vk_core.physical_device.memory_properties);
