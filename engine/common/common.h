@@ -184,6 +184,7 @@ extern convar_t	host_developer;
 extern convar_t	*host_limitlocal;
 extern convar_t	*host_framerate;
 extern convar_t	*host_maxfps;
+extern convar_t cl_filterstuffcmd;
 
 /*
 ==============================================================
@@ -464,8 +465,9 @@ extern sysinfo_t	SI;
 #define CMD_SERVERDLL	BIT( 0 )		// added by server.dll
 #define CMD_CLIENTDLL	BIT( 1 )		// added by client.dll
 #define CMD_GAMEUIDLL	BIT( 2 )		// added by GameUI.dll
-#define CMD_LOCALONLY	BIT( 3 )		// restricted from server commands
-#define CMD_REFDLL	BIT( 4 )		// added by ref.dll
+#define CMD_PRIVILEGED	BIT( 3 )		// only available in privileged mode
+#define CMD_FILTERABLE  BIT( 4 )		// filtered in unprivileged mode if cl_filterstuffcmd is 1
+#define CMD_REFDLL	BIT( 5 )		// added by ref.dll
 
 typedef void (*xcommand_t)( void );
 
@@ -475,9 +477,11 @@ typedef void (*xcommand_t)( void );
 void Cbuf_Init( void );
 void Cbuf_Clear( void );
 void Cbuf_AddText( const char *text );
+void Cbuf_AddFilteredText( const char *text );
 void Cbuf_InsertText( const char *text );
 void Cbuf_ExecStuffCmds( void );
 void Cbuf_Execute (void);
+qboolean Cmd_CurrentCommandIsPrivileged( void );
 int Cmd_Argc( void );
 const char *Cmd_Args( void );
 const char *Cmd_Argv( int arg );
@@ -499,6 +503,7 @@ qboolean Cmd_GetMovieList( const char *s, char *completedname, int length );
 void Cmd_TokenizeString( const char *text );
 void Cmd_ExecuteString( const char *text );
 void Cmd_ForwardToServer( void );
+void Cmd_Escape( char *newCommand, const char *oldCommand, int len );
 
 //
 // zone.c
@@ -589,7 +594,7 @@ qboolean FS_SaveImage( const char *filename, rgbdata_t *pix );
 rgbdata_t *FS_CopyImage( rgbdata_t *in );
 void FS_FreeImage( rgbdata_t *pack );
 extern const bpc_desc_t PFDesc[];	// image get pixelformat
-qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, float bumpscale );
+qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, float reserved );
 void Image_PaletteHueReplace( byte *palSrc, int newHue, int start, int end, int pal_size );
 void Image_PaletteTranslate( byte *palSrc, int top, int bottom, int pal_size );
 void Image_SetForceFlags( uint flags );	// set image force flags on loading

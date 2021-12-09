@@ -674,7 +674,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 		glw_state.safe++;
 
-		if( !gl_wgl_msaa_samples->value && glw_state.safe == SAFE_NOMSAA )
+		if( !gl_msaa_samples->value && glw_state.safe == SAFE_NOMSAA )
 			glw_state.safe++; // no need to skip msaa, if we already disabled it
 
 		GL_SetupAttributes(); // re-choose attributes
@@ -817,7 +817,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 		glw_state.safe++;
 
-		if( !gl_wgl_msaa_samples->value && glw_state.safe == SAFE_NOMSAA )
+		if( !gl_msaa_samples->value && glw_state.safe == SAFE_NOMSAA )
 			glw_state.safe++; // no need to skip msaa, if we already disabled it
 
 		GL_SetupAttributes(); // re-choose attributes

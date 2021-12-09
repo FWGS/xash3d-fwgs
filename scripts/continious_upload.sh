@@ -50,13 +50,7 @@ fi
 RELEASE_BODY=""
 GIT_REPO_SLUG="$REPO_SLUG"
 
-GIT_COMMIT="$TRAVIS_COMMIT"
-GIT_TAG="$TRAVIS_TAG"
-
-if [ ! -z "$TRAVIS_REPO_SLUG" ] ; then
-  GIT_REPO_SLUG="$TRAVIS_REPO_SLUG"
-  RELEASE_BODY="Travis CI build log: ${TRAVIS_BUILD_WEB_URL}"
-elif [ ! -z "$GITHUB_ACTIONS" ] ; then
+if [ ! -z "$GITHUB_ACTIONS" ] ; then
   GIT_COMMIT="$GITHUB_SHA"
   GIT_REPO_SLUG="$GITHUB_REPOSITORY"
   if [[ "$GITHUB_REF" == "refs/tags/"* ]] ; then
@@ -115,99 +109,21 @@ else
   esac
 fi
 
-if [ "$ARTIFACTORY_BASE_URL" != "" ]; then
-  echo "ARTIFACTORY_BASE_URL set, trying to upload to artifactory"
-
-  if [ "$ARTIFACTORY_API_KEY" == "" ]; then
-    echo "Please set ARTIFACTORY_API_KEY"
-    exit 1
-  fi
-
-  files="$@"
-
-  # artifactory doesn't support any kind of "artifact description", so we're uploading a text file containing the
-  # relevant details along with the other artifacts
-  tempdir=$(mktemp -d)
-  info_file="$tempdir"/build-info.txt
-  echo "Travis CI build log: ${TRAVIS_BUILD_WEB_URL}" > "$info_file"
-  files+=("$info_file")
-
-  set +x
-
-  for file in ${files[@]}; do
-    url="${ARTIFACTORY_BASE_URL}/travis-${TRAVIS_BUILD_NUMBER}/"$(basename "$file")
-    md5sum=$(md5sum "$file" | cut -d' ' -f1)
-    sha1sum=$(sha1sum "$file" | cut -d' ' -f1)
-    sha256sum=$(sha256sum "$file" | cut -d' ' -f1)
-    echo "Uploading $file to $url"
-    hashsums=(-H "X-Checksum-Md5:$md5sum")
-    hashsums+=(-H "X-Checksum-Sha1:$sha1sum")
-    hashsums+=(-H "X-Checksum-Sha256:$sha256sum")
-    if ! curl -H 'X-JFrog-Art-Api:'"$ARTIFACTORY_API_KEY" "${hashsums[@]}" -T "$file" "$url"; then
-      echo "Failed to upload file, exiting"
-      rm -r "$tempdir"
-      exit 1
-    fi
-    echo
-    echo "MD5 checksum: $md5sum"
-    echo "SHA1 checksum: $sha1sum"
-    echo "SHA256 checksum: $sha256sum"
-  done
-  rm -r "$tempdir"
-fi
-
 # Do not upload non-master branch builds
-# if [ "$GIT_TAG" != "$TRAVIS_BRANCH" ] && [ "$TRAVIS_BRANCH" != "master" ]; then export TRAVIS_EVENT_TYPE=pull_request; fi
-if [ "$TRAVIS_EVENT_TYPE" == "pull_request" ] || [ "$GITHUB_EVENT_NAME" == "pull_request" ] ; then
-  echo "Release uploading disabled for pull requests"
-  if [ "$ARTIFACTORY_BASE_URL" != "" ]; then
-    echo "Releases have already been uploaded to Artifactory, exiting"
-    exit 0
-  else
-    echo "Release uploading disabled for pull requests, uploading to transfersh.com instead"
-    rm -f ./uploaded-to
-    for FILE in "$@" ; do
-      BASENAME="$(basename "${FILE}")"
-      curl \
-        --max-time 60 \
-        --connect-timeout 10 \
-        --retry 5 \
-        --speed-limit 16384 \
-        --speed-time 10 \
-        --upload-file $FILE \
-        "https://transfersh.com/$BASENAME" \
-          > ./one-upload
-      echo "$(cat ./one-upload)" # this way we get a newline
-      echo -n "$(cat ./one-upload)\\n" >> ./uploaded-to # this way we get a \n but no newline
-    done
-  fi
-#  review_url="https://api.github.com/repos/${GIT_REPO_SLUG}/pulls/${TRAVIS_PULL_REQUEST}/reviews"
-#  if [ -z $UPLOADTOOL_PR_BODY ] ; then
-#    body="Travis CI has created build artifacts for this PR here:"
-#  else
-#    body="$UPLOADTOOL_PR_BODY"
-#  fi
-#  body="$body\n$(cat ./uploaded-to)\nThe link(s) will expire 14 days from now."
-#  review_comment=$(curl -X POST \
-#    --header "Authorization: token ${GITHUB_TOKEN}" \
-#    --data '{"commit_id": "'"$GIT_COMMIT"'","body": "'"$body"'","event": "COMMENT"}' \
-#    $review_url)
-#  if echo $review_comment | grep -q "Bad credentials" 2>/dev/null ; then
-#    echo '"Bad credentials" response for --data {"commit_id": "'"$GIT_COMMIT"'","body": "'"$body"'","event": "COMMENT"}'
-#  fi
+if [ "$GITHUB_EVENT_NAME" == "pull_request" ] ; then
+  echo "Release uploading disabled for pull requests, uploading to transfer.sh instead"
+  rm -f ./uploaded-to
+  for FILE in "$@" ; do
+    BASENAME="$(basename "${FILE}")"
+    curl --upload-file $FILE "https://transfer.sh/$BASENAME" > ./one-upload
+    echo "$(cat ./one-upload)" # this way we get a newline
+    echo -n "$(cat ./one-upload)\\n" >> ./uploaded-to # this way we get a \n but no newline
+  done
   $shatool "$@"
   exit 0
 fi
 
-if [ ! -z "$TRAVIS_REPO_SLUG" ] ; then
-  echo "Running on Travis CI"
-  echo "TRAVIS_COMMIT: $TRAVIS_COMMIT"
-  if [ -z "$GITHUB_TOKEN" ] ; then
-    echo "\$GITHUB_TOKEN missing, please set it in the Travis CI settings of this project"
-    echo "You can get one from https://github.com/settings/tokens"
-    exit 1
-  fi
-elif [ ! -z "$GITHUB_ACTIONS" ] ; then
+if [ ! -z "$GITHUB_ACTIONS" ] ; then
   echo "Running on GitHub Actions"
   if [ -z "$GITHUB_TOKEN" ] ; then
     echo "\$GITHUB_TOKEN missing, please add the following to your run action:"
@@ -218,7 +134,7 @@ elif [ ! -z "$GITHUB_ACTIONS" ] ; then
 else
   echo "Not running on known CI"
   if [ -z "$GIT_REPO_SLUG" ] ; then
-    read -r -p "Repo Slug (GitHub and Travis CI username/reponame): " GIT_REPO_SLUG
+    read -r -p "Repo Slug (GitHub username/reponame): " GIT_REPO_SLUG
   fi
   if [ -z "$GITHUB_TOKEN" ] ; then
     read -r -s -p "Token (https://github.com/settings/tokens): " GITHUB_TOKEN
@@ -320,11 +236,6 @@ for FILE in "$@" ; do
   curl -H "Authorization: token ${GITHUB_TOKEN}" \
        -H "Accept: application/vnd.github.manifold-preview" \
        -H "Content-Type: application/octet-stream" \
-       --max-time 60 \
-       --connect-timeout 10 \
-       --retry 5 \
-       --speed-limit 16384 \
-       --speed-time 10 \
        --data-binary "@$FULLNAME" \
        "$upload_url?name=$(urlencode "$BASENAME")"
   echo ""

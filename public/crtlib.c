@@ -60,23 +60,6 @@ qboolean Q_isdigit( const char *str )
 	return false;
 }
 
-size_t Q_strlen( const char *string )
-{
-	size_t		len;
-	const char	*p;
-
-	if( !string ) return 0;
-
-	len = 0;
-	p = string;
-	while( *p )
-	{
-		p++;
-		len++;
-	}
-	return len;
-}
-
 size_t Q_colorstr( const char *string )
 {
 	size_t		len;

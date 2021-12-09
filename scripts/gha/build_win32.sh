@@ -14,7 +14,7 @@ fi
 
 # NOTE: to build with other version use --msvc_version during configuration
 # NOTE: sometimes you may need to add WinSDK to %PATH%
-./waf.bat configure -s "SDL2_VC" -T "debug" --prefix=`pwd` --enable-utils $AMD64 || die
+./waf.bat configure -s "SDL2_VC" -T "debug" --enable-utils --prefix=`pwd` $AMD64 || die
 ./waf.bat build -v || die
 ./waf.bat install || die
 

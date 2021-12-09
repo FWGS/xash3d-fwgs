@@ -222,6 +222,7 @@ extern convar_t	*dsp_off;
 extern convar_t	s_test;		// cvar to testify new effects
 extern convar_t s_samplecount;
 extern convar_t snd_mute_losefocus;
+extern convar_t s_warn_late_precache;
 
 void S_InitScaletable( void );
 wavdata_t *S_LoadSound( sfx_t *sfx );

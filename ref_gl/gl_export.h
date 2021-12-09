@@ -687,6 +687,7 @@ typedef float GLmatrix[16];
 #define GL_SAMPLE_COVERAGE_VALUE_ARB		0x80AA
 #define GL_SAMPLE_COVERAGE_INVERT_ARB		0x80AB
 #define GL_MULTISAMPLE_BIT_ARB		0x20000000
+#define GL_TEXTURE_2D_MULTISAMPLE			0x9100
 
 #define GL_COLOR_SUM_ARB			0x8458
 #define GL_VERTEX_PROGRAM_ARB			0x8620
@@ -1353,6 +1354,10 @@ APIENTRY_LINKAGE void GL_FUNCTION( glGenVertexArrays )( GLsizei n, const GLuint 
 APIENTRY_LINKAGE GLboolean GL_FUNCTION( glIsVertexArray )( GLuint array );
 APIENTRY_LINKAGE void GL_FUNCTION( glSwapInterval ) ( int interval );
 
+#if !defined( XASH_GLES ) && !defined( XASH_GL4ES )
+APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2DMultisample )(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
+#endif /* !XASH_GLES && !XASH_GL4ES */
+
 #if defined( XASH_GL_STATIC ) && !defined( REF_GL_KEEP_MANGLED_FUNCTIONS )
 #define pglGetError glGetError
 #define pglGetString glGetString
@@ -1652,6 +1657,7 @@ APIENTRY_LINKAGE void GL_FUNCTION( glSwapInterval ) ( int interval );
 #define pglTexGeniv glTexGeniv
 #define pglTexImage1D glTexImage1D
 #define pglTexImage2D glTexImage2D
+#define pglTexImage2DMultisample glTexImage2DMultisample
 #define pglTexParameterf glTexParameterf
 #define pglTexParameterfv glTexParameterfv
 #define pglTexParameteri glTexParameteri

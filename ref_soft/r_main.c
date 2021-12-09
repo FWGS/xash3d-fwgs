@@ -56,7 +56,6 @@ int		r_screenwidth;
 
 int                     r_viewcluster, r_oldviewcluster;
 
-cvar_t	*r_lefthand;
 cvar_t	*sw_aliasstats;
 cvar_t	*sw_allow_modex;
 cvar_t	*sw_clearcolor;
@@ -74,31 +73,18 @@ cvar_t	*sw_notransbrushes;
 cvar_t	*sw_noalphabrushes;
 
 cvar_t	*r_drawworld;
-cvar_t	*r_drawentities;
 cvar_t	*r_dspeeds;
-cvar_t	*r_fullbright;
 cvar_t  *r_lerpmodels;
 cvar_t  *r_novis;
-cvar_t	*r_lightmap;
-cvar_t	*r_dynamic;
 cvar_t	*r_traceglow;
 
-cvar_t	*tracerred;
-cvar_t	*tracergreen;
-cvar_t	*tracerblue;
-cvar_t	*traceralpha;
-
-cvar_t	*r_speeds;
 cvar_t	*r_lightlevel;	//FIXME HACK
-
-cvar_t	*vid_fullscreen;
-cvar_t	*vid_gamma;
 
 //PGM
 cvar_t	*sw_lockpvs;
 //PGM
 
-cvar_t	*r_decals;
+DEFINE_ENGINE_SHARED_CVAR_LIST()
 
 int	r_viewcluster, r_oldviewcluster;
 
@@ -1927,15 +1913,7 @@ qboolean GAME_EXPORT R_Init( void )
 {
 	qboolean glblit = false;
 
-	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
-	vid_gamma = gEngfuncs.pfnGetCvarPointer( "gamma", 0 );
-	r_norefresh = gEngfuncs.Cvar_Get( "r_norefresh", "0", 0, "disable 3D rendering (use with caution)" );
-	r_drawentities = gEngfuncs.pfnGetCvarPointer( "r_drawentities", 0 );
-	vid_brightness = gEngfuncs.pfnGetCvarPointer( "brightness", 0 );
-	r_fullbright = gEngfuncs.Cvar_Get( "r_fullbright", "0", FCVAR_CHEAT, "disable lightmaps, get fullbright for entities" );
-
-	r_dynamic = gEngfuncs.Cvar_Get( "r_dynamic", "1", FCVAR_ARCHIVE, "allow dynamic lighting (dlights, lightstyles)" );
-	r_lightmap = gEngfuncs.Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
+	RETRIEVE_ENGINE_SHARED_CVAR_LIST();
 
 //	sw_aliasstats = ri.Cvar_Get ("sw_polymodelstats", "0", 0);
 //	sw_allow_modex = ri.Cvar_Get( "sw_allow_modex", "1", CVAR_ARCHIVE );
@@ -1953,23 +1931,16 @@ qboolean GAME_EXPORT R_Init( void )
 	sw_waterwarp = gEngfuncs.Cvar_Get ("sw_waterwarp", "1", FCVAR_GLCONFIG, "nothing");
 	sw_notransbrushes = gEngfuncs.Cvar_Get( "sw_notransbrushes", "0", FCVAR_GLCONFIG, "do not apply transparency to water/glasses (faster)");
 	sw_noalphabrushes = gEngfuncs.Cvar_Get( "sw_noalphabrushes", "0", FCVAR_GLCONFIG, "do not draw brush holes (faster)");
-	r_traceglow = gEngfuncs.Cvar_Get( "r_traceglow", "1", FCVAR_ARCHIVE, "cull flares behind models" );
+	r_traceglow = gEngfuncs.Cvar_Get( "r_traceglow", "1", FCVAR_GLCONFIG, "cull flares behind models" );
 #ifndef DISABLE_TEXFILTER
 	sw_texfilt = gEngfuncs.Cvar_Get ("sw_texfilt", "0", FCVAR_GLCONFIG, "texture dither");
 #endif
-	//r_lefthand = ri.Cvar_Get( "hand", "0", FCVAR_USERINFO | FCVAR_ARCHIVE );
 //	r_speeds = ri.Cvar_Get ("r_speeds", "0", 0);
-	r_decals = gEngfuncs.pfnGetCvarPointer( "r_decals", 0 );
 	//r_drawworld = ri.Cvar_Get ("r_drawworld", "1", 0);
 	//r_dspeeds = ri.Cvar_Get ("r_dspeeds", "0", 0);
 //	r_lightlevel = ri.Cvar_Get ("r_lightlevel", "0", 0);
 	//r_lerpmodels = ri.Cvar_Get( "r_lerpmodels", "1", 0 );
 	r_novis = gEngfuncs.Cvar_Get( "r_novis", "0", 0, "" );
-
-	tracerred = gEngfuncs.Cvar_Get( "tracerred", "0.8", 0, "tracer red component weight ( 0 - 1.0 )" );
-	tracergreen = gEngfuncs.Cvar_Get( "tracergreen", "0.8", 0, "tracer green component weight ( 0 - 1.0 )" );
-	tracerblue = gEngfuncs.Cvar_Get( "tracerblue", "0.4", 0, "tracer blue component weight ( 0 - 1.0 )" );
-	traceralpha = gEngfuncs.Cvar_Get( "traceralpha", "0.5", 0, "tracer alpha amount ( 0 - 1.0 )" );
 
 	r_temppool = Mem_AllocPool( "ref_soft zone" );
 

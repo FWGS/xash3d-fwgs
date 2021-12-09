@@ -35,17 +35,18 @@ int		total_channels;
 int		soundtime;	// sample PAIRS
 int   		paintedtime; 	// sample PAIRS
 
-static CVAR_DEFINE( s_volume, "volume", "0.7", FCVAR_ARCHIVE, "sound volume" );
-CVAR_DEFINE( s_musicvolume, "MP3Volume", "1.0", FCVAR_ARCHIVE, "background music volume" );
-static CVAR_DEFINE( s_mixahead, "_snd_mixahead", "0.12", 0, "how much sound to mix ahead of time" );
-static CVAR_DEFINE_AUTO( s_show, "0", FCVAR_ARCHIVE, "show playing sounds" );
-CVAR_DEFINE_AUTO( s_lerping, "0", FCVAR_ARCHIVE, "apply interpolation to sound output" );
-static CVAR_DEFINE( s_ambient_level, "ambient_level", "0.3", FCVAR_ARCHIVE, "volume of environment noises (water and wind)" );
-static CVAR_DEFINE( s_ambient_fade, "ambient_fade", "1000", FCVAR_ARCHIVE, "rate of volume fading when client is moving" );
-static CVAR_DEFINE_AUTO( s_combine_sounds, "0", FCVAR_ARCHIVE, "combine channels with same sounds" );
-CVAR_DEFINE_AUTO( snd_mute_losefocus, "1", FCVAR_ARCHIVE, "silence the audio when game window loses focus" );
+static CVAR_DEFINE( s_volume, "volume", "0.7", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "sound volume" );
+CVAR_DEFINE( s_musicvolume, "MP3Volume", "1.0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "background music volume" );
+static CVAR_DEFINE( s_mixahead, "_snd_mixahead", "0.12", FCVAR_FILTERABLE, "how much sound to mix ahead of time" );
+static CVAR_DEFINE_AUTO( s_show, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "show playing sounds" );
+CVAR_DEFINE_AUTO( s_lerping, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "apply interpolation to sound output" );
+static CVAR_DEFINE( s_ambient_level, "ambient_level", "0.3", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "volume of environment noises (water and wind)" );
+static CVAR_DEFINE( s_ambient_fade, "ambient_fade", "1000", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "rate of volume fading when client is moving" );
+static CVAR_DEFINE_AUTO( s_combine_sounds, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "combine channels with same sounds" );
+CVAR_DEFINE_AUTO( snd_mute_losefocus, "1", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "silence the audio when game window loses focus" );
 CVAR_DEFINE_AUTO( s_test, "0", 0, "engine developer cvar for quick testing new features" );
-CVAR_DEFINE_AUTO( s_samplecount, "0", FCVAR_ARCHIVE, "sample count (0 for default value)" );
+CVAR_DEFINE_AUTO( s_samplecount, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "sample count (0 for default value)" );
+CVAR_DEFINE_AUTO( s_warn_late_precache, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "warn about late precached sounds on client-side" );
 
 /*
 =============================================================================
@@ -1880,6 +1881,7 @@ qboolean S_Init( void )
 	Cvar_RegisterVariable( &snd_mute_losefocus );
 	Cvar_RegisterVariable( &s_test );
 	Cvar_RegisterVariable( &s_samplecount );
+	Cvar_RegisterVariable( &s_warn_late_precache );
 
 	Cmd_AddCommand( "play", S_Play_f, "playing a specified sound file" );
 	Cmd_AddCommand( "play2", S_Play2_f, "playing a group of specified sound files" ); // nehahra stuff

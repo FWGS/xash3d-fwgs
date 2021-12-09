@@ -208,12 +208,6 @@ static void VK_ProcessImage( vk_texture_t *tex, rgbdata_t *pic )
 			tex->flags &= ~TF_MAKELUMA;
 		}
 
-		if( tex->flags & TF_ALLOW_EMBOSS )
-		{
-			img_flags |= IMAGE_EMBOSS;
-			tex->flags &= ~TF_ALLOW_EMBOSS;
-		}
-
 		/* FIXME provod: ???
 		if( !FBitSet( tex->flags, TF_IMG_UPLOADED ) && FBitSet( tex->flags, TF_KEEP_SOURCE ))
 			tex->original = gEngine.FS_CopyImage( pic ); // because current pic will be expanded to rgba

@@ -33,6 +33,8 @@ convar_t        *con_color;
 static int g_codepage = 0;
 static qboolean g_utf8 = false;
 
+static qboolean g_messagemode_privileged = true;
+
 #define CON_TIMES		4	// notify lines
 #define CON_MAX_TIMES	64	// notify max lines
 #define COLOR_DEFAULT	'7'
@@ -242,6 +244,8 @@ Con_MessageMode_f
 */
 void Con_MessageMode_f( void )
 {
+	g_messagemode_privileged = Cmd_CurrentCommandIsPrivileged();
+
 	if( Cmd_Argc() == 2 )
 		Q_strncpy( con.chat_cmd, Cmd_Argv( 1 ), sizeof( con.chat_cmd ));
 	else Q_strncpy( con.chat_cmd, "say", sizeof( con.chat_cmd ));
@@ -256,6 +260,8 @@ Con_MessageMode2_f
 */
 void Con_MessageMode2_f( void )
 {
+	g_messagemode_privileged = Cmd_CurrentCommandIsPrivileged();
+
 	Q_strncpy( con.chat_cmd, "say_team", sizeof( con.chat_cmd ));
 	Key_SetKeyDest( key_message );
 }
@@ -1865,7 +1871,10 @@ void Key_Message( int key )
 		if( con.chat.buffer[0] && cls.state == ca_active )
 		{
 			Q_snprintf( buffer, sizeof( buffer ), "%s \"%s\"\n", con.chat_cmd, con.chat.buffer );
-			Cbuf_AddText( buffer );
+
+			if( g_messagemode_privileged )
+				Cbuf_AddText( buffer );
+			else Cbuf_AddFilteredText( buffer );
 		}
 
 		Key_SetKeyDest( key_game );

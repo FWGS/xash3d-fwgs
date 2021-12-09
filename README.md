@@ -39,7 +39,7 @@ Regular upstream Xash3D README.md follows.
 ---
 
 # Xash3D FWGS Engine
-[![GitHub Actions Status](https://github.com/FWGS/xash3d-fwgs/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/FWGS/xash3d-fwgs/actions/workflows/c-cpp.yml) [![Travis CI Status](https://api.travis-ci.org/FWGS/xash3d-fwgs.svg?branch=master)](https://travis-ci.org/FWGS/xash3d-fwgs) [![FreeBSD Build Status](https://img.shields.io/cirrus/github/FWGS/xash3d-fwgs?label=freebsd%20build)](https://cirrus-ci.com/github/FWGS/xash3d-fwgs) [![Discord Server](https://img.shields.io/discord/355697768582610945.svg)](http://discord.fwgs.ru/) \
+[![GitHub Actions Status](https://github.com/FWGS/xash3d-fwgs/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/FWGS/xash3d-fwgs/actions/workflows/c-cpp.yml) [![FreeBSD Build Status](https://img.shields.io/cirrus/github/FWGS/xash3d-fwgs?label=freebsd%20build)](https://cirrus-ci.com/github/FWGS/xash3d-fwgs) [![Discord Server](https://img.shields.io/discord/355697768582610945.svg)](http://discord.fwgs.ru/) \
 [![Download Stable](https://img.shields.io/badge/download-stable-yellow)](https://github.com/FWGS/xash3d-fwgs/releases/latest) [![Download Testing](https://img.shields.io/badge/downloads-testing-orange)](https://github.com/FWGS/xash3d-fwgs/releases/tag/continuous) 
 
 Xash3D FWGS is a fork of Xash3D Engine by Unkle Mike with extended features and crossplatform.
@@ -121,16 +121,16 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 0) Open command line
 1) Navigate to `xash3d-fwgs` directory.
 2) Carefully examine which build options are available: `waf --help`
-3) Configure build: `waf configure -T release --sdl2=c:/path/to/SDL2 --prefix=c:/path/to/any/output/directory`
+3) Configure build: `waf configure -T release --sdl2=c:/path/to/SDL2`
 4) Compile: `waf build`
-5) Install: `waf install`
+5) Install: `waf install --destdir=c:/path/to/any/output/directory`
 
 #### Linux
 0) Examine which build options are available: `./waf --help`
-1) Configure build: `./waf configure -T release --prefix=/path/to/any/output/directory`
+1) Configure build: `./waf configure -T release`
 (You need to pass `-8` to compile 64-bit engine on 64-bit x86 processor)
 2) Compile: `./waf build`
-3) Install(optional): `./waf install`
+3) Install(optional): `./waf install --destdir=/path/to/any/output/directory`
 
 Note: if compiling 32-bit on amd64, you may need to supply `export PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig` prior to running configure.   
 

@@ -1284,6 +1284,7 @@ void CL_Rcon_f( void )
 {
 	char	message[1024];
 	netadr_t	to;
+	string command;
 	int	i;
 
 	if( !COM_CheckString( rcon_client_password->string ))
@@ -1306,7 +1307,8 @@ void CL_Rcon_f( void )
 
 	for( i = 1; i < Cmd_Argc(); i++ )
 	{
-		Q_strcat( message, Cmd_Argv( i ));
+		Cmd_Escape( command, Cmd_Argv( i ), sizeof( command ));
+		Q_strcat( message, command );
 		Q_strcat( message, " " );
 	}
 
@@ -2820,13 +2822,13 @@ void CL_InitLocal( void )
 	cl_nodelta = Cvar_Get ("cl_nodelta", "0", 0, "disable delta-compression for server messages" );
 	cl_idealpitchscale = Cvar_Get( "cl_idealpitchscale", "0.8", 0, "how much to look up/down slopes and stairs when not using freelook" );
 	cl_solid_players = Cvar_Get( "cl_solid_players", "1", 0, "Make all players not solid (can't traceline them)" );
-	cl_interp = Cvar_Get( "ex_interp", "0.1", FCVAR_ARCHIVE, "Interpolate object positions starting this many seconds in past" );
+	cl_interp = Cvar_Get( "ex_interp", "0.1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "Interpolate object positions starting this many seconds in past" );
 	cl_timeout = Cvar_Get( "cl_timeout", "60", 0, "connect timeout (in-seconds)" );
 	cl_charset = Cvar_Get( "cl_charset", "utf-8", FCVAR_ARCHIVE, "1-byte charset to use (iconv style)" );
 	hud_utf8 = Cvar_Get( "hud_utf8", "0", FCVAR_ARCHIVE, "Use utf-8 encoding for hud text" );
 
-	rcon_client_password = Cvar_Get( "rcon_password", "", 0, "remote control client password" );
-	rcon_address = Cvar_Get( "rcon_address", "", 0, "remote control address" );
+	rcon_client_password = Cvar_Get( "rcon_password", "", FCVAR_PRIVILEGED, "remote control client password" );
+	rcon_address = Cvar_Get( "rcon_address", "", FCVAR_PRIVILEGED, "remote control address" );
 
 	cl_trace_messages = Cvar_Get( "cl_trace_messages", "0", FCVAR_ARCHIVE|FCVAR_CHEAT, "enable message names tracing (good for developers)");
 
@@ -2837,7 +2839,7 @@ void CL_InitLocal( void )
 	cl_updaterate = Cvar_Get( "cl_updaterate", "20", FCVAR_USERINFO|FCVAR_ARCHIVE, "refresh rate of server messages" );
 	cl_dlmax = Cvar_Get( "cl_dlmax", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "max allowed outcoming fragment size" );
 	cl_upmax = Cvar_Get( "cl_upmax", "1200", FCVAR_ARCHIVE, "max allowed incoming fragment size" );
-	rate = Cvar_Get( "rate", "3500", FCVAR_USERINFO|FCVAR_ARCHIVE, "player network rate" );
+	rate = Cvar_Get( "rate", "3500", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player network rate" );
 	topcolor = Cvar_Get( "topcolor", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "player top color" );
 	bottomcolor = Cvar_Get( "bottomcolor", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "player bottom color" );
 	cl_lw = Cvar_Get( "cl_lw", "1", FCVAR_ARCHIVE|FCVAR_USERINFO, "enable client weapon predicting" );
@@ -2876,7 +2878,7 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("give", NULL, "give specified item or weapon" );
 	Cmd_AddCommand ("drop", NULL, "drop current/specified item or weapon" );
 	Cmd_AddCommand ("gametitle", NULL, "show game logo" );
-	Cmd_AddCommand( "kill", NULL, "die instantly" );
+	Cmd_AddRestrictedCommand ("kill", NULL, "die instantly" );
 	Cmd_AddCommand ("god", NULL, "enable godmode" );
 	Cmd_AddCommand ("fov", NULL, "set client field of view" );
 	Cmd_AddCommand ("log", NULL, "logging server events" );
@@ -2889,8 +2891,8 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("mp3", CL_PlayCDTrack_f, "Play mp3-track (based on virtual cd-player)" );
 	Cmd_AddCommand ("waveplaylen", CL_WavePlayLen_f, "Get approximate length of wave file");
 
-	Cmd_AddCommand ("setinfo", CL_SetInfo_f, "examine or change the userinfo string (alias of userinfo)" );
-	Cmd_AddCommand ("userinfo", CL_SetInfo_f, "examine or change the userinfo string (alias of setinfo)" );
+	Cmd_AddRestrictedCommand ("setinfo", CL_SetInfo_f, "examine or change the userinfo string (alias of userinfo)" );
+	Cmd_AddRestrictedCommand ("userinfo", CL_SetInfo_f, "examine or change the userinfo string (alias of setinfo)" );
 	Cmd_AddCommand ("physinfo", CL_Physinfo_f, "print current client physinfo" );
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f, "disconnect from server" );
 	Cmd_AddCommand ("record", CL_Record_f, "record a demo" );
@@ -2909,8 +2911,8 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("fullserverinfo", CL_FullServerinfo_f, "sent by server when serverinfo changes" );
 	Cmd_AddCommand ("upload", CL_BeginUpload_f, "uploading file to the server" );
 
-	Cmd_AddCommand ("quit", CL_Quit_f, "quit from game" );
-	Cmd_AddCommand ("exit", CL_Quit_f, "quit from game" );
+	Cmd_AddRestrictedCommand ("quit", CL_Quit_f, "quit from game" );
+	Cmd_AddRestrictedCommand ("exit", CL_Quit_f, "quit from game" );
 
 	Cmd_AddCommand ("screenshot", CL_ScreenShot_f, "takes a screenshot of the next rendered frame" );
 	Cmd_AddCommand ("snapshot", CL_SnapShot_f, "takes a snapshot of the next rendered frame" );
@@ -2919,7 +2921,7 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("levelshot", CL_LevelShot_f, "same as \"screenshot\", used for create plaque images" );
 	Cmd_AddCommand ("saveshot", CL_SaveShot_f, "used for create save previews with LoadGame menu" );
 
-	Cmd_AddCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
+	Cmd_AddRestrictedCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
 	Cmd_AddCommand ("reconnect", CL_Reconnect_f, "reconnect to current level" );
 
 	Cmd_AddCommand ("rcon", CL_Rcon_f, "sends a command to the server console (rcon_password and rcon_address required)" );

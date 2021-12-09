@@ -47,7 +47,7 @@ typedef struct convar_s
 #define FCVAR_ALLOCATED		(1<<19)	// this convar_t is fully dynamic allocated (include description)
 #define FCVAR_VIDRESTART		(1<<20)	// recreate the window is cvar with this flag was changed
 #define FCVAR_TEMPORARY		(1<<21)	// these cvars holds their values and can be unlink in any time
-#define FCVAR_LOCALONLY     (1<<22) // can be set only from local buffers
+#define FCVAR_MOVEVARS		(1<<22)	// this cvar is a part of movevars_t struct that shared between client and server
 
 #define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc ) \
 	convar_t cv = { (char*)cvname, (char*)cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, (char*)cvdesc, NULL }
@@ -75,7 +75,7 @@ void Cvar_WriteVariables( file_t *f, int group );
 qboolean Cvar_Exists( const char *var_name );
 void Cvar_Reset( const char *var_name );
 void Cvar_SetCheatState( void );
-qboolean Cvar_Command( convar_t *v );
+qboolean Cvar_CommandWithPrivilegeCheck( convar_t *v, qboolean isPrivileged );
 void Cvar_Init( void );
 void Cvar_Unlink( int group );
 
