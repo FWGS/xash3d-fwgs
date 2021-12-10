@@ -15,12 +15,12 @@ jobs:
             targetos: linux
             targetarch: i386
 
-          - os: ubuntu-18.04
-            targetos: android
-            targetarch: 32
-          - os: ubuntu-18.04
-            targetos: android
-            targetarch: 64
+          # - os: ubuntu-18.04
+          #   targetos: android
+          #   targetarch: 32
+          # - os: ubuntu-18.04
+          #   targetos: android
+          #   targetarch: 64
 
           # - os: ubuntu-18.04
           #   targetos: motomagx
