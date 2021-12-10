@@ -52,6 +52,7 @@ extern convar_t *gl_clear;
 qboolean R_Init( void );
 void R_Shutdown( void );
 void R_UpdateRefState( void );
+const ref_device_t *R_GetRenderDevice( unsigned int idx );
 
 extern triangleapi_t gTriApi;
 

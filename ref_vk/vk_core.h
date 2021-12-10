@@ -67,7 +67,6 @@ typedef struct vulkan_core_s {
 
 	physical_device_t physical_device;
 	VkDevice device;
-	string device_list;
 	VkQueue queue;
 
 	VkCommandPool command_pool;
@@ -77,6 +76,9 @@ typedef struct vulkan_core_s {
 	vk_buffer_t staging;
 
 	VkSampler default_sampler;
+
+	unsigned int num_devices;
+	ref_device_t *devices;
 } vulkan_core_t;
 
 extern vulkan_core_t vk_core;

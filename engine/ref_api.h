@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include "r_efx.h"
 #include "com_image.h"
 #include "ref_vulkan.h"
+#include "ref_device.h"
 
 #define REF_API_VERSION 1
 
@@ -621,6 +622,9 @@ typedef struct ref_interface_s
 	void	(*VGUI_DrawQuad)( const vpoint_t *ul, const vpoint_t *lr );
 	void	(*VGUI_GetTextureSizes)( int *width, int *height );
 	int		(*VGUI_GenerateTexture)( void );
+
+	// only Vulkan manages devices in renderer code
+	const ref_device_t *(*pfnGetVulkanRenderDevice)( unsigned int idx );
 } ref_interface_t;
 
 typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* engfuncs, ref_globals_t *pGlobals );

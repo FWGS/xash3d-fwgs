@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include "input.h"
 #include "server.h" // !!svgame.hInstance
 #include "vid_common.h"
+#include "ref_common.h"
 
 static void 	UI_UpdateUserinfo( void );
 
@@ -1118,6 +1119,7 @@ static char *pfnParseFile( char *buf, char *token )
 	return COM_ParseFile( buf, token, INT_MAX );
 }
 
+
 // engine callbacks
 static ui_enginefuncs_t gEngfuncs =
 {
@@ -1233,7 +1235,8 @@ static ui_extendedfuncs_t gExtendedfuncs =
 	Con_UtfMoveRight,
 	pfnGetRenderers,
 	Sys_DoubleTime,
-	_COM_ParseFileSafe
+	_COM_ParseFileSafe,
+	R_GetRenderDevice
 };
 
 void UI_UnloadProgs( void )

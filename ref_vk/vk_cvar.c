@@ -29,5 +29,4 @@ void VK_LoadCvarsAfterInit( void )
 	} else {
 		vk_rtx = gEngine.Cvar_Get( "vk_rtx", "0", FCVAR_READ_ONLY, "DISABLED: not supported by your hardware/software" );
 	}
-	vk_device_list = gEngine.Cvar_Get( "vk_device_list", vk_core.device_list, FCVAR_READ_ONLY, "List video devices" );
 }

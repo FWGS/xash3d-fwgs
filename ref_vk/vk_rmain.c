@@ -484,6 +484,14 @@ static int		VGUI_GenerateTexture( void )
 	return 0;
 }
 
+static const ref_device_t *pfnGetRenderDevice( unsigned int idx )
+{
+	if( idx >= vk_core.num_devices )
+		return NULL;
+
+	return &vk_core.devices[idx];
+}
+
 ref_interface_t gReffuncs =
 {
 	.R_Init = R_VkInit,
@@ -630,6 +638,8 @@ ref_interface_t gReffuncs =
 	VGUI_DrawQuad,
 	VGUI_GetTextureSizes,
 	VGUI_GenerateTexture,
+
+	pfnGetRenderDevice,
 };
 
 int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals )

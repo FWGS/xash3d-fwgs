@@ -317,12 +317,14 @@ static int enumerateDevices( vk_available_device_t **available_devices ) {
 	VkPhysicalDevice *physical_devices = NULL;
 	uint32_t num_physical_devices = 0;
 	vk_available_device_t *this_device = NULL;
-	string device_current;
 
 	XVK_CHECK(vkEnumeratePhysicalDevices(vk_core.instance, &num_physical_devices, physical_devices));
 	physical_devices = Mem_Malloc(vk_core.pool, sizeof(VkPhysicalDevice) * num_physical_devices);
 	XVK_CHECK(vkEnumeratePhysicalDevices(vk_core.instance, &num_physical_devices, physical_devices));
 	gEngine.Con_Reportf("Have %u devices:\n", num_physical_devices);
+
+	vk_core.num_devices = num_physical_devices;
+	vk_core.devices = Mem_Calloc( vk_core.pool, num_physical_devices * sizeof( *vk_core.devices ));
 
 	*available_devices = Mem_Malloc(vk_core.pool, num_physical_devices * sizeof(vk_available_device_t));
 	this_device = *available_devices;
@@ -335,12 +337,28 @@ static int enumerateDevices( vk_available_device_t **available_devices ) {
 
 		vkGetPhysicalDeviceProperties(physical_devices[i], &props);
 
-		// Store devices list in vk_core.device_list for vk_device_list
-		Q_snprintf( device_current, sizeof(device_current), "\n%04x:%04x - %s", props.vendorID, props.deviceID, props.deviceName );
-		Q_strncat( vk_core.device_list, device_current, MAX_STRING );
-		if (i == num_physical_devices-1) {
-			Q_strncat( vk_core.device_list, "\n", MAX_STRING );
+		// Store devices list in vk_core.devices for pfnGetRenderDevices
+		vk_core.devices[i].vendorID = props.vendorID;
+		vk_core.devices[i].deviceID = props.deviceID;
+		switch( props.deviceType )
+		{
+		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+			vk_core.devices[i].deviceType = REF_DEVICE_TYPE_INTERGRATED_GPU;
+			break;
+		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+			vk_core.devices[i].deviceType = REF_DEVICE_TYPE_DISCRETE_GPU;
+			break;
+		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+			vk_core.devices[i].deviceType = REF_DEVICE_TYPE_VIRTUAL_GPU;
+			break;
+		case VK_PHYSICAL_DEVICE_TYPE_CPU:
+			vk_core.devices[i].deviceType = REF_DEVICE_TYPE_CPU;
+			break;
+		default:
+			vk_core.devices[i].deviceType = REF_DEVICE_TYPE_OTHER;
+			break;
 		}
+		Q_strncpy( vk_core.devices[i].deviceName, props.deviceName, sizeof( vk_core.devices[i].deviceName ));
 
 		gEngine.Con_Printf("\t%u: %04x:%04x %d %s %u.%u.%u %u.%u.%u\n",
 			i, props.vendorID, props.deviceID, props.deviceType, props.deviceName,
