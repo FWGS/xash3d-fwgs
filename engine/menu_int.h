@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "cvardef.h"
 #include "gameinfo.h"
 #include "wrect.h"
+#include "ref_device.h"
 
 // a macro for mainui_cpp, indicating that mainui should be compiled for
 // Xash3D 1.0 interface
@@ -212,6 +213,8 @@ typedef struct ui_extendedfuncs_s {
 	double (*pfnDoubleTime)( void );
 
 	char *(*pfnParseFile)( char *data, char *buf, const int size, unsigned int flags, int *len );
+
+	const ref_device_t *(*pfnGetRenderDevice)( unsigned int idx );
 } ui_extendedfuncs_t;
 
 // deprecated export from old engine
