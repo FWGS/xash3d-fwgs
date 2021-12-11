@@ -13,6 +13,9 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#if defined( ALLOCA_H )
+#include ALLOCA_H
+#endif
 #include "common.h"
 #include "studio.h"
 #include "xash3d_mathlib.h"
@@ -886,6 +889,10 @@ pfnCvar_RegisterVariable
 */
 cvar_t *pfnCvar_RegisterClientVariable( const char *szName, const char *szValue, int flags )
 {
+	// a1ba: try to mitigate outdated client.dll vulnerabilities
+	if( !Q_stricmp( szName, "motdfile" ))
+		flags |= FCVAR_PRIVILEGED;
+
 	if( FBitSet( flags, FCVAR_GLCONFIG ))
 		return (cvar_t *)Cvar_Get( szName, szValue, flags, va( CVAR_GLCONFIG_DESCRIPTION, szName ));
 	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_CLIENTDLL, Cvar_BuildAutoDescription( flags|FCVAR_CLIENTDLL ));

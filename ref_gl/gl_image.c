@@ -49,6 +49,8 @@ static const char *GL_TargetToString( GLenum target )
 		return "1D";
 	case GL_TEXTURE_2D:
 		return "2D";
+	case GL_TEXTURE_2D_MULTISAMPLE:
+		return "2D Multisample";
 	case GL_TEXTURE_3D:
 		return "3D";
 	case GL_TEXTURE_CUBE_MAP_ARB:
@@ -116,6 +118,10 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 		return;
 
 	Assert( tex != NULL );
+
+	// multisample textures does not support any sampling state changing
+	if( FBitSet( tex->flags, TF_MULTISAMPLE ))
+		return;
 
 	// set texture filter
 	if( FBitSet( tex->flags, TF_DEPTHMAP ))
@@ -523,6 +529,7 @@ static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height, i
 	{
 	case GL_TEXTURE_1D:
 	case GL_TEXTURE_2D:
+	case GL_TEXTURE_2D_MULTISAMPLE:
 		maxTextureSize = glConfig.max_2d_texture_size;
 		break;
 	case GL_TEXTURE_2D_ARRAY_EXT:
@@ -626,6 +633,8 @@ static void GL_SetTextureTarget( gl_texture_t *tex, rgbdata_t *pic )
 		tex->target = GL_TEXTURE_3D;
 	else if( FBitSet( tex->flags, TF_RECTANGLE ))
 		tex->target = GL_TEXTURE_RECTANGLE_EXT;
+	else if( FBitSet(tex->flags, TF_MULTISAMPLE ))
+		tex->target = GL_TEXTURE_2D_MULTISAMPLE;
 	else tex->target = GL_TEXTURE_2D; // default case
 
 	// check for hardware support
@@ -647,6 +656,9 @@ static void GL_SetTextureTarget( gl_texture_t *tex, rgbdata_t *pic )
 
 	// depth cubemaps only allowed when GL_EXT_gpu_shader4 is supported
 	if( tex->target == GL_TEXTURE_CUBE_MAP_ARB && !GL_Support( GL_EXT_GPU_SHADER4 ) && FBitSet( tex->flags, TF_DEPTHMAP ))
+		tex->target = GL_NONE;
+
+	if(( tex->target == GL_TEXTURE_2D_MULTISAMPLE ) && !GL_Support( GL_TEXTURE_MULTISAMPLE ))
 		tex->target = GL_NONE;
 }
 
@@ -1006,6 +1018,7 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 	qboolean	subImage = FBitSet( tex->flags, TF_IMG_UPLOADED );
 	GLenum	inFormat = gEngfuncs.Image_GetPFDesc(type)->glFormat;
 	GLint	dataType = GL_UNSIGNED_BYTE;
+	GLsizei	samplesCount = 0;
 
 	Assert( tex != NULL );
 
@@ -1031,6 +1044,25 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 	{
 		if( subImage ) pglTexSubImage3D( tex->target, level, 0, 0, 0, width, height, depth, inFormat, dataType, data );
 		else pglTexImage3D( tex->target, level, tex->format, width, height, depth, 0, inFormat, dataType, data );
+	}
+	else if( tex->target == GL_TEXTURE_2D_MULTISAMPLE )
+	{
+#if !defined( XASH_GLES ) && !defined( XASH_GL4ES )
+		samplesCount = (GLsizei)gEngfuncs.pfnGetCvarFloat("gl_msaa_samples");
+		switch (samplesCount)
+		{
+			case 2:
+			case 4:
+			case 8:
+			case 16:
+				break;
+			default:
+				samplesCount = 1;
+		}
+		pglTexImage2DMultisample( tex->target, samplesCount, tex->format, width, height, GL_TRUE );
+#else /* !XASH_GLES && !XASH_GL4ES */
+		gEngfuncs.Con_Printf( S_ERROR "GLES renderer don't support GL_TEXTURE_2D_MULTISAMPLE!\n" );
+#endif /* !XASH_GLES && !XASH_GL4ES */
 	}
 	else // 2D or RECT
 	{
@@ -1234,7 +1266,6 @@ do specified actions on pixels
 */
 static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 {
-	float	emboss_scale = 0.0f;
 	uint	img_flags = 0;
 
 	// force upload texture as RGB or RGBA (detail textures requires this)
@@ -1267,12 +1298,6 @@ static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 			tex->flags &= ~TF_MAKELUMA;
 		}
 
-		if( tex->flags & TF_ALLOW_EMBOSS )
-		{
-			img_flags |= IMAGE_EMBOSS;
-			tex->flags &= ~TF_ALLOW_EMBOSS;
-		}
-
 		if( !FBitSet( tex->flags, TF_IMG_UPLOADED ) && FBitSet( tex->flags, TF_KEEP_SOURCE ))
 			tex->original = gEngfuncs.FS_CopyImage( pic ); // because current pic will be expanded to rgba
 
@@ -1280,12 +1305,8 @@ static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 		if( pic->type == PF_INDEXED_24 || pic->type == PF_INDEXED_32 )
 			img_flags |= IMAGE_FORCE_RGBA;
 
-		// dedicated server doesn't register this variable
-		if( gl_emboss_scale != NULL )
-			emboss_scale = gl_emboss_scale->value;
-
 		// processing image before uploading (force to rgba, make luma etc)
-		if( pic->buffer ) gEngfuncs.Image_Process( &pic, 0, 0, img_flags, emboss_scale );
+		if( pic->buffer ) gEngfuncs.Image_Process( &pic, 0, 0, img_flags, 0 );
 
 		if( FBitSet( tex->flags, TF_LUMINANCE ))
 			ClearBits( pic->flags, IMAGE_HAS_COLOR );
@@ -2164,6 +2185,9 @@ void R_TextureList_f( void )
 			break;
 		case GL_TEXTURE_2D_ARRAY_EXT:
 			gEngfuncs.Con_Printf( "ARRAY " );
+			break;
+		case GL_TEXTURE_2D_MULTISAMPLE:
+			gEngfuncs.Con_Printf( "MSAA  ");
 			break;
 		default:
 			gEngfuncs.Con_Printf( "????  " );

@@ -1,6 +1,5 @@
-#pragma once
-
-#ifdef XASH_VULKAN
+#ifndef REF_VULKAN_H
+#define REF_VULKAN_H
 
 // Define Vulkan handles without depending on vulkan.h
 #ifndef VULKAN_H_
@@ -22,4 +21,4 @@ int XVK_GetInstanceExtensions( unsigned int count, const char **pNames );
 void *XVK_GetVkGetInstanceProcAddr( void );
 VkSurfaceKHR XVK_CreateSurface( VkInstance instance );
 
-#endif // ifdef XASH_VULKAN
+#endif /* REF_VULKAN_H */

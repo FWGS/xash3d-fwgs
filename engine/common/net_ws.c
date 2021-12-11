@@ -1693,15 +1693,15 @@ void NET_Init( void )
 
 	if( net.initialized ) return;
 
-	net_clockwindow = Cvar_Get( "clockwindow", "0.5", 0, "timewindow to execute client moves" );
+	net_clockwindow = Cvar_Get( "clockwindow", "0.5", FCVAR_PRIVILEGED, "timewindow to execute client moves" );
 	net_address = Cvar_Get( "net_address", "0", FCVAR_READ_ONLY, "contain local address of current client" );
 	net_ipname = Cvar_Get( "ip", "localhost", FCVAR_READ_ONLY, "network ip address" );
 	net_iphostport = Cvar_Get( "ip_hostport", "0", FCVAR_READ_ONLY, "network ip host port" );
 	net_hostport = Cvar_Get( "hostport", va( "%i", PORT_SERVER ), FCVAR_READ_ONLY, "network default host port" );
 	net_ipclientport = Cvar_Get( "ip_clientport", "0", FCVAR_READ_ONLY, "network ip client port" );
 	net_clientport = Cvar_Get( "clientport", va( "%i", PORT_CLIENT ), FCVAR_READ_ONLY, "network default client port" );
-	net_fakelag = Cvar_Get( "fakelag", "0", 0, "lag all incoming network data (including loopback) by xxx ms." );
-	net_fakeloss = Cvar_Get( "fakeloss", "0", 0, "act like we dropped the packet this % of the time." );
+	net_fakelag = Cvar_Get( "fakelag", "0", FCVAR_PRIVILEGED, "lag all incoming network data (including loopback) by xxx ms." );
+	net_fakeloss = Cvar_Get( "fakeloss", "0", FCVAR_PRIVILEGED, "act like we dropped the packet this % of the time." );
 
 	// prepare some network data
 	for( i = 0; i < NS_COUNT; i++ )
@@ -2543,10 +2543,10 @@ void HTTP_Init( void )
 
 	http.first_file = http.last_file = NULL;
 
-	Cmd_AddCommand("http_download", &HTTP_Download_f, "add file to download queue");
-	Cmd_AddCommand("http_skip", &HTTP_Skip_f, "skip current download server");
-	Cmd_AddCommand("http_cancel", &HTTP_Cancel_f, "cancel current download");
-	Cmd_AddCommand("http_clear", &HTTP_Clear_f, "cancel all downloads");
+	Cmd_AddRestrictedCommand("http_download", &HTTP_Download_f, "add file to download queue");
+	Cmd_AddRestrictedCommand("http_skip", &HTTP_Skip_f, "skip current download server");
+	Cmd_AddRestrictedCommand("http_cancel", &HTTP_Cancel_f, "cancel current download");
+	Cmd_AddRestrictedCommand("http_clear", &HTTP_Clear_f, "cancel all downloads");
 	Cmd_AddCommand("http_list", &HTTP_List_f, "list all queued downloads");
 	Cmd_AddCommand("http_addcustomserver", &HTTP_AddCustomServer_f, "add custom fastdl server");
 	http_useragent = Cvar_Get( "http_useragent", "xash3d", FCVAR_ARCHIVE, "User-Agent string" );

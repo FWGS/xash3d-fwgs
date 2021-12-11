@@ -11,10 +11,10 @@ def options(opt):
 	grp = opt.add_option_group('ref_vk options')
 
 	grp.add_option('--disable-vulkan', action='store_false', dest='VK', default=True,
-		help = 'disable vulkan [default: vulkan is enabled]')
+		help = 'disable vulkan [default: %default]')
 
-	grp.add_option('', '--aftermath', action='store', dest = 'NSIGHT_AFTERMATH_SDK', default = None,
-		help = 'Path to Nvidia Nsight Aftermath SDK (optional)')
+	grp.add_option('--aftermath', action='store', dest = 'NSIGHT_AFTERMATH_SDK', default = None,
+		help = 'path to Nvidia Nsight Aftermath SDK (optional) [default: %default]')
 
 def configure(conf):
 	# check for dedicated server build
@@ -39,7 +39,6 @@ def configure(conf):
 	conf.load('glslc')
 
 	conf.define('REF_DLL', 1)
-	conf.define('XASH_VULKAN', 1)
 
 	if conf.options.NSIGHT_AFTERMATH_SDK:
 		conf.start_msg('Nvidia Nsight Aftermath SDK')
@@ -63,8 +62,8 @@ def configure(conf):
 	# TODO if debug
 	conf.env.GLSLCFLAGS += ['-g']
 
-	# TODO for rtx shaders only (rgen, rmiss, rchit, ...)
-	conf.env.GLSLCFLAGS += ['--target-env=vulkan1.2']
+	if '-Werror=declaration-after-statement' in conf.env.CFLAGS:
+		conf.env.CFLAGS.remove('-Werror=declaration-after-statement')
 
 def build(bld):
 	if not bld.env.VK:
@@ -75,7 +74,8 @@ def build(bld):
 	libpath = []
 
 	source = bld.path.ant_glob(['*.c'])
-	glsl_source = bld.path.ant_glob(['shaders/*.vert', 'shaders/*.frag', 'shaders/*.comp', 'shaders/*.rgen', 'shaders/*.rchit', 'shaders/*.rmiss', 'shaders/*.rahit'])
+	glsl_source = bld.path.ant_glob(['shaders/*.vert', 'shaders/*.frag', 'shaders/*.comp'])
+	rtx_glsl_source = bld.path.ant_glob(['shaders/*.rgen', 'shaders/*.rchit', 'shaders/*.rmiss', 'shaders/*.rahit'])
 
 	includes = ['.',
 		'../engine',
@@ -114,6 +114,13 @@ def build(bld):
 		# includes = 'shaders/', # write your includes here
 		# defines = 'TEST', # write your C preprocessor defines here
 		install_path = bld.env.LIBDIR + '/valve' # FIXME TEMPORARY!!!!
+	)
+
+	bld(
+		source = rtx_glsl_source,
+		features = 'glsl',
+		install_path = bld.env.LIBDIR + '/valve', # FIXME TEMPORARY!!!!
+		glslcflags = '--target-env=vulkan1.2'
 	)
 
 	bld.install_files(bld.env.LIBDIR + '/valve/maps', bld.path.ant_glob('rad/*.rad'))

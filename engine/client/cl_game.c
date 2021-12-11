@@ -1746,6 +1746,29 @@ static int GAME_EXPORT pfnClientCmd( const char *szCmdString )
 
 /*
 =============
+pfnFilteredClientCmd
+=============
+*/
+static int GAME_EXPORT pfnFilteredClientCmd( const char *szCmdString )
+{
+	if( !COM_CheckString( szCmdString ))
+		return 0;
+
+	// a1ba:
+	// there should be stufftext validator, that checks
+	// hardcoded commands and disallows them before passing to
+	// filtered buffer, returning 0
+	// I've replaced it by hooking potentially exploitable
+	// commands and variables(motd_write, motdfile, etc) in client interfaces
+
+	Cbuf_AddFilteredText( szCmdString );
+	Cbuf_AddFilteredText( "\n" );
+
+	return 1;
+}
+
+/*
+=============
 pfnGetPlayerInfo
 
 =============
@@ -3878,10 +3901,7 @@ static cl_enginefunc_t gEngfuncs =
 	pfnGetAppID,
 	Cmd_AliasGetList,
 	pfnVguiWrap2_GetMouseDelta,
-
-	// HACKHACK: added it here so it wouldn't cause overflow or segfault
-	// TODO: itself client command filtering is not implemented yet
-	pfnClientCmd
+	pfnFilteredClientCmd
 };
 
 void CL_UnloadProgs( void )

@@ -79,8 +79,8 @@ def options(opt):
 	grp.add_option('-8', '--64bits', action = 'store_true', dest = 'ALLOW64', default = False,
 		help = 'allow targetting 64-bit engine(Linux/Windows/OSX x86 only) [default: %default]')
 
-	grp.add_option('-W', '--win-style-install', action = 'store_true', dest = 'WIN_INSTALL', default = False,
-		help = 'install like Windows build, ignore prefix, useful for development [default: %default]')
+	grp.add_option('-P', '--enable-packaging', action = 'store_true', dest = 'PACKAGING', default = False,
+		help = 'respect prefix option, useful for packaging for various operating systems [default: %default]')
 
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
 		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compatibility!) [default: %default]')
@@ -148,8 +148,6 @@ def configure(conf):
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
 		conf.options.GL     = False
-		# Vulkan is not supported on Android yet for CI reasons: requres NDK>12, glslc lookup etc.
-		conf.options.VK     = False
 	elif conf.env.MAGX:
 		conf.options.USE_SELECT       = True
 		conf.options.SDL12            = True
@@ -161,8 +159,8 @@ def configure(conf):
 		conf.options.NO_ASYNC_RESOLVE = True
 		conf.define('XASH_SDLMAIN', 1)
 		enforce_pic = False
-	else:
-		conf.options.VK = True
+	elif conf.env.DEST_OS == 'dos':
+		conf.options.SINGLE_BINARY = True
 
 	if conf.env.STATIC_LINKING:
 		enforce_pic = False # PIC may break full static builds
@@ -252,8 +250,6 @@ def configure(conf):
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
-	if conf.env.DEST_OS == 'dos':
-		conf.env.SINGLE_BINARY = True
 
 	if conf.env.DEST_OS != 'win32':
 		conf.check_cc(lib='dl', mandatory=False)
@@ -296,11 +292,20 @@ def configure(conf):
 	else:
 		conf.undefine('HAVE_TGMATH_H')
 
+	# check if we can use alloca.h or malloc.h
+	if conf.check_cc(header_name='alloca.h', mandatory=False):
+		conf.define('ALLOCA_H', 'alloca.h')
+	elif conf.check_cc(header_name='malloc.h', mandatory=False):
+		conf.define('ALLOCA_H', 'malloc.h')
+
 	# indicate if we are packaging for Linux/BSD
-	if not conf.options.WIN_INSTALL and conf.env.DEST_OS not in ['win32', 'darwin', 'android']:
+	if conf.options.PACKAGING:
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 	else:
+		if sys.platform != 'win32':
+			conf.env.PREFIX = '/'
+
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')

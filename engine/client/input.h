@@ -61,12 +61,9 @@ extern convar_t *touch_enable;
 extern convar_t *touch_emulate;
 
 void Touch_Draw( void );
-void Touch_SetClientOnly( qboolean state );
-void Touch_RemoveButton( const char *name );
-void Touch_HideButtons( const char *name, unsigned char hide );
-//void IN_TouchSetCommand( const char *name, const char *command );
-//void IN_TouchSetTexture( const char *name, const char *texture );
-//void IN_TouchSetColor( const char *name, byte *color );
+void Touch_SetClientOnly( byte state );
+void Touch_RemoveButton( const char *name, qboolean privileged );
+void Touch_HideButtons( const char *name, unsigned char hide, qboolean privileged );
 void Touch_AddClientButton( const char *name, const char *texture, const char *command, float x1, float y1, float x2, float y2, byte *color, int round, float aspect, int flags );
 void Touch_AddDefaultButton( const char *name, const char *texturefile, const char *command, float x1, float y1, float x2, float y2, byte *color, int round, float aspect, int flags );
 void Touch_WriteConfig( void );

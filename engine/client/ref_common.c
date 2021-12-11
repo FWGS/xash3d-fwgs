@@ -13,7 +13,7 @@ convar_t *gl_showtextures;
 convar_t *r_decals;
 convar_t *r_adjust_fov;
 convar_t *r_showtree;
-convar_t *gl_wgl_msaa_samples;
+convar_t *gl_msaa_samples;
 convar_t *gl_clear;
 convar_t *r_refdll;
 
@@ -385,11 +385,9 @@ static ref_api_t gEngfuncs =
 	pfnDrawTransparentTriangles,
 	&clgame.drawFuncs,
 
-#ifdef XASH_VULKAN
 	XVK_GetInstanceExtensions,
 	XVK_GetVkGetInstanceProcAddr,
 	XVK_CreateSurface,
-#endif
 };
 
 static void R_UnloadProgs( void )
@@ -648,10 +646,27 @@ qboolean R_Init( void )
 	gl_showtextures = Cvar_Get( "r_showtextures", "0", FCVAR_CHEAT, "show all uploaded textures" );
 	r_adjust_fov = Cvar_Get( "r_adjust_fov", "1", FCVAR_ARCHIVE, "making FOV adjustment for wide-screens" );
 	r_decals = Cvar_Get( "r_decals", "4096", FCVAR_ARCHIVE, "sets the maximum number of decals" );
-	gl_wgl_msaa_samples = Cvar_Get( "gl_wgl_msaa_samples", "0", FCVAR_GLCONFIG, "samples number for multisample anti-aliasing" );
+	gl_msaa_samples = Cvar_Get( "gl_msaa_samples", "0", FCVAR_GLCONFIG, "samples number for multisample anti-aliasing" );
 	gl_clear = Cvar_Get( "gl_clear", "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
 	r_showtree = Cvar_Get( "r_showtree", "0", FCVAR_ARCHIVE, "build the graph of visible BSP tree" );
 	r_refdll = Cvar_Get( "r_refdll", "", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "choose renderer implementation, if supported" );
+
+	// cvars that are expected to exist
+	Cvar_Get( "r_speeds", "0", FCVAR_ARCHIVE, "shows renderer speeds" );
+	Cvar_Get( "r_fullbright", "0", FCVAR_CHEAT, "disable lightmaps, get fullbright for entities" );
+	Cvar_Get( "r_norefresh", "0", 0, "disable 3D rendering (use with caution)" );
+	Cvar_Get( "r_dynamic", "1", FCVAR_ARCHIVE, "allow dynamic lighting (dlights, lightstyles)" );
+	Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
+	Cvar_Get( "tracerred", "0.8", 0, "tracer red component weight ( 0 - 1.0 )" );
+	Cvar_Get( "tracergreen", "0.8", 0, "tracer green component weight ( 0 - 1.0 )" );
+	Cvar_Get( "tracerblue", "0.4", 0, "tracer blue component weight ( 0 - 1.0 )" );
+	Cvar_Get( "traceralpha", "0.5", 0, "tracer alpha amount ( 0 - 1.0 )" );
+
+	Cvar_Get( "r_sprite_lerping", "1", FCVAR_ARCHIVE, "enables sprite animation lerping" );
+	Cvar_Get( "r_sprite_lighting", "1", FCVAR_ARCHIVE, "enables sprite lighting (blood etc)" );
+
+	Cvar_Get( "r_drawviewmodel", "1", 0, "draw firstperson weapon model" );
+	Cvar_Get( "r_glowshellfreq", "2.2", 0, "glowing shell frequency update" );
 
 	// cvars that are expected to exist by client.dll
 	// refdll should just get pointer to them

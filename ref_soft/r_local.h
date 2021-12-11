@@ -59,7 +59,7 @@ extern poolhandle_t r_temppool;
 #define BLOCK_SIZE_DEFAULT	128		// for keep backward compatibility
 #define BLOCK_SIZE_MAX	1024
 
-#define MAX_TEXTURES	4096
+#define MAX_TEXTURES	8192 // a1ba: increased by users request
 #define MAX_DECAL_SURFS	4096
 
 #if XASH_LOW_MEMORY
@@ -686,73 +686,13 @@ void TriBrightness( float brightness );
 
 extern ref_api_t      gEngfuncs;
 extern ref_globals_t *gpGlobals;
-extern cvar_t	*gl_emboss_scale;
-extern cvar_t	*r_drawentities;
-extern cvar_t	*vid_brightness;
-extern cvar_t	*vid_gamma;
-extern cvar_t	*r_norefresh;
 extern cvar_t	*r_dynamic;
-extern cvar_t	*r_lightmap;
+
+DECLARE_ENGINE_SHARED_CVAR_LIST()
 
 // todo: gl_cull.c
 #define R_CullModel(...) 0
 
-#if 0
-//
-// renderer cvars
-//
-extern cvar_t	*gl_texture_anisotropy;
-extern cvar_t	*gl_extensions;
-extern cvar_t	*gl_check_errors;
-extern cvar_t	*gl_texture_lodbias;
-extern cvar_t	*gl_texture_nearest;
-extern cvar_t	*gl_lightmap_nearest;
-extern cvar_t	*gl_keeptjunctions;
-
-extern cvar_t	*gl_round_down;
-extern cvar_t	*gl_wireframe;
-extern cvar_t	*gl_polyoffset;
-extern cvar_t	*gl_finish;
-extern cvar_t	*gl_nosort;
-extern cvar_t	*gl_clear;
-extern cvar_t	*gl_test;		// cvar to testify new effects
-extern cvar_t	*gl_msaa;
-extern cvar_t *gl_stencilbits;
-
-extern cvar_t	*r_speeds;
-extern cvar_t	*r_fullbright;
-extern cvar_t	*r_showtree;	// build graph of visible hull
-extern cvar_t	*r_lighting_extended;
-extern cvar_t	*r_lighting_modulate;
-extern cvar_t	*r_lighting_ambient;
-extern cvar_t	*r_studio_lambert;
-extern cvar_t	*r_detailtextures;
-extern cvar_t	*r_drawentities;
-extern cvar_t	*r_decals;
-extern cvar_t	*r_novis;
-extern cvar_t	*r_nocull;
-extern cvar_t	*r_lockpvs;
-extern cvar_t	*r_lockfrustum;
-extern cvar_t	*r_traceglow;
-extern cvar_t	*r_dynamic;
-extern cvar_t	*r_lightmap;
-extern cvar_t *r_vbo;
-extern cvar_t *r_vbo_dlightmode;
-
-extern cvar_t	*vid_brightness;
-extern cvar_t	*vid_gamma;
-
-//
-// engine shared convars
-//
-extern cvar_t *gl_showtextures;
-extern cvar_t	*tracerred;
-extern cvar_t	*tracergreen;
-extern cvar_t	*tracerblue;
-extern cvar_t	*traceralpha;
-extern cvar_t	*cl_lightstyle_lerping;
-extern cvar_t	*r_showhull;
-#endif
 // softrender defs
 
 #define CACHE_SIZE      32

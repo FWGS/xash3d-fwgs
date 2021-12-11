@@ -292,13 +292,15 @@ static const VkExtensionProperties *findExtension( const VkExtensionProperties *
 
 static qboolean deviceSupportsRtx( const VkExtensionProperties *exts, uint32_t num_exts )
 {
+	qboolean result = true;
+
 	for (int i = 1 /* skip swapchain ext */; i < ARRAYSIZE(device_extensions); ++i) {
 		if (!findExtension(exts, num_exts, device_extensions[i])) {
 			gEngine.Con_Reportf(S_ERROR "Extension %s is not supported\n", device_extensions[i]);
-			return false;
+			result = false;
 		}
 	}
-	return true;
+	return result;
 }
 
 // FIXME this is almost exactly the physical_device_t, reuse

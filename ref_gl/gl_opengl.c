@@ -1,5 +1,9 @@
 
 #include "gl_local.h"
+#if XASH_GL4ES
+#include "gl4es/include/gl4esinit.h"
+#include "gl4es/include/gl4eshint.h"
+#endif // XASH_GL4ES
 
 cvar_t	*gl_extensions;
 cvar_t	*gl_texture_anisotropy;
@@ -7,7 +11,6 @@ cvar_t	*gl_texture_lodbias;
 cvar_t	*gl_texture_nearest;
 cvar_t	*gl_lightmap_nearest;
 cvar_t	*gl_keeptjunctions;
-cvar_t	*gl_emboss_scale;
 cvar_t	*gl_check_errors;
 cvar_t	*gl_polyoffset;
 cvar_t	*gl_wireframe;
@@ -18,14 +21,10 @@ cvar_t	*gl_clear;
 cvar_t	*gl_test;
 cvar_t	*gl_msaa;
 cvar_t	*gl_stencilbits;
-cvar_t	*r_speeds;
-cvar_t	*r_fullbright;
-cvar_t	*r_norefresh;
 cvar_t	*r_lighting_extended;
 cvar_t	*r_lighting_modulate;
 cvar_t	*r_lighting_ambient;
 cvar_t	*r_detailtextures;
-cvar_t	*r_drawentities;
 cvar_t	*r_adjust_fov;
 cvar_t	*r_decals;
 cvar_t	*r_novis;
@@ -34,20 +33,16 @@ cvar_t	*r_lockpvs;
 cvar_t	*r_lockfrustum;
 cvar_t	*r_traceglow;
 cvar_t	*r_dynamic;
-cvar_t	*r_lightmap;
-cvar_t	*r_showhull;
 cvar_t	*gl_round_down;
 cvar_t	*r_vbo;
 cvar_t	*r_vbo_dlightmode;
-cvar_t	*gl_showtextures;
-cvar_t	*cl_lightstyle_lerping;
 
-cvar_t	*vid_brightness;
-cvar_t	*vid_gamma;
 cvar_t	*tracerred;
 cvar_t	*tracergreen;
 cvar_t	*tracerblue;
 cvar_t	*traceralpha;
+
+DEFINE_ENGINE_SHARED_CVAR_LIST()
 
 poolhandle_t r_temppool;
 
@@ -245,6 +240,12 @@ static dllfunc_t vbofuncs[] =
 	{ NULL, NULL }
 };
 
+static dllfunc_t multisampletexfuncs[] =
+{
+	{ GL_CALL(glTexImage2DMultisample) },
+	{ NULL, NULL }
+};
+
 static dllfunc_t drawrangeelementsfuncs[] =
 {
 { GL_CALL( glDrawRangeElements ) },
@@ -345,7 +346,7 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 	if( cvarname )
 	{
 		// system config disable extensions
-		parm = gEngfuncs.Cvar_Get( cvarname, "1", FCVAR_GLCONFIG, va( CVAR_GLCONFIG_DESCRIPTION, name ));
+		parm = gEngfuncs.Cvar_Get( cvarname, "1", FCVAR_GLCONFIG|FCVAR_READ_ONLY, va( CVAR_GLCONFIG_DESCRIPTION, name ));
 	}
 
 	if(( parm && !CVAR_TO_BOOL( parm )) || ( !CVAR_TO_BOOL( gl_extensions ) && r_ext != GL_OPENGL_110 ))
@@ -648,7 +649,6 @@ void GL_InitExtensionsBigGL( void )
 		const char *version = pglGetString( GL_VERSION | 0x10000 );
 		const char *extensions = pglGetString( GL_EXTENSIONS | 0x10000 );
 		glConfig.wrapper = GLES_WRAPPER_GL4ES;
-
 	}
 
 	// multitexture
@@ -711,6 +711,7 @@ void GL_InitExtensionsBigGL( void )
 	GL_CheckExtension( "GL_ARB_depth_buffer_float", NULL, "gl_texture_depth_float", GL_ARB_DEPTH_FLOAT_EXT );
 	GL_CheckExtension( "GL_EXT_gpu_shader4", NULL, NULL, GL_EXT_GPU_SHADER4 ); // don't confuse users
 	GL_CheckExtension( "GL_ARB_vertex_buffer_object", vbofuncs, "gl_vertex_buffer_object", GL_ARB_VERTEX_BUFFER_OBJECT_EXT );
+	GL_CheckExtension( "GL_ARB_texture_multisample", multisampletexfuncs, "gl_texture_multisample", GL_TEXTURE_MULTISAMPLE );
 	if( GL_CheckExtension( "GL_ARB_shading_language_100", NULL, NULL, GL_SHADER_GLSL100_EXT ))
 	{
 		pglGetIntegerv( GL_MAX_TEXTURE_COORDS_ARB, &glConfig.max_texture_coords );
@@ -827,57 +828,38 @@ GL_InitCommands
 */
 void GL_InitCommands( void )
 {
-	r_speeds = gEngfuncs.Cvar_Get( "r_speeds", "0", FCVAR_ARCHIVE, "shows renderer speeds" );
-	r_fullbright = gEngfuncs.Cvar_Get( "r_fullbright", "0", FCVAR_CHEAT, "disable lightmaps, get fullbright for entities" );
-	r_norefresh = gEngfuncs.Cvar_Get( "r_norefresh", "0", 0, "disable 3D rendering (use with caution)" );
-	r_lighting_extended = gEngfuncs.Cvar_Get( "r_lighting_extended", "1", FCVAR_ARCHIVE, "allow to get lighting from world and bmodels" );
-	r_lighting_modulate = gEngfuncs.Cvar_Get( "r_lighting_modulate", "0.6", FCVAR_ARCHIVE, "lightstyles modulate scale" );
-	r_lighting_ambient = gEngfuncs.Cvar_Get( "r_lighting_ambient", "0.3", FCVAR_ARCHIVE, "map ambient lighting scale" );
+	RETRIEVE_ENGINE_SHARED_CVAR_LIST();
+
+	r_lighting_extended = gEngfuncs.Cvar_Get( "r_lighting_extended", "1", FCVAR_GLCONFIG, "allow to get lighting from world and bmodels" );
+	r_lighting_modulate = gEngfuncs.Cvar_Get( "r_lighting_modulate", "0.6", FCVAR_GLCONFIG, "lightstyles modulate scale" );
+	r_lighting_ambient = gEngfuncs.Cvar_Get( "r_lighting_ambient", "0.3", FCVAR_GLCONFIG, "map ambient lighting scale" );
 	r_novis = gEngfuncs.Cvar_Get( "r_novis", "0", 0, "ignore vis information (perfomance test)" );
 	r_nocull = gEngfuncs.Cvar_Get( "r_nocull", "0", 0, "ignore frustrum culling (perfomance test)" );
 	r_detailtextures = gEngfuncs.Cvar_Get( "r_detailtextures", "1", FCVAR_ARCHIVE, "enable detail textures support" );
 	r_lockpvs = gEngfuncs.Cvar_Get( "r_lockpvs", "0", FCVAR_CHEAT, "lockpvs area at current point (pvs test)" );
 	r_lockfrustum = gEngfuncs.Cvar_Get( "r_lockfrustum", "0", FCVAR_CHEAT, "lock frustrum area at current point (cull test)" );
-	r_dynamic = gEngfuncs.Cvar_Get( "r_dynamic", "1", FCVAR_ARCHIVE, "allow dynamic lighting (dlights, lightstyles)" );
-	r_traceglow = gEngfuncs.Cvar_Get( "r_traceglow", "1", FCVAR_ARCHIVE, "cull flares behind models" );
-	r_lightmap = gEngfuncs.Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
-	r_drawentities = gEngfuncs.pfnGetCvarPointer( "r_drawentities", 0 );
-	r_decals = gEngfuncs.pfnGetCvarPointer( "r_decals", 0 );
-	r_showhull = gEngfuncs.pfnGetCvarPointer( "r_showhull", 0 );
+	r_traceglow = gEngfuncs.Cvar_Get( "r_traceglow", "1", FCVAR_GLCONFIG, "cull flares behind models" );
 
-	gl_extensions = gEngfuncs.Cvar_Get( "gl_allow_extensions", "1", FCVAR_GLCONFIG, "allow gl_extensions" );
-	gl_texture_nearest = gEngfuncs.Cvar_Get( "gl_texture_nearest", "0", FCVAR_ARCHIVE, "disable texture filter" );
-	gl_lightmap_nearest = gEngfuncs.Cvar_Get( "gl_lightmap_nearest", "0", FCVAR_ARCHIVE, "disable lightmap filter" );
-	gl_check_errors = gEngfuncs.Cvar_Get( "gl_check_errors", "1", FCVAR_ARCHIVE, "ignore video engine errors" );
-	gl_vsync = gEngfuncs.pfnGetCvarPointer( "gl_vsync", 0 );
-	gl_texture_anisotropy = gEngfuncs.Cvar_Get( "gl_anisotropy", "8", FCVAR_ARCHIVE, "textures anisotropic filter" );
-	gl_texture_lodbias =  gEngfuncs.Cvar_Get( "gl_texture_lodbias", "0.0", FCVAR_ARCHIVE, "LOD bias for mipmapped textures (perfomance|quality)" );
-	gl_keeptjunctions = gEngfuncs.Cvar_Get( "gl_keeptjunctions", "1", FCVAR_ARCHIVE, "removing tjuncs causes blinking pixels" );
-	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_ARCHIVE|FCVAR_LATCH, "fake bumpmapping scale" );
-	gl_showtextures = gEngfuncs.pfnGetCvarPointer( "r_showtextures", 0 );
-	gl_finish = gEngfuncs.Cvar_Get( "gl_finish", "0", FCVAR_ARCHIVE, "use glFinish instead of glFlush" );
-	gl_nosort = gEngfuncs.Cvar_Get( "gl_nosort", "0", FCVAR_ARCHIVE, "disable sorting of translucent surfaces" );
-	gl_clear = gEngfuncs.pfnGetCvarPointer( "gl_clear", 0 );
+	gl_extensions = gEngfuncs.Cvar_Get( "gl_allow_extensions", "1", FCVAR_GLCONFIG|FCVAR_READ_ONLY, "allow gl_extensions" );
+	gl_texture_nearest = gEngfuncs.Cvar_Get( "gl_texture_nearest", "0", FCVAR_GLCONFIG, "disable texture filter" );
+	gl_lightmap_nearest = gEngfuncs.Cvar_Get( "gl_lightmap_nearest", "0", FCVAR_GLCONFIG, "disable lightmap filter" );
+	gl_check_errors = gEngfuncs.Cvar_Get( "gl_check_errors", "1", FCVAR_GLCONFIG, "ignore video engine errors" );
+	gl_texture_anisotropy = gEngfuncs.Cvar_Get( "gl_anisotropy", "8", FCVAR_GLCONFIG, "textures anisotropic filter" );
+	gl_texture_lodbias =  gEngfuncs.Cvar_Get( "gl_texture_lodbias", "0.0", FCVAR_GLCONFIG, "LOD bias for mipmapped textures (perfomance|quality)" );
+	gl_keeptjunctions = gEngfuncs.Cvar_Get( "gl_keeptjunctions", "1", FCVAR_GLCONFIG, "removing tjuncs causes blinking pixels" );
+	gl_finish = gEngfuncs.Cvar_Get( "gl_finish", "0", FCVAR_GLCONFIG, "use glFinish instead of glFlush" );
+	gl_nosort = gEngfuncs.Cvar_Get( "gl_nosort", "0", FCVAR_GLCONFIG, "disable sorting of translucent surfaces" );
 	gl_test = gEngfuncs.Cvar_Get( "gl_test", "0", 0, "engine developer cvar for quick testing new features" );
-	gl_wireframe = gEngfuncs.Cvar_Get( "gl_wireframe", "0", FCVAR_ARCHIVE|FCVAR_SPONLY, "show wireframe overlay" );
-	gl_msaa = gEngfuncs.Cvar_Get( "gl_msaa", "1", FCVAR_ARCHIVE, "enable or disable multisample anti-aliasing" );
-	gl_stencilbits = gEngfuncs.Cvar_Get( "gl_stencilbits", "8", FCVAR_GLCONFIG, "pixelformat stencil bits (0 - auto)" );
-	gl_round_down = gEngfuncs.Cvar_Get( "gl_round_down", "2", FCVAR_GLCONFIG, "round texture sizes to nearest POT value" );
+	gl_wireframe = gEngfuncs.Cvar_Get( "gl_wireframe", "0", FCVAR_GLCONFIG|FCVAR_SPONLY, "show wireframe overlay" );
+	gl_msaa = gEngfuncs.Cvar_Get( "gl_msaa", "1", FCVAR_GLCONFIG, "enable or disable multisample anti-aliasing" );
+	gl_stencilbits = gEngfuncs.Cvar_Get( "gl_stencilbits", "8", FCVAR_GLCONFIG|FCVAR_READ_ONLY, "pixelformat stencil bits (0 - auto)" );
+	gl_round_down = gEngfuncs.Cvar_Get( "gl_round_down", "2", FCVAR_GLCONFIG|FCVAR_READ_ONLY, "round texture sizes to nearest POT value" );
+
 	// these cvar not used by engine but some mods requires this
-	gl_polyoffset = gEngfuncs.Cvar_Get( "gl_polyoffset", "2.0", FCVAR_ARCHIVE, "polygon offset for decals" );
+	gl_polyoffset = gEngfuncs.Cvar_Get( "gl_polyoffset", "2.0", FCVAR_GLCONFIG, "polygon offset for decals" );
 
 	// make sure gl_vsync is checked after vid_restart
 	SetBits( gl_vsync->flags, FCVAR_CHANGED );
-
-	vid_gamma = gEngfuncs.pfnGetCvarPointer( "gamma", 0 );
-	vid_brightness = gEngfuncs.pfnGetCvarPointer( "brightness", 0 );
-
-	tracerred = gEngfuncs.Cvar_Get( "tracerred", "0.8", 0, "tracer red component weight ( 0 - 1.0 )" );
-	tracergreen = gEngfuncs.Cvar_Get( "tracergreen", "0.8", 0, "tracer green component weight ( 0 - 1.0 )" );
-	tracerblue = gEngfuncs.Cvar_Get( "tracerblue", "0.4", 0, "tracer blue component weight ( 0 - 1.0 )" );
-	traceralpha = gEngfuncs.Cvar_Get( "traceralpha", "0.5", 0, "tracer alpha amount ( 0 - 1.0 )" );
-
-	cl_lightstyle_lerping = gEngfuncs.pfnGetCvarPointer( "cl_lightstyle_lerping", 0 );
 
 	gEngfuncs.Cmd_AddCommand( "r_info", R_RenderInfo_f, "display renderer info" );
 	gEngfuncs.Cmd_AddCommand( "timerefresh", SCR_TimeRefresh_f, "turn quickly and print rendering statistcs" );
@@ -990,6 +972,10 @@ void R_Shutdown( void )
 	R_ShutdownImages();
 
 	Mem_FreePool( &r_temppool );
+
+#ifdef XASH_GL4ES
+	close_gl4es();
+#endif // XASH_GL4ES
 
 	// shut down OS specific OpenGL stuff like contexts, etc.
 	gEngfuncs.R_Free_Video();
@@ -1135,13 +1121,13 @@ void GL_SetupAttributes( int safegl )
 
 	if( safegl < SAFE_NOMSAA )
 	{
-		switch( (int)gEngfuncs.pfnGetCvarFloat( "gl_wgl_msaa_samples" ))
+		switch( (int)gEngfuncs.pfnGetCvarFloat( "gl_msaa_samples" ))
 		{
 		case 2:
 		case 4:
 		case 8:
 		case 16:
-			samples = gEngfuncs.pfnGetCvarFloat( "gl_wgl_msaa_samples" );
+			samples = gEngfuncs.pfnGetCvarFloat( "gl_msaa_samples" );
 			break;
 		default:
 			samples = 0; // don't use, because invalid parameter is passed
@@ -1164,15 +1150,13 @@ void GL_SetupAttributes( int safegl )
 	}
 	else
 	{
-		gEngfuncs.Cvar_Set( "gl_wgl_msaa_samples", "0" );
+		gEngfuncs.Cvar_Set( "gl_msaa_samples", "0" );
 	}
 }
 
 void wes_init( const char *gles2 );
 int nanoGL_Init( void );
 #ifdef XASH_GL4ES
-#include "gl4es/include/gl4esinit.h"
-#include "gl4es/include/gl4eshint.h"
 void GL4ES_GetMainFBSize( int *width, int *height )
 {
 	*width = gpGlobals->width;
@@ -1185,7 +1169,6 @@ void *GL4ES_GetProcAddress( const char *name )
 		return NULL;
 	return gEngfuncs.GL_GetProcAddress( name );
 }
-
 #endif
 
 void GL_OnContextCreated( void )
@@ -1220,5 +1203,4 @@ void GL_OnContextCreated( void )
 	// dxt unpacked to 16-bit looks ugly
 	pglHint( GL_AVOID16BITS_HINT_GL4ES, 1 );
 #endif
-
 }

@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #define STDLIB_H
 
 #include <stdarg.h>
+#include <string.h>
 #include "build.h"
 
 #ifdef __GNUC__
@@ -50,7 +51,7 @@ enum
 void Q_strnupr( const char *in, char *out, size_t size_out );
 #define Q_strlwr( in, out ) Q_strnlwr( in, out, 99999 )
 void Q_strnlwr( const char *in, char *out, size_t size_out );
-size_t Q_strlen( const char *string );
+#define Q_strlen( str ) (( str ) ? strlen(( str )) : 0 )
 size_t Q_colorstr( const char *string );
 char Q_toupper( const char in );
 char Q_tolower( const char in );

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "xash3d_mathlib.h"
+#include "enginefeatures.h"
 
 //-----------------------------------------------------------------------------
 // Gamma conversion support
@@ -78,10 +79,16 @@ void BuildGammaTable( float lightgamma, float brightness )
 
 byte LightToTexGamma( byte b )
 {
-	return lightgammatable[b];
+	if( FBitSet( host.features, ENGINE_LINEAR_GAMMA_SPACE ))
+		return b;
+	else
+		return lightgammatable[b];
 }
 
 byte TextureToGamma( byte b )
 {
-	return texgammatable[b];
+	if( FBitSet( host.features, ENGINE_LINEAR_GAMMA_SPACE ))
+		return b;
+	else
+		return texgammatable[b];
 }
