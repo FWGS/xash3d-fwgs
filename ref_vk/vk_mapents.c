@@ -6,6 +6,7 @@
 #include "eiface.h" // ARRAYSIZE
 #include "xash3d_mathlib.h"
 #include <string.h>
+#include <ctype.h>
 
 xvk_map_entities_t g_map_entities;
 
@@ -52,10 +53,35 @@ static unsigned parseEntPropInt(const char* value, int *out, unsigned bit) {
 	return (1 == sscanf(value, "%d", out)) ? bit : 0;
 }
 
+static unsigned parseEntPropIntArray(const char* value, int_array_t *out, unsigned bit) {
+	unsigned retval = 0;
+	out->num = 0;
+	while (*value) {
+		int i = 0;
+		if (0 == sscanf(value, "%d", &i))
+			break;
+
+		if (out->num == MAX_INT_ARRAY_SIZE)
+			break;
+
+		retval |= bit;
+
+		out->values[out->num++] = i;
+
+		while (*value && isdigit(*value)) ++value;
+		while (*value && isspace(*value)) ++value;
+	}
+
+	if (*value) {
+		gEngine.Con_Printf(S_ERROR "Error parsing mapents patch IntArray (wrong format? too many entries (max=%d)), portion not parsed: %s\n", MAX_INT_ARRAY_SIZE, value);
+	}
+	return retval;
+}
+
 static unsigned parseEntPropString(const char* value, string *out, unsigned bit) {
 	const int len = Q_strlen(value);
 	if (len >= sizeof(string))
-		gEngine.Con_Printf(S_ERROR, "Map entity value '%s' is too long, max length is %d\n",
+		gEngine.Con_Printf(S_ERROR "Map entity value '%s' is too long, max length is %d\n",
 			value, sizeof(string));
 	Q_strncpy(*out, value, sizeof(*out));
 	return bit;
@@ -285,54 +311,58 @@ static void readWorldspawn( const entity_props_t *props ) {
 static void addPatchSurface( const entity_props_t *props, uint32_t have_fields ) {
 	const model_t* const map = gEngine.pfnGetModelByIndex( 1 );
 	const int num_surfaces = map->numsurfaces;
-	xvk_patch_surface_t *psurf = NULL;
-	if (props->_xvk_surface_id < 0 || props->_xvk_surface_id >= num_surfaces) {
-		gEngine.Con_Printf(S_ERROR "Incorrect patch for surface_index %d where numsurfaces=%d\n", props->_xvk_surface_id, num_surfaces);
-		return;
-	}
 
-	if (!g_map_entities.patch.surfaces) {
-		g_map_entities.patch.surfaces = Mem_Malloc(vk_core.pool, num_surfaces * sizeof(xvk_patch_surface_t));
-		for (int i = 0; i < num_surfaces; ++i) {
-			g_map_entities.patch.surfaces[i].flags = Patch_Surface_NoPatch;
-			g_map_entities.patch.surfaces[i].tex_id = -1;
-			g_map_entities.patch.surfaces[i].tex = NULL;
-		}
-	}
-
-	psurf = g_map_entities.patch.surfaces + props->_xvk_surface_id;
-
-	if (have_fields & Field__xvk_texture) {
-		if (props->_xvk_texture[0] == '\0') {
-			gEngine.Con_Reportf("Patch: surface %d removed\n", props->_xvk_surface_id);
-			psurf->flags = Patch_Surface_Delete;
+	for (int i = 0; i < props->_xvk_surface_id.num; ++i) {
+		const int index = props->_xvk_surface_id.values[i];
+		xvk_patch_surface_t *psurf = NULL;
+		if (index < 0 || index >= num_surfaces) {
+			gEngine.Con_Printf(S_ERROR "Incorrect patch for surface_index %d where numsurfaces=%d\n", index, num_surfaces);
 			return;
-		} else {
-			const int tex_id = VK_FindTexture( props->_xvk_texture );
-			gEngine.Con_Reportf("Patch for surface %d with texture \"%s\" -> %d\n", props->_xvk_surface_id, props->_xvk_texture, tex_id);
-			psurf->tex_id = tex_id;
-
-			// Find texture_t for this index
-			for (int i = 0; i < map->numtextures; ++i) {
-				const texture_t* const tex = map->textures[i];
-				if (tex->gl_texturenum == tex_id) {
-					psurf->tex = tex;
-					break;
-				}
-			}
-
-			psurf->flags |= Patch_Surface_Texture;
 		}
-	}
 
-	if (have_fields & Field__light) {
-		VectorCopy(props->_light, psurf->emissive);
-		psurf->flags |= Patch_Surface_Emissive;
-		gEngine.Con_Reportf("Patch for surface %d: assign emissive %f %f %f\n", props->_xvk_surface_id,
-			psurf->emissive[0],
-			psurf->emissive[1],
-			psurf->emissive[2]
-		);
+		if (!g_map_entities.patch.surfaces) {
+			g_map_entities.patch.surfaces = Mem_Malloc(vk_core.pool, num_surfaces * sizeof(xvk_patch_surface_t));
+			for (int i = 0; i < num_surfaces; ++i) {
+				g_map_entities.patch.surfaces[i].flags = Patch_Surface_NoPatch;
+				g_map_entities.patch.surfaces[i].tex_id = -1;
+				g_map_entities.patch.surfaces[i].tex = NULL;
+			}
+		}
+
+		psurf = g_map_entities.patch.surfaces + index;
+
+		if (have_fields & Field__xvk_texture) {
+			if (props->_xvk_texture[0] == '\0') {
+				gEngine.Con_Reportf("Patch: surface %d removed\n", index);
+				psurf->flags = Patch_Surface_Delete;
+				return;
+			} else {
+				const int tex_id = VK_FindTexture( props->_xvk_texture );
+				gEngine.Con_Reportf("Patch for surface %d with texture \"%s\" -> %d\n", index, props->_xvk_texture, tex_id);
+				psurf->tex_id = tex_id;
+
+				// Find texture_t for this index
+				for (int i = 0; i < map->numtextures; ++i) {
+					const texture_t* const tex = map->textures[i];
+					if (tex->gl_texturenum == tex_id) {
+						psurf->tex = tex;
+						break;
+					}
+				}
+
+				psurf->flags |= Patch_Surface_Texture;
+			}
+		}
+
+		if (have_fields & Field__light) {
+			VectorCopy(props->_light, psurf->emissive);
+			psurf->flags |= Patch_Surface_Emissive;
+			gEngine.Con_Reportf("Patch for surface %d: assign emissive %f %f %f\n", index,
+				psurf->emissive[0],
+				psurf->emissive[1],
+				psurf->emissive[2]
+			);
+		}
 	}
 }
 
@@ -347,20 +377,22 @@ int findLightEntityWithIndex( int index ) {
 }
 
 static void addPatchEntity( const entity_props_t *props, uint32_t have_fields ) {
-	const int light_index = findLightEntityWithIndex( props->_xvk_ent_id );
-	if (light_index < 0) {
-		gEngine.Con_Printf(S_ERROR "Patch light entity with index=%d not found\n", props->_xvk_ent_id);
-		return;
-	}
+	for (int i = 0; i < props->_xvk_ent_id.num; ++i) {
+		const int light_index = findLightEntityWithIndex( props->_xvk_ent_id.values[i] );
+		if (light_index < 0) {
+			gEngine.Con_Printf(S_ERROR "Patch light entity with index=%d not found\n", props->_xvk_ent_id);
+			return;
+		}
 
-	if (have_fields == Field__xvk_ent_id) {
-		gEngine.Con_Reportf("Deleting light entity (%d of %d) with index=%d\n", light_index, g_map_entities.num_lights, props->_xvk_ent_id);
-		g_map_entities.num_lights--;
-		memmove(g_map_entities.lights + light_index, g_map_entities.lights + light_index + 1, sizeof(*g_map_entities.lights) * g_map_entities.num_lights - light_index);
-		return;
-	}
+		if (have_fields == Field__xvk_ent_id) {
+			gEngine.Con_Reportf("Deleting light entity (%d of %d) with index=%d\n", light_index, g_map_entities.num_lights, props->_xvk_ent_id);
+			g_map_entities.num_lights--;
+			memmove(g_map_entities.lights + light_index, g_map_entities.lights + light_index + 1, sizeof(*g_map_entities.lights) * g_map_entities.num_lights - light_index);
+			return;
+		}
 
-	fillLightFromProps(g_map_entities.lights + light_index, props, have_fields, true, props->_xvk_ent_id);
+		fillLightFromProps(g_map_entities.lights + light_index, props, have_fields, true, props->_xvk_ent_id.values[i]);
+	}
 }
 
 static void parseEntities( char *string, int *count ) {

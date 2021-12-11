@@ -15,9 +15,9 @@
 	X(10, string, targetname, String) \
 	X(11, string, target, String) \
 	X(12, int, style, Int) \
-	X(13, int, _xvk_surface_id, Int) \
+	X(13, int_array_t, _xvk_surface_id, IntArray) \
 	X(14, string, _xvk_texture, String) \
-	X(15, int, _xvk_ent_id, Int) \
+	X(15, int_array_t, _xvk_ent_id, IntArray) \
 	X(16, float, _xvk_radius, Float) \
 
 typedef enum {
@@ -28,6 +28,13 @@ typedef enum {
 	Worldspawn,
 	Ignored,
 } class_name_e;
+
+#define MAX_INT_ARRAY_SIZE 64
+
+typedef struct {
+	int num;
+	int values[MAX_INT_ARRAY_SIZE];
+} int_array_t;
 
 typedef struct {
 #define DECLARE_FIELD(num, type, name, kind) type name;
