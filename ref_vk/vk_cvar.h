@@ -21,7 +21,6 @@ void VK_LoadCvarsAfterInit( void );
 	X(vk_rtx) \
 	X(vk_rtx_extension) \
 	X(vk_only) \
-	X(vk_device_list) \
 	X(vk_device_target_id) \
 
 
