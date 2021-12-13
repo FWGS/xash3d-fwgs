@@ -534,8 +534,7 @@ void main() {
 				} else {
 					// Refraction
 					if (rand01() < payload_opaque.transmissiveness) {
-						throughput *= material.baseColor;
-						direction = refract(direction, payload_opaque.geometry_normal, .8);
+						direction = refract(direction, payload_opaque.geometry_normal, .95);
 						origin = payload_opaque.hit_pos_t.xyz - payload_opaque.geometry_normal * shadow_offset_fudge;
 						continue;
 					}
