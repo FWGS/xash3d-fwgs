@@ -266,7 +266,9 @@ class Android:
 					'-isystem', '%s/usr/include/' % (self.sysroot())
 				]
 
-		cflags += ['-I%s' % (self.system_stl()), '-DANDROID', '-D__ANDROID__']
+		cflags += ['-I%s' % (self.system_stl())]
+		if not self.is_clang():
+			cflags += ['-DANDROID', '-D__ANDROID__']
 
 		if cxx and not self.is_clang() and self.toolchain not in ['4.8','4.9']:
 			cflags += ['-fno-sized-deallocation']
@@ -287,7 +289,7 @@ class Android:
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
 				# ARMv7 support
-				cflags += ['-mthumb', '-mfpu=neon', '-mcpu=cortex-a9', '-DHAVE_EFFICIENT_UNALIGNED_ACCESS', '-DVECTORIZE_SINCOS']
+				cflags += ['-mthumb', '-mfpu=neon', '-mcpu=cortex-a9']
 
 				if not self.is_clang() and not self.is_host():
 					cflags += [ '-mvectorize-with-neon-quad' ]
@@ -306,7 +308,7 @@ class Android:
 				# ARMv5 support
 				cflags += ['-march=armv5te', '-msoft-float']
 		elif self.is_x86():
-			cflags += ['-mtune=atom', '-march=atom', '-mssse3', '-mfpmath=sse', '-DVECTORIZE_SINCOS', '-DHAVE_EFFICIENT_UNALIGNED_ACCESS']
+			cflags += ['-mtune=atom', '-march=atom', '-mssse3', '-mfpmath=sse']
 		return cflags
 
 	# they go before object list
