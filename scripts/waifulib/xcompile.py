@@ -322,8 +322,9 @@ class Android:
 
 		if self.is_clang() or self.is_host():
 			linkflags += ['-fuse-ld=lld']
+		else: linkflags += ['-no-canonical-prefixes']
 
-		linkflags += ['-Wl,--hash-style=sysv', '-Wl,--no-undefined', '-no-canonical-prefixes']
+		linkflags += ['-Wl,--hash-style=sysv', '-Wl,--no-undefined']
 		return linkflags
 
 	def ldflags(self):
@@ -332,10 +333,9 @@ class Android:
 		if self.ndk_rev < 23:
 			ldflags += ['-lgcc']
 
-		ldflags += ['-no-canonical-prefixes']
-
 		if self.is_clang() or self.is_host():
 			ldflags += ['-stdlib=libstdc++']
+		else: ldflags += ['-no-canonical-prefixes']
 
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
