@@ -11,11 +11,15 @@ jobs:
           - os: ubuntu-18.04
             targetos: linux
             targetarch: amd64
-            artifacts: xash3d-fwgs-amd64.AppImage xashds-linux-amd64
+            artifacts: |
+              xash3d-fwgs-amd64.AppImage
+              xashds-linux-amd64
           - os: ubuntu-18.04
             targetos: linux
             targetarch: i386
-            artifacts: xash3d-fwgs-i386.AppImage xashds-linux-i386
+            artifacts: |
+              xash3d-fwgs-i386.AppImage
+              xashds-linux-i386
 
           - os: ubuntu-18.04
             targetos: android
@@ -63,7 +67,7 @@ jobs:
       run: bash scripts/gha/build_${{ matrix.targetos }}.sh
 
     - name: Upload engine (prereleases)
-      run: bash scripts/continious_upload.sh ${{ matrix.artifacts }}
+      run: bash scripts/continious_upload.sh ${{ join( matrix.artifacts, ' ' ) }}
     - name: Upload engine (artifacts)
       uses: actions/upload-artifact@v2
       with:
