@@ -14,8 +14,12 @@ fi
 
 sh compile.sh release
 
+popd
+
+mkdir -p artifacts/
+
 if [[ "$GH_CPU_ARCH" == "64" ]]; then
-	mv xashdroid.apk ../xashdroid-64.apk
+	mv android/xashdroid.apk artifacts/xashdroid-64.apk
 else
-	mv xashdroid.apk ../xashdroid-32.apk
+	mv android/xashdroid.apk artifacts/xashdroid-32.apk
 fi

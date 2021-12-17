@@ -104,11 +104,14 @@ EOF
 	./appimagetool.AppImage "$APPDIR" "$APPIMAGE"
 }
 
+mkdir -p artifacts/
+
 rm -rf build # clean-up build directory
 build_engine dedicated
-mv build/engine/xash xashds-linux-$ARCH
+mv build/engine/xash artifacts/xashds-linux-$ARCH
 
 rm -rf build
 build_sdl2
 build_engine full
 build_appimage
+mv $APPIMAGE artifacts/
