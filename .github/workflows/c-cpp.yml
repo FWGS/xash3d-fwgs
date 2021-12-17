@@ -11,38 +11,27 @@ jobs:
           - os: ubuntu-18.04
             targetos: linux
             targetarch: amd64
-            artifacts: |
-              xash3d-fwgs-amd64.AppImage
-              xashds-linux-amd64
           - os: ubuntu-18.04
             targetos: linux
             targetarch: i386
-            artifacts: |
-              xash3d-fwgs-i386.AppImage
-              xashds-linux-i386
 
           - os: ubuntu-18.04
             targetos: android
             targetarch: 32
-            artifacts: xashdroid-32.apk
           - os: ubuntu-18.04
             targetos: android
             targetarch: 64
-            artifacts: xashdroid-64.apk
 
           - os: ubuntu-18.04
             targetos: motomagx
             targetarch: armv6
-            artifacts: xash3d-fwgs-magx.7z
 
           - os: windows-latest
             targetos: win32
             targetarch: amd64
-            artifacts: xash3d-fwgs-win32-amd64.7z
           - os: windows-latest
             targetos: win32
             targetarch: i386
-            artifacts: xash3d-fwgs-win32-i386.7z
     env:
       SDL_VERSION: 2.0.14
       GH_CPU_ARCH: ${{ matrix.targetarch }}
@@ -67,9 +56,9 @@ jobs:
       run: bash scripts/gha/build_${{ matrix.targetos }}.sh
 
     - name: Upload engine (prereleases)
-      run: bash scripts/continious_upload.sh ${{ join( matrix.artifacts, ' ' ) }}
+      run: bash scripts/continious_upload.sh artifacts/*
     - name: Upload engine (artifacts)
       uses: actions/upload-artifact@v2
       with:
         name: artifact-${{ matrix.targetos }}-${{ matrix.targetarch }}
-        path: ${{ matrix.artifacts }}
+        path: artifacts/*
