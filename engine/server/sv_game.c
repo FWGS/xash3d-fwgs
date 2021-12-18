@@ -4150,12 +4150,12 @@ byte *pfnSetFatPVS( const float *org )
 	if( !sv.worldmodel->visdata || sv_novis->value || !org || CL_DisableVisibility( ))
 		fullvis = true;
 
-	ASSERT( pfnGetCurrentPlayer() != -1 );
-
 	// portals can't change viewpoint!
 	if( !FBitSet( sv.hostflags, SVF_MERGE_VISIBILITY ))
 	{
 		vec3_t	viewPos, offset;
+
+		ASSERT( pfnGetCurrentPlayer() != -1 );
 
 		// see code from client.cpp for understanding:
 		// org = pView->v.origin + pView->v.view_ofs;
@@ -4200,12 +4200,12 @@ byte *pfnSetFatPAS( const float *org )
 	if( !sv.worldmodel->visdata || sv_novis->value || !org || CL_DisableVisibility( ))
 		fullvis = true;
 
-	ASSERT( pfnGetCurrentPlayer() != -1 );
-
 	// portals can't change viewpoint!
 	if( !FBitSet( sv.hostflags, SVF_MERGE_VISIBILITY ))
 	{
 		vec3_t	viewPos, offset;
+
+		ASSERT( pfnGetCurrentPlayer() != -1 );
 
 		// see code from client.cpp for understanding:
 		// org = pView->v.origin + pView->v.view_ofs;
