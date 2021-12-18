@@ -301,7 +301,7 @@ def configure(conf):
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 	else:
-		if sys.platform != 'win32':
+		if sys.platform != 'win32' and not conf.env.DEST_OS == 'android':
 			conf.env.PREFIX = '/'
 
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
