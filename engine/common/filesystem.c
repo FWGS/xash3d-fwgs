@@ -2114,9 +2114,15 @@ void FS_Init( void )
 
 		for( i = 0; i < dirs.numstrings; i++ )
 		{
-			// no need to check folders here, FS_CreatePath will not fail if path exists
-			// and listdirectory returns only really existing directories
-			FS_CreatePath( va( "%s" PATH_SPLITTER "%s/", host.rootdir, dirs.strings[i] ));
+			const char *roPath = va( "%s" PATH_SPLITTER "%s", host.rodir, dirs.strings[i] );
+			const char *rwPath = va( "%s" PATH_SPLITTER "%s", host.rootdir, dirs.strings[i] );
+
+			// check if it's a directory
+			if( !FS_SysFolderExists( roPath ))
+				continue;
+
+			// no need to check folders here, FS_CreatePath will not fail
+			FS_CreatePath( rwPath );
 		}
 
 		stringlistfreecontents( &dirs );
