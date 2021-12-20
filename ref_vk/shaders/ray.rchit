@@ -97,11 +97,15 @@ void main() {
 		payload.transmissiveness = 0.;
 		payload.normal = vec3(0.);
 		payload.geometry_normal = vec3(0.);
-		payload.emissive = pow(texture(skybox, gl_WorldRayDirectionEXT).rgb, vec3(2.2)); // Why?! See #230
 		payload.kusok_index = -1;
 		payload.roughness = 0.;
 		payload.metalness = 0.;
 		payload.material_index = tex_base_color;
+
+		// HACK: skyboxes are LDR now. They will look really dull after tonemapping
+		// We need to remaster them into HDR. While that is not done, we just tune them with pow(x, 2.2) which looks okay-ish
+		// See #230
+		payload.emissive = pow(texture(skybox, gl_WorldRayDirectionEXT).rgb, vec3(2.2));
 		return;
 	}
 

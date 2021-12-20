@@ -6,11 +6,11 @@ layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
 
 layout(set = 0, binding = 0, rgba16f) uniform image2D dest;
 
-layout(set = 0, binding = 1, rgba8) uniform image2D src_base_color;
-layout(set = 0, binding = 2, rgba16f) uniform image2D src_diffuse_gi;
-layout(set = 0, binding = 3, rgba16f) uniform image2D src_specular;
-layout(set = 0, binding = 4, rgba16f) uniform image2D src_additive;
-layout(set = 0, binding = 5, rgba16f) uniform image2D src_normals;
+layout(set = 0, binding = 1, rgba8) uniform readonly image2D src_base_color;
+layout(set = 0, binding = 2, rgba16f) uniform readonly image2D src_diffuse_gi;
+layout(set = 0, binding = 3, rgba16f) uniform readonly image2D src_specular;
+layout(set = 0, binding = 4, rgba16f) uniform readonly image2D src_additive;
+layout(set = 0, binding = 5, rgba16f) uniform readonly image2D src_normals;
 
 // Blatantly copypasted from https://www.shadertoy.com/view/XsGfWV
 vec3 aces_tonemap(vec3 color){
@@ -27,7 +27,8 @@ vec3 aces_tonemap(vec3 color){
 	vec3 v = m1 * color;
 	vec3 a = v * (v + 0.0245786) - 0.000090537;
 	vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
-	return pow(clamp(m2 * (a / b), 0.0, 1.0), vec3(1.0 / 2.2));
+	//return pow(clamp(m2 * (a / b), 0.0, 1.0), vec3(1.0 / 2.2));
+	return clamp(m2 * (a / b), 0.0, 1.0);
 }
 
 float normpdf2(in float x2, in float sigma) { return 0.39894*exp(-0.5*x2/(sigma*sigma))/sigma; }
@@ -116,6 +117,10 @@ void main() {
 
 	//colour += imageLoad(src_specular, pix).rgb;
 	colour += imageLoad(src_additive, pix).rgb;
+
+	// HACK: exposure
+	// TODO: should be dynamic based on previous frames brightness
+	colour *= 4.;
 
 	colour = aces_tonemap(colour);
 
