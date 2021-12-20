@@ -417,6 +417,8 @@ void main() {
 	vec3 out_additive = vec3(0.);
 	vec3 out_diffuse_gi = vec3(0.);
 	vec3 out_specular = vec3(0.);
+	vec3 out_base_color = vec3(0.);
+	vec4 out_normals = vec4(0.);
 
 	// Can be specular or diffuse_gi based on first bounce
 	vec3 out_accumulated = vec3(0.);
@@ -494,8 +496,8 @@ void main() {
 			additive = vec3(0.);
 
 			out_material_index = float(payload_opaque.material_index);
-			imageStore(out_image_base_color, ivec2(gl_LaunchIDEXT.xy), vec4(payload_opaque.base_color, 0.));
-			imageStore(out_image_normals, ivec2(gl_LaunchIDEXT.xy), vec4(geometryNormal.xy, shadingNormal.xy));
+			out_base_color = payload_opaque.base_color;
+			out_normals = vec4(geometryNormal.xy, shadingNormal.xy);
 			payload_opaque.base_color = vec3(1.);
 
 			//out_material_index = float(kusochki[payload_opaque.kusok_index].tex_roughness);
@@ -582,6 +584,8 @@ void main() {
 		out_specular += out_accumulated;
 	}
 
+	imageStore(out_image_base_color, ivec2(gl_LaunchIDEXT.xy), vec4(out_base_color, 0.));
+	imageStore(out_image_normals, ivec2(gl_LaunchIDEXT.xy), out_normals);
 	imageStore(out_image_diffuse_gi, ivec2(gl_LaunchIDEXT.xy), vec4(out_diffuse_gi / color_factor, out_material_index));
 	imageStore(out_image_specular, ivec2(gl_LaunchIDEXT.xy), vec4(out_specular / color_factor, 0.));
 	imageStore(out_image_additive, ivec2(gl_LaunchIDEXT.xy), vec4(out_additive / color_factor, 0.));
