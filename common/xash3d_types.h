@@ -117,6 +117,11 @@ typedef struct file_s	file_t;		// normal file
 typedef struct wfile_s	wfile_t;		// wad file
 typedef struct stream_s	stream_t;		// sound stream for background music playing
 typedef off_t fs_offset_t;
+#if XASH_WIN32
+typedef int fs_size_t; // return type of _read, _write funcs
+#else /* !XASH_WIN32 */
+typedef ssize_t fs_size_t;
+#endif /* !XASH_WIN32 */
 
 typedef struct dllfunc_s
 {
