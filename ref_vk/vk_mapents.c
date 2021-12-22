@@ -348,6 +348,7 @@ static void addPatchSurface( const entity_props_t *props, uint32_t have_fields )
 				const texture_t* const tex = map->textures[i];
 				if (tex->gl_texturenum == tex_id) {
 					psurf->tex = tex;
+					psurf->tex_id = -1;
 					break;
 				}
 			}

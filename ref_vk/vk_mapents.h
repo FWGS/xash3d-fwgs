@@ -83,8 +83,13 @@ struct texture_s;
 
 typedef struct {
 	uint32_t flags;
+
+	// Static texture index in case there's no texture_s pointer
 	int tex_id;
+
+	// Pointer to texture_s data (which also may include animation)
 	const struct texture_s *tex;
+
 	vec3_t emissive;
 } xvk_patch_surface_t;
 

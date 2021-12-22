@@ -78,3 +78,5 @@ void XVK_SetupSky( const char *skyboxname );
 // Full names depend on map name, wad name, etc. This function tries them all.
 // Returns -1 if not found
 int XVK_FindTextureNamedLike( const char *texture_name );
+
+int XVK_CreateDummyTexture( const char *name );

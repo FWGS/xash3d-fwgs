@@ -1044,3 +1044,20 @@ int XVK_FindTextureNamedLike( const char *texture_name ) {
 
 	return tex_id ? tex_id : -1;
 }
+
+int XVK_CreateDummyTexture( const char *name ) {
+	// emo-texture from quake1
+	rgbdata_t *pic = Common_FakeImage( 16, 16, 1, IMAGE_HAS_COLOR );
+
+	for( int y = 0; y < 16; y++ )
+	{
+		for( int x = 0; x < 16; x++ )
+		{
+			if(( y < 8 ) ^ ( x < 8 ))
+				((uint *)pic->buffer)[y*16+x] = 0xFFFF00FF;
+			else ((uint *)pic->buffer)[y*16+x] = 0xFF000000;
+		}
+	}
+
+	return VK_LoadTextureInternal(name, pic, TF_NOMIPMAP);
+}

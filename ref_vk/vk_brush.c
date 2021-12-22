@@ -347,12 +347,18 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode )
 	for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
 		vk_render_geometry_t *geom = bmodel->render_model.geometries + i;
 		const int surface_index = geom->surf - mod->surfaces;
-		const struct texture_s *override = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces[surface_index].tex : NULL;
-		const texture_t *t = R_TextureAnimation(ent, geom->surf, override);
-		if (t->gl_texturenum < 0)
-			continue;
+		const xvk_patch_surface_t *patch_surface = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces+surface_index : NULL;
 
-		geom->texture = t->gl_texturenum;
+		// Patch by constant texture index first, if it exists
+		if (patch_surface && patch_surface->tex_id >= 0) {
+			geom->texture = patch_surface->tex_id;
+		} else {
+			// Optionally patch by texture_s pointer and run animations
+			const struct texture_s *texture_override = patch_surface ? patch_surface->tex : NULL;
+			const texture_t *t = R_TextureAnimation(ent, geom->surf, texture_override);
+			if (t->gl_texturenum >= 0)
+				geom->texture = t->gl_texturenum;
+		}
 	}
 
 	bmodel->render_model.render_mode = render_mode;
@@ -470,9 +476,6 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 
 			if (!renderableSurface(surf, surface_index))
 				continue;
-
-			if (psurf && psurf->flags & Patch_Surface_Texture)
-				tex_id = psurf->tex_id;
 
 			if (t != tex_id)
 				continue;
