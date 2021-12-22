@@ -2,10 +2,7 @@
 - [ ] remove surface visibility cache
 - [ ] rtx: remove lbsp
 - [ ] rtx: rename point lights to lampochki
-- [x] rtx: move entity parsing to its own module
 - [ ] rtx: rename emissive surface to surface lights
-- [ ] rtx: configuration that includes texture name -> pbr params mapping, etc. Global, per-map, ...
-- [ ] rtx: simple convolution denoise (bilateral?)
 - [ ] rtx: dynamically sized light clusters
 	Split into 2 buffers:
 		struct LightCluster { uint16 offset, length; }
@@ -38,7 +35,7 @@
 - [ ] studio model types:
 	- [x] normal
 	- [ ] float
-	- [ ] chrome
+	- [x] chrome
 - [ ] more beams types
 - [ ] more particle types
 - [ ] rtx: better mip lods: there's a weird math that operates on fov degrees (not radians) that we copypasted from ray tracing gems 2 chapter 7. When the book is available, get through the math and figure this out.
@@ -53,11 +50,7 @@
 	- [ ] robust tracking of memory hierarchies: global/static, map, frame
 	- or just do a generic allocator with compaction?
 - [ ] rtx: coalesce all these buffers
-- [ ] crash in PM_RecursiveHullCheck. havent seen this in a while
 - [ ] rtx: entity lights
-- [ ] run under asan
-- [x] rtx: map name to rad files mapping
-- [x] rtx: live rad file reloading (or other solution for tuning lights)
 - [ ] rtx: do not rebuild static studio models (most of them). BLAS building takes most of the frame time (~12ms where ray tracing itself is just 3ms)
 - [ ] rtx: importance-sample sky light; there are sky surfaces that we can consider light sources
 - [ ] cull water surfaces (see c3a2a)
@@ -72,7 +65,6 @@
 	- [ ] ...
 - [ ] rtx: add fps: rasterize into G-buffer, and only then compute lighting with rtx
 - [ ] rtx: bake light visibility in compute shader
-- [ ] rtx: cull light sources (dlights and light textures) using bsp
 - [ ] dlight for flashlight seems to be broken
 - [ ] make 2nd commad buffer for resource upload
 - [ ] fix sprite blending; there are commented out functions that we really need (see tunnel before the helicopter in the very beginning)
@@ -98,7 +90,6 @@
 - [ ] rtx: non-realtime unbiased mode: make "ground truth" screenshots that take 1e5 samples per pixels and seconds to produce. what for: semi-interactive material tuning, comparison w/ denoise, etc.
 
 # Someday
-- [x] rtx: dynamic rtx/non-rtx switching breaks dynamic models (haven't seen this in a while)
 - [ ] more than one lightmap texture. E.g. sponza ends up having 3 lightmaps
 - [ ] nvnsight into buffer memory and stuff
 - [ ] start building command buffers in beginframe
@@ -387,3 +378,14 @@
 
 ## 2021-10-26 E156
 - [x] enable entity-parsed lights by lightstyles
+
+## 2021-12-21 DONE SOMEWHEN
+- [x] rtx: dynamic rtx/non-rtx switching breaks dynamic models (haven't seen this in a while)
+- [x] run under asan
+- [x] rtx: map name to rad files mapping
+- [x] rtx: live rad file reloading (or other solution for tuning lights)
+- [x] rtx: move entity parsing to its own module
+- [x] rtx: configuration that includes texture name -> pbr params mapping, etc. Global, per-map, ...
+- [x] rtx: simple convolution denoise (bilateral?)
+- [x] rtx: cull light sources (dlights and light textures) using bsp
+- [-] crash in PM_RecursiveHullCheck. havent seen this in a while
