@@ -46,9 +46,27 @@ static struct {
 } g_lists;
 
 static void reloadPatches( void ) {
+	// Must re-parse map entities to initialize initial values before patching
 	XVK_ParseMapEntities();
+	// Wadlist doesn't change, so no need to reload materials here
+	XVK_ParseMapPatches();
+
+	// Assumes that the map brush model has been loaded
+
+	// Patching does disturb light sources, reinitialize
+	VK_LightsLoadMapStaticLights();
+}
+
+static void reloadMaterials( void ) {
+	// Materials do affect patching, as new materials can be referenced in patch data
+	// So we must do the full sequencce
+	XVK_ParseMapEntities();
+	XVK_ReloadMaterials();
+	XVK_ParseMapPatches();
 
 	// Assumes that the map has been loaded
+
+	// Might have loaded new patch data, need to reload lighting data just in case
 	VK_LightsLoadMapStaticLights();
 }
 
@@ -57,7 +75,7 @@ void VK_SceneInit( void )
 	g_lists.draw_list = g_lists.draw_stack;
 	g_lists.draw_stack_pos = 0;
 	if (vk_core.rtx) {
-		gEngine.Cmd_AddCommand("vk_rtx_reload_materials", XVK_ReloadMaterials, "Reload PBR materials");
+		gEngine.Cmd_AddCommand("vk_rtx_reload_materials", reloadMaterials, "Reload PBR materials");
 		gEngine.Cmd_AddCommand("vk_rtx_reload_patches", reloadPatches, "Reload patches (does not update surface deletion)");
 	}
 }
@@ -145,6 +163,13 @@ void R_NewMap( void )
 	// Load light entities and patch data prior to loading map brush model
 	XVK_ParseMapEntities();
 
+	// Load PBR materials (depends on wadlist from parsed map entities)
+	XVK_ReloadMaterials();
+
+	// Parse patch data
+	// Depens on loaded materials. Must preceed loading brush models.
+	XVK_ParseMapPatches();
+
 	// Load all models at once
 	gEngine.Con_Reportf( "Num models: %d:\n", num_models );
 	for( int i = 0; i < num_models; i++ )
@@ -164,9 +189,9 @@ void R_NewMap( void )
 		}
 	}
 
-	// After we've loaded map brush model, we can proceed with loading static surface lights
+	// Load static map lights
+	// Reads surfaces from loaded brush models (must happen after all brushes are loaded)
 	VK_LightsLoadMapStaticLights();
-	XVK_ReloadMaterials(); // requires wadlist from entities, which are parsed in lights loading routine ....
 
 	if (vk_core.rtx)
 	{

@@ -89,17 +89,30 @@ static void loadMaterialsFromFile( const char *filename ) {
 
 		if (key[0] == '{') {
 			current_material = k_default_material;
+			current_material_index = -1;
 			force_reload = false;
 			continue;
 		}
 
 		if (key[0] == '}') {
-			if (current_material_index >= 0) {
-				if (current_material.tex_base_color == -1)
-					current_material.tex_base_color = current_material_index;
-				g_materials.materials[current_material_index] = current_material;
-				g_materials.materials[current_material_index].set = true;
+			qboolean create = false;
+			if (current_material_index < 0) {
+				if (current_material.tex_base_color < 0)
+					continue; // No basecolor_map value, cannot use it as a primary slot for this material
+
+				current_material_index = current_material.tex_base_color;
+				create = true;
 			}
+
+			// If there's no explicit basecolor_map value, use the "for" target texture
+			if (current_material.tex_base_color == -1)
+				current_material.tex_base_color = current_material_index;
+
+			gEngine.Con_Reportf("Creating%s material for texture %s(%d)\n", create?" new":"",
+				findTexture(current_material_index)->name, current_material_index);
+
+			g_materials.materials[current_material_index] = current_material;
+			g_materials.materials[current_material_index].set = true;
 			continue;
 		}
 

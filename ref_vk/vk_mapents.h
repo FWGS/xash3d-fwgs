@@ -99,6 +99,7 @@ typedef struct {
 	vk_light_entity_t lights[256];
 
 	int single_environment_index;
+	int entity_count;
 
 	string wadlist;
 
@@ -113,3 +114,4 @@ extern xvk_map_entities_t g_map_entities;
 enum { NoEnvironmentLights = -1, MoreThanOneEnvironmentLight = -2 };
 
 void XVK_ParseMapEntities( void );
+void XVK_ParseMapPatches( void );

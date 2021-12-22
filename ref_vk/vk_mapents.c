@@ -232,7 +232,7 @@ static void fillLightFromProps( vk_light_entity_t *le, const entity_props_t *pro
 		le->stopdot, le->stopdot2);
 }
 
-static void addLightEntity( const entity_props_t *props, unsigned have_fields, int entity_index ) {
+static void addLightEntity( const entity_props_t *props, unsigned have_fields ) {
 	const int index = g_map_entities.num_lights;
 	vk_light_entity_t *le = g_map_entities.lights + index;
 	unsigned expected_fields = 0;
@@ -281,9 +281,9 @@ static void addLightEntity( const entity_props_t *props, unsigned have_fields, i
 		}
 	}
 
-	fillLightFromProps(le, props, have_fields, false, entity_index);
+	fillLightFromProps(le, props, have_fields, false, g_map_entities.entity_count);
 
-	le->entity_index = entity_index;
+	le->entity_index = g_map_entities.entity_count;
 	g_map_entities.num_lights++;
 }
 
@@ -396,7 +396,7 @@ static void addPatchEntity( const entity_props_t *props, uint32_t have_fields ) 
 	}
 }
 
-static void parseEntities( char *string, int *count ) {
+static void parseEntities( char *string ) {
 	unsigned have_fields = 0;
 	entity_props_t values;
 	char *pos = string;
@@ -422,7 +422,7 @@ static void parseEntities( char *string, int *count ) {
 				case Light:
 				case LightSpot:
 				case LightEnvironment:
-					addLightEntity( &values, have_fields, *count );
+					addLightEntity( &values, have_fields );
 					break;
 
 				case Worldspawn:
@@ -441,7 +441,7 @@ static void parseEntities( char *string, int *count ) {
 					break;
 			}
 
-			++(*count);
+			g_map_entities.entity_count++;
 			continue;
 		}
 
@@ -501,7 +501,7 @@ static void orientSpotlights( void ) {
 	}
 }
 
-static void parsePatches( const model_t *const map, int *count) {
+static void parsePatches( const model_t *const map ) {
 	char filename[256];
 	byte *data;
 
@@ -518,22 +518,27 @@ static void parsePatches( const model_t *const map, int *count) {
 		return;
 	}
 
-	parseEntities( (char*)data, count );
+	parseEntities( (char*)data );
 	Mem_Free(data);
 }
 
 void XVK_ParseMapEntities( void ) {
 	const model_t* const map = gEngine.pfnGetModelByIndex( 1 );
-	int entities_count = 0;
 
 	ASSERT(map);
 
 	g_map_entities.num_targets = 0;
 	g_map_entities.num_lights = 0;
 	g_map_entities.single_environment_index = NoEnvironmentLights;
+	g_map_entities.entity_count = 0;
 
-	parseEntities( map->entities, &entities_count );
-	parsePatches( map, &entities_count );
+	parseEntities( map->entities );
+	orientSpotlights();
+}
 
+void XVK_ParseMapPatches( void ) {
+	const model_t* const map = gEngine.pfnGetModelByIndex( 1 );
+
+	parsePatches( map );
 	orientSpotlights();
 }
