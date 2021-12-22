@@ -634,7 +634,9 @@ void VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const
 		}
 
 		if (emissive_color[0] == 0 && emissive_color[1] == 0 && emissive_color[2] == 0) {
-			gEngine.Con_Reportf("Surface %d got zero emissive color, not adding as a light source\n", surface_index);
+			if (static_map) {
+				gEngine.Con_Reportf("Surface %d got zero emissive color, not adding as a light source\n", surface_index);
+			}
 			goto fin;
 		}
 	}
