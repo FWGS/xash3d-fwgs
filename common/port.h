@@ -137,6 +137,7 @@ GNU General Public License for more details.
 	#define HAVE_DUP
 
 #endif //WIN32
+
 #ifndef XASH_LOW_MEMORY
 #define XASH_LOW_MEMORY 0
 #endif

@@ -606,7 +606,7 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 	int         i, numpackfiles;
 	pack_t      *pack;
 	dpackfile_t *info;
-	ssize_t     c;
+	fs_size_t     c;
 
 	packhandle = open( packfile, O_RDONLY|O_BINARY );
 
@@ -722,7 +722,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	zipfile_t	  *info = NULL;
 	char		  filename_buffer[MAX_SYSPATH];
 	zip_t         *zip = (zip_t *)Mem_Calloc( fs_mempool, sizeof( *zip ));
-	ssize_t       c;
+	fs_size_t       c;
 
 	zip->handle = open( zipfile, O_RDONLY|O_BINARY );
 
