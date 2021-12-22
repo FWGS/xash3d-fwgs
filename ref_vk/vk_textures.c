@@ -4,6 +4,7 @@
 #include "vk_core.h"
 #include "vk_const.h"
 #include "vk_descriptor.h"
+#include "vk_mapents.h" // wadlist
 
 #include "xash3d_mathlib.h"
 #include "crtlib.h"
@@ -1017,4 +1018,29 @@ void XVK_SetupSky( const char *skyboxname ) {
 		gEngine.Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", skyboxname );
 		XVK_SetupSky( "desert" ); // force to default
 	}
+}
+
+int XVK_FindTextureNamedLike( const char *texture_name ) {
+	const model_t *map = gEngine.pfnGetModelByIndex( 1 );
+	string texname;
+
+	// Try texture name as-is first
+	int tex_id = XVK_TextureLookupF("%s", texture_name);
+
+	// Try bsp name
+	if (!tex_id)
+		tex_id = XVK_TextureLookupF("#%s:%s.mip", map->name, texture_name);
+
+	if (!tex_id) {
+		const char *wad = g_map_entities.wadlist;
+		for (; *wad;) {
+			const char *const wad_end = Q_strchr(wad, ';');
+			tex_id = XVK_TextureLookupF("%.*s/%s.mip", wad_end - wad, wad, texture_name);
+			if (tex_id)
+				break;
+			wad = wad_end + 1;
+		}
+	}
+
+	return tex_id ? tex_id : -1;
 }

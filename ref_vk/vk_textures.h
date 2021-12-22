@@ -73,3 +73,8 @@ int XVK_TextureLookupF( const char *fmt, ...);
 #define VK_LoadTextureInternal( name, pic, flags ) VK_LoadTextureFromBuffer( name, pic, flags, false )
 
 void XVK_SetupSky( const char *skyboxname );
+
+// Tries to find a texture by its short name
+// Full names depend on map name, wad name, etc. This function tries them all.
+// Returns -1 if not found
+int XVK_FindTextureNamedLike( const char *texture_name );

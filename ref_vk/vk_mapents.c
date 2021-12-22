@@ -339,7 +339,7 @@ static void addPatchSurface( const entity_props_t *props, uint32_t have_fields )
 		}
 
 		if (have_fields & Field__xvk_texture) {
-			const int tex_id = VK_FindTexture( props->_xvk_texture );
+			const int tex_id = XVK_FindTextureNamedLike( props->_xvk_texture );
 			gEngine.Con_Reportf("Patch for surface %d with texture \"%s\" -> %d\n", index, props->_xvk_texture, tex_id);
 			psurf->tex_id = tex_id;
 

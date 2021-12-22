@@ -22,31 +22,6 @@ static struct {
 	xvk_material_t materials[MAX_TEXTURES];
 } g_materials;
 
-static int findTextureNamedLike( const char *texture_name ) {
-	const model_t *map = gEngine.pfnGetModelByIndex( 1 );
-	string texname;
-
-	// Try texture name as-is first
-	int tex_id = XVK_TextureLookupF("%s", texture_name);
-
-	// Try bsp name
-	if (!tex_id)
-		tex_id = XVK_TextureLookupF("#%s:%s.mip", map->name, texture_name);
-
-	if (!tex_id) {
-		const char *wad = g_map_entities.wadlist;
-		for (; *wad;) {
-			const char *const wad_end = Q_strchr(wad, ';');
-			tex_id = XVK_TextureLookupF("%.*s/%s.mip", wad_end - wad, wad, texture_name);
-			if (tex_id)
-				break;
-			wad = wad_end + 1;
-		}
-	}
-
-	return tex_id ? tex_id : -1;
-}
-
 static int loadTexture( const char *filename, qboolean force_reload ) {
 	const int tex_id = force_reload ? XVK_LoadTextureReplace( filename, NULL, 0, 0 ) : VK_LoadTexture( filename, NULL, 0, 0 );
 	gEngine.Con_Reportf("Loading texture %s => %d\n", filename, tex_id);
@@ -121,7 +96,7 @@ static void loadMaterialsFromFile( const char *filename ) {
 			break;
 
 		if (Q_stricmp(key, "for") == 0) {
-			current_material_index = findTextureNamedLike(value);
+			current_material_index = XVK_FindTextureNamedLike(value);
 		} else if (Q_stricmp(key, "force_reload") == 0) {
 			force_reload = Q_atoi(value) != 0;
 		} else {
