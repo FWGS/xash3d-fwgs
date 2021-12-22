@@ -406,7 +406,8 @@ static const char *FS_FixFileCase( const char *path )
 	out[i] = 0;
 	return out;
 #elif !XASH_WIN32 && !XASH_IOS // assume case insensitive
-	DIR *dir; struct dirent *entry;
+	DIR *dir;
+	struct dirent *entry;
 	char path2[PATH_MAX], *fname;
 
 	if( !fs_caseinsensitive )
@@ -600,11 +601,12 @@ of the list so they override previous pack files.
 */
 pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 {
-	dpackheader_t	header;
-	int		packhandle;
-	int		i, numpackfiles;
-	pack_t		*pack;
-	dpackfile_t	*info;
+	dpackheader_t header;
+	int         packhandle;
+	int         i, numpackfiles;
+	pack_t      *pack;
+	dpackfile_t *info;
+	ssize_t     c;
 
 	packhandle = open( packfile, O_RDONLY|O_BINARY );
 
@@ -612,21 +614,21 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 	if( packhandle < 0 )
 	{
 		const char *fpackfile = FS_FixFileCase( packfile );
-		if( fpackfile!= packfile )
+		if( fpackfile != packfile )
 			packhandle = open( fpackfile, O_RDONLY|O_BINARY );
 	}
 #endif
 
 	if( packhandle < 0 )
 	{
-		Con_Reportf( "%s couldn't open\n", packfile );
+		Con_Reportf( "%s couldn't open: %s\n", packfile, strerror( errno ));
 		if( error ) *error = PAK_LOAD_COULDNT_OPEN;
 		return NULL;
 	}
 
-	read( packhandle, (void *)&header, sizeof( header ));
+	c = read( packhandle, (void *)&header, sizeof( header ));
 
-	if( header.ident != IDPACKV1HEADER )
+	if( c != sizeof( header ) || header.ident != IDPACKV1HEADER )
 	{
 		Con_Reportf( "%s is not a packfile. Ignored.\n", packfile );
 		if( error ) *error = PAK_LOAD_BAD_HEADER;
@@ -685,7 +687,7 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 
 #ifdef XASH_REDUCE_FD
 	// will reopen when needed
-	close(pack->handle);
+	close( pack->handle );
 	pack->handle = -1;
 #endif
 
@@ -719,7 +721,8 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	fs_offset_t	  filepos = 0, length;
 	zipfile_t	  *info = NULL;
 	char		  filename_buffer[MAX_SYSPATH];
-	zip_t *zip = (zip_t *)Mem_Calloc( fs_mempool, sizeof( zip_t ) );
+	zip_t         *zip = (zip_t *)Mem_Calloc( fs_mempool, sizeof( *zip ));
+	ssize_t       c;
 
 	zip->handle = open( zipfile, O_RDONLY|O_BINARY );
 
@@ -758,9 +761,9 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 	lseek( zip->handle, 0, SEEK_SET );
 
-	read( zip->handle, &signature, sizeof( signature ) );
+	c = read( zip->handle, &signature, sizeof( signature ) );
 
-	if( signature == ZIP_HEADER_EOCD )
+	if( c != sizeof( signature ) || signature == ZIP_HEADER_EOCD )
 	{
 		Con_Reportf( S_WARN "%s has no files. Ignored.\n", zipfile );
 
@@ -789,9 +792,9 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	while ( filepos > 0 )
 	{
 		lseek( zip->handle, filepos, SEEK_SET );
-		read( zip->handle, &signature, sizeof( signature ) );
+		c = read( zip->handle, &signature, sizeof( signature ) );
 
-		if( signature == ZIP_HEADER_EOCD )
+		if( c != sizeof( signature ) || signature == ZIP_HEADER_EOCD )
 			break;
 
 		filepos -= sizeof( char ); // step back one byte
@@ -808,19 +811,30 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		return NULL;
 	}
 
-	read( zip->handle, &header_eocd, sizeof( zip_header_eocd_t ) );
+	c = read( zip->handle, &header_eocd, sizeof( header_eocd ) );
+
+	if( c != sizeof( header_eocd ))
+	{
+		Con_Reportf( S_ERROR "invalid EOCD header in %s. Zip file corrupted.\n", zipfile );
+
+		if( error )
+			*error = ZIP_LOAD_BAD_HEADER;
+
+		Zip_Close( zip );
+		return NULL;
+	}
 
 	// Move to CDF start
 	lseek( zip->handle, header_eocd.central_directory_offset, SEEK_SET );
 
 	// Calc count of files in archive
-	info = (zipfile_t *)Mem_Calloc( fs_mempool, sizeof( zipfile_t ) * header_eocd.total_central_directory_record );
+	info = (zipfile_t *)Mem_Calloc( fs_mempool, sizeof( *info ) * header_eocd.total_central_directory_record );
 
 	for( i = 0; i < header_eocd.total_central_directory_record; i++ )
 	{
-		read( zip->handle, &header_cdf, sizeof( header_cdf ) );
+		c = read( zip->handle, &header_cdf, sizeof( header_cdf ) );
 
-		if( header_cdf.signature != ZIP_HEADER_CDF )
+		if( c != sizeof( header_cdf ) || header_cdf.signature != ZIP_HEADER_CDF )
 		{
 			Con_Reportf( S_ERROR "CDF signature mismatch in %s. Zip file corrupted.\n", zipfile );
 
@@ -835,7 +849,20 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		if( header_cdf.uncompressed_size && header_cdf.filename_len && ( header_cdf.filename_len < MAX_SYSPATH ) )
 		{
 			memset( &filename_buffer, '\0', MAX_SYSPATH );
-			read( zip->handle, &filename_buffer, header_cdf.filename_len );
+			c = read( zip->handle, &filename_buffer, header_cdf.filename_len );
+
+			if( c != header_cdf.filename_len )
+			{
+				Con_Reportf( S_ERROR "filename length mismatch in %s. Zip file corrupted.\n", zipfile );
+
+				if( error )
+					*error = ZIP_LOAD_CORRUPTED;
+
+				Mem_Free( info );
+				Zip_Close( zip );
+				return NULL;
+			}
+
 			Q_strncpy( info[numpackfiles].name, filename_buffer, MAX_SYSPATH );
 
 			info[numpackfiles].size = header_cdf.uncompressed_size;
@@ -859,7 +886,20 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		zip_header_t header;
 
 		lseek( zip->handle, info[i].offset, SEEK_SET );
-		read( zip->handle, &header, sizeof( header ) );
+		c = read( zip->handle, &header, sizeof( header ) );
+
+		if( c != sizeof( header ))
+		{
+			Con_Reportf( S_ERROR "header length mismatch in %s. Zip file corrupted.\n", zipfile );
+
+			if( error )
+				*error = ZIP_LOAD_CORRUPTED;
+
+			Mem_Free( info );
+			Zip_Close( zip );
+			return NULL;
+		}
+
 		info[i].flags = header.compression_flags;
 		info[i].offset = info[i].offset + header.filename_len + header.extrafield_len + sizeof( header );
 	}
@@ -869,7 +909,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	zip->numfiles = numpackfiles;
 	zip->files = info;
 
-	qsort( zip->files, zip->numfiles, sizeof( zipfile_t ), FS_SortZip );
+	qsort( zip->files, zip->numfiles, sizeof( *zip->files ), FS_SortZip );
 
 #ifdef XASH_REDUCE_FD
 	// will reopen when needed
@@ -907,6 +947,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 	int		zlib_result = 0;
 	dword		test_crc, final_crc;
 	z_stream	decompress_stream;
+	size_t      c;
 
 	if( sizeptr ) *sizeptr = 0;
 
@@ -936,7 +977,13 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 		decompressed_buffer = Mem_Malloc( fs_mempool, file->size + 1 );
 		decompressed_buffer[file->size] = '\0';
 
-		read( search->zip->handle, decompressed_buffer, file->size );
+		c = read( search->zip->handle, decompressed_buffer, file->size );
+		if( c != file->size )
+		{
+			Con_Reportf( S_ERROR "Zip_LoadFile: %s size doesn't match\n", file->name );
+			return NULL;
+		}
+
 #if 0
 		CRC32_Init( &test_crc );
 		CRC32_ProcessBuffer( &test_crc, decompressed_buffer, file->size );
@@ -961,7 +1008,12 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 		decompressed_buffer = Mem_Malloc( fs_mempool, file->size + 1 );
 		decompressed_buffer[file->size] = '\0';
 
-		read( search->zip->handle, compressed_buffer, file->compressed_size );
+		c = read( search->zip->handle, compressed_buffer, file->compressed_size );
+		if( c != file->compressed_size )
+		{
+			Con_Reportf( S_ERROR "Zip_LoadFile: %s compressed size doesn't match\n", file->name );
+			return NULL;
+		}
 
 		memset( &decompress_stream, 0, sizeof( decompress_stream ) );
 
@@ -2114,8 +2166,8 @@ void FS_Init( void )
 
 		for( i = 0; i < dirs.numstrings; i++ )
 		{
-			const char *roPath = va( "%s" PATH_SPLITTER "%s", host.rodir, dirs.strings[i] );
-			const char *rwPath = va( "%s" PATH_SPLITTER "%s", host.rootdir, dirs.strings[i] );
+			char *roPath = va( "%s" PATH_SPLITTER "%s", host.rodir, dirs.strings[i] );
+			char *rwPath = va( "%s" PATH_SPLITTER "%s", host.rootdir, dirs.strings[i] );
 
 			// check if it's a directory
 			if( !FS_SysFolderExists( roPath ))
