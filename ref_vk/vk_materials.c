@@ -42,7 +42,7 @@ static void loadMaterialsFromFile( const char *filename ) {
 	};
 	int current_material_index = -1;
 	qboolean force_reload = false;
-	string current_for_name;
+	qboolean create = false;
 
 	gEngine.Con_Reportf("Loading materials from %s\n", filename);
 
@@ -66,24 +66,18 @@ static void loadMaterialsFromFile( const char *filename ) {
 		if (key[0] == '{') {
 			current_material = k_default_material;
 			current_material_index = -1;
-			current_for_name[0] = '\0';
 			force_reload = false;
+			create = false;
 			continue;
 		}
 
 		if (key[0] == '}') {
-			qboolean create = false;
-			if (current_material_index < 0) {
-				if (Q_strlen(current_for_name) == 0)
-					continue; // No basecolor_map value, cannot use it as a primary slot for this material
+			if (current_material_index < 0)
+				continue;
 
-				current_material_index = XVK_CreateDummyTexture( current_for_name );
-				create = true;
-			} else {
-				// If there's no explicit basecolor_map value, use the "for" target texture
-				if (current_material.tex_base_color == -1)
-					current_material.tex_base_color = current_material_index;
-			}
+			// If there's no explicit basecolor_map value, use the "for" target texture
+			if (current_material.tex_base_color == -1)
+				current_material.tex_base_color = current_material_index;
 
 			gEngine.Con_Reportf("Creating%s material for texture %s(%d)\n", create?" new":"",
 				findTexture(current_material_index)->name, current_material_index);
@@ -99,9 +93,10 @@ static void loadMaterialsFromFile( const char *filename ) {
 
 		if (Q_stricmp(key, "for") == 0) {
 			current_material_index = XVK_FindTextureNamedLike(value);
-			if (current_material_index < 0) {
-				Q_strncpy(current_for_name, value, sizeof(current_for_name));
-			}
+			create = false;
+		} else if (Q_stricmp(key, "new") == 0) {
+			current_material_index = XVK_CreateDummyTexture(value);
+			create = true;
 		} else if (Q_stricmp(key, "force_reload") == 0) {
 			force_reload = Q_atoi(value) != 0;
 		} else {
