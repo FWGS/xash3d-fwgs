@@ -603,30 +603,55 @@ static qboolean canSurfaceLightAffectAABB(const model_t *mod, const msurface_t *
 
 void VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map ) {
 	APROF_SCOPE_BEGIN_EARLY(emissive_surface);
+	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 	const int texture_num = geom->texture; // Animated texture
 	vk_emissive_surface_t *retval = NULL;
+	vec3_t emissive_color = {0};
+
 	ASSERT(texture_num >= 0);
 	ASSERT(texture_num < MAX_TEXTURES);
 
+	// Only brush model surfaces are supported to be emissive. This is not _strictly_ necessary, but is a bit simpler.
 	if (!geom->surf)
 		goto fin; // TODO break? no surface means that model is not brush
 
-	if (geom->material != kXVkMaterialEmissive && !g_lights.map.emissive_textures[texture_num].set)
-		goto fin;
+	// Find out whether this surface is emissive
+	{
+		const int surface_index = geom->surf - world->surfaces;
+		const xvk_patch_surface_t *psurf = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces + surface_index : NULL;
+
+		ASSERT(surface_index >= 0);
+		ASSERT(surface_index < world->numsurfaces);
+
+		if (psurf && psurf->flags & Patch_Surface_Emissive) {
+			VectorCopy(psurf->emissive, emissive_color);
+		} else if (geom->material == kXVkMaterialEmissive) {
+			VectorCopy(geom->emissive, emissive_color);
+		} else if (g_lights.map.emissive_textures[texture_num].set) {
+			VectorCopy(g_lights.map.emissive_textures[texture_num].emissive, emissive_color);
+		} else {
+			goto fin;
+		}
+
+		if (emissive_color[0] == 0 && emissive_color[1] == 0 && emissive_color[2] == 0) {
+			gEngine.Con_Reportf("Surface %d got zero emissive color, not adding as a light source\n", surface_index);
+			goto fin;
+		}
+	}
 
 	if (g_lights.num_emissive_surfaces >= 256)
 		goto fin;
 
 	if (debug_dump_lights.enabled) {
 		const vk_texture_t *tex = findTexture(texture_num);
-		const vk_emissive_texture_t *etex = g_lights.map.emissive_textures + texture_num;
 		ASSERT(tex);
-		gEngine.Con_Printf("surface light %d: %s (%f %f %f)\n", g_lights.num_emissive_surfaces, tex->name,
-			etex->emissive[0], etex->emissive[1], etex->emissive[2]);
+		gEngine.Con_Reportf("surface light %d: %s (%f %f %f)\n", g_lights.num_emissive_surfaces, tex->name,
+			emissive_color[0],
+			emissive_color[1],
+			emissive_color[2]);
 	}
 
 	{
-		const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 		const vk_light_leaf_set_t *const leafs = static_map
 			? getMapLeafsAffectedByMapSurface( geom->surf )
 			: getMapLeafsAffectedByMovingSurface( geom->surf, transform_row );
@@ -641,11 +666,7 @@ void VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const
 
 		// Insert into emissive surfaces
 		esurf->kusok_index = geom->kusok_index;
-		if (geom->material != kXVkMaterialEmissive) {
-			VectorCopy(g_lights.map.emissive_textures[texture_num].emissive, esurf->emissive);
-		} else {
-			VectorCopy(geom->emissive, esurf->emissive);
-		}
+		VectorCopy(emissive_color, esurf->emissive);
 		Matrix3x4_Copy(esurf->transform, *transform_row);
 
 		clusterBitMapClear();

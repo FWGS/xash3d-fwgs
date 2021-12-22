@@ -509,12 +509,6 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 				model_geometry->material = kXVkMaterialConveyor;
 			}
 
-			// FIXME material should be flags
-			if (psurf && psurf->flags & Patch_Surface_Emissive) {
-				model_geometry->material = kXVkMaterialEmissive;
-				VectorCopy(psurf->emissive, model_geometry->emissive);
-			}
-
 			VectorCopy(surf->texinfo->vecs[0], tangent);
 			VectorNormalize(tangent);
 
