@@ -55,16 +55,6 @@ void VK_LightsShutdown( void ) {
 	clusterBitMapShutdown();
 }
 
-
-#define MAX_LEAF_LIGHTS 256
-typedef struct {
-	int num_lights;
-	struct {
-		LightType type;
-	} light[MAX_LEAF_LIGHTS];
-} vk_light_leaf_t;
-#define MAX_SURF_ASSOCIATED_LEAFS 16
-
 typedef struct {
 	int num;
 	int leafs[];
@@ -75,8 +65,6 @@ typedef struct {
 } vk_surface_metadata_t;
 
 static struct {
-	vk_light_leaf_t leaves[MAX_MAP_LEAFS];
-
 	// Worldmodel surfaces
 	int num_surfaces;
 	vk_surface_metadata_t *surfaces;
@@ -441,39 +429,6 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMovingSurface( const msurface_t *surf,
 	return (vk_light_leaf_set_t*)&g_lights_bsp.accum.count;
 }
 
-static void lbspClear( void ) {
-	for (int i = 0; i < MAX_MAP_LEAFS; ++i)
-		g_lights_bsp.leaves[i].num_lights = 0;
-}
-
-static void lbspAddLightByLeaf( LightType type, const mleaf_t *leaf) {
-	const int leaf_index = leaf->cluster + 1;
-	ASSERT(leaf_index >= 0 && leaf_index < MAX_MAP_LEAFS);
-
-	{
-		vk_light_leaf_t *light_leaf = g_lights_bsp.leaves + leaf_index;
-
-		ASSERT(light_leaf->num_lights <= MAX_LEAF_LIGHTS);
-		if (light_leaf->num_lights == MAX_LEAF_LIGHTS) {
-			gEngine.Con_Printf(S_ERROR "Max number of lights %d exceeded for leaf %d\n", MAX_LEAF_LIGHTS, leaf_index);
-			return;
-		}
-
-		light_leaf->light[light_leaf->num_lights++].type = type;
-	}
-}
-
-static void lbspAddLightByOrigin( LightType type, const vec3_t origin) {
-	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
-	const mleaf_t* leaf = gEngine.Mod_PointInLeaf(origin, world->nodes);
-	if (!leaf) {
-		gEngine.Con_Printf(S_ERROR "Adding light %d with origin (%f, %f, %f) ended up in no leaf\n",
-			type, origin[0], origin[1], origin[2]);
-		return;
-	}
-	lbspAddLightByLeaf( type, leaf);
-}
-
 static void prepareSurfacesLeafVisibilityCache( void ) {
 	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
 	if (g_lights_bsp.surfaces != NULL) {
@@ -541,8 +496,6 @@ void VK_LightsFrameInit( void ) {
 		cell->num_point_lights = cell->num_static.point_lights;
 		cell->num_emissive_surfaces = cell->num_static.emissive_surfaces;
 	}
-
-	lbspClear();
 }
 
 static qboolean addSurfaceLightToCell( int cell_index, int emissive_surface_index ) {
@@ -658,13 +611,6 @@ void VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const
 			? getMapLeafsAffectedByMapSurface( geom->surf )
 			: getMapLeafsAffectedByMovingSurface( geom->surf, transform_row );
 		vk_emissive_surface_t *esurf = g_lights.emissive_surfaces + g_lights.num_emissive_surfaces;
-
-		{
-			// Add this light to per-leaf stats
-			//gEngine.Con_Reportf("surface %p, leafs %d\n", geom->surf, leafs->num);
-			for (int i = 0; i < leafs->num; ++i)
-				lbspAddLightByLeaf(LightTypeSurface, world->leafs + leafs->leafs[i]);
-		}
 
 		// Insert into emissive surfaces
 		esurf->kusok_index = geom->kusok_index;
@@ -893,8 +839,6 @@ static void addDlight( const dlight_t *dlight ) {
 	index = addPointLight(dlight->origin, color, k_light_radius, -1, 1.f);
 	if (index < 0)
 		return;
-
-	lbspAddLightByOrigin( LightTypePoint, dlight->origin );
 }
 
 static void processStaticPointLights( void ) {
@@ -928,8 +872,6 @@ static void processStaticPointLights( void ) {
 
 		if (index < 0)
 			break;
-
-		lbspAddLightByOrigin( le->type, le->origin );
 	}
 	APROF_SCOPE_END(static_lights);
 }
@@ -1044,24 +986,6 @@ void VK_LightsFrameFinalize( void ) {
 	APROF_SCOPE_END(dlights);
 
 	if (debug_dump_lights.enabled) {
-		for (int i = 0; i < MAX_MAP_LEAFS; ++i ) {
-			const vk_light_leaf_t *lleaf = g_lights_bsp.leaves + i;
-			int point = 0, spot = 0, surface = 0, env = 0;;
-			if (lleaf->num_lights == 0)
-				continue;
-
-			for (int j = 0; j < lleaf->num_lights; ++j) {
-				switch (lleaf->light[j].type) {
-					case LightTypePoint: ++point; break;
-					case LightTypeSpot: ++spot; break;
-					case LightTypeSurface: ++surface; break;
-					case LightTypeEnvironment: ++env; break;
-				}
-			}
-
-			gEngine.Con_Printf("\tLeaf %d, lights %d: spot=%d point=%d surface=%d env=%d\n", i, lleaf->num_lights, spot, point, surface, env);
-		}
-
 #if 0
 		// Print light grid stats
 		gEngine.Con_Reportf("Emissive surfaces found: %d\n", g_lights.num_emissive_surfaces);

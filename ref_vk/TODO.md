@@ -1,6 +1,5 @@
 # Next
 - [ ] remove surface visibility cache
-- [ ] rtx: remove lbsp
 - [ ] rtx: rename point lights to lampochki
 - [ ] rtx: rename emissive surface to surface lights
 - [ ] rtx: dynamically sized light clusters
@@ -389,3 +388,4 @@
 - [x] rtx: simple convolution denoise (bilateral?)
 - [x] rtx: cull light sources (dlights and light textures) using bsp
 - [-] crash in PM_RecursiveHullCheck. havent seen this in a while
+- [x] rtx: remove lbsp
