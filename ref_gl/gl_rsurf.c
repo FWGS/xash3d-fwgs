@@ -2934,8 +2934,8 @@ static qboolean R_CheckLightMap( msurface_t *fa )
 		}
 		else
 		{
-			smax = min( smax, 132 );
-			tmax = min( tmax, 132 );
+			smax = Q_min( smax, 132 );
+			tmax = Q_min( tmax, 132 );
 			//Host_MapDesignError( "R_RenderBrushPoly: bad surface extents: %d %d", fa->extents[0], fa->extents[1] );
 			memset( temp, 255, sizeof( temp ) );
 		}

@@ -117,7 +117,7 @@ static void R_EnvShot( const float *vieworg, const char *name, qboolean skyshot,
 	else cls.scrshot_action = scrshot_envshot;
 
 	// catch negative values
-	cls.envshot_viewsize = max( 0, shotsize );
+	cls.envshot_viewsize = Q_max( 0, shotsize );
 }
 
 /*

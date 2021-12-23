@@ -476,8 +476,8 @@ static decal_t *R_DecalIntersect( decalinfo_t *decalinfo, msurface_t *surf, int 
 
 			// Now figure out the part of the projection that intersects pDecal's
 			// clip box [0,0,1,1].
-			Vector2Set( vUnionMin, max( vDecalMin[0], 0 ), max( vDecalMin[1], 0 ));
-			Vector2Set( vUnionMax, min( vDecalMax[0], 1 ), min( vDecalMax[1], 1 ));
+			Vector2Set( vUnionMin, Q_max( vDecalMin[0], 0 ), Q_max( vDecalMin[1], 0 ));
+			Vector2Set( vUnionMax, Q_min( vDecalMax[0], 1 ), Q_min( vDecalMax[1], 1 ));
 
 			if( vUnionMin[0] < 1 && vUnionMin[1] < 1 && vUnionMax[0] > 0 && vUnionMax[1] > 0 )
 			{

@@ -809,7 +809,7 @@ void S_MixBufferUpsample2x( int count, portable_samplepair_t *pbuffer, portable_
 // zero out all paintbuffers
 void MIX_ClearAllPaintBuffers( int SampleCount, qboolean clearFilters )
 {
-	int	count = min( SampleCount, PAINTBUFFER_SIZE );
+	int	count = Q_min( SampleCount, PAINTBUFFER_SIZE );
 	int	i;
 
 	// zero out all paintbuffer data (ignore sampleCount)

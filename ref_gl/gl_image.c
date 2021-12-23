@@ -1620,7 +1620,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 
 		mipsize = srcsize = dstsize = 0;
 
-		for( j = 0; j < max( 1, pic->numMips ); j++ )
+		for( j = 0; j < Q_max( 1, pic->numMips ); j++ )
 		{
 			int width = Q_max( 1, ( pic->width >> j ));
 			int height = Q_max( 1, ( pic->height >> j ));

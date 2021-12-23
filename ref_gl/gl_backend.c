@@ -300,7 +300,7 @@ GL_TexGen
 */
 void GL_TexGen( GLenum coord, GLenum mode )
 {
-	int	tmu = min( glConfig.max_texture_coords, glState.activeTMU );
+	int	tmu = Q_min( glConfig.max_texture_coords, glState.activeTMU );
 	int	bit, gen;
 
 	switch( coord )
@@ -350,7 +350,7 @@ GL_SetTexCoordArrayMode
 */
 void GL_SetTexCoordArrayMode( GLenum mode )
 {
-	int	tmu = min( glConfig.max_texture_coords, glState.activeTMU );
+	int	tmu = Q_min( glConfig.max_texture_coords, glState.activeTMU );
 	int	bit, cmode = glState.texCoordArrayMode[tmu];
 
 	if( mode == GL_TEXTURE_COORD_ARRAY )
@@ -656,7 +656,7 @@ rebuild_page:
 	if( i == MAX_TEXTURES && gl_showtextures->value != 1 )
 	{
 		// bad case, rewind to one and try again
-		gEngfuncs.Cvar_SetValue( "r_showtextures", max( 1, gl_showtextures->value - 1 ));
+		gEngfuncs.Cvar_SetValue( "r_showtextures", Q_max( 1, gl_showtextures->value - 1 ));
 		if( ++numTries < 2 ) goto rebuild_page;	// to prevent infinite loop
 	}
 

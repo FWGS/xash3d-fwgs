@@ -101,7 +101,7 @@ qboolean SV_CheckID( const char *id )
 	for( filter = cidfilter; filter; filter = filter->next )
 	{
 		int len1 = Q_strlen( id ), len2 = Q_strlen( filter->id );
-		int len = min( len1, len2 );
+		int len = Q_min( len1, len2 );
 
 		while( filter->endTime && host.realtime > filter->endTime )
 		{

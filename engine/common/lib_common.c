@@ -291,12 +291,12 @@ static char *COM_GetItaniumName( const char * const in_name )
 			len = len * 10 + ( *f - '0' );
 
 		// sane value
-		len = min( remaining, len );
+		len = Q_min( remaining, len );
 
 		if( len == 0 )
 			goto invalid_format;
 
-		Q_strncpy( symbols[i], f, min( len + 1, sizeof( out_name )));
+		Q_strncpy( symbols[i], f, Q_min( len + 1, sizeof( out_name )));
 		f += len;
 		remaining -= len;
 
@@ -361,7 +361,7 @@ char **COM_ConvertToLocalPlatform( EFunctionMangleType to, const char *from, siz
 
 		if( at ) len = (uint)( at - prev );
 		else len = (uint)Q_strlen( prev );
-		Q_strncpy( symbols[i], prev, min( len + 1, sizeof( symbols[i] )));
+		Q_strncpy( symbols[i], prev, Q_min( len + 1, sizeof( symbols[i] )));
 		prev = at + 1;
 
 		if( !at )

@@ -1819,7 +1819,7 @@ void CL_ParseScreenShake( sizebuf_t *msg )
 	clgame.shake.amplitude = (float)(word)MSG_ReadShort( msg ) * (1.0f / (float)(1<<12));
 	clgame.shake.duration = (float)(word)MSG_ReadShort( msg ) * (1.0f / (float)(1<<12));
 	clgame.shake.frequency = (float)(word)MSG_ReadShort( msg ) * (1.0f / (float)(1<<8));
-	clgame.shake.time = cl.time + max( clgame.shake.duration, 0.01f );
+	clgame.shake.time = cl.time + Q_max( clgame.shake.duration, 0.01f );
 	clgame.shake.next_shake = 0.0f; // apply immediately
 }
 

@@ -482,7 +482,7 @@ void DLY_CheckNewDelayVal( void )
 		}
 		else
 		{
-			delay = min( delay, MAX_MONO_DELAY );
+			delay = Q_min( delay, MAX_MONO_DELAY );
 			dly->delaysamples = (int)(delay * idsp_dma_speed) << sxhires;
 
 			// init dly
