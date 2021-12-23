@@ -107,7 +107,7 @@ void Sys_Sleep( int msec )
 	if( !msec )
 		return;
 
-	msec = min( msec, 1000 );
+	msec = Q_min( msec, 1000 );
 	Platform_Sleep( msec );
 }
 

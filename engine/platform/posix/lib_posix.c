@@ -15,8 +15,7 @@ GNU General Public License for more details.
 #define _GNU_SOURCE
 #include "platform/platform.h"
 #if XASH_LIB == LIB_POSIX
-
-
+#include <dlfcn.h>
 #include "common.h"
 #include "library.h"
 #include "filesystem.h"

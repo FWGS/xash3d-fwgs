@@ -456,8 +456,8 @@ void Image_PaletteHueReplace( byte *palSrc, int newHue, int start, int end, int 
 		g = palSrc[i*pal_size+1];
 		b = palSrc[i*pal_size+2];
 
-		maxcol = max( max( r, g ), b ) / 255.0f;
-		mincol = min( min( r, g ), b ) / 255.0f;
+		maxcol = Q_max( Q_max( r, g ), b ) / 255.0f;
+		mincol = Q_min( Q_min( r, g ), b ) / 255.0f;
 
 		if( maxcol == 0 ) continue;
 

@@ -243,7 +243,7 @@ void CL_SignonReply( void )
 
 float CL_LerpInterval( void )
 {
-	return max( cl_interp->value, 1.f / cl_updaterate->value );
+	return Q_max( cl_interp->value, 1.f / cl_updaterate->value );
 }
 
 /*
@@ -296,7 +296,7 @@ static float CL_LerpPoint( void )
 	if( cl_interp->value > 0.001f )
 	{
 		// manual lerp value (goldsrc mode)
-		float td = max( 0.f, cl.time - cl.mtime[0] );
+		float td = Q_max( 0.f, cl.time - cl.mtime[0] );
 		frac = td / CL_LerpInterval();
 	}
 	else if( server_frametime > 0.001f )
@@ -528,7 +528,7 @@ qboolean CL_ProcessShowTexturesCmds( usercmd_t *cmd )
 	if( released & ( IN_RIGHT|IN_MOVERIGHT ))
 		Cvar_SetValue( "r_showtextures", gl_showtextures->value + 1 );
 	if( released & ( IN_LEFT|IN_MOVELEFT ))
-		Cvar_SetValue( "r_showtextures", max( 1, gl_showtextures->value - 1 ));
+		Cvar_SetValue( "r_showtextures", Q_max( 1, gl_showtextures->value - 1 ));
 	oldbuttons = cmd->buttons;
 
 	return true;

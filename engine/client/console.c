@@ -2172,7 +2172,7 @@ void Con_DrawSolidConsole( int lines )
 	Con_DrawInput( lines );
 
 	y = lines - ( con.curFont->charHeight * 1.2f );
-	SCR_DrawFPS( max( y, 4 )); // to avoid to hide fps counter
+	SCR_DrawFPS( Q_max( y, 4 )); // to avoid to hide fps counter
 
 	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 }

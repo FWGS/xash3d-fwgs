@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <time.h>
 #include "stdio.h"
 #include "crtlib.h"
+#include "xash3d_mathlib.h"
 
 void Q_strnupr( const char *in, char *out, size_t size_out )
 {
@@ -651,7 +652,7 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 	else Q_sprintf( suffix, " bytes" );
 
 	// clamp to >= 0
-	digitsafterdecimal = max( digitsafterdecimal, 0 );
+	digitsafterdecimal = Q_max( digitsafterdecimal, 0 );
 
 	// if it's basically integral, don't do any decimals
 	if( fabs( value - (int)value ) < 0.00001f )
