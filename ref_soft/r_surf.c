@@ -357,9 +357,6 @@ void R_InitRandomTable( void )
 {
 	int	tu, tv;
 
-	// make random predictable
-	gEngfuncs.COM_SetRandomSeed( 255 );
-
 	for( tu = 0; tu < MOD_FRAMES; tu++ )
 	{
 		for( tv = 0; tv < MOD_FRAMES; tv++ )
