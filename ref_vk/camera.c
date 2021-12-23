@@ -2,6 +2,7 @@
 #include "vk_common.h"
 #include "vk_math.h"
 #include "vk_textures.h"
+#include "vk_brush.h"
 
 #include "ref_params.h"
 #include "pm_movevars.h"
@@ -215,13 +216,27 @@ void XVK_CameraDebugPrintCenterEntity( void ) {
 
 	if (surf && ent && ent->model && ent->model->surfaces) {
 		const int surface_index = surf - ent->model->surfaces;
-		const int tex_id = surf->texinfo->texture->gl_texturenum;
+		const texture_t *current_tex = R_TextureAnimation(ent, surf, NULL);
+		const int tex_id = current_tex->gl_texturenum;
 		const vk_texture_t* const texture = findTexture( tex_id );
+		const texture_t *tex = surf->texinfo->texture;
 
 		p += Q_snprintf(p, end - p,
-			"surface index: %d; texture: %s\n",
-			surface_index, texture ? texture->name : "NONE"
+			"surface index: %d; texture: %s(%d)\n",
+			surface_index, texture ? texture->name : "NONE", tex_id
 		);
+
+		if (tex->anim_total > 0 && tex->anim_next) {
+			tex = tex->anim_next;
+			p += Q_snprintf(p, end - p,
+				"anim textures chain (%d):\n", tex->anim_total);
+			for (int i = 0; i < tex->anim_total && tex; ++i) {
+				const vk_texture_t *vkt = findTexture(tex->gl_texturenum);
+				p += Q_snprintf(p, end - p,
+					"%d: %s(%d)%s\n", i, vkt ? vkt->name : "NONE", tex->gl_texturenum, tex == current_tex ? " <-" : "   ");
+				tex = tex->anim_next;
+			}
+		}
 	}
 	gEngine.CL_CenterPrint(buf, 0.5f);
 }

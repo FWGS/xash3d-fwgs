@@ -280,7 +280,7 @@ R_TextureAnimation
 Returns the proper texture for a given time and surface
 ===============
 */
-static const texture_t *R_TextureAnimation( const cl_entity_t *ent, const msurface_t *s, const struct texture_s *base_override )
+const texture_t *R_TextureAnimation( const cl_entity_t *ent, const msurface_t *s, const struct texture_s *base_override )
 {
 	const texture_t	*base = base_override ? base_override : s->texinfo->texture;
 	int	count, reletive;

@@ -21,3 +21,5 @@ void VK_BrushModelDestroy( struct model_s *mod );
 
 void VK_BrushModelDraw( const struct cl_entity_s *ent, int render_mode );
 void VK_BrushStatsClear( void );
+
+const texture_t *R_TextureAnimation( const cl_entity_t *ent, const msurface_t *s, const struct texture_s *base_override );
