@@ -5,6 +5,8 @@
 
 #include <stdio.h>
 
+#define MAX_INCLUDE_DEPTH 4
+
 static const xvk_material_t k_default_material = {
 		.tex_base_color = -1,
 		.tex_metalness = 0,
@@ -28,12 +30,25 @@ static int loadTexture( const char *filename, qboolean force_reload ) {
 	return tex_id ? tex_id : -1;
 }
 
-static void loadMaterialsFromFile( const char *filename ) {
+static void makePath(char *out, size_t out_size, const char *value, const char *path_begin, const char *path_end) {
+	if (value[0] == '/') {
+		// Path relative to valve/pbr dir
+		Q_snprintf(out, out_size, "pbr%s", value);
+	} else {
+		// Path relative to current material.mat file
+		Q_snprintf(out, out_size, "%.*s%s", (int)(path_end - path_begin), path_begin, value);
+	}
+}
+
+#define MAKE_PATH(out, value) \
+	makePath(out, sizeof(out), value, path_begin, path_end)
+
+static void loadMaterialsFromFile( const char *filename, int depth ) {
 	fs_offset_t size;
 	const char *const path_begin = filename;
 	const char *path_end = Q_strrchr(filename, '/');
 	byte *data = gEngine.COM_LoadFile( filename, 0, false );
-	char *pos = data;
+	char *pos = (char*)data;
 	xvk_material_t current_material = {
 		.base_color = -1,
 		.metalness = tglob.blackTexture,
@@ -99,6 +114,14 @@ static void loadMaterialsFromFile( const char *filename ) {
 			create = true;
 		} else if (Q_stricmp(key, "force_reload") == 0) {
 			force_reload = Q_atoi(value) != 0;
+		} else if (Q_stricmp(key, "include") == 0) {
+			if (depth > 0) {
+				char include_path[256];
+				MAKE_PATH(include_path, value);
+				loadMaterialsFromFile( include_path, depth - 1);
+			} else {
+				gEngine.Con_Printf(S_ERROR "material: max include depth %d reached when including '%s' from '%s'\n", MAX_INCLUDE_DEPTH, value, filename);
+			}
 		} else {
 			char texture_path[256];
 			int *tex_id_dest = NULL;
@@ -121,13 +144,7 @@ static void loadMaterialsFromFile( const char *filename ) {
 				continue;
 			}
 
-			if (value[0] == '/') {
-				// Path relative to valve/pbr dir
-				Q_snprintf(texture_path, sizeof(texture_path), "pbr%s", value);
-			} else {
-				// Path relative to current material.mat file
-				Q_snprintf(texture_path, sizeof(texture_path), "%.*s%s", (int)(path_end - path_begin), path_begin, value);
-			}
+			MAKE_PATH(texture_path, value);
 
 			if (tex_id_dest) {
 				const int tex_id = loadTexture(texture_path, force_reload);
@@ -152,7 +169,7 @@ static void loadMaterialsFromFileF( const char *fmt, ... ) {
 	vsnprintf( buffer, sizeof buffer, fmt, argptr );
 	va_end( argptr );
 
-	loadMaterialsFromFile( buffer );
+	loadMaterialsFromFile( buffer, MAX_INCLUDE_DEPTH );
 }
 
 void XVK_ReloadMaterials( void ) {
@@ -165,9 +182,9 @@ void XVK_ReloadMaterials( void ) {
 			mat->tex_base_color = i;
 	}
 
-	loadMaterialsFromFile( "pbr/materials.mat" );
-	loadMaterialsFromFile( "pbr/models/materials.mat" );
-	loadMaterialsFromFile( "pbr/sprites/materials.mat" );
+	loadMaterialsFromFile( "pbr/materials.mat", MAX_INCLUDE_DEPTH );
+	loadMaterialsFromFile( "pbr/models/materials.mat", MAX_INCLUDE_DEPTH );
+	loadMaterialsFromFile( "pbr/sprites/materials.mat", MAX_INCLUDE_DEPTH );
 
 	{
 		const char *wad = g_map_entities.wadlist;
