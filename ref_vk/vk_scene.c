@@ -597,6 +597,8 @@ static float g_frametime = 0;
 
 void VK_SceneRender( const ref_viewpass_t *rvp )
 {
+	cl_entity_t	*entPlayer;
+
 	int current_pipeline_index = kRenderNormal;
 
 	g_frametime = /*FIXME VK RP_NORMALPASS( )) ? */
@@ -659,6 +661,19 @@ void VK_SceneRender( const ref_viewpass_t *rvp )
 
 	// Draw transparent beams
 	gEngine.CL_DrawEFX( g_frametime, true );
+
+	// Draw flashlight // TODO: REFACTORING?
+	entPlayer = gEngine.GetLocalPlayer();
+	if( entPlayer->player ) { // && !Host_IsQuakeCompatible( ) ???
+		if( FBitSet( entPlayer->curstate.effects, EF_DIMLIGHT )) {
+			//gEngine.Con_Printf( S_WARN "FLASHLIGHT! \n");
+			//dlight_t *dl = gEngine.gEfxApi.CL_AllocDlight( entPlayer->index ); // not work
+			//dlight_t *dl = CL_AllocDlight( entPlayer->index ); // need copy CL_AllocDlight
+			//dl->die = gpGlobals->time + 0.01f; // die on next frame
+			// TODO: try allocate CL_AllocDlight from cl_tent.c but blank
+			VK_AddFlashlight(entPlayer, g_camera); // FIXME: buggy with vk_rtx_freeze
+		}
+	}
 
 	VK_RenderDebugLabelEnd();
 

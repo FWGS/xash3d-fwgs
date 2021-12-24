@@ -228,6 +228,7 @@ static const char *getParmName(int parm)
 	case PARM_TEX_MEMORY: return "PARM_TEX_MEMORY";
 	case PARM_DELUXEDATA: return "PARM_DELUXEDATA";
 	case PARM_SHADOWDATA: return "PARM_SHADOWDATA";
+	case PARM_MODERNFLASHLIGHT: return "PARM_MODERNFLASHLIGHT";
 	default: return "UNKNOWN";
 	}
 }
@@ -248,6 +249,8 @@ static int VK_RefGetParm( int parm, int arg )
 	case PARM_TEX_FLAGS:
 		tex = findTexture(arg);
 		return tex->flags;
+	case PARM_MODERNFLASHLIGHT:
+		return true;
 	}
 
 	PRINT_NOT_IMPLEMENTED_ARGS("(%s(%d), %d)", getParmName(parm), parm, arg);

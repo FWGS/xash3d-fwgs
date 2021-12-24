@@ -2696,7 +2696,21 @@ void CL_AddEntityEffects( cl_entity_t *ent )
 	if( FBitSet( ent->curstate.effects, EF_BRIGHTFIELD ))
 		R_EntityParticles( ent );
 
-	if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))
+	if (REF_GET_PARM( PARM_MODERNFLASHLIGHT, 1 ) == true)
+	{
+		if( !ent->player ) // TODO: need testing
+		{
+			if ( FBitSet( ent->curstate.effects, EF_DIMLIGHT ) )
+			{
+				dlight_t	*dl = CL_AllocDlight( ent->index );
+				dl->color.r = dl->color.g = dl->color.b = 100;
+				dl->radius = COM_RandomFloat( 200, 231 );
+				VectorCopy( ent->origin, dl->origin );
+				dl->die = cl.time + 0.001;
+			}
+		}
+	}
+	else if ( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))
 	{
 		if( ent->player && !Host_IsQuakeCompatible( ))
 		{

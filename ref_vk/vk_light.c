@@ -15,6 +15,8 @@
 #include <string.h>
 #include <ctype.h> // isalnum...
 
+#include "camera.h"
+
 #define PROFILER_SCOPES(X) \
 	X(finalize , "VK_LightsFrameFinalize"); \
 	X(emissive_surface, "VK_LightsAddEmissiveSurface"); \
@@ -807,6 +809,68 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, int lightsty
 	g_lights.num_point_lights++;
 	return index;
 }
+
+void VK_AddFlashlight( cl_entity_t *ent, vk_global_camera_t *g_camera ) {
+	vec3_t color;
+	vec3_t origin;
+	const int index = g_lights.num_point_lights;
+	vk_point_light_t *const plight = g_lights.point_lights + index;
+	*plight = (vk_point_light_t){0};
+
+	// parameters
+	const float hack_attenuation = 0.1;
+	const float radius = 2.0;
+	const float _cone = 1.0;
+	const float _cone2 = 30.0;
+	const vec3_t light_color = {255, 255, 192};
+	const float light_intensity = 200;
+
+	VectorCopy(light_color, color);
+
+	// prepare colors
+	VectorScale(light_color, light_intensity / 255.0f, color);
+
+	// convert colors by weirdGoldsrcLightScaling
+	float l1 = Q_max(color[0], Q_max(color[1], color[2]));
+	l1 = l1 * l1 / 10;
+	VectorScale(color, l1, color);
+
+	/*
+	gEngine.Con_Printf("flashlight: origin=(%f %f %f) color=(%f %f %f)\n",
+		origin[0], origin[1], origin[2],
+		color[0], color[1], color[2]);
+	*/
+
+	// position
+	VectorCopy(ent->origin, origin);
+	// TODO: relative position of the flashlight as if it were in the left hand (need modify values from g_camera->vforward, HOW?)
+	//origin[0] += 20; // forward-back
+	//origin[1] += -10; // left-right
+	origin[2] += 30; // up-down // HACK
+	VectorCopy(g_camera->vforward, plight->dir);
+	//VectorSet(plight->dir, g_camera->vforward[0], g_camera->vforward[1], g_camera->vforward[2]);
+
+	// convert stopdots by parseStopDot
+	plight->stopdot = cosf(_cone * M_PI / 180.f);
+	plight->stopdot2 = cosf(_cone2 * M_PI / 180.f);
+
+	VectorCopy(origin, plight->origin);
+	plight->radius = radius;
+
+	VectorScale(color, hack_attenuation, plight->base_color);
+	VectorCopy(plight->base_color, plight->color);
+
+	/*
+	gEngine.Con_Printf("flashlight: origin=(%f %f %f) color=(%f %f %f) dir=(%f %f %f)\n",
+		plight->origin[0], plight->origin[1], plight->origin[2],
+		plight->color[0], plight->color[1], plight->color[2],
+		plight->dir[0], plight->dir[1], plight->dir[2]);
+	*/
+
+	addPointLightToClusters( index );
+	g_lights.num_point_lights++;
+}
+
 
 static float sphereSolidAngleFromDistDiv2Pi(float r, float d) {
 	return 1. - sqrt(d*d - r*r)/d;
