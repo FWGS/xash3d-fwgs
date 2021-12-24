@@ -810,7 +810,7 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, int lightsty
 	return index;
 }
 
-void VK_AddFlashlight( cl_entity_t *ent, vk_global_camera_t *g_camera ) {
+void VK_AddFlashlight( cl_entity_t *ent, vk_global_camera_t g_camera ) {
 	vec3_t color;
 	vec3_t origin;
 	const int index = g_lights.num_point_lights;
@@ -847,7 +847,7 @@ void VK_AddFlashlight( cl_entity_t *ent, vk_global_camera_t *g_camera ) {
 	//origin[0] += 20; // forward-back
 	//origin[1] += -10; // left-right
 	origin[2] += 30; // up-down // HACK
-	VectorCopy(g_camera->vforward, plight->dir);
+	VectorCopy(g_camera.vforward, plight->dir);
 	//VectorSet(plight->dir, g_camera->vforward[0], g_camera->vforward[1], g_camera->vforward[2]);
 
 	// convert stopdots by parseStopDot

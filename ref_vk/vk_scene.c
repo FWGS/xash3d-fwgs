@@ -595,6 +595,8 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 
 static float g_frametime = 0;
 
+void VK_AddFlashlight(cl_entity_t *ent, vk_global_camera_t g_camera);
+
 void VK_SceneRender( const ref_viewpass_t *rvp )
 {
 	cl_entity_t	*entPlayer;
