@@ -164,10 +164,11 @@ void main() {
 
 	payload.emissive = vec3(0.);
 	if (any(greaterThan(kusok.emissive, vec3(0.)))) {
-		const vec3 emissive_color = base_color;
+		//const vec3 emissive_color = base_color;
 		//const vec3 emissive_color = pow(base_color, vec3(2.2));
 		//const float max_color = max(max(emissive_color.r, emissive_color.g), emissive_color.b);
-		payload.emissive = normalize(kusok.emissive) * emissive_color;// * mix(vec3(1.), kusok.emissive, smoothstep(.3, .6, max_color));
+		//payload.emissive = normalize(kusok.emissive) * emissive_color;// * mix(vec3(1.), kusok.emissive, smoothstep(.3, .6, max_color));
+		payload.emissive = kusok.emissive * base_color;
 	}
 
 	payload.kusok_index = kusok_index;
@@ -179,5 +180,5 @@ void main() {
 
 	T = baryMix(vertices[vi1].tangent, vertices[vi2].tangent, vertices[vi3].tangent, bary);
 	T = normalize(normalTransformMat * T);
-	payload.debug = vec4(T, 0.);
+	payload.debug = vec4(bary, 0., 0.);
 }
