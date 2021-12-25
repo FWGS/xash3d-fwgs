@@ -16,6 +16,8 @@
 #include <ctype.h> // isalnum...
 
 #include "camera.h"
+#include "pm_defs.h"
+#include "pmtrace.h"
 
 #define PROFILER_SCOPES(X) \
 	X(finalize , "VK_LightsFrameFinalize"); \
@@ -813,21 +815,23 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, int lightsty
 void VK_AddFlashlight( cl_entity_t *ent, vk_global_camera_t g_camera ) {
 	vec3_t color;
 	vec3_t origin;
+	vec3_t angles;
 	const int index = g_lights.num_point_lights;
 	vk_point_light_t *const plight = g_lights.point_lights + index;
 	*plight = (vk_point_light_t){0};
 
 	// parameters
 	const float hack_attenuation = 0.1;
-	const float radius = 2.0;
-	const float _cone = 1.0;
+	const float radius = 1.0;
+	// TODO: better tune it
+	const float _cone = 10.0;
 	const float _cone2 = 30.0;
 	const vec3_t light_color = {255, 255, 192};
-	const float light_intensity = 200;
+	const float light_intensity = 250;
 
 	VectorCopy(light_color, color);
 
-	// prepare colors
+	// prepare colors by parseEntPropRgbav
 	VectorScale(light_color, light_intensity / 255.0f, color);
 
 	// convert colors by weirdGoldsrcLightScaling
@@ -835,20 +839,80 @@ void VK_AddFlashlight( cl_entity_t *ent, vk_global_camera_t g_camera ) {
 	l1 = l1 * l1 / 10;
 	VectorScale(color, l1, color);
 
-	/*
-	gEngine.Con_Printf("flashlight: origin=(%f %f %f) color=(%f %f %f)\n",
-		origin[0], origin[1], origin[2],
-		color[0], color[1], color[2]);
-	*/
+	float angle;
+	float thirdperson_offset = 15;
+	vec3_t forward, view_ofs;
+	vec3_t vecSrc, vecEnd;
+	pmtrace_t *trace;
+	if( ent->index == gEngine.EngineGetParm(PARM_PLAYER_INDEX, 0))
+	{
+		// local player case
+		// position
+		if (gEngine.EngineGetParm(PARM_THIRDPERSON, 0)) { // thirdperson
 
-	// position
-	VectorCopy(ent->origin, origin);
-	// TODO: relative position of the flashlight as if it were in the left hand (need modify values from g_camera->vforward, HOW?)
-	//origin[0] += 20; // forward-back
-	//origin[1] += -10; // left-right
-	origin[2] += 30; // up-down // HACK
-	VectorCopy(g_camera.vforward, plight->dir);
-	//VectorSet(plight->dir, g_camera->vforward[0], g_camera->vforward[1], g_camera->vforward[2]);
+			AngleVectors( g_camera.viewangles, forward, NULL, NULL );
+			view_ofs[0] = view_ofs[1] = 0.0f;
+			if( ent->curstate.usehull == 1 ) {
+				view_ofs[2] = 12.0f; // VEC_DUCK_VIEW;
+			} else {
+				view_ofs[2] = 28.0f; // DEFAULT_VIEWHEIGHT
+			}
+			VectorAdd( ent->origin, view_ofs, vecSrc );
+			VectorMA( vecSrc, thirdperson_offset, forward, vecEnd );
+			trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
+			VectorCopy( trace->endpos, origin );
+			VectorAngles( forward, angles );
+
+			// convert angles by parseAngles
+			angle = angles[1];
+			angle *= M_PI / 180.f;
+			plight->dir[2] = 0;
+			plight->dir[0] = cosf(angle);
+			plight->dir[1] = sinf(angle);
+			angle = angles[0];
+			angle *= M_PI / 180.f;
+			plight->dir[2] = sinf(angle);
+			plight->dir[0] *= cosf(angle);
+			plight->dir[1] *= cosf(angle);
+		} else { // firstperson
+			// based on https://github.com/SNMetamorph/PrimeXT/blob/0869b1abbddd13c1229769d8cd71941610be0bf3/client/flashlight.cpp#L35
+			// TODO: tune it
+			origin[0] = g_camera.vieworg[0] + (g_camera.vright[0] * 5.0f) + (g_camera.vforward[0] * 2.0f); // forward-back
+			origin[1] = g_camera.vieworg[1] + (g_camera.vright[1] * 5.0f) + (g_camera.vforward[1] * 2.0f); // left-right
+			origin[2] = g_camera.vieworg[2] + 6.0f + (g_camera.vright[2] * 5.0f) + (g_camera.vforward[2] * 2.0f); // up-down
+			VectorCopy(g_camera.vforward, plight->dir);
+		}
+	}
+	else // non-local player case
+	{
+		// TODO: need to test!
+		VectorCopy(ent->origin, origin);
+		VectorCopy(ent->angles, angles);
+		AngleVectors( ent->angles, forward, NULL, NULL ); // TODO: maybe improve turning sensitivity
+		view_ofs[0] = view_ofs[1] = 0.0f;
+		if( ent->curstate.usehull == 1 ) {
+			view_ofs[2] = 12.0f; // VEC_DUCK_VIEW;
+		} else {
+			view_ofs[2] = 28.0f; // DEFAULT_VIEWHEIGHT
+		}
+		VectorAdd( ent->origin, view_ofs, vecSrc );
+		VectorMA( vecSrc, thirdperson_offset, forward, vecEnd );
+		trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
+		VectorCopy( trace->endpos, origin );
+		VectorAngles( forward, angles );
+
+		// convert angles by parseAngles
+		angle = angles[1];
+		angle *= M_PI / 180.f;
+		plight->dir[2] = 0;
+		plight->dir[0] = cosf(angle);
+		plight->dir[1] = sinf(angle);
+		angle = angles[0];
+		angle *= M_PI / 180.f;
+		plight->dir[2] = sinf(angle);
+		plight->dir[0] *= cosf(angle);
+		plight->dir[1] *= cosf(angle);
+	}
 
 	// convert stopdots by parseStopDot
 	plight->stopdot = cosf(_cone * M_PI / 180.f);
