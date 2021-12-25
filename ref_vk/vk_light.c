@@ -812,7 +812,7 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, int lightsty
 	return index;
 }
 
-void VK_AddFlashlight( cl_entity_t *ent, vk_global_camera_t g_camera ) {
+void VK_AddFlashlight( cl_entity_t *ent ) {
 	vec3_t color;
 	vec3_t origin;
 	vec3_t angles;
@@ -827,7 +827,7 @@ void VK_AddFlashlight( cl_entity_t *ent, vk_global_camera_t g_camera ) {
 	const float _cone = 10.0;
 	const float _cone2 = 30.0;
 	const vec3_t light_color = {255, 255, 192};
-	const float light_intensity = 250;
+	const float light_intensity = 300;
 
 	VectorCopy(light_color, color);
 
@@ -941,6 +941,8 @@ static float sphereSolidAngleFromDistDiv2Pi(float r, float d) {
 }
 
 static void addDlight( const dlight_t *dlight ) {
+	cl_entity_t	*entPlayer;
+
 	const float k_light_radius = 2.f;
 	const float k_threshold = 2.f;
 
@@ -951,6 +953,12 @@ static void addDlight( const dlight_t *dlight ) {
 
 	if( !dlight || dlight->die < gpGlobals->time || !dlight->radius )
 		return;
+
+	// Draw flashlight
+	entPlayer = gEngine.GetLocalPlayer();
+	if( FBitSet( entPlayer->curstate.effects, EF_DIMLIGHT )) {
+		VK_AddFlashlight(entPlayer);
+	}
 
 	max_comp = Q_max(dlight->color.r, Q_max(dlight->color.g, dlight->color.b));
 	if (max_comp < k_threshold || dlight->radius <= k_light_radius)
