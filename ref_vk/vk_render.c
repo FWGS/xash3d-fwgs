@@ -564,7 +564,7 @@ static uint32_t writeDlightsToUBO( void )
 			vec3_t		forward, view_ofs;
 			vec3_t		vecSrc, vecEnd;
 			float		falloff;
-			trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
+			trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_NORMAL );
 			// compute falloff
 			falloff = trace->fraction * FLASHLIGHT_DISTANCE;
 			if( falloff < 500.0f ) falloff = 1.0f;
@@ -580,14 +580,14 @@ static uint32_t writeDlightsToUBO( void )
 			}
 			VectorAdd( entPlayer->origin, view_ofs, vecSrc );
 			VectorMA( vecSrc, FLASHLIGHT_DISTANCE, forward, vecEnd );
-			trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
-			VectorMA( trace->endpos, -30, forward, l->origin );
+			trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_NORMAL );
+			VectorMA( trace->endpos, -10, forward, l->origin );
 
 			// apply brigthness to dlight
 			l->color.r = bound( 0, falloff * 255, 255 );
 			l->color.g = bound( 0, falloff * 255, 255 );
 			l->color.b = bound( 0, falloff * 255, 255 );
-			l->radius = 60;
+			l->radius = 75;
 
 			Vector4Set(
 				ubo_lights->light[num_lights].color,
