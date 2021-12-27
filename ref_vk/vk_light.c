@@ -844,9 +844,7 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 	vec3_t color;
 	vec3_t origin;
 	vec3_t angles;
-	const int index = g_lights.num_point_lights;
-	vk_point_light_t *const plight = g_lights.point_lights + index;
-	*plight = (vk_point_light_t){0};
+	vk_light_entity_t le;
 
 	// parameters
 	const float hack_attenuation = 0.1;
@@ -857,17 +855,14 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 	const vec3_t light_color = {255, 255, 192};
 	const float light_intensity = 300;
 
-	VectorCopy(light_color, color);
-
 	// prepare colors by parseEntPropRgbav
 	VectorScale(light_color, light_intensity / 255.0f, color);
 
 	// convert colors by weirdGoldsrcLightScaling
 	float l1 = Q_max(color[0], Q_max(color[1], color[2]));
 	l1 = l1 * l1 / 10;
-	VectorScale(color, l1, color);
+	VectorScale(color, l1, le.color);
 
-	float angle;
 	float thirdperson_offset = 25;
 	vec3_t forward, view_ofs;
 	vec3_t vecSrc, vecEnd;
@@ -888,9 +883,7 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 			VectorMA( vecSrc, thirdperson_offset, forward, vecEnd );
 			trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
 			VectorCopy( trace->endpos, origin );
-			VectorAngles( forward, angles );
-			angles[PITCH] = -angles[PITCH];
-			AngleVectors(angles, plight->dir, NULL, NULL);
+			VectorCopy( forward, le.dir);
 		} else { // firstperson
 			// based on https://github.com/SNMetamorph/PrimeXT/blob/0869b1abbddd13c1229769d8cd71941610be0bf3/client/flashlight.cpp#L35
 			// TODO: tune it
@@ -898,15 +891,13 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 			origin[1] = g_camera.vieworg[1] + (g_camera.vright[1] * 5.0f) + (g_camera.vforward[1] * 2.0f); // left-right
 			origin[2] = g_camera.vieworg[2] + (g_camera.vright[2] * 5.0f) + (g_camera.vforward[2] * 2.0f); // up-down
 			origin[2] += 6.0f;
-			VectorCopy(g_camera.vforward, plight->dir);
+			VectorCopy(g_camera.vforward, le.dir);
 		}
 	}
 	else // non-local player case
 	{
 		// TODO: need to test!
-		VectorCopy(ent->origin, origin);
-		VectorCopy(ent->angles, angles);
-		AngleVectors( ent->angles, forward, NULL, NULL ); // TODO: maybe improve turning sensitivity
+		AngleVectors( ent->angles, angles, NULL, NULL ); // TODO: maybe improve turning sensitivity
 		view_ofs[0] = view_ofs[1] = 0.0f;
 		if( ent->curstate.usehull == 1 ) {
 			view_ofs[2] = 12.0f; // VEC_DUCK_VIEW;
@@ -914,24 +905,12 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 			view_ofs[2] = 28.0f; // DEFAULT_VIEWHEIGHT
 		}
 		VectorAdd( ent->origin, view_ofs, vecSrc );
-		VectorMA( vecSrc, thirdperson_offset, forward, vecEnd );
+		VectorMA( vecSrc, thirdperson_offset, angles, vecEnd );
 		trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
 		VectorCopy( trace->endpos, origin );
-		VectorAngles( forward, angles );
-		angles[PITCH] = -angles[PITCH];
-		AngleVectors(angles, plight->dir, NULL, NULL);
-
+		angles[ROLL] = -angles[ROLL];
+		VectorCopy( angles, le.dir );
 	}
-
-	// convert stopdots by parseStopDot
-	plight->stopdot = cosf(_cone * M_PI / 180.f);
-	plight->stopdot2 = cosf(_cone2 * M_PI / 180.f);
-
-	VectorCopy(origin, plight->origin);
-	plight->radius = radius;
-
-	VectorScale(color, hack_attenuation, plight->base_color);
-	VectorCopy(plight->base_color, plight->color);
 
 	/*
 	gEngine.Con_Printf("flashlight: origin=(%f %f %f) color=(%f %f %f) dir=(%f %f %f)\n",
@@ -940,8 +919,12 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 		plight->dir[0], plight->dir[1], plight->dir[2]);
 	*/
 
-	addPointLightToClusters( index );
-	g_lights.num_point_lights++;
+	VectorCopy(origin, le.origin);
+	// convert stopdots by parseStopDot
+	le.stopdot = cosf(_cone * M_PI / 180.f);
+	le.stopdot2 = cosf(_cone2 * M_PI / 180.f);
+
+	addSpotLight(&le, radius, 0, hack_attenuation, false);
 }
 
 
