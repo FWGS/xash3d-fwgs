@@ -868,7 +868,7 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 	VectorScale(color, l1, color);
 
 	float angle;
-	float thirdperson_offset = 15;
+	float thirdperson_offset = 25;
 	vec3_t forward, view_ofs;
 	vec3_t vecSrc, vecEnd;
 	pmtrace_t *trace;
@@ -877,7 +877,6 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 		// local player case
 		// position
 		if (gEngine.EngineGetParm(PARM_THIRDPERSON, 0)) { // thirdperson
-
 			AngleVectors( g_camera.viewangles, forward, NULL, NULL );
 			view_ofs[0] = view_ofs[1] = 0.0f;
 			if( ent->curstate.usehull == 1 ) {
@@ -890,18 +889,8 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 			trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
 			VectorCopy( trace->endpos, origin );
 			VectorAngles( forward, angles );
-
-			// convert angles by parseAngles
-			angle = angles[1];
-			angle *= M_PI / 180.f;
-			plight->dir[2] = 0;
-			plight->dir[0] = cosf(angle);
-			plight->dir[1] = sinf(angle);
-			angle = angles[0];
-			angle *= M_PI / 180.f;
-			plight->dir[2] = sinf(angle);
-			plight->dir[0] *= cosf(angle);
-			plight->dir[1] *= cosf(angle);
+			angles[PITCH] = -angles[PITCH];
+			AngleVectors(angles, plight->dir, NULL, NULL);
 		} else { // firstperson
 			// based on https://github.com/SNMetamorph/PrimeXT/blob/0869b1abbddd13c1229769d8cd71941610be0bf3/client/flashlight.cpp#L35
 			// TODO: tune it
@@ -929,18 +918,9 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 		trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
 		VectorCopy( trace->endpos, origin );
 		VectorAngles( forward, angles );
+		angles[PITCH] = -angles[PITCH];
+		AngleVectors(angles, plight->dir, NULL, NULL);
 
-		// convert angles by parseAngles
-		angle = angles[1];
-		angle *= M_PI / 180.f;
-		plight->dir[2] = 0;
-		plight->dir[0] = cosf(angle);
-		plight->dir[1] = sinf(angle);
-		angle = angles[0];
-		angle *= M_PI / 180.f;
-		plight->dir[2] = sinf(angle);
-		plight->dir[0] *= cosf(angle);
-		plight->dir[1] *= cosf(angle);
 	}
 
 	// convert stopdots by parseStopDot
