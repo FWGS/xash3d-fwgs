@@ -13,8 +13,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#ifdef _WIN32
 #include "common.h"
+#include "xash3d_mathlib.h"
 
 /*
 ===============================================================================
@@ -468,4 +468,3 @@ void Wcon_RegisterHotkeys( void )
 	// user can hit escape for quit
 	RegisterHotKey( s_wcd.hWnd, QUIT_ON_ESCAPE_ID, 0, VK_ESCAPE );
 }
-#endif // _WIN32
