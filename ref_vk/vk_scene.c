@@ -595,8 +595,7 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 
 static float g_frametime = 0;
 
-void VK_SceneRender( const ref_viewpass_t *rvp )
-{
+void VK_SceneRender( const ref_viewpass_t *rvp ) {
 	int current_pipeline_index = kRenderNormal;
 
 	g_frametime = /*FIXME VK RP_NORMALPASS( )) ? */
@@ -661,6 +660,9 @@ void VK_SceneRender( const ref_viewpass_t *rvp )
 	gEngine.CL_DrawEFX( g_frametime, true );
 
 	VK_RenderDebugLabelEnd();
+
+	if (vk_core.rtx)
+		VK_LightsFrameFinalize();
 
 	if (ui_infotool->value > 0)
 		XVK_CameraDebugPrintCenterEntity();
