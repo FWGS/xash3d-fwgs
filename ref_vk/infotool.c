@@ -102,7 +102,7 @@ void XVK_CameraDebugPrintCenterEntity( void ) {
 
 		const vk_lights_cell_t *cell = (cell_index >= 0 && cell_index < MAX_LIGHT_CLUSTERS) ? g_lights.cells + cell_index : NULL;
 		p += Q_snprintf(p, end - p,
-			"light raw=(%d, %d, %d) cell=(%d, %d, %d) index=%d surf=%d point=%d\n%s",
+			"light raw=(%d, %d, %d) cell=(%d, %d, %d) index=%d surf=%d point=%d\n",
 			cell_raw[0],
 			cell_raw[1],
 			cell_raw[2],
@@ -111,12 +111,22 @@ void XVK_CameraDebugPrintCenterEntity( void ) {
 			light_cell[2],
 			cell_index,
 			cell ? cell->num_emissive_surfaces : -1,
-			cell ? cell->num_point_lights : -1,
-			cell && cell->num_emissive_surfaces ? "surf:" : "");
-		if (cell) {
+			cell ? cell->num_point_lights : -1);
+
+		if (cell && cell->num_emissive_surfaces > 0) {
+			p += Q_snprintf(p, end - p, "surf:");
 			for (int i = 0; i < cell->num_emissive_surfaces; ++i) {
 				p += Q_snprintf(p, end - p, " %d", cell->emissive_surfaces[i]);
 			}
+			p += Q_snprintf(p, end - p, "\n");
+		}
+
+		if (cell && cell->num_point_lights > 0) {
+			p += Q_snprintf(p, end - p, "point:");
+			for (int i = 0; i < cell->num_point_lights; ++i) {
+				p += Q_snprintf(p, end - p, " %d", cell->point_lights[i]);
+			}
+			p += Q_snprintf(p, end - p, "\n");
 		}
 	}
 

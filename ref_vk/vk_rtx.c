@@ -339,6 +339,7 @@ void VK_RayFrameBegin( void )
 
 	XVK_RayModel_ClearForNextFrame();
 
+	// TODO: move all lighting update to scene?
 	if (g_rtx.reload_lighting) {
 		g_rtx.reload_lighting = false;
 		VK_LightsLoadMapStaticLights();
@@ -784,10 +785,7 @@ LIST_GBUFFER_IMAGES(GBUFFER_WRITE_BARRIER)
 }
 
 // Finalize and update dynamic lights
-static void updateLights( void )
-{
-	VK_LightsFrameFinalize();
-
+static void uploadLights ( void ) {
 	// Upload light grid
 	{
 		vk_ray_shader_light_grid *grid = g_rtx.light_grid_buffer.mapped;
@@ -988,7 +986,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		g_rtx.reload_pipeline = false;
 	}
 
-	updateLights();
+	uploadLights();
 
 	if (g_ray_model_state.frame.num_models == 0) {
 		const xvk_blit_args blit_args = {
