@@ -51,7 +51,7 @@ void *ANDROID_LoadLibrary( const char *dllname )
 	}
 	else
 	{
-		Q_snprintf( path, MAX_SYSPATH, "lib%s"POSTFIX"."OS_LIB_EXT, dllname );
+		Q_snprintf( path, MAX_SYSPATH, "lib%s."OS_LIB_EXT, dllname );
 		pHandle = dlopen( path, RTLD_LAZY );
 		if( pHandle )
 			return pHandle;
