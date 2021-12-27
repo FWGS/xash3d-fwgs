@@ -111,7 +111,7 @@ def build(bld):
 
 	source = bld.path.ant_glob(['*.cpp'])
 
-	includes = [ '.', 'miniutl/', '../common', '../engine' ]
+	includes = [ '.', '../common', '../engine', '../public' ]
 
 	bld.shlib(
 		source   = source,
