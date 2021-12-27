@@ -14,10 +14,6 @@
 #include "xash3d_mathlib.h"
 #include "protocol.h" // MAX_DLIGHTS
 
-#include "camera.h"
-#include "pm_defs.h"
-#include "pmtrace.h"
-
 #include <memory.h>
 
 #define MAX_UNIFORM_SLOTS (MAX_SCENE_ENTITIES * 2 /* solid + trans */ + 1)
@@ -566,6 +562,7 @@ static uint32_t writeDlightsToUBO( void )
 			l->origin[1],
 			l->origin[2],
 			l->radius);
+
 		num_lights++;
 	}
 

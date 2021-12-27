@@ -927,7 +927,6 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 	addSpotLight(&le, radius, 0, hack_attenuation, false);
 }
 
-
 static float sphereSolidAngleFromDistDiv2Pi(float r, float d) {
 	return 1. - sqrt(d*d - r*r)/d;
 }
