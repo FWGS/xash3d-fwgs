@@ -2698,13 +2698,7 @@ void CL_AddEntityEffects( cl_entity_t *ent )
 
 	if (REF_GET_PARM( PARM_MODERNFLASHLIGHT, 1 ) == true)
 	{
-		if( ent->player ) // && !Host_IsQuakeCompatible( ) ???
-		{
-			dlight_t	*dl = CL_AllocDlight( ent->index );
-			dl->radius = -1;
-			dl->die = cl.time + 0.01f; // die on next frame
-		}
-		else
+		if( !ent->player )
 		{
 			if ( FBitSet( ent->curstate.effects, EF_DIMLIGHT ) )
 			{

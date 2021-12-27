@@ -1,4 +1,5 @@
 #include "vk_core.h"
+#include "vk_cvar.h"
 #include "vk_common.h"
 #include "vk_textures.h"
 #include "vk_renderstate.h"
@@ -250,7 +251,10 @@ static int VK_RefGetParm( int parm, int arg )
 		tex = findTexture(arg);
 		return tex->flags;
 	case PARM_MODERNFLASHLIGHT:
-		return true;
+		if (CVAR_TO_BOOL( vk_rtx )) {
+			return true;
+		}
+		return false;
 	}
 
 	PRINT_NOT_IMPLEMENTED_ARGS("(%s(%d), %d)", getParmName(parm), parm, arg);

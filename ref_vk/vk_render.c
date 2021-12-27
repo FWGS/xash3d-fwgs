@@ -551,70 +551,21 @@ static uint32_t writeDlightsToUBO( void )
 
 	// TODO this should not be here (where? vk_scene?)
 	for (int i = 0; i < MAX_DLIGHTS && num_lights < ARRAYSIZE(ubo_lights->light); ++i) {
-		dlight_t *l = gEngine.GetDynamicLight(i);
+		const dlight_t *l = gEngine.GetDynamicLight(i);
 		if( !l || l->die < gpGlobals->time || !l->radius )
 			continue;
-
-		// Draw flashlight (workaround)
-		cl_entity_t	*entPlayer;
-		entPlayer = gEngine.GetLocalPlayer();
-		if( FBitSet( entPlayer->curstate.effects, EF_DIMLIGHT )) {
-			#define FLASHLIGHT_DISTANCE		2000	// in units
-			pmtrace_t		*trace;
-			vec3_t		forward, view_ofs;
-			vec3_t		vecSrc, vecEnd;
-			float		falloff;
-			trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_NORMAL );
-			// compute falloff
-			falloff = trace->fraction * FLASHLIGHT_DISTANCE;
-			if( falloff < 500.0f ) falloff = 1.0f;
-			else falloff = 500.0f / falloff;
-			falloff *= falloff;
-
-			AngleVectors( g_camera.viewangles, forward, NULL, NULL );
-			view_ofs[0] = view_ofs[1] = 0.0f;
-			if( entPlayer->curstate.usehull == 1 ) {
-				view_ofs[2] = 12.0f; // VEC_DUCK_VIEW;
-			} else {
-				view_ofs[2] = 28.0f; // DEFAULT_VIEWHEIGHT
-			}
-			VectorAdd( entPlayer->origin, view_ofs, vecSrc );
-			VectorMA( vecSrc, FLASHLIGHT_DISTANCE, forward, vecEnd );
-			trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_NORMAL );
-			VectorMA( trace->endpos, -10, forward, l->origin );
-
-			// apply brigthness to dlight
-			l->color.r = bound( 0, falloff * 255, 255 );
-			l->color.g = bound( 0, falloff * 255, 255 );
-			l->color.b = bound( 0, falloff * 255, 255 );
-			l->radius = 75;
-
-			Vector4Set(
-				ubo_lights->light[num_lights].color,
-				l->color.r / 255.f,
-				l->color.g / 255.f,
-				l->color.b / 255.f,
-				1.f);
-			Vector4Set(
-				ubo_lights->light[num_lights].pos_r,
-				l->origin[0],
-				l->origin[1],
-				l->origin[2],
-				l->radius);
-		} else {
-			Vector4Set(
-				ubo_lights->light[num_lights].color,
-				l->color.r / 255.f,
-				l->color.g / 255.f,
-				l->color.b / 255.f,
-				1.f);
-			Vector4Set(
-				ubo_lights->light[num_lights].pos_r,
-				l->origin[0],
-				l->origin[1],
-				l->origin[2],
-				l->radius);
-		}
+		Vector4Set(
+			ubo_lights->light[num_lights].color,
+			l->color.r / 255.f,
+			l->color.g / 255.f,
+			l->color.b / 255.f,
+			1.f);
+		Vector4Set(
+			ubo_lights->light[num_lights].pos_r,
+			l->origin[0],
+			l->origin[1],
+			l->origin[2],
+			l->radius);
 		num_lights++;
 	}
 
