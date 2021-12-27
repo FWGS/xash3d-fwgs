@@ -2709,6 +2709,10 @@ void CL_AddEntityEffects( cl_entity_t *ent )
 				dl->die = cl.time + 0.001;
 			}
 		}
+		else if (ent->player && ent->index != ( cl.playernum + 1 ))
+		{
+			CL_UpdateFlashlight( ent );
+		}
 	}
 	else if ( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))
 	{
