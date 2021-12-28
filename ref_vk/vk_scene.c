@@ -595,6 +595,8 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 
 static float g_frametime = 0;
 
+void VK_AddFlashlight(cl_entity_t *ent);
+
 void VK_SceneRender( const ref_viewpass_t *rvp ) {
 	int current_pipeline_index = kRenderNormal;
 
