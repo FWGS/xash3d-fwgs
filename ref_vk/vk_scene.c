@@ -634,6 +634,10 @@ void VK_SceneRender( const ref_viewpass_t *rvp ) {
 	{
 		cl_entity_t *ent = g_lists.draw_list->solid_entities[i];
 		drawEntity(ent, kRenderNormal);
+		// Draw flashlight for other players
+		if( FBitSet( ent->curstate.effects, EF_DIMLIGHT )) {
+			VK_AddFlashlight(ent);
+		}
 	}
 
 	// Draw opaque beams

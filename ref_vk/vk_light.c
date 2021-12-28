@@ -896,8 +896,7 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 	}
 	else // non-local player case
 	{
-		// TODO: need to test!
-		AngleVectors( ent->angles, angles, NULL, NULL ); // TODO: maybe improve turning sensitivity
+		AngleVectors( ent->angles, angles, NULL, NULL ); // FIXME: UP-DOWN logic
 		view_ofs[0] = view_ofs[1] = 0.0f;
 		if( ent->curstate.usehull == 1 ) {
 			view_ofs[2] = 12.0f; // VEC_DUCK_VIEW;
@@ -908,15 +907,15 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 		VectorMA( vecSrc, thirdperson_offset, angles, vecEnd );
 		trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
 		VectorCopy( trace->endpos, origin );
-		angles[ROLL] = -angles[ROLL];
+		angles[ROLL] = -angles[ROLL]; // FIXME: UP-DOWN logic
 		VectorCopy( angles, le.dir );
 	}
 
 	/*
 	gEngine.Con_Printf("flashlight: origin=(%f %f %f) color=(%f %f %f) dir=(%f %f %f)\n",
-		plight->origin[0], plight->origin[1], plight->origin[2],
-		plight->color[0], plight->color[1], plight->color[2],
-		plight->dir[0], plight->dir[1], plight->dir[2]);
+		le.origin[0], le.origin[1], le.origin[2],
+		le.color[0], le.color[1], le.color[2],
+		le.dir[0], le.dir[1], le.dir[2]);
 	*/
 
 	VectorCopy(origin, le.origin);
@@ -1102,7 +1101,7 @@ void VK_LightsFrameFinalize( void ) {
 			continue;
 		addDlight(dlight);
 	}
-	// Draw flashlight
+	// Draw flashlight for local player
 	entPlayer = gEngine.GetLocalPlayer();
 	if( FBitSet( entPlayer->curstate.effects, EF_DIMLIGHT )) {
 		VK_AddFlashlight(entPlayer);
