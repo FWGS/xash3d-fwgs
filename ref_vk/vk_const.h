@@ -15,7 +15,7 @@
 #define MAX_POINT_LIGHTS 256
 
 // indexed by uint8_t
-#define MAX_VISIBLE_POINT_LIGHTS 31
+#define MAX_VISIBLE_POINT_LIGHTS 63
 // indexed by uint8_t
 #define MAX_VISIBLE_SURFACE_LIGHTS 255
 

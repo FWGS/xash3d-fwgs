@@ -90,3 +90,5 @@ void VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const
 void XVK_GetEmissiveForTexture( vec3_t out, int texture_id );
 
 void VK_LightsFrameFinalize( void );
+
+int R_LightCellIndex( const int light_cell[3] );

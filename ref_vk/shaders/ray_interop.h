@@ -19,7 +19,7 @@
 
 layout (constant_id = 0) const uint MAX_POINT_LIGHTS = 32;
 layout (constant_id = 1) const uint MAX_EMISSIVE_KUSOCHKI = 256;
-layout (constant_id = 2) const uint MAX_VISIBLE_POINT_LIGHTS = 31;
+layout (constant_id = 2) const uint MAX_VISIBLE_POINT_LIGHTS = 63;
 layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 255;
 #endif
 
