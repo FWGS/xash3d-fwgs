@@ -848,20 +848,12 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 
 	// parameters
 	const float hack_attenuation = 0.1;
-	const float radius = 1.0;
+	float radius = 1.0;
 	// TODO: better tune it
 	const float _cone = 10.0;
 	const float _cone2 = 30.0;
 	const vec3_t light_color = {255, 255, 192};
-	const float light_intensity = 300;
-
-	// prepare colors by parseEntPropRgbav
-	VectorScale(light_color, light_intensity / 255.0f, color);
-
-	// convert colors by weirdGoldsrcLightScaling
-	float l1 = Q_max(color[0], Q_max(color[1], color[2]));
-	l1 = l1 * l1 / 10;
-	VectorScale(color, l1, le.color);
+	float light_intensity = 300;
 
 	float thirdperson_offset = 25;
 	vec3_t forward, view_ofs;
@@ -896,7 +888,17 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 	}
 	else // non-local player case
 	{
-		AngleVectors( ent->angles, angles, NULL, NULL ); // FIXME: UP-DOWN logic
+		thirdperson_offset = 10;
+		radius = 10;
+		light_intensity = 60;
+
+		VectorCopy( ent->angles, angles );
+		// NOTE: pitch divided by 3.0 twice. So we need apply 3^2 = 9
+		angles[PITCH] = ent->curstate.angles[PITCH] * 9.0f;
+		angles[YAW] = ent->angles[YAW];
+		angles[ROLL] = 0.0f; // roll not used
+
+		AngleVectors( angles, angles, NULL, NULL );
 		view_ofs[0] = view_ofs[1] = 0.0f;
 		if( ent->curstate.usehull == 1 ) {
 			view_ofs[2] = 12.0f; // VEC_DUCK_VIEW;
@@ -907,9 +909,22 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 		VectorMA( vecSrc, thirdperson_offset, angles, vecEnd );
 		trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
 		VectorCopy( trace->endpos, origin );
-		angles[ROLL] = -angles[ROLL]; // FIXME: UP-DOWN logic
 		VectorCopy( angles, le.dir );
 	}
+
+	VectorCopy(origin, le.origin);
+
+	// prepare colors by parseEntPropRgbav
+	VectorScale(light_color, light_intensity / 255.0f, color);
+
+	// convert colors by weirdGoldsrcLightScaling
+	float l1 = Q_max(color[0], Q_max(color[1], color[2]));
+	l1 = l1 * l1 / 10;
+	VectorScale(color, l1, le.color);
+
+	// convert stopdots by parseStopDot
+	le.stopdot = cosf(_cone * M_PI / 180.f);
+	le.stopdot2 = cosf(_cone2 * M_PI / 180.f);
 
 	/*
 	gEngine.Con_Printf("flashlight: origin=(%f %f %f) color=(%f %f %f) dir=(%f %f %f)\n",
@@ -917,11 +932,6 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 		le.color[0], le.color[1], le.color[2],
 		le.dir[0], le.dir[1], le.dir[2]);
 	*/
-
-	VectorCopy(origin, le.origin);
-	// convert stopdots by parseStopDot
-	le.stopdot = cosf(_cone * M_PI / 180.f);
-	le.stopdot2 = cosf(_cone2 * M_PI / 180.f);
 
 	addSpotLight(&le, radius, 0, hack_attenuation, false);
 }
