@@ -67,12 +67,12 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 			continue;
 
 		// Clip
-		/* const uint vertex_count = clip_polygon(3, v); */
-		/* if (vertex_count == 0) */
-		/* 	continue; */
+		const uint vertex_count = clip_polygon(3, v);
+		if (vertex_count == 0)
+			continue;
 
 		// poly_angle
-		const solid_angle_polygon_t sap = prepare_solid_angle_polygon_sampling(3, v, vec3(0.f));
+		const solid_angle_polygon_t sap = prepare_solid_angle_polygon_sampling(vertex_count, v, vec3(0.f));
 		const float tri_contrib = sap.solid_angle;
 
 		if (tri_contrib <= 0.)
