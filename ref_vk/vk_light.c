@@ -878,11 +878,10 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 			VectorCopy( forward, le.dir);
 		} else { // firstperson
 			// based on https://github.com/SNMetamorph/PrimeXT/blob/0869b1abbddd13c1229769d8cd71941610be0bf3/client/flashlight.cpp#L35
-			// TODO: tune it
-			origin[0] = g_camera.vieworg[0] + (g_camera.vright[0] * 5.0f) + (g_camera.vforward[0] * 2.0f); // forward-back
-			origin[1] = g_camera.vieworg[1] + (g_camera.vright[1] * 5.0f) + (g_camera.vforward[1] * 2.0f); // left-right
-			origin[2] = g_camera.vieworg[2] + (g_camera.vright[2] * 5.0f) + (g_camera.vforward[2] * 2.0f); // up-down
-			origin[2] += 6.0f;
+			origin[0] = g_camera.vieworg[0] + (g_camera.vright[0] * (-4.0f)) + (g_camera.vforward[0] * 14.0); // forward-back
+			origin[1] = g_camera.vieworg[1] + (g_camera.vright[1] * (-4.0f)) + (g_camera.vforward[1] * 14.0); // left-right
+			origin[2] = g_camera.vieworg[2] + (g_camera.vright[2] * (-4.0f)) + (g_camera.vforward[2] * 14.0); // up-down
+			origin[2] += 2.0f;
 			VectorCopy(g_camera.vforward, le.dir);
 		}
 	}
