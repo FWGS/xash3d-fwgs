@@ -56,11 +56,20 @@ void main() {
 		return;
 	}
 
+	/* if (pix.y < res.y / 3) { */
+	/* 	imageStore(dest, pix, vec4(pow(float(pix.x) / res.x, 2.2))); return; */
+	/* } else if (pix.y < res.y * 2 / 3) { */
+	/* 	imageStore(dest, pix, vec4(float(pix.x) / res.x)); return; */
+	/* } else { */
+	/* 	imageStore(dest, pix, vec4(sqrt(float(pix.x) / res.x))); return; */
+	/* } */
+
 	const vec4 base_color = imageLoad(src_base_color, pix);
 	const float material_index = imageLoad(src_diffuse_gi, pix).a;
 
 	//imageStore(dest, pix, vec4(aces_tonemap(base_color.rgb), 0.)); return;
 	//imageStore(dest, pix, vec4((base_color.rgb), 0.)); return;
+	//imageStore(dest, pix, vec4((imageLoad(src_diffuse_gi, pix).rgb), 0.)); return;
 	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_diffuse_gi, pix).rgb), 0.)); return;
 	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_specular, pix).rgb), 0.)); return;
 
@@ -128,10 +137,26 @@ void main() {
 
 	// HACK: exposure
 	// TODO: should be dynamic based on previous frames brightness
-	colour *= 4.;
+#if 0
+	if (pix.x >= res.x / 2) {
+		colour *= 8.;
+	}
+#else
+	colour *= .25;
+#endif
 
-	//colour = aces_tonemap(colour);
-	colour = reinhard02(colour, vec3(400.));
+	colour = aces_tonemap(colour);
+	//colour = reinhard02(colour, vec3(400.));
+	//colour = reinhard02(colour, vec3(1.));
+
+#if 0
+	if (pix.x < res.x / 2) {
+#endif
+		//colour *= .25;
+		colour = pow(colour, vec3(1. / 2.2));
+#if 0
+	}
+#endif
 
 	imageStore(dest, pix, vec4(colour, 0.));
 	//imageStore(dest, pix, imageLoad(src_diffuse_gi, pix));
