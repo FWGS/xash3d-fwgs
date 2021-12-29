@@ -61,7 +61,10 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 		v[1] = to_shading * vec4(vertices[vi2].pos, 1.);
 		v[2] = to_shading * vec4(vertices[vi3].pos, 1.);
 
-		// TODO cull by normal
+		// cull by triangle orientation
+		const vec3 tri_normal_dir = cross(v[1] - v[0], v[2] - v[0]);
+		if (dot(tri_normal_dir, v[0]) <= 0.)
+			continue;
 
 		// Clip
 		/* const uint vertex_count = clip_polygon(3, v); */
