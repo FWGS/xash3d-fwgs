@@ -47,7 +47,7 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 	float total_contrib = 0.;
 	float eps1 = rand01();
 
-	solid_angle_polygon_t selected_angle;
+	projected_solid_angle_polygon_t selected_angle;
 	vec4 selected_plane;
 	for (uint i = 0; i < kusok.triangles; ++i) {
 		const uint first_index_offset = kusok.index_offset + i * 3;
@@ -72,8 +72,8 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 			continue;
 
 		// poly_angle
-		const solid_angle_polygon_t sap = prepare_solid_angle_polygon_sampling(vertex_count, v, vec3(0.f));
-		const float tri_contrib = sap.solid_angle;
+		const projected_solid_angle_polygon_t sap = prepare_projected_solid_angle_polygon_sampling(vertex_count, v);
+		const float tri_contrib = sap.projected_solid_angle;
 
 		if (tri_contrib <= 0.)
 			continue;
@@ -105,13 +105,13 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 		eps1 = clamp(eps1, 0., MAX_BELOW_ONE); // Numerical stability (?)
 	}
 
-	if (selected < 0 || selected_angle.solid_angle <= 0.)
+	if (selected < 0 || selected_angle.projected_solid_angle <= 0.)
 		return;
 
 	//sampleSurfaceTriangle(throughput * ek.emissive, view_dir, material, emissive_transform, selected, kusok.index_offset, kusok.vertex_offset, emissive_kusok_index, out_diffuse, out_specular);
 
 	vec2 rnd = vec2(rand01(), rand01());
-	const vec3 light_dir = (transpose(ctx.world_to_shading) * sample_solid_angle_polygon(selected_angle, rnd)).xyz;
+	const vec3 light_dir = (transpose(ctx.world_to_shading) * sample_projected_solid_angle_polygon(selected_angle, rnd)).xyz;
 	//const vec3 light_dir = sample_solid_angle_polygon(selected_angle, rnd);
 
 	vec3 tri_diffuse = vec3(0.), tri_specular = vec3(0.);
