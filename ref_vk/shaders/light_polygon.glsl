@@ -18,12 +18,12 @@ SampleContext buildSampleContext(vec3 position, vec3 normal, vec3 view_dir) {
 }
 
 void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties material, SampleContext ctx, uint ekusok_index, out vec3 out_diffuse, out vec3 out_specular) {
+	out_diffuse = out_specular = vec3(0.);
+
 	const EmissiveKusok ek = lights.kusochki[ekusok_index];
 	const uint emissive_kusok_index = lights.kusochki[ekusok_index].kusok_index;
 	if (emissive_kusok_index == uint(payload_opaque.kusok_index))
 		return;
-
-	out_diffuse = out_specular = vec3(0.);
 
 	const Kusok kusok = kusochki[emissive_kusok_index];
 
@@ -57,9 +57,9 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 
 		// Transform to shading space
 		vec3 v[MAX_POLYGON_VERTEX_COUNT];
-		v[0] = to_world * vec4(vertices[vi1].pos, 1.);
-		v[1] = to_world * vec4(vertices[vi2].pos, 1.);
-		v[2] = to_world * vec4(vertices[vi3].pos, 1.);
+		v[0] = to_shading * vec4(vertices[vi1].pos, 1.);
+		v[1] = to_shading * vec4(vertices[vi2].pos, 1.);
+		v[2] = to_shading * vec4(vertices[vi3].pos, 1.);
 
 		// TODO cull by normal
 
@@ -69,7 +69,7 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 		/* 	continue; */
 
 		// poly_angle
-		const solid_angle_polygon_t sap = prepare_solid_angle_polygon_sampling(3, v, payload_opaque.hit_pos_t.xyz);
+		const solid_angle_polygon_t sap = prepare_solid_angle_polygon_sampling(3, v, vec3(0.f));
 		const float tri_contrib = sap.solid_angle;
 
 		if (tri_contrib <= 0.)
@@ -89,8 +89,13 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 			eps1 = (eps1 - tau) / (1. - tau);
 			selected_angle = sap;
 
-			selected_plane.xyz = cross(v[1] - v[0], v[2] - v[0]);
-			selected_plane.w = -dot(v[0], selected_plane.xyz);
+			vec3 vw[MAX_POLYGON_VERTEX_COUNT];
+			vw[0] = to_world * vec4(vertices[vi1].pos, 1.);
+			vw[1] = to_world * vec4(vertices[vi2].pos, 1.);
+			vw[2] = to_world * vec4(vertices[vi3].pos, 1.);
+
+			selected_plane.xyz = cross(vw[1] - vw[0], vw[2] - vw[0]);
+			selected_plane.w = -dot(vw[0], selected_plane.xyz);
 		}
 
 #define MAX_BELOW_ONE .99999 // FIXME what's the correct way to do this
@@ -103,8 +108,8 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 	//sampleSurfaceTriangle(throughput * ek.emissive, view_dir, material, emissive_transform, selected, kusok.index_offset, kusok.vertex_offset, emissive_kusok_index, out_diffuse, out_specular);
 
 	vec2 rnd = vec2(rand01(), rand01());
-	//const vec3 light_dir = normalize(inverse(mat3(ctx.world_to_shading)) * sample_solid_angle_polygon(poly_angle, rnd));
-	const vec3 light_dir = sample_solid_angle_polygon(selected_angle, rnd);
+	const vec3 light_dir = (transpose(ctx.world_to_shading) * sample_solid_angle_polygon(selected_angle, rnd)).xyz;
+	//const vec3 light_dir = sample_solid_angle_polygon(selected_angle, rnd);
 
 	vec3 tri_diffuse = vec3(0.), tri_specular = vec3(0.);
 #if 1
@@ -120,7 +125,7 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 	if (dot(combined,combined) > color_culling_threshold) {
 		const float dist = -dot(vec4(payload_opaque.hit_pos_t.xyz, 1.f), selected_plane) / dot(light_dir, selected_plane.xyz);
 		if (!shadowed(payload_opaque.hit_pos_t.xyz, light_dir, dist)) {
-			const float tri_factor = total_contrib; // selected_angle.solid_angle;
+			const float tri_factor = total_contrib; // / selected_angle.solid_angle;
 			out_diffuse += tri_diffuse * tri_factor;
 			out_specular += tri_specular * tri_factor;
 		}
@@ -132,7 +137,7 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 #endif
 	}
 #else
-	//const float tri_factor = total_contrib / selected_angle.solid_angle;
+	const float tri_factor = total_contrib;
 	out_diffuse += tri_diffuse * tri_factor;
 	out_specular += tri_specular * tri_factor;
 #endif
