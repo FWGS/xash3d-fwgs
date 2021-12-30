@@ -840,12 +840,7 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, int lightsty
 	return index;
 }
 
-void VK_AddFlashlight( cl_entity_t *ent ) {
-	vec3_t color;
-	vec3_t origin;
-	vec3_t angles;
-	vk_light_entity_t le;
-
+void R_LightAddFlashlight(const struct cl_entity_s *ent, qboolean local_player ) {
 	// parameters
 	const float hack_attenuation = 0.1;
 	float radius = 1.0;
@@ -855,11 +850,16 @@ void VK_AddFlashlight( cl_entity_t *ent ) {
 	const vec3_t light_color = {255, 255, 192};
 	float light_intensity = 300;
 
+	vec3_t color;
+	vec3_t origin;
+	vec3_t angles;
+	vk_light_entity_t le;
+
 	float thirdperson_offset = 25;
 	vec3_t forward, view_ofs;
 	vec3_t vecSrc, vecEnd;
 	pmtrace_t *trace;
-	if( ent->index == gEngine.EngineGetParm(PARM_PLAYER_INDEX, 0))
+	if( local_player )
 	{
 		// local player case
 		// position
@@ -1077,7 +1077,6 @@ void XVK_GetEmissiveForTexture( vec3_t out, int texture_id ) {
 void VK_LightsFrameFinalize( void ) {
 	APROF_SCOPE_BEGIN_EARLY(finalize);
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
-	cl_entity_t	*entPlayer;
 
 	if (g_lights.num_emissive_surfaces > UINT8_MAX) {
 		ERROR_THROTTLED(10, "Too many emissive surfaces found: %d; some areas will be dark", g_lights.num_emissive_surfaces);
@@ -1109,11 +1108,6 @@ void VK_LightsFrameFinalize( void ) {
 		if( !dlight || dlight->die < gpGlobals->time || !dlight->radius )
 			continue;
 		addDlight(dlight);
-	}
-	// Draw flashlight for local player
-	entPlayer = gEngine.GetLocalPlayer();
-	if( FBitSet( entPlayer->curstate.effects, EF_DIMLIGHT )) {
-		VK_AddFlashlight(entPlayer);
 	}
 	APROF_SCOPE_END(dlights);
 

@@ -595,10 +595,8 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 
 static float g_frametime = 0;
 
-void VK_AddFlashlight(cl_entity_t *ent);
-
 void VK_SceneRender( const ref_viewpass_t *rvp ) {
-	int current_pipeline_index = kRenderNormal;
+	const cl_entity_t* const local_player = gEngine.GetLocalPlayer();
 
 	g_frametime = /*FIXME VK RP_NORMALPASS( )) ? */
 	gpGlobals->time - gpGlobals->oldtime
@@ -631,14 +629,22 @@ void VK_SceneRender( const ref_viewpass_t *rvp ) {
 		}
 	}
 
+	{
+		// Draw flashlight for local player
+		if( FBitSet( local_player->curstate.effects, EF_DIMLIGHT )) {
+			R_LightAddFlashlight(local_player, true);
+		}
+	}
+
 	// Draw opaque entities
 	for (int i = 0; i < g_lists.draw_list->num_solid_entities; ++i)
 	{
 		cl_entity_t *ent = g_lists.draw_list->solid_entities[i];
 		drawEntity(ent, kRenderNormal);
+
 		// Draw flashlight for other players
-		if( FBitSet( ent->curstate.effects, EF_DIMLIGHT )) {
-			VK_AddFlashlight(ent);
+		if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ) && ent != local_player) {
+			R_LightAddFlashlight(ent, false);
 		}
 	}
 
