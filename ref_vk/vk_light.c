@@ -15,6 +15,10 @@
 #include <string.h>
 #include <ctype.h> // isalnum...
 
+#include "camera.h"
+#include "pm_defs.h"
+#include "pmtrace.h"
+
 #define PROFILER_SCOPES(X) \
 	X(finalize , "VK_LightsFrameFinalize"); \
 	X(emissive_surface, "VK_LightsAddEmissiveSurface"); \
@@ -834,6 +838,101 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, int lightsty
 
 	g_lights.num_point_lights++;
 	return index;
+}
+
+void R_LightAddFlashlight(const struct cl_entity_s *ent, qboolean local_player ) {
+	// parameters
+	const float hack_attenuation = 0.1;
+	float radius = 1.0;
+	// TODO: better tune it
+	const float _cone = 10.0;
+	const float _cone2 = 30.0;
+	const vec3_t light_color = {255, 255, 192};
+	float light_intensity = 300;
+
+	vec3_t color;
+	vec3_t origin;
+	vec3_t angles;
+	vk_light_entity_t le;
+
+	float thirdperson_offset = 25;
+	vec3_t forward, view_ofs;
+	vec3_t vecSrc, vecEnd;
+	pmtrace_t *trace;
+	if( local_player )
+	{
+		// local player case
+		// position
+		if (gEngine.EngineGetParm(PARM_THIRDPERSON, 0)) { // thirdperson
+			AngleVectors( g_camera.viewangles, forward, NULL, NULL );
+			view_ofs[0] = view_ofs[1] = 0.0f;
+			if( ent->curstate.usehull == 1 ) {
+				view_ofs[2] = 12.0f; // VEC_DUCK_VIEW;
+			} else {
+				view_ofs[2] = 28.0f; // DEFAULT_VIEWHEIGHT
+			}
+			VectorAdd( ent->origin, view_ofs, vecSrc );
+			VectorMA( vecSrc, thirdperson_offset, forward, vecEnd );
+			trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
+			VectorCopy( trace->endpos, origin );
+			VectorCopy( forward, le.dir);
+		} else { // firstperson
+			// based on https://github.com/SNMetamorph/PrimeXT/blob/0869b1abbddd13c1229769d8cd71941610be0bf3/client/flashlight.cpp#L35
+			origin[0] = g_camera.vieworg[0] + (g_camera.vright[0] * (-4.0f)) + (g_camera.vforward[0] * 14.0); // forward-back
+			origin[1] = g_camera.vieworg[1] + (g_camera.vright[1] * (-4.0f)) + (g_camera.vforward[1] * 14.0); // left-right
+			origin[2] = g_camera.vieworg[2] + (g_camera.vright[2] * (-4.0f)) + (g_camera.vforward[2] * 14.0); // up-down
+			origin[2] += 2.0f;
+			VectorCopy(g_camera.vforward, le.dir);
+		}
+	}
+	else // non-local player case
+	{
+		thirdperson_offset = 10;
+		radius = 10;
+		light_intensity = 60;
+
+		VectorCopy( ent->angles, angles );
+		// NOTE: pitch divided by 3.0 twice. So we need apply 3^2 = 9
+		angles[PITCH] = ent->curstate.angles[PITCH] * 9.0f;
+		angles[YAW] = ent->angles[YAW];
+		angles[ROLL] = 0.0f; // roll not used
+
+		AngleVectors( angles, angles, NULL, NULL );
+		view_ofs[0] = view_ofs[1] = 0.0f;
+		if( ent->curstate.usehull == 1 ) {
+			view_ofs[2] = 12.0f; // VEC_DUCK_VIEW;
+		} else {
+			view_ofs[2] = 28.0f; // DEFAULT_VIEWHEIGHT
+		}
+		VectorAdd( ent->origin, view_ofs, vecSrc );
+		VectorMA( vecSrc, thirdperson_offset, angles, vecEnd );
+		trace = gEngine.EV_VisTraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
+		VectorCopy( trace->endpos, origin );
+		VectorCopy( angles, le.dir );
+	}
+
+	VectorCopy(origin, le.origin);
+
+	// prepare colors by parseEntPropRgbav
+	VectorScale(light_color, light_intensity / 255.0f, color);
+
+	// convert colors by weirdGoldsrcLightScaling
+	float l1 = Q_max(color[0], Q_max(color[1], color[2]));
+	l1 = l1 * l1 / 10;
+	VectorScale(color, l1, le.color);
+
+	// convert stopdots by parseStopDot
+	le.stopdot = cosf(_cone * M_PI / 180.f);
+	le.stopdot2 = cosf(_cone2 * M_PI / 180.f);
+
+	/*
+	gEngine.Con_Printf("flashlight: origin=(%f %f %f) color=(%f %f %f) dir=(%f %f %f)\n",
+		le.origin[0], le.origin[1], le.origin[2],
+		le.color[0], le.color[1], le.color[2],
+		le.dir[0], le.dir[1], le.dir[2]);
+	*/
+
+	addSpotLight(&le, radius, 0, hack_attenuation, false);
 }
 
 static float sphereSolidAngleFromDistDiv2Pi(float r, float d) {
