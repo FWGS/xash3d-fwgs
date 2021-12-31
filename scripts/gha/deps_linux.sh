@@ -13,6 +13,11 @@ elif [ "$GH_CPU_ARCH" == "amd64" ]; then
 	sudo apt install libx11-dev libxext-dev x11-utils libgl1-mesa-dev libasound-dev libstdc++6 libfuse2 zlib1g
 
 	wget "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool.AppImage
+elif [ "$GH_CPU_ARCH" == "aarch64" ]; then
+	sudo apt update
+	sudo apt install libx11-dev libxext-dev x11-utils libgl1-mesa-dev libasound-dev libstdc++6 libfuse2 zlib1g
+
+	wget "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-aarch64.AppImage" -O appimagetool.AppImage
 else
 	exit 1
 fi
