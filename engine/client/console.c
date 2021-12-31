@@ -2619,8 +2619,6 @@ static void Test_RunConHistory( void )
 	}
 
 	TASSERT_STR( input.buffer, testbackup );
-
-	TASSERT_STR( "floof", "meow" );
 }
 
 void Test_RunCon( void )
