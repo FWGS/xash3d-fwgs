@@ -3078,7 +3078,6 @@ void CL_Init( void )
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));
 
 	// IN_TouchInit();
-	Con_LoadHistory();
 
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
 

@@ -81,6 +81,14 @@ typedef struct con_lineinfo_s
 	double		addtime;		// notify stuff
 } con_lineinfo_t;
 
+typedef struct con_history_s
+{
+	field_t lines[CON_HISTORY];
+	field_t backup;
+	int     line; // the line being displayed from history buffer will be <= nextHistoryLine
+	int     next; // the last line in the history buffer, not masked
+} con_history_t;
+
 typedef struct
 {
 	qboolean		initialized;
@@ -118,10 +126,8 @@ typedef struct
 	string		chat_cmd;		// can be overrieded by user
 
 	// console history
-	field_t		historyLines[CON_HISTORY];
-	int		historyLine;	// the line being displayed from history buffer will be <= nextHistoryLine
-	int		nextHistoryLine;	// the last line in the history buffer, not masked
-	field_t backup;
+	con_history_t	history;
+	qboolean		historyLoaded;
 
 	notify_t		notify[MAX_DBG_NOTIFY]; // for Con_NXPrintf
 	qboolean		draw_notify;	// true if we have NXPrint message
@@ -134,6 +140,9 @@ static console_t		con;
 
 void Con_ClearField( field_t *edit );
 void Field_CharEvent( field_t *edit, int ch );
+
+static void Con_LoadHistory( con_history_t *self );
+static void Con_SaveHistory( con_history_t *self );
 
 /*
 ================
@@ -486,7 +495,7 @@ void Con_CheckResize( void )
 	con.input.widthInChars = con.linewidth;
 
 	for( i = 0; i < CON_HISTORY; i++ )
-		con.historyLines[i].widthInChars = con.linewidth;
+		con.history.lines[i].widthInChars = con.linewidth;
 }
 
 /*
@@ -1113,61 +1122,6 @@ int Con_DrawString( int x, int y, const char *string, rgba_t setColor )
 	return Con_DrawGenericString( x, y, string, setColor, false, -1 );
 }
 
-void Con_LoadHistory( void )
-{
-	const byte *aFile = FS_LoadFile( "console_history.txt", NULL, true );
-	const char *pLine = (char *)aFile, *pFile = (char *)aFile;
-	int i;
-
-	if( !aFile )
-		return;
-
-	while( true )
-	{
-		if( !*pFile )
-				break;
-		if( *pFile == '\n')
-		{
-				int len = pFile - pLine + 1;
-				field_t *f;
-				if( len > 255 ) len = 255;
-				Con_ClearField( &con.historyLines[con.nextHistoryLine] );
-				f = &con.historyLines[con.nextHistoryLine % CON_HISTORY];
-				f->widthInChars = con.linewidth;
-				f->cursor = len - 1;
-				Q_strncpy( f->buffer, pLine, len);
-				con.nextHistoryLine++;
-				pLine = pFile + 1;
-		}
-		pFile++;
-	}
-
-	for( i = con.nextHistoryLine; i < CON_HISTORY; i++ )
-	{
-		Con_ClearField( &con.historyLines[i] );
-		con.historyLines[i].widthInChars = con.linewidth;
-	}
-
-	con.historyLine = con.nextHistoryLine;
-
-}
-
-void Con_SaveHistory( void )
-{
-	int historyStart = con.nextHistoryLine - CON_HISTORY;
-	int i;
-	file_t *f;
-
-	if( historyStart < 0 )
-		historyStart = 0;
-
-	f = FS_Open("console_history.txt", "w", true );
-
-	for( i = historyStart; i < con.nextHistoryLine; i++ )
-		FS_Printf( f, "%s\n", con.historyLines[i % CON_HISTORY].buffer );
-
-	FS_Close(f);
-}
 
 /*
 ================
@@ -1233,7 +1187,7 @@ void Con_Shutdown( void )
 
 	con.buffer = NULL;
 	con.lines = NULL;
-	Con_SaveHistory();
+	Con_SaveHistory( &con.history );
 }
 
 /*
@@ -1468,9 +1422,20 @@ Con_ClearField
 */
 void Con_ClearField( field_t *edit )
 {
-	memset(edit->buffer, 0, MAX_STRING);
+	memset( edit->buffer, 0, MAX_STRING );
 	edit->cursor = 0;
 	edit->scroll = 0;
+}
+
+/*
+================
+Field_Set
+================
+*/
+static void Field_Set( field_t *f, const char *string )
+{
+	f->scroll = 0;
+	f->cursor = Q_strncpy( f->buffer, string, MAX_STRING );
 }
 
 /*
@@ -1711,9 +1676,122 @@ void Field_DrawInputLine( int x, int y, field_t *edit )
 /*
 =============================================================================
 
+CONSOLE HISTORY HANDLING
+
+=============================================================================
+*/
+/*
+===================
+Con_HistoryUp
+
+===================
+*/
+static void Con_HistoryUp( con_history_t *self, field_t *in )
+{
+	if( self->line == self->next )
+		self->backup = *in;
+
+	if(( self->next - self->line ) < CON_HISTORY )
+		self->line = Q_max( 0, self->line - 1 );
+
+	*in = self->lines[self->line % CON_HISTORY];
+}
+
+/*
+===================
+Con_HistoryDown
+
+===================
+*/
+static void Con_HistoryDown( con_history_t *self, field_t *in )
+{
+	self->line = Q_min( self->next, self->line + 1 );
+	if( self->line == self->next )
+		*in = self->backup;
+	else *in = self->lines[self->line % CON_HISTORY];
+}
+
+/*
+===================
+Con_HistoryAppend
+===================
+*/
+static void Con_HistoryAppend( con_history_t *self, field_t *from )
+{
+	int prevLine = Q_max( 0, self->line - 1 );
+
+	// only if non-empty
+	if( !from->buffer[0] )
+		return;
+
+	// if not copy
+	if( !Q_strcmp( from->buffer, self->lines[prevLine % CON_HISTORY].buffer ))
+		return;
+
+	self->lines[self->next % CON_HISTORY] = *from;
+	self->line = ++self->next;
+}
+
+static void Con_LoadHistory( con_history_t *self )
+{
+	const byte *aFile = FS_LoadFile( "console_history.txt", NULL, true );
+	const char *pLine, *pFile;
+	int i, len;
+	field_t *f;
+
+	if( !aFile )
+		return;
+
+	for( pFile = pLine = (char *)aFile; *pFile; pFile++ )
+	{
+		if( *pFile != '\n' )
+			continue;
+
+		Con_ClearField( &self->lines[self->next] );
+
+		len = Q_min( pFile - pLine + 1, sizeof( f->buffer ));
+		f = &self->lines[self->next % CON_HISTORY];
+		f->widthInChars = con.linewidth;
+		f->cursor = len - 1;
+		Q_strncpy( f->buffer, pLine, len);
+
+		self->next++;
+
+		pLine = pFile + 1;
+	}
+
+	for( i = self->next; i < CON_HISTORY; i++ )
+	{
+		Con_ClearField( &self->lines[i] );
+		self->lines[i].widthInChars = con.linewidth;
+	}
+
+	self->line = self->next;
+}
+
+static void Con_SaveHistory( con_history_t *self )
+{
+	int historyStart = self->next - CON_HISTORY, i;
+	file_t *f;
+
+	if( historyStart < 0 )
+		historyStart = 0;
+
+	f = FS_Open( "console_history.txt", "w", true );
+
+	for( i = historyStart; i < self->next; i++ )
+		FS_Printf( f, "%s\n", self->lines[i % CON_HISTORY].buffer );
+
+	FS_Close( f );
+}
+
+
+/*
+=============================================================================
+
 CONSOLE LINE EDITING
 
-==============================================================================
+=============================================================================
 */
 /*
 ====================
@@ -1754,9 +1832,7 @@ void Key_Console( int key )
 		Con_Printf( ">%s\n", con.input.buffer );
 
 		// copy line to history buffer
-		con.historyLines[con.nextHistoryLine % CON_HISTORY] = con.input;
-		con.nextHistoryLine++;
-		con.historyLine = con.nextHistoryLine;
+		Con_HistoryAppend( &con.history, &con.input );
 
 		Con_ClearField( &con.input );
 		con.input.widthInChars = con.linewidth;
@@ -1781,23 +1857,13 @@ void Key_Console( int key )
 	// command history (ctrl-p ctrl-n for unix style)
 	if(( key == K_MWHEELUP && Key_IsDown( K_SHIFT )) || ( key == K_UPARROW ) || (( Q_tolower(key) == 'p' ) && Key_IsDown( K_CTRL )))
 	{
-		if( con.historyLine == con.nextHistoryLine )
-			con.backup = con.input;
-		if( con.nextHistoryLine - con.historyLine < CON_HISTORY && con.historyLine > 0 )
-			con.historyLine--;
-		con.input = con.historyLines[con.historyLine % CON_HISTORY];
+		Con_HistoryUp( &con.history, &con.input );
 		return;
 	}
 
 	if(( key == K_MWHEELDOWN && Key_IsDown( K_SHIFT )) || ( key == K_DOWNARROW ) || (( Q_tolower(key) == 'n' ) && Key_IsDown( K_CTRL )))
 	{
-		if( con.historyLine >= con.nextHistoryLine - 1 )
-			con.input = con.backup;
-		else
-		{
-			con.historyLine++;
-			con.input = con.historyLines[con.historyLine % CON_HISTORY];
-		}
+		Con_HistoryDown( &con.history, &con.input );
 		return;
 	}
 
@@ -2388,6 +2454,12 @@ INTERNAL RESOURCE
 */
 void Con_VidInit( void )
 {
+	if( !con.historyLoaded )
+	{
+		Con_LoadHistory( &con.history );
+		con.historyLoaded = true;
+	}
+
 	Con_LoadConchars();
 	Con_CheckResize();
 #if XASH_LOW_MEMORY
@@ -2422,7 +2494,6 @@ void Con_VidInit( void )
 				con.background = ref.dllFuncs.GL_LoadTexture( "cached/loading", NULL, 0, TF_IMAGE );
 		}
 	}
-
 
 	if( !con.background ) // last chance - quake conback image
 	{
@@ -2511,3 +2582,50 @@ void GAME_EXPORT Con_DefaultColor( int r, int g, int b )
 	b = bound( 0, b, 255 );
 	MakeRGBA( g_color_table[7], r, g, b, 255 );
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+static void Test_RunConHistory( void )
+{
+	con_history_t hist = { 0 };
+	field_t input = { 0 };
+	const char *strs1[] = { "map t0a0", "quit", "wtf", "wtf", "", "nyan" };
+	const char *strs2[] = { "nyan", "wtf", "quit", "map t0a0" };
+	const char *testbackup = "unfinished_edit";
+	int i;
+
+	for( i = 0; i < ARRAYSIZE( strs1 ); i++ )
+	{
+		Field_Set( &input, strs1[i] );
+		Con_HistoryAppend( &hist, &input );
+	}
+
+	Field_Set( &input, testbackup );
+
+	for( i = 0; i < ARRAYSIZE( strs2 ); i++ )
+	{
+		Con_HistoryUp( &hist, &input );
+		TASSERT_STR( input.buffer, strs2[i] );
+	}
+
+	// check for overrun
+	Con_HistoryUp( &hist, &input );
+
+	for( i = ARRAYSIZE( strs2 ) - 1; i >= 0; i-- )
+	{
+		TASSERT_STR( input.buffer, strs2[i] );
+		Con_HistoryDown( &hist, &input );
+	}
+
+	TASSERT_STR( input.buffer, testbackup );
+
+	TASSERT_STR( "floof", "meow" );
+}
+
+void Test_RunCon( void )
+{
+	TRUN( Test_RunConHistory() );
+}
+
+#endif /* XASH_ENGINE_TESTS */

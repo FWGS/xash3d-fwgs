@@ -820,6 +820,9 @@ static void Host_RunTests( int stage )
 		Test_RunCommon();
 		Test_RunCmd();
 		Test_RunCvar();
+#if !XASH_DEDICATED
+		Test_RunCon();
+#endif /* XASH_DEDICATED */
 		break;
 	case 1: // after FS load
 		Test_RunImagelib();

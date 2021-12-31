@@ -1048,7 +1048,6 @@ void Con_Bottom( void );
 void Con_Top( void );
 void Con_PageDown( int lines );
 void Con_PageUp( int lines );
-void Con_LoadHistory( void );
 
 //
 // s_main.c
