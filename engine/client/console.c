@@ -1812,16 +1812,6 @@ void Key_Console( int key )
 	// enter finishes the line
 	if( key == K_ENTER || key == K_KP_ENTER )
 	{
-		// if not in the game explicitly prepent a slash if needed
-		if( cls.state != ca_active && con.input.buffer[0] != '\\' && con.input.buffer[0] != '/' )
-		{
-			char	temp[MAX_SYSPATH];
-
-			Q_strncpy( temp, con.input.buffer, sizeof( temp ));
-			Q_sprintf( con.input.buffer, "\\%s", temp );
-			con.input.cursor++;
-		}
-
 		// backslash text are commands, else chat
 		if( con.input.buffer[0] == '\\' || con.input.buffer[0] == '/' )
 			Cbuf_AddText( con.input.buffer + 1 ); // skip backslash
