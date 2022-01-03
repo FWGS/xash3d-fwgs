@@ -1216,7 +1216,7 @@ void Con_CompleteCommand( field_t *field )
 
 	if( con.matchCount == 1 )
 	{
-		Q_sprintf( con.completionField->buffer, "\\%s", con.cmds[0] );
+		Q_strncpy( con.completionField->buffer, con.cmds[0], sizeof( con.completionField->buffer ));
 		if( Cmd_Argc() == 1 ) Q_strncat( con.completionField->buffer, " ", sizeof( con.completionField->buffer ) );
 		else Con_ConcatRemaining( temp.buffer, con.completionString );
 		con.completionField->cursor = Q_strlen( con.completionField->buffer );
@@ -1244,7 +1244,7 @@ void Con_CompleteCommand( field_t *field )
 		con.shortestMatch[len] = 0;
 
 		// multiple matches, complete to shortest
-		Q_sprintf( con.completionField->buffer, "\\%s", con.shortestMatch );
+		Q_strncpy( con.completionField->buffer, con.shortestMatch, sizeof( con.completionField->buffer ));
 		con.completionField->cursor = Q_strlen( con.completionField->buffer );
 		Con_ConcatRemaining( temp.buffer, con.completionString );
 
