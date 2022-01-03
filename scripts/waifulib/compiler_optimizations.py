@@ -30,7 +30,7 @@ compiler_optimizations.CFLAGS['gottagofast'] = {
 }
 '''
 
-VALID_BUILD_TYPES = ['fastnative', 'fast', 'release', 'debug', 'nooptimize', 'sanitize', 'none']
+VALID_BUILD_TYPES = ['fastnative', 'fast', 'release', 'debug', 'sanitize', 'none']
 
 LINKFLAGS = {
 	'common': {
@@ -82,14 +82,10 @@ CFLAGS = {
 	},
 	'sanitize': {
 		'msvc':    ['/Od', '/RTC1', '/Zi'],
-		'gcc':     ['-Og', '-fsanitize=undefined', '-fsanitize=address', '-pthread'],
+		'gcc':     ['-O0', '-fsanitize=undefined', '-fsanitize=address', '-pthread'],
 		'clang':   ['-O0', '-fsanitize=undefined', '-fsanitize=address', '-pthread'],
 		'default': ['-O0']
 	},
-	'nooptimize': {
-		'msvc':    ['/Od', '/Zi'],
-		'default': ['-O0']
-	}
 }
 
 LTO_CFLAGS = {
