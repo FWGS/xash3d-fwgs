@@ -207,8 +207,6 @@ Con_ClearTyping
 */
 void Con_ClearTyping( void )
 {
-	int	i;
-
 	Con_ClearField( &con.input );
 	con.input.widthInChars = con.linewidth;
 
@@ -1719,12 +1717,21 @@ Con_HistoryAppend
 static void Con_HistoryAppend( con_history_t *self, field_t *from )
 {
 	int prevLine = Q_max( 0, self->line - 1 );
+	const char *buf = from->buffer;
+
+	// skip backslashes
+	if( from->buffer[0] == '\\' || from->buffer[1] == '/' )
+		buf++;
 
 	// only if non-empty
 	if( !from->buffer[0] )
 		return;
 
-	// if not copy
+	// skip empty commands
+	if( Q_isspace( buf ))
+		return;
+
+	// if not copy (don't ignore backslashes)
 	if( !Q_strcmp( from->buffer, self->lines[prevLine % CON_HISTORY].buffer ))
 		return;
 
