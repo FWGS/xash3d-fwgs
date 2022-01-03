@@ -61,6 +61,16 @@ qboolean Q_isdigit( const char *str )
 	return false;
 }
 
+qboolean Q_isspace( const char *str )
+{
+	if( str && *str )
+	{
+		while( isspace( *str ) ) str++;
+		if( !*str ) return true;
+	}
+	return false;
+}
+
 size_t Q_colorstr( const char *string )
 {
 	size_t		len;
