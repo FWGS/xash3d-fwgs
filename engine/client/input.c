@@ -220,7 +220,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 			clgame.dllFuncs.IN_ActivateMouse();
 	}
 
-	if( ( newstate == key_menu  || newstate == key_console || newstate == key_message ) && ( !cl.paused || CL_IsBackgroundDemo( )))
+	if( ( newstate == key_menu  || newstate == key_console || newstate == key_message ) && ( !GameState->backgroundMap || CL_IsBackgroundDemo( )))
 	{
 #ifdef XASH_SDL
 		SDL_SetWindowGrab(host.hWnd, SDL_FALSE);
