@@ -61,6 +61,7 @@ size_t Q_strncat( char *dst, const char *src, size_t siz );
 size_t Q_strncpy( char *dst, const char *src, size_t siz );
 uint Q_hashkey( const char *string, uint hashSize, qboolean caseinsensitive );
 qboolean Q_isdigit( const char *str );
+qboolean Q_isspace( const char *str );
 int Q_atoi( const char *str );
 float Q_atof( const char *str );
 void Q_atov( float *vec, const char *str, size_t siz );
