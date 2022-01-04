@@ -3967,7 +3967,7 @@ qboolean CL_LoadProgs( const char *name )
 #else
 	// this doesn't mean other platforms uses SDL2 in any case
 	// it just helps input code to stay platform-independent
-	clgame.client_dll_uses_sdl = false;
+	clgame.client_dll_uses_sdl = true;
 #endif
 
 	clgame.hInstance = COM_LoadLibrary( name, false, false );
