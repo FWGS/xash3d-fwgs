@@ -83,14 +83,13 @@ void VGUI_InitCursors( void )
 	s_pDefaultCursor[dc_sizeall] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEALL);
 	s_pDefaultCursor[dc_no] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO);
 	s_pDefaultCursor[dc_hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
-	//host.mouse_visible = true;
-	SDL_SetCursor( s_pDefaultCursor[dc_arrow] );
 #endif
 }
 
-void GAME_EXPORT VGUI_CursorSelect(enum VGUI_DefaultCursor cursor )
+void GAME_EXPORT VGUI_CursorSelect( enum VGUI_DefaultCursor cursor )
 {
 	qboolean visible;
+
 	if( cls.key_dest != key_game || cl.paused )
 		return;
 
@@ -101,35 +100,30 @@ void GAME_EXPORT VGUI_CursorSelect(enum VGUI_DefaultCursor cursor )
 			visible = false;
 			break;
 		default:
-		visible = true;
-		break;
+			visible = true;
+			break;
 	}
+
+	host.mouse_visible = visible;
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	/// TODO: platform cursors
 
 	if( CVAR_TO_BOOL( touch_emulate ) )
 		return;
+
 	if( host.mouse_visible )
 	{
-		SDL_SetRelativeMouseMode( SDL_FALSE );
 		SDL_SetCursor( s_pDefaultCursor[cursor] );
 		SDL_ShowCursor( true );
 	}
 	else
 	{
 		SDL_ShowCursor( false );
-		if( host.mouse_visible )
-			SDL_GetRelativeMouseState( NULL, NULL );
 		Key_EnableTextInput( false, true );
 	}
-	//SDL_SetRelativeMouseMode(false);
 #endif
-	if( s_currentCursor == cursor )
-		return;
-
 	s_currentCursor = cursor;
-	host.mouse_visible = visible;
 }
 
 byte GAME_EXPORT VGUI_GetColor( int i, int j)
@@ -138,18 +132,6 @@ byte GAME_EXPORT VGUI_GetColor( int i, int j)
 }
 
 // Define and initialize vgui API
-
-void GAME_EXPORT VGUI_SetVisible( qboolean state )
-{
-	host.mouse_visible=state;
-#ifdef XASH_SDL
-	SDL_ShowCursor( state );
-	if( !state )
-		SDL_GetRelativeMouseState( NULL, NULL );
-#endif
-	Key_EnableTextInput( false, true );
-}
-
 int GAME_EXPORT VGUI_UtfProcessChar( int in )
 {
 	if( CVAR_TO_BOOL( vgui_utf8 ) )
@@ -175,12 +157,10 @@ vguiapi_t vgui =
 	NULL, // VGUI_GetTextureSizes,
 	NULL, // VGUI_GenerateTexture,
 	VGUI_EngineMalloc,
-/*	VGUI_ShowCursor,
-	VGUI_HideCursor,*/
 	VGUI_CursorSelect,
 	VGUI_GetColor,
 	VGUI_IsInGame,
-	VGUI_SetVisible,
+	NULL,
 	VGUI_GetMousePos,
 	VGUI_UtfProcessChar,
 	NULL,
