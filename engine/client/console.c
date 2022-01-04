@@ -1457,6 +1457,18 @@ void Field_Paste( field_t *edit )
 
 /*
 =================
+Field_GoTo
+
+=================
+*/
+static void Field_GoTo( field_t *edit, int pos )
+{
+	edit->cursor = pos;
+	edit->scroll = Q_max( 0, edit->cursor - edit->widthInChars );
+}
+
+/*
+=================
 Field_KeyDownEvent
 
 Performs the basic line editing functions for the console,
@@ -1507,20 +1519,20 @@ void Field_KeyDownEvent( field_t *edit, int key )
 
 	if( key == K_LEFTARROW )
 	{
-		if( edit->cursor > 0 ) edit->cursor= Con_UtfMoveLeft( edit->buffer, edit->cursor );
+		if( edit->cursor > 0 ) edit->cursor = Con_UtfMoveLeft( edit->buffer, edit->cursor );
 		if( edit->cursor < edit->scroll ) edit->scroll--;
 		return;
 	}
 
 	if( key == K_HOME || ( Q_tolower(key) == 'a' && Key_IsDown( K_CTRL )))
 	{
-		edit->cursor = 0;
+		Field_GoTo( edit, 0 );
 		return;
 	}
 
 	if( key == K_END || ( Q_tolower(key) == 'e' && Key_IsDown( K_CTRL )))
 	{
-		edit->cursor = len;
+		Field_GoTo( edit, len );
 		return;
 	}
 
@@ -1559,16 +1571,14 @@ void Field_CharEvent( field_t *edit, int ch )
 	if( ch == 'a' - 'a' + 1 )
 	{
 		// ctrl-a is home
-		edit->cursor = 0;
-		edit->scroll = 0;
+		Field_GoTo( edit, 0 );
 		return;
 	}
 
 	if( ch == 'e' - 'a' + 1 )
 	{
 		// ctrl-e is end
-		edit->cursor = len;
-		edit->scroll = edit->cursor - edit->widthInChars;
+		Field_GoTo( edit, len );
 		return;
 	}
 
