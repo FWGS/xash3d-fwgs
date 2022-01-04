@@ -503,20 +503,14 @@ void Touch_SetClientOnly( byte state )
 	touch.move_finger = touch.look_finger = -1;
 	touch.forward = touch.side = 0;
 
-	/// TODO: touch sdl platform
-#if 0
 	if( state )
 	{
-		SDL_SetRelativeMouseMode( SDL_FALSE );
-		SDL_ShowCursor( true );
 		IN_DeactivateMouse();
 	}
 	else
 	{
-		SDL_ShowCursor( false );
-		SDL_GetRelativeMouseState( 0, 0 );
+		IN_ActivateMouse();
 	}
-#endif
 }
 
 static void Touch_SetClientOnly_f( void )
