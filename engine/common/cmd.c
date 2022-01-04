@@ -1093,7 +1093,7 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 	if( Cvar_CommandWithPrivilegeCheck( cvar, isPrivileged )) return;
 
 	if( host.apply_game_config )
-		return; // don't send nothing to server: we is a server!
+		return; // don't send nothing to server: we are a server!
 
 	// forward the command line to the server, so the entity DLL can parse it
 	if( host.type == HOST_NORMAL )
@@ -1107,7 +1107,7 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 #endif // XASH_DEDICATED
 		if( Cvar_VariableInteger( "host_gameloaded" ))
 		{
-			Con_Printf( S_WARN "Unknown command \"%s\"\n", text );
+			Con_Printf( S_WARN "Unknown command \"%s\"\n", Cmd_Argv( 0 ) );
 		}
 	}
 }
