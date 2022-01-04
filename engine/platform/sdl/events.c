@@ -340,7 +340,7 @@ static void SDLash_ActiveEvent( int gain )
 	if( gain )
 	{
 		host.status = HOST_FRAME;
-		IN_ActivateMouse( true );
+		IN_ActivateMouse( );
 		if( dma.initialized && snd_mute_losefocus.value )
 		{
 			SNDDMA_Activate( true );
@@ -425,7 +425,10 @@ static void SDLash_EventFilter( SDL_Event *event )
 	{
 	/* Mouse events */
 	case SDL_MOUSEMOTION:
-		/* ignored */
+		if( host.mouse_visible )
+		{
+			SDL_GetRelativeMouseState( NULL, NULL );
+		}
 		break;
 
 	case SDL_MOUSEBUTTONUP:
