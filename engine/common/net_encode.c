@@ -1909,7 +1909,7 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 					from = &cl.instanced_baseline[baseline_offset];
 			}
 		}
-		}
+	}
 	// g-cont. probably is redundant
 	*to = *from;
 
