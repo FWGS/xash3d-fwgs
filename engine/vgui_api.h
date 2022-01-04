@@ -176,11 +176,6 @@ enum VGUI_DefaultCursor
 	dc_last
 };
 
-
-
-
-
-
 typedef struct  vguiapi_s
 {
 	qboolean initialized;
@@ -201,7 +196,7 @@ typedef struct  vguiapi_s
 	void	(*CursorSelect)( enum VGUI_DefaultCursor cursor );
 	byte		(*GetColor)( int i, int j );
 	qboolean	(*IsInGame)( void );
-	void	(*SetVisible)( qboolean state );
+	void  (*Unused)( void );
 	void	(*GetCursorPos)( int *x, int *y );
 	int		(*ProcessUtfChar)( int ch );
 	void	(*Startup)( int width, int height );
