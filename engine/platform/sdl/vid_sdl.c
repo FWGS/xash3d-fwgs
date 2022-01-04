@@ -574,7 +574,6 @@ static qboolean VID_SetScreenResolution( int width, int height )
 
 	SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
 	//SDL_SetWindowPosition( host.hWnd, 0, 0 );
-	SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
 	SDL_SetWindowSize( host.hWnd, got.w, got.h );
 
 	VID_SaveWindowSize( got.w, got.h );
@@ -590,7 +589,6 @@ void VID_RestoreScreenResolution( void )
 	if( !Cvar_VariableInteger("fullscreen") )
 	{
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
-		SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
 	}
 	else
 	{
