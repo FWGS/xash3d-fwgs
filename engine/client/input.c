@@ -221,7 +221,7 @@ void IN_CheckMouseState( qboolean active )
 	{
 		if( !s_bRawInput )
 		{
-#if XASH_SDL >= 2
+#if XASH_SDL == 2
 			SDL_GetRelativeMouseState( NULL, NULL );
 			SDL_SetRelativeMouseMode( SDL_TRUE );
 #endif
@@ -234,7 +234,7 @@ void IN_CheckMouseState( qboolean active )
 	{
 		if( s_bRawInput )
 		{
-#if XASH_SDL >= 2
+#if XASH_SDL == 2
 			SDL_GetRelativeMouseState( NULL, NULL );
 			SDL_SetRelativeMouseMode( SDL_FALSE );
 #endif

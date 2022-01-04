@@ -178,7 +178,7 @@ static void Sys_StackTrace( PEXCEPTION_POINTERS pInfo )
 		len += Q_snprintf( message + len, 1024 - len, ")\n");
 	}
 
-#if XASH_SDL >= 2
+#if XASH_SDL == 2
 	if( host.type != HOST_DEDICATED ) // let system to restart server automaticly
 		SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, "Sys_Crash", message, host.hWnd );
 #endif
