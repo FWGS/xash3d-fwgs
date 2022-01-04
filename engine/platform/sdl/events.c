@@ -273,8 +273,10 @@ static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 	int down = button.state != SDL_RELEASED;
 	uint mstate = 0;
 
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( button.which == SDL_TOUCH_MOUSEID )
 		return;
+#endif
 
 	switch( button.button )
 	{
