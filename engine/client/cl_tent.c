@@ -2696,11 +2696,14 @@ void CL_AddEntityEffects( cl_entity_t *ent )
 	if( FBitSet( ent->curstate.effects, EF_BRIGHTFIELD ))
 		R_EntityParticles( ent );
 
-	if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))
+	if ( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))
 	{
-		if( ent->player && !Host_IsQuakeCompatible( ))
+		if ( ent->player && !Host_IsQuakeCompatible( ))
 		{
-			CL_UpdateFlashlight( ent );
+			if ( !REF_GET_PARM( PARM_MODERNFLASHLIGHT, 1))
+			{
+				CL_UpdateFlashlight( ent );
+			}
 		}
 		else
 		{
