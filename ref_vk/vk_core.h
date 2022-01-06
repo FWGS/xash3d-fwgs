@@ -38,7 +38,8 @@ typedef struct vk_buffer_s
 
 typedef struct physical_device_s {
 	VkPhysicalDevice device;
-	VkPhysicalDeviceMemoryProperties memory_properties;
+	VkPhysicalDeviceMemoryProperties2 memory_properties2;
+	VkPhysicalDeviceMemoryBudgetPropertiesEXT memory_budget;
 	VkPhysicalDeviceProperties properties;
 	VkPhysicalDeviceProperties2 properties2;
 	VkPhysicalDeviceAccelerationStructurePropertiesKHR properties_accel;
@@ -133,7 +134,7 @@ do { \
 	X(vkGetPhysicalDeviceFeatures2) \
 	X(vkGetPhysicalDeviceQueueFamilyProperties) \
 	X(vkGetPhysicalDeviceSurfaceSupportKHR) \
-	X(vkGetPhysicalDeviceMemoryProperties) \
+	X(vkGetPhysicalDeviceMemoryProperties2) \
 	X(vkGetPhysicalDeviceSurfacePresentModesKHR) \
 	X(vkGetPhysicalDeviceSurfaceFormatsKHR) \
 	X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR) \
