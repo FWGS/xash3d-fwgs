@@ -17,7 +17,7 @@ SampleContext buildSampleContext(vec3 position, vec3 normal, vec3 view_dir) {
 	return ctx;
 }
 
-void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties material, SampleContext ctx, uint ekusok_index, out vec3 out_diffuse, out vec3 out_specular) {
+void sampleEmissiveSurface(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, SampleContext ctx, uint ekusok_index, out vec3 out_diffuse, out vec3 out_specular) {
 	out_diffuse = out_specular = vec3(0.);
 
 	const EmissiveKusok ek = lights.kusochki[ekusok_index];
@@ -116,7 +116,7 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 
 	vec3 tri_diffuse = vec3(0.), tri_specular = vec3(0.);
 #if 1
-	evalSplitBRDF(payload_opaque.normal, light_dir, view_dir, material, tri_diffuse, tri_specular);
+	evalSplitBRDF(N, light_dir, view_dir, material, tri_diffuse, tri_specular);
 	tri_diffuse *= throughput * ek.emissive;
 	tri_specular *= throughput * ek.emissive;
 #else
@@ -126,8 +126,8 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 #if 1
 	vec3 combined = tri_diffuse + tri_specular;
 	if (dot(combined,combined) > color_culling_threshold) {
-		const float dist = -dot(vec4(payload_opaque.hit_pos_t.xyz, 1.f), selected_plane) / dot(light_dir, selected_plane.xyz);
-		if (!shadowed(payload_opaque.hit_pos_t.xyz, light_dir, dist)) {
+		const float dist = -dot(vec4(P, 1.f), selected_plane) / dot(light_dir, selected_plane.xyz);
+		if (!shadowed(P, light_dir, dist)) {
 			const float tri_factor = total_contrib; // / selected_angle.solid_angle;
 			out_diffuse += tri_diffuse * tri_factor;
 			out_specular += tri_specular * tri_factor;
@@ -146,9 +146,9 @@ void sampleEmissiveSurface(vec3 throughput, vec3 view_dir, MaterialProperties ma
 #endif
 }
 
-void sampleEmissiveSurfaces(vec3 throughput, vec3 view_dir, MaterialProperties material, uint cluster_index, inout vec3 diffuse, inout vec3 specular) {
+void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, uint cluster_index, inout vec3 diffuse, inout vec3 specular) {
 
-	const SampleContext ctx = buildSampleContext(payload_opaque.hit_pos_t.xyz, payload_opaque.normal, view_dir);
+	const SampleContext ctx = buildSampleContext(P, N, view_dir);
 
 	const uint num_emissive_kusochki = uint(light_grid.clusters[cluster_index].num_emissive_surfaces);
 	float sampling_light_scale = 1.;
@@ -173,7 +173,7 @@ void sampleEmissiveSurfaces(vec3 throughput, vec3 view_dir, MaterialProperties m
 		}
 
 		vec3 ldiffuse, lspecular;
-		sampleEmissiveSurface(throughput, view_dir, material, ctx, index_into_emissive_kusochki, ldiffuse, lspecular);
+		sampleEmissiveSurface(P, N, throughput, view_dir, material, ctx, index_into_emissive_kusochki, ldiffuse, lspecular);
 
 		diffuse += ldiffuse * sampling_light_scale;
 		specular += lspecular * sampling_light_scale;

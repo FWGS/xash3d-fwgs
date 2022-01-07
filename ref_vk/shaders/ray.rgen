@@ -59,7 +59,7 @@ layout(location = PAYLOAD_LOCATION_ADDITIVE) rayPayloadEXT RayPayloadAdditive pa
 #include "light_common.glsl"
 #include "light_polygon.glsl"
 
-void computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
+void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
 	diffuse = specular = vec3(0.);
 	const uint num_point_lights = uint(light_grid.clusters[cluster_index].num_point_lights);
 	for (uint j = 0; j < num_point_lights; ++j) {
@@ -75,11 +75,11 @@ void computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 		const float stopdot2 = lights.point_lights[i].dir_stopdot2.a;
 		const bool not_environment = (lights.point_lights[i].environment == 0);
 
-		const vec3 light_dir = not_environment ? (origin_r.xyz - payload_opaque.hit_pos_t.xyz) : -dir; // TODO need to randomize sampling direction for environment soft shadow
+		const vec3 light_dir = not_environment ? (origin_r.xyz - P) : -dir; // TODO need to randomize sampling direction for environment soft shadow
 		const float radius = origin_r.w;
 
 		const vec3 light_dir_norm = normalize(light_dir);
-		const float light_dot = dot(light_dir_norm, payload_opaque.normal);
+		const float light_dot = dot(light_dir_norm, N);
 		if (light_dot < 1e-5)
 			continue;
 
@@ -123,7 +123,7 @@ void computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 		// 	continue;
 
 		vec3 ldiffuse, lspecular;
-		evalSplitBRDF(payload_opaque.normal, light_dir_norm, view_dir, material, ldiffuse, lspecular);
+		evalSplitBRDF(N, light_dir_norm, view_dir, material, ldiffuse, lspecular);
 		ldiffuse *= color;
 		lspecular *= color;
 
@@ -133,11 +133,11 @@ void computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 			continue;
 
 		if (not_environment) {
-			if (shadowed(payload_opaque.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
+			if (shadowed(P, light_dir_norm, light_dist + shadow_offset_fudge))
 				continue;
 		} else {
 			// for environment light check that we've hit SURF_SKY
-			if (shadowedSky(payload_opaque.hit_pos_t.xyz, light_dir_norm, light_dist + shadow_offset_fudge))
+			if (shadowedSky(P, light_dir_norm, light_dist + shadow_offset_fudge))
 				continue;
 		}
 
@@ -146,9 +146,9 @@ void computePointLights(uint cluster_index, vec3 throughput, vec3 view_dir, Mate
 	} // for all lights
 }
 
-void computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
+void computeLighting(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
 	diffuse = specular = vec3(0.);
-	const ivec3 light_cell = ivec3(floor(payload_opaque.hit_pos_t.xyz / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
+	const ivec3 light_cell = ivec3(floor(P / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
 	const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
 
 	if (any(greaterThanEqual(light_cell, light_grid.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS)
@@ -163,10 +163,10 @@ void computeLighting(vec3 throughput, vec3 view_dir, MaterialProperties material
 	//C = vec3(float(int(light_grid.clusters[cluster_index].num_emissive_surfaces)));
 	//C += .3 * fract(vec3(light_cell) / 4.);
 
-	sampleEmissiveSurfaces(throughput, view_dir, material, cluster_index, diffuse, specular);
+	sampleEmissiveSurfaces(P, N, throughput, view_dir, material, cluster_index, diffuse, specular);
 
 	vec3 ldiffuse = vec3(0.), lspecular = vec3(0.);
-	computePointLights(cluster_index, throughput, view_dir, material, ldiffuse, lspecular);
+	computePointLights(P, N, cluster_index, throughput, view_dir, material, ldiffuse, lspecular);
 	diffuse += ldiffuse;
 	specular += lspecular;
 }
@@ -338,7 +338,7 @@ void main() {
 
 #ifdef SKIP_TRASMITTED_LIGHT
 		vec3 diffuse, specular;
-		computeLighting(prev_throughput, -direction, material, diffuse, specular);
+		computeLighting(payload_opaque.hit_pos_t.xyz, payload_opaque.normal, prev_throughput, -direction, material, diffuse, specular);
 
 		if (bounce == 0) {
 			out_diffuse_gi += diffuse;

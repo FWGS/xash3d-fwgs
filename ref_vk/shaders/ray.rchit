@@ -17,9 +17,6 @@ layout (push_constant) uniform PC_ {
 
 hitAttributeEXT vec2 bary;
 
-float hash(float f) { return fract(sin(f)*53478.4327); }
-vec3 hashUintToVec3(uint i) { return vec3(hash(float(i)), hash(float(i)+15.43), hash(float(i)+34.)); }
-
 // FIXME implement more robust self-intersection avoidance (see chap 6 of "Ray Tracing Gems")
 const float normal_offset_fudge = .001;
 
