@@ -92,3 +92,8 @@ void VK_RingBuffer_ClearFrame(vk_ring_buffer_t* buf) {
 	buf->offset_free = buf->permanent_size;
 	buf->free = buf->size - buf->permanent_size;
 }
+
+VkDeviceAddress XVK_BufferGetDeviceAddress(VkBuffer buffer) {
+	const VkBufferDeviceAddressInfo bdai = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
+	return vkGetBufferDeviceAddress(vk_core.device, &bdai);
+}

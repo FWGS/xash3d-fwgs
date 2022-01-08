@@ -4,6 +4,8 @@
 qboolean createBuffer(const char *debug_name, vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags flags);
 void destroyBuffer(vk_buffer_t *buf);
 
+VkDeviceAddress XVK_BufferGetDeviceAddress(VkBuffer buffer);
+
 
 //               v -- begin of ring buffer|permanent_size
 // |XXXMAPLIFETME|<......|FRAME1|FRAME2|FRAMEN|......................>|

@@ -1,0 +1,223 @@
+#include "vk_ray_primary.h"
+
+#include "vk_descriptor.h"
+#include "vk_pipeline.h"
+#include "vk_buffer.h"
+
+#include "eiface.h" // ARRAYSIZE
+
+enum {
+	RtPrim_SBT_RayGen,
+	RtPrim_SBT_RayMiss,
+	RtPrim_SBT_RayHit,
+	RtPrim_SBT_COUNT,
+};
+
+enum {
+	RtPrim_Desc_Out_BaseColorR,
+	RtPrim_Desc_COUNT
+};
+
+static struct {
+	struct {
+		vk_descriptors_t riptors;
+		VkDescriptorSetLayoutBinding bindings[RtPrim_Desc_COUNT];
+		vk_descriptor_value_t values[RtPrim_Desc_COUNT];
+		VkDescriptorSet sets[1];
+	} desc;
+
+	vk_buffer_t sbt_buffer;
+
+	VkPipeline pipeline;
+} g_ray_primary;
+
+static void initDescriptors( void ) {
+	g_ray_primary.desc.riptors = (vk_descriptors_t) {
+		.bindings = g_ray_primary.desc.bindings,
+		.num_bindings = ARRAYSIZE(g_ray_primary.desc.bindings),
+		.values = g_ray_primary.desc.values,
+		.num_sets = ARRAYSIZE(g_ray_primary.desc.sets),
+		.desc_sets = g_ray_primary.desc.sets,
+		/* .push_constants = (VkPushConstantRange){ */
+		/* 	.offset = 0, */
+		/* 	.size = sizeof(vk_rtx_push_constants_t), */
+		/* 	.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, */
+		/* }, */
+	};
+
+#define INIT_BINDING(index, type, count, stages) \
+	g_ray_primary.desc.bindings[index] = (VkDescriptorSetLayoutBinding){ \
+		.binding = index, \
+		.descriptorType = type, \
+		.descriptorCount = count, \
+		.stageFlags = stages, \
+	}
+
+	INIT_BINDING(RtPrim_Desc_Out_BaseColorR, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+
+	VK_DescriptorsCreate(&g_ray_primary.desc.riptors);
+}
+
+static void initPipeline( void ) {
+	enum {
+		ShaderStageIndex_RayGen,
+		ShaderStageIndex_RayMiss,
+		ShaderStageIndex_RayClosestHit,
+		ShaderStageIndex_COUNT,
+	};
+
+	VkPipelineShaderStageCreateInfo shaders[ShaderStageIndex_COUNT];
+	VkRayTracingShaderGroupCreateInfoKHR shader_groups[RtPrim_SBT_COUNT];
+
+	const VkRayTracingPipelineCreateInfoKHR rtpci = {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+		//TODO .flags = VK_PIPELINE_CREATE_RAY_TRACING_NO_NULL_ANY_HIT_SHADERS_BIT_KHR  ....
+		.stageCount = ARRAYSIZE(shaders),
+		.pStages = shaders,
+		.groupCount = ARRAYSIZE(shader_groups),
+		.pGroups = shader_groups,
+		.maxPipelineRayRecursionDepth = 1,
+		.layout = g_ray_primary.desc.riptors.pipeline_layout,
+	};
+
+#define DEFINE_SHADER(filename, bit, sbt_index) \
+	shaders[sbt_index] = (VkPipelineShaderStageCreateInfo){ \
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, \
+		.stage = VK_SHADER_STAGE_##bit##_BIT_KHR, \
+		.module = loadShader(filename ".spv"), \
+		.pName = "main", \
+		.pSpecializationInfo = NULL, \
+	}
+
+	DEFINE_SHADER("ray_primary.rgen", RAYGEN, ShaderStageIndex_RayGen);
+	DEFINE_SHADER("ray_primary.rchit", CLOSEST_HIT, ShaderStageIndex_RayClosestHit);
+	DEFINE_SHADER("ray_primary.rmiss", MISS, ShaderStageIndex_RayMiss);
+
+	// TODO static assert
+/* #define ASSERT_SHADER_OFFSET(sbt_kind, sbt_index, offset) \ */
+/* 	ASSERT((offset) == (sbt_index - sbt_kind)) */
+/*  */
+/* 	ASSERT_SHADER_OFFSET(ShaderBindingTable_RayGen, ShaderBindingTable_RayGen, 0); */
+/* 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Miss, ShaderBindingTable_Miss, SHADER_OFFSET_MISS_REGULAR); */
+/* 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Miss, ShaderBindingTable_Miss_Shadow, SHADER_OFFSET_MISS_SHADOW); */
+/*  */
+/* 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_Base, SHADER_OFFSET_HIT_REGULAR_BASE + SHADER_OFFSET_HIT_REGULAR); */
+/* 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_WithAlphaTest, SHADER_OFFSET_HIT_REGULAR_BASE + SHADER_OFFSET_HIT_ALPHA_TEST); */
+/* 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_Additive, SHADER_OFFSET_HIT_REGULAR_BASE + SHADER_OFFSET_HIT_ADDITIVE); */
+/*  */
+/* 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_Shadow_Base, SHADER_OFFSET_HIT_SHADOW_BASE + 0); */
+/* 	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_Shadow_AlphaTest, SHADER_OFFSET_HIT_SHADOW_BASE + SHADER_OFFSET_HIT_ALPHA_TEST); */
+
+	shader_groups[RtPrim_SBT_RayGen] = (VkRayTracingShaderGroupCreateInfoKHR) {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.generalShader = ShaderStageIndex_RayGen,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+
+	shader_groups[RtPrim_SBT_RayHit] = (VkRayTracingShaderGroupCreateInfoKHR) {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.closestHitShader = ShaderStageIndex_RayClosestHit,
+		.generalShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+
+	shader_groups[RtPrim_SBT_RayMiss] = (VkRayTracingShaderGroupCreateInfoKHR) {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.generalShader = ShaderStageIndex_RayMiss,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+
+	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &g_ray_primary.pipeline));
+	ASSERT(g_ray_primary.pipeline != VK_NULL_HANDLE);
+
+	{
+		const uint32_t sbt_handle_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
+		const uint32_t sbt_handles_buffer_size = ARRAYSIZE(shader_groups) * sbt_handle_size;
+		uint8_t *sbt_handles = Mem_Malloc(vk_core.pool, sbt_handles_buffer_size);
+		XVK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(vk_core.device, g_ray_primary.pipeline, 0, ARRAYSIZE(shader_groups), sbt_handles_buffer_size, sbt_handles));
+		for (int i = 0; i < ARRAYSIZE(shader_groups); ++i)
+		{
+			uint8_t *sbt_dst = g_ray_primary.sbt_buffer.mapped;
+			memcpy(sbt_dst + vk_core.physical_device.sbt_record_size * i, sbt_handles + sbt_handle_size * i, sbt_handle_size);
+		}
+		Mem_Free(sbt_handles);
+	}
+
+	for (int i = 0; i < ARRAYSIZE(shaders); ++i)
+		vkDestroyShaderModule(vk_core.device, shaders[i].module, NULL);
+}
+
+qboolean XVK_RayTracePrimaryInit( void ) {
+	if (!createBuffer("primary ray sbt_buffer", &g_ray_primary.sbt_buffer, RtPrim_SBT_COUNT * vk_core.physical_device.sbt_record_size,
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	{
+		return false;
+	}
+
+	initDescriptors();
+	initPipeline();
+
+	return true;
+}
+
+void XVK_RayTracePrimaryDestroy( void ) {
+	vkDestroyPipeline(vk_core.device, g_ray_primary.pipeline, NULL);
+	VK_DescriptorsDestroy(&g_ray_primary.desc.riptors);
+
+	destroyBuffer(&g_ray_primary.sbt_buffer);
+}
+
+static void updateDescriptors( const xvk_ray_trace_primary_t* args ) {
+	g_ray_primary.desc.values[RtPrim_Desc_Out_BaseColorR].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = args->out.base_color_r,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
+	VK_DescriptorsWrite(&g_ray_primary.desc.riptors);
+}
+
+void XVK_RayTracePrimary( VkCommandBuffer cmdbuf, const xvk_ray_trace_primary_t *args ) {
+	updateDescriptors( args );
+
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_ray_primary.pipeline);
+	/* { */
+	/* 	vk_rtx_push_constants_t push_constants = { */
+	/* 		.time = gpGlobals->time, */
+	/* 		.random_seed = (uint32_t)gEngine.COM_RandomLong(0, INT32_MAX), */
+	/* 		.bounces = vk_rtx_bounces->value, */
+	/* 		.pixel_cone_spread_angle = atanf((2.0f*tanf(DEG2RAD(fov_angle_y) * 0.5f)) / (float)FRAME_HEIGHT), */
+	/* 		.debug_light_index_begin = (uint32_t)(vk_rtx_light_begin->value), */
+	/* 		.debug_light_index_end = (uint32_t)(vk_rtx_light_end->value), */
+	/* 		.flags = r_lightmap->value ? PUSH_FLAG_LIGHTMAP_ONLY : 0, */
+	/* 	}; */
+	/* 	vkCmdPushConstants(cmdbuf, g_ray_primary.descriptors.pipeline_layout, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 0, sizeof(push_constants), &push_constants); */
+	/* } */
+
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_ray_primary.desc.riptors.pipeline_layout, 0, 1, g_ray_primary.desc.riptors.desc_sets + 0, 0, NULL);
+
+	{
+		const uint32_t sbt_record_size = vk_core.physical_device.sbt_record_size;
+#define SBT_INDEX(index, count) { \
+.deviceAddress = XVK_BufferGetDeviceAddress(g_ray_primary.sbt_buffer.buffer) + sbt_record_size * index, \
+.size = sbt_record_size * (count), \
+.stride = sbt_record_size, \
+}
+		const VkStridedDeviceAddressRegionKHR sbt_raygen = SBT_INDEX(RtPrim_SBT_RayGen, 1);
+		const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(RtPrim_SBT_RayMiss, 1); //ShaderBindingTable_Miss_Empty - ShaderBindingTable_Miss);
+		const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(RtPrim_SBT_RayHit, 1); //ShaderBindingTable_Hit__END - ShaderBindingTable_Hit_Base);
+		const VkStridedDeviceAddressRegionKHR sbt_callable = { 0 };
+
+		vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_miss, &sbt_hit, &sbt_callable, args->width, args->height, 1 );
+	}
+}
+

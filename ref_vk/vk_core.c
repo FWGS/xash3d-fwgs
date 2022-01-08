@@ -598,6 +598,11 @@ static qboolean createDevice( void ) {
 		vk_core.physical_device.properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
 		vkGetPhysicalDeviceProperties2(vk_core.physical_device.device, &vk_core.physical_device.properties2);
 
+		if (vk_core.rtx) {
+			//g_rtx.sbt_record_size = ALIGN_UP(vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize, vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleAlignment);
+			vk_core.physical_device.sbt_record_size = ALIGN_UP(vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize, vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupBaseAlignment);
+		}
+
 		vkGetDeviceQueue(vk_core.device, 0, 0, &vk_core.queue);
 		return true;
 	}

@@ -1,0 +1,12 @@
+#version 460 core
+#extension GL_EXT_ray_tracing: require
+
+layout(set = 0, binding = 0, rgba8) uniform image2D out_image_base_color_r;
+
+void main() {
+	vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
+
+	vec4 out_base_color_r = vec4(uv, 0., 0.);
+
+	imageStore(out_image_base_color_r, ivec2(gl_LaunchIDEXT.xy), out_base_color_r);
+}

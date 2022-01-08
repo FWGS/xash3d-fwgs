@@ -45,6 +45,7 @@ typedef struct physical_device_s {
 	VkPhysicalDeviceAccelerationStructurePropertiesKHR properties_accel;
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR properties_ray_tracing_pipeline;
 	qboolean anisotropy_enabled;
+	uint32_t sbt_record_size;
 } physical_device_t;
 
 typedef struct vulkan_core_s {
