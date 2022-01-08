@@ -6,7 +6,7 @@
 
 struct RayPayloadPrimary {
 	vec4 hit_t;
-	vec2 uv;
+	vec4 base_color_a;
 };
 
 #define PAYLOAD_LOCATION_PRIMARY 0

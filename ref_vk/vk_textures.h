@@ -1,6 +1,7 @@
 #pragma once
 #include "vk_core.h"
 #include "vk_image.h"
+#include "vk_const.h"
 
 #include "xash3d_types.h"
 #include "const.h"
@@ -45,6 +46,8 @@ typedef struct vk_textures_global_s
 
 	vk_texture_t skybox_cube;
 	vk_texture_t cubemap_placeholder;
+
+	VkDescriptorImageInfo dii_all_textures[MAX_TEXTURES];
 } vk_textures_global_t;
 
 // TODO rename this consistently

@@ -1,9 +1,13 @@
 #version 460 core
 #extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_nonuniform_qualifier : enable
 
 #include "ray_primary_common.glsl"
 
 #include "ray_kusochki.glsl"
+
+layout (constant_id = 6) const uint MAX_TEXTURES = 4096;
+layout(set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
 
 layout(location = PAYLOAD_LOCATION_PRIMARY) rayPayloadInEXT RayPayloadPrimary payload;
 hitAttributeEXT vec2 bary;
@@ -19,14 +23,16 @@ vec2 baryMix(vec2 v1, vec2 v2, vec2 v3, vec2 bary) {
 struct Geometry {
 	vec3 pos;
 	vec2 uv;
+
+	int kusok_index;
 };
 
 Geometry readHitGeometry() {
 	Geometry geom;
 
 	const int instance_kusochki_offset = gl_InstanceCustomIndexEXT;
-	const int kusok_index = instance_kusochki_offset + gl_GeometryIndexEXT;
-	const Kusok kusok = kusochki[kusok_index];
+	geom.kusok_index = instance_kusochki_offset + gl_GeometryIndexEXT;
+	const Kusok kusok = kusochki[geom.kusok_index];
 
 	const uint first_index_offset = kusok.index_offset + gl_PrimitiveID * 3;
 	const uint vi1 = uint(indices[first_index_offset+0]) + kusok.vertex_offset;
@@ -48,5 +54,15 @@ void main() {
 	const Geometry geom = readHitGeometry();
 
 	payload.hit_t = vec4(geom.pos, gl_HitTEXT);
-	payload.uv = geom.uv;
+
+	const Kusok kusok = kusochki[geom.kusok_index];
+	const uint tex_base_color = kusok.tex_base_color;
+
+	if ((tex_base_color & KUSOK_MATERIAL_FLAG_SKYBOX) != 0) {
+		// FIXME read skybox
+		payload.base_color_a = vec4(1.,0.,1.,1.);
+	} else {
+		// FIXME mips
+		payload.base_color_a = texture(textures[nonuniformEXT(tex_base_color)], geom.uv) * kusok.color;
+	}
 }

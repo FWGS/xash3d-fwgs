@@ -47,6 +47,18 @@ void initTextures( void )
 	/* FIXME
 	gEngine.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );
 	*/
+
+	{
+		const vk_texture_t *const default_texture = vk_textures + tglob.defaultTexture;
+		for (int i = 0; i < MAX_TEXTURES; ++i) {
+			const vk_texture_t *const tex = findTexture(i);;
+			tglob.dii_all_textures[i] = (VkDescriptorImageInfo){
+				.imageView = tex->vk.image.view != VK_NULL_HANDLE ? tex->vk.image.view : default_texture->vk.image.view,
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				.sampler = vk_core.default_sampler,
+			};
+		}
+	}
 }
 
 static void unloadSkybox( void );
@@ -726,6 +738,15 @@ int	VK_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 		return 0;
 	}
 
+	{
+		const int index = tex - vk_textures;
+		tglob.dii_all_textures[index] = (VkDescriptorImageInfo){
+			.imageView = tex->vk.image.view,
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			.sampler = vk_core.default_sampler,
+		};
+	}
+
 	/* FIXME
 	VK_ApplyTextureParams( tex ); // update texture filter, wrap etc
 	*/
@@ -814,6 +835,12 @@ void VK_FreeTexture( unsigned int texnum ) {
 
 	XVK_ImageDestroy(&tex->vk.image);
 	memset(tex, 0, sizeof(*tex));
+
+	tglob.dii_all_textures[texnum] = (VkDescriptorImageInfo){
+		.imageView = vk_textures[tglob.defaultTexture].vk.image.view,
+		.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		.sampler = vk_core.default_sampler,
+	};
 }
 
 int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update )
@@ -848,6 +875,15 @@ int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 	{
 		memset( tex, 0, sizeof( vk_texture_t ));
 		return 0;
+	}
+
+	{
+		const int index = tex - vk_textures;
+		tglob.dii_all_textures[index] = (VkDescriptorImageInfo){
+			.imageView = tex->vk.image.view,
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			.sampler = vk_core.default_sampler,
+		};
 	}
 
 	/* FIXME

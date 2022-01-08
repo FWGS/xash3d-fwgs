@@ -992,6 +992,7 @@ LIST_GBUFFER_IMAGES(GBUFFER_WRITE_BARRIER)
 					.offset = 0,
 					.size = args->geometry_data.size,
 				},
+				.all_textures = tglob.dii_all_textures,
 			},
 			.out = {
 				.position_t = current_frame->position_t.view,

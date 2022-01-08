@@ -15,7 +15,7 @@ typedef struct {
 		VkAccelerationStructureKHR tlas;
 		vk_buffer_region_t ubo;
 		vk_buffer_region_t kusochki, indices, vertices;
-		//VkDescriptorImageInfo *all_textures; // MAX_TEXTURES
+		VkDescriptorImageInfo *all_textures; // [MAX_TEXTURES]
 	} in;
 
 	struct {

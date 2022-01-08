@@ -23,10 +23,10 @@ enum {
 	RtPrim_Desc_Kusochki = 3,
 	RtPrim_Desc_Indices = 4,
 	RtPrim_Desc_Vertices = 5,
-	//RtPrim_Desc_Textures = 6,
+	RtPrim_Desc_Textures = 6,
 
 	// TODO set 1
-	RtPrim_Desc_Out_PositionT = 6,
+	RtPrim_Desc_Out_PositionT = 7,
 
 	RtPrim_Desc_COUNT
 };
@@ -77,14 +77,14 @@ static void initDescriptors( void ) {
 	INIT_BINDING(RtPrim_Desc_Indices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
 	INIT_BINDING(RtPrim_Desc_Vertices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
 
-	/* g_ray_primary.desc.bindings[RtPrim_Desc_Textures] = (VkDescriptorSetLayoutBinding){ */
-	/* 	.binding = RtPrim_Desc_Textures, */
-	/* 	.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, */
-	/* 	.descriptorCount = MAX_TEXTURES, */
-	/* 	.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, */
-	/* 	// FIXME on AMD using immutable samplers leads to nearest filtering ???! */
-	/* 	.pImmutableSamplers = NULL, //samplers, */
-	/* }; */
+	g_ray_primary.desc.bindings[RtPrim_Desc_Textures] = (VkDescriptorSetLayoutBinding){
+		.binding = RtPrim_Desc_Textures,
+		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorCount = MAX_TEXTURES,
+		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
+		// FIXME on AMD using immutable samplers leads to nearest filtering ???!
+		.pImmutableSamplers = NULL, //samplers,
+	};
 
 #undef INIT_BINDING
 
@@ -259,7 +259,7 @@ static void updateDescriptors( const xvk_ray_trace_primary_t* args ) {
 
 #undef DESC_SET_BUFFER
 
-	//g_ray_primary.desc.values[RtPrim_Desc_Textures].image_array = args->in.all_textures;
+	g_ray_primary.desc.values[RtPrim_Desc_Textures].image_array = args->in.all_textures;
 
 	VK_DescriptorsWrite(&g_ray_primary.desc.riptors);
 }
