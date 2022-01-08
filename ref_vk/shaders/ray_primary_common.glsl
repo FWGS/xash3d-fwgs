@@ -6,7 +6,7 @@
 
 struct RayPayloadPrimary {
 	vec4 hit_t;
-	vec3 normal_geometry, normal_shading;
+	vec2 uv;
 };
 
 #define PAYLOAD_LOCATION_PRIMARY 0

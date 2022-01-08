@@ -12,9 +12,13 @@ vec3 baryMix(vec3 v1, vec3 v2, vec3 v3, vec2 bary) {
 	return v1 * (1. - bary.x - bary.y) + v2 * bary.x + v3 * bary.y;
 }
 
+vec2 baryMix(vec2 v1, vec2 v2, vec2 v3, vec2 bary) {
+	return v1 * (1. - bary.x - bary.y) + v2 * bary.x + v3 * bary.y;
+}
+
 struct Geometry {
 	vec3 pos;
-	//vec2 uv;
+	vec2 uv;
 };
 
 Geometry readHitGeometry() {
@@ -34,11 +38,15 @@ Geometry readHitGeometry() {
 		vertices[vi2].pos,
 		vertices[vi3].pos, bary), 1.f)).xyz;
 
+	geom.uv = baryMix(vertices[vi1].gl_tc, vertices[vi2].gl_tc, vertices[vi3].gl_tc, bary);
+	//TODO or not TODO? const vec2 texture_uv = texture_uv_stationary + push_constants.time * kusok.uv_speed;
+
 	return geom;
 }
 
 void main() {
-	payload.hit_t.w = gl_HitTEXT;
-	//payload.hit_t.xyz = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-	payload.hit_t.xyz = readHitGeometry().pos;
+	const Geometry geom = readHitGeometry();
+
+	payload.hit_t = vec4(geom.pos, gl_HitTEXT);
+	payload.uv = geom.uv;
 }

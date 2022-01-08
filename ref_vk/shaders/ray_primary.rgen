@@ -28,7 +28,8 @@ void main() {
 		origin, 0., direction, L,
 		PAYLOAD_LOCATION_PRIMARY);
 
-	vec4 out_base_color_r = vec4(fract(payload.hit_t.xyz), 0.);
+	//vec4 out_base_color_r = vec4(fract(payload.hit_t.xyz), 0.);
+	vec4 out_base_color_r = vec4(fract(payload.uv), 0., 0.);
 
 	imageStore(out_image_base_color_r, ivec2(gl_LaunchIDEXT.xy), out_base_color_r);
 }
