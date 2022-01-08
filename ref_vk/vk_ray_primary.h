@@ -2,6 +2,8 @@
 
 #include "vk_core.h"
 
+#include "vk_rtx.h"
+
 qboolean XVK_RayTracePrimaryInit( void );
 void XVK_RayTracePrimaryDestroy( void );
 
@@ -10,6 +12,7 @@ typedef struct {
 
 	struct {
 		VkAccelerationStructureKHR tlas;
+		vk_buffer_region_t ubo;
 	} in;
 
 	struct {

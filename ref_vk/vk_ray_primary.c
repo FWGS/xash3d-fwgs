@@ -15,6 +15,8 @@ enum {
 
 enum {
 	RtPrim_Desc_Out_BaseColorR,
+	RtPrim_Desc_TLAS,
+	RtPrim_Desc_UBO,
 	RtPrim_Desc_COUNT
 };
 
@@ -23,6 +25,8 @@ static struct {
 		vk_descriptors_t riptors;
 		VkDescriptorSetLayoutBinding bindings[RtPrim_Desc_COUNT];
 		vk_descriptor_value_t values[RtPrim_Desc_COUNT];
+
+		// TODO: split into two sets, one common to all rt passes (tlas, kusochki, etc), another one this pass only
 		VkDescriptorSet sets[1];
 	} desc;
 
@@ -54,6 +58,8 @@ static void initDescriptors( void ) {
 	}
 
 	INIT_BINDING(RtPrim_Desc_Out_BaseColorR, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+	INIT_BINDING(RtPrim_Desc_UBO, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+	INIT_BINDING(RtPrim_Desc_TLAS, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
 
 	VK_DescriptorsCreate(&g_ray_primary.desc.riptors);
 }
@@ -181,6 +187,18 @@ static void updateDescriptors( const xvk_ray_trace_primary_t* args ) {
 		.sampler = VK_NULL_HANDLE,
 		.imageView = args->out.base_color_r,
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
+	g_ray_primary.desc.values[RtPrim_Desc_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+		.accelerationStructureCount = 1,
+		.pAccelerationStructures = &args->in.tlas,
+	};
+
+	g_ray_primary.desc.values[RtPrim_Desc_UBO].buffer = (VkDescriptorBufferInfo){
+		.buffer = args->in.ubo.buffer,
+		.offset = args->in.ubo.offset,
+		.range = args->in.ubo.size,
 	};
 
 	VK_DescriptorsWrite(&g_ray_primary.desc.riptors);

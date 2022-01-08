@@ -971,6 +971,7 @@ LIST_GBUFFER_IMAGES(GBUFFER_WRITE_BARRIER)
 			.height = FRAME_HEIGHT,
 			.in = {
 				.tlas = g_rtx.tlas,
+				.ubo = args->ubo,
 			},
 			.out = {
 				.base_color_r = current_frame->base_color.view,
