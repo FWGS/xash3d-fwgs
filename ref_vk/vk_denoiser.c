@@ -14,6 +14,8 @@ enum {
 	DenoiserBinding_Source_Additive = 4,
 	DenoiserBinding_Source_Normals = 5,
 
+	DenoiserBinding_Source_PositionT = 6,
+
 	DenoiserBinding_COUNT
 };
 
@@ -76,6 +78,13 @@ static void createLayouts( void ) {
 
 	g_denoiser.desc_bindings[DenoiserBinding_Source_Normals] = (VkDescriptorSetLayoutBinding){
 		.binding = DenoiserBinding_Source_Normals,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+
+	g_denoiser.desc_bindings[DenoiserBinding_Source_PositionT] = (VkDescriptorSetLayoutBinding){
+		.binding = DenoiserBinding_Source_PositionT,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -156,6 +165,12 @@ void XVK_DenoiserDenoise( const xvk_denoiser_args_t* args ) {
 	g_denoiser.desc_values[DenoiserBinding_DestImage].image = (VkDescriptorImageInfo){
 		.sampler = VK_NULL_HANDLE,
 		.imageView = args->dst_view,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
+	g_denoiser.desc_values[DenoiserBinding_Source_PositionT].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = args->src.position_t_view,
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 	};
 

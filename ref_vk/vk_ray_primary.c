@@ -25,6 +25,9 @@ enum {
 	RtPrim_Desc_Vertices = 5,
 	//RtPrim_Desc_Textures = 6,
 
+	// TODO set 1
+	RtPrim_Desc_Out_PositionT = 6,
+
 	RtPrim_Desc_COUNT
 };
 
@@ -66,6 +69,8 @@ static void initDescriptors( void ) {
 	}
 
 	INIT_BINDING(RtPrim_Desc_Out_BaseColorR, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+	INIT_BINDING(RtPrim_Desc_Out_PositionT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+
 	INIT_BINDING(RtPrim_Desc_UBO, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
 	INIT_BINDING(RtPrim_Desc_TLAS, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
 	INIT_BINDING(RtPrim_Desc_Kusochki, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
@@ -225,6 +230,12 @@ static void updateDescriptors( const xvk_ray_trace_primary_t* args ) {
 	g_ray_primary.desc.values[RtPrim_Desc_Out_BaseColorR].image = (VkDescriptorImageInfo){
 		.sampler = VK_NULL_HANDLE,
 		.imageView = args->out.base_color_r,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
+	g_ray_primary.desc.values[RtPrim_Desc_Out_PositionT].image = (VkDescriptorImageInfo){
+		.sampler = VK_NULL_HANDLE,
+		.imageView = args->out.position_t,
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 	};
 

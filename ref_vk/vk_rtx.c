@@ -89,7 +89,11 @@ enum {
 
 typedef struct {
 	xvk_image_t denoised;
+
+	xvk_image_t position_t;
 	xvk_image_t base_color;
+	//xvk_image_t rough_metal_trans;
+
 	xvk_image_t diffuse_gi;
 	xvk_image_t specular;
 	xvk_image_t additive;
@@ -925,6 +929,7 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 	updateDescriptors(args, current_frame);
 
 #define LIST_GBUFFER_IMAGES(X) \
+	X(position_t) \
 	X(base_color) \
 	X(diffuse_gi) \
 	X(specular) \
@@ -989,6 +994,7 @@ LIST_GBUFFER_IMAGES(GBUFFER_WRITE_BARRIER)
 				},
 			},
 			.out = {
+				.position_t = current_frame->position_t.view,
 				.base_color_r = current_frame->base_color.view,
 			},
 		};
@@ -1042,6 +1048,7 @@ LIST_GBUFFER_IMAGES(GBUFFER_READ_BARRIER)
 			.width = FRAME_WIDTH,
 			.height = FRAME_HEIGHT,
 			.src = {
+				.position_t_view = current_frame->position_t.view,
 				.base_color_view = current_frame->base_color.view,
 				.diffuse_gi_view = current_frame->diffuse_gi.view,
 				.specular_view = current_frame->specular.view,
@@ -1358,6 +1365,8 @@ qboolean VK_RayInit( void )
 		} while(0)
 
 		CREATE_GBUFFER_IMAGE(denoised, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+
+		CREATE_GBUFFER_IMAGE(position_t, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
 		CREATE_GBUFFER_IMAGE(base_color, VK_FORMAT_R8G8B8A8_UNORM, 0);
 		CREATE_GBUFFER_IMAGE(diffuse_gi, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
 		CREATE_GBUFFER_IMAGE(specular, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
@@ -1381,6 +1390,7 @@ void VK_RayShutdown( void ) {
 
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
 		XVK_ImageDestroy(&g_rtx.frames[i].denoised);
+		XVK_ImageDestroy(&g_rtx.frames[i].position_t);
 		XVK_ImageDestroy(&g_rtx.frames[i].base_color);
 		XVK_ImageDestroy(&g_rtx.frames[i].diffuse_gi);
 		XVK_ImageDestroy(&g_rtx.frames[i].specular);
