@@ -6,6 +6,7 @@
 
 qboolean XVK_RayTracePrimaryInit( void );
 void XVK_RayTracePrimaryDestroy( void );
+void XVK_RayTracePrimaryReloadPipeline( void );
 
 typedef struct {
 	uint32_t width, height;
@@ -13,6 +14,8 @@ typedef struct {
 	struct {
 		VkAccelerationStructureKHR tlas;
 		vk_buffer_region_t ubo;
+		vk_buffer_region_t kusochki, indices, vertices;
+		//VkDescriptorImageInfo *all_textures; // MAX_TEXTURES
 	} in;
 
 	struct {

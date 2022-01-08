@@ -22,7 +22,7 @@ void VK_RayFrameAddModel( struct vk_ray_model_s *model, const struct vk_render_m
 typedef struct {
 	VkBuffer buffer;
 	uint32_t offset;
-	uint32_t size;
+	uint64_t size;
 } vk_buffer_region_t;
 
 typedef struct {

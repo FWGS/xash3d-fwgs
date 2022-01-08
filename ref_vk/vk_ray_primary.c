@@ -14,9 +14,17 @@ enum {
 };
 
 enum {
-	RtPrim_Desc_Out_BaseColorR,
-	RtPrim_Desc_TLAS,
-	RtPrim_Desc_UBO,
+	// TODO set 1
+	RtPrim_Desc_Out_BaseColorR = 0,
+
+	// TODO set 0
+	RtPrim_Desc_TLAS = 1,
+	RtPrim_Desc_UBO = 2,
+	RtPrim_Desc_Kusochki = 3,
+	RtPrim_Desc_Indices = 4,
+	RtPrim_Desc_Vertices = 5,
+	//RtPrim_Desc_Textures = 6,
+
 	RtPrim_Desc_COUNT
 };
 
@@ -60,11 +68,27 @@ static void initDescriptors( void ) {
 	INIT_BINDING(RtPrim_Desc_Out_BaseColorR, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
 	INIT_BINDING(RtPrim_Desc_UBO, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
 	INIT_BINDING(RtPrim_Desc_TLAS, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+	INIT_BINDING(RtPrim_Desc_Kusochki, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+	INIT_BINDING(RtPrim_Desc_Indices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+	INIT_BINDING(RtPrim_Desc_Vertices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+
+	/* g_ray_primary.desc.bindings[RtPrim_Desc_Textures] = (VkDescriptorSetLayoutBinding){ */
+	/* 	.binding = RtPrim_Desc_Textures, */
+	/* 	.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, */
+	/* 	.descriptorCount = MAX_TEXTURES, */
+	/* 	.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, */
+	/* 	// FIXME on AMD using immutable samplers leads to nearest filtering ???! */
+	/* 	.pImmutableSamplers = NULL, //samplers, */
+	/* }; */
+
+#undef INIT_BINDING
 
 	VK_DescriptorsCreate(&g_ray_primary.desc.riptors);
 }
 
-static void initPipeline( void ) {
+static VkPipeline createPipeline( void ) {
+	VkPipeline pipeline;
+
 	enum {
 		ShaderStageIndex_RayGen,
 		ShaderStageIndex_RayMiss,
@@ -141,14 +165,19 @@ static void initPipeline( void ) {
 		.intersectionShader = VK_SHADER_UNUSED_KHR,
 	};
 
-	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &g_ray_primary.pipeline));
-	ASSERT(g_ray_primary.pipeline != VK_NULL_HANDLE);
+	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &pipeline));
+
+	for (int i = 0; i < ARRAYSIZE(shaders); ++i)
+		vkDestroyShaderModule(vk_core.device, shaders[i].module, NULL);
+
+	if (pipeline == VK_NULL_HANDLE)
+		return VK_NULL_HANDLE;
 
 	{
 		const uint32_t sbt_handle_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
 		const uint32_t sbt_handles_buffer_size = ARRAYSIZE(shader_groups) * sbt_handle_size;
 		uint8_t *sbt_handles = Mem_Malloc(vk_core.pool, sbt_handles_buffer_size);
-		XVK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(vk_core.device, g_ray_primary.pipeline, 0, ARRAYSIZE(shader_groups), sbt_handles_buffer_size, sbt_handles));
+		XVK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(vk_core.device, pipeline, 0, ARRAYSIZE(shader_groups), sbt_handles_buffer_size, sbt_handles));
 		for (int i = 0; i < ARRAYSIZE(shader_groups); ++i)
 		{
 			uint8_t *sbt_dst = g_ray_primary.sbt_buffer.mapped;
@@ -157,8 +186,7 @@ static void initPipeline( void ) {
 		Mem_Free(sbt_handles);
 	}
 
-	for (int i = 0; i < ARRAYSIZE(shaders); ++i)
-		vkDestroyShaderModule(vk_core.device, shaders[i].module, NULL);
+	return pipeline;
 }
 
 qboolean XVK_RayTracePrimaryInit( void ) {
@@ -170,7 +198,9 @@ qboolean XVK_RayTracePrimaryInit( void ) {
 	}
 
 	initDescriptors();
-	initPipeline();
+
+	g_ray_primary.pipeline = createPipeline();
+	ASSERT(g_ray_primary.pipeline != VK_NULL_HANDLE);
 
 	return true;
 }
@@ -180,6 +210,15 @@ void XVK_RayTracePrimaryDestroy( void ) {
 	VK_DescriptorsDestroy(&g_ray_primary.desc.riptors);
 
 	destroyBuffer(&g_ray_primary.sbt_buffer);
+}
+
+void XVK_RayTracePrimaryReloadPipeline( void ) {
+	VkPipeline pipeline = createPipeline();
+	if (pipeline == VK_NULL_HANDLE)
+		return;
+
+	vkDestroyPipeline(vk_core.device, g_ray_primary.pipeline, NULL);
+	g_ray_primary.pipeline = pipeline;
 }
 
 static void updateDescriptors( const xvk_ray_trace_primary_t* args ) {
@@ -195,11 +234,21 @@ static void updateDescriptors( const xvk_ray_trace_primary_t* args ) {
 		.pAccelerationStructures = &args->in.tlas,
 	};
 
-	g_ray_primary.desc.values[RtPrim_Desc_UBO].buffer = (VkDescriptorBufferInfo){
-		.buffer = args->in.ubo.buffer,
-		.offset = args->in.ubo.offset,
-		.range = args->in.ubo.size,
-	};
+#define DESC_SET_BUFFER(index, buffer_) \
+	g_ray_primary.desc.values[index].buffer = (VkDescriptorBufferInfo){ \
+		.buffer = args->in.buffer_.buffer, \
+		.offset = args->in.buffer_.offset, \
+		.range = args->in.buffer_.size, \
+	}
+
+	DESC_SET_BUFFER(RtPrim_Desc_UBO, ubo);
+	DESC_SET_BUFFER(RtPrim_Desc_Kusochki, kusochki);
+	DESC_SET_BUFFER(RtPrim_Desc_Indices, indices);
+	DESC_SET_BUFFER(RtPrim_Desc_Vertices, vertices);
+
+#undef DESC_SET_BUFFER
+
+	//g_ray_primary.desc.values[RtPrim_Desc_Textures].image_array = args->in.all_textures;
 
 	VK_DescriptorsWrite(&g_ray_primary.desc.riptors);
 }

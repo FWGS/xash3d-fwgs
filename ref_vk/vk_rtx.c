@@ -972,6 +972,21 @@ LIST_GBUFFER_IMAGES(GBUFFER_WRITE_BARRIER)
 			.in = {
 				.tlas = g_rtx.tlas,
 				.ubo = args->ubo,
+				.kusochki = {
+					.buffer = g_ray_model_state.kusochki_buffer.buffer,
+					.offset = 0,
+					.size = g_ray_model_state.kusochki_buffer.size,
+				},
+				.indices = {
+					.buffer = args->geometry_data.buffer,
+					.offset = 0,
+					.size = args->geometry_data.size,
+				},
+				.vertices = {
+					.buffer = args->geometry_data.buffer,
+					.offset = 0,
+					.size = args->geometry_data.size,
+				},
 			},
 			.out = {
 				.base_color_r = current_frame->base_color.view,
@@ -1090,6 +1105,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
 		createPipeline();
 
+		XVK_RayTracePrimaryReloadPipeline();
 		XVK_DenoiserReloadPipeline();
 		g_rtx.reload_pipeline = false;
 	}

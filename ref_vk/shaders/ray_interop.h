@@ -1,4 +1,6 @@
 // Common definitions for both shaders and native code
+#ifndef RAY_INTEROP_H_INCLUDED
+#define RAY_INTEROP_H_INCLUDED
 
 #ifndef GLSL
 #include "xash3d_types.h"
@@ -116,3 +118,5 @@ struct PushConstants {
 #undef TOKENPASTE
 #undef TOKENPASTE2
 #endif
+
+#endif // RAY_INTEROP_H_INCLUDED
