@@ -9,6 +9,7 @@
 #define vec2 vec2_t
 #define vec3 vec3_t
 #define vec4 vec4_t
+#define mat4 matrix4x4
 #define TOKENPASTE(x, y) x ## y
 #define TOKENPASTE2(x, y) TOKENPASTE(x, y)
 #define PAD(x) float TOKENPASTE2(pad_, __LINE__)[x];
@@ -106,6 +107,12 @@ struct PushConstants {
 	float pixel_cone_spread_angle;
 	uint debug_light_index_begin, debug_light_index_end;
 	uint flags;
+};
+
+struct UniformBuffer {
+	mat4 inv_proj, inv_view;
+	float ray_cone_width;
+	PAD(3)
 };
 
 #undef PAD

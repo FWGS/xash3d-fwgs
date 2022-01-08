@@ -664,12 +664,9 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 				.width = w,
 				.height = h,
 			},
-			// FIXME this should really be in vk_rtx, calling vk_render(or what?) to alloc slot for it
-			.ubo = {
-				.buffer = g_render.uniform_buffer.buffer,
-				.offset = allocUniform(sizeof(matrix4x4) * 2, sizeof(matrix4x4)),
-				.size = sizeof(matrix4x4) * 2,
-			},
+
+			.projection = &g_render_state.projection,
+			.view = &g_render_state.view,
 
 			.geometry_data = {
 				.buffer = g_render.buffer.buffer,
@@ -678,23 +675,6 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 
 			.fov_angle_y = g_render.fov_angle_y,
 		};
-
-		if (args.ubo.offset == UINT32_MAX) {
-			gEngine.Con_Printf(S_ERROR "Cannot allocate UBO for RTX\n");
-			return;
-		}
-
-		{
-			matrix4x4 *ubo_matrices = (matrix4x4*)((byte*)g_render.uniform_buffer.mapped + args.ubo.offset);
-			matrix4x4 proj_inv, view_inv;
-			Matrix4x4_Invert_Full(proj_inv, g_render_state.projection);
-			Matrix4x4_ToArrayFloatGL(proj_inv, (float*)ubo_matrices[0]);
-
-			// TODO there's a more efficient way to construct an inverse view matrix
-			// from vforward/right/up vectors and origin in g_camera
-			Matrix4x4_Invert_Full(view_inv, g_render_state.view);
-			Matrix4x4_ToArrayFloatGL(view_inv, (float*)ubo_matrices[1]);
-		}
 
 		VK_RayFrameEnd(&args);
 	}

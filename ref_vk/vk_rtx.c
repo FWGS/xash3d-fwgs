@@ -12,6 +12,7 @@
 #include "vk_descriptor.h"
 #include "vk_ray_internal.h"
 #include "vk_denoiser.h"
+#include "vk_math.h"
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
@@ -21,7 +22,8 @@
 #define MAX_SCRATCH_BUFFER (32*1024*1024)
 #define MAX_ACCELS_BUFFER (64*1024*1024)
 
-#define MAX_LIGHT_LEAVES 8192
+// TODO actually use it
+#define MAX_FRAMES_IN_FLIGHT 2
 
 enum {
 	ShaderBindingTable_RayGen,
@@ -108,6 +110,9 @@ static struct {
 
 	VkPipeline pipeline;
 
+	// Holds UniformBuffer data
+	vk_buffer_t uniform_buffer;
+
 	// Shader binding table buffer
 	vk_buffer_t sbt_buffer;
 	uint32_t sbt_record_size;
@@ -153,7 +158,7 @@ static struct {
 	} frame;
 
 	unsigned frame_number;
-	xvk_ray_frame_images_t frames[2];
+	xvk_ray_frame_images_t frames[MAX_FRAMES_IN_FLIGHT];
 
 	qboolean reload_pipeline;
 	qboolean reload_lighting;
@@ -616,7 +621,7 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 	createTlas(cmdbuf);
 }
 
-static void updateDescriptors( const vk_ray_frame_render_args_t *args, const xvk_ray_frame_images_t *frame_dst ) {
+static void updateDescriptors( const vk_ray_frame_render_args_t *args, int frame_index, const xvk_ray_frame_images_t *frame_dst ) {
 	// 3. Update descriptor sets (bind dest image, tlas, projection matrix)
 	VkDescriptorImageInfo dii_all_textures[MAX_TEXTURES];
 
@@ -633,9 +638,9 @@ static void updateDescriptors( const vk_ray_frame_render_args_t *args, const xvk
 	};
 
 	g_rtx.desc_values[RayDescBinding_UBOMatrices].buffer = (VkDescriptorBufferInfo){
-		.buffer = args->ubo.buffer,
-		.offset = args->ubo.offset,
-		.range = args->ubo.size,
+		.buffer = g_rtx.uniform_buffer.buffer,
+		.offset = frame_index * sizeof(struct UniformBuffer),
+		.range = sizeof(struct UniformBuffer),
 	};
 
 	g_rtx.desc_values[RayDescBinding_Kusochki].buffer = (VkDescriptorBufferInfo){
@@ -921,12 +926,29 @@ static void blitImage( const xvk_blit_args *blit_args ) {
 	}
 }
 
-static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t* args, const xvk_ray_frame_images_t *current_frame, float fov_angle_y) {
+static void prepareUniformBuffer( const vk_ray_frame_render_args_t *args, int frame_index, float fov_angle_y ) {
+	struct UniformBuffer *ubo = (struct UniformBuffer*)g_rtx.uniform_buffer.mapped + frame_index;
+
+	matrix4x4 proj_inv, view_inv;
+	Matrix4x4_Invert_Full(proj_inv, *args->projection);
+	Matrix4x4_ToArrayFloatGL(proj_inv, (float*)ubo->inv_proj);
+
+	// TODO there's a more efficient way to construct an inverse view matrix
+	// from vforward/right/up vectors and origin in g_camera
+	Matrix4x4_Invert_Full(view_inv, *args->view);
+	Matrix4x4_ToArrayFloatGL(view_inv, (float*)ubo->inv_view);
+
+	ubo->ray_cone_width = atanf((2.0f*tanf(DEG2RAD(fov_angle_y) * 0.5f)) / (float)FRAME_HEIGHT);
+}
+
+static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t* args, int frame_index, const xvk_ray_frame_images_t *current_frame, float fov_angle_y) {
 	uploadLights();
 
 	prepareTlas(cmdbuf);
 
-	updateDescriptors(args, current_frame);
+	prepareUniformBuffer(args, frame_index, fov_angle_y);
+
+	updateDescriptors(args, frame_index, current_frame);
 
 #define LIST_GBUFFER_IMAGES(X) \
 	X(position_t) \
@@ -976,7 +998,11 @@ LIST_GBUFFER_IMAGES(GBUFFER_WRITE_BARRIER)
 			.height = FRAME_HEIGHT,
 			.in = {
 				.tlas = g_rtx.tlas,
-				.ubo = args->ubo,
+				.ubo = {
+					.buffer = g_rtx.uniform_buffer.buffer,
+					.offset = frame_index * sizeof(struct UniformBuffer),
+					.size = sizeof(struct UniformBuffer),
+				},
 				.kusochki = {
 					.buffer = g_ray_model_state.kusochki_buffer.buffer,
 					.offset = 0,
@@ -1097,7 +1123,6 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	ASSERT(vk_core.rtx);
 	// ubo should contain two matrices
 	// FIXME pass these matrices explicitly to let RTX module handle ubo itself
-	ASSERT(args->ubo.size == sizeof(float) * 16 * 2);
 
 	g_rtx.frame_number++;
 
@@ -1141,7 +1166,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		clearVkImage( cmdbuf, current_frame->denoised.image );
 		blitImage( &blit_args );
 	} else {
-		performTracing( cmdbuf, args, current_frame, args->fov_angle_y );
+		performTracing( cmdbuf, args, (g_rtx.frame_number % 2), current_frame, args->fov_angle_y );
 	}
 }
 
@@ -1287,6 +1312,13 @@ qboolean VK_RayInit( void )
 
 	g_rtx.sbt_record_size = vk_core.physical_device.sbt_record_size;
 
+	if (!createBuffer("ray uniform_buffer", &g_rtx.uniform_buffer, sizeof(struct UniformBuffer) * MAX_FRAMES_IN_FLIGHT,
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
+	{
+		return false;
+	}
+
 	if (!createBuffer("ray sbt_buffer", &g_rtx.sbt_buffer, ShaderBindingTable_COUNT * g_rtx.sbt_record_size,
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
@@ -1419,4 +1451,5 @@ void VK_RayShutdown( void ) {
 	destroyBuffer(&g_ray_model_state.lights_buffer);
 	destroyBuffer(&g_rtx.light_grid_buffer);
 	destroyBuffer(&g_rtx.sbt_buffer);
+	destroyBuffer(&g_rtx.uniform_buffer);
 }

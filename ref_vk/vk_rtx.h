@@ -34,8 +34,7 @@ typedef struct {
 		uint32_t width, height;
 	} dst;
 
-	// TODO inv_view/proj matrices instead of UBO
-	vk_buffer_region_t ubo;
+	const matrix4x4 *projection, *view;
 
 	// Buffer holding vertex and index data
 	struct {
