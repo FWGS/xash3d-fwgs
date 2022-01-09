@@ -3,8 +3,9 @@
 
 #include "ray_primary_common.glsl"
 
-layout(set = 0, binding = 0, rgba8) uniform image2D out_image_base_color_r;
+layout(set = 0, binding = 0, rgba8) uniform image2D out_image_base_color_a;
 layout(set = 0, binding = 7, rgba32f) uniform image2D out_image_position_t;
+//layout(set = 0, binding = 8, rgba8) uniform image2D out_image_rough_metal;
 
 layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
 layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };
@@ -29,5 +30,5 @@ void main() {
 		PAYLOAD_LOCATION_PRIMARY);
 
 	imageStore(out_image_position_t, ivec2(gl_LaunchIDEXT.xy), payload.hit_t);
-	imageStore(out_image_base_color_r, ivec2(gl_LaunchIDEXT.xy), payload.base_color_a);
+	imageStore(out_image_base_color_a, ivec2(gl_LaunchIDEXT.xy), payload.base_color_a);
 }
