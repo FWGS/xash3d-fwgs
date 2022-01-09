@@ -234,12 +234,12 @@ qboolean VK_RenderInit( void )
 
 	// TODO device memory and friends (e.g. handle mobile memory ...)
 
-	if (!createBuffer("render buffer", &g_render.buffer, vertex_buffer_size + index_buffer_size,
+	if (!VK_BufferCreate("render buffer", &g_render.buffer, vertex_buffer_size + index_buffer_size,
 		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | (vk_core.rtx ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0),
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | (vk_core.rtx ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0))) // TODO staging buffer?
 		return false;
 
-	if (!createBuffer("render uniform_buffer", &g_render.uniform_buffer, uniform_unit_size * MAX_UNIFORM_SLOTS,
+	if (!VK_BufferCreate("render uniform_buffer", &g_render.uniform_buffer, uniform_unit_size * MAX_UNIFORM_SLOTS,
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | (vk_core.rtx ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0))) // TODO staging buffer?
 		return false;
@@ -289,8 +289,8 @@ void VK_RenderShutdown( void )
 		vkDestroyPipeline(vk_core.device, g_render.pipelines[i], NULL);
 	vkDestroyPipelineLayout( vk_core.device, g_render.pipeline_layout, NULL );
 
-	destroyBuffer( &g_render.buffer );
-	destroyBuffer( &g_render.uniform_buffer );
+	VK_BufferDestroy( &g_render.buffer );
+	VK_BufferDestroy( &g_render.uniform_buffer );
 }
 
 xvk_render_buffer_allocation_t XVK_RenderBufferAllocAndLock( uint32_t unit_size, uint32_t count ) {

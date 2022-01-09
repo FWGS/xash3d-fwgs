@@ -5,6 +5,7 @@
 #include "vk_render.h"
 #include "vk_rtx.h"
 #include "vk_cvar.h"
+#include "vk_devmem.h"
 
 #include "profiler.h"
 
@@ -17,7 +18,7 @@ vk_framectl_t vk_frame = {0};
 static struct {
 	struct {
 		VkFormat format;
-		device_memory_t device_memory;
+		vk_devmem_t device_memory;
 		VkImage image;
 		VkImageView image_view;
 	} depth;
@@ -111,7 +112,7 @@ static void createDepthImage(int w, int h) {
 	SET_DEBUG_NAME(g_frame.depth.image, VK_OBJECT_TYPE_IMAGE, "depth buffer");
 
 	vkGetImageMemoryRequirements(vk_core.device, g_frame.depth.image, &memreq);
-	g_frame.depth.device_memory = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
+	g_frame.depth.device_memory = VK_DevMemAllocate(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
 	XVK_CHECK(vkBindImageMemory(vk_core.device, g_frame.depth.image, g_frame.depth.device_memory.device_memory, 0));
 
 	{
@@ -129,7 +130,7 @@ static void createDepthImage(int w, int h) {
 static void destroyDepthImage( void ) {
 	vkDestroyImageView(vk_core.device, g_frame.depth.image_view, NULL);
 	vkDestroyImage(vk_core.device, g_frame.depth.image, NULL);
-	freeDeviceMemory(&g_frame.depth.device_memory);
+	VK_DevMemFree(&g_frame.depth.device_memory);
 }
 
 static VkRenderPass createRenderPass( qboolean ray_tracing ) {
@@ -575,7 +576,7 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 	const VkFormat dest_format = VK_FORMAT_R8G8B8A8_UNORM;
 	VkImage dest_image;
 	VkImage frame_image;
-	device_memory_t dest_devmem;
+	vk_devmem_t dest_devmem;
 	rgbdata_t *r_shot = NULL;
 	const int
 		width = vk_frame.width,
@@ -610,7 +611,7 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 	{
 		VkMemoryRequirements memreq;
 		vkGetImageMemoryRequirements(vk_core.device, dest_image, &memreq);
-		dest_devmem = allocateDeviceMemory(memreq, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, 0);
+		dest_devmem = VK_DevMemAllocate(memreq, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, 0);
 		XVK_CHECK(vkBindImageMemory(vk_core.device, dest_image, dest_devmem.device_memory, dest_devmem.offset));
 	}
 
@@ -792,7 +793,7 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 	}
 
 	vkDestroyImage(vk_core.device, dest_image, NULL);
-	freeDeviceMemory(&dest_devmem);
+	VK_DevMemFree(&dest_devmem);
 
 	return r_shot;
 }

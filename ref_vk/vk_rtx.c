@@ -1239,14 +1239,14 @@ qboolean VK_RayInit( void )
 	//g_rtx.sbt_record_size = ALIGN_UP(vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize, vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleAlignment);
 	g_rtx.sbt_record_size = ALIGN_UP(vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize, vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupBaseAlignment);
 
-	if (!createBuffer("ray sbt_buffer", &g_rtx.sbt_buffer, ShaderBindingTable_COUNT * g_rtx.sbt_record_size,
+	if (!VK_BufferCreate("ray sbt_buffer", &g_rtx.sbt_buffer, ShaderBindingTable_COUNT * g_rtx.sbt_record_size,
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 	{
 		return false;
 	}
 
-	if (!createBuffer("ray accels_buffer", &g_rtx.accels_buffer, MAX_ACCELS_BUFFER,
+	if (!VK_BufferCreate("ray accels_buffer", &g_rtx.accels_buffer, MAX_ACCELS_BUFFER,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 		))
@@ -1256,7 +1256,7 @@ qboolean VK_RayInit( void )
 	g_rtx.accels_buffer_addr = getBufferDeviceAddress(g_rtx.accels_buffer.buffer);
 	g_rtx.accels_buffer_alloc.size = g_rtx.accels_buffer.size;
 
-	if (!createBuffer("ray scratch_buffer", &g_rtx.scratch_buffer, MAX_SCRATCH_BUFFER,
+	if (!VK_BufferCreate("ray scratch_buffer", &g_rtx.scratch_buffer, MAX_SCRATCH_BUFFER,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 		)) {
@@ -1264,7 +1264,7 @@ qboolean VK_RayInit( void )
 	}
 	g_rtx.scratch_buffer_addr = getBufferDeviceAddress(g_rtx.scratch_buffer.buffer);
 
-	if (!createBuffer("ray tlas_geom_buffer", &g_rtx.tlas_geom_buffer, sizeof(VkAccelerationStructureInstanceKHR) * MAX_ACCELS,
+	if (!VK_BufferCreate("ray tlas_geom_buffer", &g_rtx.tlas_geom_buffer, sizeof(VkAccelerationStructureInstanceKHR) * MAX_ACCELS,
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
@@ -1272,7 +1272,7 @@ qboolean VK_RayInit( void )
 		return false;
 	}
 
-	if (!createBuffer("ray kusochki_buffer", &g_ray_model_state.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_KUSOCHKI,
+	if (!VK_BufferCreate("ray kusochki_buffer", &g_ray_model_state.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_KUSOCHKI,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
@@ -1280,14 +1280,14 @@ qboolean VK_RayInit( void )
 	}
 	g_ray_model_state.kusochki_alloc.size = MAX_KUSOCHKI;
 
-	if (!createBuffer("ray lights_buffer", &g_ray_model_state.lights_buffer, sizeof(struct Lights),
+	if (!VK_BufferCreate("ray lights_buffer", &g_ray_model_state.lights_buffer, sizeof(struct Lights),
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
 		return false;
 	}
 
-	if (!createBuffer("ray light_grid_buffer", &g_rtx.light_grid_buffer, sizeof(vk_ray_shader_light_grid),
+	if (!VK_BufferCreate("ray light_grid_buffer", &g_rtx.light_grid_buffer, sizeof(vk_ray_shader_light_grid),
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
@@ -1359,11 +1359,11 @@ void VK_RayShutdown( void ) {
 		model->as = VK_NULL_HANDLE;
 	}
 
-	destroyBuffer(&g_rtx.scratch_buffer);
-	destroyBuffer(&g_rtx.accels_buffer);
-	destroyBuffer(&g_rtx.tlas_geom_buffer);
-	destroyBuffer(&g_ray_model_state.kusochki_buffer);
-	destroyBuffer(&g_ray_model_state.lights_buffer);
-	destroyBuffer(&g_rtx.light_grid_buffer);
-	destroyBuffer(&g_rtx.sbt_buffer);
+	VK_BufferDestroy(&g_rtx.scratch_buffer);
+	VK_BufferDestroy(&g_rtx.accels_buffer);
+	VK_BufferDestroy(&g_rtx.tlas_geom_buffer);
+	VK_BufferDestroy(&g_ray_model_state.kusochki_buffer);
+	VK_BufferDestroy(&g_ray_model_state.lights_buffer);
+	VK_BufferDestroy(&g_rtx.light_grid_buffer);
+	VK_BufferDestroy(&g_rtx.sbt_buffer);
 }

@@ -2,7 +2,22 @@
 
 #include <memory.h>
 
-qboolean createBuffer(const char *debug_name, vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags flags)
+vk_global_buffer_t g_vk_buffers = {0};
+
+#define DEFAULT_STAGING_SIZE (16*1024*1024)
+
+qboolean VK_BuffersInit( void ) {
+	if (!VK_BufferCreate("staging", &g_vk_buffers.staging, DEFAULT_STAGING_SIZE, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+		return false;
+
+	return true;
+}
+
+void VK_BuffersDestroy( void ) {
+	VK_BufferDestroy(&g_vk_buffers.staging);
+}
+
+qboolean VK_BufferCreate(const char *debug_name, vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags flags)
 {
 	VkBufferCreateInfo bci = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -17,34 +32,32 @@ qboolean createBuffer(const char *debug_name, vk_buffer_t *buf, uint32_t size, V
 	vkGetBufferMemoryRequirements(vk_core.device, buf->buffer, &memreq);
 	gEngine.Con_Reportf("memreq: memoryTypeBits=0x%x alignment=%zu size=%zu\n", memreq.memoryTypeBits, memreq.alignment, memreq.size);
 
-	buf->device_memory = allocateDeviceMemory(memreq, flags, usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT ? VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT : 0);
-	XVK_CHECK(vkBindBufferMemory(vk_core.device, buf->buffer, buf->device_memory.device_memory, buf->device_memory.offset));
+	buf->devmem = VK_DevMemAllocate(memreq, flags, usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT ? VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT : 0);
+	XVK_CHECK(vkBindBufferMemory(vk_core.device, buf->buffer, buf->devmem.device_memory, buf->devmem.offset));
 
 	// FIXME when there are many allocation per VkDeviceMemory, fix this
 	if (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT & flags)
-		XVK_CHECK(vkMapMemory(vk_core.device, buf->device_memory.device_memory, 0, bci.size, 0, &buf->mapped));
+		XVK_CHECK(vkMapMemory(vk_core.device, buf->devmem.device_memory, 0, bci.size, 0, &buf->mapped));
 
 	buf->size = size;
 
 	return true;
 }
 
-void destroyBuffer(vk_buffer_t *buf) {
-	// FIXME when there are many allocation per VkDeviceMemory, fix this
-	if (buf->buffer)
-	{
+void VK_BufferDestroy(vk_buffer_t *buf) {
+	if (buf->buffer) {
 		vkDestroyBuffer(vk_core.device, buf->buffer, NULL);
 		buf->buffer = VK_NULL_HANDLE;
 	}
 
-	if (buf->device_memory.device_memory)
-	{
+	// FIXME when there are many allocation per VkDeviceMemory, fix this
+	if (buf->devmem.device_memory) {
 		if (buf->mapped)
-			vkUnmapMemory(vk_core.device, buf->device_memory.device_memory);
+			vkUnmapMemory(vk_core.device, buf->devmem.device_memory);
 
-		freeDeviceMemory(&buf->device_memory);
-		buf->device_memory.device_memory = VK_NULL_HANDLE;
-		buf->device_memory.offset = 0;
+		VK_DevMemFree(&buf->devmem);
+		buf->devmem.device_memory = VK_NULL_HANDLE;
+		buf->devmem.offset = 0;
 		buf->mapped = 0;
 		buf->size = 0;
 	}

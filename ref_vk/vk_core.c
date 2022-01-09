@@ -735,7 +735,7 @@ qboolean R_VkInit( void )
 	if (!createCommandPool())
 		return false;
 
-	if (!createBuffer("staging", &vk_core.staging, 16 * 1024 * 1024 /* TODO why 16Mb? */, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+	if (!VK_BuffersInit())
 		return false;
 
 	{
@@ -822,7 +822,7 @@ void R_VkShutdown( void )
 	VK_DescriptorShutdown();
 
 	vkDestroySampler(vk_core.device, vk_core.default_sampler, NULL);
-	destroyBuffer(&vk_core.staging);
+	VK_BuffersDestroy();
 
 	vkDestroyCommandPool(vk_core.device, vk_core.command_pool, NULL);
 
@@ -901,51 +901,4 @@ VkFence createFence( void ) {
 
 void destroyFence(VkFence fence) {
 	vkDestroyFence(vk_core.device, fence, NULL);
-}
-
-static uint32_t findMemoryWithType(uint32_t type_index_bits, VkMemoryPropertyFlags flags) {
-	for (uint32_t i = 0; i < vk_core.physical_device.memory_properties2.memoryProperties.memoryTypeCount; ++i) {
-		if (!(type_index_bits & (1 << i)))
-			continue;
-
-		if ((vk_core.physical_device.memory_properties2.memoryProperties.memoryTypes[i].propertyFlags & flags) == flags)
-			return i;
-	}
-
-	return UINT32_MAX;
-}
-
-device_memory_t allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags props, VkMemoryAllocateFlags flags) {
-	// TODO coalesce allocations, ...
-	device_memory_t ret = {0};
-
-	const VkMemoryAllocateFlagsInfo mafi = {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
-		.flags = flags,
-	};
-
-	const VkMemoryAllocateInfo mai = {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.pNext = flags ? &mafi : NULL,
-		.allocationSize = req.size,
-		.memoryTypeIndex = findMemoryWithType(req.memoryTypeBits, props),
-	};
-
-	gEngine.Con_Reportf("allocateDeviceMemory size=%zu memoryTypeBits=0x%x memoryProperties=%c%c%c%c%c flags=0x%x => typeIndex=%d\n", req.size, req.memoryTypeBits,
-		props & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ? 'D' : '.',
-		props & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? 'V' : '.',
-		props & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? 'C' : '.',
-		props & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? '$' : '.',
-		props & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT ? 'L' : '.',
-		flags,
-		mai.memoryTypeIndex);
-
-	ASSERT(mai.memoryTypeIndex != UINT32_MAX);
-	XVK_CHECK(vkAllocateMemory(vk_core.device, &mai, NULL, &ret.device_memory));
-	return ret;
-}
-
-void freeDeviceMemory(device_memory_t *mem)
-{
-	vkFreeMemory(vk_core.device, mem->device_memory, NULL);
 }
