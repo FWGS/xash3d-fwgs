@@ -32,4 +32,5 @@ void main() {
 
 	imageStore(out_image_position_t, ivec2(gl_LaunchIDEXT.xy), payload.hit_t);
 	imageStore(out_image_base_color_a, ivec2(gl_LaunchIDEXT.xy), payload.base_color_a);
+	imageStore(out_image_normals_gs, ivec2(gl_LaunchIDEXT.xy), payload.normals_gs);
 }

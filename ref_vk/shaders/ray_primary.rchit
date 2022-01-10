@@ -33,4 +33,7 @@ void main() {
 	} else {
 		payload.base_color_a = sampleTexture(tex_base_color, geom.uv, geom.uv_lods) * kusok.color;
 	}
+
+	payload.normals_gs.xy = geom.normal_geometry.xy;
+	payload.normals_gs.zw = geom.normal_shading.xy;
 }

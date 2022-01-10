@@ -1072,13 +1072,12 @@ LIST_GBUFFER_IMAGES(GBUFFER_READ_BARRIER)
 			.width = FRAME_WIDTH,
 			.height = FRAME_HEIGHT,
 			.src = {
-#define X(index, name, ...) .name##_view = current_frame->name.view,
-RAY_PRIMARY_OUTPUTS(X)
-#undef X
+				.position_t_view = current_frame->position_t.view,
+				.base_color_a_view = current_frame->base_color_a.view,
 				.diffuse_gi_view = current_frame->diffuse_gi.view,
 				.specular_view = current_frame->specular.view,
 				.additive_view = current_frame->additive.view,
-				.normals_view = current_frame->normals.view,
+				.normals_view = current_frame->normals_gs.view,
 			},
 			.dst_view = current_frame->denoised.view,
 		};
@@ -1399,11 +1398,13 @@ qboolean VK_RayInit( void )
 
 #define rgba8 VK_FORMAT_R8G8B8A8_UNORM
 #define rgba32f VK_FORMAT_R32G32B32A32_SFLOAT
+#define rgba16f VK_FORMAT_R16G16B16A16_SFLOAT
 #define X(index, name, format) CREATE_GBUFFER_IMAGE(name, format, 0);
 RAY_PRIMARY_OUTPUTS(X)
 #undef X
 #undef rgba8
 #undef rgba32f
+#undef rgba16f
 		CREATE_GBUFFER_IMAGE(diffuse_gi, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
 		CREATE_GBUFFER_IMAGE(specular, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
 		CREATE_GBUFFER_IMAGE(additive, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
