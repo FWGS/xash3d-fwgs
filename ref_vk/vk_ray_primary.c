@@ -20,19 +20,18 @@ enum {
 };
 
 enum {
-	// TODO set 1
-	RtPrim_Desc_Out_BaseColorR = 0,
-
 	// TODO set 0
-	RtPrim_Desc_TLAS = 1,
-	RtPrim_Desc_UBO = 2,
-	RtPrim_Desc_Kusochki = 3,
-	RtPrim_Desc_Indices = 4,
-	RtPrim_Desc_Vertices = 5,
-	RtPrim_Desc_Textures = 6,
+	RtPrim_Desc_TLAS,
+	RtPrim_Desc_UBO,
+	RtPrim_Desc_Kusochki,
+	RtPrim_Desc_Indices,
+	RtPrim_Desc_Vertices,
+	RtPrim_Desc_Textures,
 
 	// TODO set 1
-	RtPrim_Desc_Out_PositionT = 7,
+#define X(index, name, ...) RtPrim_Desc_Out_##name,
+RAY_PRIMARY_OUTPUTS(X)
+#undef X
 
 	RtPrim_Desc_COUNT
 };
@@ -66,35 +65,62 @@ static void initDescriptors( void ) {
 		/* }, */
 	};
 
-#define INIT_BINDING(index, type, count, stages) \
-	g_ray_primary.desc.bindings[index] = (VkDescriptorSetLayoutBinding){ \
+#define INIT_BINDING(index, name, type, count, stages) \
+	g_ray_primary.desc.bindings[RtPrim_Desc_##name] = (VkDescriptorSetLayoutBinding){ \
 		.binding = index, \
 		.descriptorType = type, \
 		.descriptorCount = count, \
 		.stageFlags = stages, \
 	}
 
-	INIT_BINDING(RtPrim_Desc_Out_BaseColorR, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
-	INIT_BINDING(RtPrim_Desc_Out_PositionT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+	INIT_BINDING(1, TLAS, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+	INIT_BINDING(2, UBO, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+	INIT_BINDING(3, Kusochki, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+	INIT_BINDING(4, Indices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+	INIT_BINDING(5, Vertices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+	INIT_BINDING(6, Textures, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
 
-	INIT_BINDING(RtPrim_Desc_UBO, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
-	INIT_BINDING(RtPrim_Desc_TLAS, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
-	INIT_BINDING(RtPrim_Desc_Kusochki, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
-	INIT_BINDING(RtPrim_Desc_Indices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
-	INIT_BINDING(RtPrim_Desc_Vertices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
-
-	g_ray_primary.desc.bindings[RtPrim_Desc_Textures] = (VkDescriptorSetLayoutBinding){
-		.binding = RtPrim_Desc_Textures,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = MAX_TEXTURES,
-		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-		// FIXME on AMD using immutable samplers leads to nearest filtering ???!
-		.pImmutableSamplers = NULL, //samplers,
-	};
-
+#define X(index, name, ...) \
+	INIT_BINDING(index, Out_##name, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+RAY_PRIMARY_OUTPUTS(X)
+#undef X
 #undef INIT_BINDING
 
 	VK_DescriptorsCreate(&g_ray_primary.desc.riptors);
+}
+
+static void updateDescriptors( const xvk_ray_trace_primary_t* args ) {
+#define X(index, name, ...) \
+	g_ray_primary.desc.values[RtPrim_Desc_Out_##name].image = (VkDescriptorImageInfo){ \
+		.sampler = VK_NULL_HANDLE, \
+		.imageView = args->out.name, \
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL, \
+	};
+RAY_PRIMARY_OUTPUTS(X)
+
+	g_ray_primary.desc.values[RtPrim_Desc_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+		.accelerationStructureCount = 1,
+		.pAccelerationStructures = &args->in.tlas,
+	};
+
+#define DESC_SET_BUFFER(index, buffer_) \
+	g_ray_primary.desc.values[index].buffer = (VkDescriptorBufferInfo){ \
+		.buffer = args->in.buffer_.buffer, \
+		.offset = args->in.buffer_.offset, \
+		.range = args->in.buffer_.size, \
+	}
+
+	DESC_SET_BUFFER(RtPrim_Desc_UBO, ubo);
+	DESC_SET_BUFFER(RtPrim_Desc_Kusochki, kusochki);
+	DESC_SET_BUFFER(RtPrim_Desc_Indices, indices);
+	DESC_SET_BUFFER(RtPrim_Desc_Vertices, vertices);
+
+#undef DESC_SET_BUFFER
+
+	g_ray_primary.desc.values[RtPrim_Desc_Textures].image_array = args->in.all_textures;
+
+	VK_DescriptorsWrite(&g_ray_primary.desc.riptors);
 }
 
 static VkPipeline createPipeline( void ) {
@@ -238,44 +264,6 @@ void XVK_RayTracePrimaryReloadPipeline( void ) {
 
 	vkDestroyPipeline(vk_core.device, g_ray_primary.pipeline, NULL);
 	g_ray_primary.pipeline = pipeline;
-}
-
-static void updateDescriptors( const xvk_ray_trace_primary_t* args ) {
-	g_ray_primary.desc.values[RtPrim_Desc_Out_BaseColorR].image = (VkDescriptorImageInfo){
-		.sampler = VK_NULL_HANDLE,
-		.imageView = args->out.base_color_r,
-		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-	};
-
-	g_ray_primary.desc.values[RtPrim_Desc_Out_PositionT].image = (VkDescriptorImageInfo){
-		.sampler = VK_NULL_HANDLE,
-		.imageView = args->out.position_t,
-		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-	};
-
-	g_ray_primary.desc.values[RtPrim_Desc_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-		.accelerationStructureCount = 1,
-		.pAccelerationStructures = &args->in.tlas,
-	};
-
-#define DESC_SET_BUFFER(index, buffer_) \
-	g_ray_primary.desc.values[index].buffer = (VkDescriptorBufferInfo){ \
-		.buffer = args->in.buffer_.buffer, \
-		.offset = args->in.buffer_.offset, \
-		.range = args->in.buffer_.size, \
-	}
-
-	DESC_SET_BUFFER(RtPrim_Desc_UBO, ubo);
-	DESC_SET_BUFFER(RtPrim_Desc_Kusochki, kusochki);
-	DESC_SET_BUFFER(RtPrim_Desc_Indices, indices);
-	DESC_SET_BUFFER(RtPrim_Desc_Vertices, vertices);
-
-#undef DESC_SET_BUFFER
-
-	g_ray_primary.desc.values[RtPrim_Desc_Textures].image_array = args->in.all_textures;
-
-	VK_DescriptorsWrite(&g_ray_primary.desc.riptors);
 }
 
 void XVK_RayTracePrimary( VkCommandBuffer cmdbuf, const xvk_ray_trace_primary_t *args ) {

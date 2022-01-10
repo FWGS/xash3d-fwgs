@@ -2,10 +2,11 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "ray_primary_common.glsl"
+#include "ray_primary_iface.h"
 
-layout(set = 0, binding = 0, rgba8) uniform image2D out_image_base_color_a;
-layout(set = 0, binding = 7, rgba32f) uniform image2D out_image_position_t;
-//layout(set = 0, binding = 8, rgba8) uniform image2D out_image_rough_metal;
+#define X(index, name, format) layout(set=0,binding=index,format) uniform image2D out_image_##name;
+RAY_PRIMARY_OUTPUTS(X)
+#undef X
 
 layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
 layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };

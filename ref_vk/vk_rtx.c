@@ -1022,7 +1022,7 @@ LIST_GBUFFER_IMAGES(GBUFFER_WRITE_BARRIER)
 			},
 			.out = {
 				.position_t = current_frame->position_t.view,
-				.base_color_r = current_frame->base_color.view,
+				.base_color_a = current_frame->base_color.view,
 			},
 		};
 		XVK_RayTracePrimary( cmdbuf, &primary_args );
