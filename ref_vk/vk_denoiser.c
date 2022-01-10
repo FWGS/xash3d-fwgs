@@ -134,7 +134,7 @@ void XVK_DenoiserDenoise( const xvk_denoiser_args_t* args ) {
 
 	g_denoiser.desc_values[DenoiserBinding_Source_BaseColor].image = (VkDescriptorImageInfo){
 		.sampler = VK_NULL_HANDLE,
-		.imageView = args->src.base_color_view,
+		.imageView = args->src.base_color_a_view,
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 	};
 
