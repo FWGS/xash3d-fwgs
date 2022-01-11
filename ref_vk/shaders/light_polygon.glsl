@@ -3,6 +3,8 @@
 #include "peters2021-sampling/polygon_clipping.glsl"
 #include "peters2021-sampling/polygon_sampling.glsl"
 
+#include "noise.glsl"
+
 struct SampleContext {
 	mat4x3 world_to_shading;
 };
@@ -22,8 +24,10 @@ void sampleEmissiveSurface(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mater
 
 	const EmissiveKusok ek = lights.kusochki[ekusok_index];
 	const uint emissive_kusok_index = lights.kusochki[ekusok_index].kusok_index;
-	if (emissive_kusok_index == uint(payload_opaque.kusok_index))
-		return;
+
+	// FIXME
+	// if (emissive_kusok_index == uint(payload_opaque.kusok_index))
+	// 	return;
 
 	const Kusok kusok = kusochki[emissive_kusok_index];
 
@@ -167,10 +171,12 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 #endif
 		const uint index_into_emissive_kusochki = uint(light_grid.clusters[cluster_index].emissive_surfaces[i]);
 
+#if 0
 		if (push_constants.debug_light_index_begin < push_constants.debug_light_index_end) {
 			if (index_into_emissive_kusochki < push_constants.debug_light_index_begin || index_into_emissive_kusochki >= push_constants.debug_light_index_end)
 				continue;
 		}
+#endif
 
 		vec3 ldiffuse, lspecular;
 		sampleEmissiveSurface(P, N, throughput, view_dir, material, ctx, index_into_emissive_kusochki, ldiffuse, lspecular);

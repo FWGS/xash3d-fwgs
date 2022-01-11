@@ -72,7 +72,8 @@ void main() {
 	//imageStore(dest, pix, vec4((base_color.rgb), 0.)); return;
 	//imageStore(dest, pix, vec4(fract(imageLoad(src_position_t, pix).rgb / 10.), 0.)); return;
 	//imageStore(dest, pix, vec4((imageLoad(src_diffuse_gi, pix).rgb), 0.)); return;
-	imageStore(dest, pix, vec4(imageLoad(src_normals, pix)*.5 + .5f)); return;
+	//imageStore(dest, pix, vec4((imageLoad(src_diffuse_gi, pix).rgb * base_color.rgb), 0.)); return;
+	//imageStore(dest, pix, vec4(imageLoad(src_normals, pix)*.5 + .5f)); return;
 	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_diffuse_gi, pix).rgb), 0.)); return;
 	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_specular, pix).rgb), 0.)); return;
 
@@ -85,10 +86,13 @@ void main() {
 	/* imageStore(dest, pix, vec4(rand3_f01(uvec3(mi,mi+1,mi+2)), 0.)); */
 	/* return; */
 
-	const int KERNEL_SIZE = 8;
+#if 1
+	vec3 colour = imageLoad(src_diffuse_gi, pix).rgb * base_color.rgb;
+#else
 	float total_scale = 0.;
-	float specular_total_scale = 0.;
 	vec3 colour = vec3(0.);
+	const int KERNEL_SIZE = 8;
+	float specular_total_scale = 0.;
 	vec3 speculour = vec3(0.);
 	for (int x = -KERNEL_SIZE; x <= KERNEL_SIZE; ++x)
 		for (int y = -KERNEL_SIZE; y <= KERNEL_SIZE; ++y) {
@@ -137,6 +141,7 @@ void main() {
 
 	//colour += imageLoad(src_specular, pix).rgb;
 	colour += imageLoad(src_additive, pix).rgb;
+#endif
 
 	// HACK: exposure
 	// TODO: should be dynamic based on previous frames brightness

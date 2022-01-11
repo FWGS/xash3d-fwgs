@@ -1,4 +1,5 @@
 bool shadowed(vec3 pos, vec3 dir, float dist) {
+#if 0
 	payload_shadow.hit_type = SHADOW_HIT;
 	const uint flags =  0
 		//| gl_RayFlagsCullFrontFacingTrianglesEXT
@@ -12,10 +13,14 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 		SHADER_OFFSET_HIT_SHADOW_BASE, SBT_RECORD_SIZE, SHADER_OFFSET_MISS_SHADOW,
 		pos, 0., dir, dist - shadow_offset_fudge, PAYLOAD_LOCATION_SHADOW);
 	return payload_shadow.hit_type == SHADOW_HIT;
+#else
+	return false;
+#endif
 }
 
 // TODO join with just shadowed()
 bool shadowedSky(vec3 pos, vec3 dir, float dist) {
+#if 0
 	payload_shadow.hit_type = SHADOW_HIT;
 	const uint flags =  0
 		//| gl_RayFlagsCullFrontFacingTrianglesEXT
@@ -29,6 +34,9 @@ bool shadowedSky(vec3 pos, vec3 dir, float dist) {
 		SHADER_OFFSET_HIT_SHADOW_BASE, SBT_RECORD_SIZE, SHADER_OFFSET_MISS_SHADOW,
 		pos, 0., dir, dist - shadow_offset_fudge, PAYLOAD_LOCATION_SHADOW);
 	return payload_shadow.hit_type != SHADOW_SKY;
+#else
+	return false;
+#endif
 }
 
 // This is an entry point for evaluation of all other BRDFs based on selected configuration (for direct light)

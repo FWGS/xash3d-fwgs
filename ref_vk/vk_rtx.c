@@ -1,6 +1,7 @@
 #include "vk_rtx.h"
 
 #include "vk_ray_primary.h"
+#include "vk_ray_light_direct.h"
 
 #include "vk_core.h"
 #include "vk_common.h"
@@ -94,12 +95,12 @@ typedef struct {
 
 #define X(index, name, ...) xvk_image_t name;
 RAY_PRIMARY_OUTPUTS(X)
+RAY_LIGHT_DIRECT_OUTPUTS(X)
 #undef X
 
 	xvk_image_t diffuse_gi;
 	xvk_image_t specular;
 	xvk_image_t additive;
-	xvk_image_t normals;
 } xvk_ray_frame_images_t;
 
 static struct {
@@ -711,7 +712,7 @@ static void updateDescriptors( const vk_ray_frame_render_args_t *args, int frame
 
 	g_rtx.desc_values[RayDescBinding_Dest_ImageNormals].image = (VkDescriptorImageInfo){
 		.sampler = VK_NULL_HANDLE,
-		.imageView = frame_dst->normals.view,
+		//.imageView = frame_dst->normals.view,
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 	};
 
@@ -948,11 +949,39 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 	//updateDescriptors(args, frame_index, current_frame);
 
 #define LIST_GBUFFER_IMAGES(X) \
-	RAY_PRIMARY_OUTPUTS(X) \
 	X(0, diffuse_gi) \
 	X(0, specular) \
 	X(0, additive) \
-	X(0, normals) \
+
+#define IMAGE_BARRIER(img, src_access, dst_access, old_layout, new_layout) { \
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, \
+		.image = current_frame->img.image, \
+		.srcAccessMask = src_access, \
+		.dstAccessMask = dst_access, \
+		.oldLayout = old_layout, \
+		.newLayout = new_layout, \
+		.subresourceRange = (VkImageSubresourceRange) { \
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, \
+			.baseMipLevel = 0, \
+			.levelCount = 1, \
+			.baseArrayLayer = 0, \
+			.layerCount = 1, \
+		}, \
+	},
+
+#define IMAGE_BARRIER_READ(index, img, ...) \
+	IMAGE_BARRIER(img, \
+		VK_ACCESS_SHADER_WRITE_BIT, \
+		VK_ACCESS_SHADER_READ_BIT, \
+		VK_IMAGE_LAYOUT_GENERAL, \
+		VK_IMAGE_LAYOUT_GENERAL)
+
+#define IMAGE_BARRIER_WRITE(index, img, ...) \
+	IMAGE_BARRIER(img, \
+		0, \
+		VK_ACCESS_SHADER_WRITE_BIT, \
+		VK_IMAGE_LAYOUT_UNDEFINED, \
+		VK_IMAGE_LAYOUT_GENERAL)
 
 	// 4. Barrier for TLAS build and dest image layout transfer
 	{
@@ -965,23 +994,10 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 			.size = VK_WHOLE_SIZE,
 		} };
 		VkImageMemoryBarrier image_barrier[] = {
-#define GBUFFER_WRITE_BARRIER(index, img, ...) { \
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, \
-			.image = current_frame->img.image, \
-			.srcAccessMask = 0, \
-			.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT, \
-			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED, \
-			.newLayout = VK_IMAGE_LAYOUT_GENERAL, \
-			.subresourceRange = (VkImageSubresourceRange) { \
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, \
-				.baseMipLevel = 0, \
-				.levelCount = 1, \
-				.baseArrayLayer = 0, \
-				.layerCount = 1, \
-			}, \
-		},
-LIST_GBUFFER_IMAGES(GBUFFER_WRITE_BARRIER)
+			LIST_GBUFFER_IMAGES(IMAGE_BARRIER_WRITE) // TODO this is not true lol
+			RAY_PRIMARY_OUTPUTS(IMAGE_BARRIER_WRITE)
 		};
+
 		vkCmdPipelineBarrier(cmdbuf,
 			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
@@ -1024,44 +1040,78 @@ RAY_PRIMARY_OUTPUTS(X)
 		};
 		XVK_RayTracePrimary( cmdbuf, &primary_args );
 	}
+
 	//rayTrace(cmdbuf, current_frame, fov_angle_y);
 
 	{
 		const VkImageMemoryBarrier image_barriers[] = {
-#define GBUFFER_READ_BARRIER(index, img, ...) { \
-		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, \
-		.image = current_frame->img.image, \
-		.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT, \
-		.dstAccessMask = VK_ACCESS_SHADER_READ_BIT, \
-		.oldLayout = VK_IMAGE_LAYOUT_GENERAL, \
-		.newLayout = VK_IMAGE_LAYOUT_GENERAL, \
-		.subresourceRange = (VkImageSubresourceRange) { \
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, \
-			.baseMipLevel = 0, \
-			.levelCount = 1, \
-			.baseArrayLayer = 0, \
-			.layerCount = 1, \
-		}, \
-	},
-LIST_GBUFFER_IMAGES(GBUFFER_READ_BARRIER)
-			{
-				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-				.image = current_frame->denoised.image,
-				.srcAccessMask = 0,
-				.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-				.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-				.subresourceRange =
-					(VkImageSubresourceRange){
-						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-						.baseMipLevel = 0,
-						.levelCount = 1,
-						.baseArrayLayer = 0,
-						.layerCount = 1,
-					},
-		} };
+			RAY_PRIMARY_OUTPUTS(IMAGE_BARRIER_READ)
+			RAY_LIGHT_DIRECT_OUTPUTS(IMAGE_BARRIER_WRITE)
+		};
+
 		vkCmdPipelineBarrier(args->cmdbuf,
 			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
+	}
+
+	{
+		const xvk_ray_trace_light_direct_t light_direct_args = {
+			.width = FRAME_WIDTH,
+			.height = FRAME_HEIGHT,
+			.in = {
+				.tlas = g_rtx.tlas,
+				.ubo = {
+					.buffer = g_rtx.uniform_buffer.buffer,
+					.offset = frame_index * sizeof(struct UniformBuffer),
+					.size = sizeof(struct UniformBuffer),
+				},
+				.kusochki = {
+					.buffer = g_ray_model_state.kusochki_buffer.buffer,
+					.offset = 0,
+					.size = g_ray_model_state.kusochki_buffer.size,
+				},
+				.indices = {
+					.buffer = args->geometry_data.buffer,
+					.offset = 0,
+					.size = args->geometry_data.size,
+				},
+				.vertices = {
+					.buffer = args->geometry_data.buffer,
+					.offset = 0,
+					.size = args->geometry_data.size,
+				},
+				.lights = {
+					.buffer = g_ray_model_state.lights_buffer.buffer,
+					.offset = 0,
+					.size = VK_WHOLE_SIZE, // TODO multiple frames
+				},
+				.light_clusters = {
+					.buffer = g_rtx.light_grid_buffer.buffer,
+					.offset = 0,
+					.size = VK_WHOLE_SIZE, // TODO multiple frames
+				},
+				.all_textures = tglob.dii_all_textures,
+#define X(index, name, ...) .name = current_frame->name.view,
+				RAY_LIGHT_DIRECT_INPUTS(X)
+			},
+			.out = {
+				RAY_LIGHT_DIRECT_OUTPUTS(X)
+#undef X
+			},
+		};
+		XVK_RayTraceLightDirect( cmdbuf, &light_direct_args );
+	}
+
+
+	{
+		const VkImageMemoryBarrier image_barriers[] = {
+			RAY_LIGHT_DIRECT_OUTPUTS(IMAGE_BARRIER_READ)
+			LIST_GBUFFER_IMAGES(IMAGE_BARRIER_READ)
+			IMAGE_BARRIER_WRITE(-1/*unused*/, denoised)
+		};
+		vkCmdPipelineBarrier(args->cmdbuf,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
 	}
@@ -1074,7 +1124,7 @@ LIST_GBUFFER_IMAGES(GBUFFER_READ_BARRIER)
 			.src = {
 				.position_t_view = current_frame->position_t.view,
 				.base_color_a_view = current_frame->base_color_a.view,
-				.diffuse_gi_view = current_frame->diffuse_gi.view,
+				.diffuse_gi_view = current_frame->light_diffuse.view,
 				.specular_view = current_frame->specular.view,
 				.additive_view = current_frame->additive.view,
 				.normals_view = current_frame->normals_gs.view,
@@ -1136,6 +1186,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		createPipeline();
 
 		XVK_RayTracePrimaryReloadPipeline();
+		XVK_RayTraceLightDirectReloadPipeline();
 		XVK_DenoiserReloadPipeline();
 		g_rtx.reload_pipeline = false;
 	}
@@ -1306,6 +1357,7 @@ qboolean VK_RayInit( void )
 	// TODO complain and cleanup on failure
 
 	ASSERT(XVK_RayTracePrimaryInit());
+	ASSERT(XVK_RayTraceLightDirectInit());
 
 	g_rtx.sbt_record_size = vk_core.physical_device.sbt_record_size;
 
@@ -1400,7 +1452,10 @@ qboolean VK_RayInit( void )
 #define rgba32f VK_FORMAT_R32G32B32A32_SFLOAT
 #define rgba16f VK_FORMAT_R16G16B16A16_SFLOAT
 #define X(index, name, format) CREATE_GBUFFER_IMAGE(name, format, 0);
+// TODO better format for normals VK_FORMAT_R16G16B16A16_SNORM
+// TODO make sure this format and usage is suppported
 RAY_PRIMARY_OUTPUTS(X)
+RAY_LIGHT_DIRECT_OUTPUTS(X)
 #undef X
 #undef rgba8
 #undef rgba32f
@@ -1408,8 +1463,6 @@ RAY_PRIMARY_OUTPUTS(X)
 		CREATE_GBUFFER_IMAGE(diffuse_gi, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
 		CREATE_GBUFFER_IMAGE(specular, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
 		CREATE_GBUFFER_IMAGE(additive, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
-		// TODO make sure this format and usage is suppported
-		CREATE_GBUFFER_IMAGE(normals, VK_FORMAT_R16G16B16A16_SNORM, 0);
 #undef CREATE_GBUFFER_IMAGE
 	}
 
@@ -1423,17 +1476,18 @@ RAY_PRIMARY_OUTPUTS(X)
 void VK_RayShutdown( void ) {
 	ASSERT(vk_core.rtx);
 
+	XVK_RayTraceLightDirectDestroy();
 	XVK_RayTracePrimaryDestroy();
 
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
 		XVK_ImageDestroy(&g_rtx.frames[i].denoised);
 #define X(index, name, ...) XVK_ImageDestroy(&g_rtx.frames[i].name);
 RAY_PRIMARY_OUTPUTS(X)
+RAY_LIGHT_DIRECT_OUTPUTS(X)
 #undef X
 		XVK_ImageDestroy(&g_rtx.frames[i].diffuse_gi);
 		XVK_ImageDestroy(&g_rtx.frames[i].specular);
 		XVK_ImageDestroy(&g_rtx.frames[i].additive);
-		XVK_ImageDestroy(&g_rtx.frames[i].normals);
 	}
 
 	vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
