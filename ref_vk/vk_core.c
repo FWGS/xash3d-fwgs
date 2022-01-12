@@ -134,6 +134,7 @@ static const char* device_extensions[] = {
 	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
 	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+	VK_KHR_RAY_QUERY_EXTENSION_NAME,
 
 	// FIXME make this not depend on RTX
 #ifdef USE_AFTERMATH
@@ -520,16 +521,20 @@ static qboolean createDevice( void ) {
 			.pNext = vk_core.rtx ? &ray_tracing_pipeline_feature: NULL,
 			.features.samplerAnisotropy = candidate_device->features.features.samplerAnisotropy,
 		};
+		VkPhysicalDeviceRayQueryFeaturesKHR ray_query_feature = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+			.pNext = &features,
+			.rayQuery = VK_TRUE,
+		};
+		void *head = &ray_query_feature;
 
 #ifdef USE_AFTERMATH
 		VkDeviceDiagnosticsConfigCreateInfoNV diag_config_nv = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV,
-			.pNext = &features,
+			.pNext = head,
 			.flags = VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_AUTOMATIC_CHECKPOINTS_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV,
 		};
-		void *head = &diag_config_nv;
-#else
-		void *head = &features;
+		head = &diag_config_nv;
 #endif
 
 		const float queue_priorities[1] = {1.f};

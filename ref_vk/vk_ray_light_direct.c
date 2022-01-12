@@ -9,7 +9,7 @@
 
 enum {
 	// TODO set 0
-	//RtLDir_Desc_TLAS,
+	RtLDir_Desc_TLAS,
 	RtLDir_Desc_UBO,
 	RtLDir_Desc_Kusochki,
 	RtLDir_Desc_Indices,
@@ -64,14 +64,13 @@ static void initDescriptors( void ) {
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, \
 	}
 
-	//INIT_BINDING(1, TLAS, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1);
+	INIT_BINDING(1, TLAS, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1);
 	INIT_BINDING(2, UBO, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1);
 	INIT_BINDING(3, Kusochki, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1);
 	INIT_BINDING(4, Indices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1);
 	INIT_BINDING(5, Vertices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1);
 	INIT_BINDING(6, Textures, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_TEXTURES);
 	INIT_BINDING(7, Lights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1);
-	//INIT_BINDING(7, Lights, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1);
 	INIT_BINDING(8, LightClusters, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1);
 
 //#define X(index, name, ...) INIT_BINDING(index, name, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
@@ -104,11 +103,11 @@ static void updateDescriptors( const xvk_ray_trace_light_direct_t* args ) {
 	};
 	RAY_LIGHT_DIRECT_OUTPUTS(X)
 
-	/* g_ray_light_direct.desc.values[RtLDir_Desc_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){ */
-	/* 	.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR, */
-	/* 	.accelerationStructureCount = 1, */
-	/* 	.pAccelerationStructures = &args->in.tlas, */
-	/* }; */
+	g_ray_light_direct.desc.values[RtLDir_Desc_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+		.accelerationStructureCount = 1,
+		.pAccelerationStructures = &args->in.tlas,
+	};
 
 #define DESC_SET_BUFFER(index, buffer_) \
 	g_ray_light_direct.desc.values[index].buffer = (VkDescriptorBufferInfo){ \

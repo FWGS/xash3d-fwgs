@@ -3,6 +3,8 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_control_flow_attributes : require
 
+#define RAY_TRACE
+
 #include "ray_common.glsl"
 #include "ray_kusochki.glsl"
 #include "noise.glsl"

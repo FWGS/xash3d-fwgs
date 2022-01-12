@@ -1,7 +1,7 @@
 #version 460 core
 #extension GL_GOOGLE_include_directive : require
-//#extension GL_EXT_ray_query: require
 #extension GL_EXT_control_flow_attributes : require
+#extension GL_EXT_ray_query: require
 
 #include "utils.glsl"
 
@@ -20,10 +20,12 @@ RAY_LIGHT_DIRECT_INPUTS(X)
 RAY_LIGHT_DIRECT_OUTPUTS(X)
 #undef X
 
-//layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
+layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
 layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };
 
 #include "ray_kusochki.glsl"
+
+#define RAY_QUERY
 
 #define BINDING_LIGHTS 7
 #define BINDING_LIGHT_CLUSTERS 8
