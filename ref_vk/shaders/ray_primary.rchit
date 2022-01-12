@@ -2,6 +2,8 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : enable
 
+#include "utils.glsl"
+
 #include "ray_primary_common.glsl"
 
 #include "ray_kusochki.glsl"
@@ -34,6 +36,6 @@ void main() {
 		payload.base_color_a = sampleTexture(tex_base_color, geom.uv, geom.uv_lods) * kusok.color;
 	}
 
-	payload.normals_gs.xy = geom.normal_geometry.xy;
-	payload.normals_gs.zw = geom.normal_shading.xy;
+	payload.normals_gs.xy = normalEncode(geom.normal_geometry);
+	payload.normals_gs.zw = normalEncode(geom.normal_shading);
 }

@@ -3,6 +3,8 @@
 //#extension GL_EXT_ray_query: require
 #extension GL_EXT_control_flow_attributes : require
 
+#include "utils.glsl"
+
 layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
 
 #include "ray_light_direct_iface.h"
@@ -29,8 +31,8 @@ layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };
 
 void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) {
 	const vec4 n = imageLoad(normals_gs, uv);
-	geometry_normal = vec3(n.xy, sqrt(1. - n.x*n.x - n.y*n.y));
-	shading_normal = vec3(n.zw, sqrt(1. - n.z*n.z - n.w*n.w));
+	geometry_normal = normalDecode(n.xy);
+	shading_normal = normalDecode(n.zw);
 }
 
 void main() {
@@ -58,8 +60,11 @@ void main() {
 
 	const vec3 throughput = vec3(1.);
 	vec3 diffuse = vec3(0.), specular = vec3(0.);
-	computeLighting(pos, shading_normal, throughput, -direction, material, diffuse, specular);
+	computeLighting(pos + geometry_normal * .001, shading_normal, throughput, -direction, material, diffuse, specular);
 
+	//specular = shading_normal;
+	//diffuse = geometry_normal;
+	//diffuse = shading_normal;
 	imageStore(out_image_light_diffuse, pix, vec4(diffuse, 0.f));
 	//imageStore(out_image_light_diffuse, pix, vec4(1.,0.,0.f, 0.f));
 	imageStore(out_image_light_specular, pix, vec4(specular, 0.f));

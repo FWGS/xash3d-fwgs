@@ -1,6 +1,7 @@
 #version 460
 
 #include "noise.glsl"
+#include "utils.glsl"
 
 layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
 
@@ -45,8 +46,8 @@ float normpdf(in float x, in float sigma) { return normpdf2(x*x, sigma); }
 
 void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) {
 	const vec4 n = imageLoad(src_normals, uv);
-	geometry_normal = vec3(n.xy, sqrt(1. - n.x*n.x - n.y*n.y));
-	shading_normal = vec3(n.zw, sqrt(1. - n.z*n.z - n.w*n.w));
+	geometry_normal = normalDecode(n.xy);
+	shading_normal = normalDecode(n.zw);
 }
 
 void main() {
@@ -74,6 +75,7 @@ void main() {
 	//imageStore(dest, pix, vec4((imageLoad(src_diffuse_gi, pix).rgb), 0.)); return;
 	//imageStore(dest, pix, vec4((imageLoad(src_diffuse_gi, pix).rgb * base_color.rgb), 0.)); return;
 	//imageStore(dest, pix, vec4(imageLoad(src_normals, pix)*.5 + .5f)); return;
+	//imageStore(dest, pix, vec4(imageLoad(src_specular, pix)*.5 + .5f)); return;
 	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_diffuse_gi, pix).rgb), 0.)); return;
 	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_specular, pix).rgb), 0.)); return;
 

@@ -1125,7 +1125,7 @@ RAY_PRIMARY_OUTPUTS(X)
 				.position_t_view = current_frame->position_t.view,
 				.base_color_a_view = current_frame->base_color_a.view,
 				.diffuse_gi_view = current_frame->light_diffuse.view,
-				.specular_view = current_frame->specular.view,
+				.specular_view = current_frame->light_specular.view,
 				.additive_view = current_frame->additive.view,
 				.normals_view = current_frame->normals_gs.view,
 			},
