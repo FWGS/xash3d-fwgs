@@ -3071,6 +3071,8 @@ void CL_Init( void )
 
 	CL_InitLocal();
 
+	RM_Init();  // init resource manager
+
 	VID_Init();	// init video
 	S_Init();	// init sound
 

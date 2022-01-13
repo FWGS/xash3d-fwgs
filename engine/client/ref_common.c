@@ -18,12 +18,6 @@ convar_t *gl_msaa_samples;
 convar_t *gl_clear;
 convar_t *r_refdll;
 
-void R_GetTextureParms( int *w, int *h, int texnum )
-{
-	if( w ) *w = REF_GET_PARM( PARM_TEX_WIDTH, texnum );
-	if( h ) *h = REF_GET_PARM( PARM_TEX_HEIGHT, texnum );
-}
-
 /*
 ================
 GL_FreeImage
