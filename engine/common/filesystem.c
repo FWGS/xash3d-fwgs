@@ -2186,8 +2186,8 @@ void FS_Init( void )
 
 		for( i = 0; i < dirs.numstrings; i++ )
 		{
-			char *roPath = va( "%s" PATH_SPLITTER "%s", host.rodir, dirs.strings[i] );
-			char *rwPath = va( "%s" PATH_SPLITTER "%s", host.rootdir, dirs.strings[i] );
+			char *roPath = va( "%s" PATH_SPLITTER "%s" PATH_SPLITTER, host.rodir, dirs.strings[i] );
+			char *rwPath = va( "%s" PATH_SPLITTER "%s" PATH_SPLITTER, host.rootdir, dirs.strings[i] );
 
 			// check if it's a directory
 			if( !FS_SysFolderExists( roPath ))
