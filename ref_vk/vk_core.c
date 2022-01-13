@@ -14,9 +14,12 @@
 #include "vk_studio.h"
 #include "vk_rtx.h"
 #include "vk_descriptor.h"
-#include "vk_light.h"
 #include "vk_nv_aftermath.h"
+#include "vk_devmem.h"
+
+// FIXME move this rt-specific stuff out
 #include "vk_denoiser.h"
+#include "vk_light.h"
 
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -735,15 +738,19 @@ qboolean R_VkInit( void )
 	if (!createCommandPool())
 		return false;
 
+	if (!VK_DevMemInit())
+		return false;
+
 	if (!VK_BuffersInit())
 		return false;
 
+	// TODO move this to vk_texture module
 	{
 		VkSamplerCreateInfo sci = {
 			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
 			.magFilter = VK_FILTER_LINEAR,
 			.minFilter = VK_FILTER_LINEAR,
-			.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,//CLAMP_TO_EDGE,
+			.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,// TODO CLAMP_TO_EDGE, for menus
 			.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,//CLAMP_TO_EDGE,
 			.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
 			.anisotropyEnable = vk_core.physical_device.anisotropy_enabled,
@@ -789,6 +796,7 @@ qboolean R_VkInit( void )
 		if (!VK_RayInit())
 			return false;
 
+		// FIXME move all this to rt-specific modules
 		VK_LightsInit();
 
 		if (!XVK_DenoiserInit())
@@ -823,6 +831,8 @@ void R_VkShutdown( void )
 
 	vkDestroySampler(vk_core.device, vk_core.default_sampler, NULL);
 	VK_BuffersDestroy();
+
+	VK_DevMemDestroy();
 
 	vkDestroyCommandPool(vk_core.device, vk_core.command_pool, NULL);
 

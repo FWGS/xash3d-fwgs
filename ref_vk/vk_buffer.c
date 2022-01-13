@@ -35,9 +35,7 @@ qboolean VK_BufferCreate(const char *debug_name, vk_buffer_t *buf, uint32_t size
 	buf->devmem = VK_DevMemAllocate(memreq, flags, usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT ? VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT : 0);
 	XVK_CHECK(vkBindBufferMemory(vk_core.device, buf->buffer, buf->devmem.device_memory, buf->devmem.offset));
 
-	// FIXME when there are many allocation per VkDeviceMemory, fix this
-	if (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT & flags)
-		XVK_CHECK(vkMapMemory(vk_core.device, buf->devmem.device_memory, 0, bci.size, 0, &buf->mapped));
+	buf->mapped = buf->devmem.mapped;
 
 	buf->size = size;
 
@@ -52,9 +50,6 @@ void VK_BufferDestroy(vk_buffer_t *buf) {
 
 	// FIXME when there are many allocation per VkDeviceMemory, fix this
 	if (buf->devmem.device_memory) {
-		if (buf->mapped)
-			vkUnmapMemory(vk_core.device, buf->devmem.device_memory);
-
 		VK_DevMemFree(&buf->devmem);
 		buf->devmem.device_memory = VK_NULL_HANDLE;
 		buf->devmem.offset = 0;

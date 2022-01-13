@@ -113,7 +113,7 @@ static void createDepthImage(int w, int h) {
 
 	vkGetImageMemoryRequirements(vk_core.device, g_frame.depth.image, &memreq);
 	g_frame.depth.device_memory = VK_DevMemAllocate(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
-	XVK_CHECK(vkBindImageMemory(vk_core.device, g_frame.depth.image, g_frame.depth.device_memory.device_memory, 0));
+	XVK_CHECK(vkBindImageMemory(vk_core.device, g_frame.depth.image, g_frame.depth.device_memory.device_memory, g_frame.depth.device_memory.offset));
 
 	{
 		VkImageViewCreateInfo ivci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
@@ -744,10 +744,8 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 		};
 		VkSubresourceLayout layout;
-		const char *mapped;
+		const char *mapped = dest_devmem.mapped;
 		vkGetImageSubresourceLayout(vk_core.device, dest_image, &subres, &layout);
-
-		vkMapMemory(vk_core.device, dest_devmem.device_memory, 0, VK_WHOLE_SIZE, 0, (void**)&mapped);
 
 		mapped += layout.offset;
 
@@ -788,8 +786,6 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 				}
 			}
 		}
-
-		vkUnmapMemory(vk_core.device, dest_devmem.device_memory);
 	}
 
 	vkDestroyImage(vk_core.device, dest_image, NULL);
