@@ -1384,13 +1384,13 @@ void Cmd_Init( void )
 	Cmd_AddCommand( "echo", Cmd_Echo_f, "print a message to the console (useful in scripts)" );
 	Cmd_AddCommand( "wait", Cmd_Wait_f, "make script execution wait for some rendered frames" );
 	Cmd_AddCommand( "cmdlist", Cmd_List_f, "display all console commands beginning with the specified prefix" );
-	Cmd_AddCommand( "stuffcmds", Cmd_StuffCmds_f, "execute commandline parameters (must be present in .rc script)" );
+	Cmd_AddRestrictedCommand( "stuffcmds", Cmd_StuffCmds_f, "execute commandline parameters (must be present in .rc script)" );
 	Cmd_AddCommand( "apropos", Cmd_Apropos_f, "lists all console variables/commands/aliases containing the specified string in the name or description" );
 #if !XASH_DEDICATED
 	Cmd_AddCommand( "cmd", Cmd_ForwardToServer, "send a console commandline to the server" );
 #endif // XASH_DEDICATED
-	Cmd_AddCommand( "alias", Cmd_Alias_f, "create a script function. Without arguments show the list of all alias" );
-	Cmd_AddCommand( "unalias", Cmd_UnAlias_f, "remove a script function" );
+	Cmd_AddRestrictedCommand( "alias", Cmd_Alias_f, "create a script function. Without arguments show the list of all alias" );
+	Cmd_AddRestrictedCommand( "unalias", Cmd_UnAlias_f, "remove a script function" );
 	Cmd_AddCommand( "if", Cmd_If_f, "compare and set condition bits" );
 	Cmd_AddCommand( "else", Cmd_Else_f, "invert condition bit" );
 
