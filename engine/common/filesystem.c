@@ -717,7 +717,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	int		  numpackfiles = 0, i;
 	zip_cdf_header_t  header_cdf;
 	zip_header_eocd_t header_eocd;
-	uint		  signature;
+	uint32_t          signature;
 	fs_offset_t	  filepos = 0, length;
 	zipfile_t	  *info = NULL;
 	char		  filename_buffer[MAX_SYSPATH];
@@ -794,7 +794,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		lseek( zip->handle, filepos, SEEK_SET );
 		c = read( zip->handle, &signature, sizeof( signature ) );
 
-		if( c != sizeof( signature ) || signature == ZIP_HEADER_EOCD )
+		if( c == sizeof( signature ) && signature == ZIP_HEADER_EOCD )
 			break;
 
 		filepos -= sizeof( char ); // step back one byte
