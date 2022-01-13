@@ -193,16 +193,26 @@ void RM_FreeTexture( unsigned int texnum )
 
 int RM_FindTexture( const char *name )
 {
-	Con_Reportf( "Unimplemented RM_FindTexture. Name %s\n", name );
+	rm_texture_t* texture;
 
-	return 0;
+	Con_Reportf( "RM_FindTexture. Name %s\n", name );
+
+	texture = GetTextureByName( name );
+	if( texture == NULL)
+	{
+		return 0;
+	}
+	else
+	{
+		return texture->number;
+	}
 }
 
 void RM_GetTextureParams( int* w, int* h, int texnum )
 {
 	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
 
-	Con_Reportf( "RM_GetTextureParams. Texnum %d\n", texnum );
+	//Con_Reportf( "RM_GetTextureParams. Texnum %d\n", texnum );
 
 	if (w) *w = RM_TextureManager.textures[texnum].width;
 	if (h) *h = RM_TextureManager.textures[texnum].height; 
