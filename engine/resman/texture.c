@@ -12,12 +12,14 @@
 
 #define MAX_LIGHTMAPS	    (256)
 
+#define MAX_NAME_LEN        (256)
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Structs
 
 typedef struct rm_texture_s {
-	char name[256];
+	char name[MAX_NAME_LEN];
 
 	rgbdata_t* picture;
 	int width;
@@ -58,7 +60,9 @@ static struct {
 ////////////////////////////////////////////////////////////////////////////////
 // Local
 
-static rm_texture_t* AppendTexture( const char* name, int flags );
+static qboolean      IsValidTextureName( const char *name );
+static rm_texture_t* GetTextureByName  ( const char *name );
+static rm_texture_t* AppendTexture     ( const char* name, int flags );
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -99,9 +103,9 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 
 	Con_Reportf( "RM_LoadTexture. Name %s, size %d\n", name, size );
 
-	// TODO: Check name
-	//if( !Common_CheckTexName( name ))
-	//	return 0;
+	// Check name
+	if( !IsValidTextureName( name ))
+		return 0;
 
 	// TODO: Check cache
 	//if(( tex = Common_TextureForName( name )))
@@ -180,6 +184,13 @@ void RM_GetTextureParams( int* w, int* h, int texnum )
 ////////////////////////////////////////////////////////////////////////////////
 // Local implementation
 
+qboolean IsValidTextureName( const char *name )
+{
+	if( !COM_CheckString( name ) )
+		return false;
+	else
+		return Q_strlen( name ) < MAX_NAME_LEN;
+}
 rm_texture_t* AppendTexture( const char* name, int flags )
 {
 	rm_texture_t* texture;
