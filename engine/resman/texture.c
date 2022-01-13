@@ -104,7 +104,7 @@ void RM_SetRender( ref_interface_t* ref )
 
 void RM_ReuploadTextures()
 {
-	// TODO: Unimplemented now, for future render switch
+	// TODO: Implement this for future render switch
 }
 
 int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
@@ -113,12 +113,12 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	rm_texture_t* texture;
 	uint		  picFlags;
 
-	Con_Reportf( "RM_LoadTexture. Name %s, size %d\n", name, size );
+	Con_Reportf( "RM_LoadTexture. Name %s\n", name );
 
 	// Check name
 	if( !IsValidTextureName( name ))
 	{
-		Con_Reportf( "Invalid texture name\n", name );
+		Con_Reportf( "Invalid texture name\n" );
 		return 0;
 	}
 
@@ -187,9 +187,27 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	return texture->number;
 }
 
+int RM_LoadTextureArray( const char **names, int flags )
+{
+	// TODO: Implement
+	Con_Printf( "Unimplemented RM_LoadTextureArray\n" );
+}
+
 void RM_FreeTexture( unsigned int texnum )
 {
 	Con_Reportf( "Unimplemented RM_FreeTexture. TexNum %d\n", texnum );
+}
+
+const char*	RM_TextureName( unsigned int texnum )
+{
+	// TODO: Implement
+	Con_Printf( "Unimplemented RM_TextureName\n" );
+}
+
+const byte*	RM_TextureData( unsigned int texnum )
+{
+	// TODO: Implement
+	Con_Printf( "Unimplemented RM_TextureData\n" );
 }
 
 int RM_FindTexture( const char *name )
@@ -217,6 +235,18 @@ void RM_GetTextureParams( int* w, int* h, int texnum )
 
 	if (w) *w = RM_TextureManager.textures[texnum].width;
 	if (h) *h = RM_TextureManager.textures[texnum].height; 
+}
+
+int	RM_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags )
+{
+	// TODO: Implement
+	Con_Printf( "Unimplemented RM_CreateTexture\n" );
+}
+
+int RM_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags )
+{
+	// TODO: Implement
+	Con_Printf( "Unimplemented RM_CreateTextureArray\n" );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
