@@ -18,8 +18,11 @@
 
 typedef struct rm_texture_s {
 	char name[256];
+
+	rgbdata_t* picture;
 	int width;
 	int height;
+	
 	int flags;
 
 	uint number;
@@ -47,13 +50,15 @@ static struct {
 	int lightmap_textures[MAX_LIGHTMAPS];
 	int dlight_texture;
 	int cinematic_texture;
+
+	ref_interface_t* ref;
 } RM_TextureManager;
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // Local
 
-static rm_texture_t* AllocTexture( const char* name, int flags );
+static rm_texture_t* AppendTexture( const char* name, int flags );
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -75,6 +80,16 @@ void RM_Init()
 	RM_TextureManager.textures_count = 1;
 
 	// TODO: Create internal textures
+}
+
+void RM_SetRender( ref_interface_t* ref )
+{
+	RM_TextureManager.ref = ref;
+}
+
+void RM_ReuploadTextures()
+{
+	// TODO: Unimplemented now, for future render switch
 }
 
 int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
@@ -107,14 +122,26 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	if( !picture ) return 0;
 
 	// Allocate texture
-	texture = AllocTexture( name, flags );
-	texture->width  = picture->width;
-	texture->height = picture->height;
+	texture = AppendTexture( name, flags );
+	texture->picture = picture;
+	texture->width   = picture->width;
+	texture->height  = picture->height;
 
 	// TODO: Prepare texture
 	//VK_ProcessImage( tex, pic );
 
-	// TODO: Upload texture
+	// Upload texture
+	if (RM_TextureManager.ref)
+	{
+		RM_TextureManager.ref->GL_LoadTextureFromBuffer
+		(
+			&(texture->name),
+			texture->picture,
+			texture->flags, 
+			/* What is update??? */ false
+		);
+	}
+
 	//if( !uploadTexture( tex, &pic, 1, false ))
 	//{
 	//	memset( tex, 0, sizeof( vk_texture_t ));
@@ -124,9 +151,6 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 
 	// TODO: Apply texture params
 	//VK_ApplyTextureParams( tex );
-
-	// Release source texture
-	FS_FreeImage( picture );
 
 	return texture->number;
 }
@@ -148,7 +172,6 @@ void RM_GetTextureParams( int* w, int* h, int texnum )
 	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
 
 	Con_Reportf( "RM_GetTextureParams. Texnum %d\n", texnum );
-	Con_Reportf( "Texnum %d is texture %s\n", RM_TextureManager.textures[texnum].name );
 
 	if (w) *w = RM_TextureManager.textures[texnum].width;
 	if (h) *h = RM_TextureManager.textures[texnum].height; 
@@ -157,14 +180,14 @@ void RM_GetTextureParams( int* w, int* h, int texnum )
 ////////////////////////////////////////////////////////////////////////////////
 // Local implementation
 
-rm_texture_t* AllocTexture( const char* name, int flags )
+rm_texture_t* AppendTexture( const char* name, int flags )
 {
 	rm_texture_t* texture;
 	uint i;
 
 	// Find a free rm_texture_t slot
 	for( 
-		i = 0, texture = &(RM_TextureManager.textures); 
+		i = 0, texture = &(RM_TextureManager.textures[0]); 
 		i < RM_TextureManager.textures_count; 
 		i++, texture++
 	)
@@ -192,9 +215,10 @@ rm_texture_t* AllocTexture( const char* name, int flags )
 	// Setup params
 	Q_strncpy( texture->name, name, sizeof( texture->name ) );
 	
-	// Width and height will be set later
-	texture->width  = 0;
-	texture->height = 0;
+	// Pointer to picture, width and height will be set later
+	texture->picture = NULL; 
+	texture->width   = 0;
+	texture->height  = 0;
 	
 	texture->number = i; 
 	texture->flags = flags;
