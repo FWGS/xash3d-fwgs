@@ -281,19 +281,19 @@ static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 	switch( button.button )
 	{
 	case SDL_BUTTON_LEFT:
-		if( down ) SetBits( mstate, BIT( 0 ));
+		IN_MouseEvent( 0, down );
 		break;
 	case SDL_BUTTON_MIDDLE:
-		if( down ) SetBits( mstate, BIT( 1 ));
+		IN_MouseEvent( 1, down );
 		break;
 	case SDL_BUTTON_RIGHT:
-		if( down ) SetBits( mstate, BIT( 2 ));
+		IN_MouseEvent( 2, down );
 		break;
 	case SDL_BUTTON_X1:
-		if( down ) SetBits( mstate, BIT( 3 ));
+		IN_MouseEvent( 3, down );
 		break;
 	case SDL_BUTTON_X2:
-		if( down ) SetBits( mstate, BIT( 4 ));
+		IN_MouseEvent( 4, down );
 		break;
 #if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
 	case SDL_BUTTON_WHEELUP:
@@ -306,8 +306,6 @@ static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 	default:
 		Con_Printf( "Unknown mouse button ID: %d\n", button.button );
 	}
-
-	IN_MouseEvent( mstate );
 }
 
 /*

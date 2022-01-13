@@ -30,8 +30,7 @@ qboolean	in_mouseinitialized;
 qboolean	in_mouse_suspended;
 POINT		in_lastvalidpos;
 qboolean	in_mouse_savedpos;
-static uint in_mouse_oldbuttonstate;
-static int  in_mouse_buttons = 5; // SDL maximum
+static int in_mstate = 0;
 static struct inputstate_s
 {
 	float lastpitch, lastyaw;
@@ -337,50 +336,33 @@ void IN_MouseMove( void )
 IN_MouseEvent
 ===========
 */
-void IN_MouseEvent( uint mstate )
+void IN_MouseEvent( int key, int down )
 {
 	int	i;
 
 	if( !in_mouseinitialized )
 		return;
 
+	if( down )
+		SetBits( in_mstate, BIT( key ));
+	else ClearBits( in_mstate, BIT( key ));
+
 	if( cls.key_dest == key_game )
 	{
 		// perform button actions
-		for( i = 0; i < in_mouse_buttons; i++ )
-		{
-			if( FBitSet( mstate, BIT( i )) && !FBitSet( in_mouse_oldbuttonstate, BIT( i )))
-			{
-				VGui_KeyEvent( K_MOUSE1 + i, true );
-			}
+		VGui_KeyEvent( K_MOUSE1 + key, down );
 
-			if( !FBitSet( mstate, BIT( i )) && FBitSet( in_mouse_oldbuttonstate, BIT( i )))
-			{
-				VGui_KeyEvent( K_MOUSE1 + i, false );
-			}
-		}
-
+		// don't do Key_Event here
+		// client may override IN_MouseEvent
+		// but by default it calls back to Key_Event anyway
 		if( in_mouseactive )
-			clgame.dllFuncs.IN_MouseEvent( mstate );
-
-		in_mouse_oldbuttonstate = mstate;
-		return;
+			clgame.dllFuncs.IN_MouseEvent( in_mstate );
 	}
-
-	// perform button actions
-	for( i = 0; i < in_mouse_buttons; i++ )
+	else
 	{
-		if( FBitSet( mstate, BIT( i )) && !FBitSet( in_mouse_oldbuttonstate, BIT( i )))
-		{
-			Key_Event( K_MOUSE1 + i, true );
-		}
-
-		if( !FBitSet( mstate, BIT( i )) && FBitSet( in_mouse_oldbuttonstate, BIT( i )))
-		{
-			Key_Event( K_MOUSE1 + i, false );
-		}
+		// perform button actions
+		Key_Event( K_MOUSE1 + key, down );
 	}
-	in_mouse_oldbuttonstate = mstate;
 }
 
 /*
