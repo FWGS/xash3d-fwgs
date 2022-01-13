@@ -107,9 +107,9 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	if( !IsValidTextureName( name ))
 		return 0;
 
-	// TODO: Check cache
-	//if(( tex = Common_TextureForName( name )))
-	//	return (tex - vk_textures);
+	// Check cache
+	if(( texture = GetTextureByName( name )))
+		return texture->number;
 
 	// TODO: Bit magic
 	//if( FBitSet( flags, TF_NOFLIP_TGA ))
@@ -137,6 +137,8 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	// Upload texture
 	if (RM_TextureManager.ref)
 	{
+		Con_Printf( "Upload texture %s to render\n", &(texture->name) );
+
 		RM_TextureManager.ref->GL_LoadTextureFromBuffer
 		(
 			&(texture->name),
@@ -144,6 +146,8 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 			texture->flags, 
 			/* What is update??? */ false
 		);
+
+		Con_Printf( "Uploaded at %d\n", RM_TextureManager.ref->FindTexture( &(texture->name) ) );
 	}
 
 	//if( !uploadTexture( tex, &pic, 1, false ))
@@ -191,6 +195,14 @@ qboolean IsValidTextureName( const char *name )
 	else
 		return Q_strlen( name ) < MAX_NAME_LEN;
 }
+
+rm_texture_t* GetTextureByName( const char *name )
+{
+	uint hash_value = COM_HashKey( name, TEXTURES_HASH_SIZE );
+
+	return RM_TextureManager.textures_hash_table[hash_value];
+}
+
 rm_texture_t* AppendTexture( const char* name, int flags )
 {
 	rm_texture_t* texture;
