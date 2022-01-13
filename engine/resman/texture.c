@@ -109,8 +109,9 @@ void RM_ReuploadTextures()
 
 int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 {
-	rgbdata_t    *picture;
-	rm_texture_t *texture;
+	rgbdata_t   * picture;
+	rm_texture_t* texture;
+	uint		  picFlags;
 
 	Con_Reportf( "RM_LoadTexture. Name %s, size %d\n", name, size );
 
@@ -128,15 +129,15 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 		return texture->number;
 	}
 
-	// TODO: Bit magic
-	//if( FBitSet( flags, TF_NOFLIP_TGA ))
-	//	SetBits( picFlags, IL_DONTFLIP_TGA );
+	// Bit magic
+	if( FBitSet( flags, TF_NOFLIP_TGA ))
+		SetBits( picFlags, IL_DONTFLIP_TGA );
 
-	//if( FBitSet( flags, TF_KEEP_SOURCE ) && !FBitSet( flags, TF_EXPAND_SOURCE ))
-	//	SetBits( picFlags, IL_KEEP_8BIT );
+	if( FBitSet( flags, TF_KEEP_SOURCE ) && !FBitSet( flags, TF_EXPAND_SOURCE ))
+		SetBits( picFlags, IL_KEEP_8BIT );
 
-	// TODO: Flags magic
-	//Image_SetForceFlags( picFlags );
+	// Flags magic
+	Image_SetForceFlags( picFlags );
 
 	// Load image using engine
 	picture = FS_LoadImage( name, buf, size );
