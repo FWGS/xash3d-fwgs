@@ -1192,7 +1192,7 @@ static qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loade
 	}
 }
 
-qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags )
+static qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags )
 {
 	searchpath_t	*search;
 	zip_t		*zip = NULL;
@@ -1243,6 +1243,24 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 			Con_Reportf( S_ERROR "FS_AddZip_Fullpath: unable to load zip \"%s\"\n", zipfile );
 		return false;
 	}
+}
+
+/*
+================
+FS_AddArchive_Fullpath
+================
+*/
+static qboolean FS_AddArchive_Fullpath( const char *file, qboolean *already_loaded, int flags )
+{
+	const char *ext = COM_FileExtension( file );
+
+	if( !Q_stricmp( ext, "zip" ) || !Q_stricmp( ext, "pk3" ))
+		return FS_AddZip_Fullpath( file, already_loaded, flags );
+	else if ( !Q_stricmp( ext, "pak" ))
+		return FS_AddPak_Fullpath( file, already_loaded, flags );
+
+	// skip wads, this function only meant to be used for extras
+	return false;
 }
 
 /*
@@ -1470,11 +1488,12 @@ void FS_Rescan( void )
 	}
 #else
 	str = getenv( "XASH3D_EXTRAS_PAK1" );
-	if( COM_CheckString( str ) )
-		FS_AddPak_Fullpath( str, NULL, extrasFlags );
+	if( COM_CheckString( str ))
+		FS_AddArchive_Fullpath( str, NULL, extrasFlags );
+
 	str = getenv( "XASH3D_EXTRAS_PAK2" );
-	if( COM_CheckString( str ) )
-		FS_AddPak_Fullpath( str, NULL, extrasFlags );
+	if( COM_CheckString( str ))
+		FS_AddArchive_Fullpath( str, NULL, extrasFlags );
 #endif
 
 	if( Q_stricmp( GI->basedir, GI->gamefolder ))
