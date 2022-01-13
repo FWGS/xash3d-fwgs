@@ -89,12 +89,12 @@ void RM_Init()
 
 	// Create internal textures
 	// FIXME: Create textures, not dumb entries
-	dumb( 1, "*unused1*" );
-	dumb( 2, "*unused2*" );
-	dumb( 3, "*unused3*" );
-	dumb( 4, "*unused4*" );
-	dumb( 5, "*unused5*" );
-	dumb( 6, "*unused6*" );
+	dumb( 1, REF_DEFAULT_TEXTURE  );
+	dumb( 2, REF_PARTICLE_TEXTURE );
+	dumb( 3, REF_WHITE_TEXTURE    );
+	dumb( 4, REF_GRAY_TEXTURE     );
+	dumb( 5, REF_BLACK_TEXTURE    );
+	dumb( 6, REF_CINEMA_TEXTURE   );
 }
 
 void RM_SetRender( ref_interface_t* ref )

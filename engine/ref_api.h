@@ -129,6 +129,7 @@ enum // r_speeds counters
 #define REF_WHITE_TEXTURE    "*white"
 #define REF_BLACK_TEXTURE    "*black"
 #define REF_PARTICLE_TEXTURE "*particle"
+#define REF_CINEMA_TEXTURE   "*cintexture"
 #define REF_SOLIDSKY_TEXTURE "solid_sky"
 #define REF_ALPHASKY_TEXTURE "alpha_sky"
 
