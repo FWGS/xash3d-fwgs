@@ -37,11 +37,9 @@ static struct inputstate_s
 } inputstate;
 
 extern convar_t *vid_fullscreen;
-convar_t *m_enginemouse;
 convar_t *m_pitch;
 convar_t *m_yaw;
 
-convar_t *m_enginesens;
 convar_t *m_ignore;
 convar_t *cl_forwardspeed;
 convar_t *cl_sidespeed;
@@ -116,8 +114,6 @@ void IN_StartupMouse( void )
 {
 	m_ignore = Cvar_Get( "m_ignore", DEFAULT_M_IGNORE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "ignore mouse events" );
 
-	m_enginemouse = Cvar_Get( "m_enginemouse", "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "read mouse events in engine instead of client" );
-	m_enginesens = Cvar_Get( "m_enginesens", "0.3", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "mouse sensitivity, when m_enginemouse enabled" );
 	m_pitch = Cvar_Get( "m_pitch", "0.022", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "mouse pitch value" );
 	m_yaw = Cvar_Get( "m_yaw", "0.022", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "mouse yaw value" );
 	look_filter = Cvar_Get( "look_filter", "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "filter look events making it smoother" );
@@ -211,7 +207,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 void IN_CheckMouseState( qboolean active )
 {
 #if XASH_WIN32
-	qboolean useRawInput = CVAR_TO_BOOL( m_rawinput ) && clgame.client_dll_uses_sdl;
+	qboolean useRawInput = CVAR_TO_BOOL( m_rawinput ) && clgame.client_dll_uses_sdl || clgame.dllFuncs.pfnLookEvent;
 #else
 	qboolean useRawInput = true; // always use SDL code
 #endif
@@ -498,13 +494,9 @@ static void IN_JoyAppendMove( usercmd_t *cmd, float forwardmove, float sidemove 
 	}
 }
 
-void IN_CollectInput( float *forward, float *side, float *pitch, float *yaw, qboolean includeMouse, qboolean includeSdlMouse )
+static void IN_CollectInput( float *forward, float *side, float *pitch, float *yaw, qboolean includeMouse )
 {
-	if( includeMouse
-#if XASH_SDL
-		&& includeSdlMouse
-#endif
-		)
+	if( includeMouse )
 	{
 		float x, y;
 		Platform_MouseMove( &x, &y );
@@ -553,7 +545,7 @@ void IN_EngineAppendMove( float frametime, void *cmd1, qboolean active )
 	{
 		float sensitivity = 1;//( (float)cl.local.scr_fov / (float)90.0f );
 
-		IN_CollectInput( &forward, &side, &pitch, &yaw, false, false );
+		IN_CollectInput( &forward, &side, &pitch, &yaw, false );
 
 		IN_JoyAppendMove( cmd, forward, side );
 
@@ -577,7 +569,7 @@ void IN_Commands( void )
 	{
 		float forward = 0, side = 0, pitch = 0, yaw = 0;
 
-		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized && !CVAR_TO_BOOL( m_ignore ), true );
+		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized && !CVAR_TO_BOOL( m_ignore ) );
 
 		if( cls.key_dest == key_game )
 		{
