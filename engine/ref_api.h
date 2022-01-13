@@ -535,14 +535,14 @@ typedef struct ref_interface_s
 	void		(*R_SetCurrentModel)( struct model_s *mod );	// change currentmodel but leave currententity unchanged
 
 	// Texture tools
-	int		(*GL_FindTexture)( const char *name );
+	int		(*FindTexture)( const char *name );
 	const char*	(*GL_TextureName)( unsigned int texnum );
 	const byte*	(*GL_TextureData)( unsigned int texnum ); // may be NULL
-	int		(*GL_LoadTexture)( const char *name, const byte *buf, size_t size, int flags );
-	int		(*GL_CreateTexture)( const char *name, int width, int height, const void *buffer, texFlags_t flags );
-	int		(*GL_LoadTextureArray)( const char **names, int flags );
-	int		(*GL_CreateTextureArray)( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
-	void		(*GL_FreeTexture)( unsigned int texnum );
+	int	    (*LoadTexture)( const char *name, const byte *buf, size_t size, int flags );
+	int	    (*GL_CreateTexture)( const char *name, int width, int height, const void *buffer, texFlags_t flags );
+	int	    (*GL_LoadTextureArray)( const char **names, int flags );
+	int     (*GL_CreateTextureArray)( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
+	void    (*FreeTexture)( unsigned int texnum );
 
 	// Decals manipulating (draw & remove)
 	void		(*DrawSingleDecal)( struct decal_s *pDecal, struct msurface_s *fa );

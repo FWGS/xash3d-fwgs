@@ -108,7 +108,8 @@ def build(bld):
 		'common/imagelib/*.c',
 		'common/soundlib/*.c',
 		'common/soundlib/libmpg/*.c',
-		'server/*.c'])
+		'server/*.c',
+		'resman/*.c'])
 
 	if bld.env.ENGINE_TESTS:
 		source += bld.path.ant_glob(['tests/*.c'])

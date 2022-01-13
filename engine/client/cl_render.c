@@ -285,14 +285,14 @@ static void R_FillRenderAPIFromRef( render_api_t *to, const ref_interface_t *fro
 	to->GetFrameTime             = from->GetFrameTime;
 	to->R_SetCurrentEntity       = from->R_SetCurrentEntity;
 	to->R_SetCurrentModel        = from->R_SetCurrentModel;
-	to->GL_FindTexture           = from->GL_FindTexture;
+	to->GL_FindTexture           = from->FindTexture;
 	to->GL_TextureName           = from->GL_TextureName;
 	to->GL_TextureData           = from->GL_TextureData;
-	to->GL_LoadTexture           = from->GL_LoadTexture;
+	to->GL_LoadTexture           = from->LoadTexture;
 	to->GL_CreateTexture         = from->GL_CreateTexture;
 	to->GL_LoadTextureArray      = from->GL_LoadTextureArray;
 	to->GL_CreateTextureArray    = from->GL_CreateTextureArray;
-	to->GL_FreeTexture           = from->GL_FreeTexture;
+	to->GL_FreeTexture           = from->FreeTexture;
 	to->DrawSingleDecal          = from->DrawSingleDecal;
 	to->R_DecalSetupVerts        = from->R_DecalSetupVerts;
 	to->R_EntityRemoveDecals     = from->R_EntityRemoveDecals;

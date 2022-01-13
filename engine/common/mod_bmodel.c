@@ -1916,8 +1916,8 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 		// release old sky layers first
 		if( !Host_IsDedicated() )
 		{
-			ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ));
-			ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ));
+			RM_LoadTexture( R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ));
+			RM_LoadTexture( R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ));
 		}
 #endif
 	}
@@ -2023,7 +2023,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 					if( FS_FileExists( texpath, false ))
 					{
-						tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, txFlags );
+						tx->gl_texturenum = RM_LoadTexture( texpath, NULL, 0, txFlags );
 						bmod->wadlist.wadusage[j]++; // this wad are really used
 						break;
 					}
@@ -2039,7 +2039,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 
 				if( custom_palette ) size += sizeof( short ) + 768;
 				Q_snprintf( texname, sizeof( texname ), "#%s:%s.mip", loadstat.name, mt->name );
-				tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texname, (byte *)mt, size, txFlags );
+				tx->gl_texturenum = RM_LoadTexture( texname, (byte *)mt, size, txFlags );
 			}
 
 			// if texture is completely missed
@@ -2061,7 +2061,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 					int	size = (int)sizeof( mip_t ) + ((mt->width * mt->height * 85)>>6);
 
 					if( custom_palette ) size += sizeof( short ) + 768;
-					tx->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texname, (byte *)mt, size, TF_MAKELUMA );
+					tx->fb_texturenum = RM_LoadTexture( texname, (byte *)mt, size, TF_MAKELUMA );
 				}
 				else
 				{
@@ -2086,7 +2086,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 					}
 
 					// okay, loading it from wad or hi-res version
-					tx->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texname, src, srcSize, TF_MAKELUMA );
+					tx->fb_texturenum = RM_LoadTexture( texname, src, srcSize, TF_MAKELUMA );
 					if( src ) Mem_Free( src );
 				}
 			}

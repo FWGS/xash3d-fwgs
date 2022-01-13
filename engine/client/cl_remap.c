@@ -128,7 +128,7 @@ void CL_DuplicateTexture( cl_entity_t *entity, model_t *model, mstudiotexture_t 
 	memcpy( paletteBackup, pal, 768 );
 
 	raw = CL_CreateRawTextureFromPixels( tx, &size, topcolor, bottomcolor );
-	ptexture->index = ref.dllFuncs.GL_LoadTexture( texname, raw, size, TF_FORCE_COLOR ); // do copy
+	ptexture->index = RM_LoadTexture( texname, raw, size, TF_FORCE_COLOR ); // do copy
 
 	// restore original palette
 	memcpy( pal, paletteBackup, 768 );
@@ -161,7 +161,7 @@ void CL_UpdateStudioTexture( cl_entity_t *entity, mstudiotexture_t *ptexture, in
 	COM_StripExtension( mdlname );
 
 	Q_snprintf( texname, sizeof( texname ), "#%s/%s.mdl", mdlname, name );
-	index = ref.dllFuncs.GL_FindTexture( texname );
+	index = RM_LoadTexture( texname );
 	if( !index ) return; // couldn't find texture
 
 	// search for pixels
@@ -402,11 +402,11 @@ void CL_FreeRemapInfo( remap_info_t *info )
 		if( info->ptexture != NULL )
 		{
 			if( FBitSet( info->ptexture[i].flags, STUDIO_NF_COLORMAP ))
-				ref.dllFuncs.GL_FreeTexture( info->ptexture[i].index );
+				RM_LoadTexture( info->ptexture[i].index );
 		}
 
 		if( info->textures[i] != 0 )
-			ref.dllFuncs.GL_FreeTexture( info->textures[i] );
+			RM_LoadTexture( info->textures[i] );
 	}
 
 	Mem_Free( info ); // release struct

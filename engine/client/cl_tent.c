@@ -2963,7 +2963,7 @@ int GAME_EXPORT CL_DecalIndex( int id )
 	if( cl.decal_index[id] == 0 )
 	{
 		Image_SetForceFlags( IL_LOAD_DECAL );
-		cl.decal_index[id] = ref.dllFuncs.GL_LoadTexture( host.draw_decals[id], NULL, 0, TF_DECAL );
+		cl.decal_index[id] = RM_LoadTexture( host.draw_decals[id], NULL, 0, TF_DECAL );
 		Image_ClearForceFlags();
 	}
 

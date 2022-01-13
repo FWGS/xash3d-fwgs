@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "math.h"
 #include "vgui_draw.h"
 #include "mobility_int.h"
+#include "resman/resman.h"
 
 typedef enum
 {
@@ -1138,7 +1139,7 @@ static void Touch_InitConfig( void )
 	else Touch_LoadDefaults_f( );
 
 	Touch_InitEditor();
-	touch.joytexture = ref.dllFuncs.GL_LoadTexture( touch_joy_texture->string, NULL, 0, TF_NOMIPMAP );
+	touch.joytexture = RM_LoadTexture( touch_joy_texture->string, NULL, 0, TF_NOMIPMAP );
 	touch.whitetexture = R_GetBuiltinTexture( REF_WHITE_TEXTURE );
 	touch.configchanged = false;
 	touch.config_loaded = true;
@@ -1319,7 +1320,7 @@ static void Touch_DrawButtons( touchbuttonlist_t *list )
 			{
 				if( button->texture == -1 )
 				{
-					button->texture = ref.dllFuncs.GL_LoadTexture( button->texturefile, NULL, 0, TF_NOMIPMAP );
+					button->texture = RM_LoadTexture( button->texturefile, NULL, 0, TF_NOMIPMAP );
 				}
 
 				if( FBitSet( B(flags), TOUCH_FL_DRAW_ADDITIVE ))
@@ -1454,7 +1455,7 @@ void Touch_Draw( void )
 		if( FBitSet( touch_joy_texture->flags, FCVAR_CHANGED ) )
 		{
 			ClearBits( touch_joy_texture->flags, FCVAR_CHANGED );
-			touch.joytexture = ref.dllFuncs.GL_LoadTexture( touch_joy_texture->string, NULL, 0, TF_NOMIPMAP );
+			touch.joytexture = RM_LoadTexture( touch_joy_texture->string, NULL, 0, TF_NOMIPMAP );
 		}
 		if( touch.move_button->type == touch_move )
 		{

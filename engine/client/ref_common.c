@@ -4,6 +4,7 @@
 #include "cl_tent.h"
 #include "platform/platform.h"
 #include "vid_common.h"
+#include "resman/resman.h"
 
 struct ref_state_s ref;
 ref_globals_t refState;
@@ -37,8 +38,8 @@ void GAME_EXPORT GL_FreeImage( const char *name )
 	if( !ref.initialized )
 		return;
 
-	if(( texnum = ref.dllFuncs.GL_FindTexture( name )) != 0 )
-		 ref.dllFuncs.GL_FreeTexture( texnum );
+	if(( texnum = RM_FindTexture( name )) != 0 )
+		RM_FreeTexture( texnum );
 }
 
 void R_UpdateRefState( void )
