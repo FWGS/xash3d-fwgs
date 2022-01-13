@@ -928,7 +928,8 @@ void Zip_Close( zip_t *zip )
 	if( !zip )
 		return;
 
-	Mem_Free( zip->files );
+	if( zip->files )
+		Mem_Free( zip->files );
 
 	FS_EnsureOpenZip( NULL );
 
@@ -1209,7 +1210,7 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 
 	if( already_loaded ) *already_loaded = false;
 
-	if( !Q_stricmp( ext, "pk3" ) )
+	if( !Q_stricmp( ext, "pk3" ) || !Q_stricmp( ext, "zip" ))
 		zip = FS_LoadZip( zipfile, &errorcode );
 
 	if( zip )
