@@ -164,7 +164,7 @@ void XVK_RayTraceLightDirectReloadPipeline( void ) {
 }
 
 void XVK_RayTraceLightDirect( VkCommandBuffer cmdbuf, const xvk_ray_trace_light_direct_t *args ) {
-	const uint32_t WG_W = 16;
+	const uint32_t WG_W = 8;
 	const uint32_t WG_H = 8;
 
 	updateDescriptors( args );
