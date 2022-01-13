@@ -23,13 +23,14 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$LIBDIR1:$LIBDIR2:$LIBDIR3
 export HOME=$mypath
 export SDL_QT_INVERT_ROTATION=1
 export SWAP_PATH=$HOME/xash.swap
+export XASH3D_EXTRAS_PAK1=$HOME/extras.pak
 cd $mypath
 sleep 1
 
 exec $mypath/xash -dev $@
 EOF
 
+python3 scripts/makepak.py xash-extras/ Xash/extras.pak
 
 mkdir -p artifacts/
-
 7z a -t7z artifacts/xash3d-fwgs-magx.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on -r Xash/

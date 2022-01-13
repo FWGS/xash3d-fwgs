@@ -24,5 +24,8 @@ else
 	die
 fi
 
+mkdir valve/
+python3 scripts/makepak.py xash-extras/ valve/extras.pak
+
 mkdir -p artifacts/
-7z a -t7z artifacts/xash3d-fwgs-win32-$ARCH.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on *.dll *.exe *.pdb
+7z a -t7z artifacts/xash3d-fwgs-win32-$ARCH.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on *.dll *.exe *.pdb valve/
