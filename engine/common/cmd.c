@@ -671,21 +671,21 @@ static int Cmd_AddCommandEx( const char *funcname, const char *cmd_name, xcomman
 
 	if( !COM_CheckString( cmd_name ))
 	{
-		Con_Reportf( S_ERROR  "Cmd_AddCommand: NULL name\n" );
+		Con_Reportf( S_ERROR  "%s: NULL name\n", funcname );
 		return 0;
 	}
 
 	// fail if the command is a variable name
 	if( Cvar_FindVar( cmd_name ))
 	{
-		Con_DPrintf( S_ERROR "Cmd_AddServerCommand: %s already defined as a var\n", cmd_name );
+		Con_DPrintf( S_ERROR "%s: %s already defined as a var\n", funcname, cmd_name );
 		return 0;
 	}
 
 	// fail if the command already exists
 	if( Cmd_Exists( cmd_name ))
 	{
-		Con_DPrintf( S_ERROR "Cmd_AddServerCommand: %s already defined\n", cmd_name );
+		Con_DPrintf( S_ERROR "%s: %s already defined\n", funcname, cmd_name );
 		return 0;
 	}
 
