@@ -64,6 +64,17 @@ static qboolean      IsValidTextureName( const char *name );
 static rm_texture_t* GetTextureByName  ( const char *name );
 static rm_texture_t* AppendTexture     ( const char* name, int flags );
 
+void dumb( uint i, const char *name )
+{
+	Q_strncpy( RM_TextureManager.textures[i].name, name, MAX_NAME_LEN );
+	
+	uint hash_value = COM_HashKey( name, TEXTURES_HASH_SIZE );
+	RM_TextureManager.textures[i].hash_value = hash_value;
+	RM_TextureManager.textures[i].next_hash = RM_TextureManager.textures_hash_table[hash_value];
+	RM_TextureManager.textures_hash_table[hash_value] = &(RM_TextureManager.textures[i]);
+	RM_TextureManager.textures_count++;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public methods
@@ -74,16 +85,16 @@ void RM_Init()
 	memset( &RM_TextureManager, 0, sizeof( RM_TextureManager ));
 
 	// Create unused 0-entry
-	const char *name = "*unused*";
-	Q_strncpy( RM_TextureManager.textures[0].name, name, sizeof( RM_TextureManager.textures[0].name ));
-	
-	uint hash_value = COM_HashKey( name, TEXTURES_HASH_SIZE );
-	RM_TextureManager.textures[0].hash_value = hash_value;
-	RM_TextureManager.textures[0].next_hash = RM_TextureManager.textures_hash_table[hash_value];
-	RM_TextureManager.textures_hash_table[hash_value] = &(RM_TextureManager.textures[0]);
-	RM_TextureManager.textures_count = 1;
+	dumb( 0, "*unused*" );
 
-	// TODO: Create internal textures
+	// Create internal textures
+	// FIXME: Create textures, not dumb entries
+	dumb( 1, "*unused1*" );
+	dumb( 2, "*unused2*" );
+	dumb( 3, "*unused3*" );
+	dumb( 4, "*unused4*" );
+	dumb( 5, "*unused5*" );
+	dumb( 6, "*unused6*" );
 }
 
 void RM_SetRender( ref_interface_t* ref )
@@ -105,11 +116,17 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 
 	// Check name
 	if( !IsValidTextureName( name ))
+	{
+		Con_Reportf( "Invalid texture name\n", name );
 		return 0;
+	}
 
 	// Check cache
 	if(( texture = GetTextureByName( name )))
+	{
+		Con_Reportf( "Texture is already loaded with number %d\n", texture->number );
 		return texture->number;
+	}
 
 	// TODO: Bit magic
 	//if( FBitSet( flags, TF_NOFLIP_TGA ))
@@ -123,7 +140,11 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 
 	// Load image using engine
 	picture = FS_LoadImage( name, buf, size );
-	if( !picture ) return 0;
+	if( !picture ) 
+	{
+		Con_Reportf( "Failed to load texture. FS_LoadImage returns NULL\n" );
+		return 0;
+	}
 
 	// Allocate texture
 	texture = AppendTexture( name, flags );
@@ -137,7 +158,7 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	// Upload texture
 	if (RM_TextureManager.ref)
 	{
-		Con_Printf( "Upload texture %s to render\n", &(texture->name) );
+		Con_Reportf( "Upload texture %s to render\n", &(texture->name) );
 
 		RM_TextureManager.ref->GL_LoadTextureFromBuffer
 		(
@@ -147,7 +168,7 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 			/* What is update??? */ false
 		);
 
-		Con_Printf( "Uploaded at %d\n", RM_TextureManager.ref->FindTexture( &(texture->name) ) );
+		Con_Reportf( "Uploaded at %d, our index %d\n", RM_TextureManager.ref->FindTexture( &(texture->name)), texture->number );
 	}
 
 	//if( !uploadTexture( tex, &pic, 1, false ))
@@ -160,6 +181,8 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	// TODO: Apply texture params
 	//VK_ApplyTextureParams( tex );
 
+	Con_Reportf( "Texture successfully loaded with number %d\n", texture->number );
+
 	return texture->number;
 }
 
@@ -170,7 +193,7 @@ void RM_FreeTexture( unsigned int texnum )
 
 int RM_FindTexture( const char *name )
 {
-	Con_Reportf( "RM_FindTexture. Name %s\n", name );
+	Con_Reportf( "Unimplemented RM_FindTexture. Name %s\n", name );
 
 	return 0;
 }
