@@ -978,8 +978,13 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 	}
 
 	// don't add the player in firstperson mode
-	if( RP_LOCALCLIENT( ent ) && !CL_IsThirdPerson( ) && ( ent->index == cl.viewentity ))
-		return false;
+	if( RP_LOCALCLIENT( ent ))
+	{
+		cl.local.apply_effects = true;
+
+		if( !CL_IsThirdPerson( ) && ( ent->index == cl.viewentity ))
+			return false;
+	}
 
 	if( entityType == ET_BEAM )
 	{
@@ -993,12 +998,8 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 
 	// because pTemp->entity.curstate.effects
 	// is already occupied by FTENT_FLICKER
-	if( entityType != ET_TEMPENTITY )
+	if( entityType != ET_TEMPENTITY && !RP_LOCALCLIENT( ent ) )
 	{
-		// no reason to do it twice
-		if( RP_LOCALCLIENT( ent ))
-			cl.local.apply_effects = false;
-
 		// apply client-side effects
 		CL_AddEntityEffects( ent );
 
@@ -1050,7 +1051,6 @@ void CL_LinkPlayers( frame_t *frame )
 	// apply muzzleflash to weaponmodel
 	if( ent && FBitSet( ent->curstate.effects, EF_MUZZLEFLASH ))
 		SetBits( clgame.viewent.curstate.effects, EF_MUZZLEFLASH );
-	cl.local.apply_effects = true;
 
 	// check all the clients but add only visible
 	for( i = 0, state = frame->playerstate; i < MAX_CLIENTS; i++, state++ )
