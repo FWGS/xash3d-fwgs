@@ -1605,6 +1605,7 @@ void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, d
 	delta_t		*pField;
 	delta_info_t	*dt;
 	int		i;
+	qboolean noChanges;
 
 	dt = Delta_FindStruct( "clientdata_t" );
 	Assert( dt && dt->bInitialized );
@@ -1612,15 +1613,14 @@ void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, d
 	pField = dt->pFields;
 	Assert( pField != NULL );
 
-	*to = *from;
-
-	if( !cls.legacymode && !MSG_ReadOneBit( msg ))
-		return; // we have no changes
+	noChanges = !cls.legacymode && !MSG_ReadOneBit( msg );
 
 	// process fields
 	for( i = 0; i < dt->numFields; i++, pField++ )
 	{
-		Delta_ReadField( msg, pField, from, to, timebase );
+		if( noChanges )
+			Delta_CopyField( pField, from, to, timebase );
+		else Delta_ReadField( msg, pField, from, to, timebase );
 	}
 #endif
 }
@@ -1690,8 +1690,6 @@ void MSG_ReadWeaponData( sizebuf_t *msg, weapon_data_t *from, weapon_data_t *to,
 
 	pField = dt->pFields;
 	Assert( pField != NULL );
-
-	*to = *from;
 
 	// process fields
 	for( i = 0; i < dt->numFields; i++, pField++ )
