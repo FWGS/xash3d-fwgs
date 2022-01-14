@@ -1368,6 +1368,7 @@ static gl_texture_t *GL_AllocTexture( const char *name, texFlags_t flags )
 {
 	gl_texture_t	*tex;
 	uint		i;
+	uint test = 0;
 
 	// find a free texture_t slot
 	for( i = 0, tex = gl_textures; i < gl_numTextures; i++, tex++ )
@@ -1393,6 +1394,9 @@ static gl_texture_t *GL_AllocTexture( const char *name, texFlags_t flags )
 	tex->hashValue = COM_HashKey( name, TEXTURES_HASH_SIZE );
 	tex->nextHash = gl_texturesHashTable[tex->hashValue];
 	gl_texturesHashTable[tex->hashValue] = tex;
+
+	gEngfuncs.Con_Printf( "GL_AllocTexture. %s %d\n", name, tex->texnum );
+	if (tex->texnum == 121) ASSERT(0 / test);
 
 	return tex;
 }
