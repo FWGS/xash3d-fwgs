@@ -2693,7 +2693,7 @@ apply various effects to entity origin or attachment
 void CL_AddEntityEffects( cl_entity_t *ent )
 {
 	// yellow flies effect 'monster stuck in the wall'
-	if( FBitSet( ent->curstate.effects, EF_BRIGHTFIELD ))
+	if( FBitSet( ent->curstate.effects, EF_BRIGHTFIELD ) && !RP_LOCALCLIENT( ent ))
 		R_EntityParticles( ent );
 
 	if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))
