@@ -142,8 +142,6 @@ void R_NewMap( void )
 	// This is to ensure that we have computed lightstyles properly
 	VK_RunLightStyles();
 
-	VK_LightsNewMap();
-
 	XVK_SetupSky( gEngine.pfnGetMoveVars()->skyName );
 
 	if (vk_core.rtx)
@@ -167,8 +165,11 @@ void R_NewMap( void )
 	XVK_ReloadMaterials();
 
 	// Parse patch data
-	// Depens on loaded materials. Must preceed loading brush models.
+	// Depends on loaded materials. Must preceed loading brush models.
 	XVK_ParseMapPatches();
+
+	// Need parsed map entities, and also should happen before brush model loading
+	VK_LightsNewMap();
 
 	// Load all models at once
 	gEngine.Con_Reportf( "Num models: %d:\n", num_models );

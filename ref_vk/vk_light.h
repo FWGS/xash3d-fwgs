@@ -30,6 +30,16 @@ typedef struct {
 	matrix3x4 transform;
 } vk_emissive_surface_t;
 
+typedef struct {
+	vec3_t emissive;
+	vec3_t normal;
+	vec3_t center;
+	float area;
+	int num_vertices;
+	vec3_t vertices[7];
+	// uint32_t kusok_index;
+} rt_light_polygon_t;
+
 enum {
 	LightFlag_Environment = 0x1,
 };
@@ -57,8 +67,13 @@ typedef struct {
 		vk_emissive_texture_t emissive_textures[MAX_TEXTURES];
 	} map;
 
+	// FIXME deprecate
 	int num_emissive_surfaces;
 	vk_emissive_surface_t emissive_surfaces[MAX_SURFACE_LIGHTS];
+
+	int num_light_polygons;
+	rt_light_polygon_t light_polygons[MAX_SURFACE_LIGHTS];
+
 
 	int num_point_lights;
 	vk_point_light_t point_lights[MAX_POINT_LIGHTS];
@@ -87,7 +102,9 @@ void VK_LightsFrameInit( void );
 //    separately in emissive surfaces.
 struct vk_render_geometry_s;
 void VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map );
-void XVK_GetEmissiveForTexture( vec3_t out, int texture_id );
+qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id );
+
+int RT_LightAddPolygon(const rt_light_polygon_t *light);
 
 void VK_LightsFrameFinalize( void );
 

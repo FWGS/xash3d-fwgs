@@ -489,6 +489,20 @@ void VK_LightsNewMap( void ) {
 	clusterBitMapInit();
 
 	prepareSurfacesLeafVisibilityCache();
+
+	// Load RAD data based on map name
+	memset(g_lights.map.emissive_textures, 0, sizeof(g_lights.map.emissive_textures));
+	loadRadData( map, "maps/lights.rad" );
+
+	{
+		int name_len = Q_strlen(map->name);
+
+		// Strip ".bsp" suffix
+		if (name_len > 4 && 0 == Q_stricmp(map->name + name_len - 4, ".bsp"))
+			name_len -= 4;
+
+		loadRadData( map, "%.*s.rad", name_len, map->name );
+	}
 }
 
 void VK_LightsFrameInit( void ) {
@@ -1019,20 +1033,6 @@ void VK_LightsLoadMapStaticLights( void ) {
 
 	processStaticPointLights();
 
-	// Load RAD data based on map name
-	memset(g_lights.map.emissive_textures, 0, sizeof(g_lights.map.emissive_textures));
-	loadRadData( map, "maps/lights.rad" );
-
-	{
-		int name_len = Q_strlen(map->name);
-
-		// Strip ".bsp" suffix
-		if (name_len > 4 && 0 == Q_stricmp(map->name + name_len - 4, ".bsp"))
-			name_len -= 4;
-
-		loadRadData( map, "%.*s.rad", name_len, map->name );
-	}
-
 	// Load static map model
 	{
 		matrix3x4 xform;
@@ -1060,7 +1060,7 @@ void VK_LightsLoadMapStaticLights( void ) {
 	}
 }
 
-void XVK_GetEmissiveForTexture( vec3_t out, int texture_id ) {
+qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id ) {
 	ASSERT(texture_id >= 0);
 	ASSERT(texture_id < MAX_TEXTURES);
 
@@ -1068,8 +1068,9 @@ void XVK_GetEmissiveForTexture( vec3_t out, int texture_id ) {
 		vk_emissive_texture_t *const etex = g_lights.map.emissive_textures + texture_id;
 		if (etex->set) {
 			VectorCopy(etex->emissive, out);
+			return true;
 		} else {
-			VectorSet(out, 0, 0, 0);
+			return false;
 		}
 	}
 }
@@ -1157,4 +1158,19 @@ void VK_LightsFrameFinalize( void ) {
 
 	debug_dump_lights.enabled = false;
 	APROF_SCOPE_END(finalize);
+}
+
+int RT_LightAddPolygon(const rt_light_polygon_t *lpoly) {
+	gEngine.Con_Reportf("RT_LightAddPolygon center=(%f, %f, %f) normal=(%f, %f, %f) area=%f num_vertices=%d\n",
+		lpoly->center[0],
+		lpoly->center[1],
+		lpoly->center[2],
+		lpoly->normal[0],
+		lpoly->normal[1],
+		lpoly->normal[2],
+		lpoly->area,
+		lpoly->num_vertices
+	);
+
+	return -1;
 }

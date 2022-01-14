@@ -438,6 +438,63 @@ static model_sizes_t computeSizes( const model_t *mod ) {
 	return sizes;
 }
 
+static void loadEmissiveSurface(const model_t *mod, const int surface_index, const msurface_t *surf, const vec3_t emissive) {
+	rt_light_polygon_t lpoly;
+	lpoly.num_vertices = Q_min(7, surf->numedges);
+
+	if (surf->numedges > 7)
+		gEngine.Con_Printf(S_WARN "emissive surface %d has %d vertices; clipping to 7\n", surface_index, surf->numedges);
+
+	VectorCopy(emissive, lpoly.emissive);
+
+	VectorSet(lpoly.center, 0, 0, 0);
+	VectorSet(lpoly.normal, 0, 0, 0);
+
+	for (int i = 0; i < lpoly.num_vertices; ++i) {
+		const int iedge = mod->surfedges[surf->firstedge + i];
+		const medge_t *edge = mod->edges + (iedge >= 0 ? iedge : -iedge);
+		const mvertex_t *vertex = mod->vertexes + (iedge >= 0 ? edge->v[0] : edge->v[1]);
+		VectorCopy(vertex->position, lpoly.vertices[i]);
+		VectorAdd(vertex->position, lpoly.center, lpoly.center);
+
+		if (i > 1) {
+			vec3_t e[2], normal;
+			VectorSubtract(lpoly.vertices[i-1], lpoly.vertices[i-2], e[0]);
+			VectorSubtract(lpoly.vertices[i-0], lpoly.vertices[i-2], e[1]);
+			CrossProduct(e[0], e[1], normal);
+			VectorAdd(normal, lpoly.normal, lpoly.normal);
+		}
+	}
+
+	VectorM(1.f / lpoly.num_vertices, lpoly.center, lpoly.center);
+
+	lpoly.area = VectorLength(lpoly.normal);
+
+	VectorNormalize(lpoly.normal);
+	{
+		const float dot = DotProduct(lpoly.normal, surf->plane->normal);
+		if (fabs(dot) < (1.f - 1e-5f)) {
+			gEngine.Con_Reportf(S_WARN "surf=%d normal=(%f, %f, %f) computed=(%f, %f, %f) dot=%f dir=%d\n",
+				surf->plane->normal[0],
+				surf->plane->normal[1],
+				surf->plane->normal[2],
+				lpoly.normal[0],
+				lpoly.normal[1],
+				lpoly.normal[2],
+				dot,
+				!!FBitSet( surf->flags, SURF_PLANEBACK )
+			);
+		}
+	}
+
+	if( FBitSet( surf->flags, SURF_PLANEBACK ))
+		VectorNegate( surf->plane->normal, lpoly.normal );
+	else
+		VectorCopy( surf->plane->normal, lpoly.normal );
+
+	RT_LightAddPolygon(&lpoly);
+}
+
 static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	vk_brush_model_t *bmodel = mod->cache.data;
 	uint32_t vertex_offset = 0;
@@ -460,6 +517,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	index_offset = index_buffer.buffer.unit.offset;
 
 	// Load sorted by gl_texturenum
+	// TODO this does not make that much sense in vulkan (can sort later)
 	for (int t = 0; t <= sizes.max_texture_id; ++t)
 	{
 		for( int i = 0; i < mod->nummodelsurfaces; ++i)
@@ -479,6 +537,15 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 
 			if (t != tex_id)
 				continue;
+
+			{
+				vec3_t emissive;
+				if (psurf && (psurf->flags & Patch_Surface_Emissive)) {
+					loadEmissiveSurface(mod, surface_index, surf, psurf->emissive);
+				} else if (RT_GetEmissiveForTexture(emissive, tex_id)) {
+					loadEmissiveSurface(mod, surface_index, surf, emissive);
+				}
+			}
 
 			++num_geometries;
 

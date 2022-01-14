@@ -400,7 +400,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		if (geom->material == kXVkMaterialEmissive) {
 			VectorCopy( geom->emissive, kusok->emissive );
 		} else {
-			XVK_GetEmissiveForTexture( kusok->emissive, geom->texture );
+			RT_GetEmissiveForTexture( kusok->emissive, geom->texture );
 		}
 
 		if (geom->material == kXVkMaterialConveyor) {
