@@ -3817,7 +3817,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 
 	// build the texname
 	Q_snprintf( texname, sizeof( texname ), "#%s/%s.mdl", mdlname, name );
-	ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags );
+	ptexture->index = gEngfuncs.RM_LoadTexture( texname, (byte *)ptexture, size, flags );
 
 	if( !ptexture->index )
 	{

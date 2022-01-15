@@ -86,7 +86,7 @@ static void R_ParseDetailTextures( const char *filename )
 			if( Q_stricmp( tex->name, texname ))
 				continue;
 
-			tex->dt_texturenum = GL_LoadTexture( detail_path, NULL, 0, TF_FORCE_COLOR );
+			tex->dt_texturenum = gEngfuncs.RM_LoadTexture( detail_path, NULL, 0, TF_FORCE_COLOR );
 
 			// texture is loaded
 			if( tex->dt_texturenum )
