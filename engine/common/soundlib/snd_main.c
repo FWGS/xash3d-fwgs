@@ -278,3 +278,25 @@ void FS_FreeStream( stream_t *stream )
 
 	stream->format->freefunc( stream );
 }
+
+#if XASH_ENGINE_TESTS
+
+#define IMPLEMENT_SOUNDLIB_FUZZ_TARGET( export, target ) \
+int EXPORT export( const uint8_t *Data, size_t Size ) \
+{ \
+	wavdata_t *wav; \
+	host.type = HOST_NORMAL; \
+	Memory_Init(); \
+	Sound_Init(); \
+	if( target( "#internal", Data, Size )) \
+	{ \
+		wav = SoundPack(); \
+		FS_FreeSound( wav ); \
+	} \
+	Sound_Shutdown(); \
+	return 0; \
+} \
+
+IMPLEMENT_SOUNDLIB_FUZZ_TARGET( Fuzz_Sound_LoadMPG, Sound_LoadMPG )
+IMPLEMENT_SOUNDLIB_FUZZ_TARGET( Fuzz_Sound_LoadWAV, Sound_LoadWAV )
+#endif
