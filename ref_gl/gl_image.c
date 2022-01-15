@@ -1395,9 +1395,6 @@ static gl_texture_t *GL_AllocTexture( const char *name, texFlags_t flags )
 	tex->nextHash = gl_texturesHashTable[tex->hashValue];
 	gl_texturesHashTable[tex->hashValue] = tex;
 
-	gEngfuncs.Con_Printf( "GL_AllocTexture. %s %d\n", name, tex->texnum );
-	if (tex->texnum == 121) ASSERT(0 / test);
-
 	return tex;
 }
 
