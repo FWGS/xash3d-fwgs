@@ -89,12 +89,6 @@ void RM_Init()
 
 	// Create internal textures
 	// FIXME: Create textures, not dumb entries
-	dumb( 1, REF_DEFAULT_TEXTURE  );
-	dumb( 2, REF_PARTICLE_TEXTURE );
-	dumb( 3, REF_WHITE_TEXTURE    );
-	dumb( 4, REF_GRAY_TEXTURE     );
-	dumb( 5, REF_BLACK_TEXTURE    );
-	dumb( 6, REF_CINEMA_TEXTURE   );
 }
 
 void RM_SetRender( ref_interface_t* ref )
@@ -191,6 +185,53 @@ int RM_LoadTextureArray( const char **names, int flags )
 {
 	// TODO: Implement
 	Con_Printf( "Unimplemented RM_LoadTextureArray\n" );
+}
+
+int RM_LoadTextureFromBuffer( const char *name, rgbdata_t *picture, int flags, qboolean update )
+{
+	rm_texture_t *texture;
+
+	Con_Reportf( "RM_LoadTextureFromBuffer. Name %s\n", name );
+
+	if (!RM_TextureManager.ref) return 0;
+
+	// Check name
+	if( !IsValidTextureName( name ))
+	{
+		Con_Reportf( "Invalid texture name\n" );
+		return 0;
+	}
+
+	// Check cache
+	if(( texture = GetTextureByName( name )))
+	{
+		Con_Reportf( "Texture is already loaded with number %d\n", texture->number );
+		return texture->number;
+	}
+
+	// Check picture pointer
+	if( !picture )
+	{
+		Con_Reportf( "Picture is NULL\n" );
+		return 0;
+	}
+
+	// Create texture
+	texture = AppendTexture( name, flags );
+	texture->picture = picture;
+	texture->width   = picture->width;
+	texture->height  = picture->height;
+
+	// Upload texture
+	RM_TextureManager.ref->GL_LoadTextureFromBuffer
+	(
+		&(texture->name),
+		texture->picture,
+		texture->flags, 
+		update
+	);
+
+	return texture->number;
 }
 
 void RM_FreeTexture( unsigned int texnum )

@@ -37,8 +37,8 @@ extern ref_globals_t refState;
 
 // handy API wrappers
 #define REF_GET_PARM( parm, arg ) ref.dllFuncs.RefGetParm( (parm), (arg) )
-#define GL_LoadTextureInternal( name, pic, flags ) ref.dllFuncs.GL_LoadTextureFromBuffer( (name), (pic), (flags), false )
-#define GL_UpdateTextureInternal( name, pic, flags ) ref.dllFuncs.GL_LoadTextureFromBuffer( (name), (pic), (flags), true )
+#define GL_LoadTextureInternal( name, pic, flags ) RM_LoadTextureFromBuffer( (name), (pic), (flags), false )
+#define GL_UpdateTextureInternal( name, pic, flags ) RM_LoadTextureFromBuffer( (name), (pic), (flags), true )
 
 #define R_GetTextureParms( WP, HP, T )  RM_GetTextureParams( WP, HP, T )
 #define R_GetBuiltinTexture( NAME )     RM_LoadTexture( NAME, 0, 0, 0 )

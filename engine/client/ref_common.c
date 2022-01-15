@@ -334,6 +334,7 @@ static ref_api_t gEngfuncs =
 	FS_AllowDirectPaths,
 
 	RM_LoadTexture,
+	RM_LoadTextureFromBuffer,
 
 	R_Init_Video_,
 	R_Free_Video,

@@ -11,6 +11,7 @@ void RM_ReuploadTextures();
 
 int  RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
 int	 RM_LoadTextureArray( const char **names, int flags );
+int  RM_LoadTextureFromBuffer( const char *name, rgbdata_t *picture, int flags, qboolean update );
 void RM_FreeTexture( unsigned int texnum );
 
 const char*	RM_TextureName( unsigned int texnum );

@@ -377,6 +377,8 @@ typedef struct ref_api_s
 
 	// resources
 	int  (*RM_LoadTexture)( const char *name, const byte *buf, size_t size, int flags );
+	int  (*RM_LoadTextureFromBuffer)( const char *name, rgbdata_t *picture, int flags, qboolean update );
+
 
 	// video init
 	// try to create window

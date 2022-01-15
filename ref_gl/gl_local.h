@@ -344,8 +344,8 @@ void R_DrawModelHull( void );
 //
 void R_SetTextureParameters( void );
 gl_texture_t *R_GetTexture( GLenum texnum );
-#define GL_LoadTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, false )
-#define GL_UpdateTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, true )
+#define GL_LoadTextureInternal( name, pic, flags ) gEngfuncs.RM_LoadTextureFromBuffer( name, pic, flags, false )
+#define GL_UpdateTextureInternal( name, pic, flags ) gEngfuncs.RM_LoadTextureFromBuffer( name, pic, flags, true )
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
 int GL_LoadTextureArray( const char **names, int flags );
 int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
