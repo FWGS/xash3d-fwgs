@@ -333,6 +333,8 @@ static ref_api_t gEngfuncs =
 	FS_FileExists,
 	FS_AllowDirectPaths,
 
+	RM_LoadTexture,
+
 	R_Init_Video_,
 	R_Free_Video,
 

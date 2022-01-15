@@ -375,6 +375,9 @@ typedef struct ref_api_s
 	int (*FS_FileExists)( const char *filename, int gamedironly );
 	void (*FS_AllowDirectPaths)( qboolean enable );
 
+	// resources
+	int  (*RM_LoadTexture)( const char *name, const byte *buf, size_t size, int flags );
+
 	// video init
 	// try to create window
 	// will call GL_SetupAttributes in case of REF_GL
