@@ -938,7 +938,7 @@ void VK_SpriteDrawModel( cl_entity_t *e )
 		ubo->color[2] = color[2];
 		ubo->color[3] = tr.blend;
 		*/
-		VK_RenderStateSetColor( color[0], color[1], color[2], .5f ); // FIXME VK: tr.blend
+		VK_RenderStateSetColor( color[0], color[1], color[2], CL_FxBlend( e ) / 255.f );
 		R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode, color );
 	}
 	else
