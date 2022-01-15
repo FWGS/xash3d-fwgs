@@ -46,5 +46,7 @@
 
 #define ALIGN_UP(ptr, align) ((((ptr) + (align) - 1) / (align)) * (align))
 
+#define COUNTOF(a) (sizeof(a)/sizeof((a)[0]))
+
 extern ref_api_t gEngine;
 extern ref_globals_t *gpGlobals;

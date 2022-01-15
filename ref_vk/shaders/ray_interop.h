@@ -20,7 +20,7 @@
 #define PAD(x)
 #define STRUCT
 
-layout (constant_id = 0) const uint MAX_POINT_LIGHTS = 32;
+layout (constant_id = 0) const uint MAX_POINT_LIGHTS = 256;
 layout (constant_id = 1) const uint MAX_EMISSIVE_KUSOCHKI = 256;
 layout (constant_id = 2) const uint MAX_VISIBLE_POINT_LIGHTS = 63;
 layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 255;
@@ -82,12 +82,25 @@ struct EmissiveKusok {
 	vec4 tx_row_x, tx_row_y, tx_row_z;
 };
 
+struct PolygonLight {
+	vec3 normal_area;
+	uint vertices_begin;
+
+	vec3 center;
+	uint vertices_count;
+
+	vec3 emissive;
+	PAD(1)
+};
+
 struct Lights {
-	uint num_kusochki;
+	uint num_polygons;
 	uint num_point_lights;
 	PAD(2)
-	STRUCT EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
+	//STRUCT EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
 	STRUCT PointLight point_lights[MAX_POINT_LIGHTS];
+	STRUCT PolygonLight polygons[MAX_EMISSIVE_KUSOCHKI];
+	vec3 polygon_vertices[MAX_EMISSIVE_KUSOCHKI * 7];
 };
 
 struct LightCluster {

@@ -354,15 +354,16 @@ void VK_RayFrameBegin( void )
 	// TODO: move all lighting update to scene?
 	if (g_rtx.reload_lighting) {
 		g_rtx.reload_lighting = false;
-		VK_LightsLoadMapStaticLights();
+		// FIXME temporarily not supported VK_LightsLoadMapStaticLights();
 	}
 
 	// TODO shouldn't we do this in freeze models mode anyway?
-	VK_LightsFrameInit();
+	RT_LightsFrameInit();
 }
 
 static void createPipeline( void )
 {
+	return; // ... FIXME
 	struct RayShaderSpec {
 		int max_point_lights;
 		int max_emissive_kusochki;
@@ -757,7 +758,7 @@ static qboolean rayTrace( VkCommandBuffer cmdbuf, const xvk_ray_frame_images_t *
 }
 
 // Finalize and update dynamic lights
-static void uploadLights ( void ) {
+static void uploadLights( void ) {
 	// Upload light grid
 	{
 		vk_ray_shader_light_grid *grid = g_rtx.light_grid_buffer.mapped;
@@ -770,24 +771,28 @@ static void uploadLights ( void ) {
 			struct LightCluster *const dst = grid->cells + i;
 
 			dst->num_point_lights = src->num_point_lights;
-			dst->num_emissive_surfaces = src->num_emissive_surfaces;
+			dst->num_emissive_surfaces = src->num_polygons;
 			memcpy(dst->point_lights, src->point_lights, sizeof(uint8_t) * src->num_point_lights);
-			memcpy(dst->emissive_surfaces, src->emissive_surfaces, sizeof(uint8_t) * src->num_emissive_surfaces);
+			memcpy(dst->emissive_surfaces, src->polygons, sizeof(uint8_t) * src->num_polygons);
 		}
 	}
 
 	// Upload dynamic emissive kusochki
 	{
 		struct Lights *lights = g_ray_model_state.lights_buffer.mapped;
-		ASSERT(g_lights.num_emissive_surfaces <= MAX_EMISSIVE_KUSOCHKI);
-		lights->num_kusochki = g_lights.num_emissive_surfaces;
-		for (int i = 0; i < g_lights.num_emissive_surfaces; ++i) {
-			const vk_emissive_surface_t *const src_esurf = g_lights.emissive_surfaces + i;
-			struct EmissiveKusok *const dst_ekusok = lights->kusochki + i;
+		ASSERT(g_lights.num_polygons <= MAX_EMISSIVE_KUSOCHKI);
+		lights->num_polygons = g_lights.num_polygons;
+		for (int i = 0; i < g_lights.num_polygons; ++i) {
+			const rt_light_polygon_t *const src_poly = g_lights.polygons + i;
+			struct PolygonLight *const dst_poly = lights->polygons + i;
 
-			dst_ekusok->kusok_index = src_esurf->kusok_index;
-			Matrix3x4_Copy(dst_ekusok->tx_row_x, src_esurf->transform);
-			VectorCopy(src_esurf->emissive, dst_ekusok->emissive);
+			//dst_ekusok->kusok_index = src_esurf->kusok_index;
+			//Matrix3x4_Copy(dst_ekusok->tx_row_x, src_esurf->transform);
+			VectorCopy(src_poly->emissive, dst_poly->emissive);
+			VectorCopy(src_poly->normal_area, dst_poly->normal_area);
+			VectorCopy(src_poly->center, dst_poly->center);
+			dst_poly->vertices_begin = src_poly->vertices.begin;
+			dst_poly->vertices_count = src_poly->vertices.count;
 		}
 
 		lights->num_point_lights = g_lights.num_point_lights;
@@ -806,6 +811,10 @@ static void uploadLights ( void ) {
 
 			dst->environment = !!(src->flags & LightFlag_Environment);
 		}
+
+		// TODO static assert
+		ASSERT(sizeof(lights->polygon_vertices) == sizeof(g_lights.polygon_vertices));
+		memcpy(lights->polygon_vertices, g_lights.polygon_vertices, sizeof(lights->polygon_vertices));
 	}
 }
 
@@ -1182,7 +1191,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		deinitVk2d();
 		initVk2d();
 		// TODO gracefully handle reload errors: need to change createPipeline, loadShader, VK_PipelineCreate...
-		vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
+		//vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
 		createPipeline();
 
 		XVK_RayTracePrimaryReloadPipeline();
@@ -1490,7 +1499,7 @@ RAY_LIGHT_DIRECT_OUTPUTS(X)
 		XVK_ImageDestroy(&g_rtx.frames[i].additive);
 	}
 
-	vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
+	//vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
 	VK_DescriptorsDestroy(&g_rtx.descriptors);
 
 	if (g_rtx.tlas != VK_NULL_HANDLE)

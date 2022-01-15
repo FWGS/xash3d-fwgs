@@ -19,6 +19,7 @@ SampleContext buildSampleContext(vec3 position, vec3 normal, vec3 view_dir) {
 	return ctx;
 }
 
+#if 0
 void sampleEmissiveSurface(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, SampleContext ctx, uint ekusok_index, out vec3 out_diffuse, out vec3 out_specular) {
 	out_diffuse = out_specular = vec3(0.);
 
@@ -184,4 +185,30 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 		diffuse += ldiffuse * sampling_light_scale;
 		specular += lspecular * sampling_light_scale;
 	} // for all emissive kusochki
+}
+#endif
+
+// FIXME this is a quick test that reading new lights is possible
+void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, uint cluster_index, inout vec3 diffuse, inout vec3 specular) {
+
+	//diffuse = vec3(fract(float(lights.num_polygons) / 10.)); return;
+	for (uint i = 0; i < lights.num_polygons; ++i) {
+		const PolygonLight poly = lights.polygons[i];
+
+		/* diffuse += poly.emissive; */
+		/* continue; */
+
+		const vec3 dir = poly.center - P;
+		const vec3 light_dir = normalize(dir);
+		const float contrib_estimate = dot(light_dir, poly.normal_area) / dot(dir, dir);
+
+		if (contrib_estimate < 1e-6)
+		 	continue;
+
+		//const float area = 1.f / length(poly.normal_area);
+		vec3 poly_diffuse = vec3(0.), poly_specular = vec3(0.);
+		evalSplitBRDF(N, light_dir, view_dir, material, poly_diffuse, poly_specular);
+		diffuse += throughput * poly.emissive * contrib_estimate;
+		specular += throughput * poly.emissive * contrib_estimate;
+	}
 }

@@ -54,7 +54,9 @@ static void reloadPatches( void ) {
 	// Assumes that the map brush model has been loaded
 
 	// Patching does disturb light sources, reinitialize
-	VK_LightsLoadMapStaticLights();
+
+	// FIXME loading patches will be broken now ;_;
+	// ?? VK_LightsLoadMapStaticLights();
 }
 
 static void reloadMaterials( void ) {
@@ -67,7 +69,8 @@ static void reloadMaterials( void ) {
 	// Assumes that the map has been loaded
 
 	// Might have loaded new patch data, need to reload lighting data just in case
-	VK_LightsLoadMapStaticLights();
+	// FIXME loading patches will be broken now ;_;
+	// ??? VK_LightsLoadMapStaticLights();
 }
 
 void VK_SceneInit( void )
@@ -118,9 +121,9 @@ int R_FIXME_GetEntityRenderMode( cl_entity_t *ent )
 }
 
 // tell the renderer what new map is started
-void R_NewMap( void )
-{
+void R_NewMap( void ) {
 	const int num_models = gEngine.EngineGetParm( PARM_NUMMODELS, 0 );
+	const model_t *const map = gEngine.pfnGetModelByIndex( 1 );
 
 	// Existence of cache.data for the world means that we've already have loaded this map
 	// and this R_NewMap call is from within loading of a saved game.
@@ -169,7 +172,7 @@ void R_NewMap( void )
 	XVK_ParseMapPatches();
 
 	// Need parsed map entities, and also should happen before brush model loading
-	VK_LightsNewMap();
+	RT_LightsNewMapBegin(map);
 
 	// Load all models at once
 	gEngine.Con_Reportf( "Num models: %d:\n", num_models );
@@ -192,7 +195,7 @@ void R_NewMap( void )
 
 	// Load static map lights
 	// Reads surfaces from loaded brush models (must happen after all brushes are loaded)
-	VK_LightsLoadMapStaticLights();
+	RT_LightsNewMapEnd(map);
 
 	if (vk_core.rtx)
 	{

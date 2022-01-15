@@ -1,7 +1,7 @@
 layout (constant_id = 4) const float LIGHT_GRID_CELL_SIZE = 128.;// FIXME 256.;
 layout (constant_id = 5) const uint MAX_LIGHT_CLUSTERS = 262144;// FIXME 32768;
 layout (constant_id = 6) const uint MAX_TEXTURES = 4096;
-layout (set = 0, binding = BINDING_LIGHTS) uniform UBOLights { Lights lights; };
+layout (set = 0, binding = BINDING_LIGHTS) uniform UBOLights { Lights lights; }; // TODO this is pretty much static and should be a buffer, not UBO
 layout (set = 0, binding = BINDING_LIGHT_CLUSTERS, align = 1) readonly buffer UBOLightClusters {
 	ivec3 grid_min, grid_size;
 	//uint8_t clusters_data[MAX_LIGHT_CLUSTERS * LIGHT_CLUSTER_SIZE + HACK_OFFSET];

@@ -439,58 +439,23 @@ static model_sizes_t computeSizes( const model_t *mod ) {
 }
 
 static void loadEmissiveSurface(const model_t *mod, const int surface_index, const msurface_t *surf, const vec3_t emissive) {
-	rt_light_polygon_t lpoly;
+	rt_light_add_polygon_t lpoly;
+	const qboolean flip = !!FBitSet( surf->flags, SURF_PLANEBACK );
 	lpoly.num_vertices = Q_min(7, surf->numedges);
 
+	// TODO split, don't clip
 	if (surf->numedges > 7)
 		gEngine.Con_Printf(S_WARN "emissive surface %d has %d vertices; clipping to 7\n", surface_index, surf->numedges);
 
 	VectorCopy(emissive, lpoly.emissive);
 
-	VectorSet(lpoly.center, 0, 0, 0);
-	VectorSet(lpoly.normal, 0, 0, 0);
-
 	for (int i = 0; i < lpoly.num_vertices; ++i) {
-		const int iedge = mod->surfedges[surf->firstedge + i];
+		const int index = flip ? lpoly.num_vertices - i - 1 : i;
+		const int iedge = mod->surfedges[surf->firstedge + index];
 		const medge_t *edge = mod->edges + (iedge >= 0 ? iedge : -iedge);
 		const mvertex_t *vertex = mod->vertexes + (iedge >= 0 ? edge->v[0] : edge->v[1]);
 		VectorCopy(vertex->position, lpoly.vertices[i]);
-		VectorAdd(vertex->position, lpoly.center, lpoly.center);
-
-		if (i > 1) {
-			vec3_t e[2], normal;
-			VectorSubtract(lpoly.vertices[i-1], lpoly.vertices[i-2], e[0]);
-			VectorSubtract(lpoly.vertices[i-0], lpoly.vertices[i-2], e[1]);
-			CrossProduct(e[0], e[1], normal);
-			VectorAdd(normal, lpoly.normal, lpoly.normal);
-		}
 	}
-
-	VectorM(1.f / lpoly.num_vertices, lpoly.center, lpoly.center);
-
-	lpoly.area = VectorLength(lpoly.normal);
-
-	VectorNormalize(lpoly.normal);
-	{
-		const float dot = DotProduct(lpoly.normal, surf->plane->normal);
-		if (fabs(dot) < (1.f - 1e-5f)) {
-			gEngine.Con_Reportf(S_WARN "surf=%d normal=(%f, %f, %f) computed=(%f, %f, %f) dot=%f dir=%d\n",
-				surf->plane->normal[0],
-				surf->plane->normal[1],
-				surf->plane->normal[2],
-				lpoly.normal[0],
-				lpoly.normal[1],
-				lpoly.normal[2],
-				dot,
-				!!FBitSet( surf->flags, SURF_PLANEBACK )
-			);
-		}
-	}
-
-	if( FBitSet( surf->flags, SURF_PLANEBACK ))
-		VectorNegate( surf->plane->normal, lpoly.normal );
-	else
-		VectorCopy( surf->plane->normal, lpoly.normal );
 
 	RT_LightAddPolygon(&lpoly);
 }
@@ -538,6 +503,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			if (t != tex_id)
 				continue;
 
+			// FIXME move this to rt_light_bsp and static loading
 			{
 				vec3_t emissive;
 				if (psurf && (psurf->flags & Patch_Surface_Emissive)) {

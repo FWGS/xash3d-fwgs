@@ -369,8 +369,8 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		const xvk_material_t *const mat = XVK_GetMaterialForTextureIndex( geom->texture );
 		ASSERT(mat);
 
-		if (!render_model->static_map)
-			VK_LightsAddEmissiveSurface( geom, transform_row, false );
+		/* if (!render_model->static_map) */
+		/* 	VK_LightsAddEmissiveSurface( geom, transform_row, false ); */
 
 		kusok->tex_base_color = mat->tex_base_color;
 		kusok->tex_roughness = mat->tex_roughness;
