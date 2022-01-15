@@ -566,4 +566,25 @@ void Test_RunImagelib( void )
 	Z_Free( rgb.buffer );
 }
 
+#define IMPLEMENT_IMAGELIB_FUZZ_TARGET( export, target ) \
+int EXPORT export( const uint8_t *Data, size_t Size ) \
+{ \
+	rgbdata_t *rgb; \
+	host.type = HOST_NORMAL; \
+	Memory_Init(); \
+	Image_Init(); \
+	if( target( "#internal", Data, Size )) \
+	{ \
+		rgb = ImagePack(); \
+		FS_FreeImage( rgb ); \
+	} \
+	Image_Shutdown(); \
+	return 0; \
+} \
+
+IMPLEMENT_IMAGELIB_FUZZ_TARGET( Fuzz_Image_LoadBMP, Image_LoadBMP )
+IMPLEMENT_IMAGELIB_FUZZ_TARGET( Fuzz_Image_LoadPNG, Image_LoadPNG )
+IMPLEMENT_IMAGELIB_FUZZ_TARGET( Fuzz_Image_LoadDDS, Image_LoadDDS )
+IMPLEMENT_IMAGELIB_FUZZ_TARGET( Fuzz_Image_LoadTGA, Image_LoadTGA )
+
 #endif /* XASH_ENGINE_TESTS */

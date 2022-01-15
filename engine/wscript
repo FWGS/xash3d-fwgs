@@ -32,6 +32,9 @@ def options(opt):
 	grp.add_option('--enable-engine-tests', action = 'store_true', dest = 'ENGINE_TESTS', default = False,
 		help = 'embed tests into the engine, jump into them by -runtests command line switch [default: %default]')
 
+	grp.add_option('--enable-engine-fuzz', action = 'store_true', dest = 'ENGINE_FUZZ', default = False,
+		help = 'add LLVM libFuzzer [default: %default]' )
+
 	opt.load('sdl2')
 
 def configure(conf):
@@ -86,6 +89,10 @@ def configure(conf):
 		conf.define('XASH_CRASHHANDLER', 0)
 
 	conf.env.ENGINE_TESTS = conf.options.ENGINE_TESTS
+
+	if conf.options.ENGINE_FUZZ:
+		conf.env.append_unique('CFLAGS', '-fsanitize=fuzzer-no-link')
+		conf.env.append_unique('LINKFLAGS', '-fsanitize=fuzzer')
 
 	conf.define_cond('XASH_ENGINE_TESTS', conf.env.ENGINE_TESTS)
 	conf.define_cond('XASH_STATIC_LIBS', conf.env.STATIC_LINKING)
