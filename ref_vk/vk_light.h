@@ -26,14 +26,14 @@ typedef struct {
 } vk_lights_cell_t;
 
 typedef struct {
+	vec4_t plane;
+	vec3_t center;
+	float area;
+
 	vec3_t emissive;
 
-	vec3_t normal_area;
-	vec3_t center;
-	//float area;
-
 	struct {
-		int begin, count; // reference g_light.polygon_vertices
+		int offset, count; // reference g_light.polygon_vertices
 	} vertices;
 
 	// uint32_t kusok_index;

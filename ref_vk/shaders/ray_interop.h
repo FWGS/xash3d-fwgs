@@ -83,14 +83,13 @@ struct EmissiveKusok {
 };
 
 struct PolygonLight {
-	vec3 normal_area;
-	uint vertices_offset;
+	vec4 plane;
 
 	vec3 center;
-	uint vertices_count;
+	float area;
 
 	vec3 emissive;
-	PAD(1)
+	uint vertices_count_offset;
 };
 
 struct Lights {

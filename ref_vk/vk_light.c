@@ -1175,30 +1175,35 @@ int RT_LightAddPolygon(const rt_light_add_polygon_t *addpoly) {
 
 	{
 		rt_light_polygon_t *const poly = g_lights.polygons + g_lights.num_polygons;
+		vec3_t normal;
 
-		poly->vertices.begin = g_lights.num_polygon_vertices;
+		poly->vertices.offset = g_lights.num_polygon_vertices;
 		poly->vertices.count = addpoly->num_vertices;
 
 		VectorCopy(addpoly->emissive, poly->emissive);
 		VectorSet(poly->center, 0, 0, 0);
-		VectorSet(poly->normal_area, 0, 0, 0);
+		VectorSet(normal, 0, 0, 0);
 
 		for (int i = 0; i < addpoly->num_vertices; ++i) {
-			VectorCopy(addpoly->vertices[i], g_lights.polygon_vertices[poly->vertices.begin + i]);
+			VectorCopy(addpoly->vertices[i], g_lights.polygon_vertices[poly->vertices.offset + i]);
 			VectorAdd(addpoly->vertices[i], poly->center, poly->center);
 
 			if (i > 1) {
-				vec3_t e[2], normal;
-				VectorSubtract(addpoly->vertices[i-1], addpoly->vertices[i-2], e[0]);
-				VectorSubtract(addpoly->vertices[i-0], addpoly->vertices[i-2], e[1]);
-				CrossProduct(e[0], e[1], normal);
-				VectorAdd(normal, poly->normal_area, poly->normal_area);
+				vec3_t e[2], lnormal;
+				VectorSubtract(addpoly->vertices[i-0], addpoly->vertices[0], e[0]);
+				VectorSubtract(addpoly->vertices[i-1], addpoly->vertices[0], e[1]);
+				CrossProduct(e[0], e[1], lnormal);
+				VectorAdd(lnormal, normal, normal);
 			}
 		}
 
+		poly->area = VectorLength(normal);
+		VectorM(1.f / poly->area, normal, poly->plane);
+		poly->plane[3] = -DotProduct(addpoly->vertices[0], poly->plane);
+
 		VectorM(1.f / poly->vertices.count, poly->center, poly->center);
 
-		gEngine.Con_Reportf("added polygon light index=%d color=(%f, %f, %f) center=(%f, %f, %f) normal_area=(%f, %f, %f) area=%f num_vertices=%d\n",
+		gEngine.Con_Reportf("added polygon light index=%d color=(%f, %f, %f) center=(%f, %f, %f) plane=(%f, %f, %f, %f) area=%f num_vertices=%d\n",
 			g_lights.num_polygons,
 			poly->emissive[0],
 			poly->emissive[1],
@@ -1206,10 +1211,11 @@ int RT_LightAddPolygon(const rt_light_add_polygon_t *addpoly) {
 			poly->center[0],
 			poly->center[1],
 			poly->center[2],
-			poly->normal_area[0],
-			poly->normal_area[1],
-			poly->normal_area[2],
-			VectorLength(poly->normal_area),
+			poly->plane[0],
+			poly->plane[1],
+			poly->plane[2],
+			poly->plane[3],
+			poly->area,
 			poly->vertices.count
 		);
 

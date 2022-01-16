@@ -788,11 +788,20 @@ static void uploadLights( void ) {
 
 			//dst_ekusok->kusok_index = src_esurf->kusok_index;
 			//Matrix3x4_Copy(dst_ekusok->tx_row_x, src_esurf->transform);
-			VectorCopy(src_poly->emissive, dst_poly->emissive);
-			VectorCopy(src_poly->normal_area, dst_poly->normal_area);
+
+			Vector4Copy(src_poly->plane, dst_poly->plane);
 			VectorCopy(src_poly->center, dst_poly->center);
-			dst_poly->vertices_offset = src_poly->vertices.begin;
-			dst_poly->vertices_count = src_poly->vertices.count;
+			dst_poly->area = src_poly->area;
+			VectorCopy(src_poly->emissive, dst_poly->emissive);
+
+			// TODO DEBUG_ASSERT
+			ASSERT(src_poly->vertices.count > 2);
+			ASSERT(src_poly->vertices.offset < 0xffffu);
+			ASSERT(src_poly->vertices.count < 0xffffu);
+
+			ASSERT(src_poly->vertices.offset + src_poly->vertices.count < COUNTOF(lights->polygon_vertices));
+
+			dst_poly->vertices_count_offset = (src_poly->vertices.count << 16) | (src_poly->vertices.offset);
 		}
 
 		lights->num_point_lights = g_lights.num_point_lights;
