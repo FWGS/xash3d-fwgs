@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "client.h"
 #include "library.h"
 #include "platform/platform.h"
+#include "resman/resman.h"
 
 int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis )
 {
@@ -286,13 +287,13 @@ static void R_FillRenderAPIFromRef( render_api_t *to, const ref_interface_t *fro
 	to->R_SetCurrentEntity       = from->R_SetCurrentEntity;
 	to->R_SetCurrentModel        = from->R_SetCurrentModel;
 	to->GL_FindTexture           = from->FindTexture;
-	to->GL_TextureName           = from->TextureName;
-	to->GL_TextureData           = from->TextureData;
-	to->GL_LoadTexture           = from->LoadTexture;
+	to->GL_TextureName           = &RM_TextureName;
+	to->GL_TextureData           = &RM_TextureData;
+	to->GL_LoadTexture           = &RM_LoadTexture;
 	to->GL_CreateTexture         = from->CreateTexture;
 	to->GL_LoadTextureArray      = from->LoadTextureArray;
 	to->GL_CreateTextureArray    = from->CreateTextureArray;
-	to->GL_FreeTexture           = from->FreeTexture;
+	to->GL_FreeTexture           = &RM_FreeTexture;
 	to->DrawSingleDecal          = from->DrawSingleDecal;
 	to->R_DecalSetupVerts        = from->R_DecalSetupVerts;
 	to->R_EntityRemoveDecals     = from->R_EntityRemoveDecals;

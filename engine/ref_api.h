@@ -542,13 +542,9 @@ typedef struct ref_interface_s
 
 	// Texture tools
 	int		(*FindTexture)( const char *name );
-	const char*	(*TextureName)( unsigned int texnum );
-	const byte*	(*TextureData)( unsigned int texnum ); // may be NULL
-	int	    (*LoadTexture)( const char *name, const byte *buf, size_t size, int flags );
 	int	    (*CreateTexture)( const char *name, int width, int height, const void *buffer, texFlags_t flags );
 	int	    (*LoadTextureArray)( const char **names, int flags );
 	int     (*CreateTextureArray)( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
-	void    (*FreeTexture)( unsigned int texnum );
 
 	// Decals manipulating (draw & remove)
 	void		(*DrawSingleDecal)( struct decal_s *pDecal, struct msurface_s *fa );
