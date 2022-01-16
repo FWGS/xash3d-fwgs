@@ -540,12 +540,6 @@ typedef struct ref_interface_s
 	void		(*R_SetCurrentEntity)( struct cl_entity_s *ent ); // tell engine about both currententity and currentmodel
 	void		(*R_SetCurrentModel)( struct model_s *mod );	// change currentmodel but leave currententity unchanged
 
-	// Texture tools
-	int		(*FindTexture)( const char *name );
-	int	    (*CreateTexture)( const char *name, int width, int height, const void *buffer, texFlags_t flags );
-	int	    (*LoadTextureArray)( const char **names, int flags );
-	int     (*CreateTextureArray)( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
-
 	// Decals manipulating (draw & remove)
 	void		(*DrawSingleDecal)( struct decal_s *pDecal, struct msurface_s *fa );
 	float		*(*R_DecalSetupVerts)( struct decal_s *pDecal, struct msurface_s *surf, int texture, int *outCount );

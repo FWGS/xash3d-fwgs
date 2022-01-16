@@ -153,8 +153,6 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	// Upload texture
 	if (RM_TextureManager.ref)
 	{
-		Con_Reportf( "Upload texture %s to render\n", &(texture->name) );
-
 		RM_TextureManager.ref->GL_LoadTextureFromBuffer
 		(
 			&(texture->name),
@@ -162,8 +160,6 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 			texture->flags, 
 			/* What is update??? */ false
 		);
-
-		Con_Reportf( "Uploaded at %d, our index %d\n", RM_TextureManager.ref->FindTexture( &(texture->name)), texture->number );
 	}
 
 	//if( !uploadTexture( tex, &pic, 1, false ))
