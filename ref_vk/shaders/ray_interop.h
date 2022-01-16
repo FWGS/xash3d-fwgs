@@ -104,9 +104,9 @@ struct Lights {
 
 struct LightCluster {
 	uint8_t num_point_lights;
-	uint8_t num_emissive_surfaces;
+	uint8_t num_polygons;
 	uint8_t point_lights[MAX_VISIBLE_POINT_LIGHTS];
-	uint8_t emissive_surfaces[MAX_VISIBLE_SURFACE_LIGHTS];
+	uint8_t polygons[MAX_VISIBLE_SURFACE_LIGHTS];
 };
 
 #define PUSH_FLAG_LIGHTMAP_ONLY 0x01

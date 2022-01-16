@@ -217,11 +217,16 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 // FIXME this is a quick test that reading new lights is possible
 void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, uint cluster_index, inout vec3 diffuse, inout vec3 specular) {
 
+	// TODO move this to pickPolygonLight function
+	const uint num_polygons = uint(light_grid.clusters[cluster_index].num_polygons);
+
 	uint selected = 0;
 	float total_contrib = 0.;
 	float eps1 = rand01();
-	for (uint i = 0; i < lights.num_polygons; ++i) {
-		const PolygonLight poly = lights.polygons[i];
+	for (uint i = 0; i < num_polygons; ++i) {
+		const uint index = uint(light_grid.clusters[cluster_index].polygons[i]);
+
+		const PolygonLight poly = lights.polygons[index];
 
 		const vec3 dir = poly.center - P;
 		const vec3 light_dir = normalize(dir);
@@ -236,7 +241,7 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 		if (eps1 < tau) {
 			eps1 /= tau;
 		} else {
-			selected = i + 1;
+			selected = index + 1;
 			eps1 = (eps1 - tau) / (1. - tau);
 		}
 	}
@@ -265,10 +270,12 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 
 	//if (true) {//!shadowed(P, light_sample_dir.xyz, dist)) {
 	if (!shadowed(P, light_sample_dir.xyz, dist)) {
+		//const float estimate = total_contrib;
+		const float estimate = light_sample_dir.w;
 		vec3 poly_diffuse = vec3(0.), poly_specular = vec3(0.);
 		evalSplitBRDF(N, light_sample_dir.xyz, view_dir, material, poly_diffuse, poly_specular);
-		diffuse += throughput * emissive * light_sample_dir.w; // TODO * total_contrib ?
-		specular += throughput * emissive * light_sample_dir.w;
+		diffuse += throughput * emissive * estimate;
+		specular += throughput * emissive * estimate;
 	}
 #endif
 }

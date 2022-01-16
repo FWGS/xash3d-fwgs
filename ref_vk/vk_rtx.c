@@ -771,9 +771,9 @@ static void uploadLights( void ) {
 			struct LightCluster *const dst = grid->cells + i;
 
 			dst->num_point_lights = src->num_point_lights;
-			dst->num_emissive_surfaces = src->num_polygons;
+			dst->num_polygons = src->num_polygons;
 			memcpy(dst->point_lights, src->point_lights, sizeof(uint8_t) * src->num_point_lights);
-			memcpy(dst->emissive_surfaces, src->polygons, sizeof(uint8_t) * src->num_polygons);
+			memcpy(dst->polygons, src->polygons, sizeof(uint8_t) * src->num_polygons);
 		}
 	}
 

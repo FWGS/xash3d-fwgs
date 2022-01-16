@@ -455,6 +455,7 @@ static void loadEmissiveSurface(const model_t *mod, const int surface_index, con
 		VectorCopy(vertex->position, lpoly.vertices[i]);
 	}
 
+	lpoly.surface = surf;
 	RT_LightAddPolygon(&lpoly);
 }
 
