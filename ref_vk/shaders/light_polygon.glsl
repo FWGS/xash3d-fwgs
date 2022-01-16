@@ -1,4 +1,4 @@
-#define MAX_POLYGON_VERTEX_COUNT 4
+#define MAX_POLYGON_VERTEX_COUNT 8
 #define MIN_POLYGON_VERTEX_COUNT_BEFORE_CLIPPING 3
 #include "peters2021-sampling/polygon_clipping.glsl"
 #include "peters2021-sampling/polygon_sampling.glsl"
@@ -17,6 +17,29 @@ SampleContext buildSampleContext(vec3 position, vec3 normal, vec3 view_dir) {
 	const mat3 rotation = transpose(mat3(x_axis, y_axis, normal));
 	ctx.world_to_shading = mat4x3(rotation[0], rotation[1], rotation[2], -rotation * position);
 	return ctx;
+}
+
+vec4 getPolygonLightSample(vec3 P, vec3 N, vec3 view_dir, SampleContext ctx, uint poly_index) {
+	const PolygonLight poly = lights.polygons[poly_index];
+	vec3 clipped[MAX_POLYGON_VERTEX_COUNT];
+
+	for (uint i = 0; i < poly.vertices_count; ++i) {
+		clipped[i] = ctx.world_to_shading * vec4(lights.polygon_vertices[poly.vertices_offset + i].xyz, 1.);
+	}
+
+	const uint vertices_count = clip_polygon(poly.vertices_count, clipped);
+	if (vertices_count == 0)
+		return vec4(0.f);
+
+	const projected_solid_angle_polygon_t sap = prepare_projected_solid_angle_polygon_sampling(vertices_count, clipped);
+	const float contrib = sap.projected_solid_angle;
+	if (contrib <= 0.f)
+		return vec4(0.f);
+
+	vec2 rnd = vec2(rand01(), rand01());
+	const vec3 light_dir = (transpose(ctx.world_to_shading) * sample_projected_solid_angle_polygon(sap, rnd)).xyz;
+
+	return vec4(light_dir, contrib);
 }
 
 #if 0
@@ -191,6 +214,9 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 // FIXME this is a quick test that reading new lights is possible
 void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, uint cluster_index, inout vec3 diffuse, inout vec3 specular) {
 
+	// TODO do this after the loop
+	const SampleContext ctx = buildSampleContext(P, N, view_dir);
+
 	//diffuse = vec3(fract(float(lights.num_polygons) / 10.)); return;
 	for (uint i = 0; i < lights.num_polygons; ++i) {
 		const PolygonLight poly = lights.polygons[i];
@@ -205,10 +231,12 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 		if (contrib_estimate < 1e-6)
 		 	continue;
 
+		const float contrib = getPolygonLightSample(P, N, view_dir, ctx, i).w;
+
 		//const float area = 1.f / length(poly.normal_area);
 		vec3 poly_diffuse = vec3(0.), poly_specular = vec3(0.);
 		evalSplitBRDF(N, light_dir, view_dir, material, poly_diffuse, poly_specular);
-		diffuse += throughput * poly.emissive * contrib_estimate;
-		specular += throughput * poly.emissive * contrib_estimate;
+		diffuse += throughput * poly.emissive * contrib;
+		specular += throughput * poly.emissive * contrib;
 	}
 }

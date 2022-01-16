@@ -84,7 +84,7 @@ struct EmissiveKusok {
 
 struct PolygonLight {
 	vec3 normal_area;
-	uint vertices_begin;
+	uint vertices_offset;
 
 	vec3 center;
 	uint vertices_count;
@@ -100,7 +100,7 @@ struct Lights {
 	//STRUCT EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
 	STRUCT PointLight point_lights[MAX_POINT_LIGHTS];
 	STRUCT PolygonLight polygons[MAX_EMISSIVE_KUSOCHKI];
-	vec3 polygon_vertices[MAX_EMISSIVE_KUSOCHKI * 7];
+	vec4 polygon_vertices[MAX_EMISSIVE_KUSOCHKI * 7]; // vec3 but aligned
 };
 
 struct LightCluster {

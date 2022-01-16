@@ -791,7 +791,7 @@ static void uploadLights( void ) {
 			VectorCopy(src_poly->emissive, dst_poly->emissive);
 			VectorCopy(src_poly->normal_area, dst_poly->normal_area);
 			VectorCopy(src_poly->center, dst_poly->center);
-			dst_poly->vertices_begin = src_poly->vertices.begin;
+			dst_poly->vertices_offset = src_poly->vertices.begin;
 			dst_poly->vertices_count = src_poly->vertices.count;
 		}
 
@@ -813,8 +813,10 @@ static void uploadLights( void ) {
 		}
 
 		// TODO static assert
-		ASSERT(sizeof(lights->polygon_vertices) == sizeof(g_lights.polygon_vertices));
-		memcpy(lights->polygon_vertices, g_lights.polygon_vertices, sizeof(lights->polygon_vertices));
+		ASSERT(sizeof(lights->polygon_vertices) >= sizeof(g_lights.polygon_vertices));
+		for (int i = 0; i < g_lights.num_polygon_vertices; ++i) {
+			VectorCopy(g_lights.polygon_vertices[i], lights->polygon_vertices[i]);
+		}
 	}
 }
 
