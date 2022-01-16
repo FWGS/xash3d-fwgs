@@ -214,15 +214,11 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 // FIXME this is a quick test that reading new lights is possible
 void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, uint cluster_index, inout vec3 diffuse, inout vec3 specular) {
 
-	// TODO do this after the loop
-	const SampleContext ctx = buildSampleContext(P, N, view_dir);
-
-	//diffuse = vec3(fract(float(lights.num_polygons) / 10.)); return;
+	uint selected = 0;
+	float total_contrib = 0.;
+	float eps1 = rand01();
 	for (uint i = 0; i < lights.num_polygons; ++i) {
 		const PolygonLight poly = lights.polygons[i];
-
-		/* diffuse += poly.emissive; */
-		/* continue; */
 
 		const vec3 dir = poly.center - P;
 		const vec3 light_dir = normalize(dir);
@@ -231,12 +227,26 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 		if (contrib_estimate < 1e-6)
 		 	continue;
 
-		const float contrib = getPolygonLightSample(P, N, view_dir, ctx, i).w;
+		const float tau = total_contrib / (total_contrib + contrib_estimate);
+		total_contrib += contrib_estimate;
 
-		//const float area = 1.f / length(poly.normal_area);
-		vec3 poly_diffuse = vec3(0.), poly_specular = vec3(0.);
-		evalSplitBRDF(N, light_dir, view_dir, material, poly_diffuse, poly_specular);
-		diffuse += throughput * poly.emissive * contrib;
-		specular += throughput * poly.emissive * contrib;
+		if (eps1 < tau) {
+			eps1 /= tau;
+		} else {
+			selected = i + 1;
+			eps1 = (eps1 - tau) / (1. - tau);
+		}
 	}
+
+	if (selected == 0)
+		return;
+
+	const SampleContext ctx = buildSampleContext(P, N, view_dir);
+	const vec4 light_sample_dir = getPolygonLightSample(P, N, view_dir, ctx, selected - 1);
+	const vec3 emissive = lights.polygons[selected-1].emissive;
+
+	vec3 poly_diffuse = vec3(0.), poly_specular = vec3(0.);
+	evalSplitBRDF(N, light_sample_dir.xyz, view_dir, material, poly_diffuse, poly_specular);
+	diffuse += throughput * emissive * light_sample_dir.w;
+	specular += throughput * emissive * light_sample_dir.w;
 }
