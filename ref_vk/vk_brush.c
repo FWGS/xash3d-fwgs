@@ -440,7 +440,6 @@ static model_sizes_t computeSizes( const model_t *mod ) {
 
 static void loadEmissiveSurface(const model_t *mod, const int surface_index, const msurface_t *surf, const vec3_t emissive) {
 	rt_light_add_polygon_t lpoly;
-	const qboolean flip = !!FBitSet( surf->flags, SURF_PLANEBACK );
 	lpoly.num_vertices = Q_min(7, surf->numedges);
 
 	// TODO split, don't clip
@@ -450,8 +449,7 @@ static void loadEmissiveSurface(const model_t *mod, const int surface_index, con
 	VectorCopy(emissive, lpoly.emissive);
 
 	for (int i = 0; i < lpoly.num_vertices; ++i) {
-		const int index = flip ? lpoly.num_vertices - i - 1 : i;
-		const int iedge = mod->surfedges[surf->firstedge + index];
+		const int iedge = mod->surfedges[surf->firstedge + i];
 		const medge_t *edge = mod->edges + (iedge >= 0 ? iedge : -iedge);
 		const mvertex_t *vertex = mod->vertexes + (iedge >= 0 ? edge->v[0] : edge->v[1]);
 		VectorCopy(vertex->position, lpoly.vertices[i]);
