@@ -142,6 +142,8 @@ vk_devmem_t VK_DevMemAllocate(VkMemoryRequirements req, VkMemoryPropertyFlags pr
 		ret.offset = block.offset;
 		ret.mapped = device_memory->map ? device_memory->map + block.offset : NULL;
 
+		gEngine.Con_Reportf("Allocated devmem=%d block=%d offset=%d size=%d\n", device_memory_index, block.index, (int)block.offset, (int)block.size);
+
 		device_memory->refcount++;
 		ret.priv_.devmem = device_memory_index;
 		ret.priv_.block = block.index;
@@ -156,6 +158,8 @@ void VK_DevMemFree(const vk_devmem_t *mem) {
 
 	vk_device_memory_t *const device_memory = g_vk_devmem.allocs + mem->priv_.devmem;
 	ASSERT(mem->device_memory == device_memory->device_memory);
+
+	gEngine.Con_Reportf("Freeing devmem=%d block=%d\n", mem->priv_.devmem, mem->priv_.block);
 
 	aloPoolFree(device_memory->allocator, mem->priv_.block);
 
