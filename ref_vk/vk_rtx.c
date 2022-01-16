@@ -960,6 +960,7 @@ static void prepareUniformBuffer( const vk_ray_frame_render_args_t *args, int fr
 	Matrix4x4_ToArrayFloatGL(view_inv, (float*)ubo->inv_view);
 
 	ubo->ray_cone_width = atanf((2.0f*tanf(DEG2RAD(fov_angle_y) * 0.5f)) / (float)FRAME_HEIGHT);
+	ubo->random_seed = (uint32_t)gEngine.COM_RandomLong(0, INT32_MAX);
 }
 
 static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t* args, int frame_index, const xvk_ray_frame_images_t *current_frame, float fov_angle_y) {

@@ -43,7 +43,7 @@ void main() {
 	const ivec2 pix = ivec2(gl_GlobalInvocationID);
 	const vec2 uv = (pix + .5) / res * 2. - 1.;
 
-	rand01_state = /* FIXME push_constants.random_seed +*/ gl_GlobalInvocationID.x * 1833 +  gl_GlobalInvocationID.y * 31337;
+	rand01_state = ubo.random_seed + gl_GlobalInvocationID.x * 1833 +  gl_GlobalInvocationID.y * 31337;
 
 	// FIXME incorrect for reflection/refraction
 	vec4 target    = ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
