@@ -28,7 +28,7 @@ xvk_image_t XVK_ImageCreate(const xvk_image_create_t *create) {
 		SET_DEBUG_NAME(image.image, VK_OBJECT_TYPE_IMAGE, create->debug_name);
 
 	vkGetImageMemoryRequirements(vk_core.device, image.image, &memreq);
-	image.devmem = VK_DevMemAllocate(memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
+	image.devmem = VK_DevMemAllocate(create->debug_name, memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
 	XVK_CHECK(vkBindImageMemory(vk_core.device, image.image, image.devmem.device_memory, image.devmem.offset));
 
 	ivci.viewType = create->is_cubemap ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;

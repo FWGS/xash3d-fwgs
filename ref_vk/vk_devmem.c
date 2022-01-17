@@ -1,7 +1,8 @@
 #include "vk_devmem.h"
 #include "alolcator.h"
 
-#define MAX_DEVMEM_ALLOCS 8
+#define MAX_DEVMEM_ALLOCS 16
+#define DEFAULT_ALLOCATION_SIZE (64 * 1024 * 1024)
 
 typedef struct {
 	uint32_t type_bit;
@@ -33,8 +34,6 @@ static int findMemoryWithType(uint32_t type_index_bits, VkMemoryPropertyFlags fl
 	return UINT32_MAX;
 }
 
-#define DEFAULT_ALLOCATION_SIZE (128 * 1024 * 1024)
-
 static VkDeviceSize optimalSize(VkDeviceSize size) {
 	if (size < DEFAULT_ALLOCATION_SIZE)
 		return DEFAULT_ALLOCATION_SIZE;
@@ -47,7 +46,6 @@ static VkDeviceSize optimalSize(VkDeviceSize size) {
 }
 
 static int allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags prop_flags, VkMemoryAllocateFlags allocate_flags) {
-//static int allocateDeviceMemory(VkDeviceSize size, uint32_t type_bits, VkMemoryAllocateFlags flags, VkMemoryPropertyFlags prop_flags) {
 	if (g_vk_devmem.num_allocs == MAX_DEVMEM_ALLOCS)
 		return -1;
 
@@ -64,7 +62,7 @@ static int allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags 
 			.memoryTypeIndex = findMemoryWithType(req.memoryTypeBits, prop_flags),
 		};
 
-		gEngine.Con_Reportf("allocateDeviceMemory size=%zu memoryTypeBits=0x%x memoryProperties=%c%c%c%c%c allocate_flags=0x%x prop_flags=0x%x => typeIndex=%d\n",
+		gEngine.Con_Reportf("allocateDeviceMemory size=%zu memoryTypeBits=0x%x prop_flags=%c%c%c%c%c allocate_flags=0x%x => typeIndex=%d\n",
 			mai.allocationSize, req.memoryTypeBits,
 			prop_flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ? 'D' : '.',
 			prop_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? 'V' : '.',
@@ -72,7 +70,6 @@ static int allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags 
 			prop_flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? '$' : '.',
 			prop_flags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT ? 'L' : '.',
 			allocate_flags,
-			prop_flags,
 			mai.memoryTypeIndex);
 		ASSERT(mai.memoryTypeIndex != UINT32_MAX);
 
@@ -96,10 +93,19 @@ static int allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags 
 	return g_vk_devmem.num_allocs++;
 }
 
-vk_devmem_t VK_DevMemAllocate(VkMemoryRequirements req, VkMemoryPropertyFlags prop_flags, VkMemoryAllocateFlags allocate_flags) {
+vk_devmem_t VK_DevMemAllocate(const char *name, VkMemoryRequirements req, VkMemoryPropertyFlags prop_flags, VkMemoryAllocateFlags allocate_flags) {
 	vk_devmem_t ret = {0};
 	int device_memory_index = -1;
 	alo_block_t block;
+
+	gEngine.Con_Reportf("VK_DevMemAllocate name=\"%s\" size=%zu alignment=%zu memoryTypeBits=0x%x prop_flags=%c%c%c%c%c allocate_flags=0x%x\n",
+		name, req.size, req.alignment, req.memoryTypeBits,
+		prop_flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ? 'D' : '.',
+		prop_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? 'V' : '.',
+		prop_flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? 'C' : '.',
+		prop_flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? '$' : '.',
+		prop_flags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT ? 'L' : '.',
+		allocate_flags);
 
 	if (vk_core.rtx) {
 		// TODO this is needed only for the ray tracer and only while there's no proper staging
@@ -140,7 +146,7 @@ vk_devmem_t VK_DevMemAllocate(VkMemoryRequirements req, VkMemoryPropertyFlags pr
 		vk_device_memory_t *const device_memory = g_vk_devmem.allocs + device_memory_index;
 		ret.device_memory = device_memory->device_memory;
 		ret.offset = block.offset;
-		ret.mapped = device_memory->map ? device_memory->map + block.offset : NULL;
+		ret.mapped = device_memory->map ? (char*)device_memory->map + block.offset : NULL;
 
 		gEngine.Con_Reportf("Allocated devmem=%d block=%d offset=%d size=%d\n", device_memory_index, block.index, (int)block.offset, (int)block.size);
 

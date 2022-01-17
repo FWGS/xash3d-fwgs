@@ -457,7 +457,9 @@ static void devicePrintMemoryInfo(const VkPhysicalDeviceMemoryProperties *props,
 	gEngine.Con_Printf("Memory types: %d\n", props->memoryTypeCount);
 	for (int i = 0; i < (int)props->memoryTypeCount; ++i) {
 		const VkMemoryType* const type = props->memoryTypes + i;
-		gEngine.Con_Printf("  %d: heap=%d flags=%c%c%c%c%c\n", i, type->heapIndex,
+		gEngine.Con_Printf("  %d: bit=0x%x heap=%d flags=%c%c%c%c%c\n", i,
+			(1 << i),
+			type->heapIndex,
 			type->propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ? 'D' : '.',
 			type->propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? 'V' : '.',
 			type->propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? 'C' : '.',

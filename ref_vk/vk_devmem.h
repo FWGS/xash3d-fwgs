@@ -12,5 +12,5 @@ typedef struct vk_devmem_s {
 	struct { int devmem, block; } priv_;
 } vk_devmem_t;
 
-vk_devmem_t VK_DevMemAllocate(VkMemoryRequirements req, VkMemoryPropertyFlags props, VkMemoryAllocateFlags flags);
+vk_devmem_t VK_DevMemAllocate(const char *name, VkMemoryRequirements req, VkMemoryPropertyFlags props, VkMemoryAllocateFlags flags);
 void VK_DevMemFree(const vk_devmem_t *mem);
