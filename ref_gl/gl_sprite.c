@@ -372,7 +372,7 @@ void Mod_SpriteUnloadTextures( void *data )
 			if( psprite->frames[i].type == SPR_SINGLE )
 			{
 				pspriteframe = psprite->frames[i].frameptr;
-				GL_FreeTexture( pspriteframe->gl_texturenum );
+				gEngfuncs.RM_FreeTexture( pspriteframe->gl_texturenum );
 			}
 			else
 			{
@@ -381,7 +381,7 @@ void Mod_SpriteUnloadTextures( void *data )
 				for( j = 0; j < pspritegroup->numframes; j++ )
 				{
 					pspriteframe = pspritegroup->frames[i];
-					GL_FreeTexture( pspriteframe->gl_texturenum );
+					gEngfuncs.RM_FreeTexture( pspriteframe->gl_texturenum );
 				}
 			}
 		}

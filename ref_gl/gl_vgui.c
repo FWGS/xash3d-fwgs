@@ -48,7 +48,7 @@ void GAME_EXPORT VGUI_DrawShutdown( void )
 
 	for( i = 1; i < g_textureId; i++ )
 	{
-		GL_FreeTexture( g_textures[i] );
+		gEngfuncs.RM_FreeTexture( g_textures[i] );
 	}
 }
 

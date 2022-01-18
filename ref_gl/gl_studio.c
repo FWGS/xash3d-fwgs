@@ -3873,7 +3873,7 @@ void Mod_StudioUnloadTextures( void *data )
 	{
 		if( ptexture[i].index == tr.defaultTexture )
 			continue;
-		GL_FreeTexture( ptexture[i].index );
+		gEngfuncs.RM_FreeTexture( ptexture[i].index );
 	}
 }
 

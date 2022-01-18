@@ -347,7 +347,7 @@ void R_UnloadSkybox( void )
 	for( i = 0; i < 6; i++ )
 	{
 		if( !tr.skyboxTextures[i] ) continue;
-		GL_FreeTexture( tr.skyboxTextures[i] );
+		gEngfuncs.RM_FreeTexture( tr.skyboxTextures[i] );
 	}
 
 	tr.skyboxbasenum = 5800;	// set skybox base (to let some mods load hi-res skyboxes)

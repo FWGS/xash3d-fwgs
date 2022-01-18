@@ -743,8 +743,8 @@ void Mod_AliasUnloadTextures( void *data )
 
 		for( j = 0; j < 4; j++ )
 		{
-			GL_FreeTexture( palias->gl_texturenum[i][j] );
-			GL_FreeTexture( palias->fb_texturenum[i][j] );
+			gEngfuncs.RM_FreeTexture( palias->gl_texturenum[i][j] );
+			gEngfuncs.RM_FreeTexture( palias->fb_texturenum[i][j] );
 		}
 	}
 }

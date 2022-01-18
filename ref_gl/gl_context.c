@@ -103,8 +103,8 @@ void Mod_BrushUnloadTextures( model_t *mod )
 		if( !tx || tx->gl_texturenum == tr.defaultTexture )
 			continue; // free slot
 
-		GL_FreeTexture( tx->gl_texturenum );    // main texture
-		GL_FreeTexture( tx->fb_texturenum );    // luma texture
+		gEngfuncs.RM_FreeTexture( tx->gl_texturenum );    // main texture
+		gEngfuncs.RM_FreeTexture( tx->fb_texturenum );    // luma texture
 	}
 }
 
