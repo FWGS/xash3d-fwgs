@@ -17,25 +17,6 @@ void destroySemaphore(VkSemaphore sema);
 VkFence createFence( void );
 void destroyFence(VkFence fence);
 
-// FIXME arena allocation, ...
-typedef struct device_memory_s
-{
-	VkDeviceMemory device_memory;
-	uint32_t offset;
-} device_memory_t;
-
-device_memory_t allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags props, VkMemoryAllocateFlags flags);
-void freeDeviceMemory(device_memory_t *mem);
-
-typedef struct vk_buffer_s
-{
-	device_memory_t device_memory;
-	VkBuffer buffer;
-
-	void *mapped;
-	uint32_t size;
-} vk_buffer_t;
-
 typedef struct physical_device_s {
 	VkPhysicalDevice device;
 	VkPhysicalDeviceMemoryProperties2 memory_properties2;
@@ -74,8 +55,6 @@ typedef struct vulkan_core_s {
 	VkCommandPool command_pool;
 	VkCommandBuffer cb;
 	VkCommandBuffer cb_tex;
-
-	vk_buffer_t staging;
 
 	VkSampler default_sampler;
 

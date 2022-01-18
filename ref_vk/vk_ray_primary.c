@@ -235,7 +235,7 @@ static VkPipeline createPipeline( void ) {
 }
 
 qboolean XVK_RayTracePrimaryInit( void ) {
-	if (!createBuffer("primary ray sbt_buffer", &g_ray_primary.sbt_buffer, RtPrim_SBT_COUNT * vk_core.physical_device.sbt_record_size,
+	if (!VK_BufferCreate("primary ray sbt_buffer", &g_ray_primary.sbt_buffer, RtPrim_SBT_COUNT * vk_core.physical_device.sbt_record_size,
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 	{
@@ -254,7 +254,7 @@ void XVK_RayTracePrimaryDestroy( void ) {
 	vkDestroyPipeline(vk_core.device, g_ray_primary.pipeline, NULL);
 	VK_DescriptorsDestroy(&g_ray_primary.desc.riptors);
 
-	destroyBuffer(&g_ray_primary.sbt_buffer);
+	VK_BufferDestroy(&g_ray_primary.sbt_buffer);
 }
 
 void XVK_RayTracePrimaryReloadPipeline( void ) {

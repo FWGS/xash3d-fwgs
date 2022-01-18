@@ -2,6 +2,7 @@
 
 #include "vk_common.h"
 #include "vk_core.h"
+#include "vk_buffer.h"
 #include "vk_const.h"
 #include "vk_descriptor.h"
 #include "vk_mapents.h" // wadlist
@@ -599,7 +600,7 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 					.depth = 1,
 				};
 
-				memcpy(((uint8_t*)vk_core.staging.mapped) + staging_offset, buf, mip_size);
+				memcpy(((uint8_t*)g_vk_buffers.staging.mapped) + staging_offset, buf, mip_size);
 
 				if ( mip < mipCount - 1 )
 				{
@@ -607,7 +608,7 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 				}
 
 				// TODO we could do this only once w/ region array
-				vkCmdCopyBufferToImage(vk_core.cb_tex, vk_core.staging.buffer, tex->vk.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+				vkCmdCopyBufferToImage(vk_core.cb_tex, g_vk_buffers.staging.buffer, tex->vk.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
 				staging_offset += mip_size;
 			}

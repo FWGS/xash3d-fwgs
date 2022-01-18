@@ -1,8 +1,27 @@
 #pragma once
-#include "vk_core.h"
 
-qboolean createBuffer(const char *debug_name, vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags flags);
-void destroyBuffer(vk_buffer_t *buf);
+#include "vk_core.h"
+#include "vk_devmem.h"
+
+typedef struct vk_buffer_s {
+	vk_devmem_t devmem;
+	VkBuffer buffer;
+
+	void *mapped;
+	uint32_t size;
+} vk_buffer_t;
+
+typedef struct {
+	vk_buffer_t staging;
+} vk_global_buffer_t;
+
+extern vk_global_buffer_t g_vk_buffers;
+
+qboolean VK_BuffersInit( void );
+void VK_BuffersDestroy( void );
+
+qboolean VK_BufferCreate(const char *debug_name, vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags flags);
+void VK_BufferDestroy(vk_buffer_t *buf);
 
 VkDeviceAddress XVK_BufferGetDeviceAddress(VkBuffer buffer);
 

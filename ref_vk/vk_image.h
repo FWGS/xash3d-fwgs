@@ -1,10 +1,11 @@
 #pragma once
 #include "vk_core.h"
+#include "vk_devmem.h"
 
 typedef struct {
 	// FIXME better memory allocation
 	// OCHEN PLOHO
-	device_memory_t devmem;
+	vk_devmem_t devmem;
 	VkImage image;
 	VkImageView view;
 
