@@ -113,6 +113,7 @@ static struct {
 
 	// Holds UniformBuffer data
 	vk_buffer_t uniform_buffer;
+	uint32_t uniform_unit_size;
 
 	// Shader binding table buffer
 	vk_buffer_t sbt_buffer;
@@ -641,7 +642,7 @@ static void updateDescriptors( const vk_ray_frame_render_args_t *args, int frame
 
 	g_rtx.desc_values[RayDescBinding_UBOMatrices].buffer = (VkDescriptorBufferInfo){
 		.buffer = g_rtx.uniform_buffer.buffer,
-		.offset = frame_index * sizeof(struct UniformBuffer),
+		.offset = frame_index * g_rtx.uniform_unit_size,
 		.range = sizeof(struct UniformBuffer),
 	};
 
@@ -948,7 +949,7 @@ static void blitImage( const xvk_blit_args *blit_args ) {
 }
 
 static void prepareUniformBuffer( const vk_ray_frame_render_args_t *args, int frame_index, float fov_angle_y ) {
-	struct UniformBuffer *ubo = (struct UniformBuffer*)g_rtx.uniform_buffer.mapped + frame_index;
+	struct UniformBuffer *ubo = (struct UniformBuffer*)((char*)g_rtx.uniform_buffer.mapped + frame_index * g_rtx.uniform_unit_size);
 
 	matrix4x4 proj_inv, view_inv;
 	Matrix4x4_Invert_Full(proj_inv, *args->projection);
@@ -1033,7 +1034,7 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 				.tlas = g_rtx.tlas,
 				.ubo = {
 					.buffer = g_rtx.uniform_buffer.buffer,
-					.offset = frame_index * sizeof(struct UniformBuffer),
+					.offset = frame_index * g_rtx.uniform_unit_size,
 					.size = sizeof(struct UniformBuffer),
 				},
 				.kusochki = {
@@ -1084,7 +1085,7 @@ RAY_PRIMARY_OUTPUTS(X)
 				.tlas = g_rtx.tlas,
 				.ubo = {
 					.buffer = g_rtx.uniform_buffer.buffer,
-					.offset = frame_index * sizeof(struct UniformBuffer),
+					.offset = frame_index * g_rtx.uniform_unit_size,
 					.size = sizeof(struct UniformBuffer),
 				},
 				.kusochki = {
@@ -1381,8 +1382,9 @@ qboolean VK_RayInit( void )
 	ASSERT(XVK_RayTraceLightDirectInit());
 
 	g_rtx.sbt_record_size = vk_core.physical_device.sbt_record_size;
+	g_rtx.uniform_unit_size = ALIGN_UP(sizeof(struct UniformBuffer), vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
 
-	if (!createBuffer("ray uniform_buffer", &g_rtx.uniform_buffer, sizeof(struct UniformBuffer) * MAX_FRAMES_IN_FLIGHT,
+	if (!createBuffer("ray uniform_buffer", &g_rtx.uniform_buffer, g_rtx.uniform_unit_size * MAX_FRAMES_IN_FLIGHT,
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
 	{
