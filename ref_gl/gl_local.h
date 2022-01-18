@@ -344,19 +344,17 @@ void R_DrawModelHull( void );
 //
 void R_SetTextureParameters( void );
 gl_texture_t *R_GetTexture( GLenum texnum );
+
 #define GL_LoadTextureInternal( name, pic, flags ) gEngfuncs.RM_LoadTextureFromBuffer( name, pic, flags, false )
 #define GL_UpdateTextureInternal( name, pic, flags ) gEngfuncs.RM_LoadTextureFromBuffer( name, pic, flags, true )
-int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
-int GL_LoadTextureArray( const char **names, int flags );
 int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
+
 byte *GL_ResampleTexture( const byte *source, int in_w, int in_h, int out_w, int out_h, qboolean isNormalMap );
 int GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags );
 int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor );
 void GL_UpdateTexSize( int texnum, int width, int height, int depth );
 void GL_ApplyTextureParams( gl_texture_t *tex );
-int GL_FindTexture( const char *name );
-void GL_FreeTexture( GLenum texnum );
 const char *GL_Target( GLenum target );
 void R_InitDlightTexture( void );
 void R_TextureList_f( void );
