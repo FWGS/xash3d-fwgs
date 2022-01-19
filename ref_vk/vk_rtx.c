@@ -565,6 +565,8 @@ static void createPipeline( void )
 static void prepareTlas( VkCommandBuffer cmdbuf ) {
 	ASSERT(g_ray_model_state.frame.num_models > 0);
 
+	DEBUG_BEGIN(cmdbuf, "prepare tlas");
+
 	// Upload all blas instances references to GPU mem
 	{
 		VkAccelerationStructureInstanceKHR* inst = g_rtx.tlas_geom_buffer.mapped;
@@ -622,6 +624,7 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 
 	// 2. Build TLAS
 	createTlas(cmdbuf);
+	DEBUG_END(cmdbuf);
 }
 
 static void updateDescriptors( const vk_ray_frame_render_args_t *args, int frame_index, const xvk_ray_frame_images_t *frame_dst ) {
@@ -965,6 +968,7 @@ static void prepareUniformBuffer( const vk_ray_frame_render_args_t *args, int fr
 }
 
 static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t* args, int frame_index, const xvk_ray_frame_images_t *current_frame, float fov_angle_y) {
+	DEBUG_BEGIN(cmdbuf, "yay tracing");
 	uploadLights();
 	prepareTlas(cmdbuf);
 	prepareUniformBuffer(args, frame_index, fov_angle_y);
@@ -1179,6 +1183,7 @@ RAY_PRIMARY_OUTPUTS(X)
 
 		blitImage( &blit_args );
 	}
+	DEBUG_END(cmdbuf);
 }
 
 qboolean initVk2d(void);

@@ -246,7 +246,10 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		} else {
 			qboolean result;
 			asrgs.p_accel = &ray_model->as;
+
+			DEBUG_BEGINF(vk_core.cb, "build blas for %s", args.model->debug_name);
 			result = createOrUpdateAccelerationStructure(vk_core.cb, &asrgs, ray_model);
+			DEBUG_END(vk_core.cb);
 
 			if (!result)
 			{

@@ -176,7 +176,9 @@ void XVK_DenoiserDenoise( const xvk_denoiser_args_t* args ) {
 
 	VK_DescriptorsWrite(&g_denoiser.descriptors);
 
-	vkCmdBindPipeline(args->cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_denoiser.pipeline);
-	vkCmdBindDescriptorSets(args->cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_denoiser.descriptors.pipeline_layout, 0, 1, g_denoiser.descriptors.desc_sets + 0, 0, NULL);
-	vkCmdDispatch(args->cmdbuf, (args->width + WG_W - 1) / WG_W, (args->height + WG_H - 1) / WG_H, 1);
+	DEBUG_BEGIN(args->cmdbuf, "denoiser");
+		vkCmdBindPipeline(args->cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_denoiser.pipeline);
+		vkCmdBindDescriptorSets(args->cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, g_denoiser.descriptors.pipeline_layout, 0, 1, g_denoiser.descriptors.desc_sets + 0, 0, NULL);
+		vkCmdDispatch(args->cmdbuf, (args->width + WG_W - 1) / WG_W, (args->height + WG_H - 1) / WG_H, 1);
+	DEBUG_END(args->cmdbuf);
 }

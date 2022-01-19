@@ -94,6 +94,37 @@ do { \
 	} \
 } while (0)
 
+#define DEBUG_BEGIN(cmdbuf, msg) \
+	do { \
+		if (vk_core.debug) { \
+			const VkDebugUtilsLabelEXT label = { \
+				.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT, \
+				.pLabelName = msg, \
+			}; \
+			vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &label); \
+		} \
+	} while(0)
+
+#define DEBUG_BEGINF(cmdbuf, fmt, ...) \
+	do { \
+		if (vk_core.debug) { \
+			char buf[128]; \
+			snprintf(buf, sizeof(buf), fmt, ##__VA_ARGS__); \
+			const VkDebugUtilsLabelEXT label = { \
+				.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT, \
+				.pLabelName = buf, \
+			}; \
+			vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &label); \
+		} \
+	} while(0)
+
+#define DEBUG_END(cmdbuf) \
+	do { \
+		if (vk_core.debug) { \
+			vkCmdEndDebugUtilsLabelEXT(cmdbuf); \
+		} \
+	} while(0)
+
 // TODO make this not fatal: devise proper error handling strategies
 // FIXME Host_Error does not cause process to exit, we need to handle this manually
 #define XVK_CHECK(f) do { \

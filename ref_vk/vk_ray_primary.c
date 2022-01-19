@@ -283,6 +283,7 @@ void XVK_RayTracePrimary( VkCommandBuffer cmdbuf, const xvk_ray_trace_primary_t 
 	/* 	vkCmdPushConstants(cmdbuf, g_ray_primary.descriptors.pipeline_layout, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 0, sizeof(push_constants), &push_constants); */
 	/* } */
 
+	DEBUG_BEGIN(cmdbuf, "primary");
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_ray_primary.desc.riptors.pipeline_layout, 0, 1, g_ray_primary.desc.riptors.desc_sets + 0, 0, NULL);
 
 	{
@@ -299,5 +300,6 @@ void XVK_RayTracePrimary( VkCommandBuffer cmdbuf, const xvk_ray_trace_primary_t 
 
 		vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_miss, &sbt_hit, &sbt_callable, args->width, args->height, 1 );
 	}
+	DEBUG_END(cmdbuf);
 }
 
