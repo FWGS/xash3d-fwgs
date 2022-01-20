@@ -214,27 +214,63 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 }
 #endif
 
-// FIXME this is a quick test that reading new lights is possible
 void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, uint cluster_index, inout vec3 diffuse, inout vec3 specular) {
 
+#define DO_ALL_IN_CLUSTER 1
+#if DO_ALL_IN_CLUSTER
+	const SampleContext ctx = buildSampleContext(P, N, view_dir);
+	const uint num_polygons = min(128, uint(light_grid.clusters[cluster_index].num_polygons));
+	for (uint i = 0; i < num_polygons; ++i) {
+		const uint index = uint(light_grid.clusters[cluster_index].polygons[i]);
+		const PolygonLight poly = lights.polygons[index];
+
+		if (false)
+		{
+			const vec3 dir = poly.center - P;
+			const vec3 light_dir = normalize(dir);
+			if (dot(-light_dir, poly.plane.xyz) <= 0.f)
+				continue;
+		}
+
+		const vec4 light_sample_dir = getPolygonLightSample(P, N, view_dir, ctx, poly);
+		if (light_sample_dir.w <= 0.)
+			continue;
+
+		const float dist = - dot(vec4(P, 1.f), poly.plane) / dot(light_sample_dir.xyz, poly.plane.xyz);
+		const vec3 emissive = poly.emissive;
+
+		//if (true) {//!shadowed(P, light_sample_dir.xyz, dist)) {
+		if (!shadowed(P, light_sample_dir.xyz, dist)) {
+			//const float estimate = total_contrib;
+			const float estimate = light_sample_dir.w / 10; // FIXME WTF is this fudge
+			vec3 poly_diffuse = vec3(0.), poly_specular = vec3(0.);
+			evalSplitBRDF(N, light_sample_dir.xyz, view_dir, material, poly_diffuse, poly_specular);
+			diffuse += throughput * emissive * estimate;
+			specular += throughput * emissive * estimate;
+		}
+	}
+#else
 	// TODO move this to pickPolygonLight function
-	const uint num_polygons = uint(light_grid.clusters[cluster_index].num_polygons);
+	//const uint num_polygons = uint(light_grid.clusters[cluster_index].num_polygons);
+	const uint num_polygons = lights.num_polygons;
 
 	uint selected = 0;
 	float total_contrib = 0.;
 	float eps1 = rand01();
 	for (uint i = 0; i < num_polygons; ++i) {
-		const uint index = uint(light_grid.clusters[cluster_index].polygons[i]);
+		//const uint index = uint(light_grid.clusters[cluster_index].polygons[i]);
+		const uint index = i;
 
 		const PolygonLight poly = lights.polygons[index];
 
 		const vec3 dir = poly.center - P;
 		const vec3 light_dir = normalize(dir);
-		const float contrib_estimate = poly.area * dot(-light_dir, poly.plane.xyz) / dot(dir, dir);
+		float contrib_estimate = poly.area * dot(-light_dir, poly.plane.xyz) / (1e-3 + dot(dir, dir));
 
 		if (contrib_estimate < 1e-6)
 		 	continue;
 
+		contrib_estimate = 1.f;
 		const float tau = total_contrib / (total_contrib + contrib_estimate);
 		total_contrib += contrib_estimate;
 
@@ -277,5 +313,6 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 		diffuse += throughput * emissive * estimate;
 		specular += throughput * emissive * estimate;
 	}
+#endif
 #endif
 }
