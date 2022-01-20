@@ -159,7 +159,7 @@ static VkPipeline createPipeline( void ) {
 
 	DEFINE_SHADER("ray_primary.rgen", RAYGEN, ShaderStageIndex_RayGen);
 	DEFINE_SHADER("ray_primary.rchit", CLOSEST_HIT, ShaderStageIndex_RayClosestHit);
-	DEFINE_SHADER("ray_primary_alphatest.rahit", ANY_HIT, ShaderStageIndex_RayAnyHit_AlphaTest);
+	DEFINE_SHADER("ray_common_alphatest.rahit", ANY_HIT, ShaderStageIndex_RayAnyHit_AlphaTest);
 	DEFINE_SHADER("ray_primary.rmiss", MISS, ShaderStageIndex_RayMiss);
 
 	// TODO static assert

@@ -1,3 +1,11 @@
+#ifndef LIGHT_COMMON_GLSL_INCLUDED
+#define LIGHT_COMMON_GLSL_INCLUDED
+
+#ifdef RAY_TRACE2
+#include "ray_shadow_interface.glsl"
+layout(location = 0) rayPayloadEXT RayPayloadShadow payload_shadow;
+#endif
+
 bool shadowed(vec3 pos, vec3 dir, float dist) {
 #ifdef RAY_TRACE
 	payload_shadow.hit_type = SHADOW_HIT;
@@ -68,3 +76,5 @@ void evalSplitBRDF(vec3 N, vec3 L, vec3 V, MaterialProperties material, out vec3
 	diffuse *= vec3(1.) - data.F;
 #endif
 }
+
+#endif //ifndef LIGHT_COMMON_GLSL_INCLUDED

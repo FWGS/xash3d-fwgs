@@ -19,8 +19,19 @@ SampleContext buildSampleContext(vec3 position, vec3 normal, vec3 view_dir) {
 	return ctx;
 }
 
-vec4 getPolygonLightSample(vec3 P, vec3 N, vec3 view_dir, SampleContext ctx, uint poly_index) {
-	const PolygonLight poly = lights.polygons[poly_index];
+#if 0
+#define SAMPLE_TYPE_T projected_solid_angle_polygon_t
+#define SAMPLE_PREPARE_FUNC(vertex_count, vertices) prepare_projected_solid_angle_polygon_sampling(vertex_count, vertices)
+#define SAMPLE_FUNC sample_projected_solid_angle_polygon
+#define SAMPLE_CONTRIB(sap) sap.projected_solid_angle
+#else
+#define SAMPLE_TYPE_T solid_angle_polygon_t
+#define SAMPLE_PREPARE_FUNC(vertex_count, vertices) prepare_solid_angle_polygon_sampling(vertex_count, vertices, vec3(0.))
+#define SAMPLE_FUNC sample_solid_angle_polygon
+#define SAMPLE_CONTRIB(sap) sap.solid_angle
+#endif
+
+vec4 getPolygonLightSample(vec3 P, vec3 N, vec3 view_dir, SampleContext ctx, const PolygonLight poly) {
 	vec3 clipped[MAX_POLYGON_VERTEX_COUNT];
 
 	const uint vertices_offset = poly.vertices_count_offset & 0xffffu;
@@ -34,13 +45,13 @@ vec4 getPolygonLightSample(vec3 P, vec3 N, vec3 view_dir, SampleContext ctx, uin
 	if (vertices_count == 0)
 		return vec4(0.f);
 
-	const projected_solid_angle_polygon_t sap = prepare_projected_solid_angle_polygon_sampling(vertices_count, clipped);
-	const float contrib = sap.projected_solid_angle;
+	const SAMPLE_TYPE_T sap = SAMPLE_PREPARE_FUNC(vertices_count, clipped);
+	const float contrib = SAMPLE_CONTRIB(sap);
 	if (contrib <= 0.f)
 		return vec4(0.f);
 
 	vec2 rnd = vec2(rand01(), rand01());
-	const vec3 light_dir = (transpose(ctx.world_to_shading) * sample_projected_solid_angle_polygon(sap, rnd)).xyz;
+	const vec3 light_dir = (transpose(ctx.world_to_shading) * SAMPLE_FUNC(sap, rnd)).xyz;
 
 	return vec4(light_dir, contrib);
 }
