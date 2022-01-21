@@ -21,7 +21,7 @@ vec4 sampleTexture(uint tex_index, vec2 uv, vec4 uv_lods) {
 }
 
 void main() {
-	const Geometry geom = readHitGeometry();
+	Geometry geom = readHitGeometry();
 
 	payload.hit_t = vec4(geom.pos, gl_HitTEXT);
 
@@ -33,7 +33,18 @@ void main() {
 		payload.base_color_a = vec4(1.,0.,1.,1.);
 	} else {
 		payload.base_color_a = sampleTexture(tex_base_color, geom.uv, geom.uv_lods) * kusok.color;
+
+		const uint tex_normal = kusok.tex_normalmap;
+		vec3 T = geom.tangent;
+		if (tex_normal > 0 && dot(T,T) > .5) {
+			T = normalize(T - dot(T, geom.normal_shading) * geom.normal_shading);
+			const vec3 B = normalize(cross(geom.normal_shading, T));
+			const mat3 TBN = mat3(T, B, geom.normal_shading);
+			const vec3 tnorm = sampleTexture(tex_normal, geom.uv, geom.uv_lods).xyz * 2. - 1.; // TODO is this sampling correct for normal data?
+			geom.normal_shading = normalize(TBN * tnorm);
+		}
 	}
+
 
 	payload.normals_gs.xy = normalEncode(geom.normal_geometry);
 	payload.normals_gs.zw = normalEncode(geom.normal_shading);

@@ -52,6 +52,7 @@ struct Geometry {
 
 	vec3 normal_geometry;
 	vec3 normal_shading;
+	vec3 tangent;
 
 	int kusok_index;
 };
@@ -89,11 +90,16 @@ Geometry readHitGeometry() {
 
 	// NOTE: only support rotations, for arbitrary transform would need to do transpose(inverse(mat3(gl_ObjectToWorldEXT)))
 	const mat3 normalTransform = mat3(gl_ObjectToWorldEXT);
-	geom.normal_shading = normalTransform * baryMix(
+	geom.normal_shading = normalize(normalTransform * baryMix(
 		vertices[vi1].normal,
 		vertices[vi2].normal,
 		vertices[vi3].normal,
-		bary);
+		bary));
+	geom.tangent = normalize(normalTransform * baryMix(
+		vertices[vi1].tangent,
+		vertices[vi2].tangent,
+		vertices[vi3].tangent,
+		bary));
 
 	geom.uv_lods = computeAnisotropicEllipseAxes(geom.pos, geom.normal_geometry, gl_WorldRayDirectionEXT, ubo.ray_cone_width * gl_HitTEXT, pos, uvs, geom.uv);
 
