@@ -83,6 +83,7 @@ static void updateDescriptors( const xvk_ray_trace_primary_t* args ) {
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL, \
 	};
 RAY_PRIMARY_OUTPUTS(X)
+#undef X
 
 	g_ray_primary.desc.values[RtPrim_Desc_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
