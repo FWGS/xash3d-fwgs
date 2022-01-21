@@ -161,3 +161,168 @@ VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci)
 
 	return pipeline;
 }
+
+vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_t *create) {
+#define MAX_SHADER_STAGES 16
+#define MAX_SHADER_GROUPS 16
+	vk_pipeline_ray_t ret = {0};
+	VkPipelineShaderStageCreateInfo stages[MAX_SHADER_STAGES];
+	VkRayTracingShaderGroupCreateInfoKHR shader_groups[MAX_SHADER_GROUPS];
+	const int shader_groups_count = create->groups.hit_count + create->groups.miss_count + 1;
+	int raygen_index = -1;
+	int group_index = 0;
+
+	const VkRayTracingPipelineCreateInfoKHR rtpci = {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+		//TODO .flags = VK_PIPELINE_CREATE_RAY_TRACING_NO_NULL_ANY_HIT_SHADERS_BIT_KHR  ....
+		.stageCount = create->stages_count,
+		.pStages = stages,
+		.groupCount = shader_groups_count,
+		.pGroups = shader_groups,
+		.maxPipelineRayRecursionDepth = 1,
+		.layout = create->layout,
+	};
+
+	ASSERT(create->stages_count <= MAX_SHADER_STAGES);
+	ASSERT(shader_groups_count <= MAX_SHADER_GROUPS);
+
+	for (int i = 0; i < create->stages_count; ++i) {
+		const vk_shader_stage_t *const stage = create->stages + i;
+
+		if (stage->stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR) {
+			ASSERT(raygen_index == -1);
+			raygen_index = i;
+		}
+
+		stages[i] = (VkPipelineShaderStageCreateInfo){
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = stage->stage,
+			.module = loadShader(stage->filename),
+			.pName = "main",
+			.pSpecializationInfo = stage->specialization_info,
+		};
+	}
+
+	ASSERT(raygen_index >= 0);
+
+	shader_groups[group_index++] = (VkRayTracingShaderGroupCreateInfoKHR) {
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.generalShader = raygen_index,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	};
+
+	for (int i = 0; i < create->groups.miss_count; ++i) {
+		const int miss_index = create->groups.miss[i];
+
+		ASSERT(miss_index >= 0);
+		ASSERT(miss_index < create->stages_count);
+		ASSERT(create->stages[miss_index].stage == VK_SHADER_STAGE_MISS_BIT_KHR);
+
+		shader_groups[group_index++] = (VkRayTracingShaderGroupCreateInfoKHR) {
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.generalShader = miss_index,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		};
+	}
+
+	for (int i = 0; i < create->groups.hit_count; ++i) {
+		const vk_pipeline_ray_hit_group_t *const groups = create->groups.hit + i;
+		const int closest_index = groups->closest >= 0 ? groups->closest : VK_SHADER_UNUSED_KHR;
+		const int any_index = groups->any >= 0 ? groups->any : VK_SHADER_UNUSED_KHR;
+
+		if (closest_index != VK_SHADER_UNUSED_KHR) {
+			ASSERT(closest_index < create->stages_count);
+			ASSERT(create->stages[closest_index].stage == VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+		}
+
+		if (any_index != VK_SHADER_UNUSED_KHR) {
+			ASSERT(any_index < create->stages_count);
+			ASSERT(create->stages[any_index].stage == VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+		}
+
+		shader_groups[group_index++] = (VkRayTracingShaderGroupCreateInfoKHR) {
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+			.anyHitShader = any_index,
+			.closestHitShader = closest_index,
+			.generalShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		};
+	}
+
+	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &ret.pipeline));
+
+	for (int i = 0; i < create->stages_count; ++i)
+		vkDestroyShaderModule(vk_core.device, stages[i].module, NULL);
+
+	if (ret.pipeline == VK_NULL_HANDLE)
+		return ret;
+
+	// TODO: do not allocate sbt buffer per pipeline. make a central buffer and use that
+	// TODO: does it really need to be host-visible?
+	{
+		char buf[64];
+		Q_snprintf(buf, sizeof(buf), "%s sbt", create->debug_name);
+		if (!VK_BufferCreate(buf, &ret.sbt_buffer, shader_groups_count * vk_core.physical_device.sbt_record_size,
+				VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+		{
+			vkDestroyPipeline(vk_core.device, ret.pipeline, NULL);
+			ret.pipeline = VK_NULL_HANDLE;
+			return ret;
+		}
+	}
+
+	{
+		const uint32_t sbt_handle_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
+		const uint32_t sbt_handles_buffer_size = shader_groups_count * sbt_handle_size;
+		uint8_t *sbt_handles = Mem_Malloc(vk_core.pool, sbt_handles_buffer_size);
+		XVK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(vk_core.device, ret.pipeline, 0, shader_groups_count, sbt_handles_buffer_size, sbt_handles));
+		for (int i = 0; i < shader_groups_count; ++i)
+		{
+			uint8_t *sbt_dst = ret.sbt_buffer.mapped;
+			memcpy(sbt_dst + vk_core.physical_device.sbt_record_size * i, sbt_handles + sbt_handle_size * i, sbt_handle_size);
+		}
+		Mem_Free(sbt_handles);
+	}
+
+	{
+		const VkDeviceAddress sbt_addr = XVK_BufferGetDeviceAddress(ret.sbt_buffer.buffer);
+		const uint32_t sbt_record_size = vk_core.physical_device.sbt_record_size;
+		uint32_t index = 0;
+
+		ASSERT(sbt_record_size == 64); // FIXME in shader constant specialization
+#define SBT_INDEX(count) (VkStridedDeviceAddressRegionKHR){ \
+		.deviceAddress = sbt_addr + sbt_record_size * index, \
+		.size = sbt_record_size * (count), \
+		.stride = sbt_record_size, \
+	}; index += count
+		ret.sbt.raygen = SBT_INDEX(1);
+		ret.sbt.miss = SBT_INDEX(create->groups.miss_count);
+		ret.sbt.hit = SBT_INDEX(create->groups.hit_count);
+		ret.sbt.callable = (VkStridedDeviceAddressRegionKHR){ 0 };
+	}
+
+	Q_strncpy(ret.debug_name, create->debug_name, sizeof(ret.debug_name));
+
+	return ret;
+}
+
+void VK_PipelineRayTracingDestroy(vk_pipeline_ray_t* pipeline) {
+	vkDestroyPipeline(vk_core.device, pipeline->pipeline, NULL);
+	VK_BufferDestroy(&pipeline->sbt_buffer);
+	pipeline->pipeline = VK_NULL_HANDLE;
+}
+
+void VK_PipelineRayTracingTrace(VkCommandBuffer cmdbuf, const vk_pipeline_ray_t *pipeline, uint32_t width, uint32_t height) {
+	DEBUG_BEGIN(cmdbuf, pipeline->debug_name);
+		// TODO bind this and accepts descriptors as args? vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->pipeline);
+		vkCmdTraceRaysKHR(cmdbuf, &pipeline->sbt.raygen, &pipeline->sbt.miss, &pipeline->sbt.hit, &pipeline->sbt.callable, width, height, 1 );
+	DEBUG_END(cmdbuf);
+}

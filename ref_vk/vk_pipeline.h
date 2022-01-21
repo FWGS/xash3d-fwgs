@@ -1,4 +1,5 @@
 #include "vk_core.h"
+#include "vk_buffer.h"
 
 typedef struct {
   const char *filename;
@@ -40,6 +41,41 @@ typedef struct {
 } vk_pipeline_compute_create_info_t;
 
 VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci);
+
+typedef struct {
+	int closest;
+	int any;
+} vk_pipeline_ray_hit_group_t;
+
+typedef struct {
+	const char *debug_name;
+	VkPipelineLayout layout;
+
+	const vk_shader_stage_t *stages;
+	int stages_count;
+
+	struct {
+		const int *miss;
+		int miss_count;
+
+		const vk_pipeline_ray_hit_group_t *hit;
+		int hit_count;
+	} groups;
+} vk_pipeline_ray_create_info_t;
+
+typedef struct {
+	VkPipeline pipeline;
+	vk_buffer_t sbt_buffer; // TODO suballocate this from a single central buffer or something
+	struct {
+		VkStridedDeviceAddressRegionKHR raygen, miss, hit, callable;
+	} sbt;
+	char debug_name[32];
+} vk_pipeline_ray_t;
+
+vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_t *create);
+void VK_PipelineRayTracingTrace(VkCommandBuffer cmdbuf, const vk_pipeline_ray_t *pipeline, uint32_t width, uint32_t height);
+void VK_PipelineRayTracingDestroy(vk_pipeline_ray_t* pipeline);
+
 
 qboolean VK_PipelineInit( void );
 void VK_PipelineShutdown( void );
