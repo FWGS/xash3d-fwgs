@@ -137,7 +137,6 @@ static const char* device_extensions[] = {
 	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
 	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-	VK_KHR_RAY_QUERY_EXTENSION_NAME,
 
 	// FIXME make this not depend on RTX
 #ifdef USE_AFTERMATH
@@ -499,39 +498,44 @@ static qboolean createDevice( void ) {
 
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR accel_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
-			.pNext = NULL,
+			.pNext = head,
 			.accelerationStructure = VK_TRUE,
 		};
+		head = &accel_feature;
 		VkPhysicalDevice16BitStorageFeatures sixteen_bit_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES,
-			.pNext = &accel_feature,
+			.pNext = head,
 			.storageBuffer16BitAccess = VK_TRUE,
 		};
+		head = &sixteen_bit_feature;
 		VkPhysicalDeviceVulkan12Features vk12_features = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-			.pNext = &sixteen_bit_feature,
+			.pNext = head,
 			.shaderSampledImageArrayNonUniformIndexing = VK_TRUE, // Needed for texture sampling in closest hit shader
 			.storageBuffer8BitAccess = VK_TRUE,
 			.uniformAndStorageBuffer8BitAccess = VK_TRUE,
 			.bufferDeviceAddress = VK_TRUE,
 		};
+		head = &vk12_features;
 		VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
-			.pNext = &vk12_features,
+			.pNext = head,
 			.rayTracingPipeline = VK_TRUE,
 			// TODO .rayTraversalPrimitiveCulling = VK_TRUE,
 		};
+
+		if (vk_core.rtx) {
+			head = &ray_tracing_pipeline_feature;
+		} else {
+			head = NULL;
+		}
+
 		VkPhysicalDeviceFeatures2 features = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-			.pNext = vk_core.rtx ? &ray_tracing_pipeline_feature: NULL,
+			.pNext = head,
 			.features.samplerAnisotropy = candidate_device->features.features.samplerAnisotropy,
 		};
-		VkPhysicalDeviceRayQueryFeaturesKHR ray_query_feature = {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
-			.pNext = &features,
-			.rayQuery = VK_TRUE,
-		};
-		void *head = &ray_query_feature;
+		head = &features;
 
 #ifdef USE_AFTERMATH
 		VkDeviceDiagnosticsConfigCreateInfoNV diag_config_nv = {
