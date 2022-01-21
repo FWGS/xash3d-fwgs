@@ -228,10 +228,8 @@ void XVK_RayTraceLightDirectReloadPipeline( void ) {
 void XVK_RayTraceLightDirect( VkCommandBuffer cmdbuf, const xvk_ray_trace_light_direct_t *args ) {
 	updateDescriptors( args );
 
-	DEBUG_BEGIN(cmdbuf, "lights direct");
-		vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_ray_light_direct.pipeline.pipeline);
-		vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_ray_light_direct.desc.riptors.pipeline_layout, 0, 1, g_ray_light_direct.desc.riptors.desc_sets + 0, 0, NULL);
-		VK_PipelineRayTracingTrace(cmdbuf, &g_ray_light_direct.pipeline, args->width, args->height);
-	DEBUG_END(cmdbuf);
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_ray_light_direct.pipeline.pipeline);
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_ray_light_direct.desc.riptors.pipeline_layout, 0, 1, g_ray_light_direct.desc.riptors.desc_sets + 0, 0, NULL);
+	VK_PipelineRayTracingTrace(cmdbuf, &g_ray_light_direct.pipeline, args->width, args->height);
 }
 
