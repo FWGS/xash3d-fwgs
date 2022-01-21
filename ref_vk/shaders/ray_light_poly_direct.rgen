@@ -20,7 +20,6 @@ RAY_LIGHT_DIRECT_OUTPUTS(X)
 
 layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
 layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };
-layout (constant_id = 7) const uint SBT_RECORD_SIZE = 64;
 
 #include "ray_kusochki.glsl"
 

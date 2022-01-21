@@ -8,7 +8,6 @@
 
 #include "ray_kusochki.glsl"
 
-layout(constant_id = 6) const uint MAX_TEXTURES = 4096;
 layout(set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
 layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };
 

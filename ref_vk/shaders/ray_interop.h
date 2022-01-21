@@ -2,6 +2,16 @@
 #ifndef RAY_INTEROP_H_INCLUDED
 #define RAY_INTEROP_H_INCLUDED
 
+#define LIST_SPECIALIZATION_CONSTANTS(X) \
+	X(0, uint, MAX_POINT_LIGHTS, 256) \
+	X(1, uint, MAX_EMISSIVE_KUSOCHKI, 256) \
+	X(2, uint, MAX_VISIBLE_POINT_LIGHTS, 63) \
+	X(3, uint, MAX_VISIBLE_SURFACE_LIGHTS, 255) \
+	X(4, float, LIGHT_GRID_CELL_SIZE, 128.) \
+	X(5, uint, MAX_LIGHT_CLUSTERS, 262144) \
+	X(6, uint, MAX_TEXTURES, 4096) \
+	X(7, uint, SBT_RECORD_SIZE, 32) \
+
 #ifndef GLSL
 #include "xash3d_types.h"
 #define MAX_EMISSIVE_KUSOCHKI 256
@@ -14,17 +24,26 @@
 #define TOKENPASTE2(x, y) TOKENPASTE(x, y)
 #define PAD(x) float TOKENPASTE2(pad_, __LINE__)[x];
 #define STRUCT struct
-#else
+
+enum {
+#define DECLARE_SPECIALIZATION_CONSTANT(index, type, name, default_value) \
+	SPEC_##name##_INDEX = index,
+LIST_SPECIALIZATION_CONSTANTS(DECLARE_SPECIALIZATION_CONSTANT)
+#undef DECLARE_SPECIALIZATION_CONSTANT
+};
+
+#else // if GLSL else
 #extension GL_EXT_shader_8bit_storage : require
 
 #define PAD(x)
 #define STRUCT
 
-layout (constant_id = 0) const uint MAX_POINT_LIGHTS = 256;
-layout (constant_id = 1) const uint MAX_EMISSIVE_KUSOCHKI = 256;
-layout (constant_id = 2) const uint MAX_VISIBLE_POINT_LIGHTS = 63;
-layout (constant_id = 3) const uint MAX_VISIBLE_SURFACE_LIGHTS = 255;
-#endif
+#define DECLARE_SPECIALIZATION_CONSTANT(index, type, name, default_value) \
+	layout (constant_id = index) const type name = default_value;
+LIST_SPECIALIZATION_CONSTANTS(DECLARE_SPECIALIZATION_CONSTANT)
+#undef DECLARE_SPECIALIZATION_CONSTANT
+
+#endif // not GLSL
 
 #define GEOMETRY_BIT_OPAQUE 0x01
 #define GEOMETRY_BIT_ADDITIVE 0x02

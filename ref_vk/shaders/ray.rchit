@@ -5,7 +5,6 @@
 #include "ray_kusochki.glsl"
 #include "ray_common.glsl"
 
-layout (constant_id = 6) const uint MAX_TEXTURES = 4096;
 layout (set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
 layout (set = 0, binding = 13) uniform samplerCube skybox;
 

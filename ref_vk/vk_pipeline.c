@@ -297,7 +297,6 @@ vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_
 		const uint32_t sbt_record_size = vk_core.physical_device.sbt_record_size;
 		uint32_t index = 0;
 
-		ASSERT(sbt_record_size == 64); // FIXME in shader constant specialization
 #define SBT_INDEX(count) (VkStridedDeviceAddressRegionKHR){ \
 		.deviceAddress = sbt_addr + sbt_record_size * index, \
 		.size = sbt_record_size * (count), \

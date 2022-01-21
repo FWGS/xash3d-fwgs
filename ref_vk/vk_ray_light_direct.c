@@ -4,6 +4,7 @@
 #include "vk_descriptor.h"
 #include "vk_pipeline.h"
 #include "vk_buffer.h"
+#include "shaders/ray_interop.h"
 
 
 enum {
@@ -139,6 +140,22 @@ static void updateDescriptors( const xvk_ray_trace_light_direct_t* args ) {
 }
 
 static vk_pipeline_ray_t createPipeline( void ) {
+	// FIXME move this into vk_pipeline
+	const struct SpecializationData {
+		uint32_t sbt_record_size;
+	} spec_data = {
+		.sbt_record_size = vk_core.physical_device.sbt_record_size,
+	};
+	const VkSpecializationMapEntry spec_map[] = {
+		{.constantID = SPEC_SBT_RECORD_SIZE_INDEX, .offset = offsetof(struct SpecializationData, sbt_record_size), .size = sizeof(uint32_t) },
+	};
+	VkSpecializationInfo spec = {
+		.mapEntryCount = COUNTOF(spec_map),
+		.pMapEntries = spec_map,
+		.dataSize = sizeof(spec_data),
+		.pData = &spec_data,
+	};
+
 	enum {
 #define X(name, file, type) \
 		ShaderStageIndex_##name,
@@ -147,7 +164,7 @@ static vk_pipeline_ray_t createPipeline( void ) {
 	};
 const vk_shader_stage_t stages[] = {
 #define X(name, file, type) \
-		{.filename = file ".spv", .stage = VK_SHADER_STAGE_##type##_BIT_KHR, .specialization_info = NULL},
+		{.filename = file ".spv", .stage = VK_SHADER_STAGE_##type##_BIT_KHR, .specialization_info = &spec},
 		LIST_SHADER_MODULES(X)
 #undef X
 	};
