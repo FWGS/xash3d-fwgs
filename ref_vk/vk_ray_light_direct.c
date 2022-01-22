@@ -93,11 +93,11 @@ static void initDescriptors( void ) {
 	VK_DescriptorsCreate(&g_ray_light_direct.desc.riptors);
 }
 
-static void updateDescriptors( const xvk_ray_trace_light_direct_t* args ) {
+static void updateDescriptors( const vk_ray_resources_t *res ) {
 #define X(index, name, ...) \
 	g_ray_light_direct.desc.values[RtLDir_Desc_##name].image = (VkDescriptorImageInfo){ \
 		.sampler = VK_NULL_HANDLE, \
-		.imageView = args->in.name, \
+		.imageView = res->primary.name, \
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL, \
 	};
 	RAY_LIGHT_DIRECT_INPUTS(X)
@@ -106,7 +106,7 @@ static void updateDescriptors( const xvk_ray_trace_light_direct_t* args ) {
 #define X(index, name, ...) \
 	g_ray_light_direct.desc.values[RtLDir_Desc_##name].image = (VkDescriptorImageInfo){ \
 		.sampler = VK_NULL_HANDLE, \
-		.imageView = args->out.name, \
+		.imageView = res->light_direct_polygon.name, \
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL, \
 	};
 	RAY_LIGHT_DIRECT_OUTPUTS(X)
@@ -115,14 +115,14 @@ static void updateDescriptors( const xvk_ray_trace_light_direct_t* args ) {
 	g_ray_light_direct.desc.values[RtLDir_Desc_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
 		.accelerationStructureCount = 1,
-		.pAccelerationStructures = &args->in.tlas,
+		.pAccelerationStructures = &res->scene.tlas,
 	};
 
 #define DESC_SET_BUFFER(index, buffer_) \
 	g_ray_light_direct.desc.values[index].buffer = (VkDescriptorBufferInfo){ \
-		.buffer = args->in.buffer_.buffer, \
-		.offset = args->in.buffer_.offset, \
-		.range = args->in.buffer_.size, \
+		.buffer = res->scene.buffer_.buffer, \
+		.offset = res->scene.buffer_.offset, \
+		.range = res->scene.buffer_.size, \
 	}
 
 	DESC_SET_BUFFER(RtLDir_Desc_UBO, ubo);
@@ -134,7 +134,7 @@ static void updateDescriptors( const xvk_ray_trace_light_direct_t* args ) {
 
 #undef DESC_SET_BUFFER
 
-	g_ray_light_direct.desc.values[RtLDir_Desc_Textures].image_array = args->in.all_textures;
+	g_ray_light_direct.desc.values[RtLDir_Desc_Textures].image_array = res->scene.all_textures;
 
 	VK_DescriptorsWrite(&g_ray_light_direct.desc.riptors);
 }
@@ -225,11 +225,11 @@ void XVK_RayTraceLightDirectReloadPipeline( void ) {
 	g_ray_light_direct.pipeline = new_pipeline;
 }
 
-void XVK_RayTraceLightDirect( VkCommandBuffer cmdbuf, const xvk_ray_trace_light_direct_t *args ) {
-	updateDescriptors( args );
+void XVK_RayTraceLightDirect( VkCommandBuffer cmdbuf, const vk_ray_resources_t *res ) {
+	updateDescriptors( res );
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_ray_light_direct.pipeline.pipeline);
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_ray_light_direct.desc.riptors.pipeline_layout, 0, 1, g_ray_light_direct.desc.riptors.desc_sets + 0, 0, NULL);
-	VK_PipelineRayTracingTrace(cmdbuf, &g_ray_light_direct.pipeline, args->width, args->height);
+	VK_PipelineRayTracingTrace(cmdbuf, &g_ray_light_direct.pipeline, res->width, res->height);
 }
 

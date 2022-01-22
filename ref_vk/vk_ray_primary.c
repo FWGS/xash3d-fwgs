@@ -75,11 +75,11 @@ RAY_PRIMARY_OUTPUTS(X)
 	VK_DescriptorsCreate(&g_ray_primary.desc.riptors);
 }
 
-static void updateDescriptors( const xvk_ray_trace_primary_t* args ) {
+static void updateDescriptors( const vk_ray_resources_t* res ) {
 #define X(index, name, ...) \
 	g_ray_primary.desc.values[RtPrim_Desc_Out_##name].image = (VkDescriptorImageInfo){ \
 		.sampler = VK_NULL_HANDLE, \
-		.imageView = args->out.name, \
+		.imageView = res->primary.name, \
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL, \
 	};
 RAY_PRIMARY_OUTPUTS(X)
@@ -88,14 +88,14 @@ RAY_PRIMARY_OUTPUTS(X)
 	g_ray_primary.desc.values[RtPrim_Desc_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
 		.accelerationStructureCount = 1,
-		.pAccelerationStructures = &args->in.tlas,
+		.pAccelerationStructures = &res->scene.tlas,
 	};
 
 #define DESC_SET_BUFFER(index, buffer_) \
 	g_ray_primary.desc.values[index].buffer = (VkDescriptorBufferInfo){ \
-		.buffer = args->in.buffer_.buffer, \
-		.offset = args->in.buffer_.offset, \
-		.range = args->in.buffer_.size, \
+		.buffer = res->scene.buffer_.buffer, \
+		.offset = res->scene.buffer_.offset, \
+		.range = res->scene.buffer_.size, \
 	}
 
 	DESC_SET_BUFFER(RtPrim_Desc_UBO, ubo);
@@ -105,7 +105,7 @@ RAY_PRIMARY_OUTPUTS(X)
 
 #undef DESC_SET_BUFFER
 
-	g_ray_primary.desc.values[RtPrim_Desc_Textures].image_array = args->in.all_textures;
+	g_ray_primary.desc.values[RtPrim_Desc_Textures].image_array = res->scene.all_textures;
 
 	VK_DescriptorsWrite(&g_ray_primary.desc.riptors);
 }
@@ -203,11 +203,11 @@ void XVK_RayTracePrimaryReloadPipeline( void ) {
 	g_ray_primary.pipeline = new_pipeline;
 }
 
-void XVK_RayTracePrimary( VkCommandBuffer cmdbuf, const xvk_ray_trace_primary_t *args ) {
-	updateDescriptors( args );
+void XVK_RayTracePrimary( VkCommandBuffer cmdbuf, const vk_ray_resources_t *res ) {
+	updateDescriptors( res );
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_ray_primary.pipeline.pipeline);
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_ray_primary.desc.riptors.pipeline_layout, 0, 1, g_ray_primary.desc.riptors.desc_sets + 0, 0, NULL);
-	VK_PipelineRayTracingTrace(cmdbuf, &g_ray_primary.pipeline, args->width, args->height);
+	VK_PipelineRayTracingTrace(cmdbuf, &g_ray_primary.pipeline, res->width, res->height);
 }
 

@@ -968,6 +968,54 @@ static void prepareUniformBuffer( const vk_ray_frame_render_args_t *args, int fr
 }
 
 static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t* args, int frame_index, const xvk_ray_frame_images_t *current_frame, float fov_angle_y) {
+	const vk_ray_resources_t res = {
+		.width = FRAME_WIDTH,
+		.height = FRAME_HEIGHT,
+		.scene = {
+			.tlas = g_rtx.tlas,
+			.ubo = {
+				.buffer = g_rtx.uniform_buffer.buffer,
+				.offset = frame_index * g_rtx.uniform_unit_size,
+				.size = sizeof(struct UniformBuffer),
+			},
+			.kusochki = {
+				.buffer = g_ray_model_state.kusochki_buffer.buffer,
+				.offset = 0,
+				.size = g_ray_model_state.kusochki_buffer.size,
+			},
+			.indices = {
+				.buffer = args->geometry_data.buffer,
+				.offset = 0,
+				.size = args->geometry_data.size,
+			},
+			.vertices = {
+				.buffer = args->geometry_data.buffer,
+				.offset = 0,
+				.size = args->geometry_data.size,
+			},
+			.all_textures = tglob.dii_all_textures,
+			.lights = {
+				.buffer = g_ray_model_state.lights_buffer.buffer,
+				.offset = 0,
+				.size = VK_WHOLE_SIZE, // TODO multiple frames
+			},
+			.light_clusters = {
+				.buffer = g_rtx.light_grid_buffer.buffer,
+				.offset = 0,
+				.size = VK_WHOLE_SIZE, // TODO multiple frames
+			},
+		},
+#define X(index, name, ...) .name = current_frame->name.view,
+		.primary = {
+			RAY_PRIMARY_OUTPUTS(X)
+		},
+		.light_direct_polygon = {
+			RAY_LIGHT_DIRECT_OUTPUTS(X)
+		}
+#undef X
+	};
+
+
 	DEBUG_BEGIN(cmdbuf, "yay tracing");
 	uploadLights();
 	prepareTlas(cmdbuf);
@@ -1030,44 +1078,7 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 			0, 0, NULL, ARRAYSIZE(bmb), bmb, ARRAYSIZE(image_barrier), image_barrier);
 	}
 
-	{
-		const xvk_ray_trace_primary_t primary_args = {
-			.width = FRAME_WIDTH,
-			.height = FRAME_HEIGHT,
-			.in = {
-				.tlas = g_rtx.tlas,
-				.ubo = {
-					.buffer = g_rtx.uniform_buffer.buffer,
-					.offset = frame_index * g_rtx.uniform_unit_size,
-					.size = sizeof(struct UniformBuffer),
-				},
-				.kusochki = {
-					.buffer = g_ray_model_state.kusochki_buffer.buffer,
-					.offset = 0,
-					.size = g_ray_model_state.kusochki_buffer.size,
-				},
-				.indices = {
-					.buffer = args->geometry_data.buffer,
-					.offset = 0,
-					.size = args->geometry_data.size,
-				},
-				.vertices = {
-					.buffer = args->geometry_data.buffer,
-					.offset = 0,
-					.size = args->geometry_data.size,
-				},
-				.all_textures = tglob.dii_all_textures,
-			},
-			.out = {
-#define X(index, name, ...) .name = current_frame->name.view,
-RAY_PRIMARY_OUTPUTS(X)
-#undef X
-			},
-		};
-		XVK_RayTracePrimary( cmdbuf, &primary_args );
-	}
-
-	//rayTrace(cmdbuf, current_frame, fov_angle_y);
+	XVK_RayTracePrimary( cmdbuf, &res );
 
 	{
 		const VkImageMemoryBarrier image_barriers[] = {
@@ -1082,54 +1093,7 @@ RAY_PRIMARY_OUTPUTS(X)
 			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
 	}
 
-	{
-		const xvk_ray_trace_light_direct_t light_direct_args = {
-			.width = FRAME_WIDTH,
-			.height = FRAME_HEIGHT,
-			.in = {
-				.tlas = g_rtx.tlas,
-				.ubo = {
-					.buffer = g_rtx.uniform_buffer.buffer,
-					.offset = frame_index * g_rtx.uniform_unit_size,
-					.size = sizeof(struct UniformBuffer),
-				},
-				.kusochki = {
-					.buffer = g_ray_model_state.kusochki_buffer.buffer,
-					.offset = 0,
-					.size = g_ray_model_state.kusochki_buffer.size,
-				},
-				.indices = {
-					.buffer = args->geometry_data.buffer,
-					.offset = 0,
-					.size = args->geometry_data.size,
-				},
-				.vertices = {
-					.buffer = args->geometry_data.buffer,
-					.offset = 0,
-					.size = args->geometry_data.size,
-				},
-				.lights = {
-					.buffer = g_ray_model_state.lights_buffer.buffer,
-					.offset = 0,
-					.size = VK_WHOLE_SIZE, // TODO multiple frames
-				},
-				.light_clusters = {
-					.buffer = g_rtx.light_grid_buffer.buffer,
-					.offset = 0,
-					.size = VK_WHOLE_SIZE, // TODO multiple frames
-				},
-				.all_textures = tglob.dii_all_textures,
-#define X(index, name, ...) .name = current_frame->name.view,
-				RAY_LIGHT_DIRECT_INPUTS(X)
-			},
-			.out = {
-				RAY_LIGHT_DIRECT_OUTPUTS(X)
-#undef X
-			},
-		};
-		XVK_RayTraceLightDirect( cmdbuf, &light_direct_args );
-	}
-
+	XVK_RayTraceLightDirect( cmdbuf, &res );
 
 	{
 		const VkImageMemoryBarrier image_barriers[] = {

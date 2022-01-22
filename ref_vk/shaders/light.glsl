@@ -120,7 +120,7 @@ void computeLighting(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialPro
 	sampleEmissiveSurfaces(P, N, throughput, view_dir, material, cluster_index, diffuse, specular);
 #endif
 
-#if 1
+#if 0
 	vec3 ldiffuse = vec3(0.), lspecular = vec3(0.);
 	computePointLights(P, N, cluster_index, throughput, view_dir, material, ldiffuse, lspecular);
 	diffuse += ldiffuse;
