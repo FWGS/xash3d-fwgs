@@ -97,7 +97,7 @@ static void updateDescriptors( const vk_ray_resources_t *res ) {
 #define X(index, name, ...) \
 	g_ray_light_direct.desc.values[RtLDir_Desc_##name].image = (VkDescriptorImageInfo){ \
 		.sampler = VK_NULL_HANDLE, \
-		.imageView = res->primary.name, \
+		.imageView = res->name, \
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL, \
 	};
 	RAY_LIGHT_DIRECT_INPUTS(X)
@@ -106,7 +106,7 @@ static void updateDescriptors( const vk_ray_resources_t *res ) {
 #define X(index, name, ...) \
 	g_ray_light_direct.desc.values[RtLDir_Desc_##name].image = (VkDescriptorImageInfo){ \
 		.sampler = VK_NULL_HANDLE, \
-		.imageView = res->light_direct_polygon.name, \
+		.imageView = res->name, \
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL, \
 	};
 	RAY_LIGHT_DIRECT_OUTPUTS(X)

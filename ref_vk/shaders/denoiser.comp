@@ -3,16 +3,18 @@
 #include "noise.glsl"
 #include "utils.glsl"
 
-layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(set = 0, binding = 0, rgba16f) uniform image2D dest;
 
 layout(set = 0, binding = 1, rgba8) uniform readonly image2D src_base_color;
-layout(set = 0, binding = 2, rgba16f) uniform readonly image2D src_diffuse_gi;
-layout(set = 0, binding = 3, rgba16f) uniform readonly image2D src_specular;
-layout(set = 0, binding = 4, rgba16f) uniform readonly image2D src_additive;
-layout(set = 0, binding = 5, rgba16f) uniform readonly image2D src_normals;
-layout(set = 0, binding = 6, rgba32f) uniform readonly image2D src_position_t;
+layout(set = 0, binding = 2, rgba16f) uniform readonly image2D src_light_direct_poly_diffuse;
+//layout(set = 0, binding = 3, rgba16f) uniform readonly image2D src_light_direct_poly_specular;
+//layout(set = 0, binding = 2, rgba16f) uniform readonly image2D src_light_direct_poly_diffuse;
+/* layout(set = 0, binding = 3, rgba16f) uniform readonly image2D src_specular; */
+/* layout(set = 0, binding = 4, rgba16f) uniform readonly image2D src_additive; */
+/* layout(set = 0, binding = 5, rgba16f) uniform readonly image2D src_normals; */
+/* layout(set = 0, binding = 6, rgba32f) uniform readonly image2D src_position_t; */
 
 // Blatantly copypasted from https://www.shadertoy.com/view/XsGfWV
 vec3 aces_tonemap(vec3 color){
@@ -44,11 +46,11 @@ vec3 reinhard02(vec3 c, vec3 Cwhite2) {
 float normpdf2(in float x2, in float sigma) { return 0.39894*exp(-0.5*x2/(sigma*sigma))/sigma; }
 float normpdf(in float x, in float sigma) { return normpdf2(x*x, sigma); }
 
-void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) {
-	const vec4 n = imageLoad(src_normals, uv);
-	geometry_normal = normalDecode(n.xy);
-	shading_normal = normalDecode(n.zw);
-}
+/* void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) { */
+/* 	const vec4 n = imageLoad(src_normals, uv); */
+/* 	geometry_normal = normalDecode(n.xy); */
+/* 	shading_normal = normalDecode(n.zw); */
+/* } */
 
 void main() {
 	ivec2 res = ivec2(imageSize(src_base_color));
@@ -67,20 +69,20 @@ void main() {
 	/* } */
 
 	const vec4 base_color = imageLoad(src_base_color, pix);
-	const float material_index = imageLoad(src_diffuse_gi, pix).a;
+	//const float material_index = imageLoad(src_light_direct_poly, pix).a;
 
 	//imageStore(dest, pix, vec4(aces_tonemap(base_color.rgb), 0.)); return;
 	//imageStore(dest, pix, vec4((base_color.rgb), 0.)); return;
 	//imageStore(dest, pix, vec4(fract(imageLoad(src_position_t, pix).rgb / 10.), 0.)); return;
-	//imageStore(dest, pix, vec4((imageLoad(src_diffuse_gi, pix).rgb), 0.)); return;
-	//imageStore(dest, pix, vec4((imageLoad(src_diffuse_gi, pix).rgb * base_color.rgb), 0.)); return;
+	//imageStore(dest, pix, vec4((imageLoad(src_light_direct_poly, pix).rgb), 0.)); return;
+	//imageStore(dest, pix, vec4((imageLoad(src_light_direct_poly, pix).rgb * base_color.rgb), 0.)); return;
 	//imageStore(dest, pix, vec4(imageLoad(src_normals, pix)*.5 + .5f)); return;
 	//imageStore(dest, pix, vec4(imageLoad(src_specular, pix)*.5 + .5f)); return;
-	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_diffuse_gi, pix).rgb), 0.)); return;
+	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_light_direct_poly, pix).rgb), 0.)); return;
 	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_specular, pix).rgb), 0.)); return;
 
-	vec3 geometry_normal, shading_normal;
-	readNormals(pix, geometry_normal, shading_normal);
+	/* vec3 geometry_normal, shading_normal; */
+	/* readNormals(pix, geometry_normal, shading_normal); */
 
 	//imageStore(dest, pix, vec4(.5 + geometry_normal * .5, 0.)); return;
 
@@ -89,11 +91,12 @@ void main() {
 	/* return; */
 
 #if 1
-	vec3 colour = imageLoad(src_diffuse_gi, pix).rgb * base_color.rgb;
+	vec3 colour = imageLoad(src_light_direct_poly_diffuse, pix).rgb * base_color.rgb;
+	//colour += imageLoad(src_light_direct_poly_specular, pix).rgb * base_color.rgb;
 #else
 	float total_scale = 0.;
 	vec3 colour = vec3(0.);
-	const int KERNEL_SIZE = 8;
+	const int KERNEL_SIZE = 16;
 	float specular_total_scale = 0.;
 	vec3 speculour = vec3(0.);
 	for (int x = -KERNEL_SIZE; x <= KERNEL_SIZE; ++x)
@@ -103,22 +106,22 @@ void main() {
 				continue;
 			}
 
-			const vec4 c = imageLoad(src_diffuse_gi, p);
-			if (c.a != material_index)
-				continue;
+			// const vec4 c = imageLoad(src_light_direct_poly, p);
+			// if (c.a != material_index)
+			// 	continue;
 
 			vec3 sample_geometry_normal, sample_shading_normal;
 			readNormals(p, sample_geometry_normal, sample_shading_normal);
 
 			// FIXME also filter by depth, (kusok index?), etc
-			if ( dot(sample_geometry_normal, geometry_normal) < .99 )
+			if ( dot(sample_geometry_normal, geometry_normal) < .9 )
 				continue;
 
 			// TODO bilaterally filter shading normals
 
 			const float sigma = KERNEL_SIZE / 2.;
 			const float scale = normpdf(x, sigma) * normpdf(y, sigma);
-			colour += scale * imageLoad(src_diffuse_gi, p).rgb;
+			colour += scale * imageLoad(src_light_direct_poly, p).rgb;
 			total_scale += scale;
 
 			const int SPECULAR_KERNEL_SIZE = 2;
@@ -138,11 +141,11 @@ void main() {
 	if (specular_total_scale > 0.) {
 		speculour /= specular_total_scale;
 		//speculour *= base_color.rgb;
-		colour += speculour;
+		//colour += speculour;
 	}
 
 	//colour += imageLoad(src_specular, pix).rgb;
-	colour += imageLoad(src_additive, pix).rgb;
+	//colour += imageLoad(src_additive, pix).rgb;
 #endif
 
 	// HACK: exposure
@@ -169,5 +172,5 @@ void main() {
 #endif
 
 	imageStore(dest, pix, vec4(colour, 0.));
-	//imageStore(dest, pix, imageLoad(src_diffuse_gi, pix));
+	//imageStore(dest, pix, imageLoad(src_light_direct_poly, pix));
 }

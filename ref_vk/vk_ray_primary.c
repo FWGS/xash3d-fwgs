@@ -79,7 +79,7 @@ static void updateDescriptors( const vk_ray_resources_t* res ) {
 #define X(index, name, ...) \
 	g_ray_primary.desc.values[RtPrim_Desc_Out_##name].image = (VkDescriptorImageInfo){ \
 		.sampler = VK_NULL_HANDLE, \
-		.imageView = res->primary.name, \
+		.imageView = res->name, \
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL, \
 	};
 RAY_PRIMARY_OUTPUTS(X)

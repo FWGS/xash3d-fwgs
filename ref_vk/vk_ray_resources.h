@@ -20,13 +20,9 @@ typedef struct {
 	} scene;
 
 #define X(index, name, ...) VkImageView name;
-	struct {
-		RAY_PRIMARY_OUTPUTS(X)
-	} primary;
-
-	struct {
-		RAY_LIGHT_DIRECT_OUTPUTS(X)
-	} light_direct_polygon;
+	RAY_PRIMARY_OUTPUTS(X)
+	RAY_LIGHT_DIRECT_OUTPUTS(X)
+	X(-1, denoised)
 #undef X
 } vk_ray_resources_t;
 

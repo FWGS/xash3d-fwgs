@@ -46,13 +46,6 @@ void main() {
 	const vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
 	const ivec2 pix = ivec2(gl_LaunchIDEXT.xy);
 
-	if (false) {
-		vec3 diffuse = vec3(uv, .5), specular = vec3(0.);
-		imageStore(out_image_light_diffuse, pix, vec4(diffuse, 0.f));
-		imageStore(out_image_light_specular, pix, vec4(specular, 0.f));
-		return;
-	}
-
 	rand01_state = ubo.random_seed + gl_LaunchIDEXT.x * 1833 +  gl_LaunchIDEXT.y * 31337;
 
 	// FIXME incorrect for reflection/refraction
@@ -74,11 +67,6 @@ void main() {
 	vec3 diffuse = vec3(0.), specular = vec3(0.);
 	computeLighting(pos + geometry_normal * .001, shading_normal, throughput, -direction, material, diffuse, specular);
 
-	//specular = shading_normal;
-	//diffuse = geometry_normal;
-	//diffuse = shading_normal;
-	//diffuse.xy = uv;
-	imageStore(out_image_light_diffuse, pix, vec4(diffuse, 0.f));
-	//imageStore(out_image_light_diffuse, pix, vec4(1.,0.,0.f, 0.f));
-	imageStore(out_image_light_specular, pix, vec4(specular, 0.f));
+	imageStore(out_image_light_poly_diffuse, pix, vec4(diffuse, 0.f));
+	imageStore(out_image_light_poly_specular, pix, vec4(specular, 0.f));
 }

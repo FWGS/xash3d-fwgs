@@ -67,7 +67,7 @@ void main() {
 	//specular = shading_normal;
 	//diffuse = geometry_normal;
 	//diffuse = shading_normal;
-	imageStore(out_image_light_diffuse, pix, vec4(diffuse, 0.f));
+	imageStore(out_image_light_poly_diffuse, pix, vec4(diffuse, 0.f));
 	//imageStore(out_image_light_diffuse, pix, vec4(1.,0.,0.f, 0.f));
-	imageStore(out_image_light_specular, pix, vec4(specular, 0.f));
+	imageStore(out_image_light_poly_specular, pix, vec4(specular, 0.f));
 }

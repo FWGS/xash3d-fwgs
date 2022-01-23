@@ -1006,12 +1006,9 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 			},
 		},
 #define X(index, name, ...) .name = current_frame->name.view,
-		.primary = {
-			RAY_PRIMARY_OUTPUTS(X)
-		},
-		.light_direct_polygon = {
-			RAY_LIGHT_DIRECT_OUTPUTS(X)
-		}
+		RAY_PRIMARY_OUTPUTS(X)
+		RAY_LIGHT_DIRECT_OUTPUTS(X)
+		X(-1, denoised)
 #undef X
 	};
 
@@ -1108,24 +1105,7 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
 	}
 
-	{
-		const xvk_denoiser_args_t denoiser_args = {
-			.cmdbuf = cmdbuf,
-			.width = FRAME_WIDTH,
-			.height = FRAME_HEIGHT,
-			.src = {
-				.position_t_view = current_frame->position_t.view,
-				.base_color_a_view = current_frame->base_color_a.view,
-				.diffuse_gi_view = current_frame->light_diffuse.view,
-				.specular_view = current_frame->light_specular.view,
-				.additive_view = current_frame->additive.view,
-				.normals_view = current_frame->normals_gs.view,
-			},
-			.dst_view = current_frame->denoised.view,
-		};
-
-		XVK_DenoiserDenoise( &denoiser_args );
-	}
+	XVK_DenoiserDenoise( cmdbuf, &res );
 
 	{
 		const xvk_blit_args blit_args = {
