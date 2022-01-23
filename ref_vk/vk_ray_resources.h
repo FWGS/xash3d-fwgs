@@ -1,9 +1,8 @@
 #pragma once
 
 #include "vk_rtx.h"
-
-#include "shaders/ray_primary_iface.h"
-#include "shaders/ray_light_direct_iface.h"
+#include "vk_const.h"
+#include "shaders/ray_interop.h"
 
 typedef struct {
 	uint32_t width, height;

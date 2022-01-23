@@ -2,7 +2,6 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "ray_primary_common.glsl"
-#include "ray_primary_iface.h"
 
 #define X(index, name, format) layout(set=0,binding=index,format) uniform image2D out_image_##name;
 RAY_PRIMARY_OUTPUTS(X)

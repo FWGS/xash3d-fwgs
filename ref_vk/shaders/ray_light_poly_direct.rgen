@@ -5,8 +5,6 @@
 
 #include "utils.glsl"
 
-#include "ray_light_direct_iface.h"
-
 #define GLSL
 #include "ray_interop.h"
 #undef GLSL
