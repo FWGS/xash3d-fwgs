@@ -325,6 +325,7 @@ typedef struct
 	qboolean		msg_started;		// to avoid recursive included messages
 	edict_t		*msg_ent;			// user message member entity
 	vec3_t		msg_org;			// user message member origin
+	qboolean	msg_trace;		// trace this message
 
 	void		*hInstance;		// pointer to game.dll
 	qboolean		config_executed;		// should to execute config.cfg once time to restore FCVAR_ARCHIVE that specified in hl.dll
@@ -431,6 +432,7 @@ extern convar_t		sv_skyvec_z;
 extern convar_t		sv_consistency;
 extern convar_t		sv_password;
 extern convar_t		sv_uploadmax;
+extern convar_t		sv_trace_messages;
 extern convar_t		deathmatch;
 extern convar_t		hostname;
 extern convar_t		skill;
