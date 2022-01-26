@@ -55,6 +55,7 @@ CVAR_DEFINE_AUTO( mp_logecho, "1", 0, "log multiplayer frags to server logfile" 
 CVAR_DEFINE_AUTO( mp_logfile, "1", 0, "log multiplayer frags to console" );
 CVAR_DEFINE_AUTO( sv_log_singleplayer, "0", FCVAR_ARCHIVE, "allows logging in singleplayer games" );
 CVAR_DEFINE_AUTO( sv_log_onefile, "0", FCVAR_ARCHIVE, "logs server information to only one file" );
+CVAR_DEFINE_AUTO( sv_trace_messages, "0", FCVAR_LATCH, "enable server usermessages tracing (good for developers)" );
 
 // game-related cvars
 CVAR_DEFINE_AUTO( mapcyclefile, "mapcycle.txt", 0, "name of multiplayer map cycle configuration file" );
@@ -945,6 +946,8 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &bannedcfgfile );
 	Cvar_RegisterVariable( &listipcfgfile );
 	Cvar_RegisterVariable( &mapchangecfgfile );
+
+	Cvar_RegisterVariable( &sv_trace_messages );
 
 	sv_allow_joystick = Cvar_Get( "sv_allow_joystick", "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
 	sv_allow_mouse = Cvar_Get( "sv_allow_mouse", "1", FCVAR_ARCHIVE, "allow connect with mouse" );
