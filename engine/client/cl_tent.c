@@ -2393,7 +2393,7 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 
 	// throw warning
 	if( MSG_CheckOverflow( &buf ))
-		Con_DPrintf( S_WARN "ParseTempEntity: overflow TE message\n" );
+		Con_DPrintf( S_WARN "ParseTempEntity: overflow TE message %i\n", type );
 }
 
 
