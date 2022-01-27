@@ -22,6 +22,19 @@ static gl_texture_t		gl_textures[MAX_TEXTURES];
 static gl_texture_t*	gl_texturesHashTable[TEXTURES_HASH_SIZE];
 static uint		gl_numTextures;
 
+static byte    dottexture[8][8] =
+{
+	  {0,1,1,0,0,0,0,0},
+	  {1,1,1,1,0,0,0,0},
+	  {1,1,1,1,0,0,0,0},
+	  {0,1,1,0,0,0,0,0},
+	  {0,0,0,0,0,0,0,0},
+	  {0,0,0,0,0,0,0,0},
+	  {0,0,0,0,0,0,0,0},
+	  {0,0,0,0,0,0,0,0},
+};
+
+
 #define IsLightMap( tex )	( FBitSet(( tex )->flags, TF_ATLAS_PAGE ))
 /*
 =================
@@ -1986,18 +1999,15 @@ static void GL_CreateInternalTextures( void )
 	tr.defaultTexture = GL_LoadTextureInternal( REF_DEFAULT_TEXTURE, pic, TF_COLORMAP );
 
 	// particle texture from quake1
-	pic = GL_FakeImage( 16, 16, 1, IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA );
+	pic = GL_FakeImage( 8, 8, 1, IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA );
 
-	for( x = 0; x < 16; x++ )
+	for( x = 0; x < 8; x++ )
 	{
-		dx2 = x - 8;
-		dx2 = dx2 * dx2;
-
-		for( y = 0; y < 16; y++ )
+		for( y = 0; y < 8; y++ )
 		{
-			dy = y - 8;
-			d = 255 - 35 * sqrt( dx2 + dy * dy );
-			pic->buffer[( y * 16 + x ) * 4 + 3] = bound( 0, d, 255 );
+			if( dottexture[x][y] )
+				pic->buffer[( y * 8 + x ) * 4 + 3] = 255;
+			else pic->buffer[( y * 8 + x ) * 4 + 3] = 0;
 		}
 	}
 
