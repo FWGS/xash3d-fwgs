@@ -340,7 +340,11 @@ static void SDLash_ActiveEvent( int gain )
 	if( gain )
 	{
 		host.status = HOST_FRAME;
-		IN_ActivateMouse( );
+		if( cls.key_dest == key_game )
+		{
+			IN_ActivateMouse( );
+		}
+
 		if( dma.initialized && snd_mute_losefocus.value )
 		{
 			SNDDMA_Activate( true );
@@ -360,7 +364,11 @@ static void SDLash_ActiveEvent( int gain )
 		}
 #endif
 		host.status = HOST_NOFOCUS;
-		IN_DeactivateMouse();
+		if( cls.key_dest == key_game )
+		{
+			IN_DeactivateMouse();
+		}
+
 		if( dma.initialized && snd_mute_losefocus.value )
 		{
 			SNDDMA_Activate( false );
