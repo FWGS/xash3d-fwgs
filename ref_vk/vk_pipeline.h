@@ -1,10 +1,12 @@
+#pragma once
+
 #include "vk_core.h"
 #include "vk_buffer.h"
 
 typedef struct {
   const char *filename;
 	VkShaderStageFlagBits stage;
-	VkSpecializationInfo *specialization_info;
+	const VkSpecializationInfo *specialization_info;
 } vk_shader_stage_t;
 
 typedef struct {

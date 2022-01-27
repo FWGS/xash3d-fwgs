@@ -4,7 +4,7 @@
 #include "vk_const.h"
 #include "shaders/ray_interop.h"
 
-typedef struct {
+typedef struct vk_ray_resources_s {
 	uint32_t width, height;
 
 	struct {

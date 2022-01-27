@@ -1,5 +1,6 @@
 #include "vk_rtx.h"
 
+#include "ray_pass.h"
 #include "vk_ray_primary.h"
 #include "vk_ray_light_direct.h"
 
@@ -161,6 +162,10 @@ static struct {
 
 	unsigned frame_number;
 	xvk_ray_frame_images_t frames[MAX_FRAMES_IN_FLIGHT];
+
+	struct {
+		struct ray_pass_s *primary_ray;
+	} pass;
 
 	qboolean reload_pipeline;
 	qboolean reload_lighting;
@@ -1075,7 +1080,7 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 			0, 0, NULL, ARRAYSIZE(bmb), bmb, ARRAYSIZE(image_barrier), image_barrier);
 	}
 
-	XVK_RayTracePrimary( cmdbuf, &res );
+	RayPassPerform( cmdbuf, g_rtx.pass.primary_ray, &res );
 
 	{
 		const VkImageMemoryBarrier image_barriers[] = {
@@ -1158,7 +1163,14 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		//vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
 		createPipeline();
 
-		XVK_RayTracePrimaryReloadPipeline();
+		{
+			struct ray_pass_s *new_primary_pass = R_VkRayPrimaryPassCreate();
+			if (new_primary_pass) {
+				RayPassDestroy(g_rtx.pass.primary_ray);
+				g_rtx.pass.primary_ray = new_primary_pass;
+			}
+		}
+
 		XVK_RayTraceLightDirectReloadPipeline();
 		XVK_DenoiserReloadPipeline();
 		g_rtx.reload_pipeline = false;
@@ -1329,7 +1341,9 @@ qboolean VK_RayInit( void )
 	ASSERT(vk_core.rtx);
 	// TODO complain and cleanup on failure
 
-	ASSERT(XVK_RayTracePrimaryInit());
+	g_rtx.pass.primary_ray = R_VkRayPrimaryPassCreate();
+
+	ASSERT(g_rtx.pass.primary_ray);
 	ASSERT(XVK_RayTraceLightDirectInit());
 
 	g_rtx.sbt_record_size = vk_core.physical_device.sbt_record_size;
@@ -1451,7 +1465,7 @@ void VK_RayShutdown( void ) {
 	ASSERT(vk_core.rtx);
 
 	XVK_RayTraceLightDirectDestroy();
-	XVK_RayTracePrimaryDestroy();
+	RayPassDestroy(g_rtx.pass.primary_ray);
 
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
 		XVK_ImageDestroy(&g_rtx.frames[i].denoised);
