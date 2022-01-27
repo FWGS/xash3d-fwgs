@@ -3089,7 +3089,7 @@ char *pfnParseFile( char *data, char *token )
 {
 	char	*out;
 
-	out = _COM_ParseFileSafe( data, token, INT_MAX, PFILE_HANDLECOLON, NULL );
+	out = _COM_ParseFileSafe( data, token, PFILE_TOKEN_MAX_LENGTH, PFILE_HANDLECOLON, NULL );
 
 	return out;
 }
