@@ -901,12 +901,8 @@ static void R_CheckVBO( void )
 		def = "0";
 	}
 
-	r_vbo = gEngfuncs.Cvar_Get( "r_vbo", def, flags, "draw world using VBO" );
-	r_vbo_dlightmode = gEngfuncs.Cvar_Get( "r_vbo_dlightmode", dlightmode, FCVAR_ARCHIVE, "vbo dlight rendering mode(0-1)" );
-
-	// check if enabled manually
-	if( CVAR_TO_BOOL(r_vbo) )
-		r_vbo->flags |= FCVAR_ARCHIVE;
+	r_vbo = gEngfuncs.Cvar_Get( "gl_vbo", def, flags, "draw world using VBO (known to be glitchy)" );
+	r_vbo_dlightmode = gEngfuncs.Cvar_Get( "gl_vbo_dlightmode", dlightmode, FCVAR_ARCHIVE, "vbo dlight rendering mode(0-1)" );
 }
 
 /*
