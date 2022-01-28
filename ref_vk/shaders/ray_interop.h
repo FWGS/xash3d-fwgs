@@ -2,23 +2,6 @@
 #ifndef RAY_INTEROP_H_INCLUDED
 #define RAY_INTEROP_H_INCLUDED
 
-#define RAY_LIGHT_DIRECT_INPUTS(X) \
-	X(10, position_t, rgba32f) \
-	X(11, normals_gs, rgba16f) \
-
-#define RAY_LIGHT_DIRECT_POLY_OUTPUTS(X) \
-	X(13, light_poly_diffuse, rgba16f) \
-	X(14, light_poly_specular, rgba16f) \
-
-#define RAY_LIGHT_DIRECT_POINT_OUTPUTS(X) \
-	X(13, light_point_diffuse, rgba16f) \
-	X(14, light_point_specular, rgba16f) \
-
-#define RAY_PRIMARY_OUTPUTS(X) \
-	X(10, base_color_a, rgba8) \
-	X(11, position_t, rgba32f) \
-	X(12, normals_gs, rgba16f) \
-
 #define LIST_SPECIALIZATION_CONSTANTS(X) \
 	X(0, uint, MAX_POINT_LIGHTS, 256) \
 	X(1, uint, MAX_EMISSIVE_KUSOCHKI, 256) \
@@ -28,6 +11,25 @@
 	X(5, uint, MAX_LIGHT_CLUSTERS, 262144) \
 	X(6, uint, MAX_TEXTURES, 4096) \
 	X(7, uint, SBT_RECORD_SIZE, 32) \
+
+#define RAY_PRIMARY_OUTPUTS(X) \
+	X(10, base_color_a, rgba8) \
+	X(11, position_t, rgba32f) \
+	X(12, normals_gs, rgba16f) \
+	X(13, material_rmxx, rgba8) \
+
+#define RAY_LIGHT_DIRECT_INPUTS(X) \
+	X(10, position_t, rgba32f) \
+	X(11, normals_gs, rgba16f) \
+	X(12, material_rmxx, rgba8) \
+
+#define RAY_LIGHT_DIRECT_POLY_OUTPUTS(X) \
+	X(20, light_poly_diffuse, rgba16f) \
+	X(21, light_poly_specular, rgba16f) \
+
+#define RAY_LIGHT_DIRECT_POINT_OUTPUTS(X) \
+	X(20, light_point_diffuse, rgba16f) \
+	X(21, light_point_specular, rgba16f) \
 
 #ifndef GLSL
 #include "xash3d_types.h"

@@ -13,13 +13,13 @@ layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };
 layout(location = PAYLOAD_LOCATION_PRIMARY) rayPayloadEXT RayPayloadPrimary payload;
 
 void main() {
-	vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
+	const vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
 
 	// FIXME start on a near plane
-	vec3 origin    = (ubo.inv_view * vec4(0, 0, 0, 1)).xyz;
-	vec4 target    = ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
+	const vec3 origin    = (ubo.inv_view * vec4(0, 0, 0, 1)).xyz;
+	const vec4 target    = ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
 	//vec3 direction = (ubo.inv_view * vec4(normalize(target.xyz), 0)).xyz;
-	vec3 direction = normalize((ubo.inv_view * vec4(target.xyz, 0)).xyz);
+	const vec3 direction = normalize((ubo.inv_view * vec4(target.xyz, 0)).xyz);
 
 	const uint flags = gl_RayFlagsCullFrontFacingTrianglesEXT;
 	const uint sbt_offset = 0;
@@ -33,4 +33,5 @@ void main() {
 	imageStore(out_image_position_t, ivec2(gl_LaunchIDEXT.xy), payload.hit_t);
 	imageStore(out_image_base_color_a, ivec2(gl_LaunchIDEXT.xy), payload.base_color_a);
 	imageStore(out_image_normals_gs, ivec2(gl_LaunchIDEXT.xy), payload.normals_gs);
+	imageStore(out_image_material_rmxx, ivec2(gl_LaunchIDEXT.xy), payload.material_rmxx);
 }

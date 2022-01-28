@@ -33,6 +33,8 @@ void main() {
 		payload.base_color_a = vec4(1.,0.,1.,1.);
 	} else {
 		payload.base_color_a = sampleTexture(tex_base_color, geom.uv, geom.uv_lods) * kusok.color;
+		payload.material_rmxx.r = (kusok.tex_roughness > 0) ? sampleTexture(kusok.tex_roughness, geom.uv, geom.uv_lods).r : kusok.roughness;
+		payload.material_rmxx.g = (kusok.tex_metalness > 0) ? sampleTexture(kusok.tex_metalness, geom.uv, geom.uv_lods).r : kusok.metalness;
 
 		const uint tex_normal = kusok.tex_normalmap;
 		vec3 T = geom.tangent;
@@ -44,7 +46,6 @@ void main() {
 			geom.normal_shading = normalize(TBN * tnorm);
 		}
 	}
-
 
 	payload.normals_gs.xy = normalEncode(geom.normal_geometry);
 	payload.normals_gs.zw = normalEncode(geom.normal_shading);

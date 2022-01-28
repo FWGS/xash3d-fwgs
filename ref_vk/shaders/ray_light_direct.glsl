@@ -46,14 +46,16 @@ void main() {
 	rand01_state = ubo.random_seed + gl_LaunchIDEXT.x * 1833 +  gl_LaunchIDEXT.y * 31337;
 
 	// FIXME incorrect for reflection/refraction
-	vec4 target    = ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
-	vec3 direction = normalize((ubo.inv_view * vec4(target.xyz, 0)).xyz);
+	const vec4 target    = ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
+	const vec3 direction = normalize((ubo.inv_view * vec4(target.xyz, 0)).xyz);
+
+	const vec4 material_data = imageLoad(material_rmxx, pix);
 
 	MaterialProperties material;
 	material.baseColor = vec3(1.);
 	material.emissive = vec3(0.f);
-	material.metalness = 0.f; // TODO
-	material.roughness = 1.f; // TODO
+	material.metalness = material_data.g;
+	material.roughness = material_data.r;
 
 	const vec3 pos = imageLoad(position_t, pix).xyz;
 

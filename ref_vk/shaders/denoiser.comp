@@ -98,9 +98,9 @@ void main() {
 #if 1
 	vec3 colour = vec3(0.);
 	colour += imageLoad(src_light_direct_poly_diffuse, pix).rgb;
-	//colour += imageLoad(src_light_direct_poly_specular, pix).rgb;
+	colour += imageLoad(src_light_direct_poly_specular, pix).rgb;
 	colour += imageLoad(src_light_direct_point_diffuse, pix).rgb;
-	//colour += imageLoad(src_light_direct_point_specular, pix).rgb;
+	colour += imageLoad(src_light_direct_point_specular, pix).rgb;
 	colour *= base_color.rgb;
 #else
 	float total_scale = 0.;
