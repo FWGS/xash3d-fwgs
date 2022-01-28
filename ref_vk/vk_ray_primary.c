@@ -1,7 +1,5 @@
 #include "vk_ray_primary.h"
-#include "vk_ray_internal.h"
 
-#include "vk_descriptor.h"
 #include "vk_ray_resources.h"
 #include "ray_pass.h"
 

@@ -165,6 +165,7 @@ static struct {
 
 	struct {
 		struct ray_pass_s *primary_ray;
+		struct ray_pass_s *light_direct_poly;
 	} pass;
 
 	qboolean reload_pipeline;
@@ -1095,7 +1096,7 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
 	}
 
-	XVK_RayTraceLightDirect( cmdbuf, &res );
+	RayPassPerform( cmdbuf, g_rtx.pass.light_direct_poly, &res );
 
 	{
 		const VkImageMemoryBarrier image_barriers[] = {
@@ -1140,6 +1141,14 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 qboolean initVk2d(void);
 void deinitVk2d(void);
 
+static void reloadPass( struct ray_pass_s **slot, struct ray_pass_s *new_pass ) {
+	if (!new_pass)
+		return;
+
+	RayPassDestroy( *slot );
+	*slot = new_pass;
+}
+
 void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 {
 	const VkCommandBuffer cmdbuf = args->cmdbuf;
@@ -1163,15 +1172,9 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		//vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
 		createPipeline();
 
-		{
-			struct ray_pass_s *new_primary_pass = R_VkRayPrimaryPassCreate();
-			if (new_primary_pass) {
-				RayPassDestroy(g_rtx.pass.primary_ray);
-				g_rtx.pass.primary_ray = new_primary_pass;
-			}
-		}
+		reloadPass( &g_rtx.pass.primary_ray, R_VkRayPrimaryPassCreate());
+		reloadPass( &g_rtx.pass.light_direct_poly, R_VkRayLightDirectPolyPassCreate());
 
-		XVK_RayTraceLightDirectReloadPipeline();
 		XVK_DenoiserReloadPipeline();
 		g_rtx.reload_pipeline = false;
 	}
@@ -1342,9 +1345,10 @@ qboolean VK_RayInit( void )
 	// TODO complain and cleanup on failure
 
 	g_rtx.pass.primary_ray = R_VkRayPrimaryPassCreate();
-
 	ASSERT(g_rtx.pass.primary_ray);
-	ASSERT(XVK_RayTraceLightDirectInit());
+
+	g_rtx.pass.light_direct_poly = R_VkRayLightDirectPolyPassCreate();
+	ASSERT(g_rtx.pass.light_direct_poly);
 
 	g_rtx.sbt_record_size = vk_core.physical_device.sbt_record_size;
 	g_rtx.uniform_unit_size = ALIGN_UP(sizeof(struct UniformBuffer), vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
@@ -1464,7 +1468,7 @@ RAY_LIGHT_DIRECT_OUTPUTS(X)
 void VK_RayShutdown( void ) {
 	ASSERT(vk_core.rtx);
 
-	XVK_RayTraceLightDirectDestroy();
+	RayPassDestroy(g_rtx.pass.light_direct_poly);
 	RayPassDestroy(g_rtx.pass.primary_ray);
 
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {

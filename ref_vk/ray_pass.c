@@ -94,6 +94,7 @@ static ray_pass_t *createRayPass( const ray_pass_create_t *create ) {
 			ASSERT(miss_index < MAX_MISS_GROUPS);
 
 			// TODO handle duplicate filenames
+			// TODO really, there should be a global table of shader modules as some of them are used across several passes (e.g. any hit alpha test)
 			misses[miss_index++] = stage_index;
 			stages[stage_index++] = (vk_shader_stage_t) {
 				.filename = *shader,
