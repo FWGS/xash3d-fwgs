@@ -9,7 +9,12 @@ enum {
 	DenoiserBinding_DestImage = 0,
 
 	DenoiserBinding_Source_BaseColor = 1,
+
 	DenoiserBinding_Source_LightPolyDiffuse = 2,
+	DenoiserBinding_Source_LightPolySpecular = 3,
+	DenoiserBinding_Source_LightPointDiffuse = 4,
+	DenoiserBinding_Source_LightPointSpecular = 5,
+
 	/* DenoiserBinding_Source_Specular = 3, */
 	/* DenoiserBinding_Source_Additive = 4, */
 	/* DenoiserBinding_Source_Normals = 5, */
@@ -57,6 +62,24 @@ static void createLayouts( void ) {
 
 	g_denoiser.desc_bindings[DenoiserBinding_Source_LightPolyDiffuse] = (VkDescriptorSetLayoutBinding){
 		.binding = DenoiserBinding_Source_LightPolyDiffuse,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+	g_denoiser.desc_bindings[DenoiserBinding_Source_LightPolySpecular] = (VkDescriptorSetLayoutBinding){
+		.binding = DenoiserBinding_Source_LightPolySpecular,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+	g_denoiser.desc_bindings[DenoiserBinding_Source_LightPointDiffuse] = (VkDescriptorSetLayoutBinding){
+		.binding = DenoiserBinding_Source_LightPointDiffuse,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+	};
+	g_denoiser.desc_bindings[DenoiserBinding_Source_LightPointSpecular] = (VkDescriptorSetLayoutBinding){
+		.binding = DenoiserBinding_Source_LightPointSpecular,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -113,7 +136,11 @@ void XVK_DenoiserDenoise( VkCommandBuffer cmdbuf, const vk_ray_resources_t* res 
 
 	BIND_IMAGE(DestImage, denoised);
 	BIND_IMAGE(Source_BaseColor, base_color_a);
+
 	BIND_IMAGE(Source_LightPolyDiffuse, light_poly_diffuse);
+	BIND_IMAGE(Source_LightPolySpecular, light_poly_specular);
+	BIND_IMAGE(Source_LightPointDiffuse, light_point_diffuse);
+	BIND_IMAGE(Source_LightPointSpecular, light_point_specular);
 
 	VK_DescriptorsWrite(&g_denoiser.descriptors);
 

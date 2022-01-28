@@ -20,8 +20,10 @@ enum {
 #define X(index, name, ...) RtLDir_Desc_##name,
 		RAY_LIGHT_DIRECT_INPUTS(X)
 #undef X
+
+		// FIXME it's an artifact that point and poly outputs have same bindings
 #define X(index, name, ...) RtLDir_Desc_##name,
-		RAY_LIGHT_DIRECT_OUTPUTS(X)
+		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
 #undef X
 
 	RtLDir_Desc_COUNT
@@ -53,7 +55,7 @@ static void initDescriptors( void ) {
 	RAY_LIGHT_DIRECT_INPUTS(X)
 #undef X
 #define X(index, name, ...) INIT_BINDING(index, name, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1);
-	RAY_LIGHT_DIRECT_OUTPUTS(X)
+	RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
 #undef X
 #undef INIT_BINDING
 }
@@ -74,7 +76,7 @@ static void writeValues( vk_descriptor_value_t *values, const vk_ray_resources_t
 		.imageView = res->name, \
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL, \
 	};
-	RAY_LIGHT_DIRECT_OUTPUTS(X)
+		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
 #undef X
 
 	values[RtLDir_Desc_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
@@ -139,6 +141,71 @@ struct ray_pass_s *R_VkRayLightDirectPolyPassCreate( void ) {
 		},
 		.tracing = {
 			.raygen = "ray_light_poly_direct.rgen.spv",
+			.miss = miss,
+			.miss_count = COUNTOF(miss),
+			.hit = hit,
+			.hit_count = COUNTOF(hit),
+			.specialization = &spec,
+		},
+	};
+
+	initDescriptors();
+	return RayPassCreate( &rpc );
+}
+
+static void writePointValues( vk_descriptor_value_t *values, const vk_ray_resources_t* res ) {
+	writeValues( values, res );
+
+	values[RtLDir_Desc_light_poly_diffuse].image = (VkDescriptorImageInfo) {
+		.sampler = VK_NULL_HANDLE,
+		.imageView = res->light_point_diffuse,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+
+	values[RtLDir_Desc_light_poly_specular].image = (VkDescriptorImageInfo) {
+		.sampler = VK_NULL_HANDLE,
+		.imageView = res->light_point_specular,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+}
+
+struct ray_pass_s *R_VkRayLightDirectPointPassCreate( void ) {
+	// FIXME move this into vk_pipeline
+	const struct SpecializationData {
+		uint32_t sbt_record_size;
+	} spec_data = {
+		.sbt_record_size = vk_core.physical_device.sbt_record_size,
+	};
+	const VkSpecializationMapEntry spec_map[] = {
+		{.constantID = SPEC_SBT_RECORD_SIZE_INDEX, .offset = offsetof(struct SpecializationData, sbt_record_size), .size = sizeof(uint32_t) },
+	};
+	VkSpecializationInfo spec = {
+		.mapEntryCount = COUNTOF(spec_map),
+		.pMapEntries = spec_map,
+		.dataSize = sizeof(spec_data),
+		.pData = &spec_data,
+	};
+
+	const ray_pass_shader_t miss[] = {
+		"ray_shadow.rmiss.spv"
+	};
+
+	const ray_pass_hit_group_t hit[] = { {
+		 .closest = NULL,
+		 .any = "ray_common_alphatest.rahit.spv",
+		},
+	};
+
+	const ray_pass_create_t rpc = {
+		.debug_name = "light direct point",
+		.layout = {
+			.bindings = bindings,
+			.bindings_count = COUNTOF(bindings),
+			.write_values_func = writePointValues,
+			.push_constants = {0},
+		},
+		.tracing = {
+			.raygen = "ray_light_direct_point.rgen.spv",
 			.miss = miss,
 			.miss_count = COUNTOF(miss),
 			.hit = hit,

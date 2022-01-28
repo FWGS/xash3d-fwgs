@@ -8,8 +8,13 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(set = 0, binding = 0, rgba16f) uniform image2D dest;
 
 layout(set = 0, binding = 1, rgba8) uniform readonly image2D src_base_color;
+
 layout(set = 0, binding = 2, rgba16f) uniform readonly image2D src_light_direct_poly_diffuse;
-//layout(set = 0, binding = 3, rgba16f) uniform readonly image2D src_light_direct_poly_specular;
+layout(set = 0, binding = 3, rgba16f) uniform readonly image2D src_light_direct_poly_specular;
+
+layout(set = 0, binding = 4, rgba16f) uniform readonly image2D src_light_direct_point_diffuse;
+layout(set = 0, binding = 5, rgba16f) uniform readonly image2D src_light_direct_point_specular;
+
 //layout(set = 0, binding = 2, rgba16f) uniform readonly image2D src_light_direct_poly_diffuse;
 /* layout(set = 0, binding = 3, rgba16f) uniform readonly image2D src_specular; */
 /* layout(set = 0, binding = 4, rgba16f) uniform readonly image2D src_additive; */
@@ -91,8 +96,12 @@ void main() {
 	/* return; */
 
 #if 1
-	vec3 colour = imageLoad(src_light_direct_poly_diffuse, pix).rgb * base_color.rgb;
-	//colour += imageLoad(src_light_direct_poly_specular, pix).rgb * base_color.rgb;
+	vec3 colour = vec3(0.);
+	colour += imageLoad(src_light_direct_poly_diffuse, pix).rgb;
+	//colour += imageLoad(src_light_direct_poly_specular, pix).rgb;
+	colour += imageLoad(src_light_direct_point_diffuse, pix).rgb;
+	//colour += imageLoad(src_light_direct_point_specular, pix).rgb;
+	colour *= base_color.rgb;
 #else
 	float total_scale = 0.;
 	vec3 colour = vec3(0.);

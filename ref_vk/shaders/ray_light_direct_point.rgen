@@ -1,6 +1,6 @@
 #version 460 core
 #extension GL_GOOGLE_include_directive : require
 
-#define LIGHT_POLYGON 1
-#define OUTPUTS RAY_LIGHT_DIRECT_POLY_OUTPUTS
+#define LIGHT_POINT 1
+#define OUTPUTS RAY_LIGHT_DIRECT_POINT_OUTPUTS
 #include "ray_light_direct.glsl"

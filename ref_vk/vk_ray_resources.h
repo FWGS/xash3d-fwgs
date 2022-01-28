@@ -20,8 +20,10 @@ typedef struct vk_ray_resources_s {
 
 #define X(index, name, ...) VkImageView name;
 	RAY_PRIMARY_OUTPUTS(X)
-	RAY_LIGHT_DIRECT_OUTPUTS(X)
+	RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
+	RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
 	X(-1, denoised)
 #undef X
 } vk_ray_resources_t;
+
 

@@ -96,7 +96,8 @@ typedef struct {
 
 #define X(index, name, ...) xvk_image_t name;
 RAY_PRIMARY_OUTPUTS(X)
-RAY_LIGHT_DIRECT_OUTPUTS(X)
+RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
+RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
 #undef X
 
 	xvk_image_t diffuse_gi;
@@ -166,6 +167,7 @@ static struct {
 	struct {
 		struct ray_pass_s *primary_ray;
 		struct ray_pass_s *light_direct_poly;
+		struct ray_pass_s *light_direct_point;
 	} pass;
 
 	qboolean reload_pipeline;
@@ -1013,7 +1015,8 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 		},
 #define X(index, name, ...) .name = current_frame->name.view,
 		RAY_PRIMARY_OUTPUTS(X)
-		RAY_LIGHT_DIRECT_OUTPUTS(X)
+		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
+		RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
 		X(-1, denoised)
 #undef X
 	};
@@ -1086,7 +1089,8 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 	{
 		const VkImageMemoryBarrier image_barriers[] = {
 			RAY_PRIMARY_OUTPUTS(IMAGE_BARRIER_READ)
-			RAY_LIGHT_DIRECT_OUTPUTS(IMAGE_BARRIER_WRITE)
+			RAY_LIGHT_DIRECT_POLY_OUTPUTS(IMAGE_BARRIER_WRITE)
+			RAY_LIGHT_DIRECT_POINT_OUTPUTS(IMAGE_BARRIER_WRITE)
 		};
 
 		vkCmdPipelineBarrier(args->cmdbuf,
@@ -1097,10 +1101,12 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 	}
 
 	RayPassPerform( cmdbuf, g_rtx.pass.light_direct_poly, &res );
+	RayPassPerform( cmdbuf, g_rtx.pass.light_direct_point, &res );
 
 	{
 		const VkImageMemoryBarrier image_barriers[] = {
-			RAY_LIGHT_DIRECT_OUTPUTS(IMAGE_BARRIER_READ)
+			RAY_LIGHT_DIRECT_POLY_OUTPUTS(IMAGE_BARRIER_READ)
+			RAY_LIGHT_DIRECT_POINT_OUTPUTS(IMAGE_BARRIER_READ)
 			LIST_GBUFFER_IMAGES(IMAGE_BARRIER_READ)
 			IMAGE_BARRIER_WRITE(-1/*unused*/, denoised)
 		};
@@ -1174,6 +1180,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 
 		reloadPass( &g_rtx.pass.primary_ray, R_VkRayPrimaryPassCreate());
 		reloadPass( &g_rtx.pass.light_direct_poly, R_VkRayLightDirectPolyPassCreate());
+		reloadPass( &g_rtx.pass.light_direct_point, R_VkRayLightDirectPointPassCreate());
 
 		XVK_DenoiserReloadPipeline();
 		g_rtx.reload_pipeline = false;
@@ -1350,6 +1357,9 @@ qboolean VK_RayInit( void )
 	g_rtx.pass.light_direct_poly = R_VkRayLightDirectPolyPassCreate();
 	ASSERT(g_rtx.pass.light_direct_poly);
 
+	g_rtx.pass.light_direct_point = R_VkRayLightDirectPointPassCreate();
+	ASSERT(g_rtx.pass.light_direct_point);
+
 	g_rtx.sbt_record_size = vk_core.physical_device.sbt_record_size;
 	g_rtx.uniform_unit_size = ALIGN_UP(sizeof(struct UniformBuffer), vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
 
@@ -1446,8 +1456,9 @@ qboolean VK_RayInit( void )
 #define X(index, name, format) CREATE_GBUFFER_IMAGE(name, format, 0);
 // TODO better format for normals VK_FORMAT_R16G16B16A16_SNORM
 // TODO make sure this format and usage is suppported
-RAY_PRIMARY_OUTPUTS(X)
-RAY_LIGHT_DIRECT_OUTPUTS(X)
+		RAY_PRIMARY_OUTPUTS(X)
+		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
+		RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
 #undef X
 #undef rgba8
 #undef rgba32f
@@ -1469,13 +1480,15 @@ void VK_RayShutdown( void ) {
 	ASSERT(vk_core.rtx);
 
 	RayPassDestroy(g_rtx.pass.light_direct_poly);
+	RayPassDestroy(g_rtx.pass.light_direct_point);
 	RayPassDestroy(g_rtx.pass.primary_ray);
 
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
 		XVK_ImageDestroy(&g_rtx.frames[i].denoised);
 #define X(index, name, ...) XVK_ImageDestroy(&g_rtx.frames[i].name);
-RAY_PRIMARY_OUTPUTS(X)
-RAY_LIGHT_DIRECT_OUTPUTS(X)
+		RAY_PRIMARY_OUTPUTS(X)
+		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
+		RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
 #undef X
 		XVK_ImageDestroy(&g_rtx.frames[i].diffuse_gi);
 		XVK_ImageDestroy(&g_rtx.frames[i].specular);

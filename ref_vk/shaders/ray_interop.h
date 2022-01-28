@@ -6,9 +6,13 @@
 	X(10, position_t, rgba32f) \
 	X(11, normals_gs, rgba16f) \
 
-#define RAY_LIGHT_DIRECT_OUTPUTS(X) \
+#define RAY_LIGHT_DIRECT_POLY_OUTPUTS(X) \
 	X(13, light_poly_diffuse, rgba16f) \
 	X(14, light_poly_specular, rgba16f) \
+
+#define RAY_LIGHT_DIRECT_POINT_OUTPUTS(X) \
+	X(13, light_point_diffuse, rgba16f) \
+	X(14, light_point_specular, rgba16f) \
 
 #define RAY_PRIMARY_OUTPUTS(X) \
 	X(10, base_color_a, rgba8) \

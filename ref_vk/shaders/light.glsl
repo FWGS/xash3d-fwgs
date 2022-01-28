@@ -10,8 +10,12 @@ const float shadow_offset_fudge = .1;
 
 #include "brdf.h"
 #include "light_common.glsl"
-#include "light_polygon.glsl"
 
+#if LIGHT_POLYGON
+#include "light_polygon.glsl"
+#endif
+
+#if LIGHT_POINT
 void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
 	diffuse = specular = vec3(0.);
 	const uint num_point_lights = uint(light_grid.clusters[cluster_index].num_point_lights);
@@ -98,6 +102,7 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 		specular += lspecular;
 	} // for all lights
 }
+#endif
 
 void computeLighting(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
 	diffuse = specular = vec3(0.);
@@ -116,11 +121,11 @@ void computeLighting(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialPro
 	//C = vec3(float(int(light_grid.clusters[cluster_index].num_emissive_surfaces)));
 	//C += .3 * fract(vec3(light_cell) / 4.);
 
-#if 1
+#if LIGHT_POLYGON
 	sampleEmissiveSurfaces(P, N, throughput, view_dir, material, cluster_index, diffuse, specular);
 #endif
 
-#if 0
+#if LIGHT_POINT
 	vec3 ldiffuse = vec3(0.), lspecular = vec3(0.);
 	computePointLights(P, N, cluster_index, throughput, view_dir, material, ldiffuse, lspecular);
 	diffuse += ldiffuse;
