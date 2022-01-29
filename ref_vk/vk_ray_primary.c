@@ -5,15 +5,15 @@
 
 enum {
 	// TODO set 0
-	RtPrim_Desc_TLAS,
-	RtPrim_Desc_UBO,
-	RtPrim_Desc_Kusochki,
-	RtPrim_Desc_Indices,
-	RtPrim_Desc_Vertices,
-	RtPrim_Desc_Textures,
+	RtPrim_Desc_tlas,
+	RtPrim_Desc_ubo,
+	RtPrim_Desc_kusochki,
+	RtPrim_Desc_indices,
+	RtPrim_Desc_vertices,
+	RtPrim_Desc_all_textures,
 
 	// TODO set 1
-#define X(index, name, ...) RtPrim_Desc_Out_##name,
+#define X(index, name, ...) RtPrim_Desc_##name,
 RAY_PRIMARY_OUTPUTS(X)
 #undef X
 
@@ -31,51 +31,31 @@ static void initDescriptors( void ) {
 		.stageFlags = stages, \
 	}
 
-	INIT_BINDING(1, TLAS, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
-	INIT_BINDING(2, UBO, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
-	INIT_BINDING(3, Kusochki, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
-	INIT_BINDING(4, Indices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
-	INIT_BINDING(5, Vertices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
-	INIT_BINDING(6, Textures, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+	INIT_BINDING(1, tlas, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+	INIT_BINDING(2, ubo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+	INIT_BINDING(3, kusochki, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+	INIT_BINDING(4, indices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+	INIT_BINDING(5, vertices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+	INIT_BINDING(6, all_textures, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
 
 #define X(index, name, ...) \
-	INIT_BINDING(index, Out_##name, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
-RAY_PRIMARY_OUTPUTS(X)
+	INIT_BINDING(index, name, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+	RAY_PRIMARY_OUTPUTS(X)
 #undef X
 #undef INIT_BINDING
 }
 
 static void writeValues( vk_descriptor_value_t *values, const vk_ray_resources_t* res ) {
 #define X(index, name, ...) \
-	values[RtPrim_Desc_Out_##name].image = (VkDescriptorImageInfo){ \
-		.sampler = VK_NULL_HANDLE, \
-		.imageView = res->name, \
-		.imageLayout = VK_IMAGE_LAYOUT_GENERAL, \
-	};
-RAY_PRIMARY_OUTPUTS(X)
+	values[RtPrim_Desc_##name] = res->values[RayResource_##name];
+	RAY_PRIMARY_OUTPUTS(X)
+	X(-1, tlas)
+	X(-1, ubo);
+	X(-1, kusochki);
+	X(-1, indices);
+	X(-1, vertices);
+	X(-1, all_textures);
 #undef X
-
-	values[RtPrim_Desc_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-		.accelerationStructureCount = 1,
-		.pAccelerationStructures = &res->scene.tlas,
-	};
-
-#define DESC_SET_BUFFER(index, buffer_) \
-	values[index].buffer = (VkDescriptorBufferInfo){ \
-		.buffer = res->scene.buffer_.buffer, \
-		.offset = res->scene.buffer_.offset, \
-		.range = res->scene.buffer_.size, \
-	}
-
-	DESC_SET_BUFFER(RtPrim_Desc_UBO, ubo);
-	DESC_SET_BUFFER(RtPrim_Desc_Kusochki, kusochki);
-	DESC_SET_BUFFER(RtPrim_Desc_Indices, indices);
-	DESC_SET_BUFFER(RtPrim_Desc_Vertices, vertices);
-
-#undef DESC_SET_BUFFER
-
-	values[RtPrim_Desc_Textures].image_array = res->scene.all_textures;
 }
 
 struct ray_pass_s *R_VkRayPrimaryPassCreate( void ) {

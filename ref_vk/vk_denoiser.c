@@ -2,24 +2,20 @@
 
 #include "vk_descriptor.h"
 #include "vk_pipeline.h"
+#include "vk_ray_resources.h"
 
-#include "eiface.h" // ARRAYSIZE
+#define LIST_BINDINGS(X) \
+	X(0, denoised) \
+	X(1, base_color_a) \
+	X(2, light_poly_diffuse) \
+	X(3, light_poly_specular) \
+	X(4, light_point_diffuse) \
+	X(5, light_point_specular) \
 
 enum {
-	DenoiserBinding_DestImage = 0,
-
-	DenoiserBinding_Source_BaseColor = 1,
-
-	DenoiserBinding_Source_LightPolyDiffuse = 2,
-	DenoiserBinding_Source_LightPolySpecular = 3,
-	DenoiserBinding_Source_LightPointDiffuse = 4,
-	DenoiserBinding_Source_LightPointSpecular = 5,
-
-	/* DenoiserBinding_Source_Specular = 3, */
-	/* DenoiserBinding_Source_Additive = 4, */
-	/* DenoiserBinding_Source_Normals = 5, */
-  /*  */
-	/* DenoiserBinding_Source_PositionT = 6, */
+#define X(index, name) DenoiserBinding_##name,
+	LIST_BINDINGS(X)
+#undef X
 
 	DenoiserBinding_COUNT
 };
@@ -36,7 +32,7 @@ static struct {
 
 static void createLayouts( void ) {
 	g_denoiser.descriptors.bindings = g_denoiser.desc_bindings;
-	g_denoiser.descriptors.num_bindings = ARRAYSIZE(g_denoiser.desc_bindings);
+	g_denoiser.descriptors.num_bindings = COUNTOF(g_denoiser.desc_bindings);
 	g_denoiser.descriptors.values = g_denoiser.desc_values;
 	g_denoiser.descriptors.num_sets = 1;
 	g_denoiser.descriptors.desc_sets = g_denoiser.desc_sets;
@@ -46,44 +42,15 @@ static void createLayouts( void ) {
 		.stageFlags = 0,
 	};
 
-	g_denoiser.desc_bindings[DenoiserBinding_DestImage] = (VkDescriptorSetLayoutBinding){
-		.binding = DenoiserBinding_DestImage,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+#define BIND_IMAGE(index, name) \
+	g_denoiser.desc_bindings[DenoiserBinding_##name] = (VkDescriptorSetLayoutBinding){ \
+		.binding = index, \
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, \
+		.descriptorCount = 1, \
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, \
 	};
-
-	g_denoiser.desc_bindings[DenoiserBinding_Source_BaseColor] = (VkDescriptorSetLayoutBinding){
-		.binding = DenoiserBinding_Source_BaseColor,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	};
-
-	g_denoiser.desc_bindings[DenoiserBinding_Source_LightPolyDiffuse] = (VkDescriptorSetLayoutBinding){
-		.binding = DenoiserBinding_Source_LightPolyDiffuse,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	};
-	g_denoiser.desc_bindings[DenoiserBinding_Source_LightPolySpecular] = (VkDescriptorSetLayoutBinding){
-		.binding = DenoiserBinding_Source_LightPolySpecular,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	};
-	g_denoiser.desc_bindings[DenoiserBinding_Source_LightPointDiffuse] = (VkDescriptorSetLayoutBinding){
-		.binding = DenoiserBinding_Source_LightPointDiffuse,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	};
-	g_denoiser.desc_bindings[DenoiserBinding_Source_LightPointSpecular] = (VkDescriptorSetLayoutBinding){
-		.binding = DenoiserBinding_Source_LightPointSpecular,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-	};
+LIST_BINDINGS(BIND_IMAGE)
+#undef BIND_IMAGE
 
 	VK_DescriptorsCreate(&g_denoiser.descriptors);
 }
@@ -127,20 +94,10 @@ void XVK_DenoiserDenoise( VkCommandBuffer cmdbuf, const vk_ray_resources_t* res 
 	const uint32_t WG_W = 8;
 	const uint32_t WG_H = 8;
 
-#define BIND_IMAGE(index_name, name) \
-	g_denoiser.desc_values[DenoiserBinding_##index_name].image = (VkDescriptorImageInfo){ \
-		.sampler = VK_NULL_HANDLE, \
-		.imageView = res->name, \
-		.imageLayout = VK_IMAGE_LAYOUT_GENERAL, \
-	}
-
-	BIND_IMAGE(DestImage, denoised);
-	BIND_IMAGE(Source_BaseColor, base_color_a);
-
-	BIND_IMAGE(Source_LightPolyDiffuse, light_poly_diffuse);
-	BIND_IMAGE(Source_LightPolySpecular, light_poly_specular);
-	BIND_IMAGE(Source_LightPointDiffuse, light_point_diffuse);
-	BIND_IMAGE(Source_LightPointSpecular, light_point_specular);
+#define COPY_VALUE(index, name) \
+	g_denoiser.desc_values[DenoiserBinding_##name] = res->values[RayResource_##name];
+	LIST_BINDINGS(COPY_VALUE)
+#undef COPY_VALUE
 
 	VK_DescriptorsWrite(&g_denoiser.descriptors);
 

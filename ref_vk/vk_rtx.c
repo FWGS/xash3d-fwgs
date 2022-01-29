@@ -979,46 +979,43 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 	const vk_ray_resources_t res = {
 		.width = FRAME_WIDTH,
 		.height = FRAME_HEIGHT,
-		.scene = {
-			.tlas = g_rtx.tlas,
-			.ubo = {
-				.buffer = g_rtx.uniform_buffer.buffer,
-				.offset = frame_index * g_rtx.uniform_unit_size,
-				.size = sizeof(struct UniformBuffer),
+		.values = {
+			[RayResource_tlas] = {
+				.accel = (VkWriteDescriptorSetAccelerationStructureKHR){
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+					.accelerationStructureCount = 1,
+					.pAccelerationStructures = &g_rtx.tlas,
+					.pNext = NULL,
+				},
 			},
-			.kusochki = {
-				.buffer = g_ray_model_state.kusochki_buffer.buffer,
-				.offset = 0,
-				.size = g_ray_model_state.kusochki_buffer.size,
-			},
-			.indices = {
-				.buffer = args->geometry_data.buffer,
-				.offset = 0,
-				.size = args->geometry_data.size,
-			},
-			.vertices = {
-				.buffer = args->geometry_data.buffer,
-				.offset = 0,
-				.size = args->geometry_data.size,
-			},
-			.all_textures = tglob.dii_all_textures,
-			.lights = {
-				.buffer = g_ray_model_state.lights_buffer.buffer,
-				.offset = 0,
-				.size = VK_WHOLE_SIZE, // TODO multiple frames
-			},
-			.light_clusters = {
-				.buffer = g_rtx.light_grid_buffer.buffer,
-				.offset = 0,
-				.size = VK_WHOLE_SIZE, // TODO multiple frames
-			},
+#define RES_SET_BUFFER(name, source_, offset_, size_) \
+			[RayResource_##name] = (VkDescriptorBufferInfo) { \
+				.buffer = source_.buffer, \
+				.offset = (offset_), \
+				.range = (size_), \
+			}
+#define RES_SET_BUFFER_FULL(name, source_) RES_SET_BUFFER(name, source_, 0, source_.size)
+			RES_SET_BUFFER(ubo, g_rtx.uniform_buffer, frame_index * g_rtx.uniform_unit_size, sizeof(struct UniformBuffer)),
+			RES_SET_BUFFER_FULL(kusochki, g_ray_model_state.kusochki_buffer),
+			RES_SET_BUFFER_FULL(indices, args->geometry_data),
+			RES_SET_BUFFER_FULL(vertices, args->geometry_data),
+			RES_SET_BUFFER_FULL(lights, g_ray_model_state.lights_buffer),
+			RES_SET_BUFFER_FULL(light_clusters, g_rtx.light_grid_buffer),
+#undef RES_SET_BUFFER_FULL
+#undef RES_SET_BUFFER
+			[RayResource_all_textures].image_array = tglob.dii_all_textures,
+#define X(index, name, ...) \
+		[RayResource_##name].image = (VkDescriptorImageInfo) { \
+			.sampler = VK_NULL_HANDLE, \
+			.imageView = current_frame->name.view, \
+			.imageLayout = VK_IMAGE_LAYOUT_GENERAL, \
 		},
-#define X(index, name, ...) .name = current_frame->name.view,
 		RAY_PRIMARY_OUTPUTS(X)
 		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
 		RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
 		X(-1, denoised)
 #undef X
+		},
 	};
 
 
