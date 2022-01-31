@@ -3,24 +3,30 @@
 #include "vk_ray_resources.h"
 #include "ray_pass.h"
 
-enum {
-	// TODO set 0
-	RtPrim_Desc_tlas,
-	RtPrim_Desc_ubo,
-	RtPrim_Desc_kusochki,
-	RtPrim_Desc_indices,
-	RtPrim_Desc_vertices,
-	RtPrim_Desc_all_textures,
+#define LIST_COMMON_BINDINGS(X) \
+	X(1, tlas, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR) \
+	X(2, ubo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR) \
+	X(3, kusochki, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR) \
+	X(4, indices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR) \
+	X(5, vertices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR) \
+	X(6, all_textures, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR) \
 
-	// TODO set 1
+enum {
 #define X(index, name, ...) RtPrim_Desc_##name,
-RAY_PRIMARY_OUTPUTS(X)
+	LIST_COMMON_BINDINGS(X)
+	RAY_PRIMARY_OUTPUTS(X)
 #undef X
 
 	RtPrim_Desc_COUNT
 };
 
 static VkDescriptorSetLayoutBinding bindings[RtPrim_Desc_COUNT];
+static const int semantics[RtPrim_Desc_COUNT] = {
+#define X(index, name, ...) RayResource_##name,
+	LIST_COMMON_BINDINGS(X)
+	RAY_PRIMARY_OUTPUTS(X)
+#undef X
+};
 
 static void initDescriptors( void ) {
 #define INIT_BINDING(index, name, type, count, stages) \
@@ -29,33 +35,13 @@ static void initDescriptors( void ) {
 		.descriptorType = type, \
 		.descriptorCount = count, \
 		.stageFlags = stages, \
-	}
-
-	INIT_BINDING(1, tlas, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
-	INIT_BINDING(2, ubo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
-	INIT_BINDING(3, kusochki, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
-	INIT_BINDING(4, indices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
-	INIT_BINDING(5, vertices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
-	INIT_BINDING(6, all_textures, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
-
+	};
+	LIST_COMMON_BINDINGS(INIT_BINDING)
 #define X(index, name, ...) \
-	INIT_BINDING(index, name, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+		INIT_BINDING(index, name, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
 	RAY_PRIMARY_OUTPUTS(X)
 #undef X
 #undef INIT_BINDING
-}
-
-static void writeValues( vk_descriptor_value_t *values, const vk_ray_resources_t* res ) {
-#define X(index, name, ...) \
-	values[RtPrim_Desc_##name] = res->values[RayResource_##name];
-	RAY_PRIMARY_OUTPUTS(X)
-	X(-1, tlas)
-	X(-1, ubo);
-	X(-1, kusochki);
-	X(-1, indices);
-	X(-1, vertices);
-	X(-1, all_textures);
-#undef X
 }
 
 struct ray_pass_s *R_VkRayPrimaryPassCreate( void ) {
@@ -92,8 +78,8 @@ struct ray_pass_s *R_VkRayPrimaryPassCreate( void ) {
 		.debug_name = "primary ray",
 		.layout = {
 			.bindings = bindings,
+			.bindings_semantics = semantics,
 			.bindings_count = COUNTOF(bindings),
-			.write_values_func = writeValues,
 			.push_constants = {0},
 		},
 		.tracing = {

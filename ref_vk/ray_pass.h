@@ -33,17 +33,12 @@ typedef struct {
 // - parse the entire layout from shaders
 // - expose it as a struct[] interface of the pass
 // - resource/interface should prepare descriptors outside of pass code and just pass them to pass
-struct vk_ray_resources_s;
-typedef void (*ray_pass_write_values_f)( vk_descriptor_value_t *values, const struct vk_ray_resources_s *resources );
-
-// TODO parse this out from shaders
 typedef struct {
-	VkDescriptorSetLayoutBinding *bindings;
+	const int *bindings_semantics; // RayResource_something
+	const VkDescriptorSetLayoutBinding *bindings;
 	int bindings_count;
 
 	VkPushConstantRange push_constants;
-
-	ray_pass_write_values_f write_values_func;
 } ray_pass_layout_t;
 
 typedef struct {

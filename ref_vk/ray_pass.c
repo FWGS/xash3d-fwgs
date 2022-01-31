@@ -12,8 +12,8 @@ typedef struct ray_pass_s {
 
 	struct {
 		vk_descriptors_t riptors;
-		ray_pass_write_values_f write_values_func;
 		VkDescriptorSet sets[1];
+		int *binding_semantics;
 	} desc;
 
 	union {
@@ -150,8 +150,12 @@ static ray_pass_t *createRayPass( const ray_pass_create_t *create ) {
 	}
 
 	pass->desc.riptors.values = Mem_Malloc(vk_core.pool, sizeof(pass->desc.riptors.values[0]) * create->layout.bindings_count);
-	pass->desc.write_values_func = create->layout.write_values_func;
-	ASSERT(create->layout.write_values_func);
+
+	{
+		const size_t semantics_size = sizeof(int) * create->layout.bindings_count;
+		pass->desc.binding_semantics = Mem_Malloc(vk_core.pool, semantics_size);
+		memcpy(pass->desc.binding_semantics, create->layout.bindings_semantics, semantics_size);
+	}
 
 	return pass;
 }
@@ -169,7 +173,14 @@ void RayPassDestroy( struct ray_pass_s *pass ) {
 
 
 void RayPassPerform( VkCommandBuffer cmdbuf, struct ray_pass_s *pass, const struct vk_ray_resources_s *res) {
-	pass->desc.write_values_func( pass->desc.riptors.values, res );
+	for (int i = 0; i < pass->desc.riptors.num_bindings; ++i) {
+		const int res_index = pass->desc.binding_semantics[i];
+		// TODO check early
+		ASSERT(res_index >= 0);
+		ASSERT(res_index < RayResource__COUNT);
+		pass->desc.riptors.values[i] = res->values[res_index];
+	}
+
 	VK_DescriptorsWrite(&pass->desc.riptors);
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pass->tracing.pipeline);

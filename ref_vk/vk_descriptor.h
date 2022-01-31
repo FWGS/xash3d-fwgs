@@ -34,7 +34,7 @@ typedef union {
 
 typedef struct {
 	int num_bindings;
-	VkDescriptorSetLayoutBinding *bindings;
+	const VkDescriptorSetLayoutBinding *bindings;
 
 	// Used in Write only
 	vk_descriptor_value_t *values;

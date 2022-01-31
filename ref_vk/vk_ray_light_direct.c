@@ -3,74 +3,59 @@
 #include "vk_ray_resources.h"
 #include "ray_pass.h"
 
+#define LIST_SCENE_BINDINGS(X) \
+	X(1, tlas, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1) \
+	X(2, ubo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1) \
+	X(3, kusochki, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1) \
+	X(4, indices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1) \
+	X(5, vertices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1) \
+	X(6, all_textures, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_TEXTURES) \
+	X(7, lights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1) \
+	X(8, light_clusters, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1) \
+
+#define LIST_COMMON_BINDINGS(X) \
+	LIST_SCENE_BINDINGS(X) \
+	RAY_LIGHT_DIRECT_INPUTS(X)
+
 enum {
-	// TODO set 0 ?
-	RtLDir_Desc_tlas,
-	RtLDir_Desc_ubo,
-	RtLDir_Desc_kusochki,
-	RtLDir_Desc_indices,
-	RtLDir_Desc_vertices,
-	RtLDir_Desc_all_textures,
-
-	// TODO set 1
-	RtLDir_Desc_lights,
-	RtLDir_Desc_light_clusters,
-
-	// TODO set 1
-#define X(index, name, ...) RtLDir_Desc_##name,
-		RAY_LIGHT_DIRECT_INPUTS(X)
+#define X(index, name, ...) Binding_##name,
+	LIST_COMMON_BINDINGS(X)
+	// FIXME it's an artifact that point and poly outputs have same bindings indices
+	RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
 #undef X
-
-		// FIXME it's an artifact that point and poly outputs have same bindings
-#define X(index, name, ...) RtLDir_Desc_##name,
-		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
-#undef X
-
-	RtLDir_Desc_COUNT
+	Binding__COUNT
 };
 
-static VkDescriptorSetLayoutBinding bindings[RtLDir_Desc_COUNT];
+static VkDescriptorSetLayoutBinding bindings[Binding__COUNT];
+static const int semantics_poly[Binding__COUNT] = {
+#define X(index, name, ...) RayResource_##name,
+	LIST_COMMON_BINDINGS(X)
+	RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
+#undef X
+};
+
+static const int semantics_point[Binding__COUNT] = {
+#define X(index, name, ...) RayResource_##name,
+	LIST_COMMON_BINDINGS(X)
+	RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
+#undef X
+};
 
 static void initDescriptors( void ) {
 	// FIXME more conservative shader stages
 #define INIT_BINDING(index, name, type, count) \
-	bindings[RtLDir_Desc_##name] = (VkDescriptorSetLayoutBinding){ \
+	bindings[Binding_##name] = (VkDescriptorSetLayoutBinding){ \
 		.binding = index, \
 		.descriptorType = type, \
 		.descriptorCount = count, \
 		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, \
-	}
-
-	INIT_BINDING(1, tlas, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1);
-	INIT_BINDING(2, ubo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1);
-	INIT_BINDING(3, kusochki, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1);
-	INIT_BINDING(4, indices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1);
-	INIT_BINDING(5, vertices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1);
-	INIT_BINDING(6, all_textures, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_TEXTURES);
-	INIT_BINDING(7, lights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1);
-	INIT_BINDING(8, light_clusters, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1);
-
+	};
+	LIST_SCENE_BINDINGS(INIT_BINDING)
 #define X(index, name, ...) INIT_BINDING(index, name, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1);
 	RAY_LIGHT_DIRECT_INPUTS(X)
 	RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
 #undef X
 #undef INIT_BINDING
-}
-
-static void writeValues( vk_descriptor_value_t *values, const vk_ray_resources_t* res ) {
-#define X(index, name, ...) \
-	values[RtLDir_Desc_##name] = res->values[RayResource_##name];
-	RAY_LIGHT_DIRECT_INPUTS(X)
-	RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
-	X(-1, tlas)
-	X(-1, ubo);
-	X(-1, kusochki);
-	X(-1, indices);
-	X(-1, vertices);
-	X(-1, all_textures);
-	X(-1, lights);
-	X(-1, light_clusters);
-#undef X
 }
 
 struct ray_pass_s *R_VkRayLightDirectPolyPassCreate( void ) {
@@ -104,8 +89,8 @@ struct ray_pass_s *R_VkRayLightDirectPolyPassCreate( void ) {
 		.debug_name = "light direct poly",
 		.layout = {
 			.bindings = bindings,
+			.bindings_semantics = semantics_poly,
 			.bindings_count = COUNTOF(bindings),
-			.write_values_func = writeValues,
 			.push_constants = {0},
 		},
 		.tracing = {
@@ -120,12 +105,6 @@ struct ray_pass_s *R_VkRayLightDirectPolyPassCreate( void ) {
 
 	initDescriptors();
 	return RayPassCreate( &rpc );
-}
-
-static void writePointValues( vk_descriptor_value_t *values, const vk_ray_resources_t* res ) {
-	writeValues( values, res );
-	values[RtLDir_Desc_light_poly_diffuse] = res->values[RayResource_light_point_diffuse];
-	values[RtLDir_Desc_light_poly_specular] = res->values[RayResource_light_point_specular];
 }
 
 struct ray_pass_s *R_VkRayLightDirectPointPassCreate( void ) {
@@ -159,8 +138,8 @@ struct ray_pass_s *R_VkRayLightDirectPointPassCreate( void ) {
 		.debug_name = "light direct point",
 		.layout = {
 			.bindings = bindings,
+			.bindings_semantics = semantics_point,
 			.bindings_count = COUNTOF(bindings),
-			.write_values_func = writePointValues,
 			.push_constants = {0},
 		},
 		.tracing = {
