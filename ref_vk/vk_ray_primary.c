@@ -74,7 +74,7 @@ struct ray_pass_s *R_VkRayPrimaryPassCreate( void ) {
 		},
 	};
 
-	const ray_pass_create_t rpc = {
+	const ray_pass_create_tracing_t rpc = {
 		.debug_name = "primary ray",
 		.layout = {
 			.bindings = bindings,
@@ -82,16 +82,14 @@ struct ray_pass_s *R_VkRayPrimaryPassCreate( void ) {
 			.bindings_count = COUNTOF(bindings),
 			.push_constants = {0},
 		},
-		.tracing = {
-			.raygen = "ray_primary.rgen.spv",
-			.miss = miss,
-			.miss_count = COUNTOF(miss),
-			.hit = hit,
-			.hit_count = COUNTOF(hit),
-			.specialization = &spec,
-		},
+		.raygen = "ray_primary.rgen.spv",
+		.miss = miss,
+		.miss_count = COUNTOF(miss),
+		.hit = hit,
+		.hit_count = COUNTOF(hit),
+		.specialization = &spec,
 	};
 
 	initDescriptors();
-	return RayPassCreate( &rpc );
+	return RayPassCreateTracing( &rpc );
 }

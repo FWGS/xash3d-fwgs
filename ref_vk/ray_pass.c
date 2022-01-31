@@ -1,67 +1,63 @@
 #include "ray_pass.h"
+#include "vk_pipeline.h"
 #include "vk_descriptor.h"
-#include "vk_ray_resources.h"
 #include "vk_ray_resources.h"
 
 #define MAX_STAGES 16
 #define MAX_MISS_GROUPS 8
 #define MAX_HIT_GROUPS 8
 
+typedef enum {
+	RayPassType_Compute,
+	RayPassType_Tracing,
+} ray_pass_type_t;
+
 typedef struct ray_pass_s {
-	// TODO enum type
+	ray_pass_type_t type;
+	char debug_name[32];
 
 	struct {
 		vk_descriptors_t riptors;
 		VkDescriptorSet sets[1];
 		int *binding_semantics;
 	} desc;
-
-	union {
-		vk_pipeline_ray_t tracing;
-	};
 } ray_pass_t;
 
-#if 0 // TODO
-qboolean createLayout( const ray_pass_layout_t *layout, ray_pass_t *pass ){
-	// TODO return false on fail instead of crashing
-	{
-		const VkDescriptorSetLayoutCreateInfo dslci = {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-			.bindingCount = layout->bindings_count,
-			.pBindings = layout->bindings,
-		};
-		XVK_CHECK(vkCreateDescriptorSetLayout(vk_core.device, &dslci, NULL, &pass->desc_set_layout));
-	}
+typedef struct {
+	ray_pass_t header;
+	vk_pipeline_ray_t pipeline;
+} ray_pass_tracing_impl_t;
 
-	{
-		const VkPipelineLayoutCreateInfo plci = {
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-			.setLayoutCount = 1,
-			.pSetLayouts = &pass->desc_set_layout,
-			.pushConstantRangeCount = layout->push_constants.size > 0 ? 1 : 0,
-			.pPushConstantRanges = &layout->push_constants,
-		};
-		XVK_CHECK(vkCreatePipelineLayout(vk_core.device, &plci, NULL, &pass->pipeline_layout));
-	}
+typedef struct {
+	ray_pass_t header;
+	VkPipeline pipeline;
+} ray_pass_compute_impl_t;
 
-	return true;
+static void initPassDescriptors( ray_pass_t *header, const ray_pass_layout_t *layout ) {
+	header->desc.riptors = (vk_descriptors_t) {
+		.bindings = layout->bindings,
+		.num_bindings = layout->bindings_count,
+		.num_sets = COUNTOF(header->desc.sets),
+		.desc_sets = header->desc.sets,
+		.push_constants = layout->push_constants,
+	};
+
+	VK_DescriptorsCreate(&header->desc.riptors);
 }
-#endif
 
-static ray_pass_t *createRayPass( const ray_pass_create_t *create ) {
-	ray_pass_t *pass = Mem_Malloc(vk_core.pool, sizeof(*pass));
+static void finalizePassDescriptors( ray_pass_t *header, const ray_pass_layout_t *layout ) {
+	const size_t semantics_size = sizeof(int) * layout->bindings_count;
+	header->desc.binding_semantics = Mem_Malloc(vk_core.pool, semantics_size);
+	memcpy(header->desc.binding_semantics, layout->bindings_semantics, semantics_size);
 
-	{
-		pass->desc.riptors = (vk_descriptors_t) {
-			.bindings = create->layout.bindings,
-			.num_bindings = create->layout.bindings_count,
-			.num_sets = COUNTOF(pass->desc.sets),
-			.desc_sets = pass->desc.sets,
-			.push_constants = create->layout.push_constants,
-		};
+	header->desc.riptors.values = Mem_Malloc(vk_core.pool, sizeof(header->desc.riptors.values[0]) * layout->bindings_count);
+}
 
-		VK_DescriptorsCreate(&pass->desc.riptors);
-	}
+struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create ) {
+	ray_pass_tracing_impl_t *const pass = Mem_Malloc(vk_core.pool, sizeof(*pass));
+	ray_pass_t *const header = &pass->header;
+
+	initPassDescriptors(header, &create->layout);
 
 	{
 		int stage_index = 0;
@@ -73,7 +69,7 @@ static ray_pass_t *createRayPass( const ray_pass_create_t *create ) {
 
 		vk_pipeline_ray_create_info_t prci = {
 			.debug_name = create->debug_name,
-			.layout = pass->desc.riptors.pipeline_layout,
+			.layout = header->desc.riptors.pipeline_layout,
 			.stages = stages,
 			.groups = {
 				.hit = hits,
@@ -82,13 +78,13 @@ static ray_pass_t *createRayPass( const ray_pass_create_t *create ) {
 		};
 
 		stages[stage_index++] = (vk_shader_stage_t) {
-			.filename = create->tracing.raygen,
+			.filename = create->raygen,
 			.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-			.specialization_info = create->tracing.specialization,
+			.specialization_info = create->specialization,
 		};
 
-		for (int i = 0; i < create->tracing.miss_count; ++i) {
-			const ray_pass_shader_t *const shader = create->tracing.miss + i;
+		for (int i = 0; i < create->miss_count; ++i) {
+			const ray_pass_shader_t *const shader = create->miss + i;
 
 			ASSERT(stage_index < MAX_STAGES);
 			ASSERT(miss_index < MAX_MISS_GROUPS);
@@ -99,12 +95,12 @@ static ray_pass_t *createRayPass( const ray_pass_create_t *create ) {
 			stages[stage_index++] = (vk_shader_stage_t) {
 				.filename = *shader,
 				.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
-				.specialization_info = create->tracing.specialization,
+				.specialization_info = create->specialization,
 			};
 		}
 
-		for (int i = 0; i < create->tracing.hit_count; ++i) {
-			const ray_pass_hit_group_t *const group = create->tracing.hit + i;
+		for (int i = 0; i < create->hit_count; ++i) {
+			const ray_pass_hit_group_t *const group = create->hit + i;
 
 			ASSERT(hit_index < MAX_HIT_GROUPS);
 
@@ -115,7 +111,7 @@ static ray_pass_t *createRayPass( const ray_pass_create_t *create ) {
 				stages[stage_index++] = (vk_shader_stage_t) {
 					.filename = group->any,
 					.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-					.specialization_info = create->tracing.specialization,
+					.specialization_info = create->specialization,
 				};
 			} else {
 				hits[hit_index].any = -1;
@@ -127,7 +123,7 @@ static ray_pass_t *createRayPass( const ray_pass_create_t *create ) {
 				stages[stage_index++] = (vk_shader_stage_t) {
 					.filename = group->closest,
 					.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-					.specialization_info = create->tracing.specialization,
+					.specialization_info = create->specialization,
 				};
 			} else {
 				hits[hit_index].closest = -1;
@@ -140,37 +136,86 @@ static ray_pass_t *createRayPass( const ray_pass_create_t *create ) {
 		prci.groups.miss_count = miss_index;
 		prci.stages_count = stage_index;
 
-		pass->tracing = VK_PipelineRayTracingCreate(&prci);
+		pass->pipeline = VK_PipelineRayTracingCreate(&prci);
 	}
 
-	if (pass->tracing.pipeline == VK_NULL_HANDLE) {
-		VK_DescriptorsDestroy(&pass->desc.riptors);
+	if (pass->pipeline.pipeline == VK_NULL_HANDLE) {
+		VK_DescriptorsDestroy(&header->desc.riptors);
 		Mem_Free(pass);
 		return NULL;
 	}
 
-	pass->desc.riptors.values = Mem_Malloc(vk_core.pool, sizeof(pass->desc.riptors.values[0]) * create->layout.bindings_count);
+	finalizePassDescriptors(header, &create->layout);
 
-	{
-		const size_t semantics_size = sizeof(int) * create->layout.bindings_count;
-		pass->desc.binding_semantics = Mem_Malloc(vk_core.pool, semantics_size);
-		memcpy(pass->desc.binding_semantics, create->layout.bindings_semantics, semantics_size);
-	}
+	Q_strncpy(header->debug_name, create->debug_name, sizeof(header->debug_name));
+	header->type = RayPassType_Tracing;
 
-	return pass;
+	return header;
 }
 
-struct ray_pass_s *RayPassCreate( const ray_pass_create_t *create ) {
-	return createRayPass(create);
+struct ray_pass_s *RayPassCreateCompute( const ray_pass_create_compute_t *create ) {
+	ray_pass_compute_impl_t *const pass = Mem_Malloc(vk_core.pool, sizeof(*pass));
+	ray_pass_t *const header = &pass->header;
+
+	initPassDescriptors(header, &create->layout);
+
+	const vk_pipeline_compute_create_info_t pcci = {
+		.layout = header->desc.riptors.pipeline_layout,
+		.shader_filename = create->shader,
+		.specialization_info = create->specialization,
+	};
+
+	pass->pipeline = VK_PipelineComputeCreate( &pcci );
+	if (pass->pipeline == VK_NULL_HANDLE) {
+		VK_DescriptorsDestroy(&header->desc.riptors);
+		Mem_Free(pass);
+		return NULL;
+	}
+
+	finalizePassDescriptors(header, &create->layout);
+
+	Q_strncpy(header->debug_name, create->debug_name, sizeof(header->debug_name));
+	header->type = RayPassType_Compute;
+
+	return header;
 }
 
 void RayPassDestroy( struct ray_pass_s *pass ) {
-	VK_PipelineRayTracingDestroy(&pass->tracing);
+	switch (pass->type) {
+		case RayPassType_Tracing:
+			{
+				ray_pass_tracing_impl_t *tracing = (ray_pass_tracing_impl_t*)pass;
+				VK_PipelineRayTracingDestroy(&tracing->pipeline);
+				break;
+			}
+		case RayPassType_Compute:
+			{
+				ray_pass_compute_impl_t *compute = (ray_pass_compute_impl_t*)pass;
+				vkDestroyPipeline(vk_core.device, compute->pipeline, NULL);
+				break;
+			}
+	}
+
 	VK_DescriptorsDestroy(&pass->desc.riptors);
 	Mem_Free(pass->desc.riptors.values);
+	Mem_Free(pass->desc.binding_semantics);
 	Mem_Free(pass);
 }
 
+static void performTracing( VkCommandBuffer cmdbuf, const ray_pass_tracing_impl_t *tracing, const struct vk_ray_resources_s *res) {
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, tracing->pipeline.pipeline);
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, tracing->header.desc.riptors.pipeline_layout, 0, 1, tracing->header.desc.riptors.desc_sets + 0, 0, NULL);
+	VK_PipelineRayTracingTrace(cmdbuf, &tracing->pipeline, res->width, res->height);
+}
+
+static void performCompute( VkCommandBuffer cmdbuf, const ray_pass_compute_impl_t *compute, const struct vk_ray_resources_s *res) {
+	const uint32_t WG_W = 8;
+	const uint32_t WG_H = 8;
+
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, compute->pipeline);
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, compute->header.desc.riptors.pipeline_layout, 0, 1, compute->header.desc.riptors.desc_sets + 0, 0, NULL);
+	vkCmdDispatch(cmdbuf, (res->width + WG_W - 1) / WG_W, (res->height + WG_H - 1) / WG_H, 1);
+}
 
 void RayPassPerform( VkCommandBuffer cmdbuf, struct ray_pass_s *pass, const struct vk_ray_resources_s *res) {
 	for (int i = 0; i < pass->desc.riptors.num_bindings; ++i) {
@@ -183,7 +228,22 @@ void RayPassPerform( VkCommandBuffer cmdbuf, struct ray_pass_s *pass, const stru
 
 	VK_DescriptorsWrite(&pass->desc.riptors);
 
-	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pass->tracing.pipeline);
-	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pass->desc.riptors.pipeline_layout, 0, 1, pass->desc.riptors.desc_sets + 0, 0, NULL);
-	VK_PipelineRayTracingTrace(cmdbuf, &pass->tracing, res->width, res->height);
+	DEBUG_BEGIN(cmdbuf, pass->debug_name);
+
+	switch (pass->type) {
+		case RayPassType_Tracing:
+			{
+				ray_pass_tracing_impl_t *tracing = (ray_pass_tracing_impl_t*)pass;
+				performTracing(cmdbuf, tracing, res);
+				break;
+			}
+		case RayPassType_Compute:
+			{
+				ray_pass_compute_impl_t *compute = (ray_pass_compute_impl_t*)pass;
+				performCompute(cmdbuf, compute, res);
+				break;
+			}
+	}
+
+	DEBUG_END(cmdbuf);
 }

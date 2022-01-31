@@ -39,7 +39,7 @@ VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *c
 typedef struct {
 	VkPipelineLayout layout;
   const char *shader_filename;
-	VkSpecializationInfo *specialization_info;
+	const VkSpecializationInfo *specialization_info;
 } vk_pipeline_compute_create_info_t;
 
 VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci);

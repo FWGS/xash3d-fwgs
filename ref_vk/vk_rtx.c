@@ -1,6 +1,8 @@
 #include "vk_rtx.h"
 
 #include "ray_pass.h"
+#include "vk_ray_resources.h"
+
 #include "vk_ray_primary.h"
 #include "vk_ray_light_direct.h"
 
@@ -15,6 +17,7 @@
 #include "vk_ray_internal.h"
 #include "vk_denoiser.h"
 #include "vk_math.h"
+
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
@@ -168,6 +171,7 @@ static struct {
 		struct ray_pass_s *primary_ray;
 		struct ray_pass_s *light_direct_poly;
 		struct ray_pass_s *light_direct_point;
+		struct ray_pass_s *denoiser;
 	} pass;
 
 	qboolean reload_pipeline;
@@ -1114,7 +1118,7 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
 	}
 
-	XVK_DenoiserDenoise( cmdbuf, &res );
+	RayPassPerform(cmdbuf, g_rtx.pass.denoiser, &res);
 
 	{
 		const xvk_blit_args blit_args = {
@@ -1178,8 +1182,8 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		reloadPass( &g_rtx.pass.primary_ray, R_VkRayPrimaryPassCreate());
 		reloadPass( &g_rtx.pass.light_direct_poly, R_VkRayLightDirectPolyPassCreate());
 		reloadPass( &g_rtx.pass.light_direct_point, R_VkRayLightDirectPointPassCreate());
+		reloadPass( &g_rtx.pass.denoiser, R_VkRayDenoiserCreate());
 
-		XVK_DenoiserReloadPipeline();
 		g_rtx.reload_pipeline = false;
 	}
 
@@ -1357,6 +1361,9 @@ qboolean VK_RayInit( void )
 	g_rtx.pass.light_direct_point = R_VkRayLightDirectPointPassCreate();
 	ASSERT(g_rtx.pass.light_direct_point);
 
+	g_rtx.pass.denoiser = R_VkRayDenoiserCreate();
+	ASSERT(g_rtx.pass.denoiser);
+
 	g_rtx.sbt_record_size = vk_core.physical_device.sbt_record_size;
 	g_rtx.uniform_unit_size = ALIGN_UP(sizeof(struct UniformBuffer), vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
 
@@ -1476,6 +1483,7 @@ qboolean VK_RayInit( void )
 void VK_RayShutdown( void ) {
 	ASSERT(vk_core.rtx);
 
+	RayPassDestroy(g_rtx.pass.denoiser);
 	RayPassDestroy(g_rtx.pass.light_direct_poly);
 	RayPassDestroy(g_rtx.pass.light_direct_point);
 	RayPassDestroy(g_rtx.pass.primary_ray);

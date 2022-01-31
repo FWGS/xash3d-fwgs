@@ -85,7 +85,7 @@ struct ray_pass_s *R_VkRayLightDirectPolyPassCreate( void ) {
 		},
 	};
 
-	const ray_pass_create_t rpc = {
+	const ray_pass_create_tracing_t rpc = {
 		.debug_name = "light direct poly",
 		.layout = {
 			.bindings = bindings,
@@ -93,18 +93,16 @@ struct ray_pass_s *R_VkRayLightDirectPolyPassCreate( void ) {
 			.bindings_count = COUNTOF(bindings),
 			.push_constants = {0},
 		},
-		.tracing = {
-			.raygen = "ray_light_poly_direct.rgen.spv",
-			.miss = miss,
-			.miss_count = COUNTOF(miss),
-			.hit = hit,
-			.hit_count = COUNTOF(hit),
-			.specialization = &spec,
-		},
+		.raygen = "ray_light_poly_direct.rgen.spv",
+		.miss = miss,
+		.miss_count = COUNTOF(miss),
+		.hit = hit,
+		.hit_count = COUNTOF(hit),
+		.specialization = &spec,
 	};
 
 	initDescriptors();
-	return RayPassCreate( &rpc );
+	return RayPassCreateTracing( &rpc );
 }
 
 struct ray_pass_s *R_VkRayLightDirectPointPassCreate( void ) {
@@ -134,7 +132,7 @@ struct ray_pass_s *R_VkRayLightDirectPointPassCreate( void ) {
 		},
 	};
 
-	const ray_pass_create_t rpc = {
+	const ray_pass_create_tracing_t rpc = {
 		.debug_name = "light direct point",
 		.layout = {
 			.bindings = bindings,
@@ -142,16 +140,14 @@ struct ray_pass_s *R_VkRayLightDirectPointPassCreate( void ) {
 			.bindings_count = COUNTOF(bindings),
 			.push_constants = {0},
 		},
-		.tracing = {
-			.raygen = "ray_light_direct_point.rgen.spv",
-			.miss = miss,
-			.miss_count = COUNTOF(miss),
-			.hit = hit,
-			.hit_count = COUNTOF(hit),
-			.specialization = &spec,
-		},
+		.raygen = "ray_light_direct_point.rgen.spv",
+		.miss = miss,
+		.miss_count = COUNTOF(miss),
+		.hit = hit,
+		.hit_count = COUNTOF(hit),
+		.specialization = &spec,
 	};
 
 	initDescriptors();
-	return RayPassCreate( &rpc );
+	return RayPassCreateTracing( &rpc );
 }

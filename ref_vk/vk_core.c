@@ -18,7 +18,6 @@
 #include "vk_devmem.h"
 
 // FIXME move this rt-specific stuff out
-#include "vk_denoiser.h"
 #include "vk_light.h"
 
 #include "xash3d_types.h"
@@ -814,9 +813,6 @@ qboolean R_VkInit( void )
 
 		// FIXME move all this to rt-specific modules
 		VK_LightsInit();
-
-		if (!XVK_DenoiserInit())
-			return false;
 	}
 
 	return true;
@@ -826,7 +822,6 @@ void R_VkShutdown( void )
 {
 	if (vk_core.rtx)
 	{
-		XVK_DenoiserDestroy();
 		VK_LightsShutdown();
 		VK_RayShutdown();
 	}
