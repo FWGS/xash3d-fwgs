@@ -298,6 +298,19 @@ def configure(conf):
 	else:
 		conf.undefine('HAVE_TGMATH_H')
 
+	# set _FILE_OFFSET_BITS=64 for filesystems with 64-bit inodes
+	if conf.env.DEST_OS != 'win32' and conf.env.DEST_SIZEOF_VOID_P == 4:
+		file_offset_bits_usable = conf.check_cc(fragment='''#define _FILE_OFFSET_BITS 64
+		#include <features.h>
+		#ifndef __USE_FILE_OFFSET64
+		#error
+		#endif
+		int main(void){ return 0; }''',
+		msg='Checking if _FILE_OFFSET_BITS can be defined to 64', mandatory=False)
+		if file_offset_bits_usable:
+			conf.define('_FILE_OFFSET_BITS', 64)
+		else: conf.undefine('_FILE_OFFSET_BITS')
+
 	# check if we can use alloca.h or malloc.h
 	if conf.check_cc(header_name='alloca.h', mandatory=False):
 		conf.define('ALLOCA_H', 'alloca.h')
