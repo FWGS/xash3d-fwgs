@@ -1,6 +1,6 @@
 #include "vk_ray_primary.h"
 
-#include "vk_ray_resources.h"
+#include "ray_resources.h"
 #include "ray_pass.h"
 
 #define LIST_COMMON_BINDINGS(X) \
@@ -11,17 +11,25 @@
 	X(5, vertices, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR) \
 	X(6, all_textures, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_TEXTURES, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR) \
 
-enum {
-#define X(index, name, ...) RtPrim_Desc_##name,
-	LIST_COMMON_BINDINGS(X)
-	RAY_PRIMARY_OUTPUTS(X)
-#undef X
+static const VkDescriptorSetLayoutBinding bindings[] = {
+#define INIT_BINDING(index, name, type, count, stages) \
+	{ \
+		.binding = index, \
+		.descriptorType = type, \
+		.descriptorCount = count, \
+		.stageFlags = stages, \
+	},
+#define INIT_IMAGE(index, name, ...) \
+		INIT_BINDING(index, name, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
 
-	RtPrim_Desc_COUNT
+	LIST_COMMON_BINDINGS(INIT_BINDING)
+	RAY_PRIMARY_OUTPUTS(INIT_IMAGE)
+
+#undef INIT_IMAGE
+#undef INIT_BINDING
 };
 
-static VkDescriptorSetLayoutBinding bindings[RtPrim_Desc_COUNT];
-static const int semantics[RtPrim_Desc_COUNT] = {
+static const int semantics[] = {
 #define IN(index, name, ...) (RayResource_##name + 1),
 #define OUT(index, name, ...) -(RayResource_##name + 1),
 	LIST_COMMON_BINDINGS(IN)
@@ -29,22 +37,6 @@ static const int semantics[RtPrim_Desc_COUNT] = {
 #undef IN
 #undef OUT
 };
-
-static void initDescriptors( void ) {
-#define INIT_BINDING(index, name, type, count, stages) \
-	bindings[RtPrim_Desc_##name] = (VkDescriptorSetLayoutBinding){ \
-		.binding = index, \
-		.descriptorType = type, \
-		.descriptorCount = count, \
-		.stageFlags = stages, \
-	};
-	LIST_COMMON_BINDINGS(INIT_BINDING)
-#define X(index, name, ...) \
-		INIT_BINDING(index, name, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
-	RAY_PRIMARY_OUTPUTS(X)
-#undef X
-#undef INIT_BINDING
-}
 
 struct ray_pass_s *R_VkRayPrimaryPassCreate( void ) {
 	// FIXME move this into vk_pipeline or something
@@ -92,6 +84,5 @@ struct ray_pass_s *R_VkRayPrimaryPassCreate( void ) {
 		.specialization = &spec,
 	};
 
-	initDescriptors();
 	return RayPassCreateTracing( &rpc );
 }

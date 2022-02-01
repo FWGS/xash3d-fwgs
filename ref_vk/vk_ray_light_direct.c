@@ -1,6 +1,6 @@
 #include "vk_ray_light_direct.h"
 
-#include "vk_ray_resources.h"
+#include "ray_resources.h"
 #include "ray_pass.h"
 
 #define LIST_SCENE_BINDINGS(X) \
@@ -17,17 +17,29 @@
 	LIST_SCENE_BINDINGS(X) \
 	RAY_LIGHT_DIRECT_INPUTS(X)
 
-enum {
-#define X(index, name, ...) Binding_##name,
-	LIST_COMMON_BINDINGS(X)
+// FIXME more conservative shader stages
+#define INIT_BINDING(index, name, type, count) \
+	{ \
+		.binding = index, \
+		.descriptorType = type, \
+		.descriptorCount = count, \
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, \
+	},
+
+#define INIT_IMAGE(index, name, ...) INIT_BINDING(index, name, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1)
+
+static const VkDescriptorSetLayoutBinding bindings[] = {
+	LIST_SCENE_BINDINGS(INIT_BINDING)
+	RAY_LIGHT_DIRECT_INPUTS(INIT_IMAGE)
+
 	// FIXME it's an artifact that point and poly outputs have same bindings indices
-	RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
-#undef X
-	Binding__COUNT
+	RAY_LIGHT_DIRECT_POLY_OUTPUTS(INIT_IMAGE)
 };
 
-static VkDescriptorSetLayoutBinding bindings[Binding__COUNT];
-static const int semantics_poly[Binding__COUNT] = {
+#undef INIT_IMAGE
+#undef INIT_BINDING
+
+static const int semantics_poly[] = {
 #define IN(index, name, ...) (RayResource_##name + 1),
 #define OUT(index, name, ...) -(RayResource_##name + 1),
 	LIST_COMMON_BINDINGS(IN)
@@ -36,7 +48,7 @@ static const int semantics_poly[Binding__COUNT] = {
 #undef OUT
 };
 
-static const int semantics_point[Binding__COUNT] = {
+static const int semantics_point[] = {
 #define IN(index, name, ...) (RayResource_##name + 1),
 #define OUT(index, name, ...) -(RayResource_##name + 1),
 	LIST_COMMON_BINDINGS(IN)
@@ -44,23 +56,6 @@ static const int semantics_point[Binding__COUNT] = {
 #undef IN
 #undef OUT
 };
-
-static void initDescriptors( void ) {
-	// FIXME more conservative shader stages
-#define INIT_BINDING(index, name, type, count) \
-	bindings[Binding_##name] = (VkDescriptorSetLayoutBinding){ \
-		.binding = index, \
-		.descriptorType = type, \
-		.descriptorCount = count, \
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, \
-	};
-	LIST_SCENE_BINDINGS(INIT_BINDING)
-#define X(index, name, ...) INIT_BINDING(index, name, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1);
-	RAY_LIGHT_DIRECT_INPUTS(X)
-	RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
-#undef X
-#undef INIT_BINDING
-}
 
 struct ray_pass_s *R_VkRayLightDirectPolyPassCreate( void ) {
 	// FIXME move this into vk_pipeline
@@ -105,7 +100,6 @@ struct ray_pass_s *R_VkRayLightDirectPolyPassCreate( void ) {
 		.specialization = &spec,
 	};
 
-	initDescriptors();
 	return RayPassCreateTracing( &rpc );
 }
 
@@ -152,6 +146,5 @@ struct ray_pass_s *R_VkRayLightDirectPointPassCreate( void ) {
 		.specialization = &spec,
 	};
 
-	initDescriptors();
 	return RayPassCreateTracing( &rpc );
 }

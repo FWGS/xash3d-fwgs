@@ -1,7 +1,7 @@
 #include "vk_rtx.h"
 
 #include "ray_pass.h"
-#include "vk_ray_resources.h"
+#include "ray_resources.h"
 
 #include "vk_ray_primary.h"
 #include "vk_ray_light_direct.h"

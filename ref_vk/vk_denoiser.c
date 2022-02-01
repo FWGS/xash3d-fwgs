@@ -1,6 +1,6 @@
 #include "vk_denoiser.h"
 
-#include "vk_ray_resources.h"
+#include "ray_resources.h"
 #include "ray_pass.h"
 
 #define LIST_OUTPUTS(X) \

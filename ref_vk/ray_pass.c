@@ -1,7 +1,7 @@
 #include "ray_pass.h"
+#include "ray_resources.h"
 #include "vk_pipeline.h"
 #include "vk_descriptor.h"
-#include "vk_ray_resources.h"
 
 #define MAX_STAGES 16
 #define MAX_MISS_GROUPS 8
