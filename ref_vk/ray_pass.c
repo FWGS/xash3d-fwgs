@@ -217,16 +217,30 @@ static void performCompute( VkCommandBuffer cmdbuf, const ray_pass_compute_impl_
 	vkCmdDispatch(cmdbuf, (res->width + WG_W - 1) / WG_W, (res->height + WG_H - 1) / WG_H, 1);
 }
 
-void RayPassPerform( VkCommandBuffer cmdbuf, struct ray_pass_s *pass, const struct vk_ray_resources_s *res) {
-	for (int i = 0; i < pass->desc.riptors.num_bindings; ++i) {
-		const int res_index = pass->desc.binding_semantics[i];
-		// TODO check early
-		ASSERT(res_index >= 0);
-		ASSERT(res_index < RayResource__COUNT);
-		pass->desc.riptors.values[i] = res->values[res_index];
-	}
+void RayPassPerform( VkCommandBuffer cmdbuf, struct ray_pass_s *pass, struct vk_ray_resources_s *res) {
+	{
+		 ray_resources_fill_t fill = {
+			.resources = res,
+			.count = pass->desc.riptors.num_bindings,
+			.indices = pass->desc.binding_semantics,
+			.out_values = pass->desc.riptors.values,
+		};
 
-	VK_DescriptorsWrite(&pass->desc.riptors);
+		switch (pass->type) {
+			case RayPassType_Tracing:
+				fill.dest_pipeline = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+				break;
+			case RayPassType_Compute:
+				fill.dest_pipeline = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+				break;
+			default:
+				ASSERT(!"Unexpected pass type");
+		}
+
+		RayResourcesFill(cmdbuf, fill);
+
+		VK_DescriptorsWrite(&pass->desc.riptors);
+	}
 
 	DEBUG_BEGIN(cmdbuf, pass->debug_name);
 

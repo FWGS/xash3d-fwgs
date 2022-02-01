@@ -56,4 +56,4 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 void RayPassDestroy( struct ray_pass_s *pass );
 
 struct vk_ray_resources_s;
-void RayPassPerform( VkCommandBuffer cmdbuf, struct ray_pass_s *pass, const struct vk_ray_resources_s *res);
+void RayPassPerform( VkCommandBuffer cmdbuf, struct ray_pass_s *pass, struct vk_ray_resources_s *res);

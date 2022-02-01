@@ -980,45 +980,57 @@ static void prepareUniformBuffer( const vk_ray_frame_render_args_t *args, int fr
 }
 
 static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t* args, int frame_index, const xvk_ray_frame_images_t *current_frame, float fov_angle_y) {
-	const vk_ray_resources_t res = {
+	vk_ray_resources_t res = {
 		.width = FRAME_WIDTH,
 		.height = FRAME_HEIGHT,
-		.values = {
+		.resources = {
 			[RayResource_tlas] = {
-				.accel = (VkWriteDescriptorSetAccelerationStructureKHR){
+				.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+				.value.accel = (VkWriteDescriptorSetAccelerationStructureKHR){
 					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
 					.accelerationStructureCount = 1,
 					.pAccelerationStructures = &g_rtx.tlas,
 					.pNext = NULL,
 				},
 			},
-#define RES_SET_BUFFER(name, source_, offset_, size_) \
-			[RayResource_##name] = (VkDescriptorBufferInfo) { \
-				.buffer = source_.buffer, \
-				.offset = (offset_), \
-				.range = (size_), \
-			}
-#define RES_SET_BUFFER_FULL(name, source_) RES_SET_BUFFER(name, source_, 0, source_.size)
-			RES_SET_BUFFER(ubo, g_rtx.uniform_buffer, frame_index * g_rtx.uniform_unit_size, sizeof(struct UniformBuffer)),
-			RES_SET_BUFFER_FULL(kusochki, g_ray_model_state.kusochki_buffer),
-			RES_SET_BUFFER_FULL(indices, args->geometry_data),
-			RES_SET_BUFFER_FULL(vertices, args->geometry_data),
-			RES_SET_BUFFER_FULL(lights, g_ray_model_state.lights_buffer),
-			RES_SET_BUFFER_FULL(light_clusters, g_rtx.light_grid_buffer),
-#undef RES_SET_BUFFER_FULL
+#define RES_SET_BUFFER(name, type_, source_, offset_, size_) \
+	[RayResource_##name] = { \
+		.type = type_, \
+		.value.buffer = (VkDescriptorBufferInfo) { \
+			.buffer = source_.buffer, \
+			.offset = (offset_), \
+			.range = (size_), \
+		} \
+	}
+			RES_SET_BUFFER(ubo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, g_rtx.uniform_buffer, frame_index * g_rtx.uniform_unit_size, sizeof(struct UniformBuffer)),
+
+#define RES_SET_SBUFFER_FULL(name, source_) \
+	RES_SET_BUFFER(name, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, source_, 0, source_.size)
+			RES_SET_SBUFFER_FULL(kusochki, g_ray_model_state.kusochki_buffer),
+			RES_SET_SBUFFER_FULL(indices, args->geometry_data),
+			RES_SET_SBUFFER_FULL(vertices, args->geometry_data),
+			RES_SET_SBUFFER_FULL(lights, g_ray_model_state.lights_buffer),
+			RES_SET_SBUFFER_FULL(light_clusters, g_rtx.light_grid_buffer),
+#undef RES_SET_SBUFFER_FULL
 #undef RES_SET_BUFFER
-			[RayResource_all_textures].image_array = tglob.dii_all_textures,
-#define X(index, name, ...) \
-		[RayResource_##name].image = (VkDescriptorImageInfo) { \
-			.sampler = VK_NULL_HANDLE, \
-			.imageView = current_frame->name.view, \
-			.imageLayout = VK_IMAGE_LAYOUT_GENERAL, \
-		},
-		RAY_PRIMARY_OUTPUTS(X)
-		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
-		RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
-		X(-1, denoised)
-#undef X
+
+			[RayResource_all_textures] = {
+				.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				.value.image_array = tglob.dii_all_textures,
+			},
+
+#define RES_SET_IMAGE(index, name, ...) \
+	[RayResource_##name] = { \
+		.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, \
+		.write = {0}, \
+		.read = {0}, \
+		.image = &current_frame->name, \
+	},
+			RAY_PRIMARY_OUTPUTS(RES_SET_IMAGE)
+			RAY_LIGHT_DIRECT_POLY_OUTPUTS(RES_SET_IMAGE)
+			RAY_LIGHT_DIRECT_POINT_OUTPUTS(RES_SET_IMAGE)
+			RES_SET_IMAGE(-1, denoised)
+#undef RES_SET_IMAGE
 		},
 	};
 
@@ -1028,41 +1040,6 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 	prepareTlas(cmdbuf);
 	prepareUniformBuffer(args, frame_index, fov_angle_y);
 	//updateDescriptors(args, frame_index, current_frame);
-
-#define LIST_GBUFFER_IMAGES(X) \
-	X(0, diffuse_gi) \
-	X(0, specular) \
-	X(0, additive) \
-
-#define IMAGE_BARRIER(img, src_access, dst_access, old_layout, new_layout) { \
-		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, \
-		.image = current_frame->img.image, \
-		.srcAccessMask = src_access, \
-		.dstAccessMask = dst_access, \
-		.oldLayout = old_layout, \
-		.newLayout = new_layout, \
-		.subresourceRange = (VkImageSubresourceRange) { \
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, \
-			.baseMipLevel = 0, \
-			.levelCount = 1, \
-			.baseArrayLayer = 0, \
-			.layerCount = 1, \
-		}, \
-	},
-
-#define IMAGE_BARRIER_READ(index, img, ...) \
-	IMAGE_BARRIER(img, \
-		VK_ACCESS_SHADER_WRITE_BIT, \
-		VK_ACCESS_SHADER_READ_BIT, \
-		VK_IMAGE_LAYOUT_GENERAL, \
-		VK_IMAGE_LAYOUT_GENERAL)
-
-#define IMAGE_BARRIER_WRITE(index, img, ...) \
-	IMAGE_BARRIER(img, \
-		0, \
-		VK_ACCESS_SHADER_WRITE_BIT, \
-		VK_IMAGE_LAYOUT_UNDEFINED, \
-		VK_IMAGE_LAYOUT_GENERAL)
 
 	// 4. Barrier for TLAS build and dest image layout transfer
 	{
@@ -1074,51 +1051,16 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 			.offset = 0,
 			.size = VK_WHOLE_SIZE,
 		} };
-		VkImageMemoryBarrier image_barrier[] = {
-			LIST_GBUFFER_IMAGES(IMAGE_BARRIER_WRITE) // TODO this is not true lol
-			RAY_PRIMARY_OUTPUTS(IMAGE_BARRIER_WRITE)
-		};
-
 		vkCmdPipelineBarrier(cmdbuf,
 			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-			0, 0, NULL, ARRAYSIZE(bmb), bmb, ARRAYSIZE(image_barrier), image_barrier);
+			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
 	}
 
 	RayPassPerform( cmdbuf, g_rtx.pass.primary_ray, &res );
-
-	{
-		const VkImageMemoryBarrier image_barriers[] = {
-			RAY_PRIMARY_OUTPUTS(IMAGE_BARRIER_READ)
-			RAY_LIGHT_DIRECT_POLY_OUTPUTS(IMAGE_BARRIER_WRITE)
-			RAY_LIGHT_DIRECT_POINT_OUTPUTS(IMAGE_BARRIER_WRITE)
-		};
-
-		vkCmdPipelineBarrier(args->cmdbuf,
-			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			//VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
-	}
-
 	RayPassPerform( cmdbuf, g_rtx.pass.light_direct_poly, &res );
 	RayPassPerform( cmdbuf, g_rtx.pass.light_direct_point, &res );
-
-	{
-		const VkImageMemoryBarrier image_barriers[] = {
-			RAY_LIGHT_DIRECT_POLY_OUTPUTS(IMAGE_BARRIER_READ)
-			RAY_LIGHT_DIRECT_POINT_OUTPUTS(IMAGE_BARRIER_READ)
-			LIST_GBUFFER_IMAGES(IMAGE_BARRIER_READ)
-			IMAGE_BARRIER_WRITE(-1/*unused*/, denoised)
-		};
-		vkCmdPipelineBarrier(args->cmdbuf,
-			//VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
-	}
-
-	RayPassPerform(cmdbuf, g_rtx.pass.denoiser, &res);
+	RayPassPerform( cmdbuf, g_rtx.pass.denoiser, &res );
 
 	{
 		const xvk_blit_args blit_args = {

@@ -2,7 +2,6 @@
 
 #include "vk_rtx.h"
 #include "vk_const.h"
-#include "vk_image.h"
 #include "vk_descriptor.h"
 
 #include "shaders/ray_interop.h"
@@ -37,15 +36,19 @@ typedef struct {
 typedef struct {
 	VkDescriptorType type;
 	ray_resource_state_t write, read;
-	union {
-		vk_descriptor_value_t value;
-		const xvk_image_t *image;
-	};
+	vk_descriptor_value_t value;
 } ray_resource_t;
+
+#define RAY_RESOURCE_DEFAULT_STATE \
+	(ray_resource_state_t) { \
+		.access_mask = 0, \
+		.image_layout = VK_IMAGE_LAYOUT_UNDEFINED, \
+		.pipelines = 0, \
+	}
 
 typedef struct vk_ray_resources_s {
 	uint32_t width, height;
-	ray_resource_t resources[RayResource__COUNT];
+	ray_resource_t values[RayResource__COUNT];
 } vk_ray_resources_t;
 
 typedef struct {
@@ -57,4 +60,4 @@ typedef struct {
 	vk_descriptor_value_t *out_values;
 } ray_resources_fill_t;
 
-void RayResourcesFill(VkCommandBuffer cmdbuf, ray_resources_fill_t fill);
+void RayResourcesFill(ray_resources_fill_t fill);

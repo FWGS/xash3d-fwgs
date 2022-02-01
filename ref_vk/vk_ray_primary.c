@@ -22,10 +22,12 @@ enum {
 
 static VkDescriptorSetLayoutBinding bindings[RtPrim_Desc_COUNT];
 static const int semantics[RtPrim_Desc_COUNT] = {
-#define X(index, name, ...) RayResource_##name,
-	LIST_COMMON_BINDINGS(X)
-	RAY_PRIMARY_OUTPUTS(X)
-#undef X
+#define IN(index, name, ...) (RayResource_##name + 1),
+#define OUT(index, name, ...) -(RayResource_##name + 1),
+	LIST_COMMON_BINDINGS(IN)
+	RAY_PRIMARY_OUTPUTS(OUT)
+#undef IN
+#undef OUT
 };
 
 static void initDescriptors( void ) {
