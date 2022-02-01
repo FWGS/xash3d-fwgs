@@ -874,7 +874,7 @@ register VBO cvars and get default value
 */
 static void R_CheckVBO( void )
 {
-	const char *def = "1";
+	const char *def = "0";
 	const char *dlightmode = "1";
 	int flags = FCVAR_ARCHIVE;
 	qboolean disable = false;
