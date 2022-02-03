@@ -283,7 +283,7 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 
 #elif DO_ALL_IN_CLUSTER
 	const SampleContext ctx = buildSampleContext(P, N, view_dir);
-	const uint num_polygons = min(128, uint(light_grid.clusters[cluster_index].num_polygons));
+	const uint num_polygons = uint(light_grid.clusters[cluster_index].num_polygons);
 	for (uint i = 0; i < num_polygons; ++i) {
 		const uint index = uint(light_grid.clusters[cluster_index].polygons[i]);
 		const PolygonLight poly = lights.polygons[index];

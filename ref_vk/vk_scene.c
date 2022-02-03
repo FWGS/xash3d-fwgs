@@ -577,7 +577,7 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 		case mod_brush:
 			R_RotateForEntity( model, ent );
 			VK_RenderStateSetMatrixModel( model );
-			VK_BrushModelDraw( ent, render_mode );
+			VK_BrushModelDraw( ent, render_mode, model );
 			break;
 
 		case mod_studio:
@@ -629,7 +629,7 @@ void VK_SceneRender( const ref_viewpass_t *rvp ) {
 			//VK_LightsBakePVL( 0 /* FIXME frame number */);
 
 			VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f);
-			VK_BrushModelDraw( world, kRenderNormal );
+			VK_BrushModelDraw( world, kRenderNormal, NULL );
 		}
 	}
 

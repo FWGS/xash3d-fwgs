@@ -19,6 +19,14 @@
 #include <math.h>
 #include <memory.h>
 
+typedef struct vk_brush_model_s {
+	vk_render_model_t render_model;
+	int num_water_surfaces;
+
+	rt_light_add_polygon_t *polylights;
+	int polylights_count;
+} vk_brush_model_t;
+
 static struct {
 	struct {
 		int num_vertices, num_indices;
@@ -326,7 +334,7 @@ const texture_t *R_TextureAnimation( const cl_entity_t *ent, const msurface_t *s
 	return base;
 }
 
-void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode )
+void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, const matrix4x4 model )
 {
 	// Expect all buffers to be bound
 	const model_t *mod = ent->model;
@@ -343,6 +351,13 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode )
 
 	if (bmodel->render_model.num_geometries == 0)
 		return;
+
+	for (int i = 0; i < bmodel->polylights_count; ++i) {
+		rt_light_add_polygon_t *polylight = bmodel->polylights + i;
+		polylight->transform_row = (const matrix3x4*)model;
+		polylight->dynamic = true;
+		RT_LightAddPolygon(polylight);
+	}
 
 	for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
 		vk_render_geometry_t *geom = bmodel->render_model.geometries + i;
@@ -413,6 +428,7 @@ typedef struct {
 	int max_texture_id;
 	int water_surfaces;
 	//int sky_surfaces;
+	int emissive_surfaces;
 } model_sizes_t;
 
 static model_sizes_t computeSizes( const model_t *mod ) {
@@ -422,6 +438,7 @@ static model_sizes_t computeSizes( const model_t *mod ) {
 	{
 		const int surface_index = mod->firstmodelsurface + i;
 		const msurface_t *surf = mod->surfaces + surface_index;
+		const int tex_id = surf->texinfo->texture->gl_texturenum;
 
 		sizes.water_surfaces += !!(surf->flags & (SURF_DRAWTURB | SURF_DRAWTURB_QUADS));
 
@@ -431,15 +448,22 @@ static model_sizes_t computeSizes( const model_t *mod ) {
 		++sizes.num_surfaces;
 		sizes.num_vertices += surf->numedges;
 		sizes.num_indices += 3 * (surf->numedges - 1);
-		if (surf->texinfo->texture->gl_texturenum > sizes.max_texture_id)
-			sizes.max_texture_id = surf->texinfo->texture->gl_texturenum;
+		if (tex_id > sizes.max_texture_id)
+			sizes.max_texture_id = tex_id;
+
+		{
+			const xvk_patch_surface_t *const psurf = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces + surface_index : NULL;
+			vec3_t emissive;
+			if ((psurf && (psurf->flags & Patch_Surface_Emissive)) || (RT_GetEmissiveForTexture(emissive, tex_id)))
+				++sizes.emissive_surfaces;
+		}
 	}
 
 	return sizes;
 }
 
-static void loadEmissiveSurface(const model_t *mod, const int surface_index, const msurface_t *surf, const vec3_t emissive) {
-	rt_light_add_polygon_t lpoly;
+static rt_light_add_polygon_t loadPolyLight(const model_t *mod, const int surface_index, const msurface_t *surf, const vec3_t emissive) {
+	rt_light_add_polygon_t lpoly = {0};
 	lpoly.num_vertices = Q_min(7, surf->numedges);
 
 	// TODO split, don't clip
@@ -456,7 +480,7 @@ static void loadEmissiveSurface(const model_t *mod, const int surface_index, con
 	}
 
 	lpoly.surface = surf;
-	RT_LightAddPolygon(&lpoly);
+	return lpoly;
 }
 
 static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
@@ -504,11 +528,25 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 
 			// FIXME move this to rt_light_bsp and static loading
 			{
+				qboolean is_emissive = false;
 				vec3_t emissive;
+				rt_light_add_polygon_t polylight;
+
 				if (psurf && (psurf->flags & Patch_Surface_Emissive)) {
-					loadEmissiveSurface(mod, surface_index, surf, psurf->emissive);
+					is_emissive = true;
+					VectorCopy(psurf->emissive, emissive);
 				} else if (RT_GetEmissiveForTexture(emissive, tex_id)) {
-					loadEmissiveSurface(mod, surface_index, surf, emissive);
+					is_emissive = true;
+				}
+
+				if (is_emissive) {
+					if (bmodel->polylights) {
+						ASSERT(bmodel->polylights_count < sizes.emissive_surfaces);
+						bmodel->polylights[bmodel->polylights_count++] = loadPolyLight(mod, surface_index, surf, emissive);
+					} else {
+						polylight = loadPolyLight(mod, surface_index, surf, emissive);
+						RT_LightAddPolygon(&polylight);
+					}
 				}
 			}
 
@@ -607,6 +645,10 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	XVK_RenderBufferUnlock( index_buffer.buffer );
 	XVK_RenderBufferUnlock( vertex_buffer.buffer );
 
+	if (bmodel->polylights) {
+		gEngine.Con_Reportf("WHAT %d %d \n", sizes.emissive_surfaces, bmodel->polylights_count);
+		ASSERT(sizes.emissive_surfaces == bmodel->polylights_count);
+	}
 	ASSERT(sizes.num_surfaces == num_geometries);
 	bmodel->render_model.num_geometries = num_geometries;
 
@@ -640,6 +682,9 @@ qboolean VK_BrushModelLoad( model_t *mod, qboolean map )
 		if (sizes.num_surfaces != 0) {
 			bmodel->render_model.geometries = (vk_render_geometry_t*)((char*)(bmodel + 1));
 
+			if (!map && sizes.emissive_surfaces)
+				bmodel->polylights = Mem_Malloc(vk_core.pool, sizeof(bmodel->polylights[0]) * sizes.emissive_surfaces);
+
 			if (!loadBrushSurfaces(sizes, mod) || !VK_RenderModelInit(&bmodel->render_model)) {
 				gEngine.Con_Printf(S_ERROR "Could not load model %s\n", mod->name);
 				Mem_Free(bmodel);
@@ -663,6 +708,8 @@ void VK_BrushModelDestroy( model_t *mod ) {
 		return;
 
 	VK_RenderModelDestroy(&bmodel->render_model);
+	if (bmodel->polylights)
+		Mem_Free(bmodel->polylights);
 	Mem_Free(bmodel);
 	mod->cache.data = NULL;
 }

@@ -122,5 +122,8 @@ typedef struct {
 	// - bsp/xash/rad/patch-specific stuff
 	// - mostly engine-agnostic light clusters
 	const struct msurface_s *surface;
+
+	qboolean dynamic;
+	const matrix3x4 *transform_row;
 } rt_light_add_polygon_t;
 int RT_LightAddPolygon(const rt_light_add_polygon_t *light);

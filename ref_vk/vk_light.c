@@ -1250,6 +1250,7 @@ int RT_LightAddPolygon(const rt_light_add_polygon_t *addpoly) {
 
 	{
 		rt_light_polygon_t *const poly = g_lights.polygons + g_lights.num_polygons;
+		vec3_t *vertices = g_lights.polygon_vertices + g_lights.num_polygon_vertices;
 		vec3_t normal;
 
 		poly->vertices.offset = g_lights.num_polygon_vertices;
@@ -1260,13 +1261,16 @@ int RT_LightAddPolygon(const rt_light_add_polygon_t *addpoly) {
 		VectorSet(normal, 0, 0, 0);
 
 		for (int i = 0; i < addpoly->num_vertices; ++i) {
-			VectorCopy(addpoly->vertices[i], g_lights.polygon_vertices[poly->vertices.offset + i]);
-			VectorAdd(addpoly->vertices[i], poly->center, poly->center);
+			if (addpoly->transform_row)
+				Matrix3x4_VectorTransform(*addpoly->transform_row, addpoly->vertices[i], vertices[i]);
+			else
+				VectorCopy(addpoly->vertices[i], vertices[i]);
+			VectorAdd(vertices[i], poly->center, poly->center);
 
 			if (i > 1) {
 				vec3_t e[2], lnormal;
-				VectorSubtract(addpoly->vertices[i-0], addpoly->vertices[0], e[0]);
-				VectorSubtract(addpoly->vertices[i-1], addpoly->vertices[0], e[1]);
+				VectorSubtract(vertices[i-0], vertices[0], e[0]);
+				VectorSubtract(vertices[i-1], vertices[0], e[1]);
 				CrossProduct(e[0], e[1], lnormal);
 				VectorAdd(lnormal, normal, normal);
 			}
@@ -1274,28 +1278,32 @@ int RT_LightAddPolygon(const rt_light_add_polygon_t *addpoly) {
 
 		poly->area = VectorLength(normal);
 		VectorM(1.f / poly->area, normal, poly->plane);
-		poly->plane[3] = -DotProduct(addpoly->vertices[0], poly->plane);
+		poly->plane[3] = -DotProduct(vertices[0], poly->plane);
 
 		VectorM(1.f / poly->vertices.count, poly->center, poly->center);
 
-		gEngine.Con_Reportf("added polygon light index=%d color=(%f, %f, %f) center=(%f, %f, %f) plane=(%f, %f, %f, %f) area=%f num_vertices=%d\n",
-			g_lights.num_polygons,
-			poly->emissive[0],
-			poly->emissive[1],
-			poly->emissive[2],
-			poly->center[0],
-			poly->center[1],
-			poly->center[2],
-			poly->plane[0],
-			poly->plane[1],
-			poly->plane[2],
-			poly->plane[3],
-			poly->area,
-			poly->vertices.count
-		);
+		if (!addpoly->dynamic || debug_dump_lights.enabled) {
+			gEngine.Con_Reportf("added polygon light index=%d color=(%f, %f, %f) center=(%f, %f, %f) plane=(%f, %f, %f, %f) area=%f num_vertices=%d\n",
+				g_lights.num_polygons,
+				poly->emissive[0],
+				poly->emissive[1],
+				poly->emissive[2],
+				poly->center[0],
+				poly->center[1],
+				poly->center[2],
+				poly->plane[0],
+				poly->plane[1],
+				poly->plane[2],
+				poly->plane[3],
+				poly->area,
+				poly->vertices.count
+			);
+		}
 
 		{
-			const vk_light_leaf_set_t *const leafs = getMapLeafsAffectedByMapSurface(addpoly->surface);
+			const vk_light_leaf_set_t *const leafs = addpoly->dynamic
+				? getMapLeafsAffectedByMovingSurface( addpoly->surface, addpoly->transform_row )
+				: getMapLeafsAffectedByMapSurface( addpoly->surface );
 			addPolygonLeafSetToClusters(leafs, g_lights.num_polygons);
 		}
 
