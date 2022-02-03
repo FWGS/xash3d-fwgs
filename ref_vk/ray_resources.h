@@ -16,6 +16,7 @@
 	X(Buffer, lights) \
 	X(Buffer, light_clusters) \
 	X(Texture, all_textures) \
+	X(Texture, skybox) \
 
 enum {
 #define X(type, name, ...) RayResource_##name,

@@ -10,6 +10,7 @@
 
 layout(set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
 layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };
+layout(set = 0, binding = 7) uniform samplerCube skybox;
 
 layout(location = PAYLOAD_LOCATION_PRIMARY) rayPayloadInEXT RayPayloadPrimary payload;
 hitAttributeEXT vec2 bary;
@@ -29,8 +30,8 @@ void main() {
 	const uint tex_base_color = kusok.tex_base_color;
 
 	if ((tex_base_color & KUSOK_MATERIAL_FLAG_SKYBOX) != 0) {
-		// FIXME read skybox
-		payload.base_color_a = vec4(1.,0.,1.,1.);
+		payload.emissive.rgb = pow(texture(skybox, gl_WorldRayDirectionEXT).rgb, vec3(2.2));
+		return;
 	} else {
 		payload.base_color_a = sampleTexture(tex_base_color, geom.uv, geom.uv_lods) * kusok.color;
 		payload.material_rmxx.r = (kusok.tex_roughness > 0) ? sampleTexture(kusok.tex_roughness, geom.uv, geom.uv_lods).r : kusok.roughness;

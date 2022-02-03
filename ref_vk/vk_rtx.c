@@ -1019,6 +1019,15 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 				.value.image_array = tglob.dii_all_textures,
 			},
 
+			[RayResource_skybox] = {
+				.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				.value.image = {
+					.sampler = vk_core.default_sampler,
+					.imageView = tglob.skybox_cube.vk.image.view ? tglob.skybox_cube.vk.image.view : tglob.cubemap_placeholder.vk.image.view,
+					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				},
+			},
+
 #define RES_SET_IMAGE(index, name, ...) \
 	[RayResource_##name] = { \
 		.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, \
