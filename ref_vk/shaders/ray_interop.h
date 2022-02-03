@@ -17,6 +17,7 @@
 	X(11, position_t, rgba32f) \
 	X(12, normals_gs, rgba16f) \
 	X(13, material_rmxx, rgba8) \
+	X(14, emissive, rgba16f) \
 
 #define RAY_LIGHT_DIRECT_INPUTS(X) \
 	X(10, position_t, rgba32f) \

@@ -12,6 +12,7 @@
 	X(3, light_poly_specular) \
 	X(4, light_point_diffuse) \
 	X(5, light_point_specular) \
+	X(6, emissive) \
 
 static const VkDescriptorSetLayoutBinding bindings[] = {
 #define BIND_IMAGE(index, name) \
