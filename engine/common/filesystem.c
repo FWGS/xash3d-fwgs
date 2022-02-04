@@ -408,24 +408,19 @@ static const char *FS_FixFileCase( const char *path )
 #elif !XASH_WIN32 && !XASH_IOS // assume case insensitive
 	DIR *dir;
 	struct dirent *entry;
-	char path2[PATH_MAX], *fname;
+	char path2[PATH_MAX], fixedFileName[PATH_MAX] = { 0 }, *fname;
 
 	if( !fs_caseinsensitive )
 		return path;
 
-	if( path[0] != '/' )
-		Q_snprintf( path2, sizeof( path2 ), "./%s", path );
-	else Q_strncpy( path2, path, PATH_MAX );
+	Q_strncpy( path2, path, sizeof(path2) );
 
 	fname = Q_strrchr( path2, '/' );
 
 	if( fname )
-		*fname++ = 0;
+		fname++;
 	else
-	{
-		fname = (char*)path;
-		Q_strcpy( path2, ".");
-	}
+		fname = path2;
 
 	/* android has too slow directory scanning,
 	   so drop out some not useful cases */
@@ -433,9 +428,9 @@ static const char *FS_FixFileCase( const char *path )
 	{
 		char *point;
 		// too many wad textures
-		if( !Q_stricmp( fname - 5, ".wad") )
+		if( !Q_strnicmp( fname - 5, ".wad", 4 ) )
 			return path;
-		point = Q_strchr( fname, '.' );
+		point = Q_strrchr( fname, '.' );
 		if( point )
 		{
 			if( !Q_strcmp( point, ".mip") || !Q_strcmp( point, ".dds" ) || !Q_strcmp( point, ".ent" ) )
@@ -445,21 +440,54 @@ static const char *FS_FixFileCase( const char *path )
 		}
 	}
 
-	//Con_Reportf( "FS_FixFileCase: %s\n", path );
+	if ( *path2 != '/' )
+	{
+		dir = opendir( "." );
+		fixedFileName[0] = '.';
+	}
+	else
+	{
+		dir = opendir( "/" );
+	}
 
-	if( !( dir = opendir( path2 ) ) )
+	if ( dir == NULL )
 		return path;
 
-	while( ( entry = readdir( dir ) ) )
+	for ( char *p = path2; *p; )
 	{
-		if( Q_stricmp( entry->d_name, fname ) )
-			continue;
+		qboolean found = false;
+		char *s = strchr( p, '/' );
 
-		path = va( "%s/%s", path2, entry->d_name );
-		//Con_Reportf( "FS_FixFileCase: %s %s %s\n", path2, fname, entry->d_name );
-		break;
+		if ( s != NULL )
+		{
+			while ( *s == '/' )
+				*s++ = '\0';
+		}
+
+		while ( ( entry = readdir( dir ) ) )
+		{
+			if ( Q_stricmp( entry->d_name, p ) )
+				continue;
+
+			found = true;
+			break;
+		}
+
+		closedir( dir );
+
+		if ( !found )
+			break;
+		
+		Q_strncat( fixedFileName, "/", sizeof( fixedFileName ) );
+		Q_strncat( fixedFileName, entry->d_name, sizeof( fixedFileName ) );
+		p = s;
+
+		if ( p == NULL )
+			return va( "%s", fixedFileName );
+
+		if ( !( dir = opendir( fixedFileName ) ) )
+			break;
 	}
-	closedir( dir );
 #endif
 	return path;
 }
