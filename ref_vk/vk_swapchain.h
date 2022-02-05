@@ -1,5 +1,10 @@
 #include "vk_core.h"
 
+// TODO this needs to be negotiated by swapchain creation
+// however, currently render pass also needs it so ugh
+#define SWAPCHAIN_FORMAT VK_FORMAT_B8G8R8A8_UNORM //SRGB
+//#define SWAPCHAIN_FORMAT VK_FORMAT_B8G8R8A8_SRGB
+
 // TODO: move render pass and depth format away from this
 qboolean R_VkSwapchainInit( VkRenderPass pass, VkFormat depth_format );
 void R_VkSwapchainShutdown( void );

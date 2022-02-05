@@ -7,6 +7,7 @@
 #include "vk_cvar.h"
 #include "vk_devmem.h"
 #include "vk_swapchain.h"
+#include "vk_image.h"
 
 #include "profiler.h"
 
@@ -18,6 +19,13 @@ extern ref_globals_t *gpGlobals;
 
 vk_framectl_t vk_frame = {0};
 
+typedef enum {
+	Phase_Idle,
+	Phase_FrameBegan,
+	Phase_RenderingEnqueued,
+	Phase_Submitted,
+} frame_phase_t;
+
 static struct {
 	// TODO N frames in flight
 	VkSemaphore image_available;
@@ -27,6 +35,9 @@ static struct {
 	qboolean rtx_enabled;
 
 	r_vk_swapchain_framebuffer_t current_framebuffer;
+
+	frame_phase_t phase;
+	VkCommandBuffer cmdbuf;
 } g_frame;
 
 #define PROFILER_SCOPES(X) \
@@ -73,7 +84,7 @@ static VkRenderPass createRenderPass( VkFormat depth_format, qboolean ray_tracin
 	VkRenderPass render_pass;
 
 	VkAttachmentDescription attachments[] = {{
-		.format = VK_FORMAT_B8G8R8A8_UNORM, //SRGB,// FIXME too early swapchain.create_info.imageFormat;
+		.format = SWAPCHAIN_FORMAT,
 		.samples = VK_SAMPLE_COUNT_1_BIT,
 		.loadOp = ray_tracing ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR /* TODO: prod renderer should not care VK_ATTACHMENT_LOAD_OP_DONT_CARE */,
 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -122,8 +133,9 @@ static VkRenderPass createRenderPass( VkFormat depth_format, qboolean ray_tracin
 	return render_pass;
 }
 
-void R_BeginFrame( qboolean clearScene )
-{
+void R_BeginFrame( qboolean clearScene ) {
+	ASSERT(g_frame.phase == Phase_Submitted || g_frame.phase == Phase_Idle);
+
 	if (vk_core.rtx && FBitSet( vk_rtx->flags, FCVAR_CHANGED )) {
 		g_frame.rtx_enabled = CVAR_TO_BOOL( vk_rtx );
 	}
@@ -172,13 +184,17 @@ void R_BeginFrame( qboolean clearScene )
 
 	VK_RenderBegin( g_frame.rtx_enabled );
 
+	g_frame.cmdbuf = vk_core.cb;
+
 	{
 		VkCommandBufferBeginInfo beginfo = {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 		};
-		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
+		XVK_CHECK(vkBeginCommandBuffer(g_frame.cmdbuf, &beginfo));
 	}
+
+	g_frame.phase = Phase_FrameBegan;
 }
 
 void VK_RenderFrame( const struct ref_viewpass_s *rvp )
@@ -186,17 +202,16 @@ void VK_RenderFrame( const struct ref_viewpass_s *rvp )
 	VK_SceneRender( rvp );
 }
 
-void R_EndFrame( void )
-{
-	APROF_SCOPE_BEGIN_EARLY(end_frame);
-	VkClearValue clear_value[] = {
+static void enqueueRendering( VkCommandBuffer cmdbuf ) {
+	const VkClearValue clear_value[] = {
 		{.color = {{1., 0., 0., 0.}}},
 		{.depthStencil = {1., 0.}} // TODO reverse-z
 	};
-	VkPipelineStageFlags stageflags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+	ASSERT(g_frame.phase == Phase_FrameBegan);
 
 	if (g_frame.rtx_enabled)
-		VK_RenderEndRTX( vk_core.cb, g_frame.current_framebuffer.view, g_frame.current_framebuffer.image, g_frame.current_framebuffer.width, g_frame.current_framebuffer.height );
+		VK_RenderEndRTX( cmdbuf, g_frame.current_framebuffer.view, g_frame.current_framebuffer.image, g_frame.current_framebuffer.width, g_frame.current_framebuffer.height );
 
 	{
 		VkRenderPassBeginInfo rpbi = {
@@ -208,7 +223,7 @@ void R_EndFrame( void )
 			.pClearValues = clear_value,
 			.framebuffer = g_frame.current_framebuffer.framebuffer,
 		};
-		vkCmdBeginRenderPass(vk_core.cb, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBeginRenderPass(cmdbuf, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
 	}
 
 	{
@@ -220,24 +235,32 @@ void R_EndFrame( void )
 			{g_frame.current_framebuffer.width, g_frame.current_framebuffer.height},
 		}};
 
-		vkCmdSetViewport(vk_core.cb, 0, ARRAYSIZE(viewport), viewport);
-		vkCmdSetScissor(vk_core.cb, 0, ARRAYSIZE(scissor), scissor);
+		vkCmdSetViewport(cmdbuf, 0, ARRAYSIZE(viewport), viewport);
+		vkCmdSetScissor(cmdbuf, 0, ARRAYSIZE(scissor), scissor);
 	}
 
 	if (!g_frame.rtx_enabled)
-		VK_RenderEnd( vk_core.cb );
+		VK_RenderEnd( cmdbuf );
 
-	vk2dEnd( vk_core.cb );
+	vk2dEnd( cmdbuf );
 
-	vkCmdEndRenderPass(vk_core.cb);
-	XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
+	vkCmdEndRenderPass(cmdbuf);
+
+	g_frame.phase = Phase_RenderingEnqueued;
+}
+
+static void submit( VkCommandBuffer cmdbuf, qboolean wait ) {
+	ASSERT(g_frame.phase == Phase_RenderingEnqueued);
+
+	XVK_CHECK(vkEndCommandBuffer(cmdbuf));
 
 	{
+		const VkPipelineStageFlags stageflags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		const VkSubmitInfo subinfo = {
 			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 			.pNext = NULL,
 			.commandBufferCount = 1,
-			.pCommandBuffers = &vk_core.cb,
+			.pCommandBuffers = &cmdbuf,
 			.waitSemaphoreCount = 1,
 			.pWaitSemaphores = &g_frame.image_available,
 			.signalSemaphoreCount = 1,
@@ -245,25 +268,43 @@ void R_EndFrame( void )
 			.pWaitDstStageMask = &stageflags,
 		};
 		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, g_frame.fence));
+		g_frame.phase = Phase_Submitted;
 	}
 
 	R_VkSwapchainPresent(g_frame.current_framebuffer.index, g_frame.done);
 	g_frame.current_framebuffer = (r_vk_swapchain_framebuffer_t){0};
 
-	APROF_SCOPE_BEGIN(frame_gpu_wait);
-	// TODO bad sync
-	XVK_CHECK(vkWaitForFences(vk_core.device, 1, &g_frame.fence, VK_TRUE, INT64_MAX));
-	XVK_CHECK(vkResetFences(vk_core.device, 1, &g_frame.fence));
-	APROF_SCOPE_END(frame_gpu_wait);
+	if (wait) {
+		APROF_SCOPE_BEGIN(frame_gpu_wait);
+		// TODO bad sync
+		XVK_CHECK(vkWaitForFences(vk_core.device, 1, &g_frame.fence, VK_TRUE, INT64_MAX));
+		XVK_CHECK(vkResetFences(vk_core.device, 1, &g_frame.fence));
+		APROF_SCOPE_END(frame_gpu_wait);
 
-	if (vk_core.debug)
-		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
+		if (vk_core.debug) {
+			// FIXME more scopes
+			XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
+		}
+		g_frame.phase = Phase_Idle;
+	}
 
 	// TODO better sync implies multiple frames in flight, which means that we must
 	// retain temporary (SingleFrame) buffer contents for longer, until all users are done.
 	// (this probably means that we should really have some kind of refcount going on...)
 	// For now we can just erase these buffers now because of sync with fence
 	XVK_RenderBufferFrameClear();
+
+	g_frame.cmdbuf = VK_NULL_HANDLE;
+}
+
+void R_EndFrame( void )
+{
+	APROF_SCOPE_BEGIN_EARLY(end_frame);
+
+	if (g_frame.phase == Phase_FrameBegan) {
+		enqueueRendering( vk_core.cb );
+		submit( vk_core.cb, true );
+	}
 
 	APROF_SCOPE_END(end_frame);
 }
@@ -315,17 +356,10 @@ void VK_FrameCtlShutdown( void )
 		vkDestroyRenderPass(vk_core.device, vk_frame.render_pass.after_ray_tracing, NULL);
 }
 
-#if 1
-static rgbdata_t *XVK_ReadPixels( void ) {
-	// FIXME
-	return NULL;
-}
-#else
-#error TODO
 static qboolean canBlitFromSwapchainToFormat( VkFormat dest_format ) {
 	VkFormatProperties props;
 
-	vkGetPhysicalDeviceFormatProperties(vk_core.physical_device.device, g_frame.create_info.imageFormat, &props);
+	vkGetPhysicalDeviceFormatProperties(vk_core.physical_device.device, SWAPCHAIN_FORMAT, &props);
 	if (!(props.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
 		gEngine.Con_Reportf(S_WARN "Swapchain source format doesn't support blit\n");
 		return false;
@@ -342,60 +376,43 @@ static qboolean canBlitFromSwapchainToFormat( VkFormat dest_format ) {
 
 static rgbdata_t *XVK_ReadPixels( void ) {
 	const VkFormat dest_format = VK_FORMAT_R8G8B8A8_UNORM;
-	VkImage dest_image;
-	VkImage frame_image;
-	vk_devmem_t dest_devmem;
+	xvk_image_t dest_image;
+	const VkImage frame_image = g_frame.current_framebuffer.image;
 	rgbdata_t *r_shot = NULL;
-	const int
-		width = vk_frame.width,
-		height = vk_frame.height;
 	qboolean blit = canBlitFromSwapchainToFormat( dest_format );
+	const VkCommandBuffer cmdbuf = g_frame.cmdbuf;
 
-	if (g_frame.last_frame_index < 0)
+	if (frame_image == VK_NULL_HANDLE) {
+		gEngine.Con_Printf(S_ERROR "no current image, can't take screenshot\n");
 		return NULL;
-
-	frame_image = g_frame.images[g_frame.last_frame_index];
+	}
 
 	// Create destination image to blit/copy framebuffer pixels to
 	{
-		VkImageCreateInfo image_create_info = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-			.imageType = VK_IMAGE_TYPE_2D,
-			.extent.width = width,
-			.extent.height = height,
-			.extent.depth = 1,
+		const xvk_image_create_t xic = {
+			.debug_name = "screenshot",
+			.width = vk_frame.width,
+			.height = vk_frame.height,
+			.mips = 1,
+			.layers = 1,
 			.format = dest_format,
-			.mipLevels = 1,
-			.arrayLayers = 1,
 			.tiling = VK_IMAGE_TILING_LINEAR,
-			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			.samples = VK_SAMPLE_COUNT_1_BIT,
-			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+			.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			.has_alpha = false,
+			.is_cubemap = false,
+			.memory_props = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
 		};
-		XVK_CHECK(vkCreateImage(vk_core.device, &image_create_info, NULL, &dest_image));
+		dest_image = XVK_ImageCreate(&xic);
 	}
 
-	{
-		VkMemoryRequirements memreq;
-		vkGetImageMemoryRequirements(vk_core.device, dest_image, &memreq);
-		dest_devmem = VK_DevMemAllocate("screenshot", memreq, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, 0);
-		XVK_CHECK(vkBindImageMemory(vk_core.device, dest_image, dest_devmem.device_memory, dest_devmem.offset));
-	}
-
-	{
-		VkCommandBufferBeginInfo beginfo = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		};
-		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb_tex, &beginfo));
-	}
+	// Make sure that all rendering ops are enqueued
+	enqueueRendering( cmdbuf );
 
 	{
 		// Barrier 1: dest image
-		VkImageMemoryBarrier image_barrier[2] = {{
+		const VkImageMemoryBarrier image_barrier[2] = {{
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = dest_image,
+			.image = dest_image.image,
 			.srcAccessMask = 0,
 			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -409,7 +426,7 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 			}}, { // Barrier 2: source swapchain image
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 			.image = frame_image,
-			.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT, // ?????
+			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 			.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -421,8 +438,8 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 				.layerCount = 1,
 		}}};
 
-		vkCmdPipelineBarrier(vk_core.cb_tex,
-				VK_PIPELINE_STAGE_TRANSFER_BIT,
+		vkCmdPipelineBarrier(cmdbuf,
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 				VK_PIPELINE_STAGE_TRANSFER_BIT,
 				0, 0, NULL, 0, NULL, ARRAYSIZE(image_barrier), image_barrier);
 	}
@@ -434,26 +451,26 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 			.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.srcSubresource.layerCount = 1,
 			.dstSubresource.layerCount = 1,
-			.srcOffsets = {{0}, {width, height, 1}},
-			.dstOffsets = {{0}, {width, height, 1}}
+			.srcOffsets = {{0}, {vk_frame.width, vk_frame.height, 1}},
+			.dstOffsets = {{0}, {vk_frame.width, vk_frame.height, 1}}
 		};
-		vkCmdBlitImage(vk_core.cb_tex,
+		vkCmdBlitImage(cmdbuf,
 			frame_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			dest_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
+			dest_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
 	} else {
 		const VkImageCopy copy = {
 			.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.srcSubresource.layerCount = 1,
 			.dstSubresource.layerCount = 1,
-			.extent.width = width,
-			.extent.height = height,
+			.extent.width = vk_frame.width,
+			.extent.height = vk_frame.height,
 			.extent.depth = 1,
 		};
 
-		vkCmdCopyImage(vk_core.cb_tex,
+		vkCmdCopyImage(cmdbuf,
 			frame_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			dest_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+			dest_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
 
 		gEngine.Con_Printf(S_WARN "Blit is not supported, screenshot will likely have mixed components; TODO: swizzle in software\n");
 	}
@@ -462,7 +479,7 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 		// Barrier 1: dest image
 		VkImageMemoryBarrier image_barrier[2] = {{
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = dest_image,
+			.image = dest_image.image,
 			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
 			.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -488,23 +505,13 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 				.layerCount = 1,
 		}}};
 
-		vkCmdPipelineBarrier(vk_core.cb_tex,
+		vkCmdPipelineBarrier(cmdbuf,
 				VK_PIPELINE_STAGE_TRANSFER_BIT,
-				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
 				0, 0, NULL, 0, NULL, ARRAYSIZE(image_barrier), image_barrier);
 	}
 
-	// submit command buffer to queue
-	XVK_CHECK(vkEndCommandBuffer(vk_core.cb_tex));
-	{
-		VkSubmitInfo subinfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
-		subinfo.commandBufferCount = 1;
-		subinfo.pCommandBuffers = &vk_core.cb_tex;
-		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
-	}
-
-	// wait for queue
-	XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
+	submit( cmdbuf, true );
 
 	// copy bytes to buffer
 	{
@@ -512,18 +519,18 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 		};
 		VkSubresourceLayout layout;
-		const char *mapped = dest_devmem.mapped;
-		vkGetImageSubresourceLayout(vk_core.device, dest_image, &subres, &layout);
+		const char *mapped = dest_image.devmem.mapped;
+		vkGetImageSubresourceLayout(vk_core.device, dest_image.image, &subres, &layout);
 
 		mapped += layout.offset;
 
 		{
-			const int row_size = 4 * width;
+			const int row_size = 4 * vk_frame.width;
 			poolhandle_t r_temppool = vk_core.pool; // TODO
 
 			r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
-			r_shot->width = width;
-			r_shot->height = height;
+			r_shot->width = vk_frame.width;
+			r_shot->height = vk_frame.height;
 			r_shot->flags = IMAGE_HAS_COLOR;
 			r_shot->type = PF_RGBA_32;
 			r_shot->size = r_shot->width * r_shot->height * gEngine.Image_GetPFDesc( r_shot->type )->bpp;
@@ -531,14 +538,14 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 			r_shot->buffer = Mem_Malloc( r_temppool, r_shot->size );
 
 			if (!blit) {
-				if (dest_format != VK_FORMAT_R8G8B8A8_UNORM || g_frame.create_info.imageFormat != VK_FORMAT_B8G8R8A8_UNORM) {
-					gEngine.Con_Printf(S_WARN "Don't have a blit function for this format pair, will save as-is w/o conversion; expect image to look wrong\n");
+				if (dest_format != VK_FORMAT_R8G8B8A8_UNORM || SWAPCHAIN_FORMAT != VK_FORMAT_B8G8R8A8_UNORM) {
+					gEngine.Con_Printf(S_WARN "Don't have a blit function for this format pair, will save as-is without conversion; expect image to look wrong\n");
 					blit = true;
 				} else {
-					char *dst = r_shot->buffer;
-					for (int y = 0; y < height; ++y, mapped += layout.rowPitch) {
-						const char *src = mapped;
-						for (int x = 0; x < width; ++x, dst += 4, src += 4) {
+					byte *dst = r_shot->buffer;
+					for (int y = 0; y < vk_frame.height; ++y, mapped += layout.rowPitch) {
+						const byte *src = (const byte*)mapped;
+						for (int x = 0; x < vk_frame.width; ++x, dst += 4, src += 4) {
 							dst[0] = src[2];
 							dst[1] = src[1];
 							dst[2] = src[0];
@@ -549,19 +556,17 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 			}
 
 			if (blit) {
-				for (int y = 0; y < height; ++y, mapped += layout.rowPitch) {
+				for (int y = 0; y < vk_frame.height; ++y, mapped += layout.rowPitch) {
 					memcpy(r_shot->buffer + row_size * y, mapped, row_size);
 				}
 			}
 		}
 	}
 
-	vkDestroyImage(vk_core.device, dest_image, NULL);
-	VK_DevMemFree(&dest_devmem);
+	XVK_ImageDestroy( &dest_image );
 
 	return r_shot;
 }
-#endif
 
 qboolean VID_ScreenShot( const char *filename, int shot_type )
 {
