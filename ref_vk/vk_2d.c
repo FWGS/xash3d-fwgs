@@ -93,6 +93,7 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 	}
 
 	{
+		// TODO do this in shader bro
 		const float vw = vk_frame.width;
 		const float vh = vk_frame.height;
 		const float x1 = (x / vw)*2.f - 1.f;

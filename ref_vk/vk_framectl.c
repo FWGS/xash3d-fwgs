@@ -6,40 +6,27 @@
 #include "vk_rtx.h"
 #include "vk_cvar.h"
 #include "vk_devmem.h"
+#include "vk_swapchain.h"
 
 #include "profiler.h"
 
-#include "eiface.h"
+#include "eiface.h" // ARRAYSIZE
 
 #include <string.h>
+
+extern ref_globals_t *gpGlobals;
 
 vk_framectl_t vk_frame = {0};
 
 static struct {
-	struct {
-		VkFormat format;
-		vk_devmem_t device_memory;
-		VkImage image;
-		VkImageView image_view;
-	} depth;
-
-	VkSurfaceCapabilitiesKHR surface_caps;
-	VkSwapchainCreateInfoKHR create_info;
-	VkSwapchainKHR swapchain;
-	uint32_t num_images;
-	VkImage *images;
-	VkImageView *image_views;
-	VkFramebuffer *framebuffers;
-
+	// TODO N frames in flight
 	VkSemaphore image_available;
 	VkSemaphore done;
 	VkFence fence;
 
-	uint32_t swapchain_image_index;
-
 	qboolean rtx_enabled;
 
-	int last_frame_index; // Index of previous fully drawn frame into images array
+	r_vk_swapchain_framebuffer_t current_framebuffer;
 } g_frame;
 
 #define PROFILER_SCOPES(X) \
@@ -50,6 +37,7 @@ static struct {
 PROFILER_SCOPES(SCOPE_DECLARE)
 #undef SCOPE_DECLARE
 
+// TODO move into vk_image
 static VkFormat findSupportedImageFormat(const VkFormat *candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
 	for (int i = 0; candidates[i] != VK_FORMAT_UNDEFINED; ++i) {
 		VkFormatProperties props;
@@ -70,27 +58,6 @@ static VkFormat findSupportedImageFormat(const VkFormat *candidates, VkImageTili
 	return VK_FORMAT_UNDEFINED;
 }
 
-static VkImage createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage) {
-	VkImage image;
-	VkImageCreateInfo ici = {.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-	ici.imageType = VK_IMAGE_TYPE_2D;
-	ici.extent.width = width;
-	ici.extent.height = height;
-	ici.extent.depth = 1;
-	ici.mipLevels = 1;
-	ici.arrayLayers = 1;
-	ici.format = format;
-	ici.tiling = tiling;
-	ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	ici.usage = usage;
-	ici.samples = VK_SAMPLE_COUNT_1_BIT;
-	ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-	XVK_CHECK(vkCreateImage(vk_core.device, &ici, NULL, &image));
-
-	return image;
-}
-
 // TODO sort these based on ???
 static const VkFormat depth_formats[] = {
 	VK_FORMAT_D32_SFLOAT,
@@ -102,38 +69,7 @@ static const VkFormat depth_formats[] = {
 	VK_FORMAT_UNDEFINED
 };
 
-static void createDepthImage(int w, int h) {
-	const VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
-	const VkImageUsageFlags usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	VkMemoryRequirements memreq;
-
-	g_frame.depth.image = createImage(w, h, g_frame.depth.format, tiling, usage);
-
-	SET_DEBUG_NAME(g_frame.depth.image, VK_OBJECT_TYPE_IMAGE, "depth buffer");
-
-	vkGetImageMemoryRequirements(vk_core.device, g_frame.depth.image, &memreq);
-	g_frame.depth.device_memory = VK_DevMemAllocate("depth buffer", memreq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
-	XVK_CHECK(vkBindImageMemory(vk_core.device, g_frame.depth.image, g_frame.depth.device_memory.device_memory, g_frame.depth.device_memory.offset));
-
-	{
-		VkImageViewCreateInfo ivci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-		ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		ivci.format = g_frame.depth.format;
-		ivci.image = g_frame.depth.image;
-		ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		ivci.subresourceRange.levelCount = 1;
-		ivci.subresourceRange.layerCount = 1;
-		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, &g_frame.depth.image_view));
-	}
-}
-
-static void destroyDepthImage( void ) {
-	vkDestroyImageView(vk_core.device, g_frame.depth.image_view, NULL);
-	vkDestroyImage(vk_core.device, g_frame.depth.image, NULL);
-	VK_DevMemFree(&g_frame.depth.device_memory);
-}
-
-static VkRenderPass createRenderPass( qboolean ray_tracing ) {
+static VkRenderPass createRenderPass( VkFormat depth_format, qboolean ray_tracing ) {
 	VkRenderPass render_pass;
 
 	VkAttachmentDescription attachments[] = {{
@@ -147,7 +83,7 @@ static VkRenderPass createRenderPass( qboolean ray_tracing ) {
 		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 	}, {
 		// Depth
-		.format = g_frame.depth.format = findSupportedImageFormat(depth_formats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT),
+		.format = depth_format,
 		.samples = VK_SAMPLE_COUNT_1_BIT,
 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 		.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -186,137 +122,13 @@ static VkRenderPass createRenderPass( qboolean ray_tracing ) {
 	return render_pass;
 }
 
-static void destroySwapchain( VkSwapchainKHR swapchain )
-{
-	for (uint32_t i = 0; i < g_frame.num_images; ++i)
-	{
-		vkDestroyImageView(vk_core.device, g_frame.image_views[i], NULL);
-		vkDestroyFramebuffer(vk_core.device, g_frame.framebuffers[i], NULL);
-	}
-
-	vkDestroySwapchainKHR(vk_core.device, swapchain, NULL);
-
-	destroyDepthImage();
-}
-
-extern ref_globals_t *gpGlobals;
-
-static uint32_t clamp_u32(uint32_t v, uint32_t min, uint32_t max) {
-	if (v < min) v = min;
-	if (v > max) v = max;
-	return v;
-}
-
-static qboolean createSwapchain( void )
-{
-	VkSwapchainCreateInfoKHR *create_info = &g_frame.create_info;
-	const uint32_t prev_num_images = g_frame.num_images;
-	// recreating swapchain means invalidating any previous frames
-	g_frame.last_frame_index = -1;
-
-	XVK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_core.physical_device.device, vk_core.surface.surface, &g_frame.surface_caps));
-
-	vk_frame.width = g_frame.surface_caps.currentExtent.width;
-	vk_frame.height = g_frame.surface_caps.currentExtent.height;
-
-	if (vk_frame.width == 0xfffffffful || vk_frame.width == 0)
-		vk_frame.width = gpGlobals->width;
-
-	if (vk_frame.height == 0xfffffffful || vk_frame.height == 0)
-		vk_frame.height = gpGlobals->height;
-
-	vk_frame.width = clamp_u32(vk_frame.width, g_frame.surface_caps.minImageExtent.width, g_frame.surface_caps.maxImageExtent.width);
-	vk_frame.height = clamp_u32(vk_frame.height, g_frame.surface_caps.minImageExtent.height, g_frame.surface_caps.maxImageExtent.height);
-
-	create_info->sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	create_info->pNext = NULL;
-	create_info->surface = vk_core.surface.surface;
-	create_info->imageFormat = VK_FORMAT_B8G8R8A8_UNORM;//SRGB; // TODO get from surface_formats
-	create_info->imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR; // TODO get from surface_formats
-	create_info->imageExtent.width = vk_frame.width;
-	create_info->imageExtent.height = vk_frame.height;
-	create_info->imageArrayLayers = 1;
-	create_info->imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | (vk_core.rtx ? VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
-	create_info->imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	create_info->preTransform = g_frame.surface_caps.currentTransform;
-	create_info->compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	create_info->presentMode = VK_PRESENT_MODE_FIFO_KHR; // TODO caps, MAILBOX is better
-	//create_info->presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR; // TODO caps, MAILBOX is better
-	create_info->clipped = VK_TRUE;
-	create_info->oldSwapchain = g_frame.swapchain;
-
-	create_info->minImageCount = g_frame.surface_caps.minImageCount + 3;
-	if (g_frame.surface_caps.maxImageCount && create_info->minImageCount > g_frame.surface_caps.maxImageCount)
-		create_info->minImageCount = g_frame.surface_caps.maxImageCount;
-
-	XVK_CHECK(vkCreateSwapchainKHR(vk_core.device, create_info, NULL, &g_frame.swapchain));
-	if (create_info->oldSwapchain)
-	{
-		destroySwapchain( create_info->oldSwapchain );
-	}
-
-	createDepthImage(vk_frame.width, vk_frame.height);
-
-	g_frame.num_images = 0;
-	XVK_CHECK(vkGetSwapchainImagesKHR(vk_core.device, g_frame.swapchain, &g_frame.num_images, NULL));
-	if (prev_num_images != g_frame.num_images)
-	{
-		if (g_frame.images)
-		{
-			Mem_Free(g_frame.images);
-			Mem_Free(g_frame.image_views);
-			Mem_Free(g_frame.framebuffers);
-		}
-
-		g_frame.images = Mem_Malloc(vk_core.pool, sizeof(*g_frame.images) * g_frame.num_images);
-		g_frame.image_views = Mem_Malloc(vk_core.pool, sizeof(*g_frame.image_views) * g_frame.num_images);
-		g_frame.framebuffers = Mem_Malloc(vk_core.pool, sizeof(*g_frame.framebuffers) * g_frame.num_images);
-	}
-
-	XVK_CHECK(vkGetSwapchainImagesKHR(vk_core.device, g_frame.swapchain, &g_frame.num_images, g_frame.images));
-
-	for (uint32_t i = 0; i < g_frame.num_images; ++i) {
-		VkImageViewCreateInfo ivci = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-			.viewType = VK_IMAGE_VIEW_TYPE_2D,
-			.format = g_frame.create_info.imageFormat,
-			.image = g_frame.images[i],
-			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.subresourceRange.levelCount = 1,
-			.subresourceRange.layerCount = 1,
-		};
-
-		XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, g_frame.image_views + i));
-
-		{
-			const VkImageView attachments[] = {
-				g_frame.image_views[i],
-				g_frame.depth.image_view
-			};
-			VkFramebufferCreateInfo fbci = {
-				.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-				.renderPass = vk_frame.render_pass.raster,
-				.attachmentCount = ARRAYSIZE(attachments),
-				.pAttachments = attachments,
-				.width = g_frame.create_info.imageExtent.width,
-				.height = g_frame.create_info.imageExtent.height,
-				.layers = 1,
-			};
-			XVK_CHECK(vkCreateFramebuffer(vk_core.device, &fbci, NULL, g_frame.framebuffers + i));
-		}
-
-		SET_DEBUG_NAMEF(g_frame.images[i], VK_OBJECT_TYPE_IMAGE, "swapchain image[%d]", i);
-	}
-
-	return true;
-}
-
 void R_BeginFrame( qboolean clearScene )
 {
 	if (vk_core.rtx && FBitSet( vk_rtx->flags, FCVAR_CHANGED )) {
 		g_frame.rtx_enabled = CVAR_TO_BOOL( vk_rtx );
 	}
 	ClearBits( vk_rtx->flags, FCVAR_CHANGED );
+
 	{
 		gEngine.Con_NPrintf(5, "Perf scopes:");
 		for (int i = 0; i < g_aprof.num_scopes; ++i) {
@@ -332,43 +144,11 @@ void R_BeginFrame( qboolean clearScene )
 		aprof_scope_frame();
 	}
 
-	// TODO should we handle multiple R_BeginFrame w/o R_EndFrame gracefully?
-	ASSERT(g_frame.swapchain_image_index == -1);
+	ASSERT(!g_frame.current_framebuffer.framebuffer);
 
-	// Check that swapchain has the same size
-	{
-		VkSurfaceCapabilitiesKHR surface_caps;
-		XVK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_core.physical_device.device, vk_core.surface.surface, &surface_caps));
-
-		if (surface_caps.currentExtent.width != g_frame.surface_caps.currentExtent.width
-			|| surface_caps.currentExtent.height != g_frame.surface_caps.currentExtent.height)
-		{
-			createSwapchain();
-		}
-	}
-
-	for (int i = 0;; ++i)
-	{
-		const VkResult acquire_result = vkAcquireNextImageKHR(vk_core.device, g_frame.swapchain, UINT64_MAX, g_frame.image_available,
-			VK_NULL_HANDLE, &g_frame.swapchain_image_index);
-		switch (acquire_result)
-		{
-			// TODO re-ask for swapchain size if it changed
-			case VK_ERROR_OUT_OF_DATE_KHR:
-			case VK_ERROR_SURFACE_LOST_KHR:
-				if (i == 0) {
-					createSwapchain();
-					continue;
-				}
-				gEngine.Con_Printf(S_WARN "vkAcquireNextImageKHR returned %s, frame will be lost\n", resultName(acquire_result));
-				return;
-
-			default:
-				XVK_CHECK(acquire_result);
-		}
-
-		break;
-	}
+	g_frame.current_framebuffer = R_VkSwapchainAcquire( g_frame.image_available, g_frame.fence );
+	vk_frame.width = g_frame.current_framebuffer.width;
+	vk_frame.height = g_frame.current_framebuffer.height;
 
 	// FIXME when
 	{
@@ -416,28 +196,28 @@ void R_EndFrame( void )
 	VkPipelineStageFlags stageflags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
 	if (g_frame.rtx_enabled)
-		VK_RenderEndRTX( vk_core.cb, g_frame.image_views[g_frame.swapchain_image_index], g_frame.images[g_frame.swapchain_image_index], g_frame.create_info.imageExtent.width, g_frame.create_info.imageExtent.height );
+		VK_RenderEndRTX( vk_core.cb, g_frame.current_framebuffer.view, g_frame.current_framebuffer.image, g_frame.current_framebuffer.width, g_frame.current_framebuffer.height );
 
 	{
 		VkRenderPassBeginInfo rpbi = {
 			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 			.renderPass = g_frame.rtx_enabled ? vk_frame.render_pass.after_ray_tracing : vk_frame.render_pass.raster,
-			.renderArea.extent.width = g_frame.create_info.imageExtent.width,
-			.renderArea.extent.height = g_frame.create_info.imageExtent.height,
+			.renderArea.extent.width = g_frame.current_framebuffer.width,
+			.renderArea.extent.height = g_frame.current_framebuffer.height,
 			.clearValueCount = ARRAYSIZE(clear_value),
 			.pClearValues = clear_value,
-			.framebuffer = g_frame.framebuffers[g_frame.swapchain_image_index],
+			.framebuffer = g_frame.current_framebuffer.framebuffer,
 		};
 		vkCmdBeginRenderPass(vk_core.cb, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
 	}
 
 	{
 		const VkViewport viewport[] = {
-			{0.f, 0.f, (float)vk_frame.width, (float)vk_frame.height, 0.f, 1.f},
+			{0.f, 0.f, (float)g_frame.current_framebuffer.width, (float)g_frame.current_framebuffer.height, 0.f, 1.f},
 		};
 		const VkRect2D scissor[] = {{
 			{0, 0},
-			{vk_frame.width, vk_frame.height},
+			{g_frame.current_framebuffer.width, g_frame.current_framebuffer.height},
 		}};
 
 		vkCmdSetViewport(vk_core.cb, 0, ARRAYSIZE(viewport), viewport);
@@ -467,27 +247,8 @@ void R_EndFrame( void )
 		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, g_frame.fence));
 	}
 
-	{
-		const VkPresentInfoKHR presinfo = {
-			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-			.pSwapchains = &g_frame.swapchain,
-			.pImageIndices = &g_frame.swapchain_image_index,
-			.swapchainCount = 1,
-			.pWaitSemaphores = &g_frame.done,
-			.waitSemaphoreCount = 1,
-		};
-
-		const VkResult present_result = vkQueuePresentKHR(vk_core.queue, &presinfo);
-		switch (present_result)
-		{
-			case VK_ERROR_OUT_OF_DATE_KHR:
-			case VK_ERROR_SURFACE_LOST_KHR:
-				gEngine.Con_Printf(S_WARN "vkQueuePresentKHR returned %s, frame will be lost\n", resultName(present_result));
-				break;
-			default:
-				XVK_CHECK(present_result);
-		}
-	}
+	R_VkSwapchainPresent(g_frame.current_framebuffer.index, g_frame.done);
+	g_frame.current_framebuffer = (r_vk_swapchain_framebuffer_t){0};
 
 	APROF_SCOPE_BEGIN(frame_gpu_wait);
 	// TODO bad sync
@@ -504,9 +265,6 @@ void R_EndFrame( void )
 	// For now we can just erase these buffers now because of sync with fence
 	XVK_RenderBufferFrameClear();
 
-	g_frame.last_frame_index = g_frame.swapchain_image_index;
-	g_frame.swapchain_image_index = -1;
-
 	APROF_SCOPE_END(end_frame);
 }
 
@@ -520,17 +278,20 @@ static void toggleRaytracing( void ) {
 qboolean VK_FrameCtlInit( void )
 {
 	PROFILER_SCOPES(APROF_SCOPE_INIT);
-	vk_frame.render_pass.raster = createRenderPass(false);
-	if (vk_core.rtx)
-		vk_frame.render_pass.after_ray_tracing = createRenderPass(true);
 
-	if (!createSwapchain())
+	const VkFormat depth_format = findSupportedImageFormat(depth_formats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+
+	// FIXME move this out to renderers
+	vk_frame.render_pass.raster = createRenderPass(depth_format, false);
+	if (vk_core.rtx)
+		vk_frame.render_pass.after_ray_tracing = createRenderPass(depth_format, true);
+
+	if (!R_VkSwapchainInit(vk_frame.render_pass.raster, depth_format))
 		return false;
 
 	g_frame.image_available = createSemaphore();
 	g_frame.done = createSemaphore();
 	g_frame.fence = createFence();
-	g_frame.swapchain_image_index = -1;
 
 	g_frame.rtx_enabled = vk_core.rtx;
 
@@ -547,13 +308,20 @@ void VK_FrameCtlShutdown( void )
 	destroySemaphore(g_frame.done);
 	destroySemaphore(g_frame.image_available);
 
-	destroySwapchain( g_frame.swapchain );
+	R_VkSwapchainShutdown();
 
 	vkDestroyRenderPass(vk_core.device, vk_frame.render_pass.raster, NULL);
 	if (vk_core.rtx)
 		vkDestroyRenderPass(vk_core.device, vk_frame.render_pass.after_ray_tracing, NULL);
 }
 
+#if 1
+static rgbdata_t *XVK_ReadPixels( void ) {
+	// FIXME
+	return NULL;
+}
+#else
+#error TODO
 static qboolean canBlitFromSwapchainToFormat( VkFormat dest_format ) {
 	VkFormatProperties props;
 
@@ -793,6 +561,7 @@ static rgbdata_t *XVK_ReadPixels( void ) {
 
 	return r_shot;
 }
+#endif
 
 qboolean VID_ScreenShot( const char *filename, int shot_type )
 {

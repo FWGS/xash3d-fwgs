@@ -1,6 +1,7 @@
 #include "vk_image.h"
 
 xvk_image_t XVK_ImageCreate(const xvk_image_create_t *create) {
+	const qboolean is_depth = !!(create->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	xvk_image_t image;
 	VkMemoryRequirements memreq;
 	VkImageViewCreateInfo ivci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
@@ -34,12 +35,12 @@ xvk_image_t XVK_ImageCreate(const xvk_image_create_t *create) {
 	ivci.viewType = create->is_cubemap ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
 	ivci.format = ici.format;
 	ivci.image = image.image;
-	ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	ivci.subresourceRange.aspectMask = is_depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 	ivci.subresourceRange.baseMipLevel = 0;
 	ivci.subresourceRange.levelCount = ici.mipLevels;
 	ivci.subresourceRange.baseArrayLayer = 0;
 	ivci.subresourceRange.layerCount = ici.arrayLayers;
-	ivci.components = (VkComponentMapping){0, 0, 0, create->has_alpha ? 0 : VK_COMPONENT_SWIZZLE_ONE};
+	ivci.components = (VkComponentMapping){0, 0, 0, (is_depth || create->has_alpha) ? 0 : VK_COMPONENT_SWIZZLE_ONE};
 	XVK_CHECK(vkCreateImageView(vk_core.device, &ivci, NULL, &image.view));
 
 	if (create->debug_name)

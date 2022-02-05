@@ -4,8 +4,10 @@
 #include "xash3d_types.h"
 
 typedef struct vk_framectl_s {
+	// TODO only used from 2d, remove
 	uint32_t width, height;
 
+	// TODO move these into renderer and 2d
 	struct {
 		// Used when the entire rendering is traditional triangle rasterization
 		// Discards and clears color buffer
