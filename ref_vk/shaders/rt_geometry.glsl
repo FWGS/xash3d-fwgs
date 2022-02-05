@@ -1,10 +1,4 @@
-vec3 baryMix(vec3 v1, vec3 v2, vec3 v3, vec2 bary) {
-	return v1 * (1. - bary.x - bary.y) + v2 * bary.x + v3 * bary.y;
-}
-
-vec2 baryMix(vec2 v1, vec2 v2, vec2 v3, vec2 bary) {
-	return v1 * (1. - bary.x - bary.y) + v2 * bary.x + v3 * bary.y;
-}
+#include "utils.glsl"
 
 // Taken from Journal of Computer Graphics Techniques, Vol. 10, No. 1, 2021.
 // Improved Shader and Texture Level of Detail Using Ray Cones,

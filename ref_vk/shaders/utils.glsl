@@ -1,3 +1,6 @@
+#ifndef UTILS_GLSL_INCLUDED
+#define UTILS_GLSL_INCLUDED
+
 float signP(float v) { return v >= 0.f ? 1.f : -1.f; }
 vec2 signP(vec2 v) { return vec2(signP(v.x), signP(v.y)); }
 
@@ -27,3 +30,12 @@ vec3 normalDecode( vec2 f )
     return normalize( n );
 }
 
+vec3 baryMix(vec3 v1, vec3 v2, vec3 v3, vec2 bary) {
+	return v1 * (1. - bary.x - bary.y) + v2 * bary.x + v3 * bary.y;
+}
+
+vec2 baryMix(vec2 v1, vec2 v2, vec2 v3, vec2 bary) {
+	return v1 * (1. - bary.x - bary.y) + v2 * bary.x + v3 * bary.y;
+}
+
+#endif // UTILS_GLSL_INCLUDED

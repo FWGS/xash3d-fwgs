@@ -1,3 +1,20 @@
+# Passes
+- [ ] better simple sampling
+	- [ ] all triangles
+	- [ ] area based on triangles
+	- [ ] clipping?
+	- [ ] can we pack polygon lights better? e.g.:
+		- each light is strictly a triangle
+		- index is offset into triangles
+		- layout:
+			- vec4(plane) // is it really needed? is early culling important? can we shove area into there too? e.g plane_n.xy,plane_d, area
+			- vec4(v0xyz, e_r)
+			- vec4(v1xyz, e_g)
+			- vec4(v2xyz, e_b)
+- [ ] additive transparency
+- [ ] bounces
+- [ ] skybox shadows
+
 # Next
 - [ ] remove surface visibility cache
 - [ ] rtx: rename point lights to lampochki
