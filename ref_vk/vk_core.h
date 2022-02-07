@@ -63,7 +63,10 @@ typedef struct vulkan_core_s {
 
 extern vulkan_core_t vk_core;
 
-const char *resultName(VkResult result);
+const char *R_VkResultName(VkResult result);
+const char *R_VkPresentModeName(VkPresentModeKHR present_mode);
+const char *R_VkFormatName(VkFormat format);
+const char *R_VkColorSpaceName(VkColorSpaceKHR colorspace);
 
 #define SET_DEBUG_NAME(object, type, name) \
 do { \
@@ -99,9 +102,9 @@ do { \
 		const VkResult result = f; \
 		if (result != VK_SUCCESS) { \
 			gEngine.Con_Printf( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
-				__FILE__, __LINE__, result, resultName(result)); \
+				__FILE__, __LINE__, result, R_VkResultName(result)); \
 			gEngine.Host_Error( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
-				__FILE__, __LINE__, result, resultName(result)); \
+				__FILE__, __LINE__, result, R_VkResultName(result)); \
 		} \
 	} while(0)
 

@@ -200,12 +200,12 @@ r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore semaphore, VkFen
 		switch (acquire_result) {
 			case VK_ERROR_OUT_OF_DATE_KHR:
 			case VK_ERROR_SURFACE_LOST_KHR:
-				gEngine.Con_Printf(S_WARN "vkAcquireNextImageKHR returned %s, recreating swapchain\n", resultName(acquire_result));
+				gEngine.Con_Printf(S_WARN "vkAcquireNextImageKHR returned %s, recreating swapchain\n", R_VkResultName(acquire_result));
 				if (i == 0) {
 					force_recreate = true;
 					continue;
 				}
-				gEngine.Con_Printf(S_WARN "second vkAcquireNextImageKHR failed, frame will be lost\n", resultName(acquire_result));
+				gEngine.Con_Printf(S_WARN "second vkAcquireNextImageKHR failed, frame will be lost\n", R_VkResultName(acquire_result));
 				return ret;
 
 			default:
@@ -239,7 +239,7 @@ void R_VkSwapchainPresent( uint32_t index, VkSemaphore done ) {
 	{
 		case VK_ERROR_OUT_OF_DATE_KHR:
 		case VK_ERROR_SURFACE_LOST_KHR:
-			gEngine.Con_Printf(S_WARN "vkQueuePresentKHR returned %s, frame will be lost\n", resultName(present_result));
+			gEngine.Con_Printf(S_WARN "vkQueuePresentKHR returned %s, frame will be lost\n", R_VkResultName(present_result));
 			break;
 		default:
 			XVK_CHECK(present_result);
