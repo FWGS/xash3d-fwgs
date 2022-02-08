@@ -220,15 +220,18 @@ WriteTriangleInfo
 */
 static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t *texture, mstudiotrivert_t **triverts, qboolean isevenstrip )
 {
-	int	 i, indices[3];
+	int	 i, j, indices[3];
 	int	 vert_index;
 	int	 norm_index;
 	int	 bone_index;
+	int  valid_bones;
 	float	 s, t, u, v;
 	byte	*vertbone;
 	vec3_t	*studioverts;
 	vec3_t	*studionorms;
 	vec3_t	 vert, norm;
+	mstudioboneweight_t *studioboneweights;
+	qboolean boneweights_supported;
 
 	if( isevenstrip )
 	{
@@ -243,9 +246,15 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 		indices[2] = 2;
 	}
 
+	if( model_hdr->flags & STUDIO_HAS_BONEWEIGHTS )
+		boneweights_supported = true;
+	else
+		boneweights_supported = false;
+
 	vertbone    = ( (byte *)model_hdr + model->vertinfoindex );
 	studioverts = (vec3_t *)( (byte *)model_hdr + model->vertindex );
 	studionorms = (vec3_t *)( (byte *)model_hdr + model->normindex );
+	studioboneweights = (mstudioboneweight_t *)( (byte *)model_hdr + model->blendvertinfoindex );
 
 	s = 1.0f / texture->width;
 	t = 1.0f / texture->height;
@@ -265,11 +274,38 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 		u = ( triverts[indices[i]]->s + 1.0f ) * s;
 		v = 1.0f - triverts[indices[i]]->t * t;
 
-		fprintf( fp, "%3i %f %f %f %f %f %f %f %f\n",
-		    bone_index,
-		    vert[0], vert[1], vert[2],
-		    norm[0], norm[1], norm[2],
-		    u, v );
+		if( boneweights_supported )
+		{
+			valid_bones = 0;
+			for( j = 0; j < MAXSTUDIOBONEWEIGHTS; ++j )
+			{
+				if( studioboneweights[vert_index].bone[j] != -1 ) {
+					valid_bones++;
+				}
+			}
+
+			fprintf( fp, "%3i %f %f %f %f %f %f %f %f %d",
+				bone_index,
+				vert[0], vert[1], vert[2],
+				norm[0], norm[1], norm[2],
+				u, v, valid_bones );
+
+			for( j = 0; j < valid_bones; ++j )
+			{
+				fprintf( fp, " %d %f",
+					studioboneweights[vert_index].bone[j],
+					studioboneweights[vert_index].weight[j] / 255.f );
+			}
+			fprintf( fp, "\n" );
+		}
+		else
+		{
+			fprintf( fp, "%3i %f %f %f %f %f %f %f %f\n",
+				bone_index,
+				vert[0], vert[1], vert[2],
+				norm[0], norm[1], norm[2],
+				u, v );
+		}
 	}
 }
 

@@ -605,6 +605,10 @@ void WriteQCScript( void )
 	fputs( "$cdtexture \".\\\"\n", fp );
 	fputs( "$scale 1.0\n", fp );
 	fputs( "$cliptotextures\n", fp );
+
+	if( model_hdr->flags & STUDIO_HAS_BONEWEIGHTS )
+		fputs( "$boneweights\n", fp );
+
 	fputs( "\n", fp );
 
 	if( !model_hdr->numtextures )
