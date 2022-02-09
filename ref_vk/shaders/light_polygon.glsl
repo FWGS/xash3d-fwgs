@@ -37,7 +37,29 @@ vec4 getPolygonLightSampleSimple(vec3 P, vec3 view_dir, const PolygonLight poly)
 
 	const vec3 light_dir = baryMix(v[0], v[1], v[2], rnd) - P;
 	const vec3 light_dir_n = normalize(light_dir);
-	float contrib = - poly.area * dot(light_dir_n, poly.plane.xyz ) / dot(light_dir, light_dir);
+	//const float contrib = - poly.area * dot(light_dir_n, poly.plane.xyz ) / dot(light_dir, light_dir);
+
+	v[0] = normalize(v[0] - P);
+	v[1] = normalize(v[1] - P);
+	v[2] = normalize(v[2] - P);
+
+	// effectively mindlessly copypasted from polygon_sampling.glsl, Peters 2021
+	// https://github.com/MomentsInGraphics/vulkan_renderer/blob/main/src/shaders/polygon_sampling.glsl
+	const float householder_sign = (v[0].x > 0.0f) ? -1.0f : 1.0f;
+	const vec2 householder_yz = v[0].yz * (1.0f / (abs(v[0].x) + 1.0f));
+	const float dot_0_1 = dot(v[0], v[1]);
+	const float dot_0_2 = dot(v[0], v[2]);
+	const float dot_1_2 = dot(v[1], v[2]);
+	const float dot_householder_0 = fma(-householder_sign, v[0].x, dot_0_1);
+	const float dot_householder_2 = fma(-householder_sign, v[2].x, dot_1_2);
+	const mat2 bottom_right_minor = mat2(
+		fma(vec2(-dot_householder_0), householder_yz, v[0].yz),
+		fma(vec2(-dot_householder_2), householder_yz, v[2].yz));
+	const float simplex_volume = abs(determinant(bottom_right_minor));
+	const float dot_0_2_plus_1_2 = dot_0_2 + dot_1_2;
+	const float one_plus_dot_0_1 = 1.0f + dot_0_1;
+	const float tangent = simplex_volume / (one_plus_dot_0_1 + dot_0_2_plus_1_2);
+	const float contrib = 2.f * (atan(tangent) + (tangent < 0.f ? M_PI : 0.));
 
 	return vec4(light_dir_n, contrib);
 }
