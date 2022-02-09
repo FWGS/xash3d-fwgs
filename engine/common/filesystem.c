@@ -1863,6 +1863,11 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 				pfile = COM_ParseFile( pfile, token, sizeof( token ));
 				GameInfo->noskills = Q_atoi( token );
 			}
+			else if( !Q_stricmp( token, "render_picbutton_text" ))
+			{
+				pfile = COM_ParseFile( pfile, token, sizeof( token ));
+				GameInfo->render_picbutton_text = Q_atoi( token );
+			}
 		}
 	}
 
