@@ -37,31 +37,73 @@ vec4 getPolygonLightSampleSimple(vec3 P, vec3 view_dir, const PolygonLight poly)
 
 	const vec3 light_dir = baryMix(v[0], v[1], v[2], rnd) - P;
 	const vec3 light_dir_n = normalize(light_dir);
-	//const float contrib = - poly.area * dot(light_dir_n, poly.plane.xyz ) / dot(light_dir, light_dir);
+	const float contrib = - poly.area * dot(light_dir_n, poly.plane.xyz ) / dot(light_dir, light_dir);
+	return vec4(light_dir_n, contrib);
+}
 
-	v[0] = normalize(v[0] - P);
-	v[1] = normalize(v[1] - P);
-	v[2] = normalize(v[2] - P);
+vec4 getPolygonLightSampleSimpleSolid(vec3 P, vec3 view_dir, const PolygonLight poly) {
+	const uint vertices_offset = poly.vertices_count_offset & 0xffffu;
+	uint vertices_count = poly.vertices_count_offset >> 16;
 
-	// effectively mindlessly copypasted from polygon_sampling.glsl, Peters 2021
-	// https://github.com/MomentsInGraphics/vulkan_renderer/blob/main/src/shaders/polygon_sampling.glsl
+	uint selected = 0;
+	float total_contrib = 0.;
+	float eps1 = rand01();
+	vec3 v[3];
+	v[0] = normalize(lights.polygon_vertices[vertices_offset + 0].xyz - P);
+	v[1] = normalize(lights.polygon_vertices[vertices_offset + 1].xyz - P);
 	const float householder_sign = (v[0].x > 0.0f) ? -1.0f : 1.0f;
 	const vec2 householder_yz = v[0].yz * (1.0f / (abs(v[0].x) + 1.0f));
-	const float dot_0_1 = dot(v[0], v[1]);
-	const float dot_0_2 = dot(v[0], v[2]);
-	const float dot_1_2 = dot(v[1], v[2]);
-	const float dot_householder_0 = fma(-householder_sign, v[0].x, dot_0_1);
-	const float dot_householder_2 = fma(-householder_sign, v[2].x, dot_1_2);
-	const mat2 bottom_right_minor = mat2(
-		fma(vec2(-dot_householder_0), householder_yz, v[0].yz),
-		fma(vec2(-dot_householder_2), householder_yz, v[2].yz));
-	const float simplex_volume = abs(determinant(bottom_right_minor));
-	const float dot_0_2_plus_1_2 = dot_0_2 + dot_1_2;
-	const float one_plus_dot_0_1 = 1.0f + dot_0_1;
-	const float tangent = simplex_volume / (one_plus_dot_0_1 + dot_0_2_plus_1_2);
-	const float contrib = 2.f * (atan(tangent) + (tangent < 0.f ? M_PI : 0.));
+	for (uint i = 2; i < vertices_count; ++i) {
+		v[2] = normalize(lights.polygon_vertices[vertices_offset + i].xyz - P);
 
-	return vec4(light_dir_n, contrib);
+		// effectively mindlessly copypasted from polygon_sampling.glsl, Peters 2021
+		// https://github.com/MomentsInGraphics/vulkan_renderer/blob/main/src/shaders/polygon_sampling.glsl
+		const float dot_0_1 = dot(v[0], v[1]);
+		const float dot_0_2 = dot(v[1], v[2]);
+		const float dot_1_2 = dot(v[0], v[2]);
+		const float dot_householder_0 = fma(-householder_sign, v[1].x, dot_0_1);
+		const float dot_householder_2 = fma(-householder_sign, v[2].x, dot_1_2);
+		const mat2 bottom_right_minor = mat2(
+			fma(vec2(-dot_householder_0), householder_yz, v[1].yz),
+			fma(vec2(-dot_householder_2), householder_yz, v[2].yz));
+		const float simplex_volume = abs(determinant(bottom_right_minor));
+		const float dot_0_2_plus_1_2 = dot_0_2 + dot_1_2;
+		const float one_plus_dot_0_1 = 1.0f + dot_0_1;
+		const float tangent = simplex_volume / (one_plus_dot_0_1 + dot_0_2_plus_1_2);
+		const float contrib = 2.f * (atan(tangent) + (tangent < 0.f ? M_PI : 0.));
+
+		if (contrib < 1e-6)
+			continue;
+
+		const float tau = total_contrib / (total_contrib + contrib);
+		total_contrib += contrib;
+
+		if (eps1 < tau) {
+			eps1 /= tau;
+		} else {
+			selected = i;
+			eps1 = (eps1 - tau) / (1. - tau);
+		}
+
+		// selected = 2;
+		// break;
+		v[1] = v[2];
+	}
+
+	if (selected == 0)
+		return vec4(0.);
+
+	vec2 rnd = vec2(sqrt(rand01()), rand01());
+	rnd.y *= rnd.x;
+	rnd.x = 1.f - rnd.x;
+
+	const vec3 light_dir = baryMix(
+		lights.polygon_vertices[vertices_offset + 0].xyz,
+		lights.polygon_vertices[vertices_offset + selected - 1].xyz,
+		lights.polygon_vertices[vertices_offset + selected].xyz,
+		rnd) - P;
+	const vec3 light_dir_n = normalize(light_dir);
+	return vec4(light_dir_n, total_contrib);
 }
 
 vec4 getPolygonLightSampleProjected(vec3 view_dir, SampleContext ctx, const PolygonLight poly) {
@@ -120,6 +162,7 @@ vec4 getPolygonLightSampleSolid(vec3 P, vec3 view_dir, SampleContext ctx, const 
 #define DO_ALL_IN_CLUSTER 1
 //#define PROJECTED
 //#define SOLID
+#define SIMPLE_SOLID
 
 void sampleSinglePolygonLight(in vec3 P, in vec3 N, in vec3 view_dir, in SampleContext ctx, in MaterialProperties material, in PolygonLight poly, inout vec3 diffuse, inout vec3 specular) {
 	// TODO cull by poly plane
@@ -182,6 +225,8 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 		const vec4 light_sample_dir = getPolygonLightSampleProjected(view_dir, ctx, poly);
 #elif defined(SOLID)
 		const vec4 light_sample_dir = getPolygonLightSampleSolid(P, view_dir, ctx, poly);
+#elif defined(SIMPLE_SOLID)
+		const vec4 light_sample_dir = getPolygonLightSampleSimpleSolid(P, view_dir, poly);
 #else
 		const vec4 light_sample_dir = getPolygonLightSampleSimple(P, view_dir, poly);
 #endif
