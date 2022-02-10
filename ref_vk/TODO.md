@@ -1,7 +1,7 @@
 # Passes
 - [ ] better simple sampling
-	- [ ] all triangles
-	- [ ] area based on triangles
+	- [x] all triangles
+	- [x] area based on triangles
 	- [ ] clipping?
 	- [ ] can we pack polygon lights better? e.g.:
 		- each light is strictly a triangle

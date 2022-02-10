@@ -89,6 +89,7 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 		if (dot(combined,combined) < color_culling_threshold)
 			continue;
 
+		// FIXME split environment and other lights
 		if (not_environment) {
 			if (shadowed(P, light_dir_norm, light_dist + shadow_offset_fudge))
 				continue;

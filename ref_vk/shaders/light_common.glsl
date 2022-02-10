@@ -3,23 +3,28 @@
 
 #ifdef RAY_TRACE2
 #include "ray_shadow_interface.glsl"
-layout(location = 0) rayPayloadEXT RayPayloadShadow payload_shadow;
+layout(location = PAYLOAD_LOCATION_SHADOW) rayPayloadEXT RayPayloadShadow payload_shadow;
 #endif
+
+uint traceShadowRay(vec3 pos, vec3 dir, float dist, uint flags) {
+	payload_shadow.hit_type = SHADOW_HIT;
+	traceRayEXT(tlas,
+		flags,
+		GEOMETRY_BIT_OPAQUE,
+		SHADER_OFFSET_HIT_SHADOW_BASE, SBT_RECORD_SIZE, SHADER_OFFSET_MISS_SHADOW,
+		pos, 0., dir, dist - shadow_offset_fudge, PAYLOAD_LOCATION_SHADOW);
+	return payload_shadow.hit_type;
+}
 
 bool shadowed(vec3 pos, vec3 dir, float dist) {
 #ifdef RAY_TRACE
-	payload_shadow.hit_type = SHADOW_HIT;
 	const uint flags =  0
 		//| gl_RayFlagsCullFrontFacingTrianglesEXT
 		//| gl_RayFlagsOpaqueEXT
 		| gl_RayFlagsTerminateOnFirstHitEXT
 		| gl_RayFlagsSkipClosestHitShaderEXT
 		;
-	traceRayEXT(tlas,
-		flags,
-		GEOMETRY_BIT_OPAQUE,
-		SHADER_OFFSET_HIT_SHADOW_BASE, SBT_RECORD_SIZE, SHADER_OFFSET_MISS_SHADOW,
-		pos, 0., dir, dist - shadow_offset_fudge, PAYLOAD_LOCATION_SHADOW);
+	const uint hit_type = traceShadowRay(pos, dir, dist, flags);
 	return payload_shadow.hit_type == SHADOW_HIT;
 #elif defined(RAY_QUERY)
 	rayQueryEXT rq;
@@ -39,19 +44,14 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 
 // TODO join with just shadowed()
 bool shadowedSky(vec3 pos, vec3 dir, float dist) {
-#if 0
-	payload_shadow.hit_type = SHADOW_HIT;
+#if 1
 	const uint flags =  0
 		//| gl_RayFlagsCullFrontFacingTrianglesEXT
 		//| gl_RayFlagsOpaqueEXT
 		//| gl_RayFlagsTerminateOnFirstHitEXT
 		//| gl_RayFlagsSkipClosestHitShaderEXT
 		;
-	traceRayEXT(tlas,
-		flags,
-		GEOMETRY_BIT_OPAQUE,
-		SHADER_OFFSET_HIT_SHADOW_BASE, SBT_RECORD_SIZE, SHADER_OFFSET_MISS_SHADOW,
-		pos, 0., dir, dist - shadow_offset_fudge, PAYLOAD_LOCATION_SHADOW);
+	const uint hit_type = traceShadowRay(pos, dir, dist, flags);
 	return payload_shadow.hit_type != SHADOW_SKY;
 #else
 	return false;

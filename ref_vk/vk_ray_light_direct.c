@@ -125,7 +125,7 @@ struct ray_pass_s *R_VkRayLightDirectPointPassCreate( void ) {
 	};
 
 	const ray_pass_hit_group_t hit[] = { {
-		 .closest = NULL,
+		 .closest = "ray_shadow.rchit.spv",
 		 .any = "ray_common_alphatest.rahit.spv",
 		},
 	};
