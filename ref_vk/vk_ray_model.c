@@ -246,7 +246,9 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		} else {
 			qboolean result;
 			asrgs.p_accel = &ray_model->as;
-			result = createOrUpdateAccelerationStructure(vk_core.cb, &asrgs, ray_model);
+			ASSERT(!"Not implemented");
+			result = false;
+			//result = createOrUpdateAccelerationStructure(vk_core.cb, &asrgs, ray_model);
 
 			if (!result)
 			{

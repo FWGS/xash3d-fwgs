@@ -592,7 +592,7 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 		vkCmdBindIndexBuffer(cmdbuf, g_render.buffer.buffer, 0, VK_INDEX_TYPE_UINT16);
 	}
 
-	vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 3, 1, vk_desc.ubo_sets + 1, 1, &dlights_ubo_offset);
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 3, 1, vk_desc.ubo_sets + 1, 1, &dlights_ubo_offset);
 
 	for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
 		const draw_command_t *const draw = g_render_state.draw_commands + i;
@@ -615,29 +615,29 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 		if (ubo_offset != draw->draw.ubo_offset)
 		{
 			ubo_offset = draw->draw.ubo_offset;
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 0, 1, vk_desc.ubo_sets, 1, &ubo_offset);
+			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 0, 1, vk_desc.ubo_sets, 1, &ubo_offset);
 		}
 
 		if (pipeline != draw->draw.draw.render_mode) {
 			pipeline = draw->draw.draw.render_mode;
-			vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipelines[pipeline]);
+			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipelines[pipeline]);
 		}
 
 		if (lightmap != draw->draw.draw.lightmap) {
 			lightmap = draw->draw.draw.lightmap;
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 2, 1, &findTexture(lightmap)->vk.descriptor, 0, NULL);
+			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 2, 1, &findTexture(lightmap)->vk.descriptor, 0, NULL);
 		}
 
 		if (texture != draw->draw.draw.texture)
 		{
 			texture = draw->draw.draw.texture;
 			// TODO names/enums for binding points
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 1, 1, &findTexture(texture)->vk.descriptor, 0, NULL);
+			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 1, 1, &findTexture(texture)->vk.descriptor, 0, NULL);
 		}
 
 		// Only indexed mode is supported
 		ASSERT(draw->draw.draw.index_offset >= 0);
-		vkCmdDrawIndexed(vk_core.cb, draw->draw.draw.element_count, 1, draw->draw.draw.index_offset, draw->draw.draw.vertex_offset, 0);
+		vkCmdDrawIndexed(cmdbuf, draw->draw.draw.element_count, 1, draw->draw.draw.index_offset, draw->draw.draw.vertex_offset, 0);
 	}
 }
 

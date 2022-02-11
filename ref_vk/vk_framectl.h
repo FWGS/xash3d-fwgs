@@ -3,6 +3,8 @@
 
 #include "xash3d_types.h"
 
+#define MAX_CONCURRENT_FRAMES 2
+
 typedef struct vk_framectl_s {
 	// TODO only used from 2d, remove
 	uint32_t width, height;

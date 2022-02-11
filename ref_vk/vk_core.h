@@ -10,13 +10,25 @@
 qboolean R_VkInit( void );
 void R_VkShutdown( void );
 
-// FIXME load from embedded static structs
-VkShaderModule loadShader(const char *filename);
-VkSemaphore createSemaphore( void );
-void destroySemaphore(VkSemaphore sema);
-VkFence createFence( void );
-void destroyFence(VkFence fence);
+typedef struct {
+	VkCommandPool pool;
+	VkCommandBuffer *buffers;
+	int buffers_count;
+} vk_command_pool_t;
 
+vk_command_pool_t R_VkCommandPoolCreate( int count );
+void R_VkCommandPoolDestroy( vk_command_pool_t *pool );
+
+// TODO load from embedded static structs
+VkShaderModule loadShader(const char *filename);
+
+VkSemaphore R_VkSemaphoreCreate( void );
+void R_VkSemaphoreDestroy(VkSemaphore sema);
+
+VkFence R_VkFenceCreate( qboolean signaled );
+void R_VkFenceDestroy(VkFence fence);
+
+// TODO move all these to vk_device.{h,c} or something
 typedef struct physical_device_s {
 	VkPhysicalDevice device;
 	VkPhysicalDeviceMemoryProperties2 memory_properties2;
@@ -51,9 +63,7 @@ typedef struct vulkan_core_s {
 	VkDevice device;
 	VkQueue queue;
 
-	VkCommandPool command_pool;
-	VkCommandBuffer cb;
-	VkCommandBuffer cb_tex;
+	vk_command_pool_t upload_pool;
 
 	VkSampler default_sampler;
 
@@ -188,6 +198,7 @@ do { \
 	X(vkCmdPipelineBarrier) \
 	X(vkCmdCopyBufferToImage) \
 	X(vkQueueWaitIdle) \
+	X(vkDeviceWaitIdle) \
 	X(vkDestroyImage) \
 	X(vkCmdBindDescriptorSets) \
 	X(vkCreateSampler) \

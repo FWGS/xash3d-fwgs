@@ -188,7 +188,7 @@ void R_VkSwapchainShutdown( void ) {
 	destroySwapchainAndFramebuffers( g_swapchain.swapchain );
 }
 
-r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore semaphore, VkFence fence ) {
+r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore sem_image_available ) {
 	r_vk_swapchain_framebuffer_t ret = {0};
 	qboolean force_recreate = false;
 
@@ -196,7 +196,7 @@ r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore semaphore, VkFen
 		// Check that swapchain has the same size
 		recreateSwapchain(force_recreate);
 
-		const VkResult acquire_result = vkAcquireNextImageKHR(vk_core.device, g_swapchain.swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &ret.index);
+		const VkResult acquire_result = vkAcquireNextImageKHR(vk_core.device, g_swapchain.swapchain, UINT64_MAX, sem_image_available, VK_NULL_HANDLE, &ret.index);
 		switch (acquire_result) {
 			case VK_ERROR_OUT_OF_DATE_KHR:
 			case VK_ERROR_SURFACE_LOST_KHR:

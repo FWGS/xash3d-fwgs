@@ -152,12 +152,13 @@ void R_NewMap( void )
 	// RTX map loading requires command buffer for building blases
 	if (vk_core.rtx)
 	{
-		const VkCommandBufferBeginInfo beginfo = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		};
-
-		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
+		ASSERT(!"Not implemented");
+		/* const VkCommandBufferBeginInfo beginfo = { */
+		/* 	.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, */
+		/* 	.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, */
+		/* }; */
+    /*  */
+		/* XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo)); */
 	}
 
 	// Load light entities and patch data prior to loading map brush model
@@ -195,15 +196,16 @@ void R_NewMap( void )
 
 	if (vk_core.rtx)
 	{
-		const VkSubmitInfo subinfo = {
-			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-			.commandBufferCount = 1,
-			.pCommandBuffers = &vk_core.cb,
-		};
-
-		XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
-		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
-		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
+		ASSERT(!"Not implemented");
+		/* const VkSubmitInfo subinfo = { */
+		/* 	.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO, */
+		/* 	.commandBufferCount = 1, */
+		/* 	.pCommandBuffers = &vk_core.cb, */
+		/* }; */
+    /*  */
+		/* XVK_CHECK(vkEndCommandBuffer(vk_core.cb)); */
+		/* XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE)); */
+		/* XVK_CHECK(vkQueueWaitIdle(vk_core.queue)); */
 	}
 
 	// TODO should we do something like VK_BrushEndLoad?

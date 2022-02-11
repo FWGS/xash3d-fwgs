@@ -593,30 +593,35 @@ static qboolean initSurface( void )
 	return true;
 }
 
-static qboolean createCommandPool( void ) {
-	VkCommandPoolCreateInfo cpci = {
+vk_command_pool_t R_VkCommandPoolCreate( int count ) {
+	vk_command_pool_t ret = {0};
+
+	const VkCommandPoolCreateInfo cpci = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 		.queueFamilyIndex = 0,
 		.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
 	};
 
-	VkCommandBuffer bufs[2];
-
 	VkCommandBufferAllocateInfo cbai = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.commandBufferCount = ARRAYSIZE(bufs),
+		.commandBufferCount = count,
 		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 	};
 
+	XVK_CHECK(vkCreateCommandPool(vk_core.device, &cpci, NULL, &ret.pool));
 
-	XVK_CHECK(vkCreateCommandPool(vk_core.device, &cpci, NULL, &vk_core.command_pool));
-	cbai.commandPool = vk_core.command_pool;
-	XVK_CHECK(vkAllocateCommandBuffers(vk_core.device, &cbai, bufs));
+	cbai.commandPool = ret.pool;
+	ret.buffers = Mem_Malloc(vk_core.pool, sizeof(VkCommandBuffer) * count);
+	ret.buffers_count = count;
+	XVK_CHECK(vkAllocateCommandBuffers(vk_core.device, &cbai, ret.buffers));
 
-	vk_core.cb = bufs[0];
-	vk_core.cb_tex = bufs[1];
+	return ret;
+}
 
-	return true;
+void R_VkCommandPoolDestroy( vk_command_pool_t *pool ) {
+	ASSERT(pool->buffers);
+	vkDestroyCommandPool(vk_core.device, pool->pool, NULL);
+	Mem_Free(pool->buffers);
 }
 
 qboolean R_VkInit( void )
@@ -679,8 +684,7 @@ qboolean R_VkInit( void )
 	if (!initSurface())
 		return false;
 
-	if (!createCommandPool())
-		return false;
+	vk_core.upload_pool = R_VkCommandPoolCreate( 1 );
 
 	if (!VK_DevMemInit())
 		return false;
@@ -750,8 +754,9 @@ qboolean R_VkInit( void )
 	return true;
 }
 
-void R_VkShutdown( void )
-{
+void R_VkShutdown( void ) {
+	XVK_CHECK(vkDeviceWaitIdle(vk_core.device));
+
 	if (vk_core.rtx)
 	{
 		XVK_DenoiserDestroy();
@@ -778,7 +783,7 @@ void R_VkShutdown( void )
 
 	VK_DevMemDestroy();
 
-	vkDestroyCommandPool(vk_core.device, vk_core.command_pool, NULL);
+	R_VkCommandPoolDestroy( &vk_core.upload_pool );
 
 	vkDestroyDevice(vk_core.device, NULL);
 
@@ -829,7 +834,7 @@ VkShaderModule loadShader(const char *filename) {
 	return shader;
 }
 
-VkSemaphore createSemaphore( void ) {
+VkSemaphore R_VkSemaphoreCreate( void ) {
 	VkSemaphore sema;
 	VkSemaphoreCreateInfo sci = {
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -839,20 +844,20 @@ VkSemaphore createSemaphore( void ) {
 	return sema;
 }
 
-void destroySemaphore(VkSemaphore sema) {
+void R_VkSemaphoreDestroy(VkSemaphore sema) {
 	vkDestroySemaphore(vk_core.device, sema, NULL);
 }
 
-VkFence createFence( void ) {
+VkFence R_VkFenceCreate( qboolean signaled ) {
 	VkFence fence;
-	VkFenceCreateInfo fci = {
+	const VkFenceCreateInfo fci = {
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-		.flags = 0,
+		.flags = signaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0,
 	};
 	XVK_CHECK(vkCreateFence(vk_core.device, &fci, NULL, &fence));
 	return fence;
 }
 
-void destroyFence(VkFence fence) {
+void R_VkFenceDestroy(VkFence fence) {
 	vkDestroyFence(vk_core.device, fence, NULL);
 }
