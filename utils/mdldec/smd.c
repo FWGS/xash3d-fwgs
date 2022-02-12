@@ -262,8 +262,16 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 		Matrix3x4_VectorRotate( bonetransform[bone_index], studionorms[norm_index], norm );
 		VectorNormalize( norm );
 
-		u = ( triverts[indices[i]]->s + 1.0f ) * s;
-		v = 1.0f - triverts[indices[i]]->t * t;
+		if( texture->flags & STUDIO_NF_UV_COORDS )
+		{
+			u = HalfToFloat( triverts[indices[i]]->s );
+			v = -HalfToFloat( triverts[indices[i]]->t );
+		}
+		else
+		{
+			u = ( triverts[indices[i]]->s + 1.0f ) * s;
+			v = 1.0f - triverts[indices[i]]->t * t;
+		}
 
 		fprintf( fp, "%3i %f %f %f %f %f %f %f %f\n",
 		    bone_index,
