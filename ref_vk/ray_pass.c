@@ -3,6 +3,9 @@
 #include "vk_pipeline.h"
 #include "vk_descriptor.h"
 
+// FIXME this is only needed for MAX_CONCURRENT_FRAMES
+#include "vk_framectl.h"
+
 #define MAX_STAGES 16
 #define MAX_MISS_GROUPS 8
 #define MAX_HIT_GROUPS 8
@@ -18,7 +21,7 @@ typedef struct ray_pass_s {
 
 	struct {
 		vk_descriptors_t riptors;
-		VkDescriptorSet sets[1];
+		VkDescriptorSet sets[MAX_CONCURRENT_FRAMES];
 		int *binding_semantics;
 	} desc;
 } ray_pass_t;
@@ -202,22 +205,22 @@ void RayPassDestroy( struct ray_pass_s *pass ) {
 	Mem_Free(pass);
 }
 
-static void performTracing( VkCommandBuffer cmdbuf, const ray_pass_tracing_impl_t *tracing, const struct vk_ray_resources_s *res) {
+static void performTracing( VkCommandBuffer cmdbuf, int set_slot, const ray_pass_tracing_impl_t *tracing, const struct vk_ray_resources_s *res) {
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, tracing->pipeline.pipeline);
-	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, tracing->header.desc.riptors.pipeline_layout, 0, 1, tracing->header.desc.riptors.desc_sets + 0, 0, NULL);
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, tracing->header.desc.riptors.pipeline_layout, 0, 1, tracing->header.desc.riptors.desc_sets + set_slot, 0, NULL);
 	VK_PipelineRayTracingTrace(cmdbuf, &tracing->pipeline, res->width, res->height);
 }
 
-static void performCompute( VkCommandBuffer cmdbuf, const ray_pass_compute_impl_t *compute, const struct vk_ray_resources_s *res) {
+static void performCompute( VkCommandBuffer cmdbuf, int set_slot, const ray_pass_compute_impl_t *compute, const struct vk_ray_resources_s *res) {
 	const uint32_t WG_W = 8;
 	const uint32_t WG_H = 8;
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, compute->pipeline);
-	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, compute->header.desc.riptors.pipeline_layout, 0, 1, compute->header.desc.riptors.desc_sets + 0, 0, NULL);
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, compute->header.desc.riptors.pipeline_layout, 0, 1, compute->header.desc.riptors.desc_sets + set_slot, 0, NULL);
 	vkCmdDispatch(cmdbuf, (res->width + WG_W - 1) / WG_W, (res->height + WG_H - 1) / WG_H, 1);
 }
 
-void RayPassPerform( VkCommandBuffer cmdbuf, struct ray_pass_s *pass, struct vk_ray_resources_s *res) {
+void RayPassPerform( VkCommandBuffer cmdbuf, int frame_set_slot, struct ray_pass_s *pass, struct vk_ray_resources_s *res) {
 	{
 		 ray_resources_fill_t fill = {
 			.resources = res,
@@ -239,7 +242,7 @@ void RayPassPerform( VkCommandBuffer cmdbuf, struct ray_pass_s *pass, struct vk_
 
 		RayResourcesFill(cmdbuf, fill);
 
-		VK_DescriptorsWrite(&pass->desc.riptors);
+		VK_DescriptorsWrite(&pass->desc.riptors, frame_set_slot);
 	}
 
 	DEBUG_BEGIN(cmdbuf, pass->debug_name);
@@ -248,13 +251,13 @@ void RayPassPerform( VkCommandBuffer cmdbuf, struct ray_pass_s *pass, struct vk_
 		case RayPassType_Tracing:
 			{
 				ray_pass_tracing_impl_t *tracing = (ray_pass_tracing_impl_t*)pass;
-				performTracing(cmdbuf, tracing, res);
+				performTracing(cmdbuf, frame_set_slot, tracing, res);
 				break;
 			}
 		case RayPassType_Compute:
 			{
 				ray_pass_compute_impl_t *compute = (ray_pass_compute_impl_t*)pass;
-				performCompute(cmdbuf, compute, res);
+				performCompute(cmdbuf, frame_set_slot, compute, res);
 				break;
 			}
 	}

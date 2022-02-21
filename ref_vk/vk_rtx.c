@@ -733,7 +733,7 @@ static void updateDescriptors( const vk_ray_frame_render_args_t *args, int frame
 		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 	};
 
-	VK_DescriptorsWrite(&g_rtx.descriptors);
+	VK_DescriptorsWrite(&g_rtx.descriptors, 0);
 }
 
 static qboolean rayTrace( VkCommandBuffer cmdbuf, const xvk_ray_frame_images_t *current_frame, float fov_angle_y ) {
@@ -1066,10 +1066,10 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
 	}
 
-	RayPassPerform( cmdbuf, g_rtx.pass.primary_ray, &res );
-	RayPassPerform( cmdbuf, g_rtx.pass.light_direct_poly, &res );
-	RayPassPerform( cmdbuf, g_rtx.pass.light_direct_point, &res );
-	RayPassPerform( cmdbuf, g_rtx.pass.denoiser, &res );
+	RayPassPerform( cmdbuf, frame_index, g_rtx.pass.primary_ray, &res );
+	RayPassPerform( cmdbuf, frame_index, g_rtx.pass.light_direct_poly, &res );
+	RayPassPerform( cmdbuf, frame_index, g_rtx.pass.light_direct_point, &res );
+	RayPassPerform( cmdbuf, frame_index, g_rtx.pass.denoiser, &res );
 
 	{
 		const xvk_blit_args blit_args = {
