@@ -201,7 +201,7 @@ static qboolean createInstance( void )
 	create_info.enabledExtensionCount = num_instance_extensions;
 	create_info.ppEnabledExtensionNames = instance_extensions;
 
-	if (vk_core.debug)
+	if (vk_core.validate)
 	{
 		create_info.enabledLayerCount = ARRAYSIZE(validation_layers);
 		create_info.ppEnabledLayerNames = validation_layers;
@@ -214,22 +214,22 @@ static qboolean createInstance( void )
 
 	loadInstanceFunctions(instance_funcs, ARRAYSIZE(instance_funcs));
 
-	if (vk_core.debug)
+	if (vk_core.debug || vk_core.validate)
 	{
 		loadInstanceFunctions(instance_debug_funcs, ARRAYSIZE(instance_debug_funcs));
 
-		if (vkCreateDebugUtilsMessengerEXT)
-		{
-			VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
-				.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-				.messageSeverity = 0x1111, //:vovka: VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
-				.messageType = 0x07,
-				.pfnUserCallback = debugCallback,
-			};
-			XVK_CHECK(vkCreateDebugUtilsMessengerEXT(vk_core.instance, &debug_create_info, NULL, &vk_core.debug_messenger));
-		} else
-		{
-			gEngine.Con_Printf(S_WARN "Vulkan debug utils messenger is not available\n");
+ 		if (vk_core.validate) {
+			if (vkCreateDebugUtilsMessengerEXT) {
+				VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
+					.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+					.messageSeverity = 0x1111, //:vovka: VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
+					.messageType = 0x07,
+					.pfnUserCallback = debugCallback,
+				};
+				XVK_CHECK(vkCreateDebugUtilsMessengerEXT(vk_core.instance, &debug_create_info, NULL, &vk_core.debug_messenger));
+			} else {
+				gEngine.Con_Printf(S_WARN "Vulkan debug utils messenger is not available\n");
+			}
 		}
 	}
 
@@ -641,7 +641,8 @@ qboolean R_VkInit( void )
 {
 	// FIXME !!!! handle initialization errors properly: destroy what has already been created
 
-	vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
+	vk_core.validate = !!gEngine.Sys_CheckParm("-vkvalidate");
+	vk_core.debug = vk_core.validate || !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
 	vk_core.rtx = false;
 	VK_LoadCvars();
 
