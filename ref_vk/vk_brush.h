@@ -11,7 +11,7 @@ struct cl_entity_s;
 qboolean VK_BrushInit( void );
 void VK_BrushShutdown( void );
 
-qboolean VK_BrushModelLoad( struct model_s *mod, qboolean map);
+qboolean VK_BrushModelLoad( VkCommandBuffer cmdbuf, struct model_s *mod, qboolean map);
 void VK_BrushModelDestroy( struct model_s *mod );
 
 void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, const matrix4x4 model );

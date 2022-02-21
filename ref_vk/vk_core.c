@@ -80,51 +80,6 @@ static dllfunc_t device_funcs_rtx[] = {
 #undef X
 };
 
-const char *resultName(VkResult result) {
-	switch (result) {
-	case VK_SUCCESS: return "VK_SUCCESS";
-	case VK_NOT_READY: return "VK_NOT_READY";
-	case VK_TIMEOUT: return "VK_TIMEOUT";
-	case VK_EVENT_SET: return "VK_EVENT_SET";
-	case VK_EVENT_RESET: return "VK_EVENT_RESET";
-	case VK_INCOMPLETE: return "VK_INCOMPLETE";
-	case VK_ERROR_OUT_OF_HOST_MEMORY: return "VK_ERROR_OUT_OF_HOST_MEMORY";
-	case VK_ERROR_OUT_OF_DEVICE_MEMORY: return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
-	case VK_ERROR_INITIALIZATION_FAILED: return "VK_ERROR_INITIALIZATION_FAILED";
-	case VK_ERROR_DEVICE_LOST: return "VK_ERROR_DEVICE_LOST";
-	case VK_ERROR_MEMORY_MAP_FAILED: return "VK_ERROR_MEMORY_MAP_FAILED";
-	case VK_ERROR_LAYER_NOT_PRESENT: return "VK_ERROR_LAYER_NOT_PRESENT";
-	case VK_ERROR_EXTENSION_NOT_PRESENT: return "VK_ERROR_EXTENSION_NOT_PRESENT";
-	case VK_ERROR_FEATURE_NOT_PRESENT: return "VK_ERROR_FEATURE_NOT_PRESENT";
-	case VK_ERROR_INCOMPATIBLE_DRIVER: return "VK_ERROR_INCOMPATIBLE_DRIVER";
-	case VK_ERROR_TOO_MANY_OBJECTS: return "VK_ERROR_TOO_MANY_OBJECTS";
-	case VK_ERROR_FORMAT_NOT_SUPPORTED: return "VK_ERROR_FORMAT_NOT_SUPPORTED";
-	case VK_ERROR_FRAGMENTED_POOL: return "VK_ERROR_FRAGMENTED_POOL";
-	case VK_ERROR_UNKNOWN: return "VK_ERROR_UNKNOWN";
-	case VK_ERROR_OUT_OF_POOL_MEMORY: return "VK_ERROR_OUT_OF_POOL_MEMORY";
-	case VK_ERROR_INVALID_EXTERNAL_HANDLE: return "VK_ERROR_INVALID_EXTERNAL_HANDLE";
-	case VK_ERROR_FRAGMENTATION: return "VK_ERROR_FRAGMENTATION";
-	case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS: return "VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS";
-	case VK_ERROR_SURFACE_LOST_KHR: return "VK_ERROR_SURFACE_LOST_KHR";
-	case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR: return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
-	case VK_SUBOPTIMAL_KHR: return "VK_SUBOPTIMAL_KHR";
-	case VK_ERROR_OUT_OF_DATE_KHR: return "VK_ERROR_OUT_OF_DATE_KHR";
-	case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR: return "VK_ERROR_INCOMPATIBLE_DISPLAY_KHR";
-	case VK_ERROR_VALIDATION_FAILED_EXT: return "VK_ERROR_VALIDATION_FAILED_EXT";
-	case VK_ERROR_INVALID_SHADER_NV: return "VK_ERROR_INVALID_SHADER_NV";
-	case VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT:
-		return "VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT";
-	case VK_ERROR_NOT_PERMITTED_EXT: return "VK_ERROR_NOT_PERMITTED_EXT";
-	case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT: return "VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT";
-	case VK_THREAD_IDLE_KHR: return "VK_THREAD_IDLE_KHR";
-	case VK_THREAD_DONE_KHR: return "VK_THREAD_DONE_KHR";
-	case VK_OPERATION_DEFERRED_KHR: return "VK_OPERATION_DEFERRED_KHR";
-	case VK_OPERATION_NOT_DEFERRED_KHR: return "VK_OPERATION_NOT_DEFERRED_KHR";
-	case VK_PIPELINE_COMPILE_REQUIRED_EXT: return "VK_PIPELINE_COMPILE_REQUIRED_EXT";
-	default: return "UNKNOWN";
-	}
-}
-
 static const char *validation_layers[] = {
 	"VK_LAYER_KHRONOS_validation",
 };
@@ -586,7 +541,7 @@ static qboolean createDevice( void ) {
 			const VkResult result = vkCreateDevice(candidate_device->device, &create_info, NULL, &vk_core.device);
 			if (result != VK_SUCCESS) {
 				gEngine.Con_Printf( S_ERROR "%s:%d vkCreateDevice failed (%d): %s\n",
-					__FILE__, __LINE__, result, resultName(result));
+					__FILE__, __LINE__, result, R_VkResultName(result));
 				continue;
 			}
 		}
@@ -623,21 +578,6 @@ static qboolean createDevice( void ) {
 	gEngine.Con_Printf( S_ERROR "No compatibe Vulkan devices found. Vulkan render will not be available\n" );
 	return false;
 }
-
-static const char *presentModeName(VkPresentModeKHR present_mode)
-{
-	switch (present_mode)
-	{
-		case VK_PRESENT_MODE_IMMEDIATE_KHR: return "VK_PRESENT_MODE_IMMEDIATE_KHR";
-		case VK_PRESENT_MODE_MAILBOX_KHR: return "VK_PRESENT_MODE_MAILBOX_KHR";
-		case VK_PRESENT_MODE_FIFO_KHR: return "VK_PRESENT_MODE_FIFO_KHR";
-		case VK_PRESENT_MODE_FIFO_RELAXED_KHR: return "VK_PRESENT_MODE_FIFO_RELAXED_KHR";
-		case VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR: return "VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR";
-		case VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR: return "VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR";
-		default: return "UNKNOWN";
-	}
-}
-
 static qboolean initSurface( void )
 {
 	XVK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_core.physical_device.device, vk_core.surface.surface, &vk_core.surface.num_present_modes, vk_core.surface.present_modes));
@@ -647,7 +587,7 @@ static qboolean initSurface( void )
 	gEngine.Con_Printf("Supported surface present modes: %u\n", vk_core.surface.num_present_modes);
 	for (uint32_t i = 0; i < vk_core.surface.num_present_modes; ++i)
 	{
-		gEngine.Con_Reportf("\t%u: %s (%u)\n", i, presentModeName(vk_core.surface.present_modes[i]), vk_core.surface.present_modes[i]);
+		gEngine.Con_Reportf("\t%u: %s (%u)\n", i, R_VkPresentModeName(vk_core.surface.present_modes[i]), vk_core.surface.present_modes[i]);
 	}
 
 	XVK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_core.physical_device.device, vk_core.surface.surface, &vk_core.surface.num_surface_formats, vk_core.surface.surface_formats));
@@ -658,36 +598,43 @@ static qboolean initSurface( void )
 	for (uint32_t i = 0; i < vk_core.surface.num_surface_formats; ++i)
 	{
 		// TODO symbolicate
-		gEngine.Con_Reportf("\t%u: %u %u\n", i, vk_core.surface.surface_formats[i].format, vk_core.surface.surface_formats[i].colorSpace);
+		gEngine.Con_Reportf("\t%u: %s(%u) %s(%u)\n", i,
+			R_VkFormatName(vk_core.surface.surface_formats[i].format), vk_core.surface.surface_formats[i].format,
+			R_VkColorSpaceName(vk_core.surface.surface_formats[i].colorSpace), vk_core.surface.surface_formats[i].colorSpace);
 	}
 
 	return true;
 }
 
-static qboolean createCommandPool( void ) {
-	VkCommandPoolCreateInfo cpci = {
+vk_command_pool_t R_VkCommandPoolCreate( int count ) {
+	vk_command_pool_t ret = {0};
+
+	const VkCommandPoolCreateInfo cpci = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 		.queueFamilyIndex = 0,
 		.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
 	};
 
-	VkCommandBuffer bufs[2];
-
 	VkCommandBufferAllocateInfo cbai = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.commandBufferCount = ARRAYSIZE(bufs),
+		.commandBufferCount = count,
 		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 	};
 
+	XVK_CHECK(vkCreateCommandPool(vk_core.device, &cpci, NULL, &ret.pool));
 
-	XVK_CHECK(vkCreateCommandPool(vk_core.device, &cpci, NULL, &vk_core.command_pool));
-	cbai.commandPool = vk_core.command_pool;
-	XVK_CHECK(vkAllocateCommandBuffers(vk_core.device, &cbai, bufs));
+	cbai.commandPool = ret.pool;
+	ret.buffers = Mem_Malloc(vk_core.pool, sizeof(VkCommandBuffer) * count);
+	ret.buffers_count = count;
+	XVK_CHECK(vkAllocateCommandBuffers(vk_core.device, &cbai, ret.buffers));
 
-	vk_core.cb = bufs[0];
-	vk_core.cb_tex = bufs[1];
+	return ret;
+}
 
-	return true;
+void R_VkCommandPoolDestroy( vk_command_pool_t *pool ) {
+	ASSERT(pool->buffers);
+	vkDestroyCommandPool(vk_core.device, pool->pool, NULL);
+	Mem_Free(pool->buffers);
 }
 
 qboolean R_VkInit( void )
@@ -750,8 +697,7 @@ qboolean R_VkInit( void )
 	if (!initSurface())
 		return false;
 
-	if (!createCommandPool())
-		return false;
+	vk_core.upload_pool = R_VkCommandPoolCreate( 1 );
 
 	if (!VK_DevMemInit())
 		return false;
@@ -818,8 +764,9 @@ qboolean R_VkInit( void )
 	return true;
 }
 
-void R_VkShutdown( void )
-{
+void R_VkShutdown( void ) {
+	XVK_CHECK(vkDeviceWaitIdle(vk_core.device));
+
 	if (vk_core.rtx)
 	{
 		VK_LightsShutdown();
@@ -845,7 +792,7 @@ void R_VkShutdown( void )
 
 	VK_DevMemDestroy();
 
-	vkDestroyCommandPool(vk_core.device, vk_core.command_pool, NULL);
+	R_VkCommandPoolDestroy( &vk_core.upload_pool );
 
 	vkDestroyDevice(vk_core.device, NULL);
 
@@ -896,7 +843,7 @@ VkShaderModule loadShader(const char *filename) {
 	return shader;
 }
 
-VkSemaphore createSemaphore( void ) {
+VkSemaphore R_VkSemaphoreCreate( void ) {
 	VkSemaphore sema;
 	VkSemaphoreCreateInfo sci = {
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -906,20 +853,20 @@ VkSemaphore createSemaphore( void ) {
 	return sema;
 }
 
-void destroySemaphore(VkSemaphore sema) {
+void R_VkSemaphoreDestroy(VkSemaphore sema) {
 	vkDestroySemaphore(vk_core.device, sema, NULL);
 }
 
-VkFence createFence( void ) {
+VkFence R_VkFenceCreate( qboolean signaled ) {
 	VkFence fence;
-	VkFenceCreateInfo fci = {
+	const VkFenceCreateInfo fci = {
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-		.flags = 0,
+		.flags = signaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0,
 	};
 	XVK_CHECK(vkCreateFence(vk_core.device, &fci, NULL, &fence));
 	return fence;
 }
 
-void destroyFence(VkFence fence) {
+void R_VkFenceDestroy(VkFence fence) {
 	vkDestroyFence(vk_core.device, fence, NULL);
 }

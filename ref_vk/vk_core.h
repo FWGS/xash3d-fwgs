@@ -10,13 +10,25 @@
 qboolean R_VkInit( void );
 void R_VkShutdown( void );
 
-// FIXME load from embedded static structs
-VkShaderModule loadShader(const char *filename);
-VkSemaphore createSemaphore( void );
-void destroySemaphore(VkSemaphore sema);
-VkFence createFence( void );
-void destroyFence(VkFence fence);
+typedef struct {
+	VkCommandPool pool;
+	VkCommandBuffer *buffers;
+	int buffers_count;
+} vk_command_pool_t;
 
+vk_command_pool_t R_VkCommandPoolCreate( int count );
+void R_VkCommandPoolDestroy( vk_command_pool_t *pool );
+
+// TODO load from embedded static structs
+VkShaderModule loadShader(const char *filename);
+
+VkSemaphore R_VkSemaphoreCreate( void );
+void R_VkSemaphoreDestroy(VkSemaphore sema);
+
+VkFence R_VkFenceCreate( qboolean signaled );
+void R_VkFenceDestroy(VkFence fence);
+
+// TODO move all these to vk_device.{h,c} or something
 typedef struct physical_device_s {
 	VkPhysicalDevice device;
 	VkPhysicalDeviceMemoryProperties2 memory_properties2;
@@ -52,9 +64,7 @@ typedef struct vulkan_core_s {
 	VkDevice device;
 	VkQueue queue;
 
-	VkCommandPool command_pool;
-	VkCommandBuffer cb;
-	VkCommandBuffer cb_tex;
+	vk_command_pool_t upload_pool;
 
 	VkSampler default_sampler;
 
@@ -64,7 +74,10 @@ typedef struct vulkan_core_s {
 
 extern vulkan_core_t vk_core;
 
-const char *resultName(VkResult result);
+const char *R_VkResultName(VkResult result);
+const char *R_VkPresentModeName(VkPresentModeKHR present_mode);
+const char *R_VkFormatName(VkFormat format);
+const char *R_VkColorSpaceName(VkColorSpaceKHR colorspace);
 
 #define SET_DEBUG_NAME(object, type, name) \
 do { \
@@ -131,9 +144,9 @@ do { \
 		const VkResult result = f; \
 		if (result != VK_SUCCESS) { \
 			gEngine.Con_Printf( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
-				__FILE__, __LINE__, result, resultName(result)); \
+				__FILE__, __LINE__, result, R_VkResultName(result)); \
 			gEngine.Host_Error( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
-				__FILE__, __LINE__, result, resultName(result)); \
+				__FILE__, __LINE__, result, R_VkResultName(result)); \
 		} \
 	} while(0)
 
@@ -217,6 +230,7 @@ do { \
 	X(vkCmdPipelineBarrier) \
 	X(vkCmdCopyBufferToImage) \
 	X(vkQueueWaitIdle) \
+	X(vkDeviceWaitIdle) \
 	X(vkDestroyImage) \
 	X(vkCmdBindDescriptorSets) \
 	X(vkCreateSampler) \

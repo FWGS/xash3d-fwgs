@@ -151,7 +151,7 @@ void XVK_RayModel_Validate( void ) {
 	}
 }
 
-vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
+vk_ray_model_t* VK_RayModelCreate( VkCommandBuffer cmdbuf, vk_ray_model_init_t args ) {
 	VkAccelerationStructureGeometryKHR *geoms;
 	uint32_t *geom_max_prim_counts;
 	VkAccelerationStructureBuildRangeInfoKHR *geom_build_ranges;
@@ -247,9 +247,9 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 			qboolean result;
 			asrgs.p_accel = &ray_model->as;
 
-			DEBUG_BEGINF(vk_core.cb, "build blas for %s", args.model->debug_name);
-			result = createOrUpdateAccelerationStructure(vk_core.cb, &asrgs, ray_model);
-			DEBUG_END(vk_core.cb);
+			DEBUG_BEGINF(cmdbuf, "build blas for %s", args.model->debug_name);
+			result = createOrUpdateAccelerationStructure(cmdbuf, &asrgs, ray_model);
+			DEBUG_END(cmdbuf);
 
 			if (!result)
 			{

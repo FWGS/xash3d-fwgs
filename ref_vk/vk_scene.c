@@ -150,16 +150,6 @@ void R_NewMap( void ) {
 	if (vk_core.rtx)
 		VK_RayNewMap();
 
-	// RTX map loading requires command buffer for building blases
-	if (vk_core.rtx)
-	{
-		const VkCommandBufferBeginInfo beginfo = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		};
-
-		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
-	}
 
 	// Load light entities and patch data prior to loading map brush model
 	XVK_ParseMapEntities();
@@ -174,6 +164,18 @@ void R_NewMap( void ) {
 	// Need parsed map entities, and also should happen before brush model loading
 	RT_LightsNewMapBegin(map);
 
+	// RTX map loading requires command buffer for building blases
+	if (vk_core.rtx)
+	{
+		//ASSERT(!"Not implemented");
+		const VkCommandBufferBeginInfo beginfo = {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		};
+
+		XVK_CHECK(vkBeginCommandBuffer(vk_core.upload_pool.buffers[0], &beginfo));
+	}
+
 	// Load all models at once
 	gEngine.Con_Reportf( "Num models: %d:\n", num_models );
 	for( int i = 0; i < num_models; i++ )
@@ -187,7 +189,7 @@ void R_NewMap( void ) {
 		if( m->type != mod_brush )
 			continue;
 
-		if (!VK_BrushModelLoad( m, i == 0 ))
+		if (!VK_BrushModelLoad( vk_core.upload_pool.buffers[0], m, i == 0 ))
 		{
 			gEngine.Con_Printf( S_ERROR "Couldn't load model %s\n", m->name );
 		}
@@ -199,13 +201,14 @@ void R_NewMap( void ) {
 
 	if (vk_core.rtx)
 	{
+		//ASSERT(!"Not implemented");
 		const VkSubmitInfo subinfo = {
 			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 			.commandBufferCount = 1,
-			.pCommandBuffers = &vk_core.cb,
+			.pCommandBuffers = &vk_core.upload_pool.buffers[0],
 		};
 
-		XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
+		XVK_CHECK(vkEndCommandBuffer(vk_core.upload_pool.buffers[0]));
 		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
 		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
 	}

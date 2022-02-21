@@ -3,8 +3,6 @@
 #include "vk_devmem.h"
 
 typedef struct {
-	// FIXME better memory allocation
-	// OCHEN PLOHO
 	vk_devmem_t devmem;
 	VkImage image;
 	VkImageView view;
@@ -22,6 +20,7 @@ typedef struct {
 	VkImageUsageFlags usage;
 	qboolean has_alpha;
 	qboolean is_cubemap;
+	VkMemoryPropertyFlags memory_props;
 } xvk_image_create_t;
 
 xvk_image_t XVK_ImageCreate(const xvk_image_create_t *create);

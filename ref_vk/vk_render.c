@@ -9,6 +9,7 @@
 #include "vk_math.h"
 #include "vk_rtx.h"
 #include "vk_descriptor.h"
+#include "vk_framectl.h" // FIXME
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
@@ -592,7 +593,7 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 		vkCmdBindIndexBuffer(cmdbuf, g_render.buffer.buffer, 0, VK_INDEX_TYPE_UINT16);
 	}
 
-	vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 3, 1, vk_desc.ubo_sets + 1, 1, &dlights_ubo_offset);
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 3, 1, vk_desc.ubo_sets + 1, 1, &dlights_ubo_offset);
 
 	for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
 		const draw_command_t *const draw = g_render_state.draw_commands + i;
@@ -615,29 +616,29 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 		if (ubo_offset != draw->draw.ubo_offset)
 		{
 			ubo_offset = draw->draw.ubo_offset;
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 0, 1, vk_desc.ubo_sets, 1, &ubo_offset);
+			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 0, 1, vk_desc.ubo_sets, 1, &ubo_offset);
 		}
 
 		if (pipeline != draw->draw.draw.render_mode) {
 			pipeline = draw->draw.draw.render_mode;
-			vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipelines[pipeline]);
+			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipelines[pipeline]);
 		}
 
 		if (lightmap != draw->draw.draw.lightmap) {
 			lightmap = draw->draw.draw.lightmap;
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 2, 1, &findTexture(lightmap)->vk.descriptor, 0, NULL);
+			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 2, 1, &findTexture(lightmap)->vk.descriptor, 0, NULL);
 		}
 
 		if (texture != draw->draw.draw.texture)
 		{
 			texture = draw->draw.draw.texture;
 			// TODO names/enums for binding points
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 1, 1, &findTexture(texture)->vk.descriptor, 0, NULL);
+			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 1, 1, &findTexture(texture)->vk.descriptor, 0, NULL);
 		}
 
 		// Only indexed mode is supported
 		ASSERT(draw->draw.draw.index_offset >= 0);
-		vkCmdDrawIndexed(vk_core.cb, draw->draw.draw.element_count, 1, draw->draw.draw.index_offset, draw->draw.draw.vertex_offset, 0);
+		vkCmdDrawIndexed(cmdbuf, draw->draw.draw.element_count, 1, draw->draw.draw.index_offset, draw->draw.draw.vertex_offset, 0);
 	}
 }
 
@@ -680,14 +681,14 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 	}
 }
 
-qboolean VK_RenderModelInit( vk_render_model_t *model ) {
+qboolean VK_RenderModelInit( VkCommandBuffer cmdbuf, vk_render_model_t *model ) {
 	if (vk_core.rtx && (g_render_state.current_frame_is_ray_traced || !model->dynamic)) {
 		// TODO runtime rtx switch: ???
 		const vk_ray_model_init_t args = {
 			.buffer = g_render.buffer.buffer,
 			.model = model,
 		};
-		model->ray_model = VK_RayModelCreate(args);
+		model->ray_model = VK_RayModelCreate(cmdbuf, args);
 		return !!model->ray_model;
 	}
 
@@ -799,7 +800,7 @@ void VK_RenderModelDynamicCommit( void ) {
 
 	if (g_dynamic_model.model.num_geometries > 0) {
 		g_dynamic_model.model.dynamic = true;
-		VK_RenderModelInit( &g_dynamic_model.model );
+		VK_RenderModelInit( vk_frame.cmdbuf, &g_dynamic_model.model );
 		VK_RenderModelDraw( NULL, &g_dynamic_model.model );
 	}
 

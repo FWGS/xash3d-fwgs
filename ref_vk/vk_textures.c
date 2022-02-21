@@ -325,8 +325,7 @@ static void VK_CreateInternalTextures( void )
 	}
 }
 
-static VkFormat VK_GetFormat(pixformat_t format)
-{
+static VkFormat VK_GetFormat(pixformat_t format) {
 	switch(format)
 	{
 		case PF_RGBA_32: return VK_FORMAT_R8G8B8A8_UNORM;
@@ -336,8 +335,7 @@ static VkFormat VK_GetFormat(pixformat_t format)
 	}
 }
 
-static size_t CalcImageSize( pixformat_t format, int width, int height, int depth )
-{
+static size_t CalcImageSize( pixformat_t format, int width, int height, int depth ) {
 	size_t	size = 0;
 
 	// check the depth error
@@ -364,6 +362,9 @@ static size_t CalcImageSize( pixformat_t format, int width, int height, int dept
 	case PF_ATI2:
 		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 16) * depth;
 		break;
+	default:
+		gEngine.Con_Printf(S_ERROR "unsupported pixformat_t %d\n", format);
+		ASSERT(!"Unsupported format encountered");
 	}
 
 	return size;
@@ -481,6 +482,7 @@ static void BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth, in
 static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers, int num_layers, qboolean cubemap) {
 	const VkFormat format = VK_GetFormat(layers[0]->type);
 	int mipCount = 0;
+	const VkCommandBuffer cmdbuf = vk_core.upload_pool.buffers[0];
 
 	// TODO non-rbga textures
 
@@ -569,8 +571,8 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 				.layerCount = num_layers,
 			}};
 
-		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb_tex, &beginfo));
-		vkCmdPipelineBarrier(vk_core.cb_tex,
+		XVK_CHECK(vkBeginCommandBuffer(cmdbuf, &beginfo));
+		vkCmdPipelineBarrier(cmdbuf,
 				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 				VK_PIPELINE_STAGE_TRANSFER_BIT,
 				0, 0, NULL, 0, NULL, 1, &image_barrier);
@@ -608,7 +610,7 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 				}
 
 				// TODO we could do this only once w/ region array
-				vkCmdCopyBufferToImage(vk_core.cb_tex, g_vk_buffers.staging.buffer, tex->vk.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+				vkCmdCopyBufferToImage(cmdbuf, g_vk_buffers.staging.buffer, tex->vk.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
 				staging_offset += mip_size;
 			}
@@ -627,18 +629,18 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 			.baseArrayLayer = 0,
 			.layerCount = num_layers,
 		};
-		vkCmdPipelineBarrier(vk_core.cb_tex,
+		vkCmdPipelineBarrier(cmdbuf,
 				VK_PIPELINE_STAGE_TRANSFER_BIT,
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 				0, 0, NULL, 0, NULL, 1, &image_barrier);
 
-		XVK_CHECK(vkEndCommandBuffer(vk_core.cb_tex));
+		XVK_CHECK(vkEndCommandBuffer(cmdbuf));
 	}
 
 	{
 		VkSubmitInfo subinfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
 		subinfo.commandBufferCount = 1;
-		subinfo.pCommandBuffers = &vk_core.cb_tex;
+		subinfo.pCommandBuffers = &cmdbuf;
 		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
 		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
 	}
@@ -833,6 +835,9 @@ void VK_FreeTexture( unsigned int texnum ) {
 	if( tex->original )
 		gEngine.FS_FreeImage( tex->original );
 	*/
+
+	// TODO how to do this properly?
+	XVK_CHECK(vkDeviceWaitIdle(vk_core.device));
 
 	XVK_ImageDestroy(&tex->vk.image);
 	memset(tex, 0, sizeof(*tex));

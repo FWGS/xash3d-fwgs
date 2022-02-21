@@ -655,7 +655,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	return true;
 }
 
-qboolean VK_BrushModelLoad( model_t *mod, qboolean map )
+qboolean VK_BrushModelLoad( VkCommandBuffer cmdbuf, model_t *mod, qboolean map )
 {
 	if (mod->cache.data)
 	{
@@ -685,7 +685,7 @@ qboolean VK_BrushModelLoad( model_t *mod, qboolean map )
 			if (!map && sizes.emissive_surfaces)
 				bmodel->polylights = Mem_Malloc(vk_core.pool, sizeof(bmodel->polylights[0]) * sizes.emissive_surfaces);
 
-			if (!loadBrushSurfaces(sizes, mod) || !VK_RenderModelInit(&bmodel->render_model)) {
+			if (!loadBrushSurfaces(sizes, mod) || !VK_RenderModelInit(cmdbuf, &bmodel->render_model)) {
 				gEngine.Con_Printf(S_ERROR "Could not load model %s\n", mod->name);
 				Mem_Free(bmodel);
 				return false;
