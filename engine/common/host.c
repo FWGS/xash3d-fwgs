@@ -826,6 +826,9 @@ static void Host_RunTests( int stage )
 		break;
 	case 1: // after FS load
 		Test_RunImagelib();
+#if !XASH_DEDICATED
+		Test_RunVOX();
+#endif
 		Msg( "Done! %d passed, %d failed\n", tests_stats.passed, tests_stats.failed );
 		Sys_Quit();
 	}
