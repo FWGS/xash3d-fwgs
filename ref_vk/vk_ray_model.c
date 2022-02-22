@@ -395,10 +395,14 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 			kusok->tex_base_color |= KUSOK_MATERIAL_FLAG_SKYBOX;
 		}
 
-		Vector4Copy(color, kusok->color);
-		kusok->color[0] *= mat->base_color[0];
-		kusok->color[1] *= mat->base_color[1];
-		kusok->color[2] *= mat->base_color[2];
+		{
+			vec4_t gcolor;
+			gcolor[0] = color[0] * mat->base_color[0];
+			gcolor[1] = color[1] * mat->base_color[1];
+			gcolor[2] = color[2] * mat->base_color[2];
+			gcolor[3] = color[3];
+			Vector4Copy(gcolor, kusok->color);
+		}
 
 		if (geom->material == kXVkMaterialEmissive) {
 			VectorCopy( geom->emissive, kusok->emissive );

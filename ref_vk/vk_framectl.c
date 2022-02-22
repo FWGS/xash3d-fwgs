@@ -42,7 +42,10 @@ static struct {
 } g_frame;
 
 #define PROFILER_SCOPES(X) \
-	X(end_frame , "R_EndFrame"); \
+	X(frame, "Frame"); \
+	X(begin_frame, "R_BeginFrame"); \
+	X(render_frame, "VK_RenderFrame"); \
+	X(end_frame, "R_EndFrame"); \
 	X(frame_gpu_wait, "Wait for GPU"); \
 
 #define SCOPE_DECLARE(scope, name) APROF_SCOPE_DECLARE(scope)
@@ -199,6 +202,9 @@ void R_BeginFrame( qboolean clearScene ) {
 	showProfilingData();
 	aprof_scope_frame();
 
+	APROF_SCOPE_BEGIN(frame);
+	APROF_SCOPE_BEGIN(begin_frame);
+
 	if (vk_core.rtx && FBitSet( vk_rtx->flags, FCVAR_CHANGED )) {
 		g_frame.rtx_enabled = CVAR_TO_BOOL( vk_rtx );
 	}
@@ -225,11 +231,14 @@ void R_BeginFrame( qboolean clearScene ) {
 	}
 
 	g_frame.current.phase = Phase_FrameBegan;
+	APROF_SCOPE_END(begin_frame);
 }
 
 void VK_RenderFrame( const struct ref_viewpass_s *rvp )
 {
+	APROF_SCOPE_BEGIN(render_frame);
 	VK_SceneRender( rvp );
+	APROF_SCOPE_END(render_frame);
 }
 
 static void enqueueRendering( VkCommandBuffer cmdbuf ) {
@@ -340,6 +349,7 @@ void R_EndFrame( void )
 	}
 
 	APROF_SCOPE_END(end_frame);
+	APROF_SCOPE_END(frame);
 }
 
 static void toggleRaytracing( void ) {
