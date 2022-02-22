@@ -36,6 +36,7 @@ void Test_RunCommon( void );
 void Test_RunCmd( void );
 void Test_RunCvar( void );
 void Test_RunCon( void );
+void Test_RunVOX( void );
 
 #endif
 
