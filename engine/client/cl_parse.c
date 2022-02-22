@@ -1170,7 +1170,8 @@ void CL_ParseBaseline( sizebuf_t *msg )
 			Host_Error( "CL_AllocEdict: no free edicts\n" );
 
 		ent = CL_EDICT_NUM( newnum );
-		memset( &ent->prevstate, 0, sizeof( ent->prevstate ));
+		if ( ent ) // workaround -Wstringop-overflow
+			memset( &ent->prevstate, 0, sizeof( ent->prevstate ));
 		ent->index = newnum;
 
 		MSG_ReadDeltaEntity( msg, &ent->prevstate, &ent->baseline, newnum, player, 1.0f );
@@ -2428,7 +2429,8 @@ void CL_LegacyParseBaseline( sizebuf_t *msg )
 		Host_Error( "CL_AllocEdict: no free edicts\n" );
 
 	ent = CL_EDICT_NUM( newnum );
-	memset( &ent->prevstate, 0, sizeof( ent->prevstate ));
+	if ( ent ) // workaround -Wstringop-overflow
+		memset( &ent->prevstate, 0, sizeof( ent->prevstate ));
 	ent->index = newnum;
 
 	MSG_ReadDeltaEntity( msg, &ent->prevstate, &ent->baseline, newnum, player, 1.0f );

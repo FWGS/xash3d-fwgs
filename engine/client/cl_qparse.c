@@ -705,7 +705,8 @@ static void CL_ParseQuakeBaseline( sizebuf_t *msg )
 		Host_Error( "CL_AllocEdict: no free edicts\n" );
 
 	ent = CL_EDICT_NUM( newnum );
-	memset( &ent->prevstate, 0, sizeof( ent->prevstate ));
+	if ( ent ) // workaround -Wstringop-overflow
+		memset( &ent->prevstate, 0, sizeof( ent->prevstate ));
 	ent->index = newnum;
 
 	// parse baseline

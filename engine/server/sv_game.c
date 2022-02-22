@@ -979,7 +979,8 @@ void SV_InitEdict( edict_t *pEdict )
 	Assert( pEdict != NULL );
 
 	SV_FreePrivateData( pEdict );
-	memset( &pEdict->v, 0, sizeof( entvars_t ));
+	if ( pEdict ) // workaround -Wstringop-overflow
+		memset( &pEdict->v, 0, sizeof( entvars_t ));
 	pEdict->v.pContainingEntity = pEdict;
 	pEdict->v.controller[0] = 0x7F;
 	pEdict->v.controller[1] = 0x7F;
