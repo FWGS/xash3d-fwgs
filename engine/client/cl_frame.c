@@ -310,7 +310,7 @@ void CL_ProcessEntityUpdate( cl_entity_t *ent )
 	if( FBitSet( ent->curstate.entityType, ENTITY_NORMAL ))
 		COM_NormalizeAngles( ent->curstate.angles );
 
-	parametric = CL_ParametricMove( ent );
+	parametric = ent->curstate.starttime != 0.0f && ent->curstate.impacttime != 0.0f;
 
 	// allow interpolation on bmodels too
 	if( ent->model && ent->model->type == mod_brush )
