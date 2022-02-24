@@ -349,7 +349,7 @@ find two timestamps
 qboolean CL_FindInterpolationUpdates( cl_entity_t *ent, float targettime, position_history_t **ph0, position_history_t **ph1 )
 {
 	qboolean	extrapolate = true;
-	int	i, i0, i1, imod;
+	uint		i, i0, i1, imod;
 	float	at;
 
 	imod = ent->current_position;
