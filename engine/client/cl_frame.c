@@ -486,7 +486,9 @@ int CL_InterpolateModel( cl_entity_t *e )
 		return 0;
 	}
 
-	if( Q_equal( t2, t1 ))
+	// HACKHACK: workaround buggy position history animtime
+	// going backward sometimes
+	if( Q_equal( t2, t1 ) || t2 < t1 )
 	{
 		VectorCopy( ph0->origin, e->origin );
 		VectorCopy( ph0->angles, e->angles );
