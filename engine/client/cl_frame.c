@@ -406,7 +406,7 @@ void CL_PureOrigin( cl_entity_t *ent, float t, vec3_t outorigin, vec3_t outangle
 
 		VectorSubtract( ph0->origin, ph1->origin, delta );
 
-		if( t0 != t1 )
+		if( !Q_equal( t0, t1 ))
 			frac = ( t - t1 ) / ( t0 - t1 );
 		else frac = 1.0f;
 
@@ -486,7 +486,7 @@ int CL_InterpolateModel( cl_entity_t *e )
 		return 0;
 	}
 
-	if( t2 == t1 )
+	if( Q_equal( t2, t1 ))
 	{
 		VectorCopy( ph0->origin, e->origin );
 		VectorCopy( ph0->angles, e->angles );
