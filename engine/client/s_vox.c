@@ -230,7 +230,8 @@ static int VOX_ParseString( char *psz, char *rgpparseword[CVOXWORDMAX] )
 		for( ; *psz &&
 			*psz != ' ' &&
 			*psz != '.' &&
-			*psz != ','; psz++ );
+			*psz != ',' &&
+			*psz != '('; psz++ );
 
 		// skip anything in between ( and )
 		if( *psz == '(' )
@@ -549,8 +550,8 @@ static void Test_VOX_ParseString( void )
 	char *rgpparseword[CVOXWORDMAX];
 	const char *data[] =
 	{
-		"(p100) my ass is, heavy!(p80) clik.",
-		"(p100)", "my", "ass", "is", "_comma", "heavy!(p80)", "clik", NULL,
+		"(p100) my ass is, heavy!(p80 t20) clik.",
+		"(p100)", "my", "ass", "is", "_comma", "heavy!(p80 t20)", "clik", NULL,
 		"freeman...",
 		"freeman", "_period", NULL,
 	};
@@ -586,19 +587,22 @@ static void Test_VOX_ParseWordParams( void )
 
 	Q_strncpy( buffer, "heavy!(p80)", sizeof( buffer ));
 	ret = VOX_ParseWordParams( buffer, &word, true );
+	TASSERT_STR( buffer, "heavy!" );
 	TASSERT( word.pitch == 80 );
 	TASSERT( ret );
 
 	Q_strncpy( buffer, "(p105)", sizeof( buffer ));
 	ret = VOX_ParseWordParams( buffer, &word, false );
+	TASSERT_STR( buffer, "" );
 	TASSERT( word.pitch == 105 );
 	TASSERT( !ret );
 
 	Q_strncpy( buffer, "quiet(v50)", sizeof( buffer ));
 	ret = VOX_ParseWordParams( buffer, &word, false );
+	TASSERT_STR( buffer, "quiet" );
 	TASSERT( word.pitch == 105 ); // defaulted
 	TASSERT( word.volume == 50 );
-	TASSERT( !ret );
+	TASSERT( ret );
 }
 
 void Test_RunVOX( void )
