@@ -700,7 +700,7 @@ static void LM_UploadBlock( qboolean dynamic )
 		r_lightmap.size = r_lightmap.width * r_lightmap.height * 4;
 		r_lightmap.flags = IMAGE_HAS_COLOR;
 		r_lightmap.buffer = gl_lms.lightmap_buffer;
-		tr.lightmapTextures[i] = GL_LoadTextureInternal( lmName, &r_lightmap, TF_FONT|TF_ATLAS_PAGE );
+		tr.lightmapTextures[i] = GL_LoadTextureInternal( lmName, &r_lightmap, TF_NOMIPMAP|TF_ATLAS_PAGE );
 
 		if( ++gl_lms.current_lightmap_texture == MAX_LIGHTMAPS )
 			gEngfuncs.Host_Error( "AllocBlock: full\n" );
