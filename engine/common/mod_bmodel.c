@@ -1020,8 +1020,10 @@ Fills in surf->texturemins[] and surf->extents[]
 */
 static void Mod_CalcSurfaceExtents( msurface_t *surf )
 {
-	double		mins[2], maxs[2], val;
-	double		lmmins[2], lmmaxs[2];
+	// this place is VERY critical to precision
+	// keep it as float, don't use double, because it causes issues with lightmap
+	float		mins[2], maxs[2], val;
+	float		lmmins[2], lmmaxs[2];
 	int		bmins[2], bmaxs[2];
 	int		i, j, e, sample_size;
 	mextrasurf_t	*info = surf->info;
