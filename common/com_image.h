@@ -9,7 +9,7 @@ NOTE: number at end of pixelformat name it's a total bitscount e.g. PF_RGB_24 ==
 ========================================================================
 */
 #define ImageRAW( type )	(type == PF_RGBA_32 || type == PF_BGRA_32 || type == PF_RGB_24 || type == PF_BGR_24 || type == PF_LUMINANCE)
-#define ImageDXT( type )	(type == PF_DXT1 || type == PF_DXT3 || type == PF_DXT5 || type == PF_ATI2)
+#define ImageDXT( type )	(type == PF_DXT1 || type == PF_DXT3 || type == PF_DXT5 || type == PF_ATI2 || type == PF_BC6H_SIGNED || type == PF_BC6H_UNSIGNED || type == PF_BC7)
 
 typedef enum
 {
@@ -21,10 +21,13 @@ typedef enum
 	PF_RGB_24,	// uncompressed dds or another 24-bit image
 	PF_BGR_24,	// big-endian RGB (MacOS)
 	PF_LUMINANCE,
-	PF_DXT1,		// s3tc DXT1 format
-	PF_DXT3,		// s3tc DXT3 format
-	PF_DXT5,		// s3tc DXT5 format
-	PF_ATI2,		// latc ATI2N format
+	PF_DXT1,		// s3tc DXT1/BC1 format
+	PF_DXT3,		// s3tc DXT3/BC2 format
+	PF_DXT5,		// s3tc DXT5/BC3 format
+	PF_ATI2,		// latc ATI2N/BC5 format
+	PF_BC6H_SIGNED,	// bptc BC6H signed FP16 format
+	PF_BC6H_UNSIGNED, // bptc BC6H unsigned FP16 format
+	PF_BC7,			// bptc BC7 format
 	PF_TOTALCOUNT,	// must be last
 } pixformat_t;
 
