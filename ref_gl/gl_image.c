@@ -386,6 +386,9 @@ static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int d
 		break;
 	case PF_DXT3:
 	case PF_DXT5:
+	case PF_BC6H_SIGNED:
+	case PF_BC6H_UNSIGNED:
+	case PF_BC7:
 	case PF_ATI2:
 		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 16) * depth;
 		break;
@@ -417,6 +420,10 @@ static size_t GL_CalcTextureSize( GLenum format, int width, int height, int dept
 	case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
 	case GL_COMPRESSED_LUMINANCE_ALPHA_ARB:
 	case GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI:
+	case GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_ARB:
+	case GL_COMPRESSED_RGBA_BPTC_UNORM_ARB:
+	case GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_ARB:
+	case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_ARB:
 		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 16) * depth;
 		break;
 	case GL_RGBA8:
@@ -694,6 +701,9 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 		case PF_DXT1: tex->format = GL_COMPRESSED_RGB_S3TC_DXT1_EXT; break;	// never use DXT1 with 1-bit alpha
 		case PF_DXT3: tex->format = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT; break;
 		case PF_DXT5: tex->format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT; break;
+		case PF_BC6H_SIGNED: tex->format = GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_ARB; break;
+		case PF_BC6H_UNSIGNED: tex->format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_ARB; break;
+		case PF_BC7: tex->format = GL_COMPRESSED_RGBA_BPTC_UNORM_ARB; break;
 		case PF_ATI2:
 			if( glConfig.hardware_type == GLHW_RADEON )
 				tex->format = GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI;
