@@ -1176,6 +1176,15 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 		return false;
 	}
 
+	if( pic->type == PF_BC6H_SIGNED || pic->type == PF_BC6H_UNSIGNED || pic->type == PF_BC7 )
+	{
+		if( !GL_Support( GL_ARB_TEXTURE_COMPRESSION_BPTC ))
+		{
+			gEngfuncs.Con_DPrintf( S_ERROR "GL_UploadTexture: BC6H/BC7 compression formats is not supported by your hardware\n" );
+			return false;
+		}
+	}
+
 	GL_SetTextureDimensions( tex, pic->width, pic->height, pic->depth );
 	GL_SetTextureFormat( tex, pic->type, pic->flags );
 
