@@ -51,6 +51,7 @@ struct tests_stats_s tests_stats;
 #endif
 
 CVAR_DEFINE( host_developer, "developer", "0", FCVAR_FILTERABLE, "engine is in development-mode" );
+CVAR_DEFINE_AUTO( sys_timescale, "1.0", FCVAR_CHEAT|FCVAR_FILTERABLE, "scale frame time" );
 CVAR_DEFINE_AUTO( sys_ticrate, "100", 0, "framerate in dedicated mode" );
 
 convar_t	*host_serverstate;
@@ -626,8 +627,9 @@ qboolean Host_FilterTime( float time )
 {
 	static double	oldtime;
 	double		fps;
+	double		scale = sys_timescale.value;
 
-	host.realtime += time;
+	host.realtime += time * scale;
 	fps = Host_CalcFPS( );
 
 	// clamp the fps in multiplayer games
@@ -638,12 +640,12 @@ qboolean Host_FilterTime( float time )
 
 		if( Host_IsDedicated() )
 		{
-			if(( host.realtime - oldtime ) < ( 1.0 / ( fps + 1.0 )))
+			if(( host.realtime - oldtime ) < ( 1.0 / ( fps + 1.0 )) * scale)
 				return false;
 		}
 		else
 		{
-			if(( host.realtime - oldtime ) < ( 1.0 / fps ))
+			if(( host.realtime - oldtime ) < ( 1.0 / fps ) * scale )
 				return false;
 		}
 	}
@@ -654,7 +656,7 @@ qboolean Host_FilterTime( float time )
 
 	// NOTE: allow only in singleplayer while demos are not active
 	if( host_framerate->value > 0.0f && Host_IsLocalGame() && !CL_IsPlaybackDemo() && !CL_IsRecordDemo( ))
-		host.frametime = bound( MIN_FRAMETIME, host_framerate->value, MAX_FRAMETIME );
+		host.frametime = bound( MIN_FRAMETIME, host_framerate->value * scale, MAX_FRAMETIME );
 	else host.frametime = bound( MIN_FRAMETIME, host.frametime, MAX_FRAMETIME );
 
 	return true;
@@ -1101,6 +1103,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	host_clientloaded = Cvar_Get( "host_clientloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );
 	host_limitlocal = Cvar_Get( "host_limitlocal", "0", 0, "apply cl_cmdrate and rate to loopback connection" );
 	con_gamemaps = Cvar_Get( "con_mapfilter", "1", FCVAR_ARCHIVE, "when true show only maps in game folder" );
+	Cvar_RegisterVariable( &sys_timescale );
 
 	build = Cvar_Get( "buildnum", va( "%i", Q_buildnum_compat()), FCVAR_READ_ONLY, "returns a current build number" );
 	ver = Cvar_Get( "ver", va( "%i/%s (hw build %i)", PROTOCOL_VERSION, XASH_COMPAT_VERSION, Q_buildnum_compat()), FCVAR_READ_ONLY, "shows an engine version" );
