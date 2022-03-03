@@ -35,8 +35,6 @@ This repository contains our fork of HLSDK and restored source code for some of 
 You still needed to copy `valve` directory as all game resources located there.
 3) Run the main executable (`xash3d.exe` or AppImage).
 
-Note: on Linux, without AppImage, you may need to create a shell-script with the command `LD_LIBRARY_PATH=. ./xash3d`.
-
 For additional info, run Xash3D with `-help` command line key.
 
 ## Contributing
