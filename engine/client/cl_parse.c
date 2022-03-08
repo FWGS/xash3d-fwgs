@@ -1324,30 +1324,6 @@ void CL_RegisterUserMessage( sizebuf_t *msg )
 
 /*
 ================
-CL_RegisterUserMessage
-
-register new user message or update existing
-================
-*/
-/*
-void CL_LegacyRegisterUserMessage( sizebuf_t *msg )
-{
-	char	*pszName;
-	int	svc_num, size;
-
-	svc_num = MSG_ReadByte( msg );
-	size = MSG_ReadByte( msg );
-	pszName = MSG_ReadString( msg );
-
-	// important stuff
-	if( size == 0xFF ) size = -1;
-	svc_num = bound( 0, svc_num, 255 );
-
-	CL_LinkUserMessage( pszName, svc_num, size );
-}
-*/
-/*
-================
 CL_UpdateUserinfo
 
 collect userinfo from all players
