@@ -1563,7 +1563,6 @@ void CL_LocalServers_f( void )
 
 	Con_Printf( "Scanning for servers on the local network area...\n" );
 	NET_Config( true ); // allow remote
-	cls.legacyservercount = 0;
 
 	// send a broadcast packet
 	adr.type = NA_BROADCAST;
@@ -1591,7 +1590,6 @@ void CL_InternetServers_f( void )
 	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
 	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining ); // let master know about client version
 	// Info_SetValueForKey( info, "nat", cl_nat->string, remaining );
-	cls.legacyservercount = 0;
 
 	cls.internetservers_wait = NET_SendToMasters( NS_CLIENT, sizeof( MS_SCAN_REQUEST ) + Q_strlen( info ), fullquery );
 	cls.internetservers_pending = true;
@@ -1722,8 +1720,6 @@ void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	{
 		Netchan_OutOfBandPrint( NS_CLIENT, from, "info %i", PROTOCOL_LEGACY_VERSION );
 		Con_Printf( "^1Server^7: %s, Info: %s\n", NET_AdrToString( from ), infostring );
-		if( cls.legacyservercount < MAX_LEGACY_SERVERS )
-			cls.legacyservers[cls.legacyservercount++] = from;
 		return;
 	}
 
@@ -1733,14 +1729,10 @@ void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 		return; // unsupported proto
 	}
 
-	for( i = 0; i < cls.legacyservercount; i++ )
+	if( !COM_CheckString( Info_ValueForKey( infostring, "p" )))
 	{
-		if( NET_CompareAdr( cls.legacyservers[i], from ) )
-		{
-			Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ) );
-			Con_Print("Legacy: ");
-			break;
-		}
+		Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ) );
+		Con_Print("Legacy: ");
 	}
 
 	// more info about servers

@@ -625,8 +625,6 @@ typedef struct
 	// legacy mode support
 	qboolean legacymode;				// one-way 48 protocol compatibility
 	netadr_t legacyserver;
-	netadr_t legacyservers[MAX_LEGACY_SERVERS];
-	int	legacyservercount;
 	int extensions;
 
 	netadr_t serveradr;
