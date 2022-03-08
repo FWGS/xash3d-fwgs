@@ -299,11 +299,6 @@ extern const char	*clc_strings[clc_lastmsg+1];
 #define MAX_LEGACY_ENTITY_BITS		12
 #define MAX_LEGACY_WEAPON_BITS		5
 #define MAX_LEGACY_MODEL_BITS 11
-#if XASH_LOW_MEMORY >= 1
-#define MAX_LEGACY_SERVERS 32
-#else
-#define MAX_LEGACY_SERVERS 256
-#endif
 #define MAX_LEGACY_TOTAL_CMDS 28 // magic number from old engine's sv_client.c
 
 #endif//NET_PROTOCOL_H
