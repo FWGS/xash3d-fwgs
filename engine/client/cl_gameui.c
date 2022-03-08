@@ -1235,7 +1235,8 @@ static ui_extendedfuncs_t gExtendedfuncs =
 	Con_UtfMoveRight,
 	pfnGetRenderers,
 	Sys_DoubleTime,
-	_COM_ParseFileSafe
+	_COM_ParseFileSafe,
+	NET_AdrToString
 };
 
 void UI_UnloadProgs( void )
