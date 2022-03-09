@@ -285,6 +285,8 @@ qboolean  R_Init_Video( const int type )
 			glw_state.safe = bound( SAFE_NO, Q_atoi( safe ), SAFE_DONTCARE );
 
 		break;
+	case REF_VULKAN:
+
 	default:
 		Host_Error( "Can't initialize unknown context type %d!\n", type );
 		break;
