@@ -86,9 +86,11 @@ void Sys_PrintUsage( void )
 	O("-dev [level]     ","set log verbosity 0-2")
 	O("-log             ","write log to \"engine.log\"")
 	O("-nowriteconfig   ","disable config save")
+
 #if !XASH_WIN32
 	O("-casesensitive   ","disable case-insensitive FS emulation")
 #endif // !XASH_WIN32
+
 #if !XASH_MOBILE_PLATFORM
 	O("-daemonize       ","run engine in background, dedicated only")
 #endif // !XASH_MOBILE_PLATFORM
@@ -99,53 +101,53 @@ void Sys_PrintUsage( void )
 	O("-height <n>      ","set window height")
 	O("-oldfont         ","enable unused Quake font in Half-Life")
 
-	#if !XASH_MOBILE_PLATFORM
+#if !XASH_MOBILE_PLATFORM
 	O("-fullscreen      ","run engine in fullscreen mode")
 	O("-windowed        ","run engine in windowed mode")
 	O("-dedicated       ","run engine in dedicated server mode")
-	#endif // XASH_MOBILE_PLATFORM
+#endif // XASH_MOBILE_PLATFORM
 
-	#if XASH_ANDROID
-        O("-nativeegl       ","use native egl implementation. Use if screen does not update or black")
-	#endif // XASH_ANDROID
+#if XASH_ANDROID
+	O("-nativeegl       ","use native egl implementation. Use if screen does not update or black")
+#endif // XASH_ANDROID
 
-	#if XASH_WIN32
-        O("-noavi           ","disable AVI support")
-        O("-nointro         ","disable intro video")
-	#endif // XASH_WIN32
+#if XASH_WIN32
+	O("-noavi           ","disable AVI support")
+	O("-nointro         ","disable intro video")
+#endif // XASH_WIN32
 
-	#if XASH_DOS
+#if XASH_DOS
 	O("-novesa          ","disable vesa")
-	#endif // XASH_DOS
+#endif // XASH_DOS
 
-	#if XASH_VIDEO == VIDEO_FBDEV
+#if XASH_VIDEO == VIDEO_FBDEV
 	O("-fbdev <path>    ","open selected framebuffer")
 	O("-ttygfx          ","set graphics mode in tty")
 	O("-doublebuffer    ","enable doublebuffering")
-	#endif // XASH_VIDEO == VIDEO_FBDEV
+#endif // XASH_VIDEO == VIDEO_FBDEV
 
-	#if XASH_SOUND == SOUND_ALSA
+#if XASH_SOUND == SOUND_ALSA
 	O("-alsadev <dev>   ","open selected ALSA device")
-	#endif // XASH_SOUND == SOUND_ALSA
+#endif // XASH_SOUND == SOUND_ALSA
 
 	O("-nojoy           ","disable joystick support")
-	#ifdef XASH_SDL
+
+#ifdef XASH_SDL
 	O("-sdl_joy_old_api ","use SDL legacy joystick API")
 	O("-sdl_renderer <n>","use alternative SDL_Renderer for software")
-	#endif // XASH_SDL
+#endif // XASH_SDL
 	O("-nosound         ","disable sound")
 	O("-noenginemouse   ","disable mouse completely")
 
 	O("-ref <name>      ","use selected renderer dll")
-        O("-gldebug         ","enable OpenGL debug log")
-
+	O("-gldebug         ","enable OpenGL debug log")
 #endif // XASH_DEDICATED
 
 	O("-noip            ","disable TCP/IP")
 	O("-noch            ","disable crashhandler")
 	O("-disablehelp     ","disable this message")
 	O("-dll <path>      ","override server DLL path")
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	O("-clientlib <path>","override client DLL path")
 #endif
 	O("-rodir <path>    ","set read-only base directory, experimental")
