@@ -1382,10 +1382,10 @@ qboolean NET_BufferToBufferDecompress( byte *dest, uint *destLen, byte *source, 
 
 /*
 ====================
-NET_Isocket
+NET_IPSocket
 ====================
 */
-static int NET_Isocket( const char *net_interface, int port, qboolean multicast )
+static int NET_IPSocket( const char *net_interface, int port, qboolean multicast )
 {
 	struct sockaddr_in	addr;
 	int		err, net_socket;
@@ -1396,7 +1396,7 @@ static int NET_Isocket( const char *net_interface, int port, qboolean multicast 
 	{
 		err = WSAGetLastError();
 		if( err != WSAEAFNOSUPPORT )
-			Con_DPrintf( S_WARN "NET_UDsocket: port: %d socket: %s\n", port, NET_ErrorString( ));
+			Con_DPrintf( S_WARN "NET_UDPSocket: port: %d socket: %s\n", port, NET_ErrorString( ));
 		return INVALID_SOCKET;
 	}
 
@@ -1404,7 +1404,7 @@ static int NET_Isocket( const char *net_interface, int port, qboolean multicast 
 	{
 		struct timeval timeout;
 
-		Con_DPrintf( S_WARN "NET_UDsocket: port: %d ioctl FIONBIO: %s\n", port, NET_ErrorString( ));
+		Con_DPrintf( S_WARN "NET_UDPSocket: port: %d ioctl FIONBIO: %s\n", port, NET_ErrorString( ));
 		// try timeout instead of NBIO
 		timeout.tv_sec = timeout.tv_usec = 0;
 		setsockopt( net_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
@@ -1413,14 +1413,14 @@ static int NET_Isocket( const char *net_interface, int port, qboolean multicast 
 	// make it broadcast capable
 	if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_BROADCAST, (char *)&_true, sizeof( _true ) ) ) )
 	{
-		Con_DPrintf( S_WARN "NET_UDsocket: port: %d setsockopt SO_BROADCAST: %s\n", port, NET_ErrorString( ));
+		Con_DPrintf( S_WARN "NET_UDPSocket: port: %d setsockopt SO_BROADCAST: %s\n", port, NET_ErrorString( ));
 	}
 
 	if( Sys_CheckParm( "-reuse" ) || multicast )
 	{
 		if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&optval, sizeof( optval )) ) )
 		{
-			Con_DPrintf( S_WARN "NET_UDsocket: port: %d setsockopt SO_REUSEADDR: %s\n", port, NET_ErrorString( ));
+			Con_DPrintf( S_WARN "NET_UDPSocket: port: %d setsockopt SO_REUSEADDR: %s\n", port, NET_ErrorString( ));
 			closesocket( net_socket );
 			return INVALID_SOCKET;
 		}
@@ -1435,7 +1435,7 @@ static int NET_Isocket( const char *net_interface, int port, qboolean multicast 
 		{
 			err = WSAGetLastError();
 			if( err != WSAENOPROTOOPT )
-				Con_Printf( S_WARN "NET_UDsocket: port: %d  setsockopt IP_TOS: %s\n", port, NET_ErrorString( ));
+				Con_Printf( S_WARN "NET_UDPSocket: port: %d  setsockopt IP_TOS: %s\n", port, NET_ErrorString( ));
 			closesocket( net_socket );
 			return INVALID_SOCKET;
 		}
@@ -1452,7 +1452,7 @@ static int NET_Isocket( const char *net_interface, int port, qboolean multicast 
 
 	if( NET_IsSocketError( bind( net_socket, (void *)&addr, sizeof( addr )) ) )
 	{
-		Con_DPrintf( S_WARN "NET_UDsocket: port: %d bind: %s\n", port, NET_ErrorString( ));
+		Con_DPrintf( S_WARN "NET_UDPSocket: port: %d bind: %s\n", port, NET_ErrorString( ));
 		closesocket( net_socket );
 		return INVALID_SOCKET;
 	}
@@ -1461,7 +1461,7 @@ static int NET_Isocket( const char *net_interface, int port, qboolean multicast 
 	{
 		optval = 1;
 		if( NET_IsSocketError( setsockopt( net_socket, IPPROTO_IP, IP_MULTICAST_LOOP, (const char *)&optval, sizeof( optval )) ) )
-			Con_DPrintf( S_WARN "NET_UDsocket: port %d setsockopt IP_MULTICAST_LOOP: %s\n", port, NET_ErrorString( ));
+			Con_DPrintf( S_WARN "NET_UDPSocket: port %d setsockopt IP_MULTICAST_LOOP: %s\n", port, NET_ErrorString( ));
 	}
 
 	return net_socket;
@@ -1481,7 +1481,7 @@ static void NET_OpenIP( void )
 		port = net_iphostport->value;
 		if( !port ) port = net_hostport->value;
 		if( !port ) port = PORT_SERVER; // forcing to default
-		net.ip_sockets[NS_SERVER] = NET_Isocket( net_ipname->string, port, false );
+		net.ip_sockets[NS_SERVER] = NET_IPSocket( net_ipname->string, port, false );
 
 		if( !NET_IsSocketValid( net.ip_sockets[NS_SERVER] ) && Host_IsDedicated() )
 			Host_Error( "Couldn't allocate dedicated server IP port %d.\n", port );
@@ -1496,10 +1496,10 @@ static void NET_OpenIP( void )
 		port = net_ipclientport->value;
 		if( !port ) port = net_clientport->value;
 		if( !port ) port = PORT_ANY; // forcing to default
-		net.ip_sockets[NS_CLIENT] = NET_Isocket( net_ipname->string, port, false );
+		net.ip_sockets[NS_CLIENT] = NET_IPSocket( net_ipname->string, port, false );
 
 		if( !NET_IsSocketValid( net.ip_sockets[NS_CLIENT] ) )
-			net.ip_sockets[NS_CLIENT] = NET_Isocket( net_ipname->string, PORT_ANY, false );
+			net.ip_sockets[NS_CLIENT] = NET_IPSocket( net_ipname->string, PORT_ANY, false );
 		cl_port = port;
 	}
 }
