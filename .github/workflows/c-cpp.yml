@@ -1,11 +1,11 @@
 name: Build & Deploy Engine
 on: [push, pull_request]
 jobs:
-  cleanup:
-    runs-on: self-hosted
-    steps:
-    - name: Cleanup
-      run: rm -rf .* || true
+#  cleanup:
+#    runs-on: self-hosted
+#    steps:
+#    - name: Cleanup
+#      run: rm -rf .* || true
   build:
     runs-on: ${{ matrix.os }}
     continue-on-error: true
