@@ -19,9 +19,9 @@ jobs:
           - os: ubuntu-18.04
             targetos: linux
             targetarch: i386
-          - os: ubuntu-aarch64-20.04
-            targetos: linux
-            targetarch: aarch64
+#          - os: ubuntu-aarch64-20.04
+#            targetos: linux
+#            targetarch: aarch64
 
           - os: ubuntu-18.04
             targetos: android
