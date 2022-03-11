@@ -42,39 +42,34 @@ typedef enum
 // 	unsigned short	port;
 // } netadr_t;
 
+#pragma pack( push, 1 )
 typedef struct netadr_s
 {
 	union
 	{
 		struct
 		{
+			uint32_t type;
+			uint8_t  ip[4];
+			uint8_t  ipx[10];
+		};
+		struct
+		{
 #if XASH_LITTLE_ENDIAN
 			uint16_t type6;
-			uint16_t port6;
+			uint8_t ip6_0[2];
 #elif XASH_BIG_ENDIAN
-			uint16_t port6;
+			uint8_t ip6_0[2];
 			uint16_t type6;
 #else
 #error
 #endif
-		};
-		uint32_t type;
-	};
-	union
-	{
-		struct
-		{
-			uint16_t ip6[8];
-		};
-
-		struct
-		{
-			uint8_t  ip[4];
-			uint8_t  ipx[10];
-			uint16_t port;
+			uint8_t ip6_1[14];
 		};
 	};
+	uint16_t port;
 } netadr_t;
+#pragma pack( pop )
 
 extern int _check_netadr_t_size[sizeof( netadr_t ) == NETADR_T_SIZE ? 1 : -1];
 
