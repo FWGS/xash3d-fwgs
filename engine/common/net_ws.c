@@ -23,6 +23,8 @@ GNU General Public License for more details.
 #include <WS2tcpip.h>
 typedef int WSAsize_t;
 
+#define HAVE_GETADDRINFO
+
 #elif !defined XASH_NO_NETWORK
 // BSD sockets
 #include <sys/types.h>
@@ -381,7 +383,7 @@ qboolean NET_GetHostByName( const char *hostname, int family, struct sockaddr_st
 		return false;
 
 	((struct sockaddr_in *)addr)->sin_family = AF_INET;
-	((struct sockaddr_in *)addr)->sin_addr = *(in_addr *)h->h_addr_list[0];
+	((struct sockaddr_in *)addr)->sin_addr = *(struct in_addr *)h->h_addr_list[0];
 
 	return true;
 #endif
