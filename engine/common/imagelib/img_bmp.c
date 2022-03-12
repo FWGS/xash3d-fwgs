@@ -41,7 +41,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 
 	buf_p = (byte *)buffer;
 	memcpy( &bhdr, buf_p, sizeof( bmp_t ));
-	buf_p += sizeof( bmp_t );
+	buf_p += BI_FILE_HEADER_SIZE + bhdr.bitmapHeaderSize;
 
 	// bogus file header check
 	if( bhdr.reserved0 != 0 ) return false;
@@ -53,9 +53,9 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 		return false;
 	}
 
-	if( bhdr.bitmapHeaderSize != 0x28 )
+	if(!( bhdr.bitmapHeaderSize == 40 || bhdr.bitmapHeaderSize == 108 || bhdr.bitmapHeaderSize == 124 ))
 	{
-		Con_DPrintf( S_ERROR "Image_LoadBMP: invalid header size %i\n", bhdr.bitmapHeaderSize );
+		Con_DPrintf( S_ERROR "Image_LoadBMP: %s have non-standard header size %i\n", name, bhdr.bitmapHeaderSize );
 		return false;
 	}
 
@@ -187,6 +187,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 		return false;
 	}
 
+	image.depth = 1;
 	image.size = image.width * image.height * bpp;
 	image.rgba = Mem_Malloc( host.imagepool, image.size );
 
@@ -313,8 +314,8 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	VectorDivide( reflectivity, ( image.width * image.height ), image.fogParams );
-	if( image.palette ) Image_GetPaletteBMP( image.palette );
-	image.depth = 1;
+	if( image.palette )
+		Image_GetPaletteBMP( image.palette );
 
 	return true;
 }
