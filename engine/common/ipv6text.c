@@ -136,7 +136,7 @@ static inline int ParseIPv6Addr_DecimalDigitVal( char c )
 	if ( c >= '0' && c <= '9' ) return c - '0';
 	return -1;
 }
-bool ParseIPv6Addr_IsSpace( char c )
+static bool ParseIPv6Addr_IsSpace( char c )
 {
 	// Newlines don't count, intentionally
 	return c == ' ' || c == '\t';
