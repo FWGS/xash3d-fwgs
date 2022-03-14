@@ -6,14 +6,14 @@
 
 /// Max length of an IPv6 string, with scope, WITHOUT port number, including \0':
 /// 0123:4567:89ab:cdef:0123:4567:89ab:cdef%4294967295
-#define k_ncchMaxIPV6AddrStringWithoutPort 51;
+#define k_ncchMaxIPV6AddrStringWithoutPort 51
 
 /// Max number of bytes output by IPv6AddrToString, including '\0':
 /// [0123:4567:89ab:cdef:0123:4567:89ab:cdef%4294967295]:12345
 /// There are other strings that are acceptable to ParseIPv6Addr
 /// that are longer than this, but this is the longest canonical
 /// string.
-#define k_ncchMaxIPV6AddrStringWithPort 59;
+#define k_ncchMaxIPV6AddrStringWithPort 59
 
 #ifdef __cplusplus
 extern "C" {
