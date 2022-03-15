@@ -3658,6 +3658,7 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 	searchpath_t	*searchpath;
 	pack_t		*pak;
 	wfile_t		*wad;
+	zip_t		*zip;
 	int		i, basepathlength, numfiles, numchars;
 	int		resultlistindex, dirlistindex;
 	const char	*slash, *backslash, *colon, *separator;
@@ -3695,6 +3696,42 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 			for( i = 0; i < pak->numfiles; i++ )
 			{
 				Q_strncpy( temp, pak->files[i].name, sizeof( temp ));
+				while( temp[0] )
+				{
+					if( matchpattern( temp, (char *)pattern, true ))
+					{
+						for( resultlistindex = 0; resultlistindex < resultlist.numstrings; resultlistindex++ )
+						{
+							if( !Q_strcmp( resultlist.strings[resultlistindex], temp ))
+								break;
+						}
+
+						if( resultlistindex == resultlist.numstrings )
+							stringlistappend( &resultlist, temp );
+					}
+
+					// strip off one path element at a time until empty
+					// this way directories are added to the listing if they match the pattern
+					slash = Q_strrchr( temp, '/' );
+					backslash = Q_strrchr( temp, '\\' );
+					colon = Q_strrchr( temp, ':' );
+					separator = temp;
+					if( separator < slash )
+						separator = slash;
+					if( separator < backslash )
+						separator = backslash;
+					if( separator < colon )
+						separator = colon;
+					*((char *)separator) = 0;
+				}
+			}
+		}
+		else if( searchpath->zip )
+		{
+			zip = searchpath->zip;
+			for( i = 0; i < zip->numfiles; i++ )
+			{
+				Q_strncpy( temp, zip->files[i].name, sizeof(temp) );
 				while( temp[0] )
 				{
 					if( matchpattern( temp, (char *)pattern, true ))
