@@ -1,5 +1,5 @@
 #pragma once
-#include "xash3d_mathlib.h"
+#include "xash3d_types.h"
 #include "const.h"
 #include "render_api.h"
 #include "com_image.h"

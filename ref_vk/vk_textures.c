@@ -1,6 +1,6 @@
 #include "vk_textures.h"
 #include "vk_common.h"
-
+#include "xash3d_types.h"
 #include "xash3d_mathlib.h"
 #include "crtlib.h"
 #include "crclib.h"
@@ -18,7 +18,7 @@ static vk_textures_global_t tglob;
 
 /// Forward decl
 #define VK_LoadTextureInternal(name, pic, flags) VK_LoadTextureFromBuffer(name, pic, flags, false)
-void VK_CreateInternalTextures( void );
+static void VK_CreateInternalTextures( void );
 
 
 void initTextures( void )
@@ -37,7 +37,7 @@ void initTextures( void )
     ///TODO FIXME
 	// validate cvars
 	// R_SetTextureParameters();
-	Common_CreateInternalTextures();
+	VK_CreateInternalTextures();
 
 	// gEngine.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );
 }
@@ -146,7 +146,6 @@ static rgbdata_t *Common_FakeImage( int width, int height, int depth, int flags 
 }
 
 
-
 static void VK_CreateInternalTextures( void )
 {
 	int	dx2, dy, d;
@@ -215,11 +214,11 @@ static void VK_CreateInternalTextures( void )
 
 int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update )
 {
+	vk_texture_t	*tex;
     gEngine.Con_Printf("VK FIXME: %s(\"%s\", %p, %x, %d)\n", __FUNCTION__,
         name, pic, flags, update);
-	vk_texture_t	*tex;
-
-	if( !GL_CheckTexName( name ))
+	
+	if( !Common_CheckTexName( name ))
 		return 0;
 
 	// see if already loaded
@@ -238,7 +237,7 @@ int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 	else
 	{
 		// allocate the new one
-		tex = VK_AllocTexture( name, flags );
+		tex = Common_AllocTexture( name, flags );
 	}
 
     /// FIXME 
@@ -277,12 +276,12 @@ const byte*	VK_TextureData( unsigned int texnum )
 
 int	VK_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 {
-    gEngine.Con_Printf("VK FIXME: %s(\"%s\", %p, %zu, %x)\n", __FUNCTION__,
-        name, buf, size, flags);
+
     vk_texture_t	*tex;
 	rgbdata_t		*pic;
 	uint		picFlags = 0;
-
+    gEngine.Con_Printf("VK FIXME: %s(\"%s\", %p, %zu, %x)\n", __FUNCTION__,
+        name, buf, size, flags);
 	if( !Common_CheckTexName( name ))
 		return 0;
 

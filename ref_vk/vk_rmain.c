@@ -1,5 +1,4 @@
 #include "vk_textures.h"
-
 #include "xash3d_types.h"
 #include "cvardef.h"
 #include "const.h"
@@ -91,7 +90,7 @@ const char *R_VkGetConfigName( void )
 
 qboolean R_VkSetDisplayTransform( ref_screen_rotation_t rotate, int x, int y, float scale_x, float scale_y )
 {
-    fprintf(stderr,"VK FIXME: %s(%d, %d, %d, %d)\n", __FUNCTION__, rotate, x, y, scale_x, scale_y);
+    fprintf(stderr,"VK FIXME: %s(%d, %d, %f, %f)\n", __FUNCTION__, x, y, scale_x, scale_y);
     return true;
 }
 
@@ -326,9 +325,10 @@ qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
 // Get renderer info (doesn't changes engine state at all)
 int	VK_RefGetParm( int param, int arg )
 {
+	vk_texture_t *tex = NULL;
 	gEngine.Con_Printf("VK FIXME: %s(%s(%d),%d)\n",__FILE__, 
 		__FUNCTION__,getParamName(param), param, arg);
-	vk_texture_t *tex = NULL;
+
 	switch (param)
 	{
 	case PARM_TEX_WIDTH: 
@@ -609,148 +609,147 @@ ref_interface_t gReffuncs =
 	.R_Init = R_VkInit,
 	.R_Shutdown = R_VkShutdown,
     .R_GetConfigName = R_VkGetConfigName,
-	 R_VkSetDisplayTransform,
+	.R_SetDisplayTransform =  R_VkSetDisplayTransform,
 	.RefGetParm = VK_RefGetParm,
 
-	GL_SetupAttributes,
-	GL_InitExtensions,
-	GL_ClearExtensions,
+	.GL_SetupAttributes = GL_SetupAttributes,
+	.GL_InitExtensions = GL_InitExtensions,
+	.GL_ClearExtensions = GL_ClearExtensions,
 
-	R_BeginFrame,
-	R_RenderScene,
-	R_EndFrame,
-	R_PushScene,
-	R_PopScene,
-	GL_BackendStartFrame,
-	GL_BackendEndFrame,
+	.R_BeginFrame = R_BeginFrame,
+	.R_RenderScene =  R_RenderScene,
+	.R_EndFrame = R_EndFrame,
+	.R_PushScene = R_PushScene,
+	.R_PopScene  = R_PopScene,
+	.GL_BackendStartFrame = GL_BackendStartFrame,
+	.GL_BackendEndFrame = GL_BackendEndFrame,
 
-	R_ClearScreen,
-	R_AllowFog,
-	GL_SetRenderMode,
+	.R_ClearScreen = R_ClearScreen,
+	.R_AllowFog =  R_AllowFog,
+	.GL_SetRenderMode = GL_SetRenderMode,
 
-	R_AddEntity,
-	CL_AddCustomBeam,
-	R_ProcessEntData,
+	.R_AddEntity = R_AddEntity,
+	.CL_AddCustomBeam = CL_AddCustomBeam,
+	.R_ProcessEntData = R_ProcessEntData,
 
-	R_ShowTextures,
+	.R_ShowTextures = R_ShowTextures,
 
-	R_GetTextureOriginalBuffer,
+	.R_GetTextureOriginalBuffer = R_GetTextureOriginalBuffer,
 	.GL_LoadTextureFromBuffer = VK_LoadTextureFromBuffer,
-	GL_ProcessTexture,
-	R_SetupSky,
+	.GL_ProcessTexture = GL_ProcessTexture,
+	.R_SetupSky =  R_SetupSky,
 
-	R_Set2DMode,
-	R_DrawStretchRaw,
-	R_DrawStretchPic,
-	R_DrawTileClear,
-	CL_FillRGBA,
-	CL_FillRGBABlend,
-	R_WorldToScreen,
+	.R_Set2DMode = R_Set2DMode,
+	.R_DrawStretchRaw =  R_DrawStretchRaw,
+	.R_DrawStretchPic = R_DrawStretchPic,
+	.R_DrawTileClear =  R_DrawTileClear,
+	.FillRGBA = CL_FillRGBA,
+	.FillRGBABlend = CL_FillRGBABlend,
+	.WorldToScreen = R_WorldToScreen,
 
-	VID_ScreenShot,
-	VID_CubemapShot,
+	.VID_ScreenShot = VID_ScreenShot,
+	.VID_CubemapShot =  VID_CubemapShot,
 
-	R_LightPoint,
+	.R_LightPoint = R_LightPoint,
 
-	R_DecalShoot,
-	R_DecalRemoveAll,
-	R_CreateDecalList,
-	R_ClearAllDecals,
+	.R_DecalShoot =	R_DecalShoot,
+	.R_DecalRemoveAll = R_DecalRemoveAll,
+	.R_CreateDecalList = R_CreateDecalList,
+	.R_ClearAllDecals = R_ClearAllDecals,
 
-	R_StudioEstimateFrame,
-	R_StudioLerpMovement,
-	CL_InitStudioAPI,
+	.R_StudioEstimateFrame = R_StudioEstimateFrame,
+	.R_StudioLerpMovement = R_StudioLerpMovement,
+	.CL_InitStudioAPI = CL_InitStudioAPI,
 
-	R_InitSkyClouds,
-	GL_SubdivideSurface,
-	CL_RunLightStyles,
+	.R_InitSkyClouds = R_InitSkyClouds,
+	.GL_SubdivideSurface = GL_SubdivideSurface,
+	.CL_RunLightStyles = CL_RunLightStyles,
 
-	R_GetSpriteParms,
-	R_GetSpriteTexture,
+	.R_GetSpriteParms = R_GetSpriteParms,
+	.R_GetSpriteTexture = R_GetSpriteTexture,
 
-	Mod_LoadMapSprite,
-	Mod_ProcessRenderData,
-	Mod_StudioLoadTextures,
+	.Mod_LoadMapSprite = Mod_LoadMapSprite,
+	.Mod_ProcessRenderData = Mod_ProcessRenderData,
+	.Mod_StudioLoadTextures = Mod_StudioLoadTextures,
 
-	CL_DrawParticles,
-	CL_DrawTracers,
-	CL_DrawBeams,
-	R_BeamCull,
+	.CL_DrawParticles = CL_DrawParticles,
+	.CL_DrawTracers = CL_DrawTracers,
+	.CL_DrawBeams = CL_DrawBeams,
+	.R_BeamCull = R_BeamCull,
 
-	R_GetDetailScaleForTexture,
-	R_GetExtraParmsForTexture,
-	R_GetFrameTime,
+	.GetDetailScaleForTexture = R_GetDetailScaleForTexture,
+	.GetExtraParmsForTexture =  R_GetExtraParmsForTexture,
+	.GetFrameTime = R_GetFrameTime,
 
-	R_SetCurrentEntity,
-	R_SetCurrentModel,
+	.R_SetCurrentEntity = R_SetCurrentEntity,
+	.R_SetCurrentModel = R_SetCurrentModel,
 
-	VK_FindTexture,
-	VK_TextureName,
-	VK_TextureData,
-	VK_LoadTexture,
-	VK_CreateTexture,
-	VK_LoadTextureArray,
-	VK_CreateTextureArray,
-	VK_FreeTexture,
+	.GL_FindTexture = VK_FindTexture,
+	.GL_TextureName = VK_TextureName,
+	.GL_TextureData = VK_TextureData,
+	.GL_LoadTexture = VK_LoadTexture,
+	.GL_CreateTexture =  VK_CreateTexture,
+	.GL_LoadTextureArray = VK_LoadTextureArray,
+	.GL_CreateTextureArray = VK_CreateTextureArray,
+	.GL_FreeTexture = VK_FreeTexture,
 
-	DrawSingleDecal,
-	R_DecalSetupVerts,
-	R_EntityRemoveDecals,
+	.DrawSingleDecal =	DrawSingleDecal,
+	.R_DecalSetupVerts = R_DecalSetupVerts,
+	.R_EntityRemoveDecals = R_EntityRemoveDecals,
 
-    AVI_UploadRawFrame,
+    .AVI_UploadRawFrame = AVI_UploadRawFrame,
     //R_DrawStretchRaw,
 
-	GL_Bind,
-	GL_SelectTexture,
-	GL_LoadTextureMatrix,
-	GL_TexMatrixIdentity,
-	GL_CleanUpTextureUnits,
-	GL_TexGen,
-	GL_TextureTarget,
-	GL_TexCoordArrayMode,
-	GL_UpdateTexSize,
+	.GL_Bind =  GL_Bind,
+	.GL_SelectTexture = GL_SelectTexture,
+	.GL_LoadTextureMatrix = GL_LoadTextureMatrix,
+	.GL_TexMatrixIdentity = GL_TexMatrixIdentity,
+	.GL_CleanUpTextureUnits = GL_CleanUpTextureUnits,
+	.GL_TexGen = GL_TexGen,
+	.GL_TextureTarget =  GL_TextureTarget,
+	.GL_TexCoordArrayMode = GL_TexCoordArrayMode,
+	.GL_UpdateTexSize =  GL_UpdateTexSize,
 	NULL,
 	NULL,
 
-	GL_DrawParticles,
-	R_LightVec,
-	R_StudioGetTexture,
+	// .GL_DrawParticles =  GL_DrawParticles,
+	// .LightVec = R_LightVec,
 
-	R_RenderFrame,
-    GL_OrthoBounds,
-	R_SpeedsMessage,
-	Mod_GetCurrentVis,
-	R_NewMap,
-	R_ClearScene,
-	R_GetProcAddress,
+	// R_RenderFrame,
+    // GL_OrthoBounds,
+	// R_SpeedsMessage,
+	// Mod_GetCurrentVis,
+	// R_NewMap,
+	// R_ClearScene,
+	// R_GetProcAddress,
 
-	TriRenderMode,
-	TriBegin,
-	TriEnd,
-	TriColor4f,
-	TriColor4ub,
-	TriTexCoord2f,
-	TriVertex3fv,
-	TriVertex3f,
-	TriFog,
-	R_ScreenToWorld,
-	TriGetMatrix,
-	TriFogParams,
-	TriCullFace,
+	.TriRenderMode = TriRenderMode,
+	.Begin = TriBegin,
+	.End = TriEnd,
+	.Color4f = TriColor4f,
+	.Color4ub = TriColor4ub,
+	.TexCoord2f = TriTexCoord2f,
+	.Vertex3fv = TriVertex3fv,
+	.Vertex3f = TriVertex3f,
+	.Fog =  TriFog,
+	.ScreenToWorld = R_ScreenToWorld,
+	.GetMatrix = TriGetMatrix,
+	.FogParams = TriFogParams,
+	.CullFace = TriCullFace,
 
-	VGUI_DrawInit,
-	VGUI_DrawShutdown,
-	VGUI_SetupDrawingText,
-	VGUI_SetupDrawingRect,
-	VGUI_SetupDrawingImage,
-	VGUI_BindTexture,
-	VGUI_EnableTexture,
-	VGUI_CreateTexture,
-	VGUI_UploadTexture,
-	VGUI_UploadTextureBlock,
-	VGUI_DrawQuad,
-	VGUI_GetTextureSizes,
-	VGUI_GenerateTexture,
+	// .VGUI_DrawInit = VGUI_DrawInit,
+	// .VGUI_DrawShutdown = VGUI_DrawShutdown,
+	// .VGUI_SetupDrawingTex = VGUI_SetupDrawingText,
+	// .VGUI_SetupDrawingRec = VGUI_SetupDrawingRect,
+	// .VGUI_SetupDrawingIma = VGUI_SetupDrawingImage,
+	// .VGUI_BindTexture = VGUI_BindTexture;
+	// .VGUI_EnableTexture = VGUI_EnableTexture;
+	// .VGUI_CreateTexture = VGUI_CreateTexture;
+	// .VGUI_UploadTexture= VGUI_UploadTexture;
+	// .VGUI_UploadTextureBl= VGUI_UploadTextureBlock;
+	// .VGUI_DrawQuad= VGUI_DrawQuad;
+	// .VGUI_GetTextureSizes= VGUI_GetTextureSizes;
+	// .VGUI_GenerateTexture= VGUI_GenerateTexture;
 };
 
 int EXPORT GetRefAPI(int version, ref_interface_t *funcs, ref_api_t* engfuncs, ref_globals_t* globals)
