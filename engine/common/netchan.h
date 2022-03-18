@@ -69,8 +69,7 @@ GNU General Public License for more details.
 //  bytes will be stripped by the networking channel layer
 #define NET_MAX_MESSAGE		PAD_NUMBER(( NET_MAX_PAYLOAD + HEADER_BYTES ), 16 )
 
-#define MASTERSERVER_ADR		"ms.xash.su:27010"
-#define MASTERSERVER_ADR2		"ms2.xash.su:27010"
+#define MASTERSERVER_ADR		"mentality.rip:27010"
 #define MS_SCAN_REQUEST		"1\xFF" "0.0.0.0:0\0"
 
 #define PORT_MASTER			27010
