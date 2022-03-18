@@ -519,7 +519,7 @@ void VID_SaveWindowSize( int width, int height )
 	uint rotate = vid_rotate->value;
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	if( !glw_state.software )
+	if( !glw_state.context_type !=REF_SOFTWARE)
 		SDL_GL_GetDrawableSize( host.hWnd, &render_w, &render_h );
 	else
 		SDL_RenderSetLogicalSize( sw.renderer, width, height );
@@ -623,7 +623,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 {
 	static string	wndname;
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	Uint32 wndFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS;
+	Uint32 wndFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS;
 	rgbdata_t *icon = NULL;
 	qboolean iconLoaded = false;
 	char iconpath[MAX_STRING];
@@ -631,8 +631,17 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 	if( vid_highdpi->value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
 	Q_strncpy( wndname, GI->title, sizeof( wndname ));
-	if( glw_state.software )
-		wndFlags &= ~SDL_WINDOW_OPENGL;
+	switch (glw_state.context_type )
+	{
+	case REF_GL:
+		wndFlags |= SDL_WINDOW_OPENGL;
+		break;
+	case REF_VULKAN:
+		wndFlags |= SDL_WINDOW_VULKAN;
+		break;
+	default:
+		break;
+	}
 
 	if( !fullscreen )
 	{
@@ -738,7 +747,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 	SDL_ShowWindow( host.hWnd );
 
-	if( glw_state.software )
+	if( glw_state.context_type == REF_SOFTWARE )
 	{
 		int sdl_renderer = -2;
 		char cmd[64];
@@ -759,7 +768,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 			}
 		}
 	}
-	else
+	else if(glw_state.context_type == REF_GL)
 	{
 		if( !glw_state.initialized )
 		{
@@ -782,7 +791,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		flags |= SDL_FULLSCREEN|SDL_HWSURFACE;
 	}
 
-	if( glw_state.software )
+	if( glw_state.context_type ==REF_SOFTWARE )
 	{
 		// flags |= SDL_ASYNCBLIT;
 	}
@@ -986,11 +995,10 @@ qboolean R_Init_Video( const int type )
 #if XASH_WIN32
 	WIN_SetDPIAwareness();
 #endif
-
+	glw_state.context_type = type;
 	switch( type )
 	{
 	case REF_SOFTWARE:
-		glw_state.software = true;
 		break;
 	case REF_GL:
 		if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", safe ) )

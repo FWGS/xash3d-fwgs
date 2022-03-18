@@ -1,27 +1,78 @@
-#include "xash3d_types.h"
+#include "vk_textures.h"
 
+#include "xash3d_types.h"
 #include "cvardef.h"
 #include "const.h"
-#include "crtlib.h"
 #include "ref_api.h"
+#include "crtlib.h"
+#include "com_strings.h"
 
 #include <memory.h>
 #include <stdio.h>
 
-ref_api_t *gEngine ={0};
+ref_api_t gEngine = {0};
 ref_globals_t* gGlobals = {0};
+
+static const char* getParamName(int parm)
+{
+	#define CASE_STR(cond) case cond: return #cond;
+	switch (parm)
+	{
+		CASE_STR(PARM_TEX_WIDTH)
+		CASE_STR(PARM_TEX_HEIGHT)	
+		CASE_STR(PARM_TEX_SRC_WIDTH)
+		CASE_STR(PARM_TEX_SRC_HEIGHT)
+		CASE_STR(PARM_TEX_SKYBOX)	
+		CASE_STR(PARM_TEX_SKYTEXNUM)
+		CASE_STR(PARM_TEX_LIGHTMAP)
+		CASE_STR(PARM_TEX_TARGET)	
+		CASE_STR(PARM_TEX_TEXNUM)
+		CASE_STR(PARM_TEX_FLAGS)
+		CASE_STR(PARM_TEX_DEPTH)	
+		CASE_STR(PARM_TEX_GLFORMAT)
+		CASE_STR(PARM_TEX_ENCODE)
+		CASE_STR(PARM_TEX_MIPCOUNT)	
+		CASE_STR(PARM_BSP2_SUPPORTED)
+		CASE_STR(PARM_SKY_SPHERE)
+		CASE_STR(PARAM_GAMEPAUSED)	
+		CASE_STR(PARM_MAP_HAS_DELUXE)
+		CASE_STR(PARM_MAX_ENTITIES)
+		CASE_STR(PARM_WIDESCREEN)	
+		CASE_STR(PARM_FULLSCREEN)
+		CASE_STR(PARM_SCREEN_WIDTH)
+		CASE_STR(PARM_SCREEN_HEIGHT)	
+		CASE_STR(PARM_CLIENT_INGAME)
+		CASE_STR(PARM_FEATURES)
+		CASE_STR(PARM_ACTIVE_TMU)	
+		CASE_STR(PARM_LIGHTSTYLEVALUE)
+		CASE_STR(PARM_MAX_IMAGE_UNITS)
+		CASE_STR(PARM_CLIENT_ACTIVE)
+		CASE_STR(PARM_REBUILD_GAMMA)	
+		CASE_STR(PARM_DEDICATED_SERVER)
+		CASE_STR(PARM_SURF_SAMPLESIZE)
+		CASE_STR(PARM_GL_CONTEXT_TYPE)
+		CASE_STR(PARM_GLES_WRAPPER)	
+		CASE_STR(PARM_STENCIL_ACTIVE)
+		CASE_STR(PARM_WATER_ALPHA)
+		CASE_STR(PARM_TEX_MEMORY)	
+		CASE_STR(PARM_DELUXEDATA)
+		CASE_STR(PARM_SHADOWDATA)
+		default: return "UNKNOWN";
+	}
+	#undef CASE_STR
+}
 
 // construct, destruct
 qboolean R_VkInit( void )
 {
     fprintf(stderr,"VK FIXME: %s\n", __FUNCTION__);
 
-
-    if (!gEngine->R_Init_Video(REF_VULKAN))  //request vulkan surface
+    if (!gEngine.R_Init_Video(REF_VULKAN))  //request vulkan surface
     {
-        
+    
         return false;
     }
+	initTextures();
     
     return true;
 }
@@ -34,7 +85,7 @@ void R_VkShutdown( void )
 
 const char *R_VkGetConfigName( void )
 {
-    fprintf(stderr,"VK FIXME: %s\n", __FUNCTION__);
+    gEngine.Con_Printf("VKFIXME: %s\n", __FUNCTION__);
     return "vk";
 }
 
@@ -124,10 +175,7 @@ const byte *R_GetTextureOriginalBuffer( unsigned int idx )
 {
     return NULL;
 }
-int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update )
-{
-    return 0;
-}
+
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 {
 
@@ -276,9 +324,29 @@ qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
 
 // Xash3D Render Interface
 // Get renderer info (doesn't changes engine state at all)
-int	GL_RefGetParm( int parm, int arg )
+int	VK_RefGetParm( int param, int arg )
 {
-    return 0;
+	gEngine.Con_Printf("VK FIXME: %s(%s(%d),%d)\n",__FILE__, 
+		__FUNCTION__,getParamName(param), param, arg);
+	vk_texture_t *tex = NULL;
+	switch (param)
+	{
+	case PARM_TEX_WIDTH: 
+	case PARM_TEX_SRC_WIDTH:
+		tex = findTexture(arg);
+		return tex->width;
+		break;
+	case PARM_TEX_HEIGHT:
+	case PARM_TEX_SRC_HEIGHT:
+		tex = findTexture(arg);
+		return tex->height;
+		break;
+
+	default:
+		break;
+	}
+
+	return 0;
 }
 void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScale )
 {
@@ -303,46 +371,6 @@ void R_SetCurrentModel( struct model_s *mod )
 
 }
 
-// Texture tools
-int	GL_FindTexture( const char *name )
-{
-    return 0;
-}
-
-const char*	GL_TextureName( unsigned int texnum )
-{
-    return NULL;
-}
-
-const byte*	GL_TextureData( unsigned int texnum )
-{
-    return NULL;
-}
-
-int	GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
-{
-    return 0;
-}
-
-int	GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags )
-{
-    return 0;
-}
-
-int	GL_LoadTextureArray( const char **names, int flags )
-{
-    return 0;
-}
-
-int	GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags )
-{
-    return 0;
-}
-
-void GL_FreeTexture( unsigned int texnum )
-{
-
-}
 
 // Decals manipulating (draw & remove)
 void DrawSingleDecal( struct decal_s *pDecal, struct msurface_s *fa )
@@ -578,10 +606,11 @@ int	VGUI_GenerateTexture( void )
 
 ref_interface_t gReffuncs =
 {
-	R_VkInit,
-	R_VkShutdown,
-    R_VkGetConfigName,
-	R_VkSetDisplayTransform,
+	.R_Init = R_VkInit,
+	.R_Shutdown = R_VkShutdown,
+    .R_GetConfigName = R_VkGetConfigName,
+	 R_VkSetDisplayTransform,
+	.RefGetParm = VK_RefGetParm,
 
 	GL_SetupAttributes,
 	GL_InitExtensions,
@@ -606,7 +635,7 @@ ref_interface_t gReffuncs =
 	R_ShowTextures,
 
 	R_GetTextureOriginalBuffer,
-	GL_LoadTextureFromBuffer,
+	.GL_LoadTextureFromBuffer = VK_LoadTextureFromBuffer,
 	GL_ProcessTexture,
 	R_SetupSky,
 
@@ -648,7 +677,6 @@ ref_interface_t gReffuncs =
 	CL_DrawBeams,
 	R_BeamCull,
 
-	GL_RefGetParm,
 	R_GetDetailScaleForTexture,
 	R_GetExtraParmsForTexture,
 	R_GetFrameTime,
@@ -656,14 +684,14 @@ ref_interface_t gReffuncs =
 	R_SetCurrentEntity,
 	R_SetCurrentModel,
 
-	GL_FindTexture,
-	GL_TextureName,
-	GL_TextureData,
-	GL_LoadTexture,
-	GL_CreateTexture,
-	GL_LoadTextureArray,
-	GL_CreateTextureArray,
-	GL_FreeTexture,
+	VK_FindTexture,
+	VK_TextureName,
+	VK_TextureData,
+	VK_LoadTexture,
+	VK_CreateTexture,
+	VK_LoadTextureArray,
+	VK_CreateTextureArray,
+	VK_FreeTexture,
 
 	DrawSingleDecal,
 	R_DecalSetupVerts,
