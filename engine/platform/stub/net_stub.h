@@ -12,7 +12,8 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
+#ifndef NET_STUB_H
+#define NET_STUB_H
 
 #define INVALID_SOCKET (-1)
 #define SOCKET_ERROR (-1)
@@ -92,3 +93,5 @@ struct timeval {long tv_sec;long tv_usec;};
 #define WSAELOOP           34 //ELOOP
 #define WSAENAMETOOLONG    35 //ENAMETOOLONG
 #define WSAEHOSTDOWN       36 //EHOSTDOWN
+
+#endif // NET_STUB_H
