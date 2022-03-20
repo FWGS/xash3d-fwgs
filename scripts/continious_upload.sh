@@ -84,29 +84,59 @@ if [ ! -z "$UPLOADTOOL_SUFFIX" ] ; then
 
   fi
 else
-  # ,, is a bash-ism to convert variable to lower case
-  case $(tr '[:upper:]' '[:lower:]' <<< "$GIT_TAG") in
-    "")
-      # Do not use "latest" as it is reserved by GitHub
-      RELEASE_NAME="continuous"
-      RELEASE_TITLE="Continuous build"
-      if [ -z "$UPLOADTOOL_ISPRERELEASE" ] ; then
+  if [ "$GITHUB_ACTIONS" = "true" ]; then
+    if [ "$GITHUB_REF_TYPE" == "branch" ]; then
+      if [ "$GITHUB_REF_NAME" == "master" ]; then
+        RELEASE_NAME="continuous"
+        RELEASE_TITLE="Continuous build"
+      else
+        RELEASE_NAME="continuous-$GITHUB_REF_NAME"
+        RELEASE_TITLE="Continuous build ($GITHUB_REF_NAME)"
+      fi
+      if [ -z "$UPLOADTOOL_ISPRERELEASE" ]; then
         is_prerelease="false"
       else
         is_prerelease="true"
       fi
-      ;;
-    *-alpha*|*-beta*|*-rc*)
-      RELEASE_NAME="$GIT_TAG"
-      RELEASE_TITLE="Pre-release build ($GIT_TAG)"
-      is_prerelease="true"
-      ;;
-    *)
-      RELEASE_NAME="$GIT_TAG"
-      RELEASE_TITLE="Release build ($GIT_TAG)"
-      is_prerelease="false"
-      ;;
-  esac
+    elif [ "$GITHUB_REF_TYPE" == "tag" ]; then
+      case $(tr '[:upper:]' '[:lower:]' <<< "$GITHUB_REF_NAME") in
+        *-alpha*|*-beta*|*-rc*)
+          RELEASE_NAME="$GITHUB_REF_NAME"
+          RELEASE_TITLE="Pre-release build ($GITHUB_REF_NAME)"
+          is_prerelease="true"
+          ;;
+        *)
+          RELEASE_NAME="$GITHUB_REF_NAME"
+          RELEASE_TITLE="Release build ($GITHUB_REF_NAME)"
+          is_prerelease="false"
+          ;;
+      esac
+    fi
+  else
+    # ,, is a bash-ism to convert variable to lower case
+    case $(tr '[:upper:]' '[:lower:]' <<< "$GIT_TAG") in
+      "")
+        # Do not use "latest" as it is reserved by GitHub
+        RELEASE_NAME="continuous"
+        RELEASE_TITLE="Continuous build"
+        if [ -z "$UPLOADTOOL_ISPRERELEASE" ] ; then
+          is_prerelease="false"
+        else
+          is_prerelease="true"
+        fi
+        ;;
+      *-alpha*|*-beta*|*-rc*)
+        RELEASE_NAME="$GIT_TAG"
+        RELEASE_TITLE="Pre-release build ($GIT_TAG)"
+        is_prerelease="true"
+        ;;
+      *)
+        RELEASE_NAME="$GIT_TAG"
+        RELEASE_TITLE="Release build ($GIT_TAG)"
+        is_prerelease="false"
+        ;;
+    esac
+  fi
 fi
 
 # Do not upload non-master branch builds
