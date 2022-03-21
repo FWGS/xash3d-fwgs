@@ -1,0 +1,21 @@
++A~FIFTIES_LGT2  160 170 220  5000
++ALAB1_W6        150 160 210  0
++0LAB1_W6B       150 160 210  4000
+
+// FIXME: need emissive mask or emissive texture
++0MEDKIT         255 192 128  100
+MEDKITEDGE1      255 192 128  100
++0RECHARGE       255 192 0    30
+RECHARGEEDGE1    255 192 0    30
+
++0~LIGHT3A       180 180 230  50000
+
+//~LIGHT3C         220 210 150   14000
+~LIGHT3C         220 210 150  4000
+
+// for optimization
++0~DRKMTLS2C     255 200 100  0
+
++0~LIGHT4A       200 190 130  11000
+
+~TRN_LT1         160 170 220  10000

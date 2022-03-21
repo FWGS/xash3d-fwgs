@@ -1,0 +1,20 @@
+// section 1
+
+
+{
+"_xvk_ent_id" "123 122" // remove hack lights entity
+}
+
+
+
+{
+"_xvk_ent_id" "20" // sun
+"_light" "210 200 120 1750" // original: 210 200 120 175 // need tune for hdr-autoexposure
+"pitch" "-45"
+"angle" "15" // restore missing angle from demo (better sun angle)
+}
+
+
+
+
+

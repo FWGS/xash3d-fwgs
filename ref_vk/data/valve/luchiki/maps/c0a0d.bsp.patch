@@ -1,0 +1,33 @@
+// wagonchik
+{
+"_xvk_ent_id" "71 63 70 60 65 61 67 72 64 68 62 66 59 69" // remove hack light entity
+}
+{
+"_xvk_ent_id" "57 58" // remove hack light entity "EXIT"
+}
+
+// section 0
+{
+"_xvk_ent_id" "13" // remove hack light
+}
+// section 1
+{
+"_xvk_ent_id" "28 31 32 30 29 26 27" // remove hack light
+}
+// correct light
+{
+"_xvk_surface_id" "629 1552" // SKKYLITE         255 110 40   700
+"_light" "255 110 40 100000"
+}
+
+//{ // testing
+//"_xvk_surface_id" "980 975 872 881 999 885 886 1883 1852 1763 1709 1723 1724 1750 1728" // !TOXICGRN2       20 255 0    350
+//"_xvk_texture" ""
+//}
+
+
+// correct light for gman
+{
+"_xvk_surface_id" "1295 1294 1436 1437" // SUBWAY_LIGHTS    190 195 255  1500
+"_light" "190 195 255 5000"
+}

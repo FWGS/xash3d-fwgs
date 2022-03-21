@@ -1,0 +1,48 @@
+// more correct hack
+{
+"_xvk_ent_id" "52"
+"origin" "-56 -624 -140"
+"_light" "120 130 180" // 160 170 220 (-40)
+}
+{
+"classname" "light"
+"origin" "-84 -624 -140"
+"targetname" "scilights"
+"style" "33"
+"_light" "120 130 180" // 160 170 220 (-40)
+}
+
+
+{
+"_xvk_ent_id" "120 119" // remove hack lights entity
+}
+
+{
+"_xvk_ent_id" "126 127" // remove hack lights entity
+}
+
+{
+"_xvk_surface_id" "2412" // generic88a
+//"_xvk_texture" "black" // fix texture
+"_light" "0 0 0 0"
+}
+
+
+// more correct hack
+{
+"_xvk_ent_id" "50"
+"origin" "1062 -892 -140"
+"_light" "120 120 145" // 160 160 185 (-40)
+}
+{
+"classname" "light"
+"origin" "1094 -892 -140"
+"targetname" "barnlights"
+"style" "32"
+"_light" "120 120 145" // 160 160 185 (-40)
+}
+
+
+{
+"_xvk_ent_id" "83" // remove hack lights entity
+}

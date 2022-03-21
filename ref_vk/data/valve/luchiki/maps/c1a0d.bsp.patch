@@ -1,0 +1,75 @@
+// remove hack lights in kuhnya
+{
+"_xvk_ent_id" "253" // remove hack lights entity
+}
+
+
+// TESTED
+{
+//"_xvk_surface_id" "1234 4011 4017 4023 4029 4035 4010 4031 4033 4027 4021 4015 4009 4030 4024 4018 4012 4006 1225 4028 1232 1230 1231 4034 4019 4016 4025 4007 4022 1229 4013 1233 1227" // generic105
+"_light" "0 0 0 0" // disable light from junk surfaces
+}
+{
+//"_xvk_surface_id" "4040 4041 4047 4053 4059 4065 4039 4045 4051 4057 4063 4036 4042 4048 4054 4060 4061 1206 1207 1208 1205 4058 4049 4064 4046 4055 4037 4052 4043 1204" // generic106
+"_light" "0 0 0 0" // disable light from junk surfaces
+}
+{
+//"_xvk_surface_id" "1224 1175 1173 1174 1219 1218 1220 1215 1216 4008 4014 4020 4026 4032 1217 1221 1179 1180" // generic105
+"_light" "0 0 0 0" // disable light from soda vending machine 
+}
+{
+//"_xvk_surface_id" "1191 1176 1194 1193 1186 1185 1187 1182 1183 4038 4044 4050 4056 4062 1184 1188" // generic106
+"_light" "0 0 0 0" // disable light from soda vending machine
+}
+
+// mirror in toilet
+{
+"_xvk_surface_id" "2057"
+//"_xvk_texture" "mirror"
+"_xvk_texture" "pbr/colors/white.png" // HACK
+}
+
+
+
+
+// correct position spotlight in suit room
+{
+"_xvk_ent_id" "220"
+"origin" "-3648 832 -188"
+"_xvk_radius" "2"
+}
+{
+"_xvk_ent_id" "221"
+"origin" "-3648 960 -188"
+"_xvk_radius" "2"
+}
+{
+"_xvk_ent_id" "223"
+"origin" "-3648 960 -188"
+"_xvk_radius" "5" // focus
+}
+{
+"_xvk_ent_id" "224"
+"origin" "-3648 1088 -188"
+"_xvk_radius" "2"
+}
+
+// remove hack light in razdevalka
+{
+"_xvk_ent_id" "231 229"
+}
+
+//{
+//"_xvk_surface_id" "1507 1508" // +A~FIFTIES_LGT2  160 170 220  4000
+//"_light" "160 170 220 8000"
+//}
+
+
+
+// remove hack light in servernya (for perfomance? this room out of reach player)
+{
+"_xvk_ent_id" "122 128 121 129 135 126 124 123 130 125 127"
+}
+
+
+

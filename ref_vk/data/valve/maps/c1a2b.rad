@@ -1,0 +1,13 @@
+// from hack light (0   255 0    35)
+// TODO: need emissive texture
+//+0EXIT           0   255 0    0
+//+AEXIT           0   255 0    200
++AEXIT           255 255 255  30
+
++0~TNNL_LGT2     190 255 255  12000
+
++0~FIFTIES_LGT2  160 170 220  5000
+
+
++0~FIFTS_LGHT06  255 255 255  1000
+

@@ -1,0 +1,53 @@
+// wagonchik
+{
+"_xvk_ent_id" "127 117 121 116 126 119 123 128 125 115 122 118 124 120" // remove hack light entity
+}
+{
+"_xvk_ent_id" "114 113" // remove hack light entity "EXIT"
+}
+
+
+// section 1
+{
+"_xvk_ent_id" "20" // remove hack light
+}
+{
+"_xvk_surface_id" "661 854" // SKKYLITE         255 110 40   700
+"_light" "255 110 40 4000"
+}
+//{
+//"_xvk_surface_id" "2179 1927" // SKKYLITE         255 110 40   700
+//"_light" "255 110 40 4000"
+//}
+{
+"_xvk_ent_id" "22" // remove hack light
+}
+{
+"_xvk_ent_id" "23" // tune hack light
+"origin" "-344 46 85"
+"_xvk_radius" "10"
+}
+
+// section 2
+{
+"_xvk_surface_id" "1675 783" // +0~LIGHT2A       255 255 90   2500
+"_light" "255 255 90 8000" // more correct light
+}
+{
+"_xvk_ent_id" "142" // remove hack light
+}
+{
+"_xvk_surface_id" "178 167" // SKKYLITE         255 110 40   700
+"_light" "255 110 40 2400"
+}
+{
+"_xvk_surface_id" "1041 1092" // SKKYLITE         255 110 40   700
+"_light" "255 110 40 2400"
+}
+{
+"_xvk_ent_id" "101 102 104 103 105 106 107 108 109" // remove hack light
+}
+{
+"_xvk_surface_id" "1507 1508 1633 1634 1635" // +0~FIFTIES_LGT2  185 195 255  3000
+"_light" "185 195 255 8000"
+}

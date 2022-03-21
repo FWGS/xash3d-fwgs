@@ -123,4 +123,7 @@ def build(bld):
 		glslcflags = '--target-env=vulkan1.2'
 	)
 
-	bld.install_files(bld.env.LIBDIR + '/valve/maps', bld.path.ant_glob('rad/*.rad'))
+	bld.install_files(bld.env.LIBDIR,
+					  bld.path.ant_glob('data/**'),
+					  cwd=bld.path.find_dir('data/'),
+					  relative_trick=True)

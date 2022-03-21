@@ -1,0 +1,109 @@
+// section 0
+{
+"_xvk_ent_id" "330 331 328 329" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "323 324 326 325" // remove hack lights entity
+}
+{
+"_xvk_surface_id" "723 722 903 902" // ELEV2_CIEL       255 200 100  2000
+"_light" "255 200 100 7000"
+}
+
+// section 1
+{
+"_xvk_ent_id" "501" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "502"
+"_light" "160 170 220 100"
+}
+{ // TODO: better design light
+"_xvk_ent_id" "378"
+"_cone" "1"
+"_cone2" "300"
+//"targetname" "flickerlight"
+//"style" "10"
+}
+{ // FIXME: remove and recreate by points light with lightstyle (when it will work)
+"_xvk_ent_id" "276"
+"_cone" "1"
+"_cone2" "200"
+//"style" "10"
+"origin" "1833 -674 -521"
+"pitch" "120"
+"_light" "255 255 255 170"
+}
+
+{
+"_xvk_ent_id" "379"
+"_light" "160 170 220 250"
+"_cone" "1"
+"_cone2" "300"
+}
+//{
+//"_xvk_surface_id" "1719" // +A~FIFTS_LGHT4
+//"_light" "160 170 220 100"
+//}
+
+
+// section 2
+{
+"_xvk_ent_id" "15 493 178" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "214 222" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "220 225" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "420"
+"origin" "2942 -996 -539"
+"_light" "255 255 255 150" // correct light
+"pitch" "10"
+"angle" "315"
+}
+
+// section 3
+{
+"_xvk_ent_id" "169 170 70 71 68 69 66 65 64" // remove hack lights entity
+}
+
+// section 4
+{
+"_xvk_ent_id" "181"
+"origin" "358 -524 -540"
+"_light" "40 80 40 700" // correct light
+}
+
+// section 5
+{
+"_xvk_ent_id" "602 504"
+}
+
+// section 6
+{
+"_xvk_ent_id" "248"
+"origin" "38 -1046 -461"
+}
+{
+"_xvk_ent_id" "246"
+"origin" "-203 -1174 -461"
+}
+{
+"_xvk_ent_id" "245"
+"origin" "-515 -1103 -461"
+}
+{
+"_xvk_ent_id" "247"
+"origin" "-196 -1024 -461"
+}
+{
+"_xvk_ent_id" "498"
+}
+{
+"_xvk_ent_id" "184"
+}
+
+
