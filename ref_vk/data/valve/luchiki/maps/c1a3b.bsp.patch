@@ -1,0 +1,33 @@
+// section 1
+// spot lights
+{
+"_xvk_ent_id" "109"
+"origin" "136 -848 916"
+}
+{
+"_xvk_ent_id" "111"
+"origin" "136 -648 916"
+}
+{
+"_xvk_ent_id" "112"
+"origin" "296 -648 916"
+}
+
+{
+"_xvk_ent_id" "5" // sun
+"_light" "179 158 211 80" // original // need tune for hdr-autoexposure
+"_light" "210 200 120 1750" // demo lights // 210 200 120 175 // need tune for hdr-autoexposure
+"pitch" "-45"
+"angle" "15" // from demo c1a3c (better sun angle)
+}
+
+
+
+// section 1
+// for demo map
+{
+"_xvk_surface_id" "1684" // {ladder3a
+}
+
+
+

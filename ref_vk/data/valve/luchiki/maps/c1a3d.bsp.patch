@@ -1,0 +1,28 @@
+// section 1
+// spot lights
+{
+"_xvk_ent_id" "143"
+"origin" "800 -280 881"
+}
+
+// alarm lights
+{
+"_xvk_ent_id" "43"
+"origin" "960 -212 713"
+"_light" "233 186 0 80"
+}
+{
+"_xvk_ent_id" "44"
+"origin" "1152 -212 713"
+"_light" "233 186 0 80"
+}
+
+
+// section 2
+{
+"_xvk_ent_id" "198" // remove hack lights entity
+}
+
+{
+"_xvk_surface_id" "1744 1647" // {ladder1
+}

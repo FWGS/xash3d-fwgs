@@ -1,0 +1,90 @@
+// section 1
+// spot lights
+{
+"_xvk_ent_id" "388"
+"origin" "904 -1288 112"
+}
+{
+"_xvk_ent_id" "387"
+"origin" "760 -1288 112"
+}
+{
+"_xvk_ent_id" "385"
+"origin" "904 -1576 112"
+}
+{
+"_xvk_ent_id" "386"
+"origin" "760 -1576 112"
+}
+
+// alarm lights
+{
+"_xvk_ent_id" "368"
+"origin" "568 -1803 72"
+"_light" "233 186 0 80"
+}
+{
+"_xvk_ent_id" "365"
+"origin" "376 -1804 72"
+"_light" "233 186 0 80"
+}
+
+{
+"_xvk_ent_id" "469 468" // remove hack lights entity
+}
+
+
+// section 2
+{
+"_xvk_surface_id" "657 656" // +0~LIGHT6A       150 5   5    25000
+"_light" "150 5 5 50000" // for barnacle
+}
+{
+"_xvk_surface_id" "794 1092" // +0~LIGHT3A       180 180 230  10000
+"_light" "180 180 230 2000" // for barnacle
+}
+
+
+// section 3
+// alarm lights
+{
+"_xvk_ent_id" "323"
+"origin" "-1669 -3096 -56"
+"_light" "233 186 0 80"
+}
+{
+"_xvk_ent_id" "320"
+"origin" "-1669 -3288 -56"
+"_light" "233 186 0 80"
+}
+
+// section 4
+{
+"_xvk_ent_id" "482" // remove hack lights entity
+}
+
+// section 5
+{
+"_xvk_ent_id" "477 476" // remove hack lights entity
+}
+
+// spot lights
+{
+"_xvk_ent_id" "398"
+"origin" "-2464 -1680 112"
+}
+
+// section 6
+// spot lights
+{
+"_xvk_ent_id" "449"
+"origin" "-536 -768 916"
+}
+{
+"_xvk_ent_id" "452"
+"origin" "-536 -568 916"
+}
+{
+"_xvk_ent_id" "453"
+"origin" "-376 -568 916"
+}

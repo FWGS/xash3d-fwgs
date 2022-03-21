@@ -1,0 +1,138 @@
+// section 1
+{
+"_xvk_ent_id" "409 491" // remove hack lights entity
+}
+//{
+//"_xvk_surface_id" "3875 3874" // BLACK
+//"_xvk_texture" "c1a3yellow"
+//}
+
+// alarm lights
+{
+"_xvk_ent_id" "11"
+"origin" "186 832 72"
+"_light" "233 186 0 80"
+}
+{
+"_xvk_ent_id" "8"
+"origin" "186 640 72"
+"_light" "233 186 0 80"
+}
+
+
+// section 2
+{
+"_xvk_ent_id" "257"
+"origin" "-304 200 240"
+}
+{
+"_xvk_ent_id" "258"
+"origin" "-304 296 240"
+}
+{
+"_xvk_ent_id" "259"
+"origin" "-304 488 240"
+}
+
+// spot lights
+{
+"_xvk_ent_id" "254"
+"origin" "-536 200 240"
+}
+{
+"_xvk_ent_id" "261"
+"origin" "-536 392 240"
+}
+{
+"_xvk_ent_id" "256"
+"origin" "-776 200 240"
+}
+{
+"_xvk_ent_id" "255"
+"origin" "-776 392 240"
+}
+{
+"_xvk_ent_id" "262"
+"origin" "-1016 296 240"
+}
+
+// alarm lights
+{
+"_xvk_ent_id" "98"
+"origin" "-1216 557 72"
+"_light" "233 186 0 80"
+}
+{
+"_xvk_ent_id" "99"
+"origin" "-1408 557 72"
+"_light" "233 186 0 80"
+}
+
+// soda machine
+// FIXME
+{
+"classname" "light"
+"origin" "-1400 -480 63"
+"_light" "255 100 100 100" // GENERIC105       255 100 100  1000
+"targetname" "busted_soda_spawner_1"
+//"style" "33"
+}
+{
+"classname" "light"
+"origin" "-1400 -400 63"
+"_light" "50 180 50 100" // GEN_VEND1        50  180 50   1000
+"targetname" "busted_soda_spawner_2"
+//"style" "33"
+}
+
+
+// spot lights
+{
+"_xvk_ent_id" "408"
+"origin" "-840 -376 112"
+}
+
+{
+"_xvk_ent_id" "260"
+"origin" "-560 -152 112"
+}
+{
+"_xvk_ent_id" "247"
+"origin" "-368 -152 112"
+}
+
+{
+"_xvk_ent_id" "253"
+"origin" "-560 -376 112"
+}
+{
+"_xvk_ent_id" "248"
+"origin" "-368 -376 112"
+}
+{
+"_xvk_ent_id" "249"
+"origin" "-560 -624 224"
+}
+{
+"_xvk_ent_id" "250"
+"origin" "-368 -152 112"
+}
+
+{
+"_xvk_ent_id" "251"
+"origin" "-560 -856 224"
+}
+
+// alarm lights
+{
+"_xvk_ent_id" "167"
+"origin" "-88 -924 -56"
+"_light" "233 186 0 80"
+}
+{
+"_xvk_ent_id" "171"
+"origin" "104 -924 -56"
+"_light" "233 186 0 80"
+}
+
+

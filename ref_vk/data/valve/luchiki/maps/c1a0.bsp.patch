@@ -1,0 +1,86 @@
+
+// FOR TESTING (disable light)
+//{
+//"_xvk_ent_id" "181"
+//}
+//{
+//"_xvk_surface_id" "761 762 249 248 742 740 744 428 28 192 749 750 748 430 576 575 577 573 574 571 572 570 568 567 569 564 565 566 645 623 618 350 351 359 26 190 1670 1676"
+//"_light" "0 0 0 0"
+//}
+//{
+//"_xvk_surface_id" "318" // uglovoy komp
+//"_light" "255 255 255 20"
+//}
+
+
+
+// main room and corridor
+{
+"_xvk_ent_id" "42 43 44 14 45 46 47" // remove hack lights
+}
+
+// science room
+{
+"_xvk_ent_id" "220 221" // remove hack lights
+}
+// correct light
+{
+"_xvk_ent_id" "209"
+"origin" "-1059 -765 -51"
+}
+{
+"_xvk_ent_id" "208"
+"origin" "-901 -765 -51"
+}
+{
+"classname" "light"
+"targetname" "office1"
+"style" "33"
+//"_light" "90 90 110" // 130 130 150 (-40)
+"_light" "130 130 150"
+"origin" "-1059 -725 -51"
+}
+{
+"classname" "light"
+"targetname" "office1"
+"style" "33"
+//"_light" "90 90 110" // 130 130 150 (-40)
+"_light" "130 130 150"
+"origin" "-901 -725 -51"
+}
+{
+"_xvk_ent_id" "210"
+"origin" "-1057 -565 -51"
+}
+{
+"_xvk_ent_id" "207"
+"origin" "-901 -565 -51"
+}
+{
+"classname" "light"
+"targetname" "office1"
+"style" "33"
+"_light" "130 130 150"
+"origin" "-1057 -525 -51"
+}
+{
+"classname" "light"
+"targetname" "office1"
+"style" "33"
+"_light" "130 130 150"
+"origin" "-901 -525 -51"
+}
+
+// servernaya
+{
+"_xvk_ent_id" "10 17 9 18 51 15 12 11 19 13 16" // remove hack lights
+}
+
+
+// end
+
+{
+"_xvk_ent_id" "20" // tune hack light entity
+"_cone" "0"
+"_cone2" "50"
+}

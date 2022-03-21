@@ -357,7 +357,7 @@ static void addPatchSurface( const entity_props_t *props, uint32_t have_fields )
 		}
 
 		if (have_fields & Field__light) {
-			VectorCopy(props->_light, psurf->emissive);
+			VectorScale(props->_light, 0.1f, psurf->emissive);
 			psurf->flags |= Patch_Surface_Emissive;
 			gEngine.Con_Reportf("Patch for surface %d: assign emissive %f %f %f\n", index,
 				psurf->emissive[0],

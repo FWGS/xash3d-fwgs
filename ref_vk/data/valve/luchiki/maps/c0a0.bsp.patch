@@ -1,0 +1,98 @@
+// for dev purposes
+//{
+//"_xvk_ent_id" "217" // delete fade in entity // not work :(
+//"rendercolor" "255 0 0"
+//"renderamt" "0"
+//}
+
+// wagonchik
+{
+"_xvk_ent_id" "198 192 193 199 203 200 190 191 201 202 194 195 196 197" // remove hack light entity
+//"_light" "223 222 248 0"
+}
+{
+"_xvk_ent_id" "188 189" // remove hack light entity "EXIT"
+//"_light" "223 222 248 0"
+}
+
+
+
+
+
+// section 1
+{
+"_xvk_ent_id" "88 87 86 89 90" // remove hack "ambient" lights entity
+"_light" "100 100 255 0"
+}
+{
+"_xvk_ent_id" "38 36 40 35 32 30 28 43 27" // remove hack "ambient" lights entity
+"_light" "100 100 255 0"
+}
+{
+"_xvk_ent_id" "92 215 214" // remove hack lights entity
+"_light" "146 136 232 0" // 244 252 158
+}
+// norm lampochki
+{
+"_xvk_ent_id" "39 37 41 34 33 31 29 42 26"
+"_xvk_radius" "5" // fix radius
+"pitch" "-90" // correct pitch
+}
+{
+"_xvk_surface_id" "340 468 909 910" //+0~TNNL_LGT1     255 245 110  8000
+"_light" "255 245 110  15000" // correct light
+}
+{
+"_xvk_surface_id" "398 399" //GENERIC87A GENERIC88A
+"_light" "0 0 0 0" // correct light
+}
+
+
+// section 2
+{
+"_xvk_ent_id" "52 58 64 70 59 53 65 71 60 54 66 72 63 57 62 69 75 56 74 68 121 61 55 73 67" // remove hack "ambient" lights entity
+"_light" "100 100 255 0"
+}
+{
+"_xvk_ent_id" "93 94 95 96" // remove hack spot light entity
+"_light" "131 131 243 0"
+}
+{
+"_xvk_ent_id" "117 123 124" // remove hack light entity
+"_light" "240 230 100 0"
+}
+{
+"_xvk_ent_id" "5 4" // remove hack light entity
+"_light" "170 170 60 0"
+}
+// lines light
+{
+"_xvk_ent_id" "132 133 130 131 128 129 126 127 134 135" // remove hack light entity
+"_light" "170 170 60 0"
+}
+{
+"_xvk_ent_id" "166 167 164 165 156 157 154 155 152 153 150 151 162 163 160 161 159 158" // remove hack light entity
+"_light" "170 170 60 0"
+}
+{
+"_xvk_surface_id" "2257" // SKKYLITE         255 110 40   700
+"_light" "240 230 100 20000" // from hack light entity
+}
+{
+"_xvk_ent_id" "118 147 148 149 213" // remove hack light entity
+"_light" "240 230 100 0"
+}
+
+{
+"_xvk_surface_id" "1573 1576 2207 2216" //+0~FIFTS_LGHT01  230 234 255  3000
+"_light" "230 234 255  7000" // correct light
+}
+{
+"_xvk_surface_id" "1566 1562" //GENERIC87A GENERIC88A
+"_light" "0 0 0 0" // correct light
+}
+//{
+//"_xvk_surface_id" "1722 2397 2395" //+0~FIFTIES_LGT2  185 195 255  3000
+//"_light" "185 195 255  12000" // correct light
+//}
+

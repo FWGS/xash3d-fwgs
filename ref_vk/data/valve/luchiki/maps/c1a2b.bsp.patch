@@ -1,0 +1,113 @@
+// section 0
+{
+"_xvk_ent_id" "99" // remove hack lights entity
+}
+
+// section 1
+{
+"_xvk_ent_id" "458 459" // remove hack lights entity
+}
+
+{
+"_xvk_ent_id" "284 285" // remove hack lights entity
+}
+{
+"_xvk_surface_id" "1974 298" // +0~TNNL_LGT2     190 255 255  12000
+"_light" "190 255 255 100000"
+}
+
+{
+"_xvk_ent_id" "146 145" // remove hack lights entity
+}
+
+// correct lights
+{
+"_xvk_ent_id" "192"
+"origin" "1040 -156 31"
+"_light" "244 252 158 125" // 244 252 158 175
+"_cone" "64"
+"_cone2" "128"
+}
+{
+"_xvk_ent_id" "195"
+"origin" "1040 -420 31"
+"_light" "244 252 158 125" // 244 252 158 175
+"_cone" "64"
+"_cone2" "128"
+}
+
+{
+"_xvk_ent_id" "147 151 148 149 150" // remove hack lights entity
+}
+
+// section 1.5
+
+// correct lights
+{
+"_xvk_ent_id" "385"
+"origin" "1099 -57 176"
+"_light" "244 252 158 105" // "244 252 158 175"
+"_cone" "64"
+"_cone2" "128"
+}
+{
+"_xvk_ent_id" "388"
+"origin" "1099 -320 176"
+"_light" "244 252 158 105" // 244 252 158 175
+"_cone" "64"
+"_cone2" "128"
+}
+
+
+{ // TODO: fix 2 side texture coordinates
+"_xvk_surface_id" "7011 7010" // {gratestep2
+"_xvk_texture" "" // remove broken texture
+}
+
+
+
+// section 2
+
+{
+"_xvk_ent_id" "437 436 434 435" // remove hack lights entity
+}
+
+{
+"_xvk_ent_id" "432 431 433 430"
+//"_light" "160 170 220 250" // 160 170 220 250
+}
+
+
+// section 3
+{
+"_xvk_ent_id" "106 105" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "99" // remove hack lights entity
+}
+
+
+// section 4
+{
+"_xvk_ent_id" "380 381" // remove hack lights entity
+}
+
+// section 5
+{
+"_xvk_ent_id" "229" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "246" // remove hack lights entity
+}
+
+
+// section 6
+{
+"_xvk_ent_id" "471" // gman exit light
+"_light" "255 0 0 120" // 255 0 0 35
+"origin" "833 -1279 481"
+}
+
+
+
+
