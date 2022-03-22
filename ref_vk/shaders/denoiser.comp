@@ -2,6 +2,7 @@
 
 #include "noise.glsl"
 #include "utils.glsl"
+#include "color_spaces.glsl"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
@@ -183,10 +184,10 @@ void main() {
 		colour *= 8.;
 	}
 #else
-	colour *= .25;
+	//colour *= .25;
 #endif
 
-	colour = aces_tonemap(colour);
+	//colour = aces_tonemap(colour);
 	//colour = reinhard02(colour, vec3(400.));
 	//colour = reinhard02(colour, vec3(1.));
 
@@ -194,7 +195,7 @@ void main() {
 	if (pix.x < res.x / 2) {
 #endif
 		//colour *= .25;
-		colour = pow(colour, vec3(1. / 2.2));
+		colour = LINEARtoSRGB(colour); // gamma-correction
 #if 0
 	}
 #endif

@@ -67,10 +67,10 @@ void main() {
 	computeLighting(pos + geometry_normal * .001, shading_normal, throughput, -direction, material, diffuse, specular);
 
 #if LIGHT_POINT
-	imageStore(out_image_light_point_diffuse, pix, vec4(diffuse, 0.f));
-	imageStore(out_image_light_point_specular, pix, vec4(specular, 0.f));
+	imageStore(out_image_light_point_diffuse, pix, vec4(diffuse / 4.0, 0.f));
+	imageStore(out_image_light_point_specular, pix, vec4(specular / 4.0, 0.f));
 #else
-	imageStore(out_image_light_poly_diffuse, pix, vec4(diffuse, 0.f));
-	imageStore(out_image_light_poly_specular, pix, vec4(specular, 0.f));
+	imageStore(out_image_light_poly_diffuse, pix, vec4(diffuse / 25.0, 0.f));
+	imageStore(out_image_light_poly_specular, pix, vec4(specular/ 25.0, 0.f));
 #endif
 }
