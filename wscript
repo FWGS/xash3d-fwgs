@@ -222,6 +222,7 @@ def configure(conf):
 		'-Werror=enum-conversion',
 		'-Werror=jump-misses-init',
 		'-Werror=strict-prototypes',
+		'-std=c99'
 #		'-Werror=nested-externs',
 		'-fnonconst-initializers' # owcc
 	]
