@@ -21,12 +21,13 @@ typedef struct vulkan_core_s {
     VkInstance instance;
     VkDebugUtilsMessengerEXT  debug_messenger;
     poolhandle_t pool;
+    qboolean debug;
 }vulkan_core_t;
 
 vulkan_core_t vk_core;
 
 const char* validation_layers[] = {
-    "VK_LAYER_KHRONOS_validation",
+    "VK_LAYER_LUNARG_standard_validaction",
 };
 
 static const char* resultName(VkResult result) {
@@ -50,36 +51,31 @@ static const char* resultName(VkResult result) {
 
 #define DEFINE_FUNC_VAR(f) PFN_##f f
 
-#if 0
-typedef struct vk_dll_func_s {
-   DEFINE_FUNC_VAR(vkEnumerateInstanceVersion);
-   DEFINE_FUNC_VAR(vkCreateInstance);
-   DEFINE_FUNC_VAR(vkDestroyInstance);
-}vk_dll_func_t;
-vk_dll_func_t vk_funcs;
-#endif 
 
 #define NULLINST_FUNC(X) \
     X(vkEnumerateInstanceVersion)   \
     X(vkCreateInstance)             
 
 
-#define INST_FUNC(X) \
-X(vkDestroyInstance)                                \
-X(vkCreateDebugUtilsMessengerEXT)                   \
-X(vkDestroyDebugUtilsMessengerEXT)                  \
-X(vkEnumeratePhysicalDevices)                       \
-X(vkGetPhysicalDeviceProperties2)                   \ 
-X(vkGetPhysicalDeviceFeatures2)                     \
-X(vkGetPhysicalDeviceSurfaceSupportKHR)             \
-X(vkGetPhysicalDeviceQueueFamilyProperties)         \
-X(vkGetPhysicalDeviceMemoryProperties)              \
-X(vkCreateDevice)
+#define INST_FUNC(X)                                    \
+    X(vkDestroyInstance)                                \
+    X(vkEnumeratePhysicalDevices)                       \
+    X(vkGetPhysicalDeviceProperties2)                   \ 
+    X(vkGetPhysicalDeviceFeatures2)                     \
+    X(vkGetPhysicalDeviceSurfaceSupportKHR)             \
+    X(vkGetPhysicalDeviceQueueFamilyProperties)         \
+    X(vkGetPhysicalDeviceMemoryProperties)              \
+    X(vkCreateDevice)
+
+#define INST_DEBUG_FUNC(X) \
+    X(vkCreateDebugUtilsMessengerEXT)                   \
+    X(vkDestroyDebugUtilsMessengerEXT)                  
 
 
 #define X(f) PFN_##f f = NULL;  
     NULLINST_FUNC(X)
     INST_FUNC(X)
+    INST_DEBUG_FUNC(X)
 #undef X
 
 static dllfunc_t nulllist_funcs[] = {
@@ -91,6 +87,12 @@ static dllfunc_t nulllist_funcs[] = {
 static dllfunc_t inst_funcs[] = {
 #define X(f) {#f, (void**)&f},
     INST_FUNC(X)
+#undef X
+};
+
+static dllfunc_t debug_funcs[] = {
+#define X(f) {#f, (void**)&f},
+    INST_DEBUG_FUNC(X)
 #undef X
 };
 
@@ -114,7 +116,6 @@ static void loadInstanceFunction(dllfunc_t *funcs, int count)
     }
 }
 
-
 static VkBool32 debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -128,11 +129,84 @@ static VkBool32 debugCallback(
     return VK_FALSE;
 }
 
+static qboolean createInstance(void)
+{
+    const char** instance_extension = NULL;
+    unsigned int num_instance_extension = vk_core.debug ? 1 : 0;
+    VkApplicationInfo app_info = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
+    VkInstanceCreateInfo instanceCI = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+    int vid_extension = 0;
+    app_info.pEngineName = "xash3d-fwgs";
+    app_info.pApplicationName ="VulkanExample";
+    app_info.apiVersion = VK_VERSION_1_0;
+    app_info.engineVersion = VK_VERSION_1_0;
+    app_info.applicationVersion = VK_VERSION_1_0;
+
+    
+    // instanceCI.pApplicationInfo = &app_info;
+
+    vid_extension = gEngine.VK_GetInstanceExtension(0, instance_extension);
+    if (vid_extension < 0)
+    {
+        gEngine.Con_Printf(S_ERROR "Init Vulkan Extension Failed\n");
+        return false;
+    }
+    gEngine.Con_Printf(S_WARN "Vid Extension Count: %d\n", vid_extension);
+    num_instance_extension += vid_extension;
+
+    instance_extension = Mem_Malloc(vk_core.pool, sizeof(const char*) * num_instance_extension);
+    vid_extension = gEngine.VK_GetInstanceExtension(num_instance_extension, instance_extension);
+    if (vid_extension < 0 ) {
+        gEngine.Con_Printf(S_ERROR "Init Vulkan Extension Failed\n");
+        Mem_Free(instance_extension);
+        return false;
+    }
+    if (vk_core.debug) {
+        instance_extension[vid_extension] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+        instanceCI.ppEnabledLayerNames = validation_layers;
+        instanceCI.enabledExtensionCount = ARRAYSIZE(validation_layers);
+    }
+
+    gEngine.Con_Printf("Request Instance extension count: %d\n", num_instance_extension);
+    for (int i = 0; i < num_instance_extension; i++)
+    {
+        gEngine.Con_Printf("\t%d: %s\n", i, instance_extension[i]);
+    }
+    
+    instanceCI.enabledExtensionCount = num_instance_extension;
+    instanceCI.ppEnabledExtensionNames = instance_extension;
+
+    XVK_CHECK(vkCreateInstance(&instanceCI, NULL, &vk_core.instance));
+    loadInstanceFunction(inst_funcs, ARRAYSIZE(inst_funcs));
+
+    if (vk_core.debug) {
+        loadInstanceFunction(debug_funcs, ARRAYSIZE(debug_funcs));
+        if (vkCreateDebugUtilsMessengerEXT) {
+            VkDebugUtilsMessengerCreateInfoEXT dumcie = {
+                .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+                .messageSeverity = 0x1111,
+                .messageType = 0x07,
+                .pfnUserCallback = debugCallback,
+            };
+            
+            XVK_CHECK(vkCreateDebugUtilsMessengerEXT(vk_core.instance,
+            &dumcie, NULL, &vk_core.debug_messenger));
+        }else {
+            gEngine.Con_Printf(S_WARN "validation unavailable\n");
+        }
+    }
+    Mem_Free(instance_extension);
+    return true;
+}
+
+static qboolean createDevice()
+{
+    return true;
+}
 // construct, destruct
 qboolean R_VkInit( void )
 {
-    qboolean debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug") );
-	gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
+    vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
     if (!gEngine.R_Init_Video(REF_VULKAN))  //request vulkan surface
     {
 		gEngine.Con_Printf("Init Vulkan Video Failed\n");
@@ -144,9 +218,7 @@ qboolean R_VkInit( void )
         gEngine.Con_Printf(S_ERROR "Init Vulkan Extension Failed\n");
         return false;
     }
-
     vk_core.pool = Mem_AllocPool("Vulkan Pool");
-    
     loadInstanceFunction(nulllist_funcs, ARRAYSIZE(nulllist_funcs));
     vkEnumerateInstanceVersion =  XVK_INSTANCE_FUNC(vkEnumerateInstanceVersion);
     if (vkEnumerateInstanceVersion) {
@@ -156,89 +228,12 @@ qboolean R_VkInit( void )
     }
    
     gEngine.Con_Printf("vulkan version: %u.%u.%u\n", XVK_PARSE_VERSION(vk_core.vulkan_version));
-    
-    {
-        const char** instance_extension = NULL;
-        int num_instance_extension = 0;
-        VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO};
-        VkInstanceCreateInfo instanceCI = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
-        int vid_extension = 0;
-        app_info.pEngineName = "xash3d-fwgs";
-        app_info.pApplicationName ="VulkanExample";
-        app_info.apiVersion = VK_VERSION_1_0;
-        app_info.engineVersion = VK_VERSION_1_0;
-        app_info.applicationVersion = VK_VERSION_1_0;
-       
-       // instanceCI.pApplicationInfo = &app_info;
-
-        vid_extension = gEngine.VK_GetInstanceExtension(0, instance_extension);
-        if (vid_extension < 0)
-        {
-            gEngine.Con_Printf(S_ERROR "Init Vulkan Extension Failed\n");
-            return false;
-        }
-        gEngine.Con_Printf(S_WARN "Vid Extension Count: %d\n", vid_extension);
-        num_instance_extension += vid_extension;
-        if (debug) {
-            num_instance_extension += 1;
-        }
-        instance_extension = Mem_Malloc(vk_core.pool, sizeof(const char*) * num_instance_extension);
-
-        vid_extension = gEngine.VK_GetInstanceExtension(num_instance_extension, instance_extension);
-        if (vid_extension < 0 ) {
-            gEngine.Con_Printf(S_ERROR "Init Vulkan Extension Failed\n");
-            Mem_Free(instance_extension);
-            return false;
-        }
-        if (debug) {
-            instance_extension[vid_extension] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
-        }
-
-        gEngine.Con_Printf("Request Instance extension count: %d\n", num_instance_extension);
-        for (int i = 0; i < num_instance_extension; i++)
-        {
-            gEngine.Con_Printf("\t%d: %s\n", i, instance_extension[i]);
-        }
-        gEngine.Con_Printf("Request Instance extension count: %d\n", num_instance_extension);
-
-        instanceCI.enabledExtensionCount = num_instance_extension;
-        instanceCI.ppEnabledExtensionNames = instance_extension;
-
-        if (debug) {
-            instanceCI.ppEnabledLayerNames = validation_layers;
-            instanceCI.enabledExtensionCount = ARRAYSIZE(validation_layers);
-        }
-        gEngine.Con_Printf("Load CreateInstance: %x\n", vkCreateInstance);
-        // instanceCI.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        // instanceCI.pApplicationInfo = NULL;
-        // instanceCI.enabledExtensionCount = num_instance_extension;
-        // instanceCI.ppEnabledExtensionNames = instance_extension;
-        // instanceCI.enabledLayerCount = 0;
-        // instanceCI.pNext = NULL;
-        // instanceCI.flags = 0;
-        // instanceCI.ppEnabledLayerNames = NULL; 
-        XVK_CHECK(vkCreateInstance(&instanceCI, NULL, &vk_core.instance));
-        loadInstanceFunction(inst_funcs, ARRAYSIZE(inst_funcs));
-        if (debug) {
-            if (vkCreateDebugUtilsMessengerEXT) {
-                VkDebugUtilsMessengerCreateInfoEXT dumcie = {
-                    .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-                    .messageSeverity = 0x1111,
-                    .messageType = 0x07,
-                    .pfnUserCallback = debugCallback,
-                };
-                
-                XVK_CHECK(vkCreateDebugUtilsMessengerEXT(vk_core.instance,
-                &dumcie, NULL, &vk_core.debug_messenger));
-            }else {
-                gEngine.Con_Printf(S_WARN "validation unavailable\n");
-            }
-        }
-    
-      /// Mem_Free(instance_extension);
+    if(!createInstance()){
+        return false;
     }
-    gEngine.Con_Printf("Request Instance extension count: %d\n", 2);
-
+    if (!createDevice()) {
+        return false;
+    }
 	
 	initTextures();
     
