@@ -297,8 +297,8 @@ qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
 int	VK_RefGetParm( int param, int arg )
 {
 	vk_texture_t *tex = NULL;
-	gEngine.Con_Printf("VK FIXME: %s(%s(%d),%d)\n",__FILE__, 
-		__FUNCTION__,getParamName(param), param, arg);
+	gEngine.Con_Printf("VK FIXME: %s(%s(%d),%d)\n", 
+		__FUNCTION__, getParamName(param), param, arg);
 
 	switch (param)
 	{

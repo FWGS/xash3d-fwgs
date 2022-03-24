@@ -12,6 +12,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
+
 #if !XASH_DEDICATED
 #include <SDL.h>
 #include <SDL_vulkan.h>
@@ -968,19 +969,13 @@ int GL_GetAttribute( int attr, int *val )
 #define EGL_LIB NULL
 #endif
 
-int VK_GetInstanceExtension(const char ***pNames)
+int VK_GetInstanceExtension(unsigned int pCount, const char **pNames)
 {
-	int pCount = 0;
-	if( !SDL_Vulkan_GetInstanceExtensions(host.hWnd, &pCount, NULL)){
+	if(!SDL_Vulkan_GetInstanceExtensions(host.hWnd, &pCount, pNames)){
 		Con_Reportf(S_ERROR "Couldn't get Vulkan Extension: %s\n",SDL_GetError());
 		return -1;
 	}
-	*pNames = Mem_Malloc(host.mempool, pCount *sizeof(const char*));
-	if( !SDL_Vulkan_GetInstanceExtensions(host.hWnd, &pCount, *pNames)){
-		Con_Reportf(S_ERROR "Couldn't get Vulkan Extension: %s\n",SDL_GetError());
-		return -1;
-	}
-	return pCount;
+	return (int)pCount;
 }
 
 void *VK_GetVkGetInstanceProcAddr(void)
@@ -1043,6 +1038,8 @@ qboolean R_Init_Video( const int type )
 			Con_Reportf( S_ERROR  "Couldn't initialize OpenGL: %s\n", SDL_GetError());
 			return false;
 		}
+		break;
+	case REF_VULKAN:
 		break;
 	default:
 		Host_Error( "Can't initialize unknown context type %d!\n", type );

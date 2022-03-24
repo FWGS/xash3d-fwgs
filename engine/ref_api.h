@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #define REF_API
 
 #include <stdarg.h>
+#include "cvardef.h"
 #include "com_image.h"
 #include "vgui_api.h"
 #include "render_api.h"
@@ -26,7 +27,7 @@ GNU General Public License for more details.
 #include "com_model.h"
 #include "studio.h"
 #include "r_efx.h"
-// #include "com_image.h"
+#include "com_image.h"
 
 
 #define REF_API_VERSION 1
@@ -441,7 +442,7 @@ typedef struct ref_api_s
 	render_interface_t	*drawFuncs;
 
 	/// Vulkan 
-	int (*VK_GetInstanceExtension)(const char ***pNames);
+	int (*VK_GetInstanceExtension)(unsigned int count, const char **pNames);
 	void *(*VK_GetVkGetInstanceProcAddr)(void);
 	vulkan_non_dispatchable_handle_t (*VK_CreateSurface)(vulkan_handle_t vkInstance);
 

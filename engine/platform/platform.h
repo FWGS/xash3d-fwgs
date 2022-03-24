@@ -135,7 +135,7 @@ typedef void* vulkan_handle_t;
 #else
 typedef  unsigned long long vulkan_non_dispatchable_handle_t;
 #endif
-int VK_GetInstanceExtension(const char ***pNames);
+int VK_GetInstanceExtension(unsigned int pCount, const char **pNames);
 void *VK_GetVkGetInstanceProcAddr(void);
 vulkan_non_dispatchable_handle_t VK_CreateSurface(vulkan_handle_t vkInstance);
 //

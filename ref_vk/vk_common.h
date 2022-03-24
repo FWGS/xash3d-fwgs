@@ -10,7 +10,7 @@ extern ref_globals_t* gGlobals;
 
 #define ASSERT( exp ) if(!( exp )) gEngine.Host_Error( "assert " #exp " failed at %s:%i\n", __FILE__, __LINE__ )
 
-#define Mem_Malloc( pool, size ) gEngine.-Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
+#define Mem_Malloc( pool, size ) gEngine._Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
 #define Mem_Calloc( pool, size ) gEngine._Mem_Calloc( pool, size, true, __FILE__, __LINE__ )
 #define Mem_Realloc( pool, ptr, size ) gEngine._Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
 #define Mem_Free( mem ) gEngine._Mem_Free( mem, __FILE__, __LINE__ )
