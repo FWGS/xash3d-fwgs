@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "lightstyle.h"
 #include "dlight.h"
 
+
 #define CL_RENDER_INTERFACE_VERSION	37	// Xash3D 1.0
 #define MAX_STUDIO_DECALS		4096	// + unused space of BSP decals
 

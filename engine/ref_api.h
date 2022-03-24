@@ -26,7 +26,8 @@ GNU General Public License for more details.
 #include "com_model.h"
 #include "studio.h"
 #include "r_efx.h"
-#include "com_image.h"
+// #include "com_image.h"
+
 
 #define REF_API_VERSION 1
 
@@ -251,6 +252,13 @@ typedef enum
 	PARM_NUMMODELS         = -13, // cl.nummodels
 } ref_parm_e;
 
+typedef void* vulkan_handle_t;
+#if defined(__LP64__) || defined (_WIN64) || (defined (__x86_64__) && !defined (__ILP32__))
+	typedef void* vulkan_non_dispatchable_handle_t;
+#else
+typedef  unsigned long long vulkan_non_dispatchable_handle_t;
+#endif
+
 typedef struct ref_api_s
 {
 	int	(*EngineGetParm)( int parm, int arg );	// generic
@@ -431,9 +439,17 @@ typedef struct ref_api_s
 	void	(*pfnDrawNormalTriangles)( void );
 	void	(*pfnDrawTransparentTriangles)( void );
 	render_interface_t	*drawFuncs;
+
+	/// Vulkan 
+	int (*VK_GetInstanceExtension)(const char ***pNames);
+	void *(*VK_GetVkGetInstanceProcAddr)(void);
+	vulkan_non_dispatchable_handle_t (*VK_CreateSurface)(vulkan_handle_t vkInstance);
+
 } ref_api_t;
 
 struct mip_s;
+
+
 
 // render callbacks
 typedef struct ref_interface_s

@@ -1,4 +1,7 @@
+#include "vk_core.h"
+#include "vk_common.h"
 #include "vk_textures.h"
+#include "vk_renderstate.h"
 #include "xash3d_types.h"
 #include "cvardef.h"
 #include "const.h"
@@ -61,27 +64,6 @@ static const char* getParamName(int parm)
 	#undef CASE_STR
 }
 
-// construct, destruct
-qboolean R_VkInit( void )
-{
-    fprintf(stderr,"VK FIXME: %s\n", __FUNCTION__);
-
-    if (!gEngine.R_Init_Video(REF_VULKAN))  //request vulkan surface
-    {
-    
-        return false;
-    }
-	initTextures();
-    
-    return true;
-}
-// const char *(*R_GetInitError)( void );
-void R_VkShutdown( void )
-{
-    fprintf(stderr,"VK FIXME: %s\n", __FUNCTION__);
-
-}
-
 const char *R_VkGetConfigName( void )
 {
     gEngine.Con_Printf("VKFIXME: %s\n", __FUNCTION__);
@@ -90,7 +72,7 @@ const char *R_VkGetConfigName( void )
 
 qboolean R_VkSetDisplayTransform( ref_screen_rotation_t rotate, int x, int y, float scale_x, float scale_y )
 {
-    fprintf(stderr,"VK FIXME: %s(%d, %d, %f, %f)\n", __FUNCTION__, x, y, scale_x, scale_y);
+    gEngine.Con_Printf("VK FIXME: %s(%d, %d, %f, %f)\n", __FUNCTION__, x, y, scale_x, scale_y);
     return true;
 }
 
@@ -108,7 +90,7 @@ void GL_ClearExtensions( void )
 
 }
 
-void R_BeginFrame( qboolean clearScene )
+void VK_BeginFrame( qboolean clearScene )
 {
 
 }
@@ -116,7 +98,7 @@ void R_RenderScene( void )
 {
 
 }
-void R_EndFrame( void )
+void VK_EndFrame( void )
 {
 
 }
@@ -137,18 +119,11 @@ void GL_BackendEndFrame( void )
 
 }
 
-void R_ClearScreen( void )
+void VK_ClearScreen( void )
 {
 
 }
-void R_AllowFog( qboolean allow )
-{
 
-}
-void GL_SetRenderMode( int renderMode )
-{
-
-}
 
 qboolean R_AddEntity( struct cl_entity_s *clent, int type )
 {
@@ -185,10 +160,6 @@ void R_SetupSky( const char *skyname )
 }
 
 // 2D
-void R_Set2DMode( qboolean enable )
-{
-
-}
 void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
 {
 
@@ -513,10 +484,7 @@ void TriColor4f( float r, float g, float b, float a )
 {
 
 }
-void TriColor4ub( unsigned char r, unsigned char g, unsigned char b, unsigned char a )
-{
 
-}
 void TriTexCoord2f( float u, float v )
 {
 
@@ -616,17 +584,17 @@ ref_interface_t gReffuncs =
 	.GL_InitExtensions = GL_InitExtensions,
 	.GL_ClearExtensions = GL_ClearExtensions,
 
-	.R_BeginFrame = R_BeginFrame,
+	.R_BeginFrame = VK_BeginFrame,
 	.R_RenderScene =  R_RenderScene,
-	.R_EndFrame = R_EndFrame,
+	.R_EndFrame = VK_EndFrame,
 	.R_PushScene = R_PushScene,
 	.R_PopScene  = R_PopScene,
 	.GL_BackendStartFrame = GL_BackendStartFrame,
 	.GL_BackendEndFrame = GL_BackendEndFrame,
 
-	.R_ClearScreen = R_ClearScreen,
+	.R_ClearScreen = VK_ClearScreen,
 	.R_AllowFog =  R_AllowFog,
-	.GL_SetRenderMode = GL_SetRenderMode,
+	.GL_SetRenderMode = R_SetRenderMode,
 
 	.R_AddEntity = R_AddEntity,
 	.CL_AddCustomBeam = CL_AddCustomBeam,

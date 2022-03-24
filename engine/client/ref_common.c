@@ -383,7 +383,10 @@ static ref_api_t gEngfuncs =
 
 	pfnDrawNormalTriangles,
 	pfnDrawTransparentTriangles,
-	&clgame.drawFuncs
+	&clgame.drawFuncs,
+	VK_GetInstanceExtension,
+	VK_GetVkGetInstanceProcAddr,
+	VK_CreateSurface
 };
 
 static void R_UnloadProgs( void )

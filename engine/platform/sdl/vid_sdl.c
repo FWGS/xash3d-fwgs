@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 #if !XASH_DEDICATED
 #include <SDL.h>
+#include <SDL_vulkan.h>
 #include "common.h"
 #include "client.h"
 #include "mod_local.h"
@@ -966,6 +967,36 @@ int GL_GetAttribute( int attr, int *val )
 #ifndef EGL_LIB
 #define EGL_LIB NULL
 #endif
+
+int VK_GetInstanceExtension(const char ***pNames)
+{
+	int pCount = 0;
+	if( !SDL_Vulkan_GetInstanceExtensions(host.hWnd, &pCount, NULL)){
+		Con_Reportf(S_ERROR "Couldn't get Vulkan Extension: %s\n",SDL_GetError());
+		return -1;
+	}
+	*pNames = Mem_Malloc(host.mempool, pCount *sizeof(const char*));
+	if( !SDL_Vulkan_GetInstanceExtensions(host.hWnd, &pCount, *pNames)){
+		Con_Reportf(S_ERROR "Couldn't get Vulkan Extension: %s\n",SDL_GetError());
+		return -1;
+	}
+	return pCount;
+}
+
+void *VK_GetVkGetInstanceProcAddr(void)
+{
+	return SDL_Vulkan_GetVkGetInstanceProcAddr();
+}
+
+vulkan_non_dispatchable_handle_t VK_CreateSurface(vulkan_handle_t vkInstance)
+{
+	VkSurfaceKHR surface = 0;
+	if (!SDL_Vulkan_CreateSurface(host.hWnd, vkInstance, &surface)) {
+		Con_Reportf(S_ERROR "Couldn't CreateSurface: %s\n",SDL_GetError());
+		return 0;
+	}
+	return surface;
+}
 
 /*
 ==================

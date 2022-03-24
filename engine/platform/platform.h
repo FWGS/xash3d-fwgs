@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "system.h"
 #include "defaults.h"
+// #include "ref_api.h"
 
 /*
 ==============================================================================
@@ -124,7 +125,19 @@ void *SW_LockBuffer( void );
 void SW_UnlockBuffer( void );
 qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
 
-
+///
+/// Vulkan 
+///
+/// todo movo common.h
+typedef void* vulkan_handle_t;
+#if defined(__LP64__) || defined (_WIN64) || (defined (__x86_64__) && !defined (__ILP32__))
+	typedef void* vulkan_non_dispatchable_handle_t;
+#else
+typedef  unsigned long long vulkan_non_dispatchable_handle_t;
+#endif
+int VK_GetInstanceExtension(const char ***pNames);
+void *VK_GetVkGetInstanceProcAddr(void);
+vulkan_non_dispatchable_handle_t VK_CreateSurface(vulkan_handle_t vkInstance);
 //
 // in_evdev.c
 //

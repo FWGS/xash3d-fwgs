@@ -290,7 +290,7 @@ int	VK_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 		return (tex - vk_textures);
 
 	if( FBitSet( flags, TF_NOFLIP_TGA ))
-		SetBits( picFlags, IL_DONTFLIP_TGA );
+		SetBits(picFlags, IL_DONTFLIP_TGA);
 
 	if( FBitSet( flags, TF_KEEP_SOURCE ) && !FBitSet( flags, TF_EXPAND_SOURCE ))
 		SetBits( picFlags, IL_KEEP_8BIT );
