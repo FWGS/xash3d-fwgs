@@ -240,7 +240,7 @@ static qboolean createDevice(void)
     uint32_t num_physical_device = 0u;
     uint32_t best_device_index =UINT32_MAX;
     uint32_t queue_index = UINT32_MAX;
-    float prio =1.f;
+    float prio = 1.f;
     XVK_CHECK(vkEnumeratePhysicalDevices(vk_core.instance, &num_physical_device, NULL));
 
     physical_devices = Mem_Malloc(vk_core.pool, sizeof(VkPhysicalDevice)* num_physical_device);
@@ -272,6 +272,7 @@ static qboolean createDevice(void)
         Mem_Free(queue_family_properties);
     }
 
+    gEngine.Con_Printf("Request Instance extension count: %d\n", 1);
     if (best_device_index < num_physical_device) {
           const char* device_extension[] ={
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -287,6 +288,7 @@ static qboolean createDevice(void)
         create_info.enabledExtensionCount = ARRAYSIZE(device_extension);
         create_info.ppEnabledExtensionNames= device_extension;
 
+        gEngine.Con_Printf("Request Instance extension count: %d\n", 4);
         vk_core.physical_devices.device = physical_devices[best_device_index];
         vkGetPhysicalDeviceMemoryProperties(vk_core.physical_devices.device, &vk_core.physical_devices.memory_properties);
         XVK_CHECK(vkCreateDevice( vk_core.physical_devices.device, &create_info, NULL, &vk_core.device));
@@ -296,12 +298,13 @@ static qboolean createDevice(void)
 
 
     Mem_Free(physical_devices);
-
+    gEngine.Con_Printf("VK FIXME: %s init succe\n", __FUNCTION__);
     return true;
 }
 // construct, destruct
 qboolean R_VkInit( void )
 {
+    gEngine.Con_Printf("VK FIXME: %s\n", __FUNCTION__);
     vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
     if (!gEngine.R_Init_Video(REF_VULKAN))  //request vulkan surface
     {
