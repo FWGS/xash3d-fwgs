@@ -272,7 +272,10 @@ def configure(conf):
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
 
 	if conf.env.DEST_OS != 'win32':
-		conf.check_cc(lib='dl', mandatory=False)
+		if conf.env.DEST_OS == 'nswitch':
+			conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
+		else:
+			conf.check_cc(lib='dl', mandatory=False)
 
 		if not conf.env.LIB_M: # HACK: already added in xcompile!
 			conf.check_cc(lib='m')
