@@ -374,7 +374,7 @@ class NintendoSwitch:
 		self.dka64_dir = os.path.join(self.dkp_dir, 'devkitA64')
 		if not os.path.exists(self.dka64_dir):
 			ctx.fatal('devkitA64 not found in `%s`. Install devkitA64!' % self.dka64_dir)
-	
+
 		self.libnx_dir = os.path.join(self.dkp_dir, 'libnx')
 		if not os.path.exists(self.libnx_dir):
 			ctx.fatal('libnx not found in `%s`. Install libnx!' % self.libnx_dir)
@@ -383,17 +383,20 @@ class NintendoSwitch:
 		if not os.path.exists(self.portlibs_dir):
 			ctx.fatal('No Switch libraries found in `%s`!' % self.portlibs_dir)
 
+	def gen_gcc_toolchain_path(self):
+		return os.path.join(self.dka64_dir, 'bin', 'aarch64-none-elf-')
+
 	def cc(self):
-		return 'aarch64-none-elf-gcc'
+		return self.gen_gcc_toolchain_path() + 'gcc'
 
 	def cxx(self):
-		return 'aarch64-none-elf-g++'
+		return self.gen_gcc_toolchain_path() + 'g++'
 
 	def strip(self):
-		return 'aarch64-none-elf-strip'
+		return self.gen_gcc_toolchain_path() + 'strip'
 
 	def pkgconfig(self):
-		return 'aarch64-none-elf-pkg-config'
+		return os.path.join(self.portlibs_dir, 'bin', 'aarch64-none-elf-pkg-config')
 
 	def cflags(self, cxx = False):
 		cflags = []
@@ -402,7 +405,7 @@ class NintendoSwitch:
 		# help the linker out
 		cflags += ['-ffunction-sections', '-fdata-sections']
 		# base include dirs
-		cflags += ['-isystem "%s/include"' % self.libnx_dir, '-I"%s/include"' % self.portlibs_dir]
+		cflags += ['-isystem %s/include' % self.libnx_dir, '-I%s/include' % self.portlibs_dir]
 		if cxx:
 			# while these are supported, they could fuck up my crappy dynamic linker
 			cflags += ['-fno-exceptions', '-fno-rtti']
@@ -424,7 +427,8 @@ class NintendoSwitch:
 		return linkflags
 
 	def ldflags(self):
-		ldflags = []
+		# system libraries implicitly require math and C++ standard library
+		ldflags = ['-lm', '-lstdc++']
 		return ldflags
 
 def options(opt):
