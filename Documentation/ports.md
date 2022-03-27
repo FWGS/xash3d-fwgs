@@ -26,7 +26,7 @@ Table is sorted by status.
 | Haiku           | Supported                  | not maintained           | Was added by #478 and #483
 | DOS4GW          | Supported                  | @mittorn                 |
 | GNU/Linux(mipsel) | Supported                | @mittorn                 |
-| Switch          | In progress                | @fgsfdsfgs               | [Github Repository](https://github.com/fgsfdsfgs/xash3d-fwgs/tree/switch_new) 
+| Switch          | Supported                  | @a1batross, @fgsfdsfgs   |
 | Wii             | In progress                | Collaborative effort     | [Github Repository](https://github.com/saucesaft/xash3d-wii) 
 | PSP             | In progress                | Collaborative effort     | No sources available at this moment
 | Emscripten      | Old Engine                 | not maintained           | 
