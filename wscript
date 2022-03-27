@@ -130,6 +130,9 @@ def configure(conf):
 	# Load compilers early
 	conf.load('xshlib xcompile compiler_c compiler_cxx')
 
+	if conf.options.NSWITCH:
+		conf.load('nswitch')
+
 	# HACKHACK: override msvc DEST_CPU value by something that we understand
 	if conf.env.DEST_CPU == 'amd64':
 		conf.env.DEST_CPU = 'x86_64'
@@ -339,7 +342,7 @@ def configure(conf):
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 	else:
-		if sys.platform != 'win32' and conf.env.DEST_OS not in ['android', 'nswitch']:
+		if sys.platform != 'win32' and conf.env.DEST_OS not in ['android']:
 			conf.env.PREFIX = '/'
 
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX

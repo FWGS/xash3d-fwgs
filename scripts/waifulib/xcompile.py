@@ -500,7 +500,6 @@ def configure(conf):
 		conf.env.LDFLAGS += nswitch.ldflags()
 		conf.env.HAVE_M = True
 		conf.env.LIB_M = ['m']
-		conf.env.PREFIX = ''
 		conf.env.DEST_OS = 'nswitch'
 
 	conf.env.MAGX = conf.options.MAGX

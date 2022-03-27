@@ -145,7 +145,7 @@ def build(bld):
 		source += bld.path.ant_glob(['platform/stub/s_stub.c'])
 
 	if bld.env.DEST_OS == 'haiku':
-		libs.append('HAIKU')
+		libs += ['HAIKU']
 
 	if bld.get_define('XASH_CUSTOM_SWAP'):
 		source += bld.path.ant_glob(['platform/misc/kmalloc.c', 'platform/misc/sbrk.c'])
@@ -155,11 +155,11 @@ def build(bld):
 		is_cxx_link = True
 
 	if bld.env.HAVE_SDL2:
-		libs.append('SDL2')
+		libs += ['SDL2']
 		source += bld.path.ant_glob(['platform/sdl/*.c'])
 
 	if bld.env.MAGX:
-		libs.append('MAGX')
+		libs += ['MAGX']
 		source += bld.path.ant_glob(['platform/magx/*.cpp'])
 		is_cxx_link = True
 
@@ -170,7 +170,6 @@ def build(bld):
 	if bld.env.DEST_OS == 'nswitch':
 		libs += ['SOLDER']
 		source += bld.path.ant_glob(['platform/nswitch/*.c'])
-		is_cxx_link = True # switch-mesa requires libstdc++
 
 	# add client files
 	if not bld.env.DEDICATED:
@@ -181,21 +180,35 @@ def build(bld):
 
 	includes = ['common', 'server', 'client', 'client/vgui', 'tests', '.', '../public', '../common', '../pm_shared' ]
 
-	if bld.env.SINGLE_BINARY:
-		install_path = bld.env.BINDIR
-		program = 'cxxprogram' if is_cxx_link else 'cprogram'
-		if bld.env.STATIC:
-			program += '_static'
-		features = ['c', program]
+	# Switch has custom parameters
+	if bld.env.DEST_OS == 'nswitch':
+		bld(source = source,
+			target = 'xash',
+			features = 'c cxxprogram',
+			includes = includes,
+			use = libs,
+			install_path = None,
+			nro_install_path = bld.env.BINDIR,
+			nacp = 'platform/nswitch/xash3d-fwgs.nacp',
+			icon = 'platform/nswitch/icon.jpg')
 	else:
-		install_path = bld.env.LIBDIR
-		features = ['c', 'cxxshlib' if is_cxx_link else 'cshlib']
+		install_path = None
 
-	bld(source   = source,
-		target   = 'xash',
-		features = features,
-		includes = includes,
-		use      = libs,
-		install_path = install_path,
-		subsystem = bld.env.MSVC_SUBSYSTEM
-	)
+		if bld.env.SINGLE_BINARY:
+			install_path = bld.env.BINDIR
+			program = 'cxxprogram' if is_cxx_link else 'cprogram'
+			if bld.env.STATIC:
+				program += '_static'
+			features = ['c', program]
+		else:
+			install_path = bld.env.LIBDIR
+			features = ['c', 'cxxshlib' if is_cxx_link else 'cshlib']
+
+		bld(source   = source,
+			target   = 'xash',
+			features = features,
+			includes = includes,
+			use      = libs,
+			install_path = install_path,
+			subsystem = bld.env.MSVC_SUBSYSTEM
+		)
