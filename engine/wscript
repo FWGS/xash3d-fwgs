@@ -170,6 +170,7 @@ def build(bld):
 	if bld.env.DEST_OS == 'nswitch':
 		libs += ['SOLDER']
 		source += bld.path.ant_glob(['platform/nswitch/*.c'])
+		is_cxx_link = True
 
 	# add client files
 	if not bld.env.DEDICATED:
@@ -179,36 +180,26 @@ def build(bld):
 			'client/avi/*.c'])
 
 	includes = ['common', 'server', 'client', 'client/vgui', 'tests', '.', '../public', '../common', '../pm_shared' ]
+	install_path = None
 
-	# Switch has custom parameters
-	if bld.env.DEST_OS == 'nswitch':
-		bld(source = source,
-			target = 'xash',
-			features = 'c cxxprogram',
-			includes = includes,
-			use = libs,
-			install_path = None,
-			nro_install_path = bld.env.BINDIR,
-			nacp = 'platform/nswitch/xash3d-fwgs.nacp',
-			icon = 'platform/nswitch/icon.jpg')
+	if bld.env.SINGLE_BINARY:
+		install_path = bld.env.BINDIR
+		program = 'cxxprogram' if is_cxx_link else 'cprogram'
+		if bld.env.STATIC:
+			program += '_static'
+		features = ['c', program]
 	else:
-		install_path = None
+		install_path = bld.env.LIBDIR
+		features = ['c', 'cxxshlib' if is_cxx_link else 'cshlib']
 
-		if bld.env.SINGLE_BINARY:
-			install_path = bld.env.BINDIR
-			program = 'cxxprogram' if is_cxx_link else 'cprogram'
-			if bld.env.STATIC:
-				program += '_static'
-			features = ['c', program]
-		else:
-			install_path = bld.env.LIBDIR
-			features = ['c', 'cxxshlib' if is_cxx_link else 'cshlib']
-
-		bld(source   = source,
-			target   = 'xash',
-			features = features,
-			includes = includes,
-			use      = libs,
-			install_path = install_path,
-			subsystem = bld.env.MSVC_SUBSYSTEM
-		)
+	bld(source   = source,
+		target   = 'xash',
+		features = features,
+		includes = includes,
+		use      = libs,
+		install_path = install_path,
+		subsystem = bld.env.MSVC_SUBSYSTEM,
+		nro_install_path = bld.env.BINDIR,
+		nacp = 'platform/nswitch/xash3d-fwgs.nacp',
+		icon = 'platform/nswitch/icon.jpg'
+	)
