@@ -206,18 +206,36 @@ _inline qboolean NET_IsSocketValid( int socket )
 #endif
 }
 
-_inline void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr )
+void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr )
 {
-	memcpy( ip6,      adr->ipx,    10 );
-	memcpy( ip6 + 10, adr->ip6_10, 2 );
-	memcpy( ip6 + 12, adr->ip,     4 );
+#if XASH_LITTLE_ENDIAN
+	memcpy( ip6, adr->ip6, sizeof( adr->ip6 ));
+#elif XASH_BIG_ENDIAN
+	memcpy( ip6, adr->ip6_0, sizeof( adr->ip6_0 ));
+	memcpy( ip6 + sizeof( adr->ip6_0 ), adr->ip6_2, sizeof( adr->ip6_2 ));
+#endif
 }
 
-_inline void NET_IP6BytesToNetadr( netadr_t *adr, const uint8_t *ip6 )
+void NET_IP6BytesToNetadr( netadr_t *adr, const uint8_t *ip6 )
 {
-	memcpy( adr->ipx,    ip6,      10 );
-	memcpy( adr->ip6_10, ip6 + 10, 2 );
-	memcpy( adr->ip,     ip6 + 12, 4 );
+#if XASH_LITTLE_ENDIAN
+	memcpy( adr->ip6, ip6, sizeof( adr->ip6 ) );
+#elif XASH_BIG_ENDIAN
+	memcpy( adr->ip6_0, ip6, sizeof( adr->ip6_0 ));
+	memcpy( adr->ip6_2, ip6 + sizeof( adr->ip6_0 ), sizeof( adr->ip6_2 ));
+#endif
+}
+
+_inline int NET_NetadrIP6Compare( const netadr_t *a, const netadr_t *b )
+{
+#if XASH_LITTLE_ENDIAN
+	return memcmp( a->ip6, b->ip6, sizeof( a->ip6 ));
+#elif XASH_BIG_ENDIAN
+	int ret = memcmp( a->ip6_0, b->ip6_0, sizeof( a->ip6_0 ));
+	if( !ret )
+		return memcmp( a->ip6_2, b->ip6_2, sizeof( a->ip6_2 ));
+	return ret;
+#endif
 }
 
 /*
@@ -235,17 +253,30 @@ static void NET_NetadrToSockadr( netadr_t *a, struct sockaddr_storage *s )
 		((struct sockaddr_in *)s)->sin_port = a->port;
 		((struct sockaddr_in *)s)->sin_addr.s_addr = INADDR_BROADCAST;
 	}
-	else if( a->type == NA_IP || a->type == (0xffff0000 | NA_IP6) )
+	else if( a->type == NA_IP )
 	{
 		((struct sockaddr_in *)s)->sin_family = AF_INET;
-		((struct sockaddr_in *)s)->sin_addr.s_addr = *(int *)&a->ip;
+		((struct sockaddr_in *)s)->sin_addr.s_addr = *(uint32_t *)&a->ip;
 		((struct sockaddr_in *)s)->sin_port = a->port;
 	}
 	else if( a->type6 == NA_IP6 )
 	{
-		((struct sockaddr_in6 *)s)->sin6_family = AF_INET6;
-		NET_NetadrToIP6Bytes(((struct sockaddr_in6 *)s)->sin6_addr.s6_addr, a );
-		((struct sockaddr_in6 *)s)->sin6_port = a->port;
+		struct in6_addr ip6;
+
+		NET_NetadrToIP6Bytes( ip6.s6_addr, a );
+
+		if( IN6_IS_ADDR_V4MAPPED( &ip6 ))
+		{
+			((struct sockaddr_in *)s)->sin_family = AF_INET;
+			((struct sockaddr_in *)s)->sin_addr.s_addr = *(uint32_t *)(ip6.s6_addr + 12);
+			((struct sockaddr_in *)s)->sin_port = a->port;
+		}
+		else
+		{
+			((struct sockaddr_in6 *)s)->sin6_family = AF_INET6;
+			memcpy( &((struct sockaddr_in6 *)s)->sin6_addr, &ip6, sizeof( struct in6_addr ));
+			((struct sockaddr_in6 *)s)->sin6_port = a->port;
+		}
 	}
 	else if( a->type6 == NA_MULTICAST_IP6 )
 	{
@@ -618,9 +649,7 @@ qboolean NET_CompareBaseAdr( const netadr_t a, const netadr_t b )
 
 	if( a.type6 == NA_IP6 )
 	{
-		if( !memcmp( a.ip, b.ip, 4 ) &&
-		    !memcmp( a.ip6_10, b.ip6_10, 2 ) &&
-		    !memcmp( a.ipx, b.ipx, 10 ))
+		if( !NET_NetadrIP6Compare( &a, &b ))
 		    return true;
 	}
 
@@ -725,10 +754,7 @@ qboolean NET_CompareAdr( const netadr_t a, const netadr_t b )
 
 	if( a.type6 == NA_IP6 )
 	{
-		if( !memcmp( a.ip, b.ip, 4 ) &&
-		    !memcmp( a.ip6_10, b.ip6_10, 2 ) &&
-		    !memcmp( a.ipx, b.ipx, 10 ) &&
-		    a.port == b.port )
+		if( a.port == b.port && !NET_NetadrIP6Compare( &a, &b ))
 		    return true;
 	}
 
