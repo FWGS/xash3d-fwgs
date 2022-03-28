@@ -50,20 +50,21 @@ typedef struct netadr_s
 		struct
 		{
 			uint32_t type;
+			uint8_t  ip[4];   // or last 4 IPv6 octets
+			uint8_t  ipx[10]; // or first 10 IPv6 octets
 		};
 		struct
 		{
 #if XASH_LITTLE_ENDIAN
 			uint16_t type6;
-			uint8_t ip6_10[2]; // or 10-th two IPv6 octets
+			uint8_t ip6[16];
 #elif XASH_BIG_ENDIAN
-			uint8_t ip6_10[2]; // or 10-th two IPv6 octets
+			uint8_t ip6_0[2];
 			uint16_t type6;
+			uint8_t ip6_2[14];
 #endif
 		};
 	};
-	uint8_t  ip[4];   // or last 4 IPv6 octets
-	uint8_t  ipx[10]; // or first 10 IPv6 octets
 	uint16_t port;
 } netadr_t;
 #pragma pack( pop )
