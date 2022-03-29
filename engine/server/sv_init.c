@@ -266,12 +266,19 @@ SV_ModelHandle
 get model by handle
 ================
 */
+#if XASH_OPT
+model_t *pfnSV_ModelHandle( int modelindex )
+{
+	return SV_ModelHandle( modelindex );
+}
+#else
 model_t *SV_ModelHandle( int modelindex )
 {
 	if( modelindex < 0 || modelindex >= MAX_MODELS )
 		return NULL;
 	return sv.models[modelindex];
 }
+#endif
 
 void SV_ReadResourceList( const char *filename )
 {

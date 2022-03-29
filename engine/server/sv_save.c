@@ -32,8 +32,11 @@ half-life implementation of saverestore system
 #define SAVEGAME_HEADER		(('V'<<24)+('A'<<16)+('S'<<8)+'J')	// little-endian "JSAV"
 #define SAVEGAME_VERSION		0x0071				// Version 0.71 GoldSrc compatible
 #define CLIENT_SAVEGAME_VERSION	0x0067				// Version 0.67
-
+#ifdef XASH_PSP
+#define SAVE_HEAPSIZE		0x200000				// reserve 2Mb for now
+#else
 #define SAVE_HEAPSIZE		0x400000				// reserve 4Mb for now
+#endif
 #define SAVE_HASHSTRINGS		0xFFF				// 4095 unique strings
 #define SAVE_AGED_COUNT		2
 
@@ -2255,10 +2258,19 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 	else pTokenList = NULL;
 
 	// short, short (size, index of field name)
+#if XASH_PSP /* FIX Unaligned access! */
+	short offpd;
+	memcpy(&offpd, pData, sizeof( short ) );
+	nFieldSize = offpd;
+	pData += sizeof( short );
+
+	memcpy(&offpd, pData, sizeof( short ));
+	pFieldName = pTokenList[offpd];
+#else	
 	nFieldSize = *(short *)pData;
 	pData += sizeof( short );
 	pFieldName = pTokenList[*(short *)pData];
-
+#endif
 	if( Q_stricmp( pFieldName, "GameHeader" ))
 	{
 		Q_strncpy( comment, "<missing GameHeader>", MAX_STRING );
@@ -2270,7 +2282,11 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 
 	// int (fieldcount)
 	pData += sizeof( short );
+#if XASH_PSP /* FIX Unaligned access! */
+	memcpy(&nNumberOfFields, pData, sizeof(int));
+#else
 	nNumberOfFields = (int)*pData;
+#endif	
 	pData += nFieldSize;
 
 	// each field is a short (size), short (index of name), binary string of "size" bytes (data)
@@ -2280,12 +2296,21 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 		// Size
 		// szName
 		// Actual Data
+#if XASH_PSP /* FIX Unaligned access! */
+		memcpy(&offpd, pData, sizeof( short ) );
+		nFieldSize = offpd;
+		pData += sizeof( short );
+		
+		memcpy(&offpd, pData, sizeof( short ));
+		pFieldName = pTokenList[offpd];
+		pData += sizeof( short );
+#else
 		nFieldSize = *(short *)pData;
 		pData += sizeof( short );
 
 		pFieldName = pTokenList[*(short *)pData];
 		pData += sizeof( short );
-
+#endif
 		if( !Q_stricmp( pFieldName, "comment" ))
 		{
 			Q_strncpy( description, pData, nFieldSize );

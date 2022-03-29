@@ -49,11 +49,12 @@ SUBDIRS = [
 	Subproject('public',      dedicated=False, mandatory = True),
 	Subproject('game_launch', singlebin=True),
 	Subproject('ref_gl',),
+    Subproject('ref_gu',),
 	Subproject('ref_soft'),
 	Subproject('mainui'),
 	Subproject('vgui_support'),
-	Subproject('stub/server', dedicated=False),
-	Subproject('stub/client'),
+	Subproject('stubserver/server', dedicated=False),
+	Subproject('stubserver/client'),
 	Subproject('dllemu'),
 	Subproject('engine', dedicated=False),
 ]
@@ -92,7 +93,10 @@ def options(opt):
 		help = 'enable low memory mode (only for devices have <128 ram)')
 
 	grp.add_option('--enable-magx', action = 'store_true', dest = 'MAGX', default = False,
-		help = 'enable targetting for MotoMAGX phones [default: %default]')
+		help = 'enable targeting for MotoMAGX phones [default: %default]')
+
+	grp.add_option('--enable-profiling', action = 'store_true', dest = 'PROFILING', default = False,
+		help = 'enable building with GNU profiling tools')
 
 	grp.add_option('--ignore-projects', action = 'store', dest = 'IGNORE_PROJECTS', default = None,
 		help = 'disable selected projects from build [default: %default]')
@@ -116,6 +120,7 @@ def configure(conf):
 	enforce_pic = True # modern defaults
 	valid_build_types = ['fastnative', 'fast', 'release', 'debug', 'nooptimize', 'sanitize', 'none']
 	conf.load('fwgslib reconfigure')
+
 	if conf.options.IGNORE_PROJECTS:
 		conf.env.IGNORE_PROJECTS = conf.options.IGNORE_PROJECTS.split(',')
 
@@ -139,7 +144,7 @@ def configure(conf):
 	conf.env.MSVC_TARGETS = ['x86'] # explicitly request x86 target for MSVC
 	if sys.platform == 'win32':
 		conf.load('msvc msvc_pdb msdev msvs')
-	conf.load('xshlib subproject xcompile compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install waf_unit_test')
+	conf.load('xshlib subproject xcompile gas compiler_c compiler_cxx gitversion clang_compilation_database strip_on_install waf_unit_test')
 
 	try:
 		conf.env.CC_VERSION[0]
@@ -152,6 +157,58 @@ def configure(conf):
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
 		conf.options.GL     = False
+
+	if conf.env.DEST_OS == 'psp':
+		conf.options.NO_VGUI= True # skip vgui
+		conf.options.SINGLE_BINARY = True
+		conf.options.NO_ASYNC_RESOLVE = True
+		conf.options.LOW_MEMORY = 2
+		conf.options.GL = True
+		conf.options.GL_STATIC = True
+		conf.options.STATIC = True
+		enforce_pic = False
+
+		# rewrite compile patterns
+		conf.env.cprogram_PATTERN = conf.env.PSP_PATTERN_program
+		conf.env.cxxprogram_PATTERN = conf.env.PSP_PATTERN_program
+		conf.env.cshlib_PATTERN = conf.env.PSP_PATTERN_shlib
+		conf.env.cxxshlib_PATTERN = conf.env.PSP_PATTERN_shlib
+		conf.env.cstlib_PATTERN = conf.env.PSP_PATTERN_stlib
+		conf.env.cxxstlib_PATTERN = conf.env.PSP_PATTERN_stlib
+
+		# set EBOOT.PBP generation parameters
+		conf.env.PSP_EBOOT_TITLE = 'Xash3D'
+		conf.env.PSP_EBOOT_SFO = 'PARAM.SFO'
+		conf.env.PSP_EBOOT_ICON = 'NULL'
+		conf.env.PSP_EBOOT_ICON1 = 'NULL'
+		conf.env.PSP_EBOOT_UNKPNG = 'NULL'
+		conf.env.PSP_EBOOT_PIC1 = 'NULL'
+		conf.env.PSP_EBOOT_SND0 = 'NULL'
+		conf.env.PSP_EBOOT_PSAR = 'NULL'
+		conf.env.PSP_EBOOT = 'EBOOT.PBP'
+
+		# set target parameters
+		conf.env.PSP_BUILD_TARGET = 'xash'
+		conf.env.PSP_BUILD_EBOOT = True
+
+		if conf.options.SINGLE_BINARY:
+			conf.options.IGNORE_PROJECTS = 'ref_gl,stub/server,stub/client'
+			conf.options.STATIC_LINKING = 'menu'
+			if conf.env.PSP_RENDER_TYPE == 'SW':
+				conf.options.STATIC_LINKING += ',ref_soft'
+			else:
+				conf.options.IGNORE_PROJECTS += ',ref_soft'
+				
+			if conf.env.PSP_RENDER_TYPE == 'HW':
+				conf.options.STATIC_LINKING += ',ref_gu'
+			else:
+				conf.options.IGNORE_PROJECTS += ',ref_gu'
+
+			if conf.env.PSP_RENDER_TYPE == 'ALL':
+				conf.options.STATIC_LINKING += 'ref_soft,ref_gu'
+
+			conf.env.IGNORE_PROJECTS = conf.options.IGNORE_PROJECTS.split(',')
+			conf.load('xshlib') # for set linking
 
 	if conf.env.STATIC_LINKING:
 		enforce_pic = False # PIC may break static linking
@@ -244,7 +301,7 @@ def configure(conf):
 		},
 		'debug': {
 			'msvc':    ['/O1'],
-			'gcc':     ['-Og'],
+			'gcc':     ['-Og', '-fno-omit-frame-pointer', '-funwind-tables'],
 			'owcc':    ['-O0', '-fno-omit-frame-pointer', '-funwind-tables', '-fno-omit-leaf-frame-pointer'],
 			'default': ['-O1']
 		},
@@ -268,12 +325,12 @@ def configure(conf):
 		'-Werror=vla',
 		'-Werror=tautological-compare',
 		'-Werror=duplicated-cond',
-		'-Werror=duplicated-branches', # BEWARE: buggy
+#		'-Werror=duplicated-branches', # BEWARE: buggy
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
-		'-Werror=cast-align',
+#		'-Werror=cast-align',
 		'-Werror=cast-align=strict', # =strict is for GCC >=8
-		'-Werror=packed',
+#		'-Werror=packed',
 		'-Werror=packed-not-aligned',
 		'-Wuninitialized', # older GCC versions have -Wmaybe-uninitialized enabled by this switch, which is not accurate
                                    # so just warn, not error
@@ -288,16 +345,23 @@ def configure(conf):
 		'-Werror=implicit-function-declaration',
 		'-Werror=int-conversion',
 		'-Werror=implicit-int',
-		'-Werror=strict-prototypes',
+#		'-Werror=strict-prototypes',
 		'-Werror=old-style-declaration',
 		'-Werror=old-style-definition',
-		'-Werror=declaration-after-statement',
+#		'-Werror=declaration-after-statement', 
 		'-Werror=enum-conversion',
 		'-fnonconst-initializers' # owcc
 	]
 
 	linkflags = conf.get_flags_by_type(linker_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC, conf.env.CC_VERSION[0])
 	cflags    = conf.get_flags_by_type(compiler_c_cxx_flags, conf.options.BUILD_TYPE, conf.env.COMPILER_CC, conf.env.CC_VERSION[0])
+
+	# Profiling
+#	if conf.options.PROFILING:
+#		prof_cflags = {
+#			'gcc':   ['-pg']
+#		}
+#		cflags    += conf.get_flags_by_compiler(prof_cflags, conf.env.COMPILER_CC)
 
 	# Here we don't differentiate C or C++ flags
 	if conf.options.LTO:
@@ -323,7 +387,7 @@ def configure(conf):
 		}
 
 		cflags   += conf.get_flags_by_compiler(polly_cflags, conf.env.COMPILER_CC)
-
+	
 	# And here C++ flags starts to be treated separately
 	cxxflags = list(cflags)
 	if conf.env.COMPILER_CC != 'msvc':
@@ -359,7 +423,8 @@ def configure(conf):
 	else:
 		# include portable stdint by Paul Hsich
 		conf.define('STDINT_H', 'pstdint.h')
-
+		
+	conf.env.PROFILING     = conf.options.PROFILING
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
 	if conf.env.DEST_OS == 'dos':
@@ -407,6 +472,9 @@ def configure(conf):
 	if conf.options.LOW_MEMORY:
 		conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
 
+	if conf.options.PROFILING:
+		conf.define('XASH_PROFILING', 1)
+
 	for i in SUBDIRS:
 		if not i.is_enabled(conf):
 			continue
@@ -420,3 +488,4 @@ def build(bld):
 			continue
 
 		bld.add_subproject(i.name)
+	bld.load('xcompile')

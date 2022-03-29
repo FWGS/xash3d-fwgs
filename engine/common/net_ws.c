@@ -93,6 +93,7 @@ static int ioctl_stub( int d, unsigned long r, ... )
 #define SOCKET int
 typedef int WSAsize_t;
 #else
+#include <errno.h> //GSA
 #include "platform/stub/net_stub.h"
 #endif
 
@@ -340,7 +341,7 @@ int NET_GetHostByName( const char *hostname )
 #endif
 }
 
-#if !defined XASH_NO_ASYNC_NS_RESOLVE && ( XASH_WIN32 || !(XASH_EMSCRIPTEN || XASH_DOS4GW) )
+#if !defined XASH_NO_ASYNC_NS_RESOLVE && ( XASH_WIN32 || !(XASH_EMSCRIPTEN || XASH_DOS4GW || XASH_PSP) )
 #define CAN_ASYNC_NS_RESOLVE
 #endif
 

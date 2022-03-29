@@ -103,6 +103,12 @@ CL_GetEntityByIndex
 Render callback for studio models
 ====================
 */
+#if XASH_OPT
+cl_entity_t *pfnCL_GetEntityByIndex( int index )
+{
+	return CL_GetEntityByIndex( index );
+}
+#else
 cl_entity_t *CL_GetEntityByIndex( int index )
 {
 	if( !clgame.entities ) // not in game yet
@@ -116,7 +122,7 @@ cl_entity_t *CL_GetEntityByIndex( int index )
 
 	return CL_EDICT_NUM( index );
 }
-
+#endif
 /*
 ================
 CL_ModelHandle
@@ -124,13 +130,19 @@ CL_ModelHandle
 get model handle by index
 ================
 */
+#if XASH_OPT
+model_t *pfnCL_ModelHandle( int modelindex )
+{
+	return CL_ModelHandle( modelindex );
+}
+#else
 model_t *CL_ModelHandle( int modelindex )
 {
 	if( modelindex < 0 || modelindex >= MAX_MODELS )
 		return NULL;
 	return cl.models[modelindex];
 }
-
+#endif
 /*
 ====================
 CL_IsThirdPerson
@@ -3807,7 +3819,11 @@ static cl_enginefunc_t gEngfuncs =
 	pfnIsNoClipping,
 	CL_GetLocalPlayer,
 	CL_GetViewModel,
+#if XASH_OPT
+	pfnCL_GetEntityByIndex,
+#else
 	CL_GetEntityByIndex,
+#endif
 	pfnGetClientTime,
 	pfnCalcShake,
 	pfnApplyShake,

@@ -38,7 +38,11 @@ void Platform_MessageBox( const char *title, const char *message, qboolean paren
 // commented out, as this is an optional feature or maybe implemented in system API directly
 // see system.c
 // qboolean Sys_DebuggerPresent( void );
-
+#if XASH_PSP
+void Platform_ReadCmd( const char *fname, int *argc, char **argv );
+SceUID Platform_LoadModule( const char *filename, int mpid, SceSize argsize, void *argp );
+int Platform_UnloadModule( SceUID modid, int *sce_code );
+#endif
 #if XASH_ANDROID
 const char *Android_GetAndroidID( void );
 const char *Android_LoadID( void );

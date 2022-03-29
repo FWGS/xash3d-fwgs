@@ -95,6 +95,29 @@ SETUP BACKENDS DEFINITIONS
 
 		// usually only 10-20 fds availiable
 		#define XASH_REDUCE_FD
+	#elif XASH_PSP
+		#ifndef XASH_VIDEO
+			#define XASH_VIDEO VIDEO_PSP
+		#endif
+
+		#ifndef XASH_TIMER
+			#define XASH_TIMER TIMER_PSP
+		#endif
+
+		#ifndef XASH_INPUT
+			#define XASH_INPUT INPUT_PSP
+		#endif
+
+		#ifndef XASH_SOUND
+			#define XASH_SOUND SOUND_PSP
+		#endif // XASH_SOUND
+
+		#ifndef XASH_MESSAGEBOX
+			#define XASH_MESSAGEBOX MSGBOX_PSP
+		#endif // XASH_MESSAGEBOX
+
+		#define XASH_REDUCE_FD
+		#define XASH_NO_TOUCH
 	#endif
 
 #endif // XASH_DEDICATED
@@ -132,7 +155,7 @@ SETUP BACKENDS DEFINITIONS
 	#endif // !XASH_WIN32
 #endif
 
-#ifdef XASH_STATIC_LIBS
+#if defined(XASH_STATIC_LIBS) && !defined(XASH_PSP)
 #define XASH_LIB LIB_STATIC
 #define XASH_INTERNAL_GAMELIBS
 #define XASH_ALLOW_SAVERESTORE_OFFSETS
@@ -140,6 +163,9 @@ SETUP BACKENDS DEFINITIONS
 #define XASH_LIB LIB_WIN32
 #elif XASH_POSIX
 #define XASH_LIB LIB_POSIX
+#elif XASH_PSP
+#define XASH_ALLOW_SAVERESTORE_OFFSETS
+#define XASH_LIB LIB_PSP
 #endif
 
 //
@@ -193,11 +219,15 @@ Default build-depended cvar and constant values
 #endif // DEFAULT_FULLSCREEN
 
 #ifndef DEFAULT_ACCELERATED_RENDERER
-	#if XASH_MOBILE_PLATFORM
-		#define DEFAULT_ACCELERATED_RENDERER "gles1"
-	#else // !XASH_MOBILE_PLATFORM
-		#define DEFAULT_ACCELERATED_RENDERER "gl"
-	#endif // !XASH_MOBILE_PLATFORM
+	#ifdef XASH_PSP
+			#define DEFAULT_ACCELERATED_RENDERER "gu"	
+	#else
+		#if XASH_MOBILE_PLATFORM
+			#define DEFAULT_ACCELERATED_RENDERER "gles1"
+		#else // !XASH_MOBILE_PLATFORM
+			#define DEFAULT_ACCELERATED_RENDERER "gl"
+		#endif // !XASH_MOBILE_PLATFORM
+	#endif
 #endif // DEFAULT_ACCELERATED_RENDERER
 
 #ifndef DEFAULT_SOFTWARE_RENDERER

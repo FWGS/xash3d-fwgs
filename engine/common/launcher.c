@@ -34,6 +34,11 @@ GNU General Public License for more details.
 static char szGameDir[128]; // safe place to keep gamedir
 static int g_iArgc;
 static char **g_pszArgv;
+#if XASH_PSP
+#define MAX_NARGVS 50
+static int	g_fArgc;
+static char *g_fArgv[MAX_NARGVS];
+#endif
 
 void Launcher_ChangeGame( const char *progname )
 {
@@ -70,6 +75,7 @@ int __stdcall WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR cmdLine, int n
 	free( szArgv );
 }
 #endif
+
 int main( int argc, char** argv )
 {
 	char gamedir_buf[32] = "";
@@ -102,15 +108,38 @@ int main( int argc, char** argv )
 #endif
 #endif
 
+#if XASH_PSP
+	g_iArgc = argc;
+	g_pszArgv = argv;	
+	if(argc <= 1)
+	{
+		g_fArgc = 0;
+		g_fArgv[g_fArgc++] = argv[0]; // for get root directory path
+		Platform_ReadCmd( "start.cmd", &g_fArgc, g_fArgv );
+		if(g_fArgc > 1)
+		{
+			g_iArgc = g_fArgc;
+			g_pszArgv = g_fArgv;
+		}	
+	}
+#else 
 	g_iArgc = argc;
 	g_pszArgv = argv;
+#endif
 #if XASH_IOS
 	{
 		void IOS_LaunchDialog( void );
 		IOS_LaunchDialog();
 	}
 #endif
+
+#if XASH_PSP
+	Host_Main( g_iArgc, g_pszArgv, gamedir, 0, &Launcher_ChangeGame );
+	Sys_Quit( );
+	return 0;
+#else
 	return Host_Main( g_iArgc, g_pszArgv, gamedir, 0, &Launcher_ChangeGame );
+#endif
 }
 
 #endif

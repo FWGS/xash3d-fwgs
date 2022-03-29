@@ -117,8 +117,11 @@ stream_t *Stream_OpenMPG( const char *filename )
 	file_t	*file;
 	int	ret;
 	wavinfo_t	sc;
-
+#if XASH_PSP // hold mode
+	file = FS_Open( filename, "*rb", false );
+#else
 	file = FS_Open( filename, "rb", false );
+#endif
 	if( !file ) return NULL;
 
 	// at this point we have valid stream

@@ -44,6 +44,8 @@ def configure(conf):
 	elif conf.env.DEST_OS == 'android': # Android doesn't need SDL2
 		for i in ['log']:
 			conf.check_cc(lib = i)
+	elif conf.env.DEST_OS == 'psp':
+		conf.define('XASH_NO_NETWORK', 1)
 	elif conf.options.FBDEV_SW:
 		# unused, XASH_LINUX without XASH_SDL gives fbdev & alsa support
 		# conf.define('XASH_FBDEV', 1)
@@ -66,7 +68,8 @@ def configure(conf):
 
 	if conf.options.STATIC:
 		conf.env.STATIC = True
-		conf.define('XASH_NO_LIBDL',1)
+		if conf.env.DEST_OS != 'psp':
+			conf.define('XASH_NO_LIBDL',1)
 
 	if not conf.env.DEST_OS in ['win32', 'android'] and not conf.options.NO_ASYNC_RESOLVE:
 		conf.load('pthreads')
@@ -99,7 +102,7 @@ def build(bld):
 	if bld.env.DEST_OS == 'win32':
 		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32' ]
 		source += bld.path.ant_glob(['platform/win32/*.c'])
-	elif bld.env.DEST_OS != 'dos': #posix
+	elif bld.env.DEST_OS not in ['dos', 'psp']: #posix
 		libs += [ 'M', 'RT', 'PTHREAD', 'ASOUND']
 		if not bld.env.STATIC:
 			libs += ['DL']
@@ -111,7 +114,6 @@ def build(bld):
 	if bld.env.DEST_OS == 'dos':
 		source += bld.path.ant_glob(['platform/dos/*.c'])
 		source += bld.path.ant_glob(['platform/stub/s_stub.c'])
-
 
 	if bld.get_define('XASH_CUSTOM_SWAP'):
 		source += bld.path.ant_glob(['platform/misc/kmalloc.c', 'platform/misc/sbrk.c'])
@@ -132,6 +134,9 @@ def build(bld):
 	if bld.env.DEST_OS == 'android':
 		libs += ['LOG']
 		source += bld.path.ant_glob(['platform/android/*.cpp', 'platform/android/*.c', 'platform/linux/*.c'])
+
+	if bld.env.DEST_OS == 'psp':
+		source += bld.path.ant_glob(['platform/psp/*.c'])
 
 	# add client files
 	if not bld.env.DEDICATED:

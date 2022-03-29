@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "base_cmd.h"
 #include "cdll_int.h"
 
+#ifdef XASH_HASHED_VARS
 // TODO: use another hash function, as COM_HashKey depends on string length
 #define HASH_SIZE 128 // 128 * 4 * 4 == 2048 bytes
 static base_command_hashmap_t *hashed_cmds[HASH_SIZE];
@@ -285,3 +286,5 @@ void BaseCmd_Test_f( void )
 		Con_Printf( "BaseCmd is valid\n" );
 	}
 }
+
+#endif // XASH_HASHED_VARS

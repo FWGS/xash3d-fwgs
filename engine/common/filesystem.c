@@ -23,6 +23,10 @@ GNU General Public License for more details.
 #elif XASH_DOS4GW
 #include <direct.h>
 #include <errno.h>
+#elif XASH_PSP
+#include <pspiofilemgr.h>
+#include <dirent.h>
+#include <errno.h>
 #else
 #include <dirent.h>
 #include <errno.h>
@@ -80,16 +84,25 @@ typedef struct wadtype_s
 
 struct file_s
 {
+#if XASH_PSP
+	SceUID	handle;			// psp file descriptor
+#else
 	int		handle;			// file descriptor
+#endif
 	fs_offset_t		real_length;		// uncompressed file size (for files opened in "read" mode)
 	fs_offset_t		position;			// current position in the file
 	fs_offset_t		offset;			// offset into the package (0 if external file)
 	int		ungetc;			// single stored character from ungetc, cleared to EOF when read
+#if !XASH_PSP /* unused */
 	time_t		filetime;			// pak, wad or real filetime
+#endif
 						// contents buffer
 	fs_offset_t		buff_ind, buff_len;		// buffer current index and length
 	byte		buff[FILE_BUFF_SIZE];	// intermediate buffer
 #ifdef XASH_REDUCE_FD
+#if XASH_PSP
+	qboolean	backup_hold;
+#endif
 	const char *backup_path;
 	fs_offset_t backup_position;
 	uint backup_options;
@@ -110,7 +123,11 @@ struct wfile_s
 typedef struct pack_s
 {
 	string		filename;
+#if XASH_PSP
+	SceUID	handle;
+#else
 	int		handle;
+#endif
 	int		numfiles;
 	time_t		filetime;			// common for all packed files
 	dpackfile_t	*files;
@@ -128,7 +145,11 @@ typedef struct zipfile_s
 typedef struct zip_s
 {
 	string		filename;
+#if XASH_PSP
+	SceUID	handle;
+#else
 	int		handle;
+#endif
 	int		numfiles;
 	time_t		filetime;
 	zipfile_t	*files;
@@ -168,7 +189,20 @@ static void FS_EnsureOpenFile( file_t *file )
 
 	if( file && !file->backup_path )
 		return;
-
+#if XASH_PSP
+	if( fs_last_readfile && (fs_last_readfile->handle != -1) && (fs_last_readfile->backup_hold == false) )
+	{
+		fs_last_readfile->backup_position = sceIoLseek(  fs_last_readfile->handle, 0, PSP_SEEK_CUR );
+		sceIoClose( fs_last_readfile->handle );
+		fs_last_readfile->handle = -1;
+	}
+	fs_last_readfile = file;
+	if( file && (file->handle == -1) )
+	{
+		file->handle = sceIoOpen( file->backup_path, file->backup_options, 0666 );
+		sceIoLseek( file->handle, file->backup_position, PSP_SEEK_SET );
+	}
+#else
 	if( fs_last_readfile && (fs_last_readfile->handle != -1) )
 	{
 		fs_last_readfile->backup_position = lseek(  fs_last_readfile->handle, 0, SEEK_CUR );
@@ -181,13 +215,23 @@ static void FS_EnsureOpenFile( file_t *file )
 		file->handle = open( file->backup_path, file->backup_options );
 		lseek( file->handle, file->backup_position, SEEK_SET );
 	}
+#endif
 }
 
 static void FS_EnsureOpenZip( zip_t *zip )
 {
 	if( fs_last_zip == zip )
 		return;
-
+#if XASH_PSP
+	if( fs_last_zip && (fs_last_zip->handle != -1) )
+	{
+		sceIoClose( fs_last_zip->handle );
+		fs_last_zip->handle = -1;
+	}
+	fs_last_zip = zip;
+	if( zip && (zip->handle == -1) )
+		zip->handle = sceIoOpen( zip->filename, PSP_O_RDONLY, 0666 );
+#else
 	if( fs_last_zip && (fs_last_zip->handle != -1) )
 	{
 		close( fs_last_zip->handle );
@@ -196,6 +240,7 @@ static void FS_EnsureOpenZip( zip_t *zip )
 	fs_last_zip = zip;
 	if( zip && (zip->handle == -1) )
 		zip->handle = open( zip->filename, O_RDONLY|O_BINARY );
+#endif
 }
 
 static void FS_BackupFileName( file_t *file, const char *path, uint options )
@@ -207,7 +252,11 @@ static void FS_BackupFileName( file_t *file, const char *path, uint options )
 		if( file == fs_last_readfile )
 			FS_EnsureOpenFile( NULL );
 	}
+#if XASH_PSP
+	else if( options == PSP_O_RDONLY )
+#else
 	else if( options == O_RDONLY || options == (O_RDONLY|O_BINARY) )
+#endif
 	{
 		file->backup_path = copystring( path );
 		file->backup_options = options;
@@ -325,6 +374,9 @@ static void listdirectory( stringlist_t *list, const char *path, qboolean lowerc
 	char pattern[4096];
 	struct _finddata_t	n_file;
 	int		hFile;
+#elif XASH_PSP
+	SceUID dir;
+	SceIoDirent entry;
 #else
 	DIR *dir;
 	struct dirent *entry;
@@ -343,6 +395,20 @@ static void listdirectory( stringlist_t *list, const char *path, qboolean lowerc
 	while( _findnext( hFile, &n_file ) == 0 )
 		stringlistappend( list, n_file.name );
 	_findclose( hFile );
+#elif XASH_PSP
+	if( ( dir = sceIoDopen( path ) ) < 0 )
+		return;
+
+	// iterate through the directory
+	while( 1 )
+	{
+		// zero the dirent, to avoid possible problems with sceIoDread
+		memset( &entry, 0, sizeof( SceIoDirent ) );
+		if( !sceIoDread( dir, &entry ) )
+			break;
+		stringlistappend( list, entry.d_name );
+	}
+	sceIoDclose( dir );
 #else
 	if( !( dir = opendir( path ) ) )
 		return;
@@ -405,7 +471,7 @@ static const char *FS_FixFileCase( const char *path )
 
 	out[i] = 0;
 	return out;
-#elif !XASH_WIN32 && !XASH_IOS // assume case insensitive
+#elif !XASH_WIN32 && !XASH_IOS && !XASH_PSP // assume case insensitive
 	DIR *dir; struct dirent *entry;
 	char path2[PATH_MAX], *fname;
 
@@ -524,7 +590,11 @@ void FS_CreatePath( char *path )
 			// create the directory
 			save = *ofs;
 			*ofs = 0;
+#if XASH_PSP
+			sceIoMkdir( path, 0777 );
+#else
 			_mkdir( path );
+#endif
 			*ofs = save;
 		}
 	}
@@ -585,14 +655,20 @@ of the list so they override previous pack files.
 pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 {
 	dpackheader_t	header;
+#if XASH_PSP
+	SceUID	packhandle;
+#else
 	int		packhandle;
+#endif
 	int		i, numpackfiles;
 	pack_t		*pack;
 	dpackfile_t	*info;
-
+#if XASH_PSP
+	packhandle = sceIoOpen( packfile, PSP_O_RDONLY, 0666 );
+#else
 	packhandle = open( packfile, O_RDONLY|O_BINARY );
-
-#if !XASH_WIN32
+#endif
+#if !XASH_WIN32 && !XASH_PSP
 	if( packhandle < 0 )
 	{
 		const char *fpackfile = FS_FixFileCase( packfile );
@@ -607,14 +683,20 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 		if( error ) *error = PAK_LOAD_COULDNT_OPEN;
 		return NULL;
 	}
-
+#if XASH_PSP
+	sceIoRead( packhandle, (void *)&header, sizeof( header ));
+#else
 	read( packhandle, (void *)&header, sizeof( header ));
-
+#endif
 	if( header.ident != IDPACKV1HEADER )
 	{
 		Con_Reportf( "%s is not a packfile. Ignored.\n", packfile );
 		if( error ) *error = PAK_LOAD_BAD_HEADER;
+#if XASH_PSP
+		sceIoClose( packhandle );
+#else
 		close( packhandle );
+#endif
 		return NULL;
 	}
 
@@ -622,7 +704,11 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 	{
 		Con_Reportf( S_ERROR "%s has an invalid directory size. Ignored.\n", packfile );
 		if( error ) *error = PAK_LOAD_BAD_FOLDERS;
+#if XASH_PSP
+		sceIoClose( packhandle );
+#else
 		close( packhandle );
+#endif
 		return NULL;
 	}
 
@@ -632,7 +718,11 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 	{
 		Con_Reportf( S_ERROR "%s has too many files ( %i ). Ignored.\n", packfile, numpackfiles );
 		if( error ) *error = PAK_LOAD_TOO_MANY_FILES;
+#if XASH_PSP
+		sceIoClose( packhandle );
+#else
 		close( packhandle );
+#endif
 		return NULL;
 	}
 
@@ -640,18 +730,33 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 	{
 		Con_Reportf( "%s has no files. Ignored.\n", packfile );
 		if( error ) *error = PAK_LOAD_NO_FILES;
+#if XASH_PSP
+		sceIoClose( packhandle );
+#else
 		close( packhandle );
+#endif
 		return NULL;
 	}
 
 	info = (dpackfile_t *)Mem_Malloc( fs_mempool, sizeof( *info ) * numpackfiles );
+#if XASH_PSP
+	sceIoLseek( packhandle, header.dirofs, PSP_SEEK_SET );
+#else
 	lseek( packhandle, header.dirofs, SEEK_SET );
-
+#endif
+#if XASH_PSP
+	if( header.dirlen != sceIoRead( packhandle, (void *)info, header.dirlen ) )
+#else
 	if( header.dirlen != read( packhandle, (void *)info, header.dirlen ))
+#endif
 	{
 		Con_Reportf( "%s is an incomplete PAK, not loading\n", packfile );
 		if( error ) *error = PAK_LOAD_CORRUPTED;
+#if XASH_PSP
+		sceIoClose( packhandle );
+#else
 		close( packhandle );
+#endif
 		Mem_Free( info );
 		return NULL;
 	}
@@ -669,7 +774,11 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 
 #ifdef XASH_REDUCE_FD
 	// will reopen when needed
-	close(pack->handle);
+#if XASH_PSP
+	sceIoClose( packhandle );
+#else
+	close( packhandle );
+#endif
 	pack->handle = -1;
 #endif
 
@@ -689,10 +798,12 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	zipfile_t	  *info = NULL;
 	char		  filename_buffer[MAX_SYSPATH];
 	zip_t *zip = (zip_t *)Mem_Calloc( fs_mempool, sizeof( zip_t ) );
-
+#if XASH_PSP
+	zip->handle = sceIoOpen( zipfile, PSP_O_RDONLY, 0666 );
+#else
 	zip->handle = open( zipfile, O_RDONLY|O_BINARY );
-
-#if !XASH_WIN32
+#endif
+#if !XASH_WIN32 && !XASH_PSP
 	if( zip->handle < 0 )
 	{
 		const char *fzipfile = FS_FixFileCase( zipfile );
@@ -711,9 +822,11 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		Zip_Close( zip );
 		return NULL;
 	}
-
+#if XASH_PSP
+	length = sceIoLseek( zip->handle, 0, PSP_SEEK_END );
+#else
 	length = lseek( zip->handle, 0, SEEK_END );
-
+#endif
 	if( length > UINT_MAX )
 	{
 		Con_Reportf( S_ERROR "%s bigger than 4GB.\n", zipfile );
@@ -724,11 +837,13 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		Zip_Close( zip );
 		return NULL;
 	}
-
+#if XASH_PSP
+	sceIoLseek( zip->handle, 0, PSP_SEEK_SET );
+	sceIoRead( zip->handle, &signature, sizeof( signature ) );
+#else
 	lseek( zip->handle, 0, SEEK_SET );
-
 	read( zip->handle, &signature, sizeof( signature ) );
-
+#endif
 	if( signature == ZIP_HEADER_EOCD )
 	{
 		Con_Reportf( S_WARN "%s has no files. Ignored.\n", zipfile );
@@ -752,14 +867,22 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	}
 
 	// Find oecd
+#if XASH_PSP
+	sceIoLseek( zip->handle, 0, PSP_SEEK_SET );
+#else
 	lseek( zip->handle, 0, SEEK_SET );
+#endif
 	filepos = length;
 
 	while ( filepos > 0 )
 	{
+#if XASH_PSP
+		sceIoLseek( zip->handle, filepos, PSP_SEEK_SET );
+		sceIoRead( zip->handle, &signature, sizeof( signature ) );
+#else
 		lseek( zip->handle, filepos, SEEK_SET );
 		read( zip->handle, &signature, sizeof( signature ) );
-
+#endif
 		if( signature == ZIP_HEADER_EOCD )
 			break;
 
@@ -776,19 +899,27 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		Zip_Close( zip );
 		return NULL;
 	}
+#if XASH_PSP
+	sceIoRead( zip->handle, &header_eocd, sizeof( zip_header_eocd_t ) );
 
+	// Move to CDF start
+	sceIoLseek( zip->handle, header_eocd.central_directory_offset, PSP_SEEK_SET );
+#else
 	read( zip->handle, &header_eocd, sizeof( zip_header_eocd_t ) );
 
 	// Move to CDF start
 	lseek( zip->handle, header_eocd.central_directory_offset, SEEK_SET );
-
+#endif
 	// Calc count of files in archive
 	info = (zipfile_t *)Mem_Calloc( fs_mempool, sizeof( zipfile_t ) * header_eocd.total_central_directory_record );
 
 	for( i = 0; i < header_eocd.total_central_directory_record; i++ )
 	{
+#if XASH_PSP
+		sceIoRead( zip->handle, &header_cdf, sizeof( header_cdf ) );
+#else
 		read( zip->handle, &header_cdf, sizeof( header_cdf ) );
-
+#endif
 		if( header_cdf.signature != ZIP_HEADER_CDF )
 		{
 			Con_Reportf( S_ERROR "CDF signature mismatch in %s. Zip file corrupted.\n", zipfile );
@@ -804,7 +935,11 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		if( header_cdf.uncompressed_size && header_cdf.filename_len && ( header_cdf.filename_len < MAX_SYSPATH ) )
 		{
 			memset( &filename_buffer, '\0', MAX_SYSPATH );
+#if XASH_PSP
+			sceIoRead( zip->handle, &filename_buffer, header_cdf.filename_len );
+#else
 			read( zip->handle, &filename_buffer, header_cdf.filename_len );
+#endif
 			Q_strncpy( info[numpackfiles].name, filename_buffer, MAX_SYSPATH );
 
 			info[numpackfiles].size = header_cdf.uncompressed_size;
@@ -813,6 +948,15 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 			numpackfiles++;
 		}
 		else
+#if XASH_PSP
+			sceIoLseek( zip->handle, header_cdf.filename_len, PSP_SEEK_CUR );
+
+		if( header_cdf.extrafield_len )
+			sceIoLseek( zip->handle, header_cdf.extrafield_len, PSP_SEEK_CUR );
+
+		if( header_cdf.file_commentary_len )
+			sceIoLseek( zip->handle, header_cdf.file_commentary_len, PSP_SEEK_CUR );
+#else
 			lseek( zip->handle, header_cdf.filename_len, SEEK_CUR );
 
 		if( header_cdf.extrafield_len )
@@ -820,15 +964,20 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 		if( header_cdf.file_commentary_len )
 			lseek( zip->handle, header_cdf.file_commentary_len, SEEK_CUR );
+#endif
 	}
 
 	// recalculate offsets
 	for( i = 0; i < numpackfiles; i++ )
 	{
 		zip_header_t header;
-
+#if XASH_PSP
+		sceIoLseek( zip->handle, info[i].offset, PSP_SEEK_SET );
+		sceIoRead( zip->handle, &header, sizeof( header ) );
+#else
 		lseek( zip->handle, info[i].offset, SEEK_SET );
 		read( zip->handle, &header, sizeof( header ) );
+#endif
 		info[i].flags = header.compression_flags;
 		info[i].offset = info[i].offset + header.filename_len + header.extrafield_len + sizeof( header );
 	}
@@ -840,8 +989,13 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 #ifdef XASH_REDUCE_FD
 	// will reopen when needed
-	close(zip->handle);
+#if XASH_PSP
+	sceIoClose( zip->handle );
 	zip->handle = -1;
+#else
+	close( zip->handle );
+	zip->handle = -1;
+#endif
 #endif
 
 	if( error )
@@ -858,10 +1012,13 @@ void Zip_Close( zip_t *zip )
 	Mem_Free( zip->files );
 
 	FS_EnsureOpenZip( NULL );
-
+#if XASH_PSP
+	if( zip->handle >= 0 )
+		sceIoClose( zip->handle );
+#else
 	if( zip->handle >= 0 )
 		close( zip->handle );
-
+#endif
 	Mem_Free( zip );
 }
 
@@ -885,10 +1042,13 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 	file = &search->zip->files[index];
 
 	FS_EnsureOpenZip( search->zip );
-
+#if XASH_PSP
+	if( sceIoLseek( search->zip->handle, file->offset, PSP_SEEK_SET ) == -1 )
+		return NULL;
+#else
 	if( lseek( search->zip->handle, file->offset, SEEK_SET ) == -1 )
 		return NULL;
-
+#endif
 	/*if( read( search->zip->handle, &header, sizeof( header ) ) < 0 )
 		return NULL;
 
@@ -902,8 +1062,11 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 	{
 		decompressed_buffer = Mem_Malloc( fs_mempool, file->size + 1 );
 		decompressed_buffer[file->size] = '\0';
-
+#if XASH_PSP
+		sceIoRead( search->zip->handle, decompressed_buffer, file->size );
+#else
 		read( search->zip->handle, decompressed_buffer, file->size );
+#endif
 #if 0
 		CRC32_Init( &test_crc );
 		CRC32_ProcessBuffer( &test_crc, decompressed_buffer, file->size );
@@ -927,9 +1090,11 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 		compressed_buffer = Mem_Malloc( fs_mempool, file->compressed_size + 1 );
 		decompressed_buffer = Mem_Malloc( fs_mempool, file->size + 1 );
 		decompressed_buffer[file->size] = '\0';
-
+#if XASH_PSP
+		sceIoRead( search->zip->handle, compressed_buffer, file->compressed_size );
+#else
 		read( search->zip->handle, compressed_buffer, file->compressed_size );
-
+#endif
 		memset( &decompress_stream, 0, sizeof( decompress_stream ) );
 
 		decompress_stream.total_in = decompress_stream.avail_in = file->compressed_size;
@@ -1268,12 +1433,15 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 		FS_AddGameDirectory( va( "%s/%s/", host.rodir, dir ), newFlags );
 		FS_AllowDirectPaths( false );
 	}
-
+#if !XASH_PSP
 	if( isGameDir )
 		FS_AddGameDirectory( va( "%s/downloaded/", dir ), FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+#endif
 	FS_AddGameDirectory( va( "%s/", dir ), flags );
+#if !XASH_PSP
 	if( isGameDir )
 		FS_AddGameDirectory( va( "%s/custom/", dir ), FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+#endif
 }
 
 /*
@@ -1302,8 +1470,13 @@ void FS_ClearSearchPath( void )
 		{
 			if( search->pack->files ) 
 				Mem_Free( search->pack->files );
+#if XASH_PSP
+			if( search->pack->handle >= 0 )
+				sceIoClose( search->pack->handle );
+#else
 			if( search->pack->handle >= 0 )
 				close( search->pack->handle );
+#endif
 			Mem_Free( search->pack );
 		}
 
@@ -1477,8 +1650,10 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 
 	if( Q_strlen( GameInfo->game_dll_osx ))
 		FS_Printf( f, "gamedll_osx\t\t\"%s\"\n", GameInfo->game_dll_osx );
-
-
+#if XASH_PSP
+	if( Q_strlen( GameInfo->game_dll_psp ))
+		FS_Printf( f, "gamedll_psp\t\t\"%s\"\n", GameInfo->game_dll_psp );
+#endif
 	if( Q_strlen( GameInfo->iconpath ))
 		FS_Printf( f, "icon\t\t\"%s\"\n", GameInfo->iconpath );
 
@@ -1545,7 +1720,9 @@ void FS_InitGameInfo( gameinfo_t *GameInfo, const char *gamedir )
 	Q_strncpy( GameInfo->game_dll, "dlls/hl.dll", sizeof( GameInfo->game_dll ));
 	Q_strncpy( GameInfo->game_dll_linux, "dlls/hl.so", sizeof( GameInfo->game_dll_linux ));
 	Q_strncpy( GameInfo->game_dll_osx, "dlls/hl.dylib", sizeof( GameInfo->game_dll_osx ));
-
+#if XASH_PSP
+	Q_strncpy( GameInfo->game_dll_psp, "dlls/server.prx", sizeof( GameInfo->game_dll_psp ));
+#endif 
 	// .ico path
 	Q_strncpy( GameInfo->iconpath, "game.ico", sizeof( GameInfo->iconpath ));
 
@@ -1562,6 +1739,9 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 {
 	char *pfile = (char*) buf;
 	qboolean found_linux = false, found_osx = false;
+#if XASH_PSP
+	qboolean found_psp = false;
+#endif
 	string token;
 
 	while(( pfile = COM_ParseFile( pfile, token )) != NULL )
@@ -1617,6 +1797,14 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 			pfile = COM_ParseFile( pfile, GameInfo->game_dll_osx );
 			found_osx = true;
 		}
+#if XASH_PSP
+		// valid for both
+		else if( !Q_stricmp( token, "gamedll_psp" ))
+		{
+			pfile = COM_ParseFile( pfile, GameInfo->game_dll_psp );
+			found_psp = true;
+		}
+#endif
 		// valid for both
 		else if( !Q_stricmp( token, "icon" ))
 		{
@@ -1759,7 +1947,8 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 			}
 		}
 	}
-
+	
+#if XASH_PSP
 	if( !found_linux || !found_osx )
 	{
 		// just replace extension from dll to so/dylib
@@ -1773,7 +1962,10 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 		if( !found_osx )
 			Q_snprintf( GameInfo->game_dll_osx, sizeof( GameInfo->game_dll_osx ), "%s.dylib", gamedll );
 	}
-
+#else
+	if( !found_psp )
+		Q_snprintf( GameInfo->game_dll_psp, sizeof( GameInfo->game_dll_psp ), "dlls/server.prx" ); // force set
+#endif	
 	// make sure what gamedir is really exist
 	if( !FS_SysFolderExists( va( "%s"PATH_SPLITTER"%s", host.rootdir, GameInfo->falldir )))
 		GameInfo->falldir[0] = '\0';
@@ -2027,7 +2219,7 @@ void FS_Init( void )
 	Cmd_AddCommand( "fs_path", FS_Path_f, "show filesystem search pathes" );
 	Cmd_AddCommand( "fs_clearpaths", FS_ClearPaths_f, "clear filesystem search pathes" );
 
-#if !XASH_WIN32
+#if !XASH_WIN32 && !XASH_PSP
 	if( Sys_CheckParm( "-casesensitive" ) )
 		fs_caseinsensitive = false;
 
@@ -2156,12 +2348,30 @@ Internal function used to determine filetime
 */
 static int FS_SysFileTime( const char *filename )
 {
+#if XASH_PSP
+	SceIoStat buf;
+	struct tm libc_tm;
+
+	if ( sceIoGetstat( filename, &buf ) < 0 )
+		return -1;
+
+	libc_tm.tm_year = buf.st_mtime.year;
+	libc_tm.tm_mon = buf.st_mtime.month;
+	libc_tm.tm_mday = buf.st_mtime.day;
+	libc_tm.tm_hour = buf.st_mtime.hour;
+	libc_tm.tm_min = buf.st_mtime.minute;
+	libc_tm.tm_sec = buf.st_mtime.second;
+	libc_tm.tm_isdst = -1;
+
+	return mktime( &libc_tm );
+#else
 	struct stat buf;
 	
 	if( stat( filename, &buf ) == -1 )
 		return -1;
 
 	return buf.st_mtime;
+#endif
 }
 
 /*
@@ -2176,7 +2386,53 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 	file_t	*file;
 	int	mod, opt;
 	uint	ind;
+#if XASH_PSP
+	qboolean backup_hold = false;
 
+	// Hold file in open state
+	if( mode[0] == '*' )
+	{
+		backup_hold = true;
+		mode++;
+	}
+
+	// Parse the mode string
+	switch( mode[0] )
+	{
+	case 'r':	// read
+		mod = PSP_O_RDONLY;
+		opt = 0;
+		break;
+	case 'w': // write
+		mod = PSP_O_WRONLY;
+		opt = PSP_O_CREAT | PSP_O_TRUNC;
+		break;
+	case 'a': // append
+		mod = PSP_O_WRONLY;
+		opt = PSP_O_CREAT | PSP_O_APPEND;
+		break;
+	case 'e': // edit
+		mod = PSP_O_WRONLY;
+		opt = PSP_O_CREAT;
+		break;
+	default:
+		return NULL;
+	}
+
+	for( ind = 1; mode[ind] != '\0'; ind++ )
+	{
+		switch( mode[ind] )
+		{
+		case '+':
+			mod = PSP_O_RDWR;
+			break;
+		case 'b': // not used
+			break;
+		default:
+			break;
+		}
+	}
+#else
 	// Parse the mode string
 	switch( mode[0] )
 	{
@@ -2214,14 +2470,23 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 			break;
 		}
 	}
-
+#endif
 	file = (file_t *)Mem_Calloc( fs_mempool, sizeof( *file ));
+#if !XASH_PSP
 	file->filetime = FS_SysFileTime( filepath );
+#endif
 	file->ungetc = EOF;
-
+#if XASH_PSP
+	file->handle = sceIoOpen( filepath, mod|opt, 0666 ); 
+#else
 	file->handle = open( filepath, mod|opt, 0666 );
+#endif
 
-#if !XASH_WIN32
+#if XASH_PSP
+	file->backup_hold = backup_hold;
+	if( file->handle >= 0 )
+		FS_BackupFileName( file, filepath, mod|opt );
+#elif !XASH_WIN32
 	if( file->handle < 0 )
 	{
 		const char *ffilepath = FS_FixFileCase( filepath );
@@ -2234,22 +2499,29 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 		FS_BackupFileName( file, filepath, mod|opt );
 #endif
 
+
 	if( file->handle < 0 )
 	{
 		Mem_Free( file );
 		return NULL;
 	}
 
-
+#if XASH_PSP
+	file->real_length = sceIoLseek( file->handle, 0, PSP_SEEK_END );
+#else
 	file->real_length = lseek( file->handle, 0, SEEK_END );
-
+#endif
 	// uncomment do disable write
 	//if( opt & O_CREAT )
 	//	return NULL;
 
 	// For files opened in append mode, we start at the end of the file
 	if( opt & O_APPEND )  file->position = file->real_length;
+#if XASH_PSP
+	else sceIoLseek( file->handle, 0, PSP_SEEK_SET );
+#else
 	else lseek( file->handle, 0, SEEK_SET );
+#endif
 
 	return file;
 }
@@ -2270,6 +2542,15 @@ static file_t *FS_OpenHandle( const char *syspath, int handle, fs_offset_t offse
 {
 	file_t *file = (file_t *)Mem_Calloc( fs_mempool, sizeof( file_t ));
 #ifndef XASH_REDUCE_FD
+#if XASH_PSP
+	file->handle = sceIoOpen( syspath, PSP_O_RDONLY, 0666 );
+
+	if( sceIoLseek( file->handle, offset, SEEK_SET ) == -1 )
+	{
+		Mem_Free( file );
+		return NULL;
+	}
+#else /* XASH_PSP */
 #ifdef HAVE_DUP
 	file->handle = dup( handle );
 #else
@@ -2281,13 +2562,18 @@ static file_t *FS_OpenHandle( const char *syspath, int handle, fs_offset_t offse
 		Mem_Free( file );
 		return NULL;
 	}
-
-#else
+#endif /* XASH_PSP */
+#else /* XASH_REDUCE_FD */
 	file->backup_position = offset;
 	file->backup_path = copystring( syspath );
+#if XASH_PSP
+	file->backup_hold = false;
+	file->backup_options = PSP_O_RDONLY;
+#else
 	file->backup_options = O_RDONLY|O_BINARY;
-	file->handle = -1;
 #endif
+	file->handle = -1;
+#endif /* XASH_REDUCE_FD */
 
 	file->real_length = len;
 	file->offset = offset;
@@ -2349,6 +2635,11 @@ qboolean FS_SysFileExists( const char *path, qboolean caseinsensitive )
 
 	close( desc );
 	return true;
+#elif XASH_PSP
+	SceIoStat buf;
+	if ( sceIoGetstat( path, &buf ) < 0 )
+		return false;
+	return FIO_S_ISREG( buf.st_mode );
 #else
 	int ret;
 	struct stat buf;
@@ -2383,6 +2674,23 @@ qboolean FS_SysFolderExists( const char *path )
 	DWORD	dwFlags = GetFileAttributes( path );
 
 	return ( dwFlags != -1 ) && ( dwFlags & FILE_ATTRIBUTE_DIRECTORY );
+#elif XASH_PSP
+	SceUID dir = sceIoDopen( path );
+
+	if( dir >= 0 )
+	{
+		sceIoDclose( dir );
+		return true;
+	}
+	else if( ( dir == 0x80010002 ) || ( dir == 0x80010014 ) )
+	{
+		return false;
+	}
+	else
+	{
+		Con_Reportf( S_ERROR "FS_SysFolderExists: problem while opening dir: %#010x\n", dir );
+		return false;
+	}
 #else
 	DIR *dir = opendir( path );
 
@@ -2640,7 +2948,11 @@ file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 		char	real_path[MAX_SYSPATH];
 
 		// open the file on disk directly
+#if XASH_PSP /* Fixed double slashes */
+		Q_sprintf( real_path, "%s%s", fs_writedir, filepath );
+#else
 		Q_sprintf( real_path, "%s/%s", fs_writedir, filepath );
+#endif
 		FS_CreatePath( real_path );// Create directories up to the file
 		return FS_SysOpen( real_path, mode );
 	}
@@ -2663,7 +2975,11 @@ int FS_Close( file_t *file )
 	FS_BackupFileName( file, NULL, 0 );
 
 	if( file->handle >= 0 )
+#if XASH_PSP
+		if( sceIoClose( file->handle ) )
+#else
 		if( close( file->handle ))
+#endif
 			return EOF;
 
 	Mem_Free( file );
@@ -2685,15 +3001,22 @@ fs_offset_t FS_Write( file_t *file, const void *data, size_t datasize )
 
 	// if necessary, seek to the exact file position we're supposed to be
 	if( file->buff_ind != file->buff_len )
+#if XASH_PSP
+		sceIoLseek( file->handle, file->buff_ind - file->buff_len, PSP_SEEK_CUR );
+#else
 		lseek( file->handle, file->buff_ind - file->buff_len, SEEK_CUR );
-
+#endif
 	// purge cached data
 	FS_Purge( file );
-
+#if XASH_PSP
+	// write the buffer and update the position
+	result = sceIoWrite( file->handle, data, (fs_offset_t)datasize );
+	file->position = sceIoLseek( file->handle, 0, PSP_SEEK_CUR );
+#else
 	// write the buffer and update the position
 	result = write( file->handle, data, (fs_offset_t)datasize );
 	file->position = lseek( file->handle, 0, SEEK_CUR );
-
+#endif
 	if( file->real_length < file->position )
 		file->real_length = file->position;
 
@@ -2752,9 +3075,13 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 	{
 		if( count > (fs_offset_t)buffersize )
 			count = (fs_offset_t)buffersize;
+#if XASH_PSP
+		sceIoLseek( file->handle, file->offset + file->position, PSP_SEEK_SET );
+		nb = sceIoRead (file->handle, &((byte *)buffer)[done], count );
+#else
 		lseek( file->handle, file->offset + file->position, SEEK_SET );
 		nb = read (file->handle, &((byte *)buffer)[done], count );
-
+#endif
 		if( nb > 0 )
 		{
 			done += nb;
@@ -2767,9 +3094,13 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 	{
 		if( count > (fs_offset_t)sizeof( file->buff ))
 			count = (fs_offset_t)sizeof( file->buff );
+#if XASH_PSP
+		sceIoLseek( file->handle, file->offset + file->position, PSP_SEEK_SET );
+		nb = sceIoRead( file->handle, file->buff, count );
+#else
 		lseek( file->handle, file->offset + file->position, SEEK_SET );
 		nb = read( file->handle, file->buff, count );
-
+#endif
 		if( nb > 0 )
 		{
 			file->buff_len = nb;
@@ -2843,8 +3174,11 @@ int FS_VPrintf( file_t *file, const char *format, va_list ap )
 		Mem_Free( tempbuff );
 		buff_size *= 2;
 	}
-
+#if XASH_PSP
+	len = sceIoWrite( file->handle, tempbuff, len );
+#else
 	len = write( file->handle, tempbuff, len );
+#endif
 	Mem_Free( tempbuff );
 
 	return len;
@@ -2956,9 +3290,13 @@ int FS_Seek( file_t *file, fs_offset_t offset, int whence )
 	FS_EnsureOpenFile( file );
 	// Purge cached data
 	FS_Purge( file );
-
+#if XASH_PSP
+	if( sceIoLseek( file->handle, file->offset + offset, PSP_SEEK_SET ) == -1 )
+		return -1;
+#else
 	if( lseek( file->handle, file->offset + offset, SEEK_SET ) == -1 )
 		return -1;
+#endif
 	file->position = offset;
 
 	return 0;

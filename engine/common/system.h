@@ -68,7 +68,11 @@ void Sys_Print( const char *pMsg );
 void Sys_PrintLog( const char *pMsg );
 void Sys_InitLog( void );
 void Sys_CloseLog( void );
+#ifdef XASH_PSP
+void Sys_Quit( void );
+#else
 void Sys_Quit( void ) NORETURN;
+#endif
 
 //
 // sys_con.c

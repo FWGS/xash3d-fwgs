@@ -320,7 +320,11 @@ stream_t *Stream_OpenWAV( const char *filename )
 		return NULL;
 
 	// open
+#if XASH_PSP // hold mode
+	file = FS_Open( filename, "*rb", false );
+#else
 	file = FS_Open( filename, "rb", false );
+#endif
 	if( !file ) return NULL;	
 
 	// find "RIFF" chunk

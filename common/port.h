@@ -26,7 +26,9 @@ GNU General Public License for more details.
 		#include <sys/syslimits.h>
 		#define OS_LIB_EXT "dylib"
 		#define OPEN_COMMAND "open"
-	#else
+	#elif XASH_PSP
+		#define OS_LIB_EXT "prx"
+	#else		
 		#define OS_LIB_EXT "so"
 		#define OPEN_COMMAND "xdg-open"
 	#endif
@@ -74,6 +76,25 @@ GNU General Public License for more details.
 	#define FreeLibrary( x ) (0)
 	#define SetCurrentDirectory( x )	(!chdir( x ))
 #endif
+
+#if XASH_PSP
+	#include <unistd.h>
+	#include <pspiofilemgr.h>
+	#include "../engine/platform/psp/dll_psp.h"
+	#define PATH_MAX 1024
+	#define PATH_SPLITTER "/"
+	#define O_BINARY 0
+	#define O_TEXT 0
+	#define _mkdir( x )					sceIoMkdir( x, FIO_S_IRWXU | FIO_S_IRWXG | FIO_S_IROTH | FIO_S_IXOTH )
+	#define SetCurrentDirectory( x ) 	( !sceIoChdir( x ) )
+	#define LoadLibrary( x ) 			( 0 )
+	#define GetProcAddress( x, y ) 		( 0 )
+	#define FreeLibrary( x ) 			( 0 )
+//	#define LoadLibrary( x )			dlopen( x, RTLD_NOW )
+//	#define GetProcAddress( x, y )		dlsym( x, y )
+//	#define FreeLibrary( x )			dlclose( x )
+#endif
+
 	//#define MAKEWORD( a, b )			((short int)(((unsigned char)(a))|(((short int)((unsigned char)(b)))<<8)))
 	#define max( a, b )                 (((a) > (b)) ? (a) : (b))
 	#define min( a, b )                 (((a) < (b)) ? (a) : (b))

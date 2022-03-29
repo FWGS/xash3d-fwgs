@@ -138,16 +138,20 @@ typedef enum
 
 #define CIN_MAIN		0
 #define CIN_LOGO		1
+#if XASH_PSP
+#define MAX_DECALS		256	// touching TE_DECAL messages, etc
+#define MAX_STATIC_ENTITIES	256	// static entities that moved on the client when level is spawn
+#else
 #if XASH_LOW_MEMORY == 0
 #define MAX_DECALS		512	// touching TE_DECAL messages, etc
 #define MAX_STATIC_ENTITIES	3096	// static entities that moved on the client when level is spawn
-
 #elif XASH_LOW_MEMORY == 2
 #define MAX_DECALS		256	// touching TE_DECAL messages, etc
 #define MAX_STATIC_ENTITIES	32	// static entities that moved on the client when level is spawn
 #elif XASH_LOW_MEMORY == 1
 #define MAX_DECALS		512	// touching TE_DECAL messages, etc
 #define MAX_STATIC_ENTITIES	128	// static entities that moved on the client when level is spawn
+#endif
 #endif
 
 // filesystem flags
@@ -240,7 +244,9 @@ typedef struct gameinfo_s
 	int		max_tents;	// min temp ents is 300, max is 2048
 	int		max_beams;	// min beams is 64, max beams is 512
 	int		max_particles;	// min particles is 4096, max particles is 32768
-
+#ifdef XASH_PSP
+	char		game_dll_psp[64];
+#endif 
 	char		game_dll_linux[64];	// custom path for game.dll
 	char		game_dll_osx[64];	// custom path for game.dll
 
@@ -871,7 +877,12 @@ int R_CreateDecalList( struct decallist_s *pList );
 void R_ClearAllDecals( void );
 void CL_ClearStaticEntities( void );
 qboolean S_StreamGetCurrentState( char *currentTrack, char *loopTrack, int *position );
+#if XASH_OPT
+#define CL_GetEntityByIndex( index ) ( ( !clgame.entities ) ? NULL : ( ( ( index ) < 0 || ( index ) >= clgame.maxEntities ) ? NULL : ( ( ( index ) == 0 ) ? clgame.entities : ( clgame.entities + ( index ) ) ) ) )
+struct cl_entity_s *pfnCL_GetEntityByIndex( int index );
+#else
 struct cl_entity_s *CL_GetEntityByIndex( int index );
+#endif
 struct player_info_s *CL_GetPlayerInfo( int playerIndex );
 void CL_ServerCommand( qboolean reliable, char *fmt, ... ) _format( 2 );
 void CL_HudMessage( const char *pMessage );

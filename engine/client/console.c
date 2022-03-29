@@ -1788,13 +1788,20 @@ void Key_Console( int key )
 	}
 
 	// console scrolling
+#if XASH_PSP
+	if( key == K_JOY2 )
+#else
 	if( key == K_PGUP )
+#endif
 	{
 		Con_PageUp( 1 );
 		return;
 	}
-
+#if XASH_PSP
+	if( key == K_JOY1 )
+#else
 	if( key == K_PGDN )
+#endif
 	{
 		Con_PageDown( 1 );
 		return;

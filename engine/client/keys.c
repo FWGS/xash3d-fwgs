@@ -519,8 +519,11 @@ void Key_Init( void )
 
 	// setup default binding. "unbindall" from config.cfg will be reset it
 	for( kn = keynames; kn->name; kn++ ) Key_SetBinding( kn->keynum, kn->binding ); 
-
+#if XASH_PSP
+	osk_enable = Cvar_Get( "osk_enable", "1", FCVAR_ARCHIVE, "enable built-in on-screen keyboard" );
+#else
 	osk_enable = Cvar_Get( "osk_enable", "0", FCVAR_ARCHIVE, "enable built-in on-screen keyboard" );
+#endif
 	key_rotate = Cvar_Get( "key_rotate", "0", FCVAR_ARCHIVE, "rotate arrow keys (0-3)" );
 
 }

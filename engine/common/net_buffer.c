@@ -94,13 +94,14 @@ void MSG_Clear( sizebuf_t *sb )
 	sb->bOverflow = false;
 }
 
+#if !XASH_PSP
 static qboolean MSG_Overflow( sizebuf_t *sb, int nBits )
 {
 	if( sb->iCurBit + nBits > sb->nDataBits )
 		sb->bOverflow = true;
 	return sb->bOverflow;
 }
-
+#endif
 qboolean MSG_CheckOverflow( sizebuf_t *sb )
 {
 	return MSG_Overflow( sb, 0 );
@@ -135,7 +136,7 @@ void MSG_SeekToByte( sizebuf_t *sb, int bytePos )
 {
 	sb->iCurBit = bytePos << 3;
 }
-
+#if !XASH_PSP
 void MSG_WriteOneBit( sizebuf_t *sb, int nValue )
 {
 	if( !MSG_Overflow( sb, 1 ))
@@ -146,7 +147,7 @@ void MSG_WriteOneBit( sizebuf_t *sb, int nValue )
 		sb->iCurBit++;
 	}
 }
-
+#endif
 void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits )
 {
 	Assert( numbits >= 0 && numbits <= 32 );

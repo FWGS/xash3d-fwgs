@@ -35,7 +35,7 @@ static vec3_t viewPoint[MAX_CLIENTS];
 // exports
 typedef void (__cdecl *LINK_ENTITY_FUNC)( entvars_t *pev );
 typedef void (__stdcall *GIVEFNPTRSTODLL)( enginefuncs_t* engfuncs, globalvars_t *pGlobals );
-
+#if !XASH_OPT
 edict_t *SV_EdictNum( int n )
 {
 	if(( n >= 0 ) && ( n < GI->max_edicts ))
@@ -59,7 +59,7 @@ qboolean SV_CheckEdict( const edict_t *e, const char *file, const int line )
 	return false;	
 }
 #endif
-
+#endif
 /*
 =============
 EntvarsDescription
@@ -2679,7 +2679,8 @@ void GAME_EXPORT pfnMessageEnd( void )
 			return;
 		}
 
-		*(word *)&sv.multicast.pData[svgame.msg_size_index] = svgame.msg_realsize;
+		/**(word *)&*/ // GSA
+		sv.multicast.pData[svgame.msg_size_index] = svgame.msg_realsize;
 	}
 	else
 	{

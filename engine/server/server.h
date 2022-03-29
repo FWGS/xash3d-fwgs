@@ -54,13 +54,17 @@ extern int SV_UPDATE_BACKUP;
 #define GROUP_OP_AND	0
 #define GROUP_OP_NAND	1
 
-#ifdef NDEBUG
+#if defined( NDEBUG ) || XASH_OPT 
 #define SV_IsValidEdict( e )	( e && !e->free )
 #else
 #define SV_IsValidEdict( e )	SV_CheckEdict( e, __FILE__, __LINE__ )
 #endif
 #define NUM_FOR_EDICT(e)	((int)((edict_t *)(e) - svgame.edicts))
+#if XASH_OPT
+#define EDICT_NUM( num )	( ( ( ( num ) >= 0 ) && ( ( num ) < GI->max_edicts) ) ? svgame.edicts + ( num ) : NULL )
+#else 
 #define EDICT_NUM( num )	SV_EdictNum( num )
+#endif
 #define STRING( offset )	SV_GetString( offset )
 #define ALLOC_STRING(str)	SV_AllocString( str )
 #define MAKE_STRING(str)	SV_MakeString( str )
@@ -476,7 +480,12 @@ void Master_Packet( void );
 //
 void SV_ActivateServer( int runPhysics );
 qboolean SV_SpawnServer( const char *server, const char *startspot, qboolean background );
+#if XASH_OPT
+#define SV_ModelHandle( modelindex ) ( ( modelindex < 0 || modelindex >= MAX_MODELS ) ? NULL : sv.models[( modelindex )] )
+model_t *pfnSV_ModelHandle( int modelindex );
+#else
 model_t *SV_ModelHandle( int modelindex );
+#endif
 void SV_DeactivateServer( void );
 
 //
@@ -490,7 +499,17 @@ qboolean SV_RunThink( edict_t *ent );
 qboolean SV_PlayerRunThink( edict_t *ent, float frametime, double time );
 qboolean SV_TestEntityPosition( edict_t *ent, edict_t *blocker );
 void SV_Impact( edict_t *e1, edict_t *e2, trace_t *trace );
+#if XASH_OPT
+// filter movetypes to collide with
+#define SV_CanPushed( ent ) ( ( ent )->v.movetype == MOVETYPE_NONE || \
+							( ent )->v.movetype == MOVETYPE_PUSH ||   \
+							( ent )->v.movetype == MOVETYPE_FOLLOW || \
+							( ent )->v.movetype == MOVETYPE_NOCLIP || \
+							( ent )->v.movetype == MOVETYPE_COMPOUND ) ? false : true
+qboolean pfnSV_CanPushed( edict_t *ent );
+#else
 qboolean SV_CanPushed( edict_t *ent );
+#endif
 void SV_FreeOldEntities( void );
 void SV_CheckAllEnts( void );
 
@@ -633,7 +652,9 @@ void SV_RestartAmbientSounds( void );
 void SV_RestartDecals( void );
 void SV_RestartStaticEnts( void );
 int pfnGetCurrentPlayer( void );
+#if !XASH_OPT
 edict_t *SV_EdictNum( int n );
+#endif
 char *SV_Localinfo( void );
 //
 // sv_log.c

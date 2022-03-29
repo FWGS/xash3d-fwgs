@@ -93,6 +93,8 @@ const char *Q_buildos( void )
 	osname = "emscripten";
 #elif XASH_DOS4GW
 	osname = "DOS4GW";
+#elif XASH_PSP
+	osname = "psp";
 #else
 #error "Place your operating system name here! If this is a mistake, try to fix conditions above and report a bug"
 #endif
@@ -136,9 +138,9 @@ const char *Q_buildarch( void )
 	#else
 		"l";
 	#endif
-#elif XASH_MIPS && XASH_BIG_ENDIAN
+#elif XASH_MIPS && defined XASH_BIG_ENDIAN
 	archname = "mips";
-#elif XASH_MIPS && XASH_LITTLE_ENDIAN
+#elif XASH_MIPS && defined XASH_LITTLE_ENDIAN
 	archname = "mipsel";
 #elif XASH_JS
 	archname = "javascript";

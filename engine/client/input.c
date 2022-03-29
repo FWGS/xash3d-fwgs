@@ -61,10 +61,10 @@ uint IN_CollectInputDevices( void )
 
 	if( !m_ignore->value ) // no way to check is mouse connected, so use cvar only
 		ret |= INPUT_DEVICE_MOUSE;
-
+#ifndef XASH_NO_TOUCH
 	if( CVAR_TO_BOOL(touch_enable) )
 		ret |= INPUT_DEVICE_TOUCH;
-
+#endif
 	if( Joy_IsActive() ) // connected or enabled
 		ret |= INPUT_DEVICE_JOYSTICK;
 
@@ -93,13 +93,17 @@ void IN_LockInputDevices( qboolean lock )
 	{
 		SetBits( m_ignore->flags, FCVAR_READ_ONLY );
 		SetBits( joy_enable->flags, FCVAR_READ_ONLY );
+#ifndef XASH_NO_TOUCH
 		SetBits( touch_enable->flags, FCVAR_READ_ONLY );
+#endif
 	}
 	else
 	{
 		ClearBits( m_ignore->flags, FCVAR_READ_ONLY );
 		ClearBits( joy_enable->flags, FCVAR_READ_ONLY );
+#ifndef XASH_NO_TOUCH
 		ClearBits( touch_enable->flags, FCVAR_READ_ONLY );
+#endif
 	}
 }
 
@@ -196,7 +200,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 	else if( newstate == key_game )
 	{
 		// reset mouse pos, so cancel effect in game
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+#if SDL_VERSION_ATLEAST( 2, 0, 0 ) && !defined( XASH_NO_TOUCH )
 		if( CVAR_TO_BOOL( touch_enable ) )
 		{
 			SDL_SetRelativeMouseMode( SDL_FALSE );
@@ -277,7 +281,7 @@ void IN_ActivateMouse( qboolean force )
 		{
 			if( in_mouse_suspended )
 			{
-#ifdef XASH_SDL
+#if defined( XASH_SDL ) && !defined( XASH_NO_TOUCH )
 				/// TODO: Platform_ShowCursor
 				if( !touch_emulate )
 					SDL_ShowCursor( SDL_FALSE );
@@ -372,6 +376,7 @@ void IN_MouseEvent( void )
 {
 	int	i;
 
+#ifndef XASH_NO_TOUCH
 	// touch emu: handle motion
 	if( CVAR_TO_BOOL( touch_emulate ))
 	{
@@ -380,7 +385,7 @@ void IN_MouseEvent( void )
 		else
 			Touch_KeyEvent( K_MOUSE1, 2 );
 	}
-
+#endif
 	if( !in_mouseinitialized || !in_mouseactive )
 		return;
 
@@ -396,9 +401,10 @@ void IN_MouseEvent( void )
 		Platform_GetMousePos(&x, &y);
 		if( host.mouse_visible )
 			SDL_ShowCursor( SDL_TRUE );
+#ifndef XASH_NO_TOUCH
 		else if( !CVAR_TO_BOOL( touch_emulate ) )
 			SDL_ShowCursor( SDL_FALSE );
-
+#endif
 		if( x < host.window_center_x / 2 ||
 			y < host.window_center_y / 2 ||
 			x > host.window_center_x + host.window_center_x / 2 ||

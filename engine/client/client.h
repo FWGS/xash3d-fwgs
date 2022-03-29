@@ -709,7 +709,11 @@ dlight_t *CL_GetEntityLight( int number );
 //
 // cl_cmds.c
 //
+#ifdef XASH_PSP
+void CL_Quit_f( void );
+#else
 void CL_Quit_f( void ) NORETURN;
+#endif
 void CL_ScreenShot_f( void );
 void CL_SnapShot_f( void );
 void CL_PlayCDTrack_f( void );
@@ -821,7 +825,12 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize );
 client_textmessage_t *CL_TextMessageGet( const char *pName );
 int pfnDecalIndexFromName( const char *szDecalName );
 int pfnIndexFromTrace( struct pmtrace_s *pTrace );
+#if XASH_OPT
+#define CL_ModelHandle( modelindex ) ( ( ( modelindex ) < 0 || ( modelindex ) >= MAX_MODELS ) ? NULL : cl.models[( modelindex )] )
+model_t *pfnCL_ModelHandle( int modelindex );
+#else
 model_t *CL_ModelHandle( int modelindex );
+#endif
 void NetAPI_CancelAllRequests( void );
 int CL_FindModelIndex( const char *m );
 cl_entity_t *CL_GetLocalPlayer( void );

@@ -62,10 +62,10 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 	fs_offset_t		filesize = 0;
 	const loadwavfmt_t	*format;
 	byte		*f;
-
+	
 	Sound_Reset(); // clear old sounddata
 	Q_strncpy( loadname, filename, sizeof( loadname ));
-
+	
 	if( Q_stricmp( ext, "" ))
 	{
 		// we needs to compare file extension with list of supported formats

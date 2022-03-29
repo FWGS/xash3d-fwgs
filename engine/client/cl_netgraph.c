@@ -16,9 +16,11 @@ GNU General Public License for more details.
 #include "common.h"
 #include "client.h"
 
-#if XASH_LOW_MEMORY
+#if XASH_LOW_MEMORY == 0
 #define NET_TIMINGS			1024
-#else
+#elif XASH_LOW_MEMORY == 1
+#define NET_TIMINGS			256
+#elif XASH_LOW_MEMORY == 2
 #define NET_TIMINGS			64
 #endif
 #define NET_TIMINGS_MASK		(NET_TIMINGS - 1)

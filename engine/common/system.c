@@ -32,6 +32,10 @@ GNU General Public License for more details.
 #endif
 #endif
 
+#if XASH_PSP
+#include <pspkernel.h>
+#endif
+
 #include "menu_int.h" // _UPDATE_PAGE macro
 
 qboolean	error_on_exit = false;	// arg for exit();
@@ -472,7 +476,12 @@ Sys_Quit
 void Sys_Quit( void )
 {
 	Host_Shutdown();
+#if XASH_PSP
+	sceKernelDelayThread( 50 * 1000 );
+	sceKernelExitGame();
+#else
 	exit( error_on_exit );
+#endif
 }
 
 /*

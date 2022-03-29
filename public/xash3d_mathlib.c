@@ -34,7 +34,7 @@ int boxpnt[6][4] =
 { 7, 5, 1, 3 }, // -X
 { 7, 3, 2, 6 }, // -Y
 { 7, 6, 4, 5 }, // -Z
-};	
+};
 
 // pre-quantized table normals from Quake1
 const float m_bytenormals[NUMVERTEXNORMALS][3] =
@@ -128,7 +128,7 @@ round the hullsize to nearest 'right' value
 void RoundUpHullSize( vec3_t size )
 {
 	int	i, j;
-	
+
 	for( i = 0; i < 3; i++)
 	{
 		qboolean	negative = false;
@@ -149,7 +149,7 @@ void RoundUpHullSize( vec3_t size )
 			{
 				result = ( value - hull_table[j] );
 				if( result <= HULL_PRECISION )
-				{ 
+				{
 					result = -hull_table[j];
 					break;
 				}
@@ -158,7 +158,7 @@ void RoundUpHullSize( vec3_t size )
 			{
 				result = ( value - hull_table[j] );
 				if( result <= HULL_PRECISION )
-				{ 
+				{
 					result = hull_table[j];
 					break;
 				}
@@ -246,6 +246,23 @@ qboolean PlanesGetIntersectionPoint( const mplane_t *plane1, const mplane_t *pla
 
 /*
 =================
+PlaneIntersect
+
+find point where ray
+was intersect with plane
+=================
+*/
+void PlaneIntersect( const mplane_t *plane, const vec3_t p0, const vec3_t p1, vec3_t out )
+{
+	float distToPlane = PlaneDiff( p0, plane );
+	float planeDotRay = DotProduct( plane->normal, p1 );
+	float sect = -(distToPlane) / planeDotRay;
+
+	VectorMA( p0, sect, p1, out );
+}
+
+/*
+=================
 NearestPOW
 =================
 */
@@ -289,6 +306,23 @@ rsqrt
 */
 float rsqrt( float number )
 {
+#if XASH_PSP
+	float result;
+	__asm__ (
+		".set		push\n"					// save assembler option
+		".set		noreorder\n"			// suppress reordering
+		"lv.s		S000, %1\n"				// S000 = number
+		"vzero.s	S001\n"					// S111 = 0
+		"vcmp.s		EZ,   S000\n"			// CC[0] = ( S000 == 0.0f )
+		"vrsq.s		S000, S000\n"			// S000 = 1.0 / sqrt( S000 )
+		"vcmovt.s	S000, S001, 0\n"		// if ( CC[0] ) S000 = S001
+		"sv.s		S000, %0\n"				// result = S001
+		".set		pop\n"					// restore assembler option
+		:	"=m"( result )
+		:	"m"( number )
+	);
+	return result;
+#else
 	int	i;
 	float	x, y;
 
@@ -302,6 +336,7 @@ float rsqrt( float number )
 	y = y * (1.5f - (x * y * y));	// first iteration
 
 	return y;
+#endif
 }
 
 /*
@@ -311,6 +346,21 @@ SinCos
 */
 void SinCos( float radians, float *sine, float *cosine )
 {
+#if XASH_PSP
+	__asm__ (
+		".set		push\n"					// save assembler option
+		".set		noreorder\n"			// suppress reordering
+		"lv.s		S000, %2\n"				// S000 = radians
+		"vcst.s		S001, VFPU_2_PI\n"		// S001 = VFPU_2_PI = 2 / PI
+		"vmul.s		S000, S000, S001\n"		// S000 = S000 * S001
+		"vrot.p		C002, S000, [S, C]\n"	// S002 = sin( radians ), S003 = cos( radians )
+		"sv.s		S002, %0\n"				// sine = S002
+		"sv.s		S003, %1\n"				// cosine = S003
+		".set		pop\n"					// restore assembler option
+		:	"=m"( *sine), "=m"( *cosine )
+		:	"m"( radians )
+	);
+#else
 #if _MSC_VER == 1200
 	_asm
 	{
@@ -326,6 +376,7 @@ void SinCos( float radians, float *sine, float *cosine )
 #else
 	*sine = sin(radians);
 	*cosine = cos(radians);
+#endif
 #endif
 }
 
@@ -451,7 +502,7 @@ void GAME_EXPORT VectorAngles( const float *forward, float *angles )
 		if( pitch < 0 ) pitch += 360;
 	}
 
-	VectorSet( angles, pitch, yaw, 0 ); 
+	VectorSet( angles, pitch, yaw, 0 );
 }
 
 /*
@@ -489,6 +540,7 @@ void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, v
 //
 // bounds operations
 //
+
 /*
 =================
 ClearBounds
@@ -587,23 +639,6 @@ qboolean SphereIntersect( const vec3_t vSphereCenter, float fSphereRadiusSquared
 
 /*
 =================
-PlaneIntersect
-
-find point where ray
-was intersect with plane
-=================
-*/
-void PlaneIntersect( const mplane_t *plane, const vec3_t p0, const vec3_t p1, vec3_t out )
-{
-	float distToPlane = PlaneDiff( p0, plane );
-	float planeDotRay = DotProduct( plane->normal, p1 );
-	float sect = -(distToPlane) / planeDotRay;
-
-	VectorMA( p0, sect, p1, out );
-}
-
-/*
-=================
 RadiusFromBounds
 =================
 */
@@ -630,6 +665,42 @@ AngleQuaternion
 */
 void AngleQuaternion( const vec3_t angles, vec4_t q, qboolean studio )
 {
+#if 0//XASH_PSP /* performance not tested */
+	__asm__ (
+		".set		push\n"					// save assembler option
+		".set		noreorder\n"			// suppress reordering
+
+
+
+		/**/
+		"lv.s		S000,  8 + %1\n"		// S000 = angles[ROLL]
+		"lv.s		S001,  0 + %1\n"		// S000 = angles[PITCH]
+		"lv.s		S002,  4 + %1\n"		// S000 = angles[YAW]
+		/**/
+		"vcst.s		S010, VFPU_1_PI\n"		// S010 = VFPU_1_PI = 1 / PI
+		"vscl.t		C000, C000, S010\n"		// C000 = C000 * S010 = C000 * 0.5f * ( 2 / PI )
+
+		/**/
+		"vcos.t		C010, C000\n"			// C010 = cos( *angles * 0.5f )
+		"vsin.t		C000, C000\n"			// C000 = sin( *angles * 0.5f )
+		"vcrs.t		C020, C010, C010\n"		// C020 = ( cp*cy, cy*cr, cr*cp )
+		"vcrs.t		C030, C000, C000\n"		// C030 = ( sp*sy, sy*sr, sr*sp )
+		"vmul.s		S003, S020, S010\n"		// S003 = S020 * S010 = cp*cy*cr
+		"vmul.s		S013, S030, S000\n"		// S013 = S030 * S000 = sp*sy*sr
+		"vmul.t		C020, C020, C000\n"		// C020 = C020 * C000 = ( cp*cy*sr, cy*cr*sp, cr*cp*sy )
+		"vmul.t		C030, C030, C010\n"		// C030 = C030 * C010 = ( sp*sy*cr, sy*sr*cp, sr*sp*cy )
+		"vadd.s		S003, S003, S013\n"		// S003 = S003 + S013 = cr*cp*cy + sr*sp*sy
+		"vadd.t		C000, C020, C030[-X, Y, -Z]\n"
+											// S000 = S020 - C030 = cp*cy*sr - sp*sy*cr
+											// S001 = S021 + C031 = cy*cr*sp + sy*sr*cp
+											// S002 = S022 - C032 = cr*cp*sy - sr*sp*cy
+		"usv.q		C000, %0\n"				// *q   = C000
+		".set		pop\n"					// restore assembler option
+		: "=m"( *q )
+		: "m"( *angles ), "r"( studio )
+	);
+
+	printf("ASM [%f %f %f %f]\n", q[0], q[1], q[2], q[3] );
 	float	sr, sp, sy, cr, cp, cy;
 
 	if( studio )
@@ -649,6 +720,28 @@ void AngleQuaternion( const vec3_t angles, vec4_t q, qboolean studio )
 	q[1] = cr * sp * cy + sr * cp * sy; // Y
 	q[2] = cr * cp * sy - sr * sp * cy; // Z
 	q[3] = cr * cp * cy + sr * sp * sy; // W
+	printf("C   [%f %f %f %f]\n", q[0], q[1], q[2], q[3] );
+#else
+	float	sr, sp, sy, cr, cp, cy;
+
+	if( studio )
+	{
+		SinCos( angles[ROLL] * 0.5f, &sy, &cy );
+		SinCos( angles[YAW] * 0.5f, &sp, &cp );
+		SinCos( angles[PITCH] * 0.5f, &sr, &cr );
+	}
+	else
+	{
+		SinCos( DEG2RAD( angles[YAW] ) * 0.5f, &sy, &cy );
+		SinCos( DEG2RAD( angles[PITCH] ) * 0.5f, &sp, &cp );
+		SinCos( DEG2RAD( angles[ROLL] ) * 0.5f, &sr, &cr );
+	}
+
+	q[0] = sr * cp * cy - cr * sp * sy; // X
+	q[1] = cr * sp * cy + sr * cp * sy; // Y
+	q[2] = cr * cp * sy - sr * sp * cy; // Z
+	q[3] = cr * cp * cy + sr * sp * sy; // W
+#endif
 }
 
 /*
@@ -679,20 +772,20 @@ void QuaternionAlign( const vec4_t p, const vec4_t q, vec4_t qt )
 	float	b = 0.0f;
 	int	i;
 
-	for( i = 0; i < 4; i++ ) 
+	for( i = 0; i < 4; i++ )
 	{
 		a += (p[i] - q[i]) * (p[i] - q[i]);
 		b += (p[i] + q[i]) * (p[i] + q[i]);
 	}
 
-	if( a > b ) 
+	if( a > b )
 	{
-		for( i = 0; i < 4; i++ ) 
+		for( i = 0; i < 4; i++ )
 			qt[i] = -q[i];
 	}
 	else
 	{
-		for( i = 0; i < 4; i++ ) 
+		for( i = 0; i < 4; i++ )
 			qt[i] = q[i];
 	}
 }
@@ -820,8 +913,184 @@ Returns 1, 2, or 1 + 2
 */
 int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p )
 {
-	float	dist1, dist2;
+#if XASH_PSP
+	int	sides;
+	__asm__ (
+		".set		push\n"					// save assembler option
+		".set		noreorder\n"			// suppress reordering
+		"lv.s		S000,  0 + %[normal]\n"	// S000 = p->normal[0]
+		"lv.s		S001,  4 + %[normal]\n"	// S001 = p->normal[1]
+		"lv.s		S002,  8 + %[normal]\n"	// S002 = p->normal[2]
+		"vzero.p	C030\n"					// C030 = [0.0f, 0.0f]
+		"lv.s		S032, %[dist]\n"		// S032 = p->dist
+		"move		$8,   $0\n"				// $8 = 0
+		"beq		%[signbits], $8, 0f\n"	// jump to 0
+		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
+		"beq		%[signbits], $8, 1f\n"	// jump to 1
+		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
+		"beq		%[signbits], $8, 2f\n"	// jump to 2
+		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
+		"beq		%[signbits], $8, 3f\n"	// jump to 3
+		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
+		"beq		%[signbits], $8, 4f\n"	// jump to 4
+		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
+		"beq		%[signbits], $8, 5f\n"	// jump to 5
+		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
+		"beq		%[signbits], $8, 6f\n"	// jump to 6
+		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
+		"beq		%[signbits], $8, 7f\n"	// jump to 7
+		"nop\n"								// 										( delay slot )
+		"j			8f\n"					// jump to SetSides
+		"nop\n"								// 										( delay slot )
+	"0:\n"
+/*
+		dist1 = p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2];
+		dist2 = p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2];
+*/
+		"lv.s		S010,  0 + %[emaxs]\n"	// S010 = emaxs[0]
+		"lv.s		S011,  4 + %[emaxs]\n"	// S011 = emaxs[1]
+		"lv.s		S012,  8 + %[emaxs]\n"	// S012 = emaxs[2]
+		"lv.s		S020,  0 + %[emins]\n"	// S020 = emins[0]
+		"lv.s		S021,  4 + %[emins]\n"	// S021 = emins[1]
+		"lv.s		S022,  8 + %[emins]\n"	// S022 = emins[2]
+		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
+		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
+		"j			8f\n"					// jump to SetSides
+		"nop\n"								// 										( delay slot )
+	"1:\n"
+/*
+		dist1 = p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2];
+		dist2 = p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2];
+*/
+		"lv.s		S010,  0 + %[emins]\n"	// S010 = emins[0]
+		"lv.s		S011,  4 + %[emaxs]\n"	// S011 = emaxs[1]
+		"lv.s		S012,  8 + %[emaxs]\n"	// S012 = emaxs[2]
+		"lv.s		S020,  0 + %[emaxs]\n"	// S020 = emaxs[0]
+		"lv.s		S021,  4 + %[emins]\n"	// S021 = emins[1]
+		"lv.s		S022,  8 + %[emins]\n"	// S022 = emins[2]
+		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
+		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
+		"j			8f\n"					// jump to SetSides
+		"nop\n"								// 										( delay slot )
+	"2:\n"
+/*
+		dist1 = p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2];
+		dist2 = p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2];
+*/
+		"lv.s		S010,  0 + %[emaxs]\n"	// S010 = emaxs[0]
+		"lv.s		S011,  4 + %[emins]\n"	// S011 = emins[1]
+		"lv.s		S012,  8 + %[emaxs]\n"	// S012 = emaxs[2]
+		"lv.s		S020,  0 + %[emins]\n"	// S020 = emins[0]
+		"lv.s		S021,  4 + %[emaxs]\n"	// S021 = emaxs[1]
+		"lv.s		S022,  8 + %[emins]\n"	// S022 = emins[2]
+		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
+		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
+		"j			8f\n"					// jump to SetSides
+		"nop\n"								// 										( delay slot )
+	"3:\n"
+/*
+		dist1 = p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2];
+		dist2 = p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2];
+*/
+		"lv.s		S010,  0 + %[emins]\n"	// S010 = emins[0]
+		"lv.s		S011,  4 + %[emins]\n"	// S011 = emins[1]
+		"lv.s		S012,  8 + %[emaxs]\n"	// S012 = emaxs[2]
+		"lv.s		S020,  0 + %[emaxs]\n"	// S020 = emaxs[0]
+		"lv.s		S021,  4 + %[emaxs]\n"	// S021 = emaxs[1]
+		"lv.s		S022,  8 + %[emins]\n"	// S022 = emins[2]
+		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
+		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
+		"j			8f\n"					// jump to SetSides
+		"nop\n"								// 										( delay slot )
+	"4:\n"
+/*
+		dist1 = p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2];
+		dist2 = p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2];
+*/
+		"lv.s		S010,  0 + %[emaxs]\n"	// S010 = emaxs[0]
+		"lv.s		S011,  4 + %[emaxs]\n"	// S011 = emaxs[1]
+		"lv.s		S012,  8 + %[emins]\n"	// S012 = emins[2]
+		"lv.s		S020,  0 + %[emins]\n"	// S020 = emins[0]
+		"lv.s		S021,  4 + %[emins]\n"	// S021 = emins[1]
+		"lv.s		S022,  8 + %[emaxs]\n"	// S022 = emaxs[2]
+		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
+		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
+		"j			8f\n"					// jump to SetSides
+		"nop\n"								// 										( delay slot )
+	"5:\n"
+/*
+		dist1 = p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2];
+		dist2 = p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2];
+*/
+		"lv.s		S010,  0 + %[emins]\n"	// S010 = emins[0]
+		"lv.s		S011,  4 + %[emaxs]\n"	// S011 = emaxs[1]
+		"lv.s		S012,  8 + %[emins]\n"	// S012 = emins[2]
+		"lv.s		S020,  0 + %[emaxs]\n"	// S020 = emaxs[0]
+		"lv.s		S021,  4 + %[emins]\n"	// S021 = emins[1]
+		"lv.s		S022,  8 + %[emaxs]\n"	// S022 = emaxs[2]
+		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
+		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
+		"j			8f\n"					// jump to SetSides
+		"nop\n"								// 										( delay slot )
+	"6:\n"
+/*
+		dist1 = p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2];
+		dist2 = p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2];
+*/
+		"lv.s		S010,  0 + %[emaxs]\n"	// S010 = emaxs[0]
+		"lv.s		S011,  4 + %[emins]\n"	// S011 = emins[1]
+		"lv.s		S012,  8 + %[emins]\n"	// S012 = emins[2]
+		"lv.s		S020,  0 + %[emins]\n"	// S020 = emins[0]
+		"lv.s		S021,  4 + %[emaxs]\n"	// S021 = emaxs[1]
+		"lv.s		S022,  8 + %[emaxs]\n"	// S022 = emaxs[2]
+		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
+		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
+		"j			8f\n"					// jump to SetSides
+		"nop\n"								// 										( delay slot )
+	"7:\n"
+/*
+		dist1 = p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2];
+		dist2 = p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2];
+*/
+		"lv.s		S010,  0 + %[emins]\n"	// S010 = emins[0]
+		"lv.s		S011,  4 + %[emins]\n"	// S011 = emins[1]
+		"lv.s		S012,  8 + %[emins]\n"	// S012 = emins[2]
+		"lv.s		S020,  0 + %[emaxs]\n"	// S020 = emaxs[0]
+		"lv.s		S021,  4 + %[emaxs]\n"	// S021 = emaxs[1]
+		"lv.s		S022,  8 + %[emaxs]\n"	// S022 = emaxs[2]
+		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
+		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
+	"8:\n"									// SetSides
+/*
+		if( dist1 >= p->dist )
+			sides = 1;
+		if( dist2 < p->dist )
+			sides |= 2;
+*/
+		"addiu		%[sides], $0, 0\n"		// sides = 0
+		"vcmp.s		LT,   S030, S032\n"		// S030 < S032
+		"bvt		0,    9f\n"				// if ( CC[0] == 1 ) jump to 9
+		"nop\n"								// 										( delay slot )
+		"addiu		%[sides], %[sides], 1\n"// sides = 1
+	"9:\n"
+		"vcmp.s		GE,   S031, S032\n"		// S031 >= S032
+		"bvt		0,    10f\n"			// if ( CC[0] == 1 ) jump to 10
+		"nop\n"								// 										( delay slot )
+		"addiu		%[sides], %[sides], 2\n"// sides = sides + 2
+	"10:\n"
+		".set		pop\n"					// restore assembler option
+		:	[sides]    "=r" ( sides )
+		:	[normal]   "m"  ( p->normal ),
+			[emaxs]    "m"  ( *emaxs ),
+			[emins]    "m"  ( *emins ),
+			[signbits] "r"  ( p->signbits ),
+			[dist]     "m"  ( p->dist )
+		:	"$8"
+	);
+	return sides;
+#else
 	int	sides = 0;
+	float	dist1, dist2;
 
 	// general case
 	switch( p->signbits )
@@ -870,5 +1139,6 @@ int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p )
 		sides |= 2;
 
 	return sides;
+#endif
 }
 

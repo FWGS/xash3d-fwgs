@@ -466,8 +466,14 @@ void VOX_LoadSound( channel_t *pchan, const char *pszin )
 
 	// lookup actual string in g_Sentences, 
 	// set pointer to string data
+#ifdef XASH_PSP
+	if( pszin[0] == '#' )
+	    psz = VOX_LookupString( pszin + 1, NULL );
+	else
+	    psz = VOX_LookupString( pszin, NULL );
+#else
 	psz = VOX_LookupString( pszin, NULL );
-
+#endif
 	if( !psz )
 	{
 		Con_DPrintf( S_ERROR "VOX_LoadSound: no such sentence %s\n", pszin );

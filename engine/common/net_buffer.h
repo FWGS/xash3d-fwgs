@@ -70,7 +70,26 @@ void MSG_StartWriting( sizebuf_t *sb, void *pData, int nBytes, int iStartBit, in
 void MSG_Clear( sizebuf_t *sb );
 
 // Bit-write functions
+#if XASH_PSP
+_inline qboolean MSG_Overflow( sizebuf_t *sb, int nBits )
+{
+	if( sb->iCurBit + nBits > sb->nDataBits )
+		sb->bOverflow = true;
+	return sb->bOverflow;
+}
+_inline void MSG_WriteOneBit( sizebuf_t *sb, int nValue )
+{
+	if( !MSG_Overflow( sb, 1 ))
+	{
+		if( nValue ) sb->pData[sb->iCurBit>>3] |= BIT( sb->iCurBit & 7 );
+		else sb->pData[sb->iCurBit>>3] &= ~BIT( sb->iCurBit & 7 );
+
+		sb->iCurBit++;
+	}
+}
+#else
 void MSG_WriteOneBit( sizebuf_t *sb, int nValue );
+#endif
 void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits );
 void MSG_WriteSBitLong( sizebuf_t *sb, int data, int numbits );
 void MSG_WriteBitLong( sizebuf_t *sb, int data, int numbits, qboolean bSigned );

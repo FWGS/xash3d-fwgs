@@ -874,10 +874,10 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	// init host state machine
 	COM_InitHostState();
-
+#ifdef XASH_HASHED_VARS
 	// init hashed commands
 	BaseCmd_Init();
-
+#endif
 	// startup cmds and cvars subsystem
 	Cmd_Init();
 	Cvar_Init();
@@ -908,6 +908,8 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #if TARGET_OS_IOS
 		const char *IOS_GetDocsDir();
 		Q_strncpy( host.rootdir, IOS_GetDocsDir(), sizeof(host.rootdir) );
+#elif XASH_PSP
+		COM_ExtractFilePath( argv[0], host.rootdir );
 #elif XASH_SDL == 2
 		char *szBasePath;
 
@@ -1009,7 +1011,11 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	host_serverstate = Cvar_Get( "host_serverstate", "0", FCVAR_READ_ONLY, "displays current server state" );
 	host_maxfps = Cvar_Get( "fps_max", "72", FCVAR_ARCHIVE, "host fps upper limit" );
 	host_framerate = Cvar_Get( "host_framerate", "0", 0, "locks frame timing to this value in seconds" );  
+#if XASH_PSP
+	host_sleeptime = Cvar_Get( "sleeptime", "0", FCVAR_ARCHIVE, "milliseconds to sleep for each frame. higher values reduce fps accuracy" );
+#else
 	host_sleeptime = Cvar_Get( "sleeptime", "1", FCVAR_ARCHIVE, "milliseconds to sleep for each frame. higher values reduce fps accuracy" );
+#endif
 	host_gameloaded = Cvar_Get( "host_gameloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded game.dll" );
 	host_clientloaded = Cvar_Get( "host_clientloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );
 	host_limitlocal = Cvar_Get( "host_limitlocal", "0", 0, "apply cl_cmdrate and rate to loopback connection" );
