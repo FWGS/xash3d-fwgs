@@ -26,9 +26,9 @@ Table is sorted by status.
 | Haiku           | Supported                  | not maintained           | Was added by #478 and #483
 | DOS4GW          | Supported                  | @mittorn                 |
 | GNU/Linux(mipsel) | Supported                | @mittorn                 |
-| Switch          | In progress                | @fgsfdsfgs               | [Github Repository](https://github.com/fgsfdsfgs/xash3d-fwgs/tree/switch_new) 
-| Wii             | In progress                | Collaborative effort     | [Github Repository](https://github.com/saucesaft/xash3d-wii) 
-| PSP             | In progress                | Collaborative effort     | No sources available at this moment
+| Switch          | In progress                | @fgsfdsfgs               | [GitHub Repository](https://github.com/fgsfdsfgs/xash3d-fwgs/tree/switch_new) 
+| Wii             | In progress                | Collaborative effort     | [GitHub Repository](https://github.com/saucesaft/xash3d-wii) 
+| PSP             | In progress                | @Crow_bar, @Velaron      | [GitHub Repository](https://github.com/Crow-bar/xash3d-fwgs)
 | Emscripten      | Old Engine                 | not maintained           | 
 | Oculus Quest    | Old Engine fork            | @DrBeef                  | [GitHub Repository](https://github.com/DrBeef/Lambda1VR)
 | PSVita          | Old Engine fork            | not maintained           | [GitHub Repository](https://github.com/fgsfdsfgs/vitaXash3D)
