@@ -733,7 +733,8 @@ sv_client_t *SV_ClientByName( const char *name )
 	sv_client_t *cl;
 	int i;
 
-	ASSERT( name && *name );
+	if( !COM_CheckString( name ))
+		return NULL;
 
 	for( i = 0, cl = svs.clients; i < svgame.globals->maxClients; i++, cl++ )
 	{
