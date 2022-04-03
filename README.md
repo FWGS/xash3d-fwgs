@@ -63,6 +63,10 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 * Clone this repostory:
 `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`
 
+#### PSP
+* Build pspsdk(GCC 9.3) from https://github.com/pspdev
+* Clone this repository: `git clone --recursive https://github.com/Crow-bar/xash3d-fwgs`.
+
 ### Building
 #### Windows(Visual Studio)
 0) Open command line
@@ -78,6 +82,12 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 (To compile 64-bit engine on 64-bit x86 processor, you need to pass `-8` also)
 2) Compile: `./waf build`
 3) Install(optional): `./waf install`
+
+#### PSP
+0) Navigate to `xash3d-fwgs` directory.
+1) Examine which build options are available: `./waf --help`
+2) Configure build: `./waf configure -T fast --psp=prx,660,HW --prefix=/path/to/any/output/directory`
+3) Compile: `./waf build`
 
 ## Running
 0) Copy libraries and main executable somewhere, if you're skipped installation stage.
