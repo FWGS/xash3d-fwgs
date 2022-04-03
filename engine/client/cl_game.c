@@ -103,7 +103,7 @@ CL_GetEntityByIndex
 Render callback for studio models
 ====================
 */
-#if XASH_OPT
+#if XASH_EXT_OPT == 2
 cl_entity_t *pfnCL_GetEntityByIndex( int index )
 {
 	return CL_GetEntityByIndex( index );
@@ -130,7 +130,7 @@ CL_ModelHandle
 get model handle by index
 ================
 */
-#if XASH_OPT
+#if XASH_EXT_OPT == 2
 model_t *pfnCL_ModelHandle( int modelindex )
 {
 	return CL_ModelHandle( modelindex );
@@ -3819,7 +3819,7 @@ static cl_enginefunc_t gEngfuncs =
 	pfnIsNoClipping,
 	CL_GetLocalPlayer,
 	CL_GetViewModel,
-#if XASH_OPT
+#if XASH_EXT_OPT == 2
 	pfnCL_GetEntityByIndex,
 #else
 	CL_GetEntityByIndex,

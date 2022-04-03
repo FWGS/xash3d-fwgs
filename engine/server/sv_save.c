@@ -32,7 +32,7 @@ half-life implementation of saverestore system
 #define SAVEGAME_HEADER		(('V'<<24)+('A'<<16)+('S'<<8)+'J')	// little-endian "JSAV"
 #define SAVEGAME_VERSION		0x0071				// Version 0.71 GoldSrc compatible
 #define CLIENT_SAVEGAME_VERSION	0x0067				// Version 0.67
-#ifdef XASH_PSP
+#if XASH_PSP
 #define SAVE_HEAPSIZE		0x200000				// reserve 2Mb for now
 #else
 #define SAVE_HEAPSIZE		0x400000				// reserve 4Mb for now

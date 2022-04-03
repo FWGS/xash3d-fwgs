@@ -266,7 +266,7 @@ SV_ModelHandle
 get model by handle
 ================
 */
-#if XASH_OPT
+#if XASH_EXT_OPT > 1
 model_t *pfnSV_ModelHandle( int modelindex )
 {
 	return SV_ModelHandle( modelindex );

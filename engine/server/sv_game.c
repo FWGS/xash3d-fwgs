@@ -35,14 +35,14 @@ static vec3_t viewPoint[MAX_CLIENTS];
 // exports
 typedef void (__cdecl *LINK_ENTITY_FUNC)( entvars_t *pev );
 typedef void (__stdcall *GIVEFNPTRSTODLL)( enginefuncs_t* engfuncs, globalvars_t *pGlobals );
-#if !XASH_OPT
+#if XASH_EXT_OPT != 2
 edict_t *SV_EdictNum( int n )
 {
 	if(( n >= 0 ) && ( n < GI->max_edicts ))
 		return svgame.edicts + n;
 	return NULL;	
 }
-
+#endif
 #ifndef NDEBUG
 qboolean SV_CheckEdict( const edict_t *e, const char *file, const int line )
 {
@@ -59,7 +59,7 @@ qboolean SV_CheckEdict( const edict_t *e, const char *file, const int line )
 	return false;	
 }
 #endif
-#endif
+
 /*
 =============
 EntvarsDescription

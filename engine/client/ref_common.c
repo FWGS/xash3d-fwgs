@@ -268,7 +268,7 @@ static ref_api_t gEngfuncs =
 
 	CL_GetLocalPlayer,
 	CL_GetViewModel,
-#if XASH_OPT
+#if XASH_EXT_OPT == 2
 	pfnCL_GetEntityByIndex,
 #else
 	CL_GetEntityByIndex,
@@ -299,7 +299,7 @@ static ref_api_t gEngfuncs =
 
 	Mod_ForName,
 	pfnMod_Extradata,
-#if XASH_OPT
+#if XASH_EXT_OPT == 2
 	pfnCL_ModelHandle,
 #else
 	CL_ModelHandle,

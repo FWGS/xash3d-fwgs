@@ -93,7 +93,7 @@ static int ioctl_stub( int d, unsigned long r, ... )
 #define SOCKET int
 typedef int WSAsize_t;
 #else
-#include <errno.h> //GSA
+#include <errno.h> // @Crow-bar
 #include "platform/stub/net_stub.h"
 #endif
 

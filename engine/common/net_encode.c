@@ -295,15 +295,18 @@ static const delta_field_t ent_fields[] =
 { NULL },
 };
 
-#if XASH_OPT  /* Direct access */
-#define D_event_t               0
-#define D_movevars_t            1
-#define D_usercmd_t             2
-#define D_clientdata_t          3
-#define D_weapon_data_t         4
-#define D_entity_state_t        5
-#define D_entity_state_player_t 6
-#define D_custom_entity_state_t 7
+#if XASH_EXT_OPT  /* Direct access */
+enum
+{
+	E_EVENT = 0,
+	E_MOVEVARS,
+	E_USERCMD,
+	E_CLIENTDATA,
+	E_WEAPON_DATA,
+	E_ENTITY_STATE,
+	E_ENTITY_STATE_PLAYER,
+	E_CUSTOM_ENTITY_STATE
+};
 #endif
 
 static delta_info_t dt_info[] =
@@ -810,8 +813,8 @@ void Delta_Init( void )
 
 	Delta_InitFields ();	// initialize fields
 	delta_init = true;
-#if XASH_OPT
-	dt = &dt_info[D_movevars_t];
+#if XASH_EXT_OPT
+	dt = &dt_info[E_MOVEVARS];
 #else
 	dt = Delta_FindStruct( "movevars_t" );
 #endif
@@ -907,7 +910,7 @@ Delta_ClampIntegerField
 prevent data to out of range
 =====================
 */
-#if XASH_OPT
+#if XASH_EXT_OPT == 2
 _inline int Delta_ClampIntegerField( delta_t *pField, int iValue, qboolean bSigned, int numbits )
 #else
 int Delta_ClampIntegerField( delta_t *pField, int iValue, qboolean bSigned, int numbits )
@@ -1081,13 +1084,12 @@ int Delta_TestBaseline( entity_state_t *from, entity_state_t *to, qboolean playe
 		if( from == NULL ) return 0;
 		return countBits;
 	}
-#if XASH_OPT
-	dt = &dt_info[D_weapon_data_t];
+#if XASH_EXT_OPT
 	if( FBitSet( to->entityType, ENTITY_BEAM ))
-		dt = &dt_info[D_custom_entity_state_t];
+		dt = &dt_info[E_CUSTOM_ENTITY_STATE];
 	else if( player )
-		dt = &dt_info[D_entity_state_player_t];
-	else dt = &dt_info[D_entity_state_t];
+		dt = &dt_info[E_ENTITY_STATE_PLAYER];
+	else dt = &dt_info[E_ENTITY_STATE];
 #else
 	if( FBitSet( to->entityType, ENTITY_BEAM ))
 		dt = Delta_FindStruct( "custom_entity_state_t" );
@@ -1132,7 +1134,7 @@ write fields by offsets
 assume from and to is valid
 =====================
 */
-#if XASH_OPT
+#if XASH_EXT_OPT == 2
 _inline qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to, float timebase )
 #else
 qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to, float timebase )
@@ -1359,8 +1361,8 @@ void MSG_WriteDeltaUsercmd( sizebuf_t *msg, usercmd_t *from, usercmd_t *to )
 	delta_t		*pField;
 	delta_info_t	*dt;
 	int		i;
-#if XASH_OPT
-	dt = &dt_info[D_usercmd_t];
+#if XASH_EXT_OPT
+	dt = &dt_info[E_USERCMD];
 #else
 	dt = Delta_FindStruct( "usercmd_t" );
 #endif
@@ -1389,8 +1391,8 @@ void MSG_ReadDeltaUsercmd( sizebuf_t *msg, usercmd_t *from, usercmd_t *to )
 	delta_t		*pField;
 	delta_info_t	*dt;
 	int		i;
-#if XASH_OPT
-	dt = &dt_info[D_usercmd_t];
+#if XASH_EXT_OPT
+	dt = &dt_info[E_USERCMD];
 #else
 	dt = Delta_FindStruct( "usercmd_t" );
 #endif
@@ -1427,8 +1429,8 @@ void MSG_WriteDeltaEvent( sizebuf_t *msg, event_args_t *from, event_args_t *to )
 	delta_t		*pField;
 	delta_info_t	*dt;
 	int		i;
-#if XASH_OPT
-	dt = &dt_info[D_event_t];
+#if XASH_EXT_OPT
+	dt = &dt_info[E_EVENT];
 #else
 	dt = Delta_FindStruct( "event_t" );
 #endif
@@ -1457,8 +1459,8 @@ void MSG_ReadDeltaEvent( sizebuf_t *msg, event_args_t *from, event_args_t *to )
 	delta_t		*pField;
 	delta_info_t	*dt;
 	int		i;
-#if XASH_OPT
-	dt = &dt_info[D_event_t];
+#if XASH_EXT_OPT
+	dt = &dt_info[E_EVENT];
 #else
 	dt = Delta_FindStruct( "event_t" );
 #endif
@@ -1489,8 +1491,8 @@ qboolean MSG_WriteDeltaMovevars( sizebuf_t *msg, movevars_t *from, movevars_t *t
 	delta_info_t	*dt;
 	int		i, startBit;
 	int		numChanges = 0;
-#if XASH_OPT
-	dt = &dt_info[D_movevars_t];
+#if XASH_EXT_OPT
+	dt = &dt_info[E_MOVEVARS];
 #else
 	dt = Delta_FindStruct( "movevars_t" );
 #endif
@@ -1527,8 +1529,8 @@ void MSG_ReadDeltaMovevars( sizebuf_t *msg, movevars_t *from, movevars_t *to )
 	delta_t		*pField;
 	delta_info_t	*dt;
 	int		i;
-#if XASH_OPT
-	dt = &dt_info[D_movevars_t];
+#if XASH_EXT_OPT
+	dt = &dt_info[E_MOVEVARS];
 #else
 	dt = Delta_FindStruct( "movevars_t" );
 #endif
@@ -1567,8 +1569,8 @@ void MSG_WriteClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, 
 	delta_info_t	*dt;
 	int		i, startBit;
 	int		numChanges = 0;
-#if XASH_OPT
-	dt = &dt_info[D_clientdata_t];
+#if XASH_EXT_OPT
+	dt = &dt_info[E_CLIENTDATA];
 #else
 	dt = Delta_FindStruct( "clientdata_t" );
 #endif
@@ -1610,8 +1612,8 @@ void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, f
 	delta_t		*pField;
 	delta_info_t	*dt;
 	int		i;
-#if XASH_OPT
-	dt = &dt_info[D_clientdata_t];
+#if XASH_EXT_OPT
+	dt = &dt_info[E_CLIENTDATA];
 #else
 	dt = Delta_FindStruct( "clientdata_t" );
 #endif
@@ -1654,8 +1656,8 @@ void MSG_WriteWeaponData( sizebuf_t *msg, weapon_data_t *from, weapon_data_t *to
 	delta_info_t	*dt;
 	int		i, startBit;
 	int		numChanges = 0;
-#if XASH_OPT
-	dt = &dt_info[D_weapon_data_t];
+#if XASH_EXT_OPT
+	dt = &dt_info[E_WEAPON_DATA];
 #else
 	dt = Delta_FindStruct( "weapon_data_t" );
 #endif
@@ -1695,8 +1697,8 @@ void MSG_ReadWeaponData( sizebuf_t *msg, weapon_data_t *from, weapon_data_t *to,
 	delta_t		*pField;
 	delta_info_t	*dt;
 	int		i;
-#if XASH_OPT
-	dt = &dt_info[D_weapon_data_t];
+#if XASH_EXT_OPT
+	dt = &dt_info[E_WEAPON_DATA];
 #else
 	dt = Delta_FindStruct( "weapon_data_t" );
 #endif
@@ -1781,18 +1783,18 @@ void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *
 		numChanges++;
 	}
 	else MSG_WriteOneBit( msg, 0 );
-#if XASH_OPT
+#if XASH_EXT_OPT
 	if( FBitSet( to->entityType, ENTITY_BEAM ))
 	{
-		dt = &dt_info[D_custom_entity_state_t];
+		dt = &dt_info[E_CUSTOM_ENTITY_STATE];
 	}
 	else if( delta_type == DELTA_PLAYER )
 	{
-		dt = &dt_info[D_entity_state_player_t];
+		dt = &dt_info[E_ENTITY_STATE_PLAYER];
 	}
 	else
 	{
-		dt = &dt_info[D_entity_state_t];
+		dt = &dt_info[E_ENTITY_STATE];
 	}
 #else
 	if( FBitSet( to->entityType, ENTITY_BEAM ))
@@ -1913,18 +1915,18 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 		to->entityType = MSG_ReadUBitLong( msg, 2 );
 	to->number = number;
 
-#if XASH_OPT
+#if XASH_EXT_OPT
 	if( cls.legacymode ? ( to->entityType == ENTITY_BEAM ) : FBitSet( to->entityType, ENTITY_BEAM ))
 	{
-		dt = &dt_info[D_custom_entity_state_t];
+		dt = &dt_info[E_CUSTOM_ENTITY_STATE];
 	}
 	else if( delta_type == DELTA_PLAYER )
 	{
-		dt = &dt_info[D_entity_state_player_t];
+		dt = &dt_info[E_ENTITY_STATE_PLAYER];
 	}
 	else
 	{
-		dt = &dt_info[D_entity_state_t];
+		dt = &dt_info[E_ENTITY_STATE];
 	}
 #else
 	if( cls.legacymode ? ( to->entityType == ENTITY_BEAM ) : FBitSet( to->entityType, ENTITY_BEAM ))

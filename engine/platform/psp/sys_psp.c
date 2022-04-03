@@ -29,9 +29,6 @@ PSP_MAIN_THREAD_ATTR( PSP_THREAD_ATTR_USER | PSP_THREAD_ATTR_VFPU );
 PSP_MAIN_THREAD_STACK_SIZE_KB( 512 );
 PSP_HEAP_SIZE_KB( -3 * 1024 ); /* 3 MB for prx modules */
 
-convar_t *psp_deadzone_min;
-convar_t *psp_deadzone_max;
-
 /* Exit callback */
 static int exit_callback( int arg1, int arg2, void *common )
 {
@@ -218,7 +215,7 @@ void Platform_ReadCmd( const char *fname, int *argc, char **argv )
 		else printf( "CMD FILE(%s) Read error!\n", fname );
 
 		free( cmd_buff );
-		sceIoClose(cmd_fd);
+		sceIoClose( cmd_fd );
 	}
 }
 
@@ -264,13 +261,14 @@ int Platform_UnloadModule( SceUID modid, int *sce_code )
 
 void Platform_Init( void )
 {
+	// disable fpu exceptions (division by zero and etc...)
 	pspSdkDisableFPUExceptions();
 
+	// exit callback thread
 	SetupCallbacks();
-	scePowerSetClockFrequency( 333, 333, 166 );
 
-	psp_deadzone_min = Cvar_Get( "psp_deadzone_min", "20", FCVAR_ARCHIVE, "Joy deadzone min (0 - 127)" );
-	psp_deadzone_max = Cvar_Get( "psp_deadzone_max", "0",  FCVAR_ARCHIVE, "Joy deadzone max (0 - 127)" );
+	// set max cpu/gpu frequency
+	scePowerSetClockFrequency( 333, 333, 166 );
 }
 
 void Platform_Shutdown( void )

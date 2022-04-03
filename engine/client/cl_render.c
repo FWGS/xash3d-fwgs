@@ -271,7 +271,7 @@ static render_api_t gRenderAPI =
 	pfnFileBufferCRC32,
 	COM_CompareFileTime,
 	Host_Error,
-#if XASH_OPT
+#if XASH_EXT_OPT == 2
 	(void*)pfnCL_ModelHandle,
 #else
 	(void*)CL_ModelHandle,

@@ -80,7 +80,6 @@ GNU General Public License for more details.
 #if XASH_PSP
 	#include <unistd.h>
 	#include <pspiofilemgr.h>
-	#include "../engine/platform/psp/dll_psp.h"
 	#define PATH_MAX 1024
 	#define PATH_SPLITTER "/"
 	#define O_BINARY 0
@@ -90,9 +89,6 @@ GNU General Public License for more details.
 	#define LoadLibrary( x ) 			( 0 )
 	#define GetProcAddress( x, y ) 		( 0 )
 	#define FreeLibrary( x ) 			( 0 )
-//	#define LoadLibrary( x )			dlopen( x, RTLD_NOW )
-//	#define GetProcAddress( x, y )		dlsym( x, y )
-//	#define FreeLibrary( x )			dlclose( x )
 #endif
 
 	//#define MAKEWORD( a, b )			((short int)(((unsigned char)(a))|(((short int)((unsigned char)(b)))<<8)))
@@ -162,6 +158,10 @@ GNU General Public License for more details.
 #endif //WIN32
 #ifndef XASH_LOW_MEMORY
 #define XASH_LOW_MEMORY 0
+#endif
+
+#ifndef XASH_EXT_OPT
+#define XASH_EXT_OPT 0
 #endif
 
 #include <stdlib.h>

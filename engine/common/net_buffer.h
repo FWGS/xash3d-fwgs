@@ -70,7 +70,7 @@ void MSG_StartWriting( sizebuf_t *sb, void *pData, int nBytes, int iStartBit, in
 void MSG_Clear( sizebuf_t *sb );
 
 // Bit-write functions
-#if XASH_PSP
+#if XASH_EXT_OPT == 2
 _inline qboolean MSG_Overflow( sizebuf_t *sb, int nBits )
 {
 	if( sb->iCurBit + nBits > sb->nDataBits )

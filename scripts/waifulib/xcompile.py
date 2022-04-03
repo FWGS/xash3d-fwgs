@@ -355,9 +355,8 @@ class PSP:
 	def cflags(self, cxx = False):
 		cflags = []
 		cflags += ['-I%s' % (os.path.join(self.pspsdk_path, 'include'))]
-#		cflags += ['-I%s' % (os.path.join(self.psptoolchain_path, 'include'))]
 		cflags += ['-I.']
-		cflags += ['-D_PSP_FW_VERSION=%s' % self.fw_version, '-G0']
+		cflags += ['-DNDEBUG', '-D_PSP_FW_VERSION=%s' % self.fw_version, '-G0']
 		return cflags
 	# they go before object list
 	def linkflags(self):
@@ -374,17 +373,16 @@ class PSP:
 			ldflags += ['-specs=%s' % os.path.join(self.pspsdk_path, 'lib/prxspecs')]
 			ldflags += ['-Wl,-q,-T%s' % os.path.join(self.pspsdk_path, 'lib/linkfile.prx')]
 		ldflags += ['-L%s' % os.path.join(self.pspsdk_path, 'lib')]
-#		ldflags += ['-L%s' % os.path.join(self.psptoolchain_path, 'lib')]
 		ldflags += ['-L.']
-#		ldflags += ['-lgcc', '-no-canonical-prefixes']
 		return ldflags
 
 	def stdlibs(self):
 		stdlibs = []
 		stdlibs += ['-lpspdisplay', '-lpspgum_vfpu', '-lpspgu','-lpspge', '-lpspvfpu']
-		stdlibs += ['-lpspaudiolib', '-lpspaudio']
-		stdlibs += ['-lstdc++', '-lc', '-lm', '-lpspdebug', '-lpspctrl', '-lpspsdk', '-lpsprtc']
-		stdlibs += ['-lpspnet', '-lpspnet_inet', '-lpspnet_apctl', '-lpspnet_resolver', '-lpsputility', '-lpspuser', '-lpspkernel', '-lpsppower']
+		stdlibs += ['-lpspaudiolib', '-lpspaudio']	
+		stdlibs += ['-lstdc++', '-lc', '-lm']
+		stdlibs += ['-lpspctrl', '-lpspdebug', '-lpsppower',  '-lpspsdk', '-lpsprtc']
+		stdlibs += ['-lpspuser', '-lpspkernel']
 		return stdlibs
 
 def options(opt):

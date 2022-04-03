@@ -13,9 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-
-#ifndef XASH_DEDICATED
-#include "common.h"
+#include "platform/platform.h"
 #if XASH_SOUND == SOUND_PSP
 
 #include <pspaudiolib.h>
@@ -46,8 +44,6 @@ Global variables. Must be visible to window-procedure function
 so it can unlock and free the data block after it has been played.
 =======================================================================
 */
-
-dma_t			dma;
 
 void S_Activate( qboolean active )
 {
@@ -248,5 +244,4 @@ void SNDDMA_Shutdown( void )
 	dma.initialized = false;
 }
 
-#endif
-#endif
+#endif // XASH_SOUND == SOUND_PSP

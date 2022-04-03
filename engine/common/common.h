@@ -877,7 +877,7 @@ int R_CreateDecalList( struct decallist_s *pList );
 void R_ClearAllDecals( void );
 void CL_ClearStaticEntities( void );
 qboolean S_StreamGetCurrentState( char *currentTrack, char *loopTrack, int *position );
-#if XASH_OPT
+#if XASH_EXT_OPT == 2
 #define CL_GetEntityByIndex( index ) ( ( !clgame.entities ) ? NULL : ( ( ( index ) < 0 || ( index ) >= clgame.maxEntities ) ? NULL : ( ( ( index ) == 0 ) ? clgame.entities : ( clgame.entities + ( index ) ) ) ) )
 struct cl_entity_s *pfnCL_GetEntityByIndex( int index );
 #else

@@ -108,13 +108,14 @@ int main( int argc, char** argv )
 #endif
 #endif
 
-#if XASH_PSP
 	g_iArgc = argc;
-	g_pszArgv = argv;	
+	g_pszArgv = argv;
+
+#if XASH_PSP	
 	if(argc <= 1)
 	{
 		g_fArgc = 0;
-		g_fArgv[g_fArgc++] = argv[0]; // for get root directory path
+		g_fArgv[g_fArgc++] = argv[0]; // cwd path
 		Platform_ReadCmd( "start.cmd", &g_fArgc, g_fArgv );
 		if(g_fArgc > 1)
 		{
@@ -122,10 +123,8 @@ int main( int argc, char** argv )
 			g_pszArgv = g_fArgv;
 		}	
 	}
-#else 
-	g_iArgc = argc;
-	g_pszArgv = argv;
 #endif
+
 #if XASH_IOS
 	{
 		void IOS_LaunchDialog( void );

@@ -22,8 +22,8 @@ GNU General Public License for more details.
 
 #define PSP_MAX_KEYS 12
 
-extern convar_t *psp_deadzone_min;
-extern convar_t *psp_deadzone_max;
+convar_t *psp_deadzone_min;
+convar_t *psp_deadzone_max;
 
 static struct psp_keymap_s
 {
@@ -108,7 +108,7 @@ void Platform_RunEvents( void )
 
 	for( i = 0; i < PSP_MAX_KEYS; i++ )
 	{
-		if( ( last_buttons ^ buf.Buttons ) &  psp_keymap[i].srckey )
+		if( ( last_buttons ^ buf.Buttons ) & psp_keymap[i].srckey )
 			Key_Event( psp_keymap[i].dstkey, buf.Buttons & psp_keymap[i].srckey );		
 	}
 	last_buttons = buf.Buttons;
@@ -156,6 +156,10 @@ void Platform_EnableTextInput( qboolean enable )
 int Platform_JoyInit( int numjoy )
 {
 	int i;
+
+	// set up cvars
+	psp_deadzone_min = Cvar_Get( "psp_deadzone_min", "20", FCVAR_ARCHIVE, "Joy deadzone min (0 - 127)" );
+	psp_deadzone_max = Cvar_Get( "psp_deadzone_max", "0",  FCVAR_ARCHIVE, "Joy deadzone max (0 - 127)" );
 	
 	// set up the controller.
 	sceCtrlSetSamplingCycle( 0 );

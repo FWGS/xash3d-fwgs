@@ -842,7 +842,7 @@ SV_CanPushed
 filter entities for push
 ============
 */
-#if XASH_OPT
+#if XASH_EXT_OPT > 1
 qboolean pfnSV_CanPushed( edict_t *ent )
 {
 	return SV_CanPushed( ent );
@@ -947,7 +947,7 @@ static edict_t *SV_PushMove( edict_t *pusher, float movetime )
 		// filter movetypes to collide with
 		if( !SV_CanPushed( check ))
 			continue;
-#if !XASH_OPT
+#if !XASH_EXT_OPT
 		pusher->v.solid = SOLID_NOT;
 		block = SV_TestEntityPosition( check, pusher );
 		pusher->v.solid = oldsolid;
@@ -968,7 +968,7 @@ static edict_t *SV_PushMove( edict_t *pusher, float movetime )
 			if( !SV_TestEntityPosition( check, NULL ))
 				continue;
 		}
-#if XASH_OPT
+#if XASH_EXT_OPT
 		pusher->v.solid = SOLID_NOT;
 		block = SV_TestEntityPosition( check, pusher );
 		pusher->v.solid = oldsolid;
@@ -1072,7 +1072,7 @@ static edict_t *SV_PushRotate( edict_t *pusher, float movetime )
 		// filter movetypes to collide with
 		if( !SV_CanPushed( check ))
 			continue;
-#if !XASH_OPT
+#if !XASH_EXT_OPT
 		pusher->v.solid = SOLID_NOT;
 		block = SV_TestEntityPosition( check, pusher );
 		pusher->v.solid = oldsolid;
@@ -1093,7 +1093,7 @@ static edict_t *SV_PushRotate( edict_t *pusher, float movetime )
 			if( !SV_TestEntityPosition( check, NULL ))
 				continue;
 		}
-#if XASH_OPT
+#if XASH_EXT_OPT
 		pusher->v.solid = SOLID_NOT;
 		block = SV_TestEntityPosition( check, pusher );
 		pusher->v.solid = oldsolid;
@@ -2039,7 +2039,7 @@ static server_physics_api_t gPhysicsAPI =
 	SV_LinkEdict,
 	SV_GetServerTime,
 	SV_GetFrameTime,
-#if XASH_OPT	
+#if XASH_EXT_OPT > 1	
 	(void*)pfnSV_ModelHandle,
 #else
 	(void*)SV_ModelHandle,

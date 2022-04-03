@@ -15,7 +15,7 @@
 
 #ifndef SPRITE_H
 #define SPRITE_H
-#ifdef __psp__ // GSA
+#if XASH_PSP
 #pragma pack(push, 1)
 #endif
 
@@ -128,7 +128,7 @@ typedef struct
 	frametype_t	type;
 } dframetype_t;
 
-#ifdef __psp__ // GSA
+#if XASH_PSP
 #pragma pack(pop)
 #endif
 #endif//SPRITE_H

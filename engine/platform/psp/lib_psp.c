@@ -20,7 +20,7 @@ GNU General Public License for more details.
 #include "library.h"
 #include "filesystem.h"
 #include "server.h"
-#include "platform/psp/lib_psp.h"
+#include "platform/psp/dll_psp.h"
 
 #ifdef XASH_NO_LIBDL
 #ifndef XASH_DLL_LOADER

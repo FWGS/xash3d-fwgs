@@ -92,6 +92,9 @@ def options(opt):
 	grp.add_option('--low-memory-mode', action = 'store', dest = 'LOW_MEMORY', default = 0, type = 'int',
 		help = 'enable low memory mode (only for devices have <128 ram)')
 
+	grp.add_option('--ext-opt-mode', action = 'store', dest = 'EXT_OPT', default = 0, type = 'int',
+		help = 'enable extended optimization mode (only for weak devices)')
+
 	grp.add_option('--enable-magx', action = 'store_true', dest = 'MAGX', default = False,
 		help = 'enable targeting for MotoMAGX phones [default: %default]')
 
@@ -163,6 +166,7 @@ def configure(conf):
 		conf.options.SINGLE_BINARY = True
 		conf.options.NO_ASYNC_RESOLVE = True
 		conf.options.LOW_MEMORY = 2
+		conf.options.EXT_OPT = 2
 		conf.options.GL = True
 		conf.options.GL_STATIC = True
 		conf.options.STATIC = True
@@ -471,6 +475,9 @@ def configure(conf):
 
 	if conf.options.LOW_MEMORY:
 		conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
+
+	if conf.options.EXT_OPT:
+		conf.define('XASH_EXT_OPT', conf.options.EXT_OPT)
 
 	if conf.options.PROFILING:
 		conf.define('XASH_PROFILING', 1)
