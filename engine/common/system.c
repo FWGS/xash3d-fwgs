@@ -531,10 +531,6 @@ void Sys_Print( const char *pMsg )
 			{
 				i++; // skip console pseudo graph
 			}
-			else if( IsColorString( &msg[i] ))
-			{
-				i++; // skip color prefix
-			}
 			else
 			{
 				if( msg[i] == '\1' || msg[i] == '\2' || msg[i] == '\3' )
