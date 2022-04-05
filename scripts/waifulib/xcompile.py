@@ -381,7 +381,7 @@ class PSP:
 		stdlibs += ['-lpspdisplay', '-lpspgum_vfpu', '-lpspgu','-lpspge', '-lpspvfpu']
 		stdlibs += ['-lpspaudiolib', '-lpspaudio']	
 		stdlibs += ['-lstdc++', '-lc', '-lm']
-		stdlibs += ['-lpspctrl', '-lpspdebug', '-lpsppower',  '-lpspsdk', '-lpsprtc']
+		stdlibs += ['-lpspctrl', '-lpspdebug', '-lpsppower', '-lpsputility',  '-lpspsdk', '-lpsprtc']
 		stdlibs += ['-lpspuser', '-lpspkernel']
 		return stdlibs
 
