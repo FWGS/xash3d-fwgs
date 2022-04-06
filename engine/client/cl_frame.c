@@ -58,10 +58,13 @@ void CL_UpdatePositions( cl_entity_t *ent )
 
 	ent->current_position = (ent->current_position + 1) & HISTORY_MASK;
 	ph = &ent->ph[ent->current_position];
-
 	VectorCopy( ent->curstate.origin, ph->origin );
 	VectorCopy( ent->curstate.angles, ph->angles );
-	ph->animtime = ent->curstate.animtime;	// !!!
+
+	if( ent->model->type == mod_brush )
+		ph->animtime = ent->curstate.animtime;
+	else
+		ph->animtime = cl.time;
 }
 
 /*
