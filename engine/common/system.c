@@ -353,9 +353,6 @@ void Sys_WaitForQuit( void )
 {
 #if XASH_WIN32
 	MSG	msg;
-
-	Wcon_RegisterHotkeys();
-
 	msg.message = 0;
 
 	// wait for the user to quit
