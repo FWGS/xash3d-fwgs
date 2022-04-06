@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "platform/platform.h"
 #include "menu_int.h"
+#include "server.h"
 #include <shellapi.h>
 
 #if XASH_TIMER == TIMER_WIN32
@@ -51,6 +52,27 @@ void Platform_ShellExecute( const char *path, const char *parms )
 		path = DEFAULT_UPDATE_PAGE;
 
 	ShellExecute( NULL, "open", path, parms, NULL, SW_SHOW );
+}
+
+void Platform_UpdateStatusLine( void )
+{
+	int clientsCount;
+	char szStatus[128];
+	static double lastTime;
+
+	if( host.type != HOST_DEDICATED )
+		return;
+
+	// update only every 1/2 seconds
+	if(( sv.time - lastTime ) < 0.5f )
+		return;
+
+	clientsCount = SV_GetConnectedClientsCount( NULL );
+	Q_snprintf( szStatus, sizeof( szStatus ) - 1, "%.1f fps %2i/%2i on %16s", 1.f / sv.frametime, clientsCount, svs.maxclients, host.game.levelName );
+#ifdef XASH_WIN32
+	Wcon_SetStatus( szStatus );
+#endif
+	lastTime = sv.time;
 }
 
 #if XASH_MESSAGEBOX == MSGBOX_WIN32

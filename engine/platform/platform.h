@@ -45,6 +45,12 @@ const char *Android_LoadID( void );
 void Android_SaveID( const char *id );
 #endif
 
+#if XASH_WIN32
+void Platform_UpdateStatusLine( void );
+#else 
+static inline void Platform_UpdateStatusLine( void ) { }
+#endif  
+
 /*
 ==============================================================================
 
