@@ -89,10 +89,9 @@ void Wcon_ShowConsole( qboolean show );
 void Wcon_CreateConsole( void );
 void Wcon_DestroyConsole( void );
 void Wcon_DisableInput( void );
-void Wcon_Clear( void );
 char *Wcon_Input( void );
 void Wcon_WinPrint( const char *pMsg );
-void Wcon_RegisterHotkeys( void );
+void Wcon_SetStatus( const char *pStatus );
 #endif
 
 // text messages
