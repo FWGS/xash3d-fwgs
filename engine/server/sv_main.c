@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "server.h"
 #include "net_encode.h"
+#include "platform/platform.h"
 
 #define HEARTBEAT_SECONDS	300.0f 		// 300 seconds
 
@@ -151,6 +152,41 @@ qboolean SV_HasActivePlayers( void )
 			return true;
 	}
 	return false;
+}
+
+/*
+================
+SV_GetConnectedClientsCount
+
+returns connected clients count (and optionally bots count)
+================
+*/
+int SV_GetConnectedClientsCount(int *bots)
+{
+	int index;
+	int	clients;
+
+	clients = 0;
+	if( svs.clients )
+	{
+		if( bots )
+			*bots = 0;
+
+		for( index = 0; index < svs.maxclients; index++ )
+		{
+			if( svs.clients[index].state >= cs_connected )
+			{
+				if( FBitSet( svs.clients[index].flags, FCL_FAKECLIENT ))
+				{
+					if( bots )
+						*bots++;
+				}
+				else
+					clients++;
+			}
+		}
+	}
+	return clients;
 }
 
 /*
@@ -650,6 +686,9 @@ void Host_ServerFrame( void )
 	// clear edict flags for next frame
 	SV_PrepWorldFrame ();
 
+	// update dedicated server status line in console
+	Platform_UpdateStatusLine ();
+
 	// send a heartbeat to the master if needed
 	Master_Heartbeat ();
 }
@@ -738,22 +777,10 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 {
 	uint	challenge;
 	char	s[MAX_INFO_STRING] = "0\n"; // skip 2 bytes of header
-	int	clients = 0, bots = 0, index;
+	int	clients = 0, bots = 0;
 	int	len = sizeof( s );
 
-	if( svs.clients )
-	{
-		for( index = 0; index < svs.maxclients; index++ )
-		{
-			if( svs.clients[index].state >= cs_connected )
-			{
-				if( FBitSet( svs.clients[index].flags, FCL_FAKECLIENT ))
-					bots++;
-				else clients++;
-			}
-		}
-	}
-
+	clients = SV_GetConnectedClientsCount( &bots );
 	challenge = MSG_ReadUBitLong( msg, sizeof( uint ) << 3 );
 
 	Info_SetValueForKey( s, "protocol", va( "%d", PROTOCOL_VERSION ), len ); // protocol version
