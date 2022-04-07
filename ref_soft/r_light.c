@@ -156,7 +156,8 @@ void R_PushDlights( void )
 	tr.dlightframecount = tr.framecount;
 
 	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
-	RI.currentmodel = RI.currententity->model;
+	if( RI.currententity )
+		RI.currentmodel = RI.currententity->model;
 
 	for( i = 0; i < MAX_DLIGHTS; i++, l++ )
 	{
@@ -168,7 +169,8 @@ void R_PushDlights( void )
 		//if( GL_FrustumCullSphere( &RI.frustum, l->origin, l->radius, 15 ))
 			//continue;
 
-		R_MarkLights( l, 1<<i, RI.currentmodel->nodes );
+		if( RI.currententity )
+			R_MarkLights( l, 1<<i, RI.currentmodel->nodes );
 	}
 }
 
