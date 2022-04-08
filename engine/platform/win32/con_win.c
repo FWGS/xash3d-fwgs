@@ -518,7 +518,7 @@ void Wcon_CreateConsole( void )
 	s_wcd.hInput = GetStdHandle( STD_INPUT_HANDLE );
 	s_wcd.hOutput = GetStdHandle( STD_OUTPUT_HANDLE );
 	s_wcd.inputEnabled = true;
-
+	
 	if( !SetConsoleCtrlHandler( &Wcon_HandleConsole, TRUE ))
 	{
 		Con_Reportf( S_ERROR "Couldn't attach console handler function\n" );
@@ -538,7 +538,10 @@ void Wcon_CreateConsole( void )
 		s_wcd.consoleVisible = true;
 	}
 	else
+	{
 		s_wcd.consoleVisible = false;
+		ShowWindow( s_wcd.hWnd, SW_HIDE );
+	}
 }
 
 /*
