@@ -510,8 +510,8 @@ typedef struct cmd_s
 	struct cmd_s	*next;
 	char		*name;
 	xcommand_t	function;
-	char		*desc;
 	int		flags;
+	char		*desc;
 } cmd_t;
 
 static int		cmd_argc;
