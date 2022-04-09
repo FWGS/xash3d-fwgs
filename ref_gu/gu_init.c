@@ -253,9 +253,9 @@ void GL_InitCommands( void )
 	gl_clear = gEngfuncs.pfnGetCvarPointer( "gl_clear", 0 );
 	gl_test = gEngfuncs.Cvar_Get( "gl_test", "0", 0, "engine developer cvar for quick testing new features" );
 	gl_wireframe = gEngfuncs.Cvar_Get( "gl_wireframe", "0", FCVAR_GLCONFIG|FCVAR_SPONLY, "show wireframe overlay" );
-	gl_stencilbits = gEngfuncs.Cvar_Get( "gl_stencilbits", "8", FCVAR_GLCONFIG, "pixelformat stencil bits (0 - auto)" );
+	gl_stencilbits = gEngfuncs.Cvar_Get( "gl_stencilbits", "8", FCVAR_GLCONFIG|FCVAR_READ_ONLY, "pixelformat stencil bits (0 - auto)" );
 	gl_subdivide_size = gEngfuncs.Cvar_Get( "gl_subdivide_size", "256.0", FCVAR_GLCONFIG, "the division value for the sky brushes" );
-	gl_round_down = gEngfuncs.Cvar_Get( "gl_round_down", "2", FCVAR_GLCONFIG, "round texture sizes to nearest POT value" );
+	gl_round_down = gEngfuncs.Cvar_Get( "gl_round_down", "2", FCVAR_GLCONFIG|FCVAR_READ_ONLY, "round texture sizes to nearest POT value" );
 	// these cvar not used by engine but some mods requires this
 	gl_depthoffset = gEngfuncs.Cvar_Get( "gl_depthoffset", "256.0", FCVAR_GLCONFIG, "depth offset for decals" );
 

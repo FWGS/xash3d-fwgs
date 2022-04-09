@@ -509,8 +509,11 @@ void Cvar_DirectSet( convar_t *var, const char *value )
 	// lookup for registration again
 	if( var != Cvar_FindVar( var->name ))
 		return; // how this possible?
-
+#if XASH_PSP
+	if( FBitSet( var->flags, FCVAR_READ_ONLY ))
+#else
 	if( FBitSet( var->flags, FCVAR_READ_ONLY|FCVAR_GLCONFIG ))
+#endif
 	{
 		Con_Printf( "%s is read-only.\n", var->name );
 		return;
