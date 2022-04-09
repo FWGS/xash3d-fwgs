@@ -243,7 +243,7 @@ void GL_InitCommands( void )
 	gl_vsync = gEngfuncs.pfnGetCvarPointer( "gl_vsync", 0 );	
 	gl_detailscale = gEngfuncs.Cvar_Get( "gl_detailscale", "4.0", FCVAR_GLCONFIG, "default scale applies while auto-generate list of detail textures" );
 	gl_texture_lodfunc = gEngfuncs.Cvar_Get( "gl_texture_lodfunc", "2", FCVAR_GLCONFIG, "LOD func for mipmapped textures" );
-	gl_texture_lodbias = gEngfuncs.Cvar_Get( "gl_texture_lodbias", "-5.0", FCVAR_GLCONFIG, "LOD bias for mipmapped textures (perfomance|quality)" );
+	gl_texture_lodbias = gEngfuncs.Cvar_Get( "gl_texture_lodbias", "-6.0", FCVAR_GLCONFIG, "LOD bias for mipmapped textures (perfomance|quality)" );
 	gl_texture_lodslope = gEngfuncs.Cvar_Get( "gl_texture_lodslope", "0.3", FCVAR_GLCONFIG, "LOD slope for mipmapped textures" );
 	gl_keeptjunctions = gEngfuncs.Cvar_Get( "gl_keeptjunctions", "1", FCVAR_GLCONFIG, "removing tjuncs causes blinking pixels" );
 	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_GLCONFIG|FCVAR_LATCH, "fake bumpmapping scale" );
