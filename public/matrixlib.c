@@ -261,7 +261,7 @@ void Matrix3x4_FromOriginQuat( matrix3x4 out, const vec4_t quaternion, const vec
 
 void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_t origin, float scale )
 {
-#if XASH_PSP /* performance not tested */
+#if 0/*XASH_PSP*/ /* performance not tested */ /* BUG */
 	if( angles[ROLL] )
 	{
 		__asm__ ( 
@@ -803,7 +803,7 @@ void Matrix4x4_FromOriginQuat( matrix4x4 out, const vec4_t quaternion, const vec
 
 void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_t origin, float scale )
 {
-#if XASH_PSP /* performance not tested */
+#if 0/*XASH_PSP*/ /* performance not tested */ /* BUG */
 	if( angles[ROLL] )
 	{
 		__asm__ ( 
