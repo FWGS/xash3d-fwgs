@@ -21,9 +21,9 @@
 //
 #define K_TAB		9
 #define K_ENTER		13
-#define K_ESCAPE		27
+#define K_ESCAPE	27
 #define K_SPACE		32
-#define K_SCROLLOCK		70
+#define K_SCROLLOCK	70
 
 // normal keys should be passed as lowercased ascii
 
@@ -59,7 +59,7 @@
 #define K_KP_UPARROW	161
 #define K_KP_PGUP		162
 #define K_KP_LEFTARROW	163
-#define K_KP_5		164
+#define K_KP_5			164
 #define K_KP_RIGHTARROW	165
 #define K_KP_END		166
 #define K_KP_DOWNARROW	167
@@ -71,8 +71,9 @@
 #define K_KP_MINUS		173
 #define K_KP_PLUS		174
 #define K_CAPSLOCK		175
-#define K_KP_NUMLOCK	176
+#define K_KP_MUL		176
 #define K_WIN			177
+#define K_KP_NUMLOCK	178
 
 //
 // joystick buttons
@@ -143,30 +144,30 @@
 #define K_AUX19		225
 #define K_DPAD_RIGHT  K_AUX19
 
-#define K_AUX20		226
-#define K_AUX21		227
-#define K_AUX22		228
-#define K_AUX23		229
-#define K_AUX24		230
-#define K_AUX25		231
-#define K_AUX26		232
-#define K_AUX27		233
-#define K_AUX28		234
-#define K_AUX29		235
-#define K_AUX30		236
-#define K_AUX31		237
-#define K_AUX32		238
+#define K_AUX20			226
+#define K_AUX21			227
+#define K_AUX22			228
+#define K_AUX23			229
+#define K_AUX24			230
+#define K_AUX25			231
+#define K_AUX26			232
+#define K_AUX27			233
+#define K_AUX28			234
+#define K_AUX29			235
+#define K_AUX30			236
+#define K_AUX31			237
+#define K_AUX32			238
 #define K_MWHEELDOWN	239
 #define K_MWHEELUP		240
 
-#define K_PAUSE		255
+#define K_PAUSE			255
 
 //
 // mouse buttons generate virtual keys
 //
 #define K_MOUSE1		241
-#define K_MOUSE2		243
-#define K_MOUSE3		242
+#define K_MOUSE2		242
+#define K_MOUSE3		243
 #define K_MOUSE4		244
 #define K_MOUSE5		245
 
