@@ -61,7 +61,7 @@ void CL_UpdatePositions( cl_entity_t *ent )
 	VectorCopy( ent->curstate.origin, ph->origin );
 	VectorCopy( ent->curstate.angles, ph->angles );
 
-	if( ent->model->type == mod_brush )
+	if( ent->model && ent->model->type == mod_brush )
 		ph->animtime = ent->curstate.animtime;
 	else
 		ph->animtime = cl.time;
