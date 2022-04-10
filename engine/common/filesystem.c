@@ -2387,19 +2387,13 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 	int	mod, opt;
 	uint	ind;
 #if XASH_PSP
+#ifdef XASH_REDUCE_FD
 	qboolean backup_hold = false;
-
-	// Hold file in open state
-	if( mode[0] == '*' )
-	{
-		backup_hold = true;
-		mode++;
-	}
-
+#endif
 	// Parse the mode string
 	switch( mode[0] )
 	{
-	case 'r':	// read
+	case 'r': // read
 		mod = PSP_O_RDONLY;
 		opt = 0;
 		break;
@@ -2428,6 +2422,11 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 			break;
 		case 'b': // not used
 			break;
+#ifdef XASH_REDUCE_FD
+		case 'h': // hold
+			backup_hold = true;
+			break;
+#endif
 		default:
 			break;
 		}
