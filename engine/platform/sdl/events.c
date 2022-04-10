@@ -283,10 +283,10 @@ static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 	case SDL_BUTTON_LEFT:
 		IN_MouseEvent( 0, down );
 		break;
-	case SDL_BUTTON_MIDDLE:
+	case SDL_BUTTON_RIGHT:
 		IN_MouseEvent( 1, down );
 		break;
-	case SDL_BUTTON_RIGHT:
+	case SDL_BUTTON_MIDDLE:
 		IN_MouseEvent( 2, down );
 		break;
 	case SDL_BUTTON_X1:
