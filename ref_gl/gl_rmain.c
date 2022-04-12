@@ -145,8 +145,6 @@ int R_WorldToScreen( const vec3_t point, vec3_t screen )
 
 	if( w < 0.001f )
 	{
-		screen[0] *= 100000;
-		screen[1] *= 100000;
 		behind = true;
 	}
 	else
