@@ -356,17 +356,7 @@ convert world coordinates (x,y,z) into screen (x, y)
 */
 int GAME_EXPORT TriWorldToScreen( const float *world, float *screen )
 {
-	int	retval;
-
-	retval = R_WorldToScreen( world, screen );
-
-	screen[0] =  0.5f * screen[0] * (float)RI.viewport[2];
-	screen[1] = -0.5f * screen[1] * (float)RI.viewport[3];
-	screen[0] += 0.5f * (float)RI.viewport[2];
-	screen[1] += 0.5f * (float)RI.viewport[3];
-
-
-	return retval;
+	return R_WorldToScreen( world, screen );
 }
 
 /*
