@@ -3178,16 +3178,7 @@ convert world coordinates (x,y,z) into screen (x, y)
 */
 int TriWorldToScreen( const float *world, float *screen )
 {
-	int	retval;
-
-	retval = ref.dllFuncs.WorldToScreen( world, screen );
-
-	screen[0] =  0.5f * screen[0] * (float)clgame.viewport[2];
-	screen[1] = -0.5f * screen[1] * (float)clgame.viewport[3];
-	screen[0] += 0.5f * (float)clgame.viewport[2];
-	screen[1] += 0.5f * (float)clgame.viewport[3];
-
-	return retval;
+	return ref.dllFuncs.WorldToScreen( world, screen );
 }
 
 /*
