@@ -18,7 +18,11 @@ GNU General Public License for more details.
 
 #define CVOXWORDMAX			64
 #define CVOXZEROSCANMAX		255	// scan up to this many samples for next zero crossing
+#if XASH_PSP
+#define MAX_SENTENCES		2048
+#else
 #define MAX_SENTENCES		4096
+#endif
 #define SENTENCE_INDEX		-99999	// unique sentence index
 
 typedef struct voxword_s
