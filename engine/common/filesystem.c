@@ -590,11 +590,7 @@ void FS_CreatePath( char *path )
 			// create the directory
 			save = *ofs;
 			*ofs = 0;
-#if XASH_PSP
-			sceIoMkdir( path, 0777 );
-#else
 			_mkdir( path );
-#endif
 			*ofs = save;
 		}
 	}
@@ -2515,10 +2511,11 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 	//	return NULL;
 
 	// For files opened in append mode, we start at the end of the file
-	if( opt & O_APPEND )  file->position = file->real_length;
 #if XASH_PSP
+	if( opt & PSP_O_APPEND )  file->position = file->real_length;
 	else sceIoLseek( file->handle, 0, PSP_SEEK_SET );
 #else
+	if( opt & O_APPEND )  file->position = file->real_length;
 	else lseek( file->handle, 0, SEEK_SET );
 #endif
 
