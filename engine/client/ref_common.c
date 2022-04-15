@@ -4,6 +4,7 @@
 #include "cl_tent.h"
 #include "platform/platform.h"
 #include "vid_common.h"
+#include "resman/resman.h"
 
 struct ref_state_s ref;
 ref_globals_t refState;
@@ -16,12 +17,6 @@ convar_t *r_showtree;
 convar_t *gl_msaa_samples;
 convar_t *gl_clear;
 convar_t *r_refdll;
-
-void R_GetTextureParms( int *w, int *h, int texnum )
-{
-	if( w ) *w = REF_GET_PARM( PARM_TEX_WIDTH, texnum );
-	if( h ) *h = REF_GET_PARM( PARM_TEX_HEIGHT, texnum );
-}
 
 /*
 ================
@@ -37,8 +32,8 @@ void GAME_EXPORT GL_FreeImage( const char *name )
 	if( !ref.initialized )
 		return;
 
-	if(( texnum = ref.dllFuncs.GL_FindTexture( name )) != 0 )
-		 ref.dllFuncs.GL_FreeTexture( texnum );
+	if(( texnum = RM_FindTexture( name )) != 0 )
+		RM_FreeTexture( texnum );
 }
 
 void R_UpdateRefState( void )
@@ -337,6 +332,10 @@ static ref_api_t gEngfuncs =
 	FS_LoadFile,
 	FS_FileExists,
 	FS_AllowDirectPaths,
+
+	RM_LoadTexture,
+	RM_LoadTextureFromBuffer,
+	RM_FreeTexture,
 
 	R_Init_Video_,
 	R_Free_Video,
@@ -710,6 +709,8 @@ qboolean R_Init( void )
 				break;
 		}
 	}
+	
+	RM_SetRender(&ref.dllFuncs);
 
 	if( !success )
 	{

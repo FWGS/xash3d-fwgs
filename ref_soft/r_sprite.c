@@ -64,12 +64,12 @@ static const dframetype_t *R_SpriteLoadFrame( model_t *mod, const void *pin, msp
 	if( FBitSet( mod->flags, MODEL_CLIENT )) // it's a HUD sprite
 	{
 		Q_snprintf( texname, sizeof( texname ), "#HUD/%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
-		gl_texturenum = GL_LoadTexture( texname, pin, pinframe.width * pinframe.height * bytes, r_texFlags );
+		gl_texturenum = gEngfuncs.RM_LoadTexture( texname, pin, pinframe.width * pinframe.height * bytes, r_texFlags );
 	}
 	else
 	{
 		Q_snprintf( texname, sizeof( texname ), "#%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
-		gl_texturenum = GL_LoadTexture( texname, pin, pinframe.width * pinframe.height * bytes, r_texFlags );
+		gl_texturenum = gEngfuncs.RM_LoadTexture( texname, pin, pinframe.width * pinframe.height * bytes, r_texFlags );
 	}
 
 	// setup frame description

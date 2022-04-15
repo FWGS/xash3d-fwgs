@@ -507,15 +507,6 @@ ref_interface_t gReffuncs =
 	R_SetCurrentEntity,
 	R_SetCurrentModel,
 
-	GL_FindTexture,
-	GL_TextureName,
-	GL_TextureData,
-	GL_LoadTexture,
-	GL_CreateTexture,
-	GL_LoadTextureArray,
-	GL_CreateTextureArray,
-	GL_FreeTexture,
-
 	DrawSingleDecal,
 	R_DecalSetupVerts,
 	R_EntityRemoveDecals,

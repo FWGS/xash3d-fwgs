@@ -3509,7 +3509,7 @@ void GL_RebuildLightmaps( void )
 	for( i = 0; i < MAX_LIGHTMAPS; i++ )
 	{
 		if( !tr.lightmapTextures[i] ) break;
-		GL_FreeTexture( tr.lightmapTextures[i] );
+		gEngfuncs.RM_FreeTexture( tr.lightmapTextures[i] );
 	}
 
 	memset( tr.lightmapTextures, 0, sizeof( tr.lightmapTextures ));
@@ -3557,7 +3557,7 @@ void GL_BuildLightmaps( void )
 	for( i = 0; i < MAX_LIGHTMAPS; i++ )
 	{
 		if( !tr.lightmapTextures[i] ) break;
-		GL_FreeTexture( tr.lightmapTextures[i] );
+		gEngfuncs.RM_FreeTexture( tr.lightmapTextures[i] );
 	}
 
 	memset( tr.lightmapTextures, 0, sizeof( tr.lightmapTextures ));

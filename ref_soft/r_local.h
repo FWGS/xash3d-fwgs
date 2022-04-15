@@ -435,8 +435,8 @@ void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height,
 //
 void R_SetTextureParameters( void );
 image_t *R_GetTexture( unsigned int texnum );
-#define GL_LoadTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, false )
-#define GL_UpdateTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, true )
+#define GL_LoadTextureInternal( name, pic, flags )   gEngfuncs.RM_LoadTextureFromBuffer( name, pic, flags, false )
+#define GL_UpdateTextureInternal( name, pic, flags ) gEngfuncs.RM_LoadTextureFromBuffer( name, pic, flags, true )
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
 int GL_LoadTextureArray( const char **names, int flags );
 int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );

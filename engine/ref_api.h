@@ -129,6 +129,7 @@ enum // r_speeds counters
 #define REF_WHITE_TEXTURE    "*white"
 #define REF_BLACK_TEXTURE    "*black"
 #define REF_PARTICLE_TEXTURE "*particle"
+#define REF_CINEMA_TEXTURE   "*cintexture"
 #define REF_SOLIDSKY_TEXTURE "solid_sky"
 #define REF_ALPHASKY_TEXTURE "alpha_sky"
 
@@ -374,6 +375,11 @@ typedef struct ref_api_s
 	int (*FS_FileExists)( const char *filename, int gamedironly );
 	void (*FS_AllowDirectPaths)( qboolean enable );
 
+	// resources
+	int  (*RM_LoadTexture)( const char *name, const byte *buf, size_t size, int flags );
+	int  (*RM_LoadTextureFromBuffer)( const char *name, rgbdata_t *picture, int flags, qboolean update );
+	void (*RM_FreeTexture)( unsigned int texnum );
+
 	// video init
 	// try to create window
 	// will call GL_SetupAttributes in case of REF_GL
@@ -533,16 +539,6 @@ typedef struct ref_interface_s
 	// Set renderer info (tell engine about changes)
 	void		(*R_SetCurrentEntity)( struct cl_entity_s *ent ); // tell engine about both currententity and currentmodel
 	void		(*R_SetCurrentModel)( struct model_s *mod );	// change currentmodel but leave currententity unchanged
-
-	// Texture tools
-	int		(*GL_FindTexture)( const char *name );
-	const char*	(*GL_TextureName)( unsigned int texnum );
-	const byte*	(*GL_TextureData)( unsigned int texnum ); // may be NULL
-	int		(*GL_LoadTexture)( const char *name, const byte *buf, size_t size, int flags );
-	int		(*GL_CreateTexture)( const char *name, int width, int height, const void *buffer, texFlags_t flags );
-	int		(*GL_LoadTextureArray)( const char **names, int flags );
-	int		(*GL_CreateTextureArray)( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
-	void		(*GL_FreeTexture)( unsigned int texnum );
 
 	// Decals manipulating (draw & remove)
 	void		(*DrawSingleDecal)( struct decal_s *pDecal, struct msurface_s *fa );

@@ -103,8 +103,8 @@ void Mod_BrushUnloadTextures( model_t *mod )
 		if( !tx || tx->gl_texturenum == tr.defaultTexture )
 			continue; // free slot
 
-		GL_FreeTexture( tx->gl_texturenum );    // main texture
-		GL_FreeTexture( tx->fb_texturenum );    // luma texture
+		gEngfuncs.RM_FreeTexture( tx->gl_texturenum );    // main texture
+		gEngfuncs.RM_FreeTexture( tx->fb_texturenum );    // luma texture
 	}
 }
 
@@ -431,15 +431,6 @@ ref_interface_t gReffuncs =
 
 	R_SetCurrentEntity,
 	R_SetCurrentModel,
-
-	GL_FindTexture,
-	GL_TextureName,
-	GL_TextureData,
-	GL_LoadTexture,
-	GL_CreateTexture,
-	GL_LoadTextureArray,
-	GL_CreateTextureArray,
-	GL_FreeTexture,
 
 	DrawSingleDecal,
 	R_DecalSetupVerts,
