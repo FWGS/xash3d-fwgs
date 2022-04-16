@@ -379,7 +379,7 @@ class PSP:
 	def stdlibs(self):
 		stdlibs = []
 		stdlibs += ['-lpspdisplay', '-lpspgum_vfpu', '-lpspgu','-lpspge', '-lpspvfpu']
-		stdlibs += ['-lpspaudiolib', '-lpspaudio']	
+		stdlibs += ['-lpspaudio', '-lpspdmac']
 		stdlibs += ['-lstdc++', '-lc', '-lm']
 		stdlibs += ['-lpspctrl', '-lpspdebug', '-lpsppower', '-lpsputility',  '-lpspsdk', '-lpsprtc']
 		stdlibs += ['-lpspuser', '-lpspkernel']
