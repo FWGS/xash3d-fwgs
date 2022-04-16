@@ -326,3 +326,6 @@ __pycache__
 *.vcproj
 *.sln
 *.vcxproj
+
+# VS Code
+.vscode/
