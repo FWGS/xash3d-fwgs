@@ -80,8 +80,8 @@ void Platform_SetMousePos( int x, int y );
 void Platform_PreCreateMove( void );
 void Platform_MouseMove( float *x, float *y );
 // Clipboard
-void Platform_GetClipboardText( char *buffer, size_t size );
-void Platform_SetClipboardText( const char *buffer, size_t size );
+int Platform_GetClipboardText( char *buffer, size_t size );
+void Platform_SetClipboardText( const char *buffer );
 
 #if XASH_SDL == 12
 #define SDL_SetWindowGrab( wnd, state ) SDL_WM_GrabInput( (state) )

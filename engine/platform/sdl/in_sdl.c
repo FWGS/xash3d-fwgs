@@ -71,19 +71,28 @@ Platform_GetClipobardText
 
 =============
 */
-void Platform_GetClipboardText( char *buffer, size_t size )
+int Platform_GetClipboardText( char *buffer, size_t size )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	int textLength;
 	char *sdlbuffer = SDL_GetClipboardText();
 
 	if( !sdlbuffer )
-		return;
+		return 0;
 
-	Q_strncpy( buffer, sdlbuffer, size );
+	if (buffer && size > 0)
+	{
+		textLength = Q_strncpy( buffer, sdlbuffer, size );
+	}
+	else {
+		textLength = Q_strlen( sdlbuffer );
+	}
 	SDL_free( sdlbuffer );
+	return textLength;
 #else // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	buffer[0] = 0;
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	return 0;
 }
 
 /*
@@ -92,7 +101,7 @@ Platform_SetClipobardText
 
 =============
 */
-void Platform_SetClipboardText( const char *buffer, size_t size )
+void Platform_SetClipboardText( const char *buffer )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_SetClipboardText( buffer );
