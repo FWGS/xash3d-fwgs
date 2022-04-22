@@ -814,9 +814,9 @@ void Key_EnableTextInput( qboolean enable, qboolean force )
 		OSK_EnableTextInput( enable, force );
 		return;
 	}
-	if( enable && ( !host.textmode || force ) )
+	if( enable && ( !host.textmode || force ))
 		Platform_EnableTextInput( true );
-	else if( !enable )
+	else if( !enable && ( host.textmode || force ))
 		Platform_EnableTextInput( false );
 
 	host.textmode = enable;
