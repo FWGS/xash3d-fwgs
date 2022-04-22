@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include "vid_common.h"
 
 SDL_Joystick *g_joy = NULL;
+static SDL_Cursor *g_pDefaultCursor[CursorType_Last];
 #if !SDL_VERSION_ATLEAST( 2, 0, 0 )
 #define SDL_WarpMouseInWindow( win, x, y ) SDL_WarpMouse( ( x ), ( y ) )
 #endif
@@ -244,6 +245,82 @@ int Platform_JoyInit( int numjoy )
 		return SDLash_JoyInit_New(numjoy);
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	return SDLash_JoyInit_Old(numjoy);
+}
+
+/*
+========================
+SDLash_InitCursors
+
+========================
+*/
+static void SDLash_InitCursors( void )
+{
+	static qboolean initialized = false;
+	if( !initialized )
+	{
+		// load up all default cursors
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+		g_pDefaultCursor[CursorType_None] = NULL;
+		g_pDefaultCursor[CursorType_Arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+		g_pDefaultCursor[CursorType_Ibeam] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
+		g_pDefaultCursor[CursorType_Wait] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+		g_pDefaultCursor[CursorType_Crosshair] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
+		g_pDefaultCursor[CursorType_Up] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+		g_pDefaultCursor[CursorType_SizeNwSe] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENWSE);
+		g_pDefaultCursor[CursorType_SizeNeSw] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENESW);
+		g_pDefaultCursor[CursorType_SizeWe] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE);
+		g_pDefaultCursor[CursorType_SizeNs] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS);
+		g_pDefaultCursor[CursorType_SizeAll] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEALL);
+		g_pDefaultCursor[CursorType_No] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO);
+		g_pDefaultCursor[CursorType_Hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
+#endif
+		initialized = true;
+	}
+}
+
+/*
+========================
+Platform_SetCursorType
+
+========================
+*/
+void Platform_SetCursorType( cursor_type_t type )
+{
+	qboolean visible;
+
+	if (cls.key_dest != key_game || cl.paused)
+		return;
+
+	SDLash_InitCursors();
+
+	switch( type )
+	{
+		case CursorType_User:
+		case CursorType_None:
+			visible = false;
+			break;
+		default:
+			visible = true;
+			break;
+	}
+
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	if( CVAR_TO_BOOL( touch_emulate ))
+		return;
+
+	if (visible && !host.mouse_visible)
+	{
+		SDL_SetCursor( g_pDefaultCursor[type] );
+		SDL_ShowCursor( true );
+		Key_EnableTextInput( true, false );
+	}
+	else if (!visible && host.mouse_visible)
+	{
+		SDL_ShowCursor( false );
+		Key_EnableTextInput( false, false );
+	}
+	host.mouse_visible = visible;
+#endif
 }
 
 #endif // XASH_DEDICATED

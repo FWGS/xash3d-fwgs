@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "system.h"
 #include "defaults.h"
+#include "cursor_type.h"
 
 /*
 ==============================================================================
@@ -79,6 +80,7 @@ void Platform_GetMousePos( int *x, int *y );
 void Platform_SetMousePos( int x, int y );
 void Platform_PreCreateMove( void );
 void Platform_MouseMove( float *x, float *y );
+void Platform_SetCursorType( cursor_type_t type );
 // Clipboard
 int Platform_GetClipboardText( char *buffer, size_t size );
 void Platform_SetClipboardText( const char *buffer );
