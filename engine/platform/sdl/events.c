@@ -122,7 +122,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 #endif
 	qboolean numLock = SDL_GetModState() & KMOD_NUM;
 
-	if( SDL_IsTextInputActive() && down )
+	if( SDL_IsTextInputActive() && down && cls.key_dest != key_game )
 	{
 		if( SDL_GetModState() & KMOD_CTRL )
 		{
