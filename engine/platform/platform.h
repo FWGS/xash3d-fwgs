@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "system.h"
 #include "defaults.h"
 #include "cursor_type.h"
+#include "key_modifiers.h"
 
 /*
 ==============================================================================
@@ -73,6 +74,7 @@ void*Platform_GetNativeObject( const char *name );
 int Platform_JoyInit( int numjoy ); // returns number of connected gamepads, negative if error
 // Text input
 void Platform_EnableTextInput( qboolean enable );
+key_modifier_t Platform_GetKeyModifiers( void );
 // System events
 void Platform_RunEvents( void );
 // Mouse

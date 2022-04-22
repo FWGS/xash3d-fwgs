@@ -323,4 +323,41 @@ void Platform_SetCursorType( cursor_type_t type )
 #endif
 }
 
+/*
+========================
+Platform_GetKeyModifiers
+
+========================
+*/
+key_modifier_t Platform_GetKeyModifiers( void )
+{
+	SDL_Keymod modFlags;
+	key_modifier_t resultFlags;
+
+	resultFlags = KeyModifier_None;
+	modFlags = SDL_GetModState();
+	if( FBitSet( modFlags, KMOD_LCTRL ))
+		SetBits( resultFlags, KeyModifier_LeftCtrl );
+	if( FBitSet( modFlags, KMOD_RCTRL ))
+		SetBits( resultFlags, KeyModifier_RightCtrl );
+	if( FBitSet( modFlags, KMOD_RSHIFT ))
+		SetBits( resultFlags, KeyModifier_RightShift );
+	if( FBitSet( modFlags, KMOD_LSHIFT ))
+		SetBits( resultFlags, KeyModifier_LeftShift );
+	if( FBitSet( modFlags, KMOD_LALT ))
+		SetBits( resultFlags, KeyModifier_LeftAlt );
+	if( FBitSet( modFlags, KMOD_RALT ))
+		SetBits( resultFlags, KeyModifier_RightAlt );
+	if( FBitSet( modFlags, KMOD_NUM ))
+		SetBits( resultFlags, KeyModifier_NumLock );
+	if( FBitSet( modFlags, KMOD_CAPS ))
+		SetBits( resultFlags, KeyModifier_CapsLock );
+	if( FBitSet( modFlags, KMOD_RGUI ))
+		SetBits( resultFlags, KeyModifier_RightSuper );
+	if( FBitSet( modFlags, KMOD_LGUI ))
+		SetBits( resultFlags, KeyModifier_LeftSuper );
+
+	return resultFlags;
+}
+
 #endif // XASH_DEDICATED
