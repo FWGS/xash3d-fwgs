@@ -447,4 +447,7 @@ void RemoveTexture( const char* name )
 			prev = tex;
 		}
 	}
+
+	// Dec count
+	RM_TextureManager.textures_count--;
 }
