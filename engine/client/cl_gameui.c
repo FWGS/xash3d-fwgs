@@ -1090,7 +1090,7 @@ static void GAME_EXPORT pfnStartBackgroundTrack( const char *introTrack, const c
 
 static void GAME_EXPORT GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 {
-	ref.dllFuncs.GL_ProcessTexture( texnum, gamma, topColor, bottomColor );
+	ref.dllFuncs.R_ProcessTexture( texnum, gamma, topColor, bottomColor );
 }
 
 

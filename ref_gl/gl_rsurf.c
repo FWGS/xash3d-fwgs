@@ -3576,9 +3576,6 @@ void GL_BuildLightmaps( void )
 	tr.realframecount = 1;
 	nColinElim = 0;
 
-	// setup the texture for dlights
-	R_InitDlightTexture();
-
 	// setup all the lightstyles
 	CL_RunLightStyles();
 

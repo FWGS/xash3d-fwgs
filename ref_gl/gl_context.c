@@ -287,11 +287,6 @@ static float R_GetFrameTime( void )
 	return tr.frametime;
 }
 
-static const char *GL_TextureName( unsigned int texnum )
-{
-	return R_GetTexture( texnum )->name;
-}
-
 const byte *GL_TextureData( unsigned int texnum )
 {
 	rgbdata_t *pic = R_GetTexture( texnum )->original;
@@ -379,10 +374,9 @@ ref_interface_t gReffuncs =
 	CL_AddCustomBeam,
 	R_ProcessEntData,
 
-	R_ShowTextures,
-
 	R_GetTextureOriginalBuffer,
 	GL_LoadTextureFromBuffer,
+	GL_DeleteTexture,
 	GL_ProcessTexture,
 	R_SetupSky,
 

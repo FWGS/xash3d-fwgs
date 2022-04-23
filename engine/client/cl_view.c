@@ -480,7 +480,7 @@ void V_PostRender( void )
 		SV_DrawOrthoTriangles();
 		CL_DrawDemoRecording();
 		CL_DrawHUD( CL_CHANGELEVEL );
-		ref.dllFuncs.R_ShowTextures();
+		//ref.dllFuncs.R_ShowTextures();
 		R_ShowTree();
 		Con_DrawConsole();
 		UI_UpdateMenu( host.realtime );

@@ -471,13 +471,11 @@ typedef struct ref_interface_s
 	void (*CL_AddCustomBeam)( cl_entity_t *pEnvBeam );
 	void		(*R_ProcessEntData)( qboolean allocate );
 
-	// debug
-	void (*R_ShowTextures)( void );
-
 	// texture management
 	const byte *(*R_GetTextureOriginalBuffer)( unsigned int idx ); // not always available
-	int (*GL_LoadTextureFromBuffer)( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
-	void (*GL_ProcessTexture)( int texnum, float gamma, int topColor, int bottomColor );
+	qboolean (*R_LoadTextureFromBuffer)( int texnum, rgbdata_t *pic, texFlags_t flags, qboolean update );
+	void (*R_FreeTexture)( int texnum );
+	void (*R_ProcessTexture)( int texnum, float gamma, int topColor, int bottomColor );
 	void (*R_SetupSky)( const char *skyname );
 
 	// 2D

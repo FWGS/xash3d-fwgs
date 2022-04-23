@@ -231,7 +231,7 @@ void CL_UpdateAliasTexture( cl_entity_t *entity, unsigned short *texture, int sk
 	}
 
 	// and now we can remap with internal routines
-	ref.dllFuncs.GL_ProcessTexture( *texture, -1.0f, topcolor, bottomcolor );
+	ref.dllFuncs.R_ProcessTexture( *texture, -1.0f, topcolor, bottomcolor );
 }
 
 /*

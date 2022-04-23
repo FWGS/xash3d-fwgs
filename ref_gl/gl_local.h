@@ -101,6 +101,8 @@ extern poolhandle_t r_temppool;
 
 typedef struct gltexture_s
 {
+	qboolean used;
+
 	char		name[256];	// game path, including extension (can be store image programs)
 	word		srcWidth;		// keep unscaled sizes
 	word		srcHeight;
@@ -127,8 +129,6 @@ typedef struct gltexture_s
 	float		yscale;
 
 	int		servercount;
-	uint		hashValue;
-	struct gltexture_s	*nextHash;
 } gl_texture_t;
 
 typedef struct
@@ -345,16 +345,17 @@ void R_DrawModelHull( void );
 void R_SetTextureParameters( void );
 gl_texture_t *R_GetTexture( GLenum texnum );
 
-#define GL_LoadTextureInternal( name, pic, flags ) gEngfuncs.RM_LoadTextureFromBuffer( name, pic, flags, false )
-#define GL_UpdateTextureInternal( name, pic, flags ) gEngfuncs.RM_LoadTextureFromBuffer( name, pic, flags, true )
-int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
+#define  GL_LoadTextureInternal( name, pic, flags ) gEngfuncs.RM_LoadTextureFromBuffer( name, pic, flags, false )
+#define  GL_UpdateTextureInternal( name, pic, flags ) gEngfuncs.RM_LoadTextureFromBuffer( name, pic, flags, true )
+qboolean GL_LoadTextureFromBuffer( int texnum, rgbdata_t *pic, texFlags_t flags, qboolean update );
 
 byte *GL_ResampleTexture( const byte *source, int in_w, int in_h, int out_w, int out_h, qboolean isNormalMap );
-int GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags );
-int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
+int GL_CreateTexture( int texnum, int width, int height, const void *buffer, texFlags_t flags );
+int GL_CreateTextureArray( int texnum, int width, int height, int depth, const void *buffer, texFlags_t flags );
+void GL_DeleteTexture( int texnum );
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor );
 void GL_UpdateTexSize( int texnum, int width, int height, int depth );
-void GL_ApplyTextureParams( gl_texture_t *tex );
+void GL_ApplyTextureParams( int texnum );
 const char *GL_Target( GLenum target );
 void R_InitDlightTexture( void );
 void R_TextureList_f( void );

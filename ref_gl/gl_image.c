@@ -16,31 +16,17 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "crclib.h"
 
-#define TEXTURES_HASH_SIZE	(MAX_TEXTURES >> 2)
-
 static gl_texture_t		gl_textures[MAX_TEXTURES];
-static gl_texture_t*	gl_texturesHashTable[TEXTURES_HASH_SIZE];
 static uint		gl_numTextures;
 
 #define IsLightMap( tex )	( FBitSet(( tex )->flags, TF_ATLAS_PAGE ))
-/*
-=================
-R_GetTexture
 
-acess to array elem
-=================
-*/
 gl_texture_t *R_GetTexture( GLenum texnum )
 {
 	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
 	return &gl_textures[texnum];
 }
 
-/*
-=================
-GL_TargetToString
-=================
-*/
 static const char *GL_TargetToString( GLenum target )
 {
 	switch( target )
@@ -63,11 +49,6 @@ static const char *GL_TargetToString( GLenum target )
 	return "??";
 }
 
-/*
-=================
-GL_Bind
-=================
-*/
 void GL_Bind( GLint tmu, GLenum texnum )
 {
 	gl_texture_t	*texture;
@@ -105,14 +86,11 @@ void GL_Bind( GLint tmu, GLenum texnum )
 	glState.currentTextures[tmu] = texture->texnum;
 }
 
-/*
-=================
-GL_ApplyTextureParams
-=================
-*/
-void GL_ApplyTextureParams( gl_texture_t *tex )
+void GL_ApplyTextureParams( int texnum )
 {
 	vec4_t	border = { 0.0f, 0.0f, 0.0f, 1.0f };
+
+	gl_texture_t *tex = &(gl_textures[texnum]);
 
 	if( !glw_state.initialized )
 		return;
@@ -245,20 +223,15 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 	}
 }
 
-/*
-=================
-GL_UpdateTextureParams
-=================
-*/
-static void GL_UpdateTextureParams( int iTexture )
+static void GL_UpdateTextureParams( int texnum )
 {
-	gl_texture_t	*tex = &gl_textures[iTexture];
+	gl_texture_t	*tex = &gl_textures[texnum];
 
 	Assert( tex != NULL );
 
 	if( !tex->texnum ) return; // free slot
 
-	GL_Bind( XASH_TEXTURE0, iTexture );
+	GL_Bind( XASH_TEXTURE0, texnum );
 
 	// set texture anisotropy if available
 	if( GL_Support( GL_ANISOTROPY_EXT ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_DEPTHMAP|TF_ALPHACONTRAST ))
@@ -296,11 +269,6 @@ static void GL_UpdateTextureParams( int iTexture )
 	}
 }
 
-/*
-=================
-R_SetTextureParameters
-=================
-*/
 void R_SetTextureParameters( void )
 {
 	int	i;
@@ -331,11 +299,6 @@ void R_SetTextureParameters( void )
 		GL_UpdateTextureParams( i );
 }
 
-/*
-================
-GL_CalcTextureSamples
-================
-*/
 static int GL_CalcTextureSamples( int flags )
 {
 	if( FBitSet( flags, IMAGE_HAS_COLOR ))
@@ -343,11 +306,6 @@ static int GL_CalcTextureSamples( int flags )
 	return FBitSet( flags, IMAGE_HAS_ALPHA ) ? 2 : 1;
 }
 
-/*
-==================
-GL_CalcImageSize
-==================
-*/
 static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int depth )
 {
 	size_t	size = 0;
@@ -381,11 +339,6 @@ static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int d
 	return size;
 }
 
-/*
-==================
-GL_CalcTextureSize
-==================
-*/
 static size_t GL_CalcTextureSize( GLenum format, int width, int height, int depth )
 {
 	size_t	size = 0;
@@ -513,11 +466,6 @@ static int GL_CalcMipmapCount( gl_texture_t *tex, qboolean haveBuffer )
 	return mipcount + 1;
 }
 
-/*
-================
-GL_SetTextureDimensions
-================
-*/
 static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height, int depth )
 {
 	int	maxTextureSize = 0;
@@ -605,11 +553,6 @@ static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height, i
 	tex->depth = Q_max( 1, depth );
 }
 
-/*
-===============
-GL_SetTextureTarget
-===============
-*/
 static void GL_SetTextureTarget( gl_texture_t *tex, rgbdata_t *pic )
 {
 	Assert( pic != NULL );
@@ -662,11 +605,6 @@ static void GL_SetTextureTarget( gl_texture_t *tex, rgbdata_t *pic )
 		tex->target = GL_NONE;
 }
 
-/*
-===============
-GL_SetTextureFormat
-===============
-*/
 static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int channelMask )
 {
 	qboolean	haveColor = ( channelMask & IMAGE_HAS_COLOR );
@@ -758,13 +696,6 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 	}
 }
 
-/*
-=================
-GL_ResampleTexture
-
-Assume input buffer is RGBA
-=================
-*/
 byte *GL_ResampleTexture( const byte *source, int inWidth, int inHeight, int outWidth, int outHeight, qboolean isNormalMap )
 {
 	uint		frac, fracStep;
@@ -849,13 +780,6 @@ byte *GL_ResampleTexture( const byte *source, int inWidth, int inHeight, int out
 	return scaledImage;
 }
 
-/*
-=================
-GL_BoxFilter3x3
-
-box filter 3x3
-=================
-*/
 void GL_BoxFilter3x3( byte *out, const byte *in, int w, int h, int x, int y )
 {
 	int		r = 0, g = 0, b = 0, a = 0;
@@ -893,16 +817,8 @@ void GL_BoxFilter3x3( byte *out, const byte *in, int w, int h, int x, int y )
 	out[0] = r / acount;
 	out[1] = g / acount;
 	out[2] = b / acount;
-//	out[3] = (int)( SimpleSpline( ( a / 12.0f ) / 255.0f ) * 255 );
 }
 
-/*
-=================
-GL_ApplyFilter
-
-Apply box-filter to 1-bit alpha
-=================
-*/
 byte *GL_ApplyFilter( const byte *source, int width, int height )
 {
 	byte	*in = (byte *)source;
@@ -921,13 +837,6 @@ byte *GL_ApplyFilter( const byte *source, int width, int height )
 	return out;
 }
 
-/*
-=================
-GL_BuildMipMap
-
-Operates in place, quartering the size of the texture
-=================
-*/
 static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth, int flags )
 {
 	byte	*out = in;
@@ -1102,13 +1011,6 @@ static void GL_TextureImageDXT( gl_texture_t *tex, GLint side, GLint level, GLin
 #endif
 }
 
-/*
-===============
-GL_CheckTexImageError
-
-show GL-errors on load images
-===============
-*/
 static void GL_CheckTexImageError( gl_texture_t *tex )
 {
 	int	err;
@@ -1120,14 +1022,7 @@ static void GL_CheckTexImageError( gl_texture_t *tex )
 		gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s while uploading %s [%s]\n", GL_ErrorString( err ), tex->name, GL_TargetToString( tex->target ));
 }
 
-/*
-===============
-GL_UploadTexture
-
-upload texture into video memory
-===============
-*/
-static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
+static qboolean GL_UploadTexture( int texnum, rgbdata_t *pic )
 {
 	byte		*buf, *data;
 	size_t		texsize, size;
@@ -1136,6 +1031,9 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	uint		offset = 0;
 	qboolean		normalMap;
 	const byte	*bufend;
+
+	gl_texture_t* tex = &(gl_textures[texnum]);
+	Assert( tex->used == TRUE );
 
 	// dedicated server
 	if( !glw_state.initialized )
@@ -1257,16 +1155,11 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	return true;
 }
 
-/*
-===============
-GL_ProcessImage
-
-do specified actions on pixels
-===============
-*/
-static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
+static void GL_ProcessImage( int texnum, rgbdata_t *pic )
 {
-	uint	img_flags = 0;
+	uint img_flags = 0;
+	
+	gl_texture_t* tex = &(gl_textures[texnum]);
 
 	// force upload texture as RGB or RGBA (detail textures requires this)
 	if( tex->flags & TF_FORCE_COLOR ) pic->flags |= IMAGE_HAS_COLOR;
@@ -1313,145 +1206,16 @@ static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 	}
 }
 
-/*
-================
-GL_CheckTexName
-================
-*/
-qboolean GL_CheckTexName( const char *name )
+void GL_DeleteTexture( int texnum )
 {
-	int len;
-
-	if( !COM_CheckString( name ))
-		return false;
-
-	len = Q_strlen( name );
-
-	// because multi-layered textures can exceed name string
-	if( len >= sizeof( gl_textures->name ))
+	if ( gl_textures[texnum].used )
 	{
-		gEngfuncs.Con_Printf( S_ERROR "LoadTexture: too long name %s (%d)\n", name, len );
-		return false;
-	}
+		memset( &(gl_textures[texnum]), 0, sizeof(gl_texture_t) );
 
-	return true;
+		pglDeleteTextures( 1, &texnum );
+	}
 }
 
-/*
-================
-GL_TextureForName
-================
-*/
-static gl_texture_t *GL_TextureForName( const char *name )
-{
-	gl_texture_t	*tex;
-	uint		hash;
-
-	// find the texture in array
-	hash = COM_HashKey( name, TEXTURES_HASH_SIZE );
-
-	for( tex = gl_texturesHashTable[hash]; tex != NULL; tex = tex->nextHash )
-	{
-		if( !Q_stricmp( tex->name, name ))
-			return tex;
-	}
-
-	return NULL;
-}
-
-/*
-================
-GL_AllocTexture
-================
-*/
-static gl_texture_t *GL_AllocTexture( const char *name, texFlags_t flags )
-{
-	gl_texture_t	*tex;
-	uint		i;
-	uint test = 0;
-
-	// find a free texture_t slot
-	for( i = 0, tex = gl_textures; i < gl_numTextures; i++, tex++ )
-		if( !tex->name[0] ) break;
-
-	if( i == gl_numTextures )
-	{
-		if( gl_numTextures == MAX_TEXTURES )
-			gEngfuncs.Host_Error( "GL_AllocTexture: MAX_TEXTURES limit exceeds\n" );
-		gl_numTextures++;
-	}
-
-	tex = &gl_textures[i];
-
-	// copy initial params
-	Q_strncpy( tex->name, name, sizeof( tex->name ));
-	if( FBitSet( flags, TF_SKYSIDE ))
-		tex->texnum = tr.skyboxbasenum++;
-	else tex->texnum = i; // texnum is used for fast acess into gl_textures array too
-	tex->flags = flags;
-
-	// add to hash table
-	tex->hashValue = COM_HashKey( name, TEXTURES_HASH_SIZE );
-	tex->nextHash = gl_texturesHashTable[tex->hashValue];
-	gl_texturesHashTable[tex->hashValue] = tex;
-
-	return tex;
-}
-
-/*
-================
-GL_DeleteTexture
-================
-*/
-static void GL_DeleteTexture( gl_texture_t *tex )
-{
-	gl_texture_t	**prev;
-	gl_texture_t	*cur;
-
-	ASSERT( tex != NULL );
-
-	// already freed?
-	if( !tex->texnum ) return;
-
-	// debug
-	if( !tex->name[0] )
-	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_DeleteTexture: trying to free unnamed texture with texnum %i\n", tex->texnum );
-		return;
-	}
-
-	// remove from hash table
-	prev = &gl_texturesHashTable[tex->hashValue];
-
-	while( 1 )
-	{
-		cur = *prev;
-		if( !cur ) break;
-
-		if( cur == tex )
-		{
-			*prev = cur->nextHash;
-			break;
-		}
-		prev = &cur->nextHash;
-	}
-
-	// release source
-	if( tex->original )
-		gEngfuncs.FS_FreeImage( tex->original );
-
-	if( glw_state.initialized )
-		pglDeleteTextures( 1, &tex->texnum );
-	memset( tex, 0, sizeof( *tex ));
-}
-
-/*
-================
-GL_UpdateTexSize
-
-recalc image room
-================
-*/
 void GL_UpdateTexSize( int texnum, int width, int height, int depth )
 {
 	int		i, j, texsize;
@@ -1478,57 +1242,54 @@ void GL_UpdateTexSize( int texnum, int width, int height, int depth )
 	}
 }
 
-/*
-================
-GL_LoadTextureFromBuffer
-================
-*/
-int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update )
+qboolean GL_LoadTextureFromBuffer( int texnum, rgbdata_t *pic, texFlags_t flags, qboolean update )
 {
 	gl_texture_t	*tex;
 
-	if( !GL_CheckTexName( name ))
-		return 0;
+	gEngfuncs.Con_Printf( "GL_LoadTextureFromBuffer. TexNum %d", texnum );
+	
+	// ???
+	if (texnum < 0 || texnum >= MAX_TEXTURES)
+	{
+		gEngfuncs.Host_Error( "NASRANO \n" );
+		return false;
+	}
 
-	// see if already loaded
-	if(( tex = GL_TextureForName( name )) && !update )
-		return (tex - gl_textures);
+	// See if already loaded
+	if( gl_textures[texnum].used && !update )
+		return true;
 
-	// couldn't loading image
-	if( !pic ) return 0;
+	// Couldn't loading image
+	if( !pic )
+		return false;
 
 	if( update )
 	{
-		if( tex == NULL )
-			gEngfuncs.Host_Error( "GL_LoadTextureFromBuffer: couldn't find texture %s for update\n", name );
-		SetBits( tex->flags, flags );
+		if( gl_textures[texnum].used == false )
+		{
+			gEngfuncs.Host_Error( "GL_LoadTextureFromBuffer: couldn't find texture with num %d for update\n", texnum );
+		}
+
+		SetBits( gl_textures[texnum].flags, flags );
 	}
 	else
 	{
-		// allocate the new one
-		tex = GL_AllocTexture( name, flags );
+		// Initialize the new one
+		memset( &(gl_textures[texnum]), 0, sizeof(gl_texture_t) );
+
+		gl_textures[texnum].used   = true;
+		gl_textures[texnum].texnum = texnum;
+		gl_textures[texnum].flags  = flags;
 	}
 
-	GL_ProcessImage( tex, pic );
-
-	if( !GL_UploadTexture( tex, pic ))
-	{
-		memset( tex, 0, sizeof( gl_texture_t ));
-		return 0;
-	}
-
-	GL_ApplyTextureParams( tex ); // update texture filter, wrap etc
-	return (tex - gl_textures);
+	GL_ProcessImage( texnum, pic );
+	GL_UploadTexture( texnum, pic );  // FIXME: How to handle error?
+	GL_ApplyTextureParams( texnum );  // Update texture filter, wrap etc
+	
+	return true;
 }
 
-/*
-================
-GL_CreateTexture
-
-creates texture from buffer
-================
-*/
-int GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags )
+int GL_CreateTexture( int texnum, int width, int height, const void *buffer, texFlags_t flags )
 {
 	qboolean	update = FBitSet( flags, TF_UPDATE ) ? true : false;
 	int	datasize = 1;
@@ -1565,17 +1326,10 @@ int GL_CreateTexture( const char *name, int width, int height, const void *buffe
 		r_empty.size *= 6;
 	}
 
-	return GL_LoadTextureFromBuffer( name, &r_empty, flags, update );
+	return GL_LoadTextureFromBuffer( texnum, &r_empty, flags, update );
 }
 
-/*
-================
-GL_CreateTextureArray
-
-creates texture array from buffer
-================
-*/
-int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags )
+int GL_CreateTextureArray( int texnum, int width, int height, int depth, const void *buffer, texFlags_t flags )
 {
 	rgbdata_t	r_empty;
 
@@ -1609,14 +1363,9 @@ int GL_CreateTextureArray( const char *name, int width, int height, int depth, c
 		SetBits( r_empty.flags, IMAGE_MULTILAYER );
 	}
 
-	return GL_LoadTextureInternal( name, &r_empty, flags );
+	return GL_LoadTextureInternal( &(gl_textures[texnum].name), &r_empty, flags );
 }
 
-/*
-================
-GL_ProcessTexture
-================
-*/
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 {
 	gl_texture_t	*image;
@@ -1625,6 +1374,7 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 
 	if( texnum <= 0 || texnum >= MAX_TEXTURES )
 		return; // missed image
+
 	image = &gl_textures[texnum];
 
 	// select mode
@@ -1658,19 +1408,12 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 	pic = gEngfuncs.FS_CopyImage( image->original );
 	gEngfuncs.Image_Process( &pic, topColor, bottomColor, flags, 0.0f );
 
-	GL_UploadTexture( image, pic );
-	GL_ApplyTextureParams( image ); // update texture filter, wrap etc
+	GL_UploadTexture( texnum, pic );
+	GL_ApplyTextureParams( texnum ); // update texture filter, wrap etc
 
 	gEngfuncs.FS_FreeImage( pic );
 }
 
-/*
-================
-GL_TexMemory
-
-return size of all uploaded textures
-================
-*/
 int GL_TexMemory( void )
 {
 	int	i, total = 0;
@@ -1681,386 +1424,15 @@ int GL_TexMemory( void )
 	return total;
 }
 
-/*
-==============================================================================
-
-INTERNAL TEXTURES
-
-==============================================================================
-*/
-/*
-==================
-GL_FakeImage
-==================
-*/
-static rgbdata_t *GL_FakeImage( int width, int height, int depth, int flags )
-{
-	static byte	data2D[1024]; // 16x16x4
-	static rgbdata_t	r_image;
-
-	// also use this for bad textures, but without alpha
-	r_image.width = Q_max( 1, width );
-	r_image.height = Q_max( 1, height );
-	r_image.depth = Q_max( 1, depth );
-	r_image.flags = flags;
-	r_image.type = PF_RGBA_32;
-	r_image.size = r_image.width * r_image.height * r_image.depth * 4;
-	r_image.buffer = (r_image.size > sizeof( data2D )) ? NULL : data2D;
-	r_image.palette = NULL;
-	r_image.numMips = 1;
-	r_image.encode = 0;
-
-	if( FBitSet( r_image.flags, IMAGE_CUBEMAP ))
-		r_image.size *= 6;
-	memset( data2D, 0xFF, sizeof( data2D ));
-
-	return &r_image;
-}
-
-/*
-==================
-R_InitDlightTexture
-==================
-*/
-void R_InitDlightTexture( void )
-{
-	rgbdata_t	r_image;
-
-	if( tr.dlightTexture != 0 )
-		return; // already initialized
-
-	memset( &r_image, 0, sizeof( r_image ));
-	r_image.width = BLOCK_SIZE;
-	r_image.height = BLOCK_SIZE;
-	r_image.flags = IMAGE_HAS_COLOR;
-	r_image.type = PF_RGBA_32;
-	r_image.size = r_image.width * r_image.height * 4;
-
-	tr.dlightTexture = GL_LoadTextureInternal( "*dlight", &r_image, TF_NOMIPMAP|TF_CLAMP|TF_ATLAS_PAGE );
-}
-
-/*
-==================
-GL_CreateInternalTextures
-==================
-*/
-static void GL_CreateInternalTextures( void )
-{
-	int	dx2, dy, d;
-	int	x, y;
-	rgbdata_t	*pic;
-
-	// emo-texture from quake1
-	pic = GL_FakeImage( 16, 16, 1, IMAGE_HAS_COLOR );
-
-	for( y = 0; y < 16; y++ )
-	{
-		for( x = 0; x < 16; x++ )
-		{
-			if(( y < 8 ) ^ ( x < 8 ))
-				((uint *)pic->buffer)[y*16+x] = 0xFFFF00FF;
-			else ((uint *)pic->buffer)[y*16+x] = 0xFF000000;
-		}
-	}
-
-	tr.defaultTexture = GL_LoadTextureInternal( REF_DEFAULT_TEXTURE, pic, TF_COLORMAP );
-
-	// particle texture from quake1
-	pic = GL_FakeImage( 16, 16, 1, IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA );
-
-	for( x = 0; x < 16; x++ )
-	{
-		dx2 = x - 8;
-		dx2 = dx2 * dx2;
-
-		for( y = 0; y < 16; y++ )
-		{
-			dy = y - 8;
-			d = 255 - 35 * sqrt( dx2 + dy * dy );
-			pic->buffer[( y * 16 + x ) * 4 + 3] = bound( 0, d, 255 );
-		}
-	}
-
-	tr.particleTexture = GL_LoadTextureInternal( REF_PARTICLE_TEXTURE, pic, TF_CLAMP );
-
-	// white texture
-	pic = GL_FakeImage( 4, 4, 1, IMAGE_HAS_COLOR );
-	for( x = 0; x < 16; x++ )
-		((uint *)pic->buffer)[x] = 0xFFFFFFFF;
-	tr.whiteTexture = GL_LoadTextureInternal( REF_WHITE_TEXTURE, pic, TF_COLORMAP );
-
-	// gray texture
-	pic = GL_FakeImage( 4, 4, 1, IMAGE_HAS_COLOR );
-	for( x = 0; x < 16; x++ )
-		((uint *)pic->buffer)[x] = 0xFF7F7F7F;
-	tr.grayTexture = GL_LoadTextureInternal( REF_GRAY_TEXTURE, pic, TF_COLORMAP );
-
-	// black texture
-	pic = GL_FakeImage( 4, 4, 1, IMAGE_HAS_COLOR );
-	for( x = 0; x < 16; x++ )
-		((uint *)pic->buffer)[x] = 0xFF000000;
-	tr.blackTexture = GL_LoadTextureInternal( REF_BLACK_TEXTURE, pic, TF_COLORMAP );
-
-	// cinematic dummy
-	pic = GL_FakeImage( 640, 100, 1, IMAGE_HAS_COLOR );
-	tr.cinTexture = GL_LoadTextureInternal( "*cintexture", pic, TF_NOMIPMAP|TF_CLAMP );
-}
-
-/*
-===============
-R_TextureList_f
-===============
-*/
-void R_TextureList_f( void )
-{
-	gl_texture_t	*image;
-	int		i, texCount, bytes = 0;
-
-	gEngfuncs.Con_Printf( "\n" );
-	gEngfuncs.Con_Printf( " -id-   -w-  -h-     -size- -fmt- -type- -data-  -encode- -wrap- -depth- -name--------\n" );
-
-	for( i = texCount = 0, image = gl_textures; i < gl_numTextures; i++, image++ )
-	{
-		if( !image->texnum ) continue;
-
-		bytes += image->size;
-		texCount++;
-
-		gEngfuncs.Con_Printf( "%4i: ", i );
-		gEngfuncs.Con_Printf( "%4i %4i ", image->width, image->height );
-		gEngfuncs.Con_Printf( "%12s ", Q_memprint( image->size ));
-
-		switch( image->format )
-		{
-		case GL_COMPRESSED_RGBA_ARB:
-			gEngfuncs.Con_Printf( "CRGBA " );
-			break;
-		case GL_COMPRESSED_RGB_ARB:
-			gEngfuncs.Con_Printf( "CRGB  " );
-			break;
-		case GL_COMPRESSED_LUMINANCE_ALPHA_ARB:
-			gEngfuncs.Con_Printf( "CLA   " );
-			break;
-		case GL_COMPRESSED_LUMINANCE_ARB:
-			gEngfuncs.Con_Printf( "CL    " );
-			break;
-		case GL_COMPRESSED_ALPHA_ARB:
-			gEngfuncs.Con_Printf( "CA    " );
-			break;
-		case GL_COMPRESSED_INTENSITY_ARB:
-			gEngfuncs.Con_Printf( "CI    " );
-			break;
-		case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
-			gEngfuncs.Con_Printf( "DXT1c " );
-			break;
-		case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
-			gEngfuncs.Con_Printf( "DXT1a " );
-			break;
-		case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
-			gEngfuncs.Con_Printf( "DXT3  " );
-			break;
-		case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
-			gEngfuncs.Con_Printf( "DXT5  " );
-			break;
-		case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
-		case GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI:
-			gEngfuncs.Con_Printf( "ATI2  " );
-			break;
-		case GL_RGBA:
-			gEngfuncs.Con_Printf( "RGBA  " );
-			break;
-		case GL_RGBA8:
-			gEngfuncs.Con_Printf( "RGBA8 " );
-			break;
-		case GL_RGBA4:
-			gEngfuncs.Con_Printf( "RGBA4 " );
-			break;
-		case GL_RGB:
-			gEngfuncs.Con_Printf( "RGB   " );
-			break;
-		case GL_RGB8:
-			gEngfuncs.Con_Printf( "RGB8  " );
-			break;
-		case GL_RGB5:
-			gEngfuncs.Con_Printf( "RGB5  " );
-			break;
-		case GL_LUMINANCE4_ALPHA4:
-			gEngfuncs.Con_Printf( "L4A4  " );
-			break;
-		case GL_LUMINANCE_ALPHA:
-		case GL_LUMINANCE8_ALPHA8:
-			gEngfuncs.Con_Printf( "L8A8  " );
-			break;
-		case GL_LUMINANCE4:
-			gEngfuncs.Con_Printf( "L4    " );
-			break;
-		case GL_LUMINANCE:
-		case GL_LUMINANCE8:
-			gEngfuncs.Con_Printf( "L8    " );
-			break;
-		case GL_ALPHA8:
-			gEngfuncs.Con_Printf( "A8    " );
-			break;
-		case GL_INTENSITY8:
-			gEngfuncs.Con_Printf( "I8    " );
-			break;
-		case GL_DEPTH_COMPONENT:
-		case GL_DEPTH_COMPONENT24:
-			gEngfuncs.Con_Printf( "DPTH24" );
-			break;
-		case GL_DEPTH_COMPONENT32F:
-			gEngfuncs.Con_Printf( "DPTH32" );
-			break;
-		case GL_LUMINANCE16F_ARB:
-			gEngfuncs.Con_Printf( "L16F  " );
-			break;
-		case GL_LUMINANCE32F_ARB:
-			gEngfuncs.Con_Printf( "L32F  " );
-			break;
-		case GL_LUMINANCE_ALPHA16F_ARB:
-			gEngfuncs.Con_Printf( "LA16F " );
-			break;
-		case GL_LUMINANCE_ALPHA32F_ARB:
-			gEngfuncs.Con_Printf( "LA32F " );
-			break;
-		case GL_RG16F:
-			gEngfuncs.Con_Printf( "RG16F " );
-			break;
-		case GL_RG32F:
-			gEngfuncs.Con_Printf( "RG32F " );
-			break;
-		case GL_RGB16F_ARB:
-			gEngfuncs.Con_Printf( "RGB16F" );
-			break;
-		case GL_RGB32F_ARB:
-			gEngfuncs.Con_Printf( "RGB32F" );
-			break;
-		case GL_RGBA16F_ARB:
-			gEngfuncs.Con_Printf( "RGBA16F" );
-			break;
-		case GL_RGBA32F_ARB:
-			gEngfuncs.Con_Printf( "RGBA32F" );
-			break;
-		default:
-			gEngfuncs.Con_Printf( " ^1ERROR^7 " );
-			break;
-		}
-
-		switch( image->target )
-		{
-		case GL_TEXTURE_1D:
-			gEngfuncs.Con_Printf( " 1D   " );
-			break;
-		case GL_TEXTURE_2D:
-			gEngfuncs.Con_Printf( " 2D   " );
-			break;
-		case GL_TEXTURE_3D:
-			gEngfuncs.Con_Printf( " 3D   " );
-			break;
-		case GL_TEXTURE_CUBE_MAP_ARB:
-			gEngfuncs.Con_Printf( "CUBE  " );
-			break;
-		case GL_TEXTURE_RECTANGLE_EXT:
-			gEngfuncs.Con_Printf( "RECT  " );
-			break;
-		case GL_TEXTURE_2D_ARRAY_EXT:
-			gEngfuncs.Con_Printf( "ARRAY " );
-			break;
-		case GL_TEXTURE_2D_MULTISAMPLE:
-			gEngfuncs.Con_Printf( "MSAA  ");
-			break;
-		default:
-			gEngfuncs.Con_Printf( "????  " );
-			break;
-		}
-
-		if( image->flags & TF_NORMALMAP )
-			gEngfuncs.Con_Printf( "normal  " );
-		else gEngfuncs.Con_Printf( "diffuse " );
-
-		switch( image->encode )
-		{
-		case DXT_ENCODE_COLOR_YCoCg:
-			gEngfuncs.Con_Printf( "YCoCg     " );
-			break;
-		case DXT_ENCODE_NORMAL_AG_ORTHO:
-			gEngfuncs.Con_Printf( "ortho     " );
-			break;
-		case DXT_ENCODE_NORMAL_AG_STEREO:
-			gEngfuncs.Con_Printf( "stereo    " );
-			break;
-		case DXT_ENCODE_NORMAL_AG_PARABOLOID:
-			gEngfuncs.Con_Printf( "parabolic " );
-			break;
-		case DXT_ENCODE_NORMAL_AG_QUARTIC:
-			gEngfuncs.Con_Printf( "quartic   " );
-			break;
-		case DXT_ENCODE_NORMAL_AG_AZIMUTHAL:
-			gEngfuncs.Con_Printf( "azimuthal " );
-			break;
-		default:
-			gEngfuncs.Con_Printf( "default   " );
-			break;
-		}
-
-		if( image->flags & TF_CLAMP )
-			gEngfuncs.Con_Printf( "clamp  " );
-		else if( image->flags & TF_BORDER )
-			gEngfuncs.Con_Printf( "border " );
-		else gEngfuncs.Con_Printf( "repeat " );
-		gEngfuncs.Con_Printf( "   %d  ", image->depth );
-		gEngfuncs.Con_Printf( "  %s\n", image->name );
-	}
-
-	gEngfuncs.Con_Printf( "---------------------------------------------------------\n" );
-	gEngfuncs.Con_Printf( "%i total textures\n", texCount );
-	gEngfuncs.Con_Printf( "%s total memory used\n", Q_memprint( bytes ));
-	gEngfuncs.Con_Printf( "\n" );
-}
-
-/*
-===============
-R_InitImages
-===============
-*/
 void R_InitImages( void )
 {
 	memset( gl_textures, 0, sizeof( gl_textures ));
-	memset( gl_texturesHashTable, 0, sizeof( gl_texturesHashTable ));
 	gl_numTextures = 0;
 
-	// create unused 0-entry
-	Q_strncpy( gl_textures->name, "*unused*", sizeof( gl_textures->name ));
-	gl_textures->hashValue = COM_HashKey( gl_textures->name, TEXTURES_HASH_SIZE );
-	gl_textures->nextHash = gl_texturesHashTable[gl_textures->hashValue];
-	gl_texturesHashTable[gl_textures->hashValue] = gl_textures;
-	gl_numTextures = 1;
-
-	// validate cvars
 	R_SetTextureParameters();
-	GL_CreateInternalTextures();
-
-	gEngfuncs.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );
 }
 
-/*
-===============
-R_ShutdownImages
-===============
-*/
 void R_ShutdownImages( void )
 {
-	gl_texture_t	*tex;
-	int		i;
-
-	gEngfuncs.Cmd_RemoveCommand( "texturelist" );
-	GL_CleanupAllTextureUnits();
-
-	for( i = 0, tex = gl_textures; i < gl_numTextures; i++, tex++ )
-		GL_DeleteTexture( tex );
-
-	memset( tr.lightmapTextures, 0, sizeof( tr.lightmapTextures ));
-	memset( gl_texturesHashTable, 0, sizeof( gl_texturesHashTable ));
-	memset( gl_textures, 0, sizeof( gl_textures ));
-	gl_numTextures = 0;
+	// FIXME
 }

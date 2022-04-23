@@ -7,8 +7,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Defines, macros
 
-#define MAX_TEXTURES	    (8096)
-#define TEXTURES_HASH_SIZE	(MAX_TEXTURES)
+#define MAX_TEXTURES	    (8192)
+#define TEXTURES_HASH_SIZE	(MAX_TEXTURES >> 2)
 
 #define MAX_LIGHTMAPS	    (256)
 
@@ -19,6 +19,8 @@
 // Structs
 
 typedef struct rm_texture_s {
+	qboolean used;
+	
 	char name[MAX_NAME_LEN];
 
 	rgbdata_t* picture;
@@ -29,8 +31,7 @@ typedef struct rm_texture_s {
 
 	uint number;
 
-	uint   hash_value;
-	struct rm_texture_s *next_hash;
+	struct rm_texture_s *next_same_hash;
 } rm_texture_t;
 
 
@@ -63,14 +64,14 @@ static struct {
 static qboolean      IsValidTextureName( const char *name );
 static rm_texture_t* GetTextureByName  ( const char *name );
 static rm_texture_t* AppendTexture     ( const char* name, int flags );
+static void          RemoveTexture     ( const char* name );
 
 void dumb( uint i, const char *name )
 {
 	Q_strncpy( RM_TextureManager.textures[i].name, name, MAX_NAME_LEN );
+	RM_TextureManager.textures[i].used = true;
 	
 	uint hash_value = COM_HashKey( name, TEXTURES_HASH_SIZE );
-	RM_TextureManager.textures[i].hash_value = hash_value;
-	RM_TextureManager.textures[i].next_hash = RM_TextureManager.textures_hash_table[hash_value];
 	RM_TextureManager.textures_hash_table[hash_value] = &(RM_TextureManager.textures[i]);
 	RM_TextureManager.textures_count++;
 }
@@ -153,13 +154,22 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	// Upload texture
 	if (RM_TextureManager.ref)
 	{
-		RM_TextureManager.ref->GL_LoadTextureFromBuffer
+		qboolean status = RM_TextureManager.ref->R_LoadTextureFromBuffer
 		(
-			&(texture->name),
+			texture->number,
 			texture->picture,
 			texture->flags, 
-			/* What is update??? */ false
+			false
 		);
+
+		if (!status)
+		{
+			Con_Reportf( "Ref return error on upload!" );
+		}
+	}
+	else
+	{
+		Con_Printf("Load texture without REF???");
 	}
 
 	//if( !uploadTexture( tex, &pic, 1, false ))
@@ -219,20 +229,42 @@ int RM_LoadTextureFromBuffer( const char *name, rgbdata_t *picture, int flags, q
 	texture->height  = picture->height;
 
 	// Upload texture
-	RM_TextureManager.ref->GL_LoadTextureFromBuffer
+	qboolean status = RM_TextureManager.ref->R_LoadTextureFromBuffer
 	(
-		&(texture->name),
+		texture->number,
 		texture->picture,
 		texture->flags, 
 		update
 	);
+
+	if (!status)
+	{
+		Con_Reportf( "Ref return error on upload!" );
+	}
 
 	return texture->number;
 }
 
 void RM_FreeTexture( unsigned int texnum )
 {
-	Con_Reportf( "Unimplemented RM_FreeTexture. TexNum %d\n", texnum );
+	rm_texture_t *texture;
+
+	if (texnum == 0)
+	{
+		return;
+	}
+
+	Con_Reportf( "RM_FreeTexture. TexNum %d\n", texnum );
+
+	texture = &( RM_TextureManager.textures[texnum] );
+	if ( texture->used == false )
+	{
+		return;
+	}
+
+	RemoveTexture( texture->name );
+
+	RM_TextureManager.ref->R_FreeTexture( texnum );
 }
 
 const char*	RM_TextureName( unsigned int texnum )
@@ -299,59 +331,120 @@ qboolean IsValidTextureName( const char *name )
 
 rm_texture_t* GetTextureByName( const char *name )
 {
-	uint hash_value = COM_HashKey( name, TEXTURES_HASH_SIZE );
+	size_t hash;
+	rm_texture_t* texture;
 
-	return RM_TextureManager.textures_hash_table[hash_value];
+	hash = COM_HashKey( name, TEXTURES_HASH_SIZE );
+	for (
+		texture = RM_TextureManager.textures_hash_table[hash];
+		texture != NULL;
+		texture = texture->next_same_hash
+	)
+	{
+		if ( strcmp( texture->name, name ) == 0 )
+		{
+			return texture;
+		}
+	}
+
+	return NULL;
 }
 
 rm_texture_t* AppendTexture( const char* name, int flags )
 {
+	size_t     i;
+	size_t     hash;
 	rm_texture_t* texture;
-	uint i;
+	rm_texture_t* ft;
 
-	// Find a free rm_texture_t slot
-	for( 
-		i = 0, texture = &(RM_TextureManager.textures[0]); 
-		i < RM_TextureManager.textures_count; 
-		i++, texture++
-	)
+	// Check free places
+	if ( RM_TextureManager.textures_count == TEXTURES_HASH_SIZE )
 	{
-		if( !texture->name[0] )
+		return NULL;
+	}
+
+	// Found hole
+	for ( i = 0; i < RM_TextureManager.textures_count; i++ )
+	{
+		if ( RM_TextureManager.textures[i].used == false )
 		{
 			break;
 		}
 	}
 
-	// No holes, append to tail
-	if( i == RM_TextureManager.textures_count )
-	{
-		// Check textures
-		// TODO: Maybe it's worth realloc with increasing max textures?
-		if( RM_TextureManager.textures_count == MAX_TEXTURES )
-		{
-			Host_Error( "ResMan: The textures limit is exhausted\n" );
-			return NULL;
-		}
+	// Initialize
+	texture = &( RM_TextureManager.textures[i] );
+	memset( texture, 0, sizeof(rm_texture_t) );
 
-		RM_TextureManager.textures_count++;
-	}
+	texture->used = true;
 
-	// Setup params
+	// Fill some fields
 	Q_strncpy( texture->name, name, sizeof( texture->name ) );
 	
 	// Pointer to picture, width and height will be set later
-	texture->picture = NULL; 
-	texture->width   = 0;
-	texture->height  = 0;
-	
 	texture->number = i; 
-	texture->flags = flags;
+	texture->flags  = flags;
 
-	// Add to hash table
-	texture->hash_value = COM_HashKey( name, TEXTURES_HASH_SIZE );
+	// Insert into hash table
+	hash = COM_HashKey( name, TEXTURES_HASH_SIZE );
+	if ( RM_TextureManager.textures_hash_table[hash] == NULL )
+	{
+		RM_TextureManager.textures_hash_table[hash] = texture;
+	}
+	else
+	{
+		for (
+			ft = RM_TextureManager.textures_hash_table[hash];
+			;
+			ft = ft->next_same_hash
+		)
+		{
+			if (ft->next_same_hash == NULL)
+			{
+				ft->next_same_hash = texture;
+				break;
+			}
+		}
+	}
 
-	RM_TextureManager.textures_hash_table[texture->hash_value] = texture;
-	texture->next_hash = RM_TextureManager.textures_hash_table[texture->hash_value];
+	// Inc count
+	RM_TextureManager.textures_count++;
 
+	// Return element
 	return texture;
+}
+
+void RemoveTexture( const char* name )
+{
+	size_t hash;
+	rm_texture_t* tex;
+	rm_texture_t* prev;
+
+	hash = COM_HashKey( name, TEXTURES_HASH_SIZE );
+	
+	// If remove head, just change hash table pointer
+	if ( strcmp( RM_TextureManager.textures_hash_table[hash]->name, name ) == 0 ) {
+		
+		tex = RM_TextureManager.textures_hash_table[hash]->next_same_hash;
+
+		memset( RM_TextureManager.textures_hash_table[hash], 0, sizeof(rm_texture_t) );
+		RM_TextureManager.textures_hash_table[hash] = tex;
+	}
+	else
+	{
+		prev = RM_TextureManager.textures_hash_table[hash];
+		for (
+			tex = RM_TextureManager.textures_hash_table[hash]->next_same_hash;
+			tex != NULL;
+			tex = tex->next_same_hash
+		)
+		{
+			if ( Q_strcmp( tex->name, name ) == 0 )
+			{
+				prev->next_same_hash = tex->next_same_hash;
+				memset( tex, 0, sizeof(rm_texture_t) );
+			}
+			prev = tex;
+		}
+	}
 }
