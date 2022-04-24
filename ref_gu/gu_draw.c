@@ -260,8 +260,8 @@ void R_Set2DMode( qboolean enable )
 
 		// set 2D virtual screen size
 #if 1   // through mode
-		sceGuViewport( 2048, 2048, gpGlobals->width, gpGlobals->width );
-		sceGuScissor(0, 0, gpGlobals->width, gpGlobals->height);
+		sceGuViewport( 2048, 2048, gpGlobals->width, gpGlobals->height );
+		sceGuScissor( 0, 0, gpGlobals->width, gpGlobals->height );
 #else
 		pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
 		pglMatrixMode( GL_PROJECTION );

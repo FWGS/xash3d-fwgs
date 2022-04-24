@@ -565,36 +565,41 @@ void R_SetupGL( qboolean set_gl_state )
 
 	if( RP_NORMALPASS( ))
 	{
-		int	x, x2, y, y2;
+		int	x, x2, y, y2, w, h;
 
 		// set up viewport (main, playersetup)
-		x = floor( RI.viewport[0] * gpGlobals->width / gpGlobals->width );
-		x2 = ceil(( RI.viewport[0] + RI.viewport[2] ) * gpGlobals->width / gpGlobals->width );
-		y = floor( gpGlobals->height - RI.viewport[1] * gpGlobals->height / gpGlobals->height );
-		y2 = ceil( gpGlobals->height - ( RI.viewport[1] + RI.viewport[3] ) * gpGlobals->height / gpGlobals->height );
+		x = floor( RI.viewport[0]/* * gpGlobals->width / gpGlobals->width*/ );
+		x2 = ceil(( RI.viewport[0] + RI.viewport[2] )/* * gpGlobals->width / gpGlobals->width*/ );
+		y = floor( gpGlobals->height - RI.viewport[1]/* * gpGlobals->height / gpGlobals->height*/ );
+		y2 = ceil( gpGlobals->height - ( RI.viewport[1] + RI.viewport[3] )/* * gpGlobals->height / gpGlobals->height*/ );
 #if 1
-		sceGuViewport( 2048, 2048, x2 - x, y - y2 ); /* psp center viewport 2048x2048 PSPFIXME*/
-		sceGuScissor(0, 0, gpGlobals->width, gpGlobals->height);
-		/*sceGuViewport(
-		2048,
-		2048 + (gpGlobals->height / 2) - y2 - ((y - y2) / 2),
-		x2 - x, y - y2);
-		sceGuScissor(x, gpGlobals->height - y2 - (y - y2), x + (x2 - x), gpGlobals->height - y2);*/
+		w = x2 - x;
+		h = y - y2;
+
+		sceGuViewport( 2048 /*- ( gpGlobals->width >> 1 ) + x + ( w >> 1 )*/,
+						2048 + ( gpGlobals->height >> 1 ) - y2 - ( h >> 1 ),
+						w, h );
+		sceGuScissor( x, gpGlobals->height - y2 - h, x + w, gpGlobals->height - y2 );
 #else
-		pglViewport( x, y2, x2 - x, y - y2 );
+		pglViewport( x, y2, w, h );
 #endif
 	}
 	else
 	{
 		// envpass, mirrorpass
-#if 1
-		sceGuViewport( 2048, 2048, RI.viewport[2], RI.viewport[3] ); /* psp center viewport 2048x2048 PSPFIXME */
-		sceGuScissor(0, 0, gpGlobals->width, gpGlobals->height);
+#if 1 
+		// FIXME: 
+		sceGuViewport( 2048 - ( gpGlobals->width >> 1 ) + RI.viewport[0] + ( RI.viewport[2] >> 1 ),
+						2048 + ( gpGlobals->height >> 1 ) - RI.viewport[1] - ( RI.viewport[3] >> 1 ),
+						RI.viewport[2], RI.viewport[3] );
+		sceGuViewport( 2048, 2048, RI.viewport[2], RI.viewport[3] );
+		sceGuScissor( RI.viewport[0], gpGlobals->height - RI.viewport[1] - RI.viewport[3],
+						RI.viewport[0] + RI.viewport[2], gpGlobals->height - RI.viewport[1] );
 #else
 		pglViewport( RI.viewport[0], RI.viewport[1], RI.viewport[2], RI.viewport[3] );
 #endif
 	}
-#if 1
+
 	sceGumMatrixMode( GU_PROJECTION );
 	GL_LoadMatrix( RI.projectionMatrix );
 
@@ -626,33 +631,7 @@ void R_SetupGL( qboolean set_gl_state )
 	sceGuColor( GUCOLOR4F( 1.0f, 1.0f, 1.0f, 1.0f ) );
 
 	GU_ClipBeginFrame();
-#else
-	pglMatrixMode( GL_PROJECTION );
-	GL_LoadMatrix( RI.projectionMatrix );
 
-	pglMatrixMode( GL_MODELVIEW );
-	GL_LoadMatrix( RI.worldviewMatrix );
-
-	if( FBitSet( RI.params, RP_CLIPPLANE ))
-	{
-		GLdouble	clip[4];
-		mplane_t	*p = &RI.clipPlane;
-
-		clip[0] = p->normal[0];
-		clip[1] = p->normal[1];
-		clip[2] = p->normal[2];
-		clip[3] = -p->dist;
-
-		pglClipPlane( GL_CLIP_PLANE0, clip );
-		pglEnable( GL_CLIP_PLANE0 );
-	}
-
-	GL_Cull( GL_FRONT );
-
-	pglDisable( GL_BLEND );
-	pglDisable( GL_ALPHA_TEST );
-	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-#endif
 }
 
 /*
