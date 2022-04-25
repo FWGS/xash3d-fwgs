@@ -1,6 +1,8 @@
 #include <common/system.h>
 #include <common/common.h>
 
+#include "xash3d_mathlib.h"
+
 #include "texture.h"
 
 
@@ -61,20 +63,31 @@ static struct {
 ////////////////////////////////////////////////////////////////////////////////
 // Local
 
+static byte dottexture[8][8] =
+{
+	{0,1,1,0,0,0,0,0},
+	{1,1,1,1,0,0,0,0},
+	{1,1,1,1,0,0,0,0},
+	{0,1,1,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0},
+};
+
 static qboolean      IsValidTextureName( const char *name );
 static rm_texture_t* GetTextureByName  ( const char *name );
 static rm_texture_t* AppendTexture     ( const char* name, int flags );
 static void          RemoveTexture     ( const char* name );
 
-void dumb( uint i, const char *name )
-{
-	Q_strncpy( RM_TextureManager.textures[i].name, name, MAX_NAME_LEN );
-	RM_TextureManager.textures[i].used = true;
-	
-	uint hash_value = COM_HashKey( name, TEXTURES_HASH_SIZE );
-	RM_TextureManager.textures_hash_table[hash_value] = &(RM_TextureManager.textures[i]);
-	RM_TextureManager.textures_count++;
-}
+static void CreateUnusedEntry( void );
+static void CreateInternalTextures( void );
+
+static rgbdata_t* FakeImage( int width, int height, int depth, int flags );
+static int CreateEmoTexture( void );
+static int CreateParticleTexture( void );
+static int CreateStaticColoredTexture( const char* name, uint32_t color );
+static int CreateCinematicDummyTexture( void );
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -82,19 +95,18 @@ void dumb( uint i, const char *name )
 
 void RM_Init()
 {
-	// Reset texture manager
 	memset( &RM_TextureManager, 0, sizeof( RM_TextureManager ));
-
-	// Create unused 0-entry
-	dumb( 0, "*unused*" );
-
-	// Create internal textures
-	// FIXME: Create textures, not dumb entries
+	
+	CreateUnusedEntry();
 }
 
 void RM_SetRender( ref_interface_t* ref )
 {
 	RM_TextureManager.ref = ref;
+
+	// FIXME: Move this into RM_Init() after implement ReuploadTextures,
+	//          because RM_Init() called before ref's initialization
+	CreateInternalTextures();
 }
 
 void RM_ReuploadTextures()
@@ -198,8 +210,6 @@ int RM_LoadTextureFromBuffer( const char *name, rgbdata_t *picture, int flags, q
 	rm_texture_t *texture;
 
 	Con_Reportf( "RM_LoadTextureFromBuffer. Name %s\n", name );
-
-	if (!RM_TextureManager.ref) return 0;
 
 	// Check name
 	if( !IsValidTextureName( name ))
@@ -318,11 +328,15 @@ int RM_CreateTextureArray( const char *name, int width, int height, int depth, c
 	Con_Printf( "Unimplemented RM_CreateTextureArray\n" );
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////
 // Local implementation
 
 qboolean IsValidTextureName( const char *name )
 {
+	if (name == NULL)
+		return false;
+	
 	if( !COM_CheckString( name ) )
 		return false;
 	else
@@ -360,6 +374,7 @@ rm_texture_t* AppendTexture( const char* name, int flags )
 	// Check free places
 	if ( RM_TextureManager.textures_count == TEXTURES_HASH_SIZE )
 	{
+		Con_Reportf("TPRRRR, PRIEHALI!");
 		return NULL;
 	}
 
@@ -450,4 +465,149 @@ void RemoveTexture( const char* name )
 
 	// Dec count
 	RM_TextureManager.textures_count--;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Internal textures
+
+void CreateUnusedEntry( void )
+{
+	const char* name = "*unused";
+
+	Q_strncpy( RM_TextureManager.textures[0].name, name, strlen(name) );
+	RM_TextureManager.textures[0].used = true;
+	
+	uint hash_value = COM_HashKey( name, TEXTURES_HASH_SIZE );
+	RM_TextureManager.textures_hash_table[hash_value] = &(RM_TextureManager.textures[0]);
+	RM_TextureManager.textures_count++;
+}
+
+void CreateInternalTextures( void )
+{
+	RM_TextureManager.default_texture  = CreateEmoTexture();
+	RM_TextureManager.particle_texture = CreateParticleTexture();
+
+	RM_TextureManager.white_texture = CreateStaticColoredTexture( REF_WHITE_TEXTURE, 0xFFFFFFFF );
+	RM_TextureManager.gray_texture  = CreateStaticColoredTexture( REF_GRAY_TEXTURE,  0xFF7F7F7F );
+	RM_TextureManager.black_texture = CreateStaticColoredTexture( REF_BLACK_TEXTURE, 0xFF000000 );
+
+	RM_TextureManager.cinematic_texture = CreateCinematicDummyTexture();
+}
+
+// FIXME: Rewrite without static's
+rgbdata_t* FakeImage( int width, int height, int depth, int flags )
+{
+	static byte	data2D[1024];  // 16x16x4
+	static rgbdata_t r_image;
+
+	// Also use this for bad textures, but without alpha
+	r_image.width   = Q_max( 1, width );
+	r_image.height  = Q_max( 1, height );
+	r_image.depth   = Q_max( 1, depth );
+	r_image.flags   = flags;
+	r_image.type    = PF_RGBA_32;
+	r_image.size    = r_image.width * r_image.height * r_image.depth * 4;
+	r_image.buffer  = (r_image.size > sizeof( data2D )) ? NULL : data2D;
+	r_image.palette = NULL;
+	r_image.numMips = 1;
+	r_image.encode  = 0;
+
+	if( FBitSet( r_image.flags, IMAGE_CUBEMAP ))
+	{
+		r_image.size *= 6;
+	}
+
+	memset( data2D, 0xFF, sizeof( data2D ) );
+
+	return &r_image;
+}
+
+int CreateEmoTexture( void )
+{
+	int w, h;
+	int	x, y;
+	rgbdata_t *pic;
+
+	w = 16;
+	h = 16;
+
+	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR );
+
+	for ( y = 0; y < h; y++ )
+	{
+		for ( x = 0; x < w; x++ )
+		{
+			if (( y < 8 ) ^ ( x < 8 ))
+			{
+				((uint *)pic->buffer)[y * 16 + x] = 0xFFFF00FF;  // Magenta
+			}
+			else
+			{
+				((uint *)pic->buffer)[y * 16 + x] = 0xFF000000;  // Black
+			}
+		}
+	}
+
+	return RM_LoadTextureFromBuffer( REF_DEFAULT_TEXTURE, pic, TF_COLORMAP, false );
+}
+
+int CreateParticleTexture( void )
+{
+	int w, h;
+	int	x, y;
+	rgbdata_t *pic;
+
+	w = 8;
+	h = 8;
+
+	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR | IMAGE_HAS_ALPHA );
+
+	for ( y = 0; y < 8; y++ )
+	{
+		for ( x = 0; x < 8; x++ )
+		{
+			if ( dottexture[x][y] )
+			{
+				pic->buffer[( y * 8 + x ) * 4 + 3] = 255;
+			}
+			else
+			{
+				pic->buffer[( y * 8 + x ) * 4 + 3] = 0;
+			}
+		}
+	}
+
+	return RM_LoadTextureFromBuffer( REF_PARTICLE_TEXTURE, pic, TF_CLAMP, false );
+}
+
+int CreateStaticColoredTexture( const char* name, uint32_t color )
+{
+	int	w, h;
+	int	x, y;
+	rgbdata_t *pic;
+
+	w = 4;
+	h = 4;
+
+	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR );
+
+	for ( x = 0; x < (w * h); x++ )
+	{
+		((uint *)pic->buffer)[x] = color;
+	}
+	
+	return RM_LoadTextureFromBuffer( name, pic, TF_COLORMAP, false );
+}
+
+int CreateCinematicDummyTexture( void )
+{
+	int	w, h;
+	rgbdata_t *pic;
+
+	w = 640;
+	h = 100;
+
+	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR );
+	return RM_LoadTextureFromBuffer( "*cintexture", pic, TF_NOMIPMAP | TF_CLAMP, false );
 }
