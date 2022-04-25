@@ -566,12 +566,18 @@ void R_SetupGL( qboolean set_gl_state )
 	if( RP_NORMALPASS( ))
 	{
 		int	x, x2, y, y2, w, h;
-
 		// set up viewport (main, playersetup)
-		x = floor( RI.viewport[0]/* * gpGlobals->width / gpGlobals->width*/ );
-		x2 = ceil(( RI.viewport[0] + RI.viewport[2] )/* * gpGlobals->width / gpGlobals->width*/ );
-		y = floor( gpGlobals->height - RI.viewport[1]/* * gpGlobals->height / gpGlobals->height*/ );
-		y2 = ceil( gpGlobals->height - ( RI.viewport[1] + RI.viewport[3] )/* * gpGlobals->height / gpGlobals->height*/ );
+#if 1
+		x = RI.viewport[0];
+		x2 = RI.viewport[0] + RI.viewport[2];
+		y = gpGlobals->height - RI.viewport[1];
+		y2 = gpGlobals->height - ( RI.viewport[1] + RI.viewport[3] );
+#else
+		x = floor( RI.viewport[0] * gpGlobals->width / gpGlobals->width );
+		x2 = ceil(( RI.viewport[0] + RI.viewport[2] ) * gpGlobals->width / gpGlobals->width );
+		y = floor( gpGlobals->height - RI.viewport[1] * gpGlobals->height / gpGlobals->height );
+		y2 = ceil( gpGlobals->height - ( RI.viewport[1] + RI.viewport[3] ) * gpGlobals->height / gpGlobals->height );
+#endif
 #if 1
 		w = x2 - x;
 		h = y - y2;
