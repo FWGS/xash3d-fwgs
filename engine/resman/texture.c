@@ -120,19 +120,19 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	rm_texture_t* texture;
 	uint		  picFlags;
 
-	Con_Reportf( "RM_LoadTexture. Name %s\n", name );
+	//Con_Reportf( "RM_LoadTexture. Name %s\n", name );
 
 	// Check name
 	if( !IsValidTextureName( name ))
 	{
-		Con_Reportf( "Invalid texture name\n" );
+		Con_Reportf( "Invalid texture name %s\n", name );
 		return 0;
 	}
 
 	// Check cache
 	if(( texture = GetTextureByName( name )))
 	{
-		Con_Reportf( "Texture is already loaded with number %d\n", texture->number );
+		//Con_Reportf( "Texture %s is already loaded with number %d\n", name, texture->number );
 		return texture->number;
 	}
 
