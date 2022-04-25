@@ -402,11 +402,11 @@ void CL_FreeRemapInfo( remap_info_t *info )
 		if( info->ptexture != NULL )
 		{
 			if( FBitSet( info->ptexture[i].flags, STUDIO_NF_COLORMAP ))
-				RM_LoadTexture( info->ptexture[i].index );
+				RM_FreeTexture( info->ptexture[i].index );
 		}
 
 		if( info->textures[i] != 0 )
-			RM_LoadTexture( info->textures[i] );
+			RM_FreeTexture( info->textures[i] );
 	}
 
 	Mem_Free( info ); // release struct
