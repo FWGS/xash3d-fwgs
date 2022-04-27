@@ -83,4 +83,9 @@ void VGUI_MouseMove(int x, int y)
 		return;
 	pApp->internalCursorMoved( x, y, surface );
 }
+
+void VGUI_TextInput(const char *text)
+{
+	// stub
+}
 }

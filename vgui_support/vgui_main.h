@@ -140,6 +140,8 @@ void VGui_Paint( void );
 void VGUI_Mouse(VGUI_MouseAction action, int code);
 void VGUI_Key(VGUI_KeyAction action, VGUI_KeyCode code);
 void VGUI_MouseMove(int x, int y);
+void VGUI_TextInput(const char *text);
+
 //
 // vgui_clip.cpp
 //
