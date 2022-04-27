@@ -25,9 +25,10 @@ GNU General Public License for more details.
 #include "vid_common.h"
 
 SDL_Joystick *g_joy = NULL;
-static SDL_Cursor *g_pDefaultCursor[CursorType_Last];
 #if !SDL_VERSION_ATLEAST( 2, 0, 0 )
 #define SDL_WarpMouseInWindow( win, x, y ) SDL_WarpMouse( ( x ), ( y ) )
+#else
+static SDL_Cursor *g_pDefaultCursor[dc_last];
 #endif
 
 /*
@@ -260,19 +261,19 @@ static void SDLash_InitCursors( void )
 	{
 		// load up all default cursors
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-		g_pDefaultCursor[CursorType_None] = NULL;
-		g_pDefaultCursor[CursorType_Arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
-		g_pDefaultCursor[CursorType_Ibeam] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
-		g_pDefaultCursor[CursorType_Wait] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
-		g_pDefaultCursor[CursorType_Crosshair] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
-		g_pDefaultCursor[CursorType_Up] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
-		g_pDefaultCursor[CursorType_SizeNwSe] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENWSE);
-		g_pDefaultCursor[CursorType_SizeNeSw] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENESW);
-		g_pDefaultCursor[CursorType_SizeWe] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE);
-		g_pDefaultCursor[CursorType_SizeNs] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS);
-		g_pDefaultCursor[CursorType_SizeAll] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEALL);
-		g_pDefaultCursor[CursorType_No] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO);
-		g_pDefaultCursor[CursorType_Hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
+		g_pDefaultCursor[dc_none] = NULL;
+		g_pDefaultCursor[dc_arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+		g_pDefaultCursor[dc_ibeam] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
+		g_pDefaultCursor[dc_hourglass] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+		g_pDefaultCursor[dc_crosshair] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
+		g_pDefaultCursor[dc_up] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+		g_pDefaultCursor[dc_sizenwse] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENWSE);
+		g_pDefaultCursor[dc_sizenesw] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENESW);
+		g_pDefaultCursor[dc_sizewe] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE);
+		g_pDefaultCursor[dc_sizens] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS);
+		g_pDefaultCursor[dc_sizeall] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEALL);
+		g_pDefaultCursor[dc_no] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO);
+		g_pDefaultCursor[dc_hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
 #endif
 		initialized = true;
 	}
@@ -284,7 +285,7 @@ Platform_SetCursorType
 
 ========================
 */
-void Platform_SetCursorType( cursor_type_t type )
+void Platform_SetCursorType( VGUI_DefaultCursor type )
 {
 	qboolean visible;
 
@@ -295,8 +296,8 @@ void Platform_SetCursorType( cursor_type_t type )
 
 	switch( type )
 	{
-		case CursorType_User:
-		case CursorType_None:
+		case dc_user:
+		case dc_none:
 			visible = false;
 			break;
 		default:

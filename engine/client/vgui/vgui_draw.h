@@ -33,6 +33,7 @@ void VGui_KeyEvent( int key, int down );
 void VGui_MouseMove( int x, int y );
 qboolean VGui_IsActive( void );
 void *VGui_GetPanel( void );
+void VGui_ReportTextInput( const char *text );
 #ifdef __cplusplus
 }
 #endif
