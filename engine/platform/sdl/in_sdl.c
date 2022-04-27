@@ -332,6 +332,7 @@ Platform_GetKeyModifiers
 */
 key_modifier_t Platform_GetKeyModifiers( void )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_Keymod modFlags;
 	key_modifier_t resultFlags;
 
@@ -359,6 +360,9 @@ key_modifier_t Platform_GetKeyModifiers( void )
 		SetBits( resultFlags, KeyModifier_LeftSuper );
 
 	return resultFlags;
+#else
+	return KeyModifier_None;
+#endif
 }
 
 #endif // XASH_DEDICATED
