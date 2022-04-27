@@ -19,21 +19,21 @@ GNU General Public License for more details.
 
 typedef enum
 {
-	CursorType_User,
-	CursorType_None,
-	CursorType_Arrow,
-	CursorType_Ibeam,
-	CursorType_Wait,
-	CursorType_Crosshair,
-	CursorType_Up,
-	CursorType_SizeNwSe,
-	CursorType_SizeNeSw,
-	CursorType_SizeWe,
-	CursorType_SizeNs,
-	CursorType_SizeAll,
-	CursorType_No,
-	CursorType_Hand,
-	CursorType_Last
-} cursor_type_t;
+	dc_user,
+	dc_none,
+	dc_arrow,
+	dc_ibeam,
+	dc_hourglass,
+	dc_crosshair,
+	dc_up,
+	dc_sizenwse,
+	dc_sizenesw,
+	dc_sizewe,
+	dc_sizens,
+	dc_sizeall,
+	dc_no,
+	dc_hand,
+	dc_last
+} VGUI_DefaultCursor;
 
 #endif
