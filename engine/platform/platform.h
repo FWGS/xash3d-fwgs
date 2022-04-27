@@ -82,7 +82,7 @@ void Platform_GetMousePos( int *x, int *y );
 void Platform_SetMousePos( int x, int y );
 void Platform_PreCreateMove( void );
 void Platform_MouseMove( float *x, float *y );
-void Platform_SetCursorType( cursor_type_t type );
+void Platform_SetCursorType( VGUI_DefaultCursor type );
 // Clipboard
 int Platform_GetClipboardText( char *buffer, size_t size );
 void Platform_SetClipboardText( const char *buffer );

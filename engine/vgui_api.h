@@ -16,6 +16,8 @@ GNU General Public License for more details.
 #define VGUI_API_H
 
 #include "xash3d_types.h"
+#include "key_modifiers.h"
+#include "cursor_type.h"
 
 // VGUI generic vertex
 
@@ -157,28 +159,10 @@ enum VGUI_MouseAction
 	MA_WHEEL
 };
 
-enum VGUI_DefaultCursor
-{
-	dc_user,
-	dc_none,
-	dc_arrow,
-	dc_ibeam,
-	dc_hourglass,
-	dc_crosshair,
-	dc_up,
-	dc_sizenwse,
-	dc_sizenesw,
-	dc_sizewe,
-	dc_sizens,
-	dc_sizeall,
-	dc_no,
-	dc_hand,
-	dc_last
-};
-
 typedef struct  vguiapi_s
 {
 	qboolean initialized;
+	// called from vgui_support
 	void	(*DrawInit)( void );
 	void	(*DrawShutdown)( void );
 	void	(*SetupDrawingText)( int *pColor );
@@ -193,18 +177,23 @@ typedef struct  vguiapi_s
 	void	(*GetTextureSizes)( int *width, int *height );
 	int		(*GenerateTexture)( void );
 	void	*(*EngineMalloc)( size_t size );
-	void	(*CursorSelect)( enum VGUI_DefaultCursor cursor );
+	void	(*CursorSelect)( VGUI_DefaultCursor cursor );
 	byte		(*GetColor)( int i, int j );
 	qboolean	(*IsInGame)( void );
-	void  (*Unused)( void );
+	void	(*Unused)( void );
 	void	(*GetCursorPos)( int *x, int *y );
 	int		(*ProcessUtfChar)( int ch );
+	int		(*GetClipboardText)( char *buffer, size_t bufferSize );
+	void	(*SetClipboardText)( const char *text );
+	key_modifier_t (*GetKeyModifiers)( void );
+	// called from engine side
 	void	(*Startup)( int width, int height );
 	void	(*Shutdown)( void );
 	void	*(*GetPanel)( void );
 	void	(*Paint)( void );
-	void	(*Mouse)(enum VGUI_MouseAction action, int code );
-	void	(*Key)(enum VGUI_KeyAction action,enum VGUI_KeyCode code );
+	void	(*Mouse)( enum VGUI_MouseAction action, int code );
+	void	(*Key)( enum VGUI_KeyAction action, enum VGUI_KeyCode code );
 	void	(*MouseMove)( int x, int y );
+	void	(*TextInput)( const char *text );
 } vguiapi_t;
 #endif // VGUI_API_H
