@@ -119,4 +119,5 @@ extern "C" EXPORT void InitAPI(vguiapi_t * api)
 	g_api->Mouse = VGUI_Mouse;
 	g_api->MouseMove = VGUI_MouseMove;
 	g_api->Key = VGUI_Key;
+	g_api->TextInput = VGUI_TextInput;
 }
