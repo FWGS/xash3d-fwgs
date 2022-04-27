@@ -24,7 +24,7 @@ GNU General Public License for more details.
 #include "platform/platform.h"
 
 static enum VGUI_KeyCode s_pVirtualKeyTrans[256];
-static enum VGUI_DefaultCursor s_currentCursor;
+static VGUI_DefaultCursor s_currentCursor;
 static HINSTANCE s_pVGuiSupport; // vgui_support library
 static convar_t	*vgui_utf8 = NULL;
 
@@ -48,7 +48,7 @@ void GAME_EXPORT VGUI_GetMousePos( int *_x, int *_y )
 	*_x = x / xscale, *_y = y / yscale;
 }
 
-void GAME_EXPORT VGUI_CursorSelect( enum VGUI_DefaultCursor cursor )
+void GAME_EXPORT VGUI_CursorSelect( VGUI_DefaultCursor cursor )
 {
 	Platform_SetCursorType( cursor );
 	s_currentCursor = cursor;
