@@ -152,7 +152,6 @@ void VGui_Startup( const char *clientlib, int width, int height )
 
 		VGui_FillAPIFromRef( &vgui, &ref.dllFuncs );
 
-#ifdef XASH_INTERNAL_GAMELIBS
 		s_pVGuiSupport = COM_LoadLibrary( clientlib, false, false );
 
 		if( s_pVGuiSupport )
@@ -162,58 +161,57 @@ void VGui_Startup( const char *clientlib, int width, int height )
 			{
 				F( &vgui );
 				vgui.initialized = true;
-				VGUI_InitCursors();
-				Con_Reportf( "vgui_support: found interal client support\n" );
+				Con_Reportf( "vgui_support: found internal client support\n" );
 			}
 		}
-#endif // XASH_INTERNAL_GAMELIBS
 
-		// HACKHACK: load vgui with correct path first if specified.
-		// it will be reused while resolving vgui support and client deps
-		if( Sys_GetParmFromCmdLine( "-vguilib", vguilib ) )
+		if( !vgui.initialized )
 		{
-			if( Q_strstr( vguilib, ".dll") )
+			// HACKHACK: load vgui with correct path first if specified.
+			// it will be reused while resolving vgui support and client deps
+			if( Sys_GetParmFromCmdLine( "-vguilib", vguilib ))
+			{
+				if( Q_strstr( vguilib, ".dll" ))
+					Q_strncpy( vguiloader, "vgui_support.dll", 256 );
+				else
+					Q_strncpy( vguiloader, VGUI_SUPPORT_DLL, 256 );
+
+				if( !COM_LoadLibrary( vguilib, false, false ))
+					Con_Reportf( S_WARN "VGUI preloading failed. Default library will be used! Reason: %s\n", COM_GetLibraryError() );
+			}
+
+			if( Q_strstr( clientlib, ".dll" ))
 				Q_strncpy( vguiloader, "vgui_support.dll", 256 );
-			else
+
+			if( !vguiloader[0] && !Sys_GetParmFromCmdLine( "-vguiloader", vguiloader ))
 				Q_strncpy( vguiloader, VGUI_SUPPORT_DLL, 256 );
 
-			if( !COM_LoadLibrary( vguilib, false, false ) )
-				Con_Reportf( S_WARN "VGUI preloading failed. Default library will be used! Reason: %s\n", COM_GetLibraryError());
-		}
+			s_pVGuiSupport = COM_LoadLibrary( vguiloader, false, false );
 
-		if( Q_strstr( clientlib, ".dll" ) )
-			Q_strncpy( vguiloader, "vgui_support.dll", 256 );
-
-		if( !vguiloader[0] && !Sys_GetParmFromCmdLine( "-vguiloader", vguiloader ) )
-			Q_strncpy( vguiloader, VGUI_SUPPORT_DLL, 256 );
-
-		s_pVGuiSupport = COM_LoadLibrary( vguiloader, false, false );
-
-		if( !s_pVGuiSupport )
-		{
-			s_pVGuiSupport = COM_LoadLibrary( va( "../%s", vguiloader ), false, false );
-		}
-
-		if( !s_pVGuiSupport )
-		{
-			if( FS_FileExists( vguiloader, false ) )
-				Con_Reportf( S_ERROR  "Failed to load vgui_support library: %s\n", COM_GetLibraryError() );
-			else
-				Con_Reportf( "vgui_support: not found\n" );
-		}
-		else
-		{
-			F = COM_GetProcAddress( s_pVGuiSupport, "InitAPI" );
-			if( F )
+			if( !s_pVGuiSupport )
 			{
-				F( &vgui );
-				vgui.initialized = true;
-				VGUI_InitCursors();
+				s_pVGuiSupport = COM_LoadLibrary( va( "../%s", vguiloader ), false, false );
+			}
+
+			if( !s_pVGuiSupport )
+			{
+				if( FS_FileExists( vguiloader, false ))
+					Con_Reportf( S_ERROR "Failed to load vgui_support library: %s\n", COM_GetLibraryError() );
+				else
+					Con_Reportf( "vgui_support: not found\n" );
 			}
 			else
-				Con_Reportf( S_ERROR  "Failed to find vgui_support library entry point!\n" );
+			{
+				F = COM_GetProcAddress( s_pVGuiSupport, "InitAPI" );
+				if( F )
+				{
+					F( &vgui );
+					vgui.initialized = true;
+				}
+				else
+					Con_Reportf( S_ERROR "Failed to find vgui_support library entry point!\n" );
+			}
 		}
-
 	}
 
 	if( height < 480 )
