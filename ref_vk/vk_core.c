@@ -4,7 +4,7 @@
 #include "vk_textures.h"
 #include "vk_2d.h"
 #include "vk_renderstate.h"
-#include "vk_buffer.h"
+#include "vk_staging.h"
 #include "vk_framectl.h"
 #include "vk_brush.h"
 #include "vk_scene.h"
@@ -703,7 +703,7 @@ qboolean R_VkInit( void )
 	if (!VK_DevMemInit())
 		return false;
 
-	if (!VK_BuffersInit())
+	if (!R_VkStagingInit())
 		return false;
 
 	// TODO move this to vk_texture module
@@ -789,7 +789,7 @@ void R_VkShutdown( void ) {
 	VK_DescriptorShutdown();
 
 	vkDestroySampler(vk_core.device, vk_core.default_sampler, NULL);
-	VK_BuffersDestroy();
+	R_VkStagingShutdown();
 
 	VK_DevMemDestroy();
 

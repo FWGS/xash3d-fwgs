@@ -2,7 +2,7 @@
 
 #include "vk_common.h"
 #include "vk_core.h"
-#include "vk_buffer.h"
+#include "vk_staging.h"
 #include "vk_const.h"
 #include "vk_descriptor.h"
 #include "vk_mapents.h" // wadlist
@@ -546,8 +546,6 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 	}
 
 	{
-		size_t staging_offset = 0; // TODO multiple staging buffer users params.staging->ptr
-
 		// 5. Create/get cmdbuf for transitions
 		VkCommandBufferBeginInfo beginfo = {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -587,7 +585,7 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 				const size_t mip_size = CalcImageSize( pic->type, width, height, 1 );
 
 				VkBufferImageCopy region = {0};
-				region.bufferOffset = staging_offset;
+				region.bufferOffset = 0;
 				region.bufferRowLength = 0;
 				region.bufferImageHeight = 0;
 				region.imageSubresource = (VkImageSubresourceLayers){
@@ -602,19 +600,21 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 					.depth = 1,
 				};
 
-				memcpy(((uint8_t*)g_vk_buffers.staging.mapped) + staging_offset, buf, mip_size);
+				vk_staging_region_t staging = R_VkStagingLock(mip_size);
+				ASSERT(staging.ptr);
+				memcpy(staging.ptr, buf, mip_size);
 
+				// Build mip in place for the next mip level
 				if ( mip < mipCount - 1 )
 				{
 					BuildMipMap( buf, width, height, 1, tex->flags );
 				}
 
-				// TODO we could do this only once w/ region array
-				vkCmdCopyBufferToImage(cmdbuf, g_vk_buffers.staging.buffer, tex->vk.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-				staging_offset += mip_size;
+				R_VkStagingUnlockToImage(&staging, &region, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, tex->vk.image.image);
 			}
 		}
+
+		R_VkStagingCommit(cmdbuf);
 
 		// 	5.2 image:layout:DST -> image:layout:SAMPLED
 		// 		5.2.1 transitionToLayout(DST -> SHADER_READ_ONLY)
