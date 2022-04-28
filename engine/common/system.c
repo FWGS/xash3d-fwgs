@@ -81,18 +81,6 @@ char *Sys_GetClipboardData( void )
 
 	return data;
 }
-
-/*
-================
-Sys_SetClipboardData
-
-write screenshot into clipboard
-================
-*/
-void Sys_SetClipboardData( const char *buffer, size_t size )
-{
-	Platform_SetClipboardText( buffer );
-}
 #endif // XASH_DEDICATED
 
 /*

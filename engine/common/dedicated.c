@@ -306,11 +306,6 @@ void SCR_CheckStartupVids( void )
 
 }
 
-void Sys_SetClipboardData( const char *text, size_t size )
-{
-
-}
-
 void CL_StopPlayback( void )
 {
 
