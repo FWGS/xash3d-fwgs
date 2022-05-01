@@ -2280,7 +2280,7 @@ void HTTP_Run( void )
 	}
 
 	// update progress
-	if( !Host_IsDedicated() )
+	if( !Host_IsDedicated() && iProgressCount != 0 )
 		Cvar_SetValue( "scr_download", flProgress/iProgressCount * 100 );
 
 	HTTP_AutoClean();
