@@ -98,20 +98,55 @@ void RM_Init()
 	memset( &RM_TextureManager, 0, sizeof( RM_TextureManager ));
 	
 	CreateUnusedEntry();
+
+	CreateInternalTextures();
 }
 
 void RM_SetRender( ref_interface_t* ref )
 {
 	RM_TextureManager.ref = ref;
 
-	// FIXME: Move this into RM_Init() after implement ReuploadTextures,
-	//          because RM_Init() called before ref's initialization
-	CreateInternalTextures();
+	RM_ReuploadTextures();
 }
 
 void RM_ReuploadTextures()
 {
-	// TODO: Implement this for future render switch
+	rm_texture_t* texture;
+
+	if ( !RM_TextureManager.ref )
+	{
+		Con_Reportf( S_ERROR "Render not found\n" );
+		return;
+	}
+
+	// For all textures
+	for ( int i = 1; i < RM_TextureManager.textures_count; i++ )
+	{
+		texture = &(RM_TextureManager.textures[i]); 
+
+		// If used
+		if ( texture->used )
+		{
+			// Upload
+			qboolean status = RM_TextureManager.ref->R_LoadTextureFromBuffer
+			(
+				texture->number,
+				texture->picture,
+				texture->flags, 
+				false
+			);
+
+			if ( status )
+			{
+				Con_Reportf( "Texture %s successfully reuploaded with number %d\n", texture->name, texture->number );
+			}
+			else
+			{
+				Con_Reportf( "Ref return error on upload!\n" );
+				// FIXME: Cleanup memory
+			}
+		}
+	}
 }
 
 int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
@@ -160,9 +195,6 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	texture->width   = picture->width;
 	texture->height  = picture->height;
 
-	// TODO: Prepare texture
-	//VK_ProcessImage( tex, pic );
-
 	// Upload texture
 	if (RM_TextureManager.ref)
 	{
@@ -176,25 +208,12 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 
 		if (!status)
 		{
-			Con_Reportf( "Ref return error on upload!" );
+			Con_Reportf( "Ref return error on upload!\n" );
+			// FIXME: Cleanup memory
 		}
 	}
-	else
-	{
-		Con_Printf("Load texture without REF???");
-	}
 
-	//if( !uploadTexture( tex, &pic, 1, false ))
-	//{
-	//	memset( tex, 0, sizeof( vk_texture_t ));
-	//	gEngine.FS_FreeImage( pic ); // release source texture
-	//	return 0;
-	//}
-
-	// TODO: Apply texture params
-	//VK_ApplyTextureParams( tex );
-
-	Con_Reportf( "Texture successfully loaded with number %d\n", texture->number );
+	Con_Reportf( "Texture %s successfully loaded with number %d\n", name, texture->number );
 
 	return texture->number;
 }
@@ -239,17 +258,20 @@ int RM_LoadTextureFromBuffer( const char *name, rgbdata_t *picture, int flags, q
 	texture->height  = picture->height;
 
 	// Upload texture
-	qboolean status = RM_TextureManager.ref->R_LoadTextureFromBuffer
-	(
-		texture->number,
-		texture->picture,
-		texture->flags, 
-		update
-	);
-
-	if (!status)
+	if (RM_TextureManager.ref)
 	{
-		Con_Reportf( "Ref return error on upload!" );
+		qboolean status = RM_TextureManager.ref->R_LoadTextureFromBuffer
+		(
+			texture->number,
+			texture->picture,
+			texture->flags, 
+			update
+		);
+
+		if (!status)
+		{
+			Con_Reportf( "Ref return error on upload!" );
+		}
 	}
 
 	return texture->number;
