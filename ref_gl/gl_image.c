@@ -1423,6 +1423,30 @@ void R_InitImages( void )
 	gl_numTextures = 0;
 
 	R_SetTextureParameters();
+
+	// We found this textures in engine,
+	//   but they are not presented in render for this moment.
+	// That's ok! Textures will be uploaded later from RM with index stable safety
+	tr.defaultTexture  = gEngfuncs.RM_FindTexture( REF_DEFAULT_TEXTURE );
+	tr.particleTexture = gEngfuncs.RM_FindTexture( REF_PARTICLE_TEXTURE );
+	tr.whiteTexture    = gEngfuncs.RM_FindTexture( REF_WHITE_TEXTURE );
+	tr.grayTexture     = gEngfuncs.RM_FindTexture( REF_GRAY_TEXTURE );
+	tr.blackTexture    = gEngfuncs.RM_FindTexture( REF_BLACK_TEXTURE );
+	tr.cinTexture      = gEngfuncs.RM_FindTexture( REF_CINEMA_TEXTURE );
+	tr.solidskyTexture = gEngfuncs.RM_FindTexture( REF_SOLIDSKY_TEXTURE );
+	tr.alphaskyTexture = gEngfuncs.RM_FindTexture( REF_ALPHASKY_TEXTURE );
+	tr.dlightTexture   = gEngfuncs.RM_FindTexture( REF_DLIGHT_TEXTURE );
+
+	gEngfuncs.Con_Printf( "Found standart textures.\n" );
+	gEngfuncs.Con_Printf( "\tDefault %d\n",   tr.defaultTexture );
+	gEngfuncs.Con_Printf( "\tParticle %d\n",  tr.particleTexture );
+	gEngfuncs.Con_Printf( "\tWhite %d\n",     tr.whiteTexture );
+	gEngfuncs.Con_Printf( "\tGray %d\n",      tr.grayTexture );
+	gEngfuncs.Con_Printf( "\tBlack %d\n",     tr.blackTexture );
+	gEngfuncs.Con_Printf( "\tCinematic %d\n", tr.cinTexture );
+	gEngfuncs.Con_Printf( "\tSolidSky %d\n",  tr.solidskyTexture );
+	gEngfuncs.Con_Printf( "\tAlphaSky %d\n",  tr.alphaskyTexture );
+	gEngfuncs.Con_Printf( "\tDlight %d\n",    tr.dlightTexture );
 }
 
 void R_ShutdownImages( void )

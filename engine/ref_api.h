@@ -132,6 +132,7 @@ enum // r_speeds counters
 #define REF_CINEMA_TEXTURE   "*cintexture"
 #define REF_SOLIDSKY_TEXTURE "solid_sky"
 #define REF_ALPHASKY_TEXTURE "alpha_sky"
+#define REF_DLIGHT_TEXTURE   "*dlight"
 
 typedef enum connstate_e
 {
@@ -378,6 +379,7 @@ typedef struct ref_api_s
 	// resources
 	int  (*RM_LoadTexture)( const char *name, const byte *buf, size_t size, int flags );
 	int  (*RM_LoadTextureFromBuffer)( const char *name, rgbdata_t *picture, int flags, qboolean update );
+	int  (*RM_FindTexture)( const char *name );
 	void (*RM_FreeTexture)( unsigned int texnum );
 
 	// video init
