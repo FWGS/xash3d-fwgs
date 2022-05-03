@@ -75,7 +75,9 @@ void GL_Bind( GLint tmu, GLenum texnum )
 	{
 		if( glState.currentTextureTargets[tmu] != GL_NONE )
 			pglDisable( glState.currentTextureTargets[tmu] );
+		
 		glState.currentTextureTargets[tmu] = glTarget;
+
 		pglEnable( glState.currentTextureTargets[tmu] );
 	}
 
@@ -1244,22 +1246,13 @@ void GL_UpdateTexSize( int texnum, int width, int height, int depth )
 
 qboolean GL_LoadTextureFromBuffer( int texnum, rgbdata_t *pic, texFlags_t flags, qboolean update )
 {
-	gl_texture_t	*tex;
-
-	gEngfuncs.Con_Printf( "GL_LoadTextureFromBuffer. TexNum %d", texnum );
-	
-	// ???
-	if (texnum < 0 || texnum >= MAX_TEXTURES)
-	{
-		gEngfuncs.Host_Error( "NASRANO \n" );
-		return false;
-	}
+	gl_texture_t *tex;
 
 	// See if already loaded
 	if( gl_textures[texnum].used && !update )
 		return true;
 
-	// Couldn't loading image
+	// Invalid picture pointer
 	if( !pic )
 		return false;
 
