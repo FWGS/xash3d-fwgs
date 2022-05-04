@@ -2,6 +2,7 @@
 
 #include "vk_core.h"
 #include "vk_buffer.h"
+#include "vk_staging.h"
 #include "vk_const.h"
 #include "vk_common.h"
 #include "vk_pipeline.h"
@@ -235,9 +236,9 @@ qboolean VK_RenderInit( void )
 
 	// TODO device memory and friends (e.g. handle mobile memory ...)
 
-	if (!VK_BufferCreate("render buffer", &g_render.buffer, vertex_buffer_size + index_buffer_size,
-		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | (vk_core.rtx ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0),
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | (vk_core.rtx ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0))) // TODO staging buffer?
+	if (!VK_BufferCreate("geometry buffer", &g_render.buffer, vertex_buffer_size + index_buffer_size,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | (vk_core.rtx ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0),
+		(vk_core.rtx ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0))) // TODO staging buffer?
 		return false;
 
 	if (!VK_BufferCreate("render uniform_buffer", &g_render.uniform_buffer, uniform_unit_size * MAX_UNIFORM_SLOTS,
@@ -294,32 +295,51 @@ void VK_RenderShutdown( void )
 	VK_BufferDestroy( &g_render.uniform_buffer );
 }
 
-xvk_render_buffer_allocation_t XVK_RenderBufferAllocAndLock( uint32_t unit_size, uint32_t count ) {
-	const uint32_t alloc_size = unit_size * count;
-	uint32_t offset;
-	xvk_render_buffer_allocation_t retval = {0};
+qboolean R_GeometryBufferAllocAndLock( r_geometry_buffer_lock_t *lock, int vertex_count, int index_count ) {
+	const uint32_t vertices_size = vertex_count * sizeof(vk_vertex_t);
+	const uint32_t indices_size = index_count * sizeof(uint16_t);
+	const uint32_t total_size = vertices_size + indices_size;
 
-	ASSERT(unit_size > 0);
-
-	offset = VK_RingBuffer_Alloc(&g_render.buffer_alloc_ring, alloc_size, unit_size);
-
+	const uint32_t offset = VK_RingBuffer_Alloc(&g_render.buffer_alloc_ring, total_size, sizeof(vk_vertex_t));
 	if (offset == AllocFailed) {
-		gEngine.Con_Printf(S_ERROR "Cannot allocate %u bytes aligned at %u from buffer; only %u are left",
-				alloc_size, unit_size, g_render.buffer_alloc_ring.free);
-		return retval;
+		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry buffer for %d vertices (%d bytes) and %d indices (%d bytes), only %u bytes left",
+			vertex_count, vertices_size, index_count, indices_size, g_render.buffer_alloc_ring.free);
+		return false;
 	}
 
-	// TODO bake sequence number into handle (to detect buffer lifetime misuse)
-	retval.buffer.unit.size = unit_size;
-	retval.buffer.unit.count = count;
-	retval.buffer.unit.offset = offset / unit_size;
-	retval.ptr = ((byte*)g_render.buffer.mapped) + offset;
+	{
+		const uint32_t vertices_offset = offset / sizeof(vk_vertex_t);
+		const uint32_t indices_offset = (offset + vertices_size) / sizeof(uint16_t);
 
-	return retval;
+		const vk_staging_region_t staging = R_VkStagingLock(total_size, 4);
+		ASSERT(staging.ptr);
+
+		ASSERT( offset % sizeof(vk_vertex_t) == 0 );
+		ASSERT( (offset + vertices_size) % sizeof(uint16_t) == 0 );
+
+		*lock = (r_geometry_buffer_lock_t) {
+			.vertices = {
+				.count = vertex_count,
+				.ptr = (vk_vertex_t *)staging.ptr,
+				.unit_offset = vertices_offset,
+			},
+			.indices = {
+				.count = index_count,
+				.ptr = (uint16_t *)((char*)staging.ptr + vertices_size),
+				.unit_offset = indices_offset,
+			},
+			.impl_ = {
+				.staging_handle = staging.handle,
+				.offset = offset,
+			},
+		};
+	}
+
+	return true;
 }
 
-void XVK_RenderBufferUnlock( xvk_render_buffer_t handle ) {
-	// TODO check whether we need to upload something from staging, etc
+void R_GeometryBufferUnlock( const r_geometry_buffer_lock_t *lock ) {
+	R_VkStagingUnlockToBuffer(lock->impl_.staging_handle, g_render.buffer.buffer, lock->impl_.offset);
 }
 
 void XVK_RenderBufferMapFreeze( void ) {
@@ -688,6 +708,21 @@ qboolean VK_RenderModelInit( VkCommandBuffer cmdbuf, vk_render_model_t *model ) 
 			.buffer = g_render.buffer.buffer,
 			.model = model,
 		};
+		R_VkStagingCommit(cmdbuf);
+		{
+			const VkBufferMemoryBarrier bmb[] = { {
+				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+				.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR, // FIXME
+				.buffer = g_render.buffer.buffer,
+				.offset = 0, // FIXME
+				.size = VK_WHOLE_SIZE, // FIXME
+			} };
+			vkCmdPipelineBarrier(cmdbuf,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+				0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
+		}
 		model->ray_model = VK_RayModelCreate(cmdbuf, args);
 		return !!model->ray_model;
 	}

@@ -600,7 +600,9 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 					.depth = 1,
 				};
 
-				vk_staging_region_t staging = R_VkStagingLock(mip_size);
+				const uint32_t texel_block_size = 4; // TODO compressed might be different
+
+				vk_staging_region_t staging = R_VkStagingLock(mip_size, texel_block_size);
 				ASSERT(staging.ptr);
 				memcpy(staging.ptr, buf, mip_size);
 
@@ -610,11 +612,12 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 					BuildMipMap( buf, width, height, 1, tex->flags );
 				}
 
-				R_VkStagingUnlockToImage(&staging, &region, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, tex->vk.image.image);
+				R_VkStagingUnlockToImage(staging.handle, &region, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, tex->vk.image.image);
 			}
 		}
 
 		R_VkStagingCommit(cmdbuf);
+		R_VKStagingMarkEmpty_FIXME();
 
 		// 	5.2 image:layout:DST -> image:layout:SAMPLED
 		// 		5.2.1 transitionToLayout(DST -> SHADER_READ_ONLY)

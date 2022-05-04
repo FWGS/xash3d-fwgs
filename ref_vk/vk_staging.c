@@ -26,6 +26,7 @@ static struct {
 	vk_buffer_t buffer;
 	staging_alloc_t allocs[MAX_STAGING_ALLOCS];
 	int num_allocs;
+	int num_committed;
 } g_staging = {0};
 
 qboolean R_VkStagingInit(void) {
@@ -39,8 +40,10 @@ void R_VkStagingShutdown(void) {
 	VK_BufferDestroy(&g_staging.buffer);
 }
 
-vk_staging_region_t R_VkStagingLock(size_t size) {
-	const int offset = g_staging.num_allocs > 0 ? g_staging.allocs[g_staging.num_allocs - 1].offset + g_staging.allocs[g_staging.num_allocs - 1].size : 0;
+vk_staging_region_t R_VkStagingLock(uint32_t size, uint32_t alignment) {
+	const int offset = g_staging.num_allocs > 0
+		? ALIGN_UP(g_staging.allocs[g_staging.num_allocs - 1].offset + g_staging.allocs[g_staging.num_allocs - 1].size, alignment)
+		: 0;
 
 	if ( g_staging.num_allocs >= MAX_STAGING_ALLOCS )
 		return (vk_staging_region_t){0};
@@ -55,22 +58,24 @@ vk_staging_region_t R_VkStagingLock(size_t size) {
 	return (vk_staging_region_t){(char*)g_staging.buffer.mapped + offset, size, g_staging.num_allocs - 1};
 }
 
-/*
-void R_VkStagingUnlockToBuffer(const vk_staging_region_t* region, VkBuffer dest, size_t dest_offset) {
-	ASSERT(region->internal_id_ >= 0 && region->internal_id_ < g_staging.num_allocs);
-	ASSERT(g_staging.allocs[region->internal_id_].dest == VK_NULL_HANDLE);
-
-	g_staging.allocs[region->internal_id_].dest = dest;
-	g_staging.allocs[region->internal_id_].dest_offset = dest_offset;
-}
-*/
-
-void R_VkStagingUnlockToImage(const vk_staging_region_t* region, VkBufferImageCopy* dest_region, VkImageLayout layout, VkImage dest) {
+void R_VkStagingUnlockToBuffer(staging_handle_t handle, VkBuffer dest, size_t dest_offset) {
 	staging_alloc_t *alloc;
-	ASSERT(region->internal_id_ >= 0 && region->internal_id_ < g_staging.num_allocs);
-	ASSERT(g_staging.allocs[region->internal_id_].dest_type == DestNone);
+	ASSERT(handle >= 0 && handle < g_staging.num_allocs);
+	ASSERT(g_staging.allocs[handle].dest_type == DestNone);
 
-	alloc = g_staging.allocs + region->internal_id_;
+	alloc = g_staging.allocs + handle;
+	alloc->dest_type = DestBuffer;
+
+	alloc->buffer.buffer = dest;
+	alloc->buffer.offset = dest_offset;
+}
+
+void R_VkStagingUnlockToImage(staging_handle_t handle, VkBufferImageCopy* dest_region, VkImageLayout layout, VkImage dest) {
+	staging_alloc_t *alloc;
+	ASSERT(handle >= 0 && handle < g_staging.num_allocs);
+	ASSERT(g_staging.allocs[handle].dest_type == DestNone);
+
+	alloc = g_staging.allocs + handle;
 	alloc->dest_type = DestImage;
 	alloc->image.layout = layout;
 	alloc->image.image = dest;
@@ -78,41 +83,29 @@ void R_VkStagingUnlockToImage(const vk_staging_region_t* region, VkBufferImageCo
 	alloc->image.region.bufferOffset += alloc->offset;
 }
 
-static void copyImage(VkCommandBuffer cmdbuf, const staging_alloc_t *alloc) {
-	vkCmdCopyBufferToImage(cmdbuf, g_staging.buffer.buffer, alloc->image.image, alloc->image.layout, 1, &alloc->image.region);
-}
-
 void R_VkStagingCommit(VkCommandBuffer cmdbuf) {
-	for ( int i = 0; i < g_staging.num_allocs; i++ ) {
+	for ( int i = g_staging.num_committed; i < g_staging.num_allocs; i++ ) {
 		staging_alloc_t *const alloc = g_staging.allocs + i;
 		ASSERT(alloc->dest_type != DestNone);
 		switch (alloc->dest_type) {
 			case DestImage:
-				copyImage(cmdbuf, alloc);
+				vkCmdCopyBufferToImage(cmdbuf, g_staging.buffer.buffer, alloc->image.image, alloc->image.layout, 1, &alloc->image.region);
 				break;
 			case DestBuffer:
-				ASSERT(!"staging dest buffer is not implemented");
+				// TODO coalesce staging regions for the same dest buffer
+				gEngine.Con_Printf("vkCmdCopyBuffer %d src_offset=%d dst_offset=%d size=%d\n", i, alloc->offset, alloc->buffer.offset, alloc->size);
+				vkCmdCopyBuffer(cmdbuf, g_staging.buffer.buffer, alloc->buffer.buffer, 1, &(VkBufferCopy){alloc->offset, alloc->buffer.offset, alloc->size});
 				break;
 		}
 
 		alloc->dest_type = DestNone;
-
-#if 0
-		// TODO coalesce staging regions for the same dest buffer
-
-		const VkBufferCopy copy = {
-			.srcOffset = g_staging.allocs[i].offset,
-			.dstOffset = g_staging.allocs[i].dest_offset,
-			.size = g_staging.allocs[i].size
-		};
-		vkCmdCopyBuffer(cmdbuf, g_staging.buffer.buffer, g_staging.allocs[i].dest, 1, &copy);
-
-		// TODO decide whether this needs to do anything with barriers
-		// here we can only collect dirty regions for each dest buffer
-#endif
 	}
 
-	g_staging.num_allocs = 0;
+	g_staging.num_committed = g_staging.num_allocs;
+}
+
+void R_VKStagingMarkEmpty_FIXME(void) {
+	g_staging.num_committed = g_staging.num_allocs = 0;
 }
 
 void R_VkStagingFlushSync(void) {
@@ -136,6 +129,7 @@ void R_VkStagingFlushSync(void) {
 
 		XVK_CHECK(vkBeginCommandBuffer(cmdbuf, &beginfo));
 		R_VkStagingCommit(cmdbuf);
+		R_VKStagingMarkEmpty_FIXME();
 		XVK_CHECK(vkEndCommandBuffer(cmdbuf));
 		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
 		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));

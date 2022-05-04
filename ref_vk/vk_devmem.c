@@ -65,7 +65,7 @@ static int allocateDeviceMemory(VkMemoryRequirements req, int type_index, VkMemo
 		};
 
 		if (g_vk_devmem.verbose) {
-			gEngine.Con_Reportf("allocateDeviceMemory size=%zu memoryTypeBits=0x%x prop_flags=%c%c%c%c%c allocate_flags=0x%x => typeIndex=%d\n",
+			gEngine.Con_Reportf("allocateDeviceMemory size=%zu memoryTypeBits=0x%x allocate_flags=0x%x => typeIndex=%d\n",
 				mai.allocationSize, req.memoryTypeBits,
 				allocate_flags,
 				mai.memoryTypeIndex);

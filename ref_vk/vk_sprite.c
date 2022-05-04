@@ -647,22 +647,18 @@ qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale, int texture, int render_mode, vec3_t color )
 {
 	vec3_t	point;
-	xvk_render_buffer_allocation_t vertex_buffer, index_buffer;
 	vk_vertex_t *dst_vtx;
 	uint16_t *dst_idx;
 
 	// Get buffer region for vertices and indices
-	vertex_buffer = XVK_RenderBufferAllocAndLock( sizeof(vk_vertex_t), 4 );
-	index_buffer = XVK_RenderBufferAllocAndLock( sizeof(uint16_t), 6 );
-	if (!vertex_buffer.ptr || !index_buffer.ptr)
-	{
-		// TODO should we free one of the above if it still succeeded?
-		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
+	r_geometry_buffer_lock_t buffer;
+	if (!R_GeometryBufferAllocAndLock( &buffer, 4, 6 )) {
+		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry for sprite quad\n");
 		return;
 	}
 
-	dst_vtx = vertex_buffer.ptr;
-	dst_idx = index_buffer.ptr;
+	dst_vtx = buffer.vertices.ptr;
+	dst_idx = buffer.indices.ptr;
 
 	// FIXME VK r_stats.c_sprite_polys++;
 
@@ -697,8 +693,7 @@ static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec
 	dst_idx[4] = 2;
 	dst_idx[5] = 3;
 
-	XVK_RenderBufferUnlock( index_buffer.buffer );
-	XVK_RenderBufferUnlock( vertex_buffer.buffer );
+	R_GeometryBufferUnlock( &buffer );
 
 	{
 		const vk_render_geometry_t geometry = {
@@ -706,10 +701,10 @@ static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec
 			.material = kXVkMaterialEmissive,
 
 			.max_vertex = 4,
-			.vertex_offset = vertex_buffer.buffer.unit.offset,
+			.vertex_offset = buffer.vertices.unit_offset,
 
 			.element_count = 6,
-			.index_offset = index_buffer.buffer.unit.offset,
+			.index_offset = buffer.indices.unit_offset,
 
 			.emissive = {color[0], color[1], color[2]},
 		};

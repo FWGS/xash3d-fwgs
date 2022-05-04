@@ -8,6 +8,7 @@
 #include "vk_devmem.h"
 #include "vk_swapchain.h"
 #include "vk_image.h"
+#include "vk_staging.h"
 
 #include "profiler.h"
 
@@ -248,6 +249,9 @@ static void enqueueRendering( VkCommandBuffer cmdbuf ) {
 	};
 
 	ASSERT(g_frame.current.phase == Phase_FrameBegan);
+
+	R_VkStagingCommit(cmdbuf); // FIXME where and when
+	R_VKStagingMarkEmpty_FIXME();
 
 	if (g_frame.rtx_enabled)
 		VK_RenderEndRTX( cmdbuf, g_frame.current.framebuffer.view, g_frame.current.framebuffer.image, g_frame.current.framebuffer.width, g_frame.current.framebuffer.height );

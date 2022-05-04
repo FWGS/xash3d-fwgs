@@ -163,7 +163,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	beamseg_t	curSeg;
 	int total_vertices = 0;
 	int total_indices = 0;
-	xvk_render_buffer_allocation_t vertex_buffer, index_buffer;
+	r_geometry_buffer_lock_t buffer;
 	vk_vertex_t *dst_vtx;
 	uint16_t *dst_idx;
 
@@ -223,17 +223,13 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	total_indices = (total_vertices - 2) * 3; // STRIP unrolled into LIST (TODO get rid of this)
 	ASSERT(total_vertices < UINT16_MAX );
 
-	vertex_buffer = XVK_RenderBufferAllocAndLock( sizeof(vk_vertex_t), total_vertices );
-	index_buffer = XVK_RenderBufferAllocAndLock( sizeof(uint16_t), total_indices );
-	if (!vertex_buffer.ptr || !index_buffer.ptr)
-	{
-		// TODO should we free one of the above if it still succeeded?
-		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
+	if (!R_GeometryBufferAllocAndLock( &buffer, total_vertices, total_indices )) {
+		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry for beam\n");
 		return;
 	}
 
-	dst_vtx = vertex_buffer.ptr;
-	dst_idx = index_buffer.ptr;
+	dst_vtx = buffer.vertices.ptr;
+	dst_idx = buffer.indices.ptr;
 
 	// specify all the segments.
 	for( i = 0; i < segments; i++ )
@@ -377,8 +373,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 		}
 	}
 
-	XVK_RenderBufferUnlock( index_buffer.buffer );
-	XVK_RenderBufferUnlock( vertex_buffer.buffer );
+	R_GeometryBufferUnlock( &buffer );
 
 	{
 		const vk_render_geometry_t geometry = {
@@ -386,10 +381,10 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			.material = kXVkMaterialEmissive,
 
 			.max_vertex = total_vertices,
-			.vertex_offset = vertex_buffer.buffer.unit.offset,
+			.vertex_offset = buffer.vertices.unit_offset,
 
 			.element_count = total_indices,
-			.index_offset = index_buffer.buffer.unit.offset,
+			.index_offset = buffer.indices.unit_offset,
 
 			.emissive = { color[0], color[1], color[2] },
 		};

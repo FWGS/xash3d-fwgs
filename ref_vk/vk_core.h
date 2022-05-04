@@ -229,6 +229,7 @@ do { \
 	X(vkBindImageMemory) \
 	X(vkCmdPipelineBarrier) \
 	X(vkCmdCopyBufferToImage) \
+	X(vkCmdCopyBuffer) \
 	X(vkQueueWaitIdle) \
 	X(vkDeviceWaitIdle) \
 	X(vkDestroyImage) \
