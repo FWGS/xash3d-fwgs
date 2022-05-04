@@ -2785,8 +2785,7 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	if( header->version == HLBSP_VERSION )
 	{
 		// only relevant for half-life maps
-		if( header->lumps[LUMP_ENTITIES].fileofs <= 1024 &&
-			(header->lumps[LUMP_ENTITIES].filelen % sizeof( dplane_t )) == 0 )
+		if( Q_stricmp( FS_Gamedir(), "bshift" ) == 0 )
 		{
 			// blue-shift swapped lumps
 			srclumps[0].lumpnumber = LUMP_PLANES;
@@ -2913,8 +2912,7 @@ qboolean Mod_TestBmodelLumps( const char *name, const byte *mod_base, qboolean s
 	if( header->version == HLBSP_VERSION )
 	{
 		// only relevant for half-life maps
-		if( header->lumps[LUMP_ENTITIES].fileofs <= 1024 &&
-			(header->lumps[LUMP_ENTITIES].filelen % sizeof( dplane_t )) == 0 )
+		if( Q_stricmp( FS_Gamedir(), "bshift" ) == 0 )
 		{
 			// blue-shift swapped lumps
 			srclumps[0].lumpnumber = LUMP_PLANES;
