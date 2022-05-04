@@ -104,7 +104,7 @@ void Platform_RunEvents( void )
 	static unsigned int	last_buttons;
 	static signed short	last_X, last_Y;
 
-	sceCtrlReadBufferPositive( &buf, 1 );
+	sceCtrlPeekBufferPositive( &buf, 1 );
 
 	for( i = 0; i < PSP_MAX_KEYS; i++ )
 	{
