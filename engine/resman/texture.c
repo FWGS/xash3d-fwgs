@@ -508,6 +508,8 @@ void CreateInternalTextures( void )
 	//RM_TextureManager.dlight_texture = CreateDlightTexture();
 
 	CreateCinematicDummyTexture();
+
+	CreateDlightTexture();
 }
 
 rgbdata_t* FakeImage( int width, int height, int depth, int flags )
@@ -625,4 +627,17 @@ int CreateCinematicDummyTexture( void )
 	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR );
 
 	return RM_LoadTextureFromBuffer( REF_CINEMA_TEXTURE, pic, TF_NOMIPMAP | TF_CLAMP, false );
+}
+
+int CreateDlightTexture( void )
+{
+	int	w, h;
+	rgbdata_t* pic;
+
+	w = 128;
+	h = 128;
+
+	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR );
+
+	return RM_LoadTextureFromBuffer( REF_DLIGHT_TEXTURE, pic, TF_NOMIPMAP | TF_CLAMP | TF_ATLAS_PAGE, false );
 }
