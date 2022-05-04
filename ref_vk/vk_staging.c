@@ -93,7 +93,7 @@ void R_VkStagingCommit(VkCommandBuffer cmdbuf) {
 				break;
 			case DestBuffer:
 				// TODO coalesce staging regions for the same dest buffer
-				gEngine.Con_Printf("vkCmdCopyBuffer %d src_offset=%d dst_offset=%d size=%d\n", i, alloc->offset, alloc->buffer.offset, alloc->size);
+				//gEngine.Con_Printf("vkCmdCopyBuffer %d src_offset=%d dst_offset=%d size=%d\n", i, alloc->offset, alloc->buffer.offset, alloc->size);
 				vkCmdCopyBuffer(cmdbuf, g_staging.buffer.buffer, alloc->buffer.buffer, 1, &(VkBufferCopy){alloc->offset, alloc->buffer.offset, alloc->size});
 				break;
 		}
