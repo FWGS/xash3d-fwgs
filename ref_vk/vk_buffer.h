@@ -11,15 +11,6 @@ typedef struct vk_buffer_s {
 	uint32_t size;
 } vk_buffer_t;
 
-typedef struct {
-	vk_buffer_t staging;
-} vk_global_buffer_t;
-
-extern vk_global_buffer_t g_vk_buffers;
-
-qboolean VK_BuffersInit( void );
-void VK_BuffersDestroy( void );
-
 qboolean VK_BufferCreate(const char *debug_name, vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags flags);
 void VK_BufferDestroy(vk_buffer_t *buf);
 

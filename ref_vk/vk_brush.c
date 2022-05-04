@@ -88,10 +88,9 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 	glpoly_t	*p;
 	int	i;
 	int num_vertices = 0, num_indices = 0;
-	xvk_render_buffer_allocation_t vertex_buffer, index_buffer = {0};
 	int vertex_offset = 0;
-	vk_vertex_t *gpu_vertices;
 	uint16_t *indices;
+	r_geometry_buffer_lock_t buffer;
 
 #define MAX_WATER_VERTICES 16
 	vk_vertex_t poly_vertices[MAX_WATER_VERTICES];
@@ -116,17 +115,12 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 		num_indices += triangles * 3;
 	}
 
-	vertex_buffer = XVK_RenderBufferAllocAndLock( sizeof(vk_vertex_t), num_vertices );
-	index_buffer = XVK_RenderBufferAllocAndLock( sizeof(uint16_t), num_indices );
-	if (vertex_buffer.ptr == NULL || index_buffer.ptr == NULL)
-	{
-		// TODO should we free one of the above if it still succeeded?
-		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
+	if (!R_GeometryBufferAllocAndLock( &buffer, num_vertices, num_indices )) {
+		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry for %s\n", ent->model->name );
 		return;
 	}
 
-	gpu_vertices = vertex_buffer.ptr;
-	indices = index_buffer.ptr;
+	indices = buffer.indices.ptr;
 
 	for( p = warp->polys; p; p = p->next )
 	{
@@ -204,12 +198,11 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 		}
 #endif
 
-		memcpy(gpu_vertices + vertex_offset, poly_vertices, sizeof(vk_vertex_t) * p->numverts);
+		memcpy(buffer.vertices.ptr + vertex_offset, poly_vertices, sizeof(vk_vertex_t) * p->numverts);
 		vertex_offset += p->numverts;
 	}
 
-	XVK_RenderBufferUnlock( vertex_buffer.buffer );
-	XVK_RenderBufferUnlock( index_buffer.buffer );
+	R_GeometryBufferUnlock( &buffer );
 
 	// Render
 	{
@@ -219,10 +212,10 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 			.surf = warp,
 
 			.max_vertex = num_vertices,
-			.vertex_offset = vertex_buffer.buffer.unit.offset,
+			.vertex_offset = buffer.vertices.unit_offset,
 
 			.element_count = num_indices,
-			.index_offset = index_buffer.buffer.unit.offset,
+			.index_offset = buffer.indices.unit_offset,
 		};
 
 		VK_RenderModelDynamicAddGeometry( &geometry );
@@ -487,22 +480,20 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	vk_brush_model_t *bmodel = mod->cache.data;
 	uint32_t vertex_offset = 0;
 	int num_geometries = 0;
-	xvk_render_buffer_allocation_t vertex_buffer, index_buffer;
 	vk_vertex_t *bvert = NULL;
 	uint16_t *bind = NULL;
 	uint32_t index_offset = 0;
+	r_geometry_buffer_lock_t buffer;
 
-	vertex_buffer = XVK_RenderBufferAllocAndLock( sizeof(vk_vertex_t), sizes.num_vertices );
-	index_buffer = XVK_RenderBufferAllocAndLock( sizeof(uint16_t), sizes.num_indices );
-	if (vertex_buffer.ptr == NULL || index_buffer.ptr == NULL) {
-		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
+	if (!R_GeometryBufferAllocAndLock( &buffer, sizes.num_vertices, sizes.num_indices )) {
+		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry for %s\n", mod->name );
 		return false;
 	}
 
-	bvert = vertex_buffer.ptr;
-	bind = index_buffer.ptr;
+	bvert = buffer.vertices.ptr;
+	bind = buffer.indices.ptr;
 
-	index_offset = index_buffer.buffer.unit.offset;
+	index_offset = buffer.indices.unit_offset;
 
 	// Load sorted by gl_texturenum
 	// TODO this does not make that much sense in vulkan (can sort later)
@@ -564,7 +555,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			model_geometry->surf = surf;
 			model_geometry->texture = tex_id;
 
-			model_geometry->vertex_offset = vertex_buffer.buffer.unit.offset;
+			model_geometry->vertex_offset = buffer.vertices.unit_offset;
 			model_geometry->max_vertex = vertex_offset + surf->numedges;
 
 			model_geometry->index_offset = index_offset;
@@ -642,8 +633,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 		}
 	}
 
-	XVK_RenderBufferUnlock( index_buffer.buffer );
-	XVK_RenderBufferUnlock( vertex_buffer.buffer );
+	R_GeometryBufferUnlock( &buffer );
 
 	if (bmodel->polylights) {
 		gEngine.Con_Reportf("WHAT %d %d \n", sizes.emissive_surfaces, bmodel->polylights_count);

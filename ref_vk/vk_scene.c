@@ -1,5 +1,6 @@
 #include "vk_scene.h"
 #include "vk_brush.h"
+#include "vk_staging.h"
 #include "vk_studio.h"
 #include "vk_lightmap.h"
 #include "vk_const.h"
@@ -214,6 +215,8 @@ void R_NewMap( void ) {
 	// Load static map lights
 	// Reads surfaces from loaded brush models (must happen after all brushes are loaded)
 	RT_LightsNewMapEnd(map);
+
+	R_VKStagingMarkEmpty_FIXME();
 
 	if (vk_core.rtx)
 	{

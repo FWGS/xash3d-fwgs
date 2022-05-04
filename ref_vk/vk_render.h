@@ -13,21 +13,42 @@ void VK_RenderShutdown( void );
 // 4. ... use it
 // 5. free (frame/map end)
 
+// TODO is this a good place?
+typedef struct vk_vertex_s {
+	// TODO padding needed for storage buffer reading, figure out how to fix in GLSL/SPV side
+	vec3_t pos; float p0_;
+	vec3_t normal; uint32_t flags;
+	vec3_t tangent; uint32_t p1_;
+	vec2_t gl_tc; //float p2_[2];
+	vec2_t lm_tc; //float p3_[2];
+
+	rgba_t color; // per-vertex (non-rt lighting) color, color[3] == 1(255) => use color, discard lightmap; color[3] == 0 => use lightmap, discard color
+	float _padding[3];
+} vk_vertex_t;
+
 typedef struct {
 	struct {
-		uint32_t size; // single unit size in bytes
-		uint32_t offset; // offset in units from start of vulkan buffer
-		uint32_t count; // number of units in this allocation
-	} unit;
-} xvk_render_buffer_t;
+		vk_vertex_t *ptr;
+		int count;
+		int unit_offset;
+	} vertices;
 
-typedef struct {
-	void *ptr;
-	xvk_render_buffer_t buffer;
-} xvk_render_buffer_allocation_t;
+	struct {
+		uint16_t *ptr;
+		int count;
+		int unit_offset;
+	} indices;
 
-xvk_render_buffer_allocation_t XVK_RenderBufferAllocAndLock( uint32_t unit_size, uint32_t count );
-void XVK_RenderBufferUnlock( xvk_render_buffer_t handle );
+	struct {
+		int staging_handle;
+		uint32_t offset;
+	} impl_;
+} r_geometry_buffer_lock_t;
+
+qboolean R_GeometryBufferAllocAndLock( r_geometry_buffer_lock_t *lock, int vertex_count, int index_count );
+void R_GeometryBufferUnlock( const r_geometry_buffer_lock_t *lock );
+//void R_VkGeometryBufferFree( int handle );
+
 void XVK_RenderBufferMapFreeze( void ); // Permanently freeze all allocations as map-permanent
 void XVK_RenderBufferMapClear( void ); // Free the entire buffer for a new map
 
@@ -46,18 +67,6 @@ void VK_RenderStateSetMatrixProjection(const matrix4x4 proj, float fov_angle_y);
 void VK_RenderStateSetMatrixView(const matrix4x4 view);
 void VK_RenderStateSetMatrixModel(const matrix4x4 model);
 
-// TODO is this a good place?
-typedef struct vk_vertex_s {
-	// TODO padding needed for storage buffer reading, figure out how to fix in GLSL/SPV side
-	vec3_t pos; float p0_;
-	vec3_t normal; uint32_t flags;
-	vec3_t tangent; uint32_t p1_;
-	vec2_t gl_tc; //float p2_[2];
-	vec2_t lm_tc; //float p3_[2];
-
-	rgba_t color; // per-vertex (non-rt lighting) color, color[3] == 1(255) => use color, discard lightmap; color[3] == 0 => use lightmap, discard color
-	float _padding[3];
-} vk_vertex_t;
 
 // Quirk for passing surface type to the renderer
 // xash3d does not really have a notion of materials. Instead there are custom code paths

@@ -1,22 +1,5 @@
 #include "vk_buffer.h"
 
-#include <memory.h>
-
-vk_global_buffer_t g_vk_buffers = {0};
-
-#define DEFAULT_STAGING_SIZE (16*1024*1024)
-
-qboolean VK_BuffersInit( void ) {
-	if (!VK_BufferCreate("staging", &g_vk_buffers.staging, DEFAULT_STAGING_SIZE, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
-		return false;
-
-	return true;
-}
-
-void VK_BuffersDestroy( void ) {
-	VK_BufferDestroy(&g_vk_buffers.staging);
-}
-
 qboolean VK_BufferCreate(const char *debug_name, vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags flags)
 {
 	VkBufferCreateInfo bci = {
@@ -50,7 +33,6 @@ void VK_BufferDestroy(vk_buffer_t *buf) {
 		buf->buffer = VK_NULL_HANDLE;
 	}
 
-	// FIXME when there are many allocation per VkDeviceMemory, fix this
 	if (buf->devmem.device_memory) {
 		VK_DevMemFree(&buf->devmem);
 		buf->devmem.device_memory = VK_NULL_HANDLE;
