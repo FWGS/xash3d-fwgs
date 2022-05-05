@@ -40,7 +40,7 @@ static uint		gl_numTextures;
 #error Current PALETTE_FORMAT not supported!
 #endif
 
-#define TEXTURE_SIZE_MIN 8
+#define TEXTURE_SIZE_MIN 16 //8
 
 #define IsLightMap( tex )	( FBitSet(( tex )->flags, TF_ATLAS_PAGE ))
 
