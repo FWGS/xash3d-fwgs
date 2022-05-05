@@ -2738,6 +2738,42 @@ static void Mod_LoadLighting( dbspmodel_t *bmod )
 
 /*
 =================
+Mod_LumpLooksLikePlanes
+
+=================
+*/
+static qboolean Mod_LumpLooksLikePlanes( const byte *in, dlump_t *lump, qboolean fast )
+{
+	int numplanes, i;
+	const dplane_t *planes;
+
+	if( lump->filelen < sizeof( dplane_t ) &&
+		lump->filelen % sizeof( dplane_t ) != 0 )
+		return false;
+
+	if( fast )
+		return true;
+
+	numplanes = lump->filelen / sizeof( dplane_t );
+	planes = (const dplane_t*)(in + lump->fileofs);
+
+	for( i = 0; i < numplanes; i++ )
+	{
+		if( IS_NAN( planes[i].dist ) )
+			return false;
+
+		if( VectorIsNAN( planes[i].normal ))
+			return false;
+
+		if( planes[i].type > 6 )
+			return false;
+	}
+
+	return true;
+}
+
+/*
+=================
 Mod_LoadBmodelLumps
 
 loading and processing bmodel
@@ -2785,8 +2821,8 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	if( header->version == HLBSP_VERSION )
 	{
 		// only relevant for half-life maps
-		if( header->lumps[LUMP_ENTITIES].fileofs <= 1024 &&
-			(header->lumps[LUMP_ENTITIES].filelen % sizeof( dplane_t )) == 0 )
+		if( !Mod_LumpLooksLikePlanes( mod_base, &header->lumps[LUMP_PLANES], false ) &&
+			Mod_LumpLooksLikePlanes( mod_base, &header->lumps[LUMP_ENTITIES], false ))
 		{
 			// blue-shift swapped lumps
 			srclumps[0].lumpnumber = LUMP_PLANES;
@@ -2913,8 +2949,8 @@ qboolean Mod_TestBmodelLumps( const char *name, const byte *mod_base, qboolean s
 	if( header->version == HLBSP_VERSION )
 	{
 		// only relevant for half-life maps
-		if( header->lumps[LUMP_ENTITIES].fileofs <= 1024 &&
-			(header->lumps[LUMP_ENTITIES].filelen % sizeof( dplane_t )) == 0 )
+		if( Mod_LumpLooksLikePlanes( mod_base, &header->lumps[LUMP_ENTITIES], true ) &&
+			 !Mod_LumpLooksLikePlanes( mod_base, &header->lumps[LUMP_PLANES], true ))
 		{
 			// blue-shift swapped lumps
 			srclumps[0].lumpnumber = LUMP_PLANES;
