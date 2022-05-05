@@ -2477,7 +2477,7 @@ qboolean FS_SysFileExists( const char *path, qboolean caseinsensitive )
 
 	close( desc );
 	return true;
-#else
+#elif XASH_POSIX
 	int ret;
 	struct stat buf;
 
@@ -2495,6 +2495,8 @@ qboolean FS_SysFileExists( const char *path, qboolean caseinsensitive )
 		return false;
 
 	return S_ISREG( buf.st_mode );
+#else
+#error
 #endif
 }
 
@@ -2529,23 +2531,18 @@ qboolean FS_SysFolderExists( const char *path )
 	DWORD	dwFlags = GetFileAttributes( path );
 
 	return ( dwFlags != -1 ) && ( dwFlags & FILE_ATTRIBUTE_DIRECTORY );
-#else
-	DIR *dir = opendir( path );
+#elif XASH_POSIX
+	struct stat buf;
 
-	if( dir )
+	if( stat( path, &buf ) < 0 )
 	{
-		closedir( dir );
-		return true;
-	}
-	else if( (errno == ENOENT) || (errno == ENOTDIR) )
-	{
+		Con_Reportf( S_ERROR "FS_SysFolderExists: problem while opening dir: %s\n", strerror( errno ));
 		return false;
 	}
-	else
-	{
-		Con_Reportf( S_ERROR "FS_SysFolderExists: problem while opening dir: %s\n", strerror( errno ) );
-		return false;
-	}
+
+	return S_ISDIR( buf.st_mode );
+#else
+#error
 #endif
 }
 
