@@ -2759,13 +2759,8 @@ static qboolean Mod_LumpLooksLikePlanes( const byte *in, dlump_t *lump, qboolean
 
 	for( i = 0; i < numplanes; i++ )
 	{
-		if( IS_NAN( planes[i].dist ) )
-			return false;
-
-		if( VectorIsNAN( planes[i].normal ))
-			return false;
-
-		if( planes[i].type > 6 )
+		// planes can only be from 0 to 5: PLANE_X, Y, Z and PLANE_ANYX, Y and Z
+		if( planes[i].type < 0 || planes[i].type > 5 )
 			return false;
 	}
 
