@@ -312,11 +312,11 @@ float rsqrt( float number )
 		".set		push\n"					// save assembler option
 		".set		noreorder\n"			// suppress reordering
 		"lv.s		S000, %1\n"				// S000 = number
-		"vzero.s	S001\n"					// S111 = 0
+		"vzero.s	S001\n"					// S100 = 0
 		"vcmp.s		EZ,   S000\n"			// CC[0] = ( S000 == 0.0f )
 		"vrsq.s		S000, S000\n"			// S000 = 1.0 / sqrt( S000 )
 		"vcmovt.s	S000, S001, 0\n"		// if ( CC[0] ) S000 = S001
-		"sv.s		S000, %0\n"				// result = S001
+		"sv.s		S000, %0\n"				// result = S000
 		".set		pop\n"					// restore assembler option
 		:	"=m"( result )
 		:	"m"( number )
@@ -940,144 +940,93 @@ int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p )
 		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
 		"beq		%[signbits], $8, 7f\n"	// jump to 7
 		"nop\n"								// 										( delay slot )
-		"j			8f\n"					// jump to SetSides
+		"j			9f\n"					// jump to SetSides
 		"nop\n"								// 										( delay slot )
 	"0:\n"
-/*
-		dist1 = p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2];
-		dist2 = p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2];
-*/
 		"lv.s		S010,  0 + %[emaxs]\n"	// S010 = emaxs[0]
 		"lv.s		S011,  4 + %[emaxs]\n"	// S011 = emaxs[1]
 		"lv.s		S012,  8 + %[emaxs]\n"	// S012 = emaxs[2]
 		"lv.s		S020,  0 + %[emins]\n"	// S020 = emins[0]
 		"lv.s		S021,  4 + %[emins]\n"	// S021 = emins[1]
 		"lv.s		S022,  8 + %[emins]\n"	// S022 = emins[2]
-		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
-		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
-		"j			8f\n"					// jump to SetSides
+		"j			8f\n"					// jump to DotProduct
 		"nop\n"								// 										( delay slot )
 	"1:\n"
-/*
-		dist1 = p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2];
-		dist2 = p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2];
-*/
 		"lv.s		S010,  0 + %[emins]\n"	// S010 = emins[0]
 		"lv.s		S011,  4 + %[emaxs]\n"	// S011 = emaxs[1]
 		"lv.s		S012,  8 + %[emaxs]\n"	// S012 = emaxs[2]
 		"lv.s		S020,  0 + %[emaxs]\n"	// S020 = emaxs[0]
 		"lv.s		S021,  4 + %[emins]\n"	// S021 = emins[1]
 		"lv.s		S022,  8 + %[emins]\n"	// S022 = emins[2]
-		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
-		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
-		"j			8f\n"					// jump to SetSides
+		"j			8f\n"					// jump to DotProduct
 		"nop\n"								// 										( delay slot )
 	"2:\n"
-/*
-		dist1 = p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2];
-		dist2 = p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2];
-*/
 		"lv.s		S010,  0 + %[emaxs]\n"	// S010 = emaxs[0]
 		"lv.s		S011,  4 + %[emins]\n"	// S011 = emins[1]
 		"lv.s		S012,  8 + %[emaxs]\n"	// S012 = emaxs[2]
 		"lv.s		S020,  0 + %[emins]\n"	// S020 = emins[0]
 		"lv.s		S021,  4 + %[emaxs]\n"	// S021 = emaxs[1]
 		"lv.s		S022,  8 + %[emins]\n"	// S022 = emins[2]
-		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
-		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
-		"j			8f\n"					// jump to SetSides
+		"j			8f\n"					// jump to DotProduct
 		"nop\n"								// 										( delay slot )
 	"3:\n"
-/*
-		dist1 = p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2];
-		dist2 = p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2];
-*/
 		"lv.s		S010,  0 + %[emins]\n"	// S010 = emins[0]
 		"lv.s		S011,  4 + %[emins]\n"	// S011 = emins[1]
 		"lv.s		S012,  8 + %[emaxs]\n"	// S012 = emaxs[2]
 		"lv.s		S020,  0 + %[emaxs]\n"	// S020 = emaxs[0]
 		"lv.s		S021,  4 + %[emaxs]\n"	// S021 = emaxs[1]
 		"lv.s		S022,  8 + %[emins]\n"	// S022 = emins[2]
-		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
-		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
-		"j			8f\n"					// jump to SetSides
+		"j			8f\n"					// jump to DotProduct
 		"nop\n"								// 										( delay slot )
 	"4:\n"
-/*
-		dist1 = p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2];
-		dist2 = p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2];
-*/
 		"lv.s		S010,  0 + %[emaxs]\n"	// S010 = emaxs[0]
 		"lv.s		S011,  4 + %[emaxs]\n"	// S011 = emaxs[1]
 		"lv.s		S012,  8 + %[emins]\n"	// S012 = emins[2]
 		"lv.s		S020,  0 + %[emins]\n"	// S020 = emins[0]
 		"lv.s		S021,  4 + %[emins]\n"	// S021 = emins[1]
 		"lv.s		S022,  8 + %[emaxs]\n"	// S022 = emaxs[2]
-		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
-		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
-		"j			8f\n"					// jump to SetSides
+		"j			8f\n"					// jump to DotProduct
 		"nop\n"								// 										( delay slot )
 	"5:\n"
-/*
-		dist1 = p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emins[2];
-		dist2 = p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emaxs[2];
-*/
 		"lv.s		S010,  0 + %[emins]\n"	// S010 = emins[0]
 		"lv.s		S011,  4 + %[emaxs]\n"	// S011 = emaxs[1]
 		"lv.s		S012,  8 + %[emins]\n"	// S012 = emins[2]
 		"lv.s		S020,  0 + %[emaxs]\n"	// S020 = emaxs[0]
 		"lv.s		S021,  4 + %[emins]\n"	// S021 = emins[1]
 		"lv.s		S022,  8 + %[emaxs]\n"	// S022 = emaxs[2]
-		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
-		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
-		"j			8f\n"					// jump to SetSides
+		"j			8f\n"					// jump to DotProduct
 		"nop\n"								// 										( delay slot )
 	"6:\n"
-/*
-		dist1 = p->normal[0]*emaxs[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2];
-		dist2 = p->normal[0]*emins[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2];
-*/
 		"lv.s		S010,  0 + %[emaxs]\n"	// S010 = emaxs[0]
 		"lv.s		S011,  4 + %[emins]\n"	// S011 = emins[1]
 		"lv.s		S012,  8 + %[emins]\n"	// S012 = emins[2]
 		"lv.s		S020,  0 + %[emins]\n"	// S020 = emins[0]
 		"lv.s		S021,  4 + %[emaxs]\n"	// S021 = emaxs[1]
 		"lv.s		S022,  8 + %[emaxs]\n"	// S022 = emaxs[2]
-		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
-		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
-		"j			8f\n"					// jump to SetSides
+		"j			8f\n"					// jump to DotProduct
 		"nop\n"								// 										( delay slot )
 	"7:\n"
-/*
-		dist1 = p->normal[0]*emins[0] + p->normal[1]*emins[1] + p->normal[2]*emins[2];
-		dist2 = p->normal[0]*emaxs[0] + p->normal[1]*emaxs[1] + p->normal[2]*emaxs[2];
-*/
 		"lv.s		S010,  0 + %[emins]\n"	// S010 = emins[0]
 		"lv.s		S011,  4 + %[emins]\n"	// S011 = emins[1]
 		"lv.s		S012,  8 + %[emins]\n"	// S012 = emins[2]
 		"lv.s		S020,  0 + %[emaxs]\n"	// S020 = emaxs[0]
 		"lv.s		S021,  4 + %[emaxs]\n"	// S021 = emaxs[1]
 		"lv.s		S022,  8 + %[emaxs]\n"	// S022 = emaxs[2]
+	"8:\n"									// DotProduct
 		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
-		"vdot.t		S031, C000, C020\n"		// S030 = C000 * C020
-	"8:\n"									// SetSides
-/*
-		if( dist1 >= p->dist )
-			sides = 1;
-		if( dist2 < p->dist )
-			sides |= 2;
-*/
+		"vdot.t		S031, C000, C020\n"		// S031 = C000 * C020
+	"9:\n"									// SetSides
 		"addiu		%[sides], $0, 0\n"		// sides = 0
 		"vcmp.s		LT,   S030, S032\n"		// S030 < S032
-		"bvt		0,    9f\n"				// if ( CC[0] == 1 ) jump to 9
-		"nop\n"								// 										( delay slot )
-		"addiu		%[sides], %[sides], 1\n"// sides = 1
-	"9:\n"
-		"vcmp.s		GE,   S031, S032\n"		// S031 >= S032
 		"bvt		0,    10f\n"			// if ( CC[0] == 1 ) jump to 10
 		"nop\n"								// 										( delay slot )
-		"addiu		%[sides], %[sides], 2\n"// sides = sides + 2
+		"addiu		%[sides], %[sides], 1\n"// sides = 1
 	"10:\n"
+		"vcmp.s		GE,   S031, S032\n"		// S031 >= S032
+		"bvt		0,    11f\n"			// if ( CC[0] == 1 ) jump to 11
+		"nop\n"								// 										( delay slot )
+		"addiu		%[sides], %[sides], 2\n"// sides = sides + 2
+	"11:\n"
 		".set		pop\n"					// restore assembler option
 		:	[sides]    "=r" ( sides )
 		:	[normal]   "m"  ( p->normal ),

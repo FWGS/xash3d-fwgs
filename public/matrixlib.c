@@ -39,9 +39,9 @@ void Matrix3x4_VectorTransform( const matrix3x4 in, const float v[3], float out[
 	__asm__ (
 		".set			push\n"					// save assembler option
 		".set			noreorder\n"			// suppress reordering
-		"ulv.q			C100,  0 + %1\n"		// C100 = in[0]
-		"ulv.q			C110, 16 + %1\n"		// C110 = in[1]
-		"ulv.q			C120, 32 + %1\n"		// C120 = in[2]
+		"lv.q			C100,  0 + %1\n"		// C100 = in[0]
+		"lv.q			C110, 16 + %1\n"		// C110 = in[1]
+		"lv.q			C120, 32 + %1\n"		// C120 = in[2]
 		"lv.s			S130,  0 + %2\n"		// S130 = v[0]
 		"lv.s			S131,  4 + %2\n"		// S131 = v[1]
 		"lv.s			S132,  8 + %2\n"		// S132 = v[2]
@@ -68,16 +68,20 @@ void Matrix3x4_VectorITransform( const matrix3x4 in, const float v[3], float out
 	__asm__ (
 		".set			push\n"					// save assembler option
 		".set			noreorder\n"			// suppress reordering
-		"ulv.q			C100,  0 + %1\n"		// C100 = in[0]
-		"ulv.q			C110, 16 + %1\n"		// C110 = in[1]
-		"ulv.q			C120, 32 + %1\n"		// C120 = in[2]
+		"lv.q			C100,  0 + %1\n"		// C100 = in[0]
+		"lv.q			C110, 16 + %1\n"		// C110 = in[1]
+		"lv.q			C120, 32 + %1\n"		// C120 = in[2]
 		"lv.s			S130,  0 + %2\n"		// S130 = v[0]
 		"lv.s			S131,  4 + %2\n"		// S131 = v[1]
 		"lv.s			S132,  8 + %2\n"		// S132 = v[2]
 		"vsub.t			C130, C130, R103\n"		// C130 = v - in[][3]
+#if 1
+		"vtfm3.t		C000, E100, C130\n"		// C000 = E100 * C130
+#else
 		"vdot.t			S000, C130, R100\n"		// S000 = dir[0] * in[0][0] + dir[1] * in[1][0] + dir[2] * in[2][0]
 		"vdot.t			S001, C130, R101\n"		// S001 = dir[0] * in[0][1] + dir[1] * in[1][1] + dir[2] * in[2][1]
 		"vdot.t			S002, C130, R102\n"		// S002 = dir[0] * in[0][2] + dir[1] * in[1][2] + dir[2] * in[2][2]
+#endif
 		"sv.s			S000,  0 + %0\n"		// out[0] = S000
 		"sv.s			S001,  4 + %0\n"		// out[1] = S001
 		"sv.s			S002,  8 + %0\n"		// out[2] = S002
@@ -104,14 +108,14 @@ void Matrix3x4_VectorRotate( const matrix3x4 in, const float v[3], float out[3] 
 	__asm__ (
 		".set			push\n"					// save assembler option
 		".set			noreorder\n"			// suppress reordering
-		"ulv.q			C100,  0 + %1\n"		// C100 = in[0]
-		"ulv.q			C110, 16 + %1\n"		// C110 = in[1]
-		"ulv.q			C120, 32 + %1\n"		// C120 = in[2]
+		"lv.q			C100,  0 + %1\n"		// C100 = in[0]
+		"lv.q			C110, 16 + %1\n"		// C110 = in[1]
+		"lv.q			C120, 32 + %1\n"		// C120 = in[2]
 		"lv.s			S130,  0 + %2\n"		// S130 = v[0]
 		"lv.s			S131,  4 + %2\n"		// S131 = v[1]
 		"lv.s			S132,  8 + %2\n"		// S132 = v[2]
-#if 0
-		"vtfm3.t		C000, M100, C130\n"		// c000 = M100 * C130
+#if 1
+		"vtfm3.t		C000, M100, C130\n"		// C000 = M100 * C130
 #else
 		"vdot.t			S000, C130, C100\n"		// S000 = v[0] * in[0][0] + v[1] * in[0][1] + v[2] * in[0][2]
 		"vdot.t			S001, C130, C110\n"		// S001 = v[0] * in[1][0] + v[1] * in[1][1] + v[2] * in[1][2]
@@ -138,14 +142,14 @@ void Matrix3x4_VectorIRotate( const matrix3x4 in, const float v[3], float out[3]
 	__asm__ (
 		".set			push\n"					// save assembler option
 		".set			noreorder\n"			// suppress reordering
-		"ulv.q			C100,  0 + %1\n"		// C100 = in[0]
-		"ulv.q			C110, 16 + %1\n"		// C110 = in[1]
-		"ulv.q			C120, 32 + %1\n"		// C120 = in[2]
+		"lv.q			C100,  0 + %1\n"		// C100 = in[0]
+		"lv.q			C110, 16 + %1\n"		// C110 = in[1]
+		"lv.q			C120, 32 + %1\n"		// C120 = in[2]
 		"lv.s			S130,  0 + %2\n"		// S130 = v[0]
 		"lv.s			S131,  4 + %2\n"		// S131 = v[1]
 		"lv.s			S132,  8 + %2\n"		// S132 = v[2]
-#if 0
-		"vtfm3.t		C000, E100, C130\n"		// c000 = E100 * C130
+#if 1
+		"vtfm3.t		C000, E100, C130\n"		// C000 = E100 * C130
 #else
 		"vdot.t			S000, C130, R100\n"		// S000 = v[0] * in[0][0] + v[1] * in[1][0] + v[2] * in[2][0]
 		"vdot.t			S001, C130, R101\n"		// S001 = v[0] * in[0][1] + v[1] * in[1][1] + v[2] * in[2][1]
@@ -167,6 +171,27 @@ void Matrix3x4_VectorIRotate( const matrix3x4 in, const float v[3], float out[3]
 
 void Matrix3x4_ConcatTransforms( matrix3x4 out, const matrix3x4 in1, const matrix3x4 in2 )
 {
+#if XASH_PSP
+	__asm__ (
+		".set			push\n"					// save assembler option
+		".set			noreorder\n"			// suppress reordering
+		"lv.q			C100,  0 + %1\n"		// C100 = in1[0]
+		"lv.q			C110, 16 + %1\n"		// C110 = in1[1]
+		"lv.q			C120, 32 + %1\n"		// C120 = in1[2]
+		"vzero.q		C130\n"					// C130 = [0, 0, 0, 0]
+		"lv.q			C200,  0 + %2\n"		// C100 = in2[0]
+		"lv.q			C210, 16 + %2\n"		// C110 = in2[1]
+		"lv.q			C220, 32 + %2\n"		// C120 = in2[2]
+		"vidt.q			C230\n"					// C230 = [0, 0, 0, 1]
+		"vmmul.q		E000, E100, E200\n"		// E000 = E100 * E200
+		"sv.q			C000,  0 + %0\n"		// out[0] = C000
+		"sv.q			C010, 16 + %0\n"		// out[1] = C010
+		"sv.q			C020, 32 + %0\n"		// out[2] = C020
+		".set			pop\n"					// restore assembler option
+		: "=m"( *out )
+		: "m"( *in1 ), "m"( *in2 )
+	);
+#else
 	out[0][0] = in1[0][0] * in2[0][0] + in1[0][1] * in2[1][0] + in1[0][2] * in2[2][0];
 	out[0][1] = in1[0][0] * in2[0][1] + in1[0][1] * in2[1][1] + in1[0][2] * in2[2][1];
 	out[0][2] = in1[0][0] * in2[0][2] + in1[0][1] * in2[1][2] + in1[0][2] * in2[2][2];
@@ -179,6 +204,7 @@ void Matrix3x4_ConcatTransforms( matrix3x4 out, const matrix3x4 in1, const matri
 	out[2][1] = in1[2][0] * in2[0][1] + in1[2][1] * in2[1][1] + in1[2][2] * in2[2][1];
 	out[2][2] = in1[2][0] * in2[0][2] + in1[2][1] * in2[1][2] + in1[2][2] * in2[2][2];
 	out[2][3] = in1[2][0] * in2[0][3] + in1[2][1] * in2[1][3] + in1[2][2] * in2[2][3] + in1[2][3];
+#endif
 }
 
 void Matrix3x4_SetOrigin( matrix3x4 out, float x, float y, float z )
@@ -221,7 +247,7 @@ void Matrix3x4_FromOriginQuat( matrix3x4 out, const vec4_t quaternion, const vec
 	__asm__ (
 		".set			push\n"							// save assembler option
 		".set			noreorder\n"					// suppress reordering
-		"ulv.q			C130, %1\n"						// C130 = quaternion
+		"lv.q			C130, %1\n"						// C130 = quaternion
 		"lv.s			S003,  0 + %2\n"				// S003 = out[0][3] = origin[0]
 		"lv.s			S013,  4 + %2\n"				// S013 = out[1][3] = origin[1]
 		"lv.s			S023,  8 + %2\n"				// S023 = out[2][3] = origin[2]
@@ -233,9 +259,9 @@ void Matrix3x4_FromOriginQuat( matrix3x4 out, const vec4_t quaternion, const vec
 		"vmov.q			C220, C130[ Y, -X,  W,  Z]\n"	// C220 = ( y, -x,  w,  z)
 		"vmov.q			C230, C130[-X, -Y, -Z,  W]\n"	// C230 = (-x, -y, -z,  w)
 		"vmmul.q		E000, E100, E200\n"				// E000 = E100 * E200
-		"usv.q			C000,  0 + %0\n"				// out[0] = C000
-		"usv.q			C010, 16 + %0\n"				// out[1] = C010
-		"usv.q			C020, 32 + %0\n"				// out[2] = C020
+		"sv.q			C000,  0 + %0\n"				// out[0] = C000
+		"sv.q			C010, 16 + %0\n"				// out[1] = C010
+		"sv.q			C020, 32 + %0\n"				// out[2] = C020
 		".set			pop\n"							// restore assembler option
 		: "=m"( *out )
 		: "m"( *quaternion ), "m"( *origin ) 
@@ -306,9 +332,9 @@ void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_
 			/**/
 			"vmscl.t		E000, E000, S130\n"		// E000 = E000 * S103 = out(3) * scale
 			/**/
-			"usv.q			C000,  0 + %0\n"		// out[0] = C000
-			"usv.q			C010, 16 + %0\n"		// out[1] = C010
-			"usv.q			C020, 32 + %0\n"		// out[2] = C020
+			"sv.q			C000,  0 + %0\n"		// out[0] = C000
+			"sv.q			C010, 16 + %0\n"		// out[1] = C010
+			"sv.q			C020, 32 + %0\n"		// out[2] = C020
 			".set			pop\n"					// restore assembler option
 			: "=m"( *out )
 			: "m"( *angles ), "m"( *origin ), "m"( scale )
@@ -347,9 +373,9 @@ void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_
 			/**/
 			"vmscl.t		E000, E000, S130\n"		// E000 = E000 * S103 = out(3) * scale
 			/**/
-			"usv.q			C000,  0 + %0\n"		// out[0] = C000
-			"usv.q			C010, 16 + %0\n"		// out[1] = C010
-			"usv.q			C020, 32 + %0\n"		// out[2] = C020
+			"sv.q			C000,  0 + %0\n"		// out[0] = C000
+			"sv.q			C010, 16 + %0\n"		// out[1] = C010
+			"sv.q			C020, 32 + %0\n"		// out[2] = C020
 			".set			pop\n"					// restore assembler option
 			: "=m"( *out )
 			: "m"( *angles ), "m"( *origin ), "m"( scale )
@@ -382,9 +408,9 @@ void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_
 			/**/
 			"vmscl.t		E000, E000, S130\n"		// E000 = E000 * S103 = out(3) * scale
 			/**/
-			"usv.q			C000,  0 + %0\n"		// out[0] = C000
-			"usv.q			C010, 16 + %0\n"		// out[1] = C010
-			"usv.q			C020, 32 + %0\n"		// out[2] = C020
+			"sv.q			C000,  0 + %0\n"		// out[0] = C000
+			"sv.q			C010, 16 + %0\n"		// out[1] = C010
+			"sv.q			C020, 32 + %0\n"		// out[2] = C020
 			".set			pop\n"					// restore assembler option
 			: "=m"( *out )
 			: "m"( *angles ), "m"( *origin ), "m"( scale )
@@ -407,9 +433,9 @@ void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_
 			"vmov.s			S011, S130\n"			// S011 = S130 = out[1][1] = scale	
 			"vmov.s			S022, S130\n"			// S022 = S130 = out[2][2] = scale	
 			/**/
-			"usv.q			C000,  0 + %0\n"		// out[0] = C000
-			"usv.q			C010, 16 + %0\n"		// out[1] = C010
-			"usv.q			C020, 32 + %0\n"		// out[2] = C020
+			"sv.q			C000,  0 + %0\n"		// out[0] = C000
+			"sv.q			C010, 16 + %0\n"		// out[1] = C010
+			"sv.q			C020, 32 + %0\n"		// out[2] = C020
 			".set			pop\n"					// restore assembler option
 			: "=m"( *out )
 			: "m"( *origin ), "m"( scale )
@@ -502,9 +528,9 @@ void Matrix3x4_TransformPositivePlane( const matrix3x4 in, const vec3_t normal, 
 	__asm__ (
 		".set			push\n"					// save assembler option
 		".set			noreorder\n"			// suppress reordering
-		"ulv.q			C100,  0 + %2\n"		// C100 = in[0]
-		"ulv.q			C110, 16 + %2\n"		// C110 = in[1]
-		"ulv.q			C120, 32 + %2\n"		// C120 = in[2]
+		"lv.q			C100,  0 + %2\n"		// C100 = in[0]
+		"lv.q			C110, 16 + %2\n"		// C110 = in[1]
+		"lv.q			C120, 32 + %2\n"		// C120 = in[2]
 		"lv.s			S200,  0 + %3\n"		// S200 = normal[0]
 		"lv.s			S201,  4 + %3\n"		// S201 = normal[1]
 		"lv.s			S202,  8 + %3\n"		// S202 = normal[2]
@@ -624,9 +650,9 @@ void Matrix4x4_VectorTransform( const matrix4x4 in, const float v[3], float out[
 	__asm__ (
 		".set			push\n"					// save assembler option
 		".set			noreorder\n"			// suppress reordering
-		"ulv.q			C100,  0 + %1\n"		// C100 = in[0]
-		"ulv.q			C110, 16 + %1\n"		// C110 = in[1]
-		"ulv.q			C120, 32 + %1\n"		// C120 = in[2]
+		"lv.q			C100,  0 + %1\n"		// C100 = in[0]
+		"lv.q			C110, 16 + %1\n"		// C110 = in[1]
+		"lv.q			C120, 32 + %1\n"		// C120 = in[2]
 		"lv.s			S130,  0 + %2\n"		// S130 = v[0]
 		"lv.s			S131,  4 + %2\n"		// S131 = v[1]
 		"lv.s			S132,  8 + %2\n"		// S132 = v[2]
@@ -653,16 +679,20 @@ void Matrix4x4_VectorITransform( const matrix4x4 in, const float v[3], float out
 	__asm__ (
 		".set			push\n"					// save assembler option
 		".set			noreorder\n"			// suppress reordering
-		"ulv.q			C100,  0 + %1\n"		// C100 = in[0]
-		"ulv.q			C110, 16 + %1\n"		// C110 = in[1]
-		"ulv.q			C120, 32 + %1\n"		// C120 = in[2]
+		"lv.q			C100,  0 + %1\n"		// C100 = in[0]
+		"lv.q			C110, 16 + %1\n"		// C110 = in[1]
+		"lv.q			C120, 32 + %1\n"		// C120 = in[2]
 		"lv.s			S130,  0 + %2\n"		// S130 = v[0]
 		"lv.s			S131,  4 + %2\n"		// S131 = v[1]
 		"lv.s			S132,  8 + %2\n"		// S132 = v[2]
-		"vsub.t			C200, C130, R103\n"		// C130 = v - in[][3]
-		"vdot.t			S000, C200, R100\n"		// S000 = dir[0] * in[0][0] + dir[1] * in[1][0] + dir[2] * in[2][0]
-		"vdot.t			S001, C200, R101\n"		// S001 = dir[0] * in[0][1] + dir[1] * in[1][1] + dir[2] * in[2][1]
-		"vdot.t			S002, C200, R102\n"		// S002 = dir[0] * in[0][2] + dir[1] * in[1][2] + dir[2] * in[2][2]
+		"vsub.t			C130, C130, R103\n"		// C130 = v - in[][3]
+#if 1
+		"vtfm3.t		C000, E100, C130\n"		// C000 = E100 * C130
+#else
+		"vdot.t			S000, C130, R100\n"		// S000 = dir[0] * in[0][0] + dir[1] * in[1][0] + dir[2] * in[2][0]
+		"vdot.t			S001, C130, R101\n"		// S001 = dir[0] * in[0][1] + dir[1] * in[1][1] + dir[2] * in[2][1]
+		"vdot.t			S002, C130, R102\n"		// S002 = dir[0] * in[0][2] + dir[1] * in[1][2] + dir[2] * in[2][2]
+#endif
 		"sv.s			S000,  0 + %0\n"		// out[0] = S000
 		"sv.s			S001,  4 + %0\n"		// out[1] = S001
 		"sv.s			S002,  8 + %0\n"		// out[2] = S002
@@ -689,14 +719,14 @@ void Matrix4x4_VectorRotate( const matrix4x4 in, const float v[3], float out[3] 
 	__asm__ (
 		".set			push\n"					// save assembler option
 		".set			noreorder\n"			// suppress reordering
-		"ulv.q			C100,  0 + %1\n"		// C100 = in[0]
-		"ulv.q			C110, 16 + %1\n"		// C110 = in[1]
-		"ulv.q			C120, 32 + %1\n"		// C120 = in[2]
+		"lv.q			C100,  0 + %1\n"		// C100 = in[0]
+		"lv.q			C110, 16 + %1\n"		// C110 = in[1]
+		"lv.q			C120, 32 + %1\n"		// C120 = in[2]
 		"lv.s			S130,  0 + %2\n"		// S130 = v[0]
 		"lv.s			S131,  4 + %2\n"		// S131 = v[1]
 		"lv.s			S132,  8 + %2\n"		// S132 = v[2]
-#if 0
-		"vtfm3.t		C000, M100, C130\n"		// c000 = M100 * C130
+#if 1
+		"vtfm3.t		C000, M100, C130\n"		// C000 = M100 * C130
 #else
 		"vdot.t			S000, C130, C100\n"		// S000 = v[0] * in[0][0] + v[1] * in[0][1] + v[2] * in[0][2]
 		"vdot.t			S001, C130, C110\n"		// S001 = v[0] * in[1][0] + v[1] * in[1][1] + v[2] * in[1][2]
@@ -722,14 +752,14 @@ void Matrix4x4_VectorIRotate( const matrix4x4 in, const float v[3], float out[3]
 	__asm__ (
 		".set			push\n"					// save assembler option
 		".set			noreorder\n"			// suppress reordering
-		"ulv.q			C100,  0 + %1\n"		// C100 = in[0]
-		"ulv.q			C110, 16 + %1\n"		// C110 = in[1]
-		"ulv.q			C120, 32 + %1\n"		// C120 = in[2]
+		"lv.q			C100,  0 + %1\n"		// C100 = in[0]
+		"lv.q			C110, 16 + %1\n"		// C110 = in[1]
+		"lv.q			C120, 32 + %1\n"		// C120 = in[2]
 		"lv.s			S130,  0 + %2\n"		// S130 = v[0]
 		"lv.s			S131,  4 + %2\n"		// S131 = v[1]
 		"lv.s			S132,  8 + %2\n"		// S132 = v[2]
-#if 0
-		"vtfm3.t		C000, E100, C130\n"		// c000 = E100 * C130
+#if 1
+		"vtfm3.t		C000, E100, C130\n"		// C000 = E100 * C130
 #else
 		"vdot.t			S000, C130, R100\n"		// S000 = v[0] * in[0][0] + v[1] * in[1][0] + v[2] * in[2][0]
 		"vdot.t			S001, C130, R101\n"		// S001 = v[0] * in[0][1] + v[1] * in[1][1] + v[2] * in[2][1]
@@ -752,6 +782,27 @@ void Matrix4x4_VectorIRotate( const matrix4x4 in, const float v[3], float out[3]
 
 void Matrix4x4_ConcatTransforms( matrix4x4 out, const matrix4x4 in1, const matrix4x4 in2 )
 {
+#if XASH_PSP
+	__asm__ (
+		".set			push\n"					// save assembler option
+		".set			noreorder\n"			// suppress reordering
+		"lv.q			C100,  0 + %1\n"		// C100 = in1[0]
+		"lv.q			C110, 16 + %1\n"		// C110 = in1[1]
+		"lv.q			C120, 32 + %1\n"		// C120 = in1[2]
+		"vzero.q		C130\n"					// C130 = [0, 0, 0, 0]
+		"lv.q			C200,  0 + %2\n"		// C100 = in2[0]
+		"lv.q			C210, 16 + %2\n"		// C110 = in2[1]
+		"lv.q			C220, 32 + %2\n"		// C120 = in2[2]
+		"vidt.q			C230\n"					// C230 = [0, 0, 0, 1]
+		"vmmul.q		E000, E100, E200\n"		// E000 = E100 * E200
+		"sv.q			C000,  0 + %0\n"		// out[0] = C000
+		"sv.q			C010, 16 + %0\n"		// out[1] = C010
+		"sv.q			C020, 32 + %0\n"		// out[2] = C020
+		".set			pop\n"					// restore assembler option
+		: "=m"( *out )
+		: "m"( *in1 ), "m"( *in2 )
+	);
+#else
 	out[0][0] = in1[0][0] * in2[0][0] + in1[0][1] * in2[1][0] + in1[0][2] * in2[2][0];
 	out[0][1] = in1[0][0] * in2[0][1] + in1[0][1] * in2[1][1] + in1[0][2] * in2[2][1];
 	out[0][2] = in1[0][0] * in2[0][2] + in1[0][1] * in2[1][2] + in1[0][2] * in2[2][2];
@@ -764,6 +815,7 @@ void Matrix4x4_ConcatTransforms( matrix4x4 out, const matrix4x4 in1, const matri
 	out[2][1] = in1[2][0] * in2[0][1] + in1[2][1] * in2[1][1] + in1[2][2] * in2[2][1];
 	out[2][2] = in1[2][0] * in2[0][2] + in1[2][1] * in2[1][2] + in1[2][2] * in2[2][2];
 	out[2][3] = in1[2][0] * in2[0][3] + in1[2][1] * in2[1][3] + in1[2][2] * in2[2][3] + in1[2][3];
+#endif
 }
 
 void Matrix4x4_SetOrigin( matrix4x4 out, float x, float y, float z )
@@ -818,7 +870,7 @@ void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_
 			"lv.s			S130, %3\n"				// S130 = scale
 			/**/
 			"vfim.s			S120, 0.0111111111111111\n"	// S121 = 0.0111111111111111 const ( 2 / 180 )
-			"vscl.t         C100, C100, S120\n"		// C100 = C100 * S120 = angles * ( 2 / 180 )
+			"vscl.t			C100, C100, S120\n"		// C100 = C100 * S120 = angles * ( 2 / 180 )
 			/**/
 			"vsin.t			C110, C100\n"			// C110 = sin( C100 ) P Y R
 			"vcos.t			C120, C100\n"			// C120 = cos( C100 ) P Y R
@@ -849,10 +901,10 @@ void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_
 			"vmscl.t		E000, E000, S130\n"		// E000 = E000 * S103 = out(3) * scale
 			"vidt.q			C030\n"					// C030 = [0.0f, 0.0f, 0.0f, 1.0f]
 			/**/
-			"usv.q			C000,  0 + %0\n"		// out[0] = C000
-			"usv.q			C010, 16 + %0\n"		// out[1] = C010
-			"usv.q			C020, 32 + %0\n"		// out[2] = C020
-			"usv.q			C030, 48 + %0\n"		// out[3] = C030
+			"sv.q			C000,  0 + %0\n"		// out[0] = C000
+			"sv.q			C010, 16 + %0\n"		// out[1] = C010
+			"sv.q			C020, 32 + %0\n"		// out[2] = C020
+			"sv.q			C030, 48 + %0\n"		// out[3] = C030
 			".set			pop\n"					// restore assembler option
 			: "=m"( *out )
 			: "m"( *angles ), "m"( *origin ), "m"( scale )
@@ -871,7 +923,7 @@ void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_
 			"lv.s			S130, %3\n"				// S130 = scale	
 			/**/
 			"vfim.s			S120, 0.0111111111111111\n"	// S121 = 0.0111111111111111 const ( 2 / 180 )
-			"vscl.p         C100, C100, S120\n"		// C100 = C100 * S120 = angles * ( 2 / 180 )
+			"vscl.p			C100, C100, S120\n"		// C100 = C100 * S120 = angles * ( 2 / 180 )
 			/**/
 			"vsin.p			C110, C100\n"			// C110 = sin( C100 ) P Y
 			"vcos.p			C120, C100\n"			// C120 = cos( C100 ) P Y
@@ -892,10 +944,10 @@ void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_
 			"vmscl.t		E000, E000, S130\n"		// E000 = E000 * S103 = out(3) * scale
 			"vidt.q			C030\n"					// C030 = [0.0f, 0.0f, 0.0f, 1.0f]
 			/**/
-			"usv.q			C000,  0 + %0\n"		// out[0] = C000
-			"usv.q			C010, 16 + %0\n"		// out[1] = C010
-			"usv.q			C020, 32 + %0\n"		// out[2] = C020
-			"usv.q			C030, 48 + %0\n"		// out[3] = C030
+			"sv.q			C000,  0 + %0\n"		// out[0] = C000
+			"sv.q			C010, 16 + %0\n"		// out[1] = C010
+			"sv.q			C020, 32 + %0\n"		// out[2] = C020
+			"sv.q			C030, 48 + %0\n"		// out[3] = C030
 			".set			pop\n"					// restore assembler option
 			: "=m"( *out )
 			: "m"( *angles ), "m"( *origin ), "m"( scale )
@@ -913,7 +965,7 @@ void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_
 			"lv.s			S130, %3\n"				// S130 = scale	
 			/**/
 			"vfim.s			S120, 0.0111111111111111\n"	// S121 = 0.0111111111111111 const ( 2 / 180 )
-			"vmul.s         S101, S101, S120\n"		// S101 = S101 * S120 = angles[YAW] * ( 2 / 180 )
+			"vmul.s			S101, S101, S120\n"		// S101 = S101 * S120 = angles[YAW] * ( 2 / 180 )
 			/**/
 			"vsin.s			S111, S101\n"			// S111 = sin( S101 ) Y
 			"vcos.s			S121, S101\n"			// S121 = cos( S101 ) Y
@@ -929,10 +981,10 @@ void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_
 			"vmscl.t		E000, E000, S130\n"		// E000 = E000 * S103 = out(3) * scale
 			"vidt.q			C030\n"					// C030 = [0.0f, 0.0f, 0.0f, 1.0f]
 			/**/
-			"usv.q			C000,  0 + %0\n"		// out[0] = C000
-			"usv.q			C010, 16 + %0\n"		// out[1] = C010
-			"usv.q			C020, 32 + %0\n"		// out[2] = C020
-			"usv.q			C030, 48 + %0\n"		// out[3] = C030
+			"sv.q			C000,  0 + %0\n"		// out[0] = C000
+			"sv.q			C010, 16 + %0\n"		// out[1] = C010
+			"sv.q			C020, 32 + %0\n"		// out[2] = C020
+			"sv.q			C030, 48 + %0\n"		// out[3] = C030
 			".set			pop\n"					// restore assembler option
 			: "=m"( *out )
 			: "m"( *angles ), "m"( *origin ), "m"( scale )
@@ -956,10 +1008,10 @@ void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_
 			"vmov.s			S011, S130\n"			// S011 = S130 = out[1][1] = scale	
 			"vmov.s			S022, S130\n"			// S022 = S130 = out[2][2] = scale	
 			/**/
-			"usv.q			C000,  0 + %0\n"		// out[0] = C000
-			"usv.q			C010, 16 + %0\n"		// out[1] = C010
-			"usv.q			C020, 32 + %0\n"		// out[2] = C020
-			"usv.q			C030, 48 + %0\n"		// out[3] = C030
+			"sv.q			C000,  0 + %0\n"		// out[0] = C000
+			"sv.q			C010, 16 + %0\n"		// out[1] = C010
+			"sv.q			C020, 32 + %0\n"		// out[2] = C020
+			"sv.q			C030, 48 + %0\n"		// out[3] = C030
 			".set			pop\n"					// restore assembler option
 			: "=m"( *out )
 			: "m"( *origin ), "m"( scale )
@@ -1091,9 +1143,9 @@ void Matrix4x4_TransformPositivePlane( const matrix4x4 in, const vec3_t normal, 
 	__asm__ (
 		".set			push\n"					// save assembler option
 		".set			noreorder\n"			// suppress reordering
-		"ulv.q			C100,  0 + %2\n"		// C100 = in[0]
-		"ulv.q			C110, 16 + %2\n"		// C110 = in[1]
-		"ulv.q			C120, 32 + %2\n"		// C120 = in[2]
+		"lv.q			C100,  0 + %2\n"		// C100 = in[0]
+		"lv.q			C110, 16 + %2\n"		// C110 = in[1]
+		"lv.q			C120, 32 + %2\n"		// C120 = in[2]
 		"lv.s			S200,  0 + %3\n"		// S200 = normal[0]
 		"lv.s			S201,  4 + %3\n"		// S201 = normal[1]
 		"lv.s			S202,  8 + %3\n"		// S202 = normal[2]
@@ -1131,9 +1183,9 @@ void Matrix4x4_TransformStandardPlane( const matrix4x4 in, const vec3_t normal, 
 	__asm__ (
 		".set			push\n"					// save assembler option
 		".set			noreorder\n"			// suppress reordering
-		"ulv.q			C100,  0 + %2\n"		// C100 = in[0]
-		"ulv.q			C110, 16 + %2\n"		// C110 = in[1]
-		"ulv.q			C120, 32 + %2\n"		// C120 = in[2]
+		"lv.q			C100,  0 + %2\n"		// C100 = in[0]
+		"lv.q			C110, 16 + %2\n"		// C110 = in[1]
+		"lv.q			C120, 32 + %2\n"		// C120 = in[2]
 		"lv.s			S200,  0 + %3\n"		// S200 = normal[0]
 		"lv.s			S201,  4 + %3\n"		// S201 = normal[1]
 		"lv.s			S202,  8 + %3\n"		// S202 = normal[2]

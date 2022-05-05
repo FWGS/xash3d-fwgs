@@ -25,6 +25,28 @@ GNU General Public License for more details.
 */
 void Matrix4x4_Concat( matrix4x4 out, const matrix4x4 in1, const matrix4x4 in2 )
 {
+#if 1
+	__asm__ (
+		".set			push\n"					// save assembler option
+		".set			noreorder\n"			// suppress reordering
+		"lv.q			C100,  0 + %1\n"		// C100 = in1[0]
+		"lv.q			C110, 16 + %1\n"		// C110 = in1[1]
+		"lv.q			C120, 32 + %1\n"		// C120 = in1[2]
+		"lv.q			C130, 48 + %1\n"		// C130 = in1[3]
+		"lv.q			C200,  0 + %2\n"		// C200 = in2[0]
+		"lv.q			C210, 16 + %2\n"		// C210 = in2[1]
+		"lv.q			C220, 32 + %2\n"		// C220 = in2[2]
+		"lv.q			C230, 48 + %2\n"		// C230 = in2[3]
+		"vmmul.q		E000, E100, E200\n"		// E000 = E100 * E200
+		"sv.q			C000,  0 + %0\n"		// out[0] = C000
+		"sv.q			C010, 16 + %0\n"		// out[1] = C010
+		"sv.q			C020, 32 + %0\n"		// out[2] = C020
+		"sv.q			C030, 48 + %0\n"		// out[3] = C030
+		".set			pop\n"					// restore assembler option
+		: "=m"( *out )
+		: "m"( *in1 ), "m"( *in2 )
+	);
+#else
 	out[0][0] = in1[0][0] * in2[0][0] + in1[0][1] * in2[1][0] + in1[0][2] * in2[2][0] + in1[0][3] * in2[3][0];
 	out[0][1] = in1[0][0] * in2[0][1] + in1[0][1] * in2[1][1] + in1[0][2] * in2[2][1] + in1[0][3] * in2[3][1];
 	out[0][2] = in1[0][0] * in2[0][2] + in1[0][1] * in2[1][2] + in1[0][2] * in2[2][2] + in1[0][3] * in2[3][2];
@@ -41,6 +63,7 @@ void Matrix4x4_Concat( matrix4x4 out, const matrix4x4 in1, const matrix4x4 in2 )
 	out[3][1] = in1[3][0] * in2[0][1] + in1[3][1] * in2[1][1] + in1[3][2] * in2[2][1] + in1[3][3] * in2[3][1];
 	out[3][2] = in1[3][0] * in2[0][2] + in1[3][1] * in2[1][2] + in1[3][2] * in2[2][2] + in1[3][3] * in2[3][2];
 	out[3][3] = in1[3][0] * in2[0][3] + in1[3][1] * in2[1][3] + in1[3][2] * in2[2][3] + in1[3][3] * in2[3][3];
+#endif
 }
 
 /*

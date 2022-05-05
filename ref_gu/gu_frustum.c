@@ -235,11 +235,12 @@ void GL_FrustumComputeBounds( gl_frustum_t *out, vec3_t mins, vec3_t maxs )
 
 void GL_FrustumDrawDebug( gl_frustum_t *out )
 {
+/*
 	vec3_t	bbox[8];
 	int	i;
 
 	GL_FrustumComputeCorners( out, bbox );
-/*
+
 	// g-cont. frustum must be yellow :-)
 	pglColor4f( 1.0f, 1.0f, 0.0f, 1.0f );
 	pglDisable( GL_TEXTURE_2D );
