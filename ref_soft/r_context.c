@@ -454,10 +454,9 @@ ref_interface_t gReffuncs =
 	CL_AddCustomBeam,
 	R_ProcessEntData,
 
-	R_ShowTextures,
-
 	R_GetTextureOriginalBuffer,
 	GL_LoadTextureFromBuffer,
+	GL_DeleteTexture,
 	GL_ProcessTexture,
 	R_SetupSky,
 

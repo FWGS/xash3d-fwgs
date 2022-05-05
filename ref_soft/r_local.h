@@ -333,6 +333,8 @@ extern gl_globals_t	tr;
 
 typedef struct image_s
 {
+	qboolean used;
+	
 	char		name[256];	// game path, including extension (can be store image programs)
 	word		srcWidth;		// keep unscaled sizes
 	word		srcHeight;
@@ -362,7 +364,6 @@ typedef struct image_s
 
 	int		servercount;
 	uint		hashValue;
-	struct image_s	*nextHash;
 } image_t;
 
 #if 0
@@ -439,7 +440,7 @@ image_t *R_GetTexture( unsigned int texnum );
 #define GL_UpdateTextureInternal( name, pic, flags ) gEngfuncs.RM_LoadTextureFromBuffer( name, pic, flags, true )
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
 int GL_LoadTextureArray( const char **names, int flags );
-int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
+qboolean GL_LoadTextureFromBuffer( int texnum, rgbdata_t *pic, texFlags_t flags, qboolean update );
 byte *GL_ResampleTexture( const byte *source, int in_w, int in_h, int out_w, int out_h, qboolean isNormalMap );
 int GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags );
 int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
@@ -447,7 +448,8 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 void GL_UpdateTexSize( int texnum, int width, int height, int depth );
 void GL_ApplyTextureParams( image_t *tex );
 int GL_FindTexture( const char *name );
-void GL_FreeTexture( unsigned int texnum );
+#define GL_FreeTexture( texnum ) GL_DeleteTexture( texnum )
+void GL_DeleteTexture( unsigned int texnum );
 const char *GL_Target( unsigned int target );
 void R_InitDlightTexture( void );
 void R_TextureList_f( void );
