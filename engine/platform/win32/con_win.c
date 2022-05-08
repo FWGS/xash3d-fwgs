@@ -29,6 +29,8 @@ WIN32 CONSOLE
 
 typedef struct
 {
+	qboolean    is_attached;
+
 	char		title[64];
 	HWND		hWnd;
 	HANDLE		hInput;
@@ -135,7 +137,7 @@ void Wcon_ShowConsole( qboolean show )
 	s_wcd.consoleVisible = show;
 	if( show )
 		ShowWindow( s_wcd.hWnd, SW_SHOW );
-	else
+	else if ( !s_wcd.is_attached )
 		ShowWindow( s_wcd.hWnd, SW_HIDE );
 }
 
@@ -494,8 +496,6 @@ create win32 console
 */
 void Wcon_CreateConsole( void )
 {
-	qboolean is_attached;
-
 	if( Sys_CheckParm( "-log" ))
 		s_wcd.log_active = true;
 
@@ -511,9 +511,8 @@ void Wcon_CreateConsole( void )
 		s_wcd.log_active = true; // always make log
 	}
 
-	is_attached = ( AttachConsole( ATTACH_PARENT_PROCESS ) != 0 );
-	
-	if( !is_attached )
+	s_wcd.is_attached = ( AttachConsole( ATTACH_PARENT_PROCESS ) != 0 );
+	if( !s_wcd.is_attached )
 		AllocConsole();
 
 	SetConsoleTitle( s_wcd.title );
@@ -531,7 +530,7 @@ void Wcon_CreateConsole( void )
 		return;
 	}
 
-	if( !is_attached )
+	if( !s_wcd.is_attached )
 		SetWindowPos( s_wcd.hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOREPOSITION | SWP_SHOWWINDOW );
 
 	// show console if needed
@@ -544,7 +543,7 @@ void Wcon_CreateConsole( void )
 		SetFocus( s_wcd.hWnd );
 		s_wcd.consoleVisible = true;
 	}
-	else
+	else if( !s_wcd.is_attached )
 	{
 		s_wcd.consoleVisible = false;
 		ShowWindow( s_wcd.hWnd, SW_HIDE );
@@ -580,7 +579,7 @@ void Wcon_DestroyConsole( void )
 
 	Sys_CloseLog();
 
-	if( s_wcd.hWnd )
+	if( !s_wcd.is_attached && s_wcd.hWnd )
 	{
 		ShowWindow( s_wcd.hWnd, SW_HIDE );
 		s_wcd.hWnd = 0;
