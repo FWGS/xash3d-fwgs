@@ -494,6 +494,8 @@ create win32 console
 */
 void Wcon_CreateConsole( void )
 {
+	qboolean is_attached;
+
 	if( Sys_CheckParm( "-log" ))
 		s_wcd.log_active = true;
 
@@ -509,7 +511,11 @@ void Wcon_CreateConsole( void )
 		s_wcd.log_active = true; // always make log
 	}
 
-	AllocConsole();
+	is_attached = ( AttachConsole( ATTACH_PARENT_PROCESS ) != 0 );
+	
+	if( !is_attached )
+		AllocConsole();
+
 	SetConsoleTitle( s_wcd.title );
 	SetConsoleCP( CP_UTF8 );
 	SetConsoleOutputCP( CP_UTF8 );
@@ -525,7 +531,8 @@ void Wcon_CreateConsole( void )
 		return;
 	}
 
-	SetWindowPos( s_wcd.hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOREPOSITION | SWP_SHOWWINDOW );
+	if( !is_attached )
+		SetWindowPos( s_wcd.hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOREPOSITION | SWP_SHOWWINDOW );
 
 	// show console if needed
 	if( host.con_showalways )
