@@ -31,6 +31,7 @@ typedef struct
 {
 	qboolean    is_attached;
 
+	char        old_title[512];
 	char		title[64];
 	HWND		hWnd;
 	HANDLE		hInput;
@@ -512,10 +513,16 @@ void Wcon_CreateConsole( void )
 	}
 
 	s_wcd.is_attached = ( AttachConsole( ATTACH_PARENT_PROCESS ) != 0 );
-	if( !s_wcd.is_attached )
+	if( s_wcd.is_attached )
+	{
+		GetConsoleTitle( &s_wcd.old_title, sizeof(s_wcd.old_title) );
+	}
+	else
+	{
 		AllocConsole();
+	}
 
-	SetConsoleTitle( s_wcd.title );
+	SetConsoleTitle( &s_wcd.title );
 	SetConsoleCP( CP_UTF8 );
 	SetConsoleOutputCP( CP_UTF8 );
 
@@ -583,6 +590,11 @@ void Wcon_DestroyConsole( void )
 	{
 		ShowWindow( s_wcd.hWnd, SW_HIDE );
 		s_wcd.hWnd = 0;
+	}
+
+	if( s_wcd.is_attached )
+	{
+		SetConsoleTitle( &s_wcd.old_title );
 	}
 
 	FreeConsole();
