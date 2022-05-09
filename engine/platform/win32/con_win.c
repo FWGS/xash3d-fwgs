@@ -581,6 +581,8 @@ destroy win32 console
 */
 void Wcon_DestroyConsole( void )
 {
+	int return_key = VK_RETURN;
+
 	// last text message into console or log
 	Con_Reportf( "Sys_FreeLibrary: Unloading xash.dll\n" );
 
@@ -595,6 +597,7 @@ void Wcon_DestroyConsole( void )
 	if( s_wcd.is_attached )
 	{
 		SetConsoleTitle( &s_wcd.old_title );
+		SendMessage( s_wcd.hWnd, WM_CHAR, &return_key, 0 );
 	}
 
 	FreeConsole();
