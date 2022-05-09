@@ -31,7 +31,7 @@ typedef struct
 {
 	qboolean    is_attached;
 
-	char        old_title[512];
+	string      old_title;
 	char		title[64];
 	HWND		hWnd;
 	HANDLE		hInput;
