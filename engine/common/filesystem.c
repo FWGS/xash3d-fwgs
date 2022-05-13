@@ -60,6 +60,7 @@ GNU General Public License for more details.
 #define WAD_LOAD_NO_FILES		5
 #define WAD_LOAD_CORRUPTED		6
 
+#ifndef XASH_NO_ZIP
 // ZIP errors
 #define ZIP_LOAD_OK			0
 #define ZIP_LOAD_COULDNT_OPEN		1
@@ -67,6 +68,7 @@ GNU General Public License for more details.
 #define ZIP_LOAD_BAD_FOLDERS		3
 #define ZIP_LOAD_NO_FILES		5
 #define ZIP_LOAD_CORRUPTED		6
+#endif // XASH_NO_ZIP
 
 typedef struct stringlist_s
 {
@@ -98,7 +100,11 @@ struct file_s
 #endif
 						// contents buffer
 	fs_offset_t		buff_ind, buff_len;		// buffer current index and length
+#if XASH_PSP
+	byte		*buff;	// aligned intermediate buffer
+#else
 	byte		buff[FILE_BUFF_SIZE];	// intermediate buffer
+#endif
 #ifdef XASH_REDUCE_FD
 #if XASH_PSP
 	qboolean	backup_hold;
@@ -133,6 +139,7 @@ typedef struct pack_s
 	dpackfile_t	*files;
 } pack_t;
 
+#ifndef XASH_NO_ZIP
 typedef struct zipfile_s
 {
 	char		name[MAX_SYSPATH];
@@ -154,13 +161,16 @@ typedef struct zip_s
 	time_t		filetime;
 	zipfile_t	*files;
 } zip_t;
+#endif // XASH_NO_ZIP
 
 typedef struct searchpath_s
 {
 	string		filename;
 	pack_t		*pack;
 	wfile_t		*wad;
+#ifndef XASH_NO_ZIP
 	zip_t		*zip;
+#endif // XASH_NO_ZIP
 	int		flags;
 	struct searchpath_s *next;
 } searchpath_t;
@@ -179,7 +189,9 @@ static qboolean		fs_caseinsensitive = true; // try to search missing files
 
 #ifdef XASH_REDUCE_FD
 static file_t *fs_last_readfile;
+#ifndef XASH_NO_ZIP
 static zip_t *fs_last_zip;
+#endif // XASH_NO_ZIP
 static pack_t *fs_last_pak;
 
 static void FS_EnsureOpenFile( file_t *file )
@@ -218,6 +230,7 @@ static void FS_EnsureOpenFile( file_t *file )
 #endif
 }
 
+#ifndef XASH_NO_ZIP
 static void FS_EnsureOpenZip( zip_t *zip )
 {
 	if( fs_last_zip == zip )
@@ -242,6 +255,7 @@ static void FS_EnsureOpenZip( zip_t *zip )
 		zip->handle = open( zip->filename, O_RDONLY|O_BINARY );
 #endif
 }
+#endif // XASH_NO_ZIP
 
 static void FS_BackupFileName( file_t *file, const char *path, uint options )
 {
@@ -266,7 +280,9 @@ static void FS_BackupFileName( file_t *file, const char *path, uint options )
 
 #else
 static void FS_EnsureOpenFile( file_t *file ) {}
+#ifndef XASH_NO_ZIP
 static void FS_EnsureOpenZip( zip_t *zip ) {}
+#endif
 static void FS_BackupFileName( file_t *file, const char *path, uint options ) {}
 #endif
 
@@ -274,7 +290,9 @@ static void FS_InitMemory( void );
 static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedironly );
 static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const signed char matchtype );
 static dpackfile_t *FS_AddFileToPack( const char* name, pack_t *pack, fs_offset_t offset, fs_offset_t size );
+#ifndef XASH_NO_ZIP
 void Zip_Close( zip_t *zip );
+#endif
 static byte *W_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly );
 static wfile_t *W_Open( const char *filename, int *errorcode );
 static qboolean FS_SysFolderExists( const char *path );
@@ -613,7 +631,9 @@ void FS_Path_f( void )
 	{
 		if( s->pack ) Con_Printf( "%s (%i files)", s->pack->filename, s->pack->numfiles );
 		else if( s->wad ) Con_Printf( "%s (%i files)", s->wad->filename, s->wad->numlumps );
+#ifndef XASH_NO_ZIP
 		else if( s->zip ) Con_Printf( "%s (%i files)", s->zip->filename, s->zip->numfiles );
+#endif
 		else Con_Printf( "%s", s->filename );
 
 		if( s->flags & FS_GAMERODIR_PATH ) Con_Printf( " ^2rodir^7" );
@@ -784,6 +804,7 @@ pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 	return pack;
 }
 
+#ifndef XASH_NO_ZIP
 static zip_t *FS_LoadZip( const char *zipfile, int *error )
 {
 	int		  numpackfiles = 0, i;
@@ -1152,6 +1173,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 	FS_EnsureOpenZip( NULL );
 	return NULL;
 }
+#endif // XASH_NO_ZIP
 
 /*
 ====================
@@ -1267,6 +1289,7 @@ static qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loade
 	}
 }
 
+#ifndef XASH_NO_ZIP
 qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags )
 {
 	searchpath_t	*search;
@@ -1319,6 +1342,7 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 		return false;
 	}
 }
+#endif // XASH_NO_ZIP
 
 /*
 ================
@@ -1351,6 +1375,7 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 		}
 	}
 
+#ifndef XASH_NO_ZIP
 	// add any Zip package in the directory
 	for( i = 0; i < list.numstrings; i++ )
 	{
@@ -1359,7 +1384,8 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 			Q_sprintf( fullpath, "%s%s", dir, list.strings[i] );
 			FS_AddZip_Fullpath( fullpath, NULL, flags );
 		}
-	 }
+	}
+#endif
 
 	FS_AllowDirectPaths( true );
 
@@ -1481,10 +1507,12 @@ void FS_ClearSearchPath( void )
 			W_Close( search->wad );
 		}
 
+#ifndef XASH_NO_ZIP
 		if( search->zip )
 		{
 			Zip_Close(search->zip);
 		}
+#endif // XASH_NO_ZIP
 
 		Mem_Free( search );
 	}
@@ -1945,6 +1973,9 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 	}
 	
 #if XASH_PSP
+	if( !found_psp )
+		Q_snprintf( GameInfo->game_dll_psp, sizeof( GameInfo->game_dll_psp ), "dlls/server.prx" );
+#else
 	if( !found_linux || !found_osx )
 	{
 		// just replace extension from dll to so/dylib
@@ -1958,9 +1989,6 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 		if( !found_osx )
 			Q_snprintf( GameInfo->game_dll_osx, sizeof( GameInfo->game_dll_osx ), "%s.dylib", gamedll );
 	}
-#else
-	if( !found_psp )
-		Q_snprintf( GameInfo->game_dll_psp, sizeof( GameInfo->game_dll_psp ), "dlls/server.prx" ); // force set
 #endif	
 	// make sure what gamedir is really exist
 	if( !FS_SysFolderExists( va( "%s"PATH_SPLITTER"%s", host.rootdir, GameInfo->falldir )))
@@ -2466,7 +2494,12 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 		}
 	}
 #endif
+#if XASH_PSP
+	file = (file_t *)Mem_Calloc( fs_mempool, sizeof( file_t ) + FILE_BUFF_SIZE + 64 );
+	file->buff = (byte *)( ( ( ( u32 )file + sizeof( file_t ) ) & ( ~( 64 - 1 ) ) ) + 64 );
+#else
 	file = (file_t *)Mem_Calloc( fs_mempool, sizeof( *file ));
+#endif
 #if !XASH_PSP
 	file->filetime = FS_SysFileTime( filepath );
 #endif
@@ -2536,7 +2569,12 @@ static int FS_DuplicateHandle( const char *filename, int handle, fs_offset_t pos
 
 static file_t *FS_OpenHandle( const char *syspath, int handle, fs_offset_t offset, fs_offset_t len )
 {
+#if XASH_PSP
+	file_t *file = (file_t *)Mem_Calloc( fs_mempool, sizeof( file_t ) + FILE_BUFF_SIZE + 64 );
+	file->buff = (byte *)( ( ( ( u32 )file + sizeof( file_t ) ) & ( ~( 64 - 1 ) ) ) + 64 );
+#else
 	file_t *file = (file_t *)Mem_Calloc( fs_mempool, sizeof( file_t ));
+#endif
 #ifndef XASH_REDUCE_FD
 #if XASH_PSP
 	file->handle = sceIoOpen( syspath, PSP_O_RDONLY, 0666 );
@@ -2602,6 +2640,7 @@ FS_OpenZipFile
 Open a packed file using its package file descriptor
 ===========
 */
+#ifndef XASH_NO_ZIP
 file_t *FS_OpenZipFile( zip_t *zip, int pack_ind )
 {
 	zipfile_t	*pfile;
@@ -2613,6 +2652,7 @@ file_t *FS_OpenZipFile( zip_t *zip, int pack_ind )
 
 	return FS_OpenHandle( zip->filename, zip->handle, pfile->offset, pfile->size );
 }
+#endif // XASH_NO_ZIP
 
 /*
 ==================
@@ -2801,6 +2841,7 @@ static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedir
 				return search;
 			}
 		}
+#ifndef XASH_NO_ZIP
 		else if( search->zip )
 		{
 			int i;
@@ -2814,6 +2855,7 @@ static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedir
 				}
 			}
 		}
+#endif // XASH_NO_ZIP
 		else
 		{
 			char	netpath[MAX_SYSPATH];
@@ -2898,8 +2940,10 @@ file_t *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedi
 		return FS_OpenPackedFile( search->pack, pack_ind );
 	else if( search->wad )
 		return NULL; // let W_LoadFile get lump correctly
+#ifndef XASH_NO_ZIP
 	else if( search->zip )
 		return FS_OpenZipFile( search->zip, pack_ind );
+#endif // XASH_NO_ZIP
 	else if( pack_ind < 0 )
 	{
 		char	path [MAX_SYSPATH];
@@ -3067,7 +3111,11 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 	count = file->real_length - file->position;
 
 	// if we have a lot of data to get, put them directly into "buffer"
+#if XASH_PSP
+	if( buffersize > FILE_BUFF_SIZE / 2 )
+#else
 	if( buffersize > sizeof( file->buff ) / 2 )
+#endif
 	{
 		if( count > (fs_offset_t)buffersize )
 			count = (fs_offset_t)buffersize;
@@ -3088,12 +3136,19 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 	}
 	else
 	{
-		if( count > (fs_offset_t)sizeof( file->buff ))
-			count = (fs_offset_t)sizeof( file->buff );
 #if XASH_PSP
+		if( count > FILE_BUFF_SIZE )
+			count = FILE_BUFF_SIZE;
+		
+		if( count == 0 )
+			return done;
+
 		sceIoLseek( file->handle, file->offset + file->position, PSP_SEEK_SET );
 		nb = sceIoRead( file->handle, file->buff, count );
 #else
+		if( count > (fs_offset_t)sizeof( file->buff ))
+			count = (fs_offset_t)sizeof( file->buff );
+
 		lseek( file->handle, file->offset + file->position, SEEK_SET );
 		nb = read( file->handle, file->buff, count );
 #endif
@@ -3366,9 +3421,10 @@ byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamediro
 	else
 	{
 		buf = W_LoadFile( path, &filesize, gamedironly );
-
+#ifndef XASH_NO_ZIP
 		if( !buf )
 			buf = Zip_LoadFile( path, &filesize, gamedironly );
+#endif // XASH_NO_ZIP
 
 	}
 
@@ -3700,8 +3756,10 @@ int FS_FileTime( const char *filename, qboolean gamedironly )
 		return search->pack->filetime;
 	else if( search->wad ) // grab wad filetime
 		return search->wad->filetime;
+#ifndef XASH_NO_ZIP
 	else if( search->zip )
 		return search->zip->filetime;
+#endif // XASH_NO_ZIP
 	else if( pack_ind < 0 )
 	{
 		// found in the filesystem?

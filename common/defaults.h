@@ -118,6 +118,7 @@ SETUP BACKENDS DEFINITIONS
 
 		#define XASH_REDUCE_FD
 		#define XASH_NO_TOUCH
+		#define XASH_NO_ZIP
 	#endif
 
 #endif // XASH_DEDICATED
