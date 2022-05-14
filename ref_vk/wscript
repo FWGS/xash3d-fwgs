@@ -65,6 +65,17 @@ def configure(conf):
 	if '-Werror=declaration-after-statement' in conf.env.CFLAGS:
 		conf.env.CFLAGS.remove('-Werror=declaration-after-statement')
 
+def printTestSummary(bld):
+	results = getattr(bld, 'utest_results', [])
+	for (f, code, out, err) in results:
+		if code == 0:
+			Logs.pprint('GREEN', '%s: ok' % f)
+			continue
+
+		Logs.pprint('RED', '%s: test failed' % f)
+		Logs.pprint('CYAN', out.decode('utf-8'))
+		Logs.pprint('CYAN', err.decode('utf-8'))
+
 def build(bld):
 	if not bld.env.VK:
 		return
@@ -127,3 +138,9 @@ def build(bld):
 					  bld.path.ant_glob('data/**'),
 					  cwd=bld.path.find_dir('data/'),
 					  relative_trick=True)
+
+	bld.program(features='test', defines=['ALOLCATOR_TEST'],source='alolcator.c', target='alolcator')
+	bld.add_post_fun(printTestSummary)
+
+	#from waflib.Tools import waf_unit_test
+	#bld.add_post_fun(waf_unit_test.summary)

@@ -10,7 +10,8 @@
 #include "vk_math.h"
 #include "vk_rtx.h"
 #include "vk_descriptor.h"
-#include "vk_framectl.h" // FIXME
+#include "vk_framectl.h" // FIXME needed for dynamic models cmdbuf
+#include "alolcator.h"
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
@@ -20,26 +21,39 @@
 
 #define MAX_UNIFORM_SLOTS (MAX_SCENE_ENTITIES * 2 /* solid + trans */ + 1)
 
+#define MAX_BUFFER_VERTICES_STATIC (128 * 1024)
+#define MAX_BUFFER_INDICES_STATIC (MAX_BUFFER_VERTICES_STATIC * 3)
+#define GEOMETRY_BUFFER_STATIC_SIZE ALIGN_UP(MAX_BUFFER_VERTICES_STATIC * sizeof(vk_vertex_t) + MAX_BUFFER_INDICES_STATIC * sizeof(uint16_t), sizeof(vk_vertex_t))
+
+#define MAX_BUFFER_VERTICES_DYNAMIC (128 * 1024)
+#define MAX_BUFFER_INDICES_DYNAMIC (MAX_BUFFER_VERTICES_DYNAMIC * 3)
+#define GEOMETRY_BUFFER_DYNAMIC_SIZE ALIGN_UP(MAX_BUFFER_VERTICES_DYNAMIC * sizeof(vk_vertex_t) + MAX_BUFFER_INDICES_DYNAMIC * sizeof(uint16_t), sizeof(vk_vertex_t))
+
+#define GEOMETRY_BUFFER_SIZE (GEOMETRY_BUFFER_STATIC_SIZE + GEOMETRY_BUFFER_DYNAMIC_SIZE)
+
 typedef struct {
 	matrix4x4 mvp;
 	vec4_t color;
 } uniform_data_t;
 
-// TODO estimate
-#define MAX_ALLOCS 1024
-
 static struct {
 	VkPipelineLayout pipeline_layout;
 	VkPipeline pipelines[kRenderTransAdd + 1];
-
-	vk_buffer_t buffer;
-	vk_ring_buffer_t buffer_alloc_ring;
 
 	vk_buffer_t uniform_buffer;
 	uint32_t ubo_align;
 
 	float fov_angle_y;
 } g_render;
+
+struct {
+	vk_buffer_t buffer;
+	alo_ring_t static_ring;
+	alo_ring_t dynamic_ring;
+
+	int frame_index;
+	uint32_t dynamic_offsets[MAX_CONCURRENT_FRAMES];
+} g_geom;
 
 static qboolean createPipelines( void )
 {
@@ -225,10 +239,7 @@ typedef struct {
 	} light[MAX_DLIGHTS];
 } vk_ubo_lights_t;
 
-qboolean VK_RenderInit( void )
-{
-	const uint32_t vertex_buffer_size = MAX_BUFFER_VERTICES * sizeof(vk_vertex_t);
-	const uint32_t index_buffer_size = MAX_BUFFER_INDICES * sizeof(uint16_t);
+qboolean VK_RenderInit( void ) {
 	uint32_t uniform_unit_size;
 
 	g_render.ubo_align = Q_max(4, vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
@@ -236,7 +247,7 @@ qboolean VK_RenderInit( void )
 
 	// TODO device memory and friends (e.g. handle mobile memory ...)
 
-	if (!VK_BufferCreate("geometry buffer", &g_render.buffer, vertex_buffer_size + index_buffer_size,
+	if (!VK_BufferCreate("geometry buffer", &g_geom.buffer, GEOMETRY_BUFFER_SIZE,
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | (vk_core.rtx ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0),
 		(vk_core.rtx ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0))) // TODO staging buffer?
 		return false;
@@ -280,7 +291,7 @@ qboolean VK_RenderInit( void )
 	if (!createPipelines())
 		return false;
 
-	g_render.buffer_alloc_ring.size = g_render.buffer.size;
+	XVK_RenderBufferMapClear();
 
 	return true;
 }
@@ -291,20 +302,29 @@ void VK_RenderShutdown( void )
 		vkDestroyPipeline(vk_core.device, g_render.pipelines[i], NULL);
 	vkDestroyPipelineLayout( vk_core.device, g_render.pipeline_layout, NULL );
 
-	VK_BufferDestroy( &g_render.buffer );
+	VK_BufferDestroy( &g_geom.buffer );
 	VK_BufferDestroy( &g_render.uniform_buffer );
 }
 
-qboolean R_GeometryBufferAllocAndLock( r_geometry_buffer_lock_t *lock, int vertex_count, int index_count ) {
+qboolean R_GeometryBufferAllocAndLock( r_geometry_buffer_lock_t *lock, int vertex_count, int index_count, r_geometry_lifetime_t lifetime ) {
 	const uint32_t vertices_size = vertex_count * sizeof(vk_vertex_t);
 	const uint32_t indices_size = index_count * sizeof(uint16_t);
 	const uint32_t total_size = vertices_size + indices_size;
+	alo_ring_t * const ring = (lifetime != LifetimeSingleFrame) ? &g_geom.static_ring : &g_geom.dynamic_ring;
 
-	const uint32_t offset = VK_RingBuffer_Alloc(&g_render.buffer_alloc_ring, total_size, sizeof(vk_vertex_t));
-	if (offset == AllocFailed) {
-		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry buffer for %d vertices (%d bytes) and %d indices (%d bytes), only %u bytes left",
-			vertex_count, vertices_size, index_count, indices_size, g_render.buffer_alloc_ring.free);
+	const uint32_t alloc_offset = aloRingAlloc(ring, total_size, sizeof(vk_vertex_t));
+	const uint32_t offset = alloc_offset + ((lifetime == LifetimeSingleFrame) ? GEOMETRY_BUFFER_STATIC_SIZE : 0);
+	if (alloc_offset == ALO_ALLOC_FAILED) {
+		gEngine.Con_Printf(S_ERROR "Cannot allocate %s geometry buffer for %d vertices (%d bytes) and %d indices (%d bytes)\n",
+			lifetime == LifetimeSingleFrame ? "dynamic" : "static",
+			vertex_count, vertices_size, index_count, indices_size);
 		return false;
+	}
+
+	// Store first dynamic allocation this frame
+	if (lifetime == LifetimeSingleFrame && g_geom.dynamic_offsets[g_geom.frame_index] == ALO_ALLOC_FAILED) {
+		gEngine.Con_Reportf("FRAME=%d FIRST_OFFSET=%d\n", g_geom.frame_index, alloc_offset);
+		g_geom.dynamic_offsets[g_geom.frame_index] = alloc_offset;
 	}
 
 	{
@@ -339,26 +359,22 @@ qboolean R_GeometryBufferAllocAndLock( r_geometry_buffer_lock_t *lock, int verte
 }
 
 void R_GeometryBufferUnlock( const r_geometry_buffer_lock_t *lock ) {
-	R_VkStagingUnlockToBuffer(lock->impl_.staging_handle, g_render.buffer.buffer, lock->impl_.offset);
-}
-
-void XVK_RenderBufferMapFreeze( void ) {
-	VK_RingBuffer_Fix(&g_render.buffer_alloc_ring);
+	R_VkStagingUnlockToBuffer(lock->impl_.staging_handle, g_geom.buffer.buffer, lock->impl_.offset);
 }
 
 void XVK_RenderBufferMapClear( void ) {
-	VK_RingBuffer_Clear(&g_render.buffer_alloc_ring);
-}
-
-void XVK_RenderBufferFrameClear( /*int frame_id*/void ) {
-	VK_RingBuffer_ClearFrame(&g_render.buffer_alloc_ring);
+	aloRingInit(&g_geom.static_ring, GEOMETRY_BUFFER_STATIC_SIZE);
+	aloRingInit(&g_geom.dynamic_ring, GEOMETRY_BUFFER_DYNAMIC_SIZE);
+	for (int i = 0; i < COUNTOF(g_geom.dynamic_offsets); ++i) {
+		g_geom.dynamic_offsets[i] = ALO_ALLOC_FAILED;
+	}
+	g_geom.frame_index = 0;
 }
 
 void XVK_RenderBufferPrintStats( void ) {
 	// TODO get alignment holes size
 	gEngine.Con_Reportf("Buffer usage: %uKiB of (%uKiB)\n",
-		g_render.buffer_alloc_ring.permanent_size / 1024,
-		g_render.buffer.size / 1024);
+		g_geom.static_ring.head / 1024, g_geom.static_ring.size / 1024);
 }
 
 #define MAX_DRAW_COMMANDS 8192 // TODO estimate
@@ -417,7 +433,7 @@ enum {
 };
 
 void VK_RenderBegin( qboolean ray_tracing ) {
-	g_render_state.uniform_free_offset = 0;
+	g_render_state.uniform_free_offset = 0; // FIXME multiple frames in flight
 	g_render_state.uniform_data_set_mask = UNIFORM_UNSET;
 	g_render_state.current_ubo_offset = UINT32_MAX;
 
@@ -426,6 +442,16 @@ void VK_RenderBegin( qboolean ray_tracing ) {
 
 	g_render_state.num_draw_commands = 0;
 	g_render_state.current_frame_is_ray_traced = ray_tracing;
+
+	{
+		const int new_frame = (g_geom.frame_index + 1) % COUNTOF(g_geom.dynamic_offsets);
+		if (g_geom.dynamic_offsets[new_frame] != ALO_ALLOC_FAILED) {
+			gEngine.Con_Reportf("FRAME=%d FREE_OFFSET=%d\n", g_geom.frame_index, g_geom.dynamic_offsets[new_frame]);
+			aloRingFree(&g_geom.dynamic_ring, g_geom.dynamic_offsets[new_frame]);
+			g_geom.dynamic_offsets[new_frame] = ALO_ALLOC_FAILED;
+		}
+		g_geom.frame_index = new_frame;
+	}
 
 	if (ray_tracing)
 		VK_RayFrameBegin();
@@ -609,8 +635,8 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 
 	{
 		const VkDeviceSize offset = 0;
-		vkCmdBindVertexBuffers(cmdbuf, 0, 1, &g_render.buffer.buffer, &offset);
-		vkCmdBindIndexBuffer(cmdbuf, g_render.buffer.buffer, 0, VK_INDEX_TYPE_UINT16);
+		vkCmdBindVertexBuffers(cmdbuf, 0, 1, &g_geom.buffer.buffer, &offset);
+		vkCmdBindIndexBuffer(cmdbuf, g_geom.buffer.buffer, 0, VK_INDEX_TYPE_UINT16);
 	}
 
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 3, 1, vk_desc.ubo_sets + 1, 1, &dlights_ubo_offset);
@@ -690,7 +716,7 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 			.view = &g_render_state.view,
 
 			.geometry_data = {
-				.buffer = g_render.buffer.buffer,
+				.buffer = g_geom.buffer.buffer,
 				.size = VK_WHOLE_SIZE,
 			},
 
@@ -705,7 +731,7 @@ qboolean VK_RenderModelInit( VkCommandBuffer cmdbuf, vk_render_model_t *model ) 
 	if (vk_core.rtx && (g_render_state.current_frame_is_ray_traced || !model->dynamic)) {
 		// TODO runtime rtx switch: ???
 		const vk_ray_model_init_t args = {
-			.buffer = g_render.buffer.buffer,
+			.buffer = g_geom.buffer.buffer,
 			.model = model,
 		};
 		R_VkStagingCommit(cmdbuf);
@@ -713,14 +739,16 @@ qboolean VK_RenderModelInit( VkCommandBuffer cmdbuf, vk_render_model_t *model ) 
 			const VkBufferMemoryBarrier bmb[] = { {
 				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
 				.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-				.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR, // FIXME
-				.buffer = g_render.buffer.buffer,
+				//.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR, // FIXME
+				.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT, // FIXME
+				.buffer = g_geom.buffer.buffer,
 				.offset = 0, // FIXME
 				.size = VK_WHOLE_SIZE, // FIXME
 			} };
 			vkCmdPipelineBarrier(cmdbuf,
 				VK_PIPELINE_STAGE_TRANSFER_BIT,
-				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+				//VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 				0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
 		}
 		model->ray_model = VK_RayModelCreate(cmdbuf, args);

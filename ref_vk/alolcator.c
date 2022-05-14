@@ -2,8 +2,6 @@
 #include <stdlib.h> // malloc/free
 #include <string.h> // memcpy
 
-//#include "vk_common.h"
-
 #define MALLOC malloc
 #define FREE free
 
@@ -244,7 +242,60 @@ void aloPoolFree(struct alo_pool_s *pool, int index) {
 	}
 }
 
+void aloRingInit(alo_ring_t* ring, uint32_t size) {
+	ring->size = size;
+	ring->head = 0;
+	ring->tail = size;
+}
+
+// Marks everything up-to-pos as free (expects up-to-pos to be valid)
+void aloRingFree(alo_ring_t* ring, uint32_t up_to_pos) {
+	ASSERT(up_to_pos < ring->size);
+	// FIXME assert that up_to_pos is valid and within allocated region
+	if (up_to_pos == ring->head) {
+		ring->head = 0;
+		ring->tail = ring->size;
+	} else
+		ring->tail = up_to_pos;
+}
+
+// Allocates a new aligned region and returns offset to it (AllocFailed if allocation failed)
+uint32_t aloRingAlloc(alo_ring_t* ring, uint32_t size, uint32_t alignment) {
+	const uint32_t align = (alignment > 0) ? alignment : 1;
+	const uint32_t pos = ALIGN_UP(ring->head, alignment);
+
+	ASSERT(size != 0);
+
+	// [XXX.....XXX]
+	//     h    t
+	if (ring->head <= ring->tail) {
+		if (pos + size > ring->tail)
+			return ALO_ALLOC_FAILED;
+
+		ring->head = pos + size;
+		return pos;
+	}
+
+	// [...XXXXXX...]
+	//     t     h
+	//  2        1
+
+	// 1. Check if we have enough space immediately in front of head
+	if (pos + size <= ring->size) {
+		ring->head = (pos + size) % ring->size;
+		return pos;
+	}
+
+	// 2. wrap around
+	if (size > ring->tail)
+		return ALO_ALLOC_FAILED;
+
+	ring->head = size;
+	return 0;
+}
+
 #if defined(ALOLCATOR_TEST)
+#include <stdio.h>
 uint32_t rand_pcg32(uint32_t max) {
 	if (!max) return 0;
 #define PCG32_INITIALIZER   { 0x853c49e6748fea9bULL, 0xda3e39cb94b95bdbULL }
@@ -426,11 +477,129 @@ int test(void) {
 	return 0;
 }
 
+#define REQUIRE_EQUAL_UINT32(a, b) \
+	do { \
+		const uint32_t va = (a), vb = (b); \
+		if (va != vb) { \
+			fprintf(stderr, "%s:%d (%s == %s) FAILED: %u != %u\n", \
+				__FILE__, __LINE__, \
+				#a, #b, \
+				va, vb); \
+		} \
+		ASSERT(va == vb); \
+	} while(0)
+
+static void dumpRing(int line, const alo_ring_t* ring) {
+	fprintf(stderr, "%d ", line);
+	if (ring->tail < ring->head) {
+		fprintf(stderr, "t=%03d h=%03d [", ring->tail, ring->head);
+		for (int i = 0; i < (int)ring->tail; ++i) fputc('.', stderr);
+		fputc('T', stderr);
+		for (int i = (int)ring->tail + 1; i < (int)ring->head; ++i) fputc('#', stderr);
+		fputc('h', stderr);
+		for (int i = (int)ring->head + 1; i < (int)ring->size; ++i) fputc('.', stderr);
+	} else {
+		fprintf(stderr, "h=%03d t=%03d [", ring->head, ring->tail);
+		for (int i = 0; i < (int)ring->head; ++i) fputc('#', stderr);
+		fputc('h', stderr);
+		for (int i = (int)ring->head + 1; i < (int)ring->tail; ++i) fputc('.', stderr);
+		fputc('T', stderr);
+		for (int i = (int)ring->tail + 1; i < (int)ring->size; ++i) fputc('#', stderr);
+	}
+	fputs("]\n", stderr);
+}
+
+#define TEST_ALLOC(name, size, expected, alignment) \
+	const uint32_t name = aloRingAlloc(&ring, size, alignment); \
+	dumpRing(__LINE__, &ring); \
+	REQUIRE_EQUAL_UINT32(name, expected)
+
+#define TEST_FREE(to) \
+	aloRingFree(&ring, to); \
+	dumpRing(__LINE__, &ring)
+
+void testRing(void) {
+	alo_ring_t ring;
+	aloRingInit(&ring, 128);
+
+	fprintf(stderr, "%s\n", __FUNCTION__);
+
+	TEST_ALLOC(p0, 64, 0, 1);
+	TEST_ALLOC(p1, 64, 64, 1);
+	TEST_ALLOC(p2, 64, ALO_ALLOC_FAILED, 1);
+	TEST_FREE(p1);
+	TEST_ALLOC(p3, 32, 0, 1);
+	TEST_FREE(p3);
+	TEST_ALLOC(p4, 64, 32, 1);
+	TEST_ALLOC(p5, 64, ALO_ALLOC_FAILED, 1);
+	TEST_ALLOC(p6, 16, 96, 1);
+	TEST_ALLOC(p7, 32, ALO_ALLOC_FAILED, 1);
+	TEST_FREE(p4);
+	TEST_ALLOC(p8, 32, 0, 1);
+}
+
+void stressTestRing(void) {
+	#define BUFSIZE 128
+	#define NUM_ALLOCS 16
+	const int rounds = 10000;
+	struct { uint32_t pos, size, val; } allocs[NUM_ALLOCS];
+	int count = 0, wr = 0, rd = 0;
+	uint32_t buf[BUFSIZE];
+
+	alo_ring_t ring;
+	aloRingInit(&ring, BUFSIZE);
+
+	for (int i = 0; i < NUM_ALLOCS; ++i)
+		allocs[i].pos = ALO_ALLOC_FAILED;
+
+	fprintf(stderr, "%s\n", __FUNCTION__);
+
+	for (int i = 0; i < rounds; ++i) {
+		if (count < NUM_ALLOCS) {
+			const uint32_t align = 1 << rand_pcg32(5);
+			const uint32_t size = 1 + rand_pcg32(BUFSIZE / 5);
+			const uint32_t pos = aloRingAlloc(&ring, size, align);
+			fprintf(stderr, "ALLOC(%d;%d) size=%d align=%d => pos=%d\n", wr, count, size, align, pos);
+
+			if (pos != ALO_ALLOC_FAILED) {
+				dumpRing(__LINE__, &ring);
+				allocs[wr].pos = pos;
+				allocs[wr].size = size;
+				allocs[wr].val = rand_pcg32(0xFFFFFFFFul);
+				for (int i = 0; i < (int)size; ++i)
+					buf[pos + i] = allocs[wr].val;
+				wr = (wr + 1) % NUM_ALLOCS;
+				count++;
+			} else {
+				ASSERT(count);
+			}
+		}
+
+		if (rand_pcg32(5) == 0) {
+			int to_remove = rand_pcg32(5) + 1;
+			while (to_remove-- > 0 && count > 0) {
+				ASSERT(allocs[rd].pos != ALO_ALLOC_FAILED);
+				fprintf(stderr, "FREE(%d;%d) pos=%d(%d) count=%d to_remove=%d\n", rd, count, allocs[rd].pos, allocs[rd].size, count, to_remove);
+				for (int i = 0; i < (int)allocs[rd].size; ++i)
+					REQUIRE_EQUAL_UINT32(buf[allocs[rd].pos + i], allocs[rd].val);
+				aloRingFree(&ring, allocs[rd].pos);
+				dumpRing(__LINE__, &ring);
+				allocs[rd].pos = ALO_ALLOC_FAILED;
+				rd = (rd + 1) % NUM_ALLOCS;
+				--count;
+			}
+		}
+	}
+}
+
 int main(void) {
 	test();
 
 	ASSERT(1000 == testRandom(1000, 1000000, 1, 0));
 	testRandom(1000, 1000000, 32, 999);
+
+	testRing();
+	stressTestRing();
 	return 0;
 }
 #endif

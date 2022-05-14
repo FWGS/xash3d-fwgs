@@ -652,7 +652,7 @@ static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec
 
 	// Get buffer region for vertices and indices
 	r_geometry_buffer_lock_t buffer;
-	if (!R_GeometryBufferAllocAndLock( &buffer, 4, 6 )) {
+	if (!R_GeometryBufferAllocAndLock( &buffer, 4, 6, LifetimeSingleFrame )) {
 		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry for sprite quad\n");
 		return;
 	}

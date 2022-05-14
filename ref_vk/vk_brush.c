@@ -115,7 +115,7 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 		num_indices += triangles * 3;
 	}
 
-	if (!R_GeometryBufferAllocAndLock( &buffer, num_vertices, num_indices )) {
+	if (!R_GeometryBufferAllocAndLock( &buffer, num_vertices, num_indices, LifetimeSingleFrame )) {
 		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry for %s\n", ent->model->name );
 		return;
 	}
@@ -485,7 +485,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	uint32_t index_offset = 0;
 	r_geometry_buffer_lock_t buffer;
 
-	if (!R_GeometryBufferAllocAndLock( &buffer, sizes.num_vertices, sizes.num_indices )) {
+	if (!R_GeometryBufferAllocAndLock( &buffer, sizes.num_vertices, sizes.num_indices, LifetimeLong )) {
 		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry for %s\n", mod->name );
 		return false;
 	}

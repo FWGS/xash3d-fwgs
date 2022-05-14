@@ -45,14 +45,16 @@ typedef struct {
 	} impl_;
 } r_geometry_buffer_lock_t;
 
-qboolean R_GeometryBufferAllocAndLock( r_geometry_buffer_lock_t *lock, int vertex_count, int index_count );
+typedef enum {
+	LifetimeLong,
+	LifetimeSingleFrame
+} r_geometry_lifetime_t;
+
+qboolean R_GeometryBufferAllocAndLock( r_geometry_buffer_lock_t *lock, int vertex_count, int index_count, r_geometry_lifetime_t lifetime );
 void R_GeometryBufferUnlock( const r_geometry_buffer_lock_t *lock );
 //void R_VkGeometryBufferFree( int handle );
 
-void XVK_RenderBufferMapFreeze( void ); // Permanently freeze all allocations as map-permanent
 void XVK_RenderBufferMapClear( void ); // Free the entire buffer for a new map
-
-void XVK_RenderBufferFrameClear( /*int frame_id*/void ); // mark data for frame with given id as free (essentially, just forward the ring buffer)
 
 void XVK_RenderBufferPrintStats( void );
 
@@ -138,14 +140,9 @@ qboolean VK_RenderModelInit( VkCommandBuffer cmdbuf, vk_render_model_t* model );
 void VK_RenderModelDestroy( vk_render_model_t* model );
 void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model );
 
-void VK_RenderFrameBegin( void );
-
 void VK_RenderModelDynamicBegin( int render_mode, const char *debug_name_fmt, ... );
 void VK_RenderModelDynamicAddGeometry( const vk_render_geometry_t *geom );
 void VK_RenderModelDynamicCommit( void );
-
-void VK_RenderFrameEnd( VkCommandBuffer cmdbuf );
-void VK_RenderFrameEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h );
 
 void VK_RenderDebugLabelBegin( const char *label );
 void VK_RenderDebugLabelEnd( void );

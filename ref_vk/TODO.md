@@ -1,3 +1,24 @@
+# Parallel frames
+- [ ] allocate for N frames:
+	- [x] geometries
+	- [ ] rt models
+	- [ ] lights
+
+// O. 1 buffer i bardak v nyom
+// - [SSSSAAS.SBAS....]
+// - can become extremely fragmented
+
+// I. 2 buffer + bit indirection
+// - lives longer than 2 frames [SSS.SSS..SS.....]
+// - dynamic [AAAAA->.....<-BBBBBB]
+// - high bits in shader point to buffer
+
+// II. 1 buffer bi-directional
+// - [SSS.SS..S...|AAAABBBB->...]
+//    ^ - long-living "static" stuff
+//                 ^ - dynamic ring buffer
+// - [SSS.SS..S.|.....<-AAAABBBB] (dynamic split)
+
 # Passes
 - [ ] better simple sampling
 	- [x] all triangles

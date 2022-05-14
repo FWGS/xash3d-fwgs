@@ -328,12 +328,6 @@ static void submit( VkCommandBuffer cmdbuf, qboolean wait ) {
 		}
 		g_frame.current.phase = Phase_Idle;
 	}
-
-	// TODO better sync implies multiple frames in flight, which means that we must
-	// retain temporary (SingleFrame) buffer contents for longer, until all users are done.
-	// (this probably means that we should really have some kind of refcount going on...)
-	// For now we can just erase these buffers now because of sync with fence
-	XVK_RenderBufferFrameClear();
 }
 
 inline static VkCommandBuffer currentCommandBuffer( void ) {
