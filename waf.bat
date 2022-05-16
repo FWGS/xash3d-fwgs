@@ -29,7 +29,7 @@ Setlocal EnableDelayedExpansion
 set PYTHON_DIR_OK=FALSE
 set REGPATH=
 
-for %%i in (3.9 3.8 3.7 3.6 3.5 3.4 3.3 3.2 3.1 3.0 2.7 2.6 2.5) do (
+for %%i in (3.10 3.9 3.8 3.7 3.6 3.5 3.4 3.3 3.2 3.1 3.0 2.7 2.6 2.5) do (
 for %%j in (HKCU HKLM) do (
 for %%k in (SOFTWARE\Wow6432Node SOFTWARE) do (
 for %%l in (Python\PythonCore IronPython) do (
