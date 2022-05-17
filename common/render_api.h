@@ -107,6 +107,10 @@ typedef enum
 	TF_ARB_FLOAT	= (1<<26),	// float textures
 	TF_NOCOMPARE	= (1<<27),	// disable comparing for depth textures
 	TF_ARB_16BIT	= (1<<28),	// keep image as 16-bit (not 24)
+#if XASH_PSP
+	TF_IMG_SWIZZLED		= (1<<29),
+	TF_IMG_INVRAM		= (1<<30),
+#endif
 } texFlags_t;
 
 typedef enum

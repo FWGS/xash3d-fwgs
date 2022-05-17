@@ -77,7 +77,7 @@ void GL_Bind( GLint tmu, GLenum texnum )
 
 	if( glState.currentTexture == texnum )
 		return;
-	
+
 	texture = &gl_textures[texnum];
 
 	// Set palette
@@ -88,17 +88,30 @@ void GL_Bind( GLint tmu, GLenum texnum )
 	}
 
 	// Set texture parameters
-	sceGuTexMode( texture->format, texture->numMips - 1, 0, FBitSet( texture->guFlags, GUFLAGTEXSWIZZLED ) ? GU_TRUE : GU_FALSE );
+	sceGuTexMode( texture->format, texture->numMips - 1, 0, FBitSet( texture->flags, TF_IMG_SWIZZLED ) ? GU_TRUE : GU_FALSE );
 	if( texture->numMips > 1 )
 	{
-		sceGuTexFilter( GU_LINEAR_MIPMAP_LINEAR, GU_LINEAR_MIPMAP_LINEAR );
+		//sceGuTexFilter( GU_LINEAR_MIPMAP_LINEAR, GU_LINEAR_MIPMAP_LINEAR );
+		if( FBitSet( texture->flags, TF_NEAREST ) || gl_texture_nearest->value )
+			sceGuTexFilter( GU_NEAREST_MIPMAP_NEAREST, GU_NEAREST );
+		else
+			sceGuTexFilter( GU_LINEAR_MIPMAP_LINEAR, GU_LINEAR );
+
 		sceGuTexLevelMode( gl_texture_lodfunc->value, gl_texture_lodbias->value );
 		sceGuTexSlope( gl_texture_lodslope->value );
 	}
 	else
 	{
-		sceGuTexFilter( GU_LINEAR, GU_LINEAR );
+		if( FBitSet( texture->flags, TF_NEAREST ) || ( IsLightMap( texture ) && gl_lightmap_nearest->value ))
+			sceGuTexFilter( GU_NEAREST, GU_NEAREST );
+		else
+			sceGuTexFilter( GU_LINEAR, GU_LINEAR );
 	}
+
+	if( FBitSet( texture->flags, TF_CLAMP ) || FBitSet( texture->flags, TF_BORDER ) )
+		sceGuTexWrap( GU_CLAMP, GU_CLAMP );
+	else
+		sceGuTexWrap( GU_REPEAT, GU_REPEAT );
 
 	// Set base texture
 	sceGuTexImage( 0, texture->width, texture->height, texture->width, texture->dstTexture );
@@ -116,234 +129,6 @@ void GL_Bind( GLint tmu, GLenum texnum )
 		}
 	}
 	glState.currentTexture = texnum;
-}
-
-/*
-=================
-GL_ApplyTextureParams
-=================
-*/
-void GL_ApplyTextureParams( gl_texture_t *tex )
-{
-#if 0
-	vec4_t	border = { 0.0f, 0.0f, 0.0f, 1.0f };
-
-	if( !glw_state.initialized )
-		return;
-
-	Assert( tex != NULL );
-
-	// set texture filter
-	if( FBitSet( tex->flags, TF_DEPTHMAP ))
-	{
-		if( !FBitSet( tex->flags, TF_NOCOMPARE ))
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_COMPARE_MODE_ARB, GL_COMPARE_R_TO_TEXTURE_ARB );
-			pglTexParameteri( tex->target, GL_TEXTURE_COMPARE_FUNC_ARB, GL_LEQUAL );
-		}
-
-		if( FBitSet( tex->flags, TF_LUMINANCE ))
-			pglTexParameteri( tex->target, GL_DEPTH_TEXTURE_MODE_ARB, GL_LUMINANCE );
-		else pglTexParameteri( tex->target, GL_DEPTH_TEXTURE_MODE_ARB, GL_INTENSITY );
-
-		if( FBitSet( tex->flags, TF_NEAREST ))
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		}
-		else
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		}
-
-		// allow max anisotropy as 1.0f on depth textures
-		if( GL_Support( GL_ANISOTROPY_EXT ))
-			pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, 1.0f );
-	}
-	else if( FBitSet( tex->flags, TF_NOMIPMAP ) || tex->numMips <= 1 )
-	{
-		if( FBitSet( tex->flags, TF_NEAREST ) || ( IsLightMap( tex ) && gl_lightmap_nearest->value ))
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		}
-		else
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		}
-	}
-	else
-	{
-		if( FBitSet( tex->flags, TF_NEAREST ) || gl_texture_nearest->value )
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		}
-		else
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		}
-
-		// set texture anisotropy if available
-		if( GL_Support( GL_ANISOTROPY_EXT ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_ALPHACONTRAST ))
-			pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy->value );
-
-		// set texture LOD bias if available
-		if( GL_Support( GL_TEXTURE_LOD_BIAS ) && ( tex->numMips > 1 ))
-			pglTexParameterf( tex->target, GL_TEXTURE_LOD_BIAS_EXT, gl_texture_lodbias->value );
-	}
-
-	// check if border is not supported
-	if( FBitSet( tex->flags, TF_BORDER ) && !GL_Support( GL_CLAMP_TEXBORDER_EXT ))
-	{
-		ClearBits( tex->flags, TF_BORDER );
-		SetBits( tex->flags, TF_CLAMP );
-	}
-
-	// only seamless cubemaps allows wrap 'clamp_to_border"
-	if( tex->target == GL_TEXTURE_CUBE_MAP_ARB && !GL_Support( GL_ARB_SEAMLESS_CUBEMAP ) && FBitSet( tex->flags, TF_BORDER ))
-		ClearBits( tex->flags, TF_BORDER );
-
-	// set texture wrap
-	if( FBitSet( tex->flags, TF_BORDER ))
-	{
-		pglTexParameteri( tex->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER );
-
-		if( tex->target != GL_TEXTURE_1D )
-			pglTexParameteri( tex->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER );
-
-		if( tex->target == GL_TEXTURE_3D || tex->target == GL_TEXTURE_CUBE_MAP_ARB )
-			pglTexParameteri( tex->target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER );
-
-		pglTexParameterfv( tex->target, GL_TEXTURE_BORDER_COLOR, border );
-	}
-	else if( FBitSet( tex->flags, TF_CLAMP ))
-	{
-		if( GL_Support( GL_CLAMPTOEDGE_EXT ))
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
-
-			if( tex->target != GL_TEXTURE_1D )
-				pglTexParameteri( tex->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
-
-			if( tex->target == GL_TEXTURE_3D || tex->target == GL_TEXTURE_CUBE_MAP_ARB )
-				pglTexParameteri( tex->target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE );
-		}
-		else
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_WRAP_S, GL_CLAMP );
-
-			if( tex->target != GL_TEXTURE_1D )
-				pglTexParameteri( tex->target, GL_TEXTURE_WRAP_T, GL_CLAMP );
-
-			if( tex->target == GL_TEXTURE_3D || tex->target == GL_TEXTURE_CUBE_MAP_ARB )
-				pglTexParameteri( tex->target, GL_TEXTURE_WRAP_R, GL_CLAMP );
-		}
-	}
-	else
-	{
-		pglTexParameteri( tex->target, GL_TEXTURE_WRAP_S, GL_REPEAT );
-
-		if( tex->target != GL_TEXTURE_1D )
-			pglTexParameteri( tex->target, GL_TEXTURE_WRAP_T, GL_REPEAT );
-
-		if( tex->target == GL_TEXTURE_3D || tex->target == GL_TEXTURE_CUBE_MAP_ARB )
-			pglTexParameteri( tex->target, GL_TEXTURE_WRAP_R, GL_REPEAT );
-	}
-#endif
-}
-
-/*
-=================
-GL_UpdateTextureParams
-=================
-*/
-static void GL_UpdateTextureParams( int iTexture )
-{
-#if 0
-	gl_texture_t	*tex = &gl_textures[iTexture];
-
-	Assert( tex != NULL );
-
-	if( !tex->texnum ) return; // free slot
-
-	GL_Bind( XASH_TEXTURE0, iTexture );
-
-	// set texture anisotropy if available
-	if( GL_Support( GL_ANISOTROPY_EXT ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_DEPTHMAP|TF_ALPHACONTRAST ))
-		pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy->value );
-
-	// set texture LOD bias if available
-	if( GL_Support( GL_TEXTURE_LOD_BIAS ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_DEPTHMAP ))
-		pglTexParameterf( tex->target, GL_TEXTURE_LOD_BIAS_EXT, gl_texture_lodbias->value );
-
-	if( IsLightMap( tex ))
-	{
-		if( gl_lightmap_nearest->value )
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		}
-		else
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		}
-	}
-
-	if( tex->numMips <= 1 ) return;
-
-	if( FBitSet( tex->flags, TF_NEAREST ) || gl_texture_nearest->value )
-	{
-		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST );
-		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-	}
-	else
-	{
-		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
-		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-	}
-#endif
-}
-
-/*
-=================
-R_SetTextureParameters
-=================
-*/
-void R_SetTextureParameters( void )
-{
-#if 0
-	int	i;
-
-	if( GL_Support( GL_ANISOTROPY_EXT ))
-	{
-		if( gl_texture_anisotropy->value > glConfig.max_texture_anisotropy )
-			gEngfuncs.Cvar_SetValue( "gl_anisotropy", glConfig.max_texture_anisotropy );
-		else if( gl_texture_anisotropy->value < 1.0f )
-			gEngfuncs.Cvar_SetValue( "gl_anisotropy", 1.0f );
-	}
-
-	if( GL_Support( GL_TEXTURE_LOD_BIAS ))
-	{
-		if( gl_texture_lodbias->value < -glConfig.max_texture_lod_bias )
-			gEngfuncs.Cvar_SetValue( "gl_texture_lodbias", -glConfig.max_texture_lod_bias );
-		else if( gl_texture_lodbias->value > glConfig.max_texture_lod_bias )
-			gEngfuncs.Cvar_SetValue( "gl_texture_lodbias", glConfig.max_texture_lod_bias );
-	}
-
-	ClearBits( gl_texture_anisotropy->flags, FCVAR_CHANGED );
-	ClearBits( gl_texture_lodbias->flags, FCVAR_CHANGED );
-	ClearBits( gl_texture_nearest->flags, FCVAR_CHANGED );
-	ClearBits( gl_lightmap_nearest->flags, FCVAR_CHANGED );
-
-	// change all the existing mipmapped texture objects
-	for( i = 0; i < gl_numTextures; i++ )
-		GL_UpdateTextureParams( i );
-#endif
 }
 
 /*
@@ -433,7 +218,7 @@ static int GL_CalcMipmapCount( gl_texture_t *tex, qboolean haveBuffer, size_t *m
 	if( !haveBuffer )
 		return 1;
 
-#if 0 
+#if 0
 	// brush model only
 	if( !FBitSet( tex->flags, TF_ALLOW_EMBOSS ) )
 		return 1;
@@ -470,13 +255,13 @@ static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height )
 	int stepWidth, stepHeight;
 
 	Assert( tex != NULL );
-	
+
 	maxTextureSize = glConfig.max_texture_size;
 
 	// store original sizes
 	tex->srcWidth = width;
 	tex->srcHeight = height;
-	
+
 #if 0 // scale up
 	stepWidth = ( int )ceilf( logf( width  ) * 1.0f / logf( 2.0f ) );
 	stepHeight = ( int )ceilf( logf( height ) * 1.0f / logf( 2.0f ) );
@@ -995,14 +780,14 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 
 	if( !pic->buffer )
 		return true;
-	
+
 	// Prepare sizes
 	offset = GL_CalcImageSize( pic->type, pic->width, pic->height, /* pic->depth */ 1 );
 	texSize = GL_CalcTextureSize( tex->format, tex->width, tex->height );
 	normalMap = FBitSet( tex->flags, TF_NORMALMAP ) ? true : false;
 	tex->numMips = ImageIND( pic->type ) ? GL_CalcMipmapCount( tex, ( pic->buffer != NULL ), &texSize) : 1;
 
-	// Volatile memory for temporary buffer 
+	// Volatile memory for temporary buffer
 	volUid = sceKernelVolatileMemLock( 0, &volBuff, &volSize );
 	if( volUid != 0)
 		gEngfuncs.Host_Error( "GL_AllocTexture: volatile memory lock error 0x%08x ! \n", volUid);
@@ -1010,13 +795,13 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	// Check allocation size
 	if( tex->dstTexture && ( tex->size != texSize ) )
 	{
-		if( FBitSet( tex->guFlags, GUFLAGTEXINVRAM ) )
+		if( FBitSet( tex->flags, TF_IMG_INVRAM ) )
 			vfree( tex->dstTexture );
 		else
 			free( tex->dstTexture );
-		
+
 		tex->dstTexture = NULL;
-		ClearBits( tex->guFlags, GUFLAGTEXINVRAM );
+		ClearBits( tex->flags, TF_IMG_INVRAM );
 	}
 
 	// already allocated?
@@ -1034,7 +819,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 		}
 		else
 		{
-			SetBits( tex->guFlags, GUFLAGTEXINVRAM );
+			SetBits( tex->flags, TF_IMG_INVRAM );
 		}
 	}
 
@@ -1072,7 +857,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 			GL_TextureSwizzle( tex->dstTexture + mip_offset, volBuff, width, height );
 			mip_offset += GL_CalcTextureSize( tex->format, width, height );
 		}
-		SetBits( tex->guFlags, GUFLAGTEXSWIZZLED );
+		SetBits( tex->flags, TF_IMG_SWIZZLED );
 	}
 	else // RGBA32
 	{
@@ -1095,7 +880,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 			else
 			{
 				GL_TextureSwizzle( tex->dstTexture, volBuff, tex->width * 4, tex->height );
-				SetBits( tex->guFlags, GUFLAGTEXSWIZZLED );
+				SetBits( tex->flags, TF_IMG_SWIZZLED );
 			}
 		}
 		else
@@ -1113,7 +898,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 */
 				GL_PixelConverter( volBuff + offset, volBuff, tex->width * tex->height, true, tex->format );
 				GL_TextureSwizzle( tex->dstTexture, volBuff + offset, tex->width * 2, tex->height );
-				SetBits( tex->guFlags, GUFLAGTEXSWIZZLED );
+				SetBits( tex->flags, TF_IMG_SWIZZLED );
 			}
 		}
 	}
@@ -1169,13 +954,13 @@ qboolean GL_UpdateDlightTexture( int texnum, int xoff, int yoff, int width, int 
 	{
 		if( tex->dstTexture )
 		{
-			if( FBitSet( tex->guFlags, GUFLAGTEXINVRAM ) )
+			if( FBitSet( tex->flags, TF_IMG_INVRAM ) )
 				vfree( tex->dstTexture );
 			else
 				free( tex->dstTexture );
 
 			tex->dstTexture = NULL;
-			ClearBits( tex->guFlags, GUFLAGTEXINVRAM );
+			ClearBits( tex->flags, TF_IMG_INVRAM );
 		}
 	}
 
@@ -1190,7 +975,7 @@ qboolean GL_UpdateDlightTexture( int texnum, int xoff, int yoff, int width, int 
 		}
 		else
 		{
-			SetBits( tex->guFlags, GUFLAGTEXINVRAM );
+			SetBits( tex->flags, TF_IMG_INVRAM );
 		}
 		memset( tex->dstTexture, 0x00, texsize );
 		SetBits( tex->flags, TF_IMG_UPLOADED ); // done
@@ -1226,9 +1011,9 @@ static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 	// force upload texture as RGB or RGBA (detail textures requires this)
 	if( tex->flags & TF_FORCE_COLOR ) pic->flags |= IMAGE_HAS_COLOR;
 	if( pic->flags & IMAGE_HAS_ALPHA ) tex->flags |= TF_HAS_ALPHA;
-
+#if 0
 	tex->encode = pic->encode; // share encode method
-
+#endif
 	if( ImageDXT( pic->type ))
 	{
 		if( !pic->numMips )
@@ -1406,7 +1191,7 @@ static void GL_DeleteTexture( gl_texture_t *tex )
 
 	if( tex->dstTexture )
 	{
-		if( FBitSet( tex->guFlags, GUFLAGTEXINVRAM ) )
+		if( FBitSet( tex->flags, TF_IMG_INVRAM ) )
 			vfree( tex->dstTexture );
 		else
 			free( tex->dstTexture );
@@ -1492,7 +1277,6 @@ int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 		return 0;
 	}
 
-	GL_ApplyTextureParams( tex ); // update texture filter, wrap etc
 	gEngfuncs.FS_FreeImage( pic ); // release source texture
 
 	// NOTE: always return texnum as index in array or engine will stop work !!!
@@ -1683,7 +1467,6 @@ int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 		return 0;
 	}
 
-	GL_ApplyTextureParams( tex ); // update texture filter, wrap etc
 	return (tex - gl_textures);
 }
 
@@ -1730,6 +1513,9 @@ int GL_CreateTexture( const char *name, int width, int height, const void *buffe
 		SetBits( r_empty.flags, IMAGE_CUBEMAP );
 		r_empty.size *= 6;
 	}
+#else
+	if( FBitSet( flags, TF_CUBEMAP ))
+		return 0;
 #endif
 	return GL_LoadTextureFromBuffer( name, &r_empty, flags, update );
 }
@@ -1861,7 +1647,6 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 	gEngfuncs.Image_Process( &pic, topColor, bottomColor, flags, 0.0f );
 
 	GL_UploadTexture( image, pic );
-	GL_ApplyTextureParams( image ); // update texture filter, wrap etc
 
 	gEngfuncs.FS_FreeImage( pic );
 }
@@ -2019,7 +1804,7 @@ void R_TextureList_f( void )
 	int		i, texCount, ram_bytes = 0, vram_bytes = 0;
 
 	gEngfuncs.Con_Printf( "\n" );
-	gEngfuncs.Con_Printf( " -id-   -w-  -h-    -size-     -fmt-  -type-   -encode-   -wrap-   -depth- -name--------\n" );
+	gEngfuncs.Con_Printf( " -id- -w- -h- -size- -fmt- -type- -wrap- -name--------\n" );
 
 	for( i = texCount = 0, image = gl_textures; i < gl_numTextures; i++, image++ )
 	{
@@ -2027,8 +1812,8 @@ void R_TextureList_f( void )
 
 		if( image->dstPalette ) ram_bytes += PALETTE_SIZE;
 
-		vram_bytes += ( FBitSet( image->guFlags, GUFLAGTEXINVRAM ) ) ? image->size : 0;
-		ram_bytes += ( FBitSet( image->guFlags, GUFLAGTEXINVRAM ) ) ? 0 : image->size;
+		vram_bytes += ( FBitSet( image->flags, TF_IMG_INVRAM ) ) ? image->size : 0;
+		ram_bytes += ( FBitSet( image->flags, TF_IMG_INVRAM ) ) ? 0 : image->size;
 		texCount++;
 
 		gEngfuncs.Con_Printf( "%4i: ", i );
@@ -2075,41 +1860,12 @@ void R_TextureList_f( void )
 			break;
 		}
 
-		if( image->flags & TF_NORMALMAP )
-			gEngfuncs.Con_Printf( "normal  " );
-		else gEngfuncs.Con_Printf( "diffuse " );
-
-		switch( image->encode )
-		{
-		case DXT_ENCODE_COLOR_YCoCg:
-			gEngfuncs.Con_Printf( "YCoCg     " );
-			break;
-		case DXT_ENCODE_NORMAL_AG_ORTHO:
-			gEngfuncs.Con_Printf( "ortho     " );
-			break;
-		case DXT_ENCODE_NORMAL_AG_STEREO:
-			gEngfuncs.Con_Printf( "stereo    " );
-			break;
-		case DXT_ENCODE_NORMAL_AG_PARABOLOID:
-			gEngfuncs.Con_Printf( "parabolic " );
-			break;
-		case DXT_ENCODE_NORMAL_AG_QUARTIC:
-			gEngfuncs.Con_Printf( "quartic   " );
-			break;
-		case DXT_ENCODE_NORMAL_AG_AZIMUTHAL:
-			gEngfuncs.Con_Printf( "azimuthal " );
-			break;
-		default:
-			gEngfuncs.Con_Printf( "default   " );
-			break;
-		}
-
 		if( image->flags & TF_CLAMP )
 			gEngfuncs.Con_Printf( "clamp  " );
 		else if( image->flags & TF_BORDER )
 			gEngfuncs.Con_Printf( "border " );
 		else gEngfuncs.Con_Printf( "repeat " );
-		gEngfuncs.Con_Printf( "   %d  ", image->depth );
+
 		gEngfuncs.Con_Printf( "  %s\n", image->name );
 	}
 
@@ -2140,7 +1896,6 @@ void R_InitImages( void )
 	gl_numTextures = 1;
 
 	// validate cvars
-	R_SetTextureParameters();
 	GL_CreateInternalTextures();
 
 	gEngfuncs.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );

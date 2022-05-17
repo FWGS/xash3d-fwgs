@@ -64,11 +64,4 @@ typedef float		GLmatrix[16];
 #define GUBLEND1					0xffffff
 #define GUBLEND0					0x000000
 
-// texture flags
-#define GUFLAGTEXNONE				0x00
-#define GUFLAGTEXUSED				0x01
-#define GUFLAGTEXSWIZZLED			0x02
-#define GUFLAGTEXINVRAM				0x04
-/*#define GUFLAGMIP					0x08*/
-
 #endif // GU_HELPER_H

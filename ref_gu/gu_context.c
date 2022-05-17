@@ -187,14 +187,14 @@ static int GL_RefGetParm( int parm, int arg )
 		glt = R_GetTexture( arg );
 		return glt->format;
 	case PARM_TEX_ENCODE:
-		glt = R_GetTexture( arg );
-		return glt->encode;
+		/*glt = R_GetTexture( arg );*/
+		return /*glt->encode*/0;
 	case PARM_TEX_MIPCOUNT:
 		glt = R_GetTexture( arg );
 		return glt->numMips;
 	case PARM_TEX_DEPTH:
-		glt = R_GetTexture( arg );
-		return glt->depth;
+		/*glt = R_GetTexture( arg );*/
+		return /*glt->depth*/1;
 	case PARM_TEX_SKYBOX:
 		Assert( arg >= 0 && arg < 6 );
 		return tr.skyboxTextures[arg];

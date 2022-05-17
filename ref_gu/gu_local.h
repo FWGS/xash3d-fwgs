@@ -129,13 +129,12 @@ typedef struct gltexture_s
 	short		srcHeight;
 	short		width;		// upload width\height
 	short		height;
-	short		depth;		// texture depth or count of layers for 2D_ARRAY
+	//short		depth;		// texture depth or count of layers for 2D_ARRAY
 	byte		numMips;		// mipmap count
 	byte		*dstTexture;	// texture pointer
 	byte		*dstPalette;
-	byte		guFlags;	
 	int			format;		// uploaded format
-	GLint		encode;		// using GLSL decoder
+	//GLint		encode;		// using GLSL decoder
 	texFlags_t	flags;
 
 	rgba_t		fogParams;	// some water textures
@@ -420,7 +419,6 @@ void R_DrawModelHull( void );
 //
 // gu_image.c
 //
-void R_SetTextureParameters( void );
 gl_texture_t *R_GetTexture( GLenum texnum );
 #define GL_LoadTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, false )
 #define GL_UpdateTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, true )
@@ -433,7 +431,6 @@ int GL_CreateTextureArray( const char *name, int width, int height, int depth, c
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor );
 qboolean GL_UpdateDlightTexture( int texnum, int xoff, int yoff, int width, int height, const void *buffer );
 void GL_UpdateTexSize( int texnum, int width, int height, int depth );
-void GL_ApplyTextureParams( gl_texture_t *tex );
 int GL_FindTexture( const char *name );
 void GL_FreeTexture( GLenum texnum );
 const char *GL_Target( GLenum target );
