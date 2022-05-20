@@ -60,6 +60,21 @@ qboolean SV_CheckEdict( const edict_t *e, const char *file, const int line )
 }
 #endif
 
+static edict_t *SV_PEntityOfEntIndex( const int iEntIndex, const qboolean allentities )
+{
+	edict_t *pEdict = EDICT_NUM( iEntIndex );
+	qboolean player = allentities ? iEntIndex <= svs.maxclients : iEntIndex < svs.maxclients;
+
+	if( !SV_IsValidEdict( pEdict ))
+		return NULL;
+
+	if( !player && !pEdict->pvPrivateData )
+		return NULL;
+
+	return pEdict;
+}
+
+
 /*
 =============
 EntvarsDescription
@@ -586,7 +601,7 @@ void SV_RestartAmbientSounds( void )
 			continue;
 
 		S_StopSound( si->entnum, si->channel, si->name );
-		SV_StartSound( pfnPEntityOfEntIndex( si->entnum ), CHAN_STATIC, si->name, si->volume, si->attenuation, 0, si->pitch );
+		SV_StartSound( SV_PEntityOfEntIndex( si->entnum, true ), CHAN_STATIC, si->name, si->volume, si->attenuation, 0, si->pitch );
 	}
 
 #if !XASH_DEDICATED // TODO: ???
@@ -640,10 +655,10 @@ void SV_RestartDecals( void )
 	for( i = 0; i < host.numdecals; i++ )
 	{
 		entry = &host.decalList[i];
-		modelIndex = pfnPEntityOfEntIndex( entry->entityIndex )->v.modelindex;
+		modelIndex = SV_PEntityOfEntIndex( entry->entityIndex, true )->v.modelindex;
 
 		// game override
-		if( SV_RestoreCustomDecal( entry, pfnPEntityOfEntIndex( entry->entityIndex ), false ))
+		if( SV_RestoreCustomDecal( entry, SV_PEntityOfEntIndex( entry->entityIndex, true ), false ))
 			continue;
 
 		decalIndex = pfnDecalIndex( entry->name );
@@ -3350,24 +3365,21 @@ pfnPEntityOfEntIndex
 
 =============
 */
-edict_t *pfnPEntityOfEntIndex( int iEntIndex )
+static edict_t *pfnPEntityOfEntIndex( int iEntIndex )
 {
-	if( iEntIndex >= 0 && iEntIndex < GI->max_edicts )
-	{
-		edict_t	*pEdict = EDICT_NUM( iEntIndex );
+	// have to be bug-compatible with GoldSrc in this function
+	return SV_PEntityOfEntIndex( iEntIndex, false );
+}
 
-		if( !iEntIndex || FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
-			return pEdict; // just get access to array
+/*
+=============
+pfnPEntityOfEntIndexAllEntities
 
-		if( SV_IsValidEdict( pEdict ) && pEdict->pvPrivateData )
-			return pEdict;
-
-		// g-cont: world and clients can be acessed even without private data!
-		if( SV_IsValidEdict( pEdict ) && SV_IsPlayerIndex( iEntIndex ))
-			return pEdict;
-	}
-
-	return NULL;
+=============
+*/
+static edict_t *pfnPEntityOfEntIndexAllEntities( int iEntIndex )
+{
+	return SV_PEntityOfEntIndex( iEntIndex, true );
 }
 
 /*
@@ -4740,6 +4752,7 @@ static enginefuncs_t gEngfuncs =
 	pfnQueryClientCvarValue,
 	pfnQueryClientCvarValue2,
 	COM_CheckParm,
+	pfnPEntityOfEntIndexAllEntities,
 };
 
 /*
