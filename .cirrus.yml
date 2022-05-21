@@ -1,19 +1,7 @@
 task:
-  name: freebsd-11-amd64
-  freebsd_instance:
-    image_family: freebsd-11-4
-  setup_script:
-    - pkg update
-    - pkg install -y git sdl2 python
-    - git submodule update --init --recursive
-  test_script:
-    - ./scripts/cirrus/build_freebsd.sh dedicated
-    - ./scripts/cirrus/build_freebsd.sh full
-
-task:
   name: freebsd-12-amd64
   freebsd_instance:
-    image_family: freebsd-12-2
+    image_family: freebsd-12-3
   setup_script:
     - pkg update
     - pkg install -y git sdl2 python
@@ -25,7 +13,19 @@ task:
 task:
   name: freebsd-13-amd64
   freebsd_instance:
-    image_family: freebsd-13-0-snap
+    image_family: freebsd-13-0
+  setup_script:
+    - pkg update
+    - pkg install -y git sdl2 python
+    - git submodule update --init --recursive
+  test_script:
+    - ./scripts/cirrus/build_freebsd.sh dedicated
+    - ./scripts/cirrus/build_freebsd.sh full
+
+task:
+  name: freebsd-14-amd64
+  freebsd_instance:
+    image_family: freebsd-14-0-snap
   setup_script:
     - pkg update
     - pkg install -y git sdl2 python
